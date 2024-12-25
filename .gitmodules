@@ -1,0 +1,3 @@
+[submodule "qcu"]
+	path = qcu
+	url = git@gitee.com:zhangxin8069/qcu.git
