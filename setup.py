@@ -1,26 +1,53 @@
+from os import path
+from distutils.core import Extension, setup
+from Cython.Build import cythonize
 from setuptools import setup, Extension
 from setuptools.command.build_ext import build_ext
-import os
 import subprocess
-import sys
 
 class CMakeBuild(build_ext):
     def run(self):
-        # 使用 CMake 构建 CUDA 扩展
         subprocess.check_call(['bash','./setup.sh'])
         super().run()
 
-# 定义扩展模块
-ext_modules = [
+VERSION = "0.0.1"
+LICENSE = "MIT"
+DESCRIPTION = "pyqcu by zhangxin"
+path.join("./qcu", "libqcu.so")
+
+extensions=[
     Extension(
-        name='pyqcu',
-        sources=[]  # 不需要额外的 Python 源文件，CMake 会处理
+        "pyqcu.qcu",
+        ["./pyqcu.pyx"],
+        include_dirs=["./include"],
+        library_dirs=["./qcu"],
+        libraries=["qcu"],
+        language="c",
     )
 ]
-
+ext_modules = cythonize(
+    extensions,
+    language_level="3",
+)
+packages = [
+    "pyqcu",
+]
+package_dir = {
+    "pyqcu": "./",
+}
+package_data = {
+    "pyqcu": ["*.pyi", "*.pxd", "*.py"],
+}
 setup(
-    name='qcu',
-    version='0.0.0',
+    name="pyqcu",
+    version=VERSION,
+    description=DESCRIPTION,
+    author="ZhangXin8069",
+    author_email="zhangxin8069@qq.com",
+    packages=packages,
     ext_modules=ext_modules,
+    license=LICENSE,
+    package_dir=package_dir,
+    package_data=package_data,
     cmdclass={'build_ext': CMakeBuild},
 )
