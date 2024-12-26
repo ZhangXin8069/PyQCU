@@ -2,23 +2,87 @@ cimport qcu
 import numpy
 cimport numpy
 import ctypes
-cdef class Pointer:
-    cdef void *ptr
-    def __cinit__(self, *args):
-        self.ptr = NULL
-    cdef set_ptr(self, void *ptr):
-        self.ptr = ptr
-def testWilsonDslashQcu(Pointer _fermion_out, Pointer _fermion_in, Pointer _gauge, Pointer _params, Pointer _argv):
-    qcu.testWilsonDslashQcu(_fermion_out.ptr, _fermion_in.ptr, _gauge.ptr, _params.ptr, _argv.ptr)
-def applyWilsonDslashQcu(Pointer _fermion_out, Pointer _fermion_in, Pointer _gauge, Pointer _params, Pointer _argv):
-    qcu.applyWilsonDslashQcu(_fermion_out.ptr, _fermion_in.ptr, _gauge.ptr, _params.ptr, _argv.ptr)
-def testCloverDslashQcu(Pointer _fermion_out, Pointer _fermion_in, Pointer _gauge, Pointer _params, Pointer _argv):
-    qcu.testCloverDslashQcu(_fermion_out.ptr, _fermion_in.ptr, _gauge.ptr, _params.ptr, _argv.ptr)
-def applyCloverDslashQcu(Pointer _fermion_out, Pointer _fermion_in, Pointer _gauge, Pointer _params, Pointer _argv):
-    qcu.applyCloverDslashQcu(_fermion_out.ptr, _fermion_in.ptr, _gauge.ptr, _params.ptr, _argv.ptr)
-def applyBistabCgQcu(Pointer _fermion_out, Pointer _fermion_in, Pointer _gauge, Pointer _params, Pointer _argv):
-    qcu.applyBistabCgQcu(_fermion_out.ptr, _fermion_in.ptr, _gauge.ptr, _params.ptr, _argv.ptr)
-def applyCgQcu(Pointer _fermion_out, Pointer _fermion_in, Pointer _gauge, Pointer _params, Pointer _argv):
-    qcu.applyCgQcu(_fermion_out.ptr, _fermion_in.ptr, _gauge.ptr, _params.ptr, _argv.ptr)
-def applyGmresIrQcu(Pointer _fermion_out, Pointer _fermion_in, Pointer _gauge, Pointer _params, Pointer _argv):
-    qcu.applyGmresIrQcu(_fermion_out.ptr, _fermion_in.ptr, _gauge.ptr, _params.ptr, _argv.ptr)
+def testWilsonDslashQcu(_fermion_out, _fermion_in, _gauge, _params, _argv):
+    c_void_p_fermion_out = ctypes.c_void_p(_fermion_out.data)
+    c_void_p_fermion_in = ctypes.c_void_p(_fermion_in.data)
+    c_void_p_gauge = ctypes.c_void_p(_gauge.data)
+    c_void_p_params = ctypes.c_void_p(_params.data)
+    c_void_p_argv = ctypes.c_void_p(_argv.data)
+    fermion_out = <void*>c_void_p_fermion_out
+    fermion_in = <void*>c_void_p_fermion_in
+    gauge = <void*>c_void_p_gauge
+    params = <void*>c_void_p_params
+    argv = <void*>c_void_p_argv
+    qcu.testWilsonDslashQcu(fermion_out, fermion_in, gauge, params, argv)
+def applyWilsonDslashQcu(_fermion_out, _fermion_in, _gauge, _params, _argv):
+    c_void_p_fermion_out = ctypes.c_void_p(_fermion_out.data)
+    c_void_p_fermion_in = ctypes.c_void_p(_fermion_in.data)
+    c_void_p_gauge = ctypes.c_void_p(_gauge.data)
+    c_void_p_params = ctypes.c_void_p(_params.data)
+    c_void_p_argv = ctypes.c_void_p(_argv.data)
+    fermion_out = <void*>c_void_p_fermion_out
+    fermion_in = <void*>c_void_p_fermion_in
+    gauge = <void*>c_void_p_gauge
+    params = <void*>c_void_p_params
+    argv = <void*>c_void_p_argv
+    qcu.applyWilsonDslashQcu(fermion_out, fermion_in, gauge, params, argv)
+def testCloverDslashQcu(_fermion_out, _fermion_in, _gauge, _params, _argv):
+    c_void_p_fermion_out = ctypes.c_void_p(_fermion_out.data)
+    c_void_p_fermion_in = ctypes.c_void_p(_fermion_in.data)
+    c_void_p_gauge = ctypes.c_void_p(_gauge.data)
+    c_void_p_params = ctypes.c_void_p(_params.data)
+    c_void_p_argv = ctypes.c_void_p(_argv.data)
+    fermion_out = <void*>c_void_p_fermion_out
+    fermion_in = <void*>c_void_p_fermion_in
+    gauge = <void*>c_void_p_gauge
+    params = <void*>c_void_p_params
+    argv = <void*>c_void_p_argv
+    qcu.testCloverDslashQcu(fermion_out, fermion_in, gauge, params, argv)
+def applyCloverDslashQcu(_fermion_out, _fermion_in, _gauge, _params, _argv):
+    c_void_p_fermion_out = ctypes.c_void_p(_fermion_out.data)
+    c_void_p_fermion_in = ctypes.c_void_p(_fermion_in.data)
+    c_void_p_gauge = ctypes.c_void_p(_gauge.data)
+    c_void_p_params = ctypes.c_void_p(_params.data)
+    c_void_p_argv = ctypes.c_void_p(_argv.data)
+    fermion_out = <void*>c_void_p_fermion_out
+    fermion_in = <void*>c_void_p_fermion_in
+    gauge = <void*>c_void_p_gauge
+    params = <void*>c_void_p_params
+    argv = <void*>c_void_p_argv
+    qcu.applyCloverDslashQcu(fermion_out, fermion_in, gauge, params, argv)
+def applyBistabCgQcu(_fermion_out, _fermion_in, _gauge, _params, _argv):
+    c_void_p_fermion_out = ctypes.c_void_p(_fermion_out.data)
+    c_void_p_fermion_in = ctypes.c_void_p(_fermion_in.data)
+    c_void_p_gauge = ctypes.c_void_p(_gauge.data)
+    c_void_p_params = ctypes.c_void_p(_params.data)
+    c_void_p_argv = ctypes.c_void_p(_argv.data)
+    fermion_out = <void*>c_void_p_fermion_out
+    fermion_in = <void*>c_void_p_fermion_in
+    gauge = <void*>c_void_p_gauge
+    params = <void*>c_void_p_params
+    argv = <void*>c_void_p_argv
+    qcu.applyBistabCgQcu(fermion_out, fermion_in, gauge, params, argv)
+def applyCgQcu(_fermion_out, _fermion_in, _gauge, _params, _argv):
+    c_void_p_fermion_out = ctypes.c_void_p(_fermion_out.data)
+    c_void_p_fermion_in = ctypes.c_void_p(_fermion_in.data)
+    c_void_p_gauge = ctypes.c_void_p(_gauge.data)
+    c_void_p_params = ctypes.c_void_p(_params.data)
+    c_void_p_argv = ctypes.c_void_p(_argv.data)
+    fermion_out = <void*>c_void_p_fermion_out
+    fermion_in = <void*>c_void_p_fermion_in
+    gauge = <void*>c_void_p_gauge
+    params = <void*>c_void_p_params
+    argv = <void*>c_void_p_argv
+    qcu.applyCgQcu(fermion_out, fermion_in, gauge, params, argv)
+def applyGmresIrQcu(_fermion_out, _fermion_in, _gauge, _params, _argv):
+    c_void_p_fermion_out = ctypes.c_void_p(_fermion_out.data)
+    c_void_p_fermion_in = ctypes.c_void_p(_fermion_in.data)
+    c_void_p_gauge = ctypes.c_void_p(_gauge.data)
+    c_void_p_params = ctypes.c_void_p(_params.data)
+    c_void_p_argv = ctypes.c_void_p(_argv.data)
+    fermion_out = <void*>c_void_p_fermion_out
+    fermion_in = <void*>c_void_p_fermion_in
+    gauge = <void*>c_void_p_gauge
+    params = <void*>c_void_p_params
+    argv = <void*>c_void_p_argv
+    qcu.applyGmresIrQcu(fermion_out, fermion_in, gauge, params, argv)
