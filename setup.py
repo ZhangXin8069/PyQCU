@@ -10,18 +10,11 @@ class CMakeBuild(build_ext):
         super().run()
 extensions = [
     Extension(
-        "pyqcu.pointer",
-        ["./src/python/pointer.pyx"],
-        include_dirs=["./include/python", numpy.get_include()],
-        define_macros=[("NPY_NO_DEPRECATED_API", "NPY_1_7_API_VERSION")],
-        language="c",
-    ),
-    Extension(
             "pyqcu.qcu",
             ["./src/python/pyqcu.pyx"],
-            include_dirs=["./include/cpp", "./include/python", numpy.get_include()],
-            define_macros=[("NPY_NO_DEPRECATED_API", "NPY_1_7_API_VERSION")],
+            include_dirs=["./include/cpp", numpy.get_include()],
             library_dirs=["./lib"],
+            define_macros=[("NPY_NO_DEPRECATED_API", "NPY_1_7_API_VERSION")],
             libraries=["qcu"],
             language="c",
         )
@@ -43,6 +36,5 @@ setup(
     cmdclass={'build_ext': CMakeBuild},
     python_requires=">=3.6",
     install_requires=["numpy", "scipy", "mpi4py", "cython", "cupy"],
-    test_suite="test"
     
 )

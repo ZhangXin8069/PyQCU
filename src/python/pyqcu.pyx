@@ -1,18 +1,24 @@
-import numpy as np
-import cupy as cp 
-cimport qcu
-
-def testWilsonDslashQcu(void* fermion_out, void* fermion_in, void* gauge, void* param):
-    qcu.testWilsonDslashQcu(fermion_out, fermion_in, gauge, param)
-def applyWilsonDslashQcu(void* fermion_out, void* fermion_in, void* gauge, void* param, void* param):
-    qcu.applyWilsonDslashQcu(fermion_out, fermion_in, gauge, param)
-def testCloverDslashQcu(void* fermion_out, void* fermion_in, void* gauge, void* param):
-    qcu.testCloverDslashQcu(fermion_out, fermion_in, gauge, param)
-def applyCloverDslashQcu(void* fermion_out, void* fermion_in, void* gauge, void* param, void* param):
-    qcu.applyCloverDslashQcu(fermion_out, fermion_in, gauge, param)
-def applyBistabCgQcu(void* fermion_out, void* fermion_in, void* gauge, QcuParam param, void* param):
-    qcu.applyBistabCgQcu(fermion_out, fermion_in, gauge, param)
-def applyCgQcu(void* fermion_out, void* fermion_in, void* gauge, QcuParam param, void* param):
-    qcu.applyCgQcu(fermion_out, fermion_in, gauge, param)
-def applyGmresIrQcu(void* fermion_out, void* fermion_in, void* gauge, QcuParam param, void* param):
-    qcu.applyGmresIrQcu(fermion_out, fermion_in, gauge, param)
+cimport pyqcu
+import numpy
+cimport numpy
+import ctypes
+cdef class Pointer:
+    cdef void *ptr
+    def __cinit__(self, *args):
+        self.ptr = NULL
+    cdef set_ptr(self, void *ptr):
+        self.ptr = ptr
+def testWilsonDslashQcu(Pointer _fermion_out, Pointer _fermion_in, Pointer _gauge, Pointer _params, Pointer _argv):
+    pyqcu.testWilsonDslashQcu(_fermion_out.ptr, _fermion_in.ptr, _gauge.ptr, _params.ptr, _argv.ptr)
+def applyWilsonDslashQcu(Pointer _fermion_out, Pointer _fermion_in, Pointer _gauge, Pointer _params, Pointer _argv):
+    pyqcu.applyWilsonDslashQcu(_fermion_out.ptr, _fermion_in.ptr, _gauge.ptr, _params.ptr, _argv.ptr)
+def testCloverDslashQcu(Pointer _fermion_out, Pointer _fermion_in, Pointer _gauge, Pointer _params, Pointer _argv):
+    pyqcu.testCloverDslashQcu(_fermion_out.ptr, _fermion_in.ptr, _gauge.ptr, _params.ptr, _argv.ptr)
+def applyCloverDslashQcu(Pointer _fermion_out, Pointer _fermion_in, Pointer _gauge, Pointer _params, Pointer _argv):
+    pyqcu.applyCloverDslashQcu(_fermion_out.ptr, _fermion_in.ptr, _gauge.ptr, _params.ptr, _argv.ptr)
+def applyBistabCgQcu(Pointer _fermion_out, Pointer _fermion_in, Pointer _gauge, Pointer _params, Pointer _argv):
+    pyqcu.applyBistabCgQcu(_fermion_out.ptr, _fermion_in.ptr, _gauge.ptr, _params.ptr, _argv.ptr)
+def applyCgQcu(Pointer _fermion_out, Pointer _fermion_in, Pointer _gauge, Pointer _params, Pointer _argv):
+    pyqcu.applyCgQcu(_fermion_out.ptr, _fermion_in.ptr, _gauge.ptr, _params.ptr, _argv.ptr)
+def applyGmresIrQcu(Pointer _fermion_out, Pointer _fermion_in, Pointer _gauge, Pointer _params, Pointer _argv):
+    pyqcu.applyGmresIrQcu(_fermion_out.ptr, _fermion_in.ptr, _gauge.ptr, _params.ptr, _argv.ptr)
