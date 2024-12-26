@@ -1,3 +1,6 @@
 [submodule "qcu"]
 	path = qcu
 	url = git@gitee.com:zhangxin8069/qcu.git
+[submodule "src/cpp/qcu"]
+	path = src/cpp/qcu
+	url = git@gitee.com:zhangxin8069/qcu.git
