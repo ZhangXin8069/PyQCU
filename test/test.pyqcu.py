@@ -22,8 +22,7 @@ if match:
     fermion_in = cp.fromfile(filename, dtype=cp.complex64, count=size)
     filename.replace("fermion-in", "fermion-out")
     fermion_out = cp.fromfile(filename, dtype=cp.complex64, count=size)
-    print(gauge)
-    qcu.applyBistabCgQcu()
+    qcu.applyBistabCgQcu(fermion_out, fermion_in, gauge, params, argv)
 else:
     print("No match found!")
     exit(1)
