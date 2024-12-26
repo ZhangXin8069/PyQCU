@@ -7,9 +7,9 @@ extern "C"
   {
     int lattice_size[4];
   } QcuParam;
-  void testDslashQcu(void *fermion_out, void *fermion_in, void *gauge,
+  void testWilsonDslashQcu(void *fermion_out, void *fermion_in, void *gauge,
                      QcuParam *param, int parity);
-  void applyDslashQcu(void *fermion_out, void *fermion_in, void *gauge,
+  void applyWilsonDslashQcu(void *fermion_out, void *fermion_in, void *gauge,
                       QcuParam *param, int parity, QcuParam *grid);
   void testCloverDslashQcu(void *fermion_out, void *fermion_in, void *gauge,
                            QcuParam *param, int parity);
