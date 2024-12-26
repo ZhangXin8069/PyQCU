@@ -1,5 +1,5 @@
 cimport qcu
-from pyquda.pointer cimport Pointer, Pointers, Pointerss
+from pyqcu.pointer cimport Pointer, Pointers, Pointerss
 cdef class QcuParam:
     cdef qcu.QcuParam param
     def __init__(self):

@@ -1,1 +1,1 @@
-rm -rf build pyqcu.egg-info
+rm -rf build pyqcu.egg-info *.c

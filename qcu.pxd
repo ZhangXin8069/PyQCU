@@ -1,4 +1,4 @@
-cdef extern from "qcu.h":
+cdef extern from "./qcu.h":
     ctypedef struct QcuParam:
         int lattice_size[4]
     void testDslashQcu(void *fermion_out, void *fermion_in, void *gauge, QcuParam *param, int parity)
