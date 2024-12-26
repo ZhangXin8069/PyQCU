@@ -10,9 +10,9 @@ class CMakeBuild(build_ext):
         super().run()
 extensions = [
     Extension(
-            "pyqcu",
-            ["./src/python/pyqcu.pyx"],
-            include_dirs=["./include/cpp", numpy.get_include()],
+            "pyqcu.qcu",
+            ["./pyqcu/qcu/qcu.pyx"],
+            include_dirs=["./extern/qcu/python", numpy.get_include()],
             library_dirs=["./lib"],
             define_macros=[("NPY_NO_DEPRECATED_API", "NPY_1_7_API_VERSION")],
             libraries=["qcu"],
