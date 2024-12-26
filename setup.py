@@ -10,7 +10,7 @@ class CMakeBuild(build_ext):
         super().run()
 extensions = [
     Extension(
-            "pyqcu.qcu",
+            "pyqcu",
             ["./src/python/pyqcu.pyx"],
             include_dirs=["./include/cpp", numpy.get_include()],
             library_dirs=["./lib"],
