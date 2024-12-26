@@ -1,2 +1,2 @@
-import pyqcu.pyqcu as qcu
+import qcu
 qcu.applyBistabCgQcu()
