@@ -1,13 +1,14 @@
+#include "../include/pyqcu.h"
 #include "../include/qcu.h"
 #pragma optimize(5)
 using namespace qcu;
 using T = float;
 void testWilsonDslashQcu(void *fermion_out, void *fermion_in, void *gauge,
-                   QcuParam *param, int parity)
+                         void *params, void *argv)
 {
     // define for test_wilson_dslash
     LatticeSet<T> _set;
-    _set.give(param->lattice_size, parity);
+    _set.give(params, argv);
     _set.init();
     dptzyxcc2ccdptzyx<T>(gauge, &_set);
     tzyxsc2sctzyx<T>(fermion_in, &_set);
@@ -29,11 +30,11 @@ void testWilsonDslashQcu(void *fermion_out, void *fermion_in, void *gauge,
     _set.end();
 }
 void testCloverDslashQcu(void *fermion_out, void *fermion_in, void *gauge,
-                         QcuParam *param, int parity)
+                         void *params, void *argv)
 {
     // define for test_clover_dslash
     LatticeSet<T> _set;
-    _set.give(param->lattice_size, parity);
+    _set.give(params, argv);
     _set.init();
     dptzyxcc2ccdptzyx<T>(gauge, &_set);
     tzyxsc2sctzyx<T>(fermion_in, &_set);
