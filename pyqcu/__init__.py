@@ -1,3 +1,1 @@
-import os
-os.environ['LD_LIBRARY_PATH'] = '/root/pyqcu/lib' + ':' + os.environ.get('LD_LIBRARY_PATH', '')
-print("LD_LIBRARY_PATH:", os.environ['LD_LIBRARY_PATH'])
+print("The libqcu.so was compiled when pyqcu setup in download_path/pyqcu/lib, please add this path to your LD_LIBRARY_PATH")
