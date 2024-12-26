@@ -1,4 +1,4 @@
-pushd ./src/qcu
+pushd ./src/cpp/qcu
 bash ./make.sh
-mv ./libqcu.so ../../
+mv ./libqcu.so ../../../lib
 popd

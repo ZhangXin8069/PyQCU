@@ -1,3 +1,0 @@
-# qcu
-
-qcu by zhangxin
