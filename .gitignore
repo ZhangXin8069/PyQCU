@@ -22,8 +22,8 @@
 *.sqlite
 *.sw*
 *RemoteSystemsTempFiles
-_*
 lib*
 .ssub.sh
 .vscode
 *.log*
+*.c
