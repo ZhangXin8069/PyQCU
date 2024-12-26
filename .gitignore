@@ -22,7 +22,7 @@
 *.sqlite
 *.sw*
 *RemoteSystemsTempFiles
-lib*
+lib/*
 .ssub.sh
 .vscode
 *.log*

@@ -37,6 +37,7 @@ namespace qcu
         MPI_Request send_request[_WARDS_];
         MPI_Request recv_request[_WARDS_];
         int host_params[_VALS_SIZE_];
+        int host_argv[_VALS_SIZE_];
         void *device_send_vec[_WARDS_];
         void *device_recv_vec[_WARDS_];
         void *host_send_vec[_WARDS_];
@@ -54,6 +55,19 @@ namespace qcu
         void *device_params_odd_no_dag;
         void *device_params_even_dag;
         void *device_params_odd_dag;
+        void give(void *_params, void *_argv)
+        {
+            host_params[_LAT_X_] = static_cast<int *>(_params[_LAT_X_]);
+            / _EVEN_ODD_; // even-odd
+            host_params[_LAT_Y_] = static_cast<int *>(_params[_LAT_Y_]);
+            host_params[_LAT_Z_] = static_cast<int *>(_params[_LAT_Z_]);
+            host_params[_LAT_T_] = static_cast<int *>(_params[_LAT_T_]);
+            host_params[_GRID_X_] = static_cast<int *>(_params[_GRID_X_]);
+            host_params[_GRID_Y_] = static_cast<int *>(_params[_GRID_Y_]);
+            host_params[_GRID_Z_] = static_cast<int *>(_params[_GRID_Z_]);
+            host_params[_GRID_T_] = static_cast<int *>(_params[_GRID_T_]);
+            host_params[_PARITY_] = static_cast<int *>(_params[_PARITY_]);
+        }
         void give(int *_param_lat_size, int *_grid_lat_size)
         {
             host_params[_LAT_X_] = _param_lat_size[_X_] / _EVEN_ODD_; // even-odd
