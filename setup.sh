@@ -1,4 +1,4 @@
-pushd ./src/cpp/qcu
+pushd ./extern/qcu
 bash ./make.sh
-mv ./libqcu.so ../../../lib
+mv ./libqcu.so ../../lib
 popd
