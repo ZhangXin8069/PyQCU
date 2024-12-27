@@ -15,10 +15,11 @@ match = re.search(pattern, gauge_filename)
 if match:
     param = [int(num) for num in match.groups()]
     print("Extracted integers:", param)
+    param.append(1000)
     py_params = np.array(param, dtype=np.int32)
     print("NumPy Array:", py_params)
     print("Numpy data pointer:", py_params.data)
-    py_argv = np.array([0.25], dtype=np.float32)
+    py_argv = np.array([0,1e-9], dtype=np.float32)
     print("Argv:", py_argv)
     print("Argv data pointer:", py_argv.data)
     _LAT_XYZT_ = 4
