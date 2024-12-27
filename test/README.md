@@ -7,4 +7,4 @@ tar -Jxvf ./qcu-test1-data.tar.xz
 bash ./test-np1.sh
 ```
 
-# compare **wilson-bistabcg-fermion-out*-32-32-32-32-1048576-1-1-1-1-0-0-1-0-f* (from qcu) with *wilson-bistabcg-fermion-out_-32-32-32-32-1048576-1-1-1-1-0-0-1-0-f* (from quda)
+# compare **wilson-bistabcg-fermion-out*-32-32-32-32-1048576-1-1-1-1-0-0-1-0-f* (from qcu) with *wilson-bistabcg-_fermion-out-32-32-32-32-1048576-1-1-1-1-0-0-1-0-f* (from quda)
