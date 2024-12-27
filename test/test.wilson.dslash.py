@@ -39,13 +39,15 @@ if match:
     print("Fermion in:", fermion_in)
     print("Fermion in data:", fermion_in.data)
     fermion_out_filename = gauge_filename.replace("gauge", "fermion-out")
-    fermion_out = cp.fromfile(
+    quda_fermion_out = cp.fromfile(
         fermion_out_filename, dtype=cp.complex64, count=size)
+    fermion_out = cp.zeros(size, dtype=cp.complex64)
     print("Fermion out:", fermion_out)
     print("Fermion out data:", fermion_out.data)
     qcu.applyWilsonDslashQcu(fermion_out, fermion_in, gauge, params, argv)
-    fermion_out_filename = fermion_out_filename.replace(
-        "fermion-out", "_fermion-out")
+    fermion_out_filename = fermion_out_filename.replace("quda", "pyqcu")
     fermion_out.tofile(fermion_out_filename)
+    print("Fermion out diff:", cp.linalg.norm(fermion_out -
+          quda_fermion_out)/cp.linalg.norm(quda_fermion_out))
 else:
     print("No match found!")
