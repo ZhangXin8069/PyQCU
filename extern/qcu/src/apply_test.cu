@@ -14,9 +14,9 @@ void testWilsonDslashQcu(long long _fermion_out, long long _fermion_in, long lon
     LatticeSet<T> _set;
     _set.give(params, argv);
     _set.init();
-    dptzyxcc2ccdptzyx<T>(gauge, &_set);
-    tzyxsc2sctzyx<T>(fermion_in, &_set);
-    tzyxsc2sctzyx<T>(fermion_out, &_set);
+    // dptzyxcc2ccdptzyx<T>(gauge, &_set);
+    // tzyxsc2sctzyx<T>(fermion_in, &_set);
+    // tzyxsc2sctzyx<T>(fermion_out, &_set);
     auto start = std::chrono::high_resolution_clock::now();
     wilson_dslash<T><<<_set.gridDim, _set.blockDim>>>(gauge, fermion_in, fermion_out,
                                                       _set.device_params);
@@ -28,9 +28,9 @@ void testWilsonDslashQcu(long long _fermion_out, long long _fermion_in, long lon
     printf("wilson dslash total time: (without malloc free memcpy) :%.9lf "
            "sec\n",
            double(duration) / 1e9);
-    ccdptzyx2dptzyxcc<T>(gauge, &_set);
-    sctzyx2tzyxsc<T>(fermion_in, &_set);
-    sctzyx2tzyxsc<T>(fermion_out, &_set);
+    // ccdptzyx2dptzyxcc<T>(gauge, &_set);
+    // sctzyx2tzyxsc<T>(fermion_in, &_set);
+    // sctzyx2tzyxsc<T>(fermion_out, &_set);
     _set.end();
 }
 void testCloverDslashQcu(long long _fermion_out, long long _fermion_in, long long _gauge, long long _params, long long _argv)
@@ -44,9 +44,9 @@ void testCloverDslashQcu(long long _fermion_out, long long _fermion_in, long lon
     LatticeSet<T> _set;
     _set.give(params, argv);
     _set.init();
-    dptzyxcc2ccdptzyx<T>(gauge, &_set);
-    tzyxsc2sctzyx<T>(fermion_in, &_set);
-    tzyxsc2sctzyx<T>(fermion_out, &_set);
+    // dptzyxcc2ccdptzyx<T>(gauge, &_set);
+    // tzyxsc2sctzyx<T>(fermion_in, &_set);
+    // tzyxsc2sctzyx<T>(fermion_out, &_set);
     LatticeWilsonDslash<T> _wilson_dslash;
     _wilson_dslash.give(&_set);
     void* clover;
@@ -107,9 +107,9 @@ void testCloverDslashQcu(long long _fermion_out, long long _fermion_in, long lon
         printf("give clover total time: (without malloc free memcpy) :%.9lf sec\n ",
                double(duration) / 1e9);
     }
-    ccdptzyx2dptzyxcc<T>(gauge, &_set);
-    sctzyx2tzyxsc<T>(fermion_in, &_set);
-    sctzyx2tzyxsc<T>(fermion_out, &_set);
+    // ccdptzyx2dptzyxcc<T>(gauge, &_set);
+    // sctzyx2tzyxsc<T>(fermion_in, &_set);
+    // sctzyx2tzyxsc<T>(fermion_out, &_set);
     // free
     checkCudaErrors(cudaFreeAsync(clover, _set.stream));
     checkCudaErrors(cudaStreamSynchronize(_set.stream));

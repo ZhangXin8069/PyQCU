@@ -14,14 +14,14 @@ void applyWilsonDslashQcu(long long _fermion_out, long long _fermion_in, long lo
   LatticeSet<T> _set;
   _set.give(params, argv);
   _set.init();
-  dptzyxcc2ccdptzyx<T>(gauge, &_set);
-  tzyxsc2sctzyx<T>(fermion_in, &_set);
-  tzyxsc2sctzyx<T>(fermion_out, &_set);
+  // dptzyxcc2ccdptzyx<T>(gauge, &_set);
+  // tzyxsc2sctzyx<T>(fermion_in, &_set);
+  // tzyxsc2sctzyx<T>(fermion_out, &_set);
   LatticeWilsonDslash<T> _wilson_dslash;
   _wilson_dslash.give(&_set);
   _wilson_dslash.run_test(fermion_out, fermion_in, gauge);
-  ccdptzyx2dptzyxcc<T>(gauge, &_set);
-  sctzyx2tzyxsc<T>(fermion_in, &_set);
-  sctzyx2tzyxsc<T>(fermion_out, &_set);
+  // ccdptzyx2dptzyxcc<T>(gauge, &_set);
+  // sctzyx2tzyxsc<T>(fermion_in, &_set);
+  // sctzyx2tzyxsc<T>(fermion_out, &_set);
   _set.end();
 }
