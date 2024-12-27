@@ -1,6 +1,5 @@
 from setuptools import setup, find_packages
 import subprocess
-import sys
 from distutils.core import Extension, setup
 from setuptools.command.build_ext import build_ext
 from Cython.Build import cythonize
@@ -28,9 +27,6 @@ ext_modules = cythonize(
     extensions,
     language_level="3",
 )
-if sys.platform != "linux" and sys.platform != "linux2":
-    sys.exit("This package is only supported on Linux!")
-
 setup(
     name="pyqcu",
     version="0.0.1",
@@ -46,10 +42,4 @@ setup(
     url="https://github.com/zhangxin8069/pyqcu",
     keywords=['c++', 'cuda', 'python',
               'quantum chromodynamics(QCD)', 'lattice QCD', 'high performance computing', 'made in China'],
-        classifiers=[
-            "Development Status :: Developing",
-            "Intended Audience :: Education",
-            "Programming Language :: Python :: 3",
-            "Operating System :: Unix :: Linux :: Wsl",
-    ]
 )
