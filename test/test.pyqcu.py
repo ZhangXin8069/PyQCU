@@ -16,32 +16,34 @@ if match:
     param = [int(num) for num in match.groups()]
     print("Extracted integers:", param)
     param.append(1000)
-    py_params = np.array(param, dtype=np.int32)
-    print("NumPy Array:", py_params)
-    print("Numpy data pointer:", py_params.data)
-    py_argv = np.array([0,1e-9], dtype=np.float32)
-    print("Argv:", py_argv)
-    print("Argv data pointer:", py_argv.data)
+    params = np.array(param, dtype=np.int32)
+    print("NumPy Array:", params)
+    print("Numpy data pointer:", params.data)
+    argv = np.array([0, 1e-9], dtype=np.float32)
+    print("Argv:", argv)
+    print("Argv data pointer:", argv.data)
     _LAT_XYZT_ = 4
     _LAT_DCC_ = 36
     _LAT_SC_ = 12
     _EVEN_ODD = 2
-    size = py_params[_LAT_XYZT_]*_LAT_DCC_
+    size = params[_LAT_XYZT_]*_LAT_DCC_
     gauge_filename = gauge_filename.replace("gauge", "gauge")
-    py_gauge = cp.fromfile(gauge_filename, dtype=cp.complex64, count=size)
-    print("Gauge:", py_gauge)
-    print("Gauge data:", py_gauge.data)
-    size = py_params[_LAT_XYZT_]*_LAT_SC_
+    gauge = cp.fromfile(gauge_filename, dtype=cp.complex64, count=size)
+    print("Gauge:", gauge)
+    print("Gauge data:", gauge.data)
+    size = params[_LAT_XYZT_]*_LAT_SC_
     fermion_in_filename = gauge_filename.replace("gauge", "fermion-in")
-    py_fermion_in = cp.fromfile(
+    fermion_in = cp.fromfile(
         fermion_in_filename, dtype=cp.complex64, count=size)
-    print("Fermion in:", py_fermion_in)
-    print("Fermion in data:", py_fermion_in.data)
+    print("Fermion in:", fermion_in)
+    print("Fermion in data:", fermion_in.data)
     fermion_out_filename = gauge_filename.replace("gauge", "fermion-out")
-    py_fermion_out = cp.fromfile(
+    fermion_out = cp.fromfile(
         fermion_out_filename, dtype=cp.complex64, count=size)
-    print("Fermion out:", py_fermion_out)
-    print("Fermion out data:", py_fermion_out.data)
-    qcu.applyBistabCgQcu(py_fermion_out, py_fermion_in, py_gauge, py_params, py_argv)
+    print("Fermion out:", fermion_out)
+    print("Fermion out data:", fermion_out.data)
+    qcu.applyBistabCgQcu(fermion_out, fermion_in, gauge, params, argv)
+    fermion_out_filename = fermion_out_filename.replace("fermion-out", "_fermion-out")
+    fermion_out.tofile(fermion_out_filename)
 else:
     print("No match found!")
