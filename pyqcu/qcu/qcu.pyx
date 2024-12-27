@@ -35,24 +35,31 @@ def applyCloverDslashQcu(_fermion_out, _fermion_in, _gauge, _params, _argv):
     params = _params.ctypes.data
     argv = _argv.ctypes.data
     qcu.applyCloverDslashQcu(fermion_out, fermion_in, gauge, params, argv)
-def applyBistabCgQcu(_fermion_out, _fermion_in, _gauge, _params, _argv):
+def applyWilsonBistabCgQcu(_fermion_out, _fermion_in, _gauge, _params, _argv):
     fermion_out = _fermion_out.data.ptr
     fermion_in = _fermion_in.data.ptr
     gauge = _gauge.data.ptr
     params = _params.ctypes.data
     argv = _argv.ctypes.data
-    qcu.applyBistabCgQcu(fermion_out, fermion_in, gauge, params, argv)
-def applyCgQcu(_fermion_out, _fermion_in, _gauge, _params, _argv):
+    qcu.applyWilsonBistabCgQcu(fermion_out, fermion_in, gauge, params, argv)
+def applyWilsonBistabCgDslashQcu(_fermion_out, _fermion_in, _gauge, _params, _argv):
     fermion_out = _fermion_out.data.ptr
     fermion_in = _fermion_in.data.ptr
     gauge = _gauge.data.ptr
     params = _params.ctypes.data
     argv = _argv.ctypes.data
-    qcu.applyCgQcu(fermion_out, fermion_in, gauge, params, argv)
-def applyGmresIrQcu(_fermion_out, _fermion_in, _gauge, _params, _argv):
+    qcu.applyWilsonBistabCgDslashQcu(fermion_out, fermion_in, gauge, params, argv)
+def applyWilsonCgQcu(_fermion_out, _fermion_in, _gauge, _params, _argv):
     fermion_out = _fermion_out.data.ptr
     fermion_in = _fermion_in.data.ptr
     gauge = _gauge.data.ptr
     params = _params.ctypes.data
     argv = _argv.ctypes.data
-    qcu.applyGmresIrQcu(fermion_out, fermion_in, gauge, params, argv)
+    qcu.applyWilsonCgQcu(fermion_out, fermion_in, gauge, params, argv)
+def applyWilsonGmresIrQcu(_fermion_out, _fermion_in, _gauge, _params, _argv):
+    fermion_out = _fermion_out.data.ptr
+    fermion_in = _fermion_in.data.ptr
+    gauge = _gauge.data.ptr
+    params = _params.ctypes.data
+    argv = _argv.ctypes.data
+    qcu.applyWilsonGmresIrQcu(fermion_out, fermion_in, gauge, params, argv)
