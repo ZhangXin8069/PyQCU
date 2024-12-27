@@ -1,15 +1,12 @@
-import ctypes
 from pyqcu import qcu
 import cupy as cp
 import numpy as np
 import re
 from mpi4py import MPI
-
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 print('My rank is ', rank)
-
-gauge_filename = "wilson-dslash-gauge_-32-32-32-32-1048576-1-1-1-1-0-0-1-0-f.bin"
+gauge_filename = "quda_wilson-dslash-gauge_-32-32-32-32-1048576-1-1-1-1-0-0-1-0-f.bin"
 pattern = r"-(\d+)-(\d+)-(\d+)-(\d+)-(\d+)-(\d+)-(\d+)-(\d+)-(\d+)-(\d+)-(\d+)-(\d+)-(\d+)-"
 match = re.search(pattern, gauge_filename)
 if match:

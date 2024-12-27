@@ -1,14 +1,11 @@
-import ctypes
 from pyqcu import qcu
 import cupy as cp
 import numpy as np
 import re
 from mpi4py import MPI
-
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 print('My rank is ', rank)
-
 gauge_filename = "quda_wilson-bistabcg-gauge_-32-32-32-32-1048576-1-1-1-1-0-0-1-0-f.bin"
 pattern = r"-(\d+)-(\d+)-(\d+)-(\d+)-(\d+)-(\d+)-(\d+)-(\d+)-(\d+)-(\d+)-(\d+)-(\d+)-(\d+)-"
 match = re.search(pattern, gauge_filename)
@@ -44,7 +41,7 @@ if match:
     fermion_out = cp.zeros(size, dtype=cp.complex64)
     print("Fermion out:", fermion_out)
     print("Fermion out data:", fermion_out.data)
-    qcu.applyBistabCgQcu(fermion_out, fermion_in, gauge, params, argv)
+    qcu.applyWilsonBistabCgQcu(fermion_out, fermion_in, gauge, params, argv)
     fermion_out_filename = fermion_out_filename.replace("quda", "pyqcu")
     fermion_out.tofile(fermion_out_filename)
     print("Fermion out diff:", cp.linalg.norm(fermion_out -
