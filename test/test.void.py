@@ -1,32 +1,24 @@
 import numpy as np
+
+# 创建一个 NumPy 数组
+arr = np.array([1, 2, 3, 4, 5])
+
+# 获取数组的指针
+pointer = arr.__array_interface__['data'][0]
+
+print(f"数组的指针地址: {pointer}")
+
+# 获取数组的指针
+pointer = arr.ctypes.data
+
+print(f"数组的指针地址: {pointer}")
+
 import cupy as cp
-import ctypes
 
-# 创建一个 numpy 数组
-arr = np.array([1.0, 2.0, 3.0, 4.0], dtype=np.float32)
-
-# 获取数据的 ctypes 指针
-data_ptr = arr.ctypes.data
-print("Numpy data pointer:", data_ptr)
-print("type:", type(data_ptr))
-# 获取指针的原始地址，并使用 c_void_p 包装
-void_ptr = ctypes.c_void_p(data_ptr)
-print("Wrapped void pointer:", void_ptr)
-print("type:", type(void_ptr))
-print("Numpy data pointer:", data_ptr)
-print("Wrapped void pointer:", void_ptr)
-
-print("###################")
-# 创建一个 numpy 数组
-arr = cp.array([1.0, 2.0, 3.0, 4.0], dtype=cp.float32)
-
-# 获取数据的 ctypes 指针
-data_ptr = arr.data.ptr
-print("Numpy data pointer:", data_ptr)
-print("type:", type(data_ptr))
-# 获取指针的原始地址，并使用 c_void_p 包装
-void_ptr = ctypes.c_void_p(data_ptr)
-print("Wrapped void pointer:", void_ptr)
-print("type:", type(void_ptr))
-print("Numpy data pointer:", data_ptr)
-print("Wrapped void pointer:", void_ptr)
+# 创建一个 CuPy 数组
+arr = cp.array([1, 2, 3, 4, 5])
+print(arr.data)
+# 获取数组的指针
+pointer = arr.data.ptr
+print(type(pointer))
+print(f"数组的指针地址: {pointer}")
