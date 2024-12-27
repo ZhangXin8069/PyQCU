@@ -3,7 +3,7 @@
 #pragma optimize(5)
 using namespace qcu;
 using T = float;
-void applyGmresIrQcu(long long _fermion_out, long long _fermion_in, long long _gauge, long long _params, long long _argv)
+void applyWilsonGmresIrQcu(long long _fermion_out, long long _fermion_in, long long _gauge, long long _params, long long _argv)
 {
     void *fermion_out = (void *)_fermion_out;
   void *fermion_in = (void *)_fermion_in;
