@@ -14,16 +14,16 @@ void applyCgQcu(long long _fermion_out, long long _fermion_in, long long _gauge,
   LatticeSet<T> _set;
   _set.give(params, argv);
   _set.init();
-  dptzyxcc2ccdptzyx<T>(gauge, &_set);
-  ptzyxsc2psctzyx<T>(fermion_in, &_set);
-  ptzyxsc2psctzyx<T>(fermion_out, &_set);
+  // dptzyxcc2ccdptzyx<T>(gauge, &_set);
+  // ptzyxsc2psctzyx<T>(fermion_in, &_set);
+  // ptzyxsc2psctzyx<T>(fermion_out, &_set);
   LatticeCg<T> _cg;
   _cg.give(&_set);
   _cg.init(fermion_out, fermion_in, gauge);
   _cg.run_test();
   _cg.end();
-  ccdptzyx2dptzyxcc<T>(gauge, &_set);
-  psctzyx2ptzyxsc<T>(fermion_in, &_set);
-  psctzyx2ptzyxsc<T>(fermion_out, &_set);
+  // ccdptzyx2dptzyxcc<T>(gauge, &_set);
+  // psctzyx2ptzyxsc<T>(fermion_in, &_set);
+  // psctzyx2ptzyxsc<T>(fermion_out, &_set);
   _set.end();
 }
