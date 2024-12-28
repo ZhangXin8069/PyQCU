@@ -4,20 +4,23 @@ from distutils.core import Extension, setup
 from setuptools.command.build_ext import build_ext
 from Cython.Build import cythonize
 import numpy
+import os
+HOME = os.path.dirname(os.path.abspath(__file__))
+print("HOME:", HOME)
 
 
 class CMakeBuild(build_ext):
     def run(self):
-        subprocess.check_call(['bash', './setup.sh'])
+        subprocess.check_call(["bash", f"{HOME}/setup.sh"])
         super().run()
 
 
 extensions = [
     Extension(
         "pyqcu.qcu",
-        ["./pyqcu/qcu/qcu.pyx"],
-        include_dirs=["./extern/qcu/python", numpy.get_include()],
-        library_dirs=["./lib"],
+        [f"{HOME}/pyqcu/qcu/qcu.pyx"],
+        include_dirs=[f"{HOME}/extern/qcu/python", numpy.get_include()],
+        library_dirs=[f"{HOME}/lib"],
         define_macros=[("NPY_NO_DEPRECATED_API", "NPY_1_7_API_VERSION")],
         libraries=["qcu"],
         language="c",
@@ -38,7 +41,8 @@ setup(
     license="MIT",
     cmdclass={'build_ext': CMakeBuild},
     python_requires=">=3.6",
-    install_requires=["numpy", "scipy", "mpi4py", "cython", "cupy"],
+    install_requires=["numpy", "scipy", "mpi4py",
+                      "cython", "cupy", ],
     url="https://github.com/zhangxin8069/pyqcu",
     keywords=['c++', 'cuda', 'python',
               'quantum chromodynamics(QCD)', 'lattice QCD', 'high performance computing', 'made in China'],
