@@ -1,9 +1,10 @@
 from pyqcu import qcu
 import cupy as cp
+from cupyx.scipy.sparse import linalg as clinalg
+from scipy.sparse import linalg as slinalg
 import numpy as np
 import re
 from mpi4py import MPI
-from cupyx.scipy.sparse import linalg
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 print('My rank is ', rank)
@@ -18,7 +19,7 @@ if match:
     params = np.array(param, dtype=np.int32)
     print("NumPy Array:", params)
     print("Numpy data pointer:", params.data)
-    argv = np.array([0, 1e-9], dtype=np.float32)
+    argv = np.array([0.0, 1e-9], dtype=np.float32)
     print("Argv:", argv)
     print("Argv data pointer:", argv.data)
     _LAT_XYZT_ = 4
@@ -49,8 +50,8 @@ if match:
     # print("Fermion out diff:", cp.linalg.norm(fermion_out -
     #       quda_fermion_out)/cp.linalg.norm(quda_fermion_out))
     size = params[_LAT_XYZT_]*_LAT_HALF_SC_
-
-    def wilson_bistabcg_dslash(fermion_in):
+    ##############################CUPY################################
+    def cwilson_bistabcg_dslash(fermion_in):
         print("fermion_in norm:", cp.linalg.norm(fermion_in))
         fermion_out = cp.zeros(size, dtype=cp.complex64)
         # qcu.applyWilsonDslashQcu(
@@ -59,10 +60,26 @@ if match:
             fermion_out, fermion_in, gauge, params, argv)
         print("fermion_out norm:", cp.linalg.norm(fermion_out))
         return fermion_out
-    A = linalg.LinearOperator(
-        shape=(size, size), matvec=wilson_bistabcg_dslash)
-    evals, evecs = linalg.eigsh(a=A, k=24, which="SA")
+    A = clinalg.LinearOperator(
+        shape=(size, size), matvec=cwilson_bistabcg_dslash)
+    evals, evecs = clinalg.eigsh(a=A, k=80, which="SA", tol=1e-1)
     print("Eigenvalues:", evals)
     print("Eigenvectors:", evecs)
+    # ###############################SCIPY################################
+    # def swilson_bistabcg_dslash(fermion_in):
+    #     print("fermion_in norm:", np.linalg.norm(fermion_in))
+    #     _fermion_in = cp.asarray(fermion_in)
+    #     _fermion_out = cp.zeros(size, dtype=cp.complex64)
+    #     # qcu.applyWilsonDslashQcu(
+    #     #     fermion_out, fermion_in, gauge, params, argv)
+    #     qcu.applyWilsonBistabCgDslashQcu(
+    #         _fermion_out, _fermion_in, gauge, params, argv)
+    #     fermion_out = _fermion_out.get()
+    #     print("fermion_out norm:", np.linalg.norm(fermion_out))
+    #     return fermion_out
+    # A = slinalg.LinearOperator(
+    #     shape=(size, size), matvec=swilson_bistabcg_dslash)
+    # evals, evecs = slinalg.eigsh(A, k=24, which="SA",tol=1e-1)
 else:
     print("No match found!")
+
