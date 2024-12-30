@@ -31,9 +31,9 @@ ext_modules = cythonize(
     language_level="3",
 )
 setup(
-    name="pyqcu",
+    name="PyQCU",
     version="0.0.1",
-    description="Python wrapper for qcu written in Cython.",
+    description="Python wrapper for QCU written in Cython.",
     author="ZhangXin8069",
     author_email="zhangxin8069@qq.com",
     packages=find_packages(exclude=["test", "test.*"]),
@@ -42,8 +42,8 @@ setup(
     cmdclass={'build_ext': CMakeBuild},
     python_requires=">=3.6",
     install_requires=["numpy", "scipy", "mpi4py",
-                      "cython", "cupy", ],
-    url="https://github.com/zhangxin8069/pyqcu",
+                      "cython", "cupy", "h5py", "matplotlib","seaborn"],
+    url="https://github.com/zhangxin8069/PyQCU",
     keywords=['c++', 'cuda', 'python',
               'quantum chromodynamics(QCD)', 'lattice QCD', 'high performance computing', 'made in China'],
 )
