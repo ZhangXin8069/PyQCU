@@ -7,14 +7,10 @@ import numpy
 import os
 HOME = os.path.dirname(os.path.abspath(__file__))
 print("HOME:", HOME)
-
-
 class CMakeBuild(build_ext):
     def run(self):
         subprocess.check_call(["bash", f"{HOME}/setup.sh"])
         super().run()
-
-
 extensions = [
     Extension(
         "pyqcu.qcu",
