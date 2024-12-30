@@ -67,6 +67,7 @@ namespace qcu
             host_params[_GRID_T_] = static_cast<int *>(_params)[_GRID_T_];
             host_params[_PARITY_] = static_cast<int *>(_params)[_PARITY_];
             host_params[_MAX_ITER_] = static_cast<int *>(_params)[_MAX_ITER_];
+            host_params[_SET_INDEX_] = static_cast<int *>(_params)[_SET_INDEX_];
             host_params[_SET_PLAN_] = static_cast<int *>(_params)[_SET_PLAN_];
             host_argv[_MASS_] = static_cast<T *>(_argv)[_MASS_];
             host_argv[_TOL_] = static_cast<T *>(_argv)[_TOL_];
@@ -96,15 +97,15 @@ namespace qcu
                         host_params[_GRID_X_] * host_params[_GRID_Y_] * host_params[_GRID_T_];
                     grid_3dim[_XYZ_] =
                         host_params[_GRID_X_] * host_params[_GRID_Y_] * host_params[_GRID_Z_];
-                    { // splite by tzyx
+                    { // splite by x->y->z->t
                         int tmp;
                         tmp = host_params[_NODE_RANK_];
-                        grid_index_1dim[_X_] = tmp / grid_3dim[_YZT_];
-                        tmp -= grid_index_1dim[_X_] * grid_3dim[_YZT_];
-                        grid_index_1dim[_Y_] = tmp / grid_2dim[_ZT_];
-                        tmp -= grid_index_1dim[_Y_] * grid_2dim[_ZT_];
-                        grid_index_1dim[_Z_] = tmp / host_params[_GRID_T_];
-                        grid_index_1dim[_T_] = tmp - grid_index_1dim[_Z_] * host_params[_GRID_T_];
+                        grid_index_1dim[_T_] = tmp / grid_3dim[_XYZ_];
+                        tmp -= grid_index_1dim[_T_] * grid_3dim[_XYZ_];
+                        grid_index_1dim[_Z_] = tmp / grid_2dim[_XY_];
+                        tmp -= grid_index_1dim[_Z_] * grid_2dim[_XY_];
+                        grid_index_1dim[_Y_] = tmp / host_params[_GRID_X_];
+                        grid_index_1dim[_X_] = tmp - grid_index_1dim[_Y_] * host_params[_GRID_X_];
                     }
                     lat_2dim[_XY_] = host_params[_LAT_X_] * host_params[_LAT_Y_];
                     lat_2dim[_XZ_] = host_params[_LAT_X_] * host_params[_LAT_Z_];
@@ -151,7 +152,6 @@ namespace qcu
                     host_params[_DAGGER_] = _NO_USE_; // needed!!!
                     checkCudaErrors(
                         cudaMallocAsync(&device_params, _PARAM_SIZE_ * sizeof(int), stream));
-
                     checkCudaErrors(cudaMallocAsync(&device_params_even_no_dag,
                                                     _PARAM_SIZE_ * sizeof(int), stream));
                     checkCudaErrors(cudaMallocAsync(&device_params_odd_no_dag,
@@ -255,78 +255,78 @@ namespace qcu
             if (host_params[_SET_PLAN_] >= _SET_PLAN2_) // for clover dslash
             {
                 {     // give move wards
-                    { // splite by tzyx
-                        move_wards[_B_T_] = host_params[_NODE_RANK_] + move_wards[_B_T_];
-                        move_wards[_B_Z_] =
-                            host_params[_NODE_RANK_] + move_wards[_B_Z_] * host_params[_GRID_T_];
+                    { // splite by x->y->z->t
+                        move_wards[_B_X_] = host_params[_NODE_RANK_] + move_wards[_B_X_];
                         move_wards[_B_Y_] =
-                            host_params[_NODE_RANK_] + move_wards[_B_Y_] * grid_2dim[_ZT_];
-                        move_wards[_B_X_] =
-                            host_params[_NODE_RANK_] + move_wards[_B_X_] * grid_3dim[_YZT_];
-                        move_wards[_F_T_] = host_params[_NODE_RANK_] + move_wards[_F_T_];
-                        move_wards[_F_Z_] =
-                            host_params[_NODE_RANK_] + move_wards[_F_Z_] * host_params[_GRID_T_];
+                            host_params[_NODE_RANK_] + move_wards[_B_Y_] * host_params[_GRID_X_];
+                        move_wards[_B_Z_] =
+                            host_params[_NODE_RANK_] + move_wards[_B_Z_] * grid_2dim[_XY_];
+                        move_wards[_B_T_] =
+                            host_params[_NODE_RANK_] + move_wards[_B_T_] * grid_3dim[_XYZ_];
+                        move_wards[_F_X_] = host_params[_NODE_RANK_] + move_wards[_F_X_];
                         move_wards[_F_Y_] =
-                            host_params[_NODE_RANK_] + move_wards[_F_Y_] * grid_2dim[_ZT_];
-                        move_wards[_F_X_] =
-                            host_params[_NODE_RANK_] + move_wards[_F_X_] * grid_3dim[_YZT_];
-                    }
-                    int tmp;
-                    { // BB
-                        move_backward(tmp, grid_index_1dim[_Z_], host_params[_GRID_Z_]);
-                        move_wards[_BZ_BT_] = move_wards[_B_T_] + tmp * host_params[_GRID_T_];
-                        move_backward(tmp, grid_index_1dim[_Y_], host_params[_GRID_Y_]);
-                        move_wards[_BY_BT_] = move_wards[_B_T_] + tmp * grid_2dim[_ZT_];
-                        move_backward(tmp, grid_index_1dim[_X_], host_params[_GRID_X_]);
-                        move_wards[_BX_BT_] = move_wards[_B_T_] + tmp * grid_3dim[_YZT_];
-                        move_backward(tmp, grid_index_1dim[_Y_], host_params[_GRID_Y_]);
-                        move_wards[_BY_BZ_] = move_wards[_B_Z_] + tmp * grid_2dim[_ZT_];
-                        move_backward(tmp, grid_index_1dim[_X_], host_params[_GRID_X_]);
-                        move_wards[_BX_BZ_] = move_wards[_B_Z_] + tmp * grid_3dim[_YZT_];
-                        move_backward(tmp, grid_index_1dim[_X_], host_params[_GRID_X_]);
-                        move_wards[_BX_BY_] = move_wards[_B_Y_] + tmp * grid_3dim[_YZT_];
-                    }
-                    { // FB
-                        move_backward(tmp, grid_index_1dim[_Z_], host_params[_GRID_Z_]);
-                        move_wards[_FZ_BT_] = move_wards[_F_T_] + tmp * host_params[_GRID_T_];
-                        move_backward(tmp, grid_index_1dim[_Y_], host_params[_GRID_Y_]);
-                        move_wards[_FY_BT_] = move_wards[_F_T_] + tmp * grid_2dim[_ZT_];
-                        move_backward(tmp, grid_index_1dim[_X_], host_params[_GRID_X_]);
-                        move_wards[_FX_BT_] = move_wards[_F_T_] + tmp * grid_3dim[_YZT_];
-                        move_backward(tmp, grid_index_1dim[_Y_], host_params[_GRID_Y_]);
-                        move_wards[_FY_BZ_] = move_wards[_F_Z_] + tmp * grid_2dim[_ZT_];
-                        move_backward(tmp, grid_index_1dim[_X_], host_params[_GRID_X_]);
-                        move_wards[_FX_BZ_] = move_wards[_F_Z_] + tmp * grid_3dim[_YZT_];
-                        move_backward(tmp, grid_index_1dim[_X_], host_params[_GRID_X_]);
-                        move_wards[_FX_BY_] = move_wards[_F_Y_] + tmp * grid_3dim[_YZT_];
-                    }
-                    { // BF
-                        move_forward(tmp, grid_index_1dim[_Z_], host_params[_GRID_Z_]);
-                        move_wards[_BZ_FT_] = move_wards[_B_T_] + tmp * host_params[_GRID_T_];
-                        move_forward(tmp, grid_index_1dim[_Y_], host_params[_GRID_Y_]);
-                        move_wards[_BY_FT_] = move_wards[_B_T_] + tmp * grid_2dim[_ZT_];
-                        move_forward(tmp, grid_index_1dim[_X_], host_params[_GRID_X_]);
-                        move_wards[_BX_FT_] = move_wards[_B_T_] + tmp * grid_3dim[_YZT_];
-                        move_forward(tmp, grid_index_1dim[_Y_], host_params[_GRID_Y_]);
-                        move_wards[_BY_FZ_] = move_wards[_B_Z_] + tmp * grid_2dim[_ZT_];
-                        move_forward(tmp, grid_index_1dim[_X_], host_params[_GRID_X_]);
-                        move_wards[_BX_FZ_] = move_wards[_B_Z_] + tmp * grid_3dim[_YZT_];
-                        move_forward(tmp, grid_index_1dim[_X_], host_params[_GRID_X_]);
-                        move_wards[_BX_FY_] = move_wards[_B_Y_] + tmp * grid_3dim[_YZT_];
-                    }
-                    { // FF
-                        move_forward(tmp, grid_index_1dim[_Z_], host_params[_GRID_Z_]);
-                        move_wards[_FZ_FT_] = move_wards[_F_T_] + tmp * host_params[_GRID_T_];
-                        move_forward(tmp, grid_index_1dim[_Y_], host_params[_GRID_Y_]);
-                        move_wards[_FY_FT_] = move_wards[_F_T_] + tmp * grid_2dim[_ZT_];
-                        move_forward(tmp, grid_index_1dim[_X_], host_params[_GRID_X_]);
-                        move_wards[_FX_FT_] = move_wards[_F_T_] + tmp * grid_3dim[_YZT_];
-                        move_forward(tmp, grid_index_1dim[_Y_], host_params[_GRID_Y_]);
-                        move_wards[_FY_FZ_] = move_wards[_F_Z_] + tmp * grid_2dim[_ZT_];
-                        move_forward(tmp, grid_index_1dim[_X_], host_params[_GRID_X_]);
-                        move_wards[_FX_FZ_] = move_wards[_F_Z_] + tmp * grid_3dim[_YZT_];
-                        move_forward(tmp, grid_index_1dim[_X_], host_params[_GRID_X_]);
-                        move_wards[_FX_FY_] = move_wards[_F_Y_] + tmp * grid_3dim[_YZT_];
+                            host_params[_NODE_RANK_] + move_wards[_F_Y_] * host_params[_GRID_X_];
+                        move_wards[_F_Z_] =
+                            host_params[_NODE_RANK_] + move_wards[_F_Z_] * grid_2dim[_XY_];
+                        move_wards[_F_T_] =
+                            host_params[_NODE_RANK_] + move_wards[_F_T_] * grid_3dim[_XYZ_];
+                        int tmp;
+                        { // BB
+                            move_backward(tmp, grid_index_1dim[_Y_], host_params[_GRID_Y_]);
+                            move_wards[_BX_BY_] = move_wards[_B_X_] + tmp * host_params[_GRID_X_];
+                            move_backward(tmp, grid_index_1dim[_Z_], host_params[_GRID_Z_]);
+                            move_wards[_BX_BZ_] = move_wards[_B_X_] + tmp * grid_2dim[_XY_];
+                            move_backward(tmp, grid_index_1dim[_T_], host_params[_GRID_T_]);
+                            move_wards[_BX_BT_] = move_wards[_B_X_] + tmp * grid_3dim[_XYZ_];
+                            move_backward(tmp, grid_index_1dim[_Z_], host_params[_GRID_Z_]);
+                            move_wards[_BY_BZ_] = move_wards[_B_Y_] + tmp * grid_2dim[_XY_];
+                            move_backward(tmp, grid_index_1dim[_T_], host_params[_GRID_T_]);
+                            move_wards[_BY_BT_] = move_wards[_B_Y_] + tmp * grid_3dim[_XYZ_];
+                            move_backward(tmp, grid_index_1dim[_T_], host_params[_GRID_T_]);
+                            move_wards[_BZ_BT_] = move_wards[_B_Z_] + tmp * grid_3dim[_XYZ_];
+                        }
+                        { // FB
+                            move_backward(tmp, grid_index_1dim[_Y_], host_params[_GRID_Y_]);
+                            move_wards[_FX_BY_] = move_wards[_F_X_] + tmp * host_params[_GRID_X_];
+                            move_backward(tmp, grid_index_1dim[_Z_], host_params[_GRID_Z_]);
+                            move_wards[_FX_BZ_] = move_wards[_F_X_] + tmp * grid_2dim[_XY_];
+                            move_backward(tmp, grid_index_1dim[_T_], host_params[_GRID_T_]);
+                            move_wards[_FX_BT_] = move_wards[_F_X_] + tmp * grid_3dim[_XYZ_];
+                            move_backward(tmp, grid_index_1dim[_Z_], host_params[_GRID_Z_]);
+                            move_wards[_FY_BZ_] = move_wards[_F_Y_] + tmp * grid_2dim[_XY_];
+                            move_backward(tmp, grid_index_1dim[_T_], host_params[_GRID_T_]);
+                            move_wards[_FY_BT_] = move_wards[_F_Y_] + tmp * grid_3dim[_XYZ_];
+                            move_backward(tmp, grid_index_1dim[_T_], host_params[_GRID_T_]);
+                            move_wards[_FZ_BT_] = move_wards[_F_Z_] + tmp * grid_3dim[_XYZ_];
+                        }
+                        { // BF
+                            move_forward(tmp, grid_index_1dim[_Y_], host_params[_GRID_Y_]);
+                            move_wards[_BX_FY_] = move_wards[_B_X_] + tmp * host_params[_GRID_X_];
+                            move_forward(tmp, grid_index_1dim[_Z_], host_params[_GRID_Z_]);
+                            move_wards[_BX_FZ_] = move_wards[_B_X_] + tmp * grid_2dim[_XY_];
+                            move_forward(tmp, grid_index_1dim[_T_], host_params[_GRID_T_]);
+                            move_wards[_BX_FT_] = move_wards[_B_X_] + tmp * grid_3dim[_XYZ_];
+                            move_forward(tmp, grid_index_1dim[_Z_], host_params[_GRID_Z_]);
+                            move_wards[_BY_FZ_] = move_wards[_B_Y_] + tmp * grid_2dim[_XY_];
+                            move_forward(tmp, grid_index_1dim[_T_], host_params[_GRID_T_]);
+                            move_wards[_BY_FT_] = move_wards[_B_Y_] + tmp * grid_3dim[_XYZ_];
+                            move_forward(tmp, grid_index_1dim[_T_], host_params[_GRID_T_]);
+                            move_wards[_BZ_FT_] = move_wards[_B_Z_] + tmp * grid_3dim[_XYZ_];
+                        }
+                        { // FF
+                            move_forward(tmp, grid_index_1dim[_Y_], host_params[_GRID_Y_]);
+                            move_wards[_FX_FY_] = move_wards[_F_X_] + tmp * host_params[_GRID_X_];
+                            move_forward(tmp, grid_index_1dim[_Z_], host_params[_GRID_Z_]);
+                            move_wards[_FX_FZ_] = move_wards[_F_X_] + tmp * grid_2dim[_XY_];
+                            move_forward(tmp, grid_index_1dim[_T_], host_params[_GRID_T_]);
+                            move_wards[_FX_FT_] = move_wards[_F_X_] + tmp * grid_3dim[_XYZ_];
+                            move_forward(tmp, grid_index_1dim[_Z_], host_params[_GRID_Z_]);
+                            move_wards[_FY_FZ_] = move_wards[_F_Y_] + tmp * grid_2dim[_XY_];
+                            move_forward(tmp, grid_index_1dim[_T_], host_params[_GRID_T_]);
+                            move_wards[_FY_FT_] = move_wards[_F_Y_] + tmp * grid_3dim[_XYZ_];
+                            move_forward(tmp, grid_index_1dim[_T_], host_params[_GRID_T_]);
+                            move_wards[_FZ_FT_] = move_wards[_F_Z_] + tmp * grid_3dim[_XYZ_];
+                        }
                     }
                 }
                 { // give memory malloc
@@ -471,7 +471,6 @@ namespace qcu
             {
                 for (int i = 0; i < _DIM_; i++)
                 {
-
                     checkCudaErrors(cudaFreeAsync(device_u_1dim_send_vec[i * _BF_], stream));
                     checkCudaErrors(
                         cudaFreeAsync(device_u_1dim_send_vec[i * _BF_ + 1], stream));
@@ -542,6 +541,7 @@ namespace qcu
             printf("host_params[_NODE_SIZE_]:%d\n", host_params[_NODE_SIZE_]);
             printf("host_params[_DAGGER_]   :%d\n", host_params[_DAGGER_]);
             printf("host_params[_MAX_ITER_] :%d\n", host_params[_MAX_ITER_]);
+            printf("host_params[_SET_INDEX_]:%d\n", host_params[_SET_INDEX_]);
             printf("host_params[_SET_PLAN_] :%d\n", host_params[_SET_PLAN_]);
             printf("host_argv[_MASS_]       :%e\n", host_argv[_MASS_]);
             printf("host_argv[_TOL_]        :%e\n", host_argv[_TOL_]);

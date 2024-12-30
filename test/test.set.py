@@ -6,7 +6,7 @@ from mpi4py import MPI
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 print('My rank is ', rank)
-gauge_filename = "quda_wilson-dslash-gauge_-32-32-32-32-1048576-1-1-1-1-0-0-1-0-f.bin"
+gauge_filename = "quda_wilson-bistabcg-gauge_-32-32-32-32-1048576-1-1-1-1-0-0-1-0-f.bin"
 pattern = r"-(\d+)-(\d+)-(\d+)-(\d+)-(\d+)-(\d+)-(\d+)-(\d+)-(\d+)-(\d+)-(\d+)-(\d+)-(\d+)-"
 match = re.search(pattern, gauge_filename)
 if match:
@@ -27,13 +27,14 @@ if match:
     qcu.applyInitQcu(set_ptrs, params, argv)
     _LAT_XYZT_ = 4
     _LAT_DCC_ = 36
-    _LAT_HALF_SC_ = 6
+    _LAT_SC_ = 12
+    _EVEN_ODD = 2
     size = params[_LAT_XYZT_]*_LAT_DCC_
     gauge_filename = gauge_filename.replace("gauge", "gauge")
     gauge = cp.fromfile(gauge_filename, dtype=cp.complex64, count=size)
     print("Gauge:", gauge)
     print("Gauge data:", gauge.data)
-    size = params[_LAT_XYZT_]*_LAT_HALF_SC_
+    size = params[_LAT_XYZT_]*_LAT_SC_
     fermion_in_filename = gauge_filename.replace("gauge", "fermion-in")
     fermion_in = cp.fromfile(
         fermion_in_filename, dtype=cp.complex64, count=size)
@@ -45,8 +46,9 @@ if match:
     fermion_out = cp.zeros(size, dtype=cp.complex64)
     print("Fermion out:", fermion_out)
     print("Fermion out data:", fermion_out.data)
-    qcu.applyWilsonDslashQcu(fermion_out, fermion_in, gauge, set_ptrs, params)
+    qcu.applyWilsonBistabCgQcu(fermion_out, fermion_in, gauge, set_ptrs, params)
     fermion_out_filename = fermion_out_filename.replace("quda", "pyqcu")
+    fermion_out_filename = fermion_out_filename.replace("bistabcg", "cg")
     fermion_out.tofile(fermion_out_filename)
     print("Fermion out diff:", cp.linalg.norm(fermion_out -
           quda_fermion_out)/cp.linalg.norm(quda_fermion_out))
