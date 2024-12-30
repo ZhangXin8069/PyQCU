@@ -36,7 +36,7 @@ namespace qcu
         int grid_index_1dim[_1DIM_];
         MPI_Request send_request[_WARDS_];
         MPI_Request recv_request[_WARDS_];
-        int host_params[_PARAM_SIZE_];
+        int host_params[_PARAMS_SIZE_];
         T host_argv[_ARGV_SIZE_];
         void *device_send_vec[_WARDS_];
         void *device_recv_vec[_WARDS_];
@@ -151,39 +151,39 @@ namespace qcu
                 {                                     // give device params
                     host_params[_DAGGER_] = _NO_USE_; // needed!!!
                     checkCudaErrors(
-                        cudaMallocAsync(&device_params, _PARAM_SIZE_ * sizeof(int), stream));
+                        cudaMallocAsync(&device_params, _PARAMS_SIZE_ * sizeof(int), stream));
                     checkCudaErrors(cudaMallocAsync(&device_params_even_no_dag,
-                                                    _PARAM_SIZE_ * sizeof(int), stream));
+                                                    _PARAMS_SIZE_ * sizeof(int), stream));
                     checkCudaErrors(cudaMallocAsync(&device_params_odd_no_dag,
-                                                    _PARAM_SIZE_ * sizeof(int), stream));
+                                                    _PARAMS_SIZE_ * sizeof(int), stream));
                     checkCudaErrors(cudaMallocAsync(&device_params_even_dag,
-                                                    _PARAM_SIZE_ * sizeof(int), stream));
+                                                    _PARAMS_SIZE_ * sizeof(int), stream));
                     checkCudaErrors(cudaMallocAsync(&device_params_odd_dag,
-                                                    _PARAM_SIZE_ * sizeof(int), stream));
+                                                    _PARAMS_SIZE_ * sizeof(int), stream));
                     checkCudaErrors(cudaMemcpyAsync(device_params, host_params,
-                                                    _PARAM_SIZE_ * sizeof(int),
+                                                    _PARAMS_SIZE_ * sizeof(int),
                                                     cudaMemcpyHostToDevice, stream));
                     checkCudaErrors(cudaMemcpyAsync(device_params_even_no_dag, host_params,
-                                                    _PARAM_SIZE_ * sizeof(int),
+                                                    _PARAMS_SIZE_ * sizeof(int),
                                                     cudaMemcpyHostToDevice, stream));
                     give_param<T><<<1, 1, 0, stream>>>(device_params_even_no_dag, _PARITY_,
                                                        _EVEN_);
                     give_param<T><<<1, 1, 0, stream>>>(device_params_even_no_dag, _DAGGER_,
                                                        _NO_USE_);
                     checkCudaErrors(cudaMemcpyAsync(device_params_odd_no_dag, host_params,
-                                                    _PARAM_SIZE_ * sizeof(int),
+                                                    _PARAMS_SIZE_ * sizeof(int),
                                                     cudaMemcpyHostToDevice, stream));
                     give_param<T><<<1, 1, 0, stream>>>(device_params_odd_no_dag, _PARITY_,
                                                        _ODD_);
                     give_param<T><<<1, 1, 0, stream>>>(device_params_odd_no_dag, _DAGGER_,
                                                        _NO_USE_);
                     checkCudaErrors(cudaMemcpyAsync(device_params_even_dag, host_params,
-                                                    _PARAM_SIZE_ * sizeof(int),
+                                                    _PARAMS_SIZE_ * sizeof(int),
                                                     cudaMemcpyHostToDevice, stream));
                     give_param<T><<<1, 1, 0, stream>>>(device_params_even_dag, _PARITY_, _EVEN_);
                     give_param<T><<<1, 1, 0, stream>>>(device_params_even_dag, _DAGGER_, _USE_);
                     checkCudaErrors(cudaMemcpyAsync(device_params_odd_dag, host_params,
-                                                    _PARAM_SIZE_ * sizeof(int),
+                                                    _PARAMS_SIZE_ * sizeof(int),
                                                     cudaMemcpyHostToDevice, stream));
                     give_param<T><<<1, 1, 0, stream>>>(device_params_odd_dag, _PARITY_, _ODD_);
                     give_param<T><<<1, 1, 0, stream>>>(device_params_odd_dag, _DAGGER_, _USE_);
