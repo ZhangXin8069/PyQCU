@@ -40,13 +40,14 @@ namespace qcu
 #define _NODE_SIZE_ 11
 #define _DAGGER_ 12
 #define _MAX_ITER_ 13
-#define _SET_INDEX_ 14
-#define _SET_PLAN_ 15
+#define _DATA_TYPE_ 14
+#define _SET_INDEX_ 15
+#define _SET_PLAN_ 16
 #define _SET_PLAN0_ 0 // just for wilson dslash
 #define _SET_PLAN1_ 1 // just for wilson bistabcg and cg
 #define _SET_PLAN2_ 2 // just for clover dslash
 #define _SET_PLAN3_ 3
-#define _PARAM_SIZE_ 16
+#define _PARAMS_SIZE_ 17
 #define _MASS_ 0
 #define _TOL_ 1
 #define _ARGV_SIZE_ 2
@@ -163,7 +164,7 @@ namespace qcu
 #define get_filename(filename, param, parity, grid) \
   {                                                 \
     int i = 0;                                      \
-    int _[_PARAM_SIZE_];                             \
+    int _[_PARAMS_SIZE_];                             \
     std::string segment;                            \
     std::cout << filename.str() << std::endl;       \
     while (std::getline(filename, segment, '-'))    \
