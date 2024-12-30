@@ -13,6 +13,7 @@ if match:
     param = [int(num) for num in match.groups()]
     print("Extracted integers:", param)
     param.append(1000)
+    param.append(5)
     param.append(1)
     params = np.array(param, dtype=np.int32)
     print("NumPy Array:", params)
@@ -20,10 +21,13 @@ if match:
     argv = np.array([0, 1e-9], dtype=np.float32)
     print("Argv:", argv)
     print("Argv data pointer:", argv.data)
+    set_ptrs = np.array(params, dtype=np.int64)
+    print("Set ptrs:", set_ptrs)
+    print("Set ptrs data pointer:", set_ptrs.data)
+    qcu.applyInitQcu(set_ptrs, params, argv)
     _LAT_XYZT_ = 4
     _LAT_DCC_ = 36
     _LAT_SC_ = 12
-    _EVEN_ODD = 2
     size = params[_LAT_XYZT_]*_LAT_DCC_
     gauge_filename = gauge_filename.replace("gauge", "gauge")
     gauge = cp.fromfile(gauge_filename, dtype=cp.complex64, count=size)
@@ -41,11 +45,15 @@ if match:
     fermion_out = cp.zeros(size, dtype=cp.complex64)
     print("Fermion out:", fermion_out)
     print("Fermion out data:", fermion_out.data)
-    qcu.applyWilsonCgQcu(fermion_out, fermion_in, gauge, params, argv)
+    qcu.applyWilsonCgQcu(fermion_out, fermion_in, gauge, set_ptrs, params)
     fermion_out_filename = fermion_out_filename.replace("quda", "pyqcu")
     fermion_out_filename = fermion_out_filename.replace("bistabcg", "cg")
     fermion_out.tofile(fermion_out_filename)
     print("Fermion out diff:", cp.linalg.norm(fermion_out -
           quda_fermion_out)/cp.linalg.norm(quda_fermion_out))
+    qcu.applyEndQcu(set_ptrs, params)
+    print("params:", params)
+    print("argv:", argv)
+    print("set_ptrs:", set_ptrs)
 else:
     print("No match found!")
