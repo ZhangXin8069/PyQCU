@@ -12,6 +12,8 @@ namespace qcu
         int lat_2dim[_2DIM_];
         int lat_3dim[_3DIM_];
         int lat_4dim;
+        int lat_3dim_C[_3DIM_];
+        int lat_4dim_C;
         int lat_3dim_Half_SC[_3DIM_];
         int lat_3dim_SC[_3DIM_];
         int lat_4dim_SC;
@@ -69,6 +71,11 @@ namespace qcu
             host_params[_MAX_ITER_] = static_cast<int *>(_params)[_MAX_ITER_];
             host_params[_SET_INDEX_] = static_cast<int *>(_params)[_SET_INDEX_];
             host_params[_SET_PLAN_] = static_cast<int *>(_params)[_SET_PLAN_];
+            if (host_params[_SET_PLAN_] == _SET_PLAN_N_1_) // just for laplacian
+            {
+                printf("just for laplacian, lat_t = 1, no even-odd\n");
+                host_params[_LAT_T_] = 1;
+            }
             host_argv[_MASS_] = static_cast<T *>(_argv)[_MASS_];
             host_argv[_TOL_] = static_cast<T *>(_argv)[_TOL_];
         }
@@ -133,13 +140,15 @@ namespace qcu
                     gridDim_3dim[_XYZ_] = lat_3dim[_XYZ_] / _BLOCK_SIZE_;
                     lat_4dim = lat_3dim[_XYZ_] * host_params[_LAT_T_];
                     host_params[_LAT_XYZT_] = lat_4dim;
+                    lat_4dim_C = lat_4dim * _LAT_C_;
                     lat_4dim_SC = lat_4dim * _LAT_SC_;
                     lat_4dim_DCC = lat_4dim * _LAT_DCC_;
                     gridDim = lat_4dim / _BLOCK_SIZE_;
                     for (int i = 0; i < _DIM_; i++)
                     {
+                        lat_3dim_C[i] = lat_3dim[i] * _LAT_C_;
                         lat_3dim_Half_SC[i] = lat_3dim[i] * _LAT_HALF_SC_;
-                        lat_3dim_SC[i] = lat_3dim_Half_SC[i] * 2;
+                        lat_3dim_SC[i] = lat_3dim[i] * _LAT_SC_;
                     }
                 }
                 { // give basic cuda setup
@@ -189,8 +198,61 @@ namespace qcu
                     give_param<T><<<1, 1, 0, stream>>>(device_params_odd_dag, _DAGGER_, _USE_);
                 }
             }
-            if (host_params[_SET_PLAN_] >= _SET_PLAN0_)
-            { // for wilson dslash
+            if (host_params[_SET_PLAN_] == _SET_PLAN_N_1_) // just for laplacian
+            {
+                for (int i = 0; i < _DIM_; i++)
+                { // give cuda setup
+                    checkCudaErrors(
+                        cudaStreamCreateWithFlags(&stream_dims[i], cudaStreamNonBlocking));
+                }
+                for (int i = 0; i < _DIM_; i++)
+                { // give memory malloc
+                    checkCudaErrors(cudaMallocAsync(
+                        &device_send_vec[i * _BF_],
+                        lat_3dim_C[i] * sizeof(LatticeComplex<T>), stream));
+                    checkCudaErrors(cudaMallocAsync(
+                        &device_send_vec[i * _BF_ + 1],
+                        lat_3dim_C[i] * sizeof(LatticeComplex<T>), stream));
+                    checkCudaErrors(cudaMallocAsync(
+                        &device_recv_vec[i * _BF_],
+                        lat_3dim_C[i] * sizeof(LatticeComplex<T>), stream));
+                    checkCudaErrors(cudaMallocAsync(
+                        &device_recv_vec[i * _BF_ + 1],
+                        lat_3dim_C[i] * sizeof(LatticeComplex<T>), stream));
+                    checkCudaErrors(cudaMallocHost(
+                        &host_send_vec[i * _BF_],
+                        lat_3dim_C[i] * sizeof(LatticeComplex<T>)));
+                    checkCudaErrors(cudaMallocHost(
+                        &host_send_vec[i * _BF_ + 1],
+                        lat_3dim_C[i] * sizeof(LatticeComplex<T>)));
+                    checkCudaErrors(cudaMallocHost(
+                        &host_recv_vec[i * _BF_],
+                        lat_3dim_C[i] * sizeof(LatticeComplex<T>)));
+                    checkCudaErrors(cudaMallocHost(
+                        &host_recv_vec[i * _BF_ + 1],
+                        lat_3dim_C[i] * sizeof(LatticeComplex<T>)));
+                }
+                { // give move wards
+                    move_backward(move_wards[_B_X_], grid_index_1dim[_X_],
+                                  host_params[_GRID_X_]);
+                    move_backward(move_wards[_B_Y_], grid_index_1dim[_Y_],
+                                  host_params[_GRID_Y_]);
+                    move_backward(move_wards[_B_Z_], grid_index_1dim[_Z_],
+                                  host_params[_GRID_Z_]);
+                    move_backward(move_wards[_B_T_], grid_index_1dim[_T_],
+                                  host_params[_GRID_T_]);
+                    move_forward(move_wards[_F_X_], grid_index_1dim[_X_],
+                                 host_params[_GRID_X_]);
+                    move_forward(move_wards[_F_Y_], grid_index_1dim[_Y_],
+                                 host_params[_GRID_Y_]);
+                    move_forward(move_wards[_F_Z_], grid_index_1dim[_Z_],
+                                 host_params[_GRID_Z_]);
+                    move_forward(move_wards[_F_T_], grid_index_1dim[_T_],
+                                 host_params[_GRID_T_]);
+                }
+            }
+            if (host_params[_SET_PLAN_] >= _SET_PLAN0_) // for wilson dslash
+            {
                 for (int i = 0; i < _DIM_; i++)
                 { // give cuda setup
                     checkCudaErrors(
@@ -242,7 +304,7 @@ namespace qcu
                                  host_params[_GRID_T_]);
                 }
             }
-            if (host_params[_SET_PLAN_] >= _SET_PLAN1_) // for wilson bistabcg and cg
+            if (host_params[_SET_PLAN_] == _SET_PLAN1_) // just for wilson bistabcg and cg
             {
                 for (int i = 0; i < _DIM_; i++)
                 { // give cuda setup
@@ -406,6 +468,10 @@ namespace qcu
                     }
                 }
             }
+            if (host_params[_SET_PLAN_] == _SET_PLAN3_) // just for clover bitbcg and cg
+            {
+                // pass
+            }
             { // init end
                 checkCudaErrors(cudaStreamSynchronize(stream));
                 // _print();
@@ -442,6 +508,22 @@ namespace qcu
             checkCudaErrors(cudaFreeAsync(device_params_odd_no_dag, stream));
             checkCudaErrors(cudaFreeAsync(device_params_even_dag, stream));
             checkCudaErrors(cudaFreeAsync(device_params_odd_dag, stream));
+            if (host_params[_SET_PLAN_] == _SET_PLAN_N_1_) // just for laplacian
+            {
+                for (int i = 0; i < _DIM_; i++)
+                {
+                    checkCudaErrors(cudaStreamSynchronize(stream_dims[i]));
+                    checkCudaErrors(cudaStreamDestroy(stream_dims[i]));
+                    checkCudaErrors(cudaFreeAsync(device_send_vec[i * _BF_], stream));
+                    checkCudaErrors(cudaFreeAsync(device_send_vec[i * _BF_ + 1], stream));
+                    checkCudaErrors(cudaFreeAsync(device_recv_vec[i * _BF_], stream));
+                    checkCudaErrors(cudaFreeAsync(device_recv_vec[i * _BF_ + 1], stream));
+                    checkCudaErrors(cudaFreeHost(host_send_vec[i * _BF_]));
+                    checkCudaErrors(cudaFreeHost(host_send_vec[i * _BF_ + 1]));
+                    checkCudaErrors(cudaFreeHost(host_recv_vec[i * _BF_]));
+                    checkCudaErrors(cudaFreeHost(host_recv_vec[i * _BF_ + 1]));
+                }
+            }
             if (host_params[_SET_PLAN_] >= _SET_PLAN0_) // for wilson dslash
             {
                 for (int i = 0; i < _DIM_; i++)
@@ -458,7 +540,7 @@ namespace qcu
                     checkCudaErrors(cudaFreeHost(host_recv_vec[i * _BF_ + 1]));
                 }
             }
-            if (host_params[_SET_PLAN_] >= _SET_PLAN1_) // for wilson bistabcg and cg
+            if (host_params[_SET_PLAN_] == _SET_PLAN1_) // just for wilson bistabcg and cg
             {
                 for (int i = 0; i < _DIM_; i++)
                 {
@@ -509,6 +591,10 @@ namespace qcu
                     free(host_u_2dim_send_vec[i * _BF_ * _BF_ + 3]);
                     free(host_u_2dim_recv_vec[i * _BF_ * _BF_ + 3]);
                 }
+            }
+            if (host_params[_SET_PLAN_] == _SET_PLAN3_) // just for clover bitbcg and cg
+            {
+                // pass
             }
             { // end end
                 CUBLAS_CHECK(cublasDestroy(cublasH));

@@ -44,10 +44,11 @@ namespace qcu
 #define _DATA_TYPE_ 14
 #define _SET_INDEX_ 15
 #define _SET_PLAN_ 16
-#define _SET_PLAN0_ 0 // just for wilson dslash
-#define _SET_PLAN1_ 1 // just for wilson bistabcg and cg
-#define _SET_PLAN2_ 2 // just for clover dslash
-#define _SET_PLAN3_ 3
+#define _SET_PLAN_N_1_ -1 // just for laplacian
+#define _SET_PLAN0_ 0     // for wilson dslash
+#define _SET_PLAN1_ 1     // just for wilson bistabcg and cg
+#define _SET_PLAN2_ 2     // for clover dslash
+#define _SET_PLAN3_ 3     // just for clover bistabcg and cg
 #define _PARAMS_SIZE_ 17
 #define _MASS_ 0
 #define _TOL_ 1
@@ -303,6 +304,16 @@ namespace qcu
     U[7] = (U[2] * U[3] - U[0] * U[5]).conj();                       \
     U[8] = (U[0] * U[4] - U[1] * U[3]).conj();                       \
   }
+#define give_u_laplacian(U, tmp_U, lat_tzyx)   \
+  {                                            \
+    for (int i = 0; i < _LAT_2C_; i++)         \
+    {                                          \
+      U[i] = tmp_U[i * _LAT_D_ * lat_tzyx];    \
+    }                                          \
+    U[6] = (U[1] * U[5] - U[2] * U[4]).conj(); \
+    U[7] = (U[2] * U[3] - U[0] * U[5]).conj(); \
+    U[8] = (U[0] * U[4] - U[1] * U[3]).conj(); \
+  }
 #define get_src(src, origin_src, lat_tzyx) \
   {                                        \
     for (int i = 0; i < _LAT_SC_; i++)     \
@@ -310,12 +321,26 @@ namespace qcu
       src[i] = origin_src[i * lat_tzyx];   \
     }                                      \
   }
+#define get_src_laplacian(src, origin_src, lat_tzyx) \
+  {                                                  \
+    for (int i = 0; i < _LAT_C_; i++)                \
+    {                                                \
+      src[i] = origin_src[i * lat_tzyx];             \
+    }                                                \
+  }
 #define give_dest(origin_dest, dest, lat_tzyx) \
   {                                            \
     for (int i = 0; i < _LAT_SC_; i++)         \
     {                                          \
       origin_dest[i * lat_tzyx] = dest[i];     \
     }                                          \
+  }
+#define give_dest_laplacian(origin_dest, dest, lat_tzyx) \
+  {                                                      \
+    for (int i = 0; i < _LAT_C_; i++)                    \
+    {                                                    \
+      origin_dest[i * lat_tzyx] = dest[i];               \
+    }                                                    \
   }
 #define give_send(origin_send, send, lat_3dim) \
   {                                            \
@@ -331,6 +356,13 @@ namespace qcu
       origin_send[i * lat_3dim] = send[i];          \
     }                                               \
   }
+#define give_send_laplacian(origin_send, send, lat_3dim) \
+  {                                                      \
+    for (int i = 0; i < _LAT_C_; i++)                    \
+    {                                                    \
+      origin_send[i * lat_3dim] = send[i];               \
+    }                                                    \
+  }
 #define add_dest(origin_dest, dest, lat_tzyx) \
   {                                           \
     for (int i = 0; i < _LAT_SC_; i++)        \
@@ -345,12 +377,26 @@ namespace qcu
       origin_dest[i * lat_tzyx] += dest[i];        \
     }                                              \
   }
+#define add_dest_laplacian(origin_dest, dest, lat_tzyx) \
+  {                                                     \
+    for (int i = 0; i < _LAT_C_; i++)                   \
+    {                                                   \
+      origin_dest[i * lat_tzyx] += dest[i];             \
+    }                                                   \
+  }
 #define get_recv(recv, origin_recv, lat_3dim) \
   {                                           \
     for (int i = 0; i < _LAT_HALF_SC_; i++)   \
     {                                         \
       recv[i] = origin_recv[i * lat_3dim];    \
     }                                         \
+  }
+#define get_recv_laplacian(recv, origin_recv, lat_3dim) \
+  {                                                     \
+    for (int i = 0; i < _LAT_C_; i++)                   \
+    {                                                   \
+      recv[i] = origin_recv[i * lat_3dim];              \
+    }                                                   \
   }
 #define give_clr(origin_clr, clr, lat_tzyx) \
   {                                         \
