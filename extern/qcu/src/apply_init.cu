@@ -33,7 +33,8 @@ void applyEndQcu(long long _set_ptrs, long long _params)
     void *params = (void *)_params;
     int set_index = static_cast<int *>(params)[_SET_INDEX_];
     // end for lattice_set
-      LatticeSet<T> *set_ptr = static_cast<LatticeSet<T> *>((void *)(static_cast<long long *>(set_ptrs)[set_index]));    auto start = std::chrono::high_resolution_clock::now();
+    LatticeSet<T> *set_ptr = static_cast<LatticeSet<T> *>((void *)(static_cast<long long *>(set_ptrs)[set_index]));
+    auto start = std::chrono::high_resolution_clock::now();
     set_ptr->_print();
     set_ptr->end();
     printf("set_ptr:%p\n", set_ptr);

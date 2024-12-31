@@ -164,7 +164,7 @@ namespace qcu
 #define get_filename(filename, param, parity, grid) \
   {                                                 \
     int i = 0;                                      \
-    int _[_PARAMS_SIZE_];                             \
+    int _[_PARAMS_SIZE_];                           \
     std::string segment;                            \
     std::cout << filename.str() << std::endl;       \
     while (std::getline(filename, segment, '-'))    \

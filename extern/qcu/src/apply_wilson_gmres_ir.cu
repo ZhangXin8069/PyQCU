@@ -11,7 +11,7 @@ void applyWilsonGmresIrQcu(long long _fermion_out, long long _fermion_in, long l
   void *set_ptrs = (void *)_set_ptrs;
   void *params = (void *)_params;
   int set_index = static_cast<int *>(params)[_SET_INDEX_];
-    LatticeSet<T> *set_ptr = static_cast<LatticeSet<T> *>((void *)(static_cast<long long *>(set_ptrs)[set_index]));  // define for apply_wilson_gmres_ir
+  LatticeSet<T> *set_ptr = static_cast<LatticeSet<T> *>((void *)(static_cast<long long *>(set_ptrs)[set_index])); // define for apply_wilson_gmres_ir
   // dptzyxcc2ccdptzyx<T>(gauge, &_set);
   // ptzyxsc2psctzyx<T>(fermion_in, &_set);
   // ptzyxsc2psctzyx<T>(fermion_out, &_set);

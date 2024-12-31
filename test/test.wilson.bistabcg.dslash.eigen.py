@@ -45,7 +45,8 @@ if match:
     fermion_out = cp.zeros(size, dtype=cp.complex64)
     print("Fermion out:", fermion_out)
     print("Fermion out data:", fermion_out.data)
-    qcu.applyWilsonBistacbDslashQcu(fermion_out, fermion_in, gauge, set_ptrs, params)
+    qcu.applyWilsonBistacbDslashQcu(
+        fermion_out, fermion_in, gauge, set_ptrs, params)
     fermion_out_filename = fermion_out_filename.replace("quda", "pyqcu")
     fermion_out.tofile(fermion_out_filename)
     print("Fermion out diff:", cp.linalg.norm(fermion_out -
