@@ -12,7 +12,6 @@ namespace qcu
   template <typename T>
   struct LatticeArnoldi
   {
-   
-  };
+    };
 }
 #endif
