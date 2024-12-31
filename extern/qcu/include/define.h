@@ -126,6 +126,7 @@ namespace qcu
 #define _EVEN_ 0
 #define _ODD_ 1
 #define _EVEN_ODD_ 2
+#define _LAT_P_ 2
 #define _LAT_C_ 3
 #define _LAT_S_ 4
 #define _LAT_CC_ 9
