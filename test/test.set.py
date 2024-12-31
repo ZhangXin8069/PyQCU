@@ -46,7 +46,8 @@ if match:
     fermion_out = cp.zeros(size, dtype=cp.complex64)
     print("Fermion out:", fermion_out)
     print("Fermion out data:", fermion_out.data)
-    qcu.applyWilsonBistabCgQcu(fermion_out, fermion_in, gauge, set_ptrs, params)
+    qcu.applyWilsonBistabCgQcu(
+        fermion_out, fermion_in, gauge, set_ptrs, params)
     fermion_out_filename = fermion_out_filename.replace("quda", "pyqcu")
     fermion_out_filename = fermion_out_filename.replace("bistabcg", "cg")
     fermion_out.tofile(fermion_out_filename)
