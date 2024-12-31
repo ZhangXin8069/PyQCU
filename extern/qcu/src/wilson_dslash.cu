@@ -44,6 +44,10 @@ namespace qcu
     LatticeComplex<T> U[_LAT_CC_];
     LatticeComplex<T> src[_LAT_SC_];
     LatticeComplex<T> dest[_LAT_SC_];
+    for (int i = 0; i < _LAT_SC_; i++)
+    {
+      dest[i] = zero;
+    }
     // just wilson(Sum part)
 #ifdef __X__
     {   // x part
@@ -301,6 +305,10 @@ namespace qcu
     LatticeComplex<T> U[_LAT_CC_];
     LatticeComplex<T> src[_LAT_SC_];
     LatticeComplex<T> dest[_LAT_SC_];
+    for (int i = 0; i < _LAT_SC_; i++)
+    {
+      dest[i] = zero;
+    }
     // just wilson(Sum part)
 #ifdef __X__
     {   // x part
@@ -554,6 +562,10 @@ namespace qcu
     LatticeComplex<T> U[_LAT_CC_];
     LatticeComplex<T> src[_LAT_SC_];
     LatticeComplex<T> dest[_LAT_SC_];
+    for (int i = 0; i < _LAT_SC_; i++)
+    {
+      dest[i] = zero;
+    }
     LatticeComplex<T> b_x_send_vec[_LAT_HALF_SC_];
     LatticeComplex<T> f_x_send_vec[_LAT_HALF_SC_];
     LatticeComplex<T> *origin_U;
@@ -657,6 +669,10 @@ namespace qcu
     LatticeComplex<T> tmp1(0.0, 0.0);
     LatticeComplex<T> U[_LAT_CC_];
     LatticeComplex<T> dest[_LAT_SC_];
+    for (int i = 0; i < _LAT_SC_; i++)
+    {
+      dest[i] = zero;
+    }
     LatticeComplex<T> b_x_recv_vec[_LAT_HALF_SC_];
     LatticeComplex<T> f_x_recv_vec[_LAT_HALF_SC_]; // needed
     LatticeComplex<T> *origin_U;
@@ -687,7 +703,7 @@ namespace qcu
     add_dest_x(origin_dest, dest, lat_tzyx, (move == lat_x - 1)); // even-odd
     for (int i = 0; i < _LAT_SC_; i++)
     {
-      dest[i] = zero;
+      dest[i] = zero; // needed
     }
     {
       x = lat_x - 1; // f_x
@@ -758,6 +774,10 @@ namespace qcu
     LatticeComplex<T> U[_LAT_CC_];
     LatticeComplex<T> src[_LAT_SC_];
     LatticeComplex<T> dest[_LAT_SC_];
+    for (int i = 0; i < _LAT_SC_; i++)
+    {
+      dest[i] = zero;
+    }
     LatticeComplex<T> b_y_send_vec[_LAT_HALF_SC_];
     LatticeComplex<T> f_y_send_vec[_LAT_HALF_SC_];
     LatticeComplex<T> *origin_U;
@@ -854,6 +874,10 @@ namespace qcu
     LatticeComplex<T> tmp1(0.0, 0.0);
     LatticeComplex<T> U[_LAT_CC_];
     LatticeComplex<T> dest[_LAT_SC_];
+    for (int i = 0; i < _LAT_SC_; i++)
+    {
+      dest[i] = zero;
+    }
     LatticeComplex<T> b_y_recv_vec[_LAT_HALF_SC_];
     LatticeComplex<T> f_y_recv_vec[_LAT_HALF_SC_]; // needed
     LatticeComplex<T> *origin_U;
@@ -881,12 +905,12 @@ namespace qcu
         dest[c0 + _LAT_3C_] -= b_y_recv_vec[c0].multi_none(dagger_val);
       }
     }
-    // just add
-    add_dest(origin_dest, dest, lat_tzyx);
-    for (int i = 0; i < _LAT_SC_; i++)
-    {
-      dest[i] = zero;
-    }
+    // // just add
+    // add_dest(origin_dest, dest, lat_tzyx);
+    // for (int i = 0; i < _LAT_SC_; i++)
+    // {
+    //   dest[i] = zero;
+    // }
     {
       y = lat_y - 1; // f_y
       origin_U = ((static_cast<LatticeComplex<T> *>(device_U)) +
@@ -956,6 +980,10 @@ namespace qcu
     LatticeComplex<T> U[_LAT_CC_];
     LatticeComplex<T> src[_LAT_SC_];
     LatticeComplex<T> dest[_LAT_SC_];
+    for (int i = 0; i < _LAT_SC_; i++)
+    {
+      dest[i] = zero;
+    }
     LatticeComplex<T> b_z_send_vec[_LAT_HALF_SC_];
     LatticeComplex<T> f_z_send_vec[_LAT_HALF_SC_];
     LatticeComplex<T> *origin_U;
@@ -1054,6 +1082,10 @@ namespace qcu
     LatticeComplex<T> tmp1(0.0, 0.0);
     LatticeComplex<T> U[_LAT_CC_];
     LatticeComplex<T> dest[_LAT_SC_];
+    for (int i = 0; i < _LAT_SC_; i++)
+    {
+      dest[i] = zero;
+    }
     LatticeComplex<T> b_z_recv_vec[_LAT_HALF_SC_];
     LatticeComplex<T> f_z_recv_vec[_LAT_HALF_SC_]; // needed
     LatticeComplex<T> *origin_U;
@@ -1081,12 +1113,12 @@ namespace qcu
         dest[c0 + _LAT_3C_] += b_z_recv_vec[c0 + _LAT_1C_].multi_i(dagger_val);
       }
     }
-    // just add
-    add_dest(origin_dest, dest, lat_tzyx);
-    for (int i = 0; i < _LAT_SC_; i++)
-    {
-      dest[i] = zero;
-    }
+    // // just add
+    // add_dest(origin_dest, dest, lat_tzyx);
+    // for (int i = 0; i < _LAT_SC_; i++)
+    // {
+    //   dest[i] = zero;
+    // }
     {
       z = lat_z - 1; // f_z
       origin_U = ((static_cast<LatticeComplex<T> *>(device_U)) +
@@ -1157,6 +1189,10 @@ namespace qcu
     LatticeComplex<T> U[_LAT_CC_];
     LatticeComplex<T> src[_LAT_SC_];
     LatticeComplex<T> dest[_LAT_SC_];
+    for (int i = 0; i < _LAT_SC_; i++)
+    {
+      dest[i] = zero;
+    }
     LatticeComplex<T> b_t_send_vec[_LAT_HALF_SC_];
     LatticeComplex<T> f_t_send_vec[_LAT_HALF_SC_];
     LatticeComplex<T> *origin_U;
@@ -1254,6 +1290,10 @@ namespace qcu
     LatticeComplex<T> tmp1(0.0, 0.0);
     LatticeComplex<T> U[_LAT_CC_];
     LatticeComplex<T> dest[_LAT_SC_];
+    for (int i = 0; i < _LAT_SC_; i++)
+    {
+      dest[i] = zero;
+    }
     LatticeComplex<T> b_t_recv_vec[_LAT_HALF_SC_];
     LatticeComplex<T> f_t_recv_vec[_LAT_HALF_SC_]; // needed
     LatticeComplex<T> *origin_U;
@@ -1281,12 +1321,12 @@ namespace qcu
         dest[c0 + _LAT_3C_] += b_t_recv_vec[c0 + _LAT_1C_].multi_none(dagger_val);
       }
     }
-    // just add
-    add_dest(origin_dest, dest, lat_tzyx);
-    for (int i = 0; i < _LAT_SC_; i++)
-    {
-      dest[i] = zero;
-    }
+    // // just add
+    // add_dest(origin_dest, dest, lat_tzyx);
+    // for (int i = 0; i < _LAT_SC_; i++)
+    // {
+    //   dest[i] = zero;
+    // }
     {
       t = lat_t - 1; // f_t
       origin_U = ((static_cast<LatticeComplex<T> *>(device_U)) +
