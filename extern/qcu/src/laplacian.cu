@@ -15,7 +15,7 @@ namespace qcu
     int lat_x = params[_LAT_X_];
     int lat_y = params[_LAT_Y_];
     int lat_z = params[_LAT_Z_];
-    int lat_t = params[_LAT_T_]; // in laplacian, lat_t = 1
+    // int lat_t = params[_LAT_T_]; // in laplacian, lat_t = 1
     int lat_tzyx = params[_LAT_XYZT_];
     int move;
     move = lat_x * lat_y * lat_z;
@@ -724,7 +724,7 @@ namespace qcu
                                                     void *device_params,
                                                     void *device_b_x_send_vec,
                                                     void *device_f_x_send_vec);
-  template __global__ void laplacian_x_recv<double>(void *device_U, void *device_dest,
+  template __global__ void laplacian_x_recv<double>(void *device_dest,
                                                     void *device_params,
                                                     void *device_b_x_recv_vec,
                                                     void *device_f_x_recv_vec);
@@ -732,7 +732,7 @@ namespace qcu
                                                     void *device_params,
                                                     void *device_b_y_send_vec,
                                                     void *device_f_y_send_vec);
-  template __global__ void laplacian_y_recv<double>(void *device_U, void *device_dest,
+  template __global__ void laplacian_y_recv<double>(void *device_dest,
                                                     void *device_params,
                                                     void *device_b_y_recv_vec,
                                                     void *device_f_y_recv_vec);
@@ -740,7 +740,7 @@ namespace qcu
                                                     void *device_params,
                                                     void *device_b_z_send_vec,
                                                     void *device_f_z_send_vec);
-  template __global__ void laplacian_z_recv<double>(void *device_U, void *device_dest,
+  template __global__ void laplacian_z_recv<double>(void *device_dest,
                                                     void *device_params,
                                                     void *device_b_z_recv_vec,
                                                     void *device_f_z_recv_vec);
@@ -751,7 +751,7 @@ namespace qcu
                                                    void *device_params,
                                                    void *device_b_x_send_vec,
                                                    void *device_f_x_send_vec);
-  template __global__ void laplacian_x_recv<float>(void *device_U, void *device_dest,
+  template __global__ void laplacian_x_recv<float>(void *device_dest,
                                                    void *device_params,
                                                    void *device_b_x_recv_vec,
                                                    void *device_f_x_recv_vec);
@@ -759,7 +759,7 @@ namespace qcu
                                                    void *device_params,
                                                    void *device_b_y_send_vec,
                                                    void *device_f_y_send_vec);
-  template __global__ void laplacian_y_recv<float>(void *device_U, void *device_dest,
+  template __global__ void laplacian_y_recv<float>(void *device_dest,
                                                    void *device_params,
                                                    void *device_b_y_recv_vec,
                                                    void *device_f_y_recv_vec);
@@ -767,7 +767,7 @@ namespace qcu
                                                    void *device_params,
                                                    void *device_b_z_send_vec,
                                                    void *device_f_z_send_vec);
-  template __global__ void laplacian_z_recv<float>(void *device_U, void *device_dest,
+  template __global__ void laplacian_z_recv<float>(void *device_dest,
                                                    void *device_params,
                                                    void *device_b_z_recv_vec,
                                                    void *device_f_z_recv_vec);
