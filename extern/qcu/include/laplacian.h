@@ -1,5 +1,5 @@
-#ifndef _laplacian_H
-#define _laplacian_H
+#ifndef _LAPLACIAN_H
+#define _LAPLACIAN_H
 namespace qcu
 {
   template <typename T>
