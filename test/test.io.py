@@ -40,3 +40,4 @@ if rank == 0:
     params[_GRID_T_] = 1
     params[_NODE_RANK_] = rank
     params[_NODE_SIZE_] = size
+    # gauge=gauge.reshape((params[_LAT_X_], params[_LAT_Y_], params[_LAT_Z_], params[_LAT_T_], _LAT_DCC_))
