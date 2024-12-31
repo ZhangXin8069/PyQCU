@@ -83,7 +83,7 @@ namespace qcu
           // edge recv part
           laplacian_x_recv<T><<<set_ptr->gridDim_3dim[_X_], set_ptr->blockDim, 0,
                                 set_ptr->stream>>>(
-              gauge, laplacian_out, _device_params, set_ptr->device_send_vec[_F_X_],
+              laplacian_out, _device_params, set_ptr->device_send_vec[_F_X_],
               set_ptr->device_send_vec[_B_X_]);
         }
         else
@@ -108,7 +108,7 @@ namespace qcu
           // edge recv part
           laplacian_y_recv<T><<<set_ptr->gridDim_3dim[_Y_], set_ptr->blockDim, 0,
                                 set_ptr->stream>>>(
-              gauge, laplacian_out, _device_params, set_ptr->device_send_vec[_F_Y_],
+              laplacian_out, _device_params, set_ptr->device_send_vec[_F_Y_],
               set_ptr->device_send_vec[_B_Y_]);
         }
         else
@@ -133,7 +133,7 @@ namespace qcu
           // edge recv part
           laplacian_z_recv<T><<<set_ptr->gridDim_3dim[_Z_], set_ptr->blockDim, 0,
                                 set_ptr->stream>>>(
-              gauge, laplacian_out, _device_params, set_ptr->device_send_vec[_F_Z_],
+              laplacian_out, _device_params, set_ptr->device_send_vec[_F_Z_],
               set_ptr->device_send_vec[_B_Z_]);
         }
         else
