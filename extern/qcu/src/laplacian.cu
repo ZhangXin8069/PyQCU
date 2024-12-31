@@ -333,8 +333,6 @@ namespace qcu
     // }
     {
       x = lat_x - 1; // f_x
-      origin_U = ((static_cast<LatticeComplex<T> *>(device_U)) +
-                  (((t * lat_z + z) * lat_y + y) * lat_x + x));
       origin_dest = ((static_cast<LatticeComplex<T> *>(device_dest)) +
                      (((t * lat_z + z) * lat_y + y) * lat_x + x));
       origin_f_x_recv_vec =
@@ -345,18 +343,9 @@ namespace qcu
       move_forward(move, x, lat_x);
       // recv in x+1 way
       get_recv_laplacian(f_x_recv_vec, origin_f_x_recv_vec, lat_tzyx / lat_x);
-      tmp_U = (origin_U + (_X_ * _EVEN_ODD_ + tmp) * lat_tzyx);
-      give_u_laplacian(U, tmp_U, lat_tzyx);
+      for (int c0 = 0; c0 < _LAT_C_; c0++)
       {
-        for (int c0 = 0; c0 < _LAT_C_; c0++)
-        {
-          tmp0 = zero;
-          for (int c1 = 0; c1 < _LAT_C_; c1++)
-          {
-            tmp0 += f_x_recv_vec[c1] * U[c0 * _LAT_C_ + c1];
-          }
-          dest[c0] += tmp0;
-        }
+        dest[c0] += f_x_recv_vec[c0];
       }
     } // just add
     add_dest_laplacian(origin_dest, dest, lat_tzyx);
@@ -527,8 +516,6 @@ namespace qcu
     // }
     {
       y = lat_y - 1; // f_y
-      origin_U = ((static_cast<LatticeComplex<T> *>(device_U)) +
-                  (((t * lat_z + z) * lat_y + y) * lat_x + x));
       origin_dest = ((static_cast<LatticeComplex<T> *>(device_dest)) +
                      (((t * lat_z + z) * lat_y + y) * lat_x + x));
       origin_f_y_recv_vec =
@@ -539,18 +526,9 @@ namespace qcu
       // move_forward(move, y, lat_y);
       // recv in y+1 way
       get_recv_laplacian(f_y_recv_vec, origin_f_y_recv_vec, lat_tzyx / lat_y);
-      tmp_U = (origin_U + _Y_ * lat_tzyx);
-      give_u_laplacian(U, tmp_U, lat_tzyx);
+      for (int c0 = 0; c0 < _LAT_C_; c0++)
       {
-        for (int c0 = 0; c0 < _LAT_C_; c0++)
-        {
-          tmp0 = zero;
-          for (int c1 = 0; c1 < _LAT_C_; c1++)
-          {
-            tmp0 += f_y_recv_vec[c1] * U[c0 * _LAT_C_ + c1];
-          }
-          dest[c0] += tmp0;
-        }
+        dest[c0] += f_y_recv_vec[c0];
       }
     } // just add
     add_dest_laplacian(origin_dest, dest, lat_tzyx);
@@ -740,8 +718,6 @@ namespace qcu
 #endif
   }
   //@@@CUDA_TEMPLATE_FOR_DEVICE@@@
-  template __global__ void laplacian<double>(void *device_U, void *device_src,
-                                             void *device_dest, void *device_params);
   template __global__ void laplacian_inside<double>(void *device_U, void *device_src,
                                                     void *device_dest, void *device_params);
   template __global__ void laplacian_x_send<double>(void *device_U, void *device_src,
@@ -769,8 +745,6 @@ namespace qcu
                                                     void *device_b_z_recv_vec,
                                                     void *device_f_z_recv_vec);
   //@@@CUDA_TEMPLATE_FOR_DEVICE@@@
-  template __global__ void laplacian<float>(void *device_U, void *device_src,
-                                            void *device_dest, void *device_params);
   template __global__ void laplacian_inside<float>(void *device_U, void *device_src,
                                                    void *device_dest, void *device_params);
   template __global__ void laplacian_x_send<float>(void *device_U, void *device_src,
