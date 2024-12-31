@@ -6,6 +6,7 @@ rank = comm.Get_rank()
 size = comm.Get_size()
 # Copy from ../extern/qcu/include/defin.h
 _BLOCK_SIZE_ = 128
+_MAIN_RANK_ = 0
 _a_ = 0
 _b_ = 1
 _c_ = 2

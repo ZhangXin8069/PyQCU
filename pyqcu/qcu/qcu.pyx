@@ -73,3 +73,10 @@ def applyWilsonGmresIrQcu(_fermion_out, _fermion_in, _gauge, _set_ptrs, _params)
     set_ptrs = _set_ptrs.ctypes.data
     params = _params.ctypes.data
     qcu.applyWilsonGmresIrQcu(fermion_out, fermion_in, gauge, set_ptrs, params)
+def applyLaplacianQcu(_laplacian_out, _laplacian_in, _gauge, _set_ptrs, _params):
+    laplacian_out = _laplacian_out.data.ptr
+    laplacian_in = _laplacian_in.data.ptr
+    gauge = _gauge.data.ptr
+    set_ptrs = _set_ptrs.ctypes.data
+    params = _params.ctypes.data
+    qcu.applyLaplacianQcu(laplacian_out, laplacian_in, gauge, set_ptrs, params)
