@@ -128,6 +128,7 @@ _XYZ_ = 3
 _EVEN_ = 0
 _ODD_ = 1
 _EVEN_ODD_ = 2
+_LAT_P_ = 2
 _LAT_C_ = 3
 _LAT_S_ = 4
 _LAT_CC_ = 9
