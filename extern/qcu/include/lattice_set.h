@@ -63,6 +63,7 @@ namespace qcu
             host_params[_LAT_Y_] = static_cast<int *>(_params)[_LAT_Y_];
             host_params[_LAT_Z_] = static_cast<int *>(_params)[_LAT_Z_];
             host_params[_LAT_T_] = static_cast<int *>(_params)[_LAT_T_];
+            host_params[_LAT_XYZT_] = static_cast<int *>(_params)[_LAT_XYZT_]; // prepare for test input
             host_params[_GRID_X_] = static_cast<int *>(_params)[_GRID_X_];
             host_params[_GRID_Y_] = static_cast<int *>(_params)[_GRID_Y_];
             host_params[_GRID_Z_] = static_cast<int *>(_params)[_GRID_Z_];
@@ -139,6 +140,10 @@ namespace qcu
                     gridDim_3dim[_XYT_] = lat_3dim[_XYT_] / _BLOCK_SIZE_;
                     gridDim_3dim[_XYZ_] = lat_3dim[_XYZ_] / _BLOCK_SIZE_;
                     lat_4dim = lat_3dim[_XYZ_] * host_params[_LAT_T_];
+                    if (host_params[_LAT_XYZT_] / _EVEN_ODD_ != lat_4dim)
+                    {
+                        printf("error: host_params[_LAT_XYZT_](origin input) / _EVEN_ODD_ != lat_4dim, maybe the params input is wrong!\n"); // for test input
+                    }
                     host_params[_LAT_XYZT_] = lat_4dim;
                     lat_4dim_C = lat_4dim * _LAT_C_;
                     lat_4dim_SC = lat_4dim * _LAT_SC_;
@@ -474,11 +479,6 @@ namespace qcu
             }
             { // init end
                 checkCudaErrors(cudaStreamSynchronize(stream));
-                // _print();
-                printf(
-                    "lattice set init time:%.9lf "
-                    "sec\n",
-                    get_time() / 1e3);
             }
         }
         T kappa()
