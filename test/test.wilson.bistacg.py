@@ -1,59 +1,70 @@
-from pyqcu import qcu
-import cupy as cp
-import numpy as np
 import re
-from mpi4py import MPI
-comm = MPI.COMM_WORLD
-rank = comm.Get_rank()
-print('My rank is ', rank)
-gauge_filename = "quda_wilson-bistabcg-gauge_-32-32-32-32-1048576-1-1-1-1-0-0-1-0-f.bin"
-pattern = r"-(\d+)-(\d+)-(\d+)-(\d+)-(\d+)-(\d+)-(\d+)-(\d+)-(\d+)-(\d+)-(\d+)-(\d+)-(\d+)-"
-match = re.search(pattern, gauge_filename)
-if match:
-    param = [int(num) for num in match.groups()]
-    print("Extracted integers:", param)
-    param.append(1000)
-    param.append(5)
-    param.append(1)
-    params = np.array(param, dtype=np.int32)
-    print("NumPy Array:", params)
-    print("Numpy data pointer:", params.data)
-    argv = np.array([0, 1e-9], dtype=np.float32)
-    print("Argv:", argv)
-    print("Argv data pointer:", argv.data)
-    set_ptrs = np.array(params, dtype=np.int64)
-    print("Set ptrs:", set_ptrs)
-    print("Set ptrs data pointer:", set_ptrs.data)
-    qcu.applyInitQcu(set_ptrs, params, argv)
-    _LAT_XYZT_ = 4
-    _LAT_DCC_ = 36
-    _LAT_SC_ = 12
-    size = params[_LAT_XYZT_]*_LAT_DCC_
-    gauge_filename = gauge_filename.replace("gauge", "gauge")
-    gauge = cp.fromfile(gauge_filename, dtype=cp.complex64, count=size)
+import numpy as np
+import cupy as cp
+from pyqcu import define
+from pyqcu import io
+from pyqcu import qcu
+
+print('My rank is ', define.rank)
+if define.rank == 0:
+    params = np.array([0]*define._PARAMS_SIZE_, dtype=np.int32)
+    params[define._LAT_X_] = 32
+    params[define._LAT_Y_] = 32
+    params[define._LAT_Z_] = 32
+    params[define._LAT_T_] = 32
+    params[define._LAT_XYZT_] = 1048576
+    params[define._GRID_X_] = 1
+    params[define._GRID_Y_] = 1
+    params[define._GRID_Z_] = 1
+    params[define._GRID_T_] = 1
+    params[define._PARITY_] = 0
+    params[define._NODE_RANK_] = 0
+    params[define._NODE_SIZE_] = 1
+    params[define._DAGGER_] = 0
+    params[define._MAX_ITER_] = 1e3
+    params[define._DATA_TYPE_] = 0
+    params[define._SET_INDEX_] = 2
+    params[define._SET_PLAN_] = 1
+    argv = np.array([0.0]*define._ARGV_SIZE_, dtype=np.float32)
+    argv[define._MASS_] = 0.0
+    argv[define._TOL_] = 1e-9
+    print("Parameters:", params)
+    print("Arguments:", argv)
+    #############################
+    gauge_filename = f"quda_wilson-bistabcg-gauge_-{params[define._LAT_X_]}-{params[define._LAT_Y_]}-{params  [define._LAT_Z_]}-{params[define._LAT_T_]}-{params[define._LAT_XYZT_]}-{params[define._GRID_X_]}-{params[define._GRID_Y_]}-{params[define._GRID_Z_]}-{params[define._GRID_T_]}-{params[define._PARITY_]}-{params[define._NODE_RANK_]}-{params[define._NODE_SIZE_]}-{params[define._DAGGER_]}-f.bin"
+    print("Gauge filename:", gauge_filename)
+    gauge = cp.fromfile(gauge_filename, dtype=cp.complex64,
+                        count=params[define._LAT_XYZT_]*define._LAT_DCC_)
     print("Gauge:", gauge)
     print("Gauge data:", gauge.data)
-    size = params[_LAT_XYZT_]*_LAT_SC_
+    print("Gauge shape:", gauge.shape)
     fermion_in_filename = gauge_filename.replace("gauge", "fermion-in")
-    fermion_in = cp.fromfile(
-        fermion_in_filename, dtype=cp.complex64, count=size)
+    print("Fermion in filename:", fermion_in_filename)
+    fermion_in = cp.fromfile(fermion_in_filename, dtype=cp.complex64,
+                             count=params[define._LAT_XYZT_]*define._LAT_SC_)
     print("Fermion in:", fermion_in)
     print("Fermion in data:", fermion_in.data)
+    print("Fermion in shape:", fermion_in.shape)
     fermion_out_filename = gauge_filename.replace("gauge", "fermion-out")
-    quda_fermion_out = cp.fromfile(
-        fermion_out_filename, dtype=cp.complex64, count=size)
-    fermion_out = cp.zeros(size, dtype=cp.complex64)
+    print("Fermion out filename:", fermion_out_filename)
+    fermion_out = cp.zeros(
+        params[define._LAT_XYZT_]*define._LAT_SC_, dtype=cp.complex64)
     print("Fermion out:", fermion_out)
     print("Fermion out data:", fermion_out.data)
-    qcu.applyWilsonBistabCgQcu(
-        fermion_out, fermion_in, gauge, set_ptrs, params)
-    fermion_out_filename = fermion_out_filename.replace("quda", "pyqcu")
-    fermion_out.tofile(fermion_out_filename)
-    print("Fermion out diff:", cp.linalg.norm(fermion_out -
+    print("Fermion out shape:", fermion_out.shape)
+    #############################
+    set_ptrs = np.array(params, dtype=np.int64)
+    print("Set pointers:", set_ptrs)
+    print("Set pointers data:", set_ptrs.data)
+    qcu.applyInitQcu(set_ptrs, params, argv)
+    qcu.applyWilsonBistabCgQcu(fermion_out, fermion_in, gauge, set_ptrs, params)
+    print("Fermion out:", fermion_out)
+    print("Fermion out data:", fermion_out.data)
+    print("Fermion out shape:", fermion_out.shape)
+    quda_fermion_out = cp.fromfile(
+        fermion_out_filename, dtype=cp.complex64, count=params[define._LAT_XYZT_]*define._LAT_SC_)
+    print("QUDA Fermion out:", quda_fermion_out)
+    print("QUDA Fermion out data:", quda_fermion_out.data)
+    print("QUDA Fermion out shape:", quda_fermion_out.shape)
+    print("Difference:", cp.linalg.norm(fermion_out -
           quda_fermion_out)/cp.linalg.norm(quda_fermion_out))
-    qcu.applyEndQcu(set_ptrs, params)
-    print("params:", params)
-    print("argv:", argv)
-    print("set_ptrs:", set_ptrs)
-else:
-    print("No match found!")
