@@ -1,6 +1,7 @@
 import pyqcu.define as define
 import cupy as cp
-
+def array2xxx(array):
+    return array.reshape(array.size)
 
 def gauge2ccdptzyx(gauge, params):
     lat_t = params[define._LAT_T_]
