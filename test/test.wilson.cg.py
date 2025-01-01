@@ -31,7 +31,7 @@ if define.rank == 0:
     print("Parameters:", params)
     print("Arguments:", argv)
     #############################
-    gauge_filename = f"quda_wilson-cg-gauge_-{params[define._LAT_X_]}-{params[define._LAT_Y_]}-{params  [define._LAT_Z_]}-{params[define._LAT_T_]}-{params[define._LAT_XYZT_]}-{params[define._GRID_X_]}-{params[define._GRID_Y_]}-{params[define._GRID_Z_]}-{params[define._GRID_T_]}-{params[define._PARITY_]}-{params[define._NODE_RANK_]}-{params[define._NODE_SIZE_]}-{params[define._DAGGER_]}-f.bin"
+    gauge_filename = f"quda_wilson-bistabcg-gauge_-{params[define._LAT_X_]}-{params[define._LAT_Y_]}-{params  [define._LAT_Z_]}-{params[define._LAT_T_]}-{params[define._LAT_XYZT_]}-{params[define._GRID_X_]}-{params[define._GRID_Y_]}-{params[define._GRID_Z_]}-{params[define._GRID_T_]}-{params[define._PARITY_]}-{params[define._NODE_RANK_]}-{params[define._NODE_SIZE_]}-{params[define._DAGGER_]}-f.bin"
     print("Gauge filename:", gauge_filename)
     gauge = cp.fromfile(gauge_filename, dtype=cp.complex64,
                         count=params[define._LAT_XYZT_]*define._LAT_DCC_)
@@ -41,14 +41,14 @@ if define.rank == 0:
     fermion_in_filename = gauge_filename.replace("gauge", "fermion-in")
     print("Fermion in filename:", fermion_in_filename)
     fermion_in = cp.fromfile(fermion_in_filename, dtype=cp.complex64,
-                             count=params[define._LAT_XYZT_]*define._LAT_HALF_SC_)
+                             count=params[define._LAT_XYZT_]*define._LAT_SC_)
     print("Fermion in:", fermion_in)
     print("Fermion in data:", fermion_in.data)
     print("Fermion in shape:", fermion_in.shape)
     fermion_out_filename = gauge_filename.replace("gauge", "fermion-out")
     print("Fermion out filename:", fermion_out_filename)
     fermion_out = cp.zeros(
-        params[define._LAT_XYZT_]*define._LAT_HALF_SC_, dtype=cp.complex64)
+        params[define._LAT_XYZT_]*define._LAT_SC_, dtype=cp.complex64)
     print("Fermion out:", fermion_out)
     print("Fermion out data:", fermion_out.data)
     print("Fermion out shape:", fermion_out.shape)
@@ -62,7 +62,7 @@ if define.rank == 0:
     print("Fermion out data:", fermion_out.data)
     print("Fermion out shape:", fermion_out.shape)
     quda_fermion_out = cp.fromfile(
-        fermion_out_filename, dtype=cp.complex64, count=params[define._LAT_XYZT_]*define._LAT_HALF_SC_)
+        fermion_out_filename, dtype=cp.complex64, count=params[define._LAT_XYZT_]*define._LAT_SC_)
     print("QUDA Fermion out:", quda_fermion_out)
     print("QUDA Fermion out data:", quda_fermion_out.data)
     print("QUDA Fermion out shape:", quda_fermion_out.shape)
