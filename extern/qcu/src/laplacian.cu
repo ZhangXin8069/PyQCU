@@ -53,7 +53,7 @@ namespace qcu
         get_src_laplacian(src, tmp_src, lat_tzyx);
       }
       {
-        for (int c0 = 0; c0 < _LAT_C_; c0++)
+        for (int c0 = 0; c0 < _LAT_C_ * (move == -1); c0++)
         { // just inside
           tmp0 = zero;
           for (int c1 = 0; c1 < _LAT_C_; c1++)
@@ -72,7 +72,7 @@ namespace qcu
         get_src_laplacian(src, tmp_src, lat_tzyx);
       }
       {
-        for (int c0 = 0; c0 < _LAT_C_; c0++)
+        for (int c0 = 0; c0 < _LAT_C_ * (move == 1); c0++)
         { // just inside
           tmp0 = zero;
           for (int c1 = 0; c1 < _LAT_C_; c1++)
@@ -95,7 +95,7 @@ namespace qcu
         get_src_laplacian(src, tmp_src, lat_tzyx);
       }
       {
-        for (int c0 = 0; c0 < _LAT_C_; c0++)
+        for (int c0 = 0; c0 < _LAT_C_ * (move == -1); c0++)
         { // just inside
           tmp0 = zero;
           for (int c1 = 0; c1 < _LAT_C_; c1++)
@@ -114,7 +114,7 @@ namespace qcu
         get_src_laplacian(src, tmp_src, lat_tzyx);
       }
       {
-        for (int c0 = 0; c0 < _LAT_C_; c0++)
+        for (int c0 = 0; c0 < _LAT_C_ * (move == 1); c0++)
         { // just inside
           tmp0 = zero;
           for (int c1 = 0; c1 < _LAT_C_; c1++)
@@ -137,7 +137,7 @@ namespace qcu
         get_src_laplacian(src, tmp_src, lat_tzyx);
       }
       {
-        for (int c0 = 0; c0 < _LAT_C_; c0++)
+        for (int c0 = 0; c0 < _LAT_C_ * (move == -1); c0++)
         { // just inside
           tmp0 = zero;
           for (int c1 = 0; c1 < _LAT_C_; c1++)
@@ -156,7 +156,7 @@ namespace qcu
         get_src_laplacian(src, tmp_src, lat_tzyx);
       }
       {
-        for (int c0 = 0; c0 < _LAT_C_; c0++)
+        for (int c0 = 0; c0 < _LAT_C_ * (move == 1); c0++)
         { // just inside
           tmp0 = zero;
           for (int c1 = 0; c1 < _LAT_C_; c1++)
@@ -168,7 +168,7 @@ namespace qcu
       }
     }
 #endif
-    give_dest(origin_dest, dest, lat_tzyx);
+    give_dest_laplacian(origin_dest, dest, lat_tzyx);
   }
   template <typename T>
   __global__ void laplacian_x_send(void *device_U, void *device_src,
@@ -325,12 +325,12 @@ namespace qcu
         dest[c0] += b_x_recv_vec[c0];
       }
     }
-    // // just add
-    // add_dest_laplacian(origin_dest, dest, lat_tzyx);
-    // for (int i = 0; i < _LAT_C_; i++)
-    // {
-    //   dest[i] = zero;
-    // }
+    // just add
+    add_dest_laplacian(origin_dest, dest, lat_tzyx);
+    for (int i = 0; i < _LAT_C_; i++)
+    {
+      dest[i] = zero;
+    }
     {
       x = lat_x - 1; // f_x
       origin_dest = ((static_cast<LatticeComplex<T> *>(device_dest)) +
@@ -508,12 +508,12 @@ namespace qcu
         dest[c0] += b_y_recv_vec[c0];
       }
     }
-    // // just add
-    // add_dest_laplacian(origin_dest, dest, lat_tzyx);
-    // for (int i = 0; i < _LAT_C_; i++)
-    // {
-    //   dest[i] = zero;
-    // }
+    // just add
+    add_dest_laplacian(origin_dest, dest, lat_tzyx);
+    for (int i = 0; i < _LAT_C_; i++)
+    {
+      dest[i] = zero;
+    }
     {
       y = lat_y - 1; // f_y
       origin_dest = ((static_cast<LatticeComplex<T> *>(device_dest)) +
@@ -691,12 +691,12 @@ namespace qcu
         dest[c0] += b_z_recv_vec[c0];
       }
     }
-    // // just add
-    // add_dest_laplacian(origin_dest, dest, lat_tzyx);
-    // for (int i = 0; i < _LAT_C_; i++)
-    // {
-    //   dest[i] = zero;
-    // }
+    // just add
+    add_dest_laplacian(origin_dest, dest, lat_tzyx);
+    for (int i = 0; i < _LAT_C_; i++)
+    {
+      dest[i] = zero;
+    }
     {
       z = lat_z - 1; // f_z
       origin_dest = ((static_cast<LatticeComplex<T> *>(device_dest)) +
@@ -716,6 +716,19 @@ namespace qcu
     } // just add
     add_dest_laplacian(origin_dest, dest, lat_tzyx);
 #endif
+  }
+  template <typename T>
+  __global__ void laplacian_give_complete(void *device_dest,
+                                          void *device_src, void *device_params)
+  {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    LatticeComplex<T> *dest = (static_cast<LatticeComplex<T> *>(device_dest) + idx);
+    LatticeComplex<T> *src = (static_cast<LatticeComplex<T> *>(device_src) + idx);
+    int _ = static_cast<int *>(device_params)[_LAT_XYZT_];
+    for (int i = 0; i < _LAT_C_ * _; i += _)
+    {
+      dest[i] = src[i] * 6.0 - dest[i];
+    }
   }
   //@@@CUDA_TEMPLATE_FOR_DEVICE@@@
   template __global__ void laplacian_inside<double>(void *device_U, void *device_src,
@@ -744,6 +757,8 @@ namespace qcu
                                                     void *device_params,
                                                     void *device_b_z_recv_vec,
                                                     void *device_f_z_recv_vec);
+  template __global__ void laplacian_give_complete<double>(void *device_dest,
+                                                           void *device_src, void *device_params);
   //@@@CUDA_TEMPLATE_FOR_DEVICE@@@
   template __global__ void laplacian_inside<float>(void *device_U, void *device_src,
                                                    void *device_dest, void *device_params);
@@ -771,4 +786,6 @@ namespace qcu
                                                    void *device_params,
                                                    void *device_b_z_recv_vec,
                                                    void *device_f_z_recv_vec);
+  template __global__ void laplacian_give_complete<float>(void *device_dest,
+                                                          void *device_src, void *device_params);
 }

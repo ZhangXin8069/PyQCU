@@ -75,6 +75,7 @@ namespace qcu
             if (host_params[_SET_PLAN_] == _SET_PLAN_N_1_) // just for laplacian
             {
                 printf("just for laplacian, lat_t = 1, no even-odd\n");
+                host_params[_LAT_X_] *= _EVEN_ODD_; // needed
                 host_params[_LAT_T_] = 1;
             }
             host_argv[_MASS_] = static_cast<T *>(_argv)[_MASS_];
@@ -140,9 +141,9 @@ namespace qcu
                     gridDim_3dim[_XYT_] = lat_3dim[_XYT_] / _BLOCK_SIZE_;
                     gridDim_3dim[_XYZ_] = lat_3dim[_XYZ_] / _BLOCK_SIZE_;
                     lat_4dim = lat_3dim[_XYZ_] * host_params[_LAT_T_];
-                    if (host_params[_LAT_XYZT_] / _EVEN_ODD_ != lat_4dim)
+                    if ((host_params[_LAT_XYZT_] / _EVEN_ODD_ * (1 + (host_params[_SET_PLAN_] == _SET_PLAN_N_1_))) != lat_4dim)
                     {
-                        printf("error: host_params[_LAT_XYZT_](origin input) / _EVEN_ODD_ != lat_4dim, maybe the params input is wrong!\n"); // for test input
+                        printf("error: (host_params[_LAT_XYZT_] / _EVEN_ODD_ * (1 + (host_params[_SET_PLAN_] == _SET_PLAN_N_1_))) != lat_4dim, maybe the params input is wrong!\n"); // for test input
                     }
                     host_params[_LAT_XYZT_] = lat_4dim;
                     lat_4dim_C = lat_4dim * _LAT_C_;

@@ -217,6 +217,11 @@ namespace qcu
     void run(void *laplacian_out, void *laplacian_in, void *gauge, void *_device_params)
     {
       run_mpi(laplacian_out, laplacian_in, gauge, _device_params);
+      checkCudaErrors(cudaStreamSynchronize(set_ptr->stream)); // needed
+      laplacian_give_complete<T><<<set_ptr->gridDim, set_ptr->blockDim, 0,
+                                   set_ptr->stream>>>(
+          laplacian_out, laplacian_in, _device_params);
+      checkCudaErrors(cudaStreamSynchronize(set_ptr->stream)); // needed
     }
     void run_test(void *laplacian_out, void *laplacian_in, void *gauge)
     {

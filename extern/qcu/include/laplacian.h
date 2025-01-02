@@ -35,5 +35,8 @@ namespace qcu
                                    void *device_params,
                                    void *device_b_z_recv_vec,
                                    void *device_f_z_recv_vec);
+  template <typename T>
+  __global__ void laplacian_give_complete(void *device_dest,
+                                          void *device_src, void *device_params);
 }
 #endif
