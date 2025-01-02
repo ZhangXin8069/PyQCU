@@ -125,6 +125,14 @@ namespace qcu
       _data.y = _data.y / other;
       return *this;
     }
+    __host__ __device__ __inline__ T real() const
+    {
+      return _data.x;
+    }
+    __host__ __device__ __inline__ T imag() const
+    {
+      return _data.y;
+    }
     __host__ __device__ __inline__ LatticeComplex conj() const
     {
       return LatticeComplex(_data.x, -_data.y);
