@@ -1,7 +1,7 @@
 import re
 import cupy as cp
 import numpy as np
-import time
+from time import perf_counter
 from pyqcu import define
 from pyqcu import io
 from pyqcu import qcu
@@ -64,7 +64,8 @@ if define.rank == 0:
     #                     f"laplacian_in ({c}, {z}, {y}, {x}):", laplacian_in[c, z, y, x])
     # laplacian_gauge = cp.array(cp.random.rand(define._LAT_DCC_*params[define._LAT_XYZT_])+1j*cp.random.rand(define._LAT_DCC_*params[define._LAT_XYZT_]), dtype=cp.complex64).reshape(
     #     define._LAT_C_, define._LAT_C_, define._LAT_D_, params[define._LAT_Z_], params[define._LAT_Y_], params[define._LAT_X_])
-    laplacian_gauge = cp.array([range(define._LAT_DCC_*params[define._LAT_XYZT_])], dtype=cp.complex64).reshape(define._LAT_C_, define._LAT_C_, define._LAT_D_, params[define._LAT_Z_], params[define._LAT_Y_], params[define._LAT_X_])
+    laplacian_gauge = cp.array([range(define._LAT_DCC_*params[define._LAT_XYZT_])], dtype=cp.complex64).reshape(
+        define._LAT_C_, define._LAT_C_, define._LAT_D_, params[define._LAT_Z_], params[define._LAT_Y_], params[define._LAT_X_])
     # laplacian_gauge = cp.ones(
     #     shape=(define._LAT_C_, define._LAT_C_, define._LAT_D_, params[define._LAT_Z_], params[define._LAT_Y_], params[define._LAT_X_]), dtype=cp.complex64)
     # gauge_filename = f"quda_wilson-bistabcg-gauge_-{params[define._LAT_X_]}-{params[define._LAT_Y_]}-{params  [define._LAT_Z_]}-{32}-{params[define._LAT_XYZT_]*32}-{params[define._GRID_X_]}-{params[define._GRID_Y_]}-{params[define._GRID_Z_]}-{params[define._GRID_T_]}-{params[define._PARITY_]}-{params[define._NODE_RANK_]}-{params[define._NODE_SIZE_]}-{params[define._DAGGER_]}-f.bin"
@@ -88,8 +89,13 @@ if define.rank == 0:
     print("Set pointers:", set_ptrs)
     print("Set pointers data:", set_ptrs.data)
     qcu.applyInitQcu(set_ptrs, params, argv)
+    t0 = perf_counter()
+    cp.cuda.runtime.deviceSynchronize()
     qcu.applyLaplacianQcu(laplacian_out, laplacian_in,
                           laplacian_gauge, set_ptrs, params)
+    cp.cuda.runtime.deviceSynchronize()
+    t1 = perf_counter()
+    print(f'PyQCU cost time: {t1 - t0} sec')
     # print("Laplacian out:", laplacian_out)
     # print("Laplacian out data:", laplacian_out.data)
     # print("Laplacian out shape:", laplacian_out.shape)
@@ -133,12 +139,13 @@ if define.rank == 0:
                 + cp.roll(contract("zyxab,zyxbc->zyxac", U_dag[2], F), 1, 0)
             )
         ).reshape(Lz * Ly * Lx * define._LAT_C_, -1)
-    start = time.time()
+    t0 = perf_counter()
+    cp.cuda.runtime.deviceSynchronize()
     pyquda_Laplacian_out = pyquda_Laplacian(
         pyquda_laplacian_in, pyquda_laplacian_gauge)
-    cp.cuda.Stream.null.synchronize()
-    end = time.time()
-    print("PyQuda Laplacian time:", end - start)
+    cp.cuda.runtime.deviceSynchronize()
+    t1 = perf_counter()
+    print(f'PyQUDA cost time: {t1 - t0} sec')
     # print("PyQuda Laplacian out:", pyquda_Laplacian_out)
     # print("PyQuda Laplacian out data:", pyquda_Laplacian_out.data)
     # print("PyQuda Laplacian out shape:", pyquda_Laplacian_out.shape)
