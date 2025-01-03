@@ -3,7 +3,7 @@
 #include "./lattice_complex.h"
 namespace qcu
 {
-#define _BLOCK_SIZE_ 16 // for test small lattice
+#define _BLOCK_SIZE_ 4 // for test small lattice
 // #define _BLOCK_SIZE_ 128
 #define _MAIN_RANK_ 0
 #define _a_ 0
@@ -305,7 +305,7 @@ namespace qcu
     U[7] = (U[2] * U[3] - U[0] * U[5]).conj();                       \
     U[8] = (U[0] * U[4] - U[1] * U[3]).conj();                       \
   }
-#define give_u_laplacian(U, tmp_U, lat_tzyx)   \
+#define _give_u_laplacian(U, tmp_U, lat_tzyx)  \
   {                                            \
     for (int i = 0; i < _LAT_2C_; i++)         \
     {                                          \
@@ -314,6 +314,13 @@ namespace qcu
     U[6] = (U[1] * U[5] - U[2] * U[4]).conj(); \
     U[7] = (U[2] * U[3] - U[0] * U[5]).conj(); \
     U[8] = (U[0] * U[4] - U[1] * U[3]).conj(); \
+  }
+#define give_u_laplacian(U, tmp_U, lat_tzyx) \
+  {                                          \
+    for (int i = 0; i < _LAT_CC_; i++)       \
+    {                                        \
+      U[i] = tmp_U[i * _LAT_D_ * lat_tzyx];  \
+    }                                        \
   }
 #define get_src(src, origin_src, lat_tzyx) \
   {                                        \
