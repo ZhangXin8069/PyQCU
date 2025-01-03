@@ -2,7 +2,7 @@
 command=$@
 pushd ../
 source ./env.sh
-# bash ./install.sh
+bash ./install.sh
 popd
 # mpirun --allow-run-as-root -n ${command} python ./test.io.py
 # mpirun --allow-run-as-root -n ${command} python ./test.set.py
