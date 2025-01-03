@@ -4,6 +4,7 @@ import cupy as cp
 from pyqcu import define
 from pyqcu import io
 from pyqcu import qcu
+import cupyx
 
 print('My rank is ', define.rank)
 if define.rank == 0:
