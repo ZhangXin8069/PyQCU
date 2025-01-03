@@ -142,6 +142,7 @@ _LAT_SCSC_ = 144
 _LAT_D_ = 4
 _LAT_DCC_ = 36
 _LAT_PDCC_ = 72
+_LAT_Ne_ = 24
 _B_ = 0
 _F_ = 1
 _BF_ = 2
