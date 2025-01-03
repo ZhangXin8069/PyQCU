@@ -35,6 +35,7 @@ if define.rank == 0:
     print("Gauge filename:", gauge_filename)
     gauge = cp.fromfile(gauge_filename, dtype=cp.complex64,
                         count=params[define._LAT_XYZT_]*define._LAT_DCC_)
+    gauge = io.gauge2ccdptzyx(gauge, params)
     print("Gauge:", gauge)
     print("Gauge data:", gauge.data)
     print("Gauge shape:", gauge.shape)
@@ -42,6 +43,7 @@ if define.rank == 0:
     print("Fermion in filename:", fermion_in_filename)
     fermion_in = cp.fromfile(fermion_in_filename, dtype=cp.complex64,
                              count=params[define._LAT_XYZT_]*define._LAT_HALF_SC_)
+    fermion_in = io.fermion2sctzyx(fermion_in, params)
     print("Fermion in:", fermion_in)
     print("Fermion in data:", fermion_in.data)
     print("Fermion in shape:", fermion_in.shape)
@@ -49,6 +51,7 @@ if define.rank == 0:
     print("Fermion out filename:", fermion_out_filename)
     fermion_out = cp.zeros(
         params[define._LAT_XYZT_]*define._LAT_HALF_SC_, dtype=cp.complex64)
+    fermion_out = io.fermion2sctzyx(fermion_out, params)
     print("Fermion out:", fermion_out)
     print("Fermion out data:", fermion_out.data)
     print("Fermion out shape:", fermion_out.shape)
@@ -57,14 +60,9 @@ if define.rank == 0:
     print("Set pointers:", set_ptrs)
     print("Set pointers data:", set_ptrs.data)
     qcu.applyInitQcu(set_ptrs, params, argv)
-    qcu.applyWilsonBistabcgDslashQcu(fermion_out, fermion_in, gauge, set_ptrs, params)
+    qcu.applyWilsonBistabCgDslashQcu(fermion_out, fermion_in, gauge, set_ptrs, params)
     print("Fermion out:", fermion_out)
     print("Fermion out data:", fermion_out.data)
     print("Fermion out shape:", fermion_out.shape)
-    quda_fermion_out = cp.fromfile(
-        fermion_out_filename, dtype=cp.complex64, count=params[define._LAT_XYZT_]*define._LAT_HALF_SC_)
-    print("QUDA Fermion out:", quda_fermion_out)
-    print("QUDA Fermion out data:", quda_fermion_out.data)
-    print("QUDA Fermion out shape:", quda_fermion_out.shape)
-    print("Difference:", cp.linalg.norm(fermion_out -
-          quda_fermion_out)/cp.linalg.norm(quda_fermion_out))
+    qcu.applyEndQcu(set_ptrs, params)
+    
