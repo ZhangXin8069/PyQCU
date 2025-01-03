@@ -1,0 +1,283 @@
+~/PyQCU ~/PyQCU/test
+HOME: /root/PyQCU
+~/PyQCU/extern/qcu ~/PyQCU
+There is init!
+-- The C compiler identification is GNU 11.4.0
+-- The CXX compiler identification is GNU 11.4.0
+-- The CUDA compiler identification is NVIDIA 12.4.131
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /usr/bin/cc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Detecting CUDA compiler ABI info
+-- Detecting CUDA compiler ABI info - done
+-- Check for working CUDA compiler: /usr/local/cuda/bin/nvcc - skipped
+-- Detecting CUDA compile features
+-- Detecting CUDA compile features - done
+-- PATH is: /root/bin:/usr/local/bin:/root/.vscode-server/bin/fabdb6a30b49f79a7aba0f2ad9df9b399473380f/bin/remote-cli:/root/bin:/usr/local/bin:/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/root/configure/bin:/root/.vscode-server/data/User/globalStorage/github.copilot-chat/debugCommand:/root/configure/bin
+-- LD_LIBRARY_PATH is: /root/PyQCU/lib:/usr/local/nvidia/lib:/usr/local/nvidia/lib64:/root/PyQCU/lib:/root/PyQCU/lib
+-- Found MPI_C: /usr/lib/x86_64-linux-gnu/openmpi/lib/libmpi.so (found version "3.1") 
+-- Found MPI_CXX: /usr/lib/x86_64-linux-gnu/openmpi/lib/libmpi_cxx.so (found version "3.1") 
+-- Found MPI: TRUE (found version "3.1")  
+-- Looking for pthread.h
+-- Looking for pthread.h - found
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
+-- Found Threads: TRUE  
+-- Found CUDA: /usr/local/cuda (found version "12.4") 
+-- Configuring done
+-- Generating done
+-- Build files have been written to: /root/PyQCU/extern/qcu
+[  4%] Building CUDA object CMakeFiles/qcu.dir/src/apply_init.cu.o
+[  8%] Building CUDA object CMakeFiles/qcu.dir/src/apply_test.cu.o
+[ 13%] Building CUDA object CMakeFiles/qcu.dir/src/apply_wilson_cg.cu.o
+[ 21%] Building CUDA object CMakeFiles/qcu.dir/src/apply_wilson_bistabcg.cu.o
+[ 26%] Building CUDA object CMakeFiles/qcu.dir/src/apply_wilson_gmres_ir.cu.o
+[ 30%] Building CUDA object CMakeFiles/qcu.dir/src/apply_wilson_dslash.cu.o
+[ 34%] Building CUDA object CMakeFiles/qcu.dir/src/bistabcg.cu.o
+[ 39%] Building CUDA object CMakeFiles/qcu.dir/src/apply_clover_dslash.cu.o
+[ 43%] Building CUDA object CMakeFiles/qcu.dir/src/apply_laplacian.cu.o
+[ 21%] Building CUDA object CMakeFiles/qcu.dir/src/apply_wilson_bistabcg_dslash.cu.o
+[ 52%] Building CUDA object CMakeFiles/qcu.dir/src/apply_end.cu.o
+[ 56%] Building CUDA object CMakeFiles/qcu.dir/src/clover_dslash_multi.cu.o
+[ 60%] Building CUDA object CMakeFiles/qcu.dir/src/clover_dslash_comm.cu.o
+[ 65%] Building CUDA object CMakeFiles/qcu.dir/src/gmres_ir.cu.o
+[ 65%] Building CUDA object CMakeFiles/qcu.dir/src/cg.cu.o
+[ 69%] Building CUDA object CMakeFiles/qcu.dir/src/clover_dslash_single.cu.o
+[ 78%] Building CUDA object CMakeFiles/qcu.dir/src/lattice_cuda.cu.o
+[ 78%] Building CUDA object CMakeFiles/qcu.dir/src/laplacian.cu.o
+[ 82%] Building CUDA object CMakeFiles/qcu.dir/src/lattice_mpi.cu.o
+[ 86%] Building CUDA object CMakeFiles/qcu.dir/src/lattice_set.cu.o
+[ 91%] Building CUDA object CMakeFiles/qcu.dir/src/multigrid.cu.o
+[ 95%] Building CUDA object CMakeFiles/qcu.dir/src/wilson_dslash.cu.o
+[100%] Linking CUDA shared library libqcu.so
+[100%] Built target qcu
+~/PyQCU
+Processing /root/PyQCU
+  Preparing metadata (setup.py): started
+  Preparing metadata (setup.py): finished with status 'done'
+Requirement already satisfied: numpy in /usr/local/lib/python3.10/dist-packages (from PyQCU==0.0.1) (2.1.2)
+Requirement already satisfied: scipy in /usr/local/lib/python3.10/dist-packages (from PyQCU==0.0.1) (1.14.1)
+Requirement already satisfied: mpi4py in /usr/local/lib/python3.10/dist-packages (from PyQCU==0.0.1) (4.0.1)
+Requirement already satisfied: cython in /usr/local/lib/python3.10/dist-packages (from PyQCU==0.0.1) (3.0.11)
+Requirement already satisfied: cupy in /usr/local/lib/python3.10/dist-packages (from PyQCU==0.0.1) (13.3.0)
+Requirement already satisfied: h5py in /usr/local/lib/python3.10/dist-packages (from PyQCU==0.0.1) (3.12.1)
+Requirement already satisfied: matplotlib in /usr/local/lib/python3.10/dist-packages (from PyQCU==0.0.1) (3.10.0)
+Requirement already satisfied: seaborn in /usr/local/lib/python3.10/dist-packages (from PyQCU==0.0.1) (0.13.2)
+Requirement already satisfied: fastrlock>=0.5 in /usr/local/lib/python3.10/dist-packages (from cupy->PyQCU==0.0.1) (0.8.2)
+Requirement already satisfied: contourpy>=1.0.1 in /usr/local/lib/python3.10/dist-packages (from matplotlib->PyQCU==0.0.1) (1.3.1)
+Requirement already satisfied: cycler>=0.10 in /usr/local/lib/python3.10/dist-packages (from matplotlib->PyQCU==0.0.1) (0.12.1)
+Requirement already satisfied: fonttools>=4.22.0 in /usr/local/lib/python3.10/dist-packages (from matplotlib->PyQCU==0.0.1) (4.55.3)
+Requirement already satisfied: kiwisolver>=1.3.1 in /usr/local/lib/python3.10/dist-packages (from matplotlib->PyQCU==0.0.1) (1.4.8)
+Requirement already satisfied: packaging>=20.0 in /usr/local/lib/python3.10/dist-packages (from matplotlib->PyQCU==0.0.1) (24.2)
+Requirement already satisfied: pillow>=8 in /usr/lib/python3/dist-packages (from matplotlib->PyQCU==0.0.1) (9.0.1)
+Requirement already satisfied: pyparsing>=2.3.1 in /usr/lib/python3/dist-packages (from matplotlib->PyQCU==0.0.1) (2.4.7)
+Requirement already satisfied: python-dateutil>=2.7 in /root/.local/lib/python3.10/site-packages (from matplotlib->PyQCU==0.0.1) (2.9.0.post0)
+Requirement already satisfied: pandas>=1.2 in /usr/local/lib/python3.10/dist-packages (from seaborn->PyQCU==0.0.1) (2.2.3)
+Requirement already satisfied: pytz>=2020.1 in /usr/local/lib/python3.10/dist-packages (from pandas>=1.2->seaborn->PyQCU==0.0.1) (2024.2)
+Requirement already satisfied: tzdata>=2022.7 in /usr/local/lib/python3.10/dist-packages (from pandas>=1.2->seaborn->PyQCU==0.0.1) (2024.2)
+Requirement already satisfied: six>=1.5 in /usr/lib/python3/dist-packages (from python-dateutil>=2.7->matplotlib->PyQCU==0.0.1) (1.16.0)
+Building wheels for collected packages: PyQCU
+  Building wheel for PyQCU (setup.py): started
+  Building wheel for PyQCU (setup.py): finished with status 'done'
+  Created wheel for PyQCU: filename=PyQCU-0.0.1-cp310-cp310-linux_x86_64.whl size=150019 sha256=b71db7530493ec105b10e74f0dced7e8d3ab12eb0d146b1b483c7f065f6e866d
+  Stored in directory: /tmp/pip-ephem-wheel-cache-uhcc2tyy/wheels/d7/9b/36/eb1537e9f70345b271847e103d09b026a4fc735f3c5630770b
+Successfully built PyQCU
+Installing collected packages: PyQCU
+  Attempting uninstall: PyQCU
+    Found existing installation: PyQCU 0.0.1
+    Uninstalling PyQCU-0.0.1:
+      Successfully uninstalled PyQCU-0.0.1
+Successfully installed PyQCU-0.0.1
+WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager, possibly rendering your system unusable.It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv. Use the --root-user-action option if you know what you are doing and want to suppress this warning.
+~/PyQCU/test
+
+    @@@@@@######QCU NOTES START######@@@@@@@
+    1. The libqcu.so was compiled when pyqcu setup in download_path/PyQCU/lib, please add this path to your LD_LIBRARY_PATH.
+    2. The QCU(PyQCU) splite grid by x->y->z->t, lattice by x->y->z->t->p->d->c->c or x->y->z->t->c->s(->p) and x->y->z->t->c->s->c->s(->p).
+    3. The QUDA(PyQUDA) splite grid by t->z->y->x, lattice by c->c->x->y->z->t->p->d or c->s->x->y->z->t(->p) and c->s->c->s->x->y->z->t(->p).
+    4. The QCU input params in numpy array(dtype=np.int32), argv in  numpy array(dtype=np.float32 or float64) array, set_ptrs in numpy array(dtype=np.int64), other in cupy array(dtype=cp.complex64 or complex128).
+    5. The smallest lattice size is (x=4,y=4,z=4,t=8) that QCU support.
+    @@@@@@######QCU NOTES END######@@@@@@@
+    
+My rank is  0
+Parameters: [    128     128     128       1 2097152       1       1       1       1
+       0       0       1       0    1000       0       2      -1]
+Arguments: [0.e+00 1.e-09]
+Set pointers: [    128     128     128       1 2097152       1       1       1       1
+       0       0       1       0    1000       0       2      -1]
+Set pointers data: <memory at 0x7fc62dd6fc40>
+just for laplacian, lat_t = 1, no even-odd
+gridDim.x               :131072
+blockDim.x              :16
+host_params[_LAT_X_]    :128
+host_params[_LAT_Y_]    :128
+host_params[_LAT_Z_]    :128
+host_params[_LAT_T_]    :1
+host_params[_LAT_XYZT_] :2097152
+host_params[_GRID_X_]   :1
+host_params[_GRID_Y_]   :1
+host_params[_GRID_Z_]   :1
+host_params[_GRID_T_]   :1
+host_params[_PARITY_]   :0
+host_params[_NODE_RANK_]:0
+host_params[_NODE_SIZE_]:1
+host_params[_DAGGER_]   :0
+host_params[_MAX_ITER_] :1000
+host_params[_SET_INDEX_]:2
+host_params[_SET_PLAN_] :-1
+host_argv[_MASS_]       :0.000000e+00
+host_argv[_TOL_]        :1.000000e-09
+lat_2dim[_XY_]          :16384
+lat_2dim[_XZ_]          :16384
+lat_2dim[_XT_]          :128
+lat_2dim[_YZ_]          :16384
+lat_2dim[_YT_]          :128
+lat_2dim[_ZT_]          :128
+lat_3dim[_YZT_]         :16384
+lat_3dim[_XZT_]         :16384
+lat_3dim[_XYT_]         :16384
+lat_3dim[_XYZ_]         :2097152
+lat_4dim                :2097152
+grid_2dim[_XY_]         :1
+grid_2dim[_XZ_]         :1
+grid_2dim[_XT_]         :1
+grid_2dim[_YZ_]         :1
+grid_2dim[_YT_]         :1
+grid_2dim[_ZT_]         :1
+grid_3dim[_YZT_]        :1
+grid_3dim[_XZT_]        :1
+grid_3dim[_XYT_]        :1
+grid_3dim[_XYZ_]        :1
+grid_index_1dim[_X_]    :0
+grid_index_1dim[_Y_]    :0
+grid_index_1dim[_Z_]    :0
+grid_index_1dim[_T_]    :0
+move_wards[_B_X_]       :0
+move_wards[_B_Y_]       :0
+move_wards[_B_Z_]       :0
+move_wards[_B_T_]       :0
+move_wards[_F_X_]       :0
+move_wards[_F_Y_]       :0
+move_wards[_F_Z_]       :0
+move_wards[_F_T_]       :0
+move_wards[_BX_BY_]     :0
+move_wards[_BX_BZ_]     :0
+move_wards[_BX_BT_]     :0
+move_wards[_BY_BZ_]     :0
+move_wards[_BY_BT_]     :0
+move_wards[_BZ_BT_]     :0
+move_wards[_FX_BY_]     :0
+move_wards[_FX_BZ_]     :0
+move_wards[_FX_BT_]     :0
+move_wards[_FY_BZ_]     :0
+move_wards[_FY_BT_]     :0
+move_wards[_FZ_BT_]     :0
+move_wards[_BX_FY_]     :0
+move_wards[_BX_FZ_]     :0
+move_wards[_BX_FT_]     :0
+move_wards[_BY_FZ_]     :0
+move_wards[_BY_FT_]     :0
+move_wards[_BZ_FT_]     :0
+move_wards[_FX_FY_]     :0
+move_wards[_FX_FZ_]     :0
+move_wards[_FX_FT_]     :0
+move_wards[_FY_FZ_]     :0
+move_wards[_FY_FT_]     :0
+move_wards[_FZ_FT_]     :0
+set_ptr:0x55e863a81fc0
+long long set_ptr:94456592736192
+lattice set init total time:0.199447884 sec
+multi-gpu laplacian total time: (without malloc free memcpy) :0.006495822 sec
+norm of Laplacian out: 6.6793594e+18
+gridDim.x               :131072
+blockDim.x              :16
+host_params[_LAT_X_]    :128
+host_params[_LAT_Y_]    :128
+host_params[_LAT_Z_]    :128
+host_params[_LAT_T_]    :1
+host_params[_LAT_XYZT_] :2097152
+host_params[_GRID_X_]   :1
+host_params[_GRID_Y_]   :1
+host_params[_GRID_Z_]   :1
+host_params[_GRID_T_]   :1
+host_params[_PARITY_]   :0
+host_params[_NODE_RANK_]:0
+host_params[_NODE_SIZE_]:1
+host_params[_DAGGER_]   :0
+host_params[_MAX_ITER_] :1000
+host_params[_SET_INDEX_]:2
+host_params[_SET_PLAN_] :-1
+host_argv[_MASS_]       :0.000000e+00
+host_argv[_TOL_]        :1.000000e-09
+lat_2dim[_XY_]          :16384
+lat_2dim[_XZ_]          :16384
+lat_2dim[_XT_]          :128
+lat_2dim[_YZ_]          :16384
+lat_2dim[_YT_]          :128
+lat_2dim[_ZT_]          :128
+lat_3dim[_YZT_]         :16384
+lat_3dim[_XZT_]         :16384
+lat_3dim[_XYT_]         :16384
+lat_3dim[_XYZ_]         :2097152
+lat_4dim                :2097152
+grid_2dim[_XY_]         :1
+grid_2dim[_XZ_]         :1
+grid_2dim[_XT_]         :1
+grid_2dim[_YZ_]         :1
+grid_2dim[_YT_]         :1
+grid_2dim[_ZT_]         :1
+grid_3dim[_YZT_]        :1
+grid_3dim[_XZT_]        :1
+grid_3dim[_XYT_]        :1
+grid_3dim[_XYZ_]        :1
+grid_index_1dim[_X_]    :0
+grid_index_1dim[_Y_]    :0
+grid_index_1dim[_Z_]    :0
+grid_index_1dim[_T_]    :0
+move_wards[_B_X_]       :0
+move_wards[_B_Y_]       :0
+move_wards[_B_Z_]       :0
+move_wards[_B_T_]       :0
+move_wards[_F_X_]       :0
+move_wards[_F_Y_]       :0
+move_wards[_F_Z_]       :0
+move_wards[_F_T_]       :0
+move_wards[_BX_BY_]     :0
+move_wards[_BX_BZ_]     :0
+move_wards[_BX_BT_]     :0
+move_wards[_BY_BZ_]     :0
+move_wards[_BY_BT_]     :0
+move_wards[_BZ_BT_]     :0
+move_wards[_FX_BY_]     :0
+move_wards[_FX_BZ_]     :0
+move_wards[_FX_BT_]     :0
+move_wards[_FY_BZ_]     :0
+move_wards[_FY_BT_]     :0
+move_wards[_FZ_BT_]     :0
+move_wards[_BX_FY_]     :0
+move_wards[_BX_FZ_]     :0
+move_wards[_BX_FT_]     :0
+move_wards[_BY_FZ_]     :0
+move_wards[_BY_FT_]     :0
+move_wards[_BZ_FT_]     :0
+move_wards[_FX_FY_]     :0
+move_wards[_FX_FZ_]     :0
+move_wards[_FX_FT_]     :0
+move_wards[_FY_FZ_]     :0
+move_wards[_FY_FT_]     :0
+move_wards[_FZ_FT_]     :0
+lattice set whole time:0.391337219 sec
+set_ptr:0x55e863a81fc0
+long long set_ptr:94456592736192
+lattice set end total time:0.030772482 sec
+PyQuda Laplacian time: 0.2344062328338623
+norm of PyQuda Laplacian out: 6.67936e+18
+norm of _: 6.6793594e+18
+Difference between QUDA and PyQuda Laplacian out: 6.019083e-08
