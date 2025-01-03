@@ -48,10 +48,10 @@ if define.rank == 0:
     #                     f"laplacian_out ({c}, {z}, {y}, {x}):", laplacian_out[c, z, y, x])
     # laplacian_in = cp.zeros(
     #     shape=(define._LAT_C_, params[define._LAT_Z_], params[define._LAT_Y_], params[define._LAT_X_]), dtype=cp.complex64)
-    # laplacian_in = cp.array([range(define._LAT_C_*params[define._LAT_XYZT_])], dtype=cp.complex64).reshape(
-    #     define._LAT_C_, params[define._LAT_Z_], params[define._LAT_Y_], params[define._LAT_X_])
-    laplacian_in = cp.array(cp.random.rand(define._LAT_C_*params[define._LAT_XYZT_])+1j*cp.random.rand(define._LAT_C_*params[define._LAT_XYZT_]), dtype=cp.complex64).reshape(
+    laplacian_in = cp.array([range(define._LAT_C_*params[define._LAT_XYZT_])], dtype=cp.complex64).reshape(
         define._LAT_C_, params[define._LAT_Z_], params[define._LAT_Y_], params[define._LAT_X_])
+    # laplacian_in = cp.array(cp.random.rand(define._LAT_C_*params[define._LAT_XYZT_])+1j*cp.random.rand(define._LAT_C_*params[define._LAT_XYZT_]), dtype=cp.complex64).reshape(
+    #     define._LAT_C_, params[define._LAT_Z_], params[define._LAT_Y_], params[define._LAT_X_])
     # print("Laplacian in:", laplacian_in)
     # print("Laplacian in data:", laplacian_in.data)
     # print("Laplacian in shape:", laplacian_in.shape)
@@ -62,9 +62,9 @@ if define.rank == 0:
     #             for c in range(define._LAT_C_):
     #                 print(
     #                     f"laplacian_in ({c}, {z}, {y}, {x}):", laplacian_in[c, z, y, x])
-    laplacian_gauge = cp.array(cp.random.rand(define._LAT_DCC_*params[define._LAT_XYZT_])+1j*cp.random.rand(define._LAT_DCC_*params[define._LAT_XYZT_]), dtype=cp.complex64).reshape(
-        define._LAT_C_, define._LAT_C_, define._LAT_D_, params[define._LAT_Z_], params[define._LAT_Y_], params[define._LAT_X_])
-    # laplacian_gauge = cp.array([range(define._LAT_DCC_*params[define._LAT_XYZT_])], dtype=cp.complex64).reshape(define._LAT_C_, define._LAT_C_, define._LAT_D_, params[define._LAT_Z_], params[define._LAT_Y_], params[define._LAT_X_])
+    # laplacian_gauge = cp.array(cp.random.rand(define._LAT_DCC_*params[define._LAT_XYZT_])+1j*cp.random.rand(define._LAT_DCC_*params[define._LAT_XYZT_]), dtype=cp.complex64).reshape(
+    #     define._LAT_C_, define._LAT_C_, define._LAT_D_, params[define._LAT_Z_], params[define._LAT_Y_], params[define._LAT_X_])
+    laplacian_gauge = cp.array([range(define._LAT_DCC_*params[define._LAT_XYZT_])], dtype=cp.complex64).reshape(define._LAT_C_, define._LAT_C_, define._LAT_D_, params[define._LAT_Z_], params[define._LAT_Y_], params[define._LAT_X_])
     # laplacian_gauge = cp.ones(
     #     shape=(define._LAT_C_, define._LAT_C_, define._LAT_D_, params[define._LAT_Z_], params[define._LAT_Y_], params[define._LAT_X_]), dtype=cp.complex64)
     # gauge_filename = f"quda_wilson-bistabcg-gauge_-{params[define._LAT_X_]}-{params[define._LAT_Y_]}-{params  [define._LAT_Z_]}-{32}-{params[define._LAT_XYZT_]*32}-{params[define._GRID_X_]}-{params[define._GRID_Y_]}-{params[define._GRID_Z_]}-{params[define._GRID_T_]}-{params[define._PARITY_]}-{params[define._NODE_RANK_]}-{params[define._NODE_SIZE_]}-{params[define._DAGGER_]}-f.bin"
