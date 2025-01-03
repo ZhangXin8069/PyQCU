@@ -3,7 +3,7 @@
 #include "./lattice_complex.h"
 namespace qcu
 {
-#define _BLOCK_SIZE_ 4 // for test small lattice
+#define _BLOCK_SIZE_ 16 // for test small lattice
 // #define _BLOCK_SIZE_ 128
 #define _MAIN_RANK_ 0
 #define _a_ 0
