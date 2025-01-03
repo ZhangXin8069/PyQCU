@@ -83,7 +83,7 @@ namespace qcu
           // edge recv part
           laplacian_x_recv<T><<<set_ptr->gridDim_3dim[_X_], set_ptr->blockDim, 0,
                                 set_ptr->stream>>>(
-              laplacian_out, _device_params, set_ptr->device_send_vec[_F_X_],
+              gauge, laplacian_out, _device_params, set_ptr->device_send_vec[_F_X_],
               set_ptr->device_send_vec[_B_X_]);
         }
         else
@@ -108,7 +108,7 @@ namespace qcu
           // edge recv part
           laplacian_y_recv<T><<<set_ptr->gridDim_3dim[_Y_], set_ptr->blockDim, 0,
                                 set_ptr->stream>>>(
-              laplacian_out, _device_params, set_ptr->device_send_vec[_F_Y_],
+              gauge, laplacian_out, _device_params, set_ptr->device_send_vec[_F_Y_],
               set_ptr->device_send_vec[_B_Y_]);
         }
         else
@@ -133,7 +133,7 @@ namespace qcu
           // edge recv part
           laplacian_z_recv<T><<<set_ptr->gridDim_3dim[_Z_], set_ptr->blockDim, 0,
                                 set_ptr->stream>>>(
-              laplacian_out, _device_params, set_ptr->device_send_vec[_F_Z_],
+              gauge, laplacian_out, _device_params, set_ptr->device_send_vec[_F_Z_],
               set_ptr->device_send_vec[_B_Z_]);
         }
         else
@@ -189,7 +189,7 @@ namespace qcu
           checkCudaErrors(cudaStreamSynchronize(set_ptr->stream_dims[_X_]));
           laplacian_x_recv<T><<<set_ptr->gridDim_3dim[_X_], set_ptr->blockDim, 0,
                                 set_ptr->stream>>>(
-              laplacian_out, _device_params, set_ptr->device_recv_vec[_B_X_],
+              gauge, laplacian_out, _device_params, set_ptr->device_recv_vec[_B_X_],
               set_ptr->device_recv_vec[_F_X_]);
         }
         if (set_ptr->host_params[_GRID_Y_] != 1)
@@ -197,7 +197,7 @@ namespace qcu
           checkCudaErrors(cudaStreamSynchronize(set_ptr->stream_dims[_Y_]));
           laplacian_y_recv<T><<<set_ptr->gridDim_3dim[_Y_], set_ptr->blockDim, 0,
                                 set_ptr->stream>>>(
-              laplacian_out, _device_params, set_ptr->device_recv_vec[_B_Y_],
+              gauge, laplacian_out, _device_params, set_ptr->device_recv_vec[_B_Y_],
               set_ptr->device_recv_vec[_F_Y_]);
         }
         if (set_ptr->host_params[_GRID_Z_] != 1)
@@ -205,7 +205,7 @@ namespace qcu
           checkCudaErrors(cudaStreamSynchronize(set_ptr->stream_dims[_Z_]));
           laplacian_z_recv<T><<<set_ptr->gridDim_3dim[_Z_], set_ptr->blockDim, 0,
                                 set_ptr->stream>>>(
-              laplacian_out, _device_params, set_ptr->device_recv_vec[_B_Z_],
+              gauge, laplacian_out, _device_params, set_ptr->device_recv_vec[_B_Z_],
               set_ptr->device_recv_vec[_F_Z_]);
         }
       }
