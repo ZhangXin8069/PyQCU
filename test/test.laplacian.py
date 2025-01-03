@@ -93,7 +93,7 @@ if define.rank == 0:
     # print("Laplacian out:", laplacian_out)
     # print("Laplacian out data:", laplacian_out.data)
     # print("Laplacian out shape:", laplacian_out.shape)
-    # print("norm of Laplacian out:", cp.linalg.norm(laplacian_out))
+    print("norm of Laplacian out:", cp.linalg.norm(laplacian_out))
     qcu.applyEndQcu(set_ptrs, params)
     # for x in range(params[define._LAT_X_]):
     #     for y in range(params[define._LAT_Y_]):
@@ -142,9 +142,11 @@ if define.rank == 0:
     # print("PyQuda Laplacian out:", pyquda_Laplacian_out)
     # print("PyQuda Laplacian out data:", pyquda_Laplacian_out.data)
     # print("PyQuda Laplacian out shape:", pyquda_Laplacian_out.shape)
-    # print("norm of PyQuda Laplacian out:",
-    #       cp.linalg.norm(pyquda_Laplacian_out))
+    print("norm of PyQuda Laplacian out:",
+          cp.linalg.norm(pyquda_Laplacian_out))
     _ = io.zyxc2czyx(io.laplacian2zyxc(pyquda_Laplacian_out, params))
+    print("norm of _:",
+          cp.linalg.norm(_))
     # print("PyQuda Laplacian out:", _)
     # for x in range(params[define._LAT_X_]):
     #     for y in range(params[define._LAT_Y_]):
