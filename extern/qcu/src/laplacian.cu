@@ -88,8 +88,7 @@ namespace qcu
     {   // y part
       { // y-1
         move_backward(move, y, lat_y);
-        tmp_U =
-            (origin_U + move * lat_x + _Y_ * lat_tzyx);
+        tmp_U = (origin_U + move * lat_x + _Y_ * lat_tzyx);
         give_u_laplacian(U, tmp_U, lat_tzyx);
         tmp_src = (origin_src + move * lat_x);
         get_src_laplacian(src, tmp_src, lat_tzyx);
@@ -212,30 +211,18 @@ namespace qcu
     {
       lat_x = params[_LAT_X_]; // give lat_size back
       x = 0;                   // b_x
-      origin_U = ((static_cast<LatticeComplex<T> *>(device_U)) +
-                  (((t * lat_z + z) * lat_y + y) * lat_x + x));
       origin_src = ((static_cast<LatticeComplex<T> *>(device_src)) +
                     (((t * lat_z + z) * lat_y + y) * lat_x + x));
-      origin_b_x_send_vec =
-          ((static_cast<LatticeComplex<T> *>(device_b_x_send_vec)) +
-           ((t * lat_z + z) * lat_y + y));
+      origin_b_x_send_vec = ((static_cast<LatticeComplex<T> *>(device_b_x_send_vec)) + ((t * lat_z + z) * lat_y + y));
     }
     { // x-1
       move_backward(move, x, lat_x);
       // send in x+1 way
-      tmp_U =
-          (origin_U + _X_ * lat_tzyx);
-      give_u_laplacian(U, tmp_U, lat_tzyx);
       get_src_laplacian(src, origin_src, lat_tzyx);
-      { // just tmp
+      { // just src
         for (int c0 = 0; c0 < _LAT_C_; c0++)
         {
-          tmp0 = zero;
-          for (int c1 = 0; c1 < _LAT_C_; c1++)
-          {
-            tmp0 += src[c1] * U[c0 * _LAT_C_ + c1];
-          }
-          b_x_send_vec[c0] = tmp0;
+          b_x_send_vec[c0] = src[c0];
         }
         give_send_laplacian(origin_b_x_send_vec, b_x_send_vec, lat_tzyx / lat_x);
       }
@@ -246,15 +233,12 @@ namespace qcu
                   (((t * lat_z + z) * lat_y + y) * lat_x + x));
       origin_src = ((static_cast<LatticeComplex<T> *>(device_src)) +
                     (((t * lat_z + z) * lat_y + y) * lat_x + x));
-      origin_f_x_send_vec =
-          ((static_cast<LatticeComplex<T> *>(device_f_x_send_vec)) +
-           ((t * lat_z + z) * lat_y + y));
+      origin_f_x_send_vec = ((static_cast<LatticeComplex<T> *>(device_f_x_send_vec)) + ((t * lat_z + z) * lat_y + y));
     }
     { // x+1
       move_forward(move, x, lat_x);
       // send in x-1 way
-      tmp_U =
-          (origin_U + _X_ * lat_tzyx);
+      tmp_U = (origin_U + _X_ * lat_tzyx);
       give_u_laplacian(U, tmp_U, lat_tzyx);
       get_src_laplacian(src, origin_src, lat_tzyx);
       { // just tmp
@@ -273,7 +257,7 @@ namespace qcu
 #endif
   }
   template <typename T>
-  __global__ void laplacian_x_recv(void *device_dest,
+  __global__ void laplacian_x_recv(void *device_U, void *device_dest,
                                    void *device_params,
                                    void *device_b_x_recv_vec,
                                    void *device_f_x_recv_vec)
@@ -296,7 +280,9 @@ namespace qcu
     int y = tmp / lat_x;
     int x = tmp - y * lat_x;
     LatticeComplex<T> zero(0.0, 0.0);
+    LatticeComplex<T> *tmp_U;
     LatticeComplex<T> tmp0(0.0, 0.0);
+    LatticeComplex<T> U[_LAT_CC_];
     LatticeComplex<T> dest[_LAT_C_];
     for (int i = 0; i < _LAT_C_; i++)
     {
@@ -304,6 +290,7 @@ namespace qcu
     }
     LatticeComplex<T> b_x_recv_vec[_LAT_C_];
     LatticeComplex<T> f_x_recv_vec[_LAT_C_]; // needed
+    LatticeComplex<T> *origin_U;
     LatticeComplex<T> *origin_dest;
     LatticeComplex<T> *origin_b_x_recv_vec;
     LatticeComplex<T> *origin_f_x_recv_vec;
@@ -312,9 +299,7 @@ namespace qcu
       x = 0;                   // b_x
       origin_dest = ((static_cast<LatticeComplex<T> *>(device_dest)) +
                      (((t * lat_z + z) * lat_y + y) * lat_x + x));
-      origin_b_x_recv_vec =
-          ((static_cast<LatticeComplex<T> *>(device_b_x_recv_vec)) +
-           ((t * lat_z + z) * lat_y + y));
+      origin_b_x_recv_vec = ((static_cast<LatticeComplex<T> *>(device_b_x_recv_vec)) + ((t * lat_z + z) * lat_y + y));
     }
     { // x-1
       move_backward(move, x, lat_x);
@@ -333,19 +318,28 @@ namespace qcu
     }
     {
       x = lat_x - 1; // f_x
+      origin_U = ((static_cast<LatticeComplex<T> *>(device_U)) +
+                  (((t * lat_z + z) * lat_y + y) * lat_x + x));
       origin_dest = ((static_cast<LatticeComplex<T> *>(device_dest)) +
                      (((t * lat_z + z) * lat_y + y) * lat_x + x));
-      origin_f_x_recv_vec =
-          ((static_cast<LatticeComplex<T> *>(device_f_x_recv_vec)) +
-           ((t * lat_z + z) * lat_y + y));
+      origin_f_x_recv_vec = ((static_cast<LatticeComplex<T> *>(device_f_x_recv_vec)) + ((t * lat_z + z) * lat_y + y));
     }
     { // x+1
       move_forward(move, x, lat_x);
       // recv in x+1 way
       get_recv_laplacian(f_x_recv_vec, origin_f_x_recv_vec, lat_tzyx / lat_x);
-      for (int c0 = 0; c0 < _LAT_C_; c0++)
+      tmp_U = (origin_U + _X_ * lat_tzyx);
+      give_u_laplacian(U, tmp_U, lat_tzyx);
       {
-        dest[c0] += f_x_recv_vec[c0];
+        for (int c0 = 0; c0 < _LAT_C_; c0++)
+        {
+          tmp0 = zero;
+          for (int c1 = 0; c1 < _LAT_C_; c1++)
+          {
+            tmp0 += f_x_recv_vec[c1] * U[c0 * _LAT_C_ + c1];
+          }
+          dest[c0] += tmp0;
+        }
       }
     } // just add
     add_dest_laplacian(origin_dest, dest, lat_tzyx);
@@ -394,30 +388,18 @@ namespace qcu
     {
       lat_y = params[_LAT_Y_]; // give lat_size back
       y = 0;                   // b_y
-      origin_U = ((static_cast<LatticeComplex<T> *>(device_U)) +
-                  (((t * lat_z + z) * lat_y + y) * lat_x + x));
       origin_src = ((static_cast<LatticeComplex<T> *>(device_src)) +
                     (((t * lat_z + z) * lat_y + y) * lat_x + x));
-      origin_b_y_send_vec =
-          ((static_cast<LatticeComplex<T> *>(device_b_y_send_vec)) +
-           (((t * lat_z + z)) * lat_x + x));
+      origin_b_y_send_vec = ((static_cast<LatticeComplex<T> *>(device_b_y_send_vec)) + (((t * lat_z + z)) * lat_x + x));
     }
     { // y-1
       // move_backward(move, y, lat_y);
       // send in y+1 way
-      tmp_U =
-          (origin_U + _Y_ * lat_tzyx);
-      give_u_laplacian(U, tmp_U, lat_tzyx);
       get_src_laplacian(src, origin_src, lat_tzyx);
-      { // just tmp
+      { // just src
         for (int c0 = 0; c0 < _LAT_C_; c0++)
         {
-          tmp0 = zero;
-          for (int c1 = 0; c1 < _LAT_C_; c1++)
-          {
-            tmp0 += src[c1] * U[c0 * _LAT_C_ + c1];
-          }
-          b_y_send_vec[c0] = tmp0;
+          b_y_send_vec[c0] = src[c0];
         }
         give_send_laplacian(origin_b_y_send_vec, b_y_send_vec, lat_tzyx / lat_y);
       }
@@ -428,15 +410,12 @@ namespace qcu
                   (((t * lat_z + z) * lat_y + y) * lat_x + x));
       origin_src = ((static_cast<LatticeComplex<T> *>(device_src)) +
                     (((t * lat_z + z) * lat_y + y) * lat_x + x));
-      origin_f_y_send_vec =
-          ((static_cast<LatticeComplex<T> *>(device_f_y_send_vec)) +
-           (((t * lat_z + z)) * lat_x + x));
+      origin_f_y_send_vec = ((static_cast<LatticeComplex<T> *>(device_f_y_send_vec)) + (((t * lat_z + z)) * lat_x + x));
     }
     { // y+1
       // move_forward(move, y, lat_y);
       // send in y-1 way
-      tmp_U =
-          (origin_U + _Y_ * lat_tzyx);
+      tmp_U = (origin_U + _Y_ * lat_tzyx);
       give_u_laplacian(U, tmp_U, lat_tzyx);
       get_src_laplacian(src, origin_src, lat_tzyx);
       { // just tmp
@@ -455,7 +434,7 @@ namespace qcu
 #endif
   }
   template <typename T>
-  __global__ void laplacian_y_recv(void *device_dest,
+  __global__ void laplacian_y_recv(void *device_U, void *device_dest,
                                    void *device_params,
                                    void *device_b_y_recv_vec,
                                    void *device_f_y_recv_vec)
@@ -479,7 +458,9 @@ namespace qcu
     int x = tmp - y * lat_x;
     //  LatticeComplex<T> I(0.0, 1.0);
     LatticeComplex<T> zero(0.0, 0.0);
+    LatticeComplex<T> *tmp_U;
     LatticeComplex<T> tmp0(0.0, 0.0);
+    LatticeComplex<T> U[_LAT_CC_];
     LatticeComplex<T> dest[_LAT_C_];
     for (int i = 0; i < _LAT_C_; i++)
     {
@@ -487,6 +468,7 @@ namespace qcu
     }
     LatticeComplex<T> b_y_recv_vec[_LAT_C_];
     LatticeComplex<T> f_y_recv_vec[_LAT_C_]; // needed
+    LatticeComplex<T> *origin_U;
     LatticeComplex<T> *origin_dest;
     LatticeComplex<T> *origin_b_y_recv_vec;
     LatticeComplex<T> *origin_f_y_recv_vec;
@@ -495,9 +477,7 @@ namespace qcu
       y = 0;                   // b_y
       origin_dest = ((static_cast<LatticeComplex<T> *>(device_dest)) +
                      (((t * lat_z + z) * lat_y + y) * lat_x + x));
-      origin_b_y_recv_vec =
-          ((static_cast<LatticeComplex<T> *>(device_b_y_recv_vec)) +
-           (((t * lat_z + z)) * lat_x + x));
+      origin_b_y_recv_vec = ((static_cast<LatticeComplex<T> *>(device_b_y_recv_vec)) + (((t * lat_z + z)) * lat_x + x));
     }
     { // y-1
       move_backward(move, y, lat_y);
@@ -516,19 +496,28 @@ namespace qcu
     }
     {
       y = lat_y - 1; // f_y
+      origin_U = ((static_cast<LatticeComplex<T> *>(device_U)) +
+                  (((t * lat_z + z) * lat_y + y) * lat_x + x));
       origin_dest = ((static_cast<LatticeComplex<T> *>(device_dest)) +
                      (((t * lat_z + z) * lat_y + y) * lat_x + x));
-      origin_f_y_recv_vec =
-          ((static_cast<LatticeComplex<T> *>(device_f_y_recv_vec)) +
-           (((t * lat_z + z)) * lat_x + x));
+      origin_f_y_recv_vec = ((static_cast<LatticeComplex<T> *>(device_f_y_recv_vec)) + (((t * lat_z + z)) * lat_x + x));
     }
     { // y+1
       // move_forward(move, y, lat_y);
       // recv in y+1 way
       get_recv_laplacian(f_y_recv_vec, origin_f_y_recv_vec, lat_tzyx / lat_y);
-      for (int c0 = 0; c0 < _LAT_C_; c0++)
+      tmp_U = (origin_U + _Y_ * lat_tzyx);
+      give_u_laplacian(U, tmp_U, lat_tzyx);
       {
-        dest[c0] += f_y_recv_vec[c0];
+        for (int c0 = 0; c0 < _LAT_C_; c0++)
+        {
+          tmp0 = zero;
+          for (int c1 = 0; c1 < _LAT_C_; c1++)
+          {
+            tmp0 += f_y_recv_vec[c1] * U[c0 * _LAT_C_ + c1];
+          }
+          dest[c0] += tmp0;
+        }
       }
     } // just add
     add_dest_laplacian(origin_dest, dest, lat_tzyx);
@@ -577,30 +566,18 @@ namespace qcu
     {
       lat_z = params[_LAT_Z_]; // give lat_size back
       z = 0;                   // b_z
-      origin_U = ((static_cast<LatticeComplex<T> *>(device_U)) +
-                  (((t * lat_z + z) * lat_y + y) * lat_x + x));
       origin_src = ((static_cast<LatticeComplex<T> *>(device_src)) +
                     (((t * lat_z + z) * lat_y + y) * lat_x + x));
-      origin_b_z_send_vec =
-          ((static_cast<LatticeComplex<T> *>(device_b_z_send_vec)) +
-           (((t)*lat_y + y) * lat_x + x));
+      origin_b_z_send_vec = ((static_cast<LatticeComplex<T> *>(device_b_z_send_vec)) + (((t)*lat_y + y) * lat_x + x));
     }
     { // z-1
       // move_backward(move, z, lat_z);
       // send in z+1 way
-      tmp_U =
-          (origin_U + _Z_ * lat_tzyx);
-      give_u_laplacian(U, tmp_U, lat_tzyx);
       get_src_laplacian(src, origin_src, lat_tzyx);
-      { // just tmp
+      { // just src
         for (int c0 = 0; c0 < _LAT_C_; c0++)
         {
-          tmp0 = zero;
-          for (int c1 = 0; c1 < _LAT_C_; c1++)
-          {
-            tmp0 += src[c1] * U[c0 * _LAT_C_ + c1];
-          }
-          b_z_send_vec[c0] = tmp0;
+          b_z_send_vec[c0] = src[c0];
         }
         give_send_laplacian(origin_b_z_send_vec, b_z_send_vec, lat_tzyx / lat_z);
       }
@@ -611,15 +588,12 @@ namespace qcu
                   (((t * lat_z + z) * lat_y + y) * lat_x + x));
       origin_src = ((static_cast<LatticeComplex<T> *>(device_src)) +
                     (((t * lat_z + z) * lat_y + y) * lat_x + x));
-      origin_f_z_send_vec =
-          ((static_cast<LatticeComplex<T> *>(device_f_z_send_vec)) +
-           (((t)*lat_y + y) * lat_x + x));
+      origin_f_z_send_vec = ((static_cast<LatticeComplex<T> *>(device_f_z_send_vec)) + (((t)*lat_y + y) * lat_x + x));
     }
     { // z+1
       // move_forward(move, z, lat_z);
       // send in z-1 way
-      tmp_U =
-          (origin_U + _Z_ * lat_tzyx);
+      tmp_U = (origin_U + _Z_ * lat_tzyx);
       give_u_laplacian(U, tmp_U, lat_tzyx);
       get_src_laplacian(src, origin_src, lat_tzyx);
       { // just tmp
@@ -638,7 +612,7 @@ namespace qcu
 #endif
   }
   template <typename T>
-  __global__ void laplacian_z_recv(void *device_dest,
+  __global__ void laplacian_z_recv(void *device_U, void *device_dest,
                                    void *device_params,
                                    void *device_b_z_recv_vec,
                                    void *device_f_z_recv_vec)
@@ -662,7 +636,9 @@ namespace qcu
     int x = tmp - y * lat_x;
     //  LatticeComplex<T> I(0.0, 1.0);
     LatticeComplex<T> zero(0.0, 0.0);
+    LatticeComplex<T> *tmp_U;
     LatticeComplex<T> tmp0(0.0, 0.0);
+    LatticeComplex<T> U[_LAT_CC_];
     LatticeComplex<T> dest[_LAT_C_];
     for (int i = 0; i < _LAT_C_; i++)
     {
@@ -670,6 +646,7 @@ namespace qcu
     }
     LatticeComplex<T> b_z_recv_vec[_LAT_C_];
     LatticeComplex<T> f_z_recv_vec[_LAT_C_]; // needed
+    LatticeComplex<T> *origin_U;
     LatticeComplex<T> *origin_dest;
     LatticeComplex<T> *origin_b_z_recv_vec;
     LatticeComplex<T> *origin_f_z_recv_vec;
@@ -678,9 +655,7 @@ namespace qcu
       z = 0;                   // b_z
       origin_dest = ((static_cast<LatticeComplex<T> *>(device_dest)) +
                      (((t * lat_z + z) * lat_y + y) * lat_x + x));
-      origin_b_z_recv_vec =
-          ((static_cast<LatticeComplex<T> *>(device_b_z_recv_vec)) +
-           (((t)*lat_y + y) * lat_x + x));
+      origin_b_z_recv_vec = ((static_cast<LatticeComplex<T> *>(device_b_z_recv_vec)) + (((t)*lat_y + y) * lat_x + x));
     }
     { // z-1
       // move_backward(move, z, lat_z);
@@ -699,19 +674,28 @@ namespace qcu
     }
     {
       z = lat_z - 1; // f_z
+      origin_U = ((static_cast<LatticeComplex<T> *>(device_U)) +
+                  (((t * lat_z + z) * lat_y + y) * lat_x + x));
       origin_dest = ((static_cast<LatticeComplex<T> *>(device_dest)) +
                      (((t * lat_z + z) * lat_y + y) * lat_x + x));
-      origin_f_z_recv_vec =
-          ((static_cast<LatticeComplex<T> *>(device_f_z_recv_vec)) +
-           (((t)*lat_y + y) * lat_x + x));
+      origin_f_z_recv_vec = ((static_cast<LatticeComplex<T> *>(device_f_z_recv_vec)) + (((t)*lat_y + y) * lat_x + x));
     }
     { // z+1
       // move_forward(move, z, lat_z);
       // recv in z+1 way
       get_recv_laplacian(f_z_recv_vec, origin_f_z_recv_vec, lat_tzyx / lat_z);
-      for (int c0 = 0; c0 < _LAT_C_; c0++)
+      tmp_U = (origin_U + _Z_ * lat_tzyx);
+      give_u_laplacian(U, tmp_U, lat_tzyx);
       {
-        dest[c0] += f_z_recv_vec[c0];
+        for (int c0 = 0; c0 < _LAT_C_; c0++)
+        {
+          tmp0 = zero;
+          for (int c1 = 0; c1 < _LAT_C_; c1++)
+          {
+            tmp0 += f_z_recv_vec[c1] * U[c0 * _LAT_C_ + c1];
+          }
+          dest[c0] += tmp0;
+        }
       }
     } // just add
     add_dest_laplacian(origin_dest, dest, lat_tzyx);
@@ -737,7 +721,7 @@ namespace qcu
                                                     void *device_params,
                                                     void *device_b_x_send_vec,
                                                     void *device_f_x_send_vec);
-  template __global__ void laplacian_x_recv<double>(void *device_dest,
+  template __global__ void laplacian_x_recv<double>(void *device_U, void *device_dest,
                                                     void *device_params,
                                                     void *device_b_x_recv_vec,
                                                     void *device_f_x_recv_vec);
@@ -745,7 +729,7 @@ namespace qcu
                                                     void *device_params,
                                                     void *device_b_y_send_vec,
                                                     void *device_f_y_send_vec);
-  template __global__ void laplacian_y_recv<double>(void *device_dest,
+  template __global__ void laplacian_y_recv<double>(void *device_U, void *device_dest,
                                                     void *device_params,
                                                     void *device_b_y_recv_vec,
                                                     void *device_f_y_recv_vec);
@@ -753,7 +737,7 @@ namespace qcu
                                                     void *device_params,
                                                     void *device_b_z_send_vec,
                                                     void *device_f_z_send_vec);
-  template __global__ void laplacian_z_recv<double>(void *device_dest,
+  template __global__ void laplacian_z_recv<double>(void *device_U, void *device_dest,
                                                     void *device_params,
                                                     void *device_b_z_recv_vec,
                                                     void *device_f_z_recv_vec);
@@ -766,7 +750,7 @@ namespace qcu
                                                    void *device_params,
                                                    void *device_b_x_send_vec,
                                                    void *device_f_x_send_vec);
-  template __global__ void laplacian_x_recv<float>(void *device_dest,
+  template __global__ void laplacian_x_recv<float>(void *device_U, void *device_dest,
                                                    void *device_params,
                                                    void *device_b_x_recv_vec,
                                                    void *device_f_x_recv_vec);
@@ -774,7 +758,7 @@ namespace qcu
                                                    void *device_params,
                                                    void *device_b_y_send_vec,
                                                    void *device_f_y_send_vec);
-  template __global__ void laplacian_y_recv<float>(void *device_dest,
+  template __global__ void laplacian_y_recv<float>(void *device_U, void *device_dest,
                                                    void *device_params,
                                                    void *device_b_y_recv_vec,
                                                    void *device_f_y_recv_vec);
@@ -782,7 +766,7 @@ namespace qcu
                                                    void *device_params,
                                                    void *device_b_z_send_vec,
                                                    void *device_f_z_send_vec);
-  template __global__ void laplacian_z_recv<float>(void *device_dest,
+  template __global__ void laplacian_z_recv<float>(void *device_U, void *device_dest,
                                                    void *device_params,
                                                    void *device_b_z_recv_vec,
                                                    void *device_f_z_recv_vec);
