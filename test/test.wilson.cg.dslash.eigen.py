@@ -1,6 +1,7 @@
 import re
 import numpy as np
 import cupy as cp
+from time import perf_counter
 from pyqcu import define
 from pyqcu import io
 from pyqcu import qcu
@@ -61,8 +62,13 @@ if define.rank == 0:
     print("Set pointers:", set_ptrs)
     print("Set pointers data:", set_ptrs.data)
     qcu.applyInitQcu(set_ptrs, params, argv)
+    t0 = perf_counter()
+    cp.cuda.runtime.deviceSynchronize()
     qcu.applyWilsonCgDslashQcu(fermion_out, fermion_in, gauge, set_ptrs, params)
-    print("Fermion out:", fermion_out)
+    cp.cuda.runtime.deviceSynchronize()
+    t1 = perf_counter()
+    print(f'PyQCU cost time: {t1 - t0} sec')
+    # print("Fermion out:", fermion_out)
     print("Fermion out data:", fermion_out.data)
     print("Fermion out shape:", fermion_out.shape)
     qcu.applyEndQcu(set_ptrs, params)
