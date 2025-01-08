@@ -4,7 +4,6 @@
 #include "./define.h"
 #include "./include.h"
 #include "./lattice_cg.h"
-#include "./lattice_cg_eigen.h"
 #include "./lattice_bistabcg.h"
 #include "./lattice_gmres_ir.h"
 #include "./lattice_clover_dslash.h"
