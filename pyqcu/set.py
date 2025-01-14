@@ -1,4 +1,4 @@
-import define
+import pyqcu.define as define
 import numpy as np
 params = np.array([0]*define._PARAMS_SIZE_, dtype=np.int32)
 params[define._LAT_X_] = 32
@@ -19,10 +19,12 @@ params[define._DATA_TYPE_] = 0
 params[define._SET_INDEX_] = 2
 params[define._SET_PLAN_] = 0
 print("Parameters:", params)
+print("Parameters data:", params.data)
 argv = np.array([0.0]*define._ARGV_SIZE_, dtype=np.float32)
 argv[define._MASS_] = 0.0
 argv[define._TOL_] = 1e-9
 print("Arguments:", argv)
+print("Arguments data:", argv.data)
 set_ptrs = np.array(params, dtype=np.int64)
 print("Set pointers:", set_ptrs)
 print("Set pointers data:", set_ptrs.data)
