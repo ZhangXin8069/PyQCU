@@ -4,7 +4,7 @@ import mpi4py.MPI as MPI
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 size = comm.Get_size()
-# Copy from ../extern/qcu/include/defin.h
+# Copy from ../extern/qcu/include/define.h
 _BLOCK_SIZE_ = 128
 _MAIN_RANK_ = 0
 _a_ = 0
