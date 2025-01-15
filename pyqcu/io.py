@@ -210,35 +210,39 @@ def zyxc2czyx(laplacian):
     return dest
 
 
-def split_vector_by_parity(input_array):
+def xxxtzyx2pxxxtzyx(input_array):
     shape = input_array.shape
-    prefix_shape = shape[:-4]
-    t, z, y, x = shape[-4:]
+    prefix_shape = shape[:-define._LAT_D_]
+    t, z, y, x = shape[-define._LAT_D_:]
     indices = cp.indices((t, z, y, x))
-    sums = indices[0] + indices[1] + indices[2] + indices[3]
-    even_mask = (sums % 2 == 0)
+    sums = indices[define._X_] + indices[define._Y_] + \
+        indices[define._Z_] + indices[define._T_]
+    even_mask = (sums % define._LAT_P_ == 0)
     odd_mask = ~even_mask
-    even_part = input_array[..., even_mask].reshape(
-        *prefix_shape, t, z, y, x//2)
-    odd_part = input_array[..., odd_mask].reshape(*prefix_shape, t, z, y, x//2)
+    splited_array = cp.zeros(
+        (define._LAT_P_, *prefix_shape, t, z, y, x//define._LAT_P_))
+    splited_array[define._EVEN_] = input_array[..., even_mask].reshape(
+        *prefix_shape, t, z, y, x//define._LAT_P_)
+    splited_array[define._ODD_] = input_array[..., odd_mask].reshape(
+        *prefix_shape, t, z, y, x//define._LAT_P_)
+    print(f"Splited Array Shape: {splited_array.shape}")
+    return splited_array
 
-    print(f"Reshaped Even Elements Shape: {even_part.shape}")
-    print(f"Reshaped Odd Elements Shape: {odd_part.shape}")
-    return even_part, odd_part
 
-
-def reverse_split_vector(even_part, odd_part):
-    shape = even_part.shape
-    prefix_shape = shape[:-4]
-    t, z, y, x = shape[-4:]
-    x *= 2
+def pxxxtzyx2xxxtzyx(input_array):
+    shape = input_array.shape
+    prefix_shape = shape[:-define._LAT_D_]
+    t, z, y, x = shape[-define._LAT_D_:]
+    x *= define._LAT_P_
     indices = cp.indices((t, z, y, x))
-    sums = indices[0] + indices[1] + indices[2] + indices[3]
-    even_mask = (sums % 2 == 0)
+    sums = indices[define._X_] + indices[define._Y_] + \
+        indices[define._Z_] + indices[define._T_]
+    even_mask = (sums % define._LAT_P_ == 0)
     odd_mask = ~even_mask
     restored_array = cp.zeros((*prefix_shape, t, z, y, x))
-    restored_array[..., even_mask] = even_part.reshape((*prefix_shape, -1))
-    restored_array[..., odd_mask] = odd_part.reshape((*prefix_shape, -1))
-
+    restored_array[..., even_mask] = input_array[define._EVEN_].reshape(
+        (*prefix_shape, -1))
+    restored_array[..., odd_mask] = input_array[define._ODD_].reshape(
+        (*prefix_shape, -1))
     print(f"Restored Array Shape: {restored_array.shape}")
     return restored_array
