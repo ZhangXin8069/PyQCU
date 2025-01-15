@@ -7,6 +7,7 @@ def array2xxx(array):
 
 
 def gauge2ccdptzyx(gauge, params):
+    dtype = gauge.dtype
     lat_t = params[define._LAT_T_]
     lat_z = params[define._LAT_Z_]
     lat_y = params[define._LAT_Y_]
@@ -17,7 +18,7 @@ def gauge2ccdptzyx(gauge, params):
     dest_shape = (lat_c, lat_c, lat_d, lat_p, lat_t, lat_z, lat_y, lat_x)
     dest = gauge.reshape(dest_shape)
     U = dest[:, :, 0, 0, 0, 0, 0, 0].reshape(define._LAT_C_ * define._LAT_C_)
-    _U = cp.array([0.0+0.0j]*9, dtype=cp.complex64)
+    _U = cp.array([0.0+0.0j]*9, dtype=dtype)
     _U[6] = (U[1] * U[5] - U[2] * U[4]).conj()
     _U[7] = (U[2] * U[3] - U[0] * U[5]).conj()
     _U[8] = (U[0] * U[4] - U[1] * U[3]).conj()
@@ -28,6 +29,7 @@ def gauge2ccdptzyx(gauge, params):
 
 
 def gauge2dptzyxcc(gauge, params):
+    dtype = gauge.dtype
     lat_t = params[define._LAT_T_]
     lat_z = params[define._LAT_Z_]
     lat_y = params[define._LAT_Y_]
@@ -38,7 +40,7 @@ def gauge2dptzyxcc(gauge, params):
     dest_shape = (lat_d, lat_p, lat_t, lat_z, lat_y, lat_x, lat_c, lat_c)
     dest = gauge.reshape(dest_shape)
     U = dest[0, 0, 0, 0, 0, 0, :, :].reshape(define._LAT_C_ * define._LAT_C_)
-    _U = cp.array([0.0+0.0j]*9, dtype=cp.complex64)
+    _U = cp.array([0.0+0.0j]*9, dtype=dtype)
     _U[6] = (U[1] * U[5] - U[2] * U[4]).conj()
     _U[7] = (U[2] * U[3] - U[0] * U[5]).conj()
     _U[8] = (U[0] * U[4] - U[1] * U[3]).conj()
@@ -49,6 +51,7 @@ def gauge2dptzyxcc(gauge, params):
 
 
 def gauge2tzyxdcc(gauge, params):
+    dtype = gauge.dtype
     lat_t = params[define._LAT_T_]
     lat_z = params[define._LAT_Z_]
     lat_y = params[define._LAT_Y_]
@@ -58,7 +61,7 @@ def gauge2tzyxdcc(gauge, params):
     dest_shape = (lat_t, lat_z, lat_y, lat_x, lat_d, lat_c, lat_c)
     dest = gauge.reshape(dest_shape)
     U = dest[0, 0, 0, 0, 0, :, :].reshape(define._LAT_C_ * define._LAT_C_)
-    _U = cp.array([0.0+0.0j]*9, dtype=cp.complex64)
+    _U = cp.array([0.0+0.0j]*9, dtype=dtype)
     _U[6] = (U[1] * U[5] - U[2] * U[4]).conj()
     _U[7] = (U[2] * U[3] - U[0] * U[5]).conj()
     _U[8] = (U[0] * U[4] - U[1] * U[3]).conj()
