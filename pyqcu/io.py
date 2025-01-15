@@ -208,3 +208,37 @@ def czyx2zyxc(laplacian):
 def zyxc2czyx(laplacian):
     dest = laplacian.transpose(3, 0, 1, 2)
     return dest
+
+
+def split_vector_by_parity(input_array):
+    shape = input_array.shape
+    prefix_shape = shape[:-4]
+    t, z, y, x = shape[-4:]
+    indices = cp.indices((t, z, y, x))
+    sums = indices[0] + indices[1] + indices[2] + indices[3]
+    even_mask = (sums % 2 == 0)
+    odd_mask = ~even_mask
+    even_part = input_array[..., even_mask].reshape(
+        *prefix_shape, t, z, y, x//2)
+    odd_part = input_array[..., odd_mask].reshape(*prefix_shape, t, z, y, x//2)
+
+    print(f"Reshaped Even Elements Shape: {even_part.shape}")
+    print(f"Reshaped Odd Elements Shape: {odd_part.shape}")
+    return even_part, odd_part
+
+
+def reverse_split_vector(even_part, odd_part):
+    shape = even_part.shape
+    prefix_shape = shape[:-4]
+    t, z, y, x = shape[-4:]
+    x *= 2
+    indices = cp.indices((t, z, y, x))
+    sums = indices[0] + indices[1] + indices[2] + indices[3]
+    even_mask = (sums % 2 == 0)
+    odd_mask = ~even_mask
+    restored_array = cp.zeros((*prefix_shape, t, z, y, x))
+    restored_array[..., even_mask] = even_part.reshape((*prefix_shape, -1))
+    restored_array[..., odd_mask] = odd_part.reshape((*prefix_shape, -1))
+
+    print(f"Restored Array Shape: {restored_array.shape}")
+    return restored_array
