@@ -212,6 +212,7 @@ def zyxc2czyx(laplacian):
 
 def xxxtzyx2pxxxtzyx(input_array):
     shape = input_array.shape
+    dtype = input_array.dtype
     prefix_shape = shape[:-define._LAT_D_]
     t, z, y, x = shape[-define._LAT_D_:]
     indices = cp.indices((t, z, y, x))
@@ -220,7 +221,7 @@ def xxxtzyx2pxxxtzyx(input_array):
     even_mask = (sums % define._LAT_P_ == 0)
     odd_mask = ~even_mask
     splited_array = cp.zeros(
-        (define._LAT_P_, *prefix_shape, t, z, y, x//define._LAT_P_))
+        (define._LAT_P_, *prefix_shape, t, z, y, x//define._LAT_P_), dtype=dtype)
     splited_array[define._EVEN_] = input_array[..., even_mask].reshape(
         *prefix_shape, t, z, y, x//define._LAT_P_)
     splited_array[define._ODD_] = input_array[..., odd_mask].reshape(
@@ -231,7 +232,8 @@ def xxxtzyx2pxxxtzyx(input_array):
 
 def pxxxtzyx2xxxtzyx(input_array):
     shape = input_array.shape
-    prefix_shape = shape[:-define._LAT_D_]
+    dtype = input_array.dtype
+    prefix_shape = shape[1:-define._LAT_D_]
     t, z, y, x = shape[-define._LAT_D_:]
     x *= define._LAT_P_
     indices = cp.indices((t, z, y, x))
@@ -239,7 +241,7 @@ def pxxxtzyx2xxxtzyx(input_array):
         indices[define._Z_] + indices[define._T_]
     even_mask = (sums % define._LAT_P_ == 0)
     odd_mask = ~even_mask
-    restored_array = cp.zeros((*prefix_shape, t, z, y, x))
+    restored_array = cp.zeros((*prefix_shape, t, z, y, x), dtype=dtype)
     restored_array[..., even_mask] = input_array[define._EVEN_].reshape(
         (*prefix_shape, -1))
     restored_array[..., odd_mask] = input_array[define._ODD_].reshape(
