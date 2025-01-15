@@ -29,5 +29,3 @@ lib/*
 *.c
 *.bin
 *dist
-*.h5*
-*.hdf5*

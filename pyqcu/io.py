@@ -1,6 +1,5 @@
 import pyqcu.define as define
 import cupy as cp
-import h5py
 
 
 def array2xxx(array):
@@ -252,4 +251,3 @@ def pxxxtzyx2xxxtzyx(input_array):
         (*prefix_shape, -1))
     print(f"Restored Array Shape: {restored_array.shape}")
     return restored_array
-
