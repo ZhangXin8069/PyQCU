@@ -1,0 +1,5 @@
+export MPI_HOME=/usr/lib/x86_64-linux-gnu/openmpi
+export MPI_INCLUDE_PATH=/usr/lib/x86_64-linux-gnu/openmpi/include
+export MPI_CXX_LIBRARIES=/usr/lib/x86_64-linux-gnu/openmpi/lib/libmpi.so
+export HDF5_MPI="ON"
+pip install --no-binary=h5py h5py  > .log.txt 2>&1 & code .log.txt
