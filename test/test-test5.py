@@ -10,6 +10,7 @@ print('My rank is ', define.rank)
 params[define._LAT_Y_] /= 2
 params[define._LAT_XYZT_] /= 2
 params[define._SET_PLAN_] = 2
+# params[define._GRID_T_] = 1
 params[define._GRID_T_] = 2
 params[define._NODE_RANK_] = define.rank
 params[define._NODE_SIZE_] = define.size
@@ -27,7 +28,7 @@ quda_fermion_out = io.hdf5_xxxtzyx2grid_xxxtzyx(params, fermion_out_filename)
 #############################
 fermion_out = cp.zeros(
     params[define._LAT_XYZT_]*define._LAT_HALF_SC_, dtype=cp.complex64)
-print("Fermion out:", fermion_out)
+fermion_out = io.fermion2sctzyx(fermion_out, params)
 print("Fermion out data:", fermion_out.data)
 print("Fermion out shape:", fermion_out.shape)
 #############################
@@ -35,13 +36,11 @@ qcu.applyInitQcu(set_ptrs, params, argv)
 qcu.applyCloverDslashQcu(fermion_out, fermion_in, gauge, set_ptrs, params)
 qcu.applyEndQcu(set_ptrs, params)
 #############################
-print("Fermion out:", fermion_out)
 print("Fermion out data:", fermion_out.data)
 print("Fermion out shape:", fermion_out.shape)
-print("QUDA Fermion out:", quda_fermion_out)
 print("QUDA Fermion out data:", quda_fermion_out.data)
 print("QUDA Fermion out shape:", quda_fermion_out.shape)
 print("Difference:", cp.linalg.norm(fermion_out -
       quda_fermion_out)/cp.linalg.norm(quda_fermion_out))
 #############################
-io.grid_xxxtzyx2hdf5_xxxtzyx(params, fermion_out)
+io.grid_xxxtzyx2hdf5_xxxtzyx(fermion_out, params)
