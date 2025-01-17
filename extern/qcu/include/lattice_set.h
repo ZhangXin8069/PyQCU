@@ -474,7 +474,7 @@ namespace qcu
                     }
                 }
             }
-            if (host_params[_SET_PLAN_] == _SET_PLAN3_) // just for clover bitbcg and cg
+            if (host_params[_SET_PLAN_] == _SET_PLAN3_) // just for clover bistabcg and cg
             {
                 // pass
             }
@@ -593,7 +593,7 @@ namespace qcu
                     free(host_u_2dim_recv_vec[i * _BF_ * _BF_ + 3]);
                 }
             }
-            if (host_params[_SET_PLAN_] == _SET_PLAN3_) // just for clover bitbcg and cg
+            if (host_params[_SET_PLAN_] == _SET_PLAN3_) // just for clover bistabcg and cg
             {
                 // pass
             }
