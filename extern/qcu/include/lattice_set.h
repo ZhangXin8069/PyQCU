@@ -203,6 +203,40 @@ namespace qcu
                     give_param<T><<<1, 1, 0, stream>>>(device_params_odd_dag, _PARITY_, _ODD_);
                     give_param<T><<<1, 1, 0, stream>>>(device_params_odd_dag, _DAGGER_, _USE_);
                 }
+                { // give move wards
+                    move_backward(move_wards[_B_X_], grid_index_1dim[_X_],
+                                  host_params[_GRID_X_]);
+                    move_backward(move_wards[_B_Y_], grid_index_1dim[_Y_],
+                                  host_params[_GRID_Y_]);
+                    move_backward(move_wards[_B_Z_], grid_index_1dim[_Z_],
+                                  host_params[_GRID_Z_]);
+                    move_backward(move_wards[_B_T_], grid_index_1dim[_T_],
+                                  host_params[_GRID_T_]);
+                    move_forward(move_wards[_F_X_], grid_index_1dim[_X_],
+                                 host_params[_GRID_X_]);
+                    move_forward(move_wards[_F_Y_], grid_index_1dim[_Y_],
+                                 host_params[_GRID_Y_]);
+                    move_forward(move_wards[_F_Z_], grid_index_1dim[_Z_],
+                                 host_params[_GRID_Z_]);
+                    move_forward(move_wards[_F_T_], grid_index_1dim[_T_],
+                                 host_params[_GRID_T_]);
+                }
+                { // splite by x->y->z->t
+                    move_wards[_B_X_] = host_params[_NODE_RANK_] + move_wards[_B_X_];
+                    move_wards[_B_Y_] =
+                        host_params[_NODE_RANK_] + move_wards[_B_Y_] * host_params[_GRID_X_];
+                    move_wards[_B_Z_] =
+                        host_params[_NODE_RANK_] + move_wards[_B_Z_] * grid_2dim[_XY_];
+                    move_wards[_B_T_] =
+                        host_params[_NODE_RANK_] + move_wards[_B_T_] * grid_3dim[_XYZ_];
+                    move_wards[_F_X_] = host_params[_NODE_RANK_] + move_wards[_F_X_];
+                    move_wards[_F_Y_] =
+                        host_params[_NODE_RANK_] + move_wards[_F_Y_] * host_params[_GRID_X_];
+                    move_wards[_F_Z_] =
+                        host_params[_NODE_RANK_] + move_wards[_F_Z_] * grid_2dim[_XY_];
+                    move_wards[_F_T_] =
+                        host_params[_NODE_RANK_] + move_wards[_F_T_] * grid_3dim[_XYZ_];
+                }
             }
             if (host_params[_SET_PLAN_] == _SET_PLAN_N_1_) // just for laplacian
             {
@@ -237,24 +271,6 @@ namespace qcu
                     checkCudaErrors(cudaMallocHost(
                         &host_recv_vec[i * _BF_ + 1],
                         lat_3dim_C[i] * sizeof(LatticeComplex<T>)));
-                }
-                { // give move wards
-                    move_backward(move_wards[_B_X_], grid_index_1dim[_X_],
-                                  host_params[_GRID_X_]);
-                    move_backward(move_wards[_B_Y_], grid_index_1dim[_Y_],
-                                  host_params[_GRID_Y_]);
-                    move_backward(move_wards[_B_Z_], grid_index_1dim[_Z_],
-                                  host_params[_GRID_Z_]);
-                    move_backward(move_wards[_B_T_], grid_index_1dim[_T_],
-                                  host_params[_GRID_T_]);
-                    move_forward(move_wards[_F_X_], grid_index_1dim[_X_],
-                                 host_params[_GRID_X_]);
-                    move_forward(move_wards[_F_Y_], grid_index_1dim[_Y_],
-                                 host_params[_GRID_Y_]);
-                    move_forward(move_wards[_F_Z_], grid_index_1dim[_Z_],
-                                 host_params[_GRID_Z_]);
-                    move_forward(move_wards[_F_T_], grid_index_1dim[_T_],
-                                 host_params[_GRID_T_]);
                 }
             }
             if (host_params[_SET_PLAN_] >= _SET_PLAN0_) // for wilson dslash
@@ -291,24 +307,6 @@ namespace qcu
                         &host_recv_vec[i * _BF_ + 1],
                         lat_3dim_Half_SC[i] * sizeof(LatticeComplex<T>)));
                 }
-                { // give move wards
-                    move_backward(move_wards[_B_X_], grid_index_1dim[_X_],
-                                  host_params[_GRID_X_]);
-                    move_backward(move_wards[_B_Y_], grid_index_1dim[_Y_],
-                                  host_params[_GRID_Y_]);
-                    move_backward(move_wards[_B_Z_], grid_index_1dim[_Z_],
-                                  host_params[_GRID_Z_]);
-                    move_backward(move_wards[_B_T_], grid_index_1dim[_T_],
-                                  host_params[_GRID_T_]);
-                    move_forward(move_wards[_F_X_], grid_index_1dim[_X_],
-                                 host_params[_GRID_X_]);
-                    move_forward(move_wards[_F_Y_], grid_index_1dim[_Y_],
-                                 host_params[_GRID_Y_]);
-                    move_forward(move_wards[_F_Z_], grid_index_1dim[_Z_],
-                                 host_params[_GRID_Z_]);
-                    move_forward(move_wards[_F_T_], grid_index_1dim[_T_],
-                                 host_params[_GRID_T_]);
-                }
             }
             if (host_params[_SET_PLAN_] == _SET_PLAN1_) // just for wilson bistabcg and cg
             {
@@ -324,20 +322,6 @@ namespace qcu
             {
                 {     // give move wards
                     { // splite by x->y->z->t
-                        move_wards[_B_X_] = host_params[_NODE_RANK_] + move_wards[_B_X_];
-                        move_wards[_B_Y_] =
-                            host_params[_NODE_RANK_] + move_wards[_B_Y_] * host_params[_GRID_X_];
-                        move_wards[_B_Z_] =
-                            host_params[_NODE_RANK_] + move_wards[_B_Z_] * grid_2dim[_XY_];
-                        move_wards[_B_T_] =
-                            host_params[_NODE_RANK_] + move_wards[_B_T_] * grid_3dim[_XYZ_];
-                        move_wards[_F_X_] = host_params[_NODE_RANK_] + move_wards[_F_X_];
-                        move_wards[_F_Y_] =
-                            host_params[_NODE_RANK_] + move_wards[_F_Y_] * host_params[_GRID_X_];
-                        move_wards[_F_Z_] =
-                            host_params[_NODE_RANK_] + move_wards[_F_Z_] * grid_2dim[_XY_];
-                        move_wards[_F_T_] =
-                            host_params[_NODE_RANK_] + move_wards[_F_T_] * grid_3dim[_XYZ_];
                         int tmp;
                         { // BB
                             move_backward(tmp, grid_index_1dim[_Y_], host_params[_GRID_Y_]);
@@ -474,7 +458,7 @@ namespace qcu
                     }
                 }
             }
-            if (host_params[_SET_PLAN_] == _SET_PLAN3_) // just for clover bitbcg and cg
+            if (host_params[_SET_PLAN_] == _SET_PLAN3_) // just for clover bistabcg and cg
             {
                 // pass
             }
@@ -593,7 +577,7 @@ namespace qcu
                     free(host_u_2dim_recv_vec[i * _BF_ * _BF_ + 3]);
                 }
             }
-            if (host_params[_SET_PLAN_] == _SET_PLAN3_) // just for clover bitbcg and cg
+            if (host_params[_SET_PLAN_] == _SET_PLAN3_) // just for clover bistabcg and cg
             {
                 // pass
             }
