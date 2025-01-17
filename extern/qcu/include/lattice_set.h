@@ -59,15 +59,16 @@ namespace qcu
         void *device_params_odd_dag;
         void give(void *_params, void *_argv)
         {
-            host_params[_LAT_X_] = static_cast<int *>(_params)[_LAT_X_] / _EVEN_ODD_; // even-odd
-            host_params[_LAT_Y_] = static_cast<int *>(_params)[_LAT_Y_];
-            host_params[_LAT_Z_] = static_cast<int *>(_params)[_LAT_Z_];
-            host_params[_LAT_T_] = static_cast<int *>(_params)[_LAT_T_];
-            host_params[_LAT_XYZT_] = static_cast<int *>(_params)[_LAT_XYZT_]; // prepare for test input
             host_params[_GRID_X_] = static_cast<int *>(_params)[_GRID_X_];
             host_params[_GRID_Y_] = static_cast<int *>(_params)[_GRID_Y_];
             host_params[_GRID_Z_] = static_cast<int *>(_params)[_GRID_Z_];
             host_params[_GRID_T_] = static_cast<int *>(_params)[_GRID_T_];
+            host_params[_LAT_X_] = static_cast<int *>(_params)[_LAT_X_] / host_params[_GRID_X_] / _EVEN_ODD_; // even-odd
+            host_params[_LAT_Y_] = static_cast<int *>(_params)[_LAT_Y_] / host_params[_GRID_Y_];
+            host_params[_LAT_Z_] = static_cast<int *>(_params)[_LAT_Z_] / host_params[_GRID_Z_];
+            host_params[_LAT_T_] = static_cast<int *>(_params)[_LAT_T_] / host_params[_GRID_T_];
+            int tmp = host_params[_GRID_X_] * host_params[_GRID_Y_] * host_params[_GRID_Z_] * host_params[_GRID_T_];
+            host_params[_LAT_XYZT_] = static_cast<int *>(_params)[_LAT_XYZT_] / tmp; // prepare for test input
             host_params[_PARITY_] = static_cast<int *>(_params)[_PARITY_];
             host_params[_MAX_ITER_] = static_cast<int *>(_params)[_MAX_ITER_];
             host_params[_SET_INDEX_] = static_cast<int *>(_params)[_SET_INDEX_];
