@@ -5,38 +5,3 @@ Currently Loaded Modulefiles:
   4) hwloc/2.9.1-gcc-10.3.0             10) ncurses/6.2-intel-2022.0.2
   5) libevent/2.1.12-gcc-10.3.0         11) intel-oneapi/compiler-rt/2024.0.0
   6) pmix/4.2.3-gcc-10.3.0              12) python/3.9.10-gcc-10.3.0
-Traceback (most recent call last):
-  File "/public/home/zhangxin/PyQCU/test/./test.wilson-test5.py", line 17, in <module>
-    gauge = io.hdf5_xxxtzyx2grid_xxxtzyx(params, gauge_filename)
-  File "/public/home/zhangxin/PyQCU/pyqcu/io.py", line 324, in hdf5_xxxtzyx2grid_xxxtzyx
-Traceback (most recent call last):
-  File "/public/home/zhangxin/PyQCU/test/./test.wilson-test5.py", line 17, in <module>
-    gauge = io.hdf5_xxxtzyx2grid_xxxtzyx(params, gauge_filename)
-  File "/public/home/zhangxin/PyQCU/pyqcu/io.py", line 324, in hdf5_xxxtzyx2grid_xxxtzyx
-    with h5py.File(file_name, 'r', driver='mpio', comm=define.comm) as f:
-    with h5py.File(file_name, 'r', driver='mpio', comm=define.comm) as f:
-  File "/public/home/zhangxin/.local/lib/python3.9/site-packages/h5py/_hl/files.py", line 552, in __init__
-  File "/public/home/zhangxin/.local/lib/python3.9/site-packages/h5py/_hl/files.py", line 552, in __init__
-    fapl = make_fapl(driver, libver, rdcc_nslots, rdcc_nbytes, rdcc_w0,
-  File "/public/home/zhangxin/.local/lib/python3.9/site-packages/h5py/_hl/files.py", line 181, in make_fapl
-    fapl = make_fapl(driver, libver, rdcc_nslots, rdcc_nbytes, rdcc_w0,
-  File "/public/home/zhangxin/.local/lib/python3.9/site-packages/h5py/_hl/files.py", line 181, in make_fapl
-    set_fapl(plist, **kwds)
-  File "/public/home/zhangxin/.local/lib/python3.9/site-packages/h5py/_hl/files.py", line 49, in _set_fapl_mpio
-    set_fapl(plist, **kwds)
-  File "/public/home/zhangxin/.local/lib/python3.9/site-packages/h5py/_hl/files.py", line 49, in _set_fapl_mpio
-    raise ValueError("h5py was built without MPI support, can't use mpio driver")
-ValueError: h5py was built without MPI support, can't use mpio driver
-    raise ValueError("h5py was built without MPI support, can't use mpio driver")
-ValueError: h5py was built without MPI support, can't use mpio driver
---------------------------------------------------------------------------
-Primary job  terminated normally, but 1 process returned
-a non-zero exit code. Per user-direction, the job has been aborted.
---------------------------------------------------------------------------
---------------------------------------------------------------------------
-mpirun detected that one or more processes exited with non-zero status, thus causing
-the job to be terminated. The first process to do so was:
-
-  Process name: [[12037,1],1]
-  Exit code:    1
---------------------------------------------------------------------------
