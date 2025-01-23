@@ -19,7 +19,7 @@ case "$GPU_MODEL" in
 *"Quadro RTX 8000"*) sm="75" ;;
 *"Quadro P1000"*) sm="60" ;;
 *)
-    sm="Unknown"
+    sm="80" # in snsc
     ;;
 esac
 echo "First GPU Model: $GPU_MODEL -> $sm"
