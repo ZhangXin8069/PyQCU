@@ -8,7 +8,7 @@ from pyqcu import qcu
 from pyqcu.set import params, argv, set_ptrs
 import h5py
 print('My rank is ', define.rank)
-qcu.applyInitQcu(set_ptrs, params, argv)
+# qcu.applyInitQcu(set_ptrs, params, argv)
 gauge_filename = f"quda_wilson-dslash-gauge_-{params[define._LAT_X_]}-{params[define._LAT_Y_]}-{params  [define._LAT_Z_]}-{params[define._LAT_T_]}-{params[define._LAT_XYZT_]}-{params[define._GRID_X_]}-{params[define._GRID_Y_]}-{params[define._GRID_Z_]}-{params[define._GRID_T_]}-{params[define._PARITY_]}-{params[define._NODE_RANK_]}-{params[define._NODE_SIZE_]}-{params[define._DAGGER_]}-f.bin"
 print("Gauge filename:", gauge_filename)
 gauge = cp.fromfile(gauge_filename, dtype=cp.complex64,
@@ -33,4 +33,4 @@ io.grid_xxxtzyx2hdf5_xxxtzyx(_, params, file_name='__xxxtzyx.h5')
 
 # %%
 
-qcu.applyEndQcu(set_ptrs, params)
+# qcu.applyEndQcu(set_ptrs, params)
