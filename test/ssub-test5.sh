@@ -1,6 +1,6 @@
 #!/bin/bash 
 #SBATCH --job-name=ssub
-#SBATCH --partition=gpu-debug
+#SBATCH --partition=h20-nettr
 #SBATCH --nodes=1
 #SBATCH -n 8
 #SBATCH --time=00-00:30:00
