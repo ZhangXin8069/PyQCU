@@ -143,8 +143,8 @@ class solver:
                 # Update bounds to focus on remaining large eigenvalues
                 alpha = beta * 0.5
             # Sort eigenvalues and eigenvectors
-            eigenvalues.append(lambda_curr.astpype(self.dtype))
+            eigenvalues.append(lambda_curr)
             eigenvectors.append(w.copy())
             print(
                 f"eigen_index: {eigen_index}, time: {perf_counter()-t0:.2f}s")
-        return cp.array(eigenvalues), cp.array(eigenvectors)
+        return cp.array(eigenvalues, dtype=self.dtype), cp.array(eigenvectors, dtype=self.dtype)
