@@ -352,13 +352,21 @@ def hdf5_xxxtzyx2grid_xxxtzyx(params, file_name='xxxtzyx.h5'):
         print(f"Dest Shape: {dest.shape}")
         return cp.asarray(dest)
 
-def xxx2hdf5_xxx(input_array, params, file_name='xxxtzyx.h5'):
+
+def xxx2hdf5_xxx(input_array, params=None, file_name='xxx.h5'):
     print(f"Input Array Shape: {input_array.shape}")
     dtype = input_array.dtype
     shape = input_array.shape
-    rank = params[define._NODE_RANK_]
     with h5py.File(file_name, 'w', driver='mpio', comm=define.comm) as f:
         dset = f.create_dataset('data', shape=shape, dtype=dtype)
         dset[...] = input_array.get()
         print(f"Dest Shape: {dset.shape}")
-        print(f"Rank {rank}: Data is saved to {file_name}")
+        print(f"Data is saved to {file_name}")
+
+
+def hdf5_xxx2xxx(params=None, file_name='xxx.h5'):
+    with h5py.File(file_name, 'r', driver='mpio', comm=define.comm) as f:
+        all_dset = f['data']
+        dest = all_dset[...]
+        print(f"Dest Shape: {dest.shape}")
+        return cp.asarray(dest)
