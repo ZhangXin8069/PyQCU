@@ -1,0 +1,81 @@
+~/configure ~
+HOME:/public/home/zhangxin/configure
+~
+~ ~
+Currently Loaded Modulefiles:
+  1) gcc/10.3.0-gcc-4.8.5                7) ucx/1.14.0-gcc-10.3.0
+  2) cuda/11.4.4-gcc-10.3.0              8) openmpi/4.1.5-gcc-10.3.0
+  3) git/2.40.0-gcc-10.3.0               9) cmake/3.22.2-gcc-10.3.0
+  4) hwloc/2.9.1-gcc-10.3.0             10) ncurses/6.2-intel-2022.0.2
+  5) libevent/2.1.12-gcc-10.3.0         11) intel-oneapi/compiler-rt/2024.0.0
+  6) pmix/4.2.3-gcc-10.3.0              12) python/3.9.10-gcc-10.3.0
+~/qcu ~ ~
+HOME:/public/home/zhangxin/qcu
+~ ~
+~
+compdump:print:45: write error: disk quota exceeded
+compdump:45: write error: inappropriate ioctl for device
+compdump:print:45: write error: disk quota exceeded
+compdump:45: write error: inappropriate ioctl for device
+compdump:print:45: write error: disk quota exceeded
+compdump:45: write error: inappropriate ioctl for device
+compdump:print:45: write error: disk quota exceeded
+compdump:45: write error: inappropriate ioctl for device
+compdump:print:45: write error: disk quota exceeded
+compdump:45: write error: inappropriate ioctl for device
+compdump:print:45: write error: disk quota exceeded
+compdump:45: write error: inappropriate ioctl for device
+compdump:print:45: write error: disk quota exceeded
+compdump:45: write error: inappropriate ioctl for device
+compdump:print:45: write error: disk quota exceeded
+compdump:45: write error: inappropriate ioctl for device
+compdump:print:45: write error: disk quota exceeded
+compdump:45: write error: inappropriate ioctl for device
+compdump:print:45: write error: disk quota exceeded
+compdump:45: write error: inappropriate ioctl for device
+compdump:print:45: write error: disk quota exceeded
+compdump:45: write error: inappropriate ioctl for device
+compdump:print:45: write error: disk quota exceeded
+compdump:45: write error: inappropriate ioctl for device
+compdump:print:45: write error: disk quota exceeded
+compdump:45: write error: inappropriate ioctl for device
+compdump:print:45: write error: disk quota exceeded
+compdump:45: write error: inappropriate ioctl for device
+compdump:print:45: write error: disk quota exceeded
+compdump:45: write error: inappropriate ioctl for device
+compdump:print:45: write error: disk quota exceeded
+compdump:45: write error: inappropriate ioctl for device
+compdump:print:45: write error: disk quota exceeded
+compdump:45: write error: inappropriate ioctl for device
+compdump:print:45: write error: disk quota exceeded
+compdump:45: write error: inappropriate ioctl for device
+compdump:print:45: write error: disk quota exceeded
+compdump:45: write error: inappropriate ioctl for device
+compdump:print:45: write error: disk quota exceeded
+compdump:45: write error: inappropriate ioctl for device
+compdump:print:45: write error: disk quota exceeded
+compdump:45: write error: inappropriate ioctl for device
+compdump:print:45: write error: disk quota exceeded
+compdump:45: write error: inappropriate ioctl for device
+compdump:print:45: write error: disk quota exceeded
+compdump:45: write error: inappropriate ioctl for device
+compdump:print:45: write error: disk quota exceeded
+compdump:45: write error: inappropriate ioctl for device
+compdump:print:45: write error: disk quota exceeded
+compdump:45: write error: inappropriate ioctl for device
+compdump:print:45: write error: disk quota exceeded
+compdump:45: write error: inappropriate ioctl for device
+compdump:print:45: write error: disk quota exceeded
+compdump:45: write error: inappropriate ioctl for device
+compdump:print:45: write error: disk quota exceeded
+compdump:45: write error: inappropriate ioctl for device
+compdump:print:45: write error: disk quota exceeded
+compdump:45: write error: inappropriate ioctl for device
+compdump:print:45: write error: disk quota exceeded
+compdump:45: write error: inappropriate ioctl for device
+compdump:print:45: write error: disk quota exceeded
+compdump:45: write error: inappropriate ioctl for device
+~/configure ~
+~
+~ ~
+  1)          zsh: warning: 1 jobs SIGHUPed
