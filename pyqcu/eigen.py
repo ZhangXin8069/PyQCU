@@ -147,4 +147,4 @@ class solver:
             eigenvectors.append(w.copy())
             print(
                 f"eigen_index: {eigen_index}, time: {perf_counter()-t0:.2f}s")
-        return cp.array(eigenvalues), cp.array(eigenvectors)
+        return cp.array(eigenvalues, dtype=self.dtype), cp.array(eigenvectors, dtype=self.dtype)

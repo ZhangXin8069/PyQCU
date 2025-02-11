@@ -50,7 +50,11 @@ namespace qcu
 #define _SET_PLAN1_ 1     // just for wilson bistabcg and cg
 #define _SET_PLAN2_ 2     // for clover dslash
 #define _SET_PLAN3_ 3     // just for clover bistabcg and cg
-#define _PARAMS_SIZE_ 17
+#define _MG_X_ 17
+#define _MG_Y_ 18
+#define _MG_Z_ 19
+#define _MG_T_ 20
+#define _PARAMS_SIZE_ 21
 #define _MASS_ 0
 #define _TOL_ 1
 #define _ARGV_SIZE_ 2
@@ -143,6 +147,7 @@ namespace qcu
 #define _LAT_DCC_ 36
 #define _LAT_PDCC_ 72
 #define _LAT_Ne_ 24
+#define _LAT_E_ 24
 #define _B_ 0
 #define _F_ 1
 #define _BF_ 2
