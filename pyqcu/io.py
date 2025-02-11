@@ -322,14 +322,14 @@ def grid_xxxtzyx2hdf5_xxxtzyx(input_array, params, file_name='xxxtzyx.h5'):
     print(
         f"Grid Lat T: {grid_lat_t}, Grid Lat Z: {grid_lat_z}, Grid Lat Y: {grid_lat_y}, Grid Lat X: {grid_lat_x}")
     with h5py.File(file_name, 'w', driver='mpio', comm=define.comm) as f:
-        dset = f.create_dataset('data', shape=(
+        dest = f.create_dataset('data', shape=(
             *prefix_shape, lat_t, lat_z, lat_y, lat_x), dtype=dtype)
-        dset[...,
+        dest[...,
              grid_index_t*grid_lat_t:grid_index_t*grid_lat_t+grid_lat_t,
              grid_index_z*grid_lat_z:grid_index_z*grid_lat_z+grid_lat_z,
              grid_index_y*grid_lat_y:grid_index_y*grid_lat_y+grid_lat_y,
              grid_index_x*grid_lat_x:grid_index_x*grid_lat_x+grid_lat_x] = input_array.get()
-        print(f"Dest Shape: {dset.shape}")
+        print(f"Dest Shape: {dest.shape}")
         print(f"Rank {rank}: Data is saved to {file_name}")
 
 
@@ -355,9 +355,9 @@ def hdf5_xxxtzyx2grid_xxxtzyx(params, file_name='xxxtzyx.h5'):
         grid_lat_x = lat_x//grid_x
         print(
             f"Grid Lat T: {grid_lat_t}, Grid Lat Z: {grid_lat_z}, Grid Lat Y: {grid_lat_y}, Grid Lat X: {grid_lat_x}")
-        all_dset = f['data']
-        print(f"All Dset Shape: {all_dset.shape}")
-        dest = all_dset[...,
+        all_dest = f['data']
+        print(f"All Dest Shape: {all_dest.shape}")
+        dest = all_dest[...,
                         grid_index_t*grid_lat_t:grid_index_t*grid_lat_t+grid_lat_t,
                         grid_index_z*grid_lat_z:grid_index_z*grid_lat_z+grid_lat_z,
                         grid_index_y*grid_lat_y:grid_index_y*grid_lat_y+grid_lat_y,
@@ -371,15 +371,37 @@ def xxx2hdf5_xxx(input_array, params=None, file_name='xxx.h5'):
     dtype = input_array.dtype
     shape = input_array.shape
     with h5py.File(file_name, 'w', driver='mpio', comm=define.comm) as f:
-        dset = f.create_dataset('data', shape=shape, dtype=dtype)
-        dset[...] = input_array.get()
-        print(f"Dest Shape: {dset.shape}")
+        dest = f.create_dataset('data', shape=shape, dtype=dtype)
+        dest[...] = input_array.get()
+        print(f"Dest Shape: {dest.shape}")
         print(f"Data is saved to {file_name}")
 
 
 def hdf5_xxx2xxx(params=None, file_name='xxx.h5'):
     with h5py.File(file_name, 'r', driver='mpio', comm=define.comm) as f:
-        all_dset = f['data']
-        dest = all_dset[...]
+        all_dest = f['data']
+        dest = all_dest[...]
         print(f"Dest Shape: {dest.shape}")
         return cp.asarray(dest)
+
+def xxxtzyx2mg_xxxtzyx(input_array, params):
+    print(f"Input Array Shape: {input_array.shape}")
+    dtype = input_array.dtype
+    prefix_shape = input_array.shape[:-define._LAT_D_]
+    lat_t = params[define._LAT_T_]
+    lat_z = params[define._LAT_Z_]
+    lat_y = params[define._LAT_Y_]
+    lat_x = int(params[define._LAT_X_]/define._LAT_P_)
+    mg_t = params[define._MG_T_]
+    mg_z = params[define._MG_Z_]
+    mg_y = params[define._MG_Y_]
+    mg_x = params[define._MG_X_]
+    mg_lat_t = lat_t//mg_t
+    mg_lat_z = lat_z//mg_z
+    mg_lat_y = lat_y//mg_y
+    mg_lat_x = lat_x//mg_x
+    dest = input_array.reshape(
+        *prefix_shape, mg_t, mg_lat_t, mg_z, mg_lat_z, mg_y, mg_lat_y, mg_x, mg_lat_x)
+    print(f"Dest Shape: {dest.shape}")
+    return dest
+    
