@@ -165,6 +165,19 @@ def laplacian2zyxc(laplacian, params):
     return dest
 
 
+def eigenvectors2esctzyx(eigenvectors, params):
+    lat_e = define._LAT_E_
+    lat_s = define._LAT_S_
+    lat_c = define._LAT_C_
+    lat_t = params[define._LAT_T_]
+    lat_z = params[define._LAT_Z_]
+    lat_y = params[define._LAT_Y_]
+    lat_x = int(params[define._LAT_X_]/define._LAT_P_)
+    dest_shape = (lat_e, lat_s, lat_c, lat_t, lat_z, lat_y, lat_x)
+    dest = eigenvectors.reshape(dest_shape)
+    return dest
+
+
 def ccdptzyx2dptzyxcc(gauge):
     dest = gauge.transpose(2, 3, 4, 5, 6, 7, 0, 1)
     return dest
