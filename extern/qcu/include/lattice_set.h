@@ -69,7 +69,32 @@ namespace qcu
             host_params[_LAT_T_] = static_cast<int *>(_params)[_LAT_T_] / host_params[_GRID_T_];
             int tmp = host_params[_GRID_X_] * host_params[_GRID_Y_] * host_params[_GRID_Z_] * host_params[_GRID_T_];
             host_params[_LAT_XYZT_] = static_cast<int *>(_params)[_LAT_XYZT_] / tmp; // prepare for test input
-            host_params[_PARITY_] = static_cast<int *>(_params)[_PARITY_];
+            if (static_cast<int *>(_params)[_PARITY_] == _EVEN_)
+            {
+                host_params[_PARITY_] = _EVEN_;
+            }
+            else if (static_cast<int *>(_params)[_PARITY_] == _ODD_)
+            {
+                host_params[_PARITY_] = _ODD_;
+            }
+            else
+            {
+                printf("error in parity\n");
+                host_params[_PARITY_] = _EVEN_;
+            }
+            if (static_cast<int *>(_params)[_DAGGER_] == _USE_)
+            {
+                host_params[_DAGGER_] = _USE_;
+            }
+            else if (static_cast<int *>(_params)[_DAGGER_] == _NO_USE_)
+            {
+                host_params[_DAGGER_] = _NO_USE_;
+            }
+            else
+            {
+                printf("error in dagger\n");
+                host_params[_DAGGER_] = _NO_USE_;
+            }
             host_params[_MAX_ITER_] = static_cast<int *>(_params)[_MAX_ITER_];
             host_params[_SET_INDEX_] = static_cast<int *>(_params)[_SET_INDEX_];
             host_params[_SET_PLAN_] = static_cast<int *>(_params)[_SET_PLAN_];
@@ -164,8 +189,7 @@ namespace qcu
                         cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));
                     CUBLAS_CHECK(cublasSetStream(cublasH, stream));
                 }
-                {                                     // give device params
-                    host_params[_DAGGER_] = _NO_USE_; // needed!!!
+                { // give device params
                     checkCudaErrors(
                         cudaMallocAsync(&device_params, _PARAMS_SIZE_ * sizeof(int), stream));
                     checkCudaErrors(cudaMallocAsync(&device_params_even_no_dag,
