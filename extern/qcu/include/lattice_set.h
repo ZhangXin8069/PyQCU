@@ -82,13 +82,13 @@ namespace qcu
                 printf("error in parity\n");
                 host_params[_PARITY_] = _EVEN_;
             }
-            if (static_cast<int *>(_params)[_DAGGER_] == _USE_)
-            {
-                host_params[_DAGGER_] = _USE_;
-            }
-            else if (static_cast<int *>(_params)[_DAGGER_] == _NO_USE_)
+            if (static_cast<int *>(_params)[_DAGGER_] == _NO_USE_)
             {
                 host_params[_DAGGER_] = _NO_USE_;
+            }
+            else if (static_cast<int *>(_params)[_DAGGER_] == _USE_)
+            {
+                host_params[_DAGGER_] = _USE_;
             }
             else
             {
