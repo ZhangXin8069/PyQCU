@@ -22,9 +22,6 @@ class slover:
     def initialize_random_vector(self, v):
         v.real = cp.random.randn(self.n).astype(v.real.dtype)
         v.imag = cp.random.randn(self.n).astype(v.imag.dtype)
-        norm = cp.linalg.norm(v)
-        if norm > 0:
-            cp.divide(v, norm, out=v)
         return v
 
     def dot(self, x, y):
