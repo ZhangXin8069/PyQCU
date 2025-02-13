@@ -49,9 +49,9 @@ print("QUDA Fermion out shape:", quda_fermion_out.shape)
 print("Difference:", cp.linalg.norm(fermion_out -
       quda_fermion_out)/cp.linalg.norm(quda_fermion_out))
 qcu.applyEndQcu(set_ptrs, params)
-gauge=io.gauge2ccdptzyx(gauge, params)
-fermion_in=io.fermion2psctzyx(fermion_in, params)
-quda_fermion_out=io.fermion2psctzyx(quda_fermion_out, params)
+gauge = io.gauge2ccdptzyx(gauge, params)
+fermion_in = io.fermion2psctzyx(fermion_in, params)
+quda_fermion_out = io.fermion2psctzyx(quda_fermion_out, params)
 io.grid_xxxtzyx2hdf5_xxxtzyx(
     gauge, params, gauge_filename.replace(".bin", ".h5"))
 io.grid_xxxtzyx2hdf5_xxxtzyx(

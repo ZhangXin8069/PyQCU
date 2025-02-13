@@ -1,4 +1,4 @@
-#!/bin/bash 
+#!/bin/bash
 #SBATCH --job-name=ssub-test5
 #SBATCH --partition=h20-nettr
 #SBATCH --nodes=1

@@ -64,7 +64,8 @@ if define.rank == 0:
     qcu.applyInitQcu(set_ptrs, params, argv)
     t0 = perf_counter()
     cp.cuda.runtime.deviceSynchronize()
-    qcu.applyWilsonCgDslashQcu(fermion_out, fermion_in, gauge, set_ptrs, params)
+    qcu.applyWilsonCgDslashQcu(
+        fermion_out, fermion_in, gauge, set_ptrs, params)
     cp.cuda.runtime.deviceSynchronize()
     t1 = perf_counter()
     print(f'PyQCU cost time: {t1 - t0} sec')
@@ -72,4 +73,3 @@ if define.rank == 0:
     print("Fermion out data:", fermion_out.data)
     print("Fermion out shape:", fermion_out.shape)
     qcu.applyEndQcu(set_ptrs, params)
-    
