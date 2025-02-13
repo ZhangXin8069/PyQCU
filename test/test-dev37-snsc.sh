@@ -1,4 +1,4 @@
-#!/bin/bash 
+#!/bin/bash
 #SBATCH --job-name=ssub
 #SBATCH --partition=gpu-debug
 #SBATCH --nodes=1
