@@ -24,9 +24,7 @@ case "$GPU_MODEL" in
 esac
 echo "First GPU Model: $GPU_MODEL -> $sm_arch"
 export mpi_home=$(dirname $(which mpirun))/..
-if [ "$mpi_home" = "/usr/bin/.." ]
-then
+if [ "$mpi_home" = "/usr/bin/.." ]; then
     export mpi_home="/usr/lib/x86_64-linux-gnu/openmpi"
 fi
 echo "MPI_HOME: $mpi_home"
-

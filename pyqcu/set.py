@@ -29,6 +29,6 @@ argv[define._MASS_] = 0.0
 argv[define._TOL_] = 1e-9
 print("Arguments:", argv)
 print("Arguments data:", argv.data)
-set_ptrs = np.array(10*[0], dtype=np.int64) # maybe more than 10?
+set_ptrs = np.array(10*[0], dtype=np.int64)  # maybe more than 10?
 print("Set pointers:", set_ptrs)
 print("Set pointers data:", set_ptrs.data)
