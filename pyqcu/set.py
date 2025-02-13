@@ -18,10 +18,10 @@ params[define._MAX_ITER_] = 1e4
 params[define._DATA_TYPE_] = 0
 params[define._SET_INDEX_] = 0
 params[define._SET_PLAN_] = 0
-params[define._MG_X_] = 2
-params[define._MG_Y_] = 2
-params[define._MG_Z_] = 2
-params[define._MG_T_] = 4
+params[define._MG_X_] = 4
+params[define._MG_Y_] = 4
+params[define._MG_Z_] = 4
+params[define._MG_T_] = 8
 print("Parameters:", params)
 print("Parameters data:", params.data)
 argv = np.array([0.0]*define._ARGV_SIZE_, dtype=np.float32)
