@@ -5,6 +5,7 @@ using namespace qcu;
 using T = float;
 void applyWilsonBistabCgDslashQcu(long long _fermion_out, long long _fermion_in, long long _gauge, long long _set_ptrs, long long _params)
 {
+    cudaDeviceSynchronize();
     void *fermion_out = (void *)_fermion_out;
     void *fermion_in = (void *)_fermion_in;
     void *gauge = (void *)_gauge;
@@ -52,4 +53,5 @@ void applyWilsonBistabCgDslashQcu(long long _fermion_out, long long _fermion_in,
     // ccdptzyx2dptzyxcc<T>(gauge, &_set);
     // sctzyx2tzyxsc<T>(fermion_in, &_set);
     // sctzyx2tzyxsc<T>(fermion_out, &_set);
+    cudaDeviceSynchronize();
 }

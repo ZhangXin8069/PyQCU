@@ -5,6 +5,7 @@ using namespace qcu;
 using T = float;
 void testWilsonDslashQcu(long long _fermion_out, long long _fermion_in, long long _gauge, long long _set_ptrs, long long _params)
 {
+    cudaDeviceSynchronize();
     void *fermion_out = (void *)_fermion_out;
     void *fermion_in = (void *)_fermion_in;
     void *gauge = (void *)_gauge;
@@ -30,9 +31,11 @@ void testWilsonDslashQcu(long long _fermion_out, long long _fermion_in, long lon
     // ccdptzyx2dptzyxcc<T>(gauge, &_set);
     // sctzyx2tzyxsc<T>(fermion_in, &_set);
     // sctzyx2tzyxsc<T>(fermion_out, &_set);
+    cudaDeviceSynchronize();
 }
 void testCloverDslashQcu(long long _fermion_out, long long _fermion_in, long long _gauge, long long _set_ptrs, long long _params)
 {
+    cudaDeviceSynchronize();
     void *fermion_out = (void *)_fermion_out;
     void *fermion_in = (void *)_fermion_in;
     void *gauge = (void *)_gauge;
@@ -110,4 +113,5 @@ void testCloverDslashQcu(long long _fermion_out, long long _fermion_in, long lon
     // free
     checkCudaErrors(cudaFreeAsync(clover, set_ptr->stream));
     checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
+    cudaDeviceSynchronize();
 }

@@ -129,7 +129,7 @@ if define.rank == 0:
         F = F.reshape(Lz, Ly, Lx, define._LAT_C_, -1)
         t0 = perf_counter()
         cp.cuda.runtime.deviceSynchronize()
-        dest =(
+        dest = (
             # - for SA with evals , + for LA with (12 - evals)
             6 * F
             - (
@@ -144,7 +144,7 @@ if define.rank == 0:
         cp.cuda.runtime.deviceSynchronize()
         t1 = perf_counter()
         print(f'cupy cost time: {t1 - t0} sec')
-        return dest 
+        return dest
     t0 = perf_counter()
     cp.cuda.runtime.deviceSynchronize()
     pyquda_Laplacian_out = pyquda_Laplacian(

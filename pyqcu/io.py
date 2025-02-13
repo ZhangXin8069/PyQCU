@@ -384,6 +384,7 @@ def hdf5_xxx2xxx(params=None, file_name='xxx.h5'):
         print(f"Dest Shape: {dest.shape}")
         return cp.asarray(dest)
 
+
 def xxxtzyx2mg_xxxtzyx(input_array, params):
     print(f"Input Array Shape: {input_array.shape}")
     dtype = input_array.dtype
@@ -404,4 +405,3 @@ def xxxtzyx2mg_xxxtzyx(input_array, params):
         *prefix_shape, mg_t, mg_lat_t, mg_z, mg_lat_z, mg_y, mg_lat_y, mg_x, mg_lat_x)
     print(f"Dest Shape: {dest.shape}")
     return dest
-    

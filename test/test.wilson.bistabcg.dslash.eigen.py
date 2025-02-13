@@ -61,9 +61,9 @@ if define.rank == 0:
     print("Set pointers:", set_ptrs)
     print("Set pointers data:", set_ptrs.data)
     qcu.applyInitQcu(set_ptrs, params, argv)
-    qcu.applyWilsonBistabCgDslashQcu(fermion_out, fermion_in, gauge, set_ptrs, params)
+    qcu.applyWilsonBistabCgDslashQcu(
+        fermion_out, fermion_in, gauge, set_ptrs, params)
     print("Fermion out:", fermion_out)
     print("Fermion out data:", fermion_out.data)
     print("Fermion out shape:", fermion_out.shape)
     qcu.applyEndQcu(set_ptrs, params)
-    
