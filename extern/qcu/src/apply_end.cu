@@ -5,6 +5,7 @@ using namespace qcu;
 using T = float;
 void applyEndQcu(long long _set_ptrs, long long _params)
 {
+    cudaDeviceSynchronize();
     void *set_ptrs = (void *)_set_ptrs;
     void *params = (void *)_params;
     int set_index = static_cast<int *>(params)[_SET_INDEX_];
@@ -23,4 +24,5 @@ void applyEndQcu(long long _set_ptrs, long long _params)
     printf("lattice set end total time:%.9lf "
            "sec\n",
            double(duration) / 1e9);
+    cudaDeviceSynchronize();
 }

@@ -5,6 +5,7 @@ using namespace qcu;
 using T = float;
 void applyLaplacianQcu(long long _laplacian_out, long long _laplacian_in, long long _gauge, long long _set_ptrs, long long _params)
 {
+  cudaDeviceSynchronize();
   void *laplacian_out = (void *)_laplacian_out;
   void *laplacian_in = (void *)_laplacian_in;
   void *gauge = (void *)_gauge;
@@ -21,4 +22,5 @@ void applyLaplacianQcu(long long _laplacian_out, long long _laplacian_in, long l
   // ccdptzyx2dptzyxcc<T>(gauge, &_set);
   // sctzyx2tzyxsc<T>(laplacian_in, &_set);
   // sctzyx2tzyxsc<T>(laplacian_out, &_set);
+  cudaDeviceSynchronize();
 }
