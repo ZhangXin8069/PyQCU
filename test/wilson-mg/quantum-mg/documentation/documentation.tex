@@ -1,0 +1,207 @@
+\documentclass[pdftex,letterpaper,10pt]{article}
+\usepackage[pdftex]{color, graphicx}
+\usepackage{verbatim,amsmath, amssymb, booktabs}
+\usepackage{listings}
+\usepackage{multirow} 
+\usepackage{multicol}
+\usepackage{float}
+\usepackage[font=footnotesize,labelfont=bf,labelsep=period]{caption}
+\usepackage[colorlinks=true, linkcolor=blue, filecolor=blue, urlcolor=blue, citecolor=blue, pdftex=true, plainpages=false]{hyperref}
+\usepackage{subcaption}
+\usepackage{comment}
+
+\newcommand{\red}[1]{\textcolor{red}{#1}}
+\newcommand{\blue}[1]{\textcolor{blue}{#1}}
+
+\newcommand{\qmg}{{\textbf{Quantum MG}}~}
+
+\definecolor{gray}{rgb}{0.4,0.4,0.4}
+\definecolor{lightred}{rgb}{1.0,0.24,0.24}
+\definecolor{darkred}{rgb}{0.5,0.0,0.0}
+\definecolor{darkblue}{rgb}{0.0,0.0,0.6}
+\definecolor{darkgreen}{rgb}{0.0,0.39,0.0}
+\definecolor{cyan}{rgb}{0.0,0.6,0.6}
+\definecolor{purple}{rgb}{0.5,0.0,0.4}
+\newcommand{\green}[1]{\textcolor{darkgreen}{#1}}
+\newcommand{\purple}[1]{\textcolor{purple}{#1}}
+\addtolength{\oddsidemargin}{-.875in}
+\addtolength{\evensidemargin}{-.875in}
+\addtolength{\textwidth}{1.75in}
+
+\addtolength{\topmargin}{-.875in}
+\addtolength{\textheight}{1.75in}
+
+\setcounter{secnumdepth}{5}
+
+
+\setcounter{tocdepth}{4}
+
+\begin{document}
+
+\title{Quantum-MG Documentation}
+\author{Evan Weinberg\\weinbe2@bu.edu}
+\date{\today}
+\maketitle
+
+\tableofcontents
+
+\section{Disclaimer}
+
+Disclaimer: This documentation is far from complete, far from perfect, and is largely put together on the fly. I hope to make it more complete as time goes on, but for now, take it for what it is, and ask me to add a section if you want it quickly! I'll be more than happy to oblige and do my best to help as quickly as possible. 
+
+\section{Dependencies}
+
+The \qmg headers only depend on the {\textbf{Quantum Linear Algebra}} headers, which are accessible at \url{https://github.com/weinbe2/quantum-linalg}. 
+
+\section{Philosophy}
+
+The design philosophy of \qmg is to provide a full stack to test algorithms on regular lattices as easily as possible. This has two design consequences:
+
+\begin{itemize}
+\item Everything is included in a C++ {\emph{header}} file: there is no need to link a library or write complicated {\texttt{makefile}}s to integrate pieces of QMG. The only penalty to this is it adds to compile time, but not in any unreasonable way (at least in my opinion).
+\item There is a minimum amount of optimization in the library from data layout up. The one exception to this is keeping ``even'' and ``odd'' sites in contiguous blocks of memory. This simplifies even-odd preconditioning to the point that it's worth (again, at least in my opinion) the extra complexity in terms of data layout. 
+\end{itemize}
+
+The benefit of the simplicity is that it should be easy to test new ideas using the components that have been pre-written. If there's a lower-level component that someone wants, but is not currently there, it's also decently straightforward to modify low level pieces to add that funcitonality. If it's not easy, or at least straightforward, then I haven't succeeded in my design philosophy, and you should let me know.
+
+In my opinion, I have identified a base set of objects that are necessary for this algorithm framework as follows:
+
+\begin{itemize}
+\item ``Lattice'' object: knows about the lattice dimensions, degrees-of-freedom per site, routines to convert between array indices and coordinates. This hides everything about the data layout.
+\item ``Cshift'' functions, built on the ``Lattice'' object. Performs any type of shift in any direction (forward and backwards). This, again, is made to hide data layout.
+\item ``Stencil'' class, built on the ``Lattice'' object and the ``cshift'' functions. This supports a generic up-to-distance-1 stencil (distance-2 stencil is in the pipeline). This has routines to apply the full stencil, the even-odd or odd-even piece only, and other custom versions. This also supports routines to generate and apply the dagger of the stencil, as well as the right-block-Jacobi and Schur preconditioned operators.
+\item Reference operator implementations, inherits from the ``Stencil'' class. There are currently implementations for the gauged Laplacian, gauged Wilson, and gauged Staggered operator. I plan on adding the $\gamma_5$ Hermitian versions of the Wilson operator and the Domain wall operator.
+\item $U(1)$ gauge functions, built on the ``Lattice'' object and the ``cshift'' functions. This includes a non-compact heatbath routine. This is specifically to support studies of the 2D Schwinger model.
+\item ``Transfer'' object for managing the transfer between fine and coarse lattices. This object takes in null vectors, performs block orthonormalization, and provides a ``prolong'' and ``restrict'' function. It is currently constrained to use the same prolongator and restrictor, but that should change soon.
+\item ``Coarse stencil'' class, which inherits from the ``Stencil'' class. This takes in a ``Stencil'' class from the fine level and a ``Transfer'' object and explicitly constructs the coarse operator. It also can preserve a sense of ``chirality''. 
+\item ``Memory Management'' class. This object provides a ``check-out'' and ``check-in'' routine to get an array of a known size. This is meant to avoid more allocations and deallocations than necessary and provides garbage collection on the arrays checked in and checked out.
+\item ``Multigrid'' class, which takes in an initial fine ``Lattice'' and ``Stencil''. This provides a ``push\_level'' function which takes in a coarser ``Lattice'' and ``Transfer'' objects, forms a new ``Coarse Stencil'' internally, and provides routines to apply a stencil, a prolongator, and a restrictor at any level for convenience. It also contains a ``Memory Management'' class at each level.
+\item ``StatefulMultigrid'' class, inherits from the ``Multigrid'' class. This maintains the state of a multigrid solve, provides a {\texttt{static}} function to apply a recursive K-cycle, and contains information on what to use and how to apply a pre-smoother, post-smoother, and recursive coarse solve. 
+\end{itemize}
+
+The above explanation is far from perfect. I hope that the below sections will add some clarification as appropriate.
+
+\section{Lattice object}
+
+\section{Cshift functions}
+
+\section{Stencil class}
+
+\section{Pre-existing Stencils}
+
+\subsection{Gauged Laplacian}
+
+\subsection{Gauged Wilson}
+
+\subsection{Gauged Staggered}
+
+\section{$U(1)$ functions}
+
+\section{Transfer object}
+
+\section{Coarse stencil}
+
+\section{Memory Manager}
+
+\section{Multigrid class}
+
+
+Header file for a multigrid object, \texttt{MultigridMG}, which contains everything (?) needed for a multigrid preconditioner.
+
+MG requires:
+\begin{itemize}
+\item Knowledge of the number of levels.
+\item Knowledge of each lattice (stored as a {\texttt{std::vector}} of \texttt{Lattice2D*})
+\item Knowledge of each transfer object (stored as a {\texttt{std::vector}} of \texttt{TransferMG*}
+\item Knowledge of the fine level stencil (stored as the first element of a {\texttt{std::vector}} of {\texttt{Stencil2D*}})
+\begin{itemize}
+\item Optionally knows lower levels, if they've been constructed. (If there, it's stored in the above {\texttt{std::vector}} of \texttt{Stencil2D*}. If not there, stored as a zero pointer in the vector.)
+\end{itemize}
+\item Is written such that one level is pushed at a time.
+\begin{itemize}
+\item This allows the user to start storing levels in the MG object when recursively generating coarser levels.
+\end{itemize}
+\item A private function to (optionaly) explicitly build the coarse stencil.
+\begin{itemize}
+\item Implemented as a flag on pushing a new level.
+\item Has a flag to specify if it should be built from the original operator or right block Jacobi operator.
+\end{itemize}
+\item A function to apply the stencil at a specified level.
+\item A function to prepare, solve, reconstruct right block Jacobi and, where possible, Schur preconditioned systems.
+\item Storage for pre-allocated vectors (stored as a {\texttt{std::vector}} of ArrayStorageMG*)
+\begin{itemize}
+\item Used internally and exposed externally.
+\item This avoids allocating and deallocating temporary vectors, such as for the preconditioned functions.
+\end{itemize}
+\item Optional, but for convenience, the ability to store non-block-orthogonalized null vectors (perhaps for updating or projecting null vectors).
+\end{itemize}
+
+
+\subsection{Protected objects}
+
+{\texttt{int num\_levels}}: The current number of levels. Gets updated whenever the user adds another layer. There's a public function (\texttt{get\_num\_levels}) which exposes this.
+~\\~\\~
+{\texttt{vector$<$Lattice2D*$>$ lattice\_list}}: Knowledge of each lattice operator. Should have a length of {\texttt{num\_levels}}. Exposed by the public function {\texttt{get\_lattice}}.
+~\\~\\~
+{\texttt{vector$<$TransferMG*$>$ transfer\_list}}: Knowledge of each transfer operator. Should have a length of {\texttt{num\_levels-1}}. Exposed by the public function {\texttt{get\_transfer}}.
+~\\~\\~
+{\texttt{vector$<$Stencil2D*$>$ stencil\_list}}: Knowledge of each stencil operator. Should have a length of {\texttt{num\_levels}}. Exposed by the public function {\texttt{get\_stencil}}. This object may contain zero pointers if the stencil has not been explicitly built. I may remove that in the future, it can lead to confusion.
+~\\~\\~
+{\texttt{vector$<$bool$>$ is\_stencil\_managed}}: Knowledge of if the {\texttt{MultigridMG}} operator created a coarse stencil. Should have a length of {\texttt{num\_levels}}, where the first component \texttt{is\_stencil\_managed[0] = false} by definition. This maintains if the {\texttt{MultigridMG}} object should delete the stencil on destruction. This could be useful of some stencils were pre-loaded (assuming I add support for saving stencils). 
+~\\~\\~
+{\texttt{vector$<$ArrayStorageMG$<$complex$<$double$>>$*$>$ storage\_list}}: Knowledge of each managed array operator. Should have a length of {\texttt{num\_levels}}. Exposed by the public function {\texttt{get\_storage}}.
+~\\~\\~
+{\texttt{vector$<$complex$<$double$>$**$>$ global\_null\_vectors}}: (Optional) knowledge of each null vector before block-orthonormalization. Should have a length of {\texttt{num\_levels-1}}. Exposed by the public function\\{\texttt{get\_global\_null\_vectors}}.
+
+\subsection{Public functions}
+
+{\texttt{enum QMGMultigridPrecondStencil}}: Specifies whether a new coarse stencil should be built from the fine operator or the right-block-Jacobi preconditioned version of the fine operator.
+\begin{itemize}
+\item {\texttt{QMG\_MULTIGRID\_PRECOND\_ORIGINAL}}: Original stencil.
+\item {\texttt{QMG\_MULTIGRID\_PRECOND\_RIGHT\_BLOCK\_JACOBI}}: Righ block Jacobi stencil.
+\end{itemize}
+{\texttt{MultigridMG(Lattice2D* in\_lat, Stencil2D* in\_stencil)}}: Constructor. Takes in the original fine lattice and fine stencil.
+~\\~\\~
+{\texttt{inline int get\_num\_levels()}: Returns {\texttt{int num\_levels}}, the current number of levels.
+~\\~\\~
+{\texttt{inline Lattice2D* get\_lattice(int i)}: Returns the lattice corresponding to level \texttt{i}, where $i = 0$ is the fine level.
+~\\~\\~
+{\texttt{inline TransferMG* get\_transfer(int i)}: Returns the transfer object which transfers between level \texttt{i} and coarser level \texttt{i+1}. 
+~\\~\\~
+{\texttt{inline Stencil2D* get\_stencil(int i)}: Returns the stencils at level \texttt{i}.
+~\\~\\~
+{\texttt{inline ArrayStorageMG$<$complex$<$double$>>$* get\_storage(int i)}: Returns the array storage object at level \texttt{i}.
+~\\~\\~
+{\texttt{void get\_global\_null\_vectors(int i, complex$<$double$>$** out\_vectors)}: {\emph{Copies}} the null vectors which define the transfer between level \texttt{i} and \texttt{i+1} into \texttt{out\_vectors}}.
+~\\~\\~
+{\texttt{void push\_level(Lattice2D* new\_lat, TransferMG* new\_transfer, bool build\_stencil = false, bool is\_chiral = false, QMGMultigridPrecondStencil build\_stencil\_from = QMG\_MULTIGRID\_PRECOND\_ORIGINAL, CoarseOperator2D::QMGCoarseBuildStencil build\_extra = CoarseOperator2D::QMG\_COARSE\_BUILD\_ORIGINAL, complex$<$double$>$** nvecs = 0)}}: Public function to push a new level. 
+\begin{itemize}
+\item The lattice defining the new coarse level.
+\item The transfer object defining the transition between the current coarsest level and the new coarse level.
+\item If we should explicitly build the new coarse stencil or not. (Optional. If it's not built, the function {\texttt{apply\_stencil}} takes care of an implied prolong-fine apply-restrict.)
+\item If the null vectors preserve a sense of ``chirality'' or not. Passed on to coarse construct. (Optional, defaults to \texttt{false}.)
+\item If we should build the new coarse level from the current coarsest stencil or from the right-block-Jacobi version of the coarsest stencil. (Optional, defaults to building from the current coarsest stencil as is.)
+\item If we should build the dagger and/or right-block-Jacobi version of the new coarse operator. (Optional, defaults to building neither.)
+\item Copy in the non-block-orthonormalized null vectors used to define the transfer object.
+\end{itemize}
+{\texttt{void pop\_level()}: Removes the current coarsest level, cleaning up along the way. This may be useful for an adaptive multigrid setup.
+~\\~\\~
+{\texttt{void apply\_stencil(complex$<$double$>$* lhs, complex$<$double$>$* rhs, int i, QMGStencilType app\_type = QMG\_MATVEC\_ORIGINAL)}}: Apply the stencil at a given level \texttt{lhs = M rhs}. Will apply the stencil if it exists (and can also apply the dagger, right-block-Jacobi, Schur preconditioned, and normal version of the operator if the appropriate modified stencils have been built). In this case, it wraps the function {\texttt{apply\_stencil}} of the underlying \texttt{Stencil2D} object. If the stencil does not exist, it will apply the emulated prolong-apply fine-restrict operator, recursively if needed.
+~\\~\\~
+{\texttt{void prolong\_c2f(complex$<$double$>$* coarse\_cv, complex$<$double$>$* fine\_cv, int i)}}: Prolong from a coarse vector at level \texttt{i+1} to a fine vector at level \texttt{i}. Wraps the function {\texttt{prolong\_c2f}} of the underlying \texttt{TransferMG} object.
+~\\~\\~
+{\texttt{void restrict\_f2c(complex$<$double$>$* fine\_cv, complex$<$double$>$* coarse\_cv, int i)}}: Restrict from a fine vector at level \texttt{i} to a coarse vector at level \texttt{i+1}. Wraps the function {\texttt{restrict\_f2c}} of the underlying \texttt{TransferMG} object.
+~\\~\\~
+{\texttt{complex$<$double$>$* check\_out(int i)}}: Checks out a vector from level \texttt{i}. Wraps the function \texttt{check\_out} of the underlying \texttt{ArrayStorageMG} object.
+~\\~\\~
+{\texttt{void check\_in(complex$<$double$>$* vec, int i)}}: Checks in a vector from level \texttt{i}. Wraps the function \texttt{check\_in} of the underlying \texttt{ArrayStorageMG} object.
+~\\~\\~
+{\texttt{int get\_storage\_number\_allocated(int i)}}: Returns the number of allocated managed arrays at level \texttt{i}. Wraps the function \texttt{get\_storage\_number\_allocated} of the underlying \texttt{ArrayStorageMG}} object.
+~\\~\\~
+{\texttt{int get\_storage\_number\_checked(int i)}}: Returns the number of checked out managed arrays at level \texttt{i}. Wraps the function \texttt{get\_storage\_number\_checked} of the underlying \texttt{ArrayStorageMG}} object.
+
+\section{Stateful Multigrid Class}
+
+Header file for a stateful multigrid object, \texttt{StatefulMultigridMG}, which inherits from \texttt{MultigridMG} and contains additional functions for \texttt{K}-cycles. This is the next piece that will be documented.
+
+\end{document}
