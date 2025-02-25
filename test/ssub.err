@@ -5,29 +5,3 @@ Currently Loaded Modulefiles:
   4) hwloc/2.9.1-gcc-10.3.0             10) ncurses/6.2-intel-2022.0.2
   5) libevent/2.1.12-gcc-10.3.0         11) intel-oneapi/compiler-rt/2024.0.0
   6) pmix/4.2.3-gcc-10.3.0              12) python/3.9.10-gcc-10.3.0
-CMake Warning (dev) at CMakeLists.txt:18 (find_package):
-  Policy CMP0074 is not set: find_package uses <PackageName>_ROOT variables.
-  Run "cmake --help-policy CMP0074" for policy details.  Use the cmake_policy
-  command to set the policy and suppress this warning.
-
-  Environment variable CUDA_ROOT is set to:
-
-    /public/soft/linux-centos7-x86_64/gcc-10.3.0/cuda-11.4.4-uizl3zvwy66u3bqllanvuxwxxwfyytwo
-
-  For compatibility, CMake is ignoring the variable.
-This warning is for project developers.  Use -Wno-dev to suppress it.
-
-  DEPRECATION: A future pip version will change local packages to be built in-place without first copying to a temporary directory. We recommend you use --use-feature=in-tree-build to test your packages with this new behavior before it becomes the default.
-   pip 21.3 will remove support for this functionality. You can find discussion regarding this at https://github.com/pypa/pip/issues/7555.
-WARNING: Retrying (Retry(total=4, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError('<pip._vendor.urllib3.connection.HTTPSConnection object at 0x2b70ecf82d90>: Failed to establish a new connection: [Errno 101] Network is unreachable')': /simple/cupy/
-WARNING: Retrying (Retry(total=3, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError('<pip._vendor.urllib3.connection.HTTPSConnection object at 0x2b70ecf82a90>: Failed to establish a new connection: [Errno 101] Network is unreachable')': /simple/cupy/
-WARNING: Retrying (Retry(total=2, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError('<pip._vendor.urllib3.connection.HTTPSConnection object at 0x2b70ecf82640>: Failed to establish a new connection: [Errno 101] Network is unreachable')': /simple/cupy/
-WARNING: Retrying (Retry(total=1, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError('<pip._vendor.urllib3.connection.HTTPSConnection object at 0x2b70ecf82700>: Failed to establish a new connection: [Errno 101] Network is unreachable')': /simple/cupy/
-WARNING: Retrying (Retry(total=0, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError('<pip._vendor.urllib3.connection.HTTPSConnection object at 0x2b70ecf822e0>: Failed to establish a new connection: [Errno 101] Network is unreachable')': /simple/cupy/
-WARNING: Retrying (Retry(total=4, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError('<pip._vendor.urllib3.connection.HTTPSConnection object at 0x2b70ecf824c0>: Failed to establish a new connection: [Errno 111] Connection refused')': /cupy/
-WARNING: Retrying (Retry(total=3, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError('<pip._vendor.urllib3.connection.HTTPSConnection object at 0x2b70ecf82fa0>: Failed to establish a new connection: [Errno 111] Connection refused')': /cupy/
-WARNING: Retrying (Retry(total=2, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError('<pip._vendor.urllib3.connection.HTTPSConnection object at 0x2b70ecf823d0>: Failed to establish a new connection: [Errno 111] Connection refused')': /cupy/
-WARNING: Retrying (Retry(total=1, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError('<pip._vendor.urllib3.connection.HTTPSConnection object at 0x2b70ecf82760>: Failed to establish a new connection: [Errno 111] Connection refused')': /cupy/
-WARNING: Retrying (Retry(total=0, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError('<pip._vendor.urllib3.connection.HTTPSConnection object at 0x2b70ecf82cd0>: Failed to establish a new connection: [Errno 111] Connection refused')': /cupy/
-ERROR: Could not find a version that satisfies the requirement cupy (from pyqcu) (from versions: none)
-ERROR: No matching distribution found for cupy

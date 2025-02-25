@@ -79,4 +79,3 @@ if define.rank == 0:
     print("Difference:", cp.linalg.norm(fermion_out -
           quda_fermion_out)/cp.linalg.norm(quda_fermion_out))
     qcu.applyEndQcu(set_ptrs, params)
-    

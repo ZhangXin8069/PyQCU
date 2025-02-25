@@ -68,4 +68,3 @@ if define.rank == 0:
     #############################
     _gauge = io.ccdptzyx2dptzyxcc(qcu_gauge)
     print("differece:", cp.linalg.norm(_gauge-quda_gauge))
-    

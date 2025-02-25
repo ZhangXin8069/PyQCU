@@ -5,6 +5,7 @@ using namespace qcu;
 using T = float;
 void applyInitQcu(long long _set_ptrs, long long _params, long long _argv)
 {
+    cudaDeviceSynchronize();
     void *set_ptrs = (void *)_set_ptrs;
     void *argv = (void *)_argv;
     void *params = (void *)_params;
@@ -26,4 +27,5 @@ void applyInitQcu(long long _set_ptrs, long long _params, long long _argv)
     printf("lattice set init total time:%.9lf "
            "sec\n",
            double(duration) / 1e9);
+    cudaDeviceSynchronize();
 }

@@ -92,6 +92,7 @@ def grid_xxxtzyx2hdf5_xxxtzyx(input_array, params, file_name='xxxtzyx.h5'):
         print(f"Dest Shape: {dset.shape}")
         print(f"Rank {rank}: Data is saved to {file_name}")
 
+
 def hdf5_xxxtzyx2grid_xxxtzyx(params, file_name='xxxtzyx.h5'):
     with h5py.File('parallel_example.h5', 'r', driver='mpio', comm=define.comm) as f:
         lat_t = params[define._LAT_T_]
@@ -119,10 +120,10 @@ def hdf5_xxxtzyx2grid_xxxtzyx(params, file_name='xxxtzyx.h5'):
         dtype = all_dset.dtype
         prefix_shape = all_dset.shape[:-define._LAT_D_]
         dest = all_dset[...,
-             grid_index_t*grid_lat_t:grid_index_t*grid_lat_t+grid_lat_t,
-             grid_index_z*grid_lat_z:grid_index_z*grid_lat_z+grid_lat_z,
-             grid_index_y*grid_lat_y:grid_index_y*grid_lat_y+grid_lat_y,
-             grid_index_x*grid_lat_x:grid_index_x*grid_lat_x+grid_lat_x]
+                        grid_index_t*grid_lat_t:grid_index_t*grid_lat_t+grid_lat_t,
+                        grid_index_z*grid_lat_z:grid_index_z*grid_lat_z+grid_lat_z,
+                        grid_index_y*grid_lat_y:grid_index_y*grid_lat_y+grid_lat_y,
+                        grid_index_x*grid_lat_x:grid_index_x*grid_lat_x+grid_lat_x]
         print(f"Dest Shape: {dest.shape}")
         return cp.asarray(dest)
 # %%
