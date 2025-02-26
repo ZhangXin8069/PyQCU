@@ -387,7 +387,6 @@ def hdf5_xxx2xxx(params=None, file_name='xxx.h5'):
 
 def xxxtzyx2mg_xxxtzyx(input_array, params):
     print(f"Input Array Shape: {input_array.shape}")
-    dtype = input_array.dtype
     prefix_shape = input_array.shape[:-define._LAT_D_]
     lat_t = params[define._LAT_T_]
     lat_z = params[define._LAT_Z_]
@@ -403,5 +402,18 @@ def xxxtzyx2mg_xxxtzyx(input_array, params):
     mg_lat_x = lat_x//mg_x
     dest = input_array.reshape(
         *prefix_shape, mg_t, mg_lat_t, mg_z, mg_lat_z, mg_y, mg_lat_y, mg_x, mg_lat_x)
+    print(f"Dest Shape: {dest.shape}")
+    return dest
+
+
+def xxx2eTZYX(input_array, params):
+    print(f"Input Array Shape: {input_array.shape}")
+    lat_e = define._LAT_E_
+    mg_t = params[define._MG_T_]
+    mg_z = params[define._MG_Z_]
+    mg_y = params[define._MG_Y_]
+    mg_x = params[define._MG_X_]
+    dest = input_array.reshape(
+        lat_e, mg_t, mg_z, mg_y, mg_x)
     print(f"Dest Shape: {dest.shape}")
     return dest
