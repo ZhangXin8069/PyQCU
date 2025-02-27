@@ -3,13 +3,14 @@ from time import perf_counter
 
 
 class slover:
-    def __init__(self, b, matvec, max_iter=1000, tol=1e-9):
+    def __init__(self, b, matvec, max_iter=1000, tol=1e-9, x0=None):
         self.b = b
         self.n = b.size
         self.dtype = b.dtype
         self.matvec = matvec
         self.max_iter = max_iter
         self.tol = tol
+        self.x0 = x0
         self.buffers = {
             'r': cp.zeros(self.n, dtype=self.dtype),
             'r_tilde': cp.zeros(self.n, dtype=self.dtype),
@@ -35,7 +36,10 @@ class slover:
         """Solve the linear system Ax = b using the Conjugate Gradient method."""
         # Initialize variables
         x = self.buffers['x']
-        self.initialize_random_vector(x)
+        if self.x0 is not None:
+            cp.copyto(x, self.x0)
+        else:
+            self.initialize_random_vector(x)
         r = self.buffers['r']
         r_tilde = self.buffers['r_tilde']
         p = self.buffers['p']
