@@ -66,3 +66,6 @@ class slover:
         print(f"Total time: {total_time:.6f} s")
         print(f"Average time per iteration: {avg_iter_time:.6f} s")
         return x.copy()
+
+    def end(self):
+        self.memory_pool.free_all_blocks()
