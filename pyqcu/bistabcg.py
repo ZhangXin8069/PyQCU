@@ -12,8 +12,11 @@ class slover:
         self.tol = tol
         self.buffers = {
             'r': cp.zeros(self.n, dtype=self.dtype),
+            'r_tilde': cp.zeros(self.n, dtype=self.dtype),
             'p': cp.zeros(self.n, dtype=self.dtype),
             'v': cp.zeros(self.n, dtype=self.dtype),
+            's': cp.zeros(self.n, dtype=self.dtype),
+            't': cp.zeros(self.n, dtype=self.dtype),
             'x': cp.zeros(self.n, dtype=self.dtype),
         }
         self.memory_pool = cp.cuda.MemoryPool()
@@ -34,31 +37,39 @@ class slover:
         x = self.buffers['x']
         self.initialize_random_vector(x)
         r = self.buffers['r']
+        r_tilde = self.buffers['r_tilde']
         p = self.buffers['p']
         v = self.buffers['v']
+        s = self.buffers['s']
+        t = self.buffers['t']
         r = self.b - self.matvec(x)
-        cp.copyto(p, r)
-        rho = self.dot(r, r)
+        cp.copyto(r_tilde, r)
         rho_prev = 1.0
+        alpha = 1.0
+        omega = 1.0
         start_time = perf_counter()
         iter_times = []
         for i in range(self.max_iter):
             iter_start_time = perf_counter()
-            v = self.matvec(p)
+            rho = self.dot(r_tilde, r)
+            beta = (rho/rho_prev)*(alpha/omega)
             rho_prev = rho
-            alpha = rho / self.dot(p, v)
-            r -= alpha * v
-            x += alpha * p
-            rho = self.dot(r, r)
-            beta = rho / rho_prev
-            p = r + beta * p
+            p = r+(p-v*omega)*beta
+            r_norm2 = self.dot(r, r)
+            v = self.matvec(p)
+            alpha = rho / self.dot(r_tilde, v)
+            s = r-v*alpha
+            t = self.matvec(s)
+            omega = self.dot(t, s)/self.dot(t, t)
+            r = s-t*omega
+            x = x+p*alpha+s*omega
             iter_time = perf_counter() - iter_start_time
             print(
-                f"Iteration {i}: Residual = {rho.real:.6e}, Time = {iter_time:.6f} s")
+                f"Iteration {i}: Residual = {r_norm2.real:.6e}, Time = {iter_time:.6f} s")
             iter_times.append(iter_time)
-            if rho.real < self.tol:
+            if r_norm2.real < self.tol:
                 print(
-                    f"Converged at iteration {i} with residual {rho.real:.6e}")
+                    f"Converged at iteration {i} with residual {r_norm2.real:.6e}")
                 break
         total_time = perf_counter() - start_time
         avg_iter_time = sum(iter_times) / len(iter_times)
