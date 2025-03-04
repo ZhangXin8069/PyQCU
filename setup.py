@@ -41,7 +41,7 @@ setup(
     license="MIT",
     cmdclass={'build_ext': CMakeBuild},
     python_requires=">=3.6",
-    install_requires=["numpy", "scipy", "mpi4py", "opt_einsum",
+    install_requires=["numpy", "scipy", "mpi4py", "opt_einsum", "proplot",
                       "cython", "cupy", "h5py", "matplotlib", "seaborn"],
     url="https://github.com/zhangxin8069/PyQCU",
     keywords=['c++', 'cuda', 'python',
