@@ -4,6 +4,7 @@ from time import perf_counter
 
 class solver:
     def __init__(self, n, k, matvec, dtype, plan='small', degree=20, max_iter=200, tol=1e-6, min_eigen_value=0.0, max_eigen_value=1.0):
+        print("Just use this like a function, not a class.")
         self.n = n
         self.k = k
         self.matvec = matvec
@@ -147,4 +148,6 @@ class solver:
             eigenvectors.append(w.copy())
             print(
                 f"eigen_index: {eigen_index}, time: {perf_counter()-t0:.2f}s")
+        self.buffers = None
+        print("Memory released.")
         return cp.array(eigenvalues, dtype=self.dtype), cp.array(eigenvectors, dtype=self.dtype)
