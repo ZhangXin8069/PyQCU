@@ -4,13 +4,14 @@ from time import perf_counter
 
 class slover:
     def __init__(self, b, matvec, max_iter=1000, tol=1e-9, x0=None):
-        self.b = b
+        print("Just use this like a function, not a class.")
+        self.b = b.copy()
         self.n = b.size
         self.dtype = b.dtype
         self.matvec = matvec
         self.max_iter = max_iter
         self.tol = tol
-        self.x0 = x0
+        self.x0 = None if x0 is None else x0.copy()
         self.buffers = {
             'r': cp.zeros(self.n, dtype=self.dtype),
             'r_tilde': cp.zeros(self.n, dtype=self.dtype),
@@ -80,7 +81,7 @@ class slover:
         print("\nPerformance Statistics:")
         print(f"Total time: {total_time:.6f} s")
         print(f"Average time per iteration: {avg_iter_time:.6f} s")
-        return x.copy()
-
-    def end(self):
-        self.memory_pool.free_all_blocks()
+        dest = x.copy()
+        self.buffers = None
+        print("Memory released.")
+        return dest
