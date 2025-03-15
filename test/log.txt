@@ -1,0 +1,615 @@
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002227939 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002671507 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002063395 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.003360732 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.003776829 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002675414 sec
+Iteration 0: Residual = 4.974845e+07, Time = 0.029466 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002494231 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.003250697 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002582135 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.004318904 sec
+Iteration 1: Residual = 3.800148e+07, Time = 0.022010 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002950297 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.005249272 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002206824 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002711649 sec
+Iteration 2: Residual = 5.909506e+06, Time = 0.022415 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002327249 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.003285860 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.001903884 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002400393 sec
+Iteration 3: Residual = 3.659206e+06, Time = 0.017299 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.004596969 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.001870825 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.003462021 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.033697733 sec
+Iteration 4: Residual = 1.319304e+06, Time = 0.055343 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002158724 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002442754 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002525483 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.003381912 sec
+Iteration 5: Residual = 4.622263e+06, Time = 0.018952 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.001948042 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002512873 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002055562 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002535713 sec
+Iteration 6: Residual = 3.674151e+06, Time = 0.017480 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002097501 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002478395 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002787866 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002564151 sec
+Iteration 7: Residual = 4.037502e+05, Time = 0.021429 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002430347 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002486629 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.001902504 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002000841 sec
+Iteration 8: Residual = 2.256345e+05, Time = 0.016482 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002550094 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002375701 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002519616 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.003689967 sec
+Iteration 9: Residual = 8.368020e+04, Time = 0.018890 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002006645 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.004016109 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002033249 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002351596 sec
+Iteration 10: Residual = 4.515530e+04, Time = 0.018480 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002464250 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.034511543 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.003882753 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002143509 sec
+Iteration 11: Residual = 1.710672e+05, Time = 0.053467 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002076091 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002064478 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.008087162 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.001986053 sec
+Iteration 12: Residual = 1.335575e+05, Time = 0.022121 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002224548 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.004658837 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.003144965 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.007936113 sec
+Iteration 13: Residual = 1.939755e+04, Time = 0.027744 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002529128 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002335348 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.003020530 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002279779 sec
+Iteration 14: Residual = 3.093911e+04, Time = 0.018530 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.003506302 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002002119 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002538009 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002210983 sec
+Iteration 15: Residual = 4.621552e+03, Time = 0.017566 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002360604 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002259453 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002458324 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.004975817 sec
+Iteration 16: Residual = 5.014300e+03, Time = 0.019982 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.015648791 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.001988103 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.001989318 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002417347 sec
+Iteration 17: Residual = 4.355869e+03, Time = 0.043373 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002671154 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002082661 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002499673 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.001983646 sec
+Iteration 18: Residual = 5.745937e+03, Time = 0.018335 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002561086 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.001965477 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002353250 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002399009 sec
+Iteration 19: Residual = 3.416276e+03, Time = 0.018437 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002545217 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.004016794 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002235683 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002432573 sec
+Iteration 20: Residual = 2.918038e+03, Time = 0.019326 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.001974850 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002458714 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002562244 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002668152 sec
+Iteration 21: Residual = 2.456789e+03, Time = 0.017789 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002442571 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.003901509 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002292462 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.001937875 sec
+Iteration 22: Residual = 2.416440e+04, Time = 0.017702 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002606745 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.005141551 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.006025869 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002388930 sec
+Iteration 23: Residual = 1.315002e+05, Time = 0.040332 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002353242 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002449453 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002022397 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.003671944 sec
+Iteration 24: Residual = 6.580567e+03, Time = 0.020817 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002409881 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002758772 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002580917 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.001919536 sec
+Iteration 25: Residual = 4.465801e+02, Time = 0.017490 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002301753 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.001872833 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002470013 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.004224549 sec
+Iteration 26: Residual = 3.062283e+02, Time = 0.020616 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002492602 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002937161 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002319680 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002359514 sec
+Iteration 27: Residual = 2.232070e+02, Time = 0.018727 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002118200 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002605102 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002766142 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002034657 sec
+Iteration 28: Residual = 3.877301e+02, Time = 0.017375 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002471402 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.003455724 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002507243 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.001949519 sec
+Iteration 29: Residual = 2.997172e+02, Time = 0.018170 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002465699 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.005001822 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.015668582 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.004211100 sec
+Iteration 30: Residual = 2.110116e+02, Time = 0.050278 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002574296 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.001966937 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002548394 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002641985 sec
+Iteration 31: Residual = 1.722186e+02, Time = 0.018952 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002228016 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002285897 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002512619 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002241211 sec
+Iteration 32: Residual = 4.186561e+02, Time = 0.018276 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002677512 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002009257 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002693981 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.004620599 sec
+Iteration 33: Residual = 1.398327e+02, Time = 0.022495 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.001961556 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.003974738 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.001922933 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002380345 sec
+Iteration 34: Residual = 2.260298e+02, Time = 0.017568 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002340911 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002402173 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.004353152 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002305046 sec
+Iteration 35: Residual = 7.549792e+01, Time = 0.019145 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002782984 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002212764 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002727453 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.004377587 sec
+Iteration 36: Residual = 7.609048e+01, Time = 0.019531 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.018832443 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002534768 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002009441 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002291330 sec
+Iteration 37: Residual = 5.875945e+01, Time = 0.050760 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002020211 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002491161 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.003435319 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002587219 sec
+Iteration 38: Residual = 3.011526e+01, Time = 0.018703 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.003673291 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002145173 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002295821 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002285563 sec
+Iteration 39: Residual = 4.975005e+01, Time = 0.017572 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002316934 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.001896413 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002591309 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002466194 sec
+Iteration 40: Residual = 1.480328e+01, Time = 0.017348 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002006553 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002267190 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002251902 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.001910960 sec
+Iteration 41: Residual = 1.083728e+01, Time = 0.015975 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.001921518 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002457242 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002223371 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002361248 sec
+Iteration 42: Residual = 9.165123e+00, Time = 0.018639 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002232657 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002048894 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.004662907 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002756601 sec
+Iteration 43: Residual = 1.058996e+01, Time = 0.019976 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.019214524 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.004235811 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002451039 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002303283 sec
+Iteration 44: Residual = 7.455550e+00, Time = 0.050930 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002356736 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002498870 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.001997234 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.003211326 sec
+Iteration 45: Residual = 5.648026e+00, Time = 0.017888 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002524804 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002874745 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002342776 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002255043 sec
+Iteration 46: Residual = 4.555668e+00, Time = 0.017530 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002006625 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002555645 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.005211975 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002455741 sec
+Iteration 47: Residual = 4.564552e+00, Time = 0.024123 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.003506000 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002094056 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.001958434 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002489102 sec
+Iteration 48: Residual = 4.887269e+00, Time = 0.017697 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002046590 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002906706 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002334056 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002420026 sec
+Iteration 49: Residual = 4.143173e+00, Time = 0.019536 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.004614613 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002176585 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.036131494 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.001866184 sec
+Iteration 50: Residual = 3.957809e+00, Time = 0.055243 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002688291 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002375577 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002454972 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002487810 sec
+Iteration 51: Residual = 3.528409e+00, Time = 0.018759 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002001564 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002007366 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002617932 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002461134 sec
+Iteration 52: Residual = 3.994839e+00, Time = 0.018393 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.003118854 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.005164591 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002198838 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002116756 sec
+Iteration 53: Residual = 1.703608e+01, Time = 0.024212 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.008263469 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.001989225 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.009572629 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.003481367 sec
+Iteration 54: Residual = 4.825046e+00, Time = 0.031233 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002950764 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002754696 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002870780 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002823433 sec
+Iteration 55: Residual = 3.193884e+00, Time = 0.022733 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002548886 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.005633770 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.004669410 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.032779352 sec
+Iteration 56: Residual = 2.874739e+00, Time = 0.059061 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.003515541 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.005737544 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002509918 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002927941 sec
+Iteration 57: Residual = 6.618057e+00, Time = 0.026583 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002238044 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002430091 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002568913 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002438752 sec
+Iteration 58: Residual = 8.684978e-01, Time = 0.017787 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002322800 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.005593335 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002265348 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002505165 sec
+Iteration 59: Residual = 2.531325e-02, Time = 0.020690 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002430651 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002227128 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002280290 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002007321 sec
+Iteration 60: Residual = 4.094684e-02, Time = 0.016508 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.005015219 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002072671 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.003702664 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002710766 sec
+Iteration 61: Residual = 3.184909e-02, Time = 0.024439 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002704612 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002736154 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002569821 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.004006685 sec
+Iteration 62: Residual = 2.784830e-02, Time = 0.027923 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.018896091 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.003755021 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002141681 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.004491739 sec
+Iteration 63: Residual = 3.203800e-02, Time = 0.053735 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002871725 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002041462 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.006033151 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.001981540 sec
+Iteration 64: Residual = 1.761215e-03, Time = 0.023305 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002427115 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002346577 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002579591 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.003559541 sec
+Iteration 65: Residual = 3.552874e-02, Time = 0.020214 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.005145487 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002734561 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.001872801 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002590789 sec
+Iteration 66: Residual = 4.006031e-04, Time = 0.021195 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002573826 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002080911 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002614000 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002020866 sec
+Iteration 67: Residual = 4.008742e-04, Time = 0.018208 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.003337838 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002308248 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002970109 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002464723 sec
+Iteration 68: Residual = 8.100674e-05, Time = 0.023766 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002480687 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.036221811 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.004151259 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002439824 sec
+Iteration 69: Residual = 6.564210e-05, Time = 0.055904 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002043933 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002581228 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002732176 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.001979169 sec
+Iteration 70: Residual = 4.478277e-05, Time = 0.017085 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002514737 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.001982537 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.003747016 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002217861 sec
+Iteration 71: Residual = 5.107270e-05, Time = 0.018682 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002738617 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002477965 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002462332 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002275855 sec
+Iteration 72: Residual = 1.325013e-05, Time = 0.017013 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.001919293 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002268806 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002626934 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002446099 sec
+Iteration 73: Residual = 2.436855e-05, Time = 0.016287 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002293160 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002982003 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002436656 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002361916 sec
+Iteration 74: Residual = 8.957726e-06, Time = 0.017235 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002389745 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002445395 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002587542 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.005008577 sec
+Iteration 75: Residual = 4.218131e-06, Time = 0.019600 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.018828554 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.005637881 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002146715 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.006183684 sec
+Iteration 76: Residual = 3.715961e-06, Time = 0.059457 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002079143 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002624361 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002473667 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002646355 sec
+Iteration 77: Residual = 2.082221e-06, Time = 0.019199 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002320092 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.001998027 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002619097 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002481540 sec
+Iteration 78: Residual = 1.916997e-06, Time = 0.019913 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002696478 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002407564 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002065201 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.003964659 sec
+Iteration 79: Residual = 2.486445e-06, Time = 0.019417 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.001988154 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002961315 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002018268 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002454695 sec
+Iteration 80: Residual = 1.092207e-06, Time = 0.017422 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002458417 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.001945803 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002340213 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.003878492 sec
+Iteration 81: Residual = 9.992258e-07, Time = 0.018204 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002704137 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.001918627 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.018621174 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.004177949 sec
+Iteration 82: Residual = 5.924787e-07, Time = 0.052808 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002029658 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002967715 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002454358 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002497340 sec
+Iteration 83: Residual = 4.989006e-07, Time = 0.019186 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002123232 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002486033 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.003708428 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.001952802 sec
+Iteration 84: Residual = 4.240478e-07, Time = 0.018315 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.003802082 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002482471 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002474655 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.001926527 sec
+Iteration 85: Residual = 3.662032e-07, Time = 0.018527 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002687886 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002314049 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002410556 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002279246 sec
+Iteration 86: Residual = 3.061179e-07, Time = 0.017685 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.005245373 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.001898357 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002181898 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.003006650 sec
+Iteration 87: Residual = 2.303801e-07, Time = 0.020002 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002698247 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.003117866 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002611984 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.001990685 sec
+Iteration 88: Residual = 1.984109e-07, Time = 0.018756 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.005186470 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.036044247 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.003605663 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002339149 sec
+Iteration 89: Residual = 1.692832e-07, Time = 0.056952 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002552285 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002370873 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002328161 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002102727 sec
+Iteration 90: Residual = 1.416181e-07, Time = 0.018761 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002775894 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.005268289 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002472259 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002029774 sec
+Iteration 91: Residual = 1.058310e-07, Time = 0.020453 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002733342 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.001932108 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002740561 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.003065807 sec
+Iteration 92: Residual = 1.435627e-07, Time = 0.021509 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002910252 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.006118123 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002013318 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002692920 sec
+Iteration 93: Residual = 1.391888e-07, Time = 0.022158 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002647320 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002703974 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002540492 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002509215 sec
+Iteration 94: Residual = 1.311463e-07, Time = 0.018763 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002433576 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.035984318 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.003944751 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002385011 sec
+Iteration 95: Residual = 4.773768e-08, Time = 0.055743 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002705648 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.004185625 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.003098012 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002815689 sec
+Iteration 96: Residual = 4.306903e-08, Time = 0.023478 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002156879 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.003352122 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002055334 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002480033 sec
+Iteration 97: Residual = 3.758469e-08, Time = 0.018154 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002013705 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002414293 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.003056188 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002959134 sec
+Iteration 98: Residual = 2.995930e-08, Time = 0.018471 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002338633 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002197732 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002622067 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.001978040 sec
+Iteration 99: Residual = 3.106234e-08, Time = 0.016629 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002565005 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002582047 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002021677 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002419502 sec
+Iteration 100: Residual = 1.811968e-08, Time = 0.019601 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.004594990 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.031218590 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.007893075 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.004375754 sec
+Iteration 101: Residual = 1.200510e-08, Time = 0.060246 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002648461 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.001997612 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002620264 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002577320 sec
+Iteration 102: Residual = 9.422259e-09, Time = 0.019706 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002527246 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002156799 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002708798 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002470866 sec
+Iteration 103: Residual = 1.016185e-08, Time = 0.019014 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002183019 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002952684 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002042190 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002468843 sec
+Iteration 104: Residual = 7.002699e-09, Time = 0.017344 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002003942 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002495897 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002398439 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.003574208 sec
+Iteration 105: Residual = 5.830373e-09, Time = 0.019351 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.003276133 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.003445985 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002688027 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002005851 sec
+Iteration 106: Residual = 5.183321e-09, Time = 0.020282 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002316744 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002060046 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.005419372 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002955828 sec
+Iteration 107: Residual = 6.492597e-09, Time = 0.020376 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.016998959 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.004535540 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002186857 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002993625 sec
+Iteration 108: Residual = 4.964668e-09, Time = 0.052349 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002413673 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.003399698 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002443943 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002012970 sec
+Iteration 109: Residual = 6.118152e-09, Time = 0.017966 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002069157 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.001945357 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002602553 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002507844 sec
+Iteration 110: Residual = 4.024495e-09, Time = 0.018723 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002051172 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.003866751 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.001956979 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002855925 sec
+Iteration 111: Residual = 3.585640e-09, Time = 0.018545 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002034672 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002497110 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002575606 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.001964324 sec
+Iteration 112: Residual = 2.211022e-09, Time = 0.020136 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.003237232 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002085517 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.003382507 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.001963640 sec
+Iteration 113: Residual = 5.482085e-09, Time = 0.019116 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.005667048 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002879981 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002286561 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.030618906 sec
+Iteration 114: Residual = 6.212865e-09, Time = 0.051820 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002052483 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002549875 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002085025 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002711411 sec
+Iteration 115: Residual = 1.815378e-10, Time = 0.017459 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002795514 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002343379 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.003105143 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002006807 sec
+Iteration 116: Residual = 1.988184e-10, Time = 0.018479 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002751242 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.004422580 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002437575 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002544363 sec
+Iteration 117: Residual = 6.800616e-10, Time = 0.021083 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002153968 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002524002 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002034330 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002493348 sec
+Iteration 118: Residual = 3.213566e-10, Time = 0.018638 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002063205 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002608625 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002252497 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002476056 sec
+Iteration 119: Residual = 1.229081e-10, Time = 0.018320 s
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002720712 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002270630 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002599278 sec
+multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002125575 sec
+Iteration 120: Residual = 5.517972e-11, Time = 0.019563 s
+Converged at iteration 120 with residual 5.517972e-11
+
+Performance Statistics:
+Total time: 3.639811 s
+Average time per iteration: 0.024652 s
+Input Array Shape: (6291456,)
+Dest Shape: (6291456,)
+Data is saved to x_o.h5
