@@ -1,0 +1,3 @@
+[submodule "refer/DDalphaAMG"]
+	path = refer/DDalphaAMG
+	url = https://github.com/Gustavroot/DDalphaAMG.git
