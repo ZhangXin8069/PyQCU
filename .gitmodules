@@ -1,3 +1,6 @@
 [submodule "refer/DDalphaAMG"]
 	path = refer/DDalphaAMG
 	url = https://github.com/Gustavroot/DDalphaAMG.git
+[submodule "refer/QUDA"]
+	path = refer/QUDA
+	url = https://github.com/lattice/quda.git
