@@ -2,7 +2,6 @@
 // A test of multigrid on g5 domain wall operator!
 
 // Define NO_ARPACK in the Makefile if there's no arpack support.
-
 #include <iostream>
 #include <iomanip>
 #include <complex>
@@ -614,6 +613,17 @@ int main(int argc, char** argv)
   //////////////////////////////////////////////
   // Get the spectrum of the Wilson operator. //
   //////////////////////////////////////////////
+std::cout << "###do_wilmg: " << do_wilmg << "\n";
+std::cout << "###do_wil_spectrum: " << do_wil_spectrum << "\n";
+std::cout << "###do_g5_wil_spectrum: " << do_g5_wil_spectrum << "\n";
+std::cout << "###do_g5_alternative_spectrum: " << do_g5_alternative_spectrum << "\n";
+std::cout << "###n_refine: " << n_refine << "\n";
+std::cout << "###beta: " << beta << "\n";
+std::cout << "###mass: " << mass << "\n";
+std::cout << "###x_len: " << x_len << "\n";
+std::cout << "###y_len: " << y_len << "\n";
+std::cout << "###dof: " << dof << "\n";
+std::cout << "###do_free: " << do_free << "\n";
 
   if (do_wil_spectrum)
   {
