@@ -4,3 +4,6 @@
 [submodule "refer/QUDA"]
 	path = refer/QUDA
 	url = https://github.com/lattice/quda.git
+[submodule "refer/MGMLMC_for_mat_with_displ"]
+	path = refer/MGMLMC_for_mat_with_displ
+	url = https://github.com/Gustavroot/MGMLMC_for_mat_with_displ.git
