@@ -10,3 +10,6 @@
 [submodule "refer/geometric-multigrid"]
 	path = refer/geometric-multigrid
 	url = https://github.com/nikolausrauch/geometric-multigrid.git
+[submodule "refer/pyamg"]
+	path = refer/pyamg
+	url = https://github.com/pyamg/pyamg.git
