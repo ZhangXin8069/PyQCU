@@ -13,3 +13,6 @@
 [submodule "refer/pyamg"]
 	path = refer/pyamg
 	url = https://github.com/pyamg/pyamg.git
+[submodule "refer/DDalphaAMG_ci"]
+	path = refer/DDalphaAMG_ci
+	url = https://github.com/JesusEV/DDalphaAMG_ci.git
