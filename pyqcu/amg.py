@@ -13,9 +13,8 @@ def setup(n, k, matvec, dtype, bsi=50, cl=0.5, mi=50, tol=1e-2):
         raise ValueError("cl must be less than 1.0")
     testvectors = []
     for i in range(k):
-        testvector_current = cp.random.randn(n) + 1j*cp.random.randn(n)
-        print("(given) norm of testvector_current:",
-              cp.linalg.norm(testvector_current))
+        testvector_current = cp.random.randn(n).astype(dtype)
+        testvector_current /= cp.linalg.norm(testvector_current)
         for j in range(mi):
             if j == 0:
                 rayleigh_quotient_current = rayleigh_quotient(
@@ -32,17 +31,13 @@ def setup(n, k, matvec, dtype, bsi=50, cl=0.5, mi=50, tol=1e-2):
                           cp.array(testvectors[:i]).conj() @ testvector_current)
             testvector_next = bistabcg.slover(
                 testvector_current, matvec, max_iter=bsi, tol=tol)
+            testvector_next /= cp.linalg.norm(testvector_next)
             rayleigh_quotient_next = rayleigh_quotient(
                 testvector_next, matvec)
             print("(given) rayleigh_quotient_next:", rayleigh_quotient_next)
             if rayleigh_quotient_next >= cl*rayleigh_quotient_current:
                 break
-            testvector_current = testvector_next.copy()
+            testvector_current = testvector_next
             rayleigh_quotient_current = rayleigh_quotient_next
         testvectors.append(testvector_next)
-        print("(given) norm of testvectors[", i,
-              "]:", cp.linalg.norm(testvectors[i]))
-    testvectors=cp.array(testvectors, dtype=dtype)
-    for i in range(k):
-        testvectors[i] /= cp.linalg.norm(testvectors[i])
-    return testvectors
+    return cp.array(testvectors, dtype=dtype)
