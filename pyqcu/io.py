@@ -3,7 +3,6 @@ import numpy as np
 import cupy as cp
 import h5py
 
-
 def array2xxx(array):
     return array.reshape(array.size)
 
