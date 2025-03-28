@@ -146,7 +146,6 @@ namespace qcu
 #define _LAT_D_ 4
 #define _LAT_DCC_ 36
 #define _LAT_PDCC_ 72
-#define _LAT_Ne_ 24
 #define _LAT_E_ 24
 #define _B_ 0
 #define _F_ 1
