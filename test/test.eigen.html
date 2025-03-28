@@ -108080,10 +108080,10 @@ lattice set init total time:0.048005424 sec
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
 <div class="highlight hl-ipython3"><pre><span></span><span class="c1"># import cupyx.scipy.sparse.linalg as csla</span>
-<span class="c1"># define._LAT_Ne_ = 24</span>
+<span class="c1"># define._LAT_E_ = 24</span>
 <span class="c1"># A = csla.LinearOperator((N,</span>
 <span class="c1">#                         N), matvec=_matvec, dtype=cp.complex64)</span>
-<span class="c1"># evals, evecs = csla.eigsh(a=A, k=define._LAT_Ne_, which="SA",</span>
+<span class="c1"># evals, evecs = csla.eigsh(a=A, k=define._LAT_E_, which="SA",</span>
 <span class="c1">#                           return_eigenvectors=True)</span>
 <span class="c1"># print("evals:", evals)</span>
 <span class="c1"># print("evecs:", evecs)</span>
@@ -108105,7 +108105,7 @@ lattice set init total time:0.048005424 sec
 <div class="highlight hl-ipython3"><pre><span></span><span class="k">def</span> <span class="nf">shifted_power_iteration</span><span class="p">(</span>
     <span class="n">matvec</span><span class="p">,</span>
     <span class="n">n</span><span class="o">=</span><span class="n">N</span><span class="p">,</span>
-    <span class="n">num_eigenvalues</span><span class="o">=</span><span class="n">define</span><span class="o">.</span><span class="n">_LAT_Ne_</span><span class="p">,</span>
+    <span class="n">num_eigenvalues</span><span class="o">=</span><span class="n">define</span><span class="o">.</span><span class="n">_LAT_E_</span><span class="p">,</span>
     <span class="n">max_iter</span><span class="o">=</span><span class="n">params</span><span class="p">[</span><span class="n">define</span><span class="o">.</span><span class="n">_MAX_ITER_</span><span class="p">],</span>
     <span class="n">tol</span><span class="o">=</span><span class="n">argv</span><span class="p">[</span><span class="n">define</span><span class="o">.</span><span class="n">_TOL_</span><span class="p">]</span>
 <span class="p">):</span>
