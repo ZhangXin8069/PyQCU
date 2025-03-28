@@ -5,9 +5,42 @@ import numpy as np
 def dot(x, y):
     return cp.sum(x.conj() * y)
 
+def norm2(x):
+    return dot(x, x).real
+
+def norm(x):
+    return cp.sqrt(norm2(x))
 
 def rayleigh_quotient(x, matvec):
     return cp.dot(x.conj(), matvec(x)).real / cp.dot(x.conj(), x).real
+
+
+def initialize_random_vector(v):
+    v.real, v.imag = cp.random.randn(v.size).astype(
+        v.real.dtype), cp.random.randn(v.size).astype(v.imag.dtype)
+    norm = cp.linalg.norm(v)
+    if norm > 0:
+        cp.divide(v, norm, out=v)
+    return v
+
+
+def chebyshev_filter(src, alpha, beta, matvec, degree=20, tol=1e-12):
+    t_prev, t_curr, t_next = cp.empty_like(
+        src), cp.empty_like(src), cp.empty_like(src)
+    c, e = (beta + alpha) / 2, (beta - alpha) / 2
+    t_prev[:] = src
+    t_curr[:] = (matvec(src) - c * src) / e
+    for _ in range(1, degree):
+        t_prev[:] = t_curr
+        t_curr[:] = (matvec(t_curr) - c * t_curr) / e
+        t_next[:] = 2 * t_curr - t_prev
+        norm = cp.linalg.norm(t_next)
+        if norm > tol:
+            t_next /= norm
+        else:
+            t_next[:] = t_curr
+        t_curr, t_prev = t_next.copy(), t_curr
+    return t_curr
 
 
 def orthogonalize_against_vectors(v, Q_ortho, tol=1e-12, print_max_proj=False):
@@ -60,29 +93,30 @@ def orthogonalize_matrix(Q, cond_tol=1e-2, tol=1e-12):
     return Q_ortho
 
 
-def initialize_random_vector(v):
-    v.real, v.imag = cp.random.randn(v.size).astype(
-        v.real.dtype), cp.random.randn(v.size).astype(v.imag.dtype)
-    norm = cp.linalg.norm(v)
-    if norm > 0:
-        cp.divide(v, norm, out=v)
-    return v
-
-
-def chebyshev_filter(src, alpha, beta, matvec, degree=20, tol=1e-12):
-    t_prev, t_curr, t_next = cp.empty_like(
-        src), cp.empty_like(src), cp.empty_like(src)
-    c, e = (beta + alpha) / 2, (beta - alpha) / 2
-    t_prev[:] = src
-    t_curr[:] = (matvec(src) - c * src) / e
-    for _ in range(1, degree):
-        t_prev[:] = t_curr
-        t_curr[:] = (matvec(t_curr) - c * t_curr) / e
-        t_next[:] = 2 * t_curr - t_prev
-        norm = cp.linalg.norm(t_next)
-        if norm > tol:
-            t_next /= norm
-        else:
-            t_next[:] = t_curr
-        t_curr, t_prev = t_next.copy(), t_curr
-    return t_curr
+def orthogonalize(eigenvectors):
+    _eigenvectors = eigenvectors.copy()
+    size_e, size_s, size_c, size_T, size_t, size_Z, size_z, size_Y, size_y, size_X, size_x = eigenvectors.shape
+    print(size_e, size_s, size_c, size_T, size_t,
+          size_Z, size_z, size_Y, size_y, size_X, size_x)
+    for T in range(size_T):
+        for Z in range(size_Z):
+            for Y in range(size_Y):
+                for X in range(size_X):
+                    origin_matrix = eigenvectors[:,
+                                                 :, :, T, :, Z, :, Y, :, X, :]
+                    _shape = origin_matrix.shape
+                    _origin_matrix = origin_matrix.reshape(size_e, -1)
+                    condition_number = np.linalg.cond(_origin_matrix.get())
+                    print(f"矩阵条件数: {condition_number}")
+                    a = _origin_matrix[:, 0]
+                    b = _origin_matrix[:, -1]
+                    print(cp.dot(a.conj(), b))
+                    Q = cp.linalg.qr(_origin_matrix.T)[0]
+                    condition_number = np.linalg.cond(Q.get())
+                    print(f"矩阵条件数: {condition_number}")
+                    a = Q[:, 0]
+                    b = Q[:, -1]
+                    print(cp.dot(a.conj(), b))
+                    _eigenvectors[:, :, :, T, :, Z, :, Y, :, X, :] = Q.T.reshape(
+                        _shape)
+    return _eigenvectors
