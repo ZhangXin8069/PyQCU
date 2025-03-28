@@ -1,4 +1,5 @@
 import cupy as cp
+import numpy as np
 
 
 def dot(x, y):
@@ -7,6 +8,7 @@ def dot(x, y):
 
 def rayleigh_quotient(x, matvec):
     return cp.dot(x.conj(), matvec(x)).real / cp.dot(x.conj(), x).real
+
 
 def orthogonalize_against_vectors(v, Q_ortho, tol=1e-12, print_max_proj=False):
     if Q_ortho.ndim != 2 or v.ndim != 1:
@@ -31,6 +33,32 @@ def orthogonalize_against_vectors(v, Q_ortho, tol=1e-12, print_max_proj=False):
         print(f"Maximum projection onto existing basis: {max_proj:.2e}")
     cp.clear_memo()
     return v_ortho
+
+
+def orthogonalize_matrix(Q, cond_tol=1e-2, tol=1e-12):
+    if Q.ndim != 2:
+        raise ValueError("Input must be a 2D matrix")
+    print(f"Condition number of Q: {np.linalg.cond(Q.T.get())}")
+    _Q = Q.copy()
+    Q_ortho = cp.empty_like(_Q)
+    while cp.abs(np.linalg.cond(Q_ortho.T.get())-1.0) > cond_tol:
+        for i in range(_Q.shape[0]):
+            v = _Q[i, :]
+            if i != 0:
+                try:
+                    v_ortho = orthogonalize_against_vectors(
+                        v, _Q[:i, :], tol=tol)
+                except ValueError as e:
+                    print(f"Skipping column {i}: {e}")
+            else:
+                v_ortho = v/cp.linalg.norm(v)
+            Q_ortho[i, :] = v_ortho/cp.linalg.norm(v_ortho)
+        print(
+            f"Condition number of Q_ortho: {np.linalg.cond(Q_ortho.T.get())}")
+        _Q = Q_ortho.copy()
+    cp.clear_memo()
+    return Q_ortho
+
 
 def initialize_random_vector(v):
     v.real, v.imag = cp.random.randn(v.size).astype(
