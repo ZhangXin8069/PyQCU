@@ -1,21 +1,11 @@
 import cupy as cp
+from pyqcu.linalg import dot, initialize_random_vector
 from time import perf_counter
-
-
 def slover(b, matvec, max_iter=1000, tol=1e-9, x0=None):
     n = b.size
     dtype = b.dtype
     buffers = {key: cp.zeros(n, dtype=dtype) for key in ['r', 'p', 'v', 'x']}
     x0 = None if x0 is None else x0.copy()
-    def initialize_random_vector(v):
-        v.real, v.imag = cp.random.randn(n).astype(
-            v.real.dtype), cp.random.randn(n).astype(v.imag.dtype)
-        norm = cp.linalg.norm(v)
-        if norm > 0:
-            cp.divide(v, norm, out=v)
-        return v
-    def dot(x, y):
-        return cp.sum(x.conj() * y)
     x, r, p, v = buffers['x'], buffers['r'], buffers['p'], buffers['v']
     if x0 is not None:
         cp.copyto(x, x0)
@@ -50,4 +40,5 @@ def slover(b, matvec, max_iter=1000, tol=1e-9, x0=None):
     print("\nPerformance Statistics:")
     print(f"Total time: {total_time:.6f} s")
     print(f"Average time per iteration: {avg_iter_time:.6f} s")
-    return x.copy()
+    cp.clear_memo()
+    return x

@@ -5,7 +5,6 @@ from time import perf_counter
 from pyqcu import define
 from pyqcu import io
 from pyqcu import qcu
-
 print('My rank is ', define.rank)
 if define.rank == 0:
     params = np.array([0]*define._PARAMS_SIZE_, dtype=np.int32)
@@ -122,7 +121,6 @@ if define.rank == 0:
     # print("PyQuda Laplacian in shape:", pyquda_laplacian_in.shape)
     # print("norm of PyQuda Laplacian in:", cp.linalg.norm(pyquda_laplacian_in))
     from opt_einsum import contract
-
     def pyquda_Laplacian(F, U):
         Lx, Ly, Lz, Lt = params[define._LAT_X_], params[define._LAT_Y_], params[define._LAT_Z_], params[define._LAT_T_]
         U_dag = U.transpose(0, 1, 2, 3, 5, 4).conj()

@@ -1,14 +1,11 @@
 import pyqcu.define as define
+from pyqcu.linalg import rayleigh_quotient, orthogonalize_against_vectors
 import pyqcu.bistabcg as bistabcg
 import numpy as np
 import cupy as cp
 
 
-def rayleigh_quotient(x, matvec):
-    return cp.dot(x.conj(), matvec(x)).real / cp.dot(x.conj(), x).real
-
-
-def setup(n, k, matvec, dtype, bsi=50, cl=0.5, mi=50, tol=1e-2):
+def setup(n, k, matvec, dtype, bsi=20, cl=0.95, mi=5, tol=1e-4):
     if cl >= 1.0:
         raise ValueError("cl must be less than 1.0")
     testvectors = []
@@ -19,25 +16,24 @@ def setup(n, k, matvec, dtype, bsi=50, cl=0.5, mi=50, tol=1e-2):
             if j == 0:
                 rayleigh_quotient_current = rayleigh_quotient(
                     testvector_current, matvec)
-                print("(given) rayleigh_quotient_current:",
-                      rayleigh_quotient_current)
             else:
                 if i == 0:
                     pass
                 else:
-                    Q = cp.linalg.qr(cp.array(testvectors[:i]).T)[0]
-                    testvector_current -= Q @ (Q.conj().T @ testvector_current)
-                    print("(given) loop-", j, ":cp.array(testvectors[:", i, "]).conj() @ testvector_current:",
-                          cp.array(testvectors[:i]).conj() @ testvector_current)
+                    testvector_current = orthogonalize_against_vectors(
+                        testvector_current, testvectors)
             testvector_next = bistabcg.slover(
-                testvector_current, matvec, max_iter=bsi, tol=tol)
-            testvector_next /= cp.linalg.norm(testvector_next)
+                testvector_current, matvec, max_iter=bsi, tol=tol, x0=cp.zeros_like(testvector_current))
             rayleigh_quotient_next = rayleigh_quotient(
                 testvector_next, matvec)
-            print("(given) rayleigh_quotient_next:", rayleigh_quotient_next)
+            print("(given) loop-", j, "[", i, "]rayleigh_quotient_current:",
+                  rayleigh_quotient_current)
+            print("(given) loop-", j,
+                  "[", i, "]rayleigh_quotient_next:", rayleigh_quotient_next)
             if rayleigh_quotient_next >= cl*rayleigh_quotient_current:
                 break
             testvector_current = testvector_next
             rayleigh_quotient_current = rayleigh_quotient_next
-        testvectors.append(testvector_next)
-    return cp.array(testvectors, dtype=dtype)
+        testvectors = cp.append(testvectors, testvector_next/cp.linalg.norm(testvector_next)).astype(dtype).reshape(
+            i+1, n)
+    return testvectors
