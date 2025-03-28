@@ -15,7 +15,6 @@ print("Parameters:", params)
 fermion_out_filename = f"quda_wilson-dslash-fermion-out_-{params[define._LAT_X_]}-{params[define._LAT_Y_]}-{params  [define._LAT_Z_]}-{params[define._LAT_T_]}-{params[define._LAT_XYZT_]}-{params[define._GRID_X_]}-{params[define._GRID_Y_]}-{params[define._GRID_Z_]}-{params[define._GRID_T_]}-{params[define._PARITY_]}-{params[define._NODE_RANK_]}-{params[define._NODE_SIZE_]}-{params[define._DAGGER_]}-f.h5"
 # fermion_out_filename = f"quda_wilson-clover-dslash-fermion-out_-{params[define._LAT_X_]}-{params[define._LAT_Y_]}-{params  [define._LAT_Z_]}-{params[define._LAT_T_]}-{params[define._LAT_XYZT_]}-{params[define._GRID_X_]}-{params[define._GRID_Y_]}-{params[define._GRID_Z_]}-{params[define._GRID_T_]}-{params[define._PARITY_]}-{params[define._NODE_RANK_]}-{params[define._NODE_SIZE_]}-{params[define._DAGGER_]}-f.h5"
 quda_fermion_out = io.hdf5_xxxtzyx2grid_xxxtzyx(params, fermion_out_filename)
-
 # quda_fermion_out = cp.fromfile(
 #     fermion_out_filename.replace(".h5", ".bin"), dtype=cp.complex64, count=params[define._LAT_XYZT_]*define._LAT_HALF_SC_)
 # quda_fermion_out = io.fermion2sctzyx(quda_fermion_out, params)

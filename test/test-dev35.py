@@ -23,14 +23,9 @@ params[define._GRID_Z_] = 1
 params[define._GRID_Y_] = 1
 params[define._GRID_X_] = 4
 print("Params:", params)
-
 print("params[define._NODE_RANK_]", params[define._NODE_RANK_])
 print("params[define._NODE_SIZE_]", params[define._NODE_SIZE_])
 _ = io.xxxtzyx2grid_xxxtzyx(gauge, params)
-
 io.grid_xxxtzyx2hdf5_xxxtzyx(_, params, file_name='__xxxtzyx.h5')
-
-
 # %%
-
 # qcu.applyEndQcu(set_ptrs, params)
