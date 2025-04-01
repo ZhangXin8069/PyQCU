@@ -20,7 +20,8 @@
 #include "interfaces/arpack/generic_arpack.h"
 #endif
 
-struct NullVecSetupMG {
+struct NullVecSetupMG
+{
   // What's the fine level?
   int fine_idx;
 
@@ -46,7 +47,7 @@ struct NullVecSetupMG {
   bool separate_left_right_nulls;
 
   // RNG
-  std::mt19937* generator;
+  std::mt19937 *generator;
 
   // Verbosity structure
   inversion_verbose_struct verb;
@@ -66,16 +67,15 @@ struct NullVecSetupMG {
   double nulls_arpack_tol;
 #endif
 
-
   // set some defaults
   NullVecSetupMG()
-    : fine_idx(0), coarse_dof(8),
-      outer_stencil_coarsen(MultigridMG::QMG_MULTIGRID_PRECOND_ORIGINAL),
-      preserve_eo(false),
-      null_op_type(QMG_MATVEC_ORIGINAL),
-      nulls_tolerance(5e-5), nulls_max_iter(500),
-      separate_left_right_nulls(false),
-      generator(nullptr), verb()
+      : fine_idx(0), coarse_dof(8),
+        outer_stencil_coarsen(MultigridMG::QMG_MULTIGRID_PRECOND_ORIGINAL),
+        preserve_eo(false),
+        null_op_type(QMG_MATVEC_ORIGINAL),
+        nulls_tolerance(5e-5), nulls_max_iter(500),
+        separate_left_right_nulls(false),
+        generator(nullptr), verb()
   {
 #ifndef NO_ARPACK
     nulls_are_eigenvectors = false;
@@ -84,7 +84,6 @@ struct NullVecSetupMG {
     nulls_arpack_tol = 1e-7;
 #endif
   }
-
 };
 
 // Arg 1: Fine operator
@@ -92,10 +91,11 @@ struct NullVecSetupMG {
 // Arg 3: Array of near null vectors (used for prolongate in symmetric case)
 // Arg 4: Optional: array of near null vectors for restriction in asymmetric case
 // Returns: number of dslash. [Bug: only for near-null, not eigenvectors...]
-int generate_null_vectors(Stencil2D* fine_op, NullVecSetupMG& null_setup, complex<double>** null_prolong, complex<double>** null_restrict = nullptr) {
+int generate_null_vectors(Stencil2D *fine_op, NullVecSetupMG &null_setup, complex<double> **null_prolong, complex<double> **null_restrict = nullptr)
+{
 
   // Iterators
-  int j,k;
+  int j, k;
 
   // What's the index of the fine level?
   int fine_idx = null_setup.fine_idx;
@@ -107,7 +107,7 @@ int generate_null_vectors(Stencil2D* fine_op, NullVecSetupMG& null_setup, comple
   inversion_info invif;
 
   // For convenience, grab the lattice object and color-vector size
-  Lattice2D* lat_fine = fine_op->get_lattice();
+  Lattice2D *lat_fine = fine_op->get_lattice();
   int volume = lat_fine->get_volume();
   int fine_nc = lat_fine->get_nc();
   int cv_size = lat_fine->get_size_cv();
@@ -116,12 +116,13 @@ int generate_null_vectors(Stencil2D* fine_op, NullVecSetupMG& null_setup, comple
   int coarse_dof = null_setup.coarse_dof;
 
   // How many do we need to generate before doubling?
-  int gen_coarse = null_setup.preserve_eo ? coarse_dof/4 : coarse_dof/2;
+  int gen_coarse = null_setup.preserve_eo ? coarse_dof / 4 : coarse_dof / 2;
 
   // Figure out if we're generating near-null vectors with a normal operator.
   bool do_normal_null = false;
   if (null_setup.null_op_type == QMG_MATVEC_M_MDAGGER || null_setup.null_op_type == QMG_MATVEC_MDAGGER_M ||
-        null_setup.null_op_type == QMG_MATVEC_RBJ_M_MDAGGER || null_setup.null_op_type == QMG_MATVEC_RBJ_MDAGGER_M) {
+      null_setup.null_op_type == QMG_MATVEC_RBJ_M_MDAGGER || null_setup.null_op_type == QMG_MATVEC_RBJ_MDAGGER_M)
+  {
     do_normal_null = true;
   }
 
@@ -137,18 +138,18 @@ int generate_null_vectors(Stencil2D* fine_op, NullVecSetupMG& null_setup, comple
   double nulls_tolerance = null_setup.nulls_tolerance;
 
   // Grab the RNG.
-  std::mt19937& generator = *null_setup.generator;
+  std::mt19937 &generator = *null_setup.generator;
 
   // And the verbosity object.
   inversion_verbose_struct verb = null_setup.verb;
 
   // Pre-allocate some vectors we'll need later.
-  complex<double>* rand_guess = allocate_vector<complex<double>>(cv_size);
-  complex<double>* Arand_guess = allocate_vector<complex<double>>(cv_size);
+  complex<double> *rand_guess = allocate_vector<complex<double>>(cv_size);
+  complex<double> *Arand_guess = allocate_vector<complex<double>>(cv_size);
 
   // only get used for rbj schur generation
-  complex<double>* rhs_prep = allocate_vector<complex<double>>(cv_size);
-  complex<double>* lhs_preconstruct = allocate_vector<complex<double>>(cv_size);
+  complex<double> *rhs_prep = allocate_vector<complex<double>>(cv_size);
+  complex<double> *lhs_preconstruct = allocate_vector<complex<double>>(cv_size);
 
 #ifndef NO_ARPACK
   bool nulls_are_eigenvectors = null_setup.nulls_are_eigenvectors;
@@ -168,21 +169,21 @@ int generate_null_vectors(Stencil2D* fine_op, NullVecSetupMG& null_setup, comple
       std::cout << "[QMG-ERROR]: Cannot use eigenvectors when doing null vector generation with normal op.\n";
       return -1;
     }*/
-    arpack_dcn* arpack;
-    complex<double>* coarsest_evals_right = new complex<double>[coarse_dof];
-    complex<double>** coarsest_evecs_right = new complex<double>*[coarse_dof];
+    arpack_dcn *arpack;
+    complex<double> *coarsest_evals_right = new complex<double>[coarse_dof];
+    complex<double> **coarsest_evecs_right = new complex<double> *[coarse_dof];
     for (j = 0; j < coarse_dof; j++)
     {
       coarsest_evecs_right[j] = allocate_vector<complex<double>>(cv_size);
     }
-    
+
     // Grab lowest coarse_dof eigenvectors of D.
     arpack = new arpack_dcn(cv_size, arpack_max_iter, arpack_tol,
-                  Stencil2D::get_apply_function(null_setup.null_op_type),
-                  /*(null_setup.null_op_type == QMG_MATVEC_ORIGINAL) ? apply_stencil_2D_M : apply_stencil_2D_M_rbjacobi,*/
-                  fine_op, coarse_dof, 3*coarse_dof);
+                            Stencil2D::get_apply_function(null_setup.null_op_type),
+                            /*(null_setup.null_op_type == QMG_MATVEC_ORIGINAL) ? apply_stencil_2D_M : apply_stencil_2D_M_rbjacobi,*/
+                            fine_op, coarse_dof, 3 * coarse_dof);
 
-    arpack->prepare_eigensystem(arpack_dcn::ARPACK_SMALLEST_MAGNITUDE, coarse_dof, 3*coarse_dof);
+    arpack->prepare_eigensystem(arpack_dcn::ARPACK_SMALLEST_MAGNITUDE, coarse_dof, 3 * coarse_dof);
     arpack->get_eigensystem(coarsest_evals_right, coarsest_evecs_right, arpack_dcn::ARPACK_SMALLEST_MAGNITUDE);
     delete arpack;
     for (j = 0; j < coarse_dof; j++)
@@ -192,29 +193,39 @@ int generate_null_vectors(Stencil2D* fine_op, NullVecSetupMG& null_setup, comple
     }
 
     // Grab eigenvectors
-    if (nulls_positive_evec_only && 
-          (null_setup.null_op_type == QMG_MATVEC_ORIGINAL || null_setup.null_op_type == QMG_MATVEC_RIGHT_JACOBI )) {
+    if (nulls_positive_evec_only &&
+        (null_setup.null_op_type == QMG_MATVEC_ORIGINAL || null_setup.null_op_type == QMG_MATVEC_RIGHT_JACOBI))
+    {
       int evec_count = 0;
       int index = 0;
-      while (evec_count < gen_coarse) {
+      while (evec_count < gen_coarse)
+      {
         // Check for real eigenvalue
-        if (fabs(coarsest_evals_right[index].imag()) < 1e-10) {
+        if (fabs(coarsest_evals_right[index].imag()) < 1e-10)
+        {
           copy_vector(null_prolong[evec_count], coarsest_evecs_right[index], cv_size);
           std::cout << "Eval " << evec_count << " " << coarsest_evals_right[index] << "\n";
           index++;
-        } else if (coarsest_evals_right[index].imag() > coarsest_evals_right[index+1].imag()) {
+        }
+        else if (coarsest_evals_right[index].imag() > coarsest_evals_right[index + 1].imag())
+        {
           copy_vector(null_prolong[evec_count], coarsest_evecs_right[index], cv_size);
           std::cout << "Eval " << evec_count << " " << coarsest_evals_right[index] << "\n";
           index += 2;
-        } else {
-          copy_vector(null_prolong[evec_count], coarsest_evecs_right[index+1], cv_size);
-          std::cout << "Eval " << evec_count << " " << coarsest_evals_right[index+1] << "\n";
+        }
+        else
+        {
+          copy_vector(null_prolong[evec_count], coarsest_evecs_right[index + 1], cv_size);
+          std::cout << "Eval " << evec_count << " " << coarsest_evals_right[index + 1] << "\n";
           index += 2;
         }
         evec_count++;
       }
-    } else {
-      for (j = 0; j < gen_coarse; j++) {
+    }
+    else
+    {
+      for (j = 0; j < gen_coarse; j++)
+      {
         copy_vector(null_prolong[j], coarsest_evecs_right[j], cv_size);
       }
     }
@@ -231,7 +242,7 @@ int generate_null_vectors(Stencil2D* fine_op, NullVecSetupMG& null_setup, comple
 #endif // ifndef NO_ARPACK
     for (j = 0; j < gen_coarse; j++)
     {
-      
+
       // Update verbosity string.
       verb.verb_prefix = "Level " + to_string(fine_idx) + " Null Vector " + to_string(j) + " ";
 
@@ -249,7 +260,7 @@ int generate_null_vectors(Stencil2D* fine_op, NullVecSetupMG& null_setup, comple
       // Are we using the normal op? RBJ or not?
       zero_vector(Arand_guess, cv_size);
       fine_op->apply_M(Arand_guess, rand_guess, null_setup.null_op_type);
-      dslash_count += 1*null_op_factor;
+      dslash_count += 1 * null_op_factor;
       cax(-1.0, Arand_guess, cv_size);
 
       // Solve the residual equation.
@@ -258,45 +269,46 @@ int generate_null_vectors(Stencil2D* fine_op, NullVecSetupMG& null_setup, comple
       double local_bnorm = 0.0, local_bprepnorm = 0.0; // not necc. needed.
       switch (null_setup.null_op_type)
       {
-        case QMG_MATVEC_ORIGINAL:
-          // Nothing to prepare, just do it!
-          invif = minv_vector_bicgstab_l(null_prolong[j], Arand_guess, cv_size, nulls_max_iter, nulls_tolerance, 6, apply_stencil_2D_M, (void*)fine_op, &verb);
-          dslash_count += invif.ops_count;
-          break;
-        case QMG_MATVEC_M_MDAGGER:
-          // Nothing to prepare!
-          invif = minv_vector_cg(null_prolong[j], Arand_guess, cv_size, nulls_max_iter, nulls_tolerance, apply_stencil_2D_M_M_dagger, (void*)fine_op, &verb);
-          dslash_count += 2*invif.ops_count;
-          break;
-        case QMG_MATVEC_MDAGGER_M:
-          // Nothing to prepare!
-          invif = minv_vector_cg(null_prolong[j], Arand_guess, cv_size, nulls_max_iter, nulls_tolerance, apply_stencil_2D_M_dagger_M, (void*)fine_op, &verb);
-          dslash_count += 2*invif.ops_count;
-          break;
-        case QMG_MATVEC_RIGHT_JACOBI:
-          // This one takes preparation.
-          zero_vector(rhs_prep, cv_size);
-          zero_vector(lhs_preconstruct, cv_size);
-          local_bnorm = sqrt(norm2sq(Arand_guess, cv_size));
-          fine_op->prepare_M_rbjacobi_schur(rhs_prep, Arand_guess);
-          local_bprepnorm = sqrt(norm2sq(rhs_prep, cv_size/2));
-          invif = minv_vector_bicgstab_l(lhs_preconstruct, rhs_prep, cv_size/2, nulls_max_iter, nulls_tolerance*local_bnorm/local_bprepnorm, 6, apply_stencil_2D_M_rbjacobi_schur, (void*)fine_op, &verb);
-          fine_op->reconstruct_M_rbjacobi_schur_to_rbjacobi(null_prolong[j], lhs_preconstruct, Arand_guess);
-          dslash_count += invif.ops_count+1;
-          break;
-        case QMG_MATVEC_RBJ_M_MDAGGER:
-          // Nothing to prepare!
-          invif = minv_vector_cg(null_prolong[j], Arand_guess, cv_size, nulls_max_iter, nulls_tolerance, apply_stencil_2D_M_rbjacobi_MMD, (void*)fine_op, &verb);
-          dslash_count += 2*invif.ops_count;
-          break;
-        case QMG_MATVEC_RBJ_MDAGGER_M:
-          // Nothing to prepare!
-          invif = minv_vector_cg(null_prolong[j], Arand_guess, cv_size, nulls_max_iter, nulls_tolerance, apply_stencil_2D_M_rbjacobi_MDM, (void*)fine_op, &verb);
-          dslash_count += 2*invif.ops_count;
-          break;
-        default:
-          std::cout << "[QMG-ERROR]: Unsupported null_op_type on level " << fine_idx << "!\n" << flush << "\n";
-          return -1;
+      case QMG_MATVEC_ORIGINAL:
+        // Nothing to prepare, just do it!
+        invif = minv_vector_bicgstab_l(null_prolong[j], Arand_guess, cv_size, nulls_max_iter, nulls_tolerance, 6, apply_stencil_2D_M, (void *)fine_op, &verb);
+        dslash_count += invif.ops_count;
+        break;
+      case QMG_MATVEC_M_MDAGGER:
+        // Nothing to prepare!
+        invif = minv_vector_cg(null_prolong[j], Arand_guess, cv_size, nulls_max_iter, nulls_tolerance, apply_stencil_2D_M_M_dagger, (void *)fine_op, &verb);
+        dslash_count += 2 * invif.ops_count;
+        break;
+      case QMG_MATVEC_MDAGGER_M:
+        // Nothing to prepare!
+        invif = minv_vector_cg(null_prolong[j], Arand_guess, cv_size, nulls_max_iter, nulls_tolerance, apply_stencil_2D_M_dagger_M, (void *)fine_op, &verb);
+        dslash_count += 2 * invif.ops_count;
+        break;
+      case QMG_MATVEC_RIGHT_JACOBI:
+        // This one takes preparation.
+        zero_vector(rhs_prep, cv_size);
+        zero_vector(lhs_preconstruct, cv_size);
+        local_bnorm = sqrt(norm2sq(Arand_guess, cv_size));
+        fine_op->prepare_M_rbjacobi_schur(rhs_prep, Arand_guess);
+        local_bprepnorm = sqrt(norm2sq(rhs_prep, cv_size / 2));
+        invif = minv_vector_bicgstab_l(lhs_preconstruct, rhs_prep, cv_size / 2, nulls_max_iter, nulls_tolerance * local_bnorm / local_bprepnorm, 6, apply_stencil_2D_M_rbjacobi_schur, (void *)fine_op, &verb);
+        fine_op->reconstruct_M_rbjacobi_schur_to_rbjacobi(null_prolong[j], lhs_preconstruct, Arand_guess);
+        dslash_count += invif.ops_count + 1;
+        break;
+      case QMG_MATVEC_RBJ_M_MDAGGER:
+        // Nothing to prepare!
+        invif = minv_vector_cg(null_prolong[j], Arand_guess, cv_size, nulls_max_iter, nulls_tolerance, apply_stencil_2D_M_rbjacobi_MMD, (void *)fine_op, &verb);
+        dslash_count += 2 * invif.ops_count;
+        break;
+      case QMG_MATVEC_RBJ_MDAGGER_M:
+        // Nothing to prepare!
+        invif = minv_vector_cg(null_prolong[j], Arand_guess, cv_size, nulls_max_iter, nulls_tolerance, apply_stencil_2D_M_rbjacobi_MDM, (void *)fine_op, &verb);
+        dslash_count += 2 * invif.ops_count;
+        break;
+      default:
+        std::cout << "[QMG-ERROR]: Unsupported null_op_type on level " << fine_idx << "!\n"
+                  << flush << "\n";
+        return -1;
       }
 
       // Undo residual equation.
@@ -321,20 +333,20 @@ int generate_null_vectors(Stencil2D* fine_op, NullVecSetupMG& null_setup, comple
         std::cout << "[QMG-ERROR]: Cannot use eigenvectors when doing null vector generation with normal op.\n";
         return -1;
       }
-      arpack_dcn* arpack;
-      complex<double>* coarsest_evals_left = new complex<double>[coarse_dof];
-      complex<double>** coarsest_evecs_left = new complex<double>*[coarse_dof];
+      arpack_dcn *arpack;
+      complex<double> *coarsest_evals_left = new complex<double>[coarse_dof];
+      complex<double> **coarsest_evecs_left = new complex<double> *[coarse_dof];
       for (j = 0; j < coarse_dof; j++)
       {
         coarsest_evecs_left[j] = allocate_vector<complex<double>>(cv_size);
       }
-      
+
       // Grab lowest coarse_dof eigenvectors of D.
       arpack = new arpack_dcn(cv_size, arpack_max_iter, arpack_tol,
-                    (null_setup.null_op_type == QMG_MATVEC_ORIGINAL) ? apply_stencil_2D_M_dagger : apply_stencil_2D_M_rbj_dagger, fine_op,
-                    coarse_dof, 3*coarse_dof);
+                              (null_setup.null_op_type == QMG_MATVEC_ORIGINAL) ? apply_stencil_2D_M_dagger : apply_stencil_2D_M_rbj_dagger, fine_op,
+                              coarse_dof, 3 * coarse_dof);
 
-      arpack->prepare_eigensystem(arpack_dcn::ARPACK_SMALLEST_MAGNITUDE, coarse_dof, 3*coarse_dof);
+      arpack->prepare_eigensystem(arpack_dcn::ARPACK_SMALLEST_MAGNITUDE, coarse_dof, 3 * coarse_dof);
       arpack->get_eigensystem(coarsest_evals_left, coarsest_evecs_left, arpack_dcn::ARPACK_SMALLEST_MAGNITUDE);
       delete arpack;
       for (j = 0; j < coarse_dof; j++)
@@ -344,25 +356,35 @@ int generate_null_vectors(Stencil2D* fine_op, NullVecSetupMG& null_setup, comple
       }
 
       // Grab eigenvectors
-      if (nulls_positive_evec_only) {
+      if (nulls_positive_evec_only)
+      {
         int evec_count = 0;
         int index = 0;
-        while (evec_count < gen_coarse) {
+        while (evec_count < gen_coarse)
+        {
           // Check for real eigenvalue
-          if (fabs(coarsest_evals_left[index].imag()) < 1e-10) {
+          if (fabs(coarsest_evals_left[index].imag()) < 1e-10)
+          {
             copy_vector(null_restrict[evec_count++], coarsest_evecs_left[index++], cv_size);
-          } else if (coarsest_evals_left[index].imag() < coarsest_evals_left[index+1].imag()) {
+          }
+          else if (coarsest_evals_left[index].imag() < coarsest_evals_left[index + 1].imag())
+          {
             copy_vector(null_restrict[evec_count++], coarsest_evecs_left[index], cv_size);
             std::cout << "Eval " << evec_count << " " << coarsest_evals_left[index] << "\n";
             index += 2;
-          } else {
-            copy_vector(null_restrict[evec_count++], coarsest_evecs_left[index+1], cv_size);
-            std::cout << "Eval " << evec_count << " " << coarsest_evals_left[index+1] << "\n";
+          }
+          else
+          {
+            copy_vector(null_restrict[evec_count++], coarsest_evecs_left[index + 1], cv_size);
+            std::cout << "Eval " << evec_count << " " << coarsest_evals_left[index + 1] << "\n";
             index += 2;
           }
         }
-      } else {
-        for (j = 0; j < gen_coarse; j++) {
+      }
+      else
+      {
+        for (j = 0; j < gen_coarse; j++)
+        {
           copy_vector(null_restrict[j], coarsest_evecs_left[j], cv_size);
         }
       }
@@ -397,72 +419,73 @@ int generate_null_vectors(Stencil2D* fine_op, NullVecSetupMG& null_setup, comple
         zero_vector(Arand_guess, cv_size);
         switch (null_setup.null_op_type)
         {
-          case QMG_MATVEC_ORIGINAL:
-            fine_op->apply_M(Arand_guess, rand_guess, QMG_MATVEC_DAGGER);
-            break;
-          case QMG_MATVEC_M_MDAGGER:
-            fine_op->apply_M(Arand_guess, rand_guess, QMG_MATVEC_MDAGGER_M);
-            break;
-          case QMG_MATVEC_MDAGGER_M:
-            fine_op->apply_M(Arand_guess, rand_guess, QMG_MATVEC_M_MDAGGER);
-            break;
-          case QMG_MATVEC_RIGHT_JACOBI:
-            fine_op->apply_M(Arand_guess, rand_guess, QMG_MATVEC_RBJ_DAGGER);
-            break;
-          case QMG_MATVEC_RBJ_M_MDAGGER:
-            fine_op->apply_M(Arand_guess, rand_guess, QMG_MATVEC_RBJ_MDAGGER_M);
-            break;
-          case QMG_MATVEC_RBJ_MDAGGER_M:
-            fine_op->apply_M(Arand_guess, rand_guess, QMG_MATVEC_RBJ_M_MDAGGER);
-            break;
-          default:
-            std::cout << "[QMG-ERROR]: Unsupported null_op_type on level " << fine_idx << "!\n" << flush << "\n";
-            return -1;
+        case QMG_MATVEC_ORIGINAL:
+          fine_op->apply_M(Arand_guess, rand_guess, QMG_MATVEC_DAGGER);
+          break;
+        case QMG_MATVEC_M_MDAGGER:
+          fine_op->apply_M(Arand_guess, rand_guess, QMG_MATVEC_MDAGGER_M);
+          break;
+        case QMG_MATVEC_MDAGGER_M:
+          fine_op->apply_M(Arand_guess, rand_guess, QMG_MATVEC_M_MDAGGER);
+          break;
+        case QMG_MATVEC_RIGHT_JACOBI:
+          fine_op->apply_M(Arand_guess, rand_guess, QMG_MATVEC_RBJ_DAGGER);
+          break;
+        case QMG_MATVEC_RBJ_M_MDAGGER:
+          fine_op->apply_M(Arand_guess, rand_guess, QMG_MATVEC_RBJ_MDAGGER_M);
+          break;
+        case QMG_MATVEC_RBJ_MDAGGER_M:
+          fine_op->apply_M(Arand_guess, rand_guess, QMG_MATVEC_RBJ_M_MDAGGER);
+          break;
+        default:
+          std::cout << "[QMG-ERROR]: Unsupported null_op_type on level " << fine_idx << "!\n"
+                    << flush << "\n";
+          return -1;
         }
-        dslash_count += 1*null_op_factor;
+        dslash_count += 1 * null_op_factor;
         cax(-1.0, Arand_guess, cv_size);
 
         // Solve the residual equation.
         switch (null_setup.null_op_type)
         {
-          case QMG_MATVEC_ORIGINAL:
-            // Nothing to prepare, just do it!
-            invif = minv_vector_bicgstab_l(null_restrict[j], Arand_guess, cv_size, nulls_max_iter, 5e-5, 6, apply_stencil_2D_M_dagger, (void*)fine_op, &verb);
-            dslash_count += invif.ops_count;
-            break;
-          case QMG_MATVEC_M_MDAGGER:
-            // Nothing to prepare!
-            invif = minv_vector_cg(null_restrict[j], Arand_guess, cv_size, nulls_max_iter, 5e-5, apply_stencil_2D_M_dagger_M, (void*)fine_op, &verb);
-            dslash_count += 2*invif.ops_count;
-            break;
-          case QMG_MATVEC_MDAGGER_M:
-            // Nothing to prepare!
-            invif = minv_vector_cg(null_restrict[j], Arand_guess, cv_size, nulls_max_iter, 5e-5, apply_stencil_2D_M_M_dagger, (void*)fine_op, &verb);
-            dslash_count += 2*invif.ops_count;
-            break;
-          case QMG_MATVEC_RIGHT_JACOBI:
-            // Nothing to prepare (I mean, we should have Schur for the dagger, but eh.)
-            invif = minv_vector_bicgstab_l(null_prolong[j], Arand_guess, cv_size, nulls_max_iter, 5e-5, 6, apply_stencil_2D_M_rbj_dagger, (void*)fine_op, &verb);
-            dslash_count += invif.ops_count;
-            break;
-          case QMG_MATVEC_RBJ_M_MDAGGER:
-            // Nothing to prepare!
-            invif = minv_vector_cg(null_restrict[j], Arand_guess, cv_size, nulls_max_iter, 5e-5, apply_stencil_2D_M_rbjacobi_MDM, (void*)fine_op, &verb);
-            dslash_count += 2*invif.ops_count;
-            break;
-          case QMG_MATVEC_RBJ_MDAGGER_M:
-            // Nothing to prepare!
-            invif = minv_vector_cg(null_restrict[j], Arand_guess, cv_size, nulls_max_iter, 5e-5, apply_stencil_2D_M_rbjacobi_MMD, (void*)fine_op, &verb);
-            dslash_count += 2*invif.ops_count;
-            break;
-          default:
-            std::cout << "[QMG-ERROR]: Unsupported null_op_type on level " << fine_idx << "!\n" << flush << "\n";
-            return -1;
+        case QMG_MATVEC_ORIGINAL:
+          // Nothing to prepare, just do it!
+          invif = minv_vector_bicgstab_l(null_restrict[j], Arand_guess, cv_size, nulls_max_iter, 5e-5, 6, apply_stencil_2D_M_dagger, (void *)fine_op, &verb);
+          dslash_count += invif.ops_count;
+          break;
+        case QMG_MATVEC_M_MDAGGER:
+          // Nothing to prepare!
+          invif = minv_vector_cg(null_restrict[j], Arand_guess, cv_size, nulls_max_iter, 5e-5, apply_stencil_2D_M_dagger_M, (void *)fine_op, &verb);
+          dslash_count += 2 * invif.ops_count;
+          break;
+        case QMG_MATVEC_MDAGGER_M:
+          // Nothing to prepare!
+          invif = minv_vector_cg(null_restrict[j], Arand_guess, cv_size, nulls_max_iter, 5e-5, apply_stencil_2D_M_M_dagger, (void *)fine_op, &verb);
+          dslash_count += 2 * invif.ops_count;
+          break;
+        case QMG_MATVEC_RIGHT_JACOBI:
+          // Nothing to prepare (I mean, we should have Schur for the dagger, but eh.)
+          invif = minv_vector_bicgstab_l(null_prolong[j], Arand_guess, cv_size, nulls_max_iter, 5e-5, 6, apply_stencil_2D_M_rbj_dagger, (void *)fine_op, &verb);
+          dslash_count += invif.ops_count;
+          break;
+        case QMG_MATVEC_RBJ_M_MDAGGER:
+          // Nothing to prepare!
+          invif = minv_vector_cg(null_restrict[j], Arand_guess, cv_size, nulls_max_iter, 5e-5, apply_stencil_2D_M_rbjacobi_MDM, (void *)fine_op, &verb);
+          dslash_count += 2 * invif.ops_count;
+          break;
+        case QMG_MATVEC_RBJ_MDAGGER_M:
+          // Nothing to prepare!
+          invif = minv_vector_cg(null_restrict[j], Arand_guess, cv_size, nulls_max_iter, 5e-5, apply_stencil_2D_M_rbjacobi_MMD, (void *)fine_op, &verb);
+          dslash_count += 2 * invif.ops_count;
+          break;
+        default:
+          std::cout << "[QMG-ERROR]: Unsupported null_op_type on level " << fine_idx << "!\n"
+                    << flush << "\n";
+          return -1;
         }
 
         // Undo residual equation.
         cxpy(rand_guess, null_restrict[j], cv_size);
-
 
         // Orthogonalize against previous vectors.
         for (k = 0; k < j; k++)
@@ -471,56 +494,63 @@ int generate_null_vectors(Stencil2D* fine_op, NullVecSetupMG& null_setup, comple
 #ifndef NO_ARPACK
     }
 #endif
-
   }
 
-  if (null_setup.preserve_eo) {
-    for (j = 0; j < coarse_dof/4; j++) {
+  if (null_setup.preserve_eo)
+  {
+    for (j = 0; j < coarse_dof / 4; j++)
+    {
 
-      if (fine_idx == 0) {
-        copy_vector(null_prolong[j+coarse_dof/4]+cv_size/2,
-                    null_prolong[j]             +cv_size/2, cv_size/2);
-        zero_vector(null_prolong[j+coarse_dof/4], cv_size/2);
-        zero_vector(null_prolong[j]+cv_size/2, cv_size/2);
-      } else {
-        for (k = 0; k < fine_nc/4; k++) {
-          copy_vector_blas(null_prolong[j+coarse_dof/4]+fine_nc/4+k,
-                           null_prolong[j             ]+fine_nc/4+k,
+      if (fine_idx == 0)
+      {
+        copy_vector(null_prolong[j + coarse_dof / 4] + cv_size / 2,
+                    null_prolong[j] + cv_size / 2, cv_size / 2);
+        zero_vector(null_prolong[j + coarse_dof / 4], cv_size / 2);
+        zero_vector(null_prolong[j] + cv_size / 2, cv_size / 2);
+      }
+      else
+      {
+        for (k = 0; k < fine_nc / 4; k++)
+        {
+          copy_vector_blas(null_prolong[j + coarse_dof / 4] + fine_nc / 4 + k,
+                           null_prolong[j] + fine_nc / 4 + k,
                            fine_nc, volume);
-          copy_vector_blas(null_prolong[j+coarse_dof/4]+3*fine_nc/4+k,
-                           null_prolong[j             ]+3*fine_nc/4+k,
+          copy_vector_blas(null_prolong[j + coarse_dof / 4] + 3 * fine_nc / 4 + k,
+                           null_prolong[j] + 3 * fine_nc / 4 + k,
                            fine_nc, volume);
 
-          zero_vector_blas(null_prolong[j]+fine_nc/4+k, fine_nc, volume);
-          zero_vector_blas(null_prolong[j]+3*fine_nc/4+k, fine_nc, volume);
+          zero_vector_blas(null_prolong[j] + fine_nc / 4 + k, fine_nc, volume);
+          zero_vector_blas(null_prolong[j] + 3 * fine_nc / 4 + k, fine_nc, volume);
 
-          zero_vector_blas(null_prolong[j+coarse_dof/4]+k, fine_nc, volume);
-          zero_vector_blas(null_prolong[j+coarse_dof/4]+2*fine_nc/4+k, fine_nc, volume);
+          zero_vector_blas(null_prolong[j + coarse_dof / 4] + k, fine_nc, volume);
+          zero_vector_blas(null_prolong[j + coarse_dof / 4] + 2 * fine_nc / 4 + k, fine_nc, volume);
         }
       }
 
-      if (separate_left_right_nulls) {
-        copy_vector(null_restrict[j+coarse_dof/4]+cv_size/2,
-                    null_restrict[j]             +cv_size/2, cv_size/2);
-        zero_vector(null_restrict[j+coarse_dof/4], cv_size/2);
-        zero_vector(null_restrict[j]+cv_size/2, cv_size/2);
+      if (separate_left_right_nulls)
+      {
+        copy_vector(null_restrict[j + coarse_dof / 4] + cv_size / 2,
+                    null_restrict[j] + cv_size / 2, cv_size / 2);
+        zero_vector(null_restrict[j + coarse_dof / 4], cv_size / 2);
+        zero_vector(null_restrict[j] + cv_size / 2, cv_size / 2);
       }
     }
   }
-  
-  for (j = 0; j < coarse_dof/2; j++)
+
+  for (j = 0; j < coarse_dof / 2; j++)
   {
     // Perform chiral projection, putting "down" projection into the second
     // vector and keeping the "up" projection in the first vector.
-    fine_op->chiral_projection_both(null_prolong[j], null_prolong[j+coarse_dof/2]);
+    fine_op->chiral_projection_both(null_prolong[j], null_prolong[j + coarse_dof / 2]);
 
     if (separate_left_right_nulls)
     {
-      fine_op->chiral_projection_both(null_restrict[j], null_restrict[j+coarse_dof/2]);
+      fine_op->chiral_projection_both(null_restrict[j], null_restrict[j + coarse_dof / 2]);
     }
   }
 
-  std::cout << "[QMG-NOTE]: Doubled null vectors.\n" << flush;
+  std::cout << "[QMG-NOTE]: Doubled null vectors.\n"
+            << flush;
 
   // Cleanup.
   deallocate_vector(&rand_guess);
