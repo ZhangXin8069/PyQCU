@@ -16,3 +16,9 @@
 [submodule "refer/DDalphaAMG_ci"]
 	path = refer/DDalphaAMG_ci
 	url = https://github.com/JesusEV/DDalphaAMG_ci.git
+[submodule "refer/wilson-mg/quantum-mg"]
+	path = refer/wilson-mg/quantum-mg
+	url = https://github.com/weinbe2/quantum-mg.git
+[submodule "refer/wilson-mg/quantum-linalg"]
+	path = refer/wilson-mg/quantum-linalg
+	url = https://github.com/weinbe2/quantum-linalg.git
