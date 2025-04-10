@@ -417,7 +417,7 @@ int main(int argc, char** argv)
 
   }
 
-  // Are we using CGNE on the coarsest level?
+  // Are we using CGNE on the coarsest level?[why CGNE]
   bool do_normal_coarsest = inp.do_normal_coarsest;
 
   // Are we adding a stabilizing shift to the coarsest level? (Only for normal solve)
