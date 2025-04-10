@@ -48,7 +48,7 @@ typedef Matrix<std::complex<double>, Dynamic, Dynamic, ColMajor> cMatrix;
 // Utilities for tests
 #include "util.h"
 
-#define MAX_REFINEMENT 8
+#define MAX_REFINEMENT 8 // [Maximum number of refinement levels]
 
 // Utilities for generating near-null vectors
 // Should get integrated into QMG
@@ -65,22 +65,22 @@ struct InputData
   double mass_wilson = -0.065;
 
   // Properties of MG solve
-  int n_refine = 2;
-  int blocksize[MAX_REFINEMENT] = { 4, 2, 2, 2, 2, 2, 2, 2 };
-  int coarse_dof[MAX_REFINEMENT] = { 8, 12, 12, 12, 12, 12, 12, 12 };
+  int n_refine = 2;// [?]
+  int blocksize[MAX_REFINEMENT] = { 4, 2, 2, 2, 2, 2, 2, 2 };// [blocksize on each level]
+  int coarse_dof[MAX_REFINEMENT] = { 8, 12, 12, 12, 12, 12, 12, 12 };// [numbers of testvectors on each level]
   bool nulls_are_evecs[MAX_REFINEMENT] = { false, false, false, false,
                                                   false, false, false, false };
 
-  bool do_normal_coarsest = false; // whether or not we do cgne on the coarsest level
+  bool do_normal_coarsest = false; // whether or not we do cgne on the coarsest level[?]
 
-  bool preserve_eo = false; // test preserving e/o -> eye structure
+  bool preserve_eo = false; // test preserving e/o -> eye structure[It should not affect the main body]
 
   bool test_wilson_mg = true;
 
   // instantons
   double add_topology = 0.0;
 
-  // Spectrum tests
+  // Spectrum tests [what spectrum?]
   bool spectrum_wilson = false;
   bool spectrum_g5_wilson = false;
   bool spectrum_g5_alternative = false;
