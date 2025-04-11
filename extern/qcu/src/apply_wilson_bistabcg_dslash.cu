@@ -38,7 +38,7 @@ void applyWilsonBistabCgDslashQcu(long long _fermion_out, long long _fermion_in,
             checkCudaErrors(cudaMallocAsync(
                 &device_vals, _vals_size_ * sizeof(LatticeComplex<float>), set_ptr->stream));
             give_1custom<float><<<1, 1, 0, set_ptr->stream>>>(
-                device_vals, _lat_4dim_, T(set_ptr->lat_4dim), 0.0);
+                device_vals, _lat_4dim_, float(set_ptr->lat_4dim), 0.0);
             checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
             // src_o-set_ptr->kappa()**2*dslash_oe(dslash_eo(src_o))
             _wilson_dslash.run_eo(device_vec0, fermion_in, gauge);
@@ -82,7 +82,7 @@ void applyWilsonBistabCgDslashQcu(long long _fermion_out, long long _fermion_in,
             checkCudaErrors(cudaMallocAsync(
                 &device_vals, _vals_size_ * sizeof(LatticeComplex<double>), set_ptr->stream));
             give_1custom<double><<<1, 1, 0, set_ptr->stream>>>(
-                device_vals, _lat_4dim_, T(set_ptr->lat_4dim), 0.0);
+                device_vals, _lat_4dim_, double(set_ptr->lat_4dim), 0.0);
             checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
             // src_o-set_ptr->kappa()**2*dslash_oe(dslash_eo(src_o))
             _wilson_dslash.run_eo(device_vec0, fermion_in, gauge);
