@@ -2,7 +2,6 @@
 #include "../include/qcu.h"
 #pragma optimize(5)
 using namespace qcu;
-using T = float;
 void applyCloverDslashQcu(long long _fermion_out, long long _fermion_in, long long _gauge, long long _set_ptrs, long long _params)
 {
   cudaDeviceSynchronize();
@@ -15,40 +14,71 @@ void applyCloverDslashQcu(long long _fermion_out, long long _fermion_in, long lo
   int data_type = static_cast<int *>(params)[_DATA_TYPE_];
   if (data_type == _LAT_C64_)
   {
-    using T = float;
+    LatticeSet<float> *set_ptr = static_cast<LatticeSet<float> *>((void *)(static_cast<long long *>(set_ptrs)[set_index])); // define for apply_clover_dslash
+    // dptzyxcc2ccdptzyx<float>(gauge, &_set);
+    // tzyxsc2sctzyx<float>(fermion_in, &_set);
+    // tzyxsc2sctzyx<float>(fermion_out, &_set);
+    LatticeWilsonDslash<float> _wilson_dslash;
+    LatticeCloverDslash<float> _clover_dslash;
+    _wilson_dslash.give(set_ptr);
+    _clover_dslash.give(set_ptr);
+    _clover_dslash.init();
+    {
+      // wilson dslash
+      _wilson_dslash.run_test(fermion_out, fermion_in, gauge);
+    }
+    {
+      // make clover
+      _clover_dslash.make(gauge);
+    }
+    {
+      // inverse clover
+      _clover_dslash.inverse();
+    }
+    {
+      // give clover
+      _clover_dslash.give(fermion_out);
+    }
+    // ccdptzyx2dptzyxcc<float>(gauge, &_set);
+    // sctzyx2tzyxsc<float>(fermion_in, &_set);
+    // sctzyx2tzyxsc<float>(fermion_out, &_set);
+    _clover_dslash.end();
   }
   else if (data_type == _LAT_C128_)
   {
-    using T = double;
+    LatticeSet<double> *set_ptr = static_cast<LatticeSet<double> *>((void *)(static_cast<long long *>(set_ptrs)[set_index])); // define for apply_clover_dslash
+    // dptzyxcc2ccdptzyx<double>(gauge, &_set);
+    // tzyxsc2sctzyx<double>(fermion_in, &_set);
+    // tzyxsc2sctzyx<double>(fermion_out, &_set);
+    LatticeWilsonDslash<double> _wilson_dslash;
+    LatticeCloverDslash<double> _clover_dslash;
+    _wilson_dslash.give(set_ptr);
+    _clover_dslash.give(set_ptr);
+    _clover_dslash.init();
+    {
+      // wilson dslash
+      _wilson_dslash.run_test(fermion_out, fermion_in, gauge);
+    }
+    {
+      // make clover
+      _clover_dslash.make(gauge);
+    }
+    {
+      // inverse clover
+      _clover_dslash.inverse();
+    }
+    {
+      // give clover
+      _clover_dslash.give(fermion_out);
+    }
+    // ccdptzyx2dptzyxcc<double>(gauge, &_set);
+    // sctzyx2tzyxsc<double>(fermion_in, &_set);
+    // sctzyx2tzyxsc<double>(fermion_out, &_set);
+    _clover_dslash.end();
   }
-  LatticeSet<T> *set_ptr = static_cast<LatticeSet<T> *>((void *)(static_cast<long long *>(set_ptrs)[set_index])); // define for apply_clover_dslash
-  // dptzyxcc2ccdptzyx<T>(gauge, &_set);
-  // tzyxsc2sctzyx<T>(fermion_in, &_set);
-  // tzyxsc2sctzyx<T>(fermion_out, &_set);
-  LatticeWilsonDslash<T> _wilson_dslash;
-  LatticeCloverDslash<T> _clover_dslash;
-  _wilson_dslash.give(set_ptr);
-  _clover_dslash.give(set_ptr);
-  _clover_dslash.init();
+  else
   {
-    // wilson dslash
-    _wilson_dslash.run_test(fermion_out, fermion_in, gauge);
+    printf("data_type error\n");
   }
-  {
-    // make clover
-    _clover_dslash.make(gauge);
-  }
-  {
-    // inverse clover
-    _clover_dslash.inverse();
-  }
-  {
-    // give clover
-    _clover_dslash.give(fermion_out);
-  }
-  // ccdptzyx2dptzyxcc<T>(gauge, &_set);
-  // sctzyx2tzyxsc<T>(fermion_in, &_set);
-  // sctzyx2tzyxsc<T>(fermion_out, &_set);
-  _clover_dslash.end();
   cudaDeviceSynchronize();
 }
