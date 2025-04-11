@@ -108080,10 +108080,10 @@ lattice set init total time:0.048005424 sec
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
 <div class="highlight hl-ipython3"><pre><span></span><span class="c1"># import cupyx.scipy.sparse.linalg as csla</span>
-<span class="c1"># define._LAT_E_ = 24</span>
+<span class="c1"># params[define._LAT_E_] = 24</span>
 <span class="c1"># A = csla.LinearOperator((N,</span>
 <span class="c1">#                         N), matvec=_matvec, dtype=cp.complex64)</span>
-<span class="c1"># evals, evecs = csla.eigsh(a=A, k=define._LAT_E_, which="SA",</span>
+<span class="c1"># evals, evecs = csla.eigsh(a=A, k=params[define._LAT_E_], which="SA",</span>
 <span class="c1">#                           return_eigenvectors=True)</span>
 <span class="c1"># print("evals:", evals)</span>
 <span class="c1"># print("evecs:", evecs)</span>

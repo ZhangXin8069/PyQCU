@@ -12,6 +12,15 @@ void applyWilsonBistabCgQcu(long long _fermion_out, long long _fermion_in, long 
   void *set_ptrs = (void *)_set_ptrs;
   void *params = (void *)_params;
   int set_index = static_cast<int *>(params)[_SET_INDEX_];
+  int data_type = static_cast<int *>(params)[_DATA_TYPE_];
+  if (data_type == _LAT_C64_)
+  {
+    using T = float;
+  }
+  else if (data_type == _LAT_C128_)
+  {
+    using T = double;
+  }
   LatticeSet<T> *set_ptr = static_cast<LatticeSet<T> *>((void *)(static_cast<long long *>(set_ptrs)[set_index])); // define for apply_wilson_bistabcg
   // dptzyxcc2ccdptzyx<T>(gauge, &_set);
   // ptzyxsc2psctzyx<T>(fermion_in, &_set);

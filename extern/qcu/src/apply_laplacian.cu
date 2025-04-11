@@ -12,6 +12,15 @@ void applyLaplacianQcu(long long _laplacian_out, long long _laplacian_in, long l
   void *set_ptrs = (void *)_set_ptrs;
   void *params = (void *)_params;
   int set_index = static_cast<int *>(params)[_SET_INDEX_];
+  int data_type = static_cast<int *>(params)[_DATA_TYPE_];
+  if (data_type == _LAT_C64_)
+  {
+    using T = float;
+  }
+  else if (data_type == _LAT_C128_)
+  {
+    using T = double;
+  }
   LatticeSet<T> *set_ptr = static_cast<LatticeSet<T> *>((void *)(static_cast<long long *>(set_ptrs)[set_index])); // define for apply_laplacian
   // dptzyxcc2ccdptzyx<T>(gauge, &_set);
   // tzyxsc2sctzyx<T>(laplacian_in, &_set);
