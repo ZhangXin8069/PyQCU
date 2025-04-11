@@ -1,4 +1,3 @@
-
     @@@@@@######QCU NOTES START######@@@@@@@
     0. Required: MPI(e.g. 4.1.2), CUDA(e.g. 12.4), CMAKE(e.g. 3.22.1), GCC(e.g. 11.4.0), HDF5-MPI(e.g. 1.10.7,'apt install libhdf5-mpi-dev && export HDF5_MPI="ON" && pip install --no-binary=h5py h5py').
     1. The libqcu.so was compiled when pyqcu setup in download_path/PyQCU/lib, please add this path to your LD_LIBRARY_PATH.
@@ -8,7 +7,6 @@
     5. The smallest lattice size is (x=4,y=4,z=4,t=8) that QCU support.
     @@@@@@######QCU NOTES END######@@@@@@@
     
-
     @@@@@@######QCU NOTES START######@@@@@@@
     0. Required: MPI(e.g. 4.1.2), CUDA(e.g. 12.4), CMAKE(e.g. 3.22.1), GCC(e.g. 11.4.0), HDF5-MPI(e.g. 1.10.7,'apt install libhdf5-mpi-dev && export HDF5_MPI="ON" && pip install --no-binary=h5py h5py').
     1. The libqcu.so was compiled when pyqcu setup in download_path/PyQCU/lib, please add this path to your LD_LIBRARY_PATH.
@@ -245,7 +243,6 @@ a non-zero exit code. Per user-direction, the job has been aborted.
 --------------------------------------------------------------------------
 mpirun detected that one or more processes exited with non-zero status, thus causing
 the job to be terminated. The first process to do so was:
-
   Process name: [[40667,1],0]
   Exit code:    1
 --------------------------------------------------------------------------

@@ -1,6 +1,5 @@
 ~/PyQCU ~/PyQCU/test
 ~/PyQCU/test
-
     @@@@@@######QCU NOTES START######@@@@@@@
     1. The libqcu.so was compiled when pyqcu setup in download_path/PyQCU/lib, please add this path to your LD_LIBRARY_PATH.
     2. The QCU(PyQCU) splite grid by x->y->z->t, lattice by x->y->z->t->p->d->c->c or x->y->z->t->c->s(->p) and x->y->z->t->c->s->c->s(->p).

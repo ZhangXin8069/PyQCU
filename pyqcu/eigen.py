@@ -1,8 +1,6 @@
 import cupy as cp
 from pyqcu.linalg import initialize_random_vector, orthogonalize_against_vectors, chebyshev_filter
 from time import perf_counter
-
-
 def solver(n, k, matvec, dtype, plan='small', degree=20, max_iter=200, tol=1e-6, min_eigen_value=0.0, max_eigen_value=1.0):
     print("This function is just for positive definite matrix.")
     temp = cp.zeros(n, dtype=dtype)
