@@ -1,5 +1,6 @@
 import h5py
 import numpy as np
+import cupy as cp
 import mpi4py.MPI as MPI
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
@@ -44,6 +45,17 @@ _NODE_SIZE_ = 11
 _DAGGER_ = 12
 _MAX_ITER_ = 13
 _DATA_TYPE_ = 14
+_LAT_C8_ = 0
+_LAT_C16_ = 1
+_LAT_C32_ = 2
+_LAT_C64_ = 3
+_LAT_C128_ = 4
+_LAT_C256_ = 5
+_LAT_R8_ = 6
+_LAT_R16_ = 7
+_LAT_R32_ = 8
+_LAT_R64_ = 9
+_LAT_R128_ = 10
 _SET_INDEX_ = 15
 _SET_PLAN_ = 16
 _SET_PLAN0_ = 0  # just for wilson dslash
@@ -54,7 +66,8 @@ _MG_X_ = 17
 _MG_Y_ = 18
 _MG_Z_ = 19
 _MG_T_ = 20
-_PARAMS_SIZE_ = 21
+_LAT_E_ = 21
+_PARAMS_SIZE_ = 22
 _MASS_ = 0
 _TOL_ = 1
 _ARGV_SIZE_ = 2
@@ -146,7 +159,6 @@ _LAT_SCSC_ = 144
 _LAT_D_ = 4
 _LAT_DCC_ = 36
 _LAT_PDCC_ = 72
-_LAT_E_ = 12  # 12 or 24
 _B_ = 0
 _F_ = 1
 _BF_ = 2
@@ -160,3 +172,33 @@ _LAT_EXAMPLE_ = 32
 _GRID_EXAMPLE_ = 1
 _MEM_POOL_ = 0
 _CHECK_ERROR_ = 1
+
+def dtype(_data_type_=_LAT_C64_):
+    if _data_type_ == _LAT_C8_:
+        print("Doesn't support complex8")
+        return None
+    elif _data_type_ == _LAT_C16_:
+        print("Doesn't support complex16")
+        return None
+    elif _data_type_ == _LAT_C32_:
+        print("Doesn't support complex32")
+        return None
+    elif _data_type_ == _LAT_C64_:
+        return cp.complex64
+    elif _data_type_ == _LAT_C128_:
+        return cp.complex128
+    elif _data_type_ == _LAT_C256_:
+        print("Doesn't support complex256")
+        return None
+    elif _data_type_ == _LAT_R8_:
+        print("Doesn't support real8")
+        return None
+    elif _data_type_ == _LAT_R16_:
+        return cp.float16
+    elif _data_type_ == _LAT_R32_:
+        return cp.float32
+    elif _data_type_ == _LAT_R64_:
+        return cp.float64
+    elif _data_type_ == _LAT_R128_:
+        print("Doesn't support real128")
+        return None

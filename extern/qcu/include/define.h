@@ -43,6 +43,17 @@ namespace qcu
 #define _DAGGER_ 12
 #define _MAX_ITER_ 13
 #define _DATA_TYPE_ 14
+#define _LAT_C8_ 0
+#define _LAT_C16_ 1
+#define _LAT_C32_ 2
+#define _LAT_C64_ 3
+#define _LAT_C128_ 4
+#define _LAT_C256_ 5
+#define _LAT_R8_ 6
+#define _LAT_R16_ 7
+#define _LAT_R32_ 8
+#define _LAT_R64_ 9
+#define _LAT_R128_ 10
 #define _SET_INDEX_ 15
 #define _SET_PLAN_ 16
 #define _SET_PLAN_N_1_ -1 // just for laplacian
@@ -54,7 +65,8 @@ namespace qcu
 #define _MG_Y_ 18
 #define _MG_Z_ 19
 #define _MG_T_ 20
-#define _PARAMS_SIZE_ 21
+#define _LAT_E_ 21
+#define _PARAMS_SIZE_ 22
 #define _MASS_ 0
 #define _TOL_ 1
 #define _ARGV_SIZE_ 2
@@ -146,7 +158,6 @@ namespace qcu
 #define _LAT_D_ 4
 #define _LAT_DCC_ 36
 #define _LAT_PDCC_ 72
-#define _LAT_E_ 24
 #define _B_ 0
 #define _F_ 1
 #define _BF_ 2
@@ -574,4 +585,5 @@ namespace qcu
     }                                                             \
   }
 }
+
 #endif
