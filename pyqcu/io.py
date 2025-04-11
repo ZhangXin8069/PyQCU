@@ -166,7 +166,7 @@ def laplacian2zyxc(laplacian, params):
 
 
 def eigenvectors2esctzyx(eigenvectors, params):
-    lat_e = define._LAT_E_
+    lat_e = params[define._LAT_E_]
     lat_s = define._LAT_S_
     lat_c = define._LAT_C_
     lat_t = params[define._LAT_T_]
@@ -408,7 +408,7 @@ def xxxtzyx2mg_xxxtzyx(input_array, params):
 
 def xxx2eTZYX(input_array, params):
     print(f"Input Array Shape: {input_array.shape}")
-    lat_e = define._LAT_E_
+    lat_e = params[define._LAT_E_]
     mg_t = params[define._MG_T_]
     mg_z = params[define._MG_Z_]
     mg_y = params[define._MG_Y_]
@@ -423,7 +423,7 @@ def xxx2escTZYX(input_array, params):
     print(f"Input Array Shape: {input_array.shape}")
     lat_s = define._LAT_S_
     lat_c = define._LAT_C_
-    lat_e = define._LAT_E_
+    lat_e = params[define._LAT_E_]
     mg_t = params[define._MG_T_]
     mg_z = params[define._MG_Z_]
     mg_y = params[define._MG_Y_]
