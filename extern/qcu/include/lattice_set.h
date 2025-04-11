@@ -105,6 +105,11 @@ namespace qcu
                 host_params[_LAT_X_] *= _EVEN_ODD_; // needed
                 host_params[_LAT_T_] = 1;
             }
+            host_params[_MG_X_] = static_cast<int *>(_params)[_MG_X_];
+            host_params[_MG_Y_] = static_cast<int *>(_params)[_MG_Y_];
+            host_params[_MG_Z_] = static_cast<int *>(_params)[_MG_Z_];
+            host_params[_MG_T_] = static_cast<int *>(_params)[_MG_T_];
+            host_params[_LAT_E_] = static_cast<int *>(_params)[_LAT_E_];
             host_argv[_MASS_] = static_cast<T *>(_argv)[_MASS_];
             host_argv[_TOL_] = static_cast<T *>(_argv)[_TOL_];
         }
