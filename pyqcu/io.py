@@ -432,3 +432,17 @@ def xxx2escTZYX(input_array, params):
         lat_e, lat_s, lat_c, mg_t, mg_z, mg_y, mg_x)
     print(f"Dest Shape: {dest.shape}")
     return dest
+
+
+def xxx2scTZYX(input_array, params):
+    print(f"Input Array Shape: {input_array.shape}")
+    lat_s = define._LAT_S_
+    lat_c = define._LAT_C_
+    mg_t = params[define._MG_T_]
+    mg_z = params[define._MG_Z_]
+    mg_y = params[define._MG_Y_]
+    mg_x = params[define._MG_X_]
+    dest = input_array.reshape(
+        lat_s, lat_c, mg_t, mg_z, mg_y, mg_x)
+    print(f"Dest Shape: {dest.shape}")
+    return dest
