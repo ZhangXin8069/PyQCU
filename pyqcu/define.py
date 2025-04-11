@@ -172,7 +172,6 @@ _LAT_EXAMPLE_ = 32
 _GRID_EXAMPLE_ = 1
 _MEM_POOL_ = 0
 _CHECK_ERROR_ = 1
-
 def dtype(_data_type_=_LAT_C64_):
     if _data_type_ == _LAT_C8_:
         print("Doesn't support complex8")

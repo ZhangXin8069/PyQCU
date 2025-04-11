@@ -3,8 +3,6 @@ from pyqcu.linalg import rayleigh_quotient, orthogonalize_against_vectors
 import pyqcu.bistabcg as bistabcg
 import numpy as np
 import cupy as cp
-
-
 def setup(n, k, matvec, dtype, bsi=20, cl=0.95, mi=5, tol=1e-4):
     if cl >= 1.0:
         raise ValueError("cl must be less than 1.0")
