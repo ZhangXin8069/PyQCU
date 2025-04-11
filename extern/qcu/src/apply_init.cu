@@ -10,6 +10,15 @@ void applyInitQcu(long long _set_ptrs, long long _params, long long _argv)
     void *argv = (void *)_argv;
     void *params = (void *)_params;
     int set_index = static_cast<int *>(params)[_SET_INDEX_];
+    int data_type = static_cast<int *>(params)[_DATA_TYPE_];
+    if (data_type == _LAT_C64_)
+    {
+        using T = float;
+    }
+    else if (data_type == _LAT_C128_)
+    {
+        using T = double;
+    }
     // init for lattice_set
     LatticeSet<T> *set_ptr = new LatticeSet<T>();
     auto start = std::chrono::high_resolution_clock::now();

@@ -96,6 +96,7 @@ namespace qcu
                 host_params[_DAGGER_] = _NO_USE_;
             }
             host_params[_MAX_ITER_] = static_cast<int *>(_params)[_MAX_ITER_];
+            host_params[_DATA_TYPE_] = static_cast<int *>(_params)[_DATA_TYPE_];
             host_params[_SET_INDEX_] = static_cast<int *>(_params)[_SET_INDEX_];
             host_params[_SET_PLAN_] = static_cast<int *>(_params)[_SET_PLAN_];
             if (host_params[_SET_PLAN_] == _SET_PLAN_N_1_) // just for laplacian
@@ -637,8 +638,14 @@ namespace qcu
             printf("host_params[_NODE_SIZE_]:%d\n", host_params[_NODE_SIZE_]);
             printf("host_params[_DAGGER_]   :%d\n", host_params[_DAGGER_]);
             printf("host_params[_MAX_ITER_] :%d\n", host_params[_MAX_ITER_]);
+            printf("host_params[_DATA_TYPE_]:%d\n", host_params[_DATA_TYPE_]);
             printf("host_params[_SET_INDEX_]:%d\n", host_params[_SET_INDEX_]);
             printf("host_params[_SET_PLAN_] :%d\n", host_params[_SET_PLAN_]);
+            printf("host_params[_MG_X_]     :%d\n", host_params[_MG_X_]);
+            printf("host_params[_MG_Y_]     :%d\n", host_params[_MG_Y_]);
+            printf("host_params[_MG_Z_]     :%d\n", host_params[_MG_Z_]);
+            printf("host_params[_MG_T_]     :%d\n", host_params[_MG_T_]);
+            printf("host_params[_LAT_E_]    :%d\n", host_params[_LAT_E_]);
             printf("host_argv[_MASS_]       :%e\n", host_argv[_MASS_]);
             printf("host_argv[_TOL_]        :%e\n", host_argv[_TOL_]);
             printf("lat_2dim[_XY_]          :%d\n", lat_2dim[_XY_]);

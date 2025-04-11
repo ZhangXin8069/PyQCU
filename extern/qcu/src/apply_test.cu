@@ -12,6 +12,15 @@ void testWilsonDslashQcu(long long _fermion_out, long long _fermion_in, long lon
     void *set_ptrs = (void *)_set_ptrs;
     void *params = (void *)_params;
     int set_index = static_cast<int *>(params)[_SET_INDEX_];
+    int data_type = static_cast<int *>(params)[_DATA_TYPE_];
+    if (data_type == _LAT_C64_)
+    {
+        using T = float;
+    }
+    else if (data_type == _LAT_C128_)
+    {
+        using T = double;
+    }
     // define for test_wilson_dslash
     LatticeSet<T> *set_ptr = static_cast<LatticeSet<T> *>((void *)(static_cast<long long *>(set_ptrs)[set_index]));
     // dptzyxcc2ccdptzyx<T>(gauge, &_set);
@@ -42,6 +51,15 @@ void testCloverDslashQcu(long long _fermion_out, long long _fermion_in, long lon
     void *set_ptrs = (void *)_set_ptrs;
     void *params = (void *)_params;
     int set_index = static_cast<int *>(params)[_SET_INDEX_];
+    int data_type = static_cast<int *>(params)[_DATA_TYPE_];
+    if (data_type == _LAT_C64_)
+    {
+        using T = float;
+    }
+    else if (data_type == _LAT_C128_)
+    {
+        using T = double;
+    }
     // define for test_clover_dslash
     LatticeSet<T> *set_ptr = static_cast<LatticeSet<T> *>((void *)(static_cast<long long *>(set_ptrs)[set_index]));
     // dptzyxcc2ccdptzyx<T>(gauge, &_set);
