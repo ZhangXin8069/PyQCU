@@ -606,7 +606,6 @@ multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002599278 se
 multi-gpu wilson dslash total time: (without malloc free memcpy) :0.002125575 sec
 Iteration 120: Residual = 5.517972e-11, Time = 0.019563 s
 Converged at iteration 120 with residual 5.517972e-11
-
 Performance Statistics:
 Total time: 3.639811 s
 Average time per iteration: 0.024652 s
