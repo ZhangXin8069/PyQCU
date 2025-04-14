@@ -1,8 +1,6 @@
 import cupy as cp
 import numpy as np
 from pyqcu import qcu, define, gauge, linalg, io
-
-
 def give(params, argv=None, set_ptrs=None, sigma=0.1, seed=12138):
     if argv is None:
         from pyqcu.set import argv
@@ -62,8 +60,6 @@ def give(params, argv=None, set_ptrs=None, sigma=0.1, seed=12138):
     print("Dest data:", dest.data)
     print("Dest shape:", dest.shape)
     return U, src, dest, set_ptrs, wilson_cg_params, wilson_dslash_eo_params, wilson_dslash_oe_params, wilson_dslash_eo_dag_params, wilson_dslash_oe_dag_params
-
-
 def end(set_ptrs, params):
     print("Set pointers:", set_ptrs)
     print("Set pointers data:", set_ptrs.data)
