@@ -17,6 +17,8 @@ extern "C"
     void applyWilsonCgDslashQcu(long long _fermion_out, long long _fermion_in, long long _gauge, long long _set_ptrs, long long _params);
     void applyWilsonGmresIrQcu(long long _fermion_out, long long _fermion_in, long long _gauge, long long _set_ptrs, long long _params);
     void applyLaplacianQcu(long long _laplacian_out, long long _laplacian_in, long long _gauge, long long _set_ptrs, long long _params);
+    void applyCloverQcu(long long _clover, long long _gauge, long long _set_ptrs, long long _params);
+    void applyDslashQcu(long long _fermion_out, long long _fermion_in, long long _clover, long long _gauge, long long _set_ptrs, long long _params);
 #ifdef __cplusplus
 }
 #endif

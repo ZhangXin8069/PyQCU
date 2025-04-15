@@ -55,7 +55,8 @@ def solver(n, k, matvec, dtype, plan='small', degree=20, max_iter=200, tol=1e-6,
 def cupyx_solver(n, k, matvec, dtype, plan='SA', max_iter=1e3, tol=1e-6, v0=None):
     import cupyx.scipy.sparse.linalg as linalg
     print(f"dtype: {dtype}, plan: {plan}, max_iter: {max_iter}, tol: {tol}")
-    return linalg.eigsh(a=linalg.LinearOperator((n, n), matvec=matvec, dtype=dtype), k=k, which=plan, tol=tol, maxiter=max_iter, v0=v0,return_eigenvectors=True)
+    eigenvalues, eigenvectors = linalg.eigsh(a=linalg.LinearOperator((n, n), matvec=matvec, dtype=dtype), k=k, which=plan, tol=tol, maxiter=max_iter, v0=v0,return_eigenvectors=True)
+    return cp.asarray(eigenvalues), cp.asarray(eigenvectors.T)
 
 def scipy_solver(n, k, matvec, dtype, plan='SM', max_iter=1e3, tol=1e-6, v0=None):
     import numpy as np
@@ -64,4 +65,4 @@ def scipy_solver(n, k, matvec, dtype, plan='SM', max_iter=1e3, tol=1e-6, v0=None
     def _matvec(src):
         return matvec(cp.asarray(src)).get()
     eigenvalues, eigenvectors = linalg.eigs(A=linalg.LinearOperator((n, n), matvec=_matvec, dtype=dtype), k=k, which=plan, tol=tol, maxiter=max_iter, v0=v0,return_eigenvectors=True)
-    return cp.asarray(eigenvalues), cp.asarray(eigenvectors)
+    return cp.asarray(eigenvalues), cp.asarray(eigenvectors.T)
