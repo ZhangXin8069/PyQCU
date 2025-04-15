@@ -1,7 +1,7 @@
 import cupy as cp
 import numpy as np
 from pyqcu import qcu, define, gauge, linalg, io
-def give(params, argv=None, set_ptrs=None, sigma=0.1, seed=12138):
+def wilson_give(params, argv=None, set_ptrs=None, sigma=0.1, seed=12138):
     if argv is None:
         from pyqcu.set import argv
     if set_ptrs is None:
@@ -69,3 +69,9 @@ def end(set_ptrs, params):
             _params[define._SET_INDEX_] = i
             print(f"Set pointers[{i}] data: {set_ptrs[i]} has been freed")
             qcu.applyEndQcu(set_ptrs, _params)
+            
+            
+# def clover_give(params, argv=None, set_ptrs=None, sigma=0.1, seed=12138):
+#     U, src, dest, set_ptrs, wilson_cg_params, wilson_dslash_eo_params, wilson_dslash_oe_params, wilson_dslash_eo_dag_params, wilson_dslash_oe_dag_params= wilson_give(params=params, argv=argv, set_ptrs=set_ptrs, sigma=sigma, seed=seed)
+    
+give=wilson_give
