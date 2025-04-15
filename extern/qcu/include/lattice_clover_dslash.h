@@ -11,15 +11,22 @@ namespace qcu
         LatticeSet<T> *set_ptr;
         cudaError_t err;
         void *clover;
+        bool if_input;
         void give(LatticeSet<T> *_set_ptr)
         {
             set_ptr = _set_ptr;
         }
         void init()
         {
+            if_input = false;
             checkCudaErrors(cudaMallocAsync(
                 &clover, (set_ptr->lat_4dim * _LAT_SCSC_) * sizeof(LatticeComplex<T>),
                 set_ptr->stream));
+        }
+        void init(void *_clover)
+        {
+            if_input = true;
+            clover = (void *)_clover;
         }
         void _make_mpi(void *gauge)
         {
@@ -626,7 +633,10 @@ namespace qcu
         void end()
         {
             checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
-            checkCudaErrors(cudaFreeAsync(clover, set_ptr->stream));
+            if (if_input == false)
+            {
+                checkCudaErrors(cudaFreeAsync(clover, set_ptr->stream));
+            }
             checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
         }
     };
