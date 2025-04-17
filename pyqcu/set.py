@@ -26,7 +26,7 @@ params[define._LAT_E_] = 24
 print("Parameters:", params)
 print("Parameters data:", params.data)
 argv = np.array([0.0]*define._ARGV_SIZE_, dtype=np.float32)
-argv[define._MASS_] = 0.0
+argv[define._MASS_] = -3.5  # make kappa=1.0
 argv[define._TOL_] = 1e-9
 print("Arguments:", argv)
 print("Arguments data:", argv.data)
