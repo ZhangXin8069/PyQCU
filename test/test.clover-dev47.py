@@ -43,7 +43,7 @@ qcu.applyDslashQcu(_fermion_out, _fermion_in,
                    clover_even, _gauge, set_ptrs, params)
 qcu.applyCloverDslashQcu(_fermion_out, _fermion_in, _gauge, set_ptrs, params)
 qcu.applyEndQcu(set_ptrs, params)
-params[define._DATA_TYPE_] = define._LAT_C128_
+params[define._DATA_TYPE_] = define._LAT_C64_
 fermion_in = _fermion_in.astype(define.dtype(params[define._DATA_TYPE_]))
 gauge = _gauge.astype(define.dtype(params[define._DATA_TYPE_]))
 fermion_out = _fermion_out.astype(define.dtype(params[define._DATA_TYPE_]))
