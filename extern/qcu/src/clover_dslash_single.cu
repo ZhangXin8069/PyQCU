@@ -4,7 +4,7 @@ namespace qcu
 {
   template <typename T>
   __global__ void make_clover(void *device_U, void *device_clover,
-                              void *device_params)
+                              void *device_params, T kappa)
   {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     int parity = idx;
@@ -846,11 +846,11 @@ namespace qcu
       }
     }
     {
-      // A=1+T
+      // A=1+T(or A=1-kappa*T)
       LatticeComplex<T> one(1.0, 0);
       for (int i = 0; i < _LAT_SCSC_; i++)
       {
-        clover[i] *= -0.125; //-1/8
+        clover[i] *= -kappa * 0.125; //-kappa*(1/8)
       }
       for (int i = 0; i < _LAT_SC_; i++)
       {
@@ -910,13 +910,13 @@ namespace qcu
   }
   //@@@CUDA_TEMPLATE_FOR_DEVICE@@@
   template __global__ void make_clover<double>(void *device_U, void *device_clover,
-                                               void *device_params);
+                                               void *device_params, double T);
   template __global__ void inverse_clover<double>(void *device_clover, void *device_params);
   template __global__ void give_clover<double>(void *device_clover, void *device_dest,
                                                void *device_params);
   //@@@CUDA_TEMPLATE_FOR_DEVICE@@@
   template __global__ void make_clover<float>(void *device_U, void *device_clover,
-                                              void *device_params);
+                                              void *device_params, float T);
   template __global__ void inverse_clover<float>(void *device_clover, void *device_params);
   template __global__ void give_clover<float>(void *device_clover, void *device_dest,
                                               void *device_params);

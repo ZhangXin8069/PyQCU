@@ -544,7 +544,7 @@ namespace qcu
             // edge recv part
             make_clover_all<T><<<set_ptr->gridDim, set_ptr->blockDim, 0,
                                  set_ptr->stream>>>(
-                gauge, clover, set_ptr->device_params,
+                gauge, clover, set_ptr->device_params, set_ptr->kappa(),
                 set_ptr->device_u_1dim_recv_vec[_B_X_],
                 set_ptr->device_u_1dim_recv_vec[_F_X_],
                 set_ptr->device_u_1dim_recv_vec[_B_Y_],

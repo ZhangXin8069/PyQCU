@@ -4,7 +4,7 @@ namespace qcu
 {
   template <typename T>
   __global__ void make_clover_all(
-      void *device_U, void *device_clover, void *device_params,
+      void *device_U, void *device_clover, void *device_params, T kappa,
       void *device_u_b_x_recv_vec, void *device_u_f_x_recv_vec,
       void *device_u_b_y_recv_vec, void *device_u_f_y_recv_vec,
       void *device_u_b_z_recv_vec, void *device_u_f_z_recv_vec,
@@ -2016,11 +2016,11 @@ namespace qcu
       }
     }
     {
-      // A=1+T
+      // A=1+T(or A=1-kappa*T)
       LatticeComplex<T> one(1.0, 0);
       for (int i = 0; i < _LAT_SCSC_; i++)
       {
-        clover[i] *= -0.125; //-1/8
+        clover[i] *= -kappa * 0.125; //-kappa*(1/8)
       }
       for (int i = 0; i < _LAT_SC_; i++)
       {
@@ -2031,7 +2031,7 @@ namespace qcu
   }
   //@@@CUDA_TEMPLATE_FOR_DEVICE@@@
   template __global__ void make_clover_all<double>(
-      void *device_U, void *device_clover, void *device_params,
+      void *device_U, void *device_clover, void *device_params, double kappa,
       void *device_u_b_x_recv_vec, void *device_u_f_x_recv_vec,
       void *device_u_b_y_recv_vec, void *device_u_f_y_recv_vec,
       void *device_u_b_z_recv_vec, void *device_u_f_z_recv_vec,
@@ -2050,7 +2050,7 @@ namespace qcu
       void *device_u_b_z_f_t_recv_vec, void *device_u_f_z_f_t_recv_vec);
   //@@@CUDA_TEMPLATE_FOR_DEVICE@@@
   template __global__ void make_clover_all<float>(
-      void *device_U, void *device_clover, void *device_params,
+      void *device_U, void *device_clover, void *device_params, float kappa,
       void *device_u_b_x_recv_vec, void *device_u_f_x_recv_vec,
       void *device_u_b_y_recv_vec, void *device_u_f_y_recv_vec,
       void *device_u_b_z_recv_vec, void *device_u_f_z_recv_vec,

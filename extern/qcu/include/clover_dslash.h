@@ -4,7 +4,7 @@ namespace qcu
 {
   template <typename T>
   __global__ void make_clover(void *device_U, void *device_clover,
-                              void *device_params);
+                              void *device_params, T kappa);
   template <typename T>
   __global__ void inverse_clover(void *device_clover, void *device_params);
   template <typename T>
@@ -64,7 +64,7 @@ namespace qcu
                                void *device_u_f_z_f_t_send_vec);
   template <typename T>
   __global__ void make_clover_all(
-      void *device_U, void *device_clover, void *device_params,
+      void *device_U, void *device_clover, void *device_params, T kappa,
       void *device_u_b_x_recv_vec, void *device_u_f_x_recv_vec,
       void *device_u_b_y_recv_vec, void *device_u_f_y_recv_vec,
       void *device_u_b_z_recv_vec, void *device_u_f_z_recv_vec,
