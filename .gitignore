@@ -32,3 +32,5 @@ lib/*
 *.h5*
 *.hdf5*
 *.hdf
+*.npy
+*.npz
