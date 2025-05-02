@@ -162,6 +162,6 @@ latt_info = core.getDefaultLattice()
 Lx, Ly, Lz, Lt = latt_info.size
 dslash = core.getDefaultDirac(mass, 1e-12, 1000, xi_0, coeff_t, coeff_r)
 quda_gauge = LatticeGauge(
-    latt_info, io.ccdptzyx2dptzyxcc(gauge).astype(cp.complex128).get())
+    latt_info=latt_info)
 dslash.loadGauge(quda_gauge)
 dslash.destroy()
