@@ -1,10 +1,7 @@
 from pyquda_utils import core
-from pyquda.enum_quda import QudaParity
-from pyquda.field import Ns, Nc, LatticeGauge
-from pyquda import init, pyquda as quda
+from pyquda import dirac
 import cupy as cp
 import numpy as np
-import functools
 from pyqcu import define, io, qcu, eigen, cg, bistabcg, amg, linalg, gauge, demo
 from time import perf_counter
 from opt_einsum import contract
@@ -161,7 +158,8 @@ core.init(grid_size, latt_size, -1, xi_0 / nu, resource_path=".cache")
 latt_info = core.getDefaultLattice()
 Lx, Ly, Lz, Lt = latt_info.size
 dslash = core.getDefaultDirac(mass, 1e-12, 1000, xi_0, coeff_t, coeff_r)
-quda_gauge = LatticeGauge(
-    latt_info=latt_info)
-# dslash.loadGauge(quda_gauge)
-# dslash.destroy()
+_drac=dirac.GaugeDirac(latt_info=latt_info)
+quda_gauge = _drac.gaussGauge(seed=12138, sigma=0.1)
+dslash.loadGauge(quda_gauge)
+propagator = core.invert(dslash, "point", [0, 0, 0, 0])
+dslash.destroy()
