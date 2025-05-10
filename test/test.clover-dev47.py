@@ -41,7 +41,7 @@ clover_even = cp.zeros((define._LAT_S_, define._LAT_C_, define._LAT_S_, define._
 qcu.applyCloverQcu(clover_even, _gauge, set_ptrs, params)
 qcu.applyDslashQcu(_fermion_out, _fermion_in,
                    clover_even, _gauge, set_ptrs, params)
-qcu.applyCloverDslashQcu(_fermion_out, _fermion_in, _gauge, set_ptrs, params)
+# qcu.applyCloverDslashQcu(_fermion_out, _fermion_in, _gauge, set_ptrs, params)
 qcu.applyEndQcu(set_ptrs, params)
 params[define._DATA_TYPE_] = define._LAT_C64_
 fermion_in = _fermion_in.astype(define.dtype(params[define._DATA_TYPE_]))
