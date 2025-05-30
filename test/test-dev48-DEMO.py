@@ -168,6 +168,7 @@ class AdaptiveMultigridComplex:
     def v_cycle(self, A_hierarchy, b_hierarchy, u_hierarchy, level=0):
         """V-循环"""
         current_level = len(A_hierarchy) - 1 - level
+        print(f"V-循环 level {level}, 当前层: {current_level}")
         A = A_hierarchy[current_level]
         b = b_hierarchy[current_level]
         u = u_hierarchy[current_level]
@@ -182,7 +183,7 @@ class AdaptiveMultigridComplex:
         
         # 前光滑
         print(f"    前光滑...")
-        u = self.smooth(A, b, u, num_iterations=2, method='jacobi')
+        u = self.smooth(A, b, u, num_iterations=5, method='jacobi')
         u_hierarchy[current_level] = u
         
         # 计算残差
@@ -207,7 +208,7 @@ class AdaptiveMultigridComplex:
         
         # 后光滑
         print(f"    后光滑...")
-        u = self.smooth(A, b, u, num_iterations=2, method='jacobi')
+        u = self.smooth(A, b, u, num_iterations=5, method='jacobi')
         u_hierarchy[current_level] = u
         
         return u
