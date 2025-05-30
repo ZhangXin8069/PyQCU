@@ -179,6 +179,9 @@ class AdaptiveMultigridComplex:
         if current_level == 0 or level >= self.max_levels - 1:
             print(f"    最粗网格直接求解...")
             u_hierarchy[current_level] = spsolve(A, b)
+            residual = self.compute_residual(A, b, u_hierarchy[current_level])
+            residual_norm = np.linalg.norm(residual)
+            print(f"    残差范数: {residual_norm:.2e}")
             return u_hierarchy[current_level]
         
         # 前光滑
@@ -187,7 +190,7 @@ class AdaptiveMultigridComplex:
         u_hierarchy[current_level] = u
         
         # 计算残差
-        residual = self.compute_residual(A, b, u)
+        residual = self.compute_residual(A, b, u_hierarchy[current_level])
         residual_norm = np.linalg.norm(residual)
         print(f"    残差范数: {residual_norm:.2e}")
         
@@ -210,7 +213,9 @@ class AdaptiveMultigridComplex:
         print(f"    后光滑...")
         u = self.smooth(A, b, u, num_iterations=5, method='jacobi')
         u_hierarchy[current_level] = u
-        
+        residual = self.compute_residual(A, b, u_hierarchy[current_level])
+        residual_norm = np.linalg.norm(residual)
+        print(f"    残差范数: {residual_norm:.2e}")
         return u
     
     def adaptive_criterion(self, residual_norms):
