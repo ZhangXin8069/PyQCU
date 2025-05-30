@@ -388,6 +388,9 @@ class AdaptiveMultigridComplex:
         
         plt.tight_layout()
         plt.show()
+        import time
+        solve_time = time.strftime("%Y%m%d%H%M%S", time.localtime())
+        plt.savefig(f"Adaptive_Multigrid_Complex_Solution_Results_{solve_time}.png", dpi=300)
         
         print("可视化完成!")
 # 主程序
