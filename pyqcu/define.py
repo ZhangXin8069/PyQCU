@@ -58,10 +58,11 @@ _LAT_R64_ = 9
 _LAT_R128_ = 10
 _SET_INDEX_ = 15
 _SET_PLAN_ = 16
-_SET_PLAN0_ = 0  # just for wilson dslash
-_SET_PLAN1_ = 1  # just for wilson bistabcg and cg
-_SET_PLAN2_ = 2  # just for clover dslash
-_SET_PLAN3_ = 3
+_SET_PLAN_N_1_ = -1  # just for laplacian
+_SET_PLAN0_ = 0     # for wilson dslash
+_SET_PLAN1_ = 1     # just for wilson bistabcg and cg
+_SET_PLAN2_ = 2     # for clover dslash
+_SET_PLAN3_ = 3     # just for clover bistabcg and cg
 _MG_X_ = 17
 _MG_Y_ = 18
 _MG_Z_ = 19
@@ -172,6 +173,8 @@ _LAT_EXAMPLE_ = 32
 _GRID_EXAMPLE_ = 1
 _MEM_POOL_ = 0
 _CHECK_ERROR_ = 1
+
+
 def dtype(_data_type_=_LAT_C64_):
     if _data_type_ == _LAT_C8_:
         print("Doesn't support complex8")
