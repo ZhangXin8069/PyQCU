@@ -272,6 +272,11 @@ class AdaptiveMultigridComplex:
         # 如果是最粗网格，直接求解
         if current_level == 0 or level >= self.max_levels - 1:
             print(f"    最粗网格直接求解...")
+            # 计算前残差
+            residual = self.compute_residual(op, b, u)
+            residual_norm = np.linalg.norm(residual)
+            print(f"    前残差范数: {residual_norm:.4e}")
+            
             # 使用自定义的BiCGSTAB求解器
             u_coarse, info = self.bistabcg_solver(op, b, u, tol=1e-10, maxiter=1000)
             if info != 0:
@@ -279,9 +284,14 @@ class AdaptiveMultigridComplex:
             u_hierarchy[current_level] = u_coarse
             residual = self.compute_residual(op, b, u_hierarchy[current_level])
             residual_norm = np.linalg.norm(residual)
-            print(f"    残差范数: {residual_norm:.2e}")
+            print(f"    残差范数: {residual_norm:.4e}")
             return u_hierarchy[current_level]
-
+        
+        # 计算前残差
+        residual = self.compute_residual(op, b, u)
+        residual_norm = np.linalg.norm(residual)
+        print(f"    前残差范数: {residual_norm:.4e}")
+        
         # 前光滑
         print(f"    前光滑...")
         u = self.smooth(op, b, u, num_iterations=5, method='jacobi')
@@ -290,7 +300,7 @@ class AdaptiveMultigridComplex:
         # 计算残差
         residual = self.compute_residual(op, b, u_hierarchy[current_level])
         residual_norm = np.linalg.norm(residual)
-        print(f"    残差范数: {residual_norm:.2e}")
+        print(f"    残差范数: {residual_norm:.4e}")
 
         # 限制残差到粗网格
         if current_level > 0:
@@ -308,13 +318,18 @@ class AdaptiveMultigridComplex:
             u = u + e_fine
             u_hierarchy[current_level] = u
 
+        # 计算前残差
+        residual = self.compute_residual(op, b, u)
+        residual_norm = np.linalg.norm(residual)
+        print(f"    前残差范数: {residual_norm:.4e}")
+        
         # 后光滑
         print(f"    后光滑...")
         u = self.smooth(op, b, u, num_iterations=5, method='jacobi')
         u_hierarchy[current_level] = u
         residual = self.compute_residual(op, b, u_hierarchy[current_level])
         residual_norm = np.linalg.norm(residual)
-        print(f"    残差范数: {residual_norm:.2e}")
+        print(f"    残差范数: {residual_norm:.4e}")
         return u
 
     def adaptive_criterion(self, residual_norms):
@@ -393,7 +408,7 @@ class AdaptiveMultigridComplex:
             residual_norm = np.linalg.norm(finest_residual)
             self.convergence_history.append(residual_norm)
 
-            print(f"  迭代 {iteration + 1} 完成，残差范数: {residual_norm:.2e}")
+            print(f"  迭代 {iteration + 1} 完成，残差范数: {residual_norm:.4e}")
 
             # 检查收敛
             if residual_norm < self.tolerance:
@@ -436,7 +451,7 @@ class AdaptiveMultigridComplex:
             f"解的虚部范围: [{np.imag(solution).min():.4f}, {np.imag(solution).max():.4f}]")
         print(
             f"解的模长范围: [{np.abs(solution).min():.4f}, {np.abs(solution).max():.4f}]")
-        print(f"验证残差范数: {residual_norm:.2e}")
+        print(f"验证残差范数: {residual_norm:.4e}")
         print(f"相对误差: {relative_error:.2e}")
 
         if relative_error < 1e-6:
