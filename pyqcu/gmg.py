@@ -5,7 +5,7 @@ np.Inf = np.inf
 
 
 class EllipticPartialDifferentialEquations:
-    def __init__(self, nx=32, ny=64, nz=8, alpha=1.0, beta=1.0j, dtype=np.complex128):
+    def __init__(self, nx=32, ny=32, nz=12,  dtype=np.complex128, alpha=1.0, beta=1.0j):
         self.nx = nx
         self.ny = ny
         self.nz = nz
@@ -48,16 +48,10 @@ class EllipticPartialDifferentialEquations:
                                                self.hz**2) * v_3d[k+1, i, j]
         return result_3d.flatten()
 
-    def diagonal(self):
-        return self.main_diag.copy()
-
     def give_b(self, func_type='sine'):
-        hx = 1.0 / (self.nx + 1)
-        hy = 1.0 / (self.ny + 1)
-        hz = 1.0 / (self.nz + 1)
-        x = np.linspace(hx, 1-hx, self.nx)
-        y = np.linspace(hy, 1-hy, self.ny)
-        z = np.linspace(hz, 1-hz, self.nz)
+        x = np.linspace(self.hx, 1-self.hx, self.nx)
+        y = np.linspace(self.hy, 1-self.hy, self.ny)
+        z = np.linspace(self.hz, 1-self.hz, self.nz)
         X, Y, Z = np.meshgrid(x, y, z, indexing='ij')
         if func_type == 'sine':
             f = np.sin(2*np.pi*X) * np.sin(2*np.pi*Y) * \
@@ -65,7 +59,7 @@ class EllipticPartialDifferentialEquations:
         elif func_type == 'exponential':
             f = np.exp(X + 1j*Y + 1j*Z)
         else:
-            f = np.ones((nx, ny, nz))
+            f = np.ones((self.nx, self.ny, self.nz))
         return f.flatten().astype(self.dtype)
 
 
@@ -126,8 +120,8 @@ class GMRESSmoother:
         return y
 
 
-class AdaptiveMultigridComplex:
-    def __init__(self, nx, ny, nz=1, op=EllipticPartialDifferentialEquations, min_size=4, max_levels=5, tolerance=1e-8, max_iterations=100, dtype=np.complex128):
+class GeometricMultigrid:
+    def __init__(self, nx=32, ny=32, nz=12, op=EllipticPartialDifferentialEquations, min_size=4, max_levels=5, tolerance=1e-8, max_iterations=10000, dtype=np.complex128):
         self.nx = nx
         self.ny = ny
         self.nz = nz
@@ -250,7 +244,7 @@ class AdaptiveMultigridComplex:
             print(f"    前残差范数: {residual_norm:.4e}")
             print(f"    最粗网格直接求解...")
             u_coarse, info = self.bistabcg_solver(
-                op, b, u, tol=self.tolerance, maxiter=1000)
+                op, b, u, tol=self.tolerance*0.1, maxiter=1000)
             if info != 0:
                 print(f"    警告: 最粗网格求解未收敛! Info: {info}")
             u_hierarchy[current_level_idx] = u_coarse
@@ -302,7 +296,6 @@ class AdaptiveMultigridComplex:
         print(f"\n{'='*60}")
         print("开始自适应多重网格复数求解")
         print(f"\n{'='*60}")
-        start_time = time.time()
         grid_params = []
         current_nx, current_ny = self.nx, self.ny
         current_nz = self.nz
@@ -321,7 +314,7 @@ class AdaptiveMultigridComplex:
         u_hierarchy = []
         for i, (nx, ny, nz) in enumerate(grid_params):
             print(f"Level {i} ({nx}x{ny}x{nz}):")
-            op = self.op(nx, ny, nz)
+            op = self.op(nx, ny, nz, dtype=self.dtype)
             b = op.give_b()
             u = np.zeros(nx * ny * nz, dtype=self.dtype)
             op_hierarchy.append(op)
@@ -333,6 +326,7 @@ class AdaptiveMultigridComplex:
         grid_params.reverse()
         print(f"\n开始多重网格迭代:")
         print("-" * 30)
+        start_time = time.time()
         for iteration in range(self.max_iterations):
             print(f"\n迭代 {iteration + 1}:")
             u_hierarchy[-1] = self.v_cycle(op_hierarchy,
@@ -385,19 +379,11 @@ class AdaptiveMultigridComplex:
         return residual_norm, relative_error
 
 
-if __name__ == "__main__":
-    print(f"\n{'='*80}")
-    print("自适应多重网格复数求解器演示")
-    nx = 32
-    ny = 64
-    nz = 8
-    solver = AdaptiveMultigridComplex(
-        nx=nx, ny=ny, nz=nz, max_levels=10, tolerance=1e-8, max_iterations=1000, dtype=np.complex64)
+def demo():
+    solver = GeometricMultigrid(dtype=np.complex128, tolerance=1e-12)
+    # solver = GeometricMultigrid(dtype=np.complex64, tolerance=1e-5)
     solution = solver.solve()
-    residual_norm, relative_error = solver.verify_solution(solution)
-    print(f"\n性能统计:")
-    print(f"网格大小: {nx}x{ny}x{nz}")
-    print(f"未知数个数: {nx*ny*nz}")
+    solver.verify_solution(solution)
     print(f"收敛迭代次数: {len(solver.convergence_history)}")
     print(f"最终残差: {solver.convergence_history[-1]:.2e}")
     plt.title(
