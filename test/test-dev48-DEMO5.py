@@ -1,608 +1,768 @@
 import time
+from scipy.sparse.linalg import bicgstab
 import matplotlib.pyplot as plt
 import numpy as np
+from mpl_toolkits.mplot3d import Axes3D # Import for 3D plotting
 
-# Ensure old Numpy compatibility
 np.Inf = np.inf
-# if not hasattr(np, 'inf'):
-#     np.inf = float('inf')
-
-# ==============================================================================
-# 1. Core Operator
-# ==============================================================================
-
 
 class MatrixVectorOperator:
     """
-    Encapsulates 2D matrix-vector multiplication, avoiding explicit matrix storage.
+    封装矩阵向量乘法操作，避免显式存储矩阵
     """
-
-    def __init__(self, nx, ny, alpha=1.0, beta=1.0j, dtype=np.complex128):
+    def __init__(self, nx, ny, nz, alpha=1.0, beta=1.0j):
         self.nx = nx
         self.ny = ny
+        self.nz = nz  # 新增维度
         self.alpha = alpha
         self.beta = beta
-        np.complex128 = dtype
-        self.n = nx * ny
+        self.n = nx * ny * nz # 更新总尺寸
         self.hx = 1.0 / (nx + 1)
         self.hy = 1.0 / (ny + 1)
-
-        # Precompute diagonal elements
-        self.main_diag = (2 * alpha * (1/self.hx**2 + 1/self.hy**2) +
-                          beta) * np.ones(self.n, dtype=np.complex128)
-
+        self.hz = 1.0 / (nz + 1) # 新增z方向步长
+        
+        # 预计算对角线元素
+        # 考虑 z 方向的项：-alpha/hz^2 * (neighbor_z)
+        self.main_diag = (2 * alpha * (1/self.hx**2 + 1/self.hy**2 + 1/self.hz**2) + beta) * np.ones(self.n, dtype=np.complex128)
+        
     def matvec(self, v):
         """
-        Performs matrix-vector multiplication A*v.
-        This implementation is optimized to vectorize operations.
+        执行矩阵向量乘法 A*v
         """
-        v_2d = v.reshape((self.ny, self.nx))
-        result_2d = np.zeros_like(v_2d)
+        result = np.zeros_like(v)
+        nx, ny, nz = self.nx, self.ny, self.nz
+        
+        # 处理主对角线
+        result[:] = self.main_diag * v
+        
+        # 将一维向量v reshape为三维，方便索引
+        v_3d = v.reshape((nz, ny, nx))
+        result_3d = result.reshape((nz, ny, nx))
 
-        # Handle main diagonal
-        result_2d = self.main_diag.reshape((self.ny, self.nx)) * v_2d
-
-        # x-direction differences (vectorized)
-        result_2d[:, 1:] -= (self.alpha / self.hx**2) * v_2d[:, :-1]
-        result_2d[:, :-1] -= (self.alpha / self.hx**2) * v_2d[:, 1:]
-
-        # y-direction differences (vectorized)
-        result_2d[1:, :] -= (self.alpha / self.hy**2) * v_2d[:-1, :]
-        result_2d[:-1, :] -= (self.alpha / self.hy**2) * v_2d[1:, :]
-
-        return result_2d.flatten()
-
-# ==============================================================================
-# 2. N-dimensional Operator Wrapper
-# ==============================================================================
-
-
-class NDimOperatorWrapper:
-    """
-    A wrapper that decomposes an N-dimensional problem into independent operations
-    on multiple 2D slices.
-    """
-
-    def __init__(self, grid_shape, mg_axes, alpha, beta):
-        self.grid_shape = grid_shape
-        self.mg_axes = sorted(mg_axes)
-
-        # Get the shape of the 2D slice (ny, nx)
-        self.ny = grid_shape[self.mg_axes[0]]
-        self.nx = grid_shape[self.mg_axes[1]]
-
-        # Create a 2D operator instance
-        self.op_2d = MatrixVectorOperator(self.nx, self.ny, alpha, beta)
-
-        # Calculate batch/viewer dimension information
-        batch_dims = [dim for i, dim in enumerate(
-            grid_shape) if i not in self.mg_axes]
-        self.num_slices = int(np.prod(batch_dims)) if batch_dims else 1
-
-        # Define dimension permutation order, moving mg_axes to the end
-        self.permute_to_2d = [i for i in range(
-            len(grid_shape)) if i not in self.mg_axes] + self.mg_axes
-        self.inverse_permute = np.argsort(self.permute_to_2d)
-
-    def matvec(self, v):
-        """Performs matrix-vector multiplication for N-dimensional vector v"""
-        if len(self.grid_shape) == 2:
-            return self.op_2d.matvec(v)
-
-        v_nd = v.reshape(self.grid_shape)
-        v_permuted = np.transpose(v_nd, self.permute_to_2d)
-        v_slices = v_permuted.reshape(self.num_slices, self.ny * self.nx)
-
-        result_slices = np.zeros_like(v_slices)
-        for i in range(self.num_slices):
-            result_slices[i, :] = self.op_2d.matvec(v_slices[i, :])
-
-        result_permuted = result_slices.reshape(v_permuted.shape)
-        result_nd = np.transpose(result_permuted, self.inverse_permute)
-
-        return result_nd.flatten()
-
-# ==============================================================================
-# 3. Restored GMRES Smoother
-# ==============================================================================
-
+        # 遍历三维网格
+        for k in range(nz): # Z 维度
+            for i in range(ny): # Y 维度
+                for j in range(nx): # X 维度
+                    idx = k * ny * nx + i * nx + j
+                    
+                    # 处理x方向相邻元素 (-alpha/hx²)
+                    if j > 0:
+                        result_3d[k, i, j] -= (self.alpha / self.hx**2) * v_3d[k, i, j-1]
+                    if j < nx - 1:
+                        result_3d[k, i, j] -= (self.alpha / self.hx**2) * v_3d[k, i, j+1]
+                    
+                    # 处理y方向相邻元素 (-alpha/hy²)
+                    if i > 0:
+                        result_3d[k, i, j] -= (self.alpha / self.hy**2) * v_3d[k, i-1, j]
+                    if i < ny - 1:
+                        result_3d[k, i, j] -= (self.alpha / self.hy**2) * v_3d[k, i+1, j]
+                        
+                    # 处理z方向相邻元素 (-alpha/hz²)
+                    if k > 0:
+                        result_3d[k, i, j] -= (self.alpha / self.hz**2) * v_3d[k-1, i, j]
+                    if k < nz - 1:
+                        result_3d[k, i, j] -= (self.alpha / self.hz**2) * v_3d[k+1, i, j]
+        
+        return result_3d.flatten()
+        
+    def diagonal(self):
+        """返回对角线元素，用于Jacobi迭代"""
+        return self.main_diag.copy()
 
 class GMRESSmoother:
-    """GMRES Smoother Implementation (restored to manual version)"""
-
+    """GMRES 光滑器实现"""
     def __init__(self, max_krylov=5, max_restarts=1, tol=0.1):
-        self.max_krylov = max_krylov
-        self.max_restarts = max_restarts
-        self.tol = tol
-
+        self.max_krylov = max_krylov  # Krylov子空间大小
+        self.max_restarts = max_restarts  # 重启次数
+        self.tol = tol  # 相对容差
+        
     def smooth(self, op, b, x0):
+        """
+        执行GMRES光滑
+        :param op: 矩阵向量算子
+        :param b: 右端项
+        :param x0: 初始解
+        :return: 光滑后的解
+        """
         x = x0.copy()
-        # Initial residual
         r = b - op.matvec(x0)
-        r_norm_initial = np.linalg.norm(r)
-
-        if r_norm_initial < 1e-12:  # If already converged
+        r_norm = np.linalg.norm(r)
+        if r_norm < 1e-12:
             return x0
-
+            
+        # 重启循环
         for _ in range(self.max_restarts):
-            # Arnoldi process to build Krylov subspace
-            Q, H, j = self._arnoldi(op, r, self.max_krylov)
-
-            # Set up and solve least squares problem
-            e1 = np.zeros(j + 1, dtype=np.complex128)
-            e1[0] = np.linalg.norm(r)
-
-            y, _, _, _ = np.linalg.lstsq(H, e1, rcond=None)
-
-            # Update solution
-            update = Q[:, :j] @ y
-            x = x + update
-
-            # Compute new residual and check for convergence
-            r = b - op.matvec(x)
-            r_norm_new = np.linalg.norm(r)
-            if r_norm_new < self.tol * r_norm_initial:
+            # Arnoldi过程构建Krylov子空间
+            Q, H = self._arnoldi(op, r, r_norm)
+            
+            # 解最小二乘问题
+            e1 = np.zeros(H.shape[1] + 1, dtype=b.dtype) # Use b's dtype
+            e1[0] = r_norm
+            y = self._solve_least_squares(H, e1)
+            
+            # 更新解
+            dx = Q[:, :-1] @ y
+            x = x + dx
+            
+            # 检查收敛
+            new_r = b - op.matvec(x)
+            new_r_norm = np.linalg.norm(new_r)
+            if new_r_norm < self.tol * r_norm:
                 break
-
+                
+            r = new_r
+            r_norm = new_r_norm
+            
         return x
-
-    def _arnoldi(self, op, r0, m):
+        
+    def _arnoldi(self, op, r0, r_norm):
+        """Arnoldi过程构建Krylov子空间"""
+        m = self.max_krylov
         n = len(r0)
-        Q = np.zeros((n, m + 1), dtype=np.complex128)
-        H = np.zeros((m + 1, m), dtype=np.complex128)
-
-        r0_norm = np.linalg.norm(r0)
-        if r0_norm == 0:
-            return Q, H, 0
-
-        Q[:, 0] = r0 / r0_norm
-
+        Q = np.zeros((n, m+1), dtype=r0.dtype) # Use r0's dtype
+        H = np.zeros((m+1, m), dtype=r0.dtype) # Use r0's dtype
+        
+        # 第一正交基向量
+        Q[:, 0] = r0 / r_norm
+        
         for j in range(m):
+            # 应用算子
             w = op.matvec(Q[:, j])
-
-            for i in range(j + 1):
-                H[i, j] = np.vdot(w, Q[:, i])
+            
+            # 正交化
+            for i in range(j+1):
+                H[i, j] = np.vdot(Q[:, i], w) # Use vdot for complex numbers
                 w = w - H[i, j] * Q[:, i]
-
-            H[j + 1, j] = np.linalg.norm(w)
-
-            if H[j + 1, j] < 1e-12:  # Early termination (Lucky Breakdown)
-                return Q[:, :j+1], H[:j+2, :j+1], j+1
-
-            Q[:, j + 1] = w / H[j + 1, j]
-
-        return Q[:, :m], H[:m+1, :m], m
-
-
-# ==============================================================================
-# 4. Updated Adaptive Multigrid Solver
-# ==============================================================================
+            
+            # 归一化
+            h_norm = np.linalg.norm(w)
+            H[j+1, j] = h_norm
+            
+            if h_norm < 1e-12:  # 提前终止
+                return Q[:, :j+1], H[:j+1, :j]
+                
+            if j < m:
+                Q[:, j+1] = w / h_norm
+            
+        return Q, H
+        
+    def _solve_least_squares(self, H, e1):
+        """使用QR分解求解最小二乘问题"""
+        # 获取Hessenberg矩阵维度
+        m = H.shape[1]
+        h_height = H.shape[0]
+        
+        # 创建增广矩阵
+        R = np.zeros((h_height, m+1), dtype=H.dtype) # Use H's dtype
+        R[:, :m] = H
+        R[:, m] = e1[:h_height]
+        
+        # 使用QR分解求解最小二乘问题
+        Q, R_qr = np.linalg.qr(R, mode='complete')
+        
+        # 提取解
+        # Correctly apply conjugate transpose for Q in QR decomposition
+        y = np.linalg.solve(R_qr[:m, :m], Q[:m, :m].conj().T @ e1[:m])
+        return y
 
 class AdaptiveMultigridComplex:
     """
-    Adaptive Multigrid method for solving complex systems (updated to support N-dimensions)
+    自适应多重网格方法求解复数系统
+    适用于求解复数系数的椭圆型偏微分方程
     """
 
-    def __init__(self, grid_shape, mg_axes, max_levels=5, tolerance=1e-8, max_iterations=100):
-        self.grid_shape = grid_shape
-        self.mg_axes = sorted(mg_axes)
+    def __init__(self, nx, ny, nz=1, max_levels=5, tolerance=1e-8, max_iterations=100, dtype=np.complex128):
+        """
+        初始化自适应多重网格求解器
+
+        参数:
+        nx: x方向网格大小
+        ny: y方向网格大小
+        nz: z方向网格大小 (新增，不参与粗化)
+        max_levels: 最大网格层数
+        tolerance: 收敛容差
+        max_iterations: 最大迭代次数
+        dtype: 求解数据类型，默认为np.complex128 (新增)
+        """
+        self.nx = nx
+        self.ny = ny
+        self.nz = nz # 存储nz
         self.max_levels = max_levels
         self.tolerance = tolerance
         self.max_iterations = max_iterations
+        self.dtype = dtype # 存储dtype
         self.convergence_history = []
+        self.level_info = []
+        
+        # 创建GMRES光滑器实例
+        self.gmres_smoother = GMRESSmoother(max_krylov=5, max_restarts=1, tol=0.1)
 
-        self.ny_mg = self.grid_shape[self.mg_axes[0]]
-        self.nx_mg = self.grid_shape[self.mg_axes[1]]
+    def create_operator(self, nx, ny, nz, alpha=1.0, beta=1.0j):
+        """
+        创建矩阵向量算子
+        """
+        print(f"创建 {nx}x{ny}x{nz} 复数算子...")
+        print(f"  系数: α = {alpha}, β = {beta}")
+        return MatrixVectorOperator(nx, ny, nz, alpha, beta)
 
-        self.gmres_smoother = GMRESSmoother(
-            max_krylov=10, max_restarts=1, tol=0.5)
-
-    def create_operator(self, shape, alpha, beta):
-        return NDimOperatorWrapper(shape, self.mg_axes, alpha, beta)
-
-    def create_rhs(self, shape, func_type='sine'):
-        ny = shape[self.mg_axes[0]]
-        nx = shape[self.mg_axes[1]]
-
+    def create_rhs(self, nx, ny, nz, func_type='sine'):
+        """创建右端项"""
         hx = 1.0 / (nx + 1)
         hy = 1.0 / (ny + 1)
-        x = np.linspace(hx, 1 - hx, nx)
-        y = np.linspace(hy, 1 - hy, ny)
-        X, Y = np.meshgrid(x, y)
+        hz = 1.0 / (nz + 1) # 新增z方向步长
+        x = np.linspace(hx, 1-hx, nx)
+        y = np.linspace(hy, 1-hy, ny)
+        z = np.linspace(hz, 1-hz, nz) # 新增z坐标
+
+        X, Y, Z = np.meshgrid(x, y, z, indexing='ij') # Create 3D meshgrid
 
         if func_type == 'sine':
-            f_2d = np.sin(2 * np.pi * X) * np.sin(2 * np.pi * Y) * (1 + 1j)
+            # 复数正弦函数
+            f = np.sin(2*np.pi*X) * np.sin(2*np.pi*Y) * np.sin(2*np.pi*Z) * (1 + 1j)
+        elif func_type == 'exponential':
+            # 复数指数函数
+            f = np.exp(X + 1j*Y + 1j*Z)
         else:
-            f_2d = np.exp(X + 1j * Y)
+            # 默认函数
+            f = np.ones((nx, ny, nz), dtype=self.dtype) # Adjust shape for 3D
 
-        if len(shape) > 2:
-            target_shape_for_tile = [
-                dim if i not in self.mg_axes else 1 for i, dim in enumerate(shape)]
-            f_nd = np.tile(f_2d, target_shape_for_tile)
-            return f_nd.flatten()
-        else:
-            return f_2d.flatten()
+        return f.flatten()
 
-    def restrict(self, u_fine, shape_fine):
-        shape_coarse_list = list(shape_fine)
-        ax1, ax2 = self.mg_axes
-        
-        # Calculate target coarse shape
-        target_ny_coarse = max(1, shape_fine[ax1] // 2)
-        target_nx_coarse = max(1, shape_fine[ax2] // 2)
+    def restrict(self, u_fine, nx_fine, ny_fine, nz_fine):
+        """限制算子：细网格到粗网格 (z维度保持不变)"""
+        if nx_fine < 2 or ny_fine < 2:
+            return u_fine # 无法再粗化，直接返回
 
-        # Handle cases where dimensions become too small or already 1
-        if shape_fine[ax1] < 2 or shape_fine[ax2] < 2: 
-            return u_fine.copy()
+        nx_coarse = max(2, nx_fine // 2)
+        ny_coarse = max(2, ny_fine // 2)
+        nz_coarse = nz_fine # Z维度保持不变
 
-        shape_coarse_list[ax1] = target_ny_coarse
-        shape_coarse_list[ax2] = target_nx_coarse
-        shape_coarse = tuple(shape_coarse_list)
-        
-        # If dimensions are already effectively 1, return copy
-        if shape_fine == shape_coarse: 
-            return u_fine.copy()
+        # Reshape fine grid solution to 3D for easier processing
+        u_fine_3d = u_fine.reshape((nz_fine, ny_fine, nx_fine))
+        u_coarse_3d = np.zeros((nz_coarse, ny_coarse, nx_coarse), dtype=self.dtype)
 
-        u_fine_nd = u_fine.reshape(shape_fine)
-        
-        # Permute dimensions to bring MG axes to the end for easier 2D slice processing
-        permute_order = [i for i in range(len(shape_fine)) if i not in self.mg_axes] + self.mg_axes
-        u_fine_permuted = np.transpose(u_fine_nd, axes=permute_order)
-        
-        # Determine the shape of the coarse grid after permutation
-        coarse_permuted_shape = u_fine_permuted.shape[:-2] + (target_ny_coarse, target_nx_coarse)
-        u_coarse_permuted = np.zeros(coarse_permuted_shape, dtype=np.complex128)
+        # Apply 2D restriction slice by slice along the z-dimension
+        for k in range(nz_fine):
+            u_fine_slice = u_fine_3d[k, :, :]
+            u_coarse_slice = np.zeros((ny_coarse, nx_coarse), dtype=self.dtype)
 
-        # Iterate over batch dimensions (non-MG dimensions)
-        for index in np.ndindex(u_fine_permuted.shape[:-2]):
-            fine_slice = u_fine_permuted[index]
-            coarse_slice = u_coarse_permuted[index]
-            # ny_fine_slice, nx_fine_slice = fine_slice.shape # Not needed explicitly here, padded_fine_slice handles bounds
+            # 全权重限制 (9点模板)
+            for i in range(ny_coarse):
+                for j in range(nx_coarse):
+                    ii, jj = 2*i, 2*j # Adjust for cell-centered restriction
+                    weight_sum = 0
+                    value_sum = 0
 
-            # Pad the fine slice with zeros for ghost points to handle boundaries
-            # This is equivalent to applying Dirichlet BCs to the residual
-            padded_fine_slice = np.pad(fine_slice, 1, mode='constant', constant_values=0)
+                    for di in [-1, 0, 1]:
+                        for dj in [-1, 0, 1]:
+                            ni, nj = ii + di, jj + dj
+                            if 0 <= ni < ny_fine and 0 <= nj < nx_fine:
+                                # Standard full-weighting stencil
+                                if di == 0 and dj == 0:
+                                    weight = 1/4 # Center point
+                                elif di == 0 or dj == 0:
+                                    weight = 1/8 # Face neighbors
+                                else:
+                                    weight = 1/16 # Corner neighbors
+                                weight_sum += weight
+                                value_sum += weight * u_fine_slice[ni, nj]
 
-            ny_coarse_slice, nx_coarse_slice = coarse_slice.shape
+                    u_coarse_slice[i, j] = value_sum / weight_sum if weight_sum > 0 else 0
+            u_coarse_3d[k, :, :] = u_coarse_slice
 
-            for i in range(ny_coarse_slice):
-                for j in range(nx_coarse_slice):
-                    # Map coarse grid (i,j) to fine grid (ii,jj) (cell-centered mapping)
-                    # The indices are now relative to the *padded* array (offset by 1 due to padding)
-                    ii_padded, jj_padded = (2 * i + 1) + 1, (2 * j + 1) + 1 
+        return u_coarse_3d.flatten()
 
-                    # Apply 9-point restriction stencil
-                    # All accesses are now guaranteed to be within padded_fine_slice
-                    val = (
-                        4 * padded_fine_slice[ii_padded, jj_padded] +
-                        2 * (padded_fine_slice[ii_padded - 1, jj_padded] +
-                             padded_fine_slice[ii_padded + 1, jj_padded] +
-                             padded_fine_slice[ii_padded, jj_padded - 1] +
-                             padded_fine_slice[ii_padded, jj_padded + 1]) +
-                        1 * (padded_fine_slice[ii_padded - 1, jj_padded - 1] +
-                             padded_fine_slice[ii_padded + 1, jj_padded - 1] +
-                             padded_fine_slice[ii_padded - 1, jj_padded + 1] +
-                             padded_fine_slice[ii_padded + 1, jj_padded + 1])
-                    )
-                    coarse_slice[i, j] = val / 16.0
+    def prolongate(self, u_coarse, nx_fine, ny_fine, nz_fine):
+        """延拓算子：粗网格到细网格 (z维度保持不变)"""
+        nx_coarse = nx_fine // 2
+        ny_coarse = ny_fine // 2
+        nz_coarse = nz_fine # Z维度保持不变
 
-        # Permute back to original dimensions and flatten
-        inverse_permute_order = np.argsort(permute_order)
-        return np.transpose(u_coarse_permuted, axes=inverse_permute_order).flatten()
+        u_coarse_3d = u_coarse.reshape((nz_coarse, ny_coarse, nx_coarse))
+        u_fine_3d = np.zeros((nz_fine, ny_fine, nx_fine), dtype=self.dtype)
 
-    def prolongate(self, u_coarse, shape_fine):
-        shape_coarse_list = list(shape_fine)
-        ax1, ax2 = self.mg_axes
-        
-        # Calculate target coarse shape
-        target_ny_coarse = max(1, shape_fine[ax1] // 2)
-        target_nx_coarse = max(1, shape_fine[ax2] // 2)
+        # Apply 2D prolongation slice by slice along the z-dimension
+        for k in range(nz_fine):
+            u_coarse_slice = u_coarse_3d[k, :, :]
+            u_fine_slice = np.zeros((ny_fine, nx_fine), dtype=self.dtype)
 
-        # Handle cases where dimensions become too small or already 1
-        if shape_fine[ax1] < 2 or shape_fine[ax2] < 2:
-            return u_coarse.copy()
+            # 双线性插值
+            for i in range(ny_fine):
+                for j in range(nx_fine):
+                    # Calculate position in coarse grid (relative to coarse grid indices)
+                    i_c = i / 2.0
+                    j_c = j / 2.0
 
-        shape_coarse_list[ax1] = target_ny_coarse
-        shape_coarse_list[ax2] = target_nx_coarse
-        shape_coarse = tuple(shape_coarse_list)
-        
-        # If dimensions are already effectively 1, return copy
-        if shape_fine == shape_coarse:
-            return u_coarse.copy()
+                    # Find the four surrounding coarse grid points
+                    i0, j0 = int(i_c), int(j_c)
+                    i1 = min(i0 + 1, ny_coarse - 1)
+                    j1 = min(j0 + 1, nx_coarse - 1)
 
-        u_coarse_nd = u_coarse.reshape(shape_coarse)
-        
-        # Permute dimensions to bring MG axes to the end for easier 2D slice processing
-        permute_order = [i for i in range(len(shape_fine)) if i not in self.mg_axes] + self.mg_axes
-        u_coarse_permuted = np.transpose(u_coarse_nd, axes=permute_order)
-        
-        # Determine the shape of the fine grid after permutation
-        fine_permuted_shape = u_coarse_permuted.shape[:-2] + (shape_fine[ax1], shape_fine[ax2])
-        u_fine_permuted = np.zeros(fine_permuted_shape, dtype=np.complex128)
+                    # Interpolation weights
+                    wx = i_c - i0
+                    wy = j_c - j0
 
-        # Iterate over batch dimensions
-        for index in np.ndindex(u_coarse_permuted.shape[:-2]):
-            coarse_slice = u_coarse_permuted[index]
-            fine_slice = u_fine_permuted[index]
-            ny_coarse_slice, nx_coarse_slice = coarse_slice.shape
-            ny_fine_slice, nx_fine_slice = fine_slice.shape
+                    # Bilinear interpolation
+                    u_fine_slice[i, j] = (1 - wx) * (1 - wy) * u_coarse_slice[i0, j0] + \
+                                         (1 - wx) * wy * u_coarse_slice[i0, j1] + \
+                                         wx * (1 - wy) * u_coarse_slice[i1, j0] + \
+                                         wx * wy * u_coarse_slice[i1, j1]
+            u_fine_3d[k, :, :] = u_fine_slice
 
-            # 1. Direct injection for coarse grid points (even rows, even columns)
-            # fine_slice[2*i, 2*j] = coarse_slice[i, j]
-            fine_slice[::2, ::2] = coarse_slice
+        return u_fine_3d.flatten()
 
-            # 2. Linear interpolation for midpoints in x-direction (even rows, odd columns)
-            # fine_slice[2*i, 2*j+1] = 0.5 * (fine_slice[2*i, 2*j] + fine_slice[2*i, 2*j+2])
-            for j_fine in range(1, nx_fine_slice, 2): # Iterate through all odd columns on fine grid
-                # Ensure the points used for interpolation are within bounds
-                left_neighbor_col = j_fine - 1
-                right_neighbor_col = j_fine + 1
-
-                if left_neighbor_col >= 0 and right_neighbor_col < nx_fine_slice:
-                    fine_slice[::2, j_fine] = 0.5 * (fine_slice[::2, left_neighbor_col] + fine_slice[::2, right_neighbor_col])
-                elif left_neighbor_col >= 0: # Right boundary (use only left neighbor)
-                    fine_slice[::2, j_fine] = fine_slice[::2, left_neighbor_col]
-                elif right_neighbor_col < nx_fine_slice: # Left boundary (use only right neighbor, less common for standard grids)
-                    fine_slice[::2, j_fine] = fine_slice[::2, right_neighbor_col]
-                # If neither, point remains zero (default for boundary) or could handle differently
-
-            # 3. Linear interpolation for midpoints in y-direction (odd rows, even columns)
-            # fine_slice[2*i+1, 2*j] = 0.5 * (fine_slice[2*i, 2*j] + fine_slice[2*i+2, 2*j])
-            for i_fine in range(1, ny_fine_slice, 2): # Iterate through all odd rows on fine grid
-                # Ensure the points used for interpolation are within bounds
-                top_neighbor_row = i_fine - 1
-                bottom_neighbor_row = i_fine + 1
-
-                if top_neighbor_row >= 0 and bottom_neighbor_row < ny_fine_slice:
-                    fine_slice[i_fine, ::2] = 0.5 * (fine_slice[top_neighbor_row, ::2] + fine_slice[bottom_neighbor_row, ::2])
-                elif top_neighbor_row >= 0: # Bottom boundary (use only top neighbor)
-                    fine_slice[i_fine, ::2] = fine_slice[top_neighbor_row, ::2]
-                elif bottom_neighbor_row < ny_fine_slice: # Top boundary (use only bottom neighbor)
-                    fine_slice[i_fine, ::2] = fine_slice[bottom_neighbor_row, ::2]
-
-
-            # 4. Bilinear interpolation for center points (odd rows, odd columns)
-            # fine_slice[2*i+1, 2*j+1] = 0.25 * (fine_slice[2*i, 2*j] + fine_slice[2*i+2, 2*j] + fine_slice[2*i, 2*j+2] + fine_slice[2*i+2, 2*j+2])
-            for i_fine in range(1, ny_fine_slice, 2):
-                for j_fine in range(1, nx_fine_slice, 2):
-                    val = 0.0
-                    count = 0
-                    
-                    # Top-left neighbor
-                    if i_fine - 1 >= 0 and j_fine - 1 >= 0:
-                        val += fine_slice[i_fine - 1, j_fine - 1]
-                        count += 1
-                    # Top-right neighbor
-                    if i_fine - 1 >= 0 and j_fine + 1 < nx_fine_slice:
-                        val += fine_slice[i_fine - 1, j_fine + 1]
-                        count += 1
-                    # Bottom-left neighbor
-                    if i_fine + 1 < ny_fine_slice and j_fine - 1 >= 0:
-                        val += fine_slice[i_fine + 1, j_fine - 1]
-                        count += 1
-                    # Bottom-right neighbor
-                    if i_fine + 1 < ny_fine_slice and j_fine + 1 < nx_fine_slice:
-                        val += fine_slice[i_fine + 1, j_fine + 1]
-                        count += 1
-                    
-                    if count > 0:
-                        fine_slice[i_fine, j_fine] = val / count
-                    else:
-                        fine_slice[i_fine, j_fine] = 0.0 # Default if no neighbors found (should not happen with proper grids)
-
-
-        # Permute back to original dimensions and flatten
-        inverse_permute_order = np.argsort(permute_order)
-        return np.transpose(u_fine_permuted, axes=inverse_permute_order).flatten()
-
-    def smooth(self, op, b, u, num_iterations=2):
-        for _ in range(num_iterations):
-            u = self.gmres_smoother.smooth(op, b, u)
-        return u
+    def smooth(self, op, b, u, num_iterations=1, method='gmres'):
+        """
+        光滑算子 - 使用GMRES作为光滑器
+        op: 矩阵向量算子对象
+        b: 右端项
+        u: 初始解
+        num_iterations: 重启次数 (对于GMRES，这里实际由GMRESSmoother的max_restarts控制)
+        """
+        # 使用GMRES光滑器
+        return self.gmres_smoother.smooth(op, b, u)
 
     def compute_residual(self, op, b, u):
+        """计算残差 - 使用矩阵向量算子"""
         return b - op.matvec(u)
 
     def bistabcg_solver(self, op, b, x0=None, tol=1e-10, maxiter=1000):
-        """Restored manual BiCGSTAB implementation"""
+        """
+        双共轭梯度稳定法 (BiCGSTAB) 求解器
+        用于求解线性系统: A*x = b
+        
+        参数:
+        op: 矩阵向量算子 (实现 matvec 方法)
+        b: 右端项
+        x0: 初始解 (可选)
+        tol: 容差
+        maxiter: 最大迭代次数
+        
+        返回:
+        x: 解向量
+        info: 收敛信息 (0 表示成功)
+        """
         if x0 is None:
             x = np.zeros_like(b)
         else:
             x = x0.copy()
-
+            
         r = b - op.matvec(x)
-        r0_hat = r.copy()
-
-        rho_prev = 1.0
+        r0 = r.copy()
+        rho = 1.0
         alpha = 1.0
         omega = 1.0
         v = np.zeros_like(b)
         p = np.zeros_like(b)
-
-        b_norm = np.linalg.norm(b)
-        if b_norm == 0.0:
-            b_norm = 1.0
-
+        
         for i in range(maxiter):
-            rho_curr = np.vdot(r0_hat, r)
-            if abs(rho_curr) < 1e-50:
-                break
+            rho1 = np.vdot(r0, r)  # 复数点积
+            if abs(rho1) < np.finfo(rho1.dtype).eps: # Check for near-zero rho1
+                return x, 2 # Breakdown
 
-            if i > 0:
-                beta = (rho_curr / rho_prev) * (alpha / omega)
-                p = r + beta * (p - omega * v)
-            else:
-                p = r
-
+            beta = (rho1 / rho) * (alpha / omega)
+            p = r + beta * (p - omega * v)
             v = op.matvec(p)
-            alpha = rho_curr / np.vdot(r0_hat, v)
+            
+            denom_alpha = np.vdot(r0, v)
+            if abs(denom_alpha) < np.finfo(denom_alpha.dtype).eps: # Check for near-zero denominator
+                return x, 3 # Breakdown
+
+            alpha = rho1 / denom_alpha
             s = r - alpha * v
-
-            if np.linalg.norm(s) < tol * b_norm:
-                x += alpha * p
-                break
-
+            
+            # Check for convergence after s calculation (typical BiCGSTAB)
+            residual_norm = np.linalg.norm(s)
+            if residual_norm < tol:
+                return x + alpha * p, 0 # Converged
+                
             t = op.matvec(s)
-            omega = np.vdot(t, s) / np.vdot(t, t)
-            x += alpha * p + omega * s
+            
+            denom_omega = np.vdot(t, t)
+            if abs(denom_omega) < np.finfo(denom_omega.dtype).eps: # Check for near-zero denominator
+                return x, 4 # Breakdown
+
+            omega = np.vdot(t, s) / denom_omega
+            x = x + alpha * p + omega * s
             r = s - omega * t
+            
+            # Check for convergence after updating x
+            residual_norm = np.linalg.norm(r)
+            if residual_norm < tol:
+                return x, 0
+                
+            rho = rho1
+            
+        # 未收敛
+        return x, 1
 
-            rho_prev = rho_curr
+    def v_cycle(self, op_hierarchy, b_hierarchy, u_hierarchy, grid_params, level=0):
+        """V-循环 - 使用矩阵向量算子"""
+        current_level_idx = len(op_hierarchy) - 1 - level
+        nx, ny, nz = grid_params[current_level_idx]
+        print(f"V-循环 level {level}, 当前层索引: {current_level_idx}, 网格大小: {nx}x{ny}x{nz}")
+        
+        op = op_hierarchy[current_level_idx]
+        b = b_hierarchy[current_level_idx]
+        u = u_hierarchy[current_level_idx]
 
-            if np.linalg.norm(r) < tol * b_norm:
-                break
-        return x, 0  # info=0 for success
-
-    def v_cycle(self, op_hierarchy, b_hierarchy, u_hierarchy, grid_shapes, level=0):
-        current_level = len(op_hierarchy) - 1 - level
-        current_shape = grid_shapes[current_level]
-
-        op = op_hierarchy[current_level]
-        b = b_hierarchy[current_level]
-        u = u_hierarchy[current_level]
-
-        if current_level == 0 or level >= self.max_levels - 1:
-            u_coarse, info = self.bistabcg_solver(
-                op, b, tol=1e-12, maxiter=2000)
+        # 如果是最粗网格，直接求解
+        if current_level_idx == 0 or level >= self.max_levels - 1:
+            print(f"    最粗网格直接求解...")
+            # 计算前残差
+            residual = self.compute_residual(op, b, u)
+            residual_norm = np.linalg.norm(residual)
+            print(f"    前残差范数: {residual_norm:.4e}")
+            
+            # 使用自定义的BiCGSTAB求解器
+            u_coarse, info = self.bistabcg_solver(op, b, u, tol=1e-8, maxiter=1000) # Increased tolerance for inner solver
             if info != 0:
-                print(f"   Warning: Coarsest grid solve did not converge!")
-            u_hierarchy[current_level] = u_coarse
-            return u_hierarchy[current_level]
-
+                print(f"    警告: 最粗网格求解未收敛! Info: {info}")
+            u_hierarchy[current_level_idx] = u_coarse
+            residual = self.compute_residual(op, b, u_hierarchy[current_level_idx])
+            residual_norm = np.linalg.norm(residual)
+            print(f"    残差范数: {residual_norm:.4e}")
+            return u_hierarchy[current_level_idx]
+            
+        # 计算前光滑残差
+        residual_before_smooth = self.compute_residual(op, b, u)
+        residual_norm_before_smooth = np.linalg.norm(residual_before_smooth)
+        print(f"    前光滑前残差范数: {residual_norm_before_smooth:.4e}")
+        
+        # 前光滑
+        print(f"    前光滑...")
         u = self.smooth(op, b, u)
-        residual = self.compute_residual(op, b, u)
+        u_hierarchy[current_level_idx] = u
 
-        r_coarse = self.restrict(residual, current_shape)
-        b_hierarchy[current_level - 1] = r_coarse
-        u_hierarchy[current_level - 1] = np.zeros_like(r_coarse)
+        # 计算残差
+        residual = self.compute_residual(op, b, u_hierarchy[current_level_idx])
+        residual_norm = np.linalg.norm(residual)
+        print(f"    前光滑后残差范数: {residual_norm:.4e}")
 
-        e_coarse = self.v_cycle(op_hierarchy, b_hierarchy,
-                                 u_hierarchy, grid_shapes, level + 1)
+        # 限制残差到粗网格
+        if current_level_idx > 0:
+            r_coarse = self.restrict(residual, nx, ny, nz)
+            b_hierarchy[current_level_idx - 1] = r_coarse
+            u_hierarchy[current_level_idx - 1] = np.zeros_like(r_coarse, dtype=self.dtype)
 
-        e_fine = self.prolongate(e_coarse, current_shape)
-        u = u + e_fine
+            # 递归调用粗网格
+            e_coarse = self.v_cycle(
+                op_hierarchy, b_hierarchy, u_hierarchy, grid_params, level + 1)
 
+            # 延拓误差修正
+            nx_fine, ny_fine, nz_fine = grid_params[current_level_idx]
+            e_fine = self.prolongate(e_coarse, nx_fine, ny_fine, nz_fine)
+            u = u + e_fine
+            u_hierarchy[current_level_idx] = u
+
+        # 计算后光滑前残差
+        residual_before_post_smooth = self.compute_residual(op, b, u)
+        residual_norm_before_post_smooth = np.linalg.norm(residual_before_post_smooth)
+        print(f"    后光滑前残差范数: {residual_norm_before_post_smooth:.4e}")
+            
+        # 后光滑
+        print(f"    后光滑...")
         u = self.smooth(op, b, u)
-        u_hierarchy[current_level] = u
+        u_hierarchy[current_level_idx] = u
+        residual = self.compute_residual(op, b, u_hierarchy[current_level_idx])
+        residual_norm = np.linalg.norm(residual)
+        print(f"    后光滑后残差范数: {residual_norm:.4e}")
         return u
 
+    def adaptive_criterion(self, residual_norms):
+        """自适应准则：决定是否需要调整网格层数"""
+        if len(residual_norms) < 3:
+            return False
+
+        # 计算收敛率
+        conv_rate = residual_norms[-1] / \
+            residual_norms[-2] if residual_norms[-2] != 0 else 1
+
+        # 如果收敛太慢，建议增加网格层数
+        return conv_rate > 0.8
+
     def solve(self, alpha=1.0, beta=1.0j, func_type='sine'):
-        print("="*60 + "\nStarting Adaptive Multigrid Complex Solver (N-D Version)\n" + "="*60)
+        """主求解函数"""
+        print("="*60)
+        print("开始自适应多重网格复数求解")
+        print("="*60)
+
         start_time = time.time()
-        grid_shapes = []
-        current_shape_list = list(self.grid_shape)
-        ax1, ax2 = self.mg_axes
-        print(f"Building grid hierarchy (coarsening on dimensions {self.mg_axes}):")
-        while current_shape_list[ax1] >= 4 and current_shape_list[ax2] >= 4 and len(grid_shapes) < self.max_levels:
-            current_shape = tuple(current_shape_list)
-            grid_shapes.append(current_shape)
-            print(f"   Level {len(grid_shapes)-1}: {current_shape}")
-            current_shape_list[ax1] //= 2
-            current_shape_list[ax2] //= 2
-        num_levels = len(grid_shapes)
-        grid_shapes.reverse() # Coarsest to finest
-        op_hierarchy = [self.create_operator(
-            shape, alpha, beta) for shape in grid_shapes]
-        b_hierarchy = [self.create_rhs(shape, func_type) if i == num_levels - 1 else np.zeros(
-            int(np.prod(shape)), dtype=np.complex128) for i, shape in enumerate(grid_shapes)]
-        u_hierarchy = [np.zeros(int(np.prod(shape)), dtype=np.complex128)
-                       for shape in grid_shapes]
 
-        print(f"\nStarting Multigrid Iterations (total {num_levels} levels):")
+        # 设置网格层次结构
+        grid_params = []
+        current_nx, current_ny = self.nx, self.ny
+        current_nz = self.nz # nz 维度不参与粗化
+
+        print(f"构建网格层次结构:")
+        while min(current_nx, current_ny) >= 4 and len(grid_params) < self.max_levels:
+            grid_params.append((current_nx, current_ny, current_nz))
+            print(f"  Level {len(grid_params)-1}: {current_nx}x{current_ny}x{current_nz}")
+            current_nx = max(2, current_nx // 2)
+            current_ny = max(2, current_ny // 2)
+
+        num_levels = len(grid_params)
+        print(f"总共 {num_levels} 层网格")
+
+        # 创建各层矩阵向量算子和右端项
+        print(f"\n构建各层系统算子:")
+        op_hierarchy = []
+        b_hierarchy = []
+        u_hierarchy = []
+
+        for i, (nx, ny, nz) in enumerate(grid_params):
+            print(f"Level {i} ({nx}x{ny}x{nz}):")
+            op = self.create_operator(nx, ny, nz, alpha, beta)
+            b = self.create_rhs(nx, ny, nz, func_type)
+            u = np.zeros(nx * ny * nz, dtype=self.dtype)
+
+            op_hierarchy.append(op)
+            b_hierarchy.append(b)
+            u_hierarchy.append(u)
+
+        # 反转层次（从细到粗）
+        op_hierarchy.reverse()
+        b_hierarchy.reverse()
+        u_hierarchy.reverse()
+        grid_params.reverse()
+
+        print(f"\n开始多重网格迭代:")
+        print("-" * 40)
+
+        # 主迭代循环
         for iteration in range(self.max_iterations):
-            self.v_cycle(op_hierarchy, b_hierarchy, u_hierarchy, grid_shapes)
-            residual_norm = np.linalg.norm(self.compute_residual(
-                op_hierarchy[-1], b_hierarchy[-1], u_hierarchy[-1]))
+            print(f"\n迭代 {iteration + 1}:")
+
+            # 执行V-循环
+            u_hierarchy[-1] = self.v_cycle(op_hierarchy,
+                                             b_hierarchy, u_hierarchy, grid_params)
+
+            # 计算最细网格上的残差
+            op_finest = op_hierarchy[-1]
+            b_finest = b_hierarchy[-1]
+            u_finest = u_hierarchy[-1]
+            
+            finest_residual = self.compute_residual(op_finest, b_finest, u_finest)
+            residual_norm = np.linalg.norm(finest_residual)
             self.convergence_history.append(residual_norm)
-            print(f"Iteration {iteration + 1} complete, Residual Norm: {residual_norm:.4e}")
+
+            print(f"  迭代 {iteration + 1} 完成，残差范数: {residual_norm:.4e}")
+
+            # 检查收敛
             if residual_norm < self.tolerance:
-                print(f"   ✓ Converged to tolerance {self.tolerance}")
+                print(f"  ✓ 收敛达到容差 {self.tolerance}")
                 break
+
+            # 自适应准则
+            if self.adaptive_criterion(self.convergence_history):
+                print(f"  注意: 收敛较慢，可能需要更多网格层")
+        else:
+            print("  警告: 达到最大迭代次数，可能未收敛")
+
         solve_time = time.time() - start_time
-        print("\n" + "="*60 + "\nSolution Complete!")
-        print(f"Total Iterations: {len(self.convergence_history)}")
-        if self.convergence_history:
-            print(f"Final Residual: {self.convergence_history[-1]:.2e}")
-        print(f"Solve Time: {solve_time:.4f} seconds\n" + "="*60)
-        return u_hierarchy[-1].reshape(self.grid_shape)
 
-    def verify_solution(self, solution_2d, alpha=1.0, beta=1.0j, func_type='sine'):
-        print("\nVerifying solution correctness (for a 2D slice):")
-        ny, nx = solution_2d.shape
-        op_2d = MatrixVectorOperator(nx, ny, alpha, beta)
-        hx = 1.0/(nx+1)
-        hy = 1.0/(ny+1)
-        x = np.linspace(hx, 1-hx, nx)
-        y = np.linspace(hy, 1-hy, ny)
-        X, Y = np.meshgrid(x, y)
-        if func_type == 'sine':
-            b_2d = (np.sin(2*np.pi*X)*np.sin(2*np.pi*Y)*(1+1j)).flatten()
-        else:
-            b_2d = (np.exp(X+1j*Y)).flatten()
-        residual = op_2d.matvec(solution_2d.flatten())-b_2d
+        print("\n" + "="*60)
+        print("求解完成!")
+        print(f"总迭代次数: {len(self.convergence_history)}")
+        print(f"最终残差: {self.convergence_history[-1]:.2e}")
+        print(f"求解时间: {solve_time:.4f} 秒")
+        print("="*60)
+
+        # 返回最细网格上的解，并reshape为三维
+        return u_hierarchy[-1].reshape((self.nz, self.ny, self.nx))
+
+    def verify_solution(self, solution, alpha=1.0, beta=1.0j, func_type='sine'):
+        """验证解的正确性"""
+        print("\n验证解的正确性:")
+        print("-" * 30)
+
+        # 重新创建矩阵向量算子和右端项
+        op = self.create_operator(self.nx, self.ny, self.nz, alpha, beta)
+        b = self.create_rhs(self.nx, self.ny, self.nz, func_type)
+        u_flat = solution.flatten()
+
+        # 计算 A*u - b
+        residual = op.matvec(u_flat) - b
         residual_norm = np.linalg.norm(residual)
-        relative_error = residual_norm / np.linalg.norm(b_2d)
-        print(f"Verification Residual Norm: {residual_norm:.4e}, Relative Error: {relative_error:.2e}")
-        if relative_error < 1e-5:
-            print("✓ Solution verification passed!")
+        relative_error = residual_norm / np.linalg.norm(b)
+
+        print(
+            f"解的实部范围: [{np.real(solution).min():.4f}, {np.real(solution).max():.4f}]")
+        print(
+            f"解的虚部范围: [{np.imag(solution).min():.4f}, {np.imag(solution).max():.4f}]")
+        print(
+            f"解的模长范围: [{np.abs(solution).min():.4f}, {np.abs(solution).max():.4f}]")
+        print(f"验证残差范数: {residual_norm:.4e}")
+        print(f"相对误差: {relative_error:.2e}")
+
+        if relative_error < 1e-6:
+            print("✓ 解验证通过!")
         else:
-            print("⚠ Solution might have precision issues")
+            print("⚠ 解可能存在精度问题")
 
-    def plot_results(self, solution_2d):
-        print("\nGenerating visualization plots...")
-        ny, nx = solution_2d.shape
-        fig, axes = plt.subplots(2, 2, figsize=(12, 10))
-        fig.suptitle(
-            'Adaptive Multigrid Complex Solution (2D Slice)', fontsize=16)
-        x = np.linspace(0, 1, nx)
-        y = np.linspace(0, 1, ny)
-        X, Y = np.meshgrid(x, y)
-        im1 = axes[0, 0].contourf(X, Y, np.real(
-            solution_2d), levels=20, cmap='RdBu_r')
-        axes[0, 0].set_title('Solution - Real Part')
-        plt.colorbar(im1, ax=axes[0, 0])
-        im2 = axes[0, 1].contourf(X, Y, np.imag(
-            solution_2d), levels=20, cmap='RdBu_r')
-        axes[0, 1].set_title('Solution - Imaginary Part')
-        plt.colorbar(im2, ax=axes[0, 1])
-        im3 = axes[1, 0].contourf(X, Y, np.abs(
-            solution_2d), levels=20, cmap='viridis')
-        axes[1, 0].set_title('Solution - Magnitude')
-        plt.colorbar(im3, ax=axes[1, 0])
-        axes[1, 1].semilogy(
-            range(1, len(self.convergence_history)+1), self.convergence_history, 'b-o')
-        axes[1, 1].set_title('Convergence History')
-        axes[1, 1].set_xlabel('Iteration')
-        axes[1, 1].set_ylabel('Residual Norm')
-        axes[1, 1].grid(True)
-        plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+        return residual_norm, relative_error
+
+    def plot_results(self, solution):
+        """可视化结果"""
+        print("\n生成可视化图像...")
+
+        # Plot 2D slices if nz > 1, otherwise plot original 2D views
+        if self.nz > 1:
+            # For 3D results, plot cross-sections (e.g., middle slice)
+            mid_z_slice_idx = self.nz // 2
+            solution_2d_slice = solution[mid_z_slice_idx, :, :]
+            plot_title_suffix = f" (Z-slice at k={mid_z_slice_idx})"
+            
+            fig, axes = plt.subplots(2, 3, figsize=(18, 12))
+            fig.suptitle(f'Adaptive Multigrid Complex Solution Results{plot_title_suffix}', fontsize=16)
+
+            x = np.linspace(0, 1, self.nx)
+            y = np.linspace(0, 1, self.ny)
+            X, Y = np.meshgrid(x, y)
+
+            # Real Part
+            im1 = axes[0, 0].contourf(X, Y, np.real(solution_2d_slice), levels=20, cmap='RdBu_r')
+            axes[0, 0].set_title('Solution - Real Part')
+            axes[0, 0].set_xlabel('x'); axes[0, 0].set_ylabel('y')
+            plt.colorbar(im1, ax=axes[0, 0])
+
+            # Imaginary Part
+            im2 = axes[0, 1].contourf(X, Y, np.imag(solution_2d_slice), levels=20, cmap='RdBu_r')
+            axes[0, 1].set_title('Solution - Imaginary Part')
+            axes[0, 1].set_xlabel('x'); axes[0, 1].set_ylabel('y')
+            plt.colorbar(im2, ax=axes[0, 1])
+
+            # Magnitude
+            im3 = axes[0, 2].contourf(X, Y, np.abs(solution_2d_slice), levels=20, cmap='viridis')
+            axes[0, 2].set_title('Solution - Magnitude')
+            axes[0, 2].set_xlabel('x'); axes[0, 2].set_ylabel('y')
+            plt.colorbar(im3, ax=axes[0, 2])
+
+            # Convergence History
+            axes[1, 0].semilogy(range(1, len(self.convergence_history) + 1),
+                                 self.convergence_history, 'b-o', markersize=4)
+            axes[1, 0].set_title('Convergence History')
+            axes[1, 0].set_xlabel('Iteration'); axes[1, 0].set_ylabel('Residual Norm')
+            axes[1, 0].grid(True)
+
+            # Phase
+            phase = np.angle(solution_2d_slice)
+            im4 = axes[1, 1].contourf(X, Y, phase, levels=20, cmap='hsv')
+            axes[1, 1].set_title('Solution - Phase')
+            axes[1, 1].set_xlabel('x'); axes[1, 1].set_ylabel('y')
+            plt.colorbar(im4, ax=axes[1, 1])
+
+            # 3D surface plot (Magnitude of the slice)
+            ax3d = fig.add_subplot(2, 3, 6, projection='3d')
+            surf = ax3d.plot_surface(X, Y, np.abs(solution_2d_slice), cmap='viridis', alpha=0.8)
+            ax3d.set_title('Solution Magnitude (2D Slice) - 3D View')
+            ax3d.set_xlabel('x'); ax3d.set_ylabel('y'); ax3d.set_zlabel('|u|')
+            
+        else: # Original 2D plotting for nz=1
+            solution_2d = solution.reshape((self.ny, self.nx))
+            fig, axes = plt.subplots(2, 3, figsize=(15, 10))
+            fig.suptitle('Adaptive Multigrid Complex Solution Results', fontsize=16)
+
+            x = np.linspace(0, 1, self.nx)
+            y = np.linspace(0, 1, self.ny)
+            X, Y = np.meshgrid(x, y)
+
+            # Real Part
+            im1 = axes[0, 0].contourf(X, Y, np.real(solution_2d), levels=20, cmap='RdBu_r')
+            axes[0, 0].set_title('Solution - Real Part')
+            axes[0, 0].set_xlabel('x'); axes[0, 0].set_ylabel('y')
+            plt.colorbar(im1, ax=axes[0, 0])
+
+            # Imaginary Part
+            im2 = axes[0, 1].contourf(X, Y, np.imag(solution_2d), levels=20, cmap='RdBu_r')
+            axes[0, 1].set_title('Solution - Imaginary Part')
+            axes[0, 1].set_xlabel('x'); axes[0, 1].set_ylabel('y')
+            plt.colorbar(im2, ax=axes[0, 1])
+
+            # Magnitude
+            im3 = axes[0, 2].contourf(X, Y, np.abs(solution_2d), levels=20, cmap='viridis')
+            axes[0, 2].set_title('Solution - Magnitude')
+            axes[0, 2].set_xlabel('x'); axes[0, 2].set_ylabel('y')
+            plt.colorbar(im3, ax=axes[0, 2])
+
+            # Convergence History
+            axes[1, 0].semilogy(range(1, len(self.convergence_history) + 1),
+                                 self.convergence_history, 'b-o', markersize=4)
+            axes[1, 0].set_title('Convergence History')
+            axes[1, 0].set_xlabel('Iteration'); axes[1, 0].set_ylabel('Residual Norm')
+            axes[1, 0].grid(True)
+
+            # Phase
+            phase = np.angle(solution_2d)
+            im4 = axes[1, 1].contourf(X, Y, phase, levels=20, cmap='hsv')
+            axes[1, 1].set_title('Solution - Phase')
+            axes[1, 1].set_xlabel('x'); axes[1, 1].set_ylabel('y')
+            plt.colorbar(im4, ax=axes[1, 1])
+
+            # 3D surface plot (Magnitude)
+            ax3d = fig.add_subplot(2, 3, 6, projection='3d')
+            surf = ax3d.plot_surface(X, Y, np.abs(solution_2d), cmap='viridis', alpha=0.8)
+            ax3d.set_title('Solution Magnitude - 3D View')
+            ax3d.set_xlabel('x'); ax3d.set_ylabel('y'); ax3d.set_zlabel('|u|')
+
+        plt.tight_layout()
         plt.show()
+        solve_time_str = time.strftime("%Y%m%d%H%M%S", time.localtime())
+        plt.savefig(
+            f"Adaptive_Multigrid_Complex_Solution_Results_{solve_time_str}.png", dpi=300)
+
+        print("可视化完成!")
 
 
-# ==============================================================================
-# 5. Main Program
-# ==============================================================================
+# 主程序
 if __name__ == "__main__":
-    print("Adaptive Multigrid Complex Solver Demo (N-D General Version)")
-    print("=" * 60)
-    full_grid_shape = (2, 32, 64)
-    multigrid_axes = (1, 2)
+    print("自适应多重网格复数求解器演示")
+    print("=" * 50)
+
+    # 创建求解器实例 - 现在使用矩形网格 nx x ny x nz
+    nx = 32  # x方向网格大小
+    ny = 64  # y方向网格大小
+    nz = 8   # z方向网格大小 (不参与粗化)
+    
+    # 可以自定义dtype
     solver = AdaptiveMultigridComplex(
-        grid_shape=full_grid_shape,
-        mg_axes=multigrid_axes,
-        max_levels=4,
-        tolerance=1e-7,
-        max_iterations=20
-    )
-    case = {"alpha": 1.0, "beta": 1.0j, "func_type": "sine", "name": "Complex Elliptic Problem"}
-    print(f"\n{'='*80}\nTest Case: {case['name']}")
-    print(f"Grid Shape: {full_grid_shape}, Operating Dimensions: {multigrid_axes}\n{'='*80}")
-    solution_nd = solver.solve(
-        alpha=case["alpha"], beta=case["beta"], func_type=case["func_type"])
-    print(f"\nN-D Solution Complete, Solution Shape: {solution_nd.shape}")
-    solution_2d_slice = solution_nd[0, :, :]
-    print(f"Selected first 2D slice (shape: {solution_2d_slice.shape}) for verification and plotting.")
-    solver.verify_solution(
-        solution_2d_slice, alpha=case["alpha"], beta=case["beta"], func_type=case["func_type"])
-    solver.plot_results(solution_2d_slice)
-    print(f"\n{'='*80}\nAll Tests Complete!\n{'='*80}")
+        nx=nx, ny=ny, nz=nz, max_levels=5, tolerance=1e-8, max_iterations=1000, dtype=np.complex64) # Example with complex64
+
+    # 测试不同的问题参数
+    test_cases = [
+        {"alpha": 1.0, "beta": 1.0j, "func_type": "sine",
+            "name": "复数椭圆问题 (正弦右端项)"},
+        {"alpha": 2.0, "beta": 0.5j, "func_type": "exponential",
+            "name": "修正复数问题 (指数右端项)"}
+    ]
+
+    for i, case in enumerate(test_cases):
+        print(f"\n{'='*80}")
+        print(f"测试案例 {i+1}: {case['name']}")
+        print(f"{'='*80}")
+
+        # 求解
+        solution = solver.solve(
+            alpha=case["alpha"], beta=case["beta"], func_type=case["func_type"])
+
+        # 验证
+        residual_norm, relative_error = solver.verify_solution(
+            solution, alpha=case["alpha"], beta=case["beta"], func_type=case["func_type"]
+        )
+
+        # 可视化
+        solver.plot_results(solution)
+
+        # 性能统计
+        print(f"\n性能统计:")
+        print(f"网格大小: {nx}x{ny}x{nz}")
+        print(f"未知数个数: {nx*ny*nz}")
+        print(f"收敛迭代次数: {len(solver.convergence_history)}")
+        print(f"最终残差: {solver.convergence_history[-1]:.2e}")
+
+        # 重置收敛历史
+        solver.convergence_history = []
+
+    print(f"\n{'='*80}")
+    print("所有测试完成!")
+    print(f"{'='*80}")
