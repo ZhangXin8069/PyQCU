@@ -1,24 +1,23 @@
 import time
-from scipy.sparse.linalg import bicgstab
 import matplotlib.pyplot as plt
 import numpy as np
-from mpl_toolkits.mplot3d import Axes3D
 np.Inf = np.inf
 
 
-class MatrixVectorOperator:
-    def __init__(self, nx, ny, nz, alpha=1.0, beta=1.0j):
+class EllipticPartialDifferentialEquations:
+    def __init__(self, nx=32, ny=64, nz=8, alpha=1.0, beta=1.0j, dtype=np.complex128):
         self.nx = nx
         self.ny = ny
         self.nz = nz
         self.alpha = alpha
         self.beta = beta
+        self.dtype = dtype
         self.n = nx * ny * nz
         self.hx = 1.0 / (nx + 1)
         self.hy = 1.0 / (ny + 1)
         self.hz = 1.0 / (nz + 1)
         self.main_diag = (2 * alpha * (1/self.hx**2 + 1/self.hy**2 +
-                          1/self.hz**2) + beta) * np.ones(self.n, dtype=np.complex128)
+                          1/self.hz**2) + beta) * np.ones(self.n, dtype=dtype)
 
     def matvec(self, v):
         result = np.zeros_like(v)
@@ -29,7 +28,6 @@ class MatrixVectorOperator:
         for k in range(nz):
             for i in range(ny):
                 for j in range(nx):
-                    idx = k * ny * nx + i * nx + j
                     if j > 0:
                         result_3d[k, i, j] -= (self.alpha /
                                                self.hx**2) * v_3d[k, i, j-1]
@@ -52,6 +50,23 @@ class MatrixVectorOperator:
 
     def diagonal(self):
         return self.main_diag.copy()
+
+    def give_b(self, func_type='sine'):
+        hx = 1.0 / (self.nx + 1)
+        hy = 1.0 / (self.ny + 1)
+        hz = 1.0 / (self.nz + 1)
+        x = np.linspace(hx, 1-hx, self.nx)
+        y = np.linspace(hy, 1-hy, self.ny)
+        z = np.linspace(hz, 1-hz, self.nz)
+        X, Y, Z = np.meshgrid(x, y, z, indexing='ij')
+        if func_type == 'sine':
+            f = np.sin(2*np.pi*X) * np.sin(2*np.pi*Y) * \
+                np.sin(2*np.pi*Z) * (1 + 1j)
+        elif func_type == 'exponential':
+            f = np.exp(X + 1j*Y + 1j*Z)
+        else:
+            f = np.ones((nx, ny, nz))
+        return f.flatten().astype(self.dtype)
 
 
 class GMRESSmoother:
@@ -112,10 +127,12 @@ class GMRESSmoother:
 
 
 class AdaptiveMultigridComplex:
-    def __init__(self, nx, ny, nz=1, max_levels=5, tolerance=1e-8, max_iterations=100, dtype=np.complex128):
+    def __init__(self, nx, ny, nz=1, op=EllipticPartialDifferentialEquations, min_size=4, max_levels=5, tolerance=1e-8, max_iterations=100, dtype=np.complex128):
         self.nx = nx
         self.ny = ny
         self.nz = nz
+        self.op = op
+        self.min_size = min_size
         self.max_levels = max_levels
         self.tolerance = tolerance
         self.max_iterations = max_iterations
@@ -124,28 +141,6 @@ class AdaptiveMultigridComplex:
         self.level_info = []
         self.gmres_smoother = GMRESSmoother(
             max_krylov=5, max_restarts=1, tol=0.1)
-
-    def create_operator(self, nx, ny, nz, alpha=1.0, beta=1.0j):
-        print(f"创建 {nx}x{ny}x{nz} 复数算子...")
-        print(f"  系数: α = {alpha}, β = {beta}")
-        return MatrixVectorOperator(nx, ny, nz, alpha, beta)
-
-    def create_rhs(self, nx, ny, nz, func_type='sine'):
-        hx = 1.0 / (nx + 1)
-        hy = 1.0 / (ny + 1)
-        hz = 1.0 / (nz + 1)
-        x = np.linspace(hx, 1-hx, nx)
-        y = np.linspace(hy, 1-hy, ny)
-        z = np.linspace(hz, 1-hz, nz)
-        X, Y, Z = np.meshgrid(x, y, z, indexing='ij')
-        if func_type == 'sine':
-            f = np.sin(2*np.pi*X) * np.sin(2*np.pi*Y) * \
-                np.sin(2*np.pi*Z) * (1 + 1j)
-        elif func_type == 'exponential':
-            f = np.exp(X + 1j*Y + 1j*Z)
-        else:
-            f = np.ones((nx, ny, nz), dtype=self.dtype)
-        return f.flatten()
 
     def restrict(self, u_fine, nx_fine, ny_fine, nz_fine):
         if nx_fine < 2 or ny_fine < 2:
@@ -206,7 +201,7 @@ class AdaptiveMultigridComplex:
             u_fine_3d[k, :, :] = u_fine_slice
         return u_fine_3d.flatten()
 
-    def smooth(self, op, b, u, num_iterations=1, method='gmres'):
+    def smooth(self, op, b, u):
         return self.gmres_smoother.smooth(op, b, u)
 
     def compute_residual(self, op, b, u):
@@ -303,16 +298,16 @@ class AdaptiveMultigridComplex:
             residual_norms[-2] if residual_norms[-2] != 0 else 1
         return conv_rate > 0.8
 
-    def solve(self, alpha=1.0, beta=1.0j, func_type='sine'):
-        print("="*60)
+    def solve(self):
+        print(f"\n{'='*60}")
         print("开始自适应多重网格复数求解")
-        print("="*60)
+        print(f"\n{'='*60}")
         start_time = time.time()
         grid_params = []
         current_nx, current_ny = self.nx, self.ny
         current_nz = self.nz
         print(f"构建网格层次结构:")
-        while min(current_nx, current_ny) >= 4 and len(grid_params) < self.max_levels:
+        while min(current_nx, current_ny) >= self.min_size and len(grid_params) < self.max_levels:
             grid_params.append((current_nx, current_ny, current_nz))
             print(
                 f"  Level {len(grid_params)-1}: {current_nx}x{current_ny}x{current_nz}")
@@ -326,8 +321,8 @@ class AdaptiveMultigridComplex:
         u_hierarchy = []
         for i, (nx, ny, nz) in enumerate(grid_params):
             print(f"Level {i} ({nx}x{ny}x{nz}):")
-            op = self.create_operator(nx, ny, nz, alpha, beta)
-            b = self.create_rhs(nx, ny, nz, func_type)
+            op = self.op(nx, ny, nz)
+            b = op.give_b()
             u = np.zeros(nx * ny * nz, dtype=self.dtype)
             op_hierarchy.append(op)
             b_hierarchy.append(b)
@@ -337,7 +332,7 @@ class AdaptiveMultigridComplex:
         u_hierarchy.reverse()
         grid_params.reverse()
         print(f"\n开始多重网格迭代:")
-        print("-" * 40)
+        print("-" * 30)
         for iteration in range(self.max_iterations):
             print(f"\n迭代 {iteration + 1}:")
             u_hierarchy[-1] = self.v_cycle(op_hierarchy,
@@ -363,14 +358,14 @@ class AdaptiveMultigridComplex:
         print(f"总迭代次数: {len(self.convergence_history)}")
         print(f"最终残差: {self.convergence_history[-1]:.2e}")
         print(f"求解时间: {solve_time:.4f} 秒")
-        print("="*60)
+        print(f"\n{'='*60}")
         return u_hierarchy[-1].reshape((self.nz, self.ny, self.nx))
 
-    def verify_solution(self, solution, alpha=1.0, beta=1.0j, func_type='sine'):
+    def verify_solution(self, solution):
         print("\n验证解的正确性:")
         print("-" * 30)
-        op = self.create_operator(self.nx, self.ny, self.nz, alpha, beta)
-        b = self.create_rhs(self.nx, self.ny, self.nz, func_type)
+        op = self.op(self.nx, self.ny, self.nz)
+        b = op.give_b()
         u_flat = solution.flatten()
         residual = op.matvec(u_flat) - b
         residual_norm = np.linalg.norm(residual)
@@ -391,42 +386,27 @@ class AdaptiveMultigridComplex:
 
 
 if __name__ == "__main__":
+    print(f"\n{'='*80}")
     print("自适应多重网格复数求解器演示")
-    print("=" * 50)
     nx = 32
     ny = 64
     nz = 8
     solver = AdaptiveMultigridComplex(
-        nx=nx, ny=ny, nz=nz, max_levels=10, tolerance=1e-8, max_iterations=1000, dtype=np.complex128)
-    test_cases = [
-        {"alpha": 1.0, "beta": 1.0j, "func_type": "sine",
-            "name": "复数椭圆问题 (正弦右端项)"},
-        {"alpha": 2.0, "beta": 0.5j, "func_type": "exponential",
-            "name": "修正复数问题 (指数右端项)"}
-    ]
-    for i, case in enumerate(test_cases):
-        print(f"\n{'='*80}")
-        print(f"测试案例 {i+1}: {case['name']}")
-        print(f"{'='*80}")
-        solution = solver.solve(
-            alpha=case["alpha"], beta=case["beta"], func_type=case["func_type"])
-        residual_norm, relative_error = solver.verify_solution(
-            solution, alpha=case["alpha"], beta=case["beta"], func_type=case["func_type"]
-        )
-        print(f"\n性能统计:")
-        print(f"网格大小: {nx}x{ny}x{nz}")
-        print(f"未知数个数: {nx*ny*nz}")
-        print(f"收敛迭代次数: {len(solver.convergence_history)}")
-        print(f"最终残差: {solver.convergence_history[-1]:.2e}")
-        plt.title(
-            f'Adaptive Multigrid Complex Solution Results', fontsize=16)
-        plt.semilogy(range(1, len(solver.convergence_history) + 1),
-                     solver.convergence_history, 'b-o', markersize=4)
-        plt.tight_layout()
-        solve_time_str = time.strftime("%Y%m%d%H%M%S", time.localtime())
-        plt.savefig(
-            f"Adaptive_Multigrid_Complex_Solution_Results_{solve_time_str}.png", dpi=300)
-        solver.convergence_history = []
-    print(f"\n{'='*80}")
+        nx=nx, ny=ny, nz=nz, max_levels=10, tolerance=1e-8, max_iterations=1000, dtype=np.complex64)
+    solution = solver.solve()
+    residual_norm, relative_error = solver.verify_solution(solution)
+    print(f"\n性能统计:")
+    print(f"网格大小: {nx}x{ny}x{nz}")
+    print(f"未知数个数: {nx*ny*nz}")
+    print(f"收敛迭代次数: {len(solver.convergence_history)}")
+    print(f"最终残差: {solver.convergence_history[-1]:.2e}")
+    plt.title(
+        f'Adaptive Multigrid Complex Solution Results', fontsize=16)
+    plt.semilogy(range(1, len(solver.convergence_history) + 1),
+                 solver.convergence_history, 'b-o', markersize=4)
+    plt.tight_layout()
+    solve_time_str = time.strftime("%Y%m%d%H%M%S", time.localtime())
+    plt.savefig(
+        f"Adaptive_Multigrid_Complex_Solution_Results_{solve_time_str}.png", dpi=300)
     print("所有测试完成!")
-    print(f"{'='*80}")
+    print(f"\n{'='*80}")
