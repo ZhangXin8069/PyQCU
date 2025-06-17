@@ -76,8 +76,3 @@ def test_su3(U):
     print(" Is SU(3) a member :", is_su3(U))
     print(" Satisfy three-row complex conjugation properties :",
           validate_minor_identities(U))
-
-
-def give_gauge(sigma=0.1, seed=12138, params=None):
-    return io.dptzyxcc2ccdptzyx(io.gauge2dptzyxcc(give_gauss_SU3(sigma=sigma, seed=seed,
-                                                                 dtype=define.dtype(params[define._DATA_TYPE_]), size=params[define._LAT_XYZT_]*define._LAT_S_), params))
