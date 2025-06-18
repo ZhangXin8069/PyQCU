@@ -22,6 +22,3 @@
 [submodule "refer/wilson-mg/quantum-linalg"]
 	path = refer/wilson-mg/quantum-linalg
 	url = https://github.com/weinbe2/quantum-linalg.git
-[submodule "refer/AmgX"]
-	path = refer/AmgX
-	url = https://gitee.com/mirrors_NVIDIA/AMGX
