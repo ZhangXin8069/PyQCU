@@ -1,6 +1,3 @@
-[submodule "refer/DDalphaAMG"]
-	path = refer/DDalphaAMG
-	url = https://github.com/Gustavroot/DDalphaAMG.git
 [submodule "refer/QUDA"]
 	path = refer/QUDA
 	url = https://github.com/lattice/quda.git
@@ -13,12 +10,15 @@
 [submodule "refer/pyamg"]
 	path = refer/pyamg
 	url = https://github.com/pyamg/pyamg.git
-[submodule "refer/DDalphaAMG_ci"]
-	path = refer/DDalphaAMG_ci
-	url = https://github.com/JesusEV/DDalphaAMG_ci.git
 [submodule "refer/wilson-mg/quantum-mg"]
 	path = refer/wilson-mg/quantum-mg
 	url = https://github.com/weinbe2/quantum-mg.git
 [submodule "refer/wilson-mg/quantum-linalg"]
 	path = refer/wilson-mg/quantum-linalg
 	url = https://github.com/weinbe2/quantum-linalg.git
+[submodule "refer/DDalphaAMG"]
+	path = refer/DDalphaAMG
+	url = git@gitee.com:zhangxin8069/ddalphaamg.git
+[submodule "refer/DDalphaAMG_ci"]
+	path = refer/DDalphaAMG_ci
+	url = git@gitee.com:zhangxin8069/ddalphaamg_ci.git
