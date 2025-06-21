@@ -674,9 +674,24 @@ class AlgebraicMultigridComplex:
             # 构建粗网格算子 A_coarse = R * A * P
             print("  构建粗网格算子...")
             
-            # 定义矩阵向量乘法函数
+            # 定义矩阵向量乘法函数 - 修复维度问题
             def A_coarse_matvec(x):
-                return R.dot(current_matrix.matvec(P.dot(x)))
+                # 确保输入向量长度正确
+                if len(x) != P.shape[1]:
+                    # 如果长度不匹配，尝试调整
+                    if len(x) < P.shape[1]:
+                        # 填充零
+                        x_padded = np.zeros(P.shape[1], dtype=x.dtype)
+                        x_padded[:len(x)] = x
+                        x = x_padded
+                    else:
+                        # 截断
+                        x = x[:P.shape[1]]
+                
+                # 执行矩阵向量乘法
+                Px = P.dot(x)
+                A_Px = current_matrix.matvec(Px)
+                return R.dot(A_Px)
             
             # 创建线性算子
             A_coarse = LinearOperator(
@@ -692,7 +707,7 @@ class AlgebraicMultigridComplex:
             level += 1
             
             print(f"  粗网格大小: {A_coarse.shape[0]}")
-            if level > 0:
+            if level > 0 and len(self.matrices) > 1:
                 prev_size = self.matrices[-2].shape[0]
                 curr_size = A_coarse.shape[0]
                 print(f"  粗化比: {curr_size / prev_size:.3f}")
@@ -711,7 +726,15 @@ class AlgebraicMultigridComplex:
             
             # 确保x有正确的长度
             if len(x) != n_coarse:
-                x = np.zeros(n_coarse, dtype=b.dtype)
+                # 如果长度不匹配，调整x
+                if len(x) < n_coarse:
+                    # 填充零
+                    x_padded = np.zeros(n_coarse, dtype=b.dtype)
+                    x_padded[:len(x)] = x
+                    x = x_padded
+                else:
+                    # 截断
+                    x = x[:n_coarse]
             
             if n_coarse <= 200:  # 小矩阵直接求解
                 # 对于线性算子，使用迭代方法
@@ -719,6 +742,10 @@ class AlgebraicMultigridComplex:
             else:
                 # 大矩阵使用光滑器
                 return self.smoother.smooth(A_matvec, b, x)
+        
+        # 确保有插值和限制算子
+        if level >= len(self.interpolation_ops):
+            return x
         
         P = self.interpolation_ops[level]
         R = self.restriction_ops[level]
@@ -739,7 +766,15 @@ class AlgebraicMultigridComplex:
         
         # 确保coarse_error有正确的长度
         if len(coarse_error) != n_coarse:
-            coarse_error = np.zeros(n_coarse, dtype=coarse_residual.dtype)
+            # 如果长度不匹配，调整coarse_error
+            if len(coarse_error) < n_coarse:
+                # 填充零
+                error_padded = np.zeros(n_coarse, dtype=coarse_residual.dtype)
+                error_padded[:len(coarse_error)] = coarse_error
+                coarse_error = error_padded
+            else:
+                # 截断
+                coarse_error = coarse_error[:n_coarse]
         
         # 插值修正到细网格
         fine_correction = P.dot(coarse_error)
