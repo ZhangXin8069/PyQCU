@@ -1,9 +1,8 @@
 import time
 import numpy as np
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
-from scipy.sparse import csr_matrix, diags
-from scipy.sparse.linalg import spsolve, eigsh
+from scipy.sparse import csr_matrix, diags, issparse
+from scipy.sparse.linalg import spsolve, eigsh, LinearOperator, bicgstab
 from scipy.linalg import qr
 import warnings
 warnings.filterwarnings('ignore', category=RuntimeWarning)
@@ -78,6 +77,12 @@ class ComplexMatrixBuilder:
         print(f"  稀疏度: {A.nnz / (self.n**2) * 100:.2f}%")
 
         return A
+
+    def matvec_operator(self, A):
+        """创建矩阵向量乘法算子"""
+        if issparse(A):
+            return lambda x: A.dot(x)
+        return lambda x: A @ x
 
 
 class AMGEigenvectorCoarsening:
@@ -403,8 +408,8 @@ class AMGInterpolation:
         return strong_connections
 
 
-class GMRESSmoother:
-    """GMRES光滑器"""
+class FGMRESSmoother:
+    """灵活GMRES(FGMRES)光滑器"""
 
     def __init__(self, max_krylov=5, max_restarts=1, tol=0.1):
         self.max_krylov = max_krylov
@@ -412,73 +417,89 @@ class GMRESSmoother:
         self.tol = tol
 
     def smooth(self, A, b, x0):
-        """执行GMRES光滑"""
+        """执行FGMRES光滑"""
+        n = len(b)
         x = x0.copy()
-        r = b - A @ x0
+        r = b - A(x0)  # 使用矩阵向量乘法
         r_norm = np.linalg.norm(r)
 
         if r_norm < 1e-12:
             return x0
 
-        for _ in range(self.max_restarts):
-            Q, H = self._arnoldi(A, r, r_norm)
+        # 存储搜索方向
+        V = np.zeros((n, self.max_krylov + 1), dtype=np.complex128)
+        Z = np.zeros((n, self.max_krylov), dtype=np.complex128)  # 预处理后的方向
+        H = np.zeros((self.max_krylov + 1, self.max_krylov), dtype=np.complex128)
 
-            e1 = np.zeros(H.shape[1] + 1, dtype=b.dtype)
-            e1[0] = r_norm
-            y = self._solve_least_squares(H, e1)
+        # 初始残差向量
+        V[:, 0] = r / r_norm
 
-            dx = Q[:, :-1] @ y
-            x = x + dx
+        # Givens旋转存储
+        cs = np.zeros(self.max_krylov, dtype=np.complex128)
+        sn = np.zeros(self.max_krylov, dtype=np.complex128)
+        s = np.zeros(self.max_krylov + 1, dtype=np.complex128)
+        s[0] = r_norm
 
-            new_r = b - A @ x
-            new_r_norm = np.linalg.norm(new_r)
-            if new_r_norm < self.tol * r_norm:
+        for j in range(self.max_krylov):
+            # 应用预处理 (这里使用简单的对角预处理)
+            # 暂时禁用预处理以简化
+            Z[:, j] = V[:, j]  # 不使用预处理
+
+            # 矩阵向量乘法
+            w = A(Z[:, j])
+
+            # Arnoldi过程
+            for i in range(j + 1):
+                H[i, j] = np.vdot(V[:, i], w)
+                w = w - H[i, j] * V[:, i]
+
+            H[j + 1, j] = np.linalg.norm(w)
+            if abs(H[j + 1, j]) < 1e-12:
                 break
 
-            r = new_r
-            r_norm = new_r_norm
+            V[:, j + 1] = w / H[j + 1, j]
+
+            # 应用Givens旋转
+            for i in range(j):
+                temp = cs[i] * H[i, j] + sn[i] * H[i + 1, j]
+                H[i + 1, j] = -sn[i].conj() * H[i, j] + cs[i].conj() * H[i + 1, j]
+                H[i, j] = temp
+
+            # 计算新的Givens旋转
+            h1 = H[j, j]
+            h2 = H[j + 1, j]
+            if abs(h2) < 1e-12:
+                cs[j] = 1.0
+                sn[j] = 0.0
+            elif abs(h2) > abs(h1):
+                t = h1 / h2
+                sn[j] = 1.0 / np.sqrt(1.0 + abs(t)**2)
+                cs[j] = t * sn[j]
+            else:
+                t = h2 / h1
+                cs[j] = 1.0 / np.sqrt(1.0 + abs(t)**2)
+                sn[j] = t * cs[j]
+
+            H[j, j] = cs[j] * H[j, j] + sn[j] * H[j + 1, j]
+            H[j + 1, j] = 0.0
+
+            # 更新s向量
+            s[j + 1] = -sn[j].conj() * s[j]
+            s[j] = cs[j] * s[j]
+
+            # 检查收敛
+            if abs(s[j + 1]) < self.tol * r_norm:
+                break
+
+        # 解最小二乘问题
+        j_end = j + 1
+        y = np.linalg.lstsq(H[:j_end, :j_end], s[:j_end], rcond=None)[0]
+        
+        # 更新解
+        dx = Z[:, :j_end] @ y
+        x = x + dx
 
         return x
-
-    def _arnoldi(self, A, r0, r_norm):
-        """Arnoldi过程"""
-        m = self.max_krylov
-        n = len(r0)
-        Q = np.zeros((n, m+1), dtype=r0.dtype)
-        H = np.zeros((m+1, m), dtype=r0.dtype)
-
-        Q[:, 0] = r0 / r_norm
-
-        for j in range(m):
-            w = A @ Q[:, j]
-
-            for i in range(j+1):
-                H[i, j] = np.vdot(Q[:, i], w)
-                w = w - H[i, j] * Q[:, i]
-
-            h_norm = np.linalg.norm(w)
-            H[j+1, j] = h_norm
-
-            if h_norm < 1e-12:
-                return Q[:, :j+1], H[:j+1, :j]
-
-            if j < m:
-                Q[:, j+1] = w / h_norm
-
-        return Q, H
-
-    def _solve_least_squares(self, H, e1):
-        """求解最小二乘问题"""
-        m = H.shape[1]
-        h_height = H.shape[0]
-
-        R = np.zeros((h_height, m+1), dtype=H.dtype)
-        R[:, :m] = H
-        R[:, m] = e1[:h_height]
-
-        Q, R_qr = np.linalg.qr(R, mode='complete')
-        y = np.linalg.solve(R_qr[:m, :m], Q[:m, :m].conj().T @ e1[:m])
-        return y
 
 
 class AlgebraicMultigridComplex:
@@ -494,6 +515,7 @@ class AlgebraicMultigridComplex:
         self.num_eigenvectors = num_eigenvectors
         self.max_coarse_size = max_coarse_size
         self.convergence_history = []
+        self.bicgstab_history = []
 
         # 初始化组件
         self.coarsening = AMGEigenvectorCoarsening(
@@ -501,19 +523,22 @@ class AlgebraicMultigridComplex:
             max_coarse_size=max_coarse_size
         )
         self.interpolation = AMGInterpolation()
-        self.smoother = GMRESSmoother()
+        self.smoother = FGMRESSmoother()
 
         # 存储多重网格层次结构
         self.matrices = []
+        self.matvec_ops = []
         self.interpolation_ops = []
         self.restriction_ops = []
 
     def setup_hierarchy(self, A):
-        """建立AMG层次结构"""
+        """建立AMG层次结构 (基于特征向量粗化)"""
         print("建立AMG层次结构 (基于特征向量粗化)...")
         print("=" * 50)
 
         self.matrices = [A]
+        # 使用闭包正确绑定当前矩阵
+        self.matvec_ops = [lambda x, A=A: A.dot(x)]
         self.interpolation_ops = []
         self.restriction_ops = []
 
@@ -546,6 +571,8 @@ class AlgebraicMultigridComplex:
             print("  构建粗网格算子...")
             A_coarse = R @ current_matrix @ P
             self.matrices.append(A_coarse)
+            # 使用闭包正确绑定当前粗网格矩阵
+            self.matvec_ops.append(lambda x, A=A_coarse: A.dot(x))
 
             current_matrix = A_coarse
             level += 1
@@ -560,44 +587,55 @@ class AlgebraicMultigridComplex:
 
     def v_cycle(self, b, x, level=0):
         """V-循环迭代"""
+        A_matvec = self.matvec_ops[level]
+        
         if level == len(self.matrices) - 1:
             # 最粗层：直接求解
             A_coarse = self.matrices[level]
-            if A_coarse.shape[0] <= 200:  # 小矩阵直接求解
+            n_coarse = A_coarse.shape[0]
+            
+            # 确保x有正确的长度
+            if len(x) != n_coarse:
+                x = np.zeros(n_coarse, dtype=b.dtype)
+            
+            if n_coarse <= 200:  # 小矩阵直接求解
                 try:
                     x[:] = spsolve(A_coarse, b)
+                    return x
                 except:
                     # 如果直接求解失败，使用迭代方法
-                    x[:] = self.smoother.smooth(A_coarse, b, x)
+                    return self.smoother.smooth(A_matvec, b, x)
             else:
                 # 大矩阵使用光滑器
-                x[:] = self.smoother.smooth(A_coarse, b, x)
-            return x
+                return self.smoother.smooth(A_matvec, b, x)
 
-        A = self.matrices[level]
         P = self.interpolation_ops[level]
         R = self.restriction_ops[level]
 
         # 前光滑
-        x = self.smoother.smooth(A, b, x)
+        x = self.smoother.smooth(A_matvec, b, x)
 
         # 计算残差
-        residual = b - A @ x
+        residual = b - A_matvec(x)
 
         # 限制残差到粗网格
         coarse_residual = R @ residual
-        coarse_error = np.zeros(
-            coarse_residual.shape[0], dtype=coarse_residual.dtype)
+        n_coarse = len(coarse_residual)
+        coarse_error = np.zeros(n_coarse, dtype=coarse_residual.dtype)
 
         # 递归求解粗网格修正方程
         coarse_error = self.v_cycle(coarse_residual, coarse_error, level + 1)
+
+        # 确保coarse_error有正确的长度
+        if len(coarse_error) != n_coarse:
+            coarse_error = np.zeros(n_coarse, dtype=coarse_residual.dtype)
 
         # 插值修正到细网格
         fine_correction = P @ coarse_error
         x = x + fine_correction
 
         # 后光滑
-        x = self.smoother.smooth(A, b, x)
+        x = self.smoother.smooth(A_matvec, b, x)
 
         return x
 
@@ -622,10 +660,10 @@ class AlgebraicMultigridComplex:
 
         for iteration in range(self.max_iterations):
             # 执行V-循环
-            x = self.v_cycle(b, x)
+            x = self.v_cycle(b, x, level=0)
 
             # 计算残差
-            residual = b - A @ x
+            residual = b - A.dot(x)
             residual_norm = np.linalg.norm(residual)
             self.convergence_history.append(residual_norm)
 
@@ -646,7 +684,40 @@ class AlgebraicMultigridComplex:
         print(f"求解时间: {solve_time:.4f} 秒")
         print("=" * 60)
 
-        return x
+        return x, solve_time
+
+    def solve_bicgstab(self, A, b, x0=None):
+        """使用BiCGSTAB求解器进行比较"""
+        print("\n开始BiCGSTAB求解...")
+        print("=" * 40)
+        
+        if x0 is None:
+            x0 = np.zeros_like(b)
+        
+        # 记录残差历史的回调函数
+        residuals = []
+        def callback(xk):
+            r = b - A.dot(xk)
+            residuals.append(np.linalg.norm(r))
+        
+        start_time = time.time()
+        x, info = bicgstab(A, b, x0=x0, callback=callback, 
+                          atol=self.tolerance, maxiter=self.max_iterations)
+        solve_time = time.time() - start_time
+        
+        if info == 0:
+            print(f"✓ BiCGSTAB 收敛达到容差 {self.tolerance}")
+        else:
+            print(f"⚠ BiCGSTAB 未收敛 (状态码: {info})")
+        
+        final_residual = residuals[-1] if residuals else np.nan
+        print(f"迭代次数: {len(residuals)}")
+        print(f"最终残差: {final_residual:.2e}")
+        print(f"求解时间: {solve_time:.4f} 秒")
+        print("=" * 40)
+        
+        self.bicgstab_history = residuals
+        return x, solve_time, residuals
 
     def create_rhs(self, nx, ny, nz, func_type='sine'):
         """创建右端项"""
@@ -675,7 +746,7 @@ class AlgebraicMultigridComplex:
         print("\n验证解的正确性:")
         print("-" * 30)
 
-        residual = A @ x - b
+        residual = A.dot(x) - b
         residual_norm = np.linalg.norm(residual)
         relative_error = residual_norm / np.linalg.norm(b)
 
@@ -692,87 +763,35 @@ class AlgebraicMultigridComplex:
 
         return residual_norm, relative_error
 
-    def plot_results(self, solution, nx, ny, nz):
-        """可视化结果"""
-        print("\n生成可视化图像...")
-
-        solution_3d = solution.reshape((nz, ny, nx))
-
-        if nz > 1:
-            # 3D情况：显示中间切片
-            mid_z = nz // 2
-            solution_2d = solution_3d[mid_z, :, :]
-            title_suffix = f" (Z-slice at k={mid_z})"
-        else:
-            # 2D情况
-            solution_2d = solution_3d[0, :, :]
-            title_suffix = ""
-
-        fig, axes = plt.subplots(2, 3, figsize=(18, 12))
-        fig.suptitle(
-            f'AMG Complex Solution Results{title_suffix}', fontsize=16)
-
-        x = np.linspace(0, 1, nx)
-        y = np.linspace(0, 1, ny)
-        X, Y = np.meshgrid(x, y)
-
-        # 实部
-        im1 = axes[0, 0].contourf(X, Y, np.real(
-            solution_2d), levels=20, cmap='RdBu_r')
-        axes[0, 0].set_title('Solution - Real Part')
-        axes[0, 0].set_xlabel('x')
-        axes[0, 0].set_ylabel('y')
-        plt.colorbar(im1, ax=axes[0, 0])
-
-        # 虚部
-        im2 = axes[0, 1].contourf(X, Y, np.imag(
-            solution_2d), levels=20, cmap='RdBu_r')
-        axes[0, 1].set_title('Solution - Imaginary Part')
-        axes[0, 1].set_xlabel('x')
-        axes[0, 1].set_ylabel('y')
-        plt.colorbar(im2, ax=axes[0, 1])
-
-        # 模长
-        im3 = axes[0, 2].contourf(X, Y, np.abs(
-            solution_2d), levels=20, cmap='viridis')
-        axes[0, 2].set_title('Solution - Magnitude')
-        axes[0, 2].set_xlabel('x')
-        axes[0, 2].set_ylabel('y')
-        plt.colorbar(im3, ax=axes[0, 2])
-
-        # 收敛历史
-        axes[1, 0].semilogy(range(1, len(self.convergence_history) + 1),
-                            self.convergence_history, 'b-o', markersize=4)
-        axes[1, 0].set_title('Convergence History')
-        axes[1, 0].set_xlabel('Iteration')
-        axes[1, 0].set_ylabel('Residual Norm')
-        axes[1, 0].grid(True)
-
-        # 相位
-        phase = np.angle(solution_2d)
-        im4 = axes[1, 1].contourf(X, Y, phase, levels=20, cmap='hsv')
-        axes[1, 1].set_title('Solution - Phase')
-        axes[1, 1].set_xlabel('x')
-        axes[1, 1].set_ylabel('y')
-        plt.colorbar(im4, ax=axes[1, 1])
-
-        # 3D表面图
-        ax3d = fig.add_subplot(2, 3, 6, projection='3d')
-        surf = ax3d.plot_surface(X, Y, np.abs(
-            solution_2d), cmap='viridis', alpha=0.8)
-        ax3d.set_title('Solution Magnitude - 3D View')
-        ax3d.set_xlabel('x')
-        ax3d.set_ylabel('y')
-        ax3d.set_zlabel('|u|')
-
+    def plot_convergence(self, amg_time, bicgstab_time):
+        """绘制收敛历史对比图"""
+        plt.figure(figsize=(10, 6))
+        
+        # AMG收敛历史
+        if self.convergence_history:
+            amg_iter = range(1, len(self.convergence_history) + 1)
+            plt.semilogy(amg_iter, self.convergence_history, 'b-o', 
+                        label=f'AMG (Time: {amg_time:.2f}s)')
+        
+        # BiCGSTAB收敛历史
+        if self.bicgstab_history:
+            bicg_iter = range(1, len(self.bicgstab_history) + 1)
+            plt.semilogy(bicg_iter, self.bicgstab_history, 'r--s', 
+                        label=f'BiCGSTAB (Time: {bicgstab_time:.2f}s)')
+        
+        plt.title('Convergence History Comparison')
+        plt.xlabel('Iteration')
+        plt.ylabel('Residual Norm')
+        plt.grid(True, which='both', linestyle='--', linewidth=0.5)
+        plt.legend()
         plt.tight_layout()
-        plt.show()
-
+        
         # 保存图像
         timestamp = time.strftime("%Y%m%d%H%M%S", time.localtime())
-        filename = f"AMG_Complex_Solution_{timestamp}.png"
+        filename = f"Convergence_Comparison_{timestamp}.png"
         plt.savefig(filename, dpi=300, bbox_inches='tight')
-        print(f"图像已保存: {filename}")
+        plt.show()
+        print(f"收敛对比图已保存: {filename}")
 
 
 # 主程序
@@ -780,7 +799,8 @@ if __name__ == "__main__":
     print("代数多重网格复数求解器演示")
     print("=" * 50)
 
-    # 问题参数
+    # 问题参数 - 使用较小的网格进行测试
+    # nx, ny, nz = 16, 16, 8
     nx, ny, nz = 32, 32, 12
 
     # 构建系数矩阵
@@ -790,20 +810,39 @@ if __name__ == "__main__":
     # 创建AMG求解器
     solver = AlgebraicMultigridComplex(
         max_levels=10,
-        tolerance=1e-8)
+        tolerance=1e-8,
+        max_iterations=100
+    )
 
     b = solver.create_rhs(nx=nx, ny=ny, nz=nz)
-    x = solver.solve(A=A, b=b)
-    # 验证
-    solver.verify_solution(A=A, x=x, b=b)
-    # 可视化
-    solver.plot_results(solution=x, nx=nx, ny=ny, nz=nz)
+    
+    # 使用AMG求解
+    x_amg, amg_time = solver.solve(A=A, b=b)
+    
+    # 使用BiCGSTAB求解
+    x_bicg, bicg_time, _ = solver.solve_bicgstab(A=A, b=b)
+    
+    # 计算加速比
+    speedup = bicg_time / amg_time if amg_time > 0 else float('inf')
+    print(f"\n性能对比:")
+    print(f"AMG求解时间: {amg_time:.4f}秒")
+    print(f"BiCGSTAB求解时间: {bicg_time:.4f}秒")
+    print(f"加速比: {speedup:.2f}x")
+    print("=" * 50)
+    
+    # 验证解
+    solver.verify_solution(A=A, x=x_amg, b=b)
+    
+    # 绘制收敛历史对比图
+    solver.plot_convergence(amg_time, bicg_time)
+    
     # 性能统计
     print(f"\n性能统计:")
     print(f"网格大小: {nx}x{ny}x{nz}")
     print(f"未知数个数: {nx*ny*nz}")
-    print(f"收敛迭代次数: {len(solver.convergence_history)}")
-    print(f"最终残差: {solver.convergence_history[-1]:.2e}")
+    print(f"AMG收敛迭代次数: {len(solver.convergence_history)}")
+    print(f"BiCGSTAB收敛迭代次数: {len(solver.bicgstab_history)}")
+    print(f"加速比: {speedup:.2f}x")
     print(f"\n{'='*80}")
     print("所有测试完成!")
     print(f"{'='*80}")
