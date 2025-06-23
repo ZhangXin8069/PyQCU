@@ -202,7 +202,7 @@ namespace qcu
                                                        device_vals);
       _dot(device_vec0, device_vec0, _diff_tmp_, _a_);
       bistabcg_give_1diff<T><<<1, 1, 0, set_ptr->streams[_a_]>>>(device_vals);
-      print_vals(999);
+      print_vals(0);
       checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
       checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_a_]));
       checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_b_]));
