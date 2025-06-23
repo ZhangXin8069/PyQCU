@@ -204,3 +204,21 @@ def dtype(_data_type_=_LAT_C64_):
     elif _data_type_ == _LAT_R128_:
         print("Doesn't support real128")
         return None
+
+def dtype_half(_data_type_=_LAT_C64_):
+    if _data_type_ == _LAT_C8_:
+        print("Doesn't support complex8")
+        return None
+    elif _data_type_ == _LAT_C16_:
+        print("Doesn't support complex16")
+        return None
+    elif _data_type_ == _LAT_C32_:
+        print("Doesn't support complex32")
+        return None
+    elif _data_type_ == _LAT_C64_:
+        return cp.float32
+    elif _data_type_ == _LAT_C128_:
+        return cp.float64
+    elif _data_type_ == _LAT_C256_:
+        print("Doesn't support complex256")
+        return None
