@@ -594,9 +594,9 @@ namespace qcu
               .count();
       err = cudaGetLastError();
       checkCudaErrors(err);
-      printf("multi-gpu wilson dslash total time: (without malloc free memcpy) :%.9lf "
-             "sec\n",
-             double(duration) / 1e9);
+      // printf("multi-gpu wilson dslash total time: (without malloc free memcpy) :%.9lf "
+      //        "sec\n",
+      //        double(duration) / 1e9);
     }
   };
 }

@@ -23,7 +23,7 @@ params[define._LAT_Z_] = 4
 params[define._LAT_T_] = 4
 params[define._LAT_XYZT_] = params[define._LAT_X_] * \
     params[define._LAT_Y_] * params[define._LAT_Z_] * params[define._LAT_T_]
-params[define._LAT_E_] = 8
+params[define._LAT_E_] = 4
 params[define._NODE_RANK_] = define.rank
 params[define._NODE_SIZE_] = define.size
 params[define._DATA_TYPE_] = define._LAT_C128_
