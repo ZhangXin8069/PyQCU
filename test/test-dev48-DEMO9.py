@@ -11,18 +11,18 @@ warnings.filterwarnings('ignore', category=RuntimeWarning)
 
 np.Inf = np.inf
 
-
 class ComplexMatrixBuilder:
     """
     A utility class to build complex-valued matrices.
     """
 
-    def __init__(self, nx, ny, nz, alpha=1.0, beta=1.0j):
+    def __init__(self, nx, ny, nz, alpha=1.0, beta=1.0j, dtype=np.complex128):
         self.nx = nx
         self.ny = ny
         self.nz = nz
         self.alpha = alpha
         self.beta = beta
+        self.dtype = dtype
         self.n = nx * ny * nz
         self.hx = 1.0 / (nx + 1)
         self.hy = 1.0 / (ny + 1)
@@ -31,6 +31,7 @@ class ComplexMatrixBuilder:
     def build_matrix(self):
         """Builds the sparse matrix representation."""
         print(f"Building {self.nx}x{self.ny}x{self.nz} complex matrix...")
+        start_time = time.perf_counter()
 
         # Calculate coefficients
         cx = self.alpha / (self.hx**2)
@@ -45,11 +46,11 @@ class ComplexMatrixBuilder:
         offsets = []
 
         # Main diagonal
-        diagonals.append(np.full(self.n, main_diag, dtype=np.complex128))
+        diagonals.append(np.full(self.n, main_diag, dtype=self.dtype))
         offsets.append(0)
 
         # x-direction neighbors (offset = ±1)
-        x_diag = np.full(self.n - 1, -cx, dtype=np.complex128)
+        x_diag = np.full(self.n - 1, -cx, dtype=self.dtype)
         # Exclude connections across x-boundaries
         for i in range(1, self.n):
             if i % self.nx == 0:
@@ -59,21 +60,23 @@ class ComplexMatrixBuilder:
 
         # y-direction neighbors (offset = ±nx)
         if self.nx < self.n:
-            y_diag = np.full(self.n - self.nx, -cy, dtype=np.complex128)
+            y_diag = np.full(self.n - self.nx, -cy, dtype=self.dtype)
             diagonals.extend([y_diag, y_diag])
             offsets.extend([self.nx, -self.nx])
 
         # z-direction neighbors (offset = ±nx*ny)
         if self.nx * self.ny < self.n:
             z_diag = np.full(self.n - self.nx * self.ny, -
-                             cz, dtype=np.complex128)
+                             cz, dtype=self.dtype)
             diagonals.extend([z_diag, z_diag])
             offsets.extend([self.nx * self.ny, -self.nx * self.ny])
 
         # Build the sparse matrix
         A = diags(diagonals, offsets, shape=(self.n, self.n),
-                  format='csr', dtype=np.complex128)
+                  format='csr', dtype=self.dtype)
 
+        build_time = time.perf_counter() - start_time
+        print(f"  Matrix built in {build_time:.4f} seconds")
         print(f"  Matrix dimensions: {A.shape}")
         print(f"  Non-zero elements: {A.nnz}")
         print(f"  Sparsity: {A.nnz / (self.n**2) * 100:.2f}%")
@@ -82,10 +85,10 @@ class ComplexMatrixBuilder:
 
     def matvec_operator(self, A):
         """Creates a matrix-vector multiplication operator."""
+        print("matvec is running...")
         if issparse(A):
             return lambda x: A.dot(x)
         return lambda x: A @ x
-
 
 class AMGEigenvectorCoarsening:
     """
@@ -94,13 +97,14 @@ class AMGEigenvectorCoarsening:
 
     def __init__(self, num_eigenvectors=4, max_coarse_size=100,
                  coarsening_ratio=0.2, smoothness_threshold=0.5,
-                 power_iterations=15, chebyshev_degree=5):
+                 power_iterations=15, chebyshev_degree=5, dtype=np.complex128):
         self.num_eigenvectors = num_eigenvectors
         self.max_coarse_size = max_coarse_size
         self.coarsening_ratio = coarsening_ratio
         self.smoothness_threshold = smoothness_threshold
         self.power_iterations = power_iterations
         self.chebyshev_degree = chebyshev_degree
+        self.dtype = dtype
 
     def chebyshev_filter(self, A, v, lambda_min, lambda_max):
         """
@@ -137,12 +141,13 @@ class AMGEigenvectorCoarsening:
     def power_iteration_with_chebyshev(self, A, num_vectors, max_iter=20, tol=1e-6):
         """Computes eigenvectors using Chebyshev-accelerated power iteration."""
         n = A.shape[0]  # A is a LinearOperator with a shape attribute
-        eigenvectors = np.zeros((n, num_vectors), dtype=np.complex128)
+        eigenvectors = np.zeros((n, num_vectors), dtype=self.dtype)
 
         # Estimate spectral radius (simplified estimation)
         lambda_max = 0.0
         for _ in range(10):
             v_rand = np.random.randn(n) + 1j * np.random.randn(n)
+            v_rand = v_rand.astype(self.dtype)
             v_rand /= np.linalg.norm(v_rand)
             Av = A.matvec(v_rand)
             lambda_est = np.abs(np.vdot(v_rand, Av))
@@ -158,6 +163,7 @@ class AMGEigenvectorCoarsening:
         for k in range(num_vectors):
             # Random initialization
             v = np.random.randn(n) + 1j * np.random.randn(n)
+            v = v.astype(self.dtype)
             v /= np.linalg.norm(v)
 
             prev_norm = 0.0
@@ -175,6 +181,7 @@ class AMGEigenvectorCoarsening:
                 if norm_v < 1e-12:
                     # Re-initialize if vector becomes too small
                     v = np.random.randn(n) + 1j * np.random.randn(n)
+                    v = v.astype(self.dtype)
                     v /= np.linalg.norm(v)
                     continue
 
@@ -194,6 +201,7 @@ class AMGEigenvectorCoarsening:
         """Computes near-kernel eigenvectors using power iteration."""
         print(
             f"Computing {self.num_eigenvectors} near-kernel eigenvectors using power iteration...")
+        start_time = time.perf_counter()
 
         if isinstance(A, LinearOperator):
             n = A.shape[0]
@@ -213,19 +221,20 @@ class AMGEigenvectorCoarsening:
         num_vec = min(self.num_eigenvectors, n-2)
         if num_vec <= 0:
             return None
-        # """"
-        # # too slow...
+
         eigenvectors = self.power_iteration_with_chebyshev(
             A_op,
             num_vec
         )
         eigenvalues = np.array([np.vdot(v, A_op.matvec(v))
                                for v in eigenvectors.T])
-        # # Estimate eigenvalues
+        # Estimate eigenvalues
         sorted_indices = np.argsort(np.abs(eigenvalues))
         eigenvalues = eigenvalues[sorted_indices]
         eigenvectors = eigenvectors[:, sorted_indices]
 
+        comp_time = time.perf_counter() - start_time
+        print(f"  Eigenvector computation time: {comp_time:.4f} seconds")
         print(
             f"  Estimated eigenvalues: {[f'{abs(ev):.4e}' for ev in eigenvalues]}")
 
@@ -234,15 +243,17 @@ class AMGEigenvectorCoarsening:
     def analyze_smoothness(self, A, eigenvectors):
         """Analyzes the smoothness of eigenvectors using matrix-vector multiplication."""
         print("Analyzing eigenvector smoothness...")
+        start_time = time.perf_counter()
 
         if eigenvectors is None or eigenvectors.size == 0:
             return np.zeros(A.shape[0])
 
         n = eigenvectors.shape[0]
-        smoothness_indicators = np.zeros(n)
+        smoothness_indicators = np.zeros(n, dtype=self.dtype)
 
         # Note: This is computationally expensive as it is matrix-free.
         def diff_operator(x):
+            print("diff_operato is running...")
             return self._diff_operator_matvec(A, x)
 
         for i, vec in enumerate(eigenvectors.T):
@@ -258,6 +269,8 @@ class AMGEigenvectorCoarsening:
             smoothness_indicators = smoothness_indicators / \
                 np.max(smoothness_indicators)
 
+        analysis_time = time.perf_counter() - start_time
+        print(f"  Smoothness analysis time: {analysis_time:.4f} seconds")
         print(
             f"  Smoothness indicator range: [{np.min(smoothness_indicators):.4f}, {np.max(smoothness_indicators):.4f}]")
 
@@ -271,12 +284,13 @@ class AMGEigenvectorCoarsening:
             A_op = aslinearoperator(A)
 
         n = len(x)
-        row_sums = np.zeros(n, dtype=np.complex128)
+        row_sums = np.zeros(n, dtype=self.dtype)
 
         # This is a very slow way to get row sums for a LinearOperator,
         # but necessary without direct matrix access.
         for i in range(n):
-            e_i = np.zeros(n)
+            print(f"diff_operator_matvec:{i} is preparing...")
+            e_i = np.zeros(n, dtype=self.dtype)
             e_i[i] = 1.0
             A_row = A_op.matvec(e_i)
             row_sums[i] = np.sum(np.abs(A_row)) - np.abs(A_row[i])
@@ -284,10 +298,11 @@ class AMGEigenvectorCoarsening:
         diff_result = np.zeros_like(x)
 
         for i in range(n):
+            print(f"diff_operator_matvec:{i} is running...")
             if row_sums[i] > 1e-12:
                 # This is also slow, performing a matvec for each row.
                 weighted_sum = 0.0
-                e_i = np.zeros(n)
+                e_i = np.zeros(n, dtype=self.dtype)
                 e_i[i] = 1.0
                 A_row = A_op.matvec(e_i)
 
@@ -305,6 +320,7 @@ class AMGEigenvectorCoarsening:
     def eigenvector_based_coarsening(self, A):
         """Coarsening algorithm based on eigenvectors (using matvecs)."""
         print("Performing eigenvector-based coarsening...")
+        start_time = time.perf_counter()
 
         n = A.shape[0]
         if n <= self.max_coarse_size:
@@ -334,6 +350,8 @@ class AMGEigenvectorCoarsening:
             c_points = self._increase_coarse_points(
                 c_points, smoothness, target_coarse_size)
 
+        coarsening_time = time.perf_counter() - start_time
+        print(f"  Coarsening time: {coarsening_time:.4f} seconds")
         print(f"  Coarse grid points: {np.sum(c_points)}")
         print(f"  Fine grid points: {np.sum(~c_points)}")
         print(f"  Coarsening ratio: {np.sum(c_points) / n:.3f}")
@@ -415,18 +433,19 @@ class AMGEigenvectorCoarsening:
 
         return new_c_points
 
-
 class AMGInterpolation:
     """
     Builds the AMG interpolation operator.
     """
 
-    def __init__(self, truncation_factor=0.2):
+    def __init__(self, truncation_factor=0.2, dtype=np.complex128):
         self.truncation_factor = truncation_factor
+        self.dtype = dtype
 
     def build_interpolation(self, A, c_points):
         """Builds the interpolation operator (using matvecs)."""
         print("Building interpolation operator...")
+        start_time = time.perf_counter()
 
         n = A.shape[0]
         c_indices = np.where(c_points)[0]
@@ -460,7 +479,7 @@ class AMGInterpolation:
 
         for f_idx in f_indices:
             # Get the strong C-neighbors for the F-point
-            e_f = np.zeros(n)
+            e_f = np.zeros(n, dtype=self.dtype)
             e_f[f_idx] = 1.0
             A_row = A_op.matvec(e_f)
 
@@ -514,46 +533,49 @@ class AMGInterpolation:
 
         # Build the sparse interpolation matrix
         P = csr_matrix((P_data, (P_rows, P_cols)),
-                       shape=(n, nc), dtype=np.complex128)
+                       shape=(n, nc), dtype=self.dtype)
 
+        build_time = time.perf_counter() - start_time
+        print(f"  Interpolation build time: {build_time:.4f} seconds")
         print(f"  Interpolation matrix shape: {P.shape}")
         print(f"  Interpolation matrix non-zeros: {P.nnz}")
 
         return P
 
-
 class FGMRESSmoother:
     """Flexible GMRES (FGMRES) smoother."""
 
-    def __init__(self, max_krylov=5, max_restarts=1, tol=0.1):
+    def __init__(self, max_krylov=5, max_restarts=1, tol=0.1, dtype=np.complex128):
         self.max_krylov = max_krylov
         self.max_restarts = max_restarts
         self.tol = tol
+        self.dtype = dtype
 
     def smooth(self, A, b, x0):
         """Performs FGMRES smoothing."""
         n = len(b)
-        x = x0.copy()
+        x = x0.copy().astype(self.dtype)
         r = b - A(x0)  # Uses matrix-vector multiplication
+        r = r.astype(self.dtype)
         r_norm = np.linalg.norm(r)
 
         if r_norm < 1e-12:
             return x0
 
         # Store search directions
-        V = np.zeros((n, self.max_krylov + 1), dtype=np.complex128)
+        V = np.zeros((n, self.max_krylov + 1), dtype=self.dtype)
         # Preconditioned directions
-        Z = np.zeros((n, self.max_krylov), dtype=np.complex128)
+        Z = np.zeros((n, self.max_krylov), dtype=self.dtype)
         H = np.zeros((self.max_krylov + 1, self.max_krylov),
-                     dtype=np.complex128)
+                     dtype=self.dtype)
 
         # Initial residual vector
         V[:, 0] = r / r_norm
 
         # Givens rotation storage
-        cs = np.zeros(self.max_krylov, dtype=np.complex128)
-        sn = np.zeros(self.max_krylov, dtype=np.complex128)
-        s = np.zeros(self.max_krylov + 1, dtype=np.complex128)
+        cs = np.zeros(self.max_krylov, dtype=self.dtype)
+        sn = np.zeros(self.max_krylov, dtype=self.dtype)
+        s = np.zeros(self.max_krylov + 1, dtype=self.dtype)
         s[0] = r_norm
 
         iters = 0
@@ -619,7 +641,6 @@ class FGMRESSmoother:
 
         return x
 
-
 class AlgebraicMultigridComplex:
     """
     Algebraic multigrid solver for complex matrices using eigenvector coarsening.
@@ -627,7 +648,7 @@ class AlgebraicMultigridComplex:
 
     def __init__(self, max_levels=10, tolerance=1e-8, max_iterations=100,
                  num_eigenvectors=3, max_coarse_size=50,
-                 power_iterations=15, chebyshev_degree=5):
+                 power_iterations=15, chebyshev_degree=5, dtype=np.complex128):
         self.max_levels = max_levels
         self.tolerance = tolerance
         self.max_iterations = max_iterations
@@ -635,6 +656,7 @@ class AlgebraicMultigridComplex:
         self.max_coarse_size = max_coarse_size
         self.power_iterations = power_iterations
         self.chebyshev_degree = chebyshev_degree
+        self.dtype = dtype
         self.convergence_history = []
         self.bicgstab_history = []
 
@@ -643,10 +665,11 @@ class AlgebraicMultigridComplex:
             num_eigenvectors=num_eigenvectors,
             max_coarse_size=max_coarse_size,
             power_iterations=power_iterations,
-            chebyshev_degree=chebyshev_degree
+            chebyshev_degree=chebyshev_degree,
+            dtype=dtype
         )
-        self.interpolation = AMGInterpolation()
-        self.smoother = FGMRESSmoother()
+        self.interpolation = AMGInterpolation(dtype=dtype)
+        self.smoother = FGMRESSmoother(dtype=dtype)
 
         # Store multigrid hierarchy
         self.matrices = []
@@ -672,6 +695,7 @@ class AlgebraicMultigridComplex:
         """Sets up the AMG hierarchy using eigenvector-based coarsening."""
         print("Setting up AMG hierarchy (Eigenvector Coarsening)...")
         print("=" * 50)
+        total_setup_time = time.perf_counter()
 
         # Wrap A in a LinearOperator
         if not isinstance(A, LinearOperator):
@@ -689,8 +713,8 @@ class AlgebraicMultigridComplex:
 
         while (current_matrix.shape[0] > self.max_coarse_size and
                level < self.max_levels - 1):
-
-            print(f"Level {level}: Matrix size {current_matrix.shape[0]}")
+            level_start = time.perf_counter()
+            print(f"\nLevel {level}: Matrix size {current_matrix.shape[0]}")
 
             # Eigenvector-based coarsening
             c_points = self.coarsening.eigenvector_based_coarsening(
@@ -711,6 +735,7 @@ class AlgebraicMultigridComplex:
 
             # Build coarse grid operator A_coarse = R * A * P
             print("  Building coarse grid operator...")
+            coarse_start = time.perf_counter()
 
             # Use the factory to correctly bind the operators for this level
             A_coarse_matvec = self._create_coarse_matvec(P, R, current_matrix)
@@ -719,8 +744,11 @@ class AlgebraicMultigridComplex:
             A_coarse = LinearOperator(
                 (P.shape[1], P.shape[1]),
                 matvec=A_coarse_matvec,
-                dtype=np.complex128
+                dtype=self.dtype
             )
+
+            coarse_time = time.perf_counter() - coarse_start
+            print(f"  Coarse operator build time: {coarse_time:.4f} seconds")
 
             self.matrices.append(A_coarse)
             # Use the matvec from the new operator
@@ -729,13 +757,17 @@ class AlgebraicMultigridComplex:
             current_matrix = A_coarse
             level += 1
 
+            level_time = time.perf_counter() - level_start
+            print(f"  Level {level-1} setup time: {level_time:.4f} seconds")
             print(f"  Coarse grid size: {A_coarse.shape[0]}")
             if level > 0 and len(self.matrices) > 1:
                 prev_size = self.matrices[-2].shape[0]
                 curr_size = A_coarse.shape[0]
                 print(f"  Coarsening factor: {curr_size / prev_size:.3f}")
 
-        print(f"\nTotal levels: {len(self.matrices)}")
+        total_setup_time = time.perf_counter() - total_setup_time
+        print(f"\nTotal hierarchy setup time: {total_setup_time:.4f} seconds")
+        print(f"Total levels: {len(self.matrices)}")
         print("Hierarchy setup complete!")
         print("=" * 50)
 
@@ -807,9 +839,9 @@ class AlgebraicMultigridComplex:
         print("=" * 60)
 
         if x0 is None:
-            x = np.zeros_like(b, dtype=np.complex128)
+            x = np.zeros_like(b, dtype=self.dtype)
         else:
-            x = x0.copy()
+            x = x0.copy().astype(self.dtype)
 
         # Set up the hierarchy
         self.setup_hierarchy(A)
@@ -818,13 +850,14 @@ class AlgebraicMultigridComplex:
         print(f"\nStarting AMG iterations:")
         print("-" * 40)
 
-        start_time = time.time()
+        start_time = time.perf_counter()
 
         b_norm = np.linalg.norm(b)
         if b_norm == 0:
             b_norm = 1.0  # Avoid division by zero
 
         for iteration in range(self.max_iterations):
+            iter_start = time.perf_counter()
             # Perform a V-cycle
             x = self.v_cycle(b, x, level=0)
 
@@ -834,8 +867,9 @@ class AlgebraicMultigridComplex:
             relative_residual = residual_norm / b_norm
             self.convergence_history.append(residual_norm)
 
+            iter_time = time.perf_counter() - iter_start
             print(
-                f"Iteration {iteration + 1:3d}: Residual Norm = {residual_norm:.4e} (Rel: {relative_residual:.4e})")
+                f"Iteration {iteration + 1:3d}: Residual Norm = {residual_norm:.4e} (Rel: {relative_residual:.4e}) | Time: {iter_time:.4f}s")
 
             # Check for convergence
             if residual_norm < self.tolerance:
@@ -844,13 +878,13 @@ class AlgebraicMultigridComplex:
         else:
             print("⚠ Reached maximum iterations.")
 
-        solve_time = time.time() - start_time
+        solve_time = time.perf_counter() - start_time
 
         print(f"\nSolve complete!")
         print(f"Total iterations: {len(self.convergence_history)}")
         if self.convergence_history:
             print(f"Final residual: {self.convergence_history[-1]:.2e}")
-        print(f"Solve time: {solve_time:.4f} seconds")
+        print(f"Total solve time: {solve_time:.4f} seconds")
         print("=" * 60)
 
         return x, solve_time
@@ -861,7 +895,9 @@ class AlgebraicMultigridComplex:
         print("=" * 40)
 
         if x0 is None:
-            x0 = np.zeros_like(b)
+            x0 = np.zeros_like(b, dtype=self.dtype)
+        else:
+            x0 = x0.astype(self.dtype)
 
         # Callback to record residual history
         residuals = []
@@ -870,10 +906,10 @@ class AlgebraicMultigridComplex:
             r = b - A.dot(xk)
             residuals.append(np.linalg.norm(r))
 
-        start_time = time.time()
+        start_time = time.perf_counter()
         x, info = bicgstab(A, b, x0=x0, callback=callback,
                            atol=self.tolerance, maxiter=self.max_iterations*5)  # Give BiCGSTAB more iters
-        solve_time = time.time() - start_time
+        solve_time = time.perf_counter() - start_time
 
         if info == 0:
             print(f"✓ BiCGSTAB converged to tolerance {self.tolerance}")
@@ -907,9 +943,9 @@ class AlgebraicMultigridComplex:
         elif func_type == 'exponential':
             f = np.exp(X + 1j*Y + 1j*Z)
         else:
-            f = np.ones((nx, ny, nz), dtype=np.complex128)
+            f = np.ones((nx, ny, nz), dtype=self.dtype)
 
-        return f.flatten()
+        return f.flatten().astype(self.dtype)
 
     def verify_solution(self, A, b, x):
         """Verifies the correctness of the solution."""
@@ -982,21 +1018,23 @@ if __name__ == "__main__":
     # Problem parameters - using a small grid for testing
     # nx, ny, nz = 16, 16, 12
     # nx, ny, nz = 32, 32, 12
-    nx, ny, nz = 16, 16, 4*4*12
+    nx, ny, nz = 16, 16, 16
+    dtype = np.complex64  # Use complex128 for better precision
 
     # Build the coefficient matrix
-    matrix_builder = ComplexMatrixBuilder(nx, ny, nz)
+    matrix_builder = ComplexMatrixBuilder(nx, ny, nz, dtype=dtype)
     A = matrix_builder.build_matrix()
 
     # Create the AMG solver
     solver = AlgebraicMultigridComplex(
         max_levels=10,
-        tolerance=1e-8,
+        tolerance=1e-6,
         max_iterations=100,
         power_iterations=10,
         chebyshev_degree=4,
         max_coarse_size=4*4*nz,
         num_eigenvectors=8,
+        dtype=dtype
     )
 
     b = solver.create_rhs(nx=nx, ny=ny, nz=nz)
