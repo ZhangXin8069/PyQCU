@@ -2,8 +2,12 @@ import pyqcu.define as define
 import numpy as np
 import cupy as cp
 import h5py
+
+
 def array2xxx(array):
     return array.reshape(array.size)
+
+
 def gauge2ccdptzyx(gauge, params):
     dtype = gauge.dtype
     lat_t = params[define._LAT_T_]
@@ -24,6 +28,8 @@ def gauge2ccdptzyx(gauge, params):
     print("_U:", _U)
     print("Gauge:", gauge.size)
     return dest
+
+
 def gauge2dptzyxcc(gauge, params):
     dtype = gauge.dtype
     lat_t = params[define._LAT_T_]
@@ -44,6 +50,8 @@ def gauge2dptzyxcc(gauge, params):
     print("_U:", _U)
     print("Gauge:", gauge.size)
     return dest
+
+
 def gauge2tzyxdcc(gauge, params):
     dtype = gauge.dtype
     lat_t = params[define._LAT_T_]
@@ -63,6 +71,8 @@ def gauge2tzyxdcc(gauge, params):
     print("_U:", _U)
     print("Gauge:", gauge.size)
     return dest
+
+
 def fermion2sctzyx(fermion, params):
     lat_s = define._LAT_S_
     lat_c = define._LAT_C_
@@ -73,6 +83,8 @@ def fermion2sctzyx(fermion, params):
     dest_shape = (lat_s, lat_c, lat_t, lat_z, lat_y, lat_x)
     dest = fermion.reshape(dest_shape)
     return dest
+
+
 def fermion2tzyxsc(fermion, params):
     lat_s = define._LAT_S_
     lat_c = define._LAT_C_
@@ -83,6 +95,8 @@ def fermion2tzyxsc(fermion, params):
     dest_shape = (lat_t, lat_z, lat_y, lat_x, lat_s, lat_c)
     dest = fermion.reshape(dest_shape)
     return dest
+
+
 def fermion2psctzyx(fermion, params):
     lat_p = define._LAT_P_
     lat_s = define._LAT_S_
@@ -94,6 +108,8 @@ def fermion2psctzyx(fermion, params):
     dest_shape = (lat_p, lat_s, lat_c, lat_t, lat_z, lat_y, lat_x)
     dest = fermion.reshape(dest_shape)
     return dest
+
+
 def fermion2ptzyxsc(fermion, params):
     lat_p = define._LAT_P_
     lat_s = define._LAT_S_
@@ -105,6 +121,8 @@ def fermion2ptzyxsc(fermion, params):
     dest_shape = (lat_p, lat_t, lat_z, lat_y, lat_x, lat_s, lat_c)
     dest = fermion.reshape(dest_shape)
     return dest
+
+
 def laplacian_gauge2ccdzyx(laplacian_gauge, params):
     lat_d = define._LAT_D_
     lat_c = define._LAT_C_
@@ -114,6 +132,8 @@ def laplacian_gauge2ccdzyx(laplacian_gauge, params):
     dest_shape = (lat_c, lat_c, lat_d, lat_z, lat_y, lat_x)
     dest = laplacian_gauge.reshape(dest_shape)
     return dest
+
+
 def laplacian_gauge2dzyxcc(laplacian_gauge, params):
     lat_d = define._LAT_D_
     lat_c = define._LAT_C_
@@ -123,6 +143,8 @@ def laplacian_gauge2dzyxcc(laplacian_gauge, params):
     dest_shape = (lat_d, lat_z, lat_y, lat_x, lat_c, lat_c)
     dest = laplacian_gauge.reshape(dest_shape)
     return dest
+
+
 def laplacian2czyx(laplacian, params):
     lat_c = define._LAT_C_
     lat_z = params[define._LAT_Z_]
@@ -131,6 +153,8 @@ def laplacian2czyx(laplacian, params):
     dest_shape = (lat_c, lat_z, lat_y, lat_x)
     dest = laplacian.reshape(dest_shape)
     return dest
+
+
 def laplacian2zyxc(laplacian, params):
     lat_c = define._LAT_C_
     lat_z = params[define._LAT_Z_]
@@ -139,6 +163,8 @@ def laplacian2zyxc(laplacian, params):
     dest_shape = (lat_z, lat_y, lat_x, lat_c)
     dest = laplacian.reshape(dest_shape)
     return dest
+
+
 def eigenvectors2esctzyx(eigenvectors, params):
     lat_e = params[define._LAT_E_]
     lat_s = define._LAT_S_
@@ -150,36 +176,63 @@ def eigenvectors2esctzyx(eigenvectors, params):
     dest_shape = (lat_e, lat_s, lat_c, lat_t, lat_z, lat_y, lat_x)
     dest = eigenvectors.reshape(dest_shape)
     return dest
+
+
 def ccdptzyx2dptzyxcc(gauge):
     dest = gauge.transpose(2, 3, 4, 5, 6, 7, 0, 1)
     return dest
+
+
 def dptzyxcc2ccdptzyx(gauge):
     dest = gauge.transpose(6, 7, 0, 1, 2, 3, 4, 5)
     return dest
+
+
+def pccdtzyx2ccdptzyx(gauge):
+    dest = gauge.transpose(1, 2, 3, 0, 4, 5, 6, 7)
+    return dest
+
+
 def sctzyx2tzyxsc(fermion):
     dest = fermion.transpose(2, 3, 4, 5, 0, 1)
     return dest
+
+
 def tzyxsc2sctzyx(fermion):
     dest = fermion.transpose(4, 5, 0, 1, 2, 3)
     return dest
+
+
 def psctzyx2ptzyxsc(fermion):
     dest = fermion.transpose(0, 3, 4, 5, 6, 1, 2)
     return dest
+
+
 def ptzyxsc2psctzyx(fermion):
     dest = fermion.transpose(0, 5, 6, 1, 2, 3, 4)
     return dest
+
+
 def ccdzyx2dzyxcc(laplacian_gauge):
     dest = laplacian_gauge.transpose(2, 3, 4, 5, 0, 1)
     return dest
+
+
 def dzyxcc2ccdzyx(laplacian_gauge):
     dest = laplacian_gauge.transpose(4, 5, 0, 1, 2, 3)
     return dest
+
+
 def czyx2zyxc(laplacian):
     dest = laplacian.transpose(1, 2, 3, 0)
     return dest
+
+
 def zyxc2czyx(laplacian):
     dest = laplacian.transpose(3, 0, 1, 2)
     return dest
+
+
 def xxxtzyx2pxxxtzyx(input_array):
     shape = input_array.shape
     dtype = input_array.dtype
@@ -198,6 +251,8 @@ def xxxtzyx2pxxxtzyx(input_array):
         *prefix_shape, t, z, y, x//define._LAT_P_)
     print(f"Splited Array Shape: {splited_array.shape}")
     return splited_array
+
+
 def pxxxtzyx2xxxtzyx(input_array):
     shape = input_array.shape
     dtype = input_array.dtype
@@ -216,6 +271,8 @@ def pxxxtzyx2xxxtzyx(input_array):
         (*prefix_shape, -1))
     print(f"Restored Array Shape: {restored_array.shape}")
     return restored_array
+
+
 def xxxtzyx2grid_xxxtzyx(input_array, params):
     print(f"Input Array Shape: {input_array.shape}")
     lat_t = params[define._LAT_T_]
@@ -243,6 +300,8 @@ def xxxtzyx2grid_xxxtzyx(input_array, params):
                        grid_index_x*grid_lat_x:grid_index_x*grid_lat_x+grid_lat_x]
     print(f"Dest Shape: {dest.shape}")
     return dest
+
+
 def grid_xxxtzyx2hdf5_xxxtzyx(input_array, params, file_name='xxxtzyx.h5'):
     print(f"Input Array Shape: {input_array.shape}")
     dtype = input_array.dtype
@@ -277,6 +336,8 @@ def grid_xxxtzyx2hdf5_xxxtzyx(input_array, params, file_name='xxxtzyx.h5'):
              grid_index_x*grid_lat_x:grid_index_x*grid_lat_x+grid_lat_x] = input_array.get()
         print(f"Dest Shape: {dest.shape}")
         print(f"Rank {rank}: Data is saved to {file_name}")
+
+
 def hdf5_xxxtzyx2grid_xxxtzyx(params, file_name='xxxtzyx.h5'):
     with h5py.File(file_name, 'r', driver='mpio', comm=define.comm) as f:
         lat_t = params[define._LAT_T_]
@@ -308,6 +369,8 @@ def hdf5_xxxtzyx2grid_xxxtzyx(params, file_name='xxxtzyx.h5'):
                         grid_index_x*grid_lat_x:grid_index_x*grid_lat_x+grid_lat_x]
         print(f"Dest Shape: {dest.shape}")
         return cp.asarray(dest)
+
+
 def xxx2hdf5_xxx(input_array, params=None, file_name='xxx.h5'):
     print(f"Input Array Shape: {input_array.shape}")
     dtype = input_array.dtype
@@ -317,12 +380,16 @@ def xxx2hdf5_xxx(input_array, params=None, file_name='xxx.h5'):
         dest[...] = input_array.get()
         print(f"Dest Shape: {dest.shape}")
         print(f"Data is saved to {file_name}")
+
+
 def hdf5_xxx2xxx(params=None, file_name='xxx.h5'):
     with h5py.File(file_name, 'r', driver='mpio', comm=define.comm) as f:
         all_dest = f['data']
         dest = all_dest[...]
         print(f"Dest Shape: {dest.shape}")
         return cp.asarray(dest)
+
+
 def xxxtzyx2mg_xxxtzyx(input_array, params):
     print(f"Input Array Shape: {input_array.shape}")
     prefix_shape = input_array.shape[:-define._LAT_D_]
@@ -342,6 +409,8 @@ def xxxtzyx2mg_xxxtzyx(input_array, params):
         *prefix_shape, mg_t, mg_lat_t, mg_z, mg_lat_z, mg_y, mg_lat_y, mg_x, mg_lat_x)
     print(f"Dest Shape: {dest.shape}")
     return dest
+
+
 def xxx2eTZYX(input_array, params):
     print(f"Input Array Shape: {input_array.shape}")
     lat_e = params[define._LAT_E_]
@@ -353,6 +422,8 @@ def xxx2eTZYX(input_array, params):
         lat_e, mg_t, mg_z, mg_y, mg_x)
     print(f"Dest Shape: {dest.shape}")
     return dest
+
+
 def xxx2escTZYX(input_array, params):
     print(f"Input Array Shape: {input_array.shape}")
     lat_s = define._LAT_S_
@@ -366,6 +437,8 @@ def xxx2escTZYX(input_array, params):
         lat_e, lat_s, lat_c, mg_t, mg_z, mg_y, mg_x)
     print(f"Dest Shape: {dest.shape}")
     return dest
+
+
 def xxx2scTZYX(input_array, params):
     print(f"Input Array Shape: {input_array.shape}")
     lat_s = define._LAT_S_
