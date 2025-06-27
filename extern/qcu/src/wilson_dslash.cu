@@ -362,6 +362,12 @@ namespace qcu
         }
       }
     }
+    for (int i = 0; i < _LAT_SC_; i++)
+    {
+      printf("U(i)[x,y,z,t]%d:%d,%d,%d,%d:%f,%fi\n", i, x, y, z, t, U[i].real(), U[i].imag());
+      printf("src(i)[x,y,z,t]%d:%d,%d,%d,%d:%f,%fi\n", i, x, y, z, t, src[i].real(), src[i].imag());
+      printf("dest(i)[x,y,z,t]%d:%d,%d,%d,%d:%f,%fi\n", i, x, y, z, t, dest[i].real(), dest[i].imag());
+    }
 #endif
 #ifdef __Y__
     {   // y part
