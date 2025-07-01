@@ -1,5 +1,5 @@
 mkdir -p ./lib
-pushd ./extern/qcu
+pushd ./extern/cuda/qcu
 bash ./make.sh
-mv ./libqcu.so ../../lib
+mv ./libqcu.so ../../../lib
 popd
