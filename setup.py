@@ -15,7 +15,7 @@ extensions = [
     Extension(
         "pyqcu.qcu",
         [f"{HOME}/pyqcu/qcu/qcu.pyx"],
-        include_dirs=[f"{HOME}/extern/qcu/python", numpy.get_include()],
+        include_dirs=[f"{HOME}/extern/cuda/qcu/python", numpy.get_include()],
         library_dirs=[f"{HOME}/lib"],
         define_macros=[("NPY_NO_DEPRECATED_API", "NPY_1_7_API_VERSION")],
         libraries=["qcu"],
