@@ -234,8 +234,8 @@ long long set_ptr:942793824
 lattice set init total time:0.646884241 sec
 multi-gpu wilson dslash total time: (without malloc free memcpy) :0.025929491 sec
 multi-gpu wilson dslash total time: (without malloc free memcpy) :0.022732368 sec
-Failed: CUDA error 0700 "an illegal memory access was encountered" from file </root/PyQCU/extern/qcu/src/../include/./lattice_clover_dslash.h>, line 96.
-Failed: CUDA error 0700 "an illegal memory access was encountered" from file </root/PyQCU/extern/qcu/src/../include/./lattice_clover_dslash.h>, line 96.
+Failed: CUDA error 0700 "an illegal memory access was encountered" from file </root/PyQCU/extern/cuda/qcu/src/../include/./lattice_clover_dslash.h>, line 96.
+Failed: CUDA error 0700 "an illegal memory access was encountered" from file </root/PyQCU/extern/cuda/qcu/src/../include/./lattice_clover_dslash.h>, line 96.
 --------------------------------------------------------------------------
 Primary job  terminated normally, but 1 process returned
 a non-zero exit code. Per user-direction, the job has been aborted.
