@@ -301,7 +301,7 @@ namespace qcu
       U[i] = zero;              \
     }                           \
   }
-// #define give_u(U, tmp_U, lat_tzyx)                       \
+  // #define give_u(U, tmp_U, lat_tzyx)                       \
 //   {                                                      \
 //     for (int i = 0; i < _LAT_2C_; i++)                   \
 //     {                                                    \
@@ -329,6 +329,18 @@ namespace qcu
 //     U[6]._data.x = 0.0;            \
 //     U[7]._data.x = 0.0;            \
 //     U[8]._data.x = 1.0;            \
+//   }
+// #define give_u(U, tmp_U, lat_tzyx) \
+//   {                                \
+//     U[0]._data.x = 0.0;            \
+//     U[1]._data.x = 1.0;            \
+//     U[2]._data.x = 2.0;            \
+//     U[3]._data.x = 3.0;            \
+//     U[4]._data.x = 4.0;            \
+//     U[5]._data.x = 5.0;            \
+//     U[6]._data.x = 6.0;            \
+//     U[7]._data.x = 7.0;            \
+//     U[8]._data.x = 8.0;            \
 //   }
 #define _give_u_comm(parity, U, tmp_U, _lat_tzyx)                    \
   {                                                                  \

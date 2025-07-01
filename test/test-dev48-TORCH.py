@@ -267,6 +267,8 @@ if __name__ == "__main__":
     # U = torch.zeros_like(U)
     U = torch.eye(3, 3, dtype=dtype, device=device).repeat(
         4, latt_size[-1], latt_size[-2], latt_size[-3], latt_size[-4], 1, 1).permute(5, 6, 0, 1, 2, 3, 4)
+    U = torch.tensor(data=[0, 1, 2, 3, 4, 5, 6, 7, 8], dtype=dtype, device=device).reshape(3, 3).repeat(
+        4, latt_size[-1], latt_size[-2], latt_size[-3], latt_size[-4], 1, 1).permute(5, 6, 0, 1, 2, 3, 4)
     # Generate random source field [s, c, t, z, y, x]
     src = torch.randn(4, 3, latt_size[3], latt_size[2], latt_size[1], latt_size[0],
                       dtype=dtype, device=device)
@@ -355,7 +357,8 @@ if __name__ == "__main__":
         print(f"U.type:{type(U)},U.dtype:{U.dtype},U.shape:{U.shape}")
         U_eo = io.xxxtzyx2pxxxtzyx(U)
         U_eo = io.pccdtzyx2ccdptzyx(U_eo)
-        print(f"U_eo type:{type(U_eo)},U_eo.dtype:{U_eo.dtype},U_eo.shape:{U_eo.shape}")
+        print(
+            f"U_eo type:{type(U_eo)},U_eo.dtype:{U_eo.dtype},U_eo.shape:{U_eo.shape}")
         src_eo = io.xxxtzyx2pxxxtzyx(src)
         src_e = src_eo[define._EVEN_]
         src_o = src_eo[define._ODD_]
@@ -363,17 +366,11 @@ if __name__ == "__main__":
         dest[define._EVEN_] = src_e - kappa*dslash_eo(src_o, U_eo)
         dest[define._ODD_] = src_o-kappa * dslash_oe(src_e, U_eo)
         return io.pxxxtzyx2xxxtzyx(dest)
-    U_numpy = U.cpu().numpy().copy()
-    U_cupy = cp.array(U_numpy)
-    src_numpy = src.cpu().numpy().copy()
-    src_cupy = cp.array(src_numpy)
-    dest_numpy = dest.cpu().numpy().copy()
-    dest_cupy = cp.array(dest_numpy)
-    gauge.test_su3(U_cupy[:, :, 0, 0, 0, 0, 0])
-    _dest_cupy = dslash(src_cupy, U_cupy)
-    # print(f"dest_cupy value:{dest_cupy}")
-    print(f"dest_cupy norm value:{cp.linalg.norm(dest_cupy)}")
-    # print(f"_dest_cupy value:{_dest_cupy}")
-    print(f"_dest_cupy norm value:{cp.linalg.norm(_dest_cupy)}")
+    # gauge.test_su3(U[:, :, -1, -1, -1, -1, -1])
+    _dest = dslash(src, U)
+    print(f"dest value:{dest}")
+    print(f"dest norm value:{cp.linalg.norm(dest)}")
+    print(f"_dest value:{_dest}")
+    print(f"_dest norm value:{cp.linalg.norm(_dest)}")
     print(
-        f"cp.linalg.norm(dest_cupy-_dest_cupy)/cp.linalg.norm(dest_cupy):{cp.linalg.norm(dest_cupy-_dest_cupy)/cp.linalg.norm(dest_cupy)*100}%")
+        f"cp.linalg.norm(dest-_dest)/cp.linalg.norm(dest):{cp.linalg.norm(dest-_dest)/cp.linalg.norm(dest)*100}%")
