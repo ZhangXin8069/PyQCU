@@ -224,7 +224,7 @@ class LatticeGaugeTheory(nn.Module):
             U_dag_minus = torch.roll(U_dag_mu, shifts=1, dims=axis)
             # Contract color indices: U_dag_minus * src_minus
             U_dag_src_minus = torch.einsum(
-                'Cctzyx,sCtzyx->sCtzyx', U_dag_minus, src_minus)
+                'Cctzyx,sctzyx->sCtzyx', U_dag_minus, src_minus)
             # Apply (r + gamma_mu) in spin space
             term2 = torch.einsum(
                 'Ss,sctzyx->Sctzyx', (self.R + gamma_mu), U_dag_src_minus)
