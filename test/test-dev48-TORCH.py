@@ -263,19 +263,19 @@ if __name__ == "__main__":
     )
     # Generate random gauge field
     U = lgt.generate_gauge_field(sigma=0.1, seed=42)
-    U = torch.ones_like(U)
+    # U = torch.ones_like(U)
     # U = torch.zeros_like(U)
     # U = torch.eye(3, 3, dtype=dtype, device=device).repeat(
     #     4, latt_size[-1], latt_size[-2], latt_size[-3], latt_size[-4], 1, 1).permute(5, 6, 0, 1, 2, 3, 4)
     # U = torch.tensor(data=[0, 1, 2, 3, 4, 5, 6, 7, 8], dtype=dtype, device=device).reshape(3, 3).repeat(
     #     4, latt_size[-1], latt_size[-2], latt_size[-3], latt_size[-4], 1, 1).permute(5, 6, 0, 1, 2, 3, 4)
     # Generate random source field [s, c, t, z, y, x]
-    # src = torch.randn(4, 3, latt_size[3], latt_size[2], latt_size[1], latt_size[0],
-    #                   dtype=dtype, device=device)
-    print(
-        f" torch.tensor(data=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], dtype=dtype, device=device).reshape(4, 3){ torch.tensor(data=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], dtype=dtype, device=device).reshape(4, 3)}")
-    src = torch.tensor(data=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], dtype=dtype, device=device).reshape(4, 3).repeat(
-        latt_size[-1], latt_size[-2], latt_size[-3], latt_size[-4], 1, 1).permute(4, 5,  0, 1, 2, 3)
+    src = torch.randn(4, 3, latt_size[3], latt_size[2], latt_size[1], latt_size[0],
+                      dtype=dtype, device=device)
+    # print(
+    #     f" torch.tensor(data=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], dtype=dtype, device=device).reshape(4, 3){ torch.tensor(data=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], dtype=dtype, device=device).reshape(4, 3)}")
+    # src = torch.tensor(data=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], dtype=dtype, device=device).reshape(4, 3).repeat(
+    #     latt_size[-1], latt_size[-2], latt_size[-3], latt_size[-4], 1, 1).permute(4, 5,  0, 1, 2, 3)
     # src = torch.ones_like(src)
     # Apply Wilson-Dirac operator
     dest = lgt.apply_dirac_operator(src, U)
