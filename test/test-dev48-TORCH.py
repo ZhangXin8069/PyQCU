@@ -262,17 +262,21 @@ if __name__ == "__main__":
         verbose=verbose
     )
     # Generate random gauge field
-    # U = lgt.generate_gauge_field(sigma=0.1, seed=42)
-    # U = torch.ones_like(U)
+    U = lgt.generate_gauge_field(sigma=0.1, seed=42)
+    U = torch.ones_like(U)
     # U = torch.zeros_like(U)
-    U = torch.eye(3, 3, dtype=dtype, device=device).repeat(
-        4, latt_size[-1], latt_size[-2], latt_size[-3], latt_size[-4], 1, 1).permute(5, 6, 0, 1, 2, 3, 4)
-    U = torch.tensor(data=[0, 1, 2, 3, 4, 5, 6, 7, 8], dtype=dtype, device=device).reshape(3, 3).repeat(
-        4, latt_size[-1], latt_size[-2], latt_size[-3], latt_size[-4], 1, 1).permute(5, 6, 0, 1, 2, 3, 4)
+    # U = torch.eye(3, 3, dtype=dtype, device=device).repeat(
+    #     4, latt_size[-1], latt_size[-2], latt_size[-3], latt_size[-4], 1, 1).permute(5, 6, 0, 1, 2, 3, 4)
+    # U = torch.tensor(data=[0, 1, 2, 3, 4, 5, 6, 7, 8], dtype=dtype, device=device).reshape(3, 3).repeat(
+    #     4, latt_size[-1], latt_size[-2], latt_size[-3], latt_size[-4], 1, 1).permute(5, 6, 0, 1, 2, 3, 4)
     # Generate random source field [s, c, t, z, y, x]
-    src = torch.randn(4, 3, latt_size[3], latt_size[2], latt_size[1], latt_size[0],
-                      dtype=dtype, device=device)
-    src = torch.ones_like(src)
+    # src = torch.randn(4, 3, latt_size[3], latt_size[2], latt_size[1], latt_size[0],
+    #                   dtype=dtype, device=device)
+    print(
+        f" torch.tensor(data=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], dtype=dtype, device=device).reshape(4, 3){ torch.tensor(data=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], dtype=dtype, device=device).reshape(4, 3)}")
+    src = torch.tensor(data=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], dtype=dtype, device=device).reshape(4, 3).repeat(
+        latt_size[-1], latt_size[-2], latt_size[-3], latt_size[-4], 1, 1).permute(4, 5,  0, 1, 2, 3)
+    # src = torch.ones_like(src)
     # Apply Wilson-Dirac operator
     dest = lgt.apply_dirac_operator(src, U)
     # Verify properties
@@ -359,18 +363,24 @@ if __name__ == "__main__":
         U_eo = io.pccdtzyx2ccdptzyx(U_eo)
         print(
             f"U_eo type:{type(U_eo)},U_eo.dtype:{U_eo.dtype},U_eo.shape:{U_eo.shape}")
+        print(f"U_eo value:{U_eo}")
         src_eo = io.xxxtzyx2pxxxtzyx(src)
-        src_e = src_eo[define._EVEN_]
-        src_o = src_eo[define._ODD_]
+        src_eo = src_eo.copy()  # DEBUG!!!
+        src_e = src_eo[define._EVEN_].copy()  # DEBUG!!!
+        src_o = src_eo[define._ODD_].copy()  # DEBUG!!!
         dest = cp.zeros_like(src_eo)
+        U_eo = U_eo.copy()  # DEBUG!!!
         dest[define._EVEN_] = src_e - kappa*dslash_eo(src_o, U_eo)
         dest[define._ODD_] = src_o-kappa * dslash_oe(src_e, U_eo)
         return io.pxxxtzyx2xxxtzyx(dest)
     # gauge.test_su3(U[:, :, -1, -1, -1, -1, -1])
-    _dest = dslash(src, U)
+    _dest = dslash(cp.array(src.cpu().numpy()), cp.array(U.cpu().numpy()))
+    _dest = torch.tensor(
+        data=_dest.get(), device=dest.device, dtype=dest.dtype)
     print(f"dest value:{dest}")
-    print(f"dest norm value:{cp.linalg.norm(dest)}")
+    print(f"dest norm value:{torch.linalg.norm(dest)}")
     print(f"_dest value:{_dest}")
-    print(f"_dest norm value:{cp.linalg.norm(_dest)}")
+    print(f"_dest norm value:{torch.linalg.norm(_dest)}")
     print(
-        f"cp.linalg.norm(dest-_dest)/cp.linalg.norm(dest):{cp.linalg.norm(dest-_dest)/cp.linalg.norm(dest)*100}%")
+        f"torch.linalg.norm(dest-_dest)/torch.linalg.norm(dest):{torch.linalg.norm(dest-_dest)/torch.linalg.norm(dest)*100}%")
+    print(f"dest - _dest value:{dest-_dest}")
