@@ -7,8 +7,8 @@ if __name__ == "__main__":
     # latt_size = (16, 8, 8, 8)
     # latt_size = (1, 1, 1, 1)
     # latt_size = (2, 2, 2, 2)
-    latt_size = (8, 4, 4, 4)
-    # latt_size = (4, 4, 4, 4)
+    # latt_size = (8, 4, 4, 4)
+    latt_size = (4, 4, 4, 4)
     # latt_size = (8, 4, 4, 8)
     kappa = 0.125
     # dtype = torch.complex128
@@ -127,7 +127,7 @@ if __name__ == "__main__":
         U_eo = io.pccdtzyx2ccdptzyx(U_eo)
         print(
             f"U_eo type:{type(U_eo)},U_eo.dtype:{U_eo.dtype},U_eo.shape:{U_eo.shape}")
-        print(f"U_eo value:{U_eo}")
+        # print(f"U_eo value:{U_eo}")
         src_eo = io.xxxtzyx2pxxxtzyx(src)
         src_eo = src_eo.copy()  # DEBUG!!!
         src_e = src_eo[define._EVEN_].copy()  # DEBUG!!!
