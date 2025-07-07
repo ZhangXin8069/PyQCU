@@ -317,7 +317,7 @@ class clover(wilson):
         """
         Give Clover term:
         $$
-        \frac{a^2\kappa}{u_0^4}\Sigma\sigma_{\mu \nu}F_{\mu \nu}\delta_{x,y}
+        \frac{a^2\kappa}{u_0^4}\sum_{\mu<\nu}\sigma_{\mu \nu}F_{\mu \nu}\delta_{x,y}
         $$
         Args:
             U: Gauge field tensor [c, c, d, t, z, y, x]
