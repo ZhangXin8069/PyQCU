@@ -8,7 +8,7 @@ class wilson(nn.Module):
     def __init__(self,
                  latt_size: Tuple[int, int, int, int],
                  kappa: float = 0.1,
-                 r: float = 1.0,
+                 u_0: float = 1.0,
                  dtype: torch.dtype = torch.complex128,
                  device: torch.device = None,
                  verbose: bool = False):
@@ -17,26 +17,28 @@ class wilson(nn.Module):
         Args:
             latt_size: Tuple (Lx, Ly, Lz, Lt) specifying lattice dimensions, then s=4, d=4, c=3
             kappa: Hopping parameter (controls fermion mass)
-            r: Wilson parameter (usually 1.0)
+            u_0: Wilson parameter (usually 1.0)
             dtype: Data type for tensors
             device: Device to run on (default: CPU)
             verbose: Enable verbose output for debugging
+        reference:
+            [1](1-60)
         """
         super().__init__()
         self.latt_size = latt_size
         self.Lx, self.Ly, self.Lz, self.Lt = latt_size
         self.kappa = kappa
-        self.r = r
+        self.u_0 = u_0
         self.dtype = dtype
         self.device = device or torch.device('cpu')
-        self.R = r*torch.eye(4, dtype=self.dtype, device=self.device)
+        self.I = torch.eye(4, dtype=self.dtype, device=self.device)
         self.verbose = verbose
         # Determine real dtype based on complex dtype
         self.real_dtype = torch.float64 if dtype == torch.complex128 else torch.float32
         if self.verbose:
-            print(f"Initializing lattice gauge theory:")
+            print(f"Initializing Wilson:")
             print(f"  Lattice size: {latt_size} (x,y,z,t)")
-            print(f"  Parameters: kappa={kappa}, r={r}")
+            print(f"  Parameters: kappa={kappa}, u_0={u_0}")
             print(f"  Complex dtype: {dtype}, Real dtype: {self.real_dtype}")
             print(f"  Device: {self.device}")
         # Precompute gamma matrices
@@ -176,7 +178,8 @@ class wilson(nn.Module):
         """
         Apply Wilson-Dirac operator to source field:
         $$
-        M^{W}_{x,y}[U]a=\delta_{xy}-\kappa \sum_{\mu}[(r-\gamma_{\mu})U_{x,\mu}\delta_{x,y-\mu}+(r+\gamma_{\mu})U_{x-\mu,\mu}^{\dag}\delta_{x,y+\mu}]
+        2*\kappa*a*M_{x,y}=1-\kappa/u_0*\sum_{\mu}[(1-\gamma_{\mu})U_{x,\mu}\delta_{x,y-\mu}+(1+\gamma_{\mu})U_{x-\mu,\mu}^{\dag}\delta_{x,y+\mu}]
+                          =1-\kappa/u_0*\sum_{\mu}[(1-\gamma_{\mu})U_{x,\mu}\delta_{x+\mu,y}+(1+\gamma_{\mu})U_{x-\mu,\mu}^{\dag}\delta_{x-\mu,y}]
         $$
         Args:
             src: Source field tensor [s, c, t, z, y, x]
@@ -221,7 +224,7 @@ class wilson(nn.Module):
             U_src_plus = torch.einsum('Cctzyx,sctzyx->sCtzyx', U_mu, src_plus)
             # Apply (r - gamma_mu) in spin space
             term1 = torch.einsum(
-                'Ss,sctzyx->Sctzyx', (self.R - gamma_mu), U_src_plus)
+                'Ss,sctzyx->Sctzyx', (self.I - gamma_mu), U_src_plus)
             # Term 2: (r + γ_μ) U_{x-μ,μ}^† src_{x-μ}
             src_minus = torch.roll(src, shifts=1, dims=axis)
             U_dag_minus = torch.roll(U_dag_mu, shifts=1, dims=axis)
@@ -230,10 +233,10 @@ class wilson(nn.Module):
                 'Cctzyx,sctzyx->sCtzyx', U_dag_minus, src_minus)
             # Apply (r + gamma_mu) in spin space
             term2 = torch.einsum(
-                'Ss,sctzyx->Sctzyx', (self.R + gamma_mu), U_dag_src_minus)
+                'Ss,sctzyx->Sctzyx', (self.I + gamma_mu), U_dag_src_minus)
             # Combine terms and subtract from dest
             hopping = term1 + term2
-            dest -= self.kappa * hopping
+            dest -= self.kappa/self.u_0 * hopping
             if self.verbose:
                 print(f"    Hopping term norm: {torch.norm(hopping).item()}")
         if self.verbose:
@@ -245,41 +248,38 @@ class wilson(nn.Module):
 class clover(wilson):
     def __init__(self,
                  latt_size: Tuple[int, int, int, int],
-                 a: float = 0.1,
-                 C_sw: float = 0.1,
                  kappa: float = 0.1,
-                 r: float = 1.0,
+                 u_0: float = 1.0,
                  dtype: torch.dtype = torch.complex128,
                  device: torch.device = None,
                  verbose: bool = False):
         """
-        The Clover term corrected by adding the Wilson-Dirac operator
+        The Clover term corrected by adding the Wilson-Dirac operator (refer to )
         Args:
             latt_size: Tuple (Lx, Ly, Lz, Lt) specifying lattice dimensions, then s=4, d=4, c=3
-            a: a parameter for clover term (when a=C_sw=1.0, show isotropy, currently, only this is supported......)
-            C_sw: a parameter for clover term (when a=C_sw=1.0, show isotropy, currently, only this is supported......)
             kappa: Hopping parameter (controls fermion mass)
-            r: Wilson parameter (usually 1.0)
+            u_0: Wilson parameter (usually 1.0)
             dtype: Data type for tensors
             device: Device to run on (default: CPU)
             verbose: Enable verbose output for debugging
+        reference:
+            [1](1-60)
         """
-        super().__init__()
+        super().__init__(latt_size=latt_size, kappa=kappa,
+                         r=r, dtype=dtype, device=device, verbose=False)
         self.latt_size = latt_size
         self.Lx, self.Ly, self.Lz, self.Lt = latt_size
-        self.a = a
-        self.C_sw = C_sw
         self.kappa = kappa
-        self.r = r
+        self.u_0 = u_0
         self.dtype = dtype
         self.device = device or torch.device('cpu')
         self.verbose = verbose
         # Determine real dtype based on complex dtype
         self.real_dtype = torch.float64 if dtype == torch.complex128 else torch.float32
         if self.verbose:
-            print(f"Initializing lattice gauge theory:")
+            print(f"Initializing Clover:")
             print(f"  Lattice size: {latt_size} (x,y,z,t)")
-            print(f"  Parameters: a={a}, C_sw={C_sw}, kappa={kappa}, r={r}")
+            print(f"  Parameters: kappa={kappa}, u_0={u_0}")
             print(f"  Complex dtype: {dtype}, Real dtype: {self.real_dtype}")
             print(f"  Device: {self.device}")
         # Precompute gamma matrices
@@ -317,12 +317,14 @@ class clover(wilson):
         """
         Give Clover term:
         $$
-        -\frac{iaC_{SW}\kappa r}{4} \sigma_{\mu \nu} F_{\mu \nu}\delta_{x,y}
+        \frac{a^2\kappa}{u_0^4}\Sigma\sigma_{\mu \nu}F_{\mu \nu}\delta_{x,y}
         $$
         Args:
             U: Gauge field tensor [c, c, d, t, z, y, x]
         Returns:
             Clover term tensor [s, c, s, c, t, z, y, x]
+        PS:
+            For convenience, combine constant parameters of sigma and F to the final step (-0.125)
         """
         if self.verbose:
             print("Applying Dirac operator...")
@@ -349,15 +351,23 @@ class clover(wilson):
         ]
         # Give clover term for each direction
         for dir_info in directions:
-            # $$ F_{\mu,\nu}=\frac{1}{4} \sum_p \frac{1}{2} [U_p(x) - U^{\dag}_p(x) ] $$
+            '''
+            \begin{align*}
+            F_{\mu \nu} = \frac{1}{a^2*8*i}\gamma_{\mu}\gamma_{\nu}[\\
+            & u(x,\mu)u(x+\mu,\nu)u^{\dag}(x+\nu,\mu)u^{\dag}(x,\nu)\\
+            &+ u(x,\nu)u^{\dag}(x-\mu+\nu,\mu)u^{\dag}(x-\mu,\nu)u(x-\mu,\mu)\\
+            &+ u^{\dag}(x-\mu,\mu)u^{\dag}(x-\mu-\nu,\nu)u(x-\mu-\nu,\mu)u(x-\nu,\nu)\\
+            &+ u^{\dag}(x-\nu,\nu)u(x-\nu,\mu)u(x-\nu+\mu,\nu)u^{\dag}(x,\mu)-BEFORE^{\dag}]
+            \end{align*}
+            '''
             F = torch.zeros((3, 3, self.Lt, self.Lz, self.Ly, self.Lx),
                             dtype=self.dtype, device=self.device)
             mu = dir_info['mu']
             nu = dir_info['nu']
             axis_mu = dir_info['axis_mu']
             axis_nu = dir_info['axis_nu']
-            # $$ \sigma_{\mu,\nu} &= \gamma_{\mu}\gamma_{\nu} - \gamma_{\nu}\gamma_{\mu} &= 2\gamma_{\mu}\gamma_{\nu}\\ $$
-            sigma = 2.0*dir_info['gamma_gamma']
+            # $$ \sigma_{\mu,\nu} &= -i/2*(\gamma_{\mu}\gamma_{\nu} - \gamma_{\nu}\gamma_{\mu}) &= -i/2*2\gamma_{\mu}\gamma_{\nu}\\ $$
+            sigma = dir_info['gamma_gamma']
             name = dir_info['name']
             if self.verbose:
                 print(
@@ -395,12 +405,12 @@ class clover(wilson):
             F += torch.einsum('Cctzyx,cCtzyx->CCtzyx', temp2, U_dag_mu)
             # Give whole F
             F -= F.permute(1, 0, 2, 3, 4, 5).conj()  # -BEFORE^{\dag}
-            F += 0.125*F
+            F += F
             # Multiply F with sigma
             sigmaF = torch.einsum(
                 'Ss,Cctzyx->SsCtzyx', sigma, F)
             # Make Clover term
-            clover += -0.25j*self.a*self.C_sw*self.kappa*self.r*sigmaF
+            clover += -0.125/self.u_0*self.kappa*sigmaF
             if self.verbose:
                 print(f"    sigmaF term norm: {torch.norm(sigmaF).item()}")
         if self.verbose:
