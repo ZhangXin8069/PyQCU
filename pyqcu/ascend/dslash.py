@@ -15,10 +15,9 @@ class wilson(nn.Module):
         """
         Wilson-Dirac operator on a 4D lattice with SU(3) gauge fields
         Args:
-            latt_size: Tuple (Lx, Ly, Lz, Lt) specifying lattice dimensions
+            latt_size: Tuple (Lx, Ly, Lz, Lt) specifying lattice dimensions, then s=4, d=4, c=3
             kappa: Hopping parameter (controls fermion mass)
             r: Wilson parameter (usually 1.0)
-            Nc: Number of colors (3 for QCD)
             dtype: Data type for tensors
             device: Device to run on (default: CPU)
             verbose: Enable verbose output for debugging
@@ -28,12 +27,9 @@ class wilson(nn.Module):
         self.Lx, self.Ly, self.Lz, self.Lt = latt_size
         self.kappa = kappa
         self.r = r
-        self.Nc = 3
-        self.Nd = 4
-        self.Ns = 4
         self.dtype = dtype
         self.device = device or torch.device('cpu')
-        self.R = r*torch.eye(self.Ns, dtype=self.dtype, device=self.device)
+        self.R = r*torch.eye(4, dtype=self.dtype, device=self.device)
         self.verbose = verbose
         # Determine real dtype based on complex dtype
         self.real_dtype = torch.float64 if dtype == torch.complex128 else torch.float32
@@ -101,7 +97,7 @@ class wilson(nn.Module):
             if self.device.type == 'cuda':
                 torch.cuda.manual_seed_all(seed)
         # Initialize gauge field tensor
-        U = torch.zeros((self.Nc, self.Nc, 4, self.Lt, self.Lz, self.Ly, self.Lx),
+        U = torch.zeros((3, 3, 4, self.Lt, self.Lz, self.Ly, self.Lx),
                         dtype=self.dtype, device=self.device)
         # Generate random coefficients with proper dtype and shape
         # Dimensions: [directions, sites_t, sites_z, sites_y, sites_x, gell_mann_index]
@@ -121,7 +117,7 @@ class wilson(nn.Module):
             for z in range(self.Lz):
                 for y in range(self.Ly):
                     for x in range(self.Lx):
-                        for d in range(self.Nd):  # 4 directions
+                        for d in range(4):  # 4 directions
                             # Get coefficients for this site and direction
                             coeffs = a[d, t, z, y, x].to(
                                 dtype=self.dtype)  # Shape: [8]
@@ -144,28 +140,28 @@ class wilson(nn.Module):
     def _define_gamma_matrices(self) -> torch.Tensor:
         """Define Dirac gamma matrices in Euclidean space"""
         gamma = torch.zeros(4, 4, 4, dtype=self.dtype, device=self.device)
-        # gamma_0 (temporal direction)
+        # gamma_0 (x-direction)
         gamma[0] = torch.tensor([
             [0, 0, 0, 1j],
             [0, 0, 1j, 0],
             [0, -1j, 0, 0],
             [-1j, 0, 0, 0]
         ], dtype=self.dtype)
-        # gamma_1 (x-direction)
+        # gamma_1 (y-direction)
         gamma[1] = torch.tensor([
             [0, 0, 0, -1],
             [0, 0, 1, 0],
             [0, 1, 0, 0],
             [-1, 0, 0, 0]
         ], dtype=self.dtype)
-        # gamma_2 (y-direction)
+        # gamma_2 (z-direction)
         gamma[2] = torch.tensor([
             [0, 0, 1j, 0],
             [0, 0, 0, -1j],
             [-1j, 0, 0, 0],
             [0, 1j, 0, 0]
         ], dtype=self.dtype)
-        # gamma_3 (z-direction)
+        # gamma_3 (t-direction)
         gamma[3] = torch.tensor([
             [0, 0, 1, 0],
             [0, 0, 0, 1],
@@ -178,7 +174,10 @@ class wilson(nn.Module):
                              src: torch.Tensor,
                              U: torch.Tensor) -> torch.Tensor:
         """
-        Apply Wilson-Dirac operator to source field
+        Apply Wilson-Dirac operator to source field:
+        $$
+        M^{W}_{x,y}[U]a=\delta_{xy}-\kappa \sum_{\mu}[(r-\gamma_{\mu})U_{x,\mu}\delta_{x,y-\mu}+(r+\gamma_{\mu})U_{x-\mu,\mu}^{\dag}\delta_{x,y+\mu}]
+        $$
         Args:
             src: Source field tensor [s, c, t, z, y, x]
             U: Gauge field tensor [c, c, d, t, z, y, x]
@@ -196,10 +195,14 @@ class wilson(nn.Module):
         dest = src.clone()
         # Define directions with corresponding axes and gamma matrices
         directions = [
-            {'mu': 0, 'axis': 5, 'name': 'x', 'gamma': self.gamma[0]},
-            {'mu': 1, 'axis': 4, 'name': 'y', 'gamma': self.gamma[1]},
-            {'mu': 2, 'axis': 3, 'name': 'z', 'gamma': self.gamma[2]},
-            {'mu': 3, 'axis': 2, 'name': 't', 'gamma': self.gamma[3]},
+            {'mu': 0, 'axis': src.dim()-1-0, 'name': 'x',
+             'gamma': self.gamma[0]},
+            {'mu': 1, 'axis': src.dim()-1-1, 'name': 'y',
+             'gamma': self.gamma[1]},
+            {'mu': 2, 'axis': src.dim()-1-2, 'name': 'z',
+             'gamma': self.gamma[2]},
+            {'mu': 3, 'axis': src.dim()-1-3, 'name': 't',
+             'gamma': self.gamma[3]},
         ]
         # Apply Wilson-Dirac operator for each direction
         for dir_info in directions:
@@ -237,3 +240,170 @@ class wilson(nn.Module):
             print("Dirac operator application complete")
             print(f"  Dest norm: {torch.norm(dest).item()}")
         return dest
+
+
+class clover(wilson):
+    def __init__(self,
+                 latt_size: Tuple[int, int, int, int],
+                 a: float = 0.1,
+                 C_sw: float = 0.1,
+                 kappa: float = 0.1,
+                 r: float = 1.0,
+                 dtype: torch.dtype = torch.complex128,
+                 device: torch.device = None,
+                 verbose: bool = False):
+        """
+        The Clover term corrected by adding the Wilson-Dirac operator
+        Args:
+            latt_size: Tuple (Lx, Ly, Lz, Lt) specifying lattice dimensions, then s=4, d=4, c=3
+            a: a parameter for clover term (when a=C_sw=1.0, show isotropy, currently, only this is supported......)
+            C_sw: a parameter for clover term (when a=C_sw=1.0, show isotropy, currently, only this is supported......)
+            kappa: Hopping parameter (controls fermion mass)
+            r: Wilson parameter (usually 1.0)
+            dtype: Data type for tensors
+            device: Device to run on (default: CPU)
+            verbose: Enable verbose output for debugging
+        """
+        super().__init__()
+        self.latt_size = latt_size
+        self.Lx, self.Ly, self.Lz, self.Lt = latt_size
+        self.a = a
+        self.C_sw = C_sw
+        self.kappa = kappa
+        self.r = r
+        self.dtype = dtype
+        self.device = device or torch.device('cpu')
+        self.verbose = verbose
+        # Determine real dtype based on complex dtype
+        self.real_dtype = torch.float64 if dtype == torch.complex128 else torch.float32
+        if self.verbose:
+            print(f"Initializing lattice gauge theory:")
+            print(f"  Lattice size: {latt_size} (x,y,z,t)")
+            print(f"  Parameters: a={a}, C_sw={C_sw}, kappa={kappa}, r={r}")
+            print(f"  Complex dtype: {dtype}, Real dtype: {self.real_dtype}")
+            print(f"  Device: {self.device}")
+        # Precompute gamma matrices
+        self.gamma = self._define_gamma_matrices()
+        # Precompute gamma_gamma matrices
+        self.gamma_gamma = self._define_gamma_matrices()
+        if self.verbose:
+            print("Gamma matrices and Gamma-Gamma matrices initialized")
+
+    def _define_gamma_gamma_matrices(self) -> torch.Tensor:
+        """Define Dirac gamma_gamma matrices in Euclidean space"""
+        gamma_gamma = torch.zeros(
+            6, 4, 4, dtype=self.dtype, device=self.device)
+        # gamma_gamma0 xy-direction)
+        gamma_gamma[0] = torch.einsum(
+            'Ss,sS->SS', self.gamma[0], self.gamma[1])
+        # gamma_gamma1 xz-direction)
+        gamma_gamma[1] = torch.einsum(
+            'Ss,sS->SS', self.gamma[0], self.gamma[2])
+        # gamma_gamma2 xt-direction)
+        gamma_gamma[2] = torch.einsum(
+            'Ss,sS->SS', self.gamma[0], self.gamma[3])
+        # gamma_gamma3 yz-direction)
+        gamma_gamma[3] = torch.einsum(
+            'Ss,sS->SS', self.gamma[1], self.gamma[2])
+        # gamma_gamma4 yt-direction)
+        gamma_gamma[4] = torch.einsum(
+            'Ss,sS->SS', self.gamma[1], self.gamma[3])
+        # gamma_gamma5 zt-direction)
+        gamma_gamma[5] = torch.einsum(
+            'Ss,sS->SS', self.gamma[2], self.gamma[3])
+        return gamma_gamma
+
+    def give_clover_term(self, U: torch.Tensor) -> torch.Tensor:
+        """
+        Give Clover term:
+        $$
+        -\frac{iaC_{SW}\kappa r}{4} \sigma_{\mu \nu} F_{\mu \nu}\delta_{x,y}
+        $$
+        Args:
+            U: Gauge field tensor [c, c, d, t, z, y, x]
+        Returns:
+            Clover term tensor [s, c, s, c, t, z, y, x]
+        """
+        if self.verbose:
+            print("Applying Dirac operator...")
+            print(f"  Gauge field shape: {U.shape}")
+        # Compute adjoint gauge field (dagger conjugate)
+        U_dag = U.permute(1, 0, 2, 3, 4, 5, 6).conj()
+        # Initialize clover term tensor
+        clover = torch.zeros((4, 3, 3, 4, self.Lt, self.Lz, self.Ly, self.Lx),
+                             dtype=self.dtype, device=self.device)
+        # Define directions with corresponding axes and gamma_gamma matrices
+        directions = [
+            {'mu': 0, 'nu': 1, 'axis_mu': U.dim()-1-0, 'axis_nu': U.dim()-1-1, 'name': 'xy',
+                'gamma_gamma': self.gamma_gamma[0]},
+            {'mu': 0, 'nu': 2, 'axis_mu': U.dim()-1-0, 'axis_nu': U.dim()-1-2, 'name': 'xz',
+                'gamma_gamma': self.gamma_gamma[1]},
+            {'mu': 0, 'nu': 3, 'axis_mu': U.dim()-1-0, 'axis_nu': U.dim()-1-3, 'name': 'xt',
+                'gamma_gamma': self.gamma_gamma[2]},
+            {'mu': 1, 'nu': 2, 'axis_mu': U.dim()-1-1, 'axis_nu': U.dim()-1-2, 'name': 'yz',
+                'gamma_gamma': self.gamma_gamma[3]},
+            {'mu': 1, 'nu': 3, 'axis_mu': U.dim()-1-1, 'axis_nu': U.dim()-1-3, 'name': 'yt',
+                'gamma_gamma': self.gamma_gamma[4]},
+            {'mu': 2, 'nu': 3, 'axis_mu': U.dim()-1-2, 'axis_nu': U.dim()-1-3, 'name': 'zt',
+                'gamma_gamma': self.gamma_gamma[5]},
+        ]
+        # Give clover term for each direction
+        for dir_info in directions:
+            # $$ F_{\mu,\nu}=\frac{1}{4} \sum_p \frac{1}{2} [U_p(x) - U^{\dag}_p(x) ] $$
+            F = torch.zeros((3, 3, self.Lt, self.Lz, self.Ly, self.Lx),
+                            dtype=self.dtype, device=self.device)
+            mu = dir_info['mu']
+            nu = dir_info['nu']
+            axis_mu = dir_info['axis_mu']
+            axis_nu = dir_info['axis_nu']
+            # $$ \sigma_{\mu,\nu} &= \gamma_{\mu}\gamma_{\nu} - \gamma_{\nu}\gamma_{\mu} &= 2\gamma_{\mu}\gamma_{\nu}\\ $$
+            sigma = 2.0*dir_info['gamma_gamma']
+            name = dir_info['name']
+            if self.verbose:
+                print(
+                    f"  Processing {name}-direction (axis_mu={axis_mu},axis_nu={axis_nu})...")
+            # Extract gauge field for current direction
+            U_mu = U[..., mu, :, :, :, :]  # [c1, c2, t, z, y, x]
+            U_nu = U[..., nu, :, :, :, :]  # [c1, c2, t, z, y, x]
+            U_dag_mu = U_dag[..., mu, :, :, :, :]  # [c1, c2, t, z, y, x]
+            U_dag_nu = U_dag[..., nu, :, :, :, :]  # [c1, c2, t, z, y, x]
+            # $$U_1 &= u(x,\mu)u(x+\mu,\nu)u^{\dag}(x+\nu,\mu)u^{\dag}(x,\nu)                \\$$
+            temp1 = torch.einsum('Cctzyx,cCtzyx->CCtzyx', U_mu,
+                                 torch.roll(U_nu, shifts=-1, dims=axis_mu))
+            temp2 = torch.einsum('Cctzyx,cCtzyx->CCtzyx', temp1,
+                                 torch.roll(U_dag_mu, shifts=-1, dims=axis_nu))
+            F += torch.einsum('Cctzyx,cCtzyx->CCtzyx', temp2, U_dag_nu)
+            # $$U_2 &= u(x,\nu)u^{\dag}(x-\mu+\nu,\mu)u^{\dag}(x-\mu,\nu)u(x-\mu,\mu)        \\$$
+            temp1 = torch.einsum('Cctzyx,cCtzyx->CCtzyx', U_nu,
+                                 torch.roll(torch.roll(U_dag_mu, shifts=1, dims=axis_mu), shifts=-1, dims=axis_nu))
+            temp2 = torch.einsum('Cctzyx,cCtzyx->CCtzyx', temp1,
+                                 torch.roll(U_dag_nu, shifts=1, dims=axis_mu))
+            F += torch.einsum('Cctzyx,cCtzyx->CCtzyx', temp2,
+                              torch.roll(U_mu, shifts=1, dims=axis_mu))
+            # $$U_3 &= u^{\dag}(x-\mu,\mu)u^{\dag}(x-\mu-\nu,\nu)u(x-\mu-\nu,\mu)u(x-\nu,\nu)\\$$
+            temp1 = torch.einsum('Cctzyx,cCtzyx->CCtzyx', torch.roll(U_dag_mu, shifts=1, dims=axis_mu),
+                                 torch.roll(torch.roll(U_dag_nu, shifts=1, dims=axis_mu), shifts=1, dims=axis_nu))
+            temp2 = torch.einsum('Cctzyx,cCtzyx->CCtzyx', temp1,
+                                 torch.roll(torch.roll(U_mu, shifts=1, dims=axis_mu), shifts=1, dims=axis_nu))
+            F += torch.einsum('Cctzyx,cCtzyx->CCtzyx', temp2,
+                              torch.roll(U_nu, shifts=1, dims=axis_nu))
+            # $$U_4 &= u^{\dag}(x-\nu,\nu)u(x-\nu,\mu)u(x-\nu+\mu,\nu)u^{\dag}(x,\mu)        \\$$
+            temp1 = torch.einsum('Cctzyx,cCtzyx->CCtzyx', torch.roll(U_dag_nu, shifts=1, dims=axis_nu),
+                                 torch.roll(U_mu, shifts=1, dims=axis_nu))
+            temp2 = torch.einsum('Cctzyx,cCtzyx->CCtzyx', temp1,
+                                 torch.roll(torch.roll(U_nu, shifts=-1, dims=axis_mu), shifts=1, dims=axis_nu))
+            F += torch.einsum('Cctzyx,cCtzyx->CCtzyx', temp2, U_dag_mu)
+            # Give whole F
+            F -= F.permute(1, 0, 2, 3, 4, 5).conj()  # -BEFORE^{\dag}
+            F += 0.125*F
+            # Multiply F with sigma
+            sigmaF = torch.einsum(
+                'Ss,Cctzyx->SsCtzyx', sigma, F)
+            # Make Clover term
+            clover += -0.25j*self.a*self.C_sw*self.kappa*self.r*sigmaF
+            if self.verbose:
+                print(f"    sigmaF term norm: {torch.norm(sigmaF).item()}")
+        if self.verbose:
+            print("Clover term complete")
+            print(f"  clover norm: {torch.norm(clover).item()}")
+        return clover
