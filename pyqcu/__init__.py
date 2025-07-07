@@ -7,5 +7,9 @@ print(
     3. The QUDA(PyQUDA) splite grid by t->z->y->x, lattice by c->c->x->y->z->t->p->d or c->s->x->y->z->t(->p) and c->s->c->s->x->y->z->t(->p).
     4. The QCU input params in numpy array(dtype=np.int32), argv in  numpy array(dtype=np.float32 or float64) array, set_ptrs in numpy array(dtype=np.int64), other in cupy array(dtype=cp.complex64 or complex128).
     5. The smallest lattice size is (wilson:x=4,y=4,z=4,t=4;clover:x=8,y=8,z=8,t=8) that QCU support (when '#define _BLOCK_SIZE_ 32 // for test small lattice').
+    Refer to:
+    [1] {轻强子性质的格点QCD研究 / 蒋翔宇
+    北京 : 中国科学院高能物理研究所, 2023.06}
+    [2] {......}
     @@@@@@######QCU NOTES END######@@@@@@@
     ''')
