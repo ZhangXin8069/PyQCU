@@ -266,7 +266,7 @@ class clover(wilson):
             [1](1-60)
         """
         super().__init__(latt_size=latt_size, kappa=kappa,
-                         r=r, dtype=dtype, device=device, verbose=False)
+                         u_0=u_0, dtype=dtype, device=device, verbose=False)
         self.latt_size = latt_size
         self.Lx, self.Ly, self.Lz, self.Lt = latt_size
         self.kappa = kappa
