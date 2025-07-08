@@ -3,10 +3,10 @@ from pyquda_utils import core
 from pyquda.field import LatticeGauge
 import cupy as cp
 import numpy as np
-from pyqcu import define, io, qcu, eigen, cg, bistabcg, amg, linalg, gauge
+from pyqcu.cuda import define, io, qcu, eigen, cg, bistabcg, amg, linalg, gauge
 from time import perf_counter
 from opt_einsum import contract
-from pyqcu.set import params, argv, set_ptrs
+from pyqcu.cuda.set import params, argv, set_ptrs
 params[define._LAT_X_] = 8
 params[define._LAT_Y_] = 8
 params[define._LAT_Z_] = 8

@@ -1,10 +1,10 @@
 import re
 import numpy as np
 import cupy as cp
-from pyqcu import define
-from pyqcu import io
-from pyqcu import qcu
-from pyqcu.set import params, argv, set_ptrs
+from pyqcu.cuda import define
+from pyqcu.cuda import io
+from pyqcu.cuda import qcu
+from pyqcu.cuda.set import params, argv, set_ptrs
 import h5py
 print('My rank is ', define.rank)
 params[define._LAT_Y_] /= 2

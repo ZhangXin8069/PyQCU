@@ -1,7 +1,7 @@
 import time
 import numpy as np
 import cupy as cp
-from pyqcu import eigen
+from pyqcu.cuda import eigen
 import matplotlib.pyplot as plt
 from scipy.sparse import csr_matrix, diags, issparse
 from scipy.sparse.linalg import spsolve, LinearOperator, bicgstab, aslinearoperator
