@@ -1,1 +1,0 @@
-from pyqcu import define

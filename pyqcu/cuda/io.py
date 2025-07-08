@@ -1,4 +1,4 @@
-import pyqcu.define as define
+import pyqcu.cuda.define as define
 import numpy as np
 import cupy as cp
 import h5py
