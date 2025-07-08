@@ -8,8 +8,10 @@ print(
     4. The QCU input params in numpy array(dtype=np.int32), argv in  numpy array(dtype=np.float32 or float64) array, set_ptrs in numpy array(dtype=np.int64), other in cupy array(dtype=cp.complex64 or complex128).
     5. The smallest lattice size is (wilson:x=4,y=4,z=4,t=4;clover:x=8,y=8,z=8,t=8) that QCU support (when '#define _BLOCK_SIZE_ 32 // for test small lattice').
     Refer to:
-    [1] {轻强子性质的格点QCD研究 / 蒋翔宇
-    北京 : 中国科学院高能物理研究所, 2023.06}
-    [2] {......}
+    [0] 刘川. 格点量子色动力学导论. 北京大学出版社, 2017.07.
+    [1] 蒋翔宇. 轻强子性质的格点QCD研究. 中国科学院高能物理研究所, 2023.06.
+    [2] Babich R, Clark M A, Joó B. Parallelizing the QUDA library for multi-GPU calculations in lattice quantum chromodynamics[C]//SC'10: Proceedings of the 2010 ACM/IEEE International Conference for High Performance Computing, Networking, Storage and Analysis. IEEE, 2010.01.11.
+    [3] M. Rottmann. Adaptive domain decomposition multigrid for lattice QCD, Ph.D. thesis, Wuppertal, Univ., Diss., 2016.
+    [4] Brower R C, Clark M A, Weinberg E, et al. Multigrid for chiral lattice fermions: Domain wall[J]. Physical Review D, 2020.
     @@@@@@######QCU NOTES END######@@@@@@@
     ''')
