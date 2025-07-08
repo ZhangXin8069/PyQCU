@@ -1,6 +1,6 @@
 import cupy as cp
 from cupyx.scipy.linalg import expm
-from pyqcu import io, define
+from pyqcu.cuda import io, define
 
 
 def get_gell_mann_matrices(dtype):

@@ -1,7 +1,7 @@
 import cupy as cp
-from pyqcu import define
-from pyqcu import io
-from pyqcu.set import params
+from pyqcu.cuda import define
+from pyqcu.cuda import io
+from pyqcu.cuda.set import params
 print('My rank is ', define.rank)
 # params[define._LAT_Y_] /= 2
 # params[define._LAT_XYZT_] /= 2
