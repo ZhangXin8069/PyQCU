@@ -1,6 +1,6 @@
 # %%
-from pyqcu import io, gauge, cg, bistabcg, define, qcu, linalg,eigen
-from pyqcu.set import *
+from pyqcu.cuda import io, gauge, cg, bistabcg, define, qcu, linalg,eigen
+from pyqcu.cuda.set import *
 import cupy as cp
 import numpy as np
 import time

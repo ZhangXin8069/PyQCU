@@ -289,8 +289,8 @@ if __name__ == "__main__":
     # print(f"Src value:{src}")
     # print(f"Dest value:{dest}")
     import warnings
-    from pyqcu.set import *
-    from pyqcu import io, gauge, cg, bistabcg, define, qcu, linalg, eigen
+    from pyqcu.cuda.set import *
+    from pyqcu.cuda import io, gauge, cg, bistabcg, define, qcu, linalg, eigen
     import cupy as cp
     import numpy as np
     np.Inf = np.inf

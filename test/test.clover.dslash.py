@@ -1,9 +1,9 @@
 import re
 import numpy as np
 import cupy as cp
-from pyqcu import define
-from pyqcu import io
-from pyqcu import qcu
+from pyqcu.cuda import define
+from pyqcu.cuda import io
+from pyqcu.cuda import qcu
 print('My rank is ', define.rank)
 if define.rank == 0:
     params = np.array([0]*define._PARAMS_SIZE_, dtype=np.int32)

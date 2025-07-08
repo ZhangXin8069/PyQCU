@@ -1,5 +1,5 @@
 import cupy as cp
-from pyqcu.linalg import initialize_random_vector, orthogonalize_against_vectors, chebyshev_filter
+from pyqcu.cuda.linalg import initialize_random_vector, orthogonalize_against_vectors, chebyshev_filter
 from time import perf_counter
 
 
