@@ -1,4 +1,4 @@
-from pyqcu import qcu
+from pyqcu.cuda import qcu
 import cupy as cp
 import numpy as np
 import re

@@ -13,8 +13,8 @@ class CMakeBuild(build_ext):
         super().run()
 extensions = [
     Extension(
-        "pyqcu.qcu",
-        [f"{HOME}/pyqcu/qcu/qcu.pyx"],
+        "pyqcu.cuda.qcu",
+        [f"{HOME}/pyqcu/cuda/qcu/qcu.pyx"],
         include_dirs=[f"{HOME}/extern/cuda/qcu/python", numpy.get_include()],
         library_dirs=[f"{HOME}/lib"],
         define_macros=[("NPY_NO_DEPRECATED_API", "NPY_1_7_API_VERSION")],

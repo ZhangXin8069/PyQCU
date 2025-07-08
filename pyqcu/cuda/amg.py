@@ -1,6 +1,6 @@
-import pyqcu.define as define
-from pyqcu.linalg import rayleigh_quotient, orthogonalize_against_vectors
-import pyqcu.bistabcg as bistabcg
+import pyqcu.cuda.define as define
+from pyqcu.cuda.linalg import rayleigh_quotient, orthogonalize_against_vectors
+import pyqcu.cuda.bistabcg as bistabcg
 import numpy as np
 import cupy as cp
 def setup(n, k, matvec, dtype, bsi=20, cl=0.95, mi=5, tol=1e-4):

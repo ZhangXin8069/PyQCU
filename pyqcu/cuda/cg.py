@@ -1,5 +1,5 @@
 import cupy as cp
-from pyqcu.linalg import dot, initialize_random_vector
+from pyqcu.cuda.linalg import dot, initialize_random_vector
 from time import perf_counter
 def slover(b, matvec, max_iter=1000, tol=1e-9, x0=None):
     n = b.size

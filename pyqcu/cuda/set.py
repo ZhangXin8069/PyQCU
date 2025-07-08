@@ -1,4 +1,4 @@
-import pyqcu.define as define
+import pyqcu.cuda.define as define
 import numpy as np
 params = np.array([0]*define._PARAMS_SIZE_, dtype=np.int32)
 params[define._LAT_X_] = 32
