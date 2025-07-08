@@ -107,19 +107,19 @@ if __name__ == "__main__":
     print("Set pointers:", set_ptrs)
     print("Set pointers data:", set_ptrs.data)
 
-    def dslash_eo(src, U):
+    def _dslash_eo(src, U):
         dest = cp.zeros_like(src)
         qcu.applyWilsonDslashQcu(
             dest, src, U, set_ptrs, wilson_dslash_eo_params)
         return dest
 
-    def dslash_oe(src, U):
+    def _dslash_oe(src, U):
         dest = cp.zeros_like(src)
         qcu.applyWilsonDslashQcu(
             dest, src, U, set_ptrs, wilson_dslash_oe_params)
         return dest
 
-    def dslash(src, U):
+    def _dslash(src, U):
         print(
             f"src.type:{type(src)},src.dtype:{src.dtype},src.shape:{src.shape}")
         print(f"U.type:{type(U)},U.dtype:{U.dtype},U.shape:{U.shape}")
@@ -134,11 +134,11 @@ if __name__ == "__main__":
         src_o = src_eo[define._ODD_].copy()  # DEBUG!!!
         dest = cp.zeros_like(src_eo)
         U_eo = U_eo.copy()  # DEBUG!!!
-        dest[define._EVEN_] = src_e - kappa*dslash_eo(src_o, U_eo)
-        dest[define._ODD_] = src_o-kappa * dslash_oe(src_e, U_eo)
+        dest[define._EVEN_] = src_e - kappa*_dslash_eo(src_o, U_eo)
+        dest[define._ODD_] = src_o-kappa * _dslash_oe(src_e, U_eo)
         return io.pxxxtzyx2xxxtzyx(dest)
     # gauge.test_su3(U[:, :, -1, -1, -1, -1, -1])
-    _dest = dslash(cp.array(src.cpu().numpy()), cp.array(U.cpu().numpy()))
+    _dest = _dslash(cp.array(src.cpu().numpy()), cp.array(U.cpu().numpy()))
     _dest = torch.tensor(
         data=_dest.get(), device=dest.device, dtype=dest.dtype)
     # print(f"dest value:{dest}")
