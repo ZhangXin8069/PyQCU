@@ -46,7 +46,7 @@ def give_gauss_SU3(sigma=0.1, dtype=cp.complex128, seed=12138, size=100):
     print(f"U_size = {size}")
     for i in range(size):
         U[i], _ = give_gauss_su3(sigma, dtype, seed+i)
-        print(f"U_{i} is ready.")
+        # print(f"U_{i} is ready.")
     return U
 
 
