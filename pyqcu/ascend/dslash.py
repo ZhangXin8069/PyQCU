@@ -198,13 +198,13 @@ class wilson(nn.Module):
         dest = src.clone()
         # Define directions with corresponding axes and gamma matrices
         directions = [
-            {'mu': 0, 'axis': src.dim()-1-0, 'name': 'x',
+            {'mu': 0, 'axis': -1-0, 'name': 'x',
              'gamma': self.gamma[0]},
-            {'mu': 1, 'axis': src.dim()-1-1, 'name': 'y',
+            {'mu': 1, 'axis': -1-1, 'name': 'y',
              'gamma': self.gamma[1]},
-            {'mu': 2, 'axis': src.dim()-1-2, 'name': 'z',
+            {'mu': 2, 'axis': -1-2, 'name': 'z',
              'gamma': self.gamma[2]},
-            {'mu': 3, 'axis': src.dim()-1-3, 'name': 't',
+            {'mu': 3, 'axis': -1-3, 'name': 't',
              'gamma': self.gamma[3]},
         ]
         # Apply Wilson-Dirac operator for each direction
@@ -285,7 +285,7 @@ class clover(wilson):
         # Precompute gamma matrices
         self.gamma = self._define_gamma_matrices()
         # Precompute gamma_gamma matrices
-        self.gamma_gamma = self._define_gamma_matrices()
+        self.gamma_gamma = self._define_gamma_gamma_matrices()
         if self.verbose:
             print("Gamma matrices and Gamma-Gamma matrices initialized")
 
@@ -295,22 +295,22 @@ class clover(wilson):
             6, 4, 4, dtype=self.dtype, device=self.device)
         # gamma_gamma0 xy-direction)
         gamma_gamma[0] = torch.einsum(
-            'Ss,sS->SS', self.gamma[0], self.gamma[1])
+            'ab,bc->ac', self.gamma[0], self.gamma[1])
         # gamma_gamma1 xz-direction)
         gamma_gamma[1] = torch.einsum(
-            'Ss,sS->SS', self.gamma[0], self.gamma[2])
+            'ab,bc->ac', self.gamma[0], self.gamma[2])
         # gamma_gamma2 xt-direction)
         gamma_gamma[2] = torch.einsum(
-            'Ss,sS->SS', self.gamma[0], self.gamma[3])
+            'ab,bc->ac', self.gamma[0], self.gamma[3])
         # gamma_gamma3 yz-direction)
         gamma_gamma[3] = torch.einsum(
-            'Ss,sS->SS', self.gamma[1], self.gamma[2])
+            'ab,bc->ac', self.gamma[1], self.gamma[2])
         # gamma_gamma4 yt-direction)
         gamma_gamma[4] = torch.einsum(
-            'Ss,sS->SS', self.gamma[1], self.gamma[3])
+            'ab,bc->ac', self.gamma[1], self.gamma[3])
         # gamma_gamma5 zt-direction)
         gamma_gamma[5] = torch.einsum(
-            'Ss,sS->SS', self.gamma[2], self.gamma[3])
+            'ab,bc->ac', self.gamma[2], self.gamma[3])
         return gamma_gamma
 
     def give_clover_term(self, U: torch.Tensor) -> torch.Tensor:
@@ -332,21 +332,21 @@ class clover(wilson):
         # Compute adjoint gauge field (dagger conjugate)
         U_dag = U.permute(1, 0, 2, 3, 4, 5, 6).conj()
         # Initialize clover term tensor
-        clover = torch.zeros((4, 3, 3, 4, self.Lt, self.Lz, self.Ly, self.Lx),
+        clover = torch.zeros((4, 3, 4, 3, self.Lt, self.Lz, self.Ly, self.Lx),
                              dtype=self.dtype, device=self.device)
         # Define directions with corresponding axes and gamma_gamma matrices
         directions = [
-            {'mu': 0, 'nu': 1, 'axis_mu': U.dim()-1-0, 'axis_nu': U.dim()-1-1, 'name': 'xy',
+            {'mu': 0, 'nu': 1, 'axis_mu': -1-0, 'axis_nu': -1-1, 'name': 'xy',
                 'gamma_gamma': self.gamma_gamma[0]},
-            {'mu': 0, 'nu': 2, 'axis_mu': U.dim()-1-0, 'axis_nu': U.dim()-1-2, 'name': 'xz',
+            {'mu': 0, 'nu': 2, 'axis_mu': -1-0, 'axis_nu': -1-2, 'name': 'xz',
                 'gamma_gamma': self.gamma_gamma[1]},
-            {'mu': 0, 'nu': 3, 'axis_mu': U.dim()-1-0, 'axis_nu': U.dim()-1-3, 'name': 'xt',
+            {'mu': 0, 'nu': 3, 'axis_mu': -1-0, 'axis_nu': -1-3, 'name': 'xt',
                 'gamma_gamma': self.gamma_gamma[2]},
-            {'mu': 1, 'nu': 2, 'axis_mu': U.dim()-1-1, 'axis_nu': U.dim()-1-2, 'name': 'yz',
+            {'mu': 1, 'nu': 2, 'axis_mu': -1-1, 'axis_nu': -1-2, 'name': 'yz',
                 'gamma_gamma': self.gamma_gamma[3]},
-            {'mu': 1, 'nu': 3, 'axis_mu': U.dim()-1-1, 'axis_nu': U.dim()-1-3, 'name': 'yt',
+            {'mu': 1, 'nu': 3, 'axis_mu': -1-1, 'axis_nu': -1-3, 'name': 'yt',
                 'gamma_gamma': self.gamma_gamma[4]},
-            {'mu': 2, 'nu': 3, 'axis_mu': U.dim()-1-2, 'axis_nu': U.dim()-1-3, 'name': 'zt',
+            {'mu': 2, 'nu': 3, 'axis_mu': -1-2, 'axis_nu': -1-3, 'name': 'zt',
                 'gamma_gamma': self.gamma_gamma[5]},
         ]
         # Give clover term for each direction
@@ -378,37 +378,36 @@ class clover(wilson):
             U_dag_mu = U_dag[..., mu, :, :, :, :]  # [c1, c2, t, z, y, x]
             U_dag_nu = U_dag[..., nu, :, :, :, :]  # [c1, c2, t, z, y, x]
             # $$U_1 &= u(x,\mu)u(x+\mu,\nu)u^{\dag}(x+\nu,\mu)u^{\dag}(x,\nu)                \\$$
-            temp1 = torch.einsum('Cctzyx,cCtzyx->CCtzyx', U_mu,
+            temp1 = torch.einsum('abtzyx,bctzyx->actzyx', U_mu,
                                  torch.roll(U_nu, shifts=-1, dims=axis_mu))
-            temp2 = torch.einsum('Cctzyx,cCtzyx->CCtzyx', temp1,
+            temp2 = torch.einsum('abtzyx,bctzyx->actzyx', temp1,
                                  torch.roll(U_dag_mu, shifts=-1, dims=axis_nu))
-            F += torch.einsum('Cctzyx,cCtzyx->CCtzyx', temp2, U_dag_nu)
+            F += torch.einsum('abtzyx,bctzyx->actzyx', temp2, U_dag_nu)
             # $$U_2 &= u(x,\nu)u^{\dag}(x-\mu+\nu,\mu)u^{\dag}(x-\mu,\nu)u(x-\mu,\mu)        \\$$
-            temp1 = torch.einsum('Cctzyx,cCtzyx->CCtzyx', U_nu,
+            temp1 = torch.einsum('abtzyx,bctzyx->actzyx', U_nu,
                                  torch.roll(torch.roll(U_dag_mu, shifts=1, dims=axis_mu), shifts=-1, dims=axis_nu))
-            temp2 = torch.einsum('Cctzyx,cCtzyx->CCtzyx', temp1,
+            temp2 = torch.einsum('abtzyx,bctzyx->actzyx', temp1,
                                  torch.roll(U_dag_nu, shifts=1, dims=axis_mu))
-            F += torch.einsum('Cctzyx,cCtzyx->CCtzyx', temp2,
+            F += torch.einsum('abtzyx,bctzyx->actzyx', temp2,
                               torch.roll(U_mu, shifts=1, dims=axis_mu))
             # $$U_3 &= u^{\dag}(x-\mu,\mu)u^{\dag}(x-\mu-\nu,\nu)u(x-\mu-\nu,\mu)u(x-\nu,\nu)\\$$
-            temp1 = torch.einsum('Cctzyx,cCtzyx->CCtzyx', torch.roll(U_dag_mu, shifts=1, dims=axis_mu),
+            temp1 = torch.einsum('abtzyx,bctzyx->actzyx', torch.roll(U_dag_mu, shifts=1, dims=axis_mu),
                                  torch.roll(torch.roll(U_dag_nu, shifts=1, dims=axis_mu), shifts=1, dims=axis_nu))
-            temp2 = torch.einsum('Cctzyx,cCtzyx->CCtzyx', temp1,
+            temp2 = torch.einsum('abtzyx,bctzyx->actzyx', temp1,
                                  torch.roll(torch.roll(U_mu, shifts=1, dims=axis_mu), shifts=1, dims=axis_nu))
-            F += torch.einsum('Cctzyx,cCtzyx->CCtzyx', temp2,
+            F += torch.einsum('abtzyx,bctzyx->actzyx', temp2,
                               torch.roll(U_nu, shifts=1, dims=axis_nu))
             # $$U_4 &= u^{\dag}(x-\nu,\nu)u(x-\nu,\mu)u(x-\nu+\mu,\nu)u^{\dag}(x,\mu)        \\$$
-            temp1 = torch.einsum('Cctzyx,cCtzyx->CCtzyx', torch.roll(U_dag_nu, shifts=1, dims=axis_nu),
+            temp1 = torch.einsum('abtzyx,bctzyx->actzyx', torch.roll(U_dag_nu, shifts=1, dims=axis_nu),
                                  torch.roll(U_mu, shifts=1, dims=axis_nu))
-            temp2 = torch.einsum('Cctzyx,cCtzyx->CCtzyx', temp1,
+            temp2 = torch.einsum('abtzyx,bctzyx->actzyx', temp1,
                                  torch.roll(torch.roll(U_nu, shifts=-1, dims=axis_mu), shifts=1, dims=axis_nu))
-            F += torch.einsum('Cctzyx,cCtzyx->CCtzyx', temp2, U_dag_mu)
+            F += torch.einsum('abtzyx,bctzyx->actzyx', temp2, U_dag_mu)
             # Give whole F
             F -= F.permute(1, 0, 2, 3, 4, 5).conj()  # -BEFORE^{\dag}
-            F += F
             # Multiply F with sigma
             sigmaF = torch.einsum(
-                'Ss,Cctzyx->SsCtzyx', sigma, F)
+                'Ss,Cctzyx->SCsctzyx', sigma, F)
             # Make Clover term
             clover += -0.125/self.u_0*self.kappa*sigmaF
             if self.verbose:
@@ -417,3 +416,22 @@ class clover(wilson):
             print("Clover term complete")
             print(f"  clover norm: {torch.norm(clover).item()}")
         return clover
+
+    def add_eye(self, clover: torch.Tensor) -> torch.Tensor:
+        _clover = clover.reshape(12, 12, -1)
+        print(f"_clover.shape:{_clover.shape}")
+        for i in range(_clover.shape[-1]):
+            _clover[:, :, i] += torch.eye(12, 12,
+                                          dtype=_clover.dtype, device=_clover.device)
+        dest = _clover.reshape(clover.shape)
+        print(f"dest.shape:{dest.shape}")
+        return dest
+
+    def inverse(self, clover: torch.Tensor) -> torch.Tensor:
+        _clover = clover.reshape(12, 12, -1)
+        print(f"_clover.shape:{_clover.shape}")
+        for i in range(_clover.shape[-1]):
+            _clover[:, :, i] = torch.linalg.inv(_clover[:, :, i])
+        dest = _clover.reshape(clover.shape)
+        print(f"dest.shape:{dest.shape}")
+        return dest

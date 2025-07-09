@@ -8,9 +8,9 @@ from time import perf_counter
 from opt_einsum import contract
 from pyqcu.cuda.set import params, argv, set_ptrs
 params[define._LAT_X_] = 8
-params[define._LAT_Y_] = 8
-params[define._LAT_Z_] = 8
-params[define._LAT_T_] = 8
+params[define._LAT_Y_] = 4
+params[define._LAT_Z_] = 4
+params[define._LAT_T_] = 4
 params[define._LAT_XYZT_] = params[define._LAT_X_] * \
     params[define._LAT_Y_] * params[define._LAT_Z_] * params[define._LAT_T_]
 params[define._DATA_TYPE_] = define._LAT_C64_
@@ -34,10 +34,10 @@ print("Arguments dtype:", argv.dtype)
 print("Demo is running...")
 print("Set pointers:", set_ptrs)
 print("Set pointers data:", set_ptrs.data)
-# qcu_gauge = gauge.give_gauss_SU3(sigma=sigma, seed=seed,
-#                          dtype=qcu_src.dtype, size=params[define._LAT_XYZT_]*define._LAT_D_)
-qcu_gauge = cp.ones(params[define._LAT_XYZT_] *
-                    define._LAT_DCC_, dtype=qcu_src.dtype)
+qcu_gauge = gauge.give_gauss_SU3(sigma=sigma, seed=seed,
+                         dtype=qcu_src.dtype, size=params[define._LAT_XYZT_]*define._LAT_D_)
+# qcu_gauge = cp.ones(params[define._LAT_XYZT_] *
+#                     define._LAT_DCC_, dtype=qcu_src.dtype)
 qcu_gauge = io.gauge2dptzyxcc(qcu_gauge, params)
 qcu_gauge = io.dptzyxcc2ccdptzyx(qcu_gauge)
 print("qcu_gauge data:", qcu_gauge.data)
@@ -97,26 +97,32 @@ qcu.applyCloverDslashQcu(_qcu_clover_dest, qcu_clover_src,
                          qcu_gauge, set_ptrs, clover_dslash_eo_params)
 qcu.applyDslashQcu(qcu_clover_dest, qcu_clover_src, clover_even,
                    qcu_gauge, set_ptrs, clover_dslash_eo_params)
-print(cp.linalg.norm(_qcu_clover_dest - qcu_clover_dest))
+print(f"cp.linalg.norm(qcu_clover_dest):{cp.linalg.norm(qcu_clover_dest)}")
+print(f"cp.linalg.norm(_qcu_clover_dest):{cp.linalg.norm(_qcu_clover_dest)}")
+print(
+    f"cp.linalg.norm(_qcu_clover_dest - qcu_clover_dest):{cp.linalg.norm(_qcu_clover_dest - qcu_clover_dest)}")
 qcu.applyCloverQcu(clover_odd, qcu_gauge, set_ptrs, clover_dslash_oe_params)
 qcu.applyCloverDslashQcu(_qcu_clover_dest, qcu_clover_src,
                          qcu_gauge, set_ptrs, clover_dslash_oe_params)
 qcu.applyDslashQcu(qcu_clover_dest, qcu_clover_src, clover_odd,
                    qcu_gauge, set_ptrs, clover_dslash_oe_params)
-print(cp.linalg.norm(_qcu_clover_dest - qcu_clover_dest))
-grid_size = [1, 1, 1, 1]
-latt_size = [params[define._LAT_X_], params[define._LAT_Y_],
-             params[define._LAT_Z_], params[define._LAT_T_]]
-xi_0, nu = 1.0, 1.0
-kappa = 1.0
-mass = 1 / (2 * kappa) - 4
-coeff = 1.0
-coeff_r, coeff_t = 1.0, 1.0
-core.init(grid_size, latt_size, -1, xi_0 / nu, resource_path=".cache")
-latt_info = core.getDefaultLattice()
-Lx, Ly, Lz, Lt = latt_info.size
-quda_dslash = core.getDefaultDirac(mass, 1e-12, 1000, xi_0, coeff_t, coeff_r)
-quda_gauge = LatticeGauge(latt_info=latt_info)
+print(f"cp.linalg.norm(qcu_clover_dest):{cp.linalg.norm(qcu_clover_dest)}")
+print(f"cp.linalg.norm(_qcu_clover_dest):{cp.linalg.norm(_qcu_clover_dest)}")
+print(
+    f"cp.linalg.norm(_qcu_clover_dest - qcu_clover_dest):{cp.linalg.norm(_qcu_clover_dest - qcu_clover_dest)}")
+# grid_size = [1, 1, 1, 1]
+# latt_size = [params[define._LAT_X_], params[define._LAT_Y_],
+#              params[define._LAT_Z_], params[define._LAT_T_]]
+# xi_0, nu = 1.0, 1.0
+# kappa = 1.0
+# mass = 1 / (2 * kappa) - 4
+# coeff = 1.0
+# coeff_r, coeff_t = 1.0, 1.0
+# core.init(grid_size, latt_size, -1, xi_0 / nu, resource_path=".cache")
+# latt_info = core.getDefaultLattice()
+# Lx, Ly, Lz, Lt = latt_info.size
+# quda_dslash = core.getDefaultDirac(mass, 1e-12, 1000, xi_0, coeff_t, coeff_r)
+# quda_gauge = LatticeGauge(latt_info=latt_info)
 # print(type(qcu_gauge))
 # print(qcu_gauge.dtype)
 # print(qcu_gauge.shape)
