@@ -8,7 +8,7 @@ if __name__ == "__main__":
     # latt_size = (1, 1, 1, 1)
     # latt_size = (2, 2, 2, 2)
     # latt_size = (8, 4, 4, 4)
-    latt_size = (4, 4, 4, 4)
+    latt_size = (8, 4, 4, 4)
     # latt_size = (8, 4, 4, 8)
     kappa = 0.125
     # dtype = torch.complex128
@@ -33,10 +33,11 @@ if __name__ == "__main__":
     )
     # Generate random gauge field
     U = wilson.generate_gauge_field(sigma=0.1, seed=42)
-    # U = torch.ones_like(U)
-    # U = torch.zeros_like(U)
     # U = torch.eye(3, 3, dtype=dtype, device=device).repeat(
     #     4, latt_size[-1], latt_size[-2], latt_size[-3], latt_size[-4], 1, 1).permute(5, 6, 0, 1, 2, 3, 4)
+    # U = torch.ones_like(U)
+    # U = torch.zeros_like(U)
+    # U=U*1.0j+U
     # U = torch.tensor(data=[0, 1, 2, 3, 4, 5, 6, 7, 8], dtype=dtype, device=device).reshape(3, 3).repeat(
     #     4, latt_size[-1], latt_size[-2], latt_size[-3], latt_size[-4], 1, 1).permute(5, 6, 0, 1, 2, 3, 4)
     # Generate random source field [s, c, t, z, y, x]
@@ -55,7 +56,7 @@ if __name__ == "__main__":
     print(f"Max abs value: {torch.max(torch.abs(dest)).item()}")
     print(f"Dest norm: {torch.norm(dest).item()}")
     print(f"Dest dtype: {dest.dtype}")
-    # print(f"U value:{U}")
+    print(f"U value:{U}")
     # print(f"Src value:{src}")
     # print(f"Dest value:{dest}")
     import warnings
@@ -111,8 +112,33 @@ if __name__ == "__main__":
     wilson_dslash_oe_dag_params[define._PARITY_] = define._ODD_
     wilson_dslash_oe_dag_params[define._DAGGER_] = define._USE_
     qcu.applyInitQcu(set_ptrs, wilson_dslash_oe_dag_params, argv)
+    clover_dslash_eo_params = params.copy()
+    clover_dslash_eo_params[define._SET_INDEX_] = 5
+    clover_dslash_eo_params[define._SET_PLAN_] = define._SET_PLAN2_
+    clover_dslash_eo_params[define._PARITY_] = define._EVEN_
+    clover_dslash_eo_params[define._DAGGER_] = define._NO_USE_
+    qcu.applyInitQcu(set_ptrs, clover_dslash_eo_params, argv)
+    clover_dslash_oe_params = params.copy()
+    clover_dslash_oe_params[define._SET_INDEX_] = 6
+    clover_dslash_oe_params[define._SET_PLAN_] = define._SET_PLAN2_
+    clover_dslash_oe_params[define._PARITY_] = define._ODD_
+    clover_dslash_oe_params[define._DAGGER_] = define._NO_USE_
+    qcu.applyInitQcu(set_ptrs, clover_dslash_oe_params, argv)
     print("Set pointers:", set_ptrs)
     print("Set pointers data:", set_ptrs.data)
+    U_eo = io.xxxtzyx2pxxxtzyx(cp.array(U.cpu().numpy()))
+    U_eo = io.pccdtzyx2ccdptzyx(U_eo)
+    U_eo = U_eo.copy()  # DEBUG!!!
+    print(f"U_eo:{U_eo}")
+    _clover_even = cp.zeros((define._LAT_S_, define._LAT_C_, define._LAT_S_, define._LAT_C_,
+                            params[define._LAT_T_], params[define._LAT_Z_], params[define._LAT_Y_], int(params[define._LAT_X_]/define._LAT_P_),), dtype=U_eo.dtype)
+    _clover_odd = cp.zeros((define._LAT_S_, define._LAT_C_, define._LAT_S_, define._LAT_C_,
+                           params[define._LAT_T_], params[define._LAT_Z_], params[define._LAT_Y_], int(params[define._LAT_X_]/define._LAT_P_),), dtype=U_eo.dtype)
+    qcu.applyCloverQcu(_clover_even, U_eo, set_ptrs, clover_dslash_eo_params)
+    qcu.applyCloverQcu(_clover_odd, U_eo, set_ptrs, clover_dslash_oe_params)
+    _inverse_clover_term = cp.array([_clover_even.get(), _clover_odd.get()])
+    _inverse_clover_term = io.pxxxtzyx2xxxtzyx(_inverse_clover_term)
+    print(f"_inverse_clover_term.shape:{_inverse_clover_term.shape}")
 
     def _dslash_eo(src, U):
         dest = cp.zeros_like(src)
@@ -155,3 +181,14 @@ if __name__ == "__main__":
     print(
         f"torch.linalg.norm(dest-_dest)/torch.linalg.norm(dest):{torch.linalg.norm(dest-_dest)/torch.linalg.norm(dest)}")
     # print(f"dest - _dest value:{dest-_dest}")
+    clover_term = clover.give_clover_term(U=U)
+    inverse_clover_term = clover.add_eye(clover=clover_term)
+    inverse_clover_term = clover.inverse(clover=clover_term)
+    _inverse_clover_term = torch.tensor(
+        data=_inverse_clover_term.get(), device=inverse_clover_term.device, dtype=inverse_clover_term.dtype)
+    print(f"inverse_clover_term:{inverse_clover_term}")
+    print(f"_inverse_clover_term:{_inverse_clover_term}")
+    print(
+        f"inverse_clover_term-_inverse_clover_term:{inverse_clover_term-_inverse_clover_term}")
+    print(
+        f"torch.linalg.norm(inverse_clover_term-_inverse_clover_term)/torch.linalg.norm(inverse_clover_term):{torch.linalg.norm(inverse_clover_term-_inverse_clover_term)/torch.linalg.norm(inverse_clover_term)}")
