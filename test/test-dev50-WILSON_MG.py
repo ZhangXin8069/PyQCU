@@ -148,17 +148,20 @@ class LatticeSolver(nn.Module):
         def restrict(self, level: int, fine_vec: torch.Tensor) -> torch.Tensor:
             """Restriction operator: fine -> coarse"""
             coarse_dof = self.coarse_dof[level]
+            print(f"self.mg_ops:{self.mg_ops}\n")
             Lx, Ly, Lz, Lt = self.mg_ops[level + 1].Lx, self.mg_ops[level +
                                                                     1].Ly, self.mg_ops[level + 1].Lz, self.mg_ops[level + 1].Lt
             coarse_vec = torch.zeros(coarse_dof, 3, Lt, Lz, Ly, Lx,
                                      dtype=self.dtype, device=self.device)
             fine_flat = fine_vec.flatten()
             coarse_flat = coarse_vec.flatten()
+            print(
+                f"coarse_vec.shape,fine_vec.shape:{coarse_vec.shape,fine_vec.shape}\n")
             for i in range(coarse_vec.numel() // coarse_dof):
                 for d in range(coarse_dof):
                     idx = i * coarse_dof + d
                     print(
-                        f"i,coarse_vec.numel(),coarse_dof,d,fine_flat:{i,coarse_vec.numel(),coarse_dof,d,fine_flat}")
+                        f"Lx, Ly, Lz, Lt, i,coarse_vec.numel(),coarse_dof,d:{Lx, Ly, Lz, Lt,i,coarse_vec.numel(),coarse_dof,d}\n")
                     valid_indices = self.coarse_map[level][i] < len(fine_flat)
                     valid_map = self.coarse_map[level][i, valid_indices]
                     if len(valid_map) > 0:
@@ -193,7 +196,6 @@ class LatticeSolver(nn.Module):
             r = b - solver._dslash(x)
             r0 = r.clone()
             p = r.clone()
-            rho = 1.0
             alpha = 1.0
             omega = 1.0
             count = 0
