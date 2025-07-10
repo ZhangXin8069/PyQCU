@@ -7,7 +7,8 @@ from pyqcu.ascend import dslash
 
 class LatticeSolver(nn.Module):
     def __init__(self,
-                 latt_size: Tuple[int, int, int, int] = (16, 16, 16, 16),  # 4D lattice (x, y, z, t)
+                 latt_size: Tuple[int, int, int, int] = (
+                     16, 16, 16, 16),  # 4D lattice (x, y, z, t)
                  n_refine: int = 3,  # Multigrid refinement levels
                  kappa: float = 0.1,  # Wilson parameter
                  device: Optional[torch.device] = None,
@@ -21,7 +22,8 @@ class LatticeSolver(nn.Module):
         self.Lx, self.Ly, self.Lz, self.Lt = latt_size
         self.volume = self.Lx * self.Ly * self.Lz * self.Lt
         self.kappa = kappa
-        self.device = device or (torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu'))
+        self.device = device or (torch.device(
+            'cuda') if torch.cuda.is_available() else torch.device('cpu'))
         self.dtype = dtype
         self.verbose = verbose
         self.wilson = dslash.wilson(
@@ -35,7 +37,8 @@ class LatticeSolver(nn.Module):
         # Initialize multigrid
         self.mg = self.MultiGrid(self, n_refine)
         if self.verbose:
-            print(f"Initialization complete: Lattice size {self.Lx}x{self.Ly}x{self.Lz}x{self.Lt}, Spin 4, Color 3")
+            print(
+                f"Initialization complete: Lattice size {self.Lx}x{self.Ly}x{self.Lz}x{self.Lt}, Spin 4, Color 3")
             print(f"Device: {self.device}, Dtype: {self.dtype}")
 
     def _dslash(self, src: torch.Tensor) -> torch.Tensor:
@@ -53,8 +56,10 @@ class LatticeSolver(nn.Module):
             self.device = solver.device
             self.dtype = solver.dtype
             self.blocksize = [2, 2, 2, 2]  # Compression rate per dimension
-            self.coarse_dof = [16, 16, 16]  # Degrees of freedom on coarse grids
-            self.mg_ops = [solver]  # Operators per level (share the same gauge field)
+            # Degrees of freedom on coarse grids
+            self.coarse_dof = [16, 16, 16]
+            # Operators per level (share the same gauge field)
+            self.mg_ops = [solver]
             self.R_null_vec = []  # Near-null vectors
             self.coarse_map = []  # Coarse-fine grid mapping
             self.fine_sites_per_coarse = []  # Fine sites per coarse block
@@ -78,18 +83,20 @@ class LatticeSolver(nn.Module):
                                                   self.blocksize[2] * self.blocksize[3] * 4 * 3)
                 coarse_vol = Lx * Ly * Lz * Lt
                 map_shape = (coarse_vol, self.fine_sites_per_coarse[i])
-                self.coarse_map.append(torch.zeros(map_shape, dtype=torch.int64, device=self.device))
+                self.coarse_map.append(torch.zeros(
+                    map_shape, dtype=torch.int64, device=self.device))
                 self._build_mapping(i, Lx, Ly, Lz, Lt)
                 self.mg_ops.append(self.solver)
                 if self.solver.verbose:
-                    print(f"Level {i} coarse grid: size {Lx}x{Ly}x{Lz}x{Lt}, DOF {coarse_dof}")
+                    print(
+                        f"Level {i} coarse grid: size {Lx}x{Ly}x{Lz}x{Lt}, DOF {coarse_dof}")
 
         def _orthogonalize_null_vec(self, vec: torch.Tensor, dof: int) -> torch.Tensor:
             """Orthogonalize the near-null space vectors"""
             for i in range(dof):
                 for j in range(i):
                     proj = torch.vdot(vec[i].conj().flatten(), vec[j].flatten()) / \
-                           torch.vdot(vec[j].conj().flatten(), vec[j].flatten())
+                        torch.vdot(vec[j].conj().flatten(), vec[j].flatten())
                     vec[i] -= proj * vec[j]
                 vec[i] /= torch.norm(vec[i])
             return vec
@@ -101,7 +108,8 @@ class LatticeSolver(nn.Module):
             sites_per_block = block[0] * block[1] * block[2] * block[3] * 4 * 3
             if self.coarse_map[level].size(1) != sites_per_block:
                 if self.solver.verbose:
-                    print(f"Warning: mismatched mapping size, expected {sites_per_block}, got {self.coarse_map[level].size(1)}")
+                    print(
+                        f"Warning: mismatched mapping size, expected {sites_per_block}, got {self.coarse_map[level].size(1)}")
                 self.coarse_map[level] = torch.zeros(self.coarse_map[level].size(0),
                                                      sites_per_block,
                                                      dtype=torch.int64,
@@ -128,17 +136,20 @@ class LatticeSolver(nn.Module):
                                                                 z * fine_Ly * fine_Lx +
                                                                 y * fine_Lx + x)
                                                     if local_idx < self.coarse_map[level].size(1):
-                                                        self.coarse_map[level][map_idx, local_idx] = fine_idx
+                                                        self.coarse_map[level][map_idx,
+                                                                               local_idx] = fine_idx
                                                         local_idx += 1
                                                     else:
                                                         if self.solver.verbose:
-                                                            print(f"Warning: mapping index out of range, local_idx={local_idx}, max={self.coarse_map[level].size(1)-1}")
+                                                            print(
+                                                                f"Warning: mapping index out of range, local_idx={local_idx}, max={self.coarse_map[level].size(1)-1}")
                             map_idx += 1
 
         def restrict(self, level: int, fine_vec: torch.Tensor) -> torch.Tensor:
             """Restriction operator: fine -> coarse"""
             coarse_dof = self.coarse_dof[level]
-            Lx, Ly, Lz, Lt = self.mg_ops[level + 1].Lx, self.mg_ops[level + 1].Ly, self.mg_ops[level + 1].Lz, self.mg_ops[level + 1].Lt
+            Lx, Ly, Lz, Lt = self.mg_ops[level + 1].Lx, self.mg_ops[level +
+                                                                    1].Ly, self.mg_ops[level + 1].Lz, self.mg_ops[level + 1].Lt
             coarse_vec = torch.zeros(coarse_dof, 3, Lt, Lz, Ly, Lx,
                                      dtype=self.dtype, device=self.device)
             fine_flat = fine_vec.flatten()
@@ -146,6 +157,8 @@ class LatticeSolver(nn.Module):
             for i in range(coarse_vec.numel() // coarse_dof):
                 for d in range(coarse_dof):
                     idx = i * coarse_dof + d
+                    print(
+                        f"i,coarse_vec.numel(),coarse_dof,d,fine_flat:{i,coarse_vec.numel(),coarse_dof,d,fine_flat}")
                     valid_indices = self.coarse_map[level][i] < len(fine_flat)
                     valid_map = self.coarse_map[level][i, valid_indices]
                     if len(valid_map) > 0:
@@ -166,7 +179,8 @@ class LatticeSolver(nn.Module):
                     valid_indices = self.coarse_map[level][i] < len(fine_flat)
                     valid_map = self.coarse_map[level][i, valid_indices]
                     if len(valid_map) > 0:
-                        fine_flat[valid_map] += self.R_null_vec[level][d, valid_map] * coarse_flat[idx]
+                        fine_flat[valid_map] += self.R_null_vec[level][d,
+                                                                       valid_map] * coarse_flat[idx]
             return fine_vec
 
         def mg_solve(self, b: torch.Tensor, tol: float = 1e-8, max_iter: int = 300) -> torch.Tensor:
@@ -185,18 +199,21 @@ class LatticeSolver(nn.Module):
             count = 0
             while count < max_iter and torch.norm(r) > tol:
                 Ap = solver._dslash(p)
-                alpha = torch.vdot(r0.conj().flatten(), r.flatten()) / torch.vdot(r0.conj().flatten(), Ap.flatten())
+                alpha = torch.vdot(r0.conj().flatten(), r.flatten(
+                )) / torch.vdot(r0.conj().flatten(), Ap.flatten())
                 x += alpha * p
                 r1 = r - alpha * Ap
                 if torch.norm(r1) < tol:
                     break
                 if level < self.n_refine:
                     r_coarse = self.restrict(level, r1)
-                    e_coarse = self._mg_bicgstab(r_coarse, tol * 0.25, max_iter // 2, level + 1)
+                    e_coarse = self._mg_bicgstab(
+                        r_coarse, tol * 0.25, max_iter // 2, level + 1)
                     x += self.prolong(level, e_coarse)
                     r1 = b - solver._dslash(x)
                 t = solver._dslash(r1)
-                omega = torch.vdot(t.conj().flatten(), r1.flatten()) / torch.vdot(t.conj().flatten(), t.flatten())
+                omega = torch.vdot(t.conj().flatten(), r1.flatten(
+                )) / torch.vdot(t.conj().flatten(), t.flatten())
                 x += omega * r1
                 r = r1 - omega * t
                 beta = (torch.vdot(r.conj().flatten(), r0.flatten()) /
@@ -204,7 +221,8 @@ class LatticeSolver(nn.Module):
                 p = r + beta * (p - omega * Ap)
                 count += 1
             if solver.verbose and level == 0:
-                print(f"Multigrid solve finished: {count} iterations, residual {torch.norm(r):.2e}")
+                print(
+                    f"Multigrid solve finished: {count} iterations, residual {torch.norm(r):.2e}")
             return x
 
     def bicgstab(self, b: torch.Tensor, tol: float = 1e-8, max_iter: int = 1000) -> torch.Tensor:
@@ -216,13 +234,15 @@ class LatticeSolver(nn.Module):
         count = 0
         while count < max_iter and torch.norm(r) > tol:
             Ap = self._dslash(p)
-            alpha = torch.vdot(r0.conj().flatten(), r.flatten()) / torch.vdot(r0.conj().flatten(), Ap.flatten())
+            alpha = torch.vdot(r0.conj().flatten(), r.flatten(
+            )) / torch.vdot(r0.conj().flatten(), Ap.flatten())
             x += alpha * p
             r1 = r - alpha * Ap
             if torch.norm(r1) < tol:
                 break
             t = self._dslash(r1)
-            omega = torch.vdot(t.conj().flatten(), r1.flatten()) / torch.vdot(t.conj().flatten(), t.flatten())
+            omega = torch.vdot(t.conj().flatten(), r1.flatten()) / \
+                torch.vdot(t.conj().flatten(), t.flatten())
             x += omega * r1
             r = r1 - omega * t
             beta = (torch.vdot(r.conj().flatten(), r0.flatten()) /
@@ -230,8 +250,10 @@ class LatticeSolver(nn.Module):
             p = r + beta * (p - omega * Ap)
             count += 1
         if self.verbose:
-            print(f"BiCGSTAB solve finished: {count} iterations, residual {torch.norm(r):.2e}")
+            print(
+                f"BiCGSTAB solve finished: {count} iterations, residual {torch.norm(r):.2e}")
         return x
+
 
 if __name__ == "__main__":
     # Parameter settings
@@ -264,4 +286,5 @@ if __name__ == "__main__":
     # Validation
     err_mg = torch.norm(x_mg - x_exact) / torch.norm(x_exact)
     err_bicg = torch.norm(x_bicg - x_exact) / torch.norm(x_exact)
-    print(f"Relative error - Multigrid: {err_mg:.2e}, Standard BiCGSTAB: {err_bicg:.2e}")
+    print(
+        f"Relative error - Multigrid: {err_mg:.2e}, Standard BiCGSTAB: {err_bicg:.2e}")
