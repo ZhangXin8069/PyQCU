@@ -113,7 +113,7 @@ class wilson(nn.Module):
         if self.verbose:
             print("  Computing SU(3) matrices...")
             total_sites = self.Lt * self.Lz * self.Ly * self.Lx * 4
-            processed = 0
+        processed = 0
         # Iterate over all lattice sites
         for t in range(self.Lt):
             for z in range(self.Lz):
