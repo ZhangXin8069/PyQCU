@@ -181,7 +181,7 @@ if __name__ == "__main__":
     print(
         f"torch.linalg.norm(dest-_dest)/torch.linalg.norm(dest):{torch.linalg.norm(dest-_dest)/torch.linalg.norm(dest)}")
     # print(f"dest - _dest value:{dest-_dest}")
-    clover_term = clover.give_clover_term(U=U)
+    clover_term = clover.make_clover(U=U)
     inverse_clover_term = clover.add_eye(clover=clover_term)
     inverse_clover_term = clover.inverse(clover=clover_term)
     _inverse_clover_term = torch.tensor(
