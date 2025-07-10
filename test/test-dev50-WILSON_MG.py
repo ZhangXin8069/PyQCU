@@ -33,7 +33,15 @@ class LatticeSolver(nn.Module):
             device=self.device,
             verbose=False
         )
+        self.clover = dslash.clover(
+            latt_size=self.latt_size,
+            kappa=self.kappa,
+            dtype=self.dtype,
+            device=self.device,
+            verbose=False
+        )
         self.U = self.wilson.generate_gauge_field(sigma=0.1, seed=42)
+        self.clover_term = self.clover.make_clover(U=self.U)
         # Initialize multigrid
         self.mg = self.MultiGrid(self, n_refine)
         if self.verbose:
@@ -47,7 +55,9 @@ class LatticeSolver(nn.Module):
         src shape: [spin, color, t, z, y, x]
         return: same shape
         """
-        return self.wilson.apply_dirac_operator(src, self.U).clone()
+        dest = self.wilson.apply_dirac_operator(src, self.U).clone()
+        dest += self.clover.give_clover(src=dest, clover=self.clover_term)
+        return dest
 
     class MultiGrid:
         def __init__(self, solver, n_refine: int):

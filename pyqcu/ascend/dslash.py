@@ -313,7 +313,7 @@ class clover(wilson):
             'ab,bc->ac', self.gamma[2], self.gamma[3])
         return gamma_gamma
 
-    def give_clover_term(self, U: torch.Tensor) -> torch.Tensor:
+    def make_clover(self, U: torch.Tensor) -> torch.Tensor:
         """
         Give Clover term:
         $$
@@ -419,19 +419,30 @@ class clover(wilson):
 
     def add_eye(self, clover: torch.Tensor) -> torch.Tensor:
         _clover = clover.reshape(12, 12, -1)
-        print(f"_clover.shape:{_clover.shape}")
+        if self.verbose:
+            print(f"_clover.shape:{_clover.shape}")
         for i in range(_clover.shape[-1]):
             _clover[:, :, i] += torch.eye(12, 12,
                                           dtype=_clover.dtype, device=_clover.device)
         dest = _clover.reshape(clover.shape)
-        print(f"dest.shape:{dest.shape}")
+        if self.verbose:
+            print(f"dest.shape:{dest.shape}")
         return dest
 
     def inverse(self, clover: torch.Tensor) -> torch.Tensor:
         _clover = clover.reshape(12, 12, -1)
-        print(f"_clover.shape:{_clover.shape}")
+        if self.verbose:
+            print(f"_clover.shape:{_clover.shape}")
         for i in range(_clover.shape[-1]):
             _clover[:, :, i] = torch.linalg.inv(_clover[:, :, i])
         dest = _clover.reshape(clover.shape)
         print(f"dest.shape:{dest.shape}")
+        return dest
+
+    def give_clover(self, src: torch.Tensor, clover: torch.Tensor) -> torch.Tensor:
+        if self.verbose:
+            print(f"src.shape:{src.shape}") 
+        dest = torch.einsum('SCsctzyx,sctzyx->SCtzyx', clover, src)
+        if self.verbose:
+            print(f"dest.shape:{dest.shape}")
         return dest
