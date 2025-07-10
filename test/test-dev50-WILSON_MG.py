@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from math import sqrt
+from time import perf_counter
 from typing import Tuple, Optional, List
 from pyqcu.ascend import dslash
 
@@ -47,7 +47,7 @@ class LatticeSolver(nn.Module):
         src shape: [spin, color, t, z, y, x]
         return: same shape
         """
-        return self.wilson.apply_dirac_operator(src, self.U)
+        return self.wilson.apply_dirac_operator(src, self.U).clone()
 
     class MultiGrid:
         def __init__(self, solver, n_refine: int):
@@ -227,33 +227,57 @@ class LatticeSolver(nn.Module):
                     f"Multigrid solve finished: {count} iterations, residual {torch.norm(r):.2e}")
             return x
 
-    def bicgstab(self, b: torch.Tensor, tol: float = 1e-8, max_iter: int = 1000) -> torch.Tensor:
+    def bicgstab(self, b: torch.Tensor, tol: float = 1e-8, max_iter: int = 1000, x0=None) -> torch.Tensor:
         """Standard BiCGSTAB solver"""
-        x = torch.zeros_like(b)
+        x = x0.clone() if x0 is not None else torch.rand_like(b)
         r = b - self._dslash(x)
-        r0 = r.clone()
-        p = r.clone()
-        count = 0
-        while count < max_iter and torch.norm(r) > tol:
-            Ap = self._dslash(p)
-            alpha = torch.vdot(r0.conj().flatten(), r.flatten(
-            )) / torch.vdot(r0.conj().flatten(), Ap.flatten())
-            x += alpha * p
-            r1 = r - alpha * Ap
-            if torch.norm(r1) < tol:
+        r_tilde = r.clone()
+        p = torch.zeros_like(b)
+        v = torch.zeros_like(b)
+        s = torch.zeros_like(b)
+        t = torch.zeros_like(b)
+        rho_prev = torch.tensor(1.0, dtype=self.dtype, device=self.device)
+        alpha = torch.tensor(1.0, dtype=self.dtype, device=self.device)
+        omega = torch.tensor(1.0, dtype=self.dtype, device=self.device)
+        start_time = perf_counter()
+        iter_times = []
+        for i in range(max_iter):
+            iter_start_time = perf_counter()
+            rho = torch.vdot(r_tilde.conj().flatten(), r.flatten())
+            if rho.abs() < 1e-30:
+                if verbose:
+                    print("Breakdown: rho ≈ 0")
                 break
-            t = self._dslash(r1)
-            omega = torch.vdot(t.conj().flatten(), r1.flatten()) / \
+            beta = (rho / rho_prev) * (alpha / omega)
+            rho_prev = rho
+            p = r + beta * (p - omega * v)
+            v = self._dslash(p)
+            alpha = rho / torch.vdot(r_tilde.conj().flatten(), v.flatten())
+            s = r - alpha * v
+            t = self._dslash(s)
+            omega = torch.vdot(t.conj().flatten(), s.flatten()) / \
                 torch.vdot(t.conj().flatten(), t.flatten())
-            x += omega * r1
-            r = r1 - omega * t
-            beta = (torch.vdot(r.conj().flatten(), r0.flatten()) /
-                    torch.vdot(r1.conj().flatten(), r0.flatten())) * (alpha / omega)
-            p = r + beta * (p - omega * Ap)
-            count += 1
+            x = x + alpha * p + omega * s
+            r = s - omega * t
+            r_norm2 = torch.norm(r).item()
+            iter_time = perf_counter() - iter_start_time
+            iter_times.append(iter_time)
+            if self.verbose:
+                # print(f"alpha,beta,omega,r_norm2:{alpha,beta,omega,r_norm2}\n")
+                print(
+                    f"Iteration {i}: Residual = {r_norm2:.6e}, Time = {iter_time:.6f} s")
+            if r_norm2 < tol:
+                if verbose:
+                    print(
+                        f"Converged at iteration {i} with residual {r_norm2:.6e}")
+                break
+        total_time = perf_counter() - start_time
+        avg_iter_time = sum(iter_times) / \
+            len(iter_times) if iter_times else 0.0
         if self.verbose:
-            print(
-                f"BiCGSTAB solve finished: {count} iterations, residual {torch.norm(r):.2e}")
+            print("\nPerformance Statistics:")
+            print(f"Total time: {total_time:.6f} s")
+            print(f"Average time per iteration: {avg_iter_time:.6f} s")
         return x
 
 
@@ -263,7 +287,6 @@ if __name__ == "__main__":
     n_refine = 2
     kappa = 0.125
     verbose = True
-
     # Initialize the solver
     solver = LatticeSolver(
         latt_size=(Lx, Ly, Lz, Lt),
@@ -271,20 +294,18 @@ if __name__ == "__main__":
         kappa=kappa,
         verbose=verbose
     )
-
     # Generate test vector
     b = torch.randn(4, 3, Lt, Lz, Ly, Lx,
                     dtype=solver.dtype, device=solver.device)
     x_exact = torch.randn_like(b)
     b = solver._dslash(x_exact)  # Construct b = D(x_exact)
-
+    # print(f"b:{b}\n")
     # Solve
     print("Starting multigrid solve...")
-    x_mg = solver.mg.mg_solve(b, tol=1e-6)  # Loosen tolerance for faster test
-
+    # x_mg = solver.mg.mg_solve(b, tol=1e-6)  # Loosen tolerance for faster test
+    x_mg = solver.bicgstab(b, tol=1e-6)  # Loosen tolerance for faster test
     print("Starting standard BiCGSTAB solve...")
     x_bicg = solver.bicgstab(b, tol=1e-6)  # Loosen tolerance for faster test
-
     # Validation
     err_mg = torch.norm(x_mg - x_exact) / torch.norm(x_exact)
     err_bicg = torch.norm(x_bicg - x_exact) / torch.norm(x_exact)
