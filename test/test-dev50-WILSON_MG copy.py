@@ -369,9 +369,6 @@ class mg:
                                                       [i][j]] /= np.sqrt(i_dof_dot)
                 a = 0
 
-    def fermi_f2c(self, fermi, fine_op, coarse_op):
-        return 0
-
     def __init__(self, fine_op, n_refine, ifeigen=0):
         self.n_refine = n_refine
         self.fine_op = fine_op
