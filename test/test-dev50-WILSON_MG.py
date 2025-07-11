@@ -67,7 +67,7 @@ class LatticeSolver(nn.Module):
             self.dtype = solver.dtype
             self.blocksize = [2, 2, 2, 2]  # Compression rate per dimension
             # Degrees of freedom on coarse grids
-            self.coarse_dof = [16, 16, 16]
+            self.coarse_dof = [12, 12, 12]
             # Operators per level (share the same gauge field)
             self.mg_ops = [solver]
             self.R_null_vec = []  # Near-null vectors
@@ -81,14 +81,16 @@ class LatticeSolver(nn.Module):
             Lx, Ly, Lz, Lt = self.solver.Lx, self.solver.Ly, self.solver.Lz, self.solver.Lt
             for i in range(self.n_refine):
                 coarse_dof = self.coarse_dof[i]
+                if self.solver.verbose:
+                    print(
+                        f"Level {i} coarse grid: size {Lx}x{Ly}x{Lz}x{Lt}, DOF {coarse_dof}")
                 null_vec = torch.randn(coarse_dof, 4, 3, Lt, Lz, Ly, Lx,
-                                       dtype=self.dtype, device=self.device)
+                                       dtype=self.dtype, device=self.device)  # Not real null vectors......
                 null_vec = self._orthogonalize_null_vec(null_vec, coarse_dof)
+                print(f"null_vec.shape:{null_vec.shape}\n")
+                print(
+                    f"null_vec.reshape(coarse_dof, -1).shape:{null_vec.reshape(coarse_dof, -1).shape}\n")
                 self.R_null_vec.append(null_vec.reshape(coarse_dof, -1))
-                Lx //= self.blocksize[0]
-                Ly //= self.blocksize[1]
-                Lz //= self.blocksize[2]
-                Lt //= self.blocksize[3]
                 self.fine_sites_per_coarse.append(self.blocksize[0] * self.blocksize[1] *
                                                   self.blocksize[2] * self.blocksize[3] * 4 * 3)
                 coarse_vol = Lx * Ly * Lz * Lt
@@ -97,9 +99,10 @@ class LatticeSolver(nn.Module):
                     map_shape, dtype=torch.int64, device=self.device))
                 self._build_mapping(i, Lx, Ly, Lz, Lt)
                 self.mg_ops.append(self.solver)
-                if self.solver.verbose:
-                    print(
-                        f"Level {i} coarse grid: size {Lx}x{Ly}x{Lz}x{Lt}, DOF {coarse_dof}")
+                Lx //= self.blocksize[0]
+                Ly //= self.blocksize[1]
+                Lz //= self.blocksize[2]
+                Lt //= self.blocksize[3]
 
         def _orthogonalize_null_vec(self, vec: torch.Tensor, dof: int) -> torch.Tensor:
             """Orthogonalize the near-null space vectors"""
@@ -116,11 +119,11 @@ class LatticeSolver(nn.Module):
             block = self.blocksize
             fine_Lx, fine_Ly, fine_Lz, fine_Lt = self.solver.Lx, self.solver.Ly, self.solver.Lz, self.solver.Lt
             sites_per_block = block[0] * block[1] * block[2] * block[3] * 4 * 3
-            if self.coarse_map[level].size(1) != sites_per_block:
+            if self.coarse_map[level].shape[-1] != sites_per_block:
                 if self.solver.verbose:
                     print(
-                        f"Warning: mismatched mapping size, expected {sites_per_block}, got {self.coarse_map[level].size(1)}")
-                self.coarse_map[level] = torch.zeros(self.coarse_map[level].size(0),
+                        f"Warning: mismatched mapping size, expected {sites_per_block}, got {self.coarse_map[level].shape[-1]}")
+                self.coarse_map[level] = torch.zeros(self.coarse_map[level].shape[0],
                                                      sites_per_block,
                                                      dtype=torch.int64,
                                                      device=self.device)
@@ -145,20 +148,20 @@ class LatticeSolver(nn.Module):
                                                                 t * fine_Lz * fine_Ly * fine_Lx +
                                                                 z * fine_Ly * fine_Lx +
                                                                 y * fine_Lx + x)
-                                                    if local_idx < self.coarse_map[level].size(1):
+                                                    if local_idx < self.coarse_map[level].shape[-1]:
                                                         self.coarse_map[level][map_idx,
                                                                                local_idx] = fine_idx
                                                         local_idx += 1
                                                     else:
                                                         if self.solver.verbose:
                                                             print(
-                                                                f"Warning: mapping index out of range, local_idx={local_idx}, max={self.coarse_map[level].size(1)-1}")
+                                                                f"Warning: mapping index out of range, local_idx={local_idx}, max={self.coarse_map[level].shape[-1]-1}")
                             map_idx += 1
 
         def restrict(self, level: int, fine_vec: torch.Tensor) -> torch.Tensor:
             """Restriction operator: fine -> coarse"""
             coarse_dof = self.coarse_dof[level]
-            print(f"self.mg_ops:{self.mg_ops}\n")
+            # print(f"self.mg_ops:{self.mg_ops}\n")
             Lx, Ly, Lz, Lt = self.mg_ops[level + 1].Lx, self.mg_ops[level +
                                                                     1].Ly, self.mg_ops[level + 1].Lz, self.mg_ops[level + 1].Lt
             coarse_vec = torch.zeros(coarse_dof, 3, Lt, Lz, Ly, Lx,
@@ -170,8 +173,8 @@ class LatticeSolver(nn.Module):
             for i in range(coarse_vec.numel() // coarse_dof):
                 for d in range(coarse_dof):
                     idx = i * coarse_dof + d
-                    print(
-                        f"Lx, Ly, Lz, Lt, i,coarse_vec.numel(),coarse_dof,d:{Lx, Ly, Lz, Lt,i,coarse_vec.numel(),coarse_dof,d}\n")
+                    # print(
+                    #     f"Lx, Ly, Lz, Lt, i,coarse_vec.numel(),coarse_dof,d:{Lx, Ly, Lz, Lt,i,coarse_vec.numel(),coarse_dof,d}\n")
                     valid_indices = self.coarse_map[level][i] < len(fine_flat)
                     valid_map = self.coarse_map[level][i, valid_indices]
                     if len(valid_map) > 0:
@@ -294,7 +297,7 @@ class LatticeSolver(nn.Module):
 if __name__ == "__main__":
     # Parameter settings
     Lx, Ly, Lz, Lt = 8, 8, 8, 8  # Reduce lattice size for faster testing
-    n_refine = 2
+    n_refine = 3
     kappa = 0.125
     verbose = True
     # Initialize the solver
@@ -312,8 +315,8 @@ if __name__ == "__main__":
     # print(f"b:{b}\n")
     # Solve
     print("Starting multigrid solve...")
-    # x_mg = solver.mg.mg_solve(b, tol=1e-6)  # Loosen tolerance for faster test
-    x_mg = solver.bicgstab(b, tol=1e-6)  # Loosen tolerance for faster test
+    x_mg = solver.mg.mg_solve(b, tol=1e-6)  # Loosen tolerance for faster test
+    # x_mg = solver.bicgstab(b, tol=1e-6)  # Loosen tolerance for faster test
     print("Starting standard BiCGSTAB solve...")
     x_bicg = solver.bicgstab(b, tol=1e-6)  # Loosen tolerance for faster test
     # Validation
