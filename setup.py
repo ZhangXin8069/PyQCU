@@ -7,10 +7,14 @@ import numpy
 import os
 HOME = os.path.dirname(os.path.abspath(__file__))
 print("HOME:", HOME)
+
+
 class CMakeBuild(build_ext):
     def run(self):
         subprocess.check_call(["bash", f"{HOME}/setup.sh"])
         super().run()
+
+
 extensions = [
     Extension(
         "pyqcu.cuda.qcu",
@@ -37,7 +41,7 @@ setup(
     license="MIT",
     cmdclass={'build_ext': CMakeBuild},
     python_requires=">=3.6",
-    install_requires=["numpy", "scipy", "mpi4py", "opt_einsum", "proplot",
+    install_requires=["numpy", "scipy", "mpi4py", "opt_einsum", "proplot", "torch",  # "torch_npu",
                       "cython", "cupy", "h5py", "matplotlib", "seaborn"],
     url="https://github.com/zhangxin8069/PyQCU",
     keywords=['c++', 'cuda', 'python',
