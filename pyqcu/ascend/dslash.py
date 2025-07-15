@@ -267,27 +267,17 @@ class clover(wilson):
         """
         super().__init__(latt_size=latt_size, kappa=kappa,
                          u_0=u_0, dtype=dtype, device=device, verbose=False)
-        self.latt_size = latt_size
-        self.Lx, self.Ly, self.Lz, self.Lt = latt_size
-        self.kappa = kappa
-        self.u_0 = u_0
-        self.dtype = dtype
-        self.device = device or torch.device('cpu')
         self.verbose = verbose
-        # Determine real dtype based on complex dtype
-        self.real_dtype = torch.float64 if dtype == torch.complex128 else torch.float32
         if self.verbose:
             print(f"Initializing Clover:")
             print(f"  Lattice size: {latt_size} (x,y,z,t)")
             print(f"  Parameters: kappa={kappa}, u_0={u_0}")
             print(f"  Complex dtype: {dtype}, Real dtype: {self.real_dtype}")
             print(f"  Device: {self.device}")
-        # Precompute gamma matrices
-        self.gamma = self._define_gamma_matrices()
         # Precompute gamma_gamma matrices
         self.gamma_gamma = self._define_gamma_gamma_matrices()
         if self.verbose:
-            print("Gamma matrices and Gamma-Gamma matrices initialized")
+            print("Gamma-Gamma matrices initialized")
 
     def _define_gamma_gamma_matrices(self) -> torch.Tensor:
         """Define Dirac gamma_gamma matrices in Euclidean space"""
