@@ -248,7 +248,7 @@ class wilson_parity(wilson):
                 'Ss,sctzyx->Sctzyx', (self.I + gamma_mu), U_e_dag_src_e_minus)
             # Combine terms and subtract from dest_e
             hopping = term1 + term2
-            dest_e -= self.kappa/self.u_0 * hopping
+            dest_o -= self.kappa/self.u_0 * hopping
             if self.verbose:
                 print(f"    Hopping term norm: {torch.norm(hopping).item()}")
         if self.verbose:

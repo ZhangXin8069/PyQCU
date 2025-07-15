@@ -1,5 +1,4 @@
 import torch
-from pyqcu.ascend import dslash
 from pyqcu.ascend import dslash_parity
 
 # Example usage
@@ -18,7 +17,7 @@ if __name__ == "__main__":
     verbose = True
     print(f"Using device: {device}")
     # Initialize lattice gauge theory
-    wilson = dslash.wilson(
+    wilson = dslash_parity.wilson_parity(
         latt_size=latt_size,
         kappa=kappa,
         dtype=dtype,
@@ -152,3 +151,8 @@ if __name__ == "__main__":
     U_eo = dslash_parity.xxxtzyx2pxxxtzyx(U)
     src_eo = dslash_parity.xxxtzyx2pxxxtzyx(src)
     dest_eo = torch.zeros_like(src_eo)
+    dest_eo[0] = wilson.give_wilson_eo(src_o=src_eo[1], U_eo=U_eo)
+    dest_eo[1] = wilson.give_wilson_oe(src_e=src_eo[0], U_eo=U_eo)
+    __dest = dslash_parity.pxxxtzyx2xxxtzyx(dest_eo)
+    print(
+        f"torch.linalg.norm(dest-__dest)/torch.linalg.norm(dest):{torch.linalg.norm(dest-__dest)/torch.linalg.norm(dest)}")
