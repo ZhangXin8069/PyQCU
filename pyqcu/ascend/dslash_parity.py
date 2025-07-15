@@ -194,7 +194,7 @@ class wilson_parity(wilson):
             dest_o tensor [s, c, t, z, y, x_p]
         """
         if self.verbose:
-            print("Applying Dirac operator in eo...")
+            print("Applying Dirac operator in oe...")
             print(f"  Source shape: {src_e.shape}")
             print(f"  Gauge field shape: {U_eo.shape}")
             print(f"  Source norm: {torch.norm(src_e).item()}")
