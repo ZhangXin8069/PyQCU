@@ -254,7 +254,7 @@ class clover(wilson):
                  device: torch.device = None,
                  verbose: bool = False):
         """
-        The Clover term corrected by adding the Wilson-Dirac operator (refer to )
+        The Clover term corrected by adding the Wilson-Dirac operator
         Args:
             latt_size: Tuple (Lx, Ly, Lz, Lt) specifying lattice dimensions, then s=4, d=4, c=3
             kappa: Hopping parameter (controls fermion mass)
