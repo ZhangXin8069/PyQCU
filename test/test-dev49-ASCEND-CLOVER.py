@@ -129,7 +129,7 @@ if __name__ == "__main__":
     U_eo = io.xxxtzyx2pxxxtzyx(cp.array(U.cpu().numpy()))
     U_eo = io.pccdtzyx2ccdptzyx(U_eo)
     U_eo = U_eo.copy()  # DEBUG!!!
-    print(f"U_eo:{U_eo}")
+    # print(f"U_eo:{U_eo}")
     _clover_even = cp.zeros((define._LAT_S_, define._LAT_C_, define._LAT_S_, define._LAT_C_,
                             params[define._LAT_T_], params[define._LAT_Z_], params[define._LAT_Y_], int(params[define._LAT_X_]/define._LAT_P_),), dtype=U_eo.dtype)
     _clover_odd = cp.zeros((define._LAT_S_, define._LAT_C_, define._LAT_S_, define._LAT_C_,
@@ -186,9 +186,9 @@ if __name__ == "__main__":
     inverse_clover_term = clover.inverse(clover=clover_term)
     _inverse_clover_term = torch.tensor(
         data=_inverse_clover_term.get(), device=inverse_clover_term.device, dtype=inverse_clover_term.dtype)
-    print(f"inverse_clover_term:{inverse_clover_term}")
-    print(f"_inverse_clover_term:{_inverse_clover_term}")
-    print(
-        f"inverse_clover_term-_inverse_clover_term:{inverse_clover_term-_inverse_clover_term}")
+    # print(f"inverse_clover_term:{inverse_clover_term}")
+    # print(f"_inverse_clover_term:{_inverse_clover_term}")
+    # print(
+    #     f"inverse_clover_term-_inverse_clover_term:{inverse_clover_term-_inverse_clover_term}")
     print(
         f"torch.linalg.norm(inverse_clover_term-_inverse_clover_term)/torch.linalg.norm(inverse_clover_term):{torch.linalg.norm(inverse_clover_term-_inverse_clover_term)/torch.linalg.norm(inverse_clover_term)}")
