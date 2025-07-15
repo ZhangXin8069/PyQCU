@@ -49,7 +49,7 @@ if __name__ == "__main__":
     #     latt_size[-1], latt_size[-2], latt_size[-3], latt_size[-4], 1, 1).permute(4, 5,  0, 1, 2, 3)
     # src = torch.ones_like(src)
     # Apply Wilson-Dirac operator
-    dest = wilson.apply_dirac_operator(src, U)
+    dest = wilson.give_wilson(src, U)
     # Verify properties
     print("\nDests:")
     print(f"Dest shape: {dest.shape}")

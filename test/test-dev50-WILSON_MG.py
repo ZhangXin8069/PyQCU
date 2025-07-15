@@ -55,7 +55,7 @@ class LatticeSolver(nn.Module):
         src shape: [spin, color, t, z, y, x]
         return: same shape
         """
-        dest = self.wilson.apply_dirac_operator(src, self.U).clone()
+        dest = self.wilson.give_wilson(src, self.U).clone()
         dest += self.clover.give_clover(src=dest, clover=self.clover_term)
         return dest
 
