@@ -56,7 +56,7 @@ if __name__ == "__main__":
     print(f"Max abs value: {torch.max(torch.abs(dest)).item()}")
     print(f"Dest norm: {torch.norm(dest).item()}")
     print(f"Dest dtype: {dest.dtype}")
-    print(f"U value:{U}")
+    # print(f"U value:{U}")
     # print(f"Src value:{src}")
     # print(f"Dest value:{dest}")
     import warnings
