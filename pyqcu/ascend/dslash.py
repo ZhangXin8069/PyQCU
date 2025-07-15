@@ -172,7 +172,7 @@ class wilson(nn.Module):
         ], dtype=self.dtype)
         return gamma
 
-    def apply_dirac_operator(self,
+    def give_wilson(self,
                              src: torch.Tensor,
                              U: torch.Tensor) -> torch.Tensor:
         """
