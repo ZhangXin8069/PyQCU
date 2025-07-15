@@ -154,5 +154,8 @@ if __name__ == "__main__":
     dest_eo[0] = wilson.give_wilson_eo(src_o=src_eo[1], U_eo=U_eo)
     dest_eo[1] = wilson.give_wilson_oe(src_e=src_eo[0], U_eo=U_eo)
     __dest = dslash_parity.pxxxtzyx2xxxtzyx(dest_eo)
+    print(f"dest value:{dest}")
+    print(f"__dest value:{__dest}")
+    print(f"dest - __dest value:{dest-__dest}")
     print(
         f"torch.linalg.norm(dest-__dest)/torch.linalg.norm(dest):{torch.linalg.norm(dest-__dest)/torch.linalg.norm(dest)}")
