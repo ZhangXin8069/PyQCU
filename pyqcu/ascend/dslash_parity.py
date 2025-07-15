@@ -266,16 +266,16 @@ class clover_parity(clover):
                  device: torch.device = None,
                  verbose: bool = False):
         """
-        The Clover term corrected by adding the Wilson-Dirac operator (refer to )
+        The Clover term corrected by adding the Wilson-Dirac operator
         Args:
-            latt_size: Tuple (Lx, Ly, Lz, Lt) specifying lattice dimensions, then s=4, d=4, c=3
+            latt_size: Tuple (Lx_p, Ly, Lz, Lt) specifying lattice dimensions, then s=4, d=4, c=3, p(parity)=2
             kappa: Hopping parameter (controls fermion mass)
             u_0: Wilson parameter (usually 1.0)
             dtype: Data type for tensors
             device: Device to run on (default: CPU)
             verbose: Enable verbose output for debugging
         reference:
-            [1](1-60)
+            [1](1-60);[1](1-160)
         """
         super().__init__(latt_size=latt_size, kappa=kappa,
                          u_0=u_0, dtype=dtype, device=device, verbose=False)
@@ -290,67 +290,16 @@ class clover_parity(clover):
             print(f"  Device: {self.device}")
 
     def make_clover_eo(self, U_eo: torch.Tensor) -> torch.Tensor:
-        """
-        Give Clover term:
-        $$
-        \frac{a^2\kappa}{u_0^4}\sum_{\mu<\nu}\sigma_{\mu \nu}F_{\mu \nu}\delta_{x,y}
-        $$
-        Args:
-            U_eo: Gauge field tensor [c, c, d, t, z, y, x]
-        Returns:
-            Clover_eo term tensor [s, c, s, c, t, z, y, x]
-        PS:
-            For convenience, combine constant parameters of sigma and F to the final step (-0.125)
-        """
-        if self.verbose:
-            print("Applying Dirac operator...")
-            print(f"  Gauge field shape: {U_eo.shape}")
-        # Compute adjoint gauge field (dagger conjugate)
-        U_dag = U_eo.permute(1, 0, 2, 3, 4, 5, 6).conj()
-        # Initialize clover_eo term tensor
-        clover_eo = torch.zeros((4, 3, 4, 3, self.Lt, self.Lz, self.Ly, self.Lx),
-                                dtype=self.dtype, device=self.device)
-
-        if self.verbose:
-            print("Clover term complete")
-            print(f"  clover_eo norm: {torch.norm(clover_eo).item()}")
-        return clover_eo
+        return xxxtzyx2pxxxtzyx(self.make_clover(U=pxxxtzyx2xxxtzyx(U_eo)))
 
     def add_eye_eo(self, clover_eo: torch.Tensor) -> torch.Tensor:
-        _clover = clover_eo.reshape(12, 12, -1)
-        if self.verbose:
-            print(f"_clover.shape:{_clover.shape}")
-        for i in range(_clover.shape[-1]):
-            _clover[:, :, i] += torch.eye(12, 12,
-                                          dtype=_clover.dtype, device=_clover.device)
-        dest = _clover.reshape(clover_eo.shape)
-        if self.verbose:
-            print(f"dest.shape:{dest.shape}")
-        return dest
+        return xxxtzyx2pxxxtzyx(self.add_eye(clover=pxxxtzyx2xxxtzyx(clover_eo)))
 
     def inverse_eo(self, clover_eo: torch.Tensor) -> torch.Tensor:
-        clover=pxxxtzyx2xxxtzyx(clover_eo)
-        _clover = clover.reshape(12, 12, -1)
-        if self.verbose:
-            print(f"_clover.shape:{_clover.shape}")
-        for i in range(_clover.shape[-1]):
-            _clover[:, :, i] = torch.linalg.inv(_clover[:, :, i])
-        dest = _clover.reshape(clover_eo.shape)
-        print(f"dest.shape:{dest.shape}")
-        return dest
+        return xxxtzyx2pxxxtzyx(self.inverse(clover=pxxxtzyx2xxxtzyx(clover_eo)))
 
     def give_clover_ee(self, src_e: torch.Tensor, clover_eo: torch.Tensor) -> torch.Tensor:
-        if self.verbose:
-            print(f"src_e.shape:{src_e.shape}")
-        dest_e = torch.einsum('SCsctzyx,sctzyx->SCtzyx', clover_eo[0], src_e)
-        if self.verbose:
-            print(f"dest_e.shape:{dest_e.shape}")
-        return dest_e
+        return self.give_clover(src=src_e, clover=clover_eo[0])
 
     def give_clover_oo(self, src_o: torch.Tensor, clover_eo: torch.Tensor) -> torch.Tensor:
-        if self.verbose:
-            print(f"src_o.shape:{src_o.shape}")
-        dest_o = torch.einsum('SCsctzyx,sctzyx->SCtzyx', clover_eo[1], src_o)
-        if self.verbose:
-            print(f"dest_o.shape:{dest_o.shape}")
-        return dest_o
+        return self.give_clover(src=src_o, clover=clover_eo[1])
