@@ -301,23 +301,23 @@ namespace qcu
       U[i] = zero;              \
     }                           \
   }
-#define give_u(U, tmp_U, lat_tzyx)                       \
-  {                                                      \
-    for (int i = 0; i < _LAT_2C_; i++)                   \
-    {                                                    \
-      U[i] = tmp_U[i * _LAT_D_ * _EVEN_ODD_ * lat_tzyx]; \
-    }                                                    \
-    U[6] = (U[1] * U[5] - U[2] * U[4]).conj();           \
-    U[7] = (U[2] * U[3] - U[0] * U[5]).conj();           \
-    U[8] = (U[0] * U[4] - U[1] * U[3]).conj();           \
-  }
 // #define give_u(U, tmp_U, lat_tzyx)                       \
 //   {                                                      \
-//     for (int i = 0; i < _LAT_CC_; i++)                   \
+//     for (int i = 0; i < _LAT_2C_; i++)                   \
 //     {                                                    \
 //       U[i] = tmp_U[i * _LAT_D_ * _EVEN_ODD_ * lat_tzyx]; \
 //     }                                                    \
+//     U[6] = (U[1] * U[5] - U[2] * U[4]).conj();           \
+//     U[7] = (U[2] * U[3] - U[0] * U[5]).conj();           \
+//     U[8] = (U[0] * U[4] - U[1] * U[3]).conj();           \
 //   }
+#define give_u(U, tmp_U, lat_tzyx)                       \
+  {                                                      \
+    for (int i = 0; i < _LAT_CC_; i++)                   \
+    {                                                    \
+      U[i] = tmp_U[i * _LAT_D_ * _EVEN_ODD_ * lat_tzyx]; \
+    }                                                    \
+  }
 // #define give_u(U, tmp_U, lat_tzyx) \
 //   {                                \
 //     U[0]._data.x = 1.0;            \
@@ -342,16 +342,47 @@ namespace qcu
 //     U[7]._data.x = 7.0;            \
 //     U[8]._data.x = 8.0;            \
 //   }
+// #define _give_u_comm(parity, U, tmp_U, _lat_tzyx)                    \
+//   {                                                                  \
+//     for (int i = 0; i < _LAT_2C_; i++)                               \
+//     {                                                                \
+//       U[i] = tmp_U[(i * _LAT_D_ * _EVEN_ODD_ + parity) * _lat_tzyx]; \
+//     }                                                                \
+//     U[6] = (U[1] * U[5] - U[2] * U[4]).conj();                       \
+//     U[7] = (U[2] * U[3] - U[0] * U[5]).conj();                       \
+//     U[8] = (U[0] * U[4] - U[1] * U[3]).conj();                       \
+//   }
 #define _give_u_comm(parity, U, tmp_U, _lat_tzyx)                    \
   {                                                                  \
-    for (int i = 0; i < _LAT_2C_; i++)                               \
+    for (int i = 0; i < _LAT_CC_; i++)                               \
     {                                                                \
       U[i] = tmp_U[(i * _LAT_D_ * _EVEN_ODD_ + parity) * _lat_tzyx]; \
     }                                                                \
-    U[6] = (U[1] * U[5] - U[2] * U[4]).conj();                       \
-    U[7] = (U[2] * U[3] - U[0] * U[5]).conj();                       \
-    U[8] = (U[0] * U[4] - U[1] * U[3]).conj();                       \
   }
+// #define _give_u_comm(parity, U, tmp_U, _lat_tzyx) \
+//   {                                               \
+//     U[0]._data.x = 1.0;                           \
+//     U[1]._data.x = 0.0;                           \
+//     U[2]._data.x = 0.0;                           \
+//     U[3]._data.x = 0.0;                           \
+//     U[4]._data.x = 1.0;                           \
+//     U[5]._data.x = 0.0;                           \
+//     U[6]._data.x = 0.0;                           \
+//     U[7]._data.x = 0.0;                           \
+//     U[8]._data.x = 1.0;                           \
+//   }
+// #define _give_u_comm(parity, U, tmp_U, _lat_tzyx) \
+//   {                                               \
+//     U[0]._data.x = 0.0;                           \
+//     U[1]._data.x = 1.0;                           \
+//     U[2]._data.x = 2.0;                           \
+//     U[3]._data.x = 3.0;                           \
+//     U[4]._data.x = 4.0;                           \
+//     U[5]._data.x = 5.0;                           \
+//     U[6]._data.x = 6.0;                           \
+//     U[7]._data.x = 7.0;                           \
+//     U[8]._data.x = 8.0;                           \
+//   }
 #define _give_u_laplacian(U, tmp_U, lat_tzyx)  \
   {                                            \
     for (int i = 0; i < _LAT_2C_; i++)         \
