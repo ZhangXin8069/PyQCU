@@ -26,7 +26,7 @@ if __name__ == "__main__":
     )
     # Generate random gauge field
     U = wilson.generate_gauge_field(sigma=0.1, seed=42)
-    # U = torch.ones_like(U)
+    U = torch.ones_like(U)
     # U = torch.zeros_like(U)
     # U = torch.eye(3, 3, dtype=dtype, device=device).repeat(
     #     4, latt_size[-1], latt_size[-2], latt_size[-3], latt_size[-4], 1, 1).permute(5, 6, 0, 1, 2, 3, 4)
@@ -48,8 +48,8 @@ if __name__ == "__main__":
     print(f"Max abs value: {torch.max(torch.abs(dest)).item()}")
     print(f"Dest norm: {torch.norm(dest).item()}")
     print(f"Dest dtype: {dest.dtype}")
-    # print(f"U value:{U}")
-    # print(f"Src value:{src}")
+    print(f"U value:{U}")
+    print(f"Src value:{src}")
     # print(f"Dest value:{dest}")
     import warnings
     from pyqcu.cuda.set import *
@@ -149,7 +149,9 @@ if __name__ == "__main__":
         f"torch.linalg.norm(dest-_dest)/torch.linalg.norm(dest):{torch.linalg.norm(dest-_dest)/torch.linalg.norm(dest)}")
     # print(f"dest - _dest value:{dest-_dest}")
     U_eo = dslash_parity.xxxtzyx2pxxxtzyx(U)
+    print(f"U_eo value:{U_eo}")
     src_eo = dslash_parity.xxxtzyx2pxxxtzyx(src)
+    print(f"src_eo value:{src_eo}")
     dest_eo = torch.zeros_like(src_eo)
     dest_eo[0] = wilson.give_wilson_eo(src_o=src_eo[1], U_eo=U_eo)
     dest_eo[1] = wilson.give_wilson_oe(src_e=src_eo[0], U_eo=U_eo)
