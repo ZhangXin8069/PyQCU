@@ -68,6 +68,24 @@ def pxxxtzyx2xxxtzyx(input_array: torch.Tensor) -> torch.Tensor:
     return restored_array
 
 
+def give_eo_mask(xxxtzy_x_p: torch.Tensor, eo: int) -> torch.Tensor:
+    print("@give_eo_mask......")
+    shape = xxxtzy_x_p.shape
+    device = xxxtzy_x_p.device
+    t, z, y, x_p = shape[-4:]
+    # Create coordinate grids for original shape
+    coords = torch.meshgrid(
+        torch.arange(t, device=device),
+        torch.arange(z, device=device),
+        torch.arange(y, device=device),
+        torch.arange(x_p, device=device),
+        indexing='ij'
+    )
+    # Sum coordinates to determine checkerboard pattern
+    sums = coords[0] + coords[1] + coords[2]  # t+z+y
+    return sums % 2 == eo
+
+
 class wilson_parity(wilson):
     def __init__(self,
                  latt_size: Tuple[int, int, int, int],
@@ -125,7 +143,8 @@ class wilson_parity(wilson):
         U_o = U_eo[1]
         U_o_dag = U_o.permute(1, 0, 2, 3, 4, 5, 6).conj()
         # Initialize dest_e tensor
-        dest_e = src_o.clone()
+        # dest_e = src_o.clone() # move this eye term to clover term from this hopping term(origin wilson term)
+        dest_e = torch.zeros_like(src_o)
         # Define directions with corresponding axes and gamma matrices
         directions = [
             {'mu': 0, 'axis': -1-0, 'name': 'x_p',
@@ -145,12 +164,20 @@ class wilson_parity(wilson):
             name = dir_info['name']
             if self.verbose:
                 print(f"  Processing {name}-direction (axis={axis})...")
+            # Give eo mask for parity decomposition
+            if name == 'x_p':
+                even_mask = give_eo_mask(xxxtzy_x_p=src_o, eo=0)
+                print(f"even_mask:{even_mask}")
+                odd_mask = give_eo_mask(xxxtzy_x_p=src_o, eo=1)
             # Extract gauge field for current direction
             U_e_mu = U_e[..., mu, :, :, :, :]  # [c1, c2, t, z, y, x_p]
             U_o_dag_mu = U_o_dag[..., mu, :, :, :, :]  # [c1, c2, t, z, y, x_p]
             # Term 1: (r - γ_μ) U_{x,μ} src_{x+μ}
             src_o_plus = torch.roll(
-                src_o, shifts=-0, dims=axis)  # -1 to 0 caused by parity decomposition\
+                src_o, shifts=-1, dims=axis)
+            if name == 'x_p':  # -1 to 0 caused by parity decomposition\
+                src_o_plus[..., even_mask] = src_o[...,
+                                                   even_mask]  # parity(src)=(t+y+z+x)%2=1,eo(src)==(t+y+z)%2=0,so:x_p(src)%2=1,move_plus=0
             # Contract color indices: U_eo_mu * src_o_plus
             U_e_src_o_plus = torch.einsum(
                 'Cctzyx,sctzyx->sCtzyx', U_e_mu, src_o_plus)
@@ -159,9 +186,15 @@ class wilson_parity(wilson):
                 'Ss,sctzyx->Sctzyx', (self.I - gamma_mu), U_e_src_o_plus)
             # Term 2: (r + γ_μ) U_{x-μ,μ}^† src_{x-μ}
             src_o_minus = torch.roll(
-                src_o, shifts=1, dims=axis)  # 1 to 1 caused by parity decomposition\
+                src_o, shifts=1, dims=axis)
+            if name == 'x_p':  # 1 to 0 caused by parity decomposition\
+                src_o_minus[..., odd_mask] = src_o[...,
+                                                   odd_mask]  # parity(src)=(t+y+z+x)%2=1,eo(src)==(t+y+z)%2=1,so:x_p(src)%2=0,move_minus=0
             U_o_dag_minus = torch.roll(
-                U_o_dag_mu, shifts=0, dims=axis)  # 1 to 0 caused by parity decomposition\
+                U_o_dag_mu, shifts=1, dims=axis)
+            if name == 'x_p':  # 1 to 0 caused by parity decomposition\
+                U_o_dag_minus[..., odd_mask] = U_o_dag_mu[...,
+                                                       odd_mask]  # parity(U)=(t+y+z+x)%2=1,eo(U)==(t+y+z)%2=1,so:x_p(U)%2=0,move_minus=0
             # Contract color indices: U_eo_dag_minus * src_o_minus
             U_o_dag_src_o_minus = torch.einsum(
                 'Cctzyx,sctzyx->sCtzyx', U_o_dag_minus, src_o_minus)
@@ -203,7 +236,8 @@ class wilson_parity(wilson):
         U_o = U_eo[1]
         U_e_dag = U_e.permute(1, 0, 2, 3, 4, 5, 6).conj()
         # Initialize dest_e tensor
-        dest_o = src_e.clone()
+        # dest_o = src_e.clone() # move this eye term to clover term from this hopping term(origin wilson term)
+        dest_o = torch.zeros_like(src_e)
         # Define directions with corresponding axes and gamma matrices
         directions = [
             {'mu': 0, 'axis': -1-0, 'name': 'x_p',
@@ -223,12 +257,19 @@ class wilson_parity(wilson):
             name = dir_info['name']
             if self.verbose:
                 print(f"  Processing {name}-direction (axis={axis})...")
+            # Give eo mask for parity decomposition
+            if name == 'x_p':
+                even_mask = give_eo_mask(xxxtzy_x_p=src_e, eo=0)
+                odd_mask = give_eo_mask(xxxtzy_x_p=src_e, eo=1)
             # Extract gauge field for current direction
             U_e_dag_mu = U_e_dag[..., mu, :, :, :, :]  # [c1, c2, t, z, y, x_p]
             U_o_mu = U_o[..., mu, :, :, :, :]  # [c1, c2, t, z, y, x_p]
             # Term 1: (r - γ_μ) U_{x,μ} src_{x+μ}
             src_e_plus = torch.roll(
-                src_e, shifts=-1, dims=axis)  # -1 to -1 caused by parity decomposition\
+                src_e, shifts=-1, dims=axis)
+            if name == 'x_p':  # -1 to 0 caused by parity decomposition\
+                src_e_plus[..., odd_mask] = src_e[...,
+                                                  odd_mask]  # parity(src)=(t+y+z+x)%2=0,eo(src)==(t+y+z)%2=1,so:x_p(src)%2=1,move_plus=0
             # Contract color indices: U_eo_mu * src_o_plus
             U_o_src_e_plus = torch.einsum(
                 'Cctzyx,sctzyx->sCtzyx', U_o_mu, src_e_plus)
@@ -237,9 +278,15 @@ class wilson_parity(wilson):
                 'Ss,sctzyx->Sctzyx', (self.I - gamma_mu), U_o_src_e_plus)
             # Term 2: (r + γ_μ) U_{x-μ,μ}^† src_{x-μ}
             src_e_minus = torch.roll(
-                src_e, shifts=0, dims=axis)  # 1 to 0 caused by parity decomposition\
+                src_e, shifts=1, dims=axis)
+            if name == 'x_p':  # 1 to 0 caused by parity decomposition\
+                src_e_minus[..., even_mask] = src_e[...,
+                                                    even_mask]  # parity(src)=(t+y+z+x)%2=0,eo(src)==(t+y+z)%2=0,so:x_p(src)%2=0,move_minus=0
             U_e_dag_minus = torch.roll(
-                U_e_dag_mu, shifts=0, dims=axis)  # 1 to 0 caused by parity decomposition\
+                U_e_dag_mu, shifts=1, dims=axis)
+            if name == 'x_p':  # 1 to 0 caused by parity decomposition\
+                U_e_dag_minus[..., even_mask] = U_e_dag_mu[...,
+                                                           even_mask]  # parity(U)=(t+y+z+x)%2=0,eo(U)==(t+y+z)%2=0,so:x_p(U)%2=0,move_minus=0
             # Contract color indices: U_eo_dag_minus * src_o_minus
             U_e_dag_src_e_minus = torch.einsum(
                 'Cctzyx,sctzyx->sCtzyx', U_e_dag_minus, src_e_minus)
