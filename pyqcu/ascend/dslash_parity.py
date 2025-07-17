@@ -105,6 +105,8 @@ class wilson_parity(wilson):
             verbose: Enable verbose output for debugging
         reference:
             [1](1-60);[1](1-160)
+        addition:
+            I once compared the results of 'dslash' and 'dslash_parity' on very small cells (i.e., cells with a side length of 1), but there was always a very large deviation. In fact, this is extremely foolish because one of the conditions for 'dslash_parity' to hold is that the parity of adjacent cells is different. However, if there are cells with a side length of 1, then there must be a situation where the parity of adjacent cells is the same. I hope future generations can take this as a reference......
         """
         super().__init__(latt_size=latt_size, kappa=kappa,
                          u_0=u_0, dtype=dtype, device=device, verbose=False)
@@ -167,7 +169,6 @@ class wilson_parity(wilson):
             # Give eo mask for parity decomposition
             if name == 'x_p':
                 even_mask = give_eo_mask(xxxtzy_x_p=src_o, eo=0)
-                print(f"even_mask:{even_mask}")
                 odd_mask = give_eo_mask(xxxtzy_x_p=src_o, eo=1)
             # Extract gauge field for current direction
             U_e_mu = U_e[..., mu, :, :, :, :]  # [c1, c2, t, z, y, x_p]
@@ -194,7 +195,7 @@ class wilson_parity(wilson):
                 U_o_dag_mu, shifts=1, dims=axis)
             if name == 'x_p':  # 1 to 0 caused by parity decomposition\
                 U_o_dag_minus[..., odd_mask] = U_o_dag_mu[...,
-                                                       odd_mask]  # parity(U)=(t+y+z+x)%2=1,eo(U)==(t+y+z)%2=1,so:x_p(U)%2=0,move_minus=0
+                                                          odd_mask]  # parity(U)=(t+y+z+x)%2=1,eo(U)==(t+y+z)%2=1,so:x_p(U)%2=0,move_minus=0
             # Contract color indices: U_eo_dag_minus * src_o_minus
             U_o_dag_src_o_minus = torch.einsum(
                 'Cctzyx,sctzyx->sCtzyx', U_o_dag_minus, src_o_minus)
@@ -336,13 +337,16 @@ class clover_parity(clover):
             print(f"  Complex dtype: {dtype}, Real dtype: {self.real_dtype}")
             print(f"  Device: {self.device}")
 
-    def make_clover_eo(self, U_eo: torch.Tensor) -> torch.Tensor:
+    def make_clover_eoeo(self, U_eo: torch.Tensor) -> torch.Tensor:
         return xxxtzyx2pxxxtzyx(self.make_clover(U=pxxxtzyx2xxxtzyx(U_eo)))
 
-    def add_eye_eo(self, clover_eo: torch.Tensor) -> torch.Tensor:
+    def add_eye_eoeo(self, clover_eo: torch.Tensor) -> torch.Tensor:
         return xxxtzyx2pxxxtzyx(self.add_eye(clover=pxxxtzyx2xxxtzyx(clover_eo)))
 
-    def inverse_eo(self, clover_eo: torch.Tensor) -> torch.Tensor:
+    def inverse_eoeo(self, clover_eo: torch.Tensor) -> torch.Tensor:
+        _=pxxxtzyx2xxxtzyx(clover_eo)
+        print(f"_.shape:{_.shape}")
+        print(f"clover_eo.shape:{clover_eo.shape}")
         return xxxtzyx2pxxxtzyx(self.inverse(clover=pxxxtzyx2xxxtzyx(clover_eo)))
 
     def give_clover_ee(self, src_e: torch.Tensor, clover_eo: torch.Tensor) -> torch.Tensor:
