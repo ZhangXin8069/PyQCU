@@ -564,6 +564,8 @@ namespace qcu
     {
       run_mpi(fermion_out, fermion_in, gauge, _device_params);
       // run_mpi_non_block(fermion_out, fermion_in, gauge, _device_params);
+      err = cudaGetLastError();
+      checkCudaErrors(err);
     }
     void run_eo(void *fermion_out, void *fermion_in, void *gauge)
     {
@@ -583,20 +585,15 @@ namespace qcu
     }
     void run_test(void *fermion_out, void *fermion_in, void *gauge)
     {
-#ifdef PRINT_MULTI_GPU_WILSON_DSLASH
-      set_ptr->_print();
-#endif
       auto start = std::chrono::high_resolution_clock::now();
       run(fermion_out, fermion_in, gauge, set_ptr->device_params);
       auto end = std::chrono::high_resolution_clock::now();
       auto duration =
           std::chrono::duration_cast<std::chrono::nanoseconds>(end - start)
               .count();
-      err = cudaGetLastError();
-      checkCudaErrors(err);
-      // printf("multi-gpu wilson dslash total time: (without malloc free memcpy) :%.9lf "
-      //        "sec\n",
-      //        double(duration) / 1e9);
+      printf("multi-gpu wilson dslash total time: (without malloc free memcpy) :%.9lf "
+             "sec\n",
+             double(duration) / 1e9);
     }
   };
 }

@@ -18,13 +18,27 @@ void applyCloverQcu(long long _clover, long long _gauge, long long _set_ptrs, lo
     LatticeCloverDslash<float> _clover_dslash;
     _clover_dslash.give(set_ptr);
     _clover_dslash.init(clover);
+    if (set_ptr->host_params[_VERBOSE_])
     {
-      // make clover
-      _clover_dslash.make(gauge);
+      {
+        // make clover
+        _clover_dslash.make_test(gauge);
+      }
+      {
+        // inverse clover
+        _clover_dslash.inverse_test();
+      }
     }
+    else
     {
-      // inverse clover
-      _clover_dslash.inverse();
+      {
+        // make clover
+        _clover_dslash.make(gauge);
+      }
+      {
+        // inverse clover
+        _clover_dslash.inverse();
+      }
     }
     // ccdptzyx2dptzyxcc<float>(gauge, &_set);
     _clover_dslash.end();
@@ -36,13 +50,27 @@ void applyCloverQcu(long long _clover, long long _gauge, long long _set_ptrs, lo
     LatticeCloverDslash<double> _clover_dslash;
     _clover_dslash.give(set_ptr);
     _clover_dslash.init(clover);
+    if (set_ptr->host_params[_VERBOSE_])
     {
-      // make clover
-      _clover_dslash.make(gauge);
+      {
+        // make clover
+        _clover_dslash.make_test(gauge);
+      }
+      {
+        // inverse clover
+        _clover_dslash.inverse_test();
+      }
     }
+    else
     {
-      // inverse clover
-      _clover_dslash.inverse();
+      {
+        // make clover
+        _clover_dslash.make(gauge);
+      }
+      {
+        // inverse clover
+        _clover_dslash.inverse();
+      }
     }
     // ccdptzyx2dptzyxcc<double>(gauge, &_set);
     _clover_dslash.end();
