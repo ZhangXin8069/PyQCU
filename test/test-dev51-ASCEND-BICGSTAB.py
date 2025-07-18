@@ -17,7 +17,6 @@ if __name__ == "__main__":
     # dtype = torch.complex128
     dtype = torch.complex64
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    verbose = True
     print(f"Using device: {device}")
     # Initialize lattice gauge theory
     wilson = dslash_parity.wilson_parity(
@@ -25,7 +24,7 @@ if __name__ == "__main__":
         kappa=kappa,
         dtype=dtype,
         device=device,
-        verbose=verbose
+        verbose=False
     )
     # Generate random gauge field
     U = wilson.generate_gauge_field(sigma=0.1, seed=42)
@@ -170,5 +169,6 @@ if __name__ == "__main__":
 
     def matvec(src: torch.Tensor = src, U: torch.Tensor = U) -> torch.Tensor:
         return wilson.give_wilson(src, U)
+    print(f"type(matvec):{type(matvec)}")
     b = torch.rand_like(src)
     x = inverse.bicgstab(b=b, matvec=matvec)
