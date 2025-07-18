@@ -35,6 +35,7 @@ void applyInitQcu(long long _set_ptrs, long long _params, long long _argv)
         else
         {
             set_ptr->init();
+            static_cast<long long *>(set_ptrs)[set_index] = (long long)set_ptr;
         }
     }
     else if (data_type == _LAT_C128_)
@@ -62,6 +63,7 @@ void applyInitQcu(long long _set_ptrs, long long _params, long long _argv)
         else
         {
             set_ptr->init();
+            static_cast<long long *>(set_ptrs)[set_index] = (long long)set_ptr;
         }
     }
     else
