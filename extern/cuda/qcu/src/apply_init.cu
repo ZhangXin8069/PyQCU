@@ -14,12 +14,12 @@ void applyInitQcu(long long _set_ptrs, long long _params, long long _argv)
     {
         // init for lattice_set
         LatticeSet<float> *set_ptr = new LatticeSet<float>();
+        set_ptr->give(params, argv);
         if (set_ptr->host_params[_VERBOSE_])
         {
             printf("set_ptr:%p\n", set_ptr);
             printf("long long set_ptr:%lld\n", (long long)set_ptr);
             auto start = std::chrono::high_resolution_clock::now();
-            set_ptr->give(params, argv);
             set_ptr->init();
             set_ptr->_print();
             static_cast<long long *>(set_ptrs)[set_index] = (long long)set_ptr;
@@ -42,12 +42,12 @@ void applyInitQcu(long long _set_ptrs, long long _params, long long _argv)
     {
         // init for lattice_set
         LatticeSet<double> *set_ptr = new LatticeSet<double>();
+        set_ptr->give(params, argv);
         if (set_ptr->host_params[_VERBOSE_])
         {
             printf("set_ptr:%p\n", set_ptr);
             printf("long long set_ptr:%lld\n", (long long)set_ptr);
             auto start = std::chrono::high_resolution_clock::now();
-            set_ptr->give(params, argv);
             set_ptr->init();
             set_ptr->_print();
             static_cast<long long *>(set_ptrs)[set_index] = (long long)set_ptr;
