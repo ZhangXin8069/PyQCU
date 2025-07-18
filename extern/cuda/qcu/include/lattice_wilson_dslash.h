@@ -560,33 +560,37 @@ namespace qcu
       checkCudaErrors(cudaStreamSynchronize(set_ptr->stream_dims[_Z_]));
       checkCudaErrors(cudaStreamSynchronize(set_ptr->stream_dims[_T_]));
     }
-    void run(void *fermion_out, void *fermion_in, void *gauge, void *_device_params)
+    void _run(void *fermion_out, void *fermion_in, void *gauge, void *_device_params)
     {
       run_mpi(fermion_out, fermion_in, gauge, _device_params);
       // run_mpi_non_block(fermion_out, fermion_in, gauge, _device_params);
       err = cudaGetLastError();
       checkCudaErrors(err);
     }
+    void run(void *fermion_out, void *fermion_in, void *gauge)
+    {
+      _run(fermion_out, fermion_in, gauge, set_ptr->device_params);
+    }
     void run_eo(void *fermion_out, void *fermion_in, void *gauge)
     {
-      run(fermion_out, fermion_in, gauge, set_ptr->device_params_even_no_dag);
+      _run(fermion_out, fermion_in, gauge, set_ptr->device_params_even_no_dag);
     }
     void run_oe(void *fermion_out, void *fermion_in, void *gauge)
     {
-      run(fermion_out, fermion_in, gauge, set_ptr->device_params_odd_no_dag);
+      _run(fermion_out, fermion_in, gauge, set_ptr->device_params_odd_no_dag);
     }
     void run_eo_dag(void *fermion_out, void *fermion_in, void *gauge)
     {
-      run(fermion_out, fermion_in, gauge, set_ptr->device_params_even_dag);
+      _run(fermion_out, fermion_in, gauge, set_ptr->device_params_even_dag);
     }
     void run_oe_dag(void *fermion_out, void *fermion_in, void *gauge)
     {
-      run(fermion_out, fermion_in, gauge, set_ptr->device_params_odd_dag);
+      _run(fermion_out, fermion_in, gauge, set_ptr->device_params_odd_dag);
     }
     void run_test(void *fermion_out, void *fermion_in, void *gauge)
     {
       auto start = std::chrono::high_resolution_clock::now();
-      run(fermion_out, fermion_in, gauge, set_ptr->device_params);
+      run(fermion_out, fermion_in, gauge);
       auto end = std::chrono::high_resolution_clock::now();
       auto duration =
           std::chrono::duration_cast<std::chrono::nanoseconds>(end - start)
