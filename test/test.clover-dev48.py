@@ -18,6 +18,7 @@ sigma = 0.1
 seed = 12138
 params[define._NODE_RANK_] = define.rank
 params[define._NODE_SIZE_] = define.size
+params[define._VERBOSE_] = 0
 argv[define._MASS_] = -3.5
 argv[define._TOL_] = 1e-12
 kappa = 1 / (2 * argv[define._MASS_] + 8)
