@@ -1,15 +1,16 @@
 import torch
 from pyqcu.ascend import dslash_parity
+from pyqcu.ascend import inverse
 
 # Example usage
 if __name__ == "__main__":
     # Lattice parameters
-    latt_size = (16, 8, 8, 8)
+    # latt_size = (16, 8, 8, 8)
     # latt_size = (2, 2, 2, 2)
     # latt_size = (2, 1, 1, 1)
     # latt_size = (2, 1, 1, 2)
     # latt_size = (2, 2, 2, 2)
-    # latt_size = (8, 4, 4, 4)
+    latt_size = (8, 4, 4, 4)
     # latt_size = (4, 4, 4, 4)
     # latt_size = (8, 4, 4, 8)
     kappa = 0.125
@@ -146,7 +147,7 @@ if __name__ == "__main__":
     _dest = torch.tensor(
         data=_dest.get(), device=dest.device, dtype=dest.dtype)
     # print(f"dest value:{dest}")
-    print(f"dest norm value:{torch.linalg.norm(dest)}") 
+    print(f"dest norm value:{torch.linalg.norm(dest)}")
     # print(f"_dest value:{_dest}")
     print(f"_dest norm value:{torch.linalg.norm(_dest)}")
     print(
@@ -166,3 +167,8 @@ if __name__ == "__main__":
     # print(f"dest - __dest value:{dest-__dest}")
     print(
         f"torch.linalg.norm(dest-__dest)/torch.linalg.norm(dest):{torch.linalg.norm(dest-__dest)/torch.linalg.norm(dest)}")
+
+    def matvec(src: torch.Tensor = src, U: torch.Tensor = U) -> torch.Tensor:
+        return wilson.give_wilson(src, U)
+    b = torch.rand_like(src)
+    x = inverse.bicgstab(b=b, matvec=matvec)
