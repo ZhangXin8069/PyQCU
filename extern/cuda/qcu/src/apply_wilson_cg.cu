@@ -21,7 +21,14 @@ void applyWilsonCgQcu(long long _fermion_out, long long _fermion_in, long long _
     LatticeCg<float> _cg;
     _cg.give(set_ptr);
     _cg.init(fermion_out, fermion_in, gauge);
-    _cg.run_test();
+    if (set_ptr->host_params[_VERBOSE_])
+    {
+      _cg.run_test();
+    }
+    else
+    {
+      _cg.run();
+    }
     _cg.end();
     // ccdptzyx2dptzyxcc<float>(gauge, &_set);
     // psctzyx2ptzyxsc<float>(fermion_in, &_set);
@@ -36,7 +43,14 @@ void applyWilsonCgQcu(long long _fermion_out, long long _fermion_in, long long _
     LatticeCg<double> _cg;
     _cg.give(set_ptr);
     _cg.init(fermion_out, fermion_in, gauge);
-    _cg.run_test();
+    if (set_ptr->host_params[_VERBOSE_])
+    {
+      _cg.run_test();
+    }
+    else
+    {
+      _cg.run();
+    }
     _cg.end();
     // ccdptzyx2dptzyxcc<double>(gauge, &_set);
     // psctzyx2ptzyxsc<double>(fermion_in, &_set);

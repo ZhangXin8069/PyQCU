@@ -14,41 +14,57 @@ void applyInitQcu(long long _set_ptrs, long long _params, long long _argv)
     {
         // init for lattice_set
         LatticeSet<float> *set_ptr = new LatticeSet<float>();
-        auto start = std::chrono::high_resolution_clock::now();
-        set_ptr->give(params, argv);
-        set_ptr->init();
-        set_ptr->_print();
-        printf("set_ptr:%p\n", set_ptr);
-        printf("long long set_ptr:%lld\n", (long long)set_ptr);
-        static_cast<long long *>(set_ptrs)[set_index] = (long long)set_ptr;
-        auto end = std::chrono::high_resolution_clock::now();
-        auto duration =
-            std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
-        cudaError_t err = cudaGetLastError();
-        checkCudaErrors(err);
-        printf("lattice set init total time:%.9lf "
-               "sec\n",
-               double(duration) / 1e9);
+        if (set_ptr->host_params[_VERBOSE_])
+        {
+            printf("set_ptr:%p\n", set_ptr);
+            printf("long long set_ptr:%lld\n", (long long)set_ptr);
+            auto start = std::chrono::high_resolution_clock::now();
+            set_ptr->give(params, argv);
+            set_ptr->init();
+            set_ptr->_print();
+            static_cast<long long *>(set_ptrs)[set_index] = (long long)set_ptr;
+            auto end = std::chrono::high_resolution_clock::now();
+            auto duration =
+                std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
+            cudaError_t err = cudaGetLastError();
+            checkCudaErrors(err);
+            printf("lattice set init total time:%.9lf "
+                   "sec\n",
+                   double(duration) / 1e9);
+        }
+        else
+        {
+            set_ptr->give(params, argv);
+            set_ptr->init();
+        }
     }
     else if (data_type == _LAT_C128_)
     {
         // init for lattice_set
         LatticeSet<double> *set_ptr = new LatticeSet<double>();
-        auto start = std::chrono::high_resolution_clock::now();
-        set_ptr->give(params, argv);
-        set_ptr->init();
-        set_ptr->_print();
-        printf("set_ptr:%p\n", set_ptr);
-        printf("long long set_ptr:%lld\n", (long long)set_ptr);
-        static_cast<long long *>(set_ptrs)[set_index] = (long long)set_ptr;
-        auto end = std::chrono::high_resolution_clock::now();
-        auto duration =
-            std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
-        cudaError_t err = cudaGetLastError();
-        checkCudaErrors(err);
-        printf("lattice set init total time:%.9lf "
-               "sec\n",
-               double(duration) / 1e9);
+        if (set_ptr->host_params[_VERBOSE_])
+        {
+            printf("set_ptr:%p\n", set_ptr);
+            printf("long long set_ptr:%lld\n", (long long)set_ptr);
+            auto start = std::chrono::high_resolution_clock::now();
+            set_ptr->give(params, argv);
+            set_ptr->init();
+            set_ptr->_print();
+            static_cast<long long *>(set_ptrs)[set_index] = (long long)set_ptr;
+            auto end = std::chrono::high_resolution_clock::now();
+            auto duration =
+                std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
+            cudaError_t err = cudaGetLastError();
+            checkCudaErrors(err);
+            printf("lattice set init total time:%.9lf "
+                   "sec\n",
+                   double(duration) / 1e9);
+        }
+        else
+        {
+            set_ptr->give(params, argv);
+            set_ptr->init();
+        }
     }
     else
     {

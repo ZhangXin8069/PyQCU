@@ -21,12 +21,22 @@ void applyDslashQcu(long long _fermion_out, long long _fermion_in, long long _cl
     _wilson_dslash.give(set_ptr);
     {
       // wilson dslash
-      _wilson_dslash.run_test(fermion_out, fermion_in, gauge);
+      if (set_ptr->host_params[_VERBOSE_])
+      {
+        _wilson_dslash.run_test(fermion_out, fermion_in, gauge);
+      }
+      else
+      {
+        _wilson_dslash.run(fermion_out, fermion_in, gauge);
+      }
     }
     {
       // clover dslash
-      printf("clover:%p\n", clover);
-      printf("long long clover:%lld\n", (long long)clover);
+      if (set_ptr->host_params[_VERBOSE_])
+      {
+        printf("clover:%p\n", clover);
+        printf("long long clover:%lld\n", (long long)clover);
+      }
       if ((long long)clover)
       {
         LatticeCloverDslash<float> _clover_dslash;
@@ -47,12 +57,22 @@ void applyDslashQcu(long long _fermion_out, long long _fermion_in, long long _cl
     _wilson_dslash.give(set_ptr);
     {
       // wilson dslash
-      _wilson_dslash.run_test(fermion_out, fermion_in, gauge);
+      if (set_ptr->host_params[_VERBOSE_])
+      {
+        _wilson_dslash.run_test(fermion_out, fermion_in, gauge);
+      }
+      else
+      {
+        _wilson_dslash.run(fermion_out, fermion_in, gauge);
+      }
     }
     {
       // clover dslash
-      printf("clover:%p\n", clover);
-      printf("long long clover:%lld\n", (long long)clover);
+      if (set_ptr->host_params[_VERBOSE_])
+      {
+        printf("clover:%p\n", clover);
+        printf("long long clover:%lld\n", (long long)clover);
+      }
       if ((long long)clover)
       {
         LatticeCloverDslash<double> _clover_dslash;

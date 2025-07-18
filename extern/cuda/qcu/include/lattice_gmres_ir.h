@@ -79,6 +79,8 @@ namespace qcu
       gmres.run(); // give x_e
       checkCudaErrors(cudaStreamSynchronize(gmres.set_ptr->stream));
       checkCudaErrors(cudaStreamSynchronize(gmres.set_ptr->streams[_a_]));
+      gmres.set_ptr->err = cudaGetLastError();
+      checkCudaErrors(gmres.set_ptr->err);
     }
     void run_test()
     {
@@ -88,8 +90,6 @@ namespace qcu
       auto duration =
           std::chrono::duration_cast<std::chrono::nanoseconds>(end - start)
               .count();
-      gmres.set_ptr->err = cudaGetLastError();
-      checkCudaErrors(gmres.set_ptr->err);
       printf(
           "multi-gpu wilson gmres_ir total time: (without malloc free memcpy) :%.9lf "
           "sec\n",

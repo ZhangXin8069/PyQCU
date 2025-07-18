@@ -20,7 +20,14 @@ void applyLaplacianQcu(long long _laplacian_out, long long _laplacian_in, long l
     // tzyxsc2sctzyx<float>(laplacian_out, &_set);
     LatticeLaplacian<float> _laplacian;
     _laplacian.give(set_ptr);
-    _laplacian.run_test(laplacian_out, laplacian_in, gauge);
+    if (set_ptr->host_params[_VERBOSE_])
+    {
+      _laplacian.run_test(laplacian_out, laplacian_in, gauge);
+    }
+    else
+    {
+      _laplacian.run(laplacian_out, laplacian_in, gauge);
+    }
     // ccdptzyx2dptzyxcc<float>(gauge, &_set);
     // sctzyx2tzyxsc<float>(laplacian_in, &_set);
     // sctzyx2tzyxsc<float>(laplacian_out, &_set);
@@ -33,7 +40,14 @@ void applyLaplacianQcu(long long _laplacian_out, long long _laplacian_in, long l
     // tzyxsc2sctzyx<double>(laplacian_out, &_set);
     LatticeLaplacian<double> _laplacian;
     _laplacian.give(set_ptr);
-    _laplacian.run_test(laplacian_out, laplacian_in, gauge);
+    if (set_ptr->host_params[_VERBOSE_])
+    {
+      _laplacian.run_test(laplacian_out, laplacian_in, gauge);
+    }
+    else
+    {
+      _laplacian.run(laplacian_out, laplacian_in, gauge);
+    }
     // ccdptzyx2dptzyxcc<double>(gauge, &_set);
     // sctzyx2tzyxsc<double>(laplacian_in, &_set);
     // sctzyx2tzyxsc<double>(laplacian_out, &_set);

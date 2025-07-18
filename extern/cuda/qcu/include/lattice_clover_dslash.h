@@ -583,15 +583,20 @@ namespace qcu
         {
             // make clover
             checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
-            auto start = std::chrono::high_resolution_clock::now();
             _make_mpi(gauge);
             checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
+            err = cudaGetLastError();
+            checkCudaErrors(err);
+        }
+        void make_test(void *gauge)
+        {
+            // make clover
+            auto start = std::chrono::high_resolution_clock::now();
+            make(gauge);
             auto end = std::chrono::high_resolution_clock::now();
             auto duration =
                 std::chrono::duration_cast<std::chrono::nanoseconds>(end - start)
                     .count();
-            err = cudaGetLastError();
-            checkCudaErrors(err);
             printf("make clover total time: (without malloc free memcpy) :%.9lf sec\n ",
                    double(duration) / 1e9);
         }
@@ -599,16 +604,21 @@ namespace qcu
         {
             // inverse clover
             checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
-            auto start = std::chrono::high_resolution_clock::now();
             inverse_clover<T><<<set_ptr->gridDim, set_ptr->blockDim, 0, set_ptr->stream>>>(
                 clover, set_ptr->device_params);
             checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
+            err = cudaGetLastError();
+            checkCudaErrors(err);
+        }
+        void inverse_test()
+        {
+            // inverse clover
+            auto start = std::chrono::high_resolution_clock::now();
+            inverse();
             auto end = std::chrono::high_resolution_clock::now();
             auto duration =
                 std::chrono::duration_cast<std::chrono::nanoseconds>(end - start)
                     .count();
-            err = cudaGetLastError();
-            checkCudaErrors(err);
             printf(
                 "inverse clover total time: (without malloc free memcpy) :%.9lf sec\n ",
                 double(duration) / 1e9);
@@ -617,16 +627,21 @@ namespace qcu
         {
             // give clover
             checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
-            auto start = std::chrono::high_resolution_clock::now();
             give_clover<T><<<set_ptr->gridDim, set_ptr->blockDim, 0, set_ptr->stream>>>(
                 clover, fermion_out, set_ptr->device_params);
             checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
+            err = cudaGetLastError();
+            checkCudaErrors(err);
+        }
+        void give_test(void *fermion_out)
+        {
+            // give clover
+            auto start = std::chrono::high_resolution_clock::now();
+            give(fermion_out);
             auto end = std::chrono::high_resolution_clock::now();
             auto duration =
                 std::chrono::duration_cast<std::chrono::nanoseconds>(end - start)
                     .count();
-            err = cudaGetLastError();
-            checkCudaErrors(err);
             printf("give clover total time: (without malloc free memcpy) :%.9lf sec\n ",
                    double(duration) / 1e9);
         }
