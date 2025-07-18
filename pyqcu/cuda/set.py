@@ -23,7 +23,7 @@ params[define._MG_Y_] = 4
 params[define._MG_Z_] = 4
 params[define._MG_T_] = 8
 params[define._LAT_E_] = 24
-params[define._VERBOSE_] = 1
+params[define._VERBOSE_] = 0
 print("Parameters:", params)
 print("Parameters data:", params.data)
 argv = np.array([0.0]*define._ARGV_SIZE_, dtype=np.float32)
