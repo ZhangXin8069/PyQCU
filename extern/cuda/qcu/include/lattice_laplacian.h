@@ -214,7 +214,7 @@ namespace qcu
       checkCudaErrors(cudaStreamSynchronize(set_ptr->stream_dims[_Y_]));
       checkCudaErrors(cudaStreamSynchronize(set_ptr->stream_dims[_Z_]));
     }
-    void run(void *laplacian_out, void *laplacian_in, void *gauge, void *_device_params)
+    void _run(void *laplacian_out, void *laplacian_in, void *gauge, void *_device_params)
     {
       run_mpi(laplacian_out, laplacian_in, gauge, _device_params);
       checkCudaErrors(cudaStreamSynchronize(set_ptr->stream)); // needed
@@ -225,10 +225,14 @@ namespace qcu
       err = cudaGetLastError();
       checkCudaErrors(err);
     }
+    void run(void *laplacian_out, void *laplacian_in, void *gauge)
+    {
+      _run(laplacian_out, laplacian_in, gauge, set_ptr->device_params);
+    }
     void run_test(void *laplacian_out, void *laplacian_in, void *gauge)
     {
       auto start = std::chrono::high_resolution_clock::now();
-      run(laplacian_out, laplacian_in, gauge, set_ptr->device_params);
+      run(laplacian_out, laplacian_in, gauge);
       auto end = std::chrono::high_resolution_clock::now();
       auto duration =
           std::chrono::duration_cast<std::chrono::nanoseconds>(end - start)
