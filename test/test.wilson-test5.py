@@ -11,6 +11,7 @@ gauge_filename = f"quda_wilson-dslash-gauge_-{params[define._LAT_X_]}-{params[de
 params[define._GRID_T_] = 1
 params[define._NODE_RANK_] = define.rank
 params[define._NODE_SIZE_] = define.size
+params[define._DATA_TYPE_] = define._LAT_C64_
 params[define._VERBOSE_] = 0
 print("Parameters:", params)
 #############################

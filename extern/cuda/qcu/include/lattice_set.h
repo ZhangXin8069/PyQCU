@@ -652,6 +652,7 @@ namespace qcu
             printf("host_params[_MG_Z_]     :%d\n", host_params[_MG_Z_]);
             printf("host_params[_MG_T_]     :%d\n", host_params[_MG_T_]);
             printf("host_params[_LAT_E_]    :%d\n", host_params[_LAT_E_]);
+            printf("host_params[_VERBOSE_]  :%d\n", host_params[_VERBOSE_]);
             printf("host_argv[_MASS_]       :%e\n", host_argv[_MASS_]);
             printf("host_argv[_TOL_]        :%e\n", host_argv[_TOL_]);
             printf("lat_2dim[_XY_]          :%d\n", lat_2dim[_XY_]);
