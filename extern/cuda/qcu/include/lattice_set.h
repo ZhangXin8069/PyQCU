@@ -110,6 +110,7 @@ namespace qcu
             host_params[_MG_Z_] = static_cast<int *>(_params)[_MG_Z_];
             host_params[_MG_T_] = static_cast<int *>(_params)[_MG_T_];
             host_params[_LAT_E_] = static_cast<int *>(_params)[_LAT_E_];
+            host_params[_VERBOSE_] = static_cast<int *>(_params)[_VERBOSE_];
             host_argv[_MASS_] = static_cast<T *>(_argv)[_MASS_];
             host_argv[_TOL_] = static_cast<T *>(_argv)[_TOL_];
         }
