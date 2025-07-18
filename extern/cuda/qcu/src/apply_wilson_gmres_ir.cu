@@ -21,7 +21,14 @@ void applyWilsonGmresIrQcu(long long _fermion_out, long long _fermion_in, long l
     LatticeGmresIr<float> _gmres_ir;
     _gmres_ir.give(set_ptr);
     _gmres_ir.init(fermion_out, fermion_in, gauge);
-    _gmres_ir.run_test();
+    if (set_ptr->host_params[_VERBOSE_])
+    {
+      _gmres_ir.run_test();
+    }
+    else
+    {
+      _gmres_ir.run();
+    }
     _gmres_ir.end();
     // ccdptzyx2dptzyxcc<float>(gauge, &_set);
     // psctzyx2ptzyxsc<float>(fermion_in, &_set);
@@ -36,7 +43,14 @@ void applyWilsonGmresIrQcu(long long _fermion_out, long long _fermion_in, long l
     LatticeGmresIr<double> _gmres_ir;
     _gmres_ir.give(set_ptr);
     _gmres_ir.init(fermion_out, fermion_in, gauge);
-    _gmres_ir.run_test();
+    if (set_ptr->host_params[_VERBOSE_])
+    {
+      _gmres_ir.run_test();
+    }
+    else
+    {
+      _gmres_ir.run();
+    }
     _gmres_ir.end();
     // ccdptzyx2dptzyxcc<double>(gauge, &_set);
     // psctzyx2ptzyxsc<double>(fermion_in, &_set);

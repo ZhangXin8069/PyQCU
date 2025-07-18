@@ -222,20 +222,17 @@ namespace qcu
                                    set_ptr->stream>>>(
           laplacian_out, laplacian_in, _device_params);
       checkCudaErrors(cudaStreamSynchronize(set_ptr->stream)); // needed
+      err = cudaGetLastError();
+      checkCudaErrors(err);
     }
     void run_test(void *laplacian_out, void *laplacian_in, void *gauge)
     {
-#ifdef PRINT_MULTI_GPU_WILSON_DSLASH
-      set_ptr->_print();
-#endif
       auto start = std::chrono::high_resolution_clock::now();
       run(laplacian_out, laplacian_in, gauge, set_ptr->device_params);
       auto end = std::chrono::high_resolution_clock::now();
       auto duration =
           std::chrono::duration_cast<std::chrono::nanoseconds>(end - start)
               .count();
-      err = cudaGetLastError();
-      checkCudaErrors(err);
       printf("multi-gpu laplacian total time: (without malloc free memcpy) :%.9lf "
              "sec\n",
              double(duration) / 1e9);

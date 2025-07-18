@@ -362,6 +362,8 @@ namespace qcu
         checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
         checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_a_]));
       }
+      set_ptr->err = cudaGetLastError();
+      checkCudaErrors(set_ptr->err);
     }
     void run_test()
     {
@@ -371,8 +373,6 @@ namespace qcu
       auto duration =
           std::chrono::duration_cast<std::chrono::nanoseconds>(end - start)
               .count();
-      set_ptr->err = cudaGetLastError();
-      checkCudaErrors(set_ptr->err);
       printf("multi-gpu wilson Cg total time: (without malloc free memcpy) "
              ":%.9lf "
              "sec\n",

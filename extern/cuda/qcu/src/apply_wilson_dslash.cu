@@ -20,7 +20,14 @@ void applyWilsonDslashQcu(long long _fermion_out, long long _fermion_in, long lo
     // tzyxsc2sctzyx<float>(fermion_out, &_set);
     LatticeWilsonDslash<float> _wilson_dslash;
     _wilson_dslash.give(set_ptr);
-    _wilson_dslash.run_test(fermion_out, fermion_in, gauge);
+    if (set_ptr->host_params[_VERBOSE_])
+    {
+      _wilson_dslash.run_test(fermion_out, fermion_in, gauge);
+    }
+    else
+    {
+      _wilson_dslash.run(fermion_out, fermion_in, gauge);
+    }
     // ccdptzyx2dptzyxcc<float>(gauge, &_set);
     // sctzyx2tzyxsc<float>(fermion_in, &_set);
     // sctzyx2tzyxsc<float>(fermion_out, &_set);
@@ -33,7 +40,14 @@ void applyWilsonDslashQcu(long long _fermion_out, long long _fermion_in, long lo
     // tzyxsc2sctzyx<double>(fermion_out, &_set);
     LatticeWilsonDslash<double> _wilson_dslash;
     _wilson_dslash.give(set_ptr);
-    _wilson_dslash.run_test(fermion_out, fermion_in, gauge);
+    if (set_ptr->host_params[_VERBOSE_])
+    {
+      _wilson_dslash.run_test(fermion_out, fermion_in, gauge);
+    }
+    else
+    {
+      _wilson_dslash.run(fermion_out, fermion_in, gauge);
+    }
     // ccdptzyx2dptzyxcc<double>(gauge, &_set);
     // sctzyx2tzyxsc<double>(fermion_in, &_set);
     // sctzyx2tzyxsc<double>(fermion_out, &_set);
