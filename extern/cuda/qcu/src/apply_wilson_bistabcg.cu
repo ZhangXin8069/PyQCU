@@ -21,7 +21,14 @@ void applyWilsonBistabCgQcu(long long _fermion_out, long long _fermion_in, long 
     LatticeBistabCg<float> _bistabcg;
     _bistabcg.give(set_ptr);
     _bistabcg.init(fermion_out, fermion_in, gauge);
-    _bistabcg.run_test();
+    if (set_ptr->host_params[_VERBOSE_])
+    {
+      _bistabcg.run_test();
+    }
+    else
+    {
+      _bistabcg.run();
+    }
     _bistabcg.end();
     // ccdptzyx2dptzyxcc<float>(gauge, &_set);
     // psctzyx2ptzyxsc<float>(fermion_in, &_set);
@@ -36,7 +43,14 @@ void applyWilsonBistabCgQcu(long long _fermion_out, long long _fermion_in, long 
     LatticeBistabCg<double> _bistabcg;
     _bistabcg.give(set_ptr);
     _bistabcg.init(fermion_out, fermion_in, gauge);
-    _bistabcg.run_test();
+    if (set_ptr->host_params[_VERBOSE_])
+    {
+      _bistabcg.run_test();
+    }
+    else
+    {
+      _bistabcg.run();
+    }
     _bistabcg.end();
     // ccdptzyx2dptzyxcc<double>(gauge, &_set);
     // psctzyx2ptzyxsc<double>(fermion_in, &_set);

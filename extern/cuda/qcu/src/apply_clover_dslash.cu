@@ -23,21 +23,43 @@ void applyCloverDslashQcu(long long _fermion_out, long long _fermion_in, long lo
     _wilson_dslash.give(set_ptr);
     _clover_dslash.give(set_ptr);
     _clover_dslash.init();
+    if (set_ptr->host_params[_VERBOSE_])
     {
-      // wilson dslash
-      _wilson_dslash.run_test(fermion_out, fermion_in, gauge);
+      {
+        // wilson dslash
+        _wilson_dslash.run_test(fermion_out, fermion_in, gauge);
+      }
+      {
+        // make clover
+        _clover_dslash.make_test(gauge);
+      }
+      {
+        // inverse clover
+        _clover_dslash.inverse_test();
+      }
+      {
+        // give clover
+        _clover_dslash.give_test(fermion_out);
+      }
     }
+    else
     {
-      // make clover
-      _clover_dslash.make(gauge);
-    }
-    {
-      // inverse clover
-      _clover_dslash.inverse();
-    }
-    {
-      // give clover
-      _clover_dslash.give(fermion_out);
+      {
+        // wilson dslash
+        _wilson_dslash.run(fermion_out, fermion_in, gauge);
+      }
+      {
+        // make clover
+        _clover_dslash.make(gauge);
+      }
+      {
+        // inverse clover
+        _clover_dslash.inverse();
+      }
+      {
+        // give clover
+        _clover_dslash.give(fermion_out);
+      }
     }
     // ccdptzyx2dptzyxcc<float>(gauge, &_set);
     // sctzyx2tzyxsc<float>(fermion_in, &_set);
@@ -55,21 +77,43 @@ void applyCloverDslashQcu(long long _fermion_out, long long _fermion_in, long lo
     _wilson_dslash.give(set_ptr);
     _clover_dslash.give(set_ptr);
     _clover_dslash.init();
+    if (set_ptr->host_params[_VERBOSE_])
     {
-      // wilson dslash
-      _wilson_dslash.run_test(fermion_out, fermion_in, gauge);
+      {
+        // wilson dslash
+        _wilson_dslash.run_test(fermion_out, fermion_in, gauge);
+      }
+      {
+        // make clover
+        _clover_dslash.make_test(gauge);
+      }
+      {
+        // inverse clover
+        _clover_dslash.inverse_test();
+      }
+      {
+        // give clover
+        _clover_dslash.give_test(fermion_out);
+      }
     }
+    else
     {
-      // make clover
-      _clover_dslash.make(gauge);
-    }
-    {
-      // inverse clover
-      _clover_dslash.inverse();
-    }
-    {
-      // give clover
-      _clover_dslash.give(fermion_out);
+      {
+        // wilson dslash
+        _wilson_dslash.run(fermion_out, fermion_in, gauge);
+      }
+      {
+        // make clover
+        _clover_dslash.make(gauge);
+      }
+      {
+        // inverse clover
+        _clover_dslash.inverse();
+      }
+      {
+        // give clover
+        _clover_dslash.give(fermion_out);
+      }
     }
     // ccdptzyx2dptzyxcc<double>(gauge, &_set);
     // sctzyx2tzyxsc<double>(fermion_in, &_set);
