@@ -34,7 +34,6 @@ void applyInitQcu(long long _set_ptrs, long long _params, long long _argv)
         }
         else
         {
-            set_ptr->give(params, argv);
             set_ptr->init();
         }
     }
@@ -62,7 +61,6 @@ void applyInitQcu(long long _set_ptrs, long long _params, long long _argv)
         }
         else
         {
-            set_ptr->give(params, argv);
             set_ptr->init();
         }
     }
