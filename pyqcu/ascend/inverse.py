@@ -5,8 +5,21 @@ from typing import Tuple, Optional, List
 from pyqcu.ascend import dslash
 
 
-def cg(b: torch.Tensor, matvec: function, tol: float = 1e-6, max_iter: int = 200, x0=None, verbose=True) -> torch.Tensor:
-    """Standard CG solver"""
+def cg(b: torch.Tensor, matvec: callable, tol: float = 1e-6, max_iter: int = 500, x0=None, verbose=True) -> torch.Tensor:
+    """
+    Conjugate Gradient (CG) solver for linear systems Ax = b. (Requirement A is a Hermitian matrix)
+    
+    Args:
+        b: Right-hand side vector (torch.Tensor).
+        matvec: Function computing matrix-vector product (A @ x).
+        tol: Tolerance for convergence (default: 1e-6).
+        max_iter: Maximum iterations (default: 500).
+        x0: Initial guess (default: zero vector).
+        verbose: Print convergence progress (default: True).
+    
+    Returns:
+        x: Approximate solution to Ax = b.
+    """
     x = x0.clone() if x0 is not None else torch.rand_like(b)
     r = b - matvec(x)
     p = r.clone()
@@ -51,8 +64,21 @@ def cg(b: torch.Tensor, matvec: function, tol: float = 1e-6, max_iter: int = 200
     return x
 
 
-def bicgstab(b: torch.Tensor, matvec: function, tol: float = 1e-6, max_iter: int = 200, x0=None, verbose=True) -> torch.Tensor:
-    """Standard BiCGSTAB solver"""
+def bicgstab(b: torch.Tensor, matvec: callable, tol: float = 1e-6, max_iter: int = 500, x0=None, verbose=True) -> torch.Tensor:
+    """
+    BIConjugate Gradient STABilized(BICGSTAB) solver for linear systems Ax = b. (It is not required that A be a Hermitian matrix)
+    
+    Args:
+        b: Right-hand side vector (torch.Tensor).
+        matvec: Function computing matrix-vector product (A @ x).
+        tol: Tolerance for convergence (default: 1e-6).
+        max_iter: Maximum iterations (default: 500).
+        x0: Initial guess (default: zero vector).
+        verbose: Print convergence progress (default: True).
+    
+    Returns:
+        x: Approximate solution to Ax = b.
+    """
     x = x0.clone() if x0 is not None else torch.rand_like(b)
     r = b - matvec(x)
     r_tilde = r.clone()
@@ -108,7 +134,7 @@ def bicgstab(b: torch.Tensor, matvec: function, tol: float = 1e-6, max_iter: int
 
 class mg(nn.Module):
     def __init__(self,
-                 matvec: function,
+                 matvec: callable,
                  latt_size: Tuple[int, int, int, int] = (
                      16, 16, 16, 16),  # 4D lattice (x, y, z, t)
                  n_refine: int = 3,  # Multigrid refinement levels

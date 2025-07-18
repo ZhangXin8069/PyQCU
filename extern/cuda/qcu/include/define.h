@@ -66,7 +66,8 @@ namespace qcu
 #define _MG_Z_ 19
 #define _MG_T_ 20
 #define _LAT_E_ 21
-#define _PARAMS_SIZE_ 22
+#define _VERBOSE_ 22
+#define _PARAMS_SIZE_ 23
 #define _MASS_ 0
 #define _TOL_ 1
 #define _ARGV_SIZE_ 2
