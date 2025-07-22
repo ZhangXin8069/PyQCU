@@ -5,12 +5,12 @@ from pyqcu.ascend import inverse
 # Example usage
 if __name__ == "__main__":
     # Lattice parameters
-    # latt_size = (16, 8, 8, 8)
+    latt_size = (16, 8, 8, 8)
     # latt_size = (2, 2, 2, 2)
     # latt_size = (2, 1, 1, 1)
     # latt_size = (2, 1, 1, 2)
     # latt_size = (2, 2, 2, 2)
-    latt_size = (8, 4, 4, 4)
+    # latt_size = (8, 4, 4, 4)
     # latt_size = (4, 4, 4, 4)
     # latt_size = (8, 4, 4, 8)
     kappa = 0.125
