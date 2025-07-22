@@ -1,14 +1,14 @@
 import torch
 import torch.nn as nn
 from time import perf_counter
-from typing import Tuple, Optional, List
+from typing import Tuple, Optional, Callable
 from pyqcu.ascend import dslash
 
 
-def cg(b: torch.Tensor, matvec: callable, tol: float = 1e-6, max_iter: int = 500, x0=None, verbose=True) -> torch.Tensor:
+def cg(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], tol: float = 1e-6, max_iter: int = 500, x0=None, verbose=True) -> torch.Tensor:
     """
     Conjugate Gradient (CG) solver for linear systems Ax = b. (Requirement A is a Hermitian matrix)
-    
+
     Args:
         b: Right-hand side vector (torch.Tensor).
         matvec: Function computing matrix-vector product (A @ x).
@@ -16,7 +16,7 @@ def cg(b: torch.Tensor, matvec: callable, tol: float = 1e-6, max_iter: int = 500
         max_iter: Maximum iterations (default: 500).
         x0: Initial guess (default: zero vector).
         verbose: Print convergence progress (default: True).
-    
+
     Returns:
         x: Approximate solution to Ax = b.
     """
@@ -64,10 +64,10 @@ def cg(b: torch.Tensor, matvec: callable, tol: float = 1e-6, max_iter: int = 500
     return x
 
 
-def bicgstab(b: torch.Tensor, matvec: callable, tol: float = 1e-6, max_iter: int = 500, x0=None, verbose=True) -> torch.Tensor:
+def bicgstab(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], tol: float = 1e-6, max_iter: int = 500, x0=None, verbose=True) -> torch.Tensor:
     """
     BIConjugate Gradient STABilized(BICGSTAB) solver for linear systems Ax = b. (It is not required that A be a Hermitian matrix)
-    
+
     Args:
         b: Right-hand side vector (torch.Tensor).
         matvec: Function computing matrix-vector product (A @ x).
@@ -75,7 +75,7 @@ def bicgstab(b: torch.Tensor, matvec: callable, tol: float = 1e-6, max_iter: int
         max_iter: Maximum iterations (default: 500).
         x0: Initial guess (default: zero vector).
         verbose: Print convergence progress (default: True).
-    
+
     Returns:
         x: Approximate solution to Ax = b.
     """
@@ -132,9 +132,82 @@ def bicgstab(b: torch.Tensor, matvec: callable, tol: float = 1e-6, max_iter: int
     return x
 
 
+def give_null_vecs(
+    null_vecs: torch.Tensor,
+    matvec: Callable[[torch.Tensor], torch.Tensor],
+    tol: float = 5e-5, verbose=True
+) -> torch.Tensor:
+    """
+    PyTorch optimized version for generating near-null space vectors
+
+    Args:
+        null_vecs: Initial vectors [dof, *dims]
+        matvec: Matrix-vector multiplication operator
+        tol: Tolerance for BICGSTAB solver
+        verbose: Print progress (default: True).
+    Returns:
+        Orthonormalized near-null space vectors
+    """
+    # Precompute flattened shape for efficient dot products
+    dof = null_vecs.shape[0]
+    flat_shape = null_vecs.shape[1:].numel()
+    if verbose:
+        print(f"dof:{dof}")
+        print(f"flat_shape:{flat_shape}")
+    # Process each vector
+    for i in range(dof):
+        # First orthogonalization against previous vectors
+        for k in range(i):
+            # Compute complex dot product: <v_k, v_i>
+            vk_flat = null_vecs[k].view(flat_shape)
+            vi_flat = null_vecs[i].view(flat_shape)
+
+            # Calculate projection coefficient
+            numerator = torch.vdot(vk_flat.conj(), vi_flat)
+            denominator = torch.vdot(vk_flat.conj(), vk_flat)
+            proj_coeff = numerator / denominator
+
+            # Subtract projection component
+            null_vecs[i] -= proj_coeff * null_vecs[k]
+
+        # Compute residual: -A @ v_i
+        residual = -matvec(null_vecs[i])
+
+        # Solve Aδv = -A @ v_i using BICGSTAB
+        delta_v = bicgstab(
+            b=residual,
+            matvec=matvec,
+            tol=tol,
+            max_iter=500,
+            verbose=False
+        )
+
+        # Update vector: v_i = v_i + δv
+        null_vecs[i] += delta_v
+
+        # Second orthogonalization against previous vectors
+        for k in range(i):
+            # Recompute dot products after update
+            vk_flat = null_vecs[k].view(flat_shape)
+            vi_flat = null_vecs[i].view(flat_shape)
+
+            numerator = torch.vdot(vk_flat.conj(), vi_flat)
+            denominator = torch.vdot(vk_flat.conj(), vk_flat)
+            proj_coeff = numerator / denominator
+
+            null_vecs[i] -= proj_coeff * null_vecs[k]
+
+        # Final normalization
+        vi_flat = null_vecs[i].view(flat_shape)
+        norm = torch.sqrt(torch.vdot(vi_flat.conj(), vi_flat).real)
+        null_vecs[i] /= norm.clamp_min(1e-15)
+
+    return null_vecs
+
+
 class mg(nn.Module):
     def __init__(self,
-                 matvec: callable,
+                 matvec: Callable[[torch.Tensor], torch.Tensor],
                  latt_size: Tuple[int, int, int, int] = (
                      16, 16, 16, 16),  # 4D lattice (x, y, z, t)
                  n_refine: int = 3,  # Multigrid refinement levels
@@ -146,7 +219,7 @@ class mg(nn.Module):
         4D lattice solver with spin=4 and color=3, based on dslash operator (Wilson-Dirac)
         """
         super().__init__()
-        self.matvec=matvec
+        self.matvec = matvec
         self.latt_size = latt_size
         self.Lx, self.Ly, self.Lz, self.Lt = latt_size
         self.volume = self.Lx * self.Ly * self.Lz * self.Lt
@@ -172,14 +245,13 @@ class mg(nn.Module):
         self.U = self.wilson.generate_gauge_field(sigma=0.1, seed=42)
         self.clover_term = self.clover.make_clover(U=self.U)
         # Initialize multigrid
-        self.mg = self.MultiGrid(self, n_refine)
+        self.mg = self._mg(self, n_refine)
         if self.verbose:
             print(
                 f"Initialization complete: Lattice size {self.Lx}x{self.Ly}x{self.Lz}x{self.Lt}, Spin 4, Color 3")
             print(f"Device: {self.device}, Dtype: {self.dtype}")
 
-
-    class MultiGrid:
+    class _mg:
         def __init__(self, solver, n_refine: int):
             self.solver = solver
             self.n_refine = n_refine
