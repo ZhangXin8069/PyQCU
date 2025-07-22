@@ -5,12 +5,12 @@ from pyqcu.ascend import inverse
 # Example usage
 if __name__ == "__main__":
     # Lattice parameters
-    latt_size = (16, 8, 8, 8)
+    # latt_size = (16, 8, 8, 8)
     # latt_size = (2, 2, 2, 2)
     # latt_size = (2, 1, 1, 1)
     # latt_size = (2, 1, 1, 2)
     # latt_size = (2, 2, 2, 2)
-    # latt_size = (8, 4, 4, 4)
+    latt_size = (8, 4, 4, 4)
     # latt_size = (4, 4, 4, 4)
     # latt_size = (8, 4, 4, 8)
     kappa = 0.125
@@ -20,6 +20,13 @@ if __name__ == "__main__":
     print(f"Using device: {device}")
     # Initialize lattice gauge theory
     wilson = dslash_parity.wilson_parity(
+        latt_size=latt_size,
+        kappa=kappa,
+        dtype=dtype,
+        device=device,
+        verbose=False
+    )
+    clover = dslash_parity.clover_parity(
         latt_size=latt_size,
         kappa=kappa,
         dtype=dtype,
@@ -166,9 +173,11 @@ if __name__ == "__main__":
     # print(f"dest - __dest value:{dest-__dest}")
     print(
         f"torch.linalg.norm(dest-__dest)/torch.linalg.norm(dest):{torch.linalg.norm(dest-__dest)/torch.linalg.norm(dest)}")
+    clover_term = clover.make_clover(U=U)
 
-    def matvec(src: torch.Tensor = src, U: torch.Tensor = U) -> torch.Tensor:
-        return wilson.give_wilson(src, U)
+    def matvec(src: torch.Tensor, U: torch.Tensor = U) -> torch.Tensor:
+        return wilson.give_wilson(src, U)+clover.give_clover(clover=clover_term, src=src)
+        # return wilson.give_wilson(src, U)
     print(f"type(matvec):{type(matvec)}")
     b = torch.rand_like(src)
     x = inverse.bicgstab(b=b, matvec=matvec)

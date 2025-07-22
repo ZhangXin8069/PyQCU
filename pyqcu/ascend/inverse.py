@@ -135,72 +135,90 @@ def bicgstab(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], to
 def give_null_vecs(
     null_vecs: torch.Tensor,
     matvec: Callable[[torch.Tensor], torch.Tensor],
-    tol: float = 5e-5, verbose=True
+    tol: float = 1e-7,
+    verbose: bool = True
 ) -> torch.Tensor:
     """
-    PyTorch optimized version for generating near-null space vectors
+    Generates orthonormal near-null space vectors for a linear operator.
+
+    This function refines initial random vectors to become approximate null vectors
+    (eigenvectors corresponding to near-zero eigenvalues) through iterative refinement
+    and orthogonalization.
 
     Args:
-        null_vecs: Initial vectors [dof, *dims]
-        matvec: Matrix-vector multiplication operator
+        null_vecs: Initial random vectors [dof, *dims]
+        matvec: Matrix-vector multiplication operator A(x)
         tol: Tolerance for BICGSTAB solver
-        verbose: Print progress (default: True).
+        verbose: Print progress information
+
     Returns:
-        Orthonormalized near-null space vectors
+        Orthonormal near-null space vectors
     """
     # Precompute flattened shape for efficient dot products
     dof = null_vecs.shape[0]
-    flat_shape = null_vecs.shape[1:].numel()
+    flat_size = null_vecs[0].numel()
+
+    # Initialize vectors if needed
+    if torch.linalg.norm(null_vecs) <= tol:
+        null_vecs = torch.randn_like(null_vecs)
+        if verbose:
+            print('Initial vectors were zeros, initialized with random vectors')
+
     if verbose:
-        print(f"dof:{dof}")
-        print(f"flat_shape:{flat_shape}")
+        print(f"Generating {dof} near-null vectors")
+        print(
+            f"Vector size: {tuple(null_vecs.shape[1:])} (flattened: {flat_size})")
+
+    # Pre-normalize all vectors for better numerical stability
+    for i in range(dof):
+        norm = torch.linalg.norm(null_vecs[i])
+        if norm < 1e-15:
+            null_vecs[i] = torch.randn_like(null_vecs[i])
+            norm = torch.linalg.norm(null_vecs[i])
+        null_vecs[i] /= norm.clamp_min(1e-15)
+
     # Process each vector
     for i in range(dof):
-        # First orthogonalization against previous vectors
-        for k in range(i):
-            # Compute complex dot product: <v_k, v_i>
-            vk_flat = null_vecs[k].view(flat_shape)
-            vi_flat = null_vecs[i].view(flat_shape)
+        if verbose:
+            print(f"\nProcessing vector {i+1}/{dof}:")
 
-            # Calculate projection coefficient
-            numerator = torch.vdot(vk_flat.conj(), vi_flat)
-            denominator = torch.vdot(vk_flat.conj(), vk_flat)
-            proj_coeff = numerator / denominator
-
-            # Subtract projection component
-            null_vecs[i] -= proj_coeff * null_vecs[k]
-
-        # Compute residual: -A @ v_i
-        residual = -matvec(null_vecs[i])
-
-        # Solve Aδv = -A @ v_i using BICGSTAB
-        delta_v = bicgstab(
-            b=residual,
+        # Just solve Ax~=0 to get near-null space vectors
+        temp = bicgstab(
+            b=null_vecs[i]*tol**2,
             matvec=matvec,
             tol=tol,
             max_iter=500,
-            verbose=False
+            x0=null_vecs[i],
+            verbose=verbose
         )
 
-        # Update vector: v_i = v_i + δv
-        null_vecs[i] += delta_v
+        # Check for NaN in temp
+        if torch.isnan(temp).any():
+            if verbose:
+                print("  Warning: NaN detected in temp, skipping update")
+        else:
+            null_vecs[i] = temp
 
-        # Second orthogonalization against previous vectors
-        for k in range(i):
-            # Recompute dot products after update
-            vk_flat = null_vecs[k].view(flat_shape)
-            vi_flat = null_vecs[i].view(flat_shape)
-
-            numerator = torch.vdot(vk_flat.conj(), vi_flat)
-            denominator = torch.vdot(vk_flat.conj(), vk_flat)
-            proj_coeff = numerator / denominator
-
-            null_vecs[i] -= proj_coeff * null_vecs[k]
-
-        # Final normalization
-        vi_flat = null_vecs[i].view(flat_shape)
-        norm = torch.sqrt(torch.vdot(vi_flat.conj(), vi_flat).real)
-        null_vecs[i] /= norm.clamp_min(1e-15)
+        null_vecs[i] /= torch.linalg.norm(null_vecs[i]).item()
+        print(
+            f"Before orthogonality: matvec(null_vecs[{i}])/null_vecs[{i}]:{matvec(null_vecs[i])/null_vecs[i]}")
+        print(
+            f"Before orthogonality: torch.norm(matvec(null_vecs[{i}])/null_vecs[{i}]):{torch.norm(matvec(null_vecs[i])/null_vecs[i])}")
+    # Orthogonality ......
+    null_vecs, _ = torch.linalg.qr(null_vecs.clone(), mode='reduced')
+    # Final orthogonality check (optional)
+    if verbose:
+        print("\nFinal orthogonality check:")
+        for i in range(dof):
+            print(
+            f"After orthogonality: matvec(null_vecs[{i}])/null_vecs[{i}]:{matvec(null_vecs[i])/null_vecs[i]}")
+            print(
+                f"After orthogonality: torch.norm(matvec(null_vecs[{i}])/null_vecs[{i}]):{torch.norm(matvec(null_vecs[i])/null_vecs[i])}")
+            for j in range(i+1, dof):
+                vi_flat = null_vecs[i].reshape(-1)
+                vj_flat = null_vecs[j].reshape(-1)
+                dot = torch.vdot(vi_flat.conj(), vj_flat)
+                print(f"  <v{i}, v{j}> = {dot.abs().item():.2e}")
 
     return null_vecs
 

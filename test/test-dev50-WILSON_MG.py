@@ -56,7 +56,7 @@ class LatticeSolver(nn.Module):
         return: same shape
         """
         dest = self.wilson.give_wilson(src, self.U).clone()
-        dest += self.clover.give_clover(src=dest, clover=self.clover_term)
+        dest += self.clover.give_clover(src=src, clover=self.clover_term)
         return dest
 
     class MultiGrid:
