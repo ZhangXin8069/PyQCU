@@ -8,7 +8,6 @@ from pyqcu.ascend import dslash
 def cg(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], tol: float = 1e-6, max_iter: int = 500, x0=None, verbose=True) -> torch.Tensor:
     """
     Conjugate Gradient (CG) solver for linear systems Ax = b. (Requirement A is a Hermitian matrix)
-
     Args:
         b: Right-hand side vector (torch.Tensor).
         matvec: Function computing matrix-vector product (A @ x).
@@ -16,7 +15,6 @@ def cg(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], tol: flo
         max_iter: Maximum iterations (default: 500).
         x0: Initial guess (default: zero vector).
         verbose: Print convergence progress (default: True).
-
     Returns:
         x: Approximate solution to Ax = b.
     """
@@ -67,7 +65,6 @@ def cg(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], tol: flo
 def bicgstab(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], tol: float = 1e-6, max_iter: int = 500, x0=None, verbose=True) -> torch.Tensor:
     """
     BIConjugate Gradient STABilized(BICGSTAB) solver for linear systems Ax = b. (It is not required that A be a Hermitian matrix)
-
     Args:
         b: Right-hand side vector (torch.Tensor).
         matvec: Function computing matrix-vector product (A @ x).
@@ -75,7 +72,6 @@ def bicgstab(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], to
         max_iter: Maximum iterations (default: 500).
         x0: Initial guess (default: zero vector).
         verbose: Print convergence progress (default: True).
-
     Returns:
         x: Approximate solution to Ax = b.
     """
@@ -140,87 +136,176 @@ def give_null_vecs(
 ) -> torch.Tensor:
     """
     Generates orthonormal near-null space vectors for a linear operator.
-
     This function refines initial random vectors to become approximate null vectors
     (eigenvectors corresponding to near-zero eigenvalues) through iterative refinement
     and orthogonalization.
-
+    Supports both real and complex matrices through unified complex arithmetic.
+    Real matrices are automatically handled as complex matrices with zero imaginary parts.
     Args:
         null_vecs: Initial random vectors [dof, *dims]
         matvec: Matrix-vector multiplication operator A(x)
-        tol: Tolerance for BICGSTAB solver
+        tol: Tolerance for convergence
         verbose: Print progress information
-
     Returns:
-        Orthonormal near-null space vectors
+        Orthonormal near-null space vectors in complex format
     """
-    # Precompute flattened shape for efficient dot products
-    dof = null_vecs.shape[0]
-    flat_size = null_vecs[0].numel()
-
-    # Initialize vectors if needed
-    if torch.linalg.norm(null_vecs) <= tol:
-        null_vecs = torch.randn_like(null_vecs)
-        if verbose:
-            print('Initial vectors were zeros, initialized with random vectors')
-
-    if verbose:
-        print(f"Generating {dof} near-null vectors")
-        print(
-            f"Vector size: {tuple(null_vecs.shape[1:])} (flattened: {flat_size})")
-
-    # Pre-normalize all vectors for better numerical stability
-    for i in range(dof):
-        norm = torch.linalg.norm(null_vecs[i])
-        if norm < 1e-15:
-            null_vecs[i] = torch.randn_like(null_vecs[i])
-            norm = torch.linalg.norm(null_vecs[i])
-        null_vecs[i] /= norm.clamp_min(1e-15)
-
-    # Process each vector
-    for i in range(dof):
-        if verbose:
-            print(f"\nProcessing vector {i+1}/{dof}:")
-
-        # Just solve Ax~=0 to get near-null space vectors
-        temp = bicgstab(
-            b=null_vecs[i]*tol**2,
-            matvec=matvec,
-            tol=tol,
-            max_iter=500,
-            x0=null_vecs[i],
-            verbose=verbose
-        )
-
-        # Check for NaN in temp
-        if torch.isnan(temp).any():
-            if verbose:
-                print("  Warning: NaN detected in temp, skipping update")
-        else:
-            null_vecs[i] = temp
-
-        null_vecs[i] /= torch.linalg.norm(null_vecs[i]).item()
-        print(
-            f"Before orthogonality: matvec(null_vecs[{i}])/null_vecs[{i}]:{matvec(null_vecs[i])/null_vecs[i]}")
-        print(
-            f"Before orthogonality: torch.norm(matvec(null_vecs[{i}])/null_vecs[{i}]):{torch.norm(matvec(null_vecs[i])/null_vecs[i])}")
-    # Orthogonality ......
-    null_vecs, _ = torch.linalg.qr(null_vecs.clone(), mode='reduced')
-    # Final orthogonality check (optional)
-    if verbose:
-        print("\nFinal orthogonality check:")
+    # Get shape information
+    dof = null_vecs.shape[0]  # Number of null space vectors
+    original_shape = null_vecs.shape[1:]  # Original vector shape
+    # Flatten vectors for easier processing
+    flat_vecs = null_vecs.view(dof, -1)  # [dof, total_dim]
+    # Initial orthogonalization using complex Gram-Schmidt
+    flat_vecs = gram_schmidt(flat_vecs)
+    # Iterative refinement parameters
+    max_iter = 1000
+    alpha = 0.1  # Step size parameter
+    alpha_decay = 0.95  # Decay factor for adaptive step size
+    alpha_min = 1e-4  # Minimum step size
+    prev_max_residual = float('inf')
+    stagnation_count = 0
+    for iteration in range(max_iter):
+        # Compute residuals A·v for each vector
+        residuals = []
         for i in range(dof):
+            # Apply matvec and ensure result is complex
+            residual = matvec(flat_vecs[i].view(original_shape))
+            if not residual.dtype.is_complex:
+                residual = residual.to(torch.complex64)
+            residuals.append(residual.view(-1))
+        residuals = torch.stack(residuals)  # [dof, total_dim]
+        # Compute residual norms (magnitude for complex vectors)
+        # L2 norm handles complex automatically
+        res_norms = torch.norm(residuals, dim=1)
+        max_residual = torch.max(res_norms).item()
+        avg_residual = torch.mean(res_norms).item()
+        if verbose and (iteration % 50 == 0 or max_residual < tol):
+            print(f"Iteration {iteration:4d}: Max residual = {max_residual:.6e}, "
+                  f"Avg residual = {avg_residual:.6e}, Step size = {alpha:.6f}")
+        # Check convergence
+        if max_residual < tol:
+            if verbose:
+                print(f"Converged after {iteration} iterations")
+            break
+        # Adaptive step size control
+        if max_residual >= prev_max_residual * 0.99:
+            stagnation_count += 1
+            if stagnation_count > 10:
+                alpha = max(alpha * alpha_decay, alpha_min)
+                stagnation_count = 0
+        else:
+            stagnation_count = 0
+            alpha = min(alpha * 1.02, 0.5)  # Increase step size but cap it
+        # Iterative improvement using inverse power method
+        # For finding null vectors: v_new = v - α * A^H(A(v))
+        for i in range(dof):
+            # Compute A^H(residual) - adjoint operation
+            # For symmetric matrices: A^H = A^T (conjugate transpose)
+            # Here we approximate using the matvec itself as a simplification
+            gradient = matvec(torch.conj(residuals[i].view(original_shape)))
+            # Update vector: v = v - α * gradient
+            flat_vecs[i] = flat_vecs[i] - alpha * gradient.view(-1)
+        # Re-orthogonalize after each iteration
+        flat_vecs = gram_schmidt(flat_vecs)
+        prev_max_residual = max_residual
+    else:
+        if verbose:
             print(
-            f"After orthogonality: matvec(null_vecs[{i}])/null_vecs[{i}]:{matvec(null_vecs[i])/null_vecs[i]}")
-            print(
-                f"After orthogonality: torch.norm(matvec(null_vecs[{i}])/null_vecs[{i}]):{torch.norm(matvec(null_vecs[i])/null_vecs[i])}")
-            for j in range(i+1, dof):
-                vi_flat = null_vecs[i].reshape(-1)
-                vj_flat = null_vecs[j].reshape(-1)
-                dot = torch.vdot(vi_flat.conj(), vj_flat)
-                print(f"  <v{i}, v{j}> = {dot.abs().item():.2e}")
+                f"Max iterations ({max_iter}) reached. Final residual: {max_residual:.6e}")
+    # Final orthogonalization check
+    flat_vecs = gram_schmidt(flat_vecs)
+    # Restore original shape
+    result_vecs = flat_vecs.view(dof, *original_shape)
+    if verbose:
+        print(f"\nFinal orthogonality check:")
+        check_orthogonality(result_vecs)
+        print(f"\nFinal residual check:")
+        for i in range(dof):
+            residual = matvec(result_vecs[i])
+            residual_norm = torch.norm(residual).item()
+            print(f"  Vector {i}: ||A*v|| = {residual_norm:.6e}")
+    return result_vecs
 
-    return null_vecs
+
+def gram_schmidt(vectors: torch.Tensor, eps: float = 1e-12) -> torch.Tensor:
+    """
+    Complex Gram-Schmidt orthogonalization with numerical stability.
+    Works for both real and complex vectors through unified complex arithmetic.
+    Args:
+        vectors: [num_vecs, dim] complex tensor
+        eps: Small value to prevent division by zero
+    Returns:
+        Orthonormal complex vectors
+    """
+    num_vecs, dim = vectors.shape
+    orthogonal_vecs = torch.zeros_like(vectors)
+    for i in range(num_vecs):
+        vec = vectors[i].clone()
+        # Remove projections onto previous orthogonal vectors
+        for j in range(i):
+            # Complex inner product: <u,v> = u^H * v = sum(conj(u) * v)
+            proj_coeff = torch.sum(torch.conj(orthogonal_vecs[j]) * vec)
+            vec = vec - proj_coeff * orthogonal_vecs[j]
+        # Normalize using complex norm
+        norm = torch.sqrt(torch.sum(torch.conj(vec) * vec).real)
+        if norm > eps:
+            orthogonal_vecs[i] = vec / norm
+        else:
+            # Generate new random vector if current one is nearly zero
+            if vectors.dtype == torch.complex64:
+                random_vec = torch.randn(
+                    dim, dtype=torch.complex64, device=vectors.device)
+            elif vectors.dtype == torch.complex128:
+                random_vec = torch.randn(
+                    dim, dtype=torch.complex128, device=vectors.device)
+            else:
+                # Fallback for other complex types
+                random_vec = torch.randn(
+                    dim, dtype=vectors.dtype, device=vectors.device)
+            # Remove projections from existing vectors
+            for j in range(i):
+                proj_coeff = torch.sum(torch.conj(
+                    orthogonal_vecs[j]) * random_vec)
+                random_vec = random_vec - proj_coeff * orthogonal_vecs[j]
+            norm_new = torch.sqrt(
+                torch.sum(torch.conj(random_vec) * random_vec).real)
+            orthogonal_vecs[i] = random_vec / \
+                norm_new if norm_new > eps else random_vec
+    return orthogonal_vecs
+
+
+def check_orthogonality(vectors: torch.Tensor, threshold: float = 1e-6):
+    """
+    Check orthogonality of vector set using complex inner products.
+    Args:
+        vectors: Input vectors [num_vecs, *dims]
+        threshold: Threshold for considering vectors as orthogonal
+    """
+    flat_vecs = vectors.view(vectors.shape[0], -1)
+    num_vecs = flat_vecs.shape[0]
+    print(f"Orthogonality matrix (should be identity):")
+    max_off_diagonal = 0.0
+    for i in range(num_vecs):
+        row_str = ""
+        for j in range(num_vecs):
+            # Complex inner product
+            inner_product = torch.sum(torch.conj(flat_vecs[i]) * flat_vecs[j])
+            if vectors.dtype.is_complex:
+                magnitude = abs(inner_product.item())
+                row_str += f"{magnitude:8.4f} "
+            else:
+                value = inner_product.real.item()
+                row_str += f"{value:8.4f} "
+            # Track maximum off-diagonal element
+            if i != j:
+                max_off_diagonal = max(
+                    max_off_diagonal, abs(inner_product.item()))
+        print(f"  {row_str}")
+    if max_off_diagonal < threshold:
+        print(
+            f"✓ Vectors are orthogonal (max off-diagonal: {max_off_diagonal:.6e})")
+    else:
+        print(
+            f"✗ Vectors may not be orthogonal (max off-diagonal: {max_off_diagonal:.6e})")
 
 
 class mg(nn.Module):
