@@ -108,8 +108,8 @@ class LatticeSolver(nn.Module):
             """Orthogonalize the near-null space vectors"""
             for i in range(dof):
                 for j in range(i):
-                    proj = torch.vdot(vec[i].conj().flatten(), vec[j].flatten()) / \
-                        torch.vdot(vec[j].conj().flatten(), vec[j].flatten())
+                    proj = torch.vdot(vec[i].flatten(), vec[j].flatten()) / \
+                        torch.vdot(vec[j].flatten(), vec[j].flatten())
                     vec[i] -= proj * vec[j]
                 vec[i] /= torch.norm(vec[i])
             return vec
@@ -214,8 +214,8 @@ class LatticeSolver(nn.Module):
             count = 0
             while count < max_iter and torch.norm(r) > tol:
                 Ap = solver._dslash(p)
-                alpha = torch.vdot(r0.conj().flatten(), r.flatten(
-                )) / torch.vdot(r0.conj().flatten(), Ap.flatten())
+                alpha = torch.vdot(r0.flatten(), r.flatten(
+                )) / torch.vdot(r0.flatten(), Ap.flatten())
                 x += alpha * p
                 r1 = r - alpha * Ap
                 if torch.norm(r1) < tol:
@@ -227,12 +227,12 @@ class LatticeSolver(nn.Module):
                     x += self.prolong(level, e_coarse)
                     r1 = b - solver._dslash(x)
                 t = solver._dslash(r1)
-                omega = torch.vdot(t.conj().flatten(), r1.flatten(
-                )) / torch.vdot(t.conj().flatten(), t.flatten())
+                omega = torch.vdot(t.flatten(), r1.flatten(
+                )) / torch.vdot(t.flatten(), t.flatten())
                 x += omega * r1
                 r = r1 - omega * t
-                beta = (torch.vdot(r.conj().flatten(), r0.flatten()) /
-                        torch.vdot(r1.conj().flatten(), r0.flatten())) * (alpha / omega)
+                beta = (torch.vdot(r.flatten(), r0.flatten()) /
+                        torch.vdot(r1.flatten(), r0.flatten())) * (alpha / omega)
                 p = r + beta * (p - omega * Ap)
                 count += 1
             if solver.verbose and level == 0:
@@ -256,7 +256,7 @@ class LatticeSolver(nn.Module):
         iter_times = []
         for i in range(max_iter):
             iter_start_time = perf_counter()
-            rho = torch.vdot(r_tilde.conj().flatten(), r.flatten())
+            rho = torch.vdot(r_tilde.flatten(), r.flatten())
             if rho.abs() < 1e-30:
                 if verbose:
                     print("Breakdown: rho ≈ 0")
@@ -265,11 +265,11 @@ class LatticeSolver(nn.Module):
             rho_prev = rho
             p = r + beta * (p - omega * v)
             v = self._dslash(p)
-            alpha = rho / torch.vdot(r_tilde.conj().flatten(), v.flatten())
+            alpha = rho / torch.vdot(r_tilde.flatten(), v.flatten())
             s = r - alpha * v
             t = self._dslash(s)
-            omega = torch.vdot(t.conj().flatten(), s.flatten()) / \
-                torch.vdot(t.conj().flatten(), t.flatten())
+            omega = torch.vdot(t.flatten(), s.flatten()) / \
+                torch.vdot(t.flatten(), t.flatten())
             x = x + alpha * p + omega * s
             r = s - omega * t
             r_norm2 = torch.norm(r).item()
