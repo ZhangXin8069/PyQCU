@@ -1,6 +1,5 @@
 import torch
 from typing import Callable, Union
-import numpy as np
 
 
 def give_null_vecs(
