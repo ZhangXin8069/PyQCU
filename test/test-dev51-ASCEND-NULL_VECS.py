@@ -30,9 +30,10 @@ null_vectors = torch.randn(dof, 4, 3, latt_size[3], latt_size[2], latt_size[1], 
 clover_term = clover.make_clover(U=U)
 
 
-def matvec(src: torch.Tensor, U: torch.Tensor = U) -> torch.Tensor:
+def matvec(src: torch.Tensor) -> torch.Tensor:
     return wilson.give_wilson(src, U)+clover.give_clover(clover=clover_term, src=src)
     # return wilson.give_wilson(src, U)
+
 
 result = inverse.give_null_vecs(
     null_vecs=null_vectors,
