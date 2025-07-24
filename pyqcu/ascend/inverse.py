@@ -131,7 +131,8 @@ def bicgstab(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], to
 def give_null_vecs(
     null_vecs: torch.Tensor,
     matvec: Callable[[torch.Tensor], torch.Tensor],
-    tol: float = 1e-7,
+    tol: float = 1e-8,
+    max_iter=500,
     verbose: bool = True
 ) -> torch.Tensor:
     """
@@ -139,8 +140,6 @@ def give_null_vecs(
     This function refines initial random vectors to become approximate null vectors
     (eigenvectors corresponding to near-zero eigenvalues) through iterative refinement
     and orthogonalization.
-    Supports both real and complex matrices through unified complex arithmetic.
-    Real matrices are automatically handled as complex matrices with zero imaginary parts.
     Args:
         null_vecs: Initial random vectors [dof, *dims]
         matvec: Matrix-vector multiplication operator A(x)
@@ -149,83 +148,33 @@ def give_null_vecs(
     Returns:
         Orthonormal near-null space vectors in complex format
     """
-    # Get shape information
     dof = null_vecs.shape[0]  # Number of null space vectors
-    original_shape = null_vecs.shape[1:]  # Original vector shape
-    # Flatten vectors for easier processing
-    flat_vecs = null_vecs.view(dof, -1)  # [dof, total_dim]
-    # Initial orthogonalization using complex Gram-Schmidt
-    flat_vecs = gram_schmidt(flat_vecs)
-    # Iterative refinement parameters
-    max_iter = 1000
-    alpha = 0.1  # Step size parameter
-    alpha_decay = 0.95  # Decay factor for adaptive step size
-    alpha_min = 1e-4  # Minimum step size
-    prev_max_residual = float('inf')
-    stagnation_count = 0
-    for iteration in range(max_iter):
-        # Compute residuals A·v for each vector
-        residuals = []
-        for i in range(dof):
-            # Apply matvec and ensure result is complex
-            residual = matvec(flat_vecs[i].view(original_shape))
-            if not residual.dtype.is_complex:
-                residual = residual.to(torch.complex64)
-            residuals.append(residual.view(-1))
-        residuals = torch.stack(residuals)  # [dof, total_dim]
-        # Compute residual norms (magnitude for complex vectors)
-        # L2 norm handles complex automatically
-        res_norms = torch.norm(residuals, dim=1)
-        max_residual = torch.max(res_norms).item()
-        avg_residual = torch.mean(res_norms).item()
-        if verbose and (iteration % 50 == 0 or max_residual < tol):
-            print(f"Iteration {iteration:4d}: Max residual = {max_residual:.6e}, "
-                  f"Avg residual = {avg_residual:.6e}, Step size = {alpha:.6f}")
-        # Check convergence
-        if max_residual < tol:
-            if verbose:
-                print(f"Converged after {iteration} iterations")
-            break
-        # Adaptive step size control
-        if max_residual >= prev_max_residual * 0.99:
-            stagnation_count += 1
-            if stagnation_count > 10:
-                alpha = max(alpha * alpha_decay, alpha_min)
-                stagnation_count = 0
-        else:
-            stagnation_count = 0
-            alpha = min(alpha * 1.02, 0.5)  # Increase step size but cap it
-        # Iterative improvement using inverse power method
-        # For finding null vectors: v_new = v - α * A^H(A(v))
-        for i in range(dof):
-            # Compute A^H(residual) - adjoint operation
-            # For symmetric matrices: A^H = A^T (conjugate transpose)
-            # Here we approximate using the matvec itself as a simplification
-            gradient = matvec(torch.conj(residuals[i].view(original_shape)))
-            # Update vector: v = v - α * gradient
-            flat_vecs[i] = flat_vecs[i] - alpha * gradient.view(-1)
-        # Re-orthogonalize after each iteration
-        flat_vecs = gram_schmidt(flat_vecs)
-        prev_max_residual = max_residual
-    else:
+    null_vecs = torch.rand_like(null_vecs)
+    # orthogonalization......
+    null_vecs = gram_schmidt(null_vecs.reshape(
+        (dof, -1))).reshape(null_vecs.shape)
+    null_vecs /= torch.norm(null_vecs).item()
+    for i in range(dof):
+        # v=r-A^{-1}Ar
+        null_vecs[i] -= bicgstab(b=matvec(null_vecs[i]), matvec=matvec, tol=tol, max_iter=max_iter,
+                                 verbose=verbose, x0=null_vecs[i]+torch.rand_like(null_vecs[i]))
         if verbose:
+            print(f"A*v/v check:")
+            Av = matvec(null_vecs[i])
+            print(f"  Vector {i}: ||A*v|| = {torch.norm(Av).item():.6e}")
             print(
-                f"Max iterations ({max_iter}) reached. Final residual: {max_residual:.6e}")
-    # Final orthogonalization check
-    flat_vecs = gram_schmidt(flat_vecs)
-    # Restore original shape
-    result_vecs = flat_vecs.view(dof, *original_shape)
+                f"  Vector {i}: v = {null_vecs[i]}")
+            print(
+                f"  Vector {i}: A*v = {Av[i]}")
+            print(
+                f"  Vector {i}: A*v/v = {Av[i]/null_vecs[i]}")
+    # orthogonalization......
+    null_vecs = gram_schmidt(null_vecs.reshape(
+        (dof, -1))).reshape(null_vecs.shape)
     if verbose:
-        print(f"\nFinal orthogonality check:")
-        check_orthogonality(result_vecs)
-        print(f"\nFinal residual check:")
-        for i in range(dof):
-            residual = matvec(result_vecs[i])
-            residual_norm = torch.norm(residual).item()
-            print(f"  Vector {i}: ||A*v|| = {residual_norm:.6e}")
-            print(
-                f"  Vector {i}: A*v/v = {matvec(result_vecs[i])/result_vecs[i]:.6e}")
-    return result_vecs
+        print(f"Orthogonality check:")
+        check_orthogonality(null_vecs)
+    return null_vecs
 
 
 def gram_schmidt(vectors: torch.Tensor, eps: float = 1e-12) -> torch.Tensor:
