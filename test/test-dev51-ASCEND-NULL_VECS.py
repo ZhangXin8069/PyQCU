@@ -34,8 +34,6 @@ def matvec(src: torch.Tensor, U: torch.Tensor = U) -> torch.Tensor:
     return wilson.give_wilson(src, U)+clover.give_clover(clover=clover_term, src=src)
     # return wilson.give_wilson(src, U)
 
-
-# 生成近似零空间向量
 result = inverse.give_null_vecs(
     null_vecs=null_vectors,
     matvec=matvec,
