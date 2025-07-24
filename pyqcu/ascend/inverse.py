@@ -25,7 +25,7 @@ def cg(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], tol: flo
     rho = torch.tensor(1.0, dtype=b.dtype, device=b.device)
     rho_prev = torch.tensor(1.0, dtype=b.dtype, device=b.device)
     alpha = torch.tensor(1.0, dtype=b.dtype, device=b.device)
-    rho = torch.vdot(r.conj().flatten(), r.flatten())
+    rho = torch.vdot(r.flatten(), r.flatten())
     rho_prev = 1.0
     start_time = perf_counter()
     iter_times = []
@@ -33,10 +33,10 @@ def cg(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], tol: flo
         iter_start_time = perf_counter()
         v = matvec(p)
         rho_prev = rho
-        alpha = rho / torch.vdot(p.conj().flatten(), v.flatten())
+        alpha = rho / torch.vdot(p.flatten(), v.flatten())
         r -= alpha * v
         x += alpha * p
-        rho = torch.vdot(r.conj().flatten(), r.flatten())
+        rho = torch.vdot(r.flatten(), r.flatten())
         if rho.abs() < 1e-30:
             if verbose:
                 print("Breakdown: rho ≈ 0")
@@ -90,7 +90,7 @@ def bicgstab(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], to
     iter_times = []
     for i in range(max_iter):
         iter_start_time = perf_counter()
-        rho = torch.vdot(r_tilde.conj().flatten(), r.flatten())
+        rho = torch.vdot(r_tilde.flatten(), r.flatten())
         if rho.abs() < 1e-30:
             if verbose:
                 print("Breakdown: rho ≈ 0")
@@ -99,11 +99,11 @@ def bicgstab(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], to
         rho_prev = rho
         p = r + beta * (p - omega * v)
         v = matvec(p)
-        alpha = rho / torch.vdot(r_tilde.conj().flatten(), v.flatten())
+        alpha = rho / torch.vdot(r_tilde.flatten(), v.flatten())
         s = r - alpha * v
         t = matvec(s)
-        omega = torch.vdot(t.conj().flatten(), s.flatten()) / \
-            torch.vdot(t.conj().flatten(), t.flatten())
+        omega = torch.vdot(t.flatten(), s.flatten()) / \
+            torch.vdot(t.flatten(), t.flatten())
         x = x + alpha * p + omega * s
         r = s - omega * t
         r_norm2 = torch.norm(r).item()
@@ -131,8 +131,6 @@ def bicgstab(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], to
 def give_null_vecs(
     null_vecs: torch.Tensor,
     matvec: Callable[[torch.Tensor], torch.Tensor],
-    tol: float = 1e-8,
-    max_iter=500,
     verbose: bool = True
 ) -> torch.Tensor:
     """
@@ -150,14 +148,10 @@ def give_null_vecs(
     """
     dof = null_vecs.shape[0]  # Number of null space vectors
     null_vecs = torch.rand_like(null_vecs)
-    # orthogonalization......
-    null_vecs = gram_schmidt(null_vecs.reshape(
-        (dof, -1))).reshape(null_vecs.shape)
-    null_vecs /= torch.norm(null_vecs).item()
     for i in range(dof):
         # v=r-A^{-1}Ar
-        null_vecs[i] -= bicgstab(b=matvec(null_vecs[i]), matvec=matvec, tol=tol, max_iter=max_iter,
-                                 verbose=verbose, x0=null_vecs[i]+torch.rand_like(null_vecs[i]))
+        null_vecs[i] -= bicgstab(b=matvec(null_vecs[i]), matvec=matvec, tol=1e-2, max_iter=100, x0=torch.zeros_like(null_vecs[i]),
+                                 verbose=verbose)  # tol needs to be bigger...
         if verbose:
             print(f"A*v/v check:")
             Av = matvec(null_vecs[i])
@@ -168,95 +162,29 @@ def give_null_vecs(
                 f"  Vector {i}: A*v = {Av[i]}")
             print(
                 f"  Vector {i}: A*v/v = {Av[i]/null_vecs[i]}")
-    # orthogonalization......
-    null_vecs = gram_schmidt(null_vecs.reshape(
-        (dof, -1))).reshape(null_vecs.shape)
+        # orthogonalization
+        for k in range(0, i):
+            null_vecs[i] -= torch.vdot(null_vecs[i].flatten(), null_vecs[k].flatten())/torch.vdot(
+                null_vecs[k].flatten(), null_vecs[k].flatten())*null_vecs[k]
     if verbose:
-        print(f"Orthogonality check:")
-        check_orthogonality(null_vecs)
+        print(f"Near-null space check:")
+        for i in range(dof):
+            print(f"A*v/v check again:")
+            Av = matvec(null_vecs[i])
+            print(f"  Vector {i}: ||A*v|| = {torch.norm(Av).item():.6e}")
+            print(
+                f"  Vector {i}: v = {null_vecs[i]}")
+            print(
+                f"  Vector {i}: A*v = {Av[i]}")
+            print(
+                f"  Vector {i}: A*v/v = {Av[i]/null_vecs[i]}")
+            print(
+                    f"torch.norm(null_vecs[i]).item():.6e:{torch.norm(null_vecs[i]).item():.6e}")
+            # orthogonalization
+            for k in range(0, i+1):
+                print(
+                    f"torch.vdot(null_vecs[{i}].flatten(), null_vecs[{k}].flatten()):{torch.vdot(null_vecs[i].flatten(), null_vecs[k].flatten())}")
     return null_vecs
-
-
-def gram_schmidt(vectors: torch.Tensor, eps: float = 1e-12) -> torch.Tensor:
-    """
-    Complex Gram-Schmidt orthogonalization with numerical stability.
-    Works for both real and complex vectors through unified complex arithmetic.
-    Args:
-        vectors: [num_vecs, dim] complex tensor
-        eps: Small value to prevent division by zero
-    Returns:
-        Orthonormal complex vectors
-    """
-    num_vecs, dim = vectors.shape
-    orthogonal_vecs = torch.zeros_like(vectors)
-    for i in range(num_vecs):
-        vec = vectors[i].clone()
-        # Remove projections onto previous orthogonal vectors
-        for j in range(i):
-            # Complex inner product: <u,v> = u^H * v = sum(conj(u) * v)
-            proj_coeff = torch.sum(torch.conj(orthogonal_vecs[j]) * vec)
-            vec = vec - proj_coeff * orthogonal_vecs[j]
-        # Normalize using complex norm
-        norm = torch.sqrt(torch.sum(torch.conj(vec) * vec).real)
-        if norm > eps:
-            orthogonal_vecs[i] = vec / norm
-        else:
-            # Generate new random vector if current one is nearly zero
-            if vectors.dtype == torch.complex64:
-                random_vec = torch.randn(
-                    dim, dtype=torch.complex64, device=vectors.device)
-            elif vectors.dtype == torch.complex128:
-                random_vec = torch.randn(
-                    dim, dtype=torch.complex128, device=vectors.device)
-            else:
-                # Fallback for other complex types
-                random_vec = torch.randn(
-                    dim, dtype=vectors.dtype, device=vectors.device)
-            # Remove projections from existing vectors
-            for j in range(i):
-                proj_coeff = torch.sum(torch.conj(
-                    orthogonal_vecs[j]) * random_vec)
-                random_vec = random_vec - proj_coeff * orthogonal_vecs[j]
-            norm_new = torch.sqrt(
-                torch.sum(torch.conj(random_vec) * random_vec).real)
-            orthogonal_vecs[i] = random_vec / \
-                norm_new if norm_new > eps else random_vec
-    return orthogonal_vecs
-
-
-def check_orthogonality(vectors: torch.Tensor, threshold: float = 1e-6):
-    """
-    Check orthogonality of vector set using complex inner products.
-    Args:
-        vectors: Input vectors [num_vecs, *dims]
-        threshold: Threshold for considering vectors as orthogonal
-    """
-    flat_vecs = vectors.view(vectors.shape[0], -1)
-    num_vecs = flat_vecs.shape[0]
-    print(f"Orthogonality matrix (should be identity):")
-    max_off_diagonal = 0.0
-    for i in range(num_vecs):
-        row_str = ""
-        for j in range(num_vecs):
-            # Complex inner product
-            inner_product = torch.sum(torch.conj(flat_vecs[i]) * flat_vecs[j])
-            if vectors.dtype.is_complex:
-                magnitude = abs(inner_product.item())
-                row_str += f"{magnitude:8.4f} "
-            else:
-                value = inner_product.real.item()
-                row_str += f"{value:8.4f} "
-            # Track maximum off-diagonal element
-            if i != j:
-                max_off_diagonal = max(
-                    max_off_diagonal, abs(inner_product.item()))
-        print(f"  {row_str}")
-    if max_off_diagonal < threshold:
-        print(
-            f"✓ Vectors are orthogonal (max off-diagonal: {max_off_diagonal:.6e})")
-    else:
-        print(
-            f"✗ Vectors may not be orthogonal (max off-diagonal: {max_off_diagonal:.6e})")
 
 
 class mg(nn.Module):
@@ -354,8 +282,8 @@ class mg(nn.Module):
             """Orthogonalize the near-null space vectors"""
             for i in range(dof):
                 for j in range(i):
-                    proj = torch.vdot(vec[i].conj().flatten(), vec[j].flatten()) / \
-                        torch.vdot(vec[j].conj().flatten(), vec[j].flatten())
+                    proj = torch.vdot(vec[i].flatten(), vec[j].flatten()) / \
+                        torch.vdot(vec[j].flatten(), vec[j].flatten())
                     vec[i] -= proj * vec[j]
                 vec[i] /= torch.norm(vec[i])
             return vec
@@ -460,8 +388,8 @@ class mg(nn.Module):
             count = 0
             while count < max_iter and torch.norm(r) > tol:
                 Ap = solver.matvec(p)
-                alpha = torch.vdot(r0.conj().flatten(), r.flatten(
-                )) / torch.vdot(r0.conj().flatten(), Ap.flatten())
+                alpha = torch.vdot(r0.flatten(), r.flatten(
+                )) / torch.vdot(r0.flatten(), Ap.flatten())
                 x += alpha * p
                 r1 = r - alpha * Ap
                 if torch.norm(r1) < tol:
@@ -473,12 +401,12 @@ class mg(nn.Module):
                     x += self.prolong(level, e_coarse)
                     r1 = b - solver.matvec(x)
                 t = solver.matvec(r1)
-                omega = torch.vdot(t.conj().flatten(), r1.flatten(
-                )) / torch.vdot(t.conj().flatten(), t.flatten())
+                omega = torch.vdot(t.flatten(), r1.flatten(
+                )) / torch.vdot(t.flatten(), t.flatten())
                 x += omega * r1
                 r = r1 - omega * t
-                beta = (torch.vdot(r.conj().flatten(), r0.flatten()) /
-                        torch.vdot(r1.conj().flatten(), r0.flatten())) * (alpha / omega)
+                beta = (torch.vdot(r.flatten(), r0.flatten()) /
+                        torch.vdot(r1.flatten(), r0.flatten())) * (alpha / omega)
                 p = r + beta * (p - omega * Ap)
                 count += 1
             if solver.verbose and level == 0:
