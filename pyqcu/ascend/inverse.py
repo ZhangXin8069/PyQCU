@@ -223,6 +223,8 @@ def give_null_vecs(
             residual = matvec(result_vecs[i])
             residual_norm = torch.norm(residual).item()
             print(f"  Vector {i}: ||A*v|| = {residual_norm:.6e}")
+            print(
+                f"  Vector {i}: A*v/v = {matvec(result_vecs[i])/result_vecs[i]:.6e}")
     return result_vecs
 
 
