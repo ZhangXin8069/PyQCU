@@ -145,7 +145,7 @@ class wilson_parity(wilson):
         U_o = U_eo[1]
         U_o_dag = U_o.permute(1, 0, 2, 3, 4, 5, 6).conj()
         # Initialize dest_e tensor
-        # dest_e = src_o.clone() # move this eye term to clover term from this hopping term(origin wilson term)
+        # dest_e = src_o.clone() # move this I term to sitting term from this hopping term(origin wilson term)
         dest_e = torch.zeros_like(src_o)
         # Define directions with corresponding axes and gamma matrices
         directions = [
@@ -237,7 +237,7 @@ class wilson_parity(wilson):
         U_o = U_eo[1]
         U_e_dag = U_e.permute(1, 0, 2, 3, 4, 5, 6).conj()
         # Initialize dest_e tensor
-        # dest_o = src_e.clone() # move this eye term to clover term from this hopping term(origin wilson term)
+        # dest_o = src_e.clone() # move this I term to sitting term from this hopping term(origin wilson term)
         dest_o = torch.zeros_like(src_e)
         # Define directions with corresponding axes and gamma matrices
         directions = [
@@ -304,6 +304,12 @@ class wilson_parity(wilson):
             print(f"  Dest_o norm: {torch.norm(dest_o).item()}")
         return dest_o
 
+    def give_wilson_eoeo(self,
+                         dest_eo: torch.Tensor,
+                         src_eo: torch.Tensor) -> torch.Tensor:
+        # give_wilson_eo + give_wilson_oe + give_wilson_eoeo(I term) = give_wilson(complete)
+        return dest_eo+src_eo
+
 
 class clover_parity(clover):
     def __init__(self,
@@ -340,11 +346,11 @@ class clover_parity(clover):
     def make_clover_eoeo(self, U_eo: torch.Tensor) -> torch.Tensor:
         return xxxtzyx2pxxxtzyx(self.make_clover(U=pxxxtzyx2xxxtzyx(U_eo)))
 
-    def add_eye_eoeo(self, clover_eo: torch.Tensor) -> torch.Tensor:
-        return xxxtzyx2pxxxtzyx(self.add_eye(clover=pxxxtzyx2xxxtzyx(clover_eo)))
+    def add_I_eoeo(self, clover_eo: torch.Tensor) -> torch.Tensor:
+        return xxxtzyx2pxxxtzyx(self.add_I(clover=pxxxtzyx2xxxtzyx(clover_eo)))
 
     def inverse_eoeo(self, clover_eo: torch.Tensor) -> torch.Tensor:
-        _=pxxxtzyx2xxxtzyx(clover_eo)
+        _ = pxxxtzyx2xxxtzyx(clover_eo)
         print(f"_.shape:{_.shape}")
         print(f"clover_eo.shape:{clover_eo.shape}")
         return xxxtzyx2pxxxtzyx(self.inverse(clover=pxxxtzyx2xxxtzyx(clover_eo)))
