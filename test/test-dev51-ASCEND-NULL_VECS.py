@@ -39,19 +39,20 @@ def matvec(src: torch.Tensor, U: torch.Tensor = U) -> torch.Tensor:
 null_vecs = inverse.give_null_vecs(
     null_vecs=null_vecs,
     matvec=matvec,
-    verbose=False
+    verbose=False,
+    normalize=True
 )
 
 for i in range(dof):
     print(f"A*v/v check again:")
     Av = matvec(null_vecs[i])
     print(f"  Vector {i}: ||A*v|| = {torch.norm(Av).item():.6e}")
-    # print(
-    #     f"  Vector {i}: v = {null_vecs[i]}")
-    # print(
-    #     f"  Vector {i}: A*v = {Av}")
-    # print(
-    #     f"  Vector {i}: A*v/v = {Av/null_vecs[i]}")
+    print(
+        f"  Vector {i}: v = {null_vecs[i]}")
+    print(
+        f"  Vector {i}: A*v = {Av}")
+    print(
+        f"  Vector {i}: A*v/v = {Av/null_vecs[i]}")
     print(
         f"torch.norm(null_vecs[{i}]).item():.6e:{torch.norm(null_vecs[i]).item():.6e}")
     # orthogonalization

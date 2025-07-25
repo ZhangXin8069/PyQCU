@@ -95,16 +95,16 @@ class wilson_parity(wilson):
                  device: torch.device = None,
                  verbose: bool = False):
         """
-        Wilson-Dirac operator on a 4D lattice with SU_eo(3) gauge fields with parity decomposition
+        Wilson-Dirac operator on a 4D lattice with SU_eo(3) gauge fields with parity decomposition.
         Args:
-            latt_size: Tuple (Lx_p, Ly, Lz, Lt) specifying lattice dimensions, then s=4, d=4, c=3, p(parity)=2
-            kappa: Hopping parameter (controls fermion mass)
-            u_0: Wilson parameter (usually 1.0)
-            dtype: Data type for tensors
-            device: Device to run on (default: CPU)
-            verbose: Enable verbose output for debugging
+            latt_size: Tuple (Lx_p, Ly, Lz, Lt) specifying lattice dimensions, then s=4, d=4, c=3, p(parity)=2.
+            kappa: Hopping parameter (controls fermion mass).
+            u_0: Wilson parameter (usually 1.0).
+            dtype: Data type for tensors.
+            device: Device to run on (default: CPU).
+            verbose: Enable verbose output for debugging.
         reference:
-            [1](1-60);[1](1-160)
+            [1](1-60);[1](1-160).
         addition:
             I once compared the results of 'dslash' and 'dslash_parity' on very small cells (i.e., cells with a side length of 1), but there was always a very large deviation. In fact, this is extremely foolish because one of the conditions for 'dslash_parity' to hold is that the parity of adjacent cells is different. However, if there are cells with a side length of 1, then there must be a situation where the parity of adjacent cells is the same. I hope future generations can take this as a reference......
         """
@@ -320,16 +320,16 @@ class clover_parity(clover):
                  device: torch.device = None,
                  verbose: bool = False):
         """
-        The Clover term corrected by adding the Wilson-Dirac operator
+        The Clover term corrected by adding the Wilson-Dirac operator.
         Args:
-            latt_size: Tuple (Lx_p, Ly, Lz, Lt) specifying lattice dimensions, then s=4, d=4, c=3, p(parity)=2
-            kappa: Hopping parameter (controls fermion mass)
-            u_0: Wilson parameter (usually 1.0)
-            dtype: Data type for tensors
-            device: Device to run on (default: CPU)
-            verbose: Enable verbose output for debugging
+            latt_size: Tuple (Lx_p, Ly, Lz, Lt) specifying lattice dimensions, then s=4, d=4, c=3, p(parity)=2.
+            kappa: Hopping parameter (controls fermion mass).
+            u_0: Wilson parameter (usually 1.0).
+            dtype: Data type for tensors.
+            device: Device to run on (default: CPU).
+            verbose: Enable verbose output for debugging.
         reference:
-            [1](1-60);[1](1-160)
+            [1](1-60);[1](1-160).
         """
         super().__init__(latt_size=latt_size, kappa=kappa,
                          u_0=u_0, dtype=dtype, device=device, verbose=False)
