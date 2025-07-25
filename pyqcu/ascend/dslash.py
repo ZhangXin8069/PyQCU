@@ -173,8 +173,8 @@ class wilson(nn.Module):
         return gamma
 
     def give_wilson(self,
-                             src: torch.Tensor,
-                             U: torch.Tensor) -> torch.Tensor:
+                    src: torch.Tensor,
+                    U: torch.Tensor) -> torch.Tensor:
         """
         Apply Wilson-Dirac operator to source field:
         $$
@@ -407,9 +407,10 @@ class clover(wilson):
             print(f"  clover norm: {torch.norm(clover).item()}")
         return clover
 
-    def add_eye(self, clover: torch.Tensor) -> torch.Tensor:
+    def add_I(self, clover: torch.Tensor) -> torch.Tensor:
         _clover = clover.reshape(12, 12, -1)
         if self.verbose:
+            print('Clover is adding I......')
             print(f"_clover.shape:{_clover.shape}")
         for i in range(_clover.shape[-1]):
             _clover[:, :, i] += torch.eye(12, 12,
@@ -422,16 +423,19 @@ class clover(wilson):
     def inverse(self, clover: torch.Tensor) -> torch.Tensor:
         _clover = clover.reshape(12, 12, -1)
         if self.verbose:
+            print('Clover is inversing......')
             print(f"_clover.shape:{_clover.shape}")
         for i in range(_clover.shape[-1]):
             _clover[:, :, i] = torch.linalg.inv(_clover[:, :, i])
         dest = _clover.reshape(clover.shape)
-        print(f"dest.shape:{dest.shape}")
+        if self.verbose:
+            print(f"dest.shape:{dest.shape}")
         return dest
 
     def give_clover(self, src: torch.Tensor, clover: torch.Tensor) -> torch.Tensor:
         if self.verbose:
-            print(f"src.shape:{src.shape}") 
+            print('Clover is giving......')
+            print(f"src.shape:{src.shape}")
         dest = torch.einsum('SCsctzyx,sctzyx->SCtzyx', clover, src)
         if self.verbose:
             print(f"dest.shape:{dest.shape}")

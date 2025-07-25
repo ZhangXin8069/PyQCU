@@ -131,7 +131,7 @@ def bicgstab(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], to
 def give_null_vecs(
     null_vecs: torch.Tensor,
     matvec: Callable[[torch.Tensor], torch.Tensor],
-    verbose: bool = True
+    verbose: bool = True, tol: float = 1e-6, max_iter: int = 500,
 ) -> torch.Tensor:
     """
     Generates orthonormal near-null space vectors for a linear operator.
@@ -149,8 +149,14 @@ def give_null_vecs(
     dof = null_vecs.shape[0]  # Number of null space vectors
     null_vecs = torch.rand_like(null_vecs)
     for i in range(dof):
+        # The orthogonalization of r
+        null_vecs[i] /= torch.norm(null_vecs[i]).item()
+        for k in range(0, i):
+            null_vecs[i] -= torch.vdot(null_vecs[i].flatten(), null_vecs[k].flatten())/torch.vdot(
+                null_vecs[k].flatten(), null_vecs[k].flatten())*null_vecs[k]
+        null_vecs[i] /= torch.norm(null_vecs[i]).item()
         # v=r-A^{-1}Ar
-        null_vecs[i] -= bicgstab(b=matvec(null_vecs[i]), matvec=matvec, tol=1e-2, max_iter=100, x0=torch.zeros_like(null_vecs[i]),
+        null_vecs[i] -= bicgstab(b=matvec(null_vecs[i]), matvec=matvec, tol=tol*1000, max_iter=max_iter, x0=torch.zeros_like(null_vecs[i]),
                                  verbose=verbose)  # tol needs to be bigger...
         if verbose:
             print(f"A*v/v check:")
@@ -159,13 +165,15 @@ def give_null_vecs(
             print(
                 f"  Vector {i}: v = {null_vecs[i]}")
             print(
-                f"  Vector {i}: A*v = {Av[i]}")
+                f"  Vector {i}: A*v = {Av}")
             print(
-                f"  Vector {i}: A*v/v = {Av[i]/null_vecs[i]}")
-        # orthogonalization
+                f"  Vector {i}: A*v/v = {Av/null_vecs[i]}")
+        # The orthogonalization of null_vecs
+        null_vecs[i] /= torch.norm(null_vecs[i]).item()
         for k in range(0, i):
             null_vecs[i] -= torch.vdot(null_vecs[i].flatten(), null_vecs[k].flatten())/torch.vdot(
                 null_vecs[k].flatten(), null_vecs[k].flatten())*null_vecs[k]
+        null_vecs[i] /= torch.norm(null_vecs[i]).item()
     if verbose:
         print(f"Near-null space check:")
         for i in range(dof):
@@ -175,11 +183,11 @@ def give_null_vecs(
             print(
                 f"  Vector {i}: v = {null_vecs[i]}")
             print(
-                f"  Vector {i}: A*v = {Av[i]}")
+                f"  Vector {i}: A*v = {Av}")
             print(
-                f"  Vector {i}: A*v/v = {Av[i]/null_vecs[i]}")
+                f"  Vector {i}: A*v/v = {Av/null_vecs[i]}")
             print(
-                    f"torch.norm(null_vecs[i]).item():.6e:{torch.norm(null_vecs[i]).item():.6e}")
+                f"torch.norm(null_vecs[{i}]).item():.6e:{torch.norm(null_vecs[i]).item():.6e}")
             # orthogonalization
             for k in range(0, i+1):
                 print(

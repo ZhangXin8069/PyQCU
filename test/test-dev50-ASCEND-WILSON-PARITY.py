@@ -146,7 +146,7 @@ if __name__ == "__main__":
     _dest = torch.tensor(
         data=_dest.get(), device=dest.device, dtype=dest.dtype)
     # print(f"dest value:{dest}")
-    print(f"dest norm value:{torch.linalg.norm(dest)}") 
+    print(f"dest norm value:{torch.linalg.norm(dest)}")
     # print(f"_dest value:{_dest}")
     print(f"_dest norm value:{torch.linalg.norm(_dest)}")
     print(
@@ -159,7 +159,7 @@ if __name__ == "__main__":
     dest_eo = torch.zeros_like(src_eo)
     dest_eo[0] = wilson.give_wilson_eo(src_o=src_eo[1], U_eo=U_eo)
     dest_eo[1] = wilson.give_wilson_oe(src_e=src_eo[0], U_eo=U_eo)
-    dest_eo += src_eo
+    dest_eo = wilson.give_wilson_eoeo(dest_eo=dest_eo, src_eo=src_eo)
     __dest = dslash_parity.pxxxtzyx2xxxtzyx(dest_eo)
     # print(f"dest value:{dest}")
     # print(f"__dest value:{__dest}")
