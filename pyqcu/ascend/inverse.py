@@ -200,16 +200,6 @@ def give_null_vecs(
                     f"torch.vdot(null_vecs[{i}].flatten(), null_vecs[{j}].flatten()):{torch.vdot(null_vecs[i].flatten(), null_vecs[j].flatten())}")
     return null_vecs
 
-# def r_vec(src):
-#     return contract("escTtZzYyXx,scTtZzYyXx->eTZYX", testvectors, src)
-
-
-# r_dest = r_vec(r_src)
-# p_src = r_dest
-
-
-# def p_vec(src):
-#     return contract("escTtZzYyXx,eTZYX->scTtZzYyXx", cp.conj(testvectors), src)
 
 def local_orthogonalize(null_vecs: torch.Tensor,
                         mg_size: Tuple[int, int, int, int] = [2, 2, 2, 2],
