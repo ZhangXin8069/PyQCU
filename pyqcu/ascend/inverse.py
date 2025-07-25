@@ -7,7 +7,7 @@ from pyqcu.ascend import dslash
 
 def cg(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], tol: float = 1e-6, max_iter: int = 500, x0=None, verbose=True) -> torch.Tensor:
     """
-    Conjugate Gradient (CG) solver for linear systems Ax = b. (Requirement A is a Hermitian matrix)
+    Conjugate Gradient (CG) solver for linear systems Ax = b. (Requirement A is a Hermitian matrix).
     Args:
         b: Right-hand side vector (torch.Tensor).
         matvec: Function computing matrix-vector product (A @ x).
@@ -64,7 +64,7 @@ def cg(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], tol: flo
 
 def bicgstab(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], tol: float = 1e-6, max_iter: int = 500, x0=None, verbose=True) -> torch.Tensor:
     """
-    BIConjugate Gradient STABilized(BICGSTAB) solver for linear systems Ax = b. (It is not required that A be a Hermitian matrix)
+    BIConjugate Gradient STABilized(BICGSTAB) solver for linear systems Ax = b. (It is not required that A be a Hermitian matrix).
     Args:
         b: Right-hand side vector (torch.Tensor).
         matvec: Function computing matrix-vector product (A @ x).
@@ -131,7 +131,7 @@ def bicgstab(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], to
 def give_null_vecs(
     null_vecs: torch.Tensor,
     matvec: Callable[[torch.Tensor], torch.Tensor],
-    verbose: bool = True, tol: float = 1e-6, max_iter: int = 500,
+    tol: float = 1e-6, max_iter: int = 500, normalize: bool = True, verbose: bool = True
 ) -> torch.Tensor:
     """
     Generates orthonormal near-null space vectors for a linear operator.
@@ -139,22 +139,26 @@ def give_null_vecs(
     (eigenvectors corresponding to near-zero eigenvalues) through iterative refinement
     and orthogonalization.
     Args:
-        null_vecs: Initial random vectors [dof, *dims]
-        matvec: Matrix-vector multiplication operator A(x)
-        tol: Tolerance for convergence
-        verbose: Print progress information
+        null_vecs: Initial random vectors [dof, *dims].
+        matvec: Function computing matrix-vector product (A @ x).
+        tol: Tolerance for convergence (default: 1e-6).
+        max_iter: Maximum iterations (default: 500).
+        normalize: normalize the null_vecs (default: True).
+        verbose: Print progress information (default: True).
     Returns:
-        Orthonormal near-null space vectors in complex format
+        Orthonormal near-null space vectors
     """
     dof = null_vecs.shape[0]  # Number of null space vectors
     null_vecs = torch.rand_like(null_vecs)
     for i in range(dof):
         # The orthogonalization of r
-        null_vecs[i] /= torch.norm(null_vecs[i]).item()
-        for k in range(0, i):
-            null_vecs[i] -= torch.vdot(null_vecs[i].flatten(), null_vecs[k].flatten())/torch.vdot(
-                null_vecs[k].flatten(), null_vecs[k].flatten())*null_vecs[k]
-        null_vecs[i] /= torch.norm(null_vecs[i]).item()
+        if normalize:
+            null_vecs[i] /= torch.norm(null_vecs[i]).item()
+        for j in range(0, i):
+            null_vecs[i] -= torch.vdot(null_vecs[j].flatten(), null_vecs[i].flatten())/torch.vdot(
+                null_vecs[j].flatten(), null_vecs[j].flatten())*null_vecs[j]
+        if normalize:
+            null_vecs[i] /= torch.norm(null_vecs[i]).item()
         # v=r-A^{-1}Ar
         null_vecs[i] -= bicgstab(b=matvec(null_vecs[i]), matvec=matvec, tol=tol*1000, max_iter=max_iter, x0=torch.zeros_like(null_vecs[i]),
                                  verbose=verbose)  # tol needs to be bigger...
@@ -169,11 +173,13 @@ def give_null_vecs(
             print(
                 f"  Vector {i}: A*v/v = {Av/null_vecs[i]}")
         # The orthogonalization of null_vecs
-        null_vecs[i] /= torch.norm(null_vecs[i]).item()
-        for k in range(0, i):
-            null_vecs[i] -= torch.vdot(null_vecs[i].flatten(), null_vecs[k].flatten())/torch.vdot(
-                null_vecs[k].flatten(), null_vecs[k].flatten())*null_vecs[k]
-        null_vecs[i] /= torch.norm(null_vecs[i]).item()
+        if normalize:
+            null_vecs[i] /= torch.norm(null_vecs[i]).item()
+        for j in range(0, i):
+            null_vecs[i] -= torch.vdot(null_vecs[j].flatten(), null_vecs[i].flatten())/torch.vdot(
+                null_vecs[j].flatten(), null_vecs[j].flatten())*null_vecs[j]
+        if normalize:
+            null_vecs[i] /= torch.norm(null_vecs[i]).item()
     if verbose:
         print(f"Near-null space check:")
         for i in range(dof):
@@ -189,10 +195,72 @@ def give_null_vecs(
             print(
                 f"torch.norm(null_vecs[{i}]).item():.6e:{torch.norm(null_vecs[i]).item():.6e}")
             # orthogonalization
-            for k in range(0, i+1):
+            for j in range(0, i+1):
                 print(
-                    f"torch.vdot(null_vecs[{i}].flatten(), null_vecs[{k}].flatten()):{torch.vdot(null_vecs[i].flatten(), null_vecs[k].flatten())}")
+                    f"torch.vdot(null_vecs[{i}].flatten(), null_vecs[{j}].flatten()):{torch.vdot(null_vecs[i].flatten(), null_vecs[j].flatten())}")
     return null_vecs
+
+# def r_vec(src):
+#     return contract("escTtZzYyXx,scTtZzYyXx->eTZYX", testvectors, src)
+
+
+# r_dest = r_vec(r_src)
+# p_src = r_dest
+
+
+# def p_vec(src):
+#     return contract("escTtZzYyXx,eTZYX->scTtZzYyXx", cp.conj(testvectors), src)
+
+def local_orthogonalize(null_vecs: torch.Tensor,
+                        mg_size: Tuple[int, int, int, int] = [2, 2, 2, 2],
+                        normalize: bool = True, verbose: bool = True
+                        ) -> torch.Tensor:
+    """
+    Orthogonalize near-null space vectors locally.
+    Args:
+        null_vecs: Initial random vectors [dof, *dims].
+        mg_size: cut latt_size to [latt_size[i]/mg_size[i] for i in range(len(latt_size))] (default: [2, 2, 2, 2]).
+        normalize: normalize the null_vecs (default: True).
+        verbose: Print progress information (default: True).
+    Returns:
+        local-orthonormal near-null space vectors.
+    """
+    dof = null_vecs.shape[0]  # Number of null space vectors
+    latt_size = list(null_vecs.shape[-4:])
+    shape = list(null_vecs.shape[:-4])+[mg_size[0], latt_size[0]//mg_size[0], mg_size[1], latt_size[1] //
+                                        mg_size[1], mg_size[2], latt_size[2]//mg_size[2], mg_size[3], latt_size[3]//mg_size[3],]
+    if verbose:
+        print(f"dof,latt_size,mg_size,shape:{dof,latt_size,mg_size,shape}")
+    if not all(latt_size[-i-1] == shape[-2*i-1]*shape[-2*i-2] for i in range(4)):
+        print(
+            'not all(latt_size[-i-1] == shape[-2*i-1]*shape[-2*i-2] for i in range(4))')
+    local_null_vecs = null_vecs.reshape(shape=shape)
+    local_ortho_null_vecs = torch.zeros_like(local_null_vecs)
+    for X in range(mg_size[-1]):
+        for Y in range(mg_size[-2]):
+            for Z in range(mg_size[-3]):
+                for T in range(mg_size[-4]):
+                    _local_null_vecs = local_null_vecs[...,
+                                                       T, :, Z, :, Y, :, X, :]
+                    for i in range(dof):
+                        # The orthogonalization of local_null_vecs
+                        if normalize:
+                            _local_null_vecs[i] /= torch.norm(
+                                _local_null_vecs[i]).item()
+                        for j in range(0, i):
+                            _local_null_vecs[i] -= torch.vdot(_local_null_vecs[j].flatten(), _local_null_vecs[i].flatten())/torch.vdot(
+                                _local_null_vecs[j].flatten(), _local_null_vecs[j].flatten())*_local_null_vecs[j]
+                        if normalize:
+                            _local_null_vecs[i] /= torch.norm(
+                                _local_null_vecs[i]).item()
+                    local_ortho_null_vecs[..., T, :, Z,
+                                          :, Y, :, X, :] = _local_null_vecs
+                    if verbose:
+                        for i in range(dof):
+                            for j in range(0, i+1):
+                                print(
+                                    f"torch.vdot(local_ortho_null_vecs[..., {T}, :, {Z}, :, {Y}, :, {X}, :][{i}].flatten(), local_ortho_null_vecs[..., {T}, :, {Z}, :, {Y}, :, {X}, :][{j}].flatten()):{torch.vdot(local_ortho_null_vecs[..., T, :, Z, :, Y, :, X, :][i].flatten(), local_ortho_null_vecs[..., T, :, Z, :, Y, :, X, :][j].flatten())}")
+    return local_ortho_null_vecs
 
 
 class mg(nn.Module):
@@ -240,6 +308,73 @@ class mg(nn.Module):
             print(
                 f"Initialization complete: Lattice size {self.Lx}x{self.Ly}x{self.Lz}x{self.Lt}, Spin 4, Color 3")
             print(f"Device: {self.device}, Dtype: {self.dtype}")
+
+    class hopping(dslash.wilson):
+        def __init__(self,
+                     latt_size: Tuple[int, int, int, int],
+                     kappa: float = 0.1,
+                     u_0: float = 1.0,
+                     dtype: torch.dtype = torch.complex128,
+                     device: torch.device = None,
+                     verbose: bool = False):
+            """
+            Wilson-Dirac operator on a 4D lattice with SU_eo(3) gauge fields with parity decomposition.
+            Args:
+                latt_size: Tuple (Lx_p, Ly, Lz, Lt) specifying lattice dimensions, then s=4, d=4, c=3, p(parity)=2.
+                kappa: Hopping parameter (controls fermion mass).
+                u_0: Wilson parameter (usually 1.0).
+                dtype: Data type for tensors.
+                device: Device to run on (default: CPU).
+                verbose: Enable verbose output for debugging.
+            reference:
+                [4].
+            addition:
+            """
+            super().__init__(latt_size=latt_size, kappa=kappa,
+                             u_0=u_0, dtype=dtype, device=device, verbose=False)
+            self.Lx_p = self.Lx // 2
+            self.verbose = verbose
+            if self.verbose:
+                print(f"Initializing Wilson with parity decomposition:")
+                print(f"  Lattice size: {latt_size} (x,y,z,t)")
+                print(f"  Lattice x with parity: {self.Lx_p}")
+                print(f"  Parameters: kappa={kappa}, u_0={u_0}")
+                print(
+                    f"  Complex dtype: {dtype}, Real dtype: {self.real_dtype}")
+                print(f"  Device: {self.device}")
+
+    class sitting(dslash.clover):
+        def __init__(self,
+                     latt_size: Tuple[int, int, int, int],
+                     kappa: float = 0.1,
+                     u_0: float = 1.0,
+                     dtype: torch.dtype = torch.complex128,
+                     device: torch.device = None,
+                     verbose: bool = False):
+            """
+            The Clover term corrected by adding the Wilson-Dirac operator
+            Args:
+                latt_size: Tuple (Lx_p, Ly, Lz, Lt) specifying lattice dimensions, then s=4, d=4, c=3, p(parity)=2
+                kappa: Hopping parameter (controls fermion mass)
+                u_0: Wilson parameter (usually 1.0)
+                dtype: Data type for tensors
+                device: Device to run on (default: CPU)
+                verbose: Enable verbose output for debugging
+            reference:
+                [1](1-60);[1](1-160)
+            """
+            super().__init__(latt_size=latt_size, kappa=kappa,
+                             u_0=u_0, dtype=dtype, device=device, verbose=False)
+            self.Lx_p = self.Lx // 2
+            self.verbose = verbose
+            if self.verbose:
+                print(f"Initializing Clover with parity decomposition:")
+                print(f"  Lattice size: {latt_size} (x,y,z,t)")
+                print(f"  Lattice x with parity: {self.Lx_p}")
+                print(f"  Parameters: kappa={kappa}, u_0={u_0}")
+                print(
+                    f"  Complex dtype: {dtype}, Real dtype: {self.real_dtype}")
+                print(f"  Device: {self.device}")
 
     class _mg:
         def __init__(self, solver, n_refine: int):
@@ -290,8 +425,8 @@ class mg(nn.Module):
             """Orthogonalize the near-null space vectors"""
             for i in range(dof):
                 for j in range(i):
-                    proj = torch.vdot(vec[i].flatten(), vec[j].flatten()) / \
-                        torch.vdot(vec[j].flatten(), vec[j].flatten())
+                    proj = torch.vdot(vec[i].flatten(), vec[j].flatten(
+                    )) / torch.vdot(vec[j].flatten(), vec[j].flatten())
                     vec[i] -= proj * vec[j]
                 vec[i] /= torch.norm(vec[i])
             return vec
@@ -421,70 +556,3 @@ class mg(nn.Module):
                 print(
                     f"Multigrid solve finished: {count} iterations, residual {torch.norm(r):.2e}")
             return x
-
-
-class hopping(dslash.wilson):
-    def __init__(self,
-                 latt_size: Tuple[int, int, int, int],
-                 kappa: float = 0.1,
-                 u_0: float = 1.0,
-                 dtype: torch.dtype = torch.complex128,
-                 device: torch.device = None,
-                 verbose: bool = False):
-        """
-        Wilson-Dirac operator on a 4D lattice with SU_eo(3) gauge fields with parity decomposition
-        Args:
-            latt_size: Tuple (Lx_p, Ly, Lz, Lt) specifying lattice dimensions, then s=4, d=4, c=3, p(parity)=2
-            kappa: Hopping parameter (controls fermion mass)
-            u_0: Wilson parameter (usually 1.0)
-            dtype: Data type for tensors
-            device: Device to run on (default: CPU)
-            verbose: Enable verbose output for debugging
-        reference:
-            [4]
-        addition:
-        """
-        super().__init__(latt_size=latt_size, kappa=kappa,
-                         u_0=u_0, dtype=dtype, device=device, verbose=False)
-        self.Lx_p = self.Lx // 2
-        self.verbose = verbose
-        if self.verbose:
-            print(f"Initializing Wilson with parity decomposition:")
-            print(f"  Lattice size: {latt_size} (x,y,z,t)")
-            print(f"  Lattice x with parity: {self.Lx_p}")
-            print(f"  Parameters: kappa={kappa}, u_0={u_0}")
-            print(f"  Complex dtype: {dtype}, Real dtype: {self.real_dtype}")
-            print(f"  Device: {self.device}")
-
-
-class sitting(dslash.clover):
-    def __init__(self,
-                 latt_size: Tuple[int, int, int, int],
-                 kappa: float = 0.1,
-                 u_0: float = 1.0,
-                 dtype: torch.dtype = torch.complex128,
-                 device: torch.device = None,
-                 verbose: bool = False):
-        """
-        The Clover term corrected by adding the Wilson-Dirac operator
-        Args:
-            latt_size: Tuple (Lx_p, Ly, Lz, Lt) specifying lattice dimensions, then s=4, d=4, c=3, p(parity)=2
-            kappa: Hopping parameter (controls fermion mass)
-            u_0: Wilson parameter (usually 1.0)
-            dtype: Data type for tensors
-            device: Device to run on (default: CPU)
-            verbose: Enable verbose output for debugging
-        reference:
-            [1](1-60);[1](1-160)
-        """
-        super().__init__(latt_size=latt_size, kappa=kappa,
-                         u_0=u_0, dtype=dtype, device=device, verbose=False)
-        self.Lx_p = self.Lx // 2
-        self.verbose = verbose
-        if self.verbose:
-            print(f"Initializing Clover with parity decomposition:")
-            print(f"  Lattice size: {latt_size} (x,y,z,t)")
-            print(f"  Lattice x with parity: {self.Lx_p}")
-            print(f"  Parameters: kappa={kappa}, u_0={u_0}")
-            print(f"  Complex dtype: {dtype}, Real dtype: {self.real_dtype}")
-            print(f"  Device: {self.device}")

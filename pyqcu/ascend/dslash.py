@@ -13,16 +13,16 @@ class wilson(nn.Module):
                  device: torch.device = None,
                  verbose: bool = False):
         """
-        Wilson-Dirac operator on a 4D lattice with SU(3) gauge fields
+        Wilson-Dirac operator on a 4D lattice with SU(3) gauge fields.
         Args:
-            latt_size: Tuple (Lx, Ly, Lz, Lt) specifying lattice dimensions, then s=4, d=4, c=3
-            kappa: Hopping parameter (controls fermion mass)
-            u_0: Wilson parameter (usually 1.0)
-            dtype: Data type for tensors
-            device: Device to run on (default: CPU)
-            verbose: Enable verbose output for debugging
+            latt_size: Tuple (Lx, Ly, Lz, Lt) specifying lattice dimensions, then s=4, d=4, c=3.
+            kappa: Hopping parameter (controls fermion mass).
+            u_0: Wilson parameter (usually 1.0).
+            dtype: Data type for tensors.
+            device: Device to run on (default: CPU).
+            verbose: Enable verbose output for debugging.
         reference:
-            [1](1-60)
+            [1](1-60).
         """
         super().__init__()
         self.latt_size = latt_size
@@ -49,7 +49,7 @@ class wilson(nn.Module):
             print("Gamma matrices and Gell-Mann matrices initialized")
 
     def _get_gell_mann_matrices(self) -> torch.Tensor:
-        """Generate Gell-Mann matrices for SU(3) algebra"""
+        """Generate Gell-Mann matrices for SU(3) algebra."""
         # Create all matrices using the real dtype
         matrices = [
             torch.tensor([[0, 1, 0], [1, 0, 0], [0, 0, 0]],
@@ -82,12 +82,12 @@ class wilson(nn.Module):
                              sigma: float = 0.1,
                              seed: Optional[int] = None) -> torch.Tensor:
         """
-        Generate random SU(3) gauge field using Gaussian distribution
+        Generate random SU(3) gauge field using Gaussian distribution.
         Args:
-            sigma: Width of Gaussian distribution (controls randomness)
-            seed: Random seed for reproducibility
+            sigma: Width of Gaussian distribution (controls randomness).
+            seed: Random seed for reproducibility.
         Returns:
-            U: Gauge field tensor [c, c, d, t, z, y, x]
+            U: Gauge field tensor [c, c, d, t, z, y, x].
         """
         if self.verbose:
             print(f"Generating gauge field with sigma={sigma}")
@@ -140,7 +140,7 @@ class wilson(nn.Module):
         return U
 
     def _define_gamma_matrices(self) -> torch.Tensor:
-        """Define Dirac gamma matrices in Euclidean space"""
+        """Define Dirac gamma matrices in Euclidean space."""
         gamma = torch.zeros(4, 4, 4, dtype=self.dtype, device=self.device)
         # gamma_0 (x-direction)
         gamma[0] = torch.tensor([
@@ -182,10 +182,10 @@ class wilson(nn.Module):
                           =1-\kappa/u_0*\sum_{\mu}[(1-\gamma_{\mu})U_{x,\mu}\delta_{x+\mu,y}+(1+\gamma_{\mu})U_{x-\mu,\mu}^{\dag}\delta_{x-\mu,y}]
         $$
         Args:
-            src: Source field tensor [s, c, t, z, y, x]
-            U: Gauge field tensor [c, c, d, t, z, y, x]
+            src: Source field tensor [s, c, t, z, y, x].
+            U: Gauge field tensor [c, c, d, t, z, y, x].
         Returns:
-            Dest tensor [s, c, t, z, y, x]
+            Dest tensor [s, c, t, z, y, x].
         """
         if self.verbose:
             print("Applying Dirac operator...")
@@ -254,16 +254,16 @@ class clover(wilson):
                  device: torch.device = None,
                  verbose: bool = False):
         """
-        The Clover term corrected by adding the Wilson-Dirac operator
+        The Clover term corrected by adding the Wilson-Dirac operator.
         Args:
-            latt_size: Tuple (Lx, Ly, Lz, Lt) specifying lattice dimensions, then s=4, d=4, c=3
-            kappa: Hopping parameter (controls fermion mass)
-            u_0: Wilson parameter (usually 1.0)
-            dtype: Data type for tensors
-            device: Device to run on (default: CPU)
-            verbose: Enable verbose output for debugging
+            latt_size: Tuple (Lx, Ly, Lz, Lt) specifying lattice dimensions, then s=4, d=4, c=3.
+            kappa: Hopping parameter (controls fermion mass).
+            u_0: Wilson parameter (usually 1.0).
+            dtype: Data type for tensors.
+            device: Device to run on (default: CPU).
+            verbose: Enable verbose output for debugging.
         reference:
-            [1](1-60)
+            [1](1-60).
         """
         super().__init__(latt_size=latt_size, kappa=kappa,
                          u_0=u_0, dtype=dtype, device=device, verbose=False)
@@ -280,7 +280,7 @@ class clover(wilson):
             print("Gamma-Gamma matrices initialized")
 
     def _define_gamma_gamma_matrices(self) -> torch.Tensor:
-        """Define Dirac gamma_gamma matrices in Euclidean space"""
+        """Define Dirac gamma_gamma matrices in Euclidean space."""
         gamma_gamma = torch.zeros(
             6, 4, 4, dtype=self.dtype, device=self.device)
         # gamma_gamma0 xy-direction)
@@ -310,11 +310,11 @@ class clover(wilson):
         \frac{a^2\kappa}{u_0^4}\sum_{\mu<\nu}\sigma_{\mu \nu}F_{\mu \nu}\delta_{x,y}
         $$
         Args:
-            U: Gauge field tensor [c, c, d, t, z, y, x]
+            U: Gauge field tensor [c, c, d, t, z, y, x].
         Returns:
-            Clover term tensor [s, c, s, c, t, z, y, x]
+            Clover term tensor [s, c, s, c, t, z, y, x].
         PS:
-            For convenience, combine constant parameters of sigma and F to the final step (-0.125)
+            For convenience, combine constant parameters of sigma and F to the final step (-0.125).
         """
         if self.verbose:
             print("Applying Dirac operator...")
