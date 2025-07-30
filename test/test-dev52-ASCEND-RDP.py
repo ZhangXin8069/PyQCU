@@ -1,5 +1,5 @@
 import torch
-from pyqcu.ascend import dslash_parity
+from pyqcu.ascend import dslash
 from pyqcu.ascend import inverse
 dof = 12
 # latt_size = (16, 16, 16, 16)
@@ -12,14 +12,14 @@ dtype = torch.complex64
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f"Using device: {device}")
 # Initialize lattice gauge theory
-wilson = dslash_parity.wilson_parity(
+wilson = dslash.wilson_parity(
     latt_size=latt_size,
     kappa=kappa,
     dtype=dtype,
     device=device,
     verbose=False
 )
-clover = dslash_parity.clover_parity(
+clover = dslash.clover_parity(
     latt_size=latt_size,
     kappa=kappa,
     dtype=dtype,
