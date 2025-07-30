@@ -26,6 +26,7 @@ lib/*
 .ssub.sh
 .vscode
 # *.log*
+*.log.txt
 *.c
 *.bin
 *dist
