@@ -18,7 +18,7 @@ def cg(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], tol: flo
     Returns:
         x: Approximate solution to Ax = b.
     """
-    x = x0.clone() if x0 is not None else torch.rand_like(b)
+    x = x0.clone() if x0 is not None else torch.randn_like(b)
     r = b - matvec(x)
     p = r.clone()
     v = torch.zeros_like(b)
@@ -75,7 +75,7 @@ def bicgstab(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], to
     Returns:
         x: Approximate solution to Ax = b.
     """
-    x = x0.clone() if x0 is not None else torch.rand_like(b)
+    x = x0.clone() if x0 is not None else torch.randn_like(b)
     r = b - matvec(x)
     r_tilde = r.clone()
     p = torch.zeros_like(b)
@@ -131,7 +131,7 @@ def bicgstab(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], to
 def give_null_vecs(
     null_vecs: torch.Tensor,
     matvec: Callable[[torch.Tensor], torch.Tensor],
-    tol: float = 1e-6, max_iter: int = 500, normalize: bool = True, verbose: bool = True
+    tol: float = 1e-6, max_iter: int = 500, normalize: bool = True, ortho_r: bool = True, ortho_null_vecs: bool = False, verbose: bool = True
 ) -> torch.Tensor:
     """
     Generates orthonormal near-null space vectors for a linear operator.
@@ -144,54 +144,47 @@ def give_null_vecs(
         tol: Tolerance for convergence (default: 1e-6).
         max_iter: Maximum iterations (default: 500).
         normalize: normalize the null_vecs (default: True).
+        ortho_r: orthogonalization of r (default: True).
+        ortho_null_vecs: orthogonalization of null_vecs (default: False).
+        verbose: Print progress information (default: True).
         verbose: Print progress information (default: True).
     Returns:
         Orthonormal near-null space vectors
     """
     dof = null_vecs.shape[0]  # Number of null space vectors
-    null_vecs = torch.rand_like(null_vecs)
+    null_vecs = torch.randn_like(null_vecs)
+    if ortho_r:
+        for i in range(dof):
+            # The orthogonalization of r
+            if normalize:
+                null_vecs[i] /= torch.norm(null_vecs[i]).item()
+            for j in range(0, i):
+                null_vecs[i] -= torch.vdot(null_vecs[j].flatten(), null_vecs[i].flatten())/torch.vdot(
+                    null_vecs[j].flatten(), null_vecs[j].flatten())*null_vecs[j]
+            if normalize:
+                null_vecs[i] /= torch.norm(null_vecs[i]).item()
     for i in range(dof):
-        # The orthogonalization of r
-        if normalize:
-            null_vecs[i] /= torch.norm(null_vecs[i]).item()
-        for j in range(0, i):
-            null_vecs[i] -= torch.vdot(null_vecs[j].flatten(), null_vecs[i].flatten())/torch.vdot(
-                null_vecs[j].flatten(), null_vecs[j].flatten())*null_vecs[j]
-        if normalize:
-            null_vecs[i] /= torch.norm(null_vecs[i]).item()
         # v=r-A^{-1}Ar
-        null_vecs[i] -= bicgstab(b=matvec(null_vecs[i]), matvec=matvec, tol=tol*1000, max_iter=max_iter, x0=torch.zeros_like(null_vecs[i]),
-                                 verbose=verbose)  # tol needs to be bigger...
-        if verbose:
-            print(f"A*v/v check:")
-            Av = matvec(null_vecs[i])
-            print(f"  Vector {i}: ||A*v|| = {torch.norm(Av).item():.6e}")
-            print(
-                f"  Vector {i}: v = {null_vecs[i]}")
-            print(
-                f"  Vector {i}: A*v = {Av}")
-            print(
-                f"  Vector {i}: A*v/v = {Av/null_vecs[i]}")
-        # The orthogonalization of null_vecs
-        if normalize:
-            null_vecs[i] /= torch.norm(null_vecs[i]).item()
-        for j in range(0, i):
-            null_vecs[i] -= torch.vdot(null_vecs[j].flatten(), null_vecs[i].flatten())/torch.vdot(
-                null_vecs[j].flatten(), null_vecs[j].flatten())*null_vecs[j]
-        if normalize:
-            null_vecs[i] /= torch.norm(null_vecs[i]).item()
+        null_vecs[i] -= bicgstab(b=matvec(null_vecs[i]), matvec=matvec, tol=tol*1000,
+                                 max_iter=max_iter, verbose=verbose)  # tol needs to be bigger...
+    if ortho_null_vecs:
+        for i in range(dof):
+            # The orthogonalization of null_vecs
+            if normalize:
+                null_vecs[i] /= torch.norm(null_vecs[i]).item()
+            for j in range(0, i):
+                null_vecs[i] -= torch.vdot(null_vecs[j].flatten(), null_vecs[i].flatten())/torch.vdot(
+                    null_vecs[j].flatten(), null_vecs[j].flatten())*null_vecs[j]
+            if normalize:
+                null_vecs[i] /= torch.norm(null_vecs[i]).item()
     if verbose:
         print(f"Near-null space check:")
         for i in range(dof):
-            print(f"A*v/v check again:")
             Av = matvec(null_vecs[i])
-            print(f"  Vector {i}: ||A*v|| = {torch.norm(Av).item():.6e}")
             print(
-                f"  Vector {i}: v = {null_vecs[i]}")
+                f"  Vector {i}: ||A*v/v|| = {torch.norm(Av/null_vecs[i]).item():.6e}")
             print(
-                f"  Vector {i}: A*v = {Av}")
-            print(
-                f"  Vector {i}: A*v/v = {Av/null_vecs[i]}")
+                f"  Vector {i}: A*v/v:100 = {(Av/null_vecs[i]).flatten()[:100]}")
             print(
                 f"torch.norm(null_vecs[{i}]).item():.6e:{torch.norm(null_vecs[i]).item():.6e}")
             # orthogonalization
@@ -251,6 +244,69 @@ def local_orthogonalize(null_vecs: torch.Tensor,
                                 print(
                                     f"torch.vdot(local_ortho_null_vecs[..., {T}, :, {Z}, :, {Y}, :, {X}, :][{i}].flatten(), local_ortho_null_vecs[..., {T}, :, {Z}, :, {Y}, :, {X}, :][{j}].flatten()):{torch.vdot(local_ortho_null_vecs[..., T, :, Z, :, Y, :, X, :][i].flatten(), local_ortho_null_vecs[..., T, :, Z, :, Y, :, X, :][j].flatten())}")
     return local_ortho_null_vecs
+
+
+def restrict(local_ortho_null_vecs: torch.Tensor, fine_vec: torch.Tensor, verbose: bool = True) -> torch.Tensor:
+    """
+    Restriction operator: fine -> coarse
+    Args:
+        local_ortho_null_vecs: local-orthogonalized near-null space vectors [dof, *dims].
+        fine_vec: vector in fine grid [*dims].
+        verbose: Print progress information (default: True).
+    Returns:
+        vector in coarse grid.
+    """
+    shape = local_ortho_null_vecs.shape
+    dof = shape[0]
+    local_latt_size = shape[-8:]
+    if verbose:
+        print(f"shape,dof,local_latt_size:{shape,dof,local_latt_size}")
+    if fine_vec.shape != shape[1:]:
+        print('fine_vec.shape != shape[1:]!!!')
+    _fine_vec = fine_vec.reshape(shape=shape[1:]).clone()
+    if len(shape) == 10:
+        print("EeTtZzYyXx,eTtZzYyXx->ETZYX")
+        return torch.einsum(
+            "EeTtZzYyXx,eTtZzYyXx->ETZYX", local_ortho_null_vecs, _fine_vec)
+    elif len(shape) == 11:
+        print("EscTtZzYyXx,scTtZzYyXx->ETZYX")
+        return torch.einsum(
+            "EscTtZzYyXx,scTtZzYyXx->ETZYX", local_ortho_null_vecs, _fine_vec)
+    else:
+        print('len(shape) != 10 or 11!!!')
+        raise ValueError
+
+
+def prolong(local_ortho_null_vecs: torch.Tensor, coarse_vec: torch.Tensor, verbose: bool = True) -> torch.Tensor:
+    """
+    Prolongation operator: coarse -> fine
+    Args:
+        local_ortho_null_vecs: local-orthogonalized near-null space vectors [dof, *dims].
+        coarse_vec: vector in coarse grid [*dims].
+        verbose: Print progress information (default: True).
+    Returns:
+        vector in coarse grid.
+    """
+    shape = local_ortho_null_vecs.shape
+    dof = shape[0]
+    local_latt_size = shape[-8:]
+    if verbose:
+        print(f"shape,dof,local_latt_size:{shape,dof,local_latt_size}")
+    if coarse_vec.shape != shape[1:]:
+        print('fine_vec.shape != shape[1:]!!!')
+        print(f"shape[0:1]+shape[-8:][::2]:{shape[0:1]+shape[-8:][::2]}")
+    _coarse_vec = coarse_vec.reshape(shape=shape[0:1]+shape[-8:][::2]).clone()
+    if len(shape) == 10:
+        print("EeTtZzYyXx, ETZYX->eTtZzYyXx")
+        return torch.einsum(
+            "EeTtZzYyXx, ETZYX->eTtZzYyXx", local_ortho_null_vecs.conj(), _coarse_vec)
+    elif len(shape) == 11:
+        print("EscTtZzYyXx, ETZYX->scTtZzYyXx")
+        return torch.einsum(
+            "EscTtZzYyXx, ETZYX->scTtZzYyXx", local_ortho_null_vecs.conj(), _coarse_vec)
+    else:
+        print('len(shape) != 10 or 11!!!')
+        raise ValueError
 
 
 class mg(nn.Module):
@@ -410,101 +466,6 @@ class mg(nn.Module):
                 Ly //= self.blocksize[1]
                 Lz //= self.blocksize[2]
                 Lt //= self.blocksize[3]
-
-        def _orthogonalize_null_vec(self, vec: torch.Tensor, dof: int) -> torch.Tensor:
-            """Orthogonalize the near-null space vectors"""
-            for i in range(dof):
-                for j in range(i):
-                    proj = torch.vdot(vec[i].flatten(), vec[j].flatten(
-                    )) / torch.vdot(vec[j].flatten(), vec[j].flatten())
-                    vec[i] -= proj * vec[j]
-                vec[i] /= torch.norm(vec[i])
-            return vec
-
-        def _build_mapping(self, level: int, Lx_coarse: int, Ly_coarse: int, Lz_coarse: int, Lt_coarse: int):
-            """Build mapping from fine to coarse grid (4D)"""
-            block = self.blocksize
-            fine_Lx, fine_Ly, fine_Lz, fine_Lt = self.solver.Lx, self.solver.Ly, self.solver.Lz, self.solver.Lt
-            sites_per_block = block[0] * block[1] * block[2] * block[3] * 4 * 3
-            if self.coarse_map[level].shape[-1] != sites_per_block:
-                if self.solver.verbose:
-                    print(
-                        f"Warning: mismatched mapping size, expected {sites_per_block}, got {self.coarse_map[level].shape[-1]}")
-                self.coarse_map[level] = torch.zeros(self.coarse_map[level].shape[0],
-                                                     sites_per_block,
-                                                     dtype=torch.int64,
-                                                     device=self.device)
-            map_idx = 0
-            for tc in range(Lt_coarse):
-                for zc in range(Lz_coarse):
-                    for yc in range(Ly_coarse):
-                        for xc in range(Lx_coarse):
-                            t_start, t_end = tc * block[0], (tc + 1) * block[0]
-                            z_start, z_end = zc * block[1], (zc + 1) * block[1]
-                            y_start, y_end = yc * block[2], (yc + 1) * block[2]
-                            x_start, x_end = xc * block[3], (xc + 1) * block[3]
-                            local_idx = 0
-                            for s in range(4):
-                                for c in range(3):
-                                    for t in range(t_start, t_end):
-                                        for z in range(z_start, z_end):
-                                            for y in range(y_start, y_end):
-                                                for x in range(x_start, x_end):
-                                                    fine_idx = (s * 3 * fine_Lt * fine_Lz * fine_Ly * fine_Lx +
-                                                                c * fine_Lt * fine_Lz * fine_Ly * fine_Lx +
-                                                                t * fine_Lz * fine_Ly * fine_Lx +
-                                                                z * fine_Ly * fine_Lx +
-                                                                y * fine_Lx + x)
-                                                    if local_idx < self.coarse_map[level].shape[-1]:
-                                                        self.coarse_map[level][map_idx,
-                                                                               local_idx] = fine_idx
-                                                        local_idx += 1
-                                                    else:
-                                                        if self.solver.verbose:
-                                                            print(
-                                                                f"Warning: mapping index out of range, local_idx={local_idx}, max={self.coarse_map[level].shape[-1]-1}")
-                            map_idx += 1
-
-        def restrict(self, level: int, fine_vec: torch.Tensor) -> torch.Tensor:
-            """Restriction operator: fine -> coarse"""
-            coarse_dof = self.coarse_dof[level]
-            # print(f"self.mg_ops:{self.mg_ops}\n")
-            Lx, Ly, Lz, Lt = self.mg_ops[level + 1].Lx, self.mg_ops[level +
-                                                                    1].Ly, self.mg_ops[level + 1].Lz, self.mg_ops[level + 1].Lt
-            coarse_vec = torch.zeros(coarse_dof, 3, Lt, Lz, Ly, Lx,
-                                     dtype=self.dtype, device=self.device)
-            fine_flat = fine_vec.flatten()
-            coarse_flat = coarse_vec.flatten()
-            print(
-                f"coarse_vec.shape,fine_vec.shape:{coarse_vec.shape,fine_vec.shape}\n")
-            for i in range(coarse_vec.numel() // coarse_dof):
-                for d in range(coarse_dof):
-                    idx = i * coarse_dof + d
-                    # print(
-                    #     f"Lx, Ly, Lz, Lt, i,coarse_vec.numel(),coarse_dof,d:{Lx, Ly, Lz, Lt,i,coarse_vec.numel(),coarse_dof,d}\n")
-                    valid_indices = self.coarse_map[level][i] < len(fine_flat)
-                    valid_map = self.coarse_map[level][i, valid_indices]
-                    if len(valid_map) > 0:
-                        coarse_flat[idx] = torch.dot(self.R_null_vec[level][d, valid_map],
-                                                     fine_flat[valid_map].conj())
-            return coarse_vec
-
-        def prolong(self, level: int, coarse_vec: torch.Tensor) -> torch.Tensor:
-            """Prolongation operator: coarse -> fine"""
-            fine_level = self.mg_ops[level]
-            fine_vec = torch.zeros(4, 3, fine_level.Lt, fine_level.Lz, fine_level.Ly, fine_level.Lx,
-                                   dtype=self.dtype, device=self.device)
-            coarse_flat = coarse_vec.flatten()
-            fine_flat = fine_vec.flatten()
-            for i in range(coarse_vec.numel() // self.coarse_dof[level]):
-                for d in range(self.coarse_dof[level]):
-                    idx = i * self.coarse_dof[level] + d
-                    valid_indices = self.coarse_map[level][i] < len(fine_flat)
-                    valid_map = self.coarse_map[level][i, valid_indices]
-                    if len(valid_map) > 0:
-                        fine_flat[valid_map] += self.R_null_vec[level][d,
-                                                                       valid_map] * coarse_flat[idx]
-            return fine_vec
 
         def mg_solve(self, b: torch.Tensor, tol: float = 1e-8, max_iter: int = 300) -> torch.Tensor:
             """Multigrid solver (recursive BiCGSTAB)"""
