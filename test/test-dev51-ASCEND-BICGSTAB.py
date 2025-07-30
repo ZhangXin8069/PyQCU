@@ -179,6 +179,6 @@ if __name__ == "__main__":
         return wilson.give_wilson(src, U)+clover.give_clover(clover=clover_term, src=src)
         # return wilson.give_wilson(src, U)
     print(f"type(matvec):{type(matvec)}")
-    b = torch.rand_like(src)
+    b = torch.randn_like(src)
     # x = inverse.cg(b=b, matvec=matvec)
     x = inverse.bicgstab(b=b, matvec=matvec)
