@@ -242,7 +242,7 @@ class LatticeSolver(nn.Module):
 
     def bicgstab(self, b: torch.Tensor, tol: float = 1e-8, max_iter: int = 1000, x0=None) -> torch.Tensor:
         """Standard BiCGSTAB solver"""
-        x = x0.clone() if x0 is not None else torch.rand_like(b)
+        x = x0.clone() if x0 is not None else torch.randn_like(b)
         r = b - self._dslash(x)
         r_tilde = r.clone()
         p = torch.zeros_like(b)
