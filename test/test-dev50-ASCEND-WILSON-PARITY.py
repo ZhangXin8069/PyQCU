@@ -1,5 +1,5 @@
 import torch
-from pyqcu.ascend import dslash_parity
+from pyqcu.ascend import dslash
 
 # Example usage
 if __name__ == "__main__":
@@ -19,7 +19,7 @@ if __name__ == "__main__":
     verbose = True
     print(f"Using device: {device}")
     # Initialize lattice gauge theory
-    wilson = dslash_parity.wilson_parity(
+    wilson = dslash.wilson_parity(
         latt_size=latt_size,
         kappa=kappa,
         dtype=dtype,
@@ -152,15 +152,15 @@ if __name__ == "__main__":
     print(
         f"torch.linalg.norm(dest-_dest)/torch.linalg.norm(dest):{torch.linalg.norm(dest-_dest)/torch.linalg.norm(dest)}")
     # print(f"dest - _dest value:{dest-_dest}")
-    U_eo = dslash_parity.xxxtzyx2pxxxtzyx(U)
+    U_eo = dslash.xxxtzyx2pxxxtzyx(U)
     # print(f"U_eo value:{U_eo}")
-    src_eo = dslash_parity.xxxtzyx2pxxxtzyx(src)
+    src_eo = dslash.xxxtzyx2pxxxtzyx(src)
     # print(f"src_eo value:{src_eo}")
     dest_eo = torch.zeros_like(src_eo)
     dest_eo[0] = wilson.give_wilson_eo(src_o=src_eo[1], U_eo=U_eo)
     dest_eo[1] = wilson.give_wilson_oe(src_e=src_eo[0], U_eo=U_eo)
     dest_eo = wilson.give_wilson_eoeo(dest_eo=dest_eo, src_eo=src_eo)
-    __dest = dslash_parity.pxxxtzyx2xxxtzyx(dest_eo)
+    __dest = dslash.pxxxtzyx2xxxtzyx(dest_eo)
     # print(f"dest value:{dest}")
     # print(f"__dest value:{__dest}")
     # print(f"dest - __dest value:{dest-__dest}")
