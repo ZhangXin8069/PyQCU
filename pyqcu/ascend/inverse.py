@@ -425,29 +425,32 @@ class _mg:
         return dslash.pxxxtzyx2xxxtzyx(input_array=dest_eo).clone()
 
 
-class mg():
-    def __init__(self, b: torch.Tensor,  wilson: dslash.wilson_parity, U_eo: torch.Tensor, clover: dslash.clover_parity, clover_eo: torch.Tensor,  min_size: int = 2, max_levels: int = 2, tol: float = 1e-6, max_iter: int = 500, x0=None, verbose=True):
+class mg:
+    def __init__(self, b: torch.Tensor,  wilson: dslash.wilson_parity, U_eo: torch.Tensor, clover: dslash.clover_parity, clover_eo: torch.Tensor,  min_size: int = 2, max_levels: int = 5, tol: float = 1e-6, max_iter: int = 500, x0=None, verbose=True):
         self.b = b
         self._mg_list = [_mg(wilson=wilson, U_eo=U_eo,
                              clover=clover, clover_eo=clover_eo, verbose=verbose)]
+        self.min_size = min_size
+        self.max_levels = max_levels
         self.tol = tol
         self.max_iter = max_iter
         self.x0 = x0.clone() if x0 is not None else torch.randn_like(b)
         self.verbose = verbose
         # Build grid hierarchy
-        n_levels=1
-        grid_params = list(b.shape[-4:])
+        _Lx = b.shape[-1]
+        _Ly = b.shape[-2]
+        _Lz = b.shape[-3]
+        _Lt = b.shape[-4]
+        self.grid_params = []
         print(f"Building grid hierarchy:")
-        while min(current_nx, current_ny) >= self.min_size and len(grid_params) < self.max_levels:
-            grid_params.append((current_nx, current_ny, current_nz))
+        while all([_Lx, _Ly, _Lz, _Lt] >= self.min_size) and len(self.grid_params) < self.max_levels:
+            self.grid_params.append([_Lx, _Ly, _Lz, _Lt])
             print(
-                f"  Level {len(grid_params)-1}: {current_nx}x{current_ny}x{current_nz}")
-            current_nx = max(2, current_nx // 2)
-            current_ny = max(2, current_ny // 2)
-
-        num_levels = len(grid_params)
-        print(f"Total {num_levels} grid levels")
-
+                f"  Level {len(self.grid_params)-1}: {_Lx}x{_Ly}x{_Lz}x{_Lt}")
+            _Lx = max(self.min_size, _Lx // 2)
+            _Ly = max(self.min_size, _Ly // 2)
+            _Lz = max(self.min_size, _Lz // 2)
+            _Lt = max(self.min_size, _Lt // 2)
 
 class EllipticPartialDifferentialEquations:
     """
