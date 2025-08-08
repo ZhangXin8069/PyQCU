@@ -443,15 +443,17 @@ class mg:
         _Lt = b.shape[-4]
         self.grid_params = []
         print(f"Building grid hierarchy:")
-        while all(_ >= self.min_size for _ in [_Lx, _Ly, _Lz, _Lt]) and len(self.grid_params) < self.max_levels:
+        while len(self.grid_params) < self.max_levels:
             self.grid_params.append([_Lx, _Ly, _Lz, _Lt])
             print(
                 f"  Level {len(self.grid_params)-1}: {_Lx}x{_Ly}x{_Lz}x{_Lt}")
+            if all(_ == self.min_size for _ in [_Lx, _Ly, _Lz, _Lt]):
+                break
             _Lx = max(self.min_size, _Lx // 2)
             _Ly = max(self.min_size, _Ly // 2)
             _Lz = max(self.min_size, _Lz // 2)
             _Lt = max(self.min_size, _Lt // 2)
-
+        print(f"{self.grid_params}")
 
 class EllipticPartialDifferentialEquations:
     """
