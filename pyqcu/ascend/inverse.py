@@ -213,8 +213,9 @@ def local_orthogonalize(null_vecs: torch.Tensor,
     dof = null_vecs.shape[0]  # Number of null space vectors
     latt_size = list(null_vecs.shape[-4:])
     shape = list(null_vecs.shape[:-4])+[mg_size[0], latt_size[0]//mg_size[0], mg_size[1], latt_size[1] //
-                                        mg_size[1], mg_size[2], latt_size[2]//mg_size[2], mg_size[3], latt_size[3]//mg_size[3],]
+                                        mg_size[1], mg_size[2], latt_size[2]//mg_size[2], mg_size[3], latt_size[3]//mg_size[3]]
     if verbose:
+        print(f"null_vecs.shape:{null_vecs.shape}")
         print(f"dof,latt_size,mg_size,shape:{dof,latt_size,mg_size,shape}")
     if not all(latt_size[-i-1] == shape[-2*i-1]*shape[-2*i-2] for i in range(4)):
         print(
@@ -299,11 +300,11 @@ def prolong(local_ortho_null_vecs: torch.Tensor, coarse_vec: torch.Tensor, verbo
     if len(shape) == 10:
         print("EeTtZzYyXx, ETZYX->eTtZzYyXx")
         return torch.einsum(
-            "EeTtZzYyXx, ETZYX->eTtZzYyXx", local_ortho_null_vecs.conj(), _coarse_vec)
+            "EeTtZzYyXx, ETZYX->eTtZzYyXx", local_ortho_null_vecs.conj(), _coarse_vec).reshape([dof, shape[-8]*shape[-7], shape[-6]*shape[-5], shape[-4]*shape[-3], shape[-2]*shape[-1]])
     elif len(shape) == 11:
         print("EscTtZzYyXx, ETZYX->scTtZzYyXx")
         return torch.einsum(
-            "EscTtZzYyXx, ETZYX->scTtZzYyXx", local_ortho_null_vecs.conj(), _coarse_vec)
+            "EscTtZzYyXx, ETZYX->scTtZzYyXx", local_ortho_null_vecs.conj(), _coarse_vec).reshape([4, 3, shape[-8]*shape[-7], shape[-6]*shape[-5], shape[-4]*shape[-3], shape[-2]*shape[-1]])
     else:
         print('len(shape) != 10 or 11!!!')
         raise ValueError
@@ -378,7 +379,8 @@ class _mg:
                 size=[dof, shape[-4*2], shape[-3*2], shape[-2*2], shape[-1*2]], dtype=dtype, device=device)  # ETZYX
             src_c_I = torch.ones(
                 size=[shape[-4*2], shape[-3*2], shape[-2*2], shape[-1*2]], dtype=dtype, device=device)  # TZYX
-            dest_f = torch.zeros_like(local_ortho_null_vecs[0])  # eTtZzYyXx
+            dest_f = torch.zeros_like(local_ortho_null_vecs[0]).reshape(
+                [4, 3, shape[-8]*shape[-7], shape[-6]*shape[-5], shape[-4]*shape[-3], shape[-2]*shape[-1]])  # e(Tt)(Zz)(Yy)(Xx)
             dest_f_eo = dslash.xxxtzyx2pxxxtzyx(input_array=dest_f.clone())
             for e in range(dof):
                 _src_c = src_c.clone()
@@ -388,7 +390,7 @@ class _mg:
                 _src_f_eo = dslash.xxxtzyx2pxxxtzyx(input_array=_src_f)
                 # give partly sitting.ee and whole hopping.oe
                 _dest_f_eo = dest_f_eo.clone()
-                _dest_f_eo[0] = fine_hopping.matvec_eo(src=_src_f_eo[1])
+                _dest_f_eo[0] = fine_hopping.matvec_eo(src_o=_src_f_eo[1])
                 _dest_f = dslash.pxxxtzyx2xxxtzyx(input_array=_dest_f_eo)
                 _dest_c = restrict(
                     local_ortho_null_vecs=local_ortho_null_vecs, fine_vec=_dest_f)
@@ -397,7 +399,7 @@ class _mg:
                 self.hopping.M_oe[:, e, ...] = _dest_c_eo[1]
                 # give partly sitting.oo and whole hopping.eo
                 _dest_f_eo = dest_f_eo.clone()
-                _dest_f_eo[1] = fine_hopping.matvec_oe(src=_src_f_eo[0])
+                _dest_f_eo[1] = fine_hopping.matvec_oe(src_e=_src_f_eo[0])
                 _dest_f = dslash.pxxxtzyx2xxxtzyx(input_array=_dest_f_eo)
                 _dest_c = restrict(
                     local_ortho_null_vecs=local_ortho_null_vecs, fine_vec=_dest_f)
@@ -406,8 +408,8 @@ class _mg:
                 self.hopping.M_eo[:, e, ...] = _dest_c_eo[0]
                 # give aother partly sitting.ee and sitting.oo
                 dest_f_eo = dest_f_eo.clone()
-                _dest_f_eo[0] = fine_sitting.matvec_ee(src=_src_f_eo[0])
-                _dest_f_eo[1] = fine_sitting.matvec_oo(src=_src_f_eo[1])
+                _dest_f_eo[0] = fine_sitting.matvec_ee(src_e=_src_f_eo[0])
+                _dest_f_eo[1] = fine_sitting.matvec_oo(src_o=_src_f_eo[1])
                 _dest_f = dslash.pxxxtzyx2xxxtzyx(input_array=_dest_f_eo)
                 _dest_c = restrict(
                     local_ortho_null_vecs=local_ortho_null_vecs, fine_vec=_dest_f)
@@ -421,12 +423,12 @@ class _mg:
         dest_eo[0] = self.hopping.matvec_eo(
             src_o=src_eo[1])+self.sitting.matvec_ee(src_e=src_eo[0])
         dest_eo[1] = self.hopping.matvec_oe(
-            src_e=src_eo[0])+self.sitting.matvec_oo(src_e=src_eo[1])
-        return dslash.pxxxtzyx2xxxtzyx(input_array=dest_eo).clone()
+            src_e=src_eo[0])+self.sitting.matvec_oo(src_o=src_eo[1])
+        return dslash.pxxxtzyx2xxxtzyx(input_array=dest_eo).clone().reshape(src.shape)
 
 
 class mg:
-    def __init__(self, b: torch.Tensor,  wilson: dslash.wilson_parity, U_eo: torch.Tensor, clover: dslash.clover_parity, clover_eo: torch.Tensor,  min_size: int = 2, max_levels: int = 5, tol: float = 1e-6, max_iter: int = 500, x0=None, verbose=True):
+    def __init__(self, b: torch.Tensor,  wilson: dslash.wilson_parity, U_eo: torch.Tensor, clover: dslash.clover_parity, clover_eo: torch.Tensor,  min_size: int = 2, max_levels: int = 5, dof: int = 12, tol: float = 1e-6, max_iter: int = 500, x0=None, verbose=True):
         self.b = b
         self._mg_list = [_mg(wilson=wilson, U_eo=U_eo,
                              clover=clover, clover_eo=clover_eo, verbose=verbose)]
@@ -454,6 +456,27 @@ class mg:
             _Lz = max(self.min_size, _Lz // 2)
             _Lt = max(self.min_size, _Lt // 2)
         print(f"{self.grid_params}")
+        # Build local-orthonormal near-null space vectors
+        for i in range(1, len(self.grid_params)):
+            if i == 1:
+                _null_vecs = torch.randn(dof, 4, 3, b.shape[-4], b.shape[-3], b.shape[-2], b.shape[-1],
+                                         dtype=b.dtype, device=b.device)
+            else:
+                _null_vecs = torch.randn(dof, dof, self.grid_params[i-1][-4], self.grid_params[i-1][-3], self.grid_params[i-1][-2], self.grid_params[i-1][-1],
+                                         dtype=b.dtype, device=b.device)
+            _null_vecs = give_null_vecs(
+                null_vecs=_null_vecs,
+                matvec=self._mg_list[i-1].matvec,# eo???
+                tol=self.tol,
+                max_iter=self.max_iter,
+                verbose=self.verbose
+            )
+            _local_ortho_null_vecs = local_orthogonalize(
+                null_vecs=_null_vecs,
+                mg_size=self.grid_params[i])
+            self._mg_list.append(_mg(fine_hopping=self._mg_list[i-1].hopping, fine_sitting=self._mg_list[i -
+                                 1].sitting, local_ortho_null_vecs=_local_ortho_null_vecs, verbose=self.verbose))
+
 
 class EllipticPartialDifferentialEquations:
     """
