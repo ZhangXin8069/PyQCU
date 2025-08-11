@@ -362,31 +362,39 @@ class _mg:
     def __init__(self, wilson: dslash.wilson_parity = None, U_eo: torch.Tensor = None, clover: dslash.clover_parity = None, clover_eo: torch.Tensor = None, fine_hopping: hopping = None, fine_sitting: sitting = None, local_ortho_null_vecs: torch.Tensor = None, verbose=True):
         self.hopping = hopping(wilson=wilson, U_eo=U_eo)
         self.sitting = sitting(clover=clover, clover_eo=clover_eo)
+        self.verbose = verbose
         if fine_hopping != None and fine_sitting != None and local_ortho_null_vecs != None:
             shape = local_ortho_null_vecs.shape  # EeTtZzYyXx
             dtype = local_ortho_null_vecs.dtype
             device = local_ortho_null_vecs.device
             dof = shape[0]
             self.hopping.M_eo = torch.zeros(
-                size=[dof, dof, shape[-4*2], shape[-3*2], shape[-2*2], shape[-1*2]], dtype=dtype, device=device)  # EETZYX
+                size=[dof, dof, shape[-4*2], shape[-3*2], shape[-2*2], shape[-1*2]//2], dtype=dtype, device=device)  # EETZYX_p
             self.hopping.M_oe = torch.zeros(
-                size=[dof, dof, shape[-4*2], shape[-3*2], shape[-2*2], shape[-1*2]], dtype=dtype, device=device)  # EETZYX
+                size=[dof, dof, shape[-4*2], shape[-3*2], shape[-2*2], shape[-1*2]//2], dtype=dtype, device=device)  # EETZYX_p
             self.sitting.M_ee = torch.zeros(
-                size=[dof, dof, shape[-4*2], shape[-3*2], shape[-2*2], shape[-1*2]], dtype=dtype, device=device)  # EETZYX
+                size=[dof, dof, shape[-4*2], shape[-3*2], shape[-2*2], shape[-1*2]//2], dtype=dtype, device=device)  # EETZYX_p
             self.sitting.M_oo = torch.zeros(
-                size=[dof, dof, shape[-4*2], shape[-3*2], shape[-2*2], shape[-1*2]], dtype=dtype, device=device)  # EETZYX
+                size=[dof, dof, shape[-4*2], shape[-3*2], shape[-2*2], shape[-1*2]//2], dtype=dtype, device=device)  # EETZYX_p
             src_c = torch.zeros(
-                size=[dof, shape[-4*2], shape[-3*2], shape[-2*2], shape[-1*2]], dtype=dtype, device=device)  # ETZYX
+                size=[dof, shape[-4*2], shape[-3*2], shape[-2*2], shape[-1*2]], dtype=dtype, device=device)   # ETZYX
             src_c_I = torch.ones(
                 size=[shape[-4*2], shape[-3*2], shape[-2*2], shape[-1*2]], dtype=dtype, device=device)  # TZYX
-            dest_f = torch.zeros_like(local_ortho_null_vecs[0]).reshape(
-                [4, 3, shape[-8]*shape[-7], shape[-6]*shape[-5], shape[-4]*shape[-3], shape[-2]*shape[-1]])  # e(Tt)(Zz)(Yy)(Xx)
+            dest_f = torch.zeros(size=[dof, shape[-8]*shape[-7], shape[-6]*shape[-5],
+                                 shape[-4]*shape[-3], shape[-2]*shape[-1]], dtype=dtype, device=device) if len(shape) == 10 else torch.zeros(size=[4, 3, shape[-8]*shape[-7], shape[-6]*shape[-5],
+                                                                                                                                                   shape[-4]*shape[-3], shape[-2]*shape[-1]], dtype=dtype, device=device)  # e(Tt)(Zz)(Yy)(Xx)
             dest_f_eo = dslash.xxxtzyx2pxxxtzyx(input_array=dest_f.clone())
+            if self.verbose:
+                print(
+                    f"local_ortho_null_vecs.shape,src_c.shape,dest_f.shape:{local_ortho_null_vecs.shape,src_c.shape,dest_f.shape}")
             for e in range(dof):
                 _src_c = src_c.clone()
                 _src_c[e] = src_c_I.clone()
                 _src_f = prolong(
                     local_ortho_null_vecs=local_ortho_null_vecs, coarse_vec=_src_c, verbose=verbose)
+                if self.verbose:
+                    print(
+                        f"_src_f.shape:{_src_f.shape}")
                 _src_f_eo = dslash.xxxtzyx2pxxxtzyx(input_array=_src_f)
                 # give partly sitting.ee and whole hopping.oe
                 _dest_f_eo = dest_f_eo.clone()
@@ -424,7 +432,7 @@ class _mg:
             src_o=src_eo[1])+self.sitting.matvec_ee(src_e=src_eo[0])
         dest_eo[1] = self.hopping.matvec_oe(
             src_e=src_eo[0])+self.sitting.matvec_oo(src_o=src_eo[1])
-        return dslash.pxxxtzyx2xxxtzyx(input_array=dest_eo).clone().reshape(src.shape)
+        return dslash.pxxxtzyx2xxxtzyx(input_array=dest_eo).clone()
 
 
 class mg:
@@ -446,7 +454,7 @@ class mg:
         self.grid_params = []
         print(f"Building grid hierarchy:")
         while len(self.grid_params) < self.max_levels:
-            self.grid_params.append([_Lx, _Ly, _Lz, _Lt])
+            self.grid_params.append([_Lt, _Lz, _Ly, _Lx])
             print(
                 f"  Level {len(self.grid_params)-1}: {_Lx}x{_Ly}x{_Lz}x{_Lt}")
             if all(_ == self.min_size for _ in [_Lx, _Ly, _Lz, _Lt]):
@@ -466,7 +474,7 @@ class mg:
                                          dtype=b.dtype, device=b.device)
             _null_vecs = give_null_vecs(
                 null_vecs=_null_vecs,
-                matvec=self._mg_list[i-1].matvec,# eo???
+                matvec=self._mg_list[i-1].matvec,  # eo???
                 tol=self.tol,
                 max_iter=self.max_iter,
                 verbose=self.verbose
