@@ -683,7 +683,7 @@ class mg:
         print("-" * 30)
         start_time = time.time()
         # Main multigrid iteration loop
-        for iteration in range(self.max_iterations):
+        for iteration in range(self.max_iter):
             print(f"\nIteration {iteration + 1}:")
             # Perform V-cycle
             self.u_list[0] = self.v_cycle(level=0)
