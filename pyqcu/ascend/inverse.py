@@ -637,7 +637,7 @@ class mg:
         # Pre-smoothing
         if self.verbose:
             print(
-                f"    Pre-smooth residual norm: {self.give_residual_norm(level=level):.4e}")
+                f"    Pre pre-smooth residual norm: {self.give_residual_norm(level=level):.4e}")
             print(f"    Pre-smoothing...")
         self.u_list[level] = self.smooth(level=level)
         residual = self.give_residual(level=level)
@@ -678,8 +678,8 @@ class mg:
         """
         start_time = time.time()
         # Main multigrid iteration loop
-        for iteration in range(self.max_iter):
-            print(f"\nMG:Iteration {iteration + 1}:")
+        for i in range(self.max_iter):
+            print(f"\nMG:Iteration {i + 1}:")
             # Perform V-cycle
             self.u_list[0] = self.v_cycle(level=0)
             # Check convergence on finest grid
@@ -687,7 +687,7 @@ class mg:
             self.convergence_history.append(residual_norm)
             if self.verbose:
                 print(
-                    f"MG:Iteration {iteration + 1} completed, residual norm: {residual_norm:.4e}")
+                    f"MG:Iteration {i + 1} completed, residual norm: {residual_norm:.4e}")
             # Check for convergence
             if residual_norm < self.tol:
                 print(
