@@ -261,9 +261,7 @@ def restrict(local_ortho_null_vecs: torch.Tensor, fine_vec: torch.Tensor, verbos
     shape = local_ortho_null_vecs.shape
     dof = shape[0]
     if verbose:
-        print(f"shape,dof:{shape,dof}")
-    if fine_vec.shape != shape[1:]:
-        print('fine_vec.shape != shape[1:]!!!')
+        print(f"restrict:shape,dof:{shape,dof}")
     _fine_vec = fine_vec.reshape(shape=shape[1:]).clone()
     if len(shape) == 10:
         print("EeTtZzYyXx,eTtZzYyXx->ETZYX")
@@ -291,10 +289,7 @@ def prolong(local_ortho_null_vecs: torch.Tensor, coarse_vec: torch.Tensor, verbo
     shape = local_ortho_null_vecs.shape
     dof = shape[0]
     if verbose:
-        print(f"shape,dof:{shape,dof}")
-    if coarse_vec.shape != shape[1:]:
-        print('fine_vec.shape != shape[1:]!!!')
-        print(f"shape[0:1]+shape[-8:][::2]:{shape[0:1]+shape[-8:][::2]}")
+        print(f"prolong:shape,dof:{shape,dof}")
     _coarse_vec = coarse_vec.reshape(shape=shape[0:1]+shape[-8:][::2]).clone()
     if len(shape) == 10:
         print("EeTtZzYyXx, ETZYX->eTtZzYyXx")
