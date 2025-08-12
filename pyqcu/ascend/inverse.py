@@ -604,7 +604,7 @@ class mg:
             max_krylov=5, max_restarts=1, tol=0.1)
 
     def smooth(self, level: int = 0) -> torch.Tensor:
-        return self.smoother.smooth(matvec=self.op_list[level], b=self.b_list[level], x0=self.u_list[level])
+        return self.smoother.smooth(matvec=self.op_list[level].matvec, b=self.b_list[level], x0=self.u_list[level])
 
     def give_residual(self, level: int = 0) -> torch.Tensor:
         return self.b_list[level] - self.op_list[level].matvec(self.u_list[level])
