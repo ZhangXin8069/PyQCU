@@ -49,7 +49,7 @@ def cg(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], tol: flo
         if verbose:
             print(f"alpha,beta,rho:{alpha,beta,rho}\n")
             print(
-                f"Iteration {i}: Residual = {rho.real:.6e}, Time = {iter_time:.6f} s")
+                f"CG:Iteration {i}: Residual = {rho.real:.6e}, Time = {iter_time:.6f} s")
         if rho.real < tol:
             if verbose:
                 print(
@@ -113,7 +113,7 @@ def bicgstab(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], to
         if verbose:
             # print(f"alpha,beta,omega,r_norm2:{alpha,beta,omega,r_norm2}\n")
             print(
-                f"Iteration {i}: Residual = {r_norm2:.6e}, Time = {iter_time:.6f} s")
+                f"BICGSTAB:Iteration {i}: Residual = {r_norm2:.6e}, Time = {iter_time:.6f} s")
         if r_norm2 < tol:
             if verbose:
                 print(
@@ -676,22 +676,22 @@ class mg:
         Sets up the multigrid list, performs V-cycle iterations until
         convergence, and returns the solution.
         """
-        print(f"\nStarting multigrid iterations:")
-        print("-" * 30)
         start_time = time.time()
         # Main multigrid iteration loop
         for iteration in range(self.max_iter):
-            print(f"\nIteration {iteration + 1}:")
+            print(f"\nMG:Iteration {iteration + 1}:")
             # Perform V-cycle
             self.u_list[0] = self.v_cycle(level=0)
             # Check convergence on finest grid
             residual_norm = self.give_residual_norm(level=0)
             self.convergence_history.append(residual_norm)
-            print(
-                f"  Iteration {iteration + 1} completed, residual norm: {residual_norm:.4e}")
+            if self.verbose:
+                print(
+                    f"MG:Iteration {iteration + 1} completed, residual norm: {residual_norm:.4e}")
             # Check for convergence
             if residual_norm < self.tol:
-                print(f"  ✓ Converged to tolerance {self.tol}")
+                print(
+                    f"Converged at iteration {i} with residual {residual_norm:.6e}")
                 break
         else:
             print("  Warning: Maximum iterations reached, may not have converged")
