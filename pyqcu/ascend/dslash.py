@@ -4,8 +4,9 @@ from math import sqrt
 from typing import Tuple, Optional
 
 
-def xxxtzyx2pxxxtzyx(input_array: torch.Tensor) -> torch.Tensor:
-    print("@xxxtzyx2pxxxtzyx......")
+def xxxtzyx2pxxxtzyx(input_array: torch.Tensor, verbose=False) -> torch.Tensor:
+    if verbose:
+        print("@xxxtzyx2pxxxtzyx......")
     shape = input_array.shape
     dtype = input_array.dtype
     device = input_array.device
@@ -34,12 +35,14 @@ def xxxtzyx2pxxxtzyx(input_array: torch.Tensor) -> torch.Tensor:
         *prefix_shape, t, z, y, x//2)
     splited_array[1] = input_array[..., odd_mask].reshape(
         *prefix_shape, t, z, y, x//2)
-    print(f"Splited Array Shape: {splited_array.shape}")
+    if verbose:
+        print(f"Splited Array Shape: {splited_array.shape}")
     return splited_array
 
 
-def pxxxtzyx2xxxtzyx(input_array: torch.Tensor) -> torch.Tensor:
-    print("@pxxxtzyx2xxxtzyx......")
+def pxxxtzyx2xxxtzyx(input_array: torch.Tensor, verbose=False) -> torch.Tensor:
+    if verbose:
+        print("@pxxxtzyx2xxxtzyx......")
     shape = input_array.shape
     dtype = input_array.dtype
     device = input_array.device
@@ -67,12 +70,14 @@ def pxxxtzyx2xxxtzyx(input_array: torch.Tensor) -> torch.Tensor:
     # Assign values from input array using masks
     restored_array[..., even_mask] = input_array[0].reshape(*prefix_shape, -1)
     restored_array[..., odd_mask] = input_array[1].reshape(*prefix_shape, -1)
-    print(f"Restored Array Shape: {restored_array.shape}")
+    if verbose:
+        print(f"Restored Array Shape: {restored_array.shape}")
     return restored_array
 
 
-def give_eo_mask(xxxtzy_x_p: torch.Tensor, eo: int) -> torch.Tensor:
-    print("@give_eo_mask......")
+def give_eo_mask(xxxtzy_x_p: torch.Tensor, eo: int, verbose=False) -> torch.Tensor:
+    if verbose:
+        print("@give_eo_mask......")
     shape = xxxtzy_x_p.shape
     device = xxxtzy_x_p.device
     t, z, y, x_p = shape[-4:]
