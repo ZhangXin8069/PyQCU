@@ -629,7 +629,7 @@ class mg:
                     f"    Pre-solve residual norm: {self.give_residual_norm(level=level):.4e}")
                 print(f"    Solving coarsest grid directly...")
             self.u_list[level] = bicgstab(
-                b=self.b_list[level], matvec=self.op_list[level].matvec, x0=self.u_list[level], tol=self.tol*0.1, max_iter=self.max_iter)
+                b=self.b_list[level], matvec=self.op_list[level].matvec, x0=self.u_list[level], tol=self.tol*0.1, max_iter=self.max_iter, verbose=False)
             if self.verbose:
                 print(
                     f"    Post-solve residual norm: {self.give_residual_norm(level=level):.4e}")
