@@ -461,14 +461,16 @@ class GMRESSmoother:
         Returns:
             x: Smoothed solution
         """
-        x = x0.clone()
-        r = b - matvec(x0)
+        def _matvec(src: torch.Tensor) -> torch.Tensor:
+            return matvec(src.reshape(b.shape)).flatten()
+        x = x0.clone().flatten()
+        r = b.flatten() - _matvec(x)
         r_norm = torch.norm(r).item()
         if r_norm < 1e-12:
             return x0
         # GMRES with restarts
         for _ in range(self.max_restarts):
-            Q, H = self._arnoldi(matvec=matvec, r0=r, r_norm=r_norm)
+            Q, H = self._arnoldi(matvec=_matvec, r0=r, r_norm=r_norm)
             # Set up least squares problem
             e1 = torch.zeros(H.shape[1] + 1, dtype=b.dtype, device=b.device)
             e1[0] = r_norm
@@ -478,13 +480,13 @@ class GMRESSmoother:
             dx = Q[:, :-1] @ y
             x = x + dx
             # Check convergence
-            new_r = b - matvec(x)
+            new_r = b.flatten() - _matvec(x)
             new_r_norm = torch.norm(new_r).item()
             if new_r_norm < self.tol * r_norm:
                 break
             r = new_r
             r_norm = new_r_norm
-        return x
+        return x.reshape(b.shape)
 
     def _arnoldi(self, matvec: Callable[[torch.Tensor], torch.Tensor],
                  r0: torch.Tensor, r_norm: float) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -688,7 +690,7 @@ class mg:
             # Perform V-cycle
             self.u_list[0] = self.v_cycle(level=0)
             # Check convergence on finest grid
-            residual_norm=self.give_residual_norm(level=0)
+            residual_norm = self.give_residual_norm(level=0)
             self.convergence_history.append(residual_norm)
             print(
                 f"  Iteration {iteration + 1} completed, residual norm: {residual_norm:.4e}")
