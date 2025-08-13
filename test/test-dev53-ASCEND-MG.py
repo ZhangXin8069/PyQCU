@@ -1,5 +1,6 @@
 import torch
 from pyqcu.ascend import dslash
+from pyqcu.ascend.include import *
 from pyqcu.ascend import inverse
 dof = 12
 # latt_size = (16, 16, 16, 16)
@@ -67,7 +68,7 @@ clover_term = clover.make_clover(U=U)
 #     f"(coarse_vec/_coarse_vec).flatten()[:100]:{(coarse_vec/_coarse_vec).flatten()[:100]}")
 # inverse.demo()
 b = torch.randn_like(null_vecs[0])
-U_eo = dslash.xxxtzyx2pxxxtzyx(input_array=U)
-clover_eo = dslash.xxxtzyx2pxxxtzyx(input_array=clover_term)
+U_eo = xxxtzyx2pxxxtzyx(input_array=U)
+clover_eo = xxxtzyx2pxxxtzyx(input_array=clover_term)
 mg = inverse.mg(b=b, wilson=wilson, U_eo=U_eo,
                 clover=clover, clover_eo=clover_eo)

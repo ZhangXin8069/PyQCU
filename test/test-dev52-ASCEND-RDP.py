@@ -1,5 +1,6 @@
 import torch
 from pyqcu.ascend import dslash
+from pyqcu.ascend.include import *
 from pyqcu.ascend import inverse
 dof = 12
 # latt_size = (16, 16, 16, 16)

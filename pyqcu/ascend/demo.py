@@ -4,6 +4,7 @@ import time
 from time import perf_counter
 from typing import Tuple, Optional, Callable
 from pyqcu.ascend import dslash
+from pyqcu.ascend.include import *
 import matplotlib.pyplot as plt
 
 
