@@ -79,11 +79,10 @@ class wilson(nn.Module):
             matrices = [m.to(self.dtype) for m in matrices]
         return torch.stack(matrices, dim=0)  # Shape: [8, 3, 3]
 
-    def generate_gauge_field(self,
-                             sigma: float = 0.1,
-                             seed: Optional[int] = None) -> torch.Tensor:
+    def generate_gauge_field(self, sigma: float = 0.1, seed: Optional[int] = None) -> torch.Tensor:
         """
         Generate random SU(3) gauge field using Gaussian distribution.
+        Optimized: Fully vectorized, no Python loops over lattice sites.
         Args:
             sigma: Width of Gaussian distribution (controls randomness).
             seed: Random seed for reproducibility.
@@ -92,53 +91,98 @@ class wilson(nn.Module):
         """
         if self.verbose:
             print(f"Generating gauge field with sigma={sigma}")
-        # Set random seed if provided
+
+        # Random seed
         if seed is not None:
             if self.verbose:
                 print(f"  Setting random seed: {seed}")
             torch.manual_seed(seed)
             if self.device.type == 'cuda':
                 torch.cuda.manual_seed_all(seed)
-        # Initialize gauge field tensor
-        U = torch.zeros((3, 3, 4, self.Lt, self.Lz, self.Ly, self.Lx),
-                        dtype=self.dtype, device=self.device)
-        # Generate random coefficients with proper dtype and shape
-        # Dimensions: [directions, sites_t, sites_z, sites_y, sites_x, gell_mann_index]
-        a = torch.normal(0.0, 1.0, size=(4, self.Lt, self.Lz, self.Ly, self.Lx, 8),
-                         dtype=self.real_dtype, device=self.device)
+
+        # Random Gaussian coefficients: shape [4, Lt, Lz, Ly, Lx, 8]
+        a = torch.normal(
+            0.0, 1.0,
+            size=(4, self.Lt, self.Lz, self.Ly, self.Lx, 8),
+            dtype=self.real_dtype,
+            device=self.device
+        )
+
         if self.verbose:
             print(f"  Coefficient tensor shape: {a.shape}")
             print(f"  Coefficient dtype: {a.dtype}")
-            print(f"  Gell-Mann dtype: {self.gell_mann.dtype}")
-        # Generate SU(3) matrices for each lattice site and direction
-        if self.verbose:
-            print("  Computing SU(3) matrices...")
-            total_sites = self.Lt * self.Lz * self.Ly * self.Lx * 4
-        processed = 0
-        # Iterate over all lattice sites
-        for t in range(self.Lt):
-            for z in range(self.Lz):
-                for y in range(self.Ly):
-                    for x in range(self.Lx):
-                        for d in range(4):  # 4 directions
-                            # Get coefficients for this site and direction
-                            coeffs = a[d, t, z, y, x].to(
-                                dtype=self.dtype)  # Shape: [8]
-                            # Construct Hermitian matrix: H = Σ coeffs[i] * gell_mann[i]
-                            H = torch.einsum(
-                                'i,ijk->jk', coeffs, self.gell_mann)
-                            # Compute SU(3) matrix via exponential map
-                            U_mat = torch.matrix_exp(1j * sigma * H)
-                            # Store in gauge field
-                            U[:, :, d, t, z, y, x] = U_mat
-                            if self.verbose and processed % 1000 == 0:
-                                print(
-                                    f"    Processed {processed}/{total_sites} sites")
-                            processed += 1
+
+        # Expand gell_mann basis for broadcasting
+        # gell_mann: (8, 3, 3) -> (1, 1, 1, 1, 1, 8, 3, 3)
+        gell_mann_expanded = self.gell_mann.view(1, 1, 1, 1, 1, 8, 3, 3)
+
+        # Compute all Hermitian matrices H in one go: shape [4, Lt, Lz, Ly, Lx, 3, 3]
+        H = torch.einsum('...i,...ijk->...jk',
+                         a.to(self.dtype), gell_mann_expanded)
+
+        # Apply exponential map: shape stays [4, Lt, Lz, Ly, Lx, 3, 3]
+        U_all = torch.matrix_exp(1j * sigma * H)
+
+        # Rearrange to [3, 3, 4, Lt, Lz, Ly, Lx]
+        U = U_all.permute(5, 6, 0, 1, 2, 3, 4).contiguous()
+
         if self.verbose:
             print("  Gauge field generation complete")
             print(f"  Gauge field norm: {torch.norm(U).item()}")
+
         return U
+
+    def check_su3(self, U: torch.Tensor, tol: float = 1e-6) -> bool:
+        """
+        Check if the given tensor satisfies SU(3) conditions.
+        Works for a single matrix or a batch of matrices (e.g., full lattice gauge field).
+
+        Args:
+            U: Tensor of shape [3, 3, 4, Lt, Lz, Ly, Lx], complex dtype
+            tol: Numerical tolerance for checks
+        Returns:
+            bool: True if all matrices satisfy SU(3) conditions
+        """
+        U_mat = U.permute(*range(2, U.ndim), 0,
+                          1).reshape(-1, 3, 3)  # N x 3 x 3
+        N = U_mat.shape[0]
+
+        # Precompute the identity matrix for unitary check
+        eye = torch.eye(3, dtype=U_mat.dtype,
+                        device=U_mat.device).expand(N, -1, -1)
+
+        # 1 Unitarity check: Uᴴ U ≈ I
+        UH_U = torch.matmul(U_mat.conj().transpose(-1, -2), U_mat)
+        unitary_ok = torch.allclose(UH_U, eye, atol=tol)
+
+        # 2 Determinant check: det(U) ≈ 1
+        det_U = torch.linalg.det(U_mat)
+        det_ok = torch.allclose(det_U, torch.ones_like(det_U), atol=tol)
+
+        # 3 Minor identities check
+        # Flatten matrices to shape (N, 9) for easy indexing
+        Uf = U_mat.reshape(N, 9)
+        c6 = (Uf[:, 1] * Uf[:, 5] - Uf[:, 2] * Uf[:, 4]).conj()
+        c7 = (Uf[:, 2] * Uf[:, 3] - Uf[:, 0] * Uf[:, 5]).conj()
+        c8 = (Uf[:, 0] * Uf[:, 4] - Uf[:, 1] * Uf[:, 3]).conj()
+        minors_ok = (torch.allclose(Uf[:, 6], c6, atol=tol) and
+                     torch.allclose(Uf[:, 7], c7, atol=tol) and
+                     torch.allclose(Uf[:, 8], c8, atol=tol))
+
+        # --- Optional verbose output ---
+        if self.verbose:
+            print(f"[check_su3] Total matrices checked: {N}")
+            print(f"  Unitary check   : {unitary_ok}")
+            print(f"  Determinant=1   : {det_ok}")
+            print(f"  Minor identities: {minors_ok}")
+            if not unitary_ok:
+                max_err = (UH_U - eye).abs().max().item()
+                print(f"    Max unitary deviation: {max_err:e}")
+            if not det_ok:
+                max_det_err = (det_U - 1).abs().max().item()
+                print(f"    Max det deviation: {max_det_err:e}")
+
+        return unitary_ok and det_ok and minors_ok
 
     def _define_gamma_matrices(self) -> torch.Tensor:
         """Define Dirac gamma matrices in Euclidean space."""
@@ -638,9 +682,8 @@ class clover(wilson):
         if self.verbose:
             print('Clover is adding I......')
             print(f"_clover.shape:{_clover.shape}")
-        for i in range(_clover.shape[-1]):
-            _clover[:, :, i] += torch.eye(12, 12,
-                                          dtype=_clover.dtype, device=_clover.device)
+        eye = torch.eye(12, dtype=_clover.dtype, device=_clover.device)
+        _clover += eye.unsqueeze(-1)
         dest = _clover.reshape(clover.shape)
         if self.verbose:
             print(f"dest.shape:{dest.shape}")
