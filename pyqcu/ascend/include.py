@@ -25,6 +25,20 @@ def hdf5_xxx2cpu_xxx(file_name: str = 'xxx.h5') -> torch.Tensor:
         return _hdf5_array
 
 
+def ccdptzyx2pccdtzyx(gauge: torch.Tensor) -> torch.Tensor:
+    dest = gauge.permute(3, 0, 1, 2, 4, 5, 6, 7)
+    return dest
+
+
+def give_hdf5_U(device: str, file_name: str = 'xxx.h5') -> torch.Tensor:
+    """
+    U = pxxxtzyx2xxxtzyx(input_array=ccdptzyx2pccdtzyx(gauge=hdf5_xxx2cpu_xxx(file_name='quda_wilson-bistabcg-gauge_-32-32-32-32-1048576-1-1-1-1-0-0-1-0-f.h5')))
+    U = hdf5_xxx2cpu_xxx().detach().clone().to(device)
+    U = give_hdf5_U(device=device)
+    """
+    return hdf5_xxx2cpu_xxx(file_name=file_name).detach().clone().to(device)
+
+
 def xxxtzyx2pxxxtzyx(input_array: torch.Tensor, verbose=False) -> torch.Tensor:
     if verbose:
         print("@xxxtzyx2pxxxtzyx......")
