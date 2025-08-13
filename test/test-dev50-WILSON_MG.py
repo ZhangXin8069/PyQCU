@@ -3,6 +3,7 @@ import torch.nn as nn
 from time import perf_counter
 from typing import Tuple, Optional, List
 from pyqcu.ascend import dslash
+from pyqcu.ascend.include import *
 
 
 class LatticeSolver(nn.Module):

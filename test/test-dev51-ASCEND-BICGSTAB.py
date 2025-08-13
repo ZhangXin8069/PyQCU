@@ -1,5 +1,6 @@
 import torch
 from pyqcu.ascend import dslash
+from pyqcu.ascend.include import *
 from pyqcu.ascend import inverse
 
 # Example usage
@@ -159,15 +160,15 @@ if __name__ == "__main__":
     print(
         f"torch.linalg.norm(dest-_dest)/torch.linalg.norm(dest):{torch.linalg.norm(dest-_dest)/torch.linalg.norm(dest)}")
     # print(f"dest - _dest value:{dest-_dest}")
-    U_eo = dslash.xxxtzyx2pxxxtzyx(U)
+    U_eo = xxxtzyx2pxxxtzyx(U)
     # print(f"U_eo value:{U_eo}")
-    src_eo = dslash.xxxtzyx2pxxxtzyx(src)
+    src_eo = xxxtzyx2pxxxtzyx(src)
     # print(f"src_eo value:{src_eo}")
     dest_eo = torch.zeros_like(src_eo)
     dest_eo[0] = wilson.give_wilson_eo(src_o=src_eo[1], U_eo=U_eo)
     dest_eo[1] = wilson.give_wilson_oe(src_e=src_eo[0], U_eo=U_eo)
     dest_eo += src_eo
-    __dest = dslash.pxxxtzyx2xxxtzyx(dest_eo)
+    __dest = pxxxtzyx2xxxtzyx(dest_eo)
     # print(f"dest value:{dest}")
     # print(f"__dest value:{__dest}")
     # print(f"dest - __dest value:{dest-__dest}")

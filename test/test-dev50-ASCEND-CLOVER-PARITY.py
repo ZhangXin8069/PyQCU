@@ -1,5 +1,6 @@
 import torch
 from pyqcu.ascend import dslash
+from pyqcu.ascend.include import *
 
 # Example usage
 if __name__ == "__main__":
@@ -192,14 +193,14 @@ if __name__ == "__main__":
     #     f"inverse_clover_term-_inverse_clover_term:{inverse_clover_term-_inverse_clover_term}")
     print(
         f"torch.linalg.norm(inverse_clover_term-_inverse_clover_term)/torch.linalg.norm(inverse_clover_term):{torch.linalg.norm(inverse_clover_term-_inverse_clover_term)/torch.linalg.norm(inverse_clover_term)}")
-    U_eo = dslash.xxxtzyx2pxxxtzyx(U)
+    U_eo = xxxtzyx2pxxxtzyx(U)
     # print(f"U_eo value:{U_eo}")
     clover_term_eo = clover.make_clover_eoeo(U_eo=U_eo)
     print(f"clover_term_eo.shape:{clover_term_eo.shape}")
     inverse_clover_term_eo = clover.add_I_eoeo(clover_eo=clover_term_eo)
     print(f"inverse_clover_term_eo.shape:{inverse_clover_term_eo.shape}")
     inverse_clover_term_eo = clover.inverse_eoeo(clover_eo=inverse_clover_term_eo)
-    __inverse_clover_term = dslash.pxxxtzyx2xxxtzyx(
+    __inverse_clover_term = pxxxtzyx2xxxtzyx(
         inverse_clover_term_eo)
     print(
         f"torch.linalg.norm(inverse_clover_term-__inverse_clover_term)/torch.linalg.norm(inverse_clover_term):{torch.linalg.norm(inverse_clover_term-__inverse_clover_term)/torch.linalg.norm(inverse_clover_term)}")
