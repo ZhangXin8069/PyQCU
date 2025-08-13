@@ -1,5 +1,6 @@
 import torch
 from pyqcu.ascend import dslash
+from pyqcu.ascend.include import *
 
 # Example usage
 if __name__ == "__main__":

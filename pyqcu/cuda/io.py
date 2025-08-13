@@ -371,7 +371,7 @@ def hdf5_xxxtzyx2grid_xxxtzyx(params, file_name='xxxtzyx.h5'):
         return cp.asarray(dest)
 
 
-def xxx2hdf5_xxx(input_array, params=None, file_name='xxx.h5'):
+def xxx2hdf5_xxx(input_array, file_name='xxx.h5'):
     print(f"Input Array Shape: {input_array.shape}")
     dtype = input_array.dtype
     shape = input_array.shape
@@ -382,7 +382,7 @@ def xxx2hdf5_xxx(input_array, params=None, file_name='xxx.h5'):
         print(f"Data is saved to {file_name}")
 
 
-def hdf5_xxx2xxx(params=None, file_name='xxx.h5'):
+def hdf5_xxx2xxx(file_name='xxx.h5'):
     with h5py.File(file_name, 'r', driver='mpio', comm=define.comm) as f:
         all_dest = f['data']
         dest = all_dest[...]
