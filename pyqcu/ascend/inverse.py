@@ -4,6 +4,7 @@ import time
 from time import perf_counter
 from typing import Tuple, Optional, Callable
 from pyqcu.ascend import dslash
+from pyqcu.ascend.include import *
 
 
 def cg(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], tol: float = 1e-6, max_iter: int = 500, x0=None, verbose=True) -> torch.Tensor:
@@ -377,7 +378,7 @@ class op:
             dest_f = torch.zeros(size=[dof, shape[-8]*shape[-7], shape[-6]*shape[-5],
                                  shape[-4]*shape[-3], shape[-2]*shape[-1]], dtype=dtype, device=device) if len(shape) == 10 else torch.zeros(size=[4, 3, shape[-8]*shape[-7], shape[-6]*shape[-5],
                                                                                                                                                    shape[-4]*shape[-3], shape[-2]*shape[-1]], dtype=dtype, device=device)  # e(Tt)(Zz)(Yy)(Xx)
-            dest_f_eo = dslash.xxxtzyx2pxxxtzyx(input_array=dest_f.clone())
+            dest_f_eo = xxxtzyx2pxxxtzyx(input_array=dest_f.clone())
             if self.verbose:
                 print(
                     f"local_ortho_null_vecs.shape,src_c.shape,dest_f.shape:{local_ortho_null_vecs.shape,src_c.shape,dest_f.shape}")
@@ -389,44 +390,44 @@ class op:
                 if self.verbose:
                     print(
                         f"_src_f.shape:{_src_f.shape}")
-                _src_f_eo = dslash.xxxtzyx2pxxxtzyx(input_array=_src_f)
+                _src_f_eo = xxxtzyx2pxxxtzyx(input_array=_src_f)
                 # give partly sitting.ee and whole hopping.oe
                 _dest_f_eo = dest_f_eo.clone()
                 _dest_f_eo[0] = fine_hopping.matvec_eo(src_o=_src_f_eo[1])
-                _dest_f = dslash.pxxxtzyx2xxxtzyx(input_array=_dest_f_eo)
+                _dest_f = pxxxtzyx2xxxtzyx(input_array=_dest_f_eo)
                 _dest_c = restrict(
                     local_ortho_null_vecs=local_ortho_null_vecs, fine_vec=_dest_f)
-                _dest_c_eo = dslash.xxxtzyx2pxxxtzyx(input_array=_dest_c)
+                _dest_c_eo = xxxtzyx2pxxxtzyx(input_array=_dest_c)
                 self.sitting.M_ee[:, e, ...] = _dest_c_eo[0]
                 self.hopping.M_oe[:, e, ...] = _dest_c_eo[1]
                 # give partly sitting.oo and whole hopping.eo
                 _dest_f_eo = dest_f_eo.clone()
                 _dest_f_eo[1] = fine_hopping.matvec_oe(src_e=_src_f_eo[0])
-                _dest_f = dslash.pxxxtzyx2xxxtzyx(input_array=_dest_f_eo)
+                _dest_f = pxxxtzyx2xxxtzyx(input_array=_dest_f_eo)
                 _dest_c = restrict(
                     local_ortho_null_vecs=local_ortho_null_vecs, fine_vec=_dest_f)
-                _dest_c_eo = dslash.xxxtzyx2pxxxtzyx(input_array=_dest_c)
+                _dest_c_eo = xxxtzyx2pxxxtzyx(input_array=_dest_c)
                 self.sitting.M_oo[:, e, ...] = _dest_c_eo[1]
                 self.hopping.M_eo[:, e, ...] = _dest_c_eo[0]
                 # give aother partly sitting.ee and sitting.oo
                 dest_f_eo = dest_f_eo.clone()
                 _dest_f_eo[0] = fine_sitting.matvec_ee(src_e=_src_f_eo[0])
                 _dest_f_eo[1] = fine_sitting.matvec_oo(src_o=_src_f_eo[1])
-                _dest_f = dslash.pxxxtzyx2xxxtzyx(input_array=_dest_f_eo)
+                _dest_f = pxxxtzyx2xxxtzyx(input_array=_dest_f_eo)
                 _dest_c = restrict(
                     local_ortho_null_vecs=local_ortho_null_vecs, fine_vec=_dest_f)
-                _dest_c_eo = dslash.xxxtzyx2pxxxtzyx(input_array=_dest_c)
+                _dest_c_eo = xxxtzyx2pxxxtzyx(input_array=_dest_c)
                 self.sitting.M_ee[:, e, ...] += _dest_c_eo[0]
                 self.sitting.M_oo[:, e, ...] += _dest_c_eo[1]
 
     def matvec(self, src: torch.Tensor) -> torch.Tensor:
-        src_eo = dslash.xxxtzyx2pxxxtzyx(input_array=src)
+        src_eo = xxxtzyx2pxxxtzyx(input_array=src)
         dest_eo = torch.zeros_like(src_eo)
         dest_eo[0] = self.hopping.matvec_eo(
             src_o=src_eo[1])+self.sitting.matvec_ee(src_e=src_eo[0])
         dest_eo[1] = self.hopping.matvec_oe(
             src_e=src_eo[0])+self.sitting.matvec_oo(src_o=src_eo[1])
-        return dslash.pxxxtzyx2xxxtzyx(input_array=dest_eo).clone()
+        return pxxxtzyx2xxxtzyx(input_array=dest_eo).clone()
 
 
 class GMRESSmoother:
