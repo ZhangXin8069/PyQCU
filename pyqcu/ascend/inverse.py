@@ -20,6 +20,9 @@ def cg(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], tol: flo
     """
     x = x0.clone() if x0 is not None else torch.randn_like(b)
     r = b - matvec(x)
+    if torch.norm(r).item() < tol:
+        print("x0 is just right!")
+        return x
     p = r.clone()
     v = torch.zeros_like(b)
     rho = torch.tensor(1.0, dtype=b.dtype, device=b.device)
@@ -37,10 +40,6 @@ def cg(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], tol: flo
         r -= alpha * v
         x += alpha * p
         rho = torch.vdot(r.flatten(), r.flatten())
-        if rho.abs() < 1e-30:
-            if verbose:
-                print("Breakdown: rho ≈ 0")
-            break
         beta = rho / rho_prev
         p = r + beta * p
         iter_time = perf_counter() - iter_start_time
@@ -81,6 +80,9 @@ def bicgstab(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], to
     """
     x = x0.clone() if x0 is not None else torch.randn_like(b)
     r = b - matvec(x)
+    if torch.norm(r).item() < tol:
+        print("x0 is just right!")
+        return x
     r_tilde = r.clone()
     p = torch.zeros_like(b)
     v = torch.zeros_like(b)
@@ -95,10 +97,6 @@ def bicgstab(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], to
     for i in range(max_iter):
         iter_start_time = perf_counter()
         rho = torch.vdot(r_tilde.flatten(), r.flatten())
-        if rho.abs() < 1e-30:
-            if verbose:
-                print("Breakdown: rho ≈ 0")
-            break
         beta = (rho / rho_prev) * (alpha / omega)
         rho_prev = rho
         p = r + beta * (p - omega * v)
@@ -152,7 +150,6 @@ def give_null_vecs(
         normalize: normalize the null_vecs (default: True).
         ortho_r: orthogonalization of r (default: True).
         ortho_null_vecs: orthogonalization of null_vecs (default: False).
-        verbose: Print progress information (default: True).
         verbose: Print progress information (default: True).
     Returns:
         Orthonormal near-null space vectors
@@ -534,7 +531,7 @@ class op:
 
 
 class mg:
-    def __init__(self, b: torch.Tensor,  wilson: dslash.wilson_parity, U_eo: torch.Tensor, clover: dslash.clover_parity, clover_eo: torch.Tensor,  min_size: int = 2, max_levels: int = 10, dof_list: Tuple[int, int, int, int] = [12, 8, 8, 4, 4, 2], tol: float = 1e-6, max_iter: int = 500, x0: torch.Tensor = None, max_restarts: int = 5, verbose: bool = True):
+    def __init__(self, b: torch.Tensor,  wilson: dslash.wilson_parity, U_eo: torch.Tensor, clover: dslash.clover_parity, clover_eo: torch.Tensor,  min_size: int = 2, max_levels: int = 10, dof_list: Tuple[int, int, int, int] = [12, 24, 12, 8, 4, 2, 4, 4, 24, 12, 12, 12, 4, 4, 4, 4, 4], tol: float = 1e-6, max_iter: int = 500, x0: torch.Tensor = None, max_restarts: int = 5, verbose: bool = True):
         self.b = b.reshape([12]+list(b.shape)[2:])  # sc->e
         self.min_size = min_size
         self.max_levels = max_levels
@@ -543,7 +540,8 @@ class mg:
         self.tol = tol
         self.max_iter = max_iter
         self.max_restarts = max_restarts
-        self.x0 = x0.clone() if x0 is not None else torch.randn_like(b)
+        self.x0 = x0.clone().reshape(
+            [12]+list(x0.shape)[2:]) if x0 is not None else torch.randn_like(self.b)  # sc->e
         self.verbose = verbose
         self.op_list = [op(wilson=wilson, U_eo=U_eo,
                            clover=clover, clover_eo=clover_eo, verbose=self.verbose)]
@@ -553,8 +551,8 @@ class mg:
         _Lz = b.shape[-3]
         _Lt = b.shape[-4]
         self.grid_list = []
-        self.b_list = [torch.zeros_like(self.b)]
-        self.u_list = [torch.randn_like(self.b)]
+        self.b_list = [self.b]
+        self.u_list = [self.x0]
         print(f"Building grid list:")
         while all(_ >= self.min_size for _ in [_Lt, _Lz, _Ly, _Lx]) and len(self.grid_list) < self.max_levels:
             self.grid_list.append([_Lt, _Lz, _Ly, _Lx])
@@ -566,29 +564,30 @@ class mg:
             _Lz //= 2
             _Lt //= 2
         print(f"self.grid_list:{self.grid_list}")
+        self.num_levels = len(self.grid_list)
+        self.dof_list = self.dof_list[:self.num_levels]
         self.lonv_list = []  # local_ortho_null_vecs_list
         # Build local-orthonormal near-null space vectors
         for i in range(1, len(self.grid_list)):
             _null_vecs = torch.randn(self.dof_list[i], self.dof_list[i-1], self.grid_list[i-1][-4], self.grid_list[i-1][-3], self.grid_list[i-1][-2], self.grid_list[i-1][-1],
                                      dtype=b.dtype, device=b.device)
-            _null_vecs = give_null_vecs(
-                null_vecs=_null_vecs,
-                matvec=self.op_list[i-1].matvec,
-                tol=self.tol,
-                max_iter=self.max_iter,
-                verbose=False
-            )
+            # _null_vecs = give_null_vecs(
+            #     null_vecs=_null_vecs,
+            #     matvec=self.op_list[i-1].matvec,
+            #     tol=self.tol,
+            #     max_iter=self.max_iter,
+            #     verbose=False
+            # )
             _local_ortho_null_vecs = local_orthogonalize(
                 null_vecs=_null_vecs,
                 mg_size=self.grid_list[i], verbose=False)
             self.lonv_list.append(_local_ortho_null_vecs)
-            self.b_list.append(torch.zeros(
+            self.b_list.append(torch.randn(
                 size=[self.dof_list[i]]+self.grid_list[i], dtype=b.dtype, device=b.device))
-            self.u_list.append(torch.zeros(
+            self.u_list.append(torch.randn(
                 size=[self.dof_list[i]]+self.grid_list[i], dtype=b.dtype, device=b.device))
             self.op_list.append(op(fine_hopping=self.op_list[i-1].hopping, fine_sitting=self.op_list[i -
                                                                                                      1].sitting, local_ortho_null_vecs=_local_ortho_null_vecs, verbose=self.verbose))
-        self.num_levels = len(self.grid_list)
         self.convergence_history = []
         # Initialize GMRES smoother
         self.smoother = GMRESSmoother(
@@ -596,7 +595,9 @@ class mg:
 
     def smooth(self, level: int = 0) -> torch.Tensor:
         return bicgstab(b=self.b_list[level], matvec=self.op_list[level].matvec,  x0=self.u_list[level], max_iter=self.max_restarts, verbose=False)
-        return self.smoother.smooth(matvec=self.op_list[level].matvec, b=self.b_list[level], x0=self.u_list[level])
+        # return bicgstab(b=self.b_list[level], matvec=self.op_list[level].matvec, max_iter=self.max_restarts, verbose=False)
+        # return self.smoother.smooth(matvec=self.op_list[level].matvec, b=self.b_list[level], x0=self.u_list[level])
+        # return self.smoother.smooth(matvec=self.op_list[level].matvec, b=self.b_list[level])
 
     def give_residual(self, level: int = 0) -> torch.Tensor:
         return self.b_list[level] - self.op_list[level].matvec(self.u_list[level])
@@ -647,7 +648,7 @@ class mg:
             r_coarse = restrict(fine_vec=self.give_residual(level=level),
                                 local_ortho_null_vecs=self.lonv_list[level], verbose=self.verbose)
             self.b_list[level + 1] = r_coarse
-            self.u_list[level + 1] = torch.zeros_like(r_coarse)
+            # self.u_list[level + 1] = torch.zeros_like(r_coarse) # x->>0??????
             # Recursive call to coarser level
             e_coarse = self.v_cycle(level=level + 1)
             # Prolongate error correction to fine grid
@@ -715,7 +716,8 @@ class mg:
         import numpy as np
         np.Inf = np.inf
         plt.figure(figsize=(10, 6))
-        plt.title('convergence_history:', fontsize=16)
+        plt.title(
+            f"(self.grid_list:{self.grid_list})convergence_history(self.dof_list:{self.dof_list})", fontsize=16)
         plt.semilogy(range(1, len(self.convergence_history) + 1),
                      self.convergence_history, 'b-o', markersize=4, linewidth=2)
         plt.xlabel(
