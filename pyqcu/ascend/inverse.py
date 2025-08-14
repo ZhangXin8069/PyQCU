@@ -1,13 +1,11 @@
 import torch
-import torch.nn as nn
-import time
 from time import perf_counter
-from typing import Tuple, Optional, Callable
+from typing import Tuple, Callable
 from pyqcu.ascend import dslash
 from pyqcu.ascend.include import *
 
 
-def cg(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], tol: float = 1e-6, max_iter: int = 500, x0=None, verbose=True) -> torch.Tensor:
+def cg(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], tol: float = 1e-6, max_iter: int = 500, x0: torch.Tensor = None, verbose: bool = True) -> torch.Tensor:
     """
     Conjugate Gradient (CG) solver for linear systems Ax = b. (Requirement A is a Hermitian matrix).
     Args:
@@ -56,15 +54,19 @@ def cg(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], tol: flo
                 print(
                     f"Converged at iteration {i} with residual {rho.real:.6e}")
             break
+    else:
+        print("  Warning: Maximum iterations reached, may not have converged")
     total_time = perf_counter() - start_time
     avg_iter_time = sum(iter_times) / len(iter_times)
     print("\nPerformance Statistics:")
-    print(f"Total time: {total_time:.6f} s")
+    print(f"Total iterations: {len(iter_times)}")
+    print(f"Total time: {total_time:.6f} seconds")
     print(f"Average time per iteration: {avg_iter_time:.6f} s")
+    print(f"Final residual: {rho.real:.2e}")
     return x
 
 
-def bicgstab(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], tol: float = 1e-6, max_iter: int = 500, x0=None, verbose=True) -> torch.Tensor:
+def bicgstab(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], tol: float = 1e-6, max_iter: int = 500, x0: torch.Tensor = None, verbose: bool = True) -> torch.Tensor:
     """
     BIConjugate Gradient STABilized(BICGSTAB) solver for linear systems Ax = b. (It is not required that A be a Hermitian matrix).
     Args:
@@ -120,13 +122,15 @@ def bicgstab(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], to
                 print(
                     f"Converged at iteration {i} with residual {r_norm2:.6e}")
             break
+    else:
+        print("  Warning: Maximum iterations reached, may not have converged")
     total_time = perf_counter() - start_time
-    avg_iter_time = sum(iter_times) / \
-        len(iter_times) if iter_times else 0.0
-    if verbose:
-        print("\nPerformance Statistics:")
-        print(f"Total time: {total_time:.6f} s")
-        print(f"Average time per iteration: {avg_iter_time:.6f} s")
+    avg_iter_time = sum(iter_times) / len(iter_times)
+    print("\nPerformance Statistics:")
+    print(f"Total iterations: {len(iter_times)}")
+    print(f"Total time: {total_time:.6f} seconds")
+    print(f"Average time per iteration: {avg_iter_time:.6f} s")
+    print(f"Final residual: {r_norm2:.2e}")
     return x
 
 
@@ -168,7 +172,7 @@ def give_null_vecs(
     for i in range(dof):
         # v=r-A^{-1}Ar
         null_vecs[i] -= bicgstab(b=matvec(null_vecs[i]), matvec=matvec, tol=tol*1000,
-                                 max_iter=max_iter, verbose=verbose)  # tol needs to be bigger...
+                                 max_iter=max_iter, verbose=False)  # tol needs to be bigger...
     if ortho_null_vecs:
         for i in range(dof):
             # The orthogonalization of null_vecs
@@ -260,21 +264,14 @@ def restrict(local_ortho_null_vecs: torch.Tensor, fine_vec: torch.Tensor, verbos
         vector in coarse grid.
     """
     shape = local_ortho_null_vecs.shape
-    dof = shape[0]
+    coarse_dof = shape[0]
     if verbose:
-        print(f"restrict:shape,dof:{shape,dof}")
+        print(f"restrict:shape,coarse_dof:{shape,coarse_dof}")
     _fine_vec = fine_vec.reshape(shape=shape[1:]).clone()
-    if len(shape) == 10:
+    if verbose:
         print("EeTtZzYyXx,eTtZzYyXx->ETZYX")
-        return torch.einsum(
-            "EeTtZzYyXx,eTtZzYyXx->ETZYX", local_ortho_null_vecs, _fine_vec)
-    elif len(shape) == 11:
-        print("EscTtZzYyXx,scTtZzYyXx->ETZYX")
-        return torch.einsum(
-            "EscTtZzYyXx,scTtZzYyXx->ETZYX", local_ortho_null_vecs, _fine_vec)
-    else:
-        print('len(shape) != 10 or 11!!!')
-        raise ValueError
+    return torch.einsum(
+        "EeTtZzYyXx,eTtZzYyXx->ETZYX", local_ortho_null_vecs, _fine_vec)
 
 
 def prolong(local_ortho_null_vecs: torch.Tensor, coarse_vec: torch.Tensor, verbose: bool = True) -> torch.Tensor:
@@ -288,146 +285,14 @@ def prolong(local_ortho_null_vecs: torch.Tensor, coarse_vec: torch.Tensor, verbo
         vector in coarse grid.
     """
     shape = local_ortho_null_vecs.shape
-    dof = shape[0]
+    fine_dof = shape[1]
     if verbose:
-        print(f"prolong:shape,dof:{shape,dof}")
+        print(f"prolong:shape,fine_dof:{shape,fine_dof}")
     _coarse_vec = coarse_vec.reshape(shape=shape[0:1]+shape[-8:][::2]).clone()
-    if len(shape) == 10:
-        print("EeTtZzYyXx, ETZYX->eTtZzYyXx")
-        return torch.einsum(
-            "EeTtZzYyXx, ETZYX->eTtZzYyXx", local_ortho_null_vecs.conj(), _coarse_vec).reshape([dof, shape[-8]*shape[-7], shape[-6]*shape[-5], shape[-4]*shape[-3], shape[-2]*shape[-1]])
-    elif len(shape) == 11:
-        print("EscTtZzYyXx, ETZYX->scTtZzYyXx")
-        return torch.einsum(
-            "EscTtZzYyXx, ETZYX->scTtZzYyXx", local_ortho_null_vecs.conj(), _coarse_vec).reshape([4, 3, shape[-8]*shape[-7], shape[-6]*shape[-5], shape[-4]*shape[-3], shape[-2]*shape[-1]])
-    else:
-        print('len(shape) != 10 or 11!!!')
-        raise ValueError
-
-
-class hopping:
-    def __init__(self, wilson: dslash.wilson_parity = None, U_eo: torch.Tensor = None):
-        self.M_eo = torch.zeros([])
-        self.M_oe = torch.zeros([])
-        self.wilson = wilson
-        self.U_eo = U_eo
-
-    def matvec_eo(self, src_o: torch.Tensor) -> torch.Tensor:
-        if self.wilson != None:
-            return self.wilson.give_wilson_eo(
-                src_o=src_o, U_eo=self.U_eo)
-        else:
-            return torch.einsum(
-                "EeTZYX, eTZYX->ETZYX", self.M_eo, src_o)
-
-    def matvec_oe(self, src_e: torch.Tensor) -> torch.Tensor:
-        if self.wilson != None:
-            return self.wilson.give_wilson_oe(
-                src_e=src_e, U_eo=self.U_eo)
-        else:
-            return torch.einsum(
-                "EeTZYX, eTZYX->ETZYX", self.M_oe, src_e)
-
-
-class sitting:
-    def __init__(self, clover: dslash.clover_parity = None, clover_eo: torch.Tensor = None):
-        self.M_ee = torch.zeros([])
-        self.M_oo = torch.zeros([])
-        self.clover = clover
-        self.clover_eo = clover_eo
-
-    def matvec_ee(self, src_e: torch.Tensor) -> torch.Tensor:
-        if self.clover != None:  # remmber to add I
-            return self.clover.give_clover_ee(
-                src_e=src_e, clover_eo=self.clover_eo)
-        else:
-            return torch.einsum(
-                "EeTZYX, eTZYX->ETZYX", self.M_ee, src_e)
-
-    def matvec_oo(self, src_o: torch.Tensor) -> torch.Tensor:
-        if self.clover != None:  # remmber to add I
-            return self.clover.give_clover_oo(
-                src_o=src_o, clover_eo=self.clover_eo)
-        else:
-            return torch.einsum(
-                "EeTZYX, eTZYX->ETZYX", self.M_oo, src_o)
-
-
-class op:
-    def __init__(self, wilson: dslash.wilson_parity = None, U_eo: torch.Tensor = None, clover: dslash.clover_parity = None, clover_eo: torch.Tensor = None, fine_hopping: hopping = None, fine_sitting: sitting = None, local_ortho_null_vecs: torch.Tensor = None, verbose=True):
-        self.hopping = hopping(wilson=wilson, U_eo=U_eo)
-        self.sitting = sitting(clover=clover, clover_eo=clover_eo)
-        self.verbose = verbose
-        if fine_hopping != None and fine_sitting != None and local_ortho_null_vecs != None:
-            shape = local_ortho_null_vecs.shape  # EeTtZzYyXx
-            dtype = local_ortho_null_vecs.dtype
-            device = local_ortho_null_vecs.device
-            dof = shape[0]
-            self.hopping.M_eo = torch.zeros(
-                size=[dof, dof, shape[-4*2], shape[-3*2], shape[-2*2], shape[-1*2]//2], dtype=dtype, device=device)  # EETZYX_p
-            self.hopping.M_oe = torch.zeros(
-                size=[dof, dof, shape[-4*2], shape[-3*2], shape[-2*2], shape[-1*2]//2], dtype=dtype, device=device)  # EETZYX_p
-            self.sitting.M_ee = torch.zeros(
-                size=[dof, dof, shape[-4*2], shape[-3*2], shape[-2*2], shape[-1*2]//2], dtype=dtype, device=device)  # EETZYX_p
-            self.sitting.M_oo = torch.zeros(
-                size=[dof, dof, shape[-4*2], shape[-3*2], shape[-2*2], shape[-1*2]//2], dtype=dtype, device=device)  # EETZYX_p
-            src_c = torch.zeros(
-                size=[dof, shape[-4*2], shape[-3*2], shape[-2*2], shape[-1*2]], dtype=dtype, device=device)   # ETZYX
-            src_c_I = torch.ones(
-                size=[shape[-4*2], shape[-3*2], shape[-2*2], shape[-1*2]], dtype=dtype, device=device)  # TZYX
-            dest_f = torch.zeros(size=[dof, shape[-8]*shape[-7], shape[-6]*shape[-5],
-                                 shape[-4]*shape[-3], shape[-2]*shape[-1]], dtype=dtype, device=device) if len(shape) == 10 else torch.zeros(size=[4, 3, shape[-8]*shape[-7], shape[-6]*shape[-5],
-                                                                                                                                                   shape[-4]*shape[-3], shape[-2]*shape[-1]], dtype=dtype, device=device)  # e(Tt)(Zz)(Yy)(Xx)
-            dest_f_eo = xxxtzyx2pxxxtzyx(input_array=dest_f.clone())
-            if self.verbose:
-                print(
-                    f"local_ortho_null_vecs.shape,src_c.shape,dest_f.shape:{local_ortho_null_vecs.shape,src_c.shape,dest_f.shape}")
-            for e in range(dof):
-                _src_c = src_c.clone()
-                _src_c[e] = src_c_I.clone()
-                _src_f = prolong(
-                    local_ortho_null_vecs=local_ortho_null_vecs, coarse_vec=_src_c, verbose=verbose)
-                if self.verbose:
-                    print(
-                        f"_src_f.shape:{_src_f.shape}")
-                _src_f_eo = xxxtzyx2pxxxtzyx(input_array=_src_f)
-                # give partly sitting.ee and whole hopping.oe
-                _dest_f_eo = dest_f_eo.clone()
-                _dest_f_eo[0] = fine_hopping.matvec_eo(src_o=_src_f_eo[1])
-                _dest_f = pxxxtzyx2xxxtzyx(input_array=_dest_f_eo)
-                _dest_c = restrict(
-                    local_ortho_null_vecs=local_ortho_null_vecs, fine_vec=_dest_f)
-                _dest_c_eo = xxxtzyx2pxxxtzyx(input_array=_dest_c)
-                self.sitting.M_ee[:, e, ...] = _dest_c_eo[0]
-                self.hopping.M_oe[:, e, ...] = _dest_c_eo[1]
-                # give partly sitting.oo and whole hopping.eo
-                _dest_f_eo = dest_f_eo.clone()
-                _dest_f_eo[1] = fine_hopping.matvec_oe(src_e=_src_f_eo[0])
-                _dest_f = pxxxtzyx2xxxtzyx(input_array=_dest_f_eo)
-                _dest_c = restrict(
-                    local_ortho_null_vecs=local_ortho_null_vecs, fine_vec=_dest_f)
-                _dest_c_eo = xxxtzyx2pxxxtzyx(input_array=_dest_c)
-                self.sitting.M_oo[:, e, ...] = _dest_c_eo[1]
-                self.hopping.M_eo[:, e, ...] = _dest_c_eo[0]
-                # give aother partly sitting.ee and sitting.oo
-                dest_f_eo = dest_f_eo.clone()
-                _dest_f_eo[0] = fine_sitting.matvec_ee(src_e=_src_f_eo[0])
-                _dest_f_eo[1] = fine_sitting.matvec_oo(src_o=_src_f_eo[1])
-                _dest_f = pxxxtzyx2xxxtzyx(input_array=_dest_f_eo)
-                _dest_c = restrict(
-                    local_ortho_null_vecs=local_ortho_null_vecs, fine_vec=_dest_f)
-                _dest_c_eo = xxxtzyx2pxxxtzyx(input_array=_dest_c)
-                self.sitting.M_ee[:, e, ...] += _dest_c_eo[0]
-                self.sitting.M_oo[:, e, ...] += _dest_c_eo[1]
-
-    def matvec(self, src: torch.Tensor) -> torch.Tensor:
-        src_eo = xxxtzyx2pxxxtzyx(input_array=src)
-        dest_eo = torch.zeros_like(src_eo)
-        dest_eo[0] = self.hopping.matvec_eo(
-            src_o=src_eo[1])+self.sitting.matvec_ee(src_e=src_eo[0])
-        dest_eo[1] = self.hopping.matvec_oe(
-            src_e=src_eo[0])+self.sitting.matvec_oo(src_o=src_eo[1])
-        return pxxxtzyx2xxxtzyx(input_array=dest_eo).clone()
+    if verbose:
+        print("EeTtZzYyXx,ETZYX->eTtZzYyXx")
+    return torch.einsum(
+        "EeTtZzYyXx,ETZYX->eTtZzYyXx", local_ortho_null_vecs.conj(), _coarse_vec).reshape([fine_dof, shape[-8]*shape[-7], shape[-6]*shape[-5], shape[-4]*shape[-3], shape[-2]*shape[-1]])
 
 
 class GMRESSmoother:
@@ -447,7 +312,7 @@ class GMRESSmoother:
         self.tol = tol
 
     def smooth(self, matvec: Callable[[torch.Tensor], torch.Tensor],
-               b: torch.Tensor, x0: torch.Tensor) -> torch.Tensor:
+               b: torch.Tensor, x0: torch.Tensor = None) -> torch.Tensor:
         """
         Apply GMRES smoothing to the linear system op*x = b.
         Args:
@@ -459,7 +324,7 @@ class GMRESSmoother:
         """
         def _matvec(src: torch.Tensor) -> torch.Tensor:
             return matvec(src.reshape(b.shape)).flatten()
-        x = x0.clone().flatten()
+        x = x0.flatten().clone() if x0 is not None else torch.randn_like(b.flatten())
         r = b.flatten() - _matvec(x)
         r_norm = torch.norm(r).item()
         if r_norm < 1e-12:
@@ -536,72 +401,201 @@ class GMRESSmoother:
         return y
 
 
+class hopping:
+    def __init__(self, wilson: dslash.wilson_parity = None, U_eo: torch.Tensor = None):
+        self.M_eo = torch.zeros([])
+        self.M_oe = torch.zeros([])
+        self.wilson = wilson
+        self.U_eo = U_eo
+
+    def matvec_eo(self, src_o: torch.Tensor) -> torch.Tensor:
+        if self.wilson != None:
+            return self.wilson.give_wilson_eo(
+                src_o=src_o.reshape([4, 3]+list(src_o.shape[1:])), U_eo=self.U_eo).reshape([12]+list(src_o.shape)[1:])
+        else:
+            return torch.einsum(
+                "EeTZYX, eTZYX->ETZYX", self.M_eo, src_o)
+
+    def matvec_oe(self, src_e: torch.Tensor) -> torch.Tensor:
+        if self.wilson != None:
+            return self.wilson.give_wilson_oe(
+                src_e=src_e.reshape([4, 3]+list(src_e.shape[1:])), U_eo=self.U_eo).reshape([12]+list(src_e.shape)[1:])
+        else:
+            return torch.einsum(
+                "EeTZYX, eTZYX->ETZYX", self.M_oe, src_e)
+
+
+class sitting:
+    def __init__(self, clover: dslash.clover_parity = None, clover_eo: torch.Tensor = None):
+        self.M_ee = torch.zeros([])
+        self.M_oo = torch.zeros([])
+        self.clover = clover
+        self.clover_eo = clover_eo
+
+    def matvec_ee(self, src_e: torch.Tensor) -> torch.Tensor:
+        if self.clover != None:  # remmber to add I
+            return self.clover.give_clover_ee(
+                src_e=src_e.reshape([4, 3]+list(src_e.shape[1:])), clover_eo=self.clover_eo).reshape([12]+list(src_e.shape)[1:])
+        else:
+            return torch.einsum(
+                "EeTZYX, eTZYX->ETZYX", self.M_ee, src_e)
+
+    def matvec_oo(self, src_o: torch.Tensor) -> torch.Tensor:
+        if self.clover != None:  # remmber to add I
+            return self.clover.give_clover_oo(
+                src_o=src_o.reshape([4, 3]+list(src_o.shape[1:])), clover_eo=self.clover_eo).reshape([12]+list(src_o.shape)[1:])
+        else:
+            return torch.einsum(
+                "EeTZYX, eTZYX->ETZYX", self.M_oo, src_o)
+
+
+class op:
+    def __init__(self, wilson: dslash.wilson_parity = None, U_eo: torch.Tensor = None, clover: dslash.clover_parity = None, clover_eo: torch.Tensor = None, fine_hopping: hopping = None, fine_sitting: sitting = None, local_ortho_null_vecs: torch.Tensor = None, verbose: bool = True):
+        self.hopping = hopping(wilson=wilson, U_eo=U_eo)
+        self.sitting = sitting(clover=clover, clover_eo=clover_eo)
+        self.verbose = verbose
+        if fine_hopping != None and fine_sitting != None and local_ortho_null_vecs != None:
+            shape = local_ortho_null_vecs.shape  # EeTtZzYyXx
+            dtype = local_ortho_null_vecs.dtype
+            device = local_ortho_null_vecs.device
+            dof = shape[0]
+            fine_dof = shape[1]
+            self.hopping.M_eo = torch.zeros(
+                size=[dof, dof, shape[-4*2], shape[-3*2], shape[-2*2], shape[-1*2]//2], dtype=dtype, device=device)  # EETZYX_p
+            self.hopping.M_oe = torch.zeros(
+                size=[dof, dof, shape[-4*2], shape[-3*2], shape[-2*2], shape[-1*2]//2], dtype=dtype, device=device)  # EETZYX_p
+            self.sitting.M_ee = torch.zeros(
+                size=[dof, dof, shape[-4*2], shape[-3*2], shape[-2*2], shape[-1*2]//2], dtype=dtype, device=device)  # EETZYX_p
+            self.sitting.M_oo = torch.zeros(
+                size=[dof, dof, shape[-4*2], shape[-3*2], shape[-2*2], shape[-1*2]//2], dtype=dtype, device=device)  # EETZYX_p
+            src_c = torch.zeros(
+                size=[dof, shape[-4*2], shape[-3*2], shape[-2*2], shape[-1*2]], dtype=dtype, device=device)   # ETZYX
+            src_c_I = torch.ones(
+                size=[shape[-4*2], shape[-3*2], shape[-2*2], shape[-1*2]], dtype=dtype, device=device)  # TZYX
+            dest_f = torch.zeros(size=[fine_dof, shape[-8]*shape[-7], shape[-6]*shape[-5],
+                                 shape[-4]*shape[-3], shape[-2]*shape[-1]], dtype=dtype, device=device)  # e(Tt)(Zz)(Yy)(Xx)
+            dest_f_eo = xxxtzyx2pxxxtzyx(input_array=dest_f.clone())
+            if self.verbose:
+                print(
+                    f"local_ortho_null_vecs.shape,src_c.shape,dest_f.shape:{local_ortho_null_vecs.shape,src_c.shape,dest_f.shape}")
+            for e in range(dof):
+                _src_c = src_c.clone()
+                _src_c[e] = src_c_I.clone()
+                _src_f = prolong(
+                    local_ortho_null_vecs=local_ortho_null_vecs, coarse_vec=_src_c, verbose=self.verbose)
+                if self.verbose:
+                    print(
+                        f"_src_f.shape:{_src_f.shape}")
+                _src_f_eo = xxxtzyx2pxxxtzyx(input_array=_src_f)
+                # give partly sitting.ee and whole hopping.oe
+                _dest_f_eo = dest_f_eo.clone()
+                _dest_f_eo[0] = fine_hopping.matvec_eo(src_o=_src_f_eo[1])
+                _dest_f = pxxxtzyx2xxxtzyx(input_array=_dest_f_eo)
+                _dest_c = restrict(
+                    local_ortho_null_vecs=local_ortho_null_vecs, fine_vec=_dest_f, verbose=self.verbose)
+                _dest_c_eo = xxxtzyx2pxxxtzyx(input_array=_dest_c)
+                self.sitting.M_ee[:, e, ...] = _dest_c_eo[0]
+                self.hopping.M_oe[:, e, ...] = _dest_c_eo[1]
+                # give partly sitting.oo and whole hopping.eo
+                _dest_f_eo = dest_f_eo.clone()
+                _dest_f_eo[1] = fine_hopping.matvec_oe(src_e=_src_f_eo[0])
+                _dest_f = pxxxtzyx2xxxtzyx(input_array=_dest_f_eo)
+                _dest_c = restrict(
+                    local_ortho_null_vecs=local_ortho_null_vecs, fine_vec=_dest_f, verbose=self.verbose)
+                _dest_c_eo = xxxtzyx2pxxxtzyx(input_array=_dest_c)
+                self.sitting.M_oo[:, e, ...] = _dest_c_eo[1]
+                self.hopping.M_eo[:, e, ...] = _dest_c_eo[0]
+                # give aother partly sitting.ee and sitting.oo
+                dest_f_eo = dest_f_eo.clone()
+                _dest_f_eo[0] = fine_sitting.matvec_ee(src_e=_src_f_eo[0])
+                _dest_f_eo[1] = fine_sitting.matvec_oo(src_o=_src_f_eo[1])
+                _dest_f = pxxxtzyx2xxxtzyx(input_array=_dest_f_eo)
+                _dest_c = restrict(
+                    local_ortho_null_vecs=local_ortho_null_vecs, fine_vec=_dest_f, verbose=self.verbose)
+                _dest_c_eo = xxxtzyx2pxxxtzyx(input_array=_dest_c)
+                self.sitting.M_ee[:, e, ...] += _dest_c_eo[0]
+                self.sitting.M_oo[:, e, ...] += _dest_c_eo[1]
+
+    def matvec(self, src: torch.Tensor) -> torch.Tensor:
+        if len(src.shape) == 6:
+            _src = src.clone().reshape([12]+list(src.shape[2:]))
+        else:
+            _src = src.clone()
+        src_eo = xxxtzyx2pxxxtzyx(input_array=_src)
+        dest_eo = torch.zeros_like(src_eo)
+        dest_eo[0] = self.hopping.matvec_eo(
+            src_o=src_eo[1])+self.sitting.matvec_ee(src_e=src_eo[0])
+        dest_eo[1] = self.hopping.matvec_oe(
+            src_e=src_eo[0])+self.sitting.matvec_oo(src_o=src_eo[1])
+        if len(src.shape) == 6:
+            return pxxxtzyx2xxxtzyx(input_array=dest_eo).clone().reshape(src.shape)
+        else:
+            return pxxxtzyx2xxxtzyx(input_array=dest_eo).clone()
+
+
 class mg:
-    def __init__(self, b: torch.Tensor,  wilson: dslash.wilson_parity, U_eo: torch.Tensor, clover: dslash.clover_parity, clover_eo: torch.Tensor,  min_size: int = 2, max_levels: int = 5, dof: int = 12, tol: float = 1e-6, max_iter: int = 500, x0=None, verbose=True):
-        self.b = b
-        self.op_list = [op(wilson=wilson, U_eo=U_eo,
-                           clover=clover, clover_eo=clover_eo, verbose=verbose)]
+    def __init__(self, b: torch.Tensor,  wilson: dslash.wilson_parity, U_eo: torch.Tensor, clover: dslash.clover_parity, clover_eo: torch.Tensor,  min_size: int = 2, max_levels: int = 10, dof_list: Tuple[int, int, int, int] = [12, 8, 8, 4, 4, 2], tol: float = 1e-6, max_iter: int = 500, x0: torch.Tensor = None, max_restarts: int = 5, verbose: bool = True):
+        self.b = b.reshape([12]+list(b.shape)[2:])  # sc->e
         self.min_size = min_size
         self.max_levels = max_levels
-        self.dof = dof
+        self.dof_list = dof_list
+        print(f"self.dof_list:{self.dof_list}")
         self.tol = tol
         self.max_iter = max_iter
+        self.max_restarts = max_restarts
         self.x0 = x0.clone() if x0 is not None else torch.randn_like(b)
         self.verbose = verbose
+        self.op_list = [op(wilson=wilson, U_eo=U_eo,
+                           clover=clover, clover_eo=clover_eo, verbose=self.verbose)]
         # Build grid list
         _Lx = b.shape[-1]
         _Ly = b.shape[-2]
         _Lz = b.shape[-3]
         _Lt = b.shape[-4]
         self.grid_list = []
-        self.b_list = [torch.zeros_like(b)]
-        self.u_list = [torch.randn_like(b)]
+        self.b_list = [torch.zeros_like(self.b)]
+        self.u_list = [torch.randn_like(self.b)]
         print(f"Building grid list:")
-        while len(self.grid_list) < self.max_levels:
+        while all(_ >= self.min_size for _ in [_Lt, _Lz, _Ly, _Lx]) and len(self.grid_list) < self.max_levels:
             self.grid_list.append([_Lt, _Lz, _Ly, _Lx])
             print(
                 f"  Level {len(self.grid_list)-1}: {_Lx}x{_Ly}x{_Lz}x{_Lt}")
-            if all(_ == self.min_size for _ in [_Lx, _Ly, _Lz, _Lt]):
-                break
-            _Lx = max(self.min_size, _Lx // 2)
-            _Ly = max(self.min_size, _Ly // 2)
-            _Lz = max(self.min_size, _Lz // 2)
-            _Lt = max(self.min_size, _Lt // 2)
+            # go with hopping and sitting, must be 2->1
+            _Lx //= 2
+            _Ly //= 2
+            _Lz //= 2
+            _Lt //= 2
         print(f"self.grid_list:{self.grid_list}")
         self.lonv_list = []  # local_ortho_null_vecs_list
         # Build local-orthonormal near-null space vectors
         for i in range(1, len(self.grid_list)):
-            if i == 1:
-                _null_vecs = torch.randn(dof, 4, 3, b.shape[-4], b.shape[-3], b.shape[-2], b.shape[-1],
-                                         dtype=b.dtype, device=b.device)
-            else:
-                _null_vecs = torch.randn(dof, dof, self.grid_list[i-1][-4], self.grid_list[i-1][-3], self.grid_list[i-1][-2], self.grid_list[i-1][-1],
-                                         dtype=b.dtype, device=b.device)
+            _null_vecs = torch.randn(self.dof_list[i], self.dof_list[i-1], self.grid_list[i-1][-4], self.grid_list[i-1][-3], self.grid_list[i-1][-2], self.grid_list[i-1][-1],
+                                     dtype=b.dtype, device=b.device)
             _null_vecs = give_null_vecs(
                 null_vecs=_null_vecs,
                 matvec=self.op_list[i-1].matvec,
                 tol=self.tol,
                 max_iter=self.max_iter,
-                verbose=self.verbose
+                verbose=False
             )
             _local_ortho_null_vecs = local_orthogonalize(
                 null_vecs=_null_vecs,
-                mg_size=self.grid_list[i])
+                mg_size=self.grid_list[i], verbose=False)
             self.lonv_list.append(_local_ortho_null_vecs)
             self.b_list.append(torch.zeros(
-                size=[dof]+self.grid_list[i], dtype=b.dtype, device=b.device))
+                size=[self.dof_list[i]]+self.grid_list[i], dtype=b.dtype, device=b.device))
             self.u_list.append(torch.zeros(
-                size=[dof]+self.grid_list[i], dtype=b.dtype, device=b.device))
+                size=[self.dof_list[i]]+self.grid_list[i], dtype=b.dtype, device=b.device))
             self.op_list.append(op(fine_hopping=self.op_list[i-1].hopping, fine_sitting=self.op_list[i -
                                                                                                      1].sitting, local_ortho_null_vecs=_local_ortho_null_vecs, verbose=self.verbose))
         self.num_levels = len(self.grid_list)
         self.convergence_history = []
-        self.level_info = []
         # Initialize GMRES smoother
         self.smoother = GMRESSmoother(
-            max_krylov=5, max_restarts=1, tol=0.1)
+            max_krylov=5, max_restarts=self.max_restarts, tol=0.1)
 
     def smooth(self, level: int = 0) -> torch.Tensor:
+        return bicgstab(b=self.b_list[level], matvec=self.op_list[level].matvec,  x0=self.u_list[level], max_iter=self.max_restarts, verbose=False)
         return self.smoother.smooth(matvec=self.op_list[level].matvec, b=self.b_list[level], x0=self.u_list[level])
 
     def give_residual(self, level: int = 0) -> torch.Tensor:
@@ -610,7 +604,7 @@ class mg:
     def give_residual_norm(self, level: int = 0) -> torch.Tensor:
         return torch.norm(self.give_residual(level=level)).item()
 
-    def v_cycle(self, level: int = 0) -> torch.Tensor:
+    def v_cycle(self, level: int = 0, pre_smooth: bool = True, post_smooth: bool = True) -> torch.Tensor:
         """
         V-cycle multigrid recursion.
         Implements the standard V-cycle: pre-smooth, restrict, recurse, 
@@ -630,45 +624,51 @@ class mg:
                     f"    Pre-solve residual norm: {self.give_residual_norm(level=level):.4e}")
                 print(f"    Solving coarsest grid directly...")
             self.u_list[level] = bicgstab(
-                b=self.b_list[level], matvec=self.op_list[level].matvec, x0=self.u_list[level], tol=self.tol*0.1, max_iter=self.max_iter, verbose=False)
+                b=self.b_list[level], matvec=self.op_list[level].matvec, tol=self.tol, max_iter=self.max_iter, x0=self.u_list[level], verbose=False)
             if self.verbose:
                 print(
                     f"    Post-solve residual norm: {self.give_residual_norm(level=level):.4e}")
             return self.u_list[level].clone()
         # Pre-smoothing
+        if pre_smooth:
+            if self.verbose:
+                print(
+                    f"    Pre pre-smooth residual norm: {self.give_residual_norm(level=level):.4e}")
+                print(f"    Pre-smoothing...")
+            self.u_list[level] = self.smooth(level=level)
+            if level == 0:
+                self.convergence_history.append(self.give_residual_norm())
         if self.verbose:
             print(
-                f"    Pre pre-smooth residual norm: {self.give_residual_norm(level=level):.4e}")
-            print(f"    Pre-smoothing...")
-        self.u_list[level] = self.smooth(level=level)
-        residual = self.give_residual(level=level)
-        if self.verbose:
-            print(
-                f"    Post pre-smooth residual norm: {torch.norm(residual).item():.4e}")
+                f"    Post pre-smooth residual norm: {self.give_residual_norm(level=level):.4e}")
         # Coarse grid correction
         if level != self.num_levels-1:
             # Restrict residual to coarse grid
-            r_coarse = restrict(fine_vec=residual,
-                                local_ortho_null_vecs=self.lonv_list[level])
+            r_coarse = restrict(fine_vec=self.give_residual(level=level),
+                                local_ortho_null_vecs=self.lonv_list[level], verbose=self.verbose)
             self.b_list[level + 1] = r_coarse
             self.u_list[level + 1] = torch.zeros_like(r_coarse)
             # Recursive call to coarser level
             e_coarse = self.v_cycle(level=level + 1)
             # Prolongate error correction to fine grid
             e_fine = prolong(coarse_vec=e_coarse,
-                             local_ortho_null_vecs=self.lonv_list[level])
+                             local_ortho_null_vecs=self.lonv_list[level], verbose=self.verbose)
             # Apply correction
             self.u_list[level] += e_fine
+        if level == 0:
+            self.convergence_history.append(self.give_residual_norm())
         # Post-smoothing
+        if post_smooth:
+            if self.verbose:
+                print(
+                    f"    Pre post-smooth residual norm: {self.give_residual_norm(level=level):.4e}")
+                print(f"    Post-smoothing...")
+            self.u_list[level] = self.smooth(level=level)
+            if level == 0:
+                self.convergence_history.append(self.give_residual_norm())
         if self.verbose:
             print(
-                f"    Pre post-smooth residual norm: {self.give_residual_norm(level=level):.4e}")
-            print(f"    Post-smoothing...")
-        self.u_list[level] = self.smooth(level=level)
-        residual = self.give_residual(level=level)
-        if self.verbose:
-            print(
-                f"    Post post-smooth residual norm: {torch.norm(residual).item():.4e}")
+                f"    Post post-smooth residual norm: {self.give_residual_norm(level=level):.4e}")
         return self.u_list[level].clone()
 
     def solve(self) -> torch.Tensor:
@@ -677,30 +677,49 @@ class mg:
         Sets up the multigrid list, performs V-cycle iterations until
         convergence, and returns the solution.
         """
-        start_time = time.time()
+        start_time = perf_counter()
+        iter_times = []
         # Main multigrid iteration loop
         for i in range(self.max_iter):
             print(f"\nMG:Iteration {i + 1}:")
+            iter_start_time = perf_counter()
             # Perform V-cycle
-            self.u_list[0] = self.v_cycle(level=0)
+            self.u_list[0] = self.v_cycle(
+                level=0, pre_smooth=True, post_smooth=True)
             # Check convergence on finest grid
             residual_norm = self.give_residual_norm(level=0)
-            self.convergence_history.append(residual_norm)
+            iter_time = perf_counter() - iter_start_time
+            iter_times.append(iter_time)
             if self.verbose:
                 print(
                     f"MG:Iteration {i + 1} completed, residual norm: {residual_norm:.4e}")
             # Check for convergence
             if residual_norm < self.tol:
-                print(
-                    f"Converged at iteration {i} with residual {residual_norm:.6e}")
+                if self.verbose:
+                    print(
+                        f"Converged at iteration {i} with residual {residual_norm:.6e}")
                 break
         else:
             print("  Warning: Maximum iterations reached, may not have converged")
-        solve_time = time.time() - start_time
-        print("\n" + "="*60)
-        print("Solution completed!")
-        print(f"Total iterations: {len(self.convergence_history)}")
+        total_time = perf_counter() - start_time
+        avg_iter_time = sum(iter_times) / len(iter_times)
+        print("\nPerformance Statistics:")
+        print(f"Total iterations: {len(iter_times)}")
+        print(f"Total time: {total_time:.6f} seconds")
+        print(f"Average time per iteration: {avg_iter_time:.6f} s")
         print(f"Final residual: {self.convergence_history[-1]:.2e}")
-        print(f"Solve time: {solve_time:.4f} seconds")
-        print(f"{'='*60}")
-        return self.u_list[0].clone()
+        return self.u_list[0].clone().reshape([4, 3]+list(self.u_list[0].shape)[1:])
+
+    def plot(self):
+        import matplotlib.pyplot as plt
+        import numpy as np
+        np.Inf = np.inf
+        plt.figure(figsize=(10, 6))
+        plt.title('convergence_history:', fontsize=16)
+        plt.semilogy(range(1, len(self.convergence_history) + 1),
+                     self.convergence_history, 'b-o', markersize=4, linewidth=2)
+        plt.xlabel(
+            f"Iteration(self.max_restarts:{self.max_restarts})", fontsize=12)
+        plt.ylabel('Residual Norm', fontsize=12)
+        plt.grid(True, alpha=0.3)
+        plt.tight_layout()
