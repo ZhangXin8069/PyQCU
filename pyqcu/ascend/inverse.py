@@ -563,7 +563,7 @@ class op:
 
 
 class mg:
-    def __init__(self, b: torch.Tensor,  wilson: dslash.wilson_parity, U_eo: torch.Tensor, clover: dslash.clover_parity, clover_eo: torch.Tensor,  min_size: int = 2, max_levels: int = 10, dof_list: Tuple[int, int, int, int] = [12, 8, 4, 2, 12, 12, 12, 8, 4, 2, 4, 4, 24, 12, 12, 12, 4, 4, 4, 4, 4], tol: float = 1e-6, max_iter: int = 500, x0: torch.Tensor = None, max_restarts: int = 5, gmg: bool = False, pre_smooth: bool = True, post_smooth: bool = False, verbose: bool = True):
+    def __init__(self, b: torch.Tensor,  wilson: dslash.wilson_parity, U_eo: torch.Tensor, clover: dslash.clover_parity, clover_eo: torch.Tensor,  min_size: int = 2, max_levels: int = 2, dof_list: Tuple[int, int, int, int] = [12, 12, 12, 12, 8, 8, 4, 12, 12, 12, 8, 4, 2, 4, 4, 24, 12, 12, 12, 4, 4, 4, 4, 4], tol: float = 1e-6, max_iter: int = 500, x0: torch.Tensor = None, max_restarts: int = 5, gmg: bool = False, pre_smooth: bool = True, post_smooth: bool = False, verbose: bool = True):
         self.b = b.reshape([12]+list(b.shape)[2:])  # sc->e
         self.min_size = min_size
         self.max_levels = max_levels
@@ -632,9 +632,9 @@ class mg:
             max_krylov=5, max_restarts=self.max_restarts, tol=0.1)
 
     def smooth(self, level: int = 0) -> torch.Tensor:
-        return bicgstab(b=self.b_list[level], matvec=self.op_list[level].matvec,  x0=self.u_list[level], max_iter=self.max_restarts, verbose=False)
+        # return bicgstab(b=self.b_list[level], matvec=self.op_list[level].matvec,  x0=self.u_list[level], max_iter=self.max_restarts, verbose=False)
         # return bicgstab(b=self.b_list[level], matvec=self.op_list[level].matvec, max_iter=self.max_restarts, verbose=False)
-        # return self.smoother.smooth(matvec=self.op_list[level].matvec, b=self.b_list[level], x0=self.u_list[level])
+        return self.smoother.smooth(matvec=self.op_list[level].matvec, b=self.b_list[level], x0=self.u_list[level])
         # return self.smoother.smooth(matvec=self.op_list[level].matvec, b=self.b_list[level])
 
     def give_residual(self, level: int = 0) -> torch.Tensor:
