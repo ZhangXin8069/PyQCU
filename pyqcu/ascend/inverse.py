@@ -250,6 +250,38 @@ def local_orthogonalize(null_vecs: torch.Tensor,
     return local_ortho_null_vecs
 
 
+def local_gmg_like(null_vecs: torch.Tensor,
+                   mg_size: Tuple[int, int, int, int] = [2, 2, 2, 2],
+                   verbose: bool = True
+                   ) -> torch.Tensor:
+    dof = null_vecs.shape[0]  # Number of null space vectors
+    latt_size = list(null_vecs.shape[-4:])
+    shape = list(null_vecs.shape[:-4])+[mg_size[0], latt_size[0]//mg_size[0], mg_size[1], latt_size[1] //
+                                        mg_size[1], mg_size[2], latt_size[2]//mg_size[2], mg_size[3], latt_size[3]//mg_size[3]]
+    if verbose:
+        print(f"null_vecs.shape:{null_vecs.shape}")
+        print(f"dof,latt_size,mg_size,shape:{dof,latt_size,mg_size,shape}")
+    if not all(latt_size[-i-1] == shape[-2*i-1]*shape[-2*i-2] for i in range(4)):
+        print(
+            'not all(latt_size[-i-1] == shape[-2*i-1]*shape[-2*i-2] for i in range(4))')
+    local_null_vecs = null_vecs.reshape(shape=shape)
+    local_ortho_null_vecs = torch.zeros_like(local_null_vecs)
+    for X in range(mg_size[-1]):
+        for Y in range(mg_size[-2]):
+            for Z in range(mg_size[-3]):
+                for T in range(mg_size[-4]):
+                    _local_null_vecs = local_null_vecs[...,
+                                                       T, :, Z, :, Y, :, X, :]
+                    _local_null_vecs = torch.ones_like(_local_null_vecs)
+                    for i in range(dof):
+                        # The orthogonalization of local_null_vecs
+                        _local_null_vecs[i] /= torch.norm(
+                            _local_null_vecs[i]).item()*dof**0.5
+                    local_ortho_null_vecs[..., T, :, Z,
+                                          :, Y, :, X, :] = _local_null_vecs
+    return local_ortho_null_vecs
+
+
 def restrict(local_ortho_null_vecs: torch.Tensor, fine_vec: torch.Tensor, verbose: bool = True) -> torch.Tensor:
     """
     Restriction operator: fine -> coarse
@@ -531,7 +563,7 @@ class op:
 
 
 class mg:
-    def __init__(self, b: torch.Tensor,  wilson: dslash.wilson_parity, U_eo: torch.Tensor, clover: dslash.clover_parity, clover_eo: torch.Tensor,  min_size: int = 2, max_levels: int = 10, dof_list: Tuple[int, int, int, int] = [12, 24, 12, 8, 4, 2, 4, 4, 24, 12, 12, 12, 4, 4, 4, 4, 4], tol: float = 1e-6, max_iter: int = 500, x0: torch.Tensor = None, max_restarts: int = 5, verbose: bool = True):
+    def __init__(self, b: torch.Tensor,  wilson: dslash.wilson_parity, U_eo: torch.Tensor, clover: dslash.clover_parity, clover_eo: torch.Tensor,  min_size: int = 2, max_levels: int = 10, dof_list: Tuple[int, int, int, int] = [12, 8, 4, 2, 12, 12, 12, 8, 4, 2, 4, 4, 24, 12, 12, 12, 4, 4, 4, 4, 4], tol: float = 1e-6, max_iter: int = 500, x0: torch.Tensor = None, max_restarts: int = 5, gmg: bool = False, pre_smooth: bool = True, post_smooth: bool = False, verbose: bool = True):
         self.b = b.reshape([12]+list(b.shape)[2:])  # sc->e
         self.min_size = min_size
         self.max_levels = max_levels
@@ -540,6 +572,8 @@ class mg:
         self.tol = tol
         self.max_iter = max_iter
         self.max_restarts = max_restarts
+        self.pre_smooth = pre_smooth
+        self.post_smooth = post_smooth
         self.x0 = x0.clone().reshape(
             [12]+list(x0.shape)[2:]) if x0 is not None else torch.randn_like(self.b)  # sc->e
         self.verbose = verbose
@@ -571,16 +605,20 @@ class mg:
         for i in range(1, len(self.grid_list)):
             _null_vecs = torch.randn(self.dof_list[i], self.dof_list[i-1], self.grid_list[i-1][-4], self.grid_list[i-1][-3], self.grid_list[i-1][-2], self.grid_list[i-1][-1],
                                      dtype=b.dtype, device=b.device)
-            # _null_vecs = give_null_vecs(
-            #     null_vecs=_null_vecs,
-            #     matvec=self.op_list[i-1].matvec,
-            #     tol=self.tol,
-            #     max_iter=self.max_iter,
-            #     verbose=False
-            # )
-            _local_ortho_null_vecs = local_orthogonalize(
-                null_vecs=_null_vecs,
-                mg_size=self.grid_list[i], verbose=False)
+            if gmg:
+                _local_ortho_null_vecs = local_gmg_like(
+                    null_vecs=_null_vecs, mg_size=self.grid_list[i], verbose=False)
+            else:
+                # _null_vecs = give_null_vecs(
+                #     null_vecs=_null_vecs,
+                #     matvec=self.op_list[i-1].matvec,
+                #     tol=self.tol,
+                #     max_iter=self.max_iter,
+                #     verbose=False
+                # )  # TEST......
+                _local_ortho_null_vecs = local_orthogonalize(
+                    null_vecs=_null_vecs,
+                    mg_size=self.grid_list[i], verbose=False)
             self.lonv_list.append(_local_ortho_null_vecs)
             self.b_list.append(torch.randn(
                 size=[self.dof_list[i]]+self.grid_list[i], dtype=b.dtype, device=b.device))
@@ -605,7 +643,7 @@ class mg:
     def give_residual_norm(self, level: int = 0) -> torch.Tensor:
         return torch.norm(self.give_residual(level=level)).item()
 
-    def v_cycle(self, level: int = 0, pre_smooth: bool = True, post_smooth: bool = True) -> torch.Tensor:
+    def v_cycle(self, level: int = 0) -> torch.Tensor:
         """
         V-cycle multigrid recursion.
         Implements the standard V-cycle: pre-smooth, restrict, recurse, 
@@ -631,7 +669,7 @@ class mg:
                     f"    Post-solve residual norm: {self.give_residual_norm(level=level):.4e}")
             return self.u_list[level].clone()
         # Pre-smoothing
-        if pre_smooth:
+        if self.pre_smooth:
             if self.verbose:
                 print(
                     f"    Pre pre-smooth residual norm: {self.give_residual_norm(level=level):.4e}")
@@ -659,7 +697,7 @@ class mg:
         if level == 0:
             self.convergence_history.append(self.give_residual_norm())
         # Post-smoothing
-        if post_smooth:
+        if self.post_smooth:
             if self.verbose:
                 print(
                     f"    Pre post-smooth residual norm: {self.give_residual_norm(level=level):.4e}")
@@ -685,8 +723,7 @@ class mg:
             print(f"\nMG:Iteration {i + 1}:")
             iter_start_time = perf_counter()
             # Perform V-cycle
-            self.u_list[0] = self.v_cycle(
-                level=0, pre_smooth=True, post_smooth=True)
+            self.u_list[0] = self.v_cycle(level=0)
             # Check convergence on finest grid
             residual_norm = self.give_residual_norm(level=0)
             iter_time = perf_counter() - iter_start_time
