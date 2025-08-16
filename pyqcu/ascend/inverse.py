@@ -594,9 +594,9 @@ class mg:
                 f"  Level {len(self.grid_list)-1}: {_Lx}x{_Ly}x{_Lz}x{_Lt}")
             # go with hopping and sitting, must be 2->1
             _Lx //= 2
-            _Ly //= 2
+            # _Ly //= 2
             _Lz //= 2
-            _Lt //= 2
+            # _Lt //= 2
         print(f"self.grid_list:{self.grid_list}")
         self.num_levels = len(self.grid_list)
         self.dof_list = self.dof_list[:self.num_levels]
@@ -609,13 +609,13 @@ class mg:
                 _local_ortho_null_vecs = local_gmg_like(
                     null_vecs=_null_vecs, mg_size=self.grid_list[i], verbose=False)
             else:
-                # _null_vecs = give_null_vecs(
-                #     null_vecs=_null_vecs,
-                #     matvec=self.op_list[i-1].matvec,
-                #     tol=self.tol,
-                #     max_iter=self.max_iter,
-                #     verbose=False
-                # )  # TEST......
+                _null_vecs = give_null_vecs(
+                    null_vecs=_null_vecs,
+                    matvec=self.op_list[i-1].matvec,
+                    tol=self.tol,
+                    max_iter=self.max_iter,
+                    verbose=False
+                )  # TEST......
                 _local_ortho_null_vecs = local_orthogonalize(
                     null_vecs=_null_vecs,
                     mg_size=self.grid_list[i], verbose=False)
