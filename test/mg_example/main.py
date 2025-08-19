@@ -73,7 +73,7 @@ class operator_para:
             self.clover[:, :, i, i] = 1
         if self.if_fine != 0:
             print(self.hopping.shape)
-            ma = -0  # -0.4375
+            ma = -0.4  # -0.4375
             kappa = -1/(2*(ma + 4))
             self.hopping[0, :] = kappa*np.roll(self.U[0, :], -1, axis=0)  # x+
             self.hopping[1, :] = kappa * \
@@ -115,21 +115,6 @@ def generate_E_p_su2_u1_2():
     a = np.random.randn(1)  # U(1)
     E_m_su2 = eye+sigma2
     return a*E_m_su2
-
-
-# SU(3)
-# 定义 Gell-Mann 矩阵
-lambda1 = np.array([[0, 1, 0], [1, 0, 0], [0, 0, 0]], dtype=np.complex128)
-lambda2 = np.array([[0, -1j, 0], [1j, 0, 0], [0, 0, 0]], dtype=np.complex128)
-lambda3 = np.array([[1, 0, 0], [0, -1, 0], [0, 0, 0]], dtype=np.complex128)
-lambda4 = np.array([[0, 0, 1], [0, 0, 0], [1, 0, 0]], dtype=np.complex128)
-lambda5 = np.array([[0, 0, -1j], [0, 0, 0], [1j, 0, 0]], dtype=np.complex128)
-lambda6 = np.array([[0, 0, 0], [0, 0, 1], [0, 1, 0]], dtype=np.complex128)
-lambda7 = np.array([[0, 0, 0], [0, 0, -1j], [0, 1j, 0]], dtype=np.complex128)
-lambda8 = (1 / np.sqrt(3)) * \
-    np.array([[1, 0, 0], [0, 1, 0], [0, 0, -2]], dtype=np.complex128)
-gell_mann = [lambda1, lambda2, lambda3,
-             lambda4, lambda5, lambda6, lambda7, lambda8]
 
 
 def generate_large_matrix(x, y, nc):
@@ -325,7 +310,6 @@ class mg:
         for i in range(0, coarse_op.volume):
             x_coarse, y_coarse = self.index_to_coord(i, coarse_op)
             coarse_coords = [x_coarse, y_coarse]
-            # print("coarse_coords = ",coarse_coords)
             coords = [0, 0]
             blocksizes = int(fine_op.nx/coarse_op.nx)
             count = [0]
@@ -452,7 +436,6 @@ class mg:
                 # clover
                 print("clover:")
                 for color in range(0, self.mg_ops[i+1].nc):
-                    print(color)
                     fermi_tmp_coarse = np.zeros_like(fermi_out)
                     fermi_tmp_fine = np.zeros_like(fermi_out_r)
                     fermi_tmp_Afine = np.zeros_like(fermi_out_r)
@@ -469,7 +452,6 @@ class mg:
                             1].hopping = np.zeros_like(self.mg_ops[i+1].hopping)
                 print("wilson:")
                 for color in range(0, self.mg_ops[i+1].nc):
-                    print(color)
                     # xp=even
                     fermi_tmp_coarse = np.zeros_like(fermi_out)
                     fermi_tmp_fine = np.zeros_like(fermi_out_r)
@@ -596,8 +578,6 @@ class mg:
                 self.restrict_f2c(i, fermi_tmp_Afine, fermi_tmp_coarse_t)
                 print("dif = ", np.linalg.norm(
                     fermi_tmp_coarse_n-fermi_tmp_coarse_t))
-        else:
-            a = 0
 
     def mg_bicgstab_recursive(self, b, max_iter=300, tol=1e-10, if_info=1, info=cg_info(), level=0, relative_tol=0):
         x = np.zeros_like(b)
@@ -606,14 +586,12 @@ class mg:
             r = b - apply_mat(x, self.mg_ops[level])
             if relative_tol != 0:
                 tol = np.sqrt(np.vdot(r, r))*relative_tol
-            # print(r)
             r0 = r.copy()  # 保存初始残差 r0
             p = r.copy()   # 初始化搜索方向 p
             alpha = 1
             count = 0
             if if_info != 0:
-                a = " "*(level)
-                print(a, "level = ", level, np.sqrt(np.vdot(r, r)))
+                print(" "*(level), "level = ", level, np.sqrt(np.vdot(r, r)))
             # 主迭代循环
             for k in range(max_iter):
                 count += 1
@@ -621,20 +599,17 @@ class mg:
                 Ap = apply_mat(p, self.mg_ops[level])
                 # 计算步长 alpha
                 alpha = np.vdot((r0), r) / np.vdot((r0), Ap)
-                # print("alpha = ", alpha)
                 x += alpha * p
                 # 更新中间残差 r_1 = r - alpha * Ap
                 r_1 = r - alpha * Ap
                 # 检查是否收敛
                 if if_info != 0:
-                    a = " "*(level)
-                    print(a, "level = ", level, np.sqrt(np.vdot(r_1, r_1)))
+                    print(" "*(level), "level = ", level,
+                          np.sqrt(np.vdot(r_1, r_1)))
                 if np.sqrt(np.vdot(r_1, r_1)) < tol:
                     if if_info != 0:
-                        a = " "*(level)
-                        print(a, "level = ", level, "RelRes", np.sqrt(
+                        print(" "*(level), "level = ", level, "RelRes", np.sqrt(
                             np.vdot(r_1, r_1))/np.sqrt(np.vdot(r0, r0)))
-                        # print("count = ",count)
                     info.count = count
                     info.norm_r = np.sqrt(np.vdot(r_1, r_1))
                     info.r = r_1
@@ -662,8 +637,8 @@ class mg:
                     else:
                         e_coarse = self.mg_bicgstab_recursive(
                             r_coarse, level=level+1, info=info_c, relative_tol=0.25, if_info=1, max_iter=100)
-                    a = " "*(level+1)
-                    print(a, "level", level+1, " ", "iter", info_c.count)
+                    print(" "*(level+1), "level", level +
+                          1, " ", "iter", info_c.count)
                     # 上浮
                     z2_fine = self.zeros_like_fermi(level=level)
                     e0_fine = self.zeros_like_fermi(level=level)
@@ -673,13 +648,12 @@ class mg:
                     if info_c.if_max_iter == 0:
                         x = x + e0_fine
                         r_1 = b - apply_mat(x, self.mg_ops[level])
-                else:
-                    a = 0
+                if level == 0:
+                    print(f"level0:np.linalg.norm(r_1):{np.linalg.norm(r_1)}")
                 # 检查是否收敛
                 if np.sqrt(np.vdot(r_1, r_1)) < tol:
                     if if_info != 0:
-                        a = " "*(level)
-                        print(a, "level = ", level, "RelRes", np.sqrt(
+                        print(" "*(level), "level = ", level, "RelRes", np.sqrt(
                             np.vdot(r_1, r_1))/np.sqrt(np.vdot(r0, r0)))
                     info.count = count
                     info.norm_r = np.sqrt(np.vdot(r_1, r_1))
@@ -691,174 +665,18 @@ class mg:
                 p = r_1 + alpha*beta/omega*p - alpha*beta*Ap
                 r = r_1
             # 如果未收敛，抛出错误
-            a = " "*(level)
-            print(a, "level", level, "over max_iter")
+            print(" "*(level), "level", level, "over max_iter")
             info.if_max_iter = 1
             return x
         if level == 0:
             print("level = ", level, "   ")
 
-    def mg_minres(self, b, max_iter=300, tol=1e-10, if_info=1, info=cg_info(), level=0, relative_tol=0):
-        x = np.zeros_like(b)
-        if level < self.n_refine+1:
-            # 计算初始残差 r = b - Ax
-            r = b - apply_mat(x, self.mg_ops[level])
-            if relative_tol != 0:
-                tol = np.sqrt(np.vdot(r, r))*relative_tol
-            # print(r)
-            r0 = r.copy()  # 保存初始残差 r0
-            alpha = 0
-            count = 0
-            if if_info != 0:
-                a = " "*(level)
-                print(a, "level = ", level, np.sqrt(np.vdot(r, r)))
-            # 主迭代循环
-            for k in range(max_iter):
-                p = apply_mat(r, self.mg_ops[level])
-                count += 1
-                # 计算步长 alpha
-                alpha = np.vdot(p, r) / np.vdot(p, p)
-                x += alpha * r
-                # 更新中间残差 r_1 = r - alpha * Ap
-                r = r - alpha * p
-                # 检查是否收敛
-                if if_info != 0:
-                    a = " "*(level)
-                    print(a, "level = ", level, np.sqrt(np.vdot(r, r)))
-                if np.sqrt(np.vdot(r, r)) < tol:
-                    if if_info != 0:
-                        a = " "*(level)
-                        print(a, "level = ", level, "RelRes", np.sqrt(
-                            np.vdot(r, r))/np.sqrt(np.vdot(r0, r0)))
-                    info.count = count
-                    info.norm_r = np.sqrt(np.vdot(r, r))
-                    info.r = r.copy()
-                    return x
-            info.if_max_iter = 1
-            return x
+    def mg_bicgstab(self, b, max_iter=3000, tol=1e-10,  info=cg_info()):
 
-    def mg_gcr_recursive(self, b, max_iter=300, tol=1e-10, if_info=1, info=cg_info(), level=0, relative_tol=0):
-        x = np.zeros_like(b)
-        if level < self.n_refine+1:
-            # 计算初始残差 r = b - Ax
-            r = b - apply_mat(x, self.mg_ops[level])
-            if relative_tol != 0:
-                tol = np.sqrt(np.vdot(r, r))*relative_tol
-            # print(r)
-            r0 = r.copy()  # 保存初始残差 r0
-            alpha = 1
-            count = 0
-            if if_info != 0:
-                a = " "*(level)
-                print(a, "level = ", level, np.sqrt(np.vdot(r, r)))
-            p_store = []
-            Ap_store = []
-            z1 = self.mg_minres(r, max_iter=2, tol=0, if_info=0,  level=level)
-            r1 = r-apply_mat(z1, self.mg_ops[level])
-            # 下潜
-            r_coarse = self.zeros_like_fermi(level=level+1)
-            self.restrict_f2c(level, r1, r_coarse)
-            # 递归 z = M^(-1) r
-            info_c = cg_info()
-            relative_tol = 0.25
-            if level+1 == self.n_refine:
-                e_coarse = bicgstab(
-                    r_coarse, op=self.mg_ops[level+1], if_info=0, relative_tol=0.01, info=info_c)
-            else:
-                e_coarse = self.mg_gcr_recursive(
-                    r_coarse, level=level+1, info=info_c, relative_tol=0.25, if_info=1, max_iter=10)
-            # e_coarse =  bicgstab(r_coarse, op=self.mg_ops[level+1], if_info=0, relative_tol=0.001, info=info_c)
-            a = " "*(level+1)
-            print(a, "level", level+1, " ", "iter", info_c.count)
-            # 上浮
-            z2 = self.zeros_like_fermi(level=level)
-            z_fine = self.zeros_like_fermi(level=level)
-            self.prolong_c2f(level, e_coarse, z2)
-            z_fine += z2 + z1
-            p = z_fine.copy()
-            Ap = apply_mat(p, self.mg_ops[level])
-            # 主迭代循环
-            for k in range(max_iter):
-                p_store.append(p)
-                Ap_store.append(Ap)
-                count += 1
-                # 计算 Ap = A * p
-                Ap = apply_mat(p, self.mg_ops[level])
-                # 计算步长 alpha
-                alpha = np.vdot(Ap, r) / np.vdot(Ap, Ap)
-                # print("alpha = ", alpha)
-                x += alpha * p
-                # 更新中间残差 r_1 = r - alpha * Ap
-                r = r - alpha * Ap
-                # 检查是否收敛
-                if if_info != 0:
-                    a = " "*(level)
-                    print(a, "level = ", level, np.sqrt(np.vdot(r, r)))
-                if np.sqrt(np.vdot(r, r)) < tol:
-                    if if_info != 0:
-                        a = " "*(level)
-                        print(a, "level = ", level, "RelRes", np.sqrt(
-                            np.vdot(r, r))/np.sqrt(np.vdot(r0, r0)))
-                        # print("count = ",count)
-                    info.count = count
-                    info.norm_r = np.sqrt(np.vdot(r, r))
-                    info.r = r.copy()
-                    return x
-                if level == 0:
-                    a = 0
-                    print("tol=", tol)
-                if level < self.n_refine:
-                    z1 = self.mg_minres(
-                        r, max_iter=2, tol=0, if_info=0,  level=level)
-                    r1 = r-apply_mat(z1, self.mg_ops[level])
-                    # 下潜
-                    r_coarse = self.zeros_like_fermi(level=level+1)
-                    self.restrict_f2c(level, r1, r_coarse)
-                    # 递归 z = M^(-1) r
-                    info_c = cg_info()
-                    relative_tol = 0.25
-                    if level+1 == self.n_refine:
-                        e_coarse = bicgstab(
-                            r_coarse, op=self.mg_ops[level+1], if_info=0, relative_tol=0.01, info=info_c)
-                    else:
-                        e_coarse = self.mg_gcr_recursive(
-                            r_coarse, level=level+1, info=info_c, relative_tol=relative_tol, if_info=1, max_iter=10)
-                    a = " "*(level+1)
-                    print(a, "level", level+1, " ", "iter", info_c.count)
-                    # 上浮
-                    z2 = self.zeros_like_fermi(level=level)
-                    z_fine = self.zeros_like_fermi(level=level)
-                    self.prolong_c2f(level, e_coarse, z2)
-                    z_fine += z2 + z1
-                    Az = apply_mat(z_fine, self.mg_ops[level])
-                    p[:] = z_fine[:]
-                    Ap[:] = Az[:]
-                    for ii in range(0, k+1):
-                        beta_ij = - \
-                            np.vdot(Ap_store[ii], Az) / \
-                            np.vdot(Ap_store[ii], Ap_store[ii])
-                        p += beta_ij*p_store[ii]
-                        Ap += beta_ij*Ap_store[ii]
-                else:
-                    a = 0
-            # 如果未收敛，抛出错误
-            a = " "*(level)
-            print(a, "level", level, "over max_iter")
-            info.if_max_iter = 1
-            return x
-        if level == 0:
-            print("level = ", level, "   ")
+        X = self.mg_bicgstab_recursive(
+            b, max_iter=max_iter, tol=tol, info=info, level=0, relative_tol=0)
+        print("mg_bicgstab_recursive.count = ", info.count)
 
-    def mg_bicgstab(self, b, op=0,  x0=None, max_iter=3000, tol=1e-10, if_info=0, info=cg_info(), relative_tol=0):
-        buf = 1
-        if buf == 0:
-            X = self.mg_bicgstab_recursive(
-                b, max_iter=max_iter, tol=tol, info=info, level=0, relative_tol=0)
-            print("mg_bicgstab_recursive.count = ", info.count)
-        else:
-            X = self.mg_gcr_recursive(
-                b, max_iter=max_iter, tol=tol, info=info, level=0, relative_tol=0)
-            print("mg_gcr_recursive.count = ", info.count)
         return X
 
 
@@ -879,7 +697,7 @@ end_time = time.perf_counter()
 print(f"Execution time: {end_time - start_time} seconds")
 my_mg = mg(fine_op, 3)
 start_time = time.perf_counter()
-V1 = my_mg.mg_bicgstab(Vout, if_info=1, tol=1e-8)
+V1 = my_mg.mg_bicgstab(Vout, tol=1e-8)
 end_time = time.perf_counter()
 print(f"Execution time: {end_time - start_time} seconds")
 print(V[0, 0, 0] - V1[0, 0, 0])
