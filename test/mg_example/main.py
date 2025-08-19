@@ -377,8 +377,6 @@ class mg:
     def local_orthogonalization(self, fine_level, nevc, fine_sites_per_coarse):
         for i in range(0, self.mg_ops[fine_level+1].volume):
             for i_dof in range(0, nevc):
-                cv_index = self.vol_index_dof_to_cv_index(
-                    i, i_dof, self.mg_ops[fine_level+1])
                 for k in range(0, i_dof):
                     k_dot = 0
                     k_i_dof_dot = 0
