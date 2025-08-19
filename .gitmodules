@@ -1,0 +1,3 @@
+[submodule "test/mg_example"]
+	path = test/mg_example
+	url = https://github.com/kfutfd/my_mg.git
