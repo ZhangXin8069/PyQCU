@@ -155,7 +155,7 @@ def give_null_vecs(
         Orthonormal near-null space vectors
     """
     dof = null_vecs.shape[0]  # Number of null space vectors
-    null_vecs = torch.randn_like(null_vecs)
+    null_vecs = torch.randn_like(null_vecs)  # [Eetzyx]
     if ortho_r:
         for i in range(dof):
             # The orthogonalization of r
@@ -214,7 +214,7 @@ def local_orthogonalize(null_vecs: torch.Tensor,
     dof = null_vecs.shape[0]  # Number of null space vectors
     latt_size = list(null_vecs.shape[-4:])
     shape = list(null_vecs.shape[:-4])+[mg_size[0], latt_size[0]//mg_size[0], mg_size[1], latt_size[1] //
-                                        mg_size[1], mg_size[2], latt_size[2]//mg_size[2], mg_size[3], latt_size[3]//mg_size[3]]
+                                        mg_size[1], mg_size[2], latt_size[2]//mg_size[2], mg_size[3], latt_size[3]//mg_size[3]]  # [EeTtZzYyXx]
     if verbose:
         print(f"null_vecs.shape:{null_vecs.shape}")
         print(f"dof,latt_size,mg_size,shape:{dof,latt_size,mg_size,shape}")
@@ -228,8 +228,8 @@ def local_orthogonalize(null_vecs: torch.Tensor,
             for Z in range(mg_size[-3]):
                 for T in range(mg_size[-4]):
                     _local_null_vecs = local_null_vecs[...,
-                                                       T, :, Z, :, Y, :, X, :]
-                    for i in range(dof):
+                                                       T, :, Z, :, Y, :, X, :]  # [Eetzyx]
+                    for i in range(dof):  # [E]
                         # The orthogonalization of local_null_vecs
                         if normalize:
                             _local_null_vecs[i] /= torch.norm(
@@ -282,7 +282,7 @@ def local_gmg_like(null_vecs: torch.Tensor,
     return local_ortho_null_vecs
 
 
-def restrict(local_ortho_null_vecs: torch.Tensor, fine_vec: torch.Tensor, verbose: bool = True) -> torch.Tensor:
+def restrict(local_ortho_null_vecs: torch.Tensor, fine_vec: torch.Tensor, verbose: bool = True) -> torch.Tensor:  # wilson-mg:restrict_f2c conj()
     """
     Restriction operator: fine -> coarse
     Args:
@@ -300,7 +300,7 @@ def restrict(local_ortho_null_vecs: torch.Tensor, fine_vec: torch.Tensor, verbos
     if verbose:
         print("EeTtZzYyXx,eTtZzYyXx->ETZYX")
     return torch.einsum(
-        "EeTtZzYyXx,eTtZzYyXx->ETZYX", local_ortho_null_vecs, _fine_vec)
+        "EeTtZzYyXx,eTtZzYyXx->ETZYX", local_ortho_null_vecs.conj(), _fine_vec)
 
 
 def prolong(local_ortho_null_vecs: torch.Tensor, coarse_vec: torch.Tensor, verbose: bool = True) -> torch.Tensor:
@@ -321,7 +321,7 @@ def prolong(local_ortho_null_vecs: torch.Tensor, coarse_vec: torch.Tensor, verbo
     if verbose:
         print("EeTtZzYyXx,ETZYX->eTtZzYyXx")
     return torch.einsum(
-        "EeTtZzYyXx,ETZYX->eTtZzYyXx", local_ortho_null_vecs.conj(), _coarse_vec).reshape([fine_dof, shape[-8]*shape[-7], shape[-6]*shape[-5], shape[-4]*shape[-3], shape[-2]*shape[-1]])
+        "EeTtZzYyXx,ETZYX->eTtZzYyXx", local_ortho_null_vecs, _coarse_vec).reshape([fine_dof, shape[-8]*shape[-7], shape[-6]*shape[-5], shape[-4]*shape[-3], shape[-2]*shape[-1]])
 
 
 class GMRESSmoother:
@@ -594,9 +594,9 @@ class mg:
                 f"  Level {len(self.grid_list)-1}: {_Lx}x{_Ly}x{_Lz}x{_Lt}")
             # go with hopping and sitting, must be 2->1
             _Lx //= 2
-            # _Ly //= 2
+            _Ly //= 2
             _Lz //= 2
-            # _Lt //= 2
+            _Lt //= 2
         print(f"self.grid_list:{self.grid_list}")
         self.num_levels = len(self.grid_list)
         self.dof_list = self.dof_list[:self.num_levels]
@@ -609,13 +609,13 @@ class mg:
                 _local_ortho_null_vecs = local_gmg_like(
                     null_vecs=_null_vecs, mg_size=self.grid_list[i], verbose=False)
             else:
-                # _null_vecs = give_null_vecs(
-                #     null_vecs=_null_vecs,
-                #     matvec=self.op_list[i-1].matvec,
-                #     tol=self.tol,
-                #     max_iter=self.max_iter,
-                #     verbose=False
-                # )  # TEST......
+                _null_vecs = give_null_vecs(
+                    null_vecs=_null_vecs,
+                    matvec=self.op_list[i-1].matvec,
+                    tol=self.tol,
+                    max_iter=self.max_iter,
+                    verbose=False
+                )  # TEST......
                 _local_ortho_null_vecs = local_orthogonalize(
                     null_vecs=_null_vecs,
                     mg_size=self.grid_list[i], verbose=False)
@@ -632,9 +632,9 @@ class mg:
             max_krylov=5, max_restarts=self.max_restarts, tol=0.1)
 
     def smooth(self, level: int = 0) -> torch.Tensor:
-        # return bicgstab(b=self.b_list[level], matvec=self.op_list[level].matvec,  x0=self.u_list[level], max_iter=self.max_restarts, verbose=False)
+        return bicgstab(b=self.b_list[level], matvec=self.op_list[level].matvec,  x0=self.u_list[level], max_iter=self.max_restarts, verbose=False)
         # return bicgstab(b=self.b_list[level], matvec=self.op_list[level].matvec, max_iter=self.max_restarts, verbose=False)
-        return self.smoother.smooth(matvec=self.op_list[level].matvec, b=self.b_list[level], x0=self.u_list[level])
+        # return self.smoother.smooth(matvec=self.op_list[level].matvec, b=self.b_list[level], x0=self.u_list[level])
         # return self.smoother.smooth(matvec=self.op_list[level].matvec, b=self.b_list[level])
 
     def give_residual(self, level: int = 0) -> torch.Tensor:
