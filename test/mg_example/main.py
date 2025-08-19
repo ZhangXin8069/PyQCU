@@ -1,7 +1,6 @@
 import time
 import os
 import numpy as np
-
 # 定义矩阵乘法
 
 
@@ -183,6 +182,7 @@ def load_or_generate_U(nx, ny, nc, folder_path="."):
         np.save(file_path, U_np)
         print(f"已保存文件 {file_name}")
     return U
+
 
 class cg_info:
     count = 0
@@ -397,7 +397,6 @@ class mg:
                 for j in range(0, fine_sites_per_coarse):
                     self.R_null_vec[fine_level][i_dof][self.coarse_map[fine_level]
                                                        [i][j]] /= np.sqrt(i_dof_dot)
-
 
     def __init__(self, fine_op, n_refine, ifeigen=0):
         self.n_refine = n_refine
@@ -880,8 +879,10 @@ start_time = time.perf_counter()
 V0 = bicgstab(Vout, x0, op=fine_op, if_info=1, tol=1e-8)
 end_time = time.perf_counter()
 print(f"Execution time: {end_time - start_time} seconds")
-start_time = time.perf_counter()
 my_mg = mg(fine_op, 3)
+start_time = time.perf_counter()
+V1 = my_mg.mg_bicgstab(Vout, if_info=1, tol=1e-8)
 end_time = time.perf_counter()
 print(f"Execution time: {end_time - start_time} seconds")
+print(V[0, 0, 0] - V1[0, 0, 0])
 print(V[0, 0, 0] - V0[0, 0, 0])
