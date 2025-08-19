@@ -295,7 +295,7 @@ def restrict(local_ortho_null_vecs: torch.Tensor, fine_vec: torch.Tensor, verbos
     shape = local_ortho_null_vecs.shape
     coarse_dof = shape[0]
     if verbose:
-        print(f"restrict:shape,coarse_dof:{shape,coarse_dof}")
+        print(f"restrict:shape,coarse_dof:{shape,coarse_dof}")  
     _fine_vec = fine_vec.reshape(shape=shape[1:]).clone()
     if verbose:
         print("EeTtZzYyXx,eTtZzYyXx->ETZYX")
@@ -440,7 +440,7 @@ class hopping:
     def matvec_eo(self, src_o: torch.Tensor) -> torch.Tensor:
         if self.wilson != None:
             return self.wilson.give_wilson_eo(
-                src_o=src_o.reshape([4, 3]+list(src_o.shape[1:])), U_eo=self.U_eo).reshape([12]+list(src_o.shape)[1:])
+                src_o=src_o.reshape([4, 3]+list(src_o.shape[1:])), U_eo=self.U_eo).reshape([12]+list(src_o.shape)[1:])  # e->sc->e
         else:
             return torch.einsum(
                 "EeTZYX, eTZYX->ETZYX", self.M_eo, src_o)
@@ -448,7 +448,7 @@ class hopping:
     def matvec_oe(self, src_e: torch.Tensor) -> torch.Tensor:
         if self.wilson != None:
             return self.wilson.give_wilson_oe(
-                src_e=src_e.reshape([4, 3]+list(src_e.shape[1:])), U_eo=self.U_eo).reshape([12]+list(src_e.shape)[1:])
+                src_e=src_e.reshape([4, 3]+list(src_e.shape[1:])), U_eo=self.U_eo).reshape([12]+list(src_e.shape)[1:])  # e->sc->e
         else:
             return torch.einsum(
                 "EeTZYX, eTZYX->ETZYX", self.M_oe, src_e)
@@ -464,7 +464,7 @@ class sitting:
     def matvec_ee(self, src_e: torch.Tensor) -> torch.Tensor:
         if self.clover != None:  # remmber to add I
             return self.clover.give_clover_ee(
-                src_e=src_e.reshape([4, 3]+list(src_e.shape[1:])), clover_eo=self.clover_eo).reshape([12]+list(src_e.shape)[1:])
+                src_e=src_e.reshape([4, 3]+list(src_e.shape[1:])), clover_eo=self.clover_eo).reshape([12]+list(src_e.shape)[1:])  # e->sc->e
         else:
             return torch.einsum(
                 "EeTZYX, eTZYX->ETZYX", self.M_ee, src_e)
@@ -472,7 +472,7 @@ class sitting:
     def matvec_oo(self, src_o: torch.Tensor) -> torch.Tensor:
         if self.clover != None:  # remmber to add I
             return self.clover.give_clover_oo(
-                src_o=src_o.reshape([4, 3]+list(src_o.shape[1:])), clover_eo=self.clover_eo).reshape([12]+list(src_o.shape)[1:])
+                src_o=src_o.reshape([4, 3]+list(src_o.shape[1:])), clover_eo=self.clover_eo).reshape([12]+list(src_o.shape)[1:])  # e->sc->e
         else:
             return torch.einsum(
                 "EeTZYX, eTZYX->ETZYX", self.M_oo, src_o)
