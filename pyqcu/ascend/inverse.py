@@ -609,13 +609,13 @@ class mg:
                 _local_ortho_null_vecs = local_gmg_like(
                     null_vecs=_null_vecs, mg_size=self.grid_list[i], verbose=False)
             else:
-                _null_vecs = give_null_vecs(
-                    null_vecs=_null_vecs,
-                    matvec=self.op_list[i-1].matvec,
-                    tol=self.tol,
-                    max_iter=self.max_iter,
-                    verbose=False
-                )  # TEST......
+                # _null_vecs = give_null_vecs(
+                #     null_vecs=_null_vecs,
+                #     matvec=self.op_list[i-1].matvec,
+                #     tol=self.tol,
+                #     max_iter=self.max_iter,
+                #     verbose=False
+                # )  # TEST......
                 _local_ortho_null_vecs = local_orthogonalize(
                     null_vecs=_null_vecs,
                     mg_size=self.grid_list[i], verbose=False)
