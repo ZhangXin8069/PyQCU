@@ -144,7 +144,7 @@ class wilson(nn.Module):
             bool: True if all matrices satisfy SU(3) conditions
         """
         U_mat = U.permute(*range(2, U.ndim), 0,
-                          1).reshape(-1, 3, 3)  # N x 3 x 3
+                          1).reshape(-1, 3, 3).clone()  # N x 3 x 3
         N = U_mat.shape[0]
 
         # Precompute the identity matrix for unitary check
@@ -238,7 +238,7 @@ class wilson(nn.Module):
             print(f"  Gauge field shape: {U.shape}")
             print(f"  Source norm: {torch.norm(src).item()}")
         # Compute adjoint gauge field (dagger conjugate)
-        U_dag = U.permute(1, 0, 2, 3, 4, 5, 6).conj()
+        U_dag = U.permute(1, 0, 2, 3, 4, 5, 6).conj().clone()
         # Initialize dest tensor
         dest = src.clone()
         # Define directions with corresponding axes and gamma matrices
@@ -287,7 +287,7 @@ class wilson(nn.Module):
         if self.verbose:
             print("Dirac operator application complete")
             print(f"  Dest norm: {torch.norm(dest).item()}")
-        return dest
+        return dest.clone()
 
 
 class wilson_parity(wilson):
@@ -345,8 +345,8 @@ class wilson_parity(wilson):
             print(f"  Gauge field shape: {U_eo.shape}")
             print(f"  Source norm: {torch.norm(src_o).item()}")
         # Compute adjoint gauge field (dagger conjugate)
-        U_e = U_eo[0]
-        U_o = U_eo[1]
+        U_e = U_eo[0].clone()
+        U_o = U_eo[1].clone()
         U_o_dag = U_o.permute(1, 0, 2, 3, 4, 5, 6).conj()
         # Initialize dest_e tensor
         # dest_e = src_o.clone() # move this I term to sitting term from this hopping term(origin wilson term)
@@ -414,7 +414,7 @@ class wilson_parity(wilson):
         if self.verbose:
             print("Dirac operator application complete in eo")
             print(f"  Dest_e norm: {torch.norm(dest_e).item()}")
-        return dest_e
+        return dest_e.clone()
 
     def give_wilson_oe(self,
                        src_e: torch.Tensor,
@@ -437,8 +437,8 @@ class wilson_parity(wilson):
             print(f"  Gauge field shape: {U_eo.shape}")
             print(f"  Source norm: {torch.norm(src_e).item()}")
         # Compute adjoint gauge field (dagger conjugate)
-        U_e = U_eo[0]
-        U_o = U_eo[1]
+        U_e = U_eo[0].clone()
+        U_o = U_eo[1].clone()
         U_e_dag = U_e.permute(1, 0, 2, 3, 4, 5, 6).conj()
         # Initialize dest_e tensor
         # dest_o = src_e.clone() # move this I term to sitting term from this hopping term(origin wilson term)
@@ -506,7 +506,7 @@ class wilson_parity(wilson):
         if self.verbose:
             print("Dirac operator application complete in oe")
             print(f"  Dest_o norm: {torch.norm(dest_o).item()}")
-        return dest_o
+        return dest_o.clone()
 
     def give_wilson_eoeo(self,
                          dest_eo: torch.Tensor,
@@ -675,10 +675,10 @@ class clover(wilson):
         if self.verbose:
             print("Clover term complete")
             print(f"  clover norm: {torch.norm(clover).item()}")
-        return clover
+        return clover.clone()
 
     def add_I(self, clover: torch.Tensor) -> torch.Tensor:
-        _clover = clover.reshape(12, 12, -1)
+        _clover = clover.reshape(12, 12, -1).clone()
         if self.verbose:
             print('Clover is adding I......')
             print(f"_clover.shape:{_clover.shape}")
@@ -687,10 +687,10 @@ class clover(wilson):
         dest = _clover.reshape(clover.shape)
         if self.verbose:
             print(f"dest.shape:{dest.shape}")
-        return dest
+        return dest.clone()
 
     def inverse(self, clover: torch.Tensor) -> torch.Tensor:
-        _clover = clover.reshape(12, 12, -1)
+        _clover = clover.reshape(12, 12, -1).clone()
         if self.verbose:
             print('Clover is inversing......')
             print(f"_clover.shape:{_clover.shape}")
@@ -699,7 +699,7 @@ class clover(wilson):
         dest = _clover.reshape(clover.shape)
         if self.verbose:
             print(f"dest.shape:{dest.shape}")
-        return dest
+        return dest.clone()
 
     def give_clover(self, src: torch.Tensor, clover: torch.Tensor) -> torch.Tensor:
         if self.verbose:
@@ -708,7 +708,7 @@ class clover(wilson):
         dest = torch.einsum('SCsctzyx,sctzyx->SCtzyx', clover, src)
         if self.verbose:
             print(f"dest.shape:{dest.shape}")
-        return dest
+        return dest.clone()
 
 
 class clover_parity(clover):
@@ -744,19 +744,16 @@ class clover_parity(clover):
             print(f"  Device: {self.device}")
 
     def make_clover_eoeo(self, U_eo: torch.Tensor) -> torch.Tensor:
-        return xxxtzyx2pxxxtzyx(self.make_clover(U=pxxxtzyx2xxxtzyx(U_eo)))
+        return xxxtzyx2pxxxtzyx(self.make_clover(U=pxxxtzyx2xxxtzyx(U_eo.clone())))
 
     def add_I_eoeo(self, clover_eo: torch.Tensor) -> torch.Tensor:
-        return xxxtzyx2pxxxtzyx(self.add_I(clover=pxxxtzyx2xxxtzyx(clover_eo)))
+        return xxxtzyx2pxxxtzyx(self.add_I(clover=pxxxtzyx2xxxtzyx(clover_eo.clone())))
 
     def inverse_eoeo(self, clover_eo: torch.Tensor) -> torch.Tensor:
-        _ = pxxxtzyx2xxxtzyx(clover_eo)
-        print(f"_.shape:{_.shape}")
-        print(f"clover_eo.shape:{clover_eo.shape}")
-        return xxxtzyx2pxxxtzyx(self.inverse(clover=pxxxtzyx2xxxtzyx(clover_eo)))
+        return xxxtzyx2pxxxtzyx(self.inverse(clover=pxxxtzyx2xxxtzyx(clover_eo.clone())))
 
     def give_clover_ee(self, src_e: torch.Tensor, clover_eo: torch.Tensor) -> torch.Tensor:
-        return self.give_clover(src=src_e, clover=clover_eo[0])
+        return self.give_clover(src=src_e.clone(), clover=clover_eo[0].clone())
 
     def give_clover_oo(self, src_o: torch.Tensor, clover_eo: torch.Tensor) -> torch.Tensor:
-        return self.give_clover(src=src_o, clover=clover_eo[1])
+        return self.give_clover(src=src_o.clone(), clover=clover_eo[1].clone())

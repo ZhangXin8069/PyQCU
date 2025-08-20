@@ -622,8 +622,6 @@ class mg:
                 x += omega * r_1
                 # 更新残差 r = r_1 - omega * t
                 r_1 = r_1 - omega * apply_mat(r_1, self.mg_ops[level])
-                if level == 0:
-                    a = 0
                 if level < self.n_refine:
                     # 下潜
                     r_coarse = self.zeros_like_fermi(level=level+1)

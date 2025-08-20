@@ -5,7 +5,7 @@ from pyqcu.ascend import dslash
 from pyqcu.ascend.include import *
 
 
-def cg(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], tol: float = 1e-6, max_iter: int = 500, x0: torch.Tensor = None, verbose: bool = True) -> torch.Tensor:
+def cg(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], tol: float = 1e-6, max_iter: int = 1000, x0: torch.Tensor = None, verbose: bool = True) -> torch.Tensor:
     """
     Conjugate Gradient (CG) solver for linear systems Ax = b. (Requirement A is a Hermitian matrix).
     Args:
@@ -20,6 +20,10 @@ def cg(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], tol: flo
     """
     x = x0.clone() if x0 is not None else torch.randn_like(b)
     r = b - matvec(x)
+    if verbose:
+        print(f"Norm of b:{torch.norm(b).item()}")
+        print(f"Norm of r:{torch.norm(r).item()}")
+        print(f"Norm of x0:{torch.norm(x).item()}")
     if torch.norm(r).item() < tol:
         print("x0 is just right!")
         return x
@@ -45,7 +49,7 @@ def cg(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], tol: flo
         iter_time = perf_counter() - iter_start_time
         iter_times.append(iter_time)
         if verbose:
-            print(f"alpha,beta,rho:{alpha,beta,rho}\n")
+            # print(f"alpha,beta,rho:{alpha,beta,rho}\n")
             print(
                 f"CG:Iteration {i}: Residual = {rho.real:.6e}, Time = {iter_time:.6f} s")
         if rho.real < tol:
@@ -62,10 +66,10 @@ def cg(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], tol: flo
     print(f"Total time: {total_time:.6f} seconds")
     print(f"Average time per iteration: {avg_iter_time:.6f} s")
     print(f"Final residual: {rho.real:.2e}")
-    return x
+    return x.clone()
 
 
-def bicgstab(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], tol: float = 1e-6, max_iter: int = 500, x0: torch.Tensor = None, verbose: bool = True) -> torch.Tensor:
+def bicgstab(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], tol: float = 1e-6, max_iter: int = 1000, x0: torch.Tensor = None, verbose: bool = True) -> torch.Tensor:
     """
     BIConjugate Gradient STABilized(BICGSTAB) solver for linear systems Ax = b. (It is not required that A be a Hermitian matrix).
     Args:
@@ -80,6 +84,10 @@ def bicgstab(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], to
     """
     x = x0.clone() if x0 is not None else torch.randn_like(b)
     r = b - matvec(x)
+    if verbose:
+        print(f"Norm of b:{torch.norm(b).item()}")
+        print(f"Norm of r:{torch.norm(r).item()}")
+        print(f"Norm of x0:{torch.norm(x).item()}")
     if torch.norm(r).item() < tol:
         print("x0 is just right!")
         return x
@@ -112,7 +120,7 @@ def bicgstab(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], to
         iter_time = perf_counter() - iter_start_time
         iter_times.append(iter_time)
         if verbose:
-            # print(f"alpha,beta,omega,r_norm2:{alpha,beta,omega,r_norm2}\n")
+            # print(f"alpha,beta,omega:{alpha,beta,omega}\n")
             print(
                 f"BICGSTAB:Iteration {i}: Residual = {r_norm2:.6e}, Time = {iter_time:.6f} s")
         if r_norm2 < tol:
@@ -129,13 +137,13 @@ def bicgstab(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], to
     print(f"Total time: {total_time:.6f} seconds")
     print(f"Average time per iteration: {avg_iter_time:.6f} s")
     print(f"Final residual: {r_norm2:.2e}")
-    return x
+    return x.clone()
 
 
 def give_null_vecs(
     null_vecs: torch.Tensor,
     matvec: Callable[[torch.Tensor], torch.Tensor],
-    tol: float = 1e-6, max_iter: int = 500, normalize: bool = True, ortho_r: bool = True, ortho_null_vecs: bool = False, verbose: bool = True
+    tol: float = 1e-6, max_iter: int = 1000, normalize: bool = True, ortho_r: bool = True, ortho_null_vecs: bool = False, verbose: bool = True
 ) -> torch.Tensor:
     """
     Generates orthonormal near-null space vectors for a linear operator.
@@ -168,8 +176,8 @@ def give_null_vecs(
                 null_vecs[i] /= torch.norm(null_vecs[i]).item()
     for i in range(dof):
         # v=r-A^{-1}Ar
-        null_vecs[i] -= bicgstab(b=matvec(null_vecs[i]), matvec=matvec, tol=tol*1000,
-                                 max_iter=max_iter, verbose=False)  # tol needs to be bigger...
+        null_vecs[i] -= bicgstab(b=matvec(null_vecs[i]), matvec=matvec, x0=torch.zeros_like(null_vecs[i]), tol=tol*1000,
+                                 max_iter=max_iter, verbose=True)  # tol needs to be bigger...
     if ortho_null_vecs:
         for i in range(dof):
             # The orthogonalization of null_vecs
@@ -194,7 +202,7 @@ def give_null_vecs(
             for j in range(0, i+1):
                 print(
                     f"torch.vdot(null_vecs[{i}].flatten(), null_vecs[{j}].flatten()):{torch.vdot(null_vecs[i].flatten(), null_vecs[j].flatten())}")
-    return null_vecs
+    return null_vecs.clone()
 
 
 def local_orthogonalize(null_vecs: torch.Tensor,
@@ -221,7 +229,7 @@ def local_orthogonalize(null_vecs: torch.Tensor,
     if not all(latt_size[-i-1] == shape[-2*i-1]*shape[-2*i-2] for i in range(4)):
         print(
             'not all(latt_size[-i-1] == shape[-2*i-1]*shape[-2*i-2] for i in range(4))')
-    local_null_vecs = null_vecs.reshape(shape=shape)
+    local_null_vecs = null_vecs.reshape(shape=shape).clone()
     local_ortho_null_vecs = torch.zeros_like(local_null_vecs)
     for X in range(mg_size[-1]):
         for Y in range(mg_size[-2]):
@@ -247,39 +255,7 @@ def local_orthogonalize(null_vecs: torch.Tensor,
                             for j in range(0, i+1):
                                 print(
                                     f"torch.vdot(local_ortho_null_vecs[..., {T}, :, {Z}, :, {Y}, :, {X}, :][{i}].flatten(), local_ortho_null_vecs[..., {T}, :, {Z}, :, {Y}, :, {X}, :][{j}].flatten()):{torch.vdot(local_ortho_null_vecs[..., T, :, Z, :, Y, :, X, :][i].flatten(), local_ortho_null_vecs[..., T, :, Z, :, Y, :, X, :][j].flatten())}")
-    return local_ortho_null_vecs
-
-
-def local_gmg_like(null_vecs: torch.Tensor,
-                   mg_size: Tuple[int, int, int, int] = [2, 2, 2, 2],
-                   verbose: bool = True
-                   ) -> torch.Tensor:
-    dof = null_vecs.shape[0]  # Number of null space vectors
-    latt_size = list(null_vecs.shape[-4:])
-    shape = list(null_vecs.shape[:-4])+[mg_size[0], latt_size[0]//mg_size[0], mg_size[1], latt_size[1] //
-                                        mg_size[1], mg_size[2], latt_size[2]//mg_size[2], mg_size[3], latt_size[3]//mg_size[3]]
-    if verbose:
-        print(f"null_vecs.shape:{null_vecs.shape}")
-        print(f"dof,latt_size,mg_size,shape:{dof,latt_size,mg_size,shape}")
-    if not all(latt_size[-i-1] == shape[-2*i-1]*shape[-2*i-2] for i in range(4)):
-        print(
-            'not all(latt_size[-i-1] == shape[-2*i-1]*shape[-2*i-2] for i in range(4))')
-    local_null_vecs = null_vecs.reshape(shape=shape)
-    local_ortho_null_vecs = torch.zeros_like(local_null_vecs)
-    for X in range(mg_size[-1]):
-        for Y in range(mg_size[-2]):
-            for Z in range(mg_size[-3]):
-                for T in range(mg_size[-4]):
-                    _local_null_vecs = local_null_vecs[...,
-                                                       T, :, Z, :, Y, :, X, :]
-                    _local_null_vecs = torch.ones_like(_local_null_vecs)
-                    for i in range(dof):
-                        # The orthogonalization of local_null_vecs
-                        _local_null_vecs[i] /= torch.norm(
-                            _local_null_vecs[i]).item()*dof**0.5
-                    local_ortho_null_vecs[..., T, :, Z,
-                                          :, Y, :, X, :] = _local_null_vecs
-    return local_ortho_null_vecs
+    return local_ortho_null_vecs.clone()
 
 
 def restrict(local_ortho_null_vecs: torch.Tensor, fine_vec: torch.Tensor, verbose: bool = True) -> torch.Tensor:  # wilson-mg:restrict_f2c conj()
@@ -295,12 +271,12 @@ def restrict(local_ortho_null_vecs: torch.Tensor, fine_vec: torch.Tensor, verbos
     shape = local_ortho_null_vecs.shape
     coarse_dof = shape[0]
     if verbose:
-        print(f"restrict:shape,coarse_dof:{shape,coarse_dof}")  
+        print(f"restrict:shape,coarse_dof:{shape,coarse_dof}")
     _fine_vec = fine_vec.reshape(shape=shape[1:]).clone()
     if verbose:
         print("EeTtZzYyXx,eTtZzYyXx->ETZYX")
     return torch.einsum(
-        "EeTtZzYyXx,eTtZzYyXx->ETZYX", local_ortho_null_vecs.conj(), _fine_vec)
+        "EeTtZzYyXx,eTtZzYyXx->ETZYX", local_ortho_null_vecs.conj(), _fine_vec).clone()
 
 
 def prolong(local_ortho_null_vecs: torch.Tensor, coarse_vec: torch.Tensor, verbose: bool = True) -> torch.Tensor:
@@ -321,7 +297,7 @@ def prolong(local_ortho_null_vecs: torch.Tensor, coarse_vec: torch.Tensor, verbo
     if verbose:
         print("EeTtZzYyXx,ETZYX->eTtZzYyXx")
     return torch.einsum(
-        "EeTtZzYyXx,ETZYX->eTtZzYyXx", local_ortho_null_vecs, _coarse_vec).reshape([fine_dof, shape[-8]*shape[-7], shape[-6]*shape[-5], shape[-4]*shape[-3], shape[-2]*shape[-1]])
+        "EeTtZzYyXx,ETZYX->eTtZzYyXx", local_ortho_null_vecs, _coarse_vec).reshape([fine_dof, shape[-8]*shape[-7], shape[-6]*shape[-5], shape[-4]*shape[-3], shape[-2]*shape[-1]]).clone()
 
 
 class GMRESSmoother:
@@ -440,7 +416,7 @@ class hopping:
     def matvec_eo(self, src_o: torch.Tensor) -> torch.Tensor:
         if self.wilson != None:
             return self.wilson.give_wilson_eo(
-                src_o=src_o.reshape([4, 3]+list(src_o.shape[1:])), U_eo=self.U_eo).reshape([12]+list(src_o.shape)[1:])  # e->sc->e
+                src_o=src_o.reshape([4, 3]+list(src_o.shape[1:])), U_eo=self.U_eo).reshape([12]+list(src_o.shape)[1:]).clone()  # e->sc->e
         else:
             return torch.einsum(
                 "EeTZYX, eTZYX->ETZYX", self.M_eo, src_o)
@@ -448,7 +424,7 @@ class hopping:
     def matvec_oe(self, src_e: torch.Tensor) -> torch.Tensor:
         if self.wilson != None:
             return self.wilson.give_wilson_oe(
-                src_e=src_e.reshape([4, 3]+list(src_e.shape[1:])), U_eo=self.U_eo).reshape([12]+list(src_e.shape)[1:])  # e->sc->e
+                src_e=src_e.reshape([4, 3]+list(src_e.shape[1:])), U_eo=self.U_eo).reshape([12]+list(src_e.shape)[1:]).clone()  # e->sc->e
         else:
             return torch.einsum(
                 "EeTZYX, eTZYX->ETZYX", self.M_oe, src_e)
@@ -464,18 +440,18 @@ class sitting:
     def matvec_ee(self, src_e: torch.Tensor) -> torch.Tensor:
         if self.clover != None:  # remmber to add I
             return self.clover.give_clover_ee(
-                src_e=src_e.reshape([4, 3]+list(src_e.shape[1:])), clover_eo=self.clover_eo).reshape([12]+list(src_e.shape)[1:])  # e->sc->e
+                src_e=src_e.reshape([4, 3]+list(src_e.shape[1:])), clover_eo=self.clover_eo).reshape([12]+list(src_e.shape)[1:]).clone()  # e->sc->e
         else:
             return torch.einsum(
-                "EeTZYX, eTZYX->ETZYX", self.M_ee, src_e)
+                "EeTZYX, eTZYX->ETZYX", self.M_ee, src_e).clone()
 
     def matvec_oo(self, src_o: torch.Tensor) -> torch.Tensor:
         if self.clover != None:  # remmber to add I
             return self.clover.give_clover_oo(
-                src_o=src_o.reshape([4, 3]+list(src_o.shape[1:])), clover_eo=self.clover_eo).reshape([12]+list(src_o.shape)[1:])  # e->sc->e
+                src_o=src_o.reshape([4, 3]+list(src_o.shape[1:])), clover_eo=self.clover_eo).reshape([12]+list(src_o.shape)[1:]).clone()  # e->sc->e
         else:
             return torch.einsum(
-                "EeTZYX, eTZYX->ETZYX", self.M_oo, src_o)
+                "EeTZYX, eTZYX->ETZYX", self.M_oo, src_o).clone()
 
 
 class op:
@@ -547,7 +523,7 @@ class op:
 
     def matvec(self, src: torch.Tensor) -> torch.Tensor:
         if len(src.shape) == 6:
-            _src = src.clone().reshape([12]+list(src.shape[2:]))
+            _src = src.reshape([12]+list(src.shape[2:])).clone()
         else:
             _src = src.clone()
         src_eo = xxxtzyx2pxxxtzyx(input_array=_src)
@@ -557,13 +533,13 @@ class op:
         dest_eo[1] = self.hopping.matvec_oe(
             src_e=src_eo[0])+self.sitting.matvec_oo(src_o=src_eo[1])
         if len(src.shape) == 6:
-            return pxxxtzyx2xxxtzyx(input_array=dest_eo).clone().reshape(src.shape)
+            return pxxxtzyx2xxxtzyx(input_array=dest_eo).reshape(src.shape).clone()
         else:
             return pxxxtzyx2xxxtzyx(input_array=dest_eo).clone()
 
 
 class mg:
-    def __init__(self, b: torch.Tensor,  wilson: dslash.wilson_parity, U_eo: torch.Tensor, clover: dslash.clover_parity, clover_eo: torch.Tensor,  min_size: int = 2, max_levels: int = 2, dof_list: Tuple[int, int, int, int] = [12, 12, 12, 12, 8, 8, 4, 12, 12, 12, 8, 4, 2, 4, 4, 24, 12, 12, 12, 4, 4, 4, 4, 4], tol: float = 1e-6, max_iter: int = 500, x0: torch.Tensor = None, max_restarts: int = 5, gmg: bool = False, pre_smooth: bool = True, post_smooth: bool = False, verbose: bool = True):
+    def __init__(self, b: torch.Tensor,  wilson: dslash.wilson_parity, U_eo: torch.Tensor, clover: dslash.clover_parity, clover_eo: torch.Tensor,  min_size: int = 2, max_levels: int = 2, dof_list: Tuple[int, int, int, int] = [12, 12, 12, 12, 8, 8, 4, 12, 12, 12, 8, 4, 2, 4, 4, 24, 12, 12, 12, 4, 4, 4, 4, 4], tol: float = 1e-6, max_iter: int = 1000, x0: torch.Tensor = None, max_restarts: int = 5, pre_smooth: bool = True, post_smooth: bool = False, verbose: bool = True):
         self.b = b.reshape([12]+list(b.shape)[2:])  # sc->e
         self.min_size = min_size
         self.max_levels = max_levels
@@ -605,20 +581,16 @@ class mg:
         for i in range(1, len(self.grid_list)):
             _null_vecs = torch.randn(self.dof_list[i], self.dof_list[i-1], self.grid_list[i-1][-4], self.grid_list[i-1][-3], self.grid_list[i-1][-2], self.grid_list[i-1][-1],
                                      dtype=b.dtype, device=b.device)
-            if gmg:
-                _local_ortho_null_vecs = local_gmg_like(
-                    null_vecs=_null_vecs, mg_size=self.grid_list[i], verbose=False)
-            else:
-                _null_vecs = give_null_vecs(
-                    null_vecs=_null_vecs,
-                    matvec=self.op_list[i-1].matvec,
-                    tol=self.tol,
-                    max_iter=self.max_iter,
-                    verbose=False
-                )  # TEST......
-                _local_ortho_null_vecs = local_orthogonalize(
-                    null_vecs=_null_vecs,
-                    mg_size=self.grid_list[i], verbose=False)
+
+            _null_vecs = give_null_vecs(
+                null_vecs=_null_vecs,
+                matvec=self.op_list[i-1].matvec,
+                tol=self.tol,
+                verbose=False,
+            )  # TEST......
+            _local_ortho_null_vecs = local_orthogonalize(
+                null_vecs=_null_vecs,
+                mg_size=self.grid_list[i], verbose=False)
             self.lonv_list.append(_local_ortho_null_vecs)
             self.b_list.append(torch.randn(
                 size=[self.dof_list[i]]+self.grid_list[i], dtype=b.dtype, device=b.device))
@@ -663,7 +635,7 @@ class mg:
                     f"    Pre-solve residual norm: {self.give_residual_norm(level=level):.4e}")
                 print(f"    Solving coarsest grid directly...")
             self.u_list[level] = bicgstab(
-                b=self.b_list[level], matvec=self.op_list[level].matvec, tol=self.tol, max_iter=self.max_iter, x0=self.u_list[level], verbose=False)
+                b=self.b_list[level], matvec=self.op_list[level].matvec, tol=self.tol*1e-3, x0=self.u_list[level], verbose=True)
             if self.verbose:
                 print(
                     f"    Post-solve residual norm: {self.give_residual_norm(level=level):.4e}")
