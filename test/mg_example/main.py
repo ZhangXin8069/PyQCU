@@ -434,7 +434,6 @@ class mg:
                 self.mg_ops[i +
                             1].clover = np.zeros_like(self.mg_ops[i+1].clover)
                 # clover
-                print("clover:")
                 for color in range(0, self.mg_ops[i+1].nc):
                     fermi_tmp_coarse = np.zeros_like(fermi_out)
                     fermi_tmp_fine = np.zeros_like(fermi_out_r)
@@ -450,7 +449,6 @@ class mg:
                 # wilson
                 self.mg_ops[i +
                             1].hopping = np.zeros_like(self.mg_ops[i+1].hopping)
-                print("wilson:")
                 for color in range(0, self.mg_ops[i+1].nc):
                     # xp=even
                     fermi_tmp_coarse = np.zeros_like(fermi_out)
@@ -638,11 +636,8 @@ class mg:
                     print(" "*(level+1), "level", level +
                           1, " ", "iter", info_c.count)
                     # 上浮
-                    z2_fine = self.zeros_like_fermi(level=level)
                     e0_fine = self.zeros_like_fermi(level=level)
-                    self.prolong_c2f(level, e_coarse, z2_fine)
-                    # e0_fine += z1_fine
-                    e0_fine += z2_fine
+                    self.prolong_c2f(level, e_coarse, e0_fine)
                     if info_c.if_max_iter == 0:
                         x = x + e0_fine
                         r_1 = b - apply_mat(x, self.mg_ops[level])
