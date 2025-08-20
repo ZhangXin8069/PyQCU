@@ -24,9 +24,10 @@ def cg(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], tol: flo
         print(f"Norm of b:{torch.norm(b).item()}")
         print(f"Norm of r:{torch.norm(r).item()}")
         print(f"Norm of x0:{torch.norm(x).item()}")
-    if torch.norm(r).item() < tol:
+    r_norm = torch.norm(r).item()
+    if r_norm < tol:
         print("x0 is just right!")
-        return x
+        return x.clone()
     p = r.clone()
     v = torch.zeros_like(b)
     rho = torch.tensor(1.0, dtype=b.dtype, device=b.device)
@@ -46,16 +47,17 @@ def cg(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], tol: flo
         rho = torch.vdot(r.flatten(), r.flatten())
         beta = rho / rho_prev
         p = r + beta * p
+        r_norm = torch.sqrt(rho)
         iter_time = perf_counter() - iter_start_time
         iter_times.append(iter_time)
         if verbose:
             # print(f"alpha,beta,rho:{alpha,beta,rho}\n")
             print(
-                f"CG:Iteration {i}: Residual = {rho.real:.6e}, Time = {iter_time:.6f} s")
-        if rho.real < tol:
+                f"CG:Iteration {i}: Residual = {r_norm:.6e}, Time = {iter_time:.6f} s")
+        if r_norm < tol:
             if verbose:
                 print(
-                    f"Converged at iteration {i} with residual {rho.real:.6e}")
+                    f"Converged at iteration {i} with residual {r_norm:.6e}")
             break
     else:
         print("  Warning: Maximum iterations reached, may not have converged")
@@ -65,7 +67,7 @@ def cg(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], tol: flo
     print(f"Total iterations: {len(iter_times)}")
     print(f"Total time: {total_time:.6f} seconds")
     print(f"Average time per iteration: {avg_iter_time:.6f} s")
-    print(f"Final residual: {rho.real:.2e}")
+    print(f"Final residual: {r_norm:.2e}")
     return x.clone()
 
 
@@ -88,9 +90,10 @@ def bicgstab(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], to
         print(f"Norm of b:{torch.norm(b).item()}")
         print(f"Norm of r:{torch.norm(r).item()}")
         print(f"Norm of x0:{torch.norm(x).item()}")
-    if torch.norm(r).item() < tol:
+    r_norm = torch.norm(r).item()
+    if r_norm < tol:
         print("x0 is just right!")
-        return x
+        return x.clone()
     r_tilde = r.clone()
     p = torch.zeros_like(b)
     v = torch.zeros_like(b)
@@ -116,17 +119,17 @@ def bicgstab(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], to
             torch.vdot(t.flatten(), t.flatten())
         x = x + alpha * p + omega * s
         r = s - omega * t
-        r_norm2 = torch.norm(r).item()
+        r_norm = torch.norm(r).item()
         iter_time = perf_counter() - iter_start_time
         iter_times.append(iter_time)
         if verbose:
             # print(f"alpha,beta,omega:{alpha,beta,omega}\n")
             print(
-                f"BICGSTAB:Iteration {i}: Residual = {r_norm2:.6e}, Time = {iter_time:.6f} s")
-        if r_norm2 < tol:
+                f"BICGSTAB:Iteration {i}: Residual = {r_norm:.6e}, Time = {iter_time:.6f} s")
+        if r_norm < tol:
             if verbose:
                 print(
-                    f"Converged at iteration {i} with residual {r_norm2:.6e}")
+                    f"Converged at iteration {i} with residual {r_norm:.6e}")
             break
     else:
         print("  Warning: Maximum iterations reached, may not have converged")
@@ -136,7 +139,7 @@ def bicgstab(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], to
     print(f"Total iterations: {len(iter_times)}")
     print(f"Total time: {total_time:.6f} seconds")
     print(f"Average time per iteration: {avg_iter_time:.6f} s")
-    print(f"Final residual: {r_norm2:.2e}")
+    print(f"Final residual: {r_norm:.2e}")
     return x.clone()
 
 
@@ -587,7 +590,7 @@ class mg:
                 matvec=self.op_list[i-1].matvec,
                 tol=self.tol,
                 verbose=False,
-            )  # TEST......
+            ) 
             _local_ortho_null_vecs = local_orthogonalize(
                 null_vecs=_null_vecs,
                 mg_size=self.grid_list[i], verbose=False)
@@ -604,7 +607,8 @@ class mg:
             max_krylov=5, max_restarts=self.max_restarts, tol=0.1)
 
     def smooth(self, level: int = 0) -> torch.Tensor:
-        return bicgstab(b=self.b_list[level], matvec=self.op_list[level].matvec,  x0=self.u_list[level], max_iter=self.max_restarts, verbose=False)
+        return bicgstab(b=self.b_list[level], matvec=self.op_list[level].matvec,  x0=self.u_list[level], tol=0.25*self.give_residual_norm(level=level), verbose=True)
+        # return bicgstab(b=self.b_list[level], matvec=self.op_list[level].matvec,  x0=self.u_list[level], max_iter=self.max_restarts, verbose=False)
         # return bicgstab(b=self.b_list[level], matvec=self.op_list[level].matvec, max_iter=self.max_restarts, verbose=False)
         # return self.smoother.smooth(matvec=self.op_list[level].matvec, b=self.b_list[level], x0=self.u_list[level])
         # return self.smoother.smooth(matvec=self.op_list[level].matvec, b=self.b_list[level])
@@ -635,7 +639,7 @@ class mg:
                     f"    Pre-solve residual norm: {self.give_residual_norm(level=level):.4e}")
                 print(f"    Solving coarsest grid directly...")
             self.u_list[level] = bicgstab(
-                b=self.b_list[level], matvec=self.op_list[level].matvec, tol=self.tol*1e-3, x0=self.u_list[level], verbose=True)
+                b=self.b_list[level], matvec=self.op_list[level].matvec, tol=0.1*self.give_residual_norm(level=level), x0=self.u_list[level], verbose=True)
             if self.verbose:
                 print(
                     f"    Post-solve residual norm: {self.give_residual_norm(level=level):.4e}")
@@ -691,6 +695,7 @@ class mg:
         start_time = perf_counter()
         iter_times = []
         # Main multigrid iteration loop
+        self.convergence_history.append(self.give_residual_norm())
         for i in range(self.max_iter):
             print(f"\nMG:Iteration {i + 1}:")
             iter_start_time = perf_counter()
