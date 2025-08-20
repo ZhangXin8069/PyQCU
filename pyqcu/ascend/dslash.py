@@ -219,7 +219,7 @@ class wilson(nn.Module):
 
     def give_wilson(self,
                     src: torch.Tensor,
-                    U: torch.Tensor) -> torch.Tensor:
+                    U: torch.Tensor, with_I: bool = True) -> torch.Tensor:
         """
         Apply Wilson-Dirac operator to source field:
         $$
@@ -240,7 +240,7 @@ class wilson(nn.Module):
         # Compute adjoint gauge field (dagger conjugate)
         U_dag = U.permute(1, 0, 2, 3, 4, 5, 6).conj().clone()
         # Initialize dest tensor
-        dest = src.clone()
+        dest = src.clone() if with_I else torch.zeros_like(src)
         # Define directions with corresponding axes and gamma matrices
         directions = [
             {'mu': 0, 'axis': -1-0, 'name': 'x',
@@ -677,35 +677,36 @@ class clover(wilson):
             print(f"  clover norm: {torch.norm(clover).item()}")
         return clover.clone()
 
-    def add_I(self, clover: torch.Tensor) -> torch.Tensor:
-        _clover = clover.reshape(12, 12, -1).clone()
+    def add_I(self, clover_term: torch.Tensor) -> torch.Tensor:
+        _clover_term = clover_term.reshape(12, 12, -1).clone()
         if self.verbose:
             print('Clover is adding I......')
-            print(f"_clover.shape:{_clover.shape}")
-        eye = torch.eye(12, dtype=_clover.dtype, device=_clover.device)
-        _clover += eye.unsqueeze(-1)
-        dest = _clover.reshape(clover.shape)
+            print(f"_clover_term.shape:{_clover_term.shape}")
+        eye = torch.eye(12, dtype=_clover_term.dtype,
+                        device=_clover_term.device)
+        _clover_term += eye.unsqueeze(-1)
+        dest = _clover_term.reshape(clover_term.shape)
         if self.verbose:
             print(f"dest.shape:{dest.shape}")
         return dest.clone()
 
-    def inverse(self, clover: torch.Tensor) -> torch.Tensor:
-        _clover = clover.reshape(12, 12, -1).clone()
+    def inverse(self, clover_term: torch.Tensor) -> torch.Tensor:
+        _clover_term = clover_term.reshape(12, 12, -1).clone()
         if self.verbose:
             print('Clover is inversing......')
-            print(f"_clover.shape:{_clover.shape}")
-        for i in range(_clover.shape[-1]):
-            _clover[:, :, i] = torch.linalg.inv(_clover[:, :, i])
-        dest = _clover.reshape(clover.shape)
+            print(f"_clover_term.shape:{_clover_term.shape}")
+        for i in range(_clover_term.shape[-1]):
+            _clover_term[:, :, i] = torch.linalg.inv(_clover_term[:, :, i])
+        dest = _clover_term.reshape(clover_term.shape)
         if self.verbose:
             print(f"dest.shape:{dest.shape}")
         return dest.clone()
 
-    def give_clover(self, src: torch.Tensor, clover: torch.Tensor) -> torch.Tensor:
+    def give_clover(self, src: torch.Tensor, clover_term: torch.Tensor) -> torch.Tensor:
         if self.verbose:
             print('Clover is giving......')
             print(f"src.shape:{src.shape}")
-        dest = torch.einsum('SCsctzyx,sctzyx->SCtzyx', clover, src)
+        dest = torch.einsum('SCsctzyx,sctzyx->SCtzyx', clover_term, src)
         if self.verbose:
             print(f"dest.shape:{dest.shape}")
         return dest.clone()
@@ -747,13 +748,13 @@ class clover_parity(clover):
         return xxxtzyx2pxxxtzyx(self.make_clover(U=pxxxtzyx2xxxtzyx(U_eo.clone())))
 
     def add_I_eoeo(self, clover_eo: torch.Tensor) -> torch.Tensor:
-        return xxxtzyx2pxxxtzyx(self.add_I(clover=pxxxtzyx2xxxtzyx(clover_eo.clone())))
+        return xxxtzyx2pxxxtzyx(self.add_I(clover_term=pxxxtzyx2xxxtzyx(clover_eo.clone())))
 
     def inverse_eoeo(self, clover_eo: torch.Tensor) -> torch.Tensor:
-        return xxxtzyx2pxxxtzyx(self.inverse(clover=pxxxtzyx2xxxtzyx(clover_eo.clone())))
+        return xxxtzyx2pxxxtzyx(self.inverse(clover_term=pxxxtzyx2xxxtzyx(clover_eo.clone())))
 
     def give_clover_ee(self, src_e: torch.Tensor, clover_eo: torch.Tensor) -> torch.Tensor:
-        return self.give_clover(src=src_e.clone(), clover=clover_eo[0].clone())
+        return self.give_clover(src=src_e.clone(), clover_term=clover_eo[0].clone())
 
     def give_clover_oo(self, src_o: torch.Tensor, clover_eo: torch.Tensor) -> torch.Tensor:
-        return self.give_clover(src=src_o.clone(), clover=clover_eo[1].clone())
+        return self.give_clover(src=src_o.clone(), clover_term=clover_eo[1].clone())
