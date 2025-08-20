@@ -7,7 +7,7 @@ from pyqcu.ascend.include import *
 
 class wilson(nn.Module):
     def __init__(self,
-                 latt_size: Tuple[int, int, int, int],
+                 latt_size: Tuple[int, int, int, int] = [8, 8, 8, 8],
                  kappa: float = 0.1,
                  u_0: float = 1.0,
                  dtype: torch.dtype = torch.complex128,
@@ -269,7 +269,7 @@ class wilson(nn.Module):
             U_src_plus = torch.einsum('Cctzyx,sctzyx->sCtzyx', U_mu, src_plus)
             # Apply (r - gamma_mu) in spin space
             term1 = torch.einsum(
-                'Ss,sctzyx->Sctzyx', (self.I - gamma_mu), U_src_plus)
+                'Ss,sCtzyx->SCtzyx', (self.I - gamma_mu), U_src_plus)
             # Term 2: (r + γ_μ) U_{x-μ,μ}^† src_{x-μ}
             src_minus = torch.roll(src, shifts=1, dims=axis)
             U_dag_minus = torch.roll(U_dag_mu, shifts=1, dims=axis)
@@ -278,7 +278,7 @@ class wilson(nn.Module):
                 'Cctzyx,sctzyx->sCtzyx', U_dag_minus, src_minus)
             # Apply (r + gamma_mu) in spin space
             term2 = torch.einsum(
-                'Ss,sctzyx->Sctzyx', (self.I + gamma_mu), U_dag_src_minus)
+                'Ss,sCtzyx->SCtzyx', (self.I + gamma_mu), U_dag_src_minus)
             # Combine terms and subtract from dest
             hopping = term1 + term2
             dest -= self.kappa/self.u_0 * hopping
@@ -292,7 +292,7 @@ class wilson(nn.Module):
 
 class wilson_parity(wilson):
     def __init__(self,
-                 latt_size: Tuple[int, int, int, int],
+                 latt_size: Tuple[int, int, int, int] = [8, 8, 8, 8],
                  kappa: float = 0.1,
                  u_0: float = 1.0,
                  dtype: torch.dtype = torch.complex128,
@@ -313,9 +313,8 @@ class wilson_parity(wilson):
             I once compared the results of 'dslash' and 'dslash_parity' on very small cells (i.e., cells with a side length of 1), but there was always a very large deviation. In fact, this is extremely foolish because one of the conditions for 'dslash_parity' to hold is that the parity of adjacent cells is different. However, if there are cells with a side length of 1, then there must be a situation where the parity of adjacent cells is the same. I hope future generations can take this as a reference......
         """
         super().__init__(latt_size=latt_size, kappa=kappa,
-                         u_0=u_0, dtype=dtype, device=device, verbose=False)
+                         u_0=u_0, dtype=dtype, device=device, verbose=verbose)
         self.Lx_p = self.Lx // 2
-        self.verbose = verbose
         if self.verbose:
             print(f"Initializing Wilson with parity decomposition:")
             print(f"  Lattice size: {latt_size} (x,y,z,t)")
@@ -388,7 +387,7 @@ class wilson_parity(wilson):
                 'Cctzyx,sctzyx->sCtzyx', U_e_mu, src_o_plus)
             # Apply (r - gamma_mu) in spin space
             term1 = torch.einsum(
-                'Ss,sctzyx->Sctzyx', (self.I - gamma_mu), U_e_src_o_plus)
+                'Ss,sCtzyx->SCtzyx', (self.I - gamma_mu), U_e_src_o_plus)
             # Term 2: (r + γ_μ) U_{x-μ,μ}^† src_{x-μ}
             src_o_minus = torch.roll(
                 src_o, shifts=1, dims=axis)
@@ -405,7 +404,7 @@ class wilson_parity(wilson):
                 'Cctzyx,sctzyx->sCtzyx', U_o_dag_minus, src_o_minus)
             # Apply (r + gamma_mu) in spin space
             term2 = torch.einsum(
-                'Ss,sctzyx->Sctzyx', (self.I + gamma_mu), U_o_dag_src_o_minus)
+                'Ss,sCtzyx->SCtzyx', (self.I + gamma_mu), U_o_dag_src_o_minus)
             # Combine terms and subtract from dest_e
             hopping = term1 + term2
             dest_e -= self.kappa/self.u_0 * hopping
@@ -480,7 +479,7 @@ class wilson_parity(wilson):
                 'Cctzyx,sctzyx->sCtzyx', U_o_mu, src_e_plus)
             # Apply (r - gamma_mu) in spin space
             term1 = torch.einsum(
-                'Ss,sctzyx->Sctzyx', (self.I - gamma_mu), U_o_src_e_plus)
+                'Ss,sCtzyx->SCtzyx', (self.I - gamma_mu), U_o_src_e_plus)
             # Term 2: (r + γ_μ) U_{x-μ,μ}^† src_{x-μ}
             src_e_minus = torch.roll(
                 src_e, shifts=1, dims=axis)
@@ -497,7 +496,7 @@ class wilson_parity(wilson):
                 'Cctzyx,sctzyx->sCtzyx', U_e_dag_minus, src_e_minus)
             # Apply (r + gamma_mu) in spin space
             term2 = torch.einsum(
-                'Ss,sctzyx->Sctzyx', (self.I + gamma_mu), U_e_dag_src_e_minus)
+                'Ss,sCtzyx->SCtzyx', (self.I + gamma_mu), U_e_dag_src_e_minus)
             # Combine terms and subtract from dest_e
             hopping = term1 + term2
             dest_o -= self.kappa/self.u_0 * hopping
@@ -515,9 +514,94 @@ class wilson_parity(wilson):
         return dest_eo+src_eo
 
 
+class wilson_mg(wilson):
+    def __init__(self,
+                 latt_size: Tuple[int, int, int, int] = [8, 8, 8, 8],
+                 kappa: float = 0.1,
+                 u_0: float = 1.0,
+                 dtype: torch.dtype = torch.complex128,
+                 device: torch.device = None,
+                 verbose: bool = False):
+        """
+        Wilson-Dirac operator on a 4D lattice with SU(3) gauge fields. [8 wards version]
+        Args:
+            latt_size: Tuple (Lx, Ly, Lz, Lt) specifying lattice dimensions, then s=4, d=4, c=3.
+            kappa: Hopping parameter (controls fermion mass).
+            u_0: Wilson parameter (usually 1.0).
+            dtype: Data type for tensors.
+            device: Device to run on (default: CPU).
+            verbose: Enable verbose output for debugging.
+        reference:
+            [1](1-60).
+        """
+        super().__init__(latt_size=latt_size, kappa=kappa,
+                         u_0=u_0, dtype=dtype, device=device, verbose=verbose)
+        if self.verbose:
+            print(f"Initializing Wilson with 8 wards:")
+            print(f"  Lattice size: {latt_size} (x,y,z,t)")
+            print(f"  Parameters: kappa={kappa}, u_0={u_0}")
+            print(f"  Complex dtype: {dtype}, Real dtype: {self.real_dtype}")
+            print(f"  Device: {self.device}")
+        self.directions = [
+            {'mu': 0, 'axis': -1-0, 'name': 'x',
+             'gamma': self.gamma[0]},
+            {'mu': 1, 'axis': -1-1, 'name': 'y',
+             'gamma': self.gamma[1]},
+            {'mu': 2, 'axis': -1-2, 'name': 'z',
+             'gamma': self.gamma[2]},
+            {'mu': 3, 'axis': -1-3, 'name': 't',
+             'gamma': self.gamma[3]},
+        ]
+
+    def give_hopping_plus(self, ward: int, U: torch.Tensor) -> torch.Tensor:
+        dir_info = self.directions[ward]
+        mu = dir_info['mu']
+        gamma_mu = dir_info['gamma']
+        name = dir_info['name']
+        if self.verbose:
+            print(f"@give_hopping_{name}_plus......")
+        U_mu = U[..., mu, :, :, :, :]
+        return - self.kappa/self.u_0 * torch.einsum(
+            'Ss,Cctzyx->SCsctzyx', (self.I - gamma_mu), U_mu).reshape([12, 12]+list(U.shape[-4:])).clone()  # sc->e
+
+    def give_wilson_plus(self, ward: int, src: torch.Tensor, hopping: torch.Tensor) -> torch.Tensor:
+        dir_info = self.directions[ward]
+        axis = dir_info['axis']
+        name = dir_info['name']
+        if self.verbose:
+            print(f"@give_wilson_{name}_plus......")
+        src_plus = torch.roll(src, shifts=-1, dims=axis)
+        return torch.einsum(
+            'Eetzyx,etzyx->Etzyx', hopping, src_plus).clone()
+
+    def give_hopping_minus(self, ward: int, U: torch.Tensor) -> torch.Tensor:
+        dir_info = self.directions[ward]
+        mu = dir_info['mu']
+        axis = dir_info['axis']
+        gamma_mu = dir_info['gamma']
+        name = dir_info['name']
+        if self.verbose:
+            print(f"@give_hopping_{name}_minus......")
+        U_dag = U.permute(1, 0, 2, 3, 4, 5, 6).conj().clone()
+        U_dag_mu = U_dag[..., mu, :, :, :, :]
+        U_dag_minus = torch.roll(U_dag_mu, shifts=1, dims=axis)
+        return - self.kappa/self.u_0 * torch.einsum(
+            'Ss,Cctzyx->SCsctzyx', (self.I + gamma_mu), U_dag_minus).reshape([12, 12]+list(U.shape[-4:])).clone()  # sc->e
+
+    def give_wilson_minus(self, ward: int, src: torch.Tensor, hopping: torch.Tensor) -> torch.Tensor:
+        dir_info = self.directions[ward]
+        axis = dir_info['axis']
+        name = dir_info['name']
+        if self.verbose:
+            print(f"@give_wilson_{name}_minus......")
+        src_minus = torch.roll(src, shifts=1, dims=axis)
+        return torch.einsum(
+            'Eetzyx,etzyx->Etzyx', hopping, src_minus).clone()
+
+
 class clover(wilson):
     def __init__(self,
-                 latt_size: Tuple[int, int, int, int],
+                 latt_size: Tuple[int, int, int, int] = [8, 8, 8, 8],
                  kappa: float = 0.1,
                  u_0: float = 1.0,
                  dtype: torch.dtype = torch.complex128,
@@ -536,8 +620,7 @@ class clover(wilson):
             [1](1-60).
         """
         super().__init__(latt_size=latt_size, kappa=kappa,
-                         u_0=u_0, dtype=dtype, device=device, verbose=False)
-        self.verbose = verbose
+                         u_0=u_0, dtype=dtype, device=device, verbose=verbose)
         if self.verbose:
             print(f"Initializing Clover:")
             print(f"  Lattice size: {latt_size} (x,y,z,t)")
@@ -714,7 +797,7 @@ class clover(wilson):
 
 class clover_parity(clover):
     def __init__(self,
-                 latt_size: Tuple[int, int, int, int],
+                 latt_size: Tuple[int, int, int, int] = [8, 8, 8, 8],
                  kappa: float = 0.1,
                  u_0: float = 1.0,
                  dtype: torch.dtype = torch.complex128,
@@ -733,9 +816,8 @@ class clover_parity(clover):
             [1](1-60);[1](1-160).
         """
         super().__init__(latt_size=latt_size, kappa=kappa,
-                         u_0=u_0, dtype=dtype, device=device, verbose=False)
+                         u_0=u_0, dtype=dtype, device=device, verbose=verbose)
         self.Lx_p = self.Lx // 2
-        self.verbose = verbose
         if self.verbose:
             print(f"Initializing Clover with parity decomposition:")
             print(f"  Lattice size: {latt_size} (x,y,z,t)")
