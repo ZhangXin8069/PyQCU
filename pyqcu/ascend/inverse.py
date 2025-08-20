@@ -393,11 +393,13 @@ class op:
                         local_ortho_null_vecs=local_ortho_null_vecs, fine_vec=_dest_f_minus_list[ward], verbose=self.verbose))
                 for ward in range(4):
                     self.sitting.M[:, e,
-                                   even_mask_c] += _dest_c_plus_list[ward][..., even_mask_c]
+                                   even_mask_c] += _dest_c_plus_list[ward][..., even_mask_c].clone()
+                    self.sitting.M[:, e,
+                                   even_mask_c] += _dest_c_minus_list[ward][..., even_mask_c].clone()
                     self.hopping.M_plus_list[ward][:, e,
-                                                   odd_mask_c] = _dest_c_plus_list[ward][..., odd_mask_c]
+                                                   odd_mask_c] = _dest_c_plus_list[ward][..., odd_mask_c].clone()  # odd_mask_c or even_mask_c?
                     self.hopping.M_minus_list[ward][:, e,
-                                                    odd_mask_c] = _dest_c_minus_list[ward][..., odd_mask_c]
+                                                    odd_mask_c] = _dest_c_minus_list[ward][..., odd_mask_c].clone()
                 # give partly sitting.oo and whole hopping.eo
                 _src_c = torch.zeros_like(self.sitting.M[0])
                 _src_c[e][odd_mask_c] = torch.ones_like(
@@ -415,11 +417,13 @@ class op:
                         local_ortho_null_vecs=local_ortho_null_vecs, fine_vec=_dest_f_minus_list[ward], verbose=self.verbose))
                 for ward in range(4):
                     self.sitting.M[:, e,
-                                   odd_mask_c] += _dest_c_plus_list[ward][..., odd_mask_c]
+                                   odd_mask_c] += _dest_c_plus_list[ward][..., odd_mask_c].clone()
+                    self.sitting.M[:, e,
+                                   odd_mask_c] += _dest_c_minus_list[ward][..., odd_mask_c].clone()
                     self.hopping.M_plus_list[ward][:, e,
-                                                   even_mask_c] = _dest_c_plus_list[ward][..., even_mask_c]
+                                                   even_mask_c] = _dest_c_plus_list[ward][..., even_mask_c].clone()
                     self.hopping.M_minus_list[ward][:, e,
-                                                    even_mask_c] = _dest_c_minus_list[ward][..., even_mask_c]
+                                                    even_mask_c] = _dest_c_minus_list[ward][..., even_mask_c].clone()
                 # give aother partly sitting.ee and sitting.oo
                 _src_c = torch.zeros_like(self.sitting.M[0])
                 _src_c[e] = torch.ones_like(_src_c[e])
@@ -428,7 +432,7 @@ class op:
                 _dest_f = fine_sitting.matvec(src=_src_f)
                 _dest_c = restrict(
                     local_ortho_null_vecs=local_ortho_null_vecs, fine_vec=_dest_f, verbose=self.verbose)
-                self.sitting.M[:, e, ...] = _dest_c
+                self.sitting.M[:, e, ...] += _dest_c.clone()
 
     def matvec(self, src: torch.Tensor) -> torch.Tensor:
         if src.shape[0] == 4 and src.shape[1] == 3:
@@ -499,89 +503,89 @@ class mg:
                                                                                                      1].sitting, local_ortho_null_vecs=_local_ortho_null_vecs, verbose=self.verbose))
         self.convergence_history = []
 
-    # def cycle(self, level: int = 0) -> torch.Tensor:
-    #     # init start
-    #     x0 = self.u_list[level].clone()
-    #     b = self.b_list[level].clone()
-    #     matvec = self.op_list[level].matvec
-    #     verbose = self.verbose
-    #     max_iter = self.max_iter
-    #     # init end
-    #     x = x0.clone() if x0 is not None else torch.randn_like(b)
-    #     r = b - matvec(x)
-    #     if verbose:
-    #         print(f"Norm of b:{torch.norm(b).item()}")
-    #         print(f"Norm of r:{torch.norm(r).item()}")
-    #         print(f"Norm of x0:{torch.norm(x).item()}")
-    #     r_norm = torch.norm(r).item()
-    #     tol = r_norm*0.25 if level != self.num_levels-1 else r_norm*0.1
-    #     if level == 0:
-    #         self.convergence_history.append(r_norm)
-    #         tol = self.tol
-    #     if r_norm < tol:
-    #         print("x0 is just right!")
-    #         return x.clone()
-    #     r_tilde = r.clone()
-    #     p = r.clone()
-    #     alpha = torch.tensor(1.0, dtype=b.dtype, device=b.device)
-    #     start_time = perf_counter()
-    #     iter_times = []
-    #     for i in range(max_iter):
-    #         iter_start_time = perf_counter()
-    #         Ap = matvec(p)
-    #         alpha = torch.vdot(r_tilde.flatten(), r.flatten()) / \
-    #             torch.vdot(r_tilde.flatten(), Ap.flatten())
-    #         if level == 0 and verbose:
-    #             self.convergence_history.append(torch.norm(b-matvec(x)).item())
-    #         x += alpha*p
-    #         r_next = r-alpha*Ap
-    #         r_norm = torch.norm(r_next).item()
-    #         if r_norm < tol:
-    #             if verbose:
-    #                 print(
-    #                     f"Converged at iteration {i} with residual {r_norm:.6e}")
-    #             break
-    #         t = matvec(r)
-    #         omega = torch.vdot(t.flatten(), r.flatten()) / \
-    #             torch.vdot(t.flatten(), t.flatten())
-    #         x += omega * r_next
-    #         if level == 0 and verbose:
-    #             self.convergence_history.append(torch.norm(b-matvec(x)).item())
-    #         r_next -= omega*matvec(r_next)
-    #         # cycle start
-    #         if level != self.num_levels-1:
-    #             r_coarse = restrict(
-    #                 local_ortho_null_vecs=self.lonv_list[level], fine_vec=r_next)
-    #             self.b_list[level+1] = r_coarse.clone()
-    #             e_coarse = self.cycle(level=level+1)
-    #             e_fine = prolong(
-    #                 local_ortho_null_vecs=self.lonv_list[level], coarse_vec=e_coarse)
-    #             x = x + e_fine
-    #             if level == 0 and verbose:
-    #                 self.convergence_history.append(
-    #                     torch.norm(b-matvec(x)).item())
-    #             r_next = b - matvec(x)
-    #         # cycle end
-    #         beta = torch.vdot(r_next.flatten(), r_next.flatten()) / \
-    #             torch.vdot(r.flatten(), r.flatten())
-    #         p = r_next+alpha*beta*(p/omega-Ap)
-    #         r = r_next.clone()
-    #         iter_time = perf_counter() - iter_start_time
-    #         iter_times.append(iter_time)
-    #         if verbose:
-    #             print(
-    #                 f"MG-{level}-BICGSTAB-Iteration {i}: Residual = {r_norm:.6e}, Time = {iter_time:.6f} s")
-    #     else:
-    #         print("  Warning: Maximum iterations reached, may not have converged")
-    #     total_time = perf_counter() - start_time
-    #     avg_iter_time = sum(iter_times) / len(iter_times)
-    #     print("\nPerformance Statistics:")
-    #     print(f"Total iterations: {len(iter_times)}")
-    #     print(f"Total time: {total_time:.6f} seconds")
-    #     print(f"Average time per iteration: {avg_iter_time:.6f} s")
-    #     print(f"Final residual: {r_norm:.2e}")
-    #     self.u_list[level] = torch.zeros_like(x)
-    #     return x.clone()
+    def _cycle(self, level: int = 0) -> torch.Tensor:
+        # init start
+        x0 = self.u_list[level].clone()
+        b = self.b_list[level].clone()
+        matvec = self.op_list[level].matvec
+        verbose = self.verbose
+        max_iter = self.max_iter
+        # init end
+        x = x0.clone() if x0 is not None else torch.randn_like(b)
+        r = b - matvec(x)
+        if verbose:
+            print(f"Norm of b:{torch.norm(b).item()}")
+            print(f"Norm of r:{torch.norm(r).item()}")
+            print(f"Norm of x0:{torch.norm(x).item()}")
+        r_norm = torch.norm(r).item()
+        tol = r_norm*0.25 if level != self.num_levels-1 else r_norm*0.1
+        if level == 0:
+            self.convergence_history.append(r_norm)
+            tol = self.tol
+        if r_norm < tol:
+            print("x0 is just right!")
+            return x.clone()
+        r_tilde = r.clone()
+        p = r.clone()
+        alpha = torch.tensor(1.0, dtype=b.dtype, device=b.device)
+        start_time = perf_counter()
+        iter_times = []
+        for i in range(max_iter):
+            iter_start_time = perf_counter()
+            Ap = matvec(p)
+            alpha = torch.vdot(r_tilde.flatten(), r.flatten()) / \
+                torch.vdot(r_tilde.flatten(), Ap.flatten())
+            if level == 0 and verbose:
+                self.convergence_history.append(torch.norm(b-matvec(x)).item())
+            x += alpha*p
+            r_next = r-alpha*Ap
+            r_norm = torch.norm(r_next).item()
+            if r_norm < tol:
+                if verbose:
+                    print(
+                        f"Converged at iteration {i} with residual {r_norm:.6e}")
+                break
+            t = matvec(r)
+            omega = torch.vdot(t.flatten(), r.flatten()) / \
+                torch.vdot(t.flatten(), t.flatten())
+            x += omega * r_next
+            if level == 0 and verbose:
+                self.convergence_history.append(torch.norm(b-matvec(x)).item())
+            r_next -= omega*matvec(r_next)
+            # cycle start
+            if level != self.num_levels-1:
+                r_coarse = restrict(
+                    local_ortho_null_vecs=self.lonv_list[level], fine_vec=r_next)
+                self.b_list[level+1] = r_coarse.clone()
+                e_coarse = self.cycle(level=level+1)
+                e_fine = prolong(
+                    local_ortho_null_vecs=self.lonv_list[level], coarse_vec=e_coarse)
+                x = x + e_fine
+                r_next = b - matvec(x)
+            if level == 0 and verbose:
+                self.convergence_history.append(
+                    torch.norm(b-matvec(x)).item())
+            # cycle end
+            beta = torch.vdot(r_next.flatten(), r_next.flatten()) / \
+                torch.vdot(r.flatten(), r.flatten())
+            p = r_next+alpha*beta*(p/omega-Ap)
+            r = r_next.clone()
+            iter_time = perf_counter() - iter_start_time
+            iter_times.append(iter_time)
+            if verbose:
+                print(
+                    f"MG-{level}-BICGSTAB-Iteration {i}: Residual = {r_norm:.6e}, Time = {iter_time:.6f} s")
+        else:
+            print("  Warning: Maximum iterations reached, may not have converged")
+        total_time = perf_counter() - start_time
+        avg_iter_time = sum(iter_times) / len(iter_times)
+        print("\nPerformance Statistics:")
+        print(f"Total iterations: {len(iter_times)}")
+        print(f"Total time: {total_time:.6f} seconds")
+        print(f"Average time per iteration: {avg_iter_time:.6f} s")
+        print(f"Final residual: {r_norm:.2e}")
+        self.u_list[level] = torch.zeros_like(x)
+        return x.clone()
 
     def cycle(self, level: int = 0) -> torch.Tensor:
         # init start
@@ -644,9 +648,9 @@ class mg:
                     local_ortho_null_vecs=self.lonv_list[level], coarse_vec=e_coarse)
                 x = x + e_fine
                 r = b - matvec(x)
-                r_norm = torch.norm(r).item()
-                if level == 0 and verbose:
-                    self.convergence_history.append(r_norm)
+            r_norm = torch.norm(r).item()
+            if level == 0 and verbose:
+                self.convergence_history.append(r_norm)
             # cycle end
             iter_time = perf_counter() - iter_start_time
             iter_times.append(iter_time)
