@@ -304,57 +304,39 @@ def prolong(local_ortho_null_vecs: torch.Tensor, coarse_vec: torch.Tensor, verbo
 
 
 class hopping:
-    def __init__(self, wilson: dslash.wilson_parity = None, U_eo: torch.Tensor = None):
-        self.M_eo = torch.zeros([])
-        self.M_oe = torch.zeros([])
+    def __init__(self, wilson: dslash.wilson = None, U: torch.Tensor = None):
+        self.M = torch.zeros([])
         self.wilson = wilson
-        self.U_eo = U_eo
+        self.U = U
 
-    def matvec_eo(self, src_o: torch.Tensor) -> torch.Tensor:
+    def matvec(self, src: torch.Tensor) -> torch.Tensor:
         if self.wilson != None:
-            return self.wilson.give_wilson_eo(
-                src_o=src_o.reshape([4, 3]+list(src_o.shape[1:])), U_eo=self.U_eo).reshape([12]+list(src_o.shape)[1:]).clone()  # e->sc->e
+            return self.wilson.give_wilson(
+                src=src.reshape([4, 3]+list(src.shape[1:])), U=self.U, with_I=False).reshape([12]+list(src.shape)[1:]).clone()  # e->sc->e
         else:
             return torch.einsum(
-                "EeTZYX, eTZYX->ETZYX", self.M_eo, src_o)
-
-    def matvec_oe(self, src_e: torch.Tensor) -> torch.Tensor:
-        if self.wilson != None:
-            return self.wilson.give_wilson_oe(
-                src_e=src_e.reshape([4, 3]+list(src_e.shape[1:])), U_eo=self.U_eo).reshape([12]+list(src_e.shape)[1:]).clone()  # e->sc->e
-        else:
-            return torch.einsum(
-                "EeTZYX, eTZYX->ETZYX", self.M_oe, src_e)
+                "EeTZYX, eTZYX->ETZYX", self.M, src)
 
 
 class sitting:
-    def __init__(self, clover: dslash.clover_parity = None, clover_eo: torch.Tensor = None):
-        self.M_ee = torch.zeros([])
-        self.M_oo = torch.zeros([])
+    def __init__(self, clover: dslash.clover = None, clover_term: torch.Tensor = None):
+        self.M = torch.zeros([])
         self.clover = clover
-        self.clover_eo = clover_eo
+        self.clover_term = clover_term
 
-    def matvec_ee(self, src_e: torch.Tensor) -> torch.Tensor:
+    def matvec(self, src: torch.Tensor) -> torch.Tensor:
         if self.clover != None:  # remmber to add I
-            return self.clover.give_clover_ee(
-                src_e=src_e.reshape([4, 3]+list(src_e.shape[1:])), clover_eo=self.clover_eo).reshape([12]+list(src_e.shape)[1:]).clone()  # e->sc->e
+            return self.clover.give_clover(
+                src=src.reshape([4, 3]+list(src.shape[1:])), clover_term=self.clover_term).reshape([12]+list(src.shape)[1:]).clone()  # e->sc->e
         else:
             return torch.einsum(
-                "EeTZYX, eTZYX->ETZYX", self.M_ee, src_e).clone()
-
-    def matvec_oo(self, src_o: torch.Tensor) -> torch.Tensor:
-        if self.clover != None:  # remmber to add I
-            return self.clover.give_clover_oo(
-                src_o=src_o.reshape([4, 3]+list(src_o.shape[1:])), clover_eo=self.clover_eo).reshape([12]+list(src_o.shape)[1:]).clone()  # e->sc->e
-        else:
-            return torch.einsum(
-                "EeTZYX, eTZYX->ETZYX", self.M_oo, src_o).clone()
+                "EeTZYX, eTZYX->ETZYX", self.M, src).clone()
 
 
 class op:
-    def __init__(self, wilson: dslash.wilson_parity = None, U_eo: torch.Tensor = None, clover: dslash.clover_parity = None, clover_eo: torch.Tensor = None, fine_hopping: hopping = None, fine_sitting: sitting = None, local_ortho_null_vecs: torch.Tensor = None, verbose: bool = True):
-        self.hopping = hopping(wilson=wilson, U_eo=U_eo)
-        self.sitting = sitting(clover=clover, clover_eo=clover_eo)
+    def __init__(self, wilson: dslash.wilson = None, U: torch.Tensor = None, clover: dslash.clover = None, clover_term: torch.Tensor = None, fine_hopping: hopping = None, fine_sitting: sitting = None, local_ortho_null_vecs: torch.Tensor = None, verbose: bool = True):
+        self.hopping = hopping(wilson=wilson, U=U)
+        self.sitting = sitting(clover=clover, clover_term=clover_term)
         self.verbose = verbose
         if fine_hopping != None and fine_sitting != None and local_ortho_null_vecs != None:
             shape = local_ortho_null_vecs.shape  # EeTtZzYyXx
@@ -362,81 +344,61 @@ class op:
             device = local_ortho_null_vecs.device
             dof = shape[0]
             fine_dof = shape[1]
-            self.hopping.M_eo = torch.zeros(
-                size=[dof, dof, shape[-4*2], shape[-3*2], shape[-2*2], shape[-1*2]//2], dtype=dtype, device=device)  # EETZYX_p
-            self.hopping.M_oe = torch.zeros(
-                size=[dof, dof, shape[-4*2], shape[-3*2], shape[-2*2], shape[-1*2]//2], dtype=dtype, device=device)  # EETZYX_p
-            self.sitting.M_ee = torch.zeros(
-                size=[dof, dof, shape[-4*2], shape[-3*2], shape[-2*2], shape[-1*2]//2], dtype=dtype, device=device)  # EETZYX_p
-            self.sitting.M_oo = torch.zeros(
-                size=[dof, dof, shape[-4*2], shape[-3*2], shape[-2*2], shape[-1*2]//2], dtype=dtype, device=device)  # EETZYX_p
+            self.hopping.M = torch.zeros(
+                size=[dof, dof, shape[-4*2], shape[-3*2], shape[-2*2], shape[-1*2]], dtype=dtype, device=device)  # EETZYX
+            self.sitting.M = torch.zeros(
+                size=[dof, dof, shape[-4*2], shape[-3*2], shape[-2*2], shape[-1*2]], dtype=dtype, device=device)  # EETZYX
             src_c = torch.zeros(
                 size=[dof, shape[-4*2], shape[-3*2], shape[-2*2], shape[-1*2]], dtype=dtype, device=device)   # ETZYX
-            src_c_I = torch.ones(
-                size=[shape[-4*2], shape[-3*2], shape[-2*2], shape[-1*2]], dtype=dtype, device=device)  # TZYX
             dest_f = torch.zeros(size=[fine_dof, shape[-8]*shape[-7], shape[-6]*shape[-5],
                                  shape[-4]*shape[-3], shape[-2]*shape[-1]], dtype=dtype, device=device)  # e(Tt)(Zz)(Yy)(Xx)
-            dest_f_eo = xxxtzyx2pxxxtzyx(input_array=dest_f.clone())
             if self.verbose:
                 print(
                     f"local_ortho_null_vecs.shape,src_c.shape,dest_f.shape:{local_ortho_null_vecs.shape,src_c.shape,dest_f.shape}")
+            even_mask_c = give_parity_mask(
+                x=src_c.shape[-1], y=src_c.shape[-2], z=src_c.shape[-3], t=src_c.shape[-4], parity=0)
+            odd_mask_c = give_parity_mask(
+                x=src_c.shape[-1], y=src_c.shape[-2], z=src_c.shape[-3], t=src_c.shape[-4], parity=1)
+            even_mask_f = give_parity_mask(
+                x=dest_f.shape[-1], y=dest_f.shape[-2], z=dest_f.shape[-3], t=dest_f.shape[-4], parity=0)
+            odd_mask_f = give_parity_mask(
+                x=dest_f.shape[-1], y=dest_f.shape[-2], z=dest_f.shape[-3], t=dest_f.shape[-4], parity=1)
             for e in range(dof):
                 _src_c = src_c.clone()
-                _src_c[e] = src_c_I.clone()
+                _src_c[e] = torch.ones_like(_src_c[e])
                 _src_f = prolong(
                     local_ortho_null_vecs=local_ortho_null_vecs, coarse_vec=_src_c, verbose=self.verbose)
-                if self.verbose:
-                    print(
-                        f"_src_f.shape:{_src_f.shape}")
-                _src_f_eo = xxxtzyx2pxxxtzyx(input_array=_src_f)
                 # give partly sitting.ee and whole hopping.oe
-                _dest_f_eo = dest_f_eo.clone()
-                _dest_f_eo[0] = fine_hopping.matvec_eo(src_o=_src_f_eo[1])
-                _dest_f = pxxxtzyx2xxxtzyx(input_array=_dest_f_eo)
+                _src_e0_f = _src_f.clone()
+                _src_e0_f[..., odd_mask_f] = torch.zeros_like(
+                    _src_e0_f[..., odd_mask_f])
+                _dest_f = fine_hopping.matvec(src=_src_e0_f)
                 _dest_c = restrict(
                     local_ortho_null_vecs=local_ortho_null_vecs, fine_vec=_dest_f, verbose=self.verbose)
-                _dest_c_eo = xxxtzyx2pxxxtzyx(input_array=_dest_c)
-                self.sitting.M_ee[:, e, ...] = _dest_c_eo[0]
-                self.hopping.M_oe[:, e, ...] = _dest_c_eo[1]
+                self.sitting.M[:, e, odd_mask_f] = _dest_c[..., even_mask_c]
+                self.hopping.M[:, e, odd_mask_f] = _dest_c[..., even_mask_c]
                 # give partly sitting.oo and whole hopping.eo
-                _dest_f_eo = dest_f_eo.clone()
-                _dest_f_eo[1] = fine_hopping.matvec_oe(src_e=_src_f_eo[0])
-                _dest_f = pxxxtzyx2xxxtzyx(input_array=_dest_f_eo)
+                _dest_f = dest_f.clone()
+                _dest_f[1] = fine_hopping.matvec_oe(src_e=_src_f[0])
                 _dest_c = restrict(
                     local_ortho_null_vecs=local_ortho_null_vecs, fine_vec=_dest_f, verbose=self.verbose)
-                _dest_c_eo = xxxtzyx2pxxxtzyx(input_array=_dest_c)
-                self.sitting.M_oo[:, e, ...] = _dest_c_eo[1]
-                self.hopping.M_eo[:, e, ...] = _dest_c_eo[0]
+                self.sitting.M_oo[:, e, ...] = _dest_c[1]
+                self.hopping.M[:, e, ...] = _dest_c[0]
                 # give aother partly sitting.ee and sitting.oo
-                dest_f_eo = dest_f_eo.clone()
-                _dest_f_eo[0] = fine_sitting.matvec_ee(src_e=_src_f_eo[0])
-                _dest_f_eo[1] = fine_sitting.matvec_oo(src_o=_src_f_eo[1])
-                _dest_f = pxxxtzyx2xxxtzyx(input_array=_dest_f_eo)
+                dest_f = dest_f.clone()
+                _dest_f[0] = fine_sitting.matvec_ee(src_e=_src_f[0])
+                _dest_f[1] = fine_sitting.matvec_oo(src_o=_src_f[1])
                 _dest_c = restrict(
                     local_ortho_null_vecs=local_ortho_null_vecs, fine_vec=_dest_f, verbose=self.verbose)
-                _dest_c_eo = xxxtzyx2pxxxtzyx(input_array=_dest_c)
-                self.sitting.M_ee[:, e, ...] += _dest_c_eo[0]
-                self.sitting.M_oo[:, e, ...] += _dest_c_eo[1]
+                self.sitting.M_ee[:, e, ...] += _dest_c[0]
+                self.sitting.M_oo[:, e, ...] += _dest_c[1]
 
     def matvec(self, src: torch.Tensor) -> torch.Tensor:
-        if len(src.shape) == 6:
-            _src = src.reshape([12]+list(src.shape[2:])).clone()
-        else:
-            _src = src.clone()
-        src_eo = xxxtzyx2pxxxtzyx(input_array=_src)
-        dest_eo = torch.zeros_like(src_eo)
-        dest_eo[0] = self.hopping.matvec_eo(
-            src_o=src_eo[1])+self.sitting.matvec_ee(src_e=src_eo[0])
-        dest_eo[1] = self.hopping.matvec_oe(
-            src_e=src_eo[0])+self.sitting.matvec_oo(src_o=src_eo[1])
-        if len(src.shape) == 6:
-            return pxxxtzyx2xxxtzyx(input_array=dest_eo).reshape(src.shape).clone()
-        else:
-            return pxxxtzyx2xxxtzyx(input_array=dest_eo).clone()
+        return self.hopping.matvec(src=src)+self.sitting.matvec(src=src)
 
 
 class mg:
-    def __init__(self, b: torch.Tensor,  wilson: dslash.wilson_parity, U_eo: torch.Tensor, clover: dslash.clover_parity, clover_eo: torch.Tensor,  min_size: int = 2, max_levels: int = 2, dof_list: Tuple[int, int, int, int] = [12, 12, 12, 12, 8, 8, 4, 12, 12, 12, 8, 4, 2, 4, 4, 24, 12, 12, 12, 4, 4, 4, 4, 4], tol: float = 1e-6, max_iter: int = 1000, x0: torch.Tensor = None, max_restarts: int = 5, pre_smooth: bool = True, post_smooth: bool = False, verbose: bool = True):
+    def __init__(self, b: torch.Tensor,  wilson: dslash.wilson, U: torch.Tensor, clover: dslash.clover, clover_term: torch.Tensor,  min_size: int = 2, max_levels: int = 2, dof_list: Tuple[int, int, int, int] = [12, 12, 12, 12, 8, 8, 4, 12, 12, 12, 8, 4, 2, 4, 4, 24, 12, 12, 12, 4, 4, 4, 4, 4], tol: float = 1e-6, max_iter: int = 1000, x0: torch.Tensor = None, max_restarts: int = 5, pre_smooth: bool = True, post_smooth: bool = False, verbose: bool = True):
         self.b = b.reshape([12]+list(b.shape)[2:])  # sc->e
         self.min_size = min_size
         self.max_levels = max_levels
@@ -450,8 +412,8 @@ class mg:
         self.x0 = x0.clone().reshape(
             [12]+list(x0.shape)[2:]) if x0 is not None else torch.randn_like(self.b)  # sc->e
         self.verbose = verbose
-        self.op_list = [op(wilson=wilson, U_eo=U_eo,
-                           clover=clover, clover_eo=clover_eo, verbose=self.verbose)]
+        self.op_list = [op(wilson=wilson, U=U,
+                           clover=clover, clover_term=clover_term, verbose=self.verbose)]
         # Build grid list
         _Lx = b.shape[-1]
         _Ly = b.shape[-2]
