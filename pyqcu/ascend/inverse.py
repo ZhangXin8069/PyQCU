@@ -53,7 +53,7 @@ def cg(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], tol: flo
         if verbose:
             # print(f"alpha,beta,rho:{alpha,beta,rho}\n")
             print(
-                f"CG:Iteration {i}: Residual = {r_norm:.6e}, Time = {iter_time:.6f} s")
+                f"CG-Iteration {i}: Residual = {r_norm:.6e}, Time = {iter_time:.6f} s")
         if r_norm < tol:
             if verbose:
                 print(
@@ -125,7 +125,7 @@ def bicgstab(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], to
         if verbose:
             # print(f"alpha,beta,omega:{alpha,beta,omega}\n")
             print(
-                f"BICGSTAB:Iteration {i}: Residual = {r_norm:.6e}, Time = {iter_time:.6f} s")
+                f"BICGSTAB-Iteration {i}: Residual = {r_norm:.6e}, Time = {iter_time:.6f} s")
         if r_norm < tol:
             if verbose:
                 print(
@@ -301,112 +301,6 @@ def prolong(local_ortho_null_vecs: torch.Tensor, coarse_vec: torch.Tensor, verbo
         print("EeTtZzYyXx,ETZYX->eTtZzYyXx")
     return torch.einsum(
         "EeTtZzYyXx,ETZYX->eTtZzYyXx", local_ortho_null_vecs, _coarse_vec).reshape([fine_dof, shape[-8]*shape[-7], shape[-6]*shape[-5], shape[-4]*shape[-3], shape[-2]*shape[-1]]).clone()
-
-
-class GMRESSmoother:
-    """
-    GMRES-based smoother for multigrid methods.
-    Implements the Generalized Minimal Residual method with restarts
-    as a smoother for the multigrid list.
-    Args:
-        max_krylov: Maximum Krylov subspace dimension (default: 5)
-        max_restarts: Maximum number of restarts (default: 1)
-        tol: Relative tolerance for convergence (default: 0.1)
-    """
-
-    def __init__(self, max_krylov: int = 5, max_restarts: int = 1, tol: float = 0.1):
-        self.max_krylov = max_krylov
-        self.max_restarts = max_restarts
-        self.tol = tol
-
-    def smooth(self, matvec: Callable[[torch.Tensor], torch.Tensor],
-               b: torch.Tensor, x0: torch.Tensor = None) -> torch.Tensor:
-        """
-        Apply GMRES smoothing to the linear system op*x = b.
-        Args:
-            matvec: Linear operator
-            b: Right-hand side vector
-            x0: Initial guess
-        Returns:
-            x: Smoothed solution
-        """
-        def _matvec(src: torch.Tensor) -> torch.Tensor:
-            return matvec(src.reshape(b.shape)).flatten()
-        x = x0.flatten().clone() if x0 is not None else torch.randn_like(b.flatten())
-        r = b.flatten() - _matvec(x)
-        r_norm = torch.norm(r).item()
-        if r_norm < 1e-12:
-            return x0
-        # GMRES with restarts
-        for _ in range(self.max_restarts):
-            Q, H = self._arnoldi(matvec=_matvec, r0=r, r_norm=r_norm)
-            # Set up least squares problem
-            e1 = torch.zeros(H.shape[1] + 1, dtype=b.dtype, device=b.device)
-            e1[0] = r_norm
-            # Solve least squares problem
-            y = self._solve_least_squares(H, e1)
-            # Update solution
-            dx = Q[:, :-1] @ y
-            x = x + dx
-            # Check convergence
-            new_r = b.flatten() - _matvec(x)
-            new_r_norm = torch.norm(new_r).item()
-            if new_r_norm < self.tol * r_norm:
-                break
-            r = new_r
-            r_norm = new_r_norm
-        return x.reshape(b.shape)
-
-    def _arnoldi(self, matvec: Callable[[torch.Tensor], torch.Tensor],
-                 r0: torch.Tensor, r_norm: float) -> Tuple[torch.Tensor, torch.Tensor]:
-        """
-        Arnoldi process for building orthonormal Krylov subspace.
-        Args:
-            matvec: Linear operator
-            r0: Initial residual vector
-            r_norm: Norm of initial residual
-        Returns:
-            Q: Orthonormal basis matrix
-            H: Upper Hessenberg matrix
-        """
-        m = self.max_krylov
-        n = len(r0)
-        Q = torch.zeros((n, m+1), dtype=r0.dtype, device=r0.device)
-        H = torch.zeros((m+1, m), dtype=r0.dtype, device=r0.device)
-        Q[:, 0] = r0 / r_norm
-        for j in range(m):
-            w = matvec(Q[:, j])
-            # Modified Gram-Schmidt orthogonalization
-            for i in range(j+1):
-                H[i, j] = torch.vdot(Q[:, i], w)
-                w = w - H[i, j] * Q[:, i]
-            h_norm = torch.norm(w).item()
-            H[j+1, j] = h_norm
-            if h_norm < 1e-12:
-                return Q[:, :j+1], H[:j+1, :j]
-            if j < m:
-                Q[:, j+1] = w / h_norm
-        return Q, H
-
-    def _solve_least_squares(self, H: torch.Tensor, e1: torch.Tensor) -> torch.Tensor:
-        """
-        Solve the least squares problem in GMRES.
-        Args:
-            H: Upper Hessenberg matrix
-            e1: Right-hand side vector
-        Returns:
-            y: Solution to least squares problem
-        """
-        m = H.shape[1]
-        h_height = H.shape[0]
-        # Augment matrix for QR factorization
-        R = torch.zeros((h_height, m+1), dtype=H.dtype, device=H.device)
-        R[:, :m] = H
-        R[:, m] = e1[:h_height]
-        # QR factorization and solve
-        Q, R_qr = torch.linalg.qr(R, mode='complete')
-        y = torch.linalg.solve(R_qr[:m, :m], Q[:m, :m].conj().T @ e1[:m])
-        return y
 
 
 class hopping:
@@ -590,7 +484,7 @@ class mg:
                 matvec=self.op_list[i-1].matvec,
                 tol=self.tol,
                 verbose=False,
-            ) 
+            )
             _local_ortho_null_vecs = local_orthogonalize(
                 null_vecs=_null_vecs,
                 mg_size=self.grid_list[i], verbose=False)
@@ -602,16 +496,6 @@ class mg:
             self.op_list.append(op(fine_hopping=self.op_list[i-1].hopping, fine_sitting=self.op_list[i -
                                                                                                      1].sitting, local_ortho_null_vecs=_local_ortho_null_vecs, verbose=self.verbose))
         self.convergence_history = []
-        # Initialize GMRES smoother
-        self.smoother = GMRESSmoother(
-            max_krylov=5, max_restarts=self.max_restarts, tol=0.1)
-
-    def smooth(self, level: int = 0) -> torch.Tensor:
-        return bicgstab(b=self.b_list[level], matvec=self.op_list[level].matvec,  x0=self.u_list[level], tol=0.25*self.give_residual_norm(level=level), verbose=True)
-        # return bicgstab(b=self.b_list[level], matvec=self.op_list[level].matvec,  x0=self.u_list[level], max_iter=self.max_restarts, verbose=False)
-        # return bicgstab(b=self.b_list[level], matvec=self.op_list[level].matvec, max_iter=self.max_restarts, verbose=False)
-        # return self.smoother.smooth(matvec=self.op_list[level].matvec, b=self.b_list[level], x0=self.u_list[level])
-        # return self.smoother.smooth(matvec=self.op_list[level].matvec, b=self.b_list[level])
 
     def give_residual(self, level: int = 0) -> torch.Tensor:
         return self.b_list[level] - self.op_list[level].matvec(self.u_list[level])
@@ -619,77 +503,88 @@ class mg:
     def give_residual_norm(self, level: int = 0) -> torch.Tensor:
         return torch.norm(self.give_residual(level=level)).item()
 
-    def v_cycle(self, level: int = 0) -> torch.Tensor:
-        """
-        V-cycle multigrid recursion.
-        Implements the standard V-cycle: pre-smooth, restrict, recurse, 
-        prolongate, post-smooth.
-        Args:
-            level: Current recursion level
-        Returns:
-            u: Updated solution at current level
-        """
-        if self.verbose:
-            print(
-                f"V-cycle level {level}, mg_size: {self.grid_list[level]}")
-        # Coarsest grid: direct solve with BiCGSTAB
-        if level == self.num_levels-1:
-            if self.verbose:
+    def cycle(self, level: int = 0) -> torch.Tensor:
+        # init start
+        x0 = self.u_list[level].clone()
+        b = self.b_list[level].clone()
+        matvec = self.op_list[level].matvec
+        verbose = self.verbose
+        max_iter = self.max_iter
+        # init end
+        x = x0.clone() if x0 is not None else torch.randn_like(b)
+        r = b - matvec(x)
+        if verbose:
+            print(f"Norm of b:{torch.norm(b).item()}")
+            print(f"Norm of r:{torch.norm(r).item()}")
+            print(f"Norm of x0:{torch.norm(x).item()}")
+        r_norm = torch.norm(r).item()
+        tol = r_norm*0.25 if level != self.num_levels else r_norm*0.1
+        if r_norm < tol:
+            print("x0 is just right!")
+            return x.clone()
+        r_tilde = r.clone()
+        p = torch.zeros_like(b)
+        v = torch.zeros_like(b)
+        s = torch.zeros_like(b)
+        t = torch.zeros_like(b)
+        rho = torch.tensor(1.0, dtype=b.dtype, device=b.device)
+        rho_prev = torch.tensor(1.0, dtype=b.dtype, device=b.device)
+        alpha = torch.tensor(1.0, dtype=b.dtype, device=b.device)
+        omega = torch.tensor(1.0, dtype=b.dtype, device=b.device)
+        start_time = perf_counter()
+        iter_times = []
+        for i in range(max_iter):
+            iter_start_time = perf_counter()
+            rho = torch.vdot(r_tilde.flatten(), r.flatten())
+            beta = (rho / rho_prev) * (alpha / omega)
+            rho_prev = rho
+            p = r + beta * (p - omega * v)
+            v = matvec(p)
+            alpha = rho / torch.vdot(r_tilde.flatten(), v.flatten())
+            s = r - alpha * v
+            t = matvec(s)
+            omega = torch.vdot(t.flatten(), s.flatten()) / \
+                torch.vdot(t.flatten(), t.flatten())
+            x = x + alpha * p + omega * s
+            r = s - omega * t
+            r_norm = torch.norm(r).item()
+            # cycle start
+            if level != self.num_levels:
+                r_coarse = restrict(
+                    local_ortho_null_vecs=self.lonv_list[level], fine_vec=r)
+                self.b_list[level+1] = r_coarse
+                e_coarse = self.cycle(level=level+1)
+                e_fine = prolong(
+                    local_ortho_null_vecs=self.lonv_list[level], coarse_vec=e_coarse)
+                x = x + e_fine
+            # cycle end
+            iter_time = perf_counter() - iter_start_time
+            iter_times.append(iter_time)
+            if verbose:
+                # print(f"alpha,beta,omega:{alpha,beta,omega}\n")
                 print(
-                    f"    Pre-solve residual norm: {self.give_residual_norm(level=level):.4e}")
-                print(f"    Solving coarsest grid directly...")
-            self.u_list[level] = bicgstab(
-                b=self.b_list[level], matvec=self.op_list[level].matvec, tol=0.1*self.give_residual_norm(level=level), x0=self.u_list[level], verbose=True)
-            if self.verbose:
-                print(
-                    f"    Post-solve residual norm: {self.give_residual_norm(level=level):.4e}")
-            return self.u_list[level].clone()
-        # Pre-smoothing
-        if self.pre_smooth:
-            if self.verbose:
-                print(
-                    f"    Pre pre-smooth residual norm: {self.give_residual_norm(level=level):.4e}")
-                print(f"    Pre-smoothing...")
-            self.u_list[level] = self.smooth(level=level)
-            if level == 0:
-                self.convergence_history.append(self.give_residual_norm())
-        if self.verbose:
-            print(
-                f"    Post pre-smooth residual norm: {self.give_residual_norm(level=level):.4e}")
-        # Coarse grid correction
-        if level != self.num_levels-1:
-            # Restrict residual to coarse grid
-            r_coarse = restrict(fine_vec=self.give_residual(level=level),
-                                local_ortho_null_vecs=self.lonv_list[level], verbose=self.verbose)
-            self.b_list[level + 1] = r_coarse
-            # self.u_list[level + 1] = torch.zeros_like(r_coarse) # x->>0??????
-            # Recursive call to coarser level
-            e_coarse = self.v_cycle(level=level + 1)
-            # Prolongate error correction to fine grid
-            e_fine = prolong(coarse_vec=e_coarse,
-                             local_ortho_null_vecs=self.lonv_list[level], verbose=self.verbose)
-            # Apply correction
-            self.u_list[level] += e_fine
-        if level == 0:
-            self.convergence_history.append(self.give_residual_norm())
-        # Post-smoothing
-        if self.post_smooth:
-            if self.verbose:
-                print(
-                    f"    Pre post-smooth residual norm: {self.give_residual_norm(level=level):.4e}")
-                print(f"    Post-smoothing...")
-            self.u_list[level] = self.smooth(level=level)
-            if level == 0:
-                self.convergence_history.append(self.give_residual_norm())
-        if self.verbose:
-            print(
-                f"    Post post-smooth residual norm: {self.give_residual_norm(level=level):.4e}")
-        return self.u_list[level].clone()
+                    f"MG-{level}-BICGSTAB-Iteration {i}: Residual = {r_norm:.6e}, Time = {iter_time:.6f} s")
+            if r_norm < tol:
+                if verbose:
+                    print(
+                        f"Converged at iteration {i} with residual {r_norm:.6e}")
+                break
+        else:
+            print("  Warning: Maximum iterations reached, may not have converged")
+        total_time = perf_counter() - start_time
+        avg_iter_time = sum(iter_times) / len(iter_times)
+        print("\nPerformance Statistics:")
+        print(f"Total iterations: {len(iter_times)}")
+        print(f"Total time: {total_time:.6f} seconds")
+        print(f"Average time per iteration: {avg_iter_time:.6f} s")
+        print(f"Final residual: {r_norm:.2e}")
+        self.u_list[level] = x.clone()
+        return x.clone()
 
     def solve(self) -> torch.Tensor:
         """
         Main multigrid solver routine.
-        Sets up the multigrid list, performs V-cycle iterations until
+        Sets up the multigrid list, performs cycle iterations until
         convergence, and returns the solution.
         """
         start_time = perf_counter()
@@ -699,15 +594,15 @@ class mg:
         for i in range(self.max_iter):
             print(f"\nMG:Iteration {i + 1}:")
             iter_start_time = perf_counter()
-            # Perform V-cycle
-            self.u_list[0] = self.v_cycle(level=0)
+            # Perform cycle
+            self.u_list[0] = self.cycle(level=0)
             # Check convergence on finest grid
             residual_norm = self.give_residual_norm(level=0)
             iter_time = perf_counter() - iter_start_time
             iter_times.append(iter_time)
             if self.verbose:
                 print(
-                    f"MG:Iteration {i + 1} completed, residual norm: {residual_norm:.4e}")
+                    f"MG-Iteration {i + 1} completed, residual norm: {residual_norm:.4e}")
             # Check for convergence
             if residual_norm < self.tol:
                 if self.verbose:
