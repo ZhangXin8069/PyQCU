@@ -1,6 +1,8 @@
 import torch
 import h5py
 import mpi4py.MPI as MPI
+
+import torch.share
 mpi_comm = MPI.COMM_WORLD
 mpi_rank = mpi_comm.Get_rank()
 mpi_size = mpi_comm.Get_size()
@@ -49,10 +51,10 @@ def xxxtzyx2pxxxtzyx(input_array: torch.Tensor, verbose=False) -> torch.Tensor:
     t, z, y, x = shape[-4:]
     # Create coordinate grids
     coords = torch.meshgrid(
-        torch.arange(t, device=device),
-        torch.arange(z, device=device),
-        torch.arange(y, device=device),
-        torch.arange(x, device=device),
+        torch.arange(t),
+        torch.arange(z),
+        torch.arange(y),
+        torch.arange(x),
         indexing='ij'
     )
     # Sum coordinates to determine checkerboard pattern
@@ -86,10 +88,10 @@ def pxxxtzyx2xxxtzyx(input_array: torch.Tensor, verbose=False) -> torch.Tensor:
     x = x_half * 2  # Restore original x dimension
     # Create coordinate grids for original shape
     coords = torch.meshgrid(
-        torch.arange(t, device=device),
-        torch.arange(z, device=device),
-        torch.arange(y, device=device),
-        torch.arange(x, device=device),
+        torch.arange(t),
+        torch.arange(z),
+        torch.arange(y),
+        torch.arange(x),
         indexing='ij'
     )
     # Sum coordinates to determine checkerboard pattern
@@ -114,16 +116,31 @@ def give_eo_mask(xxxtzy_x_p: torch.Tensor, eo: int, verbose=False) -> torch.Tens
     if verbose:
         print("@give_eo_mask......")
     shape = xxxtzy_x_p.shape
-    device = xxxtzy_x_p.device
     t, z, y, x_p = shape[-4:]
     # Create coordinate grids for original shape
     coords = torch.meshgrid(
-        torch.arange(t, device=device),
-        torch.arange(z, device=device),
-        torch.arange(y, device=device),
-        torch.arange(x_p, device=device),
+        torch.arange(t),
+        torch.arange(z),
+        torch.arange(y),
+        torch.arange(x_p),
         indexing='ij'
     )
     # Sum coordinates to determine checkerboard pattern
     sums = coords[0] + coords[1] + coords[2]  # t+z+y
     return sums % 2 == eo
+
+
+def give_parity_mask(x: int = 8, y: int = 8, z: int = 8, t: int = 8, parity: int = 0, verbose: bool = False) -> torch.Tensor:
+    if verbose:
+        print("@give_parity_mask......")
+    # Create coordinate grids for original shape
+    coords = torch.meshgrid(
+        torch.arange(t),
+        torch.arange(z),
+        torch.arange(y),
+        torch.arange(x),
+        indexing='ij'
+    )
+    # Sum coordinates to determine checkerboard pattern
+    sums = coords[0] + coords[1] + coords[2] + coords[3]  # t+z+y+t
+    return sums % 2 == parity
