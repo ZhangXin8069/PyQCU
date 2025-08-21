@@ -2,7 +2,6 @@ import torch
 import h5py
 import mpi4py.MPI as MPI
 
-import torch.share
 mpi_comm = MPI.COMM_WORLD
 mpi_rank = mpi_comm.Get_rank()
 mpi_size = mpi_comm.Get_size()
