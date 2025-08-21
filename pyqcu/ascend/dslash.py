@@ -543,15 +543,15 @@ class wilson_mg(wilson):
             print(f"  Complex dtype: {dtype}, Real dtype: {self.real_dtype}")
             print(f"  Device: {self.device}")
         self.directions = [
-            {'mu': 0, 'axis': -1-0, 'name': 'x',
-             'gamma': self.gamma[0]},
-            {'mu': 1, 'axis': -1-1, 'name': 'y',
-             'gamma': self.gamma[1]},
-            {'mu': 2, 'axis': -1-2, 'name': 'z',
-             'gamma': self.gamma[2]},
             {'mu': 3, 'axis': -1-3, 'name': 't',
              'gamma': self.gamma[3]},
-        ]
+            {'mu': 2, 'axis': -1-2, 'name': 'z',
+             'gamma': self.gamma[2]},
+            {'mu': 1, 'axis': -1-1, 'name': 'y',
+             'gamma': self.gamma[1]},
+            {'mu': 0, 'axis': -1-0, 'name': 'x',
+             'gamma': self.gamma[0]},
+        ]  # ward in [tzyx]
 
     def give_hopping_plus(self, ward: int, U: torch.Tensor) -> torch.Tensor:
         dir_info = self.directions[ward]
