@@ -130,17 +130,21 @@ def give_eo_mask(xxxtzy_x_p: torch.Tensor, eo: int, verbose=False) -> torch.Tens
     return sums % 2 == eo
 
 
-def give_parity_mask(x: int = 8, y: int = 8, z: int = 8, t: int = 8, parity: int = 0, verbose: bool = False) -> torch.Tensor:
-    if verbose:
-        print("@give_parity_mask......")
-    # Create coordinate grids for original shape
-    coords = torch.meshgrid(
-        torch.arange(t),
-        torch.arange(z),
-        torch.arange(y),
-        torch.arange(x),
-        indexing='ij'
-    )
-    # Sum coordinates to determine checkerboard pattern
-    sums = coords[0] + coords[1] + coords[2] + coords[3]  # t+z+y+t
-    return sums % 2 == parity
+def slice_dim(dim: int = 4, ward: int = 0, start=None, stop=None, step=2) -> tuple:
+    """
+    Slice tensor along a specific dimension.
+
+    Args:
+        input_array: input tensor.
+        dim: number of dimensions.
+        ward: dimension index to slice.
+        start, stop, step: same as Python slicing [start:stop:step].
+
+    Returns:
+        tuple(slices)
+    """
+    # 构造 slice(None) 占位符
+    slices = [slice(None)] * dim
+    # 替换指定维度的 slice
+    slices[ward] = slice(start, stop, step)
+    return tuple(slices)

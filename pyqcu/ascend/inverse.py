@@ -305,8 +305,8 @@ def prolong(local_ortho_null_vecs: torch.Tensor, coarse_vec: torch.Tensor, verbo
 
 class hopping:
     def __init__(self, wilson: dslash.wilson_mg = None, U: torch.Tensor = None):
-        self.M_plus_list = []
-        self.M_minus_list = []
+        self.M_plus_list = []  # tzyx
+        self.M_minus_list = []  # tzyx
         self.wilson = wilson if wilson is not None else dslash.wilson_mg(
             verbose=False)
         self.U = U
@@ -317,23 +317,17 @@ class hopping:
                 self.M_minus_list.append(
                     wilson.give_hopping_minus(ward=ward, U=self.U))
 
-    def _matvec(self, src: torch.Tensor) -> torch.Tensor:
-        dest_plus_list = []
-        dest_minus_list = []
-        for ward in range(4):
-            dest_plus_list.append(self.wilson.give_wilson_plus(ward=ward,
-                                                               src=src, hopping=self.M_plus_list[ward]))
-            dest_minus_list.append(self.wilson.give_wilson_minus(ward=ward,
-                                                                 src=src, hopping=self.M_minus_list[ward]))
-        return dest_plus_list, dest_minus_list
+    def matvec_plus(self, ward: int, src: torch.Tensor) -> torch.Tensor:
+        return self.wilson.give_wilson_plus(ward=ward, src=src, hopping=self.M_plus_list[ward])
+
+    def matvec_minus(self, ward: int, src: torch.Tensor) -> torch.Tensor:
+        return self.wilson.give_wilson_minus(ward=ward, src=src, hopping=self.M_minus_list[ward])
 
     def matvec(self, src: torch.Tensor) -> torch.Tensor:
         dest = torch.zeros_like(src)
         for ward in range(4):
-            dest += self.wilson.give_wilson_plus(ward=ward,
-                                                 src=src, hopping=self.M_plus_list[ward])
-            dest += self.wilson.give_wilson_minus(ward=ward,
-                                                  src=src, hopping=self.M_minus_list[ward])
+            dest += self.matvec_plus(ward=ward, src=src)
+            dest += self.matvec_minus(ward=ward, src=src)
         return dest.clone()
 
 
@@ -371,68 +365,59 @@ class op:
             if self.verbose:
                 print(
                     f"local_ortho_null_vecs.shape,coarse_dof,coarse_shape,fine_dof,fine_shape:{local_ortho_null_vecs.shape,coarse_dof,coarse_shape,fine_dof,fine_shape}")
-            even_mask_c = give_parity_mask(
-                x=coarse_shape[-1], y=coarse_shape[-2], z=coarse_shape[-3], t=coarse_shape[-4], parity=0)
-            odd_mask_c = give_parity_mask(
-                x=coarse_shape[-1], y=coarse_shape[-2], z=coarse_shape[-3], t=coarse_shape[-4], parity=1)
             for e in range(coarse_dof):
-                # give partly sitting.ee and whole hopping.oe
-                _src_c = torch.zeros_like(self.sitting.M[0])
-                _src_c[e][even_mask_c] = torch.ones_like(
-                    _src_c[e][even_mask_c])
-                _src_f = prolong(
-                    local_ortho_null_vecs=local_ortho_null_vecs, coarse_vec=_src_c, verbose=self.verbose)
-                _dest_f_plus_list, _dest_f_minus_list = fine_hopping._matvec(
-                    src=_src_f)
-                _dest_c_plus_list = []
-                _dest_c_minus_list = []
-                for ward in range(4):
-                    _dest_c_plus_list.append(restrict(
-                        local_ortho_null_vecs=local_ortho_null_vecs, fine_vec=_dest_f_plus_list[ward], verbose=self.verbose))
-                    _dest_c_minus_list.append(restrict(
-                        local_ortho_null_vecs=local_ortho_null_vecs, fine_vec=_dest_f_minus_list[ward], verbose=self.verbose))
-                for ward in range(4):
-                    self.sitting.M[:, e,
-                                   even_mask_c] += _dest_c_plus_list[ward][..., even_mask_c].clone()
-                    self.sitting.M[:, e,
-                                   even_mask_c] += _dest_c_minus_list[ward][..., even_mask_c].clone()
-                    self.hopping.M_plus_list[ward][:, e,
-                                                   odd_mask_c] = _dest_c_plus_list[ward][..., odd_mask_c].clone()  # odd_mask_c or even_mask_c?
-                    self.hopping.M_minus_list[ward][:, e,
-                                                    odd_mask_c] = _dest_c_minus_list[ward][..., odd_mask_c].clone()
-                # give partly sitting.oo and whole hopping.eo
-                _src_c = torch.zeros_like(self.sitting.M[0])
-                _src_c[e][odd_mask_c] = torch.ones_like(
-                    _src_c[e][odd_mask_c])
-                _src_f = prolong(
-                    local_ortho_null_vecs=local_ortho_null_vecs, coarse_vec=_src_c, verbose=self.verbose)
-                _dest_f_plus_list, _dest_f_minus_list = fine_hopping._matvec(
-                    src=_src_f)
-                _dest_c_plus_list = []
-                _dest_c_minus_list = []
-                for ward in range(4):
-                    _dest_c_plus_list.append(restrict(
-                        local_ortho_null_vecs=local_ortho_null_vecs, fine_vec=_dest_f_plus_list[ward], verbose=self.verbose))
-                    _dest_c_minus_list.append(restrict(
-                        local_ortho_null_vecs=local_ortho_null_vecs, fine_vec=_dest_f_minus_list[ward], verbose=self.verbose))
-                for ward in range(4):
-                    self.sitting.M[:, e,
-                                   odd_mask_c] += _dest_c_plus_list[ward][..., odd_mask_c].clone()
-                    self.sitting.M[:, e,
-                                   odd_mask_c] += _dest_c_minus_list[ward][..., odd_mask_c].clone()
-                    self.hopping.M_plus_list[ward][:, e,
-                                                   even_mask_c] = _dest_c_plus_list[ward][..., even_mask_c].clone()
-                    self.hopping.M_minus_list[ward][:, e,
-                                                    even_mask_c] = _dest_c_minus_list[ward][..., even_mask_c].clone()
-                # give aother partly sitting.ee and sitting.oo
-                _src_c = torch.zeros_like(self.sitting.M[0])
-                _src_c[e] = torch.ones_like(_src_c[e])
-                _src_f = prolong(
-                    local_ortho_null_vecs=local_ortho_null_vecs, coarse_vec=_src_c, verbose=self.verbose)
-                _dest_f = fine_sitting.matvec(src=_src_f)
-                _dest_c = restrict(
-                    local_ortho_null_vecs=local_ortho_null_vecs, fine_vec=_dest_f, verbose=self.verbose)
-                self.sitting.M[:, e, ...] += _dest_c.clone()
+                for ward in range(4):  # tzyx
+                    # give partly sitting.ee and whole hopping.oe
+                    _src_c = torch.zeros_like(self.sitting.M[0])
+                    _src_c[e][slice_dim(ward=ward, start=0)] = 1.0
+                    _src_f = prolong(
+                        local_ortho_null_vecs=local_ortho_null_vecs, coarse_vec=_src_c, verbose=self.verbose)
+                    _dest_f_plus = fine_hopping.matvec_plus(
+                        ward=ward, src=_src_f)
+                    _dest_f_minus = fine_hopping.matvec_minus(
+                        ward=ward, src=_src_f)
+                    _dest_c_plus = restrict(
+                        local_ortho_null_vecs=local_ortho_null_vecs, fine_vec=_dest_f_plus, verbose=self.verbose)
+                    _dest_c_minus = restrict(
+                        local_ortho_null_vecs=local_ortho_null_vecs, fine_vec=_dest_f_minus, verbose=self.verbose)
+                    self.sitting.M[:][e][slice_dim(
+                        ward=ward, start=0)] += _dest_c_plus[:][slice_dim(ward=ward, start=0)].clone()
+                    self.sitting.M[:][e][slice_dim(
+                        ward=ward, start=0)] += _dest_c_minus[:][slice_dim(ward=ward, start=0)].clone()
+                    self.hopping.M_plus_list[ward][:][e][slice_dim(
+                        ward=ward, start=1)] = _dest_c_plus[:][slice_dim(ward=ward, start=1)].clone()
+                    self.hopping.M_minus_list[ward][:][e][slice_dim(
+                        ward=ward, start=1)] = _dest_c_minus[:][slice_dim(ward=ward, start=1)].clone()
+                    # give partly sitting.oo and whole hopping.eo
+                    _src_c = torch.zeros_like(self.sitting.M[0])
+                    _src_c[e][slice_dim(ward=ward, start=1)] = 1.0
+                    _src_f = prolong(
+                        local_ortho_null_vecs=local_ortho_null_vecs, coarse_vec=_src_c, verbose=self.verbose)
+                    _dest_f_plus = fine_hopping.matvec_plus(
+                        ward=ward, src=_src_f)
+                    _dest_f_minus = fine_hopping.matvec_minus(
+                        ward=ward, src=_src_f)
+                    _dest_c_plus = restrict(
+                        local_ortho_null_vecs=local_ortho_null_vecs, fine_vec=_dest_f_plus, verbose=self.verbose)
+                    _dest_c_minus = restrict(
+                        local_ortho_null_vecs=local_ortho_null_vecs, fine_vec=_dest_f_minus, verbose=self.verbose)
+                    self.sitting.M[:][e][slice_dim(
+                        ward=ward, start=1)] += _dest_c_plus[:][slice_dim(ward=ward, start=1)].clone()
+                    self.sitting.M[:][e][slice_dim(
+                        ward=ward, start=1)] += _dest_c_minus[:][slice_dim(ward=ward, start=1)].clone()
+                    self.hopping.M_plus_list[ward][:][e][slice_dim(
+                        ward=ward, start=0)] = _dest_c_plus[:][slice_dim(ward=ward, start=0)].clone()
+                    self.hopping.M_minus_list[ward][:][e][slice_dim(
+                        ward=ward, start=0)] = _dest_c_minus[:][slice_dim(ward=ward, start=0)].clone()
+                    # give aother partly sitting.ee and sitting.oo
+                    _src_c = torch.zeros_like(self.sitting.M[0])
+                    _src_c[e] = 1.0
+                    _src_f = prolong(
+                        local_ortho_null_vecs=local_ortho_null_vecs, coarse_vec=_src_c, verbose=self.verbose)
+                    _dest_f = fine_sitting.matvec(src=_src_f)
+                    _dest_c = restrict(
+                        local_ortho_null_vecs=local_ortho_null_vecs, fine_vec=_dest_f, verbose=self.verbose)
+                    self.sitting.M[:][e] += _dest_c.clone()
 
     def matvec(self, src: torch.Tensor) -> torch.Tensor:
         if src.shape[0] == 4 and src.shape[1] == 3:
