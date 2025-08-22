@@ -5,6 +5,9 @@ from typing import Tuple, Callable
 from pyqcu.ascend import dslash
 from pyqcu.ascend.include import *
 
+if_laplacian = True  # just for test.
+# if_laplacian = False  # just for test.
+
 
 def cg(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], tol: float = 1e-6, max_iter: int = 1000, x0: torch.Tensor = None, if_rtol: bool = False,
        verbose: bool = True) -> torch.Tensor:
@@ -324,10 +327,18 @@ class hopping:
         self.U = U
         if self.wilson != None and self.U != None:
             for ward in range(4):
-                self.M_plus_list.append(
-                    wilson.give_hopping_plus(ward=ward, U=self.U))
-                self.M_minus_list.append(
-                    wilson.give_hopping_minus(ward=ward, U=self.U))
+                if if_laplacian:
+                    self.M_plus_list.append(torch.eye(n=12, dtype=self.U.dtype, device=self.U.device).repeat(
+                        list(self.U.shape[-4:])+[1, 1]).permute(4, 5, 0, 1, 2, 3))
+                    self.M_minus_list.append(torch.eye(n=12, dtype=self.U.dtype, device=self.U.device).repeat(
+                        list(self.U.shape[-4:])+[1, 1]).permute(4, 5, 0, 1, 2, 3))
+                    print(
+                        f"self.M_plus_list[{ward}].shape:{self.M_plus_list[ward].shape}")
+                else:
+                    self.M_plus_list.append(
+                        wilson.give_hopping_plus(ward=ward, U=self.U))
+                    self.M_minus_list.append(
+                        wilson.give_hopping_minus(ward=ward, U=self.U))
 
     def matvec_plus(self, ward: int, src: torch.Tensor) -> torch.Tensor:
         return self.wilson.give_wilson_plus(ward=ward, src=src, hopping=self.M_plus_list[ward])
@@ -349,8 +360,13 @@ class sitting:
         self.clover = clover
         self.clover_term = clover_term
         if self.clover != None and self.clover_term != None:  # remmber to add I
-            self.M = clover_term.reshape(
-                [12, 12]+list(clover_term.shape[-4:])).clone()
+            if if_laplacian:
+                self.M = -8 * torch.eye(n=12, dtype=self.clover_term.dtype, device=self.clover_term.device).repeat(
+                    list(self.clover_term.shape[-4:])+[1, 1]).permute(4, 5, 0, 1, 2, 3)
+                print(f"self.M.shape{self.M.shape}")
+            else:
+                self.M = self.clover_term.reshape(
+                    [12, 12]+list(self.clover_term.shape[-4:])).clone()
 
     def matvec(self, src: torch.Tensor) -> torch.Tensor:
         return torch.einsum(
