@@ -471,8 +471,8 @@ class mg:
         _Lz = b.shape[-3]
         _Lt = b.shape[-4]
         self.grid_list = []
-        self.b_list = [self.b]
-        self.u_list = [self.x0]
+        self.b_list = [self.b.clone()]
+        self.u_list = [self.x0.clone()]
         print(f"Building grid list:")
         while all(_ >= self.min_size for _ in [_Lt, _Lz, _Ly, _Lx]) and len(self.grid_list) < self.max_levels:
             self.grid_list.append([_Lt, _Lz, _Ly, _Lx])
