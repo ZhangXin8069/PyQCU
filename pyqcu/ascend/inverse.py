@@ -5,10 +5,6 @@ from typing import Tuple, Callable
 from pyqcu.ascend import dslash
 from pyqcu.ascend.include import *
 
-if_laplacian = True  # just for test.
-if_laplacian = False  # just for test.
-ortho_lonv = True
-
 
 def cg(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], tol: float = 1e-6, max_iter: int = 1000, x0: torch.Tensor = None, if_rtol: bool = False,
        verbose: bool = True) -> torch.Tensor:
@@ -162,7 +158,7 @@ def bicgstab(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], to
 def give_null_vecs(
     null_vecs: torch.Tensor,
     matvec: Callable[[torch.Tensor], torch.Tensor],
-    normalize: bool = True, ortho_r: bool = True, ortho_null_vecs: bool = True, verbose: bool = True
+    normalize: bool = True, ortho_r: bool = False, ortho_null_vecs: bool = False, verbose: bool = True
 ) -> torch.Tensor:
     """
     Generates orthonormal near-null space vectors for a linear operator.
@@ -218,6 +214,56 @@ def give_null_vecs(
     return null_vecs.clone()
 
 
+def _local_orthogonalize(null_vecs: torch.Tensor,
+                         mg_size: Tuple[int, int, int, int] = [2, 2, 2, 2],
+                         normalize: bool = True, verbose: bool = True
+                         ) -> torch.Tensor:
+    """
+    Orthogonalize near-null space vectors locally.
+    Args:
+        null_vecs: Initial random vectors [dof, *dims].
+        mg_size: cut latt_size to [latt_size[i]/mg_size[i] for i in range(len(latt_size))] (default: [2, 2, 2, 2]).
+        normalize: normalize the null_vecs (default: True).
+        verbose: Print progress information (default: True).
+    Returns:
+        local-orthonormal near-null space vectors.
+    """
+    dof = null_vecs.shape[0]  # Number of null space vectors
+    latt_size = list(null_vecs.shape[-4:])
+    shape = list(null_vecs.shape[:-4])+[mg_size[0], latt_size[0]//mg_size[0], mg_size[1], latt_size[1] //
+                                        mg_size[1], mg_size[2], latt_size[2]//mg_size[2], mg_size[3], latt_size[3]//mg_size[3]]  # [EeTtZzYyXx]
+    if verbose:
+        print(f"null_vecs.shape:{null_vecs.shape}")
+        print(f"dof,latt_size,mg_size,shape:{dof,latt_size,mg_size,shape}")
+    if not all(latt_size[-i-1] == shape[-2*i-1]*shape[-2*i-2] for i in range(4)):
+        print(
+            'not all(latt_size[-i-1] == shape[-2*i-1]*shape[-2*i-2] for i in range(4))')
+    local_null_vecs = null_vecs.reshape(shape=shape).clone()
+    local_ortho_null_vecs = torch.zeros_like(local_null_vecs)
+    for X in range(mg_size[-1]):
+        for Y in range(mg_size[-2]):
+            for Z in range(mg_size[-3]):
+                for T in range(mg_size[-4]):
+                    _local_null_vecs = local_null_vecs[...,
+                                                       T, :, Z, :, Y, :, X, :]  # [Eetzyx]
+                    for i in range(dof):  # [E]
+                        # The orthogonalization of local_null_vecs
+                        for j in range(0, i):
+                            _local_null_vecs[i] -= torch.vdot(_local_null_vecs[j].flatten(), _local_null_vecs[i].flatten())/torch.vdot(
+                                _local_null_vecs[j].flatten(), _local_null_vecs[j].flatten())*_local_null_vecs[j]
+                        if normalize:
+                            _local_null_vecs[i] /= torch.norm(
+                                _local_null_vecs[i]).item()
+                    local_ortho_null_vecs[..., T, :, Z,
+                                          :, Y, :, X, :] = _local_null_vecs.clone()
+                    if verbose:
+                        for i in range(dof):
+                            for j in range(0, i+1):
+                                print(
+                                    f"torch.vdot(local_ortho_null_vecs[..., {T}, :, {Z}, :, {Y}, :, {X}, :][{i}].flatten(), local_ortho_null_vecs[..., {T}, :, {Z}, :, {Y}, :, {X}, :][{j}].flatten()):{torch.vdot(local_ortho_null_vecs[..., T, :, Z, :, Y, :, X, :][i].flatten(), local_ortho_null_vecs[..., T, :, Z, :, Y, :, X, :][j].flatten())}")
+    return local_ortho_null_vecs.clone()
+
+
 def local_orthogonalize(null_vecs: torch.Tensor,
                         mg_size: Tuple[int, int, int, int] = (2, 2, 2, 2),
                         normalize: bool = True,
@@ -243,37 +289,25 @@ def local_orthogonalize(null_vecs: torch.Tensor,
     if E > local_dim:
         raise ValueError(f"E={E} exceeds local_dim={local_dim}. "
                          f"Cannot produce {E} orthonormal columns in a {local_dim}-dim space.")
-
     # Reshape to expose coarse/fine structure: [E, e, T, t, Z, z, Y, y, X, x]
     v = null_vecs.reshape(E, e, T, t, Z, z, Y, y, X, x).clone()
-
     # Move coarse coords to the front (as batch): [T, Z, Y, X, E, e, t, z, y, x]
     v = v.permute(2, 4, 6, 8, 0, 1, 3, 5, 7, 9).contiguous()
-
     # Collapse to blocks: [n_blocks, E, local_dim]
     n_blocks = T * Z * Y * X
     v = v.view(n_blocks, E, local_dim)
-
     # Build A = [n_blocks, local_dim, E] (columns = E vectors at a coarse site)
     A = v.transpose(-2, -1)  # [n_blocks, local_dim, E]
-
     # Batched QR on each block; Q has orthonormal columns in R^{local_dim}
     # Use reduced mode: Q: [n_blocks, local_dim, E], R: [n_blocks, E, E]
-    if ortho_lonv:
-        Q, _ = torch.linalg.qr(A, mode='reduced')
-    else:
-        Q = A.clone()
-
+    Q, _ = torch.linalg.qr(A, mode='reduced')
     if normalize:
         # Normalize each column vector explicitly
         Q = Q / torch.norm(Q, dim=-2, keepdim=True)
-
     # Restore lattice structure: [T, Z, Y, X, e, t, z, y, x, E]
     Q = Q.view(T, Z, Y, X, e, t, z, y, x, E)
-
     # Permute back to [E, e, T, t, Z, z, Y, y, X, x]
     Q = Q.permute(9, 4, 0, 5, 1, 6, 2, 7, 3, 8).contiguous().clone()
-
     if verbose:
         print(f"[local_orthogonalize] in={tuple(null_vecs.shape)}, mg_size(T,Z,Y,X)={mg_size}, "
               f"(t,z,y,x)=({t},{z},{y},{x}), local_dim={local_dim}, n_blocks={n_blocks}")
@@ -331,18 +365,10 @@ class hopping:
         self.U = U
         if self.wilson != None and self.U != None:
             for ward in range(4):
-                if if_laplacian:
-                    self.M_plus_list.append(torch.eye(n=12, dtype=self.U.dtype, device=self.U.device).repeat(
-                        list(self.U.shape[-4:])+[1, 1]).permute(4, 5, 0, 1, 2, 3))
-                    self.M_minus_list.append(torch.eye(n=12, dtype=self.U.dtype, device=self.U.device).repeat(
-                        list(self.U.shape[-4:])+[1, 1]).permute(4, 5, 0, 1, 2, 3))
-                    print(
-                        f"self.M_plus_list[{ward}].shape:{self.M_plus_list[ward].shape}")
-                else:
-                    self.M_plus_list.append(
-                        wilson.give_hopping_plus(ward=ward, U=self.U))
-                    self.M_minus_list.append(
-                        wilson.give_hopping_minus(ward=ward, U=self.U))
+                self.M_plus_list.append(
+                    wilson.give_hopping_plus(ward=ward, U=self.U))
+                self.M_minus_list.append(
+                    wilson.give_hopping_minus(ward=ward, U=self.U))
 
     def matvec_plus(self, ward: int, src: torch.Tensor) -> torch.Tensor:
         return self.wilson.give_wilson_plus(ward=ward, src=src, hopping=self.M_plus_list[ward])
@@ -364,13 +390,8 @@ class sitting:
         self.clover = clover
         self.clover_term = clover_term
         if self.clover != None and self.clover_term != None:  # remmber to add I
-            if if_laplacian:
-                self.M = -8 * torch.eye(n=12, dtype=self.clover_term.dtype, device=self.clover_term.device).repeat(
-                    list(self.clover_term.shape[-4:])+[1, 1]).permute(4, 5, 0, 1, 2, 3)
-                print(f"self.M.shape{self.M.shape}")
-            else:
-                self.M = self.clover_term.reshape(
-                    [12, 12]+list(self.clover_term.shape[-4:])).clone()
+            self.M = self.clover_term.reshape(
+                [12, 12]+list(self.clover_term.shape[-4:])).clone()
 
     def matvec(self, src: torch.Tensor) -> torch.Tensor:
         return torch.einsum(
@@ -472,7 +493,7 @@ class op:
 
 
 class mg:
-    def __init__(self, b: torch.Tensor,  wilson: dslash.wilson_mg, U: torch.Tensor, clover: dslash.clover, clover_term: torch.Tensor,  min_size: int = 2, max_levels: int = 2, dof_list: Tuple[int, int, int, int] = [12, 24, 12, 12, 24, 24, 24, 24, 48, 48, 24, 8, 8, 8, 4, 12, 12, 12, 8, 4, 2, 4, 4, 24, 12, 12, 12, 4, 4, 4, 4, 4], tol: float = 1e-6, max_iter: int = 1000, x0: torch.Tensor = None, verbose: bool = True):
+    def __init__(self, b: torch.Tensor,  wilson: dslash.wilson_mg, U: torch.Tensor, clover: dslash.clover, clover_term: torch.Tensor,  min_size: int = 2, max_levels: int = 2, dof_list: Tuple[int, int, int, int] = [12, 24, 8, 8, 4, 4, 4, 24, 12, 12, 12, 24, 24, 24, 24, 48, 48, 24, 8, 8, 8, 4, 12, 12, 12, 8, 4, 2, 4, 4, 24, 12, 12, 12, 4, 4, 4, 4, 4], tol: float = 1e-6, max_iter: int = 1000, x0: torch.Tensor = None, verbose: bool = True):
         self.b = b.reshape([12]+list(b.shape)[2:])  # sc->e
         self.min_size = min_size
         self.max_levels = max_levels
