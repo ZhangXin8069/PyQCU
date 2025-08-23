@@ -493,7 +493,7 @@ class op:
 
 
 class mg:
-    def __init__(self, b: torch.Tensor,  wilson: dslash.wilson_mg, U: torch.Tensor, clover: dslash.clover, clover_term: torch.Tensor,  min_size: int = 2, max_levels: int = 2, dof_list: Tuple[int, int, int, int] = [12, 24, 8, 8, 4, 4, 4, 24, 12, 12, 12, 24, 24, 24, 24, 48, 48, 24, 8, 8, 8, 4, 12, 12, 12, 8, 4, 2, 4, 4, 24, 12, 12, 12, 4, 4, 4, 4, 4], tol: float = 1e-6, max_iter: int = 1000, x0: torch.Tensor = None, verbose: bool = True):
+    def __init__(self, b: torch.Tensor,  wilson: dslash.wilson_mg, U: torch.Tensor, clover: dslash.clover, clover_term: torch.Tensor,  min_size: int = 2, max_levels: int = 2, dof_list: Tuple[int, int, int, int] = [12, 96, 12, 12, 4, 4, 4, 24, 12, 12, 12, 24, 24, 24, 24, 48, 48, 24, 8, 8, 8, 4, 12, 12, 12, 8, 4, 2, 4, 4, 24, 12, 12, 12, 4, 4, 4, 4, 4], tol: float = 1e-6, max_iter: int = 1000, x0: torch.Tensor = None, verbose: bool = True):
         self.b = b.reshape([12]+list(b.shape)[2:])  # sc->e
         self.min_size = min_size
         self.max_levels = max_levels
@@ -613,12 +613,6 @@ class mg:
                 e_coarse = self.cycle(level=level+1)
                 e_fine = prolong(
                     local_ortho_null_vecs=self.lonv_list[level], coarse_vec=e_coarse)
-                # if (torch.norm(b - matvec(x + e_fine)).item() / r_norm) < 1.001:  # ......\
-                #     print("just giving e_fine......")
-                #     x = x + e_fine
-                #     r = b - matvec(x)
-                # else:
-                #     print("not giving e_fine......")
                 x = x + e_fine
                 r = b - matvec(x)
             r_norm = torch.norm(r).item()
