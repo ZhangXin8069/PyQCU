@@ -111,8 +111,10 @@ namespace qcu
             host_params[_MG_T_] = static_cast<int *>(_params)[_MG_T_];
             host_params[_LAT_E_] = static_cast<int *>(_params)[_LAT_E_];
             host_params[_VERBOSE_] = static_cast<int *>(_params)[_VERBOSE_];
+            host_params[_SEED_] = static_cast<int *>(_params)[_SEED_];
             host_argv[_MASS_] = static_cast<T *>(_argv)[_MASS_];
             host_argv[_TOL_] = static_cast<T *>(_argv)[_TOL_];
+            host_argv[_SIGMA_] = static_cast<T *>(_argv)[_SIGMA_];
         }
         void init()
         {
@@ -498,17 +500,21 @@ namespace qcu
                 checkCudaErrors(cudaStreamSynchronize(stream));
             }
         }
-        T kappa()
-        {
-            return 1 / (2 * host_argv[_MASS_] + 8);
-        }
         int max_iter()
         {
             return host_params[_MAX_ITER_];
         }
+        T kappa()
+        {
+            return 1 / (2 * host_argv[_MASS_] + 8);
+        }
         T tol()
         {
             return host_argv[_TOL_];
+        }
+        T sigma()
+        {
+            return host_argv[_SIGMA_];
         }
         float get_time()
         {
@@ -655,6 +661,7 @@ namespace qcu
             printf("host_params[_VERBOSE_]  :%d\n", host_params[_VERBOSE_]);
             printf("host_argv[_MASS_]       :%e\n", host_argv[_MASS_]);
             printf("host_argv[_TOL_]        :%e\n", host_argv[_TOL_]);
+            printf("host_argv[_SIGMA_]      :%e\n", host_argv[_SIGMA_]);
             printf("lat_2dim[_XY_]          :%d\n", lat_2dim[_XY_]);
             printf("lat_2dim[_XZ_]          :%d\n", lat_2dim[_XZ_]);
             printf("lat_2dim[_XT_]          :%d\n", lat_2dim[_XT_]);
