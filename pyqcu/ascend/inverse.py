@@ -475,15 +475,15 @@ class op:
                                                                    ward=ward+1, start=0)] = _dest_c_plus[slice_dim(dim=5, ward=ward+1, start=0)].clone()
                     self.hopping.M_minus_list[ward][:, e][slice_dim(dim=5,
                                                                     ward=ward+1, start=0)] = _dest_c_minus[slice_dim(dim=5, ward=ward+1, start=0)].clone()
-                    # give aother partly sitting.ee and sitting.oo
-                    _src_c = torch.zeros_like(self.sitting.M[0])
-                    _src_c[e] = 1.0
-                    _src_f = prolong(
-                        local_ortho_null_vecs=local_ortho_null_vecs, coarse_vec=_src_c, verbose=self.verbose)
-                    _dest_f = fine_sitting.matvec(src=_src_f)
-                    _dest_c = restrict(
-                        local_ortho_null_vecs=local_ortho_null_vecs, fine_vec=_dest_f, verbose=self.verbose)
-                    self.sitting.M[:, e] += _dest_c.clone()
+                # give aother partly sitting.ee and sitting.oo
+                _src_c = torch.zeros_like(self.sitting.M[0])
+                _src_c[e] = 1.0
+                _src_f = prolong(
+                    local_ortho_null_vecs=local_ortho_null_vecs, coarse_vec=_src_c, verbose=self.verbose)
+                _dest_f = fine_sitting.matvec(src=_src_f)
+                _dest_c = restrict(
+                    local_ortho_null_vecs=local_ortho_null_vecs, fine_vec=_dest_f, verbose=self.verbose)
+                self.sitting.M[:, e] += _dest_c.clone()
 
     def matvec(self, src: torch.Tensor) -> torch.Tensor:
         if src.shape[0] == 4 and src.shape[1] == 3:
@@ -493,7 +493,7 @@ class op:
 
 
 class mg:
-    def __init__(self, b: torch.Tensor,  wilson: dslash.wilson_mg, U: torch.Tensor, clover: dslash.clover, clover_term: torch.Tensor,  min_size: int = 2, max_levels: int = 2, dof_list: Tuple[int, int, int, int] = [12, 96, 12, 12, 4, 4, 4, 24, 12, 12, 12, 24, 24, 24, 24, 48, 48, 24, 8, 8, 8, 4, 12, 12, 12, 8, 4, 2, 4, 4, 24, 12, 12, 12, 4, 4, 4, 4, 4], tol: float = 1e-6, max_iter: int = 1000, x0: torch.Tensor = None, verbose: bool = True):
+    def __init__(self, b: torch.Tensor,  wilson: dslash.wilson_mg, U: torch.Tensor, clover: dslash.clover, clover_term: torch.Tensor,  min_size: int = 2, max_levels: int = 2, dof_list: Tuple[int, int, int, int] = [12, 24, 24, 24, 24, 4, 4, 24, 12, 12, 12, 24, 24, 24, 24, 48, 48, 24, 8, 8, 8, 4, 12, 12, 12, 8, 4, 2, 4, 4, 24, 12, 12, 12, 4, 4, 4, 4, 4], tol: float = 1e-6, max_iter: int = 1000, x0: torch.Tensor = None, verbose: bool = True):
         self.b = b.reshape([12]+list(b.shape)[2:])  # sc->e
         self.min_size = min_size
         self.max_levels = max_levels
