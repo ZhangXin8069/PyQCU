@@ -12,19 +12,17 @@ void applyGaussGaugeQcu(long long _gauge, long long _set_ptrs, long long _params
   int data_type = static_cast<int *>(params)[_DATA_TYPE_];
   if (data_type == _LAT_C64_)
   {
-    LatticeSet<float> *set_ptr = static_cast<LatticeSet<float> *>((void *)(static_cast<long long *>(set_ptrs)[set_index])); // define for apply_gauss_gauge
+    void *set_ptr = (void *)(static_cast<long long *>(set_ptrs)[set_index]); // define for apply_gauss_gauge
     // dptzyxcc2ccdptzyx<float>(gauge, &_set);
-    make_gauss_gauge<float>(gauge, params, set_ptr->sigma());
+    make_gauss_gauge<float>(gauge, set_ptr);
     // ccdptzyx2dptzyxcc<float>(gauge, &_set);
-    _gauss_gauge.end();
   }
   else if (data_type == _LAT_C128_)
   {
-    LatticeSet<double> *set_ptr = static_cast<LatticeSet<double> *>((void *)(static_cast<long long *>(set_ptrs)[set_index])); // define for apply_gauss_gauge
+    void *set_ptr = (void *)(static_cast<long long *>(set_ptrs)[set_index]); // define for apply_gauss_gauge
     // dptzyxcc2ccdptzyx<double>(gauge, &_set);
-    make_gauss_gauge<float>(gauge, params, set_ptr->sigma());
-    // ccdptzyx2dptzyxcc<float>(gauge, &_set);
-    _gauss_gauge.end();
+    make_gauss_gauge<double>(gauge, params, set_ptr->sigma());
+    // ccdptzyx2dptzyxcc<double>(gauge, &_set);
   }
   else
   {
