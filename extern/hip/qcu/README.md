@@ -1,2 +1,0 @@
-# qcu
-qcu by zhangxin
