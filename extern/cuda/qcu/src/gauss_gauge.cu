@@ -14,21 +14,21 @@ namespace qcu
         for (int i = 0; i < _LAT_S_; ++i)
         {
             random_stzyx[idx * _LAT_S_ + i]._data.x = curand_uniform(&state_real);
-            random_stzyx[idx * _LAT_S_ + i]._data.y = 0.0;
+            random_stzyx[idx * _LAT_S_ + i]._data.y = curand_uniform(&state_real);
         }
     }
-    // 定义Gell-Mann矩阵常量
-    __constant__ double d_gell_mann[8][9] = {
+    // Define Gell-Mann matrices as constants
+    __constant__ double d_gell_mann[(_LAT_CC_ - 1)][_LAT_CC_] = {
         {0, 1, 0, 1, 0, 0, 0, 0, 0},                               // lambda1
-        {0, -1, 0, 1, 0, 0, 0, 0, 0},                              // lambda2 (虚部单位i在计算时处理)
+        {0, -1, 0, 1, 0, 0, 0, 0, 0},                              // lambda2 (imaginary unit i handled in calculation)
         {1, 0, 0, 0, -1, 0, 0, 0, 0},                              // lambda3
         {0, 0, 1, 0, 0, 0, 1, 0, 0},                               // lambda4
-        {0, 0, -1, 0, 0, 0, 1, 0, 0},                              // lambda5 (虚部单位i在计算时处理)
+        {0, 0, -1, 0, 0, 0, 1, 0, 0},                              // lambda5 (imaginary unit i handled in calculation)
         {0, 0, 0, 0, 0, 1, 0, 1, 0},                               // lambda6
-        {0, 0, 0, 0, 0, -1, 0, 1, 0},                              // lambda7 (虚部单位i在计算时处理)
+        {0, 0, 0, 0, 0, -1, 0, 1, 0},                              // lambda7 (imaginary unit i handled in calculation)
         {1 / sqrt(3), 0, 0, 0, 1 / sqrt(3), 0, 0, 0, -2 / sqrt(3)} // lambda8
     };
-    __constant__ float f_gell_mann[8][9] = {
+    __constant__ float f_gell_mann[(_LAT_CC_ - 1)][_LAT_CC_] = {
         {0, 1, 0, 1, 0, 0, 0, 0, 0},
         {0, -1, 0, 1, 0, 0, 0, 0, 0},
         {1, 0, 0, 0, -1, 0, 0, 0, 0},
@@ -37,61 +37,61 @@ namespace qcu
         {0, 0, 0, 0, 0, 1, 0, 1, 0},
         {0, 0, 0, 0, 0, -1, 0, 1, 0},
         {1 / sqrtf(3), 0, 0, 0, 1 / sqrtf(3), 0, 0, 0, -2 / sqrtf(3)}};
-    // 3x3复数矩阵乘法
+    // 3x3 complex matrix multiplication
     template <typename T>
-    __device__ void su3_matrix_multiply(LatticeComplex<T> a[9], LatticeComplex<T> b[9], LatticeComplex<T> result[9])
+    __device__ void su3_matrix_multiply(LatticeComplex<T> a[_LAT_CC_], LatticeComplex<T> b[_LAT_CC_], LatticeComplex<T> result[_LAT_CC_])
     {
-        for (int i = 0; i < 3; i++)
+        for (int i = 0; i < _LAT_C_; i++)
         {
-            for (int j = 0; j < 3; j++)
+            for (int j = 0; j < _LAT_C_; j++)
             {
                 T real = 0.0;
                 T imag = 0.0;
-                for (int k = 0; k < 3; k++)
+                for (int k = 0; k < _LAT_C_; k++)
                 {
-                    int idx_a = i * 3 + k;
-                    int idx_b = k * 3 + j;
+                    int idx_a = i * _LAT_C_ + k;
+                    int idx_b = k * _LAT_C_ + j;
                     real += a[idx_a]._data.x * b[idx_b]._data.x - a[idx_a]._data.y * b[idx_b]._data.y;
                     imag += a[idx_a]._data.x * b[idx_b]._data.y + a[idx_a]._data.y * b[idx_b]._data.x;
                 }
-                result[i * 3 + j]._data.x = real;
-                result[i * 3 + j]._data.y = imag;
+                result[i * _LAT_C_ + j]._data.x = real;
+                result[i * _LAT_C_ + j]._data.y = imag;
             }
         }
     }
-    // 3x3矩阵指数计算（使用泰勒展开到6阶）
+    // 3x3 matrix exponential (Taylor expansion up to 6th order)
     template <typename T>
-    __device__ void su3_matrix_exponential(LatticeComplex<T> a[9], LatticeComplex<T> result[9])
+    __device__ void su3_matrix_exponential(LatticeComplex<T> a[_LAT_CC_], LatticeComplex<T> result[_LAT_CC_])
     {
-        LatticeComplex<T> identity[9] = {
+        LatticeComplex<T> identity[_LAT_CC_] = {
             {1, 0}, {0, 0}, {0, 0}, {0, 0}, {1, 0}, {0, 0}, {0, 0}, {0, 0}, {1, 0}};
-        // 复制a到current
-        LatticeComplex<T> current[9];
-        for (int i = 0; i < 9; i++)
+        // Copy a to current
+        LatticeComplex<T> current[_LAT_CC_];
+        for (int i = 0; i < _LAT_CC_; i++)
         {
             current[i] = a[i];
-            result[i] = identity[i]; // 初始化为单位矩阵
+            result[i] = identity[i]; // initialize as identity matrix
         }
-        LatticeComplex<T> term[9];
-        for (int i = 0; i < 9; i++)
+        LatticeComplex<T> term[_LAT_CC_];
+        for (int i = 0; i < _LAT_CC_; i++)
         {
             term[i] = current[i];
             result[i]._data.x += term[i]._data.x;
             result[i]._data.y += term[i]._data.y;
         }
-        // 泰勒展开到6阶
+        // Taylor expansion up to 6th order
         for (int n = 2; n <= 6; n++)
         {
-            LatticeComplex<T> new_term[9];
+            LatticeComplex<T> new_term[_LAT_CC_];
             su3_matrix_multiply(current, term, new_term);
             T factor = 1.0 / tgamma(n + 1);
-            for (int i = 0; i < 9; i++)
+            for (int i = 0; i < _LAT_CC_; i++)
             {
                 term[i]._data.x = new_term[i]._data.x * factor;
                 term[i]._data.y = new_term[i]._data.y * factor;
                 result[i]._data.x += term[i]._data.x;
                 result[i]._data.y += term[i]._data.y;
-                current[i] = new_term[i]; // 更新current为下一次乘法准备
+                current[i] = new_term[i]; // update current for the next multiplication
             }
         }
     }
@@ -103,37 +103,48 @@ namespace qcu
         int lat_tzyx = params[_LAT_XYZT_];
         LatticeComplex<T> *random_stzyx = static_cast<LatticeComplex<T> *>(device_random_stzyx);
         LatticeComplex<T> *origin_U = ((static_cast<LatticeComplex<T> *>(device_U)) + idx);
-        LatticeComplex<T> U[_LAT_CC_];
-        LatticeComplex<T> H[_LAT_CC_];
-        // 为每个方向生成一个SU(3)矩阵
-        for (int p = 0; d < _LAT_P_; p++)
+        LatticeComplex<T> U[_LAT_CC_] = {
+            {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}};
+        LatticeComplex<T> H[_LAT_CC_] = {
+            {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}};
+        // Generate one SU(3) matrix for each direction
+        for (int p = 0; p < _LAT_P_; p++)
         {
             for (int d = 0; d < _LAT_D_; d++)
             {
-                // 生成8个高斯随机数
-                T a[8];
-                for (int i = 0; i < 8; i++)
+                // Generate 8 Gaussian random numbers
+                T a[(_LAT_CC_ - 1)];
+                for (int i = 0; i < (_LAT_CC_ - 1); i++)
                 {
-                    // 使用Box-Muller变换生成高斯分布随机数
-                    T u1 = random_stzyx[d * 8 + i * 2]._data.x;
-                    T u2 = random_stzyx[d * 8 + i * 2 + 1]._data.x;
-                    T r = sqrt(-2.0 * log(u1));
-                    a[i] = r * cos(2.0 * M_PI * u2);
+                    // Use Box-Muller transform to generate Gaussian-distributed random numbers
+                    if (p == 0)
+                    {
+                        T u1 = random_stzyx[d * (_LAT_CC_ - 1) + i * 2]._data.x;
+                        T u2 = random_stzyx[d * (_LAT_CC_ - 1) + i * 2 + 1]._data.x;
+                        T r = sqrt(-2.0 * log(u1));
+                        a[i] = r * cos(2.0 * M_PI * u2);
+                    }
+                    else
+                    {
+                        T u1 = random_stzyx[d * (_LAT_CC_ - 1) + i * 2]._data.y;
+                        T u2 = random_stzyx[d * (_LAT_CC_ - 1) + i * 2 + 1]._data.y;
+                        T r = sqrt(-2.0 * log(u1));
+                        a[i] = r * cos(2.0 * M_PI * u2);
+                    }
                 }
-                // 构建厄米特矩阵H
-                LatticeComplex<T> H[9] = {{0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}};
+                // Construct Hermitian matrix H
                 if constexpr (std::is_same_v<T, double>)
                 {
-                    for (int i = 0; i < 8; i++)
+                    for (int i = 0; i < (_LAT_CC_ - 1); i++)
                     {
-                        for (int j = 0; j < 9; j++)
+                        for (int j = 0; j < _LAT_CC_; j++)
                         {
-                            int row = j / 3;
-                            int col = j % 3;
-                            int idx_h = row * 3 + col;
+                            int row = j / _LAT_C_;
+                            int col = j % _LAT_C_;
+                            int idx_h = row * _LAT_C_ + col;
                             if (i == 1 || i == 4 || i == 6)
                             {
-                                // 处理带有虚数单位的矩阵
+                                // Handle matrices with imaginary unit
                                 H[idx_h]._data.y += a[i] * d_gell_mann[i][j];
                             }
                             else
@@ -145,13 +156,13 @@ namespace qcu
                 }
                 else
                 {
-                    for (int i = 0; i < 8; i++)
+                    for (int i = 0; i < (_LAT_CC_ - 1); i++)
                     {
-                        for (int j = 0; j < 9; j++)
+                        for (int j = 0; j < _LAT_CC_; j++)
                         {
-                            int row = j / 3;
-                            int col = j % 3;
-                            int idx_h = row * 3 + col;
+                            int row = j / _LAT_C_;
+                            int col = j % _LAT_C_;
+                            int idx_h = row * _LAT_C_ + col;
                             if (i == 1 || i == 4 || i == 6)
                             {
                                 H[idx_h]._data.y += a[i] * f_gell_mann[i][j];
@@ -163,14 +174,14 @@ namespace qcu
                         }
                     }
                 }
-                // 计算A = i * sigma * H
-                LatticeComplex<T> A[9];
-                for (int i = 0; i < 9; i++)
+                // Compute A = i * sigma * H
+                LatticeComplex<T> A[_LAT_CC_];
+                for (int i = 0; i < _LAT_CC_; i++)
                 {
-                    A[i]._data.x = -sigma * H[i]._data.y; // i * H的虚部变为实部，符号为负
-                    A[i]._data.y = sigma * H[i]._data.x;  // i * H的实部变为虚部
+                    A[i]._data.x = -sigma * H[i]._data.y; // imaginary part becomes real with negative sign
+                    A[i]._data.y = sigma * H[i]._data.x;  // real part becomes imaginary
                 }
-                // 计算U = exp(A)
+                // Compute U = exp(A)
                 su3_matrix_exponential(A, U);
                 give_U(p, origin_U, U, lat_tzyx);
             }
