@@ -225,3 +225,38 @@ def dtype_half(_data_type_=_LAT_C64_):
     elif _data_type_ == _LAT_C256_:
         print("Doesn't support complex256")
         return None
+
+def prime_factorization(n: int):
+    """Return the prime factorization of n as a list (using numpy only)."""
+    factors = []
+    d = 2
+    while d * d <= n:
+        while n % d == 0:
+            factors.append(d)
+            n //= d
+        d += 1
+    if n > 1:
+        factors.append(n)
+    return factors
+
+
+def split_into_four_factors(N: int):
+    """
+    Split integer N into 4 factors that are as close as possible in size.
+    Uses numpy only.
+    """
+    if N <= 0:
+        raise ValueError("N must be positive")
+
+    # Step 1: prime factors
+    factors = prime_factorization(N)
+
+    # Step 2: initialize four groups
+    groups = np.ones(4, dtype=int)
+
+    # Step 3: distribute factors greedily (largest first)
+    for f in sorted(factors, reverse=True):
+        idx = np.argmin(groups)   # index of smallest product
+        groups[idx] *= f
+
+    return tuple(sorted(groups.tolist()))
