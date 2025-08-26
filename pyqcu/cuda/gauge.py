@@ -76,7 +76,6 @@ def validate_minor_identities(U, tol=1e-6):
 
 
 def test_su3(U):
-    print(" Whether unitary matrix :", is_unitary(U))
     print(" Is SU(3) a member :", is_su3(U))
     print(" Satisfy three-row complex conjugation properties :",
           validate_minor_identities(U))
