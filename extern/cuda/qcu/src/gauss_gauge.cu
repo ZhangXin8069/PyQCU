@@ -17,26 +17,6 @@ namespace qcu
             random_stzyx[idx * _LAT_S_ + i]._data.y = curand_uniform(&state_real);
         }
     }
-    // Define Gell-Mann matrices as constants
-    __constant__ double d_gell_mann[(_LAT_CC_ - 1)][_LAT_CC_] = {
-        {0, 1, 0, 1, 0, 0, 0, 0, 0},                               // lambda1
-        {0, -1, 0, 1, 0, 0, 0, 0, 0},                              // lambda2 (imaginary unit i handled in calculation)
-        {1, 0, 0, 0, -1, 0, 0, 0, 0},                              // lambda3
-        {0, 0, 1, 0, 0, 0, 1, 0, 0},                               // lambda4
-        {0, 0, -1, 0, 0, 0, 1, 0, 0},                              // lambda5 (imaginary unit i handled in calculation)
-        {0, 0, 0, 0, 0, 1, 0, 1, 0},                               // lambda6
-        {0, 0, 0, 0, 0, -1, 0, 1, 0},                              // lambda7 (imaginary unit i handled in calculation)
-        {1 / sqrt(3), 0, 0, 0, 1 / sqrt(3), 0, 0, 0, -2 / sqrt(3)} // lambda8
-    };
-    __constant__ float f_gell_mann[(_LAT_CC_ - 1)][_LAT_CC_] = {
-        {0, 1, 0, 1, 0, 0, 0, 0, 0},
-        {0, -1, 0, 1, 0, 0, 0, 0, 0},
-        {1, 0, 0, 0, -1, 0, 0, 0, 0},
-        {0, 0, 1, 0, 0, 0, 1, 0, 0},
-        {0, 0, -1, 0, 0, 0, 1, 0, 0},
-        {0, 0, 0, 0, 0, 1, 0, 1, 0},
-        {0, 0, 0, 0, 0, -1, 0, 1, 0},
-        {1 / sqrtf(3), 0, 0, 0, 1 / sqrtf(3), 0, 0, 0, -2 / sqrtf(3)}};
     // 3x3 complex matrix multiplication
     template <typename T>
     __device__ void su3_matrix_multiply(LatticeComplex<T> a[_LAT_CC_], LatticeComplex<T> b[_LAT_CC_], LatticeComplex<T> result[_LAT_CC_])
@@ -79,12 +59,22 @@ namespace qcu
             result[i]._data.x += term[i]._data.x;
             result[i]._data.y += term[i]._data.y;
         }
+        // Precomputed reciprocal factorials up to 6!
+        const T inv_factorials[7] = {
+            1.0,         // 0! = 1
+            1.0,         // 1! = 1
+            1.0 / 2.0,   // 2! = 2
+            1.0 / 6.0,   // 3! = 6
+            1.0 / 24.0,  // 4! = 24
+            1.0 / 120.0, // 5! = 120
+            1.0 / 720.0  // 6! = 720
+        };
         // Taylor expansion up to 6th order
         for (int n = 2; n <= 6; n++)
         {
             LatticeComplex<T> new_term[_LAT_CC_];
             su3_matrix_multiply(current, term, new_term);
-            T factor = 1.0 / tgamma(n + 1);
+            T factor = inv_factorials[n];
             for (int i = 0; i < _LAT_CC_; i++)
             {
                 term[i]._data.x = new_term[i]._data.x * factor;
@@ -133,8 +123,6 @@ namespace qcu
                     }
                 }
                 // Construct Hermitian matrix H
-                if constexpr (std::is_same_v<T, double>)
-                {
                     for (int i = 0; i < (_LAT_CC_ - 1); i++)
                     {
                         for (int j = 0; j < _LAT_CC_; j++)
@@ -220,9 +208,9 @@ namespace qcu
         }
     }
     //@@@CUDA_TEMPLATE_FOR_DEVICE@@@
-    template __global__ void make_gauss_gauge<double>(void *device_U, void *device_params, void *set_ptr);
-    template void _make_gauss_gauge<double>(void *device_U, void *device_random_stzyx, void *device_params, double sigma);
+    template void make_gauss_gauge<double>(void *device_U, void *set_ptr);
+    template __global__ void _make_gauss_gauge<double>(void *device_U, void *device_random_stzyx, void *device_params, double sigma);
     //@@@CUDA_TEMPLATE_FOR_DEVICE@@@
-    template __global__ void make_gauss_gauge<float>(void *device_U, void *device_params, void *set_ptr);
-    template void _make_gauss_gauge<float>(void *device_U, void *device_random_stzyx, void *device_params, float sigma);
+    template void make_gauss_gauge<float>(void *device_U, void *set_ptr);
+    template __global__ void _make_gauss_gauge<float>(void *device_U, void *device_random_stzyx, void *device_params, float sigma);
 }
