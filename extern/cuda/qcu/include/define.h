@@ -431,12 +431,12 @@ namespace qcu
       origin_dest[i * lat_tzyx] = dest[i];               \
     }                                                    \
   }
-#define give_U(parity, origin_U, U, lat_tzyx)                          \
-  {                                                                    \
-    for (int i = 0; i < _LAT_CC_; i++)                                 \
-    {                                                                  \
-      origin_U[(i * _LAT_D_ * _EVEN_ODD_ + parity) * lat_tzyx] = U[i]; \
-    }                                                                  \
+#define give_U(parity, dim, origin_U, U, lat_tzyx)                             \
+  {                                                                            \
+    for (int i = 0; i < _LAT_CC_; i++)                                         \
+    {                                                                          \
+      origin_U[((i * _LAT_D_ + dim) * _EVEN_ODD_ + parity) * lat_tzyx] = U[i]; \
+    }                                                                          \
   }
 #define give_send(origin_send, send, lat_3dim) \
   {                                            \
@@ -675,7 +675,7 @@ namespace qcu
 // λ7
 #define LAMBDA7 {0, 0, 0, 0, 0, -1.0, 0, 1.0, 0} // same note as λ2
 // λ8
-#define LAMBDA8 {1.0 / sqrt(3), 0, 0, 0, 1.0 / sqrt(3), 0, 0, 0, -2.0 / sqrt(3)}
+#define LAMBDA8 {1.0 / 1.7320508075688772, 0, 0, 0, 1.0 / 1.7320508075688772, 0, 0, 0, -2.0 / 1.7320508075688772}
 
 // Pack them into one static array
 #define GELL_MANN { \

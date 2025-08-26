@@ -183,6 +183,11 @@ def ccdptzyx2dptzyxcc(gauge):
     return dest
 
 
+def ccdptzyx2pccdtzyx(gauge):
+    dest = gauge.transpose(3, 0, 1, 2, 4, 5, 6, 7)
+    return dest
+
+
 def dptzyxcc2ccdptzyx(gauge):
     dest = gauge.transpose(6, 7, 0, 1, 2, 3, 4, 5)
     return dest
