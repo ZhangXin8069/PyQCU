@@ -5,14 +5,13 @@ params[define._LAT_X_] = 32
 params[define._LAT_Y_] = 32
 params[define._LAT_Z_] = 32
 params[define._LAT_T_] = 32
-params[define._LAT_XYZT_] = 32**4
-params[define._GRID_X_] = 1
-params[define._GRID_Y_] = 1
-params[define._GRID_Z_] = 1
-params[define._GRID_T_] = 1
+params[define._LAT_XYZT_] = params[define._LAT_X_] * \
+    params[define._LAT_Y_]*params[define._LAT_Z_]*params[define._LAT_T_]
+params[define._GRID_X_], params[define._GRID_Y_], params[define._GRID_Z_], params[
+    define._GRID_T_] = define.split_into_four_factors(define.size)
 params[define._PARITY_] = 0
-params[define._NODE_RANK_] = 0
-params[define._NODE_SIZE_] = 1
+params[define._NODE_RANK_] = define.rank
+params[define._NODE_SIZE_] = define.size
 params[define._DAGGER_] = 0
 params[define._MAX_ITER_] = 1e4
 params[define._DATA_TYPE_] = define._LAT_C64_
