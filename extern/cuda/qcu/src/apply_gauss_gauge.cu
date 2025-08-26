@@ -21,7 +21,7 @@ void applyGaussGaugeQcu(long long _gauge, long long _set_ptrs, long long _params
   {
     void *set_ptr = (void *)(static_cast<long long *>(set_ptrs)[set_index]); // define for apply_gauss_gauge
     // dptzyxcc2ccdptzyx<double>(gauge, &_set);
-    make_gauss_gauge<double>(gauge, params, set_ptr->sigma());
+    make_gauss_gauge<double>(gauge, set_ptr);
     // ccdptzyx2dptzyxcc<double>(gauge, &_set);
   }
   else
