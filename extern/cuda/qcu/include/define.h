@@ -431,12 +431,12 @@ namespace qcu
       origin_dest[i * lat_tzyx] = dest[i];               \
     }                                                    \
   }
-#define give_U(parity, origin_U, U, lat_tzyx)                           \
-  {                                                                     \
-    for (int i = 0; i < _LAT_CC_; i++)                                  \
-    {                                                                   \
-      origin_U[(i * _LAT_D_ * _EVEN_ODD_ + parity) * _lat_tzyx] = U[i]; \
-    }                                                                   \
+#define give_U(parity, origin_U, U, lat_tzyx)                          \
+  {                                                                    \
+    for (int i = 0; i < _LAT_CC_; i++)                                 \
+    {                                                                  \
+      origin_U[(i * _LAT_D_ * _EVEN_ODD_ + parity) * lat_tzyx] = U[i]; \
+    }                                                                  \
   }
 #define give_send(origin_send, send, lat_3dim) \
   {                                            \
@@ -657,4 +657,35 @@ namespace qcu
     }                                                             \
   }
 }
+
+// Define Gell-Mann matrices as macros (flattened 3x3 row-major order)
+
+// λ1
+#define LAMBDA1 {0, 1, 0, 1, 0, 0, 0, 0, 0}
+// λ2
+#define LAMBDA2 {0, -1.0, 0, 1.0, 0, 0, 0, 0, 0} // actually should be 0, -i, 0, i, 0, 0, 0, 0, 0 (complex part handled separately)
+// λ3
+#define LAMBDA3 {1, 0, 0, 0, -1, 0, 0, 0, 0}
+// λ4
+#define LAMBDA4 {0, 0, 1, 0, 0, 0, 1, 0, 0}
+// λ5
+#define LAMBDA5 {0, 0, -1.0, 0, 0, 0, 1.0, 0, 0} // same note as λ2
+// λ6
+#define LAMBDA6 {0, 0, 0, 0, 0, 1, 0, 1, 0}
+// λ7
+#define LAMBDA7 {0, 0, 0, 0, 0, -1.0, 0, 1.0, 0} // same note as λ2
+// λ8
+#define LAMBDA8 {1.0 / sqrt(3), 0, 0, 0, 1.0 / sqrt(3), 0, 0, 0, -2.0 / sqrt(3)}
+
+// Pack them into one static array
+#define GELL_MANN { \
+    LAMBDA1,        \
+    LAMBDA2,        \
+    LAMBDA3,        \
+    LAMBDA4,        \
+    LAMBDA5,        \
+    LAMBDA6,        \
+    LAMBDA7,        \
+    LAMBDA8}
+
 #endif
