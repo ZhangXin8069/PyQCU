@@ -169,6 +169,20 @@ namespace qcu
                         CUDA_C_32F);
   }
   template <typename T>
+  __global__ void give_copy_vals(void *device_dest, void *device_src);
+  {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    LatticeComplex<T> *dest =
+        static_cast<LatticeComplex<T> *>(device_dest);
+    LatticeComplex<T> *src =
+        static_cast<LatticeComplex<T> *>(device_src);
+    for (int i = 0; i < _LAT_SC_; ++i)
+    {
+      dest[idx * _LAT_SC_ + i]._data.x = src[idx * _LAT_SC_ + i]._data.x;
+      dest[idx * _LAT_SC_ + i]._data.y = src[idx * _LAT_SC_ + i]._data.y;
+    }
+  }
+  template <typename T>
   __global__ void give_random_vals(void *device_random_vals, unsigned long seed)
   {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
