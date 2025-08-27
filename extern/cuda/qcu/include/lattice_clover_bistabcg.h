@@ -3,7 +3,7 @@
 #include "./bistabcg.h"
 #include "./lattice_mpi.h"
 #include "./lattice_cuda.h"
-#include "./lattice_wilson_dslash.h"
+#include "./lattice_clover_dslash.h"
 #include "./lattice_clover_dslash.h"
 namespace qcu
 {
@@ -14,7 +14,10 @@ namespace qcu
     LatticeSet<T> *set_ptr;
     cudaError_t err;
     LatticeWilsonDslash<T> wilson_dslash;
-    LatticeCloverDslash<T> clover_dslash;
+    LatticeCloverDslash<T> clover_dslash_ee;
+    LatticeCloverDslash<T> clover_dslash_oo;
+    LatticeCloverDslash<T> clover_dslash_ee_inv;
+    LatticeCloverDslash<T> clover_dslash_oo_inv;
     LatticeComplex<T> tmp0;
     LatticeComplex<T> tmp1;
     LatticeComplex<T> rho_prev;
@@ -22,15 +25,16 @@ namespace qcu
     LatticeComplex<T> alpha;
     LatticeComplex<T> beta;
     LatticeComplex<T> omega;
-    void *gauge, *clover, *ans_e, *ans_o, *x_e, *x_o, *b_e, *b_o, *b__o, *r, *r_tilde, *p,
-        *v, *s, *t, *device_vec0, *device_vec1, *device_vals;
+    void *gauge, *clover_ee, *clover_oo, *clover_ee_inv, *clover_oo_inv, *ans_e, *ans_o, *x_e, *x_o, *b_e, *b_o, *b__o, *r, *r_tilde, *p,
+        *v, *s, *t, *device_vec0, *device_vec1, *device_vec2, *device_vals;
     LatticeComplex<T> host_vals[_vals_size_];
     int if_input, if_test;
     void give(LatticeSet<T> *_set_ptr)
     {
       set_ptr = _set_ptr;
       wilson_dslash.give(set_ptr);
-      clover_dslash.give(set_ptr);
+      clover_dslash_ee.give(set_ptr);
+      clover_dslash_oo.give(set_ptr);
     }
     void _init()
     {
@@ -56,6 +60,9 @@ namespace qcu
           set_ptr->stream));
       checkCudaErrors(cudaMallocAsync(
           &device_vec1, set_ptr->lat_4dim_SC * sizeof(LatticeComplex<T>),
+          set_ptr->stream));
+      checkCudaErrors(cudaMallocAsync(
+          &device_vec2, set_ptr->lat_4dim_SC * sizeof(LatticeComplex<T>),
           set_ptr->stream));
       checkCudaErrors(cudaMallocAsync(
           &device_vals, _vals_size_ * sizeof(LatticeComplex<T>), set_ptr->stream));
@@ -88,19 +95,23 @@ namespace qcu
             cudaMallocAsync(&b_o, set_ptr->lat_4dim_SC * sizeof(LatticeComplex<T>),
                             set_ptr->stream));
         wilson_dslash.run_eo(device_vec0, ans_o, gauge);
-        give_copy_vals(device_vec1, ans_e);
-        clover_dslash.give(device_vec1);
+        give_copy_vals<T><<<set_ptr->gridDim, set_ptr->blockDim, 0,
+                            set_ptr->stream>>>(device_vec2, ans_e);
+        clover_dslash_ee.give(device_vec2);
         bistabcg_give_b_e<T><<<set_ptr->gridDim, set_ptr->blockDim, 0,
-                               set_ptr->stream>>>(b_e, device_vec1, device_vec0, set_ptr->kappa(),
+                               set_ptr->stream>>>(b_e, device_vec2, device_vec0, set_ptr->kappa(),
                                                   device_vals);
         wilson_dslash.run_oe(device_vec1, ans_e, gauge);
         bistabcg_give_b_o<T><<<set_ptr->gridDim, set_ptr->blockDim, 0,
-                               set_ptr->stream>>>(clover, b_o, ans_o, device_vec1, set_ptr->kappa(),
+                               set_ptr->stream>>>(b_o, ans_o, device_vec1, set_ptr->kappa(),
                                                   device_vals);
       }
       { // give b__o, x_o, rr
         checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
-        wilson_dslash.run_oe(device_vec0, b_e, gauge);
+        give_copy_vals<T><<<set_ptr->gridDim, set_ptr->blockDim, 0,
+                            set_ptr->stream>>>(device_vec2, b_e);
+        clover_dslash_ee_inv.give(device_vec2);
+        wilson_dslash.run_oe(device_vec0, device_vec2, gauge);
         bistabcg_give_b__o<T><<<set_ptr->gridDim, set_ptr->blockDim, 0,
                                 set_ptr->stream>>>(b__o, b_o, device_vec0, set_ptr->kappa(),
                                                    device_vals);
@@ -113,14 +124,20 @@ namespace qcu
       }
       checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
     }
-    void _wilson_dslash(void *fermion_out, void *fermion_in, void *gauge)
+    void _clover_dslash(void *fermion_out, void *fermion_in, void *gauge)
     {
-      // src_o-set_ptr->kappa()**2*dslash_oe(dslash_eo(src_o))
+      // A_oo*src_o-set_ptr->kappa()**2*dslash_oe*A_ee^-1*(dslash_eo(src_o))
       wilson_dslash.run_eo(device_vec0, fermion_in, gauge);
-      wilson_dslash.run_oe(device_vec1, device_vec0, gauge);
+      give_copy_vals<T><<<set_ptr->gridDim, set_ptr->blockDim, 0,
+                          set_ptr->stream>>>(device_vec2, device_vec0);
+      clover_dslash_ee_inv.give(device_vec2);
+      wilson_dslash.run_oe(device_vec1, device_vec2, gauge);
+      give_copy_vals<T><<<set_ptr->gridDim, set_ptr->blockDim, 0,
+                          set_ptr->stream>>>(device_vec2, fermion_in);
+      clover_dslash_oo.give(device_vec2);
       bistabcg_give_dest_o<T><<<set_ptr->gridDim, set_ptr->blockDim, 0,
                                 set_ptr->stream>>>(
-          fermion_out, fermion_in, device_vec1, set_ptr->kappa(), device_vals);
+          fermion_out, device_vec2, device_vec1, set_ptr->kappa(), device_vals);
     }
     void _run_init()
     {
@@ -140,18 +157,24 @@ namespace qcu
                             set_ptr->stream>>>(p, 0.0, 0.0);
       give_random_vals<T><<<set_ptr->gridDim, set_ptr->blockDim, 0,
                             set_ptr->stream>>>(x_o, 23333);
-      _wilson_dslash(r, x_o, gauge);
+      _clover_dslash(r, x_o, gauge);
       bistabcg_give_rr<T><<<set_ptr->gridDim, set_ptr->blockDim, 0,
                             set_ptr->stream>>>(r, b__o, r_tilde, device_vals);
       checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
     }
-    void init(void *_x, void *_b, void *_gauge, void *_clover)
+    void init(void *_x, void *_b, void *_gauge, void *_clover_ee, void *_clover_oo, void *_clover_ee_inv, void *_clover_oo_inv)
     {
       _init();
       if_input = 1;
       gauge = _gauge;
-      clover = _clover;
-      clover_dslash.init(clover);
+      clover_ee = _clover_ee;
+      clover_oo = _clover_oo;
+      clover_ee_inv = _clover_ee_inv;
+      clover_oo_inv = _clover_oo_inv;
+      clover_dslash_ee.init(clover_ee);
+      clover_dslash_oo.init(clover_oo);
+      clover_dslash_ee_inv.init(clover_ee_inv);
+      clover_dslash_oo_inv.init(clover_oo_inv);
       x_e = _x;
       x_o = ((static_cast<LatticeComplex<T> *>(_x)) + set_ptr->lat_4dim_SC);
       b_e = _b;
@@ -276,7 +299,7 @@ namespace qcu
         _dot(r, r, _norm2_tmp_, _c_);
         {
           // v = A * p;
-          _wilson_dslash(v, p, gauge);
+          _clover_dslash(v, p, gauge);
         }
         checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
         _dot(r_tilde, v, _tmp0_, _d_);
@@ -293,7 +316,7 @@ namespace qcu
         checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_a_]));
         {
           // t = A * s;
-          _wilson_dslash(t, s, gauge);
+          _clover_dslash(t, s, gauge);
         }
         checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
         _dot(t, s, _tmp0_, _c_);
@@ -340,7 +363,7 @@ namespace qcu
       _run();
       if (if_input)
       {
-        // get $x_{e}$ by $b_{e}+\kappa D_{eo}x_{o}$
+        // get $x_{e}$ by $A_ee^-1*(b_{e}+\kappa D_{eo}x_{o})$
         CUBLAS_CHECK(_cublasCopy<T>(set_ptr->cublasH,
                                     set_ptr->lat_4dim_SC * _REAL_IMAG_,
                                     (T *)b_e, 1, (T *)device_vec0, 1));
@@ -353,6 +376,7 @@ namespace qcu
                            device_vec1,
                            1, device_vec0,
                            1));
+        clover_dslash_ee_inv.give(device_vec0);
         CUBLAS_CHECK(_cublasCopy<T>(set_ptr->cublasH,
                                     set_ptr->lat_4dim_SC * _REAL_IMAG_,
                                     (T *)device_vec0, 1, (T *)x_e, 1));
@@ -383,7 +407,7 @@ namespace qcu
       }
       else
       {
-        _wilson_dslash(device_vec1, x_o, gauge);
+        _clover_dslash(device_vec1, x_o, gauge);
         checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
         _diff(device_vec1, b__o);
       }
