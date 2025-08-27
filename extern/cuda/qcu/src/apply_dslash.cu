@@ -2,7 +2,7 @@
 #include "../include/qcu.h"
 #pragma optimize(5)
 using namespace qcu;
-void applyDslashQcu(long long _fermion_out, long long _fermion_in, long long _clover, long long _gauge, long long _set_ptrs, long long _params)
+void applyDslashQcu(long long _fermion_out, long long _fermion_in, long long _gauge, long long _clover, long long _set_ptrs, long long _params)
 {
   cudaDeviceSynchronize();
   void *fermion_out = (void *)_fermion_out;

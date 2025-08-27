@@ -5,6 +5,7 @@
 #include "./include.h"
 #include "./lattice_wilson_cg.h"
 #include "./lattice_wilson_bistabcg.h"
+#include "./lattice_clover_bistabcg.h"
 #include "./lattice_clover_dslash.h"
 #include "./lattice_complex.h"
 #include "./lattice_mpi.h"
