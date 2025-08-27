@@ -7,8 +7,8 @@ void applyCloverBistabCgQcu(long long _fermion_out, long long _fermion_in, long 
   cudaDeviceSynchronize();
   void *fermion_out = (void *)_fermion_out;
   void *fermion_in = (void *)_fermion_in;
-  void *clover = (void *)_clover;
   void *gauge = (void *)_gauge;
+  void *clover = (void *)_clover;
   void *set_ptrs = (void *)_set_ptrs;
   void *params = (void *)_params;
   int set_index = static_cast<int *>(params)[_SET_INDEX_];
@@ -21,7 +21,7 @@ void applyCloverBistabCgQcu(long long _fermion_out, long long _fermion_in, long 
     // ptzyxsc2psctzyx<float>(fermion_out, &_set);
     LatticeCloverBistabCg<float> _bistabcg;
     _bistabcg.give(set_ptr);
-    _bistabcg.init(fermion_out, fermion_in, clover, gauge);
+    _bistabcg.init(fermion_out, fermion_in, gauge, clover);
     if (set_ptr->host_params[_VERBOSE_])
     {
       _bistabcg.run_test();
@@ -43,7 +43,7 @@ void applyCloverBistabCgQcu(long long _fermion_out, long long _fermion_in, long 
     // ptzyxsc2psctzyx<double>(fermion_out, &_set);
     LatticeCloverBistabCg<double> _bistabcg;
     _bistabcg.give(set_ptr);
-    _bistabcg.init(fermion_out, fermion_in, clover, gauge);
+    _bistabcg.init(fermion_out, fermion_in, gauge, clover);
     if (set_ptr->host_params[_VERBOSE_])
     {
       _bistabcg.run_test();
