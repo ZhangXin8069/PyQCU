@@ -1,5 +1,5 @@
-#ifndef _LATTICE_CG_H
-#define _LATTICE_CG_H
+#ifndef _LATTICE_WILSON_CG_H
+#define _LATTICE_WILSON_CG_H
 // clang-format off
 #include "./cg.h"
 #include "./lattice_mpi.h"

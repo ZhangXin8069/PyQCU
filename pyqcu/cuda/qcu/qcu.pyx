@@ -87,16 +87,24 @@ def applyCloverQcu(_clover, _gauge, _set_ptrs, _params):
     set_ptrs = _set_ptrs.ctypes.data
     params = _params.ctypes.data
     qcu.applyCloverQcu(clover, gauge, set_ptrs, params)
-def applyDslashQcu(_fermion_out, _fermion_in, _clover, _gauge, _set_ptrs, _params):
+def applyDslashQcu(_fermion_out, _fermion_in, _gauge, _clover, _set_ptrs, _params):
     fermion_out = _fermion_out.data.ptr
     fermion_in = _fermion_in.data.ptr
     clover = _clover.data.ptr
     gauge = _gauge.data.ptr
     set_ptrs = _set_ptrs.ctypes.data
     params = _params.ctypes.data
-    qcu.applyDslashQcu(fermion_out, fermion_in, clover, gauge, set_ptrs, params)
+    qcu.applyDslashQcu(fermion_out, fermion_in, gauge, clover, set_ptrs, params)
 def applyGaussGaugeQcu(_gauge, _set_ptrs, _params):
     gauge = _gauge.data.ptr
     set_ptrs = _set_ptrs.ctypes.data
     params = _params.ctypes.data
     qcu.applyGaussGaugeQcu(gauge, set_ptrs, params)
+def applyCloverBistabCgQcu(_fermion_out, _fermion_in, _gauge, _clover, _set_ptrs, _params):
+    fermion_out = _fermion_out.data.ptr
+    fermion_in = _fermion_in.data.ptr
+    clover = _clover.data.ptr
+    gauge = _gauge.data.ptr
+    set_ptrs = _set_ptrs.ctypes.data
+    params = _params.ctypes.data
+    qcu.applyCloverBistabCgQcu(fermion_out, fermion_in, gauge, clover, set_ptrs, params)
