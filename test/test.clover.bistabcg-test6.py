@@ -7,6 +7,7 @@ print('My rank is ', define.rank)
 params[define._LAT_Y_] /= 2
 params[define._LAT_XYZT_] /= 2
 params[define._SET_PLAN_] = 2
+params[define._DATA_TYPE_] = define._LAT_C64_
 params[define._VERBOSE_] = 1
 params[define._PARITY_] = 0
 gauge_filename = f"quda_wilson-clover-dslash-gauge_-{params[define._LAT_X_]}-{params[define._LAT_Y_]}-{params  [define._LAT_Z_]}-{params[define._LAT_T_]}-{params[define._LAT_XYZT_]}-{params[define._GRID_X_]}-{params[define._GRID_Y_]}-{params[define._GRID_Z_]}-{params[define._GRID_T_]}-{params[define._PARITY_]}-{params[define._NODE_RANK_]}-{params[define._NODE_SIZE_]}-{params[define._DAGGER_]}-f.h5"
@@ -39,6 +40,8 @@ print("Difference:", cp.linalg.norm(fermion_out -
 #############################
 io.grid_xxxtzyx2hdf5_xxxtzyx(fermion_out, params)
 #############################
+fermion_in = cp.ones_like(fermion_in)
+fermion_out = cp.zeros_like(fermion_in)
 clover_ee = cp.zeros(shape=[define._LAT_S_, define._LAT_C_] +
                      list(fermion_in.shape), dtype=fermion_in.dtype)
 clover_ee_inv = cp.zeros_like(clover_ee)

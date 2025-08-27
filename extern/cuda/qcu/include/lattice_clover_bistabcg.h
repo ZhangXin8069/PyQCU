@@ -35,6 +35,8 @@ namespace qcu
       wilson_dslash.give(set_ptr);
       clover_dslash_ee.give(set_ptr);
       clover_dslash_oo.give(set_ptr);
+      clover_dslash_ee_inv.give(set_ptr);
+      clover_dslash_oo_inv.give(set_ptr);
     }
     void _init()
     {
@@ -110,7 +112,9 @@ namespace qcu
         checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
         give_copy_vals<T><<<set_ptr->gridDim, set_ptr->blockDim, 0,
                             set_ptr->stream>>>(device_vec2, b_e);
+        printf("@@@@@@@@@@@@@@@DEBUGING!!!");
         clover_dslash_ee_inv.give(device_vec2);
+        printf("###############DEBUGING!!!");
         wilson_dslash.run_oe(device_vec0, device_vec2, gauge);
         bistabcg_give_b__o<T><<<set_ptr->gridDim, set_ptr->blockDim, 0,
                                 set_ptr->stream>>>(b__o, b_o, device_vec0, set_ptr->kappa(),
@@ -398,7 +402,7 @@ namespace qcu
           std::chrono::duration_cast<std::chrono::nanoseconds>(end - start)
               .count();
       printf(
-          "multi-gpu wilson bistabcg total time: (without malloc free memcpy) :%.9lf "
+          "multi-gpu clover bistabcg total time: (without malloc free memcpy) :%.9lf "
           "sec\n",
           T(duration) / 1e9);
       if (if_input == 0)
