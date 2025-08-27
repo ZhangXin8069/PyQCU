@@ -169,7 +169,7 @@ namespace qcu
                         CUDA_C_32F);
   }
   template <typename T>
-  __global__ void give_copy_vals(void *device_dest, void *device_src);
+  __global__ void give_copy_vals(void *device_dest, void *device_src)
   {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     LatticeComplex<T> *dest =
@@ -481,6 +481,7 @@ namespace qcu
   template void host_save<double>(void *h_array, const int size, const std::string &filename);
   template void device_load<double>(void *d_array, const int size, const std::string &filename);
   template void host_load<double>(void *h_array, const int size, const std::string &filename);
+  template __global__ void give_copy_vals<double>(void *device_dest, void *device_src);
   template __global__ void give_random_vals<double>(void *device_random_vals, unsigned long seed);
   template __global__ void give_custom_vals<double>(void *device_custom_vals, double real,
                                                     double imag);
@@ -512,6 +513,7 @@ namespace qcu
   template void host_save<float>(void *h_array, const int size, const std::string &filename);
   template void device_load<float>(void *d_array, const int size, const std::string &filename);
   template void host_load<float>(void *h_array, const int size, const std::string &filename);
+  template __global__ void give_copy_vals<float>(void *device_dest, void *device_src);
   template __global__ void give_random_vals<float>(void *device_random_vals, unsigned long seed);
   template __global__ void give_custom_vals<float>(void *device_custom_vals, float real,
                                                    float imag);
