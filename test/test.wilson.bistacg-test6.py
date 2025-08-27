@@ -11,6 +11,7 @@ print("Parameters:", params)
 argv[define._MASS_] = 0.0
 print("Arguments:", argv)
 print('My rank is ', define.rank)
+print(f"cp.cuda.Device().id:{cp.cuda.Device().id}")
 gauge_filename = f"quda_wilson-bistabcg-gauge_-32-32-32-32-1048576-1-1-1-1-0-0-1-0-f.h5"
 #############################
 print("Gauge filename:", gauge_filename)
