@@ -112,14 +112,14 @@ def applyGaussGaugeQcu(_gauge, _set_ptrs, _params):
     set_ptrs = _set_ptrs.ctypes.data
     params = _params.ctypes.data
     qcu.applyGaussGaugeQcu(gauge, set_ptrs, params)
-def applyCloverBistabCgQcu(_fermion_out, _fermion_in, _gauge, long long _clover_ee, long long _clover_oo, long long _clover_ee_inv, long long _clover_oo_inv, _set_ptrs, _params):
+def applyCloverBistabCgQcu(_fermion_out, _fermion_in, _gauge, _clover_ee, _clover_oo, _clover_ee_inv, _clover_oo_inv, _set_ptrs, _params):
     fermion_out = _fermion_out.data.ptr
     fermion_in = _fermion_in.data.ptr
+    gauge = _gauge.data.ptr
     clover_ee = _clover_ee.data.ptr
     clover_oo = _clover_oo.data.ptr
     clover_ee_inv = _clover_ee_inv.data.ptr
     clover_oo_inv = _clover_oo_inv.data.ptr
-    gauge = _gauge.data.ptr
     set_ptrs = _set_ptrs.ctypes.data
     params = _params.ctypes.data
     qcu.applyCloverBistabCgQcu(fermion_out, fermion_in, gauge, clover_ee, clover_oo, clover_ee_inv, clover_oo_inv, set_ptrs, params)
