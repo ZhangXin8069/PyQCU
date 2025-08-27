@@ -102,7 +102,7 @@ namespace qcu
         T gell_mann[8][9] = GELL_MANN;
         T a[_LAT_CC_ - 1];
         // Generate one SU(3) matrix for each direction
-        for (int p = 0; p < _LAT_P_ - 1; p++)
+        for (int p = 0; p < _LAT_P_; p++)
         {
             for (int d = 0; d < _LAT_D_; d++)
             {
@@ -143,13 +143,12 @@ namespace qcu
                     A[i]._data.x = -sigma * H[i]._data.y; // imaginary part becomes real with negative sign
                     A[i]._data.y = sigma * H[i]._data.x;  // real part becomes imaginary
                 }
-                // printf("lat_tzyx");
                 // Compute U = exp(A)
                 su3_matrix_exponential(A, U);
                 for (int i = 0; i < _LAT_CC_; i++)
                 {
-                    U[i]._data.x = idx + 100000 * p;
-                    U[i]._data.y = d + 100000 * i;
+                    U[i]._data.x = i * 11111 * (1 - 2 * p);
+                    U[i]._data.y = d * 11111 * (1 - 2 * p);
                 }
                 give_U(p, d, origin_U, U, lat_tzyx);
             }
