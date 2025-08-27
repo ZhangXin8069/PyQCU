@@ -31,6 +31,8 @@ namespace qcu
                             int incy,
                             void *result);
   template <typename T>
+  __global__ void give_copy_vals(void *device_dest, void *device_src);
+  template <typename T>
   __global__ void give_random_vals(void *device_random_vals, unsigned long seed);
   template <typename T>
   __global__ void give_custom_vals(void *device_custom_vals, T real,

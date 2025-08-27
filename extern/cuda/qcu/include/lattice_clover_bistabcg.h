@@ -22,7 +22,7 @@ namespace qcu
     LatticeComplex<T> alpha;
     LatticeComplex<T> beta;
     LatticeComplex<T> omega;
-    void *gauge, *ans_e, *ans_o, *x_e, *x_o, *b_e, *b_o, *b__o, *r, *r_tilde, *p,
+    void *gauge, *clover, *ans_e, *ans_o, *x_e, *x_o, *b_e, *b_o, *b__o, *r, *r_tilde, *p,
         *v, *s, *t, *device_vec0, *device_vec1, *device_vals;
     LatticeComplex<T> host_vals[_vals_size_];
     int if_input, if_test;
@@ -30,6 +30,7 @@ namespace qcu
     {
       set_ptr = _set_ptr;
       wilson_dslash.give(set_ptr);
+      clover_dslash.give(set_ptr);
     }
     void _init()
     {
@@ -87,12 +88,14 @@ namespace qcu
             cudaMallocAsync(&b_o, set_ptr->lat_4dim_SC * sizeof(LatticeComplex<T>),
                             set_ptr->stream));
         wilson_dslash.run_eo(device_vec0, ans_o, gauge);
+        give_copy_vals(device_vec1, ans_e);
+        clover_dslash.give(device_vec1);
         bistabcg_give_b_e<T><<<set_ptr->gridDim, set_ptr->blockDim, 0,
-                               set_ptr->stream>>>(b_e, ans_e, device_vec0, set_ptr->kappa(),
+                               set_ptr->stream>>>(b_e, device_vec1, device_vec0, set_ptr->kappa(),
                                                   device_vals);
         wilson_dslash.run_oe(device_vec1, ans_e, gauge);
         bistabcg_give_b_o<T><<<set_ptr->gridDim, set_ptr->blockDim, 0,
-                               set_ptr->stream>>>(b_o, ans_o, device_vec1, set_ptr->kappa(),
+                               set_ptr->stream>>>(clover, b_o, ans_o, device_vec1, set_ptr->kappa(),
                                                   device_vals);
       }
       { // give b__o, x_o, rr
@@ -142,11 +145,13 @@ namespace qcu
                             set_ptr->stream>>>(r, b__o, r_tilde, device_vals);
       checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
     }
-    void init(void *_x, void *_b, void *_clover, void *_gauge)
+    void init(void *_x, void *_b, void *_gauge, void *_clover)
     {
       _init();
       if_input = 1;
       gauge = _gauge;
+      clover = _clover;
+      clover_dslash.init(clover);
       x_e = _x;
       x_o = ((static_cast<LatticeComplex<T> *>(_x)) + set_ptr->lat_4dim_SC);
       b_e = _b;
