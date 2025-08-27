@@ -4,6 +4,7 @@ from pyqcu.cuda import io
 from pyqcu.cuda import qcu
 from pyqcu.cuda.set import params, argv, set_ptrs
 print('My rank is ', define.rank)
+print(f"print(cp.cuda.Device().id):{print(cp.cuda.Device().id)}")
 params[define._LAT_Y_] /= 2
 params[define._LAT_XYZT_] /= 2
 params[define._SET_PLAN_] = 2
