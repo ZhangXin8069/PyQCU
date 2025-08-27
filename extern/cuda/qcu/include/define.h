@@ -58,9 +58,8 @@ namespace qcu
 #define _SET_PLAN_ 16
 #define _SET_PLAN_N_1_ -1 // just for laplacian
 #define _SET_PLAN0_ 0     // for wilson dslash
-#define _SET_PLAN1_ 1     // just for wilson bistabcg and cg
+#define _SET_PLAN1_ 1     // just for bistabcg and cg
 #define _SET_PLAN2_ 2     // for clover dslash
-#define _SET_PLAN3_ 3     // just for clover bistabcg and cg
 #define _MG_X_ 17
 #define _MG_Y_ 18
 #define _MG_Z_ 19
