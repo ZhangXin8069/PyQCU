@@ -3,9 +3,8 @@
 #pragma once
 #include "./define.h"
 #include "./include.h"
-#include "./lattice_cg.h"
-#include "./lattice_bistabcg.h"
-#include "./lattice_gmres_ir.h"
+#include "./lattice_wilson_cg.h"
+#include "./lattice_wilson_bistabcg.h"
 #include "./lattice_clover_dslash.h"
 #include "./lattice_complex.h"
 #include "./lattice_mpi.h"
