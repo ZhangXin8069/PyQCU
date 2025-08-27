@@ -342,7 +342,7 @@ namespace qcu
                         lat_3dim_Half_SC[i] * sizeof(LatticeComplex<T>)));
                 }
             }
-            if (host_params[_SET_PLAN_] == _SET_PLAN1_) // just for wilson bistabcg and cg
+            if (host_params[_SET_PLAN_] == _SET_PLAN1_) // just for bistabcg and cg
             {
                 for (int i = 0; i < _DIM_; i++)
                 { // give cuda setup
@@ -492,10 +492,6 @@ namespace qcu
                     }
                 }
             }
-            if (host_params[_SET_PLAN_] == _SET_PLAN3_) // just for clover bistabcg and cg
-            {
-                // pass
-            }
             { // init end
                 checkCudaErrors(cudaStreamSynchronize(stream));
             }
@@ -614,10 +610,6 @@ namespace qcu
                     free(host_u_2dim_send_vec[i * _BF_ * _BF_ + 3]);
                     free(host_u_2dim_recv_vec[i * _BF_ * _BF_ + 3]);
                 }
-            }
-            if (host_params[_SET_PLAN_] == _SET_PLAN3_) // just for clover bistabcg and cg
-            {
-                // pass
             }
             { // end end
                 CUBLAS_CHECK(cublasDestroy(cublasH));
