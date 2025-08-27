@@ -143,6 +143,7 @@ namespace qcu
                     A[i]._data.x = -sigma * H[i]._data.y; // imaginary part becomes real with negative sign
                     A[i]._data.y = sigma * H[i]._data.x;  // real part becomes imaginary
                 }
+                // printf("lat_tzyx");
                 // Compute U = exp(A)
                 su3_matrix_exponential(A, U);
                 for (int i = 0; i < _LAT_CC_; i++)
