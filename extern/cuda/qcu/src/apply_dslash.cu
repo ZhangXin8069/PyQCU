@@ -7,8 +7,8 @@ void applyDslashQcu(long long _fermion_out, long long _fermion_in, long long _ga
   cudaDeviceSynchronize();
   void *fermion_out = (void *)_fermion_out;
   void *fermion_in = (void *)_fermion_in;
-  void *clover = (void *)_clover;
   void *gauge = (void *)_gauge;
+  void *clover = (void *)_clover;
   void *set_ptrs = (void *)_set_ptrs;
   void *params = (void *)_params;
   int set_index = static_cast<int *>(params)[_SET_INDEX_];
