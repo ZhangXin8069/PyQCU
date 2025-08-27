@@ -1,5 +1,5 @@
-#ifndef _LATTICE_BISTABCG_H
-#define _LATTICE_BISTABCG_H
+#ifndef _LATTICE_WILSON_BISTABCG_H
+#define _LATTICE_WILSON_BISTABCG_H
 #include "./bistabcg.h"
 #include "./lattice_mpi.h"
 #include "./lattice_cuda.h"
