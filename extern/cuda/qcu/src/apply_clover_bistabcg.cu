@@ -2,7 +2,7 @@
 #include "../include/qcu.h"
 #pragma optimize(5)
 using namespace qcu;
-void applyWilsonGmresIrQcu(long long _fermion_out, long long _fermion_in, long long _gauge, long long _set_ptrs, long long _params)
+void applyWilsonBistabCgQcu(long long _fermion_out, long long _fermion_in, long long _gauge, long long _set_ptrs, long long _params)
 {
   cudaDeviceSynchronize();
   void *fermion_out = (void *)_fermion_out;
@@ -14,44 +14,44 @@ void applyWilsonGmresIrQcu(long long _fermion_out, long long _fermion_in, long l
   int data_type = static_cast<int *>(params)[_DATA_TYPE_];
   if (data_type == _LAT_C64_)
   {
-    LatticeSet<float> *set_ptr = static_cast<LatticeSet<float> *>((void *)(static_cast<long long *>(set_ptrs)[set_index])); // define for apply_wilson_gmres_ir
+    LatticeSet<float> *set_ptr = static_cast<LatticeSet<float> *>((void *)(static_cast<long long *>(set_ptrs)[set_index])); // define for apply_wilson_bistabcg
     // dptzyxcc2ccdptzyx<float>(gauge, &_set);
     // ptzyxsc2psctzyx<float>(fermion_in, &_set);
     // ptzyxsc2psctzyx<float>(fermion_out, &_set);
-    LatticeGmresIr<float> _gmres_ir;
-    _gmres_ir.give(set_ptr);
-    _gmres_ir.init(fermion_out, fermion_in, gauge);
+    LatticeWilsonBistabCg<float> _bistabcg;
+    _bistabcg.give(set_ptr);
+    _bistabcg.init(fermion_out, fermion_in, gauge);
     if (set_ptr->host_params[_VERBOSE_])
     {
-      _gmres_ir.run_test();
+      _bistabcg.run_test();
     }
     else
     {
-      _gmres_ir.run();
+      _bistabcg.run();
     }
-    _gmres_ir.end();
+    _bistabcg.end();
     // ccdptzyx2dptzyxcc<float>(gauge, &_set);
     // psctzyx2ptzyxsc<float>(fermion_in, &_set);
     // psctzyx2ptzyxsc<float>(fermion_out, &_set);
   }
   else if (data_type == _LAT_C128_)
   {
-    LatticeSet<double> *set_ptr = static_cast<LatticeSet<double> *>((void *)(static_cast<long long *>(set_ptrs)[set_index])); // define for apply_wilson_gmres_ir
+    LatticeSet<double> *set_ptr = static_cast<LatticeSet<double> *>((void *)(static_cast<long long *>(set_ptrs)[set_index])); // define for apply_wilson_bistabcg
     // dptzyxcc2ccdptzyx<double>(gauge, &_set);
     // ptzyxsc2psctzyx<double>(fermion_in, &_set);
     // ptzyxsc2psctzyx<double>(fermion_out, &_set);
-    LatticeGmresIr<double> _gmres_ir;
-    _gmres_ir.give(set_ptr);
-    _gmres_ir.init(fermion_out, fermion_in, gauge);
+    LatticeWilsonBistabCg<double> _bistabcg;
+    _bistabcg.give(set_ptr);
+    _bistabcg.init(fermion_out, fermion_in, gauge);
     if (set_ptr->host_params[_VERBOSE_])
     {
-      _gmres_ir.run_test();
+      _bistabcg.run_test();
     }
     else
     {
-      _gmres_ir.run();
+      _bistabcg.run();
     }
-    _gmres_ir.end();
+    _bistabcg.end();
     // ccdptzyx2dptzyxcc<double>(gauge, &_set);
     // psctzyx2ptzyxsc<double>(fermion_in, &_set);
     // psctzyx2ptzyxsc<double>(fermion_out, &_set);
