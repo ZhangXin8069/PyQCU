@@ -687,4 +687,13 @@ namespace qcu
     LAMBDA7,        \
     LAMBDA8}
 
+static inline int getLocalRank()
+{
+  int localRank;
+  MPI_Comm localComm;
+  MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, &localComm);
+  MPI_Comm_rank(localComm, &localRank);
+  MPI_Comm_free(&localComm);
+  return localRank;
+}
 #endif
