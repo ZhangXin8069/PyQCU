@@ -74,9 +74,9 @@ namespace qcu
             T(1.0 / 8841761993739701954543616000000.0),  // 29!
             T(1.0 / 265252859812191058636308480000000.0) // 30!
         };
-        // Taylor expansion up to 12th order
+        // Taylor expansion up to 20th order
         LatticeComplex<T> New[_LAT_CC_];
-        for (int n = 2; n <= 12; n++)
+        for (int n = 2; n <= 20; n++)
         {
             for (int i = 0; i < _LAT_C_; i++)
             {
