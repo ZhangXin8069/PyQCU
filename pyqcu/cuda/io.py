@@ -2,6 +2,7 @@ import pyqcu.cuda.define as define
 import numpy as np
 import cupy as cp
 import h5py
+import os
 
 
 def array2xxx(array):
@@ -501,8 +502,9 @@ def give_none_clover(params, file_name='clover.h5'):
     grid_lat_y = lat_y//grid_y
     grid_lat_x = lat_x//grid_x
     none_clover = cp.zeros(shape=[define._LAT_S_, define._LAT_C_, define._LAT_S_,
-                          define._LAT_C_, grid_lat_t, grid_lat_z, grid_lat_y, grid_lat_x], dtype=dtype)
+                                  define._LAT_C_, grid_lat_t, grid_lat_z, grid_lat_y, grid_lat_x], dtype=dtype)
     grid_xxxtzyx2hdf5_xxxtzyx(none_clover, params, file_name=file_name)
+
 
 def give_none_fermion_in(params, file_name='fermion_in.h5'):
     dtype = define.dtype(_data_type_=params[define._DATA_TYPE_])
@@ -540,3 +542,22 @@ def give_none_fermion_out(params, file_name='fermion_out.h5'):
     none_fermion_out = cp.zeros(shape=[define._LAT_P_, define._LAT_S_, define._LAT_C_,
                                        grid_lat_t, grid_lat_z, grid_lat_y, grid_lat_x], dtype=dtype)
     grid_xxxtzyx2hdf5_xxxtzyx(none_fermion_out, params, file_name=file_name)
+
+
+def get_or_give(params, filename):
+    try:
+        if not os.path.exists(filename):
+            print(f"[Info] {filename} not found, generating...")
+            give_none_gauge(params, filename)
+        return hdf5_xxxtzyx2grid_xxxtzyx(params, filename)
+    except Exception as e:
+        print(f"[Warning] Failed to read {filename}: {e}!!!")
+
+
+def try_give(input_array, params, filename):
+    try:
+        if not os.path.exists(filename):
+            print(f"[Info] {filename} not found, giving...")
+        grid_xxxtzyx2hdf5_xxxtzyx(input_array, params, filename)
+    except Exception as e:
+        print(f"[Warning] Failed to save {filename}: {e}!!!")
