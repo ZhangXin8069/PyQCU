@@ -113,7 +113,15 @@ namespace qcu
         give_copy_vals<T><<<set_ptr->gridDim, set_ptr->blockDim, 0,
                             set_ptr->stream>>>(device_vec2, b_e);
         printf("@@@@@@@@@@@@@@@DEBUGING!!!");
+        checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_a_]));
+        _dot(device_vec2, device_vec2, _norm2_tmp_, _a_);
+        print_vals(-999);
+        checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
         clover_dslash_ee_inv.give(device_vec2);
+        checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
+        checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_a_]));
+        _dot(device_vec2, device_vec2, _norm2_tmp_, _a_);
+        print_vals(-999);
         printf("###############DEBUGING!!!");
         wilson_dslash.run_oe(device_vec0, device_vec2, gauge);
         bistabcg_give_b__o<T><<<set_ptr->gridDim, set_ptr->blockDim, 0,
@@ -183,14 +191,6 @@ namespace qcu
       x_o = ((static_cast<LatticeComplex<T> *>(_x)) + set_ptr->lat_4dim_SC);
       b_e = _b;
       b_o = ((static_cast<LatticeComplex<T> *>(_b)) + set_ptr->lat_4dim_SC);
-      __init();
-      _run_init();
-    }
-    void init(void *_gauge)
-    {
-      _init();
-      if_input = 0;
-      gauge = _gauge;
       __init();
       _run_init();
     }

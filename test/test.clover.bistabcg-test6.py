@@ -39,8 +39,6 @@ print("QUDA Fermion out shape:", quda_fermion_out.shape)
 print("Difference:", cp.linalg.norm(fermion_out -
       quda_fermion_out)/cp.linalg.norm(quda_fermion_out))
 #############################
-io.grid_xxxtzyx2hdf5_xxxtzyx(fermion_out, params)
-#############################
 fermion_in = cp.ones_like(fermion_in)
 fermion_out = cp.zeros_like(fermion_in)
 clover_ee = cp.zeros(shape=[define._LAT_S_, define._LAT_C_] +
@@ -71,6 +69,20 @@ params[define._VERBOSE_] = 1
 params[define._PARITY_] = 0
 params[define._SET_INDEX_] += 1
 params[define._SET_PLAN_] = 1
+#############################
+clover_ee = io.clover2I(input_array=clover_ee)
+clover_oo = io.clover2I(input_array=clover_oo)
+clover_ee_inv = io.clover2I(input_array=clover_ee_inv)
+clover_oo_inv = io.clover2I(input_array=clover_oo_inv)
+print("@fermion_out.data.ptr:", fermion_out.data.ptr)
+print("@fermion_in.data.ptr:", fermion_in.data.ptr)
+print("@gauge.data.ptr:", gauge.data.ptr)
+print("@clover_ee.data.ptr:", clover_ee.data.ptr)
+print("@clover_oo.data.ptr:", clover_oo.data.ptr)
+print("@clover_ee_inv.data.ptr:", clover_ee_inv.data.ptr)
+print("@clover_oo_inv.data.ptr:", clover_oo_inv.data.ptr)
+print("@set_ptrs.ctypes.data:", set_ptrs.ctypes.data)
+print("@params.ctypes.data:", params.ctypes.data)
 #############################
 qcu.applyInitQcu(set_ptrs, params, argv)
 qcu.applyCloverBistabCgQcu(fermion_out, fermion_in,

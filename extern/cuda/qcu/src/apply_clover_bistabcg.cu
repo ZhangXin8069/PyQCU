@@ -27,6 +27,15 @@ void applyCloverBistabCgQcu(long long _fermion_out, long long _fermion_in, long 
     _bistabcg.init(fermion_out, fermion_in, gauge, clover_ee, clover_oo, clover_ee_inv, clover_oo_inv);
     if (set_ptr->host_params[_VERBOSE_])
     {
+      printf("long long fermion_out:%lld\n", (long long)fermion_out);
+      printf("long long fermion_in:%lld\n", (long long)fermion_in);
+      printf("long long gauge:%lld\n", (long long)gauge);
+      printf("long long clover_ee:%lld\n", (long long)clover_ee);
+      printf("long long clover_oo:%lld\n", (long long)clover_oo);
+      printf("long long clover_ee_inv:%lld\n", (long long)clover_ee_inv);
+      printf("long long clover_oo_inv:%lld\n", (long long)clover_oo_inv);
+      printf("long long set_ptrs:%lld\n", (long long)set_ptrs);
+      printf("long long params:%lld\n", (long long)params);
       _bistabcg.run_test();
     }
     else
@@ -49,6 +58,15 @@ void applyCloverBistabCgQcu(long long _fermion_out, long long _fermion_in, long 
     _bistabcg.init(fermion_out, fermion_in, gauge, clover_ee, clover_oo, clover_ee_inv, clover_oo_inv);
     if (set_ptr->host_params[_VERBOSE_])
     {
+      printf("long long fermion_out:%lld\n", (long long)fermion_out);
+      printf("long long fermion_in:%lld\n", (long long)fermion_in);
+      printf("long long gauge:%lld\n", (long long)gauge);
+      printf("long long clover_ee:%lld\n", (long long)clover_ee);
+      printf("long long clover_oo:%lld\n", (long long)clover_oo);
+      printf("long long clover_ee_inv:%lld\n", (long long)clover_ee_inv);
+      printf("long long clover_oo_inv:%lld\n", (long long)clover_oo_inv);
+      printf("long long set_ptrs:%lld\n", (long long)set_ptrs);
+      printf("long long params:%lld\n", (long long)params);
       _bistabcg.run_test();
     }
     else
