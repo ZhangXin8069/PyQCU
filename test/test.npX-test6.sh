@@ -3,4 +3,4 @@ command=$@
 pushd ../
 source ./env.sh
 popd
-mpirun -n ${command} python -u ./test.wilson.bistacg-test6.py
+mpirun -x UCX_TLS=self,sm,rc -n ${command} python -u ./test.wilson.bistacg-test6.py
