@@ -13,6 +13,7 @@ params[define._LAT_XYZT_] = params[define._LAT_X_] * \
 params[define._GRID_X_], params[define._GRID_Y_], params[define._GRID_Z_], params[
     define._GRID_T_] = define.split_into_four_factors(define.size)
 params[define._DATA_TYPE_] = define._LAT_C64_
+params[define._SET_PLAN_] = 1
 print("Parameters:", params)
 argv[define._MASS_] = 0.0
 argv = argv.astype(define.dtype_half(params[define._DATA_TYPE_]))
