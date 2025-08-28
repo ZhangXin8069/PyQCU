@@ -112,18 +112,13 @@ namespace qcu
         int lat_tzyx = params[_LAT_XYZT_];
         LatticeComplex<T> *random_8dtzyx = (static_cast<LatticeComplex<T> *>(device_random_8dtzyx) + idx);
         LatticeComplex<T> *origin_U = (static_cast<LatticeComplex<T> *>(device_U) + idx);
-        LatticeComplex<T> U[_LAT_CC_] = {
-            {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}};
-        LatticeComplex<T> H[_LAT_CC_] = {
-            {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}};
-        LatticeComplex<T> A[_LAT_CC_];
         T gell_mann[8][9] = GELL_MANN;
-        T a[_LAT_CC_ - 1];
         // Generate one SU(3) matrix for each direction
         for (int p = 0; p < _LAT_P_; p++)
         {
             for (int d = 0; d < _LAT_D_; d++)
             {
+                T a[_LAT_CC_ - 1] = {0, 0, 0, 0, 0, 0, 0, 0};
                 // Generate 8 Gaussian random numbers
                 for (int i = 0; i < _LAT_CC_ - 1; i++)
                 {
@@ -136,31 +131,34 @@ namespace qcu
                         a[i] = random_8dtzyx[(i * _LAT_D_ + d) * lat_tzyx]._data.y;
                     }
                 }
+                LatticeComplex<T> H[_LAT_CC_] = {
+                    {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}};
                 // Construct Hermitian matrix H
                 for (int i = 0; i < _LAT_CC_ - 1; i++)
                 {
                     for (int j = 0; j < _LAT_CC_; j++)
                     {
-                        int row = j / _LAT_C_;
-                        int col = j % _LAT_C_;
-                        int idx_h = row * _LAT_C_ + col;
                         if (i == 1 || i == 4 || i == 6)
                         {
                             // Handle matrices with imaginary unit
-                            H[idx_h]._data.y += a[i] * gell_mann[i][j];
+                            H[j]._data.y += a[i] * gell_mann[i][j];
                         }
                         else
                         {
-                            H[idx_h]._data.x += a[i] * gell_mann[i][j];
+                            H[j]._data.x += a[i] * gell_mann[i][j];
                         }
                     }
                 }
+                LatticeComplex<T> A[_LAT_CC_] = {
+                    {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}};
                 // Compute A = i * sigma * H
                 for (int i = 0; i < _LAT_CC_; i++)
                 {
                     A[i]._data.x = -sigma * H[i]._data.y; // imaginary part becomes real with negative sign
                     A[i]._data.y = sigma * H[i]._data.x;  // real part becomes imaginary
                 }
+                LatticeComplex<T> U[_LAT_CC_] = {
+                    {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}};
                 // Compute U = exp(A)
                 su3_matrix_exponential(A, U);
                 give_U(p, d, origin_U, U, lat_tzyx);
