@@ -1,0 +1,992 @@
+Error: cannot import name 'expm' from 'cupyx.scipy.linalg' (/public/home/zhangxin80699/.local/lib/python3.10/site-packages/cupyx/scipy/linalg/__init__.py)
+@My Rank:0/1@
+
+Input Array Shape: (3, 3, 4, 2, 16, 16, 16, 8)
+Grid Index T: 0, Grid Index Z: 0, Grid Index Y: 0, Grid Index X: 0
+Grid Lat T: 16, Grid Lat Z: 16, Grid Lat Y: 16, Grid Lat X: 8
+Dest Shape: (3, 3, 4, 2, 16, 16, 16, 8)
+Rank 0: Data is saved to gauge.h5
+Input Array Shape: (4, 3, 4, 3, 16, 16, 16, 8)
+Grid Index T: 0, Grid Index Z: 0, Grid Index Y: 0, Grid Index X: 0
+Grid Lat T: 16, Grid Lat Z: 16, Grid Lat Y: 16, Grid Lat X: 8
+Dest Shape: (4, 3, 4, 3, 16, 16, 16, 8)
+Rank 0: Data is saved to clover.h5
+Input Array Shape: (2, 4, 3, 16, 16, 16, 8)
+Grid Index T: 0, Grid Index Z: 0, Grid Index Y: 0, Grid Index X: 0
+Grid Lat T: 16, Grid Lat Z: 16, Grid Lat Y: 16, Grid Lat X: 8
+Dest Shape: (2, 4, 3, 16, 16, 16, 8)
+Rank 0: Data is saved to fermion_in.h5
+Grid Index T: 0, Grid Index Z: 0, Grid Index Y: 0, Grid Index X: 0
+Grid Lat T: 16, Grid Lat Z: 16, Grid Lat Y: 16, Grid Lat X: 8
+All Dest Shape: (3, 3, 4, 2, 16, 16, 16, 8)
+Dest Shape: (3, 3, 4, 2, 16, 16, 16, 8)
+Grid Index T: 0, Grid Index Z: 0, Grid Index Y: 0, Grid Index X: 0
+Grid Lat T: 16, Grid Lat Z: 16, Grid Lat Y: 16, Grid Lat X: 8
+All Dest Shape: (4, 3, 4, 3, 16, 16, 16, 8)
+Dest Shape: (4, 3, 4, 3, 16, 16, 16, 8)
+Grid Index T: 0, Grid Index Z: 0, Grid Index Y: 0, Grid Index X: 0
+Grid Lat T: 16, Grid Lat Z: 16, Grid Lat Y: 16, Grid Lat X: 8
+All Dest Shape: (2, 4, 3, 16, 16, 16, 8)
+Dest Shape: (2, 4, 3, 16, 16, 16, 8)
+set_ptr:0x564dc9351fc0
+long long set_ptr:94892088172480
+gridDim.x               :2048
+blockDim.x              :16
+host_params[_LAT_X_]    :8
+host_params[_LAT_Y_]    :16
+host_params[_LAT_Z_]    :16
+host_params[_LAT_T_]    :16
+host_params[_LAT_XYZT_] :32768
+host_params[_GRID_X_]   :1
+host_params[_GRID_Y_]   :1
+host_params[_GRID_Z_]   :1
+host_params[_GRID_T_]   :1
+host_params[_PARITY_]   :0
+host_params[_NODE_RANK_]:0
+host_params[_NODE_SIZE_]:1
+host_params[_DAGGER_]   :0
+host_params[_MAX_ITER_] :1000
+host_params[_DATA_TYPE_]:4
+host_params[_SET_INDEX_]:1
+host_params[_SET_PLAN_] :0
+host_params[_MG_X_]     :4
+host_params[_MG_Y_]     :4
+host_params[_MG_Z_]     :4
+host_params[_MG_T_]     :8
+host_params[_LAT_E_]    :24
+host_params[_VERBOSE_]  :1
+host_argv[_MASS_]       :5.000000e-02
+host_argv[_TOL_]        :1.000000e-09
+host_argv[_SIGMA_]      :1.000000e-01
+lat_2dim[_XY_]          :128
+lat_2dim[_XZ_]          :128
+lat_2dim[_XT_]          :128
+lat_2dim[_YZ_]          :256
+lat_2dim[_YT_]          :256
+lat_2dim[_ZT_]          :256
+lat_3dim[_YZT_]         :4096
+lat_3dim[_XZT_]         :2048
+lat_3dim[_XYT_]         :2048
+lat_3dim[_XYZ_]         :2048
+lat_4dim                :32768
+grid_2dim[_XY_]         :1
+grid_2dim[_XZ_]         :1
+grid_2dim[_XT_]         :1
+grid_2dim[_YZ_]         :1
+grid_2dim[_YT_]         :1
+grid_2dim[_ZT_]         :1
+grid_3dim[_YZT_]        :1
+grid_3dim[_XZT_]        :1
+grid_3dim[_XYT_]        :1
+grid_3dim[_XYZ_]        :1
+grid_index_1dim[_X_]    :0
+grid_index_1dim[_Y_]    :0
+grid_index_1dim[_Z_]    :0
+grid_index_1dim[_T_]    :0
+move_wards[_B_X_]       :0
+move_wards[_B_Y_]       :0
+move_wards[_B_Z_]       :0
+move_wards[_B_T_]       :0
+move_wards[_F_X_]       :0
+move_wards[_F_Y_]       :0
+move_wards[_F_Z_]       :0
+move_wards[_F_T_]       :0
+move_wards[_BX_BY_]     :0
+move_wards[_BX_BZ_]     :0
+move_wards[_BX_BT_]     :0
+move_wards[_BY_BZ_]     :0
+move_wards[_BY_BT_]     :0
+move_wards[_BZ_BT_]     :0
+move_wards[_FX_BY_]     :0
+move_wards[_FX_BZ_]     :0
+move_wards[_FX_BT_]     :0
+move_wards[_FY_BZ_]     :0
+move_wards[_FY_BT_]     :0
+move_wards[_FZ_BT_]     :0
+move_wards[_BX_FY_]     :0
+move_wards[_BX_FZ_]     :0
+move_wards[_BX_FT_]     :0
+move_wards[_BY_FZ_]     :0
+move_wards[_BY_FT_]     :0
+move_wards[_BZ_FT_]     :0
+move_wards[_FX_FY_]     :0
+move_wards[_FX_FZ_]     :0
+move_wards[_FX_FT_]     :0
+move_wards[_FY_FZ_]     :0
+move_wards[_FY_FT_]     :0
+move_wards[_FZ_FT_]     :0
+lattice set init total time:8.205996817 sec
+multi-gpu make gauss gauge total time: (with malloc free memcpy) :0.006662894 sec
+set_ptr:0x564dc9351fc0
+long long set_ptr:94892088172480
+gridDim.x               :2048
+blockDim.x              :16
+host_params[_LAT_X_]    :8
+host_params[_LAT_Y_]    :16
+host_params[_LAT_Z_]    :16
+host_params[_LAT_T_]    :16
+host_params[_LAT_XYZT_] :32768
+host_params[_GRID_X_]   :1
+host_params[_GRID_Y_]   :1
+host_params[_GRID_Z_]   :1
+host_params[_GRID_T_]   :1
+host_params[_PARITY_]   :0
+host_params[_NODE_RANK_]:0
+host_params[_NODE_SIZE_]:1
+host_params[_DAGGER_]   :0
+host_params[_MAX_ITER_] :1000
+host_params[_DATA_TYPE_]:4
+host_params[_SET_INDEX_]:1
+host_params[_SET_PLAN_] :0
+host_params[_MG_X_]     :4
+host_params[_MG_Y_]     :4
+host_params[_MG_Z_]     :4
+host_params[_MG_T_]     :8
+host_params[_LAT_E_]    :24
+host_params[_VERBOSE_]  :1
+host_argv[_MASS_]       :5.000000e-02
+host_argv[_TOL_]        :1.000000e-09
+host_argv[_SIGMA_]      :1.000000e-01
+lat_2dim[_XY_]          :128
+lat_2dim[_XZ_]          :128
+lat_2dim[_XT_]          :128
+lat_2dim[_YZ_]          :256
+lat_2dim[_YT_]          :256
+lat_2dim[_ZT_]          :256
+lat_3dim[_YZT_]         :4096
+lat_3dim[_XZT_]         :2048
+lat_3dim[_XYT_]         :2048
+lat_3dim[_XYZ_]         :2048
+lat_4dim                :32768
+grid_2dim[_XY_]         :1
+grid_2dim[_XZ_]         :1
+grid_2dim[_XT_]         :1
+grid_2dim[_YZ_]         :1
+grid_2dim[_YT_]         :1
+grid_2dim[_ZT_]         :1
+grid_3dim[_YZT_]        :1
+grid_3dim[_XZT_]        :1
+grid_3dim[_XYT_]        :1
+grid_3dim[_XYZ_]        :1
+grid_index_1dim[_X_]    :0
+grid_index_1dim[_Y_]    :0
+grid_index_1dim[_Z_]    :0
+grid_index_1dim[_T_]    :0
+move_wards[_B_X_]       :0
+move_wards[_B_Y_]       :0
+move_wards[_B_Z_]       :0
+move_wards[_B_T_]       :0
+move_wards[_F_X_]       :0
+move_wards[_F_Y_]       :0
+move_wards[_F_Z_]       :0
+move_wards[_F_T_]       :0
+move_wards[_BX_BY_]     :0
+move_wards[_BX_BZ_]     :0
+move_wards[_BX_BT_]     :0
+move_wards[_BY_BZ_]     :0
+move_wards[_BY_BT_]     :0
+move_wards[_BZ_BT_]     :0
+move_wards[_FX_BY_]     :0
+move_wards[_FX_BZ_]     :0
+move_wards[_FX_BT_]     :0
+move_wards[_FY_BZ_]     :0
+move_wards[_FY_BT_]     :0
+move_wards[_FZ_BT_]     :0
+move_wards[_BX_FY_]     :0
+move_wards[_BX_FZ_]     :0
+move_wards[_BX_FT_]     :0
+move_wards[_BY_FZ_]     :0
+move_wards[_BY_FT_]     :0
+move_wards[_BZ_FT_]     :0
+move_wards[_FX_FY_]     :0
+move_wards[_FX_FZ_]     :0
+move_wards[_FX_FT_]     :0
+move_wards[_FY_FZ_]     :0
+move_wards[_FY_FT_]     :0
+move_wards[_FZ_FT_]     :0
+lattice set whole time:8.230399414 sec
+lattice set end total time:0.017682515 sec
+set_ptr:0x564dd0d32690
+long long set_ptr:94892215969424
+gridDim.x               :2048
+blockDim.x              :16
+host_params[_LAT_X_]    :8
+host_params[_LAT_Y_]    :16
+host_params[_LAT_Z_]    :16
+host_params[_LAT_T_]    :16
+host_params[_LAT_XYZT_] :32768
+host_params[_GRID_X_]   :1
+host_params[_GRID_Y_]   :1
+host_params[_GRID_Z_]   :1
+host_params[_GRID_T_]   :1
+host_params[_PARITY_]   :0
+host_params[_NODE_RANK_]:0
+host_params[_NODE_SIZE_]:1
+host_params[_DAGGER_]   :0
+host_params[_MAX_ITER_] :1000
+host_params[_DATA_TYPE_]:4
+host_params[_SET_INDEX_]:2
+host_params[_SET_PLAN_] :1
+host_params[_MG_X_]     :4
+host_params[_MG_Y_]     :4
+host_params[_MG_Z_]     :4
+host_params[_MG_T_]     :8
+host_params[_LAT_E_]    :24
+host_params[_VERBOSE_]  :1
+host_argv[_MASS_]       :5.000000e-02
+host_argv[_TOL_]        :1.000000e-09
+host_argv[_SIGMA_]      :1.000000e-01
+lat_2dim[_XY_]          :128
+lat_2dim[_XZ_]          :128
+lat_2dim[_XT_]          :128
+lat_2dim[_YZ_]          :256
+lat_2dim[_YT_]          :256
+lat_2dim[_ZT_]          :256
+lat_3dim[_YZT_]         :4096
+lat_3dim[_XZT_]         :2048
+lat_3dim[_XYT_]         :2048
+lat_3dim[_XYZ_]         :2048
+lat_4dim                :32768
+grid_2dim[_XY_]         :1
+grid_2dim[_XZ_]         :1
+grid_2dim[_XT_]         :1
+grid_2dim[_YZ_]         :1
+grid_2dim[_YT_]         :1
+grid_2dim[_ZT_]         :1
+grid_3dim[_YZT_]        :1
+grid_3dim[_XZT_]        :1
+grid_3dim[_XYT_]        :1
+grid_3dim[_XYZ_]        :1
+grid_index_1dim[_X_]    :0
+grid_index_1dim[_Y_]    :0
+grid_index_1dim[_Z_]    :0
+grid_index_1dim[_T_]    :0
+move_wards[_B_X_]       :0
+move_wards[_B_Y_]       :0
+move_wards[_B_Z_]       :0
+move_wards[_B_T_]       :0
+move_wards[_F_X_]       :0
+move_wards[_F_Y_]       :0
+move_wards[_F_Z_]       :0
+move_wards[_F_T_]       :0
+move_wards[_BX_BY_]     :0
+move_wards[_BX_BZ_]     :0
+move_wards[_BX_BT_]     :0
+move_wards[_BY_BZ_]     :0
+move_wards[_BY_BT_]     :0
+move_wards[_BZ_BT_]     :0
+move_wards[_FX_BY_]     :0
+move_wards[_FX_BZ_]     :0
+move_wards[_FX_BT_]     :0
+move_wards[_FY_BZ_]     :0
+move_wards[_FY_BT_]     :0
+move_wards[_FZ_BT_]     :0
+move_wards[_BX_FY_]     :0
+move_wards[_BX_FZ_]     :0
+move_wards[_BX_FT_]     :0
+move_wards[_BY_FZ_]     :0
+move_wards[_BY_FT_]     :0
+move_wards[_BZ_FT_]     :0
+move_wards[_FX_FY_]     :0
+move_wards[_FX_FZ_]     :0
+move_wards[_FX_FT_]     :0
+move_wards[_FY_FZ_]     :0
+move_wards[_FY_FT_]     :0
+move_wards[_FZ_FT_]     :0
+lattice set init total time:0.066352475 sec
+##RANK:0##LOOP:76##Residual:(8.13315e-10,-1.05561e-29i)
+multi-gpu wilson bistabcg total time: (without malloc free memcpy) :0.132716911 sec
+######TIME  :293.962######
+##RANK      :0
+##LOOP      :0
+##tmp0      :(3.12772e-11,-1.61303e-11i)
+##tmp1      :(1.87566e-11,3.20913e-31i)
+##rho_prev  :(-3.83373e-06,3.59616e-06i)
+##rho       :(-3.83373e-06,3.59616e-06i)
+##alpha     :(0.824249,0.575597i)
+##beta      :(1.04137,0.0674197i)
+##omega     :(1.66753,-0.859976i)
+##send_tmp  :(3.31482e-10,-1.29363e-29i)
+##norm2_tmp :(488082,-4.21454e-15i)
+##diff_tmp  :(6.79151e-16,-2.06399e-35i)
+##lat_4dim  :(32768,0i)
+set_ptr:0x564dd0d32690
+long long set_ptr:94892215969424
+gridDim.x               :2048
+blockDim.x              :16
+host_params[_LAT_X_]    :8
+host_params[_LAT_Y_]    :16
+host_params[_LAT_Z_]    :16
+host_params[_LAT_T_]    :16
+host_params[_LAT_XYZT_] :32768
+host_params[_GRID_X_]   :1
+host_params[_GRID_Y_]   :1
+host_params[_GRID_Z_]   :1
+host_params[_GRID_T_]   :1
+host_params[_PARITY_]   :0
+host_params[_NODE_RANK_]:0
+host_params[_NODE_SIZE_]:1
+host_params[_DAGGER_]   :0
+host_params[_MAX_ITER_] :1000
+host_params[_DATA_TYPE_]:4
+host_params[_SET_INDEX_]:2
+host_params[_SET_PLAN_] :1
+host_params[_MG_X_]     :4
+host_params[_MG_Y_]     :4
+host_params[_MG_Z_]     :4
+host_params[_MG_T_]     :8
+host_params[_LAT_E_]    :24
+host_params[_VERBOSE_]  :1
+host_argv[_MASS_]       :5.000000e-02
+host_argv[_TOL_]        :1.000000e-09
+host_argv[_SIGMA_]      :1.000000e-01
+lat_2dim[_XY_]          :128
+lat_2dim[_XZ_]          :128
+lat_2dim[_XT_]          :128
+lat_2dim[_YZ_]          :256
+lat_2dim[_YT_]          :256
+lat_2dim[_ZT_]          :256
+lat_3dim[_YZT_]         :4096
+lat_3dim[_XZT_]         :2048
+lat_3dim[_XYT_]         :2048
+lat_3dim[_XYZ_]         :2048
+lat_4dim                :32768
+grid_2dim[_XY_]         :1
+grid_2dim[_XZ_]         :1
+grid_2dim[_XT_]         :1
+grid_2dim[_YZ_]         :1
+grid_2dim[_YT_]         :1
+grid_2dim[_ZT_]         :1
+grid_3dim[_YZT_]        :1
+grid_3dim[_XZT_]        :1
+grid_3dim[_XYT_]        :1
+grid_3dim[_XYZ_]        :1
+grid_index_1dim[_X_]    :0
+grid_index_1dim[_Y_]    :0
+grid_index_1dim[_Z_]    :0
+grid_index_1dim[_T_]    :0
+move_wards[_B_X_]       :0
+move_wards[_B_Y_]       :0
+move_wards[_B_Z_]       :0
+move_wards[_B_T_]       :0
+move_wards[_F_X_]       :0
+move_wards[_F_Y_]       :0
+move_wards[_F_Z_]       :0
+move_wards[_F_T_]       :0
+move_wards[_BX_BY_]     :0
+move_wards[_BX_BZ_]     :0
+move_wards[_BX_BT_]     :0
+move_wards[_BY_BZ_]     :0
+move_wards[_BY_BT_]     :0
+move_wards[_BZ_BT_]     :0
+move_wards[_FX_BY_]     :0
+move_wards[_FX_BZ_]     :0
+move_wards[_FX_BT_]     :0
+move_wards[_FY_BZ_]     :0
+move_wards[_FY_BT_]     :0
+move_wards[_FZ_BT_]     :0
+move_wards[_BX_FY_]     :0
+move_wards[_BX_FZ_]     :0
+move_wards[_BX_FT_]     :0
+move_wards[_BY_FZ_]     :0
+move_wards[_BY_FT_]     :0
+move_wards[_BZ_FT_]     :0
+move_wards[_FX_FY_]     :0
+move_wards[_FX_FZ_]     :0
+move_wards[_FX_FT_]     :0
+move_wards[_FY_FZ_]     :0
+move_wards[_FY_FT_]     :0
+move_wards[_FZ_FT_]     :0
+lattice set whole time:0.297841675 sec
+lattice set end total time:0.003336927 sec
+set_ptr:0x564dd0e1c4c0
+long long set_ptr:94892216927424
+gridDim.x               :2048
+blockDim.x              :16
+host_params[_LAT_X_]    :8
+host_params[_LAT_Y_]    :16
+host_params[_LAT_Z_]    :16
+host_params[_LAT_T_]    :16
+host_params[_LAT_XYZT_] :32768
+host_params[_GRID_X_]   :1
+host_params[_GRID_Y_]   :1
+host_params[_GRID_Z_]   :1
+host_params[_GRID_T_]   :1
+host_params[_PARITY_]   :0
+host_params[_NODE_RANK_]:0
+host_params[_NODE_SIZE_]:1
+host_params[_DAGGER_]   :0
+host_params[_MAX_ITER_] :1000
+host_params[_DATA_TYPE_]:4
+host_params[_SET_INDEX_]:3
+host_params[_SET_PLAN_] :2
+host_params[_MG_X_]     :4
+host_params[_MG_Y_]     :4
+host_params[_MG_Z_]     :4
+host_params[_MG_T_]     :8
+host_params[_LAT_E_]    :24
+host_params[_VERBOSE_]  :1
+host_argv[_MASS_]       :5.000000e-02
+host_argv[_TOL_]        :1.000000e-09
+host_argv[_SIGMA_]      :1.000000e-01
+lat_2dim[_XY_]          :128
+lat_2dim[_XZ_]          :128
+lat_2dim[_XT_]          :128
+lat_2dim[_YZ_]          :256
+lat_2dim[_YT_]          :256
+lat_2dim[_ZT_]          :256
+lat_3dim[_YZT_]         :4096
+lat_3dim[_XZT_]         :2048
+lat_3dim[_XYT_]         :2048
+lat_3dim[_XYZ_]         :2048
+lat_4dim                :32768
+grid_2dim[_XY_]         :1
+grid_2dim[_XZ_]         :1
+grid_2dim[_XT_]         :1
+grid_2dim[_YZ_]         :1
+grid_2dim[_YT_]         :1
+grid_2dim[_ZT_]         :1
+grid_3dim[_YZT_]        :1
+grid_3dim[_XZT_]        :1
+grid_3dim[_XYT_]        :1
+grid_3dim[_XYZ_]        :1
+grid_index_1dim[_X_]    :0
+grid_index_1dim[_Y_]    :0
+grid_index_1dim[_Z_]    :0
+grid_index_1dim[_T_]    :0
+move_wards[_B_X_]       :0
+move_wards[_B_Y_]       :0
+move_wards[_B_Z_]       :0
+move_wards[_B_T_]       :0
+move_wards[_F_X_]       :0
+move_wards[_F_Y_]       :0
+move_wards[_F_Z_]       :0
+move_wards[_F_T_]       :0
+move_wards[_BX_BY_]     :0
+move_wards[_BX_BZ_]     :0
+move_wards[_BX_BT_]     :0
+move_wards[_BY_BZ_]     :0
+move_wards[_BY_BT_]     :0
+move_wards[_BZ_BT_]     :0
+move_wards[_FX_BY_]     :0
+move_wards[_FX_BZ_]     :0
+move_wards[_FX_BT_]     :0
+move_wards[_FY_BZ_]     :0
+move_wards[_FY_BT_]     :0
+move_wards[_FZ_BT_]     :0
+move_wards[_BX_FY_]     :0
+move_wards[_BX_FZ_]     :0
+move_wards[_BX_FT_]     :0
+move_wards[_BY_FZ_]     :0
+move_wards[_BY_FT_]     :0
+move_wards[_BZ_FT_]     :0
+move_wards[_FX_FY_]     :0
+move_wards[_FX_FZ_]     :0
+move_wards[_FX_FT_]     :0
+move_wards[_FY_FZ_]     :0
+move_wards[_FY_FT_]     :0
+move_wards[_FZ_FT_]     :0
+lattice set init total time:0.031585590 sec
+make clover total time: (without malloc free memcpy) :0.067612866 sec
+ make clover total time: (without malloc free memcpy) :0.019866013 sec
+ inverse clover total time: (without malloc free memcpy) :0.017565495 sec
+ set_ptr:0x564dd0e1c4c0
+long long set_ptr:94892216927424
+gridDim.x               :2048
+blockDim.x              :16
+host_params[_LAT_X_]    :8
+host_params[_LAT_Y_]    :16
+host_params[_LAT_Z_]    :16
+host_params[_LAT_T_]    :16
+host_params[_LAT_XYZT_] :32768
+host_params[_GRID_X_]   :1
+host_params[_GRID_Y_]   :1
+host_params[_GRID_Z_]   :1
+host_params[_GRID_T_]   :1
+host_params[_PARITY_]   :0
+host_params[_NODE_RANK_]:0
+host_params[_NODE_SIZE_]:1
+host_params[_DAGGER_]   :0
+host_params[_MAX_ITER_] :1000
+host_params[_DATA_TYPE_]:4
+host_params[_SET_INDEX_]:3
+host_params[_SET_PLAN_] :2
+host_params[_MG_X_]     :4
+host_params[_MG_Y_]     :4
+host_params[_MG_Z_]     :4
+host_params[_MG_T_]     :8
+host_params[_LAT_E_]    :24
+host_params[_VERBOSE_]  :1
+host_argv[_MASS_]       :5.000000e-02
+host_argv[_TOL_]        :1.000000e-09
+host_argv[_SIGMA_]      :1.000000e-01
+lat_2dim[_XY_]          :128
+lat_2dim[_XZ_]          :128
+lat_2dim[_XT_]          :128
+lat_2dim[_YZ_]          :256
+lat_2dim[_YT_]          :256
+lat_2dim[_ZT_]          :256
+lat_3dim[_YZT_]         :4096
+lat_3dim[_XZT_]         :2048
+lat_3dim[_XYT_]         :2048
+lat_3dim[_XYZ_]         :2048
+lat_4dim                :32768
+grid_2dim[_XY_]         :1
+grid_2dim[_XZ_]         :1
+grid_2dim[_XT_]         :1
+grid_2dim[_YZ_]         :1
+grid_2dim[_YT_]         :1
+grid_2dim[_ZT_]         :1
+grid_3dim[_YZT_]        :1
+grid_3dim[_XZT_]        :1
+grid_3dim[_XYT_]        :1
+grid_3dim[_XYZ_]        :1
+grid_index_1dim[_X_]    :0
+grid_index_1dim[_Y_]    :0
+grid_index_1dim[_Z_]    :0
+grid_index_1dim[_T_]    :0
+move_wards[_B_X_]       :0
+move_wards[_B_Y_]       :0
+move_wards[_B_Z_]       :0
+move_wards[_B_T_]       :0
+move_wards[_F_X_]       :0
+move_wards[_F_Y_]       :0
+move_wards[_F_Z_]       :0
+move_wards[_F_T_]       :0
+move_wards[_BX_BY_]     :0
+move_wards[_BX_BZ_]     :0
+move_wards[_BX_BT_]     :0
+move_wards[_BY_BZ_]     :0
+move_wards[_BY_BT_]     :0
+move_wards[_BZ_BT_]     :0
+move_wards[_FX_BY_]     :0
+move_wards[_FX_BZ_]     :0
+move_wards[_FX_BT_]     :0
+move_wards[_FY_BZ_]     :0
+move_wards[_FY_BT_]     :0
+move_wards[_FZ_BT_]     :0
+move_wards[_BX_FY_]     :0
+move_wards[_BX_FZ_]     :0
+move_wards[_BX_FT_]     :0
+move_wards[_BY_FZ_]     :0
+move_wards[_BY_FT_]     :0
+move_wards[_BZ_FT_]     :0
+move_wards[_FX_FY_]     :0
+move_wards[_FX_FZ_]     :0
+move_wards[_FX_FT_]     :0
+move_wards[_FY_FZ_]     :0
+move_wards[_FY_FT_]     :0
+move_wards[_FZ_FT_]     :0
+lattice set whole time:0.140141953 sec
+lattice set end total time:0.003302788 sec
+set_ptr:0x564dd0d34220
+long long set_ptr:94892215976480
+gridDim.x               :2048
+blockDim.x              :16
+host_params[_LAT_X_]    :8
+host_params[_LAT_Y_]    :16
+host_params[_LAT_Z_]    :16
+host_params[_LAT_T_]    :16
+host_params[_LAT_XYZT_] :32768
+host_params[_GRID_X_]   :1
+host_params[_GRID_Y_]   :1
+host_params[_GRID_Z_]   :1
+host_params[_GRID_T_]   :1
+host_params[_PARITY_]   :0
+host_params[_NODE_RANK_]:0
+host_params[_NODE_SIZE_]:1
+host_params[_DAGGER_]   :0
+host_params[_MAX_ITER_] :1000
+host_params[_DATA_TYPE_]:4
+host_params[_SET_INDEX_]:4
+host_params[_SET_PLAN_] :2
+host_params[_MG_X_]     :4
+host_params[_MG_Y_]     :4
+host_params[_MG_Z_]     :4
+host_params[_MG_T_]     :8
+host_params[_LAT_E_]    :24
+host_params[_VERBOSE_]  :1
+host_argv[_MASS_]       :5.000000e-02
+host_argv[_TOL_]        :1.000000e-09
+host_argv[_SIGMA_]      :1.000000e-01
+lat_2dim[_XY_]          :128
+lat_2dim[_XZ_]          :128
+lat_2dim[_XT_]          :128
+lat_2dim[_YZ_]          :256
+lat_2dim[_YT_]          :256
+lat_2dim[_ZT_]          :256
+lat_3dim[_YZT_]         :4096
+lat_3dim[_XZT_]         :2048
+lat_3dim[_XYT_]         :2048
+lat_3dim[_XYZ_]         :2048
+lat_4dim                :32768
+grid_2dim[_XY_]         :1
+grid_2dim[_XZ_]         :1
+grid_2dim[_XT_]         :1
+grid_2dim[_YZ_]         :1
+grid_2dim[_YT_]         :1
+grid_2dim[_ZT_]         :1
+grid_3dim[_YZT_]        :1
+grid_3dim[_XZT_]        :1
+grid_3dim[_XYT_]        :1
+grid_3dim[_XYZ_]        :1
+grid_index_1dim[_X_]    :0
+grid_index_1dim[_Y_]    :0
+grid_index_1dim[_Z_]    :0
+grid_index_1dim[_T_]    :0
+move_wards[_B_X_]       :0
+move_wards[_B_Y_]       :0
+move_wards[_B_Z_]       :0
+move_wards[_B_T_]       :0
+move_wards[_F_X_]       :0
+move_wards[_F_Y_]       :0
+move_wards[_F_Z_]       :0
+move_wards[_F_T_]       :0
+move_wards[_BX_BY_]     :0
+move_wards[_BX_BZ_]     :0
+move_wards[_BX_BT_]     :0
+move_wards[_BY_BZ_]     :0
+move_wards[_BY_BT_]     :0
+move_wards[_BZ_BT_]     :0
+move_wards[_FX_BY_]     :0
+move_wards[_FX_BZ_]     :0
+move_wards[_FX_BT_]     :0
+move_wards[_FY_BZ_]     :0
+move_wards[_FY_BT_]     :0
+move_wards[_FZ_BT_]     :0
+move_wards[_BX_FY_]     :0
+move_wards[_BX_FZ_]     :0
+move_wards[_BX_FT_]     :0
+move_wards[_BY_FZ_]     :0
+move_wards[_BY_FT_]     :0
+move_wards[_BZ_FT_]     :0
+move_wards[_FX_FY_]     :0
+move_wards[_FX_FZ_]     :0
+move_wards[_FX_FT_]     :0
+move_wards[_FY_FZ_]     :0
+move_wards[_FY_FT_]     :0
+move_wards[_FZ_FT_]     :0
+lattice set init total time:0.031062565 sec
+make clover total time: (without malloc free memcpy) :0.025014535 sec
+ make clover total time: (without malloc free memcpy) :0.019953703 sec
+ inverse clover total time: (without malloc free memcpy) :0.013917804 sec
+ set_ptr:0x564dd0d34220
+long long set_ptr:94892215976480
+gridDim.x               :2048
+blockDim.x              :16
+host_params[_LAT_X_]    :8
+host_params[_LAT_Y_]    :16
+host_params[_LAT_Z_]    :16
+host_params[_LAT_T_]    :16
+host_params[_LAT_XYZT_] :32768
+host_params[_GRID_X_]   :1
+host_params[_GRID_Y_]   :1
+host_params[_GRID_Z_]   :1
+host_params[_GRID_T_]   :1
+host_params[_PARITY_]   :0
+host_params[_NODE_RANK_]:0
+host_params[_NODE_SIZE_]:1
+host_params[_DAGGER_]   :0
+host_params[_MAX_ITER_] :1000
+host_params[_DATA_TYPE_]:4
+host_params[_SET_INDEX_]:4
+host_params[_SET_PLAN_] :2
+host_params[_MG_X_]     :4
+host_params[_MG_Y_]     :4
+host_params[_MG_Z_]     :4
+host_params[_MG_T_]     :8
+host_params[_LAT_E_]    :24
+host_params[_VERBOSE_]  :1
+host_argv[_MASS_]       :5.000000e-02
+host_argv[_TOL_]        :1.000000e-09
+host_argv[_SIGMA_]      :1.000000e-01
+lat_2dim[_XY_]          :128
+lat_2dim[_XZ_]          :128
+lat_2dim[_XT_]          :128
+lat_2dim[_YZ_]          :256
+lat_2dim[_YT_]          :256
+lat_2dim[_ZT_]          :256
+lat_3dim[_YZT_]         :4096
+lat_3dim[_XZT_]         :2048
+lat_3dim[_XYT_]         :2048
+lat_3dim[_XYZ_]         :2048
+lat_4dim                :32768
+grid_2dim[_XY_]         :1
+grid_2dim[_XZ_]         :1
+grid_2dim[_XT_]         :1
+grid_2dim[_YZ_]         :1
+grid_2dim[_YT_]         :1
+grid_2dim[_ZT_]         :1
+grid_3dim[_YZT_]        :1
+grid_3dim[_XZT_]        :1
+grid_3dim[_XYT_]        :1
+grid_3dim[_XYZ_]        :1
+grid_index_1dim[_X_]    :0
+grid_index_1dim[_Y_]    :0
+grid_index_1dim[_Z_]    :0
+grid_index_1dim[_T_]    :0
+move_wards[_B_X_]       :0
+move_wards[_B_Y_]       :0
+move_wards[_B_Z_]       :0
+move_wards[_B_T_]       :0
+move_wards[_F_X_]       :0
+move_wards[_F_Y_]       :0
+move_wards[_F_Z_]       :0
+move_wards[_F_T_]       :0
+move_wards[_BX_BY_]     :0
+move_wards[_BX_BZ_]     :0
+move_wards[_BX_BT_]     :0
+move_wards[_BY_BZ_]     :0
+move_wards[_BY_BT_]     :0
+move_wards[_BZ_BT_]     :0
+move_wards[_FX_BY_]     :0
+move_wards[_FX_BZ_]     :0
+move_wards[_FX_BT_]     :0
+move_wards[_FY_BZ_]     :0
+move_wards[_FY_BT_]     :0
+move_wards[_FZ_BT_]     :0
+move_wards[_BX_FY_]     :0
+move_wards[_BX_FZ_]     :0
+move_wards[_BX_FT_]     :0
+move_wards[_BY_FZ_]     :0
+move_wards[_BY_FT_]     :0
+move_wards[_BZ_FT_]     :0
+move_wards[_FX_FY_]     :0
+move_wards[_FX_FZ_]     :0
+move_wards[_FX_FT_]     :0
+move_wards[_FY_FZ_]     :0
+move_wards[_FY_FT_]     :0
+move_wards[_FZ_FT_]     :0
+lattice set whole time:0.093565994 sec
+lattice set end total time:0.003453919 sec
+@fermion_out.data.ptr: 22555022852096
+@fermion_in.data.ptr: 22554664239104
+@gauge.data.ptr: 22555127709696
+@clover_ee.data.ptr: 22550983737344
+@clover_oo.data.ptr: 22550828548096
+@clover_ee_inv.data.ptr: 22550906142720
+@clover_oo_inv.data.ptr: 22550750953472
+@set_ptrs.ctypes.data: 94892087625904
+@params.ctypes.data: 94892045184528
+set_ptr:0x564dd0b274d0
+long long set_ptr:94892213826768
+gridDim.x               :2048
+blockDim.x              :16
+host_params[_LAT_X_]    :8
+host_params[_LAT_Y_]    :16
+host_params[_LAT_Z_]    :16
+host_params[_LAT_T_]    :16
+host_params[_LAT_XYZT_] :32768
+host_params[_GRID_X_]   :1
+host_params[_GRID_Y_]   :1
+host_params[_GRID_Z_]   :1
+host_params[_GRID_T_]   :1
+host_params[_PARITY_]   :0
+host_params[_NODE_RANK_]:0
+host_params[_NODE_SIZE_]:1
+host_params[_DAGGER_]   :0
+host_params[_MAX_ITER_] :1000
+host_params[_DATA_TYPE_]:4
+host_params[_SET_INDEX_]:5
+host_params[_SET_PLAN_] :1
+host_params[_MG_X_]     :4
+host_params[_MG_Y_]     :4
+host_params[_MG_Z_]     :4
+host_params[_MG_T_]     :8
+host_params[_LAT_E_]    :24
+host_params[_VERBOSE_]  :1
+host_argv[_MASS_]       :5.000000e-02
+host_argv[_TOL_]        :1.000000e-09
+host_argv[_SIGMA_]      :1.000000e-01
+lat_2dim[_XY_]          :128
+lat_2dim[_XZ_]          :128
+lat_2dim[_XT_]          :128
+lat_2dim[_YZ_]          :256
+lat_2dim[_YT_]          :256
+lat_2dim[_ZT_]          :256
+lat_3dim[_YZT_]         :4096
+lat_3dim[_XZT_]         :2048
+lat_3dim[_XYT_]         :2048
+lat_3dim[_XYZ_]         :2048
+lat_4dim                :32768
+grid_2dim[_XY_]         :1
+grid_2dim[_XZ_]         :1
+grid_2dim[_XT_]         :1
+grid_2dim[_YZ_]         :1
+grid_2dim[_YT_]         :1
+grid_2dim[_ZT_]         :1
+grid_3dim[_YZT_]        :1
+grid_3dim[_XZT_]        :1
+grid_3dim[_XYT_]        :1
+grid_3dim[_XYZ_]        :1
+grid_index_1dim[_X_]    :0
+grid_index_1dim[_Y_]    :0
+grid_index_1dim[_Z_]    :0
+grid_index_1dim[_T_]    :0
+move_wards[_B_X_]       :0
+move_wards[_B_Y_]       :0
+move_wards[_B_Z_]       :0
+move_wards[_B_T_]       :0
+move_wards[_F_X_]       :0
+move_wards[_F_Y_]       :0
+move_wards[_F_Z_]       :0
+move_wards[_F_T_]       :0
+move_wards[_BX_BY_]     :0
+move_wards[_BX_BZ_]     :0
+move_wards[_BX_BT_]     :0
+move_wards[_BY_BZ_]     :0
+move_wards[_BY_BT_]     :0
+move_wards[_BZ_BT_]     :0
+move_wards[_FX_BY_]     :0
+move_wards[_FX_BZ_]     :0
+move_wards[_FX_BT_]     :0
+move_wards[_FY_BZ_]     :0
+move_wards[_FY_BT_]     :0
+move_wards[_FZ_BT_]     :0
+move_wards[_BX_FY_]     :0
+move_wards[_BX_FZ_]     :0
+move_wards[_BX_FT_]     :0
+move_wards[_BY_FZ_]     :0
+move_wards[_BY_FT_]     :0
+move_wards[_BZ_FT_]     :0
+move_wards[_FX_FY_]     :0
+move_wards[_FX_FZ_]     :0
+move_wards[_FX_FT_]     :0
+move_wards[_FY_FZ_]     :0
+move_wards[_FY_FT_]     :0
+move_wards[_FZ_FT_]     :0
+lattice set init total time:0.033556166 sec
+long long fermion_out:22555022852096
+long long fermion_in:22554664239104
+long long gauge:22555127709696
+long long clover_ee:22550983737344
+long long clover_oo:22550828548096
+long long clover_ee_inv:22550906142720
+long long clover_oo_inv:22550750953472
+long long set_ptrs:94892087625904
+long long params:94892045184528
+##RANK:0##LOOP:79##Residual:(9.60578e-10,3.96906e-29i)
+multi-gpu clover bistabcg total time: (without malloc free memcpy) :0.419781622 sec
+######TIME  :465.917######
+##RANK      :0
+##LOOP      :0
+##tmp0      :(2.0244e-10,1.8864e-11i)
+##tmp1      :(1.80236e-10,-7.57533e-30i)
+##rho_prev  :(-1.82119e-06,-8.47895e-07i)
+##rho       :(-1.82119e-06,-8.47895e-07i)
+##alpha     :(2.77509,-1.53891i)
+##beta      :(-2.08136,1.03188i)
+##omega     :(1.12319,0.104663i)
+##send_tmp  :(1.18165e-09,-8.23347e-29i)
+##norm2_tmp :(488139,6.69323e-15i)
+##diff_tmp  :(2.42073e-15,-2.01863e-34i)
+##lat_4dim  :(32768,0i)
+set_ptr:0x564dd0b274d0
+long long set_ptr:94892213826768
+gridDim.x               :2048
+blockDim.x              :16
+host_params[_LAT_X_]    :8
+host_params[_LAT_Y_]    :16
+host_params[_LAT_Z_]    :16
+host_params[_LAT_T_]    :16
+host_params[_LAT_XYZT_] :32768
+host_params[_GRID_X_]   :1
+host_params[_GRID_Y_]   :1
+host_params[_GRID_Z_]   :1
+host_params[_GRID_T_]   :1
+host_params[_PARITY_]   :0
+host_params[_NODE_RANK_]:0
+host_params[_NODE_SIZE_]:1
+host_params[_DAGGER_]   :0
+host_params[_MAX_ITER_] :1000
+host_params[_DATA_TYPE_]:4
+host_params[_SET_INDEX_]:5
+host_params[_SET_PLAN_] :1
+host_params[_MG_X_]     :4
+host_params[_MG_Y_]     :4
+host_params[_MG_Z_]     :4
+host_params[_MG_T_]     :8
+host_params[_LAT_E_]    :24
+host_params[_VERBOSE_]  :1
+host_argv[_MASS_]       :5.000000e-02
+host_argv[_TOL_]        :1.000000e-09
+host_argv[_SIGMA_]      :1.000000e-01
+lat_2dim[_XY_]          :128
+lat_2dim[_XZ_]          :128
+lat_2dim[_XT_]          :128
+lat_2dim[_YZ_]          :256
+lat_2dim[_YT_]          :256
+lat_2dim[_ZT_]          :256
+lat_3dim[_YZT_]         :4096
+lat_3dim[_XZT_]         :2048
+lat_3dim[_XYT_]         :2048
+lat_3dim[_XYZ_]         :2048
+lat_4dim                :32768
+grid_2dim[_XY_]         :1
+grid_2dim[_XZ_]         :1
+grid_2dim[_XT_]         :1
+grid_2dim[_YZ_]         :1
+grid_2dim[_YT_]         :1
+grid_2dim[_ZT_]         :1
+grid_3dim[_YZT_]        :1
+grid_3dim[_XZT_]        :1
+grid_3dim[_XYT_]        :1
+grid_3dim[_XYZ_]        :1
+grid_index_1dim[_X_]    :0
+grid_index_1dim[_Y_]    :0
+grid_index_1dim[_Z_]    :0
+grid_index_1dim[_T_]    :0
+move_wards[_B_X_]       :0
+move_wards[_B_Y_]       :0
+move_wards[_B_Z_]       :0
+move_wards[_B_T_]       :0
+move_wards[_F_X_]       :0
+move_wards[_F_Y_]       :0
+move_wards[_F_Z_]       :0
+move_wards[_F_T_]       :0
+move_wards[_BX_BY_]     :0
+move_wards[_BX_BZ_]     :0
+move_wards[_BX_BT_]     :0
+move_wards[_BY_BZ_]     :0
+move_wards[_BY_BT_]     :0
+move_wards[_BZ_BT_]     :0
+move_wards[_FX_BY_]     :0
+move_wards[_FX_BZ_]     :0
+move_wards[_FX_BT_]     :0
+move_wards[_FY_BZ_]     :0
+move_wards[_FY_BT_]     :0
+move_wards[_FZ_BT_]     :0
+move_wards[_BX_FY_]     :0
+move_wards[_BX_FZ_]     :0
+move_wards[_BX_FT_]     :0
+move_wards[_BY_FZ_]     :0
+move_wards[_BY_FT_]     :0
+move_wards[_BZ_FT_]     :0
+move_wards[_FX_FY_]     :0
+move_wards[_FX_FZ_]     :0
+move_wards[_FX_FT_]     :0
+move_wards[_FY_FZ_]     :0
+move_wards[_FY_FT_]     :0
+move_wards[_FZ_FT_]     :0
+lattice set whole time:0.469447052 sec
+lattice set end total time:0.003069916 sec
+Input Array Shape: (3, 3, 4, 2, 16, 16, 16, 8)
+Grid Index T: 0, Grid Index Z: 0, Grid Index Y: 0, Grid Index X: 0
+Grid Lat T: 16, Grid Lat Z: 16, Grid Lat Y: 16, Grid Lat X: 8
+Dest Shape: (3, 3, 4, 2, 16, 16, 16, 8)
+Rank 0: Data is saved to gauge.h5
+Input Array Shape: (4, 3, 4, 3, 16, 16, 16, 8)
+Grid Index T: 0, Grid Index Z: 0, Grid Index Y: 0, Grid Index X: 0
+Grid Lat T: 16, Grid Lat Z: 16, Grid Lat Y: 16, Grid Lat X: 8
+Dest Shape: (4, 3, 4, 3, 16, 16, 16, 8)
+Rank 0: Data is saved to clover.h5
+Input Array Shape: (2, 4, 3, 16, 16, 16, 8)
+Grid Index T: 0, Grid Index Z: 0, Grid Index Y: 0, Grid Index X: 0
+Grid Lat T: 16, Grid Lat Z: 16, Grid Lat Y: 16, Grid Lat X: 8
+Dest Shape: (2, 4, 3, 16, 16, 16, 8)
+Rank 0: Data is saved to fermion_in.h5
+Input Array Shape: (2, 4, 3, 16, 16, 16, 8)
+Grid Index T: 0, Grid Index Z: 0, Grid Index Y: 0, Grid Index X: 0
+Grid Lat T: 16, Grid Lat Z: 16, Grid Lat Y: 16, Grid Lat X: 8
+Dest Shape: (2, 4, 3, 16, 16, 16, 8)
+Rank 0: Data is saved to fermion_out.h5
