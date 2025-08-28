@@ -5,7 +5,8 @@ import mpi4py.MPI as MPI
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 size = comm.Get_size()
-local_rank = int(os.environ.get("LOCAL_RANK", 0))
+gpus_per_node = cp.cuda.runtime.getDeviceCount()
+local_rank = rank % gpus_per_node
 print(f"@My Rank:{rank}/{size}, Local Rank:{local_rank}@\n")
 cp.cuda.Device(local_rank).use()
 # Copy from ../extern/cuda/qcu/include/defin.h
