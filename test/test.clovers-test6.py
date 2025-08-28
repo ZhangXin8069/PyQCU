@@ -5,15 +5,17 @@ import pyqcu.cuda.gauge as Gauge
 from pyqcu.cuda import qcu
 from pyqcu.cuda.set import params, argv, set_ptrs
 #############################
-params[define._LAT_X_] = 8
-params[define._LAT_Y_] = 8
-params[define._LAT_Z_] = 8
-params[define._LAT_T_] = 8
+params[define._LAT_X_] = 16
+params[define._LAT_Y_] = 16
+params[define._LAT_Z_] = 16
+params[define._LAT_T_] = 16
 params[define._LAT_XYZT_] = params[define._LAT_X_] * \
     params[define._LAT_Y_]*params[define._LAT_Z_]*params[define._LAT_T_]
 params[define._GRID_X_], params[define._GRID_Y_], params[define._GRID_Z_], params[
     define._GRID_T_] = define.split_into_four_factors(define.size)
 params[define._DATA_TYPE_] = define._LAT_C128_
+params[define._MAX_ITER_] = 10000
+argv[define._MASS_] = -0.0
 argv = argv.astype(define.dtype_half(params[define._DATA_TYPE_]))
 #############################
 io.give_none_gauge(params, "gauge.h5")
@@ -28,14 +30,18 @@ params[define._VERBOSE_] = 1
 params[define._SET_INDEX_] += 1
 params[define._SET_PLAN_] = 0
 #############################
-_gauge = cp.zeros_like(gauge)
-qcu.applyInitQcu(set_ptrs, params, argv)
-qcu.applyGaussGaugeQcu(_gauge, set_ptrs, params)
-qcu.applyEndQcu(set_ptrs, params)
-io.grid_xxxtzyx2hdf5_xxxtzyx(_gauge, params, "_gauge.h5")
+# _gauge = cp.zeros_like(gauge)
+# qcu.applyInitQcu(set_ptrs, params, argv)
+# qcu.applyGaussGaugeQcu(_gauge, set_ptrs, params)
+# qcu.applyEndQcu(set_ptrs, params)
+# io.grid_xxxtzyx2hdf5_xxxtzyx(_gauge, params, "_gauge.h5")
 #############################
-gauge = Gauge.give_gauss_SU3(
-    dtype=gauge.dtype, size=gauge.size//define._LAT_CC_).transpose(1, 2, 0).reshape(gauge.shape)
+qcu.applyInitQcu(set_ptrs, params, argv)
+qcu.applyGaussGaugeQcu(gauge, set_ptrs, params)
+qcu.applyEndQcu(set_ptrs, params)
+#############################
+# gauge = Gauge.give_gauss_SU3(
+#     dtype=gauge.dtype, size=gauge.size//define._LAT_CC_).transpose(1, 2, 0).reshape(gauge.shape)
 #############################
 Gauge.test_su3(gauge[:, :, -1, -1, -1, -1, -1, -1])
 #############################
@@ -51,7 +57,6 @@ clover_oo_inv = cp.zeros_like(clover)
 params[define._VERBOSE_] = 1
 params[define._SET_INDEX_] += 1
 params[define._SET_PLAN_] = 1
-argv[define._MASS_] = -1.5
 #############################
 qcu.applyInitQcu(set_ptrs, params, argv)
 qcu.applyWilsonBistabCgQcu(
@@ -77,7 +82,6 @@ qcu.applyEndQcu(set_ptrs, params)
 params[define._VERBOSE_] = 1
 params[define._SET_INDEX_] += 1
 params[define._SET_PLAN_] = 1
-argv[define._MASS_] = -1.5
 #############################
 # clover_ee = io.clover2I(input_array=clover_ee)
 # clover_oo = io.clover2I(input_array=clover_oo)
