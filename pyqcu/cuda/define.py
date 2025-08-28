@@ -1,12 +1,12 @@
-import h5py
+import os
 import numpy as np
 import cupy as cp
 import mpi4py.MPI as MPI
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 size = comm.Get_size()
-print(f"@My Rank:{rank}/{size}@\n")
-cp.cuda.Device(rank).use()
+print(f"@My Rank:{rank}/{size}, Local Rank:{int(os.environ["LOCAL_RANK"])}@\n")
+cp.cuda.Device(int(os.environ["LOCAL_RANK"])).use()
 # Copy from ../extern/cuda/qcu/include/defin.h
 _BLOCK_SIZE_ = 128
 _MAIN_RANK_ = 0
@@ -209,6 +209,7 @@ def dtype(_data_type_=_LAT_C64_):
         print("Doesn't support real128")
         return None
 
+
 def dtype_half(_data_type_=_LAT_C64_):
     if _data_type_ == _LAT_C8_:
         print("Doesn't support complex8")
@@ -226,6 +227,7 @@ def dtype_half(_data_type_=_LAT_C64_):
     elif _data_type_ == _LAT_C256_:
         print("Doesn't support complex256")
         return None
+
 
 def prime_factorization(n: int):
     """Return the prime factorization of n as a list (using numpy only)."""
