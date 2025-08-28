@@ -1,7 +1,7 @@
 import cupy as cp
 from pyqcu.cuda import define
 from pyqcu.cuda import io
-import pyqcu.cuda.gauge as Gauge
+# import pyqcu.cuda.gauge as Gauge
 from pyqcu.cuda import qcu
 from pyqcu.cuda.set import params, argv, set_ptrs
 #############################
@@ -43,7 +43,7 @@ qcu.applyEndQcu(set_ptrs, params)
 # gauge = Gauge.give_gauss_SU3(
 #     dtype=gauge.dtype, size=gauge.size//define._LAT_CC_).transpose(1, 2, 0).reshape(gauge.shape)
 #############################
-Gauge.test_su3(gauge[:, :, -1, -1, -1, -1, -1, -1])
+# Gauge.test_su3(gauge[:, :, -1, -1, -1, -1, -1, -1])
 #############################
 fermion_in = cp.ones_like(fermion_in)
 fermion_in = cp.random.randn(fermion_in.size).astype(
