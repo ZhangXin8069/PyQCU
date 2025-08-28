@@ -19,9 +19,9 @@ params[define._VERBOSE_] = 1
 params[define._PARITY_] = 0
 argv = argv.astype(define.dtype_half(params[define._DATA_TYPE_]))
 #############################
-io.give_none_gauge(params, "gauge.h5")
-io.give_none_clover(params, "clover.h5")
-io.give_none_fermion_in(params, "fermion_in.h5")
+# io.give_none_gauge(params, "gauge.h5")
+# io.give_none_clover(params, "clover.h5")
+# io.give_none_fermion_in(params, "fermion_in.h5")
 gauge = io.hdf5_xxxtzyx2grid_xxxtzyx(params, "gauge.h5")
 clover = io.hdf5_xxxtzyx2grid_xxxtzyx(params, "clover.h5")
 #############################
