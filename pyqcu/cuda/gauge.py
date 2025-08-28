@@ -1,9 +1,10 @@
 import cupy as cp
+import numpy as np
 from cupyx.scipy.linalg import expm
-from pyqcu.cuda import define
+import pyqcu.cuda.define as define
+import pyqcu.cuda.io as io
 from math import sqrt
 from typing import Tuple, Optional
-
 
 def get_gell_mann_matrices(dtype):
     lambda1 = cp.array([[0, 1, 0],
@@ -40,14 +41,14 @@ def give_gauss_su3(sigma=0.1, dtype=cp.complex128, seed=None):
     a = cp.random.normal(0.0, 1.0, size=8)
     H = sum(ai * Ai for ai, Ai in zip(a, gell_mann))
     U = expm(1j * sigma * H)
-    return U, a
+    return U
 
 
 def give_gauss_SU3(sigma=0.1, dtype=cp.complex128, seed=12138, size=100):
     U = cp.ones((size, define._LAT_C_, define._LAT_C_), dtype=dtype)
     print(f"U_size = {size}")
     for i in range(size):
-        U[i], _ = give_gauss_su3(sigma, dtype, seed+i)
+        U[i] = give_gauss_su3(sigma, dtype, seed+i)
         # print(f"U_{i} is ready.")
     return U
 
