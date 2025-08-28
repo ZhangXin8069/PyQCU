@@ -456,3 +456,12 @@ def xxx2scTZYX(input_array, params):
         lat_s, lat_c, mg_t, mg_z, mg_y, mg_x)
     print(f"Dest Shape: {dest.shape}")
     return dest
+
+
+def clover2I(input_array):
+    print(f"Input Array Shape: {input_array.shape}")
+    dest = input_array.reshape(-1, 12, 12)
+    dest[:, :, ...] = cp.eye(12, 12, dtype=input_array.dtype)
+    dest = dest.transpose(1, 2, 0)
+    print(f"Dest Shape: {dest.shape}")
+    return dest.reshape(input_array.shape)
