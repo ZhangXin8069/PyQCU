@@ -29,15 +29,15 @@ params[define._VERBOSE_] = 1
 params[define._PARITY_] = 0
 params[define._SET_INDEX_] += 1
 params[define._SET_PLAN_] = 0
-#############################
-# gauge = Gauge.give_gauss_SU3(
-#     dtype=gauge.dtype, size=gauge.size//define._LAT_CC_).transpose(1, 2, 0).reshape(gauge.shape)
-qcu.applyInitQcu(set_ptrs, params, argv)
-qcu.applyGaussGaugeQcu(gauge, set_ptrs, params)
-qcu.applyEndQcu(set_ptrs, params)
-#############################
-Gauge.test_su3(gauge[:, :, -1, -1, -1, -1, -1, -1])
 # #############################
+# # gauge = Gauge.give_gauss_SU3(
+# #     dtype=gauge.dtype, size=gauge.size//define._LAT_CC_).transpose(1, 2, 0).reshape(gauge.shape)
+# qcu.applyInitQcu(set_ptrs, params, argv)
+# qcu.applyGaussGaugeQcu(gauge, set_ptrs, params)
+# qcu.applyEndQcu(set_ptrs, params)
+# #############################
+# Gauge.test_su3(gauge[:, :, -1, -1, -1, -1, -1, -1])
+# # #############################
 # fermion_in = io.hdf5_xxxtzyx2grid_xxxtzyx(params, "fermion_in.h5")
 # fermion_in = cp.ones_like(fermion_in)
 # fermion_in = cp.random.randn(fermion_in.size).astype(
