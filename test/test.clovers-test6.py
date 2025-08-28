@@ -28,9 +28,11 @@ params[define._VERBOSE_] = 1
 params[define._SET_INDEX_] += 1
 params[define._SET_PLAN_] = 0
 #############################
+_gauge = cp.zeros_like(gauge)
 qcu.applyInitQcu(set_ptrs, params, argv)
-qcu.applyGaussGaugeQcu(gauge, set_ptrs, params)
+qcu.applyGaussGaugeQcu(_gauge, set_ptrs, params)
 qcu.applyEndQcu(set_ptrs, params)
+io.grid_xxxtzyx2hdf5_xxxtzyx(_gauge, params, "_gauge.h5")
 #############################
 gauge = Gauge.give_gauss_SU3(
     dtype=gauge.dtype, size=gauge.size//define._LAT_CC_).transpose(1, 2, 0).reshape(gauge.shape)
