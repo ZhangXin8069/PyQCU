@@ -18,11 +18,11 @@
 Parameters: [     32      32      32      32 1048576       1       1       1       1
        0       0       1       0   10000       3       0       0       4
        4       4       8      24       1      42]
-Parameters data: <memory at 0x147cfc328400>
+Parameters data: <memory at 0x14cf645204c0>
 Arguments: [-3.5e+00  1.0e-09  1.0e-01]
-Arguments data: <memory at 0x147cfc328400>
+Arguments data: <memory at 0x14cf645204c0>
 Set pointers: [0 0 0 0 0 0 0 0 0 0]
-Set pointers data: <memory at 0x147cfc328400>
+Set pointers data: <memory at 0x14cf645204c0>
 Parameters: [     32      32      32      32 1048576       1       1       1       1
        0       0       1       0   10000       3       0       1       4
        4       4       8      24       1      42]
@@ -44,10 +44,10 @@ Grid Index T: 0, Grid Index Z: 0, Grid Index Y: 0, Grid Index X: 0
 Grid Lat T: 32, Grid Lat Z: 32, Grid Lat Y: 32, Grid Lat X: 16
 All Dest Shape: (2, 4, 3, 32, 32, 32, 16)
 Dest Shape: (2, 4, 3, 32, 32, 32, 16)
-Fermion out data: <MemoryPointer 0x147443800000 device=0 mem=<cupy.cuda.memory.PooledMemory object at 0x147d00de1370>>
+Fermion out data: <MemoryPointer 0x14c6ab200000 device=0 mem=<cupy.cuda.memory.PooledMemory object at 0x14cf68d50c70>>
 Fermion out shape: (2, 4, 3, 32, 32, 32, 16)
-set_ptr:0x559eef2e0940
-long long set_ptr:94141105965376
+set_ptr:0x560fea0eb210
+long long set_ptr:94626351329808
 gridDim.x               :32768
 blockDim.x              :16
 host_params[_LAT_X_]    :16
@@ -133,10 +133,10 @@ move_wards[_FX_FT_]     :0
 move_wards[_FY_FZ_]     :0
 move_wards[_FY_FT_]     :0
 move_wards[_FZ_FT_]     :0
-lattice set init total time:8.189104158 sec
+lattice set init total time:8.245243123 sec
 ##RANK:0##LOOP:115##Residual:(8.56412e-10,0i)
-multi-gpu wilson bistabcg total time: (without malloc free memcpy) :1.259693184 sec
-######TIME  :9555.3######
+multi-gpu wilson bistabcg total time: (without malloc free memcpy) :1.255203072 sec
+######TIME  :9600.29######
 ##RANK      :0
 ##LOOP      :0
 ##tmp0      :(5.70852e-11,-5.09119e-12i)
@@ -151,8 +151,8 @@ multi-gpu wilson bistabcg total time: (without malloc free memcpy) :1.259693184 
 ##diff_tmp  :(1.98177e-10,0i)
 ##lat_4dim  :(524288,0i)
 ##RANK:0##LOOP:115##Residual:(8.56412e-10,0i)
-multi-gpu wilson bistabcg total time: (without malloc free memcpy) :1.240721408 sec
-######TIME  :10831.1######
+multi-gpu wilson bistabcg total time: (without malloc free memcpy) :1.237770496 sec
+######TIME  :10871.4######
 ##RANK      :0
 ##LOOP      :0
 ##tmp0      :(5.70852e-11,-5.09119e-12i)
@@ -167,8 +167,8 @@ multi-gpu wilson bistabcg total time: (without malloc free memcpy) :1.240721408 
 ##diff_tmp  :(1.98177e-10,0i)
 ##lat_4dim  :(524288,0i)
 ##RANK:0##LOOP:115##Residual:(8.56412e-10,0i)
-multi-gpu wilson bistabcg total time: (without malloc free memcpy) :1.243430784 sec
-######TIME  :12108######
+multi-gpu wilson bistabcg total time: (without malloc free memcpy) :1.239744256 sec
+######TIME  :12144.2######
 ##RANK      :0
 ##LOOP      :0
 ##tmp0      :(5.70852e-11,-5.09119e-12i)
@@ -183,8 +183,8 @@ multi-gpu wilson bistabcg total time: (without malloc free memcpy) :1.243430784 
 ##diff_tmp  :(1.98177e-10,0i)
 ##lat_4dim  :(524288,0i)
 ##RANK:0##LOOP:115##Residual:(8.56412e-10,0i)
-multi-gpu wilson bistabcg total time: (without malloc free memcpy) :1.242783616 sec
-######TIME  :13384.1######
+multi-gpu wilson bistabcg total time: (without malloc free memcpy) :1.239657088 sec
+######TIME  :13416.9######
 ##RANK      :0
 ##LOOP      :0
 ##tmp0      :(5.70852e-11,-5.09119e-12i)
@@ -199,8 +199,8 @@ multi-gpu wilson bistabcg total time: (without malloc free memcpy) :1.242783616 
 ##diff_tmp  :(1.98177e-10,0i)
 ##lat_4dim  :(524288,0i)
 ##RANK:0##LOOP:115##Residual:(8.56412e-10,0i)
-multi-gpu wilson bistabcg total time: (without malloc free memcpy) :1.240148864 sec
-######TIME  :14657.5######
+multi-gpu wilson bistabcg total time: (without malloc free memcpy) :1.236361984 sec
+######TIME  :14686.5######
 ##RANK      :0
 ##LOOP      :0
 ##tmp0      :(5.70852e-11,-5.09119e-12i)
@@ -215,8 +215,8 @@ multi-gpu wilson bistabcg total time: (without malloc free memcpy) :1.240148864 
 ##diff_tmp  :(1.98177e-10,0i)
 ##lat_4dim  :(524288,0i)
 ##RANK:0##LOOP:115##Residual:(8.56412e-10,0i)
-multi-gpu wilson bistabcg total time: (without malloc free memcpy) :1.241801600 sec
-######TIME  :15932.6######
+multi-gpu wilson bistabcg total time: (without malloc free memcpy) :1.237493504 sec
+######TIME  :15957.1######
 ##RANK      :0
 ##LOOP      :0
 ##tmp0      :(5.70852e-11,-5.09119e-12i)
@@ -231,8 +231,8 @@ multi-gpu wilson bistabcg total time: (without malloc free memcpy) :1.241801600 
 ##diff_tmp  :(1.98177e-10,0i)
 ##lat_4dim  :(524288,0i)
 ##RANK:0##LOOP:115##Residual:(8.56412e-10,0i)
-multi-gpu wilson bistabcg total time: (without malloc free memcpy) :1.245087872 sec
-######TIME  :17211.1######
+multi-gpu wilson bistabcg total time: (without malloc free memcpy) :1.239975296 sec
+######TIME  :17230.3######
 ##RANK      :0
 ##LOOP      :0
 ##tmp0      :(5.70852e-11,-5.09119e-12i)
@@ -247,8 +247,8 @@ multi-gpu wilson bistabcg total time: (without malloc free memcpy) :1.245087872 
 ##diff_tmp  :(1.98177e-10,0i)
 ##lat_4dim  :(524288,0i)
 ##RANK:0##LOOP:115##Residual:(8.56412e-10,0i)
-multi-gpu wilson bistabcg total time: (without malloc free memcpy) :1.244720256 sec
-######TIME  :18489.2######
+multi-gpu wilson bistabcg total time: (without malloc free memcpy) :1.238761088 sec
+######TIME  :18502.1######
 ##RANK      :0
 ##LOOP      :0
 ##tmp0      :(5.70852e-11,-5.09119e-12i)
@@ -263,8 +263,8 @@ multi-gpu wilson bistabcg total time: (without malloc free memcpy) :1.244720256 
 ##diff_tmp  :(1.98177e-10,0i)
 ##lat_4dim  :(524288,0i)
 ##RANK:0##LOOP:115##Residual:(8.56412e-10,0i)
-multi-gpu wilson bistabcg total time: (without malloc free memcpy) :1.241358720 sec
-######TIME  :19763.8######
+multi-gpu wilson bistabcg total time: (without malloc free memcpy) :1.236088576 sec
+######TIME  :19771.2######
 ##RANK      :0
 ##LOOP      :0
 ##tmp0      :(5.70852e-11,-5.09119e-12i)
@@ -279,8 +279,8 @@ multi-gpu wilson bistabcg total time: (without malloc free memcpy) :1.241358720 
 ##diff_tmp  :(1.98177e-10,0i)
 ##lat_4dim  :(524288,0i)
 ##RANK:0##LOOP:115##Residual:(8.56412e-10,0i)
-multi-gpu wilson bistabcg total time: (without malloc free memcpy) :1.241682944 sec
-######TIME  :21039######
+multi-gpu wilson bistabcg total time: (without malloc free memcpy) :1.237517952 sec
+######TIME  :21042######
 ##RANK      :0
 ##LOOP      :0
 ##tmp0      :(5.70852e-11,-5.09119e-12i)
@@ -294,8 +294,8 @@ multi-gpu wilson bistabcg total time: (without malloc free memcpy) :1.241682944 
 ##norm2_tmp :(4.97484e+07,0i)
 ##diff_tmp  :(1.98177e-10,0i)
 ##lat_4dim  :(524288,0i)
-set_ptr:0x559eef2e0940
-long long set_ptr:94141105965376
+set_ptr:0x560fea0eb210
+long long set_ptr:94626351329808
 gridDim.x               :32768
 blockDim.x              :16
 host_params[_LAT_X_]    :16
@@ -381,10 +381,10 @@ move_wards[_FX_FT_]     :0
 move_wards[_FY_FZ_]     :0
 move_wards[_FY_FT_]     :0
 move_wards[_FZ_FT_]     :0
-lattice set whole time:21.043587891 sec
-lattice set end total time:0.004218924 sec
-Fermion out data: <MemoryPointer 0x147443800000 device=0 mem=<cupy.cuda.memory.PooledMemory object at 0x147d00de1370>>
+lattice set whole time:21.046494141 sec
+lattice set end total time:0.004093130 sec
+Fermion out data: <MemoryPointer 0x14c6ab200000 device=0 mem=<cupy.cuda.memory.PooledMemory object at 0x14cf68d50c70>>
 Fermion out shape: (2, 4, 3, 32, 32, 32, 16)
-QUDA Fermion out data: <MemoryPointer 0x147449a00000 device=0 mem=<cupy.cuda.memory.PooledMemory object at 0x147d00de1c30>>
+QUDA Fermion out data: <MemoryPointer 0x14c6b1400000 device=0 mem=<cupy.cuda.memory.PooledMemory object at 0x14cf67796b30>>
 QUDA Fermion out shape: (2, 4, 3, 32, 32, 32, 16)
 Difference: 3.240188e-07

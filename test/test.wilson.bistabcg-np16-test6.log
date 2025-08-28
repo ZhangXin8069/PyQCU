@@ -270,158 +270,158 @@
     [4] Brower R C, Clark M A, Weinberg E, et al. Multigrid for chiral lattice fermions: Domain wall[J]. Physical Review D, 2020.
     @@@@@@######QCU NOTES END######@@@@@@@
     
-Parameters: [     32      32      32      32 1048576       2       2       2       2
-       0       7      16       0   10000       3       0       0       4
-       4       4       8      24       1      42]
-Parameters data: <memory at 0x154d7b11c400>
-Arguments: [-3.5e+00  1.0e-09  1.0e-01]
-Arguments data: <memory at 0x154d7b11c400>
-Set pointers: [0 0 0 0 0 0 0 0 0 0]
-Set pointers data: <memory at 0x154d7b11c400>
-Parameters: [     32      32      32      32 1048576       2       2       2       2
-       0       7      16       0   10000       3       0       1       4
-       4       4       8      24       1      42]
-Arguments: [0.e+00 1.e-09 1.e-01]
-My rank is  7
-cp.cuda.Device().id:7
-Gauge filename: quda_wilson-bistabcg-gauge_-32-32-32-32-1048576-1-1-1-1-0-0-1-0-f.h5
-Parameters: Parameters: [     32      32      32      32 1048576       2       2       2       2
-       0       6      16       0   10000       3       0       0       4
+Parameters: Parameters: Parameters: Parameters: Parameters: Parameters: Parameters: Parameters: [     32      32      32      32 1048576       2       2       2       2
+       0       0      16       0   10000       3       0       0       4
        4       4       8      24       1      42]
 Parameters data: [     32      32      32      32 1048576       2       2       2       2
+       0       3      16       0   10000       3       0       0       4
+       4       4       8      24       1      42]
+<memory at 0x154bd61204c0>
+Arguments: [     32      32      32      32 1048576       2       2       2       2
+       0       1      16       0   10000       3       0       0       4
+       4       4       8      24       1      42]
+Parameters data: <memory at 0x14fda49184c0>
+Arguments: [     32      32      32      32 1048576       2       2       2       2
+       0       6      16       0   10000       3       0       0       4
+       4       4       8      24       1      42]
+Parameters data: <memory at 0x14e10f5284c0>
+Arguments: Parameters data: <memory at 0x149ed709c4c0>
+Arguments: [     32      32      32      32 1048576       2       2       2       2
+       0       5      16       0   10000       3       0       0       4
+       4       4       8      24       1      42]
+Parameters data: <memory at 0x14f600f304c0>
+Arguments: [     32      32      32      32 1048576       2       2       2       2
+       0       7      16       0   10000       3       0       0       4
+       4       4       8      24       1      42]
+Parameters data: <memory at 0x14c1381244c0>
+Arguments: [     32      32      32      32 1048576       2       2       2       2
+       0       2      16       0   10000       3       0       0       4
+       4       4       8      24       1      42]
+Parameters data: <memory at 0x145e7e3304c0>
+Arguments: [     32      32      32      32 1048576       2       2       2       2
        0       4      16       0   10000       3       0       0       4
        4       4       8      24       1      42]
-Parameters data: <memory at 0x14ad5171c400>
-Arguments: <memory at 0x14fb8d328400>
+Parameters data: <memory at 0x14bc301304c0>
 Arguments: [-3.5e+00  1.0e-09  1.0e-01]
-Arguments data: <memory at 0x14ad5171c400>
-[-3.5e+00  1.0e-09  1.0e-01]
-Arguments data: <memory at 0x14fb8d328400>
-Set pointers: Set pointers: [0 0 0 0 0 0 0 0 0 0]
-Set pointers data: <memory at 0x14fb8d328400>
+Arguments data: <memory at 0x154bd61204c0>
+Set pointers: [-3.5e+00  1.0e-09  1.0e-01]
+Arguments data: <memory at 0x14fda49184c0>
+Set pointers: [-3.5e+00  1.0e-09  1.0e-01]
+Arguments data: <memory at 0x149ed709c4c0>
+Set pointers: [-3.5e+00  1.0e-09  1.0e-01]
+Arguments data: <memory at 0x14f600f304c0>
+Set pointers: [-3.5e+00  1.0e-09  1.0e-01]
+Arguments data: <memory at 0x14e10f5284c0>
+Set pointers: [-3.5e+00  1.0e-09  1.0e-01]
+Arguments data: <memory at 0x145e7e3304c0>
+Set pointers: [-3.5e+00  1.0e-09  1.0e-01]
+Arguments data: <memory at 0x14c1381244c0>
+Set pointers: [-3.5e+00  1.0e-09  1.0e-01]
+Arguments data: <memory at 0x14bc301304c0>
+Set pointers: [0 0 0 0 0 0 0 0 0 0]
+Set pointers data: <memory at 0x154bd61204c0>
 [0 0 0 0 0 0 0 0 0 0]
-Set pointers data: <memory at 0x14ad5171c400>
+Set pointers data: <memory at 0x14fda49184c0>
+[0 0 0 0 0 0 0 0 0 0]
+Set pointers data: <memory at 0x149ed709c4c0>[0 0 0 0 0 0 0 0 0 0]
+
+Parameters: Parameters: [0 0 0 0 0 0 0 0 0 0]
+Set pointers data: <memory at 0x14f600f304c0>
+Set pointers data: <memory at 0x14e10f5284c0>
+Parameters: [0 0 0 0 0 0 0 0 0 0]
+Set pointers data: <memory at 0x145e7e3304c0>
+Parameters: Parameters: [0 0 0 0 0 0 0 0 0 0]
+Set pointers data: <memory at 0x14c1381244c0>
+Parameters: [0 0 0 0 0 0 0 0 0 0]
+Set pointers data: <memory at 0x14bc301304c0>
 Parameters: Parameters: [     32      32      32      32 1048576       2       2       2       2
-       0       4      16       0   10000       3       0       1       4
+       0       1      16       0   10000       3       0       1       4
+       4       4       8      24       1      42]
+Arguments: [     32      32      32      32 1048576       2       2       2       2
+       0       0      16       0   10000       3       0       1       4
+       4       4       8      24       1      42]
+Arguments: [     32      32      32      32 1048576       2       2       2       2
+       0       3      16       0   10000       3       0       1       4
        4       4       8      24       1      42]
 Arguments: [     32      32      32      32 1048576       2       2       2       2
        0       6      16       0   10000       3       0       1       4
        4       4       8      24       1      42]
-Arguments: [0.e+00 1.e-09 1.e-01]
-My rank is  6
-[0.e+00 1.e-09 1.e-01]
-My rank is  4
-cp.cuda.Device().id:4
-Gauge filename: quda_wilson-bistabcg-gauge_-32-32-32-32-1048576-1-1-1-1-0-0-1-0-f.h5
-cp.cuda.Device().id:6
-Gauge filename: quda_wilson-bistabcg-gauge_-32-32-32-32-1048576-1-1-1-1-0-0-1-0-f.h5
-Parameters: Parameters: [     32      32      32      32 1048576       2       2       2       2
-       0       1      16       0   10000       3       0       0       4
-       4       4       8      24       1      42]
-Parameters data: <memory at 0x145737718400>
-[     32      32      32      32 1048576       2       2       2       2
-       0       5      16       0   10000       3       0       0       4
-       4       4       8      24       1      42]
-Parameters data: <memory at 0x149bce728400>
-Arguments: Arguments: [-3.5e+00  1.0e-09  1.0e-01][-3.5e+00  1.0e-09  1.0e-01]
-Arguments data: <memory at 0x145737718400>
-Set pointers: 
-Arguments data: <memory at 0x149bce728400>
-Set pointers: [0 0 0 0 0 0 0 0 0 0]
-Set pointers data: <memory at 0x145737718400>
-Parameters: [0 0 0 0 0 0 0 0 0 0][     32      32      32      32 1048576       2       2       2       2
-       0       1      16       0   10000       3       0       1       4
-       4       4       8      24       1      42]
-Set pointers data: <memory at 0x149bce728400>
-
-Arguments: Parameters: [     32      32      32      32 1048576       2       2       2       2
+Arguments: [     32      32      32      32 1048576       2       2       2       2
        0       5      16       0   10000       3       0       1       4
        4       4       8      24       1      42]
-Arguments: [0.e+00 1.e-09 1.e-01]
-My rank is  1
-cp.cuda.Device().id:1[0.e+00 1.e-09 1.e-01]
-My rank is  5
-
-Gauge filename: quda_wilson-bistabcg-gauge_-32-32-32-32-1048576-1-1-1-1-0-0-1-0-f.h5
-cp.cuda.Device().id:5
-Gauge filename: quda_wilson-bistabcg-gauge_-32-32-32-32-1048576-1-1-1-1-0-0-1-0-f.h5
-Traceback (most recent call last):
-  File "/public/home/zhangxin80699/PyQCU/test/./test.wilson.bistacg-test6.py", line 2, in <module>
-Traceback (most recent call last):
-  File "/public/home/zhangxin80699/PyQCU/test/./test.wilson.bistacg-test6.py", line 2, in <module>
-Traceback (most recent call last):
-  File "/public/home/zhangxin80699/PyQCU/test/./test.wilson.bistacg-test6.py", line 2, in <module>
-Traceback (most recent call last):
-  File "/public/home/zhangxin80699/PyQCU/test/./test.wilson.bistacg-test6.py", line 2, in <module>
-Traceback (most recent call last):
-  File "/public/home/zhangxin80699/PyQCU/test/./test.wilson.bistacg-test6.py", line 2, in <module>
-Traceback (most recent call last):
-  File "/public/home/zhangxin80699/PyQCU/test/./test.wilson.bistacg-test6.py", line 2, in <module>
-Traceback (most recent call last):
-Traceback (most recent call last):
-  File "/public/home/zhangxin80699/PyQCU/test/./test.wilson.bistacg-test6.py", line 2, in <module>
-  File "/public/home/zhangxin80699/PyQCU/test/./test.wilson.bistacg-test6.py", line 2, in <module>
-Parameters: Parameters: [     32      32      32      32 1048576       2       2       2       2
-       0       0      16       0   10000       3       0       0       4
-       4       4       8      24       1      42]
-Parameters data: <memory at 0x14e894b1c400>
 Arguments: [     32      32      32      32 1048576       2       2       2       2
-       0       2      16       0   10000       3       0       0       4
-       4       4       8      24       1      42]
-Parameters data: <memory at 0x1501e6318400>
-    from pyqcu.cuda import define
-  File "/public/home/zhangxin80699/PyQCU/test/pyqcu/cuda/define.py", line 8, in <module>
-Arguments: [-3.5e+00  1.0e-09  1.0e-01]
-Arguments data: <memory at 0x14e894b1c400>
-    from pyqcu.cuda import define
-  File "/public/home/zhangxin80699/PyQCU/test/pyqcu/cuda/define.py", line 8, in <module>
-    from pyqcu.cuda import define
-  File "/public/home/zhangxin80699/PyQCU/test/pyqcu/cuda/define.py", line 8, in <module>
-    from pyqcu.cuda import define
-  File "/public/home/zhangxin80699/PyQCU/test/pyqcu/cuda/define.py", line 8, in <module>
-    from pyqcu.cuda import define
-  File "/public/home/zhangxin80699/PyQCU/test/pyqcu/cuda/define.py", line 8, in <module>
-    from pyqcu.cuda import define
-    from pyqcu.cuda import define
-  File "/public/home/zhangxin80699/PyQCU/test/pyqcu/cuda/define.py", line 8, in <module>
-  File "/public/home/zhangxin80699/PyQCU/test/pyqcu/cuda/define.py", line 8, in <module>
-    from pyqcu.cuda import define
-  File "/public/home/zhangxin80699/PyQCU/test/pyqcu/cuda/define.py", line 8, in <module>
-Set pointers: [0 0 0 0 0 0 0 0 0 0]
-Set pointers data: <memory at 0x14e894b1c400>
-Parameters: [-3.5e+00  1.0e-09  1.0e-01]
-[     32      32      32      32 1048576       2       2       2       2
-       0       0      16       0   10000       3       0       1       4
-       4       4       8      24       1      42]
-Arguments: Arguments data: <memory at 0x1501e6318400>
-Set pointers: [0.e+00 1.e-09 1.e-01]
-My rank is  0
-[0 0 0 0 0 0 0 0 0 0]
-Set pointers data: cp.cuda.Device().id:0
-Gauge filename: quda_wilson-bistabcg-gauge_-32-32-32-32-1048576-1-1-1-1-0-0-1-0-f.h5
-<memory at 0x1501e6318400>
-Parameters: Parameters: [     32      32      32      32 1048576       2       2       2       2
        0       2      16       0   10000       3       0       1       4
        4       4       8      24       1      42]
 Arguments: [     32      32      32      32 1048576       2       2       2       2
-       0       3      16       0   10000       3       0       0       4
+       0       4      16       0   10000       3       0       1       4
        4       4       8      24       1      42]
-Parameters data: <memory at 0x153717320400>
-Arguments: [0.e+00 1.e-09 1.e-01]
-My rank is  2
-cp.cuda.Device().id:2
-Gauge filename: quda_wilson-bistabcg-gauge_-32-32-32-32-1048576-1-1-1-1-0-0-1-0-f.h5
-[-3.5e+00  1.0e-09  1.0e-01]
-Arguments data: <memory at 0x153717320400>
-Set pointers: [0 0 0 0 0 0 0 0 0 0]
-Set pointers data: <memory at 0x153717320400>
-Parameters: [     32      32      32      32 1048576       2       2       2       2
-       0       3      16       0   10000       3       0       1       4
+Arguments: [     32      32      32      32 1048576       2       2       2       2
+       0       7      16       0   10000       3       0       1       4
        4       4       8      24       1      42]
 Arguments: [0.e+00 1.e-09 1.e-01]
+My rank is  1
+[0.e+00 1.e-09 1.e-01]
+My rank is  0
+[0.e+00 1.e-09 1.e-01]
 My rank is  3
+[0.e+00 1.e-09 1.e-01]
+My rank is  6
+[0.e+00 1.e-09 1.e-01]
+My rank is  5
+cp.cuda.Device().id:1
+Gauge filename: quda_wilson-bistabcg-gauge_-32-32-32-32-1048576-1-1-1-1-0-0-1-0-f.h5
+[0.e+00 1.e-09 1.e-01]
+My rank is  2
+cp.cuda.Device().id:0
+Gauge filename: quda_wilson-bistabcg-gauge_-32-32-32-32-1048576-1-1-1-1-0-0-1-0-f.h5
+[0.e+00 1.e-09 1.e-01]
+My rank is  4
 cp.cuda.Device().id:3
 Gauge filename: quda_wilson-bistabcg-gauge_-32-32-32-32-1048576-1-1-1-1-0-0-1-0-f.h5
+[0.e+00 1.e-09 1.e-01]
+My rank is  7
+cp.cuda.Device().id:6
+Gauge filename: quda_wilson-bistabcg-gauge_-32-32-32-32-1048576-1-1-1-1-0-0-1-0-f.h5
+cp.cuda.Device().id:5
+Gauge filename: quda_wilson-bistabcg-gauge_-32-32-32-32-1048576-1-1-1-1-0-0-1-0-f.h5
+cp.cuda.Device().id:2
+Gauge filename: quda_wilson-bistabcg-gauge_-32-32-32-32-1048576-1-1-1-1-0-0-1-0-f.h5
+cp.cuda.Device().id:4
+Gauge filename: quda_wilson-bistabcg-gauge_-32-32-32-32-1048576-1-1-1-1-0-0-1-0-f.h5
+cp.cuda.Device().id:7
+Gauge filename: quda_wilson-bistabcg-gauge_-32-32-32-32-1048576-1-1-1-1-0-0-1-0-f.h5
+Traceback (most recent call last):
+  File "/public/home/zhangxin80699/PyQCU/test/./test.wilson.bistacg-test6.py", line 2, in <module>
+Traceback (most recent call last):
+  File "/public/home/zhangxin80699/PyQCU/test/./test.wilson.bistacg-test6.py", line 2, in <module>
+Traceback (most recent call last):
+  File "/public/home/zhangxin80699/PyQCU/test/./test.wilson.bistacg-test6.py", line 2, in <module>
+Traceback (most recent call last):
+  File "/public/home/zhangxin80699/PyQCU/test/./test.wilson.bistacg-test6.py", line 2, in <module>
+Traceback (most recent call last):
+  File "/public/home/zhangxin80699/PyQCU/test/./test.wilson.bistacg-test6.py", line 2, in <module>
+Traceback (most recent call last):
+  File "/public/home/zhangxin80699/PyQCU/test/./test.wilson.bistacg-test6.py", line 2, in <module>
+Traceback (most recent call last):
+  File "/public/home/zhangxin80699/PyQCU/test/./test.wilson.bistacg-test6.py", line 2, in <module>
+Traceback (most recent call last):
+  File "/public/home/zhangxin80699/PyQCU/test/./test.wilson.bistacg-test6.py", line 2, in <module>
+    from pyqcu.cuda import define
+  File "/public/home/zhangxin80699/PyQCU/test/pyqcu/cuda/define.py", line 8, in <module>
+    from pyqcu.cuda import define
+  File "/public/home/zhangxin80699/PyQCU/test/pyqcu/cuda/define.py", line 8, in <module>
+    from pyqcu.cuda import define
+  File "/public/home/zhangxin80699/PyQCU/test/pyqcu/cuda/define.py", line 8, in <module>
+    from pyqcu.cuda import define
+  File "/public/home/zhangxin80699/PyQCU/test/pyqcu/cuda/define.py", line 8, in <module>
+    from pyqcu.cuda import define
+  File "/public/home/zhangxin80699/PyQCU/test/pyqcu/cuda/define.py", line 8, in <module>
+    from pyqcu.cuda import define
+  File "/public/home/zhangxin80699/PyQCU/test/pyqcu/cuda/define.py", line 8, in <module>
+    from pyqcu.cuda import define
+  File "/public/home/zhangxin80699/PyQCU/test/pyqcu/cuda/define.py", line 8, in <module>
+    from pyqcu.cuda import define
+  File "/public/home/zhangxin80699/PyQCU/test/pyqcu/cuda/define.py", line 8, in <module>
     cp.cuda.Device(rank).use()
   File "cupy/cuda/device.pyx", line 192, in cupy.cuda.device.Device.use
     cp.cuda.Device(rank).use()
@@ -461,7 +461,7 @@ Gauge filename: quda_wilson-bistabcg-gauge_-32-32-32-32-1048576-1-1-1-1-0-0-1-0-
   File "cupy_backends/cuda/api/runtime.pyx", line 144, in cupy_backends.cuda.api.runtime.check_status
   File "cupy_backends/cuda/api/runtime.pyx", line 144, in cupy_backends.cuda.api.runtime.check_status
   File "cupy_backends/cuda/api/runtime.pyx", line 144, in cupy_backends.cuda.api.runtime.check_status
-  File "cupy_backends/cuda/api/runtime.pyx", line 144, in cupy_backends.cuda.api.runtime.check_status
+cupy_backends.cuda.api.runtime.  File "cupy_backends/cuda/api/runtime.pyx", line 144, in cupy_backends.cuda.api.runtime.check_status
 cupy_backends.cuda.api.runtime.CUDARuntimeError: hipErrorInvalidDevice: invalid device ordinal
 cupy_backends.cuda.api.runtime.CUDARuntimeError: hipErrorInvalidDevice: invalid device ordinal
 cupy_backends.cuda.api.runtime.CUDARuntimeError: hipErrorInvalidDevice: invalid device ordinal
@@ -469,6 +469,4 @@ cupy_backends.cuda.api.runtime.CUDARuntimeError: hipErrorInvalidDevice: invalid 
 cupy_backends.cuda.api.runtime.CUDARuntimeError: hipErrorInvalidDevice: invalid device ordinal
 cupy_backends.cuda.api.runtime.CUDARuntimeError: hipErrorInvalidDevice: invalid device ordinal
 cupy_backends.cuda.api.runtime.CUDARuntimeError: hipErrorInvalidDevice: invalid device ordinal
-cupy_backends.cuda.api.runtime.CUDARuntimeError: hipErrorInvalidDevice: invalid device ordinal
-Abort is in progress...hit ctrl-c again to forcibly terminate
-
+CUDARuntimeError: hipErrorInvalidDevice: invalid device ordinal
