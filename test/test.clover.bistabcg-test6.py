@@ -5,7 +5,7 @@ from pyqcu.cuda import io
 from pyqcu.cuda import qcu
 from pyqcu.cuda.set import params, argv, set_ptrs
 #############################
-params[define._LAT_X_] = 64
+params[define._LAT_X_] = 32
 params[define._LAT_Y_] = 64
 params[define._LAT_Z_] = 64
 params[define._LAT_T_] = 64
