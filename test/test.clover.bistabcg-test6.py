@@ -11,7 +11,7 @@ params[define._SET_PLAN_] = 2
 params[define._DATA_TYPE_] = define._LAT_C64_
 params[define._VERBOSE_] = 1
 params[define._PARITY_] = 0
-gauge_filename = f"quda_wilson-clover-dslash-gauge_-{params[define._LAT_X_]}-{params[define._LAT_Y_]}-{params  [define._LAT_Z_]}-{params[define._LAT_T_]}-{params[define._LAT_XYZT_]}-{params[define._GRID_X_]}-{params[define._GRID_Y_]}-{params[define._GRID_Z_]}-{params[define._GRID_T_]}-{params[define._PARITY_]}-{params[define._NODE_RANK_]}-{params[define._NODE_SIZE_]}-{params[define._DAGGER_]}-f.h5"
+gauge_filename = f"quda_wilson-bistabcg-gauge_-32-32-32-32-1048576-1-1-1-1-0-0-1-0-f.h5"
 print("Parameters:", params)
 #############################
 print("Gauge filename:", gauge_filename)
@@ -28,7 +28,6 @@ print("Fermion out data:", fermion_out.data)
 print("Fermion out shape:", fermion_out.shape)
 #############################
 qcu.applyInitQcu(set_ptrs, params, argv)
-# qcu.applyWilsonDslashQcu(fermion_out, fermion_in, gauge, set_ptrs, params)
 qcu.applyCloverDslashQcu(fermion_out, fermion_in, gauge, set_ptrs, params)
 qcu.applyEndQcu(set_ptrs, params)
 #############################
