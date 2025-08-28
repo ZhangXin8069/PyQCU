@@ -887,6 +887,11 @@ namespace qcu
     int lat_tzyx = static_cast<int *>(device_params)[_LAT_XYZT_];
     {
       int idx = blockIdx.x * blockDim.x + threadIdx.x;
+      if (idx == 0)
+      {
+        printf("long long device_clover:%lld\n", (long long)device_clover);
+        printf("long long device_dest:%lld\n", (long long)device_dest);
+      }
       origin_clover = ((static_cast<LatticeComplex<T> *>(device_clover)) + idx);
       origin_dest = ((static_cast<LatticeComplex<T> *>(device_dest)) + idx);
     }
