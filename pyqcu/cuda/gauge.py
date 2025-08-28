@@ -6,6 +6,7 @@ import pyqcu.cuda.io as io
 from math import sqrt
 from typing import Tuple, Optional
 
+
 def get_gell_mann_matrices(dtype):
     lambda1 = cp.array([[0, 1, 0],
                         [1, 0, 0],
