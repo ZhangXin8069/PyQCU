@@ -1,14 +1,14 @@
 import cupy as cp
 from pyqcu.cuda import define
 from pyqcu.cuda import io
-import pyqcu.cuda.gauge as Gauge
+# import pyqcu.cuda.gauge as Gauge
 from pyqcu.cuda import qcu
 from pyqcu.cuda.set import params, argv, set_ptrs
 #############################
 params[define._LAT_X_] = 16
 params[define._LAT_Y_] = 16
 params[define._LAT_Z_] = 16
-params[define._LAT_T_] = 32
+params[define._LAT_T_] = 16
 params[define._LAT_XYZT_] = params[define._LAT_X_] * \
     params[define._LAT_Y_]*params[define._LAT_Z_]*params[define._LAT_T_]
 params[define._GRID_X_], params[define._GRID_Y_], params[define._GRID_Z_], params[
@@ -18,17 +18,23 @@ params[define._MAX_ITER_] = 1000
 argv[define._MASS_] = 0.05
 argv = argv.astype(define.dtype_half(params[define._DATA_TYPE_]))
 #############################
-io.give_none_gauge(params, "gauge.h5")
-io.give_none_clover(params, "clover.h5")
-io.give_none_fermion_in(params, "fermion_in.h5")
-#############################
-gauge = io.hdf5_xxxtzyx2grid_xxxtzyx(params, "gauge.h5")
-clover = io.hdf5_xxxtzyx2grid_xxxtzyx(params, "clover.h5")
-fermion_in = io.hdf5_xxxtzyx2grid_xxxtzyx(params, "fermion_in.h5")
+gauge = io.get_or_give(params, "gauge.h5")
+clover = io.get_or_give(params, "clover.h5")
+fermion_in = io.get_or_give(params, "fermion_in.h5")
 #############################
 params[define._VERBOSE_] = 1
 params[define._SET_INDEX_] += 1
 params[define._SET_PLAN_] = 0
+#############################
+gauge = cp.zeros_like(gauge)
+fermion_in = cp.ones_like(fermion_in)
+fermion_in = cp.random.randn(fermion_in.size).astype(
+    fermion_in.dtype).reshape(fermion_in.shape)
+fermion_out = cp.zeros_like(fermion_in)
+clover_ee = cp.zeros_like(clover)
+clover_ee_inv = cp.zeros_like(clover)
+clover_oo = cp.zeros_like(clover)
+clover_oo_inv = cp.zeros_like(clover)
 #############################
 # _gauge = cp.zeros_like(gauge)
 # qcu.applyInitQcu(set_ptrs, params, argv)
@@ -43,16 +49,7 @@ qcu.applyEndQcu(set_ptrs, params)
 # gauge = Gauge.give_gauss_SU3(
 #     dtype=gauge.dtype, size=gauge.size//define._LAT_CC_).transpose(1, 2, 0).reshape(gauge.shape)
 #############################
-Gauge.test_su3(gauge[:, :, -1, -1, -1, -1, -1, -1])
-#############################
-fermion_in = cp.ones_like(fermion_in)
-fermion_in = cp.random.randn(fermion_in.size).astype(
-    fermion_in.dtype).reshape(fermion_in.shape)
-fermion_out = cp.zeros_like(fermion_in)
-clover_ee = cp.zeros_like(clover)
-clover_ee_inv = cp.zeros_like(clover)
-clover_oo = cp.zeros_like(clover)
-clover_oo_inv = cp.zeros_like(clover)
+# Gauge.test_su3(gauge[:, :, -1, -1, -1, -1, -1, -1])
 #############################
 params[define._VERBOSE_] = 1
 params[define._SET_INDEX_] += 1
@@ -109,8 +106,8 @@ qcu.applyCloverBistabCgQcu(fermion_out, fermion_in,
                            gauge, clover_ee, clover_oo, clover_ee_inv, clover_oo_inv,  set_ptrs, params)
 qcu.applyEndQcu(set_ptrs, params)
 # #############################
-io.grid_xxxtzyx2hdf5_xxxtzyx(gauge, params, "gauge.h5")
-io.grid_xxxtzyx2hdf5_xxxtzyx(clover, params, "clover.h5")
-io.grid_xxxtzyx2hdf5_xxxtzyx(fermion_in, params, "fermion_in.h5")
-io.grid_xxxtzyx2hdf5_xxxtzyx(fermion_out, params, "fermion_out.h5")
+io.try_give(gauge, params, "gauge.h5")
+io.try_give(clover, params, "clover.h5")
+io.try_give(fermion_in, params, "fermion_in.h5")
+io.try_give(fermion_out, params, "fermion_out.h5")
 #############################
