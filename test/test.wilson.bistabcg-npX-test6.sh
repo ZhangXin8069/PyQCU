@@ -1,5 +1,5 @@
 pushd ../
-source ./env.sh
+# source ./env.sh
 #bash ./install.sh
 popd
 # mpirun -np 1 python -u ./test.wilson.bistabcg-test6.py >test.wilson.bistabcg-np1-test6.log 2>&1
