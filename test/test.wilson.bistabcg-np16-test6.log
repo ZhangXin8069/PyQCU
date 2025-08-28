@@ -1,1 +1,179 @@
-test.wilson.bistabcg-npX-test6.sh:行5: mpirun: 未找到命令
+@My Rank:10/16@
+
+@My Rank:14/16@
+
+@My Rank:12/16@
+
+@My Rank:15/16@
+
+@My Rank:13/16@
+
+@My Rank:11/16@
+
+@My Rank:9/16@
+
+@My Rank:8/16@
+
+@My Rank:1/16@
+
+@My Rank:7/16@
+
+@My Rank:6/16@
+
+@My Rank:4/16@
+
+@My Rank:5/16@
+
+@My Rank:2/16@
+
+@My Rank:3/16@
+
+@My Rank:0/16@
+
+Traceback (most recent call last):
+  File "/public/home/zhangxin80699/PyQCU/test/./test.wilson.bistabcg-test6.py", line 2, in <module>
+    from pyqcu.cuda import define
+  File "/public/home/zhangxin80699/PyQCU/test/pyqcu/cuda/define.py", line 9, in <module>
+Traceback (most recent call last):
+  File "/public/home/zhangxin80699/PyQCU/test/./test.wilson.bistabcg-test6.py", line 2, in <module>
+Traceback (most recent call last):
+  File "/public/home/zhangxin80699/PyQCU/test/./test.wilson.bistabcg-test6.py", line 2, in <module>
+Traceback (most recent call last):
+  File "/public/home/zhangxin80699/PyQCU/test/./test.wilson.bistabcg-test6.py", line 2, in <module>
+    from pyqcu.cuda import define
+  File "/public/home/zhangxin80699/PyQCU/test/pyqcu/cuda/define.py", line 9, in <module>
+    from pyqcu.cuda import define
+  File "/public/home/zhangxin80699/PyQCU/test/pyqcu/cuda/define.py", line 9, in <module>
+    from pyqcu.cuda import define
+  File "/public/home/zhangxin80699/PyQCU/test/pyqcu/cuda/define.py", line 9, in <module>
+Traceback (most recent call last):
+  File "/public/home/zhangxin80699/PyQCU/test/./test.wilson.bistabcg-test6.py", line 2, in <module>
+Traceback (most recent call last):
+  File "/public/home/zhangxin80699/PyQCU/test/./test.wilson.bistabcg-test6.py", line 2, in <module>
+    from pyqcu.cuda import define
+  File "/public/home/zhangxin80699/PyQCU/test/pyqcu/cuda/define.py", line 9, in <module>
+    from pyqcu.cuda import define
+  File "/public/home/zhangxin80699/PyQCU/test/pyqcu/cuda/define.py", line 9, in <module>
+Traceback (most recent call last):
+  File "/public/home/zhangxin80699/PyQCU/test/./test.wilson.bistabcg-test6.py", line 2, in <module>
+    from pyqcu.cuda import define
+  File "/public/home/zhangxin80699/PyQCU/test/pyqcu/cuda/define.py", line 9, in <module>
+Traceback (most recent call last):
+  File "/public/home/zhangxin80699/PyQCU/test/./test.wilson.bistabcg-test6.py", line 2, in <module>
+    cp.cuda.Device(rank).use()
+  File "cupy/cuda/device.pyx", line 192, in cupy.cuda.device.Device.use
+    cp.cuda.Device(rank).use()
+    cp.cuda.Device(rank).use()
+  File "cupy/cuda/device.pyx", line 192, in cupy.cuda.device.Device.use
+  File "cupy/cuda/device.pyx", line 192, in cupy.cuda.device.Device.use
+    cp.cuda.Device(rank).use()
+  File "cupy/cuda/device.pyx", line 192, in cupy.cuda.device.Device.use
+    cp.cuda.Device(rank).use()
+  File "cupy/cuda/device.pyx", line 192, in cupy.cuda.device.Device.use
+    cp.cuda.Device(rank).use()
+  File "cupy/cuda/device.pyx", line 192, in cupy.cuda.device.Device.use
+    cp.cuda.Device(rank).use()
+  File "cupy/cuda/device.pyx", line 192, in cupy.cuda.device.Device.use
+    from pyqcu.cuda import define
+  File "/public/home/zhangxin80699/PyQCU/test/pyqcu/cuda/define.py", line 9, in <module>
+    cp.cuda.Device(rank).use()
+  File "cupy/cuda/device.pyx", line 192, in cupy.cuda.device.Device.use
+  File "cupy/cuda/device.pyx", line 198, in cupy.cuda.device.Device.use
+  File "cupy/cuda/device.pyx", line 198, in cupy.cuda.device.Device.use
+  File "cupy/cuda/device.pyx", line 198, in cupy.cuda.device.Device.use
+  File "cupy/cuda/device.pyx", line 198, in cupy.cuda.device.Device.use
+  File "cupy/cuda/device.pyx", line 198, in cupy.cuda.device.Device.use
+  File "cupy/cuda/device.pyx", line 198, in cupy.cuda.device.Device.use
+  File "cupy/cuda/device.pyx", line 198, in cupy.cuda.device.Device.use
+  File "cupy/cuda/device.pyx", line 198, in cupy.cuda.device.Device.use
+  File "cupy_backends/cuda/api/runtime.pyx", line 375, in cupy_backends.cuda.api.runtime.setDevice
+  File "cupy_backends/cuda/api/runtime.pyx", line 375, in cupy_backends.cuda.api.runtime.setDevice
+  File "cupy_backends/cuda/api/runtime.pyx", line 375, in cupy_backends.cuda.api.runtime.setDevice
+  File "cupy_backends/cuda/api/runtime.pyx", line 375, in cupy_backends.cuda.api.runtime.setDevice
+  File "cupy_backends/cuda/api/runtime.pyx", line 375, in cupy_backends.cuda.api.runtime.setDevice
+  File "cupy_backends/cuda/api/runtime.pyx", line 375, in cupy_backends.cuda.api.runtime.setDevice
+  File "cupy_backends/cuda/api/runtime.pyx", line 375, in cupy_backends.cuda.api.runtime.setDevice
+  File "cupy_backends/cuda/api/runtime.pyx", line 375, in cupy_backends.cuda.api.runtime.setDevice
+  File "cupy_backends/cuda/api/runtime.pyx", line 144, in cupy_backends.cuda.api.runtime.check_status
+  File "cupy_backends/cuda/api/runtime.pyx", line 144, in cupy_backends.cuda.api.runtime.check_status
+  File "cupy_backends/cuda/api/runtime.pyx", line 144, in cupy_backends.cuda.api.runtime.check_status
+  File "cupy_backends/cuda/api/runtime.pyx", line 144, in cupy_backends.cuda.api.runtime.check_status
+  File "cupy_backends/cuda/api/runtime.pyx", line 144, in cupy_backends.cuda.api.runtime.check_status
+  File "cupy_backends/cuda/api/runtime.pyx", line 144, in cupy_backends.cuda.api.runtime.check_status
+  File "cupy_backends/cuda/api/runtime.pyx", line 144, in cupy_backends.cuda.api.runtime.check_status
+  File "cupy_backends/cuda/api/runtime.pyx", line 144, in cupy_backends.cuda.api.runtime.check_status
+cupy_backends.cuda.api.runtimecupy_backends.cuda.api.runtime.CUDARuntimeError: hipErrorInvalidDevice: invalid device ordinal
+cupy_backends.cuda.api.runtime.CUDARuntimeError: hipErrorInvalidDevice: invalid device ordinal
+cupy_backends.cuda.api.runtime.CUDARuntimeError: hipErrorInvalidDevice: invalid device ordinal
+cupy_backends.cuda.api.runtime.CUDARuntimeError: hipErrorInvalidDevice: invalid device ordinal
+cupy_backends.cuda.api.runtime.CUDARuntimeError: hipErrorInvalidDevice: invalid device ordinal
+cupy_backends.cuda.api.runtime.CUDARuntimeError: hipErrorInvalidDevice: invalid device ordinal
+cupy_backends.cuda.api.runtime.CUDARuntimeError: hipErrorInvalidDevice: invalid device ordinal
+.CUDARuntimeError: hipErrorInvalidDevice: invalid device ordinal
+Parameters: Parameters: Parameters: Parameters: Parameters: Parameters: Parameters: Parameters: [     32      32      32      32 1048576       2       2       2       2
+       0       7      16       0    1000       3       0       1       4
+       4       4       8      24       1      42]
+Arguments: [     32      32      32      32 1048576       2       2       2       2
+       0       1      16       0    1000       3       0       1       4
+       4       4       8      24       1      42]
+Arguments: [     32      32      32      32 1048576       2       2       2       2
+       0       5      16       0    1000       3       0       1       4
+       4       4       8      24       1      42]
+Arguments: [     32      32      32      32 1048576       2       2       2       2
+       0       3      16       0    1000       3       0       1       4
+       4       4       8      24       1      42]
+Arguments: [     32      32      32      32 1048576       2       2       2       2
+       0       4      16       0    1000       3       0       1       4
+       4       4       8      24       1      42]
+Arguments: [     32      32      32      32 1048576       2       2       2       2
+       0       0      16       0    1000       3       0       1       4
+       4       4       8      24       1      42]
+Arguments: [     32      32      32      32 1048576       2       2       2       2
+       0       6      16       0    1000       3       0       1       4
+       4       4       8      24       1      42]
+Arguments: [     32      32      32      32 1048576       2       2       2       2
+       0       2      16       0    1000       3       0       1       4
+       4       4       8      24       1      42]
+Arguments: [0.e+00 1.e-09 1.e-01]
+My rank is  7
+[0.e+00 1.e-09 1.e-01]
+My rank is  1
+[0.e+00 1.e-09 1.e-01]
+cp.cuda.Device().id:7
+Gauge filename: quda_wilson-bistabcg-gauge_-32-32-32-32-1048576-1-1-1-1-0-0-1-0-f.h5
+My rank is  5
+cp.cuda.Device().id:1
+Gauge filename: quda_wilson-bistabcg-gauge_-32-32-32-32-1048576-1-1-1-1-0-0-1-0-f.h5
+[0.e+00 1.e-09 1.e-01]
+My rank is  3
+cp.cuda.Device().id:3
+Gauge filename: quda_wilson-bistabcg-gauge_-32-32-32-32-1048576-1-1-1-1-0-0-1-0-f.h5
+cp.cuda.Device().id:5
+Gauge filename: quda_wilson-bistabcg-gauge_-32-32-32-32-1048576-1-1-1-1-0-0-1-0-f.h5
+[0.e+00 1.e-09 1.e-01]
+My rank is  4
+cp.cuda.Device().id:4
+Gauge filename: quda_wilson-bistabcg-gauge_-32-32-32-32-1048576-1-1-1-1-0-0-1-0-f.h5
+[0.e+00 1.e-09 1.e-01]
+My rank is  0
+[0.e+00 1.e-09 1.e-01]
+My rank is  6
+cp.cuda.Device().id:0
+Gauge filename: quda_wilson-bistabcg-gauge_-32-32-32-32-1048576-1-1-1-1-0-0-1-0-f.h5
+[0.e+00 1.e-09 1.e-01]
+My rank is  2
+cp.cuda.Device().id:6
+Gauge filename: quda_wilson-bistabcg-gauge_-32-32-32-32-1048576-1-1-1-1-0-0-1-0-f.h5
+cp.cuda.Device().id:2
+Gauge filename: quda_wilson-bistabcg-gauge_-32-32-32-32-1048576-1-1-1-1-0-0-1-0-f.h5
+--------------------------------------------------------------------------
+PRTE has lost communication with a remote daemon.
+
+  HNP daemon   : [prterun-b10r4n09-1446743@0,0] on node b10r4n09
+  Remote daemon: [prterun-b10r4n09-1446743@0,5] on node b10r4n14
+
+This is usually due to either a failure of the TCP network
+connection to the node, or possibly an internal failure of
+the daemon itself. We cannot recover from this failure, and
+therefore will terminate the job.
+--------------------------------------------------------------------------
