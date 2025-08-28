@@ -465,3 +465,78 @@ def clover2I(input_array):
     dest = dest.transpose(1, 2, 0)
     print(f"Dest Shape: {dest.shape}")
     return dest.reshape(input_array.shape)
+
+
+def give_none_gauge(params, file_name='gauge.h5'):
+    dtype = define.dtype(_data_type_=params[define._DATA_TYPE_])
+    lat_t = params[define._LAT_T_]
+    lat_z = params[define._LAT_Z_]
+    lat_y = params[define._LAT_Y_]
+    lat_x = int(params[define._LAT_X_]/define._LAT_P_)
+    grid_t = params[define._GRID_T_]
+    grid_z = params[define._GRID_Z_]
+    grid_y = params[define._GRID_Y_]
+    grid_x = params[define._GRID_X_]
+    grid_lat_t = lat_t//grid_t
+    grid_lat_z = lat_z//grid_z
+    grid_lat_y = lat_y//grid_y
+    grid_lat_x = lat_x//grid_x
+    none_gauge = cp.zeros(shape=[define._LAT_C_, define._LAT_C_, define._LAT_D_,
+                          define._LAT_P_, grid_lat_t, grid_lat_z, grid_lat_y, grid_lat_x], dtype=dtype)
+    grid_xxxtzyx2hdf5_xxxtzyx(none_gauge, params, file_name=file_name)
+
+
+def give_none_clover(params, file_name='clover.h5'):
+    dtype = define.dtype(_data_type_=params[define._DATA_TYPE_])
+    lat_t = params[define._LAT_T_]
+    lat_z = params[define._LAT_Z_]
+    lat_y = params[define._LAT_Y_]
+    lat_x = int(params[define._LAT_X_]/define._LAT_P_)
+    grid_t = params[define._GRID_T_]
+    grid_z = params[define._GRID_Z_]
+    grid_y = params[define._GRID_Y_]
+    grid_x = params[define._GRID_X_]
+    grid_lat_t = lat_t//grid_t
+    grid_lat_z = lat_z//grid_z
+    grid_lat_y = lat_y//grid_y
+    grid_lat_x = lat_x//grid_x
+    none_clover = cp.zeros(shape=[define._LAT_S_, define._LAT_C_, define._LAT_S_,
+                          define._LAT_C_, grid_lat_t, grid_lat_z, grid_lat_y, grid_lat_x], dtype=dtype)
+    grid_xxxtzyx2hdf5_xxxtzyx(none_clover, params, file_name=file_name)
+
+def give_none_fermion_in(params, file_name='fermion_in.h5'):
+    dtype = define.dtype(_data_type_=params[define._DATA_TYPE_])
+    lat_t = params[define._LAT_T_]
+    lat_z = params[define._LAT_Z_]
+    lat_y = params[define._LAT_Y_]
+    lat_x = int(params[define._LAT_X_]/define._LAT_P_)
+    grid_t = params[define._GRID_T_]
+    grid_z = params[define._GRID_Z_]
+    grid_y = params[define._GRID_Y_]
+    grid_x = params[define._GRID_X_]
+    grid_lat_t = lat_t//grid_t
+    grid_lat_z = lat_z//grid_z
+    grid_lat_y = lat_y//grid_y
+    grid_lat_x = lat_x//grid_x
+    none_fermion_in = cp.zeros(shape=[define._LAT_P_, define._LAT_S_, define._LAT_C_,
+                                      grid_lat_t, grid_lat_z, grid_lat_y, grid_lat_x], dtype=dtype)
+    grid_xxxtzyx2hdf5_xxxtzyx(none_fermion_in, params, file_name=file_name)
+
+
+def give_none_fermion_out(params, file_name='fermion_out.h5'):
+    dtype = define.dtype(_data_type_=params[define._DATA_TYPE_])
+    lat_t = params[define._LAT_T_]
+    lat_z = params[define._LAT_Z_]
+    lat_y = params[define._LAT_Y_]
+    lat_x = int(params[define._LAT_X_]/define._LAT_P_)
+    grid_t = params[define._GRID_T_]
+    grid_z = params[define._GRID_Z_]
+    grid_y = params[define._GRID_Y_]
+    grid_x = params[define._GRID_X_]
+    grid_lat_t = lat_t//grid_t
+    grid_lat_z = lat_z//grid_z
+    grid_lat_y = lat_y//grid_y
+    grid_lat_x = lat_x//grid_x
+    none_fermion_out = cp.zeros(shape=[define._LAT_P_, define._LAT_S_, define._LAT_C_,
+                                       grid_lat_t, grid_lat_z, grid_lat_y, grid_lat_x], dtype=dtype)
+    grid_xxxtzyx2hdf5_xxxtzyx(none_fermion_out, params, file_name=file_name)
