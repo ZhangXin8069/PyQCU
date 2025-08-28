@@ -5,8 +5,9 @@ import mpi4py.MPI as MPI
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 size = comm.Get_size()
-print(f"@My Rank:{rank}/{size}, Local Rank:{int(os.environ['LOCAL_RANK'])}@\n")
-cp.cuda.Device(int(os.environ['LOCAL_RANK'])).use()
+local_rank = int(os.environ.get("LOCAL_RANK", 0))
+print(f"@My Rank:{rank}/{size}, Local Rank:{local_rank}@\n")
+cp.cuda.Device(local_rank).use()
 # Copy from ../extern/cuda/qcu/include/defin.h
 _BLOCK_SIZE_ = 128
 _MAIN_RANK_ = 0
