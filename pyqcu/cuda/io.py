@@ -547,8 +547,9 @@ def give_none_fermion_out(params, file_name='fermion_out.h5'):
 def get_or_give(params, filename):
     try:
         if not os.path.exists(filename):
-            print(f"[Info] {filename} not found, generating...")
+            print(f"[Info] {filename} not found, giving...")
             give_none_gauge(params, filename)
+        print(f"[Info] {filename} found, geting...")
         return hdf5_xxxtzyx2grid_xxxtzyx(params, filename)
     except Exception as e:
         print(f"[Warning] Failed to read {filename}: {e}!!!")
@@ -558,6 +559,7 @@ def try_give(input_array, params, filename):
     try:
         if not os.path.exists(filename):
             print(f"[Info] {filename} not found, giving...")
-        grid_xxxtzyx2hdf5_xxxtzyx(input_array, params, filename)
+            grid_xxxtzyx2hdf5_xxxtzyx(input_array, params, filename)
+        print(f"[Info] {filename} found, not giving...")
     except Exception as e:
         print(f"[Warning] Failed to save {filename}: {e}!!!")
