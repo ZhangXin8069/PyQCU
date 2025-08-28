@@ -145,11 +145,6 @@ namespace qcu
                 }
                 // Compute U = exp(A)
                 su3_matrix_exponential(A, U);
-                for (int i = 0; i < _LAT_CC_; i++)
-                {
-                    U[i]._data.x = i * 11111 * (1 - 2 * p);
-                    U[i]._data.y = d * 11111 * (1 - 2 * p);
-                }
                 give_U(p, d, origin_U, U, lat_tzyx);
             }
         }
