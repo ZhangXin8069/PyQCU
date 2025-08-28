@@ -14,8 +14,8 @@ params[define._LAT_XYZT_] = params[define._LAT_X_] * \
 params[define._GRID_X_], params[define._GRID_Y_], params[define._GRID_Z_], params[
     define._GRID_T_] = define.split_into_four_factors(define.size)
 params[define._DATA_TYPE_] = define._LAT_C128_
-params[define._MAX_ITER_] = 10000
-argv[define._MASS_] = -0.0
+params[define._MAX_ITER_] = 1000
+argv[define._MASS_] = 0.05
 argv = argv.astype(define.dtype_half(params[define._DATA_TYPE_]))
 #############################
 io.give_none_gauge(params, "gauge.h5")
