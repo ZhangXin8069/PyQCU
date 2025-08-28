@@ -127,7 +127,8 @@ namespace qcu
                     cudaEventSynchronize(start);
                     checkMpiErrors(MPI_Comm_rank(MPI_COMM_WORLD, host_params + _NODE_RANK_));
                     checkMpiErrors(MPI_Comm_size(MPI_COMM_WORLD, host_params + _NODE_SIZE_));
-                    checkCudaErrors(cudaSetDevice(host_params[_NODE_RANK_])); // !!!!!!
+                    // checkCudaErrors(cudaSetDevice(host_params[_NODE_RANK_])); // !!!!!!
+                    checkCudaErrors(cudaSetDevice(getLocalRank())); // !!!!!!
                     grid_2dim[_XY_] = host_params[_GRID_X_] * host_params[_GRID_Y_];
                     grid_2dim[_XZ_] = host_params[_GRID_X_] * host_params[_GRID_Z_];
                     grid_2dim[_XT_] = host_params[_GRID_X_] * host_params[_GRID_T_];
