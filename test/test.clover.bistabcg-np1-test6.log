@@ -1,8 +1,8 @@
 Error: cannot import name 'expm' from 'cupyx.scipy.linalg' (/public/home/zhangxin80699/.local/lib/python3.10/site-packages/cupyx/scipy/linalg/__init__.py)
 @My Rank:0/1, Local Rank:0@
 
-set_ptr:0x5556b56b51c0
-long long set_ptr:93830899257792
+set_ptr:0x55a063c79880
+long long set_ptr:94147357153408
 gridDim.x               :16384
 blockDim.x              :256
 host_params[_LAT_X_]    :16
@@ -88,10 +88,10 @@ move_wards[_FX_FT_]     :0
 move_wards[_FY_FZ_]     :0
 move_wards[_FY_FT_]     :0
 move_wards[_FZ_FT_]     :0
-lattice set init total time:3.188819601 sec
-multi-gpu make gauss gauge total time: (with malloc free memcpy) :0.068596700 sec
-set_ptr:0x5556b56b51c0
-long long set_ptr:93830899257792
+lattice set init total time:3.315521991 sec
+multi-gpu make gauss gauge total time: (with malloc free memcpy) :0.069717178 sec
+set_ptr:0x55a063c79880
+long long set_ptr:94147357153408
 gridDim.x               :16384
 blockDim.x              :256
 host_params[_LAT_X_]    :16
@@ -177,10 +177,10 @@ move_wards[_FX_FT_]     :0
 move_wards[_FY_FZ_]     :0
 move_wards[_FY_FT_]     :0
 move_wards[_FZ_FT_]     :0
-lattice set whole time:3.275911377 sec
-lattice set end total time:0.018454862 sec
-set_ptr:0x5556bca7bff0
-long long set_ptr:93831020658672
+lattice set whole time:3.401587402 sec
+lattice set end total time:0.016299855 sec
+set_ptr:0x55a06b04ae30
+long long set_ptr:94147478597168
 gridDim.x               :16384
 blockDim.x              :256
 host_params[_LAT_X_]    :16
@@ -266,10 +266,10 @@ move_wards[_FX_FT_]     :0
 move_wards[_FY_FZ_]     :0
 move_wards[_FY_FT_]     :0
 move_wards[_FZ_FT_]     :0
-lattice set init total time:0.580673542 sec
+lattice set init total time:0.608580905 sec
 ##RANK:0##LOOP:152##Residual:(8.80987e-13,0i)
-multi-gpu wilson bistabcg total time: (without malloc free memcpy) :6.718160896 sec
-######TIME  :7477.23######
+multi-gpu wilson bistabcg total time: (without malloc free memcpy) :6.709556736 sec
+######TIME  :7470.98######
 ##RANK      :0
 ##LOOP      :0
 ##tmp0      :(8.1877e-14,-1.34988e-14i)
@@ -283,8 +283,8 @@ multi-gpu wilson bistabcg total time: (without malloc free memcpy) :6.718160896 
 ##norm2_tmp :(1.96745e+08,0i)
 ##diff_tmp  :(1.39699e-11,0i)
 ##lat_4dim  :(4.1943e+06,0i)
-set_ptr:0x5556bca7bff0
-long long set_ptr:93831020658672
+set_ptr:0x55a06b04ae30
+long long set_ptr:94147478597168
 gridDim.x               :16384
 blockDim.x              :256
 host_params[_LAT_X_]    :16
@@ -370,10 +370,10 @@ move_wards[_FX_FT_]     :0
 move_wards[_FY_FZ_]     :0
 move_wards[_FY_FT_]     :0
 move_wards[_FZ_FT_]     :0
-lattice set whole time:7.481989746 sec
-lattice set end total time:0.004164760 sec
-set_ptr:0x5556bca67210
-long long set_ptr:93831020573200
+lattice set whole time:7.475722656 sec
+lattice set end total time:0.004137982 sec
+set_ptr:0x55a06b07e380
+long long set_ptr:94147478807424
 gridDim.x               :16384
 blockDim.x              :256
 host_params[_LAT_X_]    :16
@@ -459,12 +459,12 @@ move_wards[_FX_FT_]     :0
 move_wards[_FY_FZ_]     :0
 move_wards[_FY_FT_]     :0
 move_wards[_FZ_FT_]     :0
-lattice set init total time:0.561332374 sec
-make clover total time: (without malloc free memcpy) :0.517325509 sec
- make clover total time: (without malloc free memcpy) :0.341165119 sec
- inverse clover total time: (without malloc free memcpy) :0.387650672 sec
- set_ptr:0x5556bca67210
-long long set_ptr:93831020573200
+lattice set init total time:0.574062523 sec
+make clover total time: (without malloc free memcpy) :0.520552279 sec
+ make clover total time: (without malloc free memcpy) :0.348470140 sec
+ inverse clover total time: (without malloc free memcpy) :0.387732080 sec
+ set_ptr:0x55a06b07e380
+long long set_ptr:94147478807424
 gridDim.x               :16384
 blockDim.x              :256
 host_params[_LAT_X_]    :16
@@ -550,10 +550,10 @@ move_wards[_FX_FT_]     :0
 move_wards[_FY_FZ_]     :0
 move_wards[_FY_FT_]     :0
 move_wards[_FZ_FT_]     :0
-lattice set whole time:1.813503418 sec
-lattice set end total time:0.005775611 sec
-set_ptr:0x5556bca94e30
-long long set_ptr:93831020760624
+lattice set whole time:1.836386108 sec
+lattice set end total time:0.005242204 sec
+set_ptr:0x55a0700c50d0
+long long set_ptr:94147562983632
 gridDim.x               :16384
 blockDim.x              :256
 host_params[_LAT_X_]    :16
@@ -639,12 +639,12 @@ move_wards[_FX_FT_]     :0
 move_wards[_FY_FZ_]     :0
 move_wards[_FY_FT_]     :0
 move_wards[_FZ_FT_]     :0
-lattice set init total time:0.545068637 sec
-make clover total time: (without malloc free memcpy) :0.528189606 sec
- make clover total time: (without malloc free memcpy) :0.340485615 sec
- inverse clover total time: (without malloc free memcpy) :0.383641353 sec
- set_ptr:0x5556bca94e30
-long long set_ptr:93831020760624
+lattice set init total time:0.573589069 sec
+make clover total time: (without malloc free memcpy) :0.542282871 sec
+ make clover total time: (without malloc free memcpy) :0.350782274 sec
+ inverse clover total time: (without malloc free memcpy) :0.383540798 sec
+ set_ptr:0x55a0700c50d0
+long long set_ptr:94147562983632
 gridDim.x               :16384
 blockDim.x              :256
 host_params[_LAT_X_]    :16
@@ -730,10 +730,10 @@ move_wards[_FX_FT_]     :0
 move_wards[_FY_FZ_]     :0
 move_wards[_FY_FT_]     :0
 move_wards[_FZ_FT_]     :0
-lattice set whole time:1.803378418 sec
-lattice set end total time:0.005799702 sec
-set_ptr:0x5556bcf36970
-long long set_ptr:93831025617264
+lattice set whole time:1.855890015 sec
+lattice set end total time:0.005486916 sec
+set_ptr:0x55a06b02c9c0
+long long set_ptr:94147478473152
 gridDim.x               :16384
 blockDim.x              :256
 host_params[_LAT_X_]    :16
@@ -819,19 +819,19 @@ move_wards[_FX_FT_]     :0
 move_wards[_FY_FZ_]     :0
 move_wards[_FY_FT_]     :0
 move_wards[_FZ_FT_]     :0
-lattice set init total time:0.562352081 sec
-long long fermion_out:23010211790848
-long long fermion_in:23012059381760
-long long gauge:23006986371072
-long long clover_ee:22992048357376
-long long clover_oo:22982380486656
-long long clover_ee_inv:22987214422016
-long long clover_oo_inv:22977546551296
-long long set_ptrs:93830896795376
-long long params:93830896988944
+lattice set init total time:0.563880870 sec
+long long fermion_out:22999134633984
+long long fermion_in:23000967544832
+long long gauge:22995909214208
+long long clover_ee:22980946034688
+long long clover_oo:22971278163968
+long long clover_ee_inv:22976112099328
+long long clover_oo_inv:22966444228608
+long long set_ptrs:94147354750400
+long long params:94147354962080
 ##RANK:0##LOOP:157##Residual:(9.3033e-13,0i)
-multi-gpu clover bistabcg total time: (without malloc free memcpy) :24.675526656 sec
-######TIME  :25476.9######
+multi-gpu clover bistabcg total time: (without malloc free memcpy) :24.664055808 sec
+######TIME  :25470.2######
 ##RANK      :0
 ##LOOP      :0
 ##tmp0      :(5.63165e-13,-3.28497e-13i)
@@ -845,8 +845,8 @@ multi-gpu clover bistabcg total time: (without malloc free memcpy) :24.675526656
 ##norm2_tmp :(1.96777e+08,0i)
 ##diff_tmp  :(1.76076e-11,0i)
 ##lat_4dim  :(4.1943e+06,0i)
-set_ptr:0x5556bcf36970
-long long set_ptr:93831025617264
+set_ptr:0x55a06b02c9c0
+long long set_ptr:94147478473152
 gridDim.x               :16384
 blockDim.x              :256
 host_params[_LAT_X_]    :16
@@ -932,5 +932,5 @@ move_wards[_FX_FT_]     :0
 move_wards[_FY_FZ_]     :0
 move_wards[_FY_FT_]     :0
 move_wards[_FZ_FT_]     :0
-lattice set whole time:25.481822266 sec
-lattice set end total time:0.004242200 sec
+lattice set whole time:25.474849609 sec
+lattice set end total time:0.004027060 sec
