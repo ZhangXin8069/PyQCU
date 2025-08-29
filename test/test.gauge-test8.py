@@ -5,10 +5,10 @@ from pyqcu.cuda import qcu
 from pyqcu.cuda.tmp_set import params, argv, set_ptrs
 #############################
 print("Remmber to delete _*-test8.h5!!!")
-gauge = io.get_or_give_gauge(params, "_gauge-test8.h5")
-fermion_in = io.get_or_give_fermion_in(params, "_fermion_in-test8.h5")
-wilson_fermion_out = io.get_or_give_fermion_out(params, "_wilson_fermion_out-test8.h5")
-clover_fermion_out = io.get_or_give_fermion_out(params, "_clover_fermion_out-test8.h5")
+gauge = io.give_none_gauge(params, save=False)
+fermion_in = io.give_none_fermion_in(params, save=False)
+wilson_fermion_out = io.give_none_fermion_out(params, save=False)
+clover_fermion_out = io.give_none_fermion_out(params, save=False)
 #############################
 gauge = cp.zeros_like(gauge)
 fermion_in = cp.ones_like(fermion_in)
@@ -21,6 +21,8 @@ qcu.applyEndQcu(set_ptrs, params)
 #############################
 io.grid_xxxtzyx2hdf5_xxxtzyx(gauge, params, "_gauge-test8.h5")
 io.grid_xxxtzyx2hdf5_xxxtzyx(fermion_in, params, "_fermion_in-test8.h5")
-io.grid_xxxtzyx2hdf5_xxxtzyx(wilson_fermion_out, params, "_wilson_fermion_out-test8.h5")
-io.grid_xxxtzyx2hdf5_xxxtzyx(clover_fermion_out, params, "_clover_fermion_out-test8.h5")
+io.grid_xxxtzyx2hdf5_xxxtzyx(
+    wilson_fermion_out, params, "_wilson_fermion_out-test8.h5")
+io.grid_xxxtzyx2hdf5_xxxtzyx(
+    clover_fermion_out, params, "_clover_fermion_out-test8.h5")
 #############################
