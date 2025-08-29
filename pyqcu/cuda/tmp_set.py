@@ -27,6 +27,6 @@ params[define._SEED_] = 42
 argv = np.array([0.0]*define._ARGV_SIZE_,
                 dtype=define.dtype_half(params[define._DATA_TYPE_]))
 argv[define._MASS_] = 0.05
-argv[define._TOL_] = 1e-9
+argv[define._TOL_] = 1e-12
 argv[define._SIGMA_] = 0.1
 set_ptrs = np.array(10*[0], dtype=np.int64)  # maybe more than 10?
