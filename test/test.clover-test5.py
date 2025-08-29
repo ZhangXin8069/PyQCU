@@ -41,4 +41,4 @@ print("QUDA Fermion out shape:", quda_fermion_out.shape)
 print("Difference:", cp.linalg.norm(fermion_out -
       quda_fermion_out)/cp.linalg.norm(quda_fermion_out))
 #############################
-io.grid_xxxtzyx2hdf5_xxxtzyx(fermion_out, params)
+# io.grid_xxxtzyx2hdf5_xxxtzyx(fermion_out, params)

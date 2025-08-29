@@ -1,0 +1,15 @@
+Error: cannot import name 'expm' from 'cupyx.scipy.linalg' (/public/home/zhangxin80699/.local/lib/python3.10/site-packages/cupyx/scipy/linalg/__init__.py)
+@My Rank:0/1, Local Rank:0@
+
+My rank is  0
+Parameters: [    32     16     32     32 524288      1      1      1      1      0
+      0      1      0   1000      0      2      2      0      0      0
+      0      0      0      0]
+Arguments: [0.e+00 1.e-09 0.e+00]
+Gauge filename: quda_wilson-clover-dslash-gauge_-32-16-32-32-524288-1-1-1-1-0-0-1-0-f.bin
+Traceback (most recent call last):
+  File "/public/home/zhangxin80699/PyQCU/test/./test.clover.dslash.py", line 35, in <module>
+    gauge = cp.fromfile(gauge_filename, dtype=cp.complex64,
+  File "/public/home/zhangxin80699/.local/lib/python3.10/site-packages/cupy/_creation/from_data.py", line 171, in fromfile
+    return asarray(numpy.fromfile(*args, **kwargs))
+FileNotFoundError: [Errno 2] No such file or directory: 'quda_wilson-clover-dslash-gauge_-32-16-32-32-524288-1-1-1-1-0-0-1-0-f.bin'

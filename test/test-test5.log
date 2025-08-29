@@ -1,0 +1,174 @@
+Error: cannot import name 'expm' from 'cupyx.scipy.linalg' (/public/home/zhangxin80699/.local/lib/python3.10/site-packages/cupyx/scipy/linalg/__init__.py)
+Error: cannot import name 'expm' from 'cupyx.scipy.linalg' (/public/home/zhangxin80699/.local/lib/python3.10/site-packages/cupyx/scipy/linalg/__init__.py)
+Error: cannot import name 'expm' from 'cupyx.scipy.linalg' (/public/home/zhangxin80699/.local/lib/python3.10/site-packages/cupyx/scipy/linalg/__init__.py)
+Error: cannot import name 'expm' from 'cupyx.scipy.linalg' (/public/home/zhangxin80699/.local/lib/python3.10/site-packages/cupyx/scipy/linalg/__init__.py)
+Error: cannot import name 'expm' from 'cupyx.scipy.linalg' (/public/home/zhangxin80699/.local/lib/python3.10/site-packages/cupyx/scipy/linalg/__init__.py)
+Error: cannot import name 'expm' from 'cupyx.scipy.linalg' (/public/home/zhangxin80699/.local/lib/python3.10/site-packages/cupyx/scipy/linalg/__init__.py)
+Error: cannot import name 'expm' from 'cupyx.scipy.linalg' (/public/home/zhangxin80699/.local/lib/python3.10/site-packages/cupyx/scipy/linalg/__init__.py)
+Error: cannot import name 'expm' from 'cupyx.scipy.linalg' (/public/home/zhangxin80699/.local/lib/python3.10/site-packages/cupyx/scipy/linalg/__init__.py)
+@My Rank:2/8, Local Rank:2@
+
+@My Rank:1/8, Local Rank:1@
+
+@My Rank:3/8, Local Rank:3@
+
+@My Rank:0/8, Local Rank:0@
+
+@My Rank:4/8, Local Rank:4@
+
+@My Rank:7/8, Local Rank:7@
+
+@My Rank:5/8, Local Rank:5@
+
+@My Rank:6/8, Local Rank:6@
+
+My rank is  2
+Parameters: [    32     16     32     32 524288      1      2      2      8      0
+      2      8      0   1000      3      0      2      4      4      4
+      8     24      1     42]
+Gauge filename: quda_wilson-clover-dslash-gauge_-32-16-32-32-524288-1-2-2-2-0-2-8-0-f.h5
+My rank is  1
+Parameters: [    32     16     32     32 524288      1      2      2      8      0
+      1      8      0   1000      3      0      2      4      4      4
+      8     24      1     42]
+Gauge filename: quda_wilson-clover-dslash-gauge_-32-16-32-32-524288-1-2-2-2-0-1-8-0-f.h5
+My rank is  3
+Parameters: [    32     16     32     32 524288      1      2      2      8      0
+      3      8      0   1000      3      0      2      4      4      4
+      8     24      1     42]
+Gauge filename: quda_wilson-clover-dslash-gauge_-32-16-32-32-524288-1-2-2-2-0-3-8-0-f.h5
+My rank is  0
+Parameters: [    32     16     32     32 524288      1      2      2      8      0
+      0      8      0   1000      3      0      2      4      4      4
+      8     24      1     42]
+Gauge filename: quda_wilson-clover-dslash-gauge_-32-16-32-32-524288-1-2-2-2-0-0-8-0-f.h5
+My rank is  4
+Parameters: [    32     16     32     32 524288      1      2      2      8      0
+      4      8      0   1000      3      0      2      4      4      4
+      8     24      1     42]
+Gauge filename: quda_wilson-clover-dslash-gauge_-32-16-32-32-524288-1-2-2-2-0-4-8-0-f.h5
+My rank is  7
+Parameters: [    32     16     32     32 524288      1      2      2      8      0
+      7      8      0   1000      3      0      2      4      4      4
+      8     24      1     42]
+Gauge filename: quda_wilson-clover-dslash-gauge_-32-16-32-32-524288-1-2-2-2-0-7-8-0-f.h5
+My rank is  6
+Parameters: [    32     16     32     32 524288      1      2      2      8      0
+      6      8      0   1000      3      0      2      4      4      4
+      8     24      1     42]
+Gauge filename: quda_wilson-clover-dslash-gauge_-32-16-32-32-524288-1-2-2-2-0-6-8-0-f.h5
+My rank is  5
+Parameters: [    32     16     32     32 524288      1      2      2      8      0
+      5      8      0   1000      3      0      2      4      4      4
+      8     24      1     42]
+Gauge filename: quda_wilson-clover-dslash-gauge_-32-16-32-32-524288-1-2-2-2-0-5-8-0-f.h5
+Traceback (most recent call last):
+  File "/public/home/zhangxin80699/PyQCU/test/./test-test5.py", line 20, in <module>
+Traceback (most recent call last):
+  File "/public/home/zhangxin80699/PyQCU/test/./test-test5.py", line 20, in <module>
+Traceback (most recent call last):
+  File "/public/home/zhangxin80699/PyQCU/test/./test-test5.py", line 20, in <module>
+Traceback (most recent call last):
+  File "/public/home/zhangxin80699/PyQCU/test/./test-test5.py", line 20, in <module>
+Traceback (most recent call last):
+  File "/public/home/zhangxin80699/PyQCU/test/./test-test5.py", line 20, in <module>
+Traceback (most recent call last):
+  File "/public/home/zhangxin80699/PyQCU/test/./test-test5.py", line 20, in <module>
+Traceback (most recent call last):
+  File "/public/home/zhangxin80699/PyQCU/test/./test-test5.py", line 20, in <module>
+Traceback (most recent call last):
+  File "/public/home/zhangxin80699/PyQCU/test/./test-test5.py", line 20, in <module>
+    gauge = io.hdf5_xxxtzyx2grid_xxxtzyx(params, gauge_filename)
+  File "/public/home/zhangxin80699/PyQCU/test/pyqcu/cuda/io.py", line 348, in hdf5_xxxtzyx2grid_xxxtzyx
+    gauge = io.hdf5_xxxtzyx2grid_xxxtzyx(params, gauge_filename)
+  File "/public/home/zhangxin80699/PyQCU/test/pyqcu/cuda/io.py", line 348, in hdf5_xxxtzyx2grid_xxxtzyx
+    gauge = io.hdf5_xxxtzyx2grid_xxxtzyx(params, gauge_filename)
+  File "/public/home/zhangxin80699/PyQCU/test/pyqcu/cuda/io.py", line 348, in hdf5_xxxtzyx2grid_xxxtzyx
+    gauge = io.hdf5_xxxtzyx2grid_xxxtzyx(params, gauge_filename)
+  File "/public/home/zhangxin80699/PyQCU/test/pyqcu/cuda/io.py", line 348, in hdf5_xxxtzyx2grid_xxxtzyx
+    gauge = io.hdf5_xxxtzyx2grid_xxxtzyx(params, gauge_filename)
+  File "/public/home/zhangxin80699/PyQCU/test/pyqcu/cuda/io.py", line 348, in hdf5_xxxtzyx2grid_xxxtzyx
+    gauge = io.hdf5_xxxtzyx2grid_xxxtzyx(params, gauge_filename)
+  File "/public/home/zhangxin80699/PyQCU/test/pyqcu/cuda/io.py", line 348, in hdf5_xxxtzyx2grid_xxxtzyx
+    gauge = io.hdf5_xxxtzyx2grid_xxxtzyx(params, gauge_filename)
+  File "/public/home/zhangxin80699/PyQCU/test/pyqcu/cuda/io.py", line 348, in hdf5_xxxtzyx2grid_xxxtzyx
+    gauge = io.hdf5_xxxtzyx2grid_xxxtzyx(params, gauge_filename)
+  File "/public/home/zhangxin80699/PyQCU/test/pyqcu/cuda/io.py", line 348, in hdf5_xxxtzyx2grid_xxxtzyx
+    with h5py.File(file_name, 'r', driver='mpio', comm=define.comm) as f:
+  File "/public/home/zhangxin80699/cupy-env/lib/python3.10/site-packages/h5py/_hl/files.py", line 564, in __init__
+    with h5py.File(file_name, 'r', driver='mpio', comm=define.comm) as f:
+  File "/public/home/zhangxin80699/cupy-env/lib/python3.10/site-packages/h5py/_hl/files.py", line 564, in __init__
+    with h5py.File(file_name, 'r', driver='mpio', comm=define.comm) as f:
+    with h5py.File(file_name, 'r', driver='mpio', comm=define.comm) as f:
+  File "/public/home/zhangxin80699/cupy-env/lib/python3.10/site-packages/h5py/_hl/files.py", line 564, in __init__
+  File "/public/home/zhangxin80699/cupy-env/lib/python3.10/site-packages/h5py/_hl/files.py", line 564, in __init__
+    with h5py.File(file_name, 'r', driver='mpio', comm=define.comm) as f:
+  File "/public/home/zhangxin80699/cupy-env/lib/python3.10/site-packages/h5py/_hl/files.py", line 564, in __init__
+    with h5py.File(file_name, 'r', driver='mpio', comm=define.comm) as f:
+  File "/public/home/zhangxin80699/cupy-env/lib/python3.10/site-packages/h5py/_hl/files.py", line 564, in __init__
+    with h5py.File(file_name, 'r', driver='mpio', comm=define.comm) as f:
+  File "/public/home/zhangxin80699/cupy-env/lib/python3.10/site-packages/h5py/_hl/files.py", line 564, in __init__
+    with h5py.File(file_name, 'r', driver='mpio', comm=define.comm) as f:
+  File "/public/home/zhangxin80699/cupy-env/lib/python3.10/site-packages/h5py/_hl/files.py", line 564, in __init__
+    fid = make_fid(name, mode, userblock_size, fapl, fcpl, swmr=swmr)
+  File "/public/home/zhangxin80699/cupy-env/lib/python3.10/site-packages/h5py/_hl/files.py", line 238, in make_fid
+    fid = make_fid(name, mode, userblock_size, fapl, fcpl, swmr=swmr)
+  File "/public/home/zhangxin80699/cupy-env/lib/python3.10/site-packages/h5py/_hl/files.py", line 238, in make_fid
+    fid = make_fid(name, mode, userblock_size, fapl, fcpl, swmr=swmr)
+  File "/public/home/zhangxin80699/cupy-env/lib/python3.10/site-packages/h5py/_hl/files.py", line 238, in make_fid
+    fid = make_fid(name, mode, userblock_size, fapl, fcpl, swmr=swmr)
+  File "/public/home/zhangxin80699/cupy-env/lib/python3.10/site-packages/h5py/_hl/files.py", line 238, in make_fid
+    fid = make_fid(name, mode, userblock_size, fapl, fcpl, swmr=swmr)
+  File "/public/home/zhangxin80699/cupy-env/lib/python3.10/site-packages/h5py/_hl/files.py", line 238, in make_fid
+    fid = make_fid(name, mode, userblock_size, fapl, fcpl, swmr=swmr)
+  File "/public/home/zhangxin80699/cupy-env/lib/python3.10/site-packages/h5py/_hl/files.py", line 238, in make_fid
+    fid = h5f.open(name, flags, fapl=fapl)
+  File "h5py/_objects.pyx", line 56, in h5py._objects.with_phil.wrapper
+    fid = make_fid(name, mode, userblock_size, fapl, fcpl, swmr=swmr)
+  File "/public/home/zhangxin80699/cupy-env/lib/python3.10/site-packages/h5py/_hl/files.py", line 238, in make_fid
+    fid = make_fid(name, mode, userblock_size, fapl, fcpl, swmr=swmr)
+  File "/public/home/zhangxin80699/cupy-env/lib/python3.10/site-packages/h5py/_hl/files.py", line 238, in make_fid
+    fid = h5f.open(name, flags, fapl=fapl)
+  File "h5py/_objects.pyx", line 56, in h5py._objects.with_phil.wrapper
+    fid = h5f.open(name, flags, fapl=fapl)
+  File "h5py/_objects.pyx", line 56, in h5py._objects.with_phil.wrapper
+    fid = h5f.open(name, flags, fapl=fapl)
+  File "h5py/_objects.pyx", line 56, in h5py._objects.with_phil.wrapper
+    fid = h5f.open(name, flags, fapl=fapl)
+  File "h5py/_objects.pyx", line 56, in h5py._objects.with_phil.wrapper
+    fid = h5f.open(name, flags, fapl=fapl)
+  File "h5py/_objects.pyx", line 56, in h5py._objects.with_phil.wrapper
+    fid = h5f.open(name, flags, fapl=fapl)
+  File "h5py/_objects.pyx", line 56, in h5py._objects.with_phil.wrapper
+    fid = h5f.open(name, flags, fapl=fapl)
+  File "h5py/_objects.pyx", line 56, in h5py._objects.with_phil.wrapper
+  File "h5py/_objects.pyx", line 57, in h5py._objects.with_phil.wrapper
+  File "h5py/_objects.pyx", line 57, in h5py._objects.with_phil.wrapper
+  File "h5py/_objects.pyx", line 57, in h5py._objects.with_phil.wrapper
+  File "h5py/_objects.pyx", line 57, in h5py._objects.with_phil.wrapper
+  File "h5py/_objects.pyx", line 57, in h5py._objects.with_phil.wrapper
+  File "h5py/_objects.pyx", line 57, in h5py._objects.with_phil.wrapper
+  File "h5py/_objects.pyx", line 57, in h5py._objects.with_phil.wrapper
+  File "h5py/_objects.pyx", line 57, in h5py._objects.with_phil.wrapper
+  File "h5py/h5f.pyx", line 102, in h5py.h5f.open
+  File "h5py/h5f.pyx", line 102, in h5py.h5f.open
+  File "h5py/h5f.pyx", line 102, in h5py.h5f.open
+  File "h5py/h5f.pyx", line 102, in h5py.h5f.open
+  File "h5py/h5f.pyx", line 102, in h5py.h5f.open
+  File "h5py/h5f.pyx", line 102, in h5py.h5f.open
+  File "h5py/h5f.pyx", line 102, in h5py.h5f.open
+  File "h5py/h5f.pyx", line 102, in h5py.h5f.open
+OSError: Unable to open file (MPI_File_open failed: MPI error string is 'MPI_ERR_NO_SUCH_FILE: no such file or directory')
+OSError: Unable to open file (MPI_File_open failed: MPI error string is 'MPI_ERR_NO_SUCH_FILE: no such file or directory')
+OSError: Unable to open file (MPI_File_open failed: MPI error string is 'MPI_ERR_NO_SUCH_FILE: no such file or directory')
+OSError: Unable to open file (MPI_File_open failed: MPI error string is 'MPI_ERR_NO_SUCH_FILE: no such file or directory')
+OSError: Unable to open file (MPI_File_open failed: MPI error string is 'MPI_ERR_NO_SUCH_FILE: no such file or directory')
+OSError: Unable to open file (MPI_File_open failed: MPI error string is 'MPI_ERR_NO_SUCH_FILE: no such file or directory')
+OSError: Unable to open file (MPI_File_open failed: MPI error string is 'MPI_ERR_NO_SUCH_FILE: no such file or directory')
+OSError: Unable to open file (MPI_File_open failed: MPI error string is 'MPI_ERR_NO_SUCH_FILE: no such file or directory')
+--------------------------------------------------------------------------
+prterun detected that one or more processes exited with non-zero status,
+thus causing the job to be terminated. The first process to do so was:
+
+   Process name: [prterun-b09r2n13-669791@1,4] Exit code:    1
+--------------------------------------------------------------------------
