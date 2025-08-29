@@ -4,8 +4,9 @@
 namespace qcu
 {
 // #define _BLOCK_SIZE_ 16 // for test small lattice
+#define _BLOCK_SIZE_ 64
 // #define _BLOCK_SIZE_ 128 // better for nv
-#define _BLOCK_SIZE_ 256 // better for dcu
+// #define _BLOCK_SIZE_ 256 // better for dcu
 #define _MAIN_RANK_ 0
 #define _a_ 0
 #define _b_ 1
