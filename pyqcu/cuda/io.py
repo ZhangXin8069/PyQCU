@@ -489,7 +489,8 @@ def give_none_gauge(params, file_name='gauge.h5', save=True):
     else:
         return none_gauge
 
-def give_none_clover(params, file_name='clover.h5', save=False):
+
+def give_none_clover(params, file_name='clover.h5', save=True):
     dtype = define.dtype(_data_type_=params[define._DATA_TYPE_])
     lat_t = params[define._LAT_T_]
     lat_z = params[define._LAT_Z_]
@@ -562,7 +563,7 @@ def get_or_give_gauge(params, filename):
             print(f"[Info] {filename} not found, giving...")
             give_none_gauge(params, filename)
         print(f"[Info] {filename} found, geting...")
-        return hdf5_xxxtzyx2grid_xxxtzyx(params, filename)
+        return hdf5_xxxtzyx2grid_xxxtzyx(params, filename, save=True)
     except Exception as e:
         print(f"[Warning] Failed to read {filename}: {e}!!!")
 
@@ -571,7 +572,7 @@ def get_or_give_clover(params, filename):
     try:
         if not os.path.exists(filename):
             print(f"[Info] {filename} not found, giving...")
-            give_none_clover(params, filename)
+            give_none_clover(params, filename, save=True)
         print(f"[Info] {filename} found, geting...")
         return hdf5_xxxtzyx2grid_xxxtzyx(params, filename)
     except Exception as e:
@@ -584,7 +585,7 @@ def get_or_give_fermion_in(params, filename):
             print(f"[Info] {filename} not found, giving...")
             give_none_fermion_in(params, filename)
         print(f"[Info] {filename} found, geting...")
-        return hdf5_xxxtzyx2grid_xxxtzyx(params, filename)
+        return hdf5_xxxtzyx2grid_xxxtzyx(params, filename, save=True)
     except Exception as e:
         print(f"[Warning] Failed to read {filename}: {e}!!!")
 
@@ -595,7 +596,7 @@ def get_or_give_fermion_out(params, filename):
             print(f"[Info] {filename} not found, giving...")
             give_none_fermion_out(params, filename)
         print(f"[Info] {filename} found, geting...")
-        return hdf5_xxxtzyx2grid_xxxtzyx(params, filename)
+        return hdf5_xxxtzyx2grid_xxxtzyx(params, filename, save=True)
     except Exception as e:
         print(f"[Warning] Failed to read {filename}: {e}!!!")
 
