@@ -4,7 +4,7 @@ params = np.array([0]*define._PARAMS_SIZE_, dtype=np.int32)
 params[define._LAT_X_] = 8
 params[define._LAT_Y_] = 8
 params[define._LAT_Z_] = 8
-params[define._LAT_T_] = 16
+params[define._LAT_T_] = 8
 params[define._LAT_XYZT_] = params[define._LAT_X_] * \
     params[define._LAT_Y_]*params[define._LAT_Z_]*params[define._LAT_T_]
 params[define._GRID_X_], params[define._GRID_Y_], params[define._GRID_Z_], params[
