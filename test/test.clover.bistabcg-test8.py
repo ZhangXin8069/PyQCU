@@ -37,7 +37,7 @@ qcu.applyWilsonBistabCgQcu(
     wilson_fermion_out, fermion_in, gauge, set_ptrs, params)
 qcu.applyEndQcu(set_ptrs, params)
 #############################
-clover_ee = io.give_none_clover(params)
+clover_ee = io.give_none_clover(params, save=False)
 clover_ee_inv = cp.zeros_like(clover_ee)
 clover_oo = cp.zeros_like(clover_ee)
 clover_oo_inv = cp.zeros_like(clover_ee)
