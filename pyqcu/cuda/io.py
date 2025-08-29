@@ -468,7 +468,7 @@ def clover2I(input_array):
     return dest.reshape(input_array.shape)
 
 
-def give_none_gauge(params, file_name='gauge.h5'):
+def give_none_gauge(params, file_name='gauge.h5', save=True):
     dtype = define.dtype(_data_type_=params[define._DATA_TYPE_])
     lat_t = params[define._LAT_T_]
     lat_z = params[define._LAT_Z_]
@@ -484,10 +484,12 @@ def give_none_gauge(params, file_name='gauge.h5'):
     grid_lat_x = lat_x//grid_x
     none_gauge = cp.zeros(shape=[define._LAT_C_, define._LAT_C_, define._LAT_D_,
                           define._LAT_P_, grid_lat_t, grid_lat_z, grid_lat_y, grid_lat_x], dtype=dtype)
-    grid_xxxtzyx2hdf5_xxxtzyx(none_gauge, params, file_name=file_name)
+    if save:
+        grid_xxxtzyx2hdf5_xxxtzyx(none_gauge, params, file_name=file_name)
+    else:
+        return none_gauge
 
-
-def give_none_clover(params, file_name='clover.h5'):
+def give_none_clover(params, file_name='clover.h5', save=False):
     dtype = define.dtype(_data_type_=params[define._DATA_TYPE_])
     lat_t = params[define._LAT_T_]
     lat_z = params[define._LAT_Z_]
@@ -503,10 +505,13 @@ def give_none_clover(params, file_name='clover.h5'):
     grid_lat_x = lat_x//grid_x
     none_clover = cp.zeros(shape=[define._LAT_S_, define._LAT_C_, define._LAT_S_,
                                   define._LAT_C_, grid_lat_t, grid_lat_z, grid_lat_y, grid_lat_x], dtype=dtype)
-    grid_xxxtzyx2hdf5_xxxtzyx(none_clover, params, file_name=file_name)
+    if save:
+        grid_xxxtzyx2hdf5_xxxtzyx(none_clover, params, file_name=file_name)
+    else:
+        return none_clover
 
 
-def give_none_fermion_in(params, file_name='fermion_in.h5'):
+def give_none_fermion_in(params, file_name='fermion_in.h5', save=True):
     dtype = define.dtype(_data_type_=params[define._DATA_TYPE_])
     lat_t = params[define._LAT_T_]
     lat_z = params[define._LAT_Z_]
@@ -522,10 +527,13 @@ def give_none_fermion_in(params, file_name='fermion_in.h5'):
     grid_lat_x = lat_x//grid_x
     none_fermion_in = cp.zeros(shape=[define._LAT_P_, define._LAT_S_, define._LAT_C_,
                                       grid_lat_t, grid_lat_z, grid_lat_y, grid_lat_x], dtype=dtype)
-    grid_xxxtzyx2hdf5_xxxtzyx(none_fermion_in, params, file_name=file_name)
+    if save:
+        grid_xxxtzyx2hdf5_xxxtzyx(none_fermion_in, params, file_name=file_name)
+    else:
+        return none_fermion_in
 
 
-def give_none_fermion_out(params, file_name='fermion_out.h5'):
+def give_none_fermion_out(params, file_name='fermion_out.h5', save=True):
     dtype = define.dtype(_data_type_=params[define._DATA_TYPE_])
     lat_t = params[define._LAT_T_]
     lat_z = params[define._LAT_Z_]
@@ -541,14 +549,51 @@ def give_none_fermion_out(params, file_name='fermion_out.h5'):
     grid_lat_x = lat_x//grid_x
     none_fermion_out = cp.zeros(shape=[define._LAT_P_, define._LAT_S_, define._LAT_C_,
                                        grid_lat_t, grid_lat_z, grid_lat_y, grid_lat_x], dtype=dtype)
-    grid_xxxtzyx2hdf5_xxxtzyx(none_fermion_out, params, file_name=file_name)
+    if save:
+        grid_xxxtzyx2hdf5_xxxtzyx(
+            none_fermion_out, params, file_name=file_name)
+    else:
+        return none_fermion_out
 
 
-def get_or_give(params, filename):
+def get_or_give_gauge(params, filename):
     try:
         if not os.path.exists(filename):
             print(f"[Info] {filename} not found, giving...")
             give_none_gauge(params, filename)
+        print(f"[Info] {filename} found, geting...")
+        return hdf5_xxxtzyx2grid_xxxtzyx(params, filename)
+    except Exception as e:
+        print(f"[Warning] Failed to read {filename}: {e}!!!")
+
+
+def get_or_give_clover(params, filename):
+    try:
+        if not os.path.exists(filename):
+            print(f"[Info] {filename} not found, giving...")
+            give_none_clover(params, filename)
+        print(f"[Info] {filename} found, geting...")
+        return hdf5_xxxtzyx2grid_xxxtzyx(params, filename)
+    except Exception as e:
+        print(f"[Warning] Failed to read {filename}: {e}!!!")
+
+
+def get_or_give_fermion_in(params, filename):
+    try:
+        if not os.path.exists(filename):
+            print(f"[Info] {filename} not found, giving...")
+            give_none_fermion_in(params, filename)
+        print(f"[Info] {filename} found, geting...")
+        return hdf5_xxxtzyx2grid_xxxtzyx(params, filename)
+    except Exception as e:
+        print(f"[Warning] Failed to read {filename}: {e}!!!")
+
+
+def get_or_give_fermion_out(params, filename):
+    try:
+        if not os.path.exists(filename):
+            print(f"[Info] {filename} not found, giving...")
+            give_none_fermion_out(params, filename)
         print(f"[Info] {filename} found, geting...")
         return hdf5_xxxtzyx2grid_xxxtzyx(params, filename)
     except Exception as e:
