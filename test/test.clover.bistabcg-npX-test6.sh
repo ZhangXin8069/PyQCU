@@ -1,6 +1,6 @@
 pushd ../
 # source ./env.sh
-bash ./install.sh
+# bash ./install.sh
 popd
 rm _*
 mpirun -x UCX_TLS=self,sm,rc -np 1 "/public/home/zhangxin80699/openmpi_bind_mlnx.sh" python -u ./test.clover.bistabcg-test6.py > test.clover.bistabcg-np1-test6.log 2>&1
