@@ -18,9 +18,9 @@ params[define._MAX_ITER_] = 1000
 argv[define._MASS_] = 0.05
 argv = argv.astype(define.dtype_half(params[define._DATA_TYPE_]))
 #############################
-gauge = io.get_or_give(params, "gauge.h5")
-clover = io.get_or_give(params, "clover.h5")
-fermion_in = io.get_or_give(params, "fermion_in.h5")
+gauge = io.get_or_give_gauge(params, "gauge.h5")
+clover = io.get_or_give_clover(params, "clover.h5")
+fermion_in = io.get_or_give_fermion_in(params, "fermion_in.h5")
 #############################
 params[define._VERBOSE_] = 1
 params[define._SET_INDEX_] += 1
