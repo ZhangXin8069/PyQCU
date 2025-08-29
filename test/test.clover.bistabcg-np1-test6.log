@@ -1,35 +1,24 @@
 Error: cannot import name 'expm' from 'cupyx.scipy.linalg' (/public/home/zhangxin80699/.local/lib/python3.10/site-packages/cupyx/scipy/linalg/__init__.py)
 @My Rank:0/1, Local Rank:0@
 
-Input Array Shape: (3, 3, 4, 2, 64, 64, 64, 16)
-Grid Index T: 0, Grid Index Z: 0, Grid Index Y: 0, Grid Index X: 0
-Grid Lat T: 64, Grid Lat Z: 64, Grid Lat Y: 64, Grid Lat X: 16
-Dest Shape: (3, 3, 4, 2, 64, 64, 64, 16)
-Rank 0: Data is saved to gauge.h5
-Input Array Shape: (4, 3, 4, 3, 64, 64, 64, 16)
-Grid Index T: 0, Grid Index Z: 0, Grid Index Y: 0, Grid Index X: 0
-Grid Lat T: 64, Grid Lat Z: 64, Grid Lat Y: 64, Grid Lat X: 16
-Dest Shape: (4, 3, 4, 3, 64, 64, 64, 16)
-Rank 0: Data is saved to clover.h5
-Input Array Shape: (2, 4, 3, 64, 64, 64, 16)
-Grid Index T: 0, Grid Index Z: 0, Grid Index Y: 0, Grid Index X: 0
-Grid Lat T: 64, Grid Lat Z: 64, Grid Lat Y: 64, Grid Lat X: 16
-Dest Shape: (2, 4, 3, 64, 64, 64, 16)
-Rank 0: Data is saved to fermion_in.h5
+[Info] gauge.h5 found, geting...
 Grid Index T: 0, Grid Index Z: 0, Grid Index Y: 0, Grid Index X: 0
 Grid Lat T: 64, Grid Lat Z: 64, Grid Lat Y: 64, Grid Lat X: 16
 All Dest Shape: (3, 3, 4, 2, 64, 64, 64, 16)
+[Warning] Failed to read gauge.h5: Can't read data (can't convert from size to size_i)!!!
+[Info] clover.h5 found, geting...
+Grid Index T: 0, Grid Index Z: 0, Grid Index Y: 0, Grid Index X: 0
+Grid Lat T: 64, Grid Lat Z: 64, Grid Lat Y: 64, Grid Lat X: 16
+All Dest Shape: (4, 3, 4, 3, 64, 64, 64, 16)
+[Warning] Failed to read clover.h5: Can't read data (can't convert from size to size_i)!!!
+[Info] fermion_in.h5 found, geting...
+Grid Index T: 0, Grid Index Z: 0, Grid Index Y: 0, Grid Index X: 0
+Grid Lat T: 64, Grid Lat Z: 64, Grid Lat Y: 64, Grid Lat X: 16
+All Dest Shape: (2, 4, 3, 64, 64, 64, 16)
+Dest Shape: (2, 4, 3, 64, 64, 64, 16)
 Traceback (most recent call last):
-  File "/public/home/zhangxin80699/PyQCU/test/./test.clover.bistabcg-test6.py", line 25, in <module>
-    gauge = io.hdf5_xxxtzyx2grid_xxxtzyx(params, "gauge.h5")
-  File "/public/home/zhangxin80699/PyQCU/test/pyqcu/cuda/io.py", line 370, in hdf5_xxxtzyx2grid_xxxtzyx
-    dest = all_dest[...,
-  File "h5py/_objects.pyx", line 56, in h5py._objects.with_phil.wrapper
-  File "h5py/_objects.pyx", line 57, in h5py._objects.with_phil.wrapper
-  File "/public/home/hpc_test/HPC_APPS/conda-env/cupy-env/lib/python3.10/site-packages/h5py/_hl/dataset.py", line 903, in __getitem__
-    self.id.read(mspace, fspace, arr, mtype, dxpl=self._dxpl)
-  File "h5py/_objects.pyx", line 56, in h5py._objects.with_phil.wrapper
-  File "h5py/_objects.pyx", line 57, in h5py._objects.with_phil.wrapper
-  File "h5py/h5d.pyx", line 262, in h5py.h5d.DatasetID.read
-  File "h5py/_proxy.pyx", line 119, in h5py._proxy.dset_rw
-OSError: Can't read data (can't convert from size to size_i)
+  File "/public/home/zhangxin80699/PyQCU/test/./test.clover.bistabcg-test6.py", line 29, in <module>
+    gauge = cp.zeros_like(gauge)
+  File "/public/home/zhangxin80699/.local/lib/python3.10/site-packages/cupy/_creation/basic.py", line 242, in zeros_like
+    dtype = a.dtype
+AttributeError: 'NoneType' object has no attribute 'dtype'
