@@ -124,25 +124,25 @@ def fermion2ptzyxsc(fermion, params):
     return dest
 
 
-def laplacian_gauge2ccdzyx(laplacian_gauge, params):
+def gauge2ccdzyx(gauge, params):
     lat_d = define._LAT_D_
     lat_c = define._LAT_C_
     lat_z = params[define._LAT_Z_]
     lat_y = params[define._LAT_Y_]
     lat_x = params[define._LAT_X_]
     dest_shape = (lat_c, lat_c, lat_d, lat_z, lat_y, lat_x)
-    dest = laplacian_gauge.reshape(dest_shape)
+    dest = gauge.reshape(dest_shape)
     return dest
 
 
-def laplacian_gauge2dzyxcc(laplacian_gauge, params):
+def gauge2dzyxcc(gauge, params):
     lat_d = define._LAT_D_
     lat_c = define._LAT_C_
     lat_z = params[define._LAT_Z_]
     lat_y = params[define._LAT_Y_]
     lat_x = params[define._LAT_X_]
     dest_shape = (lat_d, lat_z, lat_y, lat_x, lat_c, lat_c)
-    dest = laplacian_gauge.reshape(dest_shape)
+    dest = gauge.reshape(dest_shape)
     return dest
 
 
@@ -219,13 +219,13 @@ def ptzyxsc2psctzyx(fermion):
     return dest
 
 
-def ccdzyx2dzyxcc(laplacian_gauge):
-    dest = laplacian_gauge.transpose(2, 3, 4, 5, 0, 1)
+def ccdzyx2dzyxcc(gauge):
+    dest = gauge.transpose(2, 3, 4, 5, 0, 1)
     return dest
 
 
-def dzyxcc2ccdzyx(laplacian_gauge):
-    dest = laplacian_gauge.transpose(4, 5, 0, 1, 2, 3)
+def dzyxcc2ccdzyx(gauge):
+    dest = gauge.transpose(4, 5, 0, 1, 2, 3)
     return dest
 
 
