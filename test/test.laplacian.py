@@ -64,7 +64,6 @@ def _Laplacian(F, U):
     U_dag = U.transpose(0, 1, 2, 3, 5, 4).conj()
     F = F.reshape(Lz, Ly, Lx, define._LAT_C_, -1)
     t0 = perf_counter()
-    
     dest = (
         # - for SA with evals , + for LA with (12 - evals)
         6 * F
@@ -77,7 +76,6 @@ def _Laplacian(F, U):
             + cp.roll(contract("zyxab,zyxbc->zyxac", U_dag[2], F), 1, 0)
         )
     ).reshape(Lz * Ly * Lx * define._LAT_C_, -1)
-    
     t1 = perf_counter()
     print(f'cupy cost time: {t1 - t0} sec')
     return dest
