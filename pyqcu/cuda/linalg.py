@@ -1,20 +1,33 @@
 import cupy as cp
 import numpy as np
+
+
 def dot(x, y):
     return cp.sum(x.conj() * y)
+
+
 def norm2(x):
     return dot(x, x).real
+
+
 def norm(x):
     return cp.sqrt(norm2(x))
+
+
 def rayleigh_quotient(x, matvec):
     return cp.dot(x.conj(), matvec(x)).real / cp.dot(x.conj(), x).real
+
+
 def initialize_random_vector(v):
-    v.real, v.imag = cp.random.randn(v.size).astype(
-        v.real.dtype), cp.random.randn(v.size).astype(v.imag.dtype)
-    norm = cp.linalg.norm(v)
+    _v = v.flatten()
+    _v.real, _v.imag = cp.random.randn(_v.size).astype(
+        _v.real.dtype), cp.random.randn(_v.size).astype(_v.imag.dtype)
+    norm = cp.linalg.norm(_v)
     if norm > 0:
-        cp.divide(v, norm, out=v)
-    return v
+        cp.divide(_v, norm, out=_v)
+    return _v.reshape(v.shape).copy()
+
+
 def chebyshev_filter(src, alpha, beta, matvec, degree=20, tol=1e-12):
     t_prev, t_curr, t_next = cp.empty_like(
         src), cp.empty_like(src), cp.empty_like(src)
@@ -32,6 +45,8 @@ def chebyshev_filter(src, alpha, beta, matvec, degree=20, tol=1e-12):
             t_next[:] = t_curr
         t_curr, t_prev = t_next.copy(), t_curr
     return t_curr
+
+
 def orthogonalize_against_vectors(v, Q_ortho, tol=1e-12, print_max_proj=False):
     if Q_ortho.ndim != 2 or v.ndim != 1:
         print("Q_ortho.shape: ", Q_ortho.shape, "v.shape: ", v.shape)
@@ -55,6 +70,8 @@ def orthogonalize_against_vectors(v, Q_ortho, tol=1e-12, print_max_proj=False):
         print(f"Maximum projection onto existing basis: {max_proj:.2e}")
     cp.clear_memo()
     return v_ortho
+
+
 def orthogonalize_matrix(Q, cond_tol=1e-2, tol=1e-12):
     if Q.ndim != 2:
         raise ValueError("Input must be a 2D matrix")
@@ -78,6 +95,8 @@ def orthogonalize_matrix(Q, cond_tol=1e-2, tol=1e-12):
         _Q = Q_ortho.copy()
     cp.clear_memo()
     return Q_ortho
+
+
 def orthogonalize(eigenvectors):
     _eigenvectors = eigenvectors.copy()
     size_e, size_s, size_c, size_T, size_t, size_Z, size_z, size_Y, size_y, size_X, size_x = eigenvectors.shape
