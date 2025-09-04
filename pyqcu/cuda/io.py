@@ -125,7 +125,7 @@ def fermion2ptzyxsc(fermion, params):
 
 
 def gauge2ccdzyx(gauge, params):
-    lat_d = define._LAT_D_
+    lat_d = define._LAT_3D_
     lat_c = define._LAT_C_
     lat_z = params[define._LAT_Z_]
     lat_y = params[define._LAT_Y_]
@@ -136,7 +136,7 @@ def gauge2ccdzyx(gauge, params):
 
 
 def gauge2dzyxcc(gauge, params):
-    lat_d = define._LAT_D_
+    lat_d = define._LAT_3D_
     lat_c = define._LAT_C_
     lat_z = params[define._LAT_Z_]
     lat_y = params[define._LAT_Y_]
