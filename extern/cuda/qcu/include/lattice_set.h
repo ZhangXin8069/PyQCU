@@ -101,7 +101,7 @@ namespace qcu
             host_params[_SET_PLAN_] = static_cast<int *>(_params)[_SET_PLAN_];
             if (host_params[_SET_PLAN_] == _SET_PLAN_N_1_) // just for laplacian
             {
-                printf("just for laplacian, lat_t = 1, no even-odd\n");
+                printf("just for laplacian, lat_t = 1, lat_d = 3, no even-odd\n");
                 host_params[_LAT_X_] *= _EVEN_ODD_; // needed
                 host_params[_LAT_T_] = 1;
             }
