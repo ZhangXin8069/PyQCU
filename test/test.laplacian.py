@@ -3,15 +3,15 @@ import re
 import cupy as cp
 import numpy as np
 from time import perf_counter
-from pyqcu.cuda import define
+from pyqcu.cuda import define, linalg
 from pyqcu.cuda import io
 from pyqcu.cuda import qcu
 print('My rank is ', define.rank)
 #############################
 params = np.array([0]*define._PARAMS_SIZE_, dtype=np.int32)
-params[define._LAT_X_] = 8
-params[define._LAT_Y_] = 8
-params[define._LAT_Z_] = 8
+params[define._LAT_X_] = 4
+params[define._LAT_Y_] = 4
+params[define._LAT_Z_] = 4
 params[define._LAT_T_] = 1
 params[define._LAT_XYZT_] = params[define._LAT_X_] * \
     params[define._LAT_Y_]*params[define._LAT_Z_]*params[define._LAT_T_]
@@ -45,8 +45,10 @@ laplacian_out = cp.zeros_like(laplacian_in)
 gauge = cp.array([range(define._LAT_3D_*define._LAT_CC_*params[define._LAT_XYZT_])]).reshape(
     define._LAT_C_, define._LAT_C_, define._LAT_3D_, params[define._LAT_Z_], params[define._LAT_Y_], params[define._LAT_X_]).astype(define.dtype(params[define._DATA_TYPE_]))
 #############################
-gauge = cp.ones_like(gauge)
-laplacian_in = cp.ones_like(laplacian_in)
+# gauge = cp.ones_like(gauge)
+gauge = linalg.initialize_random_vector(gauge)
+# laplacian_in = cp.ones_like(laplacian_in)
+laplacian_in = linalg.initialize_random_vector(laplacian_in)
 laplacian_out = cp.zeros_like(laplacian_out)
 #############################
 qcu.applyInitQcu(set_ptrs, params, argv)
@@ -58,6 +60,8 @@ qcu.applyEndQcu(set_ptrs, params)
 print(f'PyQCU cost time: {t1 - t0} sec')
 print("norm of Laplacian out:", cp.linalg.norm(laplacian_out))
 #############################
+
+
 def _Laplacian(F, U):
     Lx, Ly, Lz = params[define._LAT_X_], params[define._LAT_Y_], params[define._LAT_Z_]
     U_dag = U.transpose(0, 1, 2, 3, 5, 4).conj()  # dzyxcc
@@ -89,7 +93,8 @@ _gauge = io.ccdzyx2dzyxcc(io.gauge2ccdzyx(
     gauge, params))
 _laplacian_in = io.czyx2zyxc(io.laplacian2czyx(
     laplacian_in, params))
-print(f"contract('zyxab,zyxb->zyxa',_gauge[0], cp.roll(_laplacian_in, -1, 2)):{contract('zyxab,zyxb->zyxa',_gauge[0], cp.roll(_laplacian_in, -1, 2))}")
+# print(
+#     f"contract('zyxab,zyxb->zyxa',_gauge[0], cp.roll(_laplacian_in, -1, 2)):{contract('zyxab,zyxb->zyxa',_gauge[0], cp.roll(_laplacian_in, -1, 2))}")
 print(f"_gauge.shape:{_gauge.shape}")
 print(f"_gauge.dtype:{_gauge.dtype}")
 print(f"_laplacian.shape:{_laplacian_in.shape}")
@@ -103,12 +108,12 @@ print("norm of PyQuda Laplacian out:",
       cp.linalg.norm(_laplacian_out))
 #############################
 _laplacian_out = io.zyxc2czyx(io.laplacian2zyxc(_laplacian_out, params))
-print(f"gauge:{gauge}")
-print(f"laplacian_in:{laplacian_in}")
-print(f"laplacian_out:{laplacian_out}")
-print(f"_gauge:{_gauge}")
-print(f"_laplacian_in:{_laplacian_in}")
-print(f"_laplacian_out:{_laplacian_out}")
+# print(f"gauge:{gauge}")
+# print(f"laplacian_in:{laplacian_in}")
+# print(f"laplacian_out:{laplacian_out}")
+# print(f"_gauge:{_gauge}")
+# print(f"_laplacian_in:{_laplacian_in}")
+# print(f"_laplacian_out:{_laplacian_out}")
 print("Difference between QUDA and PyQuda Laplacian out:",
       cp.linalg.norm(_laplacian_out - laplacian_out)/cp.linalg.norm(_laplacian_out))
 #############################
