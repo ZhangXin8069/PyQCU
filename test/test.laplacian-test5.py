@@ -66,10 +66,10 @@ def _Laplacian(F, U):
     Lx, Ly, Lz = params[define._LAT_X_], params[define._LAT_Y_], params[define._LAT_Z_]
     U_dag = U.transpose(0, 1, 2, 3, 5, 4).conj()  # dzyxcc
     F = F.reshape(Lz, Ly, Lx, define._LAT_C_, -1)  # zyxc
-    print(f"U.shape:{U.shape}")
-    print(f"U.dtype:{U.dtype}")
-    print(f"F.shape:{F.shape}")
-    print(f"F.dtype:{F.dtype}")
+    # print(f"U.shape:{U.shape}")
+    # print(f"U.dtype:{U.dtype}")
+    # print(f"F.shape:{F.shape}")
+    # print(f"F.dtype:{F.dtype}")
     t0 = perf_counter()
     dest = (
         # - for SA with evals , + for LA with (12 - evals)
@@ -95,10 +95,10 @@ _laplacian_in = io.czyx2zyxc(io.laplacian2czyx(
     laplacian_in, params))
 # print(
 #     f"contract('zyxab,zyxb->zyxa',_gauge[0], cp.roll(_laplacian_in, -1, 2)):{contract('zyxab,zyxb->zyxa',_gauge[0], cp.roll(_laplacian_in, -1, 2))}")
-print(f"_gauge.shape:{_gauge.shape}")
-print(f"_gauge.dtype:{_gauge.dtype}")
-print(f"_laplacian.shape:{_laplacian_in.shape}")
-print(f"_laplacian.dtype:{_laplacian_in.dtype}")
+# print(f"_gauge.shape:{_gauge.shape}")
+# print(f"_gauge.dtype:{_gauge.dtype}")
+# print(f"_laplacian.shape:{_laplacian_in.shape}")
+# print(f"_laplacian.dtype:{_laplacian_in.dtype}")
 t0 = perf_counter()
 _laplacian_out = _Laplacian(
     _laplacian_in, _gauge)

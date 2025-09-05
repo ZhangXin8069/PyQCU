@@ -1,24 +1,26 @@
 import cupy as cp
 import numpy as np
+from typing import Callable
+from pyqcu.cuda.define import cp_ndarray
 
 
-def dot(x, y):
+def dot(x: cp_ndarray, y: cp_ndarray) -> cp_ndarray:
     return cp.sum(x.conj() * y)
 
 
-def norm2(x):
+def norm2(x: cp_ndarray) -> cp_ndarray:
     return dot(x, x).real
 
 
-def norm(x):
+def norm(x: cp_ndarray) -> cp_ndarray:
     return cp.sqrt(norm2(x))
 
 
-def rayleigh_quotient(x, matvec):
+def rayleigh_quotient(x: cp_ndarray, matvec: Callable[[cp_ndarray], cp_ndarray]) -> cp_ndarray:
     return cp.dot(x.conj(), matvec(x)).real / cp.dot(x.conj(), x).real
 
 
-def initialize_random_vector(v):
+def initialize_random_vector(v: cp_ndarray) -> cp_ndarray:
     _v = v.flatten()
     _v.real, _v.imag = cp.random.randn(_v.size).astype(
         _v.real.dtype), cp.random.randn(_v.size).astype(_v.imag.dtype)
@@ -28,7 +30,7 @@ def initialize_random_vector(v):
     return _v.reshape(v.shape).copy()
 
 
-def chebyshev_filter(src, alpha, beta, matvec, degree=20, tol=1e-12):
+def chebyshev_filter(src: cp_ndarray, alpha: float, beta: float, matvec: Callable[[cp_ndarray], cp_ndarray], degree: int = 20, tol: float = 1e-12) -> cp_ndarray:
     t_prev, t_curr, t_next = cp.empty_like(
         src), cp.empty_like(src), cp.empty_like(src)
     c, e = (beta + alpha) / 2, (beta - alpha) / 2
@@ -44,10 +46,10 @@ def chebyshev_filter(src, alpha, beta, matvec, degree=20, tol=1e-12):
         else:
             t_next[:] = t_curr
         t_curr, t_prev = t_next.copy(), t_curr
-    return t_curr
+    return t_curr.copy()
 
 
-def orthogonalize_against_vectors(v, Q_ortho, tol=1e-12, print_max_proj=False):
+def orthogonalize_against_vectors(v: cp_ndarray, Q_ortho: cp_ndarray, tol: float = 1e-12, print_max_proj: bool = False) -> cp_ndarray:
     if Q_ortho.ndim != 2 or v.ndim != 1:
         print("Q_ortho.shape: ", Q_ortho.shape, "v.shape: ", v.shape)
         raise ValueError("Q_ortho must be 2D matrix, v must be 1D vector")
@@ -69,10 +71,10 @@ def orthogonalize_against_vectors(v, Q_ortho, tol=1e-12, print_max_proj=False):
         max_proj = cp.max(cp.abs(projections)).get()
         print(f"Maximum projection onto existing basis: {max_proj:.2e}")
     cp.clear_memo()
-    return v_ortho
+    return v_ortho.copy()
 
 
-def orthogonalize_matrix(Q, cond_tol=1e-2, tol=1e-12):
+def orthogonalize_matrix(Q: cp_ndarray, cond_tol: float = 1e-2, tol: float = 1e-12) -> cp_ndarray:
     if Q.ndim != 2:
         raise ValueError("Input must be a 2D matrix")
     print(f"Condition number of Q: {np.linalg.cond(Q.T.get())}")
@@ -94,10 +96,10 @@ def orthogonalize_matrix(Q, cond_tol=1e-2, tol=1e-12):
             f"Condition number of Q_ortho: {np.linalg.cond(Q_ortho.T.get())}")
         _Q = Q_ortho.copy()
     cp.clear_memo()
-    return Q_ortho
+    return Q_ortho.copy()
 
 
-def orthogonalize(eigenvectors):
+def orthogonalize(eigenvectors: cp_ndarray) -> cp_ndarray:
     _eigenvectors = eigenvectors.copy()
     size_e, size_s, size_c, size_T, size_t, size_Z, size_z, size_Y, size_y, size_X, size_x = eigenvectors.shape
     print(size_e, size_s, size_c, size_T, size_t,
@@ -123,4 +125,4 @@ def orthogonalize(eigenvectors):
                     print(cp.dot(a.conj(), b))
                     _eigenvectors[:, :, :, T, :, Z, :, Y, :, X, :] = Q.T.reshape(
                         _shape)
-    return _eigenvectors
+    return _eigenvectors.copy()

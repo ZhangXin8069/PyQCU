@@ -391,7 +391,7 @@ namespace qcu
   {                                          \
     for (int i = 0; i < _LAT_CC_; i++)       \
     {                                        \
-      U[i] = tmp_U[i * _LAT_3D_ * lat_tzyx];  \
+      U[i] = tmp_U[i * _LAT_3D_ * lat_tzyx]; \
     }                                        \
   }
 #define get_src(src, origin_src, lat_tzyx) \

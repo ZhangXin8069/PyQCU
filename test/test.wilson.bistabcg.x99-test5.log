@@ -1,0 +1,732 @@
+Error: cannot import name 'expm' from 'cupyx.scipy.linalg' (/usr/local/lib/python3.8/dist-packages/cupyx/scipy/linalg/__init__.py)
+Error: cannot import name 'expm' from 'cupyx.scipy.linalg' (/usr/local/lib/python3.8/dist-packages/cupyx/scipy/linalg/__init__.py)
+@My Rank:0/2, Local Rank:0@
+
+@My Rank:1/2, Local Rank:1@
+
+Parameters: [     32      32      32      32 1048576       1       1       1       2
+       0       0       2       0    1000       3       0       1       4
+       4       4       8      24       1      42]
+Arguments: Parameters: [     32      32      32      32 1048576       1       1       1       2
+       0       1       2       0    1000       3       0       1       4
+       4       4       8      24       1      42]
+[0.e+00 1.e-09 1.e-01]
+Gauge filename: quda_wilson-bistabcg-gauge_-32-32-32-32-1048576-1-1-1-1-0-0-1-0-f.h5
+Arguments: [0.e+00 1.e-09 1.e-01]
+Gauge filename: quda_wilson-bistabcg-gauge_-32-32-32-32-1048576-1-1-1-1-0-0-1-0-f.h5
+Grid Index T: 0, Grid Index Z: 0, Grid Index Y: 0, Grid Index X: 0
+Grid Lat T: 16, Grid Lat Z: 32, Grid Lat Y: 32, Grid Lat X: 16
+Grid Index T: 1, Grid Index Z: 0, Grid Index Y: 0, Grid Index X: 0
+Grid Lat T: 16, Grid Lat Z: 32, Grid Lat Y: 32, Grid Lat X: 16
+All Dest Shape: (3, 3, 4, 2, 32, 32, 32, 16)
+All Dest Shape: (3, 3, 4, 2, 32, 32, 32, 16)
+Dest Shape: (3, 3, 4, 2, 16, 32, 32, 16)
+Dest Shape: (3, 3, 4, 2, 16, 32, 32, 16)
+Fermion in filename: quda_wilson-bistabcg-fermion-in_-32-32-32-32-1048576-1-1-1-1-0-0-1-0-f.h5
+Fermion in filename: quda_wilson-bistabcg-fermion-in_-32-32-32-32-1048576-1-1-1-1-0-0-1-0-f.h5
+Grid Index T: 0, Grid Index Z: 0, Grid Index Y: 0, Grid Index X: 0
+Grid Lat T: 16, Grid Lat Z: 32, Grid Lat Y: 32, Grid Lat X: 16
+Grid Index T: 1, Grid Index Z: 0, Grid Index Y: 0, Grid Index X: 0
+Grid Lat T: 16, Grid Lat Z: 32, Grid Lat Y: 32, Grid Lat X: 16
+All Dest Shape: (2, 4, 3, 32, 32, 32, 16)
+All Dest Shape: (2, 4, 3, 32, 32, 32, 16)
+Dest Shape: (2, 4, 3, 16, 32, 32, 16)
+Dest Shape: (2, 4, 3, 16, 32, 32, 16)
+Fermion out filename: quda_wilson-bistabcg-fermion-out_-32-32-32-32-1048576-1-1-1-1-0-0-1-0-f.h5
+Fermion out filename: quda_wilson-bistabcg-fermion-out_-32-32-32-32-1048576-1-1-1-1-0-0-1-0-f.h5
+Grid Index T: 0, Grid Index Z: 0, Grid Index Y: 0, Grid Index X: 0
+Grid Lat T: 16, Grid Lat Z: 32, Grid Lat Y: 32, Grid Lat X: 16
+Grid Index T: 1, Grid Index Z: 0, Grid Index Y: 0, Grid Index X: 0
+Grid Lat T: 16, Grid Lat Z: 32, Grid Lat Y: 32, Grid Lat X: 16
+All Dest Shape: (2, 4, 3, 32, 32, 32, 16)
+All Dest Shape: (2, 4, 3, 32, 32, 32, 16)
+Dest Shape: (2, 4, 3, 16, 32, 32, 16)
+Dest Shape: (2, 4, 3, 16, 32, 32, 16)
+Fermion out data: <MemoryPointer 0x1a15a00000 device=1 mem=<cupy.cuda.memory.PooledMemory object at 0x7fc390378830>>
+Fermion out shape: (2, 4, 3, 16, 32, 32, 16)
+Fermion out data: <MemoryPointer 0x1a15a00000 device=0 mem=<cupy.cuda.memory.PooledMemory object at 0x7f82b7b54830>>
+Fermion out shape: (2, 4, 3, 16, 32, 32, 16)
+set_ptr:0x33820860
+long long set_ptr:864159840
+set_ptr:0x21671d70
+long long set_ptr:560405872
+gridDim.x               :16384
+blockDim.x              :16
+host_params[_LAT_X_]    :16
+host_params[_LAT_Y_]    :32
+host_params[_LAT_Z_]    :32
+host_params[_LAT_T_]    :16
+host_params[_LAT_XYZT_] :262144
+host_params[_GRID_X_]   :1
+host_params[_GRID_Y_]   :1
+host_params[_GRID_Z_]   :1
+host_params[_GRID_T_]   :2
+host_params[_PARITY_]   :0
+host_params[_NODE_RANK_]:0
+host_params[_NODE_SIZE_]:2
+host_params[_DAGGER_]   :0
+host_params[_MAX_ITER_] :1000
+host_params[_DATA_TYPE_]:3
+host_params[_SET_INDEX_]:0
+host_params[_SET_PLAN_] :1
+host_params[_MG_X_]     :4
+host_params[_MG_Y_]     :4
+host_params[_MG_Z_]     :4
+host_params[_MG_T_]     :8
+host_params[_LAT_E_]    :24
+host_params[_VERBOSE_]  :1
+host_argv[_MASS_]       :0.000000e+00
+host_argv[_TOL_]        :1.000000e-09
+host_argv[_SIGMA_]      :1.000000e-01
+lat_2dim[_XY_]          :512
+lat_2dim[_XZ_]          :512
+lat_2dim[_XT_]          :256
+lat_2dim[_YZ_]          :1024
+lat_2dim[_YT_]          :512
+lat_2dim[_ZT_]          :512
+lat_3dim[_YZT_]         :16384
+lat_3dim[_XZT_]         :8192
+lat_3dim[_XYT_]         :8192
+lat_3dim[_XYZ_]         :16384
+lat_4dim                :262144
+grid_2dim[_XY_]         :1
+grid_2dim[_XZ_]         :1
+grid_2dim[_XT_]         :2
+grid_2dim[_YZ_]         :1
+grid_2dim[_YT_]         :2
+grid_2dim[_ZT_]         :2
+grid_3dim[_YZT_]        :2
+grid_3dim[_XZT_]        :2
+grid_3dim[_XYT_]        :2
+grid_3dim[_XYZ_]        :1
+grid_index_1dim[_X_]    :0
+grid_index_1dim[_Y_]    :0
+grid_index_1dim[_Z_]    :0
+grid_index_1dim[_T_]    :0
+move_wards[_B_X_]       :0
+move_wards[_B_Y_]       :0
+move_wards[_B_Z_]       :0
+move_wards[_B_T_]       :1
+move_wards[_F_X_]       :0
+move_wards[_F_Y_]       :0
+move_wards[_F_Z_]       :0
+move_wards[_F_T_]       :1
+move_wards[_BX_BY_]     :0
+move_wards[_BX_BZ_]     :0
+move_wards[_BX_BT_]     :0
+move_wards[_BY_BZ_]     :0
+move_wards[_BY_BT_]     :0
+move_wards[_BZ_BT_]     :0
+move_wards[_FX_BY_]     :0
+move_wards[_FX_BZ_]     :0
+move_wards[_FX_BT_]     :0
+move_wards[_FY_BZ_]     :0
+move_wards[_FY_BT_]     :0
+move_wards[_FZ_BT_]     :0
+move_wards[_BX_FY_]     :0
+move_wards[_BX_FZ_]     :0
+move_wards[_BX_FT_]     :0
+move_wards[_BY_FZ_]     :0
+move_wards[_BY_FT_]     :0
+move_wards[_BZ_FT_]     :0
+move_wards[_FX_FY_]     :0
+move_wards[_FX_FZ_]     :0
+move_wards[_FX_FT_]     :0
+move_wards[_FY_FZ_]     :0
+move_wards[_FY_FT_]     :0
+move_wards[_FZ_FT_]     :0
+lattice set init total time:0.500506952 sec
+gridDim.x               :16384
+blockDim.x              :16
+host_params[_LAT_X_]    :16
+host_params[_LAT_Y_]    :32
+host_params[_LAT_Z_]    :32
+host_params[_LAT_T_]    :16
+host_params[_LAT_XYZT_] :262144
+host_params[_GRID_X_]   :1
+host_params[_GRID_Y_]   :1
+host_params[_GRID_Z_]   :1
+host_params[_GRID_T_]   :2
+host_params[_PARITY_]   :0
+host_params[_NODE_RANK_]:1
+host_params[_NODE_SIZE_]:2
+host_params[_DAGGER_]   :0
+host_params[_MAX_ITER_] :1000
+host_params[_DATA_TYPE_]:3
+host_params[_SET_INDEX_]:0
+host_params[_SET_PLAN_] :1
+host_params[_MG_X_]     :4
+host_params[_MG_Y_]     :4
+host_params[_MG_Z_]     :4
+host_params[_MG_T_]     :8
+host_params[_LAT_E_]    :24
+host_params[_VERBOSE_]  :1
+host_argv[_MASS_]       :0.000000e+00
+host_argv[_TOL_]        :1.000000e-09
+host_argv[_SIGMA_]      :1.000000e-01
+lat_2dim[_XY_]          :512
+lat_2dim[_XZ_]          :512
+lat_2dim[_XT_]          :256
+lat_2dim[_YZ_]          :1024
+lat_2dim[_YT_]          :512
+lat_2dim[_ZT_]          :512
+lat_3dim[_YZT_]         :16384
+lat_3dim[_XZT_]         :8192
+lat_3dim[_XYT_]         :8192
+lat_3dim[_XYZ_]         :16384
+lat_4dim                :262144
+grid_2dim[_XY_]         :1
+grid_2dim[_XZ_]         :1
+grid_2dim[_XT_]         :2
+grid_2dim[_YZ_]         :1
+grid_2dim[_YT_]         :2
+grid_2dim[_ZT_]         :2
+grid_3dim[_YZT_]        :2
+grid_3dim[_XZT_]        :2
+grid_3dim[_XYT_]        :2
+grid_3dim[_XYZ_]        :1
+grid_index_1dim[_X_]    :0
+grid_index_1dim[_Y_]    :0
+grid_index_1dim[_Z_]    :0
+grid_index_1dim[_T_]    :1
+move_wards[_B_X_]       :1
+move_wards[_B_Y_]       :1
+move_wards[_B_Z_]       :1
+move_wards[_B_T_]       :0
+move_wards[_F_X_]       :1
+move_wards[_F_Y_]       :1
+move_wards[_F_Z_]       :1
+move_wards[_F_T_]       :0
+move_wards[_BX_BY_]     :0
+move_wards[_BX_BZ_]     :0
+move_wards[_BX_BT_]     :0
+move_wards[_BY_BZ_]     :0
+move_wards[_BY_BT_]     :0
+move_wards[_BZ_BT_]     :0
+move_wards[_FX_BY_]     :0
+move_wards[_FX_BZ_]     :0
+move_wards[_FX_BT_]     :0
+move_wards[_FY_BZ_]     :0
+move_wards[_FY_BT_]     :0
+move_wards[_FZ_BT_]     :0
+move_wards[_BX_FY_]     :0
+move_wards[_BX_FZ_]     :0
+move_wards[_BX_FT_]     :0
+move_wards[_BY_FZ_]     :0
+move_wards[_BY_FT_]     :0
+move_wards[_BZ_FT_]     :0
+move_wards[_FX_FY_]     :0
+move_wards[_FX_FZ_]     :0
+move_wards[_FX_FT_]     :0
+move_wards[_FY_FZ_]     :0
+move_wards[_FY_FT_]     :0
+move_wards[_FZ_FT_]     :0
+lattice set init total time:0.555109656 sec
+##RANK:1##LOOP:118##Residual:(3.4482e-10,-2.10676e-21i)
+##RANK:0##LOOP:118##Residual:(3.4482e-10,-2.10676e-21i)
+multi-gpu wilson bistabcg total time: (without malloc free memcpy) :2.327703552 sec
+multi-gpu wilson bistabcg total time: (without malloc free memcpy) :2.327550976 sec
+######TIME  :######TIME  :2937.68######
+##RANK      :1
+##LOOP      :0
+##tmp0      :(2.81378e-11,-1.2146e-11i)
+##tmp1      :(2.25613e-11,1.54197e-22i)
+##rho_prev  :(-9.81032e-07,-1.51899e-06i)
+##rho       :(-9.81032e-07,-1.51899e-06i)
+##alpha     :(-0.00143434,-0.326873i)
+##beta      :(2932.55######
+##RANK      :0
+##LOOP      :0
+##tmp0      :(2.81378e-11,-1.2146e-11i)
+##tmp1      :(2.25613e-11,1.54197e-22i)
+##rho_prev  :(-9.81032e-07,-1.51899e-06i)
+##rho       :(-9.81032e-07,-1.51899e-06i)
+##alpha     :(-0.00143434,-0.326873i)
+##beta      :(0.0905736,0.0419235i)0.0905736,0.0419235i)
+##omega     :(1.24717,-0.538354i)
+##send_tmp  :(0.00483219,0i)
+##norm2_tmp :(4.97484e+07,0.000280758i)
+
+##omega     :(1.24717,-0.538354i)
+##send_tmp  :(0.00483198,0i)
+##norm2_tmp :(4.97484e+07,0.000280758i)
+##diff_tmp  :(1.94261e-10,-1.09632e-21i)
+##lat_4dim  :(262144,0i)
+##diff_tmp  :(1.94261e-10,-1.09632e-21i)
+##lat_4dim  :(262144,0i)
+##RANK:1##LOOP:118##Residual:(3.4482e-10,-2.10676e-21i)
+##RANK:0##LOOP:118##Residual:(3.4482e-10,-2.10676e-21i)
+multi-gpu wilson bistabcg total time: (without malloc free memcpy) :2.489676288 sec
+multi-gpu wilson bistabcg total time: (without malloc free memcpy) :2.489736448 sec
+######TIME  :######TIME  :5483.55######
+##RANK      :0
+##LOOP      :0
+##tmp0      :(2.81378e-11,-1.2146e-11i)
+##tmp1      :(2.25613e-11,1.54197e-22i)
+##rho_prev  :(-9.81032e-07,-1.51899e-06i)
+##rho       :(-9.81032e-07,-1.51899e-06i)
+##alpha     :(5488.89######
+##RANK      :1
+-0.00143434,-0.326873i)##LOOP      :0
+##tmp0      :(
+##beta      :(2.81378e-11,0.0905736,0.0419235i)
+##omega     :(1.24717,-0.538354i)
+##send_tmp  :(0.00483198,0i)
+##norm2_tmp :(4.97484e+07,0.000280758i)
+##diff_tmp  :(1.94261e-10-1.2146e-11i)
+##tmp1      :(2.25613e-11,1.54197e-22i)
+##rho_prev  :(-9.81032e-07,-1.51899e-06i)
+##rho       :(-9.81032e-07,-1.51899e-06i)
+##alpha     :,(-0.00143434,-0.326873i)
+##beta      :(0.0905736,0.0419235i)
+##omega     :(1.24717,-0.538354i)
+##send_tmp  :(0.00483219,0i)
+##norm2_tmp :(4.97484e+07,0.000280758i)-1.09632e-21i)
+##lat_4dim  :(262144,0i)
+
+##diff_tmp  :(1.94261e-10,-1.09632e-21i)
+##lat_4dim  :(262144,0i)
+##RANK:1##LOOP:118##Residual:(3.4482e-10,-2.10676e-21i)
+##RANK:0##LOOP:118##Residual:(3.4482e-10,-2.10676e-21i)
+multi-gpu wilson bistabcg total time: (without malloc free memcpy) :2.437060352 sec
+multi-gpu wilson bistabcg total time: (without malloc free memcpy) :2.437157632 sec
+######TIME  :######TIME  :7981.03######
+##RANK      :0
+##LOOP      :0
+##tmp0      :(2.81378e-11,-1.2146e-11i)
+##tmp1      :(2.25613e-11,1.54197e-22i)
+##rho_prev  :(-9.81032e-07,-1.51899e-06i)
+##rho       :(-9.81032e-07,-1.51899e-06i)
+##alpha     :(-0.00143434,-0.326873i)
+##beta      :(0.0905736,0.0419235i)
+##omega     :(1.24717,-0.538354i)
+##send_tmp  :(7986.17######
+##RANK      :1
+##LOOP      :0
+##tmp0      :(2.81378e-11,-1.2146e-11i)
+##tmp1      :(2.25613e-11,1.54197e-22i)
+##rho_prev  :(-9.81032e-07,-1.51899e-06i)
+##rho       :(-9.81032e-07,-1.51899e-06i)
+##alpha     :(-0.00143434,-0.326873i)
+##beta      :(0.0905736,0.0419235i)
+##omega     :(1.24717,-0.538354i)
+0.00483198,0i)
+##send_tmp  :(0.00483219,0i)
+##norm2_tmp :(4.97484e+07,0.000280758i)
+##diff_tmp  :(1.94261e-10,-1.09632e-21i)
+##lat_4dim  :(262144,0i)
+##norm2_tmp :(4.97484e+07,0.000280758i)
+##diff_tmp  :(1.94261e-10,-1.09632e-21i)
+##lat_4dim  :(262144,0i)
+##RANK:1##LOOP:118##Residual:(3.4482e-10,-2.10676e-21i)
+##RANK:0##LOOP:118##Residual:(3.4482e-10,-2.10676e-21i)
+multi-gpu wilson bistabcg total time: (without malloc free memcpy) :2.415963392 sec
+multi-gpu wilson bistabcg total time: (without malloc free memcpy) :2.416207360 sec
+######TIME  :######TIME  :10464.3######
+##RANK      :1
+##LOOP      :0
+##tmp0      :(2.81378e-11,-1.2146e-11i)
+##tmp1      :(2.25613e-11,1.54197e-22i)
+##rho_prev  :(-9.81032e-07,-1.51899e-06i)
+##rho       :(-9.81032e-07,-1.51899e-06i)
+##alpha     :(-0.00143434,-0.326873i)
+##beta      :(0.0905736,0.0419235i)
+##omega     :(1.24717,10459.1######
+##RANK      :0
+##LOOP      :0
+##tmp0      :(2.81378e-11,-1.2146e-11i)
+##tmp1      :(2.25613e-11,1.54197e-22i)
+##rho_prev  :(-9.81032e-07,-1.51899e-06i)
+##rho       :(-9.81032e-07,-1.51899e-06i)
+##alpha     :(-0.00143434,-0.326873i)
+##beta      :(0.0905736,0.0419235i)
+##omega     :(1.24717,-0.538354i)
+##send_tmp  :(0.00483198,-0.538354i)
+##send_tmp  :(0i)
+0.00483219,0i)
+##norm2_tmp :(4.97484e+07,0.000280758i)
+##diff_tmp  :(1.94261e-10,-1.09632e-21i)
+##lat_4dim  :(262144,0i)
+##norm2_tmp :(4.97484e+07,0.000280758i)
+##diff_tmp  :(1.94261e-10,-1.09632e-21i)
+##lat_4dim  :(262144,0i)
+##RANK:1##LOOP:118##Residual:(3.4482e-10,-2.10676e-21i)
+##RANK:0##LOOP:118##Residual:(3.4482e-10,-2.10676e-21i)
+multi-gpu wilson bistabcg total time: (without malloc free memcpy) :2.443544064 sec
+multi-gpu wilson bistabcg total time: (without malloc free memcpy) :2.443719680 sec
+######TIME  :######TIME  :12962.6######
+##RANK      :0
+##LOOP      :0
+##tmp0      :(2.81378e-11,-1.2146e-11i)
+##tmp1      :(2.25613e-11,1.54197e-22i)
+##rho_prev  :(-9.81032e-07,-1.51899e-06i)
+##rho       :(-9.81032e-07,-1.51899e-06i)
+##alpha     :(-0.00143434,-0.326873i)
+##beta      :(0.0905736,0.0419235i)
+##omega     :(1.24717,12967.7######
+##RANK      :1
+##LOOP      :0
+##tmp0      :(2.81378e-11,-1.2146e-11i)
+##tmp1      :(2.25613e-11,1.54197e-22i)
+##rho_prev  :(-9.81032e-07,-1.51899e-06i)
+##rho       :(-9.81032e-07,-1.51899e-06i)
+##alpha     :(-0.00143434,-0.326873i)
+##beta      :(0.0905736,0.0419235i)
+##omega     :(-0.538354i)
+##send_tmp  :(0.00483198,1.24717,-0.538354i)
+##send_tmp  :(0i)
+##norm2_tmp :(4.97484e+07,0.000280758i)
+##diff_tmp  :(0.00483219,0i)
+##norm2_tmp :(4.97484e+07,0.000280758i)
+##diff_tmp  :(1.94261e-10,-1.09632e-21i)
+##lat_4dim  :(262144,0i)
+1.94261e-10,-1.09632e-21i)
+##lat_4dim  :(262144,0i)
+##RANK:1##LOOP:118##Residual:(3.4482e-10,-2.10676e-21i)
+##RANK:0##LOOP:118##Residual:(3.4482e-10,-2.10676e-21i)
+multi-gpu wilson bistabcg total time: (without malloc free memcpy) :2.443105024 sec
+multi-gpu wilson bistabcg total time: (without malloc free memcpy) :2.442982400 sec
+######TIME  :######TIME  :15473.6######
+##RANK      :1
+##LOOP      :0
+##tmp0      :(2.81378e-11,-1.2146e-11i)
+##tmp1      :(2.25613e-1115468.5######
+##RANK      :0
+##LOOP      :0
+##tmp0      :(2.81378e-11,-1.2146e-11i)
+##tmp1      :(2.25613e-11,1.54197e-22i),1.54197e-22i)
+##rho_prev  :(-9.81032e-07,-1.51899e-06i)
+##rho       :(-9.81032e-07,-1.51899e-06i)
+##alpha     :(
+##rho_prev  :(-9.81032e-07,-1.51899e-06i)
+##rho       :(-9.81032e-07,-1.51899e-06i)
+##alpha     :(-0.00143434,-0.326873i)
+-0.00143434,-0.326873i)
+##beta      :(0.0905736,0.0419235i)
+##omega     :(1.24717,-0.538354i)
+##send_tmp  :(0.00483219,0i)
+##beta      :(0.0905736,0.0419235i)
+##omega     :(1.24717,-0.538354i)
+##send_tmp  :(0.00483198,##norm2_tmp :(4.97484e+07,0.000280758i)
+##diff_tmp  :(1.94261e-10,-1.09632e-21i)
+##lat_4dim  :(262144,0i)0i)
+##norm2_tmp :(
+4.97484e+07,0.000280758i)
+##diff_tmp  :(1.94261e-10,-1.09632e-21i)
+##lat_4dim  :(262144,0i)
+##RANK:0##LOOP:118##Residual:(3.4482e-10,-2.10676e-21i)
+##RANK:1##LOOP:118##Residual:(3.4482e-10,-2.10676e-21i)
+multi-gpu wilson bistabcg total time: (without malloc free memcpy) :2.416249856 sec
+multi-gpu wilson bistabcg total time: (without malloc free memcpy) :2.416359424 sec
+######TIME  :######TIME  :17949.8######
+##RANK      :1
+##LOOP      :0
+##tmp0      :(2.81378e-11,-1.2146e-11i)
+##tmp1      :(2.25613e-11,1.54197e-22i)
+##rho_prev  :(-9.81032e-07,-1.51899e-06i)
+##rho       :(-9.81032e-07,-1.51899e-06i)
+##alpha     :(-0.00143434,-0.326873i)
+##beta      :(0.0905736,0.0419235i)
+##omega     :(1.24717,17944.5######
+##RANK      :0
+##LOOP      :0
+##tmp0      :(2.81378e-11,-1.2146e-11i)
+##tmp1      :(2.25613e-11,1.54197e-22i)
+##rho_prev  :(-9.81032e-07,-1.51899e-06i)
+##rho       :(-9.81032e-07-0.538354i)
+##send_tmp  :(0.00483219,0i)
+##norm2_tmp :(,-1.51899e-06i)
+##alpha     :(-0.00143434,-0.326873i)
+4.97484e+07,0.000280758i)
+##diff_tmp  :(1.94261e-10,-1.09632e-21i)
+##lat_4dim  :(262144,0i)
+##beta      :(0.0905736,0.0419235i)
+##omega     :(1.24717,-0.538354i)
+##send_tmp  :(0.00483198,0i)
+##norm2_tmp :(4.97484e+07,0.000280758i)
+##diff_tmp  :(1.94261e-10,-1.09632e-21i)
+##lat_4dim  :(262144,0i)
+##RANK:0##LOOP:118##Residual:(3.4482e-10,-2.10676e-21i)
+##RANK:1##LOOP:118##Residual:(3.4482e-10,-2.10676e-21i)
+multi-gpu wilson bistabcg total time: (without malloc free memcpy) :2.431276288 sec
+multi-gpu wilson bistabcg total time: (without malloc free memcpy) :2.431355904 sec
+######TIME  :######TIME  :20442.1######
+##RANK      :1
+##LOOP      :0
+##tmp0      :(2.81378e-11,-1.2146e-11i)
+##tmp1      :(2.25613e-11,1.54197e-22i)
+##rho_prev  :(-9.81032e-07,-1.51899e-06i)
+##rho       :(-9.81032e-07,-1.51899e-06i)
+##alpha     :(-0.00143434,-0.326873i)
+##beta      :(0.0905736,0.0419235i)
+##omega     :(1.24717,-0.538354i)
+##send_tmp  :(0.00483219,0i)
+##norm2_tmp :(4.97484e+07,0.000280758i)
+##diff_tmp  :(1.94261e-10,-1.09632e-21i)
+##lat_4dim  :(262144,0i)
+20437.3######
+##RANK      :0
+##LOOP      :0
+##tmp0      :(2.81378e-11,-1.2146e-11i)
+##tmp1      :(2.25613e-11,1.54197e-22i)
+##rho_prev  :(-9.81032e-07,-1.51899e-06i)
+##rho       :(-9.81032e-07,-1.51899e-06i)
+##alpha     :(-0.00143434,-0.326873i)
+##beta      :(0.0905736,0.0419235i)
+##omega     :(1.24717,-0.538354i)
+##send_tmp  :(0.00483198,0i)
+##norm2_tmp :(4.97484e+07,0.000280758i)
+##diff_tmp  :(1.94261e-10,-1.09632e-21i)
+##lat_4dim  :(262144,0i)
+##RANK:1##LOOP:118##Residual:(3.4482e-10,-2.10676e-21i)
+##RANK:0##LOOP:118##Residual:(3.4482e-10,-2.10676e-21i)
+multi-gpu wilson bistabcg total time: (without malloc free memcpy) :2.459723776 sec
+multi-gpu wilson bistabcg total time: (without malloc free memcpy) :2.459791104 sec
+######TIME  :######TIME  :22965.3######
+##RANK      :0
+##LOOP      :0
+##tmp0      :(2.81378e-11,-1.2146e-11i)
+##tmp1      :(2.25613e-11,1.54197e-22i)
+##rho_prev  :(-9.81032e-07,-1.51899e-06i)
+##rho       :(-9.81032e-07,-1.51899e-06i)
+##alpha     :(-0.00143434,-0.326873i)
+##beta      :(0.0905736,0.0419235i)
+##omega     :(1.24717,-0.538354i)
+##send_tmp  :22970.5######
+##RANK      :1
+##LOOP      :0
+##tmp0      :(2.81378e-11,-1.2146e-11i)
+##tmp1      :(2.25613e-11,1.54197e-22i)
+##rho_prev  :(-9.81032e-07,-1.51899e-06i)
+##rho       :(-9.81032e-07,-1.51899e-06i)
+##alpha     :(-0.00143434,-0.326873i)
+##beta      :(0.0905736,0.0419235i)
+##omega     :(1.24717,(0.00483198,0i)
+##norm2_tmp :(4.97484e+07,0.000280758i)
+##diff_tmp  :(1.94261e-10,-1.09632e-21i)
+##lat_4dim  :(-0.538354i)
+##send_tmp  :(0.00483219,0i)
+##norm2_tmp :(4.97484e+07,0.000280758i)
+##diff_tmp  :(1.94261e-10,262144,0i)
+-1.09632e-21i)
+##lat_4dim  :(262144,0i)
+##RANK:0##LOOP:118##Residual:(3.4482e-10,-2.10676e-21i)
+##RANK:1##LOOP:118##Residual:(3.4482e-10,-2.10676e-21i)
+multi-gpu wilson bistabcg total time: (without malloc free memcpy) :2.413340928 sec
+multi-gpu wilson bistabcg total time: (without malloc free memcpy) :2.413517824 sec
+######TIME  :######TIME  :25444######
+##RANK      :1
+##LOOP      :0
+##tmp0      :(2.81378e-11,-1.2146e-11i)
+##tmp1      :(2.25613e-11,1.54197e-22i)
+##rho_prev  :(-9.81032e-07,-1.51899e-06i)
+##rho       :(-9.81032e-07,-1.51899e-06i)
+##alpha     :(-0.00143434,-0.326873i)
+##beta      :(0.0905736,0.0419235i)
+##omega     :(1.24717,-0.538354i)25438.7######
+##RANK      :0
+##LOOP      :0
+##tmp0      :(2.81378e-11,-1.2146e-11i)
+##tmp1      :(2.25613e-11,1.54197e-22i)
+##rho_prev  :(-9.81032e-07,-1.51899e-06i)
+##rho       :(-9.81032e-07,-1.51899e-06i)
+##alpha     :(-0.00143434,-0.326873i)
+##beta      :(0.0905736,0.0419235i)
+##omega     :
+##send_tmp  :(0.00483219(,0i)
+##norm2_tmp :(4.97484e+07,0.000280758i)
+##diff_tmp  :(1.94261e-10,-1.09632e-21i)
+##lat_4dim  :(262144,0i)
+1.24717,-0.538354i)
+##send_tmp  :(0.00483198,0i)
+##norm2_tmp :(4.97484e+07,0.000280758i)
+##diff_tmp  :(1.94261e-10,-1.09632e-21i)
+##lat_4dim  :(262144,0i)
+set_ptr:0x33820860
+long long set_ptr:864159840
+gridDim.x               :16384
+blockDim.x              :16
+host_params[_LAT_X_]    :16
+host_params[_LAT_Y_]    :32
+host_params[_LAT_Z_]    :32
+host_params[_LAT_T_]    :16
+host_params[_LAT_XYZT_] :262144
+host_params[_GRID_X_]   :1
+host_params[_GRID_Y_]   :1
+host_params[_GRID_Z_]   :1
+host_params[_GRID_T_]   :2
+host_params[_PARITY_]   :0
+host_params[_NODE_RANK_]:1
+host_params[_NODE_SIZE_]:2
+host_params[_DAGGER_]   :0
+host_params[_MAX_ITER_] :1000
+host_params[_DATA_TYPE_]:3
+host_params[_SET_INDEX_]:0
+host_params[_SET_PLAN_] :1
+host_params[_MG_X_]     :4
+host_params[_MG_Y_]     :4
+host_params[_MG_Z_]     :4
+host_params[_MG_T_]     :8
+host_params[_LAT_E_]    :24
+host_params[_VERBOSE_]  :1
+host_argv[_MASS_]       :0.000000e+00
+host_argv[_TOL_]        :1.000000e-09
+host_argv[_SIGMA_]      :1.000000e-01
+lat_2dim[_XY_]          :512
+lat_2dim[_XZ_]          :512
+lat_2dim[_XT_]          :256
+lat_2dim[_YZ_]          :1024
+lat_2dim[_YT_]          :512
+lat_2dim[_ZT_]          :512
+lat_3dim[_YZT_]         :16384
+lat_3dim[_XZT_]         :8192
+lat_3dim[_XYT_]         :8192
+lat_3dim[_XYZ_]         :16384
+lat_4dim                :262144
+grid_2dim[_XY_]         :1
+grid_2dim[_XZ_]         :1
+grid_2dim[_XT_]         :2
+grid_2dim[_YZ_]         :1
+grid_2dim[_YT_]         :2
+grid_2dim[_ZT_]         :2
+grid_3dim[_YZT_]        :2
+grid_3dim[_XZT_]        :2
+grid_3dim[_XYT_]        :2
+grid_3dim[_XYZ_]        :1
+grid_index_1dim[_X_]    :0
+grid_index_1dim[_Y_]    :0
+grid_index_1dim[_Z_]    :0
+grid_index_1dim[_T_]    :1
+move_wards[_B_X_]       :1
+move_wards[_B_Y_]       :1
+move_wards[_B_Z_]       :1
+move_wards[_B_T_]       :0
+move_wards[_F_X_]       :1
+move_wards[_F_Y_]       :1
+move_wards[_F_Z_]       :1
+move_wards[_F_T_]       :0
+move_wards[_BX_BY_]     :0
+move_wards[_BX_BZ_]     :0
+move_wards[_BX_BT_]     :0
+move_wards[_BY_BZ_]     :0
+move_wards[_BY_BT_]     :0
+move_wards[_BZ_BT_]     :0
+move_wards[_FX_BY_]     :0
+move_wards[_FX_BZ_]     :0
+move_wards[_FX_BT_]     :0
+move_wards[_FY_BZ_]     :0
+move_wards[_FY_BT_]     :0
+set_ptr:0x21671d70
+long long set_ptr:560405872
+gridDim.x               :16384
+blockDim.x              :16
+host_params[_LAT_X_]    :16
+host_params[_LAT_Y_]    :32
+host_params[_LAT_Z_]    :32
+host_params[_LAT_T_]    :16
+host_params[_LAT_XYZT_] :262144
+host_params[_GRID_X_]   :1
+host_params[_GRID_Y_]   :1
+host_params[_GRID_Z_]   :1
+host_params[_GRID_T_]   :2
+host_params[_PARITY_]   :0
+host_params[_NODE_RANK_]:0
+host_params[_NODE_SIZE_]:2
+host_params[_DAGGER_]   :0
+host_params[_MAX_ITER_] :1000
+host_params[_DATA_TYPE_]:3
+host_params[_SET_INDEX_]:0
+host_params[_SET_PLAN_] :1
+host_params[_MG_X_]     :4
+host_params[_MG_Y_]     :4
+host_params[_MG_Z_]     :4
+host_params[_MG_T_]     :8
+host_params[_LAT_E_]    :24
+host_params[_VERBOSE_]  :1
+host_argv[_MASS_]       :0.000000e+00
+host_argv[_TOL_]        :1.000000e-09
+host_argv[_SIGMA_]      :1.000000e-01
+lat_2dim[_XY_]          :512
+lat_2dim[_XZ_]          :512
+lat_2dim[_XT_]          :256
+lat_2dim[_YZ_]          :1024
+lat_2dim[_YT_]          :512
+move_wards[_FZ_BT_]     :0
+move_wards[_BX_FY_]     :0
+move_wards[_BX_FZ_]     :0
+move_wards[_BX_FT_]     :0
+move_wards[_BY_FZ_]     :0
+move_wards[_BY_FT_]     :0
+move_wards[_BZ_FT_]     :0
+move_wards[_FX_FY_]     :0
+move_wards[_FX_FZ_]     :0
+move_wards[_FX_FT_]     :0
+move_wards[_FY_FZ_]     :0
+move_wards[_FY_FT_]     :0
+move_wards[_FZ_FT_]     :0
+lat_2dim[_ZT_]          :512
+lat_3dim[_YZT_]         :16384
+lat_3dim[_XZT_]         :8192
+lat_3dim[_XYT_]         :8192
+lat_3dim[_XYZ_]         :16384
+lat_4dim                :262144
+grid_2dim[_XY_]         :1
+grid_2dim[_XZ_]         :1
+grid_2dim[_XT_]         :2
+grid_2dim[_YZ_]         :1
+grid_2dim[_YT_]         :2
+grid_2dim[_ZT_]         :2
+grid_3dim[_YZT_]        :2
+grid_3dim[_XZT_]        :2
+grid_3dim[_XYT_]        :2
+grid_3dim[_XYZ_]        :1
+grid_index_1dim[_X_]    :0
+grid_index_1dim[_Y_]    :0
+grid_index_1dim[_Z_]    :0
+grid_index_1dim[_T_]    :0
+move_wards[_B_X_]       :0
+move_wards[_B_Y_]       :0
+move_wards[_B_Z_]       :0
+move_wards[_B_T_]       :1
+move_wards[_F_X_]       :0
+move_wards[_F_Y_]       :0
+move_wards[_F_Z_]       :0
+move_wards[_F_T_]       :1
+move_wards[_BX_BY_]     :0
+move_wards[_BX_BZ_]     :0
+move_wards[_BX_BT_]     :0
+move_wards[_BY_BZ_]     :0
+move_wards[_BY_BT_]     :0
+move_wards[_BZ_BT_]     :0
+move_wards[_FX_BY_]     :0
+move_wards[_FX_BZ_]     :0
+move_wards[_FX_BT_]     :0
+move_wards[_FY_BZ_]     :0
+move_wards[_FY_BT_]     :0
+move_wards[_FZ_BT_]     :0
+move_wards[_BX_FY_]     :0
+move_wards[_BX_FZ_]     :0
+move_wards[_BX_FT_]     :0
+move_wards[_BY_FZ_]     :0
+move_wards[_BY_FT_]     :0
+move_wards[_BZ_FT_]     :0
+move_wards[_FX_FY_]     :0
+move_wards[_FX_FZ_]     :0
+move_wards[_FX_FT_]     :0
+move_wards[_FY_FZ_]     :0
+move_wards[_FY_FT_]     :0
+move_wards[_FZ_FT_]     :0
+lattice set whole time:25.454652344 sec
+lattice set end total time:0.006815370 sec
+Fermion out data: <MemoryPointer 0x1a15a00000 device=1 mem=<cupy.cuda.memory.PooledMemory object at 0x7fc390378830>>
+Fermion out shape: (2, 4, 3, 16, 32, 32, 16)
+QUDA Fermion out data: <MemoryPointer 0x1a0fa00000 device=1 mem=<cupy.cuda.memory.PooledMemory object at 0x7fc390378730>>
+QUDA Fermion out shape: (2, 4, 3, 16, 32, 32, 16)
+lattice set whole time:25.449695313 sec
+lattice set end total time:0.006849036 sec
+Fermion out data: <MemoryPointer 0x1a15a00000 device=0 mem=<cupy.cuda.memory.PooledMemory object at 0x7f82b7b54830>>
+Fermion out shape: (2, 4, 3, 16, 32, 32, 16)
+QUDA Fermion out data: <MemoryPointer 0x1a0fa00000 device=0 mem=<cupy.cuda.memory.PooledMemory object at 0x7f82b7b546f0>>
+QUDA Fermion out shape: (2, 4, 3, 16, 32, 32, 16)
+Difference: Difference: 3.1153752e-07
+3.1490714e-07
