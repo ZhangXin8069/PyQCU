@@ -2,9 +2,10 @@ import cupy as cp
 from pyqcu.cuda.linalg import dot, initialize_random_vector
 from time import perf_counter
 from typing import Callable
+from pyqcu.cuda.define import cp_ndarray
 
 
-def slover(b: cp.array, matvec: Callable[[cp.array], cp.array], tol: float = 1e-6, max_iter: int = 1000, x0: cp.array = None)->cp.array:
+def solver(b: cp_ndarray, matvec: Callable[[cp_ndarray], cp_ndarray], tol: float = 1e-6, max_iter: int = 1000, x0: cp_ndarray = None) -> cp_ndarray:
     n = b.size
     dtype = b.dtype
     buffers = {key: cp.zeros(n, dtype=dtype) for key in ['r', 'p', 'v', 'x']}
@@ -44,4 +45,4 @@ def slover(b: cp.array, matvec: Callable[[cp.array], cp.array], tol: float = 1e-
     print(f"Total time: {total_time:.6f} s")
     print(f"Average time per iteration: {avg_iter_time:.6f} s")
     cp.clear_memo()
-    return x
+    return x.copy()

@@ -9,9 +9,9 @@ from pyqcu.cuda import qcu
 print('My rank is ', define.rank)
 #############################
 params = np.array([0]*define._PARAMS_SIZE_, dtype=np.int32)
-params[define._LAT_X_] = 4
-params[define._LAT_Y_] = 4
-params[define._LAT_Z_] = 4
+params[define._LAT_X_] = 64
+params[define._LAT_Y_] = 64
+params[define._LAT_Z_] = 64
 params[define._LAT_T_] = 1
 params[define._LAT_XYZT_] = params[define._LAT_X_] * \
     params[define._LAT_Y_]*params[define._LAT_Z_]*params[define._LAT_T_]
