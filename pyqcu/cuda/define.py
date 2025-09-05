@@ -9,7 +9,8 @@ gpus_per_node = cp.cuda.runtime.getDeviceCount()
 local_rank = rank % gpus_per_node
 print(f"@My Rank:{rank}/{size}, Local Rank:{local_rank}@\n")
 cp.cuda.Device(local_rank).use()
-# Copy from ../extern/cuda/qcu/include/defin.h
+# Copy from ../extern/cuda/qcu/include/define.h
+_SET_PTRS_SIZE_ = 10
 _BLOCK_SIZE_ = 128
 _MAIN_RANK_ = 0
 _a_ = 0

@@ -1,7 +1,10 @@
 import cupy as cp
 from pyqcu.cuda.linalg import dot, initialize_random_vector
 from time import perf_counter
-def slover(b, matvec, max_iter=1000, tol=1e-9, x0=None):
+from typing import Callable
+
+
+def slover(b: cp.array, matvec: Callable[[cp.array], cp.array], tol: float = 1e-6, max_iter: int = 1000, x0: cp.array = None)->cp.array:
     n = b.size
     dtype = b.dtype
     buffers = {key: cp.zeros(n, dtype=dtype) for key in ['r', 'p', 'v', 'x']}
