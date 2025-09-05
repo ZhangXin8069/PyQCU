@@ -24,8 +24,9 @@ params[define._MG_T_] = 8
 params[define._LAT_E_] = 24
 params[define._VERBOSE_] = 1
 params[define._SEED_] = 42
-argv = np.array([0.0]*define._ARGV_SIZE_, dtype=np.float32)
+argv = np.array([0.0]*define._ARGV_SIZE_, dtype=define.dtype_half(define._LAT_C64_))
 argv[define._MASS_] = -3.5  # make kappa=1.0
 argv[define._TOL_] = 1e-9
 argv[define._SIGMA_] = 0.1
-set_ptrs = np.array(10*[0], dtype=np.int64)  # maybe more than 10?
+set_ptrs = np.array([0]*define._SET_PTRS_SIZE_,
+                    dtype=np.int64)  # maybe more than 10?
