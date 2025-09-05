@@ -1,4 +1,4 @@
-import os
+import numpy.typing as npt
 import numpy as np
 import cupy as cp
 import mpi4py.MPI as MPI
@@ -9,6 +9,10 @@ gpus_per_node = cp.cuda.runtime.getDeviceCount()
 local_rank = rank % gpus_per_node
 print(f"@My Rank:{rank}/{size}, Local Rank:{local_rank}@\n")
 cp.cuda.Device(local_rank).use()
+
+# the interface of cupy is very similar to that of numpy, so here we just borrow the interface of numpy.
+cp_ndarray = npt.NDArray
+cp_dtype = npt.DTypeLike
 # Copy from ../extern/cuda/qcu/include/define.h
 _SET_PTRS_SIZE_ = 10
 _BLOCK_SIZE_ = 128
