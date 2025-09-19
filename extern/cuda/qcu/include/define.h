@@ -161,6 +161,7 @@ namespace qcu
 #define _LAT_D_ 4
 #define _LAT_DCC_ 36
 #define _LAT_PDCC_ 72
+#define _LAT_3D_ 3
 #define _B_ 0
 #define _F_ 1
 #define _BF_ 2
@@ -390,7 +391,7 @@ namespace qcu
   {                                          \
     for (int i = 0; i < _LAT_CC_; i++)       \
     {                                        \
-      U[i] = tmp_U[i * _LAT_D_ * lat_tzyx];  \
+      U[i] = tmp_U[i * _LAT_3D_ * lat_tzyx]; \
     }                                        \
   }
 #define get_src(src, origin_src, lat_tzyx) \

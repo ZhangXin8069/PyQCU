@@ -1,13 +1,11 @@
 import cupy as cp
-import numpy as np
 from cupyx.scipy.linalg import expm
 import pyqcu.cuda.define as define
-import pyqcu.cuda.io as io
-from math import sqrt
-from typing import Tuple, Optional
+from typing import List
+from pyqcu.cuda.define import cp_ndarray, cp_dtype
 
 
-def get_gell_mann_matrices(dtype):
+def get_gell_mann_matrices(dtype: cp_dtype) -> List[cp_ndarray]:
     lambda1 = cp.array([[0, 1, 0],
                         [1, 0, 0],
                         [0, 0, 0]], dtype=dtype)
@@ -35,36 +33,36 @@ def get_gell_mann_matrices(dtype):
     return [lambda1, lambda2, lambda3, lambda4, lambda5, lambda6, lambda7, lambda8]
 
 
-def give_gauss_su3(sigma=0.1, dtype=cp.complex128, seed=None):
+def give_gauss_su3(sigma: float = 0.1, dtype: cp_dtype = cp.complex128, seed: int = None) -> cp_ndarray:
     if seed is not None:
         cp.random.seed(seed)
     gell_mann = get_gell_mann_matrices(dtype)
     a = cp.random.normal(0.0, 1.0, size=8)
     H = sum(ai * Ai for ai, Ai in zip(a, gell_mann))
     U = expm(1j * sigma * H)
-    return U
+    return U.copy()
 
 
-def give_gauss_SU3(sigma=0.1, dtype=cp.complex128, seed=12138, size=100):
+def give_gauss_SU3(sigma: float = 0.1, dtype: cp_dtype = cp.complex128, seed: int = 12138, size: int = 100) -> cp_ndarray:
     U = cp.ones((size, define._LAT_C_, define._LAT_C_), dtype=dtype)
     print(f"U_size = {size}")
     for i in range(size):
         U[i] = give_gauss_su3(sigma, dtype, seed+i)
         # print(f"U_{i} is ready.")
-    return U
+    return U.copy()
 
 
-def is_unitary(U, tol=1e-6):
+def is_unitary(U: cp_ndarray, tol: float = 1e-6) -> bool:
     I = cp.eye(U.shape[0], dtype=U.dtype)
     print("U.conj().T @ U =\n", U.conj().T @ U)
     return cp.allclose(U.conj().T @ U, I, atol=tol)
 
 
-def is_su3(U, tol=1e-6):
+def is_su3(U: cp_ndarray, tol: float = 1e-6) -> bool:
     return is_unitary(U, tol) and cp.allclose(cp.linalg.det(U), 1.0, atol=tol)
 
 
-def validate_minor_identities(U, tol=1e-6):
+def validate_minor_identities(U: cp_ndarray, tol: float = 1e-6) -> bool:
     U_flat = U.flatten()
     c6 = (U_flat[1] * U_flat[5] - U_flat[2] * U_flat[4]).conj()
     c7 = (U_flat[2] * U_flat[3] - U_flat[0] * U_flat[5]).conj()
@@ -77,7 +75,7 @@ def validate_minor_identities(U, tol=1e-6):
             cp.allclose(U_flat[8], c8, atol=tol))
 
 
-def test_su3(U):
+def test_su3(U: cp_ndarray):
     print(" Is SU(3) a member :", is_su3(U))
     print(" Satisfy three-row complex conjugation properties :",
           validate_minor_identities(U))
