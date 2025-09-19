@@ -498,8 +498,7 @@ class mg:
         # init end
         r = b - matvec(x)
         r_norm = torch.norm(r).item()
-        _tol = r_norm*0.25 if level != self.num_levels - \
-            1 else r_norm*0.1
+        _tol = r_norm*0.25 if level != self.num_levels - 1 else r_norm*0.1
         if self.verbose:
             print(f"MG-{level}:Norm of b:{torch.norm(b).item()}")
             print(f"MG-{level}:Norm of r:{r_norm}")
