@@ -1,9 +1,11 @@
 import cupy as cp
 from pyqcu.cuda.linalg import initialize_random_vector, orthogonalize_against_vectors, chebyshev_filter
 from time import perf_counter
+from typing import Callable, Tuple
+from pyqcu.cuda.define import cp_ndarray, cp_dtype
 
 
-def solver(n, k, matvec, dtype, plan='small', degree=20, max_iter=200, tol=1e-6, min_eigen_value=0.0, max_eigen_value=1.0):
+def solver(n: int, k: int, matvec: Callable[[cp_ndarray], cp_ndarray], dtype: cp_dtype, plan: str = 'small', degree: int = 20, max_iter: int = 200, tol: float = 1e-6, min_eigen_value: float = 0.0, max_eigen_value: float = 1.0) -> Tuple[cp_ndarray, cp_ndarray]:
     print("This function is just for positive definite matrix.")
     temp = cp.zeros(n, dtype=dtype)
     min_degree, max_degree = 10, 100
@@ -49,20 +51,23 @@ def solver(n, k, matvec, dtype, plan='small', degree=20, max_iter=200, tol=1e-6,
             eigen_index+1, n)
         print(f"eigen_index: {eigen_index}, time: {perf_counter()-t0:.2f}s")
     cp.clear_memo()
-    return eigenvalues, eigenvectors
+    return eigenvalues.copy(), eigenvectors.copy()
 
 
-def cupyx_solver(n, k, matvec, dtype, plan='SA', max_iter=1e3, tol=1e-6, v0=None):
+def cupyx_solver(n: int, k: int, matvec: Callable[[cp_ndarray], cp_ndarray], dtype: cp_dtype, plan: str = 'SA', max_iter: int = 1e3, tol: float = 1e-6, v0: cp_ndarray = None) -> Tuple[cp_ndarray, cp_ndarray]:
     import cupyx.scipy.sparse.linalg as linalg
     print(f"dtype: {dtype}, plan: {plan}, max_iter: {max_iter}, tol: {tol}")
-    eigenvalues, eigenvectors = linalg.eigsh(a=linalg.LinearOperator((n, n), matvec=matvec, dtype=dtype), k=k, which=plan, tol=tol, maxiter=max_iter, v0=v0,return_eigenvectors=True)
-    return cp.asarray(eigenvalues), cp.asarray(eigenvectors.T)
+    eigenvalues, eigenvectors = linalg.eigsh(a=linalg.LinearOperator(
+        (n, n), matvec=matvec, dtype=dtype), k=k, which=plan, tol=tol, maxiter=max_iter, v0=v0, return_eigenvectors=True)
+    return cp.asarray(eigenvalues).copy(), cp.asarray(eigenvectors.T).copy()
 
-def scipy_solver(n, k, matvec, dtype, plan='SM', max_iter=1e3, tol=1e-6, v0=None):
-    import numpy as np
+
+def scipy_solver(n: int, k: int, matvec: Callable[[cp_ndarray], cp_ndarray], dtype: cp_dtype, plan: str = 'SM', max_iter=1e3, tol: float = 1e-6, v0: cp_ndarray = None) -> Tuple[cp_ndarray, cp_ndarray]:
     from scipy.sparse import linalg
     print(f"dtype: {dtype}, plan: {plan}, max_iter: {max_iter}, tol: {tol}")
+
     def _matvec(src):
         return matvec(cp.asarray(src)).get()
-    eigenvalues, eigenvectors = linalg.eigs(A=linalg.LinearOperator((n, n), matvec=_matvec, dtype=dtype), k=k, which=plan, tol=tol, maxiter=max_iter, v0=v0,return_eigenvectors=True)
-    return cp.asarray(eigenvalues), cp.asarray(eigenvectors.T)
+    eigenvalues, eigenvectors = linalg.eigs(A=linalg.LinearOperator(
+        (n, n), matvec=_matvec, dtype=dtype), k=k, which=plan, tol=tol, maxiter=max_iter, v0=v0, return_eigenvectors=True)
+    return cp.asarray(eigenvalues).copy(), cp.asarray(eigenvectors.T).copy()
