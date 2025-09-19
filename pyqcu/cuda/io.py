@@ -3,13 +3,14 @@ import numpy as np
 import cupy as cp
 import h5py
 import os
+from pyqcu.cuda.define import cp_ndarray
 
 
-def array2xxx(array):
+def array2xxx(array: cp_ndarray) -> cp_ndarray:
     return array.reshape(array.size)
 
 
-def gauge2ccdptzyx(gauge, params):
+def gauge2ccdptzyx(gauge: cp_ndarray, params: np.ndarray) -> cp_ndarray:
     dtype = gauge.dtype
     lat_t = params[define._LAT_T_]
     lat_z = params[define._LAT_Z_]
@@ -28,10 +29,10 @@ def gauge2ccdptzyx(gauge, params):
     print("U:", U)
     print("_U:", _U)
     print("Gauge:", gauge.size)
-    return dest
+    return dest.copy()
 
 
-def gauge2dptzyxcc(gauge, params):
+def gauge2dptzyxcc(gauge: cp_ndarray, params: np.ndarray) -> cp_ndarray:
     dtype = gauge.dtype
     lat_t = params[define._LAT_T_]
     lat_z = params[define._LAT_Z_]
@@ -50,10 +51,10 @@ def gauge2dptzyxcc(gauge, params):
     print("U:", U)
     print("_U:", _U)
     print("Gauge:", gauge.size)
-    return dest
+    return dest.copy()
 
 
-def gauge2tzyxdcc(gauge, params):
+def gauge2tzyxdcc(gauge: cp_ndarray, params: np.ndarray) -> cp_ndarray:
     dtype = gauge.dtype
     lat_t = params[define._LAT_T_]
     lat_z = params[define._LAT_Z_]
@@ -71,10 +72,10 @@ def gauge2tzyxdcc(gauge, params):
     print("U:", U)
     print("_U:", _U)
     print("Gauge:", gauge.size)
-    return dest
+    return dest.copy()
 
 
-def fermion2sctzyx(fermion, params):
+def fermion2sctzyx(fermion: cp_ndarray, params: np.ndarray) -> cp_ndarray:
     lat_s = define._LAT_S_
     lat_c = define._LAT_C_
     lat_t = params[define._LAT_T_]
@@ -83,10 +84,10 @@ def fermion2sctzyx(fermion, params):
     lat_x = int(params[define._LAT_X_]/define._LAT_P_)
     dest_shape = (lat_s, lat_c, lat_t, lat_z, lat_y, lat_x)
     dest = fermion.reshape(dest_shape)
-    return dest
+    return dest.copy()
 
 
-def fermion2tzyxsc(fermion, params):
+def fermion2tzyxsc(fermion: cp_ndarray, params: np.ndarray) -> cp_ndarray:
     lat_s = define._LAT_S_
     lat_c = define._LAT_C_
     lat_t = params[define._LAT_T_]
@@ -95,10 +96,10 @@ def fermion2tzyxsc(fermion, params):
     lat_x = int(params[define._LAT_X_]/define._LAT_P_)
     dest_shape = (lat_t, lat_z, lat_y, lat_x, lat_s, lat_c)
     dest = fermion.reshape(dest_shape)
-    return dest
+    return dest.copy()
 
 
-def fermion2psctzyx(fermion, params):
+def fermion2psctzyx(fermion: cp_ndarray, params: np.ndarray) -> cp_ndarray:
     lat_p = define._LAT_P_
     lat_s = define._LAT_S_
     lat_c = define._LAT_C_
@@ -108,10 +109,10 @@ def fermion2psctzyx(fermion, params):
     lat_x = int(params[define._LAT_X_]/define._LAT_P_)
     dest_shape = (lat_p, lat_s, lat_c, lat_t, lat_z, lat_y, lat_x)
     dest = fermion.reshape(dest_shape)
-    return dest
+    return dest.copy()
 
 
-def fermion2ptzyxsc(fermion, params):
+def fermion2ptzyxsc(fermion: cp_ndarray, params: np.ndarray) -> cp_ndarray:
     lat_p = define._LAT_P_
     lat_s = define._LAT_S_
     lat_c = define._LAT_C_
@@ -121,52 +122,52 @@ def fermion2ptzyxsc(fermion, params):
     lat_x = int(params[define._LAT_X_]/define._LAT_P_)
     dest_shape = (lat_p, lat_t, lat_z, lat_y, lat_x, lat_s, lat_c)
     dest = fermion.reshape(dest_shape)
-    return dest
+    return dest.copy()
 
 
-def gauge2ccdzyx(gauge, params):
-    lat_d = define._LAT_D_
+def gauge2ccdzyx(gauge: cp_ndarray, params: np.ndarray) -> cp_ndarray:
+    lat_d = define._LAT_3D_
     lat_c = define._LAT_C_
     lat_z = params[define._LAT_Z_]
     lat_y = params[define._LAT_Y_]
     lat_x = params[define._LAT_X_]
     dest_shape = (lat_c, lat_c, lat_d, lat_z, lat_y, lat_x)
     dest = gauge.reshape(dest_shape)
-    return dest
+    return dest.copy()
 
 
-def gauge2dzyxcc(gauge, params):
-    lat_d = define._LAT_D_
+def gauge2dzyxcc(gauge: cp_ndarray, params: np.ndarray) -> cp_ndarray:
+    lat_d = define._LAT_3D_
     lat_c = define._LAT_C_
     lat_z = params[define._LAT_Z_]
     lat_y = params[define._LAT_Y_]
     lat_x = params[define._LAT_X_]
     dest_shape = (lat_d, lat_z, lat_y, lat_x, lat_c, lat_c)
     dest = gauge.reshape(dest_shape)
-    return dest
+    return dest.copy()
 
 
-def laplacian2czyx(laplacian, params):
+def laplacian2czyx(laplacian: cp_ndarray, params: np.ndarray) -> cp_ndarray:
     lat_c = define._LAT_C_
     lat_z = params[define._LAT_Z_]
     lat_y = params[define._LAT_Y_]
     lat_x = params[define._LAT_X_]
     dest_shape = (lat_c, lat_z, lat_y, lat_x)
     dest = laplacian.reshape(dest_shape)
-    return dest
+    return dest.copy()
 
 
-def laplacian2zyxc(laplacian, params):
+def laplacian2zyxc(laplacian: cp_ndarray, params: np.ndarray) -> cp_ndarray:
     lat_c = define._LAT_C_
     lat_z = params[define._LAT_Z_]
     lat_y = params[define._LAT_Y_]
     lat_x = params[define._LAT_X_]
     dest_shape = (lat_z, lat_y, lat_x, lat_c)
     dest = laplacian.reshape(dest_shape)
-    return dest
+    return dest.copy()
 
 
-def eigenvectors2esctzyx(eigenvectors, params):
+def eigenvectors2esctzyx(eigenvectors: cp_ndarray, params: np.ndarray) -> cp_ndarray:
     lat_e = params[define._LAT_E_]
     lat_s = define._LAT_S_
     lat_c = define._LAT_C_
@@ -176,70 +177,70 @@ def eigenvectors2esctzyx(eigenvectors, params):
     lat_x = int(params[define._LAT_X_]/define._LAT_P_)
     dest_shape = (lat_e, lat_s, lat_c, lat_t, lat_z, lat_y, lat_x)
     dest = eigenvectors.reshape(dest_shape)
-    return dest
+    return dest.copy()
 
 
-def ccdptzyx2dptzyxcc(gauge):
+def ccdptzyx2dptzyxcc(gauge: cp_ndarray) -> cp_ndarray:
     dest = gauge.transpose(2, 3, 4, 5, 6, 7, 0, 1)
-    return dest
+    return dest.copy()
 
 
-def ccdptzyx2pccdtzyx(gauge):
+def ccdptzyx2pccdtzyx(gauge: cp_ndarray) -> cp_ndarray:
     dest = gauge.transpose(3, 0, 1, 2, 4, 5, 6, 7)
-    return dest
+    return dest.copy()
 
 
-def dptzyxcc2ccdptzyx(gauge):
+def dptzyxcc2ccdptzyx(gauge: cp_ndarray) -> cp_ndarray:
     dest = gauge.transpose(6, 7, 0, 1, 2, 3, 4, 5)
-    return dest
+    return dest.copy()
 
 
-def pccdtzyx2ccdptzyx(gauge):
+def pccdtzyx2ccdptzyx(gauge: cp_ndarray) -> cp_ndarray:
     dest = gauge.transpose(1, 2, 3, 0, 4, 5, 6, 7)
-    return dest
+    return dest.copy()
 
 
-def sctzyx2tzyxsc(fermion):
+def sctzyx2tzyxsc(fermion: cp_ndarray) -> cp_ndarray:
     dest = fermion.transpose(2, 3, 4, 5, 0, 1)
-    return dest
+    return dest.copy()
 
 
-def tzyxsc2sctzyx(fermion):
+def tzyxsc2sctzyx(fermion: cp_ndarray) -> cp_ndarray:
     dest = fermion.transpose(4, 5, 0, 1, 2, 3)
-    return dest
+    return dest.copy()
 
 
-def psctzyx2ptzyxsc(fermion):
+def psctzyx2ptzyxsc(fermion: cp_ndarray) -> cp_ndarray:
     dest = fermion.transpose(0, 3, 4, 5, 6, 1, 2)
-    return dest
+    return dest.copy()
 
 
-def ptzyxsc2psctzyx(fermion):
+def ptzyxsc2psctzyx(fermion: cp_ndarray) -> cp_ndarray:
     dest = fermion.transpose(0, 5, 6, 1, 2, 3, 4)
-    return dest
+    return dest.copy()
 
 
-def ccdzyx2dzyxcc(gauge):
+def ccdzyx2dzyxcc(gauge: cp_ndarray) -> cp_ndarray:
     dest = gauge.transpose(2, 3, 4, 5, 0, 1)
-    return dest
+    return dest.copy()
 
 
-def dzyxcc2ccdzyx(gauge):
+def dzyxcc2ccdzyx(gauge: cp_ndarray) -> cp_ndarray:
     dest = gauge.transpose(4, 5, 0, 1, 2, 3)
-    return dest
+    return dest.copy()
 
 
-def czyx2zyxc(laplacian):
+def czyx2zyxc(laplacian: cp_ndarray) -> cp_ndarray:
     dest = laplacian.transpose(1, 2, 3, 0)
-    return dest
+    return dest.copy()
 
 
-def zyxc2czyx(laplacian):
+def zyxc2czyx(laplacian: cp_ndarray) -> cp_ndarray:
     dest = laplacian.transpose(3, 0, 1, 2)
-    return dest
+    return dest.copy()
 
 
-def xxxtzyx2pxxxtzyx(input_array):
+def xxxtzyx2pxxxtzyx(input_array: cp_ndarray) -> cp_ndarray:
     shape = input_array.shape
     dtype = input_array.dtype
     prefix_shape = shape[:-define._LAT_D_]
@@ -256,10 +257,10 @@ def xxxtzyx2pxxxtzyx(input_array):
     splited_array[define._ODD_] = input_array[..., odd_mask].reshape(
         *prefix_shape, t, z, y, x//define._LAT_P_)
     print(f"Splited Array Shape: {splited_array.shape}")
-    return splited_array
+    return splited_array.copy()
 
 
-def pxxxtzyx2xxxtzyx(input_array):
+def pxxxtzyx2xxxtzyx(input_array: cp_ndarray) -> cp_ndarray:
     shape = input_array.shape
     dtype = input_array.dtype
     prefix_shape = shape[1:-define._LAT_D_]
@@ -276,10 +277,10 @@ def pxxxtzyx2xxxtzyx(input_array):
     restored_array[..., odd_mask] = input_array[define._ODD_].reshape(
         (*prefix_shape, -1))
     print(f"Restored Array Shape: {restored_array.shape}")
-    return restored_array
+    return restored_array.copy()
 
 
-def xxxtzyx2grid_xxxtzyx(input_array, params):
+def xxxtzyx2grid_xxxtzyx(input_array: cp_ndarray, params: np.ndarray) -> cp_ndarray:
     print(f"Input Array Shape: {input_array.shape}")
     lat_t = params[define._LAT_T_]
     lat_z = params[define._LAT_Z_]
@@ -305,10 +306,10 @@ def xxxtzyx2grid_xxxtzyx(input_array, params):
                        grid_index_y*grid_lat_y:grid_index_y*grid_lat_y+grid_lat_y,
                        grid_index_x*grid_lat_x:grid_index_x*grid_lat_x+grid_lat_x]
     print(f"Dest Shape: {dest.shape}")
-    return dest
+    return dest.copy()
 
 
-def grid_xxxtzyx2hdf5_xxxtzyx(input_array, params, file_name='xxxtzyx.h5'):
+def grid_xxxtzyx2hdf5_xxxtzyx(input_array: cp_ndarray, params, file_name: str = 'xxxtzyx.h5'):
     print(f"Input Array Shape: {input_array.shape}")
     dtype = input_array.dtype
     prefix_shape = input_array.shape[:-define._LAT_D_]
@@ -344,7 +345,7 @@ def grid_xxxtzyx2hdf5_xxxtzyx(input_array, params, file_name='xxxtzyx.h5'):
         print(f"Rank {rank}: Data is saved to {file_name}")
 
 
-def hdf5_xxxtzyx2grid_xxxtzyx(params, file_name='xxxtzyx.h5'):
+def hdf5_xxxtzyx2grid_xxxtzyx(params: np.ndarray, file_name: str = 'xxxtzyx.h5') -> cp_ndarray:
     with h5py.File(file_name, 'r', driver='mpio', comm=define.comm) as f:
         lat_t = params[define._LAT_T_]
         lat_z = params[define._LAT_Z_]
@@ -374,10 +375,10 @@ def hdf5_xxxtzyx2grid_xxxtzyx(params, file_name='xxxtzyx.h5'):
                         grid_index_y*grid_lat_y:grid_index_y*grid_lat_y+grid_lat_y,
                         grid_index_x*grid_lat_x:grid_index_x*grid_lat_x+grid_lat_x]
         print(f"Dest Shape: {dest.shape}")
-        return cp.asarray(dest)
+        return cp.asarray(dest).copy()
 
 
-def xxx2hdf5_xxx(input_array, file_name='xxx.h5'):
+def xxx2hdf5_xxx(input_array: cp_ndarray, file_name: str = 'xxx.h5'):
     print(f"Input Array Shape: {input_array.shape}")
     dtype = input_array.dtype
     shape = input_array.shape
@@ -388,15 +389,15 @@ def xxx2hdf5_xxx(input_array, file_name='xxx.h5'):
         print(f"Data is saved to {file_name}")
 
 
-def hdf5_xxx2xxx(file_name='xxx.h5'):
+def hdf5_xxx2xxx(file_name: str = 'xxx.h5') -> cp_ndarray:
     with h5py.File(file_name, 'r', driver='mpio', comm=define.comm) as f:
         all_dest = f['data']
         dest = all_dest[...]
         print(f"Dest Shape: {dest.shape}")
-        return cp.asarray(dest)
+        return cp.asarray(dest).copy()
 
 
-def xxxtzyx2mg_xxxtzyx(input_array, params):
+def xxxtzyx2mg_xxxtzyx(input_array: cp_ndarray, params: np.ndarray) -> cp_ndarray:
     print(f"Input Array Shape: {input_array.shape}")
     prefix_shape = input_array.shape[:-define._LAT_D_]
     lat_t = params[define._LAT_T_]
@@ -414,10 +415,10 @@ def xxxtzyx2mg_xxxtzyx(input_array, params):
     dest = input_array.reshape(
         *prefix_shape, mg_t, mg_lat_t, mg_z, mg_lat_z, mg_y, mg_lat_y, mg_x, mg_lat_x)
     print(f"Dest Shape: {dest.shape}")
-    return dest
+    return dest.copy()
 
 
-def xxx2eTZYX(input_array, params):
+def xxx2eTZYX(input_array: cp_ndarray, params: np.ndarray) -> cp_ndarray:
     print(f"Input Array Shape: {input_array.shape}")
     lat_e = params[define._LAT_E_]
     mg_t = params[define._MG_T_]
@@ -427,10 +428,10 @@ def xxx2eTZYX(input_array, params):
     dest = input_array.reshape(
         lat_e, mg_t, mg_z, mg_y, mg_x)
     print(f"Dest Shape: {dest.shape}")
-    return dest
+    return dest.copy()
 
 
-def xxx2escTZYX(input_array, params):
+def xxx2escTZYX(input_array: cp_ndarray, params: np.ndarray) -> cp_ndarray:
     print(f"Input Array Shape: {input_array.shape}")
     lat_s = define._LAT_S_
     lat_c = define._LAT_C_
@@ -442,10 +443,10 @@ def xxx2escTZYX(input_array, params):
     dest = input_array.reshape(
         lat_e, lat_s, lat_c, mg_t, mg_z, mg_y, mg_x)
     print(f"Dest Shape: {dest.shape}")
-    return dest
+    return dest.copy()
 
 
-def xxx2scTZYX(input_array, params):
+def xxx2scTZYX(input_array: cp_ndarray, params: np.ndarray) -> cp_ndarray:
     print(f"Input Array Shape: {input_array.shape}")
     lat_s = define._LAT_S_
     lat_c = define._LAT_C_
@@ -456,19 +457,19 @@ def xxx2scTZYX(input_array, params):
     dest = input_array.reshape(
         lat_s, lat_c, mg_t, mg_z, mg_y, mg_x)
     print(f"Dest Shape: {dest.shape}")
-    return dest
+    return dest.copy()
 
 
-def clover2I(input_array):
+def clover2I(input_array: cp_ndarray) -> cp_ndarray:
     print(f"Input Array Shape: {input_array.shape}")
     dest = input_array.reshape(-1, 12, 12)
     dest[:, :, ...] = cp.eye(12, 12, dtype=input_array.dtype)
     dest = dest.transpose(1, 2, 0)
     print(f"Dest Shape: {dest.shape}")
-    return dest.reshape(input_array.shape)
+    return dest.reshape(input_array.shape).copy()
 
 
-def give_none_gauge(params, file_name='gauge.h5', save=True):
+def give_none_gauge(params: np.ndarray, file_name: str = 'gauge.h5', save: bool = True) -> cp_ndarray:
     dtype = define.dtype(_data_type_=params[define._DATA_TYPE_])
     lat_t = params[define._LAT_T_]
     lat_z = params[define._LAT_Z_]
@@ -486,11 +487,10 @@ def give_none_gauge(params, file_name='gauge.h5', save=True):
                           define._LAT_P_, grid_lat_t, grid_lat_z, grid_lat_y, grid_lat_x], dtype=dtype)
     if save:
         grid_xxxtzyx2hdf5_xxxtzyx(none_gauge, params, file_name=file_name)
-    else:
-        return none_gauge
+    return none_gauge.copy()
 
 
-def give_none_clover(params, file_name='clover.h5', save=True):
+def give_none_clover(params: np.ndarray, file_name: str = 'clover.h5', save: bool = True) -> cp_ndarray:
     dtype = define.dtype(_data_type_=params[define._DATA_TYPE_])
     lat_t = params[define._LAT_T_]
     lat_z = params[define._LAT_Z_]
@@ -508,11 +508,10 @@ def give_none_clover(params, file_name='clover.h5', save=True):
                                   define._LAT_C_, grid_lat_t, grid_lat_z, grid_lat_y, grid_lat_x], dtype=dtype)
     if save:
         grid_xxxtzyx2hdf5_xxxtzyx(none_clover, params, file_name=file_name)
-    else:
-        return none_clover
+    return none_clover.copy()
 
 
-def give_none_fermion_in(params, file_name='fermion_in.h5', save=True):
+def give_none_fermion_in(params: np.ndarray, file_name: str = 'fermion_in.h5', save: bool = True) -> cp_ndarray:
     dtype = define.dtype(_data_type_=params[define._DATA_TYPE_])
     lat_t = params[define._LAT_T_]
     lat_z = params[define._LAT_Z_]
@@ -530,11 +529,10 @@ def give_none_fermion_in(params, file_name='fermion_in.h5', save=True):
                                       grid_lat_t, grid_lat_z, grid_lat_y, grid_lat_x], dtype=dtype)
     if save:
         grid_xxxtzyx2hdf5_xxxtzyx(none_fermion_in, params, file_name=file_name)
-    else:
-        return none_fermion_in
+    return none_fermion_in.copy()
 
 
-def give_none_fermion_out(params, file_name='fermion_out.h5', save=True):
+def give_none_fermion_out(params: np.ndarray, file_name: str = 'fermion_out.h5', save: bool = True) -> cp_ndarray:
     dtype = define.dtype(_data_type_=params[define._DATA_TYPE_])
     lat_t = params[define._LAT_T_]
     lat_z = params[define._LAT_Z_]
@@ -553,59 +551,58 @@ def give_none_fermion_out(params, file_name='fermion_out.h5', save=True):
     if save:
         grid_xxxtzyx2hdf5_xxxtzyx(
             none_fermion_out, params, file_name=file_name)
-    else:
-        return none_fermion_out
+    return none_fermion_out.copy()
 
 
-def get_or_give_gauge(params, filename):
+def get_or_give_gauge(params: np.ndarray, file_name: str) -> cp_ndarray:
     try:
-        if not os.path.exists(filename):
-            print(f"[Info] {filename} not found, giving...")
-            give_none_gauge(params, filename)
-        print(f"[Info] {filename} found, geting...")
-        return hdf5_xxxtzyx2grid_xxxtzyx(params, filename, save=True)
+        if not os.path.exists(file_name):
+            print(f"[Info] {file_name} not found, giving...")
+            give_none_gauge(params, file_name)
+        print(f"[Info] {file_name} found, geting...")
+        return hdf5_xxxtzyx2grid_xxxtzyx(params, file_name, save=True)
     except Exception as e:
-        print(f"[Warning] Failed to read {filename}: {e}!!!")
+        print(f"[Warning] Failed to read {file_name}: {e}!!!")
 
 
-def get_or_give_clover(params, filename):
+def get_or_give_clover(params: np.ndarray, file_name: str) -> cp_ndarray:
     try:
-        if not os.path.exists(filename):
-            print(f"[Info] {filename} not found, giving...")
-            give_none_clover(params, filename, save=True)
-        print(f"[Info] {filename} found, geting...")
-        return hdf5_xxxtzyx2grid_xxxtzyx(params, filename)
+        if not os.path.exists(file_name):
+            print(f"[Info] {file_name} not found, giving...")
+            give_none_clover(params, file_name, save=True)
+        print(f"[Info] {file_name} found, geting...")
+        return hdf5_xxxtzyx2grid_xxxtzyx(params, file_name)
     except Exception as e:
-        print(f"[Warning] Failed to read {filename}: {e}!!!")
+        print(f"[Warning] Failed to read {file_name}: {e}!!!")
 
 
-def get_or_give_fermion_in(params, filename):
+def get_or_give_fermion_in(params: np.ndarray, file_name: str) -> cp_ndarray:
     try:
-        if not os.path.exists(filename):
-            print(f"[Info] {filename} not found, giving...")
-            give_none_fermion_in(params, filename)
-        print(f"[Info] {filename} found, geting...")
-        return hdf5_xxxtzyx2grid_xxxtzyx(params, filename, save=True)
+        if not os.path.exists(file_name):
+            print(f"[Info] {file_name} not found, giving...")
+            give_none_fermion_in(params, file_name)
+        print(f"[Info] {file_name} found, geting...")
+        return hdf5_xxxtzyx2grid_xxxtzyx(params, file_name, save=True)
     except Exception as e:
-        print(f"[Warning] Failed to read {filename}: {e}!!!")
+        print(f"[Warning] Failed to read {file_name}: {e}!!!")
 
 
-def get_or_give_fermion_out(params, filename):
+def get_or_give_fermion_out(params: np.ndarray, file_name: str) -> cp_ndarray:
     try:
-        if not os.path.exists(filename):
-            print(f"[Info] {filename} not found, giving...")
-            give_none_fermion_out(params, filename)
-        print(f"[Info] {filename} found, geting...")
-        return hdf5_xxxtzyx2grid_xxxtzyx(params, filename, save=True)
+        if not os.path.exists(file_name):
+            print(f"[Info] {file_name} not found, giving...")
+            give_none_fermion_out(params, file_name)
+        print(f"[Info] {file_name} found, geting...")
+        return hdf5_xxxtzyx2grid_xxxtzyx(params, file_name, save=True)
     except Exception as e:
-        print(f"[Warning] Failed to read {filename}: {e}!!!")
+        print(f"[Warning] Failed to read {file_name}: {e}!!!")
 
 
-def try_give(input_array, params, filename):
+def try_give(input_array: cp_ndarray, params: np.ndarray, file_name: str) -> cp_ndarray:
     try:
-        if not os.path.exists(filename):
-            print(f"[Info] {filename} not found, giving...")
-            grid_xxxtzyx2hdf5_xxxtzyx(input_array, params, filename)
-        print(f"[Info] {filename} found, not giving...")
+        if not os.path.exists(file_name):
+            print(f"[Info] {file_name} not found, giving...")
+            grid_xxxtzyx2hdf5_xxxtzyx(input_array, params, file_name)
+        print(f"[Info] {file_name} found, not giving...")
     except Exception as e:
-        print(f"[Warning] Failed to save {filename}: {e}!!!")
+        print(f"[Warning] Failed to save {file_name}: {e}!!!")
