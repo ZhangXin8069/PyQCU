@@ -1,1 +1,0 @@
-from pyqcu.cuda import define
