@@ -214,56 +214,6 @@ def give_null_vecs(
     return null_vecs.clone()
 
 
-def _local_orthogonalize(null_vecs: torch.Tensor,
-                         mg_size: Tuple[int, int, int, int] = [2, 2, 2, 2],
-                         normalize: bool = True, verbose: bool = True
-                         ) -> torch.Tensor:
-    """
-    Orthogonalize near-null space vectors locally.
-    Args:
-        null_vecs: Initial random vectors [dof, *dims].
-        mg_size: cut latt_size to [latt_size[i]/mg_size[i] for i in range(len(latt_size))] (default: [2, 2, 2, 2]).
-        normalize: normalize the null_vecs (default: True).
-        verbose: Print progress information (default: True).
-    Returns:
-        local-orthonormal near-null space vectors.
-    """
-    dof = null_vecs.shape[0]  # Number of null space vectors
-    latt_size = list(null_vecs.shape[-4:])
-    shape = list(null_vecs.shape[:-4])+[mg_size[0], latt_size[0]//mg_size[0], mg_size[1], latt_size[1] //
-                                        mg_size[1], mg_size[2], latt_size[2]//mg_size[2], mg_size[3], latt_size[3]//mg_size[3]]  # [EeTtZzYyXx]
-    if verbose:
-        print(f"null_vecs.shape:{null_vecs.shape}")
-        print(f"dof,latt_size,mg_size,shape:{dof,latt_size,mg_size,shape}")
-    if not all(latt_size[-i-1] == shape[-2*i-1]*shape[-2*i-2] for i in range(4)):
-        print(
-            'not all(latt_size[-i-1] == shape[-2*i-1]*shape[-2*i-2] for i in range(4))')
-    local_null_vecs = null_vecs.reshape(shape=shape).clone()
-    local_ortho_null_vecs = torch.zeros_like(local_null_vecs)
-    for X in range(mg_size[-1]):
-        for Y in range(mg_size[-2]):
-            for Z in range(mg_size[-3]):
-                for T in range(mg_size[-4]):
-                    _local_null_vecs = local_null_vecs[...,
-                                                       T, :, Z, :, Y, :, X, :]  # [Eetzyx]
-                    for i in range(dof):  # [E]
-                        # The orthogonalization of local_null_vecs
-                        for j in range(0, i):
-                            _local_null_vecs[i] -= torch.vdot(_local_null_vecs[j].flatten(), _local_null_vecs[i].flatten())/torch.vdot(
-                                _local_null_vecs[j].flatten(), _local_null_vecs[j].flatten())*_local_null_vecs[j]
-                        if normalize:
-                            _local_null_vecs[i] /= torch.norm(
-                                _local_null_vecs[i]).item()
-                    local_ortho_null_vecs[..., T, :, Z,
-                                          :, Y, :, X, :] = _local_null_vecs.clone()
-                    if verbose:
-                        for i in range(dof):
-                            for j in range(0, i+1):
-                                print(
-                                    f"torch.vdot(local_ortho_null_vecs[..., {T}, :, {Z}, :, {Y}, :, {X}, :][{i}].flatten(), local_ortho_null_vecs[..., {T}, :, {Z}, :, {Y}, :, {X}, :][{j}].flatten()):{torch.vdot(local_ortho_null_vecs[..., T, :, Z, :, Y, :, X, :][i].flatten(), local_ortho_null_vecs[..., T, :, Z, :, Y, :, X, :][j].flatten())}")
-    return local_ortho_null_vecs.clone()
-
-
 def local_orthogonalize(null_vecs: torch.Tensor,
                         mg_size: Tuple[int, int, int, int] = (2, 2, 2, 2),
                         normalize: bool = True,
@@ -390,8 +340,8 @@ class sitting:
         self.clover = clover
         self.clover_term = clover_term
         if self.clover != None and self.clover_term != None:  # remmber to add I
-            self.M = self.clover_term.reshape(
-                [12, 12]+list(self.clover_term.shape[-4:])).clone()
+            self.M = self.clover.add_I(clover_term=self.clover_term).reshape(
+                [12, 12]+list(self.clover_term.shape[-4:])).clone()  # A = I + T
 
     def matvec(self, src: torch.Tensor) -> torch.Tensor:
         return torch.einsum(
@@ -426,10 +376,6 @@ class op:
                     # give partly sitting.ee and whole hopping.oe
                     _src_c = torch.zeros_like(self.sitting.M[0])
                     _src_c[e][slice_dim(ward=ward, start=0)] = 1.0
-                    print(f"_src_c.shape:{_src_c.shape}")
-                    print(f"torch.sum(_src_c):{torch.sum(_src_c)}")
-                    print(
-                        f"_src_c[e][slice_dim(ward=ward, start=0)].shape:{_src_c[e][slice_dim(ward=ward, start=0)].shape}")
                     _src_f = prolong(
                         local_ortho_null_vecs=local_ortho_null_vecs, coarse_vec=_src_c, verbose=self.verbose)
                     _dest_f_plus = fine_hopping.matvec_plus(
@@ -440,12 +386,6 @@ class op:
                         local_ortho_null_vecs=local_ortho_null_vecs, fine_vec=_dest_f_plus, verbose=self.verbose)
                     _dest_c_minus = restrict(
                         local_ortho_null_vecs=local_ortho_null_vecs, fine_vec=_dest_f_minus, verbose=self.verbose)
-                    print(f"e:{e}")
-                    print(f"ward:{ward}")
-                    print(
-                        f"self.sitting.M[:, e][slice_dim(dim=5,ward=ward+1, start=0)].shape:{self.sitting.M[:, e][slice_dim(dim=5,ward=ward+1, start=0)].shape}")
-                    print(
-                        f"_dest_c_plus[slice_dim(dim=5, ward=ward+1, start=0)].shape:{_dest_c_plus[slice_dim(dim=5, ward=ward+1, start=0)].shape}")
                     self.sitting.M[:, e][slice_dim(dim=5,
                                                    ward=ward+1, start=0)] += _dest_c_plus[slice_dim(dim=5, ward=ward+1, start=0)].clone()
                     self.sitting.M[:, e][slice_dim(dim=5,
@@ -493,7 +433,7 @@ class op:
 
 
 class mg:
-    def __init__(self, b: torch.Tensor,  wilson: dslash.wilson_mg, U: torch.Tensor, clover: dslash.clover, clover_term: torch.Tensor,  min_size: int = 2, max_levels: int = 2, dof_list: Tuple[int, int, int, int] = [12, 24, 24, 24, 24, 4, 4, 24, 12, 12, 12, 24, 24, 24, 24, 48, 48, 24, 8, 8, 8, 4, 12, 12, 12, 8, 4, 2, 4, 4, 24, 12, 12, 12, 4, 4, 4, 4, 4], tol: float = 1e-6, max_iter: int = 1000, x0: torch.Tensor = None, verbose: bool = True):
+    def __init__(self, b: torch.Tensor,  wilson: dslash.wilson_mg, U: torch.Tensor, clover: dslash.clover, clover_term: torch.Tensor,  min_size: int = 2, max_levels: int = 5, dof_list: Tuple[int, int, int, int] = [12, 24, 24, 24, 24, 4, 4, 24, 12, 12, 12, 24, 24, 24, 24, 48, 48, 24, 8, 8, 8, 4, 12, 12, 12, 8, 4, 2, 4, 4, 24, 12, 12, 12, 4, 4, 4, 4, 4], tol: float = 1e-6, max_iter: int = 1000, x0: torch.Tensor = None, verbose: bool = True):
         self.b = b.reshape([12]+list(b.shape)[2:])  # sc->e
         self.min_size = min_size
         self.max_levels = max_levels
@@ -553,16 +493,14 @@ class mg:
     def cycle(self, level: int = 0) -> torch.Tensor:
         # init start
         b = self.b_list[level].clone()
-        x = torch.randn_like(b)
+        x = torch.zeros_like(b)
         matvec = self.op_list[level].matvec
-        max_iter = self.max_iter
-        verbose = self.verbose
         # init end
         r = b - matvec(x)
         r_norm = torch.norm(r).item()
-        _tol = torch.norm(b).item()*0.01 if level != self.num_levels - \
-            1 else torch.norm(b).item()*0.001
-        if verbose:
+        _tol = r_norm*0.25 if level != self.num_levels - \
+            1 else r_norm*0.1
+        if self.verbose:
             print(f"MG-{level}:Norm of b:{torch.norm(b).item()}")
             print(f"MG-{level}:Norm of r:{r_norm}")
             print(f"MG-{level}:Norm of x0:{torch.norm(x).item()}")
@@ -583,7 +521,7 @@ class mg:
         omega = torch.tensor(1.0, dtype=b.dtype, device=b.device)
         start_time = perf_counter()
         iter_times = []
-        for i in range(max_iter):
+        for i in range(self.max_iter):
             iter_start_time = perf_counter()
             rho = torch.vdot(r_tilde.flatten(), r.flatten())
             beta = (rho / rho_prev) * (alpha / omega)
@@ -597,36 +535,35 @@ class mg:
                 torch.vdot(t.flatten(), t.flatten())
             x = x + alpha * p + omega * s
             r = s - omega * t
-            # r = b - matvec(x)
             r_norm = torch.norm(r).item()
-            if level == 0 and verbose:
+            if level == 0:
                 self.convergence_history.append(r_norm)
-            if verbose:
+            if self.verbose:
                 # print(f"alpha,beta,omega:{alpha,beta,omega}\n")
                 print(
                     f"B-MG-{level}-BICGSTAB-Iteration {i}: Residual = {r_norm:.6e}")
             # cycle start
             if level != self.num_levels-1:
                 r_coarse = restrict(
-                    local_ortho_null_vecs=self.lonv_list[level], fine_vec=r)
+                    local_ortho_null_vecs=self.lonv_list[level], fine_vec=r, verbose=self.verbose)
                 self.b_list[level+1] = r_coarse.clone()
                 e_coarse = self.cycle(level=level+1)
                 e_fine = prolong(
-                    local_ortho_null_vecs=self.lonv_list[level], coarse_vec=e_coarse)
+                    local_ortho_null_vecs=self.lonv_list[level], coarse_vec=e_coarse, verbose=self.verbose)
                 x = x + e_fine
                 r = b - matvec(x)
             r_norm = torch.norm(r).item()
-            if level == 0 and verbose:
+            if level == 0:
                 self.convergence_history.append(r_norm)
             # cycle end
             iter_time = perf_counter() - iter_start_time
             iter_times.append(iter_time)
-            if verbose:
+            if self.verbose:
                 # print(f"alpha,beta,omega:{alpha,beta,omega}\n")
                 print(
                     f"F-MG-{level}-BICGSTAB-Iteration {i}: Residual = {r_norm:.6e}, Time = {iter_time:.6f} s")
             if r_norm < _tol:
-                if verbose:
+                if self.verbose:
                     print(
                         f"Converged at iteration {i} with residual {r_norm:.6e}")
                 break
