@@ -186,7 +186,7 @@ def give_null_vecs(
         # v=r-A^{-1}Ar
         # tol needs to be bigger...
         null_vecs[i] -= bicgstab(b=matvec(null_vecs[i]),
-                                 matvec=matvec, tol=5e-5, verbose=True)
+                                 matvec=matvec, tol=5e-5, verbose=verbose)
         if ortho_null_vecs:
             # The orthogonalization of null_vecs
             for j in range(0, i):
