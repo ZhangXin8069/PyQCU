@@ -591,7 +591,7 @@ class mg:
         print(f"Final residual: {self.convergence_history[-1]:.2e}")
         return x.reshape([4, 3]+list(x.shape[-4:])).clone()
 
-    def plot(self):
+    def plot(self, save_path=None):
         import matplotlib.pyplot as plt
         import numpy as np
         np.Inf = np.inf
@@ -605,3 +605,7 @@ class mg:
         plt.ylabel('Residual Norm', fontsize=12)
         plt.grid(True, alpha=0.3)
         plt.tight_layout()
+        if save_path is None:
+            save_path = "convergence_history.png"
+        plt.savefig(save_path, dpi=300)
+        plt.close()
