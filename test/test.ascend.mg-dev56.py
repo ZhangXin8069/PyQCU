@@ -1,149 +1,97 @@
 import torch
-import h5py
-import mpi4py.MPI as MPI
-
-mpi_comm = MPI.COMM_WORLD
-mpi_rank = mpi_comm.Get_rank()
-mpi_size = mpi_comm.Get_size()
-
-
-def any_xxx2hdf5_xxx(input_array: torch.Tensor, file_name: str = 'xxx.h5') -> torch.Tensor:
-    _input_array = input_array.cpu().numpy()
-    with h5py.File(file_name, 'w', driver='mpio', comm=mpi_comm) as f:
-        hdf5_array = f.create_dataset(
-            'data', shape=_input_array.shape, dtype=_input_array.dtype)
-        hdf5_array[...] = _input_array
-        print(f"Data Shape: {hdf5_array.shape}")
-        print(f"Data is saved to {file_name}")
-
-
-def hdf5_xxx2cpu_xxx(file_name: str = 'xxx.h5') -> torch.Tensor:
-    with h5py.File(file_name, 'r', driver='mpio', comm=mpi_comm) as f:
-        hdf5_array = f['data'][...]
-        _hdf5_array = torch.from_numpy(hdf5_array)
-        print(f"Data is loaded from {file_name}")
-        print(f"Data Shape: {_hdf5_array.shape}")
-        return _hdf5_array
-
-
-def ccdptzyx2pccdtzyx(gauge: torch.Tensor) -> torch.Tensor:
-    dest = gauge.permute(3, 0, 1, 2, 4, 5, 6, 7)
-    return dest
-
-
-def give_hdf5_U(device: str, file_name: str = 'xxx.h5') -> torch.Tensor:
-    """
-    U = pxxxtzyx2xxxtzyx(input_array=ccdptzyx2pccdtzyx(gauge=hdf5_xxx2cpu_xxx(file_name='quda_wilson-bistabcg-gauge_-32-32-32-32-1048576-1-1-1-1-0-0-1-0-f.h5')))
-    U = hdf5_xxx2cpu_xxx().detach().clone().to(device)
-    U = give_hdf5_U(device=device)
-    """
-    return hdf5_xxx2cpu_xxx(file_name=file_name).detach().clone().to(device)
-
-
-def xxxtzyx2pxxxtzyx(input_array: torch.Tensor, verbose=False) -> torch.Tensor:
-    if verbose:
-        print("@xxxtzyx2pxxxtzyx......")
-    shape = input_array.shape
-    dtype = input_array.dtype
-    device = input_array.device
-    prefix_shape = shape[:-4]
-    t, z, y, x = shape[-4:]
-    # Create coordinate grids
-    coords = torch.meshgrid(
-        torch.arange(t),
-        torch.arange(z),
-        torch.arange(y),
-        torch.arange(x),
-        indexing='ij'
-    )
-    # Sum coordinates to determine checkerboard pattern
-    sums = coords[0] + coords[1] + coords[2] + coords[3]
-    even_mask = (sums % 2 == 0)
-    odd_mask = ~even_mask
-    # Initialize output tensor with two channels
-    splited_array = torch.zeros(
-        (2, *prefix_shape, t, z, y, x//2),
-        dtype=dtype,
-        device=device
-    )
-    # Reshape masked elements and assign to output
-    splited_array[0] = input_array[..., even_mask].reshape(
-        *prefix_shape, t, z, y, x//2)
-    splited_array[1] = input_array[..., odd_mask].reshape(
-        *prefix_shape, t, z, y, x//2)
-    if verbose:
-        print(f"Splited Array Shape: {splited_array.shape}")
-    return splited_array
-
-
-def pxxxtzyx2xxxtzyx(input_array: torch.Tensor, verbose=False) -> torch.Tensor:
-    if verbose:
-        print("@pxxxtzyx2xxxtzyx......")
-    shape = input_array.shape
-    dtype = input_array.dtype
-    device = input_array.device
-    prefix_shape = shape[1:-4]
-    t, z, y, x_half = shape[-4:]
-    x = x_half * 2  # Restore original x dimension
-    # Create coordinate grids for original shape
-    coords = torch.meshgrid(
-        torch.arange(t),
-        torch.arange(z),
-        torch.arange(y),
-        torch.arange(x),
-        indexing='ij'
-    )
-    # Sum coordinates to determine checkerboard pattern
-    sums = coords[0] + coords[1] + coords[2] + coords[3]
-    even_mask = (sums % 2 == 0)
-    odd_mask = ~even_mask
-    # Initialize output tensor with original shape
-    restored_array = torch.zeros(
-        (*prefix_shape, t, z, y, x),
-        dtype=dtype,
-        device=device
-    )
-    # Assign values from input array using masks
-    restored_array[..., even_mask] = input_array[0].reshape(*prefix_shape, -1)
-    restored_array[..., odd_mask] = input_array[1].reshape(*prefix_shape, -1)
-    if verbose:
-        print(f"Restored Array Shape: {restored_array.shape}")
-    return restored_array
-
-
-def give_eo_mask(xxxtzy_x_p: torch.Tensor, eo: int, verbose=False) -> torch.Tensor:
-    if verbose:
-        print("@give_eo_mask......")
-    shape = xxxtzy_x_p.shape
-    t, z, y, x_p = shape[-4:]
-    # Create coordinate grids for original shape
-    coords = torch.meshgrid(
-        torch.arange(t),
-        torch.arange(z),
-        torch.arange(y),
-        torch.arange(x_p),
-        indexing='ij'
-    )
-    # Sum coordinates to determine checkerboard pattern
-    sums = coords[0] + coords[1] + coords[2]  # t+z+y
-    return sums % 2 == eo
-
-
-def slice_dim(dim: int = 4, ward: int = 0, start=None, stop=None, step=2) -> tuple:
-    """
-    Slice tensor along a specific dimension.
-
-    Args:
-        input_array: input tensor.
-        dim: number of dimensions.
-        ward: dimension index to slice.
-        start, stop, step: same as Python slicing [start:stop:step].
-
-    Returns:
-        tuple(slices)
-    """
-    # 构造 slice(None) 占位符
-    slices = [slice(None)] * dim
-    # 替换指定维度的 slice
-    slices[ward] = slice(start, stop, step)
-    return tuple(slices)
+from pyqcu.ascend import dslash
+from pyqcu.ascend import inverse
+from pyqcu.ascend.include import *
+# latt_size = (32, 32, 32, 32)
+# latt_size = (32, 32, 16, 16)
+# latt_size = (16, 16, 16, 32)
+# latt_size = (16, 16, 16, 16)
+# latt_size = (16, 16, 8, 8)
+# latt_size = (8, 16, 16, 32)
+# latt_size = (32, 32, 32, 32)
+# latt_size = (32, 32, 32, 64)
+# latt_size = (4, 8, 8, 8)
+# latt_size = (8, 8, 8, 4)
+# latt_size = (16, 8, 8, 8)
+# latt_size = (8, 8, 8, 16)
+latt_size = (8, 8, 8, 8)
+# latt_size = (4, 4, 4, 4)
+# latt_size = (2, 2, 2, 2)
+# mass = -3.5
+# mass = -0.8
+# mass = -0.5
+# mass = 0.05
+# mass = 0.0
+mass = -0.05
+# kappa = 0.4
+# kappa = 0.125
+# kappa = 0.5
+kappa = 1 / (2 * mass + 8)
+# dtype = torch.complex128
+dtype = torch.complex64
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+print(f"Using device: {device}")
+# Initialize lattice gauge theory
+wilson = dslash.wilson_mg(
+    latt_size=latt_size,
+    kappa=kappa,
+    dtype=dtype,
+    device=device,
+    verbose=False
+)
+clover = dslash.clover(
+    latt_size=latt_size,
+    kappa=kappa,
+    dtype=dtype,
+    device=device,
+    verbose=False
+)
+U = wilson.generate_gauge_field(sigma=0.1, seed=42)
+wilson.check_su3(U)
+clover_term = clover.make_clover(U=U)
+# clover_term = torch.zeros_like(clover_term) # just for test, just wilson
+b = torch.randn(4, 3, latt_size[3], latt_size[2], latt_size[1], latt_size[0],
+                dtype=dtype, device=device)
+verbose = False
+tol = 1e-6
+hopping_plus_list = []
+hopping_minus_list = []
+for ward in range(4):
+    hopping_plus_list.append(wilson.give_hopping_plus(ward=ward, U=U))
+    hopping_minus_list.append(wilson.give_hopping_minus(ward=ward, U=U))
+Ab = wilson.give_wilson(src=b, U=U, with_I=False)
+_Ab = torch.zeros_like(b)
+for ward in range(4):
+    _Ab += wilson.give_wilson_plus(ward=ward, src=b.reshape(
+        [12]+list(U.shape[-4:])), hopping=hopping_plus_list[ward]).reshape([4, 3]+list(U.shape[-4:]))
+    _Ab += wilson.give_wilson_minus(ward=ward, src=b.reshape(
+        [12]+list(U.shape[-4:])), hopping=hopping_minus_list[ward]).reshape([4, 3]+list(U.shape[-4:]))
+print(torch.norm(U).item())
+print(torch.norm(Ab).item())
+print(torch.norm(_Ab).item())
+print(torch.norm(Ab-_Ab).item()/torch.norm(Ab).item())
+mg = inverse.mg(b=b, wilson=wilson, U=U,
+                clover=clover, clover_term=clover_term, tol=tol, verbose=verbose)
+def matvec(src: torch.Tensor, U: torch.Tensor = U, clover_term: torch.Tensor = clover_term) -> torch.Tensor:
+    return wilson.give_wilson(src, U)+clover.give_clover(clover_term=clover_term, src=src)
+def _matvec(src: torch.Tensor) -> torch.Tensor:
+    return mg.op_list[0].matvec(src=src)
+Ab = matvec(b)
+_Ab = _matvec(b)
+print(torch.norm(U).item())
+print(torch.norm(clover_term).item())
+print(torch.norm(Ab).item())
+print(torch.norm(_Ab).item())
+print(torch.norm(Ab-_Ab).item()/torch.norm(Ab).item())
+b0 = mg.b_list[0]
+b1 = inverse.restrict(
+    local_ortho_null_vecs=mg.lonv_list[0], fine_vec=b0)
+_b0 = inverse.prolong(local_ortho_null_vecs=mg.lonv_list[0], coarse_vec=b1)
+_b1 = inverse.restrict(
+    local_ortho_null_vecs=mg.lonv_list[0], fine_vec=_b0)
+print(_b1.flatten()[:100]/b1.flatten()[:100])
+_x = inverse.bicgstab(b=b, matvec=_matvec, tol=tol, verbose=verbose)
+mg.num_levels = 2
+x = mg.solve()
+mg.plot()
+print(torch.norm(x-_x).item()/torch.norm(_x).item())
