@@ -2,7 +2,8 @@ import torch
 import torch.nn as nn
 from math import sqrt
 from typing import Tuple, Optional
-from pyqcu.ascend.include import *
+from pyqcu.ascend.io import *
+from pyqcu.ascend.define import *
 
 
 class wilson(nn.Module):
