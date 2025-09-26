@@ -1,7 +1,8 @@
 import torch
 from pyqcu.ascend import dslash
 from pyqcu.ascend import inverse
-from pyqcu.ascend.include import *
+from pyqcu.ascend.io import *
+from pyqcu.ascend.define import *
 # latt_size = (32, 32, 32, 32)
 # latt_size = (32, 32, 16, 16)
 # latt_size = (16, 16, 16, 32)
@@ -72,6 +73,7 @@ print(torch.norm(_Ab).item())
 print(torch.norm(Ab-_Ab).item()/torch.norm(Ab).item())
 mg = inverse.mg(b=b, wilson=wilson, U=U,
                 clover=clover, clover_term=clover_term, tol=tol, verbose=verbose)
+mg.init()
 def matvec(src: torch.Tensor, U: torch.Tensor = U, clover_term: torch.Tensor = clover_term) -> torch.Tensor:
     return wilson.give_wilson(src, U)+clover.give_clover(clover_term=clover_term, src=src)
 def _matvec(src: torch.Tensor) -> torch.Tensor:
