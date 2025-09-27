@@ -326,24 +326,53 @@ def prolong(local_ortho_null_vecs: torch.Tensor, coarse_vec: torch.Tensor, verbo
 
 
 class hopping:
-    def __init__(self, wilson: dslash.wilson_mg = None, U: torch.Tensor = None):
-        self.M_plus_list = []  # tzyx
-        self.M_minus_list = []  # tzyx
+    def __init__(self, wilson: dslash.wilson_mg = None, U: torch.Tensor = None, grid_size: Tuple[int, int, int, int] = [1, 1, 1, 1], if_multi: bool = False):
+        self.M_plus_list = []  # xyzt
+        self.M_minus_list = []  # xyzt
         self.wilson = wilson if wilson is not None else dslash.wilson_mg(
             verbose=False)
         self.U = U
+        self.grid_size = grid_size
+        self.if_multi = if_multi
+        if self.if_multi and grid_size != None:
+            self.grid_index = give_grid_index(grid_size=self.grid_size)
         if self.wilson != None and self.U != None:
-            for ward in range(4):
+            for ward in range(4):  # xyzt
                 self.M_plus_list.append(
                     wilson.give_hopping_plus(ward=ward, U=self.U))
                 self.M_minus_list.append(
                     wilson.give_hopping_minus(ward=ward, U=self.U))
 
     def matvec_plus(self, ward: int, src: torch.Tensor) -> torch.Tensor:
-        return self.wilson.give_wilson_plus(ward=ward, src=src, hopping=self.M_plus_list[ward])
+        if self.if_multi and self.grid_size[ward] != 1:
+            comm = MPI.COMM_WORLD
+            rank = comm.Get_rank()
+            src_head4send = src[:][slice_dim(
+                ward=ward, point=-1)].cpu().numpy().copy()
+            src_tail4recv = np.zeros_like(src_head4send).copy()
+            rank_plus = give_rank_plus(grid_size=self.grid_size)
+            comm.Sendrecv(sendbuf=src_head4send, dest=rank_plus, sendtag=rank,
+                          recvbuf=src_tail4recv, source=rank_plus, recvtag=rank)
+            comm.Barrier()
+            src_tail = src_tail4recv.copy()
+        else:
+            src_tail = None
+        return self.wilson.give_wilson_plus(ward=ward, src=src, hopping=self.M_plus_list[ward], src_tail=src_tail)
 
     def matvec_minus(self, ward: int, src: torch.Tensor) -> torch.Tensor:
-        return self.wilson.give_wilson_minus(ward=ward, src=src, hopping=self.M_minus_list[ward])
+        if self.if_multi and self.grid_size[ward] != 1:
+            comm = MPI.COMM_WORLD
+            src_tail4send = src[:][slice_dim(
+                ward=ward, point=0)].cpu().numpy().copy()
+            src_head4recv = np.zeros_like(src_tail4send).copy()
+            rank_minus = give_rank_minus(grid_size=self.grid_size)
+            comm.Sendrecv(sendbuf=src_tail4send, dest=rank_minus, sendtag=rank_minus,
+                          recvbuf=src_head4recv, source=rank_minus, recvtag=rank_minus)
+            comm.Barrier()
+            src_head = src_head4recv.copy()
+        else:
+            src_head = None
+        return self.wilson.give_wilson_minus(ward=ward, src=src, hopping=self.M_minus_list[ward], src_head=src_head)
 
     def matvec(self, src: torch.Tensor) -> torch.Tensor:
         dest = torch.zeros_like(src)
@@ -368,8 +397,9 @@ class sitting:
 
 
 class op:
-    def __init__(self, wilson: dslash.wilson_mg = None, U: torch.Tensor = None, clover: dslash.clover = None, clover_term: torch.Tensor = None, fine_hopping: hopping = None, fine_sitting: sitting = None, local_ortho_null_vecs: torch.Tensor = None, verbose: bool = True):
-        self.hopping = hopping(wilson=wilson, U=U)
+    def __init__(self, wilson: dslash.wilson_mg = None, U: torch.Tensor = None, clover: dslash.clover = None, clover_term: torch.Tensor = None, fine_hopping: hopping = None, fine_sitting: sitting = None, local_ortho_null_vecs: torch.Tensor = None, grid_size: Tuple[int, int, int, int] = [1, 1, 1, 1], if_multi: bool = False, verbose: bool = True):
+        self.hopping = hopping(
+            wilson=wilson, U=U, grid_size=grid_size, if_multi=if_multi)
         self.sitting = sitting(clover=clover, clover_term=clover_term)
         self.verbose = verbose
         if fine_hopping != None and fine_sitting != None and local_ortho_null_vecs != None:
@@ -382,7 +412,7 @@ class op:
             fine_dof = shape[1]  # e
             self.sitting.M = torch.zeros(
                 size=[coarse_dof, coarse_dof]+coarse_shape, dtype=local_ortho_null_vecs.dtype, device=local_ortho_null_vecs.device)  # EETZYX
-            for ward in range(4):  # tzyx
+            for ward in range(4):  # xyzt
                 self.hopping.M_plus_list.append(
                     torch.zeros_like(self.sitting.M))
                 self.hopping.M_minus_list.append(
@@ -391,7 +421,7 @@ class op:
                 print(
                     f"local_ortho_null_vecs.shape,coarse_dof,coarse_shape,fine_dof,fine_shape:{local_ortho_null_vecs.shape,coarse_dof,coarse_shape,fine_dof,fine_shape}")
             for e in range(coarse_dof):
-                for ward in range(4):  # tzyx
+                for ward in range(4):  # xyzt
                     # give partly sitting.ee and whole hopping.oe
                     _src_c = torch.zeros_like(self.sitting.M[0])
                     _src_c[e][slice_dim(ward=ward, start=0)] = 1.0
@@ -452,7 +482,7 @@ class op:
 
 
 class mg:
-    def __init__(self, b: torch.Tensor,  wilson: dslash.wilson_mg, U: torch.Tensor, clover: dslash.clover, clover_term: torch.Tensor,  min_size: int = 2, max_levels: int = 5, dof_list: Tuple[int, int, int, int] = [12, 24, 24, 24, 24, 4, 4, 24, 12, 12, 12, 24, 24, 24, 24, 48, 48, 24, 8, 8, 8, 4, 12, 12, 12, 8, 4, 2, 4, 4, 24, 12, 12, 12, 4, 4, 4, 4, 4], tol: float = 1e-6, max_iter: int = 1000, x0: torch.Tensor = None, if_multi: bool = False, verbose: bool = True):
+    def __init__(self, b: torch.Tensor,  wilson: dslash.wilson_mg, U: torch.Tensor, clover: dslash.clover, clover_term: torch.Tensor,  min_size: int = 2, max_levels: int = 5, dof_list: Tuple[int, int, int, int] = [12, 24, 24, 24, 24], tol: float = 1e-6, max_iter: int = 1000, x0: torch.Tensor = None, if_multi: bool = False, verbose: bool = True):
         self.b = b.reshape([12]+list(b.shape)[2:]).clone()  # sc->e
         self.min_size = min_size
         self.max_levels = max_levels

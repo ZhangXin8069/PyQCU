@@ -10,7 +10,6 @@ def ccdptzyx2pccdtzyx(gauge: torch.Tensor) -> torch.Tensor:
 
 
 def tzyxccd2ccdtzyx(gauge: torch.Tensor) -> torch.Tensor:
-    print(f"gauge.shape: {gauge.shape}")
     dest = gauge.permute(4, 5, 6, 0, 1, 2, 3)
     return dest.clone()
 
