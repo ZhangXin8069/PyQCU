@@ -59,7 +59,7 @@ def give_eo_mask(xxxtzy_x_p: torch.Tensor, eo: int, verbose=False) -> torch.Tens
     return sums % 2 == eo
 
 
-def slice_dim(dim: int = 4, ward: int = 0, start=None, stop=None, step=2) -> tuple:
+def slice_dim(dim: int = 4, ward: int = 0, start: int = None, stop: int = None, step: int = 2, point: int = None) -> tuple:
     """
     Slice tensor along a specific dimension.
 
@@ -68,14 +68,15 @@ def slice_dim(dim: int = 4, ward: int = 0, start=None, stop=None, step=2) -> tup
         dim: number of dimensions.
         ward: dimension index to slice.
         start, stop, step: same as Python slicing [start:stop:step].
-
+        point: just a point
     Returns:
         tuple(slices)
     """
-    # 构造 slice(None) 占位符
     slices = [slice(None)] * dim
-    # 替换指定维度的 slice
-    slices[ward] = slice(start, stop, step)
+    if point == None:
+        slices[ward] = slice(start, stop, step)
+    else:
+        slices[ward] = point
     return tuple(slices)
 
 
@@ -100,7 +101,25 @@ def give_grid_index(grid_size: Tuple[int, int, int, int], rank: int = None) -> T
     size = comm.Get_size()
     return torch.nonzero(
         torch.arange(size).reshape(
-            grid_size[::-1]) == rank).squeeze().tolist()
+            grid_size[::-1]) == rank).squeeze().tolist()[::-1]  # to output x,y,z,t
+
+
+def give_rank_plus(ward: int, grid_size: Tuple[int, int, int, int], rank: int = None) -> Tuple[int, int, int, int]:
+    comm = MPI.COMM_WORLD
+    rank = comm.Get_rank() if rank == None else rank
+    grid_index = give_grid_index(grid_size=grid_size, rank=rank)
+    grid_index[ward] = 0 if grid_index[ward] == grid_size[ward] - \
+        1 else grid_index[ward]+1
+    return grid_index[0]+(grid_size[0]*(grid_index[1]+(grid_size[1]*(grid_index[2]+(grid_size[2]*(grid_index[3]))))))
+
+
+def give_rank_minus(ward: int, grid_size: Tuple[int, int, int, int], rank: int = None) -> Tuple[int, int, int, int]:
+    comm = MPI.COMM_WORLD
+    rank = comm.Get_rank() if rank == None else rank
+    grid_index = give_grid_index(grid_size=grid_size, rank=rank)
+    grid_index[ward] = grid_size[ward] - \
+        1 if grid_index[ward] == 0 else grid_index[ward]-1
+    return grid_index[0]+(grid_size[0]*(grid_index[1]+(grid_size[1]*(grid_index[2]+(grid_size[2]*(grid_index[3]))))))
 
 
 def multi_vdot(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
@@ -122,7 +141,7 @@ def multi_vdot(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
 
 
 def multi_norm(a: torch.Tensor) -> torch.Tensor:
-    return torch.sqrt(multi_vdot(a=a.flatten(), b=a.flatten())).clone()
+    return torch.sqrt(multi_vdot(a=a.flatten(), b=a.flatten()).real).clone()
 
 
 def local2full_tensor(
@@ -151,7 +170,7 @@ def local2full_tensor(
     if rank == root:
         full = np.zeros(global_shape, dtype=dtype)
         for r, block in enumerate(gathered):
-            grid_index_t, grid_index_z, grid_index_y, grid_index_x = give_grid_index(
+            grid_index_x, grid_index_y, grid_index_z, grid_index_t = give_grid_index(
                 grid_size=grid_size, rank=r)
             print(f"block.shape: {block.shape}")
             print(f"grid_size: {grid_size}")
@@ -162,15 +181,16 @@ def local2full_tensor(
                  grid_index_z*grid_lat_z:(grid_index_z+1)*grid_lat_z,
                  grid_index_y*grid_lat_y:(grid_index_y+1)*grid_lat_y,
                  grid_index_x*grid_lat_x:(grid_index_x+1)*grid_lat_x] = block.copy()
+        comm.Barrier()
         return torch.from_numpy(full)
     else:
         return None
 
 
 def full2local_tensor(
-    full_tensor: torch.Tensor,
-    lat_size: Tuple[int, int, int, int],
-    grid_size: Tuple[int, int, int, int],
+    full_tensor: torch.Tensor = None,
+    lat_size: Tuple[int, int, int, int] = [8, 8, 8, 8],
+    grid_size: Tuple[int, int, int, int] = [1, 1, 1, 1],
     root: int = 0
 ) -> torch.Tensor:
     """
@@ -189,7 +209,7 @@ def full2local_tensor(
     if rank == root:
         data_list = []
         for r in range(size):
-            grid_index_t, grid_index_z, grid_index_y, grid_index_x = give_grid_index(
+            grid_index_x, grid_index_y, grid_index_z, grid_index_t = give_grid_index(
                 grid_size=grid_size, rank=r)
             block = full_tensor[...,
                                 grid_index_t*grid_lat_t:(grid_index_t+1)*grid_lat_t,
@@ -199,6 +219,6 @@ def full2local_tensor(
             data_list.append(block.cpu().numpy())
     else:
         data_list = None
-
     local_np = comm.scatter(data_list, root=root)
+    comm.Barrier()
     return torch.from_numpy(local_np).clone()
