@@ -556,7 +556,7 @@ class mg:
         # init end
         r = b - matvec(x)
         r_norm = self._norm(r).item()
-        _tol = r_norm*0.25 if level != self.num_levels - 1 else r_norm*0.05
+        _tol = r_norm*0.5 if level != self.num_levels - 1 else r_norm*0.1
         if self.verbose:
             print(f"MG-{level}:Norm of b:{self._norm(b).item()}")
             print(f"MG-{level}:Norm of r:{r_norm}")
@@ -672,8 +672,8 @@ class mg:
             plt.tight_layout()
             if save_path is None:
                 save_path = "convergence_history.png"
-            plt.show()
             plt.savefig(save_path, dpi=300)
+            plt.show()
             plt.close()
         except Exception as e:
             print(f"Error: {e}")
