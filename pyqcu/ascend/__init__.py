@@ -122,19 +122,19 @@ class qcu:
 
     def save(self, file_name: str = ''):
         grid_xxxtzyx2hdf5_xxxtzyx(input_tensor=self.b, file_name=file_name +
-                                  'b.h5', lat_size=self.lat_size, grid_size=self.grid_size)
+                                  '-b.h5', lat_size=self.lat_size, grid_size=self.grid_size)
         grid_xxxtzyx2hdf5_xxxtzyx(input_tensor=self.U, file_name=file_name +
-                                  'U.h5', lat_size=self.lat_size, grid_size=self.grid_size)
+                                  '-U.h5', lat_size=self.lat_size, grid_size=self.grid_size)
         grid_xxxtzyx2hdf5_xxxtzyx(input_tensor=self.clover_term, file_name=file_name +
-                                  'clover_term.h5', lat_size=self.lat_size, grid_size=self.grid_size)
+                                  '-clover_term.h5', lat_size=self.lat_size, grid_size=self.grid_size)
 
     def load(self, file_name: str = ''):
         self.b = hdf5_xxxtzyx2grid_xxxtzyx(
-            file_name=file_name+'b.h5', lat_size=self.lat_size, grid_size=self.grid_size, device=self.device)
+            file_name=file_name+'-b.h5', lat_size=self.lat_size, grid_size=self.grid_size, device=self.device)
         self.U = hdf5_xxxtzyx2grid_xxxtzyx(
-            file_name=file_name+'U.h5', lat_size=self.lat_size, grid_size=self.grid_size, device=self.device)
+            file_name=file_name+'-U.h5', lat_size=self.lat_size, grid_size=self.grid_size, device=self.device)
         self.clover_term = hdf5_xxxtzyx2grid_xxxtzyx(
-            file_name=file_name+'clover_term.h5', lat_size=self.lat_size, grid_size=self.grid_size, device=self.device)
+            file_name=file_name+'-clover_term.h5', lat_size=self.lat_size, grid_size=self.grid_size, device=self.device)
 
     def solve(self, b: torch.Tensor = None, x0: torch.Tensor = None) -> torch.Tensor:
         """
