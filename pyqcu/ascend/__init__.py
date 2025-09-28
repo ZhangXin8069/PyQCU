@@ -60,10 +60,10 @@ class qcu:
         self.min_size = min_size
         self.max_levels = max_levels
         self.dof_list = dof_list
-        self.op = op(wilson=self.wilson, clover=self.clover)
+        self.op = op()
 
     def init(self):
-        self.x0 = torch.zeros(
+        self.x0 = torch.randn(
             size=[4, 3]+self.local_lat_size[::-1], dtype=self.dtype, device=self.device) if self.x0 == None else self.x0.clone()
         self.b = torch.randn(
             size=[4, 3]+self.local_lat_size[::-1], dtype=self.dtype, device=self.device) if self.b == None else self.b.clone()
