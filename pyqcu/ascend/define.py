@@ -5,6 +5,19 @@ import mpi4py.MPI as MPI
 from typing import Tuple, List
 
 
+def if_multi() -> bool:
+    comm = MPI.COMM_WORLD
+    return comm.Get_size() > 1
+
+
+def torch_vdot(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
+    return multi_vdot(a, b) if if_multi() else torch.vdot(a, b)
+
+
+def torch_norm(a: torch.Tensor) -> torch.Tensor:
+    return multi_norm(a) if if_multi() else torch.norm(a)
+
+
 def prime_factorization(n: int):
     """Return the prime factorization of n as a list (using numpy only)."""
     factors = []

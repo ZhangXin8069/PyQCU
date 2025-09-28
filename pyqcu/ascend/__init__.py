@@ -9,7 +9,7 @@ from time import perf_counter
 
 
 class qcu:
-    def __init__(self, lat_size: Tuple[int, int, int, int] = [8, 8, 8, 8], b: torch.Tensor = None, U: torch.Tensor = None, clover_term: torch.Tensor = None,  min_size: int = 2, max_levels: int = 5, dof_list: Tuple[int, int, int, int] = [12, 24, 24, 24, 24], max_iter: int = 1000, seed: int = 42, mass: float = 0.05, tol: float = 1e-6, sigma: float = 0.1, dtype: torch.dtype = torch.complex64, device: torch.device = torch.device('cpu'), x0: torch.Tensor = None, if_multi: bool = False, dslash: str = 'clover',  solver: str = 'bistabcg', root: int = 0, verbose: bool = True):
+    def __init__(self, lat_size: Tuple[int, int, int, int] = [8, 8, 8, 8], b: torch.Tensor = None, U: torch.Tensor = None, clover_term: torch.Tensor = None,  min_size: int = 2, max_levels: int = 5, dof_list: Tuple[int, int, int, int] = [12, 24, 24, 24, 24], max_iter: int = 1000, seed: int = 42, mass: float = 0.05, tol: float = 1e-6, sigma: float = 0.1, dtype: torch.dtype = torch.complex64, device: torch.device = torch.device('cpu'), x0: torch.Tensor = None, dslash: str = 'clover',  solver: str = 'bistabcg', root: int = 0, verbose: bool = True):
         self.comm = MPI.COMM_WORLD
         self.rank = self.comm.Get_rank()
         self.size = self.comm.Get_size()
@@ -25,7 +25,6 @@ class qcu:
         self.device = device
         self.root = root
         self.x0 = x0
-        self.if_multi = if_multi
         self.dslash = dslash
         self.solver = solver
         self.verbose = verbose
@@ -67,7 +66,7 @@ class qcu:
         self.max_levels = max_levels
         self.dof_list = dof_list
         self.op = op(wilson=self.wilson, clover=self.clover,
-                     grid_size=self.grid_size, if_multi=self.if_multi)
+                     grid_size=self.grid_size)
 
     def init(self):
         if self.U == None:
@@ -99,10 +98,10 @@ class qcu:
         self.full_x0 = local2full_tensor(
             local_tensor=self.x0, lat_size=self.lat_size, grid_size=self.grid_size, device=self.device, root=self.root)
         self.mg = mg(b=self.b, wilson=self.wilson, U=self.U, clover=self.clover, clover_term=self.clover_term, min_size=self.min_size,
-                     max_levels=self.max_iter, dof_list=self.dof_list, tol=self.tol, max_iter=self.max_iter, x0=self.x0, if_multi=self.grid_index, verbose=self.verbose)
+                     max_levels=self.max_iter, dof_list=self.dof_list, tol=self.tol, max_iter=self.max_iter, x0=self.x0,  verbose=self.verbose)
         if self.rank == self.root:
             self.full_mg = mg(b=self.full_b, wilson=self.full_wilson, U=self.full_U, clover=self.full_clover, clover_term=self.full_clover_term, min_size=self.min_size,
-                              max_levels=self.max_iter, dof_list=self.dof_list, tol=self.tol, max_iter=self.max_iter, x0=self.x0, if_multi=self.grid_index, verbose=self.verbose)
+                              max_levels=self.max_iter, dof_list=self.dof_list, tol=self.tol, max_iter=self.max_iter, x0=self.x0,  verbose=self.verbose)
             if self.solver == 'mg':
                 self.full_mg.init()
         else:
@@ -145,7 +144,7 @@ class qcu:
         start_time = perf_counter()
         if self.solver == 'bistabcg':
             x = bicgstab(b=self.b.clone() if b == None else b.clone(), matvec=self.matvec, tol=self.tol, max_iter=self.max_iter,
-                         x0=self.x0.clone() if x0 == None else x0.clone(), if_multi=self.if_multi, verbose=self.verbose)
+                         x0=self.x0.clone() if x0 == None else x0.clone(), verbose=self.verbose)
         else:
             print('Not found Slover!')
             x = self.x0 if x0 == None else x0.clone()
