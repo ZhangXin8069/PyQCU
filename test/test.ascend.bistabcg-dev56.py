@@ -1,8 +1,9 @@
 import torch
 import mpi4py.MPI as MPI
 from pyqcu.ascend import qcu
-_qcu = qcu(lat_size=[16, 16, 16, 16], dtype=torch.complex128,
-           device=torch.device('cpu'), dslash='wilson', verbose=False)
+lat_n = 16
+_qcu = qcu(lat_size=[lat_n, lat_n, lat_n, lat_n], dtype=torch.complex128,
+           device=torch.device('cpu'), dslash='wilson', verbose=True)
 _qcu.init()
 # _qcu.load(file_name='test.ascend-dev56')
 _qcu.solve()
