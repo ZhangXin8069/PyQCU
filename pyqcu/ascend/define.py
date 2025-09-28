@@ -181,8 +181,10 @@ def local2full_tensor(
                  grid_index_z*grid_lat_z:(grid_index_z+1)*grid_lat_z,
                  grid_index_y*grid_lat_y:(grid_index_y+1)*grid_lat_y,
                  grid_index_x*grid_lat_x:(grid_index_x+1)*grid_lat_x] = block.copy()
+        print('TEST0')
         return torch.from_numpy(full).to(device=device).clone()
     else:
+        print('TEST1')
         return None
 
 
