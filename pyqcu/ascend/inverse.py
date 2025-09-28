@@ -93,7 +93,9 @@ def bicgstab(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], to
         x: Approximate solution to Ax = b.
     """
     x = x0.clone() if x0 is not None else torch.randn_like(b)
+    print('TEST0......')
     r = b - matvec(x)
+    print('TEST1......')
     r_norm = torch_norm(r).item()
     if if_rtol:
         _tol = torch_norm(b).item()*tol
@@ -307,15 +309,15 @@ def prolong(local_ortho_null_vecs: torch.Tensor, coarse_vec: torch.Tensor, verbo
 
 
 class hopping:
-    def __init__(self, wilson: dslash.wilson_mg = None, U: torch.Tensor = None, grid_size: Tuple[int, int, int, int] = [1, 1, 1, 1]):
+    def __init__(self, wilson: dslash.wilson_mg = None, U: torch.Tensor = None):
         self.M_plus_list = []  # xyzt
         self.M_minus_list = []  # xyzt
         self.wilson = wilson if wilson is not None else dslash.wilson_mg(
             verbose=False)
         self.U = U
-        self.grid_size = grid_size
-        if if_multi() and grid_size != None:
-            self.grid_index = give_grid_index(grid_size=self.grid_size)
+        self.grid_size = give_grid_size()
+        if if_multi():
+            self.grid_index = give_grid_index()
         if self.wilson != None and self.U != None:
             for ward in range(4):  # xyzt
                 self.M_plus_list.append(
@@ -330,9 +332,12 @@ class hopping:
             src_head4send = src[:][slice_dim(
                 ward=ward, point=-1)].cpu().numpy().copy()
             src_tail4recv = np.zeros_like(src_head4send).copy()
-            rank_plus = give_rank_plus(grid_size=self.grid_size)
-            comm.Sendrecv(sendbuf=src_head4send, dest=rank_plus, sendtag=rank,
+            rank_plus = give_rank_plus(ward=ward)
+            rank_minus = give_rank_minus(ward=ward)
+            print(f"rank:{rank}, ward:{ward}, rank_plus:{rank_plus}")
+            comm.Sendrecv(sendbuf=src_head4send, dest=rank_minus, sendtag=rank_minus,
                           recvbuf=src_tail4recv, source=rank_plus, recvtag=rank)
+            print('TEST-1')
             comm.Barrier()
             src_tail = src_tail4recv.copy()
         else:
@@ -342,14 +347,16 @@ class hopping:
     def matvec_minus(self, ward: int, src: torch.Tensor) -> torch.Tensor:
         if if_multi() and self.grid_size[ward] != 1:
             comm = MPI.COMM_WORLD
+            rank = comm.Get_rank()
             src_tail4send = src[:][slice_dim(
                 ward=ward, point=0)].cpu().numpy().copy()
             src_head4recv = np.zeros_like(src_tail4send).copy()
-            rank_minus = give_rank_minus(grid_size=self.grid_size)
-            comm.Sendrecv(sendbuf=src_tail4send, dest=rank_minus, sendtag=rank_minus,
+            rank_plus = give_rank_plus(ward=ward)
+            rank_minus = give_rank_minus(ward=ward)
+            comm.Sendrecv(sendbuf=src_tail4send, dest=rank_plus, sendtag=rank,
                           recvbuf=src_head4recv, source=rank_minus, recvtag=rank_minus)
             comm.Barrier()
-            src_head = src_head4recv.copy()
+            src_head = torch.from_numpy(src_head4recv).to(device=src.device).clone()
         else:
             src_head = None
         return self.wilson.give_wilson_minus(ward=ward, src=src, hopping=self.M_minus_list[ward], src_head=src_head)
@@ -377,9 +384,8 @@ class sitting:
 
 
 class op:
-    def __init__(self, wilson: dslash.wilson_mg = None, U: torch.Tensor = None, clover: dslash.clover = None, clover_term: torch.Tensor = None, fine_hopping: hopping = None, fine_sitting: sitting = None, local_ortho_null_vecs: torch.Tensor = None, grid_size: Tuple[int, int, int, int] = [1, 1, 1, 1], verbose: bool = True):
-        self.hopping = hopping(
-            wilson=wilson, U=U, grid_size=grid_size)
+    def __init__(self, wilson: dslash.wilson_mg = None, U: torch.Tensor = None, clover: dslash.clover = None, clover_term: torch.Tensor = None, fine_hopping: hopping = None, fine_sitting: sitting = None, local_ortho_null_vecs: torch.Tensor = None, verbose: bool = True):
+        self.hopping = hopping(wilson=wilson, U=U)
         self.sitting = sitting(clover=clover, clover_term=clover_term)
         self.verbose = verbose
         if fine_hopping != None and fine_sitting != None and local_ortho_null_vecs != None:

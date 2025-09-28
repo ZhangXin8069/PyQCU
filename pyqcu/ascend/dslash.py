@@ -566,6 +566,7 @@ class wilson_mg(wilson):
             'Ss,Cctzyx->SCsctzyx', (self.I - gamma_mu), U_mu).reshape([12, 12]+list(U.shape[-4:])).clone()  # sc->e
 
     def give_wilson_plus(self, ward: int, src: torch.Tensor, hopping: torch.Tensor, src_tail: torch.Tensor = None) -> torch.Tensor:
+        print(f"src_tail: {type(src_tail)}")
         dir_info = self.directions[ward]
         axis = dir_info['axis']
         name = dir_info['name']

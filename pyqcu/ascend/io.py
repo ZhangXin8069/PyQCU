@@ -2,7 +2,7 @@ import h5py
 import torch
 import mpi4py.MPI as MPI
 from typing import Tuple, Callable
-
+from pyqcu.ascend.define import *
 
 def ccdptzyx2pccdtzyx(gauge: torch.Tensor) -> torch.Tensor:
     dest = gauge.permute(3, 0, 1, 2, 4, 5, 6, 7)
@@ -120,7 +120,6 @@ def grid_xxxtzyx2hdf5_xxxtzyx(
     input_tensor: torch.Tensor,
     file_name: str,
     lat_size: Tuple[int, int, int, int],
-    grid_size: Tuple[int, int, int, int],
 ):
     """
     Write local PyTorch tensor blocks to a global HDF5 file using MPI parallel I/O.
@@ -132,7 +131,7 @@ def grid_xxxtzyx2hdf5_xxxtzyx(
     size = comm.Get_size()
     print(f"Input Tensor Shape: {input_tensor.shape}")
     lat_x, lat_y, lat_z, lat_t = lat_size
-    grid_x, grid_y, grid_z, grid_t = grid_size
+    grid_x, grid_y, grid_z, grid_t = give_grid_size()
     dtype = input_tensor.cpu().numpy().dtype
     prefix_shape = input_tensor.shape[:-4]
     # Compute rank indices in the 4D process grid
@@ -165,7 +164,6 @@ def grid_xxxtzyx2hdf5_xxxtzyx(
 def hdf5_xxxtzyx2grid_xxxtzyx(
     file_name: str,
     lat_size: Tuple[int, int, int, int],
-    grid_size: Tuple[int, int, int, int],
     device: torch.device
 ) -> torch.Tensor:
     """
@@ -175,7 +173,7 @@ def hdf5_xxxtzyx2grid_xxxtzyx(
     rank = comm.Get_rank()
     size = comm.Get_size()
     lat_x, lat_y, lat_z, lat_t = lat_size
-    grid_x, grid_y, grid_z, grid_t = grid_size
+    grid_x, grid_y, grid_z, grid_t = give_grid_size()
     # Compute rank indices in the 4D process grid
     grid_index_t, grid_index_z, grid_index_y, grid_index_x = torch.nonzero(
         torch.arange(size).reshape(

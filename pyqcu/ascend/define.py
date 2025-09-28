@@ -2,7 +2,7 @@ import os
 import torch
 import numpy as np
 import mpi4py.MPI as MPI
-from typing import Tuple, List
+from typing import Tuple
 
 
 def if_multi() -> bool:
@@ -32,26 +32,14 @@ def prime_factorization(n: int):
     return factors
 
 
-def split_into_four_factors(N: int):
-    """
-    Split integer N into 4 factors that are as close as possible in size.
-    Uses numpy only.
-    """
-    if N <= 0:
-        raise ValueError("N must be positive")
-
-    # Step 1: prime factors
-    factors = prime_factorization(N)
-
-    # Step 2: initialize four groups
+def give_grid_size() -> Tuple[int, int, int, int]:
+    comm = MPI.COMM_WORLD
+    factors = prime_factorization(comm.Get_size())
     groups = np.ones(4, dtype=int)
-
-    # Step 3: distribute factors greedily (largest first)
     for f in sorted(factors, reverse=True):
         idx = np.argmin(groups)   # index of smallest product
         groups[idx] *= f
-
-    return tuple(sorted(groups.tolist()))
+    return sorted(groups.tolist())
 
 
 def give_eo_mask(xxxtzy_x_p: torch.Tensor, eo: int, verbose=False) -> torch.Tensor:
@@ -108,28 +96,30 @@ def give_local_rank(device: torch.device):
     return local_rank
 
 
-def give_grid_index(grid_size: Tuple[int, int, int, int], rank: int = None) -> Tuple[int, int, int, int]:
+def give_grid_index(rank: int = None) -> Tuple[int, int, int, int]:
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank() if rank == None else rank
     size = comm.Get_size()
     return torch.nonzero(
         torch.arange(size).reshape(
-            grid_size[::-1]) == rank).squeeze().tolist()[::-1]  # to output x,y,z,t
+            give_grid_size()[::-1]) == rank).squeeze().tolist()[::-1]  # to output x,y,z,t
 
 
-def give_rank_plus(ward: int, grid_size: Tuple[int, int, int, int], rank: int = None) -> Tuple[int, int, int, int]:
+def give_rank_plus(ward: int, rank: int = None) -> Tuple[int, int, int, int]:
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank() if rank == None else rank
-    grid_index = give_grid_index(grid_size=grid_size, rank=rank)
+    grid_size = give_grid_size()
+    grid_index = give_grid_index(rank=rank)
     grid_index[ward] = 0 if grid_index[ward] == grid_size[ward] - \
         1 else grid_index[ward]+1
     return grid_index[0]+(grid_size[0]*(grid_index[1]+(grid_size[1]*(grid_index[2]+(grid_size[2]*(grid_index[3]))))))
 
 
-def give_rank_minus(ward: int, grid_size: Tuple[int, int, int, int], rank: int = None) -> Tuple[int, int, int, int]:
+def give_rank_minus(ward: int, rank: int = None) -> Tuple[int, int, int, int]:
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank() if rank == None else rank
-    grid_index = give_grid_index(grid_size=grid_size, rank=rank)
+    grid_size = give_grid_size()
+    grid_index = give_grid_index(rank=rank)
     grid_index[ward] = grid_size[ward] - \
         1 if grid_index[ward] == 0 else grid_index[ward]-1
     return grid_index[0]+(grid_size[0]*(grid_index[1]+(grid_size[1]*(grid_index[2]+(grid_size[2]*(grid_index[3]))))))
@@ -160,7 +150,6 @@ def multi_norm(a: torch.Tensor) -> torch.Tensor:
 def local2full_tensor(
     local_tensor: torch.Tensor,
     lat_size: Tuple[int, int, int, int],
-    grid_size: Tuple[int, int, int, int],
     device: torch.device,
     root: int = 0
 ) -> torch.Tensor:
@@ -171,7 +160,7 @@ def local2full_tensor(
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     lat_x, lat_y, lat_z, lat_t = lat_size
-    grid_x, grid_y, grid_z, grid_t = grid_size
+    grid_x, grid_y, grid_z, grid_t = give_grid_size()
     grid_lat_t = lat_t // grid_t
     grid_lat_z = lat_z // grid_z
     grid_lat_y = lat_y // grid_y
@@ -179,23 +168,19 @@ def local2full_tensor(
     prefix_shape = local_tensor.shape[:-4]
     global_shape = (*prefix_shape, lat_t, lat_z, lat_y, lat_x)
     dtype = local_tensor.cpu().numpy().dtype
-    local_np = local_tensor.cpu().numpy()
+    local_np = local_tensor.cpu().numpy().copy()
     gathered = comm.gather(local_np, root=root)
+    comm.Barrier()
     if rank == root:
         full = np.zeros(global_shape, dtype=dtype)
         for r, block in enumerate(gathered):
             grid_index_x, grid_index_y, grid_index_z, grid_index_t = give_grid_index(
-                grid_size=grid_size, rank=r)
-            print(f"block.shape: {block.shape}")
-            print(f"grid_size: {grid_size}")
-            print(
-                f"grid_index_t, grid_index_z, grid_index_y, grid_index_x: {grid_index_t, grid_index_z, grid_index_y, grid_index_x }")
+                rank=r)
             full[...,
                  grid_index_t*grid_lat_t:(grid_index_t+1)*grid_lat_t,
                  grid_index_z*grid_lat_z:(grid_index_z+1)*grid_lat_z,
                  grid_index_y*grid_lat_y:(grid_index_y+1)*grid_lat_y,
                  grid_index_x*grid_lat_x:(grid_index_x+1)*grid_lat_x] = block.copy()
-        comm.Barrier()
         return torch.from_numpy(full).to(device=device).clone()
     else:
         return None
@@ -204,7 +189,6 @@ def local2full_tensor(
 def full2local_tensor(
     full_tensor: torch.Tensor,
     lat_size: Tuple[int, int, int, int],
-    grid_size: Tuple[int, int, int, int],
     device: torch.device,
     root: int = 0
 ) -> torch.Tensor:
@@ -216,7 +200,7 @@ def full2local_tensor(
     rank = comm.Get_rank()
     size = comm.Get_size()
     lat_x, lat_y, lat_z, lat_t = lat_size
-    grid_x, grid_y, grid_z, grid_t = grid_size
+    grid_x, grid_y, grid_z, grid_t = give_grid_size()
     grid_lat_t = lat_t // grid_t
     grid_lat_z = lat_z // grid_z
     grid_lat_y = lat_y // grid_y
@@ -225,7 +209,7 @@ def full2local_tensor(
         data_list = []
         for r in range(size):
             grid_index_x, grid_index_y, grid_index_z, grid_index_t = give_grid_index(
-                grid_size=grid_size, rank=r)
+                rank=r)
             block = full_tensor[...,
                                 grid_index_t*grid_lat_t:(grid_index_t+1)*grid_lat_t,
                                 grid_index_z*grid_lat_z:(grid_index_z+1)*grid_lat_z,
