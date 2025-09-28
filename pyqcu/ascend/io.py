@@ -107,13 +107,13 @@ def xxx2hdf5_xxx(input_array: torch.Tensor, file_name: str = 'xxx.h5'):
         print(f"Data is saved to {file_name}")
 
 
-def hdf5_xxx2xxx(file_name: str = 'xxx.h5') -> torch.Tensor:
+def hdf5_xxx2xxx(device: torch.device, file_name: str = 'xxx.h5') -> torch.Tensor:
     comm = MPI.COMM_WORLD
     with h5py.File(file_name, 'r', driver='mpio', comm=comm) as f:
         all_dest = f['data']
         dest = all_dest[...]
         print(f"Dest Shape: {dest.shape}")
-        return torch.from_numpy(dest).clone()
+        return torch.from_numpy(dest).to(device=device).clone()
 
 
 def grid_xxxtzyx2hdf5_xxxtzyx(
@@ -166,6 +166,7 @@ def hdf5_xxxtzyx2grid_xxxtzyx(
     file_name: str,
     lat_size: Tuple[int, int, int, int],
     grid_size: Tuple[int, int, int, int],
+    device: torch.device
 ) -> torch.Tensor:
     """
     Read the local block from a global HDF5 file using MPI parallel I/O.
@@ -198,4 +199,4 @@ def hdf5_xxxtzyx2grid_xxxtzyx(
                         grid_index_y*grid_lat_y:grid_index_y*grid_lat_y+grid_lat_y,
                         grid_index_x*grid_lat_x:grid_index_x*grid_lat_x+grid_lat_x]
         print(f"Dest Shape: {dest.shape}")
-        return torch.from_numpy(dest).clone()
+        return torch.from_numpy(dest).to(device=device).clone()
