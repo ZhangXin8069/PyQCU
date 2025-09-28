@@ -7,8 +7,7 @@ from pyqcu.ascend.io import *
 from pyqcu.ascend.define import *
 
 
-def cg(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], tol: float = 1e-6, max_iter: int = 1000, x0: torch.Tensor = None, if_rtol: bool = False, if_multi: bool = False,
-       verbose: bool = True) -> torch.Tensor:
+def cg(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], tol: float = 1e-6, max_iter: int = 1000, x0: torch.Tensor = None, if_rtol: bool = False, verbose: bool = True) -> torch.Tensor:
     """
     Conjugate Gradient (CG) solver for linear systems Ax = b. (Requirement A is a Hermitian matrix).
     Args:
@@ -18,27 +17,21 @@ def cg(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], tol: flo
         max_iter: Maximum iterations (default: 500).
         x0: Initial guess (default: zero vector).
         if_rtol: if use relative tolerance (default: False).
-        if_multi: if use multiple devices (default: False).
         verbose: Print convergence progress (default: True).
     Returns:
         x: Approximate solution to Ax = b.
     """
-    def _vdot(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
-        return multi_vdot(a, b) if if_multi else torch.vdot(a, b)
-
-    def _norm(a: torch.Tensor) -> torch.Tensor:
-        return multi_norm(a) if if_multi else torch.norm(a)
     x = x0.clone() if x0 is not None else torch.randn_like(b)
     r = b - matvec(x)
-    r_norm = _norm(r).item()
+    r_norm = torch_norm(r).item()
     if if_rtol:
-        _tol = _norm(b).item()*tol
+        _tol = torch_norm(b).item()*tol
     else:
         _tol = tol
     if verbose:
-        print(f"Norm of b:{_norm(b).item()}")
+        print(f"Norm of b:{torch_norm(b).item()}")
         print(f"Norm of r:{r_norm}")
-        print(f"Norm of x0:{_norm(x).item()}")
+        print(f"Norm of x0:{torch_norm(x).item()}")
     if r_norm < _tol:
         print("x0 is just right!")
         return x.clone()
@@ -47,7 +40,7 @@ def cg(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], tol: flo
     rho = torch.tensor(1.0, dtype=b.dtype, device=b.device)
     rho_prev = torch.tensor(1.0, dtype=b.dtype, device=b.device)
     alpha = torch.tensor(1.0, dtype=b.dtype, device=b.device)
-    rho = _vdot(r.flatten(), r.flatten())
+    rho = torch_vdot(r.flatten(), r.flatten())
     rho_prev = 1.0
     start_time = perf_counter()
     iter_times = []
@@ -55,10 +48,10 @@ def cg(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], tol: flo
         iter_start_time = perf_counter()
         v = matvec(p)
         rho_prev = rho
-        alpha = rho / _vdot(p.flatten(), v.flatten())
+        alpha = rho / torch_vdot(p.flatten(), v.flatten())
         r -= alpha * v
         x += alpha * p
-        rho = _vdot(r.flatten(), r.flatten())
+        rho = torch_vdot(r.flatten(), r.flatten())
         beta = rho / rho_prev
         p = r + beta * p
         r_norm = torch.sqrt(rho)
@@ -85,7 +78,7 @@ def cg(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], tol: flo
     return x.clone()
 
 
-def bicgstab(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], tol: float = 1e-6, max_iter: int = 1000, x0: torch.Tensor = None, if_rtol: bool = False, if_multi: bool = False, verbose: bool = True) -> torch.Tensor:
+def bicgstab(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], tol: float = 1e-6, max_iter: int = 1000, x0: torch.Tensor = None, if_rtol: bool = False, verbose: bool = True) -> torch.Tensor:
     """
     BIConjugate Gradient STABilized(BICGSTAB) solver for linear systems Ax = b. (It is not required that A be a Hermitian matrix).
     Args:
@@ -95,27 +88,21 @@ def bicgstab(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], to
         max_iter: Maximum iterations (default: 500).
         x0: Initial guess (default: zero vector).
         if_rtol: if use relative tolerance (default: False).
-        if_multi: if use multiple devices (default: False).
         verbose: Print convergence progress (default: True).
     Returns:
         x: Approximate solution to Ax = b.
     """
-    def _vdot(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
-        return multi_vdot(a, b) if if_multi else torch.vdot(a, b)
-
-    def _norm(a: torch.Tensor) -> torch.Tensor:
-        return multi_norm(a) if if_multi else torch.norm(a)
     x = x0.clone() if x0 is not None else torch.randn_like(b)
     r = b - matvec(x)
-    r_norm = _norm(r).item()
+    r_norm = torch_norm(r).item()
     if if_rtol:
-        _tol = _norm(b).item()*tol
+        _tol = torch_norm(b).item()*tol
     else:
         _tol = tol
     if verbose:
-        print(f"Norm of b:{_norm(b).item()}")
+        print(f"Norm of b:{torch_norm(b).item()}")
         print(f"Norm of r:{r_norm}")
-        print(f"Norm of x0:{_norm(x).item()}")
+        print(f"Norm of x0:{torch_norm(x).item()}")
     if r_norm < _tol:
         print("x0 is just right!")
         return x.clone()
@@ -132,19 +119,19 @@ def bicgstab(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], to
     iter_times = []
     for i in range(max_iter):
         iter_start_time = perf_counter()
-        rho = _vdot(r_tilde.flatten(), r.flatten())
+        rho = torch_vdot(r_tilde.flatten(), r.flatten())
         beta = (rho / rho_prev) * (alpha / omega)
         rho_prev = rho
         p = r + beta * (p - omega * v)
         v = matvec(p)
-        alpha = rho / _vdot(r_tilde.flatten(), v.flatten())
+        alpha = rho / torch_vdot(r_tilde.flatten(), v.flatten())
         s = r - alpha * v
         t = matvec(s)
-        omega = _vdot(t.flatten(), s.flatten()) / \
-            _vdot(t.flatten(), t.flatten())
+        omega = torch_vdot(t.flatten(), s.flatten()) / \
+            torch_vdot(t.flatten(), t.flatten())
         x = x + alpha * p + omega * s
         r = s - omega * t
-        r_norm = _norm(r).item()
+        r_norm = torch_norm(r).item()
         iter_time = perf_counter() - iter_start_time
         iter_times.append(iter_time)
         if verbose:
@@ -171,7 +158,7 @@ def bicgstab(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], to
 def give_null_vecs(
     null_vecs: torch.Tensor,
     matvec: Callable[[torch.Tensor], torch.Tensor],
-    normalize: bool = True, ortho_r: bool = False, ortho_null_vecs: bool = False, if_multi: bool = False, verbose: bool = True
+    normalize: bool = True, ortho_r: bool = False, ortho_null_vecs: bool = False, verbose: bool = True
 ) -> torch.Tensor:
     """
     Generates orthonormal near-null space vectors for a linear operator.
@@ -184,23 +171,17 @@ def give_null_vecs(
         normalize: normalize the null_vecs (default: True).
         ortho_r: orthogonalization of r (default: True).
         ortho_null_vecs: orthogonalization of null_vecs (default: True).
-        if_multi: if use multiple devices (default: False).
         verbose: Print progress information (default: True).
     Returns:
         Orthonormal near-null space vectors
     """
-    def _vdot(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
-        return multi_vdot(a, b) if if_multi else torch.vdot(a, b)
-
-    def _norm(a: torch.Tensor) -> torch.Tensor:
-        return multi_norm(a) if if_multi else torch.norm(a)
     dof = null_vecs.shape[0]  # Number of null space vectors
     null_vecs = torch.randn_like(null_vecs)  # [Eetzyx]
     for i in range(dof):
         if ortho_r:
             # The orthogonalization of r
             for j in range(0, i):
-                null_vecs[i] -= _vdot(null_vecs[j].flatten(), null_vecs[i].flatten())/_vdot(
+                null_vecs[i] -= torch_vdot(null_vecs[j].flatten(), null_vecs[i].flatten())/torch_vdot(
                     null_vecs[j].flatten(), null_vecs[j].flatten())*null_vecs[j]
         # v=r-A^{-1}Ar
         # tol needs to be bigger...
@@ -209,10 +190,10 @@ def give_null_vecs(
         if ortho_null_vecs:
             # The orthogonalization of null_vecs
             for j in range(0, i):
-                null_vecs[i] -= _vdot(null_vecs[j].flatten(), null_vecs[i].flatten())/_vdot(
+                null_vecs[i] -= torch_vdot(null_vecs[j].flatten(), null_vecs[i].flatten())/torch_vdot(
                     null_vecs[j].flatten(), null_vecs[j].flatten())*null_vecs[j]
         if normalize:
-            null_vecs[i] /= _norm(null_vecs[i]).item()
+            null_vecs[i] /= torch_norm(null_vecs[i]).item()
         if verbose:
             print(
                 f"(matvec(null_vecs[i])/null_vecs[i]).flatten()[:10]:{(matvec(null_vecs[i])/null_vecs[i]).flatten()[:10]}")
@@ -221,15 +202,15 @@ def give_null_vecs(
         for i in range(dof):
             Av = matvec(null_vecs[i])
             print(
-                f"  Vector {i}: ||A*v/v|| = {_norm(Av/null_vecs[i]).item():.6e}")
+                f"  Vector {i}: ||A*v/v|| = {torch_norm(Av/null_vecs[i]).item():.6e}")
             print(
                 f"  Vector {i}: A*v/v:100 = {(Av/null_vecs[i]).flatten()[:100]}")
             print(
-                f"_norm(null_vecs[{i}]).item():.6e:{_norm(null_vecs[i]).item():.6e}")
+                f"torch_norm(null_vecs[{i}]).item():.6e:{torch_norm(null_vecs[i]).item():.6e}")
             # orthogonalization
             for j in range(0, i+1):
                 print(
-                    f"_vdot(null_vecs[{i}].flatten(), null_vecs[{j}].flatten()):{_vdot(null_vecs[i].flatten(), null_vecs[j].flatten())}")
+                    f"torch_vdot(null_vecs[{i}].flatten(), null_vecs[{j}].flatten()):{torch_vdot(null_vecs[i].flatten(), null_vecs[j].flatten())}")
     return null_vecs.clone()
 
 
@@ -326,15 +307,14 @@ def prolong(local_ortho_null_vecs: torch.Tensor, coarse_vec: torch.Tensor, verbo
 
 
 class hopping:
-    def __init__(self, wilson: dslash.wilson_mg = None, U: torch.Tensor = None, grid_size: Tuple[int, int, int, int] = [1, 1, 1, 1], if_multi: bool = False):
+    def __init__(self, wilson: dslash.wilson_mg = None, U: torch.Tensor = None, grid_size: Tuple[int, int, int, int] = [1, 1, 1, 1]):
         self.M_plus_list = []  # xyzt
         self.M_minus_list = []  # xyzt
         self.wilson = wilson if wilson is not None else dslash.wilson_mg(
             verbose=False)
         self.U = U
         self.grid_size = grid_size
-        self.if_multi = if_multi
-        if self.if_multi and grid_size != None:
+        if if_multi() and grid_size != None:
             self.grid_index = give_grid_index(grid_size=self.grid_size)
         if self.wilson != None and self.U != None:
             for ward in range(4):  # xyzt
@@ -344,7 +324,7 @@ class hopping:
                     wilson.give_hopping_minus(ward=ward, U=self.U))
 
     def matvec_plus(self, ward: int, src: torch.Tensor) -> torch.Tensor:
-        if self.if_multi and self.grid_size[ward] != 1:
+        if if_multi() and self.grid_size[ward] != 1:
             comm = MPI.COMM_WORLD
             rank = comm.Get_rank()
             src_head4send = src[:][slice_dim(
@@ -360,7 +340,7 @@ class hopping:
         return self.wilson.give_wilson_plus(ward=ward, src=src, hopping=self.M_plus_list[ward], src_tail=src_tail)
 
     def matvec_minus(self, ward: int, src: torch.Tensor) -> torch.Tensor:
-        if self.if_multi and self.grid_size[ward] != 1:
+        if if_multi() and self.grid_size[ward] != 1:
             comm = MPI.COMM_WORLD
             src_tail4send = src[:][slice_dim(
                 ward=ward, point=0)].cpu().numpy().copy()
@@ -397,9 +377,9 @@ class sitting:
 
 
 class op:
-    def __init__(self, wilson: dslash.wilson_mg = None, U: torch.Tensor = None, clover: dslash.clover = None, clover_term: torch.Tensor = None, fine_hopping: hopping = None, fine_sitting: sitting = None, local_ortho_null_vecs: torch.Tensor = None, grid_size: Tuple[int, int, int, int] = [1, 1, 1, 1], if_multi: bool = False, verbose: bool = True):
+    def __init__(self, wilson: dslash.wilson_mg = None, U: torch.Tensor = None, clover: dslash.clover = None, clover_term: torch.Tensor = None, fine_hopping: hopping = None, fine_sitting: sitting = None, local_ortho_null_vecs: torch.Tensor = None, grid_size: Tuple[int, int, int, int] = [1, 1, 1, 1], verbose: bool = True):
         self.hopping = hopping(
-            wilson=wilson, U=U, grid_size=grid_size, if_multi=if_multi)
+            wilson=wilson, U=U, grid_size=grid_size)
         self.sitting = sitting(clover=clover, clover_term=clover_term)
         self.verbose = verbose
         if fine_hopping != None and fine_sitting != None and local_ortho_null_vecs != None:
@@ -482,7 +462,7 @@ class op:
 
 
 class mg:
-    def __init__(self, b: torch.Tensor,  wilson: dslash.wilson_mg, U: torch.Tensor, clover: dslash.clover, clover_term: torch.Tensor,  min_size: int = 2, max_levels: int = 5, dof_list: Tuple[int, int, int, int] = [12, 24, 24, 24, 24], tol: float = 1e-6, max_iter: int = 1000, x0: torch.Tensor = None, if_multi: bool = False, verbose: bool = True):
+    def __init__(self, b: torch.Tensor,  wilson: dslash.wilson_mg, U: torch.Tensor, clover: dslash.clover, clover_term: torch.Tensor,  min_size: int = 2, max_levels: int = 5, dof_list: Tuple[int, int, int, int] = [12, 24, 24, 24, 24], tol: float = 1e-6, max_iter: int = 1000, x0: torch.Tensor = None, verbose: bool = True):
         self.b = b.reshape([12]+list(b.shape)[2:]).clone()  # sc->e
         self.min_size = min_size
         self.max_levels = max_levels
@@ -492,7 +472,6 @@ class mg:
         self.max_iter = max_iter
         self.x0 = x0.clone().reshape(
             [12]+list(x0.shape)[2:]) if x0 is not None else torch.randn_like(self.b)  # sc->e
-        self.if_multi = if_multi
         self.verbose = verbose
         self.op_list = [op(wilson=wilson, U=U,
                            clover=clover, clover_term=clover_term, verbose=self.verbose)]
@@ -520,12 +499,6 @@ class mg:
         self.nv_list = []  # null_vecs_list
         self.lonv_list = []  # local_ortho_null_vecs_list
         self.convergence_history = []
-
-    def _vdot(self, a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
-        return multi_vdot(a, b) if self.if_multi else torch.vdot(a, b)
-
-    def _norm(self, a: torch.Tensor) -> torch.Tensor:
-        return multi_norm(a) if self.if_multi else torch.norm(a)
 
     def init(self):
         # Build local-orthonormal near-null space vectors
@@ -555,12 +528,12 @@ class mg:
         matvec = self.op_list[level].matvec
         # init end
         r = b - matvec(x)
-        r_norm = self._norm(r).item()
+        r_norm = torch_norm(r).item()
         _tol = r_norm*0.5 if level != self.num_levels - 1 else r_norm*0.1
         if self.verbose:
-            print(f"MG-{level}:Norm of b:{self._norm(b).item()}")
+            print(f"MG-{level}:Norm of b:{torch_norm(b).item()}")
             print(f"MG-{level}:Norm of r:{r_norm}")
-            print(f"MG-{level}:Norm of x0:{self._norm(x).item()}")
+            print(f"MG-{level}:Norm of x0:{torch_norm(x).item()}")
         if level == 0:
             self.convergence_history.append(r_norm)
             _tol = self.tol
@@ -580,19 +553,19 @@ class mg:
         iter_times = []
         for i in range(self.max_iter):
             iter_start_time = perf_counter()
-            rho = self._vdot(r_tilde.flatten(), r.flatten())
+            rho = torch_vdot(r_tilde.flatten(), r.flatten())
             beta = (rho / rho_prev) * (alpha / omega)
             rho_prev = rho
             p = r + beta * (p - omega * v)
             v = matvec(p)
-            alpha = rho / self._vdot(r_tilde.flatten(), v.flatten())
+            alpha = rho / torch_vdot(r_tilde.flatten(), v.flatten())
             s = r - alpha * v
             t = matvec(s)
-            omega = self._vdot(t.flatten(), s.flatten()) / \
-                self._vdot(t.flatten(), t.flatten())
+            omega = torch_vdot(t.flatten(), s.flatten()) / \
+                torch_vdot(t.flatten(), t.flatten())
             x = x + alpha * p + omega * s
             r = s - omega * t
-            r_norm = self._norm(r).item()
+            r_norm = torch_norm(r).item()
             if level == 0:
                 self.convergence_history.append(r_norm)
             if self.verbose:
@@ -609,7 +582,7 @@ class mg:
                     local_ortho_null_vecs=self.lonv_list[level], coarse_vec=e_coarse, verbose=self.verbose)
                 x = x + e_fine
                 r = b - matvec(x)
-            r_norm = self._norm(r).item()
+            r_norm = torch_norm(r).item()
             if level == 0:
                 self.convergence_history.append(r_norm)
             # cycle end
