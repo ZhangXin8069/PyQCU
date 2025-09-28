@@ -436,13 +436,13 @@ class op:
                     _dest_c_minus = restrict(
                         local_ortho_null_vecs=local_ortho_null_vecs, fine_vec=_dest_f_minus, verbose=self.verbose)
                     self.sitting.M[:, e][slice_dim(dim=5,
-                                                   ward=ward+1, start=0)] += _dest_c_plus[slice_dim(dim=5, ward=ward+1, start=0)].clone()
+                                                   ward=ward, start=0)] += _dest_c_plus[slice_dim(dim=5, ward=ward, start=0)].clone()
                     self.sitting.M[:, e][slice_dim(dim=5,
-                                                   ward=ward+1, start=0)] += _dest_c_minus[slice_dim(dim=5, ward=ward+1, start=0)].clone()
+                                                   ward=ward, start=0)] += _dest_c_minus[slice_dim(dim=5, ward=ward, start=0)].clone()
                     self.hopping.M_plus_list[ward][:, e][slice_dim(dim=5,
-                                                                   ward=ward+1, start=1)] = _dest_c_plus[slice_dim(dim=5, ward=ward+1, start=1)].clone()
+                                                                   ward=ward, start=1)] = _dest_c_plus[slice_dim(dim=5, ward=ward, start=1)].clone()
                     self.hopping.M_minus_list[ward][:, e][slice_dim(dim=5,
-                                                                    ward=ward+1, start=1)] = _dest_c_minus[slice_dim(dim=5, ward=ward+1, start=1)].clone()
+                                                                    ward=ward, start=1)] = _dest_c_minus[slice_dim(dim=5, ward=ward, start=1)].clone()
                     # give partly sitting.oo and whole hopping.eo
                     _src_c = torch.zeros_like(self.sitting.M[0])
                     _src_c[e][slice_dim(ward=ward, start=1)] = 1.0
@@ -457,13 +457,13 @@ class op:
                     _dest_c_minus = restrict(
                         local_ortho_null_vecs=local_ortho_null_vecs, fine_vec=_dest_f_minus, verbose=self.verbose)
                     self.sitting.M[:, e][slice_dim(dim=5,
-                                                   ward=ward+1, start=1)] += _dest_c_plus[slice_dim(dim=5, ward=ward+1, start=1)].clone()
+                                                   ward=ward, start=1)] += _dest_c_plus[slice_dim(dim=5, ward=ward, start=1)].clone()
                     self.sitting.M[:, e][slice_dim(dim=5,
-                                                   ward=ward+1, start=1)] += _dest_c_minus[slice_dim(dim=5, ward=ward+1, start=1)].clone()
+                                                   ward=ward, start=1)] += _dest_c_minus[slice_dim(dim=5, ward=ward, start=1)].clone()
                     self.hopping.M_plus_list[ward][:, e][slice_dim(dim=5,
-                                                                   ward=ward+1, start=0)] = _dest_c_plus[slice_dim(dim=5, ward=ward+1, start=0)].clone()
+                                                                   ward=ward, start=0)] = _dest_c_plus[slice_dim(dim=5, ward=ward, start=0)].clone()
                     self.hopping.M_minus_list[ward][:, e][slice_dim(dim=5,
-                                                                    ward=ward+1, start=0)] = _dest_c_minus[slice_dim(dim=5, ward=ward+1, start=0)].clone()
+                                                                    ward=ward, start=0)] = _dest_c_minus[slice_dim(dim=5, ward=ward, start=0)].clone()
                 # give aother partly sitting.ee and sitting.oo
                 _src_c = torch.zeros_like(self.sitting.M[0])
                 _src_c[e] = 1.0
@@ -556,7 +556,7 @@ class mg:
         # init end
         r = b - matvec(x)
         r_norm = self._norm(r).item()
-        _tol = r_norm*0.25 if level != self.num_levels - 1 else r_norm*0.1
+        _tol = r_norm*0.25 if level != self.num_levels - 1 else r_norm*0.05
         if self.verbose:
             print(f"MG-{level}:Norm of b:{self._norm(b).item()}")
             print(f"MG-{level}:Norm of r:{r_norm}")
@@ -656,20 +656,24 @@ class mg:
         return x.reshape([4, 3]+list(x.shape[-4:])).clone()
 
     def plot(self, save_path=None):
-        import matplotlib.pyplot as plt
-        import numpy as np
-        np.Inf = np.inf
-        plt.figure(figsize=(10, 6))
-        plt.title(
-            f"(self.grid_list:{self.grid_list})convergence_history(self.dof_list:{self.dof_list})", fontsize=16)
-        plt.semilogy(range(1, len(self.convergence_history) + 1),
-                     self.convergence_history, 'b-o', markersize=4, linewidth=2)
-        plt.xlabel(
-            f"Iteration", fontsize=12)
-        plt.ylabel('Residual Norm', fontsize=12)
-        plt.grid(True, alpha=0.3)
-        plt.tight_layout()
-        if save_path is None:
-            save_path = "convergence_history.png"
-        plt.savefig(save_path, dpi=300)
-        plt.close()
+        try:
+            import matplotlib.pyplot as plt
+            import numpy as np
+            np.Inf = np.inf
+            plt.figure(figsize=(10, 6))
+            plt.title(
+                f"(self.grid_list:{self.grid_list})convergence_history(self.dof_list:{self.dof_list})", fontsize=16)
+            plt.semilogy(range(1, len(self.convergence_history) + 1),
+                         self.convergence_history, 'b-o', markersize=4, linewidth=2)
+            plt.xlabel(
+                f"Iteration", fontsize=12)
+            plt.ylabel('Residual Norm', fontsize=12)
+            plt.grid(True, alpha=0.3)
+            plt.tight_layout()
+            if save_path is None:
+                save_path = "convergence_history.png"
+            plt.show()
+            plt.savefig(save_path, dpi=300)
+            plt.close()
+        except Exception as e:
+            print(f"Error: {e}")
