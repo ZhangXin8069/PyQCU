@@ -79,7 +79,7 @@ class qcu:
         else:
             self.U = self.U.clone()
         self.full_U = local2full_tensor(
-            local_tensor=self.U, lat_size=self.lat_size, grid_size=self.grid_size, root=self.root)
+            local_tensor=self.U, lat_size=self.lat_size, grid_size=self.grid_size, device=self.device, root=self.root)
         if self.dslash == 'clover':
             if self.clover_term == None:
                 self.clover_term = self.clover.make_clover(U=self.U)
@@ -89,15 +89,15 @@ class qcu:
             self.clover_term = torch.zeros(
                 size=[4, 3, 4, 3]+self.local_lat_size[::-1], dtype=self.dtype, device=self.device)
         self.full_clover_term = local2full_tensor(
-            local_tensor=self.clover_term, lat_size=self.lat_size, grid_size=self.grid_size, root=self.root)
+            local_tensor=self.clover_term, lat_size=self.lat_size, grid_size=self.grid_size, device=self.device, root=self.root)
         self.b = torch.ones(
             size=[4, 3]+self.local_lat_size[::-1], dtype=self.dtype, device=self.device) if self.b == None else self.b.clone()
         self.full_b = local2full_tensor(
-            local_tensor=self.b, lat_size=self.lat_size, grid_size=self.grid_size, root=self.root)
+            local_tensor=self.b, lat_size=self.lat_size, grid_size=self.grid_size, device=self.device, root=self.root)
         self.x0 = torch.zeros(
             size=[4, 3]+self.local_lat_size[::-1], dtype=self.dtype, device=self.device) if self.x0 == None else self.x0.clone()
         self.full_x0 = local2full_tensor(
-            local_tensor=self.x0, lat_size=self.lat_size, grid_size=self.grid_size, root=self.root)
+            local_tensor=self.x0, lat_size=self.lat_size, grid_size=self.grid_size, device=self.device, root=self.root)
         self.mg = mg(b=self.b, wilson=self.wilson, U=self.U, clover=self.clover, clover_term=self.clover_term, min_size=self.min_size,
                      max_levels=self.max_iter, dof_list=self.dof_list, tol=self.tol, max_iter=self.max_iter, x0=self.x0, if_multi=self.grid_index, verbose=self.verbose)
         if self.rank == self.root:
@@ -106,16 +106,16 @@ class qcu:
             if self.solver == 'mg':
                 self.full_mg.init()
         else:
-            self.full_mg = self.mg()
+            self.full_mg = self.mg
         for ward in range(4):  # xyzt
             hopping_M_plus = full2local_tensor(
-                full_tensor=self.full_mg.op_list[0].hopping.M_plus_list[ward])
+                full_tensor=self.full_mg.op_list[0].hopping.M_plus_list[ward], lat_size=self.lat_size, grid_size=self.grid_size, device=self.device, root=self.root)
             self.op.hopping.M_plus_list.append(hopping_M_plus.clone())
             hopping_M_minus = full2local_tensor(
-                full_tensor=self.full_mg.op_list[0].hopping.M_minus_list[ward])
+                full_tensor=self.full_mg.op_list[0].hopping.M_minus_list[ward], lat_size=self.lat_size, grid_size=self.grid_size, device=self.device, root=self.root)
             self.op.hopping.M_minus_list.append(hopping_M_minus.clone())
         self.op.sitting.M = full2local_tensor(
-            full_tensor=self.full_mg.op_list[0].sitting.M).clone()
+            full_tensor=self.full_mg.op_list[0].sitting.M, lat_size=self.lat_size, grid_size=self.grid_size, device=self.device, root=self.root).clone()
 
     def matvec(self, src: torch.Tensor) -> torch.Tensor:
         return self.op.matvec(src).clone()
@@ -130,11 +130,11 @@ class qcu:
 
     def load(self, file_name: str = ''):
         self.b = hdf5_xxxtzyx2grid_xxxtzyx(
-            file_name=file_name+'b.h5', lat_size=self.lat_size, grid_size=self.grid_size)
+            file_name=file_name+'b.h5', lat_size=self.lat_size, grid_size=self.grid_size, device=self.device)
         self.U = hdf5_xxxtzyx2grid_xxxtzyx(
-            file_name=file_name+'U.h5', lat_size=self.lat_size, grid_size=self.grid_size)
+            file_name=file_name+'U.h5', lat_size=self.lat_size, grid_size=self.grid_size, device=self.device)
         self.clover_term = hdf5_xxxtzyx2grid_xxxtzyx(
-            file_name=file_name+'clover_term.h5', lat_size=self.lat_size, grid_size=self.grid_size)
+            file_name=file_name+'clover_term.h5', lat_size=self.lat_size, grid_size=self.grid_size, device=self.device)
 
     def solve(self, b: torch.Tensor = None, x0: torch.Tensor = None) -> torch.Tensor:
         """

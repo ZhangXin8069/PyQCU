@@ -565,7 +565,7 @@ class wilson_mg(wilson):
         return - self.kappa/self.u_0 * torch.einsum(
             'Ss,Cctzyx->SCsctzyx', (self.I - gamma_mu), U_mu).reshape([12, 12]+list(U.shape[-4:])).clone()  # sc->e
 
-    def give_wilson_plus(self, ward: int, src: torch.Tensor, hopping: torch.Tensor, src_tail: torch.Tensor) -> torch.Tensor:
+    def give_wilson_plus(self, ward: int, src: torch.Tensor, hopping: torch.Tensor, src_tail: torch.Tensor = None) -> torch.Tensor:
         dir_info = self.directions[ward]
         axis = dir_info['axis']
         name = dir_info['name']
@@ -575,7 +575,6 @@ class wilson_mg(wilson):
         if src_tail != None:
             src_plus[:][slice_dim(
                 ward=ward, point=-1)] = src_tail.clone()
-        print(f"src_plus.shape,hopping.shape: {src_plus.shape,hopping.shape}")
         return torch.einsum(
             'Eetzyx,etzyx->Etzyx', hopping, src_plus).clone()
 
