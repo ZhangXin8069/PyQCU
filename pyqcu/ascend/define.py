@@ -66,7 +66,7 @@ def slice_dim(dim: int = 4, ward: int = 0, start: int = None, stop: int = None, 
     Args:
         input_array: input tensor.
         dim: number of dimensions.
-        ward: dimension index to slice.
+        ward: dimension index to slice. [xyzt]
         start, stop, step: same as Python slicing [start:stop:step].
         point: just a point
     Returns:
@@ -74,9 +74,9 @@ def slice_dim(dim: int = 4, ward: int = 0, start: int = None, stop: int = None, 
     """
     slices = [slice(None)] * dim
     if point == None:
-        slices[ward] = slice(start, stop, step)
+        slices[-ward-1] = slice(start, stop, step)
     else:
-        slices[ward] = point
+        slices[-ward-1] = point
     return tuple(slices)
 
 
