@@ -35,4 +35,4 @@ lib/*
 *.hdf
 *.npy
 *.npz
-*.png
+# *.png
