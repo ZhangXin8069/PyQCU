@@ -331,12 +331,14 @@ class hopping:
             rank = comm.Get_rank()
             src_head4send = src[:][slice_dim(
                 ward=ward, point=-1)].cpu().numpy().copy()
+            # print(f"src_head4send: {src_head4send}")
             src_tail4recv = np.zeros_like(src_head4send).copy()
             rank_plus = give_rank_plus(ward=ward)
             rank_minus = give_rank_minus(ward=ward)
             comm.Sendrecv(sendbuf=src_head4send, dest=rank_minus, sendtag=rank_minus,
                           recvbuf=src_tail4recv, source=rank_plus, recvtag=rank)
             comm.Barrier()
+            # print(f"src_tail4recv: {src_tail4recv}")
             src_tail = torch.from_numpy(src_tail4recv).to(
                 device=src.device).clone()
         else:
