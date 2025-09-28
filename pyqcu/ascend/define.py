@@ -148,6 +148,7 @@ def local2full_tensor(
     local_tensor: torch.Tensor,
     lat_size: Tuple[int, int, int, int],
     grid_size: Tuple[int, int, int, int],
+    device: torch.device,
     root: int = 0
 ) -> torch.Tensor:
     """
@@ -182,15 +183,16 @@ def local2full_tensor(
                  grid_index_y*grid_lat_y:(grid_index_y+1)*grid_lat_y,
                  grid_index_x*grid_lat_x:(grid_index_x+1)*grid_lat_x] = block.copy()
         comm.Barrier()
-        return torch.from_numpy(full)
+        return torch.from_numpy(full).to(device=device).clone()
     else:
         return None
 
 
 def full2local_tensor(
-    full_tensor: torch.Tensor = None,
-    lat_size: Tuple[int, int, int, int] = [8, 8, 8, 8],
-    grid_size: Tuple[int, int, int, int] = [1, 1, 1, 1],
+    full_tensor: torch.Tensor,
+    lat_size: Tuple[int, int, int, int],
+    grid_size: Tuple[int, int, int, int],
+    device: torch.device,
     root: int = 0
 ) -> torch.Tensor:
     """
@@ -221,4 +223,4 @@ def full2local_tensor(
         data_list = None
     local_np = comm.scatter(data_list, root=root)
     comm.Barrier()
-    return torch.from_numpy(local_np).clone()
+    return torch.from_numpy(local_np).to(device=device).clone()
