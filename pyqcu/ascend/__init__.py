@@ -92,14 +92,18 @@ class qcu:
         if self.solver == 'mg' and self.rank == self.root:
             self.full_mg.init()
         for ward in range(4):  # xyzt
-            hopping_M_plus = full2local_tensor(
+            self.op.hopping.M_plus_list[ward] = full2local_tensor(
                 full_tensor=self.full_mg.op_list[0].hopping.M_plus_list[ward], lat_size=self.lat_size, device=self.device, root=self.root)
-            self.op.hopping.M_plus_list[ward] = hopping_M_plus.clone()
-            hopping_M_minus = full2local_tensor(
+            self.op.hopping.M_minus_list[ward] = full2local_tensor(
                 full_tensor=self.full_mg.op_list[0].hopping.M_minus_list[ward], lat_size=self.lat_size, device=self.device, root=self.root)
-            self.op.hopping.M_minus_list[ward] = hopping_M_minus.clone()
         self.op.sitting.M = full2local_tensor(
             full_tensor=self.full_mg.op_list[0].sitting.M, lat_size=self.lat_size, device=self.device, root=self.root).clone()
+
+    def full_matvec(self, src: torch.Tensor, U: torch.Tensor, clover_term: torch.Tensor) -> torch.Tensor:
+        if self.rank == self.root:
+            return self.full_wilson.give_wilson(src=src, U=U)+self.full_clover.give_clover(src=src, clover_term=clover_term)
+        else:
+            return None
 
     def matvec(self, src: torch.Tensor) -> torch.Tensor:
         return self.op.matvec(src).clone()
@@ -145,24 +149,46 @@ class qcu:
         return self.x
 
     def test(self):
-        self.U = torch.ones_like(self.U)*self.rank
-        self.U.imag = tzyxccd2ccdtzyx(
-            gauge=torch.arange(36).reshape(3, 3, 4).repeat([self.local_lat_size[-1], self.local_lat_size[-2], self.local_lat_size[-3], self.local_lat_size[-4], 1, 1, 1]))
-        self.clover_term = torch.ones_like(self.clover_term)*self.rank
-        self.clover_term.imag = tzyxscsc2scsctzyx(
-            clover_term=torch.arange(144).reshape(4, 3, 4, 3).repeat([self.local_lat_size[-1], self.local_lat_size[-2], self.local_lat_size[-3], self.local_lat_size[-4], 1, 1, 1, 1]))
-        print(
-            f"Rank{self.rank}-torch.norm(self.U).item()**2: {torch.norm(self.U).item()**2}")
-        print(
-            f"Rank{self.rank}-torch.norm(self.clover_term).item()**2: {torch.norm(self.clover_term).item()**2}")
-        try:
+        Ax = self.matvec(src=self.x)
+        full_Ax = local2full_tensor(
+            local_tensor=Ax, lat_size=self.lat_size, device=self.device, root=self.root)
+        _full_x = local2full_tensor(
+            local_tensor=self.x, lat_size=self.lat_size, device=self.device, root=self.root)
+        _full_b = local2full_tensor(
+            local_tensor=self.b, lat_size=self.lat_size, device=self.device, root=self.root)
+        if self.rank == self.root:
+            _full_Ax = self.full_matvec(
+                src=_full_x, U=self.full_U, clover_term=self.full_clover_term)
+            print(f"torch.norm(self.b): {torch.norm(self.b)}")
+            print(f"torch.norm(self.x): {torch.norm(self.x)}")
+            print(f"torch.norm(_full_b): {torch.norm(_full_b)}")
+            print(f"torch.norm(_full_x): {torch.norm(_full_x)}")
+            print(f"torch.norm(full_Ax): {torch.norm(full_Ax)}")
+            print(f"torch.norm(_full_Ax): {torch.norm(_full_Ax)}")
             print(
-                f"Rank{self.rank}-torch.norm(self.full_U).item()**2: {torch.norm(self.full_U).item()**2}")
+                f"torch.norm(full_Ax-_full_b).item()/torch.norm(full_Ax).item(): {torch.norm(full_Ax-_full_b).item()/torch.norm(full_Ax).item()}")
             print(
-                f"Rank{self.rank}-torch.norm(self.full_clover_term).item()**2: {torch.norm(self.full_clover_term).item()**2}")
-        except Exception as e:
-            print(f"Rank{self.rank}-Error: {e}")
-        print(
-            f"Rank{self.rank}-multi_norm(self.U).item()**2: {multi_norm(self.U).item()**2}")
-        print(
-            f"Rank{self.rank}-multi_norm(self.clover_term).item()**2: {multi_norm(self.clover_term).item()**2}")
+                f"torch.norm(_full_Ax-_full_b).item()/torch.norm(_full_Ax).item(): {torch.norm(_full_Ax-_full_b).item()/torch.norm(_full_Ax).item()}")
+            print(
+                f"torch.norm(full_Ax-_full_Ax).item()/torch.norm(full_Ax).item(): {torch.norm(full_Ax-_full_Ax).item()/torch.norm(full_Ax).item()}")
+        # self.U = torch.ones_like(self.U)*self.rank
+        # self.U.imag = tzyxccd2ccdtzyx(
+        #     gauge=torch.arange(36).reshape(3, 3, 4).repeat([self.local_lat_size[-1], self.local_lat_size[-2], self.local_lat_size[-3], self.local_lat_size[-4], 1, 1, 1]))
+        # self.clover_term = torch.ones_like(self.clover_term)*self.rank
+        # self.clover_term.imag = tzyxscsc2scsctzyx(
+        #     clover_term=torch.arange(144).reshape(4, 3, 4, 3).repeat([self.local_lat_size[-1], self.local_lat_size[-2], self.local_lat_size[-3], self.local_lat_size[-4], 1, 1, 1, 1]))
+        # print(
+        #     f"Rank{self.rank}-torch.norm(self.U).item()**2: {torch.norm(self.U).item()**2}")
+        # print(
+        #     f"Rank{self.rank}-torch.norm(self.clover_term).item()**2: {torch.norm(self.clover_term).item()**2}")
+        # try:
+        #     print(
+        #         f"Rank{self.rank}-torch.norm(self.full_U).item()**2: {torch.norm(self.full_U).item()**2}")
+        #     print(
+        #         f"Rank{self.rank}-torch.norm(self.full_clover_term).item()**2: {torch.norm(self.full_clover_term).item()**2}")
+        # except Exception as e:
+        #     print(f"Rank{self.rank}-Error: {e}")
+        # print(
+        #     f"Rank{self.rank}-multi_norm(self.U).item()**2: {multi_norm(self.U).item()**2}")
+        # print(
+        #     f"Rank{self.rank}-multi_norm(self.clover_term).item()**2: {multi_norm(self.clover_term).item()**2}")
