@@ -25,7 +25,7 @@ def tzyxscsc2scsctzyx(clover_term: torch.Tensor) -> torch.Tensor:
     return dest.clone()
 
 
-def xxxtzyx2pxxxtzyx(input_array: torch.Tensor, verbose=False) -> torch.Tensor:
+def xxxtzyx2pxxxtzyx(input_array: torch.Tensor, verbose: bool = False) -> torch.Tensor:
     if verbose:
         print("@xxxtzyx2pxxxtzyx......")
     shape = input_array.shape
@@ -61,7 +61,7 @@ def xxxtzyx2pxxxtzyx(input_array: torch.Tensor, verbose=False) -> torch.Tensor:
     return splited_array
 
 
-def pxxxtzyx2xxxtzyx(input_array: torch.Tensor, verbose=False) -> torch.Tensor:
+def pxxxtzyx2xxxtzyx(input_array: torch.Tensor, verbose: bool = False) -> torch.Tensor:
     if verbose:
         print("@pxxxtzyx2xxxtzyx......")
     shape = input_array.shape
@@ -96,24 +96,27 @@ def pxxxtzyx2xxxtzyx(input_array: torch.Tensor, verbose=False) -> torch.Tensor:
     return restored_array
 
 
-def xxx2hdf5_xxx(input_array: torch.Tensor, file_name: str = 'xxx.h5'):
+def xxx2hdf5_xxx(input_array: torch.Tensor, file_name: str = 'xxx.h5', verbose: bool = False):
     comm = MPI.COMM_WORLD
-    print(f"Input Array Shape: {input_array.shape}")
+    if verbose:
+        print(f"Input Array Shape: {input_array.shape}")
     dtype = input_array.dtype
     shape = input_array.shape
     with h5py.File(file_name, 'w', driver='mpio', comm=comm) as f:
         dest = f.create_dataset('data', shape=shape, dtype=dtype)
         dest[...] = input_array.cpu().numpy()
-        print(f"Dest Shape: {dest.shape}")
+        if verbose:
+            print(f"Dest Shape: {dest.shape}")
         print(f"Data is saved to {file_name}")
 
 
-def hdf5_xxx2xxx(device: torch.device, file_name: str = 'xxx.h5') -> torch.Tensor:
+def hdf5_xxx2xxx(device: torch.device, file_name: str = 'xxx.h5', verbose: bool = False) -> torch.Tensor:
     comm = MPI.COMM_WORLD
     with h5py.File(file_name, 'r', driver='mpio', comm=comm) as f:
         all_dest = f['data']
         dest = all_dest[...]
-        print(f"Dest Shape: {dest.shape}")
+        if verbose:
+            print(f"Dest Shape: {dest.shape}")
         return torch.from_numpy(dest).to(device=device).clone()
 
 
@@ -121,6 +124,7 @@ def grid_xxxtzyx2hdf5_xxxtzyx(
     input_tensor: torch.Tensor,
     file_name: str,
     lat_size: Tuple[int, int, int, int],
+    verbose: bool = False
 ):
     """
     Write local PyTorch tensor blocks to a global HDF5 file using MPI parallel I/O.
@@ -129,22 +133,24 @@ def grid_xxxtzyx2hdf5_xxxtzyx(
     """
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
-    print(f"Input Tensor Shape: {input_tensor.shape}")
+    if verbose:
+        print(f"Input Tensor Shape: {input_tensor.shape}")
     lat_x, lat_y, lat_z, lat_t = lat_size
     grid_x, grid_y, grid_z, grid_t = give_grid_size()
     dtype = input_tensor.cpu().numpy().dtype
     prefix_shape = input_tensor.shape[:-4]
     # Compute rank indices in the 4D process grid
     grid_index_x, grid_index_y, grid_index_z, grid_index_t = give_grid_index()
-    print(
-        f"Grid Index T: {grid_index_t}, Z: {grid_index_z}, Y: {grid_index_y}, X: {grid_index_x}")
     # Compute local lattice size per block
     grid_lat_t = lat_t // grid_t
     grid_lat_z = lat_z // grid_z
     grid_lat_y = lat_y // grid_y
     grid_lat_x = lat_x // grid_x
-    print(
-        f"Grid Lat T: {grid_lat_t}, Z: {grid_lat_z}, Y: {grid_lat_y}, X: {grid_lat_x}")
+    if verbose:
+        print(
+            f"Grid Lat T: {grid_lat_t}, Z: {grid_lat_z}, Y: {grid_lat_y}, X: {grid_lat_x}")
+        print(
+            f"Grid Index T: {grid_index_t}, Z: {grid_index_z}, Y: {grid_index_y}, X: {grid_index_x}")
     # Open HDF5 file with MPI parallel I/O
     with h5py.File(file_name, 'w', driver='mpio', comm=comm) as f:
         dest = f.create_dataset('data', shape=(
@@ -154,39 +160,45 @@ def grid_xxxtzyx2hdf5_xxxtzyx(
              grid_index_z*grid_lat_z:grid_index_z*grid_lat_z+grid_lat_z,
              grid_index_y*grid_lat_y:grid_index_y*grid_lat_y+grid_lat_y,
              grid_index_x*grid_lat_x:grid_index_x*grid_lat_x+grid_lat_x] = input_tensor.cpu().numpy()
-        print(f"Dest Shape: {dest.shape}")
+        if verbose:
+            print(f"Dest Shape: {dest.shape}")
         print(f"rank {rank}: Data is saved to {file_name}")
 
 
 def hdf5_xxxtzyx2grid_xxxtzyx(
     file_name: str,
     lat_size: Tuple[int, int, int, int],
-    device: torch.device
+    device: torch.device,
+    verbose: bool = False
 ) -> torch.Tensor:
     """
     Read the local block from a global HDF5 file using MPI parallel I/O.
     """
     comm = MPI.COMM_WORLD
+    rank = comm.Get_rank()
     lat_x, lat_y, lat_z, lat_t = lat_size
     grid_x, grid_y, grid_z, grid_t = give_grid_size()
     # Compute rank indices in the 4D process grid
     grid_index_x, grid_index_y, grid_index_z, grid_index_t = give_grid_index()
-    print(
-        f"Grid Index T: {grid_index_t}, Z: {grid_index_z}, Y: {grid_index_y}, X: {grid_index_x}")
     # Compute local lattice size per block
     grid_lat_t = lat_t // grid_t
     grid_lat_z = lat_z // grid_z
     grid_lat_y = lat_y // grid_y
     grid_lat_x = lat_x // grid_x
-    print(
-        f"Grid Lat T: {grid_lat_t}, Z: {grid_lat_z}, Y: {grid_lat_y}, X: {grid_lat_x}")
+    if verbose:
+        print(
+            f"Grid Lat T: {grid_lat_t}, Z: {grid_lat_z}, Y: {grid_lat_y}, X: {grid_lat_x}")
+        print(
+            f"Grid Index T: {grid_index_t}, Z: {grid_index_z}, Y: {grid_index_y}, X: {grid_index_x}")
     with h5py.File(file_name, 'r', driver='mpio', comm=comm) as f:
         all_data = f['data']
-        print(f"All Dest Shape: {all_data.shape}")
         dest = all_data[...,
                         grid_index_t*grid_lat_t:grid_index_t*grid_lat_t+grid_lat_t,
                         grid_index_z*grid_lat_z:grid_index_z*grid_lat_z+grid_lat_z,
                         grid_index_y*grid_lat_y:grid_index_y*grid_lat_y+grid_lat_y,
                         grid_index_x*grid_lat_x:grid_index_x*grid_lat_x+grid_lat_x]
-        print(f"Dest Shape: {dest.shape}")
+        if verbose:
+            print(f"Dest Shape: {dest.shape}")
+            print(f"All Dest Shape: {all_data.shape}")
+        print(f"rank {rank}: Data is load from {file_name}")
         return torch.from_numpy(dest).to(device=device).clone()
