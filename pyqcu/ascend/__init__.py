@@ -88,7 +88,7 @@ class qcu:
         self.full_clover_term = local2full_tensor(
             local_tensor=self.clover_term, lat_size=self.lat_size, device=self.device, root=self.root)
         self.full_mg = mg(b=torch.zeros(size=[4, 3]+self.lat_size[::-1], dtype=self.dtype, device=self.device) if self.full_b == None else self.full_b, wilson=self.full_wilson, U=self.full_U, clover=self.full_clover, clover_term=self.full_clover_term, min_size=self.min_size,
-                          max_levels=self.max_iter, dof_list=self.dof_list, tol=self.tol, max_iter=self.max_iter, x0=self.x0, verbose=self.verbose)
+                          max_levels=self.max_iter, dof_list=self.dof_list, tol=self.tol, max_iter=self.max_iter, x0=self.x0, verbose=True if self.rank == self.root else False)
         if self.solver == 'mg' and self.rank == self.root:
             self.full_mg.init()
         for ward in range(4):  # xyzt
@@ -119,7 +119,7 @@ class qcu:
                                   '-clover_term.h5', lat_size=self.lat_size)
 
     def load(self, file_name: str = ''):
-        self.x = hdf5_xxxtzyx2grid_xxxtzyx(
+        self.refer_x = hdf5_xxxtzyx2grid_xxxtzyx(
             file_name=file_name+'-x.h5', lat_size=self.lat_size, device=self.device)
         self.b = hdf5_xxxtzyx2grid_xxxtzyx(
             file_name=file_name+'-b.h5', lat_size=self.lat_size, device=self.device)
@@ -171,6 +171,11 @@ class qcu:
                 f"torch.norm(_full_Ax-_full_b).item()/torch.norm(_full_Ax).item(): {torch.norm(_full_Ax-_full_b).item()/torch.norm(_full_Ax).item()}")
             print(
                 f"torch.norm(full_Ax-_full_Ax).item()/torch.norm(full_Ax).item(): {torch.norm(full_Ax-_full_Ax).item()/torch.norm(full_Ax).item()}")
+        try:
+            print(
+                f"torch.norm(self.refer_x-self.x).item()/torch.norm(self.x).item(): {torch.norm(self.refer_x-self.x).item()/torch.norm(self.x).item()}")
+        except Exception as e:
+            print(f"Rank{self.rank}-Error: {e}")
         # self.U = torch.ones_like(self.U)*self.rank
         # self.U.imag = tzyxccd2ccdtzyx(
         #     gauge=torch.arange(36).reshape(3, 3, 4).repeat([self.local_lat_size[-1], self.local_lat_size[-2], self.local_lat_size[-3], self.local_lat_size[-4], 1, 1, 1]))
