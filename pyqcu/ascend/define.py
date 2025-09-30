@@ -7,7 +7,8 @@ from typing import Tuple
 
 def if_multi() -> bool:
     comm = MPI.COMM_WORLD
-    return comm.Get_size() > 1
+    return comm.Get_size() > 0
+    # return comm.Get_size() > 1
 
 
 def torch_vdot(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
