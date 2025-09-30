@@ -329,8 +329,8 @@ class hopping:
         if if_multi() and self.grid_size[ward] != 1:
             comm = MPI.COMM_WORLD
             rank = comm.Get_rank()
-            src_head4send = src[:][slice_dim(
-                ward=ward, point=0)].cpu().numpy().copy()
+            src_head4send = src[slice_dim(
+                dim=5, ward=ward, point=0)].cpu().numpy().copy()
             src_tail4recv = np.zeros_like(src_head4send).copy()
             rank_plus = give_rank_plus(ward=ward)
             rank_minus = give_rank_minus(ward=ward)
@@ -347,8 +347,8 @@ class hopping:
         if if_multi() and self.grid_size[ward] != 1:
             comm = MPI.COMM_WORLD
             rank = comm.Get_rank()
-            src_tail4send = src[:][slice_dim(
-                ward=ward, point=-1)].cpu().numpy().copy()
+            src_tail4send = src[slice_dim(
+                dim=5, ward=ward, point=-1)].cpu().numpy().copy()
             src_head4recv = np.zeros_like(src_tail4send).copy()
             rank_plus = give_rank_plus(ward=ward)
             rank_minus = give_rank_minus(ward=ward)
@@ -473,7 +473,6 @@ class mg:
         self.min_size = min_size
         self.max_levels = max_levels
         self.dof_list = dof_list
-        print(f"self.dof_list:{self.dof_list}")
         self.tol = tol
         self.max_iter = max_iter
         self.x0 = x0.clone().reshape(
@@ -489,17 +488,20 @@ class mg:
         self.grid_list = []
         self.b_list = [self.b.clone()]
         self.u_list = [self.x0.clone()]
-        print(f"Building grid list:")
+        if self.verbose:
+            print(f"Building grid list:")
         while all(_ >= self.min_size for _ in [_Lt, _Lz, _Ly, _Lx]) and len(self.grid_list) < self.max_levels:
             self.grid_list.append([_Lt, _Lz, _Ly, _Lx])
-            print(
-                f"  Level {len(self.grid_list)-1}: {_Lx}x{_Ly}x{_Lz}x{_Lt}")
+            if self.verbose:
+                print(
+                    f"  Level {len(self.grid_list)-1}: {_Lx}x{_Ly}x{_Lz}x{_Lt}")
             # go with hopping and sitting, must be 2->1
             _Lx //= 2
             _Ly //= 2
             _Lz //= 2
             _Lt //= 2
-        print(f"self.grid_list:{self.grid_list}")
+        if self.verbose:
+            print(f"self.grid_list:{self.grid_list}")
         self.num_levels = len(self.grid_list)
         self.dof_list = self.dof_list[:self.num_levels]
         self.nv_list = []  # null_vecs_list

@@ -573,8 +573,7 @@ class wilson_mg(wilson):
             print(f"@give_wilson_{name}_plus......")
         src_plus = torch.roll(src, shifts=-1, dims=axis)
         if src_tail != None:
-            src_plus[:][slice_dim(
-                ward=ward, point=-1)] = src_tail.clone()
+            src_plus[slice_dim(dim=5, ward=ward, point=-1)] = src_tail.clone()
         return torch.einsum(
             'Eetzyx,etzyx->Etzyx', hopping, src_plus).clone()
 
@@ -600,8 +599,7 @@ class wilson_mg(wilson):
             print(f"@give_wilson_{name}_minus......")
         src_minus = torch.roll(src, shifts=1, dims=axis)
         if src_head != None:
-            src_minus[:][slice_dim(
-                ward=ward, point=0)] = src_head.clone()
+            src_minus[slice_dim(dim=5, ward=ward, point=0)] = src_head.clone()
         return torch.einsum(
             'Eetzyx,etzyx->Etzyx', hopping, src_minus).clone()
 
