@@ -60,7 +60,7 @@ class qcu:
         self.min_size = min_size
         self.max_levels = max_levels
         self.dof_list = dof_list
-        self.op = op()
+        self.op = op(if_multi=if_multi())
 
     def init(self):
         self.x0 = torch.randn(
@@ -89,8 +89,6 @@ class qcu:
             local_tensor=self.clover_term, lat_size=self.lat_size, device=self.device, root=self.root)
         self.full_mg = mg(b=torch.zeros(size=[4, 3]+self.lat_size[::-1], dtype=self.dtype, device=self.device) if self.full_b == None else self.full_b, wilson=self.full_wilson, U=self.full_U, clover=self.full_clover, clover_term=self.full_clover_term, min_size=self.min_size,
                           max_levels=self.max_iter, dof_list=self.dof_list, tol=self.tol, max_iter=self.max_iter, x0=self.x0, verbose=True if self.rank == self.root else False)
-        if self.solver == 'mg' and self.rank == self.root:
-            self.full_mg.init()
         for ward in range(4):  # xyzt
             self.op.hopping.M_plus_list[ward] = full2local_tensor(
                 full_tensor=self.full_mg.op_list[0].hopping.M_plus_list[ward], lat_size=self.lat_size, device=self.device, root=self.root)
@@ -98,6 +96,9 @@ class qcu:
                 full_tensor=self.full_mg.op_list[0].hopping.M_minus_list[ward], lat_size=self.lat_size, device=self.device, root=self.root)
         self.op.sitting.M = full2local_tensor(
             full_tensor=self.full_mg.op_list[0].sitting.M, lat_size=self.lat_size, device=self.device, root=self.root).clone()
+        if self.solver == 'mg':
+            self.full_mg.sub_matvec = self.matvec
+            self.full_mg.init()
 
     def full_matvec(self, src: torch.Tensor, U: torch.Tensor, clover_term: torch.Tensor) -> torch.Tensor:
         if self.rank == self.root:
@@ -105,8 +106,8 @@ class qcu:
         else:
             return None
 
-    def matvec(self, src: torch.Tensor) -> torch.Tensor:
-        return self.op.matvec(src).clone()
+    def matvec(self, src: torch.Tensor, _if_multi: bool = True) -> torch.Tensor:
+        return self.op.matvec(src, _if_multi=if_multi() and _if_multi).clone()
 
     def save(self, file_name: str = ''):
         grid_xxxtzyx2hdf5_xxxtzyx(input_tensor=self.x, file_name=file_name +
