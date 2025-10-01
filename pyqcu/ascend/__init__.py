@@ -60,7 +60,7 @@ class qcu:
         self.min_size = min_size
         self.max_levels = max_levels
         self.dof_list = dof_list
-        self.op = op(if_multi=if_multi())
+        self.op = op(if_multi=give_if_multi())
 
     def init(self):
         self.x0 = torch.randn(
@@ -106,8 +106,8 @@ class qcu:
         else:
             return None
 
-    def matvec(self, src: torch.Tensor, _if_multi: bool = True) -> torch.Tensor:
-        return self.op.matvec(src, _if_multi=if_multi() and _if_multi).clone()
+    def matvec(self, src: torch.Tensor, if_multi: bool = True) -> torch.Tensor:
+        return self.op.matvec(src, if_multi=give_if_multi() and if_multi).clone()
 
     def save(self, file_name: str = ''):
         grid_xxxtzyx2hdf5_xxxtzyx(input_tensor=self.x, file_name=file_name +
