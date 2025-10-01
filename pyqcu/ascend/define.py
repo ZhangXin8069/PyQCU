@@ -5,17 +5,17 @@ import mpi4py.MPI as MPI
 from typing import Tuple
 
 
-def if_multi() -> bool:
+def give_if_multi() -> bool:
     comm = MPI.COMM_WORLD
     return comm.Get_size() > 1
 
 
-def torch_vdot(a: torch.Tensor, b: torch.Tensor, _if_multi: bool = True) -> torch.Tensor:
-    return multi_vdot(a, b) if if_multi() and _if_multi else torch.vdot(a, b)
+def torch_vdot(a: torch.Tensor, b: torch.Tensor, if_multi: bool = True) -> torch.Tensor:
+    return multi_vdot(a, b) if give_if_multi() and if_multi else torch.vdot(a, b)
 
 
-def torch_norm(a: torch.Tensor, _if_multi: bool = True) -> torch.Tensor:
-    return multi_norm(a) if if_multi() and _if_multi else torch.norm(a)
+def torch_norm(a: torch.Tensor, if_multi: bool = True) -> torch.Tensor:
+    return multi_norm(a) if give_if_multi() and if_multi else torch.norm(a)
 
 
 def prime_factorization(n: int):
