@@ -1,4 +1,5 @@
 import torch
+import inspect
 import functools
 from time import perf_counter
 from typing import Tuple, Callable
@@ -22,11 +23,8 @@ def cg(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], tol: flo
     Returns:
         x: Approximate solution to Ax = b.
     """
-    try:
-        _matvec = functools.partial(matvec, if_multi=if_multi)
-    except Exception as e:
-        _matvec = matvec
-        print(f"Error: {e}")
+    _matvec = functools.partial(matvec, if_multi=if_multi) if 'if_multi' in inspect.signature(
+        matvec).parameters else matvec
     _torch_vdot = functools.partial(torch_vdot, if_multi=if_multi)
     _torch_norm = functools.partial(torch_norm, if_multi=if_multi)
     x = x0.clone() if x0 is not None else torch.randn_like(b)
@@ -101,11 +99,8 @@ def bicgstab(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], to
     Returns:
         x: Approximate solution to Ax = b.
     """
-    try:
-        _matvec = functools.partial(matvec, if_multi=if_multi)
-    except Exception as e:
-        _matvec = matvec
-        print(f"Error: {e}")
+    _matvec = functools.partial(matvec, if_multi=if_multi) if 'if_multi' in inspect.signature(
+        matvec).parameters else matvec
     _torch_vdot = functools.partial(torch_vdot, if_multi=if_multi)
     _torch_norm = functools.partial(torch_norm, if_multi=if_multi)
     x = x0.clone() if x0 is not None else torch.randn_like(b)
@@ -194,11 +189,8 @@ def give_null_vecs(
     """
     dof = null_vecs.shape[0]  # Number of null space vectors
     null_vecs = torch.randn_like(null_vecs)  # [Eetzyx]
-    try:
-        _matvec = functools.partial(matvec, if_multi=if_multi)
-    except Exception as e:
-        _matvec = matvec
-        print(f"Error: {e}")
+    _matvec = functools.partial(matvec, if_multi=if_multi) if 'if_multi' in inspect.signature(
+        matvec).parameters else matvec
     _torch_vdot = functools.partial(torch_vdot, if_multi=if_multi)
     _torch_norm = functools.partial(torch_norm, if_multi=if_multi)
     for i in range(dof):
@@ -588,12 +580,13 @@ class mg:
 
     def cycle(self, level: int = 0) -> torch.Tensor:
         if_multi = True if level == 0 and give_if_multi() else False
-        try:
-            _matvec = self.sub_matvec if if_multi else functools.partial(
-                self.op_list[level].matvec, if_multi=False)
-        except Exception as e:
-            _matvec = self.op_list[level].matvec
-            print(f"Error: {e}")
+        matvec = self.op_list[level].matvec
+        if if_multi:
+            _matvec = self.sub_matvec
+        elif 'if_multi' in inspect.signature(matvec).parameters:
+            _matvec = functools.partial(matvec, if_multi=if_multi)
+        else:
+            _matvec = matvec
         _torch_vdot = functools.partial(torch_vdot, if_multi=if_multi)
         _torch_norm = functools.partial(torch_norm, if_multi=if_multi)
         # init start
