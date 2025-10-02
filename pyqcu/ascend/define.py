@@ -10,11 +10,11 @@ def give_if_multi() -> bool:
     return comm.Get_size() > 1
 
 
-def torch_vdot(a: torch.Tensor, b: torch.Tensor, if_multi: bool = True) -> torch.Tensor:
+def torch_vdot(a: torch.Tensor, b: torch.Tensor, if_multi: bool = give_if_multi()) -> torch.Tensor:
     return multi_vdot(a, b) if give_if_multi() and if_multi else torch.vdot(a, b)
 
 
-def torch_norm(a: torch.Tensor, if_multi: bool = True) -> torch.Tensor:
+def torch_norm(a: torch.Tensor, if_multi: bool = give_if_multi()) -> torch.Tensor:
     return multi_norm(a) if give_if_multi() and if_multi else torch.norm(a)
 
 
