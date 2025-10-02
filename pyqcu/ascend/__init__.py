@@ -9,11 +9,10 @@ from time import perf_counter
 
 
 class qcu:
-    def __init__(self, lat_size: Tuple[int, int, int, int] = [8, 8, 8, 8], b: torch.Tensor = None, U: torch.Tensor = None, clover_term: torch.Tensor = None, min_size: int = 2, max_levels: int = 5, dof_list: Tuple[int, int, int, int] = [12, 24, 24, 24, 24], max_iter: int = 1000, seed: int = 42, mass: float = 0.05, tol: float = 1e-6, sigma: float = 0.1, dtype: torch.dtype = torch.complex64, device: torch.device = torch.device('cpu'), x0: torch.Tensor = None, dslash: str = 'clover', solver: str = 'bistabcg', root: int = 0, verbose: bool = True):
+    def __init__(self, lat_size: Tuple[int, int, int, int] = [8, 8, 8, 8], U: torch.Tensor = None, clover_term: torch.Tensor = None, min_size: int = 2, max_levels: int = 5, dof_list: Tuple[int, int, int, int] = [12, 24, 24, 24, 24], max_iter: int = 1000, seed: int = 42, mass: float = 0.05, tol: float = 1e-6, sigma: float = 0.1, dtype: torch.dtype = torch.complex64, device: torch.device = torch.device('cpu'), dslash: str = 'clover', solver: str = 'bistabcg', root: int = 0, verbose: bool = True):
         self.comm = MPI.COMM_WORLD
         self.rank = self.comm.Get_rank()
         self.size = self.comm.Get_size()
-        self.b = b
         self.max_iter = max_iter
         self.seed = seed + self.rank  # make diffirent
         self.mass = mass
@@ -24,8 +23,6 @@ class qcu:
         self.real_dtype = self.dtype.to_real()
         self.device = device
         self.root = root
-        self.x0 = x0
-        self.x = None
         self.dslash = dslash
         self.solver = solver
         self.verbose = verbose
@@ -49,24 +46,29 @@ class qcu:
             f"@My Rank:{self.rank}/{self.size}, Local Rank:{self.local_rank}@\n")
         self.wilson = wilson_mg(
             latt_size=self.local_lat_size, kappa=self.kappa, dtype=self.dtype, device=self.device, verbose=False)
-        self.full_wilson = wilson_mg(
-            latt_size=self.lat_size, kappa=self.kappa, dtype=self.dtype, device=self.device, verbose=False)
         self.clover = clover(latt_size=self.local_lat_size,
                              kappa=self.kappa, dtype=self.dtype, device=self.device, verbose=False)
-        self.full_clover = clover(
-            latt_size=self.lat_size, kappa=self.kappa, dtype=self.dtype, device=self.device, verbose=False)
+        self.b = torch.randn(
+            size=[4, 3]+self.local_lat_size[::-1], dtype=self.dtype, device=self.device)
+        self.x0 = torch.zeros_like(self.b)
+        self.x = torch.zeros_like(self.b)
+        self.refer_x = torch.zeros_like(self.b)
         self.U = U
         self.clover_term = clover_term
         self.min_size = min_size
         self.max_levels = max_levels
         self.dof_list = dof_list
         self.op = op(if_multi=give_if_multi())
+        if self.rank == self.root:
+            self.full_wilson = wilson_mg(
+                latt_size=self.lat_size, kappa=self.kappa, dtype=self.dtype, device=self.device, verbose=False)
+            self.full_clover = clover(
+                latt_size=self.lat_size, kappa=self.kappa, dtype=self.dtype, device=self.device, verbose=False)
+        else:
+            self.full_wilson = wilson_mg(verbose=False)
+            self.full_clover = clover(verbose=False)
 
     def init(self):
-        self.x0 = torch.randn(
-            size=[4, 3]+self.local_lat_size[::-1], dtype=self.dtype, device=self.device) if self.x0 == None else self.x0.clone()
-        self.b = torch.randn(
-            size=[4, 3]+self.local_lat_size[::-1], dtype=self.dtype, device=self.device) if self.b == None else self.b.clone()
         if self.U == None:
             self.U = self.wilson.generate_gauge_field(
                 sigma=self.sigma, seed=self.seed)
@@ -79,16 +81,12 @@ class qcu:
         else:
             self.clover_term = torch.zeros(
                 size=[4, 3, 4, 3]+self.local_lat_size[::-1], dtype=self.dtype, device=self.device)
-        self.full_x0 = local2full_tensor(
-            local_tensor=self.x0, lat_size=self.lat_size, device=self.device, root=self.root)
-        self.full_b = local2full_tensor(
-            local_tensor=self.b, lat_size=self.lat_size, device=self.device, root=self.root)
         self.full_U = local2full_tensor(
             local_tensor=self.U, lat_size=self.lat_size, device=self.device, root=self.root)
         self.full_clover_term = local2full_tensor(
             local_tensor=self.clover_term, lat_size=self.lat_size, device=self.device, root=self.root)
-        self.full_mg = mg(b=torch.zeros(size=[4, 3]+self.lat_size[::-1], dtype=self.dtype, device=self.device) if self.full_b == None else self.full_b, wilson=self.full_wilson, U=self.full_U, clover=self.full_clover, clover_term=self.full_clover_term, min_size=self.min_size,
-                          max_levels=self.max_iter, dof_list=self.dof_list, tol=self.tol, max_iter=self.max_iter, x0=self.x0, verbose=True if self.rank == self.root else False)
+        self.full_mg = mg(b=torch.zeros(size=[4, 3]+self.lat_size[::-1], dtype=self.dtype, device=self.device), wilson=self.full_wilson, U=self.full_U, clover=self.full_clover,
+                          clover_term=self.full_clover_term, min_size=self.min_size, max_levels=self.max_iter, dof_list=self.dof_list, tol=self.tol, max_iter=self.max_iter, verbose=self.verbose)
         for ward in range(4):  # xyzt
             self.op.hopping.M_plus_list[ward] = full2local_tensor(
                 full_tensor=self.full_mg.op_list[0].hopping.M_plus_list[ward], lat_size=self.lat_size, device=self.device, root=self.root)
@@ -106,24 +104,28 @@ class qcu:
         else:
             return None
 
-    def matvec(self, src: torch.Tensor, if_multi: bool = True) -> torch.Tensor:
+    def matvec(self, src: torch.Tensor, if_multi: bool = give_if_multi()) -> torch.Tensor:
         return self.op.matvec(src, if_multi=give_if_multi() and if_multi).clone()
 
     def save(self, file_name: str = ''):
-        grid_xxxtzyx2hdf5_xxxtzyx(input_tensor=self.x, file_name=file_name +
-                                  '-x.h5', lat_size=self.lat_size)
         grid_xxxtzyx2hdf5_xxxtzyx(input_tensor=self.b, file_name=file_name +
                                   '-b.h5', lat_size=self.lat_size)
+        grid_xxxtzyx2hdf5_xxxtzyx(input_tensor=self.x, file_name=file_name +
+                                  '-x.h5', lat_size=self.lat_size)
+        grid_xxxtzyx2hdf5_xxxtzyx(input_tensor=self.x0, file_name=file_name +
+                                  '-x0.h5', lat_size=self.lat_size)
         grid_xxxtzyx2hdf5_xxxtzyx(input_tensor=self.U, file_name=file_name +
                                   '-U.h5', lat_size=self.lat_size)
         grid_xxxtzyx2hdf5_xxxtzyx(input_tensor=self.clover_term, file_name=file_name +
                                   '-clover_term.h5', lat_size=self.lat_size)
 
     def load(self, file_name: str = ''):
-        self.refer_x = hdf5_xxxtzyx2grid_xxxtzyx(
-            file_name=file_name+'-x.h5', lat_size=self.lat_size, device=self.device)
         self.b = hdf5_xxxtzyx2grid_xxxtzyx(
             file_name=file_name+'-b.h5', lat_size=self.lat_size, device=self.device)
+        self.refer_x = hdf5_xxxtzyx2grid_xxxtzyx(
+            file_name=file_name+'-x.h5', lat_size=self.lat_size, device=self.device)
+        self.x0 = hdf5_xxxtzyx2grid_xxxtzyx(
+            file_name=file_name+'-x0.h5', lat_size=self.lat_size, device=self.device)
         self.U = hdf5_xxxtzyx2grid_xxxtzyx(
             file_name=file_name+'-U.h5', lat_size=self.lat_size, device=self.device)
         self.clover_term = hdf5_xxxtzyx2grid_xxxtzyx(
@@ -139,14 +141,17 @@ class qcu:
         if self.solver == 'bistabcg':
             x = bicgstab(b=self.b.clone() if b == None else b.clone(), matvec=self.matvec, tol=self.tol, max_iter=self.max_iter,
                          x0=self.x0.clone() if x0 == None else x0.clone(), verbose=self.verbose)
+        elif self.solver == 'mg':
+            x = self.full_mg.solve(b=self.b.clone() if b == None else b.clone(
+            ), x0=self.x0.clone() if x0 == None else x0.clone())
         else:
             print('Not found Slover!')
-            x = self.x0 if x0 == None else x0.clone()
         total_time = perf_counter() - start_time
         print("\nPerformance Statistics:")
-        print(f"Total time: {total_time:.6f} seconds")
-        # print(f"Final residual: {self.convergence_history[-1]:.2e}")
+        print(
+            f"self.solver-{self.solver}-Total time: {total_time:.6f} seconds")
         self.x = x.reshape([4, 3]+list(x.shape[-4:])).clone()
+        self.refer_x = self.x.clone() if self.refer_x == None else self.refer_x
         return self.x
 
     def test(self):
