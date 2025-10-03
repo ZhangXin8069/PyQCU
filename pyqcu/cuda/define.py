@@ -1,7 +1,7 @@
+import mpi4py.MPI as MPI
 import numpy.typing as npt
 import numpy as np
 import cupy as cp
-import mpi4py.MPI as MPI
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 size = comm.Get_size()
