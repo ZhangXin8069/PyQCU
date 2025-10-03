@@ -1,7 +1,7 @@
+import mpi4py.MPI as MPI
 import os
 import torch
 import numpy as np
-import mpi4py.MPI as MPI
 from typing import Tuple
 
 
@@ -136,7 +136,7 @@ def multi_vdot(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
     comm = MPI.COMM_WORLD
     comm.Barrier()
     local_dot = torch.vdot(a, b)
-    local_dot_cpu = local_dot.detach().cpu().numpy()
+    local_dot_cpu = local_dot.detach().cpu().contiguous().numpy()
     global_dot_cpu = comm.allreduce(local_dot_cpu, op=MPI.SUM)
     comm.Barrier()
     global_dot = torch.tensor(global_dot_cpu, device=device)
@@ -168,7 +168,7 @@ def local2full_tensor(
     prefix_shape = local_tensor.shape[:-4]
     global_shape = (*prefix_shape, lat_t, lat_z, lat_y, lat_x)
     dtype = local_tensor.cpu().numpy().dtype
-    local_np = local_tensor.cpu().numpy().copy()
+    local_np = local_tensor.cpu().contiguous().numpy().copy()
     gathered = comm.gather(local_np, root=root)
     comm.Barrier()
     if rank == root:
@@ -215,7 +215,7 @@ def full2local_tensor(
                                 grid_index_z*grid_lat_z:(grid_index_z+1)*grid_lat_z,
                                 grid_index_y*grid_lat_y:(grid_index_y+1)*grid_lat_y,
                                 grid_index_x*grid_lat_x:(grid_index_x+1)*grid_lat_x].clone()
-            data_list.append(block.cpu().numpy())
+            data_list.append(block.cpu().contiguous().numpy())
     else:
         data_list = None
     local_np = comm.scatter(data_list, root=root)
