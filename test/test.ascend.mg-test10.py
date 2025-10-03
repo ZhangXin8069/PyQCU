@@ -1,6 +1,5 @@
-import torch
-import mpi4py.MPI as MPI
 from pyqcu.ascend import qcu
+import torch
 lat_n = 8
 _qcu = qcu(lat_size=[lat_n, lat_n, lat_n, lat_n*2], dtype=torch.complex128,
            device=torch.device('cpu'), dslash='clover', solver='mg', verbose=False)
