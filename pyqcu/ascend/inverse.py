@@ -345,7 +345,7 @@ class hopping:
             comm = MPI.COMM_WORLD
             rank = comm.Get_rank()
             src_head4send = src[slice_dim(
-                dim=5, ward=ward, point=0)].cpu().numpy().copy()
+                dim=5, ward=ward, point=0)].cpu().contiguous().numpy().copy()
             src_tail4recv = np.zeros_like(src_head4send).copy()
             rank_plus = give_rank_plus(ward=ward)
             rank_minus = give_rank_minus(ward=ward)
@@ -363,7 +363,7 @@ class hopping:
             comm = MPI.COMM_WORLD
             rank = comm.Get_rank()
             src_tail4send = src[slice_dim(
-                dim=5, ward=ward, point=-1)].cpu().numpy().copy()
+                dim=5, ward=ward, point=-1)].cpu().contiguous().numpy().copy()
             src_head4recv = np.zeros_like(src_tail4send).copy()
             rank_plus = give_rank_plus(ward=ward)
             rank_minus = give_rank_minus(ward=ward)

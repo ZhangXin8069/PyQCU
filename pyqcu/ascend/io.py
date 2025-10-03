@@ -1,7 +1,7 @@
+import mpi4py.MPI as MPI
 import h5py
 import torch
-import mpi4py.MPI as MPI
-from typing import Tuple, Callable
+from typing import Tuple
 from pyqcu.ascend.define import *
 
 
@@ -104,7 +104,7 @@ def xxx2hdf5_xxx(input_array: torch.Tensor, file_name: str = 'xxx.h5', verbose: 
     shape = input_array.shape
     with h5py.File(file_name, 'w', driver='mpio', comm=comm) as f:
         dest = f.create_dataset('data', shape=shape, dtype=dtype)
-        dest[...] = input_array.cpu().numpy()
+        dest[...] = input_array.cpu().contiguous().numpy()
         if verbose:
             print(f"Dest Shape: {dest.shape}")
         print(f"Data is saved to {file_name}")
@@ -159,7 +159,7 @@ def grid_xxxtzyx2hdf5_xxxtzyx(
              grid_index_t*grid_lat_t:grid_index_t*grid_lat_t+grid_lat_t,
              grid_index_z*grid_lat_z:grid_index_z*grid_lat_z+grid_lat_z,
              grid_index_y*grid_lat_y:grid_index_y*grid_lat_y+grid_lat_y,
-             grid_index_x*grid_lat_x:grid_index_x*grid_lat_x+grid_lat_x] = input_tensor.cpu().numpy()
+             grid_index_x*grid_lat_x:grid_index_x*grid_lat_x+grid_lat_x] = input_tensor.cpu().contiguous().numpy()
         if verbose:
             print(f"Dest Shape: {dest.shape}")
         print(f"rank {rank}: Data is saved to {file_name}")
