@@ -1,6 +1,6 @@
 from pyqcu.ascend import qcu
 import torch
-lat_n = 32
+lat_n = 16
 _qcu = qcu(lat_size=[lat_n, lat_n, lat_n, lat_n], dtype=torch.complex128,
            device=torch.device('cuda'), dslash='clover', solver='mg', verbose=False)
 _qcu.load()
