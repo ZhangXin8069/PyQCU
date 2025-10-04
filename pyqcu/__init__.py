@@ -1,5 +1,6 @@
 def info():
-    print(
+    try:
+        print(
         '''
     @@@@@@######QCU NOTES START######@@@@@@@
     Guide:
@@ -17,3 +18,5 @@ def info():
     [4] Brower R C, Clark M A, Weinberg E, et al. Multigrid for chiral lattice fermions: Domain wall[J]. Physical Review D, 2020.
     @@@@@@######QCU NOTES END######@@@@@@@
     ''')
+    except Exception as e:
+        print(f"Error: {e}")
