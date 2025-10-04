@@ -13,8 +13,6 @@
 *.o
 *.so
 *a.out
-*b.out
-*c.out
 *.so
 *.nvvp
 *.nsys-rep
