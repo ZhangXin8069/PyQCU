@@ -29,15 +29,15 @@ def cg(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], tol: flo
     _torch_norm = functools.partial(torch_norm, if_multi=if_multi)
     x = x0.clone() if x0 is not None else torch.randn_like(b)
     r = b - _matvec(x)
-    r_norm = _torch_norm(r).item()
+    r_norm = _torch_norm(r)
     if if_rtol:
-        _tol = _torch_norm(b).item()*tol
+        _tol = _torch_norm(b)*tol
     else:
         _tol = tol
     if verbose:
-        print(f"Norm of b:{_torch_norm(b).item()}")
+        print(f"Norm of b:{_torch_norm(b)}")
         print(f"Norm of r:{r_norm}")
-        print(f"Norm of x0:{_torch_norm(x).item()}")
+        print(f"Norm of x0:{_torch_norm(x)}")
     if r_norm < _tol:
         print("x0 is just right!")
         return x.clone()
@@ -46,7 +46,7 @@ def cg(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], tol: flo
     rho = torch.tensor(1.0, dtype=b.dtype, device=b.device)
     rho_prev = torch.tensor(1.0, dtype=b.dtype, device=b.device)
     alpha = torch.tensor(1.0, dtype=b.dtype, device=b.device)
-    rho = _torch_vdot(r.flatten(), r.flatten())
+    rho = _torch_vdot(r, r)
     rho_prev = 1.0
     start_time = perf_counter()
     iter_times = []
@@ -54,10 +54,10 @@ def cg(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], tol: flo
         iter_start_time = perf_counter()
         v = _matvec(p)
         rho_prev = rho
-        alpha = rho / _torch_vdot(p.flatten(), v.flatten())
+        alpha = rho / _torch_vdot(p, v)
         r -= alpha * v
         x += alpha * p
-        rho = _torch_vdot(r.flatten(), r.flatten())
+        rho = _torch_vdot(r, r)
         beta = rho / rho_prev
         p = r + beta * p
         r_norm = torch.sqrt(rho)
@@ -105,15 +105,15 @@ def bicgstab(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], to
     _torch_norm = functools.partial(torch_norm, if_multi=if_multi)
     x = x0.clone() if x0 is not None else torch.randn_like(b)
     r = b - _matvec(x)
-    r_norm = _torch_norm(r).item()
+    r_norm = _torch_norm(r)
     if if_rtol:
-        _tol = _torch_norm(b).item()*tol
+        _tol = _torch_norm(b)*tol
     else:
         _tol = tol
     if verbose:
-        print(f"Norm of b:{_torch_norm(b).item()}")
+        print(f"Norm of b:{_torch_norm(b)}")
         print(f"Norm of r:{r_norm}")
-        print(f"Norm of x0:{_torch_norm(x).item()}")
+        print(f"Norm of x0:{_torch_norm(x)}")
     if r_norm < _tol:
         print("x0 is just right!")
         return x.clone()
@@ -130,19 +130,19 @@ def bicgstab(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], to
     iter_times = []
     for i in range(max_iter):
         iter_start_time = perf_counter()
-        rho = _torch_vdot(r_tilde.flatten(), r.flatten())
+        rho = _torch_vdot(r_tilde, r)
         beta = (rho / rho_prev) * (alpha / omega)
         rho_prev = rho
         p = r + beta * (p - omega * v)
         v = _matvec(p)
-        alpha = rho / _torch_vdot(r_tilde.flatten(), v.flatten())
+        alpha = rho / _torch_vdot(r_tilde, v)
         s = r - alpha * v
         t = _matvec(s)
-        omega = _torch_vdot(t.flatten(), s.flatten()) / \
-            _torch_vdot(t.flatten(), t.flatten())
+        omega = _torch_vdot(t, s) / \
+            _torch_vdot(t, t)
         x = x + alpha * p + omega * s
         r = s - omega * t
-        r_norm = _torch_norm(r).item()
+        r_norm = _torch_norm(r)
         iter_time = perf_counter() - iter_start_time
         iter_times.append(iter_time)
         if verbose:
@@ -197,8 +197,8 @@ def give_null_vecs(
         if ortho_r:
             # The orthogonalization of r
             for j in range(0, i):
-                null_vecs[i] -= _torch_vdot(null_vecs[j].flatten(), null_vecs[i].flatten())/_torch_vdot(
-                    null_vecs[j].flatten(), null_vecs[j].flatten())*null_vecs[j]
+                null_vecs[i] -= _torch_vdot(null_vecs[j], null_vecs[i])/_torch_vdot(
+                    null_vecs[j], null_vecs[j])*null_vecs[j]
         # v=r-A^{-1}Ar
         # tol needs to be bigger...
         null_vecs[i] -= bicgstab(b=_matvec(null_vecs[i]),
@@ -206,10 +206,10 @@ def give_null_vecs(
         if ortho_null_vecs:
             # The orthogonalization of null_vecs
             for j in range(0, i):
-                null_vecs[i] -= _torch_vdot(null_vecs[j].flatten(), null_vecs[i].flatten())/_torch_vdot(
-                    null_vecs[j].flatten(), null_vecs[j].flatten())*null_vecs[j]
+                null_vecs[i] -= _torch_vdot(null_vecs[j], null_vecs[i])/_torch_vdot(
+                    null_vecs[j], null_vecs[j])*null_vecs[j]
         if normalize:
-            null_vecs[i] /= _torch_norm(null_vecs[i]).item()
+            null_vecs[i] /= _torch_norm(null_vecs[i])
         if verbose:
             print(
                 f"(_matvec(null_vecs[i])/null_vecs[i]).flatten()[:10]:{(_matvec(null_vecs[i])/null_vecs[i]).flatten()[:10]}")
@@ -218,15 +218,15 @@ def give_null_vecs(
         for i in range(dof):
             Av = _matvec(null_vecs[i])
             print(
-                f"  Vector {i}: ||A*v/v|| = {_torch_norm(Av/null_vecs[i]).item():.6e}")
+                f"  Vector {i}: ||A*v/v|| = {_torch_norm(Av/null_vecs[i]):.6e}")
             print(
                 f"  Vector {i}: A*v/v:100 = {(Av/null_vecs[i]).flatten()[:100]}")
             print(
-                f"_torch_norm(null_vecs[{i}]).item():.6e:{_torch_norm(null_vecs[i]).item():.6e}")
+                f"_torch_norm(null_vecs[{i}]):.6e:{_torch_norm(null_vecs[i]):.6e}")
             # orthogonalization
             for j in range(0, i+1):
                 print(
-                    f"_torch_vdot(null_vecs[{i}].flatten(), null_vecs[{j}].flatten()):{_torch_vdot(null_vecs[i].flatten(), null_vecs[j].flatten())}")
+                    f"_torch_vdot(null_vecs[{i}], null_vecs[{j}]):{_torch_vdot(null_vecs[i], null_vecs[j])}")
     return null_vecs.clone()
 
 
@@ -484,9 +484,12 @@ class op:
 
 
 class mg:
-    def __init__(self, b: torch.Tensor = None,  wilson: wilson_mg = None, U: torch.Tensor = None, clover: clover = None, clover_term: torch.Tensor = None,  min_size: int = 2, max_levels: int = 5, dof_list: Tuple[int, int, int, int] = [12, 24, 24, 24, 24], tol: float = 1e-6, max_iter: int = 1000, x0: torch.Tensor = None, root: int = 0, verbose: bool = True):
+    def __init__(self, lat_size: Tuple[int, int, int, int], dtype: torch.dtype, device: torch.device, wilson: wilson_mg = None, U: torch.Tensor = None, clover: clover = None, clover_term: torch.Tensor = None,  min_size: int = 2, max_levels: int = 5, dof_list: Tuple[int, int, int, int] = [12, 24, 24, 24, 24], tol: float = 1e-6, max_iter: int = 1000, root: int = 0, verbose: bool = True):
         self.comm = MPI.COMM_WORLD
         self.rank = self.comm.Get_rank()
+        self.lat_size = list(lat_size)
+        self.dtype = dtype
+        self.device = device
         self.min_size = min_size
         self.max_levels = max_levels
         self.dof_list = dof_list
@@ -496,40 +499,38 @@ class mg:
         self.verbose = verbose
         self.op_list = [op(wilson=wilson, U=U,
                            clover=clover, clover_term=clover_term, if_multi=give_if_multi(), verbose=self.verbose)]
+        self.b = torch.randn(size=[12]+self.lat_size[::-1],
+                             dtype=self.dtype, device=self.device)
+        self.x0 = torch.randn(
+            size=[12]+self.lat_size[::-1], dtype=self.dtype, device=self.device)
+        self.b_list = [self.b.clone()]
         self.sub_b = None
         self.sub_matvec = None
         self.nv_list = []  # null_vecs_list
         self.lonv_list = []  # local_ortho_null_vecs_list
         self.convergence_history = []
-        if b == None:
-            self.b = b
-        else:
-            self.b = b.reshape([12]+list(b.shape)[2:]).clone()  # sc->e
-            self.x0 = x0.clone().reshape(
-                [12]+list(x0.shape)[2:]) if x0 is not None else torch.randn_like(self.b)  # sc->e
-            # Build grid list
-            _Lx = b.shape[-1]
-            _Ly = b.shape[-2]
-            _Lz = b.shape[-3]
-            _Lt = b.shape[-4]
-            self.grid_list = []
-            self.b_list = [self.b.clone()]
+        # Build grid list
+        _Lx = self.lat_size[0]
+        _Ly = self.lat_size[1]
+        _Lz = self.lat_size[2]
+        _Lt = self.lat_size[3]
+        self.grid_list = []
+        if self.verbose:
+            print(f"Building grid list:")
+        while all(_ >= self.min_size for _ in [_Lt, _Lz, _Ly, _Lx]) and len(self.grid_list) < self.max_levels:
+            self.grid_list.append([_Lx, _Ly, _Lz, _Lt])
             if self.verbose:
-                print(f"Building grid list:")
-            while all(_ >= self.min_size for _ in [_Lt, _Lz, _Ly, _Lx]) and len(self.grid_list) < self.max_levels:
-                self.grid_list.append([_Lx, _Ly, _Lz, _Lt])
-                if self.verbose:
-                    print(
-                        f"  Level {len(self.grid_list)-1}: {_Lx}x{_Ly}x{_Lz}x{_Lt}")
-                # go with hopping and sitting, must be 2->1
-                _Lx //= 2
-                _Ly //= 2
-                _Lz //= 2
-                _Lt //= 2
-            if self.verbose:
-                print(f"self.grid_list:{self.grid_list}")
-            self.num_levels = len(self.grid_list)
-            self.dof_list = self.dof_list[:self.num_levels]
+                print(
+                    f"  Level {len(self.grid_list)-1}: {_Lx}x{_Ly}x{_Lz}x{_Lt}")
+            # go with hopping and sitting, must be 2->1
+            _Lx //= 2
+            _Ly //= 2
+            _Lz //= 2
+            _Lt //= 2
+        if self.verbose:
+            print(f"self.grid_list:{self.grid_list}")
+        self.num_levels = len(self.grid_list)
+        self.dof_list = self.dof_list[:self.num_levels]
 
     def init(self):
         # Build local-orthonormal near-null space vectors
@@ -546,7 +547,7 @@ class mg:
                 if_multi=True,
                 verbose=False)
             full_null_vecs = local2full_tensor(
-                local_tensor=_null_vecs, lat_size=self.b.shape[-4:][::-1], device=self.b.device, root=self.root)
+                local_tensor=_null_vecs, root=self.root)
             comm.Barrier()
             if self.rank == self.root:
                 self.nv_list.append(full_null_vecs)
@@ -594,12 +595,12 @@ class mg:
         x = torch.zeros_like(b)
         # init end
         r = b - _matvec(x)
-        r_norm = _torch_norm(r).item()
+        r_norm = _torch_norm(r)
         _tol = r_norm*0.5 if level != self.num_levels - 1 else r_norm*0.1
         if self.verbose:
-            print(f"MG-{level}:Norm of b:{_torch_norm(b).item()}")
+            print(f"MG-{level}:Norm of b:{_torch_norm(b)}")
             print(f"MG-{level}:Norm of r:{r_norm}")
-            print(f"MG-{level}:Norm of x0:{_torch_norm(x).item()}")
+            print(f"MG-{level}:Norm of x0:{_torch_norm(x)}")
         if level == 0:
             self.convergence_history.append(r_norm)
             _tol = self.tol
@@ -619,19 +620,19 @@ class mg:
         iter_times = []
         for i in range(self.max_iter):
             iter_start_time = perf_counter()
-            rho = _torch_vdot(r_tilde.flatten(), r.flatten())
+            rho = _torch_vdot(r_tilde, r)
             beta = (rho / rho_prev) * (alpha / omega)
             rho_prev = rho
             p = r + beta * (p - omega * v)
             v = _matvec(p)
-            alpha = rho / _torch_vdot(r_tilde.flatten(), v.flatten())
+            alpha = rho / _torch_vdot(r_tilde, v)
             s = r - alpha * v
             t = _matvec(s)
-            omega = _torch_vdot(t.flatten(), s.flatten()) / \
-                _torch_vdot(t.flatten(), t.flatten())
+            omega = _torch_vdot(t, s) / \
+                _torch_vdot(t, t)
             x = x + alpha * p + omega * s
             r = s - omega * t
-            r_norm = _torch_norm(r).item()
+            r_norm = _torch_norm(r)
             if level == 0:
                 self.convergence_history.append(r_norm)
             if self.verbose:
@@ -641,8 +642,7 @@ class mg:
             # cycle start
             if level != self.num_levels-1:
                 if if_multi:
-                    r = local2full_tensor(
-                        local_tensor=r, lat_size=self.grid_list[0], device=b.device, root=self.root)
+                    r = local2full_tensor(local_tensor=r, root=self.root)
                 if self.rank == self.root:
                     r_coarse = restrict(
                         local_ortho_null_vecs=self.lonv_list[level], fine_vec=r, verbose=self.verbose)
@@ -651,13 +651,14 @@ class mg:
                     e_fine = prolong(
                         local_ortho_null_vecs=self.lonv_list[level], coarse_vec=e_coarse, verbose=self.verbose)
                 else:
-                    e_fine = None
+                    e_fine = torch.zeros(size=[self.dof_list[level]]+self.lat_size[::-1],
+                                         dtype=self.dtype, device=self.device)
                 if if_multi:
                     e_fine = full2local_tensor(
-                        full_tensor=e_fine, lat_size=self.grid_list[0], device=b.device, root=self.root)
+                        full_tensor=e_fine, root=self.root)
                 x = x + e_fine
                 r = b - _matvec(x)
-            r_norm = _torch_norm(r).item()
+            r_norm = _torch_norm(r)
             if level == 0:
                 self.convergence_history.append(r_norm)
             # cycle end
@@ -706,7 +707,10 @@ class mg:
         if self.rank == self.root:
             import matplotlib.pyplot as plt
             import numpy as np
-            np.Inf = np.inf
+            try:
+                np.Inf = np.inf
+            except Exception as e:
+                print(f"Error: {e}")
             plt.figure(figsize=(10, 6))
             plt.title(
                 f"(self.grid_list:{self.grid_list})convergence_history(self.dof_list:{self.dof_list})", fontsize=16)
