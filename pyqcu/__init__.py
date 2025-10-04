@@ -12,7 +12,7 @@ def info():
     References:
     [0] 刘川. 格点量子色动力学导论. 北京大学出版社, 2017.07.
     [1] 蒋翔宇. 轻强子性质的格点QCD研究. 中国科学院高能物理研究所, 2023.06.
-    [2] Babich R, Clark M A, Joó B. Parallelizing the QUDA library for multi-GPU calculations in lattice quantum chromodynamics[C]//SC'10: Proceedings of the 2010 ACM/IEEE International Conference for High Performance Computing, Networking, Storage and Analysis. IEEE, 2010.01.11.
+    [2] Babich R, Clark M A, Joo B. Parallelizing the QUDA library for multi-GPU calculations in lattice quantum chromodynamics[C]//SC'10: Proceedings of the 2010 ACM/IEEE International Conference for High Performance Computing, Networking, Storage and Analysis. IEEE, 2010.01.11.
     [3] M. Rottmann. Adaptive domain decomposition multigrid for lattice QCD, Ph.D. thesis, Wuppertal, Univ., Diss., 2016.
     [4] Brower R C, Clark M A, Weinberg E, et al. Multigrid for chiral lattice fermions: Domain wall[J]. Physical Review D, 2020.
     @@@@@@######QCU NOTES END######@@@@@@@
