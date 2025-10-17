@@ -3,8 +3,6 @@ import torch
 import os
 import numpy as np
 from typing import Tuple, Optional
-
-
 # NumPy → Torch
 np2torch_dtype = {
     np.bool_: torch.bool,
@@ -19,7 +17,6 @@ np2torch_dtype = {
     np.complex64: torch.complex64,
     np.complex128: torch.complex128,
 }
-
 # Torch → NumPy
 torch2np_dtype = {
     torch.bool: np.bool_,
