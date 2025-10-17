@@ -9,7 +9,6 @@ gpus_per_node = cp.cuda.runtime.getDeviceCount()
 local_rank = rank % gpus_per_node
 print(f"@My Rank:{rank}/{size}, Local Rank:{local_rank}@\n")
 cp.cuda.Device(local_rank).use()
-
 # the interface of cupy is very similar to that of numpy, so here we just borrow the interface of numpy.
 cp_ndarray = npt.NDArray
 cp_dtype = npt.DTypeLike
@@ -258,16 +257,12 @@ def split_into_four_factors(N: int):
     """
     if N <= 0:
         raise ValueError("N must be positive")
-
     # Step 1: prime factors
     factors = prime_factorization(N)
-
     # Step 2: initialize four groups
     groups = np.ones(4, dtype=int)
-
     # Step 3: distribute factors greedily (largest first)
     for f in sorted(factors, reverse=True):
         idx = np.argmin(groups)   # index of smallest product
         groups[idx] *= f
-
     return tuple(sorted(groups.tolist()))
