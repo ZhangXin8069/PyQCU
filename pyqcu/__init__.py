@@ -2,7 +2,7 @@
 def info():
     try:
         print(
-        '''
+            '''
     @@@@@@######QCU NOTES START######@@@@@@@
     Guide:
     0. Required: MPI(e.g. 4.1.2), CUDA(e.g. 12.4), CMAKE(e.g. 3.22.1), GCC(e.g. 11.4.0), HDF5-MPI(e.g. 1.10.7,'apt install libhdf5-mpi-dev && export HDF5_MPI="ON" && pip install --no-binary=h5py h5py').
