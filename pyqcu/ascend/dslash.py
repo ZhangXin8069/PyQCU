@@ -92,7 +92,6 @@ class wilson(nn.Module):
         """
         if self.verbose:
             print(f"Generating gauge field with sigma={sigma}")
-
         # Random seed
         if seed is not None:
             if self.verbose:
@@ -100,7 +99,6 @@ class wilson(nn.Module):
             torch.manual_seed(seed)
             if self.device.type == 'cuda':
                 torch.cuda.manual_seed_all(seed)
-
         # Random Gaussian coefficients: shape [4, Lt, Lz, Ly, Lx, 8]
         a = torch.normal(
             0.0, 1.0,
@@ -108,36 +106,28 @@ class wilson(nn.Module):
             dtype=self.real_dtype,
             device=self.device
         )
-
         if self.verbose:
             print(f"  Coefficient tensor shape: {a.shape}")
             print(f"  Coefficient dtype: {a.dtype}")
-
         # Expand gell_mann basis for broadcasting
         # gell_mann: (8, 3, 3) -> (1, 1, 1, 1, 1, 8, 3, 3)
         gell_mann_expanded = self.gell_mann.view(1, 1, 1, 1, 1, 8, 3, 3)
-
         # Compute all Hermitian matrices H in one go: shape [4, Lt, Lz, Ly, Lx, 3, 3]
         H = torch.einsum('...i,...ijk->...jk',
                          a.to(self.dtype), gell_mann_expanded)
-
         # Apply exponential map: shape stays [4, Lt, Lz, Ly, Lx, 3, 3]
         U_all = torch.matrix_exp(1j * sigma * H)
-
         # Rearrange to [3, 3, 4, Lt, Lz, Ly, Lx]
         U = U_all.permute(5, 6, 0, 1, 2, 3, 4).contiguous()
-
         if self.verbose:
             print("  Gauge field generation complete")
             print(f"  Gauge field norm: {torch.norm(U).item()}")
-
         return U
 
     def check_su3(self, U: torch.Tensor, tol: float = 1e-6) -> bool:
         """
         Check if the given tensor satisfies SU(3) conditions.
         Works for a single matrix or a batch of matrices (e.g., full lattice gauge field).
-
         Args:
             U: Tensor of shape [3, 3, 4, Lt, Lz, Ly, Lx], complex dtype
             tol: Numerical tolerance for checks
@@ -147,19 +137,15 @@ class wilson(nn.Module):
         U_mat = U.permute(*range(2, U.ndim), 0,
                           1).reshape(-1, 3, 3).clone()  # N x 3 x 3
         N = U_mat.shape[0]
-
         # Precompute the identity matrix for unitary check
         eye = torch.eye(3, dtype=U_mat.dtype,
                         device=U_mat.device).expand(N, -1, -1)
-
         # 1 Unitarity check: Uᴴ U ≈ I
         UH_U = torch.matmul(U_mat.conj().transpose(-1, -2), U_mat)
         unitary_ok = torch.allclose(UH_U, eye, atol=tol)
-
         # 2 Determinant check: det(U) ≈ 1
         det_U = torch.linalg.det(U_mat)
         det_ok = torch.allclose(det_U, torch.ones_like(det_U), atol=tol)
-
         # 3 Minor identities check
         # Flatten matrices to shape (N, 9) for easy indexing
         Uf = U_mat.reshape(N, 9)
@@ -169,7 +155,6 @@ class wilson(nn.Module):
         minors_ok = (torch.allclose(Uf[:, 6], c6, atol=tol) and
                      torch.allclose(Uf[:, 7], c7, atol=tol) and
                      torch.allclose(Uf[:, 8], c8, atol=tol))
-
         # --- Optional verbose output ---
         if self.verbose:
             print(f"[check_su3] Total matrices checked: {N}")
@@ -182,7 +167,6 @@ class wilson(nn.Module):
             if not det_ok:
                 max_det_err = (det_U - 1).abs().max().item()
                 print(f"    Max det deviation: {max_det_err:e}")
-
         return unitary_ok and det_ok and minors_ok
 
     def _define_gamma_matrices(self) -> torch.Tensor:
