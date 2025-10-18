@@ -1,7 +1,7 @@
 from pyqcu.ascend import qcu
 import torch
-lat_n = 8
-_qcu = qcu(lat_size=[lat_n, lat_n, lat_n, lat_n], dtype=torch.complex128,
+lat_x, lat_y, lat_z, lat_t = 8, 8, 16, 16
+_qcu = qcu(lat_size=[lat_x, lat_y, lat_z, lat_t], dtype=torch.complex128,
            device=torch.device('cpu'), dslash='clover', solver='mg', verbose=False)
 _qcu.load()
 _qcu.init()
