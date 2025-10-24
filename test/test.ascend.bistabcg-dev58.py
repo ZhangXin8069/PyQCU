@@ -1,7 +1,8 @@
 from pyqcu.ascend import qcu
 import torch
 # lat_x, lat_y, lat_z, lat_t = 16, 16, 16, 16
-lat_x, lat_y, lat_z, lat_t = 16, 16, 8, 8
+lat_x, lat_y, lat_z, lat_t = 16, 16, 16, 8
+# lat_x, lat_y, lat_z, lat_t = 16, 16, 8, 8
 # lat_x, lat_y, lat_z, lat_t = 8, 8, 8, 8
 # lat_x, lat_y, lat_z, lat_t = 4, 4, 4, 4
 # lat_x, lat_y, lat_z, lat_t = 4, 4, 4, 8
