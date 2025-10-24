@@ -1,0 +1,75 @@
+Rank1-Error: CUDA error: invalid device ordinal
+CUDA kernel errors might be asynchronously reported at some other API call, so the stacktrace below might be incorrect.
+For debugging consider passing CUDA_LAUNCH_BLOCKING=1
+Compile with `TORCH_USE_CUDA_DSA` to enable device-side assertions.
+
+Using device: cpu
+@My Rank:1/2, Local Rank:1@
+
+Using device: cpu
+@My Rank:0/2, Local Rank:0@
+
+rank 1: Data is load from -b.h5
+rank 0: Data is load from -b.h5
+rank 1: Data is load from -x.h5
+rank 0: Data is load from -x.h5
+rank 1: Data is load from -x0.h5
+rank 0: Data is load from -x0.h5
+rank 1: Data is load from -U.h5
+rank 0: Data is load from -U.h5
+rank 0: Data is load from -clover_term.h5
+rank 1: Data is load from -clover_term.h5
+self.lat_size_list:[[16, 16, 16, 4], [8, 8, 8, 2]]
+
+Performance Statistics:
+Total iterations: 110
+Total time: 39.133519 seconds
+Average time per iteration: 0.355755 s
+Final residual: 8.87e-07
+
+Performance Statistics:
+Total iterations: 110
+Total time: 39.133662 seconds
+Average time per iteration: 0.355756 s
+Final residual: 8.87e-07
+
+Performance Statistics:
+self.solver-bistabcg-Total time: 39.311745 seconds
+
+Performance Statistics:
+self.solver-bistabcg-Total time: 39.314372 seconds
+torch.norm(self.U): 443.40500673763205
+torch.norm(self.U): 443.40500673763944
+torch.norm(self.clover_term): 20.794190771488896
+torch.norm(self.clover_term): 20.781305883566294
+torch.norm(self.b): 443.5073920401594
+torch.norm(self.b): 442.9090955047645
+torch.norm(self.x): 524.6502263481651
+torch.norm(self.x): 526.3385417469851
+torch_norm(self.U): 627.0693741524946
+torch_norm(self.U): 627.0693741524946
+torch_norm(self.clover_term): 29.39831702780602
+torch_norm(self.clover_term): 29.39831702780602
+torch_norm(self.b): 626.7912520728903
+torch_norm(self.b): 626.7912520728903
+torch_norm(self.x): 743.1622437499926
+torch_norm(self.x): 743.1622437499926
+torch.norm(self.refer_x-self.x).item()/torch.norm(self.x).item(): 2.454083145529628e-08
+torch.norm(_full_b): 626.79125207288
+torch.norm(_full_x): 743.1622437499958
+torch.norm(full_Ax): 626.7912520730601
+torch.norm(_full_Ax): 626.7912520730601
+torch.norm(full_Ax-_full_b).item()/torch.norm(full_Ax).item(): 1.4152752106081077e-09
+torch.norm(_full_Ax-_full_b).item()/torch.norm(_full_Ax).item(): 1.4152752106689429e-09
+torch.norm(full_Ax-_full_Ax).item()/torch.norm(full_Ax).item(): 2.1742685948021256e-16
+torch.norm(self.refer_x-self.x).item()/torch.norm(self.x).item(): 2.463766127610715e-08
+rank 1: Data is saved to -b.h5
+rank 0: Data is saved to -b.h5
+rank 0: Data is saved to -x.h5
+rank 1: Data is saved to -x.h5
+rank 0: Data is saved to -x0.h5
+rank 1: Data is saved to -x0.h5
+rank 0: Data is saved to -U.h5
+rank 1: Data is saved to -U.h5
+rank 1: Data is saved to -clover_term.h5
+rank 0: Data is saved to -clover_term.h5

@@ -1,0 +1,291 @@
+Using device: cpu
+@My Rank:0/8, Local Rank:0@
+
+Rank3-Error: CUDA error: invalid device ordinal
+CUDA kernel errors might be asynchronously reported at some other API call, so the stacktrace below might be incorrect.
+For debugging consider passing CUDA_LAUNCH_BLOCKING=1
+Compile with `TORCH_USE_CUDA_DSA` to enable device-side assertions.
+
+Using device: cpu
+@My Rank:3/8, Local Rank:3@
+
+Rank7-Error: CUDA error: invalid device ordinal
+CUDA kernel errors might be asynchronously reported at some other API call, so the stacktrace below might be incorrect.
+For debugging consider passing CUDA_LAUNCH_BLOCKING=1
+Compile with `TORCH_USE_CUDA_DSA` to enable device-side assertions.
+
+Using device: cpu
+@My Rank:7/8, Local Rank:7@
+
+Rank2-Error: CUDA error: invalid device ordinal
+CUDA kernel errors might be asynchronously reported at some other API call, so the stacktrace below might be incorrect.
+For debugging consider passing CUDA_LAUNCH_BLOCKING=1
+Compile with `TORCH_USE_CUDA_DSA` to enable device-side assertions.
+
+Using device: cpu
+@My Rank:2/8, Local Rank:2@
+
+Rank4-Error: CUDA error: invalid device ordinal
+CUDA kernel errors might be asynchronously reported at some other API call, so the stacktrace below might be incorrect.
+For debugging consider passing CUDA_LAUNCH_BLOCKING=1
+Compile with `TORCH_USE_CUDA_DSA` to enable device-side assertions.
+
+Using device: cpu
+@My Rank:4/8, Local Rank:4@
+
+Rank6-Error: CUDA error: invalid device ordinal
+CUDA kernel errors might be asynchronously reported at some other API call, so the stacktrace below might be incorrect.
+For debugging consider passing CUDA_LAUNCH_BLOCKING=1
+Compile with `TORCH_USE_CUDA_DSA` to enable device-side assertions.
+
+Using device: cpu
+@My Rank:6/8, Local Rank:6@
+
+Rank1-Error: CUDA error: invalid device ordinal
+CUDA kernel errors might be asynchronously reported at some other API call, so the stacktrace below might be incorrect.
+For debugging consider passing CUDA_LAUNCH_BLOCKING=1
+Compile with `TORCH_USE_CUDA_DSA` to enable device-side assertions.
+
+Using device: cpu
+@My Rank:1/8, Local Rank:1@
+
+Rank5-Error: CUDA error: invalid device ordinal
+CUDA kernel errors might be asynchronously reported at some other API call, so the stacktrace below might be incorrect.
+For debugging consider passing CUDA_LAUNCH_BLOCKING=1
+Compile with `TORCH_USE_CUDA_DSA` to enable device-side assertions.
+
+Using device: cpu
+@My Rank:5/8, Local Rank:5@
+
+rank 3: Data is load from -b.h5
+rank 6: Data is load from -b.h5
+rank 7: Data is load from -b.h5
+rank 0: Data is load from -b.h5
+rank 1: Data is load from -b.h5
+rank 2: Data is load from -b.h5
+rank 4: Data is load from -b.h5
+rank 5: Data is load from -b.h5
+rank 5: Data is load from -x.h5
+rank 3: Data is load from -x.h5
+rank 7: Data is load from -x.h5
+rank 6: Data is load from -x.h5
+rank 0: Data is load from -x.h5
+rank 2: Data is load from -x.h5
+rank 4: Data is load from -x.h5
+rank 1: Data is load from -x.h5
+rank 0: Data is load from -x0.h5
+rank 1: Data is load from -x0.h5
+rank 3: Data is load from -x0.h5
+rank 4: Data is load from -x0.h5
+rank 6: Data is load from -x0.h5
+rank 2: Data is load from -x0.h5
+rank 5: Data is load from -x0.h5
+rank 7: Data is load from -x0.h5
+rank 2: Data is load from -U.h5
+rank 3: Data is load from -U.h5
+rank 5: Data is load from -U.h5
+rank 1: Data is load from -U.h5
+rank 4: Data is load from -U.h5
+rank 0: Data is load from -U.h5
+rank 7: Data is load from -U.h5
+rank 6: Data is load from -U.h5
+rank 4: Data is load from -clover_term.h5
+rank 5: Data is load from -clover_term.h5
+rank 6: Data is load from -clover_term.h5
+rank 7: Data is load from -clover_term.h5
+rank 0: Data is load from -clover_term.h5
+rank 1: Data is load from -clover_term.h5
+rank 3: Data is load from -clover_term.h5
+rank 2: Data is load from -clover_term.h5
+self.lat_size_list:[[16, 8, 8, 4], [8, 4, 4, 2]]
+
+Performance Statistics:
+Total iterations: 110
+Total time: 13.463448 seconds
+Average time per iteration: 0.122391 s
+Final residual: 9.07e-07
+
+Performance Statistics:
+Total iterations: 110
+Total time: 13.463660 seconds
+Average time per iteration: 0.122393 s
+Final residual: 9.07e-07
+
+Performance Statistics:
+Total iterations: 110
+Total time: 13.463756 seconds
+Average time per iteration: 0.122394 s
+Final residual: 9.07e-07
+
+Performance Statistics:
+self.solver-bistabcg-Total time: 13.530087 seconds
+
+Performance Statistics:
+Total iterations: 110
+Total time: 13.463962 seconds
+Average time per iteration: 0.122395 s
+Final residual: 9.07e-07
+
+Performance Statistics:
+Total iterations: 110
+Total time: 13.463512 seconds
+Average time per iteration: 0.122392 s
+Final residual: 9.07e-07
+
+Performance Statistics:
+
+Performance Statistics:
+Total iterations: 110
+Total time: 13.462782 seconds
+Average time per iteration: 0.122385 s
+Final residual: 9.07e-07
+
+Performance Statistics:
+Total iterations: 110
+Total time: 13.463497 seconds
+Average time per iteration: 0.122391 s
+Final residual: 9.07e-07
+
+Performance Statistics:
+self.solver-bistabcg-Total time: 13.565657 seconds
+
+Performance Statistics:
+Total iterations: 110
+Total time: 13.462622 seconds
+Average time per iteration: 0.122383 s
+Final residual: 9.07e-07
+
+Performance Statistics:
+self.solver-bistabcg-Total time: 13.553489 seconds
+self.solver-bistabcg-Total time: 13.541208 seconds
+
+Performance Statistics:
+
+Performance Statistics:
+Performance Statistics:
+Performance Statistics:
+self.solver-bistabcg-Total time: 13.546663 seconds
+self.solver-bistabcg-Total time: 13.555002 seconds
+
+self.solver-bistabcg-Total time: 13.553687 seconds
+
+self.solver-bistabcg-Total time: 13.548938 seconds
+torch.norm(self.U): 221.70250336881762
+torch.norm(self.U): 221.702503368815
+torch.norm(self.U): 221.70250336881648
+torch.norm(self.U): 221.702503368817
+torch.norm(self.U): 221.70250336881577
+torch.norm(self.U): 221.70250336881577
+torch.norm(self.U): 221.70250336881668
+torch.norm(self.U): 221.70250336881605
+torch.norm(self.clover_term): 10.39973020675611
+torch.norm(self.clover_term): 10.381810389150962
+torch.norm(self.b): 221.16414602823414
+torch.norm(self.b): 221.94243705642418
+torch.norm(self.x): 261.8380184993196
+torch.norm(self.x): 262.5479805212807
+torch.norm(self.clover_term): 10.36601363756123
+torch.norm(self.b): 221.53064995575141
+torch.norm(self.x): 262.0988292576072
+torch.norm(self.clover_term): 10.373466589101275
+torch.norm(self.b): 221.56278646476682
+torch.norm(self.clover_term): 10.386090146463415
+torch.norm(self.b): 221.94653512795264
+torch.norm(self.x): 263.70843497789025
+torch.norm(self.clover_term): 10.398328194467515
+torch.norm(self.x): 263.03419259711836
+torch.norm(self.b): 222.60147900608285
+torch.norm(self.clover_term): 10.420706597010843
+torch.norm(self.x): 264.2709779688219
+torch.norm(self.b): 220.76271780034867
+torch.norm(self.clover_term): 10.424701299182294
+torch.norm(self.x): 261.87837544286265
+torch.norm(self.b): 221.3176249707962
+torch.norm(self.x): 262.5931753857024
+torch_norm(self.U): 627.069374152493
+torch_norm(self.U): 627.069374152493
+torch_norm(self.U): 627.069374152493
+torch_norm(self.U): 627.069374152493
+torch_norm(self.U): 627.069374152493
+torch_norm(self.U): 627.069374152493
+torch_norm(self.U): 627.069374152493
+torch_norm(self.U): 627.069374152493
+torch_norm(self.clover_term): 29.398317027806012
+torch_norm(self.clover_term): 29.398317027806012
+torch_norm(self.clover_term): 29.398317027806012
+torch_norm(self.clover_term): 29.398317027806012
+torch_norm(self.clover_term): 29.398317027806012
+torch_norm(self.clover_term): 29.398317027806012
+torch_norm(self.clover_term): 29.398317027806012
+torch_norm(self.clover_term): 29.398317027806012
+torch_norm(self.b): 626.7912520728896
+torch_norm(self.b): 626.7912520728896
+torch_norm(self.b): 626.7912520728896
+torch_norm(self.b): 626.7912520728896
+torch_norm(self.b): 626.7912520728896
+torch_norm(self.b): 626.7912520728896
+torch_norm(self.b): 626.7912520728896
+torch_norm(self.b): 626.7912520728896
+torch_norm(self.x): 743.1622437528065
+torch_norm(self.x): 743.1622437528065
+torch_norm(self.x): 743.1622437528065
+torch_norm(self.x): 743.1622437528065
+torch_norm(self.x): 743.1622437528065
+torch_norm(self.x): 743.1622437528065
+torch_norm(self.x): 743.1622437528065
+torch_norm(self.x): 743.1622437528065
+torch.norm(self.refer_x-self.x).item()/torch.norm(self.x).item(): 7.519954653418335e-10
+torch.norm(self.refer_x-self.x).item()/torch.norm(self.x).item(): 6.850329516844901e-10
+torch.norm(self.refer_x-self.x).item()/torch.norm(self.x).item(): 7.538199286383636e-10
+torch.norm(self.refer_x-self.x).item()/torch.norm(self.x).item(): 6.862723428644629e-10
+torch.norm(self.refer_x-self.x).item()/torch.norm(self.x).item(): 7.126373616616353e-10
+torch.norm(self.refer_x-self.x).item()/torch.norm(self.x).item(): 7.005620204024355e-10
+torch.norm(self.refer_x-self.x).item()/torch.norm(self.x).item(): 7.108507353637646e-10
+torch.norm(_full_b): 626.79125207288
+torch.norm(_full_x): 743.1622437528109
+torch.norm(full_Ax): 626.7912520730742
+torch.norm(_full_Ax): 626.7912520730742
+torch.norm(full_Ax-_full_b).item()/torch.norm(full_Ax).item(): 1.4472972339214722e-09
+torch.norm(_full_Ax-_full_b).item()/torch.norm(_full_Ax).item(): 1.4472972339491683e-09
+torch.norm(full_Ax-_full_Ax).item()/torch.norm(full_Ax).item(): 2.174488912743448e-16
+torch.norm(self.refer_x-self.x).item()/torch.norm(self.x).item(): 7.067116843905561e-10
+rank 7: Data is saved to -b.h5
+rank 0: Data is saved to -b.h5
+rank 4: Data is saved to -b.h5
+rank 2: Data is saved to -b.h5
+rank 5: Data is saved to -b.h5
+rank 6: Data is saved to -b.h5
+rank 3: Data is saved to -b.h5
+rank 1: Data is saved to -b.h5
+rank 2: Data is saved to -x.h5
+rank 4: Data is saved to -x.h5
+rank 1: Data is saved to -x.h5
+rank 3: Data is saved to -x.h5
+rank 7: Data is saved to -x.h5
+rank 6: Data is saved to -x.h5
+rank 5: Data is saved to -x.h5
+rank 0: Data is saved to -x.h5
+rank 4: Data is saved to -x0.h5
+rank 2: Data is saved to -x0.h5
+rank 7: Data is saved to -x0.h5
+rank 1: Data is saved to -x0.h5
+rank 6: Data is saved to -x0.h5
+rank 5: Data is saved to -x0.h5
+rank 3: Data is saved to -x0.h5
+rank 0: Data is saved to -x0.h5
+rank 7: Data is saved to -U.h5
+rank 6: Data is saved to -U.h5
+rank 3: Data is saved to -U.h5
+rank 0: Data is saved to -U.h5
+rank 1: Data is saved to -U.h5
+rank 4: Data is saved to -U.h5
+rank 2: Data is saved to -U.h5
+rank 5: Data is saved to -U.h5
+rank 6: Data is saved to -clover_term.h5
+rank 7: Data is saved to -clover_term.h5
+rank 4: Data is saved to -clover_term.h5
+rank 1: Data is saved to -clover_term.h5
+rank 5: Data is saved to -clover_term.h5
+rank 3: Data is saved to -clover_term.h5
+rank 0: Data is saved to -clover_term.h5
+rank 2: Data is saved to -clover_term.h5
