@@ -37,6 +37,7 @@ class qcu:
         self.local_lat_size = [self.lat_size[i]//self.grid_size[i]
                                for i in range(4)]
         if self.verbose:
+            print(f"give_if_multi(): {give_if_multi()}")
             print(f"self.lat_size: {self.lat_size}")
             print(f"self.grid_size: {self.grid_size}")
             print(f"self.grid_index: {self.grid_index}")
@@ -58,15 +59,6 @@ class qcu:
         self.min_size = min_size
         self.max_levels = max_levels
         self.dof_list = dof_list
-        self.op = op(if_multi=give_if_multi())
-        if self.rank == self.root:
-            self.full_wilson = wilson_mg(
-                latt_size=self.lat_size, kappa=self.kappa, dtype=self.dtype, device=self.device, verbose=False)
-            self.full_clover = clover(
-                latt_size=self.lat_size, kappa=self.kappa, dtype=self.dtype, device=self.device, verbose=False)
-        else:
-            self.full_wilson = wilson_mg(verbose=False)
-            self.full_clover = clover(verbose=False)
 
     def init(self):
         if self.U == None:
@@ -81,33 +73,13 @@ class qcu:
         else:
             self.clover_term = torch.zeros(
                 size=[4, 3, 4, 3]+self.local_lat_size[::-1], dtype=self.dtype, device=self.device)
-        self.full_U = local2full_tensor(local_tensor=self.U, root=self.root)
-        self.full_clover_term = local2full_tensor(
-            local_tensor=self.clover_term, root=self.root)
-        self.full_mg = mg(lat_size=self.lat_size, dtype=self.dtype, device=self.device, wilson=self.full_wilson, U=self.full_U, clover=self.full_clover,
-                          clover_term=self.full_clover_term, min_size=self.min_size, max_levels=self.max_iter, dof_list=self.dof_list, tol=self.tol, max_iter=self.max_iter, verbose=self.verbose)
-        for ward in range(4):  # xyzt
-            self.op.hopping.M_plus_list[ward] = full2local_tensor(
-                full_tensor=self.full_mg.op_list[0].hopping.M_plus_list[ward] if self.rank == self.root else torch.zeros(size=[12, 12]+self.lat_size[::-1],
-                                                                                                                         dtype=self.dtype, device=self.device),  root=self.root)
-            self.op.hopping.M_minus_list[ward] = full2local_tensor(
-                full_tensor=self.full_mg.op_list[0].hopping.M_minus_list[ward] if self.rank == self.root else torch.zeros(size=[12, 12]+self.lat_size[::-1],
-                                                                                                                          dtype=self.dtype, device=self.device), root=self.root)
-        self.op.sitting.M = full2local_tensor(
-            full_tensor=self.full_mg.op_list[0].sitting.M if self.rank == self.root else torch.zeros(size=[12, 12]+self.lat_size[::-1],
-                                                                                                     dtype=self.dtype, device=self.device),  root=self.root).clone()
+        self.mg = mg(lat_size=self.local_lat_size, dtype=self.dtype, device=self.device, wilson=self.wilson, U=self.U, clover=self.clover,
+                     clover_term=self.clover_term, min_size=self.min_size, max_levels=self.max_levels, dof_list=self.dof_list, tol=self.tol, max_iter=self.max_iter, verbose=self.verbose)
         if self.solver == 'mg':
-            self.full_mg.sub_matvec = self.matvec
-            self.full_mg.init()
+            self.mg.init()
 
-    def full_matvec(self, src: torch.Tensor, U: torch.Tensor, clover_term: torch.Tensor) -> torch.Tensor:
-        if self.rank == self.root:
-            return self.full_wilson.give_wilson(src=src, U=U)+self.full_clover.give_clover(src=src, clover_term=clover_term)
-        else:
-            return None
-
-    def matvec(self, src: torch.Tensor, if_multi: bool = give_if_multi()) -> torch.Tensor:
-        return self.op.matvec(src, if_multi=give_if_multi() and if_multi).clone()
+    def matvec(self, src: torch.Tensor) -> torch.Tensor:
+        return self.mg.op_list[0].matvec(src)
 
     def save(self, file_name: str = ''):
         grid_xxxtzyx2hdf5_xxxtzyx(input_tensor=self.b, file_name=file_name +
@@ -134,17 +106,12 @@ class qcu:
             file_name=file_name+'-clover_term.h5', lat_size=self.lat_size, device=self.device)
 
     def solve(self, b: torch.Tensor = None, x0: torch.Tensor = None) -> torch.Tensor:
-        """
-        Main multigrid solver routine.
-        Sets up the multigrid list, performs cycle iterations until
-        convergence, and returns the solution.
-        """
         start_time = perf_counter()
         if self.solver == 'bistabcg':
             x = bicgstab(b=self.b.clone() if b == None else b.clone(), matvec=self.matvec, tol=self.tol, max_iter=self.max_iter,
                          x0=self.x0.clone() if x0 == None else x0.clone(), verbose=self.verbose)
         elif self.solver == 'mg':
-            x = self.full_mg.solve(b=self.b.clone() if b == None else b.clone(
+            x = self.mg.solve(b=self.b.clone() if b == None else b.clone(
             ), x0=self.x0.clone() if x0 == None else x0.clone())
         else:
             print('Not found Slover!')
@@ -157,13 +124,26 @@ class qcu:
         return self.x
 
     def test(self):
+        full_wilson = wilson_mg(
+            latt_size=self.lat_size, kappa=self.kappa, dtype=self.dtype, device=self.device, verbose=False)
+        full_clover = clover(latt_size=self.lat_size,
+                             kappa=self.kappa, dtype=self.dtype, device=self.device, verbose=False)
+
+        def full_matvec(src: torch.Tensor, U: torch.Tensor, clover_term: torch.Tensor) -> torch.Tensor:
+            if self.rank == self.root:
+                return full_wilson.give_wilson(src=src, U=U)+full_clover.give_clover(src=src, clover_term=clover_term)
+            else:
+                return None
+        full_U = local2full_tensor(local_tensor=self.U, root=self.root)
+        full_clover_term = local2full_tensor(
+            local_tensor=self.clover_term, root=self.root)
         Ax = self.matvec(src=self.x)
         full_Ax = local2full_tensor(local_tensor=Ax, root=self.root)
         _full_x = local2full_tensor(local_tensor=self.x, root=self.root)
         _full_b = local2full_tensor(local_tensor=self.b, root=self.root)
         if self.rank == self.root:
-            _full_Ax = self.full_matvec(
-                src=_full_x, U=self.full_U, clover_term=self.full_clover_term)
+            _full_Ax = full_matvec(
+                src=_full_x, U=full_U, clover_term=full_clover_term)
             print(f"torch.norm(self.b): {torch.norm(self.b)}")
             print(f"torch.norm(self.x): {torch.norm(self.x)}")
             print(f"torch.norm(_full_b): {torch.norm(_full_b)}")
