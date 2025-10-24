@@ -1,10 +1,12 @@
 from pyqcu.ascend import qcu
 import torch
-lat_x, lat_y, lat_z, lat_t = 8, 8, 8, 8
-lat_x, lat_y, lat_z, lat_t = 4, 4, 4, 4
-lat_x, lat_y, lat_z, lat_t = 4, 4, 4, 8
-_qcu = qcu(lat_size=[lat_x, lat_y, lat_z, lat_t], dtype=torch.complex128, max_levels=1,
-           device=torch.device('cpu'), dslash='clover', solver='mg', verbose=True)
+# lat_x, lat_y, lat_z, lat_t = 16, 16, 16, 16
+# lat_x, lat_y, lat_z, lat_t = 8, 8, 8, 8
+# lat_x, lat_y, lat_z, lat_t = 4, 4, 4, 4
+lat_x, lat_y, lat_z, lat_t = 4, 4, 8, 8
+max_level = 10
+_qcu = qcu(lat_size=[lat_x, lat_y, lat_z, lat_t], dtype=torch.complex128, max_levels=max_level,
+           device=torch.device('cpu'), dslash='clover', solver='mg', verbose=False)
 _qcu.load()
 _qcu.init()
 _qcu.solve()
