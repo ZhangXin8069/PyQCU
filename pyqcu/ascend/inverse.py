@@ -190,7 +190,7 @@ def local_orthogonalize(null_vecs: torch.Tensor,
     coarse_dof = null_vecs.shape[0]
     fina_dof = null_vecs.shape[1]
     latt_size = list(null_vecs.shape[-4:][::-1])
-    if verbose:
+    if verbose or True:
         print(f"latt_size: {latt_size}")
         print(f"mg_grid_size: {mg_grid_size}")
         print(f"coarse_lat_size: {coarse_lat_size}")
@@ -210,7 +210,11 @@ def local_orthogonalize(null_vecs: torch.Tensor,
             if normalize:
                 _local_null_vec[i] /= torch_norm(_local_null_vec[i])
         _local_ortho_null_vecs[_] = _local_null_vec.clone()
-    return TZYXEetzyx2EeTtZzYyXx(_local_ortho_null_vecs.reshape(coarse_lat_size+list(_local_ortho_null_vecs.shape[1:])))
+    dest = TZYXEetzyx2EeTtZzYyXx(_local_ortho_null_vecs.reshape(
+        coarse_lat_size[::-1]+[coarse_dof, fina_dof]+mg_grid_size[::-1]))
+    print(f"_local_ortho_null_vecs.shape: {_local_ortho_null_vecs.shape}")
+    print(f"dest.shape: {dest.shape}")
+    return dest
 
 
 def restrict(local_ortho_null_vecs: torch.Tensor, fine_vec: torch.Tensor, verbose: bool = True) -> torch.Tensor:
@@ -228,7 +232,7 @@ def prolong(local_ortho_null_vecs: torch.Tensor, coarse_vec: torch.Tensor, verbo
 
 
 class hopping:
-    def __init__(self, wilson: wilson_mg = None, U: torch.Tensor = None):
+    def __init__(self, wilson: wilson_mg = None, U: torch.Tensor = None, if_multi: bool = give_if_multi()):
         self.M_plus_list = [torch.zeros([]), torch.zeros(
             []), torch.zeros([]), torch.zeros([])]  # xyzt
         self.M_minus_list = [torch.zeros([]), torch.zeros(
@@ -240,10 +244,25 @@ class hopping:
         self.grid_index = give_grid_index()
         if self.wilson != None and self.U != None:
             for ward in range(4):  # xyzt
+                if if_multi and self.grid_size[ward] != 1:
+                    comm = MPI.COMM_WORLD
+                    rank = comm.Get_rank()
+                    U_tail4send = self.U[slice_dim(
+                        dim=7, ward=ward, point=-1)].cpu().contiguous().numpy().copy()
+                    U_head4recv = np.zeros_like(U_tail4send).copy()
+                    rank_plus = give_rank_plus(ward=ward)
+                    rank_minus = give_rank_minus(ward=ward)
+                    comm.Sendrecv(sendbuf=U_tail4send, dest=rank_plus, sendtag=rank,
+                                  recvbuf=U_head4recv, source=rank_minus, recvtag=rank_minus)
+                    comm.Barrier()
+                    U_head = torch.from_numpy(U_head4recv).to(
+                        device=U.device).clone()
+                else:
+                    U_head = None
                 self.M_plus_list[ward] = wilson.give_hopping_plus(
                     ward=ward, U=self.U)
                 self.M_minus_list[ward] = wilson.give_hopping_minus(
-                    ward=ward, U=self.U)
+                    ward=ward, U=self.U, U_head=U_head)
 
     def matvec_plus(self, ward: int, src: torch.Tensor, if_multi: bool) -> torch.Tensor:
         if if_multi and self.grid_size[ward] != 1:
@@ -414,10 +433,9 @@ class mg:
             _lat_size = [_lat_size[d] // self.mg_grid_size[d]
                          for d in range(4)]
         self.num_levels = len(self.lat_size_list)
-        if self.verbose and self.rank == self.root:
+        if self.rank == self.root:
             print(f"self.lat_size_list:{self.lat_size_list}")
         self.dof_list = self.dof_list[:self.num_levels]
-        print(f"U.shape:{U.shape}")
 
     def init(self):
         # Build local-orthonormal near-null space vectors

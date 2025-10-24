@@ -561,7 +561,7 @@ class wilson_mg(wilson):
         return torch.einsum(
             'Eetzyx,etzyx->Etzyx', hopping, src_plus).clone()
 
-    def give_hopping_minus(self, ward: int, U: torch.Tensor) -> torch.Tensor:
+    def give_hopping_minus(self, ward: int, U: torch.Tensor, U_head: torch.Tensor = None) -> torch.Tensor:
         dir_info = self.directions[ward]
         mu = dir_info['mu']
         axis = dir_info['axis']
@@ -572,6 +572,10 @@ class wilson_mg(wilson):
         U_dag = U.permute(1, 0, 2, 3, 4, 5, 6).conj().clone()
         U_dag_mu = U_dag[..., mu, :, :, :, :]
         U_dag_minus = torch.roll(U_dag_mu, shifts=1, dims=axis)
+        if U_head != None:
+            U_head_dag = U_head.permute(1, 0, 2, 3, 4, 5).conj().clone()
+            U_head_dag_mu = U_head_dag[..., mu, :, :, :]
+            U_dag_minus[slice_dim(dim=6, ward=ward, point=0)] = U_head_dag_mu.clone()
         return - self.kappa/self.u_0 * torch.einsum(
             'Ss,Cctzyx->SCsctzyx', (self.I + gamma_mu), U_dag_minus).reshape([12, 12]+list(U.shape[-4:])).clone()  # sc->e
 

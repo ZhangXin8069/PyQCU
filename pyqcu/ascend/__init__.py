@@ -49,11 +49,6 @@ class qcu:
             latt_size=self.local_lat_size, kappa=self.kappa, dtype=self.dtype, device=self.device, verbose=False)
         self.clover = clover(latt_size=self.local_lat_size,
                              kappa=self.kappa, dtype=self.dtype, device=self.device, verbose=False)
-        self.b = torch.randn(
-            size=[4, 3]+self.local_lat_size[::-1], dtype=self.dtype, device=self.device)
-        self.x0 = torch.zeros_like(self.b)
-        self.x = torch.zeros_like(self.b)
-        self.refer_x = torch.zeros_like(self.b)
         self.U = U
         self.clover_term = clover_term
         self.min_size = min_size
@@ -61,12 +56,51 @@ class qcu:
         self.dof_list = dof_list
 
     def init(self):
+        try:
+            if any(self.b.shape[-4:][::-1][d] != self.local_lat_size[d] for d in range(4)):
+                print("Got wrong b with wrong lat_size from load or init!!!")
+                self.b = None
+        except Exception as e:
+            print(f"Error: {e}")
+        try:
+            if any(self.refer_x.shape[-4:][::-1][d] != self.local_lat_size[d] for d in range(4)):
+                print("Got wrong refer_x with wrong lat_size from load or init!!!")
+                self.refer_x = None
+        except Exception as e:
+            print(f"Error: {e}")
+        try:
+            if any(self.x0.shape[-4:][::-1][d] != self.local_lat_size[d] for d in range(4)):
+                print("Got wrong x0 with wrong lat_size from load or init!!!")
+                self.x0 = None
+        except Exception as e:
+            print(f"Error: {e}")
+        try:
+            if any(self.U.shape[-4:][::-1][d] != self.local_lat_size[d] for d in range(4)):
+                print("Got wrong U with wrong lat_size from load or init!!!")
+                self.U = None
+        except Exception as e:
+            print(f"Error: {e}")
+        try:
+            if any(self.clover_term.shape[-4:][::-1][d] != self.local_lat_size[d] for d in range(4)):
+                print("Got wrong clover_term with wrong lat_size from load or init!!!")
+                self.clover_term = None
+        except Exception as e:
+            print(f"Error: {e}")
         if self.U == None:
             self.U = self.wilson.generate_gauge_field(
                 sigma=self.sigma, seed=self.seed)
             if self.verbose:
                 print(
                     f"self.wilson.check_su3(self.U): {self.wilson.check_su3(self.U)}")
+        if self.b == None:
+            self.b = torch.randn(
+                size=[4, 3]+self.local_lat_size[::-1], dtype=self.dtype, device=self.device)
+        if self.refer_x == None:
+            self.refer_x = torch.zeros(
+                size=[4, 3]+self.local_lat_size[::-1], dtype=self.dtype, device=self.device)
+        if self.x0 == None:
+            self.x0 = torch.randn(
+                size=[4, 3]+self.local_lat_size[::-1], dtype=self.dtype, device=self.device)
         if self.dslash == 'clover':
             if self.clover_term == None:
                 self.clover_term = self.clover.make_clover(U=self.U)
@@ -124,6 +158,14 @@ class qcu:
         return self.x
 
     def test(self):
+        print(f"torch.norm(self.U): {torch.norm(self.U)}")
+        print(f"torch.norm(self.clover_term): {torch.norm(self.clover_term)}")
+        print(f"torch.norm(self.b): {torch.norm(self.b)}")
+        print(f"torch.norm(self.x): {torch.norm(self.x)}")
+        print(f"torch_norm(self.U): {torch_norm(self.U)}")
+        print(f"torch_norm(self.clover_term): {torch_norm(self.clover_term)}")
+        print(f"torch_norm(self.b): {torch_norm(self.b)}")
+        print(f"torch_norm(self.x): {torch_norm(self.x)}")
         full_wilson = wilson_mg(
             latt_size=self.lat_size, kappa=self.kappa, dtype=self.dtype, device=self.device, verbose=False)
         full_clover = clover(latt_size=self.lat_size,
@@ -144,8 +186,6 @@ class qcu:
         if self.rank == self.root:
             _full_Ax = full_matvec(
                 src=_full_x, U=full_U, clover_term=full_clover_term)
-            print(f"torch.norm(self.b): {torch.norm(self.b)}")
-            print(f"torch.norm(self.x): {torch.norm(self.x)}")
             print(f"torch.norm(_full_b): {torch.norm(_full_b)}")
             print(f"torch.norm(_full_x): {torch.norm(_full_x)}")
             print(f"torch.norm(full_Ax): {torch.norm(full_Ax)}")
