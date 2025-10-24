@@ -190,7 +190,7 @@ def local_orthogonalize(null_vecs: torch.Tensor,
     coarse_dof = null_vecs.shape[0]
     fina_dof = null_vecs.shape[1]
     latt_size = list(null_vecs.shape[-4:][::-1])
-    if verbose or True:
+    if verbose:
         print(f"latt_size: {latt_size}")
         print(f"mg_grid_size: {mg_grid_size}")
         print(f"coarse_lat_size: {coarse_lat_size}")
@@ -212,8 +212,6 @@ def local_orthogonalize(null_vecs: torch.Tensor,
         _local_ortho_null_vecs[_] = _local_null_vec.clone()
     dest = TZYXEetzyx2EeTtZzYyXx(_local_ortho_null_vecs.reshape(
         coarse_lat_size[::-1]+[coarse_dof, fina_dof]+mg_grid_size[::-1]))
-    print(f"_local_ortho_null_vecs.shape: {_local_ortho_null_vecs.shape}")
-    print(f"dest.shape: {dest.shape}")
     return dest
 
 
@@ -405,7 +403,7 @@ class mg:
     def __init__(self, lat_size: Tuple[int, int, int, int], dtype: torch.dtype, device: torch.device, wilson: wilson_mg = None, U: torch.Tensor = None, clover: clover = None, clover_term: torch.Tensor = None,  min_size: int = 2, max_levels: int = 5, mg_grid_size: Tuple[int, int, int, int] = [2, 2, 2, 2], dof_list: Tuple[int, int, int, int] = [12, 24, 24, 24, 24], tol: float = 1e-6, max_iter: int = 1000, root: int = 0, verbose: bool = True):
         self.comm = MPI.COMM_WORLD
         self.rank = self.comm.Get_rank()
-        self.lat_size = lat_size
+        self.lat_size = list(lat_size)
         self.dtype = dtype
         self.device = device
         self.min_size = min_size
@@ -422,6 +420,7 @@ class mg:
         self.x0 = torch.randn(
             size=[12]+self.lat_size[::-1], dtype=self.dtype, device=self.device)
         self.b_list = [self.b.clone()]
+        self.nv_list = []  # null_vecs_list
         self.lonv_list = []  # local_ortho_null_vecs_list
         self.convergence_history = []
         # Build grid list
@@ -448,6 +447,7 @@ class mg:
                 null_vecs=_null_vecs,
                 matvec=self.op_list[i-1].matvec,
                 verbose=self.verbose)
+            self.nv_list.append(_null_vecs)
             _local_ortho_null_vecs = local_orthogonalize(
                 null_vecs=_null_vecs,
                 coarse_lat_size=self.lat_size_list[i],

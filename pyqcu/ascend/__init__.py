@@ -31,7 +31,7 @@ class qcu:
             torch.cuda.set_device(self.local_rank)
         except Exception as e:
             print(f"Rank{self.rank}-Error: {e}")
-        self.lat_size = lat_size
+        self.lat_size = list(lat_size)
         self.grid_size = give_grid_size()
         self.grid_index = give_grid_index()
         self.local_lat_size = [self.lat_size[i]//self.grid_size[i]
