@@ -184,35 +184,43 @@ def give_null_vecs(
 
 def local_orthogonalize(null_vecs: torch.Tensor,
                         coarse_lat_size: Tuple[int, int,
-                                               int, int] = [2, 2, 2, 2],
-                        mg_grid_size: Tuple[int, int, int, int] = [2, 2, 2, 2],
-                        normalize: bool = True, verbose: bool = True) -> torch.Tensor:
-    coarse_dof = null_vecs.shape[0]
-    fina_dof = null_vecs.shape[1]
-    latt_size = list(null_vecs.shape[-4:][::-1])
+                                               int, int] = (2, 2, 2, 2),
+                        normalize: bool = True,
+                        verbose: bool = False) -> torch.Tensor:
+    assert null_vecs.ndim == 6, "Expected shape [E, e, T*t, Z*z, Y*y, X*x]"
+    E, e, Tt, Zz, Yy, Xx = null_vecs.shape
+    T, Z, Y, X = coarse_lat_size[::-1]  # [xyzt]
+    # sanity checks
+    assert Tt % T == 0 and Zz % Z == 0 and Yy % Y == 0 and Xx % X == 0, \
+        "Each lattice extent must be divisible by its coarse_lat_size factor."
+    t, z, y, x = Tt // T, Zz // Z, Yy // Y, Xx // X
+    local_dim = e * t * z * y * x
+    if E > local_dim:
+        raise ValueError(f"E={E} exceeds local_dim={local_dim}. "
+                         f"Cannot produce {E} orthonormal columns in a {local_dim}-dim space.")
+    # Reshape to expose coarse/fine structure: [E, e, T, t, Z, z, Y, y, X, x]
+    v = null_vecs.reshape(E, e, T, t, Z, z, Y, y, X, x).clone()
+    # Move coarse coords to the front (as batch): [T, Z, Y, X, E, e, t, z, y, x]
+    v = v.permute(2, 4, 6, 8, 0, 1, 3, 5, 7, 9).contiguous()
+    # Collapse to blocks: [n_blocks, E, local_dim]
+    n_blocks = T * Z * Y * X
+    v = v.view(n_blocks, E, local_dim)
+    # Build A = [n_blocks, local_dim, E] (columns = E vectors at a coarse site)
+    A = v.transpose(-2, -1)  # [n_blocks, local_dim, E]
+    # Batched QR on each block; Q has orthonormal columns in R^{local_dim}
+    # Use reduced mode: Q: [n_blocks, local_dim, E], R: [n_blocks, E, E]
+    Q, _ = torch.linalg.qr(A, mode='reduced')
+    if normalize:
+        # Normalize each column vector explicitly
+        Q = Q / torch.norm(Q, dim=-2, keepdim=True)
+    # Restore lattice structure: [T, Z, Y, X, e, t, z, y, x, E]
+    Q = Q.view(T, Z, Y, X, e, t, z, y, x, E)
+    # Permute back to [E, e, T, t, Z, z, Y, y, X, x]
+    Q = Q.permute(9, 4, 0, 5, 1, 6, 2, 7, 3, 8).contiguous().clone()
     if verbose:
-        print(f"latt_size: {latt_size}")
-        print(f"mg_grid_size: {mg_grid_size}")
-        print(f"coarse_lat_size: {coarse_lat_size}")
-    assert all(latt_size[d] == (mg_grid_size[d]*coarse_lat_size[d])
-               for d in range(4))
-    local_null_vecs = null_vecs.reshape(shape=[coarse_dof, fina_dof, mg_grid_size[-1], coarse_lat_size[-1], mg_grid_size[-2],
-                                               coarse_lat_size[-2], mg_grid_size[-3], coarse_lat_size[-3], mg_grid_size[-4], coarse_lat_size[-4]]).clone()
-    _local_null_vecs = EeTtZzYyXx2TZYXEetzyx(local_null_vecs=local_null_vecs).reshape(
-        [-1, coarse_dof, fina_dof]+mg_grid_size[::-1])
-    _local_ortho_null_vecs = _local_null_vecs.clone()
-    for _ in range(_local_null_vecs.shape[0]):
-        _local_null_vec = _local_null_vecs[_].clone()
-        for i in range(coarse_dof):  # [E]
-            for j in range(0, i):
-                _local_null_vec[i] -= torch_vdot(_local_null_vec[j], _local_null_vec[i])/torch_vdot(
-                    _local_null_vec[j], _local_null_vec[j])*_local_null_vec[j]
-            if normalize:
-                _local_null_vec[i] /= torch_norm(_local_null_vec[i])
-        _local_ortho_null_vecs[_] = _local_null_vec.clone()
-    dest = TZYXEetzyx2EeTtZzYyXx(_local_ortho_null_vecs.reshape(
-        coarse_lat_size[::-1]+[coarse_dof, fina_dof]+mg_grid_size[::-1]))
-    return dest
+        print(f"[local_orthogonalize] in={tuple(null_vecs.shape)}, coarse_lat_size(T,Z,Y,X)={coarse_lat_size}, "
+              f"(t,z,y,x)=({t},{z},{y},{x}), local_dim={local_dim}, n_blocks={n_blocks}")
+    return Q.clone()
 
 
 def restrict(local_ortho_null_vecs: torch.Tensor, fine_vec: torch.Tensor, verbose: bool = True) -> torch.Tensor:
@@ -451,7 +459,6 @@ class mg:
             _local_ortho_null_vecs = local_orthogonalize(
                 null_vecs=_null_vecs,
                 coarse_lat_size=self.lat_size_list[i],
-                mg_grid_size=self.mg_grid_size,
                 verbose=self.verbose)
             self.lonv_list.append(_local_ortho_null_vecs)
             self.b_list.append(torch.zeros(
