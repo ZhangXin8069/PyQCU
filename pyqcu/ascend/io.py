@@ -25,16 +25,6 @@ def tzyxscsc2scsctzyx(clover_term: torch.Tensor) -> torch.Tensor:
     return dest.clone()
 
 
-def EeTtZzYyXx2TZYXEetzyx(local_null_vecs: torch.Tensor) -> torch.Tensor:
-    dest = local_null_vecs.permute(2, 4, 6, 8, 0, 1, 3, 5, 7, 9)
-    return dest.clone()
-
-
-def TZYXEetzyx2EeTtZzYyXx(local_null_vecs: torch.Tensor) -> torch.Tensor:
-    dest = local_null_vecs.permute(4, 5, 0, 6, 1, 7, 2, 8, 3, 9)
-    return dest.clone()
-
-
 def xxxtzyx2pxxxtzyx(input_array: torch.Tensor, verbose: bool = False) -> torch.Tensor:
     if verbose:
         print("@xxxtzyx2pxxxtzyx......")
