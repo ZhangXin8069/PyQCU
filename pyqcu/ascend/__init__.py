@@ -54,6 +54,10 @@ class qcu:
         self.min_size = min_size
         self.max_levels = max_levels
         self.dof_list = dof_list
+        self.x = None
+        self.x0 = None
+        self.refer_x = None
+        self.b = None
 
     def init(self):
         try:
@@ -116,28 +120,58 @@ class qcu:
         return self.mg.op_list[0].matvec(src)
 
     def save(self, file_name: str = ''):
-        grid_xxxtzyx2hdf5_xxxtzyx(input_tensor=self.b, file_name=file_name +
-                                  '-b.h5', lat_size=self.lat_size)
-        grid_xxxtzyx2hdf5_xxxtzyx(input_tensor=self.x, file_name=file_name +
-                                  '-x.h5', lat_size=self.lat_size)
-        grid_xxxtzyx2hdf5_xxxtzyx(input_tensor=self.x0, file_name=file_name +
-                                  '-x0.h5', lat_size=self.lat_size)
-        grid_xxxtzyx2hdf5_xxxtzyx(input_tensor=self.U, file_name=file_name +
-                                  '-U.h5', lat_size=self.lat_size)
-        grid_xxxtzyx2hdf5_xxxtzyx(input_tensor=self.clover_term, file_name=file_name +
-                                  '-clover_term.h5', lat_size=self.lat_size)
+        try:
+            grid_xxxtzyx2hdf5_xxxtzyx(input_tensor=self.b, file_name=file_name +
+                                      '-b.h5', lat_size=self.lat_size)
+        except Exception as e:
+            print(f"Error: {e}")
+        try:
+            grid_xxxtzyx2hdf5_xxxtzyx(input_tensor=self.x, file_name=file_name +
+                                      '-x.h5', lat_size=self.lat_size)
+        except Exception as e:
+            print(f"Error: {e}")
+        try:
+            grid_xxxtzyx2hdf5_xxxtzyx(input_tensor=self.x0, file_name=file_name +
+                                      '-x0.h5', lat_size=self.lat_size)
+        except Exception as e:
+            print(f"Error: {e}")
+        try:
+            grid_xxxtzyx2hdf5_xxxtzyx(input_tensor=self.U, file_name=file_name +
+                                      '-U.h5', lat_size=self.lat_size)
+        except Exception as e:
+            print(f"Error: {e}")
+        try:
+            grid_xxxtzyx2hdf5_xxxtzyx(input_tensor=self.clover_term, file_name=file_name +
+                                      '-clover_term.h5', lat_size=self.lat_size)
+        except Exception as e:
+            print(f"Error: {e}")
 
     def load(self, file_name: str = ''):
-        self.b = hdf5_xxxtzyx2grid_xxxtzyx(
-            file_name=file_name+'-b.h5', lat_size=self.lat_size, device=self.device)
-        self.refer_x = hdf5_xxxtzyx2grid_xxxtzyx(
-            file_name=file_name+'-x.h5', lat_size=self.lat_size, device=self.device)
-        self.x0 = hdf5_xxxtzyx2grid_xxxtzyx(
-            file_name=file_name+'-x0.h5', lat_size=self.lat_size, device=self.device)
-        self.U = hdf5_xxxtzyx2grid_xxxtzyx(
-            file_name=file_name+'-U.h5', lat_size=self.lat_size, device=self.device)
-        self.clover_term = hdf5_xxxtzyx2grid_xxxtzyx(
-            file_name=file_name+'-clover_term.h5', lat_size=self.lat_size, device=self.device)
+        try:
+            self.b = hdf5_xxxtzyx2grid_xxxtzyx(
+                file_name=file_name+'-b.h5', lat_size=self.lat_size, device=self.device)
+        except Exception as e:
+            print(f"Error: {e}")
+        try:
+            self.refer_x = hdf5_xxxtzyx2grid_xxxtzyx(
+                file_name=file_name+'-x.h5', lat_size=self.lat_size, device=self.device)
+        except Exception as e:
+            print(f"Error: {e}")
+        try:
+            self.x0 = hdf5_xxxtzyx2grid_xxxtzyx(
+                file_name=file_name+'-x0.h5', lat_size=self.lat_size, device=self.device)
+        except Exception as e:
+            print(f"Error: {e}")
+        try:
+            self.U = hdf5_xxxtzyx2grid_xxxtzyx(
+                file_name=file_name+'-U.h5', lat_size=self.lat_size, device=self.device)
+        except Exception as e:
+            print(f"Error: {e}")
+        try:
+            self.clover_term = hdf5_xxxtzyx2grid_xxxtzyx(
+                file_name=file_name+'-clover_term.h5', lat_size=self.lat_size, device=self.device)
+        except Exception as e:
+            print(f"Error: {e}")
 
     def solve(self, b: torch.Tensor = None, x0: torch.Tensor = None) -> torch.Tensor:
         start_time = perf_counter()
