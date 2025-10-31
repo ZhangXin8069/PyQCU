@@ -1,8 +1,8 @@
+from mpi4py import MPI
 from pyqcu.cuda import qcu
 import cupy as cp
 import numpy as np
 import re
-from mpi4py import MPI
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 print('My rank is ', rank)
