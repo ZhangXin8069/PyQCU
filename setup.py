@@ -41,7 +41,7 @@ setup(
     license="MIT",
     cmdclass={'build_ext': CMakeBuild},
     python_requires=">=3.6",
-    install_requires=[]  # refer to ./requirement.txt
+    install_requires=[],  # refer to ./requirement.txt
     url="https://github.com/zhangxin8069/PyQCU",
     keywords=['c++', 'cuda', 'python',
               'quantum chromodynamics(QCD)', 'lattice QCD', 'high performance computing', 'made in China'],
