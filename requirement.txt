@@ -6,5 +6,6 @@ scipy
 matplotlib
 torch
 torch_npu
+pyyaml
 # cupy
 # opt_einsum
