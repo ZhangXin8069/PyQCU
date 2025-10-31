@@ -1,3 +1,6 @@
+from mpi4py import MPI
+if not MPI.Is_initialized():
+    MPI.Init()
 from pyqcu.ascend import qcu
 import torch
 # lat_x, lat_y, lat_z, lat_t = 16, 16, 16, 16
