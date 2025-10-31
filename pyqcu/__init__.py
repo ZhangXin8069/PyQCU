@@ -1,4 +1,7 @@
 # coding: utf-8
+import mpi4py.MPI as MPI
+if not MPI.Is_initialized():
+    MPI.Init()
 def info():
     try:
         print(
