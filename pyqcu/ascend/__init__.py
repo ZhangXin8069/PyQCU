@@ -9,7 +9,7 @@ from time import perf_counter
 
 
 class qcu:
-    def __init__(self, lat_size: Tuple[int, int, int, int] = [8, 8, 8, 8], U: torch.Tensor = None, clover_term: torch.Tensor = None, min_size: int = 2, max_levels: int = 5, dof_list: Tuple[int, int, int, int] = [12, 24, 24, 24, 24], max_iter: int = 1000, seed: int = 42, mass: float = 0.05, tol: float = 1e-6, sigma: float = 0.1, dtype: torch.dtype = torch.complex64, device: torch.device = torch.device('cpu'), dslash: str = 'clover', solver: str = 'bistabcg', root: int = 0, verbose: bool = True):
+    def __init__(self, lat_size: Tuple[int, int, int, int] = [8, 8, 8, 8], U: torch.Tensor = None, clover_term: torch.Tensor = None, min_size: int = 2, max_levels: int = 5, num_convergence_sample: int = 50, dof_list: Tuple[int, int, int, int] = [12, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24], max_iter: int = 1000, seed: int = 42, mg_grid_size: Tuple[int, int, int, int] = [2, 2, 2, 2], mass: float = 0.05, tol: float = 1e-6, sigma: float = 0.1, dtype: torch.dtype = None, device: torch.device = None, dtype_list: Tuple[torch.dtype, torch.dtype, torch.dtype, torch.dtype] = None, device_list: Tuple[torch.device, torch.device, torch.device, torch.device] = None, dslash: str = 'clover', solver: str = 'bistabcg', root: int = 0, verbose: bool = True):
         self.comm = MPI.COMM_WORLD
         self.rank = self.comm.Get_rank()
         self.size = self.comm.Get_size()
@@ -19,14 +19,22 @@ class qcu:
         self.kappa = 1 / (2 * self.mass + 8)
         self.tol = tol
         self.sigma = sigma
-        self.dtype = dtype
-        self.real_dtype = self.dtype.to_real()
-        self.device = device
         self.root = root
         self.dslash = dslash
         self.solver = solver
         self.verbose = verbose
-        self.local_rank = give_local_rank(device=self.device)
+        self.num_convergence_sample = num_convergence_sample
+        self.mg_grid_size = mg_grid_size
+        if dtype != None:
+            self.dtype_list = [dtype]*max_levels
+        else:
+            self.dtype_list = dtype_list
+        if device != None:
+            self.device_list = [device]*max_levels
+        else:
+            self.device_list = device_list
+        self.dof_list = dof_list
+        self.local_rank = give_local_rank(device=self.device_list[0])
         try:
             torch.cuda.set_device(self.local_rank)
         except Exception as e:
@@ -41,14 +49,15 @@ class qcu:
             print(f"self.lat_size: {self.lat_size}")
             print(f"self.grid_size: {self.grid_size}")
             print(f"self.grid_index: {self.grid_index}")
+            print(f"self.dtype_list:{self.dtype_list}")
+            print(f"self.device_list:{self.device_list}")
             print(f"self.local_lat_size: {self.local_lat_size}")
-        print(f"Using device: {self.device}")
         print(
             f"@My Rank:{self.rank}/{self.size}, Local Rank:{self.local_rank}@\n")
         self.wilson = wilson_mg(
-            latt_size=self.local_lat_size, kappa=self.kappa, dtype=self.dtype, device=self.device, verbose=False)
+            latt_size=self.local_lat_size, kappa=self.kappa, dtype=self.dtype_list[0], device=self.device_list[0], verbose=False)
         self.clover = clover(latt_size=self.local_lat_size,
-                             kappa=self.kappa, dtype=self.dtype, device=self.device, verbose=False)
+                             kappa=self.kappa, dtype=self.dtype_list[0], device=self.device_list[0], verbose=False)
         self.U = U
         self.clover_term = clover_term
         self.min_size = min_size
@@ -98,20 +107,20 @@ class qcu:
                     f"self.wilson.check_su3(self.U): {self.wilson.check_su3(self.U)}")
         if self.b == None:
             self.b = torch.randn(
-                size=[4, 3]+self.local_lat_size[::-1], dtype=self.dtype, device=self.device)
+                size=[4, 3]+self.local_lat_size[::-1], dtype=self.dtype_list[0], device=self.device_list[0])
         if self.refer_x == None:
             self.refer_x = torch.zeros(
-                size=[4, 3]+self.local_lat_size[::-1], dtype=self.dtype, device=self.device)
+                size=[4, 3]+self.local_lat_size[::-1], dtype=self.dtype_list[0], device=self.device_list[0])
         if self.x0 == None:
             self.x0 = torch.randn(
-                size=[4, 3]+self.local_lat_size[::-1], dtype=self.dtype, device=self.device)
+                size=[4, 3]+self.local_lat_size[::-1], dtype=self.dtype_list[0], device=self.device_list[0])
         if self.dslash == 'clover':
             if self.clover_term == None:
                 self.clover_term = self.clover.make_clover(U=self.U)
         else:
             self.clover_term = torch.zeros(
-                size=[4, 3, 4, 3]+self.local_lat_size[::-1], dtype=self.dtype, device=self.device)
-        self.mg = mg(lat_size=self.local_lat_size, dtype=self.dtype, device=self.device, wilson=self.wilson, U=self.U, clover=self.clover,
+                size=[4, 3, 4, 3]+self.local_lat_size[::-1], dtype=self.dtype_list[0], device=self.device_list[0])
+        self.mg = mg(lat_size=self.local_lat_size, dtype_list=self.dtype_list, device_list=self.device_list, num_convergence_sample=self.num_convergence_sample, mg_grid_size=self.mg_grid_size, wilson=self.wilson, U=self.U, clover=self.clover,
                      clover_term=self.clover_term, min_size=self.min_size, max_levels=self.max_levels, dof_list=self.dof_list, tol=self.tol, max_iter=self.max_iter, verbose=self.verbose)
         if self.solver == 'mg':
             self.mg.init()
@@ -149,27 +158,27 @@ class qcu:
     def load(self, file_name: str = ''):
         try:
             self.b = hdf5_xxxtzyx2grid_xxxtzyx(
-                file_name=file_name+'-b.h5', lat_size=self.lat_size, device=self.device)
+                file_name=file_name+'-b.h5', lat_size=self.lat_size, device=self.device_list[0])
         except Exception as e:
             print(f"Error: {e}")
         try:
             self.refer_x = hdf5_xxxtzyx2grid_xxxtzyx(
-                file_name=file_name+'-x.h5', lat_size=self.lat_size, device=self.device)
+                file_name=file_name+'-x.h5', lat_size=self.lat_size, device=self.device_list[0])
         except Exception as e:
             print(f"Error: {e}")
         try:
             self.x0 = hdf5_xxxtzyx2grid_xxxtzyx(
-                file_name=file_name+'-x0.h5', lat_size=self.lat_size, device=self.device)
+                file_name=file_name+'-x0.h5', lat_size=self.lat_size, device=self.device_list[0])
         except Exception as e:
             print(f"Error: {e}")
         try:
             self.U = hdf5_xxxtzyx2grid_xxxtzyx(
-                file_name=file_name+'-U.h5', lat_size=self.lat_size, device=self.device)
+                file_name=file_name+'-U.h5', lat_size=self.lat_size, device=self.device_list[0])
         except Exception as e:
             print(f"Error: {e}")
         try:
             self.clover_term = hdf5_xxxtzyx2grid_xxxtzyx(
-                file_name=file_name+'-clover_term.h5', lat_size=self.lat_size, device=self.device)
+                file_name=file_name+'-clover_term.h5', lat_size=self.lat_size, device=self.device_list[0])
         except Exception as e:
             print(f"Error: {e}")
 
@@ -201,9 +210,9 @@ class qcu:
         print(f"torch_norm(self.b): {torch_norm(self.b)}")
         print(f"torch_norm(self.x): {torch_norm(self.x)}")
         full_wilson = wilson_mg(
-            latt_size=self.lat_size, kappa=self.kappa, dtype=self.dtype, device=self.device, verbose=False)
+            latt_size=self.lat_size, kappa=self.kappa, dtype=self.dtype_list[0], device=self.device_list[0], verbose=False)
         full_clover = clover(latt_size=self.lat_size,
-                             kappa=self.kappa, dtype=self.dtype, device=self.device, verbose=False)
+                             kappa=self.kappa, dtype=self.dtype_list[0], device=self.device_list[0], verbose=False)
 
         def full_matvec(src: torch.Tensor, U: torch.Tensor, clover_term: torch.Tensor) -> torch.Tensor:
             if self.rank == self.root:
