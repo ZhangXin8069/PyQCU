@@ -1,0 +1,10 @@
+numpy
+mpi4py
+cython
+h5py
+scipy
+matplotlib
+torch
+torch_npu
+# cupy
+# opt_einsum
