@@ -1,6 +1,7 @@
 import torch
 import inspect
 import functools
+import numpy as np
 from time import perf_counter
 from typing import Tuple, Callable
 from pyqcu.ascend.io import *
@@ -224,17 +225,29 @@ def local_orthogonalize(null_vecs: torch.Tensor,
 
 
 def restrict(local_ortho_null_vecs: torch.Tensor, fine_vec: torch.Tensor, verbose: bool = True) -> torch.Tensor:
+    dtype = fine_vec.dtype
+    device = fine_vec.device
+    _dtype = local_ortho_null_vecs.dtype
+    _device = local_ortho_null_vecs.device
+    if dtype != _dtype or device != _device:
+        fine_vec = fine_vec.to(dtype=_dtype, device=_device)
     shape = local_ortho_null_vecs.shape
     _fine_vec = fine_vec.reshape(shape=shape[1:]).clone()
     return torch.einsum(
-        "EeTtZzYyXx,eTtZzYyXx->ETZYX", local_ortho_null_vecs.conj(), _fine_vec).clone()
+        "EeTtZzYyXx,eTtZzYyXx->ETZYX", local_ortho_null_vecs.conj(), _fine_vec).clone().to(dtype=dtype, device=device)
 
 
 def prolong(local_ortho_null_vecs: torch.Tensor, coarse_vec: torch.Tensor, verbose: bool = True) -> torch.Tensor:
+    dtype = coarse_vec.dtype
+    device = coarse_vec.device
+    _dtype = local_ortho_null_vecs.dtype
+    _device = local_ortho_null_vecs.device
+    if dtype != _dtype or device != _device:
+        coarse_vec = coarse_vec.to(dtype=_dtype, device=_device)
     shape = local_ortho_null_vecs.shape
     _coarse_vec = coarse_vec.reshape(shape=shape[0:1]+shape[-8:][::2]).clone()
     return torch.einsum(
-        "EeTtZzYyXx,ETZYX->eTtZzYyXx", local_ortho_null_vecs, _coarse_vec).reshape([shape[1], shape[-8]*shape[-7], shape[-6]*shape[-5], shape[-4]*shape[-3], shape[-2]*shape[-1]]).clone()
+        "EeTtZzYyXx,ETZYX->eTtZzYyXx", local_ortho_null_vecs, _coarse_vec).reshape([shape[1], shape[-8]*shape[-7], shape[-6]*shape[-5], shape[-4]*shape[-3], shape[-2]*shape[-1]]).clone().to(dtype=dtype, device=device)
 
 
 class hopping:
@@ -271,6 +284,12 @@ class hopping:
                     ward=ward, U=self.U, U_head=U_head)
 
     def matvec_plus(self, ward: int, src: torch.Tensor, if_multi: bool) -> torch.Tensor:
+        dtype = src.dtype
+        device = src.device
+        _dtype = self.M_plus_list[ward].dtype
+        _device = self.M_plus_list[ward].device
+        if dtype != _dtype or device != _device:
+            src = src.to(dtype=_dtype, device=_device)
         if if_multi and self.grid_size[ward] != 1:
             comm = MPI.COMM_WORLD
             rank = comm.Get_rank()
@@ -286,9 +305,15 @@ class hopping:
                 device=src.device).clone()
         else:
             src_tail = None
-        return self.wilson.give_wilson_plus(ward=ward, src=src, hopping=self.M_plus_list[ward], src_tail=src_tail)
+        return self.wilson.give_wilson_plus(ward=ward, src=src, hopping=self.M_plus_list[ward], src_tail=src_tail).to(dtype=dtype, device=device)
 
     def matvec_minus(self, ward: int, src: torch.Tensor, if_multi: bool) -> torch.Tensor:
+        dtype = src.dtype
+        device = src.device
+        _dtype = self.M_minus_list[ward].dtype
+        _device = self.M_minus_list[ward].device
+        if dtype != _dtype or device != _device:
+            src = src.to(dtype=_dtype, device=_device)
         if if_multi and self.grid_size[ward] != 1:
             comm = MPI.COMM_WORLD
             rank = comm.Get_rank()
@@ -304,7 +329,7 @@ class hopping:
                 device=src.device).clone()
         else:
             src_head = None
-        return self.wilson.give_wilson_minus(ward=ward, src=src, hopping=self.M_minus_list[ward], src_head=src_head)
+        return self.wilson.give_wilson_minus(ward=ward, src=src, hopping=self.M_minus_list[ward], src_head=src_head).to(dtype=dtype, device=device)
 
     def matvec(self, src: torch.Tensor, if_multi: bool = give_if_multi()) -> torch.Tensor:
         dest = torch.zeros_like(src)
@@ -324,8 +349,14 @@ class sitting:
                 [12, 12]+list(self.clover_term.shape[-4:])).clone()  # A = I + T
 
     def matvec(self, src: torch.Tensor) -> torch.Tensor:
+        dtype = src.dtype
+        device = src.device
+        _dtype = self.M.dtype
+        _device = self.M.device
+        if dtype != _dtype or device != _device:
+            src = src.to(dtype=_dtype, device=_device)
         return torch.einsum(
-            "EeTZYX, eTZYX->ETZYX", self.M, src).clone()
+            "EeTZYX, eTZYX->ETZYX", self.M, src).clone().to(dtype=dtype, device=device)
 
 
 class op:
@@ -408,29 +439,41 @@ class op:
 
 
 class mg:
-    def __init__(self, lat_size: Tuple[int, int, int, int], dtype: torch.dtype, device: torch.device, wilson: wilson_mg = None, U: torch.Tensor = None, clover: clover = None, clover_term: torch.Tensor = None,  min_size: int = 2, max_levels: int = 5, mg_grid_size: Tuple[int, int, int, int] = [2, 2, 2, 2], dof_list: Tuple[int, int, int, int] = [12, 24, 24, 24, 24], tol: float = 1e-6, max_iter: int = 1000, root: int = 0, verbose: bool = True):
+    def __init__(self, lat_size: Tuple[int, int, int, int], dtype: torch.dtype = None, device: torch.device = None, dtype_list: Tuple[torch.dtype, torch.dtype, torch.dtype, torch.dtype] = None, device_list: Tuple[torch.device, torch.device, torch.device, torch.device] = None, wilson: wilson_mg = None, U: torch.Tensor = None, clover: clover = None, clover_term: torch.Tensor = None,  min_size: int = 2, max_levels: int = 6, mg_grid_size: Tuple[int, int, int, int] = [2, 2, 2, 2], num_convergence_sample: int = 50, dof_list: Tuple[int, int, int, int] = [12, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24], tol: float = 1e-6, max_iter: int = 1000, root: int = 0, verbose: bool = True):
         self.comm = MPI.COMM_WORLD
         self.rank = self.comm.Get_rank()
         self.lat_size = list(lat_size)
-        self.dtype = dtype
-        self.device = device
         self.min_size = min_size
         self.max_levels = max_levels
-        self.dof_list = dof_list
         self.tol = tol
         self.max_iter = max_iter
         self.root = root
         self.verbose = verbose
+        if dtype != None:
+            self.dtype_list = [dtype]*max_levels
+        else:
+            self.dtype_list = dtype_list
+        if device != None:
+            self.device_list = [device]*max_levels
+        else:
+            self.device_list = device_list
+        self.dof_list = dof_list
+        if self.rank == self.root:
+            print(f"self.dof_list:{self.dof_list}")
+            print(f"self.dtype_list:{self.dtype_list}")
+            print(f"self.device_list:{self.device_list}")
         self.op_list = [op(wilson=wilson, U=U,
                            clover=clover, clover_term=clover_term, verbose=self.verbose)]
         self.b = torch.randn(size=[12]+self.lat_size[::-1],
-                             dtype=self.dtype, device=self.device)
+                             dtype=self.dtype_list[0], device=self.device_list[0])
         self.x0 = torch.randn(
-            size=[12]+self.lat_size[::-1], dtype=self.dtype, device=self.device)
+            size=[12]+self.lat_size[::-1], dtype=self.dtype_list[0], device=self.device_list[0])
         self.b_list = [self.b.clone()]
         self.nv_list = []  # null_vecs_list
         self.lonv_list = []  # local_ortho_null_vecs_list
+        self.num_convergence_sample = num_convergence_sample
         self.convergence_history = []
+        self.convergence_tol = 0
         # Build grid list
         self.lat_size_list = []
         self.mg_grid_size = mg_grid_size
@@ -450,11 +493,11 @@ class mg:
         comm.Barrier()
         for i in range(1, len(self.lat_size_list)):
             _null_vecs = torch.randn(size=[self.dof_list[i], self.dof_list[i-1]] +
-                                     self.lat_size_list[i-1][::-1], dtype=self.b.dtype, device=self.b.device)
+                                     self.lat_size_list[i-1][::-1], dtype=self.dtype_list[i-1], device=self.device_list[i-1])
             _null_vecs = give_null_vecs(
                 null_vecs=_null_vecs,
                 matvec=self.op_list[i-1].matvec,
-                verbose=self.verbose)
+                verbose=self.verbose).to(dtype=self.dtype_list[i], device=self.device_list[i])
             self.nv_list.append(_null_vecs)
             _local_ortho_null_vecs = local_orthogonalize(
                 null_vecs=_null_vecs,
@@ -462,17 +505,35 @@ class mg:
                 verbose=self.verbose)
             self.lonv_list.append(_local_ortho_null_vecs)
             self.b_list.append(torch.zeros(
-                size=[self.dof_list[i]]+self.lat_size_list[i][::-1], dtype=self.b.dtype, device=self.b.device))
+                size=[self.dof_list[i]]+self.lat_size_list[i][::-1], dtype=self.dtype_list[i], device=self.device_list[i]))
             self.op_list.append(op(fine_hopping=self.op_list[i-1].hopping, fine_sitting=self.op_list[i -
                                 1].sitting, local_ortho_null_vecs=_local_ortho_null_vecs,  verbose=self.verbose))
         comm.Barrier()
 
+    def levels_back(self):
+        self.convergence_tol = 0
+        self.num_levels = len(self.op_list) if len(
+            self.op_list) <= self.max_levels else self.max_levels
+
+    def adaptive(self, iter: int = 0):
+        if self.convergence_tol > 3:
+            self.num_levels = 1
+        if (iter+1)*2 < self.num_convergence_sample+1:
+            return
+        convergence_now = self.convergence_history[-1]
+        convergence_sample = self.convergence_history[-(
+            self.num_convergence_sample+1):-1]
+        count = 0
+        for convergence in convergence_sample:
+            if convergence < convergence_now:
+                count += 1
+        if count >= self.num_convergence_sample//2:
+            self.convergence_tol += 1
+
     def cycle(self, level: int = 0) -> torch.Tensor:
         matvec = self.op_list[level].matvec
-        # init start
         b = self.b_list[level].clone()
         x = torch.zeros_like(b)
-        # init end
         r = b - matvec(x)
         r_norm = torch_norm(r)
         _tol = r_norm*0.5 if level != self.num_levels - 1 else r_norm*0.1
@@ -507,8 +568,7 @@ class mg:
             alpha = rho / torch_vdot(r_tilde, v)
             s = r - alpha * v
             t = matvec(s)
-            omega = torch_vdot(t, s) / \
-                torch_vdot(t, t)
+            omega = torch_vdot(t, s) / torch_vdot(t, t)
             x = x + alpha * p + omega * s
             r = s - omega * t
             r_norm = torch_norm(r)
@@ -519,11 +579,13 @@ class mg:
                 print(
                     f"B-MG-{level}-BICGSTAB-Iteration {i}: Residual = {r_norm:.6e}")
             # cycle start
-            if level != self.num_levels-1:
+            if level < self.num_levels-1:
                 r_coarse = restrict(
                     local_ortho_null_vecs=self.lonv_list[level], fine_vec=r, verbose=self.verbose)
-                self.b_list[level+1] = r_coarse.clone()
-                e_coarse = self.cycle(level=level+1)
+                self.b_list[level+1] = r_coarse.clone().to(dtype=self.dtype_list[level+1],
+                                                           device=self.device_list[level+1])
+                e_coarse = self.cycle(level=level+1).to(dtype=self.dtype_list[level],
+                                                        device=self.device_list[level])
                 e_fine = prolong(
                     local_ortho_null_vecs=self.lonv_list[level], coarse_vec=e_coarse, verbose=self.verbose)
                 x = x + e_fine
@@ -531,6 +593,7 @@ class mg:
             r_norm = torch_norm(r)
             if level == 0:
                 self.convergence_history.append(r_norm)
+                self.adaptive(iter=i)
             # cycle end
             iter_time = perf_counter() - iter_start_time
             iter_times.append(iter_time)
@@ -560,6 +623,7 @@ class mg:
             self.b_list[0] = self.b.clone()
         if x0 != None:
             self.x0 = x0.reshape([12]+list(x0.shape)[2:]).clone()  # sc->e
+        self.levels_back()
         start_time = perf_counter()
         x = self.cycle()
         total_time = perf_counter() - start_time
