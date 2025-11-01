@@ -279,4 +279,4 @@ def set_device(device: torch.device):
         print(f"Rank{rank}-Error: {e}")
     finally:
         print(
-            f"@My Rank:{rank}/{size}, Local Rank:{local_rank}@\n")
+            f"@Device:{device}, My Rank:{rank}/{size}, Local Rank:{local_rank}@\n")
