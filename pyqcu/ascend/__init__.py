@@ -28,11 +28,11 @@ class qcu:
         if dtype != None:
             self.dtype_list = [dtype]*max_levels
         else:
-            self.dtype_list = dtype_list
+            self.dtype_list = dtype_list[:max_levels]
         if device != None:
             self.device_list = [device]*max_levels
         else:
-            self.device_list = device_list
+            self.device_list = device_list[:max_levels]
         self.dof_list = dof_list
         for device in self.device_list:
             set_device(device=device)
