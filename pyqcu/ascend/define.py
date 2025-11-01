@@ -4,7 +4,6 @@ import os
 import numpy as np
 from typing import Tuple, Optional
 
-import torch_npu.npu
 # NumPy → Torch
 np2torch_dtype = {
     np.bool_: torch.bool,
@@ -280,7 +279,8 @@ def set_device(device: torch.device):
     elif device == torch.device('cpu'):
         pass
     elif device == torch.device('npu'):
-        import torch_npu
-        torch_npu.torch.cuda.set_device(local_rank)
+        pass
+        # import torch_npu
+        # torch_npu.torch.cuda.set_device(local_rank)
     print(
         f"@Device:{device}, My Rank:{rank}/{size}, Local Rank:{local_rank}@\n")
