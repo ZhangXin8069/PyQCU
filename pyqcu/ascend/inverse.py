@@ -464,6 +464,7 @@ class mg:
             print(f"self.device_list:{self.device_list}")
         self.op_list = [op(wilson=wilson, U=U,
                            clover=clover, clover_term=clover_term, verbose=self.verbose)]
+        print('TEST0')
         self.b = torch.randn(size=[12]+self.lat_size[::-1],
                              dtype=self.dtype_list[0], device=self.device_list[0])
         self.x0 = torch.randn(
