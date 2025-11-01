@@ -58,14 +58,11 @@ U = wilson.generate_gauge_field(sigma=0.1, seed=42)
 wilson.check_su3(U)
 clover_term = clover.make_clover(U=U)
 # clover_term = torch.zeros_like(clover_term) # just for test, just wilson
-
 b = torch.randn(4, 3, latt_size[3], latt_size[2], latt_size[1], latt_size[0],
                 dtype=dtype, device=device)
 verbose = True
 tol = 1e-9
-# mg = inverse.mg(lat_size=latt_size,dtype=dtype,device=device, wilson=wilson, U=U,
-#                 clover=clover, clover_term=clover_term, tol=tol, verbose=verbose)
-mg = inverse.mg(lat_size=latt_size, dtype_list=[dtype, torch.complex64, torch.complex64, torch.complex64, torch.complex32], device_list=[device, torch.device('cuda'), torch.device('cpu'), torch.device('cpu'), torch.device('cpu')], wilson=wilson, U=U,
+mg = inverse.mg(lat_size=latt_size, dtype=dtype, device=device, wilson=wilson, U=U,
                 clover=clover, clover_term=clover_term, tol=tol, verbose=verbose)
 mg.init()
 
@@ -74,19 +71,21 @@ for op in mg.op_list:
     print(f"op.sitting.M.dtype: {op.sitting.M.dtype}")
     print(f"op.sitting.M.device: {op.sitting.M.device}")
 
+
 def matvec(src: torch.Tensor, U: torch.Tensor = U, clover_term: torch.Tensor = clover_term) -> torch.Tensor:
     return wilson.give_wilson(src, U)+clover.give_clover(clover_term=clover_term, src=src)
 
+
 def _matvec(src: torch.Tensor) -> torch.Tensor:
     return mg.op_list[0].matvec(src=src)
+
 
 Ab = matvec(b)
 _Ab = _matvec(b)
 print(
     f"torch.norm(Ab-_Ab).item()/torch.norm(_Ab).item(): {torch.norm(Ab-_Ab).item()/torch.norm(_Ab).item()}")
-# _x = inverse.cg(b=b, matvec=matvec, tol=tol, verbose=verbose)
 _x = inverse.bicgstab(b=b, matvec=_matvec, tol=tol, verbose=verbose)
-# _x = inverse.bicgstab(b=b, matvec=mg.op_list[0].matvec, tol=tol, verbose=verbose)
-
 x = mg.solve(b=b)
+print(
+    f"torch.norm(x-_x).item()/torch.norm(_x).item(): {torch.norm(x-_x).item()/torch.norm(_x).item()}")
 mg.plot()
