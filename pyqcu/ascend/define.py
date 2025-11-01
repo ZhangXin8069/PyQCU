@@ -3,6 +3,8 @@ import torch
 import os
 import numpy as np
 from typing import Tuple, Optional
+
+import torch_npu.npu
 # NumPy → Torch
 np2torch_dtype = {
     np.bool_: torch.bool,
@@ -273,10 +275,12 @@ def set_device(device: torch.device):
     rank = comm.Get_rank()
     size = comm.Get_size()
     local_rank = give_local_rank(device=device)
-    try:
+    if device == torch.device('cuda'):
         torch.cuda.set_device(local_rank)
-    except Exception as e:
-        print(f"Rank{rank}-Error: {e}")
-    finally:
-        print(
-            f"@Device:{device}, My Rank:{rank}/{size}, Local Rank:{local_rank}@\n")
+    elif device == torch.device('cpu'):
+        pass
+    elif device == torch.device('npu'):
+        import torch_npu
+        torch_npu.torch.cuda.set_device(local_rank)
+    print(
+        f"@Device:{device}, My Rank:{rank}/{size}, Local Rank:{local_rank}@\n")
