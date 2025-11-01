@@ -261,7 +261,6 @@ class hopping:
         self.U = U
         self.grid_size = give_grid_size()
         self.grid_index = give_grid_index()
-        print('TEST0')
         if self.wilson != None and self.U != None:
             for ward in range(4):  # xyzt
                 if if_multi and self.grid_size[ward] != 1:
@@ -463,6 +462,8 @@ class mg:
             print(f"self.dof_list:{self.dof_list}")
             print(f"self.dtype_list:{self.dtype_list}")
             print(f"self.device_list:{self.device_list}")
+        for device in self.device_list:
+            set_device(device=device)
         self.op_list = [op(wilson=wilson, U=U,
                            clover=clover, clover_term=clover_term, verbose=self.verbose)]
         self.b = torch.randn(size=[12]+self.lat_size[::-1],
