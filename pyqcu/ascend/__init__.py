@@ -34,11 +34,8 @@ class qcu:
         else:
             self.device_list = device_list
         self.dof_list = dof_list
-        self.local_rank = give_local_rank(device=self.device_list[0])
-        try:
-            torch.cuda.set_device(self.local_rank)
-        except Exception as e:
-            print(f"Rank{self.rank}-Error: {e}")
+        for device in self.device_list:
+            set_device(device=device)
         self.lat_size = list(lat_size)
         self.grid_size = give_grid_size()
         self.grid_index = give_grid_index()
@@ -52,8 +49,6 @@ class qcu:
             print(f"self.dtype_list:{self.dtype_list}")
             print(f"self.device_list:{self.device_list}")
             print(f"self.local_lat_size: {self.local_lat_size}")
-        print(
-            f"@My Rank:{self.rank}/{self.size}, Local Rank:{self.local_rank}@\n")
         self.wilson = wilson_mg(
             latt_size=self.local_lat_size, kappa=self.kappa, dtype=self.dtype_list[0], device=self.device_list[0], verbose=False)
         self.clover = clover(latt_size=self.local_lat_size,
