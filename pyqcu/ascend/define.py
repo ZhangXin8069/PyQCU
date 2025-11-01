@@ -266,3 +266,17 @@ def full2local_tensor(
     comm.Scatter(sendbuf=sendbuf, recvbuf=recvbuf, root=root)
     comm.Barrier()
     return torch.from_numpy(recvbuf).to(device=full_tensor.device).clone()
+
+
+def set_device(device: torch.device):
+    comm = MPI.COMM_WORLD
+    rank = comm.Get_rank()
+    size = comm.Get_size()
+    local_rank = give_local_rank(device=device)
+    try:
+        torch.cuda.set_device(local_rank)
+    except Exception as e:
+        print(f"Rank{rank}-Error: {e}")
+    finally:
+        print(
+            f"@My Rank:{rank}/{size}, Local Rank:{local_rank}@\n")
