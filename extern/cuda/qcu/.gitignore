@@ -27,4 +27,4 @@ lib*
 .ssub.sh
 .vscode
 *.log*
-CMakeLists.txt
+# CMakeLists.txt
