@@ -35,8 +35,8 @@ kappa = 1 / (2 * mass + 8)
 # dtype = torch.complex128
 dtype = torch.complex64
 # dtype = torch.complex32
-# device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-device = torch.device('cpu')
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+# device = torch.device('cpu')
 print(f"Using device: {device}")
 # Initialize lattice gauge theory
 wilson = dslash.wilson_mg(
