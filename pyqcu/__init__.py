@@ -2,9 +2,13 @@
 from mpi4py import MPI
 if not MPI.Is_initialized():
     MPI.Init()
-import faulthandler
-comm = MPI.Comm()
-faulthandler.enable(open(f"fault_rank{comm.Get_rank()}.log", "w"))
+
+try:
+    import faulthandler
+    comm = MPI.Comm()
+    faulthandler.enable(open(f"fault_rank{comm.Get_rank()}.log", "w"))
+except Exception as e:
+    print(f"Error: {e}")
 
 
 def info():

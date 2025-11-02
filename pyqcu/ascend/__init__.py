@@ -196,14 +196,14 @@ class qcu:
         return self.x
 
     def test(self):
-        print(f"torch.norm(self.U): {torch.norm(self.U)}")
-        print(f"torch.norm(self.clover_term): {torch.norm(self.clover_term)}")
-        print(f"torch.norm(self.b): {torch.norm(self.b)}")
-        print(f"torch.norm(self.x): {torch.norm(self.x)}")
         print(f"torch_norm(self.U): {torch_norm(self.U)}")
         print(f"torch_norm(self.clover_term): {torch_norm(self.clover_term)}")
         print(f"torch_norm(self.b): {torch_norm(self.b)}")
         print(f"torch_norm(self.x): {torch_norm(self.x)}")
+        print(f"multi_norm(self.U): {multi_norm(self.U)}")
+        print(f"multi_norm(self.clover_term): {multi_norm(self.clover_term)}")
+        print(f"multi_norm(self.b): {multi_norm(self.b)}")
+        print(f"multi_norm(self.x): {multi_norm(self.x)}")
         full_wilson = wilson_mg(
             latt_size=self.lat_size, kappa=self.kappa, dtype=self.dtype_list[0], device=self.device_list[0], verbose=False)
         full_clover = clover(latt_size=self.lat_size,
@@ -224,18 +224,18 @@ class qcu:
         if self.rank == self.root:
             _full_Ax = full_matvec(
                 src=_full_x, U=full_U, clover_term=full_clover_term)
-            print(f"torch.norm(_full_b): {torch.norm(_full_b)}")
-            print(f"torch.norm(_full_x): {torch.norm(_full_x)}")
-            print(f"torch.norm(full_Ax): {torch.norm(full_Ax)}")
-            print(f"torch.norm(_full_Ax): {torch.norm(_full_Ax)}")
+            print(f"torch_norm(_full_b): {torch_norm(_full_b)}")
+            print(f"torch_norm(_full_x): {torch_norm(_full_x)}")
+            print(f"torch_norm(full_Ax): {torch_norm(full_Ax)}")
+            print(f"torch_norm(_full_Ax): {torch_norm(_full_Ax)}")
             print(
-                f"torch.norm(full_Ax-_full_b).item()/torch.norm(full_Ax).item(): {torch.norm(full_Ax-_full_b).item()/torch.norm(full_Ax).item()}")
+                f"torch_norm(full_Ax-_full_b).item()/torch_norm(full_Ax).item(): {torch_norm(full_Ax-_full_b).item()/torch_norm(full_Ax).item()}")
             print(
-                f"torch.norm(_full_Ax-_full_b).item()/torch.norm(_full_Ax).item(): {torch.norm(_full_Ax-_full_b).item()/torch.norm(_full_Ax).item()}")
+                f"torch_norm(_full_Ax-_full_b).item()/torch_norm(_full_Ax).item(): {torch_norm(_full_Ax-_full_b).item()/torch_norm(_full_Ax).item()}")
             print(
-                f"torch.norm(full_Ax-_full_Ax).item()/torch.norm(full_Ax).item(): {torch.norm(full_Ax-_full_Ax).item()/torch.norm(full_Ax).item()}")
+                f"torch_norm(full_Ax-_full_Ax).item()/torch_norm(full_Ax).item(): {torch_norm(full_Ax-_full_Ax).item()/torch_norm(full_Ax).item()}")
         try:
             print(
-                f"torch.norm(self.refer_x-self.x).item()/torch.norm(self.x).item(): {torch.norm(self.refer_x-self.x).item()/torch.norm(self.x).item()}")
+                f"multi_norm(self.refer_x-self.x).item()/multi_norm(self.x).item(): {multi_norm(self.refer_x-self.x).item()/multi_norm(self.x).item()}")
         except Exception as e:
             print(f"Rank{self.rank}-Error: {e}")
