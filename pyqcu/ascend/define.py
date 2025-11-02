@@ -396,16 +396,21 @@ def torch_eye(n: int, m=None, out=None, dtype=None, layout=torch.strided, device
             return torch.eye(n, m, out=out, dtype=dtype, layout=layout, device=device, requires_grad=requires_grad)
 
 
-def torch_randn(*size, out=None, dtype=None, layout=torch.strided, device=None, requires_grad=False) -> torch.Tensor:
+def torch_randn(*args, size=None, out=None, dtype=None, layout=torch.strided, device=None, requires_grad=False) -> torch.Tensor:
+    if size is not None:
+        args = size
     if device is not None and device.type == 'npu' and dtype is not None and dtype.is_complex:
         real_dtype = torch.float32 if dtype == torch.complex64 else torch.float64
-        real_part = torch.randn(*size, out=out, dtype=real_dtype,
+        real_part = torch.randn(*args, out=out, dtype=real_dtype,
                                 layout=layout, device=device, requires_grad=requires_grad)
         imag_part = torch.randn(
-            *size, dtype=real_dtype, layout=layout, device=device, requires_grad=requires_grad)
+            *args, dtype=real_dtype, layout=layout, device=device, requires_grad=requires_grad)
         return real_part + imag_part * 1j
     else:
-        return torch.randn(*size, out=out, dtype=dtype, layout=layout, device=device, requires_grad=requires_grad)
+        if size is not None:
+            return torch.randn(size=size, out=out, dtype=dtype, layout=layout, device=device, requires_grad=requires_grad)
+        else:
+            return torch.randn(*args, out=out, dtype=dtype, layout=layout, device=device, requires_grad=requires_grad)
 
 
 def torch_randn_like(input: torch.Tensor) -> torch.Tensor:
