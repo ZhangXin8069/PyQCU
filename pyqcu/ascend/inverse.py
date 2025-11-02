@@ -12,9 +12,9 @@ from pyqcu.ascend.dslash import *
 def cg(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], tol: float = 1e-6, max_iter: int = 1000, x0: torch.Tensor = None, if_rtol: bool = False, if_multi: bool = give_if_multi(), verbose: bool = True) -> torch.Tensor:
     _matvec = functools.partial(matvec, if_multi=if_multi) if 'if_multi' in inspect.signature(
         matvec).parameters else matvec
-    _torch_vdot = functools.partial(torch_vdot, if_multi=if_multi)
-    _torch_norm = functools.partial(torch_norm, if_multi=if_multi)
-    x = x0.clone() if x0 is not None else torch.randn_like(b)
+    _torch_vdot = functools.partial(torch_vdot_, if_multi=if_multi)
+    _torch_norm = functools.partial(torch_norm_, if_multi=if_multi)
+    x = x0.clone() if x0 is not None else torch_randn_like(b)
     r = b - _matvec(x)
     r_norm = _torch_norm(r)
     if if_rtol:
@@ -47,7 +47,7 @@ def cg(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], tol: flo
         rho = _torch_vdot(r, r)
         beta = rho / rho_prev
         p = r + beta * p
-        r_norm = torch.sqrt(rho)
+        r_norm = torch_sqrt(rho)
         iter_time = perf_counter() - iter_start_time
         iter_times.append(iter_time)
         if verbose:
@@ -74,9 +74,9 @@ def cg(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], tol: flo
 def bicgstab(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], tol: float = 1e-6, max_iter: int = 1000, x0: torch.Tensor = None, if_rtol: bool = False, if_multi: bool = give_if_multi(), verbose: bool = True) -> torch.Tensor:
     _matvec = functools.partial(matvec, if_multi=if_multi) if 'if_multi' in inspect.signature(
         matvec).parameters else matvec
-    _torch_vdot = functools.partial(torch_vdot, if_multi=if_multi)
-    _torch_norm = functools.partial(torch_norm, if_multi=if_multi)
-    x = x0.clone() if x0 is not None else torch.randn_like(b)
+    _torch_vdot = functools.partial(torch_vdot_, if_multi=if_multi)
+    _torch_norm = functools.partial(torch_norm_, if_multi=if_multi)
+    x = x0.clone() if x0 is not None else torch_randn_like(b)
     r = b - _matvec(x)
     r_norm = _torch_norm(r)
     if if_rtol:
@@ -145,12 +145,12 @@ def give_null_vecs(
     normalize: bool = True, ortho_r: bool = False, ortho_null_vecs: bool = False, verbose: bool = True
 ) -> torch.Tensor:
     dof = null_vecs.shape[0]
-    null_vecs = torch.randn_like(null_vecs)  # [Eetzyx]
+    null_vecs = torch_randn_like(null_vecs)  # [Eetzyx]
     for i in range(dof):
         if ortho_r:
             # The orthogonalization of r
             for j in range(0, i):
-                null_vecs[i] -= torch_vdot(null_vecs[j], null_vecs[i])/torch_vdot(
+                null_vecs[i] -= multi_vdot(null_vecs[j], null_vecs[i])/multi_vdot(
                     null_vecs[j], null_vecs[j])*null_vecs[j]
         # v=r-A^{-1}Ar
         # tol needs to be bigger...
@@ -159,10 +159,10 @@ def give_null_vecs(
         if ortho_null_vecs:
             # The orthogonalization of null_vecs
             for j in range(0, i):
-                null_vecs[i] -= torch_vdot(null_vecs[j], null_vecs[i])/torch_vdot(
+                null_vecs[i] -= multi_vdot(null_vecs[j], null_vecs[i])/multi_vdot(
                     null_vecs[j], null_vecs[j])*null_vecs[j]
         if normalize:
-            null_vecs[i] /= torch_norm(null_vecs[i])
+            null_vecs[i] /= multi_norm(null_vecs[i])
         if verbose:
             print(
                 f"(_matvec(null_vecs[i])/null_vecs[i]).flatten()[:10]:{(matvec(null_vecs[i])/null_vecs[i]).flatten()[:10]}")
@@ -171,15 +171,15 @@ def give_null_vecs(
         for i in range(dof):
             Av = matvec(null_vecs[i])
             print(
-                f"  Vector {i}: ||A*v/v|| = {torch_norm(Av/null_vecs[i]):.6e}")
+                f"  Vector {i}: ||A*v/v|| = {multi_norm(Av/null_vecs[i]):.6e}")
             print(
                 f"  Vector {i}: A*v/v:100 = {(Av/null_vecs[i]).flatten()[:100]}")
             print(
-                f"_torch_norm(null_vecs[{i}]):.6e:{torch_norm(null_vecs[i]):.6e}")
+                f"_torch_norm(null_vecs[{i}]):.6e:{multi_norm(null_vecs[i]):.6e}")
             # orthogonalization
             for j in range(0, i+1):
                 print(
-                    f"torch_vdot(null_vecs[{i}], null_vecs[{j}]):{torch_vdot(null_vecs[i], null_vecs[j])}")
+                    f"multi_vdot(null_vecs[{i}], null_vecs[{j}]):{multi_vdot(null_vecs[i], null_vecs[j])}")
     return null_vecs.clone()
 
 
@@ -210,10 +210,10 @@ def local_orthogonalize(null_vecs: torch.Tensor,
     A = v.transpose(-2, -1)  # [n_blocks, local_dim, E]
     # Batched QR on each block; Q has orthonormal columns in R^{local_dim}
     # Use reduced mode: Q: [n_blocks, local_dim, E], R: [n_blocks, E, E]
-    Q, _ = torch.linalg.qr(A, mode='reduced')
+    Q, _ = torch_linalg_qr(A, mode='reduced')
     if normalize:
         # Normalize each column vector explicitly
-        Q = Q / torch.norm(Q, dim=-2, keepdim=True)
+        Q = Q / torch_norm(Q, dim=-2, keepdim=True)
     # Restore lattice structure: [T, Z, Y, X, e, t, z, y, x, E]
     Q = Q.view(T, Z, Y, X, e, t, z, y, x, E)
     # Permute back to [E, e, T, t, Z, z, Y, y, X, x]
@@ -233,7 +233,7 @@ def restrict(local_ortho_null_vecs: torch.Tensor, fine_vec: torch.Tensor, verbos
         fine_vec = fine_vec.to(dtype=_dtype, device=_device)
     shape = local_ortho_null_vecs.shape
     _fine_vec = fine_vec.reshape(shape=shape[1:]).clone()
-    return torch.einsum(
+    return torch_einsum(
         "EeTtZzYyXx,eTtZzYyXx->ETZYX", local_ortho_null_vecs.conj(), _fine_vec).clone().to(dtype=dtype, device=device)
 
 
@@ -246,7 +246,7 @@ def prolong(local_ortho_null_vecs: torch.Tensor, coarse_vec: torch.Tensor, verbo
         coarse_vec = coarse_vec.to(dtype=_dtype, device=_device)
     shape = local_ortho_null_vecs.shape
     _coarse_vec = coarse_vec.reshape(shape=shape[0:1]+shape[-8:][::2]).clone()
-    return torch.einsum(
+    return torch_einsum(
         "EeTtZzYyXx,ETZYX->eTtZzYyXx", local_ortho_null_vecs, _coarse_vec).reshape([shape[1], shape[-8]*shape[-7], shape[-6]*shape[-5], shape[-4]*shape[-3], shape[-2]*shape[-1]]).clone().to(dtype=dtype, device=device)
 
 
@@ -355,7 +355,7 @@ class sitting:
         _device = self.M.device
         if dtype != _dtype or device != _device:
             src = src.to(dtype=_dtype, device=_device)
-        return torch.einsum(
+        return torch_einsum(
             "EeTZYX, eTZYX->ETZYX", self.M, src).clone().to(dtype=dtype, device=device)
 
 
@@ -537,12 +537,12 @@ class mg:
         b = self.b_list[level].clone()
         x = torch.zeros_like(b)
         r = b - matvec(x)
-        r_norm = torch_norm(r)
+        r_norm = multi_norm(r)
         _tol = r_norm*0.5 if level != self.num_levels - 1 else r_norm*0.1
         if self.verbose:
-            print(f"MG-{level}:Norm of b:{torch_norm(b)}")
+            print(f"MG-{level}:Norm of b:{multi_norm(b)}")
             print(f"MG-{level}:Norm of r:{r_norm}")
-            print(f"MG-{level}:Norm of x0:{torch_norm(x)}")
+            print(f"MG-{level}:Norm of x0:{multi_norm(x)}")
         if level == 0:
             self.convergence_history.append(r_norm)
             _tol = self.tol
@@ -562,18 +562,18 @@ class mg:
         iter_times = []
         for i in range(self.max_iter):
             iter_start_time = perf_counter()
-            rho = torch_vdot(r_tilde, r)
+            rho = multi_vdot(r_tilde, r)
             beta = (rho / rho_prev) * (alpha / omega)
             rho_prev = rho
             p = r + beta * (p - omega * v)
             v = matvec(p)
-            alpha = rho / torch_vdot(r_tilde, v)
+            alpha = rho / multi_vdot(r_tilde, v)
             s = r - alpha * v
             t = matvec(s)
-            omega = torch_vdot(t, s) / torch_vdot(t, t)
+            omega = multi_vdot(t, s) / multi_vdot(t, t)
             x = x + alpha * p + omega * s
             r = s - omega * t
-            r_norm = torch_norm(r)
+            r_norm = multi_norm(r)
             if level == 0:
                 self.convergence_history.append(r_norm)
             if self.verbose:
@@ -592,7 +592,7 @@ class mg:
                     local_ortho_null_vecs=self.lonv_list[level], coarse_vec=e_coarse, verbose=self.verbose)
                 x = x + e_fine
                 r = b - matvec(x)
-            r_norm = torch_norm(r)
+            r_norm = multi_norm(r)
             if level == 0:
                 self.convergence_history.append(r_norm)
                 self.adaptive(iter=i)
