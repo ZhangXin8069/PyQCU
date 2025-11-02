@@ -34,7 +34,7 @@ class wilson(nn.Module):
         self.dtype = dtype
         self.device = device or torch.device('cpu')
         # npu needed......
-        self.I = torch.eye(4, dtype=self.dtype).to(device=self.device)
+        self.I = torch_eye(4, dtype=self.dtype, device=self.device)
         self.verbose = verbose
         # Determine real dtype based on complex dtype
         self.real_dtype = dtype.to_real()
@@ -114,7 +114,7 @@ class wilson(nn.Module):
         # gell_mann: (8, 3, 3) -> (1, 1, 1, 1, 1, 8, 3, 3)
         gell_mann_expanded = self.gell_mann.view(1, 1, 1, 1, 1, 8, 3, 3)
         # Compute all Hermitian matrices H in one go: shape [4, Lt, Lz, Ly, Lx, 3, 3]
-        H = torch.einsum('...i,...ijk->...jk',
+        H = torch_einsum('...i,...ijk->...jk',
                          a.to(self.dtype), gell_mann_expanded)
         # Apply exponential map: shape stays [4, Lt, Lz, Ly, Lx, 3, 3]
         U_all = torch.matrix_exp(1j * sigma * H)
@@ -122,7 +122,7 @@ class wilson(nn.Module):
         U = U_all.permute(5, 6, 0, 1, 2, 3, 4).contiguous()
         if self.verbose:
             print("  Gauge field generation complete")
-            print(f"  Gauge field norm: {torch.norm(U).item()}")
+            print(f"  Gauge field norm: {torch_norm(U).item()}")
         return U
 
     def check_su3(self, U: torch.Tensor, tol: float = 1e-6) -> bool:
@@ -139,23 +139,23 @@ class wilson(nn.Module):
                           1).reshape(-1, 3, 3).clone()  # N x 3 x 3
         N = U_mat.shape[0]
         # Precompute the identity matrix for unitary check
-        eye = torch.eye(3, dtype=U_mat.dtype,
+        eye = torch_eye(3, dtype=U_mat.dtype,
                         device=U_mat.device).expand(N, -1, -1)
         # 1 Unitarity check: Uᴴ U ≈ I
         UH_U = torch.matmul(U_mat.conj().transpose(-1, -2), U_mat)
-        unitary_ok = torch.allclose(UH_U, eye, atol=tol)
+        unitary_ok = torch_allclose(UH_U, eye, atol=tol)
         # 2 Determinant check: det(U) ≈ 1
         det_U = torch.linalg.det(U_mat)
-        det_ok = torch.allclose(det_U, torch.ones_like(det_U), atol=tol)
+        det_ok = torch_allclose(det_U, torch.ones_like(det_U), atol=tol)
         # 3 Minor identities check
         # Flatten matrices to shape (N, 9) for easy indexing
         Uf = U_mat.reshape(N, 9)
         c6 = (Uf[:, 1] * Uf[:, 5] - Uf[:, 2] * Uf[:, 4]).conj()
         c7 = (Uf[:, 2] * Uf[:, 3] - Uf[:, 0] * Uf[:, 5]).conj()
         c8 = (Uf[:, 0] * Uf[:, 4] - Uf[:, 1] * Uf[:, 3]).conj()
-        minors_ok = (torch.allclose(Uf[:, 6], c6, atol=tol) and
-                     torch.allclose(Uf[:, 7], c7, atol=tol) and
-                     torch.allclose(Uf[:, 8], c8, atol=tol))
+        minors_ok = (torch_allclose(Uf[:, 6], c6, atol=tol) and
+                     torch_allclose(Uf[:, 7], c7, atol=tol) and
+                     torch_allclose(Uf[:, 8], c8, atol=tol))
         # --- Optional verbose output ---
         if self.verbose:
             print(f"[check_su3] Total matrices checked: {N}")
@@ -222,7 +222,7 @@ class wilson(nn.Module):
             print("Applying Dirac operator...")
             print(f"  Source shape: {src.shape}")
             print(f"  Gauge field shape: {U.shape}")
-            print(f"  Source norm: {torch.norm(src).item()}")
+            print(f"  Source norm: {torch_norm(src).item()}")
         # Compute adjoint gauge field (dagger conjugate)
         U_dag = U.permute(1, 0, 2, 3, 4, 5, 6).conj().clone()
         # Initialize dest tensor
@@ -250,29 +250,29 @@ class wilson(nn.Module):
             U_mu = U[..., mu, :, :, :, :]  # [c1, c2, t, z, y, x]
             U_dag_mu = U_dag[..., mu, :, :, :, :]  # [c1, c2, t, z, y, x]
             # Term 1: (r - γ_μ) U_{x,μ} src_{x+μ}
-            src_plus = torch.roll(src, shifts=-1, dims=axis)
+            src_plus = torch_roll(src, shifts=-1, dims=axis)
             # Contract color indices: U_mu * src_plus
-            U_src_plus = torch.einsum('Cctzyx,sctzyx->sCtzyx', U_mu, src_plus)
+            U_src_plus = torch_einsum('Cctzyx,sctzyx->sCtzyx', U_mu, src_plus)
             # Apply (r - gamma_mu) in spin space
-            term1 = torch.einsum(
+            term1 = torch_einsum(
                 'Ss,sCtzyx->SCtzyx', (self.I - gamma_mu), U_src_plus)
             # Term 2: (r + γ_μ) U_{x-μ,μ}^† src_{x-μ}
-            src_minus = torch.roll(src, shifts=1, dims=axis)
-            U_dag_minus = torch.roll(U_dag_mu, shifts=1, dims=axis)
+            src_minus = torch_roll(src, shifts=1, dims=axis)
+            U_dag_minus = torch_roll(U_dag_mu, shifts=1, dims=axis)
             # Contract color indices: U_dag_minus * src_minus
-            U_dag_src_minus = torch.einsum(
+            U_dag_src_minus = torch_einsum(
                 'Cctzyx,sctzyx->sCtzyx', U_dag_minus, src_minus)
             # Apply (r + gamma_mu) in spin space
-            term2 = torch.einsum(
+            term2 = torch_einsum(
                 'Ss,sCtzyx->SCtzyx', (self.I + gamma_mu), U_dag_src_minus)
             # Combine terms and subtract from dest
             hopping = term1 + term2
             dest -= self.kappa/self.u_0 * hopping
             if self.verbose:
-                print(f"    Hopping term norm: {torch.norm(hopping).item()}")
+                print(f"    Hopping term norm: {torch_norm(hopping).item()}")
         if self.verbose:
             print("Dirac operator application complete")
-            print(f"  Dest norm: {torch.norm(dest).item()}")
+            print(f"  Dest norm: {torch_norm(dest).item()}")
         return dest.clone()
 
 
@@ -328,7 +328,7 @@ class wilson_parity(wilson):
             print("Applying Dirac operator in eo...")
             print(f"  Source shape: {src_o.shape}")
             print(f"  Gauge field shape: {U_eo.shape}")
-            print(f"  Source norm: {torch.norm(src_o).item()}")
+            print(f"  Source norm: {torch_norm(src_o).item()}")
         # Compute adjoint gauge field (dagger conjugate)
         U_e = U_eo[0].clone()
         U_o = U_eo[1].clone()
@@ -363,42 +363,42 @@ class wilson_parity(wilson):
             U_e_mu = U_e[..., mu, :, :, :, :]  # [c1, c2, t, z, y, x_p]
             U_o_dag_mu = U_o_dag[..., mu, :, :, :, :]  # [c1, c2, t, z, y, x_p]
             # Term 1: (r - γ_μ) U_{x,μ} src_{x+μ}
-            src_o_plus = torch.roll(
+            src_o_plus = torch_roll(
                 src_o, shifts=-1, dims=axis)
             if name == 'x_p':  # -1 to 0 caused by parity decomposition\
                 src_o_plus[..., even_mask] = src_o[...,
                                                    even_mask]  # parity(src)=(t+y+z+x)%2=1,eo(src)==(t+y+z)%2=0,so:x_p(src)%2=1,move_plus=0
             # Contract color indices: U_eo_mu * src_o_plus
-            U_e_src_o_plus = torch.einsum(
+            U_e_src_o_plus = torch_einsum(
                 'Cctzyx,sctzyx->sCtzyx', U_e_mu, src_o_plus)
             # Apply (r - gamma_mu) in spin space
-            term1 = torch.einsum(
+            term1 = torch_einsum(
                 'Ss,sCtzyx->SCtzyx', (self.I - gamma_mu), U_e_src_o_plus)
             # Term 2: (r + γ_μ) U_{x-μ,μ}^† src_{x-μ}
-            src_o_minus = torch.roll(
+            src_o_minus = torch_roll(
                 src_o, shifts=1, dims=axis)
             if name == 'x_p':  # 1 to 0 caused by parity decomposition\
                 src_o_minus[..., odd_mask] = src_o[...,
                                                    odd_mask]  # parity(src)=(t+y+z+x)%2=1,eo(src)==(t+y+z)%2=1,so:x_p(src)%2=0,move_minus=0
-            U_o_dag_minus = torch.roll(
+            U_o_dag_minus = torch_roll(
                 U_o_dag_mu, shifts=1, dims=axis)
             if name == 'x_p':  # 1 to 0 caused by parity decomposition\
                 U_o_dag_minus[..., odd_mask] = U_o_dag_mu[...,
                                                           odd_mask]  # parity(U)=(t+y+z+x)%2=1,eo(U)==(t+y+z)%2=1,so:x_p(U)%2=0,move_minus=0
             # Contract color indices: U_eo_dag_minus * src_o_minus
-            U_o_dag_src_o_minus = torch.einsum(
+            U_o_dag_src_o_minus = torch_einsum(
                 'Cctzyx,sctzyx->sCtzyx', U_o_dag_minus, src_o_minus)
             # Apply (r + gamma_mu) in spin space
-            term2 = torch.einsum(
+            term2 = torch_einsum(
                 'Ss,sCtzyx->SCtzyx', (self.I + gamma_mu), U_o_dag_src_o_minus)
             # Combine terms and subtract from dest_e
             hopping = term1 + term2
             dest_e -= self.kappa/self.u_0 * hopping
             if self.verbose:
-                print(f"    Hopping term norm: {torch.norm(hopping).item()}")
+                print(f"    Hopping term norm: {torch_norm(hopping).item()}")
         if self.verbose:
             print("Dirac operator application complete in eo")
-            print(f"  Dest_e norm: {torch.norm(dest_e).item()}")
+            print(f"  Dest_e norm: {torch_norm(dest_e).item()}")
         return dest_e.clone()
 
     def give_wilson_oe(self,
@@ -420,7 +420,7 @@ class wilson_parity(wilson):
             print("Applying Dirac operator in oe...")
             print(f"  Source shape: {src_e.shape}")
             print(f"  Gauge field shape: {U_eo.shape}")
-            print(f"  Source norm: {torch.norm(src_e).item()}")
+            print(f"  Source norm: {torch_norm(src_e).item()}")
         # Compute adjoint gauge field (dagger conjugate)
         U_e = U_eo[0].clone()
         U_o = U_eo[1].clone()
@@ -455,42 +455,42 @@ class wilson_parity(wilson):
             U_e_dag_mu = U_e_dag[..., mu, :, :, :, :]  # [c1, c2, t, z, y, x_p]
             U_o_mu = U_o[..., mu, :, :, :, :]  # [c1, c2, t, z, y, x_p]
             # Term 1: (r - γ_μ) U_{x,μ} src_{x+μ}
-            src_e_plus = torch.roll(
+            src_e_plus = torch_roll(
                 src_e, shifts=-1, dims=axis)
             if name == 'x_p':  # -1 to 0 caused by parity decomposition\
                 src_e_plus[..., odd_mask] = src_e[...,
                                                   odd_mask]  # parity(src)=(t+y+z+x)%2=0,eo(src)==(t+y+z)%2=1,so:x_p(src)%2=1,move_plus=0
             # Contract color indices: U_eo_mu * src_o_plus
-            U_o_src_e_plus = torch.einsum(
+            U_o_src_e_plus = torch_einsum(
                 'Cctzyx,sctzyx->sCtzyx', U_o_mu, src_e_plus)
             # Apply (r - gamma_mu) in spin space
-            term1 = torch.einsum(
+            term1 = torch_einsum(
                 'Ss,sCtzyx->SCtzyx', (self.I - gamma_mu), U_o_src_e_plus)
             # Term 2: (r + γ_μ) U_{x-μ,μ}^† src_{x-μ}
-            src_e_minus = torch.roll(
+            src_e_minus = torch_roll(
                 src_e, shifts=1, dims=axis)
             if name == 'x_p':  # 1 to 0 caused by parity decomposition\
                 src_e_minus[..., even_mask] = src_e[...,
                                                     even_mask]  # parity(src)=(t+y+z+x)%2=0,eo(src)==(t+y+z)%2=0,so:x_p(src)%2=0,move_minus=0
-            U_e_dag_minus = torch.roll(
+            U_e_dag_minus = torch_roll(
                 U_e_dag_mu, shifts=1, dims=axis)
             if name == 'x_p':  # 1 to 0 caused by parity decomposition\
                 U_e_dag_minus[..., even_mask] = U_e_dag_mu[...,
                                                            even_mask]  # parity(U)=(t+y+z+x)%2=0,eo(U)==(t+y+z)%2=0,so:x_p(U)%2=0,move_minus=0
             # Contract color indices: U_eo_dag_minus * src_o_minus
-            U_e_dag_src_e_minus = torch.einsum(
+            U_e_dag_src_e_minus = torch_einsum(
                 'Cctzyx,sctzyx->sCtzyx', U_e_dag_minus, src_e_minus)
             # Apply (r + gamma_mu) in spin space
-            term2 = torch.einsum(
+            term2 = torch_einsum(
                 'Ss,sCtzyx->SCtzyx', (self.I + gamma_mu), U_e_dag_src_e_minus)
             # Combine terms and subtract from dest_e
             hopping = term1 + term2
             dest_o -= self.kappa/self.u_0 * hopping
             if self.verbose:
-                print(f"    Hopping term norm: {torch.norm(hopping).item()}")
+                print(f"    Hopping term norm: {torch_norm(hopping).item()}")
         if self.verbose:
             print("Dirac operator application complete in oe")
-            print(f"  Dest_o norm: {torch.norm(dest_o).item()}")
+            print(f"  Dest_o norm: {torch_norm(dest_o).item()}")
         return dest_o.clone()
 
     def give_wilson_eoeo(self,
@@ -547,7 +547,7 @@ class wilson_mg(wilson):
         if self.verbose:
             print(f"@give_hopping_{name}_plus......")
         U_mu = U[..., mu, :, :, :, :]
-        return - self.kappa/self.u_0 * torch.einsum(
+        return - self.kappa/self.u_0 * torch_einsum(
             'Ss,Cctzyx->SCsctzyx', (self.I - gamma_mu), U_mu).reshape([12, 12]+list(U.shape[-4:])).clone()  # sc->e
 
     def give_wilson_plus(self, ward: int, src: torch.Tensor, hopping: torch.Tensor, src_tail: torch.Tensor = None) -> torch.Tensor:
@@ -556,10 +556,10 @@ class wilson_mg(wilson):
         name = dir_info['name']
         if self.verbose:
             print(f"@give_wilson_{name}_plus......")
-        src_plus = torch.roll(src, shifts=-1, dims=axis)
+        src_plus = torch_roll(src, shifts=-1, dims=axis)
         if src_tail != None:
             src_plus[slice_dim(dim=5, ward=ward, point=-1)] = src_tail.clone()
-        return torch.einsum(
+        return torch_einsum(
             'Eetzyx,etzyx->Etzyx', hopping, src_plus).clone()
 
     def give_hopping_minus(self, ward: int, U: torch.Tensor, U_head: torch.Tensor = None) -> torch.Tensor:
@@ -572,13 +572,13 @@ class wilson_mg(wilson):
             print(f"@give_hopping_{name}_minus......")
         U_dag = U.permute(1, 0, 2, 3, 4, 5, 6).conj().clone()
         U_dag_mu = U_dag[..., mu, :, :, :, :]
-        U_dag_minus = torch.roll(U_dag_mu, shifts=1, dims=axis)
+        U_dag_minus = torch_roll(U_dag_mu, shifts=1, dims=axis)
         if U_head != None:
             U_head_dag = U_head.permute(1, 0, 2, 3, 4, 5).conj().clone()
             U_head_dag_mu = U_head_dag[..., mu, :, :, :]
             U_dag_minus[slice_dim(dim=6, ward=ward, point=0)
                         ] = U_head_dag_mu.clone()
-        return - self.kappa/self.u_0 * torch.einsum(
+        return - self.kappa/self.u_0 * torch_einsum(
             'Ss,Cctzyx->SCsctzyx', (self.I + gamma_mu), U_dag_minus).reshape([12, 12]+list(U.shape[-4:])).clone()  # sc->e
 
     def give_wilson_minus(self, ward: int, src: torch.Tensor, hopping: torch.Tensor, src_head: torch.Tensor = None) -> torch.Tensor:
@@ -587,10 +587,10 @@ class wilson_mg(wilson):
         name = dir_info['name']
         if self.verbose:
             print(f"@give_wilson_{name}_minus......")
-        src_minus = torch.roll(src, shifts=1, dims=axis)
+        src_minus = torch_roll(src, shifts=1, dims=axis)
         if src_head != None:
             src_minus[slice_dim(dim=5, ward=ward, point=0)] = src_head.clone()
-        return torch.einsum(
+        return torch_einsum(
             'Eetzyx,etzyx->Etzyx', hopping, src_minus).clone()
 
 
@@ -632,22 +632,22 @@ class clover(wilson):
         gamma_gamma = torch.zeros(
             6, 4, 4, dtype=self.dtype, device=self.device)
         # gamma_gamma0 xy-direction)
-        gamma_gamma[0] = torch.einsum(
+        gamma_gamma[0] = torch_einsum(
             'ab,bc->ac', self.gamma[0], self.gamma[1])
         # gamma_gamma1 xz-direction)
-        gamma_gamma[1] = torch.einsum(
+        gamma_gamma[1] = torch_einsum(
             'ab,bc->ac', self.gamma[0], self.gamma[2])
         # gamma_gamma2 xt-direction)
-        gamma_gamma[2] = torch.einsum(
+        gamma_gamma[2] = torch_einsum(
             'ab,bc->ac', self.gamma[0], self.gamma[3])
         # gamma_gamma3 yz-direction)
-        gamma_gamma[3] = torch.einsum(
+        gamma_gamma[3] = torch_einsum(
             'ab,bc->ac', self.gamma[1], self.gamma[2])
         # gamma_gamma4 yt-direction)
-        gamma_gamma[4] = torch.einsum(
+        gamma_gamma[4] = torch_einsum(
             'ab,bc->ac', self.gamma[1], self.gamma[3])
         # gamma_gamma5 zt-direction)
-        gamma_gamma[5] = torch.einsum(
+        gamma_gamma[5] = torch_einsum(
             'ab,bc->ac', self.gamma[2], self.gamma[3])
         return gamma_gamma
 
@@ -716,43 +716,43 @@ class clover(wilson):
             U_dag_mu = U_dag[..., mu, :, :, :, :]  # [c1, c2, t, z, y, x]
             U_dag_nu = U_dag[..., nu, :, :, :, :]  # [c1, c2, t, z, y, x]
             # $$U_1 &= u(x,\mu)u(x+\mu,\nu)u^{\dag}(x+\nu,\mu)u^{\dag}(x,\nu)                \\$$
-            temp1 = torch.einsum('abtzyx,bctzyx->actzyx', U_mu,
-                                 torch.roll(U_nu, shifts=-1, dims=axis_mu))
-            temp2 = torch.einsum('abtzyx,bctzyx->actzyx', temp1,
-                                 torch.roll(U_dag_mu, shifts=-1, dims=axis_nu))
-            F += torch.einsum('abtzyx,bctzyx->actzyx', temp2, U_dag_nu)
+            temp1 = torch_einsum('abtzyx,bctzyx->actzyx', U_mu,
+                                 torch_roll(U_nu, shifts=-1, dims=axis_mu))
+            temp2 = torch_einsum('abtzyx,bctzyx->actzyx', temp1,
+                                 torch_roll(U_dag_mu, shifts=-1, dims=axis_nu))
+            F += torch_einsum('abtzyx,bctzyx->actzyx', temp2, U_dag_nu)
             # $$U_2 &= u(x,\nu)u^{\dag}(x-\mu+\nu,\mu)u^{\dag}(x-\mu,\nu)u(x-\mu,\mu)        \\$$
-            temp1 = torch.einsum('abtzyx,bctzyx->actzyx', U_nu,
-                                 torch.roll(torch.roll(U_dag_mu, shifts=1, dims=axis_mu), shifts=-1, dims=axis_nu))
-            temp2 = torch.einsum('abtzyx,bctzyx->actzyx', temp1,
-                                 torch.roll(U_dag_nu, shifts=1, dims=axis_mu))
-            F += torch.einsum('abtzyx,bctzyx->actzyx', temp2,
-                              torch.roll(U_mu, shifts=1, dims=axis_mu))
+            temp1 = torch_einsum('abtzyx,bctzyx->actzyx', U_nu,
+                                 torch_roll(torch_roll(U_dag_mu, shifts=1, dims=axis_mu), shifts=-1, dims=axis_nu))
+            temp2 = torch_einsum('abtzyx,bctzyx->actzyx', temp1,
+                                 torch_roll(U_dag_nu, shifts=1, dims=axis_mu))
+            F += torch_einsum('abtzyx,bctzyx->actzyx', temp2,
+                              torch_roll(U_mu, shifts=1, dims=axis_mu))
             # $$U_3 &= u^{\dag}(x-\mu,\mu)u^{\dag}(x-\mu-\nu,\nu)u(x-\mu-\nu,\mu)u(x-\nu,\nu)\\$$
-            temp1 = torch.einsum('abtzyx,bctzyx->actzyx', torch.roll(U_dag_mu, shifts=1, dims=axis_mu),
-                                 torch.roll(torch.roll(U_dag_nu, shifts=1, dims=axis_mu), shifts=1, dims=axis_nu))
-            temp2 = torch.einsum('abtzyx,bctzyx->actzyx', temp1,
-                                 torch.roll(torch.roll(U_mu, shifts=1, dims=axis_mu), shifts=1, dims=axis_nu))
-            F += torch.einsum('abtzyx,bctzyx->actzyx', temp2,
-                              torch.roll(U_nu, shifts=1, dims=axis_nu))
+            temp1 = torch_einsum('abtzyx,bctzyx->actzyx', torch_roll(U_dag_mu, shifts=1, dims=axis_mu),
+                                 torch_roll(torch_roll(U_dag_nu, shifts=1, dims=axis_mu), shifts=1, dims=axis_nu))
+            temp2 = torch_einsum('abtzyx,bctzyx->actzyx', temp1,
+                                 torch_roll(torch_roll(U_mu, shifts=1, dims=axis_mu), shifts=1, dims=axis_nu))
+            F += torch_einsum('abtzyx,bctzyx->actzyx', temp2,
+                              torch_roll(U_nu, shifts=1, dims=axis_nu))
             # $$U_4 &= u^{\dag}(x-\nu,\nu)u(x-\nu,\mu)u(x-\nu+\mu,\nu)u^{\dag}(x,\mu)        \\$$
-            temp1 = torch.einsum('abtzyx,bctzyx->actzyx', torch.roll(U_dag_nu, shifts=1, dims=axis_nu),
-                                 torch.roll(U_mu, shifts=1, dims=axis_nu))
-            temp2 = torch.einsum('abtzyx,bctzyx->actzyx', temp1,
-                                 torch.roll(torch.roll(U_nu, shifts=-1, dims=axis_mu), shifts=1, dims=axis_nu))
-            F += torch.einsum('abtzyx,bctzyx->actzyx', temp2, U_dag_mu)
+            temp1 = torch_einsum('abtzyx,bctzyx->actzyx', torch_roll(U_dag_nu, shifts=1, dims=axis_nu),
+                                 torch_roll(U_mu, shifts=1, dims=axis_nu))
+            temp2 = torch_einsum('abtzyx,bctzyx->actzyx', temp1,
+                                 torch_roll(torch_roll(U_nu, shifts=-1, dims=axis_mu), shifts=1, dims=axis_nu))
+            F += torch_einsum('abtzyx,bctzyx->actzyx', temp2, U_dag_mu)
             # Give whole F
             F -= F.permute(1, 0, 2, 3, 4, 5).conj()  # -BEFORE^{\dag}
             # Multiply F with sigma
-            sigmaF = torch.einsum(
+            sigmaF = torch_einsum(
                 'Ss,Cctzyx->SCsctzyx', sigma, F)
             # Make Clover term
             clover += -0.125/self.u_0*self.kappa*sigmaF
             if self.verbose:
-                print(f"    sigmaF term norm: {torch.norm(sigmaF).item()}")
+                print(f"    sigmaF term norm: {multi_norm(sigmaF).item()}")
         if self.verbose:
             print("Clover term complete")
-            print(f"  clover norm: {torch.norm(clover).item()}")
+            print(f"  clover norm: {multi_norm(clover).item()}")
         return clover.clone()
 
     def add_I(self, clover_term: torch.Tensor) -> torch.Tensor:
@@ -760,7 +760,7 @@ class clover(wilson):
         if self.verbose:
             print('Clover is adding I......')
             print(f"_clover_term.shape:{_clover_term.shape}")
-        eye = torch.eye(12, dtype=_clover_term.dtype,
+        eye = torch_eye(12, dtype=_clover_term.dtype,
                         device=_clover_term.device)
         _clover_term += eye.unsqueeze(-1)
         dest = _clover_term.reshape(clover_term.shape)
@@ -784,7 +784,7 @@ class clover(wilson):
         if self.verbose:
             print('Clover is giving......')
             print(f"src.shape:{src.shape}")
-        dest = torch.einsum('SCsctzyx,sctzyx->SCtzyx', clover_term, src)
+        dest = torch_einsum('SCsctzyx,sctzyx->SCtzyx', clover_term, src)
         if self.verbose:
             print(f"dest.shape:{dest.shape}")
         return dest.clone()
