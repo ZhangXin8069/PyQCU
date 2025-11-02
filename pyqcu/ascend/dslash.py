@@ -142,7 +142,7 @@ class wilson(nn.Module):
         eye = torch_eye(3, dtype=U_mat.dtype,
                         device=U_mat.device).expand(N, -1, -1)
         # 1 Unitarity check: Uᴴ U ≈ I
-        UH_U = torch.matmul(U_mat.conj().transpose(-1, -2), U_mat)
+        UH_U = torch_matmul(U_mat.conj().transpose(-1, -2), U_mat)
         unitary_ok = torch_allclose(UH_U, eye, atol=tol)
         # 2 Determinant check: det(U) ≈ 1
         det_U = torch.linalg.det(U_mat)
