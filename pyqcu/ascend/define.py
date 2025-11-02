@@ -1,9 +1,9 @@
+from mpi4py import MPI
 import mpi4py.MPI as MPI
 import torch
 import os
 import numpy as np
 from typing import Tuple, Optional
-
 # NumPy → Torch
 np2torch_dtype = {
     np.bool_: torch.bool,
@@ -107,21 +107,6 @@ def slice_dim(dim: int = 4, ward: int = 0, start: int = None, stop: int = None, 
     else:
         slices[-ward-1] = point
     return tuple(slices)
-
-
-def give_local_rank(device: torch.device):
-    comm = MPI.COMM_WORLD
-    rank = comm.Get_rank()
-    if device == torch.device('cpu'):
-        device_per_node = os.cpu_count()
-        local_rank = rank % device_per_node
-    elif device == torch.device('cuda'):
-        device_per_node = torch.cuda.device_count()
-        local_rank = rank % device_per_node
-    else:
-        device_per_node = 1
-        local_rank = rank % device_per_node
-    return local_rank
 
 
 def give_grid_index(rank: int = None) -> Tuple[int, int, int, int]:
@@ -273,14 +258,33 @@ def set_device(device: torch.device):
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     size = comm.Get_size()
-    local_rank = give_local_rank(device=device)
-    if device == torch.device('cuda'):
+    dev_type = device.type
+    local_rank = None
+    if "LOCAL_RANK" in os.environ:
+        local_rank = int(os.environ["LOCAL_RANK"])
+    elif "OMPI_COMM_WORLD_LOCAL_RANK" in os.environ:
+        local_rank = int(os.environ["OMPI_COMM_WORLD_LOCAL_RANK"])
+    else:
+        if dev_type == "cuda" and torch.cuda.is_available():
+            local_rank = rank % torch.cuda.device_count()
+        elif dev_type == "npu":
+            try:
+                import torch_npu
+                local_rank = rank % torch.npu.device_count()
+            except ImportError:
+                raise RuntimeError(
+                    "torch_npu not found; please install it for NPU support.")
+        else:
+            local_rank = 0
+    if dev_type == "cuda":
+        if not torch.cuda.is_available():
+            raise RuntimeError("CUDA device requested but not available.")
         torch.cuda.set_device(local_rank)
-    elif device == torch.device('cpu'):
+    elif dev_type == "npu":
+        import torch_npu
+        torch.npu.set_device(local_rank)
+    elif dev_type == "cpu":
         pass
-    elif device == torch.device('npu'):
-        pass
-        # import torch_npu
-        # torch_npu.torch.cuda.set_device(local_rank)
-    print(
-        f"@Device:{device}, My Rank:{rank}/{size}, Local Rank:{local_rank}@\n")
+    else:
+        raise ValueError(f"Unsupported device type: {dev_type}")
+    print(f"[MPI Rank {rank}/{size}] Using {dev_type}:{local_rank}")
