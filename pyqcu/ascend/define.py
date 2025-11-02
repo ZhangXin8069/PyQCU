@@ -434,3 +434,14 @@ def torch_sqrt(input: torch.Tensor) -> torch.Tensor:
         return result_cpu.to(input.device)
     else:
         return torch.sqrt(input)
+
+
+def torch_matmul(input: torch.Tensor, other: torch.Tensor) -> torch.Tensor:
+    if input.device.type == 'npu' and torch.is_complex(input):
+        real_real = torch.matmul(input.real, other.real)
+        imag_imag = torch.matmul(input.imag, other.imag)
+        real_imag = torch.matmul(input.real, other.imag)
+        imag_real = torch.matmul(input.imag, other.real)
+        return (real_real - imag_imag) + (real_imag + imag_real) * 1j
+    else:
+        return torch.matmul(input, other)
