@@ -33,10 +33,11 @@ class wilson(nn.Module):
         self.u_0 = u_0
         self.dtype = dtype
         self.device = device or torch.device('cpu')
-        self.I = torch.eye(4, dtype=self.dtype, device=self.device)
+        # npu needed......
+        self.I = torch.eye(4, dtype=self.dtype).to(device=self.device)
         self.verbose = verbose
         # Determine real dtype based on complex dtype
-        self.real_dtype = torch.float64 if dtype == torch.complex128 else torch.float32
+        self.real_dtype = dtype.to_real()
         if self.verbose:
             print(f"Initializing Wilson:")
             print(f"  Lattice size: {latt_size} (x,y,z,t)")
@@ -575,7 +576,8 @@ class wilson_mg(wilson):
         if U_head != None:
             U_head_dag = U_head.permute(1, 0, 2, 3, 4, 5).conj().clone()
             U_head_dag_mu = U_head_dag[..., mu, :, :, :]
-            U_dag_minus[slice_dim(dim=6, ward=ward, point=0)] = U_head_dag_mu.clone()
+            U_dag_minus[slice_dim(dim=6, ward=ward, point=0)
+                        ] = U_head_dag_mu.clone()
         return - self.kappa/self.u_0 * torch.einsum(
             'Ss,Cctzyx->SCsctzyx', (self.I + gamma_mu), U_dag_minus).reshape([12, 12]+list(U.shape[-4:])).clone()  # sc->e
 
