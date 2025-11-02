@@ -101,13 +101,13 @@ class qcu:
                 print(
                     f"self.wilson.check_su3(self.U): {self.wilson.check_su3(self.U)}")
         if self.b == None:
-            self.b = torch.randn(
+            self.b = torch_randn(
                 size=[4, 3]+self.local_lat_size[::-1], dtype=self.dtype_list[0], device=self.device_list[0])
         if self.refer_x == None:
             self.refer_x = torch.zeros(
                 size=[4, 3]+self.local_lat_size[::-1], dtype=self.dtype_list[0], device=self.device_list[0])
         if self.x0 == None:
-            self.x0 = torch.randn(
+            self.x0 = torch_randn(
                 size=[4, 3]+self.local_lat_size[::-1], dtype=self.dtype_list[0], device=self.device_list[0])
         if self.dslash == 'clover':
             if self.clover_term == None:

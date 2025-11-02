@@ -466,9 +466,9 @@ class mg:
             set_device(device=device)
         self.op_list = [op(wilson=wilson, U=U,
                            clover=clover, clover_term=clover_term, verbose=self.verbose)]
-        self.b = torch.randn(size=[12]+self.lat_size[::-1],
+        self.b = torch_randn(size=[12]+self.lat_size[::-1],
                              dtype=self.dtype_list[0], device=self.device_list[0])
-        self.x0 = torch.randn(
+        self.x0 = torch_randn(
             size=[12]+self.lat_size[::-1], dtype=self.dtype_list[0], device=self.device_list[0])
         self.b_list = [self.b.clone()]
         self.nv_list = []  # null_vecs_list
@@ -494,7 +494,7 @@ class mg:
         comm = MPI.COMM_WORLD
         comm.Barrier()
         for i in range(1, len(self.lat_size_list)):
-            _null_vecs = torch.randn(size=[self.dof_list[i], self.dof_list[i-1]] +
+            _null_vecs = torch_randn(size=[self.dof_list[i], self.dof_list[i-1]] +
                                      self.lat_size_list[i-1][::-1], dtype=self.dtype_list[i-1], device=self.device_list[i-1])
             _null_vecs = give_null_vecs(
                 null_vecs=_null_vecs,
