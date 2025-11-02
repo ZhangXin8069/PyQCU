@@ -1,4 +1,3 @@
-from mpi4py import MPI
 import mpi4py.MPI as MPI
 import torch
 import os
