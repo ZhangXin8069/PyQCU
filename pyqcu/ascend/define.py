@@ -38,12 +38,69 @@ def give_if_multi() -> bool:
     return comm.Get_size() > 1
 
 
-def torch_vdot(a: torch.Tensor, b: torch.Tensor, if_multi: bool = give_if_multi()) -> torch.Tensor:
-    return multi_vdot(a, b) if give_if_multi() and if_multi else torch.vdot(a.flatten(), b.flatten())
+def torch_vdot(input: torch.Tensor, other: torch.Tensor) -> torch.Tensor:
+    if input.device.type == 'npu' and torch.is_complex(input):
+        return torch.sum(torch.conj(input) * other)
+    else:
+        return torch.vdot(input, other)
 
 
-def torch_norm(a: torch.Tensor, if_multi: bool = give_if_multi()) -> torch.Tensor:
-    return multi_norm(a) if give_if_multi() and if_multi else torch.norm(a.flatten()).real.item()
+def torch_norm(input: torch.Tensor, p='fro', dim=None, keepdim=False, out=None, dtype=None) -> torch.Tensor:
+    if input.device.type == 'npu' and torch.is_complex(input):
+        abs_input = torch.abs(input)
+        if dim is None:
+            return torch.norm(abs_input, p=p, keepdim=keepdim, out=out, dtype=dtype)
+        else:
+            return torch.norm(abs_input, p=p, dim=dim, keepdim=keepdim, out=out, dtype=dtype)
+    else:
+        if dim is None:
+            return torch.norm(input, p=p, keepdim=keepdim, out=out, dtype=dtype)
+        else:
+            return torch.norm(input, p=p, dim=dim, keepdim=keepdim, out=out, dtype=dtype)
+
+
+def multi_vdot(
+    a: torch.Tensor,
+    b: torch.Tensor,
+) -> torch.Tensor:
+    """
+    Multi-process dot product using mpi4py with buffer mode.
+    Args:
+        a, b: local tensors on GPU (per process)
+    Returns:
+        global dot product as a complex scalar (torch.Tensor)
+    """
+    device = a.device
+    assert a.device == b.device, "a and b must be on the same device"
+    comm = MPI.COMM_WORLD
+    comm.Barrier()
+    local_dot = torch_vdot(a.flatten(), b.flatten())
+    sendbuf = local_dot.detach().cpu().contiguous().numpy()
+    recvbuf = np.zeros_like(sendbuf).copy()
+    comm.Allreduce(sendbuf=sendbuf, recvbuf=recvbuf, op=MPI.SUM)
+    comm.Barrier()
+    return torch.from_numpy(recvbuf).to(device=device).clone()
+
+
+def multi_norm(
+    a: torch.Tensor,
+) -> torch.Tensor:
+    """
+    Multi-process norm with buffer mode.
+    Args:
+        a: local tensor
+    Returns:
+        global norm
+    """
+    return torch.sqrt(multi_vdot(a=a.flatten(), b=a.flatten()).real).item()
+
+
+def torch_vdot_(a: torch.Tensor, b: torch.Tensor, if_multi: bool = give_if_multi()) -> torch.Tensor:
+    return multi_vdot(a, b) if give_if_multi() and if_multi else torch_vdot(a.flatten(), b.flatten())
+
+
+def torch_norm_(a: torch.Tensor, if_multi: bool = give_if_multi()) -> torch.Tensor:
+    return multi_norm(a) if give_if_multi() and if_multi else torch_norm(a.flatten()).real.item()
 
 
 def prime_factorization(n: int):
@@ -135,42 +192,6 @@ def give_rank_minus(ward: int, rank: int = None) -> Tuple[int, int, int, int]:
     grid_index[ward] = grid_size[ward] - \
         1 if grid_index[ward] == 0 else grid_index[ward]-1
     return grid_index[0]+(grid_size[0]*(grid_index[1]+(grid_size[1]*(grid_index[2]+(grid_size[2]*(grid_index[3]))))))
-
-
-def multi_vdot(
-    a: torch.Tensor,
-    b: torch.Tensor,
-) -> torch.Tensor:
-    """
-    Multi-process dot product using mpi4py with buffer mode.
-    Args:
-        a, b: local tensors on GPU (per process)
-    Returns:
-        global dot product as a complex scalar (torch.Tensor)
-    """
-    device = a.device
-    assert a.device == b.device, "a and b must be on the same device"
-    comm = MPI.COMM_WORLD
-    comm.Barrier()
-    local_dot = torch.vdot(a.flatten(), b.flatten())
-    sendbuf = local_dot.detach().cpu().contiguous().numpy()
-    recvbuf = np.zeros_like(sendbuf).copy()
-    comm.Allreduce(sendbuf=sendbuf, recvbuf=recvbuf, op=MPI.SUM)
-    comm.Barrier()
-    return torch.from_numpy(recvbuf).to(device=device).clone()
-
-
-def multi_norm(
-    a: torch.Tensor,
-) -> torch.Tensor:
-    """
-    Multi-process norm with buffer mode.
-    Args:
-        a: local tensor
-    Returns:
-        global norm
-    """
-    return torch.sqrt(multi_vdot(a=a.flatten(), b=a.flatten()).real).item()
 
 
 def local2full_tensor(
@@ -287,3 +308,79 @@ def set_device(device: torch.device):
     else:
         raise ValueError(f"Unsupported device type: {dev_type}")
     print(f"[MPI Rank {rank}/{size}] Using {dev_type}:{local_rank}")
+
+
+def torch_roll(input: torch.Tensor, shifts, dims=None) -> torch.Tensor:
+    if input.device.type == 'npu' and torch.is_complex(input):
+        real_rolled = torch.roll(input.real, shifts, dims)
+        imag_rolled = torch.roll(input.imag, shifts, dims)
+        return real_rolled + imag_rolled * 1j
+    else:
+        return torch.roll(input, shifts, dims)
+
+
+def torch_allclose(input: torch.Tensor, other: torch.Tensor, rtol=1e-05, atol=1e-08, equal_nan=False) -> bool:
+    if input.device.type == 'npu' and torch.is_complex(input):
+        real_close = torch.allclose(
+            input.real, other.real, rtol, atol, equal_nan)
+        imag_close = torch.allclose(
+            input.imag, other.imag, rtol, atol, equal_nan)
+        return real_close and imag_close
+    else:
+        return torch.allclose(input, other, rtol, atol, equal_nan)
+
+
+def torch_einsum(equation: str, *operands) -> torch.Tensor:
+    if any(op.device.type == 'npu' and torch.is_complex(op) for op in operands):
+        real_parts = [op.real if torch.is_complex(
+            op) else op for op in operands]
+        imag_parts = [op.imag if torch.is_complex(
+            op) else torch.zeros_like(op) for op in operands]
+        real_result = torch.einsum(
+            equation, *real_parts) - torch.einsum(equation, *imag_parts)
+        imag_result = torch.einsum(equation, *real_parts, *imag_parts)
+        return real_result + imag_result * 1j
+    else:
+        return torch.einsum(equation, *operands)
+
+
+def torch_linalg_qr(input: torch.Tensor, mode='reduced') -> tuple:
+    if input.device.type == 'npu' and torch.is_complex(input):
+        input_cpu = input.cpu()
+        Q_cpu, R_cpu = torch.linalg.qr(input_cpu, mode)
+        return Q_cpu.to(input.device), R_cpu.to(input.device)
+    else:
+        return torch.linalg.qr(input, mode)
+
+
+def torch_eye(n: int, m=None, out=None, dtype=None, layout=torch.strided, device=None, requires_grad=False) -> torch.Tensor:
+    if device is not None and device.type == 'npu' and dtype is not None and dtype.is_complex:
+        real_dtype = torch.float32 if dtype == torch.complex64 else torch.float64
+        if m is None:
+            real_eye = torch.eye(n, out=out, dtype=real_dtype,
+                                 layout=layout, device=device, requires_grad=requires_grad)
+        else:
+            real_eye = torch.eye(n, m, out=out, dtype=real_dtype,
+                                 layout=layout, device=device, requires_grad=requires_grad)
+        return real_eye.to(dtype)
+    else:
+        if m is None:
+            return torch.eye(n, out=out, dtype=dtype, layout=layout, device=device, requires_grad=requires_grad)
+        else:
+            return torch.eye(n, m, out=out, dtype=dtype, layout=layout, device=device, requires_grad=requires_grad)
+
+
+def torch_randn_like(input: torch.Tensor) -> torch.Tensor:
+    if input.device.type == 'npu' and torch.is_complex(input):
+        return torch.randn_like(input.real) + torch.randn_like(input.imag) * 1j
+    else:
+        return torch.randn_like(input)
+
+
+def torch_sqrt(input: torch.Tensor) -> torch.Tensor:
+    if input.device.type == 'npu' and torch.is_complex(input):
+        input_cpu = input.cpu()
+        result_cpu = torch.sqrt(input_cpu)
+        return result_cpu.to(input.device)
+    else:
+        return torch.sqrt(input)
