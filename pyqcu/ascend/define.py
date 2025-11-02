@@ -38,6 +38,13 @@ def give_if_multi() -> bool:
     return comm.Get_size() > 1
 
 
+def torch_abs(input: torch.Tensor) -> torch.Tensor:
+    if input.device.type == 'npu' and torch.is_complex(input):
+        return torch.sqrt(input.real**2 + input.imag**2)
+    else:
+        return torch.abs(input)
+
+
 def torch_vdot(input: torch.Tensor, other: torch.Tensor) -> torch.Tensor:
     if input.device.type == 'npu' and torch.is_complex(input):
         return torch.sum(torch.conj(input) * other)
@@ -47,7 +54,7 @@ def torch_vdot(input: torch.Tensor, other: torch.Tensor) -> torch.Tensor:
 
 def torch_norm(input: torch.Tensor, p='fro', dim=None, keepdim=False, out=None, dtype=None) -> torch.Tensor:
     if input.device.type == 'npu' and torch.is_complex(input):
-        abs_input = torch.abs(input)
+        abs_input = torch_abs(input)
         if dim is None:
             return torch.norm(abs_input, p=p, keepdim=keepdim, out=out, dtype=dtype)
         else:
