@@ -182,12 +182,98 @@ def give_null_vecs(
                     f"multi_vdot(null_vecs[{i}], null_vecs[{j}]):{multi_vdot(null_vecs[i], null_vecs[j])}")
     return null_vecs.clone()
 
+# NPU:The self tensor cannot be larger than 8 dimensions.
+
+
+def npu_local_orthogonalize(null_vecs: torch.Tensor,
+                            coarse_lat_size: Tuple[int, int,
+                                                   int, int] = (2, 2, 2, 2),
+                            normalize: bool = True,
+                            verbose: bool = False) -> torch.Tensor:
+    assert null_vecs.ndim == 6, "Expected shape [E, e, T*t, Z*z, Y*y, X*x]"
+    E, e, Tt, Zz, Yy, Xx = null_vecs.shape
+    T, Z, Y, X = coarse_lat_size[::-1]  # [xyzt]
+    # sanity checks
+    assert Tt % T == 0 and Zz % Z == 0 and Yy % Y == 0 and Xx % X == 0, \
+        "Each lattice extent must be divisible by its coarse_lat_size factor."
+    t, z, y, x = Tt // T, Zz // Z, Yy // Y, Xx // X
+    local_dim = e * t * z * y * x
+    if E > local_dim:
+        raise ValueError(f"E={E} exceeds local_dim={local_dim}. "
+                         f"Cannot produce {E} orthonormal columns in a {local_dim}-dim space.")
+    """
+    # Reshape to expose coarse/fine structure: [E, e, T, t, Z, z, Y, y, X, x]
+    v = null_vecs.reshape(E, e, T, t, Z, z, Y, y, X, x).clone()
+    # Move coarse coords to the front (as batch): [T, Z, Y, X, E, e, t, z, y, x]
+    v = v.permute(2, 4, 6, 8, 0, 1, 3, 5, 7, 9).contiguous()
+    # Collapse to blocks: [n_blocks, E, local_dim]
+    """
+    v = null_vecs.reshape(-1, Z, z, Y, y, X, x).clone()
+    v = v.permute(0, 1, 3, 5, 2, 4, 6).contiguous()  # [EeTt,Z,Y,X,z,y,x]
+    v = v.reshape(E, e, T, t, Z*Y*X, z*y*x).clone()
+    v = v.permute(0, 1, 2, 4, 3, 5).contiguous()  # [E,e,T,ZYX,t,zyx]
+    n_blocks = T * Z * Y * X
+    v = v.view(n_blocks, E, local_dim)
+    # Build A = [n_blocks, local_dim, E] (columns = E vectors at a coarse site)
+    A = v.transpose(-2, -1)  # [n_blocks, local_dim, E]
+    # Batched QR on each block; Q has orthonormal columns in R^{local_dim}
+    # Use reduced mode: Q: [n_blocks, local_dim, E], R: [n_blocks, E, E]
+    Q, _ = torch_linalg_qr(A, mode='reduced')
+    if normalize:
+        # Normalize each column vector explicitly
+        Q = Q / torch_norm(Q, dim=-2, keepdim=True)
+    """
+    # Restore lattice structure: [T, Z, Y, X, e, t, z, y, x, E]
+    Q = Q.view(T, Z, Y, X, e, t, z, y, x, E)
+    # Permute back to [E, e, T, t, Z, z, Y, y, X, x]
+    Q = Q.permute(9, 4, 0, 5, 1, 6, 2, 7, 3, 8).contiguous().clone()
+    """
+    Q = Q.reshape(T, Z*Y*X, e, t, z*y*x, E)
+    # [E, e, T, Z*Y*X, t, z*y*x]
+    Q = Q.permute(5, 2, 0, 1, 3, 4).contiguous().clone()
+    Q = Q.reshape(-1, Z, Y, X,  t, z, y, x)
+    # [EeT, t, Z, z, Y, y, X, x]
+    Q = Q.permute(0, 4, 1, 5, 2, 6, 3, 7).contiguous().clone()
+    Q = Q.reshape(E, e, T, t, Z, z, Y, y, X, x)
+    if verbose:
+        print(f"[local_orthogonalize] in={tuple(null_vecs.shape)}, coarse_lat_size(T,Z,Y,X)={coarse_lat_size}, "
+              f"(t,z,y,x)=({t},{z},{y},{x}), local_dim={local_dim}, n_blocks={n_blocks}")
+    return Q
+
+
+def npu_restrict(local_ortho_null_vecs: torch.Tensor, fine_vec: torch.Tensor, verbose: bool = True) -> torch.Tensor:
+    dtype = fine_vec.dtype
+    device = fine_vec.device
+    _dtype = local_ortho_null_vecs.dtype
+    _device = local_ortho_null_vecs.device
+    if dtype != _dtype or device != _device:
+        fine_vec = fine_vec.to(dtype=_dtype, device=_device)
+    shape = local_ortho_null_vecs.shape
+    _fine_vec = fine_vec.reshape(shape=shape[1:]).clone()
+    return torch_einsum(
+        "EeTtZzYyXx,eTtZzYyXx->ETZYX", local_ortho_null_vecs.conj(), _fine_vec).clone().to(dtype=dtype, device=device)
+
+
+def npu_prolong(local_ortho_null_vecs: torch.Tensor, coarse_vec: torch.Tensor, verbose: bool = True) -> torch.Tensor:
+    dtype = coarse_vec.dtype
+    device = coarse_vec.device
+    _dtype = local_ortho_null_vecs.dtype
+    _device = local_ortho_null_vecs.device
+    if dtype != _dtype or device != _device:
+        coarse_vec = coarse_vec.to(dtype=_dtype, device=_device)
+    shape = local_ortho_null_vecs.shape
+    _coarse_vec = coarse_vec.reshape(shape=shape[0:1]+shape[-8:][::2]).clone()
+    return torch_einsum(
+        "EeTtZzYyXx,ETZYX->eTtZzYyXx", local_ortho_null_vecs, _coarse_vec).reshape([shape[1], shape[-8]*shape[-7], shape[-6]*shape[-5], shape[-4]*shape[-3], shape[-2]*shape[-1]]).clone().to(dtype=dtype, device=device)
+
 
 def local_orthogonalize(null_vecs: torch.Tensor,
                         coarse_lat_size: Tuple[int, int,
                                                int, int] = (2, 2, 2, 2),
                         normalize: bool = True,
                         verbose: bool = False) -> torch.Tensor:
+    if null_vecs.device.type == 'npu':
+        return npu_local_orthogonalize(null_vecs=null_vecs, coarse_lat_size=coarse_lat_size, normalize=normalize, verbose=verbose)
     assert null_vecs.ndim == 6, "Expected shape [E, e, T*t, Z*z, Y*y, X*x]"
     E, e, Tt, Zz, Yy, Xx = null_vecs.shape
     T, Z, Y, X = coarse_lat_size[::-1]  # [xyzt]
@@ -227,6 +313,8 @@ def local_orthogonalize(null_vecs: torch.Tensor,
 def restrict(local_ortho_null_vecs: torch.Tensor, fine_vec: torch.Tensor, verbose: bool = True) -> torch.Tensor:
     dtype = fine_vec.dtype
     device = fine_vec.device
+    if device.type == 'npu':
+        return npu_restrict(local_ortho_null_vecs=local_ortho_null_vecs, fine_vec=fine_vec, verbose=verbose)
     _dtype = local_ortho_null_vecs.dtype
     _device = local_ortho_null_vecs.device
     if dtype != _dtype or device != _device:
@@ -240,6 +328,8 @@ def restrict(local_ortho_null_vecs: torch.Tensor, fine_vec: torch.Tensor, verbos
 def prolong(local_ortho_null_vecs: torch.Tensor, coarse_vec: torch.Tensor, verbose: bool = True) -> torch.Tensor:
     dtype = coarse_vec.dtype
     device = coarse_vec.device
+    if device.type == 'npu':
+        return npu_prolong(local_ortho_null_vecs=local_ortho_null_vecs, coarse_vec=coarse_vec, verbose=verbose)
     _dtype = local_ortho_null_vecs.dtype
     _device = local_ortho_null_vecs.device
     if dtype != _dtype or device != _device:
