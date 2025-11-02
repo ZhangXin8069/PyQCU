@@ -336,9 +336,35 @@ def torch_einsum(equation: str, *operands) -> torch.Tensor:
             op) else op for op in operands]
         imag_parts = [op.imag if torch.is_complex(
             op) else torch.zeros_like(op) for op in operands]
-        real_result = torch.einsum(
-            equation, *real_parts) - torch.einsum(equation, *imag_parts)
-        imag_result = torch.einsum(equation, *real_parts, *imag_parts)
+        real_real = torch.einsum(equation, *real_parts)
+        imag_imag = torch.einsum(equation, *imag_parts)
+        mixed_parts = []
+        for i, op in enumerate(operands):
+            if torch.is_complex(op):
+                mixed_parts.append([real_parts[i], imag_parts[i]])
+            else:
+                mixed_parts.append([op])
+        if len(operands) == 2:
+            if torch.is_complex(operands[0]) and torch.is_complex(operands[1]):
+                real_imag = torch.einsum(
+                    equation, real_parts[0], imag_parts[1])
+                imag_real = torch.einsum(
+                    equation, imag_parts[0], real_parts[1])
+                real_result = real_real - imag_imag
+                imag_result = real_imag + imag_real
+            elif torch.is_complex(operands[0]):
+                real_result = torch.einsum(
+                    equation, real_parts[0], real_parts[1])
+                imag_result = torch.einsum(
+                    equation, imag_parts[0], real_parts[1])
+            else:
+                real_result = torch.einsum(
+                    equation, real_parts[0], real_parts[1])
+                imag_result = torch.einsum(
+                    equation, real_parts[0], imag_parts[1])
+        else:
+            real_result = real_real
+            imag_result = torch.zeros_like(real_real)
         return real_result + imag_result * 1j
     else:
         return torch.einsum(equation, *operands)
