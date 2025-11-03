@@ -302,8 +302,13 @@ def npu_prolong(local_ortho_null_vecs: torch.Tensor, coarse_vec: torch.Tensor, v
         0, 1, 2, 4, 3, 5)  # [E, e, T, Z*Y*X, t, z*y*x]
     _local_ortho_null_vecs = _local_ortho_null_vecs.reshape(
         E, e, -1, t, z, y, x)
-    return torch_einsum(
-        "EeOtzyx,EO->eOtzyx", _local_ortho_null_vecs, _coarse_vec).reshape(e, T, t, Z, z, Y, y, X, x).to(dtype=dtype, device=device)
+    dest = torch_einsum(
+        "EeOtzyx,EO->eOtzyx", _local_ortho_null_vecs, _coarse_vec).to(dtype=dtype, device=device)
+    dest = dest.reshape(e, T, Z*Y*X, t, z*y*x)
+    dest = dest.permute(0, 1, 3, 2, 4)  # [e, T, t, Z*Y*X, z*y*x]
+    dest = dest.reshape(-1, Z,  Y,  X, z, y, x)
+    dest = dest.permute(0, 1, 4, 2, 5, 3, 6)  # [eTt, Z, z, Y, y, X, x]
+    return dest.reshape(e, T, t, Z, z, Y, y, X, x)
 
 
 def local_orthogonalize(null_vecs: torch.Tensor,
