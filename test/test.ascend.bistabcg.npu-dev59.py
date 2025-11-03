@@ -8,5 +8,5 @@ _qcu.init()
 _qcu.solve()
 _qcu.test()
 _qcu.mg.plot(
-    save_path=f"test.ascend.{_qcu.solver}.{_qcu.device_list[0].type}-np{_qcu.size}-dev59.png")
+    save_path=f"test.ascend.bistabcg.{_qcu.device_list[0].type}-np{_qcu.size}-dev59.png")
 _qcu.save()
