@@ -359,8 +359,8 @@ def local_orthogonalize(null_vecs: torch.Tensor,
 def restrict(local_ortho_null_vecs: torch.Tensor, fine_vec: torch.Tensor, verbose: bool = True) -> torch.Tensor:
     dtype = fine_vec.dtype
     device = fine_vec.device
-    if device.type == 'npu' or if_test_npu:
-        return npu_restrict(local_ortho_null_vecs=local_ortho_null_vecs, fine_vec=fine_vec, verbose=verbose)
+    # if device.type == 'npu' or if_test_npu:
+    #     return npu_restrict(local_ortho_null_vecs=local_ortho_null_vecs, fine_vec=fine_vec, verbose=verbose)
     _dtype = local_ortho_null_vecs.dtype
     _device = local_ortho_null_vecs.device
     if dtype != _dtype or device != _device:
@@ -374,8 +374,8 @@ def restrict(local_ortho_null_vecs: torch.Tensor, fine_vec: torch.Tensor, verbos
 def prolong(local_ortho_null_vecs: torch.Tensor, coarse_vec: torch.Tensor, verbose: bool = True) -> torch.Tensor:
     dtype = coarse_vec.dtype
     device = coarse_vec.device
-    if device.type == 'npu' or if_test_npu:
-        return npu_prolong(local_ortho_null_vecs=local_ortho_null_vecs, coarse_vec=coarse_vec, verbose=verbose)
+    # if device.type == 'npu' or if_test_npu:
+    #     return npu_prolong(local_ortho_null_vecs=local_ortho_null_vecs, coarse_vec=coarse_vec, verbose=verbose)
     _dtype = local_ortho_null_vecs.dtype
     _device = local_ortho_null_vecs.device
     if dtype != _dtype or device != _device:
@@ -575,12 +575,13 @@ class op:
 
 
 class mg:
-    def __init__(self, lat_size: Tuple[int, int, int, int], dtype: torch.dtype = None, device: torch.device = None, dtype_list: Tuple[torch.dtype, torch.dtype, torch.dtype, torch.dtype] = None, device_list: Tuple[torch.device, torch.device, torch.device, torch.device] = None, wilson: wilson_mg = None, U: torch.Tensor = None, clover: clover = None, clover_term: torch.Tensor = None,  min_size: int = 2, max_levels: int = 6, mg_grid_size: Tuple[int, int, int, int] = [2, 2, 2, 2], num_convergence_sample: int = 50, dof_list: Tuple[int, int, int, int] = [12, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24], tol: float = 1e-6, max_iter: int = 1000, root: int = 0, verbose: bool = True):
+    def __init__(self, lat_size: Tuple[int, int, int, int], dtype: torch.dtype = None, device: torch.device = None, dtype_list: Tuple[torch.dtype, torch.dtype, torch.dtype, torch.dtype] = None, device_list: Tuple[torch.device, torch.device, torch.device, torch.device] = None, wilson: wilson_mg = None, U: torch.Tensor = None, clover: clover = None, clover_term: torch.Tensor = None,  min_size: int = 2, max_levels: int = 6, mg_grid_size: Tuple[int, int, int, int] = [2, 2, 2, 2], num_convergence_sample: int = 50, dof_list: Tuple[int, int, int, int] = [12, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24], mass: float = -0.05, tol: float = 1e-6, max_iter: int = 1000, root: int = 0, verbose: bool = True):
         self.comm = MPI.COMM_WORLD
         self.rank = self.comm.Get_rank()
         self.lat_size = list(lat_size)
         self.min_size = min_size
         self.max_levels = max_levels
+        self.mass = mass  # just for plot......
         self.tol = tol
         self.max_iter = max_iter
         self.root = root
@@ -780,11 +781,11 @@ class mg:
                 print(f"Error: {e}")
             plt.figure(figsize=(10, 6))
             plt.title(
-                f"(self.lat_size_list:{self.lat_size_list})convergence_history(self.dof_list:{self.dof_list})", fontsize=16)
+                f"convergence_history(mass={self.mass})\n self.dof_list:{self.dof_list}\n self.lat_size_list:{self.lat_size_list}\n self.dtype_list:{self.dtype_list}\n self.device_list:{self.device_list}", fontsize=12)
             plt.semilogy(range(1, len(self.convergence_history) + 1),
                          self.convergence_history, 'b-o', markersize=4, linewidth=2)
             plt.xlabel(
-                f"Iteration", fontsize=12)
+                f"Iteration*2(record two r_norm between x changes in one iteration)", fontsize=12)
             plt.ylabel('Residual Norm', fontsize=12)
             plt.grid(True, alpha=0.3)
             plt.tight_layout()
