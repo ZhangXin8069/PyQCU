@@ -1,6 +1,6 @@
 from pyqcu.ascend import qcu
 import torch
-lat_x, lat_y, lat_z, lat_t = 16, 16, 16, 32
+lat_x, lat_y, lat_z, lat_t = 16, 16, 16, 16
 _qcu = qcu(lat_size=[lat_x, lat_y, lat_z, lat_t], dtype_list=[torch.complex64, torch.complex64, torch.complex64, torch.complex64], device_list=[
            torch.device('npu'), torch.device('npu'), torch.device('npu'), torch.device('npu')], dslash='clover', solver='mg', max_levels=1, verbose=False)
 _qcu.load()
