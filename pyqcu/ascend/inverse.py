@@ -248,7 +248,7 @@ def npu_restrict(local_ortho_null_vecs: torch.Tensor, fine_vec: torch.Tensor, ve
     if dtype != _dtype or device != _device:
         fine_vec = fine_vec.to(dtype=_dtype, device=_device)
     shape = local_ortho_null_vecs.shape
-    _fine_vec = fine_vec.reshape(shape=shape[1:]).clone()
+    _fine_vec = fine_vec.reshape(shape=shape[1:])
     """
     return torch_einsum(
         "EeTtZzYyXx,eTtZzYyXx->ETZYX", local_ortho_null_vecs.conj(), _fine_vec).clone().to(dtype=dtype, device=device)
