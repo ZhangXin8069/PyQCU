@@ -9,7 +9,7 @@ from time import perf_counter
 
 
 class qcu:
-    def __init__(self, lat_size: Tuple[int, int, int, int] = [8, 8, 8, 8], U: torch.Tensor = None, clover_term: torch.Tensor = None, min_size: int = 2, max_levels: int = 5, num_convergence_sample: int = 50, dof_list: Tuple[int, int, int, int] = [12, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24], max_iter: int = 1000, seed: int = 42, mg_grid_size: Tuple[int, int, int, int] = [2, 2, 2, 2], mass: float = 0.05, tol: float = 1e-6, sigma: float = 0.1, dtype: torch.dtype = None, device: torch.device = None, dtype_list: Tuple[torch.dtype, torch.dtype, torch.dtype, torch.dtype] = None, device_list: Tuple[torch.device, torch.device, torch.device, torch.device] = None, dslash: str = 'clover', solver: str = 'bistabcg', root: int = 0, verbose: bool = True):
+    def __init__(self, lat_size: Tuple[int, int, int, int] = [8, 8, 8, 8], U: torch.Tensor = None, clover_term: torch.Tensor = None, min_size: int = 2, max_levels: int = 5, num_convergence_sample: int = 50, dof_list: Tuple[int, int, int, int] = [12, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24], max_iter: int = 1000, seed: int = 42, mg_grid_size: Tuple[int, int, int, int] = [2, 2, 2, 2], mass: float = -0.05, tol: float = 1e-6, sigma: float = 0.1, dtype: torch.dtype = None, device: torch.device = None, dtype_list: Tuple[torch.dtype, torch.dtype, torch.dtype, torch.dtype] = None, device_list: Tuple[torch.device, torch.device, torch.device, torch.device] = None, dslash: str = 'clover', solver: str = 'bistabcg', root: int = 0, verbose: bool = True):
         self.comm = MPI.COMM_WORLD
         self.rank = self.comm.Get_rank()
         self.size = self.comm.Get_size()
@@ -116,7 +116,7 @@ class qcu:
             self.clover_term = torch.zeros(
                 size=[4, 3, 4, 3]+self.local_lat_size[::-1], dtype=self.dtype_list[0], device=self.device_list[0])
         self.mg = mg(lat_size=self.local_lat_size, dtype_list=self.dtype_list, device_list=self.device_list, num_convergence_sample=self.num_convergence_sample, mg_grid_size=self.mg_grid_size, wilson=self.wilson, U=self.U, clover=self.clover,
-                     clover_term=self.clover_term, min_size=self.min_size, max_levels=self.max_levels, dof_list=self.dof_list, tol=self.tol, max_iter=self.max_iter, verbose=self.verbose)
+                     clover_term=self.clover_term, min_size=self.min_size, max_levels=self.max_levels, dof_list=self.dof_list, mass=self.mass, tol=self.tol, max_iter=self.max_iter, verbose=self.verbose)
         if self.solver == 'mg':
             self.mg.init()
 
@@ -153,35 +153,38 @@ class qcu:
     def load(self, file_name: str = ''):
         try:
             self.b = hdf5_xxxtzyx2grid_xxxtzyx(
-                file_name=file_name+'-b.h5', lat_size=self.lat_size, device=self.device_list[0])
+                file_name=file_name+'-b.h5', lat_size=self.lat_size, device=self.device_list[0]).to(dtype=self.dtype_list[0])
         except Exception as e:
             print(f"Error: {e}")
         try:
             self.refer_x = hdf5_xxxtzyx2grid_xxxtzyx(
-                file_name=file_name+'-x.h5', lat_size=self.lat_size, device=self.device_list[0])
+                file_name=file_name+'-x.h5', lat_size=self.lat_size, device=self.device_list[0]).to(dtype=self.dtype_list[0])
         except Exception as e:
             print(f"Error: {e}")
         try:
             self.x0 = hdf5_xxxtzyx2grid_xxxtzyx(
-                file_name=file_name+'-x0.h5', lat_size=self.lat_size, device=self.device_list[0])
+                file_name=file_name+'-x0.h5', lat_size=self.lat_size, device=self.device_list[0]).to(dtype=self.dtype_list[0])
         except Exception as e:
             print(f"Error: {e}")
         try:
             self.U = hdf5_xxxtzyx2grid_xxxtzyx(
-                file_name=file_name+'-U.h5', lat_size=self.lat_size, device=self.device_list[0])
+                file_name=file_name+'-U.h5', lat_size=self.lat_size, device=self.device_list[0]).to(dtype=self.dtype_list[0])
         except Exception as e:
             print(f"Error: {e}")
         try:
             self.clover_term = hdf5_xxxtzyx2grid_xxxtzyx(
-                file_name=file_name+'-clover_term.h5', lat_size=self.lat_size, device=self.device_list[0])
+                file_name=file_name+'-clover_term.h5', lat_size=self.lat_size, device=self.device_list[0]).to(dtype=self.dtype_list[0])
         except Exception as e:
             print(f"Error: {e}")
 
     def solve(self, b: torch.Tensor = None, x0: torch.Tensor = None) -> torch.Tensor:
         start_time = perf_counter()
         if self.solver == 'bistabcg':
-            x = bicgstab(b=self.b.clone() if b == None else b.clone(), matvec=self.matvec, tol=self.tol, max_iter=self.max_iter,
-                         x0=self.x0.clone() if x0 == None else x0.clone(), verbose=self.verbose)
+            # x = bicgstab(b=self.b.clone() if b == None else b.clone(), matvec=self.matvec, tol=self.tol, max_iter=self.max_iter,
+            #              x0=self.x0.clone() if x0 == None else x0.clone(), verbose=self.verbose)
+            self.mg.max_levels = 1  # just for plot......
+            x = self.mg.solve(b=self.b.clone() if b == None else b.clone(
+            ), x0=self.x0.clone() if x0 == None else x0.clone())
         elif self.solver == 'mg':
             x = self.mg.solve(b=self.b.clone() if b == None else b.clone(
             ), x0=self.x0.clone() if x0 == None else x0.clone())
