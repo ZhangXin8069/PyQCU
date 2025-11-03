@@ -8,6 +8,9 @@ from pyqcu.ascend.io import *
 from pyqcu.ascend.define import *
 from pyqcu.ascend.dslash import *
 
+# if_test_npu = True
+if_test_npu = False
+
 
 def cg(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], tol: float = 1e-6, max_iter: int = 1000, x0: torch.Tensor = None, if_rtol: bool = False, if_multi: bool = give_if_multi(), verbose: bool = True) -> torch.Tensor:
     _matvec = functools.partial(matvec, if_multi=if_multi) if 'if_multi' in inspect.signature(
@@ -210,7 +213,7 @@ def npu_local_orthogonalize(null_vecs: torch.Tensor,
     v = null_vecs.reshape(-1, Z, z, Y, y, X, x).clone()
     v = v.permute(0, 1, 3, 5, 2, 4, 6).contiguous()  # [EeTt,Z,Y,X,z,y,x]
     v = v.reshape(E, e, T, t, Z*Y*X, z*y*x).clone()
-    v = v.permute(0, 1, 2, 4, 3, 5).contiguous()  # [E,e,T,ZYX,t,zyx]
+    v = v.permute(2, 4, 0, 1, 3, 5).contiguous()  # [T,ZYX,E,e,t,zyx]
     n_blocks = T * Z * Y * X
     v = v.view(n_blocks, E, local_dim)
     # Build A = [n_blocks, local_dim, E] (columns = E vectors at a coarse site)
@@ -315,7 +318,7 @@ def local_orthogonalize(null_vecs: torch.Tensor,
                                                int, int] = (2, 2, 2, 2),
                         normalize: bool = True,
                         verbose: bool = False) -> torch.Tensor:
-    if null_vecs.device.type == 'npu':
+    if null_vecs.device.type == 'npu' or if_test_npu:
         return npu_local_orthogonalize(null_vecs=null_vecs, coarse_lat_size=coarse_lat_size, normalize=normalize, verbose=verbose)
     assert null_vecs.ndim == 6, "Expected shape [E, e, T*t, Z*z, Y*y, X*x]"
     E, e, Tt, Zz, Yy, Xx = null_vecs.shape
@@ -356,7 +359,7 @@ def local_orthogonalize(null_vecs: torch.Tensor,
 def restrict(local_ortho_null_vecs: torch.Tensor, fine_vec: torch.Tensor, verbose: bool = True) -> torch.Tensor:
     dtype = fine_vec.dtype
     device = fine_vec.device
-    if device.type == 'npu':
+    if device.type == 'npu' or if_test_npu:
         return npu_restrict(local_ortho_null_vecs=local_ortho_null_vecs, fine_vec=fine_vec, verbose=verbose)
     _dtype = local_ortho_null_vecs.dtype
     _device = local_ortho_null_vecs.device
@@ -371,7 +374,7 @@ def restrict(local_ortho_null_vecs: torch.Tensor, fine_vec: torch.Tensor, verbos
 def prolong(local_ortho_null_vecs: torch.Tensor, coarse_vec: torch.Tensor, verbose: bool = True) -> torch.Tensor:
     dtype = coarse_vec.dtype
     device = coarse_vec.device
-    if device.type == 'npu':
+    if device.type == 'npu' or if_test_npu:
         return npu_prolong(local_ortho_null_vecs=local_ortho_null_vecs, coarse_vec=coarse_vec, verbose=verbose)
     _dtype = local_ortho_null_vecs.dtype
     _device = local_ortho_null_vecs.device
