@@ -1,0 +1,223 @@
+Error: MPI_ERR_COMM: invalid communicator
+Error: MPI_ERR_COMM: invalid communicator
+Error: MPI_ERR_COMM: invalid communicator
+Error: MPI_ERR_COMM: invalid communicator
+Error: MPI_ERR_COMM: invalid communicator
+Error: MPI_ERR_COMM: invalid communicator
+Error: MPI_ERR_COMM: invalid communicator
+Error: MPI_ERR_COMM: invalid communicator
+[MPI Rank 6/8] Using npu:6
+[MPI Rank 6/8] Using npu:6
+[MPI Rank 6/8] Using npu:6
+[MPI Rank 6/8] Using npu:6
+[MPI Rank 7/8] Using npu:7
+[MPI Rank 7/8] Using npu:7
+[MPI Rank 7/8] Using npu:7
+[MPI Rank 7/8] Using npu:7
+[MPI Rank 5/8] Using npu:5
+[MPI Rank 5/8] Using npu:5
+[MPI Rank 5/8] Using npu:5
+[MPI Rank 5/8] Using npu:5
+[MPI Rank 0/8] Using npu:0
+[MPI Rank 0/8] Using npu:0
+[MPI Rank 0/8] Using npu:0
+[MPI Rank 0/8] Using npu:0
+[MPI Rank 4/8] Using npu:4
+[MPI Rank 4/8] Using npu:4
+[MPI Rank 4/8] Using npu:4
+[MPI Rank 4/8] Using npu:4
+[MPI Rank 2/8] Using npu:2
+[MPI Rank 2/8] Using npu:2
+[MPI Rank 2/8] Using npu:2
+[MPI Rank 2/8] Using npu:2
+[MPI Rank 1/8] Using npu:1
+[MPI Rank 1/8] Using npu:1
+[MPI Rank 1/8] Using npu:1
+[MPI Rank 1/8] Using npu:1
+[MPI Rank 3/8] Using npu:3
+[MPI Rank 3/8] Using npu:3
+[MPI Rank 3/8] Using npu:3
+[MPI Rank 3/8] Using npu:3
+rank 0: Data is load from -b.h5
+rank 6: Data is load from -b.h5
+rank 2: Data is load from -b.h5
+rank 1: Data is load from -b.h5
+rank 4: Data is load from -b.h5rank 7: Data is load from -b.h5
+rank 3: Data is load from -b.h5
+rank 5: Data is load from -b.h5
+
+rank 1: Data is load from -x.h5
+rank 0: Data is load from -x.h5
+rank 5: Data is load from -x.h5
+rank 2: Data is load from -x.h5
+rank 6: Data is load from -x.h5
+rank 4: Data is load from -x.h5
+rank 3: Data is load from -x.h5
+rank 7: Data is load from -x.h5
+rank 1: Data is load from -x0.h5
+rank 0: Data is load from -x0.h5
+rank 6: Data is load from -x0.h5
+rank 3: Data is load from -x0.h5
+rank 2: Data is load from -x0.h5
+rank 4: Data is load from -x0.h5
+rank 5: Data is load from -x0.h5
+rank 7: Data is load from -x0.h5
+rank 1: Data is load from -U.h5
+rank 0: Data is load from -U.h5
+rank 5: Data is load from -U.h5
+rank 2: Data is load from -U.h5
+rank 4: Data is load from -U.h5
+rank 7: Data is load from -U.h5
+rank 3: Data is load from -U.h5
+rank 6: Data is load from -U.h5
+rank 1: Data is load from -clover_term.h5
+rank 0: Data is load from -clover_term.h5
+rank 4: Data is load from -clover_term.h5
+rank 6: Data is load from -clover_term.h5
+rank 3: Data is load from -clover_term.h5
+rank 2: Data is load from -clover_term.h5
+rank 5: Data is load from -clover_term.h5
+rank 7: Data is load from -clover_term.h5
+[MPI Rank 1/8] Using npu:1
+[MPI Rank 1/8] Using npu:1
+[MPI Rank 3/8] Using npu:3
+[MPI Rank 1/8] Using npu:1
+[MPI Rank 4/8] Using npu:4
+[MPI Rank 4/8] Using npu:4
+self.dof_list:[12, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24]
+self.dtype_list:[torch.complex64, torch.complex32, torch.complex32, torch.complex32]
+[MPI Rank 1/8] Using npu:1
+[MPI Rank 2/8] Using npu:2
+[MPI Rank 7/8] Using npu:7
+[MPI Rank 7/8] Using npu:7
+[MPI Rank 7/8] Using npu:7
+[MPI Rank 3/8] Using npu:3
+[MPI Rank 3/8] Using npu:3
+[MPI Rank 3/8] Using npu:3
+self.device_list:[device(type='npu'), device(type='npu'), device(type='npu'), device(type='npu')]
+[MPI Rank 4/8] Using npu:4
+[MPI Rank 4/8] Using npu:4
+[MPI Rank 6/8] Using npu:6
+[MPI Rank 2/8] Using npu:2
+[MPI Rank 7/8] Using npu:7
+[MPI Rank 5/8] Using npu:5
+[MPI Rank 6/8] Using npu:6
+[MPI Rank 2/8] Using npu:2
+[MPI Rank 0/8] Using npu:0
+[MPI Rank 0/8] Using npu:0
+[MPI Rank 5/8] Using npu:5
+[MPI Rank 6/8] Using npu:6
+[MPI Rank 5/8] Using npu:5
+[MPI Rank 0/8] Using npu:0
+[MPI Rank 2/8] Using npu:2
+[MPI Rank 5/8] Using npu:5
+[MPI Rank 6/8] Using npu:6
+[MPI Rank 0/8] Using npu:0
+Not found Slover!
+
+Performance Statistics:
+self.solver-Mg-Total time: 0.000025 seconds
+Not found Slover!
+
+Performance Statistics:
+self.solver-Mg-Total time: 0.000029 seconds
+Traceback (most recent call last):
+  File "/home/phyww/zhangxin/PyQCU/test/./test.ascend.mg.npu-dev59.py", line 8, in <module>
+Not found Slover!
+
+Performance Statistics:
+Not found Slover!
+
+Performance Statistics:
+self.solver-Mg-Total time: 0.000030 seconds
+self.solver-Mg-Total time: 0.000027 seconds
+Traceback (most recent call last):
+  File "/home/phyww/zhangxin/PyQCU/test/./test.ascend.mg.npu-dev59.py", line 8, in <module>
+    _qcu.solve()
+Not found Slover!
+
+Performance Statistics:
+Not found Slover!
+
+Performance Statistics:
+self.solver-Mg-Total time: 0.000029 seconds
+Not found Slover!
+
+Performance Statistics:
+self.solver-Mg-Total time: 0.000027 seconds
+self.lat_size_list:[[16, 8, 8, 16], [8, 4, 4, 8], [4, 2, 2, 4]]
+Not found Slover!
+
+Performance Statistics:
+self.solver-Mg-Total time: 0.000009 seconds
+self.solver-Mg-Total time: 0.000033 seconds
+Traceback (most recent call last):
+  File "/home/phyww/zhangxin/PyQCU/test/./test.ascend.mg.npu-dev59.py", line 8, in <module>
+  File "/home/phyww/zhangxin/PyQCU/test/pyqcu/ascend/__init__.py", line 194, in solve
+Traceback (most recent call last):
+  File "/home/phyww/zhangxin/PyQCU/test/./test.ascend.mg.npu-dev59.py", line 8, in <module>
+    _qcu.solve()
+Traceback (most recent call last):
+  File "/home/phyww/zhangxin/PyQCU/test/./test.ascend.mg.npu-dev59.py", line 8, in <module>
+    self.x = x.reshape([4, 3]+list(x.shape[-4:])).clone()
+             ^
+UnboundLocalError: cannot access local variable 'x' where it is not associated with a value
+    _qcu.solve()
+  File "/home/phyww/zhangxin/PyQCU/test/pyqcu/ascend/__init__.py", line 194, in solve
+  File "/home/phyww/zhangxin/PyQCU/test/pyqcu/ascend/__init__.py", line 194, in solve
+Traceback (most recent call last):
+  File "/home/phyww/zhangxin/PyQCU/test/./test.ascend.mg.npu-dev59.py", line 8, in <module>
+Traceback (most recent call last):
+  File "/home/phyww/zhangxin/PyQCU/test/./test.ascend.mg.npu-dev59.py", line 8, in <module>
+Traceback (most recent call last):
+  File "/home/phyww/zhangxin/PyQCU/test/./test.ascend.mg.npu-dev59.py", line 8, in <module>
+    _qcu.solve()
+  File "/home/phyww/zhangxin/PyQCU/test/pyqcu/ascend/__init__.py", line 194, in solve
+    self.x = x.reshape([4, 3]+list(x.shape[-4:])).clone()
+        _qcu.solve()
+           self.x = x.reshape([4, 3]+list(x.shape[-4:])).clone()
+  ^
+UnboundLocalError: cannot access local variable 'x' where it is not associated with a value
+       _qcu.solve()
+          _qcu.solve()
+  File "/home/phyww/zhangxin/PyQCU/test/pyqcu/ascend/__init__.py", line 194, in solve
+    _qcu.solve()
+    ^
+UnboundLocalError: cannot access local variable 'x' where it is not associated with a value
+    self.x = x.reshape([4, 3]+list(x.shape[-4:])).clone()
+  File "/home/phyww/zhangxin/PyQCU/test/pyqcu/ascend/__init__.py", line 194, in solve
+  File "/home/phyww/zhangxin/PyQCU/test/pyqcu/ascend/__init__.py", line 194, in solve
+  File "/home/phyww/zhangxin/PyQCU/test/pyqcu/ascend/__init__.py", line 194, in solve
+             ^
+UnboundLocalError: cannot access local variable 'x' where it is not associated with a value
+    self.x = x.reshape([4, 3]+list(x.shape[-4:])).clone()
+             ^
+UnboundLocalError: cannot access local variable 'x' where it is not associated with a value
+    self.x = x.reshape([4, 3]+list(x.shape[-4:])).clone()
+             self.x = x.reshape([4, 3]+list(x.shape[-4:])).clone()
+         self.x = x.reshape([4, 3]+list(x.shape[-4:])).clone()
+             ^
+UnboundLocalError        ^
+    ^
+UnboundLocalError: cannot access local variable 'x' where it is not associated with a value
+: cannot access local variable 'x' where it is not associated with a value
+UnboundLocalError: cannot access local variable 'x' where it is not associated with a value
+[ERROR] 2025-11-03-11:15:25 (PID:1176696, Device:6, RankID:-1) ERR99999 UNKNOWN applicaiton exception
+[ERROR] 2025-11-03-11:15:25 (PID:1176687, Device:4, RankID:-1) ERR99999 UNKNOWN applicaiton exception
+[ERROR] 2025-11-03-11:15:25 (PID:1176667, Device:0, RankID:-1) ERR99999 UNKNOWN applicaiton exception
+[ERROR] 2025-11-03-11:15:25 (PID:1176692, Device:5, RankID:-1) ERR99999 UNKNOWN applicaiton exception
+[ERROR] 2025-11-03-11:15:25 (PID:1176678, Device:2, RankID:-1) ERR99999 UNKNOWN applicaiton exception
+[ERROR] 2025-11-03-11:15:25 (PID:1176697, Device:7, RankID:-1) ERR99999 UNKNOWN applicaiton exception
+[ERROR] 2025-11-03-11:15:26 (PID:1176670, Device:1, RankID:-1) ERR99999 UNKNOWN applicaiton exception
+[ERROR] 2025-11-03-11:15:26 (PID:1176682, Device:3, RankID:-1) ERR99999 UNKNOWN applicaiton exception
+--------------------------------------------------------------------------
+Primary job  terminated normally, but 1 process returned
+a non-zero exit code. Per user-direction, the job has been aborted.
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+mpirun detected that one or more processes exited with non-zero status, thus causing
+the job to be terminated. The first process to do so was:
+
+  Process name: [[38470,1],4]
+  Exit code:    1
+--------------------------------------------------------------------------

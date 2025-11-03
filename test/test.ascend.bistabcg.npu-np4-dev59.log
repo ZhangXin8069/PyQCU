@@ -1,0 +1,159 @@
+Error: MPI_ERR_COMM: invalid communicator
+Error: MPI_ERR_COMM: invalid communicator
+Error: MPI_ERR_COMM: invalid communicator
+Error: MPI_ERR_COMM: invalid communicator
+[MPI Rank 2/4] Using npu:2
+[MPI Rank 2/4] Using npu:2
+[MPI Rank 2/4] Using npu:2
+[MPI Rank 2/4] Using npu:2
+[MPI Rank 1/4] Using npu:1
+[MPI Rank 1/4] Using npu:1
+[MPI Rank 1/4] Using npu:1
+[MPI Rank 1/4] Using npu:1
+[MPI Rank 0/4] Using npu:0
+[MPI Rank 0/4] Using npu:0
+[MPI Rank 0/4] Using npu:0
+[MPI Rank 0/4] Using npu:0
+[MPI Rank 3/4] Using npu:3
+[MPI Rank 3/4] Using npu:3
+[MPI Rank 3/4] Using npu:3
+[MPI Rank 3/4] Using npu:3
+rank 3: Data is load from -b.h5
+rank 0: Data is load from -b.h5
+rank 1: Data is load from -b.h5
+rank 2: Data is load from -b.h5
+rank 0: Data is load from -x.h5
+rank 2: Data is load from -x.h5
+rank 1: Data is load from -x.h5
+rank 3: Data is load from -x.h5
+rank 0: Data is load from -x0.h5
+rank 3: Data is load from -x0.h5
+rank 1: Data is load from -x0.h5
+rank 2: Data is load from -x0.h5
+rank 0: Data is load from -U.h5
+rank 1: Data is load from -U.h5
+rank 2: Data is load from -U.h5
+rank 3: Data is load from -U.h5
+rank 0: Data is load from -clover_term.h5
+rank 1: Data is load from -clover_term.h5
+rank 2: Data is load from -clover_term.h5
+rank 3: Data is load from -clover_term.h5
+[MPI Rank 2/4] Using npu:2
+self.dof_list:[12, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24]
+[MPI Rank 1/4] Using npu:1
+[MPI Rank 1/4] Using npu:1
+[MPI Rank 1/4] Using npu:1
+[MPI Rank 1/4] Using npu:1
+self.dtype_list:[torch.complex64, torch.complex32, torch.complex32, torch.complex32]
+self.device_list:[device(type='npu'), device(type='npu'), device(type='npu'), device(type='npu')]
+[MPI Rank 0/4] Using npu:0
+[MPI Rank 0/4] Using npu:0
+[MPI Rank 0/4] Using npu:0
+[MPI Rank 0/4] Using npu:0
+[MPI Rank 3/4] Using npu:3
+[MPI Rank 3/4] Using npu:3
+[MPI Rank 3/4] Using npu:3
+[MPI Rank 3/4] Using npu:3
+[MPI Rank 2/4] Using npu:2
+[MPI Rank 2/4] Using npu:2
+[MPI Rank 2/4] Using npu:2
+self.lat_size_list:[[16, 16, 8, 16], [8, 8, 4, 8], [4, 4, 2, 4]]
+
+Performance Statistics:
+Total iterations: 117
+Total time: 33.148644 seconds
+Average time per iteration: 0.283319 s
+Final residual: 7.91e-07
+
+Performance Statistics:
+Total iterations: 117
+Total time: 33.149185 seconds
+Average time per iteration: 0.283324 s
+Final residual: 7.91e-07
+
+Performance Statistics:
+Total iterations: 117
+Total time: 33.148981 seconds
+Average time per iteration: 0.283322 s
+Final residual: 7.91e-07
+
+Performance Statistics:
+Total iterations: 117
+Total time: 33.149136 seconds
+Average time per iteration: 0.283324 s
+Final residual: 7.91e-07
+
+Performance Statistics:
+self.solver-bistabcg-Total time: 33.778891 seconds
+
+Performance Statistics:
+
+Performance Statistics:
+self.solver-bistabcg-Total time: 33.778390 seconds
+
+Performance Statistics:
+self.solver-bistabcg-Total time: 33.778343 seconds
+self.solver-bistabcg-Total time: 33.778636 seconds
+torch_norm(self.U): 627.0693969726562
+torch_norm(self.U): 627.0693969726562
+torch_norm(self.U): 627.0693969726562
+torch_norm(self.clover_term): 29.456026077270508
+torch_norm(self.clover_term): 29.48822593688965
+torch_norm(self.clover_term): 29.45536231994629
+torch_norm(self.b): 887.650390625
+torch_norm(self.b): 886.3591918945312
+torch_norm(self.x): 1039.653076171875
+torch_norm(self.x): 1040.6640625
+torch_norm(self.b): 885.277099609375
+torch_norm(self.x): 1039.680419921875
+torch_norm(self.U): 627.0693969726562
+torch_norm(self.clover_term): 29.46324348449707
+torch_norm(self.b): 886.7174072265625
+torch_norm(self.x): 1039.261962890625
+multi_norm(self.U): 1254.1387939453125
+multi_norm(self.U): 1254.1387939453125
+multi_norm(self.U): 1254.1387939453125
+multi_norm(self.U): 1254.1387939453125
+multi_norm(self.clover_term): 58.931434631347656
+multi_norm(self.clover_term): 58.931434631347656
+multi_norm(self.clover_term): 58.931434631347656
+multi_norm(self.clover_term): 58.931434631347656
+multi_norm(self.b): 1773.0028076171875
+multi_norm(self.b): 1773.0028076171875
+multi_norm(self.b): 1773.0028076171875
+multi_norm(self.b): 1773.0028076171875
+multi_norm(self.x): 2079.6298828125
+multi_norm(self.x): 2079.6298828125
+multi_norm(self.x): 2079.6298828125
+multi_norm(self.x): 2079.6298828125
+torch_norm(_full_b): 1773.0028076171875
+torch_norm(_full_x): 2079.6298828125
+torch_norm(full_Ax): 1773.0028076171875
+torch_norm(_full_Ax): 1773.0028076171875
+torch_norm(full_Ax-_full_b).item()/torch_norm(full_Ax).item(): 5.054745269331998e-07
+torch_norm(_full_Ax-_full_b).item()/torch_norm(_full_Ax).item(): 5.065709500427264e-07
+torch_norm(full_Ax-_full_Ax).item()/torch_norm(full_Ax).item(): 1.0416354406380615e-07
+Rank0-Error: 'float' object has no attribute 'item'
+Rank3-Error: 'float' object has no attribute 'item'
+Rank1-Error: 'float' object has no attribute 'item'
+Rank2-Error: 'float' object has no attribute 'item'
+rank 1: Data is saved to -b.h5
+rank 3: Data is saved to -b.h5
+rank 2: Data is saved to -b.h5
+rank 0: Data is saved to -b.h5
+rank 0: Data is saved to -x.h5
+rank 3: Data is saved to -x.h5
+rank 1: Data is saved to -x.h5
+rank 2: Data is saved to -x.h5
+rank 1: Data is saved to -x0.h5
+rank 3: Data is saved to -x0.h5
+rank 0: Data is saved to -x0.h5
+rank 2: Data is saved to -x0.h5
+rank 0: Data is saved to -U.h5
+rank 3: Data is saved to -U.h5
+rank 1: Data is saved to -U.h5
+rank 2: Data is saved to -U.h5
+rank 1: Data is saved to -clover_term.h5
+rank 3: Data is saved to -clover_term.h5
+rank 2: Data is saved to -clover_term.h5
+rank 0: Data is saved to -clover_term.h5

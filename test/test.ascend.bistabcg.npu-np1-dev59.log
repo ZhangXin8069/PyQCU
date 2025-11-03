@@ -1,0 +1,48 @@
+Error: MPI_ERR_COMM: invalid communicator
+[MPI Rank 0/1] Using npu:0
+[MPI Rank 0/1] Using npu:0
+[MPI Rank 0/1] Using npu:0
+[MPI Rank 0/1] Using npu:0
+rank 0: Data is load from -b.h5
+rank 0: Data is load from -x.h5
+rank 0: Data is load from -x0.h5
+rank 0: Data is load from -U.h5
+rank 0: Data is load from -clover_term.h5
+self.dof_list:[12, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24]
+self.dtype_list:[torch.complex64, torch.complex32, torch.complex32, torch.complex32]
+self.device_list:[device(type='npu'), device(type='npu'), device(type='npu'), device(type='npu')]
+[MPI Rank 0/1] Using npu:0
+[MPI Rank 0/1] Using npu:0
+[MPI Rank 0/1] Using npu:0
+[MPI Rank 0/1] Using npu:0
+self.lat_size_list:[[16, 16, 16, 32], [8, 8, 8, 16], [4, 4, 4, 8], [2, 2, 2, 4]]
+
+Performance Statistics:
+Total iterations: 117
+Total time: 121.279567 seconds
+Average time per iteration: 1.036575 s
+Final residual: 8.77e-07
+
+Performance Statistics:
+self.solver-bistabcg-Total time: 126.330423 seconds
+torch_norm(self.U): 1254.1387939453125
+torch_norm(self.clover_term): 58.931434631347656
+torch_norm(self.b): 1773.0028076171875
+torch_norm(self.x): 2079.6298828125
+multi_norm(self.U): 1254.1387939453125
+multi_norm(self.clover_term): 58.93143844604492
+multi_norm(self.b): 1773.0029296875
+multi_norm(self.x): 2079.6298828125
+torch_norm(_full_b): 1773.0028076171875
+torch_norm(_full_x): 2079.6298828125
+torch_norm(full_Ax): 1773.0028076171875
+torch_norm(_full_Ax): 1773.0028076171875
+torch_norm(full_Ax-_full_b).item()/torch_norm(full_Ax).item(): 5.090082155225044e-07
+torch_norm(_full_Ax-_full_b).item()/torch_norm(_full_Ax).item(): 5.099959057117463e-07
+torch_norm(full_Ax-_full_Ax).item()/torch_norm(full_Ax).item(): 1.0414174495176836e-07
+Rank0-Error: 'float' object has no attribute 'item'
+rank 0: Data is saved to -b.h5
+rank 0: Data is saved to -x.h5
+rank 0: Data is saved to -x0.h5
+rank 0: Data is saved to -U.h5
+rank 0: Data is saved to -clover_term.h5
