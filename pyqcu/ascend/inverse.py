@@ -359,8 +359,8 @@ def local_orthogonalize(null_vecs: torch.Tensor,
 def restrict(local_ortho_null_vecs: torch.Tensor, fine_vec: torch.Tensor, verbose: bool = True) -> torch.Tensor:
     dtype = fine_vec.dtype
     device = fine_vec.device
-    # if device.type == 'npu' or if_test_npu:
-    #     return npu_restrict(local_ortho_null_vecs=local_ortho_null_vecs, fine_vec=fine_vec, verbose=verbose)
+    if device.type == 'npu' or if_test_npu:
+        return npu_restrict(local_ortho_null_vecs=local_ortho_null_vecs, fine_vec=fine_vec, verbose=verbose)
     _dtype = local_ortho_null_vecs.dtype
     _device = local_ortho_null_vecs.device
     if dtype != _dtype or device != _device:
@@ -374,8 +374,8 @@ def restrict(local_ortho_null_vecs: torch.Tensor, fine_vec: torch.Tensor, verbos
 def prolong(local_ortho_null_vecs: torch.Tensor, coarse_vec: torch.Tensor, verbose: bool = True) -> torch.Tensor:
     dtype = coarse_vec.dtype
     device = coarse_vec.device
-    # if device.type == 'npu' or if_test_npu:
-    #     return npu_prolong(local_ortho_null_vecs=local_ortho_null_vecs, coarse_vec=coarse_vec, verbose=verbose)
+    if device.type == 'npu' or if_test_npu:
+        return npu_prolong(local_ortho_null_vecs=local_ortho_null_vecs, coarse_vec=coarse_vec, verbose=verbose)
     _dtype = local_ortho_null_vecs.dtype
     _device = local_ortho_null_vecs.device
     if dtype != _dtype or device != _device:
