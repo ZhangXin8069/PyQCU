@@ -236,6 +236,6 @@ class qcu:
                 f"torch_norm(full_Ax-_full_Ax).item()/torch_norm(full_Ax).item(): {torch_norm(full_Ax-_full_Ax).item()/torch_norm(full_Ax).item()}")
         try:
             print(
-                f"multi_norm(self.refer_x-self.x).item()/multi_norm(self.x).item(): {multi_norm(self.refer_x-self.x).item()/multi_norm(self.x).item()}")
+                f"multi_norm(self.refer_x-self.x)/multi_norm(self.x): {multi_norm(self.refer_x-self.x)/multi_norm(self.x)}")
         except Exception as e:
             print(f"Rank{self.rank}-Error: {e}")
