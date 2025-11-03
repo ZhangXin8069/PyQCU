@@ -181,7 +181,6 @@ def give_null_vecs(
                 print(
                     f"multi_vdot(null_vecs[{i}], null_vecs[{j}]):{multi_vdot(null_vecs[i], null_vecs[j])}")
     return null_vecs.clone()
-
 # NPU:The self tensor cannot be larger than 8 dimensions.
 
 
@@ -308,7 +307,7 @@ def npu_prolong(local_ortho_null_vecs: torch.Tensor, coarse_vec: torch.Tensor, v
     dest = dest.permute(0, 1, 3, 2, 4)  # [e, T, t, Z*Y*X, z*y*x]
     dest = dest.reshape(-1, Z,  Y,  X, z, y, x)
     dest = dest.permute(0, 1, 4, 2, 5, 3, 6)  # [eTt, Z, z, Y, y, X, x]
-    return dest.reshape(e, T, t, Z, z, Y, y, X, x)
+    return dest.reshape(e, T*t, Z * z, Y * y, X * x)
 
 
 def local_orthogonalize(null_vecs: torch.Tensor,
