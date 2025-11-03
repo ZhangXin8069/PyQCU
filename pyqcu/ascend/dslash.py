@@ -556,12 +556,7 @@ class wilson_mg(wilson):
         name = dir_info['name']
         if self.verbose:
             print(f"@give_wilson_{name}_plus......")
-        try:
-            src_plus = torch_roll(src, shifts=-1, dims=axis)
-        except Exception as e:
-            print(f"src.shape: {src.shape}")
-            print(f"Error: {e}")
-            exit()
+        src_plus = torch_roll(src, shifts=-1, dims=axis)
         if src_tail != None:
             src_plus[slice_dim(dim=5, ward=ward, point=-1)] = src_tail.clone()
         return torch_einsum(
