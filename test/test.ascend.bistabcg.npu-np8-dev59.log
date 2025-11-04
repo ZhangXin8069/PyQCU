@@ -1,0 +1,339 @@
+Error: MPI_ERR_COMM: invalid communicator
+Error: MPI_ERR_COMM: invalid communicator
+Error: MPI_ERR_COMM: invalid communicator
+Error: MPI_ERR_COMM: invalid communicator
+Error: MPI_ERR_COMM: invalid communicator
+Error: MPI_ERR_COMM: invalid communicator
+Error: MPI_ERR_COMM: invalid communicator
+Error: MPI_ERR_COMM: invalid communicator
+[MPI Rank 2/8] Using npu:2
+[MPI Rank 2/8] Using npu:2
+[MPI Rank 2/8] Using npu:2
+[MPI Rank 2/8] Using npu:2
+[MPI Rank 4/8] Using npu:4
+[MPI Rank 4/8] Using npu:4
+[MPI Rank 4/8] Using npu:4
+[MPI Rank 4/8] Using npu:4
+[MPI Rank 6/8] Using npu:6
+[MPI Rank 6/8] Using npu:6
+[MPI Rank 6/8] Using npu:6
+[MPI Rank 6/8] Using npu:6
+[MPI Rank 5/8] Using npu:5
+[MPI Rank 5/8] Using npu:5
+[MPI Rank 5/8] Using npu:5
+[MPI Rank 5/8] Using npu:5
+[MPI Rank 3/8] Using npu:3
+[MPI Rank 3/8] Using npu:3
+[MPI Rank 3/8] Using npu:3
+[MPI Rank 3/8] Using npu:3
+[MPI Rank 7/8] Using npu:7
+[MPI Rank 7/8] Using npu:7
+[MPI Rank 7/8] Using npu:7
+[MPI Rank 7/8] Using npu:7
+[MPI Rank 0/8] Using npu:0
+[MPI Rank 0/8] Using npu:0
+[MPI Rank 0/8] Using npu:0
+[MPI Rank 0/8] Using npu:0
+[MPI Rank 1/8] Using npu:1
+[MPI Rank 1/8] Using npu:1
+[MPI Rank 1/8] Using npu:1
+[MPI Rank 1/8] Using npu:1
+rank 4: Data is load from -b.h5
+rank 3: Data is load from -b.h5
+rank 7: Data is load from -b.h5
+rank 1: Data is load from -b.h5
+rank 5: Data is load from -b.h5
+rank 6: Data is load from -b.h5
+rank 0: Data is load from -b.h5
+rank 2: Data is load from -b.h5
+rank 0: Data is load from -x.h5
+rank 4: Data is load from -x.h5
+rank 1: Data is load from -x.h5
+rank 2: Data is load from -x.h5
+rank 5: Data is load from -x.h5
+rank 3: Data is load from -x.h5
+rank 6: Data is load from -x.h5
+rank 7: Data is load from -x.h5
+rank 0: Data is load from -x0.h5
+rank 1: Data is load from -x0.h5
+rank 4: Data is load from -x0.h5
+rank 3: Data is load from -x0.h5
+rank 2: Data is load from -x0.h5
+rank 5: Data is load from -x0.h5
+rank 7: Data is load from -x0.h5
+rank 6: Data is load from -x0.h5
+rank 1: Data is load from -U.h5
+rank 0: Data is load from -U.h5
+rank 7: Data is load from -U.h5
+rank 5: Data is load from -U.h5
+rank 6: Data is load from -U.h5
+rank 2: Data is load from -U.h5
+rank 3: Data is load from -U.h5
+rank 4: Data is load from -U.h5
+rank 1: Data is load from -clover_term.h5
+rank 0: Data is load from -clover_term.h5
+rank 4: Data is load from -clover_term.h5
+rank 7: Data is load from -clover_term.h5
+rank 6: Data is load from -clover_term.h5
+rank 5: Data is load from -clover_term.h5
+rank 3: Data is load from -clover_term.h5
+rank 2: Data is load from -clover_term.h5
+[MPI Rank 4/8] Using npu:4
+self.dof_list:[12, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24]
+self.dtype_list:[torch.complex64, torch.complex64, torch.complex64, torch.complex64]
+[MPI Rank 3/8] Using npu:3
+[MPI Rank 2/8] Using npu:2
+[MPI Rank 5/8] Using npu:5
+[MPI Rank 3/8] Using npu:3
+[MPI Rank 3/8] Using npu:3[MPI Rank 4/8] Using npu:4
+[MPI Rank 4/8] Using npu:4
+[MPI Rank 7/8] Using npu:7
+[MPI Rank 7/8] Using npu:7
+[MPI Rank 1/8] Using npu:1
+[MPI Rank 1/8] Using npu:1
+[MPI Rank 6/8] Using npu:6
+[MPI Rank 6/8] Using npu:6
+self.device_list:[device(type='npu'), device(type='npu'), device(type='npu'), device(type='npu')]
+[MPI Rank 2/8] Using npu:2
+[MPI Rank 2/8] Using npu:2
+[MPI Rank 0/8] Using npu:0
+[MPI Rank 5/8] Using npu:5
+[MPI Rank 5/8] Using npu:5
+
+[MPI Rank 3/8] Using npu:3
+[MPI Rank 4/8] Using npu:4
+[MPI Rank 7/8] Using npu:7
+[MPI Rank 1/8] Using npu:1
+[MPI Rank 6/8] Using npu:6
+[MPI Rank 2/8] Using npu:2[MPI Rank 6/8] Using npu:6
+[MPI Rank 0/8] Using npu:0
+[MPI Rank 0/8] Using npu:0
+[MPI Rank 5/8] Using npu:5
+[MPI Rank 7/8] Using npu:7
+[MPI Rank 1/8] Using npu:1
+
+[MPI Rank 0/8] Using npu:0
+self.lat_size_list:[[16, 8, 4, 4], [8, 4, 2, 2]]
+
+Performance Statistics:
+Total iterations: 255
+Total time: 13.504008 seconds
+Average time per iteration: 0.052955 s
+Final residual: 8.95e-07
+
+Performance Statistics:
+Total iterations: 255
+Total time: 13.504107 seconds
+Average time per iteration: 0.052956 s
+Final residual: 8.95e-07
+
+Performance Statistics:
+Total iterations: 255
+Total time: 13.504034 seconds
+Average time per iteration: 0.052956 s
+Final residual: 8.95e-07
+
+Performance Statistics:
+Total iterations: 255
+Total time: 13.503892 seconds
+Average time per iteration: 0.052955 s
+Final residual: 8.95e-07
+
+Performance Statistics:
+Total iterations: 255
+Total time: 13.503864 seconds
+Average time per iteration: 0.052955 s
+Final residual: 8.95e-07
+
+Performance Statistics:
+Total iterations: 255
+Total time: 13.503987 seconds
+Average time per iteration: 0.052955 s
+Final residual: 8.95e-07
+
+Performance Statistics:
+Total iterations: 255
+Total time: 13.503843 seconds
+Average time per iteration: 0.052955 s
+Final residual: 8.95e-07
+
+Performance Statistics:
+Total iterations: 255
+Total time: 13.504023 seconds
+Average time per iteration: 0.052956 s
+Final residual: 8.95e-07
+
+Performance Statistics:
+Total time: 13.727813 seconds
+Final residual: 8.95e-07
+
+Performance Statistics:
+Total time: 13.727124 seconds
+Final residual: 8.95e-07
+
+Performance Statistics:
+Total time: 13.726990 seconds
+Final residual: 8.95e-07
+
+Performance Statistics:
+Total time: 13.727365 seconds
+Final residual: 8.95e-07
+
+Performance Statistics:
+Total time: 13.727260 seconds
+Final residual: 8.95e-07
+
+Performance Statistics:
+Total time: 13.727414 seconds
+Final residual: 8.95e-07
+
+Performance Statistics:
+Total time: 13.727736 seconds
+Final residual: 8.95e-07
+
+Performance Statistics:
+Total time: 13.727131 seconds
+Final residual: 8.95e-07
+
+Performance Statistics:
+self.solver-bistabcg-Total time: 13.728438 seconds
+
+Performance Statistics:
+self.solver-bistabcg-Total time: 13.727796 seconds
+
+Performance Statistics:
+
+Performance Statistics:
+self.solver-bistabcg-Total time: 13.728383 seconds
+
+Performance Statistics:
+self.solver-bistabcg-Total time: 13.728057 seconds
+
+Performance Statistics:
+self.solver-bistabcg-Total time: 13.727954 seconds
+
+Performance Statistics:
+self.solver-bistabcg-Total time: 13.728106 secondsself.solver-bistabcg-Total time: 13.727702 seconds
+
+Performance Statistics:
+self.solver-bistabcg-Total time: 13.727846 seconds
+
+torch_norm(self.U): 156.76734924316406
+torch_norm(self.U): 156.76734924316406
+torch_norm(self.U): 156.76734924316406
+torch_norm(self.U): 156.76734924316406
+torch_norm(self.U): 156.76734924316406
+torch_norm(self.clover_term): 7.538446426391602
+torch_norm(self.clover_term): 7.543436050415039
+torch_norm(self.U): 156.76734924316406
+torch_norm(self.U): 156.76734924316406
+torch_norm(self.clover_term): 7.552609920501709
+torch_norm(self.U): 156.76734924316406
+torch_norm(self.clover_term): 7.607504367828369
+torch_norm(self.b): 219.80140686035156
+torch_norm(self.clover_term): 7.555723190307617
+torch_norm(self.b): 220.17283630371094
+torch_norm(self.clover_term): 7.536106109619141
+torch_norm(self.clover_term): 7.5475873947143555
+torch_norm(self.b): 221.7773895263672
+torch_norm(self.clover_term): 7.510985851287842
+torch_norm(self.b): 221.81488037109375
+torch_norm(self.x): 343.1653137207031
+torch_norm(self.x): 340.9678039550781
+torch_norm(self.b): 221.4062957763672
+torch_norm(self.x): 339.9207763671875
+torch_norm(self.b): 221.2523956298828
+torch_norm(self.x): 343.6173095703125
+torch_norm(self.b): 221.41946411132812
+torch_norm(self.b): 221.7057647705078
+torch_norm(self.x): 338.7743225097656
+torch_norm(self.x): 340.2082214355469
+torch_norm(self.x): 340.4912109375
+torch_norm(self.x): 341.1593017578125
+multi_norm(self.U): 443.4049987792969
+multi_norm(self.U): 443.4049987792969
+multi_norm(self.U): 443.4049987792969
+multi_norm(self.U): 443.4049987792969
+multi_norm(self.U): 443.4049987792969
+multi_norm(self.U): 443.4049987792969
+multi_norm(self.U): 443.4049987792969
+multi_norm(self.U): 443.4049987792969
+multi_norm(self.clover_term): 21.352060317993164
+multi_norm(self.clover_term): 21.352060317993164
+multi_norm(self.clover_term): 21.352060317993164
+multi_norm(self.clover_term): 21.352060317993164
+multi_norm(self.clover_term): 21.352060317993164
+multi_norm(self.clover_term): 21.352060317993164multi_norm(self.clover_term): 21.352060317993164
+
+multi_norm(self.clover_term): 21.352060317993164
+multi_norm(self.b): 625.5631103515625
+multi_norm(self.b): 625.5631103515625
+multi_norm(self.b): 625.5631103515625
+multi_norm(self.b): 625.5631103515625
+multi_norm(self.b): 625.5631103515625
+multi_norm(self.b): 625.5631103515625
+multi_norm(self.b): 625.5631103515625
+multi_norm(self.b): 625.5631103515625
+multi_norm(self.x): 964.61083984375
+multi_norm(self.x): 964.61083984375
+multi_norm(self.x): 964.61083984375
+multi_norm(self.x): 964.61083984375
+multi_norm(self.x): 964.61083984375
+multi_norm(self.x): 964.61083984375
+multi_norm(self.x): 964.61083984375
+multi_norm(self.x): 964.61083984375
+torch_norm(_full_b): 625.5631103515625
+torch_norm(_full_x): 964.61083984375
+torch_norm(full_Ax): 625.5630493164062
+torch_norm(_full_Ax): 625.5630493164062
+torch_norm(full_Ax-_full_b).item()/torch_norm(full_Ax).item(): 1.0321626228927712e-06
+torch_norm(_full_Ax-_full_b).item()/torch_norm(_full_Ax).item(): 1.031849142725054e-06
+torch_norm(full_Ax-_full_Ax).item()/torch_norm(full_Ax).item(): 1.3333548379301644e-07
+multi_norm(self.refer_x-self.x)/multi_norm(self.x): 8.914745237580856e-07
+multi_norm(self.refer_x-self.x)/multi_norm(self.x): 8.914745237580856e-07
+multi_norm(self.refer_x-self.x)/multi_norm(self.x): 8.914745237580856e-07
+multi_norm(self.refer_x-self.x)/multi_norm(self.x): 8.914745237580856e-07
+multi_norm(self.refer_x-self.x)/multi_norm(self.x): 8.914745237580856e-07
+multi_norm(self.refer_x-self.x)/multi_norm(self.x): 8.914745237580856e-07
+multi_norm(self.refer_x-self.x)/multi_norm(self.x): 8.914745237580856e-07
+multi_norm(self.refer_x-self.x)/multi_norm(self.x): 8.914745237580856e-07
+rank 0: Data is saved to -b.h5
+rank 1: Data is saved to -b.h5
+rank 4: Data is saved to -b.h5
+rank 3: Data is saved to -b.h5
+rank 6: Data is saved to -b.h5
+rank 5: Data is saved to -b.h5
+rank 2: Data is saved to -b.h5
+rank 7: Data is saved to -b.h5
+rank 1: Data is saved to -x.h5
+rank 4: Data is saved to -x.h5
+rank 3: Data is saved to -x.h5
+rank 5: Data is saved to -x.h5
+rank 0: Data is saved to -x.h5
+rank 2: Data is saved to -x.h5
+rank 7: Data is saved to -x.h5
+rank 6: Data is saved to -x.h5
+rank 5: Data is saved to -x0.h5
+rank 2: Data is saved to -x0.h5
+rank 1: Data is saved to -x0.h5
+rank 4: Data is saved to -x0.h5
+rank 3: Data is saved to -x0.h5
+rank 6: Data is saved to -x0.h5
+rank 0: Data is saved to -x0.h5
+rank 7: Data is saved to -x0.h5
+rank 1: Data is saved to -U.h5
+rank 4: Data is saved to -U.h5
+rank 5: Data is saved to -U.h5
+rank 2: Data is saved to -U.h5
+rank 7: Data is saved to -U.h5
+rank 0: Data is saved to -U.h5
+rank 3: Data is saved to -U.h5
+rank 6: Data is saved to -U.h5
+rank 4: Data is saved to -clover_term.h5
+rank 6: Data is saved to -clover_term.h5
+rank 1: Data is saved to -clover_term.h5
+rank 0: Data is saved to -clover_term.h5
+rank 5: Data is saved to -clover_term.h5
+rank 7: Data is saved to -clover_term.h5
+rank 3: Data is saved to -clover_term.h5
+rank 2: Data is saved to -clover_term.h5

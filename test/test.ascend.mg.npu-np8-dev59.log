@@ -6,22 +6,10 @@ Error: MPI_ERR_COMM: invalid communicator
 Error: MPI_ERR_COMM: invalid communicator
 Error: MPI_ERR_COMM: invalid communicator
 Error: MPI_ERR_COMM: invalid communicator
-[MPI Rank 6/8] Using npu:6
-[MPI Rank 6/8] Using npu:6
-[MPI Rank 6/8] Using npu:6
-[MPI Rank 6/8] Using npu:6
-[MPI Rank 7/8] Using npu:7
-[MPI Rank 7/8] Using npu:7
-[MPI Rank 7/8] Using npu:7
-[MPI Rank 7/8] Using npu:7
-[MPI Rank 5/8] Using npu:5
-[MPI Rank 5/8] Using npu:5
-[MPI Rank 5/8] Using npu:5
-[MPI Rank 5/8] Using npu:5
-[MPI Rank 0/8] Using npu:0
-[MPI Rank 0/8] Using npu:0
-[MPI Rank 0/8] Using npu:0
-[MPI Rank 0/8] Using npu:0
+[MPI Rank 3/8] Using npu:3
+[MPI Rank 3/8] Using npu:3
+[MPI Rank 3/8] Using npu:3
+[MPI Rank 3/8] Using npu:3
 [MPI Rank 4/8] Using npu:4
 [MPI Rank 4/8] Using npu:4
 [MPI Rank 4/8] Using npu:4
@@ -30,194 +18,3634 @@ Error: MPI_ERR_COMM: invalid communicator
 [MPI Rank 2/8] Using npu:2
 [MPI Rank 2/8] Using npu:2
 [MPI Rank 2/8] Using npu:2
+[MPI Rank 5/8] Using npu:5
+[MPI Rank 5/8] Using npu:5
+[MPI Rank 5/8] Using npu:5
+[MPI Rank 5/8] Using npu:5
+[MPI Rank 6/8] Using npu:6
+[MPI Rank 6/8] Using npu:6
+[MPI Rank 6/8] Using npu:6
+[MPI Rank 6/8] Using npu:6
+[MPI Rank 0/8] Using npu:0
+[MPI Rank 0/8] Using npu:0
+[MPI Rank 0/8] Using npu:0
+[MPI Rank 0/8] Using npu:0
 [MPI Rank 1/8] Using npu:1
 [MPI Rank 1/8] Using npu:1
 [MPI Rank 1/8] Using npu:1
 [MPI Rank 1/8] Using npu:1
-[MPI Rank 3/8] Using npu:3
-[MPI Rank 3/8] Using npu:3
-[MPI Rank 3/8] Using npu:3
-[MPI Rank 3/8] Using npu:3
+[MPI Rank 7/8] Using npu:7
+[MPI Rank 7/8] Using npu:7
+[MPI Rank 7/8] Using npu:7
+[MPI Rank 7/8] Using npu:7
 rank 0: Data is load from -b.h5
-rank 6: Data is load from -b.h5
 rank 2: Data is load from -b.h5
 rank 1: Data is load from -b.h5
-rank 4: Data is load from -b.h5rank 7: Data is load from -b.h5
+rank 6: Data is load from -b.h5
+rank 4: Data is load from -b.h5
+rank 7: Data is load from -b.h5
 rank 3: Data is load from -b.h5
 rank 5: Data is load from -b.h5
-
 rank 1: Data is load from -x.h5
 rank 0: Data is load from -x.h5
-rank 5: Data is load from -x.h5
-rank 2: Data is load from -x.h5
-rank 6: Data is load from -x.h5
 rank 4: Data is load from -x.h5
 rank 3: Data is load from -x.h5
+rank 2: Data is load from -x.h5
+rank 5: Data is load from -x.h5
+rank 6: Data is load from -x.h5
 rank 7: Data is load from -x.h5
 rank 1: Data is load from -x0.h5
 rank 0: Data is load from -x0.h5
-rank 6: Data is load from -x0.h5
+rank 4: Data is load from -x0.h5
 rank 3: Data is load from -x0.h5
 rank 2: Data is load from -x0.h5
-rank 4: Data is load from -x0.h5
 rank 5: Data is load from -x0.h5
 rank 7: Data is load from -x0.h5
+rank 6: Data is load from -x0.h5
+rank 2: Data is load from -U.h5
 rank 1: Data is load from -U.h5
 rank 0: Data is load from -U.h5
-rank 5: Data is load from -U.h5
-rank 2: Data is load from -U.h5
 rank 4: Data is load from -U.h5
-rank 7: Data is load from -U.h5
 rank 3: Data is load from -U.h5
 rank 6: Data is load from -U.h5
+rank 5: Data is load from -U.h5
+rank 7: Data is load from -U.h5
 rank 1: Data is load from -clover_term.h5
 rank 0: Data is load from -clover_term.h5
 rank 4: Data is load from -clover_term.h5
-rank 6: Data is load from -clover_term.h5
 rank 3: Data is load from -clover_term.h5
 rank 2: Data is load from -clover_term.h5
-rank 5: Data is load from -clover_term.h5
 rank 7: Data is load from -clover_term.h5
-[MPI Rank 1/8] Using npu:1
-[MPI Rank 1/8] Using npu:1
-[MPI Rank 3/8] Using npu:3
-[MPI Rank 1/8] Using npu:1
-[MPI Rank 4/8] Using npu:4
-[MPI Rank 4/8] Using npu:4
+rank 6: Data is load from -clover_term.h5
+rank 5: Data is load from -clover_term.h5
+[MPI Rank 2/8] Using npu:2
 self.dof_list:[12, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24]
-self.dtype_list:[torch.complex64, torch.complex32, torch.complex32, torch.complex32]
-[MPI Rank 1/8] Using npu:1
+self.dtype_list:[torch.complex64, torch.complex64, torch.complex64, torch.complex64][MPI Rank 3/8] Using npu:3
 [MPI Rank 2/8] Using npu:2
-[MPI Rank 7/8] Using npu:7
-[MPI Rank 7/8] Using npu:7
-[MPI Rank 7/8] Using npu:7
 [MPI Rank 3/8] Using npu:3
-[MPI Rank 3/8] Using npu:3
-[MPI Rank 3/8] Using npu:3
+
 self.device_list:[device(type='npu'), device(type='npu'), device(type='npu'), device(type='npu')]
-[MPI Rank 4/8] Using npu:4
-[MPI Rank 4/8] Using npu:4
-[MPI Rank 6/8] Using npu:6
-[MPI Rank 2/8] Using npu:2
+[MPI Rank 1/8] Using npu:1
 [MPI Rank 7/8] Using npu:7
-[MPI Rank 5/8] Using npu:5
-[MPI Rank 6/8] Using npu:6
-[MPI Rank 2/8] Using npu:2
-[MPI Rank 0/8] Using npu:0
-[MPI Rank 0/8] Using npu:0
-[MPI Rank 5/8] Using npu:5
-[MPI Rank 6/8] Using npu:6
-[MPI Rank 5/8] Using npu:5
-[MPI Rank 0/8] Using npu:0
+[MPI Rank 7/8] Using npu:7[MPI Rank 6/8] Using npu:6
 [MPI Rank 2/8] Using npu:2
 [MPI Rank 5/8] Using npu:5
 [MPI Rank 6/8] Using npu:6
+[MPI Rank 6/8] Using npu:6
+[MPI Rank 4/8] Using npu:4
+[MPI Rank 4/8] Using npu:4
+[MPI Rank 3/8] Using npu:3
+[MPI Rank 1/8] Using npu:1
+[MPI Rank 1/8] Using npu:1
+
+[MPI Rank 7/8] Using npu:7
+[MPI Rank 2/8] Using npu:2
+[MPI Rank 5/8] Using npu:5
+[MPI Rank 5/8] Using npu:5
+[MPI Rank 4/8] Using npu:4
 [MPI Rank 0/8] Using npu:0
-Not found Slover!
+[MPI Rank 3/8] Using npu:3
+[MPI Rank 7/8] Using npu:7
+[MPI Rank 6/8] Using npu:6
+[MPI Rank 0/8] Using npu:0
+[MPI Rank 0/8] Using npu:0
+[MPI Rank 1/8] Using npu:1
+[MPI Rank 5/8] Using npu:5
+[MPI Rank 4/8] Using npu:4
+[MPI Rank 0/8] Using npu:0
+self.lat_size_list:[[16, 8, 4, 4], [8, 4, 2, 2]]
 
 Performance Statistics:
-self.solver-Mg-Total time: 0.000025 seconds
-Not found Slover!
+Total iterations: 134
+Total time: 7.076149 seconds
+Average time per iteration: 0.052805 s
+Final residual: 4.93e-05
 
 Performance Statistics:
-self.solver-Mg-Total time: 0.000029 seconds
-Traceback (most recent call last):
-  File "/home/phyww/zhangxin/PyQCU/test/./test.ascend.mg.npu-dev59.py", line 8, in <module>
-Not found Slover!
+Total iterations: 134
+Total time: 7.076227 seconds
+Average time per iteration: 0.052806 s
+Final residual: 4.93e-05
 
 Performance Statistics:
-Not found Slover!
+Total iterations: 134
+Total time: 7.076175 seconds
+Average time per iteration: 0.052805 s
+Final residual: 4.93e-05
 
 Performance Statistics:
-self.solver-Mg-Total time: 0.000030 seconds
-self.solver-Mg-Total time: 0.000027 seconds
-Traceback (most recent call last):
-  File "/home/phyww/zhangxin/PyQCU/test/./test.ascend.mg.npu-dev59.py", line 8, in <module>
-    _qcu.solve()
-Not found Slover!
+Total iterations: 134
+Total time: 7.076129 seconds
 
 Performance Statistics:
-Not found Slover!
+Total iterations: 134
+Total time: 7.076077 seconds
+Average time per iteration: 0.052805 s
+Final residual: 4.93e-05
 
 Performance Statistics:
-self.solver-Mg-Total time: 0.000029 seconds
-Not found Slover!
+Total iterations: 134
+Total time: 7.076225 seconds
+Average time per iteration: 0.052805 s
+Final residual: 4.93e-05
 
 Performance Statistics:
-self.solver-Mg-Total time: 0.000027 seconds
-self.lat_size_list:[[16, 8, 8, 16], [8, 4, 4, 8], [4, 2, 2, 4]]
-Not found Slover!
+Total iterations: 134
+Total time: 7.076089 seconds
+Average time per iteration: 0.052804 s
+Final residual: 4.93e-05
+Average time per iteration: 0.052805 s
+Final residual: 4.93e-05
 
 Performance Statistics:
-self.solver-Mg-Total time: 0.000009 seconds
-self.solver-Mg-Total time: 0.000033 seconds
-Traceback (most recent call last):
-  File "/home/phyww/zhangxin/PyQCU/test/./test.ascend.mg.npu-dev59.py", line 8, in <module>
-  File "/home/phyww/zhangxin/PyQCU/test/pyqcu/ascend/__init__.py", line 194, in solve
-Traceback (most recent call last):
-  File "/home/phyww/zhangxin/PyQCU/test/./test.ascend.mg.npu-dev59.py", line 8, in <module>
-    _qcu.solve()
-Traceback (most recent call last):
-  File "/home/phyww/zhangxin/PyQCU/test/./test.ascend.mg.npu-dev59.py", line 8, in <module>
-    self.x = x.reshape([4, 3]+list(x.shape[-4:])).clone()
-             ^
-UnboundLocalError: cannot access local variable 'x' where it is not associated with a value
-    _qcu.solve()
-  File "/home/phyww/zhangxin/PyQCU/test/pyqcu/ascend/__init__.py", line 194, in solve
-  File "/home/phyww/zhangxin/PyQCU/test/pyqcu/ascend/__init__.py", line 194, in solve
-Traceback (most recent call last):
-  File "/home/phyww/zhangxin/PyQCU/test/./test.ascend.mg.npu-dev59.py", line 8, in <module>
-Traceback (most recent call last):
-  File "/home/phyww/zhangxin/PyQCU/test/./test.ascend.mg.npu-dev59.py", line 8, in <module>
-Traceback (most recent call last):
-  File "/home/phyww/zhangxin/PyQCU/test/./test.ascend.mg.npu-dev59.py", line 8, in <module>
-    _qcu.solve()
-  File "/home/phyww/zhangxin/PyQCU/test/pyqcu/ascend/__init__.py", line 194, in solve
-    self.x = x.reshape([4, 3]+list(x.shape[-4:])).clone()
-        _qcu.solve()
-           self.x = x.reshape([4, 3]+list(x.shape[-4:])).clone()
-  ^
-UnboundLocalError: cannot access local variable 'x' where it is not associated with a value
-       _qcu.solve()
-          _qcu.solve()
-  File "/home/phyww/zhangxin/PyQCU/test/pyqcu/ascend/__init__.py", line 194, in solve
-    _qcu.solve()
-    ^
-UnboundLocalError: cannot access local variable 'x' where it is not associated with a value
-    self.x = x.reshape([4, 3]+list(x.shape[-4:])).clone()
-  File "/home/phyww/zhangxin/PyQCU/test/pyqcu/ascend/__init__.py", line 194, in solve
-  File "/home/phyww/zhangxin/PyQCU/test/pyqcu/ascend/__init__.py", line 194, in solve
-  File "/home/phyww/zhangxin/PyQCU/test/pyqcu/ascend/__init__.py", line 194, in solve
-             ^
-UnboundLocalError: cannot access local variable 'x' where it is not associated with a value
-    self.x = x.reshape([4, 3]+list(x.shape[-4:])).clone()
-             ^
-UnboundLocalError: cannot access local variable 'x' where it is not associated with a value
-    self.x = x.reshape([4, 3]+list(x.shape[-4:])).clone()
-             self.x = x.reshape([4, 3]+list(x.shape[-4:])).clone()
-         self.x = x.reshape([4, 3]+list(x.shape[-4:])).clone()
-             ^
-UnboundLocalError        ^
-    ^
-UnboundLocalError: cannot access local variable 'x' where it is not associated with a value
-: cannot access local variable 'x' where it is not associated with a value
-UnboundLocalError: cannot access local variable 'x' where it is not associated with a value
-[ERROR] 2025-11-03-11:15:25 (PID:1176696, Device:6, RankID:-1) ERR99999 UNKNOWN applicaiton exception
-[ERROR] 2025-11-03-11:15:25 (PID:1176687, Device:4, RankID:-1) ERR99999 UNKNOWN applicaiton exception
-[ERROR] 2025-11-03-11:15:25 (PID:1176667, Device:0, RankID:-1) ERR99999 UNKNOWN applicaiton exception
-[ERROR] 2025-11-03-11:15:25 (PID:1176692, Device:5, RankID:-1) ERR99999 UNKNOWN applicaiton exception
-[ERROR] 2025-11-03-11:15:25 (PID:1176678, Device:2, RankID:-1) ERR99999 UNKNOWN applicaiton exception
-[ERROR] 2025-11-03-11:15:25 (PID:1176697, Device:7, RankID:-1) ERR99999 UNKNOWN applicaiton exception
-[ERROR] 2025-11-03-11:15:26 (PID:1176670, Device:1, RankID:-1) ERR99999 UNKNOWN applicaiton exception
-[ERROR] 2025-11-03-11:15:26 (PID:1176682, Device:3, RankID:-1) ERR99999 UNKNOWN applicaiton exception
---------------------------------------------------------------------------
-Primary job  terminated normally, but 1 process returned
-a non-zero exit code. Per user-direction, the job has been aborted.
---------------------------------------------------------------------------
---------------------------------------------------------------------------
-mpirun detected that one or more processes exited with non-zero status, thus causing
-the job to be terminated. The first process to do so was:
+Total iterations: 134
+Total time: 7.076066 seconds
+Average time per iteration: 0.052804 s
+Final residual: 4.93e-05
 
-  Process name: [[38470,1],4]
-  Exit code:    1
---------------------------------------------------------------------------
+Performance Statistics:
+Total iterations: 131
+Total time: 6.711690 seconds
+Average time per iteration: 0.051232 s
+Final residual: 4.91e-05
+
+Performance Statistics:
+Total iterations: 131
+Total time: 6.711775 seconds
+Average time per iteration: 0.051233 s
+Final residual: 4.91e-05
+
+Performance Statistics:
+Total iterations: 131
+Total time: 6.711806 seconds
+Average time per iteration: 0.051233 s
+Final residual: 4.91e-05
+
+Performance Statistics:
+Total iterations: 131
+Total time: 6.711813 seconds
+Average time per iteration: 0.051233 s
+Final residual: 4.91e-05
+
+Performance Statistics:
+Total iterations: 131
+Total time: 6.711780 seconds
+Average time per iteration: 0.051233 s
+Final residual: 4.91e-05
+
+Performance Statistics:
+Total iterations: 131
+Total time: 6.711826 seconds
+Average time per iteration: 0.051234 s
+Final residual: 4.91e-05
+
+Performance Statistics:
+Total iterations: 131
+Total time: 6.711771 seconds
+Average time per iteration: 0.051233 s
+Final residual: 4.91e-05
+
+Performance Statistics:
+Total iterations: 131
+Total time: 6.711753 seconds
+Average time per iteration: 0.051233 s
+Final residual: 4.91e-05
+
+Performance Statistics:
+Total iterations: 176
+Total time: 9.029025 seconds
+Average time per iteration: 0.051299 s
+Final residual: 4.39e-05
+
+Performance Statistics:
+Total iterations: 176
+Total time: 9.029010 seconds
+Average time per iteration: 0.051299 s
+Final residual: 4.39e-05
+
+Performance Statistics:
+Total iterations: 176
+Total time: 9.029022 seconds
+Average time per iteration: 0.051299 s
+Final residual: 4.39e-05
+
+Performance Statistics:
+Total iterations: 176
+Total time: 9.029060 seconds
+Average time per iteration: 0.051300 s
+Final residual: 4.39e-05
+
+Performance Statistics:
+Total iterations: 176
+Total time: 9.029012 seconds
+Average time per iteration: 0.051299 s
+Final residual: 4.39e-05
+
+Performance Statistics:
+Total iterations: 176
+Total time: 9.028999 seconds
+Average time per iteration: 0.051299 s
+Final residual: 4.39e-05
+
+Performance Statistics:
+Total iterations: 176
+Total time: 9.029007 seconds
+Average time per iteration: 0.051299 s
+Final residual: 4.39e-05
+
+Performance Statistics:
+Total iterations: 176
+Total time: 9.029016 seconds
+Average time per iteration: 0.051299 s
+Final residual: 4.39e-05
+
+Performance Statistics:
+Total iterations: 131
+Total time: 6.701117 seconds
+Average time per iteration: 0.051152 s
+Final residual: 4.99e-05
+
+Performance Statistics:
+Total iterations: 131
+Total time: 6.701131 seconds
+Average time per iteration: 0.051151 s
+Final residual: 4.99e-05
+
+Performance Statistics:
+Total iterations: 131
+Total time: 6.701076 seconds
+Average time per iteration: 0.051151 s
+Final residual: 4.99e-05
+
+Performance Statistics:
+Total iterations: 131
+Total time: 6.701163 seconds
+Average time per iteration: 0.051152 s
+Final residual: 4.99e-05
+
+Performance Statistics:
+Total iterations: 131
+Total time: 6.701127 seconds
+Average time per iteration: 0.051151 s
+Final residual: 4.99e-05
+
+Performance Statistics:
+Total iterations: 131
+Total time: 6.701095 seconds
+Average time per iteration: 0.051151 s
+Final residual: 4.99e-05
+
+Performance Statistics:
+Total iterations: 131
+Total time: 6.701152 seconds
+Average time per iteration: 0.051152 s
+Final residual: 4.99e-05
+
+Performance Statistics:
+Total iterations: 131
+Total time: 6.701067 seconds
+Average time per iteration: 0.051151 s
+Final residual: 4.99e-05
+
+Performance Statistics:
+Total iterations: 138
+Total time: 7.120013 seconds
+Average time per iteration: 0.051592 s
+Final residual: 5.00e-05
+
+Performance Statistics:
+Total iterations: 138
+Total time: 7.120060 seconds
+Average time per iteration: 0.051593 s
+Final residual: 5.00e-05
+
+Performance Statistics:
+Total iterations: 138
+Total time: 7.119897 seconds
+Average time per iteration: 0.051592 s
+Final residual: 5.00e-05
+
+Performance Statistics:
+Total iterations: 138
+Total time: 7.120051 seconds
+Average time per iteration: 0.051592 s
+Final residual: 5.00e-05
+
+Performance Statistics:
+Total iterations: 138
+Total time: 7.120000 seconds
+Average time per iteration: 0.051592 s
+Final residual: 5.00e-05
+
+Performance Statistics:
+Total iterations: 138
+Total time: 7.120009 seconds
+Average time per iteration: 0.051592 s
+Final residual: 5.00e-05
+
+Performance Statistics:
+Total iterations: 138
+Total time: 7.120052 seconds
+Average time per iteration: 0.051593 s
+Final residual: 5.00e-05
+
+Performance Statistics:
+Total iterations: 138
+Total time: 7.120103 seconds
+Average time per iteration: 0.051593 s
+Final residual: 5.00e-05
+
+Performance Statistics:
+Total iterations: 148
+Total time: 7.554715 seconds
+Average time per iteration: 0.051043 s
+Final residual: 4.89e-05
+
+Performance Statistics:
+Total iterations: 148
+Total time: 7.554693 seconds
+Average time per iteration: 0.051043 s
+Final residual: 4.89e-05
+
+Performance Statistics:
+Total iterations: 148
+Total time: 7.554724 seconds
+Average time per iteration: 0.051043 s
+Final residual: 4.89e-05
+
+Performance Statistics:
+Total iterations: 148
+Total time: 7.554725 seconds
+Average time per iteration: 0.051044 s
+Final residual: 4.89e-05
+
+Performance Statistics:
+Total iterations: 148
+Total time: 7.554718 seconds
+Average time per iteration: 0.051044 s
+Final residual: 4.89e-05
+
+Performance Statistics:
+Total iterations: 148
+Total time: 7.554709 seconds
+Average time per iteration: 0.051044 s
+Final residual: 4.89e-05
+
+Performance Statistics:
+Total iterations: 148
+Total time: 7.554718 seconds
+Average time per iteration: 0.051044 s
+Final residual: 4.89e-05
+
+Performance Statistics:
+Total iterations: 148
+Total time: 7.554659 seconds
+Average time per iteration: 0.051043 s
+Final residual: 4.89e-05
+
+Performance Statistics:
+Total iterations: 164
+Total time: 8.395892 seconds
+Average time per iteration: 0.051193 s
+Final residual: 4.86e-05
+
+Performance Statistics:
+Total iterations: 164
+Total time: 8.395851 seconds
+Average time per iteration: 0.051192 s
+
+Performance Statistics:
+Total iterations: 164
+Total time: 8.395840 seconds
+Average time per iteration: 0.051192 s
+Final residual: 4.86e-05
+
+Performance Statistics:
+Total iterations: 164
+Total time: 8.395863 seconds
+Average time per iteration: 0.051192 s
+Final residual: 4.86e-05
+
+Performance Statistics:
+Total iterations: 164
+Total time: 8.395864 seconds
+Average time per iteration: 0.051193 s
+Final residual: 4.86e-05
+
+Performance Statistics:
+Total iterations: 164
+Total time: 8.395881 seconds
+Average time per iteration: 0.051193 s
+Final residual: 4.86e-05
+
+Performance Statistics:
+Total iterations: 164
+Total time: 8.395858 seconds
+Average time per iteration: 0.051192 s
+Final residual: 4.86e-05
+
+Performance Statistics:
+Total iterations: 164
+Total time: 8.395832 seconds
+Average time per iteration: 0.051192 s
+Final residual: 4.86e-05
+Final residual: 4.86e-05
+
+Performance Statistics:
+Total iterations: 160
+Total time: 8.217631 seconds
+Average time per iteration: 0.051358 s
+Final residual: 4.81e-05
+
+Performance Statistics:
+Total iterations: 160
+Total time: 8.217657 seconds
+
+Performance Statistics:
+Total iterations: 160
+Total time: 8.217648 seconds
+Average time per iteration: 0.051359 s
+Final residual: 4.81e-05
+
+Performance Statistics:
+Total iterations: 160
+Total time: 8.217608 seconds
+
+Performance Statistics:
+Total iterations: 160
+Total time: 8.217640 seconds
+Average time per iteration: 0.051358 s
+Final residual: 4.81e-05
+
+Performance Statistics:
+
+Performance Statistics:
+
+Performance Statistics:
+Total iterations: 160
+Total time: 8.217617 seconds
+Total iterations: 160
+Total time: 8.217641 seconds
+Average time per iteration: 0.051358 s
+Final residual: 4.81e-05
+Average time per iteration: 0.051358 s
+Final residual: 4.81e-05
+Average time per iteration: 0.051358 s
+Final residual: 4.81e-05
+Total iterations: 160
+Total time: 8.217599 seconds
+Average time per iteration: 0.051358 s
+Final residual: 4.81e-05
+Average time per iteration: 0.051358 s
+Final residual: 4.81e-05
+
+Performance Statistics:
+Total iterations: 161
+Total time: 8.250964 seconds
+Average time per iteration: 0.051246 s
+Final residual: 3.90e-05
+
+Performance Statistics:
+Total iterations: 161
+Total time: 8.251016 seconds
+Average time per iteration: 0.051247 s
+Final residual: 3.90e-05
+
+Performance Statistics:
+Total iterations: 161
+Total time: 8.250957 seconds
+Average time per iteration: 0.051246 s
+Final residual: 3.90e-05
+
+Performance Statistics:
+Total iterations: 161
+Total time: 8.251030 seconds
+Average time per iteration: 0.051247 s
+Final residual: 3.90e-05
+
+Performance Statistics:
+Total iterations: 161
+Total time: 8.251012 seconds
+Average time per iteration: 0.051246 s
+Final residual: 3.90e-05
+
+Performance Statistics:
+Total iterations: 161
+Total time: 8.251040 seconds
+Average time per iteration: 0.051247 s
+Final residual: 3.90e-05
+
+Performance Statistics:
+Total iterations: 161
+Total time: 8.250977 seconds
+Average time per iteration: 0.051246 s
+Final residual: 3.90e-05
+
+Performance Statistics:
+Total iterations: 161
+Total time: 8.251018 seconds
+Average time per iteration: 0.051246 s
+Final residual: 3.90e-05
+
+Performance Statistics:
+Total iterations: 167
+Total time: 8.550869 seconds
+Average time per iteration: 0.051201 s
+Final residual: 4.03e-05
+
+Performance Statistics:
+Total iterations: 167
+Total time: 8.550791 seconds
+Average time per iteration: 0.051200 s
+Final residual: 4.03e-05
+
+Performance Statistics:
+Total iterations: 167
+Total time: 8.550783 seconds
+Average time per iteration: 0.051200 s
+Final residual: 4.03e-05
+
+Performance Statistics:
+Total iterations: 167
+Total time: 8.550825 seconds
+Average time per iteration: 0.051201 s
+Final residual: 4.03e-05
+
+Performance Statistics:
+Total iterations: 167
+Total time: 8.550844 seconds
+Average time per iteration: 0.051201 s
+Final residual: 4.03e-05
+
+Performance Statistics:
+Total iterations: 167
+Total time: 8.550816 seconds
+Average time per iteration: 0.051200 s
+Final residual: 4.03e-05
+
+Performance Statistics:
+Total iterations: 167
+Total time: 8.550767 seconds
+Average time per iteration: 0.051200 s
+Final residual: 4.03e-05
+
+Performance Statistics:
+Total iterations: 167
+Total time: 8.550797 seconds
+Average time per iteration: 0.051201 s
+Final residual: 4.03e-05
+
+Performance Statistics:
+Total iterations: 132
+Total time: 6.750672 seconds
+Average time per iteration: 0.051139 s
+Final residual: 4.87e-05
+
+Performance Statistics:
+Total iterations: 132
+Total time: 6.750700 seconds
+Average time per iteration: 0.051140 s
+Final residual: 4.87e-05
+
+Performance Statistics:
+Total iterations: 132
+Total time: 6.750750 seconds
+Average time per iteration: 0.051140 s
+Final residual: 4.87e-05
+
+Performance Statistics:
+Total iterations: 132
+Total time: 6.750738 seconds
+Average time per iteration: 0.051140 s
+Final residual: 4.87e-05
+
+Performance Statistics:
+Total iterations: 132
+Total time: 6.750769 seconds
+Average time per iteration: 0.051140 s
+Final residual: 4.87e-05
+
+Performance Statistics:
+Total iterations: 132
+Total time: 6.750724 seconds
+Average time per iteration: 0.051140 s
+Final residual: 4.87e-05
+
+Performance Statistics:
+Total iterations: 132
+Total time: 6.750775 seconds
+Average time per iteration: 0.051140 s
+Final residual: 4.87e-05
+
+Performance Statistics:
+Total iterations: 132
+Total time: 6.750753 seconds
+Average time per iteration: 0.051140 s
+Final residual: 4.87e-05
+
+Performance Statistics:
+Total iterations: 162
+Total time: 8.251982 seconds
+Average time per iteration: 0.050936 s
+Final residual: 4.86e-05
+
+Performance Statistics:
+Total iterations: 162
+Total time: 8.252008 seconds
+Average time per iteration: 0.050937 s
+Final residual: 4.86e-05
+
+Performance Statistics:
+Total iterations: 162
+Total time: 8.252045 seconds
+Average time per iteration: 0.050937 s
+Final residual: 4.86e-05
+
+Performance Statistics:
+Total iterations: 162
+Total time: 8.252019 seconds
+Average time per iteration: 0.050937 s
+Final residual: 4.86e-05
+
+Performance Statistics:
+Total iterations: 162
+Total time: 8.251968 seconds
+Average time per iteration: 0.050936 s
+Final residual: 4.86e-05
+
+Performance Statistics:
+Total iterations: 162
+Total time: 8.251969 seconds
+Average time per iteration: 0.050936 s
+Final residual: 4.86e-05
+
+Performance Statistics:
+Total iterations: 162
+Total time: 8.252009 seconds
+Average time per iteration: 0.050937 s
+Final residual: 4.86e-05
+
+Performance Statistics:
+Total iterations: 162
+Total time: 8.251978 seconds
+Average time per iteration: 0.050936 s
+Final residual: 4.86e-05
+
+Performance Statistics:
+Total iterations: 132
+Total time: 6.751161 seconds
+Average time per iteration: 0.051144 s
+Final residual: 4.97e-05
+
+Performance Statistics:
+Total iterations: 132
+Total time: 6.751129 seconds
+Average time per iteration: 0.051143 s
+Final residual: 4.97e-05
+
+Performance Statistics:
+Total iterations: 132
+Total time: 6.751102 seconds
+Average time per iteration: 0.051143 s
+Final residual: 4.97e-05
+
+Performance Statistics:
+Total iterations: 132
+Total time: 6.751101 seconds
+Average time per iteration: 0.051143 s
+Final residual: 4.97e-05
+
+Performance Statistics:
+Total iterations: 132
+Total time: 6.751179 seconds
+Average time per iteration: 0.051143 s
+Final residual: 4.97e-05
+
+Performance Statistics:
+Total iterations: 132
+Total time: 6.751175 seconds
+Average time per iteration: 0.051144 s
+Final residual: 4.97e-05
+
+Performance Statistics:
+Total iterations: 132
+Total time: 6.751110 seconds
+Average time per iteration: 0.051143 s
+Final residual: 4.97e-05
+
+Performance Statistics:
+Total iterations: 132
+Total time: 6.751153 seconds
+Average time per iteration: 0.051143 s
+Final residual: 4.97e-05
+
+Performance Statistics:
+Total iterations: 162
+Total time: 8.427371 seconds
+Average time per iteration: 0.052019 s
+Final residual: 4.76e-05
+
+Performance Statistics:
+Total iterations: 162
+Total time: 8.427361 seconds
+Average time per iteration: 0.052019 s
+Final residual: 4.76e-05
+
+Performance Statistics:
+Total iterations: 162
+Total time: 8.427387 seconds
+Average time per iteration: 0.052019 s
+Final residual: 4.76e-05
+
+Performance Statistics:
+Total iterations: 162
+Total time: 8.427390 seconds
+Average time per iteration: 0.052019 s
+Final residual: 4.76e-05
+
+Performance Statistics:
+Total iterations: 162
+Total time: 8.427366 seconds
+Average time per iteration: 0.052019 s
+Final residual: 4.76e-05
+
+Performance Statistics:
+Total iterations: 162
+Total time: 8.427375 seconds
+Average time per iteration: 0.052019 s
+Final residual: 4.76e-05
+
+Performance Statistics:
+Total iterations: 162
+Total time: 8.427403 seconds
+Average time per iteration: 0.052019 s
+Final residual: 4.76e-05
+
+Performance Statistics:
+Total iterations: 162
+Total time: 8.427376 seconds
+Average time per iteration: 0.052019 s
+Final residual: 4.76e-05
+
+Performance Statistics:
+Total iterations: 149
+Total time: 7.640586 seconds
+Average time per iteration: 0.051277 s
+
+Performance Statistics:
+Total iterations: 149
+Total time: 7.640626 seconds
+Average time per iteration: 0.051278 s
+Final residual: 4.91e-05
+
+Performance Statistics:
+Total iterations: 149
+Total time: 7.640633 seconds
+Average time per iteration: 0.051278 s
+Final residual: 4.91e-05
+
+Performance Statistics:
+Total iterations: 149
+Total time: 7.640588 seconds
+Average time per iteration: 0.051277 s
+Final residual: 4.91e-05
+
+Performance Statistics:
+Total iterations: 149
+Total time: 7.640561 seconds
+Average time per iteration: 0.051277 s
+Final residual: 4.91e-05
+
+Performance Statistics:
+Total iterations: 149
+Total time: 7.640589 seconds
+
+Performance Statistics:
+Total iterations: 149
+Total time: 7.640609 seconds
+Average time per iteration: 0.051277 s
+Final residual: 4.91e-05
+Final residual: 4.91e-05
+
+Performance Statistics:
+Total iterations: 149
+Average time per iteration: 0.051278 s
+Final residual: 4.91e-05
+Total time: 7.640606 seconds
+Average time per iteration: 0.051277 s
+Final residual: 4.91e-05
+
+Performance Statistics:
+Total iterations: 146
+Total time: 7.525960 seconds
+Average time per iteration: 0.051546 s
+Final residual: 5.00e-05
+
+Performance Statistics:
+Total iterations: 146
+Total time: 7.525955 seconds
+Average time per iteration: 0.051546 s
+Final residual: 5.00e-05
+
+Performance Statistics:
+Total iterations: 146
+Total time: 7.525958 seconds
+Average time per iteration: 0.051546 s
+Final residual: 5.00e-05
+
+Performance Statistics:
+Total iterations: 146
+Total time: 7.525962 seconds
+Average time per iteration: 0.051545 s
+Final residual: 5.00e-05
+
+Performance Statistics:
+Total iterations: 146
+Total time: 7.525987 seconds
+Average time per iteration: 0.051546 s
+Final residual: 5.00e-05
+
+Performance Statistics:
+Total iterations: 146
+Total time: 7.525926 seconds
+Average time per iteration: 0.051546 s
+Final residual: 5.00e-05
+
+Performance Statistics:
+Total iterations: 146
+Total time: 7.525896 seconds
+Average time per iteration: 0.051545 s
+Final residual: 5.00e-05
+
+Performance Statistics:
+Total iterations: 146
+Total time: 7.525935 seconds
+Average time per iteration: 0.051546 s
+Final residual: 5.00e-05
+
+Performance Statistics:
+Total iterations: 131
+Total time: 6.671385 seconds
+Average time per iteration: 0.050924 s
+Final residual: 4.90e-05
+
+Performance Statistics:
+Total iterations: 131
+Total time: 6.671376 seconds
+Average time per iteration: 0.050925 s
+Final residual: 4.90e-05
+
+Performance Statistics:
+Total iterations: 131
+Total time: 6.671421 seconds
+Average time per iteration: 0.050925 s
+Final residual: 4.90e-05
+
+Performance Statistics:
+Total iterations: 131
+Total time: 6.671425 seconds
+Average time per iteration: 0.050925 s
+Final residual: 4.90e-05
+
+Performance Statistics:
+Total iterations: 131
+Total time: 6.671431 seconds
+Average time per iteration: 0.050925 s
+Final residual: 4.90e-05
+
+Performance Statistics:
+Total iterations: 131
+Total time: 6.671416 seconds
+Average time per iteration: 0.050925 s
+Final residual: 4.90e-05
+
+Performance Statistics:
+Total iterations: 131
+Total time: 6.671441 seconds
+Average time per iteration: 0.050925 s
+Final residual: 4.90e-05
+
+Performance Statistics:
+Total iterations: 131
+Total time: 6.671372 seconds
+Average time per iteration: 0.050925 s
+Final residual: 4.90e-05
+
+Performance Statistics:
+Total iterations: 132
+Total time: 6.726854 seconds
+Average time per iteration: 0.050959 s
+Final residual: 4.33e-05
+
+Performance Statistics:
+Total iterations: 132
+Total time: 6.726862 seconds
+Average time per iteration: 0.050959 s
+Final residual: 4.33e-05
+
+Performance Statistics:
+Total iterations: 132
+Total time: 6.726875 seconds
+Average time per iteration: 0.050959 s
+Final residual: 4.33e-05
+
+Performance Statistics:
+Total iterations: 132
+Total time: 6.726891 seconds
+Average time per iteration: 0.050959 s
+Final residual: 4.33e-05
+
+Performance Statistics:
+Total iterations: 132
+Total time: 6.726886 seconds
+Average time per iteration: 0.050960 s
+Final residual: 4.33e-05
+
+Performance Statistics:
+Total iterations: 132
+Total time: 6.726921 seconds
+Average time per iteration: 0.050960 s
+Final residual: 4.33e-05
+
+Performance Statistics:
+Total iterations: 132
+Total time: 6.726902 seconds
+Average time per iteration: 0.050959 s
+Final residual: 4.33e-05
+
+Performance Statistics:
+Total iterations: 132
+Total time: 6.726910 seconds
+Average time per iteration: 0.050959 s
+Final residual: 4.33e-05
+
+Performance Statistics:
+Total iterations: 143
+Total time: 7.288258 seconds
+Average time per iteration: 0.050965 s
+Final residual: 4.72e-05
+
+Performance Statistics:
+Total iterations: 143
+Total time: 7.288260 seconds
+Average time per iteration: 0.050965 s
+Final residual: 4.72e-05
+
+Performance Statistics:
+Total iterations: 143
+Total time: 7.288234 seconds
+Average time per iteration: 0.050965 s
+Final residual: 4.72e-05
+
+Performance Statistics:
+Total iterations: 143
+Total time: 7.288231 seconds
+Average time per iteration: 0.050965 s
+Final residual: 4.72e-05
+
+Performance Statistics:
+Total iterations: 143
+Total time: 7.288268 seconds
+Average time per iteration: 0.050965 s
+Final residual: 4.72e-05
+
+Performance Statistics:
+Total iterations: 143
+Total time: 7.288216 seconds
+Average time per iteration: 0.050965 s
+Final residual: 4.72e-05
+
+Performance Statistics:
+Total iterations: 143
+Total time: 7.288285 seconds
+Average time per iteration: 0.050965 s
+Final residual: 4.72e-05
+
+Performance Statistics:
+Total iterations: 143
+Total time: 7.288243 seconds
+Average time per iteration: 0.050965 s
+Final residual: 4.72e-05
+
+Performance Statistics:
+Total iterations: 164
+Total time: 8.442127 seconds
+Average time per iteration: 0.051475 s
+Final residual: 4.74e-05
+
+Performance Statistics:
+Total iterations: 164
+Total time: 8.442143 seconds
+Average time per iteration: 0.051475 s
+Final residual: 4.74e-05
+
+Performance Statistics:
+Total iterations: 164
+Total time: 8.442089 seconds
+Average time per iteration: 0.051474 s
+Final residual: 4.74e-05
+
+Performance Statistics:
+Total iterations: 164
+Total time: 8.442188 seconds
+Average time per iteration: 0.051474 s
+Final residual: 4.74e-05
+
+Performance Statistics:
+Total iterations: 164
+Total time: 8.442141 seconds
+Average time per iteration: 0.051475 s
+Final residual: 4.74e-05
+
+Performance Statistics:
+Total iterations: 164
+Total time: 8.442105 seconds
+Average time per iteration: 0.051475 s
+Final residual: 4.74e-05
+
+Performance Statistics:
+Total iterations: 164
+Total time: 8.442125 seconds
+Average time per iteration: 0.051475 s
+Final residual: 4.74e-05
+
+Performance Statistics:
+Total iterations: 164
+Total time: 8.442076 seconds
+Average time per iteration: 0.051474 s
+Final residual: 4.74e-05
+
+Performance Statistics:
+Total iterations: 137
+Total time: 7.002296 seconds
+Average time per iteration: 0.051110 s
+Final residual: 4.99e-05
+
+Performance Statistics:
+Total iterations: 137
+Total time: 7.002260 seconds
+Average time per iteration: 0.051110 s
+Final residual: 4.99e-05
+
+Performance Statistics:
+Total iterations: 137
+Total time: 7.002343 seconds
+Average time per iteration: 0.051110 s
+Final residual: 4.99e-05
+
+Performance Statistics:
+Total iterations: 137
+Total time: 7.002306 seconds
+Average time per iteration: 0.051110 s
+Final residual: 4.99e-05
+
+Performance Statistics:
+Total iterations: 137
+Total time: 7.002261 seconds
+Average time per iteration: 0.051110 s
+Final residual: 4.99e-05
+
+Performance Statistics:
+Total iterations: 137
+Total time: 7.002321 seconds
+Average time per iteration: 0.051110 s
+Final residual: 4.99e-05
+
+Performance Statistics:
+Total iterations: 137
+Total time: 7.002282 seconds
+Average time per iteration: 0.051109 s
+Final residual: 4.99e-05
+
+Performance Statistics:
+Total iterations: 137
+Total time: 7.002314 seconds
+Average time per iteration: 0.051110 s
+Final residual: 4.99e-05
+
+Performance Statistics:
+Total iterations: 147
+Total time: 7.630676 seconds
+Average time per iteration: 0.051908 s
+Final residual: 4.93e-05
+
+Performance Statistics:
+Total iterations: 147
+Total time: 7.630718 seconds
+Average time per iteration: 0.051908 s
+Final residual: 4.93e-05
+
+Performance Statistics:
+Total iterations: 147
+Total time: 7.630691 seconds
+Average time per iteration: 0.051908 s
+Final residual: 4.93e-05
+
+Performance Statistics:
+Total iterations: 147
+Total time: 7.630724 seconds
+Average time per iteration: 0.051908 s
+Final residual: 4.93e-05
+
+Performance Statistics:
+Total iterations: 147
+Total time: 7.630721 seconds
+Average time per iteration: 0.051908 s
+Final residual: 4.93e-05
+
+Performance Statistics:
+Total iterations: 147
+Total time: 7.630700 seconds
+Average time per iteration: 0.051908 s
+Final residual: 4.93e-05
+
+Performance Statistics:
+Total iterations: 147
+Total time: 7.630662 seconds
+Average time per iteration: 0.051907 s
+Final residual: 4.93e-05
+
+Performance Statistics:
+Total iterations: 147
+Total time: 7.630708 seconds
+Average time per iteration: 0.051907 s
+Final residual: 4.93e-05
+
+Performance Statistics:
+Total iterations: 160
+Total time: 8.144803 seconds
+Average time per iteration: 0.050903 s
+Final residual: 4.69e-05
+
+Performance Statistics:
+Total iterations: 160
+Total time: 8.144849 seconds
+Average time per iteration: 0.050904 s
+Final residual: 4.69e-05
+
+Performance Statistics:
+Total iterations: 160
+Total time: 8.144838 seconds
+Average time per iteration: 0.050903 s
+Final residual: 4.69e-05
+
+Performance Statistics:
+Total iterations: 160
+Total time: 8.144827 seconds
+Average time per iteration: 0.050903 s
+Final residual: 4.69e-05
+
+Performance Statistics:
+Total iterations: 160
+Total time: 8.144849 seconds
+Average time per iteration: 0.050904 s
+Final residual: 4.69e-05
+
+Performance Statistics:
+Total iterations: 160
+Total time: 8.144855 seconds
+Average time per iteration: 0.050903 s
+Final residual: 4.69e-05
+
+Performance Statistics:
+Total iterations: 160
+Total time: 8.144823 seconds
+Average time per iteration: 0.050903 s
+Final residual: 4.69e-05
+
+Performance Statistics:
+Total iterations: 160
+Total time: 8.144883 seconds
+Average time per iteration: 0.050903 s
+Final residual: 4.69e-05
+
+Performance Statistics:
+Total iterations: 147
+Total time: 7.482027 seconds
+Average time per iteration: 0.050897 s
+Final residual: 4.95e-05
+
+Performance Statistics:
+Total iterations: 147
+Total time: 7.482067 seconds
+Average time per iteration: 0.050897 s
+Final residual: 4.95e-05
+
+Performance Statistics:
+Total iterations: 147
+Total time: 7.482049 seconds
+Average time per iteration: 0.050896 s
+Final residual: 4.95e-05
+
+Performance Statistics:
+Total iterations: 147
+Total time: 7.482062 seconds
+Average time per iteration: 0.050897 s
+Final residual: 4.95e-05
+
+Performance Statistics:
+Total iterations: 147
+Total time: 7.482054 seconds
+Average time per iteration: 0.050897 s
+Final residual: 4.95e-05
+
+Performance Statistics:
+Total iterations: 147
+Total time: 7.482099 seconds
+Average time per iteration: 0.050896 s
+Final residual: 4.95e-05
+
+Performance Statistics:
+Total iterations: 147
+Total time: 7.482030 seconds
+Average time per iteration: 0.050896 s
+Final residual: 4.95e-05
+
+Performance Statistics:
+Total iterations: 147
+Total time: 7.482058 seconds
+Average time per iteration: 0.050897 s
+Final residual: 4.95e-05
+
+Performance Statistics:
+Total iterations: 5
+Total time: 0.215531 seconds
+Average time per iteration: 0.043101 s
+Final residual: 8.09e+00
+
+Performance Statistics:
+Total iterations: 5
+Total time: 0.215497 seconds
+Average time per iteration: 0.043095 s
+Final residual: 8.09e+00
+
+Performance Statistics:
+Total iterations: 5
+Total time: 0.215491 seconds
+Average time per iteration: 0.043093 s
+Final residual: 8.09e+00
+
+Performance Statistics:
+Total iterations: 5
+Total time: 0.215506 seconds
+Average time per iteration: 0.043097 s
+Final residual: 8.09e+00
+
+Performance Statistics:
+Total iterations: 5
+Total time: 0.215509 seconds
+Average time per iteration: 0.043098 s
+Final residual: 8.09e+00
+
+Performance Statistics:
+Total iterations: 5
+Total time: 0.215543 seconds
+Average time per iteration: 0.043104 s
+Final residual: 8.09e+00
+
+Performance Statistics:
+Total iterations: 5
+Total time: 0.215514 seconds
+Average time per iteration: 0.043098 s
+Final residual: 8.09e+00
+
+Performance Statistics:
+Total iterations: 5
+Total time: 0.215501 seconds
+Average time per iteration: 0.043095 s
+Final residual: 8.09e+00
+
+Performance Statistics:
+Total iterations: 17
+Total time: 0.746093 seconds
+Average time per iteration: 0.043885 s
+Final residual: 1.79e+00
+
+Performance Statistics:
+Total iterations: 17
+Total time: 0.746062 seconds
+Average time per iteration: 0.043884 s
+Final residual: 1.79e+00
+
+Performance Statistics:
+Total iterations: 17
+Total time: 0.746046 seconds
+Average time per iteration: 0.043882 s
+Final residual: 1.79e+00
+
+Performance Statistics:
+Total iterations: 17
+Total time: 0.746029 seconds
+Average time per iteration: 0.043881 s
+Final residual: 1.79e+00
+
+Performance Statistics:
+Total iterations: 17
+Total time: 0.746036 seconds
+Average time per iteration: 0.043882 s
+Final residual: 1.79e+00
+
+Performance Statistics:
+Total iterations: 17
+Total time: 0.746043 seconds
+Average time per iteration: 0.043882 s
+Final residual: 1.79e+00
+
+Performance Statistics:
+Total iterations: 17
+Total time: 0.746051 seconds
+Average time per iteration: 0.043883 s
+Final residual: 1.79e+00
+
+Performance Statistics:
+Total iterations: 17
+Total time: 0.745978 seconds
+Average time per iteration: 0.043878 s
+Final residual: 1.79e+00
+
+Performance Statistics:
+Total iterations: 4
+Total time: 0.175208 seconds
+Average time per iteration: 0.043800 s
+Final residual: 1.92e+00
+
+Performance Statistics:
+Total iterations: 4
+Total time: 0.175232 seconds
+Average time per iteration: 0.043805 s
+Final residual: 1.92e+00
+
+Performance Statistics:
+Total iterations: 4
+Total time: 0.175222 seconds
+Average time per iteration: 0.043803 s
+Final residual: 1.92e+00
+
+Performance Statistics:
+Total iterations: 4
+Total time: 0.175234 seconds
+Average time per iteration: 0.043805 s
+Final residual: 1.92e+00
+
+Performance Statistics:
+Total iterations: 4
+Total time: 0.175209 seconds
+Average time per iteration: 0.043799 s
+Final residual: 1.92e+00
+Performance Statistics:
+Total iterations: 4
+Total time: 0.175194 seconds
+Average time per iteration: 0.043796 s
+Final residual: 1.92e+00
+
+Performance Statistics:
+Total iterations: 4
+Total time: 0.175218 seconds
+Average time per iteration: 0.043802 s
+Final residual: 1.92e+00
+
+Performance Statistics:
+Total iterations: 4
+Total time: 0.175148 seconds
+Average time per iteration: 0.043784 s
+Final residual: 1.92e+00
+
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.640387 seconds
+Average time per iteration: 0.045740 s
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.640400 seconds
+Average time per iteration: 0.045741 s
+Final residual: 1.07e+00
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.640427 seconds
+Average time per iteration: 0.045743 s
+Final residual: 1.07e+00
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.640425 seconds
+Average time per iteration: 0.045742 s
+Final residual: 1.07e+00
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.640371 seconds
+Average time per iteration: 0.045738 s
+Final residual: 1.07e+00
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.640394 seconds
+Average time per iteration: 0.045740 s
+Final residual: 1.07e+00
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.640363 secondsFinal residual: 1.07e+00
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.640384 seconds
+Average time per iteration: 0.045740 s
+Final residual: 1.07e+00
+
+Average time per iteration: 0.045738 s
+Final residual: 1.07e+00
+
+Performance Statistics:
+Total iterations: 16
+Total time: 0.765984 seconds
+Average time per iteration: 0.047872 s
+Final residual: 1.88e-01
+
+Performance Statistics:
+Total iterations: 16
+Total time: 0.766006 seconds
+Average time per iteration: 0.047873 s
+Final residual: 1.88e-01
+
+Performance Statistics:
+Total iterations: 16
+Total time: 0.765996 seconds
+Average time per iteration: 0.047873 s
+Final residual: 1.88e-01
+
+Performance Statistics:
+Total iterations: 16
+Total time: 0.766035 seconds
+Average time per iteration: 0.047875 s
+Final residual: 1.88e-01
+
+Performance Statistics:
+Total iterations: 16
+Total time: 0.766026 seconds
+Average time per iteration: 0.047874 s
+Final residual: 1.88e-01
+
+Performance Statistics:
+Total iterations: 16
+Total time: 0.765997 seconds
+Average time per iteration: 0.047873 s
+Final residual: 1.88e-01
+
+Performance Statistics:
+Total iterations: 16
+Total time: 0.765895 seconds
+Average time per iteration: 0.047866 s
+
+Performance Statistics:
+Total iterations: 16
+Total time: 0.766003 seconds
+Average time per iteration: 0.047873 s
+Final residual: 1.88e-01
+Final residual: 1.88e-01
+
+Performance Statistics:
+Total iterations: 13
+Total time: 0.626881 seconds
+Average time per iteration: 0.048219 s
+
+Performance Statistics:
+Total iterations: 13
+Total time: 0.626935 seconds
+Average time per iteration: 0.048224 s
+Final residual: 8.43e-02
+
+Performance Statistics:
+Total iterations: 13
+Total time: 0.626910 seconds
+Average time per iteration: 0.048221 s
+Final residual: 8.43e-02
+
+Performance Statistics:
+Total iterations: 13
+Total time: 0.626868 seconds
+Average time per iteration: 0.048218 s
+Final residual: 8.43e-02
+
+Performance Statistics:
+Total iterations: 13
+Total time: 0.626917 seconds
+Average time per iteration: 0.048222 s
+Final residual: 8.43e-02
+
+Performance Statistics:
+Total iterations: 13
+Total time: 0.626942 seconds
+Average time per iteration: 0.048224 s
+Final residual: 8.43e-02
+
+Performance Statistics:
+Total iterations: 13
+Total time: 0.626917 seconds
+Average time per iteration: 0.048222 s
+Final residual: 8.43e-02
+
+Performance Statistics:
+Total iterations: 13
+Final residual: 8.43e-02
+Total time: 0.626776 seconds
+Average time per iteration: 0.048211 s
+Final residual: 8.43e-02
+
+Performance Statistics:
+Total iterations: 5
+Total time: 0.241688 seconds
+Average time per iteration: 0.048335 s
+
+Performance Statistics:
+Total iterations: 5
+Total time: 0.241639 seconds
+Average time per iteration: 0.048325 s
+
+Performance Statistics:
+Total iterations: 5
+Total time: 0.241671 seconds
+Average time per iteration: 0.048332 s
+Final residual: 5.18e-02
+
+Performance Statistics:
+Total iterations: 5
+Total time: 0.241620 seconds
+Average time per iteration: 0.048321 s
+Final residual: 5.18e-02
+Performance Statistics:
+Total iterations: 5
+Total time: 0.241625 seconds
+Average time per iteration: 0.048322 s
+
+Performance Statistics:
+Total iterations: 5
+Total time: 0.241676 seconds
+Average time per iteration: 0.048333 s
+Final residual: 5.18e-02
+
+Performance Statistics:
+Total iterations: 5
+Total time: 0.241683 seconds
+Average time per iteration: 0.048334 s
+Final residual: 5.18e-02
+
+Performance Statistics:
+Total iterations: 5
+Total time: 0.241559 seconds
+Average time per iteration: 0.048309 s
+Final residual: 5.18e-02
+Final residual: 5.18e-02
+Final residual: 5.18e-02
+
+Final residual: 5.18e-02
+
+Performance Statistics:
+Total iterations: 16
+Total time: 0.771697 seconds
+Average time per iteration: 0.048229 s
+Final residual: 3.84e-02
+
+Performance Statistics:
+Total iterations: 16
+Total time: 0.771694 seconds
+Average time per iteration: 0.048228 s
+Final residual: 3.84e-02
+
+Performance Statistics:
+Total iterations: 16
+Total time: 0.771668 seconds
+Average time per iteration: 0.048228 s
+Final residual: 3.84e-02
+
+Performance Statistics:
+Total iterations: 16
+Total time: 0.771654 seconds
+Average time per iteration: 0.048226 s
+Final residual: 3.84e-02
+
+Performance Statistics:
+Total iterations: 16
+Total time: 0.771657 seconds
+Average time per iteration: 0.048226 s
+Final residual: 3.84e-02
+
+Performance Statistics:
+Total iterations: 16
+Total time: 0.771695 seconds
+Average time per iteration: 0.048229 s
+Final residual: 3.84e-02
+
+Performance Statistics:
+Total iterations: 16
+Total time: 0.771630 seconds
+Average time per iteration: 0.048225 s
+Final residual: 3.84e-02
+
+Performance Statistics:
+Total iterations: 16
+Total time: 0.771549 seconds
+Average time per iteration: 0.048219 s
+Final residual: 3.84e-02
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.630742 seconds
+Average time per iteration: 0.045051 s
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.630766 seconds
+Average time per iteration: 0.045053 s
+Final residual: 1.74e-02
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.630723 seconds
+Average time per iteration: 0.045049 s
+Final residual: 1.74e-02
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.630717 seconds
+Average time per iteration: 0.045049 s
+Final residual: 1.74e-02
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.630698 seconds
+Average time per iteration: 0.045048 s
+Final residual: 1.74e-02
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.630722 seconds
+Average time per iteration: 0.045049 s
+Final residual: 1.74e-02
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.630594 seconds
+Average time per iteration: 0.045040 s
+Performance Statistics:
+Total iterations: 14
+Total time: 0.630694 seconds
+Average time per iteration: 0.045047 s
+Final residual: 1.74e-02
+Final residual: 1.74e-02
+
+Final residual: 1.74e-02
+
+Performance Statistics:
+Total iterations: 15
+Total time: 0.666379 seconds
+Average time per iteration: 0.044423 s
+Final residual: 5.44e-03
+
+Performance Statistics:
+Total iterations: 15
+Total time: 0.666361 seconds
+Average time per iteration: 0.044422 s
+Final residual: 5.44e-03
+
+Performance Statistics:
+Total iterations: 15
+Total time: 0.666339 seconds
+Average time per iteration: 0.044420 s
+Final residual: 5.44e-03
+
+Performance Statistics:
+Total iterations: 15
+Total time: 0.666316 seconds
+Average time per iteration: 0.044419 s
+Final residual: 5.44e-03
+
+Performance Statistics:
+Total iterations: 15
+Total time: 0.666365 seconds
+Average time per iteration: 0.044422 s
+Final residual: 5.44e-03
+
+Performance Statistics:
+Total iterations: 15
+Total time: 0.666378 seconds
+Average time per iteration: 0.044423 s
+Final residual: 5.44e-03
+
+Performance Statistics:
+Total iterations: 15
+Total time: 0.666358 seconds
+Average time per iteration: 0.044422 s
+Final residual: 5.44e-03
+
+Performance Statistics:
+Total iterations: 15
+Total time: 0.666316 seconds
+Average time per iteration: 0.044419 s
+Final residual: 5.44e-03
+
+Performance Statistics:
+Total iterations: 15
+Total time: 0.647746 seconds
+Average time per iteration: 0.043181 s
+
+Performance Statistics:
+Total iterations: 15
+Total time: 0.647795 seconds
+Average time per iteration: 0.043184 s
+
+Performance Statistics:
+Total iterations: 15
+Total time: 0.647804 seconds
+Average time per iteration: 0.043185 s
+
+Performance Statistics:
+Total iterations: 15
+Total time: 0.647792 seconds
+Average time per iteration: 0.043185 s
+
+Performance Statistics:
+Total iterations: 15
+Total time: 0.647832 seconds
+Average time per iteration: 0.043186 s
+Final residual: 3.88e-03
+
+Performance Statistics:
+Total iterations: 15
+Total time: 0.647794 seconds
+Average time per iteration: 0.043185 s
+Final residual: 3.88e-03
+
+Performance Statistics:
+Total iterations: 15
+Final residual: 3.88e-03
+Final residual: 3.88e-03
+
+Performance Statistics:
+Total iterations: 15
+Total time: 0.647769 seconds
+Average time per iteration: 0.043182 s
+Final residual: 3.88e-03
+Final residual: 3.88e-03
+Final residual: 3.88e-03
+Total time: 0.647716 seconds
+Average time per iteration: 0.043179 s
+Final residual: 3.88e-03
+
+Performance Statistics:
+Total iterations: 13
+Total time: 0.563019 seconds
+Average time per iteration: 0.043307 s
+Final residual: 1.42e-03
+
+Performance Statistics:
+Total iterations: 13
+Total time: 0.562987 seconds
+Average time per iteration: 0.043305 s
+Final residual: 1.42e-03
+
+Performance Statistics:
+Total iterations: 13
+Total time: 0.563041 seconds
+Average time per iteration: 0.043309 s
+Final residual: 1.42e-03
+
+Performance Statistics:
+Total iterations: 13
+Total time: 0.563044 seconds
+Average time per iteration: 0.043309 s
+Final residual: 1.42e-03
+
+Performance Statistics:
+Total iterations: 13
+Total time: 0.563003 seconds
+Average time per iteration: 0.043306 s
+Final residual: 1.42e-03
+
+Performance Statistics:
+Total iterations: 13
+Total time: 0.563009 seconds
+Average time per iteration: 0.043306 s
+Final residual: 1.42e-03
+
+Performance Statistics:
+Total iterations: 13
+Total time: 0.563065 seconds
+Average time per iteration: 0.043310 s
+Final residual: 1.42e-03
+
+Performance Statistics:
+Total iterations: 13
+Total time: 0.562964 seconds
+Average time per iteration: 0.043303 s
+Final residual: 1.42e-03
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.605319 seconds
+Average time per iteration: 0.043235 s
+Final residual: 6.99e-04
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.605280 seconds
+Average time per iteration: 0.043233 s
+Final residual: 6.99e-04
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.605283 seconds
+Average time per iteration: 0.043233 s
+Final residual: 6.99e-04
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.605303 seconds
+Average time per iteration: 0.043234 s
+Final residual: 6.99e-04
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.605260 seconds
+Average time per iteration: 0.043230 s
+Final residual: 6.99e-04
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.605257 seconds
+Average time per iteration: 0.043230 s
+Final residual: 6.99e-04
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.605289 seconds
+Average time per iteration: 0.043233 s
+Final residual: 6.99e-04
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.605209 seconds
+Average time per iteration: 0.043227 s
+Final residual: 6.99e-04
+
+Performance Statistics:
+
+Performance Statistics:
+
+Performance Statistics:
+
+Performance Statistics:
+
+Performance Statistics:
+
+Performance Statistics:
+
+Performance Statistics:
+Total iterations: 12
+Total time: 0.517292 seconds
+Average time per iteration: 0.043105 s
+Final residual: 3.94e-04
+Total iterations: 12
+Total time: 0.517301 seconds
+Average time per iteration: 0.043106 s
+Final residual: 3.94e-04
+Total iterations: 12
+Total time: 0.517296 seconds
+Average time per iteration: 0.043106 s
+Final residual: 3.94e-04
+Total iterations: 12
+Total time: 0.517300 seconds
+Average time per iteration: 0.043107 s
+Final residual: 3.94e-04
+Total iterations: 12
+Total time: 0.517350 seconds
+Average time per iteration: 0.043111 s
+Final residual: 3.94e-04
+Total iterations: 12
+Total time: 0.517326 seconds
+Average time per iteration: 0.043108 s
+Final residual: 3.94e-04
+
+Performance Statistics:
+Total iterations: 12
+Total time: 0.517287 seconds
+Average time per iteration: 0.043105 s
+Final residual: 3.94e-04
+Total iterations: 12
+Total time: 0.517296 seconds
+Average time per iteration: 0.043105 s
+Final residual: 3.94e-04
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.664693 seconds
+Average time per iteration: 0.047476 s
+Final residual: 1.52e-04
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.664701 seconds
+Average time per iteration: 0.047476 s
+Final residual: 1.52e-04
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.664704 seconds
+Average time per iteration: 0.047477 s
+Final residual: 1.52e-04
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.664708 seconds
+Average time per iteration: 0.047477 s
+Final residual: 1.52e-04
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.664691 seconds
+Average time per iteration: 0.047476 s
+Final residual: 1.52e-04
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.664731 seconds
+Average time per iteration: 0.047479 s
+Final residual: 1.52e-04
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.664669 seconds
+Average time per iteration: 0.047474 s
+Final residual: 1.52e-04
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.664639 seconds
+Average time per iteration: 0.047472 s
+Final residual: 1.52e-04
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.674674 seconds
+Average time per iteration: 0.048189 s
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.674670 seconds
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.674686 seconds
+Average time per iteration: 0.048189 s
+Performance Statistics:
+Total iterations: 14
+Total time: 0.674672 seconds
+Average time per iteration: 0.048189 s
+Final residual: 7.89e-05
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.674594 seconds
+Average time per iteration: 0.048183 s
+Final residual: 7.89e-05
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.674643 seconds
+Average time per iteration: 0.048186 s
+Final residual: 7.89e-05
+Performance Statistics:
+Total iterations: 14
+Total time: 0.674566 seconds
+Average time per iteration: 0.048181 s
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.674644 seconds
+Average time per iteration: 0.048187 s
+Final residual: 7.89e-05
+Final residual: 7.89e-05
+Average time per iteration: 0.048188 s
+Final residual: 7.89e-05
+
+Final residual: 7.89e-05
+
+Final residual: 7.89e-05
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.680573 seconds
+Average time per iteration: 0.048610 s
+Final residual: 7.55e-05
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.680592 seconds
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.680577 seconds
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.680586 seconds
+Average time per iteration: 0.048612 s
+Final residual: 7.55e-05
+
+Performance Statistics:
+Total iterations: 14
+Performance Statistics:
+Total iterations: 14
+Total time: 0.680591 seconds
+Average time per iteration: 0.048611 s
+Final residual: 7.55e-05
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.680568 seconds
+Average time per iteration: 0.048610 s
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.680553 seconds
+Average time per iteration: 0.048609 s
+Final residual: 7.55e-05
+Average time per iteration: 0.048611 s
+Final residual: 7.55e-05
+Average time per iteration: 0.048610 s
+Final residual: 7.55e-05
+
+Total time: 0.680489 seconds
+Average time per iteration: 0.048604 s
+Final residual: 7.55e-05
+Final residual: 7.55e-05
+
+Performance Statistics:
+Total iterations: 3
+Total time: 0.145626 seconds
+Average time per iteration: 0.048540 s
+
+Performance Statistics:
+Total iterations: 3
+Total time: 0.145619 seconds
+Average time per iteration: 0.048536 s
+
+Performance Statistics:
+Total iterations: 3
+Total time: 0.145626 seconds
+
+Performance Statistics:
+Total iterations: 3
+Total time: 0.145654 seconds
+Average time per iteration: 0.048549 s
+Final residual: 9.44e-05
+
+Performance Statistics:
+Total iterations: 3
+Total time: 0.145608 seconds
+Average time per iteration: 0.048533 s
+
+Performance Statistics:
+Total iterations: 3
+Total time: 0.145643 seconds
+Average time per iteration: 0.048544 s
+Final residual: 9.44e-05
+
+Performance Statistics:
+Total iterations: 3
+Total time: 0.145600 seconds
+Average time per iteration: 0.048530 s
+Final residual: 9.44e-05
+Final residual: 9.44e-05
+
+Performance Statistics:
+Total iterations: 3
+Total time: 0.145513 seconds
+Average time per iteration: 0.048539 s
+Final residual: 9.44e-05
+Final residual: 9.44e-05
+Final residual: 9.44e-05
+Average time per iteration: 0.048501 s
+Final residual: 9.44e-05
+
+Performance Statistics:
+Total iterations: 3
+Total time: 0.146114 seconds
+Average time per iteration: 0.048702 s
+
+Performance Statistics:
+Total iterations: 3
+Total time: 0.146117 seconds
+Average time per iteration: 0.048703 s
+Final residual: 1.50e-04
+
+Performance Statistics:
+Total iterations: 3
+Total time: 0.146110 seconds
+Average time per iteration: 0.048700 s
+Final residual: 1.50e-04
+
+Performance Statistics:
+Total iterations: 3
+Total time: 0.146065 seconds
+Average time per iteration: 0.048685 s
+Final residual: 1.50e-04
+Performance Statistics:
+Total iterations: 3
+Total time: 0.146132 seconds
+Average time per iteration: 0.048708 s
+Final residual: 1.50e-04
+
+Performance Statistics:
+Total iterations: 3
+Total time: 0.146095 seconds
+Average time per iteration: 0.048695 s
+Final residual: 1.50e-04
+
+Performance Statistics:
+Total iterations: 3
+Total time: 0.145992 seconds
+Average time per iteration: 0.048661 s
+
+Performance Statistics:
+Total iterations: 3
+Total time: 0.146093 seconds
+Average time per iteration: 0.048695 s
+Final residual: 1.50e-04
+Final residual: 1.50e-04
+
+Final residual: 1.50e-04
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.679277 seconds
+Average time per iteration: 0.048518 s
+Final residual: 2.19e-05
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.679285 seconds
+Average time per iteration: 0.048518 s
+Final residual: 2.19e-05
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.679293 seconds
+Average time per iteration: 0.048519 s
+Final residual: 2.19e-05
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.679312 seconds
+Average time per iteration: 0.048521 s
+Final residual: 2.19e-05
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.679307 seconds
+Average time per iteration: 0.048519 s
+Final residual: 2.19e-05
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.679308 seconds
+Average time per iteration: 0.048520 s
+Final residual: 2.19e-05
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.679345 seconds
+Average time per iteration: 0.048523 s
+Final residual: 2.19e-05
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.679196 seconds
+Average time per iteration: 0.048512 s
+Final residual: 2.19e-05
+
+Performance Statistics:
+Total iterations: 18
+Total time: 0.869722 seconds
+Average time per iteration: 0.048316 s
+Final residual: 9.61e-06
+
+Performance Statistics:
+Total iterations: 18
+Total time: 0.869720 seconds
+Average time per iteration: 0.048316 s
+Final residual: 9.61e-06
+
+Performance Statistics:
+Total iterations: 18
+Total time: 0.869700 seconds
+Average time per iteration: 0.048315 s
+Final residual: 9.61e-06
+
+Performance Statistics:
+Total iterations: 18
+Total time: 0.869720 seconds
+Average time per iteration: 0.048316 s
+Final residual: 9.61e-06
+
+Performance Statistics:
+Total iterations: 18
+Total time: 0.869729 seconds
+Average time per iteration: 0.048317 s
+Final residual: 9.61e-06
+
+Performance Statistics:
+Total iterations: 18
+Total time: 0.869738 seconds
+Average time per iteration: 0.048317 s
+Final residual: 9.61e-06
+
+Performance Statistics:
+Total iterations: 18
+Total time: 0.869738 seconds
+Average time per iteration: 0.048316 s
+Final residual: 9.61e-06
+
+Performance Statistics:
+Total iterations: 18
+Total time: 0.869600 seconds
+Average time per iteration: 0.048309 s
+Final residual: 9.61e-06
+
+Performance Statistics:
+Total iterations: 12
+Total time: 0.579018 seconds
+Average time per iteration: 0.048249 s
+Final residual: 4.81e-06
+
+Performance Statistics:
+Total iterations: 12
+Total time: 0.579021 seconds
+Average time per iteration: 0.048250 s
+Final residual: 4.81e-06
+
+Performance Statistics:
+Total iterations: 12
+Total time: 0.578994 seconds
+Average time per iteration: 0.048247 s
+Final residual: 4.81e-06
+
+Performance Statistics:
+Total iterations: 12
+Total time: 0.578970 seconds
+Average time per iteration: 0.048245 s
+
+Performance Statistics:
+Total iterations: 12
+Total time: 0.578974 seconds
+Average time per iteration: 0.048246 s
+Final residual: 4.81e-06
+
+Performance Statistics:
+Total iterations: 12
+Total time: 0.579013 seconds
+Average time per iteration: 0.048249 s
+Final residual: 4.81e-06
+
+Performance Statistics:
+Total iterations: 12
+Total time: 0.579018 seconds
+Average time per iteration: 0.048249 s
+Final residual: 4.81e-06
+
+Performance Statistics:
+Total iterations: 12
+Total time: 0.578909 seconds
+Average time per iteration: 0.048240 s
+Final residual: 4.81e-06
+Final residual: 4.81e-06
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.676290 seconds
+Average time per iteration: 0.048304 s
+Final residual: 2.71e-06
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.676285 seconds
+Average time per iteration: 0.048304 s
+Final residual: 2.71e-06
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.676310 seconds
+Average time per iteration: 0.048306 s
+Final residual: 2.71e-06
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.676290 seconds
+Average time per iteration: 0.048305 s
+Final residual: 2.71e-06
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.676168 seconds
+Average time per iteration: 0.048296 s
+Final residual: 2.71e-06
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.676255 seconds
+Average time per iteration: 0.048302 s
+Final residual: 2.71e-06
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.676283 seconds
+Average time per iteration: 0.048304 s
+Final residual: 2.71e-06
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.676268 seconds
+Average time per iteration: 0.048303 s
+Final residual: 2.71e-06
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.678929 seconds
+Average time per iteration: 0.048493 s
+Final residual: 1.49e-06
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.678913 seconds
+Average time per iteration: 0.048491 s
+Final residual: 1.49e-06
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.678929 seconds
+Average time per iteration: 0.048493 s
+Final residual: 1.49e-06
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.678958 seconds
+Average time per iteration: 0.048495 s
+Final residual: 1.49e-06
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.678931 seconds
+Average time per iteration: 0.048493 s
+Final residual: 1.49e-06
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.678912 seconds
+Average time per iteration: 0.048492 s
+Final residual: 1.49e-06
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.678881 seconds
+Average time per iteration: 0.048489 s
+Final residual: 1.49e-06
+
+Performance Statistics:
+Total iterations: 14
+Total time: 0.678811 seconds
+Average time per iteration: 0.048484 s
+Final residual: 1.49e-06
+
+Performance Statistics:
+Total iterations: 15
+Total time: 0.725294 seconds
+Average time per iteration: 0.048351 s
+
+Performance Statistics:
+Total iterations: 15
+Total time: 0.725278 seconds
+Average time per iteration: 0.048349 s
+
+Performance Statistics:
+Total iterations: 15
+Total time: 0.725299 seconds
+Average time per iteration: 0.048351 s
+
+Performance Statistics:
+Total iterations: 15
+Total time: 0.725321 seconds
+Average time per iteration: 0.048353 s
+Final residual: 2.46e-06
+
+Performance Statistics:
+Total iterations: 15
+Total time: 0.725319 seconds
+Average time per iteration: 0.048353 s
+Final residual: 2.46e-06
+
+Performance Statistics:
+Total iterations: 15
+Total time: 0.725286 seconds
+Average time per iteration: 0.048350 s
+Final residual: 2.46e-06
+
+Performance Statistics:
+Total iterations: 15
+Final residual: 2.46e-06
+Final residual: 2.46e-06
+Final residual: 2.46e-06
+
+Performance Statistics:
+Total iterations: 15
+Total time: 0.725255 seconds
+Average time per iteration: 0.048348 s
+Final residual: 2.46e-06
+Total time: 0.725209 seconds
+Average time per iteration: 0.048345 s
+Final residual: 2.46e-06
+
+Performance Statistics:
+Total iterations: 3
+Total time: 0.144751 seconds
+Average time per iteration: 0.048248 s
+Final residual: 2.92e-06
+
+Performance Statistics:
+Total iterations: 3
+Total time: 0.144731 seconds
+Average time per iteration: 0.048241 s
+Final residual: 2.92e-06
+
+Performance Statistics:
+Total iterations: 3
+Total time: 0.144711 seconds
+Average time per iteration: 0.048233 s
+Final residual: 2.92e-06
+
+Performance Statistics:
+Total iterations: 3
+Total time: 0.144747 seconds
+Average time per iteration: 0.048247 s
+Final residual: 2.92e-06
+
+Performance Statistics:
+Total iterations: 3
+Total time: 0.144734 seconds
+Average time per iteration: 0.048241 s
+Final residual: 2.92e-06
+
+Performance Statistics:
+Total iterations: 3
+Total time: 0.144758 seconds
+Average time per iteration: 0.048249 s
+Final residual: 2.92e-06
+
+Performance Statistics:
+Total iterations: 3
+Total time: 0.144760 seconds
+Average time per iteration: 0.048251 s
+Final residual: 2.92e-06
+
+Performance Statistics:
+Total iterations: 3
+Total time: 0.144625 seconds
+Average time per iteration: 0.048205 s
+Final residual: 2.92e-06
+
+Performance Statistics:
+Total iterations: 9
+Total time: 0.434850 seconds
+Average time per iteration: 0.048315 s
+Final residual: 1.55e-06
+
+Performance Statistics:
+Total iterations: 9
+Total time: 0.434836 seconds
+Average time per iteration: 0.048313 s
+Final residual: 1.55e-06
+
+Performance Statistics:
+Total iterations: 9
+Total time: 0.434842 seconds
+Average time per iteration: 0.048313 s
+Final residual: 1.55e-06
+
+Performance Statistics:
+Total iterations: 9
+Total time: 0.434808 seconds
+Average time per iteration: 0.048309 s
+Final residual: 1.55e-06
+
+Performance Statistics:
+Total iterations: 9
+Total time: 0.434862 seconds
+Average time per iteration: 0.048316 s
+Final residual: 1.55e-06
+
+Performance Statistics:
+Total iterations: 9
+Total time: 0.434830 seconds
+Average time per iteration: 0.048312 s
+Final residual: 1.55e-06
+
+Performance Statistics:
+Total iterations: 9
+Total time: 0.434845 seconds
+Average time per iteration: 0.048314 s
+Final residual: 1.55e-06
+
+Performance Statistics:
+Total iterations: 9
+Total time: 0.434717 seconds
+Average time per iteration: 0.048300 s
+Final residual: 1.55e-06
+
+Performance Statistics:
+Total iterations: 6
+Total time: 0.291329 seconds
+Average time per iteration: 0.048552 s
+Final residual: 1.46e-06
+
+Performance Statistics:
+Total iterations: 6
+Total time: 0.291329 seconds
+Average time per iteration: 0.048553 s
+Final residual: 1.46e-06
+
+Performance Statistics:
+Total iterations: 6
+Total time: 0.291331 seconds
+Average time per iteration: 0.048553 s
+Final residual: 1.46e-06
+
+Performance Statistics:
+Total iterations: 6
+Total time: 0.291357 seconds
+
+Performance Statistics:
+Total iterations: 6
+
+Performance Statistics:
+Total iterations: 6
+Total time: 0.291324 seconds
+Average time per iteration: 0.048552 s
+Final residual: 1.46e-06
+
+Performance Statistics:
+Total iterations: 6
+Total time: 0.291312 seconds
+Average time per iteration: 0.048549 s
+Final residual: 1.46e-06
+
+Performance Statistics:
+Average time per iteration: 0.048557 s
+Final residual: 1.46e-06
+Total time: 0.291283 seconds
+Average time per iteration: 0.048544 s
+Final residual: 1.46e-06
+Total iterations: 6
+Total time: 0.291227 seconds
+Average time per iteration: 0.048535 s
+Final residual: 1.46e-06
+
+Performance Statistics:
+Total iterations: 9
+Total time: 0.435222 seconds
+Average time per iteration: 0.048355 s
+Final residual: 9.45e-07
+
+Performance Statistics:
+Total iterations: 9
+Total time: 0.435216 seconds
+Average time per iteration: 0.048355 s
+Final residual: 9.45e-07
+
+Performance Statistics:
+Total iterations: 9
+Total time: 0.435225 seconds
+Average time per iteration: 0.048356 s
+Final residual: 9.45e-07
+
+Performance Statistics:
+Total iterations: 9
+Total time: 0.435218 seconds
+Average time per iteration: 0.048355 s
+Final residual: 9.45e-07
+
+Performance Statistics:
+Total iterations: 9
+Total time: 0.435182 seconds
+Average time per iteration: 0.048351 s
+Final residual: 9.45e-07
+
+Performance Statistics:
+Total iterations: 9
+Total time: 0.435211 seconds
+Average time per iteration: 0.048354 s
+Final residual: 9.45e-07
+
+Performance Statistics:
+Total iterations: 9
+Total time: 0.435195 seconds
+Average time per iteration: 0.048353 s
+Final residual: 9.45e-07
+
+Performance Statistics:
+Total iterations: 9
+Total time: 0.435111 seconds
+Average time per iteration: 0.048343 s
+Final residual: 9.45e-07
+
+Performance Statistics:
+Total iterations: 4
+Total time: 0.192234 seconds
+Average time per iteration: 0.048056 s
+Final residual: 1.09e-06
+
+Performance Statistics:
+Total iterations: 4
+Total time: 0.192233 seconds
+Average time per iteration: 0.048056 s
+Final residual: 1.09e-06
+
+Performance Statistics:
+Total iterations: 4
+Total time: 0.192229 seconds
+Average time per iteration: 0.048054 s
+Final residual: 1.09e-06
+
+Performance Statistics:
+Total iterations: 4
+Total time: 0.192230 seconds
+Average time per iteration: 0.048055 s
+Final residual: 1.09e-06
+
+Performance Statistics:
+Total iterations: 4
+Total time: 0.192253 seconds
+Average time per iteration: 0.048061 s
+Final residual: 1.09e-06
+
+Performance Statistics:
+Total iterations: 4
+Total time: 0.192219 seconds
+Average time per iteration: 0.048052 s
+Final residual: 1.09e-06
+
+Performance Statistics:
+Total iterations: 4
+Total time: 0.192146 seconds
+
+Performance Statistics:
+Total iterations: 4
+Total time: 0.192195 seconds
+Average time per iteration: 0.048046 s
+Final residual: 1.09e-06
+Average time per iteration: 0.048034 s
+Final residual: 1.09e-06
+
+Performance Statistics:
+Total iterations: 4
+
+Performance Statistics:
+Total iterations: 4
+Total time: 0.192238 seconds
+
+Performance Statistics:
+Total iterations: 4
+
+Performance Statistics:
+Total iterations: 4
+
+Performance Statistics:
+Total iterations: 4
+Total time: 0.192219 seconds
+
+Performance Statistics:
+Total iterations: 4
+Total time: 0.192245 seconds
+Average time per iteration: 0.048059 s
+Final residual: 1.47e-06
+
+Performance Statistics:
+Total iterations: 4
+Total time: 0.192120 seconds
+Average time per iteration: 0.048027 s
+Final residual: 1.47e-06
+Total time: 0.192227 seconds
+Average time per iteration: 0.048054 s
+Final residual: 1.47e-06
+Average time per iteration: 0.048057 s
+Final residual: 1.47e-06
+Total time: 0.192238 seconds
+Average time per iteration: 0.048057 s
+Final residual: 1.47e-06
+Total time: 0.192245 seconds
+Average time per iteration: 0.048058 s
+Final residual: 1.47e-06
+
+Performance Statistics:
+Total iterations: 4
+Total time: 0.192186 seconds
+Average time per iteration: 0.048043 s
+Final residual: 1.47e-06
+Average time per iteration: 0.048053 s
+Final residual: 1.47e-06
+
+Performance Statistics:
+Total iterations: 5
+Total time: 0.240606 seconds
+Average time per iteration: 0.048119 s
+
+Performance Statistics:
+Total iterations: 5
+Total time: 0.240596 seconds
+
+Performance Statistics:
+Total iterations: 5
+Total time: 0.240628 seconds
+Average time per iteration: 0.048123 s
+
+Performance Statistics:
+Total iterations: 5
+Total time: 0.240608 seconds
+Average time per iteration: 0.048119 s
+Performance Statistics:
+Total iterations: 5
+Total time: 0.240609 seconds
+
+Performance Statistics:
+Total iterations: 5
+Total time: 0.240602 seconds
+Average time per iteration: 0.048118 s
+Average time per iteration: 0.048119 s
+Final residual: 1.49e-06
+
+Performance Statistics:
+Total iterations: 5
+Total time: 0.240503 seconds
+Average time per iteration: 0.048098 s
+Final residual: 1.49e-06
+Final residual: 1.49e-06
+Average time per iteration: 0.048117 s
+Final residual: 1.49e-06
+Final residual: 1.49e-06
+
+Final residual: 1.49e-06
+
+Performance Statistics:
+Total iterations: 5
+Total time: 0.240560 seconds
+Average time per iteration: 0.048109 s
+Final residual: 1.49e-06
+Final residual: 1.49e-06
+
+Performance Statistics:
+Total iterations: 2
+Total time: 0.096229 seconds
+Average time per iteration: 0.048111 s
+
+Performance Statistics:
+Total iterations: 2
+Total time: 0.096258 seconds
+Average time per iteration: 0.048126 s
+Final residual: 3.65e-06
+
+Performance Statistics:
+Total iterations: 2
+Total time: 0.096231 seconds
+Average time per iteration: 0.048112 s
+Final residual: 3.65e-06
+
+Performance Statistics:
+Total iterations: 2
+Total time: 0.096251 seconds
+Average time per iteration: 0.048122 s
+Final residual: 3.65e-06
+Performance Statistics:
+Total iterations: 2
+Total time: 0.096232 seconds
+Average time per iteration: 0.048112 s
+Final residual: 3.65e-06
+
+Performance Statistics:
+Total iterations: 2
+Total time: 0.096242 seconds
+Average time per iteration: 0.048118 s
+Final residual: 3.65e-06
+
+Performance Statistics:
+Total iterations: 2
+Total time: 0.096204 seconds
+Average time per iteration: 0.048097 s
+Final residual: 3.65e-06
+
+Performance Statistics:
+Total iterations: 2
+Total time: 0.096147 seconds
+Final residual: 3.65e-06
+Average time per iteration: 0.048070 s
+Final residual: 3.65e-06
+
+
+Performance Statistics:
+Total iterations: 3
+Total time: 0.144055 seconds
+Average time per iteration: 0.048016 s
+
+Performance Statistics:
+Total iterations: 3
+Total time: 0.144085 seconds
+Average time per iteration: 0.048025 s
+Final residual: 3.14e-06
+
+Performance Statistics:
+Total iterations: 3
+Total time: 0.144057 seconds
+Average time per iteration: 0.048016 s
+
+Performance Statistics:
+Total iterations: 3
+Total time: 0.144077 seconds
+Average time per iteration: 0.048023 s
+Final residual: 3.14e-06
+
+Performance Statistics:
+Total iterations: 3
+Total time: 0.144048 seconds
+Average time per iteration: 0.048013 s
+
+Performance Statistics:
+Total iterations: 3
+Total time: 0.144077 seconds
+Average time per iteration: 0.048023 s
+Final residual: 3.14e-06
+Final residual: 3.14e-06
+Final residual: 3.14e-06
+
+Performance Statistics:
+Total iterations: 3
+Total time: 0.144016 seconds
+Average time per iteration: 0.048002 s
+Final residual: 3.14e-06
+
+Performance Statistics:
+Total iterations: 3
+Total time: 0.143939 seconds
+Average time per iteration: 0.047977 s
+Final residual: 3.14e-06Final residual: 3.14e-06
+
+
+Performance Statistics:
+Total iterations: 4
+Total time: 0.192564 seconds
+Average time per iteration: 0.048139 s
+Final residual: 1.97e-06
+
+Performance Statistics:
+Total iterations: 4
+Total time: 0.192526 seconds
+Average time per iteration: 0.048129 s
+Final residual: 1.97e-06
+
+Performance Statistics:
+Total iterations: 4
+Total time: 0.192561 seconds
+Average time per iteration: 0.048138 s
+Final residual: 1.97e-06
+
+Performance Statistics:
+Total iterations: 4
+Total time: 0.192581 seconds
+Average time per iteration: 0.048142 s
+Final residual: 1.97e-06
+
+Performance Statistics:
+Total iterations: 4
+Total time: 0.192502 seconds
+Average time per iteration: 0.048122 s
+Final residual: 1.97e-06
+
+Performance Statistics:
+Total iterations: 4
+Total time: 0.192549 seconds
+Average time per iteration: 0.048135 s
+Final residual: 1.97e-06
+
+Performance Statistics:
+Total iterations: 4
+Total time: 0.192545 seconds
+Average time per iteration: 0.048133 s
+Final residual: 1.97e-06
+
+Performance Statistics:
+Total iterations: 4
+Total time: 0.192463 seconds
+Average time per iteration: 0.048113 s
+Final residual: 1.97e-06
+
+Performance Statistics:
+Total iterations: 8
+Total time: 0.384455 seconds
+Average time per iteration: 0.048054 s
+
+Performance Statistics:
+Total iterations: 8
+Total time: 0.384492 seconds
+Average time per iteration: 0.048059 s
+Final residual: 1.07e-06
+
+Performance Statistics:
+Total iterations: 8
+Total time: 0.384446 seconds
+Average time per iteration: 0.048054 s
+
+Performance Statistics:
+Total iterations: 8
+Total time: 0.384468 seconds
+Average time per iteration: 0.048057 s
+Final residual: 1.07e-06
+
+Performance Statistics:
+Total iterations: 8
+Total time: 0.384461 seconds
+Average time per iteration: 0.048055 s
+Final residual: 1.07e-06
+
+Performance Statistics:
+Total iterations: 8
+Total time: 0.384491 seconds
+Average time per iteration: 0.048059 s
+Final residual: 1.07e-06
+
+Performance Statistics:
+Total iterations: 8
+Total time: 0.384368 seconds
+Average time per iteration: 0.048044 s
+Final residual: 1.07e-06
+Final residual: 1.07e-06
+
+Performance Statistics:
+Total iterations: 8
+Total time: 0.384424 seconds
+Average time per iteration: 0.048050 s
+Final residual: 1.07e-06
+Final residual: 1.07e-06
+
+Performance Statistics:
+
+Performance Statistics:
+
+Performance Statistics:
+Total iterations: 2
+Total time: 0.095958 seconds
+Average time per iteration: 0.047975 s
+Final residual: 4.14e-06
+Performance Statistics:
+Performance Statistics:
+
+Performance Statistics:
+Total iterations: 2
+Total time: 0.095913 seconds
+Total iterations: 2
+Total time: 0.095982 seconds
+Average time per iteration: 0.047987 s
+Final residual: 4.14e-06
+
+Performance Statistics:
+Total iterations: 2
+Total time: 0.095881 seconds
+Average time per iteration: 0.047937 s
+Final residual: 4.14e-06
+Total iterations: 2
+Total time: 0.095985 seconds
+Average time per iteration: 0.047989 s
+Final residual: 4.14e-06
+Total iterations: 2
+Total time: 0.095969 seconds
+Average time per iteration: 0.047981 s
+Final residual: 4.14e-06
+
+
+Total iterations: 2
+Total time: 0.095951 seconds
+Average time per iteration: 0.047972 s
+Final residual: 4.14e-06
+Average time per iteration: 0.047952 s
+Final residual: 4.14e-06
+
+Performance Statistics:
+Total iterations: 2
+Total time: 0.096126 seconds
+Average time per iteration: 0.048059 s
+Final residual: 4.14e-06
+
+Performance Statistics:
+Total iterations: 4
+Total time: 0.192381 seconds
+Average time per iteration: 0.048093 s
+
+Performance Statistics:
+Total iterations: 4
+Total time: 0.192392 seconds
+Average time per iteration: 0.048095 s
+Final residual: 2.15e-06
+
+Performance Statistics:
+Total iterations: 4
+Total time: 0.192410 seconds
+
+Performance Statistics:
+Total iterations: 4
+Total time: 0.192430 seconds
+Average time per iteration: 0.048105 s
+Final residual: 2.15e-06
+Performance Statistics:
+Total iterations: 4
+Total time: 0.192409 seconds
+Average time per iteration: 0.048099 s
+Final residual: 2.15e-06
+
+Performance Statistics:
+Total iterations: 4
+Total time: 0.192422 seconds
+Average time per iteration: 0.048103 s
+Final residual: 2.15e-06
+Final residual: 2.15e-06
+
+Performance Statistics:
+Total iterations: 4
+Performance Statistics:
+Total iterations: 4
+Total time: 0.192361 seconds
+Average time per iteration: 0.048087 s
+Final residual: 2.15e-06Average time per iteration: 0.048100 s
+Final residual: 2.15e-06
+
+
+Total time: 0.192320 seconds
+Average time per iteration: 0.048077 s
+Final residual: 2.15e-06
+
+
+Performance Statistics:
+Total iterations: 8
+Total time: 0.386435 seconds
+Average time per iteration: 0.048302 s
+Final residual: 1.33e-06
+
+Performance Statistics:
+Total iterations: 8
+Total time: 0.386447 seconds
+Average time per iteration: 0.048304 s
+Final residual: 1.33e-06
+
+Performance Statistics:
+Total iterations: 8
+Total time: 0.386456 seconds
+Average time per iteration: 0.048305 s
+Final residual: 1.33e-06
+
+Performance Statistics:
+Total iterations: 8
+Total time: 0.386460 seconds
+Average time per iteration: 0.048305 s
+Final residual: 1.33e-06
+
+Performance Statistics:
+Total iterations: 8
+Total time: 0.386444 seconds
+Average time per iteration: 0.048303 s
+Final residual: 1.33e-06
+
+Performance Statistics:
+Total iterations: 8
+Total time: 0.386449 seconds
+Average time per iteration: 0.048304 s
+Final residual: 1.33e-06
+
+Performance Statistics:
+Total iterations: 8
+Total time: 0.386391 seconds
+Average time per iteration: 0.048296 s
+Final residual: 1.33e-06
+
+Performance Statistics:
+Total iterations: 8
+Total time: 0.386347 seconds
+Average time per iteration: 0.048291 s
+Final residual: 1.33e-06
+
+Performance Statistics:
+Total iterations: 3
+Total time: 0.145818 seconds
+Average time per iteration: 0.048603 s
+Final residual: 1.86e-06
+
+Performance Statistics:
+Total iterations: 3
+Total time: 0.145797 seconds
+Average time per iteration: 0.048596 s
+Final residual: 1.86e-06
+
+Performance Statistics:
+Total iterations: 3
+Total time: 0.145811 seconds
+Average time per iteration: 0.048601 s
+Final residual: 1.86e-06
+
+Performance Statistics:
+Total iterations: 3
+Total time: 0.145816 seconds
+Average time per iteration: 0.048602 s
+Final residual: 1.86e-06
+
+Performance Statistics:
+Total iterations: 3
+Total time: 0.145804 seconds
+Average time per iteration: 0.048598 s
+Final residual: 1.86e-06
+
+Performance Statistics:
+Total iterations: 3
+Total time: 0.145807 seconds
+Average time per iteration: 0.048599 s
+Final residual: 1.86e-06
+
+Performance Statistics:
+Total iterations: 3
+Total time: 0.145681 seconds
+Performance Statistics:
+Total iterations: 3
+Total time: 0.145771 seconds
+Average time per iteration: 0.048587 s
+
+Average time per iteration: 0.048557 s
+Final residual: 1.86e-06
+Final residual: 1.86e-06
+
+Performance Statistics:
+Total iterations: 3
+Total time: 0.145644 seconds
+Average time per iteration: 0.048545 s
+Final residual: 1.64e-06
+
+Performance Statistics:
+Total iterations: 3
+Total time: 0.145665 seconds
+Average time per iteration: 0.048552 s
+Final residual: 1.64e-06
+
+Performance Statistics:
+Total iterations: 3
+Total time: 0.145646 seconds
+Average time per iteration: 0.048545 s
+Final residual: 1.64e-06
+
+Performance Statistics:
+Total iterations: 3
+Total time: 0.145641 seconds
+Average time per iteration: 0.048544 s
+Final residual: 1.64e-06
+
+Performance Statistics:
+Total iterations: 3
+Total time: 0.145661 seconds
+Average time per iteration: 0.048551 s
+Final residual: 1.64e-06
+
+Performance Statistics:
+Total iterations: 3
+Total time: 0.145648 seconds
+Average time per iteration: 0.048546 s
+Final residual: 1.64e-06
+
+Performance Statistics:
+Total iterations: 3
+Total time: 0.145605 seconds
+Average time per iteration: 0.048532 s
+Final residual: 1.64e-06
+
+Performance Statistics:
+Total iterations: 3
+Total time: 0.145511 seconds
+Average time per iteration: 0.048500 s
+Final residual: 1.64e-06
+
+Performance Statistics:
+Total iterations: 3
+Total time: 0.145120 seconds
+
+Performance Statistics:
+Total iterations: 3
+Total time: 0.145131 seconds
+Average time per iteration: 0.048374 s
+Final residual: 2.17e-06
+
+Performance Statistics:
+Total iterations: 3
+Total time: 0.145097 seconds
+Average time per iteration: 0.048362 s
+Final residual: 2.17e-06
+
+Performance Statistics:
+Total iterations: 3
+Total time: 0.145119 seconds
+Average time per iteration: 0.048371 s
+Final residual: 2.17e-06
+
+Performance Statistics:
+Total iterations: 3
+Total time: 0.145139 seconds
+Average time per iteration: 0.048377 s
+Final residual: 2.17e-06
+
+Performance Statistics:
+Total iterations: 3
+
+Performance Statistics:
+Total iterations: 3
+Total time: 0.145133 seconds
+Average time per iteration: 0.048375 s
+Final residual: 2.17e-06
+Average time per iteration: 0.048370 s
+Final residual: 2.17e-06
+
+Performance Statistics:
+Total iterations: 3
+Total time: 0.145076 seconds
+Average time per iteration: 0.048355 s
+Final residual: 2.17e-06
+Total time: 0.144970 seconds
+Average time per iteration: 0.048320 s
+Final residual: 2.17e-06
+
+Performance Statistics:
+Total iterations: 4
+Total time: 0.192519 seconds
+Average time per iteration: 0.048127 s
+
+Performance Statistics:
+Total iterations: 4
+Total time: 0.192525 seconds
+Average time per iteration: 0.048129 s
+Final residual: 1.70e-06
+
+Performance Statistics:
+Total iterations: 4
+Total time: 0.192539 seconds
+Average time per iteration: 0.048132 s
+Final residual: 1.70e-06
+
+Performance Statistics:
+Total iterations: 4
+Total time: 0.192509 seconds
+Average time per iteration: 0.048124 s
+Final residual: 1.70e-06
+
+Performance Statistics:
+Total iterations: 4
+Total time: 0.192521 seconds
+Average time per iteration: 0.048128 s
+Final residual: 1.70e-06
+
+Performance Statistics:
+Total iterations: 4
+Total time: 0.192528 seconds
+Average time per iteration: 0.048130 s
+Final residual: 1.70e-06
+
+Performance Statistics:
+Total iterations: 4
+Total time: 0.192414 seconds
+
+Performance Statistics:
+Total iterations: 4
+Total time: 0.192460 seconds
+Final residual: 1.70e-06
+Average time per iteration: 0.048101 s
+Final residual: 1.70e-06
+Average time per iteration: 0.048112 s
+Final residual: 1.70e-06
+
+Performance Statistics:
+Total iterations: 4
+Total time: 0.192102 seconds
+Average time per iteration: 0.048023 s
+Final residual: 1.70e-06
+
+Performance Statistics:
+Total iterations: 4
+Total time: 0.192100 seconds
+Average time per iteration: 0.048023 s
+Final residual: 1.70e-06
+
+Performance Statistics:
+Total iterations: 4
+Total time: 0.192115 seconds
+Average time per iteration: 0.048026 s
+Final residual: 1.70e-06
+
+Performance Statistics:
+Total iterations: 4
+Total time: 0.192118 seconds
+Average time per iteration: 0.048027 s
+Final residual: 1.70e-06
+
+Performance Statistics:
+Total iterations: 4
+Total time: 0.192100 seconds
+Average time per iteration: 0.048022 s
+Final residual: 1.70e-06
+
+Performance Statistics:
+Total iterations: 4
+Total time: 0.192090 seconds
+Average time per iteration: 0.048019 s
+Final residual: 1.70e-06
+
+Performance Statistics:
+Total iterations: 4
+Total time: 0.192046 seconds
+Average time per iteration: 0.048008 s
+Final residual: 1.70e-06
+
+Performance Statistics:
+Total iterations: 4
+Total time: 0.191996 seconds
+Average time per iteration: 0.047996 s
+Final residual: 1.70e-06
+
+Performance Statistics:
+Total iterations: 3
+Total time: 0.144334 seconds
+Average time per iteration: 0.048108 s
+Final residual: 1.69e-06
+
+Performance Statistics:
+Total iterations: 3
+Total time: 0.144351 seconds
+Average time per iteration: 0.048114 s
+Final residual: 1.69e-06
+
+Performance Statistics:
+Total iterations: 3
+Total time: 0.144312 seconds
+Average time per iteration: 0.048100 s
+Final residual: 1.69e-06
+
+Performance Statistics:
+Total iterations: 3
+Total time: 0.144356 seconds
+Average time per iteration: 0.048116 s
+Final residual: 1.69e-06
+
+Performance Statistics:
+Total iterations: 3
+Total time: 0.144350 seconds
+Average time per iteration: 0.048113 s
+Final residual: 1.69e-06
+
+Performance Statistics:
+Total iterations: 3
+Total time: 0.144374 seconds
+Average time per iteration: 0.048122 s
+Final residual: 1.69e-06
+
+Performance Statistics:
+Total iterations: 3
+Total time: 0.144343 seconds
+Average time per iteration: 0.048111 s
+Final residual: 1.69e-06
+
+Performance Statistics:
+Total iterations: 3
+Total time: 0.144253 seconds
+Average time per iteration: 0.048081 s
+Final residual: 1.69e-06
+
+Performance Statistics:
+Total iterations: 72
+Total time: 25.507649 seconds
+Average time per iteration: 0.354271 s
+Final residual: 9.53e-07
+
+Performance Statistics:
+Total iterations: 72
+Total time: 25.507665 seconds
+Average time per iteration: 0.354272 s
+Final residual: 9.53e-07
+
+Performance Statistics:
+Total iterations: 72
+Total time: 25.507685 seconds
+Average time per iteration: 0.354272 s
+Final residual: 9.53e-07
+
+Performance Statistics:
+Total iterations: 72
+Total time: 25.507632 seconds
+Average time per iteration: 0.354271 s
+
+Performance Statistics:
+Total iterations: 72
+Total time: 25.507653 seconds
+Average time per iteration: 0.354272 s
+Final residual: 9.53e-07
+
+Performance Statistics:
+Total iterations: 72
+Total time: 25.507697 seconds
+Average time per iteration: 0.354272 s
+Final residual: 9.53e-07
+
+Performance Statistics:
+Total iterations: 72
+Total time: 25.507698 seconds
+Average time per iteration: 0.354272 s
+Final residual: 9.53e-07
+
+Performance Statistics:
+Total iterations: 72
+Total time: 25.507684 seconds
+Average time per iteration: 0.354272 s
+Final residual: 9.53e-07
+Final residual: 9.53e-07
+
+Performance Statistics:
+
+Performance Statistics:
+
+Performance Statistics:
+Total time: 25.563970 seconds
+Performance Statistics:
+Total time: 25.563968 seconds
+Final residual: 9.53e-07
+
+Performance Statistics:
+Total time: 25.563990 secondsTotal time: 25.563989 seconds
+Final residual: 9.53e-07
+Total time: 25.563953 seconds
+Final residual: 9.53e-07
+
+Final residual: 9.53e-07
+
+Performance Statistics:
+Total time: 25.563968 seconds
+Final residual: 9.53e-07
+
+Performance Statistics:
+Total time: 25.564002 seconds
+
+Performance Statistics:
+Total time: 25.564008 seconds
+Final residual: 9.53e-07
+
+Final residual: 9.53e-07
+Final residual: 9.53e-07
+
+Performance Statistics:
+self.solver-mg-Total time: 25.564681 seconds
+
+Performance Statistics:
+self.solver-mg-Total time: 25.564679 seconds
+
+Performance Statistics:
+self.solver-mg-Total time: 25.564687 seconds
+
+Performance Statistics:
+self.solver-mg-Total time: 25.564707 seconds
+
+Performance Statistics:
+
+Performance Statistics:
+self.solver-mg-Total time: 25.564722 secondsself.solver-mg-Total time: 25.564718 seconds
+
+Performance Statistics:
+
+
+Performance Statistics:
+self.solver-mg-Total time: 25.564739 seconds
+self.solver-mg-Total time: 25.564747 seconds
+torch_norm(self.U): 156.76734924316406
+torch_norm(self.U): 156.76734924316406
+torch_norm(self.U): 156.76734924316406
+torch_norm(self.U): 156.76734924316406
+torch_norm(self.U): 156.76734924316406
+torch_norm(self.U): 156.76734924316406
+torch_norm(self.U): 156.76734924316406
+torch_norm(self.U): 156.76734924316406
+torch_norm(self.clover_term): 7.536106109619141
+torch_norm(self.clover_term): 7.510985851287842
+torch_norm(self.clover_term): 7.5475873947143555
+torch_norm(self.clover_term): 7.552609920501709
+torch_norm(self.clover_term): 7.543436050415039
+torch_norm(self.clover_term): 7.555723190307617
+torch_norm(self.clover_term): 7.607504367828369
+torch_norm(self.clover_term): 7.538446426391602
+torch_norm(self.b): 221.41946411132812
+torch_norm(self.b): 221.2523956298828
+torch_norm(self.b): 221.7057647705078
+torch_norm(self.b): 221.7773895263672
+torch_norm(self.b): 220.17283630371094
+torch_norm(self.b): 221.4062957763672
+torch_norm(self.b): 221.81488037109375
+torch_norm(self.x): 340.208251953125
+torch_norm(self.b): 219.80140686035156
+torch_norm(self.x): 340.4912109375
+torch_norm(self.x): 341.1593322753906
+torch_norm(self.x): 339.9207763671875
+torch_norm(self.x): 340.96783447265625
+torch_norm(self.x): 338.7743225097656
+torch_norm(self.x): 343.6173400878906
+torch_norm(self.x): 343.1653747558594
+multi_norm(self.U): 443.4049987792969
+multi_norm(self.U): 443.4049987792969
+multi_norm(self.U): 443.4049987792969
+multi_norm(self.U): 443.4049987792969
+multi_norm(self.U): 443.4049987792969
+multi_norm(self.U): 443.4049987792969
+multi_norm(self.U): 443.4049987792969
+multi_norm(self.U): 443.4049987792969
+multi_norm(self.clover_term): 21.352060317993164
+multi_norm(self.clover_term): 21.352060317993164
+multi_norm(self.clover_term): 21.352060317993164
+multi_norm(self.clover_term): 21.352060317993164
+multi_norm(self.clover_term): 21.352060317993164
+multi_norm(self.clover_term): 21.352060317993164
+multi_norm(self.clover_term): 21.352060317993164
+multi_norm(self.clover_term): 21.352060317993164
+multi_norm(self.b): 625.5631103515625
+multi_norm(self.b): 625.5631103515625
+multi_norm(self.b): 625.5631103515625
+multi_norm(self.b): 625.5631103515625
+multi_norm(self.b): 625.5631103515625
+multi_norm(self.b): 625.5631103515625
+multi_norm(self.b): 625.5631103515625
+multi_norm(self.b): 625.5631103515625
+multi_norm(self.x): 964.6109008789062
+multi_norm(self.x): 964.6109008789062
+multi_norm(self.x): 964.6109008789062
+multi_norm(self.x): 964.6109008789062
+multi_norm(self.x): 964.6109008789062
+multi_norm(self.x): 964.6109008789062
+multi_norm(self.x): 964.6109008789062
+multi_norm(self.x): 964.6109008789062
+torch_norm(_full_b): 625.5631103515625
+torch_norm(_full_x): 964.6109008789062
+torch_norm(full_Ax): 625.5631103515625
+torch_norm(_full_Ax): 625.5631103515625
+torch_norm(full_Ax-_full_b).item()/torch_norm(full_Ax).item(): 1.6676742024076336e-07
+torch_norm(_full_Ax-_full_b).item()/torch_norm(_full_Ax).item(): 1.8636299940944716e-07
+torch_norm(full_Ax-_full_Ax).item()/torch_norm(full_Ax).item(): 1.3319154813539848e-07
+multi_norm(self.refer_x-self.x)/multi_norm(self.x): 1.307333152038848e-07
+multi_norm(self.refer_x-self.x)/multi_norm(self.x): 1.307333152038848e-07
+multi_norm(self.refer_x-self.x)/multi_norm(self.x): 1.307333152038848e-07
+multi_norm(self.refer_x-self.x)/multi_norm(self.x): 1.307333152038848e-07
+multi_norm(self.refer_x-self.x)/multi_norm(self.x): 1.307333152038848e-07
+multi_norm(self.refer_x-self.x)/multi_norm(self.x): 1.307333152038848e-07
+multi_norm(self.refer_x-self.x)/multi_norm(self.x): 1.307333152038848e-07
+multi_norm(self.refer_x-self.x)/multi_norm(self.x): 1.307333152038848e-07
+rank 0: Data is saved to -b.h5
+rank 1: Data is saved to -b.h5
+rank 5: Data is saved to -b.h5
+rank 3: Data is saved to -b.h5
+rank 2: Data is saved to -b.h5
+rank 6: Data is saved to -b.h5
+rank 4: Data is saved to -b.h5
+rank 7: Data is saved to -b.h5
+rank 4: Data is saved to -x.h5
+rank 1: Data is saved to -x.h5
+rank 5: Data is saved to -x.h5
+rank 7: Data is saved to -x.h5
+rank 3: Data is saved to -x.h5
+rank 6: Data is saved to -x.h5
+rank 0: Data is saved to -x.h5
+rank 2: Data is saved to -x.h5
+rank 5: Data is saved to -x0.h5
+rank 4: Data is saved to -x0.h5
+rank 1: Data is saved to -x0.h5
+rank 2: Data is saved to -x0.h5
+rank 7: Data is saved to -x0.h5
+rank 3: Data is saved to -x0.h5
+rank 6: Data is saved to -x0.h5
+rank 0: Data is saved to -x0.h5
+rank 1: Data is saved to -U.h5
+rank 6: Data is saved to -U.h5
+rank 3: Data is saved to -U.h5
+rank 5: Data is saved to -U.h5
+rank 4: Data is saved to -U.h5
+rank 2: Data is saved to -U.h5
+rank 7: Data is saved to -U.h5
+rank 0: Data is saved to -U.h5
+rank 2: Data is saved to -clover_term.h5
+rank 5: Data is saved to -clover_term.h5
+rank 0: Data is saved to -clover_term.h5
+rank 6: Data is saved to -clover_term.h5
+rank 4: Data is saved to -clover_term.h5
+rank 1: Data is saved to -clover_term.h5
+rank 7: Data is saved to -clover_term.h5
+rank 3: Data is saved to -clover_term.h5
