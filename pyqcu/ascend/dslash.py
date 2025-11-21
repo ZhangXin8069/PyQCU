@@ -550,7 +550,7 @@ class wilson_mg(wilson):
         return - self.kappa/self.u_0 * torch_einsum(
             'Ss,Cctzyx->SCsctzyx', (self.I - gamma_mu), U_mu).reshape([12, 12]+list(U.shape[-4:])).clone()  # sc->e
 
-    def give_wilson_plus(self, ward: int, src: torch.Tensor, hopping: torch.Tensor, src_tail: torch.Tensor = None) -> torch.Tensor:
+    def give_wilson_plus(self, ward: int, src: torch.Tensor, hopping: torch.Tensor, src_tail: torch.Tensor = None, parity: int = None) -> torch.Tensor:
         dir_info = self.directions[ward]
         axis = dir_info['axis']
         name = dir_info['name']
@@ -559,6 +559,12 @@ class wilson_mg(wilson):
         src_plus = torch_roll(src, shifts=-1, dims=axis)
         if src_tail != None:
             src_plus[slice_dim(dim=5, ward=ward, point=-1)] = src_tail.clone()
+        if parity == 0:
+            odd_mask = give_eo_mask(xxxtzy_x_p=src, eo=1)
+            src_plus[..., odd_mask] = src[..., odd_mask]
+        if parity == 1:
+            even_mask = give_eo_mask(xxxtzy_x_p=src, eo=0)
+            src_plus[..., even_mask] = src[..., even_mask]
         return torch_einsum(
             'Eetzyx,etzyx->Etzyx', hopping, src_plus).clone()
 
@@ -581,7 +587,7 @@ class wilson_mg(wilson):
         return - self.kappa/self.u_0 * torch_einsum(
             'Ss,Cctzyx->SCsctzyx', (self.I + gamma_mu), U_dag_minus).reshape([12, 12]+list(U.shape[-4:])).clone()  # sc->e
 
-    def give_wilson_minus(self, ward: int, src: torch.Tensor, hopping: torch.Tensor, src_head: torch.Tensor = None) -> torch.Tensor:
+    def give_wilson_minus(self, ward: int, src: torch.Tensor, hopping: torch.Tensor, src_head: torch.Tensor = None, parity: int = None) -> torch.Tensor:
         dir_info = self.directions[ward]
         axis = dir_info['axis']
         name = dir_info['name']
@@ -590,6 +596,12 @@ class wilson_mg(wilson):
         src_minus = torch_roll(src, shifts=1, dims=axis)
         if src_head != None:
             src_minus[slice_dim(dim=5, ward=ward, point=0)] = src_head.clone()
+        if parity == 0:
+            even_mask = give_eo_mask(xxxtzy_x_p=src, eo=0)
+            src_minus[..., even_mask] = src[..., even_mask]
+        if parity == 1:
+            odd_mask = give_eo_mask(xxxtzy_x_p=src, eo=1)
+            src_minus[..., odd_mask] = src[..., odd_mask]
         return torch_einsum(
             'Eetzyx,etzyx->Etzyx', hopping, src_minus).clone()
 
