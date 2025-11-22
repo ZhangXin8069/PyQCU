@@ -1,0 +1,339 @@
+Error: MPI_ERR_COMM: invalid communicator
+Error: MPI_ERR_COMM: invalid communicator
+Error: MPI_ERR_COMM: invalid communicator
+Error: MPI_ERR_COMM: invalid communicator
+Error: MPI_ERR_COMM: invalid communicator
+Error: MPI_ERR_COMM: invalid communicator
+Error: MPI_ERR_COMM: invalid communicator
+Error: MPI_ERR_COMM: invalid communicator
+[MPI Rank 0/8] Using npu:0
+[MPI Rank 0/8] Using npu:0
+[MPI Rank 0/8] Using npu:0
+[MPI Rank 0/8] Using npu:0
+[MPI Rank 1/8] Using npu:1
+[MPI Rank 1/8] Using npu:1
+[MPI Rank 1/8] Using npu:1
+[MPI Rank 1/8] Using npu:1
+[MPI Rank 3/8] Using npu:3
+[MPI Rank 3/8] Using npu:3
+[MPI Rank 3/8] Using npu:3
+[MPI Rank 3/8] Using npu:3
+[MPI Rank 2/8] Using npu:2
+[MPI Rank 2/8] Using npu:2
+[MPI Rank 2/8] Using npu:2
+[MPI Rank 2/8] Using npu:2
+[MPI Rank 5/8] Using npu:5
+[MPI Rank 5/8] Using npu:5
+[MPI Rank 5/8] Using npu:5
+[MPI Rank 5/8] Using npu:5
+[MPI Rank 4/8] Using npu:4
+[MPI Rank 4/8] Using npu:4
+[MPI Rank 4/8] Using npu:4
+[MPI Rank 4/8] Using npu:4
+[MPI Rank 6/8] Using npu:6
+[MPI Rank 6/8] Using npu:6
+[MPI Rank 6/8] Using npu:6
+[MPI Rank 6/8] Using npu:6
+[MPI Rank 7/8] Using npu:7
+[MPI Rank 7/8] Using npu:7
+[MPI Rank 7/8] Using npu:7
+[MPI Rank 7/8] Using npu:7
+rank 0: Data is loaded from -b.h5 (MPI mode)
+rank 1: Data is loaded from -b.h5 (MPI mode)
+rank 4: Data is loaded from -b.h5 (MPI mode)
+rank 6: Data is loaded from -b.h5 (MPI mode)
+rank 2: Data is loaded from -b.h5 (MPI mode)
+rank 7: Data is loaded from -b.h5 (MPI mode)
+rank 3: Data is loaded from -b.h5 (MPI mode)
+rank 5: Data is loaded from -b.h5 (MPI mode)
+rank 0: Data is loaded from -x.h5 (MPI mode)
+rank 1: Data is loaded from -x.h5 (MPI mode)
+rank 2: Data is loaded from -x.h5 (MPI mode)
+rank 7: Data is loaded from -x.h5 (MPI mode)
+rank 5: Data is loaded from -x.h5 (MPI mode)
+rank 4: Data is loaded from -x.h5 (MPI mode)
+rank 3: Data is loaded from -x.h5 (MPI mode)
+rank 6: Data is loaded from -x.h5 (MPI mode)
+rank 1: Data is loaded from -x0.h5 (MPI mode)
+rank 0: Data is loaded from -x0.h5 (MPI mode)
+rank 4: Data is loaded from -x0.h5 (MPI mode)
+rank 3: Data is loaded from -x0.h5 (MPI mode)
+rank 2: Data is loaded from -x0.h5 (MPI mode)
+rank 6: Data is loaded from -x0.h5 (MPI mode)
+rank 7: Data is loaded from -x0.h5 (MPI mode)
+rank 5: Data is loaded from -x0.h5 (MPI mode)
+rank 1: Data is loaded from -U.h5 (MPI mode)
+rank 0: Data is loaded from -U.h5 (MPI mode)
+rank 5: Data is loaded from -U.h5 (MPI mode)
+rank 6: Data is loaded from -U.h5 (MPI mode)
+rank 4: Data is loaded from -U.h5 (MPI mode)
+rank 7: Data is loaded from -U.h5 (MPI mode)
+rank 2: Data is loaded from -U.h5 (MPI mode)rank 3: Data is loaded from -U.h5 (MPI mode)
+
+rank 1: Data is loaded from -clover_term.h5 (MPI mode)
+rank 0: Data is loaded from -clover_term.h5 (MPI mode)
+rank 7: Data is loaded from -clover_term.h5 (MPI mode)
+rank 6: Data is loaded from -clover_term.h5 (MPI mode)
+rank 5: Data is loaded from -clover_term.h5 (MPI mode)
+rank 4: Data is loaded from -clover_term.h5 (MPI mode)
+rank 3: Data is loaded from -clover_term.h5 (MPI mode)
+rank 2: Data is loaded from -clover_term.h5 (MPI mode)
+[MPI Rank 4/8] Using npu:4
+self.dof_list:[12, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24]
+self.dtype_list:[torch.complex64, torch.complex64, torch.complex64, torch.complex64]
+[MPI Rank 2/8] Using npu:2
+[MPI Rank 2/8] Using npu:2
+[MPI Rank 5/8] Using npu:5
+[MPI Rank 5/8] Using npu:5
+[MPI Rank 3/8] Using npu:3
+[MPI Rank 4/8] Using npu:4
+[MPI Rank 4/8] Using npu:4
+self.device_list:[device(type='npu'), device(type='npu'), device(type='npu'), device(type='npu')]
+[MPI Rank 0/8] Using npu:0
+[MPI Rank 6/8] Using npu:6
+[MPI Rank 6/8] Using npu:6
+[MPI Rank 6/8] Using npu:6
+[MPI Rank 1/8] Using npu:1
+[MPI Rank 1/8] Using npu:1
+[MPI Rank 1/8] Using npu:1
+[MPI Rank 2/8] Using npu:2
+[MPI Rank 2/8] Using npu:2
+[MPI Rank 5/8] Using npu:5
+[MPI Rank 5/8] Using npu:5[MPI Rank 4/8] Using npu:4
+[MPI Rank 7/8] Using npu:7
+[MPI Rank 7/8] Using npu:7
+[MPI Rank 7/8] Using npu:7
+[MPI Rank 7/8] Using npu:7
+[MPI Rank 3/8] Using npu:3
+[MPI Rank 3/8] Using npu:3
+[MPI Rank 3/8] Using npu:3
+
+[MPI Rank 0/8] Using npu:0
+[MPI Rank 0/8] Using npu:0
+[MPI Rank 6/8] Using npu:6
+[MPI Rank 1/8] Using npu:1
+[MPI Rank 0/8] Using npu:0
+self.lat_size_list:[[16, 8, 4, 4], [8, 4, 2, 2]]
+
+Performance Statistics:
+Total iterations: 261
+Total time: 17.361118 seconds
+Average time per iteration: 0.066516 s
+
+Performance Statistics:
+Total iterations: 261
+Total time: 17.361081 seconds
+Average time per iteration: 0.066515 s
+
+Performance Statistics:
+Total iterations: 261
+Total time: 17.361117 seconds
+Average time per iteration: 0.066516 s
+Final residual: 9.98e-07
+
+Performance Statistics:
+Total iterations: 261
+Total time: 17.361080 seconds
+Average time per iteration: 0.066516 s
+Final residual: 9.98e-07
+
+Performance Statistics:
+Total iterations: 261
+Total time: 17.361015 seconds
+Average time per iteration: 0.066516 s
+Final residual: 9.98e-07
+
+Performance Statistics:
+Total iterations: 261
+Total time: 17.361242 seconds
+Average time per iteration: 0.066517 s
+Final residual: 9.98e-07
+
+Performance Statistics:
+
+Performance Statistics:
+Total iterations: 261
+Total time: 17.360860 seconds
+Average time per iteration: 0.066515 s
+Final residual: 9.98e-07
+Final residual: 9.98e-07
+Final residual: 9.98e-07
+
+Performance Statistics:
+Total time: 17.605822 seconds
+Final residual: 9.98e-07
+
+Performance Statistics:Total iterations: 261
+Total time: 17.361041 seconds
+Average time per iteration: 0.066515 s
+Final residual: 9.98e-07
+
+Performance Statistics:
+Performance Statistics:
+Performance Statistics:
+Performance Statistics:
+Total time: 17.606205 seconds
+Final residual: 9.98e-07
+
+Total time: 17.606106 seconds
+Final residual: 9.98e-07
+
+Performance Statistics:
+Total time: 17.606139 seconds
+Final residual: 9.98e-07
+
+Performance Statistics:
+Total time: 17.606288 seconds
+
+Total time: 17.606485 seconds
+Final residual: 9.98e-07
+
+Total time: 17.606424 seconds
+Final residual: 9.98e-07
+
+Total time: 17.606132 seconds
+Final residual: 9.98e-07
+
+Performance Statistics:
+self.solver-bistabcg-Total time: 17.606545 seconds
+
+Performance Statistics:
+
+Performance Statistics:
+self.solver-bistabcg-Total time: 17.606832 seconds
+Final residual: 9.98e-07
+
+Performance Statistics:
+self.solver-bistabcg-Total time: 17.607163 seconds
+
+Performance Statistics:
+self.solver-bistabcg-Total time: 17.606887 seconds
+
+Performance Statistics:
+self.solver-bistabcg-Total time: 17.607150 seconds
+self.solver-bistabcg-Total time: 17.606906 seconds
+
+Performance Statistics:
+
+Performance Statistics:
+self.solver-bistabcg-Total time: 17.606875 seconds
+self.solver-bistabcg-Total time: 17.607051 seconds
+Rank1-torch_norm(self.U): 156.76731872558594
+Rank0-torch_norm(self.U): 156.76731872558594
+Rank2-torch_norm(self.U): 156.76731872558594
+Rank6-torch_norm(self.U): 156.76731872558594
+Rank4-torch_norm(self.U): 156.76731872558594
+Rank1-torch_norm(self.clover_term): 7.6172380447387695
+Rank0-torch_norm(self.clover_term): 7.554043292999268
+Rank3-torch_norm(self.U): 156.76730346679688
+Rank7-torch_norm(self.U): 156.76731872558594
+Rank5-torch_norm(self.U): 156.76731872558594
+Rank4-torch_norm(self.clover_term): 7.54259729385376
+Rank6-torch_norm(self.clover_term): 7.543338298797607
+Rank2-torch_norm(self.clover_term): 7.552043914794922
+Rank1-torch_norm(self.b): 157.4239959716797
+Rank0-torch_norm(self.b): 156.64208984375
+Rank3-torch_norm(self.clover_term): 7.559230327606201
+Rank4-torch_norm(self.b): 155.96713256835938
+Rank7-torch_norm(self.clover_term): 7.5443196296691895
+Rank5-torch_norm(self.clover_term): 7.5267205238342285
+Rank6-torch_norm(self.b): 156.66354370117188
+Rank1-torch_norm(self.x): 227.1481475830078
+Rank0-torch_norm(self.x): 233.79489135742188
+Rank2-torch_norm(self.b): 157.19903564453125
+Rank4-torch_norm(self.x): 233.55636596679688
+Rank6-torch_norm(self.x): 237.42852783203125
+Rank5-torch_norm(self.b): 156.59422302246094
+Rank3-torch_norm(self.b): 156.1770477294922
+Rank2-torch_norm(self.x): 233.0006103515625
+Rank7-torch_norm(self.b): 157.33642578125
+Rank5-torch_norm(self.x): 228.24095153808594
+Rank3-torch_norm(self.x): 237.1812744140625
+Rank7-torch_norm(self.x): 234.8771209716797
+Rank5-multi_norm(self.U): 443.4049377441406
+Rank4-multi_norm(self.U): 443.4049377441406Rank6-multi_norm(self.U): 443.4049377441406Rank0-multi_norm(self.U): 443.4049377441406
+
+Rank3-multi_norm(self.U): 443.4049377441406
+
+Rank1-multi_norm(self.U): 443.4049377441406
+Rank7-multi_norm(self.U): 443.4049377441406
+Rank2-multi_norm(self.U): 443.4049377441406
+Rank4-multi_norm(self.clover_term): 21.36872100830078
+Rank5-multi_norm(self.clover_term): 21.36872100830078
+Rank2-multi_norm(self.clover_term): 21.36872100830078
+Rank3-multi_norm(self.clover_term): 21.36872100830078
+Rank6-multi_norm(self.clover_term): 21.36872100830078
+Rank7-multi_norm(self.clover_term): 21.36872100830078
+Rank0-multi_norm(self.clover_term): 21.36872100830078
+Rank1-multi_norm(self.clover_term): 21.36872100830078
+Rank5-multi_norm(self.b): 443.35943603515625
+Rank4-multi_norm(self.b): 443.35943603515625
+Rank7-multi_norm(self.b): 443.35943603515625
+Rank3-multi_norm(self.b): 443.35943603515625
+Rank0-multi_norm(self.b): 443.35943603515625
+Rank6-multi_norm(self.b): 443.35943603515625
+Rank1-multi_norm(self.b): 443.35943603515625
+Rank2-multi_norm(self.b): 443.35943603515625
+Rank5-multi_norm(self.x): 659.5321655273438
+Rank4-multi_norm(self.x): 659.5321655273438
+Rank6-multi_norm(self.x): 659.5321655273438
+Rank1-multi_norm(self.x): 659.5321655273438Rank7-multi_norm(self.x): 659.5321655273438
+Rank0-multi_norm(self.x): 659.5321655273438Rank2-multi_norm(self.x): 659.5321655273438
+Rank3-multi_norm(self.x): 659.5321655273438
+
+
+Rank0-torch_norm(_full_b): 443.35943603515625
+Rank0-torch_norm(_full_x): 659.5321044921875
+Rank0-torch_norm(full_Ax): 443.35943603515625
+Rank0-torch_norm(_full_Ax): 443.35943603515625
+Rank0-torch_norm(full_Ax-_full_b).item()/torch_norm(full_Ax).item(): 9.533395326545909e-07
+Rank0-torch_norm(_full_Ax-_full_b).item()/torch_norm(_full_Ax).item(): 9.5334727863159e-07
+Rank0-torch_norm(full_Ax-_full_Ax).item()/torch_norm(full_Ax).item(): 1.290100264422146e-07
+Rank0-multi_norm(self.refer_x-self.x)/multi_norm(self.x): 8.352711459905391e-07
+Rank4-multi_norm(self.refer_x-self.x)/multi_norm(self.x): 8.352711459905391e-07
+Rank6-multi_norm(self.refer_x-self.x)/multi_norm(self.x): 8.352711459905391e-07
+Rank3-multi_norm(self.refer_x-self.x)/multi_norm(self.x): 8.352711459905391e-07
+Rank1-multi_norm(self.refer_x-self.x)/multi_norm(self.x): 8.352711459905391e-07
+Rank7-multi_norm(self.refer_x-self.x)/multi_norm(self.x): 8.352711459905391e-07
+Rank2-multi_norm(self.refer_x-self.x)/multi_norm(self.x): 8.352711459905391e-07
+Rank5-multi_norm(self.refer_x-self.x)/multi_norm(self.x): 8.352711459905391e-07
+rank 0: Data is saved to -b.h5 (MPI mode)
+rank 2: Data is saved to -b.h5 (MPI mode)
+rank 1: Data is saved to -b.h5 (MPI mode)
+rank 4: Data is saved to -b.h5 (MPI mode)
+rank 6: Data is saved to -b.h5 (MPI mode)
+rank 3: Data is saved to -b.h5 (MPI mode)
+rank 7: Data is saved to -b.h5 (MPI mode)
+rank 5: Data is saved to -b.h5 (MPI mode)
+rank 0: Data is saved to -x.h5 (MPI mode)
+rank 1: Data is saved to -x.h5 (MPI mode)
+rank 2: Data is saved to -x.h5 (MPI mode)
+rank 3: Data is saved to -x.h5 (MPI mode)
+rank 5: Data is saved to -x.h5 (MPI mode)
+rank 7: Data is saved to -x.h5 (MPI mode)
+rank 4: Data is saved to -x.h5 (MPI mode)
+rank 6: Data is saved to -x.h5 (MPI mode)
+rank 0: Data is saved to -x0.h5 (MPI mode)
+rank 1: Data is saved to -x0.h5 (MPI mode)
+rank 3: Data is saved to -x0.h5 (MPI mode)
+rank 2: Data is saved to -x0.h5 (MPI mode)
+rank 5: Data is saved to -x0.h5 (MPI mode)
+rank 6: Data is saved to -x0.h5 (MPI mode)
+rank 7: Data is saved to -x0.h5 (MPI mode)
+rank 4: Data is saved to -x0.h5 (MPI mode)
+rank 3: Data is saved to -U.h5 (MPI mode)
+rank 2: Data is saved to -U.h5 (MPI mode)
+rank 6: Data is saved to -U.h5 (MPI mode)
+rank 7: Data is saved to -U.h5 (MPI mode)
+rank 0: Data is saved to -U.h5 (MPI mode)
+rank 5: Data is saved to -U.h5 (MPI mode)
+rank 4: Data is saved to -U.h5 (MPI mode)
+rank 1: Data is saved to -U.h5 (MPI mode)
+rank 0: Data is saved to -clover_term.h5 (MPI mode)
+rank 1: Data is saved to -clover_term.h5 (MPI mode)
+rank 2: Data is saved to -clover_term.h5 (MPI mode)
+rank 6: Data is saved to -clover_term.h5 (MPI mode)
+rank 3: Data is saved to -clover_term.h5 (MPI mode)
+rank 7: Data is saved to -clover_term.h5 (MPI mode)
+rank 4: Data is saved to -clover_term.h5 (MPI mode)
+rank 5: Data is saved to -clover_term.h5 (MPI mode)
