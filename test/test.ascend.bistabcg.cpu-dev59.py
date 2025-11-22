@@ -2,7 +2,7 @@ from pyqcu.ascend import qcu
 import torch
 lat_x, lat_y, lat_z, lat_t = 16, 16, 8, 8
 _qcu = qcu(lat_size=[lat_x, lat_y, lat_z, lat_t], dtype_list=[torch.complex64, torch.complex64, torch.complex64, torch.complex64], device_list=[
-           torch.device('cpu'), torch.device('cpu'), torch.device('cpu'), torch.device('cpu')], dslash='clover', solver='bistabcg', verbose=True)
+           torch.device('cpu'), torch.device('cpu'), torch.device('cpu'), torch.device('cpu')], dslash='clover', solver='bistabcg', verbose=False)
 _qcu.load()
 _qcu.init()
 _qcu.solve()
