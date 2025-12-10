@@ -34,3 +34,4 @@ lib/*
 *.npy
 *.npz
 # *.png
+*.DS_Store
