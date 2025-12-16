@@ -12,8 +12,7 @@
 *__pycache__
 *.o
 *.so
-*a.out
-*.so
+*.out
 *.nvvp
 *.nsys-rep
 *.profile
@@ -23,7 +22,6 @@
 lib/*
 .ssub.sh
 .vscode
-# *.log*
 *.log.txt
 *.c
 *.bin
@@ -33,9 +31,11 @@ lib/*
 *.hdf
 *.npy
 *.npz
-# *.png
 *.DS_Store
 *.png
 *.jpg
 *.jpeg
 *.log
+*.json
+*.csv
+*.tsv
