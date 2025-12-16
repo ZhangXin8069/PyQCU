@@ -36,4 +36,6 @@ lib/*
 # *.png
 *.DS_Store
 *.png
+*.jpg
+*.jpeg
 *.log
