@@ -35,3 +35,5 @@ lib/*
 *.npz
 # *.png
 *.DS_Store
+*.png
+*.log
