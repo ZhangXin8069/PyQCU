@@ -32,10 +32,10 @@ lib/*
 *.npy
 *.npz
 *.DS_Store
-*.png
+# *.png
 *.jpg
 *.jpeg
-*.log
+# *.log
 *.json
 *.csv
 *.tsv
