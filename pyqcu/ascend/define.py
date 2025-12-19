@@ -3,8 +3,8 @@ import torch
 import os
 import numpy as np
 from typing import Tuple, Optional
-if_test_npu = True
-# if_test_npu = False
+# if_test_npu = True
+if_test_npu = False
 # NumPy → Torch
 np2torch_dtype = {
     np.bool_: torch.bool,
