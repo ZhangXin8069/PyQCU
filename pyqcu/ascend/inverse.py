@@ -318,8 +318,8 @@ def local_orthogonalize(null_vecs: torch.Tensor,
                                                int, int] = (2, 2, 2, 2),
                         normalize: bool = True,
                         verbose: bool = False) -> torch.Tensor:
-    # if null_vecs.device.type == 'npu' or if_test_npu:
-    #     return npu_local_orthogonalize(null_vecs=null_vecs, coarse_lat_size=coarse_lat_size, normalize=normalize, verbose=verbose)
+    if null_vecs.device.type == 'npu' or if_test_npu:
+        return npu_local_orthogonalize(null_vecs=null_vecs, coarse_lat_size=coarse_lat_size, normalize=normalize, verbose=verbose)
     assert null_vecs.ndim == 6, "Expected shape [E, e, T*t, Z*z, Y*y, X*x]"
     E, e, Tt, Zz, Yy, Xx = null_vecs.shape
     T, Z, Y, X = coarse_lat_size[::-1]  # [xyzt]
