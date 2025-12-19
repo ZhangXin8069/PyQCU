@@ -1,3 +1,1 @@
-# pyqcu
-
-pyqcu by zhangxin
+# PyQCU By ZhangXin
