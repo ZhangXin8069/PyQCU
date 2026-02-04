@@ -2,7 +2,7 @@ import mpi4py.MPI as MPI
 import h5py
 import torch
 from typing import Tuple
-from pyqcu.ascend.define import *
+from pyqcu.torch.define import *
 import os
 
 

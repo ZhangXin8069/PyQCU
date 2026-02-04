@@ -1,4 +1,4 @@
-from pyqcu.ascend import qcu
+from pyqcu.torch import qcu
 import torch
 lat_x, lat_y, lat_z, lat_t = 8, 8, 16, 16
 _qcu = qcu(lat_size=[lat_x, lat_y, lat_z, lat_t], dtype=torch.complex128,
