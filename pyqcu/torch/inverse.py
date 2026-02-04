@@ -4,9 +4,9 @@ import functools
 import numpy as np
 from time import perf_counter
 from typing import Tuple, Callable
-from pyqcu.ascend.io import *
-from pyqcu.ascend.define import *
-from pyqcu.ascend.dslash import *
+from pyqcu.torch.io import *
+from pyqcu.torch.define import *
+from pyqcu.torch.dslash import *
 
 # if_test_npu = True
 if_test_npu = False
@@ -397,7 +397,7 @@ class hopping:
         self.U = U
         self.grid_size = give_grid_size()
         self.grid_index = give_grid_index()
-        if self.wilson != None and self.U != None:
+        if self.wilson is not None and self.U is not None:
             for ward in range(4):  # xyzt
                 if if_multi and self.grid_size[ward] != 1:
                     comm = MPI.COMM_WORLD
@@ -480,7 +480,7 @@ class sitting:
         self.M = torch.zeros([])
         self.clover = clover
         self.clover_term = clover_term
-        if self.clover != None and self.clover_term != None:  # remmber to add I
+        if self.clover is not None and self.clover_term is not None:  # remmber to add I
             self.M = self.clover.add_I(clover_term=self.clover_term).reshape(
                 [12, 12]+list(self.clover_term.shape[-4:])).clone()  # A = I + T
 
@@ -501,7 +501,7 @@ class op:
         self.hopping = hopping(wilson=wilson, U=U)
         self.sitting = sitting(clover=clover, clover_term=clover_term)
         self.verbose = verbose
-        if fine_hopping != None and fine_sitting != None and local_ortho_null_vecs != None:
+        if fine_hopping is not None and fine_sitting is not None and local_ortho_null_vecs is not None:
             shape = local_ortho_null_vecs.shape  # EeTtZzYyXx
             coarse_shape = [shape[-8], shape[-6],
                             shape[-4], shape[-2]]  # TZYX
@@ -586,11 +586,11 @@ class mg:
         self.max_iter = max_iter
         self.root = root
         self.verbose = verbose
-        if dtype != None:
+        if dtype is not None:
             self.dtype_list = [dtype]*max_levels
         else:
             self.dtype_list = dtype_list[:max_levels]
-        if device != None:
+        if device is not None:
             self.device_list = [device]*max_levels
         else:
             self.device_list = device_list[:max_levels]
@@ -757,10 +757,10 @@ class mg:
         return x.clone()
 
     def solve(self, b: torch.Tensor = None, x0: torch.Tensor = None) -> torch.Tensor:
-        if b != None:
+        if b is not None:
             self.b = b.reshape([12]+list(b.shape)[2:]).clone()  # sc->e
             self.b_list[0] = self.b.clone()
-        if x0 != None:
+        if x0 is not None:
             self.x0 = x0.reshape([12]+list(x0.shape)[2:]).clone()  # sc->e
         self.levels_back()
         start_time = perf_counter()
