@@ -1,9 +1,9 @@
 import mpi4py.MPI as MPI
 import torch
-from pyqcu.ascend.define import *
-from pyqcu.ascend.dslash import *
-from pyqcu.ascend.inverse import *
-from pyqcu.ascend.io import *
+from pyqcu.torch.define import *
+from pyqcu.torch.dslash import *
+from pyqcu.torch.inverse import *
+from pyqcu.torch.io import *
 from typing import Tuple
 from time import perf_counter
 
@@ -25,11 +25,11 @@ class qcu:
         self.verbose = verbose
         self.num_convergence_sample = num_convergence_sample
         self.mg_grid_size = mg_grid_size
-        if dtype != None:
+        if dtype is not None:
             self.dtype_list = [dtype]*max_levels
         else:
             self.dtype_list = dtype_list[:max_levels]
-        if device != None:
+        if device is not None:
             self.device_list = [device]*max_levels
         else:
             self.device_list = device_list[:max_levels]
