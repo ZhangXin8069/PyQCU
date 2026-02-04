@@ -2,8 +2,8 @@ import torch
 import torch.nn as nn
 from math import sqrt
 from typing import Tuple, Optional
-from pyqcu.ascend.io import *
-from pyqcu.ascend.define import *
+from pyqcu.torch.io import *
+from pyqcu.torch.define import *
 
 
 class wilson(nn.Module):
@@ -557,7 +557,7 @@ class wilson_mg(wilson):
         if self.verbose:
             print(f"@give_wilson_{name}_plus......")
         src_plus = torch_roll(src, shifts=-1, dims=axis)
-        if src_tail != None:
+        if src_tail is not None:
             src_plus[slice_dim(dim=5, ward=ward, point=-1)] = src_tail.clone()
         if parity == 0:
             odd_mask = give_eo_mask(xxxtzy_x_p=src, eo=1)
@@ -579,7 +579,7 @@ class wilson_mg(wilson):
         U_dag = U.permute(1, 0, 2, 3, 4, 5, 6).conj().clone()
         U_dag_mu = U_dag[..., mu, :, :, :, :]
         U_dag_minus = torch_roll(U_dag_mu, shifts=1, dims=axis)
-        if U_head != None:
+        if U_head is not None:
             U_head_dag = U_head.permute(1, 0, 2, 3, 4, 5).conj().clone()
             U_head_dag_mu = U_head_dag[..., mu, :, :, :]
             U_dag_minus[slice_dim(dim=6, ward=ward, point=0)
@@ -594,7 +594,7 @@ class wilson_mg(wilson):
         if self.verbose:
             print(f"@give_wilson_{name}_minus......")
         src_minus = torch_roll(src, shifts=1, dims=axis)
-        if src_head != None:
+        if src_head is not None:
             src_minus[slice_dim(dim=5, ward=ward, point=0)] = src_head.clone()
         if parity == 0:
             even_mask = give_eo_mask(xxxtzy_x_p=src, eo=0)

@@ -1,4 +1,4 @@
-from pyqcu.ascend import qcu
+from pyqcu.torch import qcu
 import torch
 import torch_npu
 lat_x, lat_y, lat_z, lat_t = 16, 16, 8, 8
