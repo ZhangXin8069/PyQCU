@@ -1,8 +1,8 @@
 
-from pyqcu.ascend import inverse
+from pyqcu.torch import inverse
 import torch
-from pyqcu.ascend import dslash
-from pyqcu.ascend.define import *
+from pyqcu.torch import dslash
+from pyqcu.torch.define import *
 # latt_size = (32, 32, 32, 32)
 # latt_size = (32, 32, 16, 16)
 # latt_size = (16, 16, 16, 32)
