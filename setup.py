@@ -43,6 +43,6 @@ setup(
     python_requires=">=3.6",
     install_requires=[],  # refer to ./requirement.txt
     url="https://github.com/zhangxin8069/PyQCU",
-    keywords=['c++', 'cuda', 'python',
+    keywords=['c++', 'cuda', 'python','tilelang',
               'quantum chromodynamics(QCD)', 'lattice QCD', 'high performance computing', 'made in China'],
 )
