@@ -4,8 +4,9 @@ cython
 h5py
 scipy
 matplotlib
-torch
-torch_npu
-pyyaml
+# torch
+# torch_npu
+# pyyaml
 # cupy
 # opt_einsum
+tilelang
