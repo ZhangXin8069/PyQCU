@@ -33,6 +33,8 @@ def main():
 
     a = torch.randn(1024, 1024).cuda().half()
     b = torch.randn(1024, 1024).cuda().half()
+    # a = torch.randn(1024, 1024, dtype=torch.float16)
+    # b = torch.randn(1024, 1024, dtype=torch.float16)
     from time import perf_counter
     iter_start_time = perf_counter()
     c = kernel(a, b)
