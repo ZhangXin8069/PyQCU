@@ -12,7 +12,7 @@ cp.cuda.Device(local_rank).use()
 # the interface of cupy is very similar to that of numpy, so here we just borrow the interface of numpy.
 cp_ndarray = npt.NDArray
 cp_dtype = npt.DTypeLike
-# Copy from ../extern/cuda/qcu/include/define.h
+# Copy from ../src/cuda/qcu/include/define.h
 _SET_PTRS_SIZE_ = 10
 _BLOCK_SIZE_ = 128
 _MAIN_RANK_ = 0
