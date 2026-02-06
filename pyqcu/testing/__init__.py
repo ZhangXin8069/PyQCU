@@ -173,9 +173,9 @@ def test_solver_bistabcg():
     refer_x = hdf5___2___(
         file_name=path+'refer.wilson.x.L32K0_125.scxyzt.c64.h5', device=refer_U.device, verbose=True)
     print(
-        f"PYQCU::TESTING::SOLVER::BISTABCG::REFER_x:\n {_torch.norm(refer_x)}")
+        f"PYQCU::TESTING::SOLVER::BISTABCG::REFER_X:\n {_torch.norm(refer_x)}")
     print(
-        f"PYQCU::TESTING::SOLVER::BISTABCG::REFER_x:\n {refer_x.flatten()[:12]}")
+        f"PYQCU::TESTING::SOLVER::BISTABCG::REFER_X:\n {refer_x.flatten()[:12]}")
 
     def matvec(v):
         return give_wilson(src=v, U=refer_U, kappa=0.125, verbose=False)
