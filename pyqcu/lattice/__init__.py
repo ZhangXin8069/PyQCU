@@ -23,6 +23,8 @@ wards['xyz'] = 0 - 4
 wards['xyt'] = 1 - 4
 wards['xzt'] = 2 - 4
 wards['yzt'] = 3 - 4
+ward_keys = ['x', 'y', 'z', 't']
+ward_p_keys = ['x', 'y', 'z', 't_p']
 ward_wards = dict()
 ward_wards['xy'] = {'mu': wards['x'], 'nu': wards['y'], 'ward': wards['xy']}
 ward_wards['xz'] = {'mu': wards['x'], 'nu': wards['z'], 'ward': wards['xz']}
@@ -30,6 +32,7 @@ ward_wards['xt'] = {'mu': wards['x'], 'nu': wards['t'], 'ward': wards['xt']}
 ward_wards['yz'] = {'mu': wards['y'], 'nu': wards['z'], 'ward': wards['yz']}
 ward_wards['yt'] = {'mu': wards['y'], 'nu': wards['t'], 'ward': wards['yt']}
 ward_wards['zt'] = {'mu': wards['z'], 'nu': wards['t'], 'ward': wards['zt']}
+ward_ward_keys = ['xy', 'xz', 'xt', 'yz', 'yt', 'zt']
 
 
 def give_if_multi() -> bool:
