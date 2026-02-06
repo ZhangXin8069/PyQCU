@@ -18,5 +18,11 @@ from ._io import ___2hdf5___ as ___2hdf5___
 from ._io import hdf5___2___ as hdf5___2___
 from ._io import grid___xyzt2hdf5___xyzt as grid___xyzt2hdf5___xyzt
 from ._io import hdf5___xyzt2grid___xyzt as hdf5___xyzt2grid___xyzt
+from ._matrix import give_null_vecs as give_null_vecs
+from ._matrix import local_orthogonalize as local_orthogonalize
+from ._matrix import restrict as restrict
+from ._matrix import prolong as prolong
+from ._matul import matmul_gpu as matmul_gpu
+from ._matul import matmul_cpu as matmul_cpu
 from argparse import Namespace
 Namespace.__module__ = "pyqcu.tools"

@@ -48,36 +48,36 @@ def make_clover(U: torch.Tensor, kappa: float = 0.1,
         U_dag_mu = U_dag[..., mu, :, :, :, :]  # [c1, c2, t, z, y, x]
         U_dag_nu = U_dag[..., nu, :, :, :, :]  # [c1, c2, t, z, y, x]
         # $$U_1 &= u(x,\mu)u(x+\mu,\nu)u^{\dag}(x+\nu,\mu)u^{\dag}(x,\nu)                \\$$
-        temp1 = _torch.einsum('abtzyx,bctzyx->actzyx', U_mu,
+        temp1 = _torch.einsum('abxyzt,bcxyzt->acxyzt', U_mu,
                               _torch.roll(U_nu, shifts=-1, dims=mu))
-        temp2 = _torch.einsum('abtzyx,bctzyx->actzyx', temp1,
+        temp2 = _torch.einsum('abxyzt,bcxyzt->acxyzt', temp1,
                               _torch.roll(U_dag_mu, shifts=-1, dims=nu))
-        F += _torch.einsum('abtzyx,bctzyx->actzyx', temp2, U_dag_nu)
+        F += _torch.einsum('abxyzt,bcxyzt->acxyzt', temp2, U_dag_nu)
         # $$U_2 &= u(x,\nu)u^{\dag}(x-\mu+\nu,\mu)u^{\dag}(x-\mu,\nu)u(x-\mu,\mu)        \\$$
-        temp1 = _torch.einsum('abtzyx,bctzyx->actzyx', U_nu,
+        temp1 = _torch.einsum('abxyzt,bcxyzt->acxyzt', U_nu,
                               _torch.roll(_torch.roll(U_dag_mu, shifts=1, dims=mu), shifts=-1, dims=nu))
-        temp2 = _torch.einsum('abtzyx,bctzyx->actzyx', temp1,
+        temp2 = _torch.einsum('abxyzt,bcxyzt->acxyzt', temp1,
                               _torch.roll(U_dag_nu, shifts=1, dims=mu))
-        F += _torch.einsum('abtzyx,bctzyx->actzyx', temp2,
+        F += _torch.einsum('abxyzt,bcxyzt->acxyzt', temp2,
                            _torch.roll(U_mu, shifts=1, dims=mu))
         # $$U_3 &= u^{\dag}(x-\mu,\mu)u^{\dag}(x-\mu-\nu,\nu)u(x-\mu-\nu,\mu)u(x-\nu,\nu)\\$$
-        temp1 = _torch.einsum('abtzyx,bctzyx->actzyx', _torch.roll(U_dag_mu, shifts=1, dims=mu),
+        temp1 = _torch.einsum('abxyzt,bcxyzt->acxyzt', _torch.roll(U_dag_mu, shifts=1, dims=mu),
                               _torch.roll(_torch.roll(U_dag_nu, shifts=1, dims=mu), shifts=1, dims=nu))
-        temp2 = _torch.einsum('abtzyx,bctzyx->actzyx', temp1,
+        temp2 = _torch.einsum('abxyzt,bcxyzt->acxyzt', temp1,
                               _torch.roll(_torch.roll(U_mu, shifts=1, dims=mu), shifts=1, dims=nu))
-        F += _torch.einsum('abtzyx,bctzyx->actzyx', temp2,
+        F += _torch.einsum('abxyzt,bcxyzt->acxyzt', temp2,
                            _torch.roll(U_nu, shifts=1, dims=nu))
         # $$U_4 &= u^{\dag}(x-\nu,\nu)u(x-\nu,\mu)u(x-\nu+\mu,\nu)u^{\dag}(x,\mu)        \\$$
-        temp1 = _torch.einsum('abtzyx,bctzyx->actzyx', _torch.roll(U_dag_nu, shifts=1, dims=nu),
+        temp1 = _torch.einsum('abxyzt,bcxyzt->acxyzt', _torch.roll(U_dag_nu, shifts=1, dims=nu),
                               _torch.roll(U_mu, shifts=1, dims=nu))
-        temp2 = _torch.einsum('abtzyx,bctzyx->actzyx', temp1,
+        temp2 = _torch.einsum('abxyzt,bcxyzt->acxyzt', temp1,
                               _torch.roll(_torch.roll(U_nu, shifts=-1, dims=mu), shifts=1, dims=nu))
-        F += _torch.einsum('abtzyx,bctzyx->actzyx', temp2, U_dag_mu)
+        F += _torch.einsum('abxyzt,bcxyzt->acxyzt', temp2, U_dag_mu)
         # Give whole F
         F -= F.permute(1, 0, 2, 3, 4, 5).conj()  # -BEFORE^{\dag}
         # Multiply F with sigma
         sigmaF = _torch.einsum(
-            'Ss,Cctzyx->SCsctzyx', sigma, F)
+            'Ss,Ccxyzt->SCscxyzt', sigma, F)
         # Make Clover term
         clover += -0.125/u_0*kappa*sigmaF
         if verbose:
@@ -123,7 +123,7 @@ def give_clover(src: torch.Tensor, clover_term: torch.Tensor, verbose: bool = Fa
     if verbose:
         print('PYQCU::DSLASH::CLOVER:\n Clover is giving......')
         print(f"PYQCU::DSLASH::CLOVER:\n src.shape:{src.shape}")
-    dest = _torch.einsum('SCsctzyx,sctzyx->SCtzyx', clover_term, src)
+    dest = _torch.einsum('SCscxyzt,scxyzt->SCxyzt', clover_term, src)
     if verbose:
         print(f"PYQCU::DSLASH::CLOVER:\n dest.shape:{dest.shape}")
     return dest.clone()
