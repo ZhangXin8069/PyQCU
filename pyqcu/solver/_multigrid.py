@@ -1,145 +1,3 @@
-import torch
-import inspect
-import functools
-import numpy as np
-from time import perf_counter
-from typing import Tuple, Callable
-from pyqcu.torch.io import *
-from pyqcu.torch.define import *
-from pyqcu.torch.dslash import *
-
-# if_test_npu = True
-if_test_npu = False
-
-
-def cg(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], tol: float = 1e-6, max_iter: int = 1000, x0: torch.Tensor = None, if_rtol: bool = False, if_multi: bool = give_if_multi(), verbose: bool = True) -> torch.Tensor:
-    _matvec = functools.partial(matvec, if_multi=if_multi) if 'if_multi' in inspect.signature(
-        matvec).parameters else matvec
-    _torch_vdot = functools.partial(torch_vdot_, if_multi=if_multi)
-    _torch_norm = functools.partial(torch_norm_, if_multi=if_multi)
-    x = x0.clone() if x0 is not None else torch_randn_like(b)
-    r = b - _matvec(x)
-    r_norm = _torch_norm(r)
-    if if_rtol:
-        _tol = _torch_norm(b)*tol
-    else:
-        _tol = tol
-    if verbose:
-        print(f"Norm of b:{_torch_norm(b)}")
-        print(f"Norm of r:{r_norm}")
-        print(f"Norm of x0:{_torch_norm(x)}")
-    if r_norm < _tol:
-        print("x0 is just right!")
-        return x.clone()
-    p = r.clone()
-    v = torch.zeros_like(b)
-    rho = torch.tensor(1.0, dtype=b.dtype, device=b.device)
-    rho_prev = torch.tensor(1.0, dtype=b.dtype, device=b.device)
-    alpha = torch.tensor(1.0, dtype=b.dtype, device=b.device)
-    rho = _torch_vdot(r, r)
-    rho_prev = 1.0
-    start_time = perf_counter()
-    iter_times = []
-    for i in range(max_iter):
-        iter_start_time = perf_counter()
-        v = _matvec(p)
-        rho_prev = rho
-        alpha = rho / _torch_vdot(p, v)
-        r -= alpha * v
-        x += alpha * p
-        rho = _torch_vdot(r, r)
-        beta = rho / rho_prev
-        p = r + beta * p
-        r_norm = torch_sqrt(rho)
-        iter_time = perf_counter() - iter_start_time
-        iter_times.append(iter_time)
-        if verbose:
-            # print(f"alpha,beta,rho:{alpha,beta,rho}\n")
-            print(
-                f"CG-Iteration {i}: Residual = {r_norm:.6e}, Time = {iter_time:.6f} s")
-        if r_norm < _tol:
-            if verbose:
-                print(
-                    f"Converged at iteration {i} with residual {r_norm:.6e}")
-            break
-    else:
-        print("  Warning: Maximum iterations reached, may not have converged")
-    total_time = perf_counter() - start_time
-    avg_iter_time = sum(iter_times) / len(iter_times)
-    print("\nPerformance Statistics:")
-    print(f"Total iterations: {len(iter_times)}")
-    print(f"Total time: {total_time:.6f} seconds")
-    print(f"Average time per iteration: {avg_iter_time:.6f} s")
-    print(f"Final residual: {r_norm:.2e}")
-    return x.clone()
-
-
-def bicgstab(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], tol: float = 1e-6, max_iter: int = 1000, x0: torch.Tensor = None, if_rtol: bool = False, if_multi: bool = give_if_multi(), verbose: bool = True) -> torch.Tensor:
-    _matvec = functools.partial(matvec, if_multi=if_multi) if 'if_multi' in inspect.signature(
-        matvec).parameters else matvec
-    _torch_vdot = functools.partial(torch_vdot_, if_multi=if_multi)
-    _torch_norm = functools.partial(torch_norm_, if_multi=if_multi)
-    x = x0.clone() if x0 is not None else torch_randn_like(b)
-    r = b - _matvec(x)
-    r_norm = _torch_norm(r)
-    if if_rtol:
-        _tol = _torch_norm(b)*tol
-    else:
-        _tol = tol
-    if verbose:
-        print(f"Norm of b:{_torch_norm(b)}")
-        print(f"Norm of r:{r_norm}")
-        print(f"Norm of x0:{_torch_norm(x)}")
-    if r_norm < _tol:
-        print("x0 is just right!")
-        return x.clone()
-    r_tilde = r.clone()
-    p = torch.zeros_like(b)
-    v = torch.zeros_like(b)
-    s = torch.zeros_like(b)
-    t = torch.zeros_like(b)
-    rho = torch.tensor(1.0, dtype=b.dtype, device=b.device)
-    rho_prev = torch.tensor(1.0, dtype=b.dtype, device=b.device)
-    alpha = torch.tensor(1.0, dtype=b.dtype, device=b.device)
-    omega = torch.tensor(1.0, dtype=b.dtype, device=b.device)
-    start_time = perf_counter()
-    iter_times = []
-    for i in range(max_iter):
-        iter_start_time = perf_counter()
-        rho = _torch_vdot(r_tilde, r)
-        beta = (rho / rho_prev) * (alpha / omega)
-        rho_prev = rho
-        p = r + beta * (p - omega * v)
-        v = _matvec(p)
-        alpha = rho / _torch_vdot(r_tilde, v)
-        s = r - alpha * v
-        t = _matvec(s)
-        omega = _torch_vdot(t, s) / \
-            _torch_vdot(t, t)
-        x = x + alpha * p + omega * s
-        r = s - omega * t
-        r_norm = _torch_norm(r)
-        iter_time = perf_counter() - iter_start_time
-        iter_times.append(iter_time)
-        if verbose:
-            # print(f"alpha,beta,omega:{alpha,beta,omega}\n")
-            print(
-                f"BICGSTAB-Iteration {i}: Residual = {r_norm:.6e}, Time = {iter_time:.6f} s")
-        if r_norm < _tol:
-            if verbose:
-                print(
-                    f"Converged at iteration {i} with residual {r_norm:.6e}")
-            break
-    else:
-        print("  Warning: Maximum iterations reached, may not have converged")
-    total_time = perf_counter() - start_time
-    avg_iter_time = sum(iter_times) / len(iter_times)
-    print("\nPerformance Statistics:")
-    print(f"Total iterations: {len(iter_times)}")
-    print(f"Total time: {total_time:.6f} seconds")
-    print(f"Average time per iteration: {avg_iter_time:.6f} s")
-    print(f"Final residual: {r_norm:.2e}")
-    return x.clone()
 
 
 def give_null_vecs(
@@ -148,7 +6,7 @@ def give_null_vecs(
     normalize: bool = True, ortho_r: bool = False, ortho_null_vecs: bool = False, verbose: bool = True
 ) -> torch.Tensor:
     dof = null_vecs.shape[0]
-    null_vecs = torch_randn_like(null_vecs)  # [Eetzyx]
+    null_vecs = _torch.randn_like(null_vecs)  # [Eetzyx]
     for i in range(dof):
         if ortho_r:
             # The orthogonalization of r
@@ -178,7 +36,7 @@ def give_null_vecs(
             print(
                 f"  Vector {i}: A*v/v:100 = {(Av/null_vecs[i]).flatten()[:100]}")
             print(
-                f"_torch_norm(null_vecs[{i}]):.6e:{multi_norm(null_vecs[i]):.6e}")
+                f"_torch.norm(null_vecs[{i}]):.6e:{multi_norm(null_vecs[i]):.6e}")
             # orthogonalization
             for j in range(0, i+1):
                 print(
@@ -220,10 +78,10 @@ def npu_local_orthogonalize(null_vecs: torch.Tensor,
     A = v.transpose(-2, -1)  # [n_blocks, local_dim, E]
     # Batched QR on each block; Q has orthonormal columns in R^{local_dim}
     # Use reduced mode: Q: [n_blocks, local_dim, E], R: [n_blocks, E, E]
-    Q, _ = torch_linalg_qr(A, mode='reduced')
+    Q, _ = _torch.linalg_qr(A, mode='reduced')
     if normalize:
         # Normalize each column vector explicitly
-        Q = Q / torch_norm(Q, dim=-2, keepdim=True)
+        Q = Q / _torch.norm(Q, dim=-2, keepdim=True)
     """
     # Restore lattice structure: [T, Z, Y, X, e, t, z, y, x, E]
     Q = Q.view(T, Z, Y, X, e, t, z, y, x, E)
@@ -253,7 +111,7 @@ def npu_restrict(local_ortho_null_vecs: torch.Tensor, fine_vec: torch.Tensor, ve
     shape = local_ortho_null_vecs.shape
     _fine_vec = fine_vec.reshape(shape=shape[1:])
     """
-    return torch_einsum(
+    return _torch.einsum(
         "EeTtZzYyXx,eTtZzYyXx->ETZYX", local_ortho_null_vecs.conj(), _fine_vec).clone().to(dtype=dtype, device=device)
     """
     E, e, T, t, Z, z, Y, y, X, x = local_ortho_null_vecs.shape
@@ -274,7 +132,7 @@ def npu_restrict(local_ortho_null_vecs: torch.Tensor, fine_vec: torch.Tensor, ve
         0, 1, 2, 4, 3, 5)  # [E, e, T, Z*Y*X, t, z*y*x]
     _local_ortho_null_vecs = _local_ortho_null_vecs.reshape(
         E, e, -1, t, z, y, x)
-    return torch_einsum(
+    return _torch.einsum(
         "EeOtzyx,eOtzyx->EO", _local_ortho_null_vecs.conj(), _fine_vec).reshape(E, T, Z, Y, X).clone().to(dtype=dtype, device=device)
 
 
@@ -288,7 +146,7 @@ def npu_prolong(local_ortho_null_vecs: torch.Tensor, coarse_vec: torch.Tensor, v
     shape = local_ortho_null_vecs.shape
     _coarse_vec = coarse_vec.reshape(shape=shape[0:1]+shape[-8:][::2]).clone()
     """
-    return torch_einsum(
+    return _torch.einsum(
         "EeTtZzYyXx,ETZYX->eTtZzYyXx", local_ortho_null_vecs, _coarse_vec).reshape([shape[1], shape[-8]*shape[-7], shape[-6]*shape[-5], shape[-4]*shape[-3], shape[-2]*shape[-1]]).clone().to(dtype=dtype, device=device)
     """
     E, e, T, t, Z, z, Y, y, X, x = local_ortho_null_vecs.shape
@@ -304,7 +162,7 @@ def npu_prolong(local_ortho_null_vecs: torch.Tensor, coarse_vec: torch.Tensor, v
         0, 1, 2, 4, 3, 5)  # [E, e, T, Z*Y*X, t, z*y*x]
     _local_ortho_null_vecs = _local_ortho_null_vecs.reshape(
         E, e, -1, t, z, y, x)
-    dest = torch_einsum(
+    dest = _torch.einsum(
         "EeOtzyx,EO->eOtzyx", _local_ortho_null_vecs, _coarse_vec).to(dtype=dtype, device=device)
     dest = dest.reshape(e, T, Z*Y*X, t, z*y*x)
     dest = dest.permute(0, 1, 3, 2, 4)  # [e, T, t, Z*Y*X, z*y*x]
@@ -342,10 +200,10 @@ def local_orthogonalize(null_vecs: torch.Tensor,
     A = v.transpose(-2, -1)  # [n_blocks, local_dim, E]
     # Batched QR on each block; Q has orthonormal columns in R^{local_dim}
     # Use reduced mode: Q: [n_blocks, local_dim, E], R: [n_blocks, E, E]
-    Q, _ = torch_linalg_qr(A, mode='reduced')
+    Q, _ = _torch.linalg_qr(A, mode='reduced')
     if normalize:
         # Normalize each column vector explicitly
-        Q = Q / torch_norm(Q, dim=-2, keepdim=True)
+        Q = Q / _torch.norm(Q, dim=-2, keepdim=True)
     # Restore lattice structure: [T, Z, Y, X, e, t, z, y, x, E]
     Q = Q.view(T, Z, Y, X, e, t, z, y, x, E)
     # Permute back to [E, e, T, t, Z, z, Y, y, X, x]
@@ -367,7 +225,7 @@ def restrict(local_ortho_null_vecs: torch.Tensor, fine_vec: torch.Tensor, verbos
         fine_vec = fine_vec.to(dtype=_dtype, device=_device)
     shape = local_ortho_null_vecs.shape
     _fine_vec = fine_vec.reshape(shape=shape[1:]).clone()
-    return torch_einsum(
+    return _torch.einsum(
         "EeTtZzYyXx,eTtZzYyXx->ETZYX", local_ortho_null_vecs.conj(), _fine_vec).clone().to(dtype=dtype, device=device)
 
 
@@ -382,7 +240,7 @@ def prolong(local_ortho_null_vecs: torch.Tensor, coarse_vec: torch.Tensor, verbo
         coarse_vec = coarse_vec.to(dtype=_dtype, device=_device)
     shape = local_ortho_null_vecs.shape
     _coarse_vec = coarse_vec.reshape(shape=shape[0:1]+shape[-8:][::2]).clone()
-    return torch_einsum(
+    return _torch.einsum(
         "EeTtZzYyXx,ETZYX->eTtZzYyXx", local_ortho_null_vecs, _coarse_vec).reshape([shape[1], shape[-8]*shape[-7], shape[-6]*shape[-5], shape[-4]*shape[-3], shape[-2]*shape[-1]]).clone().to(dtype=dtype, device=device)
 
 
@@ -491,7 +349,7 @@ class sitting:
         _device = self.M.device
         if dtype != _dtype or device != _device:
             src = src.to(dtype=_dtype, device=_device)
-        return torch_einsum(
+        return _torch.einsum(
             "EeTZYX, eTZYX->ETZYX", self.M, src).clone().to(dtype=dtype, device=device)
 
 
@@ -603,9 +461,9 @@ class mg:
             set_device(device=device)
         self.op_list = [op(wilson=wilson, U=U,
                            clover=clover, clover_term=clover_term, verbose=self.verbose)]
-        self.b = torch_randn(size=[12]+self.lat_size[::-1],
+        self.b = _torch.randn(size=[12]+self.lat_size[::-1],
                              dtype=self.dtype_list[0], device=self.device_list[0])
-        self.x0 = torch_randn(
+        self.x0 = _torch.randn(
             size=[12]+self.lat_size[::-1], dtype=self.dtype_list[0], device=self.device_list[0])
         self.b_list = [self.b.clone()]
         self.nv_list = []  # null_vecs_list
@@ -631,7 +489,7 @@ class mg:
         comm = MPI.COMM_WORLD
         comm.Barrier()
         for i in range(1, len(self.lat_size_list)):
-            _null_vecs = torch_randn(size=[self.dof_list[i], self.dof_list[i-1]] +
+            _null_vecs = _torch.randn(size=[self.dof_list[i], self.dof_list[i-1]] +
                                      self.lat_size_list[i-1][::-1], dtype=self.dtype_list[i-1], device=self.device_list[i-1])
             _null_vecs = give_null_vecs(
                 null_vecs=_null_vecs,
