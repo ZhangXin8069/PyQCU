@@ -1,0 +1,1 @@
+run in **PyQCU/examples** with `pytest .`
