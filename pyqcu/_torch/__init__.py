@@ -3,18 +3,25 @@ import torch
 from argparse import Namespace
 Namespace.__module__ = "pyqcu._torch"
 if_test_npu = False
+
+
 def abs(input: torch.Tensor) -> torch.Tensor:
     if (input.device.type == 'npu' or if_test_npu) and torch.is_complex(input):
         return torch.sqrt(input.real**2 + input.imag**2)
     else:
         return torch.abs(input)
+
+
 def vdot(input: torch.Tensor, other: torch.Tensor) -> torch.Tensor:
     if (input.device.type == 'npu' or if_test_npu) and torch.is_complex(input):
         return torch.sum(torch.conj(input) * other)
     else:
         return torch.vdot(input, other)
+
+
 def dot(input: torch.Tensor, other: torch.Tensor) -> torch.Tensor:
     return vdot(input.flatten(), other.flatten())
+
 
 def norm(input: torch.Tensor, p='fro', dim=None, keepdim=False, out=None, dtype=None) -> torch.Tensor:
     if (input.device.type == 'npu' or if_test_npu) and torch.is_complex(input):
@@ -28,6 +35,8 @@ def norm(input: torch.Tensor, p='fro', dim=None, keepdim=False, out=None, dtype=
             return torch.norm(input, p=p, keepdim=keepdim, out=out, dtype=dtype)
         else:
             return torch.norm(input, p=p, dim=dim, keepdim=keepdim, out=out, dtype=dtype)
+
+
 def roll(input: torch.Tensor, shifts, dims=None) -> torch.Tensor:
     if (input.device.type == 'npu' or if_test_npu) and torch.is_complex(input):
         real_rolled = torch.roll(input.real, shifts, dims)
@@ -35,6 +44,8 @@ def roll(input: torch.Tensor, shifts, dims=None) -> torch.Tensor:
         return real_rolled + imag_rolled * 1j
     else:
         return torch.roll(input, shifts, dims)
+
+
 def allclose(input: torch.Tensor, other: torch.Tensor, rtol=1e-05, atol=1e-08, equal_nan=False) -> bool:
     if (input.device.type == 'npu' or if_test_npu) and torch.is_complex(input):
         real_close = torch.allclose(
@@ -44,6 +55,8 @@ def allclose(input: torch.Tensor, other: torch.Tensor, rtol=1e-05, atol=1e-08, e
         return real_close and imag_close
     else:
         return torch.allclose(input, other, rtol, atol, equal_nan)
+
+
 def einsum(equation: str, *operands) -> torch.Tensor:
     if any((op.device.type == 'npu' or if_test_npu) and torch.is_complex(op) for op in operands):
         real_parts = [op.real if torch.is_complex(
@@ -76,6 +89,8 @@ def einsum(equation: str, *operands) -> torch.Tensor:
         return real_result + imag_result * 1j
     else:
         return torch.einsum(equation, *operands)
+
+
 def linalg_qr(input: torch.Tensor, mode='reduced') -> tuple:
     if (input.device.type == 'npu' or if_test_npu) and torch.is_complex(input):
         input_cpu = input.cpu()
@@ -83,6 +98,8 @@ def linalg_qr(input: torch.Tensor, mode='reduced') -> tuple:
         return Q_cpu.to(input.device), R_cpu.to(input.device)
     else:
         return torch.linalg.qr(input, mode)
+
+
 def eye(n: int, m=None, out=None, dtype: torch.dtype = None, layout=torch.strided, device: torch.device = None, requires_grad=False) -> torch.Tensor:
     if device is not None and (device.type == 'npu' or if_test_npu) and dtype is not None and dtype.is_complex:
         real_dtype = torch.float32 if dtype == torch.complex64 else torch.float64
@@ -98,6 +115,8 @@ def eye(n: int, m=None, out=None, dtype: torch.dtype = None, layout=torch.stride
             return torch.eye(n, out=out, dtype=dtype, layout=layout, device=device, requires_grad=requires_grad)
         else:
             return torch.eye(n, m, out=out, dtype=dtype, layout=layout, device=device, requires_grad=requires_grad)
+
+
 def randn(*args, size=None, out=None, dtype: torch.dtype = None, layout=torch.strided, device: torch.device = None, requires_grad=False) -> torch.Tensor:
     if size is not None:
         args = size
@@ -113,11 +132,15 @@ def randn(*args, size=None, out=None, dtype: torch.dtype = None, layout=torch.st
             return torch.randn(size=size, out=out, dtype=dtype, layout=layout, device=device, requires_grad=requires_grad)
         else:
             return torch.randn(*args, out=out, dtype=dtype, layout=layout, device=device, requires_grad=requires_grad)
+
+
 def randn_like(input: torch.Tensor) -> torch.Tensor:
     if (input.device.type == 'npu' or if_test_npu) and torch.is_complex(input):
         return torch.randn_like(input.real) + torch.randn_like(input.imag) * 1j
     else:
         return torch.randn_like(input)
+
+
 def sqrt(input: torch.Tensor) -> torch.Tensor:
     if (input.device.type == 'npu' or if_test_npu) and torch.is_complex(input):
         input_cpu = input.cpu()
@@ -125,6 +148,8 @@ def sqrt(input: torch.Tensor) -> torch.Tensor:
         return result_cpu.to(input.device)
     else:
         return torch.sqrt(input)
+
+
 def matmul(input: torch.Tensor, other: torch.Tensor) -> torch.Tensor:
     if ((input.device.type == 'npu' or if_test_npu) and torch.is_complex(input)) or ((other.device.type == 'npu' or if_test_npu) and torch.is_complex(other)):
         input_real = input.real if torch.is_complex(input) else input
