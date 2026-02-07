@@ -247,8 +247,8 @@ def test_matmul():
         return tflops
     from pyqcu.tools import matmul_gpu
     func_gpu = matmul_gpu(M_gpu, N_gpu, K_gpu, **gpu_tile)
-    jit_gpu = tilelang.compile(func_gpu, out_idx=[2], target="cuda")
-    # print(jit_gpu.get_kernel_source())
+    jit_gpu = tilelang.compile(func_gpu, out_idx=[2], target="c")
+    print(jit_gpu.get_kernel_source())
     a_gpu = torch.randn(M_gpu, K_gpu, device="cuda", dtype=torch.float16)
     b_gpu = torch.randn(N_gpu, K_gpu, device="cuda", dtype=torch.float16)
     start_evt = torch.cuda.Event(enable_timing=True)
