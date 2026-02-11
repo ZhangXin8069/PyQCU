@@ -104,13 +104,13 @@ def give_eo_mask(___tzy_t_p: torch.Tensor, eo: int, verbose=False) -> torch.Tens
 
 def slice_dim(dims_num: int = 4, ward: int = 0, start: int = None, stop: int = None, step: int = 2, point: int = None) -> tuple:
     """
-    Slice tensor along a specific dimension.
+    Slice tensor along a specific dimension. [___xyzt]
     """
     slices = [slice(None)] * dims_num
     if point == None:
-        slices[-ward-1] = slice(start, stop, step)
+        slices[ward-4] = slice(start, stop, step)
     else:
-        slices[-ward-1] = point
+        slices[ward-4] = point
     return tuple(slices)
 
 
