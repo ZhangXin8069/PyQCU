@@ -7,7 +7,7 @@ from time import perf_counter
 
 
 class hopping:
-    def __init__(self,  U: torch.Tensor = None, if_multi: bool = lattice.give_if_multi(), kappa: float = 0.1, u_0: float = 1.0):
+    def __init__(self,  U: torch.Tensor = None, kappa: float = 0.1, u_0: float = 1.0):
         self.M_plus_list = [torch.zeros([]), torch.zeros(
             []), torch.zeros([]), torch.zeros([])]  # xyzt
         self.M_minus_list = [torch.zeros([]), torch.zeros(
@@ -17,14 +17,17 @@ class hopping:
         self.grid_index = tools.give_grid_index()
         if self.U is not None:
             for ward in range(4):  # xyzt
-                if if_multi and self.grid_size[ward] != 1:
+                if self.grid_size[ward] != 1:
                     comm = MPI.COMM_WORLD
                     rank = comm.Get_rank()
                     U_tail4send = self.U[tools.slice_dim(
-                        dim=7, ward=ward, point=-1)].cpu().contiguous().numpy().copy()
+                        dims_num=7, ward=ward, point=-1)].cpu().contiguous().numpy().copy()
                     U_head4recv = np.zeros_like(U_tail4send).copy()
                     rank_plus = tools.give_rank_plus(ward=ward)
                     rank_minus = tools.give_rank_minus(ward=ward)
+                    # print(f"U.shape: {self.U.shape}")
+                    # print(f"U_tail4send.shape: {U_tail4send.shape}")
+                    # print(f"rank: {rank}, rank_plus: {rank_plus}, rank_minus: {rank_minus}, ward: {ward}")
                     comm.Sendrecv(sendbuf=U_tail4send, dest=rank_plus, sendtag=rank,
                                   recvbuf=U_head4recv, source=rank_minus, recvtag=rank_minus)
                     comm.Barrier()
@@ -37,18 +40,18 @@ class hopping:
                 self.M_minus_list[ward] = dslash.give_hopping_minus(
                     ward_key=lattice.ward_keys[ward], U=self.U, U_head=U_head, kappa=kappa, u_0=u_0)
 
-    def matvec_plus(self, ward: int, src: torch.Tensor, if_multi: bool) -> torch.Tensor:
+    def matvec_plus(self, ward: int, src: torch.Tensor) -> torch.Tensor:
         dtype = src.dtype
         device = src.device
         _dtype = self.M_plus_list[ward].dtype
         _device = self.M_plus_list[ward].device
         if dtype != _dtype or device != _device:
             src = src.to(dtype=_dtype, device=_device)
-        if if_multi and self.grid_size[ward] != 1:
+        if self.grid_size[ward] != 1:
             comm = MPI.COMM_WORLD
             rank = comm.Get_rank()
             src_head4send = src[tools.slice_dim(
-                dim_num=5, ward=ward, point=0)].cpu().contiguous().numpy().copy()
+                dims_num=5, ward=ward, point=0)].cpu().contiguous().numpy().copy()
             src_tail4recv = np.zeros_like(src_head4send).copy()
             rank_plus = tools.give_rank_plus(ward=ward)
             rank_minus = tools.give_rank_minus(ward=ward)
@@ -61,18 +64,18 @@ class hopping:
             src_tail = None
         return dslash.give_wilson_plus(ward_key=lattice.ward_keys[ward], src=src, hopping=self.M_plus_list[ward], src_tail=src_tail).to(dtype=dtype, device=device)
 
-    def matvec_minus(self, ward: int, src: torch.Tensor, if_multi: bool) -> torch.Tensor:
+    def matvec_minus(self, ward: int, src: torch.Tensor) -> torch.Tensor:
         dtype = src.dtype
         device = src.device
         _dtype = self.M_minus_list[ward].dtype
         _device = self.M_minus_list[ward].device
         if dtype != _dtype or device != _device:
             src = src.to(dtype=_dtype, device=_device)
-        if if_multi and self.grid_size[ward] != 1:
+        if self.grid_size[ward] != 1:
             comm = MPI.COMM_WORLD
             rank = comm.Get_rank()
             src_tail4send = src[tools.slice_dim(
-                dim_num=5, ward=ward, point=-1)].cpu().contiguous().numpy().copy()
+                dims_num=5, ward=ward, point=-1)].cpu().contiguous().numpy().copy()
             src_head4recv = np.zeros_like(src_tail4send).copy()
             rank_plus = tools.give_rank_plus(ward=ward)
             rank_minus = tools.give_rank_minus(ward=ward)
@@ -85,11 +88,11 @@ class hopping:
             src_head = None
         return dslash.give_wilson_minus(ward_key=lattice.ward_keys[ward], src=src, hopping=self.M_minus_list[ward], src_head=src_head).to(dtype=dtype, device=device)
 
-    def matvec(self, src: torch.Tensor, if_multi: bool = lattice.give_if_multi()) -> torch.Tensor:
+    def matvec(self, src: torch.Tensor) -> torch.Tensor:
         dest = torch.zeros_like(src)
         for ward in range(4):
-            dest += self.matvec_plus(ward=ward, src=src, if_multi=if_multi)
-            dest += self.matvec_minus(ward=ward, src=src, if_multi=if_multi)
+            dest += self.matvec_plus(ward=ward, src=src)
+            dest += self.matvec_minus(ward=ward, src=src)
         return dest.clone()
 
 
@@ -112,9 +115,8 @@ class sitting:
             "EeXYZT, eXYZT->EXYZT", self.M, src).clone().to(dtype=dtype, device=device)
 
 
-class op:
-    def __init__(self,  U: torch.Tensor = None, clover_term: torch.Tensor = None, fine_hopping: hopping = None, fine_sitting: sitting = None, local_ortho_null_vecs: torch.Tensor = None, kappa: float = 0.1, u_0: float = 1.0, if_multi: bool = lattice.give_if_multi(), verbose: bool = True):
-        self.if_multi = if_multi
+class operator:
+    def __init__(self,  U: torch.Tensor = None, clover_term: torch.Tensor = None, fine_hopping: hopping = None, fine_sitting: sitting = None, local_ortho_null_vecs: torch.Tensor = None, kappa: float = 0.1, u_0: float = 1.0, verbose: bool = True):
         self.hopping = hopping(U=U, kappa=kappa, u_0=u_0)
         self.sitting = sitting(clover_term=clover_term)
         self.verbose = verbose
@@ -138,9 +140,9 @@ class op:
                     _src_f = tools.prolong(
                         local_ortho_null_vecs=local_ortho_null_vecs, coarse_vec=_src_c)
                     _dest_f_plus = fine_hopping.matvec_plus(
-                        ward=ward, src=_src_f, if_multi=self.if_multi)
+                        ward=ward, src=_src_f)
                     _dest_f_minus = fine_hopping.matvec_minus(
-                        ward=ward, src=_src_f, if_multi=self.if_multi)
+                        ward=ward, src=_src_f)
                     _dest_c_plus = tools.restrict(
                         local_ortho_null_vecs=local_ortho_null_vecs, fine_vec=_dest_f_plus)
                     _dest_c_minus = tools.restrict(
@@ -159,9 +161,9 @@ class op:
                     _src_f = tools.prolong(
                         local_ortho_null_vecs=local_ortho_null_vecs, coarse_vec=_src_c)
                     _dest_f_plus = fine_hopping.matvec_plus(
-                        ward=ward, src=_src_f, if_multi=self.if_multi)
+                        ward=ward, src=_src_f)
                     _dest_f_minus = fine_hopping.matvec_minus(
-                        ward=ward, src=_src_f, if_multi=self.if_multi)
+                        ward=ward, src=_src_f)
                     _dest_c_plus = tools.restrict(
                         local_ortho_null_vecs=local_ortho_null_vecs, fine_vec=_dest_f_plus)
                     _dest_c_minus = tools.restrict(
@@ -184,11 +186,11 @@ class op:
                     local_ortho_null_vecs=local_ortho_null_vecs, fine_vec=_dest_f)
                 self.sitting.M[:, e] += _dest_c.clone()
 
-    def matvec(self, src: torch.Tensor, if_multi: bool = lattice.give_if_multi()) -> torch.Tensor:
+    def matvec(self, src: torch.Tensor) -> torch.Tensor:
         if src.shape[0] == 4 and src.shape[1] == 3:
-            return (self.hopping.matvec(src=src.reshape([12]+list(src.shape)[2:]), if_multi=self.if_multi and if_multi)+self.sitting.matvec(src=src.reshape([12]+list(src.shape)[2:]))).reshape([4, 3]+list(src.shape)[2:])
+            return (self.hopping.matvec(src=src.reshape([12]+list(src.shape)[2:]))+self.sitting.matvec(src=src.reshape([12]+list(src.shape)[2:]))).reshape([4, 3]+list(src.shape)[2:])
         else:
-            return self.hopping.matvec(src=src, if_multi=self.if_multi and if_multi)+self.sitting.matvec(src=src)
+            return self.hopping.matvec(src=src)+self.sitting.matvec(src=src)
 
 
 class multigrid:
@@ -228,8 +230,8 @@ class multigrid:
                 f"PYQCU::SOLVER::MULTIGRID:\n self.lat_size_list:{self.lat_size_list}")
         for device in self.device_list:
             tools.set_device(device=device)
-        self.op_list = [op(U=U,
-                           clover_term=clover_term, verbose=self.verbose, kappa=kappa, u_0=u_0)]
+        self.op_list = [operator(U=U,
+                                 clover_term=clover_term, verbose=self.verbose, kappa=kappa, u_0=u_0)]
         self.b = _torch.randn(size=[12]+self.lat_size,
                               dtype=self.dtype_list[0], device=self.device_list[0])
         self.x0 = _torch.randn(
@@ -260,7 +262,7 @@ class multigrid:
             self.lonv_list.append(_local_ortho_null_vecs)
             self.b_list.append(torch.zeros(
                 size=[self.dof_list[i]]+self.lat_size_list[i], dtype=self.dtype_list[i], device=self.device_list[i]))
-            self.op_list.append(op(fine_hopping=self.op_list[i-1].hopping, fine_sitting=self.op_list[i -
+            self.op_list.append(operator(fine_hopping=self.op_list[i-1].hopping, fine_sitting=self.op_list[i -
                                 1].sitting, local_ortho_null_vecs=_local_ortho_null_vecs,  verbose=self.verbose))
         comm.Barrier()
 
@@ -289,16 +291,16 @@ class multigrid:
         b = self.b_list[level].clone()
         x = torch.zeros_like(b)
         r = b - matvec(x)
-        r_norm = _torch.norm(r)
+        r_norm = tools.norm(r)
         _tol = r_norm*0.5 if level != self.num_levels - 1 else r_norm*0.1
         if self.verbose:
             print(
-                f"PYQCU::SOLVER::MULTIGRID:\n {level}:Norm of b:{_torch.norm(b)}")
+                f"PYQCU::SOLVER::MULTIGRID:\n {level}:Norm of b:{tools.norm(b)}")
             print(f"PYQCU::SOLVER::MULTIGRID:\n {level}:Norm of r:{r_norm}")
             print(
-                f"PYQCU::SOLVER::MULTIGRID:\n {level}:Norm of x0:{_torch.norm(x)}")
+                f"PYQCU::SOLVER::MULTIGRID:\n {level}:Norm of x0:{tools.norm(x)}")
         if level == 0:
-            self.convergence_history.append(r_norm.cpu())
+            self.convergence_history.append(r_norm)
             _tol = self.tol
         if r_norm < _tol:
             print("PYQCU::SOLVER::MULTIGRID:\n x0 is just right!")
@@ -316,24 +318,24 @@ class multigrid:
         iter_times = []
         for i in range(self.max_iter):
             iter_start_time = perf_counter()
-            rho = _torch.dot(r_tilde, r)
+            rho = tools.vdot(r_tilde, r)
             beta = (rho / rho_prev) * (alpha / omega)
             rho_prev = rho
             p = r + beta * (p - omega * v)
             v = matvec(p)
-            alpha = rho / _torch.dot(r_tilde, v)
+            alpha = rho / tools.vdot(r_tilde, v)
             s = r - alpha * v
             t = matvec(s)
-            omega = _torch.dot(t, s) / _torch.dot(t, t)
+            omega = tools.vdot(t, s) / tools.vdot(t, t)
             x = x + alpha * p + omega * s
             r = s - omega * t
-            r_norm = _torch.norm(r)
+            r_norm = tools.norm(r)
             if level == 0:
-                self.convergence_history.append(r_norm.cpu())
+                self.convergence_history.append(r_norm)
             if self.verbose:
                 # print(f"alpha,beta,omega:{alpha,beta,omega}\n")
                 print(
-                    f"PYQCU::SOLVER::MULTIGRID:\n B-{level}-BICGSTAB-Iteration {i}: Residual = {r_norm:.6e}")
+                    f"PYQCU::SOLVER::MULTIGRID:\n B-{level}-bistabcg-Iteration {i}: Residual = {r_norm:.6e}")
             # cycle start
             if level < self.num_levels-1:
                 r_coarse = tools.restrict(
@@ -346,9 +348,9 @@ class multigrid:
                     local_ortho_null_vecs=self.lonv_list[level], coarse_vec=e_coarse)
                 x = x + e_fine
                 r = b - matvec(x)
-            r_norm = _torch.norm(r)
+            r_norm = tools.norm(r)
             if level == 0:
-                self.convergence_history.append(r_norm.cpu())
+                self.convergence_history.append(r_norm)
                 self.adaptive(iter=i)
             # cycle end
             iter_time = perf_counter() - iter_start_time
@@ -356,7 +358,7 @@ class multigrid:
             if self.verbose:
                 # print(f"alpha,beta,omega:{alpha,beta,omega}\n")
                 print(
-                    f"PYQCU::SOLVER::MULTIGRID:\n F-{level}-BICGSTAB-Iteration {i}: Residual = {r_norm:.6e}, Time = {iter_time:.6f} s")
+                    f"PYQCU::SOLVER::MULTIGRID:\n F-{level}-bistabcg-Iteration {i}: Residual = {r_norm:.6e}, Time = {iter_time:.6f} s")
             if r_norm < _tol:
                 if self.verbose:
                     print(
