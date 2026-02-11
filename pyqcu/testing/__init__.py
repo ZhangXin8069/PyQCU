@@ -2,7 +2,9 @@ from time import perf_counter
 import tilelang
 import torch
 from argparse import Namespace
-
+from pyqcu import lattice, solver, dslash, _torch, tools
+import mpi4py.MPI as MPI
+import pyqcu
 Namespace.__module__ = "pyqcu.testing"
 
 
@@ -15,241 +17,215 @@ def test_import():
         import h5py
         import tilelang
         from pyqcu import _torch, tools, lattice, dslash, solver
-        print("PYQCU::TESTING::IMPORT:\n All dependencies imported successfully.")
+        print("PYQCU::TESTING::IMPORT:\n All dependencies imported successwholey.")
     except Exception as e:
         print(f"PYQCU::TESTING::IMPORT:\n {e}")
 
 
-def test_lattice():
-    import torch
-    from pyqcu.lattice import I, gamma, gamma_5, gamma_gamma, gell_mann
-    print("PYQCU::TESTING::LATTICE:\n imported successfully.")
-    print("PYQCU::TESTING::LATTICE::I:\n ", I)
-    print("PYQCU::TESTING::LATTICE::GAMMA:\n ", gamma)
-    print("PYQCU::TESTING::LATTICE::GAMMA_5:\n ", gamma_5)
-    print("PYQCU::TESTING::LATTICE::GAMMA_GAMMA:\n ", gamma_gamma)
-    print("PYQCU::TESTING::LATTICE::GELL_MANN:\n ", gell_mann)
-    U = torch.zeros(3, 3, 4, 4, 4, 4, 4, dtype=torch.complex64, device=torch.device(
-        'cuda' if torch.cuda.is_available() else 'cpu'))
-    from pyqcu.lattice import generate_gauge_field
-    generate_gauge_field(U, seed=42, sigma=0.1, verbose=True)
-    from pyqcu.lattice import check_su3
-    is_su3 = check_su3(U, tol=1e-6, verbose=True)
+def test_lattice(lat_size: list = [8, 8, 8, 16], dtype: torch.dtype = torch.complex64, device: torch.device = torch.device('cpu')):
+    refer_U = torch.zeros(size=[3, 3, 4]+lat_size, dtype=dtype, device=device)
+    lattice.generate_gauge_field(refer_U, seed=42, sigma=0.1, verbose=True)
+    is_su3 = lattice.check_su3(refer_U, tol=1e-6, verbose=True)
+    print(f"PYQCU::TESTING::LATTICE::I:\n {lattice.I}")
+    print(f"PYQCU::TESTING::LATTICE::GAMMA:\n {lattice.gamma}")
+    print(f"PYQCU::TESTING::LATTICE::GAMMA_5:\n {lattice.gamma_5}")
+    print(f"PYQCU::TESTING::LATTICE::GAMMA_GAMMA:\n {lattice.gamma_gamma}")
+    print(f"PYQCU::TESTING::LATTICE::GELL_MANN:\n {lattice.gell_mann}")
     print(f"PYQCU::TESTING::LATTICE:\n Gauge field SU(3) check: {is_su3}")
 
 
-def test_dslash_wilson():
-    import torch
-    import pyqcu
-    from pyqcu.dslash import give_wilson, give_wilson_eo, give_wilson_oe, give_wilson_eoeo
-    from pyqcu.tools import ___xyzt2p___xyzt, p___xyzt2___xyzt, hdf5___2___
-    from pyqcu.lattice import check_su3
-    from pyqcu import _torch
-    print("PYQCU::TESTING::DSLASH::WILSON:\n imported successfully.")
-    U = torch.zeros(3, 3, 4, 4, 4, 4, 8, dtype=torch.complex64, device=torch.device(
-        'cuda' if torch.cuda.is_available() else 'cpu'))
-    from pyqcu.lattice import generate_gauge_field
-    generate_gauge_field(U, seed=42, sigma=0.1, verbose=False)
-    print(f"PYQCU::TESTING::DSLASH::WILSON::U:\n {_torch.norm(U)}")
-    src = _torch.randn(size=(
-        4, 3, U.shape[-4], U.shape[-3], U.shape[-2], U.shape[-1]), dtype=U.dtype, device=U.device)
-    print(f"PYQCU::TESTING::DSLASH::WILSON::SRC:\n {_torch.norm(src)}")
-    dest = give_wilson(src=src, U=U, kappa=0.1, verbose=True)
-    print(f"PYQCU::TESTING::DSLASH::WILSON::DEST:\n {_torch.norm(dest)}")
-    U_eo = ___xyzt2p___xyzt(input_array=U, verbose=True)
-    src_eo = ___xyzt2p___xyzt(input_array=src, verbose=True)
-    src_e = src_eo[0]
-    src_o = src_eo[1]
-    dest_e = give_wilson_eo(src_o=src_o, U_eo=U_eo, kappa=0.1, verbose=True)
-    dest_o = give_wilson_oe(src_e=src_e, U_eo=U_eo, kappa=0.1, verbose=True)
-    dest_eo = torch.zeros_like(src_eo)
-    dest_eo[0] = dest_e
-    dest_eo[1] = dest_o
-    dest_reconstructed = p___xyzt2___xyzt(input_array=give_wilson_eoeo(
-        dest_eo=dest_eo, src_eo=src_eo), verbose=True)
-    print(
-        f"PYQCU::TESTING::DSLASH::WILSON::DEST_RECONSTRUCTED:\n {_torch.norm(dest_reconstructed)}")
-    diff = _torch.norm(dest_reconstructed-dest)/_torch.norm(dest)
-    print(
-        f"PYQCU::TESTING::DSLASH::WILSON:\n Difference between full and eo/oe dslash: {diff}")
-    path = pyqcu.__file__.replace('pyqcu/__init__.py', 'examples/data/')
-    refer_U = hdf5___2___(
-        file_name=path+'refer.wilson.U.L32K0_125.ccdxyzt.c64.h5', device=src.device, verbose=True)
-    is_su3 = check_su3(refer_U, tol=1e-6, verbose=True)
+def test_dslash_wilson(kappa: float = 0.125, lat_size: list = [8, 8, 8, 16],  dtype: torch.dtype = torch.complex64, device: torch.device = torch.device('cpu'), with_data: bool = False):
+    if not with_data:
+        refer_U = torch.zeros(
+            size=[3, 3, 4]+lat_size, dtype=dtype, device=device)
+        lattice.generate_gauge_field(refer_U, seed=42, sigma=0.1, verbose=True)
+        refer_src = _torch.randn(
+            size=[4, 3]+lat_size, dtype=dtype, device=device)
+        refer_dest = dslash.give_wilson(
+            src=refer_src, U=refer_U, kappa=kappa, verbose=True)
+        U_eo = tools.___xyzt2p___xyzt(input_array=refer_U, verbose=True)
+        src_eo = tools.___xyzt2p___xyzt(input_array=refer_src, verbose=True)
+        src_e = src_eo[0]
+        src_o = src_eo[1]
+        dest_e = dslash.give_wilson_eo(src_o=src_o, U_eo=U_eo,
+                                       kappa=kappa, verbose=True)
+        dest_o = dslash.give_wilson_oe(src_e=src_e, U_eo=U_eo,
+                                       kappa=kappa, verbose=True)
+        dest_eo = torch.zeros_like(src_eo)
+        dest_eo[0] = dest_e
+        dest_eo[1] = dest_o
+        dest = tools.p___xyzt2___xyzt(input_array=dslash.give_wilson_eoeo(
+            dest_eo=dest_eo, src_eo=src_eo), verbose=True)
+    else:
+        kappa = 0.125
+        dtype = torch.complex64
+        lat_size = [32, 32, 32, 32]
+        path = pyqcu.__file__.replace('pyqcu/__init__.py', 'examples/data/')
+        refer_U = tools.hdf5___xyzt2grid___xyzt(
+            file_name=path+'refer.wilson.U.L32K0_125.ccdxyzt.c64.h5', lat_size=lat_size, device=device, verbose=True)
+        refer_src = tools.hdf5___xyzt2grid___xyzt(
+            file_name=path+'refer.wilson.src.L32K0_125.scxyzt.c64.h5', lat_size=lat_size, device=device, verbose=True)
+        refer_dest = tools.hdf5___xyzt2grid___xyzt(
+            file_name=path+'refer.wilson.dest.L32K0_125.scxyzt.c64.h5', lat_size=lat_size, device=device, verbose=True)
+        refer_clover_term = torch.zeros(
+            size=[4, 3, 4, 3]+list(refer_src.shape)[2:], dtype=dtype, device=device)
+        operator = solver.operator(
+            U=refer_U, kappa=kappa, clover_term=refer_clover_term, verbose=True)
+        time_start = perf_counter()
+        dest = operator.matvec(src=refer_src)
+        time_end = perf_counter()
+    is_su3 = lattice.check_su3(refer_U, tol=1e-6, verbose=True)
+    diff = tools.norm(dest - refer_dest)/tools.norm(refer_dest)
     print(
         f"PYQCU::TESTING::DSLASH::WILSON::REFER_U:\n Gauge field SU(3) check: {is_su3}")
-    print(f"PYQCU::TESTING::DSLASH::WILSON::REFER_U:\n {_torch.norm(refer_U)}")
+    print(f"PYQCU::TESTING::DSLASH::WILSON::REFER_U:\n {tools.norm(refer_U)}")
     print(
         f"PYQCU::TESTING::DSLASH::WILSON::REFER_U:\n {refer_U.flatten()[:12]}")
-    refer_src = hdf5___2___(
-        file_name=path+'refer.wilson.src.L32K0_125.scxyzt.c64.h5', device=src.device, verbose=True)
     print(
-        f"PYQCU::TESTING::DSLASH::WILSON::REFER_SRC:\n {_torch.norm(refer_src)}")
+        f"PYQCU::TESTING::DSLASH::WILSON::REFER_SRC:\n {tools.norm(refer_src)}")
     print(
         f"PYQCU::TESTING::DSLASH::WILSON::REFER_SRC:\n {refer_src.flatten()[:12]}")
-    refer_dest = hdf5___2___(
-        file_name=path+'refer.wilson.dest.L32K0_125.scxyzt.c64.h5', device=src.device, verbose=True)
     print(
-        f"PYQCU::TESTING::DSLASH::WILSON::REFER_DEST:\n {_torch.norm(refer_dest)}")
+        f"PYQCU::TESTING::DSLASH::WILSON::REFER_DEST:\n {tools.norm(refer_dest)}")
     print(
         f"PYQCU::TESTING::DSLASH::WILSON::REFER_DEST:\n {refer_dest.flatten()[:12]}")
-    dest = give_wilson(src=refer_src, U=refer_U, kappa=0.125, verbose=True)
-    print(f"PYQCU::TESTING::DSLASH::WILSON::DEST:\n {_torch.norm(dest)}")
+    print(f"PYQCU::TESTING::DSLASH::WILSON::DEST:\n {tools.norm(dest)}")
     print(f"PYQCU::TESTING::DSLASH::WILSON::DEST:\n {dest.flatten()[:12]}")
-    diff = _torch.norm(dest - refer_dest)/_torch.norm(refer_dest)
+    print(
+        f"PYQCU::TESTING::DSLASH::WILSON:\n Time cost: {time_end-time_start}")
     print(
         f"PYQCU::TESTING::DSLASH::WILSON:\n Difference between computed and reference dslash: {diff}")
 
 
-def test_dslash_clover():
-    import torch
-    import pyqcu
-    from pyqcu.dslash import make_clover, inverse, add_I
-    from pyqcu.tools import hdf5___2___
-    from pyqcu.lattice import check_su3
-    from pyqcu import _torch
+def test_dslash_clover(device: torch.device = torch.device('cpu')):
+    kappa = 1.0
+    lat_size = [32, 16, 32, 32]
     path = pyqcu.__file__.replace('pyqcu/__init__.py', 'examples/data/')
-    refer_U = hdf5___2___(
-        file_name=path+'refer.clover.U.L32Y16K1.ccdxyzt.c64.h5', device=torch.device(
-            'cuda' if torch.cuda.is_available() else 'cpu'), verbose=True)
-    is_su3 = check_su3(refer_U, tol=1e-6, verbose=True)
+    refer_U = tools.hdf5___xyzt2grid___xyzt(
+        file_name=path+'refer.clover.U.L32Y16K1.ccdxyzt.c64.h5', lat_size=lat_size, device=device, verbose=True)
+    refer_clover_term = tools.hdf5___xyzt2grid___xyzt(
+        file_name=path+'refer.clover.clover_term.L32Y16K1.scscxyzt.c64.h5', lat_size=lat_size, device=device, verbose=True)
+    refer_clover_inv_term = tools.hdf5___xyzt2grid___xyzt(
+        file_name=path+'refer.clover.clover_inv_term.L32Y16K1.scscxyzt.c64.h5', lat_size=lat_size, device=device, verbose=True)
+    clover_term = dslash.make_clover(U=refer_U, kappa=kappa, verbose=True)
+    clover_term = dslash.add_I(clover_term=clover_term, verbose=True)
+    diff = tools.norm(clover_term - refer_clover_term) / \
+        tools.norm(refer_clover_term)
+    clover_inv_term = dslash.inverse(clover_term=clover_term, verbose=True)
+    diff = tools.norm(clover_inv_term - refer_clover_inv_term) / \
+        tools.norm(refer_clover_inv_term)
+    is_su3 = lattice.check_su3(refer_U, tol=1e-6, verbose=True)
     print(
         f"PYQCU::TESTING::DSLASH::CLOVER::REFER_U:\n Gauge field SU(3) check: {is_su3}")
-    print(f"PYQCU::TESTING::DSLASH::CLOVER::REFER_U:\n {_torch.norm(refer_U)}")
+    print(f"PYQCU::TESTING::DSLASH::CLOVER::REFER_U:\n {tools.norm(refer_U)}")
     print(
         f"PYQCU::TESTING::DSLASH::CLOVER::REFER_U:\n {refer_U.flatten()[:12]}")
-    refer_clover_term = hdf5___2___(
-        file_name=path+'refer.clover.clover_term.L32Y16K1.scscxyzt.c64.h5', device=refer_U.device, verbose=True)
     print(
-        f"PYQCU::TESTING::DSLASH::CLOVER::REFER_CLOVER_TERM:\n {_torch.norm(refer_clover_term)}")
+        f"PYQCU::TESTING::DSLASH::CLOVER::REFER_CLOVER_TERM:\n {tools.norm(refer_clover_term)}")
     print(
         f"PYQCU::TESTING::DSLASH::CLOVER::REFER_CLOVER_TERM:\n {refer_clover_term.flatten()[:12]}")
-    refer_clover_inv_term = hdf5___2___(
-        file_name=path+'refer.clover.clover_inv_term.L32Y16K1.scscxyzt.c64.h5', device=refer_U.device, verbose=True)
     print(
-        f"PYQCU::TESTING::DSLASH::CLOVER::REFER_CLOVER_INV_TERM:\n {_torch.norm(refer_clover_inv_term)}")
+        f"PYQCU::TESTING::DSLASH::CLOVER::REFER_CLOVER_INV_TERM:\n {tools.norm(refer_clover_inv_term)}")
     print(
         f"PYQCU::TESTING::DSLASH::CLOVER::REFER_CLOVER_INV_TERM:\n {refer_clover_inv_term.flatten()[:12]}")
-    clover_term = make_clover(U=refer_U, kappa=1, verbose=True)
-    clover_term = add_I(clover_term=clover_term, verbose=True)
     print(
-        f"PYQCU::TESTING::DSLASH::CLOVER::CLOVER_TERM:\n {_torch.norm(clover_term)}")
+        f"PYQCU::TESTING::DSLASH::CLOVER::CLOVER_TERM:\n {tools.norm(clover_term)}")
     print(
         f"PYQCU::TESTING::DSLASH::CLOVER::CLOVER_TERM:\n {clover_term.flatten()[:12]}")
-    diff = _torch.norm(clover_term - refer_clover_term) / \
-        _torch.norm(refer_clover_term)
     print(
         f"PYQCU::TESTING::DSLASH::CLOVER:\n Difference between computed and reference dslash: {diff}")
-    clover_inv_term = inverse(clover_term=clover_term, verbose=True)
     print(
-        f"PYQCU::TESTING::DSLASH::CLOVER::CLOVER_INV_TERM:\n {_torch.norm(clover_inv_term)}")
+        f"PYQCU::TESTING::DSLASH::CLOVER::CLOVER_INV_TERM:\n {tools.norm(clover_inv_term)}")
     print(
         f"PYQCU::TESTING::DSLASH::CLOVER::CLOVER_INV_TERM:\n {clover_inv_term.flatten()[:12]}")
-    diff = _torch.norm(clover_inv_term - refer_clover_inv_term) / \
-        _torch.norm(refer_clover_inv_term)
     print(
         f"PYQCU::TESTING::DSLASH::CLOVER:\n Difference between computed and reference dslash: {diff}")
 
 
-def test_solver_bistabcg():
-    import torch
-    import pyqcu
-    from pyqcu.dslash import give_wilson
-    from pyqcu.solver import bicgstab
-    from pyqcu.tools import hdf5___2___
-    from pyqcu import _torch
-    path = pyqcu.__file__.replace('pyqcu/__init__.py', 'examples/data/')
-    refer_U = hdf5___2___(
-        file_name=path+'refer.wilson.U.L32K0_125.ccdxyzt.c64.h5', device=torch.device(
-            'cuda' if torch.cuda.is_available() else 'cpu'), verbose=True)
-    print(
-        f"PYQCU::TESTING::SOLVER::BISTABCG::REFER_U:\n {_torch.norm(refer_U)}")
-    print(
-        f"PYQCU::TESTING::SOLVER::BISTABCG::REFER_U:\n {refer_U.flatten()[:12]}")
-    refer_b = hdf5___2___(
-        file_name=path+'refer.wilson.b.L32K0_125.scxyzt.c64.h5', device=refer_U.device, verbose=True)
-    print(
-        f"PYQCU::TESTING::SOLVER::BISTABCG::REFER_B:\n {_torch.norm(refer_b)}")
-    print(
-        f"PYQCU::TESTING::SOLVER::BISTABCG::REFER_B:\n {refer_b.flatten()[:12]}")
-    refer_x = hdf5___2___(
-        file_name=path+'refer.wilson.x.L32K0_125.scxyzt.c64.h5', device=refer_U.device, verbose=True)
-    print(
-        f"PYQCU::TESTING::SOLVER::BISTABCG::REFER_X:\n {_torch.norm(refer_x)}")
-    print(
-        f"PYQCU::TESTING::SOLVER::BISTABCG::REFER_X:\n {refer_x.flatten()[:12]}")
+def test_solver(method: str = 'bistabcg', kappa: float = 0.125, lat_size: list = [8, 8, 8, 16],  dtype: torch.dtype = torch.complex64, device: torch.device = torch.device('cpu'), with_data: bool = False):
+    if not with_data:
+        comm = MPI.COMM_WORLD
+        root = 0
+        if comm.rank == root:
+            whole_U = torch.zeros(
+                size=[3, 3, 4]+lat_size, dtype=dtype, device=device)
+            lattice.generate_gauge_field(
+                whole_U, seed=42, sigma=0.1, verbose=True)
+            whole_clover_term = dslash.make_clover(
+                U=whole_U, kappa=kappa, verbose=True)
+            whole_x = torch.randn(
+                size=[4, 3]+lat_size, dtype=dtype, device=device)
+            whole_b = dslash.give_clover(src=whole_x, clover_term=whole_clover_term, verbose=True) + dslash.give_wilson(src=whole_x, U=whole_U, kappa=kappa,
+                                                                                                                        with_I=True, verbose=True)
+        else:
+            whole_U = None
+            whole_clover_term = None
+            whole_x = None
+            whole_b = None
+        refer_U = tools.whole_xyzt2local_xyzt(whole_array=whole_U, whole_shape=[
+                                              3, 3, 4]+lat_size, root=root, dtype=dtype, device=device)
+        refer_clover_term = tools.whole_xyzt2local_xyzt(whole_array=whole_clover_term, whole_shape=[
+                                                        4, 3, 4, 3]+lat_size, root=root, dtype=dtype, device=device)
+        refer_x = tools.whole_xyzt2local_xyzt(whole_array=whole_x, whole_shape=[
+                                              4, 3]+lat_size, root=root, dtype=dtype, device=device)
+        refer_b = tools.whole_xyzt2local_xyzt(whole_array=whole_b, whole_shape=[
+                                              4, 3]+lat_size, root=root, dtype=dtype, device=device)
+    else:
+        kappa = 0.125
+        lat_size = [32, 32, 32, 32]
+        path = pyqcu.__file__.replace('pyqcu/__init__.py', 'examples/data/')
+        refer_U = tools.hdf5___xyzt2grid___xyzt(
+            file_name=path+'refer.wilson.U.L32K0_125.ccdxyzt.c64.h5', lat_size=lat_size, device=device, verbose=True)
+        refer_x = tools.hdf5___xyzt2grid___xyzt(
+            file_name=path+'refer.wilson.x.L32K0_125.scxyzt.c64.h5', lat_size=lat_size, device=device, verbose=True)
+        refer_b = tools.hdf5___xyzt2grid___xyzt(
+            file_name=path+'refer.wilson.b.L32K0_125.scxyzt.c64.h5', lat_size=lat_size, device=device, verbose=True)
+        refer_clover_term = torch.zeros(
+            size=[4, 3, 4, 3]+list(refer_b.shape)[2:], dtype=dtype, device=device)
+    operator = solver.operator(
+        U=refer_U, clover_term=refer_clover_term, kappa=kappa, verbose=True)
 
     def matvec(src):
-        return give_wilson(src=src, U=refer_U, kappa=0.125, verbose=False)
-    x = bicgstab(b=refer_b, matvec=matvec, tol=1e-6, max_iter=1000,
-                 x0=None, if_rtol=False, if_multi=False, verbose=True)
-    print(
-        f"PYQCU::TESTING::SOLVER::BISTABCG::X:\n {_torch.norm(x)}")
-    print(
-        f"PYQCU::TESTING::SOLVER::BISTABCG::X:\n {x.flatten()[:12]}")
-    diff = _torch.norm(x - refer_x) / _torch.norm(refer_x)
-    print(
-        f"PYQCU::TESTING::SOLVER::BISTABCG:\n Difference between computed and reference solution: {diff}")
-
-
-def test_solver_multigrid():
-    import torch
-    import pyqcu
-    from pyqcu.dslash import give_wilson, give_clover, make_clover
-    from pyqcu.lattice import generate_gauge_field
-    from pyqcu.solver import multigrid
-    from pyqcu.tools import hdf5___2___
-    from pyqcu import _torch
-    # kappa = 0.125
-    kappa = 1/(2*0.05+8)
-    # kappa = 0.1 # ???
-    # kappa = 0.12
-    path = pyqcu.__file__.replace('pyqcu/__init__.py', 'examples/data/')
-    if 1:
-        refer_U = torch.zeros(3, 3, 4, 8, 8, 16, 16, dtype=torch.complex128, device=torch.device(
-            'cuda' if torch.cuda.is_available() else 'cpu'))
-        generate_gauge_field(refer_U, seed=12138, sigma=0.1, verbose=False)
-        refer_x = _torch.randn(size=(
-            4, 3, refer_U.shape[-4], refer_U.shape[-3], refer_U.shape[-2], refer_U.shape[-1]), dtype=refer_U.dtype, device=refer_U.device)
-        clover_term = make_clover(U=refer_U, kappa=kappa, verbose=True)
-        refer_b = give_clover(src=refer_x, clover_term=clover_term, verbose=True) + \
-            give_wilson(src=refer_x, U=refer_U, kappa=kappa,
-                        with_I=True, verbose=True)
+        return operator.matvec(src=src)
+        # return dslash.give_clover(src=src, clover_term=refer_clover_term, verbose=True) + dslash.give_wilson(src=src, U=refer_U, kappa=kappa, with_I=True, verbose=True)
+    if method == 'bistabcg':
+        time_start = perf_counter()
+        x = solver.bistabcg(b=refer_b, matvec=matvec, tol=1e-6,
+                            max_iter=1000, x0=None, if_rtol=False, verbose=True)
+        time_end = perf_counter()
+    elif method == 'multigrid':
+        max_levels = 2
+        mg = solver.multigrid(dtype_list=[refer_U.dtype]*10, device_list=[refer_U.device]*10, U=refer_U,
+                              clover_term=refer_clover_term, kappa=kappa, tol=1e-6, max_iter=1000, max_levels=max_levels, verbose=True)
+        mg.init()
+        time_start = perf_counter()
+        x = mg.solve(b=refer_b)
+        time_end = perf_counter()
+        mg.plot()
     else:
-        refer_U = hdf5___2___(
-            file_name=path+'refer.wilson.U.L32K0_125.ccdxyzt.c64.h5', device=torch.device(
-                'cuda' if torch.cuda.is_available() else 'cpu'), verbose=True)
-        refer_b = hdf5___2___(
-            file_name=path+'refer.wilson.b.L32K0_125.scxyzt.c64.h5', device=refer_U.device, verbose=True)
-        refer_x = hdf5___2___(
-            file_name=path+'refer.wilson.x.L32K0_125.scxyzt.c64.h5', device=refer_U.device, verbose=True)
-        clover_term = torch.zeros(size=(4, 3, 4, 3, refer_U.shape[-4], refer_U.shape[-3],
-                                  refer_U.shape[-2], refer_U.shape[-1]), dtype=refer_U.dtype, device=refer_U.device)
-    max_levels = 2
-    mg = multigrid(dtype_list=[refer_U.dtype]*10, device_list=[refer_U.device]*10, U=refer_U,
-                   clover_term=clover_term, kappa=kappa, tol=1e-6, max_iter=1000, max_levels=max_levels, verbose=True)
-    mg.init()
-    x = mg.solve(b=refer_b)
-    mg.plot()
+        raise ValueError(
+            f"PYQCU::TESTING::SOLVER::SOLVER: {solver} is not supported.")
+    diff = tools.norm(x - refer_x) / tools.norm(refer_x)
     print(
-        f"PYQCU::TESTING::SOLVER::MULTIGRID::REFER_U:\n {_torch.norm(refer_U)}")
+        f"PYQCU::TESTING::SOLVER::REFER_U:\n {tools.norm(refer_U)}")
     print(
-        f"PYQCU::TESTING::SOLVER::MULTIGRID::REFER_U:\n {refer_U.flatten()[:12]}")
+        f"PYQCU::TESTING::SOLVER::REFER_U:\n {refer_U.flatten()[:12]}")
     print(
-        f"PYQCU::TESTING::SOLVER::MULTIGRID::REFER_B:\n {_torch.norm(refer_b)}")
+        f"PYQCU::TESTING::SOLVER::REFER_B:\n {tools.norm(refer_b)}")
     print(
-        f"PYQCU::TESTING::SOLVER::MULTIGRID::REFER_B:\n {refer_b.flatten()[:12]}")
+        f"PYQCU::TESTING::SOLVER::REFER_B:\n {refer_b.flatten()[:12]}")
     print(
-        f"PYQCU::TESTING::SOLVER::MULTIGRID::REFER_X:\n {_torch.norm(refer_x)}")
+        f"PYQCU::TESTING::SOLVER::REFER_X:\n {tools.norm(refer_x)}")
     print(
-        f"PYQCU::TESTING::SOLVER::MULTIGRID::REFER_X:\n {refer_x.flatten()[:12]}")
+        f"PYQCU::TESTING::SOLVER::REFER_X:\n {refer_x.flatten()[:12]}")
     print(
-        f"PYQCU::TESTING::SOLVER::MULTIGRID::X:\n {_torch.norm(x)}")
+        f"PYQCU::TESTING::SOLVER::X:\n {tools.norm(x)}")
     print(
-        f"PYQCU::TESTING::SOLVER::MULTIGRID::X:\n {x.flatten()[:12]}")
-    diff = _torch.norm(x - refer_x) / _torch.norm(refer_x)
+        f"PYQCU::TESTING::SOLVER::X:\n {x.flatten()[:12]}")
     print(
-        f"PYQCU::TESTING::SOLVER::MULTIGRID:\n Difference between computed and reference solution: {diff}")
+        f"PYQCU::TESTING::SOLVER::TIME: {time_end - time_start}")
+    print(
+        f"PYQCU::TESTING::SOLVER:\n Difference between computed and reference solution: {diff}")
 
 
 def test_matmul():
