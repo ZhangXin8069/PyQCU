@@ -1,8 +1,8 @@
-import numpy as np
 from time import perf_counter
 import tilelang
 import torch
 from argparse import Namespace
+
 Namespace.__module__ = "pyqcu.testing"
 
 
@@ -46,7 +46,7 @@ def test_dslash_wilson():
     from pyqcu.lattice import check_su3
     from pyqcu import _torch
     print("PYQCU::TESTING::DSLASH::WILSON:\n imported successfully.")
-    U = torch.zeros(3, 3, 4, 4, 4, 4, 4, dtype=torch.complex64, device=torch.device(
+    U = torch.zeros(3, 3, 4, 4, 4, 4, 8, dtype=torch.complex64, device=torch.device(
         'cuda' if torch.cuda.is_available() else 'cpu'))
     from pyqcu.lattice import generate_gauge_field
     generate_gauge_field(U, seed=42, sigma=0.1, verbose=False)
@@ -179,8 +179,8 @@ def test_solver_bistabcg():
     print(
         f"PYQCU::TESTING::SOLVER::BISTABCG::REFER_X:\n {refer_x.flatten()[:12]}")
 
-    def matvec(v):
-        return give_wilson(src=v, U=refer_U, kappa=0.125, verbose=False)
+    def matvec(src):
+        return give_wilson(src=src, U=refer_U, kappa=0.125, verbose=False)
     x = bicgstab(b=refer_b, matvec=matvec, tol=1e-6, max_iter=1000,
                  x0=None, if_rtol=False, if_multi=False, verbose=True)
     print(
@@ -195,38 +195,54 @@ def test_solver_bistabcg():
 def test_solver_multigrid():
     import torch
     import pyqcu
-    from pyqcu.dslash import give_clover, add_I
+    from pyqcu.dslash import give_wilson, give_clover, make_clover
+    from pyqcu.lattice import generate_gauge_field
     from pyqcu.solver import multigrid
     from pyqcu.tools import hdf5___2___
     from pyqcu import _torch
+    # kappa = 0.125
+    kappa = 1/(2*0.05+8)
+    # kappa = 0.1 # ???
+    # kappa = 0.12
     path = pyqcu.__file__.replace('pyqcu/__init__.py', 'examples/data/')
-    refer_U = hdf5___2___(
-        file_name=path+'refer.wilson.U.L32K0_125.ccdxyzt.c64.h5', device=torch.device(
-            'cuda' if torch.cuda.is_available() else 'cpu'), verbose=True)
+    if 1:
+        refer_U = torch.zeros(3, 3, 4, 8, 8, 16, 16, dtype=torch.complex128, device=torch.device(
+            'cuda' if torch.cuda.is_available() else 'cpu'))
+        generate_gauge_field(refer_U, seed=12138, sigma=0.1, verbose=False)
+        refer_x = _torch.randn(size=(
+            4, 3, refer_U.shape[-4], refer_U.shape[-3], refer_U.shape[-2], refer_U.shape[-1]), dtype=refer_U.dtype, device=refer_U.device)
+        clover_term = make_clover(U=refer_U, kappa=kappa, verbose=True)
+        refer_b = give_clover(src=refer_x, clover_term=clover_term, verbose=True) + \
+            give_wilson(src=refer_x, U=refer_U, kappa=kappa,
+                        with_I=True, verbose=True)
+    else:
+        refer_U = hdf5___2___(
+            file_name=path+'refer.wilson.U.L32K0_125.ccdxyzt.c64.h5', device=torch.device(
+                'cuda' if torch.cuda.is_available() else 'cpu'), verbose=True)
+        refer_b = hdf5___2___(
+            file_name=path+'refer.wilson.b.L32K0_125.scxyzt.c64.h5', device=refer_U.device, verbose=True)
+        refer_x = hdf5___2___(
+            file_name=path+'refer.wilson.x.L32K0_125.scxyzt.c64.h5', device=refer_U.device, verbose=True)
+        clover_term = torch.zeros(size=(4, 3, 4, 3, refer_U.shape[-4], refer_U.shape[-3],
+                                  refer_U.shape[-2], refer_U.shape[-1]), dtype=refer_U.dtype, device=refer_U.device)
+    max_levels = 2
+    mg = multigrid(dtype_list=[refer_U.dtype]*10, device_list=[refer_U.device]*10, U=refer_U,
+                   clover_term=clover_term, kappa=kappa, tol=1e-6, max_iter=1000, max_levels=max_levels, verbose=True)
+    mg.init()
+    x = mg.solve(b=refer_b)
+    mg.plot()
     print(
         f"PYQCU::TESTING::SOLVER::MULTIGRID::REFER_U:\n {_torch.norm(refer_U)}")
     print(
         f"PYQCU::TESTING::SOLVER::MULTIGRID::REFER_U:\n {refer_U.flatten()[:12]}")
-    refer_b = hdf5___2___(
-        file_name=path+'refer.wilson.b.L32K0_125.scxyzt.c64.h5', device=refer_U.device, verbose=True)
     print(
         f"PYQCU::TESTING::SOLVER::MULTIGRID::REFER_B:\n {_torch.norm(refer_b)}")
     print(
         f"PYQCU::TESTING::SOLVER::MULTIGRID::REFER_B:\n {refer_b.flatten()[:12]}")
-    refer_x = hdf5___2___(
-        file_name=path+'refer.wilson.x.L32K0_125.scxyzt.c64.h5', device=refer_U.device, verbose=True)
     print(
         f"PYQCU::TESTING::SOLVER::MULTIGRID::REFER_X:\n {_torch.norm(refer_x)}")
     print(
         f"PYQCU::TESTING::SOLVER::MULTIGRID::REFER_X:\n {refer_x.flatten()[:12]}")
-    clover_term = torch.zeros(size=(4, 3, 4, 3, refer_U.shape[-4], refer_U.shape[-3],
-                              refer_U.shape[-2], refer_U.shape[-1]), dtype=refer_U.dtype, device=refer_U.device)
-    clover_term = add_I(clover_term=clover_term, verbose=True)
-    mg = multigrid(dtype_list=[refer_U.dtype]*10, device_list=[refer_U.device]*10, U=refer_U,
-                   clover_term=clover_term, kappa=0.125, tol=1e-6, max_iter=1000, max_levels=1, verbose=True)
-    mg.init()
-    x = mg.solve(b=refer_b)
-    mg.plot()
     print(
         f"PYQCU::TESTING::SOLVER::MULTIGRID::X:\n {_torch.norm(x)}")
     print(

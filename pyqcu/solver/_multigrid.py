@@ -136,15 +136,15 @@ class op:
                     _src_c = torch.zeros_like(self.sitting.M[0])
                     _src_c[e][tools.slice_dim(ward=ward, start=0)] = 1.0
                     _src_f = tools.prolong(
-                        local_ortho_null_vecs=local_ortho_null_vecs, coarse_vec=_src_c, verbose=self.verbose)
+                        local_ortho_null_vecs=local_ortho_null_vecs, coarse_vec=_src_c)
                     _dest_f_plus = fine_hopping.matvec_plus(
                         ward=ward, src=_src_f, if_multi=self.if_multi)
                     _dest_f_minus = fine_hopping.matvec_minus(
                         ward=ward, src=_src_f, if_multi=self.if_multi)
                     _dest_c_plus = tools.restrict(
-                        local_ortho_null_vecs=local_ortho_null_vecs, fine_vec=_dest_f_plus, verbose=self.verbose)
+                        local_ortho_null_vecs=local_ortho_null_vecs, fine_vec=_dest_f_plus)
                     _dest_c_minus = tools.restrict(
-                        local_ortho_null_vecs=local_ortho_null_vecs, fine_vec=_dest_f_minus, verbose=self.verbose)
+                        local_ortho_null_vecs=local_ortho_null_vecs, fine_vec=_dest_f_minus)
                     self.sitting.M[:, e][tools.slice_dim(dims_num=5,
                                                          ward=ward, start=0)] += _dest_c_plus[tools.slice_dim(dims_num=5, ward=ward, start=0)].clone()
                     self.sitting.M[:, e][tools.slice_dim(dims_num=5,
@@ -157,15 +157,15 @@ class op:
                     _src_c = torch.zeros_like(self.sitting.M[0])
                     _src_c[e][tools.slice_dim(ward=ward, start=1)] = 1.0
                     _src_f = tools.prolong(
-                        local_ortho_null_vecs=local_ortho_null_vecs, coarse_vec=_src_c, verbose=self.verbose)
+                        local_ortho_null_vecs=local_ortho_null_vecs, coarse_vec=_src_c)
                     _dest_f_plus = fine_hopping.matvec_plus(
                         ward=ward, src=_src_f, if_multi=self.if_multi)
                     _dest_f_minus = fine_hopping.matvec_minus(
                         ward=ward, src=_src_f, if_multi=self.if_multi)
                     _dest_c_plus = tools.restrict(
-                        local_ortho_null_vecs=local_ortho_null_vecs, fine_vec=_dest_f_plus, verbose=self.verbose)
+                        local_ortho_null_vecs=local_ortho_null_vecs, fine_vec=_dest_f_plus)
                     _dest_c_minus = tools.restrict(
-                        local_ortho_null_vecs=local_ortho_null_vecs, fine_vec=_dest_f_minus, verbose=self.verbose)
+                        local_ortho_null_vecs=local_ortho_null_vecs, fine_vec=_dest_f_minus)
                     self.sitting.M[:, e][tools.slice_dim(dims_num=5,
                                                          ward=ward, start=1)] += _dest_c_plus[tools.slice_dim(dims_num=5, ward=ward, start=1)].clone()
                     self.sitting.M[:, e][tools.slice_dim(dims_num=5,
@@ -178,10 +178,10 @@ class op:
                 _src_c = torch.zeros_like(self.sitting.M[0])
                 _src_c[e] = 1.0
                 _src_f = tools.prolong(
-                    local_ortho_null_vecs=local_ortho_null_vecs, coarse_vec=_src_c, verbose=self.verbose)
+                    local_ortho_null_vecs=local_ortho_null_vecs, coarse_vec=_src_c)
                 _dest_f = fine_sitting.matvec(src=_src_f)
                 _dest_c = tools.restrict(
-                    local_ortho_null_vecs=local_ortho_null_vecs, fine_vec=_dest_f, verbose=self.verbose)
+                    local_ortho_null_vecs=local_ortho_null_vecs, fine_vec=_dest_f)
                 self.sitting.M[:, e] += _dest_c.clone()
 
     def matvec(self, src: torch.Tensor, if_multi: bool = lattice.give_if_multi()) -> torch.Tensor:
@@ -192,28 +192,40 @@ class op:
 
 
 class multigrid:
-    def __init__(self, dtype_list: Tuple[torch.dtype, torch.dtype, torch.dtype, torch.dtype], device_list: Tuple[torch.device, torch.device, torch.device, torch.device],  U: torch.Tensor, clover_term: torch.Tensor, kappa: float = 0.1, u_0: float = 1.0, min_size: int = 2, max_levels: int = 4, mg_grid_size: Tuple[int, int, int, int] = [2, 2, 2, 2], num_convergence_sample: int = 50, dof_list: Tuple[int, int, int, int] = [12, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24], mass: float = -0.05, tol: float = 1e-6, max_iter: int = 1000, root: int = 0, verbose: bool = True):
+    def __init__(self, dtype_list: Tuple[torch.dtype, torch.dtype, torch.dtype, torch.dtype], device_list: Tuple[torch.device, torch.device, torch.device, torch.device],  U: torch.Tensor, clover_term: torch.Tensor, kappa: float = 0.1, u_0: float = 1.0, min_size: int = 2, max_levels: int = 4, mg_grid_size: Tuple[int, int, int, int] = [2, 2, 2, 2], num_convergence_sample: int = 50, dof_list: Tuple[int, int, int, int] = [12, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24], tol: float = 1e-6, max_iter: int = 1000, root: int = 0, verbose: bool = True):
         self.comm = MPI.COMM_WORLD
         self.rank = self.comm.Get_rank()
         self.lat_size = list(U.shape[-4:])  # xyzt
         self.min_size = min_size
         self.max_levels = max_levels
-        self.mass = mass  # just for plot......
         self.kappa = kappa
+        self.mass = (1/kappa - 8)/2  # just for plot......
         self.u_0 = u_0
         self.tol = tol
         self.max_iter = max_iter
         self.root = root
         self.verbose = verbose
-        self.dtype_list = dtype_list[:max_levels]
-        self.device_list = device_list[:max_levels]
-        self.dof_list = dof_list
+        # Build grid list
+        self.lat_size_list = []
+        self.mg_grid_size = mg_grid_size
+        _lat_size = self.lat_size
+        while all(_ >= self.min_size for _ in _lat_size) and len(self.lat_size_list) < self.max_levels:
+            self.lat_size_list.append(_lat_size)
+            _lat_size = [_lat_size[d] // self.mg_grid_size[d]
+                         for d in range(4)]
+        self.num_levels = len(self.lat_size_list)
+        self.dof_list = dof_list[:self.num_levels]
+        self.dtype_list = dtype_list[:self.num_levels]
+        self.device_list = device_list[:self.num_levels]
         if self.rank == self.root:
-            print(f"PYQCU::SOLVER::MULTIGRID:\n self.dof_list:{self.dof_list}")
+            print(
+                f"PYQCU::SOLVER::MULTIGRID:\n self.dof_list:{self.dof_list}")
             print(
                 f"PYQCU::SOLVER::MULTIGRID:\n self.dtype_list:{self.dtype_list}")
             print(
                 f"PYQCU::SOLVER::MULTIGRID:\n self.device_list:{self.device_list}")
+            print(
+                f"PYQCU::SOLVER::MULTIGRID:\n self.lat_size_list:{self.lat_size_list}")
         for device in self.device_list:
             tools.set_device(device=device)
         self.op_list = [op(U=U,
@@ -228,19 +240,6 @@ class multigrid:
         self.num_convergence_sample = num_convergence_sample
         self.convergence_history = []
         self.convergence_tol = 0
-        # Build grid list
-        self.lat_size_list = []
-        self.mg_grid_size = mg_grid_size
-        _lat_size = self.lat_size
-        while all(_ >= self.min_size for _ in _lat_size) and len(self.lat_size_list) < self.max_levels:
-            self.lat_size_list.append(_lat_size)
-            _lat_size = [_lat_size[d] // self.mg_grid_size[d]
-                         for d in range(4)]
-        self.num_levels = len(self.lat_size_list)
-        if self.rank == self.root:
-            print(
-                f"PYQCU::SOLVER::MULTIGRID:\n self.lat_size_list:{self.lat_size_list}")
-        self.dof_list = self.dof_list[:self.num_levels]
 
     def init(self):
         # Build local-orthonormal near-null space vectors
@@ -299,7 +298,7 @@ class multigrid:
             print(
                 f"PYQCU::SOLVER::MULTIGRID:\n {level}:Norm of x0:{_torch.norm(x)}")
         if level == 0:
-            self.convergence_history.append(r_norm)
+            self.convergence_history.append(r_norm.cpu())
             _tol = self.tol
         if r_norm < _tol:
             print("PYQCU::SOLVER::MULTIGRID:\n x0 is just right!")
@@ -330,7 +329,7 @@ class multigrid:
             r = s - omega * t
             r_norm = _torch.norm(r)
             if level == 0:
-                self.convergence_history.append(r_norm)
+                self.convergence_history.append(r_norm.cpu())
             if self.verbose:
                 # print(f"alpha,beta,omega:{alpha,beta,omega}\n")
                 print(
@@ -338,18 +337,18 @@ class multigrid:
             # cycle start
             if level < self.num_levels-1:
                 r_coarse = tools.restrict(
-                    local_ortho_null_vecs=self.lonv_list[level], fine_vec=r, verbose=self.verbose)
+                    local_ortho_null_vecs=self.lonv_list[level], fine_vec=r)
                 self.b_list[level+1] = r_coarse.clone().to(dtype=self.dtype_list[level+1],
                                                            device=self.device_list[level+1])
                 e_coarse = self.cycle(level=level+1).to(dtype=self.dtype_list[level],
                                                         device=self.device_list[level])
                 e_fine = tools.prolong(
-                    local_ortho_null_vecs=self.lonv_list[level], coarse_vec=e_coarse, verbose=self.verbose)
+                    local_ortho_null_vecs=self.lonv_list[level], coarse_vec=e_coarse)
                 x = x + e_fine
                 r = b - matvec(x)
             r_norm = _torch.norm(r)
             if level == 0:
-                self.convergence_history.append(r_norm)
+                self.convergence_history.append(r_norm.cpu())
                 self.adaptive(iter=i)
             # cycle end
             iter_time = perf_counter() - iter_start_time
