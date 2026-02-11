@@ -81,7 +81,9 @@ def give_grid_size() -> Tuple[int, int, int, int]:
     for f in sorted(factors, reverse=True):
         idx = np.argmin(groups)   # index of smallest product
         groups[idx] *= f
-    return sorted(groups.tolist())
+    dest = sorted(groups.tolist())
+    # print(f"PYQCU::TOOLS::DEFINE:\n give_grid_size: {dest}")
+    return dest
 
 
 def give_eo_mask(___tzy_t_p: torch.Tensor, eo: int, verbose=False) -> torch.Tensor:
@@ -108,9 +110,9 @@ def slice_dim(dims_num: int = 4, ward: int = 0, start: int = None, stop: int = N
     """
     slices = [slice(None)] * dims_num
     if point == None:
-        slices[ward-4] = slice(start, stop, step)
+        slices[ward-4 if ward >= 0 else ward] = slice(start, stop, step)
     else:
-        slices[ward-4] = point
+        slices[ward-4 if ward >= 0 else ward] = point
     return tuple(slices)
 
 
@@ -118,9 +120,11 @@ def give_grid_index(rank: int = None) -> Tuple[int, int, int, int]:
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank() if rank == None else rank
     size = comm.Get_size()
-    return torch.nonzero(
+    dest = torch.nonzero(
         torch.arange(size).reshape(
             give_grid_size()) == rank).squeeze().tolist()
+    # print(f"PYQCU::TOOLS::DEFINE:\n give_grid_index: {dest}")
+    return dest
 
 
 def give_rank_plus(ward: int, rank: int = None) -> Tuple[int, int, int, int]:
@@ -130,7 +134,8 @@ def give_rank_plus(ward: int, rank: int = None) -> Tuple[int, int, int, int]:
     grid_index = give_grid_index(rank=rank)
     grid_index[ward] = 0 if grid_index[ward] == grid_size[ward] - \
         1 else grid_index[ward]+1
-    return grid_index[-1]+(grid_size[-1]*(grid_index[-2]+(grid_size[-2]*(grid_index[-2]+(grid_size[-3]*(grid_index[-4]))))))
+    # print(f"PYQCU::TOOLS::DEFINE:\n give_rank_plus: {grid_index}, ward: {ward}")
+    return grid_index[-1]+(grid_size[-1]*(grid_index[-2]+(grid_size[-2]*(grid_index[-3]+(grid_size[-3]*(grid_index[-4]))))))
 
 
 def give_rank_minus(ward: int, rank: int = None) -> Tuple[int, int, int, int]:
@@ -140,19 +145,20 @@ def give_rank_minus(ward: int, rank: int = None) -> Tuple[int, int, int, int]:
     grid_index = give_grid_index(rank=rank)
     grid_index[ward] = grid_size[ward] - \
         1 if grid_index[ward] == 0 else grid_index[ward]-1
-    return grid_index[-1]+(grid_size[-1]*(grid_index[-2]+(grid_size[-2]*(grid_index[-2]+(grid_size[-3]*(grid_index[-4]))))))
+    # print(f"PYQCU::TOOLS::DEFINE:\n give_rank_minus: {grid_index}, ward: {ward}")
+    return grid_index[-1]+(grid_size[-1]*(grid_index[-2]+(grid_size[-2]*(grid_index[-3]+(grid_size[-3]*(grid_index[-4]))))))
 
 
-def local2full_tensor(
-    local_tensor: torch.Tensor,
+def local_xyzt2whole_xyzt(
+    local_array: torch.Tensor,
     root: int = 0
 ) -> Optional[torch.Tensor]:
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     size = comm.Get_size()
     comm.Barrier()
-    prefix_shape = local_tensor.shape[:-4]
-    grid_lat_x, grid_lat_y, grid_lat_z, grid_lat_t = local_tensor.shape[-4:]
+    prefix_shape = local_array.shape[:-4]
+    grid_lat_x, grid_lat_y, grid_lat_z, grid_lat_t = local_array.shape[-4:]
     grid_x, grid_y, grid_z, grid_t = give_grid_size()
     lat_x = grid_lat_x * grid_x
     lat_y = grid_lat_y * grid_y
@@ -161,39 +167,46 @@ def local2full_tensor(
     global_shape = (*prefix_shape, lat_x, lat_y, lat_z, lat_t)
     local_shape = (*prefix_shape, grid_lat_x,
                    grid_lat_y, grid_lat_z, grid_lat_t)
-    sendbuf = local_tensor.cpu().contiguous().numpy()
+    sendbuf = local_array.cpu().contiguous().numpy()
     if rank == root:
         recvbuf = np.zeros(shape=(size,) + local_shape,
-                           dtype=torch2np_dtype[local_tensor.dtype])
+                           dtype=torch2np_dtype[local_array.dtype])
     else:
         recvbuf = None
     comm.Gather(sendbuf=sendbuf, recvbuf=recvbuf, root=root)
     comm.Barrier()
     if rank == root:
-        full = np.zeros(global_shape, dtype=torch2np_dtype[local_tensor.dtype])
+        whole = np.zeros(global_shape, dtype=torch2np_dtype[local_array.dtype])
         for r in range(size):
             grid_index_x, grid_index_y, grid_index_z, grid_index_t = give_grid_index(
                 rank=r)
-            full[...,
-                 grid_index_x*grid_lat_x:(grid_index_x+1)*grid_lat_x,
-                 grid_index_y*grid_lat_y:(grid_index_y+1)*grid_lat_y,
-                 grid_index_z*grid_lat_z:(grid_index_z+1)*grid_lat_z,
-                 grid_index_t*grid_lat_t:(grid_index_t+1)*grid_lat_t] = recvbuf[r].copy()
-        return torch.from_numpy(full).to(device=local_tensor.device).clone()
+            whole[...,
+                  grid_index_x*grid_lat_x:(grid_index_x+1)*grid_lat_x,
+                  grid_index_y*grid_lat_y:(grid_index_y+1)*grid_lat_y,
+                  grid_index_z*grid_lat_z:(grid_index_z+1)*grid_lat_z,
+                  grid_index_t*grid_lat_t:(grid_index_t+1)*grid_lat_t] = recvbuf[r].copy()
+        return torch.from_numpy(whole).to(device=local_array.device).clone()
     else:
         return None
 
 
-def full2local_tensor(
-    full_tensor: Optional[torch.Tensor],
+def whole_xyzt2local_xyzt(
+        dtype: torch.dtype = None,
+    device: torch.device = None,
+    whole_shape: Tuple[int, ...] = None,
+    whole_array: Optional[torch.Tensor] = None,
     root: int = 0,
 ) -> torch.Tensor:
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     size = comm.Get_size()
     comm.Barrier()
-    prefix_shape = full_tensor.shape[:-4]
-    lat_x, lat_y, lat_z, lat_t = full_tensor.shape[-4:]
+    if whole_array is not None:
+        dtype = whole_array.dtype
+        device = whole_array.device
+        whole_shape = whole_array.shape
+    prefix_shape = whole_shape[:-4]
+    lat_x, lat_y, lat_z, lat_t = whole_shape[-4:]
     grid_x, grid_y, grid_z, grid_t = give_grid_size()
     grid_lat_x = lat_x // grid_x
     grid_lat_y = lat_y // grid_y
@@ -202,25 +215,25 @@ def full2local_tensor(
     local_shape = (*prefix_shape, grid_lat_x,
                    grid_lat_y, grid_lat_z, grid_lat_t)
     if rank == root:
-        full_np = full_tensor.cpu().contiguous().numpy()
+        whole_np = whole_array.cpu().contiguous().numpy()
         sendbuf = np.zeros(shape=(size,) + local_shape,
-                           dtype=torch2np_dtype[full_tensor.dtype])
+                           dtype=torch2np_dtype[dtype])
         for r in range(size):
             grid_index_x, grid_index_y, grid_index_z, grid_index_t = give_grid_index(
                 rank=r)
-            block = full_np[...,
-                            grid_index_x*grid_lat_x:(grid_index_x+1)*grid_lat_x,
-                            grid_index_y*grid_lat_y:(grid_index_y+1)*grid_lat_y,
-                            grid_index_z*grid_lat_z:(grid_index_z+1)*grid_lat_z,
-                            grid_index_t*grid_lat_t:(grid_index_t+1)*grid_lat_t].copy()
+            block = whole_np[...,
+                             grid_index_x*grid_lat_x:(grid_index_x+1)*grid_lat_x,
+                             grid_index_y*grid_lat_y:(grid_index_y+1)*grid_lat_y,
+                             grid_index_z*grid_lat_z:(grid_index_z+1)*grid_lat_z,
+                             grid_index_t*grid_lat_t:(grid_index_t+1)*grid_lat_t].copy()
             np.copyto(sendbuf[r], block)
     else:
         sendbuf = None
     recvbuf = np.zeros(shape=local_shape,
-                       dtype=torch2np_dtype[full_tensor.dtype])
+                       dtype=torch2np_dtype[dtype])
     comm.Scatter(sendbuf=sendbuf, recvbuf=recvbuf, root=root)
     comm.Barrier()
-    return torch.from_numpy(recvbuf).to(device=full_tensor.device).clone()
+    return torch.from_numpy(recvbuf).to(device=device).clone()
 
 
 def set_device(device: torch.device):
