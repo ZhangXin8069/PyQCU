@@ -14,13 +14,9 @@ def abs(input: torch.Tensor) -> torch.Tensor:
 
 def vdot(input: torch.Tensor, other: torch.Tensor) -> torch.Tensor:
     if (input.device.type == 'npu' or if_test_npu) and torch.is_complex(input):
-        return torch.sum(torch.conj(input) * other)
+        return torch.sum(torch.conj(input.flatten()) * other.flatten())
     else:
-        return torch.vdot(input, other)
-
-
-def dot(input: torch.Tensor, other: torch.Tensor) -> torch.Tensor:
-    return vdot(input.flatten(), other.flatten())
+        return torch.vdot(input.flatten(), other.flatten())
 
 
 def norm(input: torch.Tensor, p='fro', dim=None, keepdim=False, out=None, dtype=None) -> torch.Tensor:
