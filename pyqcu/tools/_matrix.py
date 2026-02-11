@@ -46,7 +46,6 @@ def give_null_vecs(
                 print(
                     f"PYQCU::TOOLS::MATRIX:\n _torch.dot(null_vecs[{i}],null_vecs[{j}]):{_torch.dot(null_vecs[i],null_vecs[j])}")
     return null_vecs.clone()
-# NPU:The self tensor cannot be larger than 8 dimensions.
 
 
 def local_orthogonalize(null_vecs: torch.Tensor,
@@ -60,7 +59,7 @@ def local_orthogonalize(null_vecs: torch.Tensor,
     E, e, Xx, Yy, Zz, Tt = null_vecs.shape
     X, Y, Z, T = coarse_lat_size  # [xyzt]
     # sanity checks
-    assert Xx % X and Yy % Y == 0 and Zz % Z == 0 and Tt % T == 0, \
+    assert Xx % X == 0 and Yy % Y == 0 and Zz % Z == 0 and Tt % T == 0, \
         "PYQCU::TOOLS::MATRIX:\n Each lattice extent must be divisible by its coarse_lat_size factor."
     x, y, z, t = Xx // X, Yy // Y, Zz // Z, Tt // T
     local_dim = e * x * y * z * t
@@ -96,7 +95,7 @@ def restrict(local_ortho_null_vecs: torch.Tensor, fine_vec: torch.Tensor) -> tor
     dtype = fine_vec.dtype
     device = fine_vec.device
     if device.type == 'npu' or if_test_npu:
-        return npu_restrict(local_ortho_null_vecs=local_ortho_null_vecs, fine_vec=fine_vec, verbose=verbose)
+        return npu_restrict(local_ortho_null_vecs=local_ortho_null_vecs, fine_vec=fine_vec)
     _dtype = local_ortho_null_vecs.dtype
     _device = local_ortho_null_vecs.device
     if dtype != _dtype or device != _device:
@@ -111,7 +110,7 @@ def prolong(local_ortho_null_vecs: torch.Tensor, coarse_vec: torch.Tensor) -> to
     dtype = coarse_vec.dtype
     device = coarse_vec.device
     if device.type == 'npu' or if_test_npu:
-        return npu_prolong(local_ortho_null_vecs=local_ortho_null_vecs, coarse_vec=coarse_vec, verbose=verbose)
+        return npu_prolong(local_ortho_null_vecs=local_ortho_null_vecs, coarse_vec=coarse_vec)
     _dtype = local_ortho_null_vecs.dtype
     _device = local_ortho_null_vecs.device
     if dtype != _dtype or device != _device:
@@ -120,6 +119,7 @@ def prolong(local_ortho_null_vecs: torch.Tensor, coarse_vec: torch.Tensor) -> to
     _coarse_vec = coarse_vec.reshape(shape=shape[0:1]+shape[-8:][::2]).clone()
     return _torch.einsum(
         "EeXxYyZzTt,EXYZT->eXxYyZzTt", local_ortho_null_vecs, _coarse_vec).reshape([shape[1], shape[-8]*shape[-7], shape[-6]*shape[-5], shape[-4]*shape[-3], shape[-2]*shape[-1]]).clone().to(dtype=dtype, device=device)
+# NPU:The self tensor cannot be larger than 8 dimensions.
 
 
 def npu_local_orthogonalize(null_vecs: torch.Tensor,
@@ -131,7 +131,7 @@ def npu_local_orthogonalize(null_vecs: torch.Tensor,
     E, e, Xx, Yy, Zz, Tt = null_vecs.shape
     X, Y, Z, T = coarse_lat_size  # [xyzt]
     # sanity checks
-    assert Xx % X and Yy % Y == 0 and Zz % Z == 0 and Tt % T == 0, \
+    assert Xx % X == 0 and Yy % Y == 0 and Zz % Z == 0 and Tt % T == 0, \
         "Each lattice extent must be divisible by its coarse_lat_size factor."
     x, y, z, t = Xx // X, Yy // Y, Zz // Z, Tt // T
     local_dim = e * x * y * z * t
