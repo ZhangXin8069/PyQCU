@@ -3,66 +3,6 @@ import h5py
 import torch
 from mpi4py import MPI
 from typing import Tuple
-def ___2hdf5___(input_array: torch.Tensor, file_name: str = '___.h5', verbose: bool = False):
-    comm = MPI.COMM_WORLD
-    rank = comm.Get_rank()
-    if verbose:
-        print(f"PYQCU::TOOLS::IO:\n Input Array Shape: {input_array.shape}")
-    dtype = input_array.dtype
-    shape = input_array.shape
-    if HAS_MPI_SUPPORT:
-        # Use MPI parallel I/O
-        with h5py.File(file_name, 'w', driver='mpio', comm=comm) as f:
-            dest = f.create_dataset('data', shape=shape, dtype=dtype)
-            dest[...] = input_array.cpu().contiguous().numpy()
-            if verbose:
-                print(f"PYQCU::TOOLS::IO:\n Dest Shape: {dest.shape}")
-            print(
-                f"PYQCU::TOOLS::IO:\n rank {rank}: Data is saved to {file_name} (MPI mode)")
-    else:
-        # Use serial I/O - only rank 0 writes
-        if rank == 0:
-            with h5py.File(file_name, 'w') as f:
-                dest = f.create_dataset('data', shape=shape, dtype=dtype)
-                dest[...] = input_array.cpu().contiguous().numpy()
-                if verbose:
-                    print(f"PYQCU::TOOLS::IO:\n Dest Shape: {dest.shape}")
-                print(
-                    f"PYQCU::TOOLS::IO:\n Data is saved to {file_name} (Serial mode)")
-        comm.Barrier()
-def hdf5___2___(device: torch.device, file_name: str = '___.h5', verbose: bool = False) -> torch.Tensor:
-    comm = MPI.COMM_WORLD
-    rank = comm.Get_rank()
-    if HAS_MPI_SUPPORT:
-        # Use MPI parallel I/O
-        with h5py.File(file_name, 'r', driver='mpio', comm=comm) as f:
-            all_dest = f['data']
-            dest = all_dest[...]
-            if verbose:
-                print(
-                    f"PYQCU::TOOLS::IO:\n rank {rank}: Dest Shape: {dest.shape}")
-            return torch.from_numpy(dest).to(device=device).clone()
-    else:
-        # Use serial I/O - only rank 0 reads, then broadcast
-        if rank == 0:
-            with h5py.File(file_name, 'r') as f:
-                all_dest = f['data']
-                dest = all_dest[...]
-                if verbose:
-                    print(f"PYQCU::TOOLS::IO:\n Dest Shape: {dest.shape}")
-                tensor = torch.from_numpy(dest).to(device=device).clone()
-        else:
-            tensor = None
-        # Broadcast to all ranks (this is inefficient but works for small data)
-        # For large data, consider using MPI directly or implementing chunked transfer
-        if rank == 0:
-            print(
-                f"PYQCU::TOOLS::IO:\n Data is loaded from {file_name} (Serial mode - broadcasting)")
-        # Note: This requires manual MPI broadcast implementation for torch tensors
-        # For simplicity, we're assuming rank 0 has read the data
-        comm.Barrier()
-        # Placeholder for non-zero ranks
-        return tensor if rank == 0 else torch.zeros(1)
 def grid___xyzt2hdf5___xyzt(
     input_tensor: torch.Tensor,
     file_name: str,
