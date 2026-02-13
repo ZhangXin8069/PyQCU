@@ -182,7 +182,7 @@ def test_solver(method: str = 'bistabcg', kappa: float = 0.125, lat_size: list =
             file_name=path+'refer.wilson.b.L32K0_125.scxyzt.c64.h5', lat_size=lat_size, device=device, verbose=True)
         refer_clover_term = torch.zeros(
             size=[4, 3, 4, 3]+list(refer_b.shape)[2:], dtype=dtype, device=device)
-    operator = solver.operator(
+    operator = dslash.operator(
         U=refer_U, clover_term=refer_clover_term, kappa=kappa, verbose=True)
 
     def matvec(src):
