@@ -6,7 +6,7 @@ from pyqcu.testing import *
 # test_dslash_wilson(with_data=False, suppoer_multi=False)
 # test_dslash_wilson(with_data=False)
 # test_dslash_clover()
-test_dslash_parity()
+# test_dslash_parity()
 # test_solver(method='bistabcg', dtype=torch.complex128,
 #             lat_size=[8, 8, 8, 8])
 # test_solver(method='multigrid', dtype=torch.complex128,
@@ -25,3 +25,7 @@ test_dslash_parity()
 #             lat_size=[8, 8, 8, 16], max_levels=2, num_restart=3)
 # test_solver(method='multigrid', dtype=torch.complex128,
 #             lat_size=[8, 8, 8, 16], max_levels=2, num_restart=5)
+test_solver_parity(method='bistabcg', dtype=torch.complex128,
+                   lat_size=[8, 8, 8, 16])
+# test_solver_parity(method='multigrid', dtype=torch.complex128,
+#             lat_size=[8, 8, 8, 8])
