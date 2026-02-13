@@ -1,7 +1,4 @@
-import operator
 from time import perf_counter
-import time
-from weakref import ref
 import tilelang
 import torch
 from argparse import Namespace
