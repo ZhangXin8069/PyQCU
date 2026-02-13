@@ -1,7 +1,7 @@
 import torch
 from typing import Callable, Tuple
 from pyqcu import _torch, solver, tools
-if_test_npu = False
+disable_patch_npu = False
 
 
 def give_null_vecs(
@@ -53,7 +53,7 @@ def local_orthogonalize(null_vecs: torch.Tensor,
                                                int, int] = (2, 2, 2, 2),
                         normalize: bool = True,
                         verbose: bool = False) -> torch.Tensor:
-    if null_vecs.device.type == 'npu' or if_test_npu:
+    if null_vecs.device.type == 'npu' or disable_patch_npu:
         return local_orthogonalize_npu(null_vecs=null_vecs, coarse_lat_size=coarse_lat_size, normalize=normalize, verbose=verbose)
     assert null_vecs.ndim == 6, "PYQCU::TOOLS::MATRIX:\n Expected shape [E,e,X*x,Y*y,Z*z,T*t]"
     E, e, Xx, Yy, Zz, Tt = null_vecs.shape
@@ -94,7 +94,7 @@ def local_orthogonalize(null_vecs: torch.Tensor,
 def restrict(local_ortho_null_vecs: torch.Tensor, fine_vec: torch.Tensor) -> torch.Tensor:
     dtype = fine_vec.dtype
     device = fine_vec.device
-    if device.type == 'npu' or if_test_npu:
+    if device.type == 'npu' or disable_patch_npu:
         return restrict_npu(local_ortho_null_vecs=local_ortho_null_vecs, fine_vec=fine_vec)
     _dtype = local_ortho_null_vecs.dtype
     _device = local_ortho_null_vecs.device
@@ -109,7 +109,7 @@ def restrict(local_ortho_null_vecs: torch.Tensor, fine_vec: torch.Tensor) -> tor
 def prolong(local_ortho_null_vecs: torch.Tensor, coarse_vec: torch.Tensor) -> torch.Tensor:
     dtype = coarse_vec.dtype
     device = coarse_vec.device
-    if device.type == 'npu' or if_test_npu:
+    if device.type == 'npu' or disable_patch_npu:
         return prolong_npu(local_ortho_null_vecs=local_ortho_null_vecs, coarse_vec=coarse_vec)
     _dtype = local_ortho_null_vecs.dtype
     _device = local_ortho_null_vecs.device
