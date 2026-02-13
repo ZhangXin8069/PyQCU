@@ -15,5 +15,8 @@ from ._clover import give_clover_oo as give_clover_oo
 from ._clover import make_clover_eoeo as make_clover_eoeo
 from ._clover import add_I_eoeo as add_I_eoeo
 from ._clover import inverse_eoeo as inverse_eoeo
+from ._operator import hopping as hopping
+from ._operator import sitting as sitting
+from ._operator import operator as operator
 from argparse import Namespace
 Namespace.__module__ = "pyqcu.dslash"
