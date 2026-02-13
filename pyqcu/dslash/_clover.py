@@ -129,21 +129,9 @@ def give_clover(src: torch.Tensor, clover_term: torch.Tensor, verbose: bool = Fa
     return dest.clone()
 
 
-def make_clover_eoeo(U_eo: torch.Tensor) -> torch.Tensor:
-    return tools.___xyzt2p___xyzt(make_clover(U=tools.p___xyzt2___xyzt(U_eo.clone())))
+def give_clover_ee(src_e: torch.Tensor, clover_e: torch.Tensor) -> torch.Tensor:
+    return give_clover(src=src_e, clover_term=clover_e)
 
 
-def add_I_eoeo(clover_eo: torch.Tensor) -> torch.Tensor:
-    return tools.___xyzt2p___xyzt(add_I(clover_term=tools.p___xyzt2___xyzt(clover_eo.clone())))
-
-
-def inverse_eoeo(clover_eo: torch.Tensor) -> torch.Tensor:
-    return tools.___xyzt2p___xyzt(inverse(clover_term=tools.p___xyzt2___xyzt(clover_eo.clone())))
-
-
-def give_clover_ee(src_e: torch.Tensor, clover_eo: torch.Tensor) -> torch.Tensor:
-    return give_clover(src=src_e.clone(), clover_term=clover_eo[0].clone())
-
-
-def give_clover_oo(src_o: torch.Tensor, clover_eo: torch.Tensor) -> torch.Tensor:
-    return give_clover(src=src_o.clone(), clover_term=clover_eo[1].clone())
+def give_clover_oo(src_o: torch.Tensor, clover_o: torch.Tensor) -> torch.Tensor:
+    return give_clover(src=src_o, clover_term=clover_o)

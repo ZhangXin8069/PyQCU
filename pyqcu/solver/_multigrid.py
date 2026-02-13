@@ -1,3 +1,5 @@
+from itertools import count
+from pdb import Restart
 import torch
 from typing import Tuple
 from pyqcu import _torch, tools, dslash
@@ -6,7 +8,7 @@ from time import perf_counter
 
 
 class multigrid:
-    def __init__(self, dtype_list: Tuple[torch.dtype, torch.dtype, torch.dtype, torch.dtype], device_list: Tuple[torch.device, torch.device, torch.device, torch.device],  U: torch.Tensor, clover_term: torch.Tensor, kappa: float = 0.1, u_0: float = 1.0, min_size: int = 2, max_levels: int = 4, mg_grid_size: Tuple[int, int, int, int] = [2, 2, 2, 2], num_convergence_sample: int = 50, dof_list: Tuple[int, int, int, int] = [12, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24], tol: float = 1e-6, max_iter: int = 1000, root: int = 0, verbose: bool = True):
+    def __init__(self, dtype_list: Tuple[torch.dtype, torch.dtype, torch.dtype, torch.dtype], device_list: Tuple[torch.device, torch.device, torch.device, torch.device],  U: torch.Tensor, clover_term: torch.Tensor, kappa: float = 0.1, u_0: float = 1.0, min_size: int = 2, max_levels: int = 4, mg_grid_size: Tuple[int, int, int, int] = [2, 2, 2, 2], num_convergence_sample: int = 50, dof_list: Tuple[int, int, int, int] = [12, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24], tol: float = 1e-6, max_iter: int = 1000, num_restart: int = 3, root: int = 0, verbose: bool = True):
         self.comm = MPI.COMM_WORLD
         self.rank = self.comm.Get_rank()
         self.lat_size = list(U.shape[-4:])  # xyzt
@@ -17,6 +19,7 @@ class multigrid:
         self.u_0 = u_0
         self.tol = tol
         self.max_iter = max_iter
+        self.num_restart = num_restart
         self.root = root
         self.verbose = verbose
         # Build grid list
@@ -128,6 +131,7 @@ class multigrid:
         omega = torch.tensor(1.0, dtype=b.dtype, device=b.device)
         start_time = perf_counter()
         iter_times = []
+        count_restart = 0
         for i in range(self.max_iter):
             iter_start_time = perf_counter()
             rho = tools.vdot(r_tilde, r)
@@ -148,8 +152,9 @@ class multigrid:
                 # print(f"alpha,beta,omega:{alpha,beta,omega}\n")
                 print(
                     f"PYQCU::SOLVER::MULTIGRID:\n B-{level}-bistabcg-Iteration {i}: Residual = {r_norm:.6e}")
+            count_restart += 1
             # cycle start
-            if level < self.num_levels-1:
+            if level < self.num_levels-1 and count_restart > self.num_restart:
                 r_coarse = tools.restrict(
                     local_ortho_null_vecs=self.lonv_list[level], fine_vec=r)
                 self.b_list[level+1] = r_coarse.clone().to(dtype=self.dtype_list[level+1],
@@ -160,6 +165,7 @@ class multigrid:
                     local_ortho_null_vecs=self.lonv_list[level], coarse_vec=e_coarse)
                 x = x + e_fine
                 r = b - matvec(x)
+                count_restart = 0
             r_norm = tools.norm(r)
             if level == 0:
                 self.convergence_history.append(r_norm)
