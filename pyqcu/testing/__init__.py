@@ -1,4 +1,5 @@
 from time import perf_counter
+from regex import T
 import tilelang
 import torch
 from argparse import Namespace
@@ -34,7 +35,7 @@ def test_lattice(lat_size: list = [8, 8, 8, 16], dtype: torch.dtype = torch.comp
     print(f"PYQCU::TESTING::LATTICE:\n Gauge field SU(3) check: {is_su3}")
 
 
-def test_dslash_wilson(kappa: float = 0.125, lat_size: list = [8, 8, 8, 16],  dtype: torch.dtype = torch.complex64, device: torch.device = torch.device('cpu'), with_data: bool = False):
+def test_dslash_wilson(kappa: float = 0.125, lat_size: list = [8, 8, 8, 16],  dtype: torch.dtype = torch.complex64, device: torch.device = torch.device('cpu'), with_data: bool = False, suppoer_multi: bool = True):
     if not with_data:
         refer_U = torch.zeros(
             size=[3, 3, 4]+lat_size, dtype=dtype, device=device)
@@ -73,9 +74,11 @@ def test_dslash_wilson(kappa: float = 0.125, lat_size: list = [8, 8, 8, 16],  dt
         operator = dslash.operator(
             U=refer_U, kappa=kappa, clover_term=refer_clover_term, verbose=True)
         time_start = perf_counter()
-        dest = operator.matvec(src=refer_src)
-        # dest = dslash.give_wilson(
-        #     src=refer_src, U=refer_U, kappa=kappa, with_I=True,  verbose=True)
+        if suppoer_multi:
+            dest = operator.matvec(src=refer_src)
+        else:
+            dest = dslash.give_wilson(
+                src=refer_src, U=refer_U, kappa=kappa, with_I=True,  verbose=True)
         time_end = perf_counter()
     is_su3 = lattice.check_su3(refer_U, tol=1e-6, verbose=True)
     diff = tools.norm(dest - refer_dest)/tools.norm(refer_dest)
