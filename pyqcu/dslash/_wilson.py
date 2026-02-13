@@ -213,6 +213,7 @@ def give_wilson_oe(
 def give_hopping_plus(ward: int, U: torch.Tensor, kappa: float = 0.1,
                       u_0: float = 1.0, verbose: bool = False) -> torch.Tensor:
     ward_key = lattice.ward_keys[ward]
+    ward = lattice.wards[ward_key]
     I = lattice.I.to(U.device).type(U.dtype)
     gamma_mu = lattice.gamma[ward].to(U.device).type(U.dtype)
     if verbose:
@@ -225,6 +226,7 @@ def give_hopping_plus(ward: int, U: torch.Tensor, kappa: float = 0.1,
 def give_hopping_minus(ward: int, U: torch.Tensor, U_head: torch.Tensor = None, kappa: float = 0.1,
                        u_0: float = 1.0, verbose: bool = False) -> torch.Tensor:
     ward_key = lattice.ward_keys[ward]
+    ward = lattice.wards[ward_key]
     I = lattice.I.to(U.device).type(U.dtype)
     gamma_mu = lattice.gamma[ward].to(U.device).type(U.dtype)
     if verbose:
@@ -243,6 +245,7 @@ def give_hopping_minus(ward: int, U: torch.Tensor, U_head: torch.Tensor = None, 
 
 def give_wilson_plus(ward: int, src: torch.Tensor, hopping: torch.Tensor, src_tail: torch.Tensor = None, parity: int = None, verbose: bool = False) -> torch.Tensor:
     ward_key = lattice.ward_keys[ward]
+    ward = lattice.wards[ward_key]
     if verbose:
         print(f"PYQCU::DSLASH::WILSON:\n give_wilson_{ward_key}_plus......")
     src_plus = _torch.roll(src, shifts=-1, dims=ward)
@@ -261,6 +264,7 @@ def give_wilson_plus(ward: int, src: torch.Tensor, hopping: torch.Tensor, src_ta
 
 def give_wilson_minus(ward: int, src: torch.Tensor, hopping: torch.Tensor, src_head: torch.Tensor = None, parity: int = None, verbose: bool = False) -> torch.Tensor:
     ward_key = lattice.ward_keys[ward]
+    ward = lattice.wards[ward_key]
     if verbose:
         print(f"PYQCU::DSLASH::WILSON:\n give_wilson_{ward_key}_minus......")
     src_minus = _torch.roll(src, shifts=1, dims=ward)
