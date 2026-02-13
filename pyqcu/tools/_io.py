@@ -3,7 +3,7 @@ import h5py
 import torch
 from mpi4py import MPI
 from typing import Tuple
-def grid___xyzt2hdf5___xyzt(
+def gridoooxyzt2hdf5oooxyzt(
     input_tensor: torch.Tensor,
     file_name: str,
     lat_size: Tuple[int, int, int, int],
@@ -74,7 +74,7 @@ def grid___xyzt2hdf5___xyzt(
                 print(
                     f"PYQCU::TOOLS::IO:\n Data is saved to {file_name} (Serial mode)")
         comm.Barrier()
-def hdf5___xyzt2grid___xyzt(
+def hdf5oooxyzt2gridoooxyzt(
     file_name: str,
     lat_size: Tuple[int, int, int, int],
     device: torch.device,

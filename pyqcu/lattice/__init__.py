@@ -35,7 +35,7 @@ ward_wards['zt'] = {'mu': wards['z'], 'nu': wards['t'], 'ward': wards['zt']}
 ward_ward_keys = ['xy', 'xz', 'xt', 'yz', 'yt', 'zt']
 
 
-def give_if_multi() -> bool:
+def give_support_multi() -> bool:
     comm = MPI.COMM_WORLD
     return comm.Get_size() > 1
 
