@@ -86,10 +86,10 @@ def give_grid_size() -> Tuple[int, int, int, int]:
     return dest
 
 
-def give_eo_mask(___tzy_t_p: torch.Tensor, eo: int, verbose=False) -> torch.Tensor:
+def give_eo_mask(oootzy_t_p: torch.Tensor, eo: int, verbose=False) -> torch.Tensor:
     if verbose:
         print("PYQCU::TOOLS::DEFINE:\n give_eo_mask......")
-    shape = ___tzy_t_p.shape
+    shape = oootzy_t_p.shape
     # Create coordinate grids for original shape
     coords = torch.meshgrid(
         torch.arange(shape[-4]),
@@ -106,7 +106,7 @@ def give_eo_mask(___tzy_t_p: torch.Tensor, eo: int, verbose=False) -> torch.Tens
 
 def slice_dim(dims_num: int = 4, ward: int = 0, start: int = None, stop: int = None, step: int = 2, point: int = None) -> tuple:
     """
-    Slice tensor along a specific dimension. [___xyzt]
+    Slice tensor along a specific dimension. [oooxyzt]
     """
     slices = [slice(None)] * dims_num
     if point == None:
@@ -274,9 +274,9 @@ def set_device(device: torch.device):
         f"PYQCU::TOOLS::DEFINE:\n [MPI Rank {rank}/{size}] Using {dev_type}:{local_rank}")
 
 
-def ___xyzt2p___xyzt(input_array: torch.Tensor, verbose: bool = False) -> torch.Tensor:
+def oooxyzt2poooxyzt(input_array: torch.Tensor, verbose: bool = False) -> torch.Tensor:
     if verbose:
-        print("PYQCU::TOOLS::DEFINE:\n ___xyzt2p___xyzt......")
+        print("PYQCU::TOOLS::DEFINE:\n oooxyzt2poooxyzt......")
     shape = input_array.shape
     dtype = input_array.dtype
     device = input_array.device
@@ -308,12 +308,12 @@ def ___xyzt2p___xyzt(input_array: torch.Tensor, verbose: bool = False) -> torch.
     if verbose:
         print(
             f"PYQCU::TOOLS::DEFINE:\n Splited Array Shape: {splited_array.shape}")
-    return splited_array
+    return splited_array.clone()
 
 
-def p___xyzt2___xyzt(input_array: torch.Tensor, verbose: bool = False) -> torch.Tensor:
+def poooxyzt2oooxyzt(input_array: torch.Tensor, verbose: bool = False) -> torch.Tensor:
     if verbose:
-        print("PYQCU::TOOLS::DEFINE:\n p___xyzt2___xyzt......")
+        print("PYQCU::TOOLS::DEFINE:\n poooxyzt2oooxyzt......")
     shape = input_array.shape
     dtype = input_array.dtype
     device = input_array.device
@@ -344,4 +344,4 @@ def p___xyzt2___xyzt(input_array: torch.Tensor, verbose: bool = False) -> torch.
     if verbose:
         print(
             f"PYQCU::TOOLS::DEFINE:\n Restored Array Shape: {restored_array.shape}")
-    return restored_array
+    return restored_array.clone()
