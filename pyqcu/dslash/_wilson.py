@@ -51,7 +51,7 @@ def give_wilson(src: torch.Tensor,
             'Ss,sCxyzt->SCxyzt', (I + gamma_mu), U_dag_src_minus)
         # Combine terms and subtract from dest
         hopping = term1 + term2
-        dest -= kappa/u_0 * hopping
+        dest -= (kappa/u_0) * hopping
         if verbose:
             print(
                 f"PYQCU::DSLASH::WILSON:\n Hopping term norm: {_torch.norm(hopping).item()}")
@@ -89,8 +89,8 @@ def give_wilson_eo(
                 f"PYQCU::DSLASH::WILSON:\n Processing {ward_key} (ward={ward})...")
         # Give eo mask for parity decomposition
         if ward_key == 't_p':
-            even_mask = tools.give_eo_mask(___tzy_t_p=src_o, eo=0)
-            odd_mask = tools.give_eo_mask(___tzy_t_p=src_o, eo=1)
+            even_mask = tools.give_eo_mask(oootzy_t_p=src_o, eo=0)
+            odd_mask = tools.give_eo_mask(oootzy_t_p=src_o, eo=1)
         # Extract gauge field for current direction
         U_e_mu = U_e[..., ward, :, :, :, :]  # [c1, c2, x, y, z, t_p]
         U_o_dag_mu = U_o_dag[..., ward, :, :, :, :]  # [c1, c2, x, y, z, t_p]
@@ -125,7 +125,7 @@ def give_wilson_eo(
             'Ss,sCxyzt->SCxyzt', (I + gamma_mu), U_o_dag_src_o_minus)
         # Combine terms and subtract from dest_e
         hopping = term1 + term2
-        dest_e -= kappa/u_0 * hopping
+        dest_e -= (kappa/u_0) * hopping
         if verbose:
             print(
                 f"PYQCU::DSLASH::WILSON:\n Hopping term norm: {_torch.norm(hopping).item()}")
@@ -163,8 +163,8 @@ def give_wilson_oe(
                 f"PYQCU::DSLASH::WILSON:\n Processing {ward_key} (ward={ward})...")
         # Give eo mask for parity decomposition
         if ward_key == 't_p':
-            even_mask = tools.give_eo_mask(___tzy_t_p=src_e, eo=0)
-            odd_mask = tools.give_eo_mask(___tzy_t_p=src_e, eo=1)
+            even_mask = tools.give_eo_mask(oootzy_t_p=src_e, eo=0)
+            odd_mask = tools.give_eo_mask(oootzy_t_p=src_e, eo=1)
         # Extract gauge field for current direction
         U_e_dag_mu = U_e_dag[..., ward, :, :, :, :]  # [c1, c2, x, y, z, t_p]
         U_o_mu = U_o[..., ward, :, :, :, :]  # [c1, c2, x, y, z, t_p]
@@ -199,7 +199,7 @@ def give_wilson_oe(
             'Ss,sCxyzt->SCxyzt', (I + gamma_mu), U_e_dag_src_e_minus)
         # Combine terms and subtract from dest_e
         hopping = term1 + term2
-        dest_o -= kappa/u_0 * hopping
+        dest_o -= (kappa/u_0) * hopping
         if verbose:
             print(
                 f"PYQCU::DSLASH::WILSON:\n Hopping term norm: {_torch.norm(hopping).item()}")
@@ -210,46 +210,21 @@ def give_wilson_oe(
     return dest_o.clone()
 
 
-def give_wilson_eoeo(
-        dest_eo: torch.Tensor,
-        src_eo: torch.Tensor) -> torch.Tensor:
-    # give_wilson_eo + give_wilson_oe + give_wilson_eoeo(I term) = give_wilson(complete)
-    return dest_eo+src_eo
-
-
-def give_hopping_plus(ward_key: str, U: torch.Tensor, kappa: float = 0.1,
+def give_hopping_plus(ward: int, U: torch.Tensor, kappa: float = 0.1,
                       u_0: float = 1.0, verbose: bool = False) -> torch.Tensor:
-    ward = lattice.wards[ward_key]
+    ward_key = lattice.ward_keys[ward]
     I = lattice.I.to(U.device).type(U.dtype)
     gamma_mu = lattice.gamma[ward].to(U.device).type(U.dtype)
     if verbose:
         print(f"PYQCU::DSLASH::WILSON:\n give_hopping_{ward_key}_plus......")
     U_mu = U[..., ward, :, :, :, :]
-    return - kappa/u_0 * _torch.einsum(
+    return - (kappa/u_0) * _torch.einsum(
         'Ss,Ccxyzt->SCscxyzt', (I - gamma_mu), U_mu).reshape([12, 12]+list(U.shape[-4:])).clone()  # sc->e
 
 
-def give_wilson_plus(ward_key: str, src: torch.Tensor, hopping: torch.Tensor, src_tail: torch.Tensor = None, parity: int = None, verbose: bool = False) -> torch.Tensor:
-    ward = lattice.wards[ward_key]
-    if verbose:
-        print(f"PYQCU::DSLASH::WILSON:\n give_wilson_{ward_key}_plus......")
-    src_plus = _torch.roll(src, shifts=-1, dims=ward)
-    if src_tail is not None:
-        src_plus[tools.slice_dim(dims_num=5, ward=ward, point=-1)
-                 ] = src_tail.clone()
-    if parity == 0:
-        odd_mask = tools.give_eo_mask(___tzy_t_p=src, eo=1)
-        src_plus[..., odd_mask] = src[..., odd_mask]
-    if parity == 1:
-        even_mask = tools.give_eo_mask(___tzy_t_p=src, eo=0)
-        src_plus[..., even_mask] = src[..., even_mask]
-    return _torch.einsum(
-        'Eexyzt,exyzt->Exyzt', hopping, src_plus).clone()
-
-
-def give_hopping_minus(ward_key: str, U: torch.Tensor, U_head: torch.Tensor = None, kappa: float = 0.1,
+def give_hopping_minus(ward: int, U: torch.Tensor, U_head: torch.Tensor = None, kappa: float = 0.1,
                        u_0: float = 1.0, verbose: bool = False) -> torch.Tensor:
-    ward = lattice.wards[ward_key]
+    ward_key = lattice.ward_keys[ward]
     I = lattice.I.to(U.device).type(U.dtype)
     gamma_mu = lattice.gamma[ward].to(U.device).type(U.dtype)
     if verbose:
@@ -262,12 +237,30 @@ def give_hopping_minus(ward_key: str, U: torch.Tensor, U_head: torch.Tensor = No
         U_head_dag_mu = U_head_dag[..., ward, :, :, :]
         U_dag_minus[tools.slice_dim(dims_num=6, ward=ward, point=0)
                     ] = U_head_dag_mu.clone()
-    return - kappa/u_0 * _torch.einsum(
+    return - (kappa/u_0) * _torch.einsum(
         'Ss,Ccxyzt->SCscxyzt', (I + gamma_mu), U_dag_minus).reshape([12, 12]+list(U.shape[-4:])).clone()  # sc->e
 
 
-def give_wilson_minus(ward_key: str, src: torch.Tensor, hopping: torch.Tensor, src_head: torch.Tensor = None, parity: int = None, verbose: bool = False) -> torch.Tensor:
-    ward = lattice.wards[ward_key]
+def give_wilson_plus(ward: int, src: torch.Tensor, hopping: torch.Tensor, src_tail: torch.Tensor = None, parity: int = None, verbose: bool = False) -> torch.Tensor:
+    ward_key = lattice.ward_keys[ward]
+    if verbose:
+        print(f"PYQCU::DSLASH::WILSON:\n give_wilson_{ward_key}_plus......")
+    src_plus = _torch.roll(src, shifts=-1, dims=ward)
+    if src_tail is not None:
+        src_plus[tools.slice_dim(dims_num=5, ward=ward, point=-1)
+                 ] = src_tail.clone()
+    if parity == 0:
+        odd_mask = tools.give_eo_mask(oootzy_t_p=src, eo=1)
+        src_plus[..., odd_mask] = src[..., odd_mask]
+    if parity == 1:
+        even_mask = tools.give_eo_mask(oootzy_t_p=src, eo=0)
+        src_plus[..., even_mask] = src[..., even_mask]
+    return _torch.einsum(
+        'Eexyzt,exyzt->Exyzt', hopping, src_plus).clone()
+
+
+def give_wilson_minus(ward: int, src: torch.Tensor, hopping: torch.Tensor, src_head: torch.Tensor = None, parity: int = None, verbose: bool = False) -> torch.Tensor:
+    ward_key = lattice.ward_keys[ward]
     if verbose:
         print(f"PYQCU::DSLASH::WILSON:\n give_wilson_{ward_key}_minus......")
     src_minus = _torch.roll(src, shifts=1, dims=ward)
@@ -275,10 +268,10 @@ def give_wilson_minus(ward_key: str, src: torch.Tensor, hopping: torch.Tensor, s
         src_minus[tools.slice_dim(dims_num=5, ward=ward, point=0)
                   ] = src_head.clone()
     if parity == 0:
-        even_mask = tools.give_eo_mask(___tzy_t_p=src, eo=0)
+        even_mask = tools.give_eo_mask(oootzy_t_p=src, eo=0)
         src_minus[..., even_mask] = src[..., even_mask]
     if parity == 1:
-        odd_mask = tools.give_eo_mask(___tzy_t_p=src, eo=1)
+        odd_mask = tools.give_eo_mask(oootzy_t_p=src, eo=1)
         src_minus[..., odd_mask] = src[..., odd_mask]
     return _torch.einsum(
         'Eexyzt,exyzt->Exyzt', hopping, src_minus).clone()
