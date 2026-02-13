@@ -224,30 +224,72 @@ class operator:
 
     def matvec_eo(self, src_o: torch.Tensor) -> torch.Tensor:
         dest_e = torch.zeros_like(src_o)
-        for ward in range(0, 3):
+        for ward in range(4):
+            if self.hopping.grid_size[ward] != 1 or self.sitting:
+                comm = MPI.COMM_WORLD
+                rank = comm.Get_rank()
+                src_head4send = src_o[tools.slice_dim(
+                    dims_num=5, ward=ward, point=0)].cpu().contiguous().numpy().copy()
+                src_tail4recv = np.zeros_like(src_head4send).copy()
+                rank_plus = tools.give_rank_plus(ward=ward)
+                rank_minus = tools.give_rank_minus(ward=ward)
+                comm.Sendrecv(sendbuf=src_head4send, dest=rank_minus, sendtag=rank_minus,
+                              recvbuf=src_tail4recv, source=rank_plus, recvtag=rank)
+                comm.Barrier()
+                src_tail = torch.from_numpy(src_tail4recv).to(
+                    device=src_o.device).clone()
+                src_tail4send = src_o[tools.slice_dim(
+                    dims_num=5, ward=ward, point=-1)].cpu().contiguous().numpy().copy()
+                src_head4recv = np.zeros_like(src_tail4send).copy()
+                rank_plus = tools.give_rank_plus(ward=ward)
+                rank_minus = tools.give_rank_minus(ward=ward)
+                comm.Sendrecv(sendbuf=src_tail4send, dest=rank_plus, sendtag=rank,
+                              recvbuf=src_head4recv, source=rank_minus, recvtag=rank_minus)
+                comm.Barrier()
+                src_head = torch.from_numpy(src_head4recv).to(
+                    device=src_o.device).clone()
+            else:
+                src_tail = None
+                src_head = None
             dest_e += dslash.give_wilson_plus(ward=ward,
-                                              src=src_o, hopping=self.hopping.M_e_plus_list[ward])
+                                              src=src_o, hopping=self.hopping.M_e_plus_list[ward], parity=1 if ward == 3 else None, src_tail=src_tail)
             dest_e += dslash.give_wilson_minus(ward=ward,
-                                               src=src_o, hopping=self.hopping.M_e_minus_list[ward])
-        for ward in range(3, 4):
-            dest_e += dslash.give_wilson_plus(ward=ward,
-                                              src=src_o, hopping=self.hopping.M_e_plus_list[ward], parity=1)
-            dest_e += dslash.give_wilson_minus(ward=ward,
-                                               src=src_o, hopping=self.hopping.M_e_minus_list[ward], parity=1)
+                                               src=src_o, hopping=self.hopping.M_e_minus_list[ward], parity=1 if ward == 3 else None, src_head=src_head)
         return dest_e.clone()
 
     def matvec_oe(self, src_e: torch.Tensor) -> torch.Tensor:
         dest_o = torch.zeros_like(src_e)
-        for ward in range(0, 3):
-            dest_o += dslash.give_wilson_minus(ward=ward,
-                                               src=src_e, hopping=self.hopping.M_o_minus_list[ward])
+        for ward in range(4):
+            if self.hopping.grid_size[ward] != 1 or self.sitting:
+                comm = MPI.COMM_WORLD
+                rank = comm.Get_rank()
+                src_head4send = src_e[tools.slice_dim(
+                    dims_num=5, ward=ward, point=0)].cpu().contiguous().numpy().copy()
+                src_tail4recv = np.zeros_like(src_head4send).copy()
+                rank_plus = tools.give_rank_plus(ward=ward)
+                rank_minus = tools.give_rank_minus(ward=ward)
+                comm.Sendrecv(sendbuf=src_head4send, dest=rank_minus, sendtag=rank_minus,
+                              recvbuf=src_tail4recv, source=rank_plus, recvtag=rank)
+                comm.Barrier()
+                src_tail = torch.from_numpy(src_tail4recv).to(
+                    device=src_e.device).clone()
+                src_tail4send = src_e[tools.slice_dim(
+                    dims_num=5, ward=ward, point=-1)].cpu().contiguous().numpy().copy()
+                src_head4recv = np.zeros_like(src_tail4send).copy()
+                rank_plus = tools.give_rank_plus(ward=ward)
+                rank_minus = tools.give_rank_minus(ward=ward)
+                comm.Sendrecv(sendbuf=src_tail4send, dest=rank_plus, sendtag=rank,
+                              recvbuf=src_head4recv, source=rank_minus, recvtag=rank_minus)
+                comm.Barrier()
+                src_head = torch.from_numpy(src_head4recv).to(
+                    device=src_e.device).clone()
+            else:
+                src_tail = None
+                src_head = None
             dest_o += dslash.give_wilson_plus(ward=ward,
-                                              src=src_e, hopping=self.hopping.M_o_plus_list[ward])
-        for ward in range(3, 4):
+                                              src=src_e, hopping=self.hopping.M_o_plus_list[ward], parity=0 if ward == 3 else None, src_tail=src_tail)
             dest_o += dslash.give_wilson_minus(ward=ward,
-                                               src=src_e, hopping=self.hopping.M_o_minus_list[ward], parity=0)
-            dest_o += dslash.give_wilson_plus(ward=ward,
-                                              src=src_e, hopping=self.hopping.M_o_plus_list[ward], parity=0)
+                                               src=src_e, hopping=self.hopping.M_o_minus_list[ward], parity=0 if ward == 3 else None, src_head=src_head)
         return dest_o.clone()
 
     def matvec_ee(self, src_e: torch.Tensor) -> torch.Tensor:
@@ -272,10 +314,21 @@ class operator:
     def give_b_parity(self, b_e: torch.Tensor, b_o: torch.Tensor, kappa: float = 0.1, u_0: float = 1.0) -> torch.Tensor:
         return (kappa/u_0)*self.matvec_oe(src_e=self.matvec_ee_inv(src_e=b_e))+b_o
 
+    def give_x_e(self, b_e: torch.Tensor, x_o: torch.Tensor, kappa: float = 0.1, u_0: float = 1.0) -> torch.Tensor:
+        return self.matvec_ee_inv(src_e=(b_e+(kappa/u_0)*self.matvec_eo(src_o=x_o)))
+
+    def matvec_eeo(self, src_e: torch.Tensor, src_o: torch.Tensor) -> torch.Tensor:
+        return self.matvec_eo(src_o=src_o)+self.matvec_ee(src_e=src_e)
+
+    def matvec_oeo(self, src_e: torch.Tensor, src_o: torch.Tensor) -> torch.Tensor:
+        return self.matvec_oe(src_e=src_e)+self.matvec_oo(src_o=src_o)
+
     def matvec_all(self, src: torch.Tensor) -> torch.Tensor:
         src_eo = tools.oooxyzt2poooxyzt(input_array=src)
         src_e = src_eo[0]
         src_o = src_eo[1]
-        dest_e = self.matvec_eo(src_o=src_o)+self.matvec_ee(src_e=src_e)
-        dest_o = self.matvec_oe(src_e=src_e)+self.matvec_oo(src_o=src_o)
+        dest_e = self.matvec_eeo(src_e=src_e, src_o=src_o)
+        dest_o = self.matvec_oeo(src_e=src_e, src_o=src_o)
+        print(dest_e.shape)
+        print(dest_o.shape)
         return tools.poooxyzt2oooxyzt(input_array=torch.stack([dest_e, dest_o], dim=0))
