@@ -242,7 +242,7 @@ def test_dslash_clover(device: torch.device = torch.device('cpu')):
         f"PYQCU::TESTING::DSLASH::CLOVER:\n Difference between computed and reference dslash: {diff}")
 
 
-def test_solver(method: str = 'bistabcg', kappa: float = 0.125, lat_size: list = [8, 8, 8, 16],  dtype: torch.dtype = torch.complex64, device: torch.device = torch.device('cpu'), with_data: bool = False, max_levels: int = 2, num_restart: int = 3):
+def test_solver(method: str = 'bistabcg', kappa: float = 0.125, lat_size: list = [8, 8, 8, 16],  dtype: torch.dtype = torch.complex64, device: torch.device = torch.device('cpu'), with_data: bool = False, max_levels: int = 2, num_restart: int = 3, support_parity: bool = False):
     if not with_data:
         comm = MPI.COMM_WORLD
         root = 0
@@ -253,6 +253,7 @@ def test_solver(method: str = 'bistabcg', kappa: float = 0.125, lat_size: list =
                 whole_U, seed=42, sigma=0.1, verbose=True)
             whole_clover_term = dslash.make_clover(
                 U=whole_U, kappa=kappa, verbose=True)
+            # whole_clover_term = torch.zeros_like(whole_clover_term)
             whole_x = torch.randn(
                 size=[4, 3]+lat_size, dtype=dtype, device=device)
             whole_b = dslash.give_clover(src=whole_x, clover_term=whole_clover_term, verbose=True) + dslash.give_wilson(src=whole_x, U=whole_U, kappa=kappa,
@@ -283,116 +284,33 @@ def test_solver(method: str = 'bistabcg', kappa: float = 0.125, lat_size: list =
         refer_clover_term = torch.zeros(
             size=[4, 3, 4, 3]+list(refer_b.shape)[2:], dtype=dtype, device=device)
     operator = dslash.operator(
-        U=refer_U, clover_term=refer_clover_term, kappa=kappa, verbose=True)
+        U=refer_U, clover_term=refer_clover_term, kappa=kappa, verbose=True, support_parity=support_parity)
 
-    def matvec(src):
-        return operator.matvec(src=src)
-        # return dslash.give_clover(src=src, clover_term=refer_clover_term, verbose=True) + dslash.give_wilson(src=src, U=refer_U, kappa=kappa, with_I=True, verbose=True)
     if method == 'bistabcg':
-        time_start = perf_counter()
-        x = solver.bistabcg(b=refer_b, matvec=matvec, tol=1e-6,
-                            max_iter=1000, x0=None, if_rtol=False, verbose=True)
-        time_end = perf_counter()
-    elif method == 'multigrid':
-        mg = solver.multigrid(dtype_list=[refer_U.dtype]*10, device_list=[refer_U.device]*10, U=refer_U,
-                              clover_term=refer_clover_term, kappa=kappa, tol=1e-6, max_iter=1000, max_levels=max_levels, num_restart=num_restart, verbose=True)
-        mg.init()
-        time_start = perf_counter()
-        x = mg.solve(b=refer_b)
-        time_end = perf_counter()
-        mg.plot()
-    else:
-        raise ValueError(
-            f"PYQCU::TESTING::SOLVER::SOLVER: {solver} is not supported.")
-    diff = tools.norm(x - refer_x) / tools.norm(refer_x)
-    print(
-        f"PYQCU::TESTING::SOLVER::REFER_U:\n {tools.norm(refer_U)}")
-    print(
-        f"PYQCU::TESTING::SOLVER::REFER_U:\n {refer_U.flatten()[:12]}")
-    print(
-        f"PYQCU::TESTING::SOLVER::REFER_B:\n {tools.norm(refer_b)}")
-    print(
-        f"PYQCU::TESTING::SOLVER::REFER_B:\n {refer_b.flatten()[:12]}")
-    print(
-        f"PYQCU::TESTING::SOLVER::REFER_X:\n {tools.norm(refer_x)}")
-    print(
-        f"PYQCU::TESTING::SOLVER::REFER_X:\n {refer_x.flatten()[:12]}")
-    print(
-        f"PYQCU::TESTING::SOLVER::X:\n {tools.norm(x)}")
-    print(
-        f"PYQCU::TESTING::SOLVER::X:\n {x.flatten()[:12]}")
-    print(
-        f"PYQCU::TESTING::SOLVER::TIME: {time_end - time_start}")
-    print(
-        f"PYQCU::TESTING::SOLVER:\n Difference between computed and reference solution: {diff}")
-
-
-def test_solver_parity(method: str = 'bistabcg', kappa: float = 0.125, lat_size: list = [8, 8, 8, 16],  dtype: torch.dtype = torch.complex64, device: torch.device = torch.device('cpu'), with_data: bool = False, max_levels: int = 2, num_restart: int = 3):
-    if not with_data:
-        comm = MPI.COMM_WORLD
-        root = 0
-        if comm.rank == root:
-            whole_U = torch.zeros(
-                size=[3, 3, 4]+lat_size, dtype=dtype, device=device)
-            lattice.generate_gauge_field(
-                whole_U, seed=42, sigma=0.1, verbose=True)
-            whole_clover_term = dslash.make_clover(
-                U=whole_U, kappa=kappa, verbose=True)
-            whole_clover_term = torch.zeros_like(whole_clover_term)
-            whole_x = torch.randn(
-                size=[4, 3]+lat_size, dtype=dtype, device=device)
-            whole_b = dslash.give_clover(src=whole_x, clover_term=whole_clover_term, verbose=True) + dslash.give_wilson(src=whole_x, U=whole_U, kappa=kappa,
-                                                                                                                        with_I=True, verbose=True)
+        if support_parity:
+            def matvec_parity(src_o):
+                # return src_o*2+0.5
+                return operator.matvec_parity(src_o=src_o)
+            b_eo = tools.oooxyzt2poooxyzt(
+                input_array=refer_b.reshape([12]+list(refer_b.shape)[2:]))
+            b_e = b_eo[0]
+            b_o = b_eo[1]
+            b_parity = operator.give_b_parity(b_e=b_e, b_o=b_o)
+            time_start = perf_counter()
+            x_o = solver.bistabcg(b=b_parity, matvec=matvec_parity, tol=1e-6,
+                                  max_iter=1000, x0=None, if_rtol=False, verbose=True)
+            x_e = operator.give_x_e(b_e=b_e, x_o=x_o)
+            x = tools.poooxyzt2oooxyzt(input_array=torch.stack(
+                [x_e, x_o], dim=0)).reshape(refer_b.shape)
+            time_end = perf_counter()
         else:
-            whole_U = None
-            whole_clover_term = None
-            whole_x = None
-            whole_b = None
-        refer_U = tools.whole_xyzt2local_xyzt(whole_array=whole_U, whole_shape=[
-                                              3, 3, 4]+lat_size, root=root, dtype=dtype, device=device)
-        refer_clover_term = tools.whole_xyzt2local_xyzt(whole_array=whole_clover_term, whole_shape=[
-                                                        4, 3, 4, 3]+lat_size, root=root, dtype=dtype, device=device)
-        refer_x = tools.whole_xyzt2local_xyzt(whole_array=whole_x, whole_shape=[
-                                              4, 3]+lat_size, root=root, dtype=dtype, device=device)
-        refer_b = tools.whole_xyzt2local_xyzt(whole_array=whole_b, whole_shape=[
-                                              4, 3]+lat_size, root=root, dtype=dtype, device=device)
-    else:
-        kappa = 0.125
-        lat_size = [32, 32, 32, 32]
-        path = pyqcu.__file__.replace('pyqcu/__init__.py', 'examples/data/')
-        refer_U = tools.hdf5oooxyzt2gridoooxyzt(
-            file_name=path+'refer.wilson.U.L32K0_125.ccdxyzt.c64.h5', lat_size=lat_size, device=device, verbose=True)
-        refer_x = tools.hdf5oooxyzt2gridoooxyzt(
-            file_name=path+'refer.wilson.x.L32K0_125.scxyzt.c64.h5', lat_size=lat_size, device=device, verbose=True)
-        refer_b = tools.hdf5oooxyzt2gridoooxyzt(
-            file_name=path+'refer.wilson.b.L32K0_125.scxyzt.c64.h5', lat_size=lat_size, device=device, verbose=True)
-        refer_clover_term = torch.zeros(
-            size=[4, 3, 4, 3]+list(refer_b.shape)[2:], dtype=dtype, device=device)
-    operator = dslash.operator(
-        U=refer_U, clover_term=refer_clover_term, kappa=kappa, support_parity=True, verbose=True)
-
-    # def matvec(src):
-    #     return operator.matvec(src=src)
-    #     # return dslash.give_clover(src=src, clover_term=refer_clover_term, verbose=True) + dslash.give_wilson(src=src, U=refer_U, kappa=kappa, with_I=True, verbose=True)
-    def matvec_parity(src_o):
-        return operator.matvec_parity(src_o=src_o, kappa=kappa)
-    b_eo = tools.oooxyzt2poooxyzt(
-        input_array=refer_b.reshape([12]+list(refer_b.shape)[2:]))
-    b_e = b_eo[0]
-    b_o = b_eo[1]
-    b_parity = operator.give_b_parity(b_e=b_e, b_o=b_o, kappa=kappa)
-    refer_x_eo = tools.oooxyzt2poooxyzt(
-        input_array=refer_x.reshape([12]+list(refer_x.shape)[2:]))
-    refer_x_e = refer_x_eo[0]
-    refer_x_o = refer_x_eo[1]
-    if method == 'bistabcg':
-        time_start = perf_counter()
-        x_o = solver.bistabcg(b=b_parity, matvec=matvec_parity, tol=1e-6,
-                              max_iter=1000, x0=None, if_rtol=False, verbose=True)
-        x_e = operator.give_x_e(b_e=b_e, x_o=x_o, kappa=kappa)
-        x = tools.poooxyzt2oooxyzt(input_array=torch.stack(
-            [x_e, x_o], dim=0)).reshape(refer_b.shape)
-        time_end = perf_counter()
+            def matvec(src):
+                return operator.matvec(src=src)
+            # return dslash.give_clover(src=src, clover_term=refer_clover_term, verbose=True) + dslash.give_wilson(src=src, U=refer_U, kappa=kappa, with_I=True, verbose=True)
+            time_start = perf_counter()
+            x = solver.bistabcg(b=refer_b, matvec=matvec, tol=1e-6,
+                                max_iter=1000, x0=None, if_rtol=False, verbose=True)
+            time_end = perf_counter()
     elif method == 'multigrid':
         mg = solver.multigrid(dtype_list=[refer_U.dtype]*10, device_list=[refer_U.device]*10, U=refer_U,
                               clover_term=refer_clover_term, kappa=kappa, tol=1e-6, max_iter=1000, max_levels=max_levels, num_restart=num_restart, verbose=True)
@@ -413,34 +331,6 @@ def test_solver_parity(method: str = 'bistabcg', kappa: float = 0.125, lat_size:
         f"PYQCU::TESTING::SOLVER::REFER_B:\n {tools.norm(refer_b)}")
     print(
         f"PYQCU::TESTING::SOLVER::REFER_B:\n {refer_b.flatten()[:12]}")
-    print(
-        f"PYQCU::TESTING::SOLVER::B_E:\n {tools.norm(b_e)}")
-    print(
-        f"PYQCU::TESTING::SOLVER::B_E:\n {b_e.flatten()[:12]}")
-    print(
-        f"PYQCU::TESTING::SOLVER::B_O:\n {tools.norm(b_o)}")
-    print(
-        f"PYQCU::TESTING::SOLVER::B_O:\n {b_o.flatten()[:12]}")
-    print(
-        f"PYQCU::TESTING::SOLVER::B_PARITY:\n {tools.norm(b_parity)}")
-    print(
-        f"PYQCU::TESTING::SOLVER::B_PARITY:\n {b_parity.flatten()[:12]}")
-    print(
-        f"PYQCU::TESTING::SOLVER::REFER_X_E:\n {tools.norm(refer_x_e)}")
-    print(
-        f"PYQCU::TESTING::SOLVER::REFER_X_E:\n {refer_x_e.flatten()[:12]}")
-    print(
-        f"PYQCU::TESTING::SOLVER::REFER_X_O:\n {tools.norm(refer_x_o)}")
-    print(
-        f"PYQCU::TESTING::SOLVER::REFER_X_O:\n {refer_x_o.flatten()[:12]}")
-    print(
-        f"PYQCU::TESTING::SOLVER::X_E:\n {tools.norm(x_e)}")
-    print(
-        f"PYQCU::TESTING::SOLVER::X_E:\n {x_e.flatten()[:12]}")
-    print(
-        f"PYQCU::TESTING::SOLVER::X_O:\n {tools.norm(x_o)}")
-    print(
-        f"PYQCU::TESTING::SOLVER::X_O:\n {x_o.flatten()[:12]}")
     print(
         f"PYQCU::TESTING::SOLVER::REFER_X:\n {tools.norm(refer_x)}")
     print(
