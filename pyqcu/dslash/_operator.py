@@ -308,14 +308,14 @@ class operator:
         return _torch.einsum(
             "EeXYZT, eXYZT->EXYZT", self.sitting.M_o_inv, src_o).clone()
 
-    def matvec_parity(self, src_o: torch.Tensor, kappa: float = 0.1, u_0: float = 1.0) -> torch.Tensor:
-        return self.matvec_oo(src_o=src_o)-(kappa/u_0)**2*self.matvec_oe(src_e=self.matvec_ee_inv(src_e=self.matvec_eo(src_o=src_o)))
+    def matvec_parity(self, src_o: torch.Tensor) -> torch.Tensor:
+        return self.matvec_oo(src_o=src_o)-self.matvec_oe(src_e=self.matvec_ee_inv(src_e=self.matvec_eo(src_o=src_o)))
 
-    def give_b_parity(self, b_e: torch.Tensor, b_o: torch.Tensor, kappa: float = 0.1, u_0: float = 1.0) -> torch.Tensor:
-        return (kappa/u_0)*self.matvec_oe(src_e=self.matvec_ee_inv(src_e=b_e))+b_o
+    def give_b_parity(self, b_e: torch.Tensor, b_o: torch.Tensor) -> torch.Tensor:
+        return -self.matvec_oe(src_e=self.matvec_ee_inv(src_e=b_e))+b_o
 
-    def give_x_e(self, b_e: torch.Tensor, x_o: torch.Tensor, kappa: float = 0.1, u_0: float = 1.0) -> torch.Tensor:
-        return self.matvec_ee_inv(src_e=(b_e+(kappa/u_0)*self.matvec_eo(src_o=x_o)))
+    def give_x_e(self, b_e: torch.Tensor, x_o: torch.Tensor) -> torch.Tensor:
+        return self.matvec_ee_inv(src_e=(b_e-self.matvec_eo(src_o=x_o)))
 
     def matvec_eeo(self, src_e: torch.Tensor, src_o: torch.Tensor) -> torch.Tensor:
         return self.matvec_eo(src_o=src_o)+self.matvec_ee(src_e=src_e)

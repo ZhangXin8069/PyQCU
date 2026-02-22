@@ -25,7 +25,7 @@ from pyqcu.testing import *
 #             lat_size=[8, 8, 8, 16], max_levels=2, num_restart=3)
 # test_solver(method='multigrid', dtype=torch.complex128,
 #             lat_size=[8, 8, 8, 16], max_levels=2, num_restart=5)
-test_solver_parity(method='bistabcg', dtype=torch.complex128,
-                   lat_size=[8, 8, 8, 16])
-# test_solver_parity(method='multigrid', dtype=torch.complex128,
-#             lat_size=[8, 8, 8, 8])
+test_solver(method='bistabcg', dtype=torch.complex128,
+                   lat_size=[8, 8, 8, 8], support_parity=True)
+test_solver(method='bistabcg', dtype=torch.complex128,
+                   lat_size=[8, 8, 8, 8], support_parity=False)
