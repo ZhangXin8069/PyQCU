@@ -313,7 +313,7 @@ def test_solver(method: str = 'bistabcg', kappa: float = 0.125, lat_size: list =
             time_end = perf_counter()
     elif method == 'multigrid':
         mg = solver.multigrid(dtype_list=[refer_U.dtype]*10, device_list=[refer_U.device]*10, U=refer_U,
-                              clover_term=refer_clover_term, kappa=kappa, tol=1e-6, max_iter=1000, max_levels=max_levels, num_restart=num_restart, verbose=True)
+                              clover_term=refer_clover_term, kappa=kappa, tol=1e-6, max_iter=1000, max_levels=max_levels, num_restart=num_restart, support_parity=support_parity, verbose=True)
         mg.init()
         time_start = perf_counter()
         x = mg.solve(b=refer_b)
