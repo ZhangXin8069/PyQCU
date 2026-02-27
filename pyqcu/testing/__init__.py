@@ -1,7 +1,4 @@
-from curses import beep
-from json import tool
 from time import perf_counter
-from regex import T
 import tilelang
 import torch
 from argparse import Namespace

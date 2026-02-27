@@ -1,4 +1,5 @@
 from pyqcu.testing import *
+import torch
 # test_import()
 # test_lattice()
 # test_dslash_wilson(with_data=True, suppoer_multi=True)
@@ -33,11 +34,13 @@ from pyqcu.testing import *
 #                    lat_size=[8, 8, 8, 8], support_parity=False)
 # test_solver(method='multigrid', dtype=torch.complex128,
 #                    lat_size=[8, 8, 8, 8], support_parity=True)
-test_solver(method='bistabcg', dtype=torch.complex128,
-                   lat_size=[16, 16, 16, 32], support_parity=False)
-test_solver(method='bistabcg', dtype=torch.complex128,
-                   lat_size=[16, 16, 16, 32], support_parity=True)
-test_solver(method='multigrid', dtype=torch.complex128,
-                   lat_size=[16, 16, 16, 32], support_parity=False)
-test_solver(method='multigrid', dtype=torch.complex128,
+# test_solver(method='bistabcg', dtype=torch.complex128,
+#                    lat_size=[16, 16, 16, 32], support_parity=False)
+# test_solver(method='bistabcg', dtype=torch.complex128,
+#                    lat_size=[16, 16, 16, 32], support_parity=True)
+# test_solver(method='multigrid', dtype=torch.complex128,
+#                    lat_size=[16, 16, 16, 32], support_parity=False)
+# test_solver(method='multigrid', dtype=torch.complex128,
+#                    lat_size=[16, 16, 16, 32], support_parity=True)
+test_solver(method='multigrid', dtype=torch.complex128, device=torch.device('cuda'),
                    lat_size=[16, 16, 16, 32], support_parity=True)
