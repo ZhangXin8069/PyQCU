@@ -50,3 +50,5 @@ import torch
 #                    lat_size=[16, 16, 16, 32], support_parity=False)
 # test_solver(method='multigrid', dtype=torch.complex128,
 #                    lat_size=[16, 16, 16, 32], support_parity=True)
+test_solver(method='bistabcg', dtype=torch.complex64,
+                   lat_size=[8, 8, 16, 16], support_parity=True)
