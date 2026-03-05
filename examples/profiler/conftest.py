@@ -1,3 +1,6 @@
+import datetime
+import os
+import comm
 from pyqcu.testing import *
 import cProfile
 import torch
@@ -51,17 +54,23 @@ import torch
 #                    lat_size=[16, 16, 16, 32], support_parity=False)
 # test_solver(method='multigrid', dtype=torch.complex128,
 #                    lat_size=[16, 16, 16, 32], support_parity=True)
+import mpi4py.MPI as MPI
+comm = MPI.COMM_WORLD
+time = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+rank = comm.Get_rank()
 et_obs = torch.profiler.ExecutionTraceObserver()
-et_obs.register_callback(f"et_obs.json")
-# 创建 profile
+et_obs.register_callback(
+    f"{os.path.abspath(os.path.dirname(__file__))}/callback_{time}_{rank}.json")
 prof = torch.profiler.profile(
-activities=[torch.profiler.ProfilerActivity.CPU],  # 只用 CPU
-record_shapes=True,  # 记录 tensor shape
-execution_trace_observer=et_obs,
-with_stack=True,  # 记录调用栈，就能看到 trace
+    activities=[torch.profiler.ProfilerActivity.CPU],
+    record_shapes=True,
+    acc_events=True,
+    execution_trace_observer=et_obs,
+    with_stack=True,
 )
 prof.start()
 test_solver(method='bistabcg', dtype=torch.complex128,
-                   lat_size=[8, 8, 8, 8], support_parity=True)
+                   lat_size=[8, 8, 8, 16], support_parity=True)
 prof.stop()
-prof.export_chrome_trace("trace.json")
+prof.export_chrome_trace(
+    f"{os.path.abspath(os.path.dirname(__file__))}/trace_{time}_{rank}.json")
