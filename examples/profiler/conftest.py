@@ -58,14 +58,11 @@ import mpi4py.MPI as MPI
 comm = MPI.COMM_WORLD
 time = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
 rank = comm.Get_rank()
-et_obs = torch.profiler.ExecutionTraceObserver()
-et_obs.register_callback(
-    f"{os.path.abspath(os.path.dirname(__file__))}/callback_{time}_{rank}.json")
 prof = torch.profiler.profile(
-    activities=[torch.profiler.ProfilerActivity.CPU],
     record_shapes=True,
+    with_modules=True,
+    with_flops=True,
     acc_events=True,
-    execution_trace_observer=et_obs,
     with_stack=True,
 )
 prof.start()
