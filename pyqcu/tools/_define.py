@@ -185,7 +185,7 @@ def local_xyzt2whole_xyzt(
                   grid_index_y*grid_lat_y:(grid_index_y+1)*grid_lat_y,
                   grid_index_z*grid_lat_z:(grid_index_z+1)*grid_lat_z,
                   grid_index_t*grid_lat_t:(grid_index_t+1)*grid_lat_t] = recvbuf[r].copy()
-        return torch.from_numpy(whole).to(device=local_array.device).clone()
+        return torch.from_numpy(whole).to(device=local_array.device)
     else:
         return None
 
@@ -233,7 +233,7 @@ def whole_xyzt2local_xyzt(
                        dtype=torch2np_dtype[dtype])
     comm.Scatter(sendbuf=sendbuf, recvbuf=recvbuf, root=root)
     comm.Barrier()
-    return torch.from_numpy(recvbuf).to(device=device).clone()
+    return torch.from_numpy(recvbuf).to(device=device)
 
 
 def set_device(device: torch.device):
@@ -308,7 +308,7 @@ def oooxyzt2poooxyzt(input_array: torch.Tensor, verbose: bool = False) -> torch.
     if verbose:
         print(
             f"PYQCU::TOOLS::DEFINE:\n Splited Array Shape: {splited_array.shape}")
-    return splited_array.clone()
+    return splited_array
 
 
 def poooxyzt2oooxyzt(input_array: torch.Tensor, verbose: bool = False) -> torch.Tensor:
@@ -344,4 +344,4 @@ def poooxyzt2oooxyzt(input_array: torch.Tensor, verbose: bool = False) -> torch.
     if verbose:
         print(
             f"PYQCU::TOOLS::DEFINE:\n Restored Array Shape: {restored_array.shape}")
-    return restored_array.clone()
+    return restored_array

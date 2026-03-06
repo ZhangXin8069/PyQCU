@@ -18,7 +18,7 @@ def bistabcg(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], to
         print(f"PYQCU::SOLVER::BISTABCG:\n Norm of x0:{tools.norm(x)}")
     if r_norm < _tol:
         print("PYQCU::SOLVER::BISTABCG:\n x0 is just right!")
-        return x.clone()
+        return x
     r_tilde = r.clone()
     p = torch.zeros_like(b)
     v = torch.zeros_like(b)
@@ -66,4 +66,4 @@ def bistabcg(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], to
     print(
         f"PYQCU::SOLVER::BISTABCG:\n Average time per iteration: {avg_iter_time:.6f} s")
     print(f"PYQCU::SOLVER::BISTABCG:\n Final residual: {r_norm:.2e}")
-    return x.clone()
+    return x

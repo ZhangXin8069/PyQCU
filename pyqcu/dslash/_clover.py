@@ -87,7 +87,7 @@ def make_clover(U: torch.Tensor, kappa: float = 0.1,
         print("PYQCU::DSLASH::CLOVER:\n Clover term complete")
         print(
             f"PYQCU::DSLASH::CLOVER:\n clover norm: {_torch.norm(clover).item()}")
-    return clover.clone()
+    return clover
 
 
 def add_I(clover_term: torch.Tensor, verbose: bool = False) -> torch.Tensor:
@@ -102,7 +102,7 @@ def add_I(clover_term: torch.Tensor, verbose: bool = False) -> torch.Tensor:
     dest = _clover_term.reshape(clover_term.shape)
     if verbose:
         print(f"PYQCU::DSLASH::CLOVER:\n dest.shape:{dest.shape}")
-    return dest.clone()
+    return dest
 
 
 def inverse(clover_term: torch.Tensor, verbose: bool = False) -> torch.Tensor:
@@ -116,7 +116,7 @@ def inverse(clover_term: torch.Tensor, verbose: bool = False) -> torch.Tensor:
     dest = _clover_term.reshape(clover_term.shape)
     if verbose:
         print(f"dest.shape:{dest.shape}")
-    return dest.clone()
+    return dest
 
 
 def give_clover(src: torch.Tensor, clover_term: torch.Tensor, verbose: bool = False) -> torch.Tensor:
@@ -126,7 +126,7 @@ def give_clover(src: torch.Tensor, clover_term: torch.Tensor, verbose: bool = Fa
     dest = _torch.einsum('SCscxyzt,scxyzt->SCxyzt', clover_term, src)
     if verbose:
         print(f"PYQCU::DSLASH::CLOVER:\n dest.shape:{dest.shape}")
-    return dest.clone()
+    return dest
 
 
 def give_clover_ee(src_e: torch.Tensor, clover_e: torch.Tensor) -> torch.Tensor:

@@ -45,7 +45,7 @@ def give_null_vecs(
             for j in range(0, i+1):
                 print(
                     f"PYQCU::TOOLS::MATRIX:\n tools.vdot(null_vecs[{i}],null_vecs[{j}]):{tools.vdot(null_vecs[i],null_vecs[j])}")
-    return null_vecs.clone()
+    return null_vecs
 
 
 def local_orthogonalize(null_vecs: torch.Tensor,
@@ -88,7 +88,7 @@ def local_orthogonalize(null_vecs: torch.Tensor,
     if verbose:
         print(f"PYQCU::TOOLS::MATRIX:\n [local_orthogonalize] in={tuple(null_vecs.shape)},coarse_lat_size(X,Y,Z,T)={coarse_lat_size},"
               f"PYQCU::TOOLS::MATRIX:\n (x,y,z,t)=({x},{y},{z},{t}),local_dim={local_dim},n_blocks={n_blocks}")
-    return Q.clone()
+    return Q
 
 
 def restrict(local_ortho_null_vecs: torch.Tensor, fine_vec: torch.Tensor) -> torch.Tensor:
@@ -101,9 +101,9 @@ def restrict(local_ortho_null_vecs: torch.Tensor, fine_vec: torch.Tensor) -> tor
     if dtype != _dtype or device != _device:
         fine_vec = fine_vec.to(dtype=_dtype, device=_device)
     shape = local_ortho_null_vecs.shape
-    _fine_vec = fine_vec.reshape(shape=shape[1:]).clone()
+    _fine_vec = fine_vec.reshape(shape=shape[1:])
     return _torch.einsum(
-        "EeXxYyZzTt,eXxYyZzTt->EXYZT", local_ortho_null_vecs.conj(), _fine_vec).clone().to(dtype=dtype, device=device)
+        "EeXxYyZzTt,eXxYyZzTt->EXYZT", local_ortho_null_vecs.conj(), _fine_vec).to(dtype=dtype, device=device)
 
 
 def prolong(local_ortho_null_vecs: torch.Tensor, coarse_vec: torch.Tensor) -> torch.Tensor:
@@ -116,9 +116,9 @@ def prolong(local_ortho_null_vecs: torch.Tensor, coarse_vec: torch.Tensor) -> to
     if dtype != _dtype or device != _device:
         coarse_vec = coarse_vec.to(dtype=_dtype, device=_device)
     shape = local_ortho_null_vecs.shape
-    _coarse_vec = coarse_vec.reshape(shape=shape[0:1]+shape[-8:][::2]).clone()
+    _coarse_vec = coarse_vec.reshape(shape=shape[0:1]+shape[-8:][::2])
     return _torch.einsum(
-        "EeXxYyZzTt,EXYZT->eXxYyZzTt", local_ortho_null_vecs, _coarse_vec).reshape([shape[1], shape[-8]*shape[-7], shape[-6]*shape[-5], shape[-4]*shape[-3], shape[-2]*shape[-1]]).clone().to(dtype=dtype, device=device)
+        "EeXxYyZzTt,EXYZT->eXxYyZzTt", local_ortho_null_vecs, _coarse_vec).reshape([shape[1], shape[-8]*shape[-7], shape[-6]*shape[-5], shape[-4]*shape[-3], shape[-2]*shape[-1]]).to(dtype=dtype, device=device)
 # NPU:The self tensor cannot be larger than 8 dimensions.
 
 
@@ -210,7 +210,7 @@ def restrict_npu(local_ortho_null_vecs: torch.Tensor, fine_vec: torch.Tensor) ->
     _local_ortho_null_vecs = _local_ortho_null_vecs.reshape(
         E, e, -1, x, y, z, t)
     return _torch.einsum(
-        "EeOxyzt,eOxyzt->EO", _local_ortho_null_vecs.conj(), _fine_vec).reshape(E, x, y, z, t).clone().to(dtype=dtype, device=device)
+        "EeOxyzt,eOxyzt->EO", _local_ortho_null_vecs.conj(), _fine_vec).reshape(E, x, y, z, t).to(dtype=dtype, device=device)
 
 
 def prolong_npu(local_ortho_null_vecs: torch.Tensor, coarse_vec: torch.Tensor) -> torch.Tensor:
