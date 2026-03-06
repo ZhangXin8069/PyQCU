@@ -21,7 +21,7 @@ def vdot(
     comm.Barrier()
     local_dot = _torch.vdot(a.flatten(), b.flatten())
     sendbuf = local_dot.detach().cpu().contiguous().numpy()
-    recvbuf = np.zeros_like(sendbuf).copy()
+    recvbuf = np.zeros_like(sendbuf)
     comm.Allreduce(sendbuf=sendbuf, recvbuf=recvbuf, op=MPI.SUM)
     comm.Barrier()
     return torch.from_numpy(recvbuf).to(device=device)
