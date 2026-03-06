@@ -119,7 +119,7 @@ def hdf5oooxyzt2gridoooxyzt(
                     f"PYQCU::TOOLS::IO:\n rank {rank}: All Dest Shape: {all_data.shape}")
             print(
                 f"PYQCU::TOOLS::IO:\n rank {rank}: Data is loaded from {file_name} (MPI mode)")
-            return torch.from_numpy(dest).to(device=device).clone()
+            return torch.from_numpy(dest).to(device=device)
     else:
         # Use serial I/O - rank 0 reads, then scatter to all ranks
         if rank == 0:
@@ -150,4 +150,4 @@ def hdf5oooxyzt2gridoooxyzt(
         dest = comm.scatter(local_blocks, root=0)
         if verbose:
             print(f"PYQCU::TOOLS::IO:\n rank {rank}: Dest Shape: {dest.shape}")
-        return torch.from_numpy(dest).to(device=device).clone()
+        return torch.from_numpy(dest).to(device=device)
