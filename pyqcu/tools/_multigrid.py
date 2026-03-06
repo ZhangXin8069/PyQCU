@@ -84,7 +84,7 @@ def local_orthogonalize(null_vecs: torch.Tensor,
     # Restore lattice structure: [X,Y,Z,T,e,x,y,z,t,E]
     Q = Q.view(X, Y, Z, T, e, x, y, z, t, E)
     # Permute back to [E,e,X,x,Y,y,Z,z,T,t]
-    Q = Q.permute(9, 4, 0, 5, 1, 6, 2, 7, 3, 8).contiguous().clone()
+    Q = Q.permute(9, 4, 0, 5, 1, 6, 2, 7, 3, 8).contiguous()
     if verbose:
         print(f"PYQCU::TOOLS::MATRIX:\n [local_orthogonalize] in={tuple(null_vecs.shape)},coarse_lat_size(X,Y,Z,T)={coarse_lat_size},"
               f"PYQCU::TOOLS::MATRIX:\n (x,y,z,t)=({x},{y},{z},{t}),local_dim={local_dim},n_blocks={n_blocks}")
@@ -163,14 +163,14 @@ def local_orthogonalize_npu(null_vecs: torch.Tensor,
     # Restore lattice structure: [X,Y,Z,T,e,x,y,z,t,E]
     Q = Q.view(X,Y,Z,T,e,x,y,z,t,E)
     # Permute back to [E,e,X,x,Y,y,Z,z,T,t]
-    Q = Q.permute(9,4,0,5,1,6,2,7,3,8).contiguous().clone()
+    Q = Q.permute(9,4,0,5,1,6,2,7,3,8).contiguous()
     """
     Q = Q.reshape(X, Y*Z*T, e, x, y*z*t, E)
     # [E,e,X,Y*Z*T,x,y*z*t]
-    Q = Q.permute(5, 2, 0, 1, 3, 4).contiguous().clone()
+    Q = Q.permute(5, 2, 0, 1, 3, 4).contiguous()
     Q = Q.reshape(-1, Y, Z, T, x, y, z, t)
     # [EeX,x,Y,y,Z,z,T,t]
-    Q = Q.permute(0, 4, 1, 5, 2, 6, 3, 7).contiguous().clone()
+    Q = Q.permute(0, 4, 1, 5, 2, 6, 3, 7).contiguous()
     Q = Q.reshape(E, e, X, x, Y, y, Z, z, T, t)
     if verbose:
         print(f"[local_orthogonalize] in={tuple(null_vecs.shape)},coarse_lat_size(X,Y,Z,T)={coarse_lat_size},"
@@ -189,7 +189,7 @@ def restrict_npu(local_ortho_null_vecs: torch.Tensor, fine_vec: torch.Tensor) ->
     _fine_vec = fine_vec.reshape(shape=shape[1:])
     """
     return _torch.einsum(
-        "EeXxYyZzTt,eXxYyZzTt->EXYZT",local_ortho_null_vecs.conj(),_fine_vec).clone().to(dtype=dtype,device=device)
+        "EeXxYyZzTt,eXxYyZzTt->EXYZT",local_ortho_null_vecs.conj(),_fine_vec).to(dtype=dtype,device=device)
     """
     E, e, X, x, Y, y, Z, z, T, t = local_ortho_null_vecs.shape
     # [eXx,Y,y,Z,z,T,t]
@@ -221,10 +221,10 @@ def prolong_npu(local_ortho_null_vecs: torch.Tensor, coarse_vec: torch.Tensor) -
     if dtype != _dtype or device != _device:
         coarse_vec = coarse_vec.to(dtype=_dtype, device=_device)
     shape = local_ortho_null_vecs.shape
-    _coarse_vec = coarse_vec.reshape(shape=shape[0:1]+shape[-8:][::2]).clone()
+    _coarse_vec = coarse_vec.reshape(shape=shape[0:1]+shape[-8:][::2])
     """
     return _torch.einsum(
-        "EeXxYyZzTt,EXYZT->eXxYyZzTt",local_ortho_null_vecs,_coarse_vec).reshape([shape[1],shape[-8]*shape[-7],shape[-6]*shape[-5],shape[-4]*shape[-3],shape[-2]*shape[-1]]).clone().to(dtype=dtype,device=device)
+        "EeXxYyZzTt,EXYZT->eXxYyZzTt",local_ortho_null_vecs,_coarse_vec).reshape([shape[1],shape[-8]*shape[-7],shape[-6]*shape[-5],shape[-4]*shape[-3],shape[-2]*shape[-1]]).to(dtype=dtype,device=device)
     """
     E, e, X, x, Y, y, Z, z, T, t = local_ortho_null_vecs.shape
     # [eXx,Y,y,Z,z,T,t]
