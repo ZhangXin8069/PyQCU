@@ -24,7 +24,7 @@ def vdot(
     recvbuf = np.zeros_like(sendbuf).copy()
     comm.Allreduce(sendbuf=sendbuf, recvbuf=recvbuf, op=MPI.SUM)
     comm.Barrier()
-    return torch.from_numpy(recvbuf).to(device=device).clone()
+    return torch.from_numpy(recvbuf).to(device=device)
 
 
 def norm(
