@@ -50,5 +50,7 @@ import torch
 #                    lat_size=[16, 16, 16, 32], support_parity=False)
 # test_solver(method='multigrid', dtype=torch.complex128,
 #                    lat_size=[16, 16, 16, 32], support_parity=True)
-test_solver(method='bistabcg', dtype=torch.complex128,
+# test_solver(method='bistabcg', dtype=torch.complex128,
+#                    lat_size=[8, 8, 8, 16], support_parity=True)
+test_solver(method='multigrid', dtype=torch.complex128,device=torch.device('cuda'),
                    lat_size=[8, 8, 8, 16], support_parity=True)
