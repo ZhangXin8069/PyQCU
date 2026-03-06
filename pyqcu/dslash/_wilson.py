@@ -59,7 +59,7 @@ def give_wilson(src: torch.Tensor,
         print("PYQCU::DSLASH::WILSON:\n Dirac operator application complete")
         print(
             f"PYQCU::DSLASH::WILSON:\n Dest norm: {_torch.norm(dest).item()}")
-    return dest.clone()
+    return dest
 
 
 def give_wilson_eo(
@@ -133,7 +133,7 @@ def give_wilson_eo(
         print("PYQCU::DSLASH::WILSON:\n Dirac operator application complete in eo")
         print(
             f"PYQCU::DSLASH::WILSON:\n Dest_e norm: {_torch.norm(dest_e).item()}")
-    return dest_e.clone()
+    return dest_e
 
 
 def give_wilson_oe(
@@ -207,7 +207,7 @@ def give_wilson_oe(
         print("PYQCU::DSLASH::WILSON:\n Dirac operator application complete in oe")
         print(
             f"PYQCU::DSLASH::WILSON:\n Dest_o norm: {_torch.norm(dest_o).item()}")
-    return dest_o.clone()
+    return dest_o
 
 
 def give_hopping_plus(ward: int, U: torch.Tensor, kappa: float = 0.1,
@@ -220,7 +220,7 @@ def give_hopping_plus(ward: int, U: torch.Tensor, kappa: float = 0.1,
         print(f"PYQCU::DSLASH::WILSON:\n give_hopping_{ward_key}_plus......")
     U_mu = U[..., ward, :, :, :, :]
     return - (kappa/u_0) * _torch.einsum(
-        'Ss,Ccxyzt->SCscxyzt', (I - gamma_mu), U_mu).reshape([12, 12]+list(U.shape[-4:])).clone()  # sc->e
+        'Ss,Ccxyzt->SCscxyzt', (I - gamma_mu), U_mu).reshape([12, 12]+list(U.shape[-4:]))  # sc->e
 
 
 def give_hopping_minus(ward: int, U: torch.Tensor, U_head: torch.Tensor = None, kappa: float = 0.1,
@@ -240,7 +240,7 @@ def give_hopping_minus(ward: int, U: torch.Tensor, U_head: torch.Tensor = None, 
         U_dag_minus[tools.slice_dim(dims_num=6, ward=ward, point=0)
                     ] = U_head_dag_mu.clone()
     return - (kappa/u_0) * _torch.einsum(
-        'Ss,Ccxyzt->SCscxyzt', (I + gamma_mu), U_dag_minus).reshape([12, 12]+list(U.shape[-4:])).clone()  # sc->e
+        'Ss,Ccxyzt->SCscxyzt', (I + gamma_mu), U_dag_minus).reshape([12, 12]+list(U.shape[-4:]))  # sc->e
 
 
 def give_wilson_plus(ward: int, src: torch.Tensor, hopping: torch.Tensor, src_tail: torch.Tensor = None, parity: int = None, verbose: bool = False) -> torch.Tensor:
@@ -259,7 +259,7 @@ def give_wilson_plus(ward: int, src: torch.Tensor, hopping: torch.Tensor, src_ta
         even_mask = tools.give_eo_mask(oootzy_t_p=src, eo=0)
         src_plus[..., even_mask] = src[..., even_mask]
     return _torch.einsum(
-        'Eexyzt,exyzt->Exyzt', hopping, src_plus).clone()
+        'Eexyzt,exyzt->Exyzt', hopping, src_plus)
 
 
 def give_wilson_minus(ward: int, src: torch.Tensor, hopping: torch.Tensor, src_head: torch.Tensor = None, parity: int = None, verbose: bool = False) -> torch.Tensor:
@@ -278,4 +278,4 @@ def give_wilson_minus(ward: int, src: torch.Tensor, hopping: torch.Tensor, src_h
         odd_mask = tools.give_eo_mask(oootzy_t_p=src, eo=1)
         src_minus[..., odd_mask] = src[..., odd_mask]
     return _torch.einsum(
-        'Eexyzt,exyzt->Exyzt', hopping, src_minus).clone()
+        'Eexyzt,exyzt->Exyzt', hopping, src_minus)

@@ -125,7 +125,7 @@ class multigrid:
             _tol = self.tol
         if r_norm < _tol:
             print("PYQCU::SOLVER::MULTIGRID:\n x0 is just right!")
-            return x.clone()
+            return x
         r_tilde = r.clone()
         p = torch.zeros_like(b)
         v = torch.zeros_like(b)
@@ -169,7 +169,7 @@ class multigrid:
                     r = b_origin-self.op_list[0].matvec(src=x_origin)
                 r_coarse = tools.restrict(
                     local_ortho_null_vecs=self.lonv_list[level], fine_vec=r)
-                self.b_list[level+1] = r_coarse.clone().to(dtype=self.dtype_list[level+1],
+                self.b_list[level+1] = r_coarse.to(dtype=self.dtype_list[level+1],
                                                            device=self.device_list[level+1])
                 e_coarse = self.cycle(level=level+1).to(dtype=self.dtype_list[level],
                                                         device=self.device_list[level])
@@ -219,7 +219,7 @@ class multigrid:
             print(
                 f"PYQCU::SOLVER::MULTIGRID:\n Final residual(origin): {r_norm_origin:.2e}")
             x = x_origin.clone()
-        return x.clone()
+        return x
 
     def solve(self, b: torch.Tensor = None, x0: torch.Tensor = None) -> torch.Tensor:
         if b is not None:
@@ -236,7 +236,7 @@ class multigrid:
             f"PYQCU::SOLVER::MULTIGRID:\n Total time: {total_time:.6f} seconds")
         print(
             f"PYQCU::SOLVER::MULTIGRID:\n Final residual: {self.convergence_history[-1]:.2e}")
-        return x.reshape([4, 3]+list(x.shape[-4:])).clone()
+        return x.reshape([4, 3]+list(x.shape[-4:]))
 
     def plot(self, save_path=None):
         if self.rank == self.root:
