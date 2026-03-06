@@ -19,7 +19,7 @@ def give_wilson(src: torch.Tensor,
         print(
             f"PYQCU::DSLASH::WILSON:\n Source norm: {_torch.norm(src).item()}")
     # Compute adjoint gauge field (dagger conjugate)
-    U_dag = U.permute(1, 0, 2, 3, 4, 5, 6).conj().clone()
+    U_dag = U.permute(1, 0, 2, 3, 4, 5, 6).conj()
     # Initialize dest tensor
     dest = src.clone() if with_I else torch.zeros_like(src)
     # Apply Wilson-Dirac operator for each direction
@@ -231,11 +231,11 @@ def give_hopping_minus(ward: int, U: torch.Tensor, U_head: torch.Tensor = None, 
     gamma_mu = lattice.gamma[ward].to(U.device).type(U.dtype)
     if verbose:
         print(f"PYQCU::DSLASH::WILSON:\n give_hopping_{ward_key}_minus......")
-    U_dag = U.permute(1, 0, 2, 3, 4, 5, 6).conj().clone()
+    U_dag = U.permute(1, 0, 2, 3, 4, 5, 6).conj()
     U_dag_mu = U_dag[..., ward, :, :, :, :]
     U_dag_minus = _torch.roll(U_dag_mu, shifts=1, dims=ward)
     if U_head is not None:
-        U_head_dag = U_head.permute(1, 0, 2, 3, 4, 5).conj().clone()
+        U_head_dag = U_head.permute(1, 0, 2, 3, 4, 5).conj()
         U_head_dag_mu = U_head_dag[..., ward, :, :, :]
         U_dag_minus[tools.slice_dim(dims_num=6, ward=ward, point=0)
                     ] = U_head_dag_mu.clone()
