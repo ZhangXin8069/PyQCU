@@ -23,8 +23,8 @@ class hopping:
             for ward in range(4):  # xyzt
                 if self.grid_size[ward] != 1:
                     U_tail4send = self.U[tools.slice_dim(
-                        dims_num=7, ward=ward, point=-1)].cpu().contiguous().numpy().copy()
-                    U_head4recv = np.zeros_like(U_tail4send).copy()
+                        dims_num=7, ward=ward, point=-1)].cpu().contiguous().numpy()
+                    U_head4recv = np.zeros_like(U_tail4send)
                     # print(f"U.shape: {self.U.shape}")
                     # print(f"U_tail4send.shape: {U_tail4send.shape}")
                     # print(f"rank: {rank}, rank_plus: {rank_plus}, rank_minus: {rank_minus}, ward: {ward}")
@@ -67,8 +67,8 @@ class hopping:
             src = src.to(dtype=_dtype, device=_device)
         if self.grid_size[ward] != 1:
             src_head4send = src[tools.slice_dim(
-                dims_num=5, ward=ward, point=0)].cpu().contiguous().numpy().copy()
-            src_tail4recv = np.zeros_like(src_head4send).copy()
+                dims_num=5, ward=ward, point=0)].cpu().contiguous().numpy()
+            src_tail4recv = np.zeros_like(src_head4send)
             self.comm.Sendrecv(sendbuf=src_head4send, dest=self.rank_minus_list[ward], sendtag=self.rank_minus_list[ward],
                                recvbuf=src_tail4recv, source=self.rank_plus_list[ward], recvtag=self.rank)
             self.comm.Barrier()
@@ -87,8 +87,8 @@ class hopping:
             src = src.to(dtype=_dtype, device=_device)
         if self.grid_size[ward] != 1:
             src_tail4send = src[tools.slice_dim(
-                dims_num=5, ward=ward, point=-1)].cpu().contiguous().numpy().copy()
-            src_head4recv = np.zeros_like(src_tail4send).copy()
+                dims_num=5, ward=ward, point=-1)].cpu().contiguous().numpy()
+            src_head4recv = np.zeros_like(src_tail4send)
             self.comm.Sendrecv(sendbuf=src_tail4send, dest=self.rank_plus_list[ward], sendtag=self.rank,
                                recvbuf=src_head4recv, source=self.rank_minus_list[ward], recvtag=self.rank_minus_list[ward])
             self.comm.Barrier()
@@ -221,16 +221,16 @@ class operator:
         for ward in range(4):
             if self.hopping.grid_size[ward] != 1 or self.sitting:
                 src_head4send = src_o[tools.slice_dim(
-                    dims_num=5, ward=ward, point=0)].cpu().contiguous().numpy().copy()
-                src_tail4recv = np.zeros_like(src_head4send).copy()
+                    dims_num=5, ward=ward, point=0)].cpu().contiguous().numpy()
+                src_tail4recv = np.zeros_like(src_head4send)
                 self.hopping.comm.Sendrecv(sendbuf=src_head4send, dest=self.hopping.rank_minus_list[ward], sendtag=self.hopping.rank_minus_list[ward],
                                            recvbuf=src_tail4recv, source=self.hopping.rank_plus_list[ward], recvtag=self.hopping.rank)
                 self.hopping.comm.Barrier()
                 src_tail = torch.from_numpy(src_tail4recv).to(
                     device=src_o.device)
                 src_tail4send = src_o[tools.slice_dim(
-                    dims_num=5, ward=ward, point=-1)].cpu().contiguous().numpy().copy()
-                src_head4recv = np.zeros_like(src_tail4send).copy()
+                    dims_num=5, ward=ward, point=-1)].cpu().contiguous().numpy()
+                src_head4recv = np.zeros_like(src_tail4send)
                 self.hopping.comm.Sendrecv(sendbuf=src_tail4send, dest=self.hopping.rank_plus_list[ward], sendtag=self.hopping.rank,
                                            recvbuf=src_head4recv, source=self.hopping.rank_minus_list[ward], recvtag=self.hopping.rank_minus_list[ward])
                 self.hopping.comm.Barrier()
@@ -250,16 +250,16 @@ class operator:
         for ward in range(4):
             if self.hopping.grid_size[ward] != 1 or self.sitting:
                 src_head4send = src_e[tools.slice_dim(
-                    dims_num=5, ward=ward, point=0)].cpu().contiguous().numpy().copy()
-                src_tail4recv = np.zeros_like(src_head4send).copy()
+                    dims_num=5, ward=ward, point=0)].cpu().contiguous().numpy()
+                src_tail4recv = np.zeros_like(src_head4send)
                 self.hopping.comm.Sendrecv(sendbuf=src_head4send, dest=self.hopping.rank_minus_list[ward], sendtag=self.hopping.rank_minus_list[ward],
                                            recvbuf=src_tail4recv, source=self.hopping.rank_plus_list[ward], recvtag=self.hopping.rank)
                 self.hopping.comm.Barrier()
                 src_tail = torch.from_numpy(src_tail4recv).to(
                     device=src_e.device)
                 src_tail4send = src_e[tools.slice_dim(
-                    dims_num=5, ward=ward, point=-1)].cpu().contiguous().numpy().copy()
-                src_head4recv = np.zeros_like(src_tail4send).copy()
+                    dims_num=5, ward=ward, point=-1)].cpu().contiguous().numpy()
+                src_head4recv = np.zeros_like(src_tail4send)
                 self.hopping.comm.Sendrecv(sendbuf=src_tail4send, dest=self.hopping.rank_plus_list[ward], sendtag=self.hopping.rank,
                                            recvbuf=src_head4recv, source=self.hopping.rank_minus_list[ward], recvtag=self.hopping.rank_minus_list[ward])
                 self.hopping.comm.Barrier()
