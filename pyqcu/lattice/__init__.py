@@ -116,7 +116,7 @@ gell_mann[6] = gell_mann[6] * 1j
 
 def check_su3(U: torch.Tensor, tol: float = 1e-6, verbose: bool = False) -> bool:
     U_mat = U.permute(*range(2, U.ndim), 0,
-                      1).reshape(-1, 3, 3).clone()  # N x 3 x 3
+                      1).reshape(-1, 3, 3)  # N x 3 x 3
     N = U_mat.shape[0]
     # Precompute the identity matrix for unitary check
     eye = _torch.eye(3, dtype=U_mat.dtype,
