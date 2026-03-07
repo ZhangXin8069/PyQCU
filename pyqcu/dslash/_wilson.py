@@ -1,6 +1,9 @@
 import torch
 from pyqcu import _torch, lattice, tools
 
+tools_Eexyzt_exyzt2Exyzt = True
+# tools_Eexyzt_exyzt2Exyzt = False
+
 
 def give_wilson(src: torch.Tensor,
                 U: torch.Tensor, kappa: float = 0.1,
@@ -258,8 +261,11 @@ def give_wilson_plus(ward: int, src: torch.Tensor, hopping: torch.Tensor, src_ta
     if parity == 1:
         even_mask = tools.give_eo_mask(oootzy_t_p=src, eo=0)
         src_plus[..., even_mask] = src[..., even_mask]
-    return _torch.einsum(
-        'Eexyzt,exyzt->Exyzt', hopping, src_plus)
+    if tools_Eexyzt_exyzt2Exyzt:
+        return tools.Eexyzt_exyzt2Exyzt(Eexyzt=hopping, exyzt=src_plus)
+    else:
+        return _torch.einsum(
+            'Eexyzt,exyzt->Exyzt', hopping, src_plus)
 
 
 def give_wilson_minus(ward: int, src: torch.Tensor, hopping: torch.Tensor, src_head: torch.Tensor = None, parity: int = None, verbose: bool = False) -> torch.Tensor:
@@ -277,5 +283,8 @@ def give_wilson_minus(ward: int, src: torch.Tensor, hopping: torch.Tensor, src_h
     if parity == 1:
         odd_mask = tools.give_eo_mask(oootzy_t_p=src, eo=1)
         src_minus[..., odd_mask] = src[..., odd_mask]
-    return _torch.einsum(
-        'Eexyzt,exyzt->Exyzt', hopping, src_minus)
+    if tools_Eexyzt_exyzt2Exyzt:
+        return tools.Eexyzt_exyzt2Exyzt(Eexyzt=hopping, exyzt=src_minus)
+    else:
+        return _torch.einsum(
+            'Eexyzt,exyzt->Exyzt', hopping, src_minus)
