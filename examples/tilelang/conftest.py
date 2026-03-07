@@ -1,3 +1,3 @@
-from pyqcu.testing import *
+# from pyqcu.testing import *
 
-test_matmul()
+# test_matmul()
