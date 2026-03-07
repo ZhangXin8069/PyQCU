@@ -1,6 +1,9 @@
 from ._define import torch2np_dtype as torch2np_dtype
 from ._define import np2torch_dtype as np2torch_dtype
+from ._define import torch2tl_dtype as torch2tl_dtype
+from ._define import torch_complex2real_dtype as torch_complex2real_dtype
 from ._define import HAS_MPI_SUPPORT as HAS_MPI_SUPPORT
+from ._define import to_contiguous_real as to_contiguous_real
 from ._define import prime_factorization as prime_factorization
 from ._define import whole_xyzt2local_xyzt as whole_xyzt2local_xyzt
 from ._define import local_xyzt2whole_xyzt as local_xyzt2whole_xyzt
@@ -24,6 +27,7 @@ from ._matul import matmul_gpu as matmul_gpu
 from ._matul import matmul_cpu as matmul_cpu
 from ._linalg import vdot as vdot
 from ._linalg import norm as norm
+from ._einsum import Eexyzt_exyzt2Exyzt as Eexyzt_exyzt2Exyzt
 from argparse import Namespace
 
 Namespace.__module__ = "pyqcu.tools"

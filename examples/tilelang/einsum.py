@@ -1,491 +1,239 @@
-import tilelang as tl
-import tilelang.language as T
-from tilelang.autotuner import autotune
+import pytest
+import torch
+from pyqcu.tools import Eexyzt_exyzt2Exyzt, torch2np_dtype, torch2tl_dtype, torch_complex2real_dtype
 
-def Eexyzt_exyzt2Exyzt_gpu(
-    E: int, e: int, x: int, y: int, z: int, t: int,
-    block_E: int = 32, block_e: int = 32, block_x: int = 8, block_y: int = 8, block_z: int = 8, block_t: int = 8,
-    dtype: str = "float16", accum_dtype: str = "float32"
-):
-    """
-    GPU implementation of tensor contraction: Eexyzt,exyzt->Exyzt
-    Optimized with tiling, shared memory, and software pipelining
-    """
-    @T.prim_func
-    def main(
-        Eexyzt: T.Tensor((E, e, x, y, z, t), dtype),
-        exyzt: T.Tensor((e, x, y, z, t), dtype),
-        Exyzt: T.Tensor((E, x, y, z, t), dtype),
-    ):
-        # Calculate total output elements and flatten grid
-        total_output_elements = E * x * y * z * t
-        elements_per_block = block_E * block_x * block_y * block_z * block_t
-        
-        # Use 1D grid with 3D thread blocks
-        with T.Kernel(
-            T.ceildiv(total_output_elements, elements_per_block),  # 1D grid
-            threads=(block_x * block_y * block_z * block_t, block_E, 1)  # 3D thread block
-        ) as (block_id, tx, ty, tz):
-            
-            # Calculate output indices from thread IDs
-            # tx: spatial dimensions (x,y,z,t)
-            # ty: E dimension
-            # tz: unused (always 0)
-            
-            # Flatten spatial dimensions
-            spatial_size = block_x * block_y * block_z * block_t
-            spatial_idx = tx
-            
-            # Reconstruct spatial indices
-            if spatial_idx < spatial_size:
-                # Calculate x,y,z,t indices from flattened index
-                t_idx = spatial_idx % block_t
-                spatial_idx //= block_t
-                z_idx = spatial_idx % block_z
-                spatial_idx //= block_z
-                y_idx = spatial_idx % block_y
-                spatial_idx //= block_y
-                x_idx = spatial_idx % block_x
-                
-                # Calculate global output indices
-                global_block_idx = block_id * elements_per_block
-                global_spatial_idx = global_block_idx // block_E
-                global_E_idx = global_block_idx % block_E
-                
-                # Final global indices
-                global_x = (global_spatial_idx // (y * z * t)) * block_x + x_idx
-                global_y = ((global_spatial_idx // (z * t)) % y) * block_y + y_idx
-                global_z = ((global_spatial_idx // t) % z) * block_z + z_idx
-                global_t = (global_spatial_idx % t) * block_t + t_idx
-                global_E = global_E_idx + ty * block_E
-                
-                # Check bounds
-                if (global_E < E and global_x < x and global_y < y and 
-                    global_z < z and global_t < t):
-                    
-                    # Allocate shared memory for input tiles
-                    Eexyzt_shared = T.alloc_shared((block_e,), dtype)
-                    exyzt_shared = T.alloc_shared((block_e,), dtype)
-                    
-                    # Local accumulator
-                    local_sum = T.alloc_fragment((1,), accum_dtype)
-                    T.clear(local_sum)
-                    
-                    # Reduction over contraction dimension 'e' with pipelining
-                    for be in T.Pipelined(T.ceildiv(e, block_e), num_stages=3):
-                        # Load tiles for current e-block
-                        for ie in T.Parallel(block_e):
-                            e_idx = be * block_e + ie
-                            if e_idx < e:
-                                # Load Eexyzt value
-                                Eexyzt_shared[ie] = Eexyzt[global_E, e_idx, global_x, global_y, global_z, global_t]
-                                
-                                # Load exyzt value
-                                exyzt_shared[ie] = exyzt[e_idx, global_x, global_y, global_z, global_t]
-                        
-                        # Synchronize threads to ensure shared memory is loaded
-                        T.sync_threads()
-                        
-                        # Perform contraction for this e-block
-                        for ie in range(block_e):
-                            e_idx = be * block_e + ie
-                            if e_idx < e:
-                                val1 = T.cast(Eexyzt_shared[ie], accum_dtype)
-                                val2 = T.cast(exyzt_shared[ie], accum_dtype)
-                                local_sum[0] += val1 * val2
-                        
-                        T.sync_threads()
-                    
-                    # Write result to global memory
-                    Exyzt[global_E, global_x, global_y, global_z, global_t] = T.cast(local_sum[0], dtype)
-    
-    return main
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
 
 
-def Eexyzt_exyzt2Exyzt_gpu_simple(
-    E: int, e: int, x: int, y: int, z: int, t: int,
-    block_E: int = 32, block_e: int = 32,
-    dtype: str = "float16", accum_dtype: str = "float32"
-):
+def make_inputs(E, e, x, y, z, t, dtype, device, seed=42):
     """
-    Simplified GPU implementation with 2D grid
-    Each thread computes one output element
-    """
-    @T.prim_func
-    def main(
-        Eexyzt: T.Tensor((E, e, x, y, z, t), dtype),
-        exyzt: T.Tensor((e, x, y, z, t), dtype),
-        Exyzt: T.Tensor((E, x, y, z, t), dtype),
-    ):
-        # Use 2D grid: (E*x*y*z*t, 1)
-        total_output = E * x * y * z * t
-        
-        with T.Kernel(
-            T.ceildiv(total_output, 256),  # Grid X: output elements
-            1,                             # Grid Y: unused
-            threads=256                    # Threads per block
-        ) as (bx, by, tx):
-            
-            # Calculate global output index
-            global_idx = bx * 256 + tx
-            
-            if global_idx < total_output:
-                # Decode global index to 5D coordinates (E, x, y, z, t)
-                idx = global_idx
-                
-                # t dimension
-                t_idx = idx % t
-                idx //= t
-                
-                # z dimension
-                z_idx = idx % z
-                idx //= z
-                
-                # y dimension
-                y_idx = idx % y
-                idx //= y
-                
-                # x dimension
-                x_idx = idx % x
-                idx //= x
-                
-                # E dimension
-                E_idx = idx % E
-                
-                # Allocate local accumulator
-                local_sum = T.alloc_fragment((1,), accum_dtype)
-                T.clear(local_sum)
-                
-                # Reduction over contraction dimension 'e'
-                for e_idx in range(e):
-                    val1 = T.cast(Eexyzt[E_idx, e_idx, x_idx, y_idx, z_idx, t_idx], accum_dtype)
-                    val2 = T.cast(exyzt[e_idx, x_idx, y_idx, z_idx, t_idx], accum_dtype)
-                    local_sum[0] += val1 * val2
-                
-                # Write result
-                Exyzt[E_idx, x_idx, y_idx, z_idx, t_idx] = T.cast(local_sum[0], dtype)
-    
-    return main
+    Create reproducible random tensors for Eexyzt and exyzt.
 
+    For complex dtypes, real and imaginary parts are sampled independently
+    from a standard normal distribution.
 
-def Eexyzt_exyzt2Exyzt_cpu(
-    E: int, e: int, x: int, y: int, z: int, t: int,
-    block_E: int = 8, block_e: int = 8, block_x: int = 4, block_y: int = 4, block_z: int = 4, block_t: int = 4,
-    dtype: str = "float16", accum_dtype: str = "float32"
-):
+    Parameters
+    ----------
+    E, e, x, y, z, t : int          — dimension sizes
+    dtype             : torch.dtype  — real or complex dtype
+    device            : str          — 'cpu' or 'cuda'
+    seed              : int          — RNG seed for reproducibility
     """
-    CPU implementation of tensor contraction: Eexyzt,exyzt->Exyzt
-    Optimized with tiling and local caching
-    """
-    @T.prim_func
-    def main(
-        Eexyzt: T.Tensor((E, e, x, y, z, t), dtype),
-        exyzt: T.Tensor((e, x, y, z, t), dtype),
-        Exyzt: T.Tensor((E, x, y, z, t), dtype),
-    ):
-        # Tile over x,y,z,t dimensions
-        for bx, by, bz, bt in T.grid(
-            T.ceildiv(x, block_x),  # x blocks
-            T.ceildiv(y, block_y),  # y blocks
-            T.ceildiv(z, block_z),  # z blocks
-            T.ceildiv(t, block_t)   # t blocks
-        ):
-            # Allocate local buffer for accumulation
-            acc = T.alloc_buffer((block_E, block_x, block_y, block_z, block_t), accum_dtype, scope="local")
-            
-            # Initialize accumulator to zero
-            for iE, ix, iy, iz, it in T.grid(block_E, block_x, block_y, block_z, block_t):
-                acc[iE, ix, iy, iz, it] = T.cast(0.0, accum_dtype)
-            
-            # Reduction over contraction dimension 'e'
-            for be in range(T.ceildiv(e, block_e)):
-                e_start = be * block_e
-                e_end = T.min(e_start + block_e, e)
-                
-                # Process current 'e' tile
-                for iE in range(block_E):
-                    for ie in range(e_start, e_end):
-                        for ix in range(block_x):
-                            x_idx = bx * block_x + ix
-                            for iy in range(block_y):
-                                y_idx = by * block_y + iy
-                                for iz in range(block_z):
-                                    z_idx = bz * block_z + iz
-                                    for it in range(block_t):
-                                        t_idx = bt * block_t + it
-                                        
-                                        # Read and cast data types
-                                        val1 = T.cast(Eexyzt[iE, ie, x_idx, y_idx, z_idx, t_idx], accum_dtype)
-                                        val2 = T.cast(exyzt[ie, x_idx, y_idx, z_idx, t_idx], accum_dtype)
-                                        
-                                        # Accumulate
-                                        acc[iE, ix, iy, iz, it] += val1 * val2
-            
-            # Write result to output tensor
-            for iE, ix, iy, iz, it in T.grid(block_E, block_x, block_y, block_z, block_t):
-                Exyzt[
-                    iE,
-                    bx * block_x + ix,
-                    by * block_y + iy,
-                    bz * block_z + iz,
-                    bt * block_t + it
-                ] = T.cast(acc[iE, ix, iy, iz, it], dtype)
-    
-    return main
-
-
-# Configuration generator for autotuning
-def get_contraction_configs(E, e, x, y, z, t):
-    """
-    Generate configuration space for autotuning tensor contraction
-    """
-    configs = []
-    
-    # Simple GPU configurations (per-thread computation)
-    threads_per_block_options = [64, 128, 256, 512]
-    block_e_options = [16, 32, 64]
-    
-    for threads in threads_per_block_options:
-        for block_e in block_e_options:
-            configs.append({
-                'block_e': block_e,
-                'threads': threads,
-                'dtype': 'float16',
-                'accum_dtype': 'float32'
-            })
-    
-    return configs
-
-
-# Autotunable simplified GPU version
-@autotune(configs=get_contraction_configs, warmup=10, rep=50, timeout=120)
-@tl.jit(out_idx=[-1])
-def Eexyzt_exyzt2Exyzt_gpu_tunable(
-    E: int, e: int, x: int, y: int, z: int, t: int,
-    block_e: int = 32,
-    threads: int = 256,
-    dtype: str = "float16", 
-    accum_dtype: str = "float32"
-):
-    """
-    Autotunable simplified GPU version
-    Each thread computes one output element
-    """
-    @T.prim_func
-    def main(
-        Eexyzt: T.Tensor((E, e, x, y, z, t), dtype),
-        exyzt: T.Tensor((e, x, y, z, t), dtype),
-        Exyzt: T.Tensor((E, x, y, z, t), dtype),
-    ):
-        total_output = E * x * y * z * t
-        
-        with T.Kernel(
-            T.ceildiv(total_output, threads),  # Grid size
-            1,                                 # Grid Y
-            threads=threads                    # Threads per block
-        ) as (bx, by, tx):
-            
-            global_idx = bx * threads + tx
-            
-            if global_idx < total_output:
-                # Decode 5D coordinates from global index
-                idx = global_idx
-                
-                # t dimension
-                t_idx = idx % t
-                idx //= t
-                
-                # z dimension
-                z_idx = idx % z
-                idx //= z
-                
-                # y dimension
-                y_idx = idx % y
-                idx //= y
-                
-                # x dimension
-                x_idx = idx % x
-                idx //= x
-                
-                # E dimension
-                E_idx = idx % E
-                
-                # Local accumulator
-                local_sum = T.alloc_fragment((1,), accum_dtype)
-                T.clear(local_sum)
-                
-                # Process e dimension in blocks for better cache utilization
-                for be in range(T.ceildiv(e, block_e)):
-                    e_start = be * block_e
-                    e_end = T.min(e_start + block_e, e)
-                    
-                    # Process current e-block
-                    for e_idx in range(e_start, e_end):
-                        val1 = T.cast(Eexyzt[E_idx, e_idx, x_idx, y_idx, z_idx, t_idx], accum_dtype)
-                        val2 = T.cast(exyzt[e_idx, x_idx, y_idx, z_idx, t_idx], accum_dtype)
-                        local_sum[0] += val1 * val2
-                
-                # Write result
-                Exyzt[E_idx, x_idx, y_idx, z_idx, t_idx] = T.cast(local_sum[0], dtype)
-    
-    return main
-
-
-# Wrapper function for easy usage
-def create_contraction_kernel(
-    E: int, e: int, x: int, y: int, z: int, t: int,
-    target: str = "auto",
-    use_autotune: bool = False,
-    implementation: str = "simple",  # "simple" or "tiled"
-    **kwargs
-):
-    """
-    Create tensor contraction kernel
-    
-    Args:
-        E, e, x, y, z, t: Tensor dimensions
-        target: "cuda", "hip", "cpu", or "auto"
-        use_autotune: Enable autotuning for GPU targets
-        implementation: "simple" (per-thread) or "tiled" (blocked)
-        **kwargs: Additional parameters for kernel configuration
-    """
-    # Auto-detect target if not specified
-    if target == "auto":
-        import torch
-        target = "cuda" if torch.cuda.is_available() else "cpu"
-    
-    if target in ["cuda", "hip"]:
-        if use_autotune:
-            # Return autotunable kernel factory
-            return lambda: Eexyzt_exyzt2Exyzt_gpu_tunable(E, e, x, y, z, t, **kwargs)
-        elif implementation == "tiled":
-            # Return tiled GPU kernel
-            return Eexyzt_exyzt2Exyzt_gpu(E, e, x, y, z, t, **kwargs)
-        else:
-            # Return simple GPU kernel
-            return Eexyzt_exyzt2Exyzt_gpu_simple(E, e, x, y, z, t, **kwargs)
+    torch.manual_seed(seed)
+    if dtype in (torch.complex32, torch.complex64, torch.complex128):
+        # Determine the matching real dtype for sampling
+        real_dtype = torch_complex2real_dtype[dtype]
+        Eexyzt = torch.randn(E, e, x, y, z, t, dtype=real_dtype, device=device)
+        exyzt = torch.randn(e, x, y, z, t, dtype=real_dtype, device=device)
+        Eexyzt = torch.view_as_complex(
+            torch.stack([Eexyzt,
+                         torch.randn_like(Eexyzt)], dim=-1).contiguous()
+        )
+        exyzt = torch.view_as_complex(
+            torch.stack([exyzt,
+                         torch.randn_like(exyzt)], dim=-1).contiguous()
+        )
     else:
-        # Return CPU kernel
-        return Eexyzt_exyzt2Exyzt_cpu(E, e, x, y, z, t, **kwargs)
+        Eexyzt = torch.randn(E, e, x, y, z, t, dtype=dtype, device=device)
+        exyzt = torch.randn(e, x, y, z, t, dtype=dtype, device=device)
+    return Eexyzt, exyzt
 
 
-# Example usage
-if __name__ == "__main__":
-    import torch
-    from tilelang.autotuner import set_autotune_inputs
-    
-    # Test dimensions (smaller for testing)
-    E, e, x, y, z, t = 4, 8, 16, 16, 8, 4
-    
-    print(f"Tensor dimensions: E={E}, e={e}, x={x}, y={y}, z={z}, t={t}")
-    print(f"Total output elements: {E*x*y*z*t}")
-    
-    # Create test tensors
-    Eexyzt = torch.randn(E, e, x, y, z, t, device="cuda", dtype=torch.float16)
-    exyzt = torch.randn(e, x, y, z, t, device="cuda", dtype=torch.float16)
-    Exyzt = torch.empty(E, x, y, z, t, device="cuda", dtype=torch.float16)
-    
-    print("\n1. Testing simple GPU kernel (per-thread):")
-    
-    # Simple GPU kernel
-    kernel_simple = tl.jit(create_contraction_kernel(
-        E, e, x, y, z, t, 
-        target="cuda", 
-        use_autotune=False,
-        implementation="simple"
-    ))
-    
-    # Execute
-    kernel_simple(Eexyzt, exyzt, Exyzt)
-    
-    # Verify
-    ref_result = torch.einsum('Eexyzt,exyzt->Exyzt', Eexyzt, exyzt)
-    if torch.allclose(Exyzt, ref_result, rtol=1e-2, atol=1e-2):
-        print("✓ Simple kernel: Results match")
+def cpu_reference(Eexyzt: torch.Tensor, exyzt: torch.Tensor) -> torch.Tensor:
+    """
+    Ground-truth implementation: always runs on CPU via torch.einsum.
+    Inputs are cast to float32/complex64 before contraction to maximise
+    numerical precision of the reference, then cast back to the original dtype.
+    """
+    orig_dtype = Eexyzt.dtype
+    is_complex = orig_dtype in torch_complex2real_dtype
+
+    if is_complex:
+        # Upcast to complex128 for a high-precision reference
+        ref_dtype = torch.complex128
     else:
-        diff = torch.abs(Exyzt - ref_result)
-        print(f"✗ Simple kernel: Max diff = {diff.max().item():.6f}")
-    
-    print("\n2. Testing autotuned GPU kernel:")
-    
-    # Autotuned kernel
-    with set_autotune_inputs(Eexyzt, exyzt, Exyzt):
-        tuned_kernel = Eexyzt_exyzt2Exyzt_gpu_tunable(E, e, x, y, z, t)
-    
-    # Execute tuned kernel
-    tuned_kernel(Eexyzt, exyzt, Exyzt)
-    
-    # Verify
-    if torch.allclose(Exyzt, ref_result, rtol=1e-2, atol=1e-2):
-        print("✓ Autotuned kernel: Results match")
-    else:
-        diff = torch.abs(Exyzt - ref_result)
-        print(f"✗ Autotuned kernel: Max diff = {diff.max().item():.6f}")
-    
-    # Performance comparison
-    import time
-    
-    print("\n3. Performance comparison:")
-    
-    # Warmup
-    for _ in range(10):
-        kernel_simple(Eexyzt, exyzt, Exyzt)
-        tuned_kernel(Eexyzt, exyzt, Exyzt)
-    
-    # Time simple kernel
-    torch.cuda.synchronize()
-    start = time.time()
-    for _ in range(100):
-        kernel_simple(Eexyzt, exyzt, Exyzt)
-    torch.cuda.synchronize()
-    simple_time = (time.time() - start) / 100
-    
-    # Time tuned kernel
-    torch.cuda.synchronize()
-    start = time.time()
-    for _ in range(100):
-        tuned_kernel(Eexyzt, exyzt, Exyzt)
-    torch.cuda.synchronize()
-    tuned_time = (time.time() - start) / 100
-    
-    # Time torch.einsum
-    torch.cuda.synchronize()
-    start = time.time()
-    for _ in range(100):
-        _ = torch.einsum('Eexyzt,exyzt->Exyzt', Eexyzt, exyzt)
-    torch.cuda.synchronize()
-    torch_time = (time.time() - start) / 100
-    
-    print(f"Simple kernel: {simple_time*1000:.2f} ms")
-    print(f"Autotuned kernel: {tuned_time*1000:.2f} ms")
-    print(f"torch.einsum: {torch_time*1000:.2f} ms")
-    print(f"Speedup (autotuned vs simple): {simple_time/tuned_time:.2f}x")
-    print(f"Speedup (autotuned vs torch): {torch_time/tuned_time:.2f}x")
-    
-    # Try CPU version if available
-    print("\n4. Testing CPU kernel:")
-    try:
-        # Move data to CPU
-        Eexyzt_cpu = Eexyzt.cpu()
-        exyzt_cpu = exyzt.cpu()
-        Exyzt_cpu = torch.empty(E, x, y, z, t, dtype=torch.float16)
-        
-        # CPU kernel
-        kernel_cpu = tl.jit(create_contraction_kernel(
-            E, e, x, y, z, t, 
-            target="cpu", 
-            use_autotune=False
-        ))
-        
-        # Execute
-        kernel_cpu(Eexyzt_cpu, exyzt_cpu, Exyzt_cpu)
-        
-        # Verify
-        ref_cpu = torch.einsum('Eexyzt,exyzt->Exyzt', Eexyzt_cpu, exyzt_cpu)
-        if torch.allclose(Exyzt_cpu, ref_cpu, rtol=1e-2, atol=1e-2):
-            print("✓ CPU kernel: Results match")
-        else:
-            print("✗ CPU kernel: Results differ")
-            
-    except Exception as e:
-        print(f"CPU kernel test skipped: {e}")
+        ref_dtype = torch.float64
+
+    result = torch.einsum(
+        'Eexyzt,exyzt->Exyzt',
+        Eexyzt.cpu().to(ref_dtype),
+        exyzt.cpu().to(ref_dtype),
+    )
+    return result.to(orig_dtype)
+
+
+def assert_close(cuda_out: torch.Tensor,
+                 cpu_ref:  torch.Tensor,
+                 dtype:    torch.dtype,
+                 label:    str = ""):
+    """
+    Compare CUDA kernel output against the CPU reference.
+
+    Tolerances are relaxed for float16 / complex32 because those types
+    have limited precision (≈3 decimal digits).
+
+    Parameters
+    ----------
+    cuda_out : tensor on any device — result from the CUDA kernel
+    cpu_ref  : tensor on CPU        — result from cpu_reference()
+    dtype    : original input dtype — used to select tolerances
+    label    : human-readable test label for error messages
+    """
+    # Tolerances indexed by the real component of the dtype
+    _atol = {
+        torch.float16: 1e-2,
+        torch.float32: 1e-4,
+        torch.float64: 1e-9,
+    }
+    _rtol = {
+        torch.float16: 1e-2,
+        torch.float32: 1e-4,
+        torch.float64: 1e-9,
+    }
+
+    real_dtype = torch_complex2real_dtype.get(dtype, dtype)
+    atol = _atol[real_dtype]
+    rtol = _rtol[real_dtype]
+
+    # Move both tensors to CPU and upcast to float64/complex128 for comparison
+    a = cuda_out.cpu()
+    b = cpu_ref.cpu()
+
+    if not torch.allclose(a.to(torch.complex128 if a.is_complex() else torch.float64),
+                          b.to(torch.complex128 if b.is_complex()
+                               else torch.float64),
+                          atol=atol, rtol=rtol):
+        diff = (a.to(torch.float64) - b.to(torch.float64)).abs()
+        raise AssertionError(
+            f"[{label}] CUDA vs CPU mismatch  "
+            f"max_abs_err={diff.max().item():.3e}  "
+            f"mean_abs_err={diff.mean().item():.3e}  "
+            f"atol={atol}  rtol={rtol}"
+        )
+
+
+# ---------------------------------------------------------------------------
+# Test cases
+# ---------------------------------------------------------------------------
+
+# (E, e, x, y, z, t) shape fixtures
+SHAPES = [
+    (2,  2,  2,  2,  2,  2),   # minimal
+    (4,  4,  4,  4,  2,  2),   # small square spatial
+    (8,  4,  3,  5,  2,  4),   # non-power-of-two spatial
+    (16, 8,  4,  4,  4,  4),   # medium
+    (1,  1,  1,  1,  1,  1),   # degenerate singletons
+    (4,  4,  8,  8,  1,  1),   # flat spatial (z=t=1)
+    (8,  1,  4,  4,  2,  2),   # single e element
+]
+
+REAL_DTYPES = [torch.float16, torch.float32, torch.float64]
+COMPLEX_DTYPES = [torch.complex64, torch.complex128]
+ALL_DTYPES = REAL_DTYPES + COMPLEX_DTYPES
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
+class TestCUDAvsCPU:
+    """
+    Compare the CUDA kernel path against the CPU einsum reference for every
+    combination of shape and dtype.
+    """
+
+    @pytest.mark.parametrize("shape", SHAPES)
+    @pytest.mark.parametrize("dtype", REAL_DTYPES)
+    def test_real_dtypes(self, shape, dtype):
+        """
+        Real-valued inputs: CUDA kernel result must match the CPU reference
+        within dtype-appropriate tolerances.
+        """
+        E, e, x, y, z, t = shape
+        Eexyzt_cpu, exyzt_cpu = make_inputs(E, e, x, y, z, t, dtype, 'cpu')
+        Eexyzt_gpu = Eexyzt_cpu.cuda()
+        exyzt_gpu = exyzt_cpu.cuda()
+
+        cuda_out = Eexyzt_exyzt2Exyzt(Eexyzt_gpu, exyzt_gpu)
+        cpu_ref = cpu_reference(Eexyzt_cpu, exyzt_cpu)
+
+        label = f"real {dtype} shape={shape}"
+        assert_close(cuda_out, cpu_ref, dtype, label)
+
+    @pytest.mark.parametrize("shape", SHAPES)
+    @pytest.mark.parametrize("dtype", COMPLEX_DTYPES)
+    def test_complex_dtypes(self, shape, dtype):
+        """
+        Complex-valued inputs: CUDA kernel result (four real calls + recombine)
+        must match the CPU einsum reference.
+        """
+        E, e, x, y, z, t = shape
+        Eexyzt_cpu, exyzt_cpu = make_inputs(E, e, x, y, z, t, dtype, 'cpu')
+        Eexyzt_gpu = Eexyzt_cpu.cuda()
+        exyzt_gpu = exyzt_cpu.cuda()
+
+        cuda_out = Eexyzt_exyzt2Exyzt(Eexyzt_gpu, exyzt_gpu)
+        cpu_ref = cpu_reference(Eexyzt_cpu, exyzt_cpu)
+
+        label = f"complex {dtype} shape={shape}"
+        assert_close(cuda_out, cpu_ref, dtype, label)
+
+    @pytest.mark.parametrize("dtype", ALL_DTYPES)
+    def test_output_shape_and_dtype(self, dtype):
+        """
+        Regardless of dtype, the output shape must be (E, x, y, z, t) and
+        the output dtype must match the input dtype.
+        """
+        E, e, x, y, z, t = 4, 4, 4, 4, 2, 2
+        Eexyzt, exyzt = make_inputs(E, e, x, y, z, t, dtype, 'cuda')
+
+        out = Eexyzt_exyzt2Exyzt(Eexyzt, exyzt)
+
+        assert out.shape == (E, x, y, z, t), (
+            f"dtype={dtype}: expected shape {(E,x,y,z,t)}, got {out.shape}"
+        )
+        assert out.dtype == dtype, (
+            f"dtype={dtype}: expected output dtype {dtype}, got {out.dtype}"
+        )
+
+    @pytest.mark.parametrize("dtype", ALL_DTYPES)
+    def test_cpu_and_cuda_agree_on_same_data(self, dtype):
+        """
+        Run both the CPU path and the CUDA path on identical data and confirm
+        they agree.  This is the primary end-to-end correctness check.
+        """
+        E, e, x, y, z, t = 8, 4, 4, 4, 2, 2
+        Eexyzt_cpu, exyzt_cpu = make_inputs(E, e, x, y, z, t, dtype, 'cpu')
+
+        # CPU path
+        cpu_out = Eexyzt_exyzt2Exyzt(Eexyzt_cpu, exyzt_cpu)
+
+        # CUDA path
+        cuda_out = Eexyzt_exyzt2Exyzt(
+            Eexyzt_cpu.cuda(), exyzt_cpu.cuda()
+        )
+
+        label = f"end-to-end {dtype}"
+        assert_close(cuda_out, cpu_out, dtype, label)
+
+    def test_zero_inputs(self):
+        """
+        Contracting any tensor with an all-zero tensor must yield all zeros.
+        """
+        E, e, x, y, z, t = 4, 4, 4, 4, 2, 2
+        for dtype in ALL_DTYPES:
+            Eexyzt = torch.zeros(E, e, x, y, z, t, dtype=dtype, device='cuda')
+            exyzt = torch.zeros(e, x, y, z, t, dtype=dtype, device='cuda')
+            out = Eexyzt_exyzt2Exyzt(Eexyzt, exyzt)
+            assert torch.all(
+                out == 0), f"dtype={dtype}: expected all-zero output"
+
+    def test_dtype_mismatch_raises(self):
+        """
+        Passing operands with different dtypes must raise TypeError.
+        """
+        Eexyzt = torch.randn(4, 4, 4, 4, 2, 2,
+                             dtype=torch.float32, device='cuda')
+        exyzt = torch.randn(4, 4, 4, 4, 2, 2,
+                            dtype=torch.float16, device='cuda')
+        with pytest.raises(TypeError):
+            Eexyzt_exyzt2Exyzt(Eexyzt, exyzt)
