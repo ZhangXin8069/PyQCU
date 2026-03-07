@@ -1,10 +1,17 @@
 from pyqcu import lattice
 import mpi4py.MPI as MPI
+import tilelang.language as T
 import torch
 import h5py
 import os
 import numpy as np
 from typing import Tuple, Optional
+# Complex torch dtype → corresponding real torch dtype (for channel splitting)
+torch_complex2real_dtype = {
+    torch.complex32:  torch.float16,
+    torch.complex64:  torch.float32,
+    torch.complex128: torch.float64,
+}
 # NumPy → Torch
 np2torch_dtype = {
     np.bool_: torch.bool,
@@ -33,7 +40,48 @@ torch2np_dtype = {
     torch.complex64: np.complex64,
     torch.complex128: np.complex128,
 }
+# Torch → Tilelang
+torch2tl_dtype = {
+    torch.float16:    T.float16,
+    torch.float32:    T.float32,
+    torch.float64:    T.float64,
+}
+# Internal helpers
 
+
+def to_contiguous_real(tensor: torch.Tensor, channel: int,
+                       *shape: int) -> torch.Tensor:
+    """
+    Extract one real/imaginary channel from a complex tensor and return a
+    fully contiguous (stride-1) real tensor with the requested shape.
+    Problem: view_as_real() produces an interleaved layout where the last
+    dimension has stride=2.  Slicing [..., 0] or [..., 1] preserves that
+    stride.  For tensors with more than one element, .contiguous() triggers
+    a memory copy and fixes the stride.  However, for single-element tensors
+    PyTorch may treat .contiguous() as a no-op because a single element is
+    trivially "contiguous" regardless of its stride value, so the stride=2
+    is silently retained and the TileLang kernel rejects it.
+    Fix: always force a real memory copy via torch.empty + copy_(), which
+    unconditionally allocates fresh stride-1 storage regardless of shape.
+    Parameters
+    ----------
+    tensor  : complex torch.Tensor (on any device)
+    channel : 0 → real part,  1 → imaginary part
+    *shape  : target shape for the output tensor
+    Returns
+    -------
+    A newly allocated, C-contiguous real torch.Tensor with the given shape.
+    """
+    # Step 1: extract the channel slice — may have stride=2 on last axis.
+    sliced = torch.view_as_real(tensor)[..., channel]
+    # Step 2: allocate fresh contiguous storage and copy into it.
+    # This is unconditionally correct for all shapes, including singletons,
+    # unlike .contiguous() which can be a no-op for single-element tensors.
+    result = torch.empty(sliced.shape, dtype=sliced.dtype,
+                         device=sliced.device)
+    result.copy_(sliced)
+    # Step 3: reshape to the target layout (always safe — result is contiguous).
+    return result.reshape(*shape)
 # Check if h5py was built with MPI support
 
 
