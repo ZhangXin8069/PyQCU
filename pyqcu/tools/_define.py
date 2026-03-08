@@ -6,6 +6,8 @@ import h5py
 import os
 import numpy as np
 from typing import Tuple, Optional
+
+warp_size = 128
 # Complex torch dtype → corresponding real torch dtype (for channel splitting)
 torch_complex2real_dtype = {
     torch.complex32:  torch.float16,

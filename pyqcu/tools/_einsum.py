@@ -1,39 +1,82 @@
-from concurrent.futures import thread
 import torch
 import tilelang
 import tilelang.language as T
-from functools import lru_cache, reduce
 from pyqcu import _torch
-from pyqcu.tools import torch_complex2real_dtype, torch2tl_dtype, to_contiguous_real
+from tilelang import jit
+from pyqcu.tools import torch_complex2real_dtype, torch2tl_dtype, to_contiguous_real, warp_size
+
+pass_configs = {
+    # tilelang.PassConfigKey.TL_ASCEND_AUTO_SYNC: True,
+    # tilelang.PassConfigKey.TL_ASCEND_MEMORY_PLANNING: True,
+}
 
 
-@lru_cache(maxsize=16)
-def _build_kernel(E_size: int, e_size: int, xyzt_size: int, threads_per_block: int,
-                  tl_dtype):
+@jit(out_idx=[-1], pass_configs=pass_configs, target="cuda")
+def _Eexyzt_exyzt2Exyzt(E_size: int, e_size: int, xyzt_size: int, tl_dtype):
     @T.prim_func
     def main(
-        A: T.Tensor((E_size, e_size, xyzt_size), tl_dtype),
-        B: T.Tensor((e_size, xyzt_size), tl_dtype),
-        C: T.Tensor((E_size, xyzt_size), tl_dtype),
+        Eexyzt: T.Tensor((E_size, e_size, xyzt_size), tl_dtype),
+        exyzt: T.Tensor((e_size, xyzt_size), tl_dtype),
+        Exyzt: T.Tensor((E_size, xyzt_size), tl_dtype),
     ):
         with T.Kernel(
-            T.ceildiv(xyzt_size, threads_per_block),
-            threads=threads_per_block
-        ) as id:
-            block_xyzt_size = xyzt_size // threads_per_block
-            A_shared = T.alloc_shared((e_size, block_xyzt_size), tl_dtype)
-            B_shared = T.alloc_shared((e_size, block_xyzt_size), tl_dtype)
-            C_local = T.alloc_local(block_xyzt_size, tl_dtype)
-            T.clear(C_local)
-            for E, block_xyzt in T.Parallel(E_size, block_xyzt_size):
-                T.copy(A[E, 0, block_xyzt_size*id], A_shared)
-                T.copy(B[0, block_xyzt_size*id], B_shared)
-                for e in T.Pipelined(e_size, num_stages=3):
-                    C_local[block_xyzt*id] += A_shared[e,
-                                                       block_xyzt*id] * B_shared[e, block_xyzt*id]
-                T.copy(C_local, C[E, block_xyzt_size*id])
-    kernel = tilelang.compile(main, out_idx=[2], target="cuda")
-    return kernel
+            T.ceildiv(xyzt_size, warp_size),
+            threads=warp_size, is_cpu=False
+        ) as block_i:
+            _Ee_warp = T.alloc_fragment(
+                shape=(e_size, warp_size), dtype=tl_dtype)
+            _e_warp = T.alloc_fragment(
+                shape=(e_size, warp_size), dtype=tl_dtype)
+            _E_warp = T.alloc_fragment(
+                shape=warp_size, dtype=tl_dtype)
+            start = warp_size * block_i
+            end = warp_size*(block_i+1)
+            T.copy(src=exyzt[:, start:end], dst=_e_warp)
+            for E_i in T.Pipelined(E_size, num_stages=5):
+                T.clear(_E_warp)
+                T.copy(src=Eexyzt[E_i, :, start:end], dst=_Ee_warp)
+                for thread_i in T.Parallel(warp_size):
+                    for e_i in T.Unroll(e_size):
+                        _E_warp[thread_i] += _Ee_warp[e_i,
+                                                      thread_i] * _e_warp[e_i, thread_i]
+                T.copy(src=_E_warp,
+                       dst=Exyzt[E_i, start:end])
+    return main
+
+# FOR TENSOR CORE
+# @jit(out_idx=[-1], pass_configs=pass_configs, target="cuda")
+# def _Eexyzt_exyzt2Exyzt(E_size: int, e_size: int, xyzt_size: int, tl_dtype):
+#     E_pad_size = (E_size + 15) // 16 * 16
+#     e_pad_size = (e_size + 15) // 16 * 16
+
+#     @T.prim_func
+#     def main(
+#         Eexyzt: T.Tensor((E_size, e_size, xyzt_size), tl_dtype),
+#         exyzt: T.Tensor((e_size, xyzt_size), tl_dtype),
+#         Exyzt: T.Tensor((E_size, xyzt_size), tl_dtype),
+#     ):
+#         with T.Kernel(
+#             T.ceildiv(xyzt_size, warp_size),
+#             threads=warp_size, is_cpu=False
+#         ) as block_i:
+#             e_pad = T.alloc_fragment(
+#                 shape=(e_pad_size, 1), dtype=tl_dtype)
+#             E_pad = T.alloc_fragment(
+#                 shape=(E_pad_size, 1), dtype=tl_dtype)
+#             E_pad_e_pad = T.alloc_fragment(
+#                 shape=(E_pad_size, e_pad_size), dtype=tl_dtype)
+#             start = warp_size * block_i
+#             for thread_i in T.Pipelined(warp_size, num_stages=5):
+#                 T.clear(e_pad)
+#                 T.clear(E_pad)
+#                 T.clear(E_pad_e_pad)
+#                 T.copy(
+#                     src=Eexyzt[:, :, start+thread_i], dst=E_pad_e_pad[:E_size, :e_size])
+#                 T.copy(
+#                     src=exyzt[:, start+thread_i], dst=e_pad[:e_size,:])
+#                 T.gemm(A=E_pad_e_pad, B=e_pad, C=E_pad)
+#                 T.copy(src=E_pad[:E_size, :], dst=Exyzt[:, start+thread_i])
+#     return main
 
 
 def Eexyzt_exyzt2Exyzt(Eexyzt: torch.Tensor, exyzt: torch.Tensor) -> torch.Tensor:
@@ -60,8 +103,8 @@ def Eexyzt_exyzt2Exyzt(Eexyzt: torch.Tensor, exyzt: torch.Tensor) -> torch.Tenso
     e_size = exyzt.shape[0]
     xyzt_size = Eexyzt[0, 0].numel()
     output_shape = (E_size,) + Eexyzt.shape[2:]
-    kernel = _build_kernel(
-        E_size=E_size, e_size=e_size, xyzt_size=xyzt_size, threads_per_block=64,
+    kernel = _Eexyzt_exyzt2Exyzt(
+        E_size=E_size, e_size=e_size, xyzt_size=xyzt_size,
         tl_dtype=tl_dtype,
     )
     if not is_complex:
