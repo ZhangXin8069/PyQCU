@@ -1,3 +1,4 @@
+from ._define import warp_size as warp_size
 from ._define import torch2np_dtype as torch2np_dtype
 from ._define import np2torch_dtype as np2torch_dtype
 from ._define import torch2tl_dtype as torch2tl_dtype
