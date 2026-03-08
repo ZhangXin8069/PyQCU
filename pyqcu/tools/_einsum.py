@@ -1,9 +1,8 @@
 import torch
-import tilelang
 import tilelang.language as T
 from pyqcu import _torch
 from tilelang import jit
-from pyqcu.tools import torch_complex2real_dtype, torch2tl_dtype, to_contiguous_real, warp_size
+from pyqcu.tools import torch_complex2real_dtype, torch2tl_dtype, warp_size, to_contiguous_real
 
 pass_configs = {
     # tilelang.PassConfigKey.TL_ASCEND_AUTO_SYNC: True,
