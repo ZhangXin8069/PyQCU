@@ -1,0 +1,270 @@
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tvm_ffi/_optional_torch_c_dlpack.py:625: UserWarning: Failed to load torch c dlpack extension: Error building extension 'c_dlpack': [1/2] c++ -MMD -MF main.o.d -DTORCH_EXTENSION_NAME=c_dlpack -DTORCH_API_INCLUDE_EXTENSION_H -DPYBIND11_COMPILER_TYPE=\"_gcc\" -DPYBIND11_STDLIB=\"_libstdcpp\" -DPYBIND11_BUILD_ABI=\"_cxxabi1014\" -I/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tvm_ffi/include -I/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tvm_ffi/include -I/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/torch/include -I/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/torch/include/torch/csrc/api/include -I/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/torch/include/THH -I/public/software/compiler/dtk-25.04.2/include -isystem /public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/torch/include -isystem /public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/torch/include/torch/csrc/api/include -isystem /public/home/scnethpc2623/.conda/envs/qcu/include/python3.10 -D_GLIBCXX_USE_CXX11_ABI=1 -fPIC -std=c++17 -O3 -DBUILD_WITH_CUDA -c /public/home/scnethpc2623/.cache/torch_extensions/py310_cpu/c_dlpack/main.cpp -o main.o -fPIC -D__HIP_PLATFORM_AMD__=1 -DUSE_ROCM=1 -DHIPBLAS_V2
+FAILED: [code=1] main.o 
+c++ -MMD -MF main.o.d -DTORCH_EXTENSION_NAME=c_dlpack -DTORCH_API_INCLUDE_EXTENSION_H -DPYBIND11_COMPILER_TYPE=\"_gcc\" -DPYBIND11_STDLIB=\"_libstdcpp\" -DPYBIND11_BUILD_ABI=\"_cxxabi1014\" -I/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tvm_ffi/include -I/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tvm_ffi/include -I/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/torch/include -I/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/torch/include/torch/csrc/api/include -I/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/torch/include/THH -I/public/software/compiler/dtk-25.04.2/include -isystem /public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/torch/include -isystem /public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/torch/include/torch/csrc/api/include -isystem /public/home/scnethpc2623/.conda/envs/qcu/include/python3.10 -D_GLIBCXX_USE_CXX11_ABI=1 -fPIC -std=c++17 -O3 -DBUILD_WITH_CUDA -c /public/home/scnethpc2623/.cache/torch_extensions/py310_cpu/c_dlpack/main.cpp -o main.o -fPIC -D__HIP_PLATFORM_AMD__=1 -DUSE_ROCM=1 -DHIPBLAS_V2
+In file included from /public/home/scnethpc2623/.cache/torch_extensions/py310_cpu/c_dlpack/main.cpp:8:
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/torch/include/c10/cuda/CUDAStream.h:3:10: 致命错误：cuda_runtime_api.h：没有那个文件或目录
+    3 | #include <cuda_runtime_api.h>
+      |          ^~~~~~~~~~~~~~~~~~~~
+编译中断。
+ninja: build stopped: subcommand failed.
+,EnvTensorAllocator will not be enabled.
+  warnings.warn(
+ROCm not detected, using default gfx900
+[ROCT-Thunk-Interface/src/hymgr.c:435, WARNING]: Version mismatch
+[19:04:47] /home/tilelang/3rdparty/tvm/src/target/target_kind.cc:240: Warning: Unable to detect ROCm version, assuming >= 3.5
+ROCm not detected, using default gfx900
+[ROCT-Thunk-Interface/src/hymgr.c:435, WARNING]: Version mismatch
+[19:04:47] /home/tilelang/3rdparty/tvm/src/target/target_kind.cc:240: Warning: Unable to detect ROCm version, assuming >= 3.5
+2026-03-17 19:04:47  [TileLang:tilelang.jit.kernel:INFO]: TileLang begins to compile kernel `matmul_relu_kernel` with `out_idx=None`
+In file included from /tmp/tmp2yuy1fbq.cpp:3:
+In file included from /public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/gemm.h:3:
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/common.h:220:1: warning: void function is missing a return statement [-Wreturn-type]
+}
+^
+In file included from /tmp/tmp2yuy1fbq.cpp:4:
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/copy.h:35:1: warning: void function is missing a return statement [-Wreturn-type]
+}
+^
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/copy.h:39:1: warning: void function is missing a return statement [-Wreturn-type]
+}
+^
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/copy.h:44:35: warning: void function is missing a return statement [-Wreturn-type]
+TL_DEVICE void cp_async_commit() {}
+                                  ^
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/copy.h:49:1: warning: void function is missing a return statement [-Wreturn-type]
+}
+^
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/copy.h:54:1: warning: void function is missing a return statement [-Wreturn-type]
+}
+^
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/copy.h:56:76: warning: void function is missing a return statement [-Wreturn-type]
+__device__ void wave_barrier() { asm volatile("s_barrier" : : : "memory"); }
+                                                                           ^
+In file included from /tmp/tmp2yuy1fbq.cpp:8:
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/debug.h:16:1: warning: void function is missing a return statement [-Wreturn-type]
+}
+^
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/debug.h:28:1: warning: void function is missing a return statement [-Wreturn-type]
+}
+^
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/debug.h:37:1: warning: void function is missing a return statement [-Wreturn-type]
+}
+^
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/debug.h:48:1: warning: void function is missing a return statement [-Wreturn-type]
+}
+^
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/debug.h:57:1: warning: void function is missing a return statement [-Wreturn-type]
+}
+^
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/debug.h:67:1: warning: void function is missing a return statement [-Wreturn-type]
+}
+^
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/debug.h:77:1: warning: void function is missing a return statement [-Wreturn-type]
+}
+^
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/debug.h:87:1: warning: void function is missing a return statement [-Wreturn-type]
+}
+^
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/debug.h:97:1: warning: void function is missing a return statement [-Wreturn-type]
+}
+^
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/debug.h:109:1: warning: void function is missing a return statement [-Wreturn-type]
+}
+^
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/debug.h:129:1: warning: void function is missing a return statement [-Wreturn-type]
+}
+^
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/debug.h:144:1: warning: void function is missing a return statement [-Wreturn-type]
+}
+^
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/debug.h:158:1: warning: void function is missing a return statement [-Wreturn-type]
+}
+^
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/debug.h:172:1: warning: void function is missing a return statement [-Wreturn-type]
+}
+^
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/debug.h:187:1: warning: void function is missing a return statement [-Wreturn-type]
+}
+^
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/debug.h:201:1: warning: void function is missing a return statement [-Wreturn-type]
+}
+^
+/tmp/tmp2yuy1fbq.cpp:116:1: warning: void function is missing a return statement [-Wreturn-type]
+}
+^
+/tmp/tmp2yuy1fbq.cpp:58:54: error: '__builtin_amdgcn_mfma_f32_16x16x16f16' needs target feature mai-insts
+      *(((float32x4*)C_local) + ((i_8 * 4) + j_1)) = __builtin_amdgcn_mfma_f32_16x16x16f16(*(((float16x4*)B_local) + j_1),
+                                                     ^
+/tmp/tmp2yuy1fbq.cpp:78:55: error: '__builtin_amdgcn_mfma_f32_16x16x16f16' needs target feature mai-insts
+      *(((float32x4*)C_local) + ((i_10 * 4) + j_3)) = __builtin_amdgcn_mfma_f32_16x16x16f16(*(((float16x4*)B_local) + j_3),
+                                                      ^
+/tmp/tmp2yuy1fbq.cpp:97:55: error: '__builtin_amdgcn_mfma_f32_16x16x16f16' needs target feature mai-insts
+      *(((float32x4*)C_local) + ((i_12 * 4) + j_5)) = __builtin_amdgcn_mfma_f32_16x16x16f16(*(((float16x4*)B_local) + j_5),
+                                                      ^
+24 warnings and 3 errors generated when compiling for gfx936.
+Traceback (most recent call last):
+  File "/public/home/scnethpc2623/PyQCU/examples/dcu/conftest.py", line 36, in <module>
+    matmul_relu_kernel = matmul(M, N, K, block_M, block_N, block_K)
+  File "/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/jit/__init__.py", line 273, in __call__
+    self._kernel_cache[key] = self.compile(*args, **kwargs, **tune_params)
+  File "/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/jit/__init__.py", line 224, in compile
+    kernel_result = compile(
+  File "/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/jit/__init__.py", line 86, in compile
+    return cached(
+  File "/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/cache/__init__.py", line 29, in cached
+    return _kernel_cache_instance.cached(
+  File "/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/cache/kernel_cache.py", line 185, in cached
+    kernel = JITKernel(
+  File "/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/jit/kernel.py", line 131, in __init__
+    adapter = self._compile_and_create_adapter(func, out_idx)
+  File "/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/jit/kernel.py", line 260, in _compile_and_create_adapter
+    adapter = CythonKernelAdapter(
+  File "/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/jit/adapter/cython/adapter.py", line 128, in __init__
+    self.lib_generator.compile_lib()
+  File "/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/jit/adapter/libgen.py", line 164, in compile_lib
+    raise RuntimeError(f"Compilation Failed! {command}"
+RuntimeError: Compilation Failed! ['hipcc', '-std=c++17', '-fPIC', '--offload-arch=gfx936', '--shared', '/tmp/tmp2yuy1fbq.cpp', '-I/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/composable_kernel/include', '-I/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src', '-o', '/tmp/tmp2yuy1fbq.so']
+ #define HIP_ENABLE_WARP_SYNC_BUILTINS
+#include <hip/hip_runtime.h>
+#include <tl_templates/dcu_hip/gemm.h>
+#include <tl_templates/dcu_hip/copy.h>
+#include <tl_templates/dcu_hip/reduce.h>
+#include <tl_templates/dcu_hip/ldsm.h>
+#include <tl_templates/dcu_hip/threadblock_swizzle.h>
+#include <tl_templates/dcu_hip/debug.h>
+
+extern "C" __global__ void __launch_bounds__(128) matmul_relu_kernel_kernel(half_t* __restrict__ A, half_t* __restrict__ B, half_t* __restrict__ C) {
+  extern __shared__ __align__(1024) uchar buf_dyn_shmem[];
+  float C_local[128];
+  half_t A_local[32];
+  half_t B_local[16];
+  #pragma unroll
+  for (int i = 0; i < 32; ++i) {
+    *(float4*)(C_local + (i * 4)) = make_float4(0.000000e+00f, 0.000000e+00f, 0.000000e+00f, 0.000000e+00f);
+  }
+  #pragma unroll
+  for (int i_1 = 0; i_1 < 4; ++i_1) {
+    *(uint4*)(((half_t*)buf_dyn_shmem) + ((((i_1 * 1024) + ((((int)threadIdx.x) >> 2) * 32)) + (((((((int)threadIdx.x) & 31) >> 4) + ((((int)threadIdx.x) & 3) >> 1)) & 1) * 16)) + (((((((int)threadIdx.x) & 15) >> 3) + (((int)threadIdx.x) & 1)) & 1) * 8))) = *(uint4*)(A + ((((((int)blockIdx.y) * 131072) + (i_1 * 32768)) + ((((int)threadIdx.x) >> 2) * 1024)) + ((((int)threadIdx.x) & 3) * 8)));
+  }
+  #pragma unroll
+  for (int i_2 = 0; i_2 < 4; ++i_2) {
+    *(uint4*)(((half_t*)buf_dyn_shmem) + (((((((((((int)threadIdx.x) & 15) >> 3) * 2048) + (i_2 * 512)) + ((((int)threadIdx.x) >> 4) * 64)) + ((((((int)threadIdx.x) >> 6) + ((((int)threadIdx.x) & 7) >> 2)) & 1) * 32)) + (((((((int)threadIdx.x) & 63) >> 5) + ((((int)threadIdx.x) & 3) >> 1)) & 1) * 16)) + (((((((int)threadIdx.x) & 31) >> 4) + (((int)threadIdx.x) & 1)) & 1) * 8)) + 12288)) = *(uint4*)(B + ((((i_2 * 8192) + ((((int)threadIdx.x) >> 4) * 1024)) + (((int)blockIdx.x) * 128)) + ((((int)threadIdx.x) & 15) * 8)));
+  }
+  #pragma unroll
+  for (int i_3 = 0; i_3 < 4; ++i_3) {
+    *(uint4*)(((half_t*)buf_dyn_shmem) + (((((i_3 * 1024) + ((((int)threadIdx.x) >> 2) * 32)) + (((((((int)threadIdx.x) & 31) >> 4) + ((((int)threadIdx.x) & 3) >> 1)) & 1) * 16)) + (((((((int)threadIdx.x) & 15) >> 3) + (((int)threadIdx.x) & 1)) & 1) * 8)) + 4096)) = *(uint4*)(A + (((((((int)blockIdx.y) * 131072) + (i_3 * 32768)) + ((((int)threadIdx.x) >> 2) * 1024)) + ((((int)threadIdx.x) & 3) * 8)) + 32));
+  }
+  #pragma unroll
+  for (int i_4 = 0; i_4 < 4; ++i_4) {
+    *(uint4*)(((half_t*)buf_dyn_shmem) + (((((((((((int)threadIdx.x) & 15) >> 3) * 2048) + (i_4 * 512)) + ((((int)threadIdx.x) >> 4) * 64)) + ((((((int)threadIdx.x) >> 6) + ((((int)threadIdx.x) & 7) >> 2)) & 1) * 32)) + (((((((int)threadIdx.x) & 63) >> 5) + ((((int)threadIdx.x) & 3) >> 1)) & 1) * 16)) + (((((((int)threadIdx.x) & 31) >> 4) + (((int)threadIdx.x) & 1)) & 1) * 8)) + 16384)) = *(uint4*)(B + (((((i_4 * 8192) + ((((int)threadIdx.x) >> 4) * 1024)) + (((int)blockIdx.x) * 128)) + ((((int)threadIdx.x) & 15) * 8)) + 32768));
+  }
+  for (int ko = 0; ko < 30; ++ko) {
+    __syncthreads();
+    #pragma unroll
+    for (int i_5 = 0; i_5 < 4; ++i_5) {
+      *(uint4*)(((half_t*)buf_dyn_shmem) + (((((((ko + 2) % 3) * 4096) + (i_5 * 1024)) + ((((int)threadIdx.x) >> 2) * 32)) + (((((((int)threadIdx.x) & 31) >> 4) + ((((int)threadIdx.x) & 3) >> 1)) & 1) * 16)) + (((((((int)threadIdx.x) & 15) >> 3) + (((int)threadIdx.x) & 1)) & 1) * 8))) = *(uint4*)(A + ((((((((int)blockIdx.y) * 131072) + (i_5 * 32768)) + ((((int)threadIdx.x) >> 2) * 1024)) + (ko * 32)) + ((((int)threadIdx.x) & 3) * 8)) + 64));
+    }
+    #pragma unroll
+    for (int i_6 = 0; i_6 < 4; ++i_6) {
+      *(uint4*)(((half_t*)buf_dyn_shmem) + ((((((((((ko + 2) % 3) * 4096) + (((((int)threadIdx.x) & 15) >> 3) * 2048)) + (i_6 * 512)) + ((((int)threadIdx.x) >> 4) * 64)) + ((((((int)threadIdx.x) >> 6) + ((((int)threadIdx.x) & 7) >> 2)) & 1) * 32)) + (((((((int)threadIdx.x) & 63) >> 5) + ((((int)threadIdx.x) & 3) >> 1)) & 1) * 16)) + (((((((int)threadIdx.x) & 31) >> 4) + (((int)threadIdx.x) & 1)) & 1) * 8)) + 12288)) = *(uint4*)(B + ((((((ko * 32768) + (i_6 * 8192)) + ((((int)threadIdx.x) >> 4) * 1024)) + (((int)blockIdx.x) * 128)) + ((((int)threadIdx.x) & 15) * 8)) + 65536));
+    }
+    __syncthreads();
+    for (int ki = 0; ki < 2; ++ki) {
+      for (int i_7 = 0; i_7 < 8; ++i_7) {
+        *(uint2*)(A_local + (i_7 * 4)) = *(uint2*)(((half_t*)buf_dyn_shmem) + (((((((ko % 3) * 4096) + (i_7 * 512)) + ((((int)threadIdx.x) & 15) * 32)) + (((((((int)threadIdx.x) & 7) >> 2) + ki) & 1) * 16)) + (((((((int)threadIdx.x) & 63) >> 5) + ((((int)threadIdx.x) & 3) >> 1)) & 1) * 8)) + (((((int)threadIdx.x) & 31) >> 4) * 4)));
+      }
+      for (int j = 0; j < 4; ++j) {
+        for (int local_id = 0; local_id < 4; ++local_id) {
+          B_local[((j * 4) + local_id)] = ((half_t*)buf_dyn_shmem)[(((((((((((ko % 3) * 4096) + ((((int)threadIdx.x) >> 6) * 2048)) + (ki * 1024)) + (((((int)threadIdx.x) & 63) >> 4) * 256)) + (local_id * 64)) + (((((((int)threadIdx.x) & 31) >> 4) + (j >> 1)) & 1) * 32)) + ((((local_id >> 1) + (j & 1)) & 1) * 16)) + (((((((int)threadIdx.x) & 15) >> 3) + (local_id & 1)) & 1) * 8)) + (((int)threadIdx.x) & 7)) + 12288)];
+        }
+      }
+      for (int i_8 = 0; i_8 < 8; ++i_8) {
+        for (int j_1 = 0; j_1 < 4; ++j_1) {
+          {
+      *(((float32x4*)C_local) + ((i_8 * 4) + j_1)) = __builtin_amdgcn_mfma_f32_16x16x16f16(*(((float16x4*)B_local) + j_1),
+                    *(((float16x4*)A_local) + i_8),
+                    *(((float32x4*)C_local) + ((i_8 * 4) + j_1)), 0, 0, 0);
+    };
+        }
+      }
+    }
+  }
+  for (int ki_1 = 0; ki_1 < 2; ++ki_1) {
+    for (int i_9 = 0; i_9 < 8; ++i_9) {
+      *(uint2*)(A_local + (i_9 * 4)) = *(uint2*)(((half_t*)buf_dyn_shmem) + (((((i_9 * 512) + ((((int)threadIdx.x) & 15) * 32)) + (((((((int)threadIdx.x) & 7) >> 2) + ki_1) & 1) * 16)) + (((((((int)threadIdx.x) & 63) >> 5) + ((((int)threadIdx.x) & 3) >> 1)) & 1) * 8)) + (((((int)threadIdx.x) & 31) >> 4) * 4)));
+    }
+    for (int j_2 = 0; j_2 < 4; ++j_2) {
+      for (int local_id_1 = 0; local_id_1 < 4; ++local_id_1) {
+        B_local[((j_2 * 4) + local_id_1)] = ((half_t*)buf_dyn_shmem)[((((((((((((int)threadIdx.x) >> 6) * 2048) + (ki_1 * 1024)) + (((((int)threadIdx.x) & 63) >> 4) * 256)) + (local_id_1 * 64)) + (((((((int)threadIdx.x) & 31) >> 4) + (j_2 >> 1)) & 1) * 32)) + ((((local_id_1 >> 1) + (j_2 & 1)) & 1) * 16)) + (((((((int)threadIdx.x) & 15) >> 3) + (local_id_1 & 1)) & 1) * 8)) + (((int)threadIdx.x) & 7)) + 12288)];
+      }
+    }
+    for (int i_10 = 0; i_10 < 8; ++i_10) {
+      for (int j_3 = 0; j_3 < 4; ++j_3) {
+        {
+      *(((float32x4*)C_local) + ((i_10 * 4) + j_3)) = __builtin_amdgcn_mfma_f32_16x16x16f16(*(((float16x4*)B_local) + j_3),
+                    *(((float16x4*)A_local) + i_10),
+                    *(((float32x4*)C_local) + ((i_10 * 4) + j_3)), 0, 0, 0);
+    };
+      }
+    }
+  }
+  for (int ki_2 = 0; ki_2 < 2; ++ki_2) {
+    for (int i_11 = 0; i_11 < 8; ++i_11) {
+      *(uint2*)(A_local + (i_11 * 4)) = *(uint2*)(((half_t*)buf_dyn_shmem) + ((((((i_11 * 512) + ((((int)threadIdx.x) & 15) * 32)) + (((((((int)threadIdx.x) & 7) >> 2) + ki_2) & 1) * 16)) + (((((((int)threadIdx.x) & 63) >> 5) + ((((int)threadIdx.x) & 3) >> 1)) & 1) * 8)) + (((((int)threadIdx.x) & 31) >> 4) * 4)) + 4096));
+    }
+    for (int j_4 = 0; j_4 < 4; ++j_4) {
+      for (int local_id_2 = 0; local_id_2 < 4; ++local_id_2) {
+        B_local[((j_4 * 4) + local_id_2)] = ((half_t*)buf_dyn_shmem)[((((((((((((int)threadIdx.x) >> 6) * 2048) + (ki_2 * 1024)) + (((((int)threadIdx.x) & 63) >> 4) * 256)) + (local_id_2 * 64)) + (((((((int)threadIdx.x) & 31) >> 4) + (j_4 >> 1)) & 1) * 32)) + ((((local_id_2 >> 1) + (j_4 & 1)) & 1) * 16)) + (((((((int)threadIdx.x) & 15) >> 3) + (local_id_2 & 1)) & 1) * 8)) + (((int)threadIdx.x) & 7)) + 16384)];
+      }
+    }
+    for (int i_12 = 0; i_12 < 8; ++i_12) {
+      for (int j_5 = 0; j_5 < 4; ++j_5) {
+        {
+      *(((float32x4*)C_local) + ((i_12 * 4) + j_5)) = __builtin_amdgcn_mfma_f32_16x16x16f16(*(((float16x4*)B_local) + j_5),
+                    *(((float16x4*)A_local) + i_12),
+                    *(((float32x4*)C_local) + ((i_12 * 4) + j_5)), 0, 0, 0);
+    };
+      }
+    }
+  }
+  #pragma unroll
+  for (int i_13 = 0; i_13 < 128; ++i_13) {
+    C_local[i_13] = max(C_local[i_13], 0.000000e+00f);
+  }
+  #pragma unroll
+  for (int i_14 = 0; i_14 < 32; ++i_14) {
+    uint2 __1;
+    float4 v_ = *(float4*)(C_local + (i_14 * 4));
+    ((half2*)(&__1))[0] = __float22half2_rn(*(float2*)(&(v_)));
+    ((half2*)(&__1))[1] = __float22half2_rn(*((float2*)(&(v_))+1));
+    *(uint2*)(C + (((((((((int)blockIdx.y) * 131072) + ((i_14 >> 2) * 16384)) + ((((int)threadIdx.x) & 15) * 1024)) + (((int)blockIdx.x) * 128)) + ((((int)threadIdx.x) >> 6) * 64)) + ((i_14 & 3) * 16)) + (((((int)threadIdx.x) & 63) >> 4) * 4))) = __1;
+  }
+}
+
+
+#define ERROR_BUF_SIZE 1024
+static char error_buf[ERROR_BUF_SIZE];
+
+extern "C" const char* get_last_error() {
+    return error_buf;
+}
+
+extern "C" int init() {
+    error_buf[0] = '\0';
+    
+    if (49152 > 65536) {
+        snprintf(error_buf, ERROR_BUF_SIZE, "Failed to set the allowed dynamic shared memory size for matmul_relu_kernel_kernel to %d", 49152);
+        return -1;
+    }
+    return 0;
+
+    return 0;
+}
+
+extern "C" int call(half_t* __restrict__ A, half_t* __restrict__ B, half_t* __restrict__ C, hipStream_t stream=hipStreamDefault) {
+	matmul_relu_kernel_kernel<<<dim3(8, 8, 1), dim3(128, 1, 1), 49152, stream>>>(A, B, C);
+	TILELANG_CHECK_LAST_ERROR("matmul_relu_kernel_kernel");
+
+	return 0;
+}
+
