@@ -1,0 +1,212 @@
+(qcu) scnethpc2623@a02r1n19
+2026/03/19 星期四 19:34:35
+➜ /public/home/scnethpc2623/PyQCU/examples/dcu git:(main) py conftest_1.py 
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tvm_ffi/_optional_torch_c_dlpack.py:625: UserWarning: Failed to load torch c dlpack extension: Ninja is required to load C++ extensions,EnvTensorAllocator will not be enabled.
+  warnings.warn(
+[ROCT-Thunk-Interface/src/hymgr.c:435, WARNING]: Version mismatch
+[19:34:49] /home/tilelang/3rdparty/tvm/src/target/target_kind.cc:240: Warning: Unable to detect ROCm version, assuming >= 3.5
+[ROCT-Thunk-Interface/src/hymgr.c:435, WARNING]: Version mismatch
+[19:34:49] /home/tilelang/3rdparty/tvm/src/target/target_kind.cc:240: Warning: Unable to detect ROCm version, assuming >= 3.5
+2026-03-19 19:34:49  [TileLang:tilelang.jit.kernel:INFO]: TileLang begins to compile kernel `matmul_relu_kernel` with `out_idx=None`
+In file included from /tmp/tmp09v6pj9a.cpp:3:
+In file included from /public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/gemm.h:3:
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/common.h:220:1: warning: void function is
+      missing a return statement [-Wreturn-type]
+}
+^
+In file included from /tmp/tmp09v6pj9a.cpp:4:
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/copy.h:35:1: warning: void function is
+      missing a return statement [-Wreturn-type]
+}
+^
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/copy.h:39:1: warning: void function is
+      missing a return statement [-Wreturn-type]
+}
+^
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/copy.h:44:35: warning: void function is
+      missing a return statement [-Wreturn-type]
+TL_DEVICE void cp_async_commit() {}
+                                  ^
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/copy.h:49:1: warning: void function is
+      missing a return statement [-Wreturn-type]
+}
+^
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/copy.h:54:1: warning: void function is
+      missing a return statement [-Wreturn-type]
+}
+^
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/copy.h:56:76: warning: void function is
+      missing a return statement [-Wreturn-type]
+__device__ void wave_barrier() { asm volatile("s_barrier" : : : "memory"); }
+                                                                           ^
+In file included from /tmp/tmp09v6pj9a.cpp:8:
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/debug.h:16:1: warning: void function is
+      missing a return statement [-Wreturn-type]
+}
+^
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/debug.h:28:1: warning: void function is
+      missing a return statement [-Wreturn-type]
+}
+^
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/debug.h:37:1: warning: void function is
+      missing a return statement [-Wreturn-type]
+}
+^
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/debug.h:48:1: warning: void function is
+      missing a return statement [-Wreturn-type]
+}
+^
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/debug.h:57:1: warning: void function is
+      missing a return statement [-Wreturn-type]
+}
+^
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/debug.h:67:1: warning: void function is
+      missing a return statement [-Wreturn-type]
+}
+^
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/debug.h:77:1: warning: void function is
+      missing a return statement [-Wreturn-type]
+}
+^
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/debug.h:87:1: warning: void function is
+      missing a return statement [-Wreturn-type]
+}
+^
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/debug.h:97:1: warning: void function is
+      missing a return statement [-Wreturn-type]
+}
+^
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/debug.h:109:1: warning: void function is
+      missing a return statement [-Wreturn-type]
+}
+^
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/debug.h:129:1: warning: void function is
+      missing a return statement [-Wreturn-type]
+}
+^
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/debug.h:144:1: warning: void function is
+      missing a return statement [-Wreturn-type]
+}
+^
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/debug.h:158:1: warning: void function is
+      missing a return statement [-Wreturn-type]
+}
+^
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/debug.h:172:1: warning: void function is
+      missing a return statement [-Wreturn-type]
+}
+^
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/debug.h:187:1: warning: void function is
+      missing a return statement [-Wreturn-type]
+}
+^
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/debug.h:201:1: warning: void function is
+      missing a return statement [-Wreturn-type]
+}
+^
+/tmp/tmp09v6pj9a.cpp:112:1: warning: void function is missing a return statement [-Wreturn-type]
+}
+^
+24 warnings generated when compiling for gfx936.
+In file included from /tmp/tmp09v6pj9a.cpp:3:
+In file included from /public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/gemm.h:3:
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/common.h:220:1: warning: void function is
+      missing a return statement [-Wreturn-type]
+}
+^
+In file included from /tmp/tmp09v6pj9a.cpp:4:
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/copy.h:35:1: warning: void function is
+      missing a return statement [-Wreturn-type]
+}
+^
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/copy.h:39:1: warning: void function is
+      missing a return statement [-Wreturn-type]
+}
+^
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/copy.h:44:35: warning: void function is
+      missing a return statement [-Wreturn-type]
+TL_DEVICE void cp_async_commit() {}
+                                  ^
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/copy.h:49:1: warning: void function is
+      missing a return statement [-Wreturn-type]
+}
+^
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/copy.h:54:1: warning: void function is
+      missing a return statement [-Wreturn-type]
+}
+^
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/copy.h:56:76: warning: void function is
+      missing a return statement [-Wreturn-type]
+__device__ void wave_barrier() { asm volatile("s_barrier" : : : "memory"); }
+                                                                           ^
+In file included from /tmp/tmp09v6pj9a.cpp:8:
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/debug.h:16:1: warning: void function is
+      missing a return statement [-Wreturn-type]
+}
+^
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/debug.h:28:1: warning: void function is
+      missing a return statement [-Wreturn-type]
+}
+^
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/debug.h:37:1: warning: void function is
+      missing a return statement [-Wreturn-type]
+}
+^
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/debug.h:48:1: warning: void function is
+      missing a return statement [-Wreturn-type]
+}
+^
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/debug.h:57:1: warning: void function is
+      missing a return statement [-Wreturn-type]
+}
+^
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/debug.h:67:1: warning: void function is
+      missing a return statement [-Wreturn-type]
+}
+^
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/debug.h:77:1: warning: void function is
+      missing a return statement [-Wreturn-type]
+}
+^
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/debug.h:87:1: warning: void function is
+      missing a return statement [-Wreturn-type]
+}
+^
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/debug.h:97:1: warning: void function is
+      missing a return statement [-Wreturn-type]
+}
+^
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/debug.h:109:1: warning: void function is
+      missing a return statement [-Wreturn-type]
+}
+^
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/debug.h:129:1: warning: void function is
+      missing a return statement [-Wreturn-type]
+}
+^
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/debug.h:144:1: warning: void function is
+      missing a return statement [-Wreturn-type]
+}
+^
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/debug.h:158:1: warning: void function is
+      missing a return statement [-Wreturn-type]
+}
+^
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/debug.h:172:1: warning: void function is
+      missing a return statement [-Wreturn-type]
+}
+^
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/debug.h:187:1: warning: void function is
+      missing a return statement [-Wreturn-type]
+}
+^
+/public/home/scnethpc2623/.conda/envs/qcu/lib/python3.10/site-packages/tilelang/3rdparty/../src/tl_templates/dcu_hip/debug.h:201:1: warning: void function is
+      missing a return statement [-Wreturn-type]
+}
+^
+/tmp/tmp09v6pj9a.cpp:112:1: warning: void function is missing a return statement [-Wreturn-type]
+}
+^
+24 warnings generated when compiling for host.
+2026-03-19 19:34:54  [TileLang:tilelang.jit.kernel:INFO]: TileLang completes to compile kernel `matmul_relu_kernel`
+Kernel output matches reference.
