@@ -41,7 +41,6 @@ def _Eexyzt_exyzt2Exyzt(E_size: int, e_size: int, xyzt_size: int, tl_dtype):
                                                       thread_i] * _e_warp[e_i, thread_i]
                 T.copy(src=_E_warp,
                        dst=Exyzt[E_i, start:end])
-                T.un
     return main
 
 # FOR TENSOR CORE
