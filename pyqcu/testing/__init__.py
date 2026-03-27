@@ -25,16 +25,16 @@ def test_import():
 def test_lattice(lat_size: list = [8, 8, 8, 16], dtype: torch.dtype = torch.complex64, device: torch.device = torch.device('cpu')):
     refer_U = torch.zeros(size=[3, 3, 4]+lat_size, dtype=dtype, device=device)
     lattice.generate_gauge_field(refer_U, seed=42, sigma=0.1, verbose=True)
-    is_su3 = lattice.check_su3(refer_U, tol=1e-6, verbose=True)
     print(f"PYQCU::TESTING::LATTICE::I:\n {lattice.I}")
     print(f"PYQCU::TESTING::LATTICE::GAMMA:\n {lattice.gamma}")
     print(f"PYQCU::TESTING::LATTICE::GAMMA_5:\n {lattice.gamma_5}")
     print(f"PYQCU::TESTING::LATTICE::GAMMA_GAMMA:\n {lattice.gamma_gamma}")
     print(f"PYQCU::TESTING::LATTICE::GELL_MANN:\n {lattice.gell_mann}")
-    print(f"PYQCU::TESTING::LATTICE:\n Gauge field SU(3) check: {is_su3}")
+    print(
+        f"PYQCU::TESTING::LATTICE:\n Gauge field SU(3) check: {lattice.check_su3(refer_U, tol=1e-6, verbose=True)}")
 
 
-def test_dslash_wilson(kappa: float = 0.125, lat_size: list = [8, 8, 8, 16],  dtype: torch.dtype = torch.complex64, device: torch.device = torch.device('cpu'), with_data: bool = False, suppoer_multi: bool = True):
+def test_dslash_wilson(kappa: float = 0.125, lat_size: list = [8, 8, 8, 16],  dtype: torch.dtype = torch.complex64, device: torch.device = torch.device('cpu'), with_data: bool = False, suppoer_parallel: bool = True):
     if not with_data:
         refer_U = torch.zeros(
             size=[3, 3, 4]+lat_size, dtype=dtype, device=device)
@@ -73,16 +73,15 @@ def test_dslash_wilson(kappa: float = 0.125, lat_size: list = [8, 8, 8, 16],  dt
         operator = dslash.operator(
             U=refer_U, kappa=kappa, clover_term=refer_clover_term, verbose=True)
         time_start = perf_counter()
-        if suppoer_multi:
+        if suppoer_parallel:
             dest = operator.matvec(src=refer_src)
         else:
             dest = dslash.give_wilson(
                 src=refer_src, U=refer_U, kappa=kappa, with_I=True,  verbose=True)
         time_end = perf_counter()
-    is_su3 = lattice.check_su3(refer_U, tol=1e-6, verbose=True)
     diff = tools.norm(dest - refer_dest)/tools.norm(refer_dest)
     print(
-        f"PYQCU::TESTING::DSLASH::WILSON::REFER_U:\n Gauge field SU(3) check: {is_su3}")
+        f"PYQCU::TESTING::DSLASH::WILSON::REFER_U:\n Gauge field SU(3) check: {lattice.check_su3(refer_U, tol=1e-6, verbose=True)}")
     print(f"PYQCU::TESTING::DSLASH::WILSON::REFER_U:\n {tools.norm(refer_U)}")
     print(
         f"PYQCU::TESTING::DSLASH::WILSON::REFER_U:\n {refer_U.flatten()[:12]}")
@@ -211,9 +210,8 @@ def test_dslash_clover(device: torch.device = torch.device('cpu')):
     clover_inv_term = dslash.inverse(clover_term=clover_term, verbose=True)
     diff = tools.norm(clover_inv_term - refer_clover_inv_term) / \
         tools.norm(refer_clover_inv_term)
-    is_su3 = lattice.check_su3(refer_U, tol=1e-6, verbose=True)
     print(
-        f"PYQCU::TESTING::DSLASH::CLOVER::REFER_U:\n Gauge field SU(3) check: {is_su3}")
+        f"PYQCU::TESTING::DSLASH::CLOVER::REFER_U:\n Gauge field SU(3) check: {lattice.check_su3(refer_U, tol=1e-6, verbose=True)}")
     print(f"PYQCU::TESTING::DSLASH::CLOVER::REFER_U:\n {tools.norm(refer_U)}")
     print(
         f"PYQCU::TESTING::DSLASH::CLOVER::REFER_U:\n {refer_U.flatten()[:12]}")
@@ -419,7 +417,7 @@ def test_matmul():
 
 
 def test_smear_stout(device: torch.device = torch.device('cpu'), dtype: torch.dtype = torch.complex64):
-    lat_size = [8, 8, 8, 8]
+    lat_size = [4, 4, 4, 4]
     comm = MPI.COMM_WORLD
     root = 0
     if comm.rank == root:
@@ -427,7 +425,7 @@ def test_smear_stout(device: torch.device = torch.device('cpu'), dtype: torch.dt
             size=[3, 3, 4]+lat_size, dtype=dtype, device=device)
         lattice.generate_gauge_field(
             whole_U, seed=42, sigma=0.1, verbose=True)
-        whole_smear_U = smear.stout_smear_single(U=whole_U)
+        whole_smear_U = smear.stout_smear(U=whole_U, suppoer_parallel=False)
     else:
         whole_U = None
         whole_smear_U = None
@@ -435,20 +433,26 @@ def test_smear_stout(device: torch.device = torch.device('cpu'), dtype: torch.dt
                                           3, 3, 4]+lat_size, root=root, dtype=dtype, device=device)
     refer_smear_U = tools.whole_xyzt2local_xyzt(whole_array=whole_smear_U, whole_shape=[
         3, 3, 4]+lat_size, root=root, dtype=dtype, device=device)
-    smear_U = smear.stout_smear(U=refer_U)
+    smear_U = smear.stout_smear(U=refer_U, suppoer_parallel=True)
     diff = tools.norm(smear_U - refer_smear_U) / \
         tools.norm(refer_smear_U)
-    is_su3 = lattice.check_su3(smear_U, tol=1e-6, verbose=True)
     print(
-        f"PYQCU::TESTING::SMEAR::STOUT::smear_U:\n Gauge field SU(3) check: {is_su3}")
-    print(f"PYQCU::TESTING::SMEAR::STOUT::smear_U:\n {tools.norm(smear_U)}")
+        f"PYQCU::TESTING::SMEAR::STOUT::REFER_U:\n Gauge field SU(3) check: {lattice.check_su3(refer_U, tol=1e-6, verbose=True)}")
+    print(
+        f"PYQCU::TESTING::SMEAR::STOUT::REFER_U:\n {tools.norm(refer_U)}")
+    print(
+        f"PYQCU::TESTING::SMEAR::STOUT::REFER_U:\n {refer_U.flatten()[:12]}")
+    print(
+        f"PYQCU::TESTING::SMEAR::STOUT::REFER_SMEAR_U:\n Gauge field SU(3) check: {lattice.check_su3(refer_smear_U, tol=1e-6, verbose=True)}")
     print(
         f"PYQCU::TESTING::SMEAR::STOUT::REFER_SMEAR_U:\n {tools.norm(refer_smear_U)}")
     print(
         f"PYQCU::TESTING::SMEAR::STOUT::REFER_SMEAR_U:\n {refer_smear_U.flatten()[:12]}")
     print(
+        f"PYQCU::TESTING::SMEAR::STOUT::SMEAR_U:\n Gauge field SU(3) check: {lattice.check_su3(smear_U, tol=1e-6, verbose=True)}")
+    print(
         f"PYQCU::TESTING::SMEAR::STOUT::SMEAR_U:\n {tools.norm(smear_U)}")
     print(
         f"PYQCU::TESTING::SMEAR::STOUT::SMEAR_U:\n {smear_U.flatten()[:12]}")
     print(
-        f"PYQCU::TESTING::SMEAR::STOUT:\n Difference between computed and reference dslash: {diff}")
+        f"PYQCU::TESTING::SMEAR::STOUT:\n Difference between computed and reference smear: {diff}")
