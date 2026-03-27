@@ -1,14 +1,70 @@
 import torch
+import numpy as np
 from pyqcu import tools
+import mpi4py.MPI as MPI
 """
     Copy from https://github.com/IHEP-LQCD/EasyDistillation/blob/master/lattice/generator/elemental.py
 """
 
 
-def stout_smear(U: torch.Tensor, nstep: int = 1, rho: float = 0.12, suppoer_parallel: bool = True):
+def stout_smear(U: torch.Tensor, nstep: int = 1, rho: float = 0.12, support_parallel: bool = True):
+    if support_parallel:
+        grid_size = tools.give_grid_size()
+        comm = MPI.COMM_WORLD
+        rank = comm.Get_rank()
+        rank_plus_list = [tools.give_rank_plus(
+            ward=ward) for ward in range(4)]
+        rank_minus_list = [tools.give_rank_minus(
+            ward=ward) for ward in range(4)]
+        U_head_list = [torch.zeros([]), torch.zeros(
+            []), torch.zeros([]), torch.zeros([])]  # xyzt
+        U_tail_list = [torch.zeros([]), torch.zeros(
+            []), torch.zeros([]), torch.zeros([])]  # xyzt
+        for ward in range(4):
+            if grid_size[ward] != 1:
+                U_tail4send = U[tools.slice_dim(
+                                dims_num=7, ward=ward, point=-1)].cpu().contiguous().numpy()
+                U_head4recv = np.zeros_like(U_tail4send)
+                comm.Sendrecv(sendbuf=U_tail4send, dest=rank_plus_list[ward], sendtag=rank,
+                              recvbuf=U_head4recv, source=rank_minus_list[ward], recvtag=rank_minus_list[ward])
+                comm.Barrier()
+                U_head_list[ward] = torch.from_numpy(U_head4recv).to(
+                    device=U.device)
+                U_head4send = U[tools.slice_dim(
+                                dims_num=7, ward=ward, point=0)].cpu().contiguous().numpy()
+                U_tail4recv = np.zeros_like(U_head4send)
+                comm.Sendrecv(sendbuf=U_head4send, dest=rank_minus_list[ward], sendtag=rank_minus_list[ward],
+                              recvbuf=U_tail4recv, source=rank_plus_list[ward], recvtag=rank)
+                comm.Barrier()
+                U_tail_list[ward] = torch.from_numpy(U_tail4recv).to(
+                    device=U.device)
+        U_head_tail_list = [torch.zeros([]), torch.zeros(
+            []), torch.zeros([]), torch.zeros([])]*4
+        U_tail_head_list = [torch.zeros([]), torch.zeros(
+            []), torch.zeros([]), torch.zeros([])]*4
+        for ward_a in range(4):
+            for ward_b in range(4):
+                if ward_a != ward_b and grid_size[ward_a] != 1 and grid_size[ward_b] != 1:
+                    U_tail_head4send = U[tools.slice_dim_dim(
+                        dims_num=7, ward_a=ward_a, point_a=-1, ward_b=ward_b, point_b=0)].cpu().contiguous().numpy()
+                    U_head_tail4recv = np.zeros_like(U_tail4send)
+                    comm.Sendrecv(sendbuf=U_tail_head4send, dest=tools.give_rank_plus_minus(ward_a=ward_a, ward_b=ward_b, rank=rank), sendtag=rank,
+                                  recvbuf=U_head_tail4recv, source=tools.give_rank_minus_plus(ward_a=ward_a, ward_b=ward_b, rank=rank), recvtag=tools.give_rank_minus_plus(ward_a=ward_a, ward_b=ward_b, rank=rank))
+                    comm.Barrier()
+                    U_head_tail_list[ward_a][ward_b] = torch.from_numpy(U_head_tail4recv).to(
+                        device=U.device)
+                    U_head_tail4send = U[tools.slice_dim_dim(
+                        dims_num=7, ward_a=ward_a, point_a=0, ward_b=ward_b, point_b=-1)].cpu().contiguous().numpy()
+                    U_tail_head4recv = np.zeros_like(U_head4send)
+                    comm.Sendrecv(sendbuf=U_head_tail4send, dest=rank_minus_list[ward], sendtag=rank_minus_list[ward],
+                                  recvbuf=U_tail_head4recv, source=rank_plus_list[ward], recvtag=rank)
+                    comm.Barrier()
+                    U_tail_list[ward_a][ward_b] = torch.from_numpy(U_tail4recv).to(
+                        device=U.device)
+                    pass
+
     for _ in range(nstep):
         Q = torch.zeros_like(U)
-        grid_size = tools.give_grid_size()
         for mu in range(4):
             # for mu in range(4 - 1):
             Q_mu = torch.zeros_like(Q[:, :, mu, :, :, :, :])
@@ -19,19 +75,47 @@ def stout_smear(U: torch.Tensor, nstep: int = 1, rho: float = 0.12, suppoer_para
                     U_nu = U[:, :, nu, :, :, :, :]
                     U_nu_conj = U[:, :, nu, :, :, :, :].permute(
                         1, 0, 2, 3, 4, 5).conj()
-                    Q_mu += torch.einsum(
-                        "abxyzt,bcxyzt,dcxyzt->adxyzt",
-                        U_nu,
-                        torch.roll(U_mu, -1, -4+nu),
-                        torch.roll(U_nu_conj, -1, -4+mu),
-                    )
-                    Q_mu += torch.einsum(
-                        "baxyzt,bcxyzt,cdxyzt->adxyzt",
-                        torch.roll(U_nu_conj, +1, -4+nu),
-                        torch.roll(U_mu, +1, -4+nu),
-                        torch.roll(torch.roll(
-                            U_nu, +1, -4+nu), -1, -4+mu),
-                    )
+                    if support_parallel:
+                        roll_u0 = torch.roll(U_mu, -1, -4+nu)
+                        roll_u0[tools.slice_dim(
+                                dims_num=6, ward=nu, point=-1)] = U_tail_list[nu][:, :, mu, :, :, :]
+                        roll_u1 = torch.roll(U_nu_conj, -1, -4+mu)
+                        roll_u1[tools.slice_dim(
+                                dims_num=6, ward=mu, point=-1)] = U_tail_list[mu][:, :, nu, :, :, :].permute(1, 0, 2, 3, 4).conj()
+                        roll_u2 = torch.roll(U_nu_conj, +1, -4+nu)
+                        roll_u2[tools.slice_dim(
+                                dims_num=6, ward=nu, point=0)] = U_head_list[nu][:, :, nu, :, :, :].permute(1, 0, 2, 3, 4).conj()
+                        roll_u3 = torch.roll(U_mu, +1, -4+nu)
+                        roll_u3[tools.slice_dim(
+                                dims_num=6, ward=nu, point=0)] = U_head_list[nu][:, :, mu, :, :, :]
+                        roll_u4 = torch.roll(torch.roll(
+                            U_nu, +1, -4+nu), -1, -4+mu)
+                        Q_mu += torch.einsum(
+                            "abxyzt,bcxyzt,dcxyzt->adxyzt",
+                            U_nu,
+                            roll_u0,
+                            roll_u1,
+                        )
+                        Q_mu += torch.einsum(
+                            "baxyzt,bcxyzt,cdxyzt->adxyzt",
+                            roll_u2,
+                            roll_u3,
+                            roll_u4,
+                        )
+                    else:
+                        Q_mu += torch.einsum(
+                            "abxyzt,bcxyzt,dcxyzt->adxyzt",
+                            U_nu,
+                            torch.roll(U_mu, -1, -4+nu),
+                            torch.roll(U_nu_conj, -1, -4+mu),
+                        )
+                        Q_mu += torch.einsum(
+                            "baxyzt,bcxyzt,cdxyzt->adxyzt",
+                            torch.roll(U_nu_conj, +1, -4+nu),
+                            torch.roll(U_mu, +1, -4+nu),
+                            torch.roll(torch.roll(
+                                U_nu, +1, -4+nu), -1, -4+mu),
+                        )
             Q[:, :, mu, :, :, :, :] = Q_mu.clone()
         Q = torch.einsum("abDxyzt,cbDxyzt->acDxyzt", rho * Q, U.conj())
         Q = 0.5j * (torch.einsum("abDxyzt->baDxyzt", Q.conj()) - Q)
@@ -63,7 +147,6 @@ def stout_smear(U: torch.Tensor, nstep: int = 1, rho: float = 0.12, suppoer_para
         f0[parity] = f0[parity].conj()
         f1[parity] = -f1[parity].conj()
         f2[parity] = f2[parity].conj()
-
         f0 = torch.einsum("Dxyzt,ab->abDxyzt", f0, torch.eye(3))
         f1 = torch.einsum("Dxyzt,abDxyzt->abDxyzt", f1, Q)
         f2 = torch.einsum("Dxyzt,abDxyzt,bcDxyzt->acDxyzt", f2, Q, Q)

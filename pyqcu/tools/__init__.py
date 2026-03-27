@@ -12,9 +12,14 @@ from ._define import oooxyzt2poooxyzt as oooxyzt2poooxyzt
 from ._define import poooxyzt2oooxyzt as poooxyzt2oooxyzt
 from ._define import give_eo_mask as give_eo_mask
 from ._define import slice_dim as slice_dim
+from ._define import slice_dim_dim as slice_dim_dim
 from ._define import set_device as set_device
 from ._define import give_rank_plus as give_rank_plus
 from ._define import give_rank_minus as give_rank_minus
+from ._define import give_rank_plus_plus as give_rank_plus_plus
+from ._define import give_rank_plus_minus as give_rank_plus_minus
+from ._define import give_rank_minus_minus as give_rank_minus_minus
+from ._define import give_rank_minus_plus as give_rank_minus_plus
 from ._define import give_grid_size as give_grid_size
 from ._define import give_grid_index as give_grid_index
 from ._define import check_mpi_support as check_mpi_support

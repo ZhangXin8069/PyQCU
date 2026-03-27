@@ -3,9 +3,9 @@ from pyqcu.testing import *
 import torch
 # test_import()
 # test_lattice()
-# test_dslash_wilson(with_data=True, suppoer_parallel=True)
-# test_dslash_wilson(with_data=True, suppoer_parallel=False)
-# test_dslash_wilson(with_data=False, suppoer_parallel=False)
+# test_dslash_wilson(with_data=True, support_parallel=True)
+# test_dslash_wilson(with_data=True, support_parallel=False)
+# test_dslash_wilson(with_data=False, support_parallel=False)
 # test_dslash_wilson(with_data=False)
 # test_dslash_clover()
 # test_dslash_parity()
