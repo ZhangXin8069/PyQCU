@@ -2,7 +2,7 @@ from time import perf_counter
 import tilelang
 import torch
 from argparse import Namespace
-from pyqcu import lattice, solver, dslash, _torch, tools
+from pyqcu import lattice, solver, dslash, _torch, tools, smear
 import mpi4py.MPI as MPI
 import pyqcu
 Namespace.__module__ = "pyqcu.testing"
@@ -416,3 +416,39 @@ def test_matmul():
     print(line)
     torch.testing.assert_close(c_cpu, ref_c_cpu, rtol=1e-2, atol=1e-2)
     print("All Verifications Passed (GPU & CPU)!")
+
+
+def test_smear_stout(device: torch.device = torch.device('cpu'), dtype: torch.dtype = torch.complex64):
+    lat_size = [8, 8, 8, 8]
+    comm = MPI.COMM_WORLD
+    root = 0
+    if comm.rank == root:
+        whole_U = torch.zeros(
+            size=[3, 3, 4]+lat_size, dtype=dtype, device=device)
+        lattice.generate_gauge_field(
+            whole_U, seed=42, sigma=0.1, verbose=True)
+        whole_smear_U = smear.stout_smear_single(U=whole_U)
+    else:
+        whole_U = None
+        whole_smear_U = None
+    refer_U = tools.whole_xyzt2local_xyzt(whole_array=whole_U, whole_shape=[
+                                          3, 3, 4]+lat_size, root=root, dtype=dtype, device=device)
+    refer_smear_U = tools.whole_xyzt2local_xyzt(whole_array=whole_smear_U, whole_shape=[
+        3, 3, 4]+lat_size, root=root, dtype=dtype, device=device)
+    smear_U = smear.stout_smear(U=refer_U)
+    diff = tools.norm(smear_U - refer_smear_U) / \
+        tools.norm(refer_smear_U)
+    is_su3 = lattice.check_su3(smear_U, tol=1e-6, verbose=True)
+    print(
+        f"PYQCU::TESTING::SMEAR::STOUT::smear_U:\n Gauge field SU(3) check: {is_su3}")
+    print(f"PYQCU::TESTING::SMEAR::STOUT::smear_U:\n {tools.norm(smear_U)}")
+    print(
+        f"PYQCU::TESTING::SMEAR::STOUT::REFER_SMEAR_U:\n {tools.norm(refer_smear_U)}")
+    print(
+        f"PYQCU::TESTING::SMEAR::STOUT::REFER_SMEAR_U:\n {refer_smear_U.flatten()[:12]}")
+    print(
+        f"PYQCU::TESTING::SMEAR::STOUT::SMEAR_U:\n {tools.norm(smear_U)}")
+    print(
+        f"PYQCU::TESTING::SMEAR::STOUT::SMEAR_U:\n {smear_U.flatten()[:12]}")
+    print(
+        f"PYQCU::TESTING::SMEAR::STOUT:\n Difference between computed and reference dslash: {diff}")
