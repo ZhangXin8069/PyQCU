@@ -166,6 +166,24 @@ def slice_dim(dims_num: int = 4, ward: int = 0, start: int = None, stop: int = N
     return tuple(slices)
 
 
+def slice_dim_dim(dims_num: int = 4, ward_a: int = 0, start_a: int = None, stop_a: int = None, step_a: int = 2, point_a: int = None, ward_b: int = 0, start_b: int = None, stop_b: int = None, step_b: int = 2, point_b: int = None) -> tuple:
+    """
+    Slice tensor along two specific dimensions. [oooxyzt]
+    """
+    slices = [slice(None)] * dims_num
+    if point_a == None:
+        slices[ward_a-4 if ward_a >=
+               0 else ward_a] = slice(start_a, stop_a, step_a)
+    else:
+        slices[ward_a-4 if ward_a >= 0 else ward_a] = point_a
+    if point_b == None:
+        slices[ward_b-4 if ward_b >=
+               0 else ward_b] = slice(start_b, stop_b, step_b)
+    else:
+        slices[ward_b-4 if ward_b >= 0 else ward_b] = point_b
+    return tuple(slices)
+
+
 def give_grid_index(rank: int = None) -> Tuple[int, int, int, int]:
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank() if rank == None else rank
@@ -197,6 +215,22 @@ def give_rank_minus(ward: int, rank: int = None) -> Tuple[int, int, int, int]:
         1 if grid_index[ward] == 0 else grid_index[ward]-1
     # print(f"PYQCU::TOOLS::DEFINE:\n give_rank_minus: {grid_index}, ward: {ward}")
     return grid_index[-1]+(grid_size[-1]*(grid_index[-2]+(grid_size[-2]*(grid_index[-3]+(grid_size[-3]*(grid_index[-4]))))))
+
+
+def give_rank_plus_plus(ward_a: int, ward_b: int, rank: int = None) -> Tuple[int, int, int, int]:
+    return give_rank_plus(ward=ward_b, rank=give_rank_plus(ward=ward_a, rank=rank))
+
+
+def give_rank_plus_minus(ward_a: int, ward_b: int, rank: int = None) -> Tuple[int, int, int, int]:
+    return give_rank_minus(ward=ward_b, rank=give_rank_plus(ward=ward_a, rank=rank))
+
+
+def give_rank_minus_minus(ward_a: int, ward_b: int, rank: int = None) -> Tuple[int, int, int, int]:
+    return give_rank_minus(ward=ward_b, rank=give_rank_minus(ward=ward_a, rank=rank))
+
+
+def give_rank_minus_plus(ward_a: int, ward_b: int, rank: int = None) -> Tuple[int, int, int, int]:
+    return give_rank_plus(ward=ward_b, rank=give_rank_minus(ward=ward_a, rank=rank))
 
 
 def local_xyzt2whole_xyzt(
