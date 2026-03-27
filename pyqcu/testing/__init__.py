@@ -34,7 +34,7 @@ def test_lattice(lat_size: list = [8, 8, 8, 16], dtype: torch.dtype = torch.comp
         f"PYQCU::TESTING::LATTICE:\n Gauge field SU(3) check: {lattice.check_su3(refer_U, tol=1e-6, verbose=True)}")
 
 
-def test_dslash_wilson(kappa: float = 0.125, lat_size: list = [8, 8, 8, 16],  dtype: torch.dtype = torch.complex64, device: torch.device = torch.device('cpu'), with_data: bool = False, suppoer_parallel: bool = True):
+def test_dslash_wilson(kappa: float = 0.125, lat_size: list = [8, 8, 8, 16],  dtype: torch.dtype = torch.complex64, device: torch.device = torch.device('cpu'), with_data: bool = False, support_parallel: bool = True):
     if not with_data:
         refer_U = torch.zeros(
             size=[3, 3, 4]+lat_size, dtype=dtype, device=device)
@@ -73,7 +73,7 @@ def test_dslash_wilson(kappa: float = 0.125, lat_size: list = [8, 8, 8, 16],  dt
         operator = dslash.operator(
             U=refer_U, kappa=kappa, clover_term=refer_clover_term, verbose=True)
         time_start = perf_counter()
-        if suppoer_parallel:
+        if support_parallel:
             dest = operator.matvec(src=refer_src)
         else:
             dest = dslash.give_wilson(
@@ -425,7 +425,7 @@ def test_smear_stout(device: torch.device = torch.device('cpu'), dtype: torch.dt
             size=[3, 3, 4]+lat_size, dtype=dtype, device=device)
         lattice.generate_gauge_field(
             whole_U, seed=42, sigma=0.1, verbose=True)
-        whole_smear_U = smear.stout_smear(U=whole_U, suppoer_parallel=False)
+        whole_smear_U = smear.stout_smear(U=whole_U, support_parallel=False)
     else:
         whole_U = None
         whole_smear_U = None
@@ -433,7 +433,7 @@ def test_smear_stout(device: torch.device = torch.device('cpu'), dtype: torch.dt
                                           3, 3, 4]+lat_size, root=root, dtype=dtype, device=device)
     refer_smear_U = tools.whole_xyzt2local_xyzt(whole_array=whole_smear_U, whole_shape=[
         3, 3, 4]+lat_size, root=root, dtype=dtype, device=device)
-    smear_U = smear.stout_smear(U=refer_U, suppoer_parallel=True)
+    smear_U = smear.stout_smear(U=refer_U, support_parallel=True)
     diff = tools.norm(smear_U - refer_smear_U) / \
         tools.norm(refer_smear_U)
     print(
