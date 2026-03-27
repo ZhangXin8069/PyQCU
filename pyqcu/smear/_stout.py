@@ -1,15 +1,19 @@
 import torch
+from pyqcu import tools
 """
     Copy from https://github.com/IHEP-LQCD/EasyDistillation/blob/master/lattice/generator/elemental.py
 """
 
 
-def stout_smear(U: torch.Tensor, nstep: int = 20, rho: float = 0.12):
+def stout_smear(U: torch.Tensor, nstep: int = 1, rho: float = 0.12, suppoer_parallel: bool = True):
     for _ in range(nstep):
         Q = torch.zeros_like(U)
-        for mu in range(4 - 1):
+        grid_size = tools.give_grid_size()
+        for mu in range(4):
+            # for mu in range(4 - 1):
             Q_mu = torch.zeros_like(Q[:, :, mu, :, :, :, :])
-            for nu in range(4 - 1):
+            for nu in range(4):
+                # for nu in range(4 - 1):
                 if mu != nu:
                     U_mu = U[:, :, mu, :, :, :, :]
                     U_nu = U[:, :, nu, :, :, :, :]
@@ -34,7 +38,6 @@ def stout_smear(U: torch.Tensor, nstep: int = 20, rho: float = 0.12):
         Q -= 1 / 3 * torch.einsum("aaDxyzt,bc->bcDxyzt", Q, torch.eye(3))
         c0 = torch.einsum("abDxyzt,bcDxyzt,caDxyzt->Dxyzt", Q, Q, Q).real / 3
         c1 = torch.einsum("abDxyzt,baDxyzt->Dxyzt", Q, Q).real / 2
-
         c0_max = 2 * (c1 / 3) ** (3 / 2)
         parity = c0 < 0
         c0 = torch.abs(c0)
@@ -66,12 +69,3 @@ def stout_smear(U: torch.Tensor, nstep: int = 20, rho: float = 0.12):
         f2 = torch.einsum("Dxyzt,abDxyzt,bcDxyzt->acDxyzt", f2, Q, Q)
         dest = torch.einsum("abDxyzt,bcDxyzt->acDxyzt", f0 + f1 + f2, U)
     return dest
-
-
-"""
-    Copy from https://github.com/IHEP-LQCD/EasyDistillation/blob/master/lattice/generator/elemental.py
-"""
-
-
-def stout_smear_single(U: torch.Tensor, nstep: int = 20, rho: float = 0.12):
-    return stout_smear(U=U, nstep=nstep, rho=rho)

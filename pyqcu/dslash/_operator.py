@@ -25,9 +25,6 @@ class hopping:
                     U_tail4send = self.U[tools.slice_dim(
                         dims_num=7, ward=ward, point=-1)].cpu().contiguous().numpy()
                     U_head4recv = np.zeros_like(U_tail4send)
-                    # print(f"U.shape: {self.U.shape}")
-                    # print(f"U_tail4send.shape: {U_tail4send.shape}")
-                    # print(f"rank: {rank}, rank_plus: {rank_plus}, rank_minus: {rank_minus}, ward: {ward}")
                     self.comm.Sendrecv(sendbuf=U_tail4send, dest=self.rank_plus_list[ward], sendtag=self.rank,
                                        recvbuf=U_head4recv, source=self.rank_minus_list[ward], recvtag=self.rank_minus_list[ward])
                     self.comm.Barrier()
