@@ -53,6 +53,7 @@ def gridoooxyzt2hdf5oooxyzt(
             print(
                 f"PYQCU::TOOLS::IO:\n rank {rank}: Data is saved to {file_name} (MPI mode)")
     else:
+        comm.Barrier()
         # Use serial I/O - gather all data to rank 0
         local_data = input_tensor.cpu().contiguous().numpy()
         # Gather all local data to rank 0
