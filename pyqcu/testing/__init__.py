@@ -1,10 +1,7 @@
-from json import tool
 from time import perf_counter
 import tilelang
 import torch
 from argparse import Namespace
-
-from trio import TooSlowError
 from pyqcu import lattice, solver, dslash, _torch, tools, smear
 import mpi4py.MPI as MPI
 import pyqcu
