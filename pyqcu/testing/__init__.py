@@ -3,6 +3,8 @@ from time import perf_counter
 import tilelang
 import torch
 from argparse import Namespace
+
+from trio import TooSlowError
 from pyqcu import lattice, solver, dslash, _torch, tools, smear
 import mpi4py.MPI as MPI
 import pyqcu
@@ -419,21 +421,21 @@ def test_matmul():
 
 def test_smear_stout(device: torch.device = torch.device('cpu'), dtype: torch.dtype = torch.complex64):
     # lat_size = [2, 2, 2, 2]
-    lat_size = [8, 8, 8, 8]
-    # lat_size = [4, 4, 4, 4]
+    lat_size = [4, 4, 4, 4]
+    # lat_size = [8, 8, 8, 8]
     comm = MPI.COMM_WORLD
     root = 0
+    grid_size = tools.give_grid_size()
+    refer_U = torch.zeros(
+        size=[3, 3, 4]+[lat_size[i]//grid_size[i] for i in range(4)], dtype=dtype, device=device)
+    lattice.generate_gauge_field(
+        refer_U, seed=42, sigma=0.1, verbose=True)
+    whole_U = tools.local_xyzt2whole_xyzt(
+        local_array=refer_U, root=root)
     if comm.rank == root:
-        whole_U = torch.zeros(
-            size=[3, 3, 4]+lat_size, dtype=dtype, device=device)
-        lattice.generate_gauge_field(
-            whole_U, seed=42, sigma=0.1, verbose=True)
         whole_smear_U = smear.stout_smear(U=whole_U, support_parallel=False)
     else:
-        whole_U = None
         whole_smear_U = None
-    refer_U = tools.whole_xyzt2local_xyzt(whole_array=whole_U, whole_shape=[
-                                          3, 3, 4]+lat_size, root=root, dtype=dtype, device=device)
     refer_smear_U = tools.whole_xyzt2local_xyzt(whole_array=whole_smear_U, whole_shape=[
         3, 3, 4]+lat_size, root=root, dtype=dtype, device=device)
     smear_U = smear.stout_smear(U=refer_U, support_parallel=True)
