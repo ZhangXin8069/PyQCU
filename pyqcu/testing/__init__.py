@@ -1,3 +1,4 @@
+from json import tool
 from time import perf_counter
 import tilelang
 import torch
@@ -417,6 +418,7 @@ def test_matmul():
 
 
 def test_smear_stout(device: torch.device = torch.device('cpu'), dtype: torch.dtype = torch.complex64):
+    # lat_size = [2, 2, 2, 2]
     lat_size = [4, 4, 4, 4]
     comm = MPI.COMM_WORLD
     root = 0
@@ -456,3 +458,9 @@ def test_smear_stout(device: torch.device = torch.device('cpu'), dtype: torch.dt
         f"PYQCU::TESTING::SMEAR::STOUT::SMEAR_U:\n {smear_U.flatten()[:12]}")
     print(
         f"PYQCU::TESTING::SMEAR::STOUT:\n Difference between computed and reference smear: {diff}")
+    # _whole_smear_U = tools.local_xyzt2whole_xyzt(
+    #     local_array=smear_U, root=root)
+    # if comm.rank == root:
+    #     print(f"whole_smear_U:\n{whole_smear_U}")
+    #     print(f"_whole_smear_U:\n{_whole_smear_U}")
+    #     print(f"whole_smear_U-_whole_smear_U:\n{whole_smear_U-_whole_smear_U}")
