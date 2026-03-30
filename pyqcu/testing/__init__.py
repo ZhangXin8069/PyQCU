@@ -423,10 +423,15 @@ def test_smear_stout(device: torch.device = torch.device('cpu'), dtype: torch.dt
     comm = MPI.COMM_WORLD
     root = 0
     grid_size = tools.give_grid_size()
+    print(grid_size)
+    grid_index = tools.give_grid_index()
+    print(grid_index)
     refer_U = torch.zeros(
         size=[3, 3, 4]+[lat_size[i]//grid_size[i] for i in range(4)], dtype=dtype, device=device)
     lattice.generate_gauge_field(
         refer_U, seed=42, sigma=0.1, verbose=True)
+    refer_U.real=comm.rank
+    refer_U.imag=grid_index[0]/10+grid_index[1]/100+grid_index[2]/1000+grid_index[3]/10000
     whole_U = tools.local_xyzt2whole_xyzt(
         local_array=refer_U, root=root)
     if comm.rank == root:
