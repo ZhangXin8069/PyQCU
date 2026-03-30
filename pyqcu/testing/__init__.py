@@ -419,7 +419,8 @@ def test_matmul():
 
 def test_smear_stout(device: torch.device = torch.device('cpu'), dtype: torch.dtype = torch.complex64):
     # lat_size = [2, 2, 2, 2]
-    lat_size = [4, 4, 4, 4]
+    lat_size = [8, 8, 8, 8]
+    # lat_size = [4, 4, 4, 4]
     comm = MPI.COMM_WORLD
     root = 0
     if comm.rank == root:
