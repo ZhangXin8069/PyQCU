@@ -2,6 +2,8 @@ import torch
 import numpy as np
 from pyqcu import tools
 import mpi4py.MPI as MPI
+
+from pyqcu.tools._define import give_grid_index
 """
     Copy from https://github.com/IHEP-LQCD/EasyDistillation/blob/master/lattice/generator/elemental.py
 """
@@ -65,6 +67,10 @@ def stout_smear(U: torch.Tensor, nstep: int = 1, rho: float = 0.12, support_para
                     comm.Barrier()
                     U_tail_head_list[ward_a][ward_b] = torch.from_numpy(U_tail_head4recv).to(
                         device=U.device)
+                    print(f"{give_grid_index()}:tools.give_rank_plus_minus(ward_a={ward_a}, ward_b={ward_b}, rank={rank}):{tools.give_rank_plus_minus(ward_a=ward_a, ward_b=ward_b, rank=rank)}")
+                    print(f"{give_grid_index()}:tools.give_rank_minus_plus(ward_a={ward_a}, ward_b={ward_b}, rank={rank}):{tools.give_rank_minus_plus(ward_a=ward_a, ward_b=ward_b, rank=rank)}")
+                    print(
+                        f"{give_grid_index()}:U_head_tail_list[{ward_a}][{ward_b}][:, :, {ward_b}, :, :]:{U_head_tail_list[ward_a][ward_b][:, :, ward_b, :, :]}")
     for _ in range(nstep):
         Q = torch.zeros_like(U)
         for mu in range(4):
@@ -103,7 +109,8 @@ def stout_smear(U: torch.Tensor, nstep: int = 1, rho: float = 0.12, support_para
                             roll_u4[tools.slice_dim(dims_num=6, ward=mu, point=-1)] = torch.roll(
                                 U_tail_list[mu][:, :, nu, :, :, :], +1, -4+nu+(nu < mu))
                         if grid_size[mu] != 1 and grid_size[nu] != 1:
-                            print(f"U_head_tail_list[nu][mu].shape:{(U_head_tail_list[nu][mu]).shape}")
+                            print(
+                                f"U_head_tail_list[nu][mu].shape:{(U_head_tail_list[nu][mu]).shape}")
                             roll_u4[tools.slice_dim_dim(
                                     dims_num=6, ward_a=nu, ward_b=mu, point_a=0, point_b=-1)] = U_head_tail_list[nu][mu][:, :, nu, :, :]
                             # print(
@@ -114,7 +121,11 @@ def stout_smear(U: torch.Tensor, nstep: int = 1, rho: float = 0.12, support_para
                             # else:
                             #     roll_u4[tools.slice_dim_dim(
                             #         dims_num=6, ward_a=nu, ward_b=mu, point_a=0, point_b=-1)] = U_tail_head_list[mu][nu][:, :, nu, :, :]
-                            # print(f"grid_size:{grid_size}")
+                            print(f"grid_size:{grid_size}")
+                            print(
+                                f"###{give_grid_index()}:U_head_tail_list[{nu}][{mu}][:, :, {nu}, :, :]:{U_head_tail_list[nu][mu][:, :, nu, :, :]}")
+                            print(
+                                f"###{give_grid_index()}:U_tail_head_list[{mu}][{nu}][:, :, {nu}, :, :]:{U_tail_head_list[mu][nu][:, :, nu, :, :]}")
                             # print(
                             #     f"torch.norm(U_head_tail_list[{nu}][{mu}][:, :, {nu}, :, :]):{torch.norm(U_head_tail_list[nu][mu][:, :, nu, :, :])}")
                             # print(
@@ -123,10 +134,10 @@ def stout_smear(U: torch.Tensor, nstep: int = 1, rho: float = 0.12, support_para
                             #     f"rank:{rank} torch.norm(U_head_tail_list[{nu}][{mu}][:, :, {nu}, :, :]):{U_head_tail_list[nu][mu][:, :, nu, :, :]}")
                             # print(
                             #     f"rank:{rank} torch.norm(U_tail_head_list[{mu}][{nu}][:, :, {nu}, :, :]):{U_tail_head_list[mu][nu][:, :, nu, :, :]}")
-                            print(
-                                f"@@@[{mu}][{nu}][:, :, {nu}, :, :]@@@{torch.norm(U_head_tail_list[nu][mu][:, :, nu, :, :]-U_tail_head_list[mu][nu][:, :, nu, :, :])}")
-                            print(
-                                f"@@@[{mu}][{nu}][:, :, {nu}, :, :]@@@{U_head_tail_list[nu][mu][:, :, nu, :, :]-U_tail_head_list[mu][nu][:, :, nu, :, :]}")
+                            # print(
+                            #     f"@@@[{mu}][{nu}][:, :, {nu}, :, :]@@@{torch.norm(U_head_tail_list[nu][mu][:, :, nu, :, :]-U_tail_head_list[mu][nu][:, :, nu, :, :])}")
+                            # print(
+                            #     f"@@@[{mu}][{nu}][:, :, {nu}, :, :]@@@{U_head_tail_list[nu][mu][:, :, nu, :, :]-U_tail_head_list[mu][nu][:, :, nu, :, :]}")
                         Q_mu += torch.einsum(
                             "abxyzt,bcxyzt,dcxyzt->adxyzt",
                             U_nu,
