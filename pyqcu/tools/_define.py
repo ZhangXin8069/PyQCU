@@ -184,6 +184,20 @@ def slice_dim_dim(dims_num: int = 4, ward_a: int = 0, start_a: int = None, stop_
     return tuple(slices)
 
 
+def slice_dim_none_dim(dims_num: int = 4, ward: int = 0, start: int = None, stop: int = None, step: int = 2, point: int = None, ward_none: int = 0) -> tuple:
+    """
+    Slice tensor along two specific dimensions. [oooxyzt]
+    """
+    slices = [slice(None)] * dims_num
+    if point == None:
+        slices[ward-4+(ward < ward_none) if ward >=
+               0 else ward+(ward < ward_none)] = slice(start, stop, step)
+    else:
+        slices[ward-4+(ward < ward_none) if ward >=
+               0 else ward+(ward < ward_none)] = point
+    return tuple(slices)
+
+
 def give_grid_index(rank: int = None) -> Tuple[int, int, int, int]:
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank() if rank == None else rank
