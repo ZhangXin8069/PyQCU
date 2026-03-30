@@ -25,6 +25,7 @@ class hopping:
                     U_tail4send = self.U[tools.slice_dim(
                         dims_num=7, ward=ward, point=-1)].cpu().contiguous().numpy()
                     U_head4recv = np.zeros_like(U_tail4send)
+                    self.comm.Barrier()
                     self.comm.Sendrecv(sendbuf=U_tail4send, dest=self.rank_plus_list[ward], sendtag=self.rank,
                                        recvbuf=U_head4recv, source=self.rank_minus_list[ward], recvtag=self.rank_minus_list[ward])
                     self.comm.Barrier()
@@ -66,6 +67,7 @@ class hopping:
             src_head4send = src[tools.slice_dim(
                 dims_num=5, ward=ward, point=0)].cpu().contiguous().numpy()
             src_tail4recv = np.zeros_like(src_head4send)
+            self.comm.Barrier()
             self.comm.Sendrecv(sendbuf=src_head4send, dest=self.rank_minus_list[ward], sendtag=self.rank_minus_list[ward],
                                recvbuf=src_tail4recv, source=self.rank_plus_list[ward], recvtag=self.rank)
             self.comm.Barrier()
@@ -86,6 +88,7 @@ class hopping:
             src_tail4send = src[tools.slice_dim(
                 dims_num=5, ward=ward, point=-1)].cpu().contiguous().numpy()
             src_head4recv = np.zeros_like(src_tail4send)
+            self.comm.Barrier()
             self.comm.Sendrecv(sendbuf=src_tail4send, dest=self.rank_plus_list[ward], sendtag=self.rank,
                                recvbuf=src_head4recv, source=self.rank_minus_list[ward], recvtag=self.rank_minus_list[ward])
             self.comm.Barrier()
@@ -220,6 +223,7 @@ class operator:
                 src_head4send = src_o[tools.slice_dim(
                     dims_num=5, ward=ward, point=0)].cpu().contiguous().numpy()
                 src_tail4recv = np.zeros_like(src_head4send)
+                self.hopping.comm.Barrier()
                 self.hopping.comm.Sendrecv(sendbuf=src_head4send, dest=self.hopping.rank_minus_list[ward], sendtag=self.hopping.rank_minus_list[ward],
                                            recvbuf=src_tail4recv, source=self.hopping.rank_plus_list[ward], recvtag=self.hopping.rank)
                 self.hopping.comm.Barrier()
@@ -228,6 +232,7 @@ class operator:
                 src_tail4send = src_o[tools.slice_dim(
                     dims_num=5, ward=ward, point=-1)].cpu().contiguous().numpy()
                 src_head4recv = np.zeros_like(src_tail4send)
+                self.hopping.comm.Barrier()
                 self.hopping.comm.Sendrecv(sendbuf=src_tail4send, dest=self.hopping.rank_plus_list[ward], sendtag=self.hopping.rank,
                                            recvbuf=src_head4recv, source=self.hopping.rank_minus_list[ward], recvtag=self.hopping.rank_minus_list[ward])
                 self.hopping.comm.Barrier()
@@ -249,6 +254,7 @@ class operator:
                 src_head4send = src_e[tools.slice_dim(
                     dims_num=5, ward=ward, point=0)].cpu().contiguous().numpy()
                 src_tail4recv = np.zeros_like(src_head4send)
+                self.hopping.comm.Barrier()
                 self.hopping.comm.Sendrecv(sendbuf=src_head4send, dest=self.hopping.rank_minus_list[ward], sendtag=self.hopping.rank_minus_list[ward],
                                            recvbuf=src_tail4recv, source=self.hopping.rank_plus_list[ward], recvtag=self.hopping.rank)
                 self.hopping.comm.Barrier()
@@ -257,6 +263,7 @@ class operator:
                 src_tail4send = src_e[tools.slice_dim(
                     dims_num=5, ward=ward, point=-1)].cpu().contiguous().numpy()
                 src_head4recv = np.zeros_like(src_tail4send)
+                self.hopping.comm.Barrier()
                 self.hopping.comm.Sendrecv(sendbuf=src_tail4send, dest=self.hopping.rank_plus_list[ward], sendtag=self.hopping.rank,
                                            recvbuf=src_head4recv, source=self.hopping.rank_minus_list[ward], recvtag=self.hopping.rank_minus_list[ward])
                 self.hopping.comm.Barrier()
