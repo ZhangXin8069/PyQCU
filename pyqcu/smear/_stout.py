@@ -3,7 +3,6 @@ import numpy as np
 from pyqcu import tools
 import mpi4py.MPI as MPI
 
-from pyqcu.tools._define import give_grid_index
 """
     Copy from https://github.com/IHEP-LQCD/EasyDistillation/blob/master/lattice/generator/elemental.py
 """
@@ -47,11 +46,6 @@ def stout_smear(U: torch.Tensor, nstep: int = 1, rho: float = 0.12, support_para
                 []), torch.zeros([]), torch.zeros([])], [torch.zeros([]), torch.zeros(
                     []), torch.zeros([]), torch.zeros([])], [torch.zeros([]), torch.zeros(
                         []), torch.zeros([]), torch.zeros([])]]
-        U_tail_head_list = [[torch.zeros([]), torch.zeros(
-            []), torch.zeros([]), torch.zeros([])], [torch.zeros([]), torch.zeros(
-                []), torch.zeros([]), torch.zeros([])], [torch.zeros([]), torch.zeros(
-                    []), torch.zeros([]), torch.zeros([])], [torch.zeros([]), torch.zeros(
-                        []), torch.zeros([]), torch.zeros([])]]
         #  NEVER NEVER USE THE SHIT LIKE THAT "[[torch.zeros([]), torch.zeros([]), torch.zeros([]), torch.zeros([])]]*4"
         for mu in range(4):
             for nu in range(4):
@@ -64,15 +58,6 @@ def stout_smear(U: torch.Tensor, nstep: int = 1, rho: float = 0.12, support_para
                                   recvbuf=U_head_tail4recv, source=tools.give_rank_minus_plus(ward_a=mu, ward_b=nu, rank=rank), recvtag=tools.give_rank_minus_plus(ward_a=mu, ward_b=nu, rank=rank))
                     comm.Barrier()
                     U_head_tail_list[mu][nu] = torch.from_numpy(U_head_tail4recv).to(
-                        device=U.device)
-                    U_head_tail4send = U[tools.slice_dim_dim(
-                        dims_num=7, ward_a=mu, point_a=0, ward_b=nu, point_b=-1)].cpu().contiguous().numpy()
-                    U_tail_head4recv = np.zeros_like(U_head_tail4send)
-                    comm.Barrier()
-                    comm.Sendrecv(sendbuf=U_head_tail4send, dest=tools.give_rank_minus_plus(ward_a=mu, ward_b=nu, rank=rank), sendtag=tools.give_rank_minus_plus(ward_a=mu, ward_b=nu, rank=rank),
-                                  recvbuf=U_tail_head4recv, source=tools.give_rank_plus_minus(ward_a=mu, ward_b=nu, rank=rank), recvtag=rank)
-                    comm.Barrier()
-                    U_tail_head_list[mu][nu] = torch.from_numpy(U_tail_head4recv).to(
                         device=U.device)
     for _ in range(nstep):
         Q = torch.zeros_like(U)
