@@ -29,7 +29,7 @@ def matmul(
 
     @T.prim_func
     def main(A: T.Tensor(A_shape, in_dtype), B: T.Tensor(B_shape, in_dtype), C: T.Tensor(
-        (M, N), out_dtype)):
+            (M, N), out_dtype)):
         with T.Kernel(T.ceildiv(N, block_N), T.ceildiv(M, block_M), threads=threads) as (bx, by):
             A_shared = T.alloc_shared(A_shared_shape, in_dtype)
             B_shared = T.alloc_shared(B_shared_shape, in_dtype)
@@ -37,14 +37,19 @@ def matmul(
             T.clear(C_local)
             for k in T.Pipelined(T.ceildiv(K, block_K), num_stages=num_stages):
                 if trans_A:
-                    T.copy(A[k * block_K, by * block_M], A_shared, coalesced_width=vec_size)
+                    T.copy(A[k * block_K, by * block_M],
+                           A_shared, coalesced_width=vec_size)
                 else:
-                    T.copy(A[by * block_M, k * block_K], A_shared, coalesced_width=vec_size)
+                    T.copy(A[by * block_M, k * block_K],
+                           A_shared, coalesced_width=vec_size)
                 if trans_B:
-                    T.copy(B[bx * block_N, k * block_K], B_shared, coalesced_width=vec_size)
+                    T.copy(B[bx * block_N, k * block_K],
+                           B_shared, coalesced_width=vec_size)
                 else:
-                    T.copy(B[k * block_K, bx * block_N], B_shared, coalesced_width=vec_size)
-                T.gemm(A_shared, B_shared, C_local, trans_A, trans_B, k_pack=k_pack)
+                    T.copy(B[k * block_K, bx * block_N],
+                           B_shared, coalesced_width=vec_size)
+                T.gemm(A_shared, B_shared, C_local,
+                       trans_A, trans_B, k_pack=k_pack)
             T.copy(C_local, C[by * block_M, bx * block_N])
 
     return main
@@ -99,31 +104,45 @@ def run_gemm(
 
 @tilelang.testing.requires_rocm
 def test_gemm_f16f32f32_nt():
-    run_gemm(1024, 1024, 1024, False, False, "float16", "float32", "float32", 128, 128, 32)
-    run_gemm(1024, 1024, 1024, False, True, "float16", "float32", "float32", 128, 128, 32)
-    run_gemm(1024, 1024, 1024, True, True, "float16", "float32", "float32", 128, 128, 32)
-    run_gemm(1024, 1024, 1024, True, False, "float16", "float32", "float32", 128, 128, 32)
-    run_gemm(1024, 1024, 1024, False, True, "float16", "float32", "float32", 128, 128, 32, k_pack=2)
+    run_gemm(1024, 1024, 1024, False, False, "float16",
+             "float32", "float32", 128, 128, 32)
+    run_gemm(1024, 1024, 1024, False, True, "float16",
+             "float32", "float32", 128, 128, 32)
+    run_gemm(1024, 1024, 1024, True, True, "float16",
+             "float32", "float32", 128, 128, 32)
+    run_gemm(1024, 1024, 1024, True, False, "float16",
+             "float32", "float32", 128, 128, 32)
+    run_gemm(1024, 1024, 1024, False, True, "float16",
+             "float32", "float32", 128, 128, 32, k_pack=2)
 
 
 @tilelang.testing.requires_rocm
 def test_gemm_bf16f32f32_nt():
-    run_gemm(1024, 1024, 1024, False, False, "bfloat16", "float32", "float32", 128, 128, 32)
-    run_gemm(1024, 1024, 1024, False, True, "bfloat16", "float32", "float32", 128, 128, 32)
-    run_gemm(1024, 1024, 1024, True, True, "bfloat16", "float32", "float32", 128, 128, 32)
-    run_gemm(1024, 1024, 1024, True, False, "bfloat16", "float32", "float32", 128, 128, 32)
+    run_gemm(1024, 1024, 1024, False, False, "bfloat16",
+             "float32", "float32", 128, 128, 32)
+    run_gemm(1024, 1024, 1024, False, True, "bfloat16",
+             "float32", "float32", 128, 128, 32)
+    run_gemm(1024, 1024, 1024, True, True, "bfloat16",
+             "float32", "float32", 128, 128, 32)
+    run_gemm(1024, 1024, 1024, True, False, "bfloat16",
+             "float32", "float32", 128, 128, 32)
     run_gemm(
         1024, 1024, 1024, False, True, "bfloat16", "float32", "float32", 128, 128, 32, k_pack=2)
 
 
 @tilelang.testing.requires_rocm
 def test_gemm_bf16bf16f32():
-    run_gemm(1024, 1024, 1024, False, False, "bfloat16", "bfloat16", "float32", 128, 128, 32)
-    run_gemm(1024, 1024, 1024, False, True, "bfloat16", "bfloat16", "float32", 128, 128, 32)
-    run_gemm(1024, 1024, 1024, True, True, "bfloat16", "bfloat16", "float32", 128, 128, 32)
-    run_gemm(1024, 1024, 1024, True, False, "bfloat16", "bfloat16", "float32", 128, 128, 32)
+    run_gemm(1024, 1024, 1024, False, False, "bfloat16",
+             "bfloat16", "float32", 128, 128, 32)
+    run_gemm(1024, 1024, 1024, False, True, "bfloat16",
+             "bfloat16", "float32", 128, 128, 32)
+    run_gemm(1024, 1024, 1024, True, True, "bfloat16",
+             "bfloat16", "float32", 128, 128, 32)
+    run_gemm(1024, 1024, 1024, True, False, "bfloat16",
+             "bfloat16", "float32", 128, 128, 32)
     run_gemm(
         1024, 1024, 1024, False, True, "bfloat16", "bfloat16", "float32", 128, 128, 32, k_pack=2)
+
 
 @tilelang.testing.requires_rocm
 def test_gemm_fp8fp8f32():
@@ -133,19 +152,30 @@ def test_gemm_fp8fp8f32():
             pytest.skip("fp8 tests not supported on gfx936")
     except Exception:
         pass
-    run_gemm(1024, 1024, 1024, False, False, "float8_e4m3fn", "float32", "float32", 128, 128, 32)
-    run_gemm(1024, 1024, 1024, False, True, "float8_e4m3fn", "float32", "float32", 128, 128, 32)
-    run_gemm(1024, 1024, 1024, True, True, "float8_e4m3fn", "float32", "float32", 128, 128, 32)
-    run_gemm(1024, 1024, 1024, True, False, "float8_e4m3fn", "float32", "float32", 128, 128, 32)
-    run_gemm(1024, 1024, 1024, False, True, "float8_e4m3fn", "float32", "float32", 128, 128, 32, k_pack=2)
+    run_gemm(1024, 1024, 1024, False, False, "float8_e4m3fn",
+             "float32", "float32", 128, 128, 32)
+    run_gemm(1024, 1024, 1024, False, True, "float8_e4m3fn",
+             "float32", "float32", 128, 128, 32)
+    run_gemm(1024, 1024, 1024, True, True, "float8_e4m3fn",
+             "float32", "float32", 128, 128, 32)
+    run_gemm(1024, 1024, 1024, True, False, "float8_e4m3fn",
+             "float32", "float32", 128, 128, 32)
+    run_gemm(1024, 1024, 1024, False, True, "float8_e4m3fn",
+             "float32", "float32", 128, 128, 32, k_pack=2)
+
 
 @tilelang.testing.requires_rocm
 def test_gemm_i8i8i32():
-    run_gemm(1024, 1024, 1024, False, False, "int8", "int32", "int32", 128, 128, 32)
-    run_gemm(1024, 1024, 1024, False, True, "int8", "int32", "int32", 128, 128, 32)
-    run_gemm(1024, 1024, 1024, True, True, "int8", "int32", "int32", 128, 128, 32)
-    run_gemm(1024, 1024, 1024, True, False, "int8", "int32", "int32", 128, 128, 32)
-    run_gemm(1024, 1024, 1024, False, True, "int8", "int32", "int32", 128, 128, 32, k_pack=2)
+    run_gemm(1024, 1024, 1024, False, False,
+             "int8", "int32", "int32", 128, 128, 32)
+    run_gemm(1024, 1024, 1024, False, True, "int8",
+             "int32", "int32", 128, 128, 32)
+    run_gemm(1024, 1024, 1024, True, True, "int8",
+             "int32", "int32", 128, 128, 32)
+    run_gemm(1024, 1024, 1024, True, False, "int8",
+             "int32", "int32", 128, 128, 32)
+    run_gemm(1024, 1024, 1024, False, True, "int8",
+             "int32", "int32", 128, 128, 32, k_pack=2)
 
 
 def matmul_rs(
@@ -184,16 +214,21 @@ def matmul_rs(
             T.clear(C_local)
             for k in T.Pipelined(T.ceildiv(K, block_K), num_stages=num_stages):
                 if trans_A:
-                    T.copy(A[k * block_K, by * block_M], A_shared, coalesced_width=vec_size)
+                    T.copy(A[k * block_K, by * block_M],
+                           A_shared, coalesced_width=vec_size)
                     T.copy(A_shared, A_local)
                 else:
-                    T.copy(A[by * block_M, k * block_K], A_shared, coalesced_width=vec_size)
+                    T.copy(A[by * block_M, k * block_K],
+                           A_shared, coalesced_width=vec_size)
                     T.copy(A_shared, A_local)
                 if trans_B:
-                    T.copy(B[bx * block_N, k * block_K], B_shared, coalesced_width=vec_size)
+                    T.copy(B[bx * block_N, k * block_K],
+                           B_shared, coalesced_width=vec_size)
                 else:
-                    T.copy(B[k * block_K, bx * block_N], B_shared, coalesced_width=vec_size)
-                T.gemm(A_local, B_shared, C_local, trans_A, trans_B, k_pack=k_pack)
+                    T.copy(B[k * block_K, bx * block_N],
+                           B_shared, coalesced_width=vec_size)
+                T.gemm(A_local, B_shared, C_local,
+                       trans_A, trans_B, k_pack=k_pack)
             T.copy(C_local, C[by * block_M, bx * block_N])
 
     return main
@@ -269,4 +304,3 @@ def run_gemm_rs(
 
 if __name__ == "__main__":
     tilelang.testing.main()
-
