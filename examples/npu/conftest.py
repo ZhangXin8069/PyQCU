@@ -1,5 +1,4 @@
 from pyqcu.testing import *
 import torch
 import torch_npu
-test_solver(method='bistabcg', dtype=torch.complex64, device=torch.device('npu'),
-                   lat_size=[8, 16, 16, 16], support_parity=True)
+test_dslash_clover(with_data=False, device=torch.device('npu'), dtype=torch.complex64)
