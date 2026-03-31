@@ -30,8 +30,11 @@ from ._multigrid import give_null_vecs as give_null_vecs
 from ._multigrid import local_orthogonalize as local_orthogonalize
 from ._multigrid import restrict as restrict
 from ._multigrid import prolong as prolong
-from ._matul import matmul_gpu as matmul_gpu
-from ._matul import matmul_cpu as matmul_cpu
+try:
+    from ._matul import matmul_gpu as matmul_gpu
+    from ._matul import matmul_cpu as matmul_cpu
+except Exception as e:
+    print(f"Error:{e}")
 from ._linalg import vdot as vdot
 from ._linalg import norm as norm
 from ._einsum import Eexyzt_exyzt2Exyzt as Eexyzt_exyzt2Exyzt
