@@ -1,5 +1,8 @@
 from time import perf_counter
-import tilelang
+try:
+    import tilelang
+except Exception as e:
+    print(f"Error:{e}")
 import torch
 from argparse import Namespace
 from pyqcu import lattice, solver, dslash, _torch, tools, smear

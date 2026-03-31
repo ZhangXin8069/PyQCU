@@ -1,6 +1,9 @@
 from pyqcu import lattice
 import mpi4py.MPI as MPI
-import tilelang.language as T
+try:
+    import tilelang.language as T
+except Exception as e:
+    print(f"Error:{e}")
 import torch
 import h5py
 import os
