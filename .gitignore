@@ -1,4 +1,6 @@
 *.cache
+pyqcu/cuda
+pyqcu/ascend
 *.metadata
 *build
 *draft
