@@ -75,28 +75,25 @@ def make_clover(U: torch.Tensor, kappa: float = 0.1,
                     comm.Barrier()
                     U_head_tail_list[mu][nu] = torch.from_numpy(U_head_tail4recv).to(
                         device=U.device)
-                    
-                    U_tail_head4send = U[tools.slice_dim_dim(
-                        dims_num=7, ward_a=mu, point_a=-1, ward_b=nu, point_b=0)].cpu().contiguous().numpy()
-                    U_head_tail4recv = np.zeros_like(U_tail_head4send)
+
+                    U_tail_tail4send = U[tools.slice_dim_dim(
+                        dims_num=7, ward_a=mu, point_a=-1, ward_b=nu, point_b=-1)].cpu().contiguous().numpy()
+                    U_head_head4recv = np.zeros_like(U_tail_tail4send)
                     comm.Barrier()
-                    comm.Sendrecv(sendbuf=U_tail_head4send, dest=tools.give_rank_plus_minus(ward_a=mu, ward_b=nu, rank=rank), sendtag=rank,
-                                  recvbuf=U_head_tail4recv, source=tools.give_rank_minus_plus(ward_a=mu, ward_b=nu, rank=rank), recvtag=tools.give_rank_minus_plus(ward_a=mu, ward_b=nu, rank=rank))
+                    comm.Sendrecv(sendbuf=U_tail_tail4send, dest=tools.give_rank_plus_plus(ward_a=mu, ward_b=nu, rank=rank), sendtag=rank,
+                                  recvbuf=U_head_head4recv, source=tools.give_rank_minus_minus(ward_a=mu, ward_b=nu, rank=rank), recvtag=tools.give_rank_minus_minus(ward_a=mu, ward_b=nu, rank=rank))
                     comm.Barrier()
-                    U_head_tail_list[mu][nu] = torch.from_numpy(U_head_tail4recv).to(
+                    U_head_head_list[mu][nu] = torch.from_numpy(U_head_head4recv).to(
                         device=U.device)
-                    
-                    
-                    
-                    
-                    U_head_tail4send = U[tools.slice_dim_dim(
-                        dims_num=7, ward_a=mu, point_a=0, ward_b=nu, point_b=-1)].cpu().contiguous().numpy()
-                    U_tail_head4recv = np.zeros_like(U_head_tail4send)
+
+                    U_head_head4send = U[tools.slice_dim_dim(
+                        dims_num=7, ward_a=mu, point_a=0, ward_b=nu, point_b=0)].cpu().contiguous().numpy()
+                    U_tail_tail4recv = np.zeros_like(U_head_head4send)
                     comm.Barrier()
-                    comm.Sendrecv(sendbuf=U_head_tail4send, dest=tools.give_rank_minus_plus(ward_a=mu, ward_b=nu, rank=rank), sendtag=tools.give_rank_minus_plus(ward_a=mu, ward_b=nu, rank=rank),
-                                  recvbuf=U_tail_head4recv, source=tools.give_rank_plus_minus(ward_a=mu, ward_b=nu, rank=rank), recvtag=rank)
+                    comm.Sendrecv(sendbuf=U_head_head4send, dest=tools.give_rank_minus_minus(ward_a=mu, ward_b=nu, rank=rank), sendtag=tools.give_rank_minus_minus(ward_a=mu, ward_b=nu, rank=rank),
+                                  recvbuf=U_tail_tail4recv, source=tools.give_rank_plus_plus(ward_a=mu, ward_b=nu, rank=rank), recvtag=rank)
                     comm.Barrier()
-                    U_tail_head_list[mu][nu] = torch.from_numpy(U_tail_head4recv).to(
+                    U_tail_tail_list[mu][nu] = torch.from_numpy(U_tail_tail4recv).to(
                         device=U.device)
     # Compute adjoint gauge field (dagger conjugate)
     U_dag = U.permute(1, 0, 2, 3, 4, 5, 6).conj()
@@ -132,32 +129,122 @@ def make_clover(U: torch.Tensor, kappa: float = 0.1,
         U_nu = U[..., nu, :, :, :, :]  # [c1, c2, t, z, y, x]
         U_dag_mu = U_dag[..., mu, :, :, :, :]  # [c1, c2, t, z, y, x]
         U_dag_nu = U_dag[..., nu, :, :, :, :]  # [c1, c2, t, z, y, x]
-        # $$U_1 &= u(x,\mu)u(x+\mu,\nu)u^{\dag}(x+\nu,\mu)u^{\dag}(x,\nu)                \\$$
-        temp1 = _torch.einsum('abxyzt,bcxyzt->acxyzt', U_mu,
-                              _torch.roll(U_nu, shifts=-1, dims=mu))
-        temp2 = _torch.einsum('abxyzt,bcxyzt->acxyzt', temp1,
-                              _torch.roll(U_dag_mu, shifts=-1, dims=nu))
-        F += _torch.einsum('abxyzt,bcxyzt->acxyzt', temp2, U_dag_nu)
-        # $$U_2 &= u(x,\nu)u^{\dag}(x-\mu+\nu,\mu)u^{\dag}(x-\mu,\nu)u(x-\mu,\mu)        \\$$
-        temp1 = _torch.einsum('abxyzt,bcxyzt->acxyzt', U_nu,
-                              _torch.roll(_torch.roll(U_dag_mu, shifts=1, dims=mu), shifts=-1, dims=nu))
-        temp2 = _torch.einsum('abxyzt,bcxyzt->acxyzt', temp1,
-                              _torch.roll(U_dag_nu, shifts=1, dims=mu))
-        F += _torch.einsum('abxyzt,bcxyzt->acxyzt', temp2,
-                           _torch.roll(U_mu, shifts=1, dims=mu))
-        # $$U_3 &= u^{\dag}(x-\mu,\mu)u^{\dag}(x-\mu-\nu,\nu)u(x-\mu-\nu,\mu)u(x-\nu,\nu)\\$$
-        temp1 = _torch.einsum('abxyzt,bcxyzt->acxyzt', _torch.roll(U_dag_mu, shifts=1, dims=mu),
-                              _torch.roll(_torch.roll(U_dag_nu, shifts=1, dims=mu), shifts=1, dims=nu))
-        temp2 = _torch.einsum('abxyzt,bcxyzt->acxyzt', temp1,
-                              _torch.roll(_torch.roll(U_mu, shifts=1, dims=mu), shifts=1, dims=nu))
-        F += _torch.einsum('abxyzt,bcxyzt->acxyzt', temp2,
-                           _torch.roll(U_nu, shifts=1, dims=nu))
-        # $$U_4 &= u^{\dag}(x-\nu,\nu)u(x-\nu,\mu)u(x-\nu+\mu,\nu)u^{\dag}(x,\mu)        \\$$
-        temp1 = _torch.einsum('abxyzt,bcxyzt->acxyzt', _torch.roll(U_dag_nu, shifts=1, dims=nu),
-                              _torch.roll(U_mu, shifts=1, dims=nu))
-        temp2 = _torch.einsum('abxyzt,bcxyzt->acxyzt', temp1,
-                              _torch.roll(_torch.roll(U_nu, shifts=-1, dims=mu), shifts=1, dims=nu))
-        F += _torch.einsum('abxyzt,bcxyzt->acxyzt', temp2, U_dag_mu)
+        if support_parallel:
+            roll_u0 = _torch.roll(U_nu, shifts=-1, dims=mu)
+            if grid_size[mu] != 1:
+                roll_u0[tools.slice_dim(
+                    dims_num=6, ward=mu, point=-1)] = U_tail_list[mu][:, :, nu, :, :, :]
+            roll_u1 = _torch.roll(U_dag_mu, shifts=-1, dims=nu)
+            if grid_size[nu] != 1:
+                roll_u1[tools.slice_dim(
+                    dims_num=6, ward=nu, point=-1)] = U_tail_list[nu][:, :, mu, :, :, :].permute(1, 0, 2, 3, 4).conj()
+            roll_u2 = _torch.roll(_torch.roll(
+                U_dag_mu, shifts=1, dims=mu), shifts=-1, dims=nu)
+            if grid_size[mu] != 1:
+                roll_u2[tools.slice_dim(dims_num=6, ward=mu, point=0)] = torch.roll(
+                    U_head_list[mu][:, :, mu, :, :, :].permute(1, 0, 2, 3, 4).conj(), -1, nu+(nu < mu))
+            if grid_size[nu] != 1:
+                roll_u2[tools.slice_dim(dims_num=6, ward=nu, point=-1)] = torch.roll(
+                    U_tail_list[nu][:, :, mu, :, :, :].permute(1, 0, 2, 3, 4).conj(), +1, mu+(mu < nu))
+            if grid_size[mu] != 1 and grid_size[nu] != 1:
+                roll_u2[tools.slice_dim_dim(
+                        dims_num=6, ward_a=mu, ward_b=nu, point_a=0, point_b=-1)] = U_head_tail_list[mu][nu][:, :, mu, :, :].permute(1, 0, 2, 3).conj()
+            roll_u3 = _torch.roll(U_dag_nu, shifts=1, dims=mu)
+            if grid_size[mu] != 1:
+                roll_u3[tools.slice_dim(
+                    dims_num=6, ward=mu, point=0)] = U_head_list[mu][:, :, nu, :, :, :].permute(1, 0, 2, 3, 4).conj()
+            roll_u4 = _torch.roll(U_mu, shifts=1, dims=mu)
+            if grid_size[mu] != 1:
+                roll_u4[tools.slice_dim(
+                    dims_num=6, ward=mu, point=0)] = U_head_list[mu][:, :, mu, :, :, :]
+            roll_u5 = _torch.roll(U_dag_mu, shifts=1, dims=mu)
+            if grid_size[mu] != 1:
+                roll_u5[tools.slice_dim(
+                    dims_num=6, ward=mu, point=0)] = U_head_list[mu][:, :, mu, :, :, :].permute(1, 0, 2, 3, 4).conj()
+            roll_u6 = _torch.roll(_torch.roll(
+                U_dag_nu, shifts=1, dims=mu), shifts=1, dims=nu)
+            if grid_size[mu] != 1:
+                roll_u6[tools.slice_dim(dims_num=6, ward=mu, point=0)] = torch.roll(
+                    U_head_list[mu][:, :, nu, :, :, :].permute(1, 0, 2, 3, 4).conj(), +1, nu+(nu < mu))
+            if grid_size[nu] != 1:
+                roll_u6[tools.slice_dim(dims_num=6, ward=nu, point=0)] = torch.roll(
+                    U_head_list[nu][:, :, nu, :, :, :].permute(1, 0, 2, 3, 4).conj(), +1, mu+(mu < nu))
+            if grid_size[mu] != 1 and grid_size[nu] != 1:
+                roll_u6[tools.slice_dim_dim(
+                        dims_num=6, ward_a=mu, ward_b=nu, point_a=0, point_b=0)] = U_head_head_list[mu][nu][:, :, nu, :, :].permute(1, 0, 2, 3).conj()
+            roll_u7 = _torch.roll(_torch.roll(
+                U_mu, shifts=1, dims=mu), shifts=1, dims=nu)
+            if grid_size[mu] != 1:
+                roll_u7[tools.slice_dim(dims_num=6, ward=mu, point=0)] = torch.roll(
+                    U_head_list[mu][:, :, mu, :, :, :], +1, nu+(nu < mu))
+            if grid_size[nu] != 1:
+                roll_u7[tools.slice_dim(dims_num=6, ward=nu, point=0)] = torch.roll(
+                    U_head_list[nu][:, :, mu, :, :, :], +1, mu+(mu < nu))
+            if grid_size[mu] != 1 and grid_size[nu] != 1:
+                roll_u7[tools.slice_dim_dim(
+                        dims_num=6, ward_a=mu, ward_b=nu, point_a=0, point_b=0)] = U_head_head_list[mu][nu][:, :, mu, :, :]
+            roll_u8 = _torch.roll(U_nu, shifts=1, dims=nu)
+            if grid_size[nu] != 1:
+                roll_u8[tools.slice_dim(
+                    dims_num=6, ward=nu, point=0)] = U_head_list[nu][:, :, nu, :, :, :]
+            roll_u9 = _torch.roll(U_dag_nu, shifts=1, dims=nu)
+            if grid_size[nu] != 1:
+                roll_u9[tools.slice_dim(
+                    dims_num=6, ward=nu, point=0)] = U_head_list[nu][:, :, nu, :, :, :].permute(1, 0, 2, 3, 4).conj()
+            roll_u10 = _torch.roll(U_mu, shifts=1, dims=nu)
+            if grid_size[nu] != 1:
+                roll_u10[tools.slice_dim(
+                    dims_num=6, ward=nu, point=0)] = U_head_list[nu][:, :, mu, :, :, :]
+            roll_u11 = _torch.roll(_torch.roll(
+                U_nu, shifts=-1, dims=mu), shifts=1, dims=nu)
+            if grid_size[mu] != 1:
+                roll_u11[tools.slice_dim(dims_num=6, ward=mu, point=-1)] = torch.roll(
+                    U_tail_list[mu][:, :, nu, :, :, :], +1, nu+(nu < mu))
+            if grid_size[nu] != 1:
+                roll_u11[tools.slice_dim(dims_num=6, ward=nu, point=0)] = torch.roll(
+                    U_head_list[nu][:, :, nu, :, :, :], -1, mu+(mu < nu))
+            if grid_size[mu] != 1 and grid_size[nu] != 1:
+                roll_u11[tools.slice_dim_dim(
+                    dims_num=6, ward_a=mu, ward_b=nu, point_a=-1, point_b=0)] = U_head_tail_list[nu][mu][:, :, nu, :, :]
+            temp1 = _torch.einsum('abxyzt,bcxyzt->acxyzt', U_mu, roll_u0)
+            temp2 = _torch.einsum('abxyzt,bcxyzt->acxyzt', temp1, roll_u1)
+            F += _torch.einsum('abxyzt,bcxyzt->acxyzt', temp2, U_dag_nu)
+            temp1 = _torch.einsum('abxyzt,bcxyzt->acxyzt', U_nu, roll_u2)
+            temp2 = _torch.einsum('abxyzt,bcxyzt->acxyzt', temp1, roll_u3)
+            F += _torch.einsum('abxyzt,bcxyzt->acxyzt', temp2, roll_u4)
+            temp1 = _torch.einsum('abxyzt,bcxyzt->acxyzt', roll_u5, roll_u6)
+            temp2 = _torch.einsum('abxyzt,bcxyzt->acxyzt', temp1, roll_u7)
+            F += _torch.einsum('abxyzt,bcxyzt->acxyzt', temp2, roll_u8)
+            temp1 = _torch.einsum('abxyzt,bcxyzt->acxyzt', roll_u9, roll_u10)
+            temp2 = _torch.einsum('abxyzt,bcxyzt->acxyzt', temp1, roll_u11)
+            F += _torch.einsum('abxyzt,bcxyzt->acxyzt', temp2, U_dag_mu)
+        else:
+            # $$U_1 &= u(x,\mu)u(x+\mu,\nu)u^{\dag}(x+\nu,\mu)u^{\dag}(x,\nu)                \\$$
+            temp1 = _torch.einsum('abxyzt,bcxyzt->acxyzt', U_mu,
+                                  _torch.roll(U_nu, shifts=-1, dims=mu))
+            temp2 = _torch.einsum('abxyzt,bcxyzt->acxyzt', temp1,
+                                  _torch.roll(U_dag_mu, shifts=-1, dims=nu))
+            F += _torch.einsum('abxyzt,bcxyzt->acxyzt', temp2, U_dag_nu)
+            # $$U_2 &= u(x,\nu)u^{\dag}(x-\mu+\nu,\mu)u^{\dag}(x-\mu,\nu)u(x-\mu,\mu)        \\$$
+            temp1 = _torch.einsum('abxyzt,bcxyzt->acxyzt', U_nu,
+                                  _torch.roll(_torch.roll(U_dag_mu, shifts=1, dims=mu), shifts=-1, dims=nu))
+            temp2 = _torch.einsum('abxyzt,bcxyzt->acxyzt', temp1,
+                                  _torch.roll(U_dag_nu, shifts=1, dims=mu))
+            F += _torch.einsum('abxyzt,bcxyzt->acxyzt', temp2,
+                               _torch.roll(U_mu, shifts=1, dims=mu))
+            # $$U_3 &= u^{\dag}(x-\mu,\mu)u^{\dag}(x-\mu-\nu,\nu)u(x-\mu-\nu,\mu)u(x-\nu,\nu)\\$$
+            temp1 = _torch.einsum('abxyzt,bcxyzt->acxyzt', _torch.roll(U_dag_mu, shifts=1, dims=mu),
+                                  _torch.roll(_torch.roll(U_dag_nu, shifts=1, dims=mu), shifts=1, dims=nu))
+            temp2 = _torch.einsum('abxyzt,bcxyzt->acxyzt', temp1,
+                                  _torch.roll(_torch.roll(U_mu, shifts=1, dims=mu), shifts=1, dims=nu))
+            F += _torch.einsum('abxyzt,bcxyzt->acxyzt', temp2,
+                               _torch.roll(U_nu, shifts=1, dims=nu))
+            # $$U_4 &= u^{\dag}(x-\nu,\nu)u(x-\nu,\mu)u(x-\nu+\mu,\nu)u^{\dag}(x,\mu)        \\$$
+            temp1 = _torch.einsum('abxyzt,bcxyzt->acxyzt', _torch.roll(U_dag_nu, shifts=1, dims=nu),
+                                  _torch.roll(U_mu, shifts=1, dims=nu))
+            temp2 = _torch.einsum('abxyzt,bcxyzt->acxyzt', temp1,
+                                  _torch.roll(_torch.roll(U_nu, shifts=-1, dims=mu), shifts=1, dims=nu))
+            F += _torch.einsum('abxyzt,bcxyzt->acxyzt', temp2, U_dag_mu)
         # Give whole F
         F -= F.permute(1, 0, 2, 3, 4, 5).conj()  # -BEFORE^{\dag}
         # Multiply F with sigma

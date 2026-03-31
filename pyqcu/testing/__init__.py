@@ -193,48 +193,92 @@ def test_dslash_parity(lat_size: list = [8, 8, 8, 16], kappa: float = 0.125,  dt
         f"Difference between computed and reference: {tools.norm(dest_o-refer_dest_o)}")
 
 
-def test_dslash_clover(device: torch.device = torch.device('cpu')):
-    kappa = 1.0
-    lat_size = [32, 16, 32, 32]
-    path = pyqcu.__file__.replace('pyqcu/__init__.py', 'examples/data/')
-    refer_U = tools.hdf5oooxyzt2gridoooxyzt(
-        file_name=path+'refer.clover.U.L32Y16K1.ccdxyzt.c64.h5', lat_size=lat_size, device=device, verbose=True)
-    refer_clover_term = tools.hdf5oooxyzt2gridoooxyzt(
-        file_name=path+'refer.clover.clover_term.L32Y16K1.scscxyzt.c64.h5', lat_size=lat_size, device=device, verbose=True)
-    refer_clover_inv_term = tools.hdf5oooxyzt2gridoooxyzt(
-        file_name=path+'refer.clover.clover_inv_term.L32Y16K1.scscxyzt.c64.h5', lat_size=lat_size, device=device, verbose=True)
-    clover_term = dslash.make_clover(U=refer_U, kappa=kappa, verbose=True)
-    clover_term = dslash.add_I(clover_term=clover_term, verbose=True)
-    diff = tools.norm(clover_term - refer_clover_term) / \
-        tools.norm(refer_clover_term)
-    clover_inv_term = dslash.inverse(clover_term=clover_term, verbose=True)
-    diff = tools.norm(clover_inv_term - refer_clover_inv_term) / \
-        tools.norm(refer_clover_inv_term)
-    print(
-        f"PYQCU::TESTING::DSLASH::CLOVER::REFER_U:\n Gauge field SU(3) check: {lattice.check_su3(refer_U, tol=1e-6, verbose=True)}")
-    print(f"PYQCU::TESTING::DSLASH::CLOVER::REFER_U:\n {tools.norm(refer_U)}")
-    print(
-        f"PYQCU::TESTING::DSLASH::CLOVER::REFER_U:\n {refer_U.flatten()[:12]}")
-    print(
-        f"PYQCU::TESTING::DSLASH::CLOVER::REFER_CLOVER_TERM:\n {tools.norm(refer_clover_term)}")
-    print(
-        f"PYQCU::TESTING::DSLASH::CLOVER::REFER_CLOVER_TERM:\n {refer_clover_term.flatten()[:12]}")
-    print(
-        f"PYQCU::TESTING::DSLASH::CLOVER::REFER_CLOVER_INV_TERM:\n {tools.norm(refer_clover_inv_term)}")
-    print(
-        f"PYQCU::TESTING::DSLASH::CLOVER::REFER_CLOVER_INV_TERM:\n {refer_clover_inv_term.flatten()[:12]}")
-    print(
-        f"PYQCU::TESTING::DSLASH::CLOVER::CLOVER_TERM:\n {tools.norm(clover_term)}")
-    print(
-        f"PYQCU::TESTING::DSLASH::CLOVER::CLOVER_TERM:\n {clover_term.flatten()[:12]}")
-    print(
-        f"PYQCU::TESTING::DSLASH::CLOVER:\n Difference between computed and reference dslash: {diff}")
-    print(
-        f"PYQCU::TESTING::DSLASH::CLOVER::CLOVER_INV_TERM:\n {tools.norm(clover_inv_term)}")
-    print(
-        f"PYQCU::TESTING::DSLASH::CLOVER::CLOVER_INV_TERM:\n {clover_inv_term.flatten()[:12]}")
-    print(
-        f"PYQCU::TESTING::DSLASH::CLOVER:\n Difference between computed and reference dslash: {diff}")
+def test_dslash_clover(device: torch.device = torch.device('cpu'), with_data: bool = False, dtype: torch.dtype = torch.complex64):
+    if with_data:
+        kappa = 1.0
+        lat_size = [32, 16, 32, 32]
+        path = pyqcu.__file__.replace('pyqcu/__init__.py', 'examples/data/')
+        refer_U = tools.hdf5oooxyzt2gridoooxyzt(
+            file_name=path+'refer.clover.U.L32Y16K1.ccdxyzt.c64.h5', lat_size=lat_size, device=device, verbose=True)
+        refer_clover_term = tools.hdf5oooxyzt2gridoooxyzt(
+            file_name=path+'refer.clover.clover_term.L32Y16K1.scscxyzt.c64.h5', lat_size=lat_size, device=device, verbose=True)
+        refer_clover_inv_term = tools.hdf5oooxyzt2gridoooxyzt(
+            file_name=path+'refer.clover.clover_inv_term.L32Y16K1.scscxyzt.c64.h5', lat_size=lat_size, device=device, verbose=True)
+        clover_term = dslash.make_clover(U=refer_U, kappa=kappa, verbose=True)
+        clover_term = dslash.add_I(clover_term=clover_term, verbose=True)
+        diff = tools.norm(clover_term - refer_clover_term) / \
+            tools.norm(refer_clover_term)
+        clover_inv_term = dslash.inverse(clover_term=clover_term, verbose=True)
+        diff = tools.norm(clover_inv_term - refer_clover_inv_term) / \
+            tools.norm(refer_clover_inv_term)
+        print(
+            f"PYQCU::TESTING::DSLASH::CLOVER::REFER_U:\n Gauge field SU(3) check: {lattice.check_su3(refer_U, tol=1e-6, verbose=True)}")
+        print(
+            f"PYQCU::TESTING::DSLASH::CLOVER::REFER_U:\n {tools.norm(refer_U)}")
+        print(
+            f"PYQCU::TESTING::DSLASH::CLOVER::REFER_U:\n {refer_U.flatten()[:12]}")
+        print(
+            f"PYQCU::TESTING::DSLASH::CLOVER::REFER_CLOVER_TERM:\n {tools.norm(refer_clover_term)}")
+        print(
+            f"PYQCU::TESTING::DSLASH::CLOVER::REFER_CLOVER_TERM:\n {refer_clover_term.flatten()[:12]}")
+        print(
+            f"PYQCU::TESTING::DSLASH::CLOVER::REFER_CLOVER_INV_TERM:\n {tools.norm(refer_clover_inv_term)}")
+        print(
+            f"PYQCU::TESTING::DSLASH::CLOVER::REFER_CLOVER_INV_TERM:\n {refer_clover_inv_term.flatten()[:12]}")
+        print(
+            f"PYQCU::TESTING::DSLASH::CLOVER::CLOVER_TERM:\n {tools.norm(clover_term)}")
+        print(
+            f"PYQCU::TESTING::DSLASH::CLOVER::CLOVER_TERM:\n {clover_term.flatten()[:12]}")
+        print(
+            f"PYQCU::TESTING::DSLASH::CLOVER:\n Difference between computed and reference dslash: {diff}")
+        print(
+            f"PYQCU::TESTING::DSLASH::CLOVER::CLOVER_INV_TERM:\n {tools.norm(clover_inv_term)}")
+        print(
+            f"PYQCU::TESTING::DSLASH::CLOVER::CLOVER_INV_TERM:\n {clover_inv_term.flatten()[:12]}")
+        print(
+            f"PYQCU::TESTING::DSLASH::CLOVER:\n Difference between computed and reference dslash: {diff}")
+    else:
+        # lat_size = [2, 2, 2, 2]
+        lat_size = [4, 4, 4, 4]
+        # lat_size = [8, 8, 8, 8]
+        comm = MPI.COMM_WORLD
+        root = 0
+        grid_size = tools.give_grid_size()
+        print(grid_size)
+        grid_index = tools.give_grid_index()
+        print(grid_index)
+        refer_U = torch.zeros(
+            size=[3, 3, 4]+[lat_size[i]//grid_size[i] for i in range(4)], dtype=dtype, device=device)
+        lattice.generate_gauge_field(
+            refer_U, seed=42+comm.rank, sigma=0.1, verbose=True)
+        whole_U = tools.local_xyzt2whole_xyzt(
+            local_array=refer_U, root=root)
+        if comm.rank == root:
+            whole_clover = dslash.make_clover(
+                U=whole_U, support_parallel=False)
+        else:
+            whole_clover = None
+        refer_clover = tools.whole_xyzt2local_xyzt(whole_array=whole_clover, whole_shape=[
+            4, 3, 4, 3]+lat_size, root=root, dtype=dtype, device=device)
+        clover = dslash.make_clover(U=refer_U, support_parallel=True)
+        diff = tools.norm(clover - refer_clover) / \
+            tools.norm(refer_clover)
+        print(
+            f"PYQCU::TESTING::DSLASH::CLOVER::REFER_U:\n Gauge field SU(3) check: {lattice.check_su3(refer_U, tol=1e-6, verbose=True)}")
+        print(
+            f"PYQCU::TESTING::DSLASH::CLOVER::REFER_U:\n {tools.norm(refer_U)}")
+        print(
+            f"PYQCU::TESTING::DSLASH::CLOVER::REFER_U:\n {refer_U.flatten()[:12]}")
+        print(
+            f"PYQCU::TESTING::DSLASH::CLOVER::REFER_CLOVER:\n {tools.norm(refer_clover)}")
+        print(
+            f"PYQCU::TESTING::DSLASH::CLOVER::REFER_CLOVER:\n {refer_clover.flatten()[:12]}")
+        print(
+            f"PYQCU::TESTING::DSLASH::CLOVER::CLOVER:\n {tools.norm(clover)}")
+        print(
+            f"PYQCU::TESTING::DSLASH::CLOVER::CLOVER:\n {clover.flatten()[:12]}")
+        print(
+            f"PYQCU::TESTING::DSLASH::CLOVER:\n Difference between computed and reference clover: {diff}")
 
 
 def test_solver(method: str = 'bistabcg', kappa: float = 0.125, lat_size: list = [8, 8, 8, 16],  dtype: torch.dtype = torch.complex64, device: torch.device = torch.device('cpu'), with_data: bool = False, max_levels: int = 2, num_restart: int = 3, support_parity: bool = False):
@@ -429,7 +473,7 @@ def test_smear_stout(device: torch.device = torch.device('cpu'), dtype: torch.dt
     refer_U = torch.zeros(
         size=[3, 3, 4]+[lat_size[i]//grid_size[i] for i in range(4)], dtype=dtype, device=device)
     lattice.generate_gauge_field(
-        refer_U, seed=42, sigma=0.1, verbose=True)
+        refer_U, seed=42+comm.rank, sigma=0.1, verbose=True)
     whole_U = tools.local_xyzt2whole_xyzt(
         local_array=refer_U, root=root)
     if comm.rank == root:
