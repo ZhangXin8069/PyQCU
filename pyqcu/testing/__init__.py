@@ -5,6 +5,7 @@ from argparse import Namespace
 from pyqcu import lattice, solver, dslash, _torch, tools, smear
 import mpi4py.MPI as MPI
 import pyqcu
+from pyqcu.tools._define import give_grid_index
 Namespace.__module__ = "pyqcu.testing"
 
 
@@ -239,16 +240,18 @@ def test_dslash_clover(device: torch.device = torch.device('cpu'), with_data: bo
             f"PYQCU::TESTING::DSLASH::CLOVER:\n Difference between computed and reference dslash: {diff}")
     else:
         # lat_size = [2, 2, 2, 2]
-        lat_size = [4, 4, 4, 4]
+        # lat_size = [4, 4, 4, 4]
         # lat_size = [8, 8, 8, 8]
+        lat_size = [8, 8, 8, 16]
         comm = MPI.COMM_WORLD
         root = 0
         grid_size = tools.give_grid_size()
-        print(grid_size)
         grid_index = tools.give_grid_index()
-        print(grid_index)
+        sub_lat_size = [lat_size[i]//grid_size[i] for i in range(4)]
+        print(
+            f"grid_size,comm.rank,grid_index:{grid_size,comm.rank,grid_index}")
         refer_U = torch.zeros(
-            size=[3, 3, 4]+[lat_size[i]//grid_size[i] for i in range(4)], dtype=dtype, device=device)
+            size=[3, 3, 4]+sub_lat_size, dtype=dtype, device=device)
         lattice.generate_gauge_field(
             refer_U, seed=42+comm.rank, sigma=0.1, verbose=True)
         whole_U = tools.local_xyzt2whole_xyzt(
@@ -462,16 +465,17 @@ def test_matmul():
 
 def test_smear_stout(device: torch.device = torch.device('cpu'), dtype: torch.dtype = torch.complex64):
     # lat_size = [2, 2, 2, 2]
-    lat_size = [4, 4, 4, 4]
+    # lat_size = [4, 4, 4, 4]
     # lat_size = [8, 8, 8, 8]
+    lat_size = [8, 8, 8, 16]
     comm = MPI.COMM_WORLD
     root = 0
     grid_size = tools.give_grid_size()
-    print(grid_size)
     grid_index = tools.give_grid_index()
-    print(grid_index)
+    sub_lat_size = [lat_size[i]//grid_size[i] for i in range(4)]
+    print(f"grid_size,comm.rank,grid_index:{grid_size,comm.rank,grid_index}")
     refer_U = torch.zeros(
-        size=[3, 3, 4]+[lat_size[i]//grid_size[i] for i in range(4)], dtype=dtype, device=device)
+        size=[3, 3, 4]+sub_lat_size, dtype=dtype, device=device)
     lattice.generate_gauge_field(
         refer_U, seed=42+comm.rank, sigma=0.1, verbose=True)
     whole_U = tools.local_xyzt2whole_xyzt(
