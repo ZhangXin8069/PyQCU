@@ -33,11 +33,10 @@ from ._multigrid import prolong as prolong
 try:
     from ._matul import matmul_gpu as matmul_gpu
     from ._matul import matmul_cpu as matmul_cpu
+    from ._einsum import Eexyzt_exyzt2Exyzt as Eexyzt_exyzt2Exyzt
 except Exception as e:
     print(f"Error:{e}")
 from ._linalg import vdot as vdot
 from ._linalg import norm as norm
-from ._einsum import Eexyzt_exyzt2Exyzt as Eexyzt_exyzt2Exyzt
 from argparse import Namespace
-
 Namespace.__module__ = "pyqcu.tools"
