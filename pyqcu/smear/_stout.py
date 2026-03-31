@@ -8,7 +8,7 @@ import mpi4py.MPI as MPI
 """
 
 
-def stout_smear(U: torch.Tensor, nstep: int = 1, rho: float = 0.12, support_parallel: bool = True):
+def stout_smear(U: torch.Tensor, nstep: int = 1, rho: float = 0.12, support_parallel: bool = False):
     if support_parallel:
         grid_size = tools.give_grid_size()
         comm = MPI.COMM_WORLD
