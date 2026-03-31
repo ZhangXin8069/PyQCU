@@ -1,4 +1,3 @@
-from numpy import dtype
 from pyqcu.testing import *
 import torch
 # test_import()
