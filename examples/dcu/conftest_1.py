@@ -1,5 +1,7 @@
+import torch
 import tilelang
 import tilelang.language as T
+
 
 @tilelang.jit(target="hip")
 def matmul(M, N, K, block_M, block_N, block_K, dtype="float16", accum_dtype="float"):
@@ -36,7 +38,6 @@ block_M, block_N, block_K = 128, 128, 32
 matmul_relu_kernel = matmul(M, N, K, block_M, block_N, block_K)
 
 # 使用 PyTorch 等与 HIP 兼容的数据在 DCU 上测试
-import torch
 a = torch.randn(M, K, device="cuda", dtype=torch.float16)
 b = torch.randn(K, N, device="cuda", dtype=torch.float16)
 c = torch.empty(M, N, device="cuda", dtype=torch.float16)

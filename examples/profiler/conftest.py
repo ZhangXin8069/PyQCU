@@ -68,7 +68,7 @@ prof = torch.profiler.profile(
 prof.start()
 # test_solver(method='bistabcg', dtype=torch.complex128,
 #                    lat_size=[8, 8, 8, 16], support_parity=True)
-test_solver(method='bistabcg', dtype=torch.complex64,device=torch.device('cuda'),
+test_solver(method='bistabcg', dtype=torch.complex64, device=torch.device('cuda'),
                    lat_size=[8, 16, 16, 16], support_parity=True)
 prof.stop()
 prof.export_chrome_trace(
