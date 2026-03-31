@@ -108,11 +108,18 @@ def test_dslash_wilson(kappa: float = 0.125, lat_size: list = [8, 8, 8, 16],  dt
 def test_dslash_parity(lat_size: list = [8, 8, 8, 16], kappa: float = 0.125,  dtype: torch.dtype = torch.complex64, device: torch.device = torch.device('cpu')):
     comm = MPI.COMM_WORLD
     root = 0
+    grid_size = tools.give_grid_size()
+    grid_index = tools.give_grid_index()
+    sub_lat_size = [lat_size[i]//grid_size[i] for i in range(4)]
+    print(
+        f"grid_size,comm.rank,grid_index,sub_lat_size:{grid_size,comm.rank,grid_index,sub_lat_size}")
+    refer_U = torch.zeros(
+        size=[3, 3, 4]+sub_lat_size, dtype=dtype, device=device)
+    lattice.generate_gauge_field(
+        refer_U, seed=42+comm.rank, sigma=0.1, verbose=True)
+    whole_U = tools.local_xyzt2whole_xyzt(
+        local_array=refer_U, root=root)
     if comm.rank == root:
-        whole_U = torch.zeros(
-            size=[3, 3, 4]+lat_size, dtype=dtype, device=device)
-        lattice.generate_gauge_field(
-            whole_U, seed=42, sigma=0.1, verbose=True)
         whole_clover_term = dslash.make_clover(
             U=whole_U, kappa=kappa, verbose=True)
         # whole_clover_term = torch.zeros_like(whole_clover_term)
@@ -121,14 +128,10 @@ def test_dslash_parity(lat_size: list = [8, 8, 8, 16], kappa: float = 0.125,  dt
         whole_dest = dslash.give_clover(src=whole_src, clover_term=whole_clover_term, verbose=True) + dslash.give_wilson(src=whole_src, U=whole_U, kappa=kappa,
                                                                                                                          with_I=True, verbose=True)
     else:
-        whole_U = None
-        whole_clover_term = None
         whole_src = None
         whole_dest = None
-    refer_U = tools.whole_xyzt2local_xyzt(whole_array=whole_U, whole_shape=[
-                                          3, 3, 4]+lat_size, root=root, dtype=dtype, device=device)
-    refer_clover_term = tools.whole_xyzt2local_xyzt(whole_array=whole_clover_term, whole_shape=[
-                                                    4, 3, 4, 3]+lat_size, root=root, dtype=dtype, device=device)
+    refer_clover_term = dslash.make_clover(
+        U=refer_U, kappa=kappa, support_parallel=True, verbose=False)
     refer_src = tools.whole_xyzt2local_xyzt(whole_array=whole_src, whole_shape=[
         4, 3]+lat_size, root=root, dtype=dtype, device=device)
     refer_dest = tools.whole_xyzt2local_xyzt(whole_array=whole_dest, whole_shape=[
@@ -252,7 +255,7 @@ def test_dslash_clover(device: torch.device = torch.device('cpu'), with_data: bo
         grid_index = tools.give_grid_index()
         sub_lat_size = [lat_size[i]//grid_size[i] for i in range(4)]
         print(
-            f"grid_size,comm.rank,grid_index:{grid_size,comm.rank,grid_index}")
+            f"grid_size,comm.rank,grid_index,sub_lat_size:{grid_size,comm.rank,grid_index,sub_lat_size}")
         refer_U = torch.zeros(
             size=[3, 3, 4]+sub_lat_size, dtype=dtype, device=device)
         lattice.generate_gauge_field(
@@ -476,7 +479,8 @@ def test_smear_stout(device: torch.device = torch.device('cpu'), dtype: torch.dt
     grid_size = tools.give_grid_size()
     grid_index = tools.give_grid_index()
     sub_lat_size = [lat_size[i]//grid_size[i] for i in range(4)]
-    print(f"grid_size,comm.rank,grid_index:{grid_size,comm.rank,grid_index}")
+    print(
+        f"grid_size,comm.rank,grid_index,sub_lat_size:{grid_size,comm.rank,grid_index,sub_lat_size}")
     refer_U = torch.zeros(
         size=[3, 3, 4]+sub_lat_size, dtype=dtype, device=device)
     lattice.generate_gauge_field(
