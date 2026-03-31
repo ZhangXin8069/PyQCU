@@ -43,34 +43,37 @@ def stout_smear(U: torch.Tensor, nstep: int = 1, rho: float = 0.12, support_para
                 U_tail_list[ward] = torch.from_numpy(U_tail4recv).to(
                     device=U.device)
         U_head_tail_list = [[torch.zeros([]), torch.zeros(
-            []), torch.zeros([]), torch.zeros([])]]*4
+            []), torch.zeros([]), torch.zeros([])], [torch.zeros([]), torch.zeros(
+                []), torch.zeros([]), torch.zeros([])], [torch.zeros([]), torch.zeros(
+                    []), torch.zeros([]), torch.zeros([])], [torch.zeros([]), torch.zeros(
+                        []), torch.zeros([]), torch.zeros([])]]
         U_tail_head_list = [[torch.zeros([]), torch.zeros(
-            []), torch.zeros([]), torch.zeros([])]]*4
-        for ward_a in range(4):
-            for ward_b in range(4):
-                if ward_a != ward_b and grid_size[ward_a] != 1 and grid_size[ward_b] != 1:
+            []), torch.zeros([]), torch.zeros([])], [torch.zeros([]), torch.zeros(
+                []), torch.zeros([]), torch.zeros([])], [torch.zeros([]), torch.zeros(
+                    []), torch.zeros([]), torch.zeros([])], [torch.zeros([]), torch.zeros(
+                        []), torch.zeros([]), torch.zeros([])]]
+        #  NEVER NEVER USE THE SHIT LIKE THAT "[[torch.zeros([]), torch.zeros([]), torch.zeros([]), torch.zeros([])]]*4"
+        for mu in range(4):
+            for nu in range(4):
+                if mu != nu and grid_size[mu] != 1 and grid_size[nu] != 1:
                     U_tail_head4send = U[tools.slice_dim_dim(
-                        dims_num=7, ward_a=ward_a, point_a=-1, ward_b=ward_b, point_b=0)].cpu().contiguous().numpy()
+                        dims_num=7, ward_a=mu, point_a=-1, ward_b=nu, point_b=0)].cpu().contiguous().numpy()
                     U_head_tail4recv = np.zeros_like(U_tail_head4send)
                     comm.Barrier()
-                    comm.Sendrecv(sendbuf=U_tail_head4send, dest=tools.give_rank_plus_minus(ward_a=ward_a, ward_b=ward_b, rank=rank), sendtag=rank,
-                                  recvbuf=U_head_tail4recv, source=tools.give_rank_minus_plus(ward_a=ward_a, ward_b=ward_b, rank=rank), recvtag=tools.give_rank_minus_plus(ward_a=ward_a, ward_b=ward_b, rank=rank))
+                    comm.Sendrecv(sendbuf=U_tail_head4send, dest=tools.give_rank_plus_minus(ward_a=mu, ward_b=nu, rank=rank), sendtag=rank,
+                                  recvbuf=U_head_tail4recv, source=tools.give_rank_minus_plus(ward_a=mu, ward_b=nu, rank=rank), recvtag=tools.give_rank_minus_plus(ward_a=mu, ward_b=nu, rank=rank))
                     comm.Barrier()
-                    U_head_tail_list[ward_a][ward_b] = torch.from_numpy(U_head_tail4recv).to(
+                    U_head_tail_list[mu][nu] = torch.from_numpy(U_head_tail4recv).to(
                         device=U.device)
                     U_head_tail4send = U[tools.slice_dim_dim(
-                        dims_num=7, ward_a=ward_a, point_a=0, ward_b=ward_b, point_b=-1)].cpu().contiguous().numpy()
+                        dims_num=7, ward_a=mu, point_a=0, ward_b=nu, point_b=-1)].cpu().contiguous().numpy()
                     U_tail_head4recv = np.zeros_like(U_head_tail4send)
                     comm.Barrier()
-                    comm.Sendrecv(sendbuf=U_head_tail4send, dest=tools.give_rank_minus_plus(ward_a=ward_a, ward_b=ward_b, rank=rank), sendtag=tools.give_rank_minus_plus(ward_a=ward_a, ward_b=ward_b, rank=rank),
-                                  recvbuf=U_tail_head4recv, source=tools.give_rank_plus_minus(ward_a=ward_a, ward_b=ward_b, rank=rank), recvtag=rank)
+                    comm.Sendrecv(sendbuf=U_head_tail4send, dest=tools.give_rank_minus_plus(ward_a=mu, ward_b=nu, rank=rank), sendtag=tools.give_rank_minus_plus(ward_a=mu, ward_b=nu, rank=rank),
+                                  recvbuf=U_tail_head4recv, source=tools.give_rank_plus_minus(ward_a=mu, ward_b=nu, rank=rank), recvtag=rank)
                     comm.Barrier()
-                    U_tail_head_list[ward_a][ward_b] = torch.from_numpy(U_tail_head4recv).to(
+                    U_tail_head_list[mu][nu] = torch.from_numpy(U_tail_head4recv).to(
                         device=U.device)
-                    print(f"{give_grid_index()}:tools.give_rank_plus_minus(ward_a={ward_a}, ward_b={ward_b}, rank={rank}):{tools.give_rank_plus_minus(ward_a=ward_a, ward_b=ward_b, rank=rank)}")
-                    print(f"{give_grid_index()}:tools.give_rank_minus_plus(ward_a={ward_a}, ward_b={ward_b}, rank={rank}):{tools.give_rank_minus_plus(ward_a=ward_a, ward_b=ward_b, rank=rank)}")
-                    print(
-                        f"{give_grid_index()}:U_head_tail_list[{ward_a}][{ward_b}][:, :, {ward_b}, :, :]:{U_head_tail_list[ward_a][ward_b][:, :, ward_b, :, :]}")
     for _ in range(nstep):
         Q = torch.zeros_like(U)
         for mu in range(4):
@@ -109,35 +112,8 @@ def stout_smear(U: torch.Tensor, nstep: int = 1, rho: float = 0.12, support_para
                             roll_u4[tools.slice_dim(dims_num=6, ward=mu, point=-1)] = torch.roll(
                                 U_tail_list[mu][:, :, nu, :, :, :], +1, -4+nu+(nu < mu))
                         if grid_size[mu] != 1 and grid_size[nu] != 1:
-                            print(
-                                f"U_head_tail_list[nu][mu].shape:{(U_head_tail_list[nu][mu]).shape}")
                             roll_u4[tools.slice_dim_dim(
                                     dims_num=6, ward_a=nu, ward_b=mu, point_a=0, point_b=-1)] = U_head_tail_list[nu][mu][:, :, nu, :, :]
-                            # print(
-                            #     f"tools.give_rank_plus_minus(mu={mu}, nu={nu}, rank={rank}):{tools.give_rank_plus_minus(ward_a=mu, ward_b=nu, rank=rank)}")
-                            # if nu < mu:
-                            #     roll_u4[tools.slice_dim_dim(
-                            #         dims_num=6, ward_a=nu, ward_b=mu, point_a=0, point_b=-1)] = U_head_tail_list[nu][mu][:, :, nu, :, :]
-                            # else:
-                            #     roll_u4[tools.slice_dim_dim(
-                            #         dims_num=6, ward_a=nu, ward_b=mu, point_a=0, point_b=-1)] = U_tail_head_list[mu][nu][:, :, nu, :, :]
-                            print(f"grid_size:{grid_size}")
-                            print(
-                                f"###{give_grid_index()}:U_head_tail_list[{nu}][{mu}][:, :, {nu}, :, :]:{U_head_tail_list[nu][mu][:, :, nu, :, :]}")
-                            print(
-                                f"###{give_grid_index()}:U_tail_head_list[{mu}][{nu}][:, :, {nu}, :, :]:{U_tail_head_list[mu][nu][:, :, nu, :, :]}")
-                            # print(
-                            #     f"torch.norm(U_head_tail_list[{nu}][{mu}][:, :, {nu}, :, :]):{torch.norm(U_head_tail_list[nu][mu][:, :, nu, :, :])}")
-                            # print(
-                            #     f"torch.norm(U_tail_head_list[{mu}][{nu}][:, :, {nu}, :, :]):{torch.norm(U_tail_head_list[mu][nu][:, :, nu, :, :])}")
-                            # print(
-                            #     f"rank:{rank} torch.norm(U_head_tail_list[{nu}][{mu}][:, :, {nu}, :, :]):{U_head_tail_list[nu][mu][:, :, nu, :, :]}")
-                            # print(
-                            #     f"rank:{rank} torch.norm(U_tail_head_list[{mu}][{nu}][:, :, {nu}, :, :]):{U_tail_head_list[mu][nu][:, :, nu, :, :]}")
-                            # print(
-                            #     f"@@@[{mu}][{nu}][:, :, {nu}, :, :]@@@{torch.norm(U_head_tail_list[nu][mu][:, :, nu, :, :]-U_tail_head_list[mu][nu][:, :, nu, :, :])}")
-                            # print(
-                            #     f"@@@[{mu}][{nu}][:, :, {nu}, :, :]@@@{U_head_tail_list[nu][mu][:, :, nu, :, :]-U_tail_head_list[mu][nu][:, :, nu, :, :]}")
                         Q_mu += torch.einsum(
                             "abxyzt,bcxyzt,dcxyzt->adxyzt",
                             U_nu,
