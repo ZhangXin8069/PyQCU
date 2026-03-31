@@ -1,9 +1,5 @@
 from pyqcu import lattice
 import mpi4py.MPI as MPI
-try:
-    import tilelang.language as T
-except Exception as e:
-    print(f"Error:{e}")
 import torch
 import h5py
 import os
@@ -45,6 +41,11 @@ torch2np_dtype = {
     torch.complex64: np.complex64,
     torch.complex128: np.complex128,
 }
+try:
+    import tilelang.language as T
+except Exception as e:
+    print(f"Error:{e}")
+    import torch as T
 # Torch → Tilelang
 torch2tl_dtype = {
     torch.float16:    T.float16,
