@@ -170,7 +170,7 @@ class multigrid:
                 r_coarse = tools.restrict(
                     local_ortho_null_vecs=self.lonv_list[level], fine_vec=r)
                 self.b_list[level+1] = r_coarse.to(dtype=self.dtype_list[level+1],
-                                                           device=self.device_list[level+1])
+                                                   device=self.device_list[level+1])
                 e_coarse = self.cycle(level=level+1).to(dtype=self.dtype_list[level],
                                                         device=self.device_list[level])
                 e_fine = tools.prolong(
