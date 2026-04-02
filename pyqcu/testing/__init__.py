@@ -469,11 +469,7 @@ def test_matmul():
     print("All Verifications Passed (GPU & CPU)!")
 
 
-def test_smear_stout(device: torch.device = torch.device('cpu'), dtype: torch.dtype = torch.complex64):
-    # lat_size = [2, 2, 2, 2]
-    # lat_size = [4, 4, 4, 4]
-    # lat_size = [8, 8, 8, 8]
-    lat_size = [8, 8, 8, 16]
+def test_smear_stout(lat_size: list = [8, 8, 8, 16], device: torch.device = torch.device('cpu'), dtype: torch.dtype = torch.complex64):
     comm = MPI.COMM_WORLD
     root = 0
     grid_size = tools.give_grid_size()
