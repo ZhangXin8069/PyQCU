@@ -123,7 +123,7 @@ def test_dslash_parity(lat_size: list = [8, 8, 8, 16], kappa: float = 0.125,  dt
         whole_clover_term = dslash.make_clover(
             U=whole_U, kappa=kappa, verbose=True)
         # whole_clover_term = torch.zeros_like(whole_clover_term)
-        whole_src = torch.randn(
+        whole_src = _torch.randn(
             size=[4, 3]+lat_size, dtype=dtype, device=device)
         whole_dest = dslash.give_clover(src=whole_src, clover_term=whole_clover_term, verbose=True) + dslash.give_wilson(src=whole_src, U=whole_U, kappa=kappa,
                                                                                                                          with_I=True, verbose=True)
@@ -302,7 +302,7 @@ def test_solver(method: str = 'bistabcg', kappa: float = 0.125, lat_size: list =
             whole_clover_term = dslash.make_clover(
                 U=whole_U, kappa=kappa, verbose=True)
             # whole_clover_term = torch.zeros_like(whole_clover_term)
-            whole_x = torch.randn(
+            whole_x = _torch.randn(
                 size=[4, 3]+lat_size, dtype=dtype, device=device)
             whole_b = dslash.give_clover(src=whole_x, clover_term=whole_clover_term, verbose=True) + dslash.give_wilson(src=whole_x, U=whole_U, kappa=kappa,
                                                                                                                         with_I=True, verbose=True)
@@ -406,8 +406,8 @@ def test_matmul():
     func_gpu = matmul_gpu(M_gpu, N_gpu, K_gpu, **gpu_tile)
     jit_gpu = tilelang.compile(func_gpu, out_idx=[2], target="c")
     print(jit_gpu.get_kernel_source())
-    a_gpu = torch.randn(M_gpu, K_gpu, device="cuda", dtype=torch.float16)
-    b_gpu = torch.randn(N_gpu, K_gpu, device="cuda", dtype=torch.float16)
+    a_gpu = _torch.randn(M_gpu, K_gpu, device="cuda", dtype=torch.float16)
+    b_gpu = _torch.randn(N_gpu, K_gpu, device="cuda", dtype=torch.float16)
     start_evt = torch.cuda.Event(enable_timing=True)
     end_evt = torch.cuda.Event(enable_timing=True)
     # Warmup GPU
@@ -437,8 +437,8 @@ def test_matmul():
         jit_cpu = tilelang.compile(func_cpu, out_idx=[2], target="c")
         cpu_target_name = "C"
     # print(jit_cpu.get_kernel_source())
-    a_cpu = torch.randn(M_cpu, K_cpu, device="cpu", dtype=torch.float16)
-    b_cpu = torch.randn(N_cpu, K_cpu, device="cpu", dtype=torch.float16)
+    a_cpu = _torch.randn(M_cpu, K_cpu, device="cpu", dtype=torch.float16)
+    b_cpu = _torch.randn(N_cpu, K_cpu, device="cpu", dtype=torch.float16)
     # Warmup CPU
     for _ in range(5):
         jit_cpu(a_cpu, b_cpu)
