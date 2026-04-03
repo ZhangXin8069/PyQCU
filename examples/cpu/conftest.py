@@ -57,6 +57,4 @@ import torch
 #                    lat_size=[8, 8, 8, 16], support_parity=True)
 # test_solver(method='bistabcg', dtype=torch.complex64,device=torch.device('cuda'),
 #                    lat_size=[8, 16, 16, 16], support_parity=True)
-# test_smear_stout(device=torch.device('cpu'), dtype=torch.complex64)
-# test_dslash_clover(with_data=False, device=torch.device('cpu'), dtype=torch.complex64)
-test_dslash_parity()
+test_smear_stout(device=torch.device('cpu'), dtype=torch.complex64)
