@@ -31,7 +31,7 @@ def give_null_vecs(
         if verbose:
             print(
                 f"PYQCU::TOOLS::MATRIX:\n (_matvec(null_vecs[i])/null_vecs[i]).flatten()[:10]:{(matvec(null_vecs[i])/null_vecs[i]).flatten()[:10]}")
-    if verbose:
+    if verbose and null_vecs.device.type is not 'npu':
         print(f"PYQCU::TOOLS::MATRIX:\n Near-null space check:")
         for i in range(dof):
             Av = matvec(null_vecs[i])
