@@ -294,25 +294,27 @@ def test_solver(method: str = 'bistabcg', kappa: float = 0.125, lat_size: list =
     if not with_data:
         comm = MPI.COMM_WORLD
         root = 0
+        grid_size = tools.give_grid_size()
+        grid_index = tools.give_grid_index()
+        sub_lat_size = [lat_size[i]//grid_size[i] for i in range(4)]
+        print(
+            f"grid_size,comm.rank,grid_index,sub_lat_size:{grid_size,comm.rank,grid_index,sub_lat_size}")
+        refer_U = torch.zeros(
+            size=[3, 3, 4]+sub_lat_size, dtype=dtype, device=device)
+        lattice.generate_gauge_field(
+            refer_U, seed=42+comm.rank, sigma=0.1, verbose=True)
+        whole_U = tools.local_xyzt2whole_xyzt(
+            local_array=refer_U, root=root)
         if comm.rank == root:
-            whole_U = torch.zeros(
-                size=[3, 3, 4]+lat_size, dtype=dtype, device=device)
-            lattice.generate_gauge_field(
-                whole_U, seed=42, sigma=0.1, verbose=True)
-            whole_clover_term = dslash.make_clover(
-                U=whole_U, kappa=kappa, verbose=True)
             # whole_clover_term = torch.zeros_like(whole_clover_term)
             whole_x = _torch.randn(
                 size=[4, 3]+lat_size, dtype=dtype, device=device)
             whole_b = dslash.give_clover(src=whole_x, clover_term=whole_clover_term, verbose=True) + dslash.give_wilson(src=whole_x, U=whole_U, kappa=kappa,
                                                                                                                         with_I=True, verbose=True)
         else:
-            whole_U = None
             whole_clover_term = None
             whole_x = None
             whole_b = None
-        refer_U = tools.whole_xyzt2local_xyzt(whole_array=whole_U, whole_shape=[
-                                              3, 3, 4]+lat_size, root=root, dtype=dtype, device=device)
         refer_clover_term = tools.whole_xyzt2local_xyzt(whole_array=whole_clover_term, whole_shape=[
                                                         4, 3, 4, 3]+lat_size, root=root, dtype=dtype, device=device)
         refer_x = tools.whole_xyzt2local_xyzt(whole_array=whole_x, whole_shape=[
