@@ -1,6 +1,6 @@
 import torch
 from pyqcu import _torch, lattice, tools
-
+force_use_npu = False
 tools_Eexyzt_exyzt2Exyzt = True
 # tools_Eexyzt_exyzt2Exyzt = False
 
@@ -257,10 +257,18 @@ def give_wilson_plus(ward: int, src: torch.Tensor, hopping: torch.Tensor, src_ta
                  ] = src_tail.clone()
     if parity == 0:
         odd_mask = tools.give_eo_mask(oootzy_t_p=src, eo=1)
-        src_plus[..., odd_mask] = src[..., odd_mask]
+        if (src.device.type == 'npu' or force_use_npu) and torch.is_complex(src):
+            src_plus.real[..., odd_mask] = src.real[..., odd_mask]
+            src_plus.imag[..., odd_mask] = src.imag[..., odd_mask]
+        else:
+            src_plus[..., odd_mask] = src[..., odd_mask]
     if parity == 1:
         even_mask = tools.give_eo_mask(oootzy_t_p=src, eo=0)
-        src_plus[..., even_mask] = src[..., even_mask]
+        if (src.device.type == 'npu' or force_use_npu) and torch.is_complex(src):
+            src_plus.real[..., even_mask] = src.real[..., even_mask]
+            src_plus.imag[..., even_mask] = src.imag[..., even_mask]
+        else:
+            src_plus[..., even_mask] = src[..., even_mask]
     if tools_Eexyzt_exyzt2Exyzt:
         return tools.Eexyzt_exyzt2Exyzt(Eexyzt=hopping, exyzt=src_plus)
     else:
@@ -279,10 +287,18 @@ def give_wilson_minus(ward: int, src: torch.Tensor, hopping: torch.Tensor, src_h
                   ] = src_head.clone()
     if parity == 0:
         even_mask = tools.give_eo_mask(oootzy_t_p=src, eo=0)
-        src_minus[..., even_mask] = src[..., even_mask]
+        if (src.device.type == 'npu' or force_use_npu) and torch.is_complex(src):
+            src_minus.real[..., even_mask] = src.real[..., even_mask]
+            src_minus.imag[..., even_mask] = src.imag[..., even_mask]
+        else:
+            src_minus[..., even_mask] = src[..., even_mask]
     if parity == 1:
         odd_mask = tools.give_eo_mask(oootzy_t_p=src, eo=1)
-        src_minus[..., odd_mask] = src[..., odd_mask]
+        if (src.device.type == 'npu' or force_use_npu) and torch.is_complex(src):
+            src_minus.real[..., odd_mask] = src.real[..., odd_mask]
+            src_minus.imag[..., odd_mask] = src.imag[..., odd_mask]
+        else:
+            src_minus[..., odd_mask] = src[..., odd_mask]
     if tools_Eexyzt_exyzt2Exyzt:
         return tools.Eexyzt_exyzt2Exyzt(Eexyzt=hopping, exyzt=src_minus)
     else:
