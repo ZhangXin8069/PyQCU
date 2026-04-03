@@ -142,6 +142,17 @@ def check_su3(U: torch.Tensor, tol: float = 1e-6, verbose: bool = False) -> bool
         print(f"PYQCU::TESTING::LATTICE:\n Unitary check   : {unitary_ok}")
         print(f"PYQCU::TESTING::LATTICE:\n Determinant=1   : {det_ok}")
         print(f"PYQCU::TESTING::LATTICE:\n Minor identities: {minors_ok}")
+        try:
+            if not unitary_ok:
+                max_err = (UH_U - eye).abs().max().item()
+                print(
+                    f"PYQCU::TESTING::LATTICE:\n Max unitary deviation: {max_err:e}")
+            if not det_ok:
+                max_det_err = (det_U - 1).abs().max().item()
+                print(
+                    f"PYQCU::TESTING::LATTICE:\n Max det deviation: {max_det_err:e}")
+        except Exception as e:
+            print(f"Error:{e}")
     return unitary_ok and det_ok and minors_ok
 
 
