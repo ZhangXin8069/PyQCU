@@ -49,4 +49,4 @@ import torch_npu
 # test_dslash_clover(with_data=False, device=torch.device(
 #     'npu'), dtype=torch.complex64)
 test_solver(method='multigrid', dtype=torch.complex64,
-                   lat_size=[64, 64, 64, 64], device=torch.device('npu'),support_parity=True)
+                   lat_size=[32, 64, 64, 64], device=torch.device('npu'),support_parity=True)
