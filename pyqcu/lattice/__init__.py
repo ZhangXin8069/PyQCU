@@ -122,19 +122,19 @@ def check_su3(U: torch.Tensor, tol: float = 1e-3, verbose: bool = False) -> bool
                      device=U_mat.device).expand(N, -1, -1)
     # 1 Unitarity check: Uᴴ U ≈ I
     UH_U = _torch.matmul(U_mat.conj().transpose(-1, -2), U_mat)
-    unitary_ok = _torch.allclose(UH_U, eye, rtol=tol)
+    unitary_ok = _torch.allclose(UH_U, eye, atol=tol)
     # 2 Determinant check: det(U) ≈ 1
     det_U = torch.linalg.det(U_mat)
-    det_ok = _torch.allclose(det_U, torch.ones_like(det_U), rtol=tol)
+    det_ok = _torch.allclose(det_U, torch.ones_like(det_U), atol=tol)
     # 3 Minor identities check
     # Flatten matrices to shape (N, 9) for easy indexing
     Uf = U_mat.reshape(N, 9)
     c6 = (Uf[:, 1] * Uf[:, 5] - Uf[:, 2] * Uf[:, 4]).conj()
     c7 = (Uf[:, 2] * Uf[:, 3] - Uf[:, 0] * Uf[:, 5]).conj()
     c8 = (Uf[:, 0] * Uf[:, 4] - Uf[:, 1] * Uf[:, 3]).conj()
-    minors_ok = (_torch.allclose(Uf[:, 6], c6, rtol=tol) and
-                 _torch.allclose(Uf[:, 7], c7, rtol=tol) and
-                 _torch.allclose(Uf[:, 8], c8, rtol=tol))
+    minors_ok = (_torch.allclose(Uf[:, 6], c6, atol=tol) and
+                 _torch.allclose(Uf[:, 7], c7, atol=tol) and
+                 _torch.allclose(Uf[:, 8], c8, atol=tol))
     # --- Optional verbose output ---
     if verbose:
         print(
