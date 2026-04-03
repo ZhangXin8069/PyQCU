@@ -350,6 +350,7 @@ def set_device(device: torch.device):
             try:
                 import torch_npu
                 local_rank = rank % torch.npu.device_count()
+                print(f"{local_rank, '=' ,rank ,'%' ,torch.npu.device_count()}")
             except ImportError:
                 raise RuntimeError(
                     "PYQCU::TOOLS::DEFINE:\n torch_npu not found; please install it for NPU support.")
