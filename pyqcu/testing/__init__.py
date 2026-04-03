@@ -305,6 +305,9 @@ def test_solver(method: str = 'bistabcg', kappa: float = 0.125, lat_size: list =
             refer_U, seed=42+comm.rank, sigma=0.1, verbose=True)
         whole_U = tools.local_xyzt2whole_xyzt(
             local_array=refer_U, root=root)
+        refer_clover_term = dslash.make_clover(U=refer_U, support_parallel=True)
+        whole_clover_term = tools.local_xyzt2whole_xyzt(
+            local_array=refer_clover_term, root=root)
         if comm.rank == root:
             # whole_clover_term = torch.zeros_like(whole_clover_term)
             whole_x = _torch.randn(
@@ -312,11 +315,8 @@ def test_solver(method: str = 'bistabcg', kappa: float = 0.125, lat_size: list =
             whole_b = dslash.give_clover(src=whole_x, clover_term=whole_clover_term, verbose=True) + dslash.give_wilson(src=whole_x, U=whole_U, kappa=kappa,
                                                                                                                         with_I=True, verbose=True)
         else:
-            whole_clover_term = None
             whole_x = None
             whole_b = None
-        refer_clover_term = tools.whole_xyzt2local_xyzt(whole_array=whole_clover_term, whole_shape=[
-                                                        4, 3, 4, 3]+lat_size, root=root, dtype=dtype, device=device)
         refer_x = tools.whole_xyzt2local_xyzt(whole_array=whole_x, whole_shape=[
                                               4, 3]+lat_size, root=root, dtype=dtype, device=device)
         refer_b = tools.whole_xyzt2local_xyzt(whole_array=whole_b, whole_shape=[
