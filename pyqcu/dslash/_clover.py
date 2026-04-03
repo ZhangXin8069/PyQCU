@@ -141,10 +141,10 @@ def make_clover(U: torch.Tensor, kappa: float = 0.1,
             roll_u2 = _torch.roll(_torch.roll(
                 U_dag_mu, shifts=1, dims=mu), shifts=-1, dims=nu)
             if grid_size[mu] != 1:
-                roll_u2[tools.slice_dim(dims_num=6, ward=mu, point=0)] = torch.roll(
+                roll_u2[tools.slice_dim(dims_num=6, ward=mu, point=0)] = _torch.roll(
                     U_head_list[mu][:, :, mu, :, :, :].permute(1, 0, 2, 3, 4).conj(), -1, nu+(nu < mu))
             if grid_size[nu] != 1:
-                roll_u2[tools.slice_dim(dims_num=6, ward=nu, point=-1)] = torch.roll(
+                roll_u2[tools.slice_dim(dims_num=6, ward=nu, point=-1)] = _torch.roll(
                     U_tail_list[nu][:, :, mu, :, :, :].permute(1, 0, 2, 3, 4).conj(), +1, mu+(mu < nu))
             if grid_size[mu] != 1 and grid_size[nu] != 1:
                 roll_u2[tools.slice_dim_dim(
@@ -164,10 +164,10 @@ def make_clover(U: torch.Tensor, kappa: float = 0.1,
             roll_u6 = _torch.roll(_torch.roll(
                 U_dag_nu, shifts=1, dims=mu), shifts=1, dims=nu)
             if grid_size[mu] != 1:
-                roll_u6[tools.slice_dim(dims_num=6, ward=mu, point=0)] = torch.roll(
+                roll_u6[tools.slice_dim(dims_num=6, ward=mu, point=0)] = _torch.roll(
                     U_head_list[mu][:, :, nu, :, :, :].permute(1, 0, 2, 3, 4).conj(), +1, nu+(nu < mu))
             if grid_size[nu] != 1:
-                roll_u6[tools.slice_dim(dims_num=6, ward=nu, point=0)] = torch.roll(
+                roll_u6[tools.slice_dim(dims_num=6, ward=nu, point=0)] = _torch.roll(
                     U_head_list[nu][:, :, nu, :, :, :].permute(1, 0, 2, 3, 4).conj(), +1, mu+(mu < nu))
             if grid_size[mu] != 1 and grid_size[nu] != 1:
                 roll_u6[tools.slice_dim_dim(
@@ -175,10 +175,10 @@ def make_clover(U: torch.Tensor, kappa: float = 0.1,
             roll_u7 = _torch.roll(_torch.roll(
                 U_mu, shifts=1, dims=mu), shifts=1, dims=nu)
             if grid_size[mu] != 1:
-                roll_u7[tools.slice_dim(dims_num=6, ward=mu, point=0)] = torch.roll(
+                roll_u7[tools.slice_dim(dims_num=6, ward=mu, point=0)] = _torch.roll(
                     U_head_list[mu][:, :, mu, :, :, :], +1, nu+(nu < mu))
             if grid_size[nu] != 1:
-                roll_u7[tools.slice_dim(dims_num=6, ward=nu, point=0)] = torch.roll(
+                roll_u7[tools.slice_dim(dims_num=6, ward=nu, point=0)] = _torch.roll(
                     U_head_list[nu][:, :, mu, :, :, :], +1, mu+(mu < nu))
             if grid_size[mu] != 1 and grid_size[nu] != 1:
                 roll_u7[tools.slice_dim_dim(
@@ -198,10 +198,10 @@ def make_clover(U: torch.Tensor, kappa: float = 0.1,
             roll_u11 = _torch.roll(_torch.roll(
                 U_nu, shifts=-1, dims=mu), shifts=1, dims=nu)
             if grid_size[mu] != 1:
-                roll_u11[tools.slice_dim(dims_num=6, ward=mu, point=-1)] = torch.roll(
+                roll_u11[tools.slice_dim(dims_num=6, ward=mu, point=-1)] = _torch.roll(
                     U_tail_list[mu][:, :, nu, :, :, :], +1, nu+(nu < mu))
             if grid_size[nu] != 1:
-                roll_u11[tools.slice_dim(dims_num=6, ward=nu, point=0)] = torch.roll(
+                roll_u11[tools.slice_dim(dims_num=6, ward=nu, point=0)] = _torch.roll(
                     U_head_list[nu][:, :, nu, :, :, :], -1, mu+(mu < nu))
             if grid_size[mu] != 1 and grid_size[nu] != 1:
                 roll_u11[tools.slice_dim_dim(
