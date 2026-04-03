@@ -446,8 +446,20 @@ def poooxyzt2oooxyzt(input_array: torch.Tensor, verbose: bool = False) -> torch.
         device=device
     )
     # Assign values from input array using masks
-    restored_array[..., even_mask] = input_array[0].reshape(*prefix_shape, -1)
-    restored_array[..., odd_mask] = input_array[1].reshape(*prefix_shape, -1)
+    if (input_array.device.type == 'npu' or force_use_npu) and torch.is_complex(input_array):
+        restored_array.real[..., even_mask] = input_array.real[0].reshape(
+            *prefix_shape, -1)
+        restored_array.real[..., odd_mask] = input_array.real[1].reshape(
+            *prefix_shape, -1)
+        restored_array.imag[..., even_mask] = input_array.imag[0].reshape(
+            *prefix_shape, -1)
+        restored_array.imag[..., odd_mask] = input_array.imag[1].reshape(
+            *prefix_shape, -1)
+    else:
+        restored_array[..., even_mask] = input_array[0].reshape(
+            *prefix_shape, -1)
+        restored_array[..., odd_mask] = input_array[1].reshape(
+            *prefix_shape, -1)
     if verbose:
         print(
             f"PYQCU::TOOLS::DEFINE:\n Restored Array Shape: {restored_array.shape}")
