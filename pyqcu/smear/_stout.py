@@ -128,7 +128,8 @@ def stout_smear(U: torch.Tensor, nstep: int = 1, rho: float = 0.12, support_para
             Q[:, :, mu, :, :, :, :] = Q_mu.clone()
         Q = _torch.einsum("abDxyzt,cbDxyzt->acDxyzt", rho * Q, U.conj())
         Q = 0.5j * (_torch.einsum("abDxyzt->baDxyzt", Q.conj()) - Q)
-        Q -= 1 / 3 * _torch.einsum("aaDxyzt,bc->bcDxyzt", Q, torch.eye(3).to(device=Q.device))
+        Q -= 1 / 3 * _torch.einsum("aaDxyzt,bc->bcDxyzt", Q,
+                                   torch.eye(3).to(dtype=Q.dtype, device=Q.device))
         c0 = _torch.einsum("abDxyzt,bcDxyzt,caDxyzt->Dxyzt", Q, Q, Q).real / 3
         c1 = _torch.einsum("abDxyzt,baDxyzt->Dxyzt", Q, Q).real / 2
         c0_max = 2 * (c1 / 3) ** (3 / 2)
@@ -156,7 +157,8 @@ def stout_smear(U: torch.Tensor, nstep: int = 1, rho: float = 0.12, support_para
         f0[parity] = f0[parity].conj()
         f1[parity] = -f1[parity].conj()
         f2[parity] = f2[parity].conj()
-        f0 = _torch.einsum("Dxyzt,ab->abDxyzt", f0, torch.eye(3).to(device=Q.device))
+        f0 = _torch.einsum("Dxyzt,ab->abDxyzt", f0,
+                           torch.eye(3).to(dtype=Q.dtype, device=Q.device))
         f1 = _torch.einsum("Dxyzt,abDxyzt->abDxyzt", f1, Q)
         f2 = _torch.einsum("Dxyzt,abDxyzt,bcDxyzt->acDxyzt", f2, Q, Q)
         dest = _torch.einsum("abDxyzt,bcDxyzt->acDxyzt", f0 + f1 + f2, U)
