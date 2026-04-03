@@ -154,6 +154,8 @@ def stout_smear(U: torch.Tensor, nstep: int = 1, rho: float = 0.12, support_para
         f1 = (2 * u * e_2iu - e_iu * (2 * u * cos_w -
               1j * (3 * u_sq - w_sq) * sinc_w)) * f_denom
         f2 = (e_2iu - e_iu * (cos_w + 3j * u * sinc_w)) * f_denom
+        f0 = f0.to(dtype=U.dtype, device=U.device)
+        f1 = f1.to(dtype=U.dtype, device=U.device)
         f2 = f2.to(dtype=U.dtype, device=U.device)
         f0[parity] = f0[parity].conj()
         f1[parity] = -f1[parity].conj()
