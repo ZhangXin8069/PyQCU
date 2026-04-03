@@ -1,4 +1,3 @@
-import re
 import torch
 from argparse import Namespace
 Namespace.__module__ = "pyqcu._torch"

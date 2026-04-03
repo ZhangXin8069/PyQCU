@@ -1,12 +1,11 @@
 from typing import Optional
 import mpi4py.MPI as MPI
 from typing import Optional
-from pyqcu import _torch, tools
+from pyqcu import _torch
 import torch
 from argparse import Namespace
 from math import sqrt
 Namespace.__module__ = "pyqcu.lattice"
-Namespace.__module__ = "pyqcu"
 wards = dict()
 wards['x'] = 0 - 4
 wards['y'] = 1 - 4
