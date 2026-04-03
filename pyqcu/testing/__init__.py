@@ -35,7 +35,7 @@ def test_lattice(lat_size: list = [8, 8, 8, 16], dtype: torch.dtype = torch.comp
     print(f"PYQCU::TESTING::LATTICE::GAMMA_GAMMA:\n {lattice.gamma_gamma}")
     print(f"PYQCU::TESTING::LATTICE::GELL_MANN:\n {lattice.gell_mann}")
     print(
-        f"PYQCU::TESTING::LATTICE:\n Gauge field SU(3) check: {lattice.check_su3(refer_U, tol=1e-6, verbose=True)}")
+        f"PYQCU::TESTING::LATTICE:\n Gauge field SU(3) check: {lattice.check_su3(refer_U, verbose=True)}")
 
 
 def test_dslash_wilson(kappa: float = 0.125, lat_size: list = [8, 8, 8, 16],  dtype: torch.dtype = torch.complex64, device: torch.device = torch.device('cpu'), with_data: bool = False, support_parallel: bool = True):
@@ -85,7 +85,7 @@ def test_dslash_wilson(kappa: float = 0.125, lat_size: list = [8, 8, 8, 16],  dt
         time_end = perf_counter()
     diff = tools.norm(dest - refer_dest)/tools.norm(refer_dest)
     print(
-        f"PYQCU::TESTING::DSLASH::WILSON::REFER_U:\n Gauge field SU(3) check: {lattice.check_su3(refer_U, tol=1e-6, verbose=True)}")
+        f"PYQCU::TESTING::DSLASH::WILSON::REFER_U:\n Gauge field SU(3) check: {lattice.check_su3(refer_U, verbose=True)}")
     print(f"PYQCU::TESTING::DSLASH::WILSON::REFER_U:\n {tools.norm(refer_U)}")
     print(
         f"PYQCU::TESTING::DSLASH::WILSON::REFER_U:\n {refer_U.flatten()[:12]}")
@@ -219,7 +219,7 @@ def test_dslash_clover(device: torch.device = torch.device('cpu'), with_data: bo
         diff = tools.norm(clover_inv_term - refer_clover_inv_term) / \
             tools.norm(refer_clover_inv_term)
         print(
-            f"PYQCU::TESTING::DSLASH::CLOVER::REFER_U:\n Gauge field SU(3) check: {lattice.check_su3(refer_U, tol=1e-6, verbose=True)}")
+            f"PYQCU::TESTING::DSLASH::CLOVER::REFER_U:\n Gauge field SU(3) check: {lattice.check_su3(refer_U, verbose=True)}")
         print(
             f"PYQCU::TESTING::DSLASH::CLOVER::REFER_U:\n {tools.norm(refer_U)}")
         print(
@@ -273,7 +273,7 @@ def test_dslash_clover(device: torch.device = torch.device('cpu'), with_data: bo
         diff = tools.norm(clover - refer_clover) / \
             tools.norm(refer_clover)
         print(
-            f"PYQCU::TESTING::DSLASH::CLOVER::REFER_U:\n Gauge field SU(3) check: {lattice.check_su3(refer_U, tol=1e-6, verbose=True)}")
+            f"PYQCU::TESTING::DSLASH::CLOVER::REFER_U:\n Gauge field SU(3) check: {lattice.check_su3(refer_U, verbose=True)}")
         print(
             f"PYQCU::TESTING::DSLASH::CLOVER::REFER_U:\n {tools.norm(refer_U)}")
         print(
@@ -493,19 +493,19 @@ def test_smear_stout(lat_size: list = [8, 8, 8, 16], device: torch.device = torc
     diff = tools.norm(smear_U - refer_smear_U) / \
         tools.norm(refer_smear_U)
     print(
-        f"PYQCU::TESTING::SMEAR::STOUT::REFER_U:\n Gauge field SU(3) check: {lattice.check_su3(refer_U, tol=1e-6, verbose=True)}")
+        f"PYQCU::TESTING::SMEAR::STOUT::REFER_U:\n Gauge field SU(3) check: {lattice.check_su3(refer_U, verbose=True)}")
     print(
         f"PYQCU::TESTING::SMEAR::STOUT::REFER_U:\n {tools.norm(refer_U)}")
     print(
         f"PYQCU::TESTING::SMEAR::STOUT::REFER_U:\n {refer_U.flatten()[:12]}")
     print(
-        f"PYQCU::TESTING::SMEAR::STOUT::REFER_SMEAR_U:\n Gauge field SU(3) check: {lattice.check_su3(refer_smear_U, tol=1e-6, verbose=True)}")
+        f"PYQCU::TESTING::SMEAR::STOUT::REFER_SMEAR_U:\n Gauge field SU(3) check: {lattice.check_su3(refer_smear_U, verbose=True)}")
     print(
         f"PYQCU::TESTING::SMEAR::STOUT::REFER_SMEAR_U:\n {tools.norm(refer_smear_U)}")
     print(
         f"PYQCU::TESTING::SMEAR::STOUT::REFER_SMEAR_U:\n {refer_smear_U.flatten()[:12]}")
     print(
-        f"PYQCU::TESTING::SMEAR::STOUT::SMEAR_U:\n Gauge field SU(3) check: {lattice.check_su3(smear_U, tol=1e-6, verbose=True)}")
+        f"PYQCU::TESTING::SMEAR::STOUT::SMEAR_U:\n Gauge field SU(3) check: {lattice.check_su3(smear_U, verbose=True)}")
     print(
         f"PYQCU::TESTING::SMEAR::STOUT::SMEAR_U:\n {tools.norm(smear_U)}")
     print(
