@@ -157,9 +157,9 @@ def stout_smear(U: torch.Tensor, nstep: int = 1, rho: float = 0.12, support_para
               1j * (3 * u_sq - w_sq) * sinc_w)) * f_denom
         f2 = (e_2iu - e_iu * (cos_w + 3j * u * sinc_w)) * f_denom
         if (U.device.type == 'npu' or force_use_npu) and torch.is_complex(U):
-            f0[parity].imag = -f0[parity].imag
-            f1[parity].imag = -f1[parity].imag
-            f2[parity].imag = -f2[parity].imag
+            f0[parity].imag = -f0.imag[parity]
+            f1[parity].imag = -f1.imag[parity]
+            f2[parity].imag = -f2.imag[parity]
         else:
             f0[parity] = f0[parity].conj()
             f1[parity] = -f1[parity].conj()
