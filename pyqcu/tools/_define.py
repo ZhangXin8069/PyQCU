@@ -339,23 +339,18 @@ def set_device(device: torch.device):
     size = comm.Get_size()
     dev_type = device.type
     local_rank = None
-    if "LOCAL_RANK" in os.environ:
-        local_rank = int(os.environ["LOCAL_RANK"])
-    elif "OMPI_COMM_WORLD_LOCAL_RANK" in os.environ:
-        local_rank = int(os.environ["OMPI_COMM_WORLD_LOCAL_RANK"])
+    if dev_type == "cuda" and torch.cuda.is_available():
+        local_rank = rank % torch.cuda.device_count()
+    elif dev_type == "npu":
+        try:
+            import torch_npu
+            local_rank = rank % torch.npu.device_count()
+            print(f"{local_rank, '=' ,rank ,'%' ,torch.npu.device_count()}")
+        except ImportError:
+            raise RuntimeError(
+                "PYQCU::TOOLS::DEFINE:\n torch_npu not found; please install it for NPU support.")
     else:
-        if dev_type == "cuda" and torch.cuda.is_available():
-            local_rank = rank % torch.cuda.device_count()
-        elif dev_type == "npu":
-            try:
-                import torch_npu
-                local_rank = rank % torch.npu.device_count()
-                print(f"{local_rank, '=' ,rank ,'%' ,torch.npu.device_count()}")
-            except ImportError:
-                raise RuntimeError(
-                    "PYQCU::TOOLS::DEFINE:\n torch_npu not found; please install it for NPU support.")
-        else:
-            local_rank = 0
+        local_rank = 0
     if dev_type == "cuda":
         if not torch.cuda.is_available():
             raise RuntimeError(
