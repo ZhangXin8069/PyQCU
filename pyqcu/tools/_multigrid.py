@@ -210,7 +210,7 @@ def restrict_npu(local_ortho_null_vecs: torch.Tensor, fine_vec: torch.Tensor) ->
     _local_ortho_null_vecs = _local_ortho_null_vecs.reshape(
         E, e, -1, x, y, z, t)
     return _torch.einsum(
-        "EeOxyzt,eOxyzt->EO", _local_ortho_null_vecs.conj(), _fine_vec).reshape(E, x, y, z, t).to(dtype=dtype, device=device)
+        "EeOxyzt,eOxyzt->EO", _local_ortho_null_vecs.conj(), _fine_vec).reshape(E, X, Y, Z, T).to(dtype=dtype, device=device)
 
 
 def prolong_npu(local_ortho_null_vecs: torch.Tensor, coarse_vec: torch.Tensor) -> torch.Tensor:
