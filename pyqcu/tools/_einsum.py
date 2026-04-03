@@ -2,7 +2,7 @@ import torch
 import tilelang.language as T
 from pyqcu import _torch
 from tilelang import jit
-from pyqcu.tools import torch_complex2real_dtype, torch2tl_dtype, warp_size, to_contiguous_real
+from pyqcu.tools import torch2tl_dtype, warp_size, to_contiguous_real
 
 pass_configs = {
     # tilelang.PassConfigKey.TL_ASCEND_AUTO_SYNC: True,
@@ -87,18 +87,7 @@ def Eexyzt_exyzt2Exyzt(Eexyzt: torch.Tensor, exyzt: torch.Tensor) -> torch.Tenso
     torch_dtype = Eexyzt.dtype
     if Eexyzt.device.type not in ['cuda']:
         return _torch.einsum('Eexyzt,exyzt->Exyzt', Eexyzt, exyzt)
-    is_complex = torch_dtype in torch_complex2real_dtype
-    if is_complex:
-        torch_real_dtype = torch_complex2real_dtype[torch_dtype]
-        tl_dtype = torch2tl_dtype[torch_real_dtype]
-    else:
-        if torch_dtype not in torch2tl_dtype:
-            raise NotImplementedError(
-                f"Unsupported dtype {torch_dtype}. "
-                f"Supported real dtypes    : {list(torch2tl_dtype.keys())}. "
-                f"Supported complex dtypes : {list(torch_complex2real_dtype.keys())}."
-            )
-        tl_dtype = torch2tl_dtype[torch_dtype]
+    tl_dtype = torch2tl_dtype[torch_dtype]
     E_size = Eexyzt.shape[0]
     e_size = exyzt.shape[0]
     xyzt_size = Eexyzt[0, 0].numel()
@@ -107,7 +96,7 @@ def Eexyzt_exyzt2Exyzt(Eexyzt: torch.Tensor, exyzt: torch.Tensor) -> torch.Tenso
         E_size=E_size, e_size=e_size, xyzt_size=xyzt_size,
         tl_dtype=tl_dtype,
     )
-    if not is_complex:
+    if not torch_dtype.is_complex:
         A_flat = Eexyzt.contiguous().reshape(E_size, e_size, xyzt_size)
         B_flat = exyzt.contiguous().reshape(e_size, xyzt_size)
         return kernel(A_flat, B_flat).reshape(output_shape)

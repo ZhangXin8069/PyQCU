@@ -7,12 +7,6 @@ import numpy as np
 from typing import Tuple, Optional
 
 warp_size = 128
-# Complex torch dtype → corresponding real torch dtype (for channel splitting)
-torch_complex2real_dtype = {
-    torch.complex32:  torch.float16,
-    torch.complex64:  torch.float32,
-    torch.complex128: torch.float64,
-}
 # NumPy → Torch
 np2torch_dtype = {
     np.bool_: torch.bool,
