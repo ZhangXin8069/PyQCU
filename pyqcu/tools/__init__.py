@@ -2,7 +2,6 @@ from ._define import warp_size as warp_size
 from ._define import torch2np_dtype as torch2np_dtype
 from ._define import np2torch_dtype as np2torch_dtype
 from ._define import torch2tl_dtype as torch2tl_dtype
-from ._define import torch_complex2real_dtype as torch_complex2real_dtype
 from ._define import HAS_MPI_SUPPORT as HAS_MPI_SUPPORT
 from ._define import to_contiguous_real as to_contiguous_real
 from ._define import prime_factorization as prime_factorization
