@@ -5,6 +5,7 @@ import h5py
 import os
 import numpy as np
 from typing import Tuple, Optional
+force_use_npu = False
 
 warp_size = 128
 # NumPy → Torch
@@ -397,10 +398,20 @@ def oooxyzt2poooxyzt(input_array: torch.Tensor, verbose: bool = False) -> torch.
         device=device
     )
     # Reshape masked elements and assign to output
-    splited_array[0] = input_array[..., even_mask].reshape(
-        *prefix_shape, t, z, y, x//2)
-    splited_array[1] = input_array[..., odd_mask].reshape(
-        *prefix_shape, t, z, y, x//2)
+    if (input.device.type == 'npu' or force_use_npu) and torch.is_complex(input):
+        splited_array.real[0] = input_array.real[..., even_mask].reshape(
+            *prefix_shape, t, z, y, x//2)
+        splited_array.real[1] = input_array.real[..., odd_mask].reshape(
+            *prefix_shape, t, z, y, x//2)
+        splited_array.imag[0] = input_array.imag[..., even_mask].reshape(
+            *prefix_shape, t, z, y, x//2)
+        splited_array.imag[1] = input_array.imag[..., odd_mask].reshape(
+            *prefix_shape, t, z, y, x//2)
+    else:
+        splited_array[0] = input_array[..., even_mask].reshape(
+            *prefix_shape, t, z, y, x//2)
+        splited_array[1] = input_array[..., odd_mask].reshape(
+            *prefix_shape, t, z, y, x//2)
     if verbose:
         print(
             f"PYQCU::TOOLS::DEFINE:\n Splited Array Shape: {splited_array.shape}")
