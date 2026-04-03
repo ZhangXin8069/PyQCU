@@ -398,7 +398,7 @@ def oooxyzt2poooxyzt(input_array: torch.Tensor, verbose: bool = False) -> torch.
         device=device
     )
     # Reshape masked elements and assign to output
-    if (input.device.type == 'npu' or force_use_npu) and torch.is_complex(input):
+    if (input_array.device.type == 'npu' or force_use_npu) and torch.is_complex(input_array):
         splited_array.real[0] = input_array.real[..., even_mask].reshape(
             *prefix_shape, t, z, y, x//2)
         splited_array.real[1] = input_array.real[..., odd_mask].reshape(
