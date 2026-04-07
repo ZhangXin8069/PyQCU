@@ -1,7 +1,7 @@
 import datetime
 import os
 from pyqcu.testing import *
-import torch, torch_npu
+import torch
 import mpi4py.MPI as MPI
 comm = MPI.COMM_WORLD
 time = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
