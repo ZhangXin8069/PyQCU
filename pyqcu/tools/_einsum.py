@@ -87,7 +87,7 @@ def Eexyzt_exyzt2Exyzt(Eexyzt: torch.Tensor, exyzt: torch.Tensor) -> torch.Tenso
     torch_dtype = Eexyzt.dtype
     if Eexyzt.device.type not in ['cuda']:
         return _torch.einsum('Eexyzt,exyzt->Exyzt', Eexyzt, exyzt)
-    tl_dtype = torch2tl_dtype[torch_dtype.real]
+    tl_dtype = torch2tl_dtype[torch_dtype.to_real()]
     E_size = Eexyzt.shape[0]
     e_size = exyzt.shape[0]
     xyzt_size = Eexyzt[0, 0].numel()
