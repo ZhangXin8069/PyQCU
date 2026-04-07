@@ -11,6 +11,7 @@ prof = torch.profiler.profile(
     with_modules=True,
     with_flops=True,
     with_stack=True,
+    acc_events=True
 )
 prof.start()
 test_solver(method='bistabcg', dtype=torch.complex64, device=torch.device('cpu'), lat_size=[8, 8, 16, 16], support_parity=True)
