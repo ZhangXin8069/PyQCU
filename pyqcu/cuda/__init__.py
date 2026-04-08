@@ -1,14 +1,9 @@
 import mpi4py.MPI as MPI
 from pyqcu import tools
-import numpy.typing as npt
-import numpy as np
 import torch
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 size = comm.Get_size()
-# the interface of cupy is very similar to that of numpy, so here we just borrow the interface of numpy.
-cp_ndarray = npt.NDArray
-cp_dtype = npt.DTypeLike
 # Copy from ../src/cuda/qcu/include/h
 _SET_PTRS_SIZE_ = 10
 _BLOCK_SIZE_ = 128
@@ -50,17 +45,16 @@ _NODE_SIZE_ = 11
 _DAGGER_ = 12
 _MAX_ITER_ = 13
 _DATA_TYPE_ = 14
-_LAT_C8_ = 0
-_LAT_C16_ = 1
-_LAT_C32_ = 2
-_LAT_C64_ = 3
-_LAT_C128_ = 4
-_LAT_C256_ = 5
-_LAT_R8_ = 6
-_LAT_R16_ = 7
-_LAT_R32_ = 8
-_LAT_R64_ = 9
-_LAT_R128_ = 10
+_LAT_C16_ = 0
+_LAT_C32_ = 1
+_LAT_C64_ = 2
+_LAT_C128_ = 3
+_LAT_C256_ = 4
+_LAT_R8_ = 5
+_LAT_R16_ = 6
+_LAT_R32_ = 7
+_LAT_R64_ = 8
+_LAT_R128_ = 9
 _SET_INDEX_ = 15
 _SET_PLAN_ = 16
 _SET_PLAN_N_1_ = -1  # just for laplacian
@@ -183,7 +177,7 @@ _MEM_POOL_ = 0
 _CHECK_ERROR_ = 1
 
 
-def dtype(_data_type_=_LAT_C64_):
+def dtype(_data_type_=_LAT_C64_)->torch.dtype:
     if _data_type_ == _LAT_C8_:
         print("Doesn't support complex8")
         return None
@@ -191,8 +185,7 @@ def dtype(_data_type_=_LAT_C64_):
         print("Doesn't support complex16")
         return None
     elif _data_type_ == _LAT_C32_:
-        print("Doesn't support complex32")
-        return None
+        return torch.complex64
     elif _data_type_ == _LAT_C64_:
         return torch.complex64
     elif _data_type_ == _LAT_C128_:
@@ -214,26 +207,7 @@ def dtype(_data_type_=_LAT_C64_):
         return None
 
 
-def dtype_half(_data_type_=_LAT_C64_):
-    if _data_type_ == _LAT_C8_:
-        print("Doesn't support complex8")
-        return None
-    elif _data_type_ == _LAT_C16_:
-        print("Doesn't support complex16")
-        return None
-    elif _data_type_ == _LAT_C32_:
-        print("Doesn't support complex32")
-        return None
-    elif _data_type_ == _LAT_C64_:
-        return torch.float32
-    elif _data_type_ == _LAT_C128_:
-        return torch.float64
-    elif _data_type_ == _LAT_C256_:
-        print("Doesn't support complex256")
-        return None
-
-
-params = np.array([0]*_PARAMS_SIZE_, dtype=np.int32)
+params = torch.Tensor([0]*_PARAMS_SIZE_, dtype=torch.int32)
 params[_LAT_X_] = 32
 params[_LAT_Y_] = 32
 params[_LAT_Z_] = 32
@@ -257,10 +231,10 @@ params[_MG_T_] = 8
 params[_LAT_E_] = 24
 params[_VERBOSE_] = 1
 params[_SEED_] = 42
-argv = np.array([0.0]*_ARGV_SIZE_,
+argv = torch.Tensor([0.0]*_ARGV_SIZE_,
                 dtype=tools.torch2np_dtype[dtype_half(_LAT_C64_)])
 argv[_MASS_] = -3.5  # make kappa=1.0
 argv[_TOL_] = 1e-9
 argv[_SIGMA_] = 0.1
-set_ptrs = np.array([0]*_SET_PTRS_SIZE_,
-                    dtype=np.int64)  # maybe more than 10?
+set_ptrs = torch.Tensor([0]*_SET_PTRS_SIZE_,
+                    dtype=torch.int64)  # maybe more than 10?
