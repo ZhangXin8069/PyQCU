@@ -3,6 +3,7 @@ echo "There is init!"
 # source
 source ./env.sh
 # make
+ln -s CMakeLists-nv.txt CMakeLists.txt
 cmake .
 make -j$(nproc)
 # clean
