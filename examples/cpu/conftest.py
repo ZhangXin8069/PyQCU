@@ -60,5 +60,7 @@ import torch
 # test_smear_stout(device=torch.device('cpu'), dtype=torch.complex64)
 # test_solver(method='bistabcg', dtype=torch.complex128,device=torch.device('cpu'),
 #                    lat_size=[8, 8, 8, 16], support_parity=True)
-test_solver(kind='wilson', method='multigrid', dtype=torch.complex64,
+# test_solver(kind='wilson', method='multigrid', dtype=torch.complex64,
+#             lat_size=[8, 8, 8, 16], device=torch.device('cpu'), support_parity=True)
+test_solver(kind='wilson', method='bistabcg', dtype=torch.complex64,
             lat_size=[8, 8, 8, 16], device=torch.device('cpu'), support_parity=True)
