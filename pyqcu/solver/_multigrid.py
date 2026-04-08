@@ -1,6 +1,7 @@
 import torch
 from typing import Tuple
-from pyqcu import _torch, tools, dslash
+from pyqcu import tools, dslash
+import pyqcu.cann as _torch
 import mpi4py.MPI as MPI
 from time import perf_counter
 

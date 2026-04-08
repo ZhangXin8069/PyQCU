@@ -1,8 +1,8 @@
 import torch
 import numpy as np
 import mpi4py.MPI as MPI
-from pyqcu import _torch, lattice, tools
-
+from pyqcu import lattice, tools
+import pyqcu.cann as _torch
 
 def make_clover(U: torch.Tensor, kappa: float = 0.1,
                 u_0: float = 1.0, support_parallel: bool = False, verbose: bool = False) -> torch.Tensor:
