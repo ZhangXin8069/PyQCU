@@ -111,7 +111,6 @@ def eye(n: int, m=None, out=None, dtype: torch.dtype = None, layout=torch.stride
         else:
             return torch.eye(n, m, out=out, dtype=dtype, layout=layout, device=device, requires_grad=requires_grad)
 
-
 def zeros(*args, size=None, out=None, dtype: torch.dtype = None, layout=torch.strided, device: torch.device = None, requires_grad=False) -> torch.Tensor:
     if size is not None:
         args = size
@@ -134,8 +133,7 @@ def zeros_like(input: torch.Tensor) -> torch.Tensor:
         return torch.zeros_like(input.real) + torch.zeros_like(input.imag) * 1j
     else:
         return torch.zeros_like(input)
-
-
+    
 def randn(*args, size=None, out=None, dtype: torch.dtype = None, layout=torch.strided, device: torch.device = None, requires_grad=False) -> torch.Tensor:
     if size is not None:
         args = size

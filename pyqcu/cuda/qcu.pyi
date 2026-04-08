@@ -2,7 +2,6 @@ import numpy as np
 import torch
 from pyqcu import cuda
 
-
 def applyInitQcu(_set_ptrs: np.ndarray = np.array([0]*cuda._SET_PTRS_SIZE_, dtype=np.int64),
                  _params: np.ndarray = np.array(
                      [0]*cuda._PARAMS_SIZE_, dtype=np.int32),
