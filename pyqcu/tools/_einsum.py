@@ -1,6 +1,6 @@
 import torch
 import tilelang.language as T
-from pyqcu import _torch
+import pyqcu.cann as _torch
 from tilelang import jit
 from pyqcu.tools import torch2tl_dtype, warp_size, to_contiguous_real
 

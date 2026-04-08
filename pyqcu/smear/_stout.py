@@ -1,6 +1,7 @@
 import torch
 import numpy as np
-from pyqcu import tools, _torch
+from pyqcu import tools
+import pyqcu.cann as _torch
 import mpi4py.MPI as MPI
 force_use_npu = False
 
