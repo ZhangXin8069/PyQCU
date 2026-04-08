@@ -5,26 +5,11 @@ except Exception as e:
     print(f"Error:{e}")
 import torch
 from argparse import Namespace
-from pyqcu import lattice, solver, dslash, _torch, tools, smear
+from pyqcu import lattice, solver, dslash, tools, smear
+import pyqcu.cann as _torch
 import mpi4py.MPI as MPI
 import pyqcu
-from pyqcu.tools._define import give_grid_index
 Namespace.__module__ = "pyqcu.testing"
-
-
-def test_import():
-    try:
-        import time
-        import typing
-        import torch
-        import mpi4py
-        import h5py
-        import tilelang
-        from pyqcu import _torch, tools, lattice, dslash, solver
-        print("PYQCU::TESTING::IMPORT:\n All dependencies imported successwholey.")
-    except Exception as e:
-        print(f"PYQCU::TESTING::IMPORT:\n {e}")
-
 
 def test_lattice(lat_size: list = [8, 8, 8, 16], dtype: torch.dtype = torch.complex64, device: torch.device = torch.device('cpu')):
     refer_U = torch.zeros(size=[3, 3, 4]+lat_size, dtype=dtype, device=device)

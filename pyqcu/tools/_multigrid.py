@@ -1,6 +1,7 @@
 import torch
 from typing import Callable, Tuple
-from pyqcu import _torch, solver, tools
+from pyqcu import solver, tools
+import pyqcu.cann as _torch
 force_use_npu = False
 
 

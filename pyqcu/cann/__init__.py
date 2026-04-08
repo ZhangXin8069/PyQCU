@@ -1,6 +1,6 @@
 import torch
 from argparse import Namespace
-Namespace.__module__ = "pyqcu._torch"
+Namespace.__module__ = "pyqcu.cann"
 force_use_npu = False
 
 
