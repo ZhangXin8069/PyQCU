@@ -44,17 +44,16 @@ namespace qcu
 #define _DAGGER_ 12
 #define _MAX_ITER_ 13
 #define _DATA_TYPE_ 14
-#define _LAT_C8_ 0
-#define _LAT_C16_ 1
-#define _LAT_C32_ 2
-#define _LAT_C64_ 3
-#define _LAT_C128_ 4
-#define _LAT_C256_ 5
-#define _LAT_R8_ 6
-#define _LAT_R16_ 7
-#define _LAT_R32_ 8
-#define _LAT_R64_ 9
-#define _LAT_R128_ 10
+#define _LAT_C16_ 0
+#define _LAT_C32_ 1
+#define _LAT_C64_ 2
+#define _LAT_C128_ 3
+#define _LAT_C256_ 4
+#define _LAT_R8_ 5
+#define _LAT_R16_ 6
+#define _LAT_R32_ 7
+#define _LAT_R64_ 8
+#define _LAT_R128_ 9
 #define _SET_INDEX_ 15
 #define _SET_PLAN_ 16
 #define _SET_PLAN_N_1_ -1 // just for laplacian
