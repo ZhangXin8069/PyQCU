@@ -1,4 +1,5 @@
 import mpi4py.MPI as MPI
+from zmq import device
 from pyqcu import tools
 import torch
 comm = MPI.COMM_WORLD
@@ -177,11 +178,8 @@ _MEM_POOL_ = 0
 _CHECK_ERROR_ = 1
 
 
-def dtype(_data_type_=_LAT_C64_)->torch.dtype:
-    if _data_type_ == _LAT_C8_:
-        print("Doesn't support complex8")
-        return None
-    elif _data_type_ == _LAT_C16_:
+def dtype(_data_type_=_LAT_C64_) -> torch.dtype:
+    if _data_type_ == _LAT_C16_:
         print("Doesn't support complex16")
         return None
     elif _data_type_ == _LAT_C32_:
@@ -207,7 +205,8 @@ def dtype(_data_type_=_LAT_C64_)->torch.dtype:
         return None
 
 
-params = torch.Tensor([0]*_PARAMS_SIZE_, dtype=torch.int32)
+params = torch.Tensor(
+    [0]*_PARAMS_SIZE_).to(dtype=torch.int32, device=torch.device('cpu'))
 params[_LAT_X_] = 32
 params[_LAT_Y_] = 32
 params[_LAT_Z_] = 32
@@ -231,10 +230,10 @@ params[_MG_T_] = 8
 params[_LAT_E_] = 24
 params[_VERBOSE_] = 1
 params[_SEED_] = 42
-argv = torch.Tensor([0.0]*_ARGV_SIZE_,
-                dtype=tools.torch2np_dtype[dtype_half(_LAT_C64_)])
+argv = torch.Tensor([0.0]*_ARGV_SIZE_).to(dtype=dtype(_LAT_C64_).to_real(),
+                                          device=torch.device('cpu'))
 argv[_MASS_] = -3.5  # make kappa=1.0
 argv[_TOL_] = 1e-9
 argv[_SIGMA_] = 0.1
-set_ptrs = torch.Tensor([0]*_SET_PTRS_SIZE_,
-                    dtype=torch.int64)  # maybe more than 10?
+set_ptrs = torch.Tensor([0]*_SET_PTRS_SIZE_).to(dtype=torch.int64,
+                                                device=torch.device('cpu'))  # maybe more than 10?
