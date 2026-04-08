@@ -1,6 +1,6 @@
 import torch
 import numpy as np
-from pyqcu import tools, lattice, dslash
+from pyqcu import tools, dslash
 import pyqcu.cann as _torch
 import mpi4py.MPI as MPI
 
