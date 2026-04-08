@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 from mpi4py import MPI
-from pyqcu import _torch
+import pyqcu.cann as _torch
 
 
 def vdot(

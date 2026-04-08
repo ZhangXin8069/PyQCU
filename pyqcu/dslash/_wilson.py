@@ -1,5 +1,6 @@
 import torch
-from pyqcu import _torch, lattice, tools
+from pyqcu import lattice, tools
+import pyqcu.cann as _torch
 force_use_npu = False
 tools_Eexyzt_exyzt2Exyzt = True
 # tools_Eexyzt_exyzt2Exyzt = False

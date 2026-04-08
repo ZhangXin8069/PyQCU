@@ -1,7 +1,7 @@
 from typing import Optional
 import mpi4py.MPI as MPI
 from typing import Optional
-from pyqcu import _torch
+import pyqcu.cann as _torch
 import torch
 from argparse import Namespace
 from math import sqrt
