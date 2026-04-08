@@ -11,6 +11,7 @@ import mpi4py.MPI as MPI
 import pyqcu
 Namespace.__module__ = "pyqcu.testing"
 
+
 def test_lattice(lat_size: list = [8, 8, 8, 16], dtype: torch.dtype = torch.complex64, device: torch.device = torch.device('cpu')):
     refer_U = torch.zeros(size=[3, 3, 4]+lat_size, dtype=dtype, device=device)
     lattice.generate_gauge_field(refer_U, seed=42, sigma=0.1, verbose=True)
