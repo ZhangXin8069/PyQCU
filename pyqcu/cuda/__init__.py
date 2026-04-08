@@ -1,5 +1,4 @@
 import mpi4py.MPI as MPI
-from zmq import device
 from pyqcu import tools
 import torch
 comm = MPI.COMM_WORLD
