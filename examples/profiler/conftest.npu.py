@@ -1,7 +1,8 @@
 import datetime
 import os
 from pyqcu.testing import *
-import torch, torch_npu
+import torch
+import torch_npu
 import mpi4py.MPI as MPI
 comm = MPI.COMM_WORLD
 time = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
@@ -13,7 +14,8 @@ prof = torch.profiler.profile(
     with_stack=True,
 )
 prof.start()
-test_solver(method='bistabcg', dtype=torch.complex64, device=torch.device('npu'), lat_size=[8, 8, 16, 16], support_parity=True)
+test_solver(method='bistabcg', dtype=torch.complex64, device=torch.device(
+    'npu'), lat_size=[8, 8, 16, 16], support_parity=True)
 prof.stop()
 prof.export_chrome_trace(
     f"{os.path.abspath(os.path.dirname(__file__))}/trace_{time}_{rank}.json")
