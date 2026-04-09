@@ -1,5 +1,5 @@
 # @EXPORT@
-export LD_LIBRARY_PATH=${PWD}/cpp/cuda/qcu/lib:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=${PWD}/cpp/cuda/qcu:$LD_LIBRARY_PATH
 export PYTHONPATH=${PWD}:${PYTHONPATH}
 export MPI_ALLOW_RUN_AS_ROOT=1
 export OMPI_ALLOW_RUN_AS_ROOT=1

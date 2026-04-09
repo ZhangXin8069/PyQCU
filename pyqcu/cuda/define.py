@@ -4,7 +4,7 @@ import torch
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 size = comm.Get_size()
-# Copy from ../src/cuda/qcu/include/h
+# Copy from PyQCU/cpp/cuda/qcu/include/define.h
 _SET_PTRS_SIZE_ = 10
 _BLOCK_SIZE_ = 128
 _MAIN_RANK_ = 0
