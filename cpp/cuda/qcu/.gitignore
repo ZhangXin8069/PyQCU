@@ -1,4 +1,4 @@
-*.cache
+# *.cache
 *.metadata
 *build
 *draft
@@ -10,35 +10,21 @@
 *.ipynb_checkpoints
 *.egg-info
 *__pycache__
-*.pytest_cache
 *.o
 *.so
-*.out
+*a.out
+*b.out
+*c.out
+*.so
 *.nvvp
 *.nsys-rep
 *.profile
 *.sqlite
 *.sw*
 *RemoteSystemsTempFiles
-lib/*
+_*
+lib*
 .ssub.sh
 .vscode
-*.log.txt
-*.c
-*.bin
-*dist
-*.h5*
-*.hdf5*
-*.hdf
-*.npy
-*.npz
-*.DS_Store
-# *.png
-*.jpg
-*.jpeg
-# *.log
-*.json
-*.csv
-*.tsv
-*.prof
-*.pyc
+*.log*
+CMakeLists.txt
