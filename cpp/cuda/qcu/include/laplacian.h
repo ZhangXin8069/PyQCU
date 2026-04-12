@@ -1,5 +1,6 @@
 #ifndef _LAPLACIAN_H
 #define _LAPLACIAN_H
+#include "./lattice_complex.h"
 namespace qcu
 {
   template <typename T>
