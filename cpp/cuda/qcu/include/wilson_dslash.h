@@ -1,5 +1,6 @@
 #ifndef _WILSON_DSLASH_H
 #define _WILSON_DSLASH_H
+#include "./lattice_complex.h"
 namespace qcu
 {
   template <typename T>
