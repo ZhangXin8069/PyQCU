@@ -1,5 +1,6 @@
 #ifndef _CLOVER_DSLASH_H
 #define _CLOVER_DSLASH_H
+#include "./lattice_complex.h"
 namespace qcu
 {
   template <typename T>

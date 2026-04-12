@@ -1,8 +1,10 @@
 #ifndef _LATTICE_CLOVER_BISTABCG_H
 #define _LATTICE_CLOVER_BISTABCG_H
+#include "./define.h"
 #include "./bistabcg.h"
 #include "./lattice_mpi.h"
 #include "./lattice_cuda.h"
+#include "./lattice_wilson_dslash.h"
 #include "./lattice_clover_dslash.h"
 #include "./lattice_clover_dslash.h"
 namespace qcu
