@@ -29,28 +29,28 @@ namespace qcu
     int lat_y = params[_LAT_Y_];
     int lat_z = params[_LAT_Z_];
     int lat_t = params[_LAT_T_];
-    int lat_tzyx = params[_LAT_XYZT_];
+    int lat_xyzt = params[_LAT_XYZT_];
     int move0;
     int move1;
-    move0 = lat_x * lat_y * lat_z;
-    int t = parity / move0;
-    parity -= t * move0;
-    move0 = lat_x * lat_y;
-    int z = parity / move0;
-    parity -= z * move0;
-    int y = parity / lat_x;
-    int x = parity - y * lat_x;
+    move0 = lat_y * lat_z * lat_t;
+    int x = parity / move0;
+    parity -= x * move0;
+    move0 = lat_z * lat_t;
+    int y = parity / move0;
+    parity -= y * move0;
+    int z = parity / lat_t;
+    int t = parity - z * lat_t;
     int eo = (y + z + t) & 0x01; //(y+z+t)%2
     parity = params[_PARITY_];
     int move_wards[_WARDS_];
-    move_backward_x(move_wards[_B_X_], x, lat_x, eo, parity);
+    move_backward(move_wards[_B_X_], x, lat_x);
     move_backward(move_wards[_B_Y_], y, lat_y);
     move_backward(move_wards[_B_Z_], z, lat_z);
-    move_backward(move_wards[_B_T_], t, lat_t);
-    move_forward_x(move_wards[_F_X_], x, lat_x, eo, parity);
+    move_backward_t(move_wards[_B_T_], t, lat_t, eo, parity);
+    move_forward(move_wards[_F_X_], x, lat_x);
     move_forward(move_wards[_F_Y_], y, lat_y);
     move_forward(move_wards[_F_Z_], z, lat_z);
-    move_forward(move_wards[_F_T_], t, lat_t);
+    move_forward_t(move_wards[_F_T_], t, lat_t, eo, parity);
     //  LatticeComplex<T> I(0.0, 1.0);
     LatticeComplex<T> zero(0.0, 0.0);
     LatticeComplex<T> tmp0(0.0, 0.0);
@@ -131,21 +131,21 @@ namespace qcu
     give_vals(U, zero, _LAT_CC_);
     {
       ////x,y,z,t;x
-      tmp_U = (origin_U + (_X_ * _EVEN_ODD_ + parity) * lat_tzyx);
-      give_u(tmp1, tmp_U, lat_tzyx);
+      tmp_U = (origin_U + (_X_ * _EVEN_ODD_ + parity) * lat_xyzt);
+      give_u(tmp1, tmp_U, lat_xyzt);
       ////x+1,y,z,t;y
       if (if_f_x)
       {
         tmp_U = (static_cast<LatticeComplex<T> *>(device_u_f_x_recv_vec) +
                  ((((_Y_ * _EVEN_ODD_ * lat_t + t) * lat_z + z) * lat_y + y) * 1 +
                   0));
-        _give_u_comm(1 - parity, tmp2, tmp_U, lat_tzyx / lat_x);
+        _give_u_comm(1 - parity, tmp2, tmp_U, lat_xyzt / lat_x);
       }
       else
       {
         move0 = move_wards[_F_X_];
-        tmp_U = (origin_U + move0 + (_Y_ * _EVEN_ODD_ + (1 - parity)) * lat_tzyx);
-        give_u(tmp2, tmp_U, lat_tzyx);
+        tmp_U = (origin_U + move0 + (_Y_ * _EVEN_ODD_ + (1 - parity)) * lat_xyzt);
+        give_u(tmp2, tmp_U, lat_xyzt);
       }
       mult_u_none_none(tmp0, tmp1, tmp2, tmp3, zero);
     }
@@ -156,35 +156,35 @@ namespace qcu
         tmp_U = (static_cast<LatticeComplex<T> *>(device_u_f_y_recv_vec) +
                  ((((_X_ * _EVEN_ODD_ * lat_t + t) * lat_z + z) * 1 + 0) * lat_x +
                   x));
-        _give_u_comm(1 - parity, tmp1, tmp_U, lat_tzyx / lat_y);
+        _give_u_comm(1 - parity, tmp1, tmp_U, lat_xyzt / lat_y);
       }
       else
       {
         move0 = move_wards[_F_Y_];
         tmp_U = (origin_U + move0 * lat_x +
-                 (_X_ * _EVEN_ODD_ + (1 - parity)) * lat_tzyx);
-        give_u(tmp1, tmp_U, lat_tzyx);
+                 (_X_ * _EVEN_ODD_ + (1 - parity)) * lat_xyzt);
+        give_u(tmp1, tmp_U, lat_xyzt);
       }
       mult_u_none_dag(tmp0, tmp3, tmp1, tmp2, zero);
     }
     {
       ////x,y,z,t;y;dag
-      tmp_U = (origin_U + (_Y_ * _EVEN_ODD_ + parity) * lat_tzyx);
-      give_u(tmp1, tmp_U, lat_tzyx);
+      tmp_U = (origin_U + (_Y_ * _EVEN_ODD_ + parity) * lat_xyzt);
+      give_u(tmp1, tmp_U, lat_xyzt);
       mult_u_none_dag(tmp0, tmp2, tmp1, tmp3, zero);
     }
     add_vals(U, tmp3, _LAT_CC_);
     {
       ////x,y,z,t;y
-      tmp_U = (origin_U + (_Y_ * _EVEN_ODD_ + parity) * lat_tzyx);
-      give_u(tmp1, tmp_U, lat_tzyx);
+      tmp_U = (origin_U + (_Y_ * _EVEN_ODD_ + parity) * lat_xyzt);
+      give_u(tmp1, tmp_U, lat_xyzt);
       ////x-1,y+1,z,t;x;dag
       if (if_b_x_f_y)
       {
         tmp_U =
             (static_cast<LatticeComplex<T> *>(device_u_b_x_f_y_recv_vec) +
              ((((_X_ * _EVEN_ODD_ * lat_t + t) * lat_z + z) * 1 + 0) * 1 + 0));
-        _give_u_comm(parity, tmp2, tmp_U, lat_tzyx / lat_x / lat_y);
+        _give_u_comm(parity, tmp2, tmp_U, lat_xyzt / lat_x / lat_y);
       }
       else if (if_b_x)
       {
@@ -192,22 +192,22 @@ namespace qcu
             (static_cast<LatticeComplex<T> *>(device_u_b_x_recv_vec) +
              ((((_X_ * _EVEN_ODD_ * lat_t + t) * lat_z + z) * lat_y + y + 1) * 1 +
               0));
-        _give_u_comm(parity, tmp2, tmp_U, lat_tzyx / lat_x);
+        _give_u_comm(parity, tmp2, tmp_U, lat_xyzt / lat_x);
       }
       else if (if_f_y)
       {
         tmp_U = (static_cast<LatticeComplex<T> *>(device_u_f_y_recv_vec) +
                  ((((_X_ * _EVEN_ODD_ * lat_t + t) * lat_z + z) * 1 + 0) * lat_x +
                   x + move_wards[_B_X_]));
-        _give_u_comm(parity, tmp2, tmp_U, lat_tzyx / lat_y);
+        _give_u_comm(parity, tmp2, tmp_U, lat_xyzt / lat_y);
       }
       else
       {
         move0 = move_wards[_B_X_];
         move1 = move_wards[_F_Y_];
         tmp_U = (origin_U + move0 + move1 * lat_x +
-                 (_X_ * _EVEN_ODD_ + parity) * lat_tzyx);
-        give_u(tmp2, tmp_U, lat_tzyx);
+                 (_X_ * _EVEN_ODD_ + parity) * lat_xyzt);
+        give_u(tmp2, tmp_U, lat_xyzt);
       }
       mult_u_none_dag(tmp0, tmp1, tmp2, tmp3, zero);
     }
@@ -218,13 +218,13 @@ namespace qcu
         tmp_U = (static_cast<LatticeComplex<T> *>(device_u_b_x_recv_vec) +
                  ((((_Y_ * _EVEN_ODD_ * lat_t + t) * lat_z + z) * lat_y + y) * 1 +
                   0));
-        _give_u_comm(1 - parity, tmp1, tmp_U, lat_tzyx / lat_x);
+        _give_u_comm(1 - parity, tmp1, tmp_U, lat_xyzt / lat_x);
       }
       else
       {
         move0 = move_wards[_B_X_];
-        tmp_U = (origin_U + move0 + (_Y_ * _EVEN_ODD_ + (1 - parity)) * lat_tzyx);
-        give_u(tmp1, tmp_U, lat_tzyx);
+        tmp_U = (origin_U + move0 + (_Y_ * _EVEN_ODD_ + (1 - parity)) * lat_xyzt);
+        give_u(tmp1, tmp_U, lat_xyzt);
       }
       mult_u_none_dag(tmp0, tmp3, tmp1, tmp2, zero);
     }
@@ -235,13 +235,13 @@ namespace qcu
         tmp_U = (static_cast<LatticeComplex<T> *>(device_u_b_x_recv_vec) +
                  ((((_X_ * _EVEN_ODD_ * lat_t + t) * lat_z + z) * lat_y + y) * 1 +
                   0));
-        _give_u_comm(1 - parity, tmp1, tmp_U, lat_tzyx / lat_x);
+        _give_u_comm(1 - parity, tmp1, tmp_U, lat_xyzt / lat_x);
       }
       else
       {
         move0 = move_wards[_B_X_];
-        tmp_U = (origin_U + move0 + (_X_ * _EVEN_ODD_ + (1 - parity)) * lat_tzyx);
-        give_u(tmp1, tmp_U, lat_tzyx);
+        tmp_U = (origin_U + move0 + (_X_ * _EVEN_ODD_ + (1 - parity)) * lat_xyzt);
+        give_u(tmp1, tmp_U, lat_xyzt);
       }
       mult_u_none_none(tmp0, tmp2, tmp1, tmp3, zero);
     }
@@ -253,13 +253,13 @@ namespace qcu
         tmp_U = (static_cast<LatticeComplex<T> *>(device_u_b_x_recv_vec) +
                  ((((_X_ * _EVEN_ODD_ * lat_t + t) * lat_z + z) * lat_y + y) * 1 +
                   0));
-        _give_u_comm(1 - parity, tmp1, tmp_U, lat_tzyx / lat_x);
+        _give_u_comm(1 - parity, tmp1, tmp_U, lat_xyzt / lat_x);
       }
       else
       {
         move0 = move_wards[_B_X_];
-        tmp_U = (origin_U + move0 + (_X_ * _EVEN_ODD_ + (1 - parity)) * lat_tzyx);
-        give_u(tmp1, tmp_U, lat_tzyx);
+        tmp_U = (origin_U + move0 + (_X_ * _EVEN_ODD_ + (1 - parity)) * lat_xyzt);
+        give_u(tmp1, tmp_U, lat_xyzt);
       }
       ////x-1,y-1,z,t;y;dag
       if (if_b_x_b_y)
@@ -267,7 +267,7 @@ namespace qcu
         tmp_U =
             (static_cast<LatticeComplex<T> *>(device_u_b_x_b_y_recv_vec) +
              ((((_Y_ * _EVEN_ODD_ * lat_t + t) * lat_z + z) * 1 + 0) * 1 + 0));
-        _give_u_comm(parity, tmp2, tmp_U, lat_tzyx / lat_x / lat_y);
+        _give_u_comm(parity, tmp2, tmp_U, lat_xyzt / lat_x / lat_y);
       }
       else if (if_b_x)
       {
@@ -275,22 +275,22 @@ namespace qcu
             (static_cast<LatticeComplex<T> *>(device_u_b_x_recv_vec) +
              ((((_Y_ * _EVEN_ODD_ * lat_t + t) * lat_z + z) * lat_y + y - 1) * 1 +
               0));
-        _give_u_comm(parity, tmp2, tmp_U, lat_tzyx / lat_x);
+        _give_u_comm(parity, tmp2, tmp_U, lat_xyzt / lat_x);
       }
       else if (if_b_y)
       {
         tmp_U = (static_cast<LatticeComplex<T> *>(device_u_b_y_recv_vec) +
                  ((((_Y_ * _EVEN_ODD_ * lat_t + t) * lat_z + z) * 1 + 0) * lat_x +
                   x + move_wards[_B_X_]));
-        _give_u_comm(parity, tmp2, tmp_U, lat_tzyx / lat_y);
+        _give_u_comm(parity, tmp2, tmp_U, lat_xyzt / lat_y);
       }
       else
       {
         move0 = move_wards[_B_X_];
         move1 = move_wards[_B_Y_];
         tmp_U = (origin_U + move0 + move1 * lat_x +
-                 (_Y_ * _EVEN_ODD_ + parity) * lat_tzyx);
-        give_u(tmp2, tmp_U, lat_tzyx);
+                 (_Y_ * _EVEN_ODD_ + parity) * lat_xyzt);
+        give_u(tmp2, tmp_U, lat_xyzt);
       }
       mult_u_dag_dag(tmp0, tmp1, tmp2, tmp3, zero);
     }
@@ -301,7 +301,7 @@ namespace qcu
         tmp_U =
             (static_cast<LatticeComplex<T> *>(device_u_b_x_b_y_recv_vec) +
              ((((_X_ * _EVEN_ODD_ * lat_t + t) * lat_z + z) * 1 + 0) * 1 + 0));
-        _give_u_comm(parity, tmp1, tmp_U, lat_tzyx / lat_x / lat_y);
+        _give_u_comm(parity, tmp1, tmp_U, lat_xyzt / lat_x / lat_y);
       }
       else if (if_b_x)
       {
@@ -309,22 +309,22 @@ namespace qcu
             (static_cast<LatticeComplex<T> *>(device_u_b_x_recv_vec) +
              ((((_X_ * _EVEN_ODD_ * lat_t + t) * lat_z + z) * lat_y + y - 1) * 1 +
               0));
-        _give_u_comm(parity, tmp1, tmp_U, lat_tzyx / lat_x);
+        _give_u_comm(parity, tmp1, tmp_U, lat_xyzt / lat_x);
       }
       else if (if_b_y)
       {
         tmp_U = (static_cast<LatticeComplex<T> *>(device_u_b_y_recv_vec) +
                  ((((_X_ * _EVEN_ODD_ * lat_t + t) * lat_z + z) * 1 + 0) * lat_x +
                   x + move_wards[_B_X_]));
-        _give_u_comm(parity, tmp1, tmp_U, lat_tzyx / lat_y);
+        _give_u_comm(parity, tmp1, tmp_U, lat_xyzt / lat_y);
       }
       else
       {
         move0 = move_wards[_B_X_];
         move1 = move_wards[_B_Y_];
         tmp_U = (origin_U + move0 + move1 * lat_x +
-                 (_X_ * _EVEN_ODD_ + parity) * lat_tzyx);
-        give_u(tmp1, tmp_U, lat_tzyx);
+                 (_X_ * _EVEN_ODD_ + parity) * lat_xyzt);
+        give_u(tmp1, tmp_U, lat_xyzt);
       }
       mult_u_none_none(tmp0, tmp3, tmp1, tmp2, zero);
     }
@@ -335,14 +335,14 @@ namespace qcu
         tmp_U = (static_cast<LatticeComplex<T> *>(device_u_b_y_recv_vec) +
                  ((((_Y_ * _EVEN_ODD_ * lat_t + t) * lat_z + z) * 1 + 0) * lat_x +
                   x));
-        _give_u_comm(1 - parity, tmp1, tmp_U, lat_tzyx / lat_y);
+        _give_u_comm(1 - parity, tmp1, tmp_U, lat_xyzt / lat_y);
       }
       else
       {
         move0 = move_wards[_B_Y_];
         tmp_U = (origin_U + move0 * lat_x +
-                 (_Y_ * _EVEN_ODD_ + (1 - parity)) * lat_tzyx);
-        give_u(tmp1, tmp_U, lat_tzyx);
+                 (_Y_ * _EVEN_ODD_ + (1 - parity)) * lat_xyzt);
+        give_u(tmp1, tmp_U, lat_xyzt);
       }
       mult_u_none_none(tmp0, tmp2, tmp1, tmp3, zero);
     }
@@ -354,14 +354,14 @@ namespace qcu
         tmp_U = (static_cast<LatticeComplex<T> *>(device_u_b_y_recv_vec) +
                  ((((_Y_ * _EVEN_ODD_ * lat_t + t) * lat_z + z) * 1 + 0) * lat_x +
                   x));
-        _give_u_comm(1 - parity, tmp1, tmp_U, lat_tzyx / lat_y);
+        _give_u_comm(1 - parity, tmp1, tmp_U, lat_xyzt / lat_y);
       }
       else
       {
         move0 = move_wards[_B_Y_];
         tmp_U = (origin_U + move0 * lat_x +
-                 (_Y_ * _EVEN_ODD_ + (1 - parity)) * lat_tzyx);
-        give_u(tmp1, tmp_U, lat_tzyx);
+                 (_Y_ * _EVEN_ODD_ + (1 - parity)) * lat_xyzt);
+        give_u(tmp1, tmp_U, lat_xyzt);
       }
       ////x,y-1,z,t;x
       if (if_b_y)
@@ -369,14 +369,14 @@ namespace qcu
         tmp_U = (static_cast<LatticeComplex<T> *>(device_u_b_y_recv_vec) +
                  ((((_X_ * _EVEN_ODD_ * lat_t + t) * lat_z + z) * 1 + 0) * lat_x +
                   x));
-        _give_u_comm(1 - parity, tmp2, tmp_U, lat_tzyx / lat_y);
+        _give_u_comm(1 - parity, tmp2, tmp_U, lat_xyzt / lat_y);
       }
       else
       {
         move0 = move_wards[_B_Y_];
         tmp_U = (origin_U + move0 * lat_x +
-                 (_X_ * _EVEN_ODD_ + (1 - parity)) * lat_tzyx);
-        give_u(tmp2, tmp_U, lat_tzyx);
+                 (_X_ * _EVEN_ODD_ + (1 - parity)) * lat_xyzt);
+        give_u(tmp2, tmp_U, lat_xyzt);
       }
       mult_u_dag_none(tmp0, tmp1, tmp2, tmp3, zero);
     }
@@ -387,7 +387,7 @@ namespace qcu
         tmp_U =
             (static_cast<LatticeComplex<T> *>(device_u_f_x_b_y_recv_vec) +
              ((((_Y_ * _EVEN_ODD_ * lat_t + t) * lat_z + z) * 1 + 0) * 1 + 0));
-        _give_u_comm(parity, tmp1, tmp_U, lat_tzyx / lat_x / lat_y);
+        _give_u_comm(parity, tmp1, tmp_U, lat_xyzt / lat_x / lat_y);
       }
       else if (if_f_x)
       {
@@ -395,29 +395,29 @@ namespace qcu
             (static_cast<LatticeComplex<T> *>(device_u_f_x_recv_vec) +
              ((((_Y_ * _EVEN_ODD_ * lat_t + t) * lat_z + z) * lat_y + y - 1) * 1 +
               0));
-        _give_u_comm(parity, tmp1, tmp_U, lat_tzyx / lat_x);
+        _give_u_comm(parity, tmp1, tmp_U, lat_xyzt / lat_x);
       }
       else if (if_b_y)
       {
         tmp_U = (static_cast<LatticeComplex<T> *>(device_u_b_y_recv_vec) +
                  ((((_Y_ * _EVEN_ODD_ * lat_t + t) * lat_z + z) * 1 + 0) * lat_x +
                   x + move_wards[_F_X_]));
-        _give_u_comm(parity, tmp1, tmp_U, lat_tzyx / lat_y);
+        _give_u_comm(parity, tmp1, tmp_U, lat_xyzt / lat_y);
       }
       else
       {
         move0 = move_wards[_F_X_];
         move1 = move_wards[_B_Y_];
         tmp_U = (origin_U + move0 + move1 * lat_x +
-                 (_Y_ * _EVEN_ODD_ + parity) * lat_tzyx);
-        give_u(tmp1, tmp_U, lat_tzyx);
+                 (_Y_ * _EVEN_ODD_ + parity) * lat_xyzt);
+        give_u(tmp1, tmp_U, lat_xyzt);
       }
       mult_u_none_none(tmp0, tmp3, tmp1, tmp2, zero);
     }
     {
       ////x,y,z,t;x;dag
-      tmp_U = (origin_U + (_X_ * _EVEN_ODD_ + parity) * lat_tzyx);
-      give_u(tmp1, tmp_U, lat_tzyx);
+      tmp_U = (origin_U + (_X_ * _EVEN_ODD_ + parity) * lat_xyzt);
+      give_u(tmp1, tmp_U, lat_xyzt);
       mult_u_none_dag(tmp0, tmp2, tmp1, tmp3, zero);
     }
     add_vals(U, tmp3, _LAT_CC_);
@@ -441,21 +441,21 @@ namespace qcu
     give_vals(U, zero, _LAT_CC_);
     {
       ////x,y,z,t;x
-      tmp_U = (origin_U + (_X_ * _EVEN_ODD_ + parity) * lat_tzyx);
-      give_u(tmp1, tmp_U, lat_tzyx);
+      tmp_U = (origin_U + (_X_ * _EVEN_ODD_ + parity) * lat_xyzt);
+      give_u(tmp1, tmp_U, lat_xyzt);
       ////x+1,y,z,t;z
       if (if_f_x)
       {
         tmp_U = (static_cast<LatticeComplex<T> *>(device_u_f_x_recv_vec) +
                  ((((_Z_ * _EVEN_ODD_ * lat_t + t) * lat_z + z) * lat_y + y) * 1 +
                   0));
-        _give_u_comm(1 - parity, tmp2, tmp_U, lat_tzyx / lat_x);
+        _give_u_comm(1 - parity, tmp2, tmp_U, lat_xyzt / lat_x);
       }
       else
       {
         move0 = move_wards[_F_X_];
-        tmp_U = (origin_U + move0 + (_Z_ * _EVEN_ODD_ + (1 - parity)) * lat_tzyx);
-        give_u(tmp2, tmp_U, lat_tzyx);
+        tmp_U = (origin_U + move0 + (_Z_ * _EVEN_ODD_ + (1 - parity)) * lat_xyzt);
+        give_u(tmp2, tmp_U, lat_xyzt);
       }
       mult_u_none_none(tmp0, tmp1, tmp2, tmp3, zero);
     }
@@ -466,35 +466,35 @@ namespace qcu
         tmp_U = (static_cast<LatticeComplex<T> *>(device_u_f_z_recv_vec) +
                  ((((_X_ * _EVEN_ODD_ * lat_t + t) * 1 + 0) * lat_y + y) * lat_x +
                   x));
-        _give_u_comm(1 - parity, tmp1, tmp_U, lat_tzyx / lat_z);
+        _give_u_comm(1 - parity, tmp1, tmp_U, lat_xyzt / lat_z);
       }
       else
       {
         move0 = move_wards[_F_Z_];
         tmp_U = (origin_U + move0 * lat_y * lat_x +
-                 (_X_ * _EVEN_ODD_ + (1 - parity)) * lat_tzyx);
-        give_u(tmp1, tmp_U, lat_tzyx);
+                 (_X_ * _EVEN_ODD_ + (1 - parity)) * lat_xyzt);
+        give_u(tmp1, tmp_U, lat_xyzt);
       }
       mult_u_none_dag(tmp0, tmp3, tmp1, tmp2, zero);
     }
     {
       ////x,y,z,t;z;dag
-      tmp_U = (origin_U + (_Z_ * _EVEN_ODD_ + parity) * lat_tzyx);
-      give_u(tmp1, tmp_U, lat_tzyx);
+      tmp_U = (origin_U + (_Z_ * _EVEN_ODD_ + parity) * lat_xyzt);
+      give_u(tmp1, tmp_U, lat_xyzt);
       mult_u_none_dag(tmp0, tmp2, tmp1, tmp3, zero);
     }
     add_vals(U, tmp3, _LAT_CC_);
     {
       ////x,y,z,t;z
-      tmp_U = (origin_U + (_Z_ * _EVEN_ODD_ + parity) * lat_tzyx);
-      give_u(tmp1, tmp_U, lat_tzyx);
+      tmp_U = (origin_U + (_Z_ * _EVEN_ODD_ + parity) * lat_xyzt);
+      give_u(tmp1, tmp_U, lat_xyzt);
       ////x-1,y,z+1,t;x;dag
       if (if_b_x_f_z)
       {
         tmp_U =
             (static_cast<LatticeComplex<T> *>(device_u_b_x_f_z_recv_vec) +
              ((((_X_ * _EVEN_ODD_ * lat_t + t) * 1 + 0) * lat_y + y) * 1 + 0));
-        _give_u_comm(parity, tmp2, tmp_U, lat_tzyx / lat_x / lat_z);
+        _give_u_comm(parity, tmp2, tmp_U, lat_xyzt / lat_x / lat_z);
       }
       else if (if_b_x)
       {
@@ -502,22 +502,22 @@ namespace qcu
             (static_cast<LatticeComplex<T> *>(device_u_b_x_recv_vec) +
              ((((_X_ * _EVEN_ODD_ * lat_t + t) * lat_z + z + 1) * lat_y + y) * 1 +
               0));
-        _give_u_comm(parity, tmp2, tmp_U, lat_tzyx / lat_x);
+        _give_u_comm(parity, tmp2, tmp_U, lat_xyzt / lat_x);
       }
       else if (if_f_z)
       {
         tmp_U = (static_cast<LatticeComplex<T> *>(device_u_f_z_recv_vec) +
                  ((((_X_ * _EVEN_ODD_ * lat_t + t) * 1 + 0) * lat_y + y) * lat_x +
                   x + move_wards[_B_X_]));
-        _give_u_comm(parity, tmp2, tmp_U, lat_tzyx / lat_z);
+        _give_u_comm(parity, tmp2, tmp_U, lat_xyzt / lat_z);
       }
       else
       {
         move0 = move_wards[_B_X_];
         move1 = move_wards[_F_Z_];
         tmp_U = (origin_U + move0 + move1 * lat_y * lat_x +
-                 (_X_ * _EVEN_ODD_ + parity) * lat_tzyx);
-        give_u(tmp2, tmp_U, lat_tzyx);
+                 (_X_ * _EVEN_ODD_ + parity) * lat_xyzt);
+        give_u(tmp2, tmp_U, lat_xyzt);
       }
       mult_u_none_dag(tmp0, tmp1, tmp2, tmp3, zero);
     }
@@ -528,13 +528,13 @@ namespace qcu
         tmp_U = (static_cast<LatticeComplex<T> *>(device_u_b_x_recv_vec) +
                  ((((_Z_ * _EVEN_ODD_ * lat_t + t) * lat_z + z) * lat_y + y) * 1 +
                   0));
-        _give_u_comm(1 - parity, tmp1, tmp_U, lat_tzyx / lat_x);
+        _give_u_comm(1 - parity, tmp1, tmp_U, lat_xyzt / lat_x);
       }
       else
       {
         move0 = move_wards[_B_X_];
-        tmp_U = (origin_U + move0 + (_Z_ * _EVEN_ODD_ + (1 - parity)) * lat_tzyx);
-        give_u(tmp1, tmp_U, lat_tzyx);
+        tmp_U = (origin_U + move0 + (_Z_ * _EVEN_ODD_ + (1 - parity)) * lat_xyzt);
+        give_u(tmp1, tmp_U, lat_xyzt);
       }
       mult_u_none_dag(tmp0, tmp3, tmp1, tmp2, zero);
     }
@@ -545,13 +545,13 @@ namespace qcu
         tmp_U = (static_cast<LatticeComplex<T> *>(device_u_b_x_recv_vec) +
                  ((((_X_ * _EVEN_ODD_ * lat_t + t) * lat_z + z) * lat_y + y) * 1 +
                   0));
-        _give_u_comm(1 - parity, tmp1, tmp_U, lat_tzyx / lat_x);
+        _give_u_comm(1 - parity, tmp1, tmp_U, lat_xyzt / lat_x);
       }
       else
       {
         move0 = move_wards[_B_X_];
-        tmp_U = (origin_U + move0 + (_X_ * _EVEN_ODD_ + (1 - parity)) * lat_tzyx);
-        give_u(tmp1, tmp_U, lat_tzyx);
+        tmp_U = (origin_U + move0 + (_X_ * _EVEN_ODD_ + (1 - parity)) * lat_xyzt);
+        give_u(tmp1, tmp_U, lat_xyzt);
       }
       mult_u_none_none(tmp0, tmp2, tmp1, tmp3, zero);
     }
@@ -563,13 +563,13 @@ namespace qcu
         tmp_U = (static_cast<LatticeComplex<T> *>(device_u_b_x_recv_vec) +
                  ((((_X_ * _EVEN_ODD_ * lat_t + t) * lat_z + z) * lat_y + y) * 1 +
                   0));
-        _give_u_comm(1 - parity, tmp1, tmp_U, lat_tzyx / lat_x);
+        _give_u_comm(1 - parity, tmp1, tmp_U, lat_xyzt / lat_x);
       }
       else
       {
         move0 = move_wards[_B_X_];
-        tmp_U = (origin_U + move0 + (_X_ * _EVEN_ODD_ + (1 - parity)) * lat_tzyx);
-        give_u(tmp1, tmp_U, lat_tzyx);
+        tmp_U = (origin_U + move0 + (_X_ * _EVEN_ODD_ + (1 - parity)) * lat_xyzt);
+        give_u(tmp1, tmp_U, lat_xyzt);
       }
       ////x-1,y,z-1,t;z;dag
       if (if_b_x_b_z)
@@ -577,7 +577,7 @@ namespace qcu
         tmp_U =
             (static_cast<LatticeComplex<T> *>(device_u_b_x_b_z_recv_vec) +
              ((((_Z_ * _EVEN_ODD_ * lat_t + t) * 1 + 0) * lat_y + y) * 1 + 0));
-        _give_u_comm(parity, tmp2, tmp_U, lat_tzyx / lat_x / lat_z);
+        _give_u_comm(parity, tmp2, tmp_U, lat_xyzt / lat_x / lat_z);
       }
       else if (if_b_x)
       {
@@ -585,22 +585,22 @@ namespace qcu
             (static_cast<LatticeComplex<T> *>(device_u_b_x_recv_vec) +
              ((((_Z_ * _EVEN_ODD_ * lat_t + t) * lat_z + z - 1) * lat_y + y) * 1 +
               0));
-        _give_u_comm(parity, tmp2, tmp_U, lat_tzyx / lat_x);
+        _give_u_comm(parity, tmp2, tmp_U, lat_xyzt / lat_x);
       }
       else if (if_b_z)
       {
         tmp_U = (static_cast<LatticeComplex<T> *>(device_u_b_z_recv_vec) +
                  ((((_Z_ * _EVEN_ODD_ * lat_t + t) * 1 + 0) * lat_y + y) * lat_x +
                   x + move_wards[_B_X_]));
-        _give_u_comm(parity, tmp2, tmp_U, lat_tzyx / lat_z);
+        _give_u_comm(parity, tmp2, tmp_U, lat_xyzt / lat_z);
       }
       else
       {
         move0 = move_wards[_B_X_];
         move1 = move_wards[_B_Z_];
         tmp_U = (origin_U + move0 + move1 * lat_y * lat_x +
-                 (_Z_ * _EVEN_ODD_ + parity) * lat_tzyx);
-        give_u(tmp2, tmp_U, lat_tzyx);
+                 (_Z_ * _EVEN_ODD_ + parity) * lat_xyzt);
+        give_u(tmp2, tmp_U, lat_xyzt);
       }
       mult_u_dag_dag(tmp0, tmp1, tmp2, tmp3, zero);
     }
@@ -611,7 +611,7 @@ namespace qcu
         tmp_U =
             (static_cast<LatticeComplex<T> *>(device_u_b_x_b_z_recv_vec) +
              ((((_X_ * _EVEN_ODD_ * lat_t + t) * 1 + 0) * lat_y + y) * 1 + 0));
-        _give_u_comm(parity, tmp1, tmp_U, lat_tzyx / lat_x / lat_z);
+        _give_u_comm(parity, tmp1, tmp_U, lat_xyzt / lat_x / lat_z);
       }
       else if (if_b_x)
       {
@@ -619,22 +619,22 @@ namespace qcu
             (static_cast<LatticeComplex<T> *>(device_u_b_x_recv_vec) +
              ((((_X_ * _EVEN_ODD_ * lat_t + t) * lat_z + z - 1) * lat_y + y) * 1 +
               0));
-        _give_u_comm(parity, tmp1, tmp_U, lat_tzyx / lat_x);
+        _give_u_comm(parity, tmp1, tmp_U, lat_xyzt / lat_x);
       }
       else if (if_b_z)
       {
         tmp_U = (static_cast<LatticeComplex<T> *>(device_u_b_z_recv_vec) +
                  ((((_X_ * _EVEN_ODD_ * lat_t + t) * 1 + 0) * lat_y + y) * lat_x +
                   x + move_wards[_B_X_]));
-        _give_u_comm(parity, tmp1, tmp_U, lat_tzyx / lat_z);
+        _give_u_comm(parity, tmp1, tmp_U, lat_xyzt / lat_z);
       }
       else
       {
         move0 = move_wards[_B_X_];
         move1 = move_wards[_B_Z_];
         tmp_U = (origin_U + move0 + move1 * lat_y * lat_x +
-                 (_X_ * _EVEN_ODD_ + parity) * lat_tzyx);
-        give_u(tmp1, tmp_U, lat_tzyx);
+                 (_X_ * _EVEN_ODD_ + parity) * lat_xyzt);
+        give_u(tmp1, tmp_U, lat_xyzt);
       }
       mult_u_none_none(tmp0, tmp3, tmp1, tmp2, zero);
     }
@@ -645,14 +645,14 @@ namespace qcu
         tmp_U = (static_cast<LatticeComplex<T> *>(device_u_b_z_recv_vec) +
                  ((((_Z_ * _EVEN_ODD_ * lat_t + t) * 1 + 0) * lat_y + y) * lat_x +
                   x));
-        _give_u_comm(1 - parity, tmp1, tmp_U, lat_tzyx / lat_z);
+        _give_u_comm(1 - parity, tmp1, tmp_U, lat_xyzt / lat_z);
       }
       else
       {
         move0 = move_wards[_B_Z_];
         tmp_U = (origin_U + move0 * lat_y * lat_x +
-                 (_Z_ * _EVEN_ODD_ + (1 - parity)) * lat_tzyx);
-        give_u(tmp1, tmp_U, lat_tzyx);
+                 (_Z_ * _EVEN_ODD_ + (1 - parity)) * lat_xyzt);
+        give_u(tmp1, tmp_U, lat_xyzt);
       }
       mult_u_none_none(tmp0, tmp2, tmp1, tmp3, zero);
     }
@@ -664,14 +664,14 @@ namespace qcu
         tmp_U = (static_cast<LatticeComplex<T> *>(device_u_b_z_recv_vec) +
                  ((((_Z_ * _EVEN_ODD_ * lat_t + t) * 1 + 0) * lat_y + y) * lat_x +
                   x));
-        _give_u_comm(1 - parity, tmp1, tmp_U, lat_tzyx / lat_z);
+        _give_u_comm(1 - parity, tmp1, tmp_U, lat_xyzt / lat_z);
       }
       else
       {
         move0 = move_wards[_B_Z_];
         tmp_U = (origin_U + move0 * lat_y * lat_x +
-                 (_Z_ * _EVEN_ODD_ + (1 - parity)) * lat_tzyx);
-        give_u(tmp1, tmp_U, lat_tzyx);
+                 (_Z_ * _EVEN_ODD_ + (1 - parity)) * lat_xyzt);
+        give_u(tmp1, tmp_U, lat_xyzt);
       }
       ////x,y,z-1,t;x
       if (if_b_z)
@@ -679,14 +679,14 @@ namespace qcu
         tmp_U = (static_cast<LatticeComplex<T> *>(device_u_b_z_recv_vec) +
                  ((((_X_ * _EVEN_ODD_ * lat_t + t) * 1 + 0) * lat_y + y) * lat_x +
                   x));
-        _give_u_comm(1 - parity, tmp2, tmp_U, lat_tzyx / lat_z);
+        _give_u_comm(1 - parity, tmp2, tmp_U, lat_xyzt / lat_z);
       }
       else
       {
         move0 = move_wards[_B_Z_];
         tmp_U = (origin_U + move0 * lat_y * lat_x +
-                 (_X_ * _EVEN_ODD_ + (1 - parity)) * lat_tzyx);
-        give_u(tmp2, tmp_U, lat_tzyx);
+                 (_X_ * _EVEN_ODD_ + (1 - parity)) * lat_xyzt);
+        give_u(tmp2, tmp_U, lat_xyzt);
       }
       mult_u_dag_none(tmp0, tmp1, tmp2, tmp3, zero);
     }
@@ -697,7 +697,7 @@ namespace qcu
         tmp_U =
             (static_cast<LatticeComplex<T> *>(device_u_f_x_b_z_recv_vec) +
              ((((_Z_ * _EVEN_ODD_ * lat_t + t) * 1 + 0) * lat_y + y) * 1 + 0));
-        _give_u_comm(parity, tmp1, tmp_U, lat_tzyx / lat_x / lat_z);
+        _give_u_comm(parity, tmp1, tmp_U, lat_xyzt / lat_x / lat_z);
       }
       else if (if_f_x)
       {
@@ -705,29 +705,29 @@ namespace qcu
             (static_cast<LatticeComplex<T> *>(device_u_f_x_recv_vec) +
              ((((_Z_ * _EVEN_ODD_ * lat_t + t) * lat_z + z - 1) * lat_y + y) * 1 +
               0));
-        _give_u_comm(parity, tmp1, tmp_U, lat_tzyx / lat_x);
+        _give_u_comm(parity, tmp1, tmp_U, lat_xyzt / lat_x);
       }
       else if (if_b_z)
       {
         tmp_U = (static_cast<LatticeComplex<T> *>(device_u_b_z_recv_vec) +
                  ((((_Z_ * _EVEN_ODD_ * lat_t + t) * 1 + 0) * lat_y + y) * lat_x +
                   x + move_wards[_F_X_]));
-        _give_u_comm(parity, tmp1, tmp_U, lat_tzyx / lat_z);
+        _give_u_comm(parity, tmp1, tmp_U, lat_xyzt / lat_z);
       }
       else
       {
         move0 = move_wards[_F_X_];
         move1 = move_wards[_B_Z_];
         tmp_U = (origin_U + move0 + move1 * lat_y * lat_x +
-                 (_Z_ * _EVEN_ODD_ + parity) * lat_tzyx);
-        give_u(tmp1, tmp_U, lat_tzyx);
+                 (_Z_ * _EVEN_ODD_ + parity) * lat_xyzt);
+        give_u(tmp1, tmp_U, lat_xyzt);
       }
       mult_u_none_none(tmp0, tmp3, tmp1, tmp2, zero);
     }
     {
       ////x,y,z,t;x;dag
-      tmp_U = (origin_U + (_X_ * _EVEN_ODD_ + parity) * lat_tzyx);
-      give_u(tmp1, tmp_U, lat_tzyx);
+      tmp_U = (origin_U + (_X_ * _EVEN_ODD_ + parity) * lat_xyzt);
+      give_u(tmp1, tmp_U, lat_xyzt);
       mult_u_none_dag(tmp0, tmp2, tmp1, tmp3, zero);
     }
     add_vals(U, tmp3, _LAT_CC_);
@@ -751,21 +751,21 @@ namespace qcu
     give_vals(U, zero, _LAT_CC_);
     {
       ////x,y,z,t;x
-      tmp_U = (origin_U + (_X_ * _EVEN_ODD_ + parity) * lat_tzyx);
-      give_u(tmp1, tmp_U, lat_tzyx);
+      tmp_U = (origin_U + (_X_ * _EVEN_ODD_ + parity) * lat_xyzt);
+      give_u(tmp1, tmp_U, lat_xyzt);
       ////x+1,y,z,t;t
       if (if_f_x)
       {
         tmp_U = (static_cast<LatticeComplex<T> *>(device_u_f_x_recv_vec) +
                  ((((_T_ * _EVEN_ODD_ * lat_t + t) * lat_z + z) * lat_y + y) * 1 +
                   0));
-        _give_u_comm(1 - parity, tmp2, tmp_U, lat_tzyx / lat_x);
+        _give_u_comm(1 - parity, tmp2, tmp_U, lat_xyzt / lat_x);
       }
       else
       {
         move0 = move_wards[_F_X_];
-        tmp_U = (origin_U + move0 + (_T_ * _EVEN_ODD_ + (1 - parity)) * lat_tzyx);
-        give_u(tmp2, tmp_U, lat_tzyx);
+        tmp_U = (origin_U + move0 + (_T_ * _EVEN_ODD_ + (1 - parity)) * lat_xyzt);
+        give_u(tmp2, tmp_U, lat_xyzt);
       }
       mult_u_none_none(tmp0, tmp1, tmp2, tmp3, zero);
     }
@@ -776,35 +776,35 @@ namespace qcu
         tmp_U = (static_cast<LatticeComplex<T> *>(device_u_f_t_recv_vec) +
                  ((((_X_ * _EVEN_ODD_ * 1 + 0) * lat_z + z) * lat_y + y) * lat_x +
                   x));
-        _give_u_comm(1 - parity, tmp1, tmp_U, lat_tzyx / lat_t);
+        _give_u_comm(1 - parity, tmp1, tmp_U, lat_xyzt / lat_t);
       }
       else
       {
         move0 = move_wards[_F_T_];
         tmp_U = (origin_U + move0 * lat_z * lat_y * lat_x +
-                 (_X_ * _EVEN_ODD_ + (1 - parity)) * lat_tzyx);
-        give_u(tmp1, tmp_U, lat_tzyx);
+                 (_X_ * _EVEN_ODD_ + (1 - parity)) * lat_xyzt);
+        give_u(tmp1, tmp_U, lat_xyzt);
       }
       mult_u_none_dag(tmp0, tmp3, tmp1, tmp2, zero);
     }
     {
       ////x,y,z,t;t;dag
-      tmp_U = (origin_U + (_T_ * _EVEN_ODD_ + parity) * lat_tzyx);
-      give_u(tmp1, tmp_U, lat_tzyx);
+      tmp_U = (origin_U + (_T_ * _EVEN_ODD_ + parity) * lat_xyzt);
+      give_u(tmp1, tmp_U, lat_xyzt);
       mult_u_none_dag(tmp0, tmp2, tmp1, tmp3, zero);
     }
     add_vals(U, tmp3, _LAT_CC_);
     {
       ////x,y,z,t;t
-      tmp_U = (origin_U + (_T_ * _EVEN_ODD_ + parity) * lat_tzyx);
-      give_u(tmp1, tmp_U, lat_tzyx);
+      tmp_U = (origin_U + (_T_ * _EVEN_ODD_ + parity) * lat_xyzt);
+      give_u(tmp1, tmp_U, lat_xyzt);
       ////x-1,y,z,t+1;x;dag
       if (if_b_x_f_t)
       {
         tmp_U =
             (static_cast<LatticeComplex<T> *>(device_u_b_x_f_t_recv_vec) +
              ((((_X_ * _EVEN_ODD_ * 1 + 0) * lat_z + z) * lat_y + y) * 1 + 0));
-        _give_u_comm(parity, tmp2, tmp_U, lat_tzyx / lat_x / lat_t);
+        _give_u_comm(parity, tmp2, tmp_U, lat_xyzt / lat_x / lat_t);
       }
       else if (if_b_x)
       {
@@ -812,22 +812,22 @@ namespace qcu
             (static_cast<LatticeComplex<T> *>(device_u_b_x_recv_vec) +
              ((((_X_ * _EVEN_ODD_ * lat_t + t + 1) * lat_z + z) * lat_y + y) * 1 +
               0));
-        _give_u_comm(parity, tmp2, tmp_U, lat_tzyx / lat_x);
+        _give_u_comm(parity, tmp2, tmp_U, lat_xyzt / lat_x);
       }
       else if (if_f_t)
       {
         tmp_U = (static_cast<LatticeComplex<T> *>(device_u_f_t_recv_vec) +
                  ((((_X_ * _EVEN_ODD_ * 1 + 0) * lat_z + z) * lat_y + y) * lat_x +
                   x + move_wards[_B_X_]));
-        _give_u_comm(parity, tmp2, tmp_U, lat_tzyx / lat_t);
+        _give_u_comm(parity, tmp2, tmp_U, lat_xyzt / lat_t);
       }
       else
       {
         move0 = move_wards[_B_X_];
         move1 = move_wards[_F_T_];
         tmp_U = (origin_U + move0 + move1 * lat_z * lat_y * lat_x +
-                 (_X_ * _EVEN_ODD_ + parity) * lat_tzyx);
-        give_u(tmp2, tmp_U, lat_tzyx);
+                 (_X_ * _EVEN_ODD_ + parity) * lat_xyzt);
+        give_u(tmp2, tmp_U, lat_xyzt);
       }
       mult_u_none_dag(tmp0, tmp1, tmp2, tmp3, zero);
     }
@@ -838,13 +838,13 @@ namespace qcu
         tmp_U = (static_cast<LatticeComplex<T> *>(device_u_b_x_recv_vec) +
                  ((((_T_ * _EVEN_ODD_ * lat_t + t) * lat_z + z) * lat_y + y) * 1 +
                   0));
-        _give_u_comm(1 - parity, tmp1, tmp_U, lat_tzyx / lat_x);
+        _give_u_comm(1 - parity, tmp1, tmp_U, lat_xyzt / lat_x);
       }
       else
       {
         move0 = move_wards[_B_X_];
-        tmp_U = (origin_U + move0 + (_T_ * _EVEN_ODD_ + (1 - parity)) * lat_tzyx);
-        give_u(tmp1, tmp_U, lat_tzyx);
+        tmp_U = (origin_U + move0 + (_T_ * _EVEN_ODD_ + (1 - parity)) * lat_xyzt);
+        give_u(tmp1, tmp_U, lat_xyzt);
       }
       mult_u_none_dag(tmp0, tmp3, tmp1, tmp2, zero);
     }
@@ -855,13 +855,13 @@ namespace qcu
         tmp_U = (static_cast<LatticeComplex<T> *>(device_u_b_x_recv_vec) +
                  ((((_X_ * _EVEN_ODD_ * lat_t + t) * lat_z + z) * lat_y + y) * 1 +
                   0));
-        _give_u_comm(1 - parity, tmp1, tmp_U, lat_tzyx / lat_x);
+        _give_u_comm(1 - parity, tmp1, tmp_U, lat_xyzt / lat_x);
       }
       else
       {
         move0 = move_wards[_B_X_];
-        tmp_U = (origin_U + move0 + (_X_ * _EVEN_ODD_ + (1 - parity)) * lat_tzyx);
-        give_u(tmp1, tmp_U, lat_tzyx);
+        tmp_U = (origin_U + move0 + (_X_ * _EVEN_ODD_ + (1 - parity)) * lat_xyzt);
+        give_u(tmp1, tmp_U, lat_xyzt);
       }
       mult_u_none_none(tmp0, tmp2, tmp1, tmp3, zero);
     }
@@ -873,13 +873,13 @@ namespace qcu
         tmp_U = (static_cast<LatticeComplex<T> *>(device_u_b_x_recv_vec) +
                  ((((_X_ * _EVEN_ODD_ * lat_t + t) * lat_z + z) * lat_y + y) * 1 +
                   0));
-        _give_u_comm(1 - parity, tmp1, tmp_U, lat_tzyx / lat_x);
+        _give_u_comm(1 - parity, tmp1, tmp_U, lat_xyzt / lat_x);
       }
       else
       {
         move0 = move_wards[_B_X_];
-        tmp_U = (origin_U + move0 + (_X_ * _EVEN_ODD_ + (1 - parity)) * lat_tzyx);
-        give_u(tmp1, tmp_U, lat_tzyx);
+        tmp_U = (origin_U + move0 + (_X_ * _EVEN_ODD_ + (1 - parity)) * lat_xyzt);
+        give_u(tmp1, tmp_U, lat_xyzt);
       }
       ////x-1,y,z,t-1;t;dag
       if (if_b_x_b_t)
@@ -887,7 +887,7 @@ namespace qcu
         tmp_U =
             (static_cast<LatticeComplex<T> *>(device_u_b_x_b_t_recv_vec) +
              ((((_T_ * _EVEN_ODD_ * 1 + 0) * lat_z + z) * lat_y + y) * 1 + 0));
-        _give_u_comm(parity, tmp2, tmp_U, lat_tzyx / lat_x / lat_t);
+        _give_u_comm(parity, tmp2, tmp_U, lat_xyzt / lat_x / lat_t);
       }
       else if (if_b_x)
       {
@@ -895,22 +895,22 @@ namespace qcu
             (static_cast<LatticeComplex<T> *>(device_u_b_x_recv_vec) +
              ((((_T_ * _EVEN_ODD_ * lat_t + t - 1) * lat_z + z) * lat_y + y) * 1 +
               0));
-        _give_u_comm(parity, tmp2, tmp_U, lat_tzyx / lat_x);
+        _give_u_comm(parity, tmp2, tmp_U, lat_xyzt / lat_x);
       }
       else if (if_b_t)
       {
         tmp_U = (static_cast<LatticeComplex<T> *>(device_u_b_t_recv_vec) +
                  ((((_T_ * _EVEN_ODD_ * 1 + 0) * lat_z + z) * lat_y + y) * lat_x +
                   x + move_wards[_B_X_]));
-        _give_u_comm(parity, tmp2, tmp_U, lat_tzyx / lat_t);
+        _give_u_comm(parity, tmp2, tmp_U, lat_xyzt / lat_t);
       }
       else
       {
         move0 = move_wards[_B_X_];
         move1 = move_wards[_B_T_];
         tmp_U = (origin_U + move0 + move1 * lat_z * lat_y * lat_x +
-                 (_T_ * _EVEN_ODD_ + parity) * lat_tzyx);
-        give_u(tmp2, tmp_U, lat_tzyx);
+                 (_T_ * _EVEN_ODD_ + parity) * lat_xyzt);
+        give_u(tmp2, tmp_U, lat_xyzt);
       }
       mult_u_dag_dag(tmp0, tmp1, tmp2, tmp3, zero);
     }
@@ -921,7 +921,7 @@ namespace qcu
         tmp_U =
             (static_cast<LatticeComplex<T> *>(device_u_b_x_b_t_recv_vec) +
              ((((_X_ * _EVEN_ODD_ * 1 + 0) * lat_z + z) * lat_y + y) * 1 + 0));
-        _give_u_comm(parity, tmp1, tmp_U, lat_tzyx / lat_x / lat_t);
+        _give_u_comm(parity, tmp1, tmp_U, lat_xyzt / lat_x / lat_t);
       }
       else if (if_b_x)
       {
@@ -929,22 +929,22 @@ namespace qcu
             (static_cast<LatticeComplex<T> *>(device_u_b_x_recv_vec) +
              ((((_X_ * _EVEN_ODD_ * lat_t + t - 1) * lat_z + z) * lat_y + y) * 1 +
               0));
-        _give_u_comm(parity, tmp1, tmp_U, lat_tzyx / lat_x);
+        _give_u_comm(parity, tmp1, tmp_U, lat_xyzt / lat_x);
       }
       else if (if_b_t)
       {
         tmp_U = (static_cast<LatticeComplex<T> *>(device_u_b_t_recv_vec) +
                  ((((_X_ * _EVEN_ODD_ * 1 + 0) * lat_z + z) * lat_y + y) * lat_x +
                   x + move_wards[_B_X_]));
-        _give_u_comm(parity, tmp1, tmp_U, lat_tzyx / lat_t);
+        _give_u_comm(parity, tmp1, tmp_U, lat_xyzt / lat_t);
       }
       else
       {
         move0 = move_wards[_B_X_];
         move1 = move_wards[_B_T_];
         tmp_U = (origin_U + move0 + move1 * lat_z * lat_y * lat_x +
-                 (_X_ * _EVEN_ODD_ + parity) * lat_tzyx);
-        give_u(tmp1, tmp_U, lat_tzyx);
+                 (_X_ * _EVEN_ODD_ + parity) * lat_xyzt);
+        give_u(tmp1, tmp_U, lat_xyzt);
       }
       mult_u_none_none(tmp0, tmp3, tmp1, tmp2, zero);
     }
@@ -955,14 +955,14 @@ namespace qcu
         tmp_U = (static_cast<LatticeComplex<T> *>(device_u_b_t_recv_vec) +
                  ((((_T_ * _EVEN_ODD_ * 1 + 0) * lat_z + z) * lat_y + y) * lat_x +
                   x));
-        _give_u_comm(1 - parity, tmp1, tmp_U, lat_tzyx / lat_t);
+        _give_u_comm(1 - parity, tmp1, tmp_U, lat_xyzt / lat_t);
       }
       else
       {
         move0 = move_wards[_B_T_];
         tmp_U = (origin_U + move0 * lat_z * lat_y * lat_x +
-                 (_T_ * _EVEN_ODD_ + (1 - parity)) * lat_tzyx);
-        give_u(tmp1, tmp_U, lat_tzyx);
+                 (_T_ * _EVEN_ODD_ + (1 - parity)) * lat_xyzt);
+        give_u(tmp1, tmp_U, lat_xyzt);
       }
       mult_u_none_none(tmp0, tmp2, tmp1, tmp3, zero);
     }
@@ -974,14 +974,14 @@ namespace qcu
         tmp_U = (static_cast<LatticeComplex<T> *>(device_u_b_t_recv_vec) +
                  ((((_T_ * _EVEN_ODD_ * 1 + 0) * lat_z + z) * lat_y + y) * lat_x +
                   x));
-        _give_u_comm(1 - parity, tmp1, tmp_U, lat_tzyx / lat_t);
+        _give_u_comm(1 - parity, tmp1, tmp_U, lat_xyzt / lat_t);
       }
       else
       {
         move0 = move_wards[_B_T_];
         tmp_U = (origin_U + move0 * lat_z * lat_y * lat_x +
-                 (_T_ * _EVEN_ODD_ + (1 - parity)) * lat_tzyx);
-        give_u(tmp1, tmp_U, lat_tzyx);
+                 (_T_ * _EVEN_ODD_ + (1 - parity)) * lat_xyzt);
+        give_u(tmp1, tmp_U, lat_xyzt);
       }
       ////x,y,z,t-1;x
       if (if_b_t)
@@ -989,14 +989,14 @@ namespace qcu
         tmp_U = (static_cast<LatticeComplex<T> *>(device_u_b_t_recv_vec) +
                  ((((_X_ * _EVEN_ODD_ * 1 + 0) * lat_z + z) * lat_y + y) * lat_x +
                   x));
-        _give_u_comm(1 - parity, tmp2, tmp_U, lat_tzyx / lat_t);
+        _give_u_comm(1 - parity, tmp2, tmp_U, lat_xyzt / lat_t);
       }
       else
       {
         move0 = move_wards[_B_T_];
         tmp_U = (origin_U + move0 * lat_z * lat_y * lat_x +
-                 (_X_ * _EVEN_ODD_ + (1 - parity)) * lat_tzyx);
-        give_u(tmp2, tmp_U, lat_tzyx);
+                 (_X_ * _EVEN_ODD_ + (1 - parity)) * lat_xyzt);
+        give_u(tmp2, tmp_U, lat_xyzt);
       }
       mult_u_dag_none(tmp0, tmp1, tmp2, tmp3, zero);
     }
@@ -1007,7 +1007,7 @@ namespace qcu
         tmp_U =
             (static_cast<LatticeComplex<T> *>(device_u_f_x_b_t_recv_vec) +
              ((((_T_ * _EVEN_ODD_ * 1 + 0) * lat_z + z) * lat_y + y) * 1 + 0));
-        _give_u_comm(parity, tmp1, tmp_U, lat_tzyx / lat_x / lat_t);
+        _give_u_comm(parity, tmp1, tmp_U, lat_xyzt / lat_x / lat_t);
       }
       else if (if_f_x)
       {
@@ -1015,29 +1015,29 @@ namespace qcu
             (static_cast<LatticeComplex<T> *>(device_u_f_x_recv_vec) +
              ((((_T_ * _EVEN_ODD_ * lat_t + t - 1) * lat_z + z) * lat_y + y) * 1 +
               0));
-        _give_u_comm(parity, tmp1, tmp_U, lat_tzyx / lat_x);
+        _give_u_comm(parity, tmp1, tmp_U, lat_xyzt / lat_x);
       }
       else if (if_b_t)
       {
         tmp_U = (static_cast<LatticeComplex<T> *>(device_u_b_t_recv_vec) +
                  ((((_T_ * _EVEN_ODD_ * 1 + 0) * lat_z + z) * lat_y + y) * lat_x +
                   x + move_wards[_F_X_]));
-        _give_u_comm(parity, tmp1, tmp_U, lat_tzyx / lat_t);
+        _give_u_comm(parity, tmp1, tmp_U, lat_xyzt / lat_t);
       }
       else
       {
         move0 = move_wards[_F_X_];
         move1 = move_wards[_B_T_];
         tmp_U = (origin_U + move0 + move1 * lat_z * lat_y * lat_x +
-                 (_T_ * _EVEN_ODD_ + parity) * lat_tzyx);
-        give_u(tmp1, tmp_U, lat_tzyx);
+                 (_T_ * _EVEN_ODD_ + parity) * lat_xyzt);
+        give_u(tmp1, tmp_U, lat_xyzt);
       }
       mult_u_none_none(tmp0, tmp3, tmp1, tmp2, zero);
     }
     {
       ////x,y,z,t;x;dag
-      tmp_U = (origin_U + (_X_ * _EVEN_ODD_ + parity) * lat_tzyx);
-      give_u(tmp1, tmp_U, lat_tzyx);
+      tmp_U = (origin_U + (_X_ * _EVEN_ODD_ + parity) * lat_xyzt);
+      give_u(tmp1, tmp_U, lat_xyzt);
       mult_u_none_dag(tmp0, tmp2, tmp1, tmp3, zero);
     }
     add_vals(U, tmp3, _LAT_CC_);
@@ -1061,22 +1061,22 @@ namespace qcu
     give_vals(U, zero, _LAT_CC_);
     {
       ////x,y,z,t;y
-      tmp_U = (origin_U + (_Y_ * _EVEN_ODD_ + parity) * lat_tzyx);
-      give_u(tmp1, tmp_U, lat_tzyx);
+      tmp_U = (origin_U + (_Y_ * _EVEN_ODD_ + parity) * lat_xyzt);
+      give_u(tmp1, tmp_U, lat_xyzt);
       ////x,y+1,z,t;z
       if (if_f_y)
       {
         tmp_U = (static_cast<LatticeComplex<T> *>(device_u_f_y_recv_vec) +
                  ((((_Z_ * _EVEN_ODD_ * lat_t + t) * lat_z + z) * 1 + 0) * lat_x +
                   x));
-        _give_u_comm(1 - parity, tmp2, tmp_U, lat_tzyx / lat_y);
+        _give_u_comm(1 - parity, tmp2, tmp_U, lat_xyzt / lat_y);
       }
       else
       {
         move0 = move_wards[_F_Y_];
         tmp_U = (origin_U + move0 * lat_x +
-                 (_Z_ * _EVEN_ODD_ + (1 - parity)) * lat_tzyx);
-        give_u(tmp2, tmp_U, lat_tzyx);
+                 (_Z_ * _EVEN_ODD_ + (1 - parity)) * lat_xyzt);
+        give_u(tmp2, tmp_U, lat_xyzt);
       }
       mult_u_none_none(tmp0, tmp1, tmp2, tmp3, zero);
     }
@@ -1087,35 +1087,35 @@ namespace qcu
         tmp_U = (static_cast<LatticeComplex<T> *>(device_u_f_z_recv_vec) +
                  ((((_Y_ * _EVEN_ODD_ * lat_t + t) * 1 + 0) * lat_y + y) * lat_x +
                   x));
-        _give_u_comm(1 - parity, tmp1, tmp_U, lat_tzyx / lat_z);
+        _give_u_comm(1 - parity, tmp1, tmp_U, lat_xyzt / lat_z);
       }
       else
       {
         move0 = move_wards[_F_Z_];
         tmp_U = (origin_U + move0 * lat_y * lat_x +
-                 (_Y_ * _EVEN_ODD_ + (1 - parity)) * lat_tzyx);
-        give_u(tmp1, tmp_U, lat_tzyx);
+                 (_Y_ * _EVEN_ODD_ + (1 - parity)) * lat_xyzt);
+        give_u(tmp1, tmp_U, lat_xyzt);
       }
       mult_u_none_dag(tmp0, tmp3, tmp1, tmp2, zero);
     }
     {
       ////x,y,z,t;z;dag
-      tmp_U = (origin_U + (_Z_ * _EVEN_ODD_ + parity) * lat_tzyx);
-      give_u(tmp1, tmp_U, lat_tzyx);
+      tmp_U = (origin_U + (_Z_ * _EVEN_ODD_ + parity) * lat_xyzt);
+      give_u(tmp1, tmp_U, lat_xyzt);
       mult_u_none_dag(tmp0, tmp2, tmp1, tmp3, zero);
     }
     add_vals(U, tmp3, _LAT_CC_);
     {
       ////x,y,z,t;z
-      tmp_U = (origin_U + (_Z_ * _EVEN_ODD_ + parity) * lat_tzyx);
-      give_u(tmp1, tmp_U, lat_tzyx);
+      tmp_U = (origin_U + (_Z_ * _EVEN_ODD_ + parity) * lat_xyzt);
+      give_u(tmp1, tmp_U, lat_xyzt);
       ////x,y-1,z+1,t;y;dag
       if (if_b_y_f_z)
       {
         tmp_U =
             (static_cast<LatticeComplex<T> *>(device_u_b_y_f_z_recv_vec) +
              ((((_Y_ * _EVEN_ODD_ * lat_t + t) * 1 + 0) * 1 + 0) * lat_x + x));
-        _give_u_comm(parity, tmp2, tmp_U, lat_tzyx / lat_y / lat_z);
+        _give_u_comm(parity, tmp2, tmp_U, lat_xyzt / lat_y / lat_z);
       }
       else if (if_b_y)
       {
@@ -1123,7 +1123,7 @@ namespace qcu
             (static_cast<LatticeComplex<T> *>(device_u_b_y_recv_vec) +
              ((((_Y_ * _EVEN_ODD_ * lat_t + t) * lat_z + z + 1) * 1 + 0) * lat_x +
               x));
-        _give_u_comm(parity, tmp2, tmp_U, lat_tzyx / lat_y);
+        _give_u_comm(parity, tmp2, tmp_U, lat_xyzt / lat_y);
       }
       else if (if_f_z)
       {
@@ -1131,15 +1131,15 @@ namespace qcu
             (static_cast<LatticeComplex<T> *>(device_u_f_z_recv_vec) +
              ((((_Y_ * _EVEN_ODD_ * lat_t + t) * 1 + 0) * lat_y + y - 1) * lat_x +
               x));
-        _give_u_comm(parity, tmp2, tmp_U, lat_tzyx / lat_z);
+        _give_u_comm(parity, tmp2, tmp_U, lat_xyzt / lat_z);
       }
       else
       {
         move0 = move_wards[_B_Y_];
         move1 = move_wards[_F_Z_];
         tmp_U = (origin_U + move0 * lat_x + move1 * lat_y * lat_x +
-                 (_Y_ * _EVEN_ODD_ + parity) * lat_tzyx);
-        give_u(tmp2, tmp_U, lat_tzyx);
+                 (_Y_ * _EVEN_ODD_ + parity) * lat_xyzt);
+        give_u(tmp2, tmp_U, lat_xyzt);
       }
       mult_u_none_dag(tmp0, tmp1, tmp2, tmp3, zero);
     }
@@ -1150,14 +1150,14 @@ namespace qcu
         tmp_U = (static_cast<LatticeComplex<T> *>(device_u_b_y_recv_vec) +
                  ((((_Z_ * _EVEN_ODD_ * lat_t + t) * lat_z + z) * 1 + 0) * lat_x +
                   x));
-        _give_u_comm(1 - parity, tmp1, tmp_U, lat_tzyx / lat_y);
+        _give_u_comm(1 - parity, tmp1, tmp_U, lat_xyzt / lat_y);
       }
       else
       {
         move0 = move_wards[_B_Y_];
         tmp_U = (origin_U + move0 * lat_x +
-                 (_Z_ * _EVEN_ODD_ + (1 - parity)) * lat_tzyx);
-        give_u(tmp1, tmp_U, lat_tzyx);
+                 (_Z_ * _EVEN_ODD_ + (1 - parity)) * lat_xyzt);
+        give_u(tmp1, tmp_U, lat_xyzt);
       }
       mult_u_none_dag(tmp0, tmp3, tmp1, tmp2, zero);
     }
@@ -1168,14 +1168,14 @@ namespace qcu
         tmp_U = (static_cast<LatticeComplex<T> *>(device_u_b_y_recv_vec) +
                  ((((_Y_ * _EVEN_ODD_ * lat_t + t) * lat_z + z) * 1 + 0) * lat_x +
                   x));
-        _give_u_comm(1 - parity, tmp1, tmp_U, lat_tzyx / lat_y);
+        _give_u_comm(1 - parity, tmp1, tmp_U, lat_xyzt / lat_y);
       }
       else
       {
         move0 = move_wards[_B_Y_];
         tmp_U = (origin_U + move0 * lat_x +
-                 (_Y_ * _EVEN_ODD_ + (1 - parity)) * lat_tzyx);
-        give_u(tmp1, tmp_U, lat_tzyx);
+                 (_Y_ * _EVEN_ODD_ + (1 - parity)) * lat_xyzt);
+        give_u(tmp1, tmp_U, lat_xyzt);
       }
       mult_u_none_none(tmp0, tmp2, tmp1, tmp3, zero);
     }
@@ -1187,14 +1187,14 @@ namespace qcu
         tmp_U = (static_cast<LatticeComplex<T> *>(device_u_b_y_recv_vec) +
                  ((((_Y_ * _EVEN_ODD_ * lat_t + t) * lat_z + z) * 1 + 0) * lat_x +
                   x));
-        _give_u_comm(1 - parity, tmp1, tmp_U, lat_tzyx / lat_y);
+        _give_u_comm(1 - parity, tmp1, tmp_U, lat_xyzt / lat_y);
       }
       else
       {
         move0 = move_wards[_B_Y_];
         tmp_U = (origin_U + move0 * lat_x +
-                 (_Y_ * _EVEN_ODD_ + (1 - parity)) * lat_tzyx);
-        give_u(tmp1, tmp_U, lat_tzyx);
+                 (_Y_ * _EVEN_ODD_ + (1 - parity)) * lat_xyzt);
+        give_u(tmp1, tmp_U, lat_xyzt);
       }
       ////x,y-1,z-1,t;z;dag
       if (if_b_y_b_z)
@@ -1202,7 +1202,7 @@ namespace qcu
         tmp_U =
             (static_cast<LatticeComplex<T> *>(device_u_b_y_b_z_recv_vec) +
              ((((_Z_ * _EVEN_ODD_ * lat_t + t) * 1 + 0) * 1 + 0) * lat_x + x));
-        _give_u_comm(parity, tmp2, tmp_U, lat_tzyx / lat_y / lat_z);
+        _give_u_comm(parity, tmp2, tmp_U, lat_xyzt / lat_y / lat_z);
       }
       else if (if_b_y)
       {
@@ -1210,7 +1210,7 @@ namespace qcu
             (static_cast<LatticeComplex<T> *>(device_u_b_y_recv_vec) +
              ((((_Z_ * _EVEN_ODD_ * lat_t + t) * lat_z + z - 1) * 1 + 0) * lat_x +
               x));
-        _give_u_comm(parity, tmp2, tmp_U, lat_tzyx / lat_y);
+        _give_u_comm(parity, tmp2, tmp_U, lat_xyzt / lat_y);
       }
       else if (if_b_z)
       {
@@ -1218,15 +1218,15 @@ namespace qcu
             (static_cast<LatticeComplex<T> *>(device_u_b_z_recv_vec) +
              ((((_Z_ * _EVEN_ODD_ * lat_t + t) * 1 + 0) * lat_y + y - 1) * lat_x +
               x));
-        _give_u_comm(parity, tmp2, tmp_U, lat_tzyx / lat_z);
+        _give_u_comm(parity, tmp2, tmp_U, lat_xyzt / lat_z);
       }
       else
       {
         move0 = move_wards[_B_Y_];
         move1 = move_wards[_B_Z_];
         tmp_U = (origin_U + move0 * lat_x + move1 * lat_y * lat_x +
-                 (_Z_ * _EVEN_ODD_ + parity) * lat_tzyx);
-        give_u(tmp2, tmp_U, lat_tzyx);
+                 (_Z_ * _EVEN_ODD_ + parity) * lat_xyzt);
+        give_u(tmp2, tmp_U, lat_xyzt);
       }
       mult_u_dag_dag(tmp0, tmp1, tmp2, tmp3, zero);
     }
@@ -1237,7 +1237,7 @@ namespace qcu
         tmp_U =
             (static_cast<LatticeComplex<T> *>(device_u_b_y_b_z_recv_vec) +
              ((((_Y_ * _EVEN_ODD_ * lat_t + t) * 1 + 0) * 1 + 0) * lat_x + x));
-        _give_u_comm(parity, tmp1, tmp_U, lat_tzyx / lat_y / lat_z);
+        _give_u_comm(parity, tmp1, tmp_U, lat_xyzt / lat_y / lat_z);
       }
       else if (if_b_y)
       {
@@ -1245,7 +1245,7 @@ namespace qcu
             (static_cast<LatticeComplex<T> *>(device_u_b_y_recv_vec) +
              ((((_Y_ * _EVEN_ODD_ * lat_t + t) * lat_z + z - 1) * 1 + 0) * lat_x +
               x));
-        _give_u_comm(parity, tmp1, tmp_U, lat_tzyx / lat_y);
+        _give_u_comm(parity, tmp1, tmp_U, lat_xyzt / lat_y);
       }
       else if (if_b_z)
       {
@@ -1253,15 +1253,15 @@ namespace qcu
             (static_cast<LatticeComplex<T> *>(device_u_b_z_recv_vec) +
              ((((_Y_ * _EVEN_ODD_ * lat_t + t) * 1 + 0) * lat_y + y - 1) * lat_x +
               x));
-        _give_u_comm(parity, tmp1, tmp_U, lat_tzyx / lat_z);
+        _give_u_comm(parity, tmp1, tmp_U, lat_xyzt / lat_z);
       }
       else
       {
         move0 = move_wards[_B_Y_];
         move1 = move_wards[_B_Z_];
         tmp_U = (origin_U + move0 * lat_x + move1 * lat_y * lat_x +
-                 (_Y_ * _EVEN_ODD_ + parity) * lat_tzyx);
-        give_u(tmp1, tmp_U, lat_tzyx);
+                 (_Y_ * _EVEN_ODD_ + parity) * lat_xyzt);
+        give_u(tmp1, tmp_U, lat_xyzt);
       }
       mult_u_none_none(tmp0, tmp3, tmp1, tmp2, zero);
     }
@@ -1272,14 +1272,14 @@ namespace qcu
         tmp_U = (static_cast<LatticeComplex<T> *>(device_u_b_z_recv_vec) +
                  ((((_Z_ * _EVEN_ODD_ * lat_t + t) * 1 + 0) * lat_y + y) * lat_x +
                   x));
-        _give_u_comm(1 - parity, tmp1, tmp_U, lat_tzyx / lat_z);
+        _give_u_comm(1 - parity, tmp1, tmp_U, lat_xyzt / lat_z);
       }
       else
       {
         move0 = move_wards[_B_Z_];
         tmp_U = (origin_U + move0 * lat_y * lat_x +
-                 (_Z_ * _EVEN_ODD_ + (1 - parity)) * lat_tzyx);
-        give_u(tmp1, tmp_U, lat_tzyx);
+                 (_Z_ * _EVEN_ODD_ + (1 - parity)) * lat_xyzt);
+        give_u(tmp1, tmp_U, lat_xyzt);
       }
       mult_u_none_none(tmp0, tmp2, tmp1, tmp3, zero);
     }
@@ -1291,14 +1291,14 @@ namespace qcu
         tmp_U = (static_cast<LatticeComplex<T> *>(device_u_b_z_recv_vec) +
                  ((((_Z_ * _EVEN_ODD_ * lat_t + t) * 1 + 0) * lat_y + y) * lat_x +
                   x));
-        _give_u_comm(1 - parity, tmp1, tmp_U, lat_tzyx / lat_z);
+        _give_u_comm(1 - parity, tmp1, tmp_U, lat_xyzt / lat_z);
       }
       else
       {
         move0 = move_wards[_B_Z_];
         tmp_U = (origin_U + move0 * lat_y * lat_x +
-                 (_Z_ * _EVEN_ODD_ + (1 - parity)) * lat_tzyx);
-        give_u(tmp1, tmp_U, lat_tzyx);
+                 (_Z_ * _EVEN_ODD_ + (1 - parity)) * lat_xyzt);
+        give_u(tmp1, tmp_U, lat_xyzt);
       }
       ////x,y,z-1,t;y
       if (if_b_z)
@@ -1306,14 +1306,14 @@ namespace qcu
         tmp_U = (static_cast<LatticeComplex<T> *>(device_u_b_z_recv_vec) +
                  ((((_Y_ * _EVEN_ODD_ * lat_t + t) * 1 + 0) * lat_y + y) * lat_x +
                   x));
-        _give_u_comm(1 - parity, tmp2, tmp_U, lat_tzyx / lat_z);
+        _give_u_comm(1 - parity, tmp2, tmp_U, lat_xyzt / lat_z);
       }
       else
       {
         move0 = move_wards[_B_Z_];
         tmp_U = (origin_U + move0 * lat_y * lat_x +
-                 (_Y_ * _EVEN_ODD_ + (1 - parity)) * lat_tzyx);
-        give_u(tmp2, tmp_U, lat_tzyx);
+                 (_Y_ * _EVEN_ODD_ + (1 - parity)) * lat_xyzt);
+        give_u(tmp2, tmp_U, lat_xyzt);
       }
       mult_u_dag_none(tmp0, tmp1, tmp2, tmp3, zero);
     }
@@ -1324,7 +1324,7 @@ namespace qcu
         tmp_U =
             (static_cast<LatticeComplex<T> *>(device_u_f_y_b_z_recv_vec) +
              ((((_Z_ * _EVEN_ODD_ * lat_t + t) * 1 + 0) * 1 + 0) * lat_x + x));
-        _give_u_comm(parity, tmp1, tmp_U, lat_tzyx / lat_y / lat_z);
+        _give_u_comm(parity, tmp1, tmp_U, lat_xyzt / lat_y / lat_z);
       }
       else if (if_f_y)
       {
@@ -1332,7 +1332,7 @@ namespace qcu
             (static_cast<LatticeComplex<T> *>(device_u_f_y_recv_vec) +
              ((((_Z_ * _EVEN_ODD_ * lat_t + t) * lat_z + z - 1) * 1 + 0) * lat_x +
               x));
-        _give_u_comm(parity, tmp1, tmp_U, lat_tzyx / lat_y);
+        _give_u_comm(parity, tmp1, tmp_U, lat_xyzt / lat_y);
       }
       else if (if_b_z)
       {
@@ -1340,22 +1340,22 @@ namespace qcu
             (static_cast<LatticeComplex<T> *>(device_u_b_z_recv_vec) +
              ((((_Z_ * _EVEN_ODD_ * lat_t + t) * 1 + 0) * lat_y + y + 1) * lat_x +
               x));
-        _give_u_comm(parity, tmp1, tmp_U, lat_tzyx / lat_z);
+        _give_u_comm(parity, tmp1, tmp_U, lat_xyzt / lat_z);
       }
       else
       {
         move0 = move_wards[_F_Y_];
         move1 = move_wards[_B_Z_];
         tmp_U = (origin_U + move0 * lat_x + move1 * lat_y * lat_x +
-                 (_Z_ * _EVEN_ODD_ + parity) * lat_tzyx);
-        give_u(tmp1, tmp_U, lat_tzyx);
+                 (_Z_ * _EVEN_ODD_ + parity) * lat_xyzt);
+        give_u(tmp1, tmp_U, lat_xyzt);
       }
       mult_u_none_none(tmp0, tmp3, tmp1, tmp2, zero);
     }
     {
       ////x,y,z,t;y;dag
-      tmp_U = (origin_U + (_Y_ * _EVEN_ODD_ + parity) * lat_tzyx);
-      give_u(tmp1, tmp_U, lat_tzyx);
+      tmp_U = (origin_U + (_Y_ * _EVEN_ODD_ + parity) * lat_xyzt);
+      give_u(tmp1, tmp_U, lat_xyzt);
       mult_u_none_dag(tmp0, tmp2, tmp1, tmp3, zero);
     }
     add_vals(U, tmp3, _LAT_CC_);
@@ -1379,22 +1379,22 @@ namespace qcu
     give_vals(U, zero, _LAT_CC_);
     {
       ////x,y,z,t;y
-      tmp_U = (origin_U + (_Y_ * _EVEN_ODD_ + parity) * lat_tzyx);
-      give_u(tmp1, tmp_U, lat_tzyx);
+      tmp_U = (origin_U + (_Y_ * _EVEN_ODD_ + parity) * lat_xyzt);
+      give_u(tmp1, tmp_U, lat_xyzt);
       ////x,y+1,z,t;t
       if (if_f_y)
       {
         tmp_U = (static_cast<LatticeComplex<T> *>(device_u_f_y_recv_vec) +
                  ((((_T_ * _EVEN_ODD_ * lat_t + t) * lat_z + z) * 1 + 0) * lat_x +
                   x));
-        _give_u_comm(1 - parity, tmp2, tmp_U, lat_tzyx / lat_y);
+        _give_u_comm(1 - parity, tmp2, tmp_U, lat_xyzt / lat_y);
       }
       else
       {
         move0 = move_wards[_F_Y_];
         tmp_U = (origin_U + move0 * lat_x +
-                 (_T_ * _EVEN_ODD_ + (1 - parity)) * lat_tzyx);
-        give_u(tmp2, tmp_U, lat_tzyx);
+                 (_T_ * _EVEN_ODD_ + (1 - parity)) * lat_xyzt);
+        give_u(tmp2, tmp_U, lat_xyzt);
       }
       mult_u_none_none(tmp0, tmp1, tmp2, tmp3, zero);
     }
@@ -1405,35 +1405,35 @@ namespace qcu
         tmp_U = (static_cast<LatticeComplex<T> *>(device_u_f_t_recv_vec) +
                  ((((_Y_ * _EVEN_ODD_ * 1 + 0) * lat_z + z) * lat_y + y) * lat_x +
                   x));
-        _give_u_comm(1 - parity, tmp1, tmp_U, lat_tzyx / lat_t);
+        _give_u_comm(1 - parity, tmp1, tmp_U, lat_xyzt / lat_t);
       }
       else
       {
         move0 = move_wards[_F_T_];
         tmp_U = (origin_U + move0 * lat_z * lat_y * lat_x +
-                 (_Y_ * _EVEN_ODD_ + (1 - parity)) * lat_tzyx);
-        give_u(tmp1, tmp_U, lat_tzyx);
+                 (_Y_ * _EVEN_ODD_ + (1 - parity)) * lat_xyzt);
+        give_u(tmp1, tmp_U, lat_xyzt);
       }
       mult_u_none_dag(tmp0, tmp3, tmp1, tmp2, zero);
     }
     {
       ////x,y,z,t;t;dag
-      tmp_U = (origin_U + (_T_ * _EVEN_ODD_ + parity) * lat_tzyx);
-      give_u(tmp1, tmp_U, lat_tzyx);
+      tmp_U = (origin_U + (_T_ * _EVEN_ODD_ + parity) * lat_xyzt);
+      give_u(tmp1, tmp_U, lat_xyzt);
       mult_u_none_dag(tmp0, tmp2, tmp1, tmp3, zero);
     }
     add_vals(U, tmp3, _LAT_CC_);
     {
       ////x,y,z,t;t
-      tmp_U = (origin_U + (_T_ * _EVEN_ODD_ + parity) * lat_tzyx);
-      give_u(tmp1, tmp_U, lat_tzyx);
+      tmp_U = (origin_U + (_T_ * _EVEN_ODD_ + parity) * lat_xyzt);
+      give_u(tmp1, tmp_U, lat_xyzt);
       ////x,y-1,z,t+1;y;dag
       if (if_b_y_f_t)
       {
         tmp_U =
             (static_cast<LatticeComplex<T> *>(device_u_b_y_f_t_recv_vec) +
              ((((_Y_ * _EVEN_ODD_ * 1 + 0) * lat_z + z) * 1 + 0) * lat_x + x));
-        _give_u_comm(parity, tmp2, tmp_U, lat_tzyx / lat_y / lat_t);
+        _give_u_comm(parity, tmp2, tmp_U, lat_xyzt / lat_y / lat_t);
       }
       else if (if_b_y)
       {
@@ -1441,7 +1441,7 @@ namespace qcu
             (static_cast<LatticeComplex<T> *>(device_u_b_y_recv_vec) +
              ((((_Y_ * _EVEN_ODD_ * lat_t + t + 1) * lat_z + z) * 1 + 0) * lat_x +
               x));
-        _give_u_comm(parity, tmp2, tmp_U, lat_tzyx / lat_y);
+        _give_u_comm(parity, tmp2, tmp_U, lat_xyzt / lat_y);
       }
       else if (if_f_t)
       {
@@ -1449,15 +1449,15 @@ namespace qcu
             (static_cast<LatticeComplex<T> *>(device_u_f_t_recv_vec) +
              ((((_Y_ * _EVEN_ODD_ * 1 + 0) * lat_z + z) * lat_y + y - 1) * lat_x +
               x));
-        _give_u_comm(parity, tmp2, tmp_U, lat_tzyx / lat_t);
+        _give_u_comm(parity, tmp2, tmp_U, lat_xyzt / lat_t);
       }
       else
       {
         move0 = move_wards[_B_Y_];
         move1 = move_wards[_F_T_];
         tmp_U = (origin_U + move0 * lat_x + move1 * lat_z * lat_y * lat_x +
-                 (_Y_ * _EVEN_ODD_ + parity) * lat_tzyx);
-        give_u(tmp2, tmp_U, lat_tzyx);
+                 (_Y_ * _EVEN_ODD_ + parity) * lat_xyzt);
+        give_u(tmp2, tmp_U, lat_xyzt);
       }
       mult_u_none_dag(tmp0, tmp1, tmp2, tmp3, zero);
     }
@@ -1468,14 +1468,14 @@ namespace qcu
         tmp_U = (static_cast<LatticeComplex<T> *>(device_u_b_y_recv_vec) +
                  ((((_T_ * _EVEN_ODD_ * lat_t + t) * lat_z + z) * 1 + 0) * lat_x +
                   x));
-        _give_u_comm(1 - parity, tmp1, tmp_U, lat_tzyx / lat_y);
+        _give_u_comm(1 - parity, tmp1, tmp_U, lat_xyzt / lat_y);
       }
       else
       {
         move0 = move_wards[_B_Y_];
         tmp_U = (origin_U + move0 * lat_x +
-                 (_T_ * _EVEN_ODD_ + (1 - parity)) * lat_tzyx);
-        give_u(tmp1, tmp_U, lat_tzyx);
+                 (_T_ * _EVEN_ODD_ + (1 - parity)) * lat_xyzt);
+        give_u(tmp1, tmp_U, lat_xyzt);
       }
       mult_u_none_dag(tmp0, tmp3, tmp1, tmp2, zero);
     }
@@ -1486,14 +1486,14 @@ namespace qcu
         tmp_U = (static_cast<LatticeComplex<T> *>(device_u_b_y_recv_vec) +
                  ((((_Y_ * _EVEN_ODD_ * lat_t + t) * lat_z + z) * 1 + 0) * lat_x +
                   x));
-        _give_u_comm(1 - parity, tmp1, tmp_U, lat_tzyx / lat_y);
+        _give_u_comm(1 - parity, tmp1, tmp_U, lat_xyzt / lat_y);
       }
       else
       {
         move0 = move_wards[_B_Y_];
         tmp_U = (origin_U + move0 * lat_x +
-                 (_Y_ * _EVEN_ODD_ + (1 - parity)) * lat_tzyx);
-        give_u(tmp1, tmp_U, lat_tzyx);
+                 (_Y_ * _EVEN_ODD_ + (1 - parity)) * lat_xyzt);
+        give_u(tmp1, tmp_U, lat_xyzt);
       }
       mult_u_none_none(tmp0, tmp2, tmp1, tmp3, zero);
     }
@@ -1505,14 +1505,14 @@ namespace qcu
         tmp_U = (static_cast<LatticeComplex<T> *>(device_u_b_y_recv_vec) +
                  ((((_Y_ * _EVEN_ODD_ * lat_t + t) * lat_z + z) * 1 + 0) * lat_x +
                   x));
-        _give_u_comm(1 - parity, tmp1, tmp_U, lat_tzyx / lat_y);
+        _give_u_comm(1 - parity, tmp1, tmp_U, lat_xyzt / lat_y);
       }
       else
       {
         move0 = move_wards[_B_Y_];
         tmp_U = (origin_U + move0 * lat_x +
-                 (_Y_ * _EVEN_ODD_ + (1 - parity)) * lat_tzyx);
-        give_u(tmp1, tmp_U, lat_tzyx);
+                 (_Y_ * _EVEN_ODD_ + (1 - parity)) * lat_xyzt);
+        give_u(tmp1, tmp_U, lat_xyzt);
       }
       ////x,y-1,z,t-1;t;dag
       if (if_b_y_b_t)
@@ -1520,7 +1520,7 @@ namespace qcu
         tmp_U =
             (static_cast<LatticeComplex<T> *>(device_u_b_y_b_t_recv_vec) +
              ((((_T_ * _EVEN_ODD_ * 1 + 0) * lat_z + z) * 1 + 0) * lat_x + x));
-        _give_u_comm(parity, tmp2, tmp_U, lat_tzyx / lat_y / lat_t);
+        _give_u_comm(parity, tmp2, tmp_U, lat_xyzt / lat_y / lat_t);
       }
       else if (if_b_y)
       {
@@ -1528,7 +1528,7 @@ namespace qcu
             (static_cast<LatticeComplex<T> *>(device_u_b_y_recv_vec) +
              ((((_T_ * _EVEN_ODD_ * lat_t + t - 1) * lat_z + z) * 1 + 0) * lat_x +
               x));
-        _give_u_comm(parity, tmp2, tmp_U, lat_tzyx / lat_y);
+        _give_u_comm(parity, tmp2, tmp_U, lat_xyzt / lat_y);
       }
       else if (if_b_t)
       {
@@ -1536,15 +1536,15 @@ namespace qcu
             (static_cast<LatticeComplex<T> *>(device_u_b_t_recv_vec) +
              ((((_T_ * _EVEN_ODD_ * 1 + 0) * lat_z + z) * lat_y + y - 1) * lat_x +
               x));
-        _give_u_comm(parity, tmp2, tmp_U, lat_tzyx / lat_t);
+        _give_u_comm(parity, tmp2, tmp_U, lat_xyzt / lat_t);
       }
       else
       {
         move0 = move_wards[_B_Y_];
         move1 = move_wards[_B_T_];
         tmp_U = (origin_U + move0 * lat_x + move1 * lat_z * lat_y * lat_x +
-                 (_T_ * _EVEN_ODD_ + parity) * lat_tzyx);
-        give_u(tmp2, tmp_U, lat_tzyx);
+                 (_T_ * _EVEN_ODD_ + parity) * lat_xyzt);
+        give_u(tmp2, tmp_U, lat_xyzt);
       }
       mult_u_dag_dag(tmp0, tmp1, tmp2, tmp3, zero);
     }
@@ -1555,7 +1555,7 @@ namespace qcu
         tmp_U =
             (static_cast<LatticeComplex<T> *>(device_u_b_y_b_t_recv_vec) +
              ((((_Y_ * _EVEN_ODD_ * 1 + 0) * lat_z + z) * 1 + 0) * lat_x + x));
-        _give_u_comm(parity, tmp1, tmp_U, lat_tzyx / lat_y / lat_t);
+        _give_u_comm(parity, tmp1, tmp_U, lat_xyzt / lat_y / lat_t);
       }
       else if (if_b_y)
       {
@@ -1563,7 +1563,7 @@ namespace qcu
             (static_cast<LatticeComplex<T> *>(device_u_b_y_recv_vec) +
              ((((_Y_ * _EVEN_ODD_ * lat_t + t - 1) * lat_z + z) * 1 + 0) * lat_x +
               x));
-        _give_u_comm(parity, tmp1, tmp_U, lat_tzyx / lat_y);
+        _give_u_comm(parity, tmp1, tmp_U, lat_xyzt / lat_y);
       }
       else if (if_b_t)
       {
@@ -1571,15 +1571,15 @@ namespace qcu
             (static_cast<LatticeComplex<T> *>(device_u_b_t_recv_vec) +
              ((((_Y_ * _EVEN_ODD_ * 1 + 0) * lat_z + z) * lat_y + y - 1) * lat_x +
               x));
-        _give_u_comm(parity, tmp1, tmp_U, lat_tzyx / lat_t);
+        _give_u_comm(parity, tmp1, tmp_U, lat_xyzt / lat_t);
       }
       else
       {
         move0 = move_wards[_B_Y_];
         move1 = move_wards[_B_T_];
         tmp_U = (origin_U + move0 * lat_x + move1 * lat_z * lat_y * lat_x +
-                 (_Y_ * _EVEN_ODD_ + parity) * lat_tzyx);
-        give_u(tmp1, tmp_U, lat_tzyx);
+                 (_Y_ * _EVEN_ODD_ + parity) * lat_xyzt);
+        give_u(tmp1, tmp_U, lat_xyzt);
       }
       mult_u_none_none(tmp0, tmp3, tmp1, tmp2, zero);
     }
@@ -1590,14 +1590,14 @@ namespace qcu
         tmp_U = (static_cast<LatticeComplex<T> *>(device_u_b_t_recv_vec) +
                  ((((_T_ * _EVEN_ODD_ * 1 + 0) * lat_z + z) * lat_y + y) * lat_x +
                   x));
-        _give_u_comm(1 - parity, tmp1, tmp_U, lat_tzyx / lat_t);
+        _give_u_comm(1 - parity, tmp1, tmp_U, lat_xyzt / lat_t);
       }
       else
       {
         move0 = move_wards[_B_T_];
         tmp_U = (origin_U + move0 * lat_z * lat_y * lat_x +
-                 (_T_ * _EVEN_ODD_ + (1 - parity)) * lat_tzyx);
-        give_u(tmp1, tmp_U, lat_tzyx);
+                 (_T_ * _EVEN_ODD_ + (1 - parity)) * lat_xyzt);
+        give_u(tmp1, tmp_U, lat_xyzt);
       }
       mult_u_none_none(tmp0, tmp2, tmp1, tmp3, zero);
     }
@@ -1609,14 +1609,14 @@ namespace qcu
         tmp_U = (static_cast<LatticeComplex<T> *>(device_u_b_t_recv_vec) +
                  ((((_T_ * _EVEN_ODD_ * 1 + 0) * lat_z + z) * lat_y + y) * lat_x +
                   x));
-        _give_u_comm(1 - parity, tmp1, tmp_U, lat_tzyx / lat_t);
+        _give_u_comm(1 - parity, tmp1, tmp_U, lat_xyzt / lat_t);
       }
       else
       {
         move0 = move_wards[_B_T_];
         tmp_U = (origin_U + move0 * lat_z * lat_y * lat_x +
-                 (_T_ * _EVEN_ODD_ + (1 - parity)) * lat_tzyx);
-        give_u(tmp1, tmp_U, lat_tzyx);
+                 (_T_ * _EVEN_ODD_ + (1 - parity)) * lat_xyzt);
+        give_u(tmp1, tmp_U, lat_xyzt);
       }
       ////x,y,z,t-1;y
       if (if_b_t)
@@ -1624,14 +1624,14 @@ namespace qcu
         tmp_U = (static_cast<LatticeComplex<T> *>(device_u_b_t_recv_vec) +
                  ((((_Y_ * _EVEN_ODD_ * 1 + 0) * lat_z + z) * lat_y + y) * lat_x +
                   x));
-        _give_u_comm(1 - parity, tmp2, tmp_U, lat_tzyx / lat_t);
+        _give_u_comm(1 - parity, tmp2, tmp_U, lat_xyzt / lat_t);
       }
       else
       {
         move0 = move_wards[_B_T_];
         tmp_U = (origin_U + move0 * lat_z * lat_y * lat_x +
-                 (_Y_ * _EVEN_ODD_ + (1 - parity)) * lat_tzyx);
-        give_u(tmp2, tmp_U, lat_tzyx);
+                 (_Y_ * _EVEN_ODD_ + (1 - parity)) * lat_xyzt);
+        give_u(tmp2, tmp_U, lat_xyzt);
       }
       mult_u_dag_none(tmp0, tmp1, tmp2, tmp3, zero);
     }
@@ -1642,7 +1642,7 @@ namespace qcu
         tmp_U =
             (static_cast<LatticeComplex<T> *>(device_u_f_y_b_t_recv_vec) +
              ((((_T_ * _EVEN_ODD_ * 1 + 0) * lat_z + z) * 1 + 0) * lat_x + x));
-        _give_u_comm(parity, tmp1, tmp_U, lat_tzyx / lat_y / lat_t);
+        _give_u_comm(parity, tmp1, tmp_U, lat_xyzt / lat_y / lat_t);
       }
       else if (if_f_y)
       {
@@ -1650,7 +1650,7 @@ namespace qcu
             (static_cast<LatticeComplex<T> *>(device_u_f_y_recv_vec) +
              ((((_T_ * _EVEN_ODD_ * lat_t + t - 1) * lat_z + z) * 1 + 0) * lat_x +
               x));
-        _give_u_comm(parity, tmp1, tmp_U, lat_tzyx / lat_y);
+        _give_u_comm(parity, tmp1, tmp_U, lat_xyzt / lat_y);
       }
       else if (if_b_t)
       {
@@ -1658,22 +1658,22 @@ namespace qcu
             (static_cast<LatticeComplex<T> *>(device_u_b_t_recv_vec) +
              ((((_T_ * _EVEN_ODD_ * 1 + 0) * lat_z + z) * lat_y + y + 1) * lat_x +
               x));
-        _give_u_comm(parity, tmp1, tmp_U, lat_tzyx / lat_t);
+        _give_u_comm(parity, tmp1, tmp_U, lat_xyzt / lat_t);
       }
       else
       {
         move0 = move_wards[_F_Y_];
         move1 = move_wards[_B_T_];
         tmp_U = (origin_U + move0 * lat_x + move1 * lat_z * lat_y * lat_x +
-                 (_T_ * _EVEN_ODD_ + parity) * lat_tzyx);
-        give_u(tmp1, tmp_U, lat_tzyx);
+                 (_T_ * _EVEN_ODD_ + parity) * lat_xyzt);
+        give_u(tmp1, tmp_U, lat_xyzt);
       }
       mult_u_none_none(tmp0, tmp3, tmp1, tmp2, zero);
     }
     {
       ////x,y,z,t;y;dag
-      tmp_U = (origin_U + (_Y_ * _EVEN_ODD_ + parity) * lat_tzyx);
-      give_u(tmp1, tmp_U, lat_tzyx);
+      tmp_U = (origin_U + (_Y_ * _EVEN_ODD_ + parity) * lat_xyzt);
+      give_u(tmp1, tmp_U, lat_xyzt);
       mult_u_none_dag(tmp0, tmp2, tmp1, tmp3, zero);
     }
     add_vals(U, tmp3, _LAT_CC_);
@@ -1697,22 +1697,22 @@ namespace qcu
     give_vals(U, zero, _LAT_CC_);
     {
       ////x,y,z,t;z
-      tmp_U = (origin_U + (_Z_ * _EVEN_ODD_ + parity) * lat_tzyx);
-      give_u(tmp1, tmp_U, lat_tzyx);
+      tmp_U = (origin_U + (_Z_ * _EVEN_ODD_ + parity) * lat_xyzt);
+      give_u(tmp1, tmp_U, lat_xyzt);
       ////x,y,z+1,t;t
       if (if_f_z)
       {
         tmp_U = (static_cast<LatticeComplex<T> *>(device_u_f_z_recv_vec) +
                  ((((_T_ * _EVEN_ODD_ * lat_t + t) * 1 + 0) * lat_y + y) * lat_x +
                   x));
-        _give_u_comm(1 - parity, tmp2, tmp_U, lat_tzyx / lat_z);
+        _give_u_comm(1 - parity, tmp2, tmp_U, lat_xyzt / lat_z);
       }
       else
       {
         move0 = move_wards[_F_Z_];
         tmp_U = (origin_U + move0 * lat_y * lat_x +
-                 (_T_ * _EVEN_ODD_ + (1 - parity)) * lat_tzyx);
-        give_u(tmp2, tmp_U, lat_tzyx);
+                 (_T_ * _EVEN_ODD_ + (1 - parity)) * lat_xyzt);
+        give_u(tmp2, tmp_U, lat_xyzt);
       }
       mult_u_none_none(tmp0, tmp1, tmp2, tmp3, zero);
     }
@@ -1723,35 +1723,35 @@ namespace qcu
         tmp_U = (static_cast<LatticeComplex<T> *>(device_u_f_t_recv_vec) +
                  ((((_Z_ * _EVEN_ODD_ * 1 + 0) * lat_z + z) * lat_y + y) * lat_x +
                   x));
-        _give_u_comm(1 - parity, tmp1, tmp_U, lat_tzyx / lat_t);
+        _give_u_comm(1 - parity, tmp1, tmp_U, lat_xyzt / lat_t);
       }
       else
       {
         move0 = move_wards[_F_T_];
         tmp_U = (origin_U + move0 * lat_z * lat_y * lat_x +
-                 (_Z_ * _EVEN_ODD_ + (1 - parity)) * lat_tzyx);
-        give_u(tmp1, tmp_U, lat_tzyx);
+                 (_Z_ * _EVEN_ODD_ + (1 - parity)) * lat_xyzt);
+        give_u(tmp1, tmp_U, lat_xyzt);
       }
       mult_u_none_dag(tmp0, tmp3, tmp1, tmp2, zero);
     }
     {
       ////x,y,z,t;t;dag
-      tmp_U = (origin_U + (_T_ * _EVEN_ODD_ + parity) * lat_tzyx);
-      give_u(tmp1, tmp_U, lat_tzyx);
+      tmp_U = (origin_U + (_T_ * _EVEN_ODD_ + parity) * lat_xyzt);
+      give_u(tmp1, tmp_U, lat_xyzt);
       mult_u_none_dag(tmp0, tmp2, tmp1, tmp3, zero);
     }
     add_vals(U, tmp3, _LAT_CC_);
     {
       ////x,y,z,t;t
-      tmp_U = (origin_U + (_T_ * _EVEN_ODD_ + parity) * lat_tzyx);
-      give_u(tmp1, tmp_U, lat_tzyx);
+      tmp_U = (origin_U + (_T_ * _EVEN_ODD_ + parity) * lat_xyzt);
+      give_u(tmp1, tmp_U, lat_xyzt);
       ////x,y,z-1,t+1;z;dag
       if (if_b_z_f_t)
       {
         tmp_U =
             (static_cast<LatticeComplex<T> *>(device_u_b_z_f_t_recv_vec) +
              ((((_Z_ * _EVEN_ODD_ * 1 + 0) * 1 + 0) * lat_y + y) * lat_x + x));
-        _give_u_comm(parity, tmp2, tmp_U, lat_tzyx / lat_z / lat_t);
+        _give_u_comm(parity, tmp2, tmp_U, lat_xyzt / lat_z / lat_t);
       }
       else if (if_b_z)
       {
@@ -1759,7 +1759,7 @@ namespace qcu
             (static_cast<LatticeComplex<T> *>(device_u_b_z_recv_vec) +
              ((((_Z_ * _EVEN_ODD_ * lat_t + t + 1) * 1 + 0) * lat_y + y) * lat_x +
               x));
-        _give_u_comm(parity, tmp2, tmp_U, lat_tzyx / lat_z);
+        _give_u_comm(parity, tmp2, tmp_U, lat_xyzt / lat_z);
       }
       else if (if_f_t)
       {
@@ -1767,7 +1767,7 @@ namespace qcu
             (static_cast<LatticeComplex<T> *>(device_u_f_t_recv_vec) +
              ((((_Z_ * _EVEN_ODD_ * 1 + 0) * lat_z + z - 1) * lat_y + y) * lat_x +
               x));
-        _give_u_comm(parity, tmp2, tmp_U, lat_tzyx / lat_t);
+        _give_u_comm(parity, tmp2, tmp_U, lat_xyzt / lat_t);
       }
       else
       {
@@ -1775,8 +1775,8 @@ namespace qcu
         move1 = move_wards[_F_T_];
         tmp_U =
             (origin_U + move0 * lat_y * lat_x + move1 * lat_z * lat_y * lat_x +
-             (_Z_ * _EVEN_ODD_ + parity) * lat_tzyx);
-        give_u(tmp2, tmp_U, lat_tzyx);
+             (_Z_ * _EVEN_ODD_ + parity) * lat_xyzt);
+        give_u(tmp2, tmp_U, lat_xyzt);
       }
       mult_u_none_dag(tmp0, tmp1, tmp2, tmp3, zero);
     }
@@ -1787,14 +1787,14 @@ namespace qcu
         tmp_U = (static_cast<LatticeComplex<T> *>(device_u_b_z_recv_vec) +
                  ((((_T_ * _EVEN_ODD_ * lat_t + t) * 1 + 0) * lat_y + y) * lat_x +
                   x));
-        _give_u_comm(1 - parity, tmp1, tmp_U, lat_tzyx / lat_z);
+        _give_u_comm(1 - parity, tmp1, tmp_U, lat_xyzt / lat_z);
       }
       else
       {
         move0 = move_wards[_B_Z_];
         tmp_U = (origin_U + move0 * lat_y * lat_x +
-                 (_T_ * _EVEN_ODD_ + (1 - parity)) * lat_tzyx);
-        give_u(tmp1, tmp_U, lat_tzyx);
+                 (_T_ * _EVEN_ODD_ + (1 - parity)) * lat_xyzt);
+        give_u(tmp1, tmp_U, lat_xyzt);
       }
       mult_u_none_dag(tmp0, tmp3, tmp1, tmp2, zero);
     }
@@ -1805,14 +1805,14 @@ namespace qcu
         tmp_U = (static_cast<LatticeComplex<T> *>(device_u_b_z_recv_vec) +
                  ((((_Z_ * _EVEN_ODD_ * lat_t + t) * 1 + 0) * lat_y + y) * lat_x +
                   x));
-        _give_u_comm(1 - parity, tmp1, tmp_U, lat_tzyx / lat_z);
+        _give_u_comm(1 - parity, tmp1, tmp_U, lat_xyzt / lat_z);
       }
       else
       {
         move0 = move_wards[_B_Z_];
         tmp_U = (origin_U + move0 * lat_y * lat_x +
-                 (_Z_ * _EVEN_ODD_ + (1 - parity)) * lat_tzyx);
-        give_u(tmp1, tmp_U, lat_tzyx);
+                 (_Z_ * _EVEN_ODD_ + (1 - parity)) * lat_xyzt);
+        give_u(tmp1, tmp_U, lat_xyzt);
       }
       mult_u_none_none(tmp0, tmp2, tmp1, tmp3, zero);
     }
@@ -1824,14 +1824,14 @@ namespace qcu
         tmp_U = (static_cast<LatticeComplex<T> *>(device_u_b_z_recv_vec) +
                  ((((_Z_ * _EVEN_ODD_ * lat_t + t) * 1 + 0) * lat_y + y) * lat_x +
                   x));
-        _give_u_comm(1 - parity, tmp1, tmp_U, lat_tzyx / lat_z);
+        _give_u_comm(1 - parity, tmp1, tmp_U, lat_xyzt / lat_z);
       }
       else
       {
         move0 = move_wards[_B_Z_];
         tmp_U = (origin_U + move0 * lat_y * lat_x +
-                 (_Z_ * _EVEN_ODD_ + (1 - parity)) * lat_tzyx);
-        give_u(tmp1, tmp_U, lat_tzyx);
+                 (_Z_ * _EVEN_ODD_ + (1 - parity)) * lat_xyzt);
+        give_u(tmp1, tmp_U, lat_xyzt);
       }
       ////x,y,z-1,t-1;t;dag
       if (if_b_z_b_t)
@@ -1839,7 +1839,7 @@ namespace qcu
         tmp_U =
             (static_cast<LatticeComplex<T> *>(device_u_b_z_b_t_recv_vec) +
              ((((_T_ * _EVEN_ODD_ * 1 + 0) * 1 + 0) * lat_y + y) * lat_x + x));
-        _give_u_comm(parity, tmp2, tmp_U, lat_tzyx / lat_z / lat_t);
+        _give_u_comm(parity, tmp2, tmp_U, lat_xyzt / lat_z / lat_t);
       }
       else if (if_b_z)
       {
@@ -1847,7 +1847,7 @@ namespace qcu
             (static_cast<LatticeComplex<T> *>(device_u_b_z_recv_vec) +
              ((((_T_ * _EVEN_ODD_ * lat_t + t - 1) * 1 + 0) * lat_y + y) * lat_x +
               x));
-        _give_u_comm(parity, tmp2, tmp_U, lat_tzyx / lat_z);
+        _give_u_comm(parity, tmp2, tmp_U, lat_xyzt / lat_z);
       }
       else if (if_b_t)
       {
@@ -1855,7 +1855,7 @@ namespace qcu
             (static_cast<LatticeComplex<T> *>(device_u_b_t_recv_vec) +
              ((((_T_ * _EVEN_ODD_ * 1 + 0) * lat_z + z - 1) * lat_y + y) * lat_x +
               x));
-        _give_u_comm(parity, tmp2, tmp_U, lat_tzyx / lat_t);
+        _give_u_comm(parity, tmp2, tmp_U, lat_xyzt / lat_t);
       }
       else
       {
@@ -1863,8 +1863,8 @@ namespace qcu
         move1 = move_wards[_B_T_];
         tmp_U =
             (origin_U + move0 * lat_y * lat_x + move1 * lat_z * lat_y * lat_x +
-             (_T_ * _EVEN_ODD_ + parity) * lat_tzyx);
-        give_u(tmp2, tmp_U, lat_tzyx);
+             (_T_ * _EVEN_ODD_ + parity) * lat_xyzt);
+        give_u(tmp2, tmp_U, lat_xyzt);
       }
       mult_u_dag_dag(tmp0, tmp1, tmp2, tmp3, zero);
     }
@@ -1875,7 +1875,7 @@ namespace qcu
         tmp_U =
             (static_cast<LatticeComplex<T> *>(device_u_b_z_b_t_recv_vec) +
              ((((_Z_ * _EVEN_ODD_ * 1 + 0) * 1 + 0) * lat_y + y) * lat_x + x));
-        _give_u_comm(parity, tmp1, tmp_U, lat_tzyx / lat_z / lat_t);
+        _give_u_comm(parity, tmp1, tmp_U, lat_xyzt / lat_z / lat_t);
       }
       else if (if_b_z)
       {
@@ -1883,7 +1883,7 @@ namespace qcu
             (static_cast<LatticeComplex<T> *>(device_u_b_z_recv_vec) +
              ((((_Z_ * _EVEN_ODD_ * lat_t + t - 1) * 1 + 0) * lat_y + y) * lat_x +
               x));
-        _give_u_comm(parity, tmp1, tmp_U, lat_tzyx / lat_z);
+        _give_u_comm(parity, tmp1, tmp_U, lat_xyzt / lat_z);
       }
       else if (if_b_t)
       {
@@ -1891,7 +1891,7 @@ namespace qcu
             (static_cast<LatticeComplex<T> *>(device_u_b_t_recv_vec) +
              ((((_Z_ * _EVEN_ODD_ * 1 + 0) * lat_z + z - 1) * lat_y + y) * lat_x +
               x));
-        _give_u_comm(parity, tmp1, tmp_U, lat_tzyx / lat_t);
+        _give_u_comm(parity, tmp1, tmp_U, lat_xyzt / lat_t);
       }
       else
       {
@@ -1899,8 +1899,8 @@ namespace qcu
         move1 = move_wards[_B_T_];
         tmp_U =
             (origin_U + move0 * lat_y * lat_x + move1 * lat_z * lat_y * lat_x +
-             (_Z_ * _EVEN_ODD_ + parity) * lat_tzyx);
-        give_u(tmp1, tmp_U, lat_tzyx);
+             (_Z_ * _EVEN_ODD_ + parity) * lat_xyzt);
+        give_u(tmp1, tmp_U, lat_xyzt);
       }
       mult_u_none_none(tmp0, tmp3, tmp1, tmp2, zero);
     }
@@ -1911,14 +1911,14 @@ namespace qcu
         tmp_U = (static_cast<LatticeComplex<T> *>(device_u_b_t_recv_vec) +
                  ((((_T_ * _EVEN_ODD_ * 1 + 0) * lat_z + z) * lat_y + y) * lat_x +
                   x));
-        _give_u_comm(1 - parity, tmp1, tmp_U, lat_tzyx / lat_t);
+        _give_u_comm(1 - parity, tmp1, tmp_U, lat_xyzt / lat_t);
       }
       else
       {
         move0 = move_wards[_B_T_];
         tmp_U = (origin_U + move0 * lat_z * lat_y * lat_x +
-                 (_T_ * _EVEN_ODD_ + (1 - parity)) * lat_tzyx);
-        give_u(tmp1, tmp_U, lat_tzyx);
+                 (_T_ * _EVEN_ODD_ + (1 - parity)) * lat_xyzt);
+        give_u(tmp1, tmp_U, lat_xyzt);
       }
       mult_u_none_none(tmp0, tmp2, tmp1, tmp3, zero);
     }
@@ -1930,14 +1930,14 @@ namespace qcu
         tmp_U = (static_cast<LatticeComplex<T> *>(device_u_b_t_recv_vec) +
                  ((((_T_ * _EVEN_ODD_ * 1 + 0) * lat_z + z) * lat_y + y) * lat_x +
                   x));
-        _give_u_comm(1 - parity, tmp1, tmp_U, lat_tzyx / lat_t);
+        _give_u_comm(1 - parity, tmp1, tmp_U, lat_xyzt / lat_t);
       }
       else
       {
         move0 = move_wards[_B_T_];
         tmp_U = (origin_U + move0 * lat_z * lat_y * lat_x +
-                 (_T_ * _EVEN_ODD_ + (1 - parity)) * lat_tzyx);
-        give_u(tmp1, tmp_U, lat_tzyx);
+                 (_T_ * _EVEN_ODD_ + (1 - parity)) * lat_xyzt);
+        give_u(tmp1, tmp_U, lat_xyzt);
       }
       ////x,y,z,t-1;z
       if (if_b_t)
@@ -1945,14 +1945,14 @@ namespace qcu
         tmp_U = (static_cast<LatticeComplex<T> *>(device_u_b_t_recv_vec) +
                  ((((_Z_ * _EVEN_ODD_ * 1 + 0) * lat_z + z) * lat_y + y) * lat_x +
                   x));
-        _give_u_comm(1 - parity, tmp2, tmp_U, lat_tzyx / lat_t);
+        _give_u_comm(1 - parity, tmp2, tmp_U, lat_xyzt / lat_t);
       }
       else
       {
         move0 = move_wards[_B_T_];
         tmp_U = (origin_U + move0 * lat_z * lat_y * lat_x +
-                 (_Z_ * _EVEN_ODD_ + (1 - parity)) * lat_tzyx);
-        give_u(tmp2, tmp_U, lat_tzyx);
+                 (_Z_ * _EVEN_ODD_ + (1 - parity)) * lat_xyzt);
+        give_u(tmp2, tmp_U, lat_xyzt);
       }
       mult_u_dag_none(tmp0, tmp1, tmp2, tmp3, zero);
     }
@@ -1963,7 +1963,7 @@ namespace qcu
         tmp_U =
             (static_cast<LatticeComplex<T> *>(device_u_f_z_b_t_recv_vec) +
              ((((_T_ * _EVEN_ODD_ * 1 + 0) * 1 + 0) * lat_y + y) * lat_x + x));
-        _give_u_comm(parity, tmp1, tmp_U, lat_tzyx / lat_z / lat_t);
+        _give_u_comm(parity, tmp1, tmp_U, lat_xyzt / lat_z / lat_t);
       }
       else if (if_f_z)
       {
@@ -1971,7 +1971,7 @@ namespace qcu
             (static_cast<LatticeComplex<T> *>(device_u_f_z_recv_vec) +
              ((((_T_ * _EVEN_ODD_ * lat_t + t - 1) * 1 + 0) * lat_y + y) * lat_x +
               x));
-        _give_u_comm(parity, tmp1, tmp_U, lat_tzyx / lat_z);
+        _give_u_comm(parity, tmp1, tmp_U, lat_xyzt / lat_z);
       }
       else if (if_b_t)
       {
@@ -1979,7 +1979,7 @@ namespace qcu
             (static_cast<LatticeComplex<T> *>(device_u_b_t_recv_vec) +
              ((((_T_ * _EVEN_ODD_ * 1 + 0) * lat_z + z + 1) * lat_y + y) * lat_x +
               x));
-        _give_u_comm(parity, tmp1, tmp_U, lat_tzyx / lat_t);
+        _give_u_comm(parity, tmp1, tmp_U, lat_xyzt / lat_t);
       }
       else
       {
@@ -1987,15 +1987,15 @@ namespace qcu
         move1 = move_wards[_B_T_];
         tmp_U =
             (origin_U + move0 * lat_y * lat_x + move1 * lat_z * lat_y * lat_x +
-             (_T_ * _EVEN_ODD_ + parity) * lat_tzyx);
-        give_u(tmp1, tmp_U, lat_tzyx);
+             (_T_ * _EVEN_ODD_ + parity) * lat_xyzt);
+        give_u(tmp1, tmp_U, lat_xyzt);
       }
       mult_u_none_none(tmp0, tmp3, tmp1, tmp2, zero);
     }
     {
       ////x,y,z,t;z;dag
-      tmp_U = (origin_U + (_Z_ * _EVEN_ODD_ + parity) * lat_tzyx);
-      give_u(tmp1, tmp_U, lat_tzyx);
+      tmp_U = (origin_U + (_Z_ * _EVEN_ODD_ + parity) * lat_xyzt);
+      give_u(tmp1, tmp_U, lat_xyzt);
       mult_u_none_dag(tmp0, tmp2, tmp1, tmp3, zero);
     }
     add_vals(U, tmp3, _LAT_CC_);
@@ -2027,7 +2027,7 @@ namespace qcu
         clover[i * 13] += one;
       }
     }
-    give_clr(origin_clover, clover, lat_tzyx);
+    give_clr(origin_clover, clover, lat_xyzt);
   }
   //@@@CUDA_TEMPLATE_FOR_DEVICE@@@
   template __global__ void make_clover_all<double>(

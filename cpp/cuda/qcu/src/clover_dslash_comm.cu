@@ -14,7 +14,7 @@ namespace qcu
     int lat_y = params[_LAT_Y_];
     int lat_z = params[_LAT_Z_];
     // int lat_t = params[_LAT_T_];
-    int lat_tzyx = params[_LAT_XYZT_];
+    int lat_xyzt = params[_LAT_XYZT_];
     int tmp1;
     tmp1 = lat_x * lat_y * lat_z;
     int t = tmp0 / tmp1;
@@ -37,13 +37,13 @@ namespace qcu
     tmp_U = (origin_U + ((((t)*lat_z + z) * lat_y + y) * lat_x + 0));
     for (int i = 0; i < _LAT_PDCC_; i++)
     {
-      u_b_x_send_vec[i * lat_tzyx / lat_x] = tmp_U[i * lat_tzyx];
+      u_b_x_send_vec[i * lat_xyzt / lat_x] = tmp_U[i * lat_xyzt];
     }
     // f_x
     tmp_U = (origin_U + ((((t)*lat_z + z) * lat_y + y) * lat_x + lat_x - 1));
     for (int i = 0; i < _LAT_PDCC_; i++)
     {
-      u_f_x_send_vec[i * lat_tzyx / lat_x] = tmp_U[i * lat_tzyx];
+      u_f_x_send_vec[i * lat_xyzt / lat_x] = tmp_U[i * lat_xyzt];
     }
   }
   template <typename T>
@@ -58,7 +58,7 @@ namespace qcu
     int lat_y = 1;
     int lat_z = params[_LAT_Z_];
     // int lat_t = params[_LAT_T_];
-    int lat_tzyx = params[_LAT_XYZT_];
+    int lat_xyzt = params[_LAT_XYZT_];
     int tmp1;
     tmp1 = lat_x * lat_y * lat_z;
     int t = tmp0 / tmp1;
@@ -81,13 +81,13 @@ namespace qcu
     tmp_U = (origin_U + ((((t)*lat_z + z) * lat_y + 0) * lat_x + x));
     for (int i = 0; i < _LAT_PDCC_; i++)
     {
-      u_b_y_send_vec[i * lat_tzyx / lat_y] = tmp_U[i * lat_tzyx];
+      u_b_y_send_vec[i * lat_xyzt / lat_y] = tmp_U[i * lat_xyzt];
     }
     // f_y
     tmp_U = (origin_U + ((((t)*lat_z + z) * lat_y + lat_y - 1) * lat_x + x));
     for (int i = 0; i < _LAT_PDCC_; i++)
     {
-      u_f_y_send_vec[i * lat_tzyx / lat_y] = tmp_U[i * lat_tzyx];
+      u_f_y_send_vec[i * lat_xyzt / lat_y] = tmp_U[i * lat_xyzt];
     }
   }
   template <typename T>
@@ -102,7 +102,7 @@ namespace qcu
     int lat_y = params[_LAT_Y_];
     int lat_z = 1;
     // int lat_t = params[_LAT_T_];
-    int lat_tzyx = params[_LAT_XYZT_];
+    int lat_xyzt = params[_LAT_XYZT_];
     int tmp1;
     tmp1 = lat_x * lat_y * lat_z;
     int t = tmp0 / tmp1;
@@ -125,13 +125,13 @@ namespace qcu
     tmp_U = (origin_U + ((((t)*lat_z + 0) * lat_y + y) * lat_x + x));
     for (int i = 0; i < _LAT_PDCC_; i++)
     {
-      u_b_z_send_vec[i * lat_tzyx / lat_z] = tmp_U[i * lat_tzyx];
+      u_b_z_send_vec[i * lat_xyzt / lat_z] = tmp_U[i * lat_xyzt];
     }
     // f_z
     tmp_U = (origin_U + ((((t)*lat_z + lat_z - 1) * lat_y + y) * lat_x + x));
     for (int i = 0; i < _LAT_PDCC_; i++)
     {
-      u_f_z_send_vec[i * lat_tzyx / lat_z] = tmp_U[i * lat_tzyx];
+      u_f_z_send_vec[i * lat_xyzt / lat_z] = tmp_U[i * lat_xyzt];
     }
   }
   template <typename T>
@@ -146,7 +146,7 @@ namespace qcu
     int lat_y = params[_LAT_Y_];
     int lat_z = params[_LAT_Z_];
     int lat_t = 1;
-    int lat_tzyx = params[_LAT_XYZT_];
+    int lat_xyzt = params[_LAT_XYZT_];
     int tmp1;
     tmp1 = lat_x * lat_y * lat_z;
     int t = tmp0 / tmp1;
@@ -169,13 +169,13 @@ namespace qcu
     tmp_U = (origin_U + ((((0) * lat_z + z) * lat_y + y) * lat_x + x));
     for (int i = 0; i < _LAT_PDCC_; i++)
     {
-      u_b_t_send_vec[i * lat_tzyx / lat_t] = tmp_U[i * lat_tzyx];
+      u_b_t_send_vec[i * lat_xyzt / lat_t] = tmp_U[i * lat_xyzt];
     }
     // f_t
     tmp_U = (origin_U + ((((lat_t - 1) * lat_z + z) * lat_y + y) * lat_x + x));
     for (int i = 0; i < _LAT_PDCC_; i++)
     {
-      u_f_t_send_vec[i * lat_tzyx / lat_t] = tmp_U[i * lat_tzyx];
+      u_f_t_send_vec[i * lat_xyzt / lat_t] = tmp_U[i * lat_xyzt];
     }
   }
   template <typename T>
@@ -192,7 +192,7 @@ namespace qcu
     int lat_y = 1;
     int lat_z = params[_LAT_Z_];
     // int lat_t = params[_LAT_T_];
-    int lat_tzyx = params[_LAT_XYZT_];
+    int lat_xyzt = params[_LAT_XYZT_];
     int tmp1;
     tmp1 = lat_x * lat_y * lat_z;
     int t = tmp0 / tmp1;
@@ -220,26 +220,26 @@ namespace qcu
     tmp_U = (origin_U + ((((t)*lat_z + z) * lat_y + 0) * lat_x + 0));
     for (int i = 0; i < _LAT_PDCC_; i++)
     {
-      u_b_x_b_y_send_vec[i * lat_tzyx / lat_x / lat_y] = tmp_U[i * lat_tzyx];
+      u_b_x_b_y_send_vec[i * lat_xyzt / lat_x / lat_y] = tmp_U[i * lat_xyzt];
     }
     // f_x_b_y
     tmp_U = (origin_U + ((((t)*lat_z + z) * lat_y + 0) * lat_x + lat_x - 1));
     for (int i = 0; i < _LAT_PDCC_; i++)
     {
-      u_f_x_b_y_send_vec[i * lat_tzyx / lat_x / lat_y] = tmp_U[i * lat_tzyx];
+      u_f_x_b_y_send_vec[i * lat_xyzt / lat_x / lat_y] = tmp_U[i * lat_xyzt];
     }
     // b_x_f_y
     tmp_U = (origin_U + ((((t)*lat_z + z) * lat_y + lat_y - 1) * lat_x + 0));
     for (int i = 0; i < _LAT_PDCC_; i++)
     {
-      u_b_x_f_y_send_vec[i * lat_tzyx / lat_x / lat_y] = tmp_U[i * lat_tzyx];
+      u_b_x_f_y_send_vec[i * lat_xyzt / lat_x / lat_y] = tmp_U[i * lat_xyzt];
     }
     // f_x_f_y
     tmp_U =
         (origin_U + ((((t)*lat_z + z) * lat_y + lat_y - 1) * lat_x + lat_x - 1));
     for (int i = 0; i < _LAT_PDCC_; i++)
     {
-      u_f_x_f_y_send_vec[i * lat_tzyx / lat_x / lat_y] = tmp_U[i * lat_tzyx];
+      u_f_x_f_y_send_vec[i * lat_xyzt / lat_x / lat_y] = tmp_U[i * lat_xyzt];
     }
   }
   template <typename T>
@@ -256,7 +256,7 @@ namespace qcu
     int lat_y = params[_LAT_Y_];
     int lat_z = 1;
     // int lat_t = params[_LAT_T_];
-    int lat_tzyx = params[_LAT_XYZT_];
+    int lat_xyzt = params[_LAT_XYZT_];
     int tmp1;
     tmp1 = lat_x * lat_y * lat_z;
     int t = tmp0 / tmp1;
@@ -284,26 +284,26 @@ namespace qcu
     tmp_U = (origin_U + ((((t)*lat_z + 0) * lat_y + y) * lat_x + 0));
     for (int i = 0; i < _LAT_PDCC_; i++)
     {
-      u_b_x_b_z_send_vec[i * lat_tzyx / lat_x / lat_z] = tmp_U[i * lat_tzyx];
+      u_b_x_b_z_send_vec[i * lat_xyzt / lat_x / lat_z] = tmp_U[i * lat_xyzt];
     }
     // f_x_b_z
     tmp_U = (origin_U + ((((t)*lat_z + 0) * lat_y + y) * lat_x + lat_x - 1));
     for (int i = 0; i < _LAT_PDCC_; i++)
     {
-      u_f_x_b_z_send_vec[i * lat_tzyx / lat_x / lat_z] = tmp_U[i * lat_tzyx];
+      u_f_x_b_z_send_vec[i * lat_xyzt / lat_x / lat_z] = tmp_U[i * lat_xyzt];
     }
     // b_x_f_z
     tmp_U = (origin_U + ((((t)*lat_z + lat_z - 1) * lat_y + y) * lat_x + 0));
     for (int i = 0; i < _LAT_PDCC_; i++)
     {
-      u_b_x_f_z_send_vec[i * lat_tzyx / lat_x / lat_z] = tmp_U[i * lat_tzyx];
+      u_b_x_f_z_send_vec[i * lat_xyzt / lat_x / lat_z] = tmp_U[i * lat_xyzt];
     }
     // f_x_f_z
     tmp_U =
         (origin_U + ((((t)*lat_z + lat_z - 1) * lat_y + y) * lat_x + lat_x - 1));
     for (int i = 0; i < _LAT_PDCC_; i++)
     {
-      u_f_x_f_z_send_vec[i * lat_tzyx / lat_x / lat_z] = tmp_U[i * lat_tzyx];
+      u_f_x_f_z_send_vec[i * lat_xyzt / lat_x / lat_z] = tmp_U[i * lat_xyzt];
     }
   }
   template <typename T>
@@ -320,7 +320,7 @@ namespace qcu
     int lat_y = params[_LAT_Y_];
     int lat_z = params[_LAT_Z_];
     int lat_t = 1;
-    int lat_tzyx = params[_LAT_XYZT_];
+    int lat_xyzt = params[_LAT_XYZT_];
     int tmp1;
     tmp1 = lat_x * lat_y * lat_z;
     int t = tmp0 / tmp1;
@@ -348,26 +348,26 @@ namespace qcu
     tmp_U = (origin_U + ((((0) * lat_z + z) * lat_y + y) * lat_x + 0));
     for (int i = 0; i < _LAT_PDCC_; i++)
     {
-      u_b_x_b_t_send_vec[i * lat_tzyx / lat_x / lat_t] = tmp_U[i * lat_tzyx];
+      u_b_x_b_t_send_vec[i * lat_xyzt / lat_x / lat_t] = tmp_U[i * lat_xyzt];
     }
     // f_x_b_t
     tmp_U = (origin_U + ((((0) * lat_z + z) * lat_y + y) * lat_x + lat_x - 1));
     for (int i = 0; i < _LAT_PDCC_; i++)
     {
-      u_f_x_b_t_send_vec[i * lat_tzyx / lat_x / lat_t] = tmp_U[i * lat_tzyx];
+      u_f_x_b_t_send_vec[i * lat_xyzt / lat_x / lat_t] = tmp_U[i * lat_xyzt];
     }
     // b_x_f_t
     tmp_U = (origin_U + ((((lat_t - 1) * lat_z + z) * lat_y + y) * lat_x + 0));
     for (int i = 0; i < _LAT_PDCC_; i++)
     {
-      u_b_x_f_t_send_vec[i * lat_tzyx / lat_x / lat_t] = tmp_U[i * lat_tzyx];
+      u_b_x_f_t_send_vec[i * lat_xyzt / lat_x / lat_t] = tmp_U[i * lat_xyzt];
     }
     // f_x_f_t
     tmp_U = (origin_U +
              ((((lat_t - 1) * lat_z + z) * lat_y + y) * lat_x + lat_x - 1));
     for (int i = 0; i < _LAT_PDCC_; i++)
     {
-      u_f_x_f_t_send_vec[i * lat_tzyx / lat_x / lat_t] = tmp_U[i * lat_tzyx];
+      u_f_x_f_t_send_vec[i * lat_xyzt / lat_x / lat_t] = tmp_U[i * lat_xyzt];
     }
   }
   template <typename T>
@@ -384,7 +384,7 @@ namespace qcu
     int lat_y = 1;
     int lat_z = 1;
     // int lat_t = params[_LAT_T_];
-    int lat_tzyx = params[_LAT_XYZT_];
+    int lat_xyzt = params[_LAT_XYZT_];
     int tmp1;
     tmp1 = lat_x * lat_y * lat_z;
     int t = tmp0 / tmp1;
@@ -412,26 +412,26 @@ namespace qcu
     tmp_U = (origin_U + ((((t)*lat_z + 0) * lat_y + 0) * lat_x + x));
     for (int i = 0; i < _LAT_PDCC_; i++)
     {
-      u_b_y_b_z_send_vec[i * lat_tzyx / lat_y / lat_z] = tmp_U[i * lat_tzyx];
+      u_b_y_b_z_send_vec[i * lat_xyzt / lat_y / lat_z] = tmp_U[i * lat_xyzt];
     }
     // f_y_b_z
     tmp_U = (origin_U + ((((t)*lat_z + 0) * lat_y + lat_y - 1) * lat_x + x));
     for (int i = 0; i < _LAT_PDCC_; i++)
     {
-      u_f_y_b_z_send_vec[i * lat_tzyx / lat_y / lat_z] = tmp_U[i * lat_tzyx];
+      u_f_y_b_z_send_vec[i * lat_xyzt / lat_y / lat_z] = tmp_U[i * lat_xyzt];
     }
     // b_y_f_z
     tmp_U = (origin_U + ((((t)*lat_z + lat_z - 1) * lat_y + 0) * lat_x + x));
     for (int i = 0; i < _LAT_PDCC_; i++)
     {
-      u_b_y_f_z_send_vec[i * lat_tzyx / lat_y / lat_z] = tmp_U[i * lat_tzyx];
+      u_b_y_f_z_send_vec[i * lat_xyzt / lat_y / lat_z] = tmp_U[i * lat_xyzt];
     }
     // f_y_f_z
     tmp_U =
         (origin_U + ((((t)*lat_z + lat_z - 1) * lat_y + lat_y - 1) * lat_x + x));
     for (int i = 0; i < _LAT_PDCC_; i++)
     {
-      u_f_y_f_z_send_vec[i * lat_tzyx / lat_y / lat_z] = tmp_U[i * lat_tzyx];
+      u_f_y_f_z_send_vec[i * lat_xyzt / lat_y / lat_z] = tmp_U[i * lat_xyzt];
     }
   }
   template <typename T>
@@ -448,7 +448,7 @@ namespace qcu
     int lat_y = 1;
     int lat_z = params[_LAT_Z_];
     int lat_t = 1;
-    int lat_tzyx = params[_LAT_XYZT_];
+    int lat_xyzt = params[_LAT_XYZT_];
     int tmp1;
     tmp1 = lat_x * lat_y * lat_z;
     int t = tmp0 / tmp1;
@@ -476,26 +476,26 @@ namespace qcu
     tmp_U = (origin_U + ((((0) * lat_z + z) * lat_y + 0) * lat_x + x));
     for (int i = 0; i < _LAT_PDCC_; i++)
     {
-      u_b_y_b_t_send_vec[i * lat_tzyx / lat_y / lat_t] = tmp_U[i * lat_tzyx];
+      u_b_y_b_t_send_vec[i * lat_xyzt / lat_y / lat_t] = tmp_U[i * lat_xyzt];
     }
     // f_y_b_t
     tmp_U = (origin_U + ((((0) * lat_z + z) * lat_y + lat_y - 1) * lat_x + x));
     for (int i = 0; i < _LAT_PDCC_; i++)
     {
-      u_f_y_b_t_send_vec[i * lat_tzyx / lat_y / lat_t] = tmp_U[i * lat_tzyx];
+      u_f_y_b_t_send_vec[i * lat_xyzt / lat_y / lat_t] = tmp_U[i * lat_xyzt];
     }
     // b_y_f_t
     tmp_U = (origin_U + ((((lat_t - 1) * lat_z + z) * lat_y + 0) * lat_x + x));
     for (int i = 0; i < _LAT_PDCC_; i++)
     {
-      u_b_y_f_t_send_vec[i * lat_tzyx / lat_y / lat_t] = tmp_U[i * lat_tzyx];
+      u_b_y_f_t_send_vec[i * lat_xyzt / lat_y / lat_t] = tmp_U[i * lat_xyzt];
     }
     // f_y_f_t
     tmp_U = (origin_U +
              ((((lat_t - 1) * lat_z + z) * lat_y + lat_y - 1) * lat_x + x));
     for (int i = 0; i < _LAT_PDCC_; i++)
     {
-      u_f_y_f_t_send_vec[i * lat_tzyx / lat_y / lat_t] = tmp_U[i * lat_tzyx];
+      u_f_y_f_t_send_vec[i * lat_xyzt / lat_y / lat_t] = tmp_U[i * lat_xyzt];
     }
   }
   template <typename T>
@@ -512,7 +512,7 @@ namespace qcu
     int lat_y = params[_LAT_Y_];
     int lat_z = 1;
     int lat_t = 1;
-    int lat_tzyx = params[_LAT_XYZT_];
+    int lat_xyzt = params[_LAT_XYZT_];
     int tmp1;
     tmp1 = lat_x * lat_y * lat_z;
     int t = tmp0 / tmp1;
@@ -539,26 +539,26 @@ namespace qcu
     tmp_U = (origin_U + ((((0) * lat_z + 0) * lat_y + y) * lat_x + x));
     for (int i = 0; i < _LAT_PDCC_; i++)
     {
-      u_b_z_b_t_send_vec[i * lat_tzyx / lat_z / lat_t] = tmp_U[i * lat_tzyx];
+      u_b_z_b_t_send_vec[i * lat_xyzt / lat_z / lat_t] = tmp_U[i * lat_xyzt];
     }
     // f_z_b_t
     tmp_U = (origin_U + ((((0) * lat_z + lat_z - 1) * lat_y + y) * lat_x + x));
     for (int i = 0; i < _LAT_PDCC_; i++)
     {
-      u_f_z_b_t_send_vec[i * lat_tzyx / lat_z / lat_t] = tmp_U[i * lat_tzyx];
+      u_f_z_b_t_send_vec[i * lat_xyzt / lat_z / lat_t] = tmp_U[i * lat_xyzt];
     }
     // b_z_f_t
     tmp_U = (origin_U + ((((lat_t - 1) * lat_z + 0) * lat_y + y) * lat_x + x));
     for (int i = 0; i < _LAT_PDCC_; i++)
     {
-      u_b_z_f_t_send_vec[i * lat_tzyx / lat_z / lat_t] = tmp_U[i * lat_tzyx];
+      u_b_z_f_t_send_vec[i * lat_xyzt / lat_z / lat_t] = tmp_U[i * lat_xyzt];
     }
     // f_z_f_t
     tmp_U = (origin_U +
              ((((lat_t - 1) * lat_z + lat_z - 1) * lat_y + y) * lat_x + x));
     for (int i = 0; i < _LAT_PDCC_; i++)
     {
-      u_f_z_f_t_send_vec[i * lat_tzyx / lat_z / lat_t] = tmp_U[i * lat_tzyx];
+      u_f_z_f_t_send_vec[i * lat_xyzt / lat_z / lat_t] = tmp_U[i * lat_xyzt];
     }
   }
   //@@@CUDA_TEMPLATE_FOR_DEVICE@@@
