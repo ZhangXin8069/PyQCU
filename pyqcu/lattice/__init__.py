@@ -113,7 +113,7 @@ gell_mann[4] = gell_mann[4] * 1j
 gell_mann[6] = gell_mann[6] * 1j
 
 
-def check_su3(U: torch.Tensor, tol: float = 1e-3, verbose: bool = False) -> bool:
+def check_su3(U: torch.Tensor, tol: float = 1e-3, verbose: bool = True) -> bool:
     U_mat = U.permute(*range(2, U.ndim), 0,
                       1).reshape(-1, 3, 3)  # N x 3 x 3
     N = U_mat.shape[0]
