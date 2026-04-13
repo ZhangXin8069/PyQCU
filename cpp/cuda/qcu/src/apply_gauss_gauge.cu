@@ -13,16 +13,12 @@ void applyGaussGaugeQcu(long long _gauge, long long _set_ptrs, long long _params
   if (data_type == _LAT_C64_)
   {
     void *set_ptr = (void *)(static_cast<long long *>(set_ptrs)[set_index]); // define for apply_gauss_gauge
-    // dptzyxcc2ccdptzyx<float>(gauge, &_set);
     make_gauss_gauge<float>(gauge, set_ptr);
-    // ccdptzyx2dptzyxcc<float>(gauge, &_set);
   }
   else if (data_type == _LAT_C128_)
   {
     void *set_ptr = (void *)(static_cast<long long *>(set_ptrs)[set_index]); // define for apply_gauss_gauge
-    // dptzyxcc2ccdptzyx<double>(gauge, &_set);
     make_gauss_gauge<double>(gauge, set_ptr);
-    // ccdptzyx2dptzyxcc<double>(gauge, &_set);
   }
   else
   {

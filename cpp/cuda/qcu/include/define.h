@@ -56,7 +56,8 @@ namespace qcu
 #define _LAT_R128_ 9
 #define _SET_INDEX_ 15
 #define _SET_PLAN_ 16
-#define _SET_PLAN_N_1_ -1 // just for laplacian
+#define _SET_PLAN_N_2_ -2 // just for laplacian
+#define _SET_PLAN_N_1_ -1 // just for gauss gauge
 #define _SET_PLAN0_ 0     // for wilson dslash
 #define _SET_PLAN1_ 1     // just for bistabcg and cg
 #define _SET_PLAN2_ 2     // for clover dslash
@@ -174,55 +175,6 @@ namespace qcu
 #define _GRID_EXAMPLE_ 1
 #define _MEM_POOL_ 0
 #define _CHECK_ERROR_ 1
-#define give_filename(filename, _set_host_params) \
-  {                                               \
-    filename << "_" << time(nullptr) << "_-";     \
-    for (int _ : _set_host_params)                \
-    {                                             \
-      filename << _ << "-";                       \
-    }                                             \
-    filename << typeid(T).name() << ".bin";       \
-    std::cout << filename.str() << std::endl;     \
-  }
-#define get_filename(filename, param, parity, grid) \
-  {                                                 \
-    int i = 0;                                      \
-    int _[_PARAMS_SIZE_];                           \
-    std::string segment;                            \
-    std::cout << filename.str() << std::endl;       \
-    while (std::getline(filename, segment, '-'))    \
-    {                                               \
-      try                                           \
-      {                                             \
-        _[i] = std::stoi(segment);                  \
-        std::cout << _[i] << std::endl;             \
-        i++;                                        \
-      }                                             \
-      catch (const std::invalid_argument &)         \
-      {                                             \
-      }                                             \
-    }                                               \
-    param.lattice_size[_X_] = _[_LAT_X_];           \
-    param.lattice_size[_Y_] = _[_LAT_Y_];           \
-    param.lattice_size[_Z_] = _[_LAT_Z_];           \
-    param.lattice_size[_T_] = _[_LAT_T_];           \
-    parity = _[_PARITY_];                           \
-    grid.lattice_size[_X_] = _[_GRID_X_];           \
-    grid.lattice_size[_Y_] = _[_GRID_Y_];           \
-    grid.lattice_size[_Z_] = _[_GRID_Z_];           \
-    grid.lattice_size[_T_] = _[_GRID_T_];           \
-  }
-// CUDA API error checking
-#define CUDA_CHECK(err)                                                  \
-  do                                                                     \
-  {                                                                      \
-    cudaError_t err_ = (err);                                            \
-    if (err_ != cudaSuccess)                                             \
-    {                                                                    \
-      std::printf("CUDA error %d at %s:%d\n", err_, __FILE__, __LINE__); \
-      throw std::runtime_error("CUDA error");                            \
-    }                                                                    \
-  } while (0)
 // cublas API error checking
 #define CUBLAS_CHECK(err)                                                  \
   do                                                                       \
@@ -234,40 +186,6 @@ namespace qcu
       throw std::runtime_error("cublas error");                            \
     }                                                                      \
   } while (0)
-// curand API error checking
-#define CURAND_CHECK(err)                                                  \
-  do                                                                       \
-  {                                                                        \
-    curandStatus_t err_ = (err);                                           \
-    if (err_ != CURAND_STATUS_SUCCESS)                                     \
-    {                                                                      \
-      std::printf("curand error %d at %s:%d\n", err_, __FILE__, __LINE__); \
-      throw std::runtime_error("curand error");                            \
-    }                                                                      \
-  } while (0)
-#define give_ptr(U, origin_U, n) \
-  {                              \
-    for (int i = 0; i < n; i++)  \
-    {                            \
-      U[i] = origin_U[i];        \
-    }                            \
-  }
-#define move_backward(move, y, lat_y) \
-  {                                   \
-    move = -1 + (y == 0) * lat_y;     \
-  }
-#define move_forward(move, y, lat_y)     \
-  {                                      \
-    move = 1 - (y == lat_y - 1) * lat_y; \
-  }
-#define move_backward_x(move, x, lat_x, eo, parity)  \
-  {                                                  \
-    move = (-1 + (x == 0) * lat_x) * (eo == parity); \
-  }
-#define move_forward_x(move, x, lat_x, eo, parity)          \
-  {                                                         \
-    move = (1 - (x == lat_x - 1) * lat_x) * (eo != parity); \
-  }
 #define checkCudaErrors(err)                                       \
   {                                                                \
     if (_CHECK_ERROR_)                                             \
@@ -296,6 +214,23 @@ namespace qcu
       }                                                   \
     }                                                     \
   }
+#define move_backward(move, o, lat_o) \
+  {                                   \
+    move = -1 + (o == 0) * lat_o;     \
+  }
+#define move_forward(move, o, lat_o)     \
+  {                                      \
+    move = 1 - (o == lat_o - 1) * lat_o; \
+  }
+#define move_backward_t(move, t, lat_t, eo, parity)  \
+  {                                                  \
+    move = (-1 + (t == 0) * lat_t) * (eo == parity); \
+  }
+#define move_forward_t(move, t, lat_t, eo, parity)          \
+  {                                                         \
+    move = (1 - (t == lat_t - 1) * lat_t) * (eo != parity); \
+  }
+
 // little strange, but don't want change
 #define give_vals(U, zero, n)   \
   {                             \
@@ -304,128 +239,66 @@ namespace qcu
       U[i] = zero;              \
     }                           \
   }
-#define give_u(U, tmp_U, lat_tzyx)                       \
+#define give_u(U, tmp_U, lat_xyzt)                       \
   {                                                      \
     for (int i = 0; i < _LAT_2C_; i++)                   \
     {                                                    \
-      U[i] = tmp_U[i * _LAT_D_ * _EVEN_ODD_ * lat_tzyx]; \
+      U[i] = tmp_U[i * _LAT_D_ * _EVEN_ODD_ * lat_xyzt]; \
     }                                                    \
     U[6] = (U[1] * U[5] - U[2] * U[4]).conj();           \
     U[7] = (U[2] * U[3] - U[0] * U[5]).conj();           \
     U[8] = (U[0] * U[4] - U[1] * U[3]).conj();           \
   }
-// #define give_u(U, tmp_U, lat_tzyx)                       \
-//   {                                                      \
-//     for (int i = 0; i < _LAT_CC_; i++)                   \
-//     {                                                    \
-//       U[i] = tmp_U[i * _LAT_D_ * _EVEN_ODD_ * lat_tzyx]; \
-//     }                                                    \
-//   }
-// #define give_u(U, tmp_U, lat_tzyx) \
-//   {                                \
-//     U[0]._data.x = 1.0;            \
-//     U[1]._data.x = 0.0;            \
-//     U[2]._data.x = 0.0;            \
-//     U[3]._data.x = 0.0;            \
-//     U[4]._data.x = 1.0;            \
-//     U[5]._data.x = 0.0;            \
-//     U[6]._data.x = 0.0;            \
-//     U[7]._data.x = 0.0;            \
-//     U[8]._data.x = 1.0;            \
-//   }
-// #define give_u(U, tmp_U, lat_tzyx) \
-//   {                                \
-//     U[0]._data.x = 0.0;            \
-//     U[1]._data.x = 1.0;            \
-//     U[2]._data.x = 2.0;            \
-//     U[3]._data.x = 3.0;            \
-//     U[4]._data.x = 4.0;            \
-//     U[5]._data.x = 5.0;            \
-//     U[6]._data.x = 6.0;            \
-//     U[7]._data.x = 7.0;            \
-//     U[8]._data.x = 8.0;            \
-//   }
-#define _give_u_comm(parity, U, tmp_U, _lat_tzyx)                    \
+#define _give_u_comm(parity, U, tmp_U, _lat_xyzt)                    \
   {                                                                  \
     for (int i = 0; i < _LAT_2C_; i++)                               \
     {                                                                \
-      U[i] = tmp_U[(i * _LAT_D_ * _EVEN_ODD_ + parity) * _lat_tzyx]; \
+      U[i] = tmp_U[(i * _LAT_D_ * _EVEN_ODD_ + parity) * _lat_xyzt]; \
     }                                                                \
     U[6] = (U[1] * U[5] - U[2] * U[4]).conj();                       \
     U[7] = (U[2] * U[3] - U[0] * U[5]).conj();                       \
     U[8] = (U[0] * U[4] - U[1] * U[3]).conj();                       \
   }
-// #define _give_u_comm(parity, U, tmp_U, _lat_tzyx)                    \
-//   {                                                                  \
-//     for (int i = 0; i < _LAT_CC_; i++)                               \
-//     {                                                                \
-//       U[i] = tmp_U[(i * _LAT_D_ * _EVEN_ODD_ + parity) * _lat_tzyx]; \
-//     }                                                                \
-//   }
-// #define _give_u_comm(parity, U, tmp_U, _lat_tzyx) \
-//   {                                               \
-//     U[0]._data.x = 1.0;                           \
-//     U[1]._data.x = 0.0;                           \
-//     U[2]._data.x = 0.0;                           \
-//     U[3]._data.x = 0.0;                           \
-//     U[4]._data.x = 1.0;                           \
-//     U[5]._data.x = 0.0;                           \
-//     U[6]._data.x = 0.0;                           \
-//     U[7]._data.x = 0.0;                           \
-//     U[8]._data.x = 1.0;                           \
-//   }
-// #define _give_u_comm(parity, U, tmp_U, _lat_tzyx) \
-//   {                                               \
-//     U[0]._data.x = 0.0;                           \
-//     U[1]._data.x = 1.0;                           \
-//     U[2]._data.x = 2.0;                           \
-//     U[3]._data.x = 3.0;                           \
-//     U[4]._data.x = 4.0;                           \
-//     U[5]._data.x = 5.0;                           \
-//     U[6]._data.x = 6.0;                           \
-//     U[7]._data.x = 7.0;                           \
-//     U[8]._data.x = 8.0;                           \
-//   }
-#define give_u_laplacian(U, tmp_U, lat_tzyx) \
+#define give_u_laplacian(U, tmp_U, lat_xyzt) \
   {                                          \
     for (int i = 0; i < _LAT_CC_; i++)       \
     {                                        \
-      U[i] = tmp_U[i * _LAT_3D_ * lat_tzyx]; \
+      U[i] = tmp_U[i * _LAT_3D_ * lat_xyzt]; \
     }                                        \
   }
-#define get_src(src, origin_src, lat_tzyx) \
+#define get_src(src, origin_src, lat_xyzt) \
   {                                        \
     for (int i = 0; i < _LAT_SC_; i++)     \
     {                                      \
-      src[i] = origin_src[i * lat_tzyx];   \
+      src[i] = origin_src[i * lat_xyzt];   \
     }                                      \
   }
-#define get_src_laplacian(src, origin_src, lat_tzyx) \
+#define get_src_laplacian(src, origin_src, lat_xyzt) \
   {                                                  \
     for (int i = 0; i < _LAT_C_; i++)                \
     {                                                \
-      src[i] = origin_src[i * lat_tzyx];             \
+      src[i] = origin_src[i * lat_xyzt];             \
     }                                                \
   }
-#define give_dest(origin_dest, dest, lat_tzyx) \
+#define give_dest(origin_dest, dest, lat_xyzt) \
   {                                            \
     for (int i = 0; i < _LAT_SC_; i++)         \
     {                                          \
-      origin_dest[i * lat_tzyx] = dest[i];     \
+      origin_dest[i * lat_xyzt] = dest[i];     \
     }                                          \
   }
-#define give_dest_laplacian(origin_dest, dest, lat_tzyx) \
+#define give_dest_laplacian(origin_dest, dest, lat_xyzt) \
   {                                                      \
     for (int i = 0; i < _LAT_C_; i++)                    \
     {                                                    \
-      origin_dest[i * lat_tzyx] = dest[i];               \
+      origin_dest[i * lat_xyzt] = dest[i];               \
     }                                                    \
   }
-#define give_U(parity, dim, origin_U, U, lat_tzyx)                             \
+#define give_U(parity, dim, origin_U, U, lat_xyzt)                             \
   {                                                                            \
     for (int i = 0; i < _LAT_CC_; i++)                                         \
     {                                                                          \
-      origin_U[((i * _LAT_D_ + dim) * _EVEN_ODD_ + parity) * lat_tzyx] = U[i]; \
+      origin_U[((i * _LAT_D_ + dim) * _EVEN_ODD_ + parity) * lat_xyzt] = U[i]; \
     }                                                                          \
   }
 #define give_send(origin_send, send, lat_3dim) \
@@ -435,7 +308,7 @@ namespace qcu
       origin_send[i * lat_3dim] = send[i];     \
     }                                          \
   }
-#define give_send_x(origin_send, send, lat_3dim, _) \
+#define give_send_t(origin_send, send, lat_3dim, _) \
   {                                                 \
     for (int i = 0; i < _LAT_HALF_SC_ * _; i++)     \
     {                                               \
@@ -449,25 +322,25 @@ namespace qcu
       origin_send[i * lat_3dim] = send[i];               \
     }                                                    \
   }
-#define add_dest(origin_dest, dest, lat_tzyx) \
+#define add_dest(origin_dest, dest, lat_xyzt) \
   {                                           \
     for (int i = 0; i < _LAT_SC_; i++)        \
     {                                         \
-      origin_dest[i * lat_tzyx] += dest[i];   \
+      origin_dest[i * lat_xyzt] += dest[i];   \
     }                                         \
   }
-#define add_dest_x(origin_dest, dest, lat_tzyx, _) \
+#define add_dest_t(origin_dest, dest, lat_xyzt, _) \
   {                                                \
     for (int i = 0; i < _LAT_SC_ * _; i++)         \
     {                                              \
-      origin_dest[i * lat_tzyx] += dest[i];        \
+      origin_dest[i * lat_xyzt] += dest[i];        \
     }                                              \
   }
-#define add_dest_laplacian(origin_dest, dest, lat_tzyx) \
+#define add_dest_laplacian(origin_dest, dest, lat_xyzt) \
   {                                                     \
     for (int i = 0; i < _LAT_C_; i++)                   \
     {                                                   \
-      origin_dest[i * lat_tzyx] += dest[i];             \
+      origin_dest[i * lat_xyzt] += dest[i];             \
     }                                                   \
   }
 #define get_recv(recv, origin_recv, lat_3dim) \
@@ -484,25 +357,25 @@ namespace qcu
       recv[i] = origin_recv[i * lat_3dim];              \
     }                                                   \
   }
-#define give_clr(origin_clr, clr, lat_tzyx) \
+#define give_clr(origin_clr, clr, lat_xyzt) \
   {                                         \
     for (int i = 0; i < _LAT_SCSC_; i++)    \
     {                                       \
-      origin_clr[i * lat_tzyx] = clr[i];    \
+      origin_clr[i * lat_xyzt] = clr[i];    \
     }                                       \
   }
-#define add_clr(origin_clr, clr, lat_tzyx) \
+#define add_clr(origin_clr, clr, lat_xyzt) \
   {                                        \
     for (int i = 0; i < _LAT_SCSC_; i++)   \
     {                                      \
-      origin_clr[i * lat_tzyx] += clr[i];  \
+      origin_clr[i * lat_xyzt] += clr[i];  \
     }                                      \
   }
-#define get_clr(clr, origin_clr, lat_tzyx) \
+#define get_clr(clr, origin_clr, lat_xyzt) \
   {                                        \
     for (int i = 0; i < _LAT_SCSC_; i++)   \
     {                                      \
-      clr[i] = origin_clr[i * lat_tzyx];   \
+      clr[i] = origin_clr[i * lat_xyzt];   \
     }                                      \
   }
 #define add_vals(U, tmp, n)     \
