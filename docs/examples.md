@@ -1,1 +1,1 @@
-run in **PyQCU** with `python ./setup.py build_ext --inplace`
+run in **PyQCU/examples** with `pytest .`
