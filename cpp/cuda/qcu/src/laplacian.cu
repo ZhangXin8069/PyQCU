@@ -47,7 +47,7 @@ __global__ void laplacian_inside(void *device_U, void *device_src,
       move_backward(move, x, lat_x);
       tmp_U = (origin_U + move * lat_y * lat_z * lat_t + _X_ * lat_xyzt);
       give_u_laplacian(U, tmp_U, lat_xyzt);
-      tmp_src = (origin_src + move);
+      tmp_src = (origin_src + move * lat_y * lat_z * lat_t);
       get_src_laplacian(src, tmp_src, lat_xyzt);
     }
     {
@@ -64,7 +64,7 @@ __global__ void laplacian_inside(void *device_U, void *device_src,
       move_forward(move, x, lat_x);
       tmp_U = (origin_U + _X_ * lat_xyzt);
       give_u_laplacian(U, tmp_U, lat_xyzt);
-      tmp_src = (origin_src + move);
+      tmp_src = (origin_src + move * lat_y * lat_z * lat_t);
       get_src_laplacian(src, tmp_src, lat_xyzt);
     }
     {
@@ -84,7 +84,7 @@ __global__ void laplacian_inside(void *device_U, void *device_src,
       move_backward(move, y, lat_y);
       tmp_U = (origin_U + move * lat_z * lat_t + _Y_ * lat_xyzt);
       give_u_laplacian(U, tmp_U, lat_xyzt);
-      tmp_src = (origin_src + move * lat_x);
+      tmp_src = (origin_src + move *  lat_z * lat_t);
       get_src_laplacian(src, tmp_src, lat_xyzt);
     }
     {
@@ -101,7 +101,7 @@ __global__ void laplacian_inside(void *device_U, void *device_src,
       move_forward(move, y, lat_y);
       tmp_U = (origin_U + _Y_ * lat_xyzt);
       give_u_laplacian(U, tmp_U, lat_xyzt);
-      tmp_src = (origin_src + move * lat_x);
+      tmp_src = (origin_src + move *  lat_z * lat_t);
       get_src_laplacian(src, tmp_src, lat_xyzt);
     }
     {
@@ -121,7 +121,7 @@ __global__ void laplacian_inside(void *device_U, void *device_src,
       move_backward(move, z, lat_z);
       tmp_U = (origin_U + move * lat_t + _Z_ * lat_xyzt);
       give_u_laplacian(U, tmp_U, lat_xyzt);
-      tmp_src = (origin_src + move * lat_y * lat_x);
+      tmp_src = (origin_src + move * lat_t);
       get_src_laplacian(src, tmp_src, lat_xyzt);
     }
     {
@@ -138,7 +138,7 @@ __global__ void laplacian_inside(void *device_U, void *device_src,
       move_forward(move, z, lat_z);
       tmp_U = (origin_U + _Z_ * lat_xyzt);
       give_u_laplacian(U, tmp_U, lat_xyzt);
-      tmp_src = (origin_src + move * lat_y * lat_x);
+      tmp_src = (origin_src + move * lat_t);
       get_src_laplacian(src, tmp_src, lat_xyzt);
     }
     {
