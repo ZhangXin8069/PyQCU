@@ -1,8 +1,7 @@
 #ifndef _DEFINE_H
 #define _DEFINE_H
 #include "./lattice_complex.h"
-namespace qcu
-{
+namespace qcu {
 #define _BLOCK_SIZE_ 16 // for test small lattice
 // #define _BLOCK_SIZE_ 128 // better for nv
 // #define _BLOCK_SIZE_ 256 // better for dcu
@@ -159,8 +158,8 @@ namespace qcu
 #define _LAT_SC_ 12
 #define _LAT_SCSC_ 144
 #define _LAT_D_ 4
-#define _LAT_DCC_ 36
-#define _LAT_PDCC_ 72
+#define _LAT_CCD_ 36
+#define _LAT_PCCD_ 72
 #define _LAT_3D_ 3
 #define _B_ 0
 #define _F_ 1
@@ -176,290 +175,248 @@ namespace qcu
 #define _MEM_POOL_ 0
 #define _CHECK_ERROR_ 1
 // cublas API error checking
-#define CUBLAS_CHECK(err)                                                  \
-  do                                                                       \
-  {                                                                        \
-    cublasStatus_t err_ = (err);                                           \
-    if (err_ != CUBLAS_STATUS_SUCCESS)                                     \
-    {                                                                      \
-      std::printf("cublas error %d at %s:%d\n", err_, __FILE__, __LINE__); \
-      throw std::runtime_error("cublas error");                            \
-    }                                                                      \
+#define CUBLAS_CHECK(err)                                                      \
+  do {                                                                         \
+    cublasStatus_t err_ = (err);                                               \
+    if (err_ != CUBLAS_STATUS_SUCCESS) {                                       \
+      std::printf("cublas error %d at %s:%d\n", err_, __FILE__, __LINE__);     \
+      throw std::runtime_error("cublas error");                                \
+    }                                                                          \
   } while (0)
-#define checkCudaErrors(err)                                       \
-  {                                                                \
-    if (_CHECK_ERROR_)                                             \
-    {                                                              \
-      if (err != cudaSuccess)                                      \
-      {                                                            \
-        fprintf(stderr,                                            \
-                "Failed: CUDA error %04d \"%s\" from file <%s>, "  \
-                "line %i.\n",                                      \
-                err, cudaGetErrorString(err), __FILE__, __LINE__); \
-        exit(EXIT_FAILURE);                                        \
-      }                                                            \
-    }                                                              \
+#define checkCudaErrors(err)                                                   \
+  {                                                                            \
+    if (_CHECK_ERROR_) {                                                       \
+      if (err != cudaSuccess) {                                                \
+        fprintf(stderr,                                                        \
+                "Failed: CUDA error %04d \"%s\" from file <%s>, "              \
+                "line %i.\n",                                                  \
+                err, cudaGetErrorString(err), __FILE__, __LINE__);             \
+        exit(EXIT_FAILURE);                                                    \
+      }                                                                        \
+    }                                                                          \
   }
-#define checkMpiErrors(err)                               \
-  {                                                       \
-    if (_CHECK_ERROR_)                                    \
-    {                                                     \
-      if (err != MPI_SUCCESS)                             \
-      {                                                   \
-        fprintf(stderr,                                   \
-                "Failed: MPI error %04d from file <%s>, " \
-                "line %i.\n",                             \
-                err, __FILE__, __LINE__);                 \
-        exit(EXIT_FAILURE);                               \
-      }                                                   \
-    }                                                     \
+#define checkMpiErrors(err)                                                    \
+  {                                                                            \
+    if (_CHECK_ERROR_) {                                                       \
+      if (err != MPI_SUCCESS) {                                                \
+        fprintf(stderr,                                                        \
+                "Failed: MPI error %04d from file <%s>, "                      \
+                "line %i.\n",                                                  \
+                err, __FILE__, __LINE__);                                      \
+        exit(EXIT_FAILURE);                                                    \
+      }                                                                        \
+    }                                                                          \
   }
-#define move_backward(move, o, lat_o) \
-  {                                   \
-    move = -1 + (o == 0) * lat_o;     \
+#define move_backward(move, o, lat_o)                                          \
+  {                                                                            \
+    move = -1 + (o == 0) * lat_o;                                              \
   }
-#define move_forward(move, o, lat_o)     \
-  {                                      \
-    move = 1 - (o == lat_o - 1) * lat_o; \
+#define move_forward(move, o, lat_o)                                           \
+  {                                                                            \
+    move = 1 - (o == lat_o - 1) * lat_o;                                       \
   }
-#define move_backward_t(move, t, lat_t, eo, parity)  \
-  {                                                  \
-    move = (-1 + (t == 0) * lat_t) * (eo == parity); \
+#define move_backward_t(move, t, lat_t, eo, parity)                            \
+  {                                                                            \
+    move = (-1 + (t == 0) * lat_t) * (eo == parity);                           \
   }
-#define move_forward_t(move, t, lat_t, eo, parity)          \
-  {                                                         \
-    move = (1 - (t == lat_t - 1) * lat_t) * (eo != parity); \
+#define move_forward_t(move, t, lat_t, eo, parity)                             \
+  {                                                                            \
+    move = (1 - (t == lat_t - 1) * lat_t) * (eo != parity);                    \
   }
 
 // little strange, but don't want change
-#define give_vals(U, zero, n)   \
-  {                             \
-    for (int i = 0; i < n; i++) \
-    {                           \
-      U[i] = zero;              \
-    }                           \
+#define give_vals(U, zero, n)                                                  \
+  {                                                                            \
+    for (int i = 0; i < n; i++) {                                              \
+      U[i] = zero;                                                             \
+    }                                                                          \
   }
-#define give_u(U, tmp_U, lat_xyzt)                       \
-  {                                                      \
-    for (int i = 0; i < _LAT_2C_; i++)                   \
-    {                                                    \
-      U[i] = tmp_U[i * _LAT_D_ * _EVEN_ODD_ * lat_xyzt]; \
-    }                                                    \
-    U[6] = (U[1] * U[5] - U[2] * U[4]).conj();           \
-    U[7] = (U[2] * U[3] - U[0] * U[5]).conj();           \
-    U[8] = (U[0] * U[4] - U[1] * U[3]).conj();           \
+#define give_u(U, tmp_U, lat_xyzt)                                             \
+  {                                                                            \
+    for (int i = 0; i < _LAT_2C_; i++) {                                       \
+      U[i] = tmp_U[i * _LAT_D_ * lat_xyzt];                                    \
+    }                                                                          \
+    U[6] = (U[1] * U[5] - U[2] * U[4]).conj();                                 \
+    U[7] = (U[2] * U[3] - U[0] * U[5]).conj();                                 \
+    U[8] = (U[0] * U[4] - U[1] * U[3]).conj();                                 \
   }
-#define _give_u_comm(parity, U, tmp_U, _lat_xyzt)                    \
-  {                                                                  \
-    for (int i = 0; i < _LAT_2C_; i++)                               \
-    {                                                                \
-      U[i] = tmp_U[(i * _LAT_D_ * _EVEN_ODD_ + parity) * _lat_xyzt]; \
-    }                                                                \
-    U[6] = (U[1] * U[5] - U[2] * U[4]).conj();                       \
-    U[7] = (U[2] * U[3] - U[0] * U[5]).conj();                       \
-    U[8] = (U[0] * U[4] - U[1] * U[3]).conj();                       \
+#define _give_u_comm(parity, U, tmp_U, _lat_xyzt)                              \
+  {                                                                            \
+    for (int i = 0; i < _LAT_2C_; i++) {                                       \
+      U[i] = tmp_U[(parity * _LAT_CCD_ + (i * _LAT_D_)) * _lat_xyzt];          \
+    }                                                                          \
+    U[6] = (U[1] * U[5] - U[2] * U[4]).conj();                                 \
+    U[7] = (U[2] * U[3] - U[0] * U[5]).conj();                                 \
+    U[8] = (U[0] * U[4] - U[1] * U[3]).conj();                                 \
   }
-#define give_u_laplacian(U, tmp_U, lat_xyzt) \
-  {                                          \
-    for (int i = 0; i < _LAT_CC_; i++)       \
-    {                                        \
-      U[i] = tmp_U[i * _LAT_3D_ * lat_xyzt]; \
-    }                                        \
+#define give_u_laplacian(U, tmp_U, lat_xyzt)                                   \
+  {                                                                            \
+    for (int i = 0; i < _LAT_CC_; i++) {                                       \
+      U[i] = tmp_U[i * _LAT_3D_ * lat_xyzt];                                   \
+    }                                                                          \
   }
-#define get_src(src, origin_src, lat_xyzt) \
-  {                                        \
-    for (int i = 0; i < _LAT_SC_; i++)     \
-    {                                      \
-      src[i] = origin_src[i * lat_xyzt];   \
-    }                                      \
+#define get_src(src, origin_src, lat_xyzt)                                     \
+  {                                                                            \
+    for (int i = 0; i < _LAT_SC_; i++) {                                       \
+      src[i] = origin_src[i * lat_xyzt];                                       \
+    }                                                                          \
   }
-#define get_src_laplacian(src, origin_src, lat_xyzt) \
-  {                                                  \
-    for (int i = 0; i < _LAT_C_; i++)                \
-    {                                                \
-      src[i] = origin_src[i * lat_xyzt];             \
-    }                                                \
+#define get_src_laplacian(src, origin_src, lat_xyzt)                           \
+  {                                                                            \
+    for (int i = 0; i < _LAT_C_; i++) {                                        \
+      src[i] = origin_src[i * lat_xyzt];                                       \
+    }                                                                          \
   }
-#define give_dest(origin_dest, dest, lat_xyzt) \
-  {                                            \
-    for (int i = 0; i < _LAT_SC_; i++)         \
-    {                                          \
-      origin_dest[i * lat_xyzt] = dest[i];     \
-    }                                          \
+#define give_dest(origin_dest, dest, lat_xyzt)                                 \
+  {                                                                            \
+    for (int i = 0; i < _LAT_SC_; i++) {                                       \
+      origin_dest[i * lat_xyzt] = dest[i];                                     \
+    }                                                                          \
   }
-#define give_dest_laplacian(origin_dest, dest, lat_xyzt) \
-  {                                                      \
-    for (int i = 0; i < _LAT_C_; i++)                    \
-    {                                                    \
-      origin_dest[i * lat_xyzt] = dest[i];               \
-    }                                                    \
+#define give_dest_laplacian(origin_dest, dest, lat_xyzt)                       \
+  {                                                                            \
+    for (int i = 0; i < _LAT_C_; i++) {                                        \
+      origin_dest[i * lat_xyzt] = dest[i];                                     \
+    }                                                                          \
   }
 #define give_U(parity, dim, origin_U, U, lat_xyzt)                             \
   {                                                                            \
-    for (int i = 0; i < _LAT_CC_; i++)                                         \
-    {                                                                          \
-      origin_U[((i * _LAT_D_ + dim) * _EVEN_ODD_ + parity) * lat_xyzt] = U[i]; \
+    for (int i = 0; i < _LAT_CC_; i++) {                                       \
+      origin_U[(parity * _LAT_CCD_ + (i * _LAT_D_ + dim)) * lat_xyzt] = U[i];  \
     }                                                                          \
   }
-#define give_send(origin_send, send, lat_3dim) \
-  {                                            \
-    for (int i = 0; i < _LAT_HALF_SC_; i++)    \
-    {                                          \
-      origin_send[i * lat_3dim] = send[i];     \
-    }                                          \
+#define give_send(origin_send, send, lat_3dim)                                 \
+  {                                                                            \
+    for (int i = 0; i < _LAT_HALF_SC_; i++) {                                  \
+      origin_send[i * lat_3dim] = send[i];                                     \
+    }                                                                          \
   }
-#define give_send_t(origin_send, send, lat_3dim, _) \
-  {                                                 \
-    for (int i = 0; i < _LAT_HALF_SC_ * _; i++)     \
-    {                                               \
-      origin_send[i * lat_3dim] = send[i];          \
-    }                                               \
+#define give_send_t(origin_send, send, lat_3dim, _)                            \
+  {                                                                            \
+    for (int i = 0; i < _LAT_HALF_SC_ * _; i++) {                              \
+      origin_send[i * lat_3dim] = send[i];                                     \
+    }                                                                          \
   }
-#define give_send_laplacian(origin_send, send, lat_3dim) \
-  {                                                      \
-    for (int i = 0; i < _LAT_C_; i++)                    \
-    {                                                    \
-      origin_send[i * lat_3dim] = send[i];               \
-    }                                                    \
+#define give_send_laplacian(origin_send, send, lat_3dim)                       \
+  {                                                                            \
+    for (int i = 0; i < _LAT_C_; i++) {                                        \
+      origin_send[i * lat_3dim] = send[i];                                     \
+    }                                                                          \
   }
-#define add_dest(origin_dest, dest, lat_xyzt) \
-  {                                           \
-    for (int i = 0; i < _LAT_SC_; i++)        \
-    {                                         \
-      origin_dest[i * lat_xyzt] += dest[i];   \
-    }                                         \
+#define add_dest(origin_dest, dest, lat_xyzt)                                  \
+  {                                                                            \
+    for (int i = 0; i < _LAT_SC_; i++) {                                       \
+      origin_dest[i * lat_xyzt] += dest[i];                                    \
+    }                                                                          \
   }
-#define add_dest_t(origin_dest, dest, lat_xyzt, _) \
-  {                                                \
-    for (int i = 0; i < _LAT_SC_ * _; i++)         \
-    {                                              \
-      origin_dest[i * lat_xyzt] += dest[i];        \
-    }                                              \
+#define add_dest_t(origin_dest, dest, lat_xyzt, _)                             \
+  {                                                                            \
+    for (int i = 0; i < _LAT_SC_ * _; i++) {                                   \
+      origin_dest[i * lat_xyzt] += dest[i];                                    \
+    }                                                                          \
   }
-#define add_dest_laplacian(origin_dest, dest, lat_xyzt) \
-  {                                                     \
-    for (int i = 0; i < _LAT_C_; i++)                   \
-    {                                                   \
-      origin_dest[i * lat_xyzt] += dest[i];             \
-    }                                                   \
+#define add_dest_laplacian(origin_dest, dest, lat_xyzt)                        \
+  {                                                                            \
+    for (int i = 0; i < _LAT_C_; i++) {                                        \
+      origin_dest[i * lat_xyzt] += dest[i];                                    \
+    }                                                                          \
   }
-#define get_recv(recv, origin_recv, lat_3dim) \
-  {                                           \
-    for (int i = 0; i < _LAT_HALF_SC_; i++)   \
-    {                                         \
-      recv[i] = origin_recv[i * lat_3dim];    \
-    }                                         \
+#define get_recv(recv, origin_recv, lat_3dim)                                  \
+  {                                                                            \
+    for (int i = 0; i < _LAT_HALF_SC_; i++) {                                  \
+      recv[i] = origin_recv[i * lat_3dim];                                     \
+    }                                                                          \
   }
-#define get_recv_laplacian(recv, origin_recv, lat_3dim) \
-  {                                                     \
-    for (int i = 0; i < _LAT_C_; i++)                   \
-    {                                                   \
-      recv[i] = origin_recv[i * lat_3dim];              \
-    }                                                   \
+#define get_recv_laplacian(recv, origin_recv, lat_3dim)                        \
+  {                                                                            \
+    for (int i = 0; i < _LAT_C_; i++) {                                        \
+      recv[i] = origin_recv[i * lat_3dim];                                     \
+    }                                                                          \
   }
-#define give_clr(origin_clr, clr, lat_xyzt) \
-  {                                         \
-    for (int i = 0; i < _LAT_SCSC_; i++)    \
-    {                                       \
-      origin_clr[i * lat_xyzt] = clr[i];    \
-    }                                       \
+#define give_clr(origin_clr, clr, lat_xyzt)                                    \
+  {                                                                            \
+    for (int i = 0; i < _LAT_SCSC_; i++) {                                     \
+      origin_clr[i * lat_xyzt] = clr[i];                                       \
+    }                                                                          \
   }
-#define add_clr(origin_clr, clr, lat_xyzt) \
-  {                                        \
-    for (int i = 0; i < _LAT_SCSC_; i++)   \
-    {                                      \
-      origin_clr[i * lat_xyzt] += clr[i];  \
-    }                                      \
+#define add_clr(origin_clr, clr, lat_xyzt)                                     \
+  {                                                                            \
+    for (int i = 0; i < _LAT_SCSC_; i++) {                                     \
+      origin_clr[i * lat_xyzt] += clr[i];                                      \
+    }                                                                          \
   }
-#define get_clr(clr, origin_clr, lat_xyzt) \
-  {                                        \
-    for (int i = 0; i < _LAT_SCSC_; i++)   \
-    {                                      \
-      clr[i] = origin_clr[i * lat_xyzt];   \
-    }                                      \
+#define get_clr(clr, origin_clr, lat_xyzt)                                     \
+  {                                                                            \
+    for (int i = 0; i < _LAT_SCSC_; i++) {                                     \
+      clr[i] = origin_clr[i * lat_xyzt];                                       \
+    }                                                                          \
   }
-#define add_vals(U, tmp, n)     \
-  {                             \
-    for (int i = 0; i < n; i++) \
-    {                           \
-      U[i] += tmp[i];           \
-    }                           \
+#define add_vals(U, tmp, n)                                                    \
+  {                                                                            \
+    for (int i = 0; i < n; i++) {                                              \
+      U[i] += tmp[i];                                                          \
+    }                                                                          \
   }
-#define subt_vals(U, tmp, n)    \
-  {                             \
-    for (int i = 0; i < n; i++) \
-    {                           \
-      U[i] -= tmp[i];           \
-    }                           \
+#define subt_vals(U, tmp, n)                                                   \
+  {                                                                            \
+    for (int i = 0; i < n; i++) {                                              \
+      U[i] -= tmp[i];                                                          \
+    }                                                                          \
   }
-#define mult_vals(U, tmp, n)    \
-  {                             \
-    for (int i = 0; i < n; i++) \
-    {                           \
-      U[i] *= tmp[i];           \
-    }                           \
+#define mult_vals(U, tmp, n)                                                   \
+  {                                                                            \
+    for (int i = 0; i < n; i++) {                                              \
+      U[i] *= tmp[i];                                                          \
+    }                                                                          \
   }
-#define divi_vals(U, tmp, n)    \
-  {                             \
-    for (int i = 0; i < n; i++) \
-    {                           \
-      U[i] /= tmp[i];           \
-    }                           \
+#define divi_vals(U, tmp, n)                                                   \
+  {                                                                            \
+    for (int i = 0; i < n; i++) {                                              \
+      U[i] /= tmp[i];                                                          \
+    }                                                                          \
   }
-#define mult_u_none_none(tmp0, tmp1, tmp2, tmp3, zero)               \
-  {                                                                  \
-    for (int c0 = 0; c0 < _LAT_C_; c0++)                             \
-    {                                                                \
-      for (int c1 = 0; c1 < _LAT_C_; c1++)                           \
-      {                                                              \
-        tmp0 = zero;                                                 \
-        for (int cc = 0; cc < _LAT_C_; cc++)                         \
-        {                                                            \
-          tmp0 += tmp1[c0 * _LAT_C_ + cc] * tmp2[cc * _LAT_C_ + c1]; \
-        }                                                            \
-        tmp3[c0 * _LAT_C_ + c1] = tmp0;                              \
-      }                                                              \
-    }                                                                \
+#define mult_u_none_none(tmp0, tmp1, tmp2, tmp3, zero)                         \
+  {                                                                            \
+    for (int c0 = 0; c0 < _LAT_C_; c0++) {                                     \
+      for (int c1 = 0; c1 < _LAT_C_; c1++) {                                   \
+        tmp0 = zero;                                                           \
+        for (int cc = 0; cc < _LAT_C_; cc++) {                                 \
+          tmp0 += tmp1[c0 * _LAT_C_ + cc] * tmp2[cc * _LAT_C_ + c1];           \
+        }                                                                      \
+        tmp3[c0 * _LAT_C_ + c1] = tmp0;                                        \
+      }                                                                        \
+    }                                                                          \
   }
-#define mult_u_none_dag(tmp0, tmp1, tmp2, tmp3, zero)                       \
-  {                                                                         \
-    for (int c0 = 0; c0 < _LAT_C_; c0++)                                    \
-    {                                                                       \
-      for (int c1 = 0; c1 < _LAT_C_; c1++)                                  \
-      {                                                                     \
-        tmp0 = zero;                                                        \
-        for (int cc = 0; cc < _LAT_C_; cc++)                                \
-        {                                                                   \
-          tmp0 += tmp1[c0 * _LAT_C_ + cc] * tmp2[c1 * _LAT_C_ + cc].conj(); \
-        }                                                                   \
-        tmp3[c0 * _LAT_C_ + c1] = tmp0;                                     \
-      }                                                                     \
-    }                                                                       \
+#define mult_u_none_dag(tmp0, tmp1, tmp2, tmp3, zero)                          \
+  {                                                                            \
+    for (int c0 = 0; c0 < _LAT_C_; c0++) {                                     \
+      for (int c1 = 0; c1 < _LAT_C_; c1++) {                                   \
+        tmp0 = zero;                                                           \
+        for (int cc = 0; cc < _LAT_C_; cc++) {                                 \
+          tmp0 += tmp1[c0 * _LAT_C_ + cc] * tmp2[c1 * _LAT_C_ + cc].conj();    \
+        }                                                                      \
+        tmp3[c0 * _LAT_C_ + c1] = tmp0;                                        \
+      }                                                                        \
+    }                                                                          \
   }
-#define mult_u_dag_none(tmp0, tmp1, tmp2, tmp3, zero)                       \
-  {                                                                         \
-    for (int c0 = 0; c0 < _LAT_C_; c0++)                                    \
-    {                                                                       \
-      for (int c1 = 0; c1 < _LAT_C_; c1++)                                  \
-      {                                                                     \
-        tmp0 = zero;                                                        \
-        for (int cc = 0; cc < _LAT_C_; cc++)                                \
-        {                                                                   \
-          tmp0 += tmp1[cc * _LAT_C_ + c0].conj() * tmp2[cc * _LAT_C_ + c1]; \
-        }                                                                   \
-        tmp3[c0 * _LAT_C_ + c1] = tmp0;                                     \
-      }                                                                     \
-    }                                                                       \
+#define mult_u_dag_none(tmp0, tmp1, tmp2, tmp3, zero)                          \
+  {                                                                            \
+    for (int c0 = 0; c0 < _LAT_C_; c0++) {                                     \
+      for (int c1 = 0; c1 < _LAT_C_; c1++) {                                   \
+        tmp0 = zero;                                                           \
+        for (int cc = 0; cc < _LAT_C_; cc++) {                                 \
+          tmp0 += tmp1[cc * _LAT_C_ + c0].conj() * tmp2[cc * _LAT_C_ + c1];    \
+        }                                                                      \
+        tmp3[c0 * _LAT_C_ + c1] = tmp0;                                        \
+      }                                                                        \
+    }                                                                          \
   }
 #define mult_u_dag_dag(tmp0, tmp1, tmp2, tmp3, zero)                           \
   {                                                                            \
-    for (int c0 = 0; c0 < _LAT_C_; c0++)                                       \
-    {                                                                          \
-      for (int c1 = 0; c1 < _LAT_C_; c1++)                                     \
-      {                                                                        \
+    for (int c0 = 0; c0 < _LAT_C_; c0++) {                                     \
+      for (int c1 = 0; c1 < _LAT_C_; c1++) {                                   \
         tmp0 = zero;                                                           \
-        for (int cc = 0; cc < _LAT_C_; cc++)                                   \
-        {                                                                      \
+        for (int cc = 0; cc < _LAT_C_; cc++) {                                 \
           tmp0 +=                                                              \
               tmp1[cc * _LAT_C_ + c0].conj() * tmp2[c1 * _LAT_C_ + cc].conj(); \
         }                                                                      \
@@ -467,66 +424,58 @@ namespace qcu
       }                                                                        \
     }                                                                          \
   }
-#define _inverse(input_matrix, inverse_matrix, augmented_matrix, pivot,    \
-                 factor, size)                                             \
-  {                                                                        \
-    for (int i = 0; i < size; i++)                                         \
-    {                                                                      \
-      for (int j = 0; j < size; j++)                                       \
-      {                                                                    \
-        inverse_matrix[i * size + j] = input_matrix[i * size + j];         \
-        augmented_matrix[i * 2 * size + j] = inverse_matrix[i * size + j]; \
-      }                                                                    \
-      augmented_matrix[i * 2 * size + size + i] = 1.0;                     \
-    }                                                                      \
-    for (int i = 0; i < size; i++)                                         \
-    {                                                                      \
-      pivot = augmented_matrix[i * 2 * size + i];                          \
-      for (int j = 0; j < 2 * size; j++)                                   \
-      {                                                                    \
-        augmented_matrix[i * 2 * size + j] /= pivot;                       \
-      }                                                                    \
-      for (int j = 0; j < size; j++)                                       \
-      {                                                                    \
-        if (j != i)                                                        \
-        {                                                                  \
-          factor = augmented_matrix[j * 2 * size + i];                     \
-          for (int k = 0; k < 2 * size; ++k)                               \
-          {                                                                \
-            augmented_matrix[j * 2 * size + k] -=                          \
-                factor * augmented_matrix[i * 2 * size + k];               \
-          }                                                                \
-        }                                                                  \
-      }                                                                    \
-    }                                                                      \
-    for (int i = 0; i < size; i++)                                         \
-    {                                                                      \
-      for (int j = 0; j < size; j++)                                       \
-      {                                                                    \
-        inverse_matrix[i * size + j] =                                     \
-            augmented_matrix[i * 2 * size + size + j];                     \
-      }                                                                    \
-    }                                                                      \
+#define _inverse(input_matrix, inverse_matrix, augmented_matrix, pivot,        \
+                 factor, size)                                                 \
+  {                                                                            \
+    for (int i = 0; i < size; i++) {                                           \
+      for (int j = 0; j < size; j++) {                                         \
+        inverse_matrix[i * size + j] = input_matrix[i * size + j];             \
+        augmented_matrix[i * 2 * size + j] = inverse_matrix[i * size + j];     \
+      }                                                                        \
+      augmented_matrix[i * 2 * size + size + i] = 1.0;                         \
+    }                                                                          \
+    for (int i = 0; i < size; i++) {                                           \
+      pivot = augmented_matrix[i * 2 * size + i];                              \
+      for (int j = 0; j < 2 * size; j++) {                                     \
+        augmented_matrix[i * 2 * size + j] /= pivot;                           \
+      }                                                                        \
+      for (int j = 0; j < size; j++) {                                         \
+        if (j != i) {                                                          \
+          factor = augmented_matrix[j * 2 * size + i];                         \
+          for (int k = 0; k < 2 * size; ++k) {                                 \
+            augmented_matrix[j * 2 * size + k] -=                              \
+                factor * augmented_matrix[i * 2 * size + k];                   \
+          }                                                                    \
+        }                                                                      \
+      }                                                                        \
+    }                                                                          \
+    for (int i = 0; i < size; i++) {                                           \
+      for (int j = 0; j < size; j++) {                                         \
+        inverse_matrix[i * size + j] =                                         \
+            augmented_matrix[i * 2 * size + size + j];                         \
+      }                                                                        \
+    }                                                                          \
   }
-#define free_vec(device_send_vec, device_recv_vec, host_send_vec, \
-                 host_recv_vec)                                   \
-  {                                                               \
-    for (int i = 0; i < _WARDS_; i++)                             \
-    {                                                             \
-      cudaFree(device_send_vec[i]);                               \
-      cudaFree(device_recv_vec[i]);                               \
-      free(host_send_vec[i]);                                     \
-      free(host_recv_vec[i]);                                     \
-    }                                                             \
+#define free_vec(device_send_vec, device_recv_vec, host_send_vec,              \
+                 host_recv_vec)                                                \
+  {                                                                            \
+    for (int i = 0; i < _WARDS_; i++) {                                        \
+      cudaFree(device_send_vec[i]);                                            \
+      cudaFree(device_recv_vec[i]);                                            \
+      free(host_send_vec[i]);                                                  \
+      free(host_recv_vec[i]);                                                  \
+    }                                                                          \
   }
-}
+} // namespace qcu
 
 // Define Gell-Mann matrices as macros (flattened 3x3 row-major order)
 
 // λ1
 #define LAMBDA1 {0, 1, 0, 1, 0, 0, 0, 0, 0}
 // λ2
-#define LAMBDA2 {0, -1.0, 0, 1.0, 0, 0, 0, 0, 0} // actually should be 0, -i, 0, i, 0, 0, 0, 0, 0 (complex part handled separately)
+#define LAMBDA2                                                                \
+  {0, -1.0, 0, 1.0, 0, 0, 0, 0, 0} // actually should be 0, -i, 0, i, 0, 0, 0,
+                                   // 0, 0 (complex part handled separately)
 // λ3
 #define LAMBDA3 {1, 0, 0, 0, -1, 0, 0, 0, 0}
 // λ4
@@ -538,24 +487,19 @@ namespace qcu
 // λ7
 #define LAMBDA7 {0, 0, 0, 0, 0, -1.0, 0, 1.0, 0} // same note as λ2
 // λ8
-#define LAMBDA8 {1.0 / 1.7320508075688772, 0, 0, 0, 1.0 / 1.7320508075688772, 0, 0, 0, -2.0 / 1.7320508075688772}
+#define LAMBDA8                                                                \
+  {1.0 / 1.7320508075688772, 0, 0, 0, 1.0 / 1.7320508075688772, 0, 0, 0,       \
+   -2.0 / 1.7320508075688772}
 
 // Pack them into one static array
-#define GELL_MANN { \
-    LAMBDA1,        \
-    LAMBDA2,        \
-    LAMBDA3,        \
-    LAMBDA4,        \
-    LAMBDA5,        \
-    LAMBDA6,        \
-    LAMBDA7,        \
-    LAMBDA8}
+#define GELL_MANN                                                              \
+  {LAMBDA1, LAMBDA2, LAMBDA3, LAMBDA4, LAMBDA5, LAMBDA6, LAMBDA7, LAMBDA8}
 
-static inline int getLocalRank()
-{
+static inline int getLocalRank() {
   int localRank;
   MPI_Comm localComm;
-  MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, &localComm);
+  MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL,
+                      &localComm);
   MPI_Comm_rank(localComm, &localRank);
   MPI_Comm_free(&localComm);
   return localRank;
