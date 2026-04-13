@@ -7,7 +7,7 @@ namespace qcu
     {
         int idx = blockIdx.x * blockDim.x + threadIdx.x;
         int *params = static_cast<int *>(device_params);
-        int lat_tzyx = params[_LAT_XYZT_];
+        int lat_xyzt = params[_LAT_XYZT_];
         LatticeComplex<T> *random_8dtzyx =
             (static_cast<LatticeComplex<T> *>(device_random_8dtzyx) + idx);
         curandState state_real, state_imag;
@@ -17,8 +17,8 @@ namespace qcu
         {
             for (int cc = 0; cc < (_LAT_CC_ - 1); ++cc)
             {
-                random_8dtzyx[(cc * _LAT_D_ + d) * lat_tzyx]._data.x = curand_uniform(&state_real);
-                random_8dtzyx[(cc * _LAT_D_ + d) * lat_tzyx]._data.y = curand_uniform(&state_real);
+                random_8dtzyx[(cc * _LAT_D_ + d) * lat_xyzt]._data.x = curand_uniform(&state_real);
+                random_8dtzyx[(cc * _LAT_D_ + d) * lat_xyzt]._data.y = curand_uniform(&state_real);
             }
         }
     }
@@ -109,7 +109,7 @@ namespace qcu
     {
         int idx = blockIdx.x * blockDim.x + threadIdx.x;
         int *params = static_cast<int *>(device_params);
-        int lat_tzyx = params[_LAT_XYZT_];
+        int lat_xyzt = params[_LAT_XYZT_];
         LatticeComplex<T> *random_8dtzyx = (static_cast<LatticeComplex<T> *>(device_random_8dtzyx) + idx);
         LatticeComplex<T> *origin_U = (static_cast<LatticeComplex<T> *>(device_U) + idx);
         T gell_mann[8][9] = GELL_MANN;
@@ -124,11 +124,11 @@ namespace qcu
                 {
                     if (p == 0)
                     {
-                        a[i] = random_8dtzyx[(i * _LAT_D_ + d) * lat_tzyx]._data.x;
+                        a[i] = random_8dtzyx[(i * _LAT_D_ + d) * lat_xyzt]._data.x;
                     }
                     else
                     {
-                        a[i] = random_8dtzyx[(i * _LAT_D_ + d) * lat_tzyx]._data.y;
+                        a[i] = random_8dtzyx[(i * _LAT_D_ + d) * lat_xyzt]._data.y;
                     }
                 }
                 LatticeComplex<T> H[_LAT_CC_] = {
@@ -161,7 +161,7 @@ namespace qcu
                     {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}};
                 // Compute U = exp(A)
                 su3_matrix_exponential(A, U);
-                give_U(p, d, origin_U, U, lat_tzyx);
+                give_U(p, d, origin_U, U, lat_xyzt);
             }
         }
     }
