@@ -440,42 +440,6 @@ namespace qcu
     checkCudaErrors(cudaFreeAsync(_fermion, set_ptr->stream));
     checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
   }
-  template <typename T>
-  __global__ void give_debug_u(void *device_U, void *device_params)
-  {
-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    int parity = idx;
-    int *params = static_cast<int *>(device_params);
-    int lat_x = params[_LAT_X_];
-    int lat_y = params[_LAT_Y_];
-    int lat_z = params[_LAT_Z_];
-    int lat_t = params[_LAT_T_];
-    int lat_tzyx = params[_LAT_XYZT_];
-    int move0;
-    move0 = lat_x * lat_y * lat_z;
-    int t = parity / move0;
-    parity -= t * move0;
-    move0 = lat_x * lat_y;
-    int z = parity / move0;
-    parity -= z * move0;
-    int y = parity / lat_x;
-    int x = parity - y * lat_x;
-    LatticeComplex<T> *origin_U = static_cast<LatticeComplex<T> *>(device_U);
-    LatticeComplex<T> *tmp_U;
-    parity = params[_PARITY_];
-    tmp_U = (origin_U +
-             ((((parity * lat_t + t) * lat_z + z) * lat_y + y) * lat_x + x));
-    for (int i = 0; i < _LAT_DCC_; i++)
-    {
-      tmp_U[i * _EVEN_ODD_ * lat_tzyx]._data.x =
-          T((((((i * _EVEN_ODD_ + parity) * lat_t + t) * lat_z + z) * lat_y +
-              y) *
-                 lat_x +
-             x)) /
-          lat_tzyx;
-      tmp_U[i * _EVEN_ODD_ * lat_tzyx]._data.y = T(params[_NODE_RANK_]);
-    }
-  }
   //@@@CUDA_TEMPLATE_FOR_DEVICE@@@
   template void device_save<double>(void *d_array, const int size, const std::string &filename);
   template void host_save<double>(void *h_array, const int size, const std::string &filename);
@@ -507,7 +471,6 @@ namespace qcu
                                                     int lat_4dim);
   template void ptzyxsc2psctzyx<double>(void *fermion, LatticeSet<double> *set_ptr);
   template void psctzyx2ptzyxsc<double>(void *fermion, LatticeSet<double> *set_ptr);
-  template __global__ void give_debug_u<double>(void *device_U, void *device_params);
   //@@@CUDA_TEMPLATE_FOR_DEVICE@@@
   template void device_save<float>(void *d_array, const int size, const std::string &filename);
   template void host_save<float>(void *h_array, const int size, const std::string &filename);
@@ -539,5 +502,4 @@ namespace qcu
                                                    int lat_4dim);
   template void ptzyxsc2psctzyx<float>(void *fermion, LatticeSet<float> *set_ptr);
   template void psctzyx2ptzyxsc<float>(void *fermion, LatticeSet<float> *set_ptr);
-  template __global__ void give_debug_u<float>(void *device_U, void *device_params);
 }
