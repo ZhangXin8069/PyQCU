@@ -459,3 +459,25 @@ def poooxyzt2oooxyzt(input_array: torch.Tensor, verbose: bool = False) -> torch.
         print(
             f"PYQCU::TOOLS::DEFINE:\n Restored Array Shape: {restored_array.shape}")
     return restored_array
+
+
+def ccdptzyx2ccdxyzt(ccdptzyx: torch.Tensor) -> torch.Tensor:
+    pccdtzyx = ccdptzyx.permute(3, 0, 1, 2, 4, 5, 6, 7)
+    ccdtzyx = poooxyzt2oooxyzt(input_array=pccdtzyx)
+    return ccdtzyx.permute(0, 1, 2, 6, 5, 4, 3)
+
+
+def ccdxyzt2ccdptzyx(ccdxyzt: torch.Tensor) -> torch.Tensor:
+    ccdtzyx = ccdxyzt.permute(0, 1, 2, 6, 5, 4, 3)
+    pccdtzyx = oooxyzt2poooxyzt(input_array=ccdtzyx)
+    return pccdtzyx.permute(1, 2, 3, 0, 4, 5, 6, 7)
+
+
+def psctzyx2scxyzt(psctzyx: torch.Tensor) -> torch.Tensor:
+    sctzyx = poooxyzt2oooxyzt(input_array=psctzyx)
+    return sctzyx.permute(0, 1, 5, 4, 3, 2)
+
+
+def scxyzt2psctzyx(scxyzt: torch.Tensor) -> torch.Tensor:
+    sctzyx = scxyzt.permute(0, 1, 5, 4, 3, 2)
+    return oooxyzt2poooxyzt(input_array=sctzyx)
