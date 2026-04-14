@@ -113,3 +113,8 @@ refer_src = dslash.give_wilson(
 print(qcu_src.flatten()[:100])
 print(refer_src.flatten()[:100])
 print('Difference:', tools.norm(refer_src-qcu_src)/tools.norm(qcu_src))
+qcu_clover_term = tools.poooxyzt2oooxyzt(
+    input_array=torch.Tensor([clover_ee, clover_oo]))
+print(qcu_clover_term.flatten()[:100])
+print(refer_clover_term.flatten()[:100])
+print('Difference:', tools.norm(refer_src-qcu_src)/tools.norm(qcu_src))
