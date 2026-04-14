@@ -187,8 +187,6 @@ template <typename T> struct LatticeCloverDslash {
       checkCudaErrors(cudaStreamSynchronize(set_ptr->stream)); // needed
       {
         {
-          {
-          }
           // x edge part comm
           _MPI_Sendrecv<T>(set_ptr->host_u_1dim_send_vec[_B_X_],
                            set_ptr->lat_3dim[_X_] * _LAT_PCCD_ * _REAL_IMAG_,
