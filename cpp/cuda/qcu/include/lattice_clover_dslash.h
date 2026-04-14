@@ -22,8 +22,8 @@ template <typename T> struct LatticeCloverDslash {
     clover = (void *)_clover;
   }
   void _make_mpi(void *gauge) {
-    if (_TEST_MULTI_IN_SINGLE_) {
-      make_clover<double>
+    if (_CLOVER_TEST_MULTI_IN_SINGLE_) {
+      make_clover<T>
           <<<set_ptr->gridDim, set_ptr->blockDim, 0, set_ptr->stream>>>(
               gauge, clover, set_ptr->device_params, set_ptr->kappa());
       checkCudaErrors(cudaStreamSynchronize(set_ptr->stream)); // needed
