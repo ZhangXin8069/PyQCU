@@ -81,10 +81,8 @@ template <typename T> struct LatticeSet {
     host_argv[_MASS_] = static_cast<T *>(_argv)[_MASS_];
     host_argv[_TOL_] = static_cast<T *>(_argv)[_TOL_];
     host_argv[_SIGMA_] = static_cast<T *>(_argv)[_SIGMA_];
-    if (host_params[_SET_PLAN_] == _SET_PLAN_N_1_) {
-      host_params[_LAT_T_] = static_cast<int *>(_params)[_LAT_T_] /
-                             host_params[_GRID_T_];       // no even-odd
-    } else if (host_params[_SET_PLAN_] == _SET_PLAN_N_2_) // just for laplacian
+    if (host_params[_SET_PLAN_] ==
+        _SET_PLAN_N_2_) // just for laplacian // no even-odd
     {
       printf("just for laplacian, lat_t = 1, lat_d = 3, no even-odd\n");
       host_params[_LAT_T_] = 1;
