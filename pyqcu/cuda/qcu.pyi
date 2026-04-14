@@ -207,7 +207,7 @@ def applyGaussGaugeQcu(_gauge: torch.Tensor = torch.Tensor([0.0]).to(dtype=defin
         _params: torch.Tensor = torch.Tensor([0]*define._PARAMS_SIZE_).to(dtype=torch.int32, device=torch.device('cpu'))) -> None:
     """
     follow above, most values in params should be set.
-    no even-odd, gauge:[ccdxyzt].
+    even-odd, gauge:[pccdxyzt].
     """
     ...
 
