@@ -4,8 +4,8 @@ from pyqcu.cuda import qcu, define
 from pyqcu.cuda.define import params, argv, set_ptrs
 params[define._LAT_X_] = 4
 params[define._LAT_Y_] = 8
-params[define._LAT_Z_] = 8
-params[define._LAT_T_] = 16
+params[define._LAT_Z_] = 16
+params[define._LAT_T_] = 32
 params[define._LAT_XYZT_] = params[define._LAT_X_] * \
     params[define._LAT_Y_]*params[define._LAT_Z_]*params[define._LAT_T_]
 params[define._GRID_X_], params[define._GRID_Y_], params[define._GRID_Z_], params[
@@ -113,8 +113,23 @@ refer_src = dslash.give_wilson(
 print(qcu_src.flatten()[:100])
 print(refer_src.flatten()[:100])
 print('Difference:', tools.norm(refer_src-qcu_src)/tools.norm(qcu_src))
+clover_eeoo = torch.zeros(size=[2, 4, 3, 4, 3]+[params[define._LAT_X_], params[define._LAT_Y_], params[define._LAT_Z_],
+                                                params[define._LAT_T_]//define._LAT_P_]).to(dtype=define.dtype(params[define._DATA_TYPE_]), device=torch.device('cuda'))
+clover_eeoo[0] = clover_ee
+clover_eeoo[1] = clover_oo
 qcu_clover_term = tools.poooxyzt2oooxyzt(
-    input_array=torch.Tensor([clover_ee, clover_oo]))
+    input_array=clover_eeoo)
+qcu_clover_term = dslash.cut_I(clover_term=qcu_clover_term)
+
+qcu_clover_term_eo = tools.oooxyzt2poooxyzt(
+    input_array=qcu_clover_term)
+refer_clover_term_eo = tools.oooxyzt2poooxyzt(
+    input_array=refer_clover_term)
 print(qcu_clover_term.flatten()[:100])
 print(refer_clover_term.flatten()[:100])
-print('Difference:', tools.norm(refer_src-qcu_src)/tools.norm(qcu_src))
+print(qcu_clover_term_eo[0].flatten()[:100])
+print(refer_clover_term_eo[0].flatten()[:100])
+print(qcu_clover_term_eo[1].flatten()[:100])
+print(refer_clover_term_eo[1].flatten()[:100])
+print('Difference:', tools.norm(refer_clover_term -
+      qcu_clover_term)/tools.norm(qcu_clover_term))
