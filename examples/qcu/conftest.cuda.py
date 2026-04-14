@@ -33,7 +33,7 @@ argv[define._SIGMA_] = 0.1
 print(params)
 print(argv)
 print(set_ptrs)
-gauge_eo = torch.zeros(size=[3, 3, 4, 2]+[params[define._LAT_X_], params[define._LAT_Y_], params[define._LAT_Z_],
+gauge_eo = torch.zeros(size=[2, 3, 3, 4]+[params[define._LAT_X_], params[define._LAT_Y_], params[define._LAT_Z_],
                        params[define._LAT_T_]//define._LAT_P_]).to(dtype=define.dtype(params[define._DATA_TYPE_]), device=torch.device('cuda'))
 fermion_in_eo = torch.rand(size=[2, 4, 3]+[params[define._LAT_X_], params[define._LAT_Y_], params[define._LAT_Z_],
                            params[define._LAT_T_]//define._LAT_P_]).to(dtype=define.dtype(params[define._DATA_TYPE_]), device=torch.device('cuda'))
@@ -48,8 +48,8 @@ gauge = tools.poooxyzt2oooxyzt(input_array=gauge_eo)
 qcu.applyGaussGaugeQcu(gauge, set_ptrs, params)
 gauge_eo = tools.oooxyzt2poooxyzt(input_array=gauge)
 print(gauge_eo.flatten()[:100])
-print(lattice.check_su3(U=gauge_eo))
-qcu.applyEndQcu(set_ptrs, params)
+print(lattice.check_su3(U=gauge))
+# qcu.applyEndQcu(set_ptrs, params)
 print(set_ptrs)
 params[define._VERBOSE_] = 1
 params[define._SET_INDEX_] += 1
