@@ -41,16 +41,16 @@ fermion_out_eo = torch.zeros(size=[2, 4, 3]+[params[define._LAT_X_], params[defi
                              params[define._LAT_T_]//define._LAT_P_]).to(dtype=define.dtype(params[define._DATA_TYPE_]), device=torch.device('cuda'))
 params[define._VERBOSE_] = 1
 params[define._SET_INDEX_] = 0
-params[define._SET_PLAN_] = 0
+params[define._SET_PLAN_] = -1
 params[define._PARITY_] = 0
 qcu.applyInitQcu(set_ptrs, params, argv)
 gauge = tools.poooxyzt2oooxyzt(input_array=gauge_eo)
-qcu.applyGaussGaugeQcu(gauge_eo, set_ptrs, params)
+qcu.applyGaussGaugeQcu(gauge, set_ptrs, params)
 gauge_eo = tools.oooxyzt2poooxyzt(input_array=gauge)
-qcu.applyEndQcu(set_ptrs, params)
-print(set_ptrs)
 print(gauge_eo.flatten()[:100])
 print(lattice.check_su3(U=gauge_eo))
+qcu.applyEndQcu(set_ptrs, params)
+print(set_ptrs)
 params[define._VERBOSE_] = 1
 params[define._SET_INDEX_] += 1
 params[define._SET_PLAN_] = 1
