@@ -176,7 +176,7 @@ namespace qcu {
 #define _MEM_POOL_ 0
 #define _CHECK_ERROR_ 1
 #define _WILSON_AND_LAPLACIAN_TEST_SINGLE_IN_MULTI_ 1
-#define _CLOVER_TEST_MULTI_IN_SINGLE_ 0
+#define _CLOVER_TEST_MULTI_IN_SINGLE_ 1
 // cublas API error checking
 #define CUBLAS_CHECK(err)                                                      \
   do {                                                                         \
