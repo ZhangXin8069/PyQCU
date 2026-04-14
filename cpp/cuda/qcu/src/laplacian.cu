@@ -23,7 +23,7 @@ __global__ void laplacian_inside(void *device_U, void *device_src,
   int y = parity / move;
   parity -= y * move;
   int z = parity / lat_t;
-  int t = parity - z * lat_t;
+  // int t = parity - z * lat_t;
   LatticeComplex<T> zero(0.0, 0.0);
   LatticeComplex<T> *origin_U =
       ((static_cast<LatticeComplex<T> *>(device_U)) + idx);
@@ -334,7 +334,7 @@ __global__ void laplacian_y_send(void *device_U, void *device_src,
 #ifdef __Y__
   int parity = blockIdx.x * blockDim.x + threadIdx.x;
   int *params = static_cast<int *>(device_params);
-  int lat_x = params[_LAT_X_];
+  // int lat_x = params[_LAT_X_];
   // int lat_y = yyztsc[_y_];
   int lat_y = 1; // so let y=0 first, then y = lat_y -1
   int lat_z = params[_LAT_Z_];
@@ -421,7 +421,7 @@ __global__ void laplacian_y_recv(void *device_U, void *device_dest,
 #ifdef __Y__
   int parity = blockIdx.x * blockDim.x + threadIdx.x;
   int *params = static_cast<int *>(device_params);
-  int lat_x = params[_LAT_X_];
+  // int lat_x = params[_LAT_X_];
   // int lat_y = yyztsc[_y_];
   int lat_y = 1; // so let y=0 first, then y = lat_y -1
   int lat_z = params[_LAT_Z_];
@@ -509,7 +509,7 @@ __global__ void laplacian_z_send(void *device_U, void *device_src,
 #ifdef __Z__
   int parity = blockIdx.x * blockDim.x + threadIdx.x;
   int *params = static_cast<int *>(device_params);
-  int lat_x = params[_LAT_X_];
+  // int lat_x = params[_LAT_X_];
   int lat_y = params[_LAT_Y_];
   // int lat_z = zzztsc[_z_];
   int lat_z = 1;               // so let z=0 first, then z = lat_z -1
@@ -596,7 +596,7 @@ __global__ void laplacian_z_recv(void *device_U, void *device_dest,
 #ifdef __Z__
   int parity = blockIdx.x * blockDim.x + threadIdx.x;
   int *params = static_cast<int *>(device_params);
-  int lat_x = params[_LAT_X_];
+  // int lat_x = params[_LAT_X_];
   int lat_y = params[_LAT_Y_];
   // int lat_z = zzztsc[_z_];
   int lat_z = 1;               // so let z=0 first, then z = lat_z -1
