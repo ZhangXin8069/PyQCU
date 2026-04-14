@@ -66,18 +66,34 @@ template <typename T> struct LatticeSet {
         static_cast<int *>(_params)[_LAT_Y_] / host_params[_GRID_Y_];
     host_params[_LAT_Z_] =
         static_cast<int *>(_params)[_LAT_Z_] / host_params[_GRID_Z_];
-    if (host_params[_SET_PLAN_] == _SET_PLAN_N_1_ ||
-        host_params[_SET_PLAN_] == _SET_PLAN_N_2_) {
+    host_params[_MAX_ITER_] = static_cast<int *>(_params)[_MAX_ITER_];
+    host_params[_DATA_TYPE_] = static_cast<int *>(_params)[_DATA_TYPE_];
+    host_params[_SET_INDEX_] = static_cast<int *>(_params)[_SET_INDEX_];
+    host_params[_SET_PLAN_] = static_cast<int *>(_params)[_SET_PLAN_];
+    host_params[_MG_X_] = static_cast<int *>(_params)[_MG_X_];
+    host_params[_MG_Y_] = static_cast<int *>(_params)[_MG_Y_];
+    host_params[_MG_Z_] = static_cast<int *>(_params)[_MG_Z_];
+    host_params[_MG_T_] = static_cast<int *>(_params)[_MG_T_];
+    host_params[_LAT_E_] = static_cast<int *>(_params)[_LAT_E_];
+    host_params[_VERBOSE_] = static_cast<int *>(_params)[_VERBOSE_];
+    host_params[_SEED_] = static_cast<int *>(_params)[_SEED_];
+    host_params[_TEST_IN_CPU_] = static_cast<int *>(_params)[_TEST_IN_CPU_];
+    host_argv[_MASS_] = static_cast<T *>(_argv)[_MASS_];
+    host_argv[_TOL_] = static_cast<T *>(_argv)[_TOL_];
+    host_argv[_SIGMA_] = static_cast<T *>(_argv)[_SIGMA_];
+    if (host_params[_SET_PLAN_] == _SET_PLAN_N_1_) {
       host_params[_LAT_T_] = static_cast<int *>(_params)[_LAT_T_] /
-                             host_params[_GRID_T_]; // no even-odd
+                             host_params[_GRID_T_];       // no even-odd
+    } else if (host_params[_SET_PLAN_] == _SET_PLAN_N_2_) // just for laplacian
+    {
+      printf("just for laplacian, lat_t = 1, lat_d = 3, no even-odd\n");
+      host_params[_LAT_T_] = 1;
     } else {
       host_params[_LAT_T_] = static_cast<int *>(_params)[_LAT_T_] /
                              host_params[_GRID_T_] / _EVEN_ODD_; // even-odd
     }
-    int tmp = host_params[_GRID_X_] * host_params[_GRID_Y_] *
-              host_params[_GRID_Z_] * host_params[_GRID_T_];
-    host_params[_LAT_XYZT_] =
-        static_cast<int *>(_params)[_LAT_XYZT_] / tmp; // prepare for test input
+    host_params[_LAT_XYZT_] = host_params[_LAT_X_] * host_params[_LAT_Y_] *
+                              host_params[_LAT_Z_] * host_params[_LAT_T_];
     if (static_cast<int *>(_params)[_PARITY_] == _EVEN_) {
       host_params[_PARITY_] = _EVEN_;
     } else if (static_cast<int *>(_params)[_PARITY_] == _ODD_) {
@@ -94,26 +110,6 @@ template <typename T> struct LatticeSet {
       printf("error in dagger\n");
       host_params[_DAGGER_] = _NO_USE_;
     }
-    host_params[_MAX_ITER_] = static_cast<int *>(_params)[_MAX_ITER_];
-    host_params[_DATA_TYPE_] = static_cast<int *>(_params)[_DATA_TYPE_];
-    host_params[_SET_INDEX_] = static_cast<int *>(_params)[_SET_INDEX_];
-    host_params[_SET_PLAN_] = static_cast<int *>(_params)[_SET_PLAN_];
-    if (host_params[_SET_PLAN_] == _SET_PLAN_N_2_) // just for laplacian
-    {
-      printf("just for laplacian, lat_t = 1, lat_d = 3, no even-odd\n");
-      host_params[_LAT_T_] = 1;
-    }
-    host_params[_MG_X_] = static_cast<int *>(_params)[_MG_X_];
-    host_params[_MG_Y_] = static_cast<int *>(_params)[_MG_Y_];
-    host_params[_MG_Z_] = static_cast<int *>(_params)[_MG_Z_];
-    host_params[_MG_T_] = static_cast<int *>(_params)[_MG_T_];
-    host_params[_LAT_E_] = static_cast<int *>(_params)[_LAT_E_];
-    host_params[_VERBOSE_] = static_cast<int *>(_params)[_VERBOSE_];
-    host_params[_SEED_] = static_cast<int *>(_params)[_SEED_];
-    host_params[_TEST_IN_CPU_] = static_cast<int *>(_params)[_TEST_IN_CPU_];
-    host_argv[_MASS_] = static_cast<T *>(_argv)[_MASS_];
-    host_argv[_TOL_] = static_cast<T *>(_argv)[_TOL_];
-    host_argv[_SIGMA_] = static_cast<T *>(_argv)[_SIGMA_];
   }
   void init() {
     {   // basic set
@@ -175,12 +171,7 @@ template <typename T> struct LatticeSet {
         gridDim_3dim[_XZT_] = lat_3dim[_XZT_] / _BLOCK_SIZE_;
         gridDim_3dim[_XYT_] = lat_3dim[_XYT_] / _BLOCK_SIZE_;
         gridDim_3dim[_XYZ_] = lat_3dim[_XYZ_] / _BLOCK_SIZE_;
-        lat_4dim = lat_3dim[_XYZ_] * host_params[_LAT_T_];
-        if ((host_params[_LAT_XYZT_] / _EVEN_ODD_) != lat_4dim) {
-          printf("error: (host_params[_LAT_XYZT_] / _EVEN_ODD_) != lat_4dim, "
-                 "maybe the params input is wrong or just no even-odd "
-                 "needed!\n"); // for test input
-        }
+        lat_4dim = host_params[_LAT_XYZT_];
         host_params[_LAT_XYZT_] = lat_4dim;
         lat_4dim_C = lat_4dim * _LAT_C_;
         lat_4dim_SC = lat_4dim * _LAT_SC_;
