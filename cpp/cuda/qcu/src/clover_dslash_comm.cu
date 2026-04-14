@@ -49,7 +49,7 @@ __global__ void pick_up_u_y(void *device_U, void *device_params,
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
   int tmp0 = idx;
   int *params = static_cast<int *>(device_params);
-  int lat_x = params[_LAT_X_];
+  // int lat_x = params[_LAT_X_];
   int lat_y = 1;
   int lat_z = params[_LAT_Z_];
   int lat_t = params[_LAT_T_];
@@ -90,7 +90,7 @@ __global__ void pick_up_u_z(void *device_U, void *device_params,
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
   int tmp0 = idx;
   int *params = static_cast<int *>(device_params);
-  int lat_x = params[_LAT_X_];
+  // int lat_x = params[_LAT_X_];
   int lat_y = params[_LAT_Y_];
   int lat_z = 1;
   int lat_t = params[_LAT_T_];
@@ -131,7 +131,7 @@ __global__ void pick_up_u_t(void *device_U, void *device_params,
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
   int tmp0 = idx;
   int *params = static_cast<int *>(device_params);
-  int lat_x = params[_LAT_X_];
+  // int lat_x = params[_LAT_X_];
   int lat_y = params[_LAT_Y_];
   int lat_z = params[_LAT_Z_];
   int lat_t = 1;
@@ -144,7 +144,7 @@ __global__ void pick_up_u_t(void *device_U, void *device_params,
   int y = tmp0 / tmp1;
   tmp0 -= y * tmp1;
   int z = tmp0 / lat_t;
-  int t = tmp0 - z * lat_t;
+  // int t = tmp0 - z * lat_t;
   lat_t = params[_LAT_T_];
   LatticeComplex<T> *origin_U = static_cast<LatticeComplex<T> *>(device_U);
   LatticeComplex<T> *tmp_U;
@@ -185,8 +185,8 @@ pick_up_u_xy(void *device_U, void *device_params,
   tmp1 = lat_x * lat_y;
   int z = tmp0 / tmp1;
   tmp0 -= z * tmp1;
-  int y = tmp0 / lat_x;
-  int x = tmp0 - y * lat_x;
+  // int y = tmp0 / lat_x;
+  // int x = tmp0 - y * lat_x;
   lat_x = params[_LAT_X_];
   lat_y = params[_LAT_Y_];
   LatticeComplex<T> *origin_U = static_cast<LatticeComplex<T> *>(device_U);
@@ -302,7 +302,7 @@ pick_up_u_xt(void *device_U, void *device_params,
   int y = tmp0 / tmp1;
   tmp0 -= y * tmp1;
   int z = tmp0 / lat_t;
-  int t = tmp0 - z * lat_t;
+  // int t = tmp0 - z * lat_t;
   lat_x = params[_LAT_X_];
   lat_t = params[_LAT_T_];
   LatticeComplex<T> *origin_U = static_cast<LatticeComplex<T> *>(device_U);
@@ -347,7 +347,7 @@ pick_up_u_yz(void *device_U, void *device_params,
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
   int tmp0 = idx;
   int *params = static_cast<int *>(device_params);
-  int lat_x = params[_LAT_X_];
+  // int lat_x = params[_LAT_X_];
   int lat_y = 1;
   int lat_z = 1;
   int lat_t = params[_LAT_T_];
@@ -405,7 +405,7 @@ pick_up_u_yt(void *device_U, void *device_params,
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
   int tmp0 = idx;
   int *params = static_cast<int *>(device_params);
-  int lat_x = params[_LAT_X_];
+  // int lat_x = params[_LAT_X_];
   int lat_y = 1;
   int lat_z = params[_LAT_Z_];
   int lat_t = 1;
@@ -418,7 +418,7 @@ pick_up_u_yt(void *device_U, void *device_params,
   int y = tmp0 / tmp1;
   tmp0 -= y * tmp1;
   int z = tmp0 / lat_t;
-  int t = tmp0 - z * lat_t;
+  // int t = tmp0 - z * lat_t;
   lat_y = params[_LAT_Y_];
   lat_t = params[_LAT_T_];
   LatticeComplex<T> *origin_U = static_cast<LatticeComplex<T> *>(device_U);
@@ -463,7 +463,7 @@ pick_up_u_zt(void *device_U, void *device_params,
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
   int tmp0 = idx;
   int *params = static_cast<int *>(device_params);
-  int lat_x = params[_LAT_X_];
+  // int lat_x = params[_LAT_X_];
   int lat_y = params[_LAT_Y_];
   int lat_z = 1;
   int lat_t = 1;
@@ -475,8 +475,8 @@ pick_up_u_zt(void *device_U, void *device_params,
   tmp1 = lat_z * lat_t;
   int y = tmp0 / tmp1;
   tmp0 -= y * tmp1;
-  int z = tmp0 / lat_t;
-  int t = tmp0 - z * lat_t;
+  // int z = tmp0 / lat_t;
+  // int t = tmp0 - z * lat_t;
   lat_z = params[_LAT_Z_];
   lat_t = params[_LAT_T_];
   LatticeComplex<T> *origin_U = static_cast<LatticeComplex<T> *>(device_U);
