@@ -23,12 +23,12 @@ template <typename T> struct LatticeWilsonDslash {
       if (set_ptr->host_params[_GRID_X_] != 1) { // x part d2h
         checkCudaErrors(cudaMemcpyAsync(
             set_ptr->host_send_vec[_B_X_], set_ptr->device_send_vec[_B_X_],
-            sizeof(T) * set_ptr->lat_3dim_SC[_X_] / _EVEN_ODD_,
-            cudaMemcpyDeviceToHost, set_ptr->stream_dims[_X_]));
+            sizeof(T) * set_ptr->lat_3dim_SC[_X_], cudaMemcpyDeviceToHost,
+            set_ptr->stream_dims[_X_]));
         checkCudaErrors(cudaMemcpyAsync(
             set_ptr->host_send_vec[_F_X_], set_ptr->device_send_vec[_F_X_],
-            sizeof(T) * set_ptr->lat_3dim_SC[_X_] / _EVEN_ODD_,
-            cudaMemcpyDeviceToHost, set_ptr->stream_dims[_X_]));
+            sizeof(T) * set_ptr->lat_3dim_SC[_X_], cudaMemcpyDeviceToHost,
+            set_ptr->stream_dims[_X_]));
       }
       wilson_dslash_y_send<T><<<set_ptr->gridDim_3dim[_Y_], set_ptr->blockDim,
                                 0, set_ptr->stream_dims[_Y_]>>>(
@@ -65,12 +65,12 @@ template <typename T> struct LatticeWilsonDslash {
       if (set_ptr->host_params[_GRID_T_] != 1) { // t part d2h
         checkCudaErrors(cudaMemcpyAsync(
             set_ptr->host_send_vec[_B_T_], set_ptr->device_send_vec[_B_T_],
-            sizeof(T) * set_ptr->lat_3dim_SC[_T_], cudaMemcpyDeviceToHost,
-            set_ptr->stream_dims[_T_]));
+            sizeof(T) * set_ptr->lat_3dim_SC[_T_] / _EVEN_ODD_,
+            cudaMemcpyDeviceToHost, set_ptr->stream_dims[_T_]));
         checkCudaErrors(cudaMemcpyAsync(
             set_ptr->host_send_vec[_F_T_], set_ptr->device_send_vec[_F_T_],
-            sizeof(T) * set_ptr->lat_3dim_SC[_T_], cudaMemcpyDeviceToHost,
-            set_ptr->stream_dims[_T_]));
+            sizeof(T) * set_ptr->lat_3dim_SC[_T_] / _EVEN_ODD_,
+            cudaMemcpyDeviceToHost, set_ptr->stream_dims[_T_]));
       }
     }
     { // inside compute part ans wait
@@ -91,20 +91,16 @@ template <typename T> struct LatticeWilsonDslash {
             set_ptr->device_send_vec[_B_X_]);
       } else {
         // comm
-        _MPI_Isend<T>(set_ptr->host_send_vec[_B_X_],
-                      set_ptr->lat_3dim_SC[_X_] / _EVEN_ODD_,
+        _MPI_Isend<T>(set_ptr->host_send_vec[_B_X_], set_ptr->lat_3dim_SC[_X_],
                       set_ptr->move_wards[_B_X_], _B_X_, MPI_COMM_WORLD,
                       &set_ptr->send_request[_B_X_]);
-        _MPI_Irecv<T>(set_ptr->host_recv_vec[_F_X_],
-                      set_ptr->lat_3dim_SC[_X_] / _EVEN_ODD_,
+        _MPI_Irecv<T>(set_ptr->host_recv_vec[_F_X_], set_ptr->lat_3dim_SC[_X_],
                       set_ptr->move_wards[_F_X_], _B_X_, MPI_COMM_WORLD,
                       &set_ptr->recv_request[_B_X_]);
-        _MPI_Isend<T>(set_ptr->host_send_vec[_F_X_],
-                      set_ptr->lat_3dim_SC[_X_] / _EVEN_ODD_,
+        _MPI_Isend<T>(set_ptr->host_send_vec[_F_X_], set_ptr->lat_3dim_SC[_X_],
                       set_ptr->move_wards[_F_X_], _F_X_, MPI_COMM_WORLD,
                       &set_ptr->send_request[_F_X_]);
-        _MPI_Irecv<T>(set_ptr->host_recv_vec[_B_X_],
-                      set_ptr->lat_3dim_SC[_X_] / _EVEN_ODD_,
+        _MPI_Irecv<T>(set_ptr->host_recv_vec[_B_X_], set_ptr->lat_3dim_SC[_X_],
                       set_ptr->move_wards[_B_X_], _F_X_, MPI_COMM_WORLD,
                       &set_ptr->recv_request[_F_X_]);
       }
@@ -173,16 +169,20 @@ template <typename T> struct LatticeWilsonDslash {
             set_ptr->device_send_vec[_B_T_]);
       } else {
         // comm
-        _MPI_Isend<T>(set_ptr->host_send_vec[_B_T_], set_ptr->lat_3dim_SC[_T_],
+        _MPI_Isend<T>(set_ptr->host_send_vec[_B_T_],
+                      set_ptr->lat_3dim_SC[_T_] / _EVEN_ODD_,
                       set_ptr->move_wards[_B_T_], _B_T_, MPI_COMM_WORLD,
                       &set_ptr->send_request[_B_T_]);
-        _MPI_Irecv<T>(set_ptr->host_recv_vec[_F_T_], set_ptr->lat_3dim_SC[_T_],
+        _MPI_Irecv<T>(set_ptr->host_recv_vec[_F_T_],
+                      set_ptr->lat_3dim_SC[_T_] / _EVEN_ODD_,
                       set_ptr->move_wards[_F_T_], _B_T_, MPI_COMM_WORLD,
                       &set_ptr->recv_request[_B_T_]);
-        _MPI_Isend<T>(set_ptr->host_send_vec[_F_T_], set_ptr->lat_3dim_SC[_T_],
+        _MPI_Isend<T>(set_ptr->host_send_vec[_F_T_],
+                      set_ptr->lat_3dim_SC[_T_] / _EVEN_ODD_,
                       set_ptr->move_wards[_F_T_], _F_T_, MPI_COMM_WORLD,
                       &set_ptr->send_request[_F_T_]);
-        _MPI_Irecv<T>(set_ptr->host_recv_vec[_B_T_], set_ptr->lat_3dim_SC[_T_],
+        _MPI_Irecv<T>(set_ptr->host_recv_vec[_B_T_],
+                      set_ptr->lat_3dim_SC[_T_] / _EVEN_ODD_,
                       set_ptr->move_wards[_B_T_], _F_T_, MPI_COMM_WORLD,
                       &set_ptr->recv_request[_F_T_]);
       }
@@ -191,13 +191,13 @@ template <typename T> struct LatticeWilsonDslash {
       MPI_Wait(&set_ptr->recv_request[_B_X_], MPI_STATUS_IGNORE);
       checkCudaErrors(cudaMemcpyAsync(
           set_ptr->device_recv_vec[_F_X_], set_ptr->host_recv_vec[_F_X_],
-          sizeof(T) * set_ptr->lat_3dim_SC[_X_] / _EVEN_ODD_,
-          cudaMemcpyHostToDevice, set_ptr->stream_dims[_X_]));
+          sizeof(T) * set_ptr->lat_3dim_SC[_X_], cudaMemcpyHostToDevice,
+          set_ptr->stream_dims[_X_]));
       MPI_Wait(&set_ptr->recv_request[_F_X_], MPI_STATUS_IGNORE);
       checkCudaErrors(cudaMemcpyAsync(
           set_ptr->device_recv_vec[_B_X_], set_ptr->host_recv_vec[_B_X_],
-          sizeof(T) * set_ptr->lat_3dim_SC[_X_] / _EVEN_ODD_,
-          cudaMemcpyHostToDevice, set_ptr->stream_dims[_X_]));
+          sizeof(T) * set_ptr->lat_3dim_SC[_X_], cudaMemcpyHostToDevice,
+          set_ptr->stream_dims[_X_]));
     }
     if (set_ptr->host_params[_GRID_Y_] != 1) { // y part h2d
       MPI_Wait(&set_ptr->recv_request[_B_Y_], MPI_STATUS_IGNORE);
@@ -227,13 +227,13 @@ template <typename T> struct LatticeWilsonDslash {
       MPI_Wait(&set_ptr->recv_request[_B_T_], MPI_STATUS_IGNORE);
       checkCudaErrors(cudaMemcpyAsync(
           set_ptr->device_recv_vec[_F_T_], set_ptr->host_recv_vec[_F_T_],
-          sizeof(T) * set_ptr->lat_3dim_SC[_T_], cudaMemcpyHostToDevice,
-          set_ptr->stream_dims[_T_]));
+          sizeof(T) * set_ptr->lat_3dim_SC[_T_] / _EVEN_ODD_,
+          cudaMemcpyHostToDevice, set_ptr->stream_dims[_T_]));
       MPI_Wait(&set_ptr->recv_request[_F_T_], MPI_STATUS_IGNORE);
       checkCudaErrors(cudaMemcpyAsync(
           set_ptr->device_recv_vec[_B_T_], set_ptr->host_recv_vec[_B_T_],
-          sizeof(T) * set_ptr->lat_3dim_SC[_T_], cudaMemcpyHostToDevice,
-          set_ptr->stream_dims[_T_]));
+          sizeof(T) * set_ptr->lat_3dim_SC[_T_] / _EVEN_ODD_,
+          cudaMemcpyHostToDevice, set_ptr->stream_dims[_T_]));
     }
     {
       // edge recv part
@@ -287,12 +287,12 @@ template <typename T> struct LatticeWilsonDslash {
       if (set_ptr->host_params[_GRID_X_] != 1) { // x part d2h
         checkCudaErrors(cudaMemcpyAsync(
             set_ptr->host_send_vec[_B_X_], set_ptr->device_send_vec[_B_X_],
-            sizeof(T) * set_ptr->lat_3dim_SC[_X_] / _EVEN_ODD_,
-            cudaMemcpyDeviceToHost, set_ptr->stream_dims[_X_]));
+            sizeof(T) * set_ptr->lat_3dim_SC[_X_], cudaMemcpyDeviceToHost,
+            set_ptr->stream_dims[_X_]));
         checkCudaErrors(cudaMemcpyAsync(
             set_ptr->host_send_vec[_F_X_], set_ptr->device_send_vec[_F_X_],
-            sizeof(T) * set_ptr->lat_3dim_SC[_X_] / _EVEN_ODD_,
-            cudaMemcpyDeviceToHost, set_ptr->stream_dims[_X_]));
+            sizeof(T) * set_ptr->lat_3dim_SC[_X_], cudaMemcpyDeviceToHost,
+            set_ptr->stream_dims[_X_]));
       }
       wilson_dslash_y_send<T><<<set_ptr->gridDim_3dim[_Y_], set_ptr->blockDim,
                                 0, set_ptr->stream_dims[_Y_]>>>(
@@ -329,12 +329,12 @@ template <typename T> struct LatticeWilsonDslash {
       if (set_ptr->host_params[_GRID_T_] != 1) { // t part d2h
         checkCudaErrors(cudaMemcpyAsync(
             set_ptr->host_send_vec[_B_T_], set_ptr->device_send_vec[_B_T_],
-            sizeof(T) * set_ptr->lat_3dim_SC[_T_], cudaMemcpyDeviceToHost,
-            set_ptr->stream_dims[_T_]));
+            sizeof(T) * set_ptr->lat_3dim_SC[_T_] / _EVEN_ODD_,
+            cudaMemcpyDeviceToHost, set_ptr->stream_dims[_T_]));
         checkCudaErrors(cudaMemcpyAsync(
             set_ptr->host_send_vec[_F_T_], set_ptr->device_send_vec[_F_T_],
-            sizeof(T) * set_ptr->lat_3dim_SC[_T_], cudaMemcpyDeviceToHost,
-            set_ptr->stream_dims[_T_]));
+            sizeof(T) * set_ptr->lat_3dim_SC[_T_] / _EVEN_ODD_,
+            cudaMemcpyDeviceToHost, set_ptr->stream_dims[_T_]));
       }
     }
     { // inside compute part ans wait
@@ -355,18 +355,16 @@ template <typename T> struct LatticeWilsonDslash {
             set_ptr->device_send_vec[_B_X_]);
       } else {
         // comm
-        _MPI_Sendrecv<T>(
-            set_ptr->host_send_vec[_B_X_],
-            set_ptr->lat_3dim_SC[_X_] / _EVEN_ODD_, set_ptr->move_wards[_B_X_],
-            _B_X_, set_ptr->host_recv_vec[_F_X_],
-            set_ptr->lat_3dim_SC[_X_] / _EVEN_ODD_, set_ptr->move_wards[_F_X_],
-            _B_X_, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        _MPI_Sendrecv<T>(
-            set_ptr->host_send_vec[_F_X_],
-            set_ptr->lat_3dim_SC[_X_] / _EVEN_ODD_, set_ptr->move_wards[_F_X_],
-            _F_X_, set_ptr->host_recv_vec[_B_X_],
-            set_ptr->lat_3dim_SC[_X_] / _EVEN_ODD_, set_ptr->move_wards[_B_X_],
-            _F_X_, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        _MPI_Sendrecv<T>(set_ptr->host_send_vec[_B_X_],
+                         set_ptr->lat_3dim_SC[_X_], set_ptr->move_wards[_B_X_],
+                         _B_X_, set_ptr->host_recv_vec[_F_X_],
+                         set_ptr->lat_3dim_SC[_X_], set_ptr->move_wards[_F_X_],
+                         _B_X_, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        _MPI_Sendrecv<T>(set_ptr->host_send_vec[_F_X_],
+                         set_ptr->lat_3dim_SC[_X_], set_ptr->move_wards[_F_X_],
+                         _F_X_, set_ptr->host_recv_vec[_B_X_],
+                         set_ptr->lat_3dim_SC[_X_], set_ptr->move_wards[_B_X_],
+                         _F_X_, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
       }
     }
     {
@@ -429,27 +427,29 @@ template <typename T> struct LatticeWilsonDslash {
             set_ptr->device_send_vec[_B_T_]);
       } else {
         // comm
-        _MPI_Sendrecv<T>(set_ptr->host_send_vec[_B_T_],
-                         set_ptr->lat_3dim_SC[_T_], set_ptr->move_wards[_B_T_],
-                         _B_T_, set_ptr->host_recv_vec[_F_T_],
-                         set_ptr->lat_3dim_SC[_T_], set_ptr->move_wards[_F_T_],
-                         _B_T_, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        _MPI_Sendrecv<T>(set_ptr->host_send_vec[_F_T_],
-                         set_ptr->lat_3dim_SC[_T_], set_ptr->move_wards[_F_T_],
-                         _F_T_, set_ptr->host_recv_vec[_B_T_],
-                         set_ptr->lat_3dim_SC[_T_], set_ptr->move_wards[_B_T_],
-                         _F_T_, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        _MPI_Sendrecv<T>(
+            set_ptr->host_send_vec[_B_T_],
+            set_ptr->lat_3dim_SC[_T_] / _EVEN_ODD_, set_ptr->move_wards[_B_T_],
+            _B_T_, set_ptr->host_recv_vec[_F_T_],
+            set_ptr->lat_3dim_SC[_T_] / _EVEN_ODD_, set_ptr->move_wards[_F_T_],
+            _B_T_, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        _MPI_Sendrecv<T>(
+            set_ptr->host_send_vec[_F_T_],
+            set_ptr->lat_3dim_SC[_T_] / _EVEN_ODD_, set_ptr->move_wards[_F_T_],
+            _F_T_, set_ptr->host_recv_vec[_B_T_],
+            set_ptr->lat_3dim_SC[_T_] / _EVEN_ODD_, set_ptr->move_wards[_B_T_],
+            _F_T_, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
       }
     }
     if (set_ptr->host_params[_GRID_X_] != 1) { // x part h2d
       checkCudaErrors(cudaMemcpyAsync(
           set_ptr->device_recv_vec[_F_X_], set_ptr->host_recv_vec[_F_X_],
-          sizeof(T) * set_ptr->lat_3dim_SC[_X_] / _EVEN_ODD_,
-          cudaMemcpyHostToDevice, set_ptr->stream_dims[_X_]));
+          sizeof(T) * set_ptr->lat_3dim_SC[_X_], cudaMemcpyHostToDevice,
+          set_ptr->stream_dims[_X_]));
       checkCudaErrors(cudaMemcpyAsync(
           set_ptr->device_recv_vec[_B_X_], set_ptr->host_recv_vec[_B_X_],
-          sizeof(T) * set_ptr->lat_3dim_SC[_X_] / _EVEN_ODD_,
-          cudaMemcpyHostToDevice, set_ptr->stream_dims[_X_]));
+          sizeof(T) * set_ptr->lat_3dim_SC[_X_], cudaMemcpyHostToDevice,
+          set_ptr->stream_dims[_X_]));
     }
     if (set_ptr->host_params[_GRID_Y_] != 1) { // y part h2d
       checkCudaErrors(cudaMemcpyAsync(
@@ -474,12 +474,12 @@ template <typename T> struct LatticeWilsonDslash {
     if (set_ptr->host_params[_GRID_T_] != 1) { // t part h2d
       checkCudaErrors(cudaMemcpyAsync(
           set_ptr->device_recv_vec[_F_T_], set_ptr->host_recv_vec[_F_T_],
-          sizeof(T) * set_ptr->lat_3dim_SC[_T_], cudaMemcpyHostToDevice,
-          set_ptr->stream_dims[_T_]));
+          sizeof(T) * set_ptr->lat_3dim_SC[_T_] / _EVEN_ODD_,
+          cudaMemcpyHostToDevice, set_ptr->stream_dims[_T_]));
       checkCudaErrors(cudaMemcpyAsync(
           set_ptr->device_recv_vec[_B_T_], set_ptr->host_recv_vec[_B_T_],
-          sizeof(T) * set_ptr->lat_3dim_SC[_T_], cudaMemcpyHostToDevice,
-          set_ptr->stream_dims[_T_]));
+          sizeof(T) * set_ptr->lat_3dim_SC[_T_] / _EVEN_ODD_,
+          cudaMemcpyHostToDevice, set_ptr->stream_dims[_T_]));
     }
     {
       // edge recv part
