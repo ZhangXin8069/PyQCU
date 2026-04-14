@@ -2,8 +2,8 @@ import torch
 from pyqcu import tools, dslash, lattice
 from pyqcu.cuda import qcu, define
 from pyqcu.cuda.define import params, argv, set_ptrs
-params[define._LAT_X_] = 4
-params[define._LAT_Y_] = 8
+params[define._LAT_X_] = 8
+params[define._LAT_Y_] = 16
 params[define._LAT_Z_] = 16
 params[define._LAT_T_] = 32
 params[define._LAT_XYZT_] = params[define._LAT_X_] * \
@@ -34,8 +34,9 @@ print(argv)
 print(set_ptrs)
 gauge_eo = torch.zeros(size=[2, 3, 3, 4]+[params[define._LAT_X_], params[define._LAT_Y_], params[define._LAT_Z_],
                        params[define._LAT_T_]//define._LAT_P_]).to(dtype=define.dtype(params[define._DATA_TYPE_]), device=torch.device('cuda'))
-fermion_in_eo = torch.rand(size=[2, 4, 3]+[params[define._LAT_X_], params[define._LAT_Y_], params[define._LAT_Z_],
-                           params[define._LAT_T_]//define._LAT_P_]).to(dtype=define.dtype(params[define._DATA_TYPE_]), device=torch.device('cuda'))
+fermion_in_eo = torch.zeros(size=[2, 4, 3]+[params[define._LAT_X_], params[define._LAT_Y_], params[define._LAT_Z_],
+                                            params[define._LAT_T_]//define._LAT_P_]).to(dtype=define.dtype(params[define._DATA_TYPE_]), device=torch.device('cuda'))
+fermion_in_eo = torch.rand_like(fermion_in_eo)
 fermion_out_eo = torch.zeros(size=[2, 4, 3]+[params[define._LAT_X_], params[define._LAT_Y_], params[define._LAT_Z_],
                              params[define._LAT_T_]//define._LAT_P_]).to(dtype=define.dtype(params[define._DATA_TYPE_]), device=torch.device('cuda'))
 params[define._VERBOSE_] = 1
@@ -43,11 +44,9 @@ params[define._SET_INDEX_] = 0
 params[define._SET_PLAN_] = -1
 params[define._PARITY_] = 0
 qcu.applyInitQcu(set_ptrs, params, argv)
-gauge = tools.poooxyzt2oooxyzt(input_array=gauge_eo)
-qcu.applyGaussGaugeQcu(gauge, set_ptrs, params)
-gauge_eo = tools.oooxyzt2poooxyzt(input_array=gauge)
-print(gauge_eo.flatten()[:100])
-print(lattice.check_su3(U=gauge))
+qcu.applyGaussGaugeQcu(gauge_eo, set_ptrs, params)
+print(lattice.check_su3(U=gauge_eo[0]))
+print(lattice.check_su3(U=gauge_eo[1]))
 qcu.applyEndQcu(set_ptrs, params)
 print(set_ptrs)
 params[define._VERBOSE_] = 1
@@ -59,14 +58,13 @@ qcu.applyWilsonBistabCgQcu(
     fermion_out_eo, fermion_in_eo, gauge_eo, set_ptrs, params)
 qcu.applyEndQcu(set_ptrs, params)
 print(set_ptrs)
-print(fermion_out_eo.flatten()[:100])
 qcu_dest = tools.poooxyzt2oooxyzt(input_array=fermion_out_eo)
 qcu_U = tools.poooxyzt2oooxyzt(input_array=gauge_eo)
 qcu_src = tools.poooxyzt2oooxyzt(input_array=fermion_in_eo)
 refer_src = dslash.give_wilson(
     src=qcu_dest, U=qcu_U, kappa=1 / (2 * argv[define._MASS_] + 8), with_I=True)
-print(qcu_src.flatten()[:100])
-print(refer_src.flatten()[:100])
+print('qcu_src:', qcu_src.flatten()[:100])
+print('refer_src:', refer_src.flatten()[:100])
 print('Difference:', tools.norm(refer_src-qcu_src)/tools.norm(qcu_src))
 clover_ee = torch.zeros(size=[4, 3, 4, 3]+[params[define._LAT_X_], params[define._LAT_Y_], params[define._LAT_Z_],
                                            params[define._LAT_T_]//define._LAT_P_]).to(dtype=define.dtype(params[define._DATA_TYPE_]), device=torch.device('cuda'))
@@ -110,8 +108,8 @@ refer_clover_term = dslash.make_clover(
     U=qcu_U, kappa=1 / (2 * argv[define._MASS_] + 8))
 refer_src = dslash.give_wilson(
     src=qcu_dest, U=qcu_U, kappa=1 / (2 * argv[define._MASS_] + 8), with_I=True)+dslash.give_clover(src=qcu_dest, clover_term=refer_clover_term)
-print(qcu_src.flatten()[:100])
-print(refer_src.flatten()[:100])
+print('qcu_src:', qcu_src.flatten()[:100])
+print('refer_src:', refer_src.flatten()[:100])
 print('Difference:', tools.norm(refer_src-qcu_src)/tools.norm(qcu_src))
 clover_eeoo = torch.zeros(size=[2, 4, 3, 4, 3]+[params[define._LAT_X_], params[define._LAT_Y_], params[define._LAT_Z_],
                                                 params[define._LAT_T_]//define._LAT_P_]).to(dtype=define.dtype(params[define._DATA_TYPE_]), device=torch.device('cuda'))
@@ -125,11 +123,11 @@ qcu_clover_term_eo = tools.oooxyzt2poooxyzt(
     input_array=qcu_clover_term)
 refer_clover_term_eo = tools.oooxyzt2poooxyzt(
     input_array=refer_clover_term)
-print(qcu_clover_term.flatten()[:100])
-print(refer_clover_term.flatten()[:100])
-print(qcu_clover_term_eo[0].flatten()[:100])
-print(refer_clover_term_eo[0].flatten()[:100])
-print(qcu_clover_term_eo[1].flatten()[:100])
-print(refer_clover_term_eo[1].flatten()[:100])
+print('qcu_clover_term:', qcu_clover_term.flatten()[:100])
+print('refer_clover_term:', refer_clover_term.flatten()[:100])
+# print('qcu_clover_term_eo:', qcu_clover_term_eo[0].flatten()[:100])
+# print('refer_clover_term_eo:', refer_clover_term_eo[0].flatten()[:100])
+# print('qcu_clover_term_eo:', qcu_clover_term_eo[1].flatten()[:100])
+# print('refer_clover_term_eo:', refer_clover_term_eo[1].flatten()[:100])
 print('Difference:', tools.norm(refer_clover_term -
       qcu_clover_term)/tools.norm(qcu_clover_term))
