@@ -15,6 +15,7 @@ void applyInitQcu(long long _set_ptrs, long long _params, long long _argv) {
     set_ptr->give(params, argv);
     if (set_ptr->host_params[_VERBOSE_]) {
       printf("set_ptr:%p\n", set_ptr);
+      printf("set_ptrs:%p\n", set_ptrs);
       printf("long long set_ptr:%lld\n", (long long)set_ptr);
       auto start = std::chrono::high_resolution_clock::now();
       set_ptr->init();
@@ -39,6 +40,7 @@ void applyInitQcu(long long _set_ptrs, long long _params, long long _argv) {
     set_ptr->give(params, argv);
     if (set_ptr->host_params[_VERBOSE_]) {
       printf("set_ptr:%p\n", set_ptr);
+      printf("set_ptrs:%p\n", set_ptrs);
       printf("long long set_ptr:%lld\n", (long long)set_ptr);
       auto start = std::chrono::high_resolution_clock::now();
       set_ptr->init();

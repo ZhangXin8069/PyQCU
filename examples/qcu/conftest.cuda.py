@@ -1,0 +1,116 @@
+import torch
+from pyqcu import tools, dslash, lattice
+from pyqcu.cuda import qcu, define
+from pyqcu.cuda.define import params, argv, set_ptrs
+params[define._LAT_X_] = 8
+params[define._LAT_Y_] = 8
+params[define._LAT_Z_] = 8
+params[define._LAT_T_] = 8
+params[define._LAT_XYZT_] = params[define._LAT_X_] * \
+    params[define._LAT_Y_]*params[define._LAT_Z_]*params[define._LAT_T_]
+params[define._GRID_X_], params[define._GRID_Y_], params[define._GRID_Z_], params[
+    define._GRID_T_] = tools.give_grid_size()
+params[define._PARITY_] = 0
+params[define._NODE_RANK_] = define.rank
+params[define._NODE_SIZE_] = define.size
+params[define._DAGGER_] = 0
+params[define._MAX_ITER_] = 1000
+params[define._DATA_TYPE_] = define._LAT_C128_
+params[define._SET_INDEX_] = 0
+params[define._SET_PLAN_] = 1
+params[define._MG_X_] = 1
+params[define._MG_Y_] = 1
+params[define._MG_Z_] = 1
+params[define._MG_T_] = 1
+params[define._LAT_E_] = 24
+params[define._VERBOSE_] = 1
+params[define._SEED_] = 42
+argv = argv.to(dtype=define.dtype(params[define._DATA_TYPE_]).to_real())
+argv[define._MASS_] = 0.05
+argv[define._TOL_] = 1e-9
+argv[define._SIGMA_] = 0.1
+#############################
+print(params)
+print(argv)
+print(set_ptrs)
+gauge_eo = torch.zeros(size=[3, 3, 4, 2]+[params[define._LAT_X_], params[define._LAT_Y_], params[define._LAT_Z_],
+                       params[define._LAT_T_]//define._LAT_P_]).to(dtype=define.dtype(params[define._DATA_TYPE_]), device=torch.device('cuda'))
+fermion_in_eo = torch.rand(size=[2, 4, 3]+[params[define._LAT_X_], params[define._LAT_Y_], params[define._LAT_Z_],
+                           params[define._LAT_T_]//define._LAT_P_]).to(dtype=define.dtype(params[define._DATA_TYPE_]), device=torch.device('cuda'))
+fermion_out_eo = torch.zeros(size=[2, 4, 3]+[params[define._LAT_X_], params[define._LAT_Y_], params[define._LAT_Z_],
+                             params[define._LAT_T_]//define._LAT_P_]).to(dtype=define.dtype(params[define._DATA_TYPE_]), device=torch.device('cuda'))
+params[define._VERBOSE_] = 1
+params[define._SET_INDEX_] = 0
+params[define._SET_PLAN_] = 0
+params[define._PARITY_] = 0
+qcu.applyInitQcu(set_ptrs, params, argv)
+gauge = tools.poooxyzt2oooxyzt(input_array=gauge_eo)
+qcu.applyGaussGaugeQcu(gauge_eo, set_ptrs, params)
+gauge_eo = tools.oooxyzt2poooxyzt(input_array=gauge)
+qcu.applyEndQcu(set_ptrs, params)
+print(set_ptrs)
+print(gauge_eo.flatten()[:100])
+print(lattice.check_su3(U=gauge_eo))
+params[define._VERBOSE_] = 1
+params[define._SET_INDEX_] += 1
+params[define._SET_PLAN_] = 1
+params[define._PARITY_] = 0
+qcu.applyInitQcu(set_ptrs, params, argv)
+qcu.applyWilsonBistabCgQcu(
+    fermion_out_eo, fermion_in_eo, gauge_eo, set_ptrs, params)
+qcu.applyEndQcu(set_ptrs, params)
+print(set_ptrs)
+print(fermion_out_eo.flatten()[:100])
+qcu_dest = tools.psctzyx2scxyzt(psctzyx=fermion_out_eo)
+qcu_U = tools.ccdptzyx2ccdxyzt(ccdptzyx=gauge_eo)
+qcu_src = tools.psctzyx2scxyzt(psctzyx=fermion_in_eo)
+refer_src = dslash.give_wilson(
+    src=qcu_dest, U=qcu_U, kappa=1 / (2 * argv[define._MASS_] + 8), with_I=True)
+print(qcu_src.flatten()[:100])
+print(refer_src.flatten()[:100])
+print(tools.norm(refer_src-qcu_src)/tools.norm(qcu_src))
+clover_ee = torch.zeros(size=[4, 3, 4, 3]+[params[define._LAT_X_], params[define._LAT_Y_], params[define._LAT_Z_],
+                                           params[define._LAT_T_]//define._LAT_P_]).to(dtype=define.dtype(params[define._DATA_TYPE_]), device=torch.device('cuda'))
+clover_ee_inv = torch.zeros(size=[4, 3, 4, 3]+[params[define._LAT_X_], params[define._LAT_Y_], params[define._LAT_Z_],
+                                               params[define._LAT_T_]//define._LAT_P_]).to(dtype=define.dtype(params[define._DATA_TYPE_]), device=torch.device('cuda'))
+clover_oo = torch.zeros(size=[4, 3, 4, 3]+[params[define._LAT_X_], params[define._LAT_Y_], params[define._LAT_Z_],
+                                           params[define._LAT_T_]//define._LAT_P_]).to(dtype=define.dtype(params[define._DATA_TYPE_]), device=torch.device('cuda'))
+clover_oo_inv = torch.zeros(size=[4, 3, 4, 3]+[params[define._LAT_X_], params[define._LAT_Y_], params[define._LAT_Z_],
+                                               params[define._LAT_T_]//define._LAT_P_]).to(dtype=define.dtype(params[define._DATA_TYPE_]), device=torch.device('cuda'))
+params[define._VERBOSE_] = 1
+params[define._SET_INDEX_] += 1
+params[define._SET_PLAN_] = 2
+params[define._PARITY_] = 0
+qcu.applyInitQcu(set_ptrs, params, argv)
+qcu.applyCloversQcu(clover_ee, clover_ee_inv, gauge_eo, set_ptrs, params)
+qcu.applyEndQcu(set_ptrs, params)
+print(set_ptrs)
+params[define._VERBOSE_] = 1
+params[define._SET_INDEX_] += 1
+params[define._SET_PLAN_] = 2
+params[define._PARITY_] = 1
+qcu.applyInitQcu(set_ptrs, params, argv)
+qcu.applyCloversQcu(clover_oo, clover_oo_inv, gauge_eo, set_ptrs, params)
+qcu.applyEndQcu(set_ptrs, params)
+print(set_ptrs)
+fermion_out_eo = torch.zeros(size=[2, 4, 3]+[params[define._LAT_X_], params[define._LAT_Y_], params[define._LAT_Z_],
+                             params[define._LAT_T_]//define._LAT_P_]).to(dtype=define.dtype(params[define._DATA_TYPE_]), device=torch.device('cuda'))
+params[define._VERBOSE_] = 1
+params[define._SET_INDEX_] += 1
+params[define._SET_PLAN_] = 1
+params[define._PARITY_] = 0
+qcu.applyInitQcu(set_ptrs, params, argv)
+qcu.applyCloverBistabCgQcu(fermion_out_eo, fermion_in_eo, gauge_eo,
+                           clover_ee, clover_oo, clover_ee_inv, clover_oo_inv,  set_ptrs, params)
+qcu.applyEndQcu(set_ptrs, params)
+print(set_ptrs)
+qcu_dest = tools.psctzyx2scxyzt(psctzyx=fermion_out_eo)
+qcu_U = tools.ccdptzyx2ccdxyzt(ccdptzyx=gauge_eo)
+qcu_src = tools.psctzyx2scxyzt(psctzyx=fermion_in_eo)
+refer_clover_term = dslash.make_clover(
+    U=qcu_U, kappa=1 / (2 * argv[define._MASS_] + 8))
+refer_src = dslash.give_wilson(
+    src=qcu_dest, U=qcu_U, kappa=1 / (2 * argv[define._MASS_] + 8), with_I=True)+dslash.give_clover(src=qcu_dest, clover_term=refer_clover_term)
+print(qcu_src.flatten()[:100])
+print(refer_src.flatten()[:100])
+print(tools.norm(refer_src-qcu_src)/tools.norm(qcu_src))
