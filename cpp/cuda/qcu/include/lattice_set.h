@@ -597,11 +597,11 @@ template <typename T> struct LatticeSet {
       CUBLAS_CHECK(cublasDestroy(cublasH));
       checkCudaErrors(cudaStreamSynchronize(stream));
       checkCudaErrors(cudaStreamDestroy(stream));
-      cudaEventDestroy(start);
-      cudaEventDestroy(stop);
       printf("lattice set whole time:%.9lf "
              "sec\n",
              get_time() / 1e3);
+      cudaEventDestroy(start);
+      cudaEventDestroy(stop);
     }
   }
   void _print() {
