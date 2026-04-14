@@ -175,7 +175,7 @@ namespace qcu {
 #define _GRID_EXAMPLE_ 1
 #define _MEM_POOL_ 0
 #define _CHECK_ERROR_ 1
-#define _TEST_MULTI_IN_SINGLE_ true
+#define _TEST_SINGLE_IN_MULTI_ true
 // cublas API error checking
 #define CUBLAS_CHECK(err)                                                      \
   do {                                                                         \
