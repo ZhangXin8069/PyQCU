@@ -727,7 +727,7 @@ wilson_dslash_y_send(void *device_U, void *device_src, void *device_params,
 #ifdef __Y__
   int parity = blockIdx.x * blockDim.x + threadIdx.x;
   int *params = static_cast<int *>(device_params);
-  int lat_x = params[_LAT_X_];
+  // int lat_x = params[_LAT_X_];
   // int lat_y = yyztsc[_y_];
   int lat_y = 1; // so let y=0 first, then y = lat_y -1
   int lat_z = params[_LAT_Z_];
@@ -921,7 +921,7 @@ wilson_dslash_z_send(void *device_U, void *device_src, void *device_params,
 #ifdef __Z__
   int parity = blockIdx.x * blockDim.x + threadIdx.x;
   int *params = static_cast<int *>(device_params);
-  int lat_x = params[_LAT_X_];
+  // int lat_x = params[_LAT_X_];
   int lat_y = params[_LAT_Y_];
   // int lat_z = zzztsc[_z_];
   int lat_z = 1; // so let z=0 first, then z = lat_z -1
@@ -1016,7 +1016,7 @@ wilson_dslash_z_recv(void *device_U, void *device_dest, void *device_params,
 #ifdef __Z__
   int parity = blockIdx.x * blockDim.x + threadIdx.x;
   int *params = static_cast<int *>(device_params);
-  int lat_x = params[_LAT_X_];
+  // int lat_x = params[_LAT_X_];
   int lat_y = params[_LAT_Y_];
   // int lat_z = zzztsc[_z_];
   int lat_z = 1; // so let z=0 first, then z = lat_z -1
@@ -1115,7 +1115,7 @@ wilson_dslash_t_send(void *device_U, void *device_src, void *device_params,
 #ifdef __T__
   int parity = blockIdx.x * blockDim.x + threadIdx.x;
   int *params = static_cast<int *>(device_params);
-  int lat_x = params[_LAT_X_];
+  // int lat_x = params[_LAT_X_];
   int lat_y = params[_LAT_Y_];
   int lat_z = params[_LAT_Z_];
   // int lat_t = ttttsc[_t_];
@@ -1216,7 +1216,7 @@ wilson_dslash_t_recv(void *device_U, void *device_dest, void *device_params,
 #ifdef __T__
   int parity = blockIdx.x * blockDim.x + threadIdx.x;
   int *params = static_cast<int *>(device_params);
-  int lat_x = params[_LAT_X_];
+  // int lat_x = params[_LAT_X_];
   int lat_y = params[_LAT_Y_];
   int lat_z = params[_LAT_Z_];
   // int lat_t = ttttsc[_t_];
