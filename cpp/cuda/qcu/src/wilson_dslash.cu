@@ -105,10 +105,10 @@ __global__ void wilson_dslash(void *device_U, void *device_src,
   {   // y part
     { // y-1
       move_backward(move, y, lat_y);
-      tmp_U = (origin_U + move *  lat_z * lat_t +
+      tmp_U = (origin_U + move * lat_z * lat_t +
                (_Y_ + (1 - parity) * _LAT_CCD_) * lat_xyzt);
       give_u(U, tmp_U, lat_xyzt);
-      tmp_src = (origin_src + move *  lat_z * lat_t);
+      tmp_src = (origin_src + move * lat_z * lat_t);
       get_src(src, tmp_src, lat_xyzt);
     }
     {
@@ -133,7 +133,7 @@ __global__ void wilson_dslash(void *device_U, void *device_src,
       move_forward(move, y, lat_y);
       tmp_U = (origin_U + (_Y_ + parity * _LAT_CCD_) * lat_xyzt);
       give_u(U, tmp_U, lat_xyzt);
-      tmp_src = (origin_src + move *  lat_z * lat_t);
+      tmp_src = (origin_src + move * lat_z * lat_t);
       get_src(src, tmp_src, lat_xyzt);
     }
     {
@@ -159,7 +159,7 @@ __global__ void wilson_dslash(void *device_U, void *device_src,
   {   // z part
     { // z-1
       move_backward(move, z, lat_z);
-      tmp_U = (origin_U + move * lat_y * lat_x +
+      tmp_U = (origin_U + move * lat_t +
                (_Z_ + (1 - parity) * _LAT_CCD_) * lat_xyzt);
       give_u(U, tmp_U, lat_xyzt);
       tmp_src = (origin_src + move * lat_t);
@@ -213,11 +213,10 @@ __global__ void wilson_dslash(void *device_U, void *device_src,
   { // t part
     {
       // t-1
-      move_backward(move, t, lat_t);
-      tmp_U = (origin_U + move * lat_z * lat_y * lat_x +
-               (_T_ + (1 - parity) * _LAT_CCD_) * lat_xyzt);
+      move_backward_t(move, t, lat_t, eo, parity);
+      tmp_U = (origin_U + move + (_T_ + (1 - parity) * _LAT_CCD_) * lat_xyzt);
       give_u(U, tmp_U, lat_xyzt);
-      tmp_src = (origin_src + move * lat_z * lat_y * lat_x);
+      tmp_src = (origin_src + move);
       get_src(src, tmp_src, lat_xyzt);
     }
     {
@@ -239,10 +238,10 @@ __global__ void wilson_dslash(void *device_U, void *device_src,
     }
     {
       // t+1
-      move_forward(move, t, lat_t);
+      move_forward_t(move, t, lat_t, eo, parity);
       tmp_U = (origin_U + (_T_ + parity * _LAT_CCD_) * lat_xyzt);
       give_u(U, tmp_U, lat_xyzt);
-      tmp_src = (origin_src + move * lat_z * lat_y * lat_x);
+      tmp_src = (origin_src + move);
       get_src(src, tmp_src, lat_xyzt);
     }
     {
@@ -278,14 +277,14 @@ __global__ void wilson_dslash_inside(void *device_U, void *device_src,
   int lat_t = params[_LAT_T_];
   int lat_xyzt = params[_LAT_XYZT_];
   int move;
-  move = lat_x * lat_y * lat_z;
-  int t = parity / move;
-  parity -= t * move;
-  move = lat_x * lat_y;
-  int z = parity / move;
-  parity -= z * move;
-  int y = parity / lat_x;
-  int x = parity - y * lat_x;
+  move = lat_y * lat_z * lat_t;
+  int x = parity / move;
+  parity -= x * move;
+  move = lat_z * lat_t;
+  int y = parity / move;
+  parity -= y * move;
+  int z = parity / lat_t;
+  int t = parity - z * lat_t;
   parity = params[_PARITY_];
   T dagger_val = 2.0 * (params[_DAGGER_] == 0) - 1.0;
   // printf("dagger_val:%f\n", dagger_val);
@@ -312,7 +311,7 @@ __global__ void wilson_dslash_inside(void *device_U, void *device_src,
 #ifdef __X__
   {   // x part
     { // x-1
-      move_backward_x(move, x, lat_x, eo, parity);
+      move_backward(move, x, lat_x);
       tmp_U = (origin_U + move * lat_y * lat_z * lat_t +
                (_X_ + (1 - parity) * _LAT_CCD_) * lat_xyzt);
       give_u(U, tmp_U, lat_xyzt);
@@ -320,8 +319,7 @@ __global__ void wilson_dslash_inside(void *device_U, void *device_src,
       get_src(src, tmp_src, lat_xyzt);
     }
     {
-      for (int c0 = 0; c0 < _LAT_C_ * (move != lat_x - 1);
-           c0++) { // just inside
+      for (int c0 = 0; c0 < _LAT_C_ * (move == -1); c0++) { // just inside
         tmp0 = zero;
         tmp1 = zero;
         for (int c1 = 0; c1 < _LAT_C_; c1++) {
@@ -339,15 +337,14 @@ __global__ void wilson_dslash_inside(void *device_U, void *device_src,
     }
     {
       // x+1
-      move_forward_x(move, x, lat_x, eo, parity);
+      move_forward(move, x, lat_x);
       tmp_U = (origin_U + (_X_ + parity * _LAT_CCD_) * lat_xyzt);
       give_u(U, tmp_U, lat_xyzt);
       tmp_src = (origin_src + move * lat_y * lat_z * lat_t);
       get_src(src, tmp_src, lat_xyzt);
     }
     {
-      for (int c0 = 0; c0 < _LAT_C_ * (move != 1 - lat_x);
-           c0++) { // just inside
+      for (int c0 = 0; c0 < _LAT_C_ * (move == 1); c0++) { // just inside
         tmp0 = zero;
         tmp1 = zero;
         for (int c1 = 0; c1 < _LAT_C_; c1++) {
@@ -369,10 +366,10 @@ __global__ void wilson_dslash_inside(void *device_U, void *device_src,
   {   // y part
     { // y-1
       move_backward(move, y, lat_y);
-      tmp_U = (origin_U + move *  lat_z * lat_t +
+      tmp_U = (origin_U + move * lat_z * lat_t +
                (_Y_ + (1 - parity) * _LAT_CCD_) * lat_xyzt);
       give_u(U, tmp_U, lat_xyzt);
-      tmp_src = (origin_src + move *  lat_z * lat_t);
+      tmp_src = (origin_src + move * lat_z * lat_t);
       get_src(src, tmp_src, lat_xyzt);
     }
     {
@@ -397,7 +394,7 @@ __global__ void wilson_dslash_inside(void *device_U, void *device_src,
       move_forward(move, y, lat_y);
       tmp_U = (origin_U + (_Y_ + parity * _LAT_CCD_) * lat_xyzt);
       give_u(U, tmp_U, lat_xyzt);
-      tmp_src = (origin_src + move *  lat_z * lat_t);
+      tmp_src = (origin_src + move * lat_z * lat_t);
       get_src(src, tmp_src, lat_xyzt);
     }
     {
@@ -423,7 +420,7 @@ __global__ void wilson_dslash_inside(void *device_U, void *device_src,
   {   // z part
     { // z-1
       move_backward(move, z, lat_z);
-      tmp_U = (origin_U + move * lat_y * lat_x +
+      tmp_U = (origin_U + move * lat_t +
                (_Z_ + (1 - parity) * _LAT_CCD_) * lat_xyzt);
       give_u(U, tmp_U, lat_xyzt);
       tmp_src = (origin_src + move * lat_t);
@@ -478,15 +475,14 @@ __global__ void wilson_dslash_inside(void *device_U, void *device_src,
     // t part
     {
       // t-1
-      move_backward(move, t, lat_t);
-      tmp_U = (origin_U + move * lat_z * lat_y * lat_x +
-               (_T_ + (1 - parity) * _LAT_CCD_) * lat_xyzt);
+      move_backward_t(move, t, lat_t, eo, parity);
+      tmp_U = (origin_U + move + (_T_ + (1 - parity) * _LAT_CCD_) * lat_xyzt);
       give_u(U, tmp_U, lat_xyzt);
-      tmp_src = (origin_src + move * lat_z * lat_y * lat_x);
+      tmp_src = (origin_src + move);
       get_src(src, tmp_src, lat_xyzt);
     }
     {
-      for (int c0 = 0; c0 < _LAT_C_ * (move == -1); c0++) { // just inside
+      for (int c0 = 0; c0 < _LAT_C_ * (move != lat_t - 1); c0++) { // just inside
         tmp0 = zero;
         tmp1 = zero;
         for (int c1 = 0; c1 < _LAT_C_; c1++) {
@@ -504,14 +500,14 @@ __global__ void wilson_dslash_inside(void *device_U, void *device_src,
     }
     {
       // t+1
-      move_forward(move, t, lat_t);
+      move_forward_t(move, t, lat_t, eo, parity);
       tmp_U = (origin_U + (_T_ + parity * _LAT_CCD_) * lat_xyzt);
       give_u(U, tmp_U, lat_xyzt);
-      tmp_src = (origin_src + move * lat_z * lat_y * lat_x);
+      tmp_src = (origin_src + move);
       get_src(src, tmp_src, lat_xyzt);
     }
     {
-      for (int c0 = 0; c0 < _LAT_C_ * (move == 1); c0++) { // just inside
+      for (int c0 = 0; c0 < _LAT_C_ * (move != 1 - lat_t); c0++) { // just inside
         tmp0 = zero;
         tmp1 = zero;
         for (int c1 = 0; c1 < _LAT_C_; c1++) {
@@ -542,20 +538,20 @@ wilson_dslash_x_send(void *device_U, void *device_src, void *device_params,
   int lat_x = 1; // so let x=0 first, then x = lat_x -1
   int lat_y = params[_LAT_Y_];
   int lat_z = params[_LAT_Z_];
+  int lat_t = params[_LAT_T_];
   int lat_xyzt = params[_LAT_XYZT_];
   int move;
-  move = lat_x * lat_y * lat_z;
-  int t = parity / move;
-  parity -= t * move;
-  move = lat_x * lat_y;
-  int z = parity / move;
-  parity -= z * move;
-  int y = parity / lat_x;
-  int x = parity - y * lat_x;
+  move = lat_y * lat_z * lat_t;
+  int x = parity / move;
+  parity -= x * move;
+  move = lat_z * lat_t;
+  int y = parity / move;
+  parity -= y * move;
+  int z = parity / lat_t;
+  int t = parity - z * lat_t;
   parity = params[_PARITY_];
   T dagger_val = 2.0 * (params[_DAGGER_] == 0) - 1.0;
-  int eo = (x + y + z) & 0x01; // (x+y+z)%2
-                               //  LatticeComplex<T> I(0.0, 1.0);
+  //  LatticeComplex<T> I(0.0, 1.0);
   LatticeComplex<T> zero(0.0, 0.0);
   LatticeComplex<T> *tmp_U;
   LatticeComplex<T> tmp0(0.0, 0.0);
@@ -575,11 +571,10 @@ wilson_dslash_x_send(void *device_U, void *device_src, void *device_params,
                   (((x * lat_y + y) * lat_z + z) * lat_t + t));
     origin_b_x_send_vec =
         ((static_cast<LatticeComplex<T> *>(device_b_x_send_vec)) +
-         (((y * lat_z + z) * lat_t + t) / _EVEN_ODD_)); // fake edge
+         ((y * lat_z + z) * lat_t + t));
   }
   { // x-1
-    move_backward_x(move, x, lat_x, eo, parity);
-    // even-odd
+    // move_backward(move, x, lat_x);
     // send in x+1 way
     get_src(src, origin_src, lat_xyzt);
     { // sigma src
@@ -588,9 +583,7 @@ wilson_dslash_x_send(void *device_U, void *device_src, void *device_params,
         b_x_send_vec[c1 + _LAT_1C_] =
             src[c1 + _LAT_1C_] - src[c1 + _LAT_2C_].multi_i(dagger_val);
       }
-      give_send_x(origin_b_x_send_vec, b_x_send_vec,
-                  lat_xyzt / lat_x / _EVEN_ODD_,
-                  (move == 0)); // fake edge
+      give_send(origin_b_x_send_vec, b_x_send_vec, lat_xyzt / lat_x);
     }
   }
   {
@@ -601,11 +594,10 @@ wilson_dslash_x_send(void *device_U, void *device_src, void *device_params,
                   (((x * lat_y + y) * lat_z + z) * lat_t + t));
     origin_f_x_send_vec =
         ((static_cast<LatticeComplex<T> *>(device_f_x_send_vec)) +
-         (((y * lat_z + z) * lat_t + t) / _EVEN_ODD_)); // fake edge
+         ((y * lat_z + z) * lat_t + t));
   }
   { // x+1
-    move_forward_x(move, x, lat_x, eo, parity);
-    // even-odd
+    // move_forward(move, x, lat_x);
     // send in x-1 way
     tmp_U =
         (origin_U + (_X_ + (1 - parity) * _LAT_CCD_) * lat_xyzt); // even-odd
@@ -625,9 +617,7 @@ wilson_dslash_x_send(void *device_U, void *device_src, void *device_params,
         f_x_send_vec[c0] = tmp0;
         f_x_send_vec[c0 + _LAT_1C_] = tmp1;
       }
-      give_send_x(origin_f_x_send_vec, f_x_send_vec,
-                  lat_xyzt / lat_x / _EVEN_ODD_,
-                  (move == 0)); // fake edge
+      give_send(origin_f_x_send_vec, f_x_send_vec, lat_xyzt / lat_x);
     }
   }
 #endif
@@ -643,20 +633,20 @@ wilson_dslash_x_recv(void *device_U, void *device_dest, void *device_params,
   int lat_x = 1; // so let x=0 first, then x = lat_x -1
   int lat_y = params[_LAT_Y_];
   int lat_z = params[_LAT_Z_];
+  int lat_t = params[_LAT_T_];
   int lat_xyzt = params[_LAT_XYZT_];
   int move;
-  move = lat_x * lat_y * lat_z;
-  int t = parity / move;
-  parity -= t * move;
-  move = lat_x * lat_y;
-  int z = parity / move;
-  parity -= z * move;
-  int y = parity / lat_x;
-  int x = parity - y * lat_x;
+  move = lat_y * lat_z * lat_t;
+  int x = parity / move;
+  parity -= x * move;
+  move = lat_z * lat_t;
+  int y = parity / move;
+  parity -= y * move;
+  int z = parity / lat_t;
+  int t = parity - z * lat_t;
   parity = params[_PARITY_];
   T dagger_val = 2.0 * (params[_DAGGER_] == 0) - 1.0;
-  int eo = (x + y + z) & 0x01; // (x+y+z)%2
-                               //  LatticeComplex<T> I(0.0, 1.0);
+  //  LatticeComplex<T> I(0.0, 1.0);
   LatticeComplex<T> zero(0.0, 0.0);
   LatticeComplex<T> *tmp_U;
   LatticeComplex<T> tmp0(0.0, 0.0);
@@ -679,13 +669,12 @@ wilson_dslash_x_recv(void *device_U, void *device_dest, void *device_params,
                    (((x * lat_y + y) * lat_z + z) * lat_t + t));
     origin_b_x_recv_vec =
         ((static_cast<LatticeComplex<T> *>(device_b_x_recv_vec)) +
-         (((y * lat_z + z) * lat_t + t) / _EVEN_ODD_)); // fake edge
+         ((y * lat_z + z) * lat_t + t));
   }
   { // x-1
-    move_backward_x(move, x, lat_x, eo, parity);
+    // move_backward(move, x, lat_x);
     // recv in x-1 way
-    get_recv(b_x_recv_vec, origin_b_x_recv_vec,
-             lat_xyzt / lat_x / _EVEN_ODD_); // fake edge
+    get_recv(b_x_recv_vec, origin_b_x_recv_vec, lat_xyzt / lat_x);
     for (int c0 = 0; c0 < _LAT_C_; c0++) {
       dest[c0] += b_x_recv_vec[c0];
       dest[c0 + _LAT_1C_] += b_x_recv_vec[c0 + _LAT_1C_];
@@ -693,7 +682,7 @@ wilson_dslash_x_recv(void *device_U, void *device_dest, void *device_params,
       dest[c0 + _LAT_3C_] -= b_x_recv_vec[c0].multi_i(dagger_val);
     }
   } // just add
-  add_dest_x(origin_dest, dest, lat_xyzt, (move == lat_x - 1)); // even-odd
+  add_dest(origin_dest, dest, lat_xyzt);
   for (int i = 0; i < _LAT_SC_; i++) {
     dest[i] = zero;
   }
@@ -705,13 +694,12 @@ wilson_dslash_x_recv(void *device_U, void *device_dest, void *device_params,
                    (((x * lat_y + y) * lat_z + z) * lat_t + t));
     origin_f_x_recv_vec =
         ((static_cast<LatticeComplex<T> *>(device_f_x_recv_vec)) +
-         (((y * lat_z + z) * lat_t + t) / _EVEN_ODD_)); // fake edge
+         ((y * lat_z + z) * lat_t + t));
   }
   { // x+1
-    move_forward_x(move, x, lat_x, eo, parity);
+    // move_forward(move, x, lat_x);
     // recv in x+1 way
-    get_recv(f_x_recv_vec, origin_f_x_recv_vec,
-             lat_xyzt / lat_x / _EVEN_ODD_); // fake edge
+    get_recv(f_x_recv_vec, origin_f_x_recv_vec, lat_xyzt / lat_x);
     tmp_U = (origin_U + (_X_ + parity * _LAT_CCD_) * lat_xyzt);
     give_u(U, tmp_U, lat_xyzt);
     {
@@ -729,7 +717,7 @@ wilson_dslash_x_recv(void *device_U, void *device_dest, void *device_params,
       }
     }
   } // just add
-  add_dest_x(origin_dest, dest, lat_xyzt, (move == 1 - lat_x)); // even-odd
+  add_dest(origin_dest, dest, lat_xyzt);
 #endif
 }
 template <typename T>
@@ -743,16 +731,17 @@ wilson_dslash_y_send(void *device_U, void *device_src, void *device_params,
   // int lat_y = yyztsc[_y_];
   int lat_y = 1; // so let y=0 first, then y = lat_y -1
   int lat_z = params[_LAT_Z_];
+  int lat_t = params[_LAT_T_];
   int lat_xyzt = params[_LAT_XYZT_];
   int move;
-  move = lat_x * lat_y * lat_z;
-  int t = parity / move;
-  parity -= t * move;
-  move = lat_x * lat_y;
-  int z = parity / move;
-  parity -= z * move;
-  int y = parity / lat_x;
-  int x = parity - y * lat_x;
+  move = lat_y * lat_z * lat_t;
+  int x = parity / move;
+  parity -= x * move;
+  move = lat_z * lat_t;
+  int y = parity / move;
+  parity -= y * move;
+  int z = parity / lat_t;
+  int t = parity - z * lat_t;
   parity = params[_PARITY_];
   T dagger_val = 2.0 * (params[_DAGGER_] == 0) - 1.0;
   //  LatticeComplex<T> I(0.0, 1.0);
@@ -837,16 +826,17 @@ wilson_dslash_y_recv(void *device_U, void *device_dest, void *device_params,
   // int lat_y = yyztsc[_y_];
   int lat_y = 1; // so let y=0 first, then y = lat_y -1
   int lat_z = params[_LAT_Z_];
+  int lat_t = params[_LAT_T_];
   int lat_xyzt = params[_LAT_XYZT_];
   int move;
-  move = lat_x * lat_y * lat_z;
-  int t = parity / move;
-  parity -= t * move;
-  move = lat_x * lat_y;
-  int z = parity / move;
-  parity -= z * move;
-  int y = parity / lat_x;
-  int x = parity - y * lat_x;
+  move = lat_y * lat_z * lat_t;
+  int x = parity / move;
+  parity -= x * move;
+  move = lat_z * lat_t;
+  int y = parity / move;
+  parity -= y * move;
+  int z = parity / lat_t;
+  int t = parity - z * lat_t;
   parity = params[_PARITY_];
   T dagger_val = 2.0 * (params[_DAGGER_] == 0) - 1.0;
   //  LatticeComplex<T> I(0.0, 1.0);
@@ -935,16 +925,17 @@ wilson_dslash_z_send(void *device_U, void *device_src, void *device_params,
   int lat_y = params[_LAT_Y_];
   // int lat_z = zzztsc[_z_];
   int lat_z = 1; // so let z=0 first, then z = lat_z -1
+  int lat_t = params[_LAT_T_];
   int lat_xyzt = params[_LAT_XYZT_];
   int move;
-  move = lat_x * lat_y * lat_z;
-  int t = parity / move;
-  parity -= t * move;
-  move = lat_x * lat_y;
-  int z = parity / move;
-  parity -= z * move;
-  int y = parity / lat_x;
-  int x = parity - y * lat_x;
+  move = lat_y * lat_z * lat_t;
+  int x = parity / move;
+  parity -= x * move;
+  move = lat_z * lat_t;
+  int y = parity / move;
+  parity -= y * move;
+  int z = parity / lat_t;
+  int t = parity - z * lat_t;
   parity = params[_PARITY_];
   T dagger_val = 2.0 * (params[_DAGGER_] == 0) - 1.0;
   //  LatticeComplex<T> I(0.0, 1.0);
@@ -1029,16 +1020,17 @@ wilson_dslash_z_recv(void *device_U, void *device_dest, void *device_params,
   int lat_y = params[_LAT_Y_];
   // int lat_z = zzztsc[_z_];
   int lat_z = 1; // so let z=0 first, then z = lat_z -1
+  int lat_t = params[_LAT_T_];
   int lat_xyzt = params[_LAT_XYZT_];
   int move;
-  move = lat_x * lat_y * lat_z;
-  int t = parity / move;
-  parity -= t * move;
-  move = lat_x * lat_y;
-  int z = parity / move;
-  parity -= z * move;
-  int y = parity / lat_x;
-  int x = parity - y * lat_x;
+  move = lat_y * lat_z * lat_t;
+  int x = parity / move;
+  parity -= x * move;
+  move = lat_z * lat_t;
+  int y = parity / move;
+  parity -= y * move;
+  int z = parity / lat_t;
+  int t = parity - z * lat_t;
   parity = params[_PARITY_];
   T dagger_val = 2.0 * (params[_DAGGER_] == 0) - 1.0;
   //  LatticeComplex<T> I(0.0, 1.0);
@@ -1130,16 +1122,17 @@ wilson_dslash_t_send(void *device_U, void *device_src, void *device_params,
   int lat_t = 1; // so let t=0 first, then t = lat_t -1
   int lat_xyzt = params[_LAT_XYZT_];
   int move;
-  move = lat_x * lat_y * lat_z;
-  int t = parity / move;
-  parity -= t * move;
-  move = lat_x * lat_y;
-  int z = parity / move;
-  parity -= z * move;
-  int y = parity / lat_x;
-  int x = parity - y * lat_x;
+  move = lat_y * lat_z * lat_t;
+  int x = parity / move;
+  parity -= x * move;
+  move = lat_z * lat_t;
+  int y = parity / move;
+  parity -= y * move;
+  int z = parity / lat_t;
+  int t = parity - z * lat_t;
   parity = params[_PARITY_];
   T dagger_val = 2.0 * (params[_DAGGER_] == 0) - 1.0;
+  int eo = (x + y + z) & 0x01; // (x+y+z)%2
   //  LatticeComplex<T> I(0.0, 1.0);
   LatticeComplex<T> zero(0.0, 0.0);
   LatticeComplex<T> *tmp_U;
@@ -1160,10 +1153,11 @@ wilson_dslash_t_send(void *device_U, void *device_src, void *device_params,
                   (((x * lat_y + y) * lat_z + z) * lat_t + t));
     origin_b_t_send_vec =
         ((static_cast<LatticeComplex<T> *>(device_b_t_send_vec)) +
-         (((x)*lat_y + y) * lat_z + z));
+         (((x)*lat_y + y) * lat_z + z) / _EVEN_ODD_); // fake edge
   }
   { // t-1
-    // move_backward(move, t, lat_t);
+    move_backward_t(move, t, lat_t, eo, parity);
+    // even-odd
     // send in t+1 way
     get_src(src, origin_src, lat_xyzt);
     { // sigma src
@@ -1172,7 +1166,8 @@ wilson_dslash_t_send(void *device_U, void *device_src, void *device_params,
         b_t_send_vec[c1 + _LAT_1C_] =
             src[c1 + _LAT_1C_] - src[c1 + _LAT_3C_].multi_none(dagger_val);
       }
-      give_send(origin_b_t_send_vec, b_t_send_vec, lat_xyzt / lat_t);
+      give_send_t(origin_b_t_send_vec, b_t_send_vec,
+                  lat_xyzt / lat_t / _EVEN_ODD_, (move == 0)); // fake edge
     }
   }
   {
@@ -1183,10 +1178,11 @@ wilson_dslash_t_send(void *device_U, void *device_src, void *device_params,
                   (((x * lat_y + y) * lat_z + z) * lat_t + t));
     origin_f_t_send_vec =
         ((static_cast<LatticeComplex<T> *>(device_f_t_send_vec)) +
-         (((x)*lat_y + y) * lat_z + z));
+         (((x)*lat_y + y) * lat_z + z) / _EVEN_ODD_); // fake edge
   }
   { // t+1
-    // move_forward(move, t, lat_t);
+    move_forward_t(move, t, lat_t, eo, parity);
+    // even-odd
     // send in t-1 way
     tmp_U =
         (origin_U + (_T_ + (1 - parity) * _LAT_CCD_) * lat_xyzt); // even-odd
@@ -1206,7 +1202,9 @@ wilson_dslash_t_send(void *device_U, void *device_src, void *device_params,
         f_t_send_vec[c0] = tmp0;
         f_t_send_vec[c0 + _LAT_1C_] = tmp1;
       }
-      give_send(origin_f_t_send_vec, f_t_send_vec, lat_xyzt / lat_t);
+      give_send_t(origin_f_t_send_vec, f_t_send_vec,
+                  lat_xyzt / lat_t / _EVEN_ODD_,
+                  (move == 0)); // fake edge
     }
   }
 #endif
@@ -1225,16 +1223,17 @@ wilson_dslash_t_recv(void *device_U, void *device_dest, void *device_params,
   int lat_t = 1; // so let t=0 first, then t = lat_t -1
   int lat_xyzt = params[_LAT_XYZT_];
   int move;
-  move = lat_x * lat_y * lat_z;
-  int t = parity / move;
-  parity -= t * move;
-  move = lat_x * lat_y;
-  int z = parity / move;
-  parity -= z * move;
-  int y = parity / lat_x;
-  int x = parity - y * lat_x;
+  move = lat_y * lat_z * lat_t;
+  int x = parity / move;
+  parity -= x * move;
+  move = lat_z * lat_t;
+  int y = parity / move;
+  parity -= y * move;
+  int z = parity / lat_t;
+  int t = parity - z * lat_t;
   parity = params[_PARITY_];
   T dagger_val = 2.0 * (params[_DAGGER_] == 0) - 1.0;
+  int eo = (x + y + z) & 0x01; // (x+y+z)%2
   //  LatticeComplex<T> I(0.0, 1.0);
   LatticeComplex<T> zero(0.0, 0.0);
   LatticeComplex<T> *tmp_U;
@@ -1258,12 +1257,14 @@ wilson_dslash_t_recv(void *device_U, void *device_dest, void *device_params,
                    (((x * lat_y + y) * lat_z + z) * lat_t + t));
     origin_b_t_recv_vec =
         ((static_cast<LatticeComplex<T> *>(device_b_t_recv_vec)) +
-         (((x)*lat_y + y) * lat_z + z));
+         (((x)*lat_y + y) * lat_z + z) / _EVEN_ODD_); // fake edge
   }
   { // t-1
-    // move_backward(move, t, lat_t);
+    move_backward_t(move, t, lat_t, eo, parity);
+    // even-odd
     // recv in t-1 way
-    get_recv(b_t_recv_vec, origin_b_t_recv_vec, lat_xyzt / lat_t);
+    get_recv(b_t_recv_vec, origin_b_t_recv_vec,
+             lat_xyzt / lat_t / _EVEN_ODD_); // fake edge
     for (int c0 = 0; c0 < _LAT_C_; c0++) {
       dest[c0] += b_t_recv_vec[c0];
       dest[c0 + _LAT_1C_] += b_t_recv_vec[c0 + _LAT_1C_];
@@ -1272,7 +1273,7 @@ wilson_dslash_t_recv(void *device_U, void *device_dest, void *device_params,
     }
   }
   // just add
-  add_dest(origin_dest, dest, lat_xyzt);
+  add_dest_t(origin_dest, dest, lat_xyzt, (move == lat_t - 1)); // even-odd
   for (int i = 0; i < _LAT_SC_; i++) {
     dest[i] = zero;
   }
@@ -1284,12 +1285,14 @@ wilson_dslash_t_recv(void *device_U, void *device_dest, void *device_params,
                    (((x * lat_y + y) * lat_z + z) * lat_t + t));
     origin_f_t_recv_vec =
         ((static_cast<LatticeComplex<T> *>(device_f_t_recv_vec)) +
-         (((x)*lat_y + y) * lat_z + z));
+         (((x)*lat_y + y) * lat_z + z) / _EVEN_ODD_); // fake edge
   }
   { // t+1
-    // move_forward(move, t, lat_t);
+    move_forward_t(move, t, lat_t, eo, parity);
+    // even-odd
     // recv in t+1 way
-    get_recv(f_t_recv_vec, origin_f_t_recv_vec, lat_xyzt / lat_t);
+    get_recv(f_t_recv_vec, origin_f_t_recv_vec,
+             lat_xyzt / lat_t / _EVEN_ODD_); // fake edge
     tmp_U = (origin_U + (_T_ + parity * _LAT_CCD_) * lat_xyzt);
     give_u(U, tmp_U, lat_xyzt);
     {
@@ -1307,7 +1310,7 @@ wilson_dslash_t_recv(void *device_U, void *device_dest, void *device_params,
       }
     }
   } // just add
-  add_dest(origin_dest, dest, lat_xyzt);
+  add_dest_t(origin_dest, dest, lat_xyzt, (move == 1 - lat_t)); // even-odd
 #endif
 }
 //@@@CUDA_TEMPLATE_FOR_DEVICE@@@
