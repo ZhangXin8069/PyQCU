@@ -482,7 +482,8 @@ __global__ void wilson_dslash_inside(void *device_U, void *device_src,
       get_src(src, tmp_src, lat_xyzt);
     }
     {
-      for (int c0 = 0; c0 < _LAT_C_ * (move != lat_t - 1); c0++) { // just inside
+      for (int c0 = 0; c0 < _LAT_C_ * (move != lat_t - 1);
+           c0++) { // just inside
         tmp0 = zero;
         tmp1 = zero;
         for (int c1 = 0; c1 < _LAT_C_; c1++) {
@@ -507,7 +508,8 @@ __global__ void wilson_dslash_inside(void *device_U, void *device_src,
       get_src(src, tmp_src, lat_xyzt);
     }
     {
-      for (int c0 = 0; c0 < _LAT_C_ * (move != 1 - lat_t); c0++) { // just inside
+      for (int c0 = 0; c0 < _LAT_C_ * (move != 1 - lat_t);
+           c0++) { // just inside
         tmp0 = zero;
         tmp1 = zero;
         for (int c1 = 0; c1 < _LAT_C_; c1++) {
