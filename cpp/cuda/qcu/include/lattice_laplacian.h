@@ -19,7 +19,8 @@ template <typename T> struct LatticeLaplacian {
                             set_ptr->stream_dims[_X_]>>>(
           gauge, laplacian_in, _device_params, set_ptr->device_send_vec[_B_X_],
           set_ptr->device_send_vec[_F_X_]);
-      if (set_ptr->host_params[_GRID_X_] != 1) { // x part d2h
+      if (set_ptr->host_params[_GRID_X_] != 1 ||
+          _TEST_MULTI_IN_SINGLE_) { // x part d2h
         checkCudaErrors(cudaMemcpyAsync(
             set_ptr->host_send_vec[_B_X_], set_ptr->device_send_vec[_B_X_],
             sizeof(T) * _REAL_IMAG_ * set_ptr->lat_3dim_C[_X_],
@@ -33,7 +34,8 @@ template <typename T> struct LatticeLaplacian {
                             set_ptr->stream_dims[_Y_]>>>(
           gauge, laplacian_in, _device_params, set_ptr->device_send_vec[_B_Y_],
           set_ptr->device_send_vec[_F_Y_]);
-      if (set_ptr->host_params[_GRID_Y_] != 1) { // y part d2h
+      if (set_ptr->host_params[_GRID_Y_] != 1 ||
+          _TEST_MULTI_IN_SINGLE_) { // y part d2h
         checkCudaErrors(cudaMemcpyAsync(
             set_ptr->host_send_vec[_B_Y_], set_ptr->device_send_vec[_B_Y_],
             sizeof(T) * _REAL_IMAG_ * set_ptr->lat_3dim_C[_Y_],
@@ -47,7 +49,8 @@ template <typename T> struct LatticeLaplacian {
                             set_ptr->stream_dims[_Z_]>>>(
           gauge, laplacian_in, _device_params, set_ptr->device_send_vec[_B_Z_],
           set_ptr->device_send_vec[_F_Z_]);
-      if (set_ptr->host_params[_GRID_Z_] != 1) { // z part d2h
+      if (set_ptr->host_params[_GRID_Z_] != 1 ||
+          _TEST_MULTI_IN_SINGLE_) { // z part d2h
         checkCudaErrors(cudaMemcpyAsync(
             set_ptr->host_send_vec[_B_Z_], set_ptr->device_send_vec[_B_Z_],
             sizeof(T) * _REAL_IMAG_ * set_ptr->lat_3dim_C[_Z_],
@@ -142,7 +145,8 @@ template <typename T> struct LatticeLaplacian {
             _F_Z_, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
       }
     }
-    if (set_ptr->host_params[_GRID_X_] != 1) { // x part h2d
+    if (set_ptr->host_params[_GRID_X_] != 1 ||
+        _TEST_MULTI_IN_SINGLE_) { // x part h2d
       checkCudaErrors(cudaMemcpyAsync(
           set_ptr->device_recv_vec[_F_X_], set_ptr->host_recv_vec[_F_X_],
           sizeof(T) * _REAL_IMAG_ * set_ptr->lat_3dim_C[_X_],
@@ -152,7 +156,8 @@ template <typename T> struct LatticeLaplacian {
           sizeof(T) * _REAL_IMAG_ * set_ptr->lat_3dim_C[_X_],
           cudaMemcpyHostToDevice, set_ptr->stream_dims[_X_]));
     }
-    if (set_ptr->host_params[_GRID_Y_] != 1) { // y part h2d
+    if (set_ptr->host_params[_GRID_Y_] != 1 ||
+        _TEST_MULTI_IN_SINGLE_) { // y part h2d
       checkCudaErrors(cudaMemcpyAsync(
           set_ptr->device_recv_vec[_F_Y_], set_ptr->host_recv_vec[_F_Y_],
           sizeof(T) * _REAL_IMAG_ * set_ptr->lat_3dim_C[_Y_],
@@ -162,7 +167,8 @@ template <typename T> struct LatticeLaplacian {
           sizeof(T) * _REAL_IMAG_ * set_ptr->lat_3dim_C[_Y_],
           cudaMemcpyHostToDevice, set_ptr->stream_dims[_Y_]));
     }
-    if (set_ptr->host_params[_GRID_Z_] != 1) { // z part h2d
+    if (set_ptr->host_params[_GRID_Z_] != 1 ||
+        _TEST_MULTI_IN_SINGLE_) { // z part h2d
       checkCudaErrors(cudaMemcpyAsync(
           set_ptr->device_recv_vec[_F_Z_], set_ptr->host_recv_vec[_F_Z_],
           sizeof(T) * _REAL_IMAG_ * set_ptr->lat_3dim_C[_Z_],
@@ -174,21 +180,24 @@ template <typename T> struct LatticeLaplacian {
     }
     {
       // edge recv part
-      if (set_ptr->host_params[_GRID_X_] != 1) { // x part recv
+      if (set_ptr->host_params[_GRID_X_] != 1 ||
+          _TEST_MULTI_IN_SINGLE_) { // x part recv
         checkCudaErrors(cudaStreamSynchronize(set_ptr->stream_dims[_X_]));
         laplacian_x_recv<T><<<set_ptr->gridDim_3dim[_X_], set_ptr->blockDim, 0,
                               set_ptr->stream>>>(
             gauge, laplacian_out, _device_params,
             set_ptr->device_recv_vec[_B_X_], set_ptr->device_recv_vec[_F_X_]);
       }
-      if (set_ptr->host_params[_GRID_Y_] != 1) { // y part recv
+      if (set_ptr->host_params[_GRID_Y_] != 1 ||
+          _TEST_MULTI_IN_SINGLE_) { // y part recv
         checkCudaErrors(cudaStreamSynchronize(set_ptr->stream_dims[_Y_]));
         laplacian_y_recv<T><<<set_ptr->gridDim_3dim[_Y_], set_ptr->blockDim, 0,
                               set_ptr->stream>>>(
             gauge, laplacian_out, _device_params,
             set_ptr->device_recv_vec[_B_Y_], set_ptr->device_recv_vec[_F_Y_]);
       }
-      if (set_ptr->host_params[_GRID_Z_] != 1) { // z part recv
+      if (set_ptr->host_params[_GRID_Z_] != 1 ||
+          _TEST_MULTI_IN_SINGLE_) { // z part recv
         checkCudaErrors(cudaStreamSynchronize(set_ptr->stream_dims[_Z_]));
         laplacian_z_recv<T><<<set_ptr->gridDim_3dim[_Z_], set_ptr->blockDim, 0,
                               set_ptr->stream>>>(

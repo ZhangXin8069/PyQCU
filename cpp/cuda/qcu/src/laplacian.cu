@@ -84,7 +84,7 @@ __global__ void laplacian_inside(void *device_U, void *device_src,
       move_backward(move, y, lat_y);
       tmp_U = (origin_U + move * lat_z * lat_t + _Y_ * lat_xyzt);
       give_u_laplacian(U, tmp_U, lat_xyzt);
-      tmp_src = (origin_src + move *  lat_z * lat_t);
+      tmp_src = (origin_src + move * lat_z * lat_t);
       get_src_laplacian(src, tmp_src, lat_xyzt);
     }
     {
@@ -101,7 +101,7 @@ __global__ void laplacian_inside(void *device_U, void *device_src,
       move_forward(move, y, lat_y);
       tmp_U = (origin_U + _Y_ * lat_xyzt);
       give_u_laplacian(U, tmp_U, lat_xyzt);
-      tmp_src = (origin_src + move *  lat_z * lat_t);
+      tmp_src = (origin_src + move * lat_z * lat_t);
       get_src_laplacian(src, tmp_src, lat_xyzt);
     }
     {
