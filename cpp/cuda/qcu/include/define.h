@@ -67,7 +67,8 @@ namespace qcu {
 #define _LAT_E_ 21
 #define _VERBOSE_ 22
 #define _SEED_ 23
-#define _PARAMS_SIZE_ 24
+#define _TEST_IN_CPU_ 24
+#define _PARAMS_SIZE_ 25
 #define _MASS_ 0
 #define _TOL_ 1
 #define _SIGMA_ 2

@@ -110,6 +110,7 @@ template <typename T> struct LatticeSet {
     host_params[_LAT_E_] = static_cast<int *>(_params)[_LAT_E_];
     host_params[_VERBOSE_] = static_cast<int *>(_params)[_VERBOSE_];
     host_params[_SEED_] = static_cast<int *>(_params)[_SEED_];
+    host_params[_TEST_IN_CPU_] = static_cast<int *>(_params)[_TEST_IN_CPU_];
     host_argv[_MASS_] = static_cast<T *>(_argv)[_MASS_];
     host_argv[_TOL_] = static_cast<T *>(_argv)[_TOL_];
     host_argv[_SIGMA_] = static_cast<T *>(_argv)[_SIGMA_];
@@ -118,16 +119,10 @@ template <typename T> struct LatticeSet {
     {   // basic set
       { // give params
         blockDim = _BLOCK_SIZE_;
-        cudaEventCreate(&start);
-        cudaEventCreate(&stop);
-        cudaEventRecord(start, 0);
-        cudaEventSynchronize(start);
         checkMpiErrors(
             MPI_Comm_rank(MPI_COMM_WORLD, host_params + _NODE_RANK_));
         checkMpiErrors(
             MPI_Comm_size(MPI_COMM_WORLD, host_params + _NODE_SIZE_));
-        // checkCudaErrors(cudaSetDevice(host_params[_NODE_RANK_])); // !!!!!!
-        checkCudaErrors(cudaSetDevice(getLocalRank())); // !!!!!!
         grid_1dim[_X_] = host_params[_GRID_X_];
         grid_1dim[_Y_] = host_params[_GRID_Y_];
         grid_1dim[_Z_] = host_params[_GRID_Z_];
@@ -197,55 +192,6 @@ template <typename T> struct LatticeSet {
           lat_3dim_SC[i] = lat_3dim[i] * _LAT_SC_;
         }
       }
-      { // give basic cuda setup
-        CUBLAS_CHECK(cublasCreate(&cublasH));
-        checkCudaErrors(
-            cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));
-        CUBLAS_CHECK(cublasSetStream(cublasH, stream));
-      }
-      { // give device params
-        checkCudaErrors(cudaMallocAsync(&device_params,
-                                        _PARAMS_SIZE_ * sizeof(int), stream));
-        checkCudaErrors(cudaMallocAsync(&device_params_even_no_dag,
-                                        _PARAMS_SIZE_ * sizeof(int), stream));
-        checkCudaErrors(cudaMallocAsync(&device_params_odd_no_dag,
-                                        _PARAMS_SIZE_ * sizeof(int), stream));
-        checkCudaErrors(cudaMallocAsync(&device_params_even_dag,
-                                        _PARAMS_SIZE_ * sizeof(int), stream));
-        checkCudaErrors(cudaMallocAsync(&device_params_odd_dag,
-                                        _PARAMS_SIZE_ * sizeof(int), stream));
-        checkCudaErrors(cudaMemcpyAsync(device_params, host_params,
-                                        _PARAMS_SIZE_ * sizeof(int),
-                                        cudaMemcpyHostToDevice, stream));
-        checkCudaErrors(cudaMemcpyAsync(device_params_even_no_dag, host_params,
-                                        _PARAMS_SIZE_ * sizeof(int),
-                                        cudaMemcpyHostToDevice, stream));
-        give_param<T>
-            <<<1, 1, 0, stream>>>(device_params_even_no_dag, _PARITY_, _EVEN_);
-        give_param<T><<<1, 1, 0, stream>>>(device_params_even_no_dag, _DAGGER_,
-                                           _NO_USE_);
-        checkCudaErrors(cudaMemcpyAsync(device_params_odd_no_dag, host_params,
-                                        _PARAMS_SIZE_ * sizeof(int),
-                                        cudaMemcpyHostToDevice, stream));
-        give_param<T>
-            <<<1, 1, 0, stream>>>(device_params_odd_no_dag, _PARITY_, _ODD_);
-        give_param<T>
-            <<<1, 1, 0, stream>>>(device_params_odd_no_dag, _DAGGER_, _NO_USE_);
-        checkCudaErrors(cudaMemcpyAsync(device_params_even_dag, host_params,
-                                        _PARAMS_SIZE_ * sizeof(int),
-                                        cudaMemcpyHostToDevice, stream));
-        give_param<T>
-            <<<1, 1, 0, stream>>>(device_params_even_dag, _PARITY_, _EVEN_);
-        give_param<T>
-            <<<1, 1, 0, stream>>>(device_params_even_dag, _DAGGER_, _USE_);
-        checkCudaErrors(cudaMemcpyAsync(device_params_odd_dag, host_params,
-                                        _PARAMS_SIZE_ * sizeof(int),
-                                        cudaMemcpyHostToDevice, stream));
-        give_param<T>
-            <<<1, 1, 0, stream>>>(device_params_odd_dag, _PARITY_, _ODD_);
-        give_param<T>
-            <<<1, 1, 0, stream>>>(device_params_odd_dag, _DAGGER_, _USE_);
-      }
       { // give move wards
         move_backward(move_wards[_B_X_], grid_index_1dim[_X_], grid_1dim[_X_]);
         move_backward(move_wards[_B_Y_], grid_index_1dim[_Y_], grid_1dim[_Y_]);
@@ -272,84 +218,6 @@ template <typename T> struct LatticeSet {
         move_wards[_F_X_] =
             host_params[_NODE_RANK_] + move_wards[_F_X_] * grid_3dim[_YZT_];
       }
-    }
-    if (host_params[_SET_PLAN_] == _SET_PLAN_N_2_) // just for laplacian
-    {
-      for (int i = 0; i < _DIM_; i++) { // give cuda setup
-        checkCudaErrors(
-            cudaStreamCreateWithFlags(&stream_dims[i], cudaStreamNonBlocking));
-      }
-      for (int i = 0; i < _DIM_; i++) { // give memory malloc
-        checkCudaErrors(
-            cudaMallocAsync(&device_send_vec[i * _BF_],
-                            lat_3dim_C[i] * sizeof(LatticeComplex<T>), stream));
-        checkCudaErrors(
-            cudaMallocAsync(&device_send_vec[i * _BF_ + 1],
-                            lat_3dim_C[i] * sizeof(LatticeComplex<T>), stream));
-        checkCudaErrors(
-            cudaMallocAsync(&device_recv_vec[i * _BF_],
-                            lat_3dim_C[i] * sizeof(LatticeComplex<T>), stream));
-        checkCudaErrors(
-            cudaMallocAsync(&device_recv_vec[i * _BF_ + 1],
-                            lat_3dim_C[i] * sizeof(LatticeComplex<T>), stream));
-        checkCudaErrors(
-            cudaMallocHost(&host_send_vec[i * _BF_],
-                           lat_3dim_C[i] * sizeof(LatticeComplex<T>)));
-        checkCudaErrors(
-            cudaMallocHost(&host_send_vec[i * _BF_ + 1],
-                           lat_3dim_C[i] * sizeof(LatticeComplex<T>)));
-        checkCudaErrors(
-            cudaMallocHost(&host_recv_vec[i * _BF_],
-                           lat_3dim_C[i] * sizeof(LatticeComplex<T>)));
-        checkCudaErrors(
-            cudaMallocHost(&host_recv_vec[i * _BF_ + 1],
-                           lat_3dim_C[i] * sizeof(LatticeComplex<T>)));
-      }
-    }
-    if (host_params[_SET_PLAN_] >= _SET_PLAN0_) // for wilson dslash
-    {
-      for (int i = 0; i < _DIM_; i++) { // give cuda setup
-        checkCudaErrors(
-            cudaStreamCreateWithFlags(&stream_dims[i], cudaStreamNonBlocking));
-      }
-      for (int i = 0; i < _DIM_; i++) { // give memory malloc
-        checkCudaErrors(cudaMallocAsync(
-            &device_send_vec[i * _BF_],
-            lat_3dim_Half_SC[i] * sizeof(LatticeComplex<T>), stream));
-        checkCudaErrors(cudaMallocAsync(
-            &device_send_vec[i * _BF_ + 1],
-            lat_3dim_Half_SC[i] * sizeof(LatticeComplex<T>), stream));
-        checkCudaErrors(cudaMallocAsync(
-            &device_recv_vec[i * _BF_],
-            lat_3dim_Half_SC[i] * sizeof(LatticeComplex<T>), stream));
-        checkCudaErrors(cudaMallocAsync(
-            &device_recv_vec[i * _BF_ + 1],
-            lat_3dim_Half_SC[i] * sizeof(LatticeComplex<T>), stream));
-        checkCudaErrors(
-            cudaMallocHost(&host_send_vec[i * _BF_],
-                           lat_3dim_Half_SC[i] * sizeof(LatticeComplex<T>)));
-        checkCudaErrors(
-            cudaMallocHost(&host_send_vec[i * _BF_ + 1],
-                           lat_3dim_Half_SC[i] * sizeof(LatticeComplex<T>)));
-        checkCudaErrors(
-            cudaMallocHost(&host_recv_vec[i * _BF_],
-                           lat_3dim_Half_SC[i] * sizeof(LatticeComplex<T>)));
-        checkCudaErrors(
-            cudaMallocHost(&host_recv_vec[i * _BF_ + 1],
-                           lat_3dim_Half_SC[i] * sizeof(LatticeComplex<T>)));
-      }
-    }
-    if (host_params[_SET_PLAN_] == _SET_PLAN1_) // just for bistabcg and cg
-    {
-      for (int i = 0; i < _DIM_; i++) { // give cuda setup
-        CUBLAS_CHECK(cublasCreate(&cublasHs[i]));
-        checkCudaErrors(
-            cudaStreamCreateWithFlags(&streams[i], cudaStreamNonBlocking));
-        CUBLAS_CHECK(cublasSetStream(cublasHs[i], streams[i]));
-      }
-    }
-    if (host_params[_SET_PLAN_] >= _SET_PLAN2_) // for clover dslash
-    {
       {   // give move wards
         { // splite by [x,y,z,t]
           int tmp;
@@ -411,7 +279,143 @@ template <typename T> struct LatticeSet {
           }
         }
       }
-      {                                   // give memory malloc
+      if (host_params[_TEST_IN_CPU_] != 1) {
+        {
+          cudaEventCreate(&start);
+          cudaEventCreate(&stop);
+          cudaEventRecord(start, 0);
+          cudaEventSynchronize(start);
+          // checkCudaErrors(cudaSetDevice(host_params[_NODE_RANK_])); // !!!!!!
+          checkCudaErrors(cudaSetDevice(getLocalRank())); // !!!!!!
+        }
+        { // give basic cuda setup
+          CUBLAS_CHECK(cublasCreate(&cublasH));
+          checkCudaErrors(
+              cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));
+          CUBLAS_CHECK(cublasSetStream(cublasH, stream));
+        }
+        { // give device params
+          checkCudaErrors(cudaMallocAsync(&device_params,
+                                          _PARAMS_SIZE_ * sizeof(int), stream));
+          checkCudaErrors(cudaMallocAsync(&device_params_even_no_dag,
+                                          _PARAMS_SIZE_ * sizeof(int), stream));
+          checkCudaErrors(cudaMallocAsync(&device_params_odd_no_dag,
+                                          _PARAMS_SIZE_ * sizeof(int), stream));
+          checkCudaErrors(cudaMallocAsync(&device_params_even_dag,
+                                          _PARAMS_SIZE_ * sizeof(int), stream));
+          checkCudaErrors(cudaMallocAsync(&device_params_odd_dag,
+                                          _PARAMS_SIZE_ * sizeof(int), stream));
+          checkCudaErrors(cudaMemcpyAsync(device_params, host_params,
+                                          _PARAMS_SIZE_ * sizeof(int),
+                                          cudaMemcpyHostToDevice, stream));
+          checkCudaErrors(cudaMemcpyAsync(
+              device_params_even_no_dag, host_params,
+              _PARAMS_SIZE_ * sizeof(int), cudaMemcpyHostToDevice, stream));
+          give_param<T><<<1, 1, 0, stream>>>(device_params_even_no_dag,
+                                             _PARITY_, _EVEN_);
+          give_param<T><<<1, 1, 0, stream>>>(device_params_even_no_dag,
+                                             _DAGGER_, _NO_USE_);
+          checkCudaErrors(cudaMemcpyAsync(device_params_odd_no_dag, host_params,
+                                          _PARAMS_SIZE_ * sizeof(int),
+                                          cudaMemcpyHostToDevice, stream));
+          give_param<T>
+              <<<1, 1, 0, stream>>>(device_params_odd_no_dag, _PARITY_, _ODD_);
+          give_param<T><<<1, 1, 0, stream>>>(device_params_odd_no_dag, _DAGGER_,
+                                             _NO_USE_);
+          checkCudaErrors(cudaMemcpyAsync(device_params_even_dag, host_params,
+                                          _PARAMS_SIZE_ * sizeof(int),
+                                          cudaMemcpyHostToDevice, stream));
+          give_param<T>
+              <<<1, 1, 0, stream>>>(device_params_even_dag, _PARITY_, _EVEN_);
+          give_param<T>
+              <<<1, 1, 0, stream>>>(device_params_even_dag, _DAGGER_, _USE_);
+          checkCudaErrors(cudaMemcpyAsync(device_params_odd_dag, host_params,
+                                          _PARAMS_SIZE_ * sizeof(int),
+                                          cudaMemcpyHostToDevice, stream));
+          give_param<T>
+              <<<1, 1, 0, stream>>>(device_params_odd_dag, _PARITY_, _ODD_);
+          give_param<T>
+              <<<1, 1, 0, stream>>>(device_params_odd_dag, _DAGGER_, _USE_);
+        }
+      }
+      if (host_params[_SET_PLAN_] == _SET_PLAN_N_2_) // just for laplacian
+      {
+        for (int i = 0; i < _DIM_; i++) { // give cuda setup
+          checkCudaErrors(cudaStreamCreateWithFlags(&stream_dims[i],
+                                                    cudaStreamNonBlocking));
+        }
+        for (int i = 0; i < _DIM_; i++) { // give memory malloc
+          checkCudaErrors(cudaMallocAsync(
+              &device_send_vec[i * _BF_],
+              lat_3dim_C[i] * sizeof(LatticeComplex<T>), stream));
+          checkCudaErrors(cudaMallocAsync(
+              &device_send_vec[i * _BF_ + 1],
+              lat_3dim_C[i] * sizeof(LatticeComplex<T>), stream));
+          checkCudaErrors(cudaMallocAsync(
+              &device_recv_vec[i * _BF_],
+              lat_3dim_C[i] * sizeof(LatticeComplex<T>), stream));
+          checkCudaErrors(cudaMallocAsync(
+              &device_recv_vec[i * _BF_ + 1],
+              lat_3dim_C[i] * sizeof(LatticeComplex<T>), stream));
+          checkCudaErrors(
+              cudaMallocHost(&host_send_vec[i * _BF_],
+                             lat_3dim_C[i] * sizeof(LatticeComplex<T>)));
+          checkCudaErrors(
+              cudaMallocHost(&host_send_vec[i * _BF_ + 1],
+                             lat_3dim_C[i] * sizeof(LatticeComplex<T>)));
+          checkCudaErrors(
+              cudaMallocHost(&host_recv_vec[i * _BF_],
+                             lat_3dim_C[i] * sizeof(LatticeComplex<T>)));
+          checkCudaErrors(
+              cudaMallocHost(&host_recv_vec[i * _BF_ + 1],
+                             lat_3dim_C[i] * sizeof(LatticeComplex<T>)));
+        }
+      }
+      if (host_params[_SET_PLAN_] >= _SET_PLAN0_) // for wilson dslash
+      {
+        for (int i = 0; i < _DIM_; i++) { // give cuda setup
+          checkCudaErrors(cudaStreamCreateWithFlags(&stream_dims[i],
+                                                    cudaStreamNonBlocking));
+        }
+        for (int i = 0; i < _DIM_; i++) { // give memory malloc
+          checkCudaErrors(cudaMallocAsync(
+              &device_send_vec[i * _BF_],
+              lat_3dim_Half_SC[i] * sizeof(LatticeComplex<T>), stream));
+          checkCudaErrors(cudaMallocAsync(
+              &device_send_vec[i * _BF_ + 1],
+              lat_3dim_Half_SC[i] * sizeof(LatticeComplex<T>), stream));
+          checkCudaErrors(cudaMallocAsync(
+              &device_recv_vec[i * _BF_],
+              lat_3dim_Half_SC[i] * sizeof(LatticeComplex<T>), stream));
+          checkCudaErrors(cudaMallocAsync(
+              &device_recv_vec[i * _BF_ + 1],
+              lat_3dim_Half_SC[i] * sizeof(LatticeComplex<T>), stream));
+          checkCudaErrors(
+              cudaMallocHost(&host_send_vec[i * _BF_],
+                             lat_3dim_Half_SC[i] * sizeof(LatticeComplex<T>)));
+          checkCudaErrors(
+              cudaMallocHost(&host_send_vec[i * _BF_ + 1],
+                             lat_3dim_Half_SC[i] * sizeof(LatticeComplex<T>)));
+          checkCudaErrors(
+              cudaMallocHost(&host_recv_vec[i * _BF_],
+                             lat_3dim_Half_SC[i] * sizeof(LatticeComplex<T>)));
+          checkCudaErrors(
+              cudaMallocHost(&host_recv_vec[i * _BF_ + 1],
+                             lat_3dim_Half_SC[i] * sizeof(LatticeComplex<T>)));
+        }
+      }
+      if (host_params[_SET_PLAN_] == _SET_PLAN1_) // just for bistabcg and cg
+      {
+        for (int i = 0; i < _DIM_; i++) { // give cuda setup
+          CUBLAS_CHECK(cublasCreate(&cublasHs[i]));
+          checkCudaErrors(
+              cudaStreamCreateWithFlags(&streams[i], cudaStreamNonBlocking));
+          CUBLAS_CHECK(cublasSetStream(cublasHs[i], streams[i]));
+        }
+      }
+      if (host_params[_SET_PLAN_] >= _SET_PLAN2_) // for clover dslash
+      {
+        // give memory malloc
         for (int i = 0; i < _DIM_; i++) { // u in 1dim move
           checkCudaErrors(cudaMallocAsync(
               &device_u_1dim_send_vec[i * _BF_],
@@ -493,9 +497,9 @@ template <typename T> struct LatticeSet {
                              sizeof(LatticeComplex<T>));
         }
       }
-    }
-    { // init end
-      checkCudaErrors(cudaStreamSynchronize(stream));
+      { // init end
+        checkCudaErrors(cudaStreamSynchronize(stream));
+      }
     }
   }
   int max_iter() { return host_params[_MAX_ITER_]; }
@@ -509,195 +513,198 @@ template <typename T> struct LatticeSet {
     return time; // ms
   }
   void end() {
-    checkCudaErrors(cudaStreamSynchronize(stream));
-    checkCudaErrors(cudaFreeAsync(device_params, stream));
-    checkCudaErrors(cudaFreeAsync(device_params_even_no_dag, stream));
-    checkCudaErrors(cudaFreeAsync(device_params_odd_no_dag, stream));
-    checkCudaErrors(cudaFreeAsync(device_params_even_dag, stream));
-    checkCudaErrors(cudaFreeAsync(device_params_odd_dag, stream));
-    if (host_params[_SET_PLAN_] == _SET_PLAN_N_2_) // just for laplacian
-    {
-      for (int i = 0; i < _DIM_; i++) {
-        checkCudaErrors(cudaStreamSynchronize(stream_dims[i]));
-        checkCudaErrors(cudaStreamDestroy(stream_dims[i]));
-        checkCudaErrors(cudaFreeAsync(device_send_vec[i * _BF_], stream));
-        checkCudaErrors(cudaFreeAsync(device_send_vec[i * _BF_ + 1], stream));
-        checkCudaErrors(cudaFreeAsync(device_recv_vec[i * _BF_], stream));
-        checkCudaErrors(cudaFreeAsync(device_recv_vec[i * _BF_ + 1], stream));
-        checkCudaErrors(cudaFreeHost(host_send_vec[i * _BF_]));
-        checkCudaErrors(cudaFreeHost(host_send_vec[i * _BF_ + 1]));
-        checkCudaErrors(cudaFreeHost(host_recv_vec[i * _BF_]));
-        checkCudaErrors(cudaFreeHost(host_recv_vec[i * _BF_ + 1]));
+    if (host_params[_TEST_IN_CPU_] != 1) {
+      checkCudaErrors(cudaStreamSynchronize(stream));
+      checkCudaErrors(cudaFreeAsync(device_params, stream));
+      checkCudaErrors(cudaFreeAsync(device_params_even_no_dag, stream));
+      checkCudaErrors(cudaFreeAsync(device_params_odd_no_dag, stream));
+      checkCudaErrors(cudaFreeAsync(device_params_even_dag, stream));
+      checkCudaErrors(cudaFreeAsync(device_params_odd_dag, stream));
+      if (host_params[_SET_PLAN_] == _SET_PLAN_N_2_) // just for laplacian
+      {
+        for (int i = 0; i < _DIM_; i++) {
+          checkCudaErrors(cudaStreamSynchronize(stream_dims[i]));
+          checkCudaErrors(cudaStreamDestroy(stream_dims[i]));
+          checkCudaErrors(cudaFreeAsync(device_send_vec[i * _BF_], stream));
+          checkCudaErrors(cudaFreeAsync(device_send_vec[i * _BF_ + 1], stream));
+          checkCudaErrors(cudaFreeAsync(device_recv_vec[i * _BF_], stream));
+          checkCudaErrors(cudaFreeAsync(device_recv_vec[i * _BF_ + 1], stream));
+          checkCudaErrors(cudaFreeHost(host_send_vec[i * _BF_]));
+          checkCudaErrors(cudaFreeHost(host_send_vec[i * _BF_ + 1]));
+          checkCudaErrors(cudaFreeHost(host_recv_vec[i * _BF_]));
+          checkCudaErrors(cudaFreeHost(host_recv_vec[i * _BF_ + 1]));
+        }
       }
-    }
-    if (host_params[_SET_PLAN_] >= _SET_PLAN0_) // for wilson dslash
-    {
-      for (int i = 0; i < _DIM_; i++) {
-        checkCudaErrors(cudaStreamSynchronize(stream_dims[i]));
-        checkCudaErrors(cudaStreamDestroy(stream_dims[i]));
-        checkCudaErrors(cudaFreeAsync(device_send_vec[i * _BF_], stream));
-        checkCudaErrors(cudaFreeAsync(device_send_vec[i * _BF_ + 1], stream));
-        checkCudaErrors(cudaFreeAsync(device_recv_vec[i * _BF_], stream));
-        checkCudaErrors(cudaFreeAsync(device_recv_vec[i * _BF_ + 1], stream));
-        checkCudaErrors(cudaFreeHost(host_send_vec[i * _BF_]));
-        checkCudaErrors(cudaFreeHost(host_send_vec[i * _BF_ + 1]));
-        checkCudaErrors(cudaFreeHost(host_recv_vec[i * _BF_]));
-        checkCudaErrors(cudaFreeHost(host_recv_vec[i * _BF_ + 1]));
+      if (host_params[_SET_PLAN_] >= _SET_PLAN0_) // for wilson dslash
+      {
+        for (int i = 0; i < _DIM_; i++) {
+          checkCudaErrors(cudaStreamSynchronize(stream_dims[i]));
+          checkCudaErrors(cudaStreamDestroy(stream_dims[i]));
+          checkCudaErrors(cudaFreeAsync(device_send_vec[i * _BF_], stream));
+          checkCudaErrors(cudaFreeAsync(device_send_vec[i * _BF_ + 1], stream));
+          checkCudaErrors(cudaFreeAsync(device_recv_vec[i * _BF_], stream));
+          checkCudaErrors(cudaFreeAsync(device_recv_vec[i * _BF_ + 1], stream));
+          checkCudaErrors(cudaFreeHost(host_send_vec[i * _BF_]));
+          checkCudaErrors(cudaFreeHost(host_send_vec[i * _BF_ + 1]));
+          checkCudaErrors(cudaFreeHost(host_recv_vec[i * _BF_]));
+          checkCudaErrors(cudaFreeHost(host_recv_vec[i * _BF_ + 1]));
+        }
       }
-    }
-    if (host_params[_SET_PLAN_] ==
-        _SET_PLAN1_) // just for wilson bistabcg and cg
-    {
-      for (int i = 0; i < _DIM_; i++) {
-        checkCudaErrors(cudaStreamSynchronize(streams[i]));
-        CUBLAS_CHECK(cublasDestroy(cublasHs[i]));
-        checkCudaErrors(cudaStreamDestroy(streams[i]));
+      if (host_params[_SET_PLAN_] ==
+          _SET_PLAN1_) // just for wilson bistabcg and cg
+      {
+        for (int i = 0; i < _DIM_; i++) {
+          checkCudaErrors(cudaStreamSynchronize(streams[i]));
+          CUBLAS_CHECK(cublasDestroy(cublasHs[i]));
+          checkCudaErrors(cudaStreamDestroy(streams[i]));
+        }
       }
-    }
-    if (host_params[_SET_PLAN_] >= _SET_PLAN2_) // for clover dslash
-    {
-      for (int i = 0; i < _DIM_; i++) {
-        checkCudaErrors(
-            cudaFreeAsync(device_u_1dim_send_vec[i * _BF_], stream));
-        checkCudaErrors(
-            cudaFreeAsync(device_u_1dim_send_vec[i * _BF_ + 1], stream));
-        checkCudaErrors(
-            cudaFreeAsync(device_u_1dim_recv_vec[i * _BF_], stream));
-        checkCudaErrors(
-            cudaFreeAsync(device_u_1dim_recv_vec[i * _BF_ + 1], stream));
-        free(host_u_1dim_send_vec[i * _BF_]);
-        free(host_u_1dim_send_vec[i * _BF_ + 1]);
-        free(host_u_1dim_recv_vec[i * _BF_]);
-        free(host_u_1dim_recv_vec[i * _BF_ + 1]);
+      if (host_params[_SET_PLAN_] >= _SET_PLAN2_) // for clover dslash
+      {
+        for (int i = 0; i < _DIM_; i++) {
+          checkCudaErrors(
+              cudaFreeAsync(device_u_1dim_send_vec[i * _BF_], stream));
+          checkCudaErrors(
+              cudaFreeAsync(device_u_1dim_send_vec[i * _BF_ + 1], stream));
+          checkCudaErrors(
+              cudaFreeAsync(device_u_1dim_recv_vec[i * _BF_], stream));
+          checkCudaErrors(
+              cudaFreeAsync(device_u_1dim_recv_vec[i * _BF_ + 1], stream));
+          free(host_u_1dim_send_vec[i * _BF_]);
+          free(host_u_1dim_send_vec[i * _BF_ + 1]);
+          free(host_u_1dim_recv_vec[i * _BF_]);
+          free(host_u_1dim_recv_vec[i * _BF_ + 1]);
+        }
+        for (int i = 0; i < _2DIM_; i++) {
+          checkCudaErrors(cudaFreeAsync(
+              device_u_2dim_send_vec[i * _BF_ * _BF_ + 0], stream));
+          checkCudaErrors(cudaFreeAsync(
+              device_u_2dim_recv_vec[i * _BF_ * _BF_ + 0], stream));
+          checkCudaErrors(cudaFreeAsync(
+              device_u_2dim_send_vec[i * _BF_ * _BF_ + 1], stream));
+          checkCudaErrors(cudaFreeAsync(
+              device_u_2dim_recv_vec[i * _BF_ * _BF_ + 1], stream));
+          checkCudaErrors(cudaFreeAsync(
+              device_u_2dim_send_vec[i * _BF_ * _BF_ + 2], stream));
+          checkCudaErrors(cudaFreeAsync(
+              device_u_2dim_recv_vec[i * _BF_ * _BF_ + 2], stream));
+          checkCudaErrors(cudaFreeAsync(
+              device_u_2dim_send_vec[i * _BF_ * _BF_ + 3], stream));
+          checkCudaErrors(cudaFreeAsync(
+              device_u_2dim_recv_vec[i * _BF_ * _BF_ + 3], stream));
+          free(host_u_2dim_send_vec[i * _BF_ * _BF_ + 0]);
+          free(host_u_2dim_recv_vec[i * _BF_ * _BF_ + 0]);
+          free(host_u_2dim_send_vec[i * _BF_ * _BF_ + 1]);
+          free(host_u_2dim_recv_vec[i * _BF_ * _BF_ + 1]);
+          free(host_u_2dim_send_vec[i * _BF_ * _BF_ + 2]);
+          free(host_u_2dim_recv_vec[i * _BF_ * _BF_ + 2]);
+          free(host_u_2dim_send_vec[i * _BF_ * _BF_ + 3]);
+          free(host_u_2dim_recv_vec[i * _BF_ * _BF_ + 3]);
+        }
       }
-      for (int i = 0; i < _2DIM_; i++) {
-        checkCudaErrors(
-            cudaFreeAsync(device_u_2dim_send_vec[i * _BF_ * _BF_ + 0], stream));
-        checkCudaErrors(
-            cudaFreeAsync(device_u_2dim_recv_vec[i * _BF_ * _BF_ + 0], stream));
-        checkCudaErrors(
-            cudaFreeAsync(device_u_2dim_send_vec[i * _BF_ * _BF_ + 1], stream));
-        checkCudaErrors(
-            cudaFreeAsync(device_u_2dim_recv_vec[i * _BF_ * _BF_ + 1], stream));
-        checkCudaErrors(
-            cudaFreeAsync(device_u_2dim_send_vec[i * _BF_ * _BF_ + 2], stream));
-        checkCudaErrors(
-            cudaFreeAsync(device_u_2dim_recv_vec[i * _BF_ * _BF_ + 2], stream));
-        checkCudaErrors(
-            cudaFreeAsync(device_u_2dim_send_vec[i * _BF_ * _BF_ + 3], stream));
-        checkCudaErrors(
-            cudaFreeAsync(device_u_2dim_recv_vec[i * _BF_ * _BF_ + 3], stream));
-        free(host_u_2dim_send_vec[i * _BF_ * _BF_ + 0]);
-        free(host_u_2dim_recv_vec[i * _BF_ * _BF_ + 0]);
-        free(host_u_2dim_send_vec[i * _BF_ * _BF_ + 1]);
-        free(host_u_2dim_recv_vec[i * _BF_ * _BF_ + 1]);
-        free(host_u_2dim_send_vec[i * _BF_ * _BF_ + 2]);
-        free(host_u_2dim_recv_vec[i * _BF_ * _BF_ + 2]);
-        free(host_u_2dim_send_vec[i * _BF_ * _BF_ + 3]);
-        free(host_u_2dim_recv_vec[i * _BF_ * _BF_ + 3]);
-      }
-    }
-    { // end end
+      // end end
       CUBLAS_CHECK(cublasDestroy(cublasH));
       checkCudaErrors(cudaStreamSynchronize(stream));
       checkCudaErrors(cudaStreamDestroy(stream));
+      cudaEventDestroy(start);
+      cudaEventDestroy(stop);
       printf("lattice set whole time:%.9lf "
              "sec\n",
              get_time() / 1e3);
-      cudaEventDestroy(start);
-      cudaEventDestroy(stop);
     }
   }
   void _print() {
-    printf("gridDim.x               :%d\n", gridDim.x);
-    printf("blockDim.x              :%d\n", blockDim.x);
-    printf("host_params[_LAT_X_]    :%d\n", host_params[_LAT_X_]);
-    printf("host_params[_LAT_Y_]    :%d\n", host_params[_LAT_Y_]);
-    printf("host_params[_LAT_Z_]    :%d\n", host_params[_LAT_Z_]);
-    printf("host_params[_LAT_T_]    :%d\n", host_params[_LAT_T_]);
-    printf("host_params[_LAT_XYZT_] :%d\n", host_params[_LAT_XYZT_]);
-    printf("host_params[_GRID_X_]   :%d\n", host_params[_GRID_X_]);
-    printf("host_params[_GRID_Y_]   :%d\n", host_params[_GRID_Y_]);
-    printf("host_params[_GRID_Z_]   :%d\n", host_params[_GRID_Z_]);
-    printf("host_params[_GRID_T_]   :%d\n", host_params[_GRID_T_]);
-    printf("host_params[_PARITY_]   :%d\n", host_params[_PARITY_]);
-    printf("host_params[_NODE_RANK_]:%d\n", host_params[_NODE_RANK_]);
-    printf("host_params[_NODE_SIZE_]:%d\n", host_params[_NODE_SIZE_]);
-    printf("host_params[_DAGGER_]   :%d\n", host_params[_DAGGER_]);
-    printf("host_params[_MAX_ITER_] :%d\n", host_params[_MAX_ITER_]);
-    printf("host_params[_DATA_TYPE_]:%d\n", host_params[_DATA_TYPE_]);
-    printf("host_params[_SET_INDEX_]:%d\n", host_params[_SET_INDEX_]);
-    printf("host_params[_SET_PLAN_] :%d\n", host_params[_SET_PLAN_]);
-    printf("host_params[_MG_X_]     :%d\n", host_params[_MG_X_]);
-    printf("host_params[_MG_Y_]     :%d\n", host_params[_MG_Y_]);
-    printf("host_params[_MG_Z_]     :%d\n", host_params[_MG_Z_]);
-    printf("host_params[_MG_T_]     :%d\n", host_params[_MG_T_]);
-    printf("host_params[_LAT_E_]    :%d\n", host_params[_LAT_E_]);
-    printf("host_params[_VERBOSE_]  :%d\n", host_params[_VERBOSE_]);
-    printf("host_argv[_MASS_]       :%e\n", host_argv[_MASS_]);
-    printf("host_argv[_TOL_]        :%e\n", host_argv[_TOL_]);
-    printf("host_argv[_SIGMA_]      :%e\n", host_argv[_SIGMA_]);
-    printf("lat_2dim[_XY_]          :%d\n", lat_2dim[_XY_]);
-    printf("lat_2dim[_XZ_]          :%d\n", lat_2dim[_XZ_]);
-    printf("lat_2dim[_XT_]          :%d\n", lat_2dim[_XT_]);
-    printf("lat_2dim[_YZ_]          :%d\n", lat_2dim[_YZ_]);
-    printf("lat_2dim[_YT_]          :%d\n", lat_2dim[_YT_]);
-    printf("lat_2dim[_ZT_]          :%d\n", lat_2dim[_ZT_]);
-    printf("lat_3dim[_YZT_]         :%d\n", lat_3dim[_YZT_]);
-    printf("lat_3dim[_XZT_]         :%d\n", lat_3dim[_XZT_]);
-    printf("lat_3dim[_XYT_]         :%d\n", lat_3dim[_XYT_]);
-    printf("lat_3dim[_XYZ_]         :%d\n", lat_3dim[_XYZ_]);
-    printf("lat_4dim                :%d\n", lat_4dim);
-    printf("grid_1dim[_X_]          :%d\n", grid_1dim[_X_]);
-    printf("grid_1dim[_Y_]          :%d\n", grid_1dim[_Y_]);
-    printf("grid_1dim[_Z_]          :%d\n", grid_1dim[_Z_]);
-    printf("grid_1dim[_T_]          :%d\n", grid_1dim[_T_]);
-    printf("grid_2dim[_XY_]         :%d\n", grid_2dim[_XY_]);
-    printf("grid_2dim[_XZ_]         :%d\n", grid_2dim[_XZ_]);
-    printf("grid_2dim[_XT_]         :%d\n", grid_2dim[_XT_]);
-    printf("grid_2dim[_YZ_]         :%d\n", grid_2dim[_YZ_]);
-    printf("grid_2dim[_YT_]         :%d\n", grid_2dim[_YT_]);
-    printf("grid_2dim[_ZT_]         :%d\n", grid_2dim[_ZT_]);
-    printf("grid_3dim[_YZT_]        :%d\n", grid_3dim[_YZT_]);
-    printf("grid_3dim[_XZT_]        :%d\n", grid_3dim[_XZT_]);
-    printf("grid_3dim[_XYT_]        :%d\n", grid_3dim[_XYT_]);
-    printf("grid_3dim[_XYZ_]        :%d\n", grid_3dim[_XYZ_]);
-    printf("grid_index_1dim[_X_]    :%d\n", grid_index_1dim[_X_]);
-    printf("grid_index_1dim[_Y_]    :%d\n", grid_index_1dim[_Y_]);
-    printf("grid_index_1dim[_Z_]    :%d\n", grid_index_1dim[_Z_]);
-    printf("grid_index_1dim[_T_]    :%d\n", grid_index_1dim[_T_]);
-    printf("move_wards[_B_X_]       :%d\n", move_wards[_B_X_]);
-    printf("move_wards[_B_Y_]       :%d\n", move_wards[_B_Y_]);
-    printf("move_wards[_B_Z_]       :%d\n", move_wards[_B_Z_]);
-    printf("move_wards[_B_T_]       :%d\n", move_wards[_B_T_]);
-    printf("move_wards[_F_X_]       :%d\n", move_wards[_F_X_]);
-    printf("move_wards[_F_Y_]       :%d\n", move_wards[_F_Y_]);
-    printf("move_wards[_F_Z_]       :%d\n", move_wards[_F_Z_]);
-    printf("move_wards[_F_T_]       :%d\n", move_wards[_F_T_]);
-    printf("move_wards[_BX_BY_]     :%d\n", move_wards[_BX_BY_]);
-    printf("move_wards[_BX_BZ_]     :%d\n", move_wards[_BX_BZ_]);
-    printf("move_wards[_BX_BT_]     :%d\n", move_wards[_BX_BT_]);
-    printf("move_wards[_BY_BZ_]     :%d\n", move_wards[_BY_BZ_]);
-    printf("move_wards[_BY_BT_]     :%d\n", move_wards[_BY_BT_]);
-    printf("move_wards[_BZ_BT_]     :%d\n", move_wards[_BZ_BT_]);
-    printf("move_wards[_FX_BY_]     :%d\n", move_wards[_FX_BY_]);
-    printf("move_wards[_FX_BZ_]     :%d\n", move_wards[_FX_BZ_]);
-    printf("move_wards[_FX_BT_]     :%d\n", move_wards[_FX_BT_]);
-    printf("move_wards[_FY_BZ_]     :%d\n", move_wards[_FY_BZ_]);
-    printf("move_wards[_FY_BT_]     :%d\n", move_wards[_FY_BT_]);
-    printf("move_wards[_FZ_BT_]     :%d\n", move_wards[_FZ_BT_]);
-    printf("move_wards[_BX_FY_]     :%d\n", move_wards[_BX_FY_]);
-    printf("move_wards[_BX_FZ_]     :%d\n", move_wards[_BX_FZ_]);
-    printf("move_wards[_BX_FT_]     :%d\n", move_wards[_BX_FT_]);
-    printf("move_wards[_BY_FZ_]     :%d\n", move_wards[_BY_FZ_]);
-    printf("move_wards[_BY_FT_]     :%d\n", move_wards[_BY_FT_]);
-    printf("move_wards[_BZ_FT_]     :%d\n", move_wards[_BZ_FT_]);
-    printf("move_wards[_FX_FY_]     :%d\n", move_wards[_FX_FY_]);
-    printf("move_wards[_FX_FZ_]     :%d\n", move_wards[_FX_FZ_]);
-    printf("move_wards[_FX_FT_]     :%d\n", move_wards[_FX_FT_]);
-    printf("move_wards[_FY_FZ_]     :%d\n", move_wards[_FY_FZ_]);
-    printf("move_wards[_FY_FT_]     :%d\n", move_wards[_FY_FT_]);
-    printf("move_wards[_FZ_FT_]     :%d\n", move_wards[_FZ_FT_]);
+    printf("gridDim.x                    :%d\n", gridDim.x);
+    printf("blockDim.x                   :%d\n", blockDim.x);
+    printf("host_params[_LAT_X_]         :%d\n", host_params[_LAT_X_]);
+    printf("host_params[_LAT_Y_]         :%d\n", host_params[_LAT_Y_]);
+    printf("host_params[_LAT_Z_]         :%d\n", host_params[_LAT_Z_]);
+    printf("host_params[_LAT_T_]         :%d\n", host_params[_LAT_T_]);
+    printf("host_params[_LAT_XYZT_]      :%d\n", host_params[_LAT_XYZT_]);
+    printf("host_params[_GRID_X_]        :%d\n", host_params[_GRID_X_]);
+    printf("host_params[_GRID_Y_]        :%d\n", host_params[_GRID_Y_]);
+    printf("host_params[_GRID_Z_]        :%d\n", host_params[_GRID_Z_]);
+    printf("host_params[_GRID_T_]        :%d\n", host_params[_GRID_T_]);
+    printf("host_params[_PARITY_]        :%d\n", host_params[_PARITY_]);
+    printf("host_params[_NODE_RANK_]     :%d\n", host_params[_NODE_RANK_]);
+    printf("host_params[_NODE_SIZE_]     :%d\n", host_params[_NODE_SIZE_]);
+    printf("host_params[_DAGGER_]        :%d\n", host_params[_DAGGER_]);
+    printf("host_params[_MAX_ITER_]      :%d\n", host_params[_MAX_ITER_]);
+    printf("host_params[_DATA_TYPE_]     :%d\n", host_params[_DATA_TYPE_]);
+    printf("host_params[_SET_INDEX_]     :%d\n", host_params[_SET_INDEX_]);
+    printf("host_params[_SET_PLAN_]      :%d\n", host_params[_SET_PLAN_]);
+    printf("host_params[_MG_X_]          :%d\n", host_params[_MG_X_]);
+    printf("host_params[_MG_Y_]          :%d\n", host_params[_MG_Y_]);
+    printf("host_params[_MG_Z_]          :%d\n", host_params[_MG_Z_]);
+    printf("host_params[_MG_T_]          :%d\n", host_params[_MG_T_]);
+    printf("host_params[_LAT_E_]         :%d\n", host_params[_LAT_E_]);
+    printf("host_params[_VERBOSE_]       :%d\n", host_params[_VERBOSE_]);
+    printf("host_params[_SEED_].         :%d\n", host_params[_SEED_]);
+    printf("host_params[_TEST_IN_CPU_]   :%d\n", host_params[_TEST_IN_CPU_]);
+    printf("host_argv[_MASS_]            :%e\n", host_argv[_MASS_]);
+    printf("host_argv[_TOL_]             :%e\n", host_argv[_TOL_]);
+    printf("host_argv[_SIGMA_]           :%e\n", host_argv[_SIGMA_]);
+    printf("lat_2dim[_XY_]               :%d\n", lat_2dim[_XY_]);
+    printf("lat_2dim[_XZ_]               :%d\n", lat_2dim[_XZ_]);
+    printf("lat_2dim[_XT_]               :%d\n", lat_2dim[_XT_]);
+    printf("lat_2dim[_YZ_]               :%d\n", lat_2dim[_YZ_]);
+    printf("lat_2dim[_YT_]               :%d\n", lat_2dim[_YT_]);
+    printf("lat_2dim[_ZT_]               :%d\n", lat_2dim[_ZT_]);
+    printf("lat_3dim[_YZT_]              :%d\n", lat_3dim[_YZT_]);
+    printf("lat_3dim[_XZT_]              :%d\n", lat_3dim[_XZT_]);
+    printf("lat_3dim[_XYT_]              :%d\n", lat_3dim[_XYT_]);
+    printf("lat_3dim[_XYZ_]              :%d\n", lat_3dim[_XYZ_]);
+    printf("lat_4dim                     :%d\n", lat_4dim);
+    printf("grid_1dim[_X_]               :%d\n", grid_1dim[_X_]);
+    printf("grid_1dim[_Y_]               :%d\n", grid_1dim[_Y_]);
+    printf("grid_1dim[_Z_]               :%d\n", grid_1dim[_Z_]);
+    printf("grid_1dim[_T_]               :%d\n", grid_1dim[_T_]);
+    printf("grid_2dim[_XY_]              :%d\n", grid_2dim[_XY_]);
+    printf("grid_2dim[_XZ_]              :%d\n", grid_2dim[_XZ_]);
+    printf("grid_2dim[_XT_]              :%d\n", grid_2dim[_XT_]);
+    printf("grid_2dim[_YZ_]              :%d\n", grid_2dim[_YZ_]);
+    printf("grid_2dim[_YT_]              :%d\n", grid_2dim[_YT_]);
+    printf("grid_2dim[_ZT_]              :%d\n", grid_2dim[_ZT_]);
+    printf("grid_3dim[_YZT_]             :%d\n", grid_3dim[_YZT_]);
+    printf("grid_3dim[_XZT_]             :%d\n", grid_3dim[_XZT_]);
+    printf("grid_3dim[_XYT_]             :%d\n", grid_3dim[_XYT_]);
+    printf("grid_3dim[_XYZ_]             :%d\n", grid_3dim[_XYZ_]);
+    printf("grid_index_1dim[_X_]         :%d\n", grid_index_1dim[_X_]);
+    printf("grid_index_1dim[_Y_]         :%d\n", grid_index_1dim[_Y_]);
+    printf("grid_index_1dim[_Z_]         :%d\n", grid_index_1dim[_Z_]);
+    printf("grid_index_1dim[_T_]         :%d\n", grid_index_1dim[_T_]);
+    printf("move_wards[_B_X_]            :%d\n", move_wards[_B_X_]);
+    printf("move_wards[_B_Y_]            :%d\n", move_wards[_B_Y_]);
+    printf("move_wards[_B_Z_]            :%d\n", move_wards[_B_Z_]);
+    printf("move_wards[_B_T_]            :%d\n", move_wards[_B_T_]);
+    printf("move_wards[_F_X_]            :%d\n", move_wards[_F_X_]);
+    printf("move_wards[_F_Y_]            :%d\n", move_wards[_F_Y_]);
+    printf("move_wards[_F_Z_]            :%d\n", move_wards[_F_Z_]);
+    printf("move_wards[_F_T_]            :%d\n", move_wards[_F_T_]);
+    printf("move_wards[_BX_BY_]          :%d\n", move_wards[_BX_BY_]);
+    printf("move_wards[_BX_BZ_]          :%d\n", move_wards[_BX_BZ_]);
+    printf("move_wards[_BX_BT_]          :%d\n", move_wards[_BX_BT_]);
+    printf("move_wards[_BY_BZ_]          :%d\n", move_wards[_BY_BZ_]);
+    printf("move_wards[_BY_BT_]          :%d\n", move_wards[_BY_BT_]);
+    printf("move_wards[_BZ_BT_]          :%d\n", move_wards[_BZ_BT_]);
+    printf("move_wards[_FX_BY_]          :%d\n", move_wards[_FX_BY_]);
+    printf("move_wards[_FX_BZ_]          :%d\n", move_wards[_FX_BZ_]);
+    printf("move_wards[_FX_BT_]          :%d\n", move_wards[_FX_BT_]);
+    printf("move_wards[_FY_BZ_]          :%d\n", move_wards[_FY_BZ_]);
+    printf("move_wards[_FY_BT_]          :%d\n", move_wards[_FY_BT_]);
+    printf("move_wards[_FZ_BT_]          :%d\n", move_wards[_FZ_BT_]);
+    printf("move_wards[_BX_FY_]          :%d\n", move_wards[_BX_FY_]);
+    printf("move_wards[_BX_FZ_]          :%d\n", move_wards[_BX_FZ_]);
+    printf("move_wards[_BX_FT_]          :%d\n", move_wards[_BX_FT_]);
+    printf("move_wards[_BY_FZ_]          :%d\n", move_wards[_BY_FZ_]);
+    printf("move_wards[_BY_FT_]          :%d\n", move_wards[_BY_FT_]);
+    printf("move_wards[_BZ_FT_]          :%d\n", move_wards[_BZ_FT_]);
+    printf("move_wards[_FX_FY_]          :%d\n", move_wards[_FX_FY_]);
+    printf("move_wards[_FX_FZ_]          :%d\n", move_wards[_FX_FZ_]);
+    printf("move_wards[_FX_FT_]          :%d\n", move_wards[_FX_FT_]);
+    printf("move_wards[_FY_FZ_]          :%d\n", move_wards[_FY_FZ_]);
+    printf("move_wards[_FY_FT_]          :%d\n", move_wards[_FY_FT_]);
+    printf("move_wards[_FZ_FT_]          :%d\n", move_wards[_FZ_FT_]);
   }
 };
 } // namespace qcu
