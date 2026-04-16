@@ -2,7 +2,7 @@ import torch
 from pyqcu import tools, dslash, lattice
 from pyqcu.cuda import qcu, define
 from pyqcu.cuda.define import params, argv, set_ptrs
-params[define._LAT_X_] = 16
+params[define._LAT_X_] = 8
 params[define._LAT_Y_] = 16
 params[define._LAT_Z_] = 16
 params[define._LAT_T_] = 32
@@ -15,7 +15,7 @@ params[define._NODE_RANK_] = define.rank
 params[define._NODE_SIZE_] = define.size
 params[define._DAGGER_] = 0
 params[define._MAX_ITER_] = 1000
-params[define._DATA_TYPE_] = define._LAT_C64_
+params[define._DATA_TYPE_] = define._LAT_C128_
 params[define._SET_INDEX_] = 0
 params[define._SET_PLAN_] = 1
 params[define._MG_X_] = 1
@@ -74,6 +74,7 @@ clover_oo = torch.zeros(size=[4, 3, 4, 3]+[params[define._LAT_X_], params[define
                                            params[define._LAT_T_]//define._LAT_P_]).to(dtype=define.dtype(params[define._DATA_TYPE_]), device=torch.device('cuda'))
 clover_oo_inv = torch.zeros(size=[4, 3, 4, 3]+[params[define._LAT_X_], params[define._LAT_Y_], params[define._LAT_Z_],
                                                params[define._LAT_T_]//define._LAT_P_]).to(dtype=define.dtype(params[define._DATA_TYPE_]), device=torch.device('cuda'))
+# gauge_eo = torch.ones_like(gauge_eo)*2
 params[define._VERBOSE_] = 1
 params[define._SET_INDEX_] += 1
 params[define._SET_PLAN_] = 2
