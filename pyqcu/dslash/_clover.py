@@ -278,21 +278,6 @@ def add_I(clover_term: torch.Tensor, verbose: bool = False) -> torch.Tensor:
     return dest
 
 
-def cut_I(clover_term: torch.Tensor, verbose: bool = False) -> torch.Tensor:
-    _clover_term = clover_term.reshape(12, 12, -1).clone()
-    if verbose:
-        print('PYQCU::DSLASH::CLOVER:\n Clover is adding I......')
-        print(
-            f"PYQCU::DSLASH::CLOVER:\n _clover_term.shape:{_clover_term.shape}")
-    eye = _torch.eye(12, dtype=_clover_term.dtype,
-                     device=_clover_term.device)
-    _clover_term -= eye.unsqueeze(-1)
-    dest = _clover_term.reshape(clover_term.shape)
-    if verbose:
-        print(f"PYQCU::DSLASH::CLOVER:\n dest.shape:{dest.shape}")
-    return dest
-
-
 def inverse(clover_term: torch.Tensor, verbose: bool = False) -> torch.Tensor:
     _clover_term = clover_term.reshape(12, 12, -1).clone()
     if verbose:
