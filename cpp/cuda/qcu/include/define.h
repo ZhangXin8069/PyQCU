@@ -226,7 +226,6 @@ namespace qcu {
   {                                                                            \
     move = (1 - (t == lat_t - 1) * lat_t) * (eo != parity);                    \
   }
-
 // little strange, but don't want change
 #define give_vals(U, zero, n)                                                  \
   {                                                                            \
@@ -470,9 +469,7 @@ namespace qcu {
     }                                                                          \
   }
 } // namespace qcu
-
 // Define Gell-Mann matrices as macros (flattened 3x3 row-major order)
-
 // λ1
 #define LAMBDA1 {0, 1, 0, 1, 0, 0, 0, 0, 0}
 // λ2
@@ -493,11 +490,9 @@ namespace qcu {
 #define LAMBDA8                                                                \
   {1.0 / 1.7320508075688772, 0, 0, 0, 1.0 / 1.7320508075688772, 0, 0, 0,       \
    -2.0 / 1.7320508075688772}
-
 // Pack them into one static array
 #define GELL_MANN                                                              \
   {LAMBDA1, LAMBDA2, LAMBDA3, LAMBDA4, LAMBDA5, LAMBDA6, LAMBDA7, LAMBDA8}
-
 static inline int getLocalRank() {
   int localRank;
   MPI_Comm localComm;
