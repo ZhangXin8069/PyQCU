@@ -15,17 +15,17 @@
 #include <cuda_runtime_api.h>
 #include <curand.h>
 #include <curand_kernel.h>
+#include <fstream>
 #include <functional>
 #include <iostream>
 #include <library_types.h>
 #include <memory>
 #include <mpi.h>
 #include <random>
+#include <sstream>
 #include <stdexcept>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string>
 #include <unistd.h>
-#include <fstream>
-#include <sstream>
 #endif
