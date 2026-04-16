@@ -17,9 +17,7 @@ void applyWilsonBistabCgDslashQcu(long long _fermion_out, long long _fermion_in,
     // define for apply_wilson_dslash
     LatticeSet<float> *set_ptr = static_cast<LatticeSet<float> *>(
         (void *)(static_cast<long long *>(set_ptrs)[set_index]));
-    
-    
-    
+
     LatticeWilsonDslash<float> _wilson_dslash;
     _wilson_dslash.give(set_ptr);
     // { // test
@@ -55,16 +53,12 @@ void applyWilsonBistabCgDslashQcu(long long _fermion_out, long long _fermion_in,
       checkCudaErrors(cudaFreeAsync(device_vals, set_ptr->stream));
       checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
     }
-    
-    
-    
+
   } else if (data_type == _LAT_C128_) {
     // define for apply_wilson_dslash
     LatticeSet<double> *set_ptr = static_cast<LatticeSet<double> *>(
         (void *)(static_cast<long long *>(set_ptrs)[set_index]));
-    
-    
-    
+
     LatticeWilsonDslash<double> _wilson_dslash;
     _wilson_dslash.give(set_ptr);
     // { // test
@@ -100,9 +94,7 @@ void applyWilsonBistabCgDslashQcu(long long _fermion_out, long long _fermion_in,
       checkCudaErrors(cudaFreeAsync(device_vals, set_ptr->stream));
       checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
     }
-    
-    
-    
+
   } else {
     printf("data_type error\n");
   }
