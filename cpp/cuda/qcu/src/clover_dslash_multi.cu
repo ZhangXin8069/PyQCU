@@ -1,4 +1,5 @@
 #include "../include/qcu.h"
+#include <cstdio>
 #pragma optimize(5)
 namespace qcu {
 template <typename T>
@@ -120,7 +121,7 @@ __global__ void make_clover_all(
   // // int if_f_z_f_t=
   //(move_wards[_F_Z_]==1-lat_z)*(move_wards[_F_T_]==1-lat_t);
     if (1) {
-    // if_b_x = 0;
+    if_b_x = 0;
     if_b_y = 0;
     if_b_z = 0;
     if_b_t = 0;
