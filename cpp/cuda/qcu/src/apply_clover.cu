@@ -15,7 +15,6 @@ void applyCloverQcu(long long _clover, long long _gauge, long long _set_ptrs,
     LatticeSet<float> *set_ptr =
         static_cast<LatticeSet<float> *>((void *)(static_cast<long long *>(
             set_ptrs)[set_index])); // define for apply_clover_dslash
-    // dptzyxcc2ccdptzyx<float>(gauge, &_set);
     LatticeCloverDslash<float> _clover_dslash;
     _clover_dslash.give(set_ptr);
     _clover_dslash.init(clover);
@@ -38,13 +37,11 @@ void applyCloverQcu(long long _clover, long long _gauge, long long _set_ptrs,
         _clover_dslash.inverse();
       }
     }
-    // ccdptzyx2dptzyxcc<float>(gauge, &_set);
     _clover_dslash.end();
   } else if (data_type == _LAT_C128_) {
     LatticeSet<double> *set_ptr =
         static_cast<LatticeSet<double> *>((void *)(static_cast<long long *>(
             set_ptrs)[set_index])); // define for apply_clover_dslash
-    // dptzyxcc2ccdptzyx<double>(gauge, &_set);
     LatticeCloverDslash<double> _clover_dslash;
     _clover_dslash.give(set_ptr);
     _clover_dslash.init(clover);
@@ -67,7 +64,6 @@ void applyCloverQcu(long long _clover, long long _gauge, long long _set_ptrs,
         _clover_dslash.inverse();
       }
     }
-    // ccdptzyx2dptzyxcc<double>(gauge, &_set);
     _clover_dslash.end();
   } else {
     printf("data_type error\n");

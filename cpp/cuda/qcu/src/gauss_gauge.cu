@@ -2,21 +2,21 @@
 #pragma optimize(5)
 namespace qcu {
 template <typename T>
-__global__ void give_random_8dtzyx(void *device_random_8dtzyx,
+__global__ void give_random_8dxyzt(void *device_random_8dxyzt,
                                    void *device_params, unsigned long seed) {
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
   int *params = static_cast<int *>(device_params);
   int lat_xyzt = params[_LAT_XYZT_];
-  LatticeComplex<T> *random_8dtzyx =
-      (static_cast<LatticeComplex<T> *>(device_random_8dtzyx) + idx);
+  LatticeComplex<T> *random_8dxyzt =
+      (static_cast<LatticeComplex<T> *>(device_random_8dxyzt) + idx);
   curandState state_real, state_imag;
   curand_init(seed, idx, 0, &state_real);
   curand_init(seed, idx, 1, &state_imag);
   for (int d = 0; d < _LAT_D_; ++d) {
     for (int cc = 0; cc < (_LAT_CC_ - 1); ++cc) {
-      random_8dtzyx[(cc * _LAT_D_ + d) * lat_xyzt]._data.x =
+      random_8dxyzt[(cc * _LAT_D_ + d) * lat_xyzt]._data.x =
           curand_uniform(&state_real);
-      random_8dtzyx[(cc * _LAT_D_ + d) * lat_xyzt]._data.y =
+      random_8dxyzt[(cc * _LAT_D_ + d) * lat_xyzt]._data.y =
           curand_uniform(&state_real);
     }
   }
@@ -99,13 +99,13 @@ __device__ void su3_matrix_exponential(const LatticeComplex<T> A[_LAT_CC_],
   }
 }
 template <typename T>
-__global__ void _make_gauss_gauge(void *device_U, void *device_random_8dtzyx,
+__global__ void _make_gauss_gauge(void *device_U, void *device_random_8dxyzt,
                                   void *device_params, T sigma) {
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
   int *params = static_cast<int *>(device_params);
   int lat_xyzt = params[_LAT_XYZT_];
-  LatticeComplex<T> *random_8dtzyx =
-      (static_cast<LatticeComplex<T> *>(device_random_8dtzyx) + idx);
+  LatticeComplex<T> *random_8dxyzt =
+      (static_cast<LatticeComplex<T> *>(device_random_8dxyzt) + idx);
   LatticeComplex<T> *origin_U =
       (static_cast<LatticeComplex<T> *>(device_U) + idx);
   T gell_mann[8][9] = GELL_MANN;
@@ -116,9 +116,9 @@ __global__ void _make_gauss_gauge(void *device_U, void *device_random_8dtzyx,
       // Generate 8 Gaussian random numbers
       for (int i = 0; i < _LAT_CC_ - 1; i++) {
         if (p == 0) {
-          a[i] = random_8dtzyx[(i * _LAT_D_ + d) * lat_xyzt]._data.x;
+          a[i] = random_8dxyzt[(i * _LAT_D_ + d) * lat_xyzt]._data.x;
         } else {
-          a[i] = random_8dtzyx[(i * _LAT_D_ + d) * lat_xyzt]._data.y;
+          a[i] = random_8dxyzt[(i * _LAT_D_ + d) * lat_xyzt]._data.y;
         }
       }
       LatticeComplex<T> H[_LAT_CC_] = {{0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0},
@@ -152,23 +152,23 @@ __global__ void _make_gauss_gauge(void *device_U, void *device_random_8dtzyx,
   }
 }
 template <typename T> void make_gauss_gauge(void *device_U, void *set_ptr) {
-  void *device_random_8dtzyx;
+  void *device_random_8dxyzt;
   LatticeSet<T> *_set_ptr = static_cast<LatticeSet<T> *>(set_ptr);
   if (_set_ptr->host_params[_VERBOSE_]) {
     auto start = std::chrono::high_resolution_clock::now();
     checkCudaErrors(cudaStreamSynchronize(_set_ptr->stream));
     checkCudaErrors(
-        cudaMallocAsync(&device_random_8dtzyx,
+        cudaMallocAsync(&device_random_8dxyzt,
                         _set_ptr->lat_4dim * _LAT_D_ * (_LAT_CC_ - 1) *
                             sizeof(LatticeComplex<T>),
                         _set_ptr->stream));
-    give_random_8dtzyx<T>
+    give_random_8dxyzt<T>
         <<<_set_ptr->gridDim, _set_ptr->blockDim, 0, _set_ptr->stream>>>(
-            device_random_8dtzyx, _set_ptr->device_params,
+            device_random_8dxyzt, _set_ptr->device_params,
             _set_ptr->host_params[_SEED_]);
     _make_gauss_gauge<T>
         <<<_set_ptr->gridDim, _set_ptr->blockDim, 0, _set_ptr->stream>>>(
-            device_U, device_random_8dtzyx, _set_ptr->device_params,
+            device_U, device_random_8dxyzt, _set_ptr->device_params,
             _set_ptr->sigma());
     checkCudaErrors(cudaStreamSynchronize(_set_ptr->stream));
     auto end = std::chrono::high_resolution_clock::now();
@@ -181,17 +181,17 @@ template <typename T> void make_gauss_gauge(void *device_U, void *set_ptr) {
            double(duration) / 1e9);
   } else {
     checkCudaErrors(cudaStreamSynchronize(_set_ptr->stream));
-    checkCudaErrors(cudaMallocAsync(&device_random_8dtzyx,
+    checkCudaErrors(cudaMallocAsync(&device_random_8dxyzt,
                                     _set_ptr->lat_4dim * _LAT_S_ *
                                         sizeof(LatticeComplex<T>),
                                     _set_ptr->stream));
-    give_random_8dtzyx<T>
+    give_random_8dxyzt<T>
         <<<_set_ptr->gridDim, _set_ptr->blockDim, 0, _set_ptr->stream>>>(
-            device_random_8dtzyx, _set_ptr->device_params,
+            device_random_8dxyzt, _set_ptr->device_params,
             _set_ptr->host_params[_SEED_]);
     _make_gauss_gauge<T>
         <<<_set_ptr->gridDim, _set_ptr->blockDim, 0, _set_ptr->stream>>>(
-            device_U, device_random_8dtzyx, _set_ptr->device_params,
+            device_U, device_random_8dxyzt, _set_ptr->device_params,
             _set_ptr->sigma());
     checkCudaErrors(cudaStreamSynchronize(_set_ptr->stream));
   }
