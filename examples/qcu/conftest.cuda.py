@@ -6,7 +6,7 @@ params[define._LAT_X_] = 4
 params[define._LAT_Y_] = 4
 params[define._LAT_Z_] = 4
 params[define._LAT_T_] = 8
-params[define._LAT_TZYX_] = params[define._LAT_X_] * \
+params[define._LAT_XYZT_] = params[define._LAT_X_] * \
     params[define._LAT_Y_]*params[define._LAT_Z_]*params[define._LAT_T_]
 params[define._GRID_X_], params[define._GRID_Y_], params[define._GRID_Z_], params[
     define._GRID_T_] = tools.give_grid_size()
@@ -59,9 +59,9 @@ qcu.applyWilsonBistabCgQcu(
     fermion_out_eo, fermion_in_eo, gauge_eo, set_ptrs, params)
 qcu.applyEndQcu(set_ptrs, params)
 print(set_ptrs)
-qcu_dest = tools.poootzyx2oootzyx(input_array=fermion_out_eo)
-qcu_U = tools.poootzyx2oootzyx(input_array=gauge_eo)
-qcu_src = tools.poootzyx2oootzyx(input_array=fermion_in_eo)
+qcu_dest = tools.poooxyzt2oooxyzt(input_array=fermion_out_eo)
+qcu_U = tools.poooxyzt2oooxyzt(input_array=gauge_eo)
+qcu_src = tools.poooxyzt2oooxyzt(input_array=fermion_in_eo)
 refer_src = dslash.give_wilson(
     src=qcu_dest, U=qcu_U, kappa=1 / (2 * argv[define._MASS_] + 8), with_I=True)
 print('qcu_src:', qcu_src.flatten()[:100])
@@ -103,9 +103,9 @@ qcu.applyCloverBistabCgQcu(fermion_out_eo, fermion_in_eo, gauge_eo,
                            clover_ee, clover_oo, clover_ee_inv, clover_oo_inv,  set_ptrs, params)
 qcu.applyEndQcu(set_ptrs, params)
 print(set_ptrs)
-qcu_dest = tools.poootzyx2oootzyx(input_array=fermion_out_eo)
-qcu_U = tools.poootzyx2oootzyx(input_array=gauge_eo)
-qcu_src = tools.poootzyx2oootzyx(input_array=fermion_in_eo)
+qcu_dest = tools.poooxyzt2oooxyzt(input_array=fermion_out_eo)
+qcu_U = tools.poooxyzt2oooxyzt(input_array=gauge_eo)
+qcu_src = tools.poooxyzt2oooxyzt(input_array=fermion_in_eo)
 refer_clover_term = dslash.make_clover(
     U=qcu_U, kappa=1 / (2 * argv[define._MASS_] + 8))
 refer_src = dslash.give_wilson(
@@ -117,13 +117,13 @@ clover_eeoo = torch.zeros(size=[2, 4, 3, 4, 3]+[params[define._LAT_X_], params[d
                                                 params[define._LAT_T_]//define._LAT_P_]).to(dtype=define.dtype(params[define._DATA_TYPE_]), device=torch.device('cuda'))
 clover_eeoo[0] = clover_ee
 clover_eeoo[1] = clover_oo
-qcu_clover_term = tools.poootzyx2oootzyx(
+qcu_clover_term = tools.poooxyzt2oooxyzt(
     input_array=clover_eeoo)
 qcu_clover_term = dslash.cut_I(clover_term=qcu_clover_term)
 
-qcu_clover_term_eo = tools.oootzyx2poootzyx(
+qcu_clover_term_eo = tools.oooxyzt2poooxyzt(
     input_array=qcu_clover_term)
-refer_clover_term_eo = tools.oootzyx2poootzyx(
+refer_clover_term_eo = tools.oooxyzt2poooxyzt(
     input_array=refer_clover_term)
 print('qcu_clover_term:', qcu_clover_term.flatten()[:100])
 print('refer_clover_term:', refer_clover_term.flatten()[:100])
