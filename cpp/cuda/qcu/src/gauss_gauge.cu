@@ -7,7 +7,7 @@ namespace qcu
     {
         int idx = blockIdx.x * blockDim.x + threadIdx.x;
         int *params = static_cast<int *>(device_params);
-        int lat_tzyx = params[_LAT_XYZT_];
+        int lat_tzyx = params[_LAT_TZYX_];
         LatticeComplex<T> *random_8dtzyx =
             (static_cast<LatticeComplex<T> *>(device_random_8dtzyx) + idx);
         curandState state_real, state_imag;
@@ -109,7 +109,7 @@ namespace qcu
     {
         int idx = blockIdx.x * blockDim.x + threadIdx.x;
         int *params = static_cast<int *>(device_params);
-        int lat_tzyx = params[_LAT_XYZT_];
+        int lat_tzyx = params[_LAT_TZYX_];
         LatticeComplex<T> *random_8dtzyx = (static_cast<LatticeComplex<T> *>(device_random_8dtzyx) + idx);
         LatticeComplex<T> *origin_U = (static_cast<LatticeComplex<T> *>(device_U) + idx);
         T gell_mann[8][9] = GELL_MANN;

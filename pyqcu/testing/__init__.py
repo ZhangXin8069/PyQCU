@@ -33,8 +33,8 @@ def test_dslash_wilson(kappa: float = 0.125, lat_size: list = [8, 8, 8, 16],  dt
             size=[4, 3]+lat_size, dtype=dtype, device=device)
         refer_dest = dslash.give_wilson(
             src=refer_src, U=refer_U, kappa=kappa, verbose=True)
-        U_eo = tools.oooxyzt2poooxyzt(input_array=refer_U, verbose=True)
-        src_eo = tools.oooxyzt2poooxyzt(input_array=refer_src, verbose=True)
+        U_eo = tools.oootzyx2poootzyx(input_array=refer_U, verbose=True)
+        src_eo = tools.oootzyx2poootzyx(input_array=refer_src, verbose=True)
         src_e = src_eo[0]
         src_o = src_eo[1]
         time_start = perf_counter()
@@ -46,18 +46,18 @@ def test_dslash_wilson(kappa: float = 0.125, lat_size: list = [8, 8, 8, 16],  dt
         dest_eo = torch.zeros_like(src_eo)
         dest_eo[0] = dest_e
         dest_eo[1] = dest_o
-        dest = tools.poooxyzt2oooxyzt(input_array=src_eo+dest_eo, verbose=True)
+        dest = tools.poootzyx2oootzyx(input_array=src_eo+dest_eo, verbose=True)
     else:
         kappa = 0.125
         dtype = torch.complex64
         lat_size = [32, 32, 32, 32]
         path = pyqcu.__file__.replace('pyqcu/__init__.py', 'examples/data/')
-        refer_U = tools.hdf5oooxyzt2gridoooxyzt(
-            file_name=path+'refer.wilson.U.L32K0_125.ccdxyzt.c64.h5', lat_size=lat_size, device=device, verbose=True)
-        refer_src = tools.hdf5oooxyzt2gridoooxyzt(
-            file_name=path+'refer.wilson.src.L32K0_125.scxyzt.c64.h5', lat_size=lat_size, device=device, verbose=True)
-        refer_dest = tools.hdf5oooxyzt2gridoooxyzt(
-            file_name=path+'refer.wilson.dest.L32K0_125.scxyzt.c64.h5', lat_size=lat_size, device=device, verbose=True)
+        refer_U = tools.hdf5oootzyx2gridoootzyx(
+            file_name=path+'refer.wilson.U.L32K0_125.ccdtzyx.c64.h5', lat_size=lat_size, device=device, verbose=True)
+        refer_src = tools.hdf5oootzyx2gridoootzyx(
+            file_name=path+'refer.wilson.src.L32K0_125.sctzyx.c64.h5', lat_size=lat_size, device=device, verbose=True)
+        refer_dest = tools.hdf5oootzyx2gridoootzyx(
+            file_name=path+'refer.wilson.dest.L32K0_125.sctzyx.c64.h5', lat_size=lat_size, device=device, verbose=True)
         refer_clover_term = torch.zeros(
             size=[4, 3, 4, 3]+list(refer_src.shape)[2:], dtype=dtype, device=device)
         operator = dslash.operator(
@@ -103,7 +103,7 @@ def test_dslash_parity(lat_size: list = [8, 8, 8, 16], kappa: float = 0.125,  dt
         size=[3, 3, 4]+sub_lat_size, dtype=dtype, device=device)
     lattice.generate_gauge_field(
         refer_U, seed=42+comm.rank, sigma=0.1, verbose=True)
-    whole_U = tools.local_xyzt2whole_xyzt(
+    whole_U = tools.local_tzyx2whole_tzyx(
         local_array=refer_U, root=root)
     if comm.rank == root:
         whole_clover_term = dslash.make_clover(
@@ -118,9 +118,9 @@ def test_dslash_parity(lat_size: list = [8, 8, 8, 16], kappa: float = 0.125,  dt
         whole_dest = None
     refer_clover_term = dslash.make_clover(
         U=refer_U, kappa=kappa, support_parallel=True, verbose=False)
-    refer_src = tools.whole_xyzt2local_xyzt(whole_array=whole_src, whole_shape=[
+    refer_src = tools.whole_tzyx2local_tzyx(whole_array=whole_src, whole_shape=[
         4, 3]+lat_size, root=root, dtype=dtype, device=device)
-    refer_dest = tools.whole_xyzt2local_xyzt(whole_array=whole_dest, whole_shape=[
+    refer_dest = tools.whole_tzyx2local_tzyx(whole_array=whole_dest, whole_shape=[
         4, 3]+lat_size, root=root, dtype=dtype, device=device)
     operator = dslash.operator(
         U=refer_U, kappa=kappa, clover_term=refer_clover_term, verbose=True, support_parity=True)
@@ -153,10 +153,10 @@ def test_dslash_parity(lat_size: list = [8, 8, 8, 16], kappa: float = 0.125,  dt
         f"PYQCU::TESTING::DSLASH::PARITY:\n Difference between computed and reference: {diff}")
     print(
         f"PYQCU::TESTING::DSLASH::PARITY:\n Execution time: {time_end - time_start}")
-    src_eo = tools.oooxyzt2poooxyzt(input_array=refer_src, verbose=True)
+    src_eo = tools.oootzyx2poootzyx(input_array=refer_src, verbose=True)
     src_e = src_eo[0]
     src_o = src_eo[1]
-    refer_dest_eo = tools.oooxyzt2poooxyzt(
+    refer_dest_eo = tools.oootzyx2poootzyx(
         input_array=refer_dest, verbose=True)
     refer_dest_e = refer_dest_eo[0]
     refer_dest_o = refer_dest_eo[1]
@@ -191,12 +191,12 @@ def test_dslash_clover(device: torch.device = torch.device('cpu'), with_data: bo
         kappa = 1.0
         lat_size = [32, 16, 32, 32]
         path = pyqcu.__file__.replace('pyqcu/__init__.py', 'examples/data/')
-        refer_U = tools.hdf5oooxyzt2gridoooxyzt(
-            file_name=path+'refer.clover.U.L32Y16K1.ccdxyzt.c64.h5', lat_size=lat_size, device=device, verbose=True)
-        refer_clover_term = tools.hdf5oooxyzt2gridoooxyzt(
-            file_name=path+'refer.clover.clover_term.L32Y16K1.scscxyzt.c64.h5', lat_size=lat_size, device=device, verbose=True)
-        refer_clover_inv_term = tools.hdf5oooxyzt2gridoooxyzt(
-            file_name=path+'refer.clover.clover_inv_term.L32Y16K1.scscxyzt.c64.h5', lat_size=lat_size, device=device, verbose=True)
+        refer_U = tools.hdf5oootzyx2gridoootzyx(
+            file_name=path+'refer.clover.U.L32Y16K1.ccdtzyx.c64.h5', lat_size=lat_size, device=device, verbose=True)
+        refer_clover_term = tools.hdf5oootzyx2gridoootzyx(
+            file_name=path+'refer.clover.clover_term.L32Y16K1.scsctzyx.c64.h5', lat_size=lat_size, device=device, verbose=True)
+        refer_clover_inv_term = tools.hdf5oootzyx2gridoootzyx(
+            file_name=path+'refer.clover.clover_inv_term.L32Y16K1.scsctzyx.c64.h5', lat_size=lat_size, device=device, verbose=True)
         clover_term = dslash.make_clover(U=refer_U, kappa=kappa, verbose=True)
         clover_term = dslash.add_I(clover_term=clover_term, verbose=True)
         diff = tools.norm(clover_term - refer_clover_term) / \
@@ -246,14 +246,14 @@ def test_dslash_clover(device: torch.device = torch.device('cpu'), with_data: bo
             size=[3, 3, 4]+sub_lat_size, dtype=dtype, device=device)
         lattice.generate_gauge_field(
             refer_U, seed=42+comm.rank, sigma=0.1, verbose=True)
-        whole_U = tools.local_xyzt2whole_xyzt(
+        whole_U = tools.local_tzyx2whole_tzyx(
             local_array=refer_U, root=root)
         if comm.rank == root:
             whole_clover = dslash.make_clover(
                 U=whole_U, support_parallel=False)
         else:
             whole_clover = None
-        refer_clover = tools.whole_xyzt2local_xyzt(whole_array=whole_clover, whole_shape=[
+        refer_clover = tools.whole_tzyx2local_tzyx(whole_array=whole_clover, whole_shape=[
             4, 3, 4, 3]+lat_size, root=root, dtype=dtype, device=device)
         clover = dslash.make_clover(U=refer_U, support_parallel=True)
         diff = tools.norm(clover - refer_clover) / \
@@ -289,7 +289,7 @@ def test_solver(kind: str = 'clover', method: str = 'bistabcg', kappa: float = 0
             size=[3, 3, 4]+sub_lat_size, dtype=dtype, device=device)
         lattice.generate_gauge_field(
             refer_U, seed=42+comm.rank, sigma=0.1, verbose=True)
-        whole_U = tools.local_xyzt2whole_xyzt(
+        whole_U = tools.local_tzyx2whole_tzyx(
             local_array=refer_U, root=root)
         if kind == 'clover':
             refer_clover_term = dslash.make_clover(
@@ -297,7 +297,7 @@ def test_solver(kind: str = 'clover', method: str = 'bistabcg', kappa: float = 0
         else:
             refer_clover_term = torch.zeros(
                 size=[4, 3, 4, 3]+sub_lat_size, dtype=dtype, device=device)
-        whole_clover_term = tools.local_xyzt2whole_xyzt(
+        whole_clover_term = tools.local_tzyx2whole_tzyx(
             local_array=refer_clover_term, root=root)
         if comm.rank == root:
             whole_x = _torch.randn(
@@ -307,20 +307,20 @@ def test_solver(kind: str = 'clover', method: str = 'bistabcg', kappa: float = 0
         else:
             whole_x = None
             whole_b = None
-        refer_x = tools.whole_xyzt2local_xyzt(whole_array=whole_x, whole_shape=[
+        refer_x = tools.whole_tzyx2local_tzyx(whole_array=whole_x, whole_shape=[
                                               4, 3]+lat_size, root=root, dtype=dtype, device=device)
-        refer_b = tools.whole_xyzt2local_xyzt(whole_array=whole_b, whole_shape=[
+        refer_b = tools.whole_tzyx2local_tzyx(whole_array=whole_b, whole_shape=[
                                               4, 3]+lat_size, root=root, dtype=dtype, device=device)
     else:
         kappa = 0.125
         lat_size = [32, 32, 32, 32]
         path = pyqcu.__file__.replace('pyqcu/__init__.py', 'examples/data/')
-        refer_U = tools.hdf5oooxyzt2gridoooxyzt(
-            file_name=path+'refer.wilson.U.L32K0_125.ccdxyzt.c64.h5', lat_size=lat_size, device=device, verbose=True)
-        refer_x = tools.hdf5oooxyzt2gridoooxyzt(
-            file_name=path+'refer.wilson.x.L32K0_125.scxyzt.c64.h5', lat_size=lat_size, device=device, verbose=True)
-        refer_b = tools.hdf5oooxyzt2gridoooxyzt(
-            file_name=path+'refer.wilson.b.L32K0_125.scxyzt.c64.h5', lat_size=lat_size, device=device, verbose=True)
+        refer_U = tools.hdf5oootzyx2gridoootzyx(
+            file_name=path+'refer.wilson.U.L32K0_125.ccdtzyx.c64.h5', lat_size=lat_size, device=device, verbose=True)
+        refer_x = tools.hdf5oootzyx2gridoootzyx(
+            file_name=path+'refer.wilson.x.L32K0_125.sctzyx.c64.h5', lat_size=lat_size, device=device, verbose=True)
+        refer_b = tools.hdf5oootzyx2gridoootzyx(
+            file_name=path+'refer.wilson.b.L32K0_125.sctzyx.c64.h5', lat_size=lat_size, device=device, verbose=True)
         refer_clover_term = torch.zeros(
             size=[4, 3, 4, 3]+list(refer_b.shape)[2:], dtype=dtype, device=device)
     operator = dslash.operator(
@@ -331,7 +331,7 @@ def test_solver(kind: str = 'clover', method: str = 'bistabcg', kappa: float = 0
             def matvec_parity(src_o):
                 # return src_o*2+0.5
                 return operator.matvec_parity(src_o=src_o)
-            b_eo = tools.oooxyzt2poooxyzt(
+            b_eo = tools.oootzyx2poootzyx(
                 input_array=refer_b.reshape([12]+list(refer_b.shape)[2:]))
             b_e = b_eo[0]
             b_o = b_eo[1]
@@ -340,7 +340,7 @@ def test_solver(kind: str = 'clover', method: str = 'bistabcg', kappa: float = 0
             x_o = solver.bistabcg(b=b_parity, matvec=matvec_parity, tol=1e-6,
                                   max_iter=1000, x0=None, if_rtol=False, verbose=True)
             x_e = operator.give_x_e(b_e=b_e, x_o=x_o)
-            x = tools.poooxyzt2oooxyzt(input_array=torch.stack(
+            x = tools.poootzyx2oootzyx(input_array=torch.stack(
                 [x_e, x_o], dim=0)).reshape(refer_b.shape)
             time_end = perf_counter()
         else:
@@ -473,13 +473,13 @@ def test_smear_stout(lat_size: list = [8, 8, 8, 16], device: torch.device = torc
         size=[3, 3, 4]+sub_lat_size, dtype=dtype, device=device)
     lattice.generate_gauge_field(
         refer_U, seed=42+comm.rank, sigma=0.1, verbose=True)
-    whole_U = tools.local_xyzt2whole_xyzt(
+    whole_U = tools.local_tzyx2whole_tzyx(
         local_array=refer_U, root=root)
     if comm.rank == root:
         whole_smear_U = smear.stout_smear(U=whole_U, support_parallel=False)
     else:
         whole_smear_U = None
-    refer_smear_U = tools.whole_xyzt2local_xyzt(whole_array=whole_smear_U, whole_shape=[
+    refer_smear_U = tools.whole_tzyx2local_tzyx(whole_array=whole_smear_U, whole_shape=[
         3, 3, 4]+lat_size, root=root, dtype=dtype, device=device)
     smear_U = smear.stout_smear(U=refer_U, support_parallel=True)
     diff = tools.norm(smear_U - refer_smear_U) / \
@@ -504,7 +504,7 @@ def test_smear_stout(lat_size: list = [8, 8, 8, 16], device: torch.device = torc
         f"PYQCU::TESTING::SMEAR::STOUT::SMEAR_U:\n {smear_U.flatten()[:12]}")
     print(
         f"PYQCU::TESTING::SMEAR::STOUT:\n Difference between computed and reference smear: {diff}")
-    # _whole_smear_U = tools.local_xyzt2whole_xyzt(
+    # _whole_smear_U = tools.local_tzyx2whole_tzyx(
     #     local_array=smear_U, root=root)
     # if comm.rank == root:
     #     print(f"whole_smear_U:\n{whole_smear_U}")

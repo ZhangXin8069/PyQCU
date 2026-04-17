@@ -34,7 +34,7 @@ _LAT_X_ = 0
 _LAT_Y_ = 1
 _LAT_Z_ = 2
 _LAT_T_ = 3
-_LAT_XYZT_ = 4
+_LAT_TZYX_ = 4
 _GRID_X_ = 5
 _GRID_Y_ = 6
 _GRID_Z_ = 7
@@ -210,7 +210,7 @@ params[_LAT_X_] = 32
 params[_LAT_Y_] = 32
 params[_LAT_Z_] = 32
 params[_LAT_T_] = 32
-params[_LAT_XYZT_] = params[_LAT_X_] * \
+params[_LAT_TZYX_] = params[_LAT_X_] * \
     params[_LAT_Y_]*params[_LAT_Z_]*params[_LAT_T_]
 params[_GRID_X_], params[_GRID_Y_], params[_GRID_Z_], params[
     _GRID_T_] = tools.give_grid_size()
