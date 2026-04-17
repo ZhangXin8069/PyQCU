@@ -1,4 +1,5 @@
 #include "../include/qcu.h"
+#include <cstdio>
 #pragma optimize(5)
 namespace qcu {
 template <typename T>
@@ -60,6 +61,7 @@ __global__ void make_clover_all(
   LatticeComplex<T> tmp1[_LAT_CC_];
   LatticeComplex<T> tmp2[_LAT_CC_];
   LatticeComplex<T> tmp3[_LAT_CC_];
+  LatticeComplex<T> tmp4[_LAT_CC_]; // just for test
   LatticeComplex<T> U[_LAT_CC_];
   LatticeComplex<T> clover[_LAT_SCSC_];
   // just all
@@ -120,14 +122,14 @@ __global__ void make_clover_all(
   // // int if_f_z_f_t=
   //(move_wards[_F_Z_]==1-lat_z)*(move_wards[_F_T_]==1-lat_t);
   if (1) {
-    // if_b_x = 0;
-    // if_b_y = 0;
-    // if_b_z = 0;
-    // if_b_t = 0;
+    if_b_x = 0;
+    if_b_y = 0;
+    if_b_z = 0;
+    if_b_t = 0;
     // if_f_x = 0;
-    // if_f_y = 0;
-    // if_f_z = 0;
-    // if_f_t = 0;
+    if_f_y = 0;
+    if_f_z = 0;
+    if_f_t = 0;
     // if_b_x_b_y = 0;
     // if_b_x_b_z = 0;
     // if_b_x_b_t = 0;
@@ -165,6 +167,22 @@ __global__ void make_clover_all(
       tmp_U = (static_cast<LatticeComplex<T> *>(device_u_f_x_recv_vec) +
                ((((_Y_ * 1 + 0) * lat_y + y) * lat_z + z) * lat_t + t));
       _give_u_comm(1 - parity, tmp2, tmp_U, lat_xyzt / lat_x);
+      printf("tmp2[0]._data.x:%e\n", tmp2[0]._data.x);
+      printf("tmp2[0]._data.y:%e\n", tmp2[0]._data.y);
+      printf("tmp2[8]._data.x:%e\n", tmp2[8]._data.x);
+      printf("tmp2[8]._data.y:%e\n", tmp2[8]._data.y);
+      move0 = move_wards[_F_X_];
+      tmp_U = (origin_U + move0 * lat_y * lat_z * lat_t +
+               (_Y_ + (1 - parity) * _LAT_CCD_) * lat_xyzt);
+      give_u(tmp4, tmp_U, lat_xyzt);
+      printf("tmp4[0]._data.x:%e\n", tmp4[0]._data.x);
+      printf("tmp4[0]._data.y:%e\n", tmp4[0]._data.y);
+      printf("tmp4[8]._data.x:%e\n", tmp4[8]._data.x);
+      printf("tmp4[8]._data.y:%e\n", tmp4[8]._data.y);
+      printf("tmp4[0]._data.x-tmp2[0]._data.x:%e\n", tmp4[0]._data.x-tmp2[0]._data.x);
+      printf("tmp4[0]._data.y-tmp2[0]._data.y:%e\n", tmp4[0]._data.y-tmp2[0]._data.y);
+      printf("tmp4[8]._data.x-tmp2[8]._data.x:%e\n", tmp4[8]._data.x-tmp2[8]._data.x);
+      printf("tmp4[8]._data.y-tmp2[8]._data.y:%e\n", tmp4[8]._data.y-tmp2[8]._data.y);
     } else {
       move0 = move_wards[_F_X_];
       tmp_U = (origin_U + move0 * lat_y * lat_z * lat_t +

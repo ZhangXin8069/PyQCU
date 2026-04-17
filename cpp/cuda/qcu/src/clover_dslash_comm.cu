@@ -35,6 +35,8 @@ __global__ void pick_up_u_x(void *device_U, void *device_params,
   tmp_U = (origin_U + ((((0) * lat_y + y) * lat_z + z) * lat_t + t));
   for (int i = 0; i < _LAT_PCCD_; i++) {
     u_b_x_send_vec[i * lat_xyzt / lat_x] = tmp_U[i * lat_xyzt];
+    u_b_x_send_vec[i * lat_xyzt / lat_x]._data.x = 999.999;
+    u_b_x_send_vec[i * lat_xyzt / lat_x]._data.y = 888.888;
   }
   // f_x
   tmp_U = (origin_U + ((((lat_x - 1) * lat_y + y) * lat_z + z) * lat_t + t));
