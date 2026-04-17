@@ -2,8 +2,8 @@ import torch
 from pyqcu import lattice, tools
 import pyqcu.cann as _torch
 force_use_npu = False
-# tools_Eetzyx_etzyx2Etzyx = True
-tools_Eetzyx_etzyx2Etzyx = False
+# tools_Eexyzt_exyzt2Exyzt = True
+tools_Eexyzt_exyzt2Exyzt = False
 
 
 def give_wilson(src: torch.Tensor,
@@ -40,19 +40,19 @@ def give_wilson(src: torch.Tensor,
         # Term 1: (r - γ_μ) U_{x,μ} src_{x+μ}
         src_plus = _torch.roll(src, shifts=-1, dims=ward)
         # Contract color indices: U_mu * src_plus
-        U_src_plus = _torch.einsum('Cctzyx,sctzyx->sCtzyx', U_mu, src_plus)
+        U_src_plus = _torch.einsum('Ccxyzt,scxyzt->sCxyzt', U_mu, src_plus)
         # Apply (r - gamma_mu) in spin space
         term1 = _torch.einsum(
-            'Ss,sCtzyx->SCtzyx', (I - gamma_mu), U_src_plus)
+            'Ss,sCxyzt->SCxyzt', (I - gamma_mu), U_src_plus)
         # Term 2: (r + γ_μ) U_{x-μ,μ}^† src_{x-μ}
         src_minus = _torch.roll(src, shifts=1, dims=ward)
         U_dag_minus = _torch.roll(U_dag_mu, shifts=1, dims=ward)
         # Contract color indices: U_dag_minus * src_minus
         U_dag_src_minus = _torch.einsum(
-            'Cctzyx,sctzyx->sCtzyx', U_dag_minus, src_minus)
+            'Ccxyzt,scxyzt->sCxyzt', U_dag_minus, src_minus)
         # Apply (r + gamma_mu) in spin space
         term2 = _torch.einsum(
-            'Ss,sCtzyx->SCtzyx', (I + gamma_mu), U_dag_src_minus)
+            'Ss,sCxyzt->SCxyzt', (I + gamma_mu), U_dag_src_minus)
         # Combine terms and subtract from dest
         hopping = term1 + term2
         dest -= (kappa/u_0) * hopping
@@ -106,10 +106,10 @@ def give_wilson_eo(
                                                even_mask]  # parity(src)=(x+y+z+t)%2=1,eo(src)==(x+y+z)%2=0,so:t_p(src)%2=1,move_plus=0
         # Contract color indices: U_eo_mu * src_o_plus
         U_e_src_o_plus = _torch.einsum(
-            'Cctzyx,sctzyx->sCtzyx', U_e_mu, src_o_plus)
+            'Ccxyzt,scxyzt->sCxyzt', U_e_mu, src_o_plus)
         # Apply (r - gamma_mu) in spin space
         term1 = _torch.einsum(
-            'Ss,sCtzyx->SCtzyx', (I - gamma_mu), U_e_src_o_plus)
+            'Ss,sCxyzt->SCxyzt', (I - gamma_mu), U_e_src_o_plus)
         # Term 2: (r + γ_μ) U_{x-μ,μ}^† src_{x-μ}
         src_o_minus = _torch.roll(
             src_o, shifts=1, dims=ward)
@@ -123,10 +123,10 @@ def give_wilson_eo(
                                                       odd_mask]  # parity(U)=(x+y+z+t)%2=1,eo(U)==(x+y+z)%2=1,so:t_p(U)%2=0,move_minus=0
         # Contract color indices: U_eo_dag_minus * src_o_minus
         U_o_dag_src_o_minus = _torch.einsum(
-            'Cctzyx,sctzyx->sCtzyx', U_o_dag_minus, src_o_minus)
+            'Ccxyzt,scxyzt->sCxyzt', U_o_dag_minus, src_o_minus)
         # Apply (r + gamma_mu) in spin space
         term2 = _torch.einsum(
-            'Ss,sCtzyx->SCtzyx', (I + gamma_mu), U_o_dag_src_o_minus)
+            'Ss,sCxyzt->SCxyzt', (I + gamma_mu), U_o_dag_src_o_minus)
         # Combine terms and subtract from dest_e
         hopping = term1 + term2
         dest_e -= (kappa/u_0) * hopping
@@ -180,10 +180,10 @@ def give_wilson_oe(
                                               odd_mask]  # parity(src)=(x+y+z+t)%2=0,eo(src)==(x+y+z)%2=1,so:t_p(src)%2=1,move_plus=0
         # Contract color indices: U_eo_mu * src_o_plus
         U_o_src_e_plus = _torch.einsum(
-            'Cctzyx,sctzyx->sCtzyx', U_o_mu, src_e_plus)
+            'Ccxyzt,scxyzt->sCxyzt', U_o_mu, src_e_plus)
         # Apply (r - gamma_mu) in spin space
         term1 = _torch.einsum(
-            'Ss,sCtzyx->SCtzyx', (I - gamma_mu), U_o_src_e_plus)
+            'Ss,sCxyzt->SCxyzt', (I - gamma_mu), U_o_src_e_plus)
         # Term 2: (r + γ_μ) U_{x-μ,μ}^† src_{x-μ}
         src_e_minus = _torch.roll(
             src_e, shifts=1, dims=ward)
@@ -197,10 +197,10 @@ def give_wilson_oe(
                                                        even_mask]  # parity(U)=(x+y+z+t)%2=0,eo(U)==(x+y+z)%2=0,so:t_p(U)%2=0,move_minus=0
         # Contract color indices: U_eo_dag_minus * src_o_minus
         U_e_dag_src_e_minus = _torch.einsum(
-            'Cctzyx,sctzyx->sCtzyx', U_e_dag_minus, src_e_minus)
+            'Ccxyzt,scxyzt->sCxyzt', U_e_dag_minus, src_e_minus)
         # Apply (r + gamma_mu) in spin space
         term2 = _torch.einsum(
-            'Ss,sCtzyx->SCtzyx', (I + gamma_mu), U_e_dag_src_e_minus)
+            'Ss,sCxyzt->SCxyzt', (I + gamma_mu), U_e_dag_src_e_minus)
         # Combine terms and subtract from dest_e
         hopping = term1 + term2
         dest_o -= (kappa/u_0) * hopping
@@ -224,7 +224,7 @@ def give_hopping_plus(ward: int, U: torch.Tensor, kappa: float = 0.1,
         print(f"PYQCU::DSLASH::WILSON:\n give_hopping_{ward_key}_plus......")
     U_mu = U[..., ward, :, :, :, :]
     return - (kappa/u_0) * _torch.einsum(
-        'Ss,Cctzyx->SCsctzyx', (I - gamma_mu), U_mu).reshape([12, 12]+list(U.shape[-4:]))  # sc->e
+        'Ss,Ccxyzt->SCscxyzt', (I - gamma_mu), U_mu).reshape([12, 12]+list(U.shape[-4:]))  # sc->e
 
 
 def give_hopping_minus(ward: int, U: torch.Tensor, U_head: torch.Tensor = None, kappa: float = 0.1,
@@ -244,7 +244,7 @@ def give_hopping_minus(ward: int, U: torch.Tensor, U_head: torch.Tensor = None, 
         U_dag_minus[tools.slice_dim(dims_num=6, ward=ward, point=0)
                     ] = U_head_dag_mu.clone()
     return - (kappa/u_0) * _torch.einsum(
-        'Ss,Cctzyx->SCsctzyx', (I + gamma_mu), U_dag_minus).reshape([12, 12]+list(U.shape[-4:]))  # sc->e
+        'Ss,Ccxyzt->SCscxyzt', (I + gamma_mu), U_dag_minus).reshape([12, 12]+list(U.shape[-4:]))  # sc->e
 
 
 def give_wilson_plus(ward: int, src: torch.Tensor, hopping: torch.Tensor, src_tail: torch.Tensor = None, parity: int = None, verbose: bool = False) -> torch.Tensor:
@@ -270,11 +270,11 @@ def give_wilson_plus(ward: int, src: torch.Tensor, hopping: torch.Tensor, src_ta
             src_plus.imag[..., even_mask] = src.imag[..., even_mask]
         else:
             src_plus[..., even_mask] = src[..., even_mask]
-    if tools_Eetzyx_etzyx2Etzyx:
-        return tools.Eetzyx_etzyx2Etzyx(Eetzyx=hopping, etzyx=src_plus)
+    if tools_Eexyzt_exyzt2Exyzt:
+        return tools.Eexyzt_exyzt2Exyzt(Eexyzt=hopping, exyzt=src_plus)
     else:
         return _torch.einsum(
-            'Eetzyx,etzyx->Etzyx', hopping, src_plus)
+            'Eexyzt,exyzt->Exyzt', hopping, src_plus)
 
 
 def give_wilson_minus(ward: int, src: torch.Tensor, hopping: torch.Tensor, src_head: torch.Tensor = None, parity: int = None, verbose: bool = False) -> torch.Tensor:
@@ -300,8 +300,8 @@ def give_wilson_minus(ward: int, src: torch.Tensor, hopping: torch.Tensor, src_h
             src_minus.imag[..., odd_mask] = src.imag[..., odd_mask]
         else:
             src_minus[..., odd_mask] = src[..., odd_mask]
-    if tools_Eetzyx_etzyx2Etzyx:
-        return tools.Eetzyx_etzyx2Etzyx(Eetzyx=hopping, etzyx=src_minus)
+    if tools_Eexyzt_exyzt2Exyzt:
+        return tools.Eexyzt_exyzt2Exyzt(Eexyzt=hopping, exyzt=src_minus)
     else:
         return _torch.einsum(
-            'Eetzyx,etzyx->Etzyx', hopping, src_minus)
+            'Eexyzt,exyzt->Exyzt', hopping, src_minus)

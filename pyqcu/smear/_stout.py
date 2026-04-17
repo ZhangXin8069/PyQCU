@@ -21,9 +21,9 @@ def stout_smear(U: torch.Tensor, nstep: int = 1, rho: float = 0.12, support_para
         rank_minus_list = [tools.give_rank_minus(
             ward=ward) for ward in range(4)]
         U_head_list = [torch.zeros([]), torch.zeros(
-            []), torch.zeros([]), torch.zeros([])]  # tzyx
+            []), torch.zeros([]), torch.zeros([])]  # xyzt
         U_tail_list = [torch.zeros([]), torch.zeros(
-            []), torch.zeros([]), torch.zeros([])]  # tzyx
+            []), torch.zeros([]), torch.zeros([])]  # xyzt
         for ward in range(4):
             if grid_size[ward] != 1:
                 U_tail4send = U[tools.slice_dim(
@@ -103,38 +103,38 @@ def stout_smear(U: torch.Tensor, nstep: int = 1, rho: float = 0.12, support_para
                             roll_u4[tools.slice_dim_dim(
                                     dims_num=6, ward_a=nu, ward_b=mu, point_a=0, point_b=-1)] = U_head_tail_list[nu][mu][:, :, nu, :, :]
                         Q_mu += _torch.einsum(
-                            "abtzyx,bctzyx,dctzyx->adtzyx",
+                            "abxyzt,bcxyzt,dcxyzt->adxyzt",
                             U_nu,
                             roll_u0,
                             roll_u1,
                         )
                         Q_mu += _torch.einsum(
-                            "batzyx,bctzyx,cdtzyx->adtzyx",
+                            "baxyzt,bcxyzt,cdxyzt->adxyzt",
                             roll_u2,
                             roll_u3,
                             roll_u4,
                         )
                     else:
                         Q_mu += _torch.einsum(
-                            "abtzyx,bctzyx,dctzyx->adtzyx",
+                            "abxyzt,bcxyzt,dcxyzt->adxyzt",
                             U_nu,
                             _torch.roll(U_mu, -1, -4+nu),
                             _torch.roll(U_nu_conj, -1, -4+mu),
                         )
                         Q_mu += _torch.einsum(
-                            "batzyx,bctzyx,cdtzyx->adtzyx",
+                            "baxyzt,bcxyzt,cdxyzt->adxyzt",
                             _torch.roll(U_nu_conj, +1, -4+nu),
                             _torch.roll(U_mu, +1, -4+nu),
                             _torch.roll(_torch.roll(
                                 U_nu, +1, -4+nu), -1, -4+mu),
                         )
             Q[:, :, mu, :, :, :, :] = Q_mu.clone()
-        Q = _torch.einsum("abDtzyx,cbDtzyx->acDtzyx", rho * Q, U.conj())
-        Q = 0.5j * (_torch.einsum("abDtzyx->baDtzyx", Q.conj()) - Q)
-        Q -= 1 / 3 * _torch.einsum("aaDtzyx,bc->bcDtzyx", Q,
+        Q = _torch.einsum("abDxyzt,cbDxyzt->acDxyzt", rho * Q, U.conj())
+        Q = 0.5j * (_torch.einsum("abDxyzt->baDxyzt", Q.conj()) - Q)
+        Q -= 1 / 3 * _torch.einsum("aaDxyzt,bc->bcDxyzt", Q,
                                    torch.eye(3).to(dtype=U.dtype, device=U.device))
-        c0 = _torch.einsum("abDtzyx,bcDtzyx,caDtzyx->Dtzyx", Q, Q, Q).real / 3
-        c1 = _torch.einsum("abDtzyx,baDtzyx->Dtzyx", Q, Q).real / 2
+        c0 = _torch.einsum("abDxyzt,bcDxyzt,caDxyzt->Dxyzt", Q, Q, Q).real / 3
+        c1 = _torch.einsum("abDxyzt,baDxyzt->Dxyzt", Q, Q).real / 2
         c0_max = 2 * (c1 / 3) ** (3 / 2)
         parity = c0 < 0
         c0 = torch.abs(c0)
@@ -165,9 +165,9 @@ def stout_smear(U: torch.Tensor, nstep: int = 1, rho: float = 0.12, support_para
             f0[parity] = f0[parity].conj()
             f1[parity] = -f1[parity].conj()
             f2[parity] = f2[parity].conj()
-        f0 = _torch.einsum("Dtzyx,ab->abDtzyx", f0,
+        f0 = _torch.einsum("Dxyzt,ab->abDxyzt", f0,
                            torch.eye(3).to(dtype=U.dtype, device=U.device))
-        f1 = _torch.einsum("Dtzyx,abDtzyx->abDtzyx", f1, Q)
-        f2 = _torch.einsum("Dtzyx,abDtzyx,bcDtzyx->acDtzyx", f2, Q, Q)
-        dest = _torch.einsum("abDtzyx,bcDtzyx->acDtzyx", f0 + f1 + f2, U)
+        f1 = _torch.einsum("Dxyzt,abDxyzt->abDxyzt", f1, Q)
+        f2 = _torch.einsum("Dxyzt,abDxyzt,bcDxyzt->acDxyzt", f2, Q, Q)
+        dest = _torch.einsum("abDxyzt,bcDxyzt->acDxyzt", f0 + f1 + f2, U)
     return dest
