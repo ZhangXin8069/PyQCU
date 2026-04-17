@@ -190,68 +190,68 @@ template <typename T> struct LatticeCloverDslash {
           // x edge part comm
           _MPI_Sendrecv<T>(set_ptr->host_u_1dim_send_vec[_B_X_],
                            set_ptr->lat_3dim[_X_] * _LAT_PCCD_ * _REAL_IMAG_,
-                           set_ptr->move_wards[_B_X_], 0,
+                           set_ptr->move_wards[_B_X_], _B_X_,
                            set_ptr->host_u_1dim_recv_vec[_F_X_],
                            set_ptr->lat_3dim[_X_] * _LAT_PCCD_ * _REAL_IMAG_,
-                           set_ptr->move_wards[_F_X_], 0, MPI_COMM_WORLD,
+                           set_ptr->move_wards[_F_X_], _B_X_, MPI_COMM_WORLD,
                            MPI_STATUS_IGNORE);
           _MPI_Sendrecv<T>(set_ptr->host_u_1dim_send_vec[_F_X_],
                            set_ptr->lat_3dim[_X_] * _LAT_PCCD_ * _REAL_IMAG_,
-                           set_ptr->move_wards[_F_X_], 0,
+                           set_ptr->move_wards[_F_X_], _F_X_,
                            set_ptr->host_u_1dim_recv_vec[_B_X_],
                            set_ptr->lat_3dim[_X_] * _LAT_PCCD_ * _REAL_IMAG_,
-                           set_ptr->move_wards[_B_X_], 0, MPI_COMM_WORLD,
+                           set_ptr->move_wards[_B_X_], _F_X_, MPI_COMM_WORLD,
                            MPI_STATUS_IGNORE);
         }
         {
           // y edge part comm
           _MPI_Sendrecv<T>(set_ptr->host_u_1dim_send_vec[_B_Y_],
                            set_ptr->lat_3dim[_Y_] * _LAT_PCCD_ * _REAL_IMAG_,
-                           set_ptr->move_wards[_B_Y_], 0,
+                           set_ptr->move_wards[_B_Y_], _B_Y_,
                            set_ptr->host_u_1dim_recv_vec[_F_Y_],
                            set_ptr->lat_3dim[_Y_] * _LAT_PCCD_ * _REAL_IMAG_,
-                           set_ptr->move_wards[_F_Y_], 0, MPI_COMM_WORLD,
+                           set_ptr->move_wards[_F_Y_], _B_Y_, MPI_COMM_WORLD,
                            MPI_STATUS_IGNORE);
           _MPI_Sendrecv<T>(set_ptr->host_u_1dim_send_vec[_F_Y_],
                            set_ptr->lat_3dim[_Y_] * _LAT_PCCD_ * _REAL_IMAG_,
-                           set_ptr->move_wards[_F_Y_], 0,
+                           set_ptr->move_wards[_F_Y_], _F_Y_,
                            set_ptr->host_u_1dim_recv_vec[_B_Y_],
                            set_ptr->lat_3dim[_Y_] * _LAT_PCCD_ * _REAL_IMAG_,
-                           set_ptr->move_wards[_B_Y_], 0, MPI_COMM_WORLD,
+                           set_ptr->move_wards[_B_Y_], _F_Y_, MPI_COMM_WORLD,
                            MPI_STATUS_IGNORE);
         }
         {
           // z edge part comm
           _MPI_Sendrecv<T>(set_ptr->host_u_1dim_send_vec[_B_Z_],
                            set_ptr->lat_3dim[_Z_] * _LAT_PCCD_ * _REAL_IMAG_,
-                           set_ptr->move_wards[_B_Z_], 0,
+                           set_ptr->move_wards[_B_Z_], _B_Z_,
                            set_ptr->host_u_1dim_recv_vec[_F_Z_],
                            set_ptr->lat_3dim[_Z_] * _LAT_PCCD_ * _REAL_IMAG_,
-                           set_ptr->move_wards[_F_Z_], 0, MPI_COMM_WORLD,
+                           set_ptr->move_wards[_F_Z_], _B_Z_, MPI_COMM_WORLD,
                            MPI_STATUS_IGNORE);
           _MPI_Sendrecv<T>(set_ptr->host_u_1dim_send_vec[_F_Z_],
                            set_ptr->lat_3dim[_Z_] * _LAT_PCCD_ * _REAL_IMAG_,
-                           set_ptr->move_wards[_F_Z_], 0,
+                           set_ptr->move_wards[_F_Z_], _F_Z_,
                            set_ptr->host_u_1dim_recv_vec[_B_Z_],
                            set_ptr->lat_3dim[_Z_] * _LAT_PCCD_ * _REAL_IMAG_,
-                           set_ptr->move_wards[_B_Z_], 0, MPI_COMM_WORLD,
+                           set_ptr->move_wards[_B_Z_], _F_Z_, MPI_COMM_WORLD,
                            MPI_STATUS_IGNORE);
         }
         {
           // t edge part comm
           _MPI_Sendrecv<T>(set_ptr->host_u_1dim_send_vec[_B_T_],
                            set_ptr->lat_3dim[_T_] * _LAT_PCCD_ * _REAL_IMAG_,
-                           set_ptr->move_wards[_B_T_], 0,
+                           set_ptr->move_wards[_B_T_], _B_T_,
                            set_ptr->host_u_1dim_recv_vec[_F_T_],
                            set_ptr->lat_3dim[_T_] * _LAT_PCCD_ * _REAL_IMAG_,
-                           set_ptr->move_wards[_F_T_], 0, MPI_COMM_WORLD,
+                           set_ptr->move_wards[_F_T_], _B_T_, MPI_COMM_WORLD,
                            MPI_STATUS_IGNORE);
           _MPI_Sendrecv<T>(set_ptr->host_u_1dim_send_vec[_F_T_],
                            set_ptr->lat_3dim[_T_] * _LAT_PCCD_ * _REAL_IMAG_,
-                           set_ptr->move_wards[_F_T_], 0,
+                           set_ptr->move_wards[_F_T_], _F_T_,
                            set_ptr->host_u_1dim_recv_vec[_B_T_],
                            set_ptr->lat_3dim[_T_] * _LAT_PCCD_ * _REAL_IMAG_,
-                           set_ptr->move_wards[_B_T_], 0, MPI_COMM_WORLD,
+                           set_ptr->move_wards[_B_T_], _F_T_, MPI_COMM_WORLD,
                            MPI_STATUS_IGNORE);
         }
         {
@@ -261,34 +261,34 @@ template <typename T> struct LatticeCloverDslash {
             _MPI_Sendrecv<T>(
                 set_ptr->host_u_2dim_send_vec[_B_X_B_Y_],
                 set_ptr->lat_2dim[_2DIM_ - 1 - _XY_] * _LAT_PCCD_ * _REAL_IMAG_,
-                set_ptr->move_wards[_BX_BY_], 0,
+                set_ptr->move_wards[_BX_BY_], _B_X_B_Y_,
                 set_ptr->host_u_2dim_recv_vec[_F_X_F_Y_],
                 set_ptr->lat_2dim[_2DIM_ - 1 - _XY_] * _LAT_PCCD_ * _REAL_IMAG_,
-                set_ptr->move_wards[_FX_FY_], 0, MPI_COMM_WORLD,
+                set_ptr->move_wards[_FX_FY_], _B_X_B_Y_, MPI_COMM_WORLD,
                 MPI_STATUS_IGNORE);
             _MPI_Sendrecv<T>(
                 set_ptr->host_u_2dim_send_vec[_F_X_B_Y_],
                 set_ptr->lat_2dim[_2DIM_ - 1 - _XY_] * _LAT_PCCD_ * _REAL_IMAG_,
-                set_ptr->move_wards[_FX_BY_], 0,
+                set_ptr->move_wards[_FX_BY_], _F_X_B_Y_,
                 set_ptr->host_u_2dim_recv_vec[_B_X_F_Y_],
                 set_ptr->lat_2dim[_2DIM_ - 1 - _XY_] * _LAT_PCCD_ * _REAL_IMAG_,
-                set_ptr->move_wards[_BX_FY_], 0, MPI_COMM_WORLD,
+                set_ptr->move_wards[_BX_FY_], _F_X_B_Y_, MPI_COMM_WORLD,
                 MPI_STATUS_IGNORE);
             _MPI_Sendrecv<T>(
                 set_ptr->host_u_2dim_send_vec[_B_X_F_Y_],
                 set_ptr->lat_2dim[_2DIM_ - 1 - _XY_] * _LAT_PCCD_ * _REAL_IMAG_,
-                set_ptr->move_wards[_BX_FY_], 0,
+                set_ptr->move_wards[_BX_FY_], _B_X_F_Y_,
                 set_ptr->host_u_2dim_recv_vec[_F_X_B_Y_],
                 set_ptr->lat_2dim[_2DIM_ - 1 - _XY_] * _LAT_PCCD_ * _REAL_IMAG_,
-                set_ptr->move_wards[_FX_BY_], 0, MPI_COMM_WORLD,
+                set_ptr->move_wards[_FX_BY_], _B_X_F_Y_, MPI_COMM_WORLD,
                 MPI_STATUS_IGNORE);
             _MPI_Sendrecv<T>(
                 set_ptr->host_u_2dim_send_vec[_F_X_F_Y_],
                 set_ptr->lat_2dim[_2DIM_ - 1 - _XY_] * _LAT_PCCD_ * _REAL_IMAG_,
-                set_ptr->move_wards[_FX_FY_], 0,
+                set_ptr->move_wards[_FX_FY_], _F_X_F_Y_,
                 set_ptr->host_u_2dim_recv_vec[_B_X_B_Y_],
                 set_ptr->lat_2dim[_2DIM_ - 1 - _XY_] * _LAT_PCCD_ * _REAL_IMAG_,
-                set_ptr->move_wards[_BX_BY_], 0, MPI_COMM_WORLD,
+                set_ptr->move_wards[_BX_BY_], _F_X_F_Y_, MPI_COMM_WORLD,
                 MPI_STATUS_IGNORE);
           }
           {
@@ -296,34 +296,34 @@ template <typename T> struct LatticeCloverDslash {
             _MPI_Sendrecv<T>(
                 set_ptr->host_u_2dim_send_vec[_B_X_B_Z_],
                 set_ptr->lat_2dim[_2DIM_ - 1 - _XZ_] * _LAT_PCCD_ * _REAL_IMAG_,
-                set_ptr->move_wards[_BX_BZ_], 0,
+                set_ptr->move_wards[_BX_BZ_], _B_X_B_Z_,
                 set_ptr->host_u_2dim_recv_vec[_F_X_F_Z_],
                 set_ptr->lat_2dim[_2DIM_ - 1 - _XZ_] * _LAT_PCCD_ * _REAL_IMAG_,
-                set_ptr->move_wards[_FX_FZ_], 0, MPI_COMM_WORLD,
+                set_ptr->move_wards[_FX_FZ_], _B_X_B_Z_, MPI_COMM_WORLD,
                 MPI_STATUS_IGNORE);
             _MPI_Sendrecv<T>(
                 set_ptr->host_u_2dim_send_vec[_F_X_B_Z_],
                 set_ptr->lat_2dim[_2DIM_ - 1 - _XZ_] * _LAT_PCCD_ * _REAL_IMAG_,
-                set_ptr->move_wards[_FX_BZ_], 0,
+                set_ptr->move_wards[_FX_BZ_], _F_X_B_Z_,
                 set_ptr->host_u_2dim_recv_vec[_B_X_F_Z_],
                 set_ptr->lat_2dim[_2DIM_ - 1 - _XZ_] * _LAT_PCCD_ * _REAL_IMAG_,
-                set_ptr->move_wards[_BX_FZ_], 0, MPI_COMM_WORLD,
+                set_ptr->move_wards[_BX_FZ_], _F_X_B_Z_, MPI_COMM_WORLD,
                 MPI_STATUS_IGNORE);
             _MPI_Sendrecv<T>(
                 set_ptr->host_u_2dim_send_vec[_B_X_F_Z_],
                 set_ptr->lat_2dim[_2DIM_ - 1 - _XZ_] * _LAT_PCCD_ * _REAL_IMAG_,
-                set_ptr->move_wards[_BX_FZ_], 0,
+                set_ptr->move_wards[_BX_FZ_], _B_X_F_Z_,
                 set_ptr->host_u_2dim_recv_vec[_F_X_B_Z_],
                 set_ptr->lat_2dim[_2DIM_ - 1 - _XZ_] * _LAT_PCCD_ * _REAL_IMAG_,
-                set_ptr->move_wards[_FX_BZ_], 0, MPI_COMM_WORLD,
+                set_ptr->move_wards[_FX_BZ_], _B_X_F_Z_, MPI_COMM_WORLD,
                 MPI_STATUS_IGNORE);
             _MPI_Sendrecv<T>(
                 set_ptr->host_u_2dim_send_vec[_F_X_F_Z_],
                 set_ptr->lat_2dim[_2DIM_ - 1 - _XZ_] * _LAT_PCCD_ * _REAL_IMAG_,
-                set_ptr->move_wards[_FX_FZ_], 0,
+                set_ptr->move_wards[_FX_FZ_], _F_X_F_Z_,
                 set_ptr->host_u_2dim_recv_vec[_B_X_B_Z_],
                 set_ptr->lat_2dim[_2DIM_ - 1 - _XZ_] * _LAT_PCCD_ * _REAL_IMAG_,
-                set_ptr->move_wards[_BX_BZ_], 0, MPI_COMM_WORLD,
+                set_ptr->move_wards[_BX_BZ_], _F_X_F_Z_, MPI_COMM_WORLD,
                 MPI_STATUS_IGNORE);
           }
           {
@@ -331,34 +331,34 @@ template <typename T> struct LatticeCloverDslash {
             _MPI_Sendrecv<T>(
                 set_ptr->host_u_2dim_send_vec[_B_X_B_T_],
                 set_ptr->lat_2dim[_2DIM_ - 1 - _XT_] * _LAT_PCCD_ * _REAL_IMAG_,
-                set_ptr->move_wards[_BX_BT_], 0,
+                set_ptr->move_wards[_BX_BT_], _B_X_B_T_,
                 set_ptr->host_u_2dim_recv_vec[_F_X_F_T_],
                 set_ptr->lat_2dim[_2DIM_ - 1 - _XT_] * _LAT_PCCD_ * _REAL_IMAG_,
-                set_ptr->move_wards[_FX_FT_], 0, MPI_COMM_WORLD,
+                set_ptr->move_wards[_FX_FT_], _B_X_B_T_, MPI_COMM_WORLD,
                 MPI_STATUS_IGNORE);
             _MPI_Sendrecv<T>(
                 set_ptr->host_u_2dim_send_vec[_F_X_B_T_],
                 set_ptr->lat_2dim[_2DIM_ - 1 - _XT_] * _LAT_PCCD_ * _REAL_IMAG_,
-                set_ptr->move_wards[_FX_BT_], 0,
+                set_ptr->move_wards[_FX_BT_], _F_X_B_T_,
                 set_ptr->host_u_2dim_recv_vec[_B_X_F_T_],
                 set_ptr->lat_2dim[_2DIM_ - 1 - _XT_] * _LAT_PCCD_ * _REAL_IMAG_,
-                set_ptr->move_wards[_BX_FT_], 0, MPI_COMM_WORLD,
+                set_ptr->move_wards[_BX_FT_], _F_X_B_T_, MPI_COMM_WORLD,
                 MPI_STATUS_IGNORE);
             _MPI_Sendrecv<T>(
                 set_ptr->host_u_2dim_send_vec[_B_X_F_T_],
                 set_ptr->lat_2dim[_2DIM_ - 1 - _XT_] * _LAT_PCCD_ * _REAL_IMAG_,
-                set_ptr->move_wards[_BX_FT_], 0,
+                set_ptr->move_wards[_BX_FT_], _B_X_F_T_,
                 set_ptr->host_u_2dim_recv_vec[_F_X_B_T_],
                 set_ptr->lat_2dim[_2DIM_ - 1 - _XT_] * _LAT_PCCD_ * _REAL_IMAG_,
-                set_ptr->move_wards[_FX_BT_], 0, MPI_COMM_WORLD,
+                set_ptr->move_wards[_FX_BT_], _B_X_F_T_, MPI_COMM_WORLD,
                 MPI_STATUS_IGNORE);
             _MPI_Sendrecv<T>(
                 set_ptr->host_u_2dim_send_vec[_F_X_F_T_],
                 set_ptr->lat_2dim[_2DIM_ - 1 - _XT_] * _LAT_PCCD_ * _REAL_IMAG_,
-                set_ptr->move_wards[_FX_FT_], 0,
+                set_ptr->move_wards[_FX_FT_], _F_X_F_T_,
                 set_ptr->host_u_2dim_recv_vec[_B_X_B_T_],
                 set_ptr->lat_2dim[_2DIM_ - 1 - _XT_] * _LAT_PCCD_ * _REAL_IMAG_,
-                set_ptr->move_wards[_BX_BT_], 0, MPI_COMM_WORLD,
+                set_ptr->move_wards[_BX_BT_], _F_X_F_T_, MPI_COMM_WORLD,
                 MPI_STATUS_IGNORE);
           }
           {
@@ -366,34 +366,34 @@ template <typename T> struct LatticeCloverDslash {
             _MPI_Sendrecv<T>(
                 set_ptr->host_u_2dim_send_vec[_B_Y_B_Z_],
                 set_ptr->lat_2dim[_2DIM_ - 1 - _YZ_] * _LAT_PCCD_ * _REAL_IMAG_,
-                set_ptr->move_wards[_BY_BZ_], 0,
+                set_ptr->move_wards[_BY_BZ_], _B_Y_B_Z_,
                 set_ptr->host_u_2dim_recv_vec[_F_Y_F_Z_],
                 set_ptr->lat_2dim[_2DIM_ - 1 - _YZ_] * _LAT_PCCD_ * _REAL_IMAG_,
-                set_ptr->move_wards[_FY_FZ_], 0, MPI_COMM_WORLD,
+                set_ptr->move_wards[_FY_FZ_], _B_Y_B_Z_, MPI_COMM_WORLD,
                 MPI_STATUS_IGNORE);
             _MPI_Sendrecv<T>(
                 set_ptr->host_u_2dim_send_vec[_F_Y_B_Z_],
                 set_ptr->lat_2dim[_2DIM_ - 1 - _YZ_] * _LAT_PCCD_ * _REAL_IMAG_,
-                set_ptr->move_wards[_FY_BZ_], 0,
+                set_ptr->move_wards[_FY_BZ_], _F_Y_B_Z_,
                 set_ptr->host_u_2dim_recv_vec[_B_Y_F_Z_],
                 set_ptr->lat_2dim[_2DIM_ - 1 - _YZ_] * _LAT_PCCD_ * _REAL_IMAG_,
-                set_ptr->move_wards[_BY_FZ_], 0, MPI_COMM_WORLD,
+                set_ptr->move_wards[_BY_FZ_], _F_Y_B_Z_, MPI_COMM_WORLD,
                 MPI_STATUS_IGNORE);
             _MPI_Sendrecv<T>(
                 set_ptr->host_u_2dim_send_vec[_B_Y_F_Z_],
                 set_ptr->lat_2dim[_2DIM_ - 1 - _YZ_] * _LAT_PCCD_ * _REAL_IMAG_,
-                set_ptr->move_wards[_BY_FZ_], 0,
+                set_ptr->move_wards[_BY_FZ_], _B_Y_F_Z_,
                 set_ptr->host_u_2dim_recv_vec[_F_Y_B_Z_],
                 set_ptr->lat_2dim[_2DIM_ - 1 - _YZ_] * _LAT_PCCD_ * _REAL_IMAG_,
-                set_ptr->move_wards[_FY_BZ_], 0, MPI_COMM_WORLD,
+                set_ptr->move_wards[_FY_BZ_], _B_Y_F_Z_, MPI_COMM_WORLD,
                 MPI_STATUS_IGNORE);
             _MPI_Sendrecv<T>(
                 set_ptr->host_u_2dim_send_vec[_F_Y_F_Z_],
                 set_ptr->lat_2dim[_2DIM_ - 1 - _YZ_] * _LAT_PCCD_ * _REAL_IMAG_,
-                set_ptr->move_wards[_FY_FZ_], 0,
+                set_ptr->move_wards[_FY_FZ_], _F_Y_F_Z_,
                 set_ptr->host_u_2dim_recv_vec[_B_Y_B_Z_],
                 set_ptr->lat_2dim[_2DIM_ - 1 - _YZ_] * _LAT_PCCD_ * _REAL_IMAG_,
-                set_ptr->move_wards[_BY_BZ_], 0, MPI_COMM_WORLD,
+                set_ptr->move_wards[_BY_BZ_], _F_Y_F_Z_, MPI_COMM_WORLD,
                 MPI_STATUS_IGNORE);
           }
           {
@@ -401,34 +401,34 @@ template <typename T> struct LatticeCloverDslash {
             _MPI_Sendrecv<T>(
                 set_ptr->host_u_2dim_send_vec[_B_Y_B_T_],
                 set_ptr->lat_2dim[_2DIM_ - 1 - _YT_] * _LAT_PCCD_ * _REAL_IMAG_,
-                set_ptr->move_wards[_BY_BT_], 0,
+                set_ptr->move_wards[_BY_BT_], _B_Y_B_T_,
                 set_ptr->host_u_2dim_recv_vec[_F_Y_F_T_],
                 set_ptr->lat_2dim[_2DIM_ - 1 - _YT_] * _LAT_PCCD_ * _REAL_IMAG_,
-                set_ptr->move_wards[_FY_FT_], 0, MPI_COMM_WORLD,
+                set_ptr->move_wards[_FY_FT_], _B_Y_B_T_, MPI_COMM_WORLD,
                 MPI_STATUS_IGNORE);
             _MPI_Sendrecv<T>(
                 set_ptr->host_u_2dim_send_vec[_F_Y_B_T_],
                 set_ptr->lat_2dim[_2DIM_ - 1 - _YT_] * _LAT_PCCD_ * _REAL_IMAG_,
-                set_ptr->move_wards[_FY_BT_], 0,
+                set_ptr->move_wards[_FY_BT_], _F_Y_B_T_,
                 set_ptr->host_u_2dim_recv_vec[_B_Y_F_T_],
                 set_ptr->lat_2dim[_2DIM_ - 1 - _YT_] * _LAT_PCCD_ * _REAL_IMAG_,
-                set_ptr->move_wards[_BY_FT_], 0, MPI_COMM_WORLD,
+                set_ptr->move_wards[_BY_FT_], _F_Y_B_T_, MPI_COMM_WORLD,
                 MPI_STATUS_IGNORE);
             _MPI_Sendrecv<T>(
                 set_ptr->host_u_2dim_send_vec[_B_Y_F_T_],
                 set_ptr->lat_2dim[_2DIM_ - 1 - _YT_] * _LAT_PCCD_ * _REAL_IMAG_,
-                set_ptr->move_wards[_BY_FT_], 0,
+                set_ptr->move_wards[_BY_FT_], _B_Y_F_T_,
                 set_ptr->host_u_2dim_recv_vec[_F_Y_B_T_],
                 set_ptr->lat_2dim[_2DIM_ - 1 - _YT_] * _LAT_PCCD_ * _REAL_IMAG_,
-                set_ptr->move_wards[_FY_BT_], 0, MPI_COMM_WORLD,
+                set_ptr->move_wards[_FY_BT_], _B_Y_F_T_, MPI_COMM_WORLD,
                 MPI_STATUS_IGNORE);
             _MPI_Sendrecv<T>(
                 set_ptr->host_u_2dim_send_vec[_F_Y_F_T_],
                 set_ptr->lat_2dim[_2DIM_ - 1 - _YT_] * _LAT_PCCD_ * _REAL_IMAG_,
-                set_ptr->move_wards[_FY_FT_], 0,
+                set_ptr->move_wards[_FY_FT_], _F_Y_F_T_,
                 set_ptr->host_u_2dim_recv_vec[_B_Y_B_T_],
                 set_ptr->lat_2dim[_2DIM_ - 1 - _YT_] * _LAT_PCCD_ * _REAL_IMAG_,
-                set_ptr->move_wards[_BY_BT_], 0, MPI_COMM_WORLD,
+                set_ptr->move_wards[_BY_BT_], _F_Y_F_T_, MPI_COMM_WORLD,
                 MPI_STATUS_IGNORE);
           }
           {
@@ -436,34 +436,34 @@ template <typename T> struct LatticeCloverDslash {
             _MPI_Sendrecv<T>(
                 set_ptr->host_u_2dim_send_vec[_B_Z_B_T_],
                 set_ptr->lat_2dim[_2DIM_ - 1 - _ZT_] * _LAT_PCCD_ * _REAL_IMAG_,
-                set_ptr->move_wards[_BZ_BT_], 0,
+                set_ptr->move_wards[_BZ_BT_], _B_Z_B_T_,
                 set_ptr->host_u_2dim_recv_vec[_F_Z_F_T_],
                 set_ptr->lat_2dim[_2DIM_ - 1 - _ZT_] * _LAT_PCCD_ * _REAL_IMAG_,
-                set_ptr->move_wards[_FZ_FT_], 0, MPI_COMM_WORLD,
+                set_ptr->move_wards[_FZ_FT_], _B_Z_B_T_, MPI_COMM_WORLD,
                 MPI_STATUS_IGNORE);
             _MPI_Sendrecv<T>(
                 set_ptr->host_u_2dim_send_vec[_F_Z_B_T_],
                 set_ptr->lat_2dim[_2DIM_ - 1 - _ZT_] * _LAT_PCCD_ * _REAL_IMAG_,
-                set_ptr->move_wards[_FZ_BT_], 0,
+                set_ptr->move_wards[_FZ_BT_], _F_Z_B_T_,
                 set_ptr->host_u_2dim_recv_vec[_B_Z_F_T_],
                 set_ptr->lat_2dim[_2DIM_ - 1 - _ZT_] * _LAT_PCCD_ * _REAL_IMAG_,
-                set_ptr->move_wards[_BZ_FT_], 0, MPI_COMM_WORLD,
+                set_ptr->move_wards[_BZ_FT_], _F_Z_B_T_, MPI_COMM_WORLD,
                 MPI_STATUS_IGNORE);
             _MPI_Sendrecv<T>(
                 set_ptr->host_u_2dim_send_vec[_B_Z_F_T_],
                 set_ptr->lat_2dim[_2DIM_ - 1 - _ZT_] * _LAT_PCCD_ * _REAL_IMAG_,
-                set_ptr->move_wards[_BZ_FT_], 0,
+                set_ptr->move_wards[_BZ_FT_], _B_Z_F_T_,
                 set_ptr->host_u_2dim_recv_vec[_F_Z_B_T_],
                 set_ptr->lat_2dim[_2DIM_ - 1 - _ZT_] * _LAT_PCCD_ * _REAL_IMAG_,
-                set_ptr->move_wards[_FZ_BT_], 0, MPI_COMM_WORLD,
+                set_ptr->move_wards[_FZ_BT_], _B_Z_F_T_, MPI_COMM_WORLD,
                 MPI_STATUS_IGNORE);
             _MPI_Sendrecv<T>(
                 set_ptr->host_u_2dim_send_vec[_F_Z_F_T_],
                 set_ptr->lat_2dim[_2DIM_ - 1 - _ZT_] * _LAT_PCCD_ * _REAL_IMAG_,
-                set_ptr->move_wards[_FZ_FT_], 0,
+                set_ptr->move_wards[_FZ_FT_], _F_Z_F_T_,
                 set_ptr->host_u_2dim_recv_vec[_B_Z_B_T_],
                 set_ptr->lat_2dim[_2DIM_ - 1 - _ZT_] * _LAT_PCCD_ * _REAL_IMAG_,
-                set_ptr->move_wards[_BZ_BT_], 0, MPI_COMM_WORLD,
+                set_ptr->move_wards[_BZ_BT_], _F_Z_F_T_, MPI_COMM_WORLD,
                 MPI_STATUS_IGNORE);
           }
         }
