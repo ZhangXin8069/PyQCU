@@ -13,7 +13,7 @@ namespace qcu
     int lat_y = params[_LAT_Y_];
     int lat_z = params[_LAT_Z_];
     int lat_t = params[_LAT_T_];
-    int lat_tzyx = params[_LAT_XYZT_];
+    int lat_tzyx = params[_LAT_TZYX_];
     int move0;
     int move1;
     move0 = lat_x * lat_y * lat_z;
@@ -863,7 +863,7 @@ namespace qcu
   __global__ void inverse_clover(void *device_clover, void *device_params)
   {
     LatticeComplex<T> *origin_clover;
-    int lat_tzyx = static_cast<int *>(device_params)[_LAT_XYZT_];
+    int lat_tzyx = static_cast<int *>(device_params)[_LAT_TZYX_];
     {
       int idx = blockIdx.x * blockDim.x + threadIdx.x;
       origin_clover = ((static_cast<LatticeComplex<T> *>(device_clover)) + idx);
@@ -884,7 +884,7 @@ namespace qcu
   {
     LatticeComplex<T> *origin_clover;
     LatticeComplex<T> *origin_dest;
-    int lat_tzyx = static_cast<int *>(device_params)[_LAT_XYZT_];
+    int lat_tzyx = static_cast<int *>(device_params)[_LAT_TZYX_];
     {
       int idx = blockIdx.x * blockDim.x + threadIdx.x;
       origin_clover = ((static_cast<LatticeComplex<T> *>(device_clover)) + idx);

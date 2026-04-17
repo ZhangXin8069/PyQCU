@@ -153,11 +153,11 @@ PYQCU::DSLASH::WILSON:
 PYQCU::TESTING::DSLASH::WILSON::DEST:
  60.775020599365234
 PYQCU::TOOLS::DEFINE:
- ___xyzt2p___xyzt......
+ ___tzyx2p___tzyx......
 PYQCU::TOOLS::DEFINE:
  Splited Array Shape: torch.Size([2, 3, 3, 4, 4, 4, 4, 2])
 PYQCU::TOOLS::DEFINE:
- ___xyzt2p___xyzt......
+ ___tzyx2p___tzyx......
 PYQCU::TOOLS::DEFINE:
  Splited Array Shape: torch.Size([2, 4, 3, 4, 4, 4, 2])
 PYQCU::DSLASH::WILSON:
@@ -216,7 +216,7 @@ PYQCU::DSLASH::WILSON:
 PYQCU::DSLASH::WILSON:
  Dest_o norm: 15.832093238830566
 PYQCU::TOOLS::DEFINE:
- p___xyzt2___xyzt......
+ p___tzyx2___tzyx......
 PYQCU::TOOLS::DEFINE:
  Restored Array Shape: torch.Size([4, 3, 4, 4, 4, 4])
 PYQCU::TESTING::DSLASH::WILSON::DEST_RECONSTRUCTED:

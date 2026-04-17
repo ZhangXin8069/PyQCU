@@ -14,14 +14,14 @@ class hopping:
         self.rank_minus_list = [tools.give_rank_minus(
             ward=ward) for ward in range(4)]
         self.M_plus_list = [torch.zeros([]), torch.zeros(
-            []), torch.zeros([]), torch.zeros([])]  # xyzt
+            []), torch.zeros([]), torch.zeros([])]  # tzyx
         self.M_minus_list = [torch.zeros([]), torch.zeros(
-            []), torch.zeros([]), torch.zeros([])]  # xyzt
+            []), torch.zeros([]), torch.zeros([])]  # tzyx
         self.U = U
         self.grid_size = tools.give_grid_size()
         self.grid_index = tools.give_grid_index()
         if self.U is not None:
-            for ward in range(4):  # xyzt
+            for ward in range(4):  # tzyx
                 if self.grid_size[ward] != 1:
                     U_tail4send = self.U[tools.slice_dim(
                         dims_num=7, ward=ward, point=-1)].cpu().contiguous().numpy()
@@ -40,19 +40,19 @@ class hopping:
                     ward=ward, U=self.U, U_head=U_head, kappa=kappa, u_0=u_0)
             if support_parity:
                 self.M_e_plus_list = [torch.zeros([]), torch.zeros(
-                    []), torch.zeros([]), torch.zeros([])]  # xyzt
+                    []), torch.zeros([]), torch.zeros([])]  # tzyx
                 self.M_e_minus_list = [torch.zeros([]), torch.zeros(
-                    []), torch.zeros([]), torch.zeros([])]  # xyzt
+                    []), torch.zeros([]), torch.zeros([])]  # tzyx
                 self.M_o_plus_list = [torch.zeros([]), torch.zeros(
-                    []), torch.zeros([]), torch.zeros([])]  # xyzt
+                    []), torch.zeros([]), torch.zeros([])]  # tzyx
                 self.M_o_minus_list = [torch.zeros([]), torch.zeros(
-                    []), torch.zeros([]), torch.zeros([])]  # xyzt
+                    []), torch.zeros([]), torch.zeros([])]  # tzyx
                 for ward in range(4):
-                    _ = tools.oooxyzt2poooxyzt(
+                    _ = tools.oootzyx2poootzyx(
                         input_array=self.M_plus_list[ward])
                     self.M_e_plus_list[ward] = _[0]
                     self.M_o_plus_list[ward] = _[1]
-                    _ = tools.oooxyzt2poooxyzt(
+                    _ = tools.oootzyx2poootzyx(
                         input_array=self.M_minus_list[ward])
                     self.M_e_minus_list[ward] = _[0]
                     self.M_o_minus_list[ward] = _[1]
@@ -117,13 +117,13 @@ class sitting:
             if support_parity:
                 self.M_e = torch.zeros([])
                 self.M_o = torch.zeros([])
-                _ = tools.oooxyzt2poooxyzt(input_array=self.M)
+                _ = tools.oootzyx2poootzyx(input_array=self.M)
                 self.M_e = _[0]
                 self.M_o = _[1]
                 self.M_inv = dslash.inverse(clover_term=self.M)
                 self.M_e_inv = torch.zeros([])
                 self.M_o_inv = torch.zeros([])
-                _ = tools.oooxyzt2poooxyzt(input_array=self.M_inv)
+                _ = tools.oootzyx2poootzyx(input_array=self.M_inv)
                 self.M_e_inv = _[0]
                 self.M_o_inv = _[1]
 
@@ -135,7 +135,7 @@ class sitting:
         if dtype != _dtype or device != _device:
             src = src.to(dtype=_dtype, device=_device)
         return _torch.einsum(
-            "EeXYZT, eXYZT->EXYZT", self.M, src).to(dtype=dtype, device=device)
+            "EeTZYX, eTZYX->ETZYX", self.M, src).to(dtype=dtype, device=device)
 
 
 class operator:
@@ -148,17 +148,17 @@ class operator:
         if fine_hopping is not None and fine_sitting is not None and local_ortho_null_vecs is not None:
             shape = local_ortho_null_vecs.shape  # EeXxYyZzTt
             coarse_shape = [shape[-8], shape[-6],
-                            shape[-4], shape[-2]]  # XYZT
+                            shape[-4], shape[-2]]  # TZYX
             coarse_dof = shape[0]  # E
             self.sitting.M = torch.zeros(
-                size=[coarse_dof, coarse_dof]+coarse_shape, dtype=local_ortho_null_vecs.dtype, device=local_ortho_null_vecs.device)  # EEXYZT
-            for ward in range(4):  # xyzt
+                size=[coarse_dof, coarse_dof]+coarse_shape, dtype=local_ortho_null_vecs.dtype, device=local_ortho_null_vecs.device)  # EETZYX
+            for ward in range(4):  # tzyx
                 self.hopping.M_plus_list[ward] = torch.zeros_like(
                     self.sitting.M)
                 self.hopping.M_minus_list[ward] = torch.zeros_like(
                     self.sitting.M)
             for e in range(coarse_dof):
-                for ward in range(4):  # xyzt
+                for ward in range(4):  # tzyx
                     # give partly sitting.ee and whole hopping.oe
                     _src_c = torch.zeros_like(self.sitting.M[0])
                     _src_c[e][tools.slice_dim(ward=ward, start=0)] = 1.0
@@ -281,19 +281,19 @@ class operator:
 
     def matvec_ee(self, src_e: torch.Tensor) -> torch.Tensor:
         return _torch.einsum(
-            "EeXYZT, eXYZT->EXYZT", self.sitting.M_e, src_e)
+            "EeTZYX, eTZYX->ETZYX", self.sitting.M_e, src_e)
 
     def matvec_oo(self, src_o: torch.Tensor) -> torch.Tensor:
         return _torch.einsum(
-            "EeXYZT, eXYZT->EXYZT", self.sitting.M_o, src_o)
+            "EeTZYX, eTZYX->ETZYX", self.sitting.M_o, src_o)
 
     def matvec_ee_inv(self, src_e: torch.Tensor) -> torch.Tensor:
         return _torch.einsum(
-            "EeXYZT, eXYZT->EXYZT", self.sitting.M_e_inv, src_e)
+            "EeTZYX, eTZYX->ETZYX", self.sitting.M_e_inv, src_e)
 
     def matvec_oo_inv(self, src_o: torch.Tensor) -> torch.Tensor:
         return _torch.einsum(
-            "EeXYZT, eXYZT->EXYZT", self.sitting.M_o_inv, src_o)
+            "EeTZYX, eTZYX->ETZYX", self.sitting.M_o_inv, src_o)
 
     def matvec_parity(self, src_o: torch.Tensor) -> torch.Tensor:
         return self.matvec_oo(src_o=src_o)-self.matvec_oe(src_e=self.matvec_ee_inv(src_e=self.matvec_eo(src_o=src_o)))
@@ -311,11 +311,11 @@ class operator:
         return self.matvec_oe(src_e=src_e)+self.matvec_oo(src_o=src_o)
 
     def matvec_all(self, src: torch.Tensor) -> torch.Tensor:
-        src_eo = tools.oooxyzt2poooxyzt(input_array=src)
+        src_eo = tools.oootzyx2poootzyx(input_array=src)
         src_e = src_eo[0]
         src_o = src_eo[1]
         dest_e = self.matvec_eeo(src_e=src_e, src_o=src_o)
         dest_o = self.matvec_oeo(src_e=src_e, src_o=src_o)
         print(dest_e.shape)
         print(dest_o.shape)
-        return tools.poooxyzt2oooxyzt(input_array=torch.stack([dest_e, dest_o], dim=0))
+        return tools.poootzyx2oootzyx(input_array=torch.stack([dest_e, dest_o], dim=0))

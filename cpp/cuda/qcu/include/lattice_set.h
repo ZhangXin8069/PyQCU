@@ -68,7 +68,7 @@ namespace qcu
             host_params[_LAT_Z_] = static_cast<int *>(_params)[_LAT_Z_] / host_params[_GRID_Z_];
             host_params[_LAT_T_] = static_cast<int *>(_params)[_LAT_T_] / host_params[_GRID_T_];
             int tmp = host_params[_GRID_X_] * host_params[_GRID_Y_] * host_params[_GRID_Z_] * host_params[_GRID_T_];
-            host_params[_LAT_XYZT_] = static_cast<int *>(_params)[_LAT_XYZT_] / tmp; // prepare for test input
+            host_params[_LAT_TZYX_] = static_cast<int *>(_params)[_LAT_TZYX_] / tmp; // prepare for test input
             if (static_cast<int *>(_params)[_PARITY_] == _EVEN_)
             {
                 host_params[_PARITY_] = _EVEN_;
@@ -178,11 +178,11 @@ namespace qcu
                     gridDim_3dim[_XYT_] = lat_3dim[_XYT_] / _BLOCK_SIZE_;
                     gridDim_3dim[_XYZ_] = lat_3dim[_XYZ_] / _BLOCK_SIZE_;
                     lat_4dim = lat_3dim[_XYZ_] * host_params[_LAT_T_];
-                    if ((host_params[_LAT_XYZT_] / _EVEN_ODD_ * (1 + (host_params[_SET_PLAN_] == _SET_PLAN_N_1_))) != lat_4dim)
+                    if ((host_params[_LAT_TZYX_] / _EVEN_ODD_ * (1 + (host_params[_SET_PLAN_] == _SET_PLAN_N_1_))) != lat_4dim)
                     {
-                        printf("error: (host_params[_LAT_XYZT_] / _EVEN_ODD_ * (1 + (host_params[_SET_PLAN_] == _SET_PLAN_N_1_))) != lat_4dim, maybe the params input is wrong!\n"); // for test input
+                        printf("error: (host_params[_LAT_TZYX_] / _EVEN_ODD_ * (1 + (host_params[_SET_PLAN_] == _SET_PLAN_N_1_))) != lat_4dim, maybe the params input is wrong!\n"); // for test input
                     }
-                    host_params[_LAT_XYZT_] = lat_4dim;
+                    host_params[_LAT_TZYX_] = lat_4dim;
                     lat_4dim_C = lat_4dim * _LAT_C_;
                     lat_4dim_SC = lat_4dim * _LAT_SC_;
                     lat_4dim_DCC = lat_4dim * _LAT_DCC_;
@@ -634,7 +634,7 @@ namespace qcu
             printf("host_params[_LAT_Y_]    :%d\n", host_params[_LAT_Y_]);
             printf("host_params[_LAT_Z_]    :%d\n", host_params[_LAT_Z_]);
             printf("host_params[_LAT_T_]    :%d\n", host_params[_LAT_T_]);
-            printf("host_params[_LAT_XYZT_] :%d\n", host_params[_LAT_XYZT_]);
+            printf("host_params[_LAT_TZYX_] :%d\n", host_params[_LAT_TZYX_]);
             printf("host_params[_GRID_X_]   :%d\n", host_params[_GRID_X_]);
             printf("host_params[_GRID_Y_]   :%d\n", host_params[_GRID_Y_]);
             printf("host_params[_GRID_Z_]   :%d\n", host_params[_GRID_Z_]);
