@@ -17,7 +17,7 @@ namespace qcu
     const int lat_y = params[_LAT_Y_];
     const int lat_z = params[_LAT_Z_];
     const int lat_t = params[_LAT_T_];
-    const int lat_tzyx = params[_LAT_XYZT_];
+    const int lat_tzyx = params[_LAT_TZYX_];
     int move;
     move = lat_x * lat_y * lat_z;
     const int t = parity / move;
@@ -277,7 +277,7 @@ namespace qcu
     int lat_y = params[_LAT_Y_];
     int lat_z = params[_LAT_Z_];
     int lat_t = params[_LAT_T_];
-    int lat_tzyx = params[_LAT_XYZT_];
+    int lat_tzyx = params[_LAT_TZYX_];
     int move;
     move = lat_x * lat_y * lat_z;
     int t = parity / move;
@@ -541,7 +541,7 @@ namespace qcu
     int lat_x = 1; // so let x=0 first, then x = lat_x -1
     int lat_y = params[_LAT_Y_];
     int lat_z = params[_LAT_Z_];
-    int lat_tzyx = params[_LAT_XYZT_];
+    int lat_tzyx = params[_LAT_TZYX_];
     int move;
     move = lat_x * lat_y * lat_z;
     int t = parity / move;
@@ -644,7 +644,7 @@ namespace qcu
     int lat_x = 1; // so let x=0 first, then x = lat_x -1
     int lat_y = params[_LAT_Y_];
     int lat_z = params[_LAT_Z_];
-    int lat_tzyx = params[_LAT_XYZT_];
+    int lat_tzyx = params[_LAT_TZYX_];
     int move;
     move = lat_x * lat_y * lat_z;
     int t = parity / move;
@@ -749,7 +749,7 @@ namespace qcu
     // int lat_y = yyztsc[_y_];
     int lat_y = 1; // so let y=0 first, then y = lat_y -1
     int lat_z = params[_LAT_Z_];
-    int lat_tzyx = params[_LAT_XYZT_];
+    int lat_tzyx = params[_LAT_TZYX_];
     int move;
     move = lat_x * lat_y * lat_z;
     int t = parity / move;
@@ -845,7 +845,7 @@ namespace qcu
     // int lat_y = yyztsc[_y_];
     int lat_y = 1; // so let y=0 first, then y = lat_y -1
     int lat_z = params[_LAT_Z_];
-    int lat_tzyx = params[_LAT_XYZT_];
+    int lat_tzyx = params[_LAT_TZYX_];
     int move;
     move = lat_x * lat_y * lat_z;
     int t = parity / move;
@@ -950,7 +950,7 @@ namespace qcu
     int lat_y = params[_LAT_Y_];
     // int lat_z = zzztsc[_z_];
     int lat_z = 1; // so let z=0 first, then z = lat_z -1
-    int lat_tzyx = params[_LAT_XYZT_];
+    int lat_tzyx = params[_LAT_TZYX_];
     int move;
     move = lat_x * lat_y * lat_z;
     int t = parity / move;
@@ -1048,7 +1048,7 @@ namespace qcu
     int lat_y = params[_LAT_Y_];
     // int lat_z = zzztsc[_z_];
     int lat_z = 1; // so let z=0 first, then z = lat_z -1
-    int lat_tzyx = params[_LAT_XYZT_];
+    int lat_tzyx = params[_LAT_TZYX_];
     int move;
     move = lat_x * lat_y * lat_z;
     int t = parity / move;
@@ -1154,7 +1154,7 @@ namespace qcu
     int lat_z = params[_LAT_Z_];
     // int lat_t = ttttsc[_t_];
     int lat_t = 1; // so let t=0 first, then t = lat_t -1
-    int lat_tzyx = params[_LAT_XYZT_];
+    int lat_tzyx = params[_LAT_TZYX_];
     int move;
     move = lat_x * lat_y * lat_z;
     int t = parity / move;
@@ -1251,7 +1251,7 @@ namespace qcu
     int lat_z = params[_LAT_Z_];
     // int lat_t = ttttsc[_t_];
     int lat_t = 1; // so let t=0 first, then t = lat_t -1
-    int lat_tzyx = params[_LAT_XYZT_];
+    int lat_tzyx = params[_LAT_TZYX_];
     int move;
     move = lat_x * lat_y * lat_z;
     int t = parity / move;
