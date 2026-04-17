@@ -217,13 +217,13 @@ def applyCloverBistabCgQcu(_fermion_out: torch.Tensor = torch.Tensor([0.0]).to(d
     [0.0]).to(dtype=define.dtype(define._LAT_C64_), device=torch.device('cuda')),
     _gauge: torch.Tensor = torch.Tensor(
     [0.0]).to(dtype=define.dtype(define._LAT_C64_), device=torch.device('cuda')),
-    _clover_e: torch.Tensor = torch.Tensor(
+    _clover_ee: torch.Tensor = torch.Tensor(
     [0.0]).to(dtype=define.dtype(define._LAT_C64_), device=torch.device('cuda')),
-    _clover_o: torch.Tensor = torch.Tensor(
+    _clover_oo: torch.Tensor = torch.Tensor(
     [0.0]).to(dtype=define.dtype(define._LAT_C64_), device=torch.device('cuda')),
-    _clover_ee_in: torch.Tensor = torch.Tensor(
+    _clover_ee_inv: torch.Tensor = torch.Tensor(
     [0.0]).to(dtype=define.dtype(define._LAT_C64_), device=torch.device('cuda')),
-    _clover_oo_in: torch.Tensor = torch.Tensor(
+    _clover_oo_inv: torch.Tensor = torch.Tensor(
     [0.0]).to(dtype=define.dtype(define._LAT_C64_), device=torch.device('cuda')),
     _set_ptrs: torch.Tensor = torch.Tensor(
     [0]*define._SET_PTRS_SIZE_).to(dtype=torch.int64, device=torch.device('cpu')),

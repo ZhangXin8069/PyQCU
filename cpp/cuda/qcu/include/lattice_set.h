@@ -170,7 +170,6 @@ template <typename T> struct LatticeSet {
         gridDim_3dim[_XYT_] = lat_3dim[_XYT_] / _BLOCK_SIZE_;
         gridDim_3dim[_XYZ_] = lat_3dim[_XYZ_] / _BLOCK_SIZE_;
         lat_4dim = host_params[_LAT_XYZT_];
-        host_params[_LAT_XYZT_] = lat_4dim;
         lat_4dim_C = lat_4dim * _LAT_C_;
         lat_4dim_SC = lat_4dim * _LAT_SC_;
         lat_4dim_DCC = lat_4dim * _LAT_CCD_;
@@ -393,7 +392,7 @@ template <typename T> struct LatticeSet {
                              lat_3dim_Half_SC[i] * sizeof(LatticeComplex<T>)));
         }
       }
-      if (host_params[_SET_PLAN_] == _SET_PLAN1_) // just for bistabcg and cg
+      if (host_params[_SET_PLAN_] >= _SET_PLAN1_) // just for bistabcg and cg
       {
         for (int i = 0; i < _DIM_; i++) { // give cuda setup
           CUBLAS_CHECK(cublasCreate(&cublasHs[i]));
@@ -539,7 +538,7 @@ template <typename T> struct LatticeSet {
           checkCudaErrors(cudaFreeHost(host_recv_vec[i * _BF_ + 1]));
         }
       }
-      if (host_params[_SET_PLAN_] ==
+      if (host_params[_SET_PLAN_] >=
           _SET_PLAN1_) // just for wilson bistabcg and cg
       {
         for (int i = 0; i < _DIM_; i++) {
