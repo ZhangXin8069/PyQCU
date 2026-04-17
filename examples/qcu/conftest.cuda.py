@@ -2,9 +2,9 @@ import torch
 from pyqcu import tools, dslash, lattice
 from pyqcu.cuda import qcu, define
 from pyqcu.cuda.define import params, argv, set_ptrs
-params[define._LAT_X_] = 4
-params[define._LAT_Y_] = 4
-params[define._LAT_Z_] = 4
+params[define._LAT_X_] = 8
+params[define._LAT_Y_] = 8
+params[define._LAT_Z_] = 8
 params[define._LAT_T_] = 8
 params[define._LAT_XYZT_] = params[define._LAT_X_] * \
     params[define._LAT_Y_]*params[define._LAT_Z_]*params[define._LAT_T_]
@@ -15,8 +15,8 @@ params[define._NODE_RANK_] = define.rank
 params[define._NODE_SIZE_] = define.size
 params[define._DAGGER_] = 0
 params[define._MAX_ITER_] = 1000
-params[define._DATA_TYPE_] = define._LAT_C64_
-# params[define._DATA_TYPE_] = define._LAT_C128_
+# params[define._DATA_TYPE_] = define._LAT_C64_
+params[define._DATA_TYPE_] = define._LAT_C128_
 params[define._SET_INDEX_] = 0
 params[define._SET_PLAN_] = 1
 params[define._MG_X_] = 1
@@ -92,11 +92,10 @@ qcu.applyInitQcu(set_ptrs, params, argv)
 qcu.applyCloversQcu(clover_oo, clover_oo_inv, gauge_eo, set_ptrs, params)
 qcu.applyEndQcu(set_ptrs, params)
 print(set_ptrs)
-fermion_out_eo = torch.zeros(size=[2, 4, 3]+[params[define._LAT_X_], params[define._LAT_Y_], params[define._LAT_Z_],
-                             params[define._LAT_T_]//define._LAT_P_]).to(dtype=define.dtype(params[define._DATA_TYPE_]), device=torch.device('cuda'))
+fermion_out_eo = torch.zeros_like(fermion_out_eo)
 params[define._VERBOSE_] = 1
 params[define._SET_INDEX_] += 1
-params[define._SET_PLAN_] = 1
+params[define._SET_PLAN_] = 2
 params[define._PARITY_] = 0
 qcu.applyInitQcu(set_ptrs, params, argv)
 qcu.applyCloverBistabCgQcu(fermion_out_eo, fermion_in_eo, gauge_eo,
