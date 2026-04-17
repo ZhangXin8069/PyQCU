@@ -33,7 +33,7 @@ namespace qcu
 #define _LAT_Y_ 1
 #define _LAT_Z_ 2
 #define _LAT_T_ 3
-#define _LAT_XYZT_ 4
+#define _LAT_TZYX_ 4
 #define _GRID_X_ 5
 #define _GRID_Y_ 6
 #define _GRID_Z_ 7

@@ -155,7 +155,7 @@ def give_eo_mask(oootzy_t_p: torch.Tensor, eo: int, verbose=False) -> torch.Tens
 
 def slice_dim(dims_num: int = 4, ward: int = 0, start: int = None, stop: int = None, step: int = 2, point: int = None) -> tuple:
     """
-    Slice tensor along a specific dimension. [oooxyzt]
+    Slice tensor along a specific dimension. [oootzyx]
     """
     slices = [slice(None)] * dims_num
     if point == None:
@@ -167,7 +167,7 @@ def slice_dim(dims_num: int = 4, ward: int = 0, start: int = None, stop: int = N
 
 def slice_dim_dim(dims_num: int = 4, ward_a: int = 0, start_a: int = None, stop_a: int = None, step_a: int = 2, point_a: int = None, ward_b: int = 0, start_b: int = None, stop_b: int = None, step_b: int = 2, point_b: int = None) -> tuple:
     """
-    Slice tensor along two specific dimensions. [oooxyzt]
+    Slice tensor along two specific dimensions. [oootzyx]
     """
     slices = [slice(None)] * dims_num
     if point_a == None:
@@ -185,7 +185,7 @@ def slice_dim_dim(dims_num: int = 4, ward_a: int = 0, start_a: int = None, stop_
 
 def slice_dim_none_dim(dims_num: int = 4, ward: int = 0, start: int = None, stop: int = None, step: int = 2, point: int = None, ward_none: int = 0) -> tuple:
     """
-    Slice tensor along two specific dimensions. [oooxyzt]
+    Slice tensor along two specific dimensions. [oootzyx]
     """
     slices = [slice(None)] * dims_num
     if point == None:
@@ -246,7 +246,7 @@ def give_rank_minus_plus(ward_a: int, ward_b: int, rank: int = None) -> Tuple[in
     return give_rank_plus(ward=ward_b, rank=give_rank_minus(ward=ward_a, rank=rank))
 
 
-def local_xyzt2whole_xyzt(
+def local_tzyx2whole_tzyx(
     local_array: torch.Tensor,
     root: int = 0
 ) -> Optional[torch.Tensor]:
@@ -287,7 +287,7 @@ def local_xyzt2whole_xyzt(
         return None
 
 
-def whole_xyzt2local_xyzt(
+def whole_tzyx2local_tzyx(
         dtype: torch.dtype = None,
     device: torch.device = None,
     whole_shape: Tuple[int, ...] = None,
@@ -366,9 +366,9 @@ def set_device(device: torch.device):
         f"PYQCU::TOOLS::DEFINE:\n [MPI Rank {rank}/{size}] Using {dev_type}:{local_rank}")
 
 
-def oooxyzt2poooxyzt(input_array: torch.Tensor, verbose: bool = False) -> torch.Tensor:
+def oootzyx2poootzyx(input_array: torch.Tensor, verbose: bool = False) -> torch.Tensor:
     if verbose:
-        print("PYQCU::TOOLS::DEFINE:\n oooxyzt2poooxyzt......")
+        print("PYQCU::TOOLS::DEFINE:\n oootzyx2poootzyx......")
     shape = input_array.shape
     dtype = input_array.dtype
     device = input_array.device
@@ -413,9 +413,9 @@ def oooxyzt2poooxyzt(input_array: torch.Tensor, verbose: bool = False) -> torch.
     return splited_array
 
 
-def poooxyzt2oooxyzt(input_array: torch.Tensor, verbose: bool = False) -> torch.Tensor:
+def poootzyx2oootzyx(input_array: torch.Tensor, verbose: bool = False) -> torch.Tensor:
     if verbose:
-        print("PYQCU::TOOLS::DEFINE:\n poooxyzt2oooxyzt......")
+        print("PYQCU::TOOLS::DEFINE:\n poootzyx2oootzyx......")
     shape = input_array.shape
     dtype = input_array.dtype
     device = input_array.device
@@ -461,23 +461,23 @@ def poooxyzt2oooxyzt(input_array: torch.Tensor, verbose: bool = False) -> torch.
     return restored_array
 
 
-def ccdptzyx2ccdxyzt(ccdptzyx: torch.Tensor) -> torch.Tensor:
+def ccdptzyx2ccdtzyx(ccdptzyx: torch.Tensor) -> torch.Tensor:
     pccdtzyx = ccdptzyx.permute(3, 0, 1, 2, 4, 5, 6, 7)
-    ccdtzyx = poooxyzt2oooxyzt(input_array=pccdtzyx)
+    ccdtzyx = poootzyx2oootzyx(input_array=pccdtzyx)
     return ccdtzyx.permute(0, 1, 2, 6, 5, 4, 3)
 
 
-def ccdxyzt2ccdptzyx(ccdxyzt: torch.Tensor) -> torch.Tensor:
-    ccdtzyx = ccdxyzt.permute(0, 1, 2, 6, 5, 4, 3)
-    pccdtzyx = oooxyzt2poooxyzt(input_array=ccdtzyx)
+def ccdtzyx2ccdptzyx(ccdtzyx: torch.Tensor) -> torch.Tensor:
+    ccdtzyx = ccdtzyx.permute(0, 1, 2, 6, 5, 4, 3)
+    pccdtzyx = oootzyx2poootzyx(input_array=ccdtzyx)
     return pccdtzyx.permute(1, 2, 3, 0, 4, 5, 6, 7)
 
 
-def psctzyx2scxyzt(psctzyx: torch.Tensor) -> torch.Tensor:
-    sctzyx = poooxyzt2oooxyzt(input_array=psctzyx)
+def psctzyx2sctzyx(psctzyx: torch.Tensor) -> torch.Tensor:
+    sctzyx = poootzyx2oootzyx(input_array=psctzyx)
     return sctzyx.permute(0, 1, 5, 4, 3, 2)
 
 
-def scxyzt2psctzyx(scxyzt: torch.Tensor) -> torch.Tensor:
-    sctzyx = scxyzt.permute(0, 1, 5, 4, 3, 2)
-    return oooxyzt2poooxyzt(input_array=sctzyx)
+def sctzyx2psctzyx(sctzyx: torch.Tensor) -> torch.Tensor:
+    sctzyx = sctzyx.permute(0, 1, 5, 4, 3, 2)
+    return oootzyx2poootzyx(input_array=sctzyx)

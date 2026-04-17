@@ -16,7 +16,7 @@ namespace qcu
     int lat_y = params[_LAT_Y_];
     int lat_z = params[_LAT_Z_];
     // int lat_t = params[_LAT_T_]; // in laplacian, lat_t = 1
-    int lat_tzyx = params[_LAT_XYZT_];
+    int lat_tzyx = params[_LAT_TZYX_];
     int move;
     move = lat_x * lat_y * lat_z;
     int t = tmp / move;
@@ -182,7 +182,7 @@ namespace qcu
     int lat_x = 1; // so let x=0 first, then x = lat_x -1
     int lat_y = params[_LAT_Y_];
     int lat_z = params[_LAT_Z_];
-    int lat_tzyx = params[_LAT_XYZT_];
+    int lat_tzyx = params[_LAT_TZYX_];
     int move;
     move = lat_x * lat_y * lat_z;
     int t = tmp / move;
@@ -269,7 +269,7 @@ namespace qcu
     int lat_x = 1; // so let x=0 first, then x = lat_x -1
     int lat_y = params[_LAT_Y_];
     int lat_z = params[_LAT_Z_];
-    int lat_tzyx = params[_LAT_XYZT_];
+    int lat_tzyx = params[_LAT_TZYX_];
     int move;
     move = lat_x * lat_y * lat_z;
     int t = tmp / move;
@@ -358,7 +358,7 @@ namespace qcu
     // int lat_y = yyztsc[_y_];
     int lat_y = 1; // so let y=0 first, then y = lat_y -1
     int lat_z = params[_LAT_Z_];
-    int lat_tzyx = params[_LAT_XYZT_];
+    int lat_tzyx = params[_LAT_TZYX_];
     int move;
     move = lat_x * lat_y * lat_z;
     int t = tmp / move;
@@ -446,7 +446,7 @@ namespace qcu
     // int lat_y = yyztsc[_y_];
     int lat_y = 1; // so let y=0 first, then y = lat_y -1
     int lat_z = params[_LAT_Z_];
-    int lat_tzyx = params[_LAT_XYZT_];
+    int lat_tzyx = params[_LAT_TZYX_];
     int move;
     move = lat_x * lat_y * lat_z;
     int t = tmp / move;
@@ -536,7 +536,7 @@ namespace qcu
     int lat_y = params[_LAT_Y_];
     // int lat_z = zzztsc[_z_];
     int lat_z = 1; // so let z=0 first, then z = lat_z -1
-    int lat_tzyx = params[_LAT_XYZT_];
+    int lat_tzyx = params[_LAT_TZYX_];
     int move;
     move = lat_x * lat_y * lat_z;
     int t = tmp / move;
@@ -624,7 +624,7 @@ namespace qcu
     int lat_y = params[_LAT_Y_];
     // int lat_z = zzztsc[_z_];
     int lat_z = 1; // so let z=0 first, then z = lat_z -1
-    int lat_tzyx = params[_LAT_XYZT_];
+    int lat_tzyx = params[_LAT_TZYX_];
     int move;
     move = lat_x * lat_y * lat_z;
     int t = tmp / move;
@@ -708,7 +708,7 @@ namespace qcu
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     LatticeComplex<T> *dest = (static_cast<LatticeComplex<T> *>(device_dest) + idx);
     LatticeComplex<T> *src = (static_cast<LatticeComplex<T> *>(device_src) + idx);
-    int _ = static_cast<int *>(device_params)[_LAT_XYZT_];
+    int _ = static_cast<int *>(device_params)[_LAT_TZYX_];
     for (int i = 0; i < _LAT_C_ * _; i += _)
     {
       dest[i] = src[i] * 6.0 - dest[i];

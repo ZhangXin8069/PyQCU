@@ -450,7 +450,7 @@ namespace qcu
     int lat_y = params[_LAT_Y_];
     int lat_z = params[_LAT_Z_];
     int lat_t = params[_LAT_T_];
-    int lat_tzyx = params[_LAT_XYZT_];
+    int lat_tzyx = params[_LAT_TZYX_];
     int move0;
     move0 = lat_x * lat_y * lat_z;
     int t = parity / move0;
