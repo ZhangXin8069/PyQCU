@@ -1,11 +1,11 @@
 ```bash
-splited_rank.shape = [dim of x, dim of y, dim of z, dim of t] 
-gauge.shape = [dim of color, dim of color, dim of space-time(xyzt), dim of x, dim of y, dim of z, dim of t]
-gauge_parity.shape = [parity for even-odd ] + gauge.shape
-fermion.shape = [dim of spin, dim of color, dim of x, dim of y, dim of z, dim of t]
-fermion_parity.shape = [parity for even-odd ] + gauge.shape
-wilson_term.shape = [dim of spin, dim of color, dim of spin, dim of color, dim of x, dim of y, dim of z, dim of t]
-wilson_term_parity.shape = [parity for even-odd ] + gauge.shape
-clover_term.shape = [dim of spin, dim of color, dim of spin, dim of color, dim of x, dim of y, dim of z, dim of t]
-clover_term_parity.shape = [parity for even-odd ] + gauge.shape
+splited_rank.shape = [t,z,y,x]
+gauge.shape = [c,c,d]+[t,z,y,x]
+gauge_eo.shape = [c,c,d]+[p]+[t,z,y,x] # [d]:0123:x_y_z_t
+fermion.shape = [s,c]+[t,z,y,x]
+fermion_eo.shape = [p]+[s,c]+[t,z,y,x]
+wilson_term.shape = [s,c,s,c]+[t,z,y,x]
+wilson_term_eo.shape = [p]+[s,c,s,c]+[t,z,y,x]
+clover_term.shape = [s,c,s,c]+[t,z,y,x]
+clover_term_eo.shape = [p]+[s,c,s,c]+[t,z,y,x]
 ```
