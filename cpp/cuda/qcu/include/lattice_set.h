@@ -628,7 +628,7 @@ template <typename T> struct LatticeSet {
     printf("host_params[_MG_T_]          :%d\n", host_params[_MG_T_]);
     printf("host_params[_LAT_E_]         :%d\n", host_params[_LAT_E_]);
     printf("host_params[_VERBOSE_]       :%d\n", host_params[_VERBOSE_]);
-    printf("host_params[_SEED_].         :%d\n", host_params[_SEED_]);
+    printf("host_params[_SEED_]          :%d\n", host_params[_SEED_]);
     printf("host_params[_TEST_IN_CPU_]   :%d\n", host_params[_TEST_IN_CPU_]);
     printf("host_argv[_MASS_]            :%e\n", host_argv[_MASS_]);
     printf("host_argv[_TOL_]             :%e\n", host_argv[_TOL_]);
