@@ -167,6 +167,7 @@ __global__ void make_clover_all(
       tmp_U = (static_cast<LatticeComplex<T> *>(device_u_f_x_recv_vec) +
                ((((_Y_ * 1 + 0) * lat_y + y) * lat_z + z) * lat_t + t));
       _give_u_comm(1 - parity, tmp2, tmp_U, lat_xyzt / lat_x);
+      printf("x,y,z,t:%d, %d, %d, %d", x, y, z, t);
       printf("tmp2[0]._data.x:%e\n", tmp2[0]._data.x);
       printf("tmp2[0]._data.y:%e\n", tmp2[0]._data.y);
       printf("tmp2[8]._data.x:%e\n", tmp2[8]._data.x);
@@ -179,10 +180,14 @@ __global__ void make_clover_all(
       printf("tmp4[0]._data.y:%e\n", tmp4[0]._data.y);
       printf("tmp4[8]._data.x:%e\n", tmp4[8]._data.x);
       printf("tmp4[8]._data.y:%e\n", tmp4[8]._data.y);
-      printf("tmp4[0]._data.x-tmp2[0]._data.x:%e\n", tmp4[0]._data.x-tmp2[0]._data.x);
-      printf("tmp4[0]._data.y-tmp2[0]._data.y:%e\n", tmp4[0]._data.y-tmp2[0]._data.y);
-      printf("tmp4[8]._data.x-tmp2[8]._data.x:%e\n", tmp4[8]._data.x-tmp2[8]._data.x);
-      printf("tmp4[8]._data.y-tmp2[8]._data.y:%e\n", tmp4[8]._data.y-tmp2[8]._data.y);
+      printf("tmp4[0]._data.x-tmp2[0]._data.x:%e\n",
+             tmp4[0]._data.x - tmp2[0]._data.x);
+      printf("tmp4[0]._data.y-tmp2[0]._data.y:%e\n",
+             tmp4[0]._data.y - tmp2[0]._data.y);
+      printf("tmp4[8]._data.x-tmp2[8]._data.x:%e\n",
+             tmp4[8]._data.x - tmp2[8]._data.x);
+      printf("tmp4[8]._data.y-tmp2[8]._data.y:%e\n",
+             tmp4[8]._data.y - tmp2[8]._data.y);
     } else {
       move0 = move_wards[_F_X_];
       tmp_U = (origin_U + move0 * lat_y * lat_z * lat_t +
