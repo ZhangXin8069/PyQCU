@@ -10,7 +10,7 @@ class multigrid:
     def __init__(self, dtype_list: Tuple[torch.dtype, torch.dtype, torch.dtype, torch.dtype], device_list: Tuple[torch.device, torch.device, torch.device, torch.device],  U: torch.Tensor, clover_term: torch.Tensor, kappa: float = 0.1, u_0: float = 1.0, min_size: int = 2, max_levels: int = 4, mg_grid_size: Tuple[int, int, int, int] = [2, 2, 2, 2], num_convergence_sample: int = 50, dof_list: Tuple[int, int, int, int] = [12, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24], tol: float = 1e-6, max_iter: int = 1000, num_restart: int = 3, root: int = 0, support_parity: bool = False, verbose: bool = True):
         self.comm = MPI.COMM_WORLD
         self.rank = self.comm.Get_rank()
-        self.lat_size = list(U.shape[-4:])  # tzyx
+        self.lat_size = list(U.shape[-4:])  # xyzt
         self.min_size = min_size
         self.max_levels = max_levels
         self.kappa = kappa
@@ -106,7 +106,7 @@ class multigrid:
         b = self.b_list[level].clone()
         if level == 0 and self.support_parity:
             b_origin = b.clone()
-            b_eo = tools.oootzyx2poootzyx(b)
+            b_eo = tools.oooxyzt2poooxyzt(b)
             b_e = b_eo[0]
             b_o = b_eo[1]
             b = self.op_list[0].give_b_parity(b_e=b_e, b_o=b_o)
@@ -165,7 +165,7 @@ class multigrid:
             if level < self.num_levels-1 and count_restart > self.num_restart:
                 if level == 0 and self.support_parity:
                     x_e = self.op_list[0].give_x_e(b_e=b_e, x_o=x)
-                    x_origin = tools.poootzyx2oootzyx(
+                    x_origin = tools.poooxyzt2oooxyzt(
                         input_array=torch.stack([x_e, x], dim=0))
                     r = b_origin-self.op_list[0].matvec(src=x_origin)
                 r_coarse = tools.restrict(
@@ -177,7 +177,7 @@ class multigrid:
                 e_fine = tools.prolong(
                     local_ortho_null_vecs=self.lonv_list[level], coarse_vec=e_coarse)
                 if level == 0 and self.support_parity:
-                    e_fine_eo = tools.oootzyx2poootzyx(e_fine)
+                    e_fine_eo = tools.oooxyzt2poooxyzt(e_fine)
                     e_fine = e_fine_eo[1]
                 x = x + e_fine
                 r = b - matvec(x)
@@ -213,7 +213,7 @@ class multigrid:
         print(f"PYQCU::SOLVER::MULTIGRID:\n Final residual: {r_norm:.2e}")
         if level == 0 and self.support_parity:
             x_e = self.op_list[0].give_x_e(b_e=b_e, x_o=x)
-            x_origin = tools.poootzyx2oootzyx(
+            x_origin = tools.poooxyzt2oooxyzt(
                 input_array=torch.stack([x_e, x], dim=0))
             r_origin = b_origin-self.op_list[0].matvec(src=x_origin)
             r_norm_origin = tools.norm(r_origin)
