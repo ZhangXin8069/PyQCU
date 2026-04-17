@@ -11,7 +11,7 @@ def give_null_vecs(
     normalize: bool = True, ortho_r: bool = False, ortho_null_vecs: bool = False, verbose: bool = True
 ) -> torch.Tensor:
     dof = null_vecs.shape[0]
-    null_vecs = _torch.randn_like(null_vecs)  # [Eetzyx]
+    null_vecs = _torch.randn_like(null_vecs)  # [Eexyzt]
     for i in range(dof):
         if ortho_r:
             # The orthogonalization of r
@@ -58,7 +58,7 @@ def local_orthogonalize(null_vecs: torch.Tensor,
         return local_orthogonalize_npu(null_vecs=null_vecs, coarse_lat_size=coarse_lat_size, normalize=normalize, verbose=verbose)
     assert null_vecs.ndim == 6, "PYQCU::TOOLS::MATRIX:\n Expected shape [E,e,X*x,Y*y,Z*z,T*t]"
     E, e, Xx, Yy, Zz, Tt = null_vecs.shape
-    X, Y, Z, T = coarse_lat_size  # [tzyx]
+    X, Y, Z, T = coarse_lat_size  # [xyzt]
     # sanity checks
     assert Xx % X == 0 and Yy % Y == 0 and Zz % Z == 0 and Tt % T == 0, \
         "PYQCU::TOOLS::MATRIX:\n Each lattice extent must be divisible by its coarse_lat_size factor."
@@ -104,7 +104,7 @@ def restrict(local_ortho_null_vecs: torch.Tensor, fine_vec: torch.Tensor) -> tor
     shape = local_ortho_null_vecs.shape
     _fine_vec = fine_vec.reshape(shape=shape[1:])
     return _torch.einsum(
-        "EeXxYyZzTt,eXxYyZzTt->ETZYX", local_ortho_null_vecs.conj(), _fine_vec).to(dtype=dtype, device=device)
+        "EeXxYyZzTt,eXxYyZzTt->EXYZT", local_ortho_null_vecs.conj(), _fine_vec).to(dtype=dtype, device=device)
 
 
 def prolong(local_ortho_null_vecs: torch.Tensor, coarse_vec: torch.Tensor) -> torch.Tensor:
@@ -119,7 +119,7 @@ def prolong(local_ortho_null_vecs: torch.Tensor, coarse_vec: torch.Tensor) -> to
     shape = local_ortho_null_vecs.shape
     _coarse_vec = coarse_vec.reshape(shape=shape[0:1]+shape[-8:][::2])
     return _torch.einsum(
-        "EeXxYyZzTt,ETZYX->eXxYyZzTt", local_ortho_null_vecs, _coarse_vec).reshape([shape[1], shape[-8]*shape[-7], shape[-6]*shape[-5], shape[-4]*shape[-3], shape[-2]*shape[-1]]).to(dtype=dtype, device=device)
+        "EeXxYyZzTt,EXYZT->eXxYyZzTt", local_ortho_null_vecs, _coarse_vec).reshape([shape[1], shape[-8]*shape[-7], shape[-6]*shape[-5], shape[-4]*shape[-3], shape[-2]*shape[-1]]).to(dtype=dtype, device=device)
 # NPU:The self tensor cannot be larger than 8 dimensions.
 
 
@@ -130,7 +130,7 @@ def local_orthogonalize_npu(null_vecs: torch.Tensor,
                             verbose: bool = False) -> torch.Tensor:
     assert null_vecs.ndim == 6, "Expected shape [E,e,X*x,Y*y,Z*z,T*t]"
     E, e, Xx, Yy, Zz, Tt = null_vecs.shape
-    X, Y, Z, T = coarse_lat_size  # [tzyx]
+    X, Y, Z, T = coarse_lat_size  # [xyzt]
     # sanity checks
     assert Xx % X == 0 and Yy % Y == 0 and Zz % Z == 0 and Tt % T == 0, \
         "Each lattice extent must be divisible by its coarse_lat_size factor."
@@ -190,7 +190,7 @@ def restrict_npu(local_ortho_null_vecs: torch.Tensor, fine_vec: torch.Tensor) ->
     _fine_vec = fine_vec.reshape(shape=shape[1:])
     """
     return _torch.einsum(
-        "EeXxYyZzTt,eXxYyZzTt->ETZYX",local_ortho_null_vecs.conj(),_fine_vec).to(dtype=dtype,device=device)
+        "EeXxYyZzTt,eXxYyZzTt->EXYZT",local_ortho_null_vecs.conj(),_fine_vec).to(dtype=dtype,device=device)
     """
     E, e, X, x, Y, y, Z, z, T, t = local_ortho_null_vecs.shape
     # [eXx,Y,y,Z,z,T,t]
@@ -211,7 +211,7 @@ def restrict_npu(local_ortho_null_vecs: torch.Tensor, fine_vec: torch.Tensor) ->
     _local_ortho_null_vecs = _local_ortho_null_vecs.reshape(
         E, e, -1, x, y, z, t)
     return _torch.einsum(
-        "EeOtzyx,eOtzyx->EO", _local_ortho_null_vecs.conj(), _fine_vec).reshape(E, X, Y, Z, T).to(dtype=dtype, device=device)
+        "EeOxyzt,eOxyzt->EO", _local_ortho_null_vecs.conj(), _fine_vec).reshape(E, X, Y, Z, T).to(dtype=dtype, device=device)
 
 
 def prolong_npu(local_ortho_null_vecs: torch.Tensor, coarse_vec: torch.Tensor) -> torch.Tensor:
@@ -225,11 +225,11 @@ def prolong_npu(local_ortho_null_vecs: torch.Tensor, coarse_vec: torch.Tensor) -
     _coarse_vec = coarse_vec.reshape(shape=shape[0:1]+shape[-8:][::2])
     """
     return _torch.einsum(
-        "EeXxYyZzTt,ETZYX->eXxYyZzTt",local_ortho_null_vecs,_coarse_vec).reshape([shape[1],shape[-8]*shape[-7],shape[-6]*shape[-5],shape[-4]*shape[-3],shape[-2]*shape[-1]]).to(dtype=dtype,device=device)
+        "EeXxYyZzTt,EXYZT->eXxYyZzTt",local_ortho_null_vecs,_coarse_vec).reshape([shape[1],shape[-8]*shape[-7],shape[-6]*shape[-5],shape[-4]*shape[-3],shape[-2]*shape[-1]]).to(dtype=dtype,device=device)
     """
     E, e, X, x, Y, y, Z, z, T, t = local_ortho_null_vecs.shape
     # [eXx,Y,y,Z,z,T,t]
-    _coarse_vec = _coarse_vec.reshape(E, -1)  # [E,TZYX]
+    _coarse_vec = _coarse_vec.reshape(E, -1)  # [E,XYZT]
     _local_ortho_null_vecs = local_ortho_null_vecs.reshape(
         E, -1, Y, y, Z, z, T, t)  # [E,eXx,Y,y,Z,z,T,t]
     _local_ortho_null_vecs = _local_ortho_null_vecs.permute(
@@ -241,7 +241,7 @@ def prolong_npu(local_ortho_null_vecs: torch.Tensor, coarse_vec: torch.Tensor) -
     _local_ortho_null_vecs = _local_ortho_null_vecs.reshape(
         E, e, -1, x, y, z, t)
     dest = _torch.einsum(
-        "EeOtzyx,EO->eOtzyx", _local_ortho_null_vecs, _coarse_vec).to(dtype=dtype, device=device)
+        "EeOxyzt,EO->eOxyzt", _local_ortho_null_vecs, _coarse_vec).to(dtype=dtype, device=device)
     dest = dest.reshape(e, X, Y*Z*T, t, y*z*t)
     dest = dest.permute(0, 1, 3, 2, 4)  # [e,X,x,Y*Z*T,y*z*t]
     dest = dest.reshape(-1, Y, Z, T, y, z, t)
