@@ -34,7 +34,7 @@ _LAT_X_ = 0
 _LAT_Y_ = 1
 _LAT_Z_ = 2
 _LAT_T_ = 3
-_LAT_TZYX_ = 4
+_LAT_XYZT_ = 4
 _GRID_X_ = 5
 _GRID_Y_ = 6
 _GRID_Z_ = 7
@@ -57,7 +57,8 @@ _LAT_R64_ = 8
 _LAT_R128_ = 9
 _SET_INDEX_ = 15
 _SET_PLAN_ = 16
-_SET_PLAN_N_1_ = -1  # just for laplacian
+_SET_PLAN_N_2_ = -2  # just for laplacian
+_SET_PLAN_N_1_ = -1  # just for gauss gauge
 _SET_PLAN0_ = 0     # for wilson dslash
 _SET_PLAN1_ = 1     # just for bistabcg and cg
 _SET_PLAN2_ = 2     # for clover dslash
@@ -68,7 +69,8 @@ _MG_T_ = 20
 _LAT_E_ = 21
 _VERBOSE_ = 22
 _SEED_ = 23
-_PARAMS_SIZE_ = 24
+_TEST_IN_CPU_ = 24
+_PARAMS_SIZE_ = 25
 _MASS_ = 0
 _TOL_ = 1
 _SIGMA_ = 2
@@ -210,7 +212,7 @@ params[_LAT_X_] = 32
 params[_LAT_Y_] = 32
 params[_LAT_Z_] = 32
 params[_LAT_T_] = 32
-params[_LAT_TZYX_] = params[_LAT_X_] * \
+params[_LAT_XYZT_] = params[_LAT_X_] * \
     params[_LAT_Y_]*params[_LAT_Z_]*params[_LAT_T_]
 params[_GRID_X_], params[_GRID_Y_], params[_GRID_Z_], params[
     _GRID_T_] = tools.give_grid_size()
@@ -229,6 +231,7 @@ params[_MG_T_] = 8
 params[_LAT_E_] = 24
 params[_VERBOSE_] = 1
 params[_SEED_] = 42
+params[_TEST_IN_CPU_] = 0
 argv = torch.Tensor([0.0]*_ARGV_SIZE_).to(dtype=dtype(_LAT_C64_).to_real(),
                                           device=torch.device('cpu'))
 argv[_MASS_] = -3.5  # make kappa=1.0

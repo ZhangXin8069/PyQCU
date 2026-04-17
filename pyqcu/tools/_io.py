@@ -5,7 +5,7 @@ from mpi4py import MPI
 from typing import Tuple
 
 
-def gridoootzyx2hdf5oootzyx(
+def gridoooxyzt2hdf5oooxyzt(
     input_tensor: torch.Tensor,
     file_name: str,
     lat_size: Tuple[int, int, int, int],
@@ -79,7 +79,7 @@ def gridoootzyx2hdf5oootzyx(
         comm.Barrier()
 
 
-def hdf5oootzyx2gridoootzyx(
+def hdf5oooxyzt2gridoooxyzt(
     file_name: str,
     lat_size: Tuple[int, int, int, int],
     device: torch.device,
