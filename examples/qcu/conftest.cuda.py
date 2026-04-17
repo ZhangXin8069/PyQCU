@@ -5,7 +5,7 @@ from pyqcu.cuda.define import params, argv, set_ptrs
 params[define._LAT_X_] = 8
 params[define._LAT_Y_] = 8
 params[define._LAT_Z_] = 8
-params[define._LAT_T_] = 8
+params[define._LAT_T_] = 16
 params[define._LAT_XYZT_] = params[define._LAT_X_] * \
     params[define._LAT_Y_]*params[define._LAT_Z_]*params[define._LAT_T_]
 params[define._GRID_X_], params[define._GRID_Y_], params[define._GRID_Z_], params[
@@ -132,3 +132,8 @@ print('refer_clover_term:', refer_clover_term.flatten()[:100])
 # print('refer_clover_term_eo:', refer_clover_term_eo[1].flatten()[:100])
 print('Difference:', tools.norm(refer_clover_term -
       qcu_clover_term)/tools.norm(qcu_clover_term))
+print("gauge_eo.is_contiguous():",gauge_eo.is_contiguous())
+print("fermion_in_eo.is_contiguous():",fermion_in_eo.is_contiguous())
+print("fermion_in_out.is_contiguous():",fermion_out_eo.is_contiguous())
+print("qcu_src.is_contiguous():",qcu_src.is_contiguous())
+print("qcu_dest.is_contiguous():",qcu_dest.is_contiguous())
