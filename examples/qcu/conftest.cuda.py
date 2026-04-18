@@ -48,7 +48,7 @@ qcu.applyInitQcu(set_ptrs, params, argv)
 qcu.applyGaussGaugeQcu(gauge_eo, set_ptrs, params)
 print(lattice.check_su3(U=gauge_eo[0]))
 print(lattice.check_su3(U=gauge_eo[1]))
-qcu.applyEndQcu(set_ptrs, params)
+# qcu.applyEndQcu(set_ptrs, params)
 print(set_ptrs)
 params[define._VERBOSE_] = 1
 params[define._SET_INDEX_] += 1
@@ -57,7 +57,7 @@ params[define._PARITY_] = 0
 qcu.applyInitQcu(set_ptrs, params, argv)
 qcu.applyWilsonBistabCgQcu(
     fermion_out_eo, fermion_in_eo, gauge_eo, set_ptrs, params)
-qcu.applyEndQcu(set_ptrs, params)
+# qcu.applyEndQcu(set_ptrs, params)
 print(set_ptrs)
 qcu_dest = tools.poooxyzt2oooxyzt(input_array=fermion_out_eo)
 qcu_U = tools.poooxyzt2oooxyzt(input_array=gauge_eo)
@@ -82,7 +82,7 @@ params[define._SET_PLAN_] = 2
 params[define._PARITY_] = 0
 qcu.applyInitQcu(set_ptrs, params, argv)
 qcu.applyCloversQcu(clover_ee, clover_ee_inv, gauge_eo, set_ptrs, params)
-qcu.applyEndQcu(set_ptrs, params)
+# qcu.applyEndQcu(set_ptrs, params)
 print(set_ptrs)
 params[define._VERBOSE_] = 1
 params[define._SET_INDEX_] += 1
@@ -90,7 +90,7 @@ params[define._SET_PLAN_] = 2
 params[define._PARITY_] = 1
 qcu.applyInitQcu(set_ptrs, params, argv)
 qcu.applyCloversQcu(clover_oo, clover_oo_inv, gauge_eo, set_ptrs, params)
-qcu.applyEndQcu(set_ptrs, params)
+# qcu.applyEndQcu(set_ptrs, params)
 print(set_ptrs)
 fermion_out_eo = torch.zeros_like(fermion_out_eo)
 params[define._VERBOSE_] = 1
@@ -100,7 +100,7 @@ params[define._PARITY_] = 0
 qcu.applyInitQcu(set_ptrs, params, argv)
 qcu.applyCloverBistabCgQcu(fermion_out_eo, fermion_in_eo, gauge_eo,
                            clover_ee, clover_oo, clover_ee_inv, clover_oo_inv,  set_ptrs, params)
-qcu.applyEndQcu(set_ptrs, params)
+# qcu.applyEndQcu(set_ptrs, params)
 print(set_ptrs)
 qcu_dest = tools.poooxyzt2oooxyzt(input_array=fermion_out_eo)
 qcu_U = tools.poooxyzt2oooxyzt(input_array=gauge_eo)

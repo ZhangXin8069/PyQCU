@@ -7,7 +7,7 @@ def applyInitQcu(_set_ptrs: torch.Tensor = torch.Tensor([0]*define._SET_PTRS_SIZ
         [0]*define._PARAMS_SIZE_).to(dtype=torch.int32, device=torch.device('cpu')),
         _argv: torch.Tensor = torch.Tensor([0.0]*define._SET_PTRS_SIZE_, dtype=define.dtype(define._LAT_C64_).to_real())) -> None:
     """
-    follow above, most values in params should be set.
+    # follow above, most values in params should be set.
     pay attention to the dtype of argv. (to_real)
     """
     ...
@@ -16,7 +16,8 @@ def applyInitQcu(_set_ptrs: torch.Tensor = torch.Tensor([0]*define._SET_PTRS_SIZ
 def applyEndQcu(_set_ptrs: torch.Tensor = torch.Tensor([0]*define._SET_PTRS_SIZE_).to(dtype=torch.int64, device=torch.device('cpu')),
                 _params: torch.Tensor = torch.Tensor([0]*define._PARAMS_SIZE_).to(dtype=torch.int32, device=torch.device('cpu'))) -> None:
     """
-    follow above, most values in params should be set.
+    # Using this function causes bugs in subsequent functions; it has been deprecated. Do not use it!
+    # follow above, most values in params should be set.
     """
     ...
 
@@ -30,7 +31,7 @@ def testWilsonDslashQcu(_fermion_out: torch.Tensor = torch.Tensor([0.0]).to(dtyp
         [0]*define._SET_PTRS_SIZE_).to(dtype=torch.int64, device=torch.device('cpu')),
         _params: torch.Tensor = torch.Tensor([0]*define._PARAMS_SIZE_).to(dtype=torch.int32, device=torch.device('cpu'))) -> None:
     """
-    follow above, most values in params should be set.
+    # follow above, most values in params should be set.
     even-odd, parity in params should be set to 0 or 1, fermion_out:[scxyzt] in [pscxyzt], fermion_in:[scxyzt] in [pscxyzt], gauge:[pccdxyzt].
     """
     ...
@@ -45,7 +46,7 @@ def applyWilsonDslashQcu(_fermion_out: torch.Tensor = torch.Tensor([0.0]).to(dty
         [0]*define._SET_PTRS_SIZE_).to(dtype=torch.int64, device=torch.device('cpu')),
         _params: torch.Tensor = torch.Tensor([0]*define._PARAMS_SIZE_).to(dtype=torch.int32, device=torch.device('cpu'))) -> None:
     """
-    follow above, most values in params should be set.
+    # follow above, most values in params should be set.
     even-odd, parity in params should be set to 0 or 1, fermion_out:[scxyzt] in [pscxyzt], fermion_in:[scxyzt] in [pscxyzt], gauge:[pccdxyzt].
     """
     ...
@@ -60,7 +61,7 @@ def testCloverDslashQcu(_fermion_out: torch.Tensor = torch.Tensor([0.0]).to(dtyp
         [0]*define._SET_PTRS_SIZE_).to(dtype=torch.int64, device=torch.device('cpu')),
         _params: torch.Tensor = torch.Tensor([0]*define._PARAMS_SIZE_).to(dtype=torch.int32, device=torch.device('cpu'))) -> None:
     """
-    follow above, most values in params should be set.
+    # follow above, most values in params should be set.
     even-odd, parity in params should be set to 0 or 1, fermion_out:[scxyzt] in [pscxyzt], fermion_in:[scxyzt] in [pscxyzt], gauge:[pccdxyzt].
     """
     ...
@@ -75,7 +76,7 @@ def applyCloverDslashQcu(_fermion_out: torch.Tensor = torch.Tensor([0.0]).to(dty
         [0]*define._SET_PTRS_SIZE_).to(dtype=torch.int64, device=torch.device('cpu')),
         _params: torch.Tensor = torch.Tensor([0]*define._PARAMS_SIZE_).to(dtype=torch.int32, device=torch.device('cpu'))) -> None:
     """
-    follow above, most values in params should be set.
+    # follow above, most values in params should be set.
     even-odd, parity in params should be set to 0 or 1, fermion_out:[scxyzt] in [pscxyzt], fermion_in:[scxyzt] in [pscxyzt], gauge:[pccdxyzt].
     """
     ...
@@ -90,7 +91,7 @@ def applyWilsonBistabCgQcu(_fermion_out: torch.Tensor = torch.Tensor([0.0]).to(d
         [0]*define._SET_PTRS_SIZE_).to(dtype=torch.int64, device=torch.device('cpu')),
         _params: torch.Tensor = torch.Tensor([0]*define._PARAMS_SIZE_).to(dtype=torch.int32, device=torch.device('cpu'))) -> None:
     """
-    follow above, most values in params should be set.
+    # follow above, most values in params should be set.
     even-odd, parity in params should be set to 0 or 1, fermion_out:[pscxyzt], fermion_in:[scxyzt] in [pscxyzt], gauge:[pccdxyzt].
     """
     ...
@@ -107,7 +108,7 @@ def applyWilsonBistabCgDslashQcu(
             [0]*define._SET_PTRS_SIZE_).to(dtype=torch.int64, device=torch.device('cpu')),
         _params: torch.Tensor = torch.Tensor([0]*define._PARAMS_SIZE_).to(dtype=torch.int32, device=torch.device('cpu'))) -> None:
     """
-    follow above, most values in params should be set.
+    # follow above, most values in params should be set.
     even-odd, parity in params should be set to 0 or 1, fermion_out:[scxyzt] in [pscxyzt], fermion_in:[scxyzt] in [pscxyzt], gauge:[pccdxyzt].
     """
     ...
@@ -122,7 +123,7 @@ def applyWilsonCgQcu(_fermion_out: torch.Tensor = torch.Tensor([0.0]).to(dtype=d
         [0]*define._SET_PTRS_SIZE_).to(dtype=torch.int64, device=torch.device('cpu')),
         _params: torch.Tensor = torch.Tensor([0]*define._PARAMS_SIZE_).to(dtype=torch.int32, device=torch.device('cpu'))) -> None:
     """
-    follow above, most values in params should be set.
+    # follow above, most values in params should be set.
     even-odd, parity in params should be set to 0 or 1, fermion_out:[pscxyzt], fermion_in:[scxyzt] in [pscxyzt], gauge:[pccdxyzt].
     """
     ...
@@ -137,7 +138,7 @@ def applyWilsonCgDslashQcu(_fermion_out: torch.Tensor = torch.Tensor([0.0]).to(d
         [0]*define._SET_PTRS_SIZE_).to(dtype=torch.int64, device=torch.device('cpu')),
         _params: torch.Tensor = torch.Tensor([0]*define._PARAMS_SIZE_).to(dtype=torch.int32, device=torch.device('cpu'))) -> None:
     """
-    follow above, most values in params should be set.
+    # follow above, most values in params should be set.
     even-odd, parity in params should be set to 0 or 1, fermion_out:[scxyzt] in [pscxyzt], fermion_in:[scxyzt] in [pscxyzt], gauge:[pccdxyzt].
     """
     ...
@@ -152,7 +153,7 @@ def applyLaplacianQcu(_laplacian_ou: torch.Tensor = torch.Tensor([0.0]).to(dtype
         [0]*define._SET_PTRS_SIZE_).to(dtype=torch.int64, device=torch.device('cpu')),
         _params: torch.Tensor = torch.Tensor([0]*define._PARAMS_SIZE_).to(dtype=torch.int32, device=torch.device('cpu'))) -> None:
     """
-    follow above, most values in params should be set.
+    # follow above, most values in params should be set.
     no even-odd, fermion_out:[scxyz1], fermion_in:[scxyz1] in [scxyz1], gauge:[ccdxyz1].
     """
     ...
@@ -165,7 +166,7 @@ def applyCloverQcu(_clover: torch.Tensor = torch.Tensor([0.0]).to(dtype=define.d
         [0]*define._SET_PTRS_SIZE_).to(dtype=torch.int64, device=torch.device('cpu')),
         _params: torch.Tensor = torch.Tensor([0]*define._PARAMS_SIZE_).to(dtype=torch.int32, device=torch.device('cpu'))) -> None:
     """
-    follow above, most values in params should be set.
+    # follow above, most values in params should be set.
     even-odd, parity in params should be set to 0 or 1, clover:[scscxyzt] in [pscscxyzt], gauge:[pccdxyzt].
     """
 
@@ -179,7 +180,7 @@ def applyCloversQcu(_clover: torch.Tensor = torch.Tensor([0.0]).to(dtype=define.
         [0]*define._SET_PTRS_SIZE_).to(dtype=torch.int64, device=torch.device('cpu')),
         _params: torch.Tensor = torch.Tensor([0]*define._PARAMS_SIZE_).to(dtype=torch.int32, device=torch.device('cpu'))) -> None:
     """
-    follow above, most values in params should be set.
+    # follow above, most values in params should be set.
     even-odd, parity in params should be set to 0 or 1, clover:[scscxyzt] in [pscscxyzt], clover_inv:[scscxyzt] in [pscscxyzt], gauge:[pccdxyzt].
     """
 
@@ -195,7 +196,7 @@ def applyDslashQcu(_fermion_out: torch.Tensor = torch.Tensor([0.0]).to(dtype=def
         [0]*define._SET_PTRS_SIZE_).to(dtype=torch.int64, device=torch.device('cpu')),
         _params: torch.Tensor = torch.Tensor([0]*define._PARAMS_SIZE_).to(dtype=torch.int32, device=torch.device('cpu'))) -> None:
     """
-    follow above, most values in params should be set.
+    # follow above, most values in params should be set.
     even-odd, parity in params should be set to 0 or 1, fermion_out:[scxyzt] in [pscxyzt], fermion_in:[scxyzt] in [pscxyzt], clover_inv:[scscxyzt] in [pscscxyzt], gauge:[pccdxyzt].
     """
     ...
@@ -206,7 +207,7 @@ def applyGaussGaugeQcu(_gauge: torch.Tensor = torch.Tensor([0.0]).to(dtype=defin
         [0]*define._SET_PTRS_SIZE_).to(dtype=torch.int64, device=torch.device('cpu')),
         _params: torch.Tensor = torch.Tensor([0]*define._PARAMS_SIZE_).to(dtype=torch.int32, device=torch.device('cpu'))) -> None:
     """
-    follow above, most values in params should be set.
+    # follow above, most values in params should be set.
     even-odd, gauge:[pccdxyzt].
     """
     ...
@@ -229,7 +230,7 @@ def applyCloverBistabCgQcu(_fermion_out: torch.Tensor = torch.Tensor([0.0]).to(d
     [0]*define._SET_PTRS_SIZE_).to(dtype=torch.int64, device=torch.device('cpu')),
     _params: torch.Tensor = torch.Tensor([0]*define._PARAMS_SIZE_).to(dtype=torch.int32, device=torch.device('cpu'))) -> None: 
     """
-    follow above, most values in params should be set.
+    # follow above, most values in params should be set.
     even-odd, parity in params should be set to 0 or 1, fermion_out:[scxyzt] in [pscxyzt], fermion_in:[scxyzt] in [pscxyzt], gauge:[pccdxyzt].
     """
     ...
