@@ -2,10 +2,10 @@ import torch
 from pyqcu import tools, dslash, lattice
 from pyqcu.cuda import qcu, define
 from pyqcu.cuda.define import params, argv, set_ptrs
-params[define._LAT_X_] = 4
-params[define._LAT_Y_] = 4
-params[define._LAT_Z_] = 4
-params[define._LAT_T_] = 8
+params[define._LAT_X_] = 4*2
+params[define._LAT_Y_] = 4*2
+params[define._LAT_Z_] = 4*2
+params[define._LAT_T_] = 8*2
 params[define._LAT_XYZT_] = params[define._LAT_X_] * \
     params[define._LAT_Y_]*params[define._LAT_Z_]*params[define._LAT_T_]
 params[define._GRID_X_], params[define._GRID_Y_], params[define._GRID_Z_], params[
@@ -15,8 +15,8 @@ params[define._NODE_RANK_] = define.rank
 params[define._NODE_SIZE_] = define.size
 params[define._DAGGER_] = 0
 params[define._MAX_ITER_] = 1000
-# params[define._DATA_TYPE_] = define._LAT_C64_
-params[define._DATA_TYPE_] = define._LAT_C128_
+params[define._DATA_TYPE_] = define._LAT_C64_
+# params[define._DATA_TYPE_] = define._LAT_C128_
 params[define._SET_INDEX_] = 0
 params[define._SET_PLAN_] = 1
 params[define._MG_X_] = 1
@@ -48,7 +48,6 @@ qcu.applyInitQcu(set_ptrs, params, argv)
 qcu.applyGaussGaugeQcu(gauge_eo, set_ptrs, params)
 print(lattice.check_su3(U=gauge_eo[0]))
 print(lattice.check_su3(U=gauge_eo[1]))
-# qcu.applyEndQcu(set_ptrs, params)
 print(set_ptrs)
 params[define._VERBOSE_] = 1
 params[define._SET_INDEX_] += 1
@@ -57,7 +56,6 @@ params[define._PARITY_] = 0
 qcu.applyInitQcu(set_ptrs, params, argv)
 qcu.applyWilsonBistabCgQcu(
     fermion_out_eo, fermion_in_eo, gauge_eo, set_ptrs, params)
-# qcu.applyEndQcu(set_ptrs, params)
 print(set_ptrs)
 qcu_dest = tools.poooxyzt2oooxyzt(input_array=fermion_out_eo)
 qcu_U = tools.poooxyzt2oooxyzt(input_array=gauge_eo)
@@ -82,7 +80,6 @@ params[define._SET_PLAN_] = 2
 params[define._PARITY_] = 0
 qcu.applyInitQcu(set_ptrs, params, argv)
 qcu.applyCloversQcu(clover_ee, clover_ee_inv, gauge_eo, set_ptrs, params)
-# qcu.applyEndQcu(set_ptrs, params)
 print(set_ptrs)
 params[define._VERBOSE_] = 1
 params[define._SET_INDEX_] += 1
@@ -90,7 +87,6 @@ params[define._SET_PLAN_] = 2
 params[define._PARITY_] = 1
 qcu.applyInitQcu(set_ptrs, params, argv)
 qcu.applyCloversQcu(clover_oo, clover_oo_inv, gauge_eo, set_ptrs, params)
-# qcu.applyEndQcu(set_ptrs, params)
 print(set_ptrs)
 fermion_out_eo = torch.zeros_like(fermion_out_eo)
 params[define._VERBOSE_] = 1
@@ -100,7 +96,6 @@ params[define._PARITY_] = 0
 qcu.applyInitQcu(set_ptrs, params, argv)
 qcu.applyCloverBistabCgQcu(fermion_out_eo, fermion_in_eo, gauge_eo,
                            clover_ee, clover_oo, clover_ee_inv, clover_oo_inv,  set_ptrs, params)
-# qcu.applyEndQcu(set_ptrs, params)
 print(set_ptrs)
 qcu_dest = tools.poooxyzt2oooxyzt(input_array=fermion_out_eo)
 qcu_U = tools.poooxyzt2oooxyzt(input_array=gauge_eo)
@@ -119,7 +114,6 @@ clover_eeoo[1] = clover_oo
 qcu_clover_term = tools.poooxyzt2oooxyzt(
     input_array=clover_eeoo)
 qcu_clover_term = dslash.cut_I(clover_term=qcu_clover_term)
-
 qcu_clover_term_eo = tools.oooxyzt2poooxyzt(
     input_array=qcu_clover_term)
 refer_clover_term_eo = tools.oooxyzt2poooxyzt(
@@ -132,8 +126,8 @@ print('refer_clover_term:', refer_clover_term.flatten()[:100])
 # print('refer_clover_term_eo:', refer_clover_term_eo[1].flatten()[:100])
 print('Difference:', tools.norm(refer_clover_term -
       qcu_clover_term)/tools.norm(qcu_clover_term))
-print("gauge_eo.is_contiguous():",gauge_eo.is_contiguous())
-print("fermion_in_eo.is_contiguous():",fermion_in_eo.is_contiguous())
-print("fermion_in_out.is_contiguous():",fermion_out_eo.is_contiguous())
-print("qcu_src.is_contiguous():",qcu_src.is_contiguous())
-print("qcu_dest.is_contiguous():",qcu_dest.is_contiguous())
+print("gauge_eo.is_contiguous():", gauge_eo.is_contiguous())
+print("fermion_in_eo.is_contiguous():", fermion_in_eo.is_contiguous())
+print("fermion_in_out.is_contiguous():", fermion_out_eo.is_contiguous())
+print("qcu_src.is_contiguous():", qcu_src.is_contiguous())
+print("qcu_dest.is_contiguous():", qcu_dest.is_contiguous())
