@@ -1,3 +1,7 @@
+import mpi4py.MPI as MPI
+import comm
+import os
+import datetime
 import torch
 from pyqcu import tools, dslash, lattice
 from pyqcu.cuda import qcu, define
@@ -112,3 +116,18 @@ print("fermion_in_eo.is_contiguous():", fermion_in_eo.is_contiguous())
 print("fermion_in_out.is_contiguous():", fermion_out_eo.is_contiguous())
 print("qcu_src.is_contiguous():", qcu_src.is_contiguous())
 print("qcu_dest.is_contiguous():", qcu_dest.is_contiguous())
+comm = MPI.COMM_WORLD
+time = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+rank = comm.Get_rank()
+prof = torch.profiler.profile(
+    record_shapes=True,
+    with_modules=True,
+    with_flops=True,
+    acc_events=True,
+    with_stack=True,
+)
+prof.start()
+qcu.applyCloversQcu(clover_ee, clover_ee_inv, gauge_eo, set_ptrs, params)
+prof.stop()
+prof.export_chrome_trace(
+    f"{os.path.abspath(os.path.dirname(__file__))}/trace_{time}_{rank}.json")
