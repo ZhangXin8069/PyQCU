@@ -2,7 +2,6 @@ import datetime
 import os
 import comm
 from pyqcu.testing import *
-import cProfile
 import torch
 # test_import()
 # test_lattice()
