@@ -1,0 +1,13 @@
+# init
+echo "There is init!"
+# source
+source ./env.sh
+# make
+ln -s CMakeLists-nv.txt CMakeLists.txt
+cmake .
+make -j$(nproc)
+# clean
+rm -rf CMakeFiles
+rm cmake_install.cmake
+rm CMakeCache.txt
+rm Makefile
