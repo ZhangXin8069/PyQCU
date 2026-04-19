@@ -77,57 +77,56 @@ clover_oo = torch.zeros(size=[4, 3, 4, 3]+[params[define._LAT_X_], params[define
                                            params[define._LAT_T_]//define._LAT_P_]).to(dtype=define.dtype(params[define._DATA_TYPE_]), device=torch.device('cuda'))
 clover_oo_inv = torch.zeros(size=[4, 3, 4, 3]+[params[define._LAT_X_], params[define._LAT_Y_], params[define._LAT_Z_],
                                                params[define._LAT_T_]//define._LAT_P_]).to(dtype=define.dtype(params[define._DATA_TYPE_]), device=torch.device('cuda'))
-# gauge_eo = torch.ones_like(gauge_eo)*2
-params[define._VERBOSE_] = 1
-params[define._SET_INDEX_] += 1
-params[define._SET_PLAN_] = 2
-params[define._PARITY_] = 0
-qcu.applyInitQcu(set_ptrs, params, argv)
-qcu.applyCloversQcu(clover_ee, clover_ee_inv, gauge_eo, set_ptrs, params)
-print(set_ptrs)
+# params[define._VERBOSE_] = 1
+# params[define._SET_INDEX_] += 1
+# params[define._SET_PLAN_] = 2
+# params[define._PARITY_] = 0
+# qcu.applyInitQcu(set_ptrs, params, argv)
+# qcu.applyCloversQcu(clover_ee, clover_ee_inv, gauge_eo, set_ptrs, params)
+# print(set_ptrs)
 params[define._VERBOSE_] = 1
 params[define._SET_INDEX_] += 1
 params[define._SET_PLAN_] = 2
 params[define._PARITY_] = 1
 qcu.applyInitQcu(set_ptrs, params, argv)
 qcu.applyCloversQcu(clover_oo, clover_oo_inv, gauge_eo, set_ptrs, params)
-print(set_ptrs)
-qcu_U = tools.poooxyzt2oooxyzt(input_array=gauge_eo)
-qcu_src = tools.poooxyzt2oooxyzt(input_array=fermion_in_eo)
-refer_clover_term = dslash.make_clover(
-    U=qcu_U, kappa=1 / (2 * argv[define._MASS_] + 8))
-clover_eeoo = torch.zeros(size=[2, 4, 3, 4, 3]+[params[define._LAT_X_], params[define._LAT_Y_], params[define._LAT_Z_],
-                                                params[define._LAT_T_]//define._LAT_P_]).to(dtype=define.dtype(params[define._DATA_TYPE_]), device=torch.device('cuda'))
-clover_eeoo[0] = clover_ee
-clover_eeoo[1] = clover_oo
-qcu_clover_term = tools.poooxyzt2oooxyzt(
-    input_array=clover_eeoo)
-qcu_clover_term = dslash.cut_I(clover_term=qcu_clover_term)
-qcu_clover_term_eo = tools.oooxyzt2poooxyzt(
-    input_array=qcu_clover_term)
-refer_clover_term_eo = tools.oooxyzt2poooxyzt(
-    input_array=refer_clover_term)
-print('qcu_clover_term:', qcu_clover_term.flatten()[:100])
-print('refer_clover_term:', refer_clover_term.flatten()[:100])
-print('Difference:', tools.norm(refer_clover_term -
-      qcu_clover_term)/tools.norm(qcu_clover_term))
-print("gauge_eo.is_contiguous():", gauge_eo.is_contiguous())
-print("fermion_in_eo.is_contiguous():", fermion_in_eo.is_contiguous())
-print("fermion_in_out.is_contiguous():", fermion_out_eo.is_contiguous())
-print("qcu_src.is_contiguous():", qcu_src.is_contiguous())
-print("qcu_dest.is_contiguous():", qcu_dest.is_contiguous())
-comm = MPI.COMM_WORLD
-time = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-rank = comm.Get_rank()
-prof = torch.profiler.profile(
-    record_shapes=True,
-    with_modules=True,
-    with_flops=True,
-    acc_events=True,
-    with_stack=True,
-)
-prof.start()
-qcu.applyCloversQcu(clover_ee, clover_ee_inv, gauge_eo, set_ptrs, params)
-prof.stop()
-prof.export_chrome_trace(
-    f"{os.path.abspath(os.path.dirname(__file__))}/trace_{time}_{rank}.json")
+# print(set_ptrs)
+# qcu_U = tools.poooxyzt2oooxyzt(input_array=gauge_eo)
+# qcu_src = tools.poooxyzt2oooxyzt(input_array=fermion_in_eo)
+# refer_clover_term = dslash.make_clover(
+#     U=qcu_U, kappa=1 / (2 * argv[define._MASS_] + 8))
+# clover_eeoo = torch.zeros(size=[2, 4, 3, 4, 3]+[params[define._LAT_X_], params[define._LAT_Y_], params[define._LAT_Z_],
+#                                                 params[define._LAT_T_]//define._LAT_P_]).to(dtype=define.dtype(params[define._DATA_TYPE_]), device=torch.device('cuda'))
+# clover_eeoo[0] = clover_ee
+# clover_eeoo[1] = clover_oo
+# qcu_clover_term = tools.poooxyzt2oooxyzt(
+#     input_array=clover_eeoo)
+# qcu_clover_term = dslash.cut_I(clover_term=qcu_clover_term)
+# qcu_clover_term_eo = tools.oooxyzt2poooxyzt(
+#     input_array=qcu_clover_term)
+# refer_clover_term_eo = tools.oooxyzt2poooxyzt(
+#     input_array=refer_clover_term)
+# print('qcu_clover_term:', qcu_clover_term.flatten()[:100])
+# print('refer_clover_term:', refer_clover_term.flatten()[:100])
+# print('Difference:', tools.norm(refer_clover_term -
+#       qcu_clover_term)/tools.norm(qcu_clover_term))
+# print("gauge_eo.is_contiguous():", gauge_eo.is_contiguous())
+# print("fermion_in_eo.is_contiguous():", fermion_in_eo.is_contiguous())
+# print("fermion_in_out.is_contiguous():", fermion_out_eo.is_contiguous())
+# print("qcu_src.is_contiguous():", qcu_src.is_contiguous())
+# print("qcu_dest.is_contiguous():", qcu_dest.is_contiguous())
+# comm = MPI.COMM_WORLD
+# time = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+# rank = comm.Get_rank()
+# prof = torch.profiler.profile(
+#     record_shapes=True,
+#     with_modules=True,
+#     with_flops=True,
+#     acc_events=True,
+#     with_stack=True,
+# )
+# prof.start()
+# qcu.applyCloversQcu(clover_ee, clover_ee_inv, gauge_eo, set_ptrs, params)
+# prof.stop()
+# prof.export_chrome_trace(
+#     f"{os.path.abspath(os.path.dirname(__file__))}/trace_{time}_{rank}.json")

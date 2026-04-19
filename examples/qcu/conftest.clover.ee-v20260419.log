@@ -1,0 +1,2440 @@
+tensor([   4,    4,    4,    8,  512,    1,    1,    1,    1,    0,    0,    1,
+           0, 1000,    2,    0,    1,    1,    1,    1,    1,   24,    1,   42,
+           0], dtype=torch.int32)
+tensor([5.0000e-02, 1.0000e-09, 1.0000e-01])
+tensor([0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+set_ptr:0x5576228b99f0
+set_ptrs:0x5576216ae240
+long long set_ptr:93965874076144
+gridDim.x                    :16
+blockDim.x                   :16
+host_params[_LAT_X_]         :4
+host_params[_LAT_Y_]         :4
+host_params[_LAT_Z_]         :4
+host_params[_LAT_T_]         :4
+host_params[_LAT_XYZT_]      :256
+host_params[_GRID_X_]        :1
+host_params[_GRID_Y_]        :1
+host_params[_GRID_Z_]        :1
+host_params[_GRID_T_]        :1
+host_params[_PARITY_]        :0
+host_params[_NODE_RANK_]     :0
+host_params[_NODE_SIZE_]     :1
+host_params[_DAGGER_]        :0
+host_params[_MAX_ITER_]      :1000
+host_params[_DATA_TYPE_]     :2
+host_params[_SET_INDEX_]     :0
+host_params[_SET_PLAN_]      :-1
+host_params[_MG_X_]          :1
+host_params[_MG_Y_]          :1
+host_params[_MG_Z_]          :1
+host_params[_MG_T_]          :1
+host_params[_LAT_E_]         :24
+host_params[_VERBOSE_]       :1
+host_params[_SEED_]          :42
+host_params[_TEST_IN_CPU_]   :0
+host_argv[_MASS_]            :5.000000e-02
+host_argv[_TOL_]             :1.000000e-09
+host_argv[_SIGMA_]           :1.000000e-01
+lat_2dim[_XY_]               :16
+lat_2dim[_XZ_]               :16
+lat_2dim[_XT_]               :16
+lat_2dim[_YZ_]               :16
+lat_2dim[_YT_]               :16
+lat_2dim[_ZT_]               :16
+lat_3dim[_YZT_]              :64
+lat_3dim[_XZT_]              :64
+lat_3dim[_XYT_]              :64
+lat_3dim[_XYZ_]              :64
+lat_4dim                     :256
+grid_1dim[_X_]               :1
+grid_1dim[_Y_]               :1
+grid_1dim[_Z_]               :1
+grid_1dim[_T_]               :1
+grid_2dim[_XY_]              :1
+grid_2dim[_XZ_]              :1
+grid_2dim[_XT_]              :1
+grid_2dim[_YZ_]              :1
+grid_2dim[_YT_]              :1
+grid_2dim[_ZT_]              :1
+grid_3dim[_YZT_]             :1
+grid_3dim[_XZT_]             :1
+grid_3dim[_XYT_]             :1
+grid_3dim[_XYZ_]             :1
+grid_index_1dim[_X_]         :0
+grid_index_1dim[_Y_]         :0
+grid_index_1dim[_Z_]         :0
+grid_index_1dim[_T_]         :0
+move_wards[_B_X_]            :0
+move_wards[_B_Y_]            :0
+move_wards[_B_Z_]            :0
+move_wards[_B_T_]            :0
+move_wards[_F_X_]            :0
+move_wards[_F_Y_]            :0
+move_wards[_F_Z_]            :0
+move_wards[_F_T_]            :0
+move_wards[_BX_BY_]          :0
+move_wards[_BX_BZ_]          :0
+move_wards[_BX_BT_]          :0
+move_wards[_BY_BZ_]          :0
+move_wards[_BY_BT_]          :0
+move_wards[_BZ_BT_]          :0
+move_wards[_FX_BY_]          :0
+move_wards[_FX_BZ_]          :0
+move_wards[_FX_BT_]          :0
+move_wards[_FY_BZ_]          :0
+move_wards[_FY_BT_]          :0
+move_wards[_FZ_BT_]          :0
+move_wards[_BX_FY_]          :0
+move_wards[_BX_FZ_]          :0
+move_wards[_BX_FT_]          :0
+move_wards[_BY_FZ_]          :0
+move_wards[_BY_FT_]          :0
+move_wards[_BZ_FT_]          :0
+move_wards[_FX_FY_]          :0
+move_wards[_FX_FZ_]          :0
+move_wards[_FX_FT_]          :0
+move_wards[_FY_FZ_]          :0
+move_wards[_FY_FT_]          :0
+move_wards[_FZ_FT_]          :0
+lattice set init total time:0.016423283 sec
+multi-gpu make gauss gauge total time: (with malloc free memcpy) :0.000628232 sec
+PYQCU::TESTING::LATTICE:
+ [check_su3] Total matrices checked: 1024
+PYQCU::TESTING::LATTICE:
+ Unitary check   : False
+PYQCU::TESTING::LATTICE:
+ Determinant=1   : True
+PYQCU::TESTING::LATTICE:
+ Minor identities: True
+PYQCU::TESTING::LATTICE:
+ Max unitary deviation: 2.385160e-07
+False
+PYQCU::TESTING::LATTICE:
+ [check_su3] Total matrices checked: 1024
+PYQCU::TESTING::LATTICE:
+ Unitary check   : False
+PYQCU::TESTING::LATTICE:
+ Determinant=1   : True
+PYQCU::TESTING::LATTICE:
+ Minor identities: True
+PYQCU::TESTING::LATTICE:
+ Max unitary deviation: 2.384294e-07
+False
+tensor([93965874076144,              0,              0,              0,
+                     0,              0,              0,              0,
+                     0,              0])
+set_ptr:0x55762ba9d060
+set_ptrs:0x5576216ae240
+long long set_ptr:93966027051104
+gridDim.x                    :16
+blockDim.x                   :16
+host_params[_LAT_X_]         :4
+host_params[_LAT_Y_]         :4
+host_params[_LAT_Z_]         :4
+host_params[_LAT_T_]         :4
+host_params[_LAT_XYZT_]      :256
+host_params[_GRID_X_]        :1
+host_params[_GRID_Y_]        :1
+host_params[_GRID_Z_]        :1
+host_params[_GRID_T_]        :1
+host_params[_PARITY_]        :0
+host_params[_NODE_RANK_]     :0
+host_params[_NODE_SIZE_]     :1
+host_params[_DAGGER_]        :0
+host_params[_MAX_ITER_]      :1000
+host_params[_DATA_TYPE_]     :2
+host_params[_SET_INDEX_]     :1
+host_params[_SET_PLAN_]      :1
+host_params[_MG_X_]          :1
+host_params[_MG_Y_]          :1
+host_params[_MG_Z_]          :1
+host_params[_MG_T_]          :1
+host_params[_LAT_E_]         :24
+host_params[_VERBOSE_]       :1
+host_params[_SEED_]          :42
+host_params[_TEST_IN_CPU_]   :0
+host_argv[_MASS_]            :5.000000e-02
+host_argv[_TOL_]             :1.000000e-09
+host_argv[_SIGMA_]           :1.000000e-01
+lat_2dim[_XY_]               :16
+lat_2dim[_XZ_]               :16
+lat_2dim[_XT_]               :16
+lat_2dim[_YZ_]               :16
+lat_2dim[_YT_]               :16
+lat_2dim[_ZT_]               :16
+lat_3dim[_YZT_]              :64
+lat_3dim[_XZT_]              :64
+lat_3dim[_XYT_]              :64
+lat_3dim[_XYZ_]              :64
+lat_4dim                     :256
+grid_1dim[_X_]               :1
+grid_1dim[_Y_]               :1
+grid_1dim[_Z_]               :1
+grid_1dim[_T_]               :1
+grid_2dim[_XY_]              :1
+grid_2dim[_XZ_]              :1
+grid_2dim[_XT_]              :1
+grid_2dim[_YZ_]              :1
+grid_2dim[_YT_]              :1
+grid_2dim[_ZT_]              :1
+grid_3dim[_YZT_]             :1
+grid_3dim[_XZT_]             :1
+grid_3dim[_XYT_]             :1
+grid_3dim[_XYZ_]             :1
+grid_index_1dim[_X_]         :0
+grid_index_1dim[_Y_]         :0
+grid_index_1dim[_Z_]         :0
+grid_index_1dim[_T_]         :0
+move_wards[_B_X_]            :0
+move_wards[_B_Y_]            :0
+move_wards[_B_Z_]            :0
+move_wards[_B_T_]            :0
+move_wards[_F_X_]            :0
+move_wards[_F_Y_]            :0
+move_wards[_F_Z_]            :0
+move_wards[_F_T_]            :0
+move_wards[_BX_BY_]          :0
+move_wards[_BX_BZ_]          :0
+move_wards[_BX_BT_]          :0
+move_wards[_BY_BZ_]          :0
+move_wards[_BY_BT_]          :0
+move_wards[_BZ_BT_]          :0
+move_wards[_FX_BY_]          :0
+move_wards[_FX_BZ_]          :0
+move_wards[_FX_BT_]          :0
+move_wards[_FY_BZ_]          :0
+move_wards[_FY_BT_]          :0
+move_wards[_FZ_BT_]          :0
+move_wards[_BX_FY_]          :0
+move_wards[_BX_FZ_]          :0
+move_wards[_BX_FT_]          :0
+move_wards[_BY_FZ_]          :0
+move_wards[_BY_FT_]          :0
+move_wards[_BZ_FT_]          :0
+move_wards[_FX_FY_]          :0
+move_wards[_FX_FZ_]          :0
+move_wards[_FX_FT_]          :0
+move_wards[_FY_FZ_]          :0
+move_wards[_FY_FT_]          :0
+move_wards[_FZ_FT_]          :0
+lattice set init total time:0.002476500 sec
+##RANK:0##LOOP:67##Residual:(9.64369e-10,1.30224e-19i)
+multi-gpu wilson bistabcg total time: (without malloc free memcpy) :0.133317728 sec
+######TIME  :141.587######
+##RANK      :0
+##LOOP      :0
+##tmp0      :(4.22673e-11,1.1234e-11i)
+##tmp1      :(8.57584e-12,1.31527e-21i)
+##rho_prev  :(-1.02773e-07,3.35007e-07i)
+##rho       :(-1.02773e-07,3.35007e-07i)
+##alpha     :(0.560504,0.12437i)
+##beta      :(-0.258047,0.555666i)
+##omega     :(4.92865,1.30995i)
+##send_tmp  :(6.55117e-08,0i)
+##norm2_tmp :(6603.59,2.03907e-07i)
+##diff_tmp  :(9.92062e-12,-3.0633e-22i)
+##lat_4dim  :(256,0i)
+tensor([93965874076144, 93966027051104,              0,              0,
+                     0,              0,              0,              0,
+                     0,              0])
+qcu_src: tensor([0.7089+0.8398j, 0.3232+0.7239j, 0.7090+0.1537j, 0.5666+0.4351j,
+        0.0115+0.6877j, 0.1310+0.8747j, 0.5278+0.1190j, 0.4714+0.3214j,
+        0.3441+0.4537j, 0.0795+0.0338j, 0.4428+0.8057j, 0.2539+0.8428j,
+        0.5434+0.6093j, 0.0568+0.8684j, 0.6277+0.8138j, 0.8318+0.3817j,
+        0.6397+0.2240j, 0.2873+0.9137j, 0.7078+0.9949j, 0.1433+0.2448j,
+        0.2186+0.0160j, 0.8120+0.1375j, 0.6492+0.3335j, 0.5775+0.5173j,
+        0.5638+0.5586j, 0.9788+0.6734j, 0.2449+0.5839j, 0.5454+0.9369j,
+        0.0702+0.1656j, 0.9020+0.7326j, 0.9745+0.0624j, 0.2187+0.0337j,
+        0.7038+0.7103j, 0.8890+0.9430j, 0.6794+0.4184j, 0.5941+0.9730j,
+        0.4377+0.1377j, 0.7784+0.5712j, 0.7341+0.3637j, 0.2402+0.4493j,
+        0.5791+0.0486j, 0.6197+0.8821j, 0.1620+0.8023j, 0.0208+0.8497j,
+        0.5101+0.3825j, 0.0333+0.1428j, 0.5641+0.0975j, 0.2173+0.9578j,
+        0.2957+0.7213j, 0.6614+0.0042j, 0.6757+0.0730j, 0.5721+0.3089j,
+        0.0343+0.0335j, 0.1018+0.5689j, 0.8431+0.1016j, 0.1280+0.3922j,
+        0.3562+0.4223j, 0.9076+0.0298j, 0.0819+0.3601j, 0.0344+0.8264j,
+        0.2752+0.3076j, 0.1905+0.8048j, 0.2176+0.2355j, 0.2262+0.2791j,
+        0.8880+0.6790j, 0.8511+0.1022j, 0.0738+0.9987j, 0.9345+0.7296j,
+        0.7636+0.8597j, 0.5583+0.5081j, 0.1335+0.1508j, 0.6933+0.8580j,
+        0.2590+0.2491j, 0.2170+0.3536j, 0.7958+0.8032j, 0.5396+0.2788j,
+        0.8087+0.4373j, 0.1460+0.8691j, 0.7734+0.5808j, 0.6681+0.7787j,
+        0.7058+0.4385j, 0.0861+0.5794j, 0.3392+0.3154j, 0.2543+0.0114j,
+        0.5934+0.7593j, 0.5311+0.9366j, 0.6541+0.8619j, 0.1699+0.9347j,
+        0.0186+0.4277j, 0.0962+0.4556j, 0.0718+0.9275j, 0.1224+0.4363j,
+        0.9620+0.6234j, 0.3225+0.9314j, 0.9468+0.0616j, 0.9447+0.2151j,
+        0.3818+0.7860j, 0.3878+0.6532j, 0.4329+0.7415j, 0.2030+0.7193j],
+       device='cuda:0')
+refer_src: tensor([0.7089+0.8398j, 0.3232+0.7239j, 0.7090+0.1537j, 0.5666+0.4351j,
+        0.0115+0.6877j, 0.1310+0.8747j, 0.5278+0.1190j, 0.4714+0.3214j,
+        0.3441+0.4537j, 0.0795+0.0338j, 0.4428+0.8057j, 0.2539+0.8428j,
+        0.5434+0.6093j, 0.0568+0.8684j, 0.6277+0.8138j, 0.8318+0.3817j,
+        0.6397+0.2240j, 0.2873+0.9137j, 0.7078+0.9949j, 0.1433+0.2448j,
+        0.2186+0.0160j, 0.8120+0.1375j, 0.6492+0.3335j, 0.5775+0.5173j,
+        0.5638+0.5586j, 0.9788+0.6734j, 0.2449+0.5839j, 0.5454+0.9369j,
+        0.0702+0.1656j, 0.9020+0.7326j, 0.9745+0.0624j, 0.2187+0.0337j,
+        0.7038+0.7103j, 0.8890+0.9430j, 0.6794+0.4184j, 0.5941+0.9730j,
+        0.4377+0.1377j, 0.7784+0.5712j, 0.7341+0.3637j, 0.2402+0.4493j,
+        0.5791+0.0486j, 0.6197+0.8821j, 0.1620+0.8023j, 0.0208+0.8497j,
+        0.5100+0.3825j, 0.0333+0.1428j, 0.5641+0.0975j, 0.2173+0.9578j,
+        0.2957+0.7213j, 0.6614+0.0042j, 0.6757+0.0730j, 0.5721+0.3089j,
+        0.0343+0.0335j, 0.1018+0.5689j, 0.8431+0.1016j, 0.1280+0.3922j,
+        0.3562+0.4223j, 0.9076+0.0298j, 0.0819+0.3601j, 0.0344+0.8264j,
+        0.2752+0.3076j, 0.1905+0.8048j, 0.2176+0.2355j, 0.2262+0.2791j,
+        0.8880+0.6790j, 0.8511+0.1022j, 0.0738+0.9987j, 0.9345+0.7296j,
+        0.7636+0.8597j, 0.5583+0.5081j, 0.1335+0.1508j, 0.6933+0.8580j,
+        0.2590+0.2491j, 0.2170+0.3536j, 0.7958+0.8032j, 0.5396+0.2788j,
+        0.8087+0.4373j, 0.1460+0.8691j, 0.7734+0.5808j, 0.6681+0.7787j,
+        0.7058+0.4385j, 0.0861+0.5794j, 0.3392+0.3154j, 0.2543+0.0114j,
+        0.5934+0.7593j, 0.5311+0.9366j, 0.6541+0.8619j, 0.1699+0.9347j,
+        0.0186+0.4277j, 0.0962+0.4556j, 0.0718+0.9275j, 0.1224+0.4363j,
+        0.9620+0.6234j, 0.3225+0.9314j, 0.9468+0.0616j, 0.9447+0.2151j,
+        0.3818+0.7860j, 0.3878+0.6532j, 0.4329+0.7415j, 0.2030+0.7193j],
+       device='cuda:0')
+Difference: 4.089167673879234e-06
+set_ptr:0x55762fda2920
+set_ptrs:0x5576216ae240
+long long set_ptr:93966097328416
+gridDim.x                    :16
+blockDim.x                   :16
+host_params[_LAT_X_]         :4
+host_params[_LAT_Y_]         :4
+host_params[_LAT_Z_]         :4
+host_params[_LAT_T_]         :4
+host_params[_LAT_XYZT_]      :256
+host_params[_GRID_X_]        :1
+host_params[_GRID_Y_]        :1
+host_params[_GRID_Z_]        :1
+host_params[_GRID_T_]        :1
+host_params[_PARITY_]        :0
+host_params[_NODE_RANK_]     :0
+host_params[_NODE_SIZE_]     :1
+host_params[_DAGGER_]        :0
+host_params[_MAX_ITER_]      :1000
+host_params[_DATA_TYPE_]     :2
+host_params[_SET_INDEX_]     :2
+host_params[_SET_PLAN_]      :2
+host_params[_MG_X_]          :1
+host_params[_MG_Y_]          :1
+host_params[_MG_Z_]          :1
+host_params[_MG_T_]          :1
+host_params[_LAT_E_]         :24
+host_params[_VERBOSE_]       :1
+host_params[_SEED_]          :42
+host_params[_TEST_IN_CPU_]   :0
+host_argv[_MASS_]            :5.000000e-02
+host_argv[_TOL_]             :1.000000e-09
+host_argv[_SIGMA_]           :1.000000e-01
+lat_2dim[_XY_]               :16
+lat_2dim[_XZ_]               :16
+lat_2dim[_XT_]               :16
+lat_2dim[_YZ_]               :16
+lat_2dim[_YT_]               :16
+lat_2dim[_ZT_]               :16
+lat_3dim[_YZT_]              :64
+lat_3dim[_XZT_]              :64
+lat_3dim[_XYT_]              :64
+lat_3dim[_XYZ_]              :64
+lat_4dim                     :256
+grid_1dim[_X_]               :1
+grid_1dim[_Y_]               :1
+grid_1dim[_Z_]               :1
+grid_1dim[_T_]               :1
+grid_2dim[_XY_]              :1
+grid_2dim[_XZ_]              :1
+grid_2dim[_XT_]              :1
+grid_2dim[_YZ_]              :1
+grid_2dim[_YT_]              :1
+grid_2dim[_ZT_]              :1
+grid_3dim[_YZT_]             :1
+grid_3dim[_XZT_]             :1
+grid_3dim[_XYT_]             :1
+grid_3dim[_XYZ_]             :1
+grid_index_1dim[_X_]         :0
+grid_index_1dim[_Y_]         :0
+grid_index_1dim[_Z_]         :0
+grid_index_1dim[_T_]         :0
+move_wards[_B_X_]            :0
+move_wards[_B_Y_]            :0
+move_wards[_B_Z_]            :0
+move_wards[_B_T_]            :0
+move_wards[_F_X_]            :0
+move_wards[_F_Y_]            :0
+move_wards[_F_Z_]            :0
+move_wards[_F_T_]            :0
+move_wards[_BX_BY_]          :0
+move_wards[_BX_BZ_]          :0
+move_wards[_BX_BT_]          :0
+move_wards[_BY_BZ_]          :0
+move_wards[_BY_BT_]          :0
+move_wards[_BZ_BT_]          :0
+move_wards[_FX_BY_]          :0
+move_wards[_FX_BZ_]          :0
+move_wards[_FX_BT_]          :0
+move_wards[_FY_BZ_]          :0
+move_wards[_FY_BT_]          :0
+move_wards[_FZ_BT_]          :0
+move_wards[_BX_FY_]          :0
+move_wards[_BX_FZ_]          :0
+move_wards[_BX_FT_]          :0
+move_wards[_BY_FZ_]          :0
+move_wards[_BY_FT_]          :0
+move_wards[_BZ_FT_]          :0
+move_wards[_FX_FY_]          :0
+move_wards[_FX_FZ_]          :0
+move_wards[_FX_FT_]          :0
+move_wards[_FY_FZ_]          :0
+move_wards[_FY_FT_]          :0
+move_wards[_FZ_FT_]          :0
+lattice set init total time:0.001601453 sec
+if_f_x:p,x,y,z,t:0,3,2,0,0,tmp2[0]._data.x:-2.000000e+02
+if_f_x:p,x,y,z,t:0,3,2,0,1,tmp2[0]._data.x:-2.010000e+02
+if_f_x:p,x,y,z,t:0,3,2,0,2,tmp2[0]._data.x:-2.020000e+02
+if_f_x:p,x,y,z,t:0,3,2,0,3,tmp2[0]._data.x:-2.030000e+02
+if_f_x:p,x,y,z,t:0,3,2,1,0,tmp2[0]._data.x:-2.100000e+02
+if_f_x:p,x,y,z,t:0,3,2,1,1,tmp2[0]._data.x:-2.110000e+02
+if_f_x:p,x,y,z,t:0,3,2,1,2,tmp2[0]._data.x:-2.120000e+02
+if_f_x:p,x,y,z,t:0,3,2,1,3,tmp2[0]._data.x:-2.130000e+02
+if_f_x:p,x,y,z,t:0,3,2,2,0,tmp2[0]._data.x:-2.200000e+02
+if_f_x:p,x,y,z,t:0,3,2,2,1,tmp2[0]._data.x:-2.210000e+02
+if_f_x:p,x,y,z,t:0,3,2,2,2,tmp2[0]._data.x:-2.220000e+02
+if_f_x:p,x,y,z,t:0,3,2,2,3,tmp2[0]._data.x:-2.230000e+02
+if_f_x:p,x,y,z,t:0,3,2,3,0,tmp2[0]._data.x:-2.300000e+02
+if_f_x:p,x,y,z,t:0,3,2,3,1,tmp2[0]._data.x:-2.310000e+02
+if_f_x:p,x,y,z,t:0,3,2,3,2,tmp2[0]._data.x:-2.320000e+02
+if_f_x:p,x,y,z,t:0,3,2,3,3,tmp2[0]._data.x:-2.330000e+02
+if_b_x:p,x,y,z,t:0,0,2,0,0,tmp1[0]._data.x:2.000000e+02
+if_b_x:p,x,y,z,t:0,0,2,0,1,tmp1[0]._data.x:2.010000e+02
+if_b_x:p,x,y,z,t:0,0,2,0,2,tmp1[0]._data.x:2.020000e+02
+if_b_x:p,x,y,z,t:0,0,2,0,3,tmp1[0]._data.x:2.030000e+02
+if_b_x:p,x,y,z,t:0,0,2,1,0,tmp1[0]._data.x:2.100000e+02
+if_b_x:p,x,y,z,t:0,0,2,1,1,tmp1[0]._data.x:2.110000e+02
+if_b_x:p,x,y,z,t:0,0,2,1,2,tmp1[0]._data.x:2.120000e+02
+if_b_x:p,x,y,z,t:0,0,2,1,3,tmp1[0]._data.x:2.130000e+02
+if_b_x:p,x,y,z,t:0,0,2,2,0,tmp1[0]._data.x:2.200000e+02
+if_b_x:p,x,y,z,t:0,0,2,2,1,tmp1[0]._data.x:2.210000e+02
+if_b_x:p,x,y,z,t:0,0,2,2,2,tmp1[0]._data.x:2.220000e+02
+if_b_x:p,x,y,z,t:0,0,2,2,3,tmp1[0]._data.x:2.230000e+02
+if_b_x:p,x,y,z,t:0,0,2,3,0,tmp1[0]._data.x:2.300000e+02
+if_b_x:p,x,y,z,t:0,0,2,3,1,tmp1[0]._data.x:2.310000e+02
+if_b_x:p,x,y,z,t:0,0,2,3,2,tmp1[0]._data.x:2.320000e+02
+if_b_x:p,x,y,z,t:0,0,2,3,3,tmp1[0]._data.x:2.330000e+02
+if_f_x:p,x,y,z,t:0,3,1,0,0,tmp2[0]._data.x:-1.000000e+02
+if_f_x:p,x,y,z,t:0,3,1,0,1,tmp2[0]._data.x:-1.010000e+02
+if_f_x:p,x,y,z,t:0,3,1,0,2,tmp2[0]._data.x:-1.020000e+02
+if_f_x:p,x,y,z,t:0,3,1,0,3,tmp2[0]._data.x:-1.030000e+02
+if_f_x:p,x,y,z,t:0,3,1,1,0,tmp2[0]._data.x:-1.100000e+02
+if_f_x:p,x,y,z,t:0,3,1,1,1,tmp2[0]._data.x:-1.110000e+02
+if_f_x:p,x,y,z,t:0,3,1,1,2,tmp2[0]._data.x:-1.120000e+02
+if_f_x:p,x,y,z,t:0,3,1,1,3,tmp2[0]._data.x:-1.130000e+02
+if_f_x:p,x,y,z,t:0,3,1,2,0,tmp2[0]._data.x:-1.200000e+02
+if_f_x:p,x,y,z,t:0,3,1,2,1,tmp2[0]._data.x:-1.210000e+02
+if_f_x:p,x,y,z,t:0,3,1,2,2,tmp2[0]._data.x:-1.220000e+02
+if_f_x:p,x,y,z,t:0,3,1,2,3,tmp2[0]._data.x:-1.230000e+02
+if_f_x:p,x,y,z,t:0,3,1,3,0,tmp2[0]._data.x:-1.300000e+02
+if_f_x:p,x,y,z,t:0,3,1,3,1,tmp2[0]._data.x:-1.310000e+02
+if_f_x:p,x,y,z,t:0,3,1,3,2,tmp2[0]._data.x:-1.320000e+02
+if_f_x:p,x,y,z,t:0,3,1,3,3,tmp2[0]._data.x:-1.330000e+02
+if_b_x:p,x,y,z,t:0,0,1,0,0,tmp1[0]._data.x:1.000000e+02
+if_b_x:p,x,y,z,t:0,0,1,0,1,tmp1[0]._data.x:1.010000e+02
+if_b_x:p,x,y,z,t:0,0,1,0,2,tmp1[0]._data.x:1.020000e+02
+if_b_x:p,x,y,z,t:0,0,1,0,3,tmp1[0]._data.x:1.030000e+02
+if_b_x:p,x,y,z,t:0,0,1,1,0,tmp1[0]._data.x:1.100000e+02
+if_b_x:p,x,y,z,t:0,0,1,1,1,tmp1[0]._data.x:1.110000e+02
+if_b_x:p,x,y,z,t:0,0,1,1,2,tmp1[0]._data.x:1.120000e+02
+if_b_x:p,x,y,z,t:0,0,1,1,3,tmp1[0]._data.x:1.130000e+02
+if_b_x:p,x,y,z,t:0,0,1,2,0,tmp1[0]._data.x:1.200000e+02
+if_b_x:p,x,y,z,t:0,0,1,2,1,tmp1[0]._data.x:1.210000e+02
+if_b_x:p,x,y,z,t:0,0,1,2,2,tmp1[0]._data.x:1.220000e+02
+if_b_x:p,x,y,z,t:0,0,1,2,3,tmp1[0]._data.x:1.230000e+02
+if_b_x:p,x,y,z,t:0,0,1,3,0,tmp1[0]._data.x:1.300000e+02
+if_b_x:p,x,y,z,t:0,0,1,3,1,tmp1[0]._data.x:1.310000e+02
+if_b_x:p,x,y,z,t:0,0,1,3,2,tmp1[0]._data.x:1.320000e+02
+if_b_x:p,x,y,z,t:0,0,1,3,3,tmp1[0]._data.x:1.330000e+02
+if_f_x:p,x,y,z,t:0,3,3,0,0,tmp2[0]._data.x:-3.000000e+02
+if_f_x:p,x,y,z,t:0,3,3,0,1,tmp2[0]._data.x:-3.010000e+02
+if_f_x:p,x,y,z,t:0,3,3,0,2,tmp2[0]._data.x:-3.020000e+02
+if_f_x:p,x,y,z,t:0,3,3,0,3,tmp2[0]._data.x:-3.030000e+02
+if_f_x:p,x,y,z,t:0,3,3,1,0,tmp2[0]._data.x:-3.100000e+02
+if_f_x:p,x,y,z,t:0,3,3,1,1,tmp2[0]._data.x:-3.110000e+02
+if_f_x:p,x,y,z,t:0,3,3,1,2,tmp2[0]._data.x:-3.120000e+02
+if_f_x:p,x,y,z,t:0,3,3,1,3,tmp2[0]._data.x:-3.130000e+02
+if_f_x:p,x,y,z,t:0,3,3,2,0,tmp2[0]._data.x:-3.200000e+02
+if_f_x:p,x,y,z,t:0,3,3,2,1,tmp2[0]._data.x:-3.210000e+02
+if_f_x:p,x,y,z,t:0,3,3,2,2,tmp2[0]._data.x:-3.220000e+02
+if_f_x:p,x,y,z,t:0,3,3,2,3,tmp2[0]._data.x:-3.230000e+02
+if_f_x:p,x,y,z,t:0,3,3,3,0,tmp2[0]._data.x:-3.300000e+02
+if_f_x:p,x,y,z,t:0,3,3,3,1,tmp2[0]._data.x:-3.310000e+02
+if_f_x:p,x,y,z,t:0,3,3,3,2,tmp2[0]._data.x:-3.320000e+02
+if_f_x:p,x,y,z,t:0,3,3,3,3,tmp2[0]._data.x:-3.330000e+02
+if_b_x:p,x,y,z,t:0,0,3,0,0,tmp1[0]._data.x:3.000000e+02
+if_b_x:p,x,y,z,t:0,0,3,0,1,tmp1[0]._data.x:3.010000e+02
+if_b_x:p,x,y,z,t:0,0,3,0,2,tmp1[0]._data.x:3.020000e+02
+if_b_x:p,x,y,z,t:0,0,3,0,3,tmp1[0]._data.x:3.030000e+02
+if_b_x:p,x,y,z,t:0,0,3,1,0,tmp1[0]._data.x:3.100000e+02
+if_b_x:p,x,y,z,t:0,0,3,1,1,tmp1[0]._data.x:3.110000e+02
+if_b_x:p,x,y,z,t:0,0,3,1,2,tmp1[0]._data.x:3.120000e+02
+if_b_x:p,x,y,z,t:0,0,3,1,3,tmp1[0]._data.x:3.130000e+02
+if_b_x:p,x,y,z,t:0,0,3,2,0,tmp1[0]._data.x:3.200000e+02
+if_b_x:p,x,y,z,t:0,0,3,2,1,tmp1[0]._data.x:3.210000e+02
+if_b_x:p,x,y,z,t:0,0,3,2,2,tmp1[0]._data.x:3.220000e+02
+if_b_x:p,x,y,z,t:0,0,3,2,3,tmp1[0]._data.x:3.230000e+02
+if_b_x:p,x,y,z,t:0,0,3,3,0,tmp1[0]._data.x:3.300000e+02
+if_b_x:p,x,y,z,t:0,0,3,3,1,tmp1[0]._data.x:3.310000e+02
+if_b_x:p,x,y,z,t:0,0,3,3,2,tmp1[0]._data.x:3.320000e+02
+if_b_x:p,x,y,z,t:0,0,3,3,3,tmp1[0]._data.x:3.330000e+02
+if_f_x:p,x,y,z,t:0,3,0,0,0,tmp2[0]._data.x:0.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,0,1,tmp2[0]._data.x:-1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,0,2,tmp2[0]._data.x:-2.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,0,3,tmp2[0]._data.x:-3.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,1,0,tmp2[0]._data.x:-1.000000e+01
+if_f_x:p,x,y,z,t:0,3,0,1,1,tmp2[0]._data.x:-1.100000e+01
+if_f_x:p,x,y,z,t:0,3,0,1,2,tmp2[0]._data.x:-1.200000e+01
+if_f_x:p,x,y,z,t:0,3,0,1,3,tmp2[0]._data.x:-1.300000e+01
+if_f_x:p,x,y,z,t:0,3,0,2,0,tmp2[0]._data.x:-2.000000e+01
+if_f_x:p,x,y,z,t:0,3,0,2,1,tmp2[0]._data.x:-2.100000e+01
+if_f_x:p,x,y,z,t:0,3,0,2,2,tmp2[0]._data.x:-2.200000e+01
+if_f_x:p,x,y,z,t:0,3,0,2,3,tmp2[0]._data.x:-2.300000e+01
+if_f_x:p,x,y,z,t:0,3,0,3,0,tmp2[0]._data.x:-3.000000e+01
+if_f_x:p,x,y,z,t:0,3,0,3,1,tmp2[0]._data.x:-3.100000e+01
+if_f_x:p,x,y,z,t:0,3,0,3,2,tmp2[0]._data.x:-3.200000e+01
+if_f_x:p,x,y,z,t:0,3,0,3,3,tmp2[0]._data.x:-3.300000e+01
+if_b_x:p,x,y,z,t:0,0,0,0,0,tmp1[0]._data.x:0.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,0,1,tmp1[0]._data.x:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,0,2,tmp1[0]._data.x:2.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,0,3,tmp1[0]._data.x:3.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,1,0,tmp1[0]._data.x:1.000000e+01
+if_b_x:p,x,y,z,t:0,0,0,1,1,tmp1[0]._data.x:1.100000e+01
+if_b_x:p,x,y,z,t:0,0,0,1,2,tmp1[0]._data.x:1.200000e+01
+if_b_x:p,x,y,z,t:0,0,0,1,3,tmp1[0]._data.x:1.300000e+01
+if_b_x:p,x,y,z,t:0,0,0,2,0,tmp1[0]._data.x:2.000000e+01
+if_b_x:p,x,y,z,t:0,0,0,2,1,tmp1[0]._data.x:2.100000e+01
+if_b_x:p,x,y,z,t:0,0,0,2,2,tmp1[0]._data.x:2.200000e+01
+if_b_x:p,x,y,z,t:0,0,0,2,3,tmp1[0]._data.x:2.300000e+01
+if_b_x:p,x,y,z,t:0,0,0,3,0,tmp1[0]._data.x:3.000000e+01
+if_b_x:p,x,y,z,t:0,0,0,3,1,tmp1[0]._data.x:3.100000e+01
+if_b_x:p,x,y,z,t:0,0,0,3,2,tmp1[0]._data.x:3.200000e+01
+if_b_x:p,x,y,z,t:0,0,0,3,3,tmp1[0]._data.x:3.300000e+01
+if_f_x:p,x,y,z,t:0,3,2,0,0,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,2,0,1,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,2,0,2,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,2,0,3,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,2,1,0,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,2,1,1,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,2,1,2,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,2,1,3,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,2,2,0,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,2,2,1,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,2,2,2,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,2,2,3,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,2,3,0,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,2,3,1,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,2,3,2,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,2,3,3,tmp2[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,2,0,0,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,2,0,1,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,2,0,2,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,2,0,3,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,2,1,0,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,2,1,1,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,2,1,2,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,2,1,3,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,2,2,0,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,2,2,1,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,2,2,2,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,2,2,3,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,2,3,0,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,2,3,1,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,2,3,2,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,2,3,3,tmp1[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,1,0,0,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,1,0,1,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,1,0,2,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,1,0,3,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,1,1,0,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,1,1,1,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,1,1,2,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,1,1,3,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,1,2,0,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,1,2,1,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,1,2,2,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,1,2,3,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,1,3,0,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,1,3,1,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,1,3,2,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,1,3,3,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,3,0,0,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,3,0,1,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,3,0,2,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,3,0,3,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,3,1,0,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,3,1,1,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,3,1,2,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,3,1,3,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,3,2,0,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,3,2,1,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,3,2,2,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,3,2,3,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,3,3,0,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,3,3,1,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,3,3,2,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,3,3,3,tmp2[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,1,0,0,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,1,0,1,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,1,0,2,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,1,0,3,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,1,1,0,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,1,1,1,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,1,1,2,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,1,1,3,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,1,2,0,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,1,2,1,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,1,2,2,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,1,2,3,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,1,3,0,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,1,3,1,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,1,3,2,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,1,3,3,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,3,0,0,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,3,0,1,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,3,0,2,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,3,0,3,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,3,1,0,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,3,1,1,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,3,1,2,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,3,1,3,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,3,2,0,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,3,2,1,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,3,2,2,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,3,2,3,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,3,3,0,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,3,3,1,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,3,3,2,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,3,3,3,tmp1[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,0,0,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,0,1,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,0,2,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,0,3,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,1,0,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,1,1,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,1,2,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,1,3,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,2,0,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,2,1,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,2,2,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,2,3,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,3,0,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,3,1,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,3,2,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,3,3,tmp2[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,0,0,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,0,1,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,0,2,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,0,3,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,1,0,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,1,1,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,1,2,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,1,3,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,2,0,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,2,1,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,2,2,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,2,3,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,3,0,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,3,1,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,3,2,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,3,3,tmp1[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,2,0,0,tmp2[5]._data.x:-2.000000e+02
+if_f_x:p,x,y,z,t:0,3,2,0,1,tmp2[5]._data.x:-2.010000e+02
+if_f_x:p,x,y,z,t:0,3,2,0,2,tmp2[5]._data.x:-2.020000e+02
+if_f_x:p,x,y,z,t:0,3,2,0,3,tmp2[5]._data.x:-2.030000e+02
+if_f_x:p,x,y,z,t:0,3,2,1,0,tmp2[5]._data.x:-2.100000e+02
+if_f_x:p,x,y,z,t:0,3,2,1,1,tmp2[5]._data.x:-2.110000e+02
+if_f_x:p,x,y,z,t:0,3,2,1,2,tmp2[5]._data.x:-2.120000e+02
+if_f_x:p,x,y,z,t:0,3,2,1,3,tmp2[5]._data.x:-2.130000e+02
+if_f_x:p,x,y,z,t:0,3,2,2,0,tmp2[5]._data.x:-2.200000e+02
+if_f_x:p,x,y,z,t:0,3,2,2,1,tmp2[5]._data.x:-2.210000e+02
+if_f_x:p,x,y,z,t:0,3,2,2,2,tmp2[5]._data.x:-2.220000e+02
+if_f_x:p,x,y,z,t:0,3,2,2,3,tmp2[5]._data.x:-2.230000e+02
+if_f_x:p,x,y,z,t:0,3,2,3,0,tmp2[5]._data.x:-2.300000e+02
+if_f_x:p,x,y,z,t:0,3,2,3,1,tmp2[5]._data.x:-2.310000e+02
+if_f_x:p,x,y,z,t:0,3,2,3,2,tmp2[5]._data.x:-2.320000e+02
+if_f_x:p,x,y,z,t:0,3,2,3,3,tmp2[5]._data.x:-2.330000e+02
+if_f_x:p,x,y,z,t:0,3,1,0,0,tmp2[5]._data.x:-1.000000e+02
+if_f_x:p,x,y,z,t:0,3,1,0,1,tmp2[5]._data.x:-1.010000e+02
+if_f_x:p,x,y,z,t:0,3,1,0,2,tmp2[5]._data.x:-1.020000e+02
+if_f_x:p,x,y,z,t:0,3,1,0,3,tmp2[5]._data.x:-1.030000e+02
+if_f_x:p,x,y,z,t:0,3,1,1,0,tmp2[5]._data.x:-1.100000e+02
+if_f_x:p,x,y,z,t:0,3,1,1,1,tmp2[5]._data.x:-1.110000e+02
+if_f_x:p,x,y,z,t:0,3,1,1,2,tmp2[5]._data.x:-1.120000e+02
+if_f_x:p,x,y,z,t:0,3,1,1,3,tmp2[5]._data.x:-1.130000e+02
+if_f_x:p,x,y,z,t:0,3,1,2,0,tmp2[5]._data.x:-1.200000e+02
+if_f_x:p,x,y,z,t:0,3,1,2,1,tmp2[5]._data.x:-1.210000e+02
+if_f_x:p,x,y,z,t:0,3,1,2,2,tmp2[5]._data.x:-1.220000e+02
+if_f_x:p,x,y,z,t:0,3,1,2,3,tmp2[5]._data.x:-1.230000e+02
+if_f_x:p,x,y,z,t:0,3,1,3,0,tmp2[5]._data.x:-1.300000e+02
+if_f_x:p,x,y,z,t:0,3,1,3,1,tmp2[5]._data.x:-1.310000e+02
+if_f_x:p,x,y,z,t:0,3,1,3,2,tmp2[5]._data.x:-1.320000e+02
+if_f_x:p,x,y,z,t:0,3,1,3,3,tmp2[5]._data.x:-1.330000e+02
+if_f_x:p,x,y,z,t:0,3,3,0,0,tmp2[5]._data.x:-3.000000e+02
+if_f_x:p,x,y,z,t:0,3,3,0,1,tmp2[5]._data.x:-3.010000e+02
+if_f_x:p,x,y,z,t:0,3,3,0,2,tmp2[5]._data.x:-3.020000e+02
+if_f_x:p,x,y,z,t:0,3,3,0,3,tmp2[5]._data.x:-3.030000e+02
+if_f_x:p,x,y,z,t:0,3,3,1,0,tmp2[5]._data.x:-3.100000e+02
+if_f_x:p,x,y,z,t:0,3,3,1,1,tmp2[5]._data.x:-3.110000e+02
+if_f_x:p,x,y,z,t:0,3,3,1,2,tmp2[5]._data.x:-3.120000e+02
+if_f_x:p,x,y,z,t:0,3,3,1,3,tmp2[5]._data.x:-3.130000e+02
+if_f_x:p,x,y,z,t:0,3,3,2,0,tmp2[5]._data.x:-3.200000e+02
+if_f_x:p,x,y,z,t:0,3,3,2,1,tmp2[5]._data.x:-3.210000e+02
+if_f_x:p,x,y,z,t:0,3,3,2,2,tmp2[5]._data.x:-3.220000e+02
+if_f_x:p,x,y,z,t:0,3,3,2,3,tmp2[5]._data.x:-3.230000e+02
+if_f_x:p,x,y,z,t:0,3,3,3,0,tmp2[5]._data.x:-3.300000e+02
+if_f_x:p,x,y,z,t:0,3,3,3,1,tmp2[5]._data.x:-3.310000e+02
+if_f_x:p,x,y,z,t:0,3,3,3,2,tmp2[5]._data.x:-3.320000e+02
+if_f_x:p,x,y,z,t:0,3,3,3,3,tmp2[5]._data.x:-3.330000e+02
+if_b_x:p,x,y,z,t:0,0,2,0,0,tmp1[5]._data.x:2.000000e+02
+if_b_x:p,x,y,z,t:0,0,2,0,1,tmp1[5]._data.x:2.010000e+02
+if_b_x:p,x,y,z,t:0,0,2,0,2,tmp1[5]._data.x:2.020000e+02
+if_b_x:p,x,y,z,t:0,0,2,0,3,tmp1[5]._data.x:2.030000e+02
+if_b_x:p,x,y,z,t:0,0,2,1,0,tmp1[5]._data.x:2.100000e+02
+if_b_x:p,x,y,z,t:0,0,2,1,1,tmp1[5]._data.x:2.110000e+02
+if_b_x:p,x,y,z,t:0,0,2,1,2,tmp1[5]._data.x:2.120000e+02
+if_b_x:p,x,y,z,t:0,0,2,1,3,tmp1[5]._data.x:2.130000e+02
+if_b_x:p,x,y,z,t:0,0,2,2,0,tmp1[5]._data.x:2.200000e+02
+if_b_x:p,x,y,z,t:0,0,2,2,1,tmp1[5]._data.x:2.210000e+02
+if_b_x:p,x,y,z,t:0,0,2,2,2,tmp1[5]._data.x:2.220000e+02
+if_b_x:p,x,y,z,t:0,0,2,2,3,tmp1[5]._data.x:2.230000e+02
+if_b_x:p,x,y,z,t:0,0,2,3,0,tmp1[5]._data.x:2.300000e+02
+if_b_x:p,x,y,z,t:0,0,2,3,1,tmp1[5]._data.x:2.310000e+02
+if_b_x:p,x,y,z,t:0,0,2,3,2,tmp1[5]._data.x:2.320000e+02
+if_b_x:p,x,y,z,t:0,0,2,3,3,tmp1[5]._data.x:2.330000e+02
+if_f_x:p,x,y,z,t:0,3,0,0,0,tmp2[5]._data.x:0.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,0,1,tmp2[5]._data.x:-1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,0,2,tmp2[5]._data.x:-2.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,0,3,tmp2[5]._data.x:-3.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,1,0,tmp2[5]._data.x:-1.000000e+01
+if_f_x:p,x,y,z,t:0,3,0,1,1,tmp2[5]._data.x:-1.100000e+01
+if_f_x:p,x,y,z,t:0,3,0,1,2,tmp2[5]._data.x:-1.200000e+01
+if_f_x:p,x,y,z,t:0,3,0,1,3,tmp2[5]._data.x:-1.300000e+01
+if_f_x:p,x,y,z,t:0,3,0,2,0,tmp2[5]._data.x:-2.000000e+01
+if_f_x:p,x,y,z,t:0,3,0,2,1,tmp2[5]._data.x:-2.100000e+01
+if_f_x:p,x,y,z,t:0,3,0,2,2,tmp2[5]._data.x:-2.200000e+01
+if_f_x:p,x,y,z,t:0,3,0,2,3,tmp2[5]._data.x:-2.300000e+01
+if_f_x:p,x,y,z,t:0,3,0,3,0,tmp2[5]._data.x:-3.000000e+01
+if_f_x:p,x,y,z,t:0,3,0,3,1,tmp2[5]._data.x:-3.100000e+01
+if_f_x:p,x,y,z,t:0,3,0,3,2,tmp2[5]._data.x:-3.200000e+01
+if_f_x:p,x,y,z,t:0,3,0,3,3,tmp2[5]._data.x:-3.300000e+01
+if_b_x:p,x,y,z,t:0,0,1,0,0,tmp1[5]._data.x:1.000000e+02
+if_b_x:p,x,y,z,t:0,0,1,0,1,tmp1[5]._data.x:1.010000e+02
+if_b_x:p,x,y,z,t:0,0,1,0,2,tmp1[5]._data.x:1.020000e+02
+if_b_x:p,x,y,z,t:0,0,1,0,3,tmp1[5]._data.x:1.030000e+02
+if_b_x:p,x,y,z,t:0,0,1,1,0,tmp1[5]._data.x:1.100000e+02
+if_b_x:p,x,y,z,t:0,0,1,1,1,tmp1[5]._data.x:1.110000e+02
+if_b_x:p,x,y,z,t:0,0,1,1,2,tmp1[5]._data.x:1.120000e+02
+if_b_x:p,x,y,z,t:0,0,1,1,3,tmp1[5]._data.x:1.130000e+02
+if_b_x:p,x,y,z,t:0,0,1,2,0,tmp1[5]._data.x:1.200000e+02
+if_b_x:p,x,y,z,t:0,0,1,2,1,tmp1[5]._data.x:1.210000e+02
+if_b_x:p,x,y,z,t:0,0,1,2,2,tmp1[5]._data.x:1.220000e+02
+if_b_x:p,x,y,z,t:0,0,1,2,3,tmp1[5]._data.x:1.230000e+02
+if_b_x:p,x,y,z,t:0,0,1,3,0,tmp1[5]._data.x:1.300000e+02
+if_b_x:p,x,y,z,t:0,0,1,3,1,tmp1[5]._data.x:1.310000e+02
+if_b_x:p,x,y,z,t:0,0,1,3,2,tmp1[5]._data.x:1.320000e+02
+if_b_x:p,x,y,z,t:0,0,1,3,3,tmp1[5]._data.x:1.330000e+02
+if_b_x:p,x,y,z,t:0,0,3,0,0,tmp1[5]._data.x:3.000000e+02
+if_b_x:p,x,y,z,t:0,0,3,0,1,tmp1[5]._data.x:3.010000e+02
+if_b_x:p,x,y,z,t:0,0,3,0,2,tmp1[5]._data.x:3.020000e+02
+if_b_x:p,x,y,z,t:0,0,3,0,3,tmp1[5]._data.x:3.030000e+02
+if_b_x:p,x,y,z,t:0,0,3,1,0,tmp1[5]._data.x:3.100000e+02
+if_b_x:p,x,y,z,t:0,0,3,1,1,tmp1[5]._data.x:3.110000e+02
+if_b_x:p,x,y,z,t:0,0,3,1,2,tmp1[5]._data.x:3.120000e+02
+if_b_x:p,x,y,z,t:0,0,3,1,3,tmp1[5]._data.x:3.130000e+02
+if_b_x:p,x,y,z,t:0,0,3,2,0,tmp1[5]._data.x:3.200000e+02
+if_b_x:p,x,y,z,t:0,0,3,2,1,tmp1[5]._data.x:3.210000e+02
+if_b_x:p,x,y,z,t:0,0,3,2,2,tmp1[5]._data.x:3.220000e+02
+if_b_x:p,x,y,z,t:0,0,3,2,3,tmp1[5]._data.x:3.230000e+02
+if_b_x:p,x,y,z,t:0,0,3,3,0,tmp1[5]._data.x:3.300000e+02
+if_b_x:p,x,y,z,t:0,0,3,3,1,tmp1[5]._data.x:3.310000e+02
+if_b_x:p,x,y,z,t:0,0,3,3,2,tmp1[5]._data.x:3.320000e+02
+if_b_x:p,x,y,z,t:0,0,3,3,3,tmp1[5]._data.x:3.330000e+02
+if_b_x:p,x,y,z,t:0,0,0,0,0,tmp1[5]._data.x:0.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,0,1,tmp1[5]._data.x:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,0,2,tmp1[5]._data.x:2.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,0,3,tmp1[5]._data.x:3.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,1,0,tmp1[5]._data.x:1.000000e+01
+if_b_x:p,x,y,z,t:0,0,0,1,1,tmp1[5]._data.x:1.100000e+01
+if_b_x:p,x,y,z,t:0,0,0,1,2,tmp1[5]._data.x:1.200000e+01
+if_b_x:p,x,y,z,t:0,0,0,1,3,tmp1[5]._data.x:1.300000e+01
+if_b_x:p,x,y,z,t:0,0,0,2,0,tmp1[5]._data.x:2.000000e+01
+if_b_x:p,x,y,z,t:0,0,0,2,1,tmp1[5]._data.x:2.100000e+01
+if_b_x:p,x,y,z,t:0,0,0,2,2,tmp1[5]._data.x:2.200000e+01
+if_b_x:p,x,y,z,t:0,0,0,2,3,tmp1[5]._data.x:2.300000e+01
+if_b_x:p,x,y,z,t:0,0,0,3,0,tmp1[5]._data.x:3.000000e+01
+if_b_x:p,x,y,z,t:0,0,0,3,1,tmp1[5]._data.x:3.100000e+01
+if_b_x:p,x,y,z,t:0,0,0,3,2,tmp1[5]._data.x:3.200000e+01
+if_b_x:p,x,y,z,t:0,0,0,3,3,tmp1[5]._data.x:3.300000e+01
+if_f_x:p,x,y,z,t:0,3,2,0,0,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,2,0,1,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,2,0,2,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,2,0,3,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,2,1,0,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,2,1,1,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,2,1,2,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,2,1,3,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,2,2,0,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,2,2,1,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,2,2,2,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,2,2,3,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,2,3,0,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,2,3,1,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,2,3,2,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,2,3,3,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,1,0,0,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,1,0,1,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,1,0,2,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,1,0,3,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,1,1,0,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,1,1,1,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,1,1,2,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,1,1,3,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,1,2,0,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,1,2,1,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,1,2,2,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,1,2,3,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,1,3,0,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,1,3,1,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,1,3,2,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,1,3,3,tmp2[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,2,0,0,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,2,0,1,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,2,0,2,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,2,0,3,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,2,1,0,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,2,1,1,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,2,1,2,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,2,1,3,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,2,2,0,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,2,2,1,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,2,2,2,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,2,2,3,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,2,3,0,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,2,3,1,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,2,3,2,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,2,3,3,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,1,0,0,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,1,0,1,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,1,0,2,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,1,0,3,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,1,1,0,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,1,1,1,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,1,1,2,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,1,1,3,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,1,2,0,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,1,2,1,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,1,2,2,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,1,2,3,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,1,3,0,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,1,3,1,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,1,3,2,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,1,3,3,tmp1[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,3,0,0,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,3,0,1,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,3,0,2,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,3,0,3,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,3,1,0,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,3,1,1,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,3,1,2,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,3,1,3,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,3,2,0,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,3,2,1,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,3,2,2,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,3,2,3,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,3,3,0,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,3,3,1,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,3,3,2,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,3,3,3,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,0,0,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,0,1,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,0,2,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,0,3,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,1,0,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,1,1,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,1,2,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,1,3,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,2,0,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,2,1,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,2,2,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,2,3,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,3,0,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,3,1,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,3,2,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,3,3,tmp2[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,3,0,0,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,3,0,1,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,3,0,2,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,3,0,3,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,3,1,0,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,3,1,1,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,3,1,2,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,3,1,3,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,3,2,0,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,3,2,1,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,3,2,2,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,3,2,3,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,3,3,0,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,3,3,1,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,3,3,2,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,3,3,3,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,0,0,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,0,1,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,0,2,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,0,3,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,1,0,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,1,1,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,1,2,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,1,3,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,2,0,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,2,1,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,2,2,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,2,3,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,3,0,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,3,1,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,3,2,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,3,3,tmp1[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,2,0,0,tmp4[0]._data.x:9.916691e-01
+if_f_x:p,x,y,z,t:0,3,2,0,1,tmp4[0]._data.x:9.940351e-01
+if_f_x:p,x,y,z,t:0,3,2,0,2,tmp4[0]._data.x:9.867170e-01
+if_f_x:p,x,y,z,t:0,3,2,0,3,tmp4[0]._data.x:9.878471e-01
+if_f_x:p,x,y,z,t:0,3,2,1,0,tmp4[0]._data.x:9.890264e-01
+if_f_x:p,x,y,z,t:0,3,2,1,1,tmp4[0]._data.x:9.932077e-01
+if_f_x:p,x,y,z,t:0,3,2,1,2,tmp4[0]._data.x:9.826991e-01
+if_f_x:p,x,y,z,t:0,3,2,1,3,tmp4[0]._data.x:9.858368e-01
+if_f_x:p,x,y,z,t:0,3,2,2,0,tmp4[0]._data.x:9.937127e-01
+if_f_x:p,x,y,z,t:0,3,2,2,1,tmp4[0]._data.x:9.876665e-01
+if_f_x:p,x,y,z,t:0,3,2,2,2,tmp4[0]._data.x:9.830410e-01
+if_f_x:p,x,y,z,t:0,3,2,2,3,tmp4[0]._data.x:9.872969e-01
+if_f_x:p,x,y,z,t:0,3,2,3,0,tmp4[0]._data.x:9.900945e-01
+if_f_x:p,x,y,z,t:0,3,2,3,1,tmp4[0]._data.x:9.904236e-01
+if_f_x:p,x,y,z,t:0,3,2,3,2,tmp4[0]._data.x:9.841558e-01
+if_f_x:p,x,y,z,t:0,3,2,3,3,tmp4[0]._data.x:9.916798e-01
+if_b_x:p,x,y,z,t:0,0,2,0,0,tmp4[0]._data.x:9.935097e-01
+if_b_x:p,x,y,z,t:0,0,2,0,1,tmp4[0]._data.x:9.919097e-01
+if_b_x:p,x,y,z,t:0,0,2,0,2,tmp4[0]._data.x:9.871871e-01
+if_b_x:p,x,y,z,t:0,0,2,0,3,tmp4[0]._data.x:9.837382e-01
+if_b_x:p,x,y,z,t:0,0,2,1,0,tmp4[0]._data.x:9.947648e-01
+if_b_x:p,x,y,z,t:0,0,2,1,1,tmp4[0]._data.x:9.886777e-01
+if_b_x:p,x,y,z,t:0,0,2,1,2,tmp4[0]._data.x:9.932552e-01
+if_b_x:p,x,y,z,t:0,0,2,1,3,tmp4[0]._data.x:9.948984e-01
+if_b_x:p,x,y,z,t:0,0,2,2,0,tmp4[0]._data.x:9.887807e-01
+if_b_x:p,x,y,z,t:0,0,2,2,1,tmp4[0]._data.x:9.874539e-01
+if_b_x:p,x,y,z,t:0,0,2,2,2,tmp4[0]._data.x:9.971354e-01
+if_b_x:p,x,y,z,t:0,0,2,2,3,tmp4[0]._data.x:9.848869e-01
+if_b_x:p,x,y,z,t:0,0,2,3,0,tmp4[0]._data.x:9.951065e-01
+if_b_x:p,x,y,z,t:0,0,2,3,1,tmp4[0]._data.x:9.861137e-01
+if_b_x:p,x,y,z,t:0,0,2,3,2,tmp4[0]._data.x:9.978934e-01
+if_b_x:p,x,y,z,t:0,0,2,3,3,tmp4[0]._data.x:9.861871e-01
+if_f_x:p,x,y,z,t:0,3,1,0,0,tmp4[0]._data.x:9.942956e-01
+if_f_x:p,x,y,z,t:0,3,1,0,1,tmp4[0]._data.x:9.910361e-01
+if_f_x:p,x,y,z,t:0,3,1,0,2,tmp4[0]._data.x:9.866934e-01
+if_f_x:p,x,y,z,t:0,3,1,0,3,tmp4[0]._data.x:9.910483e-01
+if_f_x:p,x,y,z,t:0,3,1,1,0,tmp4[0]._data.x:9.905593e-01
+if_f_x:p,x,y,z,t:0,3,1,1,1,tmp4[0]._data.x:9.839887e-01
+if_f_x:p,x,y,z,t:0,3,1,1,2,tmp4[0]._data.x:9.955788e-01
+if_f_x:p,x,y,z,t:0,3,1,1,3,tmp4[0]._data.x:9.901119e-01
+if_f_x:p,x,y,z,t:0,3,1,2,0,tmp4[0]._data.x:9.872691e-01
+if_f_x:p,x,y,z,t:0,3,1,2,1,tmp4[0]._data.x:9.942164e-01
+if_f_x:p,x,y,z,t:0,3,1,2,2,tmp4[0]._data.x:9.937929e-01
+if_f_x:p,x,y,z,t:0,3,1,2,3,tmp4[0]._data.x:9.830631e-01
+if_f_x:p,x,y,z,t:0,3,1,3,0,tmp4[0]._data.x:9.871135e-01
+if_f_x:p,x,y,z,t:0,3,1,3,1,tmp4[0]._data.x:9.922338e-01
+if_f_x:p,x,y,z,t:0,3,1,3,2,tmp4[0]._data.x:9.915791e-01
+if_f_x:p,x,y,z,t:0,3,1,3,3,tmp4[0]._data.x:9.858310e-01
+if_f_x:p,x,y,z,t:0,3,3,0,0,tmp4[0]._data.x:9.930966e-01
+if_f_x:p,x,y,z,t:0,3,3,0,1,tmp4[0]._data.x:9.795249e-01
+if_f_x:p,x,y,z,t:0,3,3,0,2,tmp4[0]._data.x:9.852619e-01
+if_f_x:p,x,y,z,t:0,3,3,0,3,tmp4[0]._data.x:9.887575e-01
+if_f_x:p,x,y,z,t:0,3,3,1,0,tmp4[0]._data.x:9.897773e-01
+if_f_x:p,x,y,z,t:0,3,3,1,1,tmp4[0]._data.x:9.968793e-01
+if_f_x:p,x,y,z,t:0,3,3,1,2,tmp4[0]._data.x:9.929196e-01
+if_f_x:p,x,y,z,t:0,3,3,1,3,tmp4[0]._data.x:9.934373e-01
+if_f_x:p,x,y,z,t:0,3,3,2,0,tmp4[0]._data.x:9.925579e-01
+if_f_x:p,x,y,z,t:0,3,3,2,1,tmp4[0]._data.x:9.948222e-01
+if_f_x:p,x,y,z,t:0,3,3,2,2,tmp4[0]._data.x:9.894311e-01
+if_f_x:p,x,y,z,t:0,3,3,2,3,tmp4[0]._data.x:9.869570e-01
+if_f_x:p,x,y,z,t:0,3,3,3,0,tmp4[0]._data.x:9.955105e-01
+if_f_x:p,x,y,z,t:0,3,3,3,1,tmp4[0]._data.x:9.824989e-01
+if_f_x:p,x,y,z,t:0,3,3,3,2,tmp4[0]._data.x:9.847175e-01
+if_f_x:p,x,y,z,t:0,3,3,3,3,tmp4[0]._data.x:9.900494e-01
+if_b_x:p,x,y,z,t:0,0,1,0,0,tmp4[0]._data.x:9.870453e-01
+if_b_x:p,x,y,z,t:0,0,1,0,1,tmp4[0]._data.x:9.886800e-01
+if_b_x:p,x,y,z,t:0,0,1,0,2,tmp4[0]._data.x:9.868222e-01
+if_b_x:p,x,y,z,t:0,0,1,0,3,tmp4[0]._data.x:9.855300e-01
+if_b_x:p,x,y,z,t:0,0,1,1,0,tmp4[0]._data.x:9.905334e-01
+if_b_x:p,x,y,z,t:0,0,1,1,1,tmp4[0]._data.x:9.968311e-01
+if_b_x:p,x,y,z,t:0,0,1,1,2,tmp4[0]._data.x:9.868986e-01
+if_b_x:p,x,y,z,t:0,0,1,1,3,tmp4[0]._data.x:9.909852e-01
+if_b_x:p,x,y,z,t:0,0,1,2,0,tmp4[0]._data.x:9.746215e-01
+if_b_x:p,x,y,z,t:0,0,1,2,1,tmp4[0]._data.x:9.891298e-01
+if_b_x:p,x,y,z,t:0,0,1,2,2,tmp4[0]._data.x:9.909268e-01
+if_b_x:p,x,y,z,t:0,0,1,2,3,tmp4[0]._data.x:9.896604e-01
+if_b_x:p,x,y,z,t:0,0,1,3,0,tmp4[0]._data.x:9.928569e-01
+if_b_x:p,x,y,z,t:0,0,1,3,1,tmp4[0]._data.x:9.929709e-01
+if_b_x:p,x,y,z,t:0,0,1,3,2,tmp4[0]._data.x:9.882249e-01
+if_b_x:p,x,y,z,t:0,0,1,3,3,tmp4[0]._data.x:9.925910e-01
+if_f_x:p,x,y,z,t:0,3,0,0,0,tmp4[0]._data.x:9.933555e-01
+if_f_x:p,x,y,z,t:0,3,0,0,1,tmp4[0]._data.x:9.875579e-01
+if_f_x:p,x,y,z,t:0,3,0,0,2,tmp4[0]._data.x:9.904268e-01
+if_f_x:p,x,y,z,t:0,3,0,0,3,tmp4[0]._data.x:9.848678e-01
+if_f_x:p,x,y,z,t:0,3,0,1,0,tmp4[0]._data.x:9.889501e-01
+if_f_x:p,x,y,z,t:0,3,0,1,1,tmp4[0]._data.x:9.923263e-01
+if_f_x:p,x,y,z,t:0,3,0,1,2,tmp4[0]._data.x:9.949470e-01
+if_f_x:p,x,y,z,t:0,3,0,1,3,tmp4[0]._data.x:9.820053e-01
+if_f_x:p,x,y,z,t:0,3,0,2,0,tmp4[0]._data.x:9.865457e-01
+if_f_x:p,x,y,z,t:0,3,0,2,1,tmp4[0]._data.x:9.852129e-01
+if_f_x:p,x,y,z,t:0,3,0,2,2,tmp4[0]._data.x:9.891264e-01
+if_f_x:p,x,y,z,t:0,3,0,2,3,tmp4[0]._data.x:9.916732e-01
+if_f_x:p,x,y,z,t:0,3,0,3,0,tmp4[0]._data.x:9.907020e-01
+if_f_x:p,x,y,z,t:0,3,0,3,1,tmp4[0]._data.x:9.969753e-01
+if_f_x:p,x,y,z,t:0,3,0,3,2,tmp4[0]._data.x:9.941903e-01
+if_f_x:p,x,y,z,t:0,3,0,3,3,tmp4[0]._data.x:9.958364e-01
+if_b_x:p,x,y,z,t:0,0,3,0,0,tmp4[0]._data.x:9.918241e-01
+if_b_x:p,x,y,z,t:0,0,3,0,1,tmp4[0]._data.x:9.926007e-01
+if_b_x:p,x,y,z,t:0,0,3,0,2,tmp4[0]._data.x:9.903934e-01
+if_b_x:p,x,y,z,t:0,0,3,0,3,tmp4[0]._data.x:9.949107e-01
+if_b_x:p,x,y,z,t:0,0,3,1,0,tmp4[0]._data.x:9.901087e-01
+if_b_x:p,x,y,z,t:0,0,3,1,1,tmp4[0]._data.x:9.901366e-01
+if_b_x:p,x,y,z,t:0,0,3,1,2,tmp4[0]._data.x:9.858822e-01
+if_b_x:p,x,y,z,t:0,0,3,1,3,tmp4[0]._data.x:9.878886e-01
+if_b_x:p,x,y,z,t:0,0,3,2,0,tmp4[0]._data.x:9.876465e-01
+if_b_x:p,x,y,z,t:0,0,3,2,1,tmp4[0]._data.x:9.891644e-01
+if_b_x:p,x,y,z,t:0,0,3,2,2,tmp4[0]._data.x:9.848836e-01
+if_b_x:p,x,y,z,t:0,0,3,2,3,tmp4[0]._data.x:9.868464e-01
+if_b_x:p,x,y,z,t:0,0,3,3,0,tmp4[0]._data.x:9.904892e-01
+if_b_x:p,x,y,z,t:0,0,3,3,1,tmp4[0]._data.x:9.832188e-01
+if_b_x:p,x,y,z,t:0,0,3,3,2,tmp4[0]._data.x:9.931409e-01
+if_b_x:p,x,y,z,t:0,0,3,3,3,tmp4[0]._data.x:9.886959e-01
+if_b_x:p,x,y,z,t:0,0,0,0,0,tmp4[0]._data.x:9.932206e-01
+if_b_x:p,x,y,z,t:0,0,0,0,1,tmp4[0]._data.x:9.868661e-01
+if_b_x:p,x,y,z,t:0,0,0,0,2,tmp4[0]._data.x:9.904733e-01
+if_b_x:p,x,y,z,t:0,0,0,0,3,tmp4[0]._data.x:9.929504e-01
+if_b_x:p,x,y,z,t:0,0,0,1,0,tmp4[0]._data.x:9.901088e-01
+if_b_x:p,x,y,z,t:0,0,0,1,1,tmp4[0]._data.x:9.922536e-01
+if_b_x:p,x,y,z,t:0,0,0,1,2,tmp4[0]._data.x:9.947467e-01
+if_b_x:p,x,y,z,t:0,0,0,1,3,tmp4[0]._data.x:9.864334e-01
+if_b_x:p,x,y,z,t:0,0,0,2,0,tmp4[0]._data.x:9.950597e-01
+if_b_x:p,x,y,z,t:0,0,0,2,1,tmp4[0]._data.x:9.914887e-01
+if_b_x:p,x,y,z,t:0,0,0,2,2,tmp4[0]._data.x:9.933461e-01
+if_b_x:p,x,y,z,t:0,0,0,2,3,tmp4[0]._data.x:9.906307e-01
+if_b_x:p,x,y,z,t:0,0,0,3,0,tmp4[0]._data.x:9.860445e-01
+if_b_x:p,x,y,z,t:0,0,0,3,1,tmp4[0]._data.x:9.871105e-01
+if_b_x:p,x,y,z,t:0,0,0,3,2,tmp4[0]._data.x:9.931420e-01
+if_b_x:p,x,y,z,t:0,0,0,3,3,tmp4[0]._data.x:9.911034e-01
+if_f_x:p,x,y,z,t:0,3,2,0,0,tmp4[0]._data.y:8.656112e-02
+if_f_x:p,x,y,z,t:0,3,2,0,1,tmp4[0]._data.y:3.774211e-02
+if_f_x:p,x,y,z,t:0,3,2,0,2,tmp4[0]._data.y:1.097472e-01
+if_f_x:p,x,y,z,t:0,3,2,0,3,tmp4[0]._data.y:1.117802e-01
+if_f_x:p,x,y,z,t:0,3,2,1,0,tmp4[0]._data.y:7.699206e-02
+if_f_x:p,x,y,z,t:0,3,2,1,1,tmp4[0]._data.y:7.950389e-02
+if_f_x:p,x,y,z,t:0,3,2,1,2,tmp4[0]._data.y:7.764905e-02
+if_f_x:p,x,y,z,t:0,3,2,1,3,tmp4[0]._data.y:1.274386e-01
+if_f_x:p,x,y,z,t:0,3,2,2,0,tmp4[0]._data.y:4.124106e-02
+if_f_x:p,x,y,z,t:0,3,2,2,1,tmp4[0]._data.y:1.356330e-01
+if_f_x:p,x,y,z,t:0,3,2,2,2,tmp4[0]._data.y:1.409630e-01
+if_f_x:p,x,y,z,t:0,3,2,2,3,tmp4[0]._data.y:1.015992e-01
+if_f_x:p,x,y,z,t:0,3,2,3,0,tmp4[0]._data.y:1.055016e-01
+if_f_x:p,x,y,z,t:0,3,2,3,1,tmp4[0]._data.y:9.240491e-02
+if_f_x:p,x,y,z,t:0,3,2,3,2,tmp4[0]._data.y:1.095872e-01
+if_f_x:p,x,y,z,t:0,3,2,3,3,tmp4[0]._data.y:8.927985e-02
+if_b_x:p,x,y,z,t:0,0,2,0,0,tmp4[0]._data.y:3.671347e-02
+if_b_x:p,x,y,z,t:0,0,2,0,1,tmp4[0]._data.y:7.943444e-02
+if_b_x:p,x,y,z,t:0,0,2,0,2,tmp4[0]._data.y:1.110710e-01
+if_b_x:p,x,y,z,t:0,0,2,0,3,tmp4[0]._data.y:1.357621e-01
+if_b_x:p,x,y,z,t:0,0,2,1,0,tmp4[0]._data.y:4.156838e-02
+if_b_x:p,x,y,z,t:0,0,2,1,1,tmp4[0]._data.y:4.600673e-02
+if_b_x:p,x,y,z,t:0,0,2,1,2,tmp4[0]._data.y:8.561330e-02
+if_b_x:p,x,y,z,t:0,0,2,1,3,tmp4[0]._data.y:5.980622e-02
+if_b_x:p,x,y,z,t:0,0,2,2,0,tmp4[0]._data.y:1.070378e-01
+if_b_x:p,x,y,z,t:0,0,2,2,1,tmp4[0]._data.y:7.471121e-02
+if_b_x:p,x,y,z,t:0,0,2,2,2,tmp4[0]._data.y:1.315362e-02
+if_b_x:p,x,y,z,t:0,0,2,2,3,tmp4[0]._data.y:9.223888e-02
+if_b_x:p,x,y,z,t:0,0,2,3,0,tmp4[0]._data.y:6.304578e-02
+if_b_x:p,x,y,z,t:0,0,2,3,1,tmp4[0]._data.y:4.614021e-02
+if_b_x:p,x,y,z,t:0,0,2,3,2,tmp4[0]._data.y:3.699030e-02
+if_b_x:p,x,y,z,t:0,0,2,3,3,tmp4[0]._data.y:6.364382e-02
+if_f_x:p,x,y,z,t:0,3,1,0,0,tmp4[0]._data.y:8.931080e-02
+if_f_x:p,x,y,z,t:0,3,1,0,1,tmp4[0]._data.y:6.835794e-02
+if_f_x:p,x,y,z,t:0,3,1,0,2,tmp4[0]._data.y:5.492927e-02
+if_f_x:p,x,y,z,t:0,3,1,0,3,tmp4[0]._data.y:6.955799e-02
+if_f_x:p,x,y,z,t:0,3,1,1,0,tmp4[0]._data.y:8.149990e-02
+if_f_x:p,x,y,z,t:0,3,1,1,1,tmp4[0]._data.y:8.006831e-02
+if_f_x:p,x,y,z,t:0,3,1,1,2,tmp4[0]._data.y:2.946511e-02
+if_f_x:p,x,y,z,t:0,3,1,1,3,tmp4[0]._data.y:1.118317e-01
+if_f_x:p,x,y,z,t:0,3,1,2,0,tmp4[0]._data.y:5.441022e-02
+if_f_x:p,x,y,z,t:0,3,1,2,1,tmp4[0]._data.y:4.742558e-02
+if_f_x:p,x,y,z,t:0,3,1,2,2,tmp4[0]._data.y:8.156697e-02
+if_f_x:p,x,y,z,t:0,3,1,2,3,tmp4[0]._data.y:1.349050e-01
+if_f_x:p,x,y,z,t:0,3,1,3,0,tmp4[0]._data.y:1.192273e-01
+if_f_x:p,x,y,z,t:0,3,1,3,1,tmp4[0]._data.y:8.827903e-02
+if_f_x:p,x,y,z,t:0,3,1,3,2,tmp4[0]._data.y:6.243154e-02
+if_f_x:p,x,y,z,t:0,3,1,3,3,tmp4[0]._data.y:1.140312e-01
+if_b_x:p,x,y,z,t:0,0,1,0,0,tmp4[0]._data.y:1.083524e-01
+if_b_x:p,x,y,z,t:0,0,1,0,1,tmp4[0]._data.y:4.849738e-02
+if_b_x:p,x,y,z,t:0,0,1,0,2,tmp4[0]._data.y:9.658999e-02
+if_b_x:p,x,y,z,t:0,0,1,0,3,tmp4[0]._data.y:9.832536e-02
+if_b_x:p,x,y,z,t:0,0,1,1,0,tmp4[0]._data.y:9.079728e-02
+if_b_x:p,x,y,z,t:0,0,1,1,1,tmp4[0]._data.y:1.408323e-02
+if_b_x:p,x,y,z,t:0,0,1,1,2,tmp4[0]._data.y:1.445529e-01
+if_b_x:p,x,y,z,t:0,0,1,1,3,tmp4[0]._data.y:4.626593e-02
+if_b_x:p,x,y,z,t:0,0,1,2,0,tmp4[0]._data.y:1.520856e-01
+if_b_x:p,x,y,z,t:0,0,1,2,1,tmp4[0]._data.y:1.106265e-01
+if_b_x:p,x,y,z,t:0,0,1,2,2,tmp4[0]._data.y:3.075981e-02
+if_b_x:p,x,y,z,t:0,0,1,2,3,tmp4[0]._data.y:9.044288e-02
+if_b_x:p,x,y,z,t:0,0,1,3,0,tmp4[0]._data.y:8.510419e-02
+if_b_x:p,x,y,z,t:0,0,1,3,1,tmp4[0]._data.y:5.880213e-02
+if_b_x:p,x,y,z,t:0,0,1,3,2,tmp4[0]._data.y:1.062272e-01
+if_b_x:p,x,y,z,t:0,0,1,3,3,tmp4[0]._data.y:4.310982e-02
+if_f_x:p,x,y,z,t:0,3,3,0,0,tmp4[0]._data.y:1.047808e-01
+if_f_x:p,x,y,z,t:0,3,3,0,1,tmp4[0]._data.y:1.365725e-01
+if_f_x:p,x,y,z,t:0,3,3,0,2,tmp4[0]._data.y:8.615233e-02
+if_f_x:p,x,y,z,t:0,3,3,0,3,tmp4[0]._data.y:6.242471e-02
+if_f_x:p,x,y,z,t:0,3,3,1,0,tmp4[0]._data.y:1.125127e-01
+if_f_x:p,x,y,z,t:0,3,3,1,1,tmp4[0]._data.y:2.368959e-02
+if_f_x:p,x,y,z,t:0,3,3,1,2,tmp4[0]._data.y:5.849729e-02
+if_f_x:p,x,y,z,t:0,3,3,1,3,tmp4[0]._data.y:7.663517e-02
+if_f_x:p,x,y,z,t:0,3,3,2,0,tmp4[0]._data.y:5.115927e-02
+if_f_x:p,x,y,z,t:0,3,3,2,1,tmp4[0]._data.y:6.509849e-02
+if_f_x:p,x,y,z,t:0,3,3,2,2,tmp4[0]._data.y:1.184634e-01
+if_f_x:p,x,y,z,t:0,3,3,2,3,tmp4[0]._data.y:1.296129e-01
+if_f_x:p,x,y,z,t:0,3,3,3,0,tmp4[0]._data.y:1.634616e-02
+if_f_x:p,x,y,z,t:0,3,3,3,1,tmp4[0]._data.y:3.693359e-02
+if_f_x:p,x,y,z,t:0,3,3,3,2,tmp4[0]._data.y:1.306650e-01
+if_f_x:p,x,y,z,t:0,3,3,3,3,tmp4[0]._data.y:5.083761e-02
+if_f_x:p,x,y,z,t:0,3,0,0,0,tmp4[0]._data.y:7.793489e-02
+if_f_x:p,x,y,z,t:0,3,0,0,1,tmp4[0]._data.y:7.375204e-02
+if_f_x:p,x,y,z,t:0,3,0,0,2,tmp4[0]._data.y:1.148758e-01
+if_f_x:p,x,y,z,t:0,3,0,0,3,tmp4[0]._data.y:1.019550e-01
+if_f_x:p,x,y,z,t:0,3,0,1,0,tmp4[0]._data.y:1.367918e-01
+if_f_x:p,x,y,z,t:0,3,0,1,1,tmp4[0]._data.y:3.727042e-02
+if_f_x:p,x,y,z,t:0,3,0,1,2,tmp4[0]._data.y:5.109597e-02
+if_f_x:p,x,y,z,t:0,3,0,1,3,tmp4[0]._data.y:9.828722e-02
+if_f_x:p,x,y,z,t:0,3,0,2,0,tmp4[0]._data.y:8.055329e-02
+if_f_x:p,x,y,z,t:0,3,0,2,1,tmp4[0]._data.y:1.142132e-01
+if_f_x:p,x,y,z,t:0,3,0,2,2,tmp4[0]._data.y:8.042826e-02
+if_f_x:p,x,y,z,t:0,3,0,2,3,tmp4[0]._data.y:1.028511e-01
+if_f_x:p,x,y,z,t:0,3,0,3,0,tmp4[0]._data.y:7.752979e-02
+if_f_x:p,x,y,z,t:0,3,0,3,1,tmp4[0]._data.y:5.742333e-02
+if_f_x:p,x,y,z,t:0,3,0,3,2,tmp4[0]._data.y:8.217526e-02
+if_f_x:p,x,y,z,t:0,3,0,3,3,tmp4[0]._data.y:6.611552e-02
+if_b_x:p,x,y,z,t:0,0,3,0,0,tmp4[0]._data.y:6.616462e-02
+if_b_x:p,x,y,z,t:0,0,3,0,1,tmp4[0]._data.y:8.739559e-02
+if_b_x:p,x,y,z,t:0,0,3,0,2,tmp4[0]._data.y:5.751015e-02
+if_b_x:p,x,y,z,t:0,0,3,0,3,tmp4[0]._data.y:2.713366e-02
+if_b_x:p,x,y,z,t:0,0,3,1,0,tmp4[0]._data.y:9.370554e-02
+if_b_x:p,x,y,z,t:0,0,3,1,1,tmp4[0]._data.y:5.773985e-02
+if_b_x:p,x,y,z,t:0,0,3,1,2,tmp4[0]._data.y:1.320413e-01
+if_b_x:p,x,y,z,t:0,0,3,1,3,tmp4[0]._data.y:5.219570e-02
+if_b_x:p,x,y,z,t:0,0,3,2,0,tmp4[0]._data.y:1.011435e-01
+if_b_x:p,x,y,z,t:0,0,3,2,1,tmp4[0]._data.y:1.159143e-01
+if_b_x:p,x,y,z,t:0,0,3,2,2,tmp4[0]._data.y:1.211370e-01
+if_b_x:p,x,y,z,t:0,0,3,2,3,tmp4[0]._data.y:1.031783e-01
+if_b_x:p,x,y,z,t:0,0,3,3,0,tmp4[0]._data.y:9.756908e-02
+if_b_x:p,x,y,z,t:0,0,3,3,1,tmp4[0]._data.y:1.025734e-01
+if_b_x:p,x,y,z,t:0,0,3,3,2,tmp4[0]._data.y:3.782595e-02
+if_b_x:p,x,y,z,t:0,0,3,3,3,tmp4[0]._data.y:7.735598e-02
+if_b_x:p,x,y,z,t:0,0,0,0,0,tmp4[0]._data.y:1.171874e-02
+if_b_x:p,x,y,z,t:0,0,0,0,1,tmp4[0]._data.y:1.070771e-01
+if_b_x:p,x,y,z,t:0,0,0,0,2,tmp4[0]._data.y:7.302746e-02
+if_b_x:p,x,y,z,t:0,0,0,0,3,tmp4[0]._data.y:6.012337e-02
+if_b_x:p,x,y,z,t:0,0,0,1,0,tmp4[0]._data.y:7.891901e-02
+if_b_x:p,x,y,z,t:0,0,0,1,1,tmp4[0]._data.y:3.157586e-02
+if_b_x:p,x,y,z,t:0,0,0,1,2,tmp4[0]._data.y:8.016973e-02
+if_b_x:p,x,y,z,t:0,0,0,1,3,tmp4[0]._data.y:8.232599e-02
+if_b_x:p,x,y,z,t:0,0,0,2,0,tmp4[0]._data.y:6.117620e-02
+if_b_x:p,x,y,z,t:0,0,0,2,1,tmp4[0]._data.y:7.592136e-02
+if_b_x:p,x,y,z,t:0,0,0,2,2,tmp4[0]._data.y:9.714679e-02
+if_b_x:p,x,y,z,t:0,0,0,2,3,tmp4[0]._data.y:5.507464e-02
+if_b_x:p,x,y,z,t:0,0,0,3,0,tmp4[0]._data.y:1.106208e-01
+if_b_x:p,x,y,z,t:0,0,0,3,1,tmp4[0]._data.y:1.236547e-01
+if_b_x:p,x,y,z,t:0,0,0,3,2,tmp4[0]._data.y:3.819052e-02
+if_b_x:p,x,y,z,t:0,0,0,3,3,tmp4[0]._data.y:6.510994e-02
+if_f_x:p,x,y,z,t:0,3,2,0,0,tmp4[5]._data.x:4.354275e-02
+if_f_x:p,x,y,z,t:0,3,2,0,1,tmp4[5]._data.x:1.530394e-02
+if_f_x:p,x,y,z,t:0,3,2,0,2,tmp4[5]._data.x:8.782975e-02
+if_f_x:p,x,y,z,t:0,3,2,0,3,tmp4[5]._data.x:9.411767e-02
+if_f_x:p,x,y,z,t:0,3,2,1,0,tmp4[5]._data.x:7.835267e-02
+if_f_x:p,x,y,z,t:0,3,2,1,1,tmp4[5]._data.x:9.199339e-02
+if_f_x:p,x,y,z,t:0,3,2,1,2,tmp4[5]._data.x:5.597427e-02
+if_f_x:p,x,y,z,t:0,3,2,1,3,tmp4[5]._data.x:8.444659e-02
+if_f_x:p,x,y,z,t:0,3,2,2,0,tmp4[5]._data.x:9.045240e-02
+if_f_x:p,x,y,z,t:0,3,2,2,1,tmp4[5]._data.x:1.009844e-01
+if_f_x:p,x,y,z,t:0,3,2,2,2,tmp4[5]._data.x:3.675001e-02
+if_f_x:p,x,y,z,t:0,3,2,2,3,tmp4[5]._data.x:4.219421e-02
+if_f_x:p,x,y,z,t:0,3,2,3,0,tmp4[5]._data.x:5.891905e-02
+if_f_x:p,x,y,z,t:0,3,2,3,1,tmp4[5]._data.x:9.182934e-02
+if_f_x:p,x,y,z,t:0,3,2,3,2,tmp4[5]._data.x:7.071915e-02
+if_f_x:p,x,y,z,t:0,3,2,3,3,tmp4[5]._data.x:3.691101e-02
+if_b_x:p,x,y,z,t:0,0,2,0,0,tmp4[5]._data.x:5.370316e-02
+if_b_x:p,x,y,z,t:0,0,2,0,1,tmp4[5]._data.x:9.504736e-02
+if_b_x:p,x,y,z,t:0,0,2,0,2,tmp4[5]._data.x:6.910176e-02
+if_b_x:p,x,y,z,t:0,0,2,0,3,tmp4[5]._data.x:9.106161e-03
+if_b_x:p,x,y,z,t:0,0,2,1,0,tmp4[5]._data.x:4.134479e-02
+if_b_x:p,x,y,z,t:0,0,2,1,1,tmp4[5]._data.x:8.527844e-02
+if_b_x:p,x,y,z,t:0,0,2,1,2,tmp4[5]._data.x:2.554715e-03
+if_b_x:p,x,y,z,t:0,0,2,1,3,tmp4[5]._data.x:3.916641e-02
+if_b_x:p,x,y,z,t:0,0,2,2,0,tmp4[5]._data.x:4.110229e-02
+if_b_x:p,x,y,z,t:0,0,2,2,1,tmp4[5]._data.x:2.698616e-02
+if_b_x:p,x,y,z,t:0,0,2,2,2,tmp4[5]._data.x:9.525486e-02
+if_b_x:p,x,y,z,t:0,0,2,2,3,tmp4[5]._data.x:1.581263e-02
+if_b_x:p,x,y,z,t:0,0,2,3,0,tmp4[5]._data.x:8.040622e-02
+if_b_x:p,x,y,z,t:0,0,2,3,1,tmp4[5]._data.x:-9.821102e-04
+if_b_x:p,x,y,z,t:0,0,2,3,2,tmp4[5]._data.x:6.108208e-02
+if_b_x:p,x,y,z,t:0,0,2,3,3,tmp4[5]._data.x:4.344291e-03
+if_f_x:p,x,y,z,t:0,3,1,0,0,tmp4[5]._data.x:1.801191e-02
+if_f_x:p,x,y,z,t:0,3,1,0,1,tmp4[5]._data.x:5.918605e-02
+if_f_x:p,x,y,z,t:0,3,1,0,2,tmp4[5]._data.x:5.009804e-02
+if_f_x:p,x,y,z,t:0,3,1,0,3,tmp4[5]._data.x:8.426992e-02
+if_f_x:p,x,y,z,t:0,3,1,1,0,tmp4[5]._data.x:1.015314e-01
+if_f_x:p,x,y,z,t:0,3,1,1,1,tmp4[5]._data.x:1.971220e-02
+if_f_x:p,x,y,z,t:0,3,1,1,2,tmp4[5]._data.x:8.908729e-02
+if_f_x:p,x,y,z,t:0,3,1,1,3,tmp4[5]._data.x:8.507712e-02
+if_f_x:p,x,y,z,t:0,3,1,2,0,tmp4[5]._data.x:6.586871e-02
+if_f_x:p,x,y,z,t:0,3,1,2,1,tmp4[5]._data.x:3.607053e-02
+if_f_x:p,x,y,z,t:0,3,1,2,2,tmp4[5]._data.x:7.875810e-04
+if_f_x:p,x,y,z,t:0,3,1,2,3,tmp4[5]._data.x:8.331503e-02
+if_f_x:p,x,y,z,t:0,3,1,3,0,tmp4[5]._data.x:1.226156e-02
+if_f_x:p,x,y,z,t:0,3,1,3,1,tmp4[5]._data.x:1.031936e-02
+if_f_x:p,x,y,z,t:0,3,1,3,2,tmp4[5]._data.x:2.296141e-02
+if_f_x:p,x,y,z,t:0,3,1,3,3,tmp4[5]._data.x:8.419876e-02
+if_b_x:p,x,y,z,t:0,0,1,0,0,tmp4[5]._data.x:3.678269e-02
+if_b_x:p,x,y,z,t:0,0,1,0,1,tmp4[5]._data.x:7.895302e-02
+if_b_x:p,x,y,z,t:0,0,1,0,2,tmp4[5]._data.x:8.774820e-02
+if_b_x:p,x,y,z,t:0,0,1,0,3,tmp4[5]._data.x:3.134131e-02
+if_b_x:p,x,y,z,t:0,0,1,1,0,tmp4[5]._data.x:8.160961e-02
+if_b_x:p,x,y,z,t:0,0,1,1,1,tmp4[5]._data.x:8.903990e-02
+if_b_x:p,x,y,z,t:0,0,1,1,2,tmp4[5]._data.x:6.167639e-02
+if_b_x:p,x,y,z,t:0,0,1,1,3,tmp4[5]._data.x:5.330085e-02
+if_b_x:p,x,y,z,t:0,0,1,2,0,tmp4[5]._data.x:7.028097e-02
+if_b_x:p,x,y,z,t:0,0,1,2,1,tmp4[5]._data.x:6.671838e-02
+if_b_x:p,x,y,z,t:0,0,1,2,2,tmp4[5]._data.x:8.744869e-02
+if_b_x:p,x,y,z,t:0,0,1,2,3,tmp4[5]._data.x:2.032381e-02
+if_b_x:p,x,y,z,t:0,0,1,3,0,tmp4[5]._data.x:1.434501e-02
+if_b_x:p,x,y,z,t:0,0,1,3,1,tmp4[5]._data.x:4.150731e-02
+if_b_x:p,x,y,z,t:0,0,1,3,2,tmp4[5]._data.x:5.422965e-03
+if_b_x:p,x,y,z,t:0,0,1,3,3,tmp4[5]._data.x:4.344089e-02
+if_f_x:p,x,y,z,t:0,3,3,0,0,tmp4[5]._data.x:1.396510e-02
+if_f_x:p,x,y,z,t:0,3,3,0,1,tmp4[5]._data.x:6.757310e-02
+if_f_x:p,x,y,z,t:0,3,3,0,2,tmp4[5]._data.x:2.067026e-02
+if_f_x:p,x,y,z,t:0,3,3,0,3,tmp4[5]._data.x:6.805480e-02
+if_f_x:p,x,y,z,t:0,3,3,1,0,tmp4[5]._data.x:9.686534e-03
+if_f_x:p,x,y,z,t:0,3,3,1,1,tmp4[5]._data.x:8.824519e-04
+if_f_x:p,x,y,z,t:0,3,3,1,2,tmp4[5]._data.x:9.907910e-02
+if_f_x:p,x,y,z,t:0,3,3,1,3,tmp4[5]._data.x:4.642458e-02
+if_f_x:p,x,y,z,t:0,3,3,2,0,tmp4[5]._data.x:6.982961e-02
+if_f_x:p,x,y,z,t:0,3,3,2,1,tmp4[5]._data.x:8.156183e-02
+if_f_x:p,x,y,z,t:0,3,3,2,2,tmp4[5]._data.x:9.153937e-02
+if_f_x:p,x,y,z,t:0,3,3,2,3,tmp4[5]._data.x:8.273569e-02
+if_f_x:p,x,y,z,t:0,3,3,3,0,tmp4[5]._data.x:3.539558e-02
+if_f_x:p,x,y,z,t:0,3,3,3,1,tmp4[5]._data.x:4.335788e-02
+if_f_x:p,x,y,z,t:0,3,3,3,2,tmp4[5]._data.x:6.715032e-02
+if_f_x:p,x,y,z,t:0,3,3,3,3,tmp4[5]._data.x:3.324369e-02
+if_f_x:p,x,y,z,t:0,3,0,0,0,tmp4[5]._data.x:3.334804e-02
+if_f_x:p,x,y,z,t:0,3,0,0,1,tmp4[5]._data.x:4.498202e-02
+if_f_x:p,x,y,z,t:0,3,0,0,2,tmp4[5]._data.x:5.905621e-02
+if_f_x:p,x,y,z,t:0,3,0,0,3,tmp4[5]._data.x:9.717888e-02
+if_f_x:p,x,y,z,t:0,3,0,1,0,tmp4[5]._data.x:9.560938e-02
+if_f_x:p,x,y,z,t:0,3,0,1,1,tmp4[5]._data.x:3.414933e-02
+if_f_x:p,x,y,z,t:0,3,0,1,2,tmp4[5]._data.x:3.142514e-02
+if_f_x:p,x,y,z,t:0,3,0,1,3,tmp4[5]._data.x:7.654446e-02
+if_f_x:p,x,y,z,t:0,3,0,2,0,tmp4[5]._data.x:7.654840e-02
+if_f_x:p,x,y,z,t:0,3,0,2,1,tmp4[5]._data.x:3.346583e-02
+if_f_x:p,x,y,z,t:0,3,0,2,2,tmp4[5]._data.x:5.077150e-02
+if_f_x:p,x,y,z,t:0,3,0,2,3,tmp4[5]._data.x:2.681434e-02
+if_f_x:p,x,y,z,t:0,3,0,3,0,tmp4[5]._data.x:6.380339e-04
+if_f_x:p,x,y,z,t:0,3,0,3,1,tmp4[5]._data.x:9.375857e-02
+if_f_x:p,x,y,z,t:0,3,0,3,2,tmp4[5]._data.x:9.139259e-02
+if_f_x:p,x,y,z,t:0,3,0,3,3,tmp4[5]._data.x:4.368649e-02
+if_b_x:p,x,y,z,t:0,0,3,0,0,tmp4[5]._data.x:-1.622549e-03
+if_b_x:p,x,y,z,t:0,0,3,0,1,tmp4[5]._data.x:2.427035e-02
+if_b_x:p,x,y,z,t:0,0,3,0,2,tmp4[5]._data.x:2.283099e-02
+if_b_x:p,x,y,z,t:0,0,3,0,3,tmp4[5]._data.x:2.842337e-02
+if_b_x:p,x,y,z,t:0,0,3,1,0,tmp4[5]._data.x:2.242168e-02
+if_b_x:p,x,y,z,t:0,0,3,1,1,tmp4[5]._data.x:1.105396e-02
+if_b_x:p,x,y,z,t:0,0,3,1,2,tmp4[5]._data.x:6.795738e-02
+if_b_x:p,x,y,z,t:0,0,3,1,3,tmp4[5]._data.x:3.760062e-02
+if_b_x:p,x,y,z,t:0,0,3,2,0,tmp4[5]._data.x:7.439466e-02
+if_b_x:p,x,y,z,t:0,0,3,2,1,tmp4[5]._data.x:5.350367e-03
+if_b_x:p,x,y,z,t:0,0,3,2,2,tmp4[5]._data.x:4.157749e-02
+if_b_x:p,x,y,z,t:0,0,3,2,3,tmp4[5]._data.x:2.978985e-02
+if_b_x:p,x,y,z,t:0,0,3,3,0,tmp4[5]._data.x:2.839050e-02
+if_b_x:p,x,y,z,t:0,0,3,3,1,tmp4[5]._data.x:6.410613e-02
+if_b_x:p,x,y,z,t:0,0,3,3,2,tmp4[5]._data.x:5.788658e-02
+if_b_x:p,x,y,z,t:0,0,3,3,3,tmp4[5]._data.x:8.315784e-02
+if_b_x:p,x,y,z,t:0,0,0,0,0,tmp4[5]._data.x:3.598540e-02
+if_b_x:p,x,y,z,t:0,0,0,0,1,tmp4[5]._data.x:2.286020e-02
+if_b_x:p,x,y,z,t:0,0,0,0,2,tmp4[5]._data.x:8.013433e-03
+if_b_x:p,x,y,z,t:0,0,0,0,3,tmp4[5]._data.x:3.599121e-03
+if_b_x:p,x,y,z,t:0,0,0,1,0,tmp4[5]._data.x:4.345018e-02
+if_b_x:p,x,y,z,t:0,0,0,1,1,tmp4[5]._data.x:5.591122e-02
+if_b_x:p,x,y,z,t:0,0,0,1,2,tmp4[5]._data.x:5.623683e-02
+if_b_x:p,x,y,z,t:0,0,0,1,3,tmp4[5]._data.x:3.554682e-02
+if_b_x:p,x,y,z,t:0,0,0,2,0,tmp4[5]._data.x:2.653437e-02
+if_b_x:p,x,y,z,t:0,0,0,2,1,tmp4[5]._data.x:1.014211e-02
+if_b_x:p,x,y,z,t:0,0,0,2,2,tmp4[5]._data.x:4.614522e-02
+if_b_x:p,x,y,z,t:0,0,0,2,3,tmp4[5]._data.x:1.800702e-02
+if_b_x:p,x,y,z,t:0,0,0,3,0,tmp4[5]._data.x:5.185021e-02
+if_b_x:p,x,y,z,t:0,0,0,3,1,tmp4[5]._data.x:9.232547e-02
+if_b_x:p,x,y,z,t:0,0,0,3,2,tmp4[5]._data.x:1.035076e-02
+if_b_x:p,x,y,z,t:0,0,0,3,3,tmp4[5]._data.x:4.355107e-02
+if_f_x:p,x,y,z,t:0,3,2,0,0,tmp4[5]._data.y:2.694435e-02
+if_f_x:p,x,y,z,t:0,3,2,0,1,tmp4[5]._data.y:5.979272e-03
+if_f_x:p,x,y,z,t:0,3,2,0,2,tmp4[5]._data.y:1.912569e-02
+if_f_x:p,x,y,z,t:0,3,2,0,3,tmp4[5]._data.y:6.815867e-04
+if_f_x:p,x,y,z,t:0,3,2,1,0,tmp4[5]._data.y:8.468396e-02
+if_f_x:p,x,y,z,t:0,3,2,1,1,tmp4[5]._data.y:8.313844e-02
+if_f_x:p,x,y,z,t:0,3,2,1,2,tmp4[5]._data.y:7.806467e-02
+if_f_x:p,x,y,z,t:0,3,2,1,3,tmp4[5]._data.y:8.280037e-02
+if_f_x:p,x,y,z,t:0,3,2,2,0,tmp4[5]._data.y:8.667539e-02
+if_f_x:p,x,y,z,t:0,3,2,2,1,tmp4[5]._data.y:2.178702e-02
+if_f_x:p,x,y,z,t:0,3,2,2,2,tmp4[5]._data.y:6.089493e-02
+if_f_x:p,x,y,z,t:0,3,2,2,3,tmp4[5]._data.y:9.366136e-02
+if_f_x:p,x,y,z,t:0,3,2,3,0,tmp4[5]._data.y:6.970038e-02
+if_f_x:p,x,y,z,t:0,3,2,3,1,tmp4[5]._data.y:7.093000e-02
+if_f_x:p,x,y,z,t:0,3,2,3,2,tmp4[5]._data.y:1.030354e-02
+if_f_x:p,x,y,z,t:0,3,2,3,3,tmp4[5]._data.y:3.473344e-02
+if_f_x:p,x,y,z,t:0,3,1,0,0,tmp4[5]._data.y:5.949571e-02
+if_f_x:p,x,y,z,t:0,3,1,0,1,tmp4[5]._data.y:2.147882e-02
+if_f_x:p,x,y,z,t:0,3,1,0,2,tmp4[5]._data.y:8.265205e-02
+if_f_x:p,x,y,z,t:0,3,1,0,3,tmp4[5]._data.y:7.852715e-02
+if_f_x:p,x,y,z,t:0,3,1,1,0,tmp4[5]._data.y:9.008068e-02
+if_f_x:p,x,y,z,t:0,3,1,1,1,tmp4[5]._data.y:3.604437e-02
+if_f_x:p,x,y,z,t:0,3,1,1,2,tmp4[5]._data.y:8.551619e-02
+if_f_x:p,x,y,z,t:0,3,1,1,3,tmp4[5]._data.y:6.448941e-03
+if_f_x:p,x,y,z,t:0,3,1,2,0,tmp4[5]._data.y:5.798392e-03
+if_f_x:p,x,y,z,t:0,3,1,2,1,tmp4[5]._data.y:4.208491e-02
+if_f_x:p,x,y,z,t:0,3,1,2,2,tmp4[5]._data.y:2.918374e-02
+if_f_x:p,x,y,z,t:0,3,1,2,3,tmp4[5]._data.y:2.793036e-02
+if_f_x:p,x,y,z,t:0,3,1,3,0,tmp4[5]._data.y:2.382200e-03
+if_f_x:p,x,y,z,t:0,3,1,3,1,tmp4[5]._data.y:6.258586e-02
+if_f_x:p,x,y,z,t:0,3,1,3,2,tmp4[5]._data.y:9.060235e-02
+if_f_x:p,x,y,z,t:0,3,1,3,3,tmp4[5]._data.y:8.798839e-02
+if_b_x:p,x,y,z,t:0,0,2,0,0,tmp4[5]._data.y:1.446692e-02
+if_b_x:p,x,y,z,t:0,0,2,0,1,tmp4[5]._data.y:6.890789e-03
+if_b_x:p,x,y,z,t:0,0,2,0,2,tmp4[5]._data.y:7.195093e-02
+if_b_x:p,x,y,z,t:0,0,2,0,3,tmp4[5]._data.y:4.248589e-02
+if_b_x:p,x,y,z,t:0,0,2,1,0,tmp4[5]._data.y:5.193587e-02
+if_b_x:p,x,y,z,t:0,0,2,1,1,tmp4[5]._data.y:3.557771e-02
+if_b_x:p,x,y,z,t:0,0,2,1,2,tmp4[5]._data.y:1.109596e-02
+if_b_x:p,x,y,z,t:0,0,2,1,3,tmp4[5]._data.y:6.711970e-02
+if_b_x:p,x,y,z,t:0,0,2,2,0,tmp4[5]._data.y:1.232810e-02
+if_b_x:p,x,y,z,t:0,0,2,2,1,tmp4[5]._data.y:1.428872e-02
+if_b_x:p,x,y,z,t:0,0,2,2,2,tmp4[5]._data.y:1.242477e-02
+if_b_x:p,x,y,z,t:0,0,2,2,3,tmp4[5]._data.y:6.965071e-02
+if_b_x:p,x,y,z,t:0,0,2,3,0,tmp4[5]._data.y:5.530842e-02
+if_b_x:p,x,y,z,t:0,0,2,3,1,tmp4[5]._data.y:8.485319e-02
+if_b_x:p,x,y,z,t:0,0,2,3,2,tmp4[5]._data.y:3.765773e-02
+if_b_x:p,x,y,z,t:0,0,2,3,3,tmp4[5]._data.y:3.702463e-02
+if_b_x:p,x,y,z,t:0,0,1,0,0,tmp4[5]._data.y:7.626616e-02
+if_b_x:p,x,y,z,t:0,0,1,0,1,tmp4[5]._data.y:3.636203e-02
+if_b_x:p,x,y,z,t:0,0,1,0,2,tmp4[5]._data.y:6.326840e-02
+if_b_x:p,x,y,z,t:0,0,1,0,3,tmp4[5]._data.y:7.877123e-02
+if_b_x:p,x,y,z,t:0,0,1,1,0,tmp4[5]._data.y:3.868667e-02
+if_b_x:p,x,y,z,t:0,0,1,1,1,tmp4[5]._data.y:9.091865e-02
+if_b_x:p,x,y,z,t:0,0,1,1,2,tmp4[5]._data.y:1.142274e-02
+if_b_x:p,x,y,z,t:0,0,1,1,3,tmp4[5]._data.y:4.874262e-02
+if_b_x:p,x,y,z,t:0,0,1,2,0,tmp4[5]._data.y:4.629373e-02
+if_b_x:p,x,y,z,t:0,0,1,2,1,tmp4[5]._data.y:7.206145e-02
+if_b_x:p,x,y,z,t:0,0,1,2,2,tmp4[5]._data.y:7.420316e-02
+if_b_x:p,x,y,z,t:0,0,1,2,3,tmp4[5]._data.y:5.976344e-02
+if_b_x:p,x,y,z,t:0,0,1,3,0,tmp4[5]._data.y:7.683111e-02
+if_b_x:p,x,y,z,t:0,0,1,3,1,tmp4[5]._data.y:1.069146e-03
+if_b_x:p,x,y,z,t:0,0,1,3,2,tmp4[5]._data.y:8.937585e-02
+if_b_x:p,x,y,z,t:0,0,1,3,3,tmp4[5]._data.y:9.314313e-02
+if_f_x:p,x,y,z,t:0,3,3,0,0,tmp4[5]._data.y:9.209986e-02
+if_f_x:p,x,y,z,t:0,3,3,0,1,tmp4[5]._data.y:4.188012e-02
+if_f_x:p,x,y,z,t:0,3,3,0,2,tmp4[5]._data.y:8.887924e-02
+if_f_x:p,x,y,z,t:0,3,3,0,3,tmp4[5]._data.y:4.436960e-02
+if_f_x:p,x,y,z,t:0,3,3,1,0,tmp4[5]._data.y:3.773971e-02
+if_f_x:p,x,y,z,t:0,3,3,1,1,tmp4[5]._data.y:8.355312e-02
+if_f_x:p,x,y,z,t:0,3,3,1,2,tmp4[5]._data.y:2.748070e-02
+if_f_x:p,x,y,z,t:0,3,3,1,3,tmp4[5]._data.y:4.046149e-02
+if_f_x:p,x,y,z,t:0,3,3,2,0,tmp4[5]._data.y:7.184270e-02
+if_f_x:p,x,y,z,t:0,3,3,2,1,tmp4[5]._data.y:2.637342e-02
+if_f_x:p,x,y,z,t:0,3,3,2,2,tmp4[5]._data.y:2.666803e-02
+if_f_x:p,x,y,z,t:0,3,3,2,3,tmp4[5]._data.y:9.192819e-02
+if_f_x:p,x,y,z,t:0,3,3,3,0,tmp4[5]._data.y:5.710026e-02
+if_f_x:p,x,y,z,t:0,3,3,3,1,tmp4[5]._data.y:7.905956e-02
+if_f_x:p,x,y,z,t:0,3,3,3,2,tmp4[5]._data.y:8.329995e-02
+if_f_x:p,x,y,z,t:0,3,3,3,3,tmp4[5]._data.y:1.553475e-02
+if_f_x:p,x,y,z,t:0,3,0,0,0,tmp4[5]._data.y:9.821637e-02
+if_f_x:p,x,y,z,t:0,3,0,0,1,tmp4[5]._data.y:8.565075e-02
+if_f_x:p,x,y,z,t:0,3,0,0,2,tmp4[5]._data.y:2.833237e-02
+if_f_x:p,x,y,z,t:0,3,0,0,3,tmp4[5]._data.y:8.264669e-02
+if_f_x:p,x,y,z,t:0,3,0,1,0,tmp4[5]._data.y:6.520017e-02
+if_f_x:p,x,y,z,t:0,3,0,1,1,tmp4[5]._data.y:4.117948e-02
+if_f_x:p,x,y,z,t:0,3,0,1,2,tmp4[5]._data.y:9.088505e-02
+if_f_x:p,x,y,z,t:0,3,0,1,3,tmp4[5]._data.y:4.621514e-02
+if_f_x:p,x,y,z,t:0,3,0,2,0,tmp4[5]._data.y:7.333283e-02
+if_f_x:p,x,y,z,t:0,3,0,2,1,tmp4[5]._data.y:3.089300e-03
+if_f_x:p,x,y,z,t:0,3,0,2,2,tmp4[5]._data.y:4.102843e-02
+if_f_x:p,x,y,z,t:0,3,0,2,3,tmp4[5]._data.y:2.639098e-02
+if_f_x:p,x,y,z,t:0,3,0,3,0,tmp4[5]._data.y:2.726102e-03
+if_f_x:p,x,y,z,t:0,3,0,3,1,tmp4[5]._data.y:8.920282e-02
+if_f_x:p,x,y,z,t:0,3,0,3,2,tmp4[5]._data.y:6.442092e-02
+if_f_x:p,x,y,z,t:0,3,0,3,3,tmp4[5]._data.y:2.240898e-02
+if_b_x:p,x,y,z,t:0,0,3,0,0,tmp4[5]._data.y:2.416196e-02
+if_b_x:p,x,y,z,t:0,0,3,0,1,tmp4[5]._data.y:2.327531e-02
+if_b_x:p,x,y,z,t:0,0,3,0,2,tmp4[5]._data.y:5.270470e-03
+if_b_x:p,x,y,z,t:0,0,3,0,3,tmp4[5]._data.y:3.654557e-02
+if_b_x:p,x,y,z,t:0,0,3,1,0,tmp4[5]._data.y:1.985740e-02
+if_b_x:p,x,y,z,t:0,0,3,1,1,tmp4[5]._data.y:1.215287e-02
+if_b_x:p,x,y,z,t:0,0,3,1,2,tmp4[5]._data.y:5.466113e-02
+if_b_x:p,x,y,z,t:0,0,3,1,3,tmp4[5]._data.y:2.666662e-02
+if_b_x:p,x,y,z,t:0,0,3,2,0,tmp4[5]._data.y:7.138122e-02
+if_b_x:p,x,y,z,t:0,0,3,2,1,tmp4[5]._data.y:6.839792e-02
+if_b_x:p,x,y,z,t:0,0,3,2,2,tmp4[5]._data.y:1.660449e-02
+if_b_x:p,x,y,z,t:0,0,3,2,3,tmp4[5]._data.y:8.472885e-02
+if_b_x:p,x,y,z,t:0,0,3,3,0,tmp4[5]._data.y:7.647701e-02
+if_b_x:p,x,y,z,t:0,0,3,3,1,tmp4[5]._data.y:1.865469e-02
+if_b_x:p,x,y,z,t:0,0,3,3,2,tmp4[5]._data.y:9.901860e-02
+if_b_x:p,x,y,z,t:0,0,3,3,3,tmp4[5]._data.y:5.923557e-04
+if_b_x:p,x,y,z,t:0,0,0,0,0,tmp4[5]._data.y:1.874831e-02
+if_b_x:p,x,y,z,t:0,0,0,0,1,tmp4[5]._data.y:1.336531e-02
+if_b_x:p,x,y,z,t:0,0,0,0,2,tmp4[5]._data.y:9.430488e-02
+if_b_x:p,x,y,z,t:0,0,0,0,3,tmp4[5]._data.y:3.801146e-02
+if_b_x:p,x,y,z,t:0,0,0,1,0,tmp4[5]._data.y:5.847172e-02
+if_b_x:p,x,y,z,t:0,0,0,1,1,tmp4[5]._data.y:7.956597e-02
+if_b_x:p,x,y,z,t:0,0,0,1,2,tmp4[5]._data.y:8.543702e-03
+if_b_x:p,x,y,z,t:0,0,0,1,3,tmp4[5]._data.y:2.493838e-02
+if_b_x:p,x,y,z,t:0,0,0,2,0,tmp4[5]._data.y:1.341635e-02
+if_b_x:p,x,y,z,t:0,0,0,2,1,tmp4[5]._data.y:4.204294e-02
+if_b_x:p,x,y,z,t:0,0,0,2,2,tmp4[5]._data.y:1.373335e-02
+if_b_x:p,x,y,z,t:0,0,0,2,3,tmp4[5]._data.y:5.366146e-04
+if_b_x:p,x,y,z,t:0,0,0,3,0,tmp4[5]._data.y:9.936180e-02
+if_b_x:p,x,y,z,t:0,0,0,3,1,tmp4[5]._data.y:7.028830e-02
+if_b_x:p,x,y,z,t:0,0,0,3,2,tmp4[5]._data.y:4.674594e-02
+if_b_x:p,x,y,z,t:0,0,0,3,3,tmp4[5]._data.y:4.374814e-02
+make clover total time: (without malloc free memcpy) :0.008938290 sec
+ if_f_x:p,x,y,z,t:0,3,2,0,0,tmp2[0]._data.x:-2.000000e+02
+if_f_x:p,x,y,z,t:0,3,2,0,1,tmp2[0]._data.x:-2.010000e+02
+if_f_x:p,x,y,z,t:0,3,2,0,2,tmp2[0]._data.x:-2.020000e+02
+if_f_x:p,x,y,z,t:0,3,2,0,3,tmp2[0]._data.x:-2.030000e+02
+if_f_x:p,x,y,z,t:0,3,2,1,0,tmp2[0]._data.x:-2.100000e+02
+if_f_x:p,x,y,z,t:0,3,2,1,1,tmp2[0]._data.x:-2.110000e+02
+if_f_x:p,x,y,z,t:0,3,2,1,2,tmp2[0]._data.x:-2.120000e+02
+if_f_x:p,x,y,z,t:0,3,2,1,3,tmp2[0]._data.x:-2.130000e+02
+if_f_x:p,x,y,z,t:0,3,2,2,0,tmp2[0]._data.x:-2.200000e+02
+if_f_x:p,x,y,z,t:0,3,2,2,1,tmp2[0]._data.x:-2.210000e+02
+if_f_x:p,x,y,z,t:0,3,2,2,2,tmp2[0]._data.x:-2.220000e+02
+if_f_x:p,x,y,z,t:0,3,2,2,3,tmp2[0]._data.x:-2.230000e+02
+if_f_x:p,x,y,z,t:0,3,2,3,0,tmp2[0]._data.x:-2.300000e+02
+if_f_x:p,x,y,z,t:0,3,2,3,1,tmp2[0]._data.x:-2.310000e+02
+if_f_x:p,x,y,z,t:0,3,2,3,2,tmp2[0]._data.x:-2.320000e+02
+if_f_x:p,x,y,z,t:0,3,2,3,3,tmp2[0]._data.x:-2.330000e+02
+if_f_x:p,x,y,z,t:0,3,1,0,0,tmp2[0]._data.x:-1.000000e+02
+if_f_x:p,x,y,z,t:0,3,1,0,1,tmp2[0]._data.x:-1.010000e+02
+if_f_x:p,x,y,z,t:0,3,1,0,2,tmp2[0]._data.x:-1.020000e+02
+if_f_x:p,x,y,z,t:0,3,1,0,3,tmp2[0]._data.x:-1.030000e+02
+if_f_x:p,x,y,z,t:0,3,1,1,0,tmp2[0]._data.x:-1.100000e+02
+if_f_x:p,x,y,z,t:0,3,1,1,1,tmp2[0]._data.x:-1.110000e+02
+if_f_x:p,x,y,z,t:0,3,1,1,2,tmp2[0]._data.x:-1.120000e+02
+if_f_x:p,x,y,z,t:0,3,1,1,3,tmp2[0]._data.x:-1.130000e+02
+if_f_x:p,x,y,z,t:0,3,1,2,0,tmp2[0]._data.x:-1.200000e+02
+if_f_x:p,x,y,z,t:0,3,1,2,1,tmp2[0]._data.x:-1.210000e+02
+if_f_x:p,x,y,z,t:0,3,1,2,2,tmp2[0]._data.x:-1.220000e+02
+if_f_x:p,x,y,z,t:0,3,1,2,3,tmp2[0]._data.x:-1.230000e+02
+if_f_x:p,x,y,z,t:0,3,1,3,0,tmp2[0]._data.x:-1.300000e+02
+if_f_x:p,x,y,z,t:0,3,1,3,1,tmp2[0]._data.x:-1.310000e+02
+if_f_x:p,x,y,z,t:0,3,1,3,2,tmp2[0]._data.x:-1.320000e+02
+if_f_x:p,x,y,z,t:0,3,1,3,3,tmp2[0]._data.x:-1.330000e+02
+if_f_x:p,x,y,z,t:0,3,3,0,0,tmp2[0]._data.x:-3.000000e+02
+if_f_x:p,x,y,z,t:0,3,3,0,1,tmp2[0]._data.x:-3.010000e+02
+if_f_x:p,x,y,z,t:0,3,3,0,2,tmp2[0]._data.x:-3.020000e+02
+if_f_x:p,x,y,z,t:0,3,3,0,3,tmp2[0]._data.x:-3.030000e+02
+if_f_x:p,x,y,z,t:0,3,3,1,0,tmp2[0]._data.x:-3.100000e+02
+if_f_x:p,x,y,z,t:0,3,3,1,1,tmp2[0]._data.x:-3.110000e+02
+if_f_x:p,x,y,z,t:0,3,3,1,2,tmp2[0]._data.x:-3.120000e+02
+if_f_x:p,x,y,z,t:0,3,3,1,3,tmp2[0]._data.x:-3.130000e+02
+if_f_x:p,x,y,z,t:0,3,3,2,0,tmp2[0]._data.x:-3.200000e+02
+if_f_x:p,x,y,z,t:0,3,3,2,1,tmp2[0]._data.x:-3.210000e+02
+if_f_x:p,x,y,z,t:0,3,3,2,2,tmp2[0]._data.x:-3.220000e+02
+if_f_x:p,x,y,z,t:0,3,3,2,3,tmp2[0]._data.x:-3.230000e+02
+if_f_x:p,x,y,z,t:0,3,3,3,0,tmp2[0]._data.x:-3.300000e+02
+if_f_x:p,x,y,z,t:0,3,3,3,1,tmp2[0]._data.x:-3.310000e+02
+if_f_x:p,x,y,z,t:0,3,3,3,2,tmp2[0]._data.x:-3.320000e+02
+if_f_x:p,x,y,z,t:0,3,3,3,3,tmp2[0]._data.x:-3.330000e+02
+if_f_x:p,x,y,z,t:0,3,0,0,0,tmp2[0]._data.x:0.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,0,1,tmp2[0]._data.x:-1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,0,2,tmp2[0]._data.x:-2.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,0,3,tmp2[0]._data.x:-3.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,1,0,tmp2[0]._data.x:-1.000000e+01
+if_f_x:p,x,y,z,t:0,3,0,1,1,tmp2[0]._data.x:-1.100000e+01
+if_f_x:p,x,y,z,t:0,3,0,1,2,tmp2[0]._data.x:-1.200000e+01
+if_f_x:p,x,y,z,t:0,3,0,1,3,tmp2[0]._data.x:-1.300000e+01
+if_f_x:p,x,y,z,t:0,3,0,2,0,tmp2[0]._data.x:-2.000000e+01
+if_f_x:p,x,y,z,t:0,3,0,2,1,tmp2[0]._data.x:-2.100000e+01
+if_f_x:p,x,y,z,t:0,3,0,2,2,tmp2[0]._data.x:-2.200000e+01
+if_f_x:p,x,y,z,t:0,3,0,2,3,tmp2[0]._data.x:-2.300000e+01
+if_f_x:p,x,y,z,t:0,3,0,3,0,tmp2[0]._data.x:-3.000000e+01
+if_f_x:p,x,y,z,t:0,3,0,3,1,tmp2[0]._data.x:-3.100000e+01
+if_f_x:p,x,y,z,t:0,3,0,3,2,tmp2[0]._data.x:-3.200000e+01
+if_f_x:p,x,y,z,t:0,3,0,3,3,tmp2[0]._data.x:-3.300000e+01
+if_b_x:p,x,y,z,t:0,0,2,0,0,tmp1[0]._data.x:2.000000e+02
+if_b_x:p,x,y,z,t:0,0,2,0,1,tmp1[0]._data.x:2.010000e+02
+if_b_x:p,x,y,z,t:0,0,2,0,2,tmp1[0]._data.x:2.020000e+02
+if_b_x:p,x,y,z,t:0,0,2,0,3,tmp1[0]._data.x:2.030000e+02
+if_b_x:p,x,y,z,t:0,0,2,1,0,tmp1[0]._data.x:2.100000e+02
+if_b_x:p,x,y,z,t:0,0,2,1,1,tmp1[0]._data.x:2.110000e+02
+if_b_x:p,x,y,z,t:0,0,2,1,2,tmp1[0]._data.x:2.120000e+02
+if_b_x:p,x,y,z,t:0,0,2,1,3,tmp1[0]._data.x:2.130000e+02
+if_b_x:p,x,y,z,t:0,0,2,2,0,tmp1[0]._data.x:2.200000e+02
+if_b_x:p,x,y,z,t:0,0,2,2,1,tmp1[0]._data.x:2.210000e+02
+if_b_x:p,x,y,z,t:0,0,2,2,2,tmp1[0]._data.x:2.220000e+02
+if_b_x:p,x,y,z,t:0,0,2,2,3,tmp1[0]._data.x:2.230000e+02
+if_b_x:p,x,y,z,t:0,0,2,3,0,tmp1[0]._data.x:2.300000e+02
+if_b_x:p,x,y,z,t:0,0,2,3,1,tmp1[0]._data.x:2.310000e+02
+if_b_x:p,x,y,z,t:0,0,2,3,2,tmp1[0]._data.x:2.320000e+02
+if_b_x:p,x,y,z,t:0,0,2,3,3,tmp1[0]._data.x:2.330000e+02
+if_b_x:p,x,y,z,t:0,0,1,0,0,tmp1[0]._data.x:1.000000e+02
+if_b_x:p,x,y,z,t:0,0,1,0,1,tmp1[0]._data.x:1.010000e+02
+if_b_x:p,x,y,z,t:0,0,1,0,2,tmp1[0]._data.x:1.020000e+02
+if_b_x:p,x,y,z,t:0,0,1,0,3,tmp1[0]._data.x:1.030000e+02
+if_b_x:p,x,y,z,t:0,0,1,1,0,tmp1[0]._data.x:1.100000e+02
+if_b_x:p,x,y,z,t:0,0,1,1,1,tmp1[0]._data.x:1.110000e+02
+if_b_x:p,x,y,z,t:0,0,1,1,2,tmp1[0]._data.x:1.120000e+02
+if_b_x:p,x,y,z,t:0,0,1,1,3,tmp1[0]._data.x:1.130000e+02
+if_b_x:p,x,y,z,t:0,0,1,2,0,tmp1[0]._data.x:1.200000e+02
+if_b_x:p,x,y,z,t:0,0,1,2,1,tmp1[0]._data.x:1.210000e+02
+if_b_x:p,x,y,z,t:0,0,1,2,2,tmp1[0]._data.x:1.220000e+02
+if_b_x:p,x,y,z,t:0,0,1,2,3,tmp1[0]._data.x:1.230000e+02
+if_b_x:p,x,y,z,t:0,0,1,3,0,tmp1[0]._data.x:1.300000e+02
+if_b_x:p,x,y,z,t:0,0,1,3,1,tmp1[0]._data.x:1.310000e+02
+if_b_x:p,x,y,z,t:0,0,1,3,2,tmp1[0]._data.x:1.320000e+02
+if_b_x:p,x,y,z,t:0,0,1,3,3,tmp1[0]._data.x:1.330000e+02
+if_b_x:p,x,y,z,t:0,0,3,0,0,tmp1[0]._data.x:3.000000e+02
+if_b_x:p,x,y,z,t:0,0,3,0,1,tmp1[0]._data.x:3.010000e+02
+if_b_x:p,x,y,z,t:0,0,3,0,2,tmp1[0]._data.x:3.020000e+02
+if_b_x:p,x,y,z,t:0,0,3,0,3,tmp1[0]._data.x:3.030000e+02
+if_b_x:p,x,y,z,t:0,0,3,1,0,tmp1[0]._data.x:3.100000e+02
+if_b_x:p,x,y,z,t:0,0,3,1,1,tmp1[0]._data.x:3.110000e+02
+if_b_x:p,x,y,z,t:0,0,3,1,2,tmp1[0]._data.x:3.120000e+02
+if_b_x:p,x,y,z,t:0,0,3,1,3,tmp1[0]._data.x:3.130000e+02
+if_b_x:p,x,y,z,t:0,0,3,2,0,tmp1[0]._data.x:3.200000e+02
+if_b_x:p,x,y,z,t:0,0,3,2,1,tmp1[0]._data.x:3.210000e+02
+if_b_x:p,x,y,z,t:0,0,3,2,2,tmp1[0]._data.x:3.220000e+02
+if_b_x:p,x,y,z,t:0,0,3,2,3,tmp1[0]._data.x:3.230000e+02
+if_b_x:p,x,y,z,t:0,0,3,3,0,tmp1[0]._data.x:3.300000e+02
+if_b_x:p,x,y,z,t:0,0,3,3,1,tmp1[0]._data.x:3.310000e+02
+if_b_x:p,x,y,z,t:0,0,3,3,2,tmp1[0]._data.x:3.320000e+02
+if_b_x:p,x,y,z,t:0,0,3,3,3,tmp1[0]._data.x:3.330000e+02
+if_b_x:p,x,y,z,t:0,0,0,0,0,tmp1[0]._data.x:0.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,0,1,tmp1[0]._data.x:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,0,2,tmp1[0]._data.x:2.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,0,3,tmp1[0]._data.x:3.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,1,0,tmp1[0]._data.x:1.000000e+01
+if_b_x:p,x,y,z,t:0,0,0,1,1,tmp1[0]._data.x:1.100000e+01
+if_b_x:p,x,y,z,t:0,0,0,1,2,tmp1[0]._data.x:1.200000e+01
+if_b_x:p,x,y,z,t:0,0,0,1,3,tmp1[0]._data.x:1.300000e+01
+if_b_x:p,x,y,z,t:0,0,0,2,0,tmp1[0]._data.x:2.000000e+01
+if_b_x:p,x,y,z,t:0,0,0,2,1,tmp1[0]._data.x:2.100000e+01
+if_b_x:p,x,y,z,t:0,0,0,2,2,tmp1[0]._data.x:2.200000e+01
+if_b_x:p,x,y,z,t:0,0,0,2,3,tmp1[0]._data.x:2.300000e+01
+if_b_x:p,x,y,z,t:0,0,0,3,0,tmp1[0]._data.x:3.000000e+01
+if_b_x:p,x,y,z,t:0,0,0,3,1,tmp1[0]._data.x:3.100000e+01
+if_b_x:p,x,y,z,t:0,0,0,3,2,tmp1[0]._data.x:3.200000e+01
+if_b_x:p,x,y,z,t:0,0,0,3,3,tmp1[0]._data.x:3.300000e+01
+if_f_x:p,x,y,z,t:0,3,1,0,0,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,1,0,1,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,1,0,2,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,1,0,3,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,1,1,0,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,1,1,1,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,1,1,2,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,1,1,3,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,1,2,0,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,1,2,1,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,1,2,2,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,1,2,3,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,1,3,0,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,1,3,1,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,1,3,2,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,1,3,3,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,3,0,0,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,3,0,1,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,3,0,2,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,3,0,3,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,3,1,0,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,3,1,1,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,3,1,2,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,3,1,3,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,3,2,0,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,3,2,1,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,3,2,2,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,3,2,3,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,3,3,0,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,3,3,1,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,3,3,2,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,3,3,3,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,0,0,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,0,1,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,0,2,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,0,3,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,1,0,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,1,1,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,1,2,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,1,3,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,2,0,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,2,1,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,2,2,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,2,3,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,3,0,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,3,1,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,3,2,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,3,3,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,2,0,0,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,2,0,1,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,2,0,2,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,2,0,3,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,2,1,0,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,2,1,1,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,2,1,2,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,2,1,3,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,2,2,0,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,2,2,1,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,2,2,2,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,2,2,3,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,2,3,0,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,2,3,1,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,2,3,2,tmp2[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,2,3,3,tmp2[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,1,0,0,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,1,0,1,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,1,0,2,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,1,0,3,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,1,1,0,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,1,1,1,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,1,1,2,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,1,1,3,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,1,2,0,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,1,2,1,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,1,2,2,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,1,2,3,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,1,3,0,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,1,3,1,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,1,3,2,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,1,3,3,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,3,0,0,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,3,0,1,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,3,0,2,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,3,0,3,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,3,1,0,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,3,1,1,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,3,1,2,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,3,1,3,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,3,2,0,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,3,2,1,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,3,2,2,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,3,2,3,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,3,3,0,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,3,3,1,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,3,3,2,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,3,3,3,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,0,0,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,0,1,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,0,2,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,0,3,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,1,0,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,1,1,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,1,2,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,1,3,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,2,0,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,2,1,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,2,2,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,2,3,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,3,0,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,3,1,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,3,2,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,3,3,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,2,0,0,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,2,0,1,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,2,0,2,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,2,0,3,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,2,1,0,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,2,1,1,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,2,1,2,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,2,1,3,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,2,2,0,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,2,2,1,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,2,2,2,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,2,2,3,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,2,3,0,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,2,3,1,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,2,3,2,tmp1[0]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,2,3,3,tmp1[0]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,2,0,0,tmp2[5]._data.x:-2.000000e+02
+if_f_x:p,x,y,z,t:0,3,2,0,1,tmp2[5]._data.x:-2.010000e+02
+if_f_x:p,x,y,z,t:0,3,2,0,2,tmp2[5]._data.x:-2.020000e+02
+if_f_x:p,x,y,z,t:0,3,2,0,3,tmp2[5]._data.x:-2.030000e+02
+if_f_x:p,x,y,z,t:0,3,2,1,0,tmp2[5]._data.x:-2.100000e+02
+if_f_x:p,x,y,z,t:0,3,2,1,1,tmp2[5]._data.x:-2.110000e+02
+if_f_x:p,x,y,z,t:0,3,2,1,2,tmp2[5]._data.x:-2.120000e+02
+if_f_x:p,x,y,z,t:0,3,2,1,3,tmp2[5]._data.x:-2.130000e+02
+if_f_x:p,x,y,z,t:0,3,2,2,0,tmp2[5]._data.x:-2.200000e+02
+if_f_x:p,x,y,z,t:0,3,2,2,1,tmp2[5]._data.x:-2.210000e+02
+if_f_x:p,x,y,z,t:0,3,2,2,2,tmp2[5]._data.x:-2.220000e+02
+if_f_x:p,x,y,z,t:0,3,2,2,3,tmp2[5]._data.x:-2.230000e+02
+if_f_x:p,x,y,z,t:0,3,2,3,0,tmp2[5]._data.x:-2.300000e+02
+if_f_x:p,x,y,z,t:0,3,2,3,1,tmp2[5]._data.x:-2.310000e+02
+if_f_x:p,x,y,z,t:0,3,2,3,2,tmp2[5]._data.x:-2.320000e+02
+if_f_x:p,x,y,z,t:0,3,2,3,3,tmp2[5]._data.x:-2.330000e+02
+if_f_x:p,x,y,z,t:0,3,1,0,0,tmp2[5]._data.x:-1.000000e+02
+if_f_x:p,x,y,z,t:0,3,1,0,1,tmp2[5]._data.x:-1.010000e+02
+if_f_x:p,x,y,z,t:0,3,1,0,2,tmp2[5]._data.x:-1.020000e+02
+if_f_x:p,x,y,z,t:0,3,1,0,3,tmp2[5]._data.x:-1.030000e+02
+if_f_x:p,x,y,z,t:0,3,1,1,0,tmp2[5]._data.x:-1.100000e+02
+if_f_x:p,x,y,z,t:0,3,1,1,1,tmp2[5]._data.x:-1.110000e+02
+if_f_x:p,x,y,z,t:0,3,1,1,2,tmp2[5]._data.x:-1.120000e+02
+if_f_x:p,x,y,z,t:0,3,1,1,3,tmp2[5]._data.x:-1.130000e+02
+if_f_x:p,x,y,z,t:0,3,1,2,0,tmp2[5]._data.x:-1.200000e+02
+if_f_x:p,x,y,z,t:0,3,1,2,1,tmp2[5]._data.x:-1.210000e+02
+if_f_x:p,x,y,z,t:0,3,1,2,2,tmp2[5]._data.x:-1.220000e+02
+if_f_x:p,x,y,z,t:0,3,1,2,3,tmp2[5]._data.x:-1.230000e+02
+if_f_x:p,x,y,z,t:0,3,1,3,0,tmp2[5]._data.x:-1.300000e+02
+if_f_x:p,x,y,z,t:0,3,1,3,1,tmp2[5]._data.x:-1.310000e+02
+if_f_x:p,x,y,z,t:0,3,1,3,2,tmp2[5]._data.x:-1.320000e+02
+if_f_x:p,x,y,z,t:0,3,1,3,3,tmp2[5]._data.x:-1.330000e+02
+if_b_x:p,x,y,z,t:0,0,2,0,0,tmp1[5]._data.x:2.000000e+02
+if_b_x:p,x,y,z,t:0,0,2,0,1,tmp1[5]._data.x:2.010000e+02
+if_b_x:p,x,y,z,t:0,0,2,0,2,tmp1[5]._data.x:2.020000e+02
+if_b_x:p,x,y,z,t:0,0,2,0,3,tmp1[5]._data.x:2.030000e+02
+if_b_x:p,x,y,z,t:0,0,2,1,0,tmp1[5]._data.x:2.100000e+02
+if_b_x:p,x,y,z,t:0,0,2,1,1,tmp1[5]._data.x:2.110000e+02
+if_b_x:p,x,y,z,t:0,0,2,1,2,tmp1[5]._data.x:2.120000e+02
+if_b_x:p,x,y,z,t:0,0,2,1,3,tmp1[5]._data.x:2.130000e+02
+if_b_x:p,x,y,z,t:0,0,2,2,0,tmp1[5]._data.x:2.200000e+02
+if_b_x:p,x,y,z,t:0,0,2,2,1,tmp1[5]._data.x:2.210000e+02
+if_b_x:p,x,y,z,t:0,0,2,2,2,tmp1[5]._data.x:2.220000e+02
+if_b_x:p,x,y,z,t:0,0,2,2,3,tmp1[5]._data.x:2.230000e+02
+if_b_x:p,x,y,z,t:0,0,2,3,0,tmp1[5]._data.x:2.300000e+02
+if_b_x:p,x,y,z,t:0,0,2,3,1,tmp1[5]._data.x:2.310000e+02
+if_b_x:p,x,y,z,t:0,0,2,3,2,tmp1[5]._data.x:2.320000e+02
+if_b_x:p,x,y,z,t:0,0,2,3,3,tmp1[5]._data.x:2.330000e+02
+if_f_x:p,x,y,z,t:0,3,3,0,0,tmp2[5]._data.x:-3.000000e+02
+if_f_x:p,x,y,z,t:0,3,3,0,1,tmp2[5]._data.x:-3.010000e+02
+if_f_x:p,x,y,z,t:0,3,3,0,2,tmp2[5]._data.x:-3.020000e+02
+if_f_x:p,x,y,z,t:0,3,3,0,3,tmp2[5]._data.x:-3.030000e+02
+if_f_x:p,x,y,z,t:0,3,3,1,0,tmp2[5]._data.x:-3.100000e+02
+if_f_x:p,x,y,z,t:0,3,3,1,1,tmp2[5]._data.x:-3.110000e+02
+if_f_x:p,x,y,z,t:0,3,3,1,2,tmp2[5]._data.x:-3.120000e+02
+if_f_x:p,x,y,z,t:0,3,3,1,3,tmp2[5]._data.x:-3.130000e+02
+if_f_x:p,x,y,z,t:0,3,3,2,0,tmp2[5]._data.x:-3.200000e+02
+if_f_x:p,x,y,z,t:0,3,3,2,1,tmp2[5]._data.x:-3.210000e+02
+if_f_x:p,x,y,z,t:0,3,3,2,2,tmp2[5]._data.x:-3.220000e+02
+if_f_x:p,x,y,z,t:0,3,3,2,3,tmp2[5]._data.x:-3.230000e+02
+if_f_x:p,x,y,z,t:0,3,3,3,0,tmp2[5]._data.x:-3.300000e+02
+if_f_x:p,x,y,z,t:0,3,3,3,1,tmp2[5]._data.x:-3.310000e+02
+if_f_x:p,x,y,z,t:0,3,3,3,2,tmp2[5]._data.x:-3.320000e+02
+if_f_x:p,x,y,z,t:0,3,3,3,3,tmp2[5]._data.x:-3.330000e+02
+if_b_x:p,x,y,z,t:0,0,1,0,0,tmp1[5]._data.x:1.000000e+02
+if_b_x:p,x,y,z,t:0,0,1,0,1,tmp1[5]._data.x:1.010000e+02
+if_b_x:p,x,y,z,t:0,0,1,0,2,tmp1[5]._data.x:1.020000e+02
+if_b_x:p,x,y,z,t:0,0,1,0,3,tmp1[5]._data.x:1.030000e+02
+if_b_x:p,x,y,z,t:0,0,1,1,0,tmp1[5]._data.x:1.100000e+02
+if_b_x:p,x,y,z,t:0,0,1,1,1,tmp1[5]._data.x:1.110000e+02
+if_b_x:p,x,y,z,t:0,0,1,1,2,tmp1[5]._data.x:1.120000e+02
+if_b_x:p,x,y,z,t:0,0,1,1,3,tmp1[5]._data.x:1.130000e+02
+if_b_x:p,x,y,z,t:0,0,1,2,0,tmp1[5]._data.x:1.200000e+02
+if_b_x:p,x,y,z,t:0,0,1,2,1,tmp1[5]._data.x:1.210000e+02
+if_b_x:p,x,y,z,t:0,0,1,2,2,tmp1[5]._data.x:1.220000e+02
+if_b_x:p,x,y,z,t:0,0,1,2,3,tmp1[5]._data.x:1.230000e+02
+if_b_x:p,x,y,z,t:0,0,1,3,0,tmp1[5]._data.x:1.300000e+02
+if_b_x:p,x,y,z,t:0,0,1,3,1,tmp1[5]._data.x:1.310000e+02
+if_b_x:p,x,y,z,t:0,0,1,3,2,tmp1[5]._data.x:1.320000e+02
+if_b_x:p,x,y,z,t:0,0,1,3,3,tmp1[5]._data.x:1.330000e+02
+if_f_x:p,x,y,z,t:0,3,0,0,0,tmp2[5]._data.x:0.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,0,1,tmp2[5]._data.x:-1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,0,2,tmp2[5]._data.x:-2.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,0,3,tmp2[5]._data.x:-3.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,1,0,tmp2[5]._data.x:-1.000000e+01
+if_f_x:p,x,y,z,t:0,3,0,1,1,tmp2[5]._data.x:-1.100000e+01
+if_f_x:p,x,y,z,t:0,3,0,1,2,tmp2[5]._data.x:-1.200000e+01
+if_f_x:p,x,y,z,t:0,3,0,1,3,tmp2[5]._data.x:-1.300000e+01
+if_f_x:p,x,y,z,t:0,3,0,2,0,tmp2[5]._data.x:-2.000000e+01
+if_f_x:p,x,y,z,t:0,3,0,2,1,tmp2[5]._data.x:-2.100000e+01
+if_f_x:p,x,y,z,t:0,3,0,2,2,tmp2[5]._data.x:-2.200000e+01
+if_f_x:p,x,y,z,t:0,3,0,2,3,tmp2[5]._data.x:-2.300000e+01
+if_f_x:p,x,y,z,t:0,3,0,3,0,tmp2[5]._data.x:-3.000000e+01
+if_f_x:p,x,y,z,t:0,3,0,3,1,tmp2[5]._data.x:-3.100000e+01
+if_f_x:p,x,y,z,t:0,3,0,3,2,tmp2[5]._data.x:-3.200000e+01
+if_f_x:p,x,y,z,t:0,3,0,3,3,tmp2[5]._data.x:-3.300000e+01
+if_b_x:p,x,y,z,t:0,0,3,0,0,tmp1[5]._data.x:3.000000e+02
+if_b_x:p,x,y,z,t:0,0,3,0,1,tmp1[5]._data.x:3.010000e+02
+if_b_x:p,x,y,z,t:0,0,3,0,2,tmp1[5]._data.x:3.020000e+02
+if_b_x:p,x,y,z,t:0,0,3,0,3,tmp1[5]._data.x:3.030000e+02
+if_b_x:p,x,y,z,t:0,0,3,1,0,tmp1[5]._data.x:3.100000e+02
+if_b_x:p,x,y,z,t:0,0,3,1,1,tmp1[5]._data.x:3.110000e+02
+if_b_x:p,x,y,z,t:0,0,3,1,2,tmp1[5]._data.x:3.120000e+02
+if_b_x:p,x,y,z,t:0,0,3,1,3,tmp1[5]._data.x:3.130000e+02
+if_b_x:p,x,y,z,t:0,0,3,2,0,tmp1[5]._data.x:3.200000e+02
+if_b_x:p,x,y,z,t:0,0,3,2,1,tmp1[5]._data.x:3.210000e+02
+if_b_x:p,x,y,z,t:0,0,3,2,2,tmp1[5]._data.x:3.220000e+02
+if_b_x:p,x,y,z,t:0,0,3,2,3,tmp1[5]._data.x:3.230000e+02
+if_b_x:p,x,y,z,t:0,0,3,3,0,tmp1[5]._data.x:3.300000e+02
+if_b_x:p,x,y,z,t:0,0,3,3,1,tmp1[5]._data.x:3.310000e+02
+if_b_x:p,x,y,z,t:0,0,3,3,2,tmp1[5]._data.x:3.320000e+02
+if_b_x:p,x,y,z,t:0,0,3,3,3,tmp1[5]._data.x:3.330000e+02
+if_b_x:p,x,y,z,t:0,0,0,0,0,tmp1[5]._data.x:0.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,0,1,tmp1[5]._data.x:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,0,2,tmp1[5]._data.x:2.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,0,3,tmp1[5]._data.x:3.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,1,0,tmp1[5]._data.x:1.000000e+01
+if_b_x:p,x,y,z,t:0,0,0,1,1,tmp1[5]._data.x:1.100000e+01
+if_b_x:p,x,y,z,t:0,0,0,1,2,tmp1[5]._data.x:1.200000e+01
+if_b_x:p,x,y,z,t:0,0,0,1,3,tmp1[5]._data.x:1.300000e+01
+if_b_x:p,x,y,z,t:0,0,0,2,0,tmp1[5]._data.x:2.000000e+01
+if_b_x:p,x,y,z,t:0,0,0,2,1,tmp1[5]._data.x:2.100000e+01
+if_b_x:p,x,y,z,t:0,0,0,2,2,tmp1[5]._data.x:2.200000e+01
+if_b_x:p,x,y,z,t:0,0,0,2,3,tmp1[5]._data.x:2.300000e+01
+if_b_x:p,x,y,z,t:0,0,0,3,0,tmp1[5]._data.x:3.000000e+01
+if_b_x:p,x,y,z,t:0,0,0,3,1,tmp1[5]._data.x:3.100000e+01
+if_b_x:p,x,y,z,t:0,0,0,3,2,tmp1[5]._data.x:3.200000e+01
+if_b_x:p,x,y,z,t:0,0,0,3,3,tmp1[5]._data.x:3.300000e+01
+if_f_x:p,x,y,z,t:0,3,2,0,0,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,2,0,1,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,2,0,2,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,2,0,3,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,2,1,0,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,2,1,1,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,2,1,2,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,2,1,3,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,2,2,0,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,2,2,1,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,2,2,2,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,2,2,3,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,2,3,0,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,2,3,1,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,2,3,2,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,2,3,3,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,3,0,0,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,3,0,1,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,3,0,2,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,3,0,3,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,3,1,0,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,3,1,1,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,3,1,2,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,3,1,3,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,3,2,0,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,3,2,1,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,3,2,2,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,3,2,3,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,3,3,0,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,3,3,1,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,3,3,2,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,3,3,3,tmp2[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,2,0,0,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,2,0,1,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,2,0,2,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,2,0,3,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,2,1,0,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,2,1,1,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,2,1,2,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,2,1,3,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,2,2,0,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,2,2,1,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,2,2,2,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,2,2,3,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,2,3,0,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,2,3,1,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,2,3,2,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,2,3,3,tmp1[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,1,0,0,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,1,0,1,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,1,0,2,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,1,0,3,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,1,1,0,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,1,1,1,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,1,1,2,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,1,1,3,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,1,2,0,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,1,2,1,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,1,2,2,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,1,2,3,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,1,3,0,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,1,3,1,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,1,3,2,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,1,3,3,tmp2[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,3,0,0,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,3,0,1,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,3,0,2,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,3,0,3,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,3,1,0,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,3,1,1,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,3,1,2,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,3,1,3,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,3,2,0,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,3,2,1,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,3,2,2,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,3,2,3,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,3,3,0,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,3,3,1,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,3,3,2,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,3,3,3,tmp1[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,0,0,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,0,1,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,0,2,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,0,3,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,1,0,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,1,1,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,1,2,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,1,3,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,2,0,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,2,1,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,2,2,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,2,3,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,3,0,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,3,1,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,3,2,tmp2[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,0,3,3,tmp2[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,1,0,0,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,1,0,1,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,1,0,2,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,1,0,3,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,1,1,0,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,1,1,1,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,1,1,2,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,1,1,3,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,1,2,0,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,1,2,1,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,1,2,2,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,1,2,3,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,1,3,0,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,1,3,1,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,1,3,2,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,1,3,3,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,0,0,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,0,1,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,0,2,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,0,3,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,1,0,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,1,1,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,1,2,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,1,3,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,2,0,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,2,1,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,2,2,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,2,3,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,3,0,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,3,1,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,3,2,tmp1[5]._data.y:1.000000e+00
+if_b_x:p,x,y,z,t:0,0,0,3,3,tmp1[5]._data.y:1.000000e+00
+if_f_x:p,x,y,z,t:0,3,2,0,0,tmp4[0]._data.x:9.916691e-01
+if_f_x:p,x,y,z,t:0,3,2,0,1,tmp4[0]._data.x:9.940351e-01
+if_f_x:p,x,y,z,t:0,3,2,0,2,tmp4[0]._data.x:9.867170e-01
+if_f_x:p,x,y,z,t:0,3,2,0,3,tmp4[0]._data.x:9.878471e-01
+if_f_x:p,x,y,z,t:0,3,2,1,0,tmp4[0]._data.x:9.890264e-01
+if_f_x:p,x,y,z,t:0,3,2,1,1,tmp4[0]._data.x:9.932077e-01
+if_f_x:p,x,y,z,t:0,3,2,1,2,tmp4[0]._data.x:9.826991e-01
+if_f_x:p,x,y,z,t:0,3,2,1,3,tmp4[0]._data.x:9.858368e-01
+if_f_x:p,x,y,z,t:0,3,2,2,0,tmp4[0]._data.x:9.937127e-01
+if_f_x:p,x,y,z,t:0,3,2,2,1,tmp4[0]._data.x:9.876665e-01
+if_f_x:p,x,y,z,t:0,3,2,2,2,tmp4[0]._data.x:9.830410e-01
+if_f_x:p,x,y,z,t:0,3,2,2,3,tmp4[0]._data.x:9.872969e-01
+if_f_x:p,x,y,z,t:0,3,2,3,0,tmp4[0]._data.x:9.900945e-01
+if_f_x:p,x,y,z,t:0,3,2,3,1,tmp4[0]._data.x:9.904236e-01
+if_f_x:p,x,y,z,t:0,3,2,3,2,tmp4[0]._data.x:9.841558e-01
+if_f_x:p,x,y,z,t:0,3,2,3,3,tmp4[0]._data.x:9.916798e-01
+if_f_x:p,x,y,z,t:0,3,1,0,0,tmp4[0]._data.x:9.942956e-01
+if_f_x:p,x,y,z,t:0,3,1,0,1,tmp4[0]._data.x:9.910361e-01
+if_f_x:p,x,y,z,t:0,3,1,0,2,tmp4[0]._data.x:9.866934e-01
+if_f_x:p,x,y,z,t:0,3,1,0,3,tmp4[0]._data.x:9.910483e-01
+if_f_x:p,x,y,z,t:0,3,1,1,0,tmp4[0]._data.x:9.905593e-01
+if_f_x:p,x,y,z,t:0,3,1,1,1,tmp4[0]._data.x:9.839887e-01
+if_f_x:p,x,y,z,t:0,3,1,1,2,tmp4[0]._data.x:9.955788e-01
+if_f_x:p,x,y,z,t:0,3,1,1,3,tmp4[0]._data.x:9.901119e-01
+if_f_x:p,x,y,z,t:0,3,1,2,0,tmp4[0]._data.x:9.872691e-01
+if_f_x:p,x,y,z,t:0,3,1,2,1,tmp4[0]._data.x:9.942164e-01
+if_f_x:p,x,y,z,t:0,3,1,2,2,tmp4[0]._data.x:9.937929e-01
+if_f_x:p,x,y,z,t:0,3,1,2,3,tmp4[0]._data.x:9.830631e-01
+if_f_x:p,x,y,z,t:0,3,1,3,0,tmp4[0]._data.x:9.871135e-01
+if_f_x:p,x,y,z,t:0,3,1,3,1,tmp4[0]._data.x:9.922338e-01
+if_f_x:p,x,y,z,t:0,3,1,3,2,tmp4[0]._data.x:9.915791e-01
+if_f_x:p,x,y,z,t:0,3,1,3,3,tmp4[0]._data.x:9.858310e-01
+if_f_x:p,x,y,z,t:0,3,3,0,0,tmp4[0]._data.x:9.930966e-01
+if_f_x:p,x,y,z,t:0,3,3,0,1,tmp4[0]._data.x:9.795249e-01
+if_f_x:p,x,y,z,t:0,3,3,0,2,tmp4[0]._data.x:9.852619e-01
+if_f_x:p,x,y,z,t:0,3,3,0,3,tmp4[0]._data.x:9.887575e-01
+if_f_x:p,x,y,z,t:0,3,3,1,0,tmp4[0]._data.x:9.897773e-01
+if_f_x:p,x,y,z,t:0,3,3,1,1,tmp4[0]._data.x:9.968793e-01
+if_f_x:p,x,y,z,t:0,3,3,1,2,tmp4[0]._data.x:9.929196e-01
+if_f_x:p,x,y,z,t:0,3,3,1,3,tmp4[0]._data.x:9.934373e-01
+if_f_x:p,x,y,z,t:0,3,3,2,0,tmp4[0]._data.x:9.925579e-01
+if_f_x:p,x,y,z,t:0,3,3,2,1,tmp4[0]._data.x:9.948222e-01
+if_f_x:p,x,y,z,t:0,3,3,2,2,tmp4[0]._data.x:9.894311e-01
+if_f_x:p,x,y,z,t:0,3,3,2,3,tmp4[0]._data.x:9.869570e-01
+if_f_x:p,x,y,z,t:0,3,3,3,0,tmp4[0]._data.x:9.955105e-01
+if_f_x:p,x,y,z,t:0,3,3,3,1,tmp4[0]._data.x:9.824989e-01
+if_f_x:p,x,y,z,t:0,3,3,3,2,tmp4[0]._data.x:9.847175e-01
+if_f_x:p,x,y,z,t:0,3,3,3,3,tmp4[0]._data.x:9.900494e-01
+if_f_x:p,x,y,z,t:0,3,0,0,0,tmp4[0]._data.x:9.933555e-01
+if_f_x:p,x,y,z,t:0,3,0,0,1,tmp4[0]._data.x:9.875579e-01
+if_f_x:p,x,y,z,t:0,3,0,0,2,tmp4[0]._data.x:9.904268e-01
+if_f_x:p,x,y,z,t:0,3,0,0,3,tmp4[0]._data.x:9.848678e-01
+if_f_x:p,x,y,z,t:0,3,0,1,0,tmp4[0]._data.x:9.889501e-01
+if_f_x:p,x,y,z,t:0,3,0,1,1,tmp4[0]._data.x:9.923263e-01
+if_f_x:p,x,y,z,t:0,3,0,1,2,tmp4[0]._data.x:9.949470e-01
+if_f_x:p,x,y,z,t:0,3,0,1,3,tmp4[0]._data.x:9.820053e-01
+if_f_x:p,x,y,z,t:0,3,0,2,0,tmp4[0]._data.x:9.865457e-01
+if_f_x:p,x,y,z,t:0,3,0,2,1,tmp4[0]._data.x:9.852129e-01
+if_f_x:p,x,y,z,t:0,3,0,2,2,tmp4[0]._data.x:9.891264e-01
+if_f_x:p,x,y,z,t:0,3,0,2,3,tmp4[0]._data.x:9.916732e-01
+if_f_x:p,x,y,z,t:0,3,0,3,0,tmp4[0]._data.x:9.907020e-01
+if_f_x:p,x,y,z,t:0,3,0,3,1,tmp4[0]._data.x:9.969753e-01
+if_f_x:p,x,y,z,t:0,3,0,3,2,tmp4[0]._data.x:9.941903e-01
+if_f_x:p,x,y,z,t:0,3,0,3,3,tmp4[0]._data.x:9.958364e-01
+if_b_x:p,x,y,z,t:0,0,2,0,0,tmp4[0]._data.x:9.935097e-01
+if_b_x:p,x,y,z,t:0,0,2,0,1,tmp4[0]._data.x:9.919097e-01
+if_b_x:p,x,y,z,t:0,0,2,0,2,tmp4[0]._data.x:9.871871e-01
+if_b_x:p,x,y,z,t:0,0,2,0,3,tmp4[0]._data.x:9.837382e-01
+if_b_x:p,x,y,z,t:0,0,2,1,0,tmp4[0]._data.x:9.947648e-01
+if_b_x:p,x,y,z,t:0,0,2,1,1,tmp4[0]._data.x:9.886777e-01
+if_b_x:p,x,y,z,t:0,0,2,1,2,tmp4[0]._data.x:9.932552e-01
+if_b_x:p,x,y,z,t:0,0,2,1,3,tmp4[0]._data.x:9.948984e-01
+if_b_x:p,x,y,z,t:0,0,2,2,0,tmp4[0]._data.x:9.887807e-01
+if_b_x:p,x,y,z,t:0,0,2,2,1,tmp4[0]._data.x:9.874539e-01
+if_b_x:p,x,y,z,t:0,0,2,2,2,tmp4[0]._data.x:9.971354e-01
+if_b_x:p,x,y,z,t:0,0,2,2,3,tmp4[0]._data.x:9.848869e-01
+if_b_x:p,x,y,z,t:0,0,2,3,0,tmp4[0]._data.x:9.951065e-01
+if_b_x:p,x,y,z,t:0,0,2,3,1,tmp4[0]._data.x:9.861137e-01
+if_b_x:p,x,y,z,t:0,0,2,3,2,tmp4[0]._data.x:9.978934e-01
+if_b_x:p,x,y,z,t:0,0,2,3,3,tmp4[0]._data.x:9.861871e-01
+if_b_x:p,x,y,z,t:0,0,1,0,0,tmp4[0]._data.x:9.870453e-01
+if_b_x:p,x,y,z,t:0,0,1,0,1,tmp4[0]._data.x:9.886800e-01
+if_b_x:p,x,y,z,t:0,0,1,0,2,tmp4[0]._data.x:9.868222e-01
+if_b_x:p,x,y,z,t:0,0,1,0,3,tmp4[0]._data.x:9.855300e-01
+if_b_x:p,x,y,z,t:0,0,1,1,0,tmp4[0]._data.x:9.905334e-01
+if_b_x:p,x,y,z,t:0,0,1,1,1,tmp4[0]._data.x:9.968311e-01
+if_b_x:p,x,y,z,t:0,0,1,1,2,tmp4[0]._data.x:9.868986e-01
+if_b_x:p,x,y,z,t:0,0,1,1,3,tmp4[0]._data.x:9.909852e-01
+if_b_x:p,x,y,z,t:0,0,1,2,0,tmp4[0]._data.x:9.746215e-01
+if_b_x:p,x,y,z,t:0,0,1,2,1,tmp4[0]._data.x:9.891298e-01
+if_b_x:p,x,y,z,t:0,0,1,2,2,tmp4[0]._data.x:9.909268e-01
+if_b_x:p,x,y,z,t:0,0,1,2,3,tmp4[0]._data.x:9.896604e-01
+if_b_x:p,x,y,z,t:0,0,1,3,0,tmp4[0]._data.x:9.928569e-01
+if_b_x:p,x,y,z,t:0,0,1,3,1,tmp4[0]._data.x:9.929709e-01
+if_b_x:p,x,y,z,t:0,0,1,3,2,tmp4[0]._data.x:9.882249e-01
+if_b_x:p,x,y,z,t:0,0,1,3,3,tmp4[0]._data.x:9.925910e-01
+if_b_x:p,x,y,z,t:0,0,3,0,0,tmp4[0]._data.x:9.918241e-01
+if_b_x:p,x,y,z,t:0,0,3,0,1,tmp4[0]._data.x:9.926007e-01
+if_b_x:p,x,y,z,t:0,0,3,0,2,tmp4[0]._data.x:9.903934e-01
+if_b_x:p,x,y,z,t:0,0,3,0,3,tmp4[0]._data.x:9.949107e-01
+if_b_x:p,x,y,z,t:0,0,3,1,0,tmp4[0]._data.x:9.901087e-01
+if_b_x:p,x,y,z,t:0,0,3,1,1,tmp4[0]._data.x:9.901366e-01
+if_b_x:p,x,y,z,t:0,0,3,1,2,tmp4[0]._data.x:9.858822e-01
+if_b_x:p,x,y,z,t:0,0,3,1,3,tmp4[0]._data.x:9.878886e-01
+if_b_x:p,x,y,z,t:0,0,3,2,0,tmp4[0]._data.x:9.876465e-01
+if_b_x:p,x,y,z,t:0,0,3,2,1,tmp4[0]._data.x:9.891644e-01
+if_b_x:p,x,y,z,t:0,0,3,2,2,tmp4[0]._data.x:9.848836e-01
+if_b_x:p,x,y,z,t:0,0,3,2,3,tmp4[0]._data.x:9.868464e-01
+if_b_x:p,x,y,z,t:0,0,3,3,0,tmp4[0]._data.x:9.904892e-01
+if_b_x:p,x,y,z,t:0,0,3,3,1,tmp4[0]._data.x:9.832188e-01
+if_b_x:p,x,y,z,t:0,0,3,3,2,tmp4[0]._data.x:9.931409e-01
+if_b_x:p,x,y,z,t:0,0,3,3,3,tmp4[0]._data.x:9.886959e-01
+if_b_x:p,x,y,z,t:0,0,0,0,0,tmp4[0]._data.x:9.932206e-01
+if_b_x:p,x,y,z,t:0,0,0,0,1,tmp4[0]._data.x:9.868661e-01
+if_b_x:p,x,y,z,t:0,0,0,0,2,tmp4[0]._data.x:9.904733e-01
+if_b_x:p,x,y,z,t:0,0,0,0,3,tmp4[0]._data.x:9.929504e-01
+if_b_x:p,x,y,z,t:0,0,0,1,0,tmp4[0]._data.x:9.901088e-01
+if_b_x:p,x,y,z,t:0,0,0,1,1,tmp4[0]._data.x:9.922536e-01
+if_b_x:p,x,y,z,t:0,0,0,1,2,tmp4[0]._data.x:9.947467e-01
+if_b_x:p,x,y,z,t:0,0,0,1,3,tmp4[0]._data.x:9.864334e-01
+if_b_x:p,x,y,z,t:0,0,0,2,0,tmp4[0]._data.x:9.950597e-01
+if_b_x:p,x,y,z,t:0,0,0,2,1,tmp4[0]._data.x:9.914887e-01
+if_b_x:p,x,y,z,t:0,0,0,2,2,tmp4[0]._data.x:9.933461e-01
+if_b_x:p,x,y,z,t:0,0,0,2,3,tmp4[0]._data.x:9.906307e-01
+if_b_x:p,x,y,z,t:0,0,0,3,0,tmp4[0]._data.x:9.860445e-01
+if_b_x:p,x,y,z,t:0,0,0,3,1,tmp4[0]._data.x:9.871105e-01
+if_b_x:p,x,y,z,t:0,0,0,3,2,tmp4[0]._data.x:9.931420e-01
+if_b_x:p,x,y,z,t:0,0,0,3,3,tmp4[0]._data.x:9.911034e-01
+if_f_x:p,x,y,z,t:0,3,2,0,0,tmp4[0]._data.y:8.656112e-02
+if_f_x:p,x,y,z,t:0,3,2,0,1,tmp4[0]._data.y:3.774211e-02
+if_f_x:p,x,y,z,t:0,3,2,0,2,tmp4[0]._data.y:1.097472e-01
+if_f_x:p,x,y,z,t:0,3,2,0,3,tmp4[0]._data.y:1.117802e-01
+if_f_x:p,x,y,z,t:0,3,2,1,0,tmp4[0]._data.y:7.699206e-02
+if_f_x:p,x,y,z,t:0,3,2,1,1,tmp4[0]._data.y:7.950389e-02
+if_f_x:p,x,y,z,t:0,3,2,1,2,tmp4[0]._data.y:7.764905e-02
+if_f_x:p,x,y,z,t:0,3,2,1,3,tmp4[0]._data.y:1.274386e-01
+if_f_x:p,x,y,z,t:0,3,2,2,0,tmp4[0]._data.y:4.124106e-02
+if_f_x:p,x,y,z,t:0,3,2,2,1,tmp4[0]._data.y:1.356330e-01
+if_f_x:p,x,y,z,t:0,3,2,2,2,tmp4[0]._data.y:1.409630e-01
+if_f_x:p,x,y,z,t:0,3,2,2,3,tmp4[0]._data.y:1.015992e-01
+if_f_x:p,x,y,z,t:0,3,2,3,0,tmp4[0]._data.y:1.055016e-01
+if_f_x:p,x,y,z,t:0,3,2,3,1,tmp4[0]._data.y:9.240491e-02
+if_f_x:p,x,y,z,t:0,3,2,3,2,tmp4[0]._data.y:1.095872e-01
+if_f_x:p,x,y,z,t:0,3,2,3,3,tmp4[0]._data.y:8.927985e-02
+if_b_x:p,x,y,z,t:0,0,2,0,0,tmp4[0]._data.y:3.671347e-02
+if_b_x:p,x,y,z,t:0,0,2,0,1,tmp4[0]._data.y:7.943444e-02
+if_b_x:p,x,y,z,t:0,0,2,0,2,tmp4[0]._data.y:1.110710e-01
+if_b_x:p,x,y,z,t:0,0,2,0,3,tmp4[0]._data.y:1.357621e-01
+if_b_x:p,x,y,z,t:0,0,2,1,0,tmp4[0]._data.y:4.156838e-02
+if_b_x:p,x,y,z,t:0,0,2,1,1,tmp4[0]._data.y:4.600673e-02
+if_b_x:p,x,y,z,t:0,0,2,1,2,tmp4[0]._data.y:8.561330e-02
+if_b_x:p,x,y,z,t:0,0,2,1,3,tmp4[0]._data.y:5.980622e-02
+if_b_x:p,x,y,z,t:0,0,2,2,0,tmp4[0]._data.y:1.070378e-01
+if_b_x:p,x,y,z,t:0,0,2,2,1,tmp4[0]._data.y:7.471121e-02
+if_b_x:p,x,y,z,t:0,0,2,2,2,tmp4[0]._data.y:1.315362e-02
+if_b_x:p,x,y,z,t:0,0,2,2,3,tmp4[0]._data.y:9.223888e-02
+if_b_x:p,x,y,z,t:0,0,2,3,0,tmp4[0]._data.y:6.304578e-02
+if_b_x:p,x,y,z,t:0,0,2,3,1,tmp4[0]._data.y:4.614021e-02
+if_b_x:p,x,y,z,t:0,0,2,3,2,tmp4[0]._data.y:3.699030e-02
+if_b_x:p,x,y,z,t:0,0,2,3,3,tmp4[0]._data.y:6.364382e-02
+if_f_x:p,x,y,z,t:0,3,1,0,0,tmp4[0]._data.y:8.931080e-02
+if_f_x:p,x,y,z,t:0,3,1,0,1,tmp4[0]._data.y:6.835794e-02
+if_f_x:p,x,y,z,t:0,3,1,0,2,tmp4[0]._data.y:5.492927e-02
+if_f_x:p,x,y,z,t:0,3,1,0,3,tmp4[0]._data.y:6.955799e-02
+if_f_x:p,x,y,z,t:0,3,1,1,0,tmp4[0]._data.y:8.149990e-02
+if_f_x:p,x,y,z,t:0,3,1,1,1,tmp4[0]._data.y:8.006831e-02
+if_f_x:p,x,y,z,t:0,3,1,1,2,tmp4[0]._data.y:2.946511e-02
+if_f_x:p,x,y,z,t:0,3,1,1,3,tmp4[0]._data.y:1.118317e-01
+if_f_x:p,x,y,z,t:0,3,1,2,0,tmp4[0]._data.y:5.441022e-02
+if_f_x:p,x,y,z,t:0,3,1,2,1,tmp4[0]._data.y:4.742558e-02
+if_f_x:p,x,y,z,t:0,3,1,2,2,tmp4[0]._data.y:8.156697e-02
+if_f_x:p,x,y,z,t:0,3,1,2,3,tmp4[0]._data.y:1.349050e-01
+if_f_x:p,x,y,z,t:0,3,1,3,0,tmp4[0]._data.y:1.192273e-01
+if_f_x:p,x,y,z,t:0,3,1,3,1,tmp4[0]._data.y:8.827903e-02
+if_f_x:p,x,y,z,t:0,3,1,3,2,tmp4[0]._data.y:6.243154e-02
+if_f_x:p,x,y,z,t:0,3,1,3,3,tmp4[0]._data.y:1.140312e-01
+if_f_x:p,x,y,z,t:0,3,3,0,0,tmp4[0]._data.y:1.047808e-01
+if_f_x:p,x,y,z,t:0,3,3,0,1,tmp4[0]._data.y:1.365725e-01
+if_f_x:p,x,y,z,t:0,3,3,0,2,tmp4[0]._data.y:8.615233e-02
+if_f_x:p,x,y,z,t:0,3,3,0,3,tmp4[0]._data.y:6.242471e-02
+if_f_x:p,x,y,z,t:0,3,3,1,0,tmp4[0]._data.y:1.125127e-01
+if_f_x:p,x,y,z,t:0,3,3,1,1,tmp4[0]._data.y:2.368959e-02
+if_f_x:p,x,y,z,t:0,3,3,1,2,tmp4[0]._data.y:5.849729e-02
+if_f_x:p,x,y,z,t:0,3,3,1,3,tmp4[0]._data.y:7.663517e-02
+if_f_x:p,x,y,z,t:0,3,3,2,0,tmp4[0]._data.y:5.115927e-02
+if_f_x:p,x,y,z,t:0,3,3,2,1,tmp4[0]._data.y:6.509849e-02
+if_f_x:p,x,y,z,t:0,3,3,2,2,tmp4[0]._data.y:1.184634e-01
+if_f_x:p,x,y,z,t:0,3,3,2,3,tmp4[0]._data.y:1.296129e-01
+if_f_x:p,x,y,z,t:0,3,3,3,0,tmp4[0]._data.y:1.634616e-02
+if_f_x:p,x,y,z,t:0,3,3,3,1,tmp4[0]._data.y:3.693359e-02
+if_f_x:p,x,y,z,t:0,3,3,3,2,tmp4[0]._data.y:1.306650e-01
+if_f_x:p,x,y,z,t:0,3,3,3,3,tmp4[0]._data.y:5.083761e-02
+if_b_x:p,x,y,z,t:0,0,1,0,0,tmp4[0]._data.y:1.083524e-01
+if_b_x:p,x,y,z,t:0,0,1,0,1,tmp4[0]._data.y:4.849738e-02
+if_b_x:p,x,y,z,t:0,0,1,0,2,tmp4[0]._data.y:9.658999e-02
+if_b_x:p,x,y,z,t:0,0,1,0,3,tmp4[0]._data.y:9.832536e-02
+if_b_x:p,x,y,z,t:0,0,1,1,0,tmp4[0]._data.y:9.079728e-02
+if_b_x:p,x,y,z,t:0,0,1,1,1,tmp4[0]._data.y:1.408323e-02
+if_b_x:p,x,y,z,t:0,0,1,1,2,tmp4[0]._data.y:1.445529e-01
+if_b_x:p,x,y,z,t:0,0,1,1,3,tmp4[0]._data.y:4.626593e-02
+if_b_x:p,x,y,z,t:0,0,1,2,0,tmp4[0]._data.y:1.520856e-01
+if_b_x:p,x,y,z,t:0,0,1,2,1,tmp4[0]._data.y:1.106265e-01
+if_b_x:p,x,y,z,t:0,0,1,2,2,tmp4[0]._data.y:3.075981e-02
+if_b_x:p,x,y,z,t:0,0,1,2,3,tmp4[0]._data.y:9.044288e-02
+if_b_x:p,x,y,z,t:0,0,1,3,0,tmp4[0]._data.y:8.510419e-02
+if_b_x:p,x,y,z,t:0,0,1,3,1,tmp4[0]._data.y:5.880213e-02
+if_b_x:p,x,y,z,t:0,0,1,3,2,tmp4[0]._data.y:1.062272e-01
+if_b_x:p,x,y,z,t:0,0,1,3,3,tmp4[0]._data.y:4.310982e-02
+if_b_x:p,x,y,z,t:0,0,3,0,0,tmp4[0]._data.y:6.616462e-02
+if_b_x:p,x,y,z,t:0,0,3,0,1,tmp4[0]._data.y:8.739559e-02
+if_b_x:p,x,y,z,t:0,0,3,0,2,tmp4[0]._data.y:5.751015e-02
+if_b_x:p,x,y,z,t:0,0,3,0,3,tmp4[0]._data.y:2.713366e-02
+if_b_x:p,x,y,z,t:0,0,3,1,0,tmp4[0]._data.y:9.370554e-02
+if_b_x:p,x,y,z,t:0,0,3,1,1,tmp4[0]._data.y:5.773985e-02
+if_b_x:p,x,y,z,t:0,0,3,1,2,tmp4[0]._data.y:1.320413e-01
+if_b_x:p,x,y,z,t:0,0,3,1,3,tmp4[0]._data.y:5.219570e-02
+if_b_x:p,x,y,z,t:0,0,3,2,0,tmp4[0]._data.y:1.011435e-01
+if_b_x:p,x,y,z,t:0,0,3,2,1,tmp4[0]._data.y:1.159143e-01
+if_b_x:p,x,y,z,t:0,0,3,2,2,tmp4[0]._data.y:1.211370e-01
+if_b_x:p,x,y,z,t:0,0,3,2,3,tmp4[0]._data.y:1.031783e-01
+if_b_x:p,x,y,z,t:0,0,3,3,0,tmp4[0]._data.y:9.756908e-02
+if_b_x:p,x,y,z,t:0,0,3,3,1,tmp4[0]._data.y:1.025734e-01
+if_b_x:p,x,y,z,t:0,0,3,3,2,tmp4[0]._data.y:3.782595e-02
+if_b_x:p,x,y,z,t:0,0,3,3,3,tmp4[0]._data.y:7.735598e-02
+if_f_x:p,x,y,z,t:0,3,0,0,0,tmp4[0]._data.y:7.793489e-02
+if_f_x:p,x,y,z,t:0,3,0,0,1,tmp4[0]._data.y:7.375204e-02
+if_f_x:p,x,y,z,t:0,3,0,0,2,tmp4[0]._data.y:1.148758e-01
+if_f_x:p,x,y,z,t:0,3,0,0,3,tmp4[0]._data.y:1.019550e-01
+if_f_x:p,x,y,z,t:0,3,0,1,0,tmp4[0]._data.y:1.367918e-01
+if_f_x:p,x,y,z,t:0,3,0,1,1,tmp4[0]._data.y:3.727042e-02
+if_f_x:p,x,y,z,t:0,3,0,1,2,tmp4[0]._data.y:5.109597e-02
+if_f_x:p,x,y,z,t:0,3,0,1,3,tmp4[0]._data.y:9.828722e-02
+if_f_x:p,x,y,z,t:0,3,0,2,0,tmp4[0]._data.y:8.055329e-02
+if_f_x:p,x,y,z,t:0,3,0,2,1,tmp4[0]._data.y:1.142132e-01
+if_f_x:p,x,y,z,t:0,3,0,2,2,tmp4[0]._data.y:8.042826e-02
+if_f_x:p,x,y,z,t:0,3,0,2,3,tmp4[0]._data.y:1.028511e-01
+if_f_x:p,x,y,z,t:0,3,0,3,0,tmp4[0]._data.y:7.752979e-02
+if_f_x:p,x,y,z,t:0,3,0,3,1,tmp4[0]._data.y:5.742333e-02
+if_f_x:p,x,y,z,t:0,3,0,3,2,tmp4[0]._data.y:8.217526e-02
+if_f_x:p,x,y,z,t:0,3,0,3,3,tmp4[0]._data.y:6.611552e-02
+if_b_x:p,x,y,z,t:0,0,0,0,0,tmp4[0]._data.y:1.171874e-02
+if_b_x:p,x,y,z,t:0,0,0,0,1,tmp4[0]._data.y:1.070771e-01
+if_b_x:p,x,y,z,t:0,0,0,0,2,tmp4[0]._data.y:7.302746e-02
+if_b_x:p,x,y,z,t:0,0,0,0,3,tmp4[0]._data.y:6.012337e-02
+if_b_x:p,x,y,z,t:0,0,0,1,0,tmp4[0]._data.y:7.891901e-02
+if_b_x:p,x,y,z,t:0,0,0,1,1,tmp4[0]._data.y:3.157586e-02
+if_b_x:p,x,y,z,t:0,0,0,1,2,tmp4[0]._data.y:8.016973e-02
+if_b_x:p,x,y,z,t:0,0,0,1,3,tmp4[0]._data.y:8.232599e-02
+if_b_x:p,x,y,z,t:0,0,0,2,0,tmp4[0]._data.y:6.117620e-02
+if_b_x:p,x,y,z,t:0,0,0,2,1,tmp4[0]._data.y:7.592136e-02
+if_b_x:p,x,y,z,t:0,0,0,2,2,tmp4[0]._data.y:9.714679e-02
+if_b_x:p,x,y,z,t:0,0,0,2,3,tmp4[0]._data.y:5.507464e-02
+if_b_x:p,x,y,z,t:0,0,0,3,0,tmp4[0]._data.y:1.106208e-01
+if_b_x:p,x,y,z,t:0,0,0,3,1,tmp4[0]._data.y:1.236547e-01
+if_b_x:p,x,y,z,t:0,0,0,3,2,tmp4[0]._data.y:3.819052e-02
+if_b_x:p,x,y,z,t:0,0,0,3,3,tmp4[0]._data.y:6.510994e-02
+if_f_x:p,x,y,z,t:0,3,2,0,0,tmp4[5]._data.x:4.354275e-02
+if_f_x:p,x,y,z,t:0,3,2,0,1,tmp4[5]._data.x:1.530394e-02
+if_f_x:p,x,y,z,t:0,3,2,0,2,tmp4[5]._data.x:8.782975e-02
+if_f_x:p,x,y,z,t:0,3,2,0,3,tmp4[5]._data.x:9.411767e-02
+if_f_x:p,x,y,z,t:0,3,2,1,0,tmp4[5]._data.x:7.835267e-02
+if_f_x:p,x,y,z,t:0,3,2,1,1,tmp4[5]._data.x:9.199339e-02
+if_f_x:p,x,y,z,t:0,3,2,1,2,tmp4[5]._data.x:5.597427e-02
+if_f_x:p,x,y,z,t:0,3,2,1,3,tmp4[5]._data.x:8.444659e-02
+if_f_x:p,x,y,z,t:0,3,2,2,0,tmp4[5]._data.x:9.045240e-02
+if_f_x:p,x,y,z,t:0,3,2,2,1,tmp4[5]._data.x:1.009844e-01
+if_f_x:p,x,y,z,t:0,3,2,2,2,tmp4[5]._data.x:3.675001e-02
+if_f_x:p,x,y,z,t:0,3,2,2,3,tmp4[5]._data.x:4.219421e-02
+if_f_x:p,x,y,z,t:0,3,2,3,0,tmp4[5]._data.x:5.891905e-02
+if_f_x:p,x,y,z,t:0,3,2,3,1,tmp4[5]._data.x:9.182934e-02
+if_f_x:p,x,y,z,t:0,3,2,3,2,tmp4[5]._data.x:7.071915e-02
+if_f_x:p,x,y,z,t:0,3,2,3,3,tmp4[5]._data.x:3.691101e-02
+if_b_x:p,x,y,z,t:0,0,2,0,0,tmp4[5]._data.x:5.370316e-02
+if_b_x:p,x,y,z,t:0,0,2,0,1,tmp4[5]._data.x:9.504736e-02
+if_b_x:p,x,y,z,t:0,0,2,0,2,tmp4[5]._data.x:6.910176e-02
+if_b_x:p,x,y,z,t:0,0,2,0,3,tmp4[5]._data.x:9.106161e-03
+if_b_x:p,x,y,z,t:0,0,2,1,0,tmp4[5]._data.x:4.134479e-02
+if_b_x:p,x,y,z,t:0,0,2,1,1,tmp4[5]._data.x:8.527844e-02
+if_b_x:p,x,y,z,t:0,0,2,1,2,tmp4[5]._data.x:2.554715e-03
+if_b_x:p,x,y,z,t:0,0,2,1,3,tmp4[5]._data.x:3.916641e-02
+if_b_x:p,x,y,z,t:0,0,2,2,0,tmp4[5]._data.x:4.110229e-02
+if_b_x:p,x,y,z,t:0,0,2,2,1,tmp4[5]._data.x:2.698616e-02
+if_b_x:p,x,y,z,t:0,0,2,2,2,tmp4[5]._data.x:9.525486e-02
+if_b_x:p,x,y,z,t:0,0,2,2,3,tmp4[5]._data.x:1.581263e-02
+if_b_x:p,x,y,z,t:0,0,2,3,0,tmp4[5]._data.x:8.040622e-02
+if_b_x:p,x,y,z,t:0,0,2,3,1,tmp4[5]._data.x:-9.821102e-04
+if_b_x:p,x,y,z,t:0,0,2,3,2,tmp4[5]._data.x:6.108208e-02
+if_b_x:p,x,y,z,t:0,0,2,3,3,tmp4[5]._data.x:4.344291e-03
+if_f_x:p,x,y,z,t:0,3,1,0,0,tmp4[5]._data.x:1.801191e-02
+if_f_x:p,x,y,z,t:0,3,1,0,1,tmp4[5]._data.x:5.918605e-02
+if_f_x:p,x,y,z,t:0,3,1,0,2,tmp4[5]._data.x:5.009804e-02
+if_f_x:p,x,y,z,t:0,3,1,0,3,tmp4[5]._data.x:8.426992e-02
+if_f_x:p,x,y,z,t:0,3,1,1,0,tmp4[5]._data.x:1.015314e-01
+if_f_x:p,x,y,z,t:0,3,1,1,1,tmp4[5]._data.x:1.971220e-02
+if_f_x:p,x,y,z,t:0,3,1,1,2,tmp4[5]._data.x:8.908729e-02
+if_f_x:p,x,y,z,t:0,3,1,1,3,tmp4[5]._data.x:8.507712e-02
+if_f_x:p,x,y,z,t:0,3,1,2,0,tmp4[5]._data.x:6.586871e-02
+if_f_x:p,x,y,z,t:0,3,1,2,1,tmp4[5]._data.x:3.607053e-02
+if_f_x:p,x,y,z,t:0,3,1,2,2,tmp4[5]._data.x:7.875810e-04
+if_f_x:p,x,y,z,t:0,3,1,2,3,tmp4[5]._data.x:8.331503e-02
+if_f_x:p,x,y,z,t:0,3,1,3,0,tmp4[5]._data.x:1.226156e-02
+if_f_x:p,x,y,z,t:0,3,1,3,1,tmp4[5]._data.x:1.031936e-02
+if_f_x:p,x,y,z,t:0,3,1,3,2,tmp4[5]._data.x:2.296141e-02
+if_f_x:p,x,y,z,t:0,3,1,3,3,tmp4[5]._data.x:8.419876e-02
+if_f_x:p,x,y,z,t:0,3,3,0,0,tmp4[5]._data.x:1.396510e-02
+if_f_x:p,x,y,z,t:0,3,3,0,1,tmp4[5]._data.x:6.757310e-02
+if_f_x:p,x,y,z,t:0,3,3,0,2,tmp4[5]._data.x:2.067026e-02
+if_f_x:p,x,y,z,t:0,3,3,0,3,tmp4[5]._data.x:6.805480e-02
+if_f_x:p,x,y,z,t:0,3,3,1,0,tmp4[5]._data.x:9.686534e-03
+if_f_x:p,x,y,z,t:0,3,3,1,1,tmp4[5]._data.x:8.824519e-04
+if_f_x:p,x,y,z,t:0,3,3,1,2,tmp4[5]._data.x:9.907910e-02
+if_f_x:p,x,y,z,t:0,3,3,1,3,tmp4[5]._data.x:4.642458e-02
+if_f_x:p,x,y,z,t:0,3,3,2,0,tmp4[5]._data.x:6.982961e-02
+if_f_x:p,x,y,z,t:0,3,3,2,1,tmp4[5]._data.x:8.156183e-02
+if_f_x:p,x,y,z,t:0,3,3,2,2,tmp4[5]._data.x:9.153937e-02
+if_f_x:p,x,y,z,t:0,3,3,2,3,tmp4[5]._data.x:8.273569e-02
+if_f_x:p,x,y,z,t:0,3,3,3,0,tmp4[5]._data.x:3.539558e-02
+if_f_x:p,x,y,z,t:0,3,3,3,1,tmp4[5]._data.x:4.335788e-02
+if_f_x:p,x,y,z,t:0,3,3,3,2,tmp4[5]._data.x:6.715032e-02
+if_f_x:p,x,y,z,t:0,3,3,3,3,tmp4[5]._data.x:3.324369e-02
+if_b_x:p,x,y,z,t:0,0,1,0,0,tmp4[5]._data.x:3.678269e-02
+if_b_x:p,x,y,z,t:0,0,1,0,1,tmp4[5]._data.x:7.895302e-02
+if_b_x:p,x,y,z,t:0,0,1,0,2,tmp4[5]._data.x:8.774820e-02
+if_b_x:p,x,y,z,t:0,0,1,0,3,tmp4[5]._data.x:3.134131e-02
+if_b_x:p,x,y,z,t:0,0,1,1,0,tmp4[5]._data.x:8.160961e-02
+if_b_x:p,x,y,z,t:0,0,1,1,1,tmp4[5]._data.x:8.903990e-02
+if_b_x:p,x,y,z,t:0,0,1,1,2,tmp4[5]._data.x:6.167639e-02
+if_b_x:p,x,y,z,t:0,0,1,1,3,tmp4[5]._data.x:5.330085e-02
+if_b_x:p,x,y,z,t:0,0,1,2,0,tmp4[5]._data.x:7.028097e-02
+if_b_x:p,x,y,z,t:0,0,1,2,1,tmp4[5]._data.x:6.671838e-02
+if_b_x:p,x,y,z,t:0,0,1,2,2,tmp4[5]._data.x:8.744869e-02
+if_b_x:p,x,y,z,t:0,0,1,2,3,tmp4[5]._data.x:2.032381e-02
+if_b_x:p,x,y,z,t:0,0,1,3,0,tmp4[5]._data.x:1.434501e-02
+if_b_x:p,x,y,z,t:0,0,1,3,1,tmp4[5]._data.x:4.150731e-02
+if_b_x:p,x,y,z,t:0,0,1,3,2,tmp4[5]._data.x:5.422965e-03
+if_b_x:p,x,y,z,t:0,0,1,3,3,tmp4[5]._data.x:4.344089e-02
+if_b_x:p,x,y,z,t:0,0,3,0,0,tmp4[5]._data.x:-1.622549e-03
+if_b_x:p,x,y,z,t:0,0,3,0,1,tmp4[5]._data.x:2.427035e-02
+if_b_x:p,x,y,z,t:0,0,3,0,2,tmp4[5]._data.x:2.283099e-02
+if_b_x:p,x,y,z,t:0,0,3,0,3,tmp4[5]._data.x:2.842337e-02
+if_b_x:p,x,y,z,t:0,0,3,1,0,tmp4[5]._data.x:2.242168e-02
+if_b_x:p,x,y,z,t:0,0,3,1,1,tmp4[5]._data.x:1.105396e-02
+if_b_x:p,x,y,z,t:0,0,3,1,2,tmp4[5]._data.x:6.795738e-02
+if_b_x:p,x,y,z,t:0,0,3,1,3,tmp4[5]._data.x:3.760062e-02
+if_b_x:p,x,y,z,t:0,0,3,2,0,tmp4[5]._data.x:7.439466e-02
+if_b_x:p,x,y,z,t:0,0,3,2,1,tmp4[5]._data.x:5.350367e-03
+if_b_x:p,x,y,z,t:0,0,3,2,2,tmp4[5]._data.x:4.157749e-02
+if_b_x:p,x,y,z,t:0,0,3,2,3,tmp4[5]._data.x:2.978985e-02
+if_b_x:p,x,y,z,t:0,0,3,3,0,tmp4[5]._data.x:2.839050e-02
+if_b_x:p,x,y,z,t:0,0,3,3,1,tmp4[5]._data.x:6.410613e-02
+if_b_x:p,x,y,z,t:0,0,3,3,2,tmp4[5]._data.x:5.788658e-02
+if_b_x:p,x,y,z,t:0,0,3,3,3,tmp4[5]._data.x:8.315784e-02
+if_f_x:p,x,y,z,t:0,3,0,0,0,tmp4[5]._data.x:3.334804e-02
+if_f_x:p,x,y,z,t:0,3,0,0,1,tmp4[5]._data.x:4.498202e-02
+if_f_x:p,x,y,z,t:0,3,0,0,2,tmp4[5]._data.x:5.905621e-02
+if_f_x:p,x,y,z,t:0,3,0,0,3,tmp4[5]._data.x:9.717888e-02
+if_f_x:p,x,y,z,t:0,3,0,1,0,tmp4[5]._data.x:9.560938e-02
+if_f_x:p,x,y,z,t:0,3,0,1,1,tmp4[5]._data.x:3.414933e-02
+if_f_x:p,x,y,z,t:0,3,0,1,2,tmp4[5]._data.x:3.142514e-02
+if_f_x:p,x,y,z,t:0,3,0,1,3,tmp4[5]._data.x:7.654446e-02
+if_f_x:p,x,y,z,t:0,3,0,2,0,tmp4[5]._data.x:7.654840e-02
+if_f_x:p,x,y,z,t:0,3,0,2,1,tmp4[5]._data.x:3.346583e-02
+if_f_x:p,x,y,z,t:0,3,0,2,2,tmp4[5]._data.x:5.077150e-02
+if_f_x:p,x,y,z,t:0,3,0,2,3,tmp4[5]._data.x:2.681434e-02
+if_f_x:p,x,y,z,t:0,3,0,3,0,tmp4[5]._data.x:6.380339e-04
+if_f_x:p,x,y,z,t:0,3,0,3,1,tmp4[5]._data.x:9.375857e-02
+if_f_x:p,x,y,z,t:0,3,0,3,2,tmp4[5]._data.x:9.139259e-02
+if_f_x:p,x,y,z,t:0,3,0,3,3,tmp4[5]._data.x:4.368649e-02
+if_b_x:p,x,y,z,t:0,0,0,0,0,tmp4[5]._data.x:3.598540e-02
+if_b_x:p,x,y,z,t:0,0,0,0,1,tmp4[5]._data.x:2.286020e-02
+if_b_x:p,x,y,z,t:0,0,0,0,2,tmp4[5]._data.x:8.013433e-03
+if_b_x:p,x,y,z,t:0,0,0,0,3,tmp4[5]._data.x:3.599121e-03
+if_b_x:p,x,y,z,t:0,0,0,1,0,tmp4[5]._data.x:4.345018e-02
+if_b_x:p,x,y,z,t:0,0,0,1,1,tmp4[5]._data.x:5.591122e-02
+if_b_x:p,x,y,z,t:0,0,0,1,2,tmp4[5]._data.x:5.623683e-02
+if_b_x:p,x,y,z,t:0,0,0,1,3,tmp4[5]._data.x:3.554682e-02
+if_b_x:p,x,y,z,t:0,0,0,2,0,tmp4[5]._data.x:2.653437e-02
+if_b_x:p,x,y,z,t:0,0,0,2,1,tmp4[5]._data.x:1.014211e-02
+if_b_x:p,x,y,z,t:0,0,0,2,2,tmp4[5]._data.x:4.614522e-02
+if_b_x:p,x,y,z,t:0,0,0,2,3,tmp4[5]._data.x:1.800702e-02
+if_b_x:p,x,y,z,t:0,0,0,3,0,tmp4[5]._data.x:5.185021e-02
+if_b_x:p,x,y,z,t:0,0,0,3,1,tmp4[5]._data.x:9.232547e-02
+if_b_x:p,x,y,z,t:0,0,0,3,2,tmp4[5]._data.x:1.035076e-02
+if_b_x:p,x,y,z,t:0,0,0,3,3,tmp4[5]._data.x:4.355107e-02
+if_f_x:p,x,y,z,t:0,3,2,0,0,tmp4[5]._data.y:2.694435e-02
+if_f_x:p,x,y,z,t:0,3,2,0,1,tmp4[5]._data.y:5.979272e-03
+if_f_x:p,x,y,z,t:0,3,2,0,2,tmp4[5]._data.y:1.912569e-02
+if_f_x:p,x,y,z,t:0,3,2,0,3,tmp4[5]._data.y:6.815867e-04
+if_f_x:p,x,y,z,t:0,3,2,1,0,tmp4[5]._data.y:8.468396e-02
+if_f_x:p,x,y,z,t:0,3,2,1,1,tmp4[5]._data.y:8.313844e-02
+if_f_x:p,x,y,z,t:0,3,2,1,2,tmp4[5]._data.y:7.806467e-02
+if_f_x:p,x,y,z,t:0,3,2,1,3,tmp4[5]._data.y:8.280037e-02
+if_f_x:p,x,y,z,t:0,3,2,2,0,tmp4[5]._data.y:8.667539e-02
+if_f_x:p,x,y,z,t:0,3,2,2,1,tmp4[5]._data.y:2.178702e-02
+if_f_x:p,x,y,z,t:0,3,2,2,2,tmp4[5]._data.y:6.089493e-02
+if_f_x:p,x,y,z,t:0,3,2,2,3,tmp4[5]._data.y:9.366136e-02
+if_f_x:p,x,y,z,t:0,3,2,3,0,tmp4[5]._data.y:6.970038e-02
+if_f_x:p,x,y,z,t:0,3,2,3,1,tmp4[5]._data.y:7.093000e-02
+if_f_x:p,x,y,z,t:0,3,2,3,2,tmp4[5]._data.y:1.030354e-02
+if_f_x:p,x,y,z,t:0,3,2,3,3,tmp4[5]._data.y:3.473344e-02
+if_b_x:p,x,y,z,t:0,0,2,0,0,tmp4[5]._data.y:1.446692e-02
+if_b_x:p,x,y,z,t:0,0,2,0,1,tmp4[5]._data.y:6.890789e-03
+if_b_x:p,x,y,z,t:0,0,2,0,2,tmp4[5]._data.y:7.195093e-02
+if_b_x:p,x,y,z,t:0,0,2,0,3,tmp4[5]._data.y:4.248589e-02
+if_b_x:p,x,y,z,t:0,0,2,1,0,tmp4[5]._data.y:5.193587e-02
+if_b_x:p,x,y,z,t:0,0,2,1,1,tmp4[5]._data.y:3.557771e-02
+if_b_x:p,x,y,z,t:0,0,2,1,2,tmp4[5]._data.y:1.109596e-02
+if_b_x:p,x,y,z,t:0,0,2,1,3,tmp4[5]._data.y:6.711970e-02
+if_b_x:p,x,y,z,t:0,0,2,2,0,tmp4[5]._data.y:1.232810e-02
+if_b_x:p,x,y,z,t:0,0,2,2,1,tmp4[5]._data.y:1.428872e-02
+if_b_x:p,x,y,z,t:0,0,2,2,2,tmp4[5]._data.y:1.242477e-02
+if_b_x:p,x,y,z,t:0,0,2,2,3,tmp4[5]._data.y:6.965071e-02
+if_b_x:p,x,y,z,t:0,0,2,3,0,tmp4[5]._data.y:5.530842e-02
+if_b_x:p,x,y,z,t:0,0,2,3,1,tmp4[5]._data.y:8.485319e-02
+if_b_x:p,x,y,z,t:0,0,2,3,2,tmp4[5]._data.y:3.765773e-02
+if_b_x:p,x,y,z,t:0,0,2,3,3,tmp4[5]._data.y:3.702463e-02
+if_f_x:p,x,y,z,t:0,3,1,0,0,tmp4[5]._data.y:5.949571e-02
+if_f_x:p,x,y,z,t:0,3,1,0,1,tmp4[5]._data.y:2.147882e-02
+if_f_x:p,x,y,z,t:0,3,1,0,2,tmp4[5]._data.y:8.265205e-02
+if_f_x:p,x,y,z,t:0,3,1,0,3,tmp4[5]._data.y:7.852715e-02
+if_f_x:p,x,y,z,t:0,3,1,1,0,tmp4[5]._data.y:9.008068e-02
+if_f_x:p,x,y,z,t:0,3,1,1,1,tmp4[5]._data.y:3.604437e-02
+if_f_x:p,x,y,z,t:0,3,1,1,2,tmp4[5]._data.y:8.551619e-02
+if_f_x:p,x,y,z,t:0,3,1,1,3,tmp4[5]._data.y:6.448941e-03
+if_f_x:p,x,y,z,t:0,3,1,2,0,tmp4[5]._data.y:5.798392e-03
+if_f_x:p,x,y,z,t:0,3,1,2,1,tmp4[5]._data.y:4.208491e-02
+if_f_x:p,x,y,z,t:0,3,1,2,2,tmp4[5]._data.y:2.918374e-02
+if_f_x:p,x,y,z,t:0,3,1,2,3,tmp4[5]._data.y:2.793036e-02
+if_f_x:p,x,y,z,t:0,3,1,3,0,tmp4[5]._data.y:2.382200e-03
+if_f_x:p,x,y,z,t:0,3,1,3,1,tmp4[5]._data.y:6.258586e-02
+if_f_x:p,x,y,z,t:0,3,1,3,2,tmp4[5]._data.y:9.060235e-02
+if_f_x:p,x,y,z,t:0,3,1,3,3,tmp4[5]._data.y:8.798839e-02
+if_f_x:p,x,y,z,t:0,3,3,0,0,tmp4[5]._data.y:9.209986e-02
+if_f_x:p,x,y,z,t:0,3,3,0,1,tmp4[5]._data.y:4.188012e-02
+if_f_x:p,x,y,z,t:0,3,3,0,2,tmp4[5]._data.y:8.887924e-02
+if_f_x:p,x,y,z,t:0,3,3,0,3,tmp4[5]._data.y:4.436960e-02
+if_f_x:p,x,y,z,t:0,3,3,1,0,tmp4[5]._data.y:3.773971e-02
+if_f_x:p,x,y,z,t:0,3,3,1,1,tmp4[5]._data.y:8.355312e-02
+if_f_x:p,x,y,z,t:0,3,3,1,2,tmp4[5]._data.y:2.748070e-02
+if_f_x:p,x,y,z,t:0,3,3,1,3,tmp4[5]._data.y:4.046149e-02
+if_f_x:p,x,y,z,t:0,3,3,2,0,tmp4[5]._data.y:7.184270e-02
+if_f_x:p,x,y,z,t:0,3,3,2,1,tmp4[5]._data.y:2.637342e-02
+if_f_x:p,x,y,z,t:0,3,3,2,2,tmp4[5]._data.y:2.666803e-02
+if_f_x:p,x,y,z,t:0,3,3,2,3,tmp4[5]._data.y:9.192819e-02
+if_f_x:p,x,y,z,t:0,3,3,3,0,tmp4[5]._data.y:5.710026e-02
+if_f_x:p,x,y,z,t:0,3,3,3,1,tmp4[5]._data.y:7.905956e-02
+if_f_x:p,x,y,z,t:0,3,3,3,2,tmp4[5]._data.y:8.329995e-02
+if_f_x:p,x,y,z,t:0,3,3,3,3,tmp4[5]._data.y:1.553475e-02
+if_b_x:p,x,y,z,t:0,0,1,0,0,tmp4[5]._data.y:7.626616e-02
+if_b_x:p,x,y,z,t:0,0,1,0,1,tmp4[5]._data.y:3.636203e-02
+if_b_x:p,x,y,z,t:0,0,1,0,2,tmp4[5]._data.y:6.326840e-02
+if_b_x:p,x,y,z,t:0,0,1,0,3,tmp4[5]._data.y:7.877123e-02
+if_b_x:p,x,y,z,t:0,0,1,1,0,tmp4[5]._data.y:3.868667e-02
+if_b_x:p,x,y,z,t:0,0,1,1,1,tmp4[5]._data.y:9.091865e-02
+if_b_x:p,x,y,z,t:0,0,1,1,2,tmp4[5]._data.y:1.142274e-02
+if_b_x:p,x,y,z,t:0,0,1,1,3,tmp4[5]._data.y:4.874262e-02
+if_b_x:p,x,y,z,t:0,0,1,2,0,tmp4[5]._data.y:4.629373e-02
+if_b_x:p,x,y,z,t:0,0,1,2,1,tmp4[5]._data.y:7.206145e-02
+if_b_x:p,x,y,z,t:0,0,1,2,2,tmp4[5]._data.y:7.420316e-02
+if_b_x:p,x,y,z,t:0,0,1,2,3,tmp4[5]._data.y:5.976344e-02
+if_b_x:p,x,y,z,t:0,0,1,3,0,tmp4[5]._data.y:7.683111e-02
+if_b_x:p,x,y,z,t:0,0,1,3,1,tmp4[5]._data.y:1.069146e-03
+if_b_x:p,x,y,z,t:0,0,1,3,2,tmp4[5]._data.y:8.937585e-02
+if_b_x:p,x,y,z,t:0,0,1,3,3,tmp4[5]._data.y:9.314313e-02
+if_f_x:p,x,y,z,t:0,3,0,0,0,tmp4[5]._data.y:9.821637e-02
+if_f_x:p,x,y,z,t:0,3,0,0,1,tmp4[5]._data.y:8.565075e-02
+if_f_x:p,x,y,z,t:0,3,0,0,2,tmp4[5]._data.y:2.833237e-02
+if_f_x:p,x,y,z,t:0,3,0,0,3,tmp4[5]._data.y:8.264669e-02
+if_f_x:p,x,y,z,t:0,3,0,1,0,tmp4[5]._data.y:6.520017e-02
+if_f_x:p,x,y,z,t:0,3,0,1,1,tmp4[5]._data.y:4.117948e-02
+if_f_x:p,x,y,z,t:0,3,0,1,2,tmp4[5]._data.y:9.088505e-02
+if_f_x:p,x,y,z,t:0,3,0,1,3,tmp4[5]._data.y:4.621514e-02
+if_f_x:p,x,y,z,t:0,3,0,2,0,tmp4[5]._data.y:7.333283e-02
+if_f_x:p,x,y,z,t:0,3,0,2,1,tmp4[5]._data.y:3.089300e-03
+if_f_x:p,x,y,z,t:0,3,0,2,2,tmp4[5]._data.y:4.102843e-02
+if_f_x:p,x,y,z,t:0,3,0,2,3,tmp4[5]._data.y:2.639098e-02
+if_f_x:p,x,y,z,t:0,3,0,3,0,tmp4[5]._data.y:2.726102e-03
+if_f_x:p,x,y,z,t:0,3,0,3,1,tmp4[5]._data.y:8.920282e-02
+if_f_x:p,x,y,z,t:0,3,0,3,2,tmp4[5]._data.y:6.442092e-02
+if_f_x:p,x,y,z,t:0,3,0,3,3,tmp4[5]._data.y:2.240898e-02
+if_b_x:p,x,y,z,t:0,0,3,0,0,tmp4[5]._data.y:2.416196e-02
+if_b_x:p,x,y,z,t:0,0,3,0,1,tmp4[5]._data.y:2.327531e-02
+if_b_x:p,x,y,z,t:0,0,3,0,2,tmp4[5]._data.y:5.270470e-03
+if_b_x:p,x,y,z,t:0,0,3,0,3,tmp4[5]._data.y:3.654557e-02
+if_b_x:p,x,y,z,t:0,0,3,1,0,tmp4[5]._data.y:1.985740e-02
+if_b_x:p,x,y,z,t:0,0,3,1,1,tmp4[5]._data.y:1.215287e-02
+if_b_x:p,x,y,z,t:0,0,3,1,2,tmp4[5]._data.y:5.466113e-02
+if_b_x:p,x,y,z,t:0,0,3,1,3,tmp4[5]._data.y:2.666662e-02
+if_b_x:p,x,y,z,t:0,0,3,2,0,tmp4[5]._data.y:7.138122e-02
+if_b_x:p,x,y,z,t:0,0,3,2,1,tmp4[5]._data.y:6.839792e-02
+if_b_x:p,x,y,z,t:0,0,3,2,2,tmp4[5]._data.y:1.660449e-02
+if_b_x:p,x,y,z,t:0,0,3,2,3,tmp4[5]._data.y:8.472885e-02
+if_b_x:p,x,y,z,t:0,0,3,3,0,tmp4[5]._data.y:7.647701e-02
+if_b_x:p,x,y,z,t:0,0,3,3,1,tmp4[5]._data.y:1.865469e-02
+if_b_x:p,x,y,z,t:0,0,3,3,2,tmp4[5]._data.y:9.901860e-02
+if_b_x:p,x,y,z,t:0,0,3,3,3,tmp4[5]._data.y:5.923557e-04
+if_b_x:p,x,y,z,t:0,0,0,0,0,tmp4[5]._data.y:1.874831e-02
+if_b_x:p,x,y,z,t:0,0,0,0,1,tmp4[5]._data.y:1.336531e-02
+if_b_x:p,x,y,z,t:0,0,0,0,2,tmp4[5]._data.y:9.430488e-02
+if_b_x:p,x,y,z,t:0,0,0,0,3,tmp4[5]._data.y:3.801146e-02
+if_b_x:p,x,y,z,t:0,0,0,1,0,tmp4[5]._data.y:5.847172e-02
+if_b_x:p,x,y,z,t:0,0,0,1,1,tmp4[5]._data.y:7.956597e-02
+if_b_x:p,x,y,z,t:0,0,0,1,2,tmp4[5]._data.y:8.543702e-03
+if_b_x:p,x,y,z,t:0,0,0,1,3,tmp4[5]._data.y:2.493838e-02
+if_b_x:p,x,y,z,t:0,0,0,2,0,tmp4[5]._data.y:1.341635e-02
+if_b_x:p,x,y,z,t:0,0,0,2,1,tmp4[5]._data.y:4.204294e-02
+if_b_x:p,x,y,z,t:0,0,0,2,2,tmp4[5]._data.y:1.373335e-02
+if_b_x:p,x,y,z,t:0,0,0,2,3,tmp4[5]._data.y:5.366146e-04
+if_b_x:p,x,y,z,t:0,0,0,3,0,tmp4[5]._data.y:9.936180e-02
+if_b_x:p,x,y,z,t:0,0,0,3,1,tmp4[5]._data.y:7.028830e-02
+if_b_x:p,x,y,z,t:0,0,0,3,2,tmp4[5]._data.y:4.674594e-02
+if_b_x:p,x,y,z,t:0,0,0,3,3,tmp4[5]._data.y:4.374814e-02
+make clover total time: (without malloc free memcpy) :0.005239524 sec
+ inverse clover total time: (without malloc free memcpy) :0.004939121 sec
+ 
