@@ -313,7 +313,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 11: Residual = 2.134756e+00, Time = 0.129836 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 11: Residual = 2.134756e+00, Time = 0.129819 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 11: Residual = 2.134756e+00, Time = 0.129808 s
 PYQCU::SOLVER::BISTABCG:
@@ -875,7 +874,6 @@ PYQCU::SOLVER::BISTABCG:
 PYQCU::SOLVER::BISTABCG:
  Iteration 46: Residual = 2.872541e-02, Time = 0.125612 sPYQCU::SOLVER::BISTABCG:
  Iteration 46: Residual = 2.872541e-02, Time = 0.125607 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 47: Residual = 2.026863e-02, Time = 0.118312 s
 PYQCU::SOLVER::BISTABCG:
@@ -2419,7 +2417,6 @@ PYQCU::TESTING::SOLVER::TIME: 15.139971362000324
 PYQCU::TESTING::SOLVER:
  Difference between computed and reference solution: 3.896878662420539e-08PYQCU::TESTING::SOLVER:
  Difference between computed and reference solution: 3.896878662420539e-08
-
 PYQCU::TESTING::SOLVER::X:
  tensor([ 0.1337-1.1434j,  0.4706+0.1513j,  0.1041-0.2463j,  0.3426-0.3639j,
          0.1232-0.9221j,  1.3139+0.2928j,  0.0321+0.3745j,  0.4520-1.1058j,
@@ -2945,7 +2942,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 23: Residual = 8.857886e-02, Time = 0.133690 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 23: Residual = 8.857886e-02, Time = 0.133762 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 24: Residual = 1.834440e-02, Time = 0.137587 s
 PYQCU::SOLVER::BISTABCG:
@@ -3025,7 +3021,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 28: Residual = 7.340966e-03, Time = 0.156042 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 28: Residual = 7.340966e-03, Time = 0.155985 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 29: Residual = 4.569677e-03, Time = 0.167673 s
 PYQCU::SOLVER::BISTABCG:
@@ -3265,7 +3260,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 43: Residual = 6.473091e-05, Time = 0.130039 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 43: Residual = 6.473091e-05, Time = 0.130021 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 44: Residual = 5.955022e-05, Time = 0.140879 s
 PYQCU::SOLVER::BISTABCG:
@@ -5962,12 +5956,10 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 21: Residual = 4.052215e-01, Time = 0.119460 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 21: Residual = 4.052215e-01, Time = 0.119460 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 21: Residual = 4.052215e-01, Time = 0.119492 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 21: Residual = 4.052215e-01, Time = 0.119476 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 22: Residual = 3.732786e-01, Time = 0.156991 s
 PYQCU::SOLVER::BISTABCG:
@@ -6463,7 +6455,6 @@ PYQCU::SOLVER::BISTABCG:
 PYQCU::SOLVER::BISTABCG:
  Iteration 52: Residual = 1.383837e-02, Time = 0.141099 sPYQCU::SOLVER::BISTABCG:
  Iteration 52: Residual = 1.383837e-02, Time = 0.141273 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 53: Residual = 1.574228e-02, Time = 0.141689 s
 PYQCU::SOLVER::BISTABCG:
@@ -6543,7 +6534,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 57: Residual = 6.007614e-03, Time = 0.128353 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 57: Residual = 6.007614e-03, Time = 0.128355 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 58: Residual = 5.588744e-03, Time = 0.125788 s
 PYQCU::SOLVER::BISTABCG:
@@ -8541,7 +8531,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 82: Residual = 7.156569e-05, Time = 0.141509 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 82: Residual = 7.156569e-05, Time = 0.141504 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 82: Residual = 7.156569e-05, Time = 0.141661 s
 PYQCU::SOLVER::BISTABCG:
@@ -9053,7 +9042,6 @@ PYQCU::SOLVER::BISTABCG:
 PYQCU::SOLVER::BISTABCG:
  Iteration 15: Residual = 1.400916e+00, Time = 0.132451 sPYQCU::SOLVER::BISTABCG:
  Iteration 15: Residual = 1.400916e+00, Time = 0.132418 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 15: Residual = 1.400916e+00, Time = 0.132553 s
 PYQCU::SOLVER::BISTABCG:
@@ -10560,7 +10548,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 10: Residual = 2.978063e+00, Time = 0.159253 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 10: Residual = 2.978063e+00, Time = 0.159177 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 11: Residual = 5.201909e+00, Time = 0.168587 s
 PYQCU::SOLVER::BISTABCG:
@@ -10590,7 +10577,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 12: Residual = 3.684674e+00, Time = 0.154686 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 12: Residual = 3.684674e+00, Time = 0.154747 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 12: Residual = 3.684674e+00, Time = 0.154838 s
 PYQCU::SOLVER::BISTABCG:
@@ -10704,7 +10690,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 19: Residual = 4.970683e-01, Time = 0.161175 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 19: Residual = 4.970683e-01, Time = 0.161800 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 20: Residual = 4.221080e-01, Time = 0.158826 s
 PYQCU::SOLVER::BISTABCG:
@@ -10832,7 +10817,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 27: Residual = 1.727526e-01, Time = 0.168797 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 27: Residual = 1.727526e-01, Time = 0.168736 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 28: Residual = 1.637785e-01, Time = 0.152984 s
 PYQCU::SOLVER::BISTABCG:
@@ -12049,7 +12033,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 1: Residual = 5.452289e+01, Time = 0.177694 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 1: Residual = 5.452289e+01, Time = 0.177693 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 2: Residual = 1.011669e+02, Time = 0.204396 s
 PYQCU::SOLVER::BISTABCG:
@@ -12225,7 +12208,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 12: Residual = 1.634193e+00, Time = 0.160566 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 12: Residual = 1.634193e+00, Time = 0.160581 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 13: Residual = 1.196740e+00, Time = 0.159040 s
 PYQCU::SOLVER::BISTABCG:
@@ -13501,7 +13483,6 @@ PYQCU::SOLVER::BISTABCG:
  Average time per iteration: 0.171838 s
 PYQCU::SOLVER::BISTABCG:
  Final residual: 4.45e-05
-
 PYQCU::SOLVER::BISTABCG:
  Average time per iteration: 0.171845 s
 PYQCU::SOLVER::BISTABCG:
@@ -14274,7 +14255,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 42: Residual = 4.008110e-02, Time = 0.143297 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 42: Residual = 4.008110e-02, Time = 0.143317 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 43: Residual = 3.960380e-02, Time = 0.145831 s
 PYQCU::SOLVER::BISTABCG:
@@ -15249,7 +15229,6 @@ PYQCU::SOLVER::BISTABCG:
  Norm of b:701.3321015446662
 PYQCU::SOLVER::BISTABCG:
  Norm of r:991.5868282601388
-
 PYQCU::SOLVER::BISTABCG:
  Norm of r:991.5868282601388
 PYQCU::SOLVER::BISTABCG:
@@ -16209,7 +16188,6 @@ PYQCU::SOLVER::BISTABCG:
 PYQCU::SOLVER::BISTABCG:
  Iteration 58: Residual = 5.083768e-03, Time = 0.139177 sPYQCU::SOLVER::BISTABCG:
  Iteration 58: Residual = 5.083768e-03, Time = 0.139211 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 58: Residual = 5.083768e-03, Time = 0.139254 s
 PYQCU::SOLVER::BISTABCG:
@@ -17055,7 +17033,6 @@ PYQCU::SOLVER::BISTABCG:
 PYQCU::SOLVER::BISTABCG:
  Iteration 14: Residual = 1.698700e+00, Time = 0.142591 sPYQCU::SOLVER::BISTABCG:
  Iteration 14: Residual = 1.698700e+00, Time = 0.142590 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 14: Residual = 1.698700e+00, Time = 0.142613 s
 PYQCU::SOLVER::BISTABCG:
@@ -17315,7 +17292,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 30: Residual = 2.231491e-01, Time = 0.147331 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 30: Residual = 2.231491e-01, Time = 0.147353 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 31: Residual = 7.251807e-02, Time = 0.190427 s
 PYQCU::SOLVER::BISTABCG:
@@ -17331,7 +17307,6 @@ PYQCU::SOLVER::BISTABCG:
 PYQCU::SOLVER::BISTABCG:
  Iteration 31: Residual = 7.251807e-02, Time = 0.190449 sPYQCU::SOLVER::BISTABCG:
  Iteration 31: Residual = 7.251807e-02, Time = 0.190673 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 32: Residual = 5.910646e-02, Time = 0.198075 s
 PYQCU::SOLVER::BISTABCG:
@@ -17379,7 +17354,6 @@ PYQCU::SOLVER::BISTABCG:
 PYQCU::SOLVER::BISTABCG:
  Iteration 34: Residual = 7.771190e-02, Time = 0.173721 sPYQCU::SOLVER::BISTABCG:
  Iteration 34: Residual = 7.771190e-02, Time = 0.173722 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 35: Residual = 7.146359e-02, Time = 0.161015 s
 PYQCU::SOLVER::BISTABCG:
@@ -17666,8 +17640,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 52: Residual = 1.245598e-02, Time = 0.144370 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 52: Residual = 1.245598e-02, Time = 0.144337 s
-
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 53: Residual = 1.293059e-02, Time = 0.143806 s
 PYQCU::SOLVER::BISTABCG:
@@ -18299,7 +18271,6 @@ PYQCU::SOLVER::BISTABCG:
  Average time per iteration: 0.155225 s
 PYQCU::SOLVER::BISTABCG:
  Final residual: 4.61e-05
-
 PYQCU::SOLVER::BISTABCG:
  Total iterations: 87
 PYQCU::SOLVER::BISTABCG:
@@ -18595,7 +18566,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 12: Residual = 1.392282e+00, Time = 0.132415 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 12: Residual = 1.392282e+00, Time = 0.132445 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 13: Residual = 1.543365e+00, Time = 0.139743 s
 PYQCU::SOLVER::BISTABCG:
@@ -18931,7 +18901,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 33: Residual = 8.802793e-02, Time = 0.139100 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 33: Residual = 8.802793e-02, Time = 0.139096 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 34: Residual = 8.738789e-02, Time = 0.138051 s
 PYQCU::SOLVER::BISTABCG:
@@ -19311,7 +19280,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 57: Residual = 5.988182e-03, Time = 0.147512 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 57: Residual = 5.988182e-03, Time = 0.147396 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 57: Residual = 5.988182e-03, Time = 0.147737 s
 PYQCU::SOLVER::BISTABCG:
@@ -20611,7 +20579,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 40: Residual = 3.486828e-02, Time = 0.161512 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 40: Residual = 3.486828e-02, Time = 0.161547 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 41: Residual = 4.036074e-02, Time = 0.156457 s
 PYQCU::SOLVER::BISTABCG:
@@ -20995,7 +20962,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 64: Residual = 1.468423e-03, Time = 0.154239 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 64: Residual = 1.468423e-03, Time = 0.154238 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 65: Residual = 1.485075e-03, Time = 0.160968 s
 PYQCU::SOLVER::BISTABCG:
@@ -21091,7 +21057,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 70: Residual = 1.009517e-03, Time = 0.203792 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 70: Residual = 1.009517e-03, Time = 0.203993 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 71: Residual = 5.255647e-04, Time = 0.197474 s
 PYQCU::SOLVER::BISTABCG:
@@ -22851,7 +22816,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 74: Residual = 1.644122e-04, Time = 0.148318 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 74: Residual = 1.644122e-04, Time = 0.148480 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 75: Residual = 1.754741e-04, Time = 0.148572 s
 PYQCU::SOLVER::BISTABCG:
@@ -24707,7 +24671,6 @@ PYQCU::SOLVER::BISTABCG:
 PYQCU::SOLVER::BISTABCG:
  Iteration 89: Residual = 5.094909e-05, Time = 0.150074 sPYQCU::SOLVER::BISTABCG:
  Iteration 89: Residual = 5.094909e-05, Time = 0.150143 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 90: Residual = 4.615700e-05, Time = 0.147672 s
 PYQCU::SOLVER::BISTABCG:
@@ -25188,7 +25151,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 17: Residual = 6.335073e-01, Time = 0.147242 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 17: Residual = 6.335073e-01, Time = 0.147262 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 18: Residual = 3.962175e-01, Time = 0.133194 s
 PYQCU::SOLVER::BISTABCG:
@@ -25443,8 +25405,6 @@ PYQCU::SOLVER::BISTABCG:
 PYQCU::SOLVER::BISTABCG:
  Iteration 33: Residual = 1.120344e-01, Time = 0.141447 sPYQCU::SOLVER::BISTABCG:
  Iteration 33: Residual = 1.120344e-01, Time = 0.141290 s
-
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 34: Residual = 6.873889e-02, Time = 0.142121 s
 PYQCU::SOLVER::BISTABCG:
@@ -25506,7 +25466,6 @@ PYQCU::SOLVER::BISTABCG:
 PYQCU::SOLVER::BISTABCG:
  Iteration 37: Residual = 4.751528e-02, Time = 0.154467 sPYQCU::SOLVER::BISTABCG:
  Iteration 37: Residual = 4.751528e-02, Time = 0.154592 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 37: Residual = 4.751528e-02, Time = 0.154824 s
 PYQCU::SOLVER::BISTABCG:
@@ -25796,7 +25755,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 55: Residual = 8.573412e-03, Time = 0.150165 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 55: Residual = 8.573412e-03, Time = 0.150166 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 56: Residual = 8.208293e-03, Time = 0.148906 s
 PYQCU::SOLVER::BISTABCG:
@@ -25970,7 +25928,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 66: Residual = 5.743341e-03, Time = 0.147618 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 66: Residual = 5.743341e-03, Time = 0.147737 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 66: Residual = 5.743341e-03, Time = 0.147630 s
 PYQCU::SOLVER::BISTABCG:
@@ -26774,7 +26731,6 @@ PYQCU::SOLVER::BISTABCG:
 PYQCU::SOLVER::BISTABCG:
  Iteration 13: Residual = 1.051402e+01, Time = 0.134018 sPYQCU::SOLVER::BISTABCG:
  Iteration 13: Residual = 1.051402e+01, Time = 0.133971 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 14: Residual = 5.748150e+00, Time = 0.133963 s
 PYQCU::SOLVER::BISTABCG:
@@ -26886,7 +26842,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 20: Residual = 4.885571e-01, Time = 0.145172 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 20: Residual = 4.885571e-01, Time = 0.145190 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 21: Residual = 3.217124e-01, Time = 0.150552 s
 PYQCU::SOLVER::BISTABCG:
@@ -27717,8 +27672,6 @@ PYQCU::SOLVER::BISTABCG:
 PYQCU::SOLVER::BISTABCG:
  Iteration 72: Residual = 1.374548e-02, Time = 0.152959 sPYQCU::SOLVER::BISTABCG:
  Iteration 72: Residual = 1.374548e-02, Time = 0.152999 s
-
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 73: Residual = 1.358627e-04, Time = 0.160567 s
 PYQCU::SOLVER::BISTABCG:
@@ -27878,7 +27831,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 82: Residual = 6.218096e-05, Time = 0.159685 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 82: Residual = 6.218096e-05, Time = 0.159664 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 83: Residual = 5.676244e-05, Time = 0.159695 s
 PYQCU::SOLVER::BISTABCG:
@@ -28036,7 +27988,6 @@ PYQCU::SOLVER::BISTABCG:
  Average time per iteration: 0.152487 s
 PYQCU::SOLVER::BISTABCG:
  Final residual: 4.49e-05
-
 PYQCU::SOLVER::BISTABCG:
  Final residual: 4.49e-05
 PYQCU::TOOLS::MATRIX:
@@ -31641,7 +31592,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 18: Residual = 7.395960e-01, Time = 0.161102 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 18: Residual = 7.395960e-01, Time = 0.161082 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 19: Residual = 5.860458e-01, Time = 0.158863 s
 PYQCU::SOLVER::BISTABCG:
@@ -31687,7 +31637,6 @@ PYQCU::SOLVER::BISTABCG:
 PYQCU::SOLVER::BISTABCG:
  Iteration 21: Residual = 4.764264e-01, Time = 0.147402 sPYQCU::SOLVER::BISTABCG:
  Iteration 21: Residual = 4.764264e-01, Time = 0.147533 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 21: Residual = 4.764264e-01, Time = 0.147582 s
 PYQCU::SOLVER::BISTABCG:
@@ -32505,7 +32454,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 72: Residual = 7.451848e-04, Time = 0.166759 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 72: Residual = 7.451848e-04, Time = 0.166759 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 73: Residual = 1.035218e-04, Time = 0.163837 s
 PYQCU::SOLVER::BISTABCG:
@@ -32569,7 +32517,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 76: Residual = 7.451271e-05, Time = 0.156558 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 76: Residual = 7.451271e-05, Time = 0.156558 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 77: Residual = 7.577570e-05, Time = 0.148834 s
 PYQCU::SOLVER::BISTABCG:
@@ -32985,7 +32932,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 7: Residual = 1.550392e+01, Time = 0.138187 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 7: Residual = 1.550392e+01, Time = 0.138208 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 8: Residual = 6.346023e+00, Time = 0.140684 s
 PYQCU::SOLVER::BISTABCG:
@@ -34649,7 +34595,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 16: Residual = 9.536914e-01, Time = 0.152236 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 16: Residual = 9.536914e-01, Time = 0.152234 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 17: Residual = 5.445716e-01, Time = 0.131904 s
 PYQCU::SOLVER::BISTABCG:
@@ -34825,7 +34770,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 27: Residual = 1.470745e-01, Time = 0.158120 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 27: Residual = 1.470745e-01, Time = 0.158036 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 28: Residual = 1.299179e-01, Time = 0.145154 s
 PYQCU::SOLVER::BISTABCG:
@@ -35175,7 +35119,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 49: Residual = 1.193188e-02, Time = 0.155807 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 49: Residual = 1.193188e-02, Time = 0.155806 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 49: Residual = 1.193188e-02, Time = 0.155843 s
 PYQCU::SOLVER::BISTABCG:
@@ -35981,7 +35924,6 @@ PYQCU::SOLVER::BISTABCG:
  Average time per iteration: 0.154282 s
 PYQCU::SOLVER::BISTABCG:
  Final residual: 4.46e-05
-
 PYQCU::SOLVER::BISTABCG:
  Converged at iteration 94 with residual 4.464347e-05
 PYQCU::SOLVER::BISTABCG:
@@ -36582,7 +36524,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 31: Residual = 1.135813e-01, Time = 0.145792 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 31: Residual = 1.135813e-01, Time = 0.145792 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 31: Residual = 1.135813e-01, Time = 0.145987 s
 PYQCU::SOLVER::BISTABCG:
@@ -37242,7 +37183,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 72: Residual = 1.923860e-03, Time = 0.162394 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 72: Residual = 1.923860e-03, Time = 0.162380 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 73: Residual = 1.333523e-04, Time = 0.157214 s
 PYQCU::SOLVER::BISTABCG:
@@ -38282,7 +38222,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 39: Residual = 7.747365e-02, Time = 0.160138 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 39: Residual = 7.747365e-02, Time = 0.159995 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 40: Residual = 1.503971e-01, Time = 0.155852 s
 PYQCU::SOLVER::BISTABCG:
@@ -38330,7 +38269,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 42: Residual = 4.133378e-02, Time = 0.154028 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 42: Residual = 4.133378e-02, Time = 0.154029 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 43: Residual = 4.179473e-02, Time = 0.149740 s
 PYQCU::SOLVER::BISTABCG:
@@ -38506,7 +38444,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 53: Residual = 2.590948e-02, Time = 0.146168 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 53: Residual = 2.590948e-02, Time = 0.146175 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 54: Residual = 2.435852e-02, Time = 0.161838 s
 PYQCU::SOLVER::BISTABCG:
@@ -38756,7 +38693,6 @@ PYQCU::SOLVER::BISTABCG:
 PYQCU::SOLVER::BISTABCG:
  Iteration 69: Residual = 2.888220e-03, Time = 0.148016 sPYQCU::SOLVER::BISTABCG:
  Iteration 69: Residual = 2.888220e-03, Time = 0.148033 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 69: Residual = 2.888220e-03, Time = 0.148163 s
 PYQCU::SOLVER::BISTABCG:
@@ -39050,7 +38986,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 87: Residual = 5.085510e-05, Time = 0.136582 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 87: Residual = 5.085510e-05, Time = 0.136586 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 88: Residual = 4.842209e-05, Time = 0.152908 s
 PYQCU::SOLVER::BISTABCG:
@@ -39403,7 +39338,6 @@ PYQCU::SOLVER::BISTABCG:
 PYQCU::SOLVER::BISTABCG:
  Iteration 9: Residual = 3.330168e+00, Time = 0.155585 sPYQCU::SOLVER::BISTABCG:
  Iteration 9: Residual = 3.330168e+00, Time = 0.155734 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 10: Residual = 2.332972e+00, Time = 0.145693 s
 PYQCU::SOLVER::BISTABCG:
@@ -39595,7 +39529,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 21: Residual = 3.847164e-01, Time = 0.159835 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 21: Residual = 3.847164e-01, Time = 0.159834 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 22: Residual = 3.045617e-01, Time = 0.161167 s
 PYQCU::SOLVER::BISTABCG:
@@ -39738,8 +39671,6 @@ PYQCU::SOLVER::BISTABCG:
 PYQCU::SOLVER::BISTABCG:
  Iteration 30: Residual = 1.225904e-01, Time = 0.149290 sPYQCU::SOLVER::BISTABCG:
  Iteration 30: Residual = 1.225904e-01, Time = 0.149413 s
-
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 31: Residual = 1.009960e-01, Time = 0.157678 s
 PYQCU::SOLVER::BISTABCG:
@@ -39797,7 +39728,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 34: Residual = 8.357081e-02, Time = 0.143414 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 34: Residual = 8.357081e-02, Time = 0.143414 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 34: Residual = 8.357081e-02, Time = 0.143580 s
 PYQCU::SOLVER::BISTABCG:
@@ -39975,7 +39905,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 45: Residual = 2.120639e-02, Time = 0.272113 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 45: Residual = 2.120639e-02, Time = 0.272113 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 45: Residual = 2.120639e-02, Time = 0.272228 s
 PYQCU::SOLVER::BISTABCG:
@@ -40567,7 +40496,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 82: Residual = 6.460511e-05, Time = 0.188049 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 82: Residual = 6.460511e-05, Time = 0.187951 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 82: Residual = 6.460511e-05, Time = 0.187949 s
 PYQCU::SOLVER::BISTABCG:
@@ -41055,7 +40983,6 @@ PYQCU::SOLVER::BISTABCG:
 PYQCU::SOLVER::BISTABCG:
  Iteration 15: Residual = 7.496724e-01, Time = 0.148575 sPYQCU::SOLVER::BISTABCG:
  Iteration 15: Residual = 7.496724e-01, Time = 0.148595 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 16: Residual = 7.100837e-01, Time = 0.169972 s
 PYQCU::SOLVER::BISTABCG:
@@ -41165,7 +41092,6 @@ PYQCU::SOLVER::BISTABCG:
 PYQCU::SOLVER::BISTABCG:
  Iteration 22: Residual = 3.530099e-01, Time = 0.166517 sPYQCU::SOLVER::BISTABCG:
  Iteration 22: Residual = 3.530099e-01, Time = 0.166669 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 22: Residual = 3.530099e-01, Time = 0.166169 s
 PYQCU::SOLVER::BISTABCG:
@@ -41599,7 +41525,6 @@ PYQCU::SOLVER::BISTABCG:
 PYQCU::SOLVER::BISTABCG:
  Iteration 49: Residual = 1.420834e-02, Time = 0.154892 sPYQCU::SOLVER::BISTABCG:
  Iteration 49: Residual = 1.420834e-02, Time = 0.154776 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 50: Residual = 1.306525e-02, Time = 0.139076 s
 PYQCU::SOLVER::BISTABCG:
@@ -41663,7 +41588,6 @@ PYQCU::SOLVER::BISTABCG:
 PYQCU::SOLVER::BISTABCG:
  Iteration 53: Residual = 2.275737e-02, Time = 0.167084 sPYQCU::SOLVER::BISTABCG:
  Iteration 53: Residual = 2.275737e-02, Time = 0.167099 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 54: Residual = 2.081628e-02, Time = 0.163063 s
 PYQCU::SOLVER::BISTABCG:
@@ -41999,7 +41923,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 74: Residual = 3.473186e-04, Time = 0.181782 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 74: Residual = 3.473186e-04, Time = 0.181756 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 75: Residual = 9.876141e-05, Time = 0.165460 s
 PYQCU::SOLVER::BISTABCG:
@@ -42606,7 +42529,6 @@ PYQCU::TOOLS::MATRIX:
         -2.1170e-02+1.1029e-02j, -2.4956e-02+2.3568e-02j,
         -1.9378e-02+4.2064e-03j, -2.5342e-02+1.6157e-02j],
        dtype=torch.complex128)
-
 PYQCU::TOOLS::MATRIX:
  Vector 0: A*v/v:100 = tensor([0.0225-0.0086j, 0.0515-0.0263j, 0.0306-0.0192j, 0.0293-0.0157j,
         0.0195-0.0001j, 0.0279-0.0021j, 0.0249+0.0211j, 0.0276+0.0218j,
@@ -42848,7 +42770,6 @@ PYQCU::TOOLS::MATRIX:
          4.0316e-02+0.0090j,  6.1436e-02+0.0336j,  9.7243e-03+0.0164j,
          7.3364e-02-0.0345j,  7.7597e-02-0.0004j,  1.5813e-01-0.0979j,
          6.2235e-02-0.0033j], dtype=torch.complex128)
-
 PYQCU::TOOLS::MATRIX:
  Vector 1: A*v/v:100 = tensor([ 9.9490e-02-5.5935e-02j,  1.2441e-01+1.1641e-01j,
          1.3297e-01-2.5312e-02j,  7.5477e-02-3.7995e-02j,
@@ -45646,7 +45567,6 @@ PYQCU::TOOLS::MATRIX:
  tools.vdot(null_vecs[8],null_vecs[3]):(-0.29033261633711055+0.37512294127801993j)
 PYQCU::TOOLS::MATRIX:
  tools.vdot(null_vecs[8],null_vecs[3]):(-0.29033261633711055+0.37512294127801993j)
-
 PYQCU::TOOLS::MATRIX:
  tools.vdot(null_vecs[8],null_vecs[4]):(0.15825178508378945+0.13272238201827438j)
 PYQCU::TOOLS::MATRIX:
@@ -45678,7 +45598,6 @@ PYQCU::TOOLS::MATRIX:
  tools.vdot(null_vecs[8],null_vecs[5]):(-0.08641617905881552+0.18186002443734245j)
 PYQCU::TOOLS::MATRIX:
  tools.vdot(null_vecs[8],null_vecs[5]):(-0.08641617905881552+0.18186002443734245j)
-
 PYQCU::TOOLS::MATRIX:
  tools.vdot(null_vecs[8],null_vecs[6]):(-0.023544556386192444+0.11181192471024998j)
 PYQCU::TOOLS::MATRIX:
@@ -46935,7 +46854,6 @@ PYQCU::TOOLS::MATRIX:
  tools.vdot(null_vecs[11],null_vecs[0]):(-0.16816904857954867+0.29612715376074344j)
 PYQCU::TOOLS::MATRIX:
  tools.vdot(null_vecs[11],null_vecs[0]):(-0.16816904857954867+0.29612715376074344j)
-
 PYQCU::TOOLS::MATRIX:
  tools.vdot(null_vecs[11],null_vecs[1]):(0.18043431182478561-0.30290203146826333j)
 PYQCU::TOOLS::MATRIX:
@@ -48056,7 +47974,6 @@ PYQCU::TOOLS::MATRIX:
  tools.vdot(null_vecs[13],null_vecs[7]):(0.41972049403144185+0.26016719034790337j)
 PYQCU::TOOLS::MATRIX:
  tools.vdot(null_vecs[13],null_vecs[7]):(0.41972049403144185+0.26016719034790337j)
-
 PYQCU::TOOLS::MATRIX:
  tools.vdot(null_vecs[13],null_vecs[8]):(-0.021807946662585245+0.3836102587104587j)
 PYQCU::TOOLS::MATRIX:
@@ -48070,7 +47987,6 @@ PYQCU::TOOLS::MATRIX:
  tools.vdot(null_vecs[13],null_vecs[8]):(-0.021807946662585245+0.3836102587104587j)
 PYQCU::TOOLS::MATRIX:
  tools.vdot(null_vecs[13],null_vecs[8]):(-0.021807946662585245+0.3836102587104587j)
-
 PYQCU::TOOLS::MATRIX:
  tools.vdot(null_vecs[13],null_vecs[8]):(-0.021807946662585245+0.3836102587104587j)
 PYQCU::TOOLS::MATRIX:
@@ -48136,7 +48052,6 @@ PYQCU::TOOLS::MATRIX:
 PYQCU::TOOLS::MATRIX:
  tools.vdot(null_vecs[13],null_vecs[12]):(-0.346740136394525+0.21524961668357595j)PYQCU::TOOLS::MATRIX:
  tools.vdot(null_vecs[13],null_vecs[12]):(-0.346740136394525+0.21524961668357595j)
-
 PYQCU::TOOLS::MATRIX:
  tools.vdot(null_vecs[13],null_vecs[13]):(1.0000000000000002+0j)
 PYQCU::TOOLS::MATRIX:
@@ -48696,7 +48611,6 @@ PYQCU::TOOLS::MATRIX:
  tools.vdot(null_vecs[14],null_vecs[13]):(-0.18727549573357374-0.09225970936116423j)
 PYQCU::TOOLS::MATRIX:
  tools.vdot(null_vecs[14],null_vecs[13]):(-0.18727549573357374-0.09225970936116423j)
-
 PYQCU::TOOLS::MATRIX:
  tools.vdot(null_vecs[14],null_vecs[13]):(-0.18727549573357374-0.09225970936116423j)
 PYQCU::TOOLS::MATRIX:
@@ -50739,7 +50653,6 @@ PYQCU::TOOLS::MATRIX:
 PYQCU::TOOLS::MATRIX:
  tools.vdot(null_vecs[18],null_vecs[3]):(0.06498912835576498+0.011520388690066965j)PYQCU::TOOLS::MATRIX:
  tools.vdot(null_vecs[18],null_vecs[3]):(0.06498912835576498+0.011520388690066965j)
-
 PYQCU::TOOLS::MATRIX:
  tools.vdot(null_vecs[18],null_vecs[4]):(0.18999761239490653-0.2778761406536311j)
 PYQCU::TOOLS::MATRIX:
@@ -52540,7 +52453,6 @@ PYQCU::TOOLS::MATRIX:
 PYQCU::TOOLS::MATRIX:
  tools.vdot(null_vecs[21],null_vecs[2]):(-0.3134893248224308+0.04061485193765214j)PYQCU::TOOLS::MATRIX:
  tools.vdot(null_vecs[21],null_vecs[2]):(-0.3134893248224308+0.04061485193765214j)
-
 PYQCU::TOOLS::MATRIX:
  tools.vdot(null_vecs[21],null_vecs[3]):(0.14212947922603467-0.041630486275531356j)
 PYQCU::TOOLS::MATRIX:
@@ -52796,7 +52708,6 @@ PYQCU::TOOLS::MATRIX:
  tools.vdot(null_vecs[21],null_vecs[18]):(-0.053431200752739653-0.3543814254129559j)
 PYQCU::TOOLS::MATRIX:
  tools.vdot(null_vecs[21],null_vecs[18]):(-0.053431200752739653-0.3543814254129559j)
-
 PYQCU::TOOLS::MATRIX:
  tools.vdot(null_vecs[21],null_vecs[19]):(-0.07139274009837897+0.18235592885017607j)
 PYQCU::TOOLS::MATRIX:
@@ -54612,8 +54523,6 @@ PYQCU::SOLVER::MULTIGRID:
  B-1-bistabcg-Iteration 4: Residual = 7.140797e-01PYQCU::SOLVER::MULTIGRID:
  B-1-bistabcg-Iteration 4: Residual = 7.140797e-01PYQCU::SOLVER::MULTIGRID:
  B-1-bistabcg-Iteration 4: Residual = 7.140797e-01
-
-
 PYQCU::SOLVER::MULTIGRID:
  F-1-bistabcg-Iteration 4: Residual = 7.140797e-01, Time = 0.082373 s
 PYQCU::SOLVER::MULTIGRID:
@@ -54789,7 +54698,6 @@ PYQCU::SOLVER::MULTIGRID:
  B-0-bistabcg-Iteration 5: Residual = 2.682518e+00
 PYQCU::SOLVER::MULTIGRID:
  B-0-bistabcg-Iteration 5: Residual = 2.682518e+00
-
 PYQCU::SOLVER::MULTIGRID:
  F-0-bistabcg-Iteration 5: Residual = 2.682518e+00, Time = 0.177667 s
 PYQCU::SOLVER::MULTIGRID:
@@ -55413,7 +55321,6 @@ PYQCU::SOLVER::MULTIGRID:
 PYQCU::SOLVER::MULTIGRID:
  F-0-bistabcg-Iteration 10: Residual = 1.882351e-01, Time = 0.166978 sPYQCU::SOLVER::MULTIGRID:
  F-0-bistabcg-Iteration 10: Residual = 1.882351e-01, Time = 0.166938 s
-
 PYQCU::SOLVER::MULTIGRID:
  B-0-bistabcg-Iteration 11: Residual = 1.234436e-01
 PYQCU::SOLVER::MULTIGRID:
@@ -55839,7 +55746,6 @@ PYQCU::SOLVER::MULTIGRID:
  Average time per iteration: 0.086568 s
 PYQCU::SOLVER::MULTIGRID:
  Final residual: 9.90e-03
-
 PYQCU::SOLVER::MULTIGRID:
  Total time: 0.692969 seconds
 PYQCU::SOLVER::MULTIGRID:
@@ -56245,7 +56151,6 @@ PYQCU::SOLVER::MULTIGRID:
 PYQCU::SOLVER::MULTIGRID:
  B-1-bistabcg-Iteration 6: Residual = 3.978055e-03PYQCU::SOLVER::MULTIGRID:
  B-1-bistabcg-Iteration 6: Residual = 3.978055e-03
-
 PYQCU::SOLVER::MULTIGRID:
  F-1-bistabcg-Iteration 6: Residual = 3.978055e-03, Time = 0.108190 s
 PYQCU::SOLVER::MULTIGRID:
@@ -56911,7 +56816,6 @@ PYQCU::SOLVER::MULTIGRID:
 PYQCU::SOLVER::MULTIGRID:
  B-1-bistabcg-Iteration 11: Residual = 8.765162e-03PYQCU::SOLVER::MULTIGRID:
  B-1-bistabcg-Iteration 11: Residual = 8.765162e-03
-
 PYQCU::SOLVER::MULTIGRID:
  B-1-bistabcg-Iteration 11: Residual = 8.765162e-03
 PYQCU::SOLVER::MULTIGRID:
@@ -57557,7 +57461,6 @@ PYQCU::SOLVER::MULTIGRID:
  B-1-bistabcg-Iteration 5: Residual = 2.605468e-03
 PYQCU::SOLVER::MULTIGRID:
  B-1-bistabcg-Iteration 5: Residual = 2.605468e-03
-
 PYQCU::SOLVER::MULTIGRID:
  F-1-bistabcg-Iteration 5: Residual = 2.605468e-03, Time = 0.120213 s
 PYQCU::SOLVER::MULTIGRID:
@@ -58747,11 +58650,9 @@ PYQCU::SOLVER::MULTIGRID:
  F-1-bistabcg-Iteration 0: Residual = 5.588009e-05, Time = 0.082780 s
 PYQCU::SOLVER::MULTIGRID:
  B-1-bistabcg-Iteration 0: Residual = 5.588009e-05
-
 PYQCU::SOLVER::MULTIGRID:
  F-1-bistabcg-Iteration 0: Residual = 5.588009e-05, Time = 0.082814 sPYQCU::SOLVER::MULTIGRID:
  F-1-bistabcg-Iteration 0: Residual = 5.588009e-05, Time = 0.082783 s
-
 PYQCU::SOLVER::MULTIGRID:
  F-1-bistabcg-Iteration 0: Residual = 5.588009e-05, Time = 0.082805 s
 PYQCU::SOLVER::MULTIGRID:
@@ -59097,7 +58998,6 @@ PYQCU::SOLVER::MULTIGRID:
  Average time per iteration: 0.085789 s
 PYQCU::SOLVER::MULTIGRID:
  Final residual: 7.68e-06
-
 PYQCU::SOLVER::MULTIGRID:
  Converged at iteration 8 with residual 7.680518e-06
 PYQCU::SOLVER::MULTIGRID:
@@ -59569,11 +59469,9 @@ PYQCU::SOLVER::MULTIGRID:
 PYQCU::SOLVER::MULTIGRID:
  B-1-bistabcg-Iteration 8: Residual = 4.812033e-06PYQCU::SOLVER::MULTIGRID:
  B-1-bistabcg-Iteration 8: Residual = 4.812033e-06
-
 PYQCU::SOLVER::MULTIGRID:
  B-1-bistabcg-Iteration 8: Residual = 4.812033e-06PYQCU::SOLVER::MULTIGRID:
  B-1-bistabcg-Iteration 8: Residual = 4.812033e-06
-
 PYQCU::SOLVER::MULTIGRID:
  F-1-bistabcg-Iteration 8: Residual = 4.812033e-06, Time = 0.071193 s
 PYQCU::SOLVER::MULTIGRID:
@@ -60293,7 +60191,6 @@ PYQCU::SOLVER::MULTIGRID:
 PYQCU::SOLVER::MULTIGRID:
  F-1-bistabcg-Iteration 11: Residual = 5.284210e-06, Time = 0.080458 sPYQCU::SOLVER::MULTIGRID:
  F-1-bistabcg-Iteration 11: Residual = 5.284210e-06, Time = 0.080621 s
-
 PYQCU::SOLVER::MULTIGRID:
  B-1-bistabcg-Iteration 12: Residual = 7.318835e-07
 PYQCU::SOLVER::MULTIGRID:
@@ -61177,7 +61074,6 @@ PYQCU::SOLVER::MULTIGRID:
  Total time: 21.937542 seconds
 PYQCU::SOLVER::MULTIGRID:
  Final residual: 8.45e-07
-
 PYQCU::SOLVER::MULTIGRID:
  Final residual: 8.45e-07
 PYQCU::SOLVER::MULTIGRID:
@@ -61328,7 +61224,6 @@ PYQCU::TESTING::SOLVER::REFER_B:
         -2.4132+1.6070j,  0.8346+0.6732j,  0.2126-0.2896j,  0.4442-0.9107j,
          0.2744-0.8713j, -0.0710+0.1877j, -0.3366+1.5805j,  0.0678-0.7162j],
        dtype=torch.complex128)
-
 PYQCU::TESTING::SOLVER::REFER_B:
  tensor([-2.4393+0.6069j,  0.8421-1.6104j,  0.0191+0.6359j,  1.2114+0.5731j,
         -0.3261-1.7151j, -1.1401-0.1458j,  0.0598+0.5030j, -0.7376-0.4284j,
@@ -62931,7 +62826,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 80: Residual = 1.410210e-04, Time = 0.166981 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 80: Residual = 1.410210e-04, Time = 0.167008 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 81: Residual = 1.328106e-04, Time = 0.169979 s
 PYQCU::SOLVER::BISTABCG:
@@ -63059,7 +62953,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 88: Residual = 8.389613e-05, Time = 0.176949 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 88: Residual = 8.389613e-05, Time = 0.176946 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 89: Residual = 1.054345e-04, Time = 0.165446 s
 PYQCU::SOLVER::BISTABCG:
@@ -63187,7 +63080,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 96: Residual = 6.739421e-05, Time = 0.166700 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 96: Residual = 6.739421e-05, Time = 0.166578 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 97: Residual = 5.482750e-05, Time = 0.167836 s
 PYQCU::SOLVER::BISTABCG:
@@ -63304,8 +63196,6 @@ PYQCU::SOLVER::BISTABCG:
  Average time per iteration: 0.209386 s
 PYQCU::SOLVER::BISTABCG:
  Final residual: 4.88e-05
-
-
 PYQCU::SOLVER::BISTABCG:
  Performance Statistics:
 PYQCU::SOLVER::BISTABCG:
@@ -64133,7 +64023,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 45: Residual = 2.757736e-02, Time = 0.140985 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 45: Residual = 2.757736e-02, Time = 0.140941 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 46: Residual = 2.208949e-02, Time = 0.167946 s
 PYQCU::SOLVER::BISTABCG:
@@ -64165,7 +64054,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 47: Residual = 2.061820e-02, Time = 0.157906 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 47: Residual = 2.061820e-02, Time = 0.157903 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 48: Residual = 1.556982e-02, Time = 0.174280 s
 PYQCU::SOLVER::BISTABCG:
@@ -64357,7 +64245,6 @@ PYQCU::SOLVER::BISTABCG:
 PYQCU::SOLVER::BISTABCG:
  Iteration 59: Residual = 2.690358e-03, Time = 0.143701 sPYQCU::SOLVER::BISTABCG:
  Iteration 59: Residual = 2.690358e-03, Time = 0.142826 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 60: Residual = 1.710464e-03, Time = 0.156274 s
 PYQCU::SOLVER::BISTABCG:
@@ -65366,7 +65253,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 24: Residual = 2.072181e-01, Time = 0.155788 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 24: Residual = 2.072181e-01, Time = 0.155898 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 25: Residual = 1.745772e-01, Time = 0.186059 s
 PYQCU::SOLVER::BISTABCG:
@@ -65382,7 +65268,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 25: Residual = 1.745772e-01, Time = 0.186202 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 25: Residual = 1.745772e-01, Time = 0.186230 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 26: Residual = 1.616110e-01, Time = 0.188128 s
 PYQCU::SOLVER::BISTABCG:
@@ -65446,7 +65331,6 @@ PYQCU::SOLVER::BISTABCG:
 PYQCU::SOLVER::BISTABCG:
  Iteration 29: Residual = 1.577748e-01, Time = 0.247047 sPYQCU::SOLVER::BISTABCG:
  Iteration 29: Residual = 1.577748e-01, Time = 0.246228 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 30: Residual = 1.729670e-01, Time = 0.218816 s
 PYQCU::SOLVER::BISTABCG:
@@ -65686,7 +65570,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 44: Residual = 4.496318e-02, Time = 0.166639 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 44: Residual = 4.496318e-02, Time = 0.166322 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 45: Residual = 4.191927e-02, Time = 0.158605 s
 PYQCU::SOLVER::BISTABCG:
@@ -65702,7 +65585,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 45: Residual = 4.191927e-02, Time = 0.158605 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 45: Residual = 4.191927e-02, Time = 0.158421 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 46: Residual = 4.494342e-02, Time = 0.222235 s
 PYQCU::SOLVER::BISTABCG:
@@ -65760,7 +65642,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 49: Residual = 2.249830e-02, Time = 0.222089 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 49: Residual = 2.249830e-02, Time = 0.222271 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 49: Residual = 2.249830e-02, Time = 0.222087 s
 PYQCU::SOLVER::BISTABCG:
@@ -66210,7 +66091,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 77: Residual = 1.170786e-04, Time = 0.146067 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 77: Residual = 1.170786e-04, Time = 0.146067 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 77: Residual = 1.170786e-04, Time = 0.146067 s
 PYQCU::SOLVER::BISTABCG:
@@ -66406,7 +66286,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 89: Residual = 5.990399e-05, Time = 0.288622 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 89: Residual = 5.990399e-05, Time = 0.288889 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 90: Residual = 5.770231e-05, Time = 0.334071 s
 PYQCU::SOLVER::BISTABCG:
@@ -66774,7 +66653,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 6: Residual = 5.021200e+00, Time = 0.155990 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 6: Residual = 5.021200e+00, Time = 0.156665 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 7: Residual = 1.275294e+01, Time = 0.165504 s
 PYQCU::SOLVER::BISTABCG:
@@ -69111,7 +68989,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 54: Residual = 1.904780e-02, Time = 0.162838 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 54: Residual = 1.904780e-02, Time = 0.162838 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 55: Residual = 1.021421e-02, Time = 0.165693 s
 PYQCU::SOLVER::BISTABCG:
@@ -69127,7 +69004,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 55: Residual = 1.021421e-02, Time = 0.165673 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 55: Residual = 1.021421e-02, Time = 0.165561 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 56: Residual = 8.272001e-03, Time = 0.158249 s
 PYQCU::SOLVER::BISTABCG:
@@ -69175,7 +69051,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 58: Residual = 7.049632e-03, Time = 0.164961 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 58: Residual = 7.049632e-03, Time = 0.165048 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 59: Residual = 6.056003e-03, Time = 0.155092 s
 PYQCU::SOLVER::BISTABCG:
@@ -69889,11 +69764,9 @@ PYQCU::SOLVER::BISTABCG:
  Norm of b:701.5057998504151
 PYQCU::SOLVER::BISTABCG:
  Norm of r:992.8034106752178
-
 PYQCU::SOLVER::BISTABCG:
  Norm of r:992.8034106752178PYQCU::SOLVER::BISTABCG:
  Norm of b:701.5057998504151
-
 PYQCU::SOLVER::BISTABCG:
  Norm of r:992.8034106752178
 PYQCU::SOLVER::BISTABCG:
@@ -70086,8 +69959,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 10: Residual = 3.424074e+00, Time = 0.167803 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 10: Residual = 3.424074e+00, Time = 0.167805 s
-
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 11: Residual = 2.059944e+00, Time = 0.159663 s
 PYQCU::SOLVER::BISTABCG:
@@ -71175,7 +71046,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 78: Residual = 7.244320e-05, Time = 0.166152 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 78: Residual = 7.244320e-05, Time = 0.166010 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 79: Residual = 6.505567e-05, Time = 0.174099 s
 PYQCU::SOLVER::BISTABCG:
@@ -71716,7 +71586,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 15: Residual = 7.054920e-01, Time = 0.175191 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 15: Residual = 7.054920e-01, Time = 0.175386 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 15: Residual = 7.054920e-01, Time = 0.175370 s
 PYQCU::SOLVER::BISTABCG:
@@ -72024,7 +71893,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 34: Residual = 5.069141e-02, Time = 0.150302 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 34: Residual = 5.069141e-02, Time = 0.150302 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 35: Residual = 6.825176e-01, Time = 0.173412 s
 PYQCU::SOLVER::BISTABCG:
@@ -72120,7 +71988,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 40: Residual = 3.485568e-02, Time = 0.164423 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 40: Residual = 3.485568e-02, Time = 0.164389 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 41: Residual = 3.779426e-02, Time = 0.207956 s
 PYQCU::SOLVER::BISTABCG:
@@ -72152,7 +72019,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 42: Residual = 3.011758e-02, Time = 0.182804 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 42: Residual = 3.011758e-02, Time = 0.182805 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 43: Residual = 3.248363e-02, Time = 0.178135 s
 PYQCU::SOLVER::BISTABCG:
@@ -72230,7 +72096,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 47: Residual = 2.984736e-02, Time = 0.213240 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 47: Residual = 2.984736e-02, Time = 0.213046 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 47: Residual = 2.984736e-02, Time = 0.214913 s
 PYQCU::SOLVER::BISTABCG:
@@ -72468,7 +72333,6 @@ PYQCU::SOLVER::BISTABCG:
 PYQCU::SOLVER::BISTABCG:
  Iteration 62: Residual = 9.364883e-03, Time = 0.194730 sPYQCU::SOLVER::BISTABCG:
  Iteration 62: Residual = 9.364883e-03, Time = 0.194731 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 62: Residual = 9.364883e-03, Time = 0.195848 s
 PYQCU::SOLVER::BISTABCG:
@@ -72823,8 +72687,6 @@ PYQCU::SOLVER::BISTABCG:
 PYQCU::SOLVER::BISTABCG:
  Iteration 84: Residual = 8.098823e-05, Time = 0.141678 sPYQCU::SOLVER::BISTABCG:
  Iteration 84: Residual = 8.098823e-05, Time = 0.141662 s
-
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 85: Residual = 8.832640e-05, Time = 0.183803 s
 PYQCU::SOLVER::BISTABCG:
@@ -72840,7 +72702,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 85: Residual = 8.832640e-05, Time = 0.183798 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 85: Residual = 8.832640e-05, Time = 0.183818 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 86: Residual = 7.128441e-05, Time = 0.199541 s
 PYQCU::SOLVER::BISTABCG:
@@ -73416,8 +73277,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 16: Residual = 7.011207e-01, Time = 0.151894 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 16: Residual = 7.011207e-01, Time = 0.151548 s
-
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 17: Residual = 6.330185e-01, Time = 0.171015 s
 PYQCU::SOLVER::BISTABCG:
@@ -77322,7 +77181,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 57: Residual = 6.234463e-03, Time = 0.149917 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 57: Residual = 6.234463e-03, Time = 0.149993 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 58: Residual = 6.155645e-03, Time = 0.161112 s
 PYQCU::SOLVER::BISTABCG:
@@ -77930,7 +77788,6 @@ PYQCU::SOLVER::BISTABCG:
  Norm of b:702.2140268933026
 PYQCU::SOLVER::BISTABCG:
  Norm of r:993.1111386591601
-
 PYQCU::SOLVER::BISTABCG:
  Norm of x0:627.5248577883593
 PYQCU::SOLVER::BISTABCG:
@@ -81850,7 +81707,6 @@ PYQCU::SOLVER::BISTABCG:
 PYQCU::SOLVER::BISTABCG:
  Iteration 36: Residual = 6.297687e-02, Time = 0.163379 sPYQCU::SOLVER::BISTABCG:
  Iteration 36: Residual = 6.297687e-02, Time = 0.163429 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 37: Residual = 6.374450e-02, Time = 0.165105 s
 PYQCU::SOLVER::BISTABCG:
@@ -82122,7 +81978,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 53: Residual = 1.728600e-02, Time = 0.160675 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 53: Residual = 1.728600e-02, Time = 0.160675 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 54: Residual = 1.617701e-02, Time = 0.159317 s
 PYQCU::SOLVER::BISTABCG:
@@ -84586,8 +84441,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 5: Residual = 7.207976e+00, Time = 0.156874 sPYQCU::SOLVER::BISTABCG:
  Iteration 5: Residual = 7.207976e+00, Time = 0.156873 sPYQCU::SOLVER::BISTABCG:
  Iteration 5: Residual = 7.207976e+00, Time = 0.156875 s
-
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 6: Residual = 5.211668e+00, Time = 0.158102 s
 PYQCU::SOLVER::BISTABCG:
@@ -84619,7 +84472,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 7: Residual = 1.604434e+01, Time = 0.167557 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 7: Residual = 1.604434e+01, Time = 0.167557 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 8: Residual = 5.482286e+00, Time = 0.162251 s
 PYQCU::SOLVER::BISTABCG:
@@ -86412,8 +86264,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 20: Residual = 3.952878e-01, Time = 0.167100 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 20: Residual = 3.952878e-01, Time = 0.167099 s
-
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 21: Residual = 2.652535e-01, Time = 0.156400 s
 PYQCU::SOLVER::BISTABCG:
@@ -87017,7 +86867,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 58: Residual = 3.841876e-03, Time = 0.180389 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 58: Residual = 3.841876e-03, Time = 0.180361 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 58: Residual = 3.841876e-03, Time = 0.180732 s
 PYQCU::SOLVER::BISTABCG:
@@ -87082,8 +86931,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 62: Residual = 2.659020e-03, Time = 0.169261 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 62: Residual = 2.659020e-03, Time = 0.169350 s
-
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 62: Residual = 2.659020e-03, Time = 0.169464 s
 PYQCU::SOLVER::BISTABCG:
@@ -87293,7 +87140,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 75: Residual = 1.735767e-04, Time = 0.206376 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 75: Residual = 1.735767e-04, Time = 0.206356 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 76: Residual = 1.609906e-04, Time = 0.195715 s
 PYQCU::SOLVER::BISTABCG:
@@ -87932,7 +87778,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 13: Residual = 1.086600e+00, Time = 0.150781 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 13: Residual = 1.086600e+00, Time = 0.150809 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 13: Residual = 1.086600e+00, Time = 0.150997 s
 PYQCU::SOLVER::BISTABCG:
@@ -88254,7 +88099,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 33: Residual = 1.365092e-01, Time = 0.167865 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 33: Residual = 1.365092e-01, Time = 0.167863 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 34: Residual = 1.333672e-01, Time = 0.176989 s
 PYQCU::SOLVER::BISTABCG:
@@ -89822,7 +89666,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 33: Residual = 1.372808e-01, Time = 0.192634 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 33: Residual = 1.372808e-01, Time = 0.192634 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 34: Residual = 1.188417e-01, Time = 0.300335 s
 PYQCU::SOLVER::BISTABCG:
@@ -90366,7 +90209,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 67: Residual = 1.729814e-03, Time = 0.163528 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 67: Residual = 1.729814e-03, Time = 0.163528 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 68: Residual = 1.402750e-03, Time = 0.163946 s
 PYQCU::SOLVER::BISTABCG:
@@ -90462,7 +90304,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 73: Residual = 2.250775e-04, Time = 0.154653 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 73: Residual = 2.250775e-04, Time = 0.154654 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 74: Residual = 2.240815e-04, Time = 0.145698 s
 PYQCU::SOLVER::BISTABCG:
@@ -90654,7 +90495,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 85: Residual = 8.546894e-05, Time = 0.161439 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 85: Residual = 8.546894e-05, Time = 0.161452 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 86: Residual = 6.893685e-05, Time = 0.162224 s
 PYQCU::SOLVER::BISTABCG:
@@ -90718,7 +90558,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 89: Residual = 6.731851e-05, Time = 0.141070 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 89: Residual = 6.731851e-05, Time = 0.141152 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 90: Residual = 6.957903e-05, Time = 0.158214 s
 PYQCU::SOLVER::BISTABCG:
@@ -91022,7 +90861,6 @@ PYQCU::SOLVER::BISTABCG:
 PYQCU::SOLVER::BISTABCG:
  Iteration 2: Residual = 1.057520e+02, Time = 0.163212 sPYQCU::SOLVER::BISTABCG:
  Iteration 2: Residual = 1.057520e+02, Time = 0.163184 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 3: Residual = 1.729586e+01, Time = 0.166382 s
 PYQCU::SOLVER::BISTABCG:
@@ -91758,7 +91596,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 48: Residual = 1.273633e-02, Time = 0.179472 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 48: Residual = 1.273633e-02, Time = 0.179461 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 49: Residual = 1.239640e-02, Time = 0.176019 s
 PYQCU::SOLVER::BISTABCG:
@@ -93020,7 +92857,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 27: Residual = 1.337173e-01, Time = 0.181408 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 27: Residual = 1.337173e-01, Time = 0.181549 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 27: Residual = 1.337173e-01, Time = 0.181595 s
 PYQCU::SOLVER::BISTABCG:
@@ -93116,7 +92952,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 33: Residual = 1.029891e-01, Time = 0.296962 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 33: Residual = 1.029891e-01, Time = 0.296962 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 33: Residual = 1.029891e-01, Time = 0.297187 s
 PYQCU::SOLVER::BISTABCG:
@@ -93422,7 +93257,6 @@ PYQCU::SOLVER::BISTABCG:
 PYQCU::SOLVER::BISTABCG:
  Iteration 52: Residual = 1.496806e-02, Time = 0.150294 sPYQCU::SOLVER::BISTABCG:
  Iteration 52: Residual = 1.496806e-02, Time = 0.150319 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 53: Residual = 3.620033e-02, Time = 0.164189 s
 PYQCU::SOLVER::BISTABCG:
@@ -93838,7 +93672,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 78: Residual = 1.088206e-04, Time = 0.160050 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 78: Residual = 1.088206e-04, Time = 0.160025 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 79: Residual = 8.880759e-05, Time = 0.156278 s
 PYQCU::SOLVER::BISTABCG:
@@ -93866,7 +93699,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 80: Residual = 8.682568e-05, Time = 0.161018 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 80: Residual = 8.682568e-05, Time = 0.161022 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 80: Residual = 8.682568e-05, Time = 0.161106 s
 PYQCU::SOLVER::BISTABCG:
@@ -95822,7 +95654,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 3: Residual = 1.736834e+01, Time = 0.130933 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 3: Residual = 1.736834e+01, Time = 0.130956 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 4: Residual = 1.230381e+01, Time = 0.152402 s
 PYQCU::SOLVER::BISTABCG:
@@ -96588,7 +96419,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 51: Residual = 9.150189e-03, Time = 0.157759 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 51: Residual = 9.150189e-03, Time = 0.157886 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 51: Residual = 9.150189e-03, Time = 0.157918 s
 PYQCU::SOLVER::BISTABCG:
@@ -96942,7 +96772,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 73: Residual = 1.720281e-04, Time = 0.155908 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 73: Residual = 1.720281e-04, Time = 0.155907 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 74: Residual = 1.541956e-04, Time = 0.162447 s
 PYQCU::SOLVER::BISTABCG:
@@ -97374,7 +97203,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 1: Residual = 5.462348e+01, Time = 0.151013 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 1: Residual = 5.462348e+01, Time = 0.151135 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 2: Residual = 1.107543e+02, Time = 0.154041 s
 PYQCU::SOLVER::BISTABCG:
@@ -97678,7 +97506,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 20: Residual = 7.838702e-01, Time = 0.155151 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 20: Residual = 7.838702e-01, Time = 0.155153 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 21: Residual = 3.593409e-01, Time = 0.155925 s
 PYQCU::SOLVER::BISTABCG:
@@ -98622,7 +98449,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 79: Residual = 8.483215e-05, Time = 0.155061 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 79: Residual = 8.483215e-05, Time = 0.155159 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 80: Residual = 7.829800e-05, Time = 0.157413 s
 PYQCU::SOLVER::BISTABCG:
@@ -99983,7 +99809,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 66: Residual = 3.487491e-03, Time = 0.174909 s
 PYQCU::SOLVER::BISTABCG:
  Iteration 66: Residual = 3.487491e-03, Time = 0.174949 s
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 67: Residual = 2.908918e-03, Time = 0.154076 s
 PYQCU::SOLVER::BISTABCG:
@@ -100688,7 +100513,6 @@ PYQCU::TOOLS::MATRIX:
         0.0181+1.2687e-03j, 0.0274-1.4493e-03j, 0.0146-7.1152e-03j,
         0.0325+8.4841e-03j, 0.0290-1.3467e-04j, 0.0266+4.2565e-03j,
         0.0299+2.2233e-03j], dtype=torch.complex128)
-
 PYQCU::TOOLS::MATRIX:
  Vector 0: A*v/v:100 = tensor([0.0385+1.6573e-04j, 0.0397+9.3453e-04j, 0.0309+1.3620e-02j,
         0.0335-3.1376e-03j, 0.0268+7.0761e-03j, 0.0307-4.2713e-03j,
@@ -101199,7 +101023,6 @@ PYQCU::TOOLS::MATRIX:
  tools.vdot(null_vecs[1],null_vecs[1]):(1.0000000000000009+0j)
 PYQCU::TOOLS::MATRIX:
  tools.vdot(null_vecs[1],null_vecs[1]):(1.0000000000000009+0j)
-
 PYQCU::TOOLS::MATRIX:
  Vector 2: ||A*v/v|| = 2.948227e+01
 PYQCU::TOOLS::MATRIX:
@@ -102909,7 +102732,6 @@ PYQCU::TOOLS::MATRIX:
  tools.vdot(null_vecs[6],null_vecs[2]):(-0.1690082240881742+0.1053865400457817j)
 PYQCU::TOOLS::MATRIX:
  tools.vdot(null_vecs[6],null_vecs[2]):(-0.1690082240881742+0.1053865400457817j)
-
 PYQCU::TOOLS::MATRIX:
  tools.vdot(null_vecs[6],null_vecs[2]):(-0.1690082240881742+0.1053865400457817j)
 PYQCU::TOOLS::MATRIX:
@@ -103767,7 +103589,6 @@ PYQCU::TOOLS::MATRIX:
  tools.vdot(null_vecs[8],null_vecs[5]):(0.3342029676018948+0.18582283599998067j)
 PYQCU::TOOLS::MATRIX:
  tools.vdot(null_vecs[8],null_vecs[5]):(0.3342029676018948+0.18582283599998067j)
-
 PYQCU::TOOLS::MATRIX:
  tools.vdot(null_vecs[8],null_vecs[6]):(0.06047432693621534-0.12946781826746295j)
 PYQCU::TOOLS::MATRIX:
@@ -105142,7 +104963,6 @@ PYQCU::TOOLS::MATRIX:
  tools.vdot(null_vecs[11],null_vecs[7]):(-0.1831146423788646-0.17006249600121331j)
 PYQCU::TOOLS::MATRIX:
  tools.vdot(null_vecs[11],null_vecs[7]):(-0.1831146423788646-0.17006249600121331j)
-
 PYQCU::TOOLS::MATRIX:
  tools.vdot(null_vecs[11],null_vecs[7]):(-0.1831146423788646-0.17006249600121331j)
 PYQCU::TOOLS::MATRIX:
@@ -106469,7 +106289,6 @@ PYQCU::TOOLS::MATRIX:
         0.0175-1.2324e-03j, 0.0142-4.8709e-03j, 0.0140-3.0545e-03j,
         0.0160+2.3977e-03j, 0.0187+4.0348e-03j, 0.0177+4.0053e-03j,
         0.0142+2.3954e-03j], dtype=torch.complex128)
-
 PYQCU::TOOLS::MATRIX:
  Vector 14: A*v/v:100 = tensor([0.0163-6.6008e-04j, 0.0147-1.0092e-03j, 0.0194+8.3194e-04j,
         0.0156+1.1946e-03j, 0.0150-1.5686e-03j, 0.0149-7.9172e-05j,
@@ -107232,7 +107051,6 @@ PYQCU::TOOLS::MATRIX:
  tools.vdot(null_vecs[15],null_vecs[11]):(0.13027501461795546-0.0318137611907146j)
 PYQCU::TOOLS::MATRIX:
  tools.vdot(null_vecs[15],null_vecs[11]):(0.13027501461795546-0.0318137611907146j)
-
 PYQCU::TOOLS::MATRIX:
  tools.vdot(null_vecs[15],null_vecs[12]):(-0.14986743143502612+0.07522667201035568j)
 PYQCU::TOOLS::MATRIX:
@@ -108944,7 +108762,6 @@ PYQCU::TOOLS::MATRIX:
 PYQCU::TOOLS::MATRIX:
  tools.vdot(null_vecs[18],null_vecs[15]):(-0.02283215417226677-0.02741474737746326j)PYQCU::TOOLS::MATRIX:
  tools.vdot(null_vecs[18],null_vecs[15]):(-0.02283215417226677-0.02741474737746326j)
-
 PYQCU::TOOLS::MATRIX:
  tools.vdot(null_vecs[18],null_vecs[16]):(-0.2354087575457132-0.008358468546430102j)
 PYQCU::TOOLS::MATRIX:
@@ -110225,7 +110042,6 @@ PYQCU::TOOLS::MATRIX:
  tools.vdot(null_vecs[20],null_vecs[20]):(0.9999999999999996+0j)
 PYQCU::TOOLS::MATRIX:
  tools.vdot(null_vecs[20],null_vecs[20]):(0.9999999999999996+0j)
-
 PYQCU::TOOLS::MATRIX:
  Vector 21: ||A*v/v|| = 8.138427e+01
 PYQCU::TOOLS::MATRIX:
@@ -110427,7 +110243,6 @@ PYQCU::TOOLS::MATRIX:
          7.8323e-03+0.0117j,  1.2577e-02+0.0127j,  1.9980e-02+0.0102j,
          1.5454e-02-0.0107j,  1.9425e-02-0.0069j,  1.2245e-02+0.0009j,
          1.4485e-02+0.0087j], dtype=torch.complex128)
-
 PYQCU::TOOLS::MATRIX:
  Vector 21: A*v/v:100 = tensor([0.0393+6.9784e-03j, 0.0408+1.0509e-02j, 0.0415+6.4635e-03j,
         0.0429+2.1385e-03j, 0.0363-3.7753e-03j, 0.0368-6.1792e-03j,
@@ -111362,7 +111177,6 @@ PYQCU::TOOLS::MATRIX:
  tools.vdot(null_vecs[22],null_vecs[12]):(-0.020658127320800777+0.2322176772984486j)
 PYQCU::TOOLS::MATRIX:
  tools.vdot(null_vecs[22],null_vecs[12]):(-0.020658127320800777+0.2322176772984486j)
-
 PYQCU::TOOLS::MATRIX:
  tools.vdot(null_vecs[22],null_vecs[13]):(0.12953146323913167+0.012530303142762083j)
 PYQCU::TOOLS::MATRIX:
@@ -112762,7 +112576,6 @@ PYQCU::SOLVER::MULTIGRID:
  Average time per iteration: 0.063831 s
 PYQCU::SOLVER::MULTIGRID:
  Final residual: 4.36e-01
-
 PYQCU::SOLVER::MULTIGRID:
  Total iterations: 7
 PYQCU::SOLVER::MULTIGRID:
@@ -112802,7 +112615,6 @@ PYQCU::SOLVER::MULTIGRID:
  B-0-bistabcg-Iteration 4: Residual = 5.488781e+00
 PYQCU::SOLVER::MULTIGRID:
  B-0-bistabcg-Iteration 4: Residual = 5.488781e+00
-
 PYQCU::SOLVER::MULTIGRID:
  F-0-bistabcg-Iteration 4: Residual = 5.488781e+00, Time = 0.143982 s
 PYQCU::SOLVER::MULTIGRID:
@@ -113312,7 +113124,6 @@ PYQCU::SOLVER::MULTIGRID:
  Average time per iteration: 0.062543 s
 PYQCU::SOLVER::MULTIGRID:
  Final residual: 4.10e-02
-
 PYQCU::SOLVER::MULTIGRID:
  Final residual: 4.10e-02
 PYQCU::SOLVER::MULTIGRID:
@@ -114450,7 +114261,6 @@ PYQCU::SOLVER::MULTIGRID:
  B-1-bistabcg-Iteration 11: Residual = 2.002481e-02
 PYQCU::SOLVER::MULTIGRID:
  B-1-bistabcg-Iteration 11: Residual = 2.002481e-02
-
 PYQCU::SOLVER::MULTIGRID:
  F-1-bistabcg-Iteration 11: Residual = 2.002481e-02, Time = 0.072295 s
 PYQCU::SOLVER::MULTIGRID:
@@ -115450,7 +115260,6 @@ PYQCU::SOLVER::MULTIGRID:
  Total iterations: 12
 PYQCU::SOLVER::MULTIGRID:
  Total time: 0.763481 seconds
-
 PYQCU::SOLVER::MULTIGRID:
  Average time per iteration: 0.063593 s
 PYQCU::SOLVER::MULTIGRID:
@@ -115810,7 +115619,6 @@ PYQCU::SOLVER::MULTIGRID:
  F-1-bistabcg-Iteration 4: Residual = 2.354318e-05, Time = 0.063953 s
 PYQCU::SOLVER::MULTIGRID:
  F-1-bistabcg-Iteration 4: Residual = 2.354318e-05, Time = 0.063946 s
-
 PYQCU::SOLVER::MULTIGRID:
  B-1-bistabcg-Iteration 5: Residual = 2.014828e-05
 PYQCU::SOLVER::MULTIGRID:
@@ -116097,8 +115905,6 @@ PYQCU::SOLVER::MULTIGRID:
  F-1-bistabcg-Iteration 13: Residual = 2.366271e-05, Time = 0.070626 s
 PYQCU::SOLVER::MULTIGRID:
  F-1-bistabcg-Iteration 13: Residual = 2.366271e-05, Time = 0.070630 s
-
-
 PYQCU::SOLVER::MULTIGRID:
  B-1-bistabcg-Iteration 14: Residual = 1.276253e-05
 PYQCU::SOLVER::MULTIGRID:
@@ -116610,7 +116416,6 @@ PYQCU::SOLVER::MULTIGRID:
 PYQCU::SOLVER::MULTIGRID:
  F-1-bistabcg-Iteration 0: Residual = 7.103375e-06, Time = 0.059482 sPYQCU::SOLVER::MULTIGRID:
  F-1-bistabcg-Iteration 0: Residual = 7.103375e-06, Time = 0.059512 s
-
 PYQCU::SOLVER::MULTIGRID:
  B-1-bistabcg-Iteration 1: Residual = 6.375024e-06
 PYQCU::SOLVER::MULTIGRID:
@@ -116880,7 +116685,6 @@ PYQCU::SOLVER::MULTIGRID:
  B-1-bistabcg-Iteration 9: Residual = 1.362389e-06
 PYQCU::SOLVER::MULTIGRID:
  B-1-bistabcg-Iteration 9: Residual = 1.362389e-06
-
 PYQCU::SOLVER::MULTIGRID:
  B-1-bistabcg-Iteration 9: Residual = 1.362389e-06
 PYQCU::SOLVER::MULTIGRID:
@@ -117954,7 +117758,6 @@ PYQCU::SOLVER::MULTIGRID:
  F-1-bistabcg-Iteration 12: Residual = 9.821817e-08, Time = 0.068770 s
 PYQCU::SOLVER::MULTIGRID:
  F-1-bistabcg-Iteration 12: Residual = 9.821817e-08, Time = 0.068710 s
-
 PYQCU::SOLVER::MULTIGRID:
  B-1-bistabcg-Iteration 13: Residual = 4.900136e-08
 PYQCU::SOLVER::MULTIGRID:
@@ -118276,13 +118079,11 @@ PYQCU::TESTING::SOLVER::REFER_U:
         0.9724-0.0035j, 0.9707+0.0725j, 0.9884+0.0033j, 0.9722-0.0074j,
         0.9784+0.1105j, 0.9896-0.0212j, 0.9935-0.0672j, 0.9863+0.1166j],
        dtype=torch.complex128)
-
 PYQCU::TESTING::SOLVER::REFER_U:
  tensor([0.9752-0.1293j, 0.9678-0.0179j, 0.9803+0.1527j, 0.9693+0.0506j,
         0.9757-0.0643j, 0.9815+0.0754j, 0.9604+0.2421j, 0.9559-0.0590j,
         0.9720+0.0482j, 0.9663+0.0004j, 0.9748-0.1621j, 0.9785-0.1152j],
        dtype=torch.complex128)
-
 PYQCU::TESTING::SOLVER::REFER_U:
  tensor([0.9941-0.0724j, 0.9931-0.0433j, 0.9772+0.1311j, 0.9946-0.0084j,
         0.9741-0.0723j, 0.9843+0.0959j, 0.9629-0.2486j, 0.9446-0.2560j,

@@ -3,13 +3,10 @@ import tilelang.language as T
 import pyqcu.cann as _torch
 from tilelang import jit
 from pyqcu.tools import torch2tl_dtype, warp_size, to_contiguous_real
-
 pass_configs = {
     # tilelang.PassConfigKey.TL_ASCEND_AUTO_SYNC: True,
     # tilelang.PassConfigKey.TL_ASCEND_MEMORY_PLANNING: True,
 }
-
-
 @jit(out_idx=[-1], pass_configs=pass_configs, target="cuda")
 def _Eexyzt_exyzt2Exyzt(E_size: int, e_size: int, xyzt_size: int, tl_dtype):
     @T.prim_func
@@ -42,13 +39,11 @@ def _Eexyzt_exyzt2Exyzt(E_size: int, e_size: int, xyzt_size: int, tl_dtype):
                 T.copy(src=_E_warp,
                        dst=Exyzt[E_i, start:end])
     return main
-
 # FOR TENSOR CORE
 # @jit(out_idx=[-1], pass_configs=pass_configs, target="cuda")
 # def _Eexyzt_exyzt2Exyzt(E_size: int, e_size: int, xyzt_size: int, tl_dtype):
 #     E_pad_size = (E_size + 15) // 16 * 16
 #     e_pad_size = (e_size + 15) // 16 * 16
-
 #     @T.prim_func
 #     def main(
 #         Eexyzt: T.Tensor((E_size, e_size, xyzt_size), tl_dtype),
@@ -77,8 +72,6 @@ def _Eexyzt_exyzt2Exyzt(E_size: int, e_size: int, xyzt_size: int, tl_dtype):
 #                 T.gemm(A=E_pad_e_pad, B=e_pad, C=E_pad)
 #                 T.copy(src=E_pad[:E_size, :], dst=Exyzt[:, start+thread_i])
 #     return main
-
-
 def Eexyzt_exyzt2Exyzt(Eexyzt: torch.Tensor, exyzt: torch.Tensor) -> torch.Tensor:
     if Eexyzt.dtype != exyzt.dtype:
         raise TypeError(
