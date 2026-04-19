@@ -177,8 +177,6 @@ _LAT_EXAMPLE_ = 32
 _GRID_EXAMPLE_ = 1
 _MEM_POOL_ = 0
 _CHECK_ERROR_ = 1
-
-
 def dtype(_data_type_=_LAT_C64_) -> torch.dtype:
     if _data_type_ == _LAT_C16_:
         print("Doesn't support complex16")
@@ -204,8 +202,6 @@ def dtype(_data_type_=_LAT_C64_) -> torch.dtype:
     elif _data_type_ == _LAT_R128_:
         print("Doesn't support real128")
         return None
-
-
 params = torch.Tensor(
     [0]*_PARAMS_SIZE_).to(dtype=torch.int32, device=torch.device('cpu'))
 params[_LAT_X_] = 32

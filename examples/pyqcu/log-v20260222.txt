@@ -1504,8 +1504,6 @@ PYQCU::SOLVER::BISTABCG:
  Iteration 10: Residual = 2.310135e+00, Time = 0.025248 sPYQCU::SOLVER::BISTABCG:
  Iteration 10: Residual = 2.310135e+00, Time = 0.025245 sPYQCU::SOLVER::BISTABCG:
  Iteration 10: Residual = 2.310135e+00, Time = 0.025251 s
-
-
 PYQCU::SOLVER::BISTABCG:
  Iteration 11: Residual = 4.689814e-01, Time = 0.029026 s
 PYQCU::SOLVER::BISTABCG:

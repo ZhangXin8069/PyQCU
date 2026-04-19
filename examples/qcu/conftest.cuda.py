@@ -2,10 +2,10 @@ import torch
 from pyqcu import tools, dslash, lattice
 from pyqcu.cuda import qcu, define
 from pyqcu.cuda.define import params, argv, set_ptrs
-params[define._LAT_X_] = 4*2
-params[define._LAT_Y_] = 4*2
-params[define._LAT_Z_] = 4*2
-params[define._LAT_T_] = 8*2
+params[define._LAT_X_] = 4*4
+params[define._LAT_Y_] = 4*4
+params[define._LAT_Z_] = 4*4
+params[define._LAT_T_] = 8*4
 params[define._LAT_XYZT_] = params[define._LAT_X_] * \
     params[define._LAT_Y_]*params[define._LAT_Z_]*params[define._LAT_T_]
 params[define._GRID_X_], params[define._GRID_Y_], params[define._GRID_Z_], params[
@@ -88,25 +88,10 @@ params[define._PARITY_] = 1
 qcu.applyInitQcu(set_ptrs, params, argv)
 qcu.applyCloversQcu(clover_oo, clover_oo_inv, gauge_eo, set_ptrs, params)
 print(set_ptrs)
-fermion_out_eo = torch.zeros_like(fermion_out_eo)
-params[define._VERBOSE_] = 1
-params[define._SET_INDEX_] += 1
-params[define._SET_PLAN_] = 2
-params[define._PARITY_] = 0
-qcu.applyInitQcu(set_ptrs, params, argv)
-qcu.applyCloverBistabCgQcu(fermion_out_eo, fermion_in_eo, gauge_eo,
-                           clover_ee, clover_oo, clover_ee_inv, clover_oo_inv,  set_ptrs, params)
-print(set_ptrs)
-qcu_dest = tools.poooxyzt2oooxyzt(input_array=fermion_out_eo)
 qcu_U = tools.poooxyzt2oooxyzt(input_array=gauge_eo)
 qcu_src = tools.poooxyzt2oooxyzt(input_array=fermion_in_eo)
 refer_clover_term = dslash.make_clover(
     U=qcu_U, kappa=1 / (2 * argv[define._MASS_] + 8))
-refer_src = dslash.give_wilson(
-    src=qcu_dest, U=qcu_U, kappa=1 / (2 * argv[define._MASS_] + 8), with_I=True)+dslash.give_clover(src=qcu_dest, clover_term=refer_clover_term)
-print('qcu_src:', qcu_src.flatten()[:100])
-print('refer_src:', refer_src.flatten()[:100])
-print('Difference:', tools.norm(refer_src-qcu_src)/tools.norm(qcu_src))
 clover_eeoo = torch.zeros(size=[2, 4, 3, 4, 3]+[params[define._LAT_X_], params[define._LAT_Y_], params[define._LAT_Z_],
                                                 params[define._LAT_T_]//define._LAT_P_]).to(dtype=define.dtype(params[define._DATA_TYPE_]), device=torch.device('cuda'))
 clover_eeoo[0] = clover_ee
@@ -120,10 +105,6 @@ refer_clover_term_eo = tools.oooxyzt2poooxyzt(
     input_array=refer_clover_term)
 print('qcu_clover_term:', qcu_clover_term.flatten()[:100])
 print('refer_clover_term:', refer_clover_term.flatten()[:100])
-# print('qcu_clover_term_eo:', qcu_clover_term_eo[0].flatten()[:100])
-# print('refer_clover_term_eo:', refer_clover_term_eo[0].flatten()[:100])
-# print('qcu_clover_term_eo:', qcu_clover_term_eo[1].flatten()[:100])
-# print('refer_clover_term_eo:', refer_clover_term_eo[1].flatten()[:100])
 print('Difference:', tools.norm(refer_clover_term -
       qcu_clover_term)/tools.norm(qcu_clover_term))
 print("gauge_eo.is_contiguous():", gauge_eo.is_contiguous())

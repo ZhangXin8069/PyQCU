@@ -10,8 +10,6 @@ import pyqcu.cann as _torch
 import mpi4py.MPI as MPI
 import pyqcu
 Namespace.__module__ = "pyqcu.testing"
-
-
 def test_lattice(lat_size: list = [8, 8, 8, 16], dtype: torch.dtype = torch.complex64, device: torch.device = torch.device('cpu')):
     refer_U = torch.zeros(size=[3, 3, 4]+lat_size, dtype=dtype, device=device)
     lattice.generate_gauge_field(refer_U, seed=42, sigma=0.1, verbose=True)
@@ -22,8 +20,6 @@ def test_lattice(lat_size: list = [8, 8, 8, 16], dtype: torch.dtype = torch.comp
     print(f"PYQCU::TESTING::LATTICE::GELL_MANN:\n {lattice.gell_mann}")
     print(
         f"PYQCU::TESTING::LATTICE:\n Gauge field SU(3) check: {lattice.check_su3(refer_U, verbose=True)}")
-
-
 def test_dslash_wilson(kappa: float = 0.125, lat_size: list = [8, 8, 8, 16],  dtype: torch.dtype = torch.complex64, device: torch.device = torch.device('cpu'), with_data: bool = False, support_parallel: bool = True):
     if not with_data:
         refer_U = torch.zeros(
@@ -89,8 +85,6 @@ def test_dslash_wilson(kappa: float = 0.125, lat_size: list = [8, 8, 8, 16],  dt
         f"PYQCU::TESTING::DSLASH::WILSON:\n Time cost: {time_end-time_start}")
     print(
         f"PYQCU::TESTING::DSLASH::WILSON:\n Difference between computed and reference dslash: {diff}")
-
-
 def test_dslash_parity(lat_size: list = [8, 8, 8, 16], kappa: float = 0.125,  dtype: torch.dtype = torch.complex64, device: torch.device = torch.device('cpu')):
     comm = MPI.COMM_WORLD
     root = 0
@@ -184,8 +178,6 @@ def test_dslash_parity(lat_size: list = [8, 8, 8, 16], kappa: float = 0.125,  dt
         f"Difference between computed and reference: {tools.norm(dest_e-refer_dest_e)}")
     print(
         f"Difference between computed and reference: {tools.norm(dest_o-refer_dest_o)}")
-
-
 def test_dslash_clover(device: torch.device = torch.device('cpu'), with_data: bool = False, dtype: torch.dtype = torch.complex64):
     if with_data:
         kappa = 1.0
@@ -274,8 +266,6 @@ def test_dslash_clover(device: torch.device = torch.device('cpu'), with_data: bo
             f"PYQCU::TESTING::DSLASH::CLOVER::CLOVER:\n {clover.flatten()[:12]}")
         print(
             f"PYQCU::TESTING::DSLASH::CLOVER:\n Difference between computed and reference clover: {diff}")
-
-
 def test_solver(kind: str = 'clover', method: str = 'bistabcg', kappa: float = 0.125, lat_size: list = [8, 8, 8, 16],  dtype: torch.dtype = torch.complex64, device: torch.device = torch.device('cpu'), with_data: bool = False, max_levels: int = 2, num_restart: int = 3, support_parity: bool = False):
     if not with_data:
         comm = MPI.COMM_WORLD
@@ -325,7 +315,6 @@ def test_solver(kind: str = 'clover', method: str = 'bistabcg', kappa: float = 0
             size=[4, 3, 4, 3]+list(refer_b.shape)[2:], dtype=dtype, device=device)
     operator = dslash.operator(
         U=refer_U, clover_term=refer_clover_term, kappa=kappa, verbose=True, support_parity=support_parity)
-
     if method == 'bistabcg':
         if support_parity:
             def matvec_parity(src_o):
@@ -383,14 +372,11 @@ def test_solver(kind: str = 'clover', method: str = 'bistabcg', kappa: float = 0
         f"PYQCU::TESTING::SOLVER::TIME: {time_end - time_start}")
     print(
         f"PYQCU::TESTING::SOLVER:\n Difference between computed and reference solution: {diff}")
-
-
 def test_matmul():
     M_gpu, N_gpu, K_gpu = 1024, 1024, 1024
     M_cpu, N_cpu, K_cpu = 1024, 1024, 1024
     gpu_tile = {"block_M": 128, "block_N": 128, "block_K": 32}
     cpu_tile = {"block_M": 32, "block_N": 32, "block_K": 32}
-
     def calc_metrics(m, n, k, sec):
         tflops = (2 * m * n * k / sec) / 1e12
         return tflops
@@ -459,8 +445,6 @@ def test_matmul():
     print(line)
     torch.testing.assert_close(c_cpu, ref_c_cpu, rtol=1e-2, atol=1e-2)
     print("All Verifications Passed (GPU & CPU)!")
-
-
 def test_smear_stout(lat_size: list = [8, 8, 8, 16], device: torch.device = torch.device('cpu'), dtype: torch.dtype = torch.complex64):
     comm = MPI.COMM_WORLD
     root = 0

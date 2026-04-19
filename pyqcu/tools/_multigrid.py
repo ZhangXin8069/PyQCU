@@ -3,8 +3,6 @@ from typing import Callable, Tuple
 from pyqcu import solver, tools
 import pyqcu.cann as _torch
 force_use_npu = False
-
-
 def give_null_vecs(
     null_vecs: torch.Tensor,
     matvec: Callable[[torch.Tensor], torch.Tensor],
@@ -47,8 +45,6 @@ def give_null_vecs(
                 print(
                     f"PYQCU::TOOLS::MATRIX:\n tools.vdot(null_vecs[{i}],null_vecs[{j}]):{tools.vdot(null_vecs[i],null_vecs[j])}")
     return null_vecs
-
-
 def local_orthogonalize(null_vecs: torch.Tensor,
                         coarse_lat_size: Tuple[int, int,
                                                int, int] = (2, 2, 2, 2),
@@ -90,8 +86,6 @@ def local_orthogonalize(null_vecs: torch.Tensor,
         print(f"PYQCU::TOOLS::MATRIX:\n [local_orthogonalize] in={tuple(null_vecs.shape)},coarse_lat_size(X,Y,Z,T)={coarse_lat_size},"
               f"PYQCU::TOOLS::MATRIX:\n (x,y,z,t)=({x},{y},{z},{t}),local_dim={local_dim},n_blocks={n_blocks}")
     return Q
-
-
 def restrict(local_ortho_null_vecs: torch.Tensor, fine_vec: torch.Tensor) -> torch.Tensor:
     dtype = fine_vec.dtype
     device = fine_vec.device
@@ -105,8 +99,6 @@ def restrict(local_ortho_null_vecs: torch.Tensor, fine_vec: torch.Tensor) -> tor
     _fine_vec = fine_vec.reshape(shape=shape[1:])
     return _torch.einsum(
         "EeXxYyZzTt,eXxYyZzTt->EXYZT", local_ortho_null_vecs.conj(), _fine_vec).to(dtype=dtype, device=device)
-
-
 def prolong(local_ortho_null_vecs: torch.Tensor, coarse_vec: torch.Tensor) -> torch.Tensor:
     dtype = coarse_vec.dtype
     device = coarse_vec.device
@@ -121,8 +113,6 @@ def prolong(local_ortho_null_vecs: torch.Tensor, coarse_vec: torch.Tensor) -> to
     return _torch.einsum(
         "EeXxYyZzTt,EXYZT->eXxYyZzTt", local_ortho_null_vecs, _coarse_vec).reshape([shape[1], shape[-8]*shape[-7], shape[-6]*shape[-5], shape[-4]*shape[-3], shape[-2]*shape[-1]]).to(dtype=dtype, device=device)
 # NPU:The self tensor cannot be larger than 8 dimensions.
-
-
 def local_orthogonalize_npu(null_vecs: torch.Tensor,
                             coarse_lat_size: Tuple[int, int,
                                                    int, int] = (2, 2, 2, 2),
@@ -177,8 +167,6 @@ def local_orthogonalize_npu(null_vecs: torch.Tensor,
         print(f"[local_orthogonalize] in={tuple(null_vecs.shape)},coarse_lat_size(X,Y,Z,T)={coarse_lat_size},"
               f"(x,y,z,t)=({x},{y},{z},{t}),local_dim={local_dim},n_blocks={n_blocks}")
     return Q
-
-
 def restrict_npu(local_ortho_null_vecs: torch.Tensor, fine_vec: torch.Tensor) -> torch.Tensor:
     dtype = fine_vec.dtype
     device = fine_vec.device
@@ -212,8 +200,6 @@ def restrict_npu(local_ortho_null_vecs: torch.Tensor, fine_vec: torch.Tensor) ->
         E, e, -1, x, y, z, t)
     return _torch.einsum(
         "EeOxyzt,eOxyzt->EO", _local_ortho_null_vecs.conj(), _fine_vec).reshape(E, X, Y, Z, T).to(dtype=dtype, device=device)
-
-
 def prolong_npu(local_ortho_null_vecs: torch.Tensor, coarse_vec: torch.Tensor) -> torch.Tensor:
     dtype = coarse_vec.dtype
     device = coarse_vec.device
