@@ -495,10 +495,14 @@ template <typename T> struct LatticeSet {
   T tol() { return host_argv[_TOL_]; }
   T sigma() { return host_argv[_SIGMA_]; }
   float get_time() {
-    cudaEventRecord(stop, 0);
-    cudaEventSynchronize(stop);
-    cudaEventElapsedTime(&time, start, stop);
-    return time; // ms
+    if (host_params[_TEST_IN_CPU_] != 1) {
+      cudaEventRecord(stop, 0);
+      cudaEventSynchronize(stop);
+      cudaEventElapsedTime(&time, start, stop);
+      return time; // ms
+    } else {
+      return -1;
+    }
   }
   void end() {
     if (host_params[_TEST_IN_CPU_] != 1) {
@@ -508,22 +512,8 @@ template <typename T> struct LatticeSet {
       checkCudaErrors(cudaFreeAsync(device_params_odd_no_dag, stream));
       checkCudaErrors(cudaFreeAsync(device_params_even_dag, stream));
       checkCudaErrors(cudaFreeAsync(device_params_odd_dag, stream));
-      if (host_params[_SET_PLAN_] == _SET_PLAN_N_2_) // just for laplacian
-      {
-        for (int i = 0; i < _DIM_; i++) {
-          checkCudaErrors(cudaStreamSynchronize(stream_dims[i]));
-          checkCudaErrors(cudaStreamDestroy(stream_dims[i]));
-          checkCudaErrors(cudaFreeAsync(device_send_vec[i * _BF_], stream));
-          checkCudaErrors(cudaFreeAsync(device_send_vec[i * _BF_ + 1], stream));
-          checkCudaErrors(cudaFreeAsync(device_recv_vec[i * _BF_], stream));
-          checkCudaErrors(cudaFreeAsync(device_recv_vec[i * _BF_ + 1], stream));
-          checkCudaErrors(cudaFreeHost(host_send_vec[i * _BF_]));
-          checkCudaErrors(cudaFreeHost(host_send_vec[i * _BF_ + 1]));
-          checkCudaErrors(cudaFreeHost(host_recv_vec[i * _BF_]));
-          checkCudaErrors(cudaFreeHost(host_recv_vec[i * _BF_ + 1]));
-        }
-      }
-      if (host_params[_SET_PLAN_] >= _SET_PLAN0_) // for wilson dslash
+      if (host_params[_SET_PLAN_] >=
+          _SET_PLAN_N_2_) // just for laplacian and wilson dslash
       {
         for (int i = 0; i < _DIM_; i++) {
           checkCudaErrors(cudaStreamSynchronize(stream_dims[i]));
