@@ -36,27 +36,25 @@ __global__ void pick_up_u_x(void *device_U, void *device_params,
   for (int i = 0; i < _LAT_PCCD_; i++) {
     u_b_x_send_vec[i * lat_xyzt / lat_x] = tmp_U[i * lat_xyzt];
   }
-  // for (int p = 0; p < _LAT_P_; p++) {
-  //   for (int i = 0; i < _LAT_CCD_; i++) {
-  //     u_b_x_send_vec[(p * _LAT_CCD_ + i) * lat_xyzt / lat_x]._data.x =
-  //         -(p * 10000 + x * 1000 + y * 100 + z * 10 + t);
-  //     u_b_x_send_vec[(p * _LAT_CCD_ + i) * lat_xyzt / lat_x]._data.y =
-  //         999999999.999999999;
-  //   }
-  // }
+  for (int p = 0; p < _LAT_P_; p++) {
+    for (int i = 0; i < _LAT_CCD_; i++) {
+      u_b_x_send_vec[(p * _LAT_CCD_ + i) * lat_xyzt / lat_x]._data.x =
+          -(p * 10000 + x * 1000 + y * 100 + z * 10 + t);
+      u_b_x_send_vec[(p * _LAT_CCD_ + i) * lat_xyzt / lat_x]._data.y = 1.0;
+    }
+  }
   // f_x
   tmp_U = (origin_U + ((((lat_x - 1) * lat_y + y) * lat_z + z) * lat_t + t));
   for (int i = 0; i < _LAT_PCCD_; i++) {
     u_f_x_send_vec[i * lat_xyzt / lat_x] = tmp_U[i * lat_xyzt];
   }
-  // for (int p = 0; p < _LAT_P_; p++) {
-  //   for (int i = 0; i < _LAT_CCD_; i++) {
-  //     u_f_x_send_vec[(p * _LAT_CCD_ + i) * lat_xyzt / lat_x]._data.x =
-  //         (p * 10000 + x * 1000 + y * 100 + z * 10 + t);
-  //     u_f_x_send_vec[(p * _LAT_CCD_ + i) * lat_xyzt / lat_x]._data.y =
-  //         999999999.999999999;
-  //   }
-  // }
+  for (int p = 0; p < _LAT_P_; p++) {
+    for (int i = 0; i < _LAT_CCD_; i++) {
+      u_f_x_send_vec[(p * _LAT_CCD_ + i) * lat_xyzt / lat_x]._data.x =
+          (p * 10000 + x * 1000 + y * 100 + z * 10 + t);
+      u_f_x_send_vec[(p * _LAT_CCD_ + i) * lat_xyzt / lat_x]._data.y = 1.0;
+    }
+  }
 }
 template <typename T>
 __global__ void pick_up_u_y(void *device_U, void *device_params,
