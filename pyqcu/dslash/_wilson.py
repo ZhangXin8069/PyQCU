@@ -4,8 +4,6 @@ import pyqcu.cann as _torch
 force_use_npu = False
 # tools_Eexyzt_exyzt2Exyzt = True
 tools_Eexyzt_exyzt2Exyzt = False
-
-
 def give_wilson(src: torch.Tensor,
                 U: torch.Tensor, kappa: float = 0.1,
                 u_0: float = 1.0, with_I: bool = True, verbose: bool = False) -> torch.Tensor:
@@ -64,8 +62,6 @@ def give_wilson(src: torch.Tensor,
         print(
             f"PYQCU::DSLASH::WILSON:\n Dest norm: {_torch.norm(dest).item()}")
     return dest
-
-
 def give_wilson_eo(
         src_o: torch.Tensor,
         U_eo: torch.Tensor, kappa: float = 0.1,
@@ -138,8 +134,6 @@ def give_wilson_eo(
         print(
             f"PYQCU::DSLASH::WILSON:\n Dest_e norm: {_torch.norm(dest_e).item()}")
     return dest_e
-
-
 def give_wilson_oe(
     src_e: torch.Tensor,
     U_eo: torch.Tensor, kappa: float = 0.1,
@@ -212,8 +206,6 @@ def give_wilson_oe(
         print(
             f"PYQCU::DSLASH::WILSON:\n Dest_o norm: {_torch.norm(dest_o).item()}")
     return dest_o
-
-
 def give_hopping_plus(ward: int, U: torch.Tensor, kappa: float = 0.1,
                       u_0: float = 1.0, verbose: bool = False) -> torch.Tensor:
     ward_key = lattice.ward_keys[ward]
@@ -225,8 +217,6 @@ def give_hopping_plus(ward: int, U: torch.Tensor, kappa: float = 0.1,
     U_mu = U[..., ward, :, :, :, :]
     return - (kappa/u_0) * _torch.einsum(
         'Ss,Ccxyzt->SCscxyzt', (I - gamma_mu), U_mu).reshape([12, 12]+list(U.shape[-4:]))  # sc->e
-
-
 def give_hopping_minus(ward: int, U: torch.Tensor, U_head: torch.Tensor = None, kappa: float = 0.1,
                        u_0: float = 1.0, verbose: bool = False) -> torch.Tensor:
     ward_key = lattice.ward_keys[ward]
@@ -245,8 +235,6 @@ def give_hopping_minus(ward: int, U: torch.Tensor, U_head: torch.Tensor = None, 
                     ] = U_head_dag_mu.clone()
     return - (kappa/u_0) * _torch.einsum(
         'Ss,Ccxyzt->SCscxyzt', (I + gamma_mu), U_dag_minus).reshape([12, 12]+list(U.shape[-4:]))  # sc->e
-
-
 def give_wilson_plus(ward: int, src: torch.Tensor, hopping: torch.Tensor, src_tail: torch.Tensor = None, parity: int = None, verbose: bool = False) -> torch.Tensor:
     ward_key = lattice.ward_keys[ward]
     ward = lattice.wards[ward_key]
@@ -275,8 +263,6 @@ def give_wilson_plus(ward: int, src: torch.Tensor, hopping: torch.Tensor, src_ta
     else:
         return _torch.einsum(
             'Eexyzt,exyzt->Exyzt', hopping, src_plus)
-
-
 def give_wilson_minus(ward: int, src: torch.Tensor, hopping: torch.Tensor, src_head: torch.Tensor = None, parity: int = None, verbose: bool = False) -> torch.Tensor:
     ward_key = lattice.ward_keys[ward]
     ward = lattice.wards[ward_key]

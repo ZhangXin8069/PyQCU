@@ -32,13 +32,9 @@ ward_wards['yz'] = {'mu': wards['y'], 'nu': wards['z'], 'ward': wards['yz']}
 ward_wards['yt'] = {'mu': wards['y'], 'nu': wards['t'], 'ward': wards['yt']}
 ward_wards['zt'] = {'mu': wards['z'], 'nu': wards['t'], 'ward': wards['zt']}
 ward_ward_keys = ['xy', 'xz', 'xt', 'yz', 'yt', 'zt']
-
-
 def give_support_multi() -> bool:
     comm = MPI.COMM_WORLD
     return comm.Get_size() > 1
-
-
 I = _torch.eye(4, dtype=torch.complex64, device=torch.device('cpu'))
 minus_I = -1 * I
 gamma = torch.zeros(4, 4, 4, dtype=torch.complex64,
@@ -111,8 +107,6 @@ gell_mann[7] = torch.tensor(
 gell_mann[1] = gell_mann[1] * 1j
 gell_mann[4] = gell_mann[4] * 1j
 gell_mann[6] = gell_mann[6] * 1j
-
-
 def check_su3(U: torch.Tensor, tol: float = 1e-3, verbose: bool = True) -> bool:
     U_mat = U.permute(*range(2, U.ndim), 0,
                       1).reshape(-1, 3, 3)  # N x 3 x 3
@@ -154,8 +148,6 @@ def check_su3(U: torch.Tensor, tol: float = 1e-3, verbose: bool = True) -> bool:
         except Exception as e:
             print(f"Error:{e}")
     return unitary_ok and det_ok and minors_ok
-
-
 def generate_gauge_field(U: torch.Tensor, sigma: float = 0.1, seed: Optional[int] = None, verbose: bool = False) -> torch.Tensor:
     if verbose:
         print(

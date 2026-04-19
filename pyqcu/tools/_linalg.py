@@ -2,8 +2,6 @@ import torch
 import numpy as np
 from mpi4py import MPI
 import pyqcu.cann as _torch
-
-
 def vdot(
     a: torch.Tensor,
     b: torch.Tensor,
@@ -25,8 +23,6 @@ def vdot(
     comm.Allreduce(sendbuf=sendbuf, recvbuf=recvbuf, op=MPI.SUM)
     comm.Barrier()
     return torch.from_numpy(recvbuf).to(device=device)
-
-
 def norm(
     a: torch.Tensor,
 ) -> torch.Tensor:

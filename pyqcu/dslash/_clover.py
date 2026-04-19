@@ -3,8 +3,6 @@ import numpy as np
 import mpi4py.MPI as MPI
 from pyqcu import lattice, tools
 import pyqcu.cann as _torch
-
-
 def make_clover(U: torch.Tensor, kappa: float = 0.1,
                 u_0: float = 1.0, support_parallel: bool = False, verbose: bool = False) -> torch.Tensor:
     """
@@ -76,7 +74,6 @@ def make_clover(U: torch.Tensor, kappa: float = 0.1,
                     comm.Barrier()
                     U_head_tail_list[mu][nu] = torch.from_numpy(U_head_tail4recv).to(
                         device=U.device)
-
                     U_tail_tail4send = U[tools.slice_dim_dim(
                         dims_num=7, ward_a=mu, point_a=-1, ward_b=nu, point_b=-1)].cpu().contiguous().numpy()
                     U_head_head4recv = np.zeros_like(U_tail_tail4send)
@@ -86,7 +83,6 @@ def make_clover(U: torch.Tensor, kappa: float = 0.1,
                     comm.Barrier()
                     U_head_head_list[mu][nu] = torch.from_numpy(U_head_head4recv).to(
                         device=U.device)
-
                     U_head_head4send = U[tools.slice_dim_dim(
                         dims_num=7, ward_a=mu, point_a=0, ward_b=nu, point_b=0)].cpu().contiguous().numpy()
                     U_tail_tail4recv = np.zeros_like(U_head_head4send)
@@ -261,8 +257,6 @@ def make_clover(U: torch.Tensor, kappa: float = 0.1,
         print(
             f"PYQCU::DSLASH::CLOVER:\n clover norm: {_torch.norm(clover).item()}")
     return clover
-
-
 def add_I(clover_term: torch.Tensor, verbose: bool = False) -> torch.Tensor:
     _clover_term = clover_term.reshape(12, 12, -1).clone()
     if verbose:
@@ -276,8 +270,6 @@ def add_I(clover_term: torch.Tensor, verbose: bool = False) -> torch.Tensor:
     if verbose:
         print(f"PYQCU::DSLASH::CLOVER:\n dest.shape:{dest.shape}")
     return dest
-
-
 def cut_I(clover_term: torch.Tensor, verbose: bool = False) -> torch.Tensor:
     _clover_term = clover_term.reshape(12, 12, -1).clone()
     if verbose:
@@ -291,8 +283,6 @@ def cut_I(clover_term: torch.Tensor, verbose: bool = False) -> torch.Tensor:
     if verbose:
         print(f"PYQCU::DSLASH::CLOVER:\n dest.shape:{dest.shape}")
     return dest
-
-
 def inverse(clover_term: torch.Tensor, verbose: bool = False) -> torch.Tensor:
     _clover_term = clover_term.reshape(12, 12, -1).clone()
     if verbose:
@@ -305,8 +295,6 @@ def inverse(clover_term: torch.Tensor, verbose: bool = False) -> torch.Tensor:
     if verbose:
         print(f"dest.shape:{dest.shape}")
     return dest
-
-
 def give_clover(src: torch.Tensor, clover_term: torch.Tensor, verbose: bool = False) -> torch.Tensor:
     if verbose:
         print('PYQCU::DSLASH::CLOVER:\n Clover is giving......')
@@ -315,11 +303,7 @@ def give_clover(src: torch.Tensor, clover_term: torch.Tensor, verbose: bool = Fa
     if verbose:
         print(f"PYQCU::DSLASH::CLOVER:\n dest.shape:{dest.shape}")
     return dest
-
-
 def give_clover_ee(src_e: torch.Tensor, clover_e: torch.Tensor) -> torch.Tensor:
     return give_clover(src=src_e, clover_term=clover_e)
-
-
 def give_clover_oo(src_o: torch.Tensor, clover_o: torch.Tensor) -> torch.Tensor:
     return give_clover(src=src_o, clover_term=clover_o)
