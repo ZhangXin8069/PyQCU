@@ -6,7 +6,6 @@ import os
 import numpy as np
 from typing import Tuple, Optional
 force_use_npu = False
-
 warp_size = 128
 # NumPy → Torch
 np2torch_dtype = {
@@ -48,8 +47,6 @@ torch2tl_dtype = {
     torch.float64:    T.float64,
 }
 # Internal helpers
-
-
 def to_contiguous_real(tensor: torch.Tensor, channel: int,
                        *shape: int) -> torch.Tensor:
     """
@@ -84,8 +81,6 @@ def to_contiguous_real(tensor: torch.Tensor, channel: int,
     # Step 3: reshape to the target layout (always safe — result is contiguous).
     return result.reshape(*shape)
 # Check if h5py was built with MPI support
-
-
 def check_mpi_support():
     """Check if h5py supports MPI parallel I/O"""
     try:
@@ -103,12 +98,8 @@ def check_mpi_support():
             return True
         except:
             return False
-
-
 HAS_MPI_SUPPORT = check_mpi_support()
 # HAS_MPI_SUPPORT = False
-
-
 def prime_factorization(n: int):
     """Return the prime factorization of n as a list (using numpy only)."""
     factors = []
@@ -121,8 +112,6 @@ def prime_factorization(n: int):
     if n > 1:
         factors.append(n)
     return factors
-
-
 def give_grid_size() -> Tuple[int, int, int, int]:
     comm = MPI.COMM_WORLD
     factors = prime_factorization(comm.Get_size())
@@ -133,8 +122,6 @@ def give_grid_size() -> Tuple[int, int, int, int]:
     dest = sorted(groups.tolist())
     # print(f"PYQCU::TOOLS::DEFINE:\n give_grid_size: {dest}")
     return dest
-
-
 def give_eo_mask(oootzy_t_p: torch.Tensor, eo: int, verbose=False) -> torch.Tensor:
     if verbose:
         print("PYQCU::TOOLS::DEFINE:\n give_eo_mask......")
@@ -151,8 +138,6 @@ def give_eo_mask(oootzy_t_p: torch.Tensor, eo: int, verbose=False) -> torch.Tens
     sums = coords[lattice.wards['x']] + coords[lattice.wards['y']] + \
         coords[lattice.wards['z']]  # x+y+z
     return sums % 2 == eo
-
-
 def slice_dim(dims_num: int = 4, ward: int = 0, start: int = None, stop: int = None, step: int = 2, point: int = None) -> tuple:
     """
     Slice tensor along a specific dimension. [oooxyzt]
@@ -163,8 +148,6 @@ def slice_dim(dims_num: int = 4, ward: int = 0, start: int = None, stop: int = N
     else:
         slices[ward-4 if ward >= 0 else ward] = point
     return tuple(slices)
-
-
 def slice_dim_dim(dims_num: int = 4, ward_a: int = 0, start_a: int = None, stop_a: int = None, step_a: int = 2, point_a: int = None, ward_b: int = 0, start_b: int = None, stop_b: int = None, step_b: int = 2, point_b: int = None) -> tuple:
     """
     Slice tensor along two specific dimensions. [oooxyzt]
@@ -181,8 +164,6 @@ def slice_dim_dim(dims_num: int = 4, ward_a: int = 0, start_a: int = None, stop_
     else:
         slices[ward_b-4 if ward_b >= 0 else ward_b] = point_b
     return tuple(slices)
-
-
 def slice_dim_none_dim(dims_num: int = 4, ward: int = 0, start: int = None, stop: int = None, step: int = 2, point: int = None, ward_none: int = 0) -> tuple:
     """
     Slice tensor along two specific dimensions. [oooxyzt]
@@ -195,8 +176,6 @@ def slice_dim_none_dim(dims_num: int = 4, ward: int = 0, start: int = None, stop
         slices[ward-4+(ward < ward_none) if ward >=
                0 else ward+(ward < ward_none)] = point
     return tuple(slices)
-
-
 def give_grid_index(rank: int = None) -> Tuple[int, int, int, int]:
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank() if rank == None else rank
@@ -206,8 +185,6 @@ def give_grid_index(rank: int = None) -> Tuple[int, int, int, int]:
             give_grid_size()) == rank).squeeze().tolist()
     # print(f"PYQCU::TOOLS::DEFINE:\n give_grid_index: {dest}")
     return dest
-
-
 def give_rank_plus(ward: int, rank: int = None) -> Tuple[int, int, int, int]:
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank() if rank == None else rank
@@ -217,8 +194,6 @@ def give_rank_plus(ward: int, rank: int = None) -> Tuple[int, int, int, int]:
         1 else grid_index[ward]+1
     # print(f"PYQCU::TOOLS::DEFINE:\n give_rank_plus: {grid_index}, ward: {ward}")
     return grid_index[-1]+(grid_size[-1]*(grid_index[-2]+(grid_size[-2]*(grid_index[-3]+(grid_size[-3]*(grid_index[-4]))))))
-
-
 def give_rank_minus(ward: int, rank: int = None) -> Tuple[int, int, int, int]:
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank() if rank == None else rank
@@ -228,24 +203,14 @@ def give_rank_minus(ward: int, rank: int = None) -> Tuple[int, int, int, int]:
         1 if grid_index[ward] == 0 else grid_index[ward]-1
     # print(f"PYQCU::TOOLS::DEFINE:\n give_rank_minus: {grid_index}, ward: {ward}")
     return grid_index[-1]+(grid_size[-1]*(grid_index[-2]+(grid_size[-2]*(grid_index[-3]+(grid_size[-3]*(grid_index[-4]))))))
-
-
 def give_rank_plus_plus(ward_a: int, ward_b: int, rank: int = None) -> Tuple[int, int, int, int]:
     return give_rank_plus(ward=ward_b, rank=give_rank_plus(ward=ward_a, rank=rank))
-
-
 def give_rank_plus_minus(ward_a: int, ward_b: int, rank: int = None) -> Tuple[int, int, int, int]:
     return give_rank_minus(ward=ward_b, rank=give_rank_plus(ward=ward_a, rank=rank))
-
-
 def give_rank_minus_minus(ward_a: int, ward_b: int, rank: int = None) -> Tuple[int, int, int, int]:
     return give_rank_minus(ward=ward_b, rank=give_rank_minus(ward=ward_a, rank=rank))
-
-
 def give_rank_minus_plus(ward_a: int, ward_b: int, rank: int = None) -> Tuple[int, int, int, int]:
     return give_rank_plus(ward=ward_b, rank=give_rank_minus(ward=ward_a, rank=rank))
-
-
 def local_xyzt2whole_xyzt(
     local_array: torch.Tensor,
     root: int = 0
@@ -285,8 +250,6 @@ def local_xyzt2whole_xyzt(
         return torch.from_numpy(whole).to(device=local_array.device)
     else:
         return None
-
-
 def whole_xyzt2local_xyzt(
         dtype: torch.dtype = None,
     device: torch.device = None,
@@ -331,8 +294,6 @@ def whole_xyzt2local_xyzt(
     comm.Scatter(sendbuf=sendbuf, recvbuf=recvbuf, root=root)
     comm.Barrier()
     return torch.from_numpy(recvbuf).to(device=device)
-
-
 def set_device(device: torch.device):
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -364,8 +325,6 @@ def set_device(device: torch.device):
         raise ValueError(f"Unsupported device type: {dev_type}")
     print(
         f"PYQCU::TOOLS::DEFINE:\n [MPI Rank {rank}/{size}] Using {dev_type}:{local_rank}")
-
-
 def oooxyzt2poooxyzt(input_array: torch.Tensor, verbose: bool = False) -> torch.Tensor:
     if verbose:
         print("PYQCU::TOOLS::DEFINE:\n oooxyzt2poooxyzt......")
@@ -411,8 +370,6 @@ def oooxyzt2poooxyzt(input_array: torch.Tensor, verbose: bool = False) -> torch.
         print(
             f"PYQCU::TOOLS::DEFINE:\n Splited Array Shape: {splited_array.shape}")
     return splited_array
-
-
 def poooxyzt2oooxyzt(input_array: torch.Tensor, verbose: bool = False) -> torch.Tensor:
     if verbose:
         print("PYQCU::TOOLS::DEFINE:\n poooxyzt2oooxyzt......")
@@ -459,25 +416,17 @@ def poooxyzt2oooxyzt(input_array: torch.Tensor, verbose: bool = False) -> torch.
         print(
             f"PYQCU::TOOLS::DEFINE:\n Restored Array Shape: {restored_array.shape}")
     return restored_array
-
-
 def ccdptzyx2ccdxyzt(ccdptzyx: torch.Tensor) -> torch.Tensor:
     pccdtzyx = ccdptzyx.permute(3, 0, 1, 2, 4, 5, 6, 7)
     ccdtzyx = poooxyzt2oooxyzt(input_array=pccdtzyx)
     return ccdtzyx.permute(0, 1, 2, 6, 5, 4, 3)
-
-
 def ccdxyzt2ccdptzyx(ccdxyzt: torch.Tensor) -> torch.Tensor:
     ccdtzyx = ccdxyzt.permute(0, 1, 2, 6, 5, 4, 3)
     pccdtzyx = oooxyzt2poooxyzt(input_array=ccdtzyx)
     return pccdtzyx.permute(1, 2, 3, 0, 4, 5, 6, 7)
-
-
 def psctzyx2scxyzt(psctzyx: torch.Tensor) -> torch.Tensor:
     sctzyx = poooxyzt2oooxyzt(input_array=psctzyx)
     return sctzyx.permute(0, 1, 5, 4, 3, 2)
-
-
 def scxyzt2psctzyx(scxyzt: torch.Tensor) -> torch.Tensor:
     sctzyx = scxyzt.permute(0, 1, 5, 4, 3, 2)
     return oooxyzt2poooxyzt(input_array=sctzyx)

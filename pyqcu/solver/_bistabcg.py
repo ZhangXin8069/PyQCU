@@ -3,8 +3,6 @@ from time import perf_counter
 from typing import Callable
 from pyqcu import tools
 import pyqcu.cann as _torch
-
-
 def bistabcg(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], tol: float = 1e-6, max_iter: int = 1000, x0: torch.Tensor = None, if_rtol: bool = False, verbose: bool = True) -> torch.Tensor:
     x = x0.clone() if x0 is not None else _torch.randn_like(b)
     r = b - matvec(x)

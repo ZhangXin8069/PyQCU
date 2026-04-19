@@ -1,7 +1,6 @@
 def _stout_smear_ndarray_naive(self, nstep, rho):
     backend = get_backend()
     U = backend.ascontiguousarray(self._U)
-
     for _ in range(nstep):
         Q = backend.zeros_like(U)
         for mu in range(Nd - 1):
@@ -25,7 +24,6 @@ def _stout_smear_ndarray_naive(self, nstep, rho):
         Q -= 1 / Nc * contract("...aa,bc->...bc", Q, backend.identity(Nc))
         c0 = contract("...ab,...bc,...ca->...", Q, Q, Q).real / 3
         c1 = contract("...ab,...ba->...", Q, Q).real / 2
-
         c0_max = 2 * (c1 / 3) ** (3 / 2)
         parity = c0 < 0
         c0 = backend.abs(c0)
@@ -51,7 +49,6 @@ def _stout_smear_ndarray_naive(self, nstep, rho):
         f0[parity] = f0[parity].conj()
         f1[parity] = -f1[parity].conj()
         f2[parity] = f2[parity].conj()
-
         f0 = contract("...,ab->...ab", f0, backend.identity(Nc))
         f1 = contract("...,...ab->...ab", f1, Q)
         f2 = contract("...,...ab,...bc->...ac", f2, Q, Q)

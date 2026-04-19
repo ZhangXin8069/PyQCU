@@ -4,8 +4,6 @@ from pyqcu import tools, dslash
 import pyqcu.cann as _torch
 import mpi4py.MPI as MPI
 from time import perf_counter
-
-
 class multigrid:
     def __init__(self, dtype_list: Tuple[torch.dtype, torch.dtype, torch.dtype, torch.dtype], device_list: Tuple[torch.device, torch.device, torch.device, torch.device],  U: torch.Tensor, clover_term: torch.Tensor, kappa: float = 0.1, u_0: float = 1.0, min_size: int = 2, max_levels: int = 4, mg_grid_size: Tuple[int, int, int, int] = [2, 2, 2, 2], num_convergence_sample: int = 50, dof_list: Tuple[int, int, int, int] = [12, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24], tol: float = 1e-6, max_iter: int = 1000, num_restart: int = 3, root: int = 0, support_parity: bool = False, verbose: bool = True):
         self.comm = MPI.COMM_WORLD
@@ -57,7 +55,6 @@ class multigrid:
         self.num_convergence_sample = num_convergence_sample
         self.convergence_history = []
         self.convergence_tol = 0
-
     def init(self):
         # Build local-orthonormal near-null space vectors
         comm = MPI.COMM_WORLD
@@ -80,12 +77,10 @@ class multigrid:
             self.op_list.append(dslash.operator(fine_hopping=self.op_list[i-1].hopping, fine_sitting=self.op_list[i -
                                 1].sitting, local_ortho_null_vecs=_local_ortho_null_vecs,  verbose=self.verbose))
         comm.Barrier()
-
     def levels_back(self):
         self.convergence_tol = 0
         self.num_levels = len(self.op_list) if len(
             self.op_list) <= self.max_levels else self.max_levels
-
     def adaptive(self, iter: int = 0):
         if self.convergence_tol > 3:
             self.num_levels = 1
@@ -100,7 +95,6 @@ class multigrid:
                 count += 1
         if count >= self.num_convergence_sample//2:
             self.convergence_tol += 1
-
     def cycle(self, level: int = 0) -> torch.Tensor:
         matvec = self.op_list[level].matvec
         b = self.b_list[level].clone()
@@ -221,7 +215,6 @@ class multigrid:
                 f"PYQCU::SOLVER::MULTIGRID:\n Final residual(origin): {r_norm_origin:.2e}")
             x = x_origin.clone()
         return x
-
     def solve(self, b: torch.Tensor = None, x0: torch.Tensor = None) -> torch.Tensor:
         if b is not None:
             self.b = b.reshape([12]+list(b.shape)[2:]).clone()  # sc->e
@@ -238,7 +231,6 @@ class multigrid:
         print(
             f"PYQCU::SOLVER::MULTIGRID:\n Final residual: {self.convergence_history[-1]:.2e}")
         return x.reshape([4, 3]+list(x.shape[-4:]))
-
     def plot(self, save_path=None):
         if self.rank == self.root:
             import matplotlib.pyplot as plt

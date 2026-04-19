@@ -3,8 +3,6 @@ import numpy as np
 from pyqcu import tools, dslash
 import pyqcu.cann as _torch
 import mpi4py.MPI as MPI
-
-
 class hopping:
     def __init__(self,  U: torch.Tensor = None, kappa: float = 0.1, u_0: float = 1.0, support_parity: bool = False):
         self.comm = MPI.COMM_WORLD
@@ -56,7 +54,6 @@ class hopping:
                         input_array=self.M_minus_list[ward])
                     self.M_e_minus_list[ward] = _[0]
                     self.M_o_minus_list[ward] = _[1]
-
     def matvec_plus(self, ward: int, src: torch.Tensor) -> torch.Tensor:
         dtype = src.dtype
         device = src.device
@@ -77,7 +74,6 @@ class hopping:
         else:
             src_tail = None
         return dslash.give_wilson_plus(ward=ward, src=src, hopping=self.M_plus_list[ward], src_tail=src_tail).to(dtype=dtype, device=device)
-
     def matvec_minus(self, ward: int, src: torch.Tensor) -> torch.Tensor:
         dtype = src.dtype
         device = src.device
@@ -98,15 +94,12 @@ class hopping:
         else:
             src_head = None
         return dslash.give_wilson_minus(ward=ward, src=src, hopping=self.M_minus_list[ward], src_head=src_head).to(dtype=dtype, device=device)
-
     def matvec(self, src: torch.Tensor) -> torch.Tensor:
         dest = torch.zeros_like(src)
         for ward in range(4):
             dest += self.matvec_plus(ward=ward, src=src)
             dest += self.matvec_minus(ward=ward, src=src)
         return dest
-
-
 class sitting:
     def __init__(self, clover_term: torch.Tensor = None, support_parity: bool = False):
         self.M = torch.zeros([])
@@ -126,7 +119,6 @@ class sitting:
                 _ = tools.oooxyzt2poooxyzt(input_array=self.M_inv)
                 self.M_e_inv = _[0]
                 self.M_o_inv = _[1]
-
     def matvec(self, src: torch.Tensor) -> torch.Tensor:
         dtype = src.dtype
         device = src.device
@@ -136,8 +128,6 @@ class sitting:
             src = src.to(dtype=_dtype, device=_device)
         return _torch.einsum(
             "EeXYZT, eXYZT->EXYZT", self.M, src).to(dtype=dtype, device=device)
-
-
 class operator:
     def __init__(self,  U: torch.Tensor = None, clover_term: torch.Tensor = None, fine_hopping: hopping = None, fine_sitting: sitting = None, local_ortho_null_vecs: torch.Tensor = None, kappa: float = 0.1, u_0: float = 1.0, support_parity: bool = False, verbose: bool = True):
         self.hopping = hopping(U=U, kappa=kappa, u_0=u_0,
@@ -210,13 +200,11 @@ class operator:
                 _dest_c = tools.restrict(
                     local_ortho_null_vecs=local_ortho_null_vecs, fine_vec=_dest_f)
                 self.sitting.M[:, e] += _dest_c.clone()
-
     def matvec(self, src: torch.Tensor) -> torch.Tensor:
         if src.shape[0] == 4 and src.shape[1] == 3:
             return (self.hopping.matvec(src=src.reshape([12]+list(src.shape)[2:]))+self.sitting.matvec(src=src.reshape([12]+list(src.shape)[2:]))).reshape([4, 3]+list(src.shape)[2:])
         else:
             return self.hopping.matvec(src=src)+self.sitting.matvec(src=src)
-
     def matvec_eo(self, src_o: torch.Tensor) -> torch.Tensor:
         dest_e = torch.zeros_like(src_o)
         for ward in range(4):
@@ -247,7 +235,6 @@ class operator:
             dest_e += dslash.give_wilson_minus(ward=ward,
                                                src=src_o, hopping=self.hopping.M_e_minus_list[ward], parity=1 if ward == 3 else None, src_head=src_head)
         return dest_e
-
     def matvec_oe(self, src_e: torch.Tensor) -> torch.Tensor:
         dest_o = torch.zeros_like(src_e)
         for ward in range(4):
@@ -278,38 +265,28 @@ class operator:
             dest_o += dslash.give_wilson_minus(ward=ward,
                                                src=src_e, hopping=self.hopping.M_o_minus_list[ward], parity=0 if ward == 3 else None, src_head=src_head)
         return dest_o
-
     def matvec_ee(self, src_e: torch.Tensor) -> torch.Tensor:
         return _torch.einsum(
             "EeXYZT, eXYZT->EXYZT", self.sitting.M_e, src_e)
-
     def matvec_oo(self, src_o: torch.Tensor) -> torch.Tensor:
         return _torch.einsum(
             "EeXYZT, eXYZT->EXYZT", self.sitting.M_o, src_o)
-
     def matvec_ee_inv(self, src_e: torch.Tensor) -> torch.Tensor:
         return _torch.einsum(
             "EeXYZT, eXYZT->EXYZT", self.sitting.M_e_inv, src_e)
-
     def matvec_oo_inv(self, src_o: torch.Tensor) -> torch.Tensor:
         return _torch.einsum(
             "EeXYZT, eXYZT->EXYZT", self.sitting.M_o_inv, src_o)
-
     def matvec_parity(self, src_o: torch.Tensor) -> torch.Tensor:
         return self.matvec_oo(src_o=src_o)-self.matvec_oe(src_e=self.matvec_ee_inv(src_e=self.matvec_eo(src_o=src_o)))
-
     def give_b_parity(self, b_e: torch.Tensor, b_o: torch.Tensor) -> torch.Tensor:
         return -self.matvec_oe(src_e=self.matvec_ee_inv(src_e=b_e))+b_o
-
     def give_x_e(self, b_e: torch.Tensor, x_o: torch.Tensor) -> torch.Tensor:
         return self.matvec_ee_inv(src_e=(b_e-self.matvec_eo(src_o=x_o)))
-
     def matvec_eeo(self, src_e: torch.Tensor, src_o: torch.Tensor) -> torch.Tensor:
         return self.matvec_eo(src_o=src_o)+self.matvec_ee(src_e=src_e)
-
     def matvec_oeo(self, src_e: torch.Tensor, src_o: torch.Tensor) -> torch.Tensor:
         return self.matvec_oe(src_e=src_e)+self.matvec_oo(src_o=src_o)
-
     def matvec_all(self, src: torch.Tensor) -> torch.Tensor:
         src_eo = tools.oooxyzt2poooxyzt(input_array=src)
         src_e = src_eo[0]
