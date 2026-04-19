@@ -28,3 +28,5 @@ if [ "$mpi_home" = "/usr/bin/.." ]; then
     export mpi_home="/usr/lib/x86_64-linux-gnu/openmpi"
 fi
 echo "MPI_HOME: $mpi_home"
+# export
+# export LD_LIBRARY_PATH=$PWD:$LD_LIBRARY_PATH
