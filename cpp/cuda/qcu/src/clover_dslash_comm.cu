@@ -1,4 +1,5 @@
 #include "../include/qcu.h"
+#include <cstdlib>
 #pragma optimize(5)
 namespace qcu {
 template <typename T>
@@ -42,14 +43,14 @@ __global__ void pick_up_u_x(void *device_U, void *device_params,
     int c1 = tmp / _LAT_D_;
     tmp -= c1 * _LAT_D_;
     int d = tmp;
-    printf(
-        "pick up b_x:idx,p,c0,c1,d,x,y,z,t:%d,%d,%d,%d,%d,%d,%d,%d,%d,tmp_U[i "
-        "* lat_xyzt]._data.x:%e\n",
-        idx, p, c0, c1, d, x, y, z, t, tmp_U[i * lat_xyzt]._data.x);
-    printf(
-        "pick up b_x:idx,p,c0,c1,d,x,y,z,t:%d,%d,%d,%d,%d,%d,%d,%d,%d,tmp_U[i "
-        "* lat_xyzt]._data.y:%e\n",
-        idx, p, c0, c1, d, x, y, z, t, tmp_U[i * lat_xyzt]._data.y);
+    printf("pick up "
+           "b_x:idx,i,p,c0,c1,d,x,y,z,t:%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,tmp_U[i "
+           "* lat_xyzt]._data.x:%e\n",
+           idx, i, p, c0, c1, d, x, y, z, t, tmp_U[i * lat_xyzt]._data.x);
+    printf("pick up "
+           "b_x:idx,i,p,c0,c1,d,x,y,z,t:%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,tmp_U[i "
+           "* lat_xyzt]._data.y:%e\n",
+           idx, i, p, c0, c1, d, x, y, z, t, tmp_U[i * lat_xyzt]._data.y);
   }
   // for (int p = 0; p < _LAT_P_; p++) {
   //   for (int i = 0; i < _LAT_CCD_; i++) {
@@ -69,14 +70,14 @@ __global__ void pick_up_u_x(void *device_U, void *device_params,
     int c1 = tmp / _LAT_D_;
     tmp -= c1 * _LAT_D_;
     int d = tmp;
-    printf(
-        "pick up f_x:idx,p,c0,c1,d,x,y,z,t:%d,%d,%d,%d,%d,%d,%d,%d,%d,tmp_U[i "
-        "* lat_xyzt]._data.x:%e\n",
-        idx, p, c0, c1, d, x, y, z, t, tmp_U[i * lat_xyzt]._data.x);
-    printf(
-        "pick up f_x:idx,p,c0,c1,d,x,y,z,t:%d,%d,%d,%d,%d,%d,%d,%d,%d,tmp_U[i "
-        "* lat_xyzt]._data.y:%e\n",
-        idx, p, c0, c1, d, x, y, z, t, tmp_U[i * lat_xyzt]._data.y);
+    printf("pick up "
+           "f_x:idx,i,p,c0,c1,d,x,y,z,t:%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,tmp_U[i "
+           "* lat_xyzt]._data.x:%e\n",
+           idx, i, p, c0, c1, d, x, y, z, t, tmp_U[i * lat_xyzt]._data.x);
+    printf("pick up "
+           "f_x:idx,i,p,c0,c1,d,x,y,z,t:%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,tmp_U[i "
+           "* lat_xyzt]._data.y:%e\n",
+           idx, i, p, c0, c1, d, x, y, z, t, tmp_U[i * lat_xyzt]._data.y);
   }
   // for (int p = 0; p < _LAT_P_; p++) {
   //   for (int i = 0; i < _LAT_CCD_; i++) {
