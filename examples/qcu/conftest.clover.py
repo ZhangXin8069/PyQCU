@@ -6,7 +6,7 @@ import torch
 from pyqcu import tools, dslash, lattice
 from pyqcu.cuda import qcu, define
 from pyqcu.cuda.define import params, argv, set_ptrs
-params[define._LAT_X_] = 2
+params[define._LAT_X_] = 4
 params[define._LAT_Y_] = 4
 params[define._LAT_Z_] = 4
 params[define._LAT_T_] = 8
