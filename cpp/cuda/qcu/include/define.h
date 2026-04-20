@@ -242,14 +242,20 @@ namespace qcu {
     U[7] = (U[2] * U[3] - U[0] * U[5]).conj();                                 \
     U[8] = (U[0] * U[4] - U[1] * U[3]).conj();                                 \
   }
+// #define _give_u_comm(parity, U, tmp_U, _lat_xyzt) \
+//   { \
+//     for (int i = 0; i < _LAT_2C_; i++) { \
+//       U[i] = tmp_U[(parity * _LAT_CCD_ + (i * _LAT_D_)) * _lat_xyzt]; \
+//     } \
+//     U[6] = (U[1] * U[5] - U[2] * U[4]).conj(); \
+//     U[7] = (U[2] * U[3] - U[0] * U[5]).conj(); \
+//     U[8] = (U[0] * U[4] - U[1] * U[3]).conj(); \
+//   }
 #define _give_u_comm(parity, U, tmp_U, _lat_xyzt)                              \
   {                                                                            \
-    for (int i = 0; i < _LAT_2C_; i++) {                                       \
+    for (int i = 0; i < _LAT_CC_; i++) {                                       \
       U[i] = tmp_U[(parity * _LAT_CCD_ + (i * _LAT_D_)) * _lat_xyzt];          \
     }                                                                          \
-    U[6] = (U[1] * U[5] - U[2] * U[4]).conj();                                 \
-    U[7] = (U[2] * U[3] - U[0] * U[5]).conj();                                 \
-    U[8] = (U[0] * U[4] - U[1] * U[3]).conj();                                 \
   }
 #define give_u_laplacian(U, tmp_U, lat_xyzt)                                   \
   {                                                                            \
