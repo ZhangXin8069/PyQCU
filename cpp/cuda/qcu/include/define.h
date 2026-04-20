@@ -2,7 +2,8 @@
 #define _DEFINE_H
 #include "./lattice_complex.h"
 namespace qcu {
-#define _BLOCK_SIZE_ 16 // for test small lattice
+#define _BLOCK_SIZE_ 8 // for test small lattice
+// #define _BLOCK_SIZE_ 16 // for test small lattice
 // #define _BLOCK_SIZE_ 128 // better for nv
 // #define _BLOCK_SIZE_ 256 // better for dcu
 #define _MAIN_RANK_ 0
@@ -159,6 +160,7 @@ namespace qcu {
 #define _LAT_SC_ 12
 #define _LAT_SCSC_ 144
 #define _LAT_D_ 4
+#define _LAT_CD_ 12
 #define _LAT_CCD_ 36
 #define _LAT_PCCD_ 72
 #define _LAT_3D_ 3
@@ -176,7 +178,7 @@ namespace qcu {
 #define _MEM_POOL_ 0
 #define _CHECK_ERROR_ 1
 #define _WILSON_AND_LAPLACIAN_TEST_SINGLE_IN_MULTI_ 1
-#define _CLOVER_TEST_MULTI_IN_SINGLE_ 1
+#define _CLOVER_TEST_MULTI_IN_SINGLE_ 0
 // cublas API error checking
 #define CUBLAS_CHECK(err)                                                      \
   do {                                                                         \
