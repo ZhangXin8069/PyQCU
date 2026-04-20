@@ -6,7 +6,7 @@ import torch
 from pyqcu import tools, dslash, lattice
 from pyqcu.cuda import qcu, define
 from pyqcu.cuda.define import params, argv, set_ptrs
-params[define._LAT_X_] = 4
+params[define._LAT_X_] = 2
 params[define._LAT_Y_] = 4
 params[define._LAT_Z_] = 4
 params[define._LAT_T_] = 8
@@ -81,21 +81,21 @@ clover_oo_inv = torch.zeros(size=[4, 3, 4, 3]+[params[define._LAT_X_], params[de
 
 
 
-# _gauge_eo = gauge_eo.flatten().clone()
-# print('_gauge_eo.shape', _gauge_eo.shape)
-# for p in range(2):
-#     for c0 in range(3):
-#         for c1 in range(3):
-#             for d in range(4):
-#                 for x in range(params[define._LAT_X_]):
-#                     for y in range(params[define._LAT_Y_]):
-#                         for z in range(params[define._LAT_Z_]):
-#                             for t in range(params[define._LAT_T_]//2):
-#                                 _gauge_eo[(((((((((((p)*3)+c0)*3)+c1)*4)+d)*params[define._LAT_X_])+x)*params[define._LAT_Y_]+y)*params[define._LAT_Z_]+z)
-#                                        * params[define._LAT_T_]//2+t].real = (((((((60+p)*10)+c0)*10)+c1)*10)+d)
-#                                 _gauge_eo[(((((((((((p)*3)+c0)*3)+c1)*4)+d)*params[define._LAT_X_])+x)*params[define._LAT_Y_]+y)
-#                                         * params[define._LAT_Z_]+z)*params[define._LAT_T_]//2+t].imag = ((((90+x)*10+y)*10+z)*10+t)
-# gauge_eo = _gauge_eo.reshape(gauge_eo.shape)
+_gauge_eo = gauge_eo.flatten().clone()
+print('_gauge_eo.shape', _gauge_eo.shape)
+for p in range(2):
+    for c0 in range(3):
+        for c1 in range(3):
+            for d in range(4):
+                for x in range(params[define._LAT_X_]):
+                    for y in range(params[define._LAT_Y_]):
+                        for z in range(params[define._LAT_Z_]):
+                            for t in range(params[define._LAT_T_]//2):
+                                _gauge_eo[(((((((((((p)*3)+c0)*3)+c1)*4)+d)*params[define._LAT_X_])+x)*params[define._LAT_Y_]+y)*params[define._LAT_Z_]+z)
+                                       * params[define._LAT_T_]//2+t].real = (((((((60+p)*10)+c0)*10)+c1)*10)+d)
+                                _gauge_eo[(((((((((((p)*3)+c0)*3)+c1)*4)+d)*params[define._LAT_X_])+x)*params[define._LAT_Y_]+y)
+                                        * params[define._LAT_Z_]+z)*params[define._LAT_T_]//2+t].imag = ((((90+x)*10+y)*10+z)*10+t)
+gauge_eo = _gauge_eo.reshape(gauge_eo.shape)
 
 params[define._VERBOSE_] = 1
 params[define._SET_INDEX_] += 1
