@@ -159,6 +159,7 @@ namespace qcu {
 #define _LAT_SC_ 12
 #define _LAT_SCSC_ 144
 #define _LAT_D_ 4
+#define _LAT_CD_ 12
 #define _LAT_CCD_ 36
 #define _LAT_PCCD_ 72
 #define _LAT_3D_ 3
