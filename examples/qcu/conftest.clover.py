@@ -71,13 +71,8 @@ print('refer_src:', refer_src.flatten()[:100])
 print('Difference:', tools.norm(refer_src-qcu_src)/tools.norm(qcu_src))
 clover_ee = torch.zeros(size=[4, 3, 4, 3]+[params[define._LAT_X_], params[define._LAT_Y_], params[define._LAT_Z_],
                                            params[define._LAT_T_]//define._LAT_P_]).to(dtype=define.dtype(params[define._DATA_TYPE_]), device=torch.device('cuda'))
-clover_ee_inv = torch.zeros(size=[4, 3, 4, 3]+[params[define._LAT_X_], params[define._LAT_Y_], params[define._LAT_Z_],
-                                               params[define._LAT_T_]//define._LAT_P_]).to(dtype=define.dtype(params[define._DATA_TYPE_]), device=torch.device('cuda'))
 clover_oo = torch.zeros(size=[4, 3, 4, 3]+[params[define._LAT_X_], params[define._LAT_Y_], params[define._LAT_Z_],
                                            params[define._LAT_T_]//define._LAT_P_]).to(dtype=define.dtype(params[define._DATA_TYPE_]), device=torch.device('cuda'))
-clover_oo_inv = torch.zeros(size=[4, 3, 4, 3]+[params[define._LAT_X_], params[define._LAT_Y_], params[define._LAT_Z_],
-                                               params[define._LAT_T_]//define._LAT_P_]).to(dtype=define.dtype(params[define._DATA_TYPE_]), device=torch.device('cuda'))
-
 
 
 
@@ -102,7 +97,7 @@ params[define._SET_INDEX_] += 1
 params[define._SET_PLAN_] = 2
 params[define._PARITY_] = 0
 qcu.applyInitQcu(set_ptrs, params, argv)
-qcu.applyCloversQcu(clover_ee, clover_ee_inv, gauge_eo, set_ptrs, params)
+qcu.applyCloverQcu(clover_ee, gauge_eo, set_ptrs, params)
 
 
 # print(set_ptrs)
@@ -113,7 +108,7 @@ qcu.applyCloversQcu(clover_ee, clover_ee_inv, gauge_eo, set_ptrs, params)
 # params[define._SET_PLAN_] = 2
 # params[define._PARITY_] = 1
 # qcu.applyInitQcu(set_ptrs, params, argv)
-# qcu.applyCloversQcu(clover_oo, clover_oo_inv, gauge_eo, set_ptrs, params)
+# qcu.applyCloverQcu(clover_oo, gauge_eo, set_ptrs, params)
 
 
 # print(set_ptrs)
