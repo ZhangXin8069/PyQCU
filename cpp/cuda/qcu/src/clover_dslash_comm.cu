@@ -35,10 +35,21 @@ __global__ void pick_up_u_x(void *device_U, void *device_params,
   tmp_U = (origin_U + ((((0) * lat_y + y) * lat_z + z) * lat_t + t));
   for (int i = 0; i < _LAT_PCCD_; i++) {
     u_b_x_send_vec[i * lat_xyzt / lat_x] = tmp_U[i * lat_xyzt];
-    printf("pick up b_x:idx,x,y,z,t:%d,%d,%d,%d,%d,tmp_U[i * lat_xyzt]._data.x:%e\n", idx,
-           x, y, z, t, tmp_U[i * lat_xyzt]._data.x);
-    printf("pick up b_x:idx,x,y,z,t:%d,%d,%d,%d,%d,tmp_U[i * lat_xyzt]._data.x:%e\n", idx,
-           x, y, z, t, tmp_U[i * lat_xyzt]._data.y);
+    int p = i / _LAT_CCD_;
+    int tmp = i - p * _LAT_CCD_;
+    int c0 = tmp / _LAT_CD_;
+    tmp -= c0 * _LAT_CD_;
+    int c1 = tmp / _LAT_D_;
+    tmp -= c1 * _LAT_D_;
+    int d = tmp;
+    printf(
+        "pick up b_x:idx,p,c0,c1,d,x,y,z,t:%d,%d,%d,%d,%d,%d,%d,%d,%d,tmp_U[i "
+        "* lat_xyzt]._data.x:%e\n",
+        idx, p, c0, c1, d, x, y, z, t, tmp_U[i * lat_xyzt]._data.x);
+    printf(
+        "pick up b_x:idx,p,c0,c1,d,x,y,z,t:%d,%d,%d,%d,%d,%d,%d,%d,%d,tmp_U[i "
+        "* lat_xyzt]._data.y:%e\n",
+        idx, p, c0, c1, d, x, y, z, t, tmp_U[i * lat_xyzt]._data.y);
   }
   // for (int p = 0; p < _LAT_P_; p++) {
   //   for (int i = 0; i < _LAT_CCD_; i++) {
@@ -51,10 +62,21 @@ __global__ void pick_up_u_x(void *device_U, void *device_params,
   tmp_U = (origin_U + ((((lat_x - 1) * lat_y + y) * lat_z + z) * lat_t + t));
   for (int i = 0; i < _LAT_PCCD_; i++) {
     u_f_x_send_vec[i * lat_xyzt / lat_x] = tmp_U[i * lat_xyzt];
-    printf("pick up f_x:idx,x,y,z,t:%d,%d,%d,%d,%d,tmp_U[i * lat_xyzt]._data.x:%e\n", idx,
-           x, y, z, t, tmp_U[i * lat_xyzt]._data.x);
-    printf("pick up f_x:idx,x,y,z,t:%d,%d,%d,%d,%d,tmp_U[i * lat_xyzt]._data.x:%e\n", idx,
-           x, y, z, t, tmp_U[i * lat_xyzt]._data.y);
+    int p = i / _LAT_CCD_;
+    int tmp = i - p * _LAT_CCD_;
+    int c0 = tmp / _LAT_CD_;
+    tmp -= c0 * _LAT_CD_;
+    int c1 = tmp / _LAT_D_;
+    tmp -= c1 * _LAT_D_;
+    int d = tmp;
+    printf(
+        "pick up f_x:idx,p,c0,c1,d,x,y,z,t:%d,%d,%d,%d,%d,%d,%d,%d,%d,tmp_U[i "
+        "* lat_xyzt]._data.x:%e\n",
+        idx, p, c0, c1, d, x, y, z, t, tmp_U[i * lat_xyzt]._data.x);
+    printf(
+        "pick up f_x:idx,p,c0,c1,d,x,y,z,t:%d,%d,%d,%d,%d,%d,%d,%d,%d,tmp_U[i "
+        "* lat_xyzt]._data.y:%e\n",
+        idx, p, c0, c1, d, x, y, z, t, tmp_U[i * lat_xyzt]._data.y);
   }
   // for (int p = 0; p < _LAT_P_; p++) {
   //   for (int i = 0; i < _LAT_CCD_; i++) {
