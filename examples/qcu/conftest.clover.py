@@ -92,9 +92,9 @@ for p in range(2):
                         for z in range(params[define._LAT_Z_]):
                             for t in range(params[define._LAT_T_]//2):
                                 _gauge_eo[(((((((((((p)*3)+c0)*3)+c1)*4)+d)*params[define._LAT_X_])+x)*params[define._LAT_Y_]+y)*params[define._LAT_Z_]+z)
-                                       * params[define._LAT_T_]//2+t].real = ((((((((((((p)*10)+c0)*10)+c1)*10)+d)*10)+x)*10+y)*10+z)*10+t)/1e8
+                                       * params[define._LAT_T_]//2+t].real = (((((((60+p)*10)+c0)*10)+c1)*10)+d)
                                 _gauge_eo[(((((((((((p)*3)+c0)*3)+c1)*4)+d)*params[define._LAT_X_])+x)*params[define._LAT_Y_]+y)
-                                        * params[define._LAT_Z_]+z)*params[define._LAT_T_]//2+t].imag = 0.666
+                                        * params[define._LAT_Z_]+z)*params[define._LAT_T_]//2+t].imag = ((((90+x)*10+y)*10+z)*10+t)
 gauge_eo = _gauge_eo.reshape(gauge_eo.shape)
 
 params[define._VERBOSE_] = 1
