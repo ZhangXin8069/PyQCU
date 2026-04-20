@@ -32,6 +32,18 @@ __global__ void pick_up_u_x(void *device_U, void *device_params,
       (static_cast<LatticeComplex<T> *>(device_u_b_x_send_vec) + idx);
   LatticeComplex<T> *u_f_x_send_vec =
       (static_cast<LatticeComplex<T> *>(device_u_f_x_send_vec) + idx);
+  for (int i = 0; i < _LAT_PCCD_; i++) {
+    int p = i / _LAT_CCD_;
+    int tmp = i - p * _LAT_CCD_;
+    int c0 = tmp / _LAT_CD_;
+    tmp -= c0 * _LAT_CD_;
+    int c1 = tmp / _LAT_D_;
+    tmp -= c1 * _LAT_D_;
+    int d = tmp;
+    printf("the i in pick up "
+           "b_x:idx,i,p,c0,c1,d,x,y,z,t:%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n",
+           idx, i, p, c0, c1, d, x, y, z, t);
+  }
   // b_x
   tmp_U = (origin_U + ((((0) * lat_y + y) * lat_z + z) * lat_t + t));
   for (int i = 0; i < _LAT_PCCD_; i++) {
