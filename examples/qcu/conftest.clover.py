@@ -116,12 +116,12 @@ qcu.applyInitQcu(set_ptrs, params, argv)
 qcu.applyCloverQcu(clover_ee, gauge_eo, set_ptrs, params)
 
 
-# params[define._VERBOSE_] = 1
-# params[define._SET_INDEX_] += 1
-# params[define._SET_PLAN_] = 2
-# params[define._PARITY_] = 1
-# qcu.applyInitQcu(set_ptrs, params, argv)
-# qcu.applyCloverQcu(clover_oo, gauge_eo, set_ptrs, params)
+params[define._VERBOSE_] = 1
+params[define._SET_INDEX_] += 1
+params[define._SET_PLAN_] = 2
+params[define._PARITY_] = 1
+qcu.applyInitQcu(set_ptrs, params, argv)
+qcu.applyCloverQcu(clover_oo, gauge_eo, set_ptrs, params)
 
 
 refer_clover_term = dslash.make_clover(
@@ -140,19 +140,19 @@ print('refer_clover_term_eo[0]:', refer_clover_term_eo[0].flatten()[:100])
 print('Difference:', tools.norm(refer_clover_term_eo[0] -
       qcu_clover_term_eo[0])/tools.norm(qcu_clover_term_eo[0]))
 
-# print('qcu_clover_term_eo[1]:', qcu_clover_term_eo[1].flatten()[:100])
-# print('refer_clover_term_eo[1]:', refer_clover_term_eo[1].flatten()[:100])
-# print('Difference:', tools.norm(refer_clover_term_eo[1] -
-#       qcu_clover_term_eo[1])/tools.norm(qcu_clover_term_eo[1]))
+print('qcu_clover_term_eo[1]:', qcu_clover_term_eo[1].flatten()[:100])
+print('refer_clover_term_eo[1]:', refer_clover_term_eo[1].flatten()[:100])
+print('Difference:', tools.norm(refer_clover_term_eo[1] -
+      qcu_clover_term_eo[1])/tools.norm(qcu_clover_term_eo[1]))
 
-# print('qcu_clover_term:', qcu_clover_term.flatten()[:100])
-# print('refer_clover_term:', refer_clover_term.flatten()[:100])
-# print('Difference:', tools.norm(refer_clover_term -
-#       qcu_clover_term)/tools.norm(qcu_clover_term))
+print('qcu_clover_term:', qcu_clover_term.flatten()[:100])
+print('refer_clover_term:', refer_clover_term.flatten()[:100])
+print('Difference:', tools.norm(refer_clover_term -
+      qcu_clover_term)/tools.norm(qcu_clover_term))
 
 
-# print("gauge_eo.is_contiguous():", gauge_eo.is_contiguous())
-# print("fermion_in_eo.is_contiguous():", fermion_in_eo.is_contiguous())
-# print("fermion_in_out.is_contiguous():", fermion_out_eo.is_contiguous())
-# print("qcu_src.is_contiguous():", qcu_src.is_contiguous())
-# print("qcu_dest.is_contiguous():", qcu_dest.is_contiguous())
+print("gauge_eo.is_contiguous():", gauge_eo.is_contiguous())
+print("fermion_in_eo.is_contiguous():", fermion_in_eo.is_contiguous())
+print("fermion_in_out.is_contiguous():", fermion_out_eo.is_contiguous())
+print("qcu_src.is_contiguous():", qcu_src.is_contiguous())
+print("qcu_dest.is_contiguous():", qcu_dest.is_contiguous())
