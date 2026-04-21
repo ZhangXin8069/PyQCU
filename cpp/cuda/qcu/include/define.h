@@ -2,8 +2,8 @@
 #define _DEFINE_H
 #include "./lattice_complex.h"
 namespace qcu {
-#define _BLOCK_SIZE_ 8 // for test small lattice
-// #define _BLOCK_SIZE_ 16 // for test small lattice
+// #define _BLOCK_SIZE_ 8 // for test small lattice
+#define _BLOCK_SIZE_ 16 // for test small lattice
 // #define _BLOCK_SIZE_ 128 // better for nv
 // #define _BLOCK_SIZE_ 256 // better for dcu
 #define _MAIN_RANK_ 0
