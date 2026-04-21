@@ -53,7 +53,7 @@ __global__ void wilson_dslash(void *device_U, void *device_src,
       move_backward(move, x, lat_x);
       tmp_U = (origin_U + move * lat_y * lat_z * lat_t +
                (_X_ + (1 - parity) * _LAT_CCD_) * lat_xyzt);
-      give_u(U, tmp_U, lat_xyzt);
+      get_u(U, tmp_U, lat_xyzt);
       tmp_src = (origin_src + move * lat_y * lat_z * lat_t);
       get_src(src, tmp_src, lat_xyzt);
     }
@@ -78,7 +78,7 @@ __global__ void wilson_dslash(void *device_U, void *device_src,
       // x+1
       move_forward(move, x, lat_x);
       tmp_U = (origin_U + (_X_ + parity * _LAT_CCD_) * lat_xyzt);
-      give_u(U, tmp_U, lat_xyzt);
+      get_u(U, tmp_U, lat_xyzt);
       tmp_src = (origin_src + move * lat_y * lat_z * lat_t);
       get_src(src, tmp_src, lat_xyzt);
     }
@@ -107,7 +107,7 @@ __global__ void wilson_dslash(void *device_U, void *device_src,
       move_backward(move, y, lat_y);
       tmp_U = (origin_U + move * lat_z * lat_t +
                (_Y_ + (1 - parity) * _LAT_CCD_) * lat_xyzt);
-      give_u(U, tmp_U, lat_xyzt);
+      get_u(U, tmp_U, lat_xyzt);
       tmp_src = (origin_src + move * lat_z * lat_t);
       get_src(src, tmp_src, lat_xyzt);
     }
@@ -132,7 +132,7 @@ __global__ void wilson_dslash(void *device_U, void *device_src,
       // y+1
       move_forward(move, y, lat_y);
       tmp_U = (origin_U + (_Y_ + parity * _LAT_CCD_) * lat_xyzt);
-      give_u(U, tmp_U, lat_xyzt);
+      get_u(U, tmp_U, lat_xyzt);
       tmp_src = (origin_src + move * lat_z * lat_t);
       get_src(src, tmp_src, lat_xyzt);
     }
@@ -161,7 +161,7 @@ __global__ void wilson_dslash(void *device_U, void *device_src,
       move_backward(move, z, lat_z);
       tmp_U = (origin_U + move * lat_t +
                (_Z_ + (1 - parity) * _LAT_CCD_) * lat_xyzt);
-      give_u(U, tmp_U, lat_xyzt);
+      get_u(U, tmp_U, lat_xyzt);
       tmp_src = (origin_src + move * lat_t);
       get_src(src, tmp_src, lat_xyzt);
     }
@@ -186,7 +186,7 @@ __global__ void wilson_dslash(void *device_U, void *device_src,
       // z+1
       move_forward(move, z, lat_z);
       tmp_U = (origin_U + (_Z_ + parity * _LAT_CCD_) * lat_xyzt);
-      give_u(U, tmp_U, lat_xyzt);
+      get_u(U, tmp_U, lat_xyzt);
       tmp_src = (origin_src + move * lat_t);
       get_src(src, tmp_src, lat_xyzt);
     }
@@ -215,7 +215,7 @@ __global__ void wilson_dslash(void *device_U, void *device_src,
       // t-1
       move_backward_t(move, t, lat_t, eo, parity);
       tmp_U = (origin_U + move + (_T_ + (1 - parity) * _LAT_CCD_) * lat_xyzt);
-      give_u(U, tmp_U, lat_xyzt);
+      get_u(U, tmp_U, lat_xyzt);
       tmp_src = (origin_src + move);
       get_src(src, tmp_src, lat_xyzt);
     }
@@ -240,7 +240,7 @@ __global__ void wilson_dslash(void *device_U, void *device_src,
       // t+1
       move_forward_t(move, t, lat_t, eo, parity);
       tmp_U = (origin_U + (_T_ + parity * _LAT_CCD_) * lat_xyzt);
-      give_u(U, tmp_U, lat_xyzt);
+      get_u(U, tmp_U, lat_xyzt);
       tmp_src = (origin_src + move);
       get_src(src, tmp_src, lat_xyzt);
     }
@@ -314,7 +314,7 @@ __global__ void wilson_dslash_inside(void *device_U, void *device_src,
       move_backward(move, x, lat_x);
       tmp_U = (origin_U + move * lat_y * lat_z * lat_t +
                (_X_ + (1 - parity) * _LAT_CCD_) * lat_xyzt);
-      give_u(U, tmp_U, lat_xyzt);
+      get_u(U, tmp_U, lat_xyzt);
       tmp_src = (origin_src + move * lat_y * lat_z * lat_t);
       get_src(src, tmp_src, lat_xyzt);
     }
@@ -339,7 +339,7 @@ __global__ void wilson_dslash_inside(void *device_U, void *device_src,
       // x+1
       move_forward(move, x, lat_x);
       tmp_U = (origin_U + (_X_ + parity * _LAT_CCD_) * lat_xyzt);
-      give_u(U, tmp_U, lat_xyzt);
+      get_u(U, tmp_U, lat_xyzt);
       tmp_src = (origin_src + move * lat_y * lat_z * lat_t);
       get_src(src, tmp_src, lat_xyzt);
     }
@@ -368,7 +368,7 @@ __global__ void wilson_dslash_inside(void *device_U, void *device_src,
       move_backward(move, y, lat_y);
       tmp_U = (origin_U + move * lat_z * lat_t +
                (_Y_ + (1 - parity) * _LAT_CCD_) * lat_xyzt);
-      give_u(U, tmp_U, lat_xyzt);
+      get_u(U, tmp_U, lat_xyzt);
       tmp_src = (origin_src + move * lat_z * lat_t);
       get_src(src, tmp_src, lat_xyzt);
     }
@@ -393,7 +393,7 @@ __global__ void wilson_dslash_inside(void *device_U, void *device_src,
       // y+1
       move_forward(move, y, lat_y);
       tmp_U = (origin_U + (_Y_ + parity * _LAT_CCD_) * lat_xyzt);
-      give_u(U, tmp_U, lat_xyzt);
+      get_u(U, tmp_U, lat_xyzt);
       tmp_src = (origin_src + move * lat_z * lat_t);
       get_src(src, tmp_src, lat_xyzt);
     }
@@ -422,7 +422,7 @@ __global__ void wilson_dslash_inside(void *device_U, void *device_src,
       move_backward(move, z, lat_z);
       tmp_U = (origin_U + move * lat_t +
                (_Z_ + (1 - parity) * _LAT_CCD_) * lat_xyzt);
-      give_u(U, tmp_U, lat_xyzt);
+      get_u(U, tmp_U, lat_xyzt);
       tmp_src = (origin_src + move * lat_t);
       get_src(src, tmp_src, lat_xyzt);
     }
@@ -447,7 +447,7 @@ __global__ void wilson_dslash_inside(void *device_U, void *device_src,
       // z+1
       move_forward(move, z, lat_z);
       tmp_U = (origin_U + (_Z_ + parity * _LAT_CCD_) * lat_xyzt);
-      give_u(U, tmp_U, lat_xyzt);
+      get_u(U, tmp_U, lat_xyzt);
       tmp_src = (origin_src + move * lat_t);
       get_src(src, tmp_src, lat_xyzt);
     }
@@ -477,7 +477,7 @@ __global__ void wilson_dslash_inside(void *device_U, void *device_src,
       // t-1
       move_backward_t(move, t, lat_t, eo, parity);
       tmp_U = (origin_U + move + (_T_ + (1 - parity) * _LAT_CCD_) * lat_xyzt);
-      give_u(U, tmp_U, lat_xyzt);
+      get_u(U, tmp_U, lat_xyzt);
       tmp_src = (origin_src + move);
       get_src(src, tmp_src, lat_xyzt);
     }
@@ -503,7 +503,7 @@ __global__ void wilson_dslash_inside(void *device_U, void *device_src,
       // t+1
       move_forward_t(move, t, lat_t, eo, parity);
       tmp_U = (origin_U + (_T_ + parity * _LAT_CCD_) * lat_xyzt);
-      give_u(U, tmp_U, lat_xyzt);
+      get_u(U, tmp_U, lat_xyzt);
       tmp_src = (origin_src + move);
       get_src(src, tmp_src, lat_xyzt);
     }
@@ -603,7 +603,7 @@ wilson_dslash_x_send(void *device_U, void *device_src, void *device_params,
     // send in x-1 way
     tmp_U =
         (origin_U + (_X_ + (1 - parity) * _LAT_CCD_) * lat_xyzt); // even-odd
-    give_u(U, tmp_U, lat_xyzt);
+    get_u(U, tmp_U, lat_xyzt);
     get_src(src, origin_src, lat_xyzt);
     { // just tmp
       for (int c0 = 0; c0 < _LAT_C_; c0++) {
@@ -703,7 +703,7 @@ wilson_dslash_x_recv(void *device_U, void *device_dest, void *device_params,
     // recv in x+1 way
     get_recv(f_x_recv_vec, origin_f_x_recv_vec, lat_xyzt / lat_x);
     tmp_U = (origin_U + (_X_ + parity * _LAT_CCD_) * lat_xyzt);
-    give_u(U, tmp_U, lat_xyzt);
+    get_u(U, tmp_U, lat_xyzt);
     {
       for (int c0 = 0; c0 < _LAT_C_; c0++) {
         tmp0 = zero;
@@ -796,7 +796,7 @@ wilson_dslash_y_send(void *device_U, void *device_src, void *device_params,
     // send in y-1 way
     tmp_U =
         (origin_U + (_Y_ + (1 - parity) * _LAT_CCD_) * lat_xyzt); // even-odd
-    give_u(U, tmp_U, lat_xyzt);
+    get_u(U, tmp_U, lat_xyzt);
     get_src(src, origin_src, lat_xyzt);
     { // just tmp
       for (int c0 = 0; c0 < _LAT_C_; c0++) {
@@ -897,7 +897,7 @@ wilson_dslash_y_recv(void *device_U, void *device_dest, void *device_params,
     // recv in y+1 way
     get_recv(f_y_recv_vec, origin_f_y_recv_vec, lat_xyzt / lat_y);
     tmp_U = (origin_U + (_Y_ + parity * _LAT_CCD_) * lat_xyzt);
-    give_u(U, tmp_U, lat_xyzt);
+    get_u(U, tmp_U, lat_xyzt);
     {
       for (int c0 = 0; c0 < _LAT_C_; c0++) {
         tmp0 = zero;
@@ -990,7 +990,7 @@ wilson_dslash_z_send(void *device_U, void *device_src, void *device_params,
     // send in z-1 way
     tmp_U =
         (origin_U + (_Z_ + (1 - parity) * _LAT_CCD_) * lat_xyzt); // even-odd
-    give_u(U, tmp_U, lat_xyzt);
+    get_u(U, tmp_U, lat_xyzt);
     get_src(src, origin_src, lat_xyzt);
     { // just tmp
       for (int c0 = 0; c0 < _LAT_C_; c0++) {
@@ -1091,7 +1091,7 @@ wilson_dslash_z_recv(void *device_U, void *device_dest, void *device_params,
     // recv in z+1 way
     get_recv(f_z_recv_vec, origin_f_z_recv_vec, lat_xyzt / lat_z);
     tmp_U = (origin_U + (_Z_ + parity * _LAT_CCD_) * lat_xyzt);
-    give_u(U, tmp_U, lat_xyzt);
+    get_u(U, tmp_U, lat_xyzt);
     {
       for (int c0 = 0; c0 < _LAT_C_; c0++) {
         tmp0 = zero;
@@ -1188,7 +1188,7 @@ wilson_dslash_t_send(void *device_U, void *device_src, void *device_params,
     // send in t-1 way
     tmp_U =
         (origin_U + (_T_ + (1 - parity) * _LAT_CCD_) * lat_xyzt); // even-odd
-    give_u(U, tmp_U, lat_xyzt);
+    get_u(U, tmp_U, lat_xyzt);
     get_src(src, origin_src, lat_xyzt);
     { // just tmp
       for (int c0 = 0; c0 < _LAT_C_; c0++) {
@@ -1296,7 +1296,7 @@ wilson_dslash_t_recv(void *device_U, void *device_dest, void *device_params,
     get_recv(f_t_recv_vec, origin_f_t_recv_vec,
              lat_xyzt / lat_t / _EVEN_ODD_); // fake edge
     tmp_U = (origin_U + (_T_ + parity * _LAT_CCD_) * lat_xyzt);
-    give_u(U, tmp_U, lat_xyzt);
+    get_u(U, tmp_U, lat_xyzt);
     {
       for (int c0 = 0; c0 < _LAT_C_; c0++) {
         tmp0 = zero;
