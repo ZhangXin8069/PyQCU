@@ -252,6 +252,12 @@ namespace qcu {
       U[i] = tmp_U[(parity * _LAT_CCD_ + (i * _LAT_D_)) * _lat_xyzt];          \
     }                                                                          \
   }
+#define get_u_naive(parity, dim, U, tmp_U, lat_xyzt)                           \
+  {                                                                            \
+    for (int i = 0; i < _LAT_CC_; i++) {                                       \
+      U[i] = tmp_U[(parity * _LAT_CCD_ + (i * _LAT_D_ + dim)) * lat_xyzt];     \
+    }                                                                          \
+  }
 #define give_u_naive(parity, dim, origin_U, U, lat_xyzt)                       \
   {                                                                            \
     for (int i = 0; i < _LAT_CC_; i++) {                                       \
