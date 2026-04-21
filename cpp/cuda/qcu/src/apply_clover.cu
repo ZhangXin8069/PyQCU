@@ -24,19 +24,19 @@ void applyCloverQcu(long long _clover, long long _gauge, long long _set_ptrs,
         // make clover
         _clover_dslash.make_test(gauge);
       }
-      {
-        // inverse clover
-        _clover_dslash.inverse_test();
-      }
+      // {
+      //   // inverse clover
+      //   _clover_dslash.inverse_test();
+      // }
     } else {
       {
         // make clover
         _clover_dslash.make(gauge);
       }
-      {
-        // inverse clover
-        _clover_dslash.inverse();
-      }
+      // {
+      //   // inverse clover
+      //   _clover_dslash.inverse();
+      // }
     }
     // ccdptzyx2dptzyxcc<float>(gauge, &_set);
     _clover_dslash.end();
@@ -53,19 +53,19 @@ void applyCloverQcu(long long _clover, long long _gauge, long long _set_ptrs,
         // make clover
         _clover_dslash.make_test(gauge);
       }
-      {
-        // inverse clover
-        _clover_dslash.inverse_test();
-      }
+      // {
+      //   // inverse clover
+      //   _clover_dslash.inverse_test();
+      // }
     } else {
       {
         // make clover
         _clover_dslash.make(gauge);
       }
-      {
-        // inverse clover
-        _clover_dslash.inverse();
-      }
+      // {
+      //   // inverse clover
+      //   _clover_dslash.inverse();
+      // }
     }
     // ccdptzyx2dptzyxcc<double>(gauge, &_set);
     _clover_dslash.end();
