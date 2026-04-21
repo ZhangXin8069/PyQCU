@@ -147,7 +147,7 @@ __global__ void _make_gauss_gauge(void *device_U, void *device_random_8dtzyx,
                                        {0, 0}, {0, 0}, {0, 0}, {0, 0}};
       // Compute U = exp(A)
       su3_matrix_exponential(A, U);
-      give_U(p, d, origin_U, U, lat_xyzt);
+      give_u_naive(p, d, origin_U, U, lat_xyzt);
     }
   }
 }
