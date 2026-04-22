@@ -159,6 +159,31 @@ __global__ void make_clover_all(
     // if_b_y_f_t = 0;
     // if_b_z_f_t = 0;
   }
+  if (idx == 0) { // just for test
+    tmp_U = (static_cast<LatticeComplex<T> *>(device_u_f_x_recv_vec) +
+             ((((0) * lat_y + y) * lat_z + z) * lat_t + t));
+    for (int i = 0; i < _LAT_PCCD_; i++) {
+      int p = i / _LAT_CCD_;
+      int tmp = i - p * _LAT_CCD_;
+      int c0 = tmp / _LAT_CD_;
+      tmp -= c0 * _LAT_CD_;
+      int c1 = tmp / _LAT_D_;
+      tmp -= c1 * _LAT_D_;
+      int d = tmp;
+      printf("check out "
+             "f_x_recv_vec:idx,i,p,c0,c1,d,x,y,z,t:%d,%d,%d,%d,%d,%d,%d,%d,%d,%"
+             "d,u_b_x_"
+             "device_u_f_x_recv_vec[i * lat_xyzt / lat_x]._data.x:%e\n",
+             idx, i, p, c0, c1, d, x, y, z, t,
+             tmp_U[i * lat_xyzt / lat_x]._data.x);
+      printf("check out "
+             "f_x_recv_vec:idx,i,p,c0,c1,d,x,y,z,t:%d,%d,%d,%d,%d,%d,%d,%d,%d,%"
+             "d,u_b_x_"
+             "device_u_f_x_recv_vec[i * lat_xyzt / lat_x]._data.y:%e\n",
+             idx, i, p, c0, c1, d, x, y, z, t,
+             tmp_U[i * lat_xyzt / lat_x]._data.y);
+    }
+  }
   // sigmaF
   {
     get_vals(clover, zero, _LAT_SCSC_);
@@ -176,7 +201,8 @@ __global__ void make_clover_all(
     if (if_f_x) {
       tmp_U = (static_cast<LatticeComplex<T> *>(device_u_f_x_recv_vec) +
                ((((_Y_ * 1 + 0) * lat_y + y) * lat_z + z) * lat_t + t));
-      get_u_comm(1 - parity, tmp2, tmp_U, lat_xyzt / lat_x);
+      get_u_comm((1 - parity), tmp2, tmp_U, lat_xyzt / lat_x);
+      // get_u_comm(1, tmp2, tmp_U, lat_xyzt / lat_x);
       printf("if_f_x:p,x,y,z,t:%d,%d,%d,%d,%d,tmp2[0]._data.x:%e\n", parity, x,
              y, z, t, tmp2[0]._data.x);
       printf("if_f_x:p,x,y,z,t:%d,%d,%d,%d,%d,tmp2[0]._data.y:%e\n", parity, x,
