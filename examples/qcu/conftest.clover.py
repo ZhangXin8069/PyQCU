@@ -69,24 +69,18 @@ clover_ee = torch.zeros(size=[4, 3, 4, 3]+[params[define._LAT_X_], params[define
                                            params[define._LAT_T_]//define._LAT_P_]).to(dtype=define.dtype(params[define._DATA_TYPE_]), device=torch.device('cuda'))
 clover_oo = torch.zeros(size=[4, 3, 4, 3]+[params[define._LAT_X_], params[define._LAT_Y_], params[define._LAT_Z_],
                                            params[define._LAT_T_]//define._LAT_P_]).to(dtype=define.dtype(params[define._DATA_TYPE_]), device=torch.device('cuda'))
-
-
 params[define._VERBOSE_] = 1
 params[define._SET_INDEX_] += 1
 params[define._SET_PLAN_] = 2
 params[define._PARITY_] = 0
 qcu.applyInitQcu(set_ptrs, params, argv)
 qcu.applyCloverQcu(clover_ee, gauge_eo, set_ptrs, params)
-
-
-# params[define._VERBOSE_] = 1
-# params[define._SET_INDEX_] += 1
-# params[define._SET_PLAN_] = 2
-# params[define._PARITY_] = 1
-# qcu.applyInitQcu(set_ptrs, params, argv)
-# qcu.applyCloverQcu(clover_oo, gauge_eo, set_ptrs, params)
-
-
+params[define._VERBOSE_] = 1
+params[define._SET_INDEX_] += 1
+params[define._SET_PLAN_] = 2
+params[define._PARITY_] = 1
+qcu.applyInitQcu(set_ptrs, params, argv)
+qcu.applyCloverQcu(clover_oo, gauge_eo, set_ptrs, params)
 qcu_U = tools.poooxyzt2oooxyzt(input_array=gauge_eo)
 qcu_src = tools.poooxyzt2oooxyzt(input_array=fermion_in_eo)
 refer_clover_term = dslash.make_clover(
@@ -97,14 +91,11 @@ refer_clover_term_e = refer_clover_term_eo[0]
 refer_clover_term_o = refer_clover_term_eo[1]
 qcu_clover_term_e = dslash.cut_I(clover_term=clover_ee)
 qcu_clover_term_o = dslash.cut_I(clover_term=clover_oo)
-
-
 print('qcu_clover_term_e:', qcu_clover_term_e.flatten()[:100])
 print('refer_clover_term_e:', refer_clover_term_e.flatten()[:100])
 print('Difference:', tools.norm(refer_clover_term_e -
       qcu_clover_term_e)/tools.norm(qcu_clover_term_e))
-
-# print('qcu_clover_term_o:', qcu_clover_term_o.flatten()[:100])
-# print('refer_clover_term_o:', refer_clover_term_o.flatten()[:100])
-# print('Difference:', tools.norm(refer_clover_term_o -
-#       qcu_clover_term_o)/tools.norm(qcu_clover_term_o))
+print('qcu_clover_term_o:', qcu_clover_term_o.flatten()[:100])
+print('refer_clover_term_o:', refer_clover_term_o.flatten()[:100])
+print('Difference:', tools.norm(refer_clover_term_o -
+      qcu_clover_term_o)/tools.norm(qcu_clover_term_o))

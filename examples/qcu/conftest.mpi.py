@@ -123,7 +123,6 @@ for i in range(10):
     print('qcu_src:', qcu_src.flatten()[:100])
     print('refer_src:', refer_src.flatten()[:100])
     print('Difference:', tools.norm(refer_src-qcu_src)/tools.norm(qcu_src))
-
 print("gauge_eo.is_contiguous():", gauge_eo.is_contiguous())
 print("fermion_in_eo.is_contiguous():", fermion_in_eo.is_contiguous())
 print("fermion_in_out.is_contiguous():", fermion_out_eo.is_contiguous())
