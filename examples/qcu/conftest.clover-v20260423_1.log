@@ -1,0 +1,1459 @@
+tensor([    16,     16,     16,     32, 131072,      1,      1,      1,      1,
+             0,      0,      1,      0,   1000,      2,      0,      1,      1,
+             1,      1,      1,     24,      1,     42,      0],
+       dtype=torch.int32)
+tensor([5.0000e-02, 1.0000e-09, 1.0000e-01])
+tensor([0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+set_ptr:0x5654f387bbf0
+set_ptrs:0x5654f266e180
+long long set_ptr:94922863000560
+gridDim.x                    :4096
+blockDim.x                   :16
+host_params[_LAT_X_]         :16
+host_params[_LAT_Y_]         :16
+host_params[_LAT_Z_]         :16
+host_params[_LAT_T_]         :16
+host_params[_LAT_XYZT_]      :65536
+host_params[_GRID_X_]        :1
+host_params[_GRID_Y_]        :1
+host_params[_GRID_Z_]        :1
+host_params[_GRID_T_]        :1
+host_params[_PARITY_]        :0
+host_params[_NODE_RANK_]     :0
+host_params[_NODE_SIZE_]     :1
+host_params[_DAGGER_]        :0
+host_params[_MAX_ITER_]      :1000
+host_params[_DATA_TYPE_]     :2
+host_params[_SET_INDEX_]     :0
+host_params[_SET_PLAN_]      :-1
+host_params[_MG_X_]          :1
+host_params[_MG_Y_]          :1
+host_params[_MG_Z_]          :1
+host_params[_MG_T_]          :1
+host_params[_LAT_E_]         :24
+host_params[_VERBOSE_]       :1
+host_params[_SEED_]          :42
+host_params[_TEST_IN_CPU_]   :0
+host_argv[_MASS_]            :5.000000e-02
+host_argv[_TOL_]             :1.000000e-09
+host_argv[_SIGMA_]           :1.000000e-01
+lat_2dim[_XY_]               :256
+lat_2dim[_XZ_]               :256
+lat_2dim[_XT_]               :256
+lat_2dim[_YZ_]               :256
+lat_2dim[_YT_]               :256
+lat_2dim[_ZT_]               :256
+lat_3dim[_YZT_]              :4096
+lat_3dim[_XZT_]              :4096
+lat_3dim[_XYT_]              :4096
+lat_3dim[_XYZ_]              :4096
+lat_4dim                     :65536
+grid_1dim[_X_]               :1
+grid_1dim[_Y_]               :1
+grid_1dim[_Z_]               :1
+grid_1dim[_T_]               :1
+grid_2dim[_XY_]              :1
+grid_2dim[_XZ_]              :1
+grid_2dim[_XT_]              :1
+grid_2dim[_YZ_]              :1
+grid_2dim[_YT_]              :1
+grid_2dim[_ZT_]              :1
+grid_3dim[_YZT_]             :1
+grid_3dim[_XZT_]             :1
+grid_3dim[_XYT_]             :1
+grid_3dim[_XYZ_]             :1
+grid_index_1dim[_X_]         :0
+grid_index_1dim[_Y_]         :0
+grid_index_1dim[_Z_]         :0
+grid_index_1dim[_T_]         :0
+move_wards[_B_X_]            :0
+move_wards[_B_Y_]            :0
+move_wards[_B_Z_]            :0
+move_wards[_B_T_]            :0
+move_wards[_F_X_]            :0
+move_wards[_F_Y_]            :0
+move_wards[_F_Z_]            :0
+move_wards[_F_T_]            :0
+move_wards[_BX_BY_]          :0
+move_wards[_BX_BZ_]          :0
+move_wards[_BX_BT_]          :0
+move_wards[_BY_BZ_]          :0
+move_wards[_BY_BT_]          :0
+move_wards[_BZ_BT_]          :0
+move_wards[_FX_BY_]          :0
+move_wards[_FX_BZ_]          :0
+move_wards[_FX_BT_]          :0
+move_wards[_FY_BZ_]          :0
+move_wards[_FY_BT_]          :0
+move_wards[_FZ_BT_]          :0
+move_wards[_BX_FY_]          :0
+move_wards[_BX_FZ_]          :0
+move_wards[_BX_FT_]          :0
+move_wards[_BY_FZ_]          :0
+move_wards[_BY_FT_]          :0
+move_wards[_BZ_FT_]          :0
+move_wards[_FX_FY_]          :0
+move_wards[_FX_FZ_]          :0
+move_wards[_FX_FT_]          :0
+move_wards[_FY_FZ_]          :0
+move_wards[_FY_FT_]          :0
+move_wards[_FZ_FT_]          :0
+lattice set init total time:0.012258877 sec
+multi-gpu make gauss gauge total time: (with malloc free memcpy) :0.004859180 sec
+PYQCU::TESTING::LATTICE:
+ [check_su3] Total matrices checked: 262144
+PYQCU::TESTING::LATTICE:
+ Unitary check   : False
+PYQCU::TESTING::LATTICE:
+ Determinant=1   : True
+PYQCU::TESTING::LATTICE:
+ Minor identities: True
+PYQCU::TESTING::LATTICE:
+ Max unitary deviation: 2.980308e-07
+False
+PYQCU::TESTING::LATTICE:
+ [check_su3] Total matrices checked: 262144
+PYQCU::TESTING::LATTICE:
+ Unitary check   : False
+PYQCU::TESTING::LATTICE:
+ Determinant=1   : True
+PYQCU::TESTING::LATTICE:
+ Minor identities: True
+PYQCU::TESTING::LATTICE:
+ Max unitary deviation: 2.385451e-07
+False
+tensor([94922863000560,              0,              0,              0,
+                     0,              0,              0,              0,
+                     0,              0])
+set_ptr:0x56550479c480
+set_ptrs:0x5654f266e180
+long long set_ptr:94923147297920
+gridDim.x                    :4096
+blockDim.x                   :16
+host_params[_LAT_X_]         :16
+host_params[_LAT_Y_]         :16
+host_params[_LAT_Z_]         :16
+host_params[_LAT_T_]         :16
+host_params[_LAT_XYZT_]      :65536
+host_params[_GRID_X_]        :1
+host_params[_GRID_Y_]        :1
+host_params[_GRID_Z_]        :1
+host_params[_GRID_T_]        :1
+host_params[_PARITY_]        :0
+host_params[_NODE_RANK_]     :0
+host_params[_NODE_SIZE_]     :1
+host_params[_DAGGER_]        :0
+host_params[_MAX_ITER_]      :1000
+host_params[_DATA_TYPE_]     :2
+host_params[_SET_INDEX_]     :1
+host_params[_SET_PLAN_]      :1
+host_params[_MG_X_]          :1
+host_params[_MG_Y_]          :1
+host_params[_MG_Z_]          :1
+host_params[_MG_T_]          :1
+host_params[_LAT_E_]         :24
+host_params[_VERBOSE_]       :1
+host_params[_SEED_]          :42
+host_params[_TEST_IN_CPU_]   :0
+host_argv[_MASS_]            :5.000000e-02
+host_argv[_TOL_]             :1.000000e-09
+host_argv[_SIGMA_]           :1.000000e-01
+lat_2dim[_XY_]               :256
+lat_2dim[_XZ_]               :256
+lat_2dim[_XT_]               :256
+lat_2dim[_YZ_]               :256
+lat_2dim[_YT_]               :256
+lat_2dim[_ZT_]               :256
+lat_3dim[_YZT_]              :4096
+lat_3dim[_XZT_]              :4096
+lat_3dim[_XYT_]              :4096
+lat_3dim[_XYZ_]              :4096
+lat_4dim                     :65536
+grid_1dim[_X_]               :1
+grid_1dim[_Y_]               :1
+grid_1dim[_Z_]               :1
+grid_1dim[_T_]               :1
+grid_2dim[_XY_]              :1
+grid_2dim[_XZ_]              :1
+grid_2dim[_XT_]              :1
+grid_2dim[_YZ_]              :1
+grid_2dim[_YT_]              :1
+grid_2dim[_ZT_]              :1
+grid_3dim[_YZT_]             :1
+grid_3dim[_XZT_]             :1
+grid_3dim[_XYT_]             :1
+grid_3dim[_XYZ_]             :1
+grid_index_1dim[_X_]         :0
+grid_index_1dim[_Y_]         :0
+grid_index_1dim[_Z_]         :0
+grid_index_1dim[_T_]         :0
+move_wards[_B_X_]            :0
+move_wards[_B_Y_]            :0
+move_wards[_B_Z_]            :0
+move_wards[_B_T_]            :0
+move_wards[_F_X_]            :0
+move_wards[_F_Y_]            :0
+move_wards[_F_Z_]            :0
+move_wards[_F_T_]            :0
+move_wards[_BX_BY_]          :0
+move_wards[_BX_BZ_]          :0
+move_wards[_BX_BT_]          :0
+move_wards[_BY_BZ_]          :0
+move_wards[_BY_BT_]          :0
+move_wards[_BZ_BT_]          :0
+move_wards[_FX_BY_]          :0
+move_wards[_FX_BZ_]          :0
+move_wards[_FX_BT_]          :0
+move_wards[_FY_BZ_]          :0
+move_wards[_FY_BT_]          :0
+move_wards[_FZ_BT_]          :0
+move_wards[_BX_FY_]          :0
+move_wards[_BX_FZ_]          :0
+move_wards[_BX_FT_]          :0
+move_wards[_BY_FZ_]          :0
+move_wards[_BY_FT_]          :0
+move_wards[_BZ_FT_]          :0
+move_wards[_FX_FY_]          :0
+move_wards[_FX_FZ_]          :0
+move_wards[_FX_FT_]          :0
+move_wards[_FY_FZ_]          :0
+move_wards[_FY_FT_]          :0
+move_wards[_FZ_FT_]          :0
+lattice set init total time:0.002903406 sec
+##RANK:0##LOOP:94##Residual:(9.97825e-10,-1.12262e-20i)
+multi-gpu wilson bistabcg total time: (without malloc free memcpy) :0.251940816 sec
+######TIME  :265.115######
+##RANK      :0
+##LOOP      :0
+##tmp0      :(5.43212e-11,-7.9787e-11i)
+##tmp1      :(2.27492e-11,-3.2417e-22i)
+##rho_prev  :(7.31088e-08,2.26988e-07i)
+##rho       :(7.31088e-08,2.26988e-07i)
+##alpha     :(0.742447,0.47883i)
+##beta      :(-0.0302039,0.915906i)
+##omega     :(2.38783,-3.50725i)
+##send_tmp  :(1.8701e-05,0i)
+##norm2_tmp :(1.7007e+06,-2.1577e-05i)
+##diff_tmp  :(1.09961e-11,1.39509e-22i)
+##lat_4dim  :(65536,0i)
+tensor([94922863000560, 94923147297920,              0,              0,
+                     0,              0,              0,              0,
+                     0,              0])
+qcu_src: tensor([0.8053+0.0267j, 0.8268+0.7356j, 0.9152+0.9867j, 0.2148+0.4693j,
+        0.3550+0.6274j, 0.3914+0.3074j, 0.7980+0.3901j, 0.5835+0.2874j,
+        0.1472+0.4626j, 0.0702+0.7571j, 0.8150+0.0760j, 0.4465+0.4331j,
+        0.2258+0.1559j, 0.3870+0.5862j, 0.5971+0.4651j, 0.8349+0.9256j,
+        0.5888+0.1422j, 0.7578+0.5234j, 0.5054+0.1221j, 0.1691+0.5866j,
+        0.8912+0.0189j, 0.2481+0.8359j, 0.9094+0.3381j, 0.7537+0.3402j,
+        0.2021+0.4307j, 0.2359+0.6891j, 0.2051+0.0311j, 0.6104+0.7485j,
+        0.0540+0.9557j, 0.3730+0.8893j, 0.4838+0.1330j, 0.7749+0.0352j,
+        0.3958+0.1214j, 0.2453+0.1248j, 0.6283+0.5429j, 0.3213+0.4744j,
+        0.3427+0.3475j, 0.1501+0.5777j, 0.3796+0.1782j, 0.1029+0.7512j,
+        0.5161+0.9669j, 0.2651+0.8289j, 0.5566+0.6569j, 0.5575+0.2478j,
+        0.9704+0.7581j, 0.9035+0.2051j, 0.5277+0.6029j, 0.7906+0.7489j,
+        0.1836+0.3656j, 0.9563+0.6482j, 0.6523+0.3440j, 0.2695+0.8561j,
+        0.7679+0.5675j, 0.2615+0.1837j, 0.3530+0.8971j, 0.3379+0.1876j,
+        0.3886+0.3657j, 0.4304+0.4586j, 0.7624+0.9822j, 0.1724+0.7713j,
+        0.8512+0.9754j, 0.1198+0.8418j, 0.7433+0.0541j, 0.2022+0.7371j,
+        0.7187+0.1847j, 0.9346+0.0739j, 0.9109+0.9662j, 0.8574+0.5567j,
+        0.1330+0.1694j, 0.9255+0.5721j, 0.4212+0.3005j, 0.9006+0.8137j,
+        0.8365+0.9647j, 0.8380+0.2888j, 0.8912+0.3028j, 0.1172+0.4077j,
+        0.6321+0.6872j, 0.4187+0.4154j, 0.4447+0.0264j, 0.2345+0.5805j,
+        0.9468+0.0936j, 0.0784+0.3790j, 0.5962+0.4761j, 0.2257+0.2128j,
+        0.1695+0.7697j, 0.0615+0.3876j, 0.2729+0.8312j, 0.1462+0.7873j,
+        0.7931+0.9289j, 0.2830+0.7487j, 0.4324+0.0808j, 0.4425+0.2641j,
+        0.4554+0.6213j, 0.8594+0.6959j, 0.8904+0.4098j, 0.1309+0.2562j,
+        0.9106+0.0181j, 0.1484+0.6593j, 0.9788+0.8000j, 0.2883+0.5706j],
+       device='cuda:0')
+refer_src: tensor([0.8053+0.0267j, 0.8268+0.7356j, 0.9152+0.9867j, 0.2148+0.4693j,
+        0.3550+0.6274j, 0.3914+0.3074j, 0.7980+0.3901j, 0.5835+0.2874j,
+        0.1472+0.4626j, 0.0702+0.7571j, 0.8150+0.0760j, 0.4465+0.4331j,
+        0.2258+0.1559j, 0.3870+0.5862j, 0.5971+0.4651j, 0.8349+0.9256j,
+        0.5888+0.1422j, 0.7578+0.5234j, 0.5054+0.1221j, 0.1691+0.5866j,
+        0.8912+0.0189j, 0.2481+0.8359j, 0.9094+0.3381j, 0.7537+0.3402j,
+        0.2021+0.4307j, 0.2359+0.6891j, 0.2051+0.0311j, 0.6104+0.7485j,
+        0.0540+0.9557j, 0.3730+0.8893j, 0.4838+0.1330j, 0.7749+0.0352j,
+        0.3958+0.1214j, 0.2453+0.1248j, 0.6283+0.5429j, 0.3213+0.4744j,
+        0.3427+0.3475j, 0.1501+0.5777j, 0.3796+0.1782j, 0.1029+0.7512j,
+        0.5161+0.9669j, 0.2651+0.8289j, 0.5566+0.6569j, 0.5575+0.2478j,
+        0.9704+0.7581j, 0.9035+0.2051j, 0.5277+0.6029j, 0.7906+0.7489j,
+        0.1836+0.3656j, 0.9563+0.6482j, 0.6523+0.3440j, 0.2695+0.8561j,
+        0.7679+0.5675j, 0.2615+0.1837j, 0.3530+0.8971j, 0.3379+0.1876j,
+        0.3886+0.3657j, 0.4304+0.4586j, 0.7624+0.9822j, 0.1724+0.7713j,
+        0.8512+0.9754j, 0.1198+0.8418j, 0.7433+0.0541j, 0.2022+0.7371j,
+        0.7187+0.1847j, 0.9346+0.0739j, 0.9109+0.9662j, 0.8574+0.5567j,
+        0.1330+0.1694j, 0.9255+0.5721j, 0.4212+0.3005j, 0.9006+0.8137j,
+        0.8365+0.9647j, 0.8380+0.2888j, 0.8912+0.3028j, 0.1172+0.4077j,
+        0.6321+0.6872j, 0.4187+0.4155j, 0.4447+0.0264j, 0.2345+0.5805j,
+        0.9468+0.0936j, 0.0784+0.3790j, 0.5962+0.4761j, 0.2257+0.2128j,
+        0.1695+0.7697j, 0.0615+0.3876j, 0.2729+0.8312j, 0.1462+0.7873j,
+        0.7931+0.9289j, 0.2830+0.7487j, 0.4324+0.0808j, 0.4425+0.2641j,
+        0.4554+0.6213j, 0.8595+0.6959j, 0.8904+0.4098j, 0.1309+0.2562j,
+        0.9106+0.0181j, 0.1484+0.6593j, 0.9788+0.8000j, 0.2883+0.5706j],
+       device='cuda:0')
+Difference: 4.300998910257781e-06
+set_ptr:0x56550c9dc9d0
+set_ptrs:0x5654f266e180
+long long set_ptr:94923283876304
+gridDim.x                    :4096
+blockDim.x                   :16
+host_params[_LAT_X_]         :16
+host_params[_LAT_Y_]         :16
+host_params[_LAT_Z_]         :16
+host_params[_LAT_T_]         :16
+host_params[_LAT_XYZT_]      :65536
+host_params[_GRID_X_]        :1
+host_params[_GRID_Y_]        :1
+host_params[_GRID_Z_]        :1
+host_params[_GRID_T_]        :1
+host_params[_PARITY_]        :0
+host_params[_NODE_RANK_]     :0
+host_params[_NODE_SIZE_]     :1
+host_params[_DAGGER_]        :0
+host_params[_MAX_ITER_]      :1000
+host_params[_DATA_TYPE_]     :2
+host_params[_SET_INDEX_]     :2
+host_params[_SET_PLAN_]      :2
+host_params[_MG_X_]          :1
+host_params[_MG_Y_]          :1
+host_params[_MG_Z_]          :1
+host_params[_MG_T_]          :1
+host_params[_LAT_E_]         :24
+host_params[_VERBOSE_]       :1
+host_params[_SEED_]          :42
+host_params[_TEST_IN_CPU_]   :0
+host_argv[_MASS_]            :5.000000e-02
+host_argv[_TOL_]             :1.000000e-09
+host_argv[_SIGMA_]           :1.000000e-01
+lat_2dim[_XY_]               :256
+lat_2dim[_XZ_]               :256
+lat_2dim[_XT_]               :256
+lat_2dim[_YZ_]               :256
+lat_2dim[_YT_]               :256
+lat_2dim[_ZT_]               :256
+lat_3dim[_YZT_]              :4096
+lat_3dim[_XZT_]              :4096
+lat_3dim[_XYT_]              :4096
+lat_3dim[_XYZ_]              :4096
+lat_4dim                     :65536
+grid_1dim[_X_]               :1
+grid_1dim[_Y_]               :1
+grid_1dim[_Z_]               :1
+grid_1dim[_T_]               :1
+grid_2dim[_XY_]              :1
+grid_2dim[_XZ_]              :1
+grid_2dim[_XT_]              :1
+grid_2dim[_YZ_]              :1
+grid_2dim[_YT_]              :1
+grid_2dim[_ZT_]              :1
+grid_3dim[_YZT_]             :1
+grid_3dim[_XZT_]             :1
+grid_3dim[_XYT_]             :1
+grid_3dim[_XYZ_]             :1
+grid_index_1dim[_X_]         :0
+grid_index_1dim[_Y_]         :0
+grid_index_1dim[_Z_]         :0
+grid_index_1dim[_T_]         :0
+move_wards[_B_X_]            :0
+move_wards[_B_Y_]            :0
+move_wards[_B_Z_]            :0
+move_wards[_B_T_]            :0
+move_wards[_F_X_]            :0
+move_wards[_F_Y_]            :0
+move_wards[_F_Z_]            :0
+move_wards[_F_T_]            :0
+move_wards[_BX_BY_]          :0
+move_wards[_BX_BZ_]          :0
+move_wards[_BX_BT_]          :0
+move_wards[_BY_BZ_]          :0
+move_wards[_BY_BT_]          :0
+move_wards[_BZ_BT_]          :0
+move_wards[_FX_BY_]          :0
+move_wards[_FX_BZ_]          :0
+move_wards[_FX_BT_]          :0
+move_wards[_FY_BZ_]          :0
+move_wards[_FY_BT_]          :0
+move_wards[_FZ_BT_]          :0
+move_wards[_BX_FY_]          :0
+move_wards[_BX_FZ_]          :0
+move_wards[_BX_FT_]          :0
+move_wards[_BY_FZ_]          :0
+move_wards[_BY_FT_]          :0
+move_wards[_BZ_FT_]          :0
+move_wards[_FX_FY_]          :0
+move_wards[_FX_FZ_]          :0
+move_wards[_FX_FT_]          :0
+move_wards[_FY_FZ_]          :0
+move_wards[_FY_FT_]          :0
+move_wards[_FZ_FT_]          :0
+lattice set init total time:0.005813618 sec
+make clover total time: (without malloc free memcpy) :0.033174873 sec
+ make clover total time: (without malloc free memcpy) :0.015910343 sec
+ inverse clover total time: (without malloc free memcpy) :0.018930454 sec
+tensor([94922863000560, 94923147297920, 94923283876304,              0,
+                     0,              0,              0,              0,
+                     0,              0])
+ set_ptr:0x56550fa51600
+set_ptrs:0x5654f266e180
+long long set_ptr:94923334686208
+gridDim.x                    :4096
+blockDim.x                   :16
+host_params[_LAT_X_]         :16
+host_params[_LAT_Y_]         :16
+host_params[_LAT_Z_]         :16
+host_params[_LAT_T_]         :16
+host_params[_LAT_XYZT_]      :65536
+host_params[_GRID_X_]        :1
+host_params[_GRID_Y_]        :1
+host_params[_GRID_Z_]        :1
+host_params[_GRID_T_]        :1
+host_params[_PARITY_]        :1
+host_params[_NODE_RANK_]     :0
+host_params[_NODE_SIZE_]     :1
+host_params[_DAGGER_]        :0
+host_params[_MAX_ITER_]      :1000
+host_params[_DATA_TYPE_]     :2
+host_params[_SET_INDEX_]     :3
+host_params[_SET_PLAN_]      :2
+host_params[_MG_X_]          :1
+host_params[_MG_Y_]          :1
+host_params[_MG_Z_]          :1
+host_params[_MG_T_]          :1
+host_params[_LAT_E_]         :24
+host_params[_VERBOSE_]       :1
+host_params[_SEED_]          :42
+host_params[_TEST_IN_CPU_]   :0
+host_argv[_MASS_]            :5.000000e-02
+host_argv[_TOL_]             :1.000000e-09
+host_argv[_SIGMA_]           :1.000000e-01
+lat_2dim[_XY_]               :256
+lat_2dim[_XZ_]               :256
+lat_2dim[_XT_]               :256
+lat_2dim[_YZ_]               :256
+lat_2dim[_YT_]               :256
+lat_2dim[_ZT_]               :256
+lat_3dim[_YZT_]              :4096
+lat_3dim[_XZT_]              :4096
+lat_3dim[_XYT_]              :4096
+lat_3dim[_XYZ_]              :4096
+lat_4dim                     :65536
+grid_1dim[_X_]               :1
+grid_1dim[_Y_]               :1
+grid_1dim[_Z_]               :1
+grid_1dim[_T_]               :1
+grid_2dim[_XY_]              :1
+grid_2dim[_XZ_]              :1
+grid_2dim[_XT_]              :1
+grid_2dim[_YZ_]              :1
+grid_2dim[_YT_]              :1
+grid_2dim[_ZT_]              :1
+grid_3dim[_YZT_]             :1
+grid_3dim[_XZT_]             :1
+grid_3dim[_XYT_]             :1
+grid_3dim[_XYZ_]             :1
+grid_index_1dim[_X_]         :0
+grid_index_1dim[_Y_]         :0
+grid_index_1dim[_Z_]         :0
+grid_index_1dim[_T_]         :0
+move_wards[_B_X_]            :0
+move_wards[_B_Y_]            :0
+move_wards[_B_Z_]            :0
+move_wards[_B_T_]            :0
+move_wards[_F_X_]            :0
+move_wards[_F_Y_]            :0
+move_wards[_F_Z_]            :0
+move_wards[_F_T_]            :0
+move_wards[_BX_BY_]          :0
+move_wards[_BX_BZ_]          :0
+move_wards[_BX_BT_]          :0
+move_wards[_BY_BZ_]          :0
+move_wards[_BY_BT_]          :0
+move_wards[_BZ_BT_]          :0
+move_wards[_FX_BY_]          :0
+move_wards[_FX_BZ_]          :0
+move_wards[_FX_BT_]          :0
+move_wards[_FY_BZ_]          :0
+move_wards[_FY_BT_]          :0
+move_wards[_FZ_BT_]          :0
+move_wards[_BX_FY_]          :0
+move_wards[_BX_FZ_]          :0
+move_wards[_BX_FT_]          :0
+move_wards[_BY_FZ_]          :0
+move_wards[_BY_FT_]          :0
+move_wards[_BZ_FT_]          :0
+move_wards[_FX_FY_]          :0
+move_wards[_FX_FZ_]          :0
+move_wards[_FX_FT_]          :0
+move_wards[_FY_FZ_]          :0
+move_wards[_FY_FT_]          :0
+move_wards[_FZ_FT_]          :0
+lattice set init total time:0.004310386 sec
+make clover total time: (without malloc free memcpy) :0.026900623 sec
+ make clover total time: (without malloc free memcpy) :0.014872605 sec
+ inverse clover total time: (without malloc free memcpy) :0.015079853 sec
+tensor([94922863000560, 94923147297920, 94923283876304, 94923334686208,
+                     0,              0,              0,              0,
+                     0,              0])
+qcu_clover_term: tensor([ 3.7167e-03+0.j,  2.4133e-03+0.j,  5.1788e-03+0.j, -5.5116e-04+0.j,
+         6.0165e-04+0.j, -7.3540e-04+0.j,  1.3987e-03+0.j,  2.3773e-03+0.j,
+        -4.1942e-03+0.j,  2.0880e-03+0.j, -3.2347e-04+0.j, -1.7583e-03+0.j,
+         7.6797e-03+0.j, -5.9307e-03+0.j, -5.0950e-04+0.j,  2.4755e-03+0.j,
+         3.1770e-03+0.j, -3.7662e-03+0.j, -3.3121e-03+0.j,  3.2836e-03+0.j,
+         4.8424e-03+0.j, -5.0896e-04+0.j, -5.6028e-06+0.j,  2.3624e-03+0.j,
+         1.0903e-03+0.j, -4.5908e-03+0.j, -2.2725e-03+0.j, -1.9658e-04+0.j,
+        -7.3807e-03+0.j,  2.5567e-03+0.j,  4.0883e-03+0.j,  2.8477e-03+0.j,
+         1.4921e-03+0.j, -5.6111e-03+0.j, -2.3888e-03+0.j,  4.6204e-03+0.j,
+        -3.9720e-03+0.j, -3.7726e-03+0.j, -5.9332e-03+0.j,  2.4060e-03+0.j,
+         2.8425e-03+0.j, -5.3117e-03+0.j, -6.7538e-04+0.j,  8.9262e-03+0.j,
+        -1.0752e-03+0.j, -2.6784e-03+0.j,  2.2640e-03+0.j,  2.2113e-04+0.j,
+         8.1778e-05+0.j,  3.0500e-03+0.j,  2.2012e-03+0.j,  5.2603e-03+0.j,
+        -2.5779e-03+0.j, -6.7368e-03+0.j, -3.6606e-03+0.j,  3.8098e-03+0.j,
+         3.8111e-04+0.j,  3.0317e-03+0.j, -2.8358e-03+0.j, -5.5566e-03+0.j,
+         1.9877e-03+0.j,  2.3477e-03+0.j, -5.0737e-03+0.j, -2.7418e-04+0.j,
+         2.9521e-03+0.j,  4.9949e-05+0.j,  2.3338e-03+0.j,  2.0576e-03+0.j,
+         6.1569e-03+0.j, -5.2304e-03+0.j,  1.8039e-03+0.j, -3.6876e-03+0.j,
+         9.0981e-04+0.j,  2.2449e-03+0.j, -3.4869e-05+0.j,  6.2268e-03+0.j,
+        -7.7802e-04+0.j, -4.6728e-03+0.j, -6.7959e-03+0.j, -3.0285e-04+0.j,
+         4.9186e-03+0.j,  5.1917e-03+0.j,  3.4022e-03+0.j,  4.6393e-03+0.j,
+        -2.1060e-03+0.j, -5.3608e-04+0.j,  2.5318e-03+0.j,  6.0763e-03+0.j,
+        -4.7034e-04+0.j,  9.4546e-03+0.j, -9.8217e-04+0.j, -3.0389e-03+0.j,
+         1.9133e-03+0.j,  3.5894e-03+0.j, -3.9916e-03+0.j,  5.8179e-03+0.j,
+        -6.0734e-03+0.j,  9.2137e-04+0.j,  6.5621e-03+0.j,  3.5390e-03+0.j],
+       device='cuda:0')
+refer_clover_term: tensor([ 3.7168e-03+0.j,  2.4132e-03+0.j,  5.1788e-03+0.j, -5.5118e-04+0.j,
+         6.0162e-04+0.j, -7.3537e-04+0.j,  1.3987e-03+0.j,  2.3773e-03+0.j,
+        -4.1942e-03+0.j,  2.0880e-03+0.j, -3.2347e-04+0.j, -1.7583e-03+0.j,
+         7.6797e-03+0.j, -5.9307e-03+0.j, -5.0951e-04+0.j,  2.4755e-03+0.j,
+         3.1770e-03+0.j, -3.7663e-03+0.j, -3.3121e-03+0.j,  3.2836e-03+0.j,
+         4.8424e-03+0.j, -5.0896e-04+0.j, -5.5776e-06+0.j,  2.3624e-03+0.j,
+         1.0903e-03+0.j, -4.5908e-03+0.j, -2.2725e-03+0.j, -1.9658e-04+0.j,
+        -7.3807e-03+0.j,  2.5567e-03+0.j,  4.0882e-03+0.j,  2.8476e-03+0.j,
+         1.4922e-03+0.j, -5.6111e-03+0.j, -2.3888e-03+0.j,  4.6205e-03+0.j,
+        -3.9720e-03+0.j, -3.7726e-03+0.j, -5.9332e-03+0.j,  2.4060e-03+0.j,
+         2.8426e-03+0.j, -5.3116e-03+0.j, -6.7538e-04+0.j,  8.9261e-03+0.j,
+        -1.0752e-03+0.j, -2.6784e-03+0.j,  2.2640e-03+0.j,  2.2110e-04+0.j,
+         8.1767e-05+0.j,  3.0500e-03+0.j,  2.2012e-03+0.j,  5.2604e-03+0.j,
+        -2.5779e-03+0.j, -6.7367e-03+0.j, -3.6606e-03+0.j,  3.8098e-03+0.j,
+         3.8112e-04+0.j,  3.0317e-03+0.j, -2.8358e-03+0.j, -5.5566e-03+0.j,
+         1.9876e-03+0.j,  2.3477e-03+0.j, -5.0737e-03+0.j, -2.7421e-04+0.j,
+         2.9521e-03+0.j,  4.9909e-05+0.j,  2.3338e-03+0.j,  2.0575e-03+0.j,
+         6.1569e-03+0.j, -5.2304e-03+0.j,  1.8039e-03+0.j, -3.6876e-03+0.j,
+         9.0984e-04+0.j,  2.2450e-03+0.j, -3.4882e-05+0.j,  6.2268e-03+0.j,
+        -7.7801e-04+0.j, -4.6728e-03+0.j, -6.7960e-03+0.j, -3.0283e-04+0.j,
+         4.9186e-03+0.j,  5.1917e-03+0.j,  3.4023e-03+0.j,  4.6393e-03+0.j,
+        -2.1060e-03+0.j, -5.3606e-04+0.j,  2.5318e-03+0.j,  6.0764e-03+0.j,
+        -4.7036e-04+0.j,  9.4547e-03+0.j, -9.8218e-04+0.j, -3.0390e-03+0.j,
+         1.9133e-03+0.j,  3.5894e-03+0.j, -3.9916e-03+0.j,  5.8179e-03+0.j,
+        -6.0733e-03+0.j,  9.2141e-04+0.j,  6.5621e-03+0.j,  3.5390e-03+0.j],
+       device='cuda:0')
+Difference: 1.932844025060962e-06
+ set_ptr:0x5655126a3bc0
+set_ptrs:0x5654f266e180
+long long set_ptr:94923381160896
+gridDim.x                    :4096
+blockDim.x                   :16
+host_params[_LAT_X_]         :16
+host_params[_LAT_Y_]         :16
+host_params[_LAT_Z_]         :16
+host_params[_LAT_T_]         :16
+host_params[_LAT_XYZT_]      :65536
+host_params[_GRID_X_]        :1
+host_params[_GRID_Y_]        :1
+host_params[_GRID_Z_]        :1
+host_params[_GRID_T_]        :1
+host_params[_PARITY_]        :0
+host_params[_NODE_RANK_]     :0
+host_params[_NODE_SIZE_]     :1
+host_params[_DAGGER_]        :0
+host_params[_MAX_ITER_]      :1000
+host_params[_DATA_TYPE_]     :2
+host_params[_SET_INDEX_]     :4
+host_params[_SET_PLAN_]      :2
+host_params[_MG_X_]          :1
+host_params[_MG_Y_]          :1
+host_params[_MG_Z_]          :1
+host_params[_MG_T_]          :1
+host_params[_LAT_E_]         :24
+host_params[_VERBOSE_]       :1
+host_params[_SEED_]          :42
+host_params[_TEST_IN_CPU_]   :0
+host_argv[_MASS_]            :5.000000e-02
+host_argv[_TOL_]             :1.000000e-09
+host_argv[_SIGMA_]           :1.000000e-01
+lat_2dim[_XY_]               :256
+lat_2dim[_XZ_]               :256
+lat_2dim[_XT_]               :256
+lat_2dim[_YZ_]               :256
+lat_2dim[_YT_]               :256
+lat_2dim[_ZT_]               :256
+lat_3dim[_YZT_]              :4096
+lat_3dim[_XZT_]              :4096
+lat_3dim[_XYT_]              :4096
+lat_3dim[_XYZ_]              :4096
+lat_4dim                     :65536
+grid_1dim[_X_]               :1
+grid_1dim[_Y_]               :1
+grid_1dim[_Z_]               :1
+grid_1dim[_T_]               :1
+grid_2dim[_XY_]              :1
+grid_2dim[_XZ_]              :1
+grid_2dim[_XT_]              :1
+grid_2dim[_YZ_]              :1
+grid_2dim[_YT_]              :1
+grid_2dim[_ZT_]              :1
+grid_3dim[_YZT_]             :1
+grid_3dim[_XZT_]             :1
+grid_3dim[_XYT_]             :1
+grid_3dim[_XYZ_]             :1
+grid_index_1dim[_X_]         :0
+grid_index_1dim[_Y_]         :0
+grid_index_1dim[_Z_]         :0
+grid_index_1dim[_T_]         :0
+move_wards[_B_X_]            :0
+move_wards[_B_Y_]            :0
+move_wards[_B_Z_]            :0
+move_wards[_B_T_]            :0
+move_wards[_F_X_]            :0
+move_wards[_F_Y_]            :0
+move_wards[_F_Z_]            :0
+move_wards[_F_T_]            :0
+move_wards[_BX_BY_]          :0
+move_wards[_BX_BZ_]          :0
+move_wards[_BX_BT_]          :0
+move_wards[_BY_BZ_]          :0
+move_wards[_BY_BT_]          :0
+move_wards[_BZ_BT_]          :0
+move_wards[_FX_BY_]          :0
+move_wards[_FX_BZ_]          :0
+move_wards[_FX_BT_]          :0
+move_wards[_FY_BZ_]          :0
+move_wards[_FY_BT_]          :0
+move_wards[_FZ_BT_]          :0
+move_wards[_BX_FY_]          :0
+move_wards[_BX_FZ_]          :0
+move_wards[_BX_FT_]          :0
+move_wards[_BY_FZ_]          :0
+move_wards[_BY_FT_]          :0
+move_wards[_BZ_FT_]          :0
+move_wards[_FX_FY_]          :0
+move_wards[_FX_FZ_]          :0
+move_wards[_FX_FT_]          :0
+move_wards[_FY_FZ_]          :0
+move_wards[_FY_FT_]          :0
+move_wards[_FZ_FT_]          :0
+lattice set init total time:0.005225700 sec
+long long fermion_out:30444355584
+long long fermion_in:30205280256
+long long gauge:30154948608
+long long clover_ee:30553407488
+long long clover_oo:30704402432
+long long clover_ee_inv:30628904960
+long long clover_oo_inv:30779899904
+long long set_ptrs:94922844070272
+long long params:94922844055744
+##RANK:0##LOOP:95##Residual:(9.45955e-10,-1.67728e-20i)
+multi-gpu clover bistabcg total time: (without malloc free memcpy) :0.448025024 sec
+######TIME  :464.231######
+##RANK      :0
+##LOOP      :0
+##tmp0      :(8.83831e-11,-2.32351e-11i)
+##tmp1      :(7.64104e-11,-2.94349e-22i)
+##rho_prev  :(-2.41086e-07,3.19094e-07i)
+##rho       :(-2.41086e-07,3.19094e-07i)
+##alpha     :(2.07931,0.348156i)
+##beta      :(-0.601791,-0.0963802i)
+##omega     :(1.15669,-0.304083i)
+##send_tmp  :(2.08028e-05,-3.46945e-18i)
+##norm2_tmp :(1.70096e+06,3.95661e-06i)
+##diff_tmp  :(1.223e-11,-3.04881e-23i)
+##lat_4dim  :(65536,0i)
+tensor([94922863000560, 94923147297920, 94923283876304, 94923334686208,
+        94923381160896,              0,              0,              0,
+                     0,              0])
+qcu_src: tensor([0.8053+0.0267j, 0.8268+0.7356j, 0.9152+0.9867j, 0.2148+0.4693j,
+        0.3550+0.6274j, 0.3914+0.3074j, 0.7980+0.3901j, 0.5835+0.2874j,
+        0.1472+0.4626j, 0.0702+0.7571j, 0.8150+0.0760j, 0.4465+0.4331j,
+        0.2258+0.1559j, 0.3870+0.5862j, 0.5971+0.4651j, 0.8349+0.9256j,
+        0.5888+0.1422j, 0.7578+0.5234j, 0.5054+0.1221j, 0.1691+0.5866j,
+        0.8912+0.0189j, 0.2481+0.8359j, 0.9094+0.3381j, 0.7537+0.3402j,
+        0.2021+0.4307j, 0.2359+0.6891j, 0.2051+0.0311j, 0.6104+0.7485j,
+        0.0540+0.9557j, 0.3730+0.8893j, 0.4838+0.1330j, 0.7749+0.0352j,
+        0.3958+0.1214j, 0.2453+0.1248j, 0.6283+0.5429j, 0.3213+0.4744j,
+        0.3427+0.3475j, 0.1501+0.5777j, 0.3796+0.1782j, 0.1029+0.7512j,
+        0.5161+0.9669j, 0.2651+0.8289j, 0.5566+0.6569j, 0.5575+0.2478j,
+        0.9704+0.7581j, 0.9035+0.2051j, 0.5277+0.6029j, 0.7906+0.7489j,
+        0.1836+0.3656j, 0.9563+0.6482j, 0.6523+0.3440j, 0.2695+0.8561j,
+        0.7679+0.5675j, 0.2615+0.1837j, 0.3530+0.8971j, 0.3379+0.1876j,
+        0.3886+0.3657j, 0.4304+0.4586j, 0.7624+0.9822j, 0.1724+0.7713j,
+        0.8512+0.9754j, 0.1198+0.8418j, 0.7433+0.0541j, 0.2022+0.7371j,
+        0.7187+0.1847j, 0.9346+0.0739j, 0.9109+0.9662j, 0.8574+0.5567j,
+        0.1330+0.1694j, 0.9255+0.5721j, 0.4212+0.3005j, 0.9006+0.8137j,
+        0.8365+0.9647j, 0.8380+0.2888j, 0.8912+0.3028j, 0.1172+0.4077j,
+        0.6321+0.6872j, 0.4187+0.4154j, 0.4447+0.0264j, 0.2345+0.5805j,
+        0.9468+0.0936j, 0.0784+0.3790j, 0.5962+0.4761j, 0.2257+0.2128j,
+        0.1695+0.7697j, 0.0615+0.3876j, 0.2729+0.8312j, 0.1462+0.7873j,
+        0.7931+0.9289j, 0.2830+0.7487j, 0.4324+0.0808j, 0.4425+0.2641j,
+        0.4554+0.6213j, 0.8594+0.6959j, 0.8904+0.4098j, 0.1309+0.2562j,
+        0.9106+0.0181j, 0.1484+0.6593j, 0.9788+0.8000j, 0.2883+0.5706j],
+       device='cuda:0')
+refer_src: tensor([0.8053+0.0267j, 0.8268+0.7356j, 0.9152+0.9867j, 0.2148+0.4693j,
+        0.3550+0.6274j, 0.3914+0.3074j, 0.7980+0.3901j, 0.5835+0.2874j,
+        0.1472+0.4626j, 0.0702+0.7571j, 0.8150+0.0760j, 0.4465+0.4331j,
+        0.2258+0.1559j, 0.3870+0.5862j, 0.5971+0.4651j, 0.8349+0.9256j,
+        0.5888+0.1422j, 0.7578+0.5234j, 0.5054+0.1221j, 0.1691+0.5866j,
+        0.8912+0.0189j, 0.2481+0.8359j, 0.9094+0.3381j, 0.7537+0.3402j,
+        0.2021+0.4307j, 0.2359+0.6891j, 0.2051+0.0311j, 0.6104+0.7485j,
+        0.0540+0.9557j, 0.3730+0.8893j, 0.4838+0.1330j, 0.7749+0.0352j,
+        0.3958+0.1215j, 0.2453+0.1248j, 0.6283+0.5429j, 0.3213+0.4744j,
+        0.3427+0.3475j, 0.1501+0.5777j, 0.3796+0.1782j, 0.1029+0.7512j,
+        0.5161+0.9669j, 0.2651+0.8289j, 0.5566+0.6569j, 0.5575+0.2478j,
+        0.9704+0.7581j, 0.9035+0.2051j, 0.5277+0.6029j, 0.7906+0.7488j,
+        0.1836+0.3656j, 0.9563+0.6482j, 0.6523+0.3440j, 0.2695+0.8561j,
+        0.7679+0.5675j, 0.2614+0.1837j, 0.3530+0.8971j, 0.3379+0.1876j,
+        0.3886+0.3657j, 0.4304+0.4586j, 0.7624+0.9822j, 0.1724+0.7713j,
+        0.8512+0.9754j, 0.1198+0.8418j, 0.7433+0.0541j, 0.2022+0.7371j,
+        0.7187+0.1847j, 0.9346+0.0739j, 0.9109+0.9662j, 0.8574+0.5567j,
+        0.1330+0.1694j, 0.9255+0.5721j, 0.4212+0.3005j, 0.9006+0.8137j,
+        0.8365+0.9647j, 0.8380+0.2888j, 0.8912+0.3028j, 0.1172+0.4077j,
+        0.6321+0.6872j, 0.4187+0.4154j, 0.4447+0.0264j, 0.2345+0.5805j,
+        0.9468+0.0936j, 0.0784+0.3790j, 0.5962+0.4761j, 0.2257+0.2128j,
+        0.1695+0.7697j, 0.0615+0.3876j, 0.2729+0.8312j, 0.1462+0.7873j,
+        0.7931+0.9289j, 0.2830+0.7487j, 0.4324+0.0808j, 0.4425+0.2641j,
+        0.4554+0.6213j, 0.8595+0.6959j, 0.8904+0.4098j, 0.1309+0.2562j,
+        0.9106+0.0181j, 0.1484+0.6593j, 0.9788+0.8000j, 0.2883+0.5706j],
+       device='cuda:0')
+Difference: 4.6486200941682395e-06
+long long fermion_out:30456938496
+long long fermion_in:30205280256
+long long gauge:30154948608
+long long clover_ee:30553407488
+long long clover_oo:30704402432
+long long clover_ee_inv:30628904960
+long long clover_oo_inv:30779899904
+long long set_ptrs:94922844070272
+long long params:94922844055744
+##RANK:0##LOOP:95##Residual:(9.45955e-10,-1.67728e-20i)
+multi-gpu clover bistabcg total time: (without malloc free memcpy) :0.458777312 sec
+######TIME  :995.522######
+##RANK      :0
+##LOOP      :0
+##tmp0      :(8.83831e-11,-2.32351e-11i)
+##tmp1      :(7.64104e-11,-2.94349e-22i)
+##rho_prev  :(-2.41086e-07,3.19094e-07i)
+##rho       :(-2.41086e-07,3.19094e-07i)
+##alpha     :(2.07931,0.348156i)
+##beta      :(-0.601791,-0.0963802i)
+##omega     :(1.15669,-0.304083i)
+##send_tmp  :(2.08028e-05,-3.46945e-18i)
+##norm2_tmp :(1.70096e+06,3.95661e-06i)
+##diff_tmp  :(1.223e-11,-3.04881e-23i)
+##lat_4dim  :(65536,0i)
+tensor([94922863000560, 94923147297920, 94923283876304, 94923334686208,
+        94923381160896,              0,              0,              0,
+                     0,              0])
+qcu_src: tensor([0.8053+0.0267j, 0.8268+0.7356j, 0.9152+0.9867j, 0.2148+0.4693j,
+        0.3550+0.6274j, 0.3914+0.3074j, 0.7980+0.3901j, 0.5835+0.2874j,
+        0.1472+0.4626j, 0.0702+0.7571j, 0.8150+0.0760j, 0.4465+0.4331j,
+        0.2258+0.1559j, 0.3870+0.5862j, 0.5971+0.4651j, 0.8349+0.9256j,
+        0.5888+0.1422j, 0.7578+0.5234j, 0.5054+0.1221j, 0.1691+0.5866j,
+        0.8912+0.0189j, 0.2481+0.8359j, 0.9094+0.3381j, 0.7537+0.3402j,
+        0.2021+0.4307j, 0.2359+0.6891j, 0.2051+0.0311j, 0.6104+0.7485j,
+        0.0540+0.9557j, 0.3730+0.8893j, 0.4838+0.1330j, 0.7749+0.0352j,
+        0.3958+0.1214j, 0.2453+0.1248j, 0.6283+0.5429j, 0.3213+0.4744j,
+        0.3427+0.3475j, 0.1501+0.5777j, 0.3796+0.1782j, 0.1029+0.7512j,
+        0.5161+0.9669j, 0.2651+0.8289j, 0.5566+0.6569j, 0.5575+0.2478j,
+        0.9704+0.7581j, 0.9035+0.2051j, 0.5277+0.6029j, 0.7906+0.7489j,
+        0.1836+0.3656j, 0.9563+0.6482j, 0.6523+0.3440j, 0.2695+0.8561j,
+        0.7679+0.5675j, 0.2615+0.1837j, 0.3530+0.8971j, 0.3379+0.1876j,
+        0.3886+0.3657j, 0.4304+0.4586j, 0.7624+0.9822j, 0.1724+0.7713j,
+        0.8512+0.9754j, 0.1198+0.8418j, 0.7433+0.0541j, 0.2022+0.7371j,
+        0.7187+0.1847j, 0.9346+0.0739j, 0.9109+0.9662j, 0.8574+0.5567j,
+        0.1330+0.1694j, 0.9255+0.5721j, 0.4212+0.3005j, 0.9006+0.8137j,
+        0.8365+0.9647j, 0.8380+0.2888j, 0.8912+0.3028j, 0.1172+0.4077j,
+        0.6321+0.6872j, 0.4187+0.4154j, 0.4447+0.0264j, 0.2345+0.5805j,
+        0.9468+0.0936j, 0.0784+0.3790j, 0.5962+0.4761j, 0.2257+0.2128j,
+        0.1695+0.7697j, 0.0615+0.3876j, 0.2729+0.8312j, 0.1462+0.7873j,
+        0.7931+0.9289j, 0.2830+0.7487j, 0.4324+0.0808j, 0.4425+0.2641j,
+        0.4554+0.6213j, 0.8594+0.6959j, 0.8904+0.4098j, 0.1309+0.2562j,
+        0.9106+0.0181j, 0.1484+0.6593j, 0.9788+0.8000j, 0.2883+0.5706j],
+       device='cuda:0')
+refer_src: tensor([0.8053+0.0267j, 0.8268+0.7356j, 0.9152+0.9867j, 0.2148+0.4693j,
+        0.3550+0.6274j, 0.3914+0.3074j, 0.7980+0.3901j, 0.5835+0.2874j,
+        0.1472+0.4626j, 0.0702+0.7571j, 0.8150+0.0760j, 0.4465+0.4331j,
+        0.2258+0.1559j, 0.3870+0.5862j, 0.5971+0.4651j, 0.8349+0.9256j,
+        0.5888+0.1422j, 0.7578+0.5234j, 0.5054+0.1221j, 0.1691+0.5866j,
+        0.8912+0.0189j, 0.2481+0.8359j, 0.9094+0.3381j, 0.7537+0.3402j,
+        0.2021+0.4307j, 0.2359+0.6891j, 0.2051+0.0311j, 0.6104+0.7485j,
+        0.0540+0.9557j, 0.3730+0.8893j, 0.4838+0.1330j, 0.7749+0.0352j,
+        0.3958+0.1215j, 0.2453+0.1248j, 0.6283+0.5429j, 0.3213+0.4744j,
+        0.3427+0.3475j, 0.1501+0.5777j, 0.3796+0.1782j, 0.1029+0.7512j,
+        0.5161+0.9669j, 0.2651+0.8289j, 0.5566+0.6569j, 0.5575+0.2478j,
+        0.9704+0.7581j, 0.9035+0.2051j, 0.5277+0.6029j, 0.7906+0.7488j,
+        0.1836+0.3656j, 0.9563+0.6482j, 0.6523+0.3440j, 0.2695+0.8561j,
+        0.7679+0.5675j, 0.2614+0.1837j, 0.3530+0.8971j, 0.3379+0.1876j,
+        0.3886+0.3657j, 0.4304+0.4586j, 0.7624+0.9822j, 0.1724+0.7713j,
+        0.8512+0.9754j, 0.1198+0.8418j, 0.7433+0.0541j, 0.2022+0.7371j,
+        0.7187+0.1847j, 0.9346+0.0739j, 0.9109+0.9662j, 0.8574+0.5567j,
+        0.1330+0.1694j, 0.9255+0.5721j, 0.4212+0.3005j, 0.9006+0.8137j,
+        0.8365+0.9647j, 0.8380+0.2888j, 0.8912+0.3028j, 0.1172+0.4077j,
+        0.6321+0.6872j, 0.4187+0.4154j, 0.4447+0.0264j, 0.2345+0.5805j,
+        0.9468+0.0936j, 0.0784+0.3790j, 0.5962+0.4761j, 0.2257+0.2128j,
+        0.1695+0.7697j, 0.0615+0.3876j, 0.2729+0.8312j, 0.1462+0.7873j,
+        0.7931+0.9289j, 0.2830+0.7487j, 0.4324+0.0808j, 0.4425+0.2641j,
+        0.4554+0.6213j, 0.8595+0.6959j, 0.8904+0.4098j, 0.1309+0.2562j,
+        0.9106+0.0181j, 0.1484+0.6593j, 0.9788+0.8000j, 0.2883+0.5706j],
+       device='cuda:0')
+Difference: 4.6486200941682395e-06
+long long fermion_out:30192697344
+long long fermion_in:30205280256
+long long gauge:30154948608
+long long clover_ee:30553407488
+long long clover_oo:30704402432
+long long clover_ee_inv:30628904960
+long long clover_oo_inv:30779899904
+long long set_ptrs:94922844070272
+long long params:94922844055744
+##RANK:0##LOOP:95##Residual:(9.45955e-10,-1.67728e-20i)
+multi-gpu clover bistabcg total time: (without malloc free memcpy) :0.459577536 sec
+######TIME  :1520.03######
+##RANK      :0
+##LOOP      :0
+##tmp0      :(8.83831e-11,-2.32351e-11i)
+##tmp1      :(7.64104e-11,-2.94349e-22i)
+##rho_prev  :(-2.41086e-07,3.19094e-07i)
+##rho       :(-2.41086e-07,3.19094e-07i)
+##alpha     :(2.07931,0.348156i)
+##beta      :(-0.601791,-0.0963802i)
+##omega     :(1.15669,-0.304083i)
+##send_tmp  :(2.08028e-05,-3.46945e-18i)
+##norm2_tmp :(1.70096e+06,3.95661e-06i)
+##diff_tmp  :(1.223e-11,-3.04881e-23i)
+##lat_4dim  :(65536,0i)
+tensor([94922863000560, 94923147297920, 94923283876304, 94923334686208,
+        94923381160896,              0,              0,              0,
+                     0,              0])
+qcu_src: tensor([0.8053+0.0267j, 0.8268+0.7356j, 0.9152+0.9867j, 0.2148+0.4693j,
+        0.3550+0.6274j, 0.3914+0.3074j, 0.7980+0.3901j, 0.5835+0.2874j,
+        0.1472+0.4626j, 0.0702+0.7571j, 0.8150+0.0760j, 0.4465+0.4331j,
+        0.2258+0.1559j, 0.3870+0.5862j, 0.5971+0.4651j, 0.8349+0.9256j,
+        0.5888+0.1422j, 0.7578+0.5234j, 0.5054+0.1221j, 0.1691+0.5866j,
+        0.8912+0.0189j, 0.2481+0.8359j, 0.9094+0.3381j, 0.7537+0.3402j,
+        0.2021+0.4307j, 0.2359+0.6891j, 0.2051+0.0311j, 0.6104+0.7485j,
+        0.0540+0.9557j, 0.3730+0.8893j, 0.4838+0.1330j, 0.7749+0.0352j,
+        0.3958+0.1214j, 0.2453+0.1248j, 0.6283+0.5429j, 0.3213+0.4744j,
+        0.3427+0.3475j, 0.1501+0.5777j, 0.3796+0.1782j, 0.1029+0.7512j,
+        0.5161+0.9669j, 0.2651+0.8289j, 0.5566+0.6569j, 0.5575+0.2478j,
+        0.9704+0.7581j, 0.9035+0.2051j, 0.5277+0.6029j, 0.7906+0.7489j,
+        0.1836+0.3656j, 0.9563+0.6482j, 0.6523+0.3440j, 0.2695+0.8561j,
+        0.7679+0.5675j, 0.2615+0.1837j, 0.3530+0.8971j, 0.3379+0.1876j,
+        0.3886+0.3657j, 0.4304+0.4586j, 0.7624+0.9822j, 0.1724+0.7713j,
+        0.8512+0.9754j, 0.1198+0.8418j, 0.7433+0.0541j, 0.2022+0.7371j,
+        0.7187+0.1847j, 0.9346+0.0739j, 0.9109+0.9662j, 0.8574+0.5567j,
+        0.1330+0.1694j, 0.9255+0.5721j, 0.4212+0.3005j, 0.9006+0.8137j,
+        0.8365+0.9647j, 0.8380+0.2888j, 0.8912+0.3028j, 0.1172+0.4077j,
+        0.6321+0.6872j, 0.4187+0.4154j, 0.4447+0.0264j, 0.2345+0.5805j,
+        0.9468+0.0936j, 0.0784+0.3790j, 0.5962+0.4761j, 0.2257+0.2128j,
+        0.1695+0.7697j, 0.0615+0.3876j, 0.2729+0.8312j, 0.1462+0.7873j,
+        0.7931+0.9289j, 0.2830+0.7487j, 0.4324+0.0808j, 0.4425+0.2641j,
+        0.4554+0.6213j, 0.8594+0.6959j, 0.8904+0.4098j, 0.1309+0.2562j,
+        0.9106+0.0181j, 0.1484+0.6593j, 0.9788+0.8000j, 0.2883+0.5706j],
+       device='cuda:0')
+refer_src: tensor([0.8053+0.0267j, 0.8268+0.7356j, 0.9152+0.9867j, 0.2148+0.4693j,
+        0.3550+0.6274j, 0.3914+0.3074j, 0.7980+0.3901j, 0.5835+0.2874j,
+        0.1472+0.4626j, 0.0702+0.7571j, 0.8150+0.0760j, 0.4465+0.4331j,
+        0.2258+0.1559j, 0.3870+0.5862j, 0.5971+0.4651j, 0.8349+0.9256j,
+        0.5888+0.1422j, 0.7578+0.5234j, 0.5054+0.1221j, 0.1691+0.5866j,
+        0.8912+0.0189j, 0.2481+0.8359j, 0.9094+0.3381j, 0.7537+0.3402j,
+        0.2021+0.4307j, 0.2359+0.6891j, 0.2051+0.0311j, 0.6104+0.7485j,
+        0.0540+0.9557j, 0.3730+0.8893j, 0.4838+0.1330j, 0.7749+0.0352j,
+        0.3958+0.1215j, 0.2453+0.1248j, 0.6283+0.5429j, 0.3213+0.4744j,
+        0.3427+0.3475j, 0.1501+0.5777j, 0.3796+0.1782j, 0.1029+0.7512j,
+        0.5161+0.9669j, 0.2651+0.8289j, 0.5566+0.6569j, 0.5575+0.2478j,
+        0.9704+0.7581j, 0.9035+0.2051j, 0.5277+0.6029j, 0.7906+0.7488j,
+        0.1836+0.3656j, 0.9563+0.6482j, 0.6523+0.3440j, 0.2695+0.8561j,
+        0.7679+0.5675j, 0.2614+0.1837j, 0.3530+0.8971j, 0.3379+0.1876j,
+        0.3886+0.3657j, 0.4304+0.4586j, 0.7624+0.9822j, 0.1724+0.7713j,
+        0.8512+0.9754j, 0.1198+0.8418j, 0.7433+0.0541j, 0.2022+0.7371j,
+        0.7187+0.1847j, 0.9346+0.0739j, 0.9109+0.9662j, 0.8574+0.5567j,
+        0.1330+0.1694j, 0.9255+0.5721j, 0.4212+0.3005j, 0.9006+0.8137j,
+        0.8365+0.9647j, 0.8380+0.2888j, 0.8912+0.3028j, 0.1172+0.4077j,
+        0.6321+0.6872j, 0.4187+0.4154j, 0.4447+0.0264j, 0.2345+0.5805j,
+        0.9468+0.0936j, 0.0784+0.3790j, 0.5962+0.4761j, 0.2257+0.2128j,
+        0.1695+0.7697j, 0.0615+0.3876j, 0.2729+0.8312j, 0.1462+0.7873j,
+        0.7931+0.9289j, 0.2830+0.7487j, 0.4324+0.0808j, 0.4425+0.2641j,
+        0.4554+0.6213j, 0.8595+0.6959j, 0.8904+0.4098j, 0.1309+0.2562j,
+        0.9106+0.0181j, 0.1484+0.6593j, 0.9788+0.8000j, 0.2883+0.5706j],
+       device='cuda:0')
+Difference: 4.6486200941682395e-06
+long long fermion_out:30444355584
+long long fermion_in:30205280256
+long long gauge:30154948608
+long long clover_ee:30553407488
+long long clover_oo:30704402432
+long long clover_ee_inv:30628904960
+long long clover_oo_inv:30779899904
+long long set_ptrs:94922844070272
+long long params:94922844055744
+##RANK:0##LOOP:95##Residual:(9.45955e-10,-1.67728e-20i)
+multi-gpu clover bistabcg total time: (without malloc free memcpy) :0.443426208 sec
+######TIME  :2030.38######
+##RANK      :0
+##LOOP      :0
+##tmp0      :(8.83831e-11,-2.32351e-11i)
+##tmp1      :(7.64104e-11,-2.94349e-22i)
+##rho_prev  :(-2.41086e-07,3.19094e-07i)
+##rho       :(-2.41086e-07,3.19094e-07i)
+##alpha     :(2.07931,0.348156i)
+##beta      :(-0.601791,-0.0963802i)
+##omega     :(1.15669,-0.304083i)
+##send_tmp  :(2.08028e-05,-3.46945e-18i)
+##norm2_tmp :(1.70096e+06,3.95661e-06i)
+##diff_tmp  :(1.223e-11,-3.04881e-23i)
+##lat_4dim  :(65536,0i)
+tensor([94922863000560, 94923147297920, 94923283876304, 94923334686208,
+        94923381160896,              0,              0,              0,
+                     0,              0])
+qcu_src: tensor([0.8053+0.0267j, 0.8268+0.7356j, 0.9152+0.9867j, 0.2148+0.4693j,
+        0.3550+0.6274j, 0.3914+0.3074j, 0.7980+0.3901j, 0.5835+0.2874j,
+        0.1472+0.4626j, 0.0702+0.7571j, 0.8150+0.0760j, 0.4465+0.4331j,
+        0.2258+0.1559j, 0.3870+0.5862j, 0.5971+0.4651j, 0.8349+0.9256j,
+        0.5888+0.1422j, 0.7578+0.5234j, 0.5054+0.1221j, 0.1691+0.5866j,
+        0.8912+0.0189j, 0.2481+0.8359j, 0.9094+0.3381j, 0.7537+0.3402j,
+        0.2021+0.4307j, 0.2359+0.6891j, 0.2051+0.0311j, 0.6104+0.7485j,
+        0.0540+0.9557j, 0.3730+0.8893j, 0.4838+0.1330j, 0.7749+0.0352j,
+        0.3958+0.1214j, 0.2453+0.1248j, 0.6283+0.5429j, 0.3213+0.4744j,
+        0.3427+0.3475j, 0.1501+0.5777j, 0.3796+0.1782j, 0.1029+0.7512j,
+        0.5161+0.9669j, 0.2651+0.8289j, 0.5566+0.6569j, 0.5575+0.2478j,
+        0.9704+0.7581j, 0.9035+0.2051j, 0.5277+0.6029j, 0.7906+0.7489j,
+        0.1836+0.3656j, 0.9563+0.6482j, 0.6523+0.3440j, 0.2695+0.8561j,
+        0.7679+0.5675j, 0.2615+0.1837j, 0.3530+0.8971j, 0.3379+0.1876j,
+        0.3886+0.3657j, 0.4304+0.4586j, 0.7624+0.9822j, 0.1724+0.7713j,
+        0.8512+0.9754j, 0.1198+0.8418j, 0.7433+0.0541j, 0.2022+0.7371j,
+        0.7187+0.1847j, 0.9346+0.0739j, 0.9109+0.9662j, 0.8574+0.5567j,
+        0.1330+0.1694j, 0.9255+0.5721j, 0.4212+0.3005j, 0.9006+0.8137j,
+        0.8365+0.9647j, 0.8380+0.2888j, 0.8912+0.3028j, 0.1172+0.4077j,
+        0.6321+0.6872j, 0.4187+0.4154j, 0.4447+0.0264j, 0.2345+0.5805j,
+        0.9468+0.0936j, 0.0784+0.3790j, 0.5962+0.4761j, 0.2257+0.2128j,
+        0.1695+0.7697j, 0.0615+0.3876j, 0.2729+0.8312j, 0.1462+0.7873j,
+        0.7931+0.9289j, 0.2830+0.7487j, 0.4324+0.0808j, 0.4425+0.2641j,
+        0.4554+0.6213j, 0.8594+0.6959j, 0.8904+0.4098j, 0.1309+0.2562j,
+        0.9106+0.0181j, 0.1484+0.6593j, 0.9788+0.8000j, 0.2883+0.5706j],
+       device='cuda:0')
+refer_src: tensor([0.8053+0.0267j, 0.8268+0.7356j, 0.9152+0.9867j, 0.2148+0.4693j,
+        0.3550+0.6274j, 0.3914+0.3074j, 0.7980+0.3901j, 0.5835+0.2874j,
+        0.1472+0.4626j, 0.0702+0.7571j, 0.8150+0.0760j, 0.4465+0.4331j,
+        0.2258+0.1559j, 0.3870+0.5862j, 0.5971+0.4651j, 0.8349+0.9256j,
+        0.5888+0.1422j, 0.7578+0.5234j, 0.5054+0.1221j, 0.1691+0.5866j,
+        0.8912+0.0189j, 0.2481+0.8359j, 0.9094+0.3381j, 0.7537+0.3402j,
+        0.2021+0.4307j, 0.2359+0.6891j, 0.2051+0.0311j, 0.6104+0.7485j,
+        0.0540+0.9557j, 0.3730+0.8893j, 0.4838+0.1330j, 0.7749+0.0352j,
+        0.3958+0.1215j, 0.2453+0.1248j, 0.6283+0.5429j, 0.3213+0.4744j,
+        0.3427+0.3475j, 0.1501+0.5777j, 0.3796+0.1782j, 0.1029+0.7512j,
+        0.5161+0.9669j, 0.2651+0.8289j, 0.5566+0.6569j, 0.5575+0.2478j,
+        0.9704+0.7581j, 0.9035+0.2051j, 0.5277+0.6029j, 0.7906+0.7488j,
+        0.1836+0.3656j, 0.9563+0.6482j, 0.6523+0.3440j, 0.2695+0.8561j,
+        0.7679+0.5675j, 0.2614+0.1837j, 0.3530+0.8971j, 0.3379+0.1876j,
+        0.3886+0.3657j, 0.4304+0.4586j, 0.7624+0.9822j, 0.1724+0.7713j,
+        0.8512+0.9754j, 0.1198+0.8418j, 0.7433+0.0541j, 0.2022+0.7371j,
+        0.7187+0.1847j, 0.9346+0.0739j, 0.9109+0.9662j, 0.8574+0.5567j,
+        0.1330+0.1694j, 0.9255+0.5721j, 0.4212+0.3005j, 0.9006+0.8137j,
+        0.8365+0.9647j, 0.8380+0.2888j, 0.8912+0.3028j, 0.1172+0.4077j,
+        0.6321+0.6872j, 0.4187+0.4154j, 0.4447+0.0264j, 0.2345+0.5805j,
+        0.9468+0.0936j, 0.0784+0.3790j, 0.5962+0.4761j, 0.2257+0.2128j,
+        0.1695+0.7697j, 0.0615+0.3876j, 0.2729+0.8312j, 0.1462+0.7873j,
+        0.7931+0.9289j, 0.2830+0.7487j, 0.4324+0.0808j, 0.4425+0.2641j,
+        0.4554+0.6213j, 0.8595+0.6959j, 0.8904+0.4098j, 0.1309+0.2562j,
+        0.9106+0.0181j, 0.1484+0.6593j, 0.9788+0.8000j, 0.2883+0.5706j],
+       device='cuda:0')
+Difference: 4.6486200941682395e-06
+long long fermion_out:30456938496
+long long fermion_in:30205280256
+long long gauge:30154948608
+long long clover_ee:30553407488
+long long clover_oo:30704402432
+long long clover_ee_inv:30628904960
+long long clover_oo_inv:30779899904
+long long set_ptrs:94922844070272
+long long params:94922844055744
+##RANK:0##LOOP:95##Residual:(9.45955e-10,-1.67728e-20i)
+multi-gpu clover bistabcg total time: (without malloc free memcpy) :0.444433952 sec
+######TIME  :2539.55######
+##RANK      :0
+##LOOP      :0
+##tmp0      :(8.83831e-11,-2.32351e-11i)
+##tmp1      :(7.64104e-11,-2.94349e-22i)
+##rho_prev  :(-2.41086e-07,3.19094e-07i)
+##rho       :(-2.41086e-07,3.19094e-07i)
+##alpha     :(2.07931,0.348156i)
+##beta      :(-0.601791,-0.0963802i)
+##omega     :(1.15669,-0.304083i)
+##send_tmp  :(2.08028e-05,-3.46945e-18i)
+##norm2_tmp :(1.70096e+06,3.95661e-06i)
+##diff_tmp  :(1.223e-11,-3.04881e-23i)
+##lat_4dim  :(65536,0i)
+tensor([94922863000560, 94923147297920, 94923283876304, 94923334686208,
+        94923381160896,              0,              0,              0,
+                     0,              0])
+qcu_src: tensor([0.8053+0.0267j, 0.8268+0.7356j, 0.9152+0.9867j, 0.2148+0.4693j,
+        0.3550+0.6274j, 0.3914+0.3074j, 0.7980+0.3901j, 0.5835+0.2874j,
+        0.1472+0.4626j, 0.0702+0.7571j, 0.8150+0.0760j, 0.4465+0.4331j,
+        0.2258+0.1559j, 0.3870+0.5862j, 0.5971+0.4651j, 0.8349+0.9256j,
+        0.5888+0.1422j, 0.7578+0.5234j, 0.5054+0.1221j, 0.1691+0.5866j,
+        0.8912+0.0189j, 0.2481+0.8359j, 0.9094+0.3381j, 0.7537+0.3402j,
+        0.2021+0.4307j, 0.2359+0.6891j, 0.2051+0.0311j, 0.6104+0.7485j,
+        0.0540+0.9557j, 0.3730+0.8893j, 0.4838+0.1330j, 0.7749+0.0352j,
+        0.3958+0.1214j, 0.2453+0.1248j, 0.6283+0.5429j, 0.3213+0.4744j,
+        0.3427+0.3475j, 0.1501+0.5777j, 0.3796+0.1782j, 0.1029+0.7512j,
+        0.5161+0.9669j, 0.2651+0.8289j, 0.5566+0.6569j, 0.5575+0.2478j,
+        0.9704+0.7581j, 0.9035+0.2051j, 0.5277+0.6029j, 0.7906+0.7489j,
+        0.1836+0.3656j, 0.9563+0.6482j, 0.6523+0.3440j, 0.2695+0.8561j,
+        0.7679+0.5675j, 0.2615+0.1837j, 0.3530+0.8971j, 0.3379+0.1876j,
+        0.3886+0.3657j, 0.4304+0.4586j, 0.7624+0.9822j, 0.1724+0.7713j,
+        0.8512+0.9754j, 0.1198+0.8418j, 0.7433+0.0541j, 0.2022+0.7371j,
+        0.7187+0.1847j, 0.9346+0.0739j, 0.9109+0.9662j, 0.8574+0.5567j,
+        0.1330+0.1694j, 0.9255+0.5721j, 0.4212+0.3005j, 0.9006+0.8137j,
+        0.8365+0.9647j, 0.8380+0.2888j, 0.8912+0.3028j, 0.1172+0.4077j,
+        0.6321+0.6872j, 0.4187+0.4154j, 0.4447+0.0264j, 0.2345+0.5805j,
+        0.9468+0.0936j, 0.0784+0.3790j, 0.5962+0.4761j, 0.2257+0.2128j,
+        0.1695+0.7697j, 0.0615+0.3876j, 0.2729+0.8312j, 0.1462+0.7873j,
+        0.7931+0.9289j, 0.2830+0.7487j, 0.4324+0.0808j, 0.4425+0.2641j,
+        0.4554+0.6213j, 0.8594+0.6959j, 0.8904+0.4098j, 0.1309+0.2562j,
+        0.9106+0.0181j, 0.1484+0.6593j, 0.9788+0.8000j, 0.2883+0.5706j],
+       device='cuda:0')
+refer_src: tensor([0.8053+0.0267j, 0.8268+0.7356j, 0.9152+0.9867j, 0.2148+0.4693j,
+        0.3550+0.6274j, 0.3914+0.3074j, 0.7980+0.3901j, 0.5835+0.2874j,
+        0.1472+0.4626j, 0.0702+0.7571j, 0.8150+0.0760j, 0.4465+0.4331j,
+        0.2258+0.1559j, 0.3870+0.5862j, 0.5971+0.4651j, 0.8349+0.9256j,
+        0.5888+0.1422j, 0.7578+0.5234j, 0.5054+0.1221j, 0.1691+0.5866j,
+        0.8912+0.0189j, 0.2481+0.8359j, 0.9094+0.3381j, 0.7537+0.3402j,
+        0.2021+0.4307j, 0.2359+0.6891j, 0.2051+0.0311j, 0.6104+0.7485j,
+        0.0540+0.9557j, 0.3730+0.8893j, 0.4838+0.1330j, 0.7749+0.0352j,
+        0.3958+0.1215j, 0.2453+0.1248j, 0.6283+0.5429j, 0.3213+0.4744j,
+        0.3427+0.3475j, 0.1501+0.5777j, 0.3796+0.1782j, 0.1029+0.7512j,
+        0.5161+0.9669j, 0.2651+0.8289j, 0.5566+0.6569j, 0.5575+0.2478j,
+        0.9704+0.7581j, 0.9035+0.2051j, 0.5277+0.6029j, 0.7906+0.7488j,
+        0.1836+0.3656j, 0.9563+0.6482j, 0.6523+0.3440j, 0.2695+0.8561j,
+        0.7679+0.5675j, 0.2614+0.1837j, 0.3530+0.8971j, 0.3379+0.1876j,
+        0.3886+0.3657j, 0.4304+0.4586j, 0.7624+0.9822j, 0.1724+0.7713j,
+        0.8512+0.9754j, 0.1198+0.8418j, 0.7433+0.0541j, 0.2022+0.7371j,
+        0.7187+0.1847j, 0.9346+0.0739j, 0.9109+0.9662j, 0.8574+0.5567j,
+        0.1330+0.1694j, 0.9255+0.5721j, 0.4212+0.3005j, 0.9006+0.8137j,
+        0.8365+0.9647j, 0.8380+0.2888j, 0.8912+0.3028j, 0.1172+0.4077j,
+        0.6321+0.6872j, 0.4187+0.4154j, 0.4447+0.0264j, 0.2345+0.5805j,
+        0.9468+0.0936j, 0.0784+0.3790j, 0.5962+0.4761j, 0.2257+0.2128j,
+        0.1695+0.7697j, 0.0615+0.3876j, 0.2729+0.8312j, 0.1462+0.7873j,
+        0.7931+0.9289j, 0.2830+0.7487j, 0.4324+0.0808j, 0.4425+0.2641j,
+        0.4554+0.6213j, 0.8595+0.6959j, 0.8904+0.4098j, 0.1309+0.2562j,
+        0.9106+0.0181j, 0.1484+0.6593j, 0.9788+0.8000j, 0.2883+0.5706j],
+       device='cuda:0')
+Difference: 4.6486200941682395e-06
+long long fermion_out:30192697344
+long long fermion_in:30205280256
+long long gauge:30154948608
+long long clover_ee:30553407488
+long long clover_oo:30704402432
+long long clover_ee_inv:30628904960
+long long clover_oo_inv:30779899904
+long long set_ptrs:94922844070272
+long long params:94922844055744
+##RANK:0##LOOP:95##Residual:(9.45955e-10,-1.67728e-20i)
+multi-gpu clover bistabcg total time: (without malloc free memcpy) :0.464794336 sec
+######TIME  :3070.46######
+##RANK      :0
+##LOOP      :0
+##tmp0      :(8.83831e-11,-2.32351e-11i)
+##tmp1      :(7.64104e-11,-2.94349e-22i)
+##rho_prev  :(-2.41086e-07,3.19094e-07i)
+##rho       :(-2.41086e-07,3.19094e-07i)
+##alpha     :(2.07931,0.348156i)
+##beta      :(-0.601791,-0.0963802i)
+##omega     :(1.15669,-0.304083i)
+##send_tmp  :(2.08028e-05,-3.46945e-18i)
+##norm2_tmp :(1.70096e+06,3.95661e-06i)
+##diff_tmp  :(1.223e-11,-3.04881e-23i)
+##lat_4dim  :(65536,0i)
+tensor([94922863000560, 94923147297920, 94923283876304, 94923334686208,
+        94923381160896,              0,              0,              0,
+                     0,              0])
+qcu_src: tensor([0.8053+0.0267j, 0.8268+0.7356j, 0.9152+0.9867j, 0.2148+0.4693j,
+        0.3550+0.6274j, 0.3914+0.3074j, 0.7980+0.3901j, 0.5835+0.2874j,
+        0.1472+0.4626j, 0.0702+0.7571j, 0.8150+0.0760j, 0.4465+0.4331j,
+        0.2258+0.1559j, 0.3870+0.5862j, 0.5971+0.4651j, 0.8349+0.9256j,
+        0.5888+0.1422j, 0.7578+0.5234j, 0.5054+0.1221j, 0.1691+0.5866j,
+        0.8912+0.0189j, 0.2481+0.8359j, 0.9094+0.3381j, 0.7537+0.3402j,
+        0.2021+0.4307j, 0.2359+0.6891j, 0.2051+0.0311j, 0.6104+0.7485j,
+        0.0540+0.9557j, 0.3730+0.8893j, 0.4838+0.1330j, 0.7749+0.0352j,
+        0.3958+0.1214j, 0.2453+0.1248j, 0.6283+0.5429j, 0.3213+0.4744j,
+        0.3427+0.3475j, 0.1501+0.5777j, 0.3796+0.1782j, 0.1029+0.7512j,
+        0.5161+0.9669j, 0.2651+0.8289j, 0.5566+0.6569j, 0.5575+0.2478j,
+        0.9704+0.7581j, 0.9035+0.2051j, 0.5277+0.6029j, 0.7906+0.7489j,
+        0.1836+0.3656j, 0.9563+0.6482j, 0.6523+0.3440j, 0.2695+0.8561j,
+        0.7679+0.5675j, 0.2615+0.1837j, 0.3530+0.8971j, 0.3379+0.1876j,
+        0.3886+0.3657j, 0.4304+0.4586j, 0.7624+0.9822j, 0.1724+0.7713j,
+        0.8512+0.9754j, 0.1198+0.8418j, 0.7433+0.0541j, 0.2022+0.7371j,
+        0.7187+0.1847j, 0.9346+0.0739j, 0.9109+0.9662j, 0.8574+0.5567j,
+        0.1330+0.1694j, 0.9255+0.5721j, 0.4212+0.3005j, 0.9006+0.8137j,
+        0.8365+0.9647j, 0.8380+0.2888j, 0.8912+0.3028j, 0.1172+0.4077j,
+        0.6321+0.6872j, 0.4187+0.4154j, 0.4447+0.0264j, 0.2345+0.5805j,
+        0.9468+0.0936j, 0.0784+0.3790j, 0.5962+0.4761j, 0.2257+0.2128j,
+        0.1695+0.7697j, 0.0615+0.3876j, 0.2729+0.8312j, 0.1462+0.7873j,
+        0.7931+0.9289j, 0.2830+0.7487j, 0.4324+0.0808j, 0.4425+0.2641j,
+        0.4554+0.6213j, 0.8594+0.6959j, 0.8904+0.4098j, 0.1309+0.2562j,
+        0.9106+0.0181j, 0.1484+0.6593j, 0.9788+0.8000j, 0.2883+0.5706j],
+       device='cuda:0')
+refer_src: tensor([0.8053+0.0267j, 0.8268+0.7356j, 0.9152+0.9867j, 0.2148+0.4693j,
+        0.3550+0.6274j, 0.3914+0.3074j, 0.7980+0.3901j, 0.5835+0.2874j,
+        0.1472+0.4626j, 0.0702+0.7571j, 0.8150+0.0760j, 0.4465+0.4331j,
+        0.2258+0.1559j, 0.3870+0.5862j, 0.5971+0.4651j, 0.8349+0.9256j,
+        0.5888+0.1422j, 0.7578+0.5234j, 0.5054+0.1221j, 0.1691+0.5866j,
+        0.8912+0.0189j, 0.2481+0.8359j, 0.9094+0.3381j, 0.7537+0.3402j,
+        0.2021+0.4307j, 0.2359+0.6891j, 0.2051+0.0311j, 0.6104+0.7485j,
+        0.0540+0.9557j, 0.3730+0.8893j, 0.4838+0.1330j, 0.7749+0.0352j,
+        0.3958+0.1215j, 0.2453+0.1248j, 0.6283+0.5429j, 0.3213+0.4744j,
+        0.3427+0.3475j, 0.1501+0.5777j, 0.3796+0.1782j, 0.1029+0.7512j,
+        0.5161+0.9669j, 0.2651+0.8289j, 0.5566+0.6569j, 0.5575+0.2478j,
+        0.9704+0.7581j, 0.9035+0.2051j, 0.5277+0.6029j, 0.7906+0.7488j,
+        0.1836+0.3656j, 0.9563+0.6482j, 0.6523+0.3440j, 0.2695+0.8561j,
+        0.7679+0.5675j, 0.2614+0.1837j, 0.3530+0.8971j, 0.3379+0.1876j,
+        0.3886+0.3657j, 0.4304+0.4586j, 0.7624+0.9822j, 0.1724+0.7713j,
+        0.8512+0.9754j, 0.1198+0.8418j, 0.7433+0.0541j, 0.2022+0.7371j,
+        0.7187+0.1847j, 0.9346+0.0739j, 0.9109+0.9662j, 0.8574+0.5567j,
+        0.1330+0.1694j, 0.9255+0.5721j, 0.4212+0.3005j, 0.9006+0.8137j,
+        0.8365+0.9647j, 0.8380+0.2888j, 0.8912+0.3028j, 0.1172+0.4077j,
+        0.6321+0.6872j, 0.4187+0.4154j, 0.4447+0.0264j, 0.2345+0.5805j,
+        0.9468+0.0936j, 0.0784+0.3790j, 0.5962+0.4761j, 0.2257+0.2128j,
+        0.1695+0.7697j, 0.0615+0.3876j, 0.2729+0.8312j, 0.1462+0.7873j,
+        0.7931+0.9289j, 0.2830+0.7487j, 0.4324+0.0808j, 0.4425+0.2641j,
+        0.4554+0.6213j, 0.8595+0.6959j, 0.8904+0.4098j, 0.1309+0.2562j,
+        0.9106+0.0181j, 0.1484+0.6593j, 0.9788+0.8000j, 0.2883+0.5706j],
+       device='cuda:0')
+Difference: 4.6486200941682395e-06
+long long fermion_out:30444355584
+long long fermion_in:30205280256
+long long gauge:30154948608
+long long clover_ee:30553407488
+long long clover_oo:30704402432
+long long clover_ee_inv:30628904960
+long long clover_oo_inv:30779899904
+long long set_ptrs:94922844070272
+long long params:94922844055744
+##RANK:0##LOOP:95##Residual:(9.45955e-10,-1.67728e-20i)
+multi-gpu clover bistabcg total time: (without malloc free memcpy) :0.491581376 sec
+######TIME  :3625.77######
+##RANK      :0
+##LOOP      :0
+##tmp0      :(8.83831e-11,-2.32351e-11i)
+##tmp1      :(7.64104e-11,-2.94349e-22i)
+##rho_prev  :(-2.41086e-07,3.19094e-07i)
+##rho       :(-2.41086e-07,3.19094e-07i)
+##alpha     :(2.07931,0.348156i)
+##beta      :(-0.601791,-0.0963802i)
+##omega     :(1.15669,-0.304083i)
+##send_tmp  :(2.08028e-05,-3.46945e-18i)
+##norm2_tmp :(1.70096e+06,3.95661e-06i)
+##diff_tmp  :(1.223e-11,-3.04881e-23i)
+##lat_4dim  :(65536,0i)
+tensor([94922863000560, 94923147297920, 94923283876304, 94923334686208,
+        94923381160896,              0,              0,              0,
+                     0,              0])
+qcu_src: tensor([0.8053+0.0267j, 0.8268+0.7356j, 0.9152+0.9867j, 0.2148+0.4693j,
+        0.3550+0.6274j, 0.3914+0.3074j, 0.7980+0.3901j, 0.5835+0.2874j,
+        0.1472+0.4626j, 0.0702+0.7571j, 0.8150+0.0760j, 0.4465+0.4331j,
+        0.2258+0.1559j, 0.3870+0.5862j, 0.5971+0.4651j, 0.8349+0.9256j,
+        0.5888+0.1422j, 0.7578+0.5234j, 0.5054+0.1221j, 0.1691+0.5866j,
+        0.8912+0.0189j, 0.2481+0.8359j, 0.9094+0.3381j, 0.7537+0.3402j,
+        0.2021+0.4307j, 0.2359+0.6891j, 0.2051+0.0311j, 0.6104+0.7485j,
+        0.0540+0.9557j, 0.3730+0.8893j, 0.4838+0.1330j, 0.7749+0.0352j,
+        0.3958+0.1214j, 0.2453+0.1248j, 0.6283+0.5429j, 0.3213+0.4744j,
+        0.3427+0.3475j, 0.1501+0.5777j, 0.3796+0.1782j, 0.1029+0.7512j,
+        0.5161+0.9669j, 0.2651+0.8289j, 0.5566+0.6569j, 0.5575+0.2478j,
+        0.9704+0.7581j, 0.9035+0.2051j, 0.5277+0.6029j, 0.7906+0.7489j,
+        0.1836+0.3656j, 0.9563+0.6482j, 0.6523+0.3440j, 0.2695+0.8561j,
+        0.7679+0.5675j, 0.2615+0.1837j, 0.3530+0.8971j, 0.3379+0.1876j,
+        0.3886+0.3657j, 0.4304+0.4586j, 0.7624+0.9822j, 0.1724+0.7713j,
+        0.8512+0.9754j, 0.1198+0.8418j, 0.7433+0.0541j, 0.2022+0.7371j,
+        0.7187+0.1847j, 0.9346+0.0739j, 0.9109+0.9662j, 0.8574+0.5567j,
+        0.1330+0.1694j, 0.9255+0.5721j, 0.4212+0.3005j, 0.9006+0.8137j,
+        0.8365+0.9647j, 0.8380+0.2888j, 0.8912+0.3028j, 0.1172+0.4077j,
+        0.6321+0.6872j, 0.4187+0.4154j, 0.4447+0.0264j, 0.2345+0.5805j,
+        0.9468+0.0936j, 0.0784+0.3790j, 0.5962+0.4761j, 0.2257+0.2128j,
+        0.1695+0.7697j, 0.0615+0.3876j, 0.2729+0.8312j, 0.1462+0.7873j,
+        0.7931+0.9289j, 0.2830+0.7487j, 0.4324+0.0808j, 0.4425+0.2641j,
+        0.4554+0.6213j, 0.8594+0.6959j, 0.8904+0.4098j, 0.1309+0.2562j,
+        0.9106+0.0181j, 0.1484+0.6593j, 0.9788+0.8000j, 0.2883+0.5706j],
+       device='cuda:0')
+refer_src: tensor([0.8053+0.0267j, 0.8268+0.7356j, 0.9152+0.9867j, 0.2148+0.4693j,
+        0.3550+0.6274j, 0.3914+0.3074j, 0.7980+0.3901j, 0.5835+0.2874j,
+        0.1472+0.4626j, 0.0702+0.7571j, 0.8150+0.0760j, 0.4465+0.4331j,
+        0.2258+0.1559j, 0.3870+0.5862j, 0.5971+0.4651j, 0.8349+0.9256j,
+        0.5888+0.1422j, 0.7578+0.5234j, 0.5054+0.1221j, 0.1691+0.5866j,
+        0.8912+0.0189j, 0.2481+0.8359j, 0.9094+0.3381j, 0.7537+0.3402j,
+        0.2021+0.4307j, 0.2359+0.6891j, 0.2051+0.0311j, 0.6104+0.7485j,
+        0.0540+0.9557j, 0.3730+0.8893j, 0.4838+0.1330j, 0.7749+0.0352j,
+        0.3958+0.1215j, 0.2453+0.1248j, 0.6283+0.5429j, 0.3213+0.4744j,
+        0.3427+0.3475j, 0.1501+0.5777j, 0.3796+0.1782j, 0.1029+0.7512j,
+        0.5161+0.9669j, 0.2651+0.8289j, 0.5566+0.6569j, 0.5575+0.2478j,
+        0.9704+0.7581j, 0.9035+0.2051j, 0.5277+0.6029j, 0.7906+0.7488j,
+        0.1836+0.3656j, 0.9563+0.6482j, 0.6523+0.3440j, 0.2695+0.8561j,
+        0.7679+0.5675j, 0.2614+0.1837j, 0.3530+0.8971j, 0.3379+0.1876j,
+        0.3886+0.3657j, 0.4304+0.4586j, 0.7624+0.9822j, 0.1724+0.7713j,
+        0.8512+0.9754j, 0.1198+0.8418j, 0.7433+0.0541j, 0.2022+0.7371j,
+        0.7187+0.1847j, 0.9346+0.0739j, 0.9109+0.9662j, 0.8574+0.5567j,
+        0.1330+0.1694j, 0.9255+0.5721j, 0.4212+0.3005j, 0.9006+0.8137j,
+        0.8365+0.9647j, 0.8380+0.2888j, 0.8912+0.3028j, 0.1172+0.4077j,
+        0.6321+0.6872j, 0.4187+0.4154j, 0.4447+0.0264j, 0.2345+0.5805j,
+        0.9468+0.0936j, 0.0784+0.3790j, 0.5962+0.4761j, 0.2257+0.2128j,
+        0.1695+0.7697j, 0.0615+0.3876j, 0.2729+0.8312j, 0.1462+0.7873j,
+        0.7931+0.9289j, 0.2830+0.7487j, 0.4324+0.0808j, 0.4425+0.2641j,
+        0.4554+0.6213j, 0.8595+0.6959j, 0.8904+0.4098j, 0.1309+0.2562j,
+        0.9106+0.0181j, 0.1484+0.6593j, 0.9788+0.8000j, 0.2883+0.5706j],
+       device='cuda:0')
+Difference: 4.6486200941682395e-06
+long long fermion_out:30456938496
+long long fermion_in:30205280256
+long long gauge:30154948608
+long long clover_ee:30553407488
+long long clover_oo:30704402432
+long long clover_ee_inv:30628904960
+long long clover_oo_inv:30779899904
+long long set_ptrs:94922844070272
+long long params:94922844055744
+##RANK:0##LOOP:95##Residual:(9.45955e-10,-1.67728e-20i)
+multi-gpu clover bistabcg total time: (without malloc free memcpy) :0.458421376 sec
+######TIME  :4152.01######
+##RANK      :0
+##LOOP      :0
+##tmp0      :(8.83831e-11,-2.32351e-11i)
+##tmp1      :(7.64104e-11,-2.94349e-22i)
+##rho_prev  :(-2.41086e-07,3.19094e-07i)
+##rho       :(-2.41086e-07,3.19094e-07i)
+##alpha     :(2.07931,0.348156i)
+##beta      :(-0.601791,-0.0963802i)
+##omega     :(1.15669,-0.304083i)
+##send_tmp  :(2.08028e-05,-3.46945e-18i)
+##norm2_tmp :(1.70096e+06,3.95661e-06i)
+##diff_tmp  :(1.223e-11,-3.04881e-23i)
+##lat_4dim  :(65536,0i)
+tensor([94922863000560, 94923147297920, 94923283876304, 94923334686208,
+        94923381160896,              0,              0,              0,
+                     0,              0])
+qcu_src: tensor([0.8053+0.0267j, 0.8268+0.7356j, 0.9152+0.9867j, 0.2148+0.4693j,
+        0.3550+0.6274j, 0.3914+0.3074j, 0.7980+0.3901j, 0.5835+0.2874j,
+        0.1472+0.4626j, 0.0702+0.7571j, 0.8150+0.0760j, 0.4465+0.4331j,
+        0.2258+0.1559j, 0.3870+0.5862j, 0.5971+0.4651j, 0.8349+0.9256j,
+        0.5888+0.1422j, 0.7578+0.5234j, 0.5054+0.1221j, 0.1691+0.5866j,
+        0.8912+0.0189j, 0.2481+0.8359j, 0.9094+0.3381j, 0.7537+0.3402j,
+        0.2021+0.4307j, 0.2359+0.6891j, 0.2051+0.0311j, 0.6104+0.7485j,
+        0.0540+0.9557j, 0.3730+0.8893j, 0.4838+0.1330j, 0.7749+0.0352j,
+        0.3958+0.1214j, 0.2453+0.1248j, 0.6283+0.5429j, 0.3213+0.4744j,
+        0.3427+0.3475j, 0.1501+0.5777j, 0.3796+0.1782j, 0.1029+0.7512j,
+        0.5161+0.9669j, 0.2651+0.8289j, 0.5566+0.6569j, 0.5575+0.2478j,
+        0.9704+0.7581j, 0.9035+0.2051j, 0.5277+0.6029j, 0.7906+0.7489j,
+        0.1836+0.3656j, 0.9563+0.6482j, 0.6523+0.3440j, 0.2695+0.8561j,
+        0.7679+0.5675j, 0.2615+0.1837j, 0.3530+0.8971j, 0.3379+0.1876j,
+        0.3886+0.3657j, 0.4304+0.4586j, 0.7624+0.9822j, 0.1724+0.7713j,
+        0.8512+0.9754j, 0.1198+0.8418j, 0.7433+0.0541j, 0.2022+0.7371j,
+        0.7187+0.1847j, 0.9346+0.0739j, 0.9109+0.9662j, 0.8574+0.5567j,
+        0.1330+0.1694j, 0.9255+0.5721j, 0.4212+0.3005j, 0.9006+0.8137j,
+        0.8365+0.9647j, 0.8380+0.2888j, 0.8912+0.3028j, 0.1172+0.4077j,
+        0.6321+0.6872j, 0.4187+0.4154j, 0.4447+0.0264j, 0.2345+0.5805j,
+        0.9468+0.0936j, 0.0784+0.3790j, 0.5962+0.4761j, 0.2257+0.2128j,
+        0.1695+0.7697j, 0.0615+0.3876j, 0.2729+0.8312j, 0.1462+0.7873j,
+        0.7931+0.9289j, 0.2830+0.7487j, 0.4324+0.0808j, 0.4425+0.2641j,
+        0.4554+0.6213j, 0.8594+0.6959j, 0.8904+0.4098j, 0.1309+0.2562j,
+        0.9106+0.0181j, 0.1484+0.6593j, 0.9788+0.8000j, 0.2883+0.5706j],
+       device='cuda:0')
+refer_src: tensor([0.8053+0.0267j, 0.8268+0.7356j, 0.9152+0.9867j, 0.2148+0.4693j,
+        0.3550+0.6274j, 0.3914+0.3074j, 0.7980+0.3901j, 0.5835+0.2874j,
+        0.1472+0.4626j, 0.0702+0.7571j, 0.8150+0.0760j, 0.4465+0.4331j,
+        0.2258+0.1559j, 0.3870+0.5862j, 0.5971+0.4651j, 0.8349+0.9256j,
+        0.5888+0.1422j, 0.7578+0.5234j, 0.5054+0.1221j, 0.1691+0.5866j,
+        0.8912+0.0189j, 0.2481+0.8359j, 0.9094+0.3381j, 0.7537+0.3402j,
+        0.2021+0.4307j, 0.2359+0.6891j, 0.2051+0.0311j, 0.6104+0.7485j,
+        0.0540+0.9557j, 0.3730+0.8893j, 0.4838+0.1330j, 0.7749+0.0352j,
+        0.3958+0.1215j, 0.2453+0.1248j, 0.6283+0.5429j, 0.3213+0.4744j,
+        0.3427+0.3475j, 0.1501+0.5777j, 0.3796+0.1782j, 0.1029+0.7512j,
+        0.5161+0.9669j, 0.2651+0.8289j, 0.5566+0.6569j, 0.5575+0.2478j,
+        0.9704+0.7581j, 0.9035+0.2051j, 0.5277+0.6029j, 0.7906+0.7488j,
+        0.1836+0.3656j, 0.9563+0.6482j, 0.6523+0.3440j, 0.2695+0.8561j,
+        0.7679+0.5675j, 0.2614+0.1837j, 0.3530+0.8971j, 0.3379+0.1876j,
+        0.3886+0.3657j, 0.4304+0.4586j, 0.7624+0.9822j, 0.1724+0.7713j,
+        0.8512+0.9754j, 0.1198+0.8418j, 0.7433+0.0541j, 0.2022+0.7371j,
+        0.7187+0.1847j, 0.9346+0.0739j, 0.9109+0.9662j, 0.8574+0.5567j,
+        0.1330+0.1694j, 0.9255+0.5721j, 0.4212+0.3005j, 0.9006+0.8137j,
+        0.8365+0.9647j, 0.8380+0.2888j, 0.8912+0.3028j, 0.1172+0.4077j,
+        0.6321+0.6872j, 0.4187+0.4154j, 0.4447+0.0264j, 0.2345+0.5805j,
+        0.9468+0.0936j, 0.0784+0.3790j, 0.5962+0.4761j, 0.2257+0.2128j,
+        0.1695+0.7697j, 0.0615+0.3876j, 0.2729+0.8312j, 0.1462+0.7873j,
+        0.7931+0.9289j, 0.2830+0.7487j, 0.4324+0.0808j, 0.4425+0.2641j,
+        0.4554+0.6213j, 0.8595+0.6959j, 0.8904+0.4098j, 0.1309+0.2562j,
+        0.9106+0.0181j, 0.1484+0.6593j, 0.9788+0.8000j, 0.2883+0.5706j],
+       device='cuda:0')
+Difference: 4.6486200941682395e-06
+long long fermion_out:30192697344
+long long fermion_in:30205280256
+long long gauge:30154948608
+long long clover_ee:30553407488
+long long clover_oo:30704402432
+long long clover_ee_inv:30628904960
+long long clover_oo_inv:30779899904
+long long set_ptrs:94922844070272
+long long params:94922844055744
+##RANK:0##LOOP:95##Residual:(9.45955e-10,-1.67728e-20i)
+multi-gpu clover bistabcg total time: (without malloc free memcpy) :0.447512384 sec
+######TIME  :4662.56######
+##RANK      :0
+##LOOP      :0
+##tmp0      :(8.83831e-11,-2.32351e-11i)
+##tmp1      :(7.64104e-11,-2.94349e-22i)
+##rho_prev  :(-2.41086e-07,3.19094e-07i)
+##rho       :(-2.41086e-07,3.19094e-07i)
+##alpha     :(2.07931,0.348156i)
+##beta      :(-0.601791,-0.0963802i)
+##omega     :(1.15669,-0.304083i)
+##send_tmp  :(2.08028e-05,-3.46945e-18i)
+##norm2_tmp :(1.70096e+06,3.95661e-06i)
+##diff_tmp  :(1.223e-11,-3.04881e-23i)
+##lat_4dim  :(65536,0i)
+tensor([94922863000560, 94923147297920, 94923283876304, 94923334686208,
+        94923381160896,              0,              0,              0,
+                     0,              0])
+qcu_src: tensor([0.8053+0.0267j, 0.8268+0.7356j, 0.9152+0.9867j, 0.2148+0.4693j,
+        0.3550+0.6274j, 0.3914+0.3074j, 0.7980+0.3901j, 0.5835+0.2874j,
+        0.1472+0.4626j, 0.0702+0.7571j, 0.8150+0.0760j, 0.4465+0.4331j,
+        0.2258+0.1559j, 0.3870+0.5862j, 0.5971+0.4651j, 0.8349+0.9256j,
+        0.5888+0.1422j, 0.7578+0.5234j, 0.5054+0.1221j, 0.1691+0.5866j,
+        0.8912+0.0189j, 0.2481+0.8359j, 0.9094+0.3381j, 0.7537+0.3402j,
+        0.2021+0.4307j, 0.2359+0.6891j, 0.2051+0.0311j, 0.6104+0.7485j,
+        0.0540+0.9557j, 0.3730+0.8893j, 0.4838+0.1330j, 0.7749+0.0352j,
+        0.3958+0.1214j, 0.2453+0.1248j, 0.6283+0.5429j, 0.3213+0.4744j,
+        0.3427+0.3475j, 0.1501+0.5777j, 0.3796+0.1782j, 0.1029+0.7512j,
+        0.5161+0.9669j, 0.2651+0.8289j, 0.5566+0.6569j, 0.5575+0.2478j,
+        0.9704+0.7581j, 0.9035+0.2051j, 0.5277+0.6029j, 0.7906+0.7489j,
+        0.1836+0.3656j, 0.9563+0.6482j, 0.6523+0.3440j, 0.2695+0.8561j,
+        0.7679+0.5675j, 0.2615+0.1837j, 0.3530+0.8971j, 0.3379+0.1876j,
+        0.3886+0.3657j, 0.4304+0.4586j, 0.7624+0.9822j, 0.1724+0.7713j,
+        0.8512+0.9754j, 0.1198+0.8418j, 0.7433+0.0541j, 0.2022+0.7371j,
+        0.7187+0.1847j, 0.9346+0.0739j, 0.9109+0.9662j, 0.8574+0.5567j,
+        0.1330+0.1694j, 0.9255+0.5721j, 0.4212+0.3005j, 0.9006+0.8137j,
+        0.8365+0.9647j, 0.8380+0.2888j, 0.8912+0.3028j, 0.1172+0.4077j,
+        0.6321+0.6872j, 0.4187+0.4154j, 0.4447+0.0264j, 0.2345+0.5805j,
+        0.9468+0.0936j, 0.0784+0.3790j, 0.5962+0.4761j, 0.2257+0.2128j,
+        0.1695+0.7697j, 0.0615+0.3876j, 0.2729+0.8312j, 0.1462+0.7873j,
+        0.7931+0.9289j, 0.2830+0.7487j, 0.4324+0.0808j, 0.4425+0.2641j,
+        0.4554+0.6213j, 0.8594+0.6959j, 0.8904+0.4098j, 0.1309+0.2562j,
+        0.9106+0.0181j, 0.1484+0.6593j, 0.9788+0.8000j, 0.2883+0.5706j],
+       device='cuda:0')
+refer_src: tensor([0.8053+0.0267j, 0.8268+0.7356j, 0.9152+0.9867j, 0.2148+0.4693j,
+        0.3550+0.6274j, 0.3914+0.3074j, 0.7980+0.3901j, 0.5835+0.2874j,
+        0.1472+0.4626j, 0.0702+0.7571j, 0.8150+0.0760j, 0.4465+0.4331j,
+        0.2258+0.1559j, 0.3870+0.5862j, 0.5971+0.4651j, 0.8349+0.9256j,
+        0.5888+0.1422j, 0.7578+0.5234j, 0.5054+0.1221j, 0.1691+0.5866j,
+        0.8912+0.0189j, 0.2481+0.8359j, 0.9094+0.3381j, 0.7537+0.3402j,
+        0.2021+0.4307j, 0.2359+0.6891j, 0.2051+0.0311j, 0.6104+0.7485j,
+        0.0540+0.9557j, 0.3730+0.8893j, 0.4838+0.1330j, 0.7749+0.0352j,
+        0.3958+0.1215j, 0.2453+0.1248j, 0.6283+0.5429j, 0.3213+0.4744j,
+        0.3427+0.3475j, 0.1501+0.5777j, 0.3796+0.1782j, 0.1029+0.7512j,
+        0.5161+0.9669j, 0.2651+0.8289j, 0.5566+0.6569j, 0.5575+0.2478j,
+        0.9704+0.7581j, 0.9035+0.2051j, 0.5277+0.6029j, 0.7906+0.7488j,
+        0.1836+0.3656j, 0.9563+0.6482j, 0.6523+0.3440j, 0.2695+0.8561j,
+        0.7679+0.5675j, 0.2614+0.1837j, 0.3530+0.8971j, 0.3379+0.1876j,
+        0.3886+0.3657j, 0.4304+0.4586j, 0.7624+0.9822j, 0.1724+0.7713j,
+        0.8512+0.9754j, 0.1198+0.8418j, 0.7433+0.0541j, 0.2022+0.7371j,
+        0.7187+0.1847j, 0.9346+0.0739j, 0.9109+0.9662j, 0.8574+0.5567j,
+        0.1330+0.1694j, 0.9255+0.5721j, 0.4212+0.3005j, 0.9006+0.8137j,
+        0.8365+0.9647j, 0.8380+0.2888j, 0.8912+0.3028j, 0.1172+0.4077j,
+        0.6321+0.6872j, 0.4187+0.4154j, 0.4447+0.0264j, 0.2345+0.5805j,
+        0.9468+0.0936j, 0.0784+0.3790j, 0.5962+0.4761j, 0.2257+0.2128j,
+        0.1695+0.7697j, 0.0615+0.3876j, 0.2729+0.8312j, 0.1462+0.7873j,
+        0.7931+0.9289j, 0.2830+0.7487j, 0.4324+0.0808j, 0.4425+0.2641j,
+        0.4554+0.6213j, 0.8595+0.6959j, 0.8904+0.4098j, 0.1309+0.2562j,
+        0.9106+0.0181j, 0.1484+0.6593j, 0.9788+0.8000j, 0.2883+0.5706j],
+       device='cuda:0')
+Difference: 4.6486200941682395e-06
+long long fermion_out:30444355584
+long long fermion_in:30205280256
+long long gauge:30154948608
+long long clover_ee:30553407488
+long long clover_oo:30704402432
+long long clover_ee_inv:30628904960
+long long clover_oo_inv:30779899904
+long long set_ptrs:94922844070272
+long long params:94922844055744
+##RANK:0##LOOP:95##Residual:(9.45955e-10,-1.67728e-20i)
+multi-gpu clover bistabcg total time: (without malloc free memcpy) :0.450708672 sec
+######TIME  :5175.48######
+##RANK      :0
+##LOOP      :0
+##tmp0      :(8.83831e-11,-2.32351e-11i)
+##tmp1      :(7.64104e-11,-2.94349e-22i)
+##rho_prev  :(-2.41086e-07,3.19094e-07i)
+##rho       :(-2.41086e-07,3.19094e-07i)
+##alpha     :(2.07931,0.348156i)
+##beta      :(-0.601791,-0.0963802i)
+##omega     :(1.15669,-0.304083i)
+##send_tmp  :(2.08028e-05,-3.46945e-18i)
+##norm2_tmp :(1.70096e+06,3.95661e-06i)
+##diff_tmp  :(1.223e-11,-3.04881e-23i)
+##lat_4dim  :(65536,0i)
+tensor([94922863000560, 94923147297920, 94923283876304, 94923334686208,
+        94923381160896,              0,              0,              0,
+                     0,              0])
+qcu_src: tensor([0.8053+0.0267j, 0.8268+0.7356j, 0.9152+0.9867j, 0.2148+0.4693j,
+        0.3550+0.6274j, 0.3914+0.3074j, 0.7980+0.3901j, 0.5835+0.2874j,
+        0.1472+0.4626j, 0.0702+0.7571j, 0.8150+0.0760j, 0.4465+0.4331j,
+        0.2258+0.1559j, 0.3870+0.5862j, 0.5971+0.4651j, 0.8349+0.9256j,
+        0.5888+0.1422j, 0.7578+0.5234j, 0.5054+0.1221j, 0.1691+0.5866j,
+        0.8912+0.0189j, 0.2481+0.8359j, 0.9094+0.3381j, 0.7537+0.3402j,
+        0.2021+0.4307j, 0.2359+0.6891j, 0.2051+0.0311j, 0.6104+0.7485j,
+        0.0540+0.9557j, 0.3730+0.8893j, 0.4838+0.1330j, 0.7749+0.0352j,
+        0.3958+0.1214j, 0.2453+0.1248j, 0.6283+0.5429j, 0.3213+0.4744j,
+        0.3427+0.3475j, 0.1501+0.5777j, 0.3796+0.1782j, 0.1029+0.7512j,
+        0.5161+0.9669j, 0.2651+0.8289j, 0.5566+0.6569j, 0.5575+0.2478j,
+        0.9704+0.7581j, 0.9035+0.2051j, 0.5277+0.6029j, 0.7906+0.7489j,
+        0.1836+0.3656j, 0.9563+0.6482j, 0.6523+0.3440j, 0.2695+0.8561j,
+        0.7679+0.5675j, 0.2615+0.1837j, 0.3530+0.8971j, 0.3379+0.1876j,
+        0.3886+0.3657j, 0.4304+0.4586j, 0.7624+0.9822j, 0.1724+0.7713j,
+        0.8512+0.9754j, 0.1198+0.8418j, 0.7433+0.0541j, 0.2022+0.7371j,
+        0.7187+0.1847j, 0.9346+0.0739j, 0.9109+0.9662j, 0.8574+0.5567j,
+        0.1330+0.1694j, 0.9255+0.5721j, 0.4212+0.3005j, 0.9006+0.8137j,
+        0.8365+0.9647j, 0.8380+0.2888j, 0.8912+0.3028j, 0.1172+0.4077j,
+        0.6321+0.6872j, 0.4187+0.4154j, 0.4447+0.0264j, 0.2345+0.5805j,
+        0.9468+0.0936j, 0.0784+0.3790j, 0.5962+0.4761j, 0.2257+0.2128j,
+        0.1695+0.7697j, 0.0615+0.3876j, 0.2729+0.8312j, 0.1462+0.7873j,
+        0.7931+0.9289j, 0.2830+0.7487j, 0.4324+0.0808j, 0.4425+0.2641j,
+        0.4554+0.6213j, 0.8594+0.6959j, 0.8904+0.4098j, 0.1309+0.2562j,
+        0.9106+0.0181j, 0.1484+0.6593j, 0.9788+0.8000j, 0.2883+0.5706j],
+       device='cuda:0')
+refer_src: tensor([0.8053+0.0267j, 0.8268+0.7356j, 0.9152+0.9867j, 0.2148+0.4693j,
+        0.3550+0.6274j, 0.3914+0.3074j, 0.7980+0.3901j, 0.5835+0.2874j,
+        0.1472+0.4626j, 0.0702+0.7571j, 0.8150+0.0760j, 0.4465+0.4331j,
+        0.2258+0.1559j, 0.3870+0.5862j, 0.5971+0.4651j, 0.8349+0.9256j,
+        0.5888+0.1422j, 0.7578+0.5234j, 0.5054+0.1221j, 0.1691+0.5866j,
+        0.8912+0.0189j, 0.2481+0.8359j, 0.9094+0.3381j, 0.7537+0.3402j,
+        0.2021+0.4307j, 0.2359+0.6891j, 0.2051+0.0311j, 0.6104+0.7485j,
+        0.0540+0.9557j, 0.3730+0.8893j, 0.4838+0.1330j, 0.7749+0.0352j,
+        0.3958+0.1215j, 0.2453+0.1248j, 0.6283+0.5429j, 0.3213+0.4744j,
+        0.3427+0.3475j, 0.1501+0.5777j, 0.3796+0.1782j, 0.1029+0.7512j,
+        0.5161+0.9669j, 0.2651+0.8289j, 0.5566+0.6569j, 0.5575+0.2478j,
+        0.9704+0.7581j, 0.9035+0.2051j, 0.5277+0.6029j, 0.7906+0.7488j,
+        0.1836+0.3656j, 0.9563+0.6482j, 0.6523+0.3440j, 0.2695+0.8561j,
+        0.7679+0.5675j, 0.2614+0.1837j, 0.3530+0.8971j, 0.3379+0.1876j,
+        0.3886+0.3657j, 0.4304+0.4586j, 0.7624+0.9822j, 0.1724+0.7713j,
+        0.8512+0.9754j, 0.1198+0.8418j, 0.7433+0.0541j, 0.2022+0.7371j,
+        0.7187+0.1847j, 0.9346+0.0739j, 0.9109+0.9662j, 0.8574+0.5567j,
+        0.1330+0.1694j, 0.9255+0.5721j, 0.4212+0.3005j, 0.9006+0.8137j,
+        0.8365+0.9647j, 0.8380+0.2888j, 0.8912+0.3028j, 0.1172+0.4077j,
+        0.6321+0.6872j, 0.4187+0.4154j, 0.4447+0.0264j, 0.2345+0.5805j,
+        0.9468+0.0936j, 0.0784+0.3790j, 0.5962+0.4761j, 0.2257+0.2128j,
+        0.1695+0.7697j, 0.0615+0.3876j, 0.2729+0.8312j, 0.1462+0.7873j,
+        0.7931+0.9289j, 0.2830+0.7487j, 0.4324+0.0808j, 0.4425+0.2641j,
+        0.4554+0.6213j, 0.8595+0.6959j, 0.8904+0.4098j, 0.1309+0.2562j,
+        0.9106+0.0181j, 0.1484+0.6593j, 0.9788+0.8000j, 0.2883+0.5706j],
+       device='cuda:0')
+Difference: 4.6486200941682395e-06
+gauge_eo.is_contiguous(): True
+fermion_in_eo.is_contiguous(): True
+fermion_in_out.is_contiguous(): True
+qcu_src.is_contiguous(): True
+qcu_dest.is_contiguous(): True

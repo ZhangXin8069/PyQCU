@@ -1,0 +1,1631 @@
+tensor([    16,     16,     16,     32, 131072,      1,      1,      1,      1,
+             0,      0,      1,      0,   1000,      3,      0,      1,      1,
+             1,      1,      1,     24,      1,     42,      0],
+       dtype=torch.int32)
+tensor([5.0000e-02, 1.0000e-09, 1.0000e-01], dtype=torch.float64)
+tensor([0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+set_ptr:0x560cb778f9c0
+set_ptrs:0x560cb658b0c0
+long long set_ptr:94612617755072
+gridDim.x                    :4096
+blockDim.x                   :16
+host_params[_LAT_X_]         :16
+host_params[_LAT_Y_]         :16
+host_params[_LAT_Z_]         :16
+host_params[_LAT_T_]         :16
+host_params[_LAT_XYZT_]      :65536
+host_params[_GRID_X_]        :1
+host_params[_GRID_Y_]        :1
+host_params[_GRID_Z_]        :1
+host_params[_GRID_T_]        :1
+host_params[_PARITY_]        :0
+host_params[_NODE_RANK_]     :0
+host_params[_NODE_SIZE_]     :1
+host_params[_DAGGER_]        :0
+host_params[_MAX_ITER_]      :1000
+host_params[_DATA_TYPE_]     :3
+host_params[_SET_INDEX_]     :0
+host_params[_SET_PLAN_]      :-1
+host_params[_MG_X_]          :1
+host_params[_MG_Y_]          :1
+host_params[_MG_Z_]          :1
+host_params[_MG_T_]          :1
+host_params[_LAT_E_]         :24
+host_params[_VERBOSE_]       :1
+host_params[_SEED_]          :42
+host_params[_TEST_IN_CPU_]   :0
+host_argv[_MASS_]            :5.000000e-02
+host_argv[_TOL_]             :1.000000e-09
+host_argv[_SIGMA_]           :1.000000e-01
+lat_2dim[_XY_]               :256
+lat_2dim[_XZ_]               :256
+lat_2dim[_XT_]               :256
+lat_2dim[_YZ_]               :256
+lat_2dim[_YT_]               :256
+lat_2dim[_ZT_]               :256
+lat_3dim[_YZT_]              :4096
+lat_3dim[_XZT_]              :4096
+lat_3dim[_XYT_]              :4096
+lat_3dim[_XYZ_]              :4096
+lat_4dim                     :65536
+grid_1dim[_X_]               :1
+grid_1dim[_Y_]               :1
+grid_1dim[_Z_]               :1
+grid_1dim[_T_]               :1
+grid_2dim[_XY_]              :1
+grid_2dim[_XZ_]              :1
+grid_2dim[_XT_]              :1
+grid_2dim[_YZ_]              :1
+grid_2dim[_YT_]              :1
+grid_2dim[_ZT_]              :1
+grid_3dim[_YZT_]             :1
+grid_3dim[_XZT_]             :1
+grid_3dim[_XYT_]             :1
+grid_3dim[_XYZ_]             :1
+grid_index_1dim[_X_]         :0
+grid_index_1dim[_Y_]         :0
+grid_index_1dim[_Z_]         :0
+grid_index_1dim[_T_]         :0
+move_wards[_B_X_]            :0
+move_wards[_B_Y_]            :0
+move_wards[_B_Z_]            :0
+move_wards[_B_T_]            :0
+move_wards[_F_X_]            :0
+move_wards[_F_Y_]            :0
+move_wards[_F_Z_]            :0
+move_wards[_F_T_]            :0
+move_wards[_BX_BY_]          :0
+move_wards[_BX_BZ_]          :0
+move_wards[_BX_BT_]          :0
+move_wards[_BY_BZ_]          :0
+move_wards[_BY_BT_]          :0
+move_wards[_BZ_BT_]          :0
+move_wards[_FX_BY_]          :0
+move_wards[_FX_BZ_]          :0
+move_wards[_FX_BT_]          :0
+move_wards[_FY_BZ_]          :0
+move_wards[_FY_BT_]          :0
+move_wards[_FZ_BT_]          :0
+move_wards[_BX_FY_]          :0
+move_wards[_BX_FZ_]          :0
+move_wards[_BX_FT_]          :0
+move_wards[_BY_FZ_]          :0
+move_wards[_BY_FT_]          :0
+move_wards[_BZ_FT_]          :0
+move_wards[_FX_FY_]          :0
+move_wards[_FX_FZ_]          :0
+move_wards[_FX_FT_]          :0
+move_wards[_FY_FZ_]          :0
+move_wards[_FY_FT_]          :0
+move_wards[_FZ_FT_]          :0
+lattice set init total time:0.014530133 sec
+multi-gpu make gauss gauge total time: (with malloc free memcpy) :0.042968525 sec
+PYQCU::TESTING::LATTICE:
+ [check_su3] Total matrices checked: 262144
+PYQCU::TESTING::LATTICE:
+ Unitary check   : True
+PYQCU::TESTING::LATTICE:
+ Determinant=1   : True
+PYQCU::TESTING::LATTICE:
+ Minor identities: True
+True
+PYQCU::TESTING::LATTICE:
+ [check_su3] Total matrices checked: 262144
+PYQCU::TESTING::LATTICE:
+ Unitary check   : True
+PYQCU::TESTING::LATTICE:
+ Determinant=1   : True
+PYQCU::TESTING::LATTICE:
+ Minor identities: True
+True
+tensor([94612617755072,              0,              0,              0,
+                     0,              0,              0,              0,
+                     0,              0])
+set_ptr:0x560cc9e71c70
+set_ptrs:0x560cb658b0c0
+long long set_ptr:94612926962800
+gridDim.x                    :4096
+blockDim.x                   :16
+host_params[_LAT_X_]         :16
+host_params[_LAT_Y_]         :16
+host_params[_LAT_Z_]         :16
+host_params[_LAT_T_]         :16
+host_params[_LAT_XYZT_]      :65536
+host_params[_GRID_X_]        :1
+host_params[_GRID_Y_]        :1
+host_params[_GRID_Z_]        :1
+host_params[_GRID_T_]        :1
+host_params[_PARITY_]        :0
+host_params[_NODE_RANK_]     :0
+host_params[_NODE_SIZE_]     :1
+host_params[_DAGGER_]        :0
+host_params[_MAX_ITER_]      :1000
+host_params[_DATA_TYPE_]     :3
+host_params[_SET_INDEX_]     :1
+host_params[_SET_PLAN_]      :1
+host_params[_MG_X_]          :1
+host_params[_MG_Y_]          :1
+host_params[_MG_Z_]          :1
+host_params[_MG_T_]          :1
+host_params[_LAT_E_]         :24
+host_params[_VERBOSE_]       :1
+host_params[_SEED_]          :42
+host_params[_TEST_IN_CPU_]   :0
+host_argv[_MASS_]            :5.000000e-02
+host_argv[_TOL_]             :1.000000e-09
+host_argv[_SIGMA_]           :1.000000e-01
+lat_2dim[_XY_]               :256
+lat_2dim[_XZ_]               :256
+lat_2dim[_XT_]               :256
+lat_2dim[_YZ_]               :256
+lat_2dim[_YT_]               :256
+lat_2dim[_ZT_]               :256
+lat_3dim[_YZT_]              :4096
+lat_3dim[_XZT_]              :4096
+lat_3dim[_XYT_]              :4096
+lat_3dim[_XYZ_]              :4096
+lat_4dim                     :65536
+grid_1dim[_X_]               :1
+grid_1dim[_Y_]               :1
+grid_1dim[_Z_]               :1
+grid_1dim[_T_]               :1
+grid_2dim[_XY_]              :1
+grid_2dim[_XZ_]              :1
+grid_2dim[_XT_]              :1
+grid_2dim[_YZ_]              :1
+grid_2dim[_YT_]              :1
+grid_2dim[_ZT_]              :1
+grid_3dim[_YZT_]             :1
+grid_3dim[_XZT_]             :1
+grid_3dim[_XYT_]             :1
+grid_3dim[_XYZ_]             :1
+grid_index_1dim[_X_]         :0
+grid_index_1dim[_Y_]         :0
+grid_index_1dim[_Z_]         :0
+grid_index_1dim[_T_]         :0
+move_wards[_B_X_]            :0
+move_wards[_B_Y_]            :0
+move_wards[_B_Z_]            :0
+move_wards[_B_T_]            :0
+move_wards[_F_X_]            :0
+move_wards[_F_Y_]            :0
+move_wards[_F_Z_]            :0
+move_wards[_F_T_]            :0
+move_wards[_BX_BY_]          :0
+move_wards[_BX_BZ_]          :0
+move_wards[_BX_BT_]          :0
+move_wards[_BY_BZ_]          :0
+move_wards[_BY_BT_]          :0
+move_wards[_BZ_BT_]          :0
+move_wards[_FX_BY_]          :0
+move_wards[_FX_BZ_]          :0
+move_wards[_FX_BT_]          :0
+move_wards[_FY_BZ_]          :0
+move_wards[_FY_BT_]          :0
+move_wards[_FZ_BT_]          :0
+move_wards[_BX_FY_]          :0
+move_wards[_BX_FZ_]          :0
+move_wards[_BX_FT_]          :0
+move_wards[_BY_FZ_]          :0
+move_wards[_BY_FT_]          :0
+move_wards[_BZ_FT_]          :0
+move_wards[_FX_FY_]          :0
+move_wards[_FX_FZ_]          :0
+move_wards[_FX_FT_]          :0
+move_wards[_FY_FZ_]          :0
+move_wards[_FY_FT_]          :0
+move_wards[_FZ_FT_]          :0
+lattice set init total time:0.006329469 sec
+##RANK:0##LOOP:92##Residual:(9.75213e-10,1.70633e-29i)
+multi-gpu wilson bistabcg total time: (without malloc free memcpy) :0.949584255 sec
+######TIME  :976.943######
+##RANK      :0
+##LOOP      :0
+##tmp0      :(3.4752e-10,5.38339e-11i)
+##tmp1      :(3.84037e-10,6.57676e-30i)
+##rho_prev  :(1.95901e-07,-1.2011e-06i)
+##rho       :(1.95901e-07,-1.2011e-06i)
+##alpha     :(-0.860839,0.513259i)
+##beta      :(-0.150251,-0.39578i)
+##omega     :(0.904912,0.140179i)
+##send_tmp  :(9.57807e-10,5.77613e-29i)
+##norm2_tmp :(1.7007e+06,-1.05457e-13i)
+##diff_tmp  :(5.63184e-16,6.88853e-35i)
+##lat_4dim  :(65536,0i)
+tensor([94612617755072, 94612926962800,              0,              0,
+                     0,              0,              0,              0,
+                     0,              0])
+qcu_src: tensor([6.3145e-01+0.2795j, 2.8690e-01+0.8861j, 3.9789e-02+0.4555j,
+        9.4781e-01+0.1516j, 2.8258e-01+0.7948j, 8.8331e-02+0.1312j,
+        7.7019e-01+0.6191j, 3.6327e-01+0.3962j, 3.0646e-01+0.8201j,
+        6.6159e-01+0.6072j, 2.6049e-01+0.5369j, 1.8147e-01+0.2988j,
+        6.5924e-02+0.2058j, 6.2349e-01+0.6853j, 1.9787e-01+0.7819j,
+        3.7020e-02+0.7031j, 7.0717e-01+0.3887j, 6.7303e-01+0.9616j,
+        9.7033e-01+0.0966j, 2.5861e-03+0.1545j, 3.6455e-01+0.0732j,
+        9.8724e-01+0.5683j, 9.9609e-01+0.7280j, 9.7401e-01+0.2150j,
+        1.7990e-01+0.1137j, 8.0044e-01+0.7787j, 6.6563e-02+0.5451j,
+        7.7492e-01+0.3418j, 8.8471e-01+0.7635j, 2.7391e-01+0.4770j,
+        1.1725e-01+0.3866j, 6.3565e-01+0.4227j, 6.0187e-01+0.5486j,
+        3.9346e-02+0.9256j, 2.0311e-01+0.7003j, 1.3752e-01+0.4581j,
+        1.1366e-01+0.5775j, 8.1570e-01+0.0639j, 8.6653e-01+0.2270j,
+        3.7157e-01+0.9242j, 2.7248e-01+0.8868j, 7.2718e-02+0.5850j,
+        5.0394e-01+0.5581j, 7.7047e-01+0.7585j, 5.5589e-01+0.9294j,
+        4.5676e-01+0.6091j, 8.3340e-01+0.3538j, 1.5625e-01+0.5209j,
+        2.4252e-01+0.4256j, 4.6107e-01+0.1428j, 5.6315e-01+0.1821j,
+        7.1633e-01+0.3228j, 5.6836e-01+0.7572j, 2.2218e-01+0.5874j,
+        5.8530e-01+0.2708j, 4.3061e-01+0.4832j, 9.8873e-01+0.5744j,
+        4.2281e-01+0.6618j, 9.0499e-02+0.2309j, 1.3564e-01+0.7472j,
+        8.4682e-01+0.2768j, 5.6388e-01+0.2345j, 6.2431e-01+0.1113j,
+        5.5903e-01+0.1241j, 7.0935e-01+0.8765j, 6.8800e-02+0.9738j,
+        7.4911e-01+0.8730j, 2.7379e-01+0.3156j, 4.2889e-01+0.0365j,
+        1.9485e-02+0.6915j, 2.3340e-01+0.8975j, 9.5666e-01+0.8422j,
+        6.0896e-01+0.3871j, 2.9957e-01+0.1625j, 4.5767e-01+0.4959j,
+        8.5515e-01+0.2279j, 6.0461e-01+0.0560j, 8.4425e-01+0.4297j,
+        8.5174e-01+0.0373j, 1.4513e-01+0.0467j, 5.1624e-02+0.4902j,
+        9.2893e-04+0.4618j, 7.5357e-01+0.0483j, 3.1021e-01+0.9152j,
+        6.2584e-01+0.2760j, 9.0968e-01+0.7523j, 7.8562e-01+0.5592j,
+        7.6435e-01+0.5770j, 9.6849e-01+0.5007j, 1.0756e-01+0.6745j,
+        1.5551e-01+0.2942j, 5.8229e-01+0.9536j, 1.9664e-01+0.1965j,
+        4.9026e-01+0.7483j, 5.2292e-02+0.4707j, 2.8327e-01+0.0253j,
+        1.6823e-01+0.2655j, 7.8209e-01+0.0229j, 3.6516e-01+0.0692j,
+        8.4371e-01+0.9688j], device='cuda:0', dtype=torch.complex128)
+refer_src: tensor([6.3145e-01+0.2795j, 2.8690e-01+0.8861j, 3.9789e-02+0.4555j,
+        9.4781e-01+0.1516j, 2.8258e-01+0.7948j, 8.8331e-02+0.1312j,
+        7.7019e-01+0.6191j, 3.6327e-01+0.3962j, 3.0646e-01+0.8201j,
+        6.6159e-01+0.6072j, 2.6049e-01+0.5369j, 1.8147e-01+0.2988j,
+        6.5924e-02+0.2058j, 6.2349e-01+0.6853j, 1.9787e-01+0.7819j,
+        3.7020e-02+0.7031j, 7.0717e-01+0.3887j, 6.7303e-01+0.9616j,
+        9.7033e-01+0.0966j, 2.5861e-03+0.1545j, 3.6455e-01+0.0732j,
+        9.8724e-01+0.5683j, 9.9609e-01+0.7280j, 9.7401e-01+0.2150j,
+        1.7990e-01+0.1137j, 8.0044e-01+0.7787j, 6.6563e-02+0.5451j,
+        7.7492e-01+0.3418j, 8.8471e-01+0.7635j, 2.7391e-01+0.4770j,
+        1.1725e-01+0.3866j, 6.3565e-01+0.4227j, 6.0187e-01+0.5486j,
+        3.9346e-02+0.9256j, 2.0311e-01+0.7003j, 1.3752e-01+0.4581j,
+        1.1366e-01+0.5775j, 8.1570e-01+0.0639j, 8.6653e-01+0.2270j,
+        3.7157e-01+0.9242j, 2.7248e-01+0.8868j, 7.2718e-02+0.5850j,
+        5.0394e-01+0.5581j, 7.7047e-01+0.7585j, 5.5589e-01+0.9294j,
+        4.5676e-01+0.6091j, 8.3340e-01+0.3538j, 1.5625e-01+0.5209j,
+        2.4252e-01+0.4256j, 4.6107e-01+0.1428j, 5.6315e-01+0.1821j,
+        7.1633e-01+0.3228j, 5.6836e-01+0.7572j, 2.2218e-01+0.5874j,
+        5.8530e-01+0.2708j, 4.3061e-01+0.4832j, 9.8873e-01+0.5744j,
+        4.2281e-01+0.6618j, 9.0499e-02+0.2309j, 1.3564e-01+0.7472j,
+        8.4682e-01+0.2768j, 5.6388e-01+0.2345j, 6.2431e-01+0.1113j,
+        5.5903e-01+0.1241j, 7.0935e-01+0.8765j, 6.8800e-02+0.9738j,
+        7.4911e-01+0.8730j, 2.7379e-01+0.3156j, 4.2889e-01+0.0365j,
+        1.9485e-02+0.6915j, 2.3340e-01+0.8975j, 9.5666e-01+0.8422j,
+        6.0896e-01+0.3871j, 2.9957e-01+0.1625j, 4.5767e-01+0.4959j,
+        8.5515e-01+0.2279j, 6.0461e-01+0.0560j, 8.4425e-01+0.4297j,
+        8.5174e-01+0.0373j, 1.4513e-01+0.0467j, 5.1624e-02+0.4902j,
+        9.2900e-04+0.4618j, 7.5357e-01+0.0483j, 3.1021e-01+0.9152j,
+        6.2584e-01+0.2760j, 9.0968e-01+0.7523j, 7.8562e-01+0.5592j,
+        7.6435e-01+0.5770j, 9.6849e-01+0.5007j, 1.0756e-01+0.6745j,
+        1.5551e-01+0.2942j, 5.8229e-01+0.9536j, 1.9664e-01+0.1965j,
+        4.9026e-01+0.7483j, 5.2292e-02+0.4707j, 2.8327e-01+0.0253j,
+        1.6823e-01+0.2655j, 7.8209e-01+0.0229j, 3.6516e-01+0.0692j,
+        8.4371e-01+0.9688j], device='cuda:0', dtype=torch.complex128)
+Difference: 3.0218858143345293e-08
+set_ptr:0x560cd3c55d40
+set_ptrs:0x560cb658b0c0
+long long set_ptr:94613092523328
+gridDim.x                    :4096
+blockDim.x                   :16
+host_params[_LAT_X_]         :16
+host_params[_LAT_Y_]         :16
+host_params[_LAT_Z_]         :16
+host_params[_LAT_T_]         :16
+host_params[_LAT_XYZT_]      :65536
+host_params[_GRID_X_]        :1
+host_params[_GRID_Y_]        :1
+host_params[_GRID_Z_]        :1
+host_params[_GRID_T_]        :1
+host_params[_PARITY_]        :0
+host_params[_NODE_RANK_]     :0
+host_params[_NODE_SIZE_]     :1
+host_params[_DAGGER_]        :0
+host_params[_MAX_ITER_]      :1000
+host_params[_DATA_TYPE_]     :3
+host_params[_SET_INDEX_]     :2
+host_params[_SET_PLAN_]      :2
+host_params[_MG_X_]          :1
+host_params[_MG_Y_]          :1
+host_params[_MG_Z_]          :1
+host_params[_MG_T_]          :1
+host_params[_LAT_E_]         :24
+host_params[_VERBOSE_]       :1
+host_params[_SEED_]          :42
+host_params[_TEST_IN_CPU_]   :0
+host_argv[_MASS_]            :5.000000e-02
+host_argv[_TOL_]             :1.000000e-09
+host_argv[_SIGMA_]           :1.000000e-01
+lat_2dim[_XY_]               :256
+lat_2dim[_XZ_]               :256
+lat_2dim[_XT_]               :256
+lat_2dim[_YZ_]               :256
+lat_2dim[_YT_]               :256
+lat_2dim[_ZT_]               :256
+lat_3dim[_YZT_]              :4096
+lat_3dim[_XZT_]              :4096
+lat_3dim[_XYT_]              :4096
+lat_3dim[_XYZ_]              :4096
+lat_4dim                     :65536
+grid_1dim[_X_]               :1
+grid_1dim[_Y_]               :1
+grid_1dim[_Z_]               :1
+grid_1dim[_T_]               :1
+grid_2dim[_XY_]              :1
+grid_2dim[_XZ_]              :1
+grid_2dim[_XT_]              :1
+grid_2dim[_YZ_]              :1
+grid_2dim[_YT_]              :1
+grid_2dim[_ZT_]              :1
+grid_3dim[_YZT_]             :1
+grid_3dim[_XZT_]             :1
+grid_3dim[_XYT_]             :1
+grid_3dim[_XYZ_]             :1
+grid_index_1dim[_X_]         :0
+grid_index_1dim[_Y_]         :0
+grid_index_1dim[_Z_]         :0
+grid_index_1dim[_T_]         :0
+move_wards[_B_X_]            :0
+move_wards[_B_Y_]            :0
+move_wards[_B_Z_]            :0
+move_wards[_B_T_]            :0
+move_wards[_F_X_]            :0
+move_wards[_F_Y_]            :0
+move_wards[_F_Z_]            :0
+move_wards[_F_T_]            :0
+move_wards[_BX_BY_]          :0
+move_wards[_BX_BZ_]          :0
+move_wards[_BX_BT_]          :0
+move_wards[_BY_BZ_]          :0
+move_wards[_BY_BT_]          :0
+move_wards[_BZ_BT_]          :0
+move_wards[_FX_BY_]          :0
+move_wards[_FX_BZ_]          :0
+move_wards[_FX_BT_]          :0
+move_wards[_FY_BZ_]          :0
+move_wards[_FY_BT_]          :0
+move_wards[_FZ_BT_]          :0
+move_wards[_BX_FY_]          :0
+move_wards[_BX_FZ_]          :0
+move_wards[_BX_FT_]          :0
+move_wards[_BY_FZ_]          :0
+move_wards[_BY_FT_]          :0
+move_wards[_BZ_FT_]          :0
+move_wards[_FX_FY_]          :0
+move_wards[_FX_FZ_]          :0
+move_wards[_FX_FT_]          :0
+move_wards[_FY_FZ_]          :0
+move_wards[_FY_FT_]          :0
+move_wards[_FZ_FT_]          :0
+lattice set init total time:0.006941382 sec
+make clover total time: (without malloc free memcpy) :0.060184661 sec
+ make clover total time: (without malloc free memcpy) :0.045825149 sec
+ inverse clover total time: (without malloc free memcpy) :0.043497472 sec
+tensor([94612617755072, 94612926962800, 94613092523328,              0,
+                     0,              0,              0,              0,
+                     0,              0])
+ set_ptr:0x560cd9794660
+set_ptrs:0x560cb658b0c0
+long long set_ptr:94613188200032
+gridDim.x                    :4096
+blockDim.x                   :16
+host_params[_LAT_X_]         :16
+host_params[_LAT_Y_]         :16
+host_params[_LAT_Z_]         :16
+host_params[_LAT_T_]         :16
+host_params[_LAT_XYZT_]      :65536
+host_params[_GRID_X_]        :1
+host_params[_GRID_Y_]        :1
+host_params[_GRID_Z_]        :1
+host_params[_GRID_T_]        :1
+host_params[_PARITY_]        :1
+host_params[_NODE_RANK_]     :0
+host_params[_NODE_SIZE_]     :1
+host_params[_DAGGER_]        :0
+host_params[_MAX_ITER_]      :1000
+host_params[_DATA_TYPE_]     :3
+host_params[_SET_INDEX_]     :3
+host_params[_SET_PLAN_]      :2
+host_params[_MG_X_]          :1
+host_params[_MG_Y_]          :1
+host_params[_MG_Z_]          :1
+host_params[_MG_T_]          :1
+host_params[_LAT_E_]         :24
+host_params[_VERBOSE_]       :1
+host_params[_SEED_]          :42
+host_params[_TEST_IN_CPU_]   :0
+host_argv[_MASS_]            :5.000000e-02
+host_argv[_TOL_]             :1.000000e-09
+host_argv[_SIGMA_]           :1.000000e-01
+lat_2dim[_XY_]               :256
+lat_2dim[_XZ_]               :256
+lat_2dim[_XT_]               :256
+lat_2dim[_YZ_]               :256
+lat_2dim[_YT_]               :256
+lat_2dim[_ZT_]               :256
+lat_3dim[_YZT_]              :4096
+lat_3dim[_XZT_]              :4096
+lat_3dim[_XYT_]              :4096
+lat_3dim[_XYZ_]              :4096
+lat_4dim                     :65536
+grid_1dim[_X_]               :1
+grid_1dim[_Y_]               :1
+grid_1dim[_Z_]               :1
+grid_1dim[_T_]               :1
+grid_2dim[_XY_]              :1
+grid_2dim[_XZ_]              :1
+grid_2dim[_XT_]              :1
+grid_2dim[_YZ_]              :1
+grid_2dim[_YT_]              :1
+grid_2dim[_ZT_]              :1
+grid_3dim[_YZT_]             :1
+grid_3dim[_XZT_]             :1
+grid_3dim[_XYT_]             :1
+grid_3dim[_XYZ_]             :1
+grid_index_1dim[_X_]         :0
+grid_index_1dim[_Y_]         :0
+grid_index_1dim[_Z_]         :0
+grid_index_1dim[_T_]         :0
+move_wards[_B_X_]            :0
+move_wards[_B_Y_]            :0
+move_wards[_B_Z_]            :0
+move_wards[_B_T_]            :0
+move_wards[_F_X_]            :0
+move_wards[_F_Y_]            :0
+move_wards[_F_Z_]            :0
+move_wards[_F_T_]            :0
+move_wards[_BX_BY_]          :0
+move_wards[_BX_BZ_]          :0
+move_wards[_BX_BT_]          :0
+move_wards[_BY_BZ_]          :0
+move_wards[_BY_BT_]          :0
+move_wards[_BZ_BT_]          :0
+move_wards[_FX_BY_]          :0
+move_wards[_FX_BZ_]          :0
+move_wards[_FX_BT_]          :0
+move_wards[_FY_BZ_]          :0
+move_wards[_FY_BT_]          :0
+move_wards[_FZ_BT_]          :0
+move_wards[_BX_FY_]          :0
+move_wards[_BX_FZ_]          :0
+move_wards[_BX_FT_]          :0
+move_wards[_BY_FZ_]          :0
+move_wards[_BY_FT_]          :0
+move_wards[_BZ_FT_]          :0
+move_wards[_FX_FY_]          :0
+move_wards[_FX_FZ_]          :0
+move_wards[_FX_FT_]          :0
+move_wards[_FY_FZ_]          :0
+move_wards[_FY_FT_]          :0
+move_wards[_FZ_FT_]          :0
+lattice set init total time:0.053622753 sec
+make clover total time: (without malloc free memcpy) :0.068476526 sec
+ make clover total time: (without malloc free memcpy) :0.051331101 sec
+ inverse clover total time: (without malloc free memcpy) :0.037724347 sec
+tensor([94612617755072, 94612926962800, 94613092523328, 94613188200032,
+                     0,              0,              0,              0,
+                     0,              0])
+qcu_clover_term: tensor([ 3.7168e-03+0.j,  2.4132e-03+0.j,  5.1788e-03+0.j, -5.5118e-04+0.j,
+         6.0162e-04+0.j, -7.3538e-04+0.j,  1.3987e-03+0.j,  2.3773e-03+0.j,
+        -4.1942e-03+0.j,  2.0880e-03+0.j, -3.2347e-04+0.j, -1.7583e-03+0.j,
+         7.6797e-03+0.j, -5.9307e-03+0.j, -5.0951e-04+0.j,  2.4755e-03+0.j,
+         3.1770e-03+0.j, -3.7663e-03+0.j, -3.3121e-03+0.j,  3.2836e-03+0.j,
+         4.8424e-03+0.j, -5.0897e-04+0.j, -5.5793e-06+0.j,  2.3624e-03+0.j,
+         1.0903e-03+0.j, -4.5908e-03+0.j, -2.2725e-03+0.j, -1.9658e-04+0.j,
+        -7.3807e-03+0.j,  2.5567e-03+0.j,  4.0882e-03+0.j,  2.8476e-03+0.j,
+         1.4922e-03+0.j, -5.6111e-03+0.j, -2.3889e-03+0.j,  4.6205e-03+0.j,
+        -3.9720e-03+0.j, -3.7726e-03+0.j, -5.9332e-03+0.j,  2.4060e-03+0.j,
+         2.8426e-03+0.j, -5.3116e-03+0.j, -6.7538e-04+0.j,  8.9261e-03+0.j,
+        -1.0752e-03+0.j, -2.6784e-03+0.j,  2.2640e-03+0.j,  2.2110e-04+0.j,
+         8.1767e-05+0.j,  3.0500e-03+0.j,  2.2012e-03+0.j,  5.2604e-03+0.j,
+        -2.5779e-03+0.j, -6.7367e-03+0.j, -3.6606e-03+0.j,  3.8098e-03+0.j,
+         3.8112e-04+0.j,  3.0317e-03+0.j, -2.8358e-03+0.j, -5.5566e-03+0.j,
+         1.9876e-03+0.j,  2.3477e-03+0.j, -5.0737e-03+0.j, -2.7421e-04+0.j,
+         2.9521e-03+0.j,  4.9907e-05+0.j,  2.3338e-03+0.j,  2.0575e-03+0.j,
+         6.1569e-03+0.j, -5.2304e-03+0.j,  1.8039e-03+0.j, -3.6876e-03+0.j,
+         9.0984e-04+0.j,  2.2450e-03+0.j, -3.4884e-05+0.j,  6.2268e-03+0.j,
+        -7.7801e-04+0.j, -4.6728e-03+0.j, -6.7960e-03+0.j, -3.0283e-04+0.j,
+         4.9186e-03+0.j,  5.1917e-03+0.j,  3.4023e-03+0.j,  4.6393e-03+0.j,
+        -2.1060e-03+0.j, -5.3606e-04+0.j,  2.5318e-03+0.j,  6.0764e-03+0.j,
+        -4.7036e-04+0.j,  9.4547e-03+0.j, -9.8218e-04+0.j, -3.0390e-03+0.j,
+         1.9133e-03+0.j,  3.5894e-03+0.j, -3.9916e-03+0.j,  5.8179e-03+0.j,
+        -6.0733e-03+0.j,  9.2141e-04+0.j,  6.5621e-03+0.j,  3.5390e-03+0.j],
+       device='cuda:0', dtype=torch.complex128)
+refer_clover_term: tensor([ 3.7168e-03+0.j,  2.4132e-03+0.j,  5.1788e-03+0.j, -5.5118e-04+0.j,
+         6.0162e-04+0.j, -7.3538e-04+0.j,  1.3987e-03+0.j,  2.3773e-03+0.j,
+        -4.1942e-03+0.j,  2.0880e-03+0.j, -3.2347e-04+0.j, -1.7583e-03+0.j,
+         7.6797e-03+0.j, -5.9307e-03+0.j, -5.0951e-04+0.j,  2.4755e-03+0.j,
+         3.1770e-03+0.j, -3.7663e-03+0.j, -3.3121e-03+0.j,  3.2836e-03+0.j,
+         4.8424e-03+0.j, -5.0897e-04+0.j, -5.5793e-06+0.j,  2.3624e-03+0.j,
+         1.0903e-03+0.j, -4.5908e-03+0.j, -2.2725e-03+0.j, -1.9658e-04+0.j,
+        -7.3807e-03+0.j,  2.5567e-03+0.j,  4.0882e-03+0.j,  2.8476e-03+0.j,
+         1.4922e-03+0.j, -5.6111e-03+0.j, -2.3889e-03+0.j,  4.6205e-03+0.j,
+        -3.9720e-03+0.j, -3.7726e-03+0.j, -5.9332e-03+0.j,  2.4060e-03+0.j,
+         2.8426e-03+0.j, -5.3116e-03+0.j, -6.7538e-04+0.j,  8.9261e-03+0.j,
+        -1.0752e-03+0.j, -2.6784e-03+0.j,  2.2640e-03+0.j,  2.2110e-04+0.j,
+         8.1767e-05+0.j,  3.0500e-03+0.j,  2.2012e-03+0.j,  5.2604e-03+0.j,
+        -2.5779e-03+0.j, -6.7367e-03+0.j, -3.6606e-03+0.j,  3.8098e-03+0.j,
+         3.8112e-04+0.j,  3.0317e-03+0.j, -2.8358e-03+0.j, -5.5566e-03+0.j,
+         1.9876e-03+0.j,  2.3477e-03+0.j, -5.0737e-03+0.j, -2.7421e-04+0.j,
+         2.9521e-03+0.j,  4.9907e-05+0.j,  2.3338e-03+0.j,  2.0575e-03+0.j,
+         6.1569e-03+0.j, -5.2304e-03+0.j,  1.8039e-03+0.j, -3.6876e-03+0.j,
+         9.0984e-04+0.j,  2.2450e-03+0.j, -3.4884e-05+0.j,  6.2268e-03+0.j,
+        -7.7801e-04+0.j, -4.6728e-03+0.j, -6.7960e-03+0.j, -3.0283e-04+0.j,
+         4.9186e-03+0.j,  5.1917e-03+0.j,  3.4023e-03+0.j,  4.6393e-03+0.j,
+        -2.1060e-03+0.j, -5.3606e-04+0.j,  2.5318e-03+0.j,  6.0764e-03+0.j,
+        -4.7036e-04+0.j,  9.4547e-03+0.j, -9.8218e-04+0.j, -3.0390e-03+0.j,
+         1.9133e-03+0.j,  3.5894e-03+0.j, -3.9916e-03+0.j,  5.8179e-03+0.j,
+        -6.0733e-03+0.j,  9.2141e-04+0.j,  6.5621e-03+0.j,  3.5390e-03+0.j],
+       device='cuda:0', dtype=torch.complex128)
+Difference: 3.603377514915855e-15
+ set_ptr:0x560cdefff8d0
+set_ptrs:0x560cb658b0c0
+long long set_ptr:94613280913616
+gridDim.x                    :4096
+blockDim.x                   :16
+host_params[_LAT_X_]         :16
+host_params[_LAT_Y_]         :16
+host_params[_LAT_Z_]         :16
+host_params[_LAT_T_]         :16
+host_params[_LAT_XYZT_]      :65536
+host_params[_GRID_X_]        :1
+host_params[_GRID_Y_]        :1
+host_params[_GRID_Z_]        :1
+host_params[_GRID_T_]        :1
+host_params[_PARITY_]        :0
+host_params[_NODE_RANK_]     :0
+host_params[_NODE_SIZE_]     :1
+host_params[_DAGGER_]        :0
+host_params[_MAX_ITER_]      :1000
+host_params[_DATA_TYPE_]     :3
+host_params[_SET_INDEX_]     :4
+host_params[_SET_PLAN_]      :2
+host_params[_MG_X_]          :1
+host_params[_MG_Y_]          :1
+host_params[_MG_Z_]          :1
+host_params[_MG_T_]          :1
+host_params[_LAT_E_]         :24
+host_params[_VERBOSE_]       :1
+host_params[_SEED_]          :42
+host_params[_TEST_IN_CPU_]   :0
+host_argv[_MASS_]            :5.000000e-02
+host_argv[_TOL_]             :1.000000e-09
+host_argv[_SIGMA_]           :1.000000e-01
+lat_2dim[_XY_]               :256
+lat_2dim[_XZ_]               :256
+lat_2dim[_XT_]               :256
+lat_2dim[_YZ_]               :256
+lat_2dim[_YT_]               :256
+lat_2dim[_ZT_]               :256
+lat_3dim[_YZT_]              :4096
+lat_3dim[_XZT_]              :4096
+lat_3dim[_XYT_]              :4096
+lat_3dim[_XYZ_]              :4096
+lat_4dim                     :65536
+grid_1dim[_X_]               :1
+grid_1dim[_Y_]               :1
+grid_1dim[_Z_]               :1
+grid_1dim[_T_]               :1
+grid_2dim[_XY_]              :1
+grid_2dim[_XZ_]              :1
+grid_2dim[_XT_]              :1
+grid_2dim[_YZ_]              :1
+grid_2dim[_YT_]              :1
+grid_2dim[_ZT_]              :1
+grid_3dim[_YZT_]             :1
+grid_3dim[_XZT_]             :1
+grid_3dim[_XYT_]             :1
+grid_3dim[_XYZ_]             :1
+grid_index_1dim[_X_]         :0
+grid_index_1dim[_Y_]         :0
+grid_index_1dim[_Z_]         :0
+grid_index_1dim[_T_]         :0
+move_wards[_B_X_]            :0
+move_wards[_B_Y_]            :0
+move_wards[_B_Z_]            :0
+move_wards[_B_T_]            :0
+move_wards[_F_X_]            :0
+move_wards[_F_Y_]            :0
+move_wards[_F_Z_]            :0
+move_wards[_F_T_]            :0
+move_wards[_BX_BY_]          :0
+move_wards[_BX_BZ_]          :0
+move_wards[_BX_BT_]          :0
+move_wards[_BY_BZ_]          :0
+move_wards[_BY_BT_]          :0
+move_wards[_BZ_BT_]          :0
+move_wards[_FX_BY_]          :0
+move_wards[_FX_BZ_]          :0
+move_wards[_FX_BT_]          :0
+move_wards[_FY_BZ_]          :0
+move_wards[_FY_BT_]          :0
+move_wards[_FZ_BT_]          :0
+move_wards[_BX_FY_]          :0
+move_wards[_BX_FZ_]          :0
+move_wards[_BX_FT_]          :0
+move_wards[_BY_FZ_]          :0
+move_wards[_BY_FT_]          :0
+move_wards[_BZ_FT_]          :0
+move_wards[_FX_FY_]          :0
+move_wards[_FX_FZ_]          :0
+move_wards[_FX_FT_]          :0
+move_wards[_FY_FZ_]          :0
+move_wards[_FY_FT_]          :0
+move_wards[_FZ_FT_]          :0
+lattice set init total time:0.005650090 sec
+long long fermion_out:30654070784
+long long fermion_in:30255611904
+long long gauge:30154948608
+long long clover_ee:30893146112
+long long clover_oo:31195136000
+long long clover_ee_inv:31044141056
+long long clover_oo_inv:31346130944
+long long set_ptrs:94612598862016
+long long params:94612598844800
+##RANK:0##LOOP:94##Residual:(4.93248e-10,2.8602e-29i)
+multi-gpu clover bistabcg total time: (without malloc free memcpy) :1.482404529 sec
+######TIME  :1512.83######
+##RANK      :0
+##LOOP      :0
+##tmp0      :(1.42675e-11,8.14034e-12i)
+##tmp1      :(4.02581e-12,-5.51346e-34i)
+##rho_prev  :(-3.06646e-06,-1.22634e-06i)
+##rho       :(-3.06646e-06,-1.22634e-06i)
+##alpha     :(0.880584,0.373287i)
+##beta      :(-4.01566,-3.52637i)
+##omega     :(3.54402,2.02204i)
+##send_tmp  :(3.09975e-10,-1.40054e-29i)
+##norm2_tmp :(1.70095e+06,-6.9972e-15i)
+##diff_tmp  :(1.82237e-16,-7.4842e-36i)
+##lat_4dim  :(65536,0i)
+tensor([94612617755072, 94612926962800, 94613092523328, 94613188200032,
+        94613280913616,              0,              0,              0,
+                     0,              0])
+qcu_src: tensor([6.3145e-01+0.2795j, 2.8690e-01+0.8861j, 3.9789e-02+0.4555j,
+        9.4781e-01+0.1516j, 2.8258e-01+0.7948j, 8.8331e-02+0.1312j,
+        7.7019e-01+0.6191j, 3.6327e-01+0.3962j, 3.0646e-01+0.8201j,
+        6.6159e-01+0.6072j, 2.6049e-01+0.5369j, 1.8147e-01+0.2988j,
+        6.5924e-02+0.2058j, 6.2349e-01+0.6853j, 1.9787e-01+0.7819j,
+        3.7020e-02+0.7031j, 7.0717e-01+0.3887j, 6.7303e-01+0.9616j,
+        9.7033e-01+0.0966j, 2.5861e-03+0.1545j, 3.6455e-01+0.0732j,
+        9.8724e-01+0.5683j, 9.9609e-01+0.7280j, 9.7401e-01+0.2150j,
+        1.7990e-01+0.1137j, 8.0044e-01+0.7787j, 6.6563e-02+0.5451j,
+        7.7492e-01+0.3418j, 8.8471e-01+0.7635j, 2.7391e-01+0.4770j,
+        1.1725e-01+0.3866j, 6.3565e-01+0.4227j, 6.0187e-01+0.5486j,
+        3.9346e-02+0.9256j, 2.0311e-01+0.7003j, 1.3752e-01+0.4581j,
+        1.1366e-01+0.5775j, 8.1570e-01+0.0639j, 8.6653e-01+0.2270j,
+        3.7157e-01+0.9242j, 2.7248e-01+0.8868j, 7.2718e-02+0.5850j,
+        5.0394e-01+0.5581j, 7.7047e-01+0.7585j, 5.5589e-01+0.9294j,
+        4.5676e-01+0.6091j, 8.3340e-01+0.3538j, 1.5625e-01+0.5209j,
+        2.4252e-01+0.4256j, 4.6107e-01+0.1428j, 5.6315e-01+0.1821j,
+        7.1633e-01+0.3228j, 5.6836e-01+0.7572j, 2.2218e-01+0.5874j,
+        5.8530e-01+0.2708j, 4.3061e-01+0.4832j, 9.8873e-01+0.5744j,
+        4.2281e-01+0.6618j, 9.0499e-02+0.2309j, 1.3564e-01+0.7472j,
+        8.4682e-01+0.2768j, 5.6388e-01+0.2345j, 6.2431e-01+0.1113j,
+        5.5903e-01+0.1241j, 7.0935e-01+0.8765j, 6.8800e-02+0.9738j,
+        7.4911e-01+0.8730j, 2.7379e-01+0.3156j, 4.2889e-01+0.0365j,
+        1.9485e-02+0.6915j, 2.3340e-01+0.8975j, 9.5666e-01+0.8422j,
+        6.0896e-01+0.3871j, 2.9957e-01+0.1625j, 4.5767e-01+0.4959j,
+        8.5515e-01+0.2279j, 6.0461e-01+0.0560j, 8.4425e-01+0.4297j,
+        8.5174e-01+0.0373j, 1.4513e-01+0.0467j, 5.1624e-02+0.4902j,
+        9.2893e-04+0.4618j, 7.5357e-01+0.0483j, 3.1021e-01+0.9152j,
+        6.2584e-01+0.2760j, 9.0968e-01+0.7523j, 7.8562e-01+0.5592j,
+        7.6435e-01+0.5770j, 9.6849e-01+0.5007j, 1.0756e-01+0.6745j,
+        1.5551e-01+0.2942j, 5.8229e-01+0.9536j, 1.9664e-01+0.1965j,
+        4.9026e-01+0.7483j, 5.2292e-02+0.4707j, 2.8327e-01+0.0253j,
+        1.6823e-01+0.2655j, 7.8209e-01+0.0229j, 3.6516e-01+0.0692j,
+        8.4371e-01+0.9688j], device='cuda:0', dtype=torch.complex128)
+refer_src: tensor([6.3145e-01+0.2795j, 2.8690e-01+0.8861j, 3.9789e-02+0.4555j,
+        9.4781e-01+0.1516j, 2.8258e-01+0.7948j, 8.8331e-02+0.1312j,
+        7.7019e-01+0.6191j, 3.6327e-01+0.3962j, 3.0646e-01+0.8201j,
+        6.6159e-01+0.6072j, 2.6049e-01+0.5369j, 1.8147e-01+0.2988j,
+        6.5924e-02+0.2058j, 6.2349e-01+0.6853j, 1.9787e-01+0.7819j,
+        3.7020e-02+0.7031j, 7.0717e-01+0.3887j, 6.7303e-01+0.9616j,
+        9.7033e-01+0.0966j, 2.5861e-03+0.1545j, 3.6455e-01+0.0732j,
+        9.8724e-01+0.5683j, 9.9609e-01+0.7280j, 9.7401e-01+0.2150j,
+        1.7990e-01+0.1137j, 8.0044e-01+0.7787j, 6.6563e-02+0.5451j,
+        7.7492e-01+0.3418j, 8.8471e-01+0.7635j, 2.7391e-01+0.4770j,
+        1.1725e-01+0.3866j, 6.3565e-01+0.4227j, 6.0187e-01+0.5486j,
+        3.9346e-02+0.9256j, 2.0311e-01+0.7003j, 1.3752e-01+0.4581j,
+        1.1366e-01+0.5775j, 8.1570e-01+0.0639j, 8.6653e-01+0.2270j,
+        3.7157e-01+0.9242j, 2.7248e-01+0.8868j, 7.2718e-02+0.5850j,
+        5.0394e-01+0.5581j, 7.7047e-01+0.7585j, 5.5589e-01+0.9294j,
+        4.5676e-01+0.6091j, 8.3340e-01+0.3538j, 1.5625e-01+0.5209j,
+        2.4252e-01+0.4256j, 4.6107e-01+0.1428j, 5.6315e-01+0.1821j,
+        7.1633e-01+0.3228j, 5.6836e-01+0.7572j, 2.2218e-01+0.5874j,
+        5.8530e-01+0.2708j, 4.3061e-01+0.4832j, 9.8873e-01+0.5744j,
+        4.2281e-01+0.6618j, 9.0499e-02+0.2309j, 1.3564e-01+0.7472j,
+        8.4682e-01+0.2768j, 5.6388e-01+0.2345j, 6.2431e-01+0.1113j,
+        5.5903e-01+0.1241j, 7.0935e-01+0.8765j, 6.8800e-02+0.9738j,
+        7.4911e-01+0.8730j, 2.7379e-01+0.3156j, 4.2889e-01+0.0365j,
+        1.9485e-02+0.6915j, 2.3340e-01+0.8975j, 9.5666e-01+0.8422j,
+        6.0896e-01+0.3871j, 2.9957e-01+0.1625j, 4.5767e-01+0.4959j,
+        8.5515e-01+0.2279j, 6.0461e-01+0.0560j, 8.4425e-01+0.4297j,
+        8.5174e-01+0.0373j, 1.4513e-01+0.0467j, 5.1624e-02+0.4902j,
+        9.2895e-04+0.4618j, 7.5357e-01+0.0483j, 3.1021e-01+0.9152j,
+        6.2584e-01+0.2760j, 9.0968e-01+0.7523j, 7.8562e-01+0.5592j,
+        7.6435e-01+0.5770j, 9.6849e-01+0.5007j, 1.0756e-01+0.6745j,
+        1.5551e-01+0.2942j, 5.8229e-01+0.9536j, 1.9664e-01+0.1965j,
+        4.9026e-01+0.7483j, 5.2292e-02+0.4707j, 2.8327e-01+0.0253j,
+        1.6823e-01+0.2655j, 7.8209e-01+0.0229j, 3.6516e-01+0.0692j,
+        8.4371e-01+0.9688j], device='cuda:0', dtype=torch.complex128)
+Difference: 1.7191051189973388e-08
+long long fermion_out:30679236608
+long long fermion_in:30255611904
+long long gauge:30154948608
+long long clover_ee:30893146112
+long long clover_oo:31195136000
+long long clover_ee_inv:31044141056
+long long clover_oo_inv:31346130944
+long long set_ptrs:94612598862016
+long long params:94612598844800
+##RANK:0##LOOP:94##Residual:(4.93248e-10,2.8602e-29i)
+multi-gpu clover bistabcg total time: (without malloc free memcpy) :1.473867460 sec
+######TIME  :3459.23######
+##RANK      :0
+##LOOP      :0
+##tmp0      :(1.42675e-11,8.14034e-12i)
+##tmp1      :(4.02581e-12,-5.51346e-34i)
+##rho_prev  :(-3.06646e-06,-1.22634e-06i)
+##rho       :(-3.06646e-06,-1.22634e-06i)
+##alpha     :(0.880584,0.373287i)
+##beta      :(-4.01566,-3.52637i)
+##omega     :(3.54402,2.02204i)
+##send_tmp  :(3.09975e-10,-1.40054e-29i)
+##norm2_tmp :(1.70095e+06,-6.9972e-15i)
+##diff_tmp  :(1.82237e-16,-7.4842e-36i)
+##lat_4dim  :(65536,0i)
+tensor([94612617755072, 94612926962800, 94613092523328, 94613188200032,
+        94613280913616,              0,              0,              0,
+                     0,              0])
+qcu_src: tensor([6.3145e-01+0.2795j, 2.8690e-01+0.8861j, 3.9789e-02+0.4555j,
+        9.4781e-01+0.1516j, 2.8258e-01+0.7948j, 8.8331e-02+0.1312j,
+        7.7019e-01+0.6191j, 3.6327e-01+0.3962j, 3.0646e-01+0.8201j,
+        6.6159e-01+0.6072j, 2.6049e-01+0.5369j, 1.8147e-01+0.2988j,
+        6.5924e-02+0.2058j, 6.2349e-01+0.6853j, 1.9787e-01+0.7819j,
+        3.7020e-02+0.7031j, 7.0717e-01+0.3887j, 6.7303e-01+0.9616j,
+        9.7033e-01+0.0966j, 2.5861e-03+0.1545j, 3.6455e-01+0.0732j,
+        9.8724e-01+0.5683j, 9.9609e-01+0.7280j, 9.7401e-01+0.2150j,
+        1.7990e-01+0.1137j, 8.0044e-01+0.7787j, 6.6563e-02+0.5451j,
+        7.7492e-01+0.3418j, 8.8471e-01+0.7635j, 2.7391e-01+0.4770j,
+        1.1725e-01+0.3866j, 6.3565e-01+0.4227j, 6.0187e-01+0.5486j,
+        3.9346e-02+0.9256j, 2.0311e-01+0.7003j, 1.3752e-01+0.4581j,
+        1.1366e-01+0.5775j, 8.1570e-01+0.0639j, 8.6653e-01+0.2270j,
+        3.7157e-01+0.9242j, 2.7248e-01+0.8868j, 7.2718e-02+0.5850j,
+        5.0394e-01+0.5581j, 7.7047e-01+0.7585j, 5.5589e-01+0.9294j,
+        4.5676e-01+0.6091j, 8.3340e-01+0.3538j, 1.5625e-01+0.5209j,
+        2.4252e-01+0.4256j, 4.6107e-01+0.1428j, 5.6315e-01+0.1821j,
+        7.1633e-01+0.3228j, 5.6836e-01+0.7572j, 2.2218e-01+0.5874j,
+        5.8530e-01+0.2708j, 4.3061e-01+0.4832j, 9.8873e-01+0.5744j,
+        4.2281e-01+0.6618j, 9.0499e-02+0.2309j, 1.3564e-01+0.7472j,
+        8.4682e-01+0.2768j, 5.6388e-01+0.2345j, 6.2431e-01+0.1113j,
+        5.5903e-01+0.1241j, 7.0935e-01+0.8765j, 6.8800e-02+0.9738j,
+        7.4911e-01+0.8730j, 2.7379e-01+0.3156j, 4.2889e-01+0.0365j,
+        1.9485e-02+0.6915j, 2.3340e-01+0.8975j, 9.5666e-01+0.8422j,
+        6.0896e-01+0.3871j, 2.9957e-01+0.1625j, 4.5767e-01+0.4959j,
+        8.5515e-01+0.2279j, 6.0461e-01+0.0560j, 8.4425e-01+0.4297j,
+        8.5174e-01+0.0373j, 1.4513e-01+0.0467j, 5.1624e-02+0.4902j,
+        9.2893e-04+0.4618j, 7.5357e-01+0.0483j, 3.1021e-01+0.9152j,
+        6.2584e-01+0.2760j, 9.0968e-01+0.7523j, 7.8562e-01+0.5592j,
+        7.6435e-01+0.5770j, 9.6849e-01+0.5007j, 1.0756e-01+0.6745j,
+        1.5551e-01+0.2942j, 5.8229e-01+0.9536j, 1.9664e-01+0.1965j,
+        4.9026e-01+0.7483j, 5.2292e-02+0.4707j, 2.8327e-01+0.0253j,
+        1.6823e-01+0.2655j, 7.8209e-01+0.0229j, 3.6516e-01+0.0692j,
+        8.4371e-01+0.9688j], device='cuda:0', dtype=torch.complex128)
+refer_src: tensor([6.3145e-01+0.2795j, 2.8690e-01+0.8861j, 3.9789e-02+0.4555j,
+        9.4781e-01+0.1516j, 2.8258e-01+0.7948j, 8.8331e-02+0.1312j,
+        7.7019e-01+0.6191j, 3.6327e-01+0.3962j, 3.0646e-01+0.8201j,
+        6.6159e-01+0.6072j, 2.6049e-01+0.5369j, 1.8147e-01+0.2988j,
+        6.5924e-02+0.2058j, 6.2349e-01+0.6853j, 1.9787e-01+0.7819j,
+        3.7020e-02+0.7031j, 7.0717e-01+0.3887j, 6.7303e-01+0.9616j,
+        9.7033e-01+0.0966j, 2.5861e-03+0.1545j, 3.6455e-01+0.0732j,
+        9.8724e-01+0.5683j, 9.9609e-01+0.7280j, 9.7401e-01+0.2150j,
+        1.7990e-01+0.1137j, 8.0044e-01+0.7787j, 6.6563e-02+0.5451j,
+        7.7492e-01+0.3418j, 8.8471e-01+0.7635j, 2.7391e-01+0.4770j,
+        1.1725e-01+0.3866j, 6.3565e-01+0.4227j, 6.0187e-01+0.5486j,
+        3.9346e-02+0.9256j, 2.0311e-01+0.7003j, 1.3752e-01+0.4581j,
+        1.1366e-01+0.5775j, 8.1570e-01+0.0639j, 8.6653e-01+0.2270j,
+        3.7157e-01+0.9242j, 2.7248e-01+0.8868j, 7.2718e-02+0.5850j,
+        5.0394e-01+0.5581j, 7.7047e-01+0.7585j, 5.5589e-01+0.9294j,
+        4.5676e-01+0.6091j, 8.3340e-01+0.3538j, 1.5625e-01+0.5209j,
+        2.4252e-01+0.4256j, 4.6107e-01+0.1428j, 5.6315e-01+0.1821j,
+        7.1633e-01+0.3228j, 5.6836e-01+0.7572j, 2.2218e-01+0.5874j,
+        5.8530e-01+0.2708j, 4.3061e-01+0.4832j, 9.8873e-01+0.5744j,
+        4.2281e-01+0.6618j, 9.0499e-02+0.2309j, 1.3564e-01+0.7472j,
+        8.4682e-01+0.2768j, 5.6388e-01+0.2345j, 6.2431e-01+0.1113j,
+        5.5903e-01+0.1241j, 7.0935e-01+0.8765j, 6.8800e-02+0.9738j,
+        7.4911e-01+0.8730j, 2.7379e-01+0.3156j, 4.2889e-01+0.0365j,
+        1.9485e-02+0.6915j, 2.3340e-01+0.8975j, 9.5666e-01+0.8422j,
+        6.0896e-01+0.3871j, 2.9957e-01+0.1625j, 4.5767e-01+0.4959j,
+        8.5515e-01+0.2279j, 6.0461e-01+0.0560j, 8.4425e-01+0.4297j,
+        8.5174e-01+0.0373j, 1.4513e-01+0.0467j, 5.1624e-02+0.4902j,
+        9.2895e-04+0.4618j, 7.5357e-01+0.0483j, 3.1021e-01+0.9152j,
+        6.2584e-01+0.2760j, 9.0968e-01+0.7523j, 7.8562e-01+0.5592j,
+        7.6435e-01+0.5770j, 9.6849e-01+0.5007j, 1.0756e-01+0.6745j,
+        1.5551e-01+0.2942j, 5.8229e-01+0.9536j, 1.9664e-01+0.1965j,
+        4.9026e-01+0.7483j, 5.2292e-02+0.4707j, 2.8327e-01+0.0253j,
+        1.6823e-01+0.2655j, 7.8209e-01+0.0229j, 3.6516e-01+0.0692j,
+        8.4371e-01+0.9688j], device='cuda:0', dtype=torch.complex128)
+Difference: 1.7191051189973388e-08
+long long fermion_out:30230446080
+long long fermion_in:30255611904
+long long gauge:30154948608
+long long clover_ee:30893146112
+long long clover_oo:31195136000
+long long clover_ee_inv:31044141056
+long long clover_oo_inv:31346130944
+long long set_ptrs:94612598862016
+long long params:94612598844800
+##RANK:0##LOOP:94##Residual:(4.93248e-10,2.8602e-29i)
+multi-gpu clover bistabcg total time: (without malloc free memcpy) :1.414011683 sec
+######TIME  :5340.35######
+##RANK      :0
+##LOOP      :0
+##tmp0      :(1.42675e-11,8.14034e-12i)
+##tmp1      :(4.02581e-12,-5.51346e-34i)
+##rho_prev  :(-3.06646e-06,-1.22634e-06i)
+##rho       :(-3.06646e-06,-1.22634e-06i)
+##alpha     :(0.880584,0.373287i)
+##beta      :(-4.01566,-3.52637i)
+##omega     :(3.54402,2.02204i)
+##send_tmp  :(3.09975e-10,-1.40054e-29i)
+##norm2_tmp :(1.70095e+06,-6.9972e-15i)
+##diff_tmp  :(1.82237e-16,-7.4842e-36i)
+##lat_4dim  :(65536,0i)
+tensor([94612617755072, 94612926962800, 94613092523328, 94613188200032,
+        94613280913616,              0,              0,              0,
+                     0,              0])
+qcu_src: tensor([6.3145e-01+0.2795j, 2.8690e-01+0.8861j, 3.9789e-02+0.4555j,
+        9.4781e-01+0.1516j, 2.8258e-01+0.7948j, 8.8331e-02+0.1312j,
+        7.7019e-01+0.6191j, 3.6327e-01+0.3962j, 3.0646e-01+0.8201j,
+        6.6159e-01+0.6072j, 2.6049e-01+0.5369j, 1.8147e-01+0.2988j,
+        6.5924e-02+0.2058j, 6.2349e-01+0.6853j, 1.9787e-01+0.7819j,
+        3.7020e-02+0.7031j, 7.0717e-01+0.3887j, 6.7303e-01+0.9616j,
+        9.7033e-01+0.0966j, 2.5861e-03+0.1545j, 3.6455e-01+0.0732j,
+        9.8724e-01+0.5683j, 9.9609e-01+0.7280j, 9.7401e-01+0.2150j,
+        1.7990e-01+0.1137j, 8.0044e-01+0.7787j, 6.6563e-02+0.5451j,
+        7.7492e-01+0.3418j, 8.8471e-01+0.7635j, 2.7391e-01+0.4770j,
+        1.1725e-01+0.3866j, 6.3565e-01+0.4227j, 6.0187e-01+0.5486j,
+        3.9346e-02+0.9256j, 2.0311e-01+0.7003j, 1.3752e-01+0.4581j,
+        1.1366e-01+0.5775j, 8.1570e-01+0.0639j, 8.6653e-01+0.2270j,
+        3.7157e-01+0.9242j, 2.7248e-01+0.8868j, 7.2718e-02+0.5850j,
+        5.0394e-01+0.5581j, 7.7047e-01+0.7585j, 5.5589e-01+0.9294j,
+        4.5676e-01+0.6091j, 8.3340e-01+0.3538j, 1.5625e-01+0.5209j,
+        2.4252e-01+0.4256j, 4.6107e-01+0.1428j, 5.6315e-01+0.1821j,
+        7.1633e-01+0.3228j, 5.6836e-01+0.7572j, 2.2218e-01+0.5874j,
+        5.8530e-01+0.2708j, 4.3061e-01+0.4832j, 9.8873e-01+0.5744j,
+        4.2281e-01+0.6618j, 9.0499e-02+0.2309j, 1.3564e-01+0.7472j,
+        8.4682e-01+0.2768j, 5.6388e-01+0.2345j, 6.2431e-01+0.1113j,
+        5.5903e-01+0.1241j, 7.0935e-01+0.8765j, 6.8800e-02+0.9738j,
+        7.4911e-01+0.8730j, 2.7379e-01+0.3156j, 4.2889e-01+0.0365j,
+        1.9485e-02+0.6915j, 2.3340e-01+0.8975j, 9.5666e-01+0.8422j,
+        6.0896e-01+0.3871j, 2.9957e-01+0.1625j, 4.5767e-01+0.4959j,
+        8.5515e-01+0.2279j, 6.0461e-01+0.0560j, 8.4425e-01+0.4297j,
+        8.5174e-01+0.0373j, 1.4513e-01+0.0467j, 5.1624e-02+0.4902j,
+        9.2893e-04+0.4618j, 7.5357e-01+0.0483j, 3.1021e-01+0.9152j,
+        6.2584e-01+0.2760j, 9.0968e-01+0.7523j, 7.8562e-01+0.5592j,
+        7.6435e-01+0.5770j, 9.6849e-01+0.5007j, 1.0756e-01+0.6745j,
+        1.5551e-01+0.2942j, 5.8229e-01+0.9536j, 1.9664e-01+0.1965j,
+        4.9026e-01+0.7483j, 5.2292e-02+0.4707j, 2.8327e-01+0.0253j,
+        1.6823e-01+0.2655j, 7.8209e-01+0.0229j, 3.6516e-01+0.0692j,
+        8.4371e-01+0.9688j], device='cuda:0', dtype=torch.complex128)
+refer_src: tensor([6.3145e-01+0.2795j, 2.8690e-01+0.8861j, 3.9789e-02+0.4555j,
+        9.4781e-01+0.1516j, 2.8258e-01+0.7948j, 8.8331e-02+0.1312j,
+        7.7019e-01+0.6191j, 3.6327e-01+0.3962j, 3.0646e-01+0.8201j,
+        6.6159e-01+0.6072j, 2.6049e-01+0.5369j, 1.8147e-01+0.2988j,
+        6.5924e-02+0.2058j, 6.2349e-01+0.6853j, 1.9787e-01+0.7819j,
+        3.7020e-02+0.7031j, 7.0717e-01+0.3887j, 6.7303e-01+0.9616j,
+        9.7033e-01+0.0966j, 2.5861e-03+0.1545j, 3.6455e-01+0.0732j,
+        9.8724e-01+0.5683j, 9.9609e-01+0.7280j, 9.7401e-01+0.2150j,
+        1.7990e-01+0.1137j, 8.0044e-01+0.7787j, 6.6563e-02+0.5451j,
+        7.7492e-01+0.3418j, 8.8471e-01+0.7635j, 2.7391e-01+0.4770j,
+        1.1725e-01+0.3866j, 6.3565e-01+0.4227j, 6.0187e-01+0.5486j,
+        3.9346e-02+0.9256j, 2.0311e-01+0.7003j, 1.3752e-01+0.4581j,
+        1.1366e-01+0.5775j, 8.1570e-01+0.0639j, 8.6653e-01+0.2270j,
+        3.7157e-01+0.9242j, 2.7248e-01+0.8868j, 7.2718e-02+0.5850j,
+        5.0394e-01+0.5581j, 7.7047e-01+0.7585j, 5.5589e-01+0.9294j,
+        4.5676e-01+0.6091j, 8.3340e-01+0.3538j, 1.5625e-01+0.5209j,
+        2.4252e-01+0.4256j, 4.6107e-01+0.1428j, 5.6315e-01+0.1821j,
+        7.1633e-01+0.3228j, 5.6836e-01+0.7572j, 2.2218e-01+0.5874j,
+        5.8530e-01+0.2708j, 4.3061e-01+0.4832j, 9.8873e-01+0.5744j,
+        4.2281e-01+0.6618j, 9.0499e-02+0.2309j, 1.3564e-01+0.7472j,
+        8.4682e-01+0.2768j, 5.6388e-01+0.2345j, 6.2431e-01+0.1113j,
+        5.5903e-01+0.1241j, 7.0935e-01+0.8765j, 6.8800e-02+0.9738j,
+        7.4911e-01+0.8730j, 2.7379e-01+0.3156j, 4.2889e-01+0.0365j,
+        1.9485e-02+0.6915j, 2.3340e-01+0.8975j, 9.5666e-01+0.8422j,
+        6.0896e-01+0.3871j, 2.9957e-01+0.1625j, 4.5767e-01+0.4959j,
+        8.5515e-01+0.2279j, 6.0461e-01+0.0560j, 8.4425e-01+0.4297j,
+        8.5174e-01+0.0373j, 1.4513e-01+0.0467j, 5.1624e-02+0.4902j,
+        9.2895e-04+0.4618j, 7.5357e-01+0.0483j, 3.1021e-01+0.9152j,
+        6.2584e-01+0.2760j, 9.0968e-01+0.7523j, 7.8562e-01+0.5592j,
+        7.6435e-01+0.5770j, 9.6849e-01+0.5007j, 1.0756e-01+0.6745j,
+        1.5551e-01+0.2942j, 5.8229e-01+0.9536j, 1.9664e-01+0.1965j,
+        4.9026e-01+0.7483j, 5.2292e-02+0.4707j, 2.8327e-01+0.0253j,
+        1.6823e-01+0.2655j, 7.8209e-01+0.0229j, 3.6516e-01+0.0692j,
+        8.4371e-01+0.9688j], device='cuda:0', dtype=torch.complex128)
+Difference: 1.7191051189973388e-08
+long long fermion_out:30654070784
+long long fermion_in:30255611904
+long long gauge:30154948608
+long long clover_ee:30893146112
+long long clover_oo:31195136000
+long long clover_ee_inv:31044141056
+long long clover_oo_inv:31346130944
+long long set_ptrs:94612598862016
+long long params:94612598844800
+##RANK:0##LOOP:94##Residual:(4.93248e-10,2.8602e-29i)
+multi-gpu clover bistabcg total time: (without malloc free memcpy) :1.416354859 sec
+######TIME  :7222.2######
+##RANK      :0
+##LOOP      :0
+##tmp0      :(1.42675e-11,8.14034e-12i)
+##tmp1      :(4.02581e-12,-5.51346e-34i)
+##rho_prev  :(-3.06646e-06,-1.22634e-06i)
+##rho       :(-3.06646e-06,-1.22634e-06i)
+##alpha     :(0.880584,0.373287i)
+##beta      :(-4.01566,-3.52637i)
+##omega     :(3.54402,2.02204i)
+##send_tmp  :(3.09975e-10,-1.40054e-29i)
+##norm2_tmp :(1.70095e+06,-6.9972e-15i)
+##diff_tmp  :(1.82237e-16,-7.4842e-36i)
+##lat_4dim  :(65536,0i)
+tensor([94612617755072, 94612926962800, 94613092523328, 94613188200032,
+        94613280913616,              0,              0,              0,
+                     0,              0])
+qcu_src: tensor([6.3145e-01+0.2795j, 2.8690e-01+0.8861j, 3.9789e-02+0.4555j,
+        9.4781e-01+0.1516j, 2.8258e-01+0.7948j, 8.8331e-02+0.1312j,
+        7.7019e-01+0.6191j, 3.6327e-01+0.3962j, 3.0646e-01+0.8201j,
+        6.6159e-01+0.6072j, 2.6049e-01+0.5369j, 1.8147e-01+0.2988j,
+        6.5924e-02+0.2058j, 6.2349e-01+0.6853j, 1.9787e-01+0.7819j,
+        3.7020e-02+0.7031j, 7.0717e-01+0.3887j, 6.7303e-01+0.9616j,
+        9.7033e-01+0.0966j, 2.5861e-03+0.1545j, 3.6455e-01+0.0732j,
+        9.8724e-01+0.5683j, 9.9609e-01+0.7280j, 9.7401e-01+0.2150j,
+        1.7990e-01+0.1137j, 8.0044e-01+0.7787j, 6.6563e-02+0.5451j,
+        7.7492e-01+0.3418j, 8.8471e-01+0.7635j, 2.7391e-01+0.4770j,
+        1.1725e-01+0.3866j, 6.3565e-01+0.4227j, 6.0187e-01+0.5486j,
+        3.9346e-02+0.9256j, 2.0311e-01+0.7003j, 1.3752e-01+0.4581j,
+        1.1366e-01+0.5775j, 8.1570e-01+0.0639j, 8.6653e-01+0.2270j,
+        3.7157e-01+0.9242j, 2.7248e-01+0.8868j, 7.2718e-02+0.5850j,
+        5.0394e-01+0.5581j, 7.7047e-01+0.7585j, 5.5589e-01+0.9294j,
+        4.5676e-01+0.6091j, 8.3340e-01+0.3538j, 1.5625e-01+0.5209j,
+        2.4252e-01+0.4256j, 4.6107e-01+0.1428j, 5.6315e-01+0.1821j,
+        7.1633e-01+0.3228j, 5.6836e-01+0.7572j, 2.2218e-01+0.5874j,
+        5.8530e-01+0.2708j, 4.3061e-01+0.4832j, 9.8873e-01+0.5744j,
+        4.2281e-01+0.6618j, 9.0499e-02+0.2309j, 1.3564e-01+0.7472j,
+        8.4682e-01+0.2768j, 5.6388e-01+0.2345j, 6.2431e-01+0.1113j,
+        5.5903e-01+0.1241j, 7.0935e-01+0.8765j, 6.8800e-02+0.9738j,
+        7.4911e-01+0.8730j, 2.7379e-01+0.3156j, 4.2889e-01+0.0365j,
+        1.9485e-02+0.6915j, 2.3340e-01+0.8975j, 9.5666e-01+0.8422j,
+        6.0896e-01+0.3871j, 2.9957e-01+0.1625j, 4.5767e-01+0.4959j,
+        8.5515e-01+0.2279j, 6.0461e-01+0.0560j, 8.4425e-01+0.4297j,
+        8.5174e-01+0.0373j, 1.4513e-01+0.0467j, 5.1624e-02+0.4902j,
+        9.2893e-04+0.4618j, 7.5357e-01+0.0483j, 3.1021e-01+0.9152j,
+        6.2584e-01+0.2760j, 9.0968e-01+0.7523j, 7.8562e-01+0.5592j,
+        7.6435e-01+0.5770j, 9.6849e-01+0.5007j, 1.0756e-01+0.6745j,
+        1.5551e-01+0.2942j, 5.8229e-01+0.9536j, 1.9664e-01+0.1965j,
+        4.9026e-01+0.7483j, 5.2292e-02+0.4707j, 2.8327e-01+0.0253j,
+        1.6823e-01+0.2655j, 7.8209e-01+0.0229j, 3.6516e-01+0.0692j,
+        8.4371e-01+0.9688j], device='cuda:0', dtype=torch.complex128)
+refer_src: tensor([6.3145e-01+0.2795j, 2.8690e-01+0.8861j, 3.9789e-02+0.4555j,
+        9.4781e-01+0.1516j, 2.8258e-01+0.7948j, 8.8331e-02+0.1312j,
+        7.7019e-01+0.6191j, 3.6327e-01+0.3962j, 3.0646e-01+0.8201j,
+        6.6159e-01+0.6072j, 2.6049e-01+0.5369j, 1.8147e-01+0.2988j,
+        6.5924e-02+0.2058j, 6.2349e-01+0.6853j, 1.9787e-01+0.7819j,
+        3.7020e-02+0.7031j, 7.0717e-01+0.3887j, 6.7303e-01+0.9616j,
+        9.7033e-01+0.0966j, 2.5861e-03+0.1545j, 3.6455e-01+0.0732j,
+        9.8724e-01+0.5683j, 9.9609e-01+0.7280j, 9.7401e-01+0.2150j,
+        1.7990e-01+0.1137j, 8.0044e-01+0.7787j, 6.6563e-02+0.5451j,
+        7.7492e-01+0.3418j, 8.8471e-01+0.7635j, 2.7391e-01+0.4770j,
+        1.1725e-01+0.3866j, 6.3565e-01+0.4227j, 6.0187e-01+0.5486j,
+        3.9346e-02+0.9256j, 2.0311e-01+0.7003j, 1.3752e-01+0.4581j,
+        1.1366e-01+0.5775j, 8.1570e-01+0.0639j, 8.6653e-01+0.2270j,
+        3.7157e-01+0.9242j, 2.7248e-01+0.8868j, 7.2718e-02+0.5850j,
+        5.0394e-01+0.5581j, 7.7047e-01+0.7585j, 5.5589e-01+0.9294j,
+        4.5676e-01+0.6091j, 8.3340e-01+0.3538j, 1.5625e-01+0.5209j,
+        2.4252e-01+0.4256j, 4.6107e-01+0.1428j, 5.6315e-01+0.1821j,
+        7.1633e-01+0.3228j, 5.6836e-01+0.7572j, 2.2218e-01+0.5874j,
+        5.8530e-01+0.2708j, 4.3061e-01+0.4832j, 9.8873e-01+0.5744j,
+        4.2281e-01+0.6618j, 9.0499e-02+0.2309j, 1.3564e-01+0.7472j,
+        8.4682e-01+0.2768j, 5.6388e-01+0.2345j, 6.2431e-01+0.1113j,
+        5.5903e-01+0.1241j, 7.0935e-01+0.8765j, 6.8800e-02+0.9738j,
+        7.4911e-01+0.8730j, 2.7379e-01+0.3156j, 4.2889e-01+0.0365j,
+        1.9485e-02+0.6915j, 2.3340e-01+0.8975j, 9.5666e-01+0.8422j,
+        6.0896e-01+0.3871j, 2.9957e-01+0.1625j, 4.5767e-01+0.4959j,
+        8.5515e-01+0.2279j, 6.0461e-01+0.0560j, 8.4425e-01+0.4297j,
+        8.5174e-01+0.0373j, 1.4513e-01+0.0467j, 5.1624e-02+0.4902j,
+        9.2895e-04+0.4618j, 7.5357e-01+0.0483j, 3.1021e-01+0.9152j,
+        6.2584e-01+0.2760j, 9.0968e-01+0.7523j, 7.8562e-01+0.5592j,
+        7.6435e-01+0.5770j, 9.6849e-01+0.5007j, 1.0756e-01+0.6745j,
+        1.5551e-01+0.2942j, 5.8229e-01+0.9536j, 1.9664e-01+0.1965j,
+        4.9026e-01+0.7483j, 5.2292e-02+0.4707j, 2.8327e-01+0.0253j,
+        1.6823e-01+0.2655j, 7.8209e-01+0.0229j, 3.6516e-01+0.0692j,
+        8.4371e-01+0.9688j], device='cuda:0', dtype=torch.complex128)
+Difference: 1.7191051189973388e-08
+long long fermion_out:30679236608
+long long fermion_in:30255611904
+long long gauge:30154948608
+long long clover_ee:30893146112
+long long clover_oo:31195136000
+long long clover_ee_inv:31044141056
+long long clover_oo_inv:31346130944
+long long set_ptrs:94612598862016
+long long params:94612598844800
+##RANK:0##LOOP:94##Residual:(4.93248e-10,2.8602e-29i)
+multi-gpu clover bistabcg total time: (without malloc free memcpy) :1.416449843 sec
+######TIME  :9106######
+##RANK      :0
+##LOOP      :0
+##tmp0      :(1.42675e-11,8.14034e-12i)
+##tmp1      :(4.02581e-12,-5.51346e-34i)
+##rho_prev  :(-3.06646e-06,-1.22634e-06i)
+##rho       :(-3.06646e-06,-1.22634e-06i)
+##alpha     :(0.880584,0.373287i)
+##beta      :(-4.01566,-3.52637i)
+##omega     :(3.54402,2.02204i)
+##send_tmp  :(3.09975e-10,-1.40054e-29i)
+##norm2_tmp :(1.70095e+06,-6.9972e-15i)
+##diff_tmp  :(1.82237e-16,-7.4842e-36i)
+##lat_4dim  :(65536,0i)
+tensor([94612617755072, 94612926962800, 94613092523328, 94613188200032,
+        94613280913616,              0,              0,              0,
+                     0,              0])
+qcu_src: tensor([6.3145e-01+0.2795j, 2.8690e-01+0.8861j, 3.9789e-02+0.4555j,
+        9.4781e-01+0.1516j, 2.8258e-01+0.7948j, 8.8331e-02+0.1312j,
+        7.7019e-01+0.6191j, 3.6327e-01+0.3962j, 3.0646e-01+0.8201j,
+        6.6159e-01+0.6072j, 2.6049e-01+0.5369j, 1.8147e-01+0.2988j,
+        6.5924e-02+0.2058j, 6.2349e-01+0.6853j, 1.9787e-01+0.7819j,
+        3.7020e-02+0.7031j, 7.0717e-01+0.3887j, 6.7303e-01+0.9616j,
+        9.7033e-01+0.0966j, 2.5861e-03+0.1545j, 3.6455e-01+0.0732j,
+        9.8724e-01+0.5683j, 9.9609e-01+0.7280j, 9.7401e-01+0.2150j,
+        1.7990e-01+0.1137j, 8.0044e-01+0.7787j, 6.6563e-02+0.5451j,
+        7.7492e-01+0.3418j, 8.8471e-01+0.7635j, 2.7391e-01+0.4770j,
+        1.1725e-01+0.3866j, 6.3565e-01+0.4227j, 6.0187e-01+0.5486j,
+        3.9346e-02+0.9256j, 2.0311e-01+0.7003j, 1.3752e-01+0.4581j,
+        1.1366e-01+0.5775j, 8.1570e-01+0.0639j, 8.6653e-01+0.2270j,
+        3.7157e-01+0.9242j, 2.7248e-01+0.8868j, 7.2718e-02+0.5850j,
+        5.0394e-01+0.5581j, 7.7047e-01+0.7585j, 5.5589e-01+0.9294j,
+        4.5676e-01+0.6091j, 8.3340e-01+0.3538j, 1.5625e-01+0.5209j,
+        2.4252e-01+0.4256j, 4.6107e-01+0.1428j, 5.6315e-01+0.1821j,
+        7.1633e-01+0.3228j, 5.6836e-01+0.7572j, 2.2218e-01+0.5874j,
+        5.8530e-01+0.2708j, 4.3061e-01+0.4832j, 9.8873e-01+0.5744j,
+        4.2281e-01+0.6618j, 9.0499e-02+0.2309j, 1.3564e-01+0.7472j,
+        8.4682e-01+0.2768j, 5.6388e-01+0.2345j, 6.2431e-01+0.1113j,
+        5.5903e-01+0.1241j, 7.0935e-01+0.8765j, 6.8800e-02+0.9738j,
+        7.4911e-01+0.8730j, 2.7379e-01+0.3156j, 4.2889e-01+0.0365j,
+        1.9485e-02+0.6915j, 2.3340e-01+0.8975j, 9.5666e-01+0.8422j,
+        6.0896e-01+0.3871j, 2.9957e-01+0.1625j, 4.5767e-01+0.4959j,
+        8.5515e-01+0.2279j, 6.0461e-01+0.0560j, 8.4425e-01+0.4297j,
+        8.5174e-01+0.0373j, 1.4513e-01+0.0467j, 5.1624e-02+0.4902j,
+        9.2893e-04+0.4618j, 7.5357e-01+0.0483j, 3.1021e-01+0.9152j,
+        6.2584e-01+0.2760j, 9.0968e-01+0.7523j, 7.8562e-01+0.5592j,
+        7.6435e-01+0.5770j, 9.6849e-01+0.5007j, 1.0756e-01+0.6745j,
+        1.5551e-01+0.2942j, 5.8229e-01+0.9536j, 1.9664e-01+0.1965j,
+        4.9026e-01+0.7483j, 5.2292e-02+0.4707j, 2.8327e-01+0.0253j,
+        1.6823e-01+0.2655j, 7.8209e-01+0.0229j, 3.6516e-01+0.0692j,
+        8.4371e-01+0.9688j], device='cuda:0', dtype=torch.complex128)
+refer_src: tensor([6.3145e-01+0.2795j, 2.8690e-01+0.8861j, 3.9789e-02+0.4555j,
+        9.4781e-01+0.1516j, 2.8258e-01+0.7948j, 8.8331e-02+0.1312j,
+        7.7019e-01+0.6191j, 3.6327e-01+0.3962j, 3.0646e-01+0.8201j,
+        6.6159e-01+0.6072j, 2.6049e-01+0.5369j, 1.8147e-01+0.2988j,
+        6.5924e-02+0.2058j, 6.2349e-01+0.6853j, 1.9787e-01+0.7819j,
+        3.7020e-02+0.7031j, 7.0717e-01+0.3887j, 6.7303e-01+0.9616j,
+        9.7033e-01+0.0966j, 2.5861e-03+0.1545j, 3.6455e-01+0.0732j,
+        9.8724e-01+0.5683j, 9.9609e-01+0.7280j, 9.7401e-01+0.2150j,
+        1.7990e-01+0.1137j, 8.0044e-01+0.7787j, 6.6563e-02+0.5451j,
+        7.7492e-01+0.3418j, 8.8471e-01+0.7635j, 2.7391e-01+0.4770j,
+        1.1725e-01+0.3866j, 6.3565e-01+0.4227j, 6.0187e-01+0.5486j,
+        3.9346e-02+0.9256j, 2.0311e-01+0.7003j, 1.3752e-01+0.4581j,
+        1.1366e-01+0.5775j, 8.1570e-01+0.0639j, 8.6653e-01+0.2270j,
+        3.7157e-01+0.9242j, 2.7248e-01+0.8868j, 7.2718e-02+0.5850j,
+        5.0394e-01+0.5581j, 7.7047e-01+0.7585j, 5.5589e-01+0.9294j,
+        4.5676e-01+0.6091j, 8.3340e-01+0.3538j, 1.5625e-01+0.5209j,
+        2.4252e-01+0.4256j, 4.6107e-01+0.1428j, 5.6315e-01+0.1821j,
+        7.1633e-01+0.3228j, 5.6836e-01+0.7572j, 2.2218e-01+0.5874j,
+        5.8530e-01+0.2708j, 4.3061e-01+0.4832j, 9.8873e-01+0.5744j,
+        4.2281e-01+0.6618j, 9.0499e-02+0.2309j, 1.3564e-01+0.7472j,
+        8.4682e-01+0.2768j, 5.6388e-01+0.2345j, 6.2431e-01+0.1113j,
+        5.5903e-01+0.1241j, 7.0935e-01+0.8765j, 6.8800e-02+0.9738j,
+        7.4911e-01+0.8730j, 2.7379e-01+0.3156j, 4.2889e-01+0.0365j,
+        1.9485e-02+0.6915j, 2.3340e-01+0.8975j, 9.5666e-01+0.8422j,
+        6.0896e-01+0.3871j, 2.9957e-01+0.1625j, 4.5767e-01+0.4959j,
+        8.5515e-01+0.2279j, 6.0461e-01+0.0560j, 8.4425e-01+0.4297j,
+        8.5174e-01+0.0373j, 1.4513e-01+0.0467j, 5.1624e-02+0.4902j,
+        9.2895e-04+0.4618j, 7.5357e-01+0.0483j, 3.1021e-01+0.9152j,
+        6.2584e-01+0.2760j, 9.0968e-01+0.7523j, 7.8562e-01+0.5592j,
+        7.6435e-01+0.5770j, 9.6849e-01+0.5007j, 1.0756e-01+0.6745j,
+        1.5551e-01+0.2942j, 5.8229e-01+0.9536j, 1.9664e-01+0.1965j,
+        4.9026e-01+0.7483j, 5.2292e-02+0.4707j, 2.8327e-01+0.0253j,
+        1.6823e-01+0.2655j, 7.8209e-01+0.0229j, 3.6516e-01+0.0692j,
+        8.4371e-01+0.9688j], device='cuda:0', dtype=torch.complex128)
+Difference: 1.7191051189973388e-08
+long long fermion_out:30230446080
+long long fermion_in:30255611904
+long long gauge:30154948608
+long long clover_ee:30893146112
+long long clover_oo:31195136000
+long long clover_ee_inv:31044141056
+long long clover_oo_inv:31346130944
+long long set_ptrs:94612598862016
+long long params:94612598844800
+##RANK:0##LOOP:94##Residual:(4.93248e-10,2.8602e-29i)
+multi-gpu clover bistabcg total time: (without malloc free memcpy) :1.417578293 sec
+######TIME  :10993.6######
+##RANK      :0
+##LOOP      :0
+##tmp0      :(1.42675e-11,8.14034e-12i)
+##tmp1      :(4.02581e-12,-5.51346e-34i)
+##rho_prev  :(-3.06646e-06,-1.22634e-06i)
+##rho       :(-3.06646e-06,-1.22634e-06i)
+##alpha     :(0.880584,0.373287i)
+##beta      :(-4.01566,-3.52637i)
+##omega     :(3.54402,2.02204i)
+##send_tmp  :(3.09975e-10,-1.40054e-29i)
+##norm2_tmp :(1.70095e+06,-6.9972e-15i)
+##diff_tmp  :(1.82237e-16,-7.4842e-36i)
+##lat_4dim  :(65536,0i)
+tensor([94612617755072, 94612926962800, 94613092523328, 94613188200032,
+        94613280913616,              0,              0,              0,
+                     0,              0])
+qcu_src: tensor([6.3145e-01+0.2795j, 2.8690e-01+0.8861j, 3.9789e-02+0.4555j,
+        9.4781e-01+0.1516j, 2.8258e-01+0.7948j, 8.8331e-02+0.1312j,
+        7.7019e-01+0.6191j, 3.6327e-01+0.3962j, 3.0646e-01+0.8201j,
+        6.6159e-01+0.6072j, 2.6049e-01+0.5369j, 1.8147e-01+0.2988j,
+        6.5924e-02+0.2058j, 6.2349e-01+0.6853j, 1.9787e-01+0.7819j,
+        3.7020e-02+0.7031j, 7.0717e-01+0.3887j, 6.7303e-01+0.9616j,
+        9.7033e-01+0.0966j, 2.5861e-03+0.1545j, 3.6455e-01+0.0732j,
+        9.8724e-01+0.5683j, 9.9609e-01+0.7280j, 9.7401e-01+0.2150j,
+        1.7990e-01+0.1137j, 8.0044e-01+0.7787j, 6.6563e-02+0.5451j,
+        7.7492e-01+0.3418j, 8.8471e-01+0.7635j, 2.7391e-01+0.4770j,
+        1.1725e-01+0.3866j, 6.3565e-01+0.4227j, 6.0187e-01+0.5486j,
+        3.9346e-02+0.9256j, 2.0311e-01+0.7003j, 1.3752e-01+0.4581j,
+        1.1366e-01+0.5775j, 8.1570e-01+0.0639j, 8.6653e-01+0.2270j,
+        3.7157e-01+0.9242j, 2.7248e-01+0.8868j, 7.2718e-02+0.5850j,
+        5.0394e-01+0.5581j, 7.7047e-01+0.7585j, 5.5589e-01+0.9294j,
+        4.5676e-01+0.6091j, 8.3340e-01+0.3538j, 1.5625e-01+0.5209j,
+        2.4252e-01+0.4256j, 4.6107e-01+0.1428j, 5.6315e-01+0.1821j,
+        7.1633e-01+0.3228j, 5.6836e-01+0.7572j, 2.2218e-01+0.5874j,
+        5.8530e-01+0.2708j, 4.3061e-01+0.4832j, 9.8873e-01+0.5744j,
+        4.2281e-01+0.6618j, 9.0499e-02+0.2309j, 1.3564e-01+0.7472j,
+        8.4682e-01+0.2768j, 5.6388e-01+0.2345j, 6.2431e-01+0.1113j,
+        5.5903e-01+0.1241j, 7.0935e-01+0.8765j, 6.8800e-02+0.9738j,
+        7.4911e-01+0.8730j, 2.7379e-01+0.3156j, 4.2889e-01+0.0365j,
+        1.9485e-02+0.6915j, 2.3340e-01+0.8975j, 9.5666e-01+0.8422j,
+        6.0896e-01+0.3871j, 2.9957e-01+0.1625j, 4.5767e-01+0.4959j,
+        8.5515e-01+0.2279j, 6.0461e-01+0.0560j, 8.4425e-01+0.4297j,
+        8.5174e-01+0.0373j, 1.4513e-01+0.0467j, 5.1624e-02+0.4902j,
+        9.2893e-04+0.4618j, 7.5357e-01+0.0483j, 3.1021e-01+0.9152j,
+        6.2584e-01+0.2760j, 9.0968e-01+0.7523j, 7.8562e-01+0.5592j,
+        7.6435e-01+0.5770j, 9.6849e-01+0.5007j, 1.0756e-01+0.6745j,
+        1.5551e-01+0.2942j, 5.8229e-01+0.9536j, 1.9664e-01+0.1965j,
+        4.9026e-01+0.7483j, 5.2292e-02+0.4707j, 2.8327e-01+0.0253j,
+        1.6823e-01+0.2655j, 7.8209e-01+0.0229j, 3.6516e-01+0.0692j,
+        8.4371e-01+0.9688j], device='cuda:0', dtype=torch.complex128)
+refer_src: tensor([6.3145e-01+0.2795j, 2.8690e-01+0.8861j, 3.9789e-02+0.4555j,
+        9.4781e-01+0.1516j, 2.8258e-01+0.7948j, 8.8331e-02+0.1312j,
+        7.7019e-01+0.6191j, 3.6327e-01+0.3962j, 3.0646e-01+0.8201j,
+        6.6159e-01+0.6072j, 2.6049e-01+0.5369j, 1.8147e-01+0.2988j,
+        6.5924e-02+0.2058j, 6.2349e-01+0.6853j, 1.9787e-01+0.7819j,
+        3.7020e-02+0.7031j, 7.0717e-01+0.3887j, 6.7303e-01+0.9616j,
+        9.7033e-01+0.0966j, 2.5861e-03+0.1545j, 3.6455e-01+0.0732j,
+        9.8724e-01+0.5683j, 9.9609e-01+0.7280j, 9.7401e-01+0.2150j,
+        1.7990e-01+0.1137j, 8.0044e-01+0.7787j, 6.6563e-02+0.5451j,
+        7.7492e-01+0.3418j, 8.8471e-01+0.7635j, 2.7391e-01+0.4770j,
+        1.1725e-01+0.3866j, 6.3565e-01+0.4227j, 6.0187e-01+0.5486j,
+        3.9346e-02+0.9256j, 2.0311e-01+0.7003j, 1.3752e-01+0.4581j,
+        1.1366e-01+0.5775j, 8.1570e-01+0.0639j, 8.6653e-01+0.2270j,
+        3.7157e-01+0.9242j, 2.7248e-01+0.8868j, 7.2718e-02+0.5850j,
+        5.0394e-01+0.5581j, 7.7047e-01+0.7585j, 5.5589e-01+0.9294j,
+        4.5676e-01+0.6091j, 8.3340e-01+0.3538j, 1.5625e-01+0.5209j,
+        2.4252e-01+0.4256j, 4.6107e-01+0.1428j, 5.6315e-01+0.1821j,
+        7.1633e-01+0.3228j, 5.6836e-01+0.7572j, 2.2218e-01+0.5874j,
+        5.8530e-01+0.2708j, 4.3061e-01+0.4832j, 9.8873e-01+0.5744j,
+        4.2281e-01+0.6618j, 9.0499e-02+0.2309j, 1.3564e-01+0.7472j,
+        8.4682e-01+0.2768j, 5.6388e-01+0.2345j, 6.2431e-01+0.1113j,
+        5.5903e-01+0.1241j, 7.0935e-01+0.8765j, 6.8800e-02+0.9738j,
+        7.4911e-01+0.8730j, 2.7379e-01+0.3156j, 4.2889e-01+0.0365j,
+        1.9485e-02+0.6915j, 2.3340e-01+0.8975j, 9.5666e-01+0.8422j,
+        6.0896e-01+0.3871j, 2.9957e-01+0.1625j, 4.5767e-01+0.4959j,
+        8.5515e-01+0.2279j, 6.0461e-01+0.0560j, 8.4425e-01+0.4297j,
+        8.5174e-01+0.0373j, 1.4513e-01+0.0467j, 5.1624e-02+0.4902j,
+        9.2895e-04+0.4618j, 7.5357e-01+0.0483j, 3.1021e-01+0.9152j,
+        6.2584e-01+0.2760j, 9.0968e-01+0.7523j, 7.8562e-01+0.5592j,
+        7.6435e-01+0.5770j, 9.6849e-01+0.5007j, 1.0756e-01+0.6745j,
+        1.5551e-01+0.2942j, 5.8229e-01+0.9536j, 1.9664e-01+0.1965j,
+        4.9026e-01+0.7483j, 5.2292e-02+0.4707j, 2.8327e-01+0.0253j,
+        1.6823e-01+0.2655j, 7.8209e-01+0.0229j, 3.6516e-01+0.0692j,
+        8.4371e-01+0.9688j], device='cuda:0', dtype=torch.complex128)
+Difference: 1.7191051189973388e-08
+long long fermion_out:30654070784
+long long fermion_in:30255611904
+long long gauge:30154948608
+long long clover_ee:30893146112
+long long clover_oo:31195136000
+long long clover_ee_inv:31044141056
+long long clover_oo_inv:31346130944
+long long set_ptrs:94612598862016
+long long params:94612598844800
+##RANK:0##LOOP:94##Residual:(4.93248e-10,2.8602e-29i)
+multi-gpu clover bistabcg total time: (without malloc free memcpy) :1.424522318 sec
+######TIME  :12887.2######
+##RANK      :0
+##LOOP      :0
+##tmp0      :(1.42675e-11,8.14034e-12i)
+##tmp1      :(4.02581e-12,-5.51346e-34i)
+##rho_prev  :(-3.06646e-06,-1.22634e-06i)
+##rho       :(-3.06646e-06,-1.22634e-06i)
+##alpha     :(0.880584,0.373287i)
+##beta      :(-4.01566,-3.52637i)
+##omega     :(3.54402,2.02204i)
+##send_tmp  :(3.09975e-10,-1.40054e-29i)
+##norm2_tmp :(1.70095e+06,-6.9972e-15i)
+##diff_tmp  :(1.82237e-16,-7.4842e-36i)
+##lat_4dim  :(65536,0i)
+tensor([94612617755072, 94612926962800, 94613092523328, 94613188200032,
+        94613280913616,              0,              0,              0,
+                     0,              0])
+qcu_src: tensor([6.3145e-01+0.2795j, 2.8690e-01+0.8861j, 3.9789e-02+0.4555j,
+        9.4781e-01+0.1516j, 2.8258e-01+0.7948j, 8.8331e-02+0.1312j,
+        7.7019e-01+0.6191j, 3.6327e-01+0.3962j, 3.0646e-01+0.8201j,
+        6.6159e-01+0.6072j, 2.6049e-01+0.5369j, 1.8147e-01+0.2988j,
+        6.5924e-02+0.2058j, 6.2349e-01+0.6853j, 1.9787e-01+0.7819j,
+        3.7020e-02+0.7031j, 7.0717e-01+0.3887j, 6.7303e-01+0.9616j,
+        9.7033e-01+0.0966j, 2.5861e-03+0.1545j, 3.6455e-01+0.0732j,
+        9.8724e-01+0.5683j, 9.9609e-01+0.7280j, 9.7401e-01+0.2150j,
+        1.7990e-01+0.1137j, 8.0044e-01+0.7787j, 6.6563e-02+0.5451j,
+        7.7492e-01+0.3418j, 8.8471e-01+0.7635j, 2.7391e-01+0.4770j,
+        1.1725e-01+0.3866j, 6.3565e-01+0.4227j, 6.0187e-01+0.5486j,
+        3.9346e-02+0.9256j, 2.0311e-01+0.7003j, 1.3752e-01+0.4581j,
+        1.1366e-01+0.5775j, 8.1570e-01+0.0639j, 8.6653e-01+0.2270j,
+        3.7157e-01+0.9242j, 2.7248e-01+0.8868j, 7.2718e-02+0.5850j,
+        5.0394e-01+0.5581j, 7.7047e-01+0.7585j, 5.5589e-01+0.9294j,
+        4.5676e-01+0.6091j, 8.3340e-01+0.3538j, 1.5625e-01+0.5209j,
+        2.4252e-01+0.4256j, 4.6107e-01+0.1428j, 5.6315e-01+0.1821j,
+        7.1633e-01+0.3228j, 5.6836e-01+0.7572j, 2.2218e-01+0.5874j,
+        5.8530e-01+0.2708j, 4.3061e-01+0.4832j, 9.8873e-01+0.5744j,
+        4.2281e-01+0.6618j, 9.0499e-02+0.2309j, 1.3564e-01+0.7472j,
+        8.4682e-01+0.2768j, 5.6388e-01+0.2345j, 6.2431e-01+0.1113j,
+        5.5903e-01+0.1241j, 7.0935e-01+0.8765j, 6.8800e-02+0.9738j,
+        7.4911e-01+0.8730j, 2.7379e-01+0.3156j, 4.2889e-01+0.0365j,
+        1.9485e-02+0.6915j, 2.3340e-01+0.8975j, 9.5666e-01+0.8422j,
+        6.0896e-01+0.3871j, 2.9957e-01+0.1625j, 4.5767e-01+0.4959j,
+        8.5515e-01+0.2279j, 6.0461e-01+0.0560j, 8.4425e-01+0.4297j,
+        8.5174e-01+0.0373j, 1.4513e-01+0.0467j, 5.1624e-02+0.4902j,
+        9.2893e-04+0.4618j, 7.5357e-01+0.0483j, 3.1021e-01+0.9152j,
+        6.2584e-01+0.2760j, 9.0968e-01+0.7523j, 7.8562e-01+0.5592j,
+        7.6435e-01+0.5770j, 9.6849e-01+0.5007j, 1.0756e-01+0.6745j,
+        1.5551e-01+0.2942j, 5.8229e-01+0.9536j, 1.9664e-01+0.1965j,
+        4.9026e-01+0.7483j, 5.2292e-02+0.4707j, 2.8327e-01+0.0253j,
+        1.6823e-01+0.2655j, 7.8209e-01+0.0229j, 3.6516e-01+0.0692j,
+        8.4371e-01+0.9688j], device='cuda:0', dtype=torch.complex128)
+refer_src: tensor([6.3145e-01+0.2795j, 2.8690e-01+0.8861j, 3.9789e-02+0.4555j,
+        9.4781e-01+0.1516j, 2.8258e-01+0.7948j, 8.8331e-02+0.1312j,
+        7.7019e-01+0.6191j, 3.6327e-01+0.3962j, 3.0646e-01+0.8201j,
+        6.6159e-01+0.6072j, 2.6049e-01+0.5369j, 1.8147e-01+0.2988j,
+        6.5924e-02+0.2058j, 6.2349e-01+0.6853j, 1.9787e-01+0.7819j,
+        3.7020e-02+0.7031j, 7.0717e-01+0.3887j, 6.7303e-01+0.9616j,
+        9.7033e-01+0.0966j, 2.5861e-03+0.1545j, 3.6455e-01+0.0732j,
+        9.8724e-01+0.5683j, 9.9609e-01+0.7280j, 9.7401e-01+0.2150j,
+        1.7990e-01+0.1137j, 8.0044e-01+0.7787j, 6.6563e-02+0.5451j,
+        7.7492e-01+0.3418j, 8.8471e-01+0.7635j, 2.7391e-01+0.4770j,
+        1.1725e-01+0.3866j, 6.3565e-01+0.4227j, 6.0187e-01+0.5486j,
+        3.9346e-02+0.9256j, 2.0311e-01+0.7003j, 1.3752e-01+0.4581j,
+        1.1366e-01+0.5775j, 8.1570e-01+0.0639j, 8.6653e-01+0.2270j,
+        3.7157e-01+0.9242j, 2.7248e-01+0.8868j, 7.2718e-02+0.5850j,
+        5.0394e-01+0.5581j, 7.7047e-01+0.7585j, 5.5589e-01+0.9294j,
+        4.5676e-01+0.6091j, 8.3340e-01+0.3538j, 1.5625e-01+0.5209j,
+        2.4252e-01+0.4256j, 4.6107e-01+0.1428j, 5.6315e-01+0.1821j,
+        7.1633e-01+0.3228j, 5.6836e-01+0.7572j, 2.2218e-01+0.5874j,
+        5.8530e-01+0.2708j, 4.3061e-01+0.4832j, 9.8873e-01+0.5744j,
+        4.2281e-01+0.6618j, 9.0499e-02+0.2309j, 1.3564e-01+0.7472j,
+        8.4682e-01+0.2768j, 5.6388e-01+0.2345j, 6.2431e-01+0.1113j,
+        5.5903e-01+0.1241j, 7.0935e-01+0.8765j, 6.8800e-02+0.9738j,
+        7.4911e-01+0.8730j, 2.7379e-01+0.3156j, 4.2889e-01+0.0365j,
+        1.9485e-02+0.6915j, 2.3340e-01+0.8975j, 9.5666e-01+0.8422j,
+        6.0896e-01+0.3871j, 2.9957e-01+0.1625j, 4.5767e-01+0.4959j,
+        8.5515e-01+0.2279j, 6.0461e-01+0.0560j, 8.4425e-01+0.4297j,
+        8.5174e-01+0.0373j, 1.4513e-01+0.0467j, 5.1624e-02+0.4902j,
+        9.2895e-04+0.4618j, 7.5357e-01+0.0483j, 3.1021e-01+0.9152j,
+        6.2584e-01+0.2760j, 9.0968e-01+0.7523j, 7.8562e-01+0.5592j,
+        7.6435e-01+0.5770j, 9.6849e-01+0.5007j, 1.0756e-01+0.6745j,
+        1.5551e-01+0.2942j, 5.8229e-01+0.9536j, 1.9664e-01+0.1965j,
+        4.9026e-01+0.7483j, 5.2292e-02+0.4707j, 2.8327e-01+0.0253j,
+        1.6823e-01+0.2655j, 7.8209e-01+0.0229j, 3.6516e-01+0.0692j,
+        8.4371e-01+0.9688j], device='cuda:0', dtype=torch.complex128)
+Difference: 1.7191051189973388e-08
+long long fermion_out:30679236608
+long long fermion_in:30255611904
+long long gauge:30154948608
+long long clover_ee:30893146112
+long long clover_oo:31195136000
+long long clover_ee_inv:31044141056
+long long clover_oo_inv:31346130944
+long long set_ptrs:94612598862016
+long long params:94612598844800
+##RANK:0##LOOP:94##Residual:(4.93248e-10,2.8602e-29i)
+multi-gpu clover bistabcg total time: (without malloc free memcpy) :1.446412092 sec
+######TIME  :14813.9######
+##RANK      :0
+##LOOP      :0
+##tmp0      :(1.42675e-11,8.14034e-12i)
+##tmp1      :(4.02581e-12,-5.51346e-34i)
+##rho_prev  :(-3.06646e-06,-1.22634e-06i)
+##rho       :(-3.06646e-06,-1.22634e-06i)
+##alpha     :(0.880584,0.373287i)
+##beta      :(-4.01566,-3.52637i)
+##omega     :(3.54402,2.02204i)
+##send_tmp  :(3.09975e-10,-1.40054e-29i)
+##norm2_tmp :(1.70095e+06,-6.9972e-15i)
+##diff_tmp  :(1.82237e-16,-7.4842e-36i)
+##lat_4dim  :(65536,0i)
+tensor([94612617755072, 94612926962800, 94613092523328, 94613188200032,
+        94613280913616,              0,              0,              0,
+                     0,              0])
+qcu_src: tensor([6.3145e-01+0.2795j, 2.8690e-01+0.8861j, 3.9789e-02+0.4555j,
+        9.4781e-01+0.1516j, 2.8258e-01+0.7948j, 8.8331e-02+0.1312j,
+        7.7019e-01+0.6191j, 3.6327e-01+0.3962j, 3.0646e-01+0.8201j,
+        6.6159e-01+0.6072j, 2.6049e-01+0.5369j, 1.8147e-01+0.2988j,
+        6.5924e-02+0.2058j, 6.2349e-01+0.6853j, 1.9787e-01+0.7819j,
+        3.7020e-02+0.7031j, 7.0717e-01+0.3887j, 6.7303e-01+0.9616j,
+        9.7033e-01+0.0966j, 2.5861e-03+0.1545j, 3.6455e-01+0.0732j,
+        9.8724e-01+0.5683j, 9.9609e-01+0.7280j, 9.7401e-01+0.2150j,
+        1.7990e-01+0.1137j, 8.0044e-01+0.7787j, 6.6563e-02+0.5451j,
+        7.7492e-01+0.3418j, 8.8471e-01+0.7635j, 2.7391e-01+0.4770j,
+        1.1725e-01+0.3866j, 6.3565e-01+0.4227j, 6.0187e-01+0.5486j,
+        3.9346e-02+0.9256j, 2.0311e-01+0.7003j, 1.3752e-01+0.4581j,
+        1.1366e-01+0.5775j, 8.1570e-01+0.0639j, 8.6653e-01+0.2270j,
+        3.7157e-01+0.9242j, 2.7248e-01+0.8868j, 7.2718e-02+0.5850j,
+        5.0394e-01+0.5581j, 7.7047e-01+0.7585j, 5.5589e-01+0.9294j,
+        4.5676e-01+0.6091j, 8.3340e-01+0.3538j, 1.5625e-01+0.5209j,
+        2.4252e-01+0.4256j, 4.6107e-01+0.1428j, 5.6315e-01+0.1821j,
+        7.1633e-01+0.3228j, 5.6836e-01+0.7572j, 2.2218e-01+0.5874j,
+        5.8530e-01+0.2708j, 4.3061e-01+0.4832j, 9.8873e-01+0.5744j,
+        4.2281e-01+0.6618j, 9.0499e-02+0.2309j, 1.3564e-01+0.7472j,
+        8.4682e-01+0.2768j, 5.6388e-01+0.2345j, 6.2431e-01+0.1113j,
+        5.5903e-01+0.1241j, 7.0935e-01+0.8765j, 6.8800e-02+0.9738j,
+        7.4911e-01+0.8730j, 2.7379e-01+0.3156j, 4.2889e-01+0.0365j,
+        1.9485e-02+0.6915j, 2.3340e-01+0.8975j, 9.5666e-01+0.8422j,
+        6.0896e-01+0.3871j, 2.9957e-01+0.1625j, 4.5767e-01+0.4959j,
+        8.5515e-01+0.2279j, 6.0461e-01+0.0560j, 8.4425e-01+0.4297j,
+        8.5174e-01+0.0373j, 1.4513e-01+0.0467j, 5.1624e-02+0.4902j,
+        9.2893e-04+0.4618j, 7.5357e-01+0.0483j, 3.1021e-01+0.9152j,
+        6.2584e-01+0.2760j, 9.0968e-01+0.7523j, 7.8562e-01+0.5592j,
+        7.6435e-01+0.5770j, 9.6849e-01+0.5007j, 1.0756e-01+0.6745j,
+        1.5551e-01+0.2942j, 5.8229e-01+0.9536j, 1.9664e-01+0.1965j,
+        4.9026e-01+0.7483j, 5.2292e-02+0.4707j, 2.8327e-01+0.0253j,
+        1.6823e-01+0.2655j, 7.8209e-01+0.0229j, 3.6516e-01+0.0692j,
+        8.4371e-01+0.9688j], device='cuda:0', dtype=torch.complex128)
+refer_src: tensor([6.3145e-01+0.2795j, 2.8690e-01+0.8861j, 3.9789e-02+0.4555j,
+        9.4781e-01+0.1516j, 2.8258e-01+0.7948j, 8.8331e-02+0.1312j,
+        7.7019e-01+0.6191j, 3.6327e-01+0.3962j, 3.0646e-01+0.8201j,
+        6.6159e-01+0.6072j, 2.6049e-01+0.5369j, 1.8147e-01+0.2988j,
+        6.5924e-02+0.2058j, 6.2349e-01+0.6853j, 1.9787e-01+0.7819j,
+        3.7020e-02+0.7031j, 7.0717e-01+0.3887j, 6.7303e-01+0.9616j,
+        9.7033e-01+0.0966j, 2.5861e-03+0.1545j, 3.6455e-01+0.0732j,
+        9.8724e-01+0.5683j, 9.9609e-01+0.7280j, 9.7401e-01+0.2150j,
+        1.7990e-01+0.1137j, 8.0044e-01+0.7787j, 6.6563e-02+0.5451j,
+        7.7492e-01+0.3418j, 8.8471e-01+0.7635j, 2.7391e-01+0.4770j,
+        1.1725e-01+0.3866j, 6.3565e-01+0.4227j, 6.0187e-01+0.5486j,
+        3.9346e-02+0.9256j, 2.0311e-01+0.7003j, 1.3752e-01+0.4581j,
+        1.1366e-01+0.5775j, 8.1570e-01+0.0639j, 8.6653e-01+0.2270j,
+        3.7157e-01+0.9242j, 2.7248e-01+0.8868j, 7.2718e-02+0.5850j,
+        5.0394e-01+0.5581j, 7.7047e-01+0.7585j, 5.5589e-01+0.9294j,
+        4.5676e-01+0.6091j, 8.3340e-01+0.3538j, 1.5625e-01+0.5209j,
+        2.4252e-01+0.4256j, 4.6107e-01+0.1428j, 5.6315e-01+0.1821j,
+        7.1633e-01+0.3228j, 5.6836e-01+0.7572j, 2.2218e-01+0.5874j,
+        5.8530e-01+0.2708j, 4.3061e-01+0.4832j, 9.8873e-01+0.5744j,
+        4.2281e-01+0.6618j, 9.0499e-02+0.2309j, 1.3564e-01+0.7472j,
+        8.4682e-01+0.2768j, 5.6388e-01+0.2345j, 6.2431e-01+0.1113j,
+        5.5903e-01+0.1241j, 7.0935e-01+0.8765j, 6.8800e-02+0.9738j,
+        7.4911e-01+0.8730j, 2.7379e-01+0.3156j, 4.2889e-01+0.0365j,
+        1.9485e-02+0.6915j, 2.3340e-01+0.8975j, 9.5666e-01+0.8422j,
+        6.0896e-01+0.3871j, 2.9957e-01+0.1625j, 4.5767e-01+0.4959j,
+        8.5515e-01+0.2279j, 6.0461e-01+0.0560j, 8.4425e-01+0.4297j,
+        8.5174e-01+0.0373j, 1.4513e-01+0.0467j, 5.1624e-02+0.4902j,
+        9.2895e-04+0.4618j, 7.5357e-01+0.0483j, 3.1021e-01+0.9152j,
+        6.2584e-01+0.2760j, 9.0968e-01+0.7523j, 7.8562e-01+0.5592j,
+        7.6435e-01+0.5770j, 9.6849e-01+0.5007j, 1.0756e-01+0.6745j,
+        1.5551e-01+0.2942j, 5.8229e-01+0.9536j, 1.9664e-01+0.1965j,
+        4.9026e-01+0.7483j, 5.2292e-02+0.4707j, 2.8327e-01+0.0253j,
+        1.6823e-01+0.2655j, 7.8209e-01+0.0229j, 3.6516e-01+0.0692j,
+        8.4371e-01+0.9688j], device='cuda:0', dtype=torch.complex128)
+Difference: 1.7191051189973388e-08
+long long fermion_out:30230446080
+long long fermion_in:30255611904
+long long gauge:30154948608
+long long clover_ee:30893146112
+long long clover_oo:31195136000
+long long clover_ee_inv:31044141056
+long long clover_oo_inv:31346130944
+long long set_ptrs:94612598862016
+long long params:94612598844800
+##RANK:0##LOOP:94##Residual:(4.93248e-10,2.8602e-29i)
+multi-gpu clover bistabcg total time: (without malloc free memcpy) :1.430910440 sec
+######TIME  :16707.5######
+##RANK      :0
+##LOOP      :0
+##tmp0      :(1.42675e-11,8.14034e-12i)
+##tmp1      :(4.02581e-12,-5.51346e-34i)
+##rho_prev  :(-3.06646e-06,-1.22634e-06i)
+##rho       :(-3.06646e-06,-1.22634e-06i)
+##alpha     :(0.880584,0.373287i)
+##beta      :(-4.01566,-3.52637i)
+##omega     :(3.54402,2.02204i)
+##send_tmp  :(3.09975e-10,-1.40054e-29i)
+##norm2_tmp :(1.70095e+06,-6.9972e-15i)
+##diff_tmp  :(1.82237e-16,-7.4842e-36i)
+##lat_4dim  :(65536,0i)
+tensor([94612617755072, 94612926962800, 94613092523328, 94613188200032,
+        94613280913616,              0,              0,              0,
+                     0,              0])
+qcu_src: tensor([6.3145e-01+0.2795j, 2.8690e-01+0.8861j, 3.9789e-02+0.4555j,
+        9.4781e-01+0.1516j, 2.8258e-01+0.7948j, 8.8331e-02+0.1312j,
+        7.7019e-01+0.6191j, 3.6327e-01+0.3962j, 3.0646e-01+0.8201j,
+        6.6159e-01+0.6072j, 2.6049e-01+0.5369j, 1.8147e-01+0.2988j,
+        6.5924e-02+0.2058j, 6.2349e-01+0.6853j, 1.9787e-01+0.7819j,
+        3.7020e-02+0.7031j, 7.0717e-01+0.3887j, 6.7303e-01+0.9616j,
+        9.7033e-01+0.0966j, 2.5861e-03+0.1545j, 3.6455e-01+0.0732j,
+        9.8724e-01+0.5683j, 9.9609e-01+0.7280j, 9.7401e-01+0.2150j,
+        1.7990e-01+0.1137j, 8.0044e-01+0.7787j, 6.6563e-02+0.5451j,
+        7.7492e-01+0.3418j, 8.8471e-01+0.7635j, 2.7391e-01+0.4770j,
+        1.1725e-01+0.3866j, 6.3565e-01+0.4227j, 6.0187e-01+0.5486j,
+        3.9346e-02+0.9256j, 2.0311e-01+0.7003j, 1.3752e-01+0.4581j,
+        1.1366e-01+0.5775j, 8.1570e-01+0.0639j, 8.6653e-01+0.2270j,
+        3.7157e-01+0.9242j, 2.7248e-01+0.8868j, 7.2718e-02+0.5850j,
+        5.0394e-01+0.5581j, 7.7047e-01+0.7585j, 5.5589e-01+0.9294j,
+        4.5676e-01+0.6091j, 8.3340e-01+0.3538j, 1.5625e-01+0.5209j,
+        2.4252e-01+0.4256j, 4.6107e-01+0.1428j, 5.6315e-01+0.1821j,
+        7.1633e-01+0.3228j, 5.6836e-01+0.7572j, 2.2218e-01+0.5874j,
+        5.8530e-01+0.2708j, 4.3061e-01+0.4832j, 9.8873e-01+0.5744j,
+        4.2281e-01+0.6618j, 9.0499e-02+0.2309j, 1.3564e-01+0.7472j,
+        8.4682e-01+0.2768j, 5.6388e-01+0.2345j, 6.2431e-01+0.1113j,
+        5.5903e-01+0.1241j, 7.0935e-01+0.8765j, 6.8800e-02+0.9738j,
+        7.4911e-01+0.8730j, 2.7379e-01+0.3156j, 4.2889e-01+0.0365j,
+        1.9485e-02+0.6915j, 2.3340e-01+0.8975j, 9.5666e-01+0.8422j,
+        6.0896e-01+0.3871j, 2.9957e-01+0.1625j, 4.5767e-01+0.4959j,
+        8.5515e-01+0.2279j, 6.0461e-01+0.0560j, 8.4425e-01+0.4297j,
+        8.5174e-01+0.0373j, 1.4513e-01+0.0467j, 5.1624e-02+0.4902j,
+        9.2893e-04+0.4618j, 7.5357e-01+0.0483j, 3.1021e-01+0.9152j,
+        6.2584e-01+0.2760j, 9.0968e-01+0.7523j, 7.8562e-01+0.5592j,
+        7.6435e-01+0.5770j, 9.6849e-01+0.5007j, 1.0756e-01+0.6745j,
+        1.5551e-01+0.2942j, 5.8229e-01+0.9536j, 1.9664e-01+0.1965j,
+        4.9026e-01+0.7483j, 5.2292e-02+0.4707j, 2.8327e-01+0.0253j,
+        1.6823e-01+0.2655j, 7.8209e-01+0.0229j, 3.6516e-01+0.0692j,
+        8.4371e-01+0.9688j], device='cuda:0', dtype=torch.complex128)
+refer_src: tensor([6.3145e-01+0.2795j, 2.8690e-01+0.8861j, 3.9789e-02+0.4555j,
+        9.4781e-01+0.1516j, 2.8258e-01+0.7948j, 8.8331e-02+0.1312j,
+        7.7019e-01+0.6191j, 3.6327e-01+0.3962j, 3.0646e-01+0.8201j,
+        6.6159e-01+0.6072j, 2.6049e-01+0.5369j, 1.8147e-01+0.2988j,
+        6.5924e-02+0.2058j, 6.2349e-01+0.6853j, 1.9787e-01+0.7819j,
+        3.7020e-02+0.7031j, 7.0717e-01+0.3887j, 6.7303e-01+0.9616j,
+        9.7033e-01+0.0966j, 2.5861e-03+0.1545j, 3.6455e-01+0.0732j,
+        9.8724e-01+0.5683j, 9.9609e-01+0.7280j, 9.7401e-01+0.2150j,
+        1.7990e-01+0.1137j, 8.0044e-01+0.7787j, 6.6563e-02+0.5451j,
+        7.7492e-01+0.3418j, 8.8471e-01+0.7635j, 2.7391e-01+0.4770j,
+        1.1725e-01+0.3866j, 6.3565e-01+0.4227j, 6.0187e-01+0.5486j,
+        3.9346e-02+0.9256j, 2.0311e-01+0.7003j, 1.3752e-01+0.4581j,
+        1.1366e-01+0.5775j, 8.1570e-01+0.0639j, 8.6653e-01+0.2270j,
+        3.7157e-01+0.9242j, 2.7248e-01+0.8868j, 7.2718e-02+0.5850j,
+        5.0394e-01+0.5581j, 7.7047e-01+0.7585j, 5.5589e-01+0.9294j,
+        4.5676e-01+0.6091j, 8.3340e-01+0.3538j, 1.5625e-01+0.5209j,
+        2.4252e-01+0.4256j, 4.6107e-01+0.1428j, 5.6315e-01+0.1821j,
+        7.1633e-01+0.3228j, 5.6836e-01+0.7572j, 2.2218e-01+0.5874j,
+        5.8530e-01+0.2708j, 4.3061e-01+0.4832j, 9.8873e-01+0.5744j,
+        4.2281e-01+0.6618j, 9.0499e-02+0.2309j, 1.3564e-01+0.7472j,
+        8.4682e-01+0.2768j, 5.6388e-01+0.2345j, 6.2431e-01+0.1113j,
+        5.5903e-01+0.1241j, 7.0935e-01+0.8765j, 6.8800e-02+0.9738j,
+        7.4911e-01+0.8730j, 2.7379e-01+0.3156j, 4.2889e-01+0.0365j,
+        1.9485e-02+0.6915j, 2.3340e-01+0.8975j, 9.5666e-01+0.8422j,
+        6.0896e-01+0.3871j, 2.9957e-01+0.1625j, 4.5767e-01+0.4959j,
+        8.5515e-01+0.2279j, 6.0461e-01+0.0560j, 8.4425e-01+0.4297j,
+        8.5174e-01+0.0373j, 1.4513e-01+0.0467j, 5.1624e-02+0.4902j,
+        9.2895e-04+0.4618j, 7.5357e-01+0.0483j, 3.1021e-01+0.9152j,
+        6.2584e-01+0.2760j, 9.0968e-01+0.7523j, 7.8562e-01+0.5592j,
+        7.6435e-01+0.5770j, 9.6849e-01+0.5007j, 1.0756e-01+0.6745j,
+        1.5551e-01+0.2942j, 5.8229e-01+0.9536j, 1.9664e-01+0.1965j,
+        4.9026e-01+0.7483j, 5.2292e-02+0.4707j, 2.8327e-01+0.0253j,
+        1.6823e-01+0.2655j, 7.8209e-01+0.0229j, 3.6516e-01+0.0692j,
+        8.4371e-01+0.9688j], device='cuda:0', dtype=torch.complex128)
+Difference: 1.7191051189973388e-08
+long long fermion_out:30654070784
+long long fermion_in:30255611904
+long long gauge:30154948608
+long long clover_ee:30893146112
+long long clover_oo:31195136000
+long long clover_ee_inv:31044141056
+long long clover_oo_inv:31346130944
+long long set_ptrs:94612598862016
+long long params:94612598844800
+##RANK:0##LOOP:94##Residual:(4.93248e-10,2.8602e-29i)
+multi-gpu clover bistabcg total time: (without malloc free memcpy) :1.421470325 sec
+######TIME  :18590######
+##RANK      :0
+##LOOP      :0
+##tmp0      :(1.42675e-11,8.14034e-12i)
+##tmp1      :(4.02581e-12,-5.51346e-34i)
+##rho_prev  :(-3.06646e-06,-1.22634e-06i)
+##rho       :(-3.06646e-06,-1.22634e-06i)
+##alpha     :(0.880584,0.373287i)
+##beta      :(-4.01566,-3.52637i)
+##omega     :(3.54402,2.02204i)
+##send_tmp  :(3.09975e-10,-1.40054e-29i)
+##norm2_tmp :(1.70095e+06,-6.9972e-15i)
+##diff_tmp  :(1.82237e-16,-7.4842e-36i)
+##lat_4dim  :(65536,0i)
+tensor([94612617755072, 94612926962800, 94613092523328, 94613188200032,
+        94613280913616,              0,              0,              0,
+                     0,              0])
+qcu_src: tensor([6.3145e-01+0.2795j, 2.8690e-01+0.8861j, 3.9789e-02+0.4555j,
+        9.4781e-01+0.1516j, 2.8258e-01+0.7948j, 8.8331e-02+0.1312j,
+        7.7019e-01+0.6191j, 3.6327e-01+0.3962j, 3.0646e-01+0.8201j,
+        6.6159e-01+0.6072j, 2.6049e-01+0.5369j, 1.8147e-01+0.2988j,
+        6.5924e-02+0.2058j, 6.2349e-01+0.6853j, 1.9787e-01+0.7819j,
+        3.7020e-02+0.7031j, 7.0717e-01+0.3887j, 6.7303e-01+0.9616j,
+        9.7033e-01+0.0966j, 2.5861e-03+0.1545j, 3.6455e-01+0.0732j,
+        9.8724e-01+0.5683j, 9.9609e-01+0.7280j, 9.7401e-01+0.2150j,
+        1.7990e-01+0.1137j, 8.0044e-01+0.7787j, 6.6563e-02+0.5451j,
+        7.7492e-01+0.3418j, 8.8471e-01+0.7635j, 2.7391e-01+0.4770j,
+        1.1725e-01+0.3866j, 6.3565e-01+0.4227j, 6.0187e-01+0.5486j,
+        3.9346e-02+0.9256j, 2.0311e-01+0.7003j, 1.3752e-01+0.4581j,
+        1.1366e-01+0.5775j, 8.1570e-01+0.0639j, 8.6653e-01+0.2270j,
+        3.7157e-01+0.9242j, 2.7248e-01+0.8868j, 7.2718e-02+0.5850j,
+        5.0394e-01+0.5581j, 7.7047e-01+0.7585j, 5.5589e-01+0.9294j,
+        4.5676e-01+0.6091j, 8.3340e-01+0.3538j, 1.5625e-01+0.5209j,
+        2.4252e-01+0.4256j, 4.6107e-01+0.1428j, 5.6315e-01+0.1821j,
+        7.1633e-01+0.3228j, 5.6836e-01+0.7572j, 2.2218e-01+0.5874j,
+        5.8530e-01+0.2708j, 4.3061e-01+0.4832j, 9.8873e-01+0.5744j,
+        4.2281e-01+0.6618j, 9.0499e-02+0.2309j, 1.3564e-01+0.7472j,
+        8.4682e-01+0.2768j, 5.6388e-01+0.2345j, 6.2431e-01+0.1113j,
+        5.5903e-01+0.1241j, 7.0935e-01+0.8765j, 6.8800e-02+0.9738j,
+        7.4911e-01+0.8730j, 2.7379e-01+0.3156j, 4.2889e-01+0.0365j,
+        1.9485e-02+0.6915j, 2.3340e-01+0.8975j, 9.5666e-01+0.8422j,
+        6.0896e-01+0.3871j, 2.9957e-01+0.1625j, 4.5767e-01+0.4959j,
+        8.5515e-01+0.2279j, 6.0461e-01+0.0560j, 8.4425e-01+0.4297j,
+        8.5174e-01+0.0373j, 1.4513e-01+0.0467j, 5.1624e-02+0.4902j,
+        9.2893e-04+0.4618j, 7.5357e-01+0.0483j, 3.1021e-01+0.9152j,
+        6.2584e-01+0.2760j, 9.0968e-01+0.7523j, 7.8562e-01+0.5592j,
+        7.6435e-01+0.5770j, 9.6849e-01+0.5007j, 1.0756e-01+0.6745j,
+        1.5551e-01+0.2942j, 5.8229e-01+0.9536j, 1.9664e-01+0.1965j,
+        4.9026e-01+0.7483j, 5.2292e-02+0.4707j, 2.8327e-01+0.0253j,
+        1.6823e-01+0.2655j, 7.8209e-01+0.0229j, 3.6516e-01+0.0692j,
+        8.4371e-01+0.9688j], device='cuda:0', dtype=torch.complex128)
+refer_src: tensor([6.3145e-01+0.2795j, 2.8690e-01+0.8861j, 3.9789e-02+0.4555j,
+        9.4781e-01+0.1516j, 2.8258e-01+0.7948j, 8.8331e-02+0.1312j,
+        7.7019e-01+0.6191j, 3.6327e-01+0.3962j, 3.0646e-01+0.8201j,
+        6.6159e-01+0.6072j, 2.6049e-01+0.5369j, 1.8147e-01+0.2988j,
+        6.5924e-02+0.2058j, 6.2349e-01+0.6853j, 1.9787e-01+0.7819j,
+        3.7020e-02+0.7031j, 7.0717e-01+0.3887j, 6.7303e-01+0.9616j,
+        9.7033e-01+0.0966j, 2.5861e-03+0.1545j, 3.6455e-01+0.0732j,
+        9.8724e-01+0.5683j, 9.9609e-01+0.7280j, 9.7401e-01+0.2150j,
+        1.7990e-01+0.1137j, 8.0044e-01+0.7787j, 6.6563e-02+0.5451j,
+        7.7492e-01+0.3418j, 8.8471e-01+0.7635j, 2.7391e-01+0.4770j,
+        1.1725e-01+0.3866j, 6.3565e-01+0.4227j, 6.0187e-01+0.5486j,
+        3.9346e-02+0.9256j, 2.0311e-01+0.7003j, 1.3752e-01+0.4581j,
+        1.1366e-01+0.5775j, 8.1570e-01+0.0639j, 8.6653e-01+0.2270j,
+        3.7157e-01+0.9242j, 2.7248e-01+0.8868j, 7.2718e-02+0.5850j,
+        5.0394e-01+0.5581j, 7.7047e-01+0.7585j, 5.5589e-01+0.9294j,
+        4.5676e-01+0.6091j, 8.3340e-01+0.3538j, 1.5625e-01+0.5209j,
+        2.4252e-01+0.4256j, 4.6107e-01+0.1428j, 5.6315e-01+0.1821j,
+        7.1633e-01+0.3228j, 5.6836e-01+0.7572j, 2.2218e-01+0.5874j,
+        5.8530e-01+0.2708j, 4.3061e-01+0.4832j, 9.8873e-01+0.5744j,
+        4.2281e-01+0.6618j, 9.0499e-02+0.2309j, 1.3564e-01+0.7472j,
+        8.4682e-01+0.2768j, 5.6388e-01+0.2345j, 6.2431e-01+0.1113j,
+        5.5903e-01+0.1241j, 7.0935e-01+0.8765j, 6.8800e-02+0.9738j,
+        7.4911e-01+0.8730j, 2.7379e-01+0.3156j, 4.2889e-01+0.0365j,
+        1.9485e-02+0.6915j, 2.3340e-01+0.8975j, 9.5666e-01+0.8422j,
+        6.0896e-01+0.3871j, 2.9957e-01+0.1625j, 4.5767e-01+0.4959j,
+        8.5515e-01+0.2279j, 6.0461e-01+0.0560j, 8.4425e-01+0.4297j,
+        8.5174e-01+0.0373j, 1.4513e-01+0.0467j, 5.1624e-02+0.4902j,
+        9.2895e-04+0.4618j, 7.5357e-01+0.0483j, 3.1021e-01+0.9152j,
+        6.2584e-01+0.2760j, 9.0968e-01+0.7523j, 7.8562e-01+0.5592j,
+        7.6435e-01+0.5770j, 9.6849e-01+0.5007j, 1.0756e-01+0.6745j,
+        1.5551e-01+0.2942j, 5.8229e-01+0.9536j, 1.9664e-01+0.1965j,
+        4.9026e-01+0.7483j, 5.2292e-02+0.4707j, 2.8327e-01+0.0253j,
+        1.6823e-01+0.2655j, 7.8209e-01+0.0229j, 3.6516e-01+0.0692j,
+        8.4371e-01+0.9688j], device='cuda:0', dtype=torch.complex128)
+Difference: 1.7191051189973388e-08
+gauge_eo.is_contiguous(): True
+fermion_in_eo.is_contiguous(): True
+fermion_in_out.is_contiguous(): True
+qcu_src.is_contiguous(): True
+qcu_dest.is_contiguous(): True

@@ -1,0 +1,592 @@
+tensor([   4,    4,    4,    8,  512,    1,    1,    1,    1,    0,    0,    1,
+           0, 1000,    2,    0,    1,    1,    1,    1,    1,   24,    1,   42,
+           0], dtype=torch.int32)
+tensor([5.0000e-02, 1.0000e-09, 1.0000e-01])
+tensor([0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+set_ptr:0x555d93337ac0
+set_ptrs:0x555d92134280
+long long set_ptr:93860389944000
+gridDim.x                    :16
+blockDim.x                   :16
+host_params[_LAT_X_]         :4
+host_params[_LAT_Y_]         :4
+host_params[_LAT_Z_]         :4
+host_params[_LAT_T_]         :4
+host_params[_LAT_XYZT_]      :256
+host_params[_GRID_X_]        :1
+host_params[_GRID_Y_]        :1
+host_params[_GRID_Z_]        :1
+host_params[_GRID_T_]        :1
+host_params[_PARITY_]        :0
+host_params[_NODE_RANK_]     :0
+host_params[_NODE_SIZE_]     :1
+host_params[_DAGGER_]        :0
+host_params[_MAX_ITER_]      :1000
+host_params[_DATA_TYPE_]     :2
+host_params[_SET_INDEX_]     :0
+host_params[_SET_PLAN_]      :-1
+host_params[_MG_X_]          :1
+host_params[_MG_Y_]          :1
+host_params[_MG_Z_]          :1
+host_params[_MG_T_]          :1
+host_params[_LAT_E_]         :24
+host_params[_VERBOSE_]       :1
+host_params[_SEED_]          :42
+host_params[_TEST_IN_CPU_]   :0
+host_argv[_MASS_]            :5.000000e-02
+host_argv[_TOL_]             :1.000000e-09
+host_argv[_SIGMA_]           :1.000000e-01
+lat_2dim[_XY_]               :16
+lat_2dim[_XZ_]               :16
+lat_2dim[_XT_]               :16
+lat_2dim[_YZ_]               :16
+lat_2dim[_YT_]               :16
+lat_2dim[_ZT_]               :16
+lat_3dim[_YZT_]              :64
+lat_3dim[_XZT_]              :64
+lat_3dim[_XYT_]              :64
+lat_3dim[_XYZ_]              :64
+lat_4dim                     :256
+grid_1dim[_X_]               :1
+grid_1dim[_Y_]               :1
+grid_1dim[_Z_]               :1
+grid_1dim[_T_]               :1
+grid_2dim[_XY_]              :1
+grid_2dim[_XZ_]              :1
+grid_2dim[_XT_]              :1
+grid_2dim[_YZ_]              :1
+grid_2dim[_YT_]              :1
+grid_2dim[_ZT_]              :1
+grid_3dim[_YZT_]             :1
+grid_3dim[_XZT_]             :1
+grid_3dim[_XYT_]             :1
+grid_3dim[_XYZ_]             :1
+grid_index_1dim[_X_]         :0
+grid_index_1dim[_Y_]         :0
+grid_index_1dim[_Z_]         :0
+grid_index_1dim[_T_]         :0
+move_wards[_B_X_]            :0
+move_wards[_B_Y_]            :0
+move_wards[_B_Z_]            :0
+move_wards[_B_T_]            :0
+move_wards[_F_X_]            :0
+move_wards[_F_Y_]            :0
+move_wards[_F_Z_]            :0
+move_wards[_F_T_]            :0
+move_wards[_BX_BY_]          :0
+move_wards[_BX_BZ_]          :0
+move_wards[_BX_BT_]          :0
+move_wards[_BY_BZ_]          :0
+move_wards[_BY_BT_]          :0
+move_wards[_BZ_BT_]          :0
+move_wards[_FX_BY_]          :0
+move_wards[_FX_BZ_]          :0
+move_wards[_FX_BT_]          :0
+move_wards[_FY_BZ_]          :0
+move_wards[_FY_BT_]          :0
+move_wards[_FZ_BT_]          :0
+move_wards[_BX_FY_]          :0
+move_wards[_BX_FZ_]          :0
+move_wards[_BX_FT_]          :0
+move_wards[_BY_FZ_]          :0
+move_wards[_BY_FT_]          :0
+move_wards[_BZ_FT_]          :0
+move_wards[_FX_FY_]          :0
+move_wards[_FX_FZ_]          :0
+move_wards[_FX_FT_]          :0
+move_wards[_FY_FZ_]          :0
+move_wards[_FY_FT_]          :0
+move_wards[_FZ_FT_]          :0
+lattice set init total time:0.022961481 sec
+multi-gpu make gauss gauge total time: (with malloc free memcpy) :0.000573459 sec
+PYQCU::TESTING::LATTICE:
+ [check_su3] Total matrices checked: 1024
+PYQCU::TESTING::LATTICE:
+ Unitary check   : False
+PYQCU::TESTING::LATTICE:
+ Determinant=1   : True
+PYQCU::TESTING::LATTICE:
+ Minor identities: True
+PYQCU::TESTING::LATTICE:
+ Max unitary deviation: 2.385160e-07
+False
+PYQCU::TESTING::LATTICE:
+ [check_su3] Total matrices checked: 1024
+PYQCU::TESTING::LATTICE:
+ Unitary check   : False
+PYQCU::TESTING::LATTICE:
+ Determinant=1   : True
+PYQCU::TESTING::LATTICE:
+ Minor identities: True
+PYQCU::TESTING::LATTICE:
+ Max unitary deviation: 2.384294e-07
+False
+tensor([93860389944000,              0,              0,              0,
+                     0,              0,              0,              0,
+                     0,              0])
+set_ptr:0x555d9c51bb10
+set_ptrs:0x555d92134280
+long long set_ptr:93860542921488
+gridDim.x                    :16
+blockDim.x                   :16
+host_params[_LAT_X_]         :4
+host_params[_LAT_Y_]         :4
+host_params[_LAT_Z_]         :4
+host_params[_LAT_T_]         :4
+host_params[_LAT_XYZT_]      :256
+host_params[_GRID_X_]        :1
+host_params[_GRID_Y_]        :1
+host_params[_GRID_Z_]        :1
+host_params[_GRID_T_]        :1
+host_params[_PARITY_]        :0
+host_params[_NODE_RANK_]     :0
+host_params[_NODE_SIZE_]     :1
+host_params[_DAGGER_]        :0
+host_params[_MAX_ITER_]      :1000
+host_params[_DATA_TYPE_]     :2
+host_params[_SET_INDEX_]     :1
+host_params[_SET_PLAN_]      :1
+host_params[_MG_X_]          :1
+host_params[_MG_Y_]          :1
+host_params[_MG_Z_]          :1
+host_params[_MG_T_]          :1
+host_params[_LAT_E_]         :24
+host_params[_VERBOSE_]       :1
+host_params[_SEED_]          :42
+host_params[_TEST_IN_CPU_]   :0
+host_argv[_MASS_]            :5.000000e-02
+host_argv[_TOL_]             :1.000000e-09
+host_argv[_SIGMA_]           :1.000000e-01
+lat_2dim[_XY_]               :16
+lat_2dim[_XZ_]               :16
+lat_2dim[_XT_]               :16
+lat_2dim[_YZ_]               :16
+lat_2dim[_YT_]               :16
+lat_2dim[_ZT_]               :16
+lat_3dim[_YZT_]              :64
+lat_3dim[_XZT_]              :64
+lat_3dim[_XYT_]              :64
+lat_3dim[_XYZ_]              :64
+lat_4dim                     :256
+grid_1dim[_X_]               :1
+grid_1dim[_Y_]               :1
+grid_1dim[_Z_]               :1
+grid_1dim[_T_]               :1
+grid_2dim[_XY_]              :1
+grid_2dim[_XZ_]              :1
+grid_2dim[_XT_]              :1
+grid_2dim[_YZ_]              :1
+grid_2dim[_YT_]              :1
+grid_2dim[_ZT_]              :1
+grid_3dim[_YZT_]             :1
+grid_3dim[_XZT_]             :1
+grid_3dim[_XYT_]             :1
+grid_3dim[_XYZ_]             :1
+grid_index_1dim[_X_]         :0
+grid_index_1dim[_Y_]         :0
+grid_index_1dim[_Z_]         :0
+grid_index_1dim[_T_]         :0
+move_wards[_B_X_]            :0
+move_wards[_B_Y_]            :0
+move_wards[_B_Z_]            :0
+move_wards[_B_T_]            :0
+move_wards[_F_X_]            :0
+move_wards[_F_Y_]            :0
+move_wards[_F_Z_]            :0
+move_wards[_F_T_]            :0
+move_wards[_BX_BY_]          :0
+move_wards[_BX_BZ_]          :0
+move_wards[_BX_BT_]          :0
+move_wards[_BY_BZ_]          :0
+move_wards[_BY_BT_]          :0
+move_wards[_BZ_BT_]          :0
+move_wards[_FX_BY_]          :0
+move_wards[_FX_BZ_]          :0
+move_wards[_FX_BT_]          :0
+move_wards[_FY_BZ_]          :0
+move_wards[_FY_BT_]          :0
+move_wards[_FZ_BT_]          :0
+move_wards[_BX_FY_]          :0
+move_wards[_BX_FZ_]          :0
+move_wards[_BX_FT_]          :0
+move_wards[_BY_FZ_]          :0
+move_wards[_BY_FT_]          :0
+move_wards[_BZ_FT_]          :0
+move_wards[_FX_FY_]          :0
+move_wards[_FX_FZ_]          :0
+move_wards[_FX_FT_]          :0
+move_wards[_FY_FZ_]          :0
+move_wards[_FY_FT_]          :0
+move_wards[_FZ_FT_]          :0
+lattice set init total time:0.001917347 sec
+##RANK:0##LOOP:67##Residual:(9.81425e-10,-3.80994e-19i)
+multi-gpu wilson bistabcg total time: (without malloc free memcpy) :0.112104552 sec
+######TIME  :119.056######
+##RANK      :0
+##LOOP      :0
+##tmp0      :(3.03506e-10,1.51777e-10i)
+##tmp1      :(2.96599e-10,1.53269e-20i)
+##rho_prev  :(-1.2682e-08,3.30052e-07i)
+##rho       :(-1.2682e-08,3.30052e-07i)
+##alpha     :(-1.0731,-5.2275i)
+##beta      :(0.457639,0.743713i)
+##omega     :(1.02329,0.511723i)
+##send_tmp  :(5.79298e-08,0i)
+##norm2_tmp :(6575.53,-1.1354e-06i)
+##diff_tmp  :(8.80991e-12,1.52121e-21i)
+##lat_4dim  :(256,0i)
+tensor([93860389944000, 93860542921488,              0,              0,
+                     0,              0,              0,              0,
+                     0,              0])
+qcu_src: tensor([0.5847+0.4364j, 0.0785+0.7867j, 0.0691+0.5868j, 0.4048+0.0083j,
+        0.7253+0.5093j, 0.0230+0.4618j, 0.5136+0.6030j, 0.3853+0.8139j,
+        0.9980+0.7148j, 0.7842+0.3672j, 0.2979+0.0736j, 0.6508+0.2203j,
+        0.6525+0.8538j, 0.2910+0.4984j, 0.9564+0.7707j, 0.1111+0.4641j,
+        0.4893+0.8290j, 0.7470+0.6496j, 0.2468+0.2664j, 0.6839+0.9377j,
+        0.2016+0.6498j, 0.8040+0.8380j, 0.7142+0.0907j, 0.4093+0.5846j,
+        0.4113+0.0090j, 0.0310+0.5925j, 0.1233+0.1876j, 0.7739+0.9768j,
+        0.2177+0.2337j, 0.6736+0.2963j, 0.0349+0.9425j, 0.3500+0.4805j,
+        0.3188+0.7164j, 0.1983+0.9879j, 0.5820+0.0076j, 0.9645+0.2739j,
+        0.6476+0.6020j, 0.6378+0.9281j, 0.0694+0.1375j, 0.6399+0.8360j,
+        0.4751+0.6991j, 0.5759+0.4393j, 0.0946+0.6221j, 0.9758+0.6393j,
+        0.9209+0.8180j, 0.8112+0.0229j, 0.9879+0.1539j, 0.6460+0.5586j,
+        0.9028+0.4102j, 0.5748+0.5025j, 0.6762+0.3025j, 0.7264+0.2267j,
+        0.6910+0.3139j, 0.9682+0.2852j, 0.5889+0.1501j, 0.1547+0.9656j,
+        0.7787+0.0071j, 0.7318+0.7741j, 0.6468+0.2277j, 0.6091+0.6291j,
+        0.9196+0.2301j, 0.1263+0.7195j, 0.6415+0.7798j, 0.4801+0.4787j,
+        0.2960+0.8768j, 0.9620+0.3276j, 0.8352+0.0536j, 0.9973+0.8975j,
+        0.9835+0.5710j, 0.4882+0.9109j, 0.0345+0.6863j, 0.9531+0.1294j,
+        0.2327+0.2085j, 0.0735+0.8565j, 0.8401+0.0736j, 0.0711+0.8300j,
+        0.2984+0.9885j, 0.5290+0.2068j, 0.8561+0.5233j, 0.4721+0.1623j,
+        0.2970+0.2037j, 0.3716+0.6822j, 0.5256+0.8697j, 0.5222+0.1019j,
+        0.1313+0.5400j, 0.4640+0.1287j, 0.1943+0.5791j, 0.8318+0.5200j,
+        0.6754+0.9102j, 0.8689+0.9504j, 0.0094+0.3267j, 0.2819+0.8540j,
+        0.2161+0.1574j, 0.9233+0.3938j, 0.1010+0.1190j, 0.9153+0.8720j,
+        0.1818+0.9357j, 0.6999+0.0155j, 0.7388+0.2566j, 0.0840+0.9689j],
+       device='cuda:0')
+refer_src: tensor([0.5847+0.4364j, 0.0785+0.7867j, 0.0691+0.5868j, 0.4048+0.0083j,
+        0.7253+0.5093j, 0.0230+0.4618j, 0.5136+0.6030j, 0.3853+0.8139j,
+        0.9980+0.7148j, 0.7842+0.3672j, 0.2979+0.0736j, 0.6508+0.2203j,
+        0.6525+0.8538j, 0.2910+0.4984j, 0.9564+0.7707j, 0.1111+0.4641j,
+        0.4893+0.8290j, 0.7470+0.6496j, 0.2468+0.2664j, 0.6839+0.9377j,
+        0.2016+0.6498j, 0.8040+0.8380j, 0.7142+0.0907j, 0.4093+0.5846j,
+        0.4113+0.0090j, 0.0310+0.5925j, 0.1233+0.1876j, 0.7739+0.9768j,
+        0.2178+0.2337j, 0.6736+0.2963j, 0.0349+0.9425j, 0.3500+0.4805j,
+        0.3188+0.7164j, 0.1983+0.9879j, 0.5819+0.0076j, 0.9645+0.2739j,
+        0.6476+0.6020j, 0.6378+0.9281j, 0.0694+0.1375j, 0.6399+0.8360j,
+        0.4751+0.6991j, 0.5759+0.4393j, 0.0946+0.6221j, 0.9758+0.6393j,
+        0.9209+0.8180j, 0.8112+0.0229j, 0.9879+0.1539j, 0.6460+0.5586j,
+        0.9028+0.4102j, 0.5748+0.5025j, 0.6762+0.3025j, 0.7264+0.2267j,
+        0.6910+0.3139j, 0.9682+0.2852j, 0.5889+0.1501j, 0.1547+0.9656j,
+        0.7787+0.0071j, 0.7318+0.7741j, 0.6468+0.2277j, 0.6091+0.6291j,
+        0.9196+0.2301j, 0.1263+0.7195j, 0.6415+0.7798j, 0.4801+0.4787j,
+        0.2960+0.8768j, 0.9620+0.3276j, 0.8352+0.0536j, 0.9973+0.8975j,
+        0.9835+0.5710j, 0.4882+0.9109j, 0.0345+0.6863j, 0.9531+0.1294j,
+        0.2327+0.2085j, 0.0735+0.8565j, 0.8401+0.0736j, 0.0711+0.8300j,
+        0.2984+0.9885j, 0.5290+0.2068j, 0.8561+0.5233j, 0.4721+0.1623j,
+        0.2970+0.2037j, 0.3716+0.6822j, 0.5257+0.8697j, 0.5222+0.1019j,
+        0.1313+0.5400j, 0.4640+0.1287j, 0.1943+0.5791j, 0.8318+0.5200j,
+        0.6754+0.9102j, 0.8689+0.9504j, 0.0094+0.3267j, 0.2819+0.8540j,
+        0.2161+0.1574j, 0.9233+0.3938j, 0.1010+0.1190j, 0.9153+0.8720j,
+        0.1818+0.9357j, 0.6999+0.0155j, 0.7388+0.2566j, 0.0840+0.9689j],
+       device='cuda:0')
+Difference: 3.8977071050154726e-06
+set_ptr:0x555da0d3de80
+set_ptrs:0x555d92134280
+long long set_ptr:93860618559104
+gridDim.x                    :16
+blockDim.x                   :16
+host_params[_LAT_X_]         :4
+host_params[_LAT_Y_]         :4
+host_params[_LAT_Z_]         :4
+host_params[_LAT_T_]         :4
+host_params[_LAT_XYZT_]      :256
+host_params[_GRID_X_]        :1
+host_params[_GRID_Y_]        :1
+host_params[_GRID_Z_]        :1
+host_params[_GRID_T_]        :1
+host_params[_PARITY_]        :0
+host_params[_NODE_RANK_]     :0
+host_params[_NODE_SIZE_]     :1
+host_params[_DAGGER_]        :0
+host_params[_MAX_ITER_]      :1000
+host_params[_DATA_TYPE_]     :2
+host_params[_SET_INDEX_]     :2
+host_params[_SET_PLAN_]      :2
+host_params[_MG_X_]          :1
+host_params[_MG_Y_]          :1
+host_params[_MG_Z_]          :1
+host_params[_MG_T_]          :1
+host_params[_LAT_E_]         :24
+host_params[_VERBOSE_]       :1
+host_params[_SEED_]          :42
+host_params[_TEST_IN_CPU_]   :0
+host_argv[_MASS_]            :5.000000e-02
+host_argv[_TOL_]             :1.000000e-09
+host_argv[_SIGMA_]           :1.000000e-01
+lat_2dim[_XY_]               :16
+lat_2dim[_XZ_]               :16
+lat_2dim[_XT_]               :16
+lat_2dim[_YZ_]               :16
+lat_2dim[_YT_]               :16
+lat_2dim[_ZT_]               :16
+lat_3dim[_YZT_]              :64
+lat_3dim[_XZT_]              :64
+lat_3dim[_XYT_]              :64
+lat_3dim[_XYZ_]              :64
+lat_4dim                     :256
+grid_1dim[_X_]               :1
+grid_1dim[_Y_]               :1
+grid_1dim[_Z_]               :1
+grid_1dim[_T_]               :1
+grid_2dim[_XY_]              :1
+grid_2dim[_XZ_]              :1
+grid_2dim[_XT_]              :1
+grid_2dim[_YZ_]              :1
+grid_2dim[_YT_]              :1
+grid_2dim[_ZT_]              :1
+grid_3dim[_YZT_]             :1
+grid_3dim[_XZT_]             :1
+grid_3dim[_XYT_]             :1
+grid_3dim[_XYZ_]             :1
+grid_index_1dim[_X_]         :0
+grid_index_1dim[_Y_]         :0
+grid_index_1dim[_Z_]         :0
+grid_index_1dim[_T_]         :0
+move_wards[_B_X_]            :0
+move_wards[_B_Y_]            :0
+move_wards[_B_Z_]            :0
+move_wards[_B_T_]            :0
+move_wards[_F_X_]            :0
+move_wards[_F_Y_]            :0
+move_wards[_F_Z_]            :0
+move_wards[_F_T_]            :0
+move_wards[_BX_BY_]          :0
+move_wards[_BX_BZ_]          :0
+move_wards[_BX_BT_]          :0
+move_wards[_BY_BZ_]          :0
+move_wards[_BY_BT_]          :0
+move_wards[_BZ_BT_]          :0
+move_wards[_FX_BY_]          :0
+move_wards[_FX_BZ_]          :0
+move_wards[_FX_BT_]          :0
+move_wards[_FY_BZ_]          :0
+move_wards[_FY_BT_]          :0
+move_wards[_FZ_BT_]          :0
+move_wards[_BX_FY_]          :0
+move_wards[_BX_FZ_]          :0
+move_wards[_BX_FT_]          :0
+move_wards[_BY_FZ_]          :0
+move_wards[_BY_FT_]          :0
+move_wards[_BZ_FT_]          :0
+move_wards[_FX_FY_]          :0
+move_wards[_FX_FZ_]          :0
+move_wards[_FX_FT_]          :0
+move_wards[_FY_FZ_]          :0
+move_wards[_FY_FT_]          :0
+move_wards[_FZ_FT_]          :0
+lattice set init total time:0.001851548 sec
+make clover total time: (without malloc free memcpy) :0.006285315 sec
+ set_ptr:0x555da12bde30
+set_ptrs:0x555d92134280
+long long set_ptr:93860624326192
+gridDim.x                    :16
+blockDim.x                   :16
+host_params[_LAT_X_]         :4
+host_params[_LAT_Y_]         :4
+host_params[_LAT_Z_]         :4
+host_params[_LAT_T_]         :4
+host_params[_LAT_XYZT_]      :256
+host_params[_GRID_X_]        :1
+host_params[_GRID_Y_]        :1
+host_params[_GRID_Z_]        :1
+host_params[_GRID_T_]        :1
+host_params[_PARITY_]        :1
+host_params[_NODE_RANK_]     :0
+host_params[_NODE_SIZE_]     :1
+host_params[_DAGGER_]        :0
+host_params[_MAX_ITER_]      :1000
+host_params[_DATA_TYPE_]     :2
+host_params[_SET_INDEX_]     :3
+host_params[_SET_PLAN_]      :2
+host_params[_MG_X_]          :1
+host_params[_MG_Y_]          :1
+host_params[_MG_Z_]          :1
+host_params[_MG_T_]          :1
+host_params[_LAT_E_]         :24
+host_params[_VERBOSE_]       :1
+host_params[_SEED_]          :42
+host_params[_TEST_IN_CPU_]   :0
+host_argv[_MASS_]            :5.000000e-02
+host_argv[_TOL_]             :1.000000e-09
+host_argv[_SIGMA_]           :1.000000e-01
+lat_2dim[_XY_]               :16
+lat_2dim[_XZ_]               :16
+lat_2dim[_XT_]               :16
+lat_2dim[_YZ_]               :16
+lat_2dim[_YT_]               :16
+lat_2dim[_ZT_]               :16
+lat_3dim[_YZT_]              :64
+lat_3dim[_XZT_]              :64
+lat_3dim[_XYT_]              :64
+lat_3dim[_XYZ_]              :64
+lat_4dim                     :256
+grid_1dim[_X_]               :1
+grid_1dim[_Y_]               :1
+grid_1dim[_Z_]               :1
+grid_1dim[_T_]               :1
+grid_2dim[_XY_]              :1
+grid_2dim[_XZ_]              :1
+grid_2dim[_XT_]              :1
+grid_2dim[_YZ_]              :1
+grid_2dim[_YT_]              :1
+grid_2dim[_ZT_]              :1
+grid_3dim[_YZT_]             :1
+grid_3dim[_XZT_]             :1
+grid_3dim[_XYT_]             :1
+grid_3dim[_XYZ_]             :1
+grid_index_1dim[_X_]         :0
+grid_index_1dim[_Y_]         :0
+grid_index_1dim[_Z_]         :0
+grid_index_1dim[_T_]         :0
+move_wards[_B_X_]            :0
+move_wards[_B_Y_]            :0
+move_wards[_B_Z_]            :0
+move_wards[_B_T_]            :0
+move_wards[_F_X_]            :0
+move_wards[_F_Y_]            :0
+move_wards[_F_Z_]            :0
+move_wards[_F_T_]            :0
+move_wards[_BX_BY_]          :0
+move_wards[_BX_BZ_]          :0
+move_wards[_BX_BT_]          :0
+move_wards[_BY_BZ_]          :0
+move_wards[_BY_BT_]          :0
+move_wards[_BZ_BT_]          :0
+move_wards[_FX_BY_]          :0
+move_wards[_FX_BZ_]          :0
+move_wards[_FX_BT_]          :0
+move_wards[_FY_BZ_]          :0
+move_wards[_FY_BT_]          :0
+move_wards[_FZ_BT_]          :0
+move_wards[_BX_FY_]          :0
+move_wards[_BX_FZ_]          :0
+move_wards[_BX_FT_]          :0
+move_wards[_BY_FZ_]          :0
+move_wards[_BY_FT_]          :0
+move_wards[_BZ_FT_]          :0
+move_wards[_FX_FY_]          :0
+move_wards[_FX_FZ_]          :0
+move_wards[_FX_FT_]          :0
+move_wards[_FY_FZ_]          :0
+move_wards[_FY_FT_]          :0
+move_wards[_FZ_FT_]          :0
+lattice set init total time:0.002725169 sec
+make clover total time: (without malloc free memcpy) :0.002922941 sec
+qcu_clover_term_e: tensor([-3.8316e-03+0.j,  3.2039e-03+0.j, -1.7998e-03+0.j,  2.0691e-03+0.j,
+        -3.2208e-03+0.j,  1.9778e-03+0.j,  3.1829e-05+0.j, -5.8151e-03+0.j,
+        -1.9433e-03+0.j, -8.2582e-04+0.j,  6.3369e-03+0.j, -1.4666e-03+0.j,
+        -1.4642e-03+0.j,  2.6786e-04+0.j,  3.4189e-04+0.j,  7.3220e-03+0.j,
+         2.8539e-04+0.j, -2.4422e-03+0.j,  3.7313e-05+0.j,  8.3513e-03+0.j,
+         2.1443e-03+0.j,  2.2817e-04+0.j,  4.2026e-03+0.j, -1.9099e-03+0.j,
+         5.8651e-05+0.j,  3.8651e-03+0.j, -8.0104e-03+0.j,  4.4808e-03+0.j,
+        -1.2338e-02+0.j,  4.1531e-03+0.j, -1.3386e-03+0.j, -4.0531e-05+0.j,
+         3.1331e-03+0.j, -2.4909e-03+0.j,  4.6095e-03+0.j, -4.5078e-03+0.j,
+         3.1968e-03+0.j,  7.4673e-03+0.j, -2.2558e-03+0.j,  1.2424e-03+0.j,
+         1.5347e-03+0.j, -4.8637e-05+0.j, -1.6989e-03+0.j, -5.7632e-04+0.j,
+        -1.3883e-03+0.j, -2.3974e-03+0.j, -5.4246e-03+0.j,  8.6074e-03+0.j,
+         4.7481e-04+0.j, -3.9473e-03+0.j, -1.6905e-03+0.j, -5.0471e-03+0.j,
+         3.2703e-03+0.j, -1.7489e-03+0.j, -2.8730e-03+0.j, -1.8134e-03+0.j,
+        -3.1787e-04+0.j,  5.5776e-03+0.j,  3.4581e-03+0.j,  5.5939e-03+0.j,
+         8.3915e-03+0.j,  1.2611e-03+0.j, -5.1172e-03+0.j,  7.6401e-04+0.j,
+        -1.2630e-03+0.j, -6.7987e-03+0.j, -5.0218e-03+0.j,  5.0935e-03+0.j,
+         3.5113e-03+0.j, -1.9736e-03+0.j,  3.7404e-03+0.j, -3.6758e-04+0.j,
+        -5.6801e-03+0.j, -5.3353e-03+0.j,  2.4002e-03+0.j, -4.5913e-03+0.j,
+        -2.2098e-03+0.j,  5.5087e-04+0.j,  1.1461e-03+0.j,  4.1351e-03+0.j,
+         2.6522e-03+0.j, -3.1869e-03+0.j, -2.9201e-03+0.j,  3.5765e-03+0.j,
+        -4.5754e-03+0.j,  8.3208e-04+0.j,  1.3056e-03+0.j,  4.6946e-03+0.j,
+         2.1647e-03+0.j, -4.8814e-03+0.j,  4.2151e-03+0.j,  1.7104e-03+0.j,
+        -1.8811e-04+0.j, -3.8763e-03+0.j, -4.4464e-03+0.j, -3.3674e-03+0.j,
+        -2.9501e-03+0.j,  9.0420e-03+0.j,  6.9257e-03+0.j,  3.9780e-03+0.j],
+       device='cuda:0')
+refer_clover_term_e: tensor([-3.8316e-03+0.j,  3.2038e-03+0.j, -1.7998e-03+0.j,  2.0691e-03+0.j,
+        -3.2208e-03+0.j,  1.9778e-03+0.j,  3.1812e-05+0.j, -5.8151e-03+0.j,
+        -1.9433e-03+0.j, -8.2580e-04+0.j,  6.3369e-03+0.j, -1.4666e-03+0.j,
+        -1.4643e-03+0.j,  2.6785e-04+0.j,  3.4190e-04+0.j,  7.3220e-03+0.j,
+         2.8544e-04+0.j, -2.4422e-03+0.j,  3.7255e-05+0.j,  8.3514e-03+0.j,
+         2.1443e-03+0.j,  2.2817e-04+0.j,  4.2026e-03+0.j, -1.9099e-03+0.j,
+         5.8682e-05+0.j,  3.8651e-03+0.j, -8.0104e-03+0.j,  4.4808e-03+0.j,
+        -1.2338e-02+0.j,  4.1532e-03+0.j, -1.3386e-03+0.j, -4.0554e-05+0.j,
+         3.1330e-03+0.j, -2.4909e-03+0.j,  4.6094e-03+0.j, -4.5078e-03+0.j,
+         3.1969e-03+0.j,  7.4673e-03+0.j, -2.2558e-03+0.j,  1.2425e-03+0.j,
+         1.5347e-03+0.j, -4.8618e-05+0.j, -1.6989e-03+0.j, -5.7633e-04+0.j,
+        -1.3883e-03+0.j, -2.3974e-03+0.j, -5.4246e-03+0.j,  8.6074e-03+0.j,
+         4.7480e-04+0.j, -3.9473e-03+0.j, -1.6905e-03+0.j, -5.0472e-03+0.j,
+         3.2702e-03+0.j, -1.7489e-03+0.j, -2.8730e-03+0.j, -1.8134e-03+0.j,
+        -3.1787e-04+0.j,  5.5776e-03+0.j,  3.4581e-03+0.j,  5.5939e-03+0.j,
+         8.3915e-03+0.j,  1.2612e-03+0.j, -5.1172e-03+0.j,  7.6401e-04+0.j,
+        -1.2630e-03+0.j, -6.7987e-03+0.j, -5.0218e-03+0.j,  5.0934e-03+0.j,
+         3.5113e-03+0.j, -1.9736e-03+0.j,  3.7404e-03+0.j, -3.6760e-04+0.j,
+        -5.6801e-03+0.j, -5.3353e-03+0.j,  2.4002e-03+0.j, -4.5913e-03+0.j,
+        -2.2098e-03+0.j,  5.5089e-04+0.j,  1.1461e-03+0.j,  4.1351e-03+0.j,
+         2.6521e-03+0.j, -3.1869e-03+0.j, -2.9201e-03+0.j,  3.5765e-03+0.j,
+        -4.5754e-03+0.j,  8.3207e-04+0.j,  1.3056e-03+0.j,  4.6946e-03+0.j,
+         2.1648e-03+0.j, -4.8814e-03+0.j,  4.2151e-03+0.j,  1.7104e-03+0.j,
+        -1.8813e-04+0.j, -3.8763e-03+0.j, -4.4464e-03+0.j, -3.3673e-03+0.j,
+        -2.9501e-03+0.j,  9.0420e-03+0.j,  6.9257e-03+0.j,  3.9780e-03+0.j],
+       device='cuda:0')
+Difference: 1.9049503495210322e-06
+qcu_clover_term_o: tensor([-1.8643e-03+0.j,  5.3358e-04+0.j, -5.4159e-03+0.j,  4.6600e-03+0.j,
+        -5.0867e-03+0.j,  9.8002e-04+0.j,  5.4185e-03+0.j, -6.9264e-03+0.j,
+         3.4924e-03+0.j, -2.0717e-03+0.j, -3.9542e-04+0.j,  3.9876e-04+0.j,
+         2.7074e-03+0.j,  6.1376e-03+0.j, -2.5557e-03+0.j,  2.9922e-05+0.j,
+        -8.8704e-04+0.j,  2.8368e-03+0.j,  1.9132e-03+0.j, -2.8713e-03+0.j,
+        -3.1715e-03+0.j, -1.7223e-03+0.j,  2.7715e-03+0.j,  2.6815e-03+0.j,
+        -3.4442e-03+0.j,  3.4399e-03+0.j,  3.7678e-03+0.j, -3.2704e-03+0.j,
+        -3.1353e-03+0.j,  6.2205e-03+0.j, -8.3059e-04+0.j,  4.8494e-03+0.j,
+        -2.4910e-03+0.j, -2.6739e-04+0.j,  1.7027e-03+0.j,  6.1054e-03+0.j,
+         2.1755e-03+0.j, -4.3405e-03+0.j,  1.0624e-03+0.j,  2.3532e-03+0.j,
+         1.7706e-03+0.j,  9.8020e-03+0.j, -9.7838e-03+0.j,  5.7524e-03+0.j,
+        -9.4873e-04+0.j, -6.3372e-03+0.j, -2.4489e-03+0.j, -2.8408e-04+0.j,
+         7.6449e-04+0.j, -1.8672e-03+0.j, -8.8418e-04+0.j, -3.7057e-03+0.j,
+         3.6780e-03+0.j, -1.7240e-03+0.j,  1.2648e-03+0.j,  6.6876e-05+0.j,
+         3.1916e-03+0.j,  2.1994e-03+0.j, -2.6355e-03+0.j,  5.4406e-03+0.j,
+         2.3437e-03+0.j, -3.5362e-03+0.j,  4.2975e-04+0.j,  1.8017e-03+0.j,
+         1.7254e-03+0.j,  1.6356e-03+0.j,  2.3870e-03+0.j,  1.5584e-03+0.j,
+        -1.4328e-03+0.j, -4.5320e-03+0.j, -3.9728e-03+0.j, -8.5026e-04+0.j,
+        -4.1048e-03+0.j, -1.5847e-03+0.j,  3.3625e-03+0.j,  4.4738e-03+0.j,
+        -2.2783e-03+0.j, -5.2661e-04+0.j,  3.4701e-03+0.j, -3.6929e-03+0.j,
+        -1.9888e-03+0.j, -1.9547e-03+0.j,  3.7303e-03+0.j, -2.6317e-03+0.j,
+         5.6931e-03+0.j,  5.1796e-04+0.j,  3.0923e-03+0.j, -2.7686e-04+0.j,
+        -6.3608e-03+0.j, -3.1992e-03+0.j, -2.5164e-03+0.j,  2.3345e-03+0.j,
+         5.0831e-04+0.j, -9.9856e-04+0.j, -6.6460e-03+0.j, -1.8731e-03+0.j,
+        -1.0508e-03+0.j, -1.0941e-02+0.j,  4.5617e-03+0.j,  5.1283e-03+0.j],
+       device='cuda:0')
+refer_clover_term_o: tensor([-1.8643e-03+0.j,  5.3355e-04+0.j, -5.4159e-03+0.j,  4.6600e-03+0.j,
+        -5.0867e-03+0.j,  9.7997e-04+0.j,  5.4186e-03+0.j, -6.9264e-03+0.j,
+         3.4923e-03+0.j, -2.0717e-03+0.j, -3.9544e-04+0.j,  3.9875e-04+0.j,
+         2.7074e-03+0.j,  6.1376e-03+0.j, -2.5557e-03+0.j,  2.9922e-05+0.j,
+        -8.8704e-04+0.j,  2.8368e-03+0.j,  1.9131e-03+0.j, -2.8713e-03+0.j,
+        -3.1715e-03+0.j, -1.7223e-03+0.j,  2.7715e-03+0.j,  2.6815e-03+0.j,
+        -3.4442e-03+0.j,  3.4400e-03+0.j,  3.7678e-03+0.j, -3.2704e-03+0.j,
+        -3.1353e-03+0.j,  6.2204e-03+0.j, -8.3057e-04+0.j,  4.8495e-03+0.j,
+        -2.4910e-03+0.j, -2.6740e-04+0.j,  1.7027e-03+0.j,  6.1054e-03+0.j,
+         2.1755e-03+0.j, -4.3405e-03+0.j,  1.0624e-03+0.j,  2.3532e-03+0.j,
+         1.7706e-03+0.j,  9.8020e-03+0.j, -9.7838e-03+0.j,  5.7525e-03+0.j,
+        -9.4870e-04+0.j, -6.3371e-03+0.j, -2.4489e-03+0.j, -2.8407e-04+0.j,
+         7.6445e-04+0.j, -1.8672e-03+0.j, -8.8415e-04+0.j, -3.7057e-03+0.j,
+         3.6780e-03+0.j, -1.7240e-03+0.j,  1.2648e-03+0.j,  6.6862e-05+0.j,
+         3.1916e-03+0.j,  2.1994e-03+0.j, -2.6356e-03+0.j,  5.4406e-03+0.j,
+         2.3436e-03+0.j, -3.5361e-03+0.j,  4.2970e-04+0.j,  1.8017e-03+0.j,
+         1.7255e-03+0.j,  1.6355e-03+0.j,  2.3871e-03+0.j,  1.5584e-03+0.j,
+        -1.4329e-03+0.j, -4.5320e-03+0.j, -3.9728e-03+0.j, -8.5028e-04+0.j,
+        -4.1048e-03+0.j, -1.5847e-03+0.j,  3.3626e-03+0.j,  4.4738e-03+0.j,
+        -2.2782e-03+0.j, -5.2663e-04+0.j,  3.4700e-03+0.j, -3.6929e-03+0.j,
+        -1.9888e-03+0.j, -1.9548e-03+0.j,  3.7303e-03+0.j, -2.6317e-03+0.j,
+         5.6931e-03+0.j,  5.1796e-04+0.j,  3.0923e-03+0.j, -2.7686e-04+0.j,
+        -6.3608e-03+0.j, -3.1992e-03+0.j, -2.5165e-03+0.j,  2.3345e-03+0.j,
+         5.0831e-04+0.j, -9.9854e-04+0.j, -6.6460e-03+0.j, -1.8732e-03+0.j,
+        -1.0508e-03+0.j, -1.0941e-02+0.j,  4.5616e-03+0.j,  5.1283e-03+0.j],
+       device='cuda:0')
+Difference: 1.931036192796845e-06
+ 
