@@ -189,37 +189,37 @@ template <typename T> struct LatticeCloverDslash {
       {
         {
           // x edge part comm
-        //   _MPI_Sendrecv<T>(set_ptr->host_u_1dim_send_vec[_B_X_],
-        //                    set_ptr->lat_3dim[_X_] * _LAT_PCCD_ * _REAL_IMAG_,
-        //                    set_ptr->move_wards[_B_X_], _B_X_,
-        //                    set_ptr->host_u_1dim_recv_vec[_F_X_],
-        //                    set_ptr->lat_3dim[_X_] * _LAT_PCCD_ * _REAL_IMAG_,
-        //                    set_ptr->move_wards[_F_X_], _B_X_, MPI_COMM_WORLD,
-        //                    MPI_STATUS_IGNORE);
-        //   _MPI_Sendrecv<T>(set_ptr->host_u_1dim_send_vec[_F_X_],
-        //                    set_ptr->lat_3dim[_X_] * _LAT_PCCD_ * _REAL_IMAG_,
-        //                    set_ptr->move_wards[_F_X_], _F_X_,
-        //                    set_ptr->host_u_1dim_recv_vec[_B_X_],
-        //                    set_ptr->lat_3dim[_X_] * _LAT_PCCD_ * _REAL_IMAG_,
-        //                    set_ptr->move_wards[_B_X_], _F_X_, MPI_COMM_WORLD,
-        //                    MPI_STATUS_IGNORE);
+          _MPI_Sendrecv<T>(set_ptr->host_u_1dim_send_vec[_B_X_],
+                           set_ptr->lat_3dim[_X_] * _LAT_PCCD_ * _REAL_IMAG_,
+                           set_ptr->move_wards[_B_X_], _B_X_,
+                           set_ptr->host_u_1dim_recv_vec[_F_X_],
+                           set_ptr->lat_3dim[_X_] * _LAT_PCCD_ * _REAL_IMAG_,
+                           set_ptr->move_wards[_F_X_], _B_X_, MPI_COMM_WORLD,
+                           MPI_STATUS_IGNORE);
+          //   _MPI_Sendrecv<T>(set_ptr->host_u_1dim_send_vec[_F_X_],
+          //                    set_ptr->lat_3dim[_X_] * _LAT_PCCD_ *
+          //                    _REAL_IMAG_, set_ptr->move_wards[_F_X_], _F_X_,
+          //                    set_ptr->host_u_1dim_recv_vec[_B_X_],
+          //                    set_ptr->lat_3dim[_X_] * _LAT_PCCD_ *
+          //                    _REAL_IMAG_, set_ptr->move_wards[_B_X_], _F_X_,
+          //                    MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         }
         {
           // y edge part comm
-          _MPI_Sendrecv<T>(set_ptr->host_u_1dim_send_vec[_B_Y_],
-                           set_ptr->lat_3dim[_Y_] * _LAT_PCCD_ * _REAL_IMAG_,
-                           set_ptr->move_wards[_B_Y_], _B_Y_,
-                           set_ptr->host_u_1dim_recv_vec[_F_Y_],
-                           set_ptr->lat_3dim[_Y_] * _LAT_PCCD_ * _REAL_IMAG_,
-                           set_ptr->move_wards[_F_Y_], _B_Y_, MPI_COMM_WORLD,
-                           MPI_STATUS_IGNORE);
-        //   _MPI_Sendrecv<T>(set_ptr->host_u_1dim_send_vec[_F_Y_],
-        //                    set_ptr->lat_3dim[_Y_] * _LAT_PCCD_ * _REAL_IMAG_,
-        //                    set_ptr->move_wards[_F_Y_], _F_Y_,
-        //                    set_ptr->host_u_1dim_recv_vec[_B_Y_],
-        //                    set_ptr->lat_3dim[_Y_] * _LAT_PCCD_ * _REAL_IMAG_,
-        //                    set_ptr->move_wards[_B_Y_], _F_Y_, MPI_COMM_WORLD,
-        //                    MPI_STATUS_IGNORE);
+          //   _MPI_Sendrecv<T>(set_ptr->host_u_1dim_send_vec[_B_Y_],
+          //                    set_ptr->lat_3dim[_Y_] * _LAT_PCCD_ *
+          //                    _REAL_IMAG_, set_ptr->move_wards[_B_Y_], _B_Y_,
+          //                    set_ptr->host_u_1dim_recv_vec[_F_Y_],
+          //                    set_ptr->lat_3dim[_Y_] * _LAT_PCCD_ *
+          //                    _REAL_IMAG_, set_ptr->move_wards[_F_Y_], _B_Y_,
+          //                    MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+          //   _MPI_Sendrecv<T>(set_ptr->host_u_1dim_send_vec[_F_Y_],
+          //                    set_ptr->lat_3dim[_Y_] * _LAT_PCCD_ *
+          //                    _REAL_IMAG_, set_ptr->move_wards[_F_Y_], _F_Y_,
+          //                    set_ptr->host_u_1dim_recv_vec[_B_Y_],
+          //                    set_ptr->lat_3dim[_Y_] * _LAT_PCCD_ *
+          //                    _REAL_IMAG_, set_ptr->move_wards[_B_Y_], _F_Y_,
+          //                    MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         }
         // {
         //   // z edge part comm
