@@ -28,7 +28,7 @@ params[define._VERBOSE_] = 1
 params[define._SEED_] = 42
 argv = argv.to(dtype=define.dtype(params[define._DATA_TYPE_]).to_real())
 argv[define._MASS_] = 0.05
-argv[define._TOL_] = 1e-9
+argv[define._ATOL_] = 1e-9
 argv[define._SIGMA_] = 0.1
 print(params)
 print(argv)

@@ -71,7 +71,7 @@ namespace qcu {
 #define _TEST_IN_CPU_ 24
 #define _PARAMS_SIZE_ 25
 #define _MASS_ 0
-#define _TOL_ 1
+#define _ATOL_ 1
 #define _SIGMA_ 2
 #define _ARGV_SIZE_ 3
 #define _DIM_ 4
