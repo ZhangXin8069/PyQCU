@@ -189,7 +189,7 @@ def test_dslash_parity(lat_size: list = [8, 8, 8, 16], kappa: Optional[torch.Ten
 
 def test_dslash_clover(device: torch.device = torch.device('cpu'), with_data: bool = False, dtype: torch.dtype = torch.complex64):
     if with_data:
-        kappa = 1.0
+        kappa = torch.Tensor(1.0)
         lat_size = [32, 16, 32, 32]
         path = pyqcu.__file__.replace('pyqcu/__init__.py', 'examples/data/')
         refer_U = tools.hdf5oooxyzt2gridoooxyzt(
@@ -313,7 +313,7 @@ def test_solver(kind: str = 'clover', method: str = 'bistabcg', kappa: Optional[
         refer_b = tools.whole_xyzt2local_xyzt(whole_array=whole_b, whole_shape=[
                                               4, 3]+lat_size, root=root, dtype=dtype, device=device)
     else:
-        kappa = 0.125
+        kappa = torch.Tensor(0.125)
         lat_size = [32, 32, 32, 32]
         path = pyqcu.__file__.replace('pyqcu/__init__.py', 'examples/data/')
         refer_U = tools.hdf5oooxyzt2gridoooxyzt(
