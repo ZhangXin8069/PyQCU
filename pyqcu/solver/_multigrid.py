@@ -1,18 +1,20 @@
 import torch
-from typing import Tuple
+from typing import Tuple, List, Optional
 from pyqcu import tools, dslash
 import pyqcu.cann as _torch
 import mpi4py.MPI as MPI
 from time import perf_counter
+
+
 class multigrid:
-    def __init__(self, dtype_list: Tuple[torch.dtype, torch.dtype, torch.dtype, torch.dtype], device_list: Tuple[torch.device, torch.device, torch.device, torch.device],  U: torch.Tensor, clover_term: torch.Tensor, kappa: float = 0.1, u_0: float = 1.0, min_size: int = 4, max_level: int = 4, mg_grid_size: Tuple[int, int, int, int] = [2, 2, 2, 2], num_convergence_sample: int = 50, dof_list: Tuple[int, int, int, int] = [12, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24], tol: float = 1e-6, max_iter: int = 1000, num_restart: int = 3, root: int = 0, support_parity: bool = False, verbose: bool = True):
+    def __init__(self, dtype_list: Tuple[torch.dtype, torch.dtype, torch.dtype, torch.dtype], device_list: Tuple[torch.device, torch.device, torch.device, torch.device],  U: torch.Tensor, clover_term: torch.Tensor, kappa: Optional[torch.Tensor] = torch.Tensor(0.1), u_0: Optional[torch.Tensor] = torch.Tensor(1.0), min_size: int = 4, max_level: int = 4, mg_grid_size: List[int] = [2, 2, 2, 2], num_convergence_sample: int = 50, dof_list: List[int] = [12, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24], tol: float = 1e-6, max_iter: int = 1000, num_restart: int = 3, root: int = 0, support_parity: bool = False, verbose: bool = True):
         self.comm = MPI.COMM_WORLD
         self.rank = self.comm.Get_rank()
         self.lat_size = list(U.shape[-4:])  # xyzt
         self.min_size = min_size
         self.max_level = max_level
-        self.kappa = kappa
-        self.mass = (1/kappa - 8)/2  # just for plot......
+        self.kappa = kappa if kappa is not None else 0.1
+        self.mass = (1/self.kappa - 8)/2  # just for plot......
         self.u_0 = u_0
         self.tol = tol
         self.max_iter = max_iter
@@ -28,10 +30,10 @@ class multigrid:
             self.lat_size_list.append(_lat_size)
             _lat_size = [_lat_size[d] // self.mg_grid_size[d]
                          for d in range(4)]
-        self.num_levels = len(self.lat_size_list)
-        self.dof_list = dof_list[:self.num_levels]
-        self.dtype_list = dtype_list[:self.num_levels]
-        self.device_list = device_list[:self.num_levels]
+        self.num_level = len(self.lat_size_list)
+        self.dof_list = dof_list[:self.num_level]
+        self.dtype_list = dtype_list[:self.num_level]
+        self.device_list = device_list[:self.num_level]
         if self.rank == self.root:
             print(
                 f"PYQCU::SOLVER::MULTIGRID:\n self.dof_list:{self.dof_list}")
@@ -55,6 +57,7 @@ class multigrid:
         self.num_convergence_sample = num_convergence_sample
         self.convergence_history = []
         self.convergence_tol = 0
+
     def init(self):
         # Build local-orthonormal near-null space vectors
         comm = MPI.COMM_WORLD
@@ -77,13 +80,15 @@ class multigrid:
             self.op_list.append(dslash.operator(fine_hopping=self.op_list[i-1].hopping, fine_sitting=self.op_list[i -
                                 1].sitting, local_ortho_null_vecs=_local_ortho_null_vecs,  verbose=self.verbose))
         comm.Barrier()
+
     def levels_back(self):
         self.convergence_tol = 0
-        self.num_levels = len(self.op_list) if len(
+        self.num_level = len(self.op_list) if len(
             self.op_list) <= self.max_level else self.max_level
+
     def adaptive(self, iter: int = 0):
         if self.convergence_tol > 3:
-            self.num_levels = 1
+            self.num_level = 1
         if (iter+1)*2 < self.num_convergence_sample+1:
             return
         convergence_now = self.convergence_history[-1]
@@ -95,6 +100,7 @@ class multigrid:
                 count += 1
         if count >= self.num_convergence_sample//2:
             self.convergence_tol += 1
+
     def cycle(self, level: int = 0) -> torch.Tensor:
         matvec = self.op_list[level].matvec
         b = self.b_list[level].clone()
@@ -108,7 +114,7 @@ class multigrid:
         x = torch.zeros_like(b)
         r = b - matvec(x)
         r_norm = tools.norm(r)
-        _tol = r_norm*0.5 if level != self.num_levels - 1 else r_norm*0.1
+        _tol = r_norm*0.5 if level != self.num_level - 1 else r_norm*0.1
         if self.verbose:
             print(
                 f"PYQCU::SOLVER::MULTIGRID:\n {level}:Norm of b:{tools.norm(b)}")
@@ -156,7 +162,7 @@ class multigrid:
                     f"PYQCU::SOLVER::MULTIGRID:\n B-{level}-bistabcg-Iteration {i}: Residual = {r_norm:.6e}")
             count_restart += 1
             # cycle start
-            if level < self.num_levels-1 and count_restart > self.num_restart:
+            if level < self.num_level-1 and count_restart > self.num_restart:
                 if level == 0 and self.support_parity:
                     x_e = self.op_list[0].give_x_e(b_e=b_e, x_o=x)
                     x_origin = tools.poooxyzt2oooxyzt(
@@ -215,7 +221,8 @@ class multigrid:
                 f"PYQCU::SOLVER::MULTIGRID:\n Final residual(origin): {r_norm_origin:.2e}")
             x = x_origin.clone()
         return x
-    def solve(self, b: torch.Tensor = None, x0: torch.Tensor = None) -> torch.Tensor:
+
+    def solve(self, b: Optional[torch.Tensor] = None, x0: Optional[torch.Tensor] = None) -> torch.Tensor:
         if b is not None:
             self.b = b.reshape([12]+list(b.shape)[2:]).clone()  # sc->e
             self.b_list[0] = self.b.clone()
@@ -231,6 +238,7 @@ class multigrid:
         print(
             f"PYQCU::SOLVER::MULTIGRID:\n Final residual: {self.convergence_history[-1]:.2e}")
         return x.reshape([4, 3]+list(x.shape[-4:]))
+
     def plot(self, save_path=None):
         if self.rank == self.root:
             import matplotlib.pyplot as plt

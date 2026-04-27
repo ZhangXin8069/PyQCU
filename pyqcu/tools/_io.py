@@ -2,11 +2,13 @@ from pyqcu.tools import HAS_MPI_SUPPORT, give_grid_index, give_grid_size
 import h5py
 import torch
 from mpi4py import MPI
-from typing import Tuple
+from typing import List
+
+
 def gridoooxyzt2hdf5oooxyzt(
     input_tensor: torch.Tensor,
     file_name: str,
-    lat_size: Tuple[int, int, int, int],
+    lat_size: List[int],
     verbose: bool = False
 ):
     """
@@ -75,9 +77,11 @@ def gridoooxyzt2hdf5oooxyzt(
                 print(
                     f"PYQCU::TOOLS::IO:\n Data is saved to {file_name} (Serial mode)")
         comm.Barrier()
+
+
 def hdf5oooxyzt2gridoooxyzt(
     file_name: str,
-    lat_size: Tuple[int, int, int, int],
+    lat_size: List[int],
     device: torch.device,
     verbose: bool = False
 ) -> torch.Tensor:
