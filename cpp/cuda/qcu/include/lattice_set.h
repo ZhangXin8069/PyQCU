@@ -493,6 +493,7 @@ template <typename T> struct LatticeSet {
   int max_iter() { return host_params[_MAX_ITER_]; }
   T kappa() { return 1 / (2 * host_argv[_MASS_] + 8); }
   T tol() { return host_argv[_TOL_]; }
+  T tol2() { return host_argv[_TOL_] * host_argv[_TOL_]; }
   T sigma() { return host_argv[_SIGMA_]; }
   float get_time() {
     cudaEventRecord(stop, 0);
