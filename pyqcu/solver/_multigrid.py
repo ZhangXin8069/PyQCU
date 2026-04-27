@@ -5,12 +5,12 @@ import pyqcu.cann as _torch
 import mpi4py.MPI as MPI
 from time import perf_counter
 class multigrid:
-    def __init__(self, dtype_list: Tuple[torch.dtype, torch.dtype, torch.dtype, torch.dtype], device_list: Tuple[torch.device, torch.device, torch.device, torch.device],  U: torch.Tensor, clover_term: torch.Tensor, kappa: float = 0.1, u_0: float = 1.0, min_size: int = 2, max_levels: int = 4, mg_grid_size: Tuple[int, int, int, int] = [2, 2, 2, 2], num_convergence_sample: int = 50, dof_list: Tuple[int, int, int, int] = [12, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24], tol: float = 1e-6, max_iter: int = 1000, num_restart: int = 3, root: int = 0, support_parity: bool = False, verbose: bool = True):
+    def __init__(self, dtype_list: Tuple[torch.dtype, torch.dtype, torch.dtype, torch.dtype], device_list: Tuple[torch.device, torch.device, torch.device, torch.device],  U: torch.Tensor, clover_term: torch.Tensor, kappa: float = 0.1, u_0: float = 1.0, min_size: int = 4, max_level: int = 4, mg_grid_size: Tuple[int, int, int, int] = [2, 2, 2, 2], num_convergence_sample: int = 50, dof_list: Tuple[int, int, int, int] = [12, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24], tol: float = 1e-6, max_iter: int = 1000, num_restart: int = 3, root: int = 0, support_parity: bool = False, verbose: bool = True):
         self.comm = MPI.COMM_WORLD
         self.rank = self.comm.Get_rank()
         self.lat_size = list(U.shape[-4:])  # xyzt
         self.min_size = min_size
-        self.max_levels = max_levels
+        self.max_level = max_level
         self.kappa = kappa
         self.mass = (1/kappa - 8)/2  # just for plot......
         self.u_0 = u_0
@@ -24,7 +24,7 @@ class multigrid:
         self.lat_size_list = []
         self.mg_grid_size = mg_grid_size
         _lat_size = self.lat_size
-        while all(_ >= self.min_size for _ in _lat_size) and len(self.lat_size_list) < self.max_levels:
+        while all(_ >= self.min_size for _ in _lat_size) and len(self.lat_size_list) < self.max_level:
             self.lat_size_list.append(_lat_size)
             _lat_size = [_lat_size[d] // self.mg_grid_size[d]
                          for d in range(4)]
@@ -80,7 +80,7 @@ class multigrid:
     def levels_back(self):
         self.convergence_tol = 0
         self.num_levels = len(self.op_list) if len(
-            self.op_list) <= self.max_levels else self.max_levels
+            self.op_list) <= self.max_level else self.max_level
     def adaptive(self, iter: int = 0):
         if self.convergence_tol > 3:
             self.num_levels = 1

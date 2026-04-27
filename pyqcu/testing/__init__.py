@@ -266,7 +266,7 @@ def test_dslash_clover(device: torch.device = torch.device('cpu'), with_data: bo
             f"PYQCU::TESTING::DSLASH::CLOVER::CLOVER:\n {clover.flatten()[:12]}")
         print(
             f"PYQCU::TESTING::DSLASH::CLOVER:\n Difference between computed and reference clover: {diff}")
-def test_solver(kind: str = 'clover', method: str = 'bistabcg', kappa: float = 0.125, lat_size: list = [8, 8, 8, 16],  dtype: torch.dtype = torch.complex64, device: torch.device = torch.device('cpu'), with_data: bool = False, max_levels: int = 2, num_restart: int = 3, support_parity: bool = False):
+def test_solver(kind: str = 'clover', method: str = 'bistabcg', kappa: float = 0.125, lat_size: list = [8, 8, 8, 16],  dtype: torch.dtype = torch.complex64, device: torch.device = torch.device('cpu'), with_data: bool = False, max_level: int = 2, num_restart: int = 3, support_parity: bool = False):
     if not with_data:
         comm = MPI.COMM_WORLD
         root = 0
@@ -342,7 +342,7 @@ def test_solver(kind: str = 'clover', method: str = 'bistabcg', kappa: float = 0
             time_end = perf_counter()
     elif method == 'multigrid':
         mg = solver.multigrid(dtype_list=[refer_U.dtype]*10, device_list=[refer_U.device]*10, U=refer_U,
-                              clover_term=refer_clover_term, kappa=kappa, tol=1e-6, max_iter=1000, max_levels=max_levels, num_restart=num_restart, support_parity=support_parity, verbose=True)
+                              clover_term=refer_clover_term, kappa=kappa, tol=1e-6, max_iter=1000, max_level=max_level, num_restart=num_restart, support_parity=support_parity, verbose=True)
         mg.init()
         time_start = perf_counter()
         x = mg.solve(b=refer_b)

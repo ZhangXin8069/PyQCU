@@ -43,6 +43,7 @@ _MG_Y_ = 18
 _MG_Z_ = 19
 _MG_T_ = 20
 _LAT_E_ = 21
+_LAT_P_ = 2
 _VERBOSE_ = 22
 _SEED_ = 23
 _TEST_IN_CPU_ = 24
