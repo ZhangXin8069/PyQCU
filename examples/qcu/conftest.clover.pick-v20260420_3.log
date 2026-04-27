@@ -34,7 +34,7 @@ host_params[_VERBOSE_]       :1
 host_params[_SEED_]          :42
 host_params[_TEST_IN_CPU_]   :0
 host_argv[_MASS_]            :5.000000e-02
-host_argv[_TOL_]             :1.000000e-09
+host_argv[_ATOL_]             :1.000000e-09
 host_argv[_SIGMA_]           :1.000000e-01
 lat_2dim[_XY_]               :8
 lat_2dim[_XZ_]               :8
@@ -155,7 +155,7 @@ host_params[_VERBOSE_]       :1
 host_params[_SEED_]          :42
 host_params[_TEST_IN_CPU_]   :0
 host_argv[_MASS_]            :5.000000e-02
-host_argv[_TOL_]             :1.000000e-09
+host_argv[_ATOL_]             :1.000000e-09
 host_argv[_SIGMA_]           :1.000000e-01
 lat_2dim[_XY_]               :8
 lat_2dim[_XZ_]               :8
@@ -323,7 +323,7 @@ host_params[_VERBOSE_]       :1
 host_params[_SEED_]          :42
 host_params[_TEST_IN_CPU_]   :0
 host_argv[_MASS_]            :5.000000e-02
-host_argv[_TOL_]             :1.000000e-09
+host_argv[_ATOL_]             :1.000000e-09
 host_argv[_SIGMA_]           :1.000000e-01
 lat_2dim[_XY_]               :8
 lat_2dim[_XZ_]               :8

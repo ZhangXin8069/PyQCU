@@ -48,7 +48,7 @@ _SEED_ = 23
 _TEST_IN_CPU_ = 24
 _PARAMS_SIZE_ = 25
 _MASS_ = 0
-_TOL_ = 1
+_ATOL_ = 1
 _SIGMA_ = 2
 _ARGV_SIZE_ = 3
 def dtype(_data_type_=_LAT_C64_) -> torch.dtype:
@@ -105,7 +105,7 @@ params[_TEST_IN_CPU_] = 0
 argv = torch.Tensor([0.0]*_ARGV_SIZE_).to(dtype=dtype(_LAT_C64_).to_real(),
                                           device=torch.device('cpu'))
 argv[_MASS_] = -3.5  # make kappa=1.0
-argv[_TOL_] = 1e-9
+argv[_ATOL_] = 1e-9
 argv[_SIGMA_] = 0.1
 set_ptrs = torch.Tensor([0]*_SET_PTRS_SIZE_).to(dtype=torch.int64,
                                                 device=torch.device('cpu'))  # maybe more than 10?
