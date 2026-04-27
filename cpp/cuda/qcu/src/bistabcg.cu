@@ -19,9 +19,9 @@ template <typename T> __global__ void bistabcg_give_1omega(void *device_vals) {
   LatticeComplex<T> *vals = static_cast<LatticeComplex<T> *>(device_vals);
   vals[_omega_] = vals[_tmp0_] / vals[_tmp1_];
 }
-template <typename T> __global__ void bistabcg_give_1diff(void *device_vals) {
+template <typename T> __global__ void bistabcg_give_1diff2(void *device_vals) {
   LatticeComplex<T> *vals = static_cast<LatticeComplex<T> *>(device_vals);
-  vals[_diff_tmp_] = vals[_diff_tmp_] / vals[_norm2_tmp_];
+  vals[_diff2_tmp_] = vals[_diff2_tmp_] / vals[_norm2_tmp_];
 }
 template <typename T>
 __global__ void bistabcg_give_b_e(void *device_b_e, void *device_ans_e,
@@ -164,7 +164,7 @@ __global__ void bistabcg_give_r(void *device_r, void *device_s, void *device_tt,
   }
 }
 template <typename T>
-__global__ void bistabcg_give_diff(void *device_x, void *device_ans,
+__global__ void bistabcg_give_diff2(void *device_x, void *device_ans,
                                    void *device_vec, void *device_vals) {
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
   LatticeComplex<T> *x = (static_cast<LatticeComplex<T> *>(device_x) + idx);
@@ -180,7 +180,7 @@ template __global__ void bistabcg_give_1beta<double>(void *device_vals);
 template __global__ void bistabcg_give_1rho_prev<double>(void *device_vals);
 template __global__ void bistabcg_give_1alpha<double>(void *device_vals);
 template __global__ void bistabcg_give_1omega<double>(void *device_vals);
-template __global__ void bistabcg_give_1diff<double>(void *device_vals);
+template __global__ void bistabcg_give_1diff2<double>(void *device_vals);
 template __global__ void
 bistabcg_give_b_e<double>(void *device_b_e, void *device_ans_e,
                           void *device_vec0, double kappa, void *device_vals);
@@ -212,7 +212,7 @@ template __global__ void bistabcg_give_x_o<double>(void *device_x_o,
 template __global__ void bistabcg_give_r<double>(void *device_r, void *device_s,
                                                  void *device_tt,
                                                  void *device_vals);
-template __global__ void bistabcg_give_diff<double>(void *device_x,
+template __global__ void bistabcg_give_diff2<double>(void *device_x,
                                                     void *device_ans,
                                                     void *device_vec,
                                                     void *device_vals);
@@ -221,7 +221,7 @@ template __global__ void bistabcg_give_1beta<float>(void *device_vals);
 template __global__ void bistabcg_give_1rho_prev<float>(void *device_vals);
 template __global__ void bistabcg_give_1alpha<float>(void *device_vals);
 template __global__ void bistabcg_give_1omega<float>(void *device_vals);
-template __global__ void bistabcg_give_1diff<float>(void *device_vals);
+template __global__ void bistabcg_give_1diff2<float>(void *device_vals);
 template __global__ void
 bistabcg_give_b_e<float>(void *device_b_e, void *device_ans_e,
                          void *device_vec0, float kappa, void *device_vals);
@@ -251,7 +251,7 @@ template __global__ void bistabcg_give_x_o<float>(void *device_x_o,
 template __global__ void bistabcg_give_r<float>(void *device_r, void *device_s,
                                                 void *device_tt,
                                                 void *device_vals);
-template __global__ void bistabcg_give_diff<float>(void *device_x,
+template __global__ void bistabcg_give_diff2<float>(void *device_x,
                                                    void *device_ans,
                                                    void *device_vec,
                                                    void *device_vals);
