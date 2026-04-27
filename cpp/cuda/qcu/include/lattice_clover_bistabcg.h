@@ -344,7 +344,7 @@ template <typename T> struct LatticeCloverBistabCg {
                   << "##Residual:" << host_vals[_norm2_tmp_]._data.x
                   << std::endl;
 #endif
-        if ((host_vals[_norm2_tmp_]._data.x < set_ptr->tol() ||
+        if ((host_vals[_norm2_tmp_]._data.x < set_ptr->tol2() ||
              loop == set_ptr->max_iter() - 1)) {
           std::cout << "##RANK:" << set_ptr->host_params[_NODE_RANK_]
                     << "##LOOP:" << loop
