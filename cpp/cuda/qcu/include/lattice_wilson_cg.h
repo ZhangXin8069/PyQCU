@@ -136,7 +136,7 @@ template <typename T> struct LatticeWilsonCg {
     give_1one<T><<<1, 1, 0, set_ptr->stream>>>(device_vals, _alpha_);
     give_1zero<T><<<1, 1, 0, set_ptr->stream>>>(device_vals, _send_tmp_);
     give_1zero<T><<<1, 1, 0, set_ptr->stream>>>(device_vals, _norm2_tmp_);
-    give_1zero<T><<<1, 1, 0, set_ptr->stream>>>(device_vals, _diff_tmp_);
+    give_1zero<T><<<1, 1, 0, set_ptr->stream>>>(device_vals, _diff2_tmp_);
     give_random_vals<T>
         <<<set_ptr->gridDim, set_ptr->blockDim, 0, set_ptr->stream>>>(x_o,
                                                                       23333);
@@ -195,18 +195,18 @@ template <typename T> struct LatticeWilsonCg {
             const int stream_index) {
     _dot_mpi(vec0, vec1, vals_index, stream_index);
   }
-  void _diff(void *x, void *ans) { // there is a bug
+  void _diff2(void *x, void *ans) { // there is a bug
     checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
     checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_a_]));
     checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_b_]));
     checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_c_]));
     checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_d_]));
     _dot(ans, ans, _norm2_tmp_, _a_);
-    cg_give_diff<T>
+    cg_give_diff2<T>
         <<<set_ptr->gridDim, set_ptr->blockDim, 0, set_ptr->streams[_a_]>>>(
             x, ans, device_vec0, device_vals);
-    _dot(device_vec0, device_vec0, _diff_tmp_, _a_);
-    cg_give_1diff<T><<<1, 1, 0, set_ptr->streams[_a_]>>>(device_vals);
+    _dot(device_vec0, device_vec0, _diff2_tmp_, _a_);
+    cg_give_1diff2<T><<<1, 1, 0, set_ptr->streams[_a_]>>>(device_vals);
     print_vals(0);
     checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
     checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_a_]));
@@ -237,7 +237,7 @@ template <typename T> struct LatticeWilsonCg {
               << "##beta      :" << host_vals[_beta_] << std::endl
               << "##send_tmp  :" << host_vals[_send_tmp_] << std::endl
               << "##norm2_tmp :" << host_vals[_norm2_tmp_] << std::endl
-              << "##diff_tmp  :" << host_vals[_diff_tmp_] << std::endl
+              << "##diff2_tmp  :" << host_vals[_diff2_tmp_] << std::endl
               << "##lat_4dim  :" << host_vals[_lat_4dim_] << std::endl;
     // exit(1);
   }
@@ -363,11 +363,11 @@ template <typename T> struct LatticeWilsonCg {
            "sec\n",
            T(duration) / 1e9);
     if (if_input == 0) {
-      _diff(x_o, ans_o);
+      _diff2(x_o, ans_o);
     } else {
       _wilson_dslash(device_vec1, x_o, gauge);
       checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
-      _diff(device_vec1, b__o);
+      _diff2(device_vec1, b__o);
     }
   }
   void end() {
