@@ -310,14 +310,14 @@ template <typename T> struct LatticeWilsonCg {
         print_vals(loop);
         std::cout << "##RANK:" << set_ptr->host_params[_NODE_RANK_]
                   << "##LOOP:" << loop
-                  << "##Residual:" << host_vals[_rho_prev_]._data.x
+                  << "##Residual(norm2):" << host_vals[_rho_prev_]._data.x
                   << std::endl;
 #endif
       }
       if ((host_vals[_rho_]._data.x < set_ptr->tol2() ||
            loop == set_ptr->max_iter() - 1)) {
         std::cout << "##RANK:" << set_ptr->host_params[_NODE_RANK_]
-                  << "##LOOP:" << loop << "##Residual:" << host_vals[_rho_]
+                  << "##LOOP:" << loop << "##Residual(norm2):" << host_vals[_rho_]
                   << std::endl;
         break;
       }
