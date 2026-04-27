@@ -312,7 +312,7 @@ template <typename T> struct LatticeWilsonBistabCg {
                   << "##Residual(norm2):" << host_vals[_norm2_tmp_]._data.x
                   << std::endl;
 #endif
-        if ((host_vals[_norm2_tmp_]._data.x < set_ptr->tol2() ||
+        if ((host_vals[_norm2_tmp_]._data.x < set_ptr->atol2() ||
              loop == set_ptr->max_iter() - 1)) {
           std::cout << "##RANK:" << set_ptr->host_params[_NODE_RANK_]
                     << "##LOOP:" << loop
