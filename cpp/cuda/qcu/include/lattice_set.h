@@ -79,7 +79,7 @@ template <typename T> struct LatticeSet {
     host_params[_SEED_] = static_cast<int *>(_params)[_SEED_];
     host_params[_TEST_IN_CPU_] = static_cast<int *>(_params)[_TEST_IN_CPU_];
     host_argv[_MASS_] = static_cast<T *>(_argv)[_MASS_];
-    host_argv[_TOL_] = static_cast<T *>(_argv)[_TOL_];
+    host_argv[_ATOL_] = static_cast<T *>(_argv)[_ATOL_];
     host_argv[_SIGMA_] = static_cast<T *>(_argv)[_SIGMA_];
     if (host_params[_SET_PLAN_] ==
         _SET_PLAN_N_2_) // just for laplacian // no even-odd
@@ -492,8 +492,8 @@ template <typename T> struct LatticeSet {
   }
   int max_iter() { return host_params[_MAX_ITER_]; }
   T kappa() { return 1 / (2 * host_argv[_MASS_] + 8); }
-  T tol() { return host_argv[_TOL_]; }
-  T tol2() { return host_argv[_TOL_] * host_argv[_TOL_]; }
+  T atol() { return host_argv[_ATOL_]; }
+  T atol2() { return host_argv[_ATOL_] * host_argv[_ATOL_]; }
   T sigma() { return host_argv[_SIGMA_]; }
   float get_time() {
     cudaEventRecord(stop, 0);
@@ -631,7 +631,7 @@ template <typename T> struct LatticeSet {
     printf("host_params[_SEED_]          :%d\n", host_params[_SEED_]);
     printf("host_params[_TEST_IN_CPU_]   :%d\n", host_params[_TEST_IN_CPU_]);
     printf("host_argv[_MASS_]            :%e\n", host_argv[_MASS_]);
-    printf("host_argv[_TOL_]             :%e\n", host_argv[_TOL_]);
+    printf("host_argv[_ATOL_]            :%e\n", host_argv[_ATOL_]);
     printf("host_argv[_SIGMA_]           :%e\n", host_argv[_SIGMA_]);
     printf("lat_2dim[_XY_]               :%d\n", lat_2dim[_XY_]);
     printf("lat_2dim[_XZ_]               :%d\n", lat_2dim[_XZ_]);
