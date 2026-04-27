@@ -7,7 +7,7 @@ template <typename T>
 __global__ void bistabcg_give_1rho_prev(void *device_vals);
 template <typename T> __global__ void bistabcg_give_1alpha(void *device_vals);
 template <typename T> __global__ void bistabcg_give_1omega(void *device_vals);
-template <typename T> __global__ void bistabcg_give_1diff(void *device_vals);
+template <typename T> __global__ void bistabcg_give_1diff2(void *device_vals);
 template <typename T>
 __global__ void bistabcg_give_b_e(void *device_b_e, void *device_ans_e,
                                   void *device_vec0, T kappa,
@@ -40,7 +40,7 @@ template <typename T>
 __global__ void bistabcg_give_r(void *device_r, void *device_s, void *device_tt,
                                 void *device_vals);
 template <typename T>
-__global__ void bistabcg_give_diff(void *device_x, void *device_ans,
+__global__ void bistabcg_give_diff2(void *device_x, void *device_ans,
                                    void *device_vec, void *device_vals);
 } // namespace qcu
 #endif
