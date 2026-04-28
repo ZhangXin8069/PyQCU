@@ -160,7 +160,7 @@ def slice_dim(dims_num: int = 4, ward: int = 0, start: Optional[int] = None, sto
     if point is None:
         slices[ward-4 if ward >= 0 else ward] = slice(start, stop, step)
     else:
-        slices[ward-4 if ward >= 0 else ward] = slice(point)
+        slices[ward-4 if ward >= 0 else ward] = point  # type: ignore
     return tuple(slices)
 
 
@@ -173,12 +173,12 @@ def slice_dim_dim(dims_num: int = 4, ward_a: int = 0, start_a: Optional[int] = N
         slices[ward_a-4 if ward_a >=
                0 else ward_a] = slice(start_a, stop_a, step_a)
     else:
-        slices[ward_a-4 if ward_a >= 0 else ward_a] = slice(point_a)
+        slices[ward_a-4 if ward_a >= 0 else ward_a] = point_a  # type: ignore
     if point_b is None:
         slices[ward_b-4 if ward_b >=
                0 else ward_b] = slice(start_b, stop_b, step_b)
     else:
-        slices[ward_b-4 if ward_b >= 0 else ward_b] = slice(point_b)
+        slices[ward_b-4 if ward_b >= 0 else ward_b] = point_b  # type: ignore
     return tuple(slices)
 
 
@@ -267,9 +267,11 @@ def local_xyzt2whole_xyzt(
     if rank == root:
         recvbuf = np.zeros(shape=(size,) + local_shape,
                            dtype=torch2np_dtype[local_array.dtype])
+    else:
+        recvbuf = None
     comm.Gather(sendbuf=sendbuf, recvbuf=recvbuf, root=root)
     comm.Barrier()
-    if rank == root:
+    if rank == root and recvbuf is not None:
         whole = np.zeros(global_shape, dtype=torch2np_dtype[local_array.dtype])
         for r in range(size):
             grid_index_x, grid_index_y, grid_index_z, grid_index_t = give_grid_index(
@@ -340,8 +342,8 @@ def set_device(device: torch.device):
         local_rank = rank % torch.cuda.device_count()
     elif dev_type == "npu":
         try:
-            import torch_npu
-            local_rank = rank % torch.npu.device_count()
+            import torch_npu  # type: ignore
+            local_rank = rank % torch.npu.device_count()  # type: ignore
         except ImportError:
             raise RuntimeError(
                 "PYQCU::TOOLS::DEFINE:\n torch_npu not found; please install it for NPU support.")
@@ -354,8 +356,8 @@ def set_device(device: torch.device):
         torch.cuda.set_device(local_rank)
     elif dev_type == "npu":
         try:
-            import torch_npu
-            torch.npu.set_device(local_rank)
+            import torch_npu  # type: ignore
+            torch.npu.set_device(local_rank)  # type: ignore
         except ImportError:
             raise RuntimeError(
                 "PYQCU::TOOLS::DEFINE:\n torch_npu not found; please install it for NPU support.")

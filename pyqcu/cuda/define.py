@@ -87,7 +87,6 @@ _MG_LEVEL2_ATOL_ = 4
 _MG_LEVEL3_ATOL_ = 5
 _MG_LEVEL4_ATOL_ = 6
 _ARGV_SIZE_ = 7
-
 _LAT_C64_IN_TENSOR_ = torch.Tensor(_LAT_C64_, device=torch.device('cpu'))
 
 

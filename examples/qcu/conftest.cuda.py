@@ -19,7 +19,6 @@ params[define._DATA_TYPE_] = define._LAT_C64_
 # params[define._DATA_TYPE_] = define._LAT_C128_
 params[define._SET_INDEX_] = 0
 params[define._SET_PLAN_] = 1
-
 params[define._VERBOSE_] = 1
 params[define._SEED_] = 42
 argv = argv.to(dtype=define.dtype(params[define._DATA_TYPE_]).to_real())

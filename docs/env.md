@@ -6,5 +6,4 @@ pip install -i https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple pytest mpi4p
 ```
 
 then the **pytorch** and **tilelang** will be installed, that are all we needed.
-
 and do not forget to `export PYTHONPATH=/home/path/to/pyqcu:${PYTHONPATH}`

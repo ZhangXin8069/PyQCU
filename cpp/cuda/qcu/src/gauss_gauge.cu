@@ -39,8 +39,8 @@ __device__ void su3_matrix_exponential(const LatticeComplex<T> A[_LAT_CC_],
     Term[i] = A[i];
   // Precomputed inverse factorials (0! ... 30!)
   constexpr T inv_fac[31] = {
-      T(1.0),                                      // 0!
-      T(1.0),                                      // 1!
+      T([1.0]),                                    // 0!
+      T([1.0]),                                    // 1!
       T(1.0 / 2.0),                                // 2!
       T(1.0 / 6.0),                                // 3!
       T(1.0 / 24.0),                               // 4!

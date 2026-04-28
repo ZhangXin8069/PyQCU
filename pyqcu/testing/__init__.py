@@ -25,7 +25,7 @@ def test_lattice(lat_size: List[int] = [8, 8, 8, 16], dtype: torch.dtype = torch
         f"PYQCU::TESTING::LATTICE:\n Gauge field SU(3) check: {lattice.check_su3(refer_U, verbose=True)}")
 
 
-def test_dslash_wilson(kappa: Optional[torch.Tensor] = torch.Tensor(0.1), lat_size: List[int] = [8, 8, 8, 16],  dtype: torch.dtype = torch.complex64, device: torch.device = torch.device('cpu'), with_data: bool = False, support_parallel: bool = True):
+def test_dslash_wilson(kappa: Optional[torch.Tensor] = torch.Tensor([0.1]), lat_size: List[int] = [8, 8, 8, 16],  dtype: torch.dtype = torch.complex64, device: torch.device = torch.device('cpu'), with_data: bool = False, support_parallel: bool = True):
     if not with_data:
         refer_U = torch.zeros(
             size=[3, 3, 4]+lat_size, dtype=dtype, device=device)
@@ -92,7 +92,7 @@ def test_dslash_wilson(kappa: Optional[torch.Tensor] = torch.Tensor(0.1), lat_si
         f"PYQCU::TESTING::DSLASH::WILSON:\n Difference between computed and reference dslash: {diff}")
 
 
-def test_dslash_parity(lat_size: List[int] = [8, 8, 8, 16], kappa: Optional[torch.Tensor] = torch.Tensor(0.1),  dtype: torch.dtype = torch.complex64, device: torch.device = torch.device('cpu')):
+def test_dslash_parity(lat_size: List[int] = [8, 8, 8, 16], kappa: Optional[torch.Tensor] = torch.Tensor([0.1]),  dtype: torch.dtype = torch.complex64, device: torch.device = torch.device('cpu')):
     comm = MPI.COMM_WORLD
     root = 0
     grid_size = tools.give_grid_size()
@@ -189,7 +189,7 @@ def test_dslash_parity(lat_size: List[int] = [8, 8, 8, 16], kappa: Optional[torc
 
 def test_dslash_clover(device: torch.device = torch.device('cpu'), with_data: bool = False, dtype: torch.dtype = torch.complex64):
     if with_data:
-        kappa = torch.Tensor(1.0)
+        kappa = torch.Tensor([1.0])
         lat_size = [32, 16, 32, 32]
         path = pyqcu.__file__.replace('pyqcu/__init__.py', 'examples/data/')
         refer_U = tools.hdf5oooxyzt2gridoooxyzt(
@@ -277,7 +277,7 @@ def test_dslash_clover(device: torch.device = torch.device('cpu'), with_data: bo
             f"PYQCU::TESTING::DSLASH::CLOVER:\n Difference between computed and reference clover: {diff}")
 
 
-def test_solver(kind: str = 'clover', method: str = 'bistabcg', kappa: Optional[torch.Tensor] = torch.Tensor(0.1), lat_size: List[int] = [8, 8, 8, 16],  dtype: torch.dtype = torch.complex64, device: torch.device = torch.device('cpu'), with_data: bool = False, max_level: int = 2, num_restart: int = 3, support_parity: bool = False):
+def test_solver(kind: str = 'clover', method: str = 'bistabcg', kappa: Optional[torch.Tensor] = torch.Tensor([0.1]), lat_size: List[int] = [8, 8, 8, 16],  dtype: torch.dtype = torch.complex64, device: torch.device = torch.device('cpu'), with_data: bool = False, max_level: int = 2, num_restart: int = 3, support_parity: bool = False):
     if not with_data:
         comm = MPI.COMM_WORLD
         root = 0
@@ -300,7 +300,7 @@ def test_solver(kind: str = 'clover', method: str = 'bistabcg', kappa: Optional[
                 size=[4, 3, 4, 3]+sub_lat_size, dtype=dtype, device=device)
         whole_clover_term = tools.local_xyzt2whole_xyzt(
             local_array=refer_clover_term, root=root)
-        if comm.rank == root and whole_clover_term is not None:
+        if comm.rank == root and whole_clover_term is not None and whole_U is not None:
             whole_x = _torch.randn(
                 size=[4, 3]+lat_size, dtype=dtype, device=device)
             whole_b = dslash.give_clover(src=whole_x, clover_term=whole_clover_term, verbose=True) + dslash.give_wilson(src=whole_x, U=whole_U, kappa=kappa,
@@ -395,7 +395,7 @@ def test_matmul():
         tflops = (2 * m * n * k / sec) / 1e12
         return tflops
     from pyqcu.tools import matmul_gpu
-    func_gpu = matmul_gpu(M_gpu, N_gpu, K_gpu, **gpu_tile)
+    func_gpu = matmul_gpu(M_gpu, N_gpu, K_gpu, **gpu_tile)  # type: ignore
     jit_gpu = tilelang.compile(func_gpu, out_idx=[2], target="c")
     print(jit_gpu.get_kernel_source())
     a_gpu = _torch.randn(M_gpu, K_gpu, device=torch.device(
@@ -406,12 +406,12 @@ def test_matmul():
     end_evt = torch.cuda.Event(enable_timing=True)
     # Warmup GPU
     for _ in range(20):
-        jit_gpu(a_gpu, b_gpu)
+        jit_gpu(a_gpu, b_gpu)  # type: ignore
     # Measure TileLang GPU
     iters = 100
     start_evt.record()
     for _ in range(iters):
-        jit_gpu(a_gpu, b_gpu)
+        jit_gpu(a_gpu, b_gpu)  # type: ignore
     end_evt.record()
     torch.cuda.synchronize()
     gpu_tl_time = start_evt.elapsed_time(end_evt) / iters / 1000
@@ -423,7 +423,7 @@ def test_matmul():
     torch.cuda.synchronize()
     gpu_pt_time = start_evt.elapsed_time(end_evt) / iters / 1000
     from pyqcu.tools import matmul_cpu
-    func_cpu = matmul_cpu(M_cpu, N_cpu, K_cpu, **cpu_tile)
+    func_cpu = matmul_cpu(M_cpu, N_cpu, K_cpu, **cpu_tile)  # type: ignore
     try:
         jit_cpu = tilelang.compile(func_cpu, out_idx=[2], target="llvm")
         cpu_target_name = "LLVM"
@@ -437,12 +437,12 @@ def test_matmul():
         'cpu'), dtype=torch.float16)
     # Warmup CPU
     for _ in range(5):
-        jit_cpu(a_cpu, b_cpu)
+        jit_cpu(a_cpu, b_cpu)  # type: ignore
     # Measure TileLang CPU
     cpu_iters = 1
     start = perf_counter()
     for _ in range(cpu_iters):
-        c_cpu = jit_cpu(a_cpu, b_cpu)
+        c_cpu = jit_cpu(a_cpu, b_cpu)  # type: ignore
     cpu_tl_time = (perf_counter() - start) / cpu_iters
     # Measure PyTorch CPU (MKL/OneDNN)
     start = perf_counter()

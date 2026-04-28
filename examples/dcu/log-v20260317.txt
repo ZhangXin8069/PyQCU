@@ -132,7 +132,6 @@ RuntimeError: Compilation Failed! ['hipcc', '-std=c++17', '-fPIC', '--offload-ar
 #include <tl_templates/dcu_hip/ldsm.h>
 #include <tl_templates/dcu_hip/threadblock_swizzle.h>
 #include <tl_templates/dcu_hip/debug.h>
-
 extern "C" __global__ void __launch_bounds__(128) matmul_relu_kernel_kernel(half_t* __restrict__ A, half_t* __restrict__ B, half_t* __restrict__ C) {
   extern __shared__ __align__(1024) uchar buf_dyn_shmem[];
   float C_local[128];
@@ -244,11 +243,9 @@ extern "C" __global__ void __launch_bounds__(128) matmul_relu_kernel_kernel(half
 
 #define ERROR_BUF_SIZE 1024
 static char error_buf[ERROR_BUF_SIZE];
-
 extern "C" const char* get_last_error() {
     return error_buf;
 }
-
 extern "C" int init() {
     error_buf[0] = '\0';
     
@@ -260,7 +257,6 @@ extern "C" int init() {
 
     return 0;
 }
-
 extern "C" int call(half_t* __restrict__ A, half_t* __restrict__ B, half_t* __restrict__ C, hipStream_t stream=hipStreamDefault) {
 	matmul_relu_kernel_kernel<<<dim3(8, 8, 1), dim3(128, 1, 1), 49152, stream>>>(A, B, C);
 	TILELANG_CHECK_LAST_ERROR("matmul_relu_kernel_kernel");
