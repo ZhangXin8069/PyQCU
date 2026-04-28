@@ -8,12 +8,12 @@ from argparse import Namespace
 from pyqcu import lattice, solver, dslash, tools, smear
 import pyqcu.cann as _torch
 import mpi4py.MPI as MPI
-from typing import Optional
+from typing import Optional, List
 import pyqcu
 Namespace.__module__ = "pyqcu.testing"
 
 
-def test_lattice(lat_size: list = [8, 8, 8, 16], dtype: torch.dtype = torch.complex64, device: torch.device = torch.device('cpu')):
+def test_lattice(lat_size: List[int] = [8, 8, 8, 16], dtype: torch.dtype = torch.complex64, device: torch.device = torch.device('cpu')):
     refer_U = torch.zeros(size=[3, 3, 4]+lat_size, dtype=dtype, device=device)
     lattice.generate_gauge_field(refer_U, seed=42, sigma=0.1, verbose=True)
     print(f"PYQCU::TESTING::LATTICE::I:\n {lattice.I}")
@@ -25,7 +25,7 @@ def test_lattice(lat_size: list = [8, 8, 8, 16], dtype: torch.dtype = torch.comp
         f"PYQCU::TESTING::LATTICE:\n Gauge field SU(3) check: {lattice.check_su3(refer_U, verbose=True)}")
 
 
-def test_dslash_wilson(kappa: Optional[torch.Tensor] = torch.Tensor(0.1), lat_size: list = [8, 8, 8, 16],  dtype: torch.dtype = torch.complex64, device: torch.device = torch.device('cpu'), with_data: bool = False, support_parallel: bool = True):
+def test_dslash_wilson(kappa: Optional[torch.Tensor] = torch.Tensor(0.1), lat_size: List[int] = [8, 8, 8, 16],  dtype: torch.dtype = torch.complex64, device: torch.device = torch.device('cpu'), with_data: bool = False, support_parallel: bool = True):
     if not with_data:
         refer_U = torch.zeros(
             size=[3, 3, 4]+lat_size, dtype=dtype, device=device)
@@ -92,7 +92,7 @@ def test_dslash_wilson(kappa: Optional[torch.Tensor] = torch.Tensor(0.1), lat_si
         f"PYQCU::TESTING::DSLASH::WILSON:\n Difference between computed and reference dslash: {diff}")
 
 
-def test_dslash_parity(lat_size: list = [8, 8, 8, 16], kappa: Optional[torch.Tensor] = torch.Tensor(0.1),  dtype: torch.dtype = torch.complex64, device: torch.device = torch.device('cpu')):
+def test_dslash_parity(lat_size: List[int] = [8, 8, 8, 16], kappa: Optional[torch.Tensor] = torch.Tensor(0.1),  dtype: torch.dtype = torch.complex64, device: torch.device = torch.device('cpu')):
     comm = MPI.COMM_WORLD
     root = 0
     grid_size = tools.give_grid_size()
@@ -106,7 +106,7 @@ def test_dslash_parity(lat_size: list = [8, 8, 8, 16], kappa: Optional[torch.Ten
         refer_U, seed=42+comm.rank, sigma=0.1, verbose=True)
     whole_U = tools.local_xyzt2whole_xyzt(
         local_array=refer_U, root=root)
-    if comm.rank == root:
+    if comm.rank == root and whole_U is not None:
         whole_clover_term = dslash.make_clover(
             U=whole_U, kappa=kappa, verbose=True)
         # whole_clover_term = torch.zeros_like(whole_clover_term)
@@ -249,7 +249,7 @@ def test_dslash_clover(device: torch.device = torch.device('cpu'), with_data: bo
             refer_U, seed=42+comm.rank, sigma=0.1, verbose=True)
         whole_U = tools.local_xyzt2whole_xyzt(
             local_array=refer_U, root=root)
-        if comm.rank == root:
+        if comm.rank == root and whole_U is not None:
             whole_clover = dslash.make_clover(
                 U=whole_U, support_parallel=False)
         else:
@@ -277,7 +277,7 @@ def test_dslash_clover(device: torch.device = torch.device('cpu'), with_data: bo
             f"PYQCU::TESTING::DSLASH::CLOVER:\n Difference between computed and reference clover: {diff}")
 
 
-def test_solver(kind: str = 'clover', method: str = 'bistabcg', kappa: Optional[torch.Tensor] = torch.Tensor(0.1), lat_size: list = [8, 8, 8, 16],  dtype: torch.dtype = torch.complex64, device: torch.device = torch.device('cpu'), with_data: bool = False, max_level: int = 2, num_restart: int = 3, support_parity: bool = False):
+def test_solver(kind: str = 'clover', method: str = 'bistabcg', kappa: Optional[torch.Tensor] = torch.Tensor(0.1), lat_size: List[int] = [8, 8, 8, 16],  dtype: torch.dtype = torch.complex64, device: torch.device = torch.device('cpu'), with_data: bool = False, max_level: int = 2, num_restart: int = 3, support_parity: bool = False):
     if not with_data:
         comm = MPI.COMM_WORLD
         root = 0
@@ -300,7 +300,7 @@ def test_solver(kind: str = 'clover', method: str = 'bistabcg', kappa: Optional[
                 size=[4, 3, 4, 3]+sub_lat_size, dtype=dtype, device=device)
         whole_clover_term = tools.local_xyzt2whole_xyzt(
             local_array=refer_clover_term, root=root)
-        if comm.rank == root:
+        if comm.rank == root and whole_clover_term is not None:
             whole_x = _torch.randn(
                 size=[4, 3]+lat_size, dtype=dtype, device=device)
             whole_b = dslash.give_clover(src=whole_x, clover_term=whole_clover_term, verbose=True) + dslash.give_wilson(src=whole_x, U=whole_U, kappa=kappa,
@@ -398,8 +398,10 @@ def test_matmul():
     func_gpu = matmul_gpu(M_gpu, N_gpu, K_gpu, **gpu_tile)
     jit_gpu = tilelang.compile(func_gpu, out_idx=[2], target="c")
     print(jit_gpu.get_kernel_source())
-    a_gpu = _torch.randn(M_gpu, K_gpu, device="cuda", dtype=torch.float16)
-    b_gpu = _torch.randn(N_gpu, K_gpu, device="cuda", dtype=torch.float16)
+    a_gpu = _torch.randn(M_gpu, K_gpu, device=torch.device(
+        'cuda'), dtype=torch.float16)
+    b_gpu = _torch.randn(N_gpu, K_gpu, device=torch.device(
+        'cuda'), dtype=torch.float16)
     start_evt = torch.cuda.Event(enable_timing=True)
     end_evt = torch.cuda.Event(enable_timing=True)
     # Warmup GPU
@@ -429,8 +431,10 @@ def test_matmul():
         jit_cpu = tilelang.compile(func_cpu, out_idx=[2], target="c")
         cpu_target_name = "C"
     # print(jit_cpu.get_kernel_source())
-    a_cpu = _torch.randn(M_cpu, K_cpu, device="cpu", dtype=torch.float16)
-    b_cpu = _torch.randn(N_cpu, K_cpu, device="cpu", dtype=torch.float16)
+    a_cpu = _torch.randn(M_cpu, K_cpu, device=torch.device(
+        'cpu'), dtype=torch.float16)
+    b_cpu = _torch.randn(N_cpu, K_cpu, device=torch.device(
+        'cpu'), dtype=torch.float16)
     # Warmup CPU
     for _ in range(5):
         jit_cpu(a_cpu, b_cpu)
@@ -461,7 +465,7 @@ def test_matmul():
     print("All Verifications Passed (GPU & CPU)!")
 
 
-def test_smear_stout(lat_size: list = [8, 8, 8, 16], device: torch.device = torch.device('cpu'), dtype: torch.dtype = torch.complex64):
+def test_smear_stout(lat_size: List[int] = [8, 8, 8, 16], device: torch.device = torch.device('cpu'), dtype: torch.dtype = torch.complex64):
     comm = MPI.COMM_WORLD
     root = 0
     grid_size = tools.give_grid_size()
@@ -475,7 +479,7 @@ def test_smear_stout(lat_size: list = [8, 8, 8, 16], device: torch.device = torc
         refer_U, seed=42+comm.rank, sigma=0.1, verbose=True)
     whole_U = tools.local_xyzt2whole_xyzt(
         local_array=refer_U, root=root)
-    if comm.rank == root:
+    if comm.rank == root and whole_U is not None:
         whole_smear_U = smear.stout_smear(U=whole_U, support_parallel=False)
     else:
         whole_smear_U = None

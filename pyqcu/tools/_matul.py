@@ -1,4 +1,6 @@
 import tilelang.language as T
+
+
 def matmul_gpu(M, N, K, block_M=128, block_N=128, block_K=32, dtype=T.float16, accum_dtype=T.float32):
     @T.prim_func
     def main(
@@ -17,6 +19,8 @@ def matmul_gpu(M, N, K, block_M=128, block_N=128, block_K=32, dtype=T.float16, a
                 T.gemm(A_shared, B_shared, C_local, transpose_B=True)
             T.copy(C_local, C[by * block_M, bx * block_N])
     return main
+
+
 def matmul_cpu(M, N, K, block_M=32, block_N=32, block_K=32, dtype="float16", accum_dtype="float32"):
     @T.prim_func
     def main(

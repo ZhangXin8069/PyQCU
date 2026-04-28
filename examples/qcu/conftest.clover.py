@@ -29,10 +29,13 @@ argv[define._SIGMA_] = 0.1
 print(params)
 print(argv)
 print(set_ptrs)
-gauge_eo = torch.zeros(size=[2, 3, 3, 4]+define.lat_shape(params)).to(dtype=define.dtype(params[define._DATA_TYPE_]), device=torch.device('cuda'))
-fermion_in_eo = torch.zeros(size=[2, 4, 3]+define.lat_shape(params)).to(dtype=define.dtype(params[define._DATA_TYPE_]), device=torch.device('cuda'))
+gauge_eo = torch.zeros(size=[2, 3, 3, 4]+define.lat_shape(params)).to(
+    dtype=define.dtype(params[define._DATA_TYPE_]), device=torch.device('cuda'))
+fermion_in_eo = torch.zeros(size=[2, 4, 3]+define.lat_shape(params)).to(
+    dtype=define.dtype(params[define._DATA_TYPE_]), device=torch.device('cuda'))
 fermion_in_eo = torch.rand_like(fermion_in_eo)
-fermion_out_eo = torch.zeros(size=[2, 4, 3]+define.lat_shape(params)).to(dtype=define.dtype(params[define._DATA_TYPE_]), device=torch.device('cuda'))
+fermion_out_eo = torch.zeros(size=[2, 4, 3]+define.lat_shape(params)).to(
+    dtype=define.dtype(params[define._DATA_TYPE_]), device=torch.device('cuda'))
 params[define._VERBOSE_] = 1
 params[define._SET_INDEX_] = 0
 params[define._SET_PLAN_] = -1
@@ -58,8 +61,10 @@ refer_src = dslash.give_wilson(
 print('qcu_src:', qcu_src.flatten()[:100])
 print('refer_src:', refer_src.flatten()[:100])
 print('Difference:', tools.norm(refer_src-qcu_src)/tools.norm(qcu_src))
-clover_ee = torch.zeros(size=[4, 3, 4, 3]+define.lat_shape(params)).to(dtype=define.dtype(params[define._DATA_TYPE_]), device=torch.device('cuda'))
-clover_oo = torch.zeros(size=[4, 3, 4, 3]+define.lat_shape(params)).to(dtype=define.dtype(params[define._DATA_TYPE_]), device=torch.device('cuda'))
+clover_ee = torch.zeros(size=[4, 3, 4, 3]+define.lat_shape(params)).to(
+    dtype=define.dtype(params[define._DATA_TYPE_]), device=torch.device('cuda'))
+clover_oo = torch.zeros(size=[4, 3, 4, 3]+define.lat_shape(params)).to(
+    dtype=define.dtype(params[define._DATA_TYPE_]), device=torch.device('cuda'))
 params[define._VERBOSE_] = 1
 params[define._SET_INDEX_] += 1
 params[define._SET_PLAN_] = 2

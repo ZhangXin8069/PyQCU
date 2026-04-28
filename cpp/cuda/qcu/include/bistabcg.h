@@ -41,6 +41,6 @@ __global__ void bistabcg_give_r(void *device_r, void *device_s, void *device_tt,
                                 void *device_vals);
 template <typename T>
 __global__ void bistabcg_give_diff2(void *device_x, void *device_ans,
-                                   void *device_vec, void *device_vals);
+                                    void *device_vec, void *device_vals);
 } // namespace qcu
 #endif

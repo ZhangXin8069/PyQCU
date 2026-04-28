@@ -31,7 +31,7 @@ template <typename T>
 __global__ void cg_give_r_tilde(void *device_r, void *device_v,
                                 void *device_vals);
 template <typename T>
-__global__ void cg_give_diff2(void *device_x, void *device_ans, void *device_vec,
-                             void *device_vals);
+__global__ void cg_give_diff2(void *device_x, void *device_ans,
+                              void *device_vec, void *device_vals);
 } // namespace qcu
 #endif
