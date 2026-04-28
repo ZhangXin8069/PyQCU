@@ -7,7 +7,7 @@ from typing import Optional
 
 
 class hopping:
-    def __init__(self,  U: Optional[torch.Tensor] = None, kappa: Optional[torch.Tensor] = torch.Tensor(0.1), u_0: Optional[torch.Tensor] = torch.Tensor(1.0), support_parity: bool = False):
+    def __init__(self,  U: Optional[torch.Tensor] = None, kappa: Optional[torch.Tensor] = torch.Tensor([0.1]), u_0: Optional[torch.Tensor] = torch.Tensor([1.0]), support_parity: bool = False):
         self.comm = MPI.COMM_WORLD
         self.rank = self.comm.Get_rank()
         self.rank_plus_list = [tools.give_rank_plus(
@@ -140,7 +140,7 @@ class sitting:
 
 
 class operator:
-    def __init__(self,  U: Optional[torch.Tensor] = None, clover_term: Optional[torch.Tensor] = None, fine_hopping: Optional[hopping] = None, fine_sitting: Optional[sitting] = None, local_ortho_null_vecs: Optional[torch.Tensor] = None, kappa: Optional[torch.Tensor] = torch.Tensor(0.1), u_0: Optional[torch.Tensor] = torch.Tensor(1.0), support_parity: bool = False, verbose: bool = True):
+    def __init__(self,  U: Optional[torch.Tensor] = None, clover_term: Optional[torch.Tensor] = None, fine_hopping: Optional[hopping] = None, fine_sitting: Optional[sitting] = None, local_ortho_null_vecs: Optional[torch.Tensor] = None, kappa: Optional[torch.Tensor] = torch.Tensor([0.1]), u_0: Optional[torch.Tensor] = torch.Tensor([1.0]), support_parity: bool = False, verbose: bool = True):
         self.hopping = hopping(U=U, kappa=kappa, u_0=u_0,
                                support_parity=support_parity)
         self.sitting = sitting(clover_term=clover_term,

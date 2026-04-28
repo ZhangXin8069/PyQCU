@@ -2,15 +2,14 @@ import torch
 from pyqcu import lattice, tools
 import pyqcu.cann as _torch
 from typing import Optional
-
 force_use_npu = False
 # tools_Eexyzt_exyzt2Exyzt = True
 tools_Eexyzt_exyzt2Exyzt = False
 
 
 def give_wilson(src: torch.Tensor,
-                U: torch.Tensor, kappa: Optional[torch.Tensor] = torch.Tensor(0.1),
-                u_0: Optional[torch.Tensor] = torch.Tensor(1.0), with_I: bool = True, verbose: bool = False) -> torch.Tensor:
+                U: torch.Tensor, kappa: Optional[torch.Tensor] = torch.Tensor([0.1]),
+                u_0: Optional[torch.Tensor] = torch.Tensor([1.0]), with_I: bool = True, verbose: bool = False) -> torch.Tensor:
     """
     Apply Wilson-Dirac operator to source field:
     $$
@@ -74,8 +73,8 @@ def give_wilson(src: torch.Tensor,
 
 def give_wilson_eo(
         src_o: torch.Tensor,
-        U_eo: torch.Tensor, kappa: Optional[torch.Tensor] = torch.Tensor(0.1),
-        u_0: Optional[torch.Tensor] = torch.Tensor(1.0), verbose: bool = False) -> torch.Tensor:
+        U_eo: torch.Tensor, kappa: Optional[torch.Tensor] = torch.Tensor([0.1]),
+        u_0: Optional[torch.Tensor] = torch.Tensor([1.0]), verbose: bool = False) -> torch.Tensor:
     if verbose:
         print("PYQCU::DSLASH::WILSON:\n Applying Dirac operator in eo...")
         print(f"PYQCU::DSLASH::WILSON:\n Source shape: {src_o.shape}")
@@ -152,8 +151,8 @@ def give_wilson_eo(
 
 def give_wilson_oe(
     src_e: torch.Tensor,
-    U_eo: torch.Tensor, kappa: Optional[torch.Tensor] = torch.Tensor(0.1),
-        u_0: Optional[torch.Tensor] = torch.Tensor(1.0), verbose: bool = False) -> torch.Tensor:
+    U_eo: torch.Tensor, kappa: Optional[torch.Tensor] = torch.Tensor([0.1]),
+        u_0: Optional[torch.Tensor] = torch.Tensor([1.0]), verbose: bool = False) -> torch.Tensor:
     if verbose:
         print("Applying Dirac operator in oe...")
         print(f"PYQCU::DSLASH::WILSON:\n Source shape: {src_e.shape}")
@@ -228,8 +227,8 @@ def give_wilson_oe(
     return dest_o
 
 
-def give_hopping_plus(ward: int, U: torch.Tensor, kappa: Optional[torch.Tensor] = torch.Tensor(0.1),
-                      u_0: Optional[torch.Tensor] = torch.Tensor(1.0), verbose: bool = False) -> torch.Tensor:
+def give_hopping_plus(ward: int, U: torch.Tensor, kappa: Optional[torch.Tensor] = torch.Tensor([0.1]),
+                      u_0: Optional[torch.Tensor] = torch.Tensor([1.0]), verbose: bool = False) -> torch.Tensor:
     ward_key = lattice.ward_keys[ward]
     ward = lattice.wards[ward_key]
     I = lattice.I.to(U.device).type(U.dtype)
@@ -245,8 +244,8 @@ def give_hopping_plus(ward: int, U: torch.Tensor, kappa: Optional[torch.Tensor] 
         'Ss,Ccxyzt->SCscxyzt', (I - gamma_mu), U_mu).reshape([12, 12]+list(U.shape[-4:]))  # sc->e
 
 
-def give_hopping_minus(ward: int, U: torch.Tensor, U_head: Optional[torch.Tensor] = None, kappa: Optional[torch.Tensor] = torch.Tensor(0.1),
-                       u_0: Optional[torch.Tensor] = torch.Tensor(1.0), verbose: bool = False) -> torch.Tensor:
+def give_hopping_minus(ward: int, U: torch.Tensor, U_head: Optional[torch.Tensor] = None, kappa: Optional[torch.Tensor] = torch.Tensor([0.1]),
+                       u_0: Optional[torch.Tensor] = torch.Tensor([1.0]), verbose: bool = False) -> torch.Tensor:
     ward_key = lattice.ward_keys[ward]
     ward = lattice.wards[ward_key]
     I = lattice.I.to(U.device).type(U.dtype)
