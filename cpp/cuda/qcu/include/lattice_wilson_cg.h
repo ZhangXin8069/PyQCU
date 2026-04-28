@@ -317,8 +317,8 @@ template <typename T> struct LatticeWilsonCg {
       if ((host_vals[_rho_]._data.x < set_ptr->atol2() ||
            loop == set_ptr->max_iter() - 1)) {
         std::cout << "##RANK:" << set_ptr->host_params[_NODE_RANK_]
-                  << "##LOOP:" << loop << "##Residual(norm2):" << host_vals[_rho_]
-                  << std::endl;
+                  << "##LOOP:" << loop
+                  << "##Residual(norm2):" << host_vals[_rho_] << std::endl;
         break;
       }
     }

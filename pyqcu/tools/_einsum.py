@@ -7,6 +7,8 @@ pass_configs = {
     # tilelang.PassConfigKey.TL_ASCEND_AUTO_SYNC: True,
     # tilelang.PassConfigKey.TL_ASCEND_MEMORY_PLANNING: True,
 }
+
+
 @jit(out_idx=[-1], pass_configs=pass_configs, target="cuda")
 def _Eexyzt_exyzt2Exyzt(E_size: int, e_size: int, xyzt_size: int, tl_dtype):
     @T.prim_func
@@ -24,7 +26,7 @@ def _Eexyzt_exyzt2Exyzt(E_size: int, e_size: int, xyzt_size: int, tl_dtype):
             _e_warp = T.alloc_fragment(
                 shape=(e_size, warp_size), dtype=tl_dtype)
             _E_warp = T.alloc_fragment(
-                shape=warp_size, dtype=tl_dtype)
+                shape=[warp_size], dtype=tl_dtype)
             start = warp_size * block_i
             end = warp_size*(block_i+1)
             T.copy(src=exyzt[:, start:end], dst=_e_warp)
@@ -72,6 +74,8 @@ def _Eexyzt_exyzt2Exyzt(E_size: int, e_size: int, xyzt_size: int, tl_dtype):
 #                 T.gemm(A=E_pad_e_pad, B=e_pad, C=E_pad)
 #                 T.copy(src=E_pad[:E_size, :], dst=Exyzt[:, start+thread_i])
 #     return main
+
+
 def Eexyzt_exyzt2Exyzt(Eexyzt: torch.Tensor, exyzt: torch.Tensor) -> torch.Tensor:
     if Eexyzt.dtype != exyzt.dtype:
         raise TypeError(
