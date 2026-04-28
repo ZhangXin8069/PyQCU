@@ -1,5 +1,5 @@
 import torch
-from typing import Tuple, List, Optional
+from typing import List, Optional
 from pyqcu import tools, dslash
 import pyqcu.cann as _torch
 import mpi4py.MPI as MPI
@@ -7,7 +7,7 @@ from time import perf_counter
 
 
 class multigrid:
-    def __init__(self, dtype_list: Tuple[torch.dtype, torch.dtype, torch.dtype, torch.dtype], device_list: Tuple[torch.device, torch.device, torch.device, torch.device],  U: torch.Tensor, clover_term: torch.Tensor, kappa: Optional[torch.Tensor] = torch.Tensor(0.1), u_0: Optional[torch.Tensor] = torch.Tensor(1.0), min_size: int = 4, max_level: int = 4, mg_grid_size: List[int] = [2, 2, 2, 2], num_convergence_sample: int = 50, dof_list: List[int] = [12, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24], tol: float = 1e-6, max_iter: int = 1000, num_restart: int = 3, root: int = 0, support_parity: bool = False, verbose: bool = True):
+    def __init__(self, dtype_list: List[torch.dtype], device_list: List[torch.device],  U: torch.Tensor, clover_term: torch.Tensor, kappa: Optional[torch.Tensor] = torch.Tensor(0.1), u_0: Optional[torch.Tensor] = torch.Tensor(1.0), min_size: int = 4, max_level: int = 4, mg_grid_size: List[int] = [2, 2, 2, 2], num_convergence_sample: int = 50, dof_list: List[int] = [12, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24], tol: float = 1e-6, max_iter: int = 1000, num_restart: int = 3, root: int = 0, support_parity: bool = False, verbose: bool = True):
         self.comm = MPI.COMM_WORLD
         self.rank = self.comm.Get_rank()
         self.lat_size = list(U.shape[-4:])  # xyzt
