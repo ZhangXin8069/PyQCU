@@ -8,7 +8,6 @@
 #ifdef ENABLE_BF16
 #include <tl_templates/cuda/cuda_bf16_fallbacks.cuh>
 #endif
-
 extern "C" __global__ void main_kernel(const half_t* __restrict__ A, const half_t* __restrict__ B, half_t* __restrict__ C);
 extern "C" __global__ void __launch_bounds__(128, 1) main_kernel(const half_t* __restrict__ A, const half_t* __restrict__ B, half_t* __restrict__ C) {
   extern __shared__ __align__(1024) uchar buf_dyn_shmem[];
@@ -108,8 +107,6 @@ extern "C" __global__ void __launch_bounds__(128, 1) main_kernel(const half_t* _
     *(uint1*)(C + (((((((((((int)blockIdx.y) * 131072) + (((((int)threadIdx.x) & 63) >> 5) * 65536)) + ((i_16 >> 4) * 16384)) + ((i_16 & 1) * 8192)) + (((((int)threadIdx.x) & 31) >> 2) * 1024)) + (((int)blockIdx.x) * 128)) + ((((int)threadIdx.x) >> 6) * 64)) + (((i_16 & 15) >> 1) * 8)) + ((((int)threadIdx.x) & 3) * 2))) = *(uint1*)(C_local_cast + 0);
   }
 }
-
-
 2026-02-06 21:01:15  [TileLang:tilelang.jit.kernel:INFO]: TileLang begins to compile kernel `main` with `out_idx=[2]`
 // tilelang target: c -keys=cpu 
 #include <tl_templates/cpp/common.h>

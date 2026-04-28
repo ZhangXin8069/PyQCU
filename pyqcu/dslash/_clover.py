@@ -6,8 +6,8 @@ from typing import Optional
 import pyqcu.cann as _torch
 
 
-def make_clover(U: torch.Tensor, kappa: Optional[torch.Tensor] = torch.Tensor(0.1),
-                u_0: Optional[torch.Tensor] = torch.Tensor(1.0), support_parallel: bool = False, verbose: bool = False) -> torch.Tensor:
+def make_clover(U: torch.Tensor, kappa: Optional[torch.Tensor] = torch.Tensor([0.1]),
+                u_0: Optional[torch.Tensor] = torch.Tensor([1.0]), support_parallel: bool = False, verbose: bool = False) -> torch.Tensor:
     """
     Give Clover term:
     $$
