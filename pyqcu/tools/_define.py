@@ -1,10 +1,11 @@
+from tkinter import NO
 from pyqcu import lattice
 import mpi4py.MPI as MPI
 import torch
 import h5py
 import os
 import numpy as np
-from typing import Tuple, Optional, List
+from typing import Optional, List
 force_use_npu = False
 warp_size = 128
 # NumPy → Torch
@@ -287,8 +288,8 @@ def local_xyzt2whole_xyzt(
 def whole_xyzt2local_xyzt(
         dtype: torch.dtype,
     device: torch.device,
-    whole_shape: Tuple[int, ...],
-    whole_array: torch.Tensor,
+    whole_shape: List[int],
+    whole_array: Optional[torch.Tensor],
     root: int = 0,
 ) -> torch.Tensor:
     comm = MPI.COMM_WORLD
@@ -298,7 +299,7 @@ def whole_xyzt2local_xyzt(
     if whole_array is not None:
         dtype = whole_array.dtype
         device = whole_array.device
-        whole_shape = whole_array.shape
+        whole_shape = list(whole_array.shape)
     prefix_shape = whole_shape[:-4]
     lat_x, lat_y, lat_z, lat_t = whole_shape[-4:]
     grid_x, grid_y, grid_z, grid_t = give_grid_size()
@@ -308,7 +309,7 @@ def whole_xyzt2local_xyzt(
     grid_lat_t = lat_t // grid_t
     local_shape = (*prefix_shape, grid_lat_x,
                    grid_lat_y, grid_lat_z, grid_lat_t)
-    if rank == root:
+    if rank == root and whole_array is not None:
         whole_np = whole_array.cpu().contiguous().numpy()
         sendbuf = np.zeros(shape=(size,) + local_shape,
                            dtype=torch2np_dtype[dtype])

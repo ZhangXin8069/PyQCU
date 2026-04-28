@@ -131,8 +131,8 @@ __global__ void cg_give_r_tilde(void *device_r, void *device_v,
   }
 }
 template <typename T>
-__global__ void cg_give_diff2(void *device_x, void *device_ans, void *device_vec,
-                             void *device_vals) {
+__global__ void cg_give_diff2(void *device_x, void *device_ans,
+                              void *device_vec, void *device_vals) {
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
   LatticeComplex<T> *x = (static_cast<LatticeComplex<T> *>(device_x) + idx);
   LatticeComplex<T> *ans = (static_cast<LatticeComplex<T> *>(device_ans) + idx);
@@ -173,8 +173,8 @@ template __global__ void cg_give_x_o<double>(void *device_x_o, void *device_p,
 template __global__ void cg_give_r_tilde<double>(void *device_r, void *device_v,
                                                  void *device_vals);
 template __global__ void cg_give_diff2<double>(void *device_x, void *device_ans,
-                                              void *device_vec,
-                                              void *device_vals);
+                                               void *device_vec,
+                                               void *device_vals);
 //@@@CUDA_TEMPLATE_FOR_DEVICE@@@
 template __global__ void cg_give_b_e<float>(void *device_b_e,
                                             void *device_ans_e,
@@ -205,6 +205,6 @@ template __global__ void cg_give_x_o<float>(void *device_x_o, void *device_p,
 template __global__ void cg_give_r_tilde<float>(void *device_r, void *device_v,
                                                 void *device_vals);
 template __global__ void cg_give_diff2<float>(void *device_x, void *device_ans,
-                                             void *device_vec,
-                                             void *device_vals);
+                                              void *device_vec,
+                                              void *device_vals);
 } // namespace qcu
