@@ -1,4 +1,3 @@
-from tkinter import NO
 from pyqcu import lattice
 import mpi4py.MPI as MPI
 import torch
