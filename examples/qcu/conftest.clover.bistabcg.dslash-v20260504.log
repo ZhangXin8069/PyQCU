@@ -1,0 +1,1178 @@
+tensor([   4,    4,    4,    8,  512,    1,    1,    1,    1,    0,    0,    1,
+           0, 1000,    2,    0,    1,    0,    0,    0,    0,    0,    0,    0,
+           0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,
+           0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,    0,
+           0,    0,    0,    1,   42,    0], dtype=torch.int32)
+tensor([5.0000e-02, 1.0000e-09, 1.0000e-01, 0.0000e+00, 0.0000e+00, 0.0000e+00,
+        0.0000e+00])
+tensor([0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+set_ptr:0x56031bf3c1c0
+set_ptrs:0x56031ad2f800
+long long set_ptr:94571353850304
+gridDim.x                                    :16
+blockDim.x                                   :16
+host_params[_LAT_X_]                         :4
+host_params[_LAT_Y_]                         :4
+host_params[_LAT_Z_]                         :4
+host_params[_LAT_T_]                         :4
+host_params[_LAT_XYZT_]                      :256
+host_params[_GRID_X_]                        :1
+host_params[_GRID_Y_]                        :1
+host_params[_GRID_Z_]                        :1
+host_params[_GRID_T_]                        :1
+host_params[_PARITY_]                        :0
+host_params[_NODE_RANK_]                     :0
+host_params[_NODE_SIZE_]                     :1
+host_params[_DAGGER_]                        :0
+host_params[_MAX_ITER_]                      :1000
+host_params[_DATA_TYPE_]                     :2
+host_params[_SET_INDEX_]                     :0
+host_params[_SET_PLAN_]                      :-1
+host_params[_MG_NUM_LEVEL_]                  :0
+host_params[_MG_LEVEL_INDEX_]                :0
+host_params[_MG_LEVEL1_E_]                   :0
+host_params[_MG_LEVEL1_X_]                   :0
+host_params[_MG_LEVEL1_Y_]                   :0
+host_params[_MG_LEVEL1_Z_]                   :0
+host_params[_MG_LEVEL1_T_]                   :0
+host_params[_MG_LEVEL1_MAX_ITER_]            :0
+host_params[_MG_LEVEL1_DATA_TYPE_]           :0
+host_params[_MG_LEVEL1_NUM_RESTART_]         :0
+host_params[_MG_LEVEL2_E_]                   :0
+host_params[_MG_LEVEL2_X_]                   :0
+host_params[_MG_LEVEL2_Y_]                   :0
+host_params[_MG_LEVEL2_Z_]                   :0
+host_params[_MG_LEVEL2_T_]                   :0
+host_params[_MG_LEVEL2_MAX_ITER_]            :0
+host_params[_MG_LEVEL2_DATA_TYPE_]           :0
+host_params[_MG_LEVEL2_NUM_RESTART_]         :0
+host_params[_MG_LEVEL3_E_]                   :0
+host_params[_MG_LEVEL3_X_]                   :0
+host_params[_MG_LEVEL3_Y_]                   :0
+host_params[_MG_LEVEL3_Z_]                   :0
+host_params[_MG_LEVEL3_T_]                   :0
+host_params[_MG_LEVEL3_MAX_ITER_]            :0
+host_params[_MG_LEVEL3_DATA_TYPE_]           :0
+host_params[_MG_LEVEL3_NUM_RESTART_]         :0
+host_params[_MG_LEVEL4_E_]                   :0
+host_params[_MG_LEVEL4_X_]                   :0
+host_params[_MG_LEVEL4_Y_]                   :0
+host_params[_MG_LEVEL4_Z_]                   :0
+host_params[_MG_LEVEL4_T_]                   :0
+host_params[_MG_LEVEL4_MAX_ITER_]            :0
+host_params[_MG_LEVEL4_DATA_TYPE_]           :0
+host_params[_MG_LEVEL4_NUM_RESTART_]         :0
+host_params[_MG_PARAMS_SIZE_]                :1
+host_params[_VERBOSE_]                       :1
+host_params[_SEED_]                          :42
+host_params[_TEST_IN_CPU_]                   :0
+host_argv[_MASS_]                            :5.000000e-02
+host_argv[_ATOL_]                            :1.000000e-09
+host_argv[_SIGMA_]                           :1.000000e-01
+host_argv[__MG_LEVEL1_ATOL__]                :0.000000e+00
+host_argv[__MG_LEVEL2_ATOL__]                :0.000000e+00
+host_argv[__MG_LEVEL3_ATOL__]                :0.000000e+00
+host_argv[__MG_LEVEL4_ATOL__]                :0.000000e+00
+lat_2dim[_XY_]                               :16
+lat_2dim[_XZ_]                               :16
+lat_2dim[_XT_]                               :16
+lat_2dim[_YZ_]                               :16
+lat_2dim[_YT_]                               :16
+lat_2dim[_ZT_]                               :16
+lat_3dim[_YZT_]                              :64
+lat_3dim[_XZT_]                              :64
+lat_3dim[_XYT_]                              :64
+lat_3dim[_XYZ_]                              :64
+lat_4dim                                     :256
+grid_1dim[_X_]                               :1
+grid_1dim[_Y_]                               :1
+grid_1dim[_Z_]                               :1
+grid_1dim[_T_]                               :1
+grid_2dim[_XY_]                              :1
+grid_2dim[_XZ_]                              :1
+grid_2dim[_XT_]                              :1
+grid_2dim[_YZ_]                              :1
+grid_2dim[_YT_]                              :1
+grid_2dim[_ZT_]                              :1
+grid_3dim[_YZT_]                             :1
+grid_3dim[_XZT_]                             :1
+grid_3dim[_XYT_]                             :1
+grid_3dim[_XYZ_]                             :1
+grid_index_1dim[_X_]                         :0
+grid_index_1dim[_Y_]                         :0
+grid_index_1dim[_Z_]                         :0
+grid_index_1dim[_T_]                         :0
+move_wards[_B_X_]                            :0
+move_wards[_B_Y_]                            :0
+move_wards[_B_Z_]                            :0
+move_wards[_B_T_]                            :0
+move_wards[_F_X_]                            :0
+move_wards[_F_Y_]                            :0
+move_wards[_F_Z_]                            :0
+move_wards[_F_T_]                            :0
+move_wards[_BX_BY_]                          :0
+move_wards[_BX_BZ_]                          :0
+move_wards[_BX_BT_]                          :0
+move_wards[_BY_BZ_]                          :0
+move_wards[_BY_BT_]                          :0
+move_wards[_BZ_BT_]                          :0
+move_wards[_FX_BY_]                          :0
+move_wards[_FX_BZ_]                          :0
+move_wards[_FX_BT_]                          :0
+move_wards[_FY_BZ_]                          :0
+move_wards[_FY_BT_]                          :0
+move_wards[_FZ_BT_]                          :0
+move_wards[_BX_FY_]                          :0
+move_wards[_BX_FZ_]                          :0
+move_wards[_BX_FT_]                          :0
+move_wards[_BY_FZ_]                          :0
+move_wards[_BY_FT_]                          :0
+move_wards[_BZ_FT_]                          :0
+move_wards[_FX_FY_]                          :0
+move_wards[_FX_FZ_]                          :0
+move_wards[_FX_FT_]                          :0
+move_wards[_FY_FZ_]                          :0
+move_wards[_FY_FT_]                          :0
+move_wards[_FZ_FT_]                          :0
+lattice set init total time:0.037055729 sec
+multi-gpu make gauss gauge total time: (with malloc free memcpy) :0.000797991 sec
+PYQCU::TESTING::LATTICE:
+ [check_su3] Total matrices checked: 1024
+PYQCU::TESTING::LATTICE:
+ Unitary check   : False
+PYQCU::TESTING::LATTICE:
+ Determinant=1   : True
+PYQCU::TESTING::LATTICE:
+ Minor identities: True
+PYQCU::TESTING::LATTICE:
+ Max unitary deviation: 2.385160e-07
+False
+PYQCU::TESTING::LATTICE:
+ [check_su3] Total matrices checked: 1024
+PYQCU::TESTING::LATTICE:
+ Unitary check   : False
+PYQCU::TESTING::LATTICE:
+ Determinant=1   : True
+PYQCU::TESTING::LATTICE:
+ Minor identities: True
+PYQCU::TESTING::LATTICE:
+ Max unitary deviation: 2.384294e-07
+False
+tensor([94571353850304,              0,              0,              0,
+                     0,              0,              0,              0,
+                     0,              0])
+set_ptr:0x5603251223f0
+set_ptrs:0x56031ad2f800
+long long set_ptr:94571506836464
+gridDim.x                                    :16
+blockDim.x                                   :16
+host_params[_LAT_X_]                         :4
+host_params[_LAT_Y_]                         :4
+host_params[_LAT_Z_]                         :4
+host_params[_LAT_T_]                         :4
+host_params[_LAT_XYZT_]                      :256
+host_params[_GRID_X_]                        :1
+host_params[_GRID_Y_]                        :1
+host_params[_GRID_Z_]                        :1
+host_params[_GRID_T_]                        :1
+host_params[_PARITY_]                        :0
+host_params[_NODE_RANK_]                     :0
+host_params[_NODE_SIZE_]                     :1
+host_params[_DAGGER_]                        :0
+host_params[_MAX_ITER_]                      :1000
+host_params[_DATA_TYPE_]                     :2
+host_params[_SET_INDEX_]                     :1
+host_params[_SET_PLAN_]                      :2
+host_params[_MG_NUM_LEVEL_]                  :0
+host_params[_MG_LEVEL_INDEX_]                :0
+host_params[_MG_LEVEL1_E_]                   :0
+host_params[_MG_LEVEL1_X_]                   :0
+host_params[_MG_LEVEL1_Y_]                   :0
+host_params[_MG_LEVEL1_Z_]                   :0
+host_params[_MG_LEVEL1_T_]                   :0
+host_params[_MG_LEVEL1_MAX_ITER_]            :0
+host_params[_MG_LEVEL1_DATA_TYPE_]           :0
+host_params[_MG_LEVEL1_NUM_RESTART_]         :0
+host_params[_MG_LEVEL2_E_]                   :0
+host_params[_MG_LEVEL2_X_]                   :0
+host_params[_MG_LEVEL2_Y_]                   :0
+host_params[_MG_LEVEL2_Z_]                   :0
+host_params[_MG_LEVEL2_T_]                   :0
+host_params[_MG_LEVEL2_MAX_ITER_]            :0
+host_params[_MG_LEVEL2_DATA_TYPE_]           :0
+host_params[_MG_LEVEL2_NUM_RESTART_]         :0
+host_params[_MG_LEVEL3_E_]                   :0
+host_params[_MG_LEVEL3_X_]                   :0
+host_params[_MG_LEVEL3_Y_]                   :0
+host_params[_MG_LEVEL3_Z_]                   :0
+host_params[_MG_LEVEL3_T_]                   :0
+host_params[_MG_LEVEL3_MAX_ITER_]            :0
+host_params[_MG_LEVEL3_DATA_TYPE_]           :0
+host_params[_MG_LEVEL3_NUM_RESTART_]         :0
+host_params[_MG_LEVEL4_E_]                   :0
+host_params[_MG_LEVEL4_X_]                   :0
+host_params[_MG_LEVEL4_Y_]                   :0
+host_params[_MG_LEVEL4_Z_]                   :0
+host_params[_MG_LEVEL4_T_]                   :0
+host_params[_MG_LEVEL4_MAX_ITER_]            :0
+host_params[_MG_LEVEL4_DATA_TYPE_]           :0
+host_params[_MG_LEVEL4_NUM_RESTART_]         :0
+host_params[_MG_PARAMS_SIZE_]                :1
+host_params[_VERBOSE_]                       :1
+host_params[_SEED_]                          :42
+host_params[_TEST_IN_CPU_]                   :0
+host_argv[_MASS_]                            :5.000000e-02
+host_argv[_ATOL_]                            :1.000000e-09
+host_argv[_SIGMA_]                           :1.000000e-01
+host_argv[__MG_LEVEL1_ATOL__]                :0.000000e+00
+host_argv[__MG_LEVEL2_ATOL__]                :0.000000e+00
+host_argv[__MG_LEVEL3_ATOL__]                :0.000000e+00
+host_argv[__MG_LEVEL4_ATOL__]                :0.000000e+00
+lat_2dim[_XY_]                               :16
+lat_2dim[_XZ_]                               :16
+lat_2dim[_XT_]                               :16
+lat_2dim[_YZ_]                               :16
+lat_2dim[_YT_]                               :16
+lat_2dim[_ZT_]                               :16
+lat_3dim[_YZT_]                              :64
+lat_3dim[_XZT_]                              :64
+lat_3dim[_XYT_]                              :64
+lat_3dim[_XYZ_]                              :64
+lat_4dim                                     :256
+grid_1dim[_X_]                               :1
+grid_1dim[_Y_]                               :1
+grid_1dim[_Z_]                               :1
+grid_1dim[_T_]                               :1
+grid_2dim[_XY_]                              :1
+grid_2dim[_XZ_]                              :1
+grid_2dim[_XT_]                              :1
+grid_2dim[_YZ_]                              :1
+grid_2dim[_YT_]                              :1
+grid_2dim[_ZT_]                              :1
+grid_3dim[_YZT_]                             :1
+grid_3dim[_XZT_]                             :1
+grid_3dim[_XYT_]                             :1
+grid_3dim[_XYZ_]                             :1
+grid_index_1dim[_X_]                         :0
+grid_index_1dim[_Y_]                         :0
+grid_index_1dim[_Z_]                         :0
+grid_index_1dim[_T_]                         :0
+move_wards[_B_X_]                            :0
+move_wards[_B_Y_]                            :0
+move_wards[_B_Z_]                            :0
+move_wards[_B_T_]                            :0
+move_wards[_F_X_]                            :0
+move_wards[_F_Y_]                            :0
+move_wards[_F_Z_]                            :0
+move_wards[_F_T_]                            :0
+move_wards[_BX_BY_]                          :0
+move_wards[_BX_BZ_]                          :0
+move_wards[_BX_BT_]                          :0
+move_wards[_BY_BZ_]                          :0
+move_wards[_BY_BT_]                          :0
+move_wards[_BZ_BT_]                          :0
+move_wards[_FX_BY_]                          :0
+move_wards[_FX_BZ_]                          :0
+move_wards[_FX_BT_]                          :0
+move_wards[_FY_BZ_]                          :0
+move_wards[_FY_BT_]                          :0
+move_wards[_FZ_BT_]                          :0
+move_wards[_BX_FY_]                          :0
+move_wards[_BX_FZ_]                          :0
+move_wards[_BX_FT_]                          :0
+move_wards[_BY_FZ_]                          :0
+move_wards[_BY_FT_]                          :0
+move_wards[_BZ_FT_]                          :0
+move_wards[_FX_FY_]                          :0
+move_wards[_FX_FZ_]                          :0
+move_wards[_FX_FT_]                          :0
+move_wards[_FY_FZ_]                          :0
+move_wards[_FY_FT_]                          :0
+move_wards[_FZ_FT_]                          :0
+lattice set init total time:0.002798594 sec
+make clover total time: (without malloc free memcpy) :0.004547167 sec
+ inverse clover total time: (without malloc free memcpy) :0.003959550 sec
+ tensor([94571353850304, 94571506836464,              0,              0,
+                     0,              0,              0,              0,
+                     0,              0])
+set_ptr:0x5603258ee6e0
+set_ptrs:0x56031ad2f800
+long long set_ptr:94571515012832
+gridDim.x                                    :16
+blockDim.x                                   :16
+host_params[_LAT_X_]                         :4
+host_params[_LAT_Y_]                         :4
+host_params[_LAT_Z_]                         :4
+host_params[_LAT_T_]                         :4
+host_params[_LAT_XYZT_]                      :256
+host_params[_GRID_X_]                        :1
+host_params[_GRID_Y_]                        :1
+host_params[_GRID_Z_]                        :1
+host_params[_GRID_T_]                        :1
+host_params[_PARITY_]                        :1
+host_params[_NODE_RANK_]                     :0
+host_params[_NODE_SIZE_]                     :1
+host_params[_DAGGER_]                        :0
+host_params[_MAX_ITER_]                      :1000
+host_params[_DATA_TYPE_]                     :2
+host_params[_SET_INDEX_]                     :2
+host_params[_SET_PLAN_]                      :2
+host_params[_MG_NUM_LEVEL_]                  :0
+host_params[_MG_LEVEL_INDEX_]                :0
+host_params[_MG_LEVEL1_E_]                   :0
+host_params[_MG_LEVEL1_X_]                   :0
+host_params[_MG_LEVEL1_Y_]                   :0
+host_params[_MG_LEVEL1_Z_]                   :0
+host_params[_MG_LEVEL1_T_]                   :0
+host_params[_MG_LEVEL1_MAX_ITER_]            :0
+host_params[_MG_LEVEL1_DATA_TYPE_]           :0
+host_params[_MG_LEVEL1_NUM_RESTART_]         :0
+host_params[_MG_LEVEL2_E_]                   :0
+host_params[_MG_LEVEL2_X_]                   :0
+host_params[_MG_LEVEL2_Y_]                   :0
+host_params[_MG_LEVEL2_Z_]                   :0
+host_params[_MG_LEVEL2_T_]                   :0
+host_params[_MG_LEVEL2_MAX_ITER_]            :0
+host_params[_MG_LEVEL2_DATA_TYPE_]           :0
+host_params[_MG_LEVEL2_NUM_RESTART_]         :0
+host_params[_MG_LEVEL3_E_]                   :0
+host_params[_MG_LEVEL3_X_]                   :0
+host_params[_MG_LEVEL3_Y_]                   :0
+host_params[_MG_LEVEL3_Z_]                   :0
+host_params[_MG_LEVEL3_T_]                   :0
+host_params[_MG_LEVEL3_MAX_ITER_]            :0
+host_params[_MG_LEVEL3_DATA_TYPE_]           :0
+host_params[_MG_LEVEL3_NUM_RESTART_]         :0
+host_params[_MG_LEVEL4_E_]                   :0
+host_params[_MG_LEVEL4_X_]                   :0
+host_params[_MG_LEVEL4_Y_]                   :0
+host_params[_MG_LEVEL4_Z_]                   :0
+host_params[_MG_LEVEL4_T_]                   :0
+host_params[_MG_LEVEL4_MAX_ITER_]            :0
+host_params[_MG_LEVEL4_DATA_TYPE_]           :0
+host_params[_MG_LEVEL4_NUM_RESTART_]         :0
+host_params[_MG_PARAMS_SIZE_]                :1
+host_params[_VERBOSE_]                       :1
+host_params[_SEED_]                          :42
+host_params[_TEST_IN_CPU_]                   :0
+host_argv[_MASS_]                            :5.000000e-02
+host_argv[_ATOL_]                            :1.000000e-09
+host_argv[_SIGMA_]                           :1.000000e-01
+host_argv[__MG_LEVEL1_ATOL__]                :0.000000e+00
+host_argv[__MG_LEVEL2_ATOL__]                :0.000000e+00
+host_argv[__MG_LEVEL3_ATOL__]                :0.000000e+00
+host_argv[__MG_LEVEL4_ATOL__]                :0.000000e+00
+lat_2dim[_XY_]                               :16
+lat_2dim[_XZ_]                               :16
+lat_2dim[_XT_]                               :16
+lat_2dim[_YZ_]                               :16
+lat_2dim[_YT_]                               :16
+lat_2dim[_ZT_]                               :16
+lat_3dim[_YZT_]                              :64
+lat_3dim[_XZT_]                              :64
+lat_3dim[_XYT_]                              :64
+lat_3dim[_XYZ_]                              :64
+lat_4dim                                     :256
+grid_1dim[_X_]                               :1
+grid_1dim[_Y_]                               :1
+grid_1dim[_Z_]                               :1
+grid_1dim[_T_]                               :1
+grid_2dim[_XY_]                              :1
+grid_2dim[_XZ_]                              :1
+grid_2dim[_XT_]                              :1
+grid_2dim[_YZ_]                              :1
+grid_2dim[_YT_]                              :1
+grid_2dim[_ZT_]                              :1
+grid_3dim[_YZT_]                             :1
+grid_3dim[_XZT_]                             :1
+grid_3dim[_XYT_]                             :1
+grid_3dim[_XYZ_]                             :1
+grid_index_1dim[_X_]                         :0
+grid_index_1dim[_Y_]                         :0
+grid_index_1dim[_Z_]                         :0
+grid_index_1dim[_T_]                         :0
+move_wards[_B_X_]                            :0
+move_wards[_B_Y_]                            :0
+move_wards[_B_Z_]                            :0
+move_wards[_B_T_]                            :0
+move_wards[_F_X_]                            :0
+move_wards[_F_Y_]                            :0
+move_wards[_F_Z_]                            :0
+move_wards[_F_T_]                            :0
+move_wards[_BX_BY_]                          :0
+move_wards[_BX_BZ_]                          :0
+move_wards[_BX_BT_]                          :0
+move_wards[_BY_BZ_]                          :0
+move_wards[_BY_BT_]                          :0
+move_wards[_BZ_BT_]                          :0
+move_wards[_FX_BY_]                          :0
+move_wards[_FX_BZ_]                          :0
+move_wards[_FX_BT_]                          :0
+move_wards[_FY_BZ_]                          :0
+move_wards[_FY_BT_]                          :0
+move_wards[_FZ_BT_]                          :0
+move_wards[_BX_FY_]                          :0
+move_wards[_BX_FZ_]                          :0
+move_wards[_BX_FT_]                          :0
+move_wards[_BY_FZ_]                          :0
+move_wards[_BY_FT_]                          :0
+move_wards[_BZ_FT_]                          :0
+move_wards[_FX_FY_]                          :0
+move_wards[_FX_FZ_]                          :0
+move_wards[_FX_FT_]                          :0
+move_wards[_FY_FZ_]                          :0
+move_wards[_FY_FT_]                          :0
+move_wards[_FZ_FT_]                          :0
+lattice set init total time:0.002131858 sec
+make clover total time: (without malloc free memcpy) :0.004599263 sec
+ inverse clover total time: (without malloc free memcpy) :0.000158867 sec
+ tensor([94571353850304, 94571506836464, 94571515012832,              0,
+                     0,              0,              0,              0,
+                     0,              0])
+qcu_clover_term: tensor([-3.8316e-03+0.j, -1.8643e-03+0.j,  3.2039e-03+0.j,  5.3358e-04+0.j,
+        -1.7998e-03+0.j, -5.4159e-03+0.j,  2.0691e-03+0.j,  4.6600e-03+0.j,
+        -5.0867e-03+0.j, -3.2208e-03+0.j,  9.8002e-04+0.j,  1.9778e-03+0.j,
+         5.4185e-03+0.j,  3.1829e-05+0.j, -6.9264e-03+0.j, -5.8151e-03+0.j,
+        -1.9433e-03+0.j,  3.4924e-03+0.j, -8.2582e-04+0.j, -2.0717e-03+0.j,
+         6.3369e-03+0.j, -3.9542e-04+0.j, -1.4666e-03+0.j,  3.9876e-04+0.j,
+         2.7074e-03+0.j, -1.4642e-03+0.j,  6.1376e-03+0.j,  2.6786e-04+0.j,
+        -2.5557e-03+0.j,  3.4189e-04+0.j,  2.9922e-05+0.j,  7.3220e-03+0.j,
+        -8.8704e-04+0.j,  2.8539e-04+0.j,  2.8368e-03+0.j, -2.4422e-03+0.j,
+         1.9132e-03+0.j,  3.7313e-05+0.j, -2.8713e-03+0.j,  8.3513e-03+0.j,
+         2.1443e-03+0.j, -3.1715e-03+0.j,  2.2817e-04+0.j, -1.7223e-03+0.j,
+         4.2026e-03+0.j,  2.7715e-03+0.j, -1.9099e-03+0.j,  2.6815e-03+0.j,
+        -3.4442e-03+0.j,  5.8651e-05+0.j,  3.4399e-03+0.j,  3.8651e-03+0.j,
+         3.7678e-03+0.j, -8.0104e-03+0.j, -3.2704e-03+0.j,  4.4808e-03+0.j,
+        -1.2338e-02+0.j, -3.1353e-03+0.j,  4.1531e-03+0.j,  6.2205e-03+0.j,
+        -1.3386e-03+0.j, -8.3059e-04+0.j, -4.0531e-05+0.j,  4.8494e-03+0.j,
+         3.1331e-03+0.j, -2.4910e-03+0.j, -2.4909e-03+0.j, -2.6739e-04+0.j,
+         4.6095e-03+0.j,  1.7027e-03+0.j, -4.5078e-03+0.j,  6.1054e-03+0.j,
+         2.1755e-03+0.j,  3.1968e-03+0.j, -4.3405e-03+0.j,  7.4673e-03+0.j,
+         1.0624e-03+0.j, -2.2558e-03+0.j,  2.3532e-03+0.j,  1.2424e-03+0.j,
+         1.5347e-03+0.j,  1.7706e-03+0.j, -4.8637e-05+0.j,  9.8020e-03+0.j,
+        -1.6989e-03+0.j, -9.7838e-03+0.j, -5.7632e-04+0.j,  5.7524e-03+0.j,
+        -9.4873e-04+0.j, -1.3883e-03+0.j, -6.3372e-03+0.j, -2.3974e-03+0.j,
+        -2.4489e-03+0.j, -5.4246e-03+0.j, -2.8408e-04+0.j,  8.6074e-03+0.j,
+         7.6449e-04+0.j,  4.7481e-04+0.j, -1.8672e-03+0.j, -3.9473e-03+0.j],
+       device='cuda:0')
+refer_clover_term: tensor([-3.8316e-03+0.j, -1.8643e-03+0.j,  3.2038e-03+0.j,  5.3355e-04+0.j,
+        -1.7998e-03+0.j, -5.4159e-03+0.j,  2.0691e-03+0.j,  4.6600e-03+0.j,
+        -5.0867e-03+0.j, -3.2208e-03+0.j,  9.7997e-04+0.j,  1.9778e-03+0.j,
+         5.4186e-03+0.j,  3.1812e-05+0.j, -6.9264e-03+0.j, -5.8151e-03+0.j,
+        -1.9433e-03+0.j,  3.4923e-03+0.j, -8.2580e-04+0.j, -2.0717e-03+0.j,
+         6.3369e-03+0.j, -3.9544e-04+0.j, -1.4666e-03+0.j,  3.9875e-04+0.j,
+         2.7074e-03+0.j, -1.4643e-03+0.j,  6.1376e-03+0.j,  2.6785e-04+0.j,
+        -2.5557e-03+0.j,  3.4190e-04+0.j,  2.9922e-05+0.j,  7.3220e-03+0.j,
+        -8.8704e-04+0.j,  2.8544e-04+0.j,  2.8368e-03+0.j, -2.4422e-03+0.j,
+         1.9131e-03+0.j,  3.7255e-05+0.j, -2.8713e-03+0.j,  8.3514e-03+0.j,
+         2.1443e-03+0.j, -3.1715e-03+0.j,  2.2817e-04+0.j, -1.7223e-03+0.j,
+         4.2026e-03+0.j,  2.7715e-03+0.j, -1.9099e-03+0.j,  2.6815e-03+0.j,
+        -3.4442e-03+0.j,  5.8682e-05+0.j,  3.4400e-03+0.j,  3.8651e-03+0.j,
+         3.7678e-03+0.j, -8.0104e-03+0.j, -3.2704e-03+0.j,  4.4808e-03+0.j,
+        -1.2338e-02+0.j, -3.1353e-03+0.j,  4.1532e-03+0.j,  6.2204e-03+0.j,
+        -1.3386e-03+0.j, -8.3057e-04+0.j, -4.0554e-05+0.j,  4.8495e-03+0.j,
+         3.1330e-03+0.j, -2.4910e-03+0.j, -2.4909e-03+0.j, -2.6740e-04+0.j,
+         4.6094e-03+0.j,  1.7027e-03+0.j, -4.5078e-03+0.j,  6.1054e-03+0.j,
+         2.1755e-03+0.j,  3.1969e-03+0.j, -4.3405e-03+0.j,  7.4673e-03+0.j,
+         1.0624e-03+0.j, -2.2558e-03+0.j,  2.3532e-03+0.j,  1.2425e-03+0.j,
+         1.5347e-03+0.j,  1.7706e-03+0.j, -4.8618e-05+0.j,  9.8020e-03+0.j,
+        -1.6989e-03+0.j, -9.7838e-03+0.j, -5.7633e-04+0.j,  5.7525e-03+0.j,
+        -9.4870e-04+0.j, -1.3883e-03+0.j, -6.3371e-03+0.j, -2.3974e-03+0.j,
+        -2.4489e-03+0.j, -5.4246e-03+0.j, -2.8407e-04+0.j,  8.6074e-03+0.j,
+         7.6445e-04+0.j,  4.7480e-04+0.j, -1.8672e-03+0.j, -3.9473e-03+0.j],
+       device='cuda:0')
+Difference: 1.9186864353467486e-06
+set_ptr:0x5603296407c0
+set_ptrs:0x56031ad2f800
+long long set_ptr:94571579312064
+gridDim.x                                    :16
+blockDim.x                                   :16
+host_params[_LAT_X_]                         :4
+host_params[_LAT_Y_]                         :4
+host_params[_LAT_Z_]                         :4
+host_params[_LAT_T_]                         :4
+host_params[_LAT_XYZT_]                      :256
+host_params[_GRID_X_]                        :1
+host_params[_GRID_Y_]                        :1
+host_params[_GRID_Z_]                        :1
+host_params[_GRID_T_]                        :1
+host_params[_PARITY_]                        :0
+host_params[_NODE_RANK_]                     :0
+host_params[_NODE_SIZE_]                     :1
+host_params[_DAGGER_]                        :0
+host_params[_MAX_ITER_]                      :1000
+host_params[_DATA_TYPE_]                     :2
+host_params[_SET_INDEX_]                     :3
+host_params[_SET_PLAN_]                      :1
+host_params[_MG_NUM_LEVEL_]                  :0
+host_params[_MG_LEVEL_INDEX_]                :0
+host_params[_MG_LEVEL1_E_]                   :0
+host_params[_MG_LEVEL1_X_]                   :0
+host_params[_MG_LEVEL1_Y_]                   :0
+host_params[_MG_LEVEL1_Z_]                   :0
+host_params[_MG_LEVEL1_T_]                   :0
+host_params[_MG_LEVEL1_MAX_ITER_]            :0
+host_params[_MG_LEVEL1_DATA_TYPE_]           :0
+host_params[_MG_LEVEL1_NUM_RESTART_]         :0
+host_params[_MG_LEVEL2_E_]                   :0
+host_params[_MG_LEVEL2_X_]                   :0
+host_params[_MG_LEVEL2_Y_]                   :0
+host_params[_MG_LEVEL2_Z_]                   :0
+host_params[_MG_LEVEL2_T_]                   :0
+host_params[_MG_LEVEL2_MAX_ITER_]            :0
+host_params[_MG_LEVEL2_DATA_TYPE_]           :0
+host_params[_MG_LEVEL2_NUM_RESTART_]         :0
+host_params[_MG_LEVEL3_E_]                   :0
+host_params[_MG_LEVEL3_X_]                   :0
+host_params[_MG_LEVEL3_Y_]                   :0
+host_params[_MG_LEVEL3_Z_]                   :0
+host_params[_MG_LEVEL3_T_]                   :0
+host_params[_MG_LEVEL3_MAX_ITER_]            :0
+host_params[_MG_LEVEL3_DATA_TYPE_]           :0
+host_params[_MG_LEVEL3_NUM_RESTART_]         :0
+host_params[_MG_LEVEL4_E_]                   :0
+host_params[_MG_LEVEL4_X_]                   :0
+host_params[_MG_LEVEL4_Y_]                   :0
+host_params[_MG_LEVEL4_Z_]                   :0
+host_params[_MG_LEVEL4_T_]                   :0
+host_params[_MG_LEVEL4_MAX_ITER_]            :0
+host_params[_MG_LEVEL4_DATA_TYPE_]           :0
+host_params[_MG_LEVEL4_NUM_RESTART_]         :0
+host_params[_MG_PARAMS_SIZE_]                :1
+host_params[_VERBOSE_]                       :1
+host_params[_SEED_]                          :42
+host_params[_TEST_IN_CPU_]                   :0
+host_argv[_MASS_]                            :5.000000e-02
+host_argv[_ATOL_]                            :1.000000e-09
+host_argv[_SIGMA_]                           :1.000000e-01
+host_argv[__MG_LEVEL1_ATOL__]                :0.000000e+00
+host_argv[__MG_LEVEL2_ATOL__]                :0.000000e+00
+host_argv[__MG_LEVEL3_ATOL__]                :0.000000e+00
+host_argv[__MG_LEVEL4_ATOL__]                :0.000000e+00
+lat_2dim[_XY_]                               :16
+lat_2dim[_XZ_]                               :16
+lat_2dim[_XT_]                               :16
+lat_2dim[_YZ_]                               :16
+lat_2dim[_YT_]                               :16
+lat_2dim[_ZT_]                               :16
+lat_3dim[_YZT_]                              :64
+lat_3dim[_XZT_]                              :64
+lat_3dim[_XYT_]                              :64
+lat_3dim[_XYZ_]                              :64
+lat_4dim                                     :256
+grid_1dim[_X_]                               :1
+grid_1dim[_Y_]                               :1
+grid_1dim[_Z_]                               :1
+grid_1dim[_T_]                               :1
+grid_2dim[_XY_]                              :1
+grid_2dim[_XZ_]                              :1
+grid_2dim[_XT_]                              :1
+grid_2dim[_YZ_]                              :1
+grid_2dim[_YT_]                              :1
+grid_2dim[_ZT_]                              :1
+grid_3dim[_YZT_]                             :1
+grid_3dim[_XZT_]                             :1
+grid_3dim[_XYT_]                             :1
+grid_3dim[_XYZ_]                             :1
+grid_index_1dim[_X_]                         :0
+grid_index_1dim[_Y_]                         :0
+grid_index_1dim[_Z_]                         :0
+grid_index_1dim[_T_]                         :0
+move_wards[_B_X_]                            :0
+move_wards[_B_Y_]                            :0
+move_wards[_B_Z_]                            :0
+move_wards[_B_T_]                            :0
+move_wards[_F_X_]                            :0
+move_wards[_F_Y_]                            :0
+move_wards[_F_Z_]                            :0
+move_wards[_F_T_]                            :0
+move_wards[_BX_BY_]                          :0
+move_wards[_BX_BZ_]                          :0
+move_wards[_BX_BT_]                          :0
+move_wards[_BY_BZ_]                          :0
+move_wards[_BY_BT_]                          :0
+move_wards[_BZ_BT_]                          :0
+move_wards[_FX_BY_]                          :0
+move_wards[_FX_BZ_]                          :0
+move_wards[_FX_BT_]                          :0
+move_wards[_FY_BZ_]                          :0
+move_wards[_FY_BT_]                          :0
+move_wards[_FZ_BT_]                          :0
+move_wards[_BX_FY_]                          :0
+move_wards[_BX_FZ_]                          :0
+move_wards[_BX_FT_]                          :0
+move_wards[_BY_FZ_]                          :0
+move_wards[_BY_FT_]                          :0
+move_wards[_BZ_FT_]                          :0
+move_wards[_FX_FY_]                          :0
+move_wards[_FX_FZ_]                          :0
+move_wards[_FX_FT_]                          :0
+move_wards[_FY_FZ_]                          :0
+move_wards[_FY_FT_]                          :0
+move_wards[_FZ_FT_]                          :0
+lattice set init total time:0.003267574 sec
+tensor([94571353850304, 94571506836464, 94571515012832, 94571579312064,
+                     0,              0,              0,              0,
+                     0,              0])
+qcu_dest: tensor([-0.4757+0.4686j, -0.4100+0.1932j, -0.3117-0.1137j, -0.3521+0.5697j,
+        -0.2350-0.0270j,  0.0190+0.3076j,  0.2636-0.2927j, -0.4271-0.1673j,
+         0.4906-0.2528j, -0.5430+0.0288j,  0.0880-0.3138j, -0.1577+0.4090j,
+         0.1933-0.2128j,  0.3825+0.3443j,  0.2067-0.1776j,  0.0854+0.2338j,
+        -0.4547-0.0501j, -0.5442-0.0318j,  0.0594-0.4921j,  0.3166-0.4102j,
+        -0.1831+0.5689j, -0.2220-0.1756j, -0.5405-0.1095j, -0.0986-0.0744j,
+        -0.1695+0.2688j, -0.3015+0.1306j, -0.4316+0.2048j,  0.1617+0.0189j,
+        -0.5052+0.0922j,  0.2821+0.0849j, -0.6186+0.1107j, -0.5491+0.0361j,
+        -0.1712-0.3173j, -0.1082-0.2229j, -0.4269-0.3831j,  0.1661+0.0836j,
+         0.2335-0.4797j, -0.2126+0.1176j, -0.4905-0.0503j, -0.3016+0.5042j,
+         0.1344+0.4843j, -0.1792+0.3096j,  0.2004+0.0392j,  0.4559-0.1863j,
+         0.0850-0.1947j,  0.2637-0.1034j,  0.2645+0.3244j,  0.0646+0.3901j,
+         0.4572+0.2090j, -0.3626+0.5244j, -0.0330+0.0557j, -0.2631+0.5198j,
+         0.0515-0.4146j,  0.1561+0.4858j,  0.3487-0.2339j, -0.4238+0.0121j,
+        -0.2270+0.1319j, -0.2856-0.1958j,  0.2605-0.3646j, -0.4100+0.3905j,
+         0.3279+0.1386j, -0.3818+0.0240j, -0.1681-0.1737j, -0.3042-0.3312j,
+        -0.1502+0.5533j, -0.2757+0.2808j, -0.1794+0.4112j, -0.5555-0.4033j,
+        -0.4157+0.2885j,  0.2001-0.1175j, -0.2215+0.0995j, -0.4493-0.3712j,
+         0.2648-0.4451j, -0.3220+0.0604j,  0.0837+0.3025j, -0.1268+0.3281j,
+        -0.3327+0.3062j,  0.3066-0.3730j,  0.2004+0.1838j, -0.0071+0.1786j,
+        -0.3819+0.0398j,  0.0359-0.3821j,  0.2980+0.3502j,  0.2711-0.0236j,
+         0.1578+0.3639j, -0.5578+0.0163j, -0.1472-0.4778j,  0.0320+0.3856j,
+        -0.4999-0.3373j, -0.3763+0.3134j,  0.2907-0.0030j, -0.6483+0.2401j,
+        -0.6001-0.5386j,  0.1318-0.2261j,  0.0509+0.1641j, -0.0354-0.5826j,
+        -0.2058+0.1956j,  0.1199-0.1430j,  0.3966-0.1519j, -0.2044+0.0541j],
+       device='cuda:0')
+refer_dest: tensor([-0.4757+0.4686j, -0.4100+0.1932j, -0.3117-0.1137j, -0.3521+0.5697j,
+        -0.2350-0.0270j,  0.0190+0.3076j,  0.2636-0.2927j, -0.4271-0.1673j,
+         0.4906-0.2528j, -0.5430+0.0288j,  0.0880-0.3138j, -0.1577+0.4090j,
+         0.1933-0.2128j,  0.3825+0.3443j,  0.2067-0.1776j,  0.0854+0.2338j,
+        -0.4547-0.0501j, -0.5442-0.0318j,  0.0594-0.4921j,  0.3166-0.4102j,
+        -0.1831+0.5689j, -0.2220-0.1756j, -0.5405-0.1095j, -0.0986-0.0744j,
+        -0.1695+0.2688j, -0.3015+0.1306j, -0.4316+0.2048j,  0.1617+0.0189j,
+        -0.5052+0.0922j,  0.2821+0.0849j, -0.6186+0.1107j, -0.5491+0.0361j,
+        -0.1712-0.3173j, -0.1082-0.2229j, -0.4269-0.3831j,  0.1661+0.0836j,
+         0.2335-0.4797j, -0.2126+0.1176j, -0.4905-0.0503j, -0.3016+0.5042j,
+         0.1344+0.4843j, -0.1792+0.3096j,  0.2004+0.0392j,  0.4559-0.1863j,
+         0.0850-0.1947j,  0.2637-0.1034j,  0.2645+0.3244j,  0.0646+0.3901j,
+         0.4572+0.2090j, -0.3626+0.5244j, -0.0330+0.0557j, -0.2631+0.5198j,
+         0.0515-0.4146j,  0.1561+0.4858j,  0.3487-0.2339j, -0.4238+0.0121j,
+        -0.2270+0.1319j, -0.2856-0.1958j,  0.2605-0.3646j, -0.4100+0.3905j,
+         0.3279+0.1386j, -0.3818+0.0240j, -0.1681-0.1737j, -0.3042-0.3312j,
+        -0.1502+0.5533j, -0.2757+0.2808j, -0.1794+0.4112j, -0.5555-0.4033j,
+        -0.4157+0.2885j,  0.2001-0.1175j, -0.2215+0.0995j, -0.4493-0.3712j,
+         0.2648-0.4451j, -0.3220+0.0604j,  0.0837+0.3025j, -0.1268+0.3281j,
+        -0.3327+0.3062j,  0.3066-0.3730j,  0.2004+0.1838j, -0.0071+0.1786j,
+        -0.3819+0.0398j,  0.0359-0.3821j,  0.2980+0.3502j,  0.2711-0.0236j,
+         0.1578+0.3639j, -0.5578+0.0163j, -0.1472-0.4778j,  0.0320+0.3856j,
+        -0.4999-0.3373j, -0.3763+0.3134j,  0.2907-0.0030j, -0.6483+0.2401j,
+        -0.6001-0.5386j,  0.1318-0.2261j,  0.0509+0.1641j, -0.0354-0.5826j,
+        -0.2058+0.1956j,  0.1199-0.1430j,  0.3966-0.1519j, -0.2044+0.0541j],
+       device='cuda:0')
+Difference: 2.2492809399394275e-07
+tensor([94571353850304, 94571506836464, 94571515012832, 94571579312064,
+                     0,              0,              0,              0,
+                     0,              0])
+qcu_dest: tensor([-0.4757+0.4686j, -0.4100+0.1932j, -0.3117-0.1137j, -0.3521+0.5697j,
+        -0.2350-0.0270j,  0.0190+0.3076j,  0.2636-0.2927j, -0.4271-0.1673j,
+         0.4906-0.2528j, -0.5430+0.0288j,  0.0880-0.3138j, -0.1577+0.4090j,
+         0.1933-0.2128j,  0.3825+0.3443j,  0.2067-0.1776j,  0.0854+0.2338j,
+        -0.4547-0.0501j, -0.5442-0.0318j,  0.0594-0.4921j,  0.3166-0.4102j,
+        -0.1831+0.5689j, -0.2220-0.1756j, -0.5405-0.1095j, -0.0986-0.0744j,
+        -0.1695+0.2688j, -0.3015+0.1306j, -0.4316+0.2048j,  0.1617+0.0189j,
+        -0.5052+0.0922j,  0.2821+0.0849j, -0.6186+0.1107j, -0.5491+0.0361j,
+        -0.1712-0.3173j, -0.1082-0.2229j, -0.4269-0.3831j,  0.1661+0.0836j,
+         0.2335-0.4797j, -0.2126+0.1176j, -0.4905-0.0503j, -0.3016+0.5042j,
+         0.1344+0.4843j, -0.1792+0.3096j,  0.2004+0.0392j,  0.4559-0.1863j,
+         0.0850-0.1947j,  0.2637-0.1034j,  0.2645+0.3244j,  0.0646+0.3901j,
+         0.4572+0.2090j, -0.3626+0.5244j, -0.0330+0.0557j, -0.2631+0.5198j,
+         0.0515-0.4146j,  0.1561+0.4858j,  0.3487-0.2339j, -0.4238+0.0121j,
+        -0.2270+0.1319j, -0.2856-0.1958j,  0.2605-0.3646j, -0.4100+0.3905j,
+         0.3279+0.1386j, -0.3818+0.0240j, -0.1681-0.1737j, -0.3042-0.3312j,
+        -0.1502+0.5533j, -0.2757+0.2808j, -0.1794+0.4112j, -0.5555-0.4033j,
+        -0.4157+0.2885j,  0.2001-0.1175j, -0.2215+0.0995j, -0.4493-0.3712j,
+         0.2648-0.4451j, -0.3220+0.0604j,  0.0837+0.3025j, -0.1268+0.3281j,
+        -0.3327+0.3062j,  0.3066-0.3730j,  0.2004+0.1838j, -0.0071+0.1786j,
+        -0.3819+0.0398j,  0.0359-0.3821j,  0.2980+0.3502j,  0.2711-0.0236j,
+         0.1578+0.3639j, -0.5578+0.0163j, -0.1472-0.4778j,  0.0320+0.3856j,
+        -0.4999-0.3373j, -0.3763+0.3134j,  0.2907-0.0030j, -0.6483+0.2401j,
+        -0.6001-0.5386j,  0.1318-0.2261j,  0.0509+0.1641j, -0.0354-0.5826j,
+        -0.2058+0.1956j,  0.1199-0.1430j,  0.3966-0.1519j, -0.2044+0.0541j],
+       device='cuda:0')
+refer_dest: tensor([-0.4757+0.4686j, -0.4100+0.1932j, -0.3117-0.1137j, -0.3521+0.5697j,
+        -0.2350-0.0270j,  0.0190+0.3076j,  0.2636-0.2927j, -0.4271-0.1673j,
+         0.4906-0.2528j, -0.5430+0.0288j,  0.0880-0.3138j, -0.1577+0.4090j,
+         0.1933-0.2128j,  0.3825+0.3443j,  0.2067-0.1776j,  0.0854+0.2338j,
+        -0.4547-0.0501j, -0.5442-0.0318j,  0.0594-0.4921j,  0.3166-0.4102j,
+        -0.1831+0.5689j, -0.2220-0.1756j, -0.5405-0.1095j, -0.0986-0.0744j,
+        -0.1695+0.2688j, -0.3015+0.1306j, -0.4316+0.2048j,  0.1617+0.0189j,
+        -0.5052+0.0922j,  0.2821+0.0849j, -0.6186+0.1107j, -0.5491+0.0361j,
+        -0.1712-0.3173j, -0.1082-0.2229j, -0.4269-0.3831j,  0.1661+0.0836j,
+         0.2335-0.4797j, -0.2126+0.1176j, -0.4905-0.0503j, -0.3016+0.5042j,
+         0.1344+0.4843j, -0.1792+0.3096j,  0.2004+0.0392j,  0.4559-0.1863j,
+         0.0850-0.1947j,  0.2637-0.1034j,  0.2645+0.3244j,  0.0646+0.3901j,
+         0.4572+0.2090j, -0.3626+0.5244j, -0.0330+0.0557j, -0.2631+0.5198j,
+         0.0515-0.4146j,  0.1561+0.4858j,  0.3487-0.2339j, -0.4238+0.0121j,
+        -0.2270+0.1319j, -0.2856-0.1958j,  0.2605-0.3646j, -0.4100+0.3905j,
+         0.3279+0.1386j, -0.3818+0.0240j, -0.1681-0.1737j, -0.3042-0.3312j,
+        -0.1502+0.5533j, -0.2757+0.2808j, -0.1794+0.4112j, -0.5555-0.4033j,
+        -0.4157+0.2885j,  0.2001-0.1175j, -0.2215+0.0995j, -0.4493-0.3712j,
+         0.2648-0.4451j, -0.3220+0.0604j,  0.0837+0.3025j, -0.1268+0.3281j,
+        -0.3327+0.3062j,  0.3066-0.3730j,  0.2004+0.1838j, -0.0071+0.1786j,
+        -0.3819+0.0398j,  0.0359-0.3821j,  0.2980+0.3502j,  0.2711-0.0236j,
+         0.1578+0.3639j, -0.5578+0.0163j, -0.1472-0.4778j,  0.0320+0.3856j,
+        -0.4999-0.3373j, -0.3763+0.3134j,  0.2907-0.0030j, -0.6483+0.2401j,
+        -0.6001-0.5386j,  0.1318-0.2261j,  0.0509+0.1641j, -0.0354-0.5826j,
+        -0.2058+0.1956j,  0.1199-0.1430j,  0.3966-0.1519j, -0.2044+0.0541j],
+       device='cuda:0')
+Difference: 2.2492809399394275e-07
+tensor([94571353850304, 94571506836464, 94571515012832, 94571579312064,
+                     0,              0,              0,              0,
+                     0,              0])
+qcu_dest: tensor([-0.4757+0.4686j, -0.4100+0.1932j, -0.3117-0.1137j, -0.3521+0.5697j,
+        -0.2350-0.0270j,  0.0190+0.3076j,  0.2636-0.2927j, -0.4271-0.1673j,
+         0.4906-0.2528j, -0.5430+0.0288j,  0.0880-0.3138j, -0.1577+0.4090j,
+         0.1933-0.2128j,  0.3825+0.3443j,  0.2067-0.1776j,  0.0854+0.2338j,
+        -0.4547-0.0501j, -0.5442-0.0318j,  0.0594-0.4921j,  0.3166-0.4102j,
+        -0.1831+0.5689j, -0.2220-0.1756j, -0.5405-0.1095j, -0.0986-0.0744j,
+        -0.1695+0.2688j, -0.3015+0.1306j, -0.4316+0.2048j,  0.1617+0.0189j,
+        -0.5052+0.0922j,  0.2821+0.0849j, -0.6186+0.1107j, -0.5491+0.0361j,
+        -0.1712-0.3173j, -0.1082-0.2229j, -0.4269-0.3831j,  0.1661+0.0836j,
+         0.2335-0.4797j, -0.2126+0.1176j, -0.4905-0.0503j, -0.3016+0.5042j,
+         0.1344+0.4843j, -0.1792+0.3096j,  0.2004+0.0392j,  0.4559-0.1863j,
+         0.0850-0.1947j,  0.2637-0.1034j,  0.2645+0.3244j,  0.0646+0.3901j,
+         0.4572+0.2090j, -0.3626+0.5244j, -0.0330+0.0557j, -0.2631+0.5198j,
+         0.0515-0.4146j,  0.1561+0.4858j,  0.3487-0.2339j, -0.4238+0.0121j,
+        -0.2270+0.1319j, -0.2856-0.1958j,  0.2605-0.3646j, -0.4100+0.3905j,
+         0.3279+0.1386j, -0.3818+0.0240j, -0.1681-0.1737j, -0.3042-0.3312j,
+        -0.1502+0.5533j, -0.2757+0.2808j, -0.1794+0.4112j, -0.5555-0.4033j,
+        -0.4157+0.2885j,  0.2001-0.1175j, -0.2215+0.0995j, -0.4493-0.3712j,
+         0.2648-0.4451j, -0.3220+0.0604j,  0.0837+0.3025j, -0.1268+0.3281j,
+        -0.3327+0.3062j,  0.3066-0.3730j,  0.2004+0.1838j, -0.0071+0.1786j,
+        -0.3819+0.0398j,  0.0359-0.3821j,  0.2980+0.3502j,  0.2711-0.0236j,
+         0.1578+0.3639j, -0.5578+0.0163j, -0.1472-0.4778j,  0.0320+0.3856j,
+        -0.4999-0.3373j, -0.3763+0.3134j,  0.2907-0.0030j, -0.6483+0.2401j,
+        -0.6001-0.5386j,  0.1318-0.2261j,  0.0509+0.1641j, -0.0354-0.5826j,
+        -0.2058+0.1956j,  0.1199-0.1430j,  0.3966-0.1519j, -0.2044+0.0541j],
+       device='cuda:0')
+refer_dest: tensor([-0.4757+0.4686j, -0.4100+0.1932j, -0.3117-0.1137j, -0.3521+0.5697j,
+        -0.2350-0.0270j,  0.0190+0.3076j,  0.2636-0.2927j, -0.4271-0.1673j,
+         0.4906-0.2528j, -0.5430+0.0288j,  0.0880-0.3138j, -0.1577+0.4090j,
+         0.1933-0.2128j,  0.3825+0.3443j,  0.2067-0.1776j,  0.0854+0.2338j,
+        -0.4547-0.0501j, -0.5442-0.0318j,  0.0594-0.4921j,  0.3166-0.4102j,
+        -0.1831+0.5689j, -0.2220-0.1756j, -0.5405-0.1095j, -0.0986-0.0744j,
+        -0.1695+0.2688j, -0.3015+0.1306j, -0.4316+0.2048j,  0.1617+0.0189j,
+        -0.5052+0.0922j,  0.2821+0.0849j, -0.6186+0.1107j, -0.5491+0.0361j,
+        -0.1712-0.3173j, -0.1082-0.2229j, -0.4269-0.3831j,  0.1661+0.0836j,
+         0.2335-0.4797j, -0.2126+0.1176j, -0.4905-0.0503j, -0.3016+0.5042j,
+         0.1344+0.4843j, -0.1792+0.3096j,  0.2004+0.0392j,  0.4559-0.1863j,
+         0.0850-0.1947j,  0.2637-0.1034j,  0.2645+0.3244j,  0.0646+0.3901j,
+         0.4572+0.2090j, -0.3626+0.5244j, -0.0330+0.0557j, -0.2631+0.5198j,
+         0.0515-0.4146j,  0.1561+0.4858j,  0.3487-0.2339j, -0.4238+0.0121j,
+        -0.2270+0.1319j, -0.2856-0.1958j,  0.2605-0.3646j, -0.4100+0.3905j,
+         0.3279+0.1386j, -0.3818+0.0240j, -0.1681-0.1737j, -0.3042-0.3312j,
+        -0.1502+0.5533j, -0.2757+0.2808j, -0.1794+0.4112j, -0.5555-0.4033j,
+        -0.4157+0.2885j,  0.2001-0.1175j, -0.2215+0.0995j, -0.4493-0.3712j,
+         0.2648-0.4451j, -0.3220+0.0604j,  0.0837+0.3025j, -0.1268+0.3281j,
+        -0.3327+0.3062j,  0.3066-0.3730j,  0.2004+0.1838j, -0.0071+0.1786j,
+        -0.3819+0.0398j,  0.0359-0.3821j,  0.2980+0.3502j,  0.2711-0.0236j,
+         0.1578+0.3639j, -0.5578+0.0163j, -0.1472-0.4778j,  0.0320+0.3856j,
+        -0.4999-0.3373j, -0.3763+0.3134j,  0.2907-0.0030j, -0.6483+0.2401j,
+        -0.6001-0.5386j,  0.1318-0.2261j,  0.0509+0.1641j, -0.0354-0.5826j,
+        -0.2058+0.1956j,  0.1199-0.1430j,  0.3966-0.1519j, -0.2044+0.0541j],
+       device='cuda:0')
+Difference: 2.2492809399394275e-07
+tensor([94571353850304, 94571506836464, 94571515012832, 94571579312064,
+                     0,              0,              0,              0,
+                     0,              0])
+qcu_dest: tensor([-0.4757+0.4686j, -0.4100+0.1932j, -0.3117-0.1137j, -0.3521+0.5697j,
+        -0.2350-0.0270j,  0.0190+0.3076j,  0.2636-0.2927j, -0.4271-0.1673j,
+         0.4906-0.2528j, -0.5430+0.0288j,  0.0880-0.3138j, -0.1577+0.4090j,
+         0.1933-0.2128j,  0.3825+0.3443j,  0.2067-0.1776j,  0.0854+0.2338j,
+        -0.4547-0.0501j, -0.5442-0.0318j,  0.0594-0.4921j,  0.3166-0.4102j,
+        -0.1831+0.5689j, -0.2220-0.1756j, -0.5405-0.1095j, -0.0986-0.0744j,
+        -0.1695+0.2688j, -0.3015+0.1306j, -0.4316+0.2048j,  0.1617+0.0189j,
+        -0.5052+0.0922j,  0.2821+0.0849j, -0.6186+0.1107j, -0.5491+0.0361j,
+        -0.1712-0.3173j, -0.1082-0.2229j, -0.4269-0.3831j,  0.1661+0.0836j,
+         0.2335-0.4797j, -0.2126+0.1176j, -0.4905-0.0503j, -0.3016+0.5042j,
+         0.1344+0.4843j, -0.1792+0.3096j,  0.2004+0.0392j,  0.4559-0.1863j,
+         0.0850-0.1947j,  0.2637-0.1034j,  0.2645+0.3244j,  0.0646+0.3901j,
+         0.4572+0.2090j, -0.3626+0.5244j, -0.0330+0.0557j, -0.2631+0.5198j,
+         0.0515-0.4146j,  0.1561+0.4858j,  0.3487-0.2339j, -0.4238+0.0121j,
+        -0.2270+0.1319j, -0.2856-0.1958j,  0.2605-0.3646j, -0.4100+0.3905j,
+         0.3279+0.1386j, -0.3818+0.0240j, -0.1681-0.1737j, -0.3042-0.3312j,
+        -0.1502+0.5533j, -0.2757+0.2808j, -0.1794+0.4112j, -0.5555-0.4033j,
+        -0.4157+0.2885j,  0.2001-0.1175j, -0.2215+0.0995j, -0.4493-0.3712j,
+         0.2648-0.4451j, -0.3220+0.0604j,  0.0837+0.3025j, -0.1268+0.3281j,
+        -0.3327+0.3062j,  0.3066-0.3730j,  0.2004+0.1838j, -0.0071+0.1786j,
+        -0.3819+0.0398j,  0.0359-0.3821j,  0.2980+0.3502j,  0.2711-0.0236j,
+         0.1578+0.3639j, -0.5578+0.0163j, -0.1472-0.4778j,  0.0320+0.3856j,
+        -0.4999-0.3373j, -0.3763+0.3134j,  0.2907-0.0030j, -0.6483+0.2401j,
+        -0.6001-0.5386j,  0.1318-0.2261j,  0.0509+0.1641j, -0.0354-0.5826j,
+        -0.2058+0.1956j,  0.1199-0.1430j,  0.3966-0.1519j, -0.2044+0.0541j],
+       device='cuda:0')
+refer_dest: tensor([-0.4757+0.4686j, -0.4100+0.1932j, -0.3117-0.1137j, -0.3521+0.5697j,
+        -0.2350-0.0270j,  0.0190+0.3076j,  0.2636-0.2927j, -0.4271-0.1673j,
+         0.4906-0.2528j, -0.5430+0.0288j,  0.0880-0.3138j, -0.1577+0.4090j,
+         0.1933-0.2128j,  0.3825+0.3443j,  0.2067-0.1776j,  0.0854+0.2338j,
+        -0.4547-0.0501j, -0.5442-0.0318j,  0.0594-0.4921j,  0.3166-0.4102j,
+        -0.1831+0.5689j, -0.2220-0.1756j, -0.5405-0.1095j, -0.0986-0.0744j,
+        -0.1695+0.2688j, -0.3015+0.1306j, -0.4316+0.2048j,  0.1617+0.0189j,
+        -0.5052+0.0922j,  0.2821+0.0849j, -0.6186+0.1107j, -0.5491+0.0361j,
+        -0.1712-0.3173j, -0.1082-0.2229j, -0.4269-0.3831j,  0.1661+0.0836j,
+         0.2335-0.4797j, -0.2126+0.1176j, -0.4905-0.0503j, -0.3016+0.5042j,
+         0.1344+0.4843j, -0.1792+0.3096j,  0.2004+0.0392j,  0.4559-0.1863j,
+         0.0850-0.1947j,  0.2637-0.1034j,  0.2645+0.3244j,  0.0646+0.3901j,
+         0.4572+0.2090j, -0.3626+0.5244j, -0.0330+0.0557j, -0.2631+0.5198j,
+         0.0515-0.4146j,  0.1561+0.4858j,  0.3487-0.2339j, -0.4238+0.0121j,
+        -0.2270+0.1319j, -0.2856-0.1958j,  0.2605-0.3646j, -0.4100+0.3905j,
+         0.3279+0.1386j, -0.3818+0.0240j, -0.1681-0.1737j, -0.3042-0.3312j,
+        -0.1502+0.5533j, -0.2757+0.2808j, -0.1794+0.4112j, -0.5555-0.4033j,
+        -0.4157+0.2885j,  0.2001-0.1175j, -0.2215+0.0995j, -0.4493-0.3712j,
+         0.2648-0.4451j, -0.3220+0.0604j,  0.0837+0.3025j, -0.1268+0.3281j,
+        -0.3327+0.3062j,  0.3066-0.3730j,  0.2004+0.1838j, -0.0071+0.1786j,
+        -0.3819+0.0398j,  0.0359-0.3821j,  0.2980+0.3502j,  0.2711-0.0236j,
+         0.1578+0.3639j, -0.5578+0.0163j, -0.1472-0.4778j,  0.0320+0.3856j,
+        -0.4999-0.3373j, -0.3763+0.3134j,  0.2907-0.0030j, -0.6483+0.2401j,
+        -0.6001-0.5386j,  0.1318-0.2261j,  0.0509+0.1641j, -0.0354-0.5826j,
+        -0.2058+0.1956j,  0.1199-0.1430j,  0.3966-0.1519j, -0.2044+0.0541j],
+       device='cuda:0')
+Difference: 2.2492809399394275e-07
+tensor([94571353850304, 94571506836464, 94571515012832, 94571579312064,
+                     0,              0,              0,              0,
+                     0,              0])
+qcu_dest: tensor([-0.4757+0.4686j, -0.4100+0.1932j, -0.3117-0.1137j, -0.3521+0.5697j,
+        -0.2350-0.0270j,  0.0190+0.3076j,  0.2636-0.2927j, -0.4271-0.1673j,
+         0.4906-0.2528j, -0.5430+0.0288j,  0.0880-0.3138j, -0.1577+0.4090j,
+         0.1933-0.2128j,  0.3825+0.3443j,  0.2067-0.1776j,  0.0854+0.2338j,
+        -0.4547-0.0501j, -0.5442-0.0318j,  0.0594-0.4921j,  0.3166-0.4102j,
+        -0.1831+0.5689j, -0.2220-0.1756j, -0.5405-0.1095j, -0.0986-0.0744j,
+        -0.1695+0.2688j, -0.3015+0.1306j, -0.4316+0.2048j,  0.1617+0.0189j,
+        -0.5052+0.0922j,  0.2821+0.0849j, -0.6186+0.1107j, -0.5491+0.0361j,
+        -0.1712-0.3173j, -0.1082-0.2229j, -0.4269-0.3831j,  0.1661+0.0836j,
+         0.2335-0.4797j, -0.2126+0.1176j, -0.4905-0.0503j, -0.3016+0.5042j,
+         0.1344+0.4843j, -0.1792+0.3096j,  0.2004+0.0392j,  0.4559-0.1863j,
+         0.0850-0.1947j,  0.2637-0.1034j,  0.2645+0.3244j,  0.0646+0.3901j,
+         0.4572+0.2090j, -0.3626+0.5244j, -0.0330+0.0557j, -0.2631+0.5198j,
+         0.0515-0.4146j,  0.1561+0.4858j,  0.3487-0.2339j, -0.4238+0.0121j,
+        -0.2270+0.1319j, -0.2856-0.1958j,  0.2605-0.3646j, -0.4100+0.3905j,
+         0.3279+0.1386j, -0.3818+0.0240j, -0.1681-0.1737j, -0.3042-0.3312j,
+        -0.1502+0.5533j, -0.2757+0.2808j, -0.1794+0.4112j, -0.5555-0.4033j,
+        -0.4157+0.2885j,  0.2001-0.1175j, -0.2215+0.0995j, -0.4493-0.3712j,
+         0.2648-0.4451j, -0.3220+0.0604j,  0.0837+0.3025j, -0.1268+0.3281j,
+        -0.3327+0.3062j,  0.3066-0.3730j,  0.2004+0.1838j, -0.0071+0.1786j,
+        -0.3819+0.0398j,  0.0359-0.3821j,  0.2980+0.3502j,  0.2711-0.0236j,
+         0.1578+0.3639j, -0.5578+0.0163j, -0.1472-0.4778j,  0.0320+0.3856j,
+        -0.4999-0.3373j, -0.3763+0.3134j,  0.2907-0.0030j, -0.6483+0.2401j,
+        -0.6001-0.5386j,  0.1318-0.2261j,  0.0509+0.1641j, -0.0354-0.5826j,
+        -0.2058+0.1956j,  0.1199-0.1430j,  0.3966-0.1519j, -0.2044+0.0541j],
+       device='cuda:0')
+refer_dest: tensor([-0.4757+0.4686j, -0.4100+0.1932j, -0.3117-0.1137j, -0.3521+0.5697j,
+        -0.2350-0.0270j,  0.0190+0.3076j,  0.2636-0.2927j, -0.4271-0.1673j,
+         0.4906-0.2528j, -0.5430+0.0288j,  0.0880-0.3138j, -0.1577+0.4090j,
+         0.1933-0.2128j,  0.3825+0.3443j,  0.2067-0.1776j,  0.0854+0.2338j,
+        -0.4547-0.0501j, -0.5442-0.0318j,  0.0594-0.4921j,  0.3166-0.4102j,
+        -0.1831+0.5689j, -0.2220-0.1756j, -0.5405-0.1095j, -0.0986-0.0744j,
+        -0.1695+0.2688j, -0.3015+0.1306j, -0.4316+0.2048j,  0.1617+0.0189j,
+        -0.5052+0.0922j,  0.2821+0.0849j, -0.6186+0.1107j, -0.5491+0.0361j,
+        -0.1712-0.3173j, -0.1082-0.2229j, -0.4269-0.3831j,  0.1661+0.0836j,
+         0.2335-0.4797j, -0.2126+0.1176j, -0.4905-0.0503j, -0.3016+0.5042j,
+         0.1344+0.4843j, -0.1792+0.3096j,  0.2004+0.0392j,  0.4559-0.1863j,
+         0.0850-0.1947j,  0.2637-0.1034j,  0.2645+0.3244j,  0.0646+0.3901j,
+         0.4572+0.2090j, -0.3626+0.5244j, -0.0330+0.0557j, -0.2631+0.5198j,
+         0.0515-0.4146j,  0.1561+0.4858j,  0.3487-0.2339j, -0.4238+0.0121j,
+        -0.2270+0.1319j, -0.2856-0.1958j,  0.2605-0.3646j, -0.4100+0.3905j,
+         0.3279+0.1386j, -0.3818+0.0240j, -0.1681-0.1737j, -0.3042-0.3312j,
+        -0.1502+0.5533j, -0.2757+0.2808j, -0.1794+0.4112j, -0.5555-0.4033j,
+        -0.4157+0.2885j,  0.2001-0.1175j, -0.2215+0.0995j, -0.4493-0.3712j,
+         0.2648-0.4451j, -0.3220+0.0604j,  0.0837+0.3025j, -0.1268+0.3281j,
+        -0.3327+0.3062j,  0.3066-0.3730j,  0.2004+0.1838j, -0.0071+0.1786j,
+        -0.3819+0.0398j,  0.0359-0.3821j,  0.2980+0.3502j,  0.2711-0.0236j,
+         0.1578+0.3639j, -0.5578+0.0163j, -0.1472-0.4778j,  0.0320+0.3856j,
+        -0.4999-0.3373j, -0.3763+0.3134j,  0.2907-0.0030j, -0.6483+0.2401j,
+        -0.6001-0.5386j,  0.1318-0.2261j,  0.0509+0.1641j, -0.0354-0.5826j,
+        -0.2058+0.1956j,  0.1199-0.1430j,  0.3966-0.1519j, -0.2044+0.0541j],
+       device='cuda:0')
+Difference: 2.2492809399394275e-07
+tensor([94571353850304, 94571506836464, 94571515012832, 94571579312064,
+                     0,              0,              0,              0,
+                     0,              0])
+qcu_dest: tensor([-0.4757+0.4686j, -0.4100+0.1932j, -0.3117-0.1137j, -0.3521+0.5697j,
+        -0.2350-0.0270j,  0.0190+0.3076j,  0.2636-0.2927j, -0.4271-0.1673j,
+         0.4906-0.2528j, -0.5430+0.0288j,  0.0880-0.3138j, -0.1577+0.4090j,
+         0.1933-0.2128j,  0.3825+0.3443j,  0.2067-0.1776j,  0.0854+0.2338j,
+        -0.4547-0.0501j, -0.5442-0.0318j,  0.0594-0.4921j,  0.3166-0.4102j,
+        -0.1831+0.5689j, -0.2220-0.1756j, -0.5405-0.1095j, -0.0986-0.0744j,
+        -0.1695+0.2688j, -0.3015+0.1306j, -0.4316+0.2048j,  0.1617+0.0189j,
+        -0.5052+0.0922j,  0.2821+0.0849j, -0.6186+0.1107j, -0.5491+0.0361j,
+        -0.1712-0.3173j, -0.1082-0.2229j, -0.4269-0.3831j,  0.1661+0.0836j,
+         0.2335-0.4797j, -0.2126+0.1176j, -0.4905-0.0503j, -0.3016+0.5042j,
+         0.1344+0.4843j, -0.1792+0.3096j,  0.2004+0.0392j,  0.4559-0.1863j,
+         0.0850-0.1947j,  0.2637-0.1034j,  0.2645+0.3244j,  0.0646+0.3901j,
+         0.4572+0.2090j, -0.3626+0.5244j, -0.0330+0.0557j, -0.2631+0.5198j,
+         0.0515-0.4146j,  0.1561+0.4858j,  0.3487-0.2339j, -0.4238+0.0121j,
+        -0.2270+0.1319j, -0.2856-0.1958j,  0.2605-0.3646j, -0.4100+0.3905j,
+         0.3279+0.1386j, -0.3818+0.0240j, -0.1681-0.1737j, -0.3042-0.3312j,
+        -0.1502+0.5533j, -0.2757+0.2808j, -0.1794+0.4112j, -0.5555-0.4033j,
+        -0.4157+0.2885j,  0.2001-0.1175j, -0.2215+0.0995j, -0.4493-0.3712j,
+         0.2648-0.4451j, -0.3220+0.0604j,  0.0837+0.3025j, -0.1268+0.3281j,
+        -0.3327+0.3062j,  0.3066-0.3730j,  0.2004+0.1838j, -0.0071+0.1786j,
+        -0.3819+0.0398j,  0.0359-0.3821j,  0.2980+0.3502j,  0.2711-0.0236j,
+         0.1578+0.3639j, -0.5578+0.0163j, -0.1472-0.4778j,  0.0320+0.3856j,
+        -0.4999-0.3373j, -0.3763+0.3134j,  0.2907-0.0030j, -0.6483+0.2401j,
+        -0.6001-0.5386j,  0.1318-0.2261j,  0.0509+0.1641j, -0.0354-0.5826j,
+        -0.2058+0.1956j,  0.1199-0.1430j,  0.3966-0.1519j, -0.2044+0.0541j],
+       device='cuda:0')
+refer_dest: tensor([-0.4757+0.4686j, -0.4100+0.1932j, -0.3117-0.1137j, -0.3521+0.5697j,
+        -0.2350-0.0270j,  0.0190+0.3076j,  0.2636-0.2927j, -0.4271-0.1673j,
+         0.4906-0.2528j, -0.5430+0.0288j,  0.0880-0.3138j, -0.1577+0.4090j,
+         0.1933-0.2128j,  0.3825+0.3443j,  0.2067-0.1776j,  0.0854+0.2338j,
+        -0.4547-0.0501j, -0.5442-0.0318j,  0.0594-0.4921j,  0.3166-0.4102j,
+        -0.1831+0.5689j, -0.2220-0.1756j, -0.5405-0.1095j, -0.0986-0.0744j,
+        -0.1695+0.2688j, -0.3015+0.1306j, -0.4316+0.2048j,  0.1617+0.0189j,
+        -0.5052+0.0922j,  0.2821+0.0849j, -0.6186+0.1107j, -0.5491+0.0361j,
+        -0.1712-0.3173j, -0.1082-0.2229j, -0.4269-0.3831j,  0.1661+0.0836j,
+         0.2335-0.4797j, -0.2126+0.1176j, -0.4905-0.0503j, -0.3016+0.5042j,
+         0.1344+0.4843j, -0.1792+0.3096j,  0.2004+0.0392j,  0.4559-0.1863j,
+         0.0850-0.1947j,  0.2637-0.1034j,  0.2645+0.3244j,  0.0646+0.3901j,
+         0.4572+0.2090j, -0.3626+0.5244j, -0.0330+0.0557j, -0.2631+0.5198j,
+         0.0515-0.4146j,  0.1561+0.4858j,  0.3487-0.2339j, -0.4238+0.0121j,
+        -0.2270+0.1319j, -0.2856-0.1958j,  0.2605-0.3646j, -0.4100+0.3905j,
+         0.3279+0.1386j, -0.3818+0.0240j, -0.1681-0.1737j, -0.3042-0.3312j,
+        -0.1502+0.5533j, -0.2757+0.2808j, -0.1794+0.4112j, -0.5555-0.4033j,
+        -0.4157+0.2885j,  0.2001-0.1175j, -0.2215+0.0995j, -0.4493-0.3712j,
+         0.2648-0.4451j, -0.3220+0.0604j,  0.0837+0.3025j, -0.1268+0.3281j,
+        -0.3327+0.3062j,  0.3066-0.3730j,  0.2004+0.1838j, -0.0071+0.1786j,
+        -0.3819+0.0398j,  0.0359-0.3821j,  0.2980+0.3502j,  0.2711-0.0236j,
+         0.1578+0.3639j, -0.5578+0.0163j, -0.1472-0.4778j,  0.0320+0.3856j,
+        -0.4999-0.3373j, -0.3763+0.3134j,  0.2907-0.0030j, -0.6483+0.2401j,
+        -0.6001-0.5386j,  0.1318-0.2261j,  0.0509+0.1641j, -0.0354-0.5826j,
+        -0.2058+0.1956j,  0.1199-0.1430j,  0.3966-0.1519j, -0.2044+0.0541j],
+       device='cuda:0')
+Difference: 2.2492809399394275e-07
+tensor([94571353850304, 94571506836464, 94571515012832, 94571579312064,
+                     0,              0,              0,              0,
+                     0,              0])
+qcu_dest: tensor([-0.4757+0.4686j, -0.4100+0.1932j, -0.3117-0.1137j, -0.3521+0.5697j,
+        -0.2350-0.0270j,  0.0190+0.3076j,  0.2636-0.2927j, -0.4271-0.1673j,
+         0.4906-0.2528j, -0.5430+0.0288j,  0.0880-0.3138j, -0.1577+0.4090j,
+         0.1933-0.2128j,  0.3825+0.3443j,  0.2067-0.1776j,  0.0854+0.2338j,
+        -0.4547-0.0501j, -0.5442-0.0318j,  0.0594-0.4921j,  0.3166-0.4102j,
+        -0.1831+0.5689j, -0.2220-0.1756j, -0.5405-0.1095j, -0.0986-0.0744j,
+        -0.1695+0.2688j, -0.3015+0.1306j, -0.4316+0.2048j,  0.1617+0.0189j,
+        -0.5052+0.0922j,  0.2821+0.0849j, -0.6186+0.1107j, -0.5491+0.0361j,
+        -0.1712-0.3173j, -0.1082-0.2229j, -0.4269-0.3831j,  0.1661+0.0836j,
+         0.2335-0.4797j, -0.2126+0.1176j, -0.4905-0.0503j, -0.3016+0.5042j,
+         0.1344+0.4843j, -0.1792+0.3096j,  0.2004+0.0392j,  0.4559-0.1863j,
+         0.0850-0.1947j,  0.2637-0.1034j,  0.2645+0.3244j,  0.0646+0.3901j,
+         0.4572+0.2090j, -0.3626+0.5244j, -0.0330+0.0557j, -0.2631+0.5198j,
+         0.0515-0.4146j,  0.1561+0.4858j,  0.3487-0.2339j, -0.4238+0.0121j,
+        -0.2270+0.1319j, -0.2856-0.1958j,  0.2605-0.3646j, -0.4100+0.3905j,
+         0.3279+0.1386j, -0.3818+0.0240j, -0.1681-0.1737j, -0.3042-0.3312j,
+        -0.1502+0.5533j, -0.2757+0.2808j, -0.1794+0.4112j, -0.5555-0.4033j,
+        -0.4157+0.2885j,  0.2001-0.1175j, -0.2215+0.0995j, -0.4493-0.3712j,
+         0.2648-0.4451j, -0.3220+0.0604j,  0.0837+0.3025j, -0.1268+0.3281j,
+        -0.3327+0.3062j,  0.3066-0.3730j,  0.2004+0.1838j, -0.0071+0.1786j,
+        -0.3819+0.0398j,  0.0359-0.3821j,  0.2980+0.3502j,  0.2711-0.0236j,
+         0.1578+0.3639j, -0.5578+0.0163j, -0.1472-0.4778j,  0.0320+0.3856j,
+        -0.4999-0.3373j, -0.3763+0.3134j,  0.2907-0.0030j, -0.6483+0.2401j,
+        -0.6001-0.5386j,  0.1318-0.2261j,  0.0509+0.1641j, -0.0354-0.5826j,
+        -0.2058+0.1956j,  0.1199-0.1430j,  0.3966-0.1519j, -0.2044+0.0541j],
+       device='cuda:0')
+refer_dest: tensor([-0.4757+0.4686j, -0.4100+0.1932j, -0.3117-0.1137j, -0.3521+0.5697j,
+        -0.2350-0.0270j,  0.0190+0.3076j,  0.2636-0.2927j, -0.4271-0.1673j,
+         0.4906-0.2528j, -0.5430+0.0288j,  0.0880-0.3138j, -0.1577+0.4090j,
+         0.1933-0.2128j,  0.3825+0.3443j,  0.2067-0.1776j,  0.0854+0.2338j,
+        -0.4547-0.0501j, -0.5442-0.0318j,  0.0594-0.4921j,  0.3166-0.4102j,
+        -0.1831+0.5689j, -0.2220-0.1756j, -0.5405-0.1095j, -0.0986-0.0744j,
+        -0.1695+0.2688j, -0.3015+0.1306j, -0.4316+0.2048j,  0.1617+0.0189j,
+        -0.5052+0.0922j,  0.2821+0.0849j, -0.6186+0.1107j, -0.5491+0.0361j,
+        -0.1712-0.3173j, -0.1082-0.2229j, -0.4269-0.3831j,  0.1661+0.0836j,
+         0.2335-0.4797j, -0.2126+0.1176j, -0.4905-0.0503j, -0.3016+0.5042j,
+         0.1344+0.4843j, -0.1792+0.3096j,  0.2004+0.0392j,  0.4559-0.1863j,
+         0.0850-0.1947j,  0.2637-0.1034j,  0.2645+0.3244j,  0.0646+0.3901j,
+         0.4572+0.2090j, -0.3626+0.5244j, -0.0330+0.0557j, -0.2631+0.5198j,
+         0.0515-0.4146j,  0.1561+0.4858j,  0.3487-0.2339j, -0.4238+0.0121j,
+        -0.2270+0.1319j, -0.2856-0.1958j,  0.2605-0.3646j, -0.4100+0.3905j,
+         0.3279+0.1386j, -0.3818+0.0240j, -0.1681-0.1737j, -0.3042-0.3312j,
+        -0.1502+0.5533j, -0.2757+0.2808j, -0.1794+0.4112j, -0.5555-0.4033j,
+        -0.4157+0.2885j,  0.2001-0.1175j, -0.2215+0.0995j, -0.4493-0.3712j,
+         0.2648-0.4451j, -0.3220+0.0604j,  0.0837+0.3025j, -0.1268+0.3281j,
+        -0.3327+0.3062j,  0.3066-0.3730j,  0.2004+0.1838j, -0.0071+0.1786j,
+        -0.3819+0.0398j,  0.0359-0.3821j,  0.2980+0.3502j,  0.2711-0.0236j,
+         0.1578+0.3639j, -0.5578+0.0163j, -0.1472-0.4778j,  0.0320+0.3856j,
+        -0.4999-0.3373j, -0.3763+0.3134j,  0.2907-0.0030j, -0.6483+0.2401j,
+        -0.6001-0.5386j,  0.1318-0.2261j,  0.0509+0.1641j, -0.0354-0.5826j,
+        -0.2058+0.1956j,  0.1199-0.1430j,  0.3966-0.1519j, -0.2044+0.0541j],
+       device='cuda:0')
+Difference: 2.2492809399394275e-07
+tensor([94571353850304, 94571506836464, 94571515012832, 94571579312064,
+                     0,              0,              0,              0,
+                     0,              0])
+qcu_dest: tensor([-0.4757+0.4686j, -0.4100+0.1932j, -0.3117-0.1137j, -0.3521+0.5697j,
+        -0.2350-0.0270j,  0.0190+0.3076j,  0.2636-0.2927j, -0.4271-0.1673j,
+         0.4906-0.2528j, -0.5430+0.0288j,  0.0880-0.3138j, -0.1577+0.4090j,
+         0.1933-0.2128j,  0.3825+0.3443j,  0.2067-0.1776j,  0.0854+0.2338j,
+        -0.4547-0.0501j, -0.5442-0.0318j,  0.0594-0.4921j,  0.3166-0.4102j,
+        -0.1831+0.5689j, -0.2220-0.1756j, -0.5405-0.1095j, -0.0986-0.0744j,
+        -0.1695+0.2688j, -0.3015+0.1306j, -0.4316+0.2048j,  0.1617+0.0189j,
+        -0.5052+0.0922j,  0.2821+0.0849j, -0.6186+0.1107j, -0.5491+0.0361j,
+        -0.1712-0.3173j, -0.1082-0.2229j, -0.4269-0.3831j,  0.1661+0.0836j,
+         0.2335-0.4797j, -0.2126+0.1176j, -0.4905-0.0503j, -0.3016+0.5042j,
+         0.1344+0.4843j, -0.1792+0.3096j,  0.2004+0.0392j,  0.4559-0.1863j,
+         0.0850-0.1947j,  0.2637-0.1034j,  0.2645+0.3244j,  0.0646+0.3901j,
+         0.4572+0.2090j, -0.3626+0.5244j, -0.0330+0.0557j, -0.2631+0.5198j,
+         0.0515-0.4146j,  0.1561+0.4858j,  0.3487-0.2339j, -0.4238+0.0121j,
+        -0.2270+0.1319j, -0.2856-0.1958j,  0.2605-0.3646j, -0.4100+0.3905j,
+         0.3279+0.1386j, -0.3818+0.0240j, -0.1681-0.1737j, -0.3042-0.3312j,
+        -0.1502+0.5533j, -0.2757+0.2808j, -0.1794+0.4112j, -0.5555-0.4033j,
+        -0.4157+0.2885j,  0.2001-0.1175j, -0.2215+0.0995j, -0.4493-0.3712j,
+         0.2648-0.4451j, -0.3220+0.0604j,  0.0837+0.3025j, -0.1268+0.3281j,
+        -0.3327+0.3062j,  0.3066-0.3730j,  0.2004+0.1838j, -0.0071+0.1786j,
+        -0.3819+0.0398j,  0.0359-0.3821j,  0.2980+0.3502j,  0.2711-0.0236j,
+         0.1578+0.3639j, -0.5578+0.0163j, -0.1472-0.4778j,  0.0320+0.3856j,
+        -0.4999-0.3373j, -0.3763+0.3134j,  0.2907-0.0030j, -0.6483+0.2401j,
+        -0.6001-0.5386j,  0.1318-0.2261j,  0.0509+0.1641j, -0.0354-0.5826j,
+        -0.2058+0.1956j,  0.1199-0.1430j,  0.3966-0.1519j, -0.2044+0.0541j],
+       device='cuda:0')
+refer_dest: tensor([-0.4757+0.4686j, -0.4100+0.1932j, -0.3117-0.1137j, -0.3521+0.5697j,
+        -0.2350-0.0270j,  0.0190+0.3076j,  0.2636-0.2927j, -0.4271-0.1673j,
+         0.4906-0.2528j, -0.5430+0.0288j,  0.0880-0.3138j, -0.1577+0.4090j,
+         0.1933-0.2128j,  0.3825+0.3443j,  0.2067-0.1776j,  0.0854+0.2338j,
+        -0.4547-0.0501j, -0.5442-0.0318j,  0.0594-0.4921j,  0.3166-0.4102j,
+        -0.1831+0.5689j, -0.2220-0.1756j, -0.5405-0.1095j, -0.0986-0.0744j,
+        -0.1695+0.2688j, -0.3015+0.1306j, -0.4316+0.2048j,  0.1617+0.0189j,
+        -0.5052+0.0922j,  0.2821+0.0849j, -0.6186+0.1107j, -0.5491+0.0361j,
+        -0.1712-0.3173j, -0.1082-0.2229j, -0.4269-0.3831j,  0.1661+0.0836j,
+         0.2335-0.4797j, -0.2126+0.1176j, -0.4905-0.0503j, -0.3016+0.5042j,
+         0.1344+0.4843j, -0.1792+0.3096j,  0.2004+0.0392j,  0.4559-0.1863j,
+         0.0850-0.1947j,  0.2637-0.1034j,  0.2645+0.3244j,  0.0646+0.3901j,
+         0.4572+0.2090j, -0.3626+0.5244j, -0.0330+0.0557j, -0.2631+0.5198j,
+         0.0515-0.4146j,  0.1561+0.4858j,  0.3487-0.2339j, -0.4238+0.0121j,
+        -0.2270+0.1319j, -0.2856-0.1958j,  0.2605-0.3646j, -0.4100+0.3905j,
+         0.3279+0.1386j, -0.3818+0.0240j, -0.1681-0.1737j, -0.3042-0.3312j,
+        -0.1502+0.5533j, -0.2757+0.2808j, -0.1794+0.4112j, -0.5555-0.4033j,
+        -0.4157+0.2885j,  0.2001-0.1175j, -0.2215+0.0995j, -0.4493-0.3712j,
+         0.2648-0.4451j, -0.3220+0.0604j,  0.0837+0.3025j, -0.1268+0.3281j,
+        -0.3327+0.3062j,  0.3066-0.3730j,  0.2004+0.1838j, -0.0071+0.1786j,
+        -0.3819+0.0398j,  0.0359-0.3821j,  0.2980+0.3502j,  0.2711-0.0236j,
+         0.1578+0.3639j, -0.5578+0.0163j, -0.1472-0.4778j,  0.0320+0.3856j,
+        -0.4999-0.3373j, -0.3763+0.3134j,  0.2907-0.0030j, -0.6483+0.2401j,
+        -0.6001-0.5386j,  0.1318-0.2261j,  0.0509+0.1641j, -0.0354-0.5826j,
+        -0.2058+0.1956j,  0.1199-0.1430j,  0.3966-0.1519j, -0.2044+0.0541j],
+       device='cuda:0')
+Difference: 2.2492809399394275e-07
+tensor([94571353850304, 94571506836464, 94571515012832, 94571579312064,
+                     0,              0,              0,              0,
+                     0,              0])
+qcu_dest: tensor([-0.4757+0.4686j, -0.4100+0.1932j, -0.3117-0.1137j, -0.3521+0.5697j,
+        -0.2350-0.0270j,  0.0190+0.3076j,  0.2636-0.2927j, -0.4271-0.1673j,
+         0.4906-0.2528j, -0.5430+0.0288j,  0.0880-0.3138j, -0.1577+0.4090j,
+         0.1933-0.2128j,  0.3825+0.3443j,  0.2067-0.1776j,  0.0854+0.2338j,
+        -0.4547-0.0501j, -0.5442-0.0318j,  0.0594-0.4921j,  0.3166-0.4102j,
+        -0.1831+0.5689j, -0.2220-0.1756j, -0.5405-0.1095j, -0.0986-0.0744j,
+        -0.1695+0.2688j, -0.3015+0.1306j, -0.4316+0.2048j,  0.1617+0.0189j,
+        -0.5052+0.0922j,  0.2821+0.0849j, -0.6186+0.1107j, -0.5491+0.0361j,
+        -0.1712-0.3173j, -0.1082-0.2229j, -0.4269-0.3831j,  0.1661+0.0836j,
+         0.2335-0.4797j, -0.2126+0.1176j, -0.4905-0.0503j, -0.3016+0.5042j,
+         0.1344+0.4843j, -0.1792+0.3096j,  0.2004+0.0392j,  0.4559-0.1863j,
+         0.0850-0.1947j,  0.2637-0.1034j,  0.2645+0.3244j,  0.0646+0.3901j,
+         0.4572+0.2090j, -0.3626+0.5244j, -0.0330+0.0557j, -0.2631+0.5198j,
+         0.0515-0.4146j,  0.1561+0.4858j,  0.3487-0.2339j, -0.4238+0.0121j,
+        -0.2270+0.1319j, -0.2856-0.1958j,  0.2605-0.3646j, -0.4100+0.3905j,
+         0.3279+0.1386j, -0.3818+0.0240j, -0.1681-0.1737j, -0.3042-0.3312j,
+        -0.1502+0.5533j, -0.2757+0.2808j, -0.1794+0.4112j, -0.5555-0.4033j,
+        -0.4157+0.2885j,  0.2001-0.1175j, -0.2215+0.0995j, -0.4493-0.3712j,
+         0.2648-0.4451j, -0.3220+0.0604j,  0.0837+0.3025j, -0.1268+0.3281j,
+        -0.3327+0.3062j,  0.3066-0.3730j,  0.2004+0.1838j, -0.0071+0.1786j,
+        -0.3819+0.0398j,  0.0359-0.3821j,  0.2980+0.3502j,  0.2711-0.0236j,
+         0.1578+0.3639j, -0.5578+0.0163j, -0.1472-0.4778j,  0.0320+0.3856j,
+        -0.4999-0.3373j, -0.3763+0.3134j,  0.2907-0.0030j, -0.6483+0.2401j,
+        -0.6001-0.5386j,  0.1318-0.2261j,  0.0509+0.1641j, -0.0354-0.5826j,
+        -0.2058+0.1956j,  0.1199-0.1430j,  0.3966-0.1519j, -0.2044+0.0541j],
+       device='cuda:0')
+refer_dest: tensor([-0.4757+0.4686j, -0.4100+0.1932j, -0.3117-0.1137j, -0.3521+0.5697j,
+        -0.2350-0.0270j,  0.0190+0.3076j,  0.2636-0.2927j, -0.4271-0.1673j,
+         0.4906-0.2528j, -0.5430+0.0288j,  0.0880-0.3138j, -0.1577+0.4090j,
+         0.1933-0.2128j,  0.3825+0.3443j,  0.2067-0.1776j,  0.0854+0.2338j,
+        -0.4547-0.0501j, -0.5442-0.0318j,  0.0594-0.4921j,  0.3166-0.4102j,
+        -0.1831+0.5689j, -0.2220-0.1756j, -0.5405-0.1095j, -0.0986-0.0744j,
+        -0.1695+0.2688j, -0.3015+0.1306j, -0.4316+0.2048j,  0.1617+0.0189j,
+        -0.5052+0.0922j,  0.2821+0.0849j, -0.6186+0.1107j, -0.5491+0.0361j,
+        -0.1712-0.3173j, -0.1082-0.2229j, -0.4269-0.3831j,  0.1661+0.0836j,
+         0.2335-0.4797j, -0.2126+0.1176j, -0.4905-0.0503j, -0.3016+0.5042j,
+         0.1344+0.4843j, -0.1792+0.3096j,  0.2004+0.0392j,  0.4559-0.1863j,
+         0.0850-0.1947j,  0.2637-0.1034j,  0.2645+0.3244j,  0.0646+0.3901j,
+         0.4572+0.2090j, -0.3626+0.5244j, -0.0330+0.0557j, -0.2631+0.5198j,
+         0.0515-0.4146j,  0.1561+0.4858j,  0.3487-0.2339j, -0.4238+0.0121j,
+        -0.2270+0.1319j, -0.2856-0.1958j,  0.2605-0.3646j, -0.4100+0.3905j,
+         0.3279+0.1386j, -0.3818+0.0240j, -0.1681-0.1737j, -0.3042-0.3312j,
+        -0.1502+0.5533j, -0.2757+0.2808j, -0.1794+0.4112j, -0.5555-0.4033j,
+        -0.4157+0.2885j,  0.2001-0.1175j, -0.2215+0.0995j, -0.4493-0.3712j,
+         0.2648-0.4451j, -0.3220+0.0604j,  0.0837+0.3025j, -0.1268+0.3281j,
+        -0.3327+0.3062j,  0.3066-0.3730j,  0.2004+0.1838j, -0.0071+0.1786j,
+        -0.3819+0.0398j,  0.0359-0.3821j,  0.2980+0.3502j,  0.2711-0.0236j,
+         0.1578+0.3639j, -0.5578+0.0163j, -0.1472-0.4778j,  0.0320+0.3856j,
+        -0.4999-0.3373j, -0.3763+0.3134j,  0.2907-0.0030j, -0.6483+0.2401j,
+        -0.6001-0.5386j,  0.1318-0.2261j,  0.0509+0.1641j, -0.0354-0.5826j,
+        -0.2058+0.1956j,  0.1199-0.1430j,  0.3966-0.1519j, -0.2044+0.0541j],
+       device='cuda:0')
+Difference: 2.2492809399394275e-07
+tensor([94571353850304, 94571506836464, 94571515012832, 94571579312064,
+                     0,              0,              0,              0,
+                     0,              0])
+qcu_dest: tensor([-0.4757+0.4686j, -0.4100+0.1932j, -0.3117-0.1137j, -0.3521+0.5697j,
+        -0.2350-0.0270j,  0.0190+0.3076j,  0.2636-0.2927j, -0.4271-0.1673j,
+         0.4906-0.2528j, -0.5430+0.0288j,  0.0880-0.3138j, -0.1577+0.4090j,
+         0.1933-0.2128j,  0.3825+0.3443j,  0.2067-0.1776j,  0.0854+0.2338j,
+        -0.4547-0.0501j, -0.5442-0.0318j,  0.0594-0.4921j,  0.3166-0.4102j,
+        -0.1831+0.5689j, -0.2220-0.1756j, -0.5405-0.1095j, -0.0986-0.0744j,
+        -0.1695+0.2688j, -0.3015+0.1306j, -0.4316+0.2048j,  0.1617+0.0189j,
+        -0.5052+0.0922j,  0.2821+0.0849j, -0.6186+0.1107j, -0.5491+0.0361j,
+        -0.1712-0.3173j, -0.1082-0.2229j, -0.4269-0.3831j,  0.1661+0.0836j,
+         0.2335-0.4797j, -0.2126+0.1176j, -0.4905-0.0503j, -0.3016+0.5042j,
+         0.1344+0.4843j, -0.1792+0.3096j,  0.2004+0.0392j,  0.4559-0.1863j,
+         0.0850-0.1947j,  0.2637-0.1034j,  0.2645+0.3244j,  0.0646+0.3901j,
+         0.4572+0.2090j, -0.3626+0.5244j, -0.0330+0.0557j, -0.2631+0.5198j,
+         0.0515-0.4146j,  0.1561+0.4858j,  0.3487-0.2339j, -0.4238+0.0121j,
+        -0.2270+0.1319j, -0.2856-0.1958j,  0.2605-0.3646j, -0.4100+0.3905j,
+         0.3279+0.1386j, -0.3818+0.0240j, -0.1681-0.1737j, -0.3042-0.3312j,
+        -0.1502+0.5533j, -0.2757+0.2808j, -0.1794+0.4112j, -0.5555-0.4033j,
+        -0.4157+0.2885j,  0.2001-0.1175j, -0.2215+0.0995j, -0.4493-0.3712j,
+         0.2648-0.4451j, -0.3220+0.0604j,  0.0837+0.3025j, -0.1268+0.3281j,
+        -0.3327+0.3062j,  0.3066-0.3730j,  0.2004+0.1838j, -0.0071+0.1786j,
+        -0.3819+0.0398j,  0.0359-0.3821j,  0.2980+0.3502j,  0.2711-0.0236j,
+         0.1578+0.3639j, -0.5578+0.0163j, -0.1472-0.4778j,  0.0320+0.3856j,
+        -0.4999-0.3373j, -0.3763+0.3134j,  0.2907-0.0030j, -0.6483+0.2401j,
+        -0.6001-0.5386j,  0.1318-0.2261j,  0.0509+0.1641j, -0.0354-0.5826j,
+        -0.2058+0.1956j,  0.1199-0.1430j,  0.3966-0.1519j, -0.2044+0.0541j],
+       device='cuda:0')
+refer_dest: tensor([-0.4757+0.4686j, -0.4100+0.1932j, -0.3117-0.1137j, -0.3521+0.5697j,
+        -0.2350-0.0270j,  0.0190+0.3076j,  0.2636-0.2927j, -0.4271-0.1673j,
+         0.4906-0.2528j, -0.5430+0.0288j,  0.0880-0.3138j, -0.1577+0.4090j,
+         0.1933-0.2128j,  0.3825+0.3443j,  0.2067-0.1776j,  0.0854+0.2338j,
+        -0.4547-0.0501j, -0.5442-0.0318j,  0.0594-0.4921j,  0.3166-0.4102j,
+        -0.1831+0.5689j, -0.2220-0.1756j, -0.5405-0.1095j, -0.0986-0.0744j,
+        -0.1695+0.2688j, -0.3015+0.1306j, -0.4316+0.2048j,  0.1617+0.0189j,
+        -0.5052+0.0922j,  0.2821+0.0849j, -0.6186+0.1107j, -0.5491+0.0361j,
+        -0.1712-0.3173j, -0.1082-0.2229j, -0.4269-0.3831j,  0.1661+0.0836j,
+         0.2335-0.4797j, -0.2126+0.1176j, -0.4905-0.0503j, -0.3016+0.5042j,
+         0.1344+0.4843j, -0.1792+0.3096j,  0.2004+0.0392j,  0.4559-0.1863j,
+         0.0850-0.1947j,  0.2637-0.1034j,  0.2645+0.3244j,  0.0646+0.3901j,
+         0.4572+0.2090j, -0.3626+0.5244j, -0.0330+0.0557j, -0.2631+0.5198j,
+         0.0515-0.4146j,  0.1561+0.4858j,  0.3487-0.2339j, -0.4238+0.0121j,
+        -0.2270+0.1319j, -0.2856-0.1958j,  0.2605-0.3646j, -0.4100+0.3905j,
+         0.3279+0.1386j, -0.3818+0.0240j, -0.1681-0.1737j, -0.3042-0.3312j,
+        -0.1502+0.5533j, -0.2757+0.2808j, -0.1794+0.4112j, -0.5555-0.4033j,
+        -0.4157+0.2885j,  0.2001-0.1175j, -0.2215+0.0995j, -0.4493-0.3712j,
+         0.2648-0.4451j, -0.3220+0.0604j,  0.0837+0.3025j, -0.1268+0.3281j,
+        -0.3327+0.3062j,  0.3066-0.3730j,  0.2004+0.1838j, -0.0071+0.1786j,
+        -0.3819+0.0398j,  0.0359-0.3821j,  0.2980+0.3502j,  0.2711-0.0236j,
+         0.1578+0.3639j, -0.5578+0.0163j, -0.1472-0.4778j,  0.0320+0.3856j,
+        -0.4999-0.3373j, -0.3763+0.3134j,  0.2907-0.0030j, -0.6483+0.2401j,
+        -0.6001-0.5386j,  0.1318-0.2261j,  0.0509+0.1641j, -0.0354-0.5826j,
+        -0.2058+0.1956j,  0.1199-0.1430j,  0.3966-0.1519j, -0.2044+0.0541j],
+       device='cuda:0')
+Difference: 2.2492809399394275e-07
+gauge_eo.is_contiguous(): True
+fermion_in_eo.is_contiguous(): True
+fermion_in_out.is_contiguous(): True
+qcu_src.is_contiguous(): True
+qcu_dest.is_contiguous(): True
