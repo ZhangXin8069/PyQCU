@@ -57,7 +57,7 @@ def give_wilson(src: torch.Tensor,
         # Combine terms and subtract from dest
         hopping = term1 + term2
         if u_0 is not None and kappa is not None:
-            _ = (kappa/u_0)
+            _ = float(kappa/u_0)
         else:
             _ = 1.0
         dest -= _ * hopping
@@ -135,7 +135,7 @@ def give_wilson_eo(
         # Combine terms and subtract from dest_e
         hopping = term1 + term2
         if u_0 is not None and kappa is not None:
-            _ = (kappa/u_0)
+            _ = float(kappa/u_0)
         else:
             _ = 1.0
         dest_e -= _ * hopping
@@ -213,7 +213,7 @@ def give_wilson_oe(
         # Combine terms and subtract from dest_e
         hopping = term1 + term2
         if u_0 is not None and kappa is not None:
-            _ = (kappa/u_0)
+            _ = float(kappa/u_0)
         else:
             _ = 1.0
         dest_o -= _ * hopping
@@ -237,7 +237,7 @@ def give_hopping_plus(ward: int, U: torch.Tensor, kappa: Optional[torch.Tensor] 
         print(f"PYQCU::DSLASH::WILSON:\n give_hopping_{ward_key}_plus......")
     U_mu = U[..., ward, :, :, :, :]
     if u_0 is not None and kappa is not None:
-        _ = (kappa/u_0)
+        _ = float(kappa/u_0)
     else:
         _ = 1.0
     return - _ * _torch.einsum(
@@ -261,7 +261,7 @@ def give_hopping_minus(ward: int, U: torch.Tensor, U_head: Optional[torch.Tensor
         U_dag_minus[tools.slice_dim(dims_num=6, ward=ward, point=0)
                     ] = U_head_dag_mu.clone()
     if u_0 is not None and kappa is not None:
-        _ = (kappa/u_0)
+        _ = float(kappa/u_0)
     else:
         _ = 1.0
     return - _ * _torch.einsum(
