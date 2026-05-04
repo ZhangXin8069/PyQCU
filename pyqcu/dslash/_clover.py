@@ -252,7 +252,11 @@ def make_clover(U: torch.Tensor, kappa: Optional[torch.Tensor] = torch.Tensor([0
             'Ss,Ccxyzt->SCscxyzt', sigma, F)
         # Make Clover term
         if u_0 is not None and kappa is not None:
-            clover += -0.125/u_0*kappa*sigmaF
+            _ = float(kappa/u_0)
+        else:
+            _ = 1.0
+        # clover += -0.125/u_0*kappa*sigmaF
+        clover += -0.125*_*sigmaF
         if verbose:
             print(
                 f"PYQCU::DSLASH::CLOVER:\n sigmaF term norm: {_torch.norm(sigmaF).item()}")
