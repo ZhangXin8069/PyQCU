@@ -130,4 +130,4 @@ def applyCloverBistabCgDslashQcu(_fermion_out, _fermion_in, _gauge, _clover_ee, 
     clover_oo_inv = _clover_oo_inv.contiguous().data_ptr()
     set_ptrs = _set_ptrs.contiguous().data_ptr()
     params = _params.contiguous().data_ptr()
-    qcu.applyCloverBistabCgQcu(fermion_out, fermion_in, gauge, clover_ee, clover_oo, clover_ee_inv, clover_oo_inv, set_ptrs, params)
+    qcu.applyCloverBistabCgDslashQcu(fermion_out, fermion_in, gauge, clover_ee, clover_oo, clover_ee_inv, clover_oo_inv, set_ptrs, params)
