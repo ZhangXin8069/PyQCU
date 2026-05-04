@@ -104,7 +104,7 @@ print('Difference:', tools.norm(refer_clover_term -
       qcu_clover_term)/tools.norm(qcu_clover_term))
 params[define._VERBOSE_] = 1
 params[define._SET_INDEX_] += 1
-params[define._SET_PLAN_] = 2
+params[define._SET_PLAN_] = 1
 params[define._PARITY_] = 0
 qcu.applyInitQcu(set_ptrs, params, argv)
 for i in range(10):
@@ -123,3 +123,7 @@ print("fermion_in_eo.is_contiguous():", fermion_in_eo.is_contiguous())
 print("fermion_in_out.is_contiguous():", fermion_out_eo.is_contiguous())
 print("qcu_src.is_contiguous():", qcu_src.is_contiguous())
 print("qcu_dest.is_contiguous():", qcu_dest.is_contiguous())
+
+
+
+
