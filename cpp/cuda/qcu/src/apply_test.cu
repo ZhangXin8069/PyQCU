@@ -17,9 +17,6 @@ void testWilsonDslashQcu(long long _fermion_out, long long _fermion_in,
     // define for test_wilson_dslash
     LatticeSet<float> *set_ptr = static_cast<LatticeSet<float> *>(
         (void *)(static_cast<long long *>(set_ptrs)[set_index]));
-    // dptzyxcc2ccdptzyx<float>(gauge, &_set);
-    // tzyxsc2sctzyx<float>(fermion_in, &_set);
-    // tzyxsc2sctzyx<float>(fermion_out, &_set);
     auto start = std::chrono::high_resolution_clock::now();
     wilson_dslash<float><<<set_ptr->gridDim, set_ptr->blockDim>>>(
         gauge, fermion_in, fermion_out, set_ptr->device_params);
@@ -32,16 +29,10 @@ void testWilsonDslashQcu(long long _fermion_out, long long _fermion_in,
     printf("wilson dslash total time: (without malloc free memcpy) :%.9lf "
            "sec\n",
            double(duration) / 1e9);
-    // ccdptzyx2dptzyxcc<float>(gauge, &_set);
-    // sctzyx2tzyxsc<float>(fermion_in, &_set);
-    // sctzyx2tzyxsc<float>(fermion_out, &_set);
   } else if (data_type == _LAT_C128_) {
     // define for test_wilson_dslash
     LatticeSet<double> *set_ptr = static_cast<LatticeSet<double> *>(
         (void *)(static_cast<long long *>(set_ptrs)[set_index]));
-    // dptzyxcc2ccdptzyx<double>(gauge, &_set);
-    // tzyxsc2sctzyx<double>(fermion_in, &_set);
-    // tzyxsc2sctzyx<double>(fermion_out, &_set);
     auto start = std::chrono::high_resolution_clock::now();
     wilson_dslash<double><<<set_ptr->gridDim, set_ptr->blockDim>>>(
         gauge, fermion_in, fermion_out, set_ptr->device_params);
@@ -54,9 +45,6 @@ void testWilsonDslashQcu(long long _fermion_out, long long _fermion_in,
     printf("wilson dslash total time: (without malloc free memcpy) :%.9lf "
            "sec\n",
            double(duration) / 1e9);
-    // ccdptzyx2dptzyxcc<double>(gauge, &_set);
-    // sctzyx2tzyxsc<double>(fermion_in, &_set);
-    // sctzyx2tzyxsc<double>(fermion_out, &_set);
   } else {
     printf("data_type error\n");
   }
@@ -77,9 +65,6 @@ void testCloverDslashQcu(long long _fermion_out, long long _fermion_in,
     // define for test_clover_dslash
     LatticeSet<float> *set_ptr = static_cast<LatticeSet<float> *>(
         (void *)(static_cast<long long *>(set_ptrs)[set_index]));
-    // dptzyxcc2ccdptzyx<float>(gauge, &_set);
-    // tzyxsc2sctzyx<float>(fermion_in, &_set);
-    // tzyxsc2sctzyx<float>(fermion_out, &_set);
     LatticeWilsonDslash<float> _wilson_dslash;
     _wilson_dslash.give(set_ptr);
     void *clover;
@@ -146,9 +131,6 @@ void testCloverDslashQcu(long long _fermion_out, long long _fermion_in,
           "give clover total time: (without malloc free memcpy) :%.9lf sec\n ",
           double(duration) / 1e9);
     }
-    // ccdptzyx2dptzyxcc<float>(gauge, &_set);
-    // sctzyx2tzyxsc<float>(fermion_in, &_set);
-    // sctzyx2tzyxsc<float>(fermion_out, &_set);
     // free
     checkCudaErrors(cudaFreeAsync(clover, set_ptr->stream));
     checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
@@ -156,9 +138,6 @@ void testCloverDslashQcu(long long _fermion_out, long long _fermion_in,
     // define for test_clover_dslash
     LatticeSet<double> *set_ptr = static_cast<LatticeSet<double> *>(
         (void *)(static_cast<long long *>(set_ptrs)[set_index]));
-    // dptzyxcc2ccdptzyx<double>(gauge, &_set);
-    // tzyxsc2sctzyx<double>(fermion_in, &_set);
-    // tzyxsc2sctzyx<double>(fermion_out, &_set);
     LatticeWilsonDslash<double> _wilson_dslash;
     _wilson_dslash.give(set_ptr);
     void *clover;
@@ -225,9 +204,6 @@ void testCloverDslashQcu(long long _fermion_out, long long _fermion_in,
           "give clover total time: (without malloc free memcpy) :%.9lf sec\n ",
           double(duration) / 1e9);
     }
-    // ccdptzyx2dptzyxcc<double>(gauge, &_set);
-    // sctzyx2tzyxsc<double>(fermion_in, &_set);
-    // sctzyx2tzyxsc<double>(fermion_out, &_set);
     // free
     checkCudaErrors(cudaFreeAsync(clover, set_ptr->stream));
     checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
