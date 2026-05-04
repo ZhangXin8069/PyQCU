@@ -94,9 +94,9 @@ qcu.applyInitQcu(set_ptrs, params, argv)
 for i in range(10):
     fermion_out_eo = torch.zeros_like(fermion_out_eo)
     fermion_in_e = fermion_in_eo[0]
-    fermion_in_o = fermion_in_eo[0]
+    fermion_in_o = fermion_in_eo[1]
     fermion_out_e = fermion_out_eo[0]
-    fermion_out_o = fermion_out_eo[0]
+    fermion_out_o = fermion_out_eo[1]
     qcu.applyCloverBistabCgDslashQcu(fermion_out_o, fermion_in_o, gauge_eo,
                                      clover_ee, clover_oo, clover_ee_inv, clover_oo_inv,  set_ptrs, params)
     print(set_ptrs)
