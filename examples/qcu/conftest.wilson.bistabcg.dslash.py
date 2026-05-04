@@ -86,8 +86,7 @@ print('qcu_clover_term:', qcu_clover_term.flatten()[:100])
 print('refer_clover_term:', refer_clover_term.flatten()[:100])
 print('Difference:', tools.norm(refer_clover_term -
       qcu_clover_term)/tools.norm(qcu_clover_term))
-refer_clover_term = dslash.add_I(
-    clover_term=torch.zeros_like(refer_clover_term))
+refer_clover_term = clover_term=torch.zeros_like(refer_clover_term)
 params[define._VERBOSE_] = 1
 params[define._SET_INDEX_] += 1
 params[define._SET_PLAN_] = 1
