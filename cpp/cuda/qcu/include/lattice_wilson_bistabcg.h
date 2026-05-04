@@ -145,13 +145,7 @@ template <typename T> struct LatticeWilsonBistabCg {
     __init();
     _run_init();
   }
-  void init(void *_gauge) {
-    _init();
-    if_input = 0;
-    gauge = _gauge;
-    __init();
-    _run_init();
-  }
+  void init(void *_gauge) { gauge = _gauge; }
   void _dot_mpi(void *vec0, void *vec1, const int vals_index,
                 const int stream_index) {
     // dest(val) = _dot(A,B)
