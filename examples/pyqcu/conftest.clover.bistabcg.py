@@ -103,7 +103,8 @@ for i in range(10):
         qcu.applyCloverBistabCgDslashQcu(dest_o, src_o, gauge_eo,
                                          clover_ee, clover_oo, clover_ee_inv, clover_oo_inv,  set_ptrs, params)
         return dest_o
-    fermion_out_o = solver.bistabcg(b=fermion_in_o, matvec=matvec)
+    fermion_out_o = solver.bistabcg(b=operator.give_b_parity(
+        b_e=fermion_in_e, b_o=fermion_in_o), matvec=matvec)
     print(set_ptrs)
     qcu_dest = fermion_out_o.clone()
     operator = dslash.operator(
