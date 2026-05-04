@@ -53,7 +53,7 @@ def applyCloverDslashQcu(_fermion_out: torch.Tensor = torch.Tensor([0.0]).to(dev
 def applyWilsonBistabCgQcu(_fermion_out: torch.Tensor = torch.Tensor([0.0]).to(device=torch.device('cuda')), _fermion_in: torch.Tensor = torch.Tensor([0.0]).to(device=torch.device('cuda')), _gauge: torch.Tensor = torch.Tensor([0.0]).to(device=torch.device('cuda')), _set_ptrs: torch.Tensor = torch.Tensor([0]*define._SET_PTRS_SIZE_).to(dtype=torch.int64, device=torch.device('cpu')), _params: torch.Tensor = torch.Tensor([0]*define._PARAMS_SIZE_).to(dtype=torch.int32, device=torch.device('cpu'))) -> None:
     """
     # follow above, most values in params should be set.
-    even-odd, parity in params should be set to 0 or 1, fermion_out:[pscxyzt], fermion_in:[scxyzt] in [pscxyzt], gauge:[pccdxyzt].
+    even-odd, parity in params should be set to 0 or 1, fermion_out:[pscxyzt], fermion_in:[pscxyzt], gauge:[pccdxyzt].
     """
     ...
 
@@ -69,7 +69,7 @@ def applyWilsonBistabCgDslashQcu(_fermion_out: torch.Tensor = torch.Tensor([0.0]
 def applyWilsonCgQcu(_fermion_out: torch.Tensor = torch.Tensor([0.0]).to(device=torch.device('cuda')), _fermion_in: torch.Tensor = torch.Tensor([0.0]).to(device=torch.device('cuda')), _gauge: torch.Tensor = torch.Tensor([0.0]).to(device=torch.device('cuda')), _set_ptrs: torch.Tensor = torch.Tensor([0]*define._SET_PTRS_SIZE_).to(dtype=torch.int64, device=torch.device('cpu')), _params: torch.Tensor = torch.Tensor([0]*define._PARAMS_SIZE_).to(dtype=torch.int32, device=torch.device('cpu'))) -> None:
     """
     # follow above, most values in params should be set.
-    even-odd, parity in params should be set to 0 or 1, fermion_out:[pscxyzt], fermion_in:[scxyzt] in [pscxyzt], gauge:[pccdxyzt].
+    even-odd, parity in params should be set to 0 or 1, fermion_out:[pscxyzt], fermion_in:[pscxyzt], gauge:[pccdxyzt].
     """
     ...
 
@@ -121,6 +121,13 @@ def applyGaussGaugeQcu(_gauge: torch.Tensor = torch.Tensor([0.0]).to(device=torc
 
 
 def applyCloverBistabCgQcu(_fermion_out: torch.Tensor = torch.Tensor([0.0]).to(device=torch.device('cuda')), _fermion_in: torch.Tensor = torch.Tensor([0.0]).to(device=torch.device('cuda')), _gauge: torch.Tensor = torch.Tensor([0.0]).to(device=torch.device('cuda')), _clover_ee: torch.Tensor = torch.Tensor([0.0]).to(device=torch.device('cuda')), _clover_oo: torch.Tensor = torch.Tensor([0.0]).to(device=torch.device('cuda')), _clover_ee_inv: torch.Tensor = torch.Tensor([0.0]).to(device=torch.device('cuda')), _clover_oo_inv: torch.Tensor = torch.Tensor([0.0]).to(device=torch.device('cuda')), _set_ptrs: torch.Tensor = torch.Tensor([0]*define._SET_PTRS_SIZE_).to(dtype=torch.int64, device=torch.device('cpu')), _params: torch.Tensor = torch.Tensor([0]*define._PARAMS_SIZE_).to(dtype=torch.int32, device=torch.device('cpu'))) -> None:
+    """
+    # follow above, most values in params should be set.
+    even-odd, parity in params should be set to 0 or 1, fermion_out:[pscxyzt], fermion_in:[pscxyzt], gauge:[pccdxyzt], clover_ee:[scscxyzt] in [pscscxyzt], clover_oo:[scscxyzt] in [pscscxyzt], clover_ee_inv:[scscxyzt] in [pscscxyzt], clover_oo_inv:[scscxyzt] in [pscscxyzt].
+    """
+    ...
+
+def applyCloverBistabCgDslashQcu(_fermion_out: torch.Tensor = torch.Tensor([0.0]).to(device=torch.device('cuda')), _fermion_in: torch.Tensor = torch.Tensor([0.0]).to(device=torch.device('cuda')), _gauge: torch.Tensor = torch.Tensor([0.0]).to(device=torch.device('cuda')), _clover_ee: torch.Tensor = torch.Tensor([0.0]).to(device=torch.device('cuda')), _clover_oo: torch.Tensor = torch.Tensor([0.0]).to(device=torch.device('cuda')), _clover_ee_inv: torch.Tensor = torch.Tensor([0.0]).to(device=torch.device('cuda')), _clover_oo_inv: torch.Tensor = torch.Tensor([0.0]).to(device=torch.device('cuda')), _set_ptrs: torch.Tensor = torch.Tensor([0]*define._SET_PTRS_SIZE_).to(dtype=torch.int64, device=torch.device('cpu')), _params: torch.Tensor = torch.Tensor([0]*define._PARAMS_SIZE_).to(dtype=torch.int32, device=torch.device('cpu'))) -> None:
     """
     # follow above, most values in params should be set.
     even-odd, parity in params should be set to 0 or 1, fermion_out:[scxyzt] in [pscxyzt], fermion_in:[scxyzt] in [pscxyzt], gauge:[pccdxyzt].
