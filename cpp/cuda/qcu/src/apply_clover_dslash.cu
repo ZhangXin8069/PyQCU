@@ -17,9 +17,6 @@ void applyCloverDslashQcu(long long _fermion_out, long long _fermion_in,
     LatticeSet<float> *set_ptr =
         static_cast<LatticeSet<float> *>((void *)(static_cast<long long *>(
             set_ptrs)[set_index])); // define for apply_clover_dslash
-    // dptzyxcc2ccdptzyx<float>(gauge, &_set);
-    // tzyxsc2sctzyx<float>(fermion_in, &_set);
-    // tzyxsc2sctzyx<float>(fermion_out, &_set);
     LatticeWilsonDslash<float> _wilson_dslash;
     LatticeCloverDslash<float> _clover_dslash;
     _wilson_dslash.give(set_ptr);
@@ -60,17 +57,11 @@ void applyCloverDslashQcu(long long _fermion_out, long long _fermion_in,
         _clover_dslash.give(fermion_out);
       }
     }
-    // ccdptzyx2dptzyxcc<float>(gauge, &_set);
-    // sctzyx2tzyxsc<float>(fermion_in, &_set);
-    // sctzyx2tzyxsc<float>(fermion_out, &_set);
     _clover_dslash.end();
   } else if (data_type == _LAT_C128_) {
     LatticeSet<double> *set_ptr =
         static_cast<LatticeSet<double> *>((void *)(static_cast<long long *>(
             set_ptrs)[set_index])); // define for apply_clover_dslash
-    // dptzyxcc2ccdptzyx<double>(gauge, &_set);
-    // tzyxsc2sctzyx<double>(fermion_in, &_set);
-    // tzyxsc2sctzyx<double>(fermion_out, &_set);
     LatticeWilsonDslash<double> _wilson_dslash;
     LatticeCloverDslash<double> _clover_dslash;
     _wilson_dslash.give(set_ptr);
@@ -111,9 +102,6 @@ void applyCloverDslashQcu(long long _fermion_out, long long _fermion_in,
         _clover_dslash.give(fermion_out);
       }
     }
-    // ccdptzyx2dptzyxcc<double>(gauge, &_set);
-    // sctzyx2tzyxsc<double>(fermion_in, &_set);
-    // sctzyx2tzyxsc<double>(fermion_out, &_set);
     _clover_dslash.end();
   } else {
     printf("data_type error\n");

@@ -59,8 +59,8 @@ namespace qcu {
 #define _SET_PLAN_N_2_ -2 // just for laplacian
 #define _SET_PLAN_N_1_ -1 // just for gauss gauge
 #define _SET_PLAN0_ 0     // for wilson dslash
-#define _SET_PLAN1_ 1     // just for bistabcg and cg
-#define _SET_PLAN2_ 2     // for clover dslash
+#define _SET_PLAN1_ 1 // just for bistabcg and cg and the whole dslash for them
+#define _SET_PLAN2_ 2 // for clover dslash
 #define _MG_NUM_LEVEL_ 17
 #define _MG_LEVEL_INDEX_ 18
 #define _MG_LEVEL1_E_ 19
