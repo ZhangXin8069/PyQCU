@@ -14,6 +14,7 @@ template <typename T> struct LatticeSet {
   int lat_3dim_Half_SC[_3DIM_];
   int lat_3dim_SC[_3DIM_];
   int lat_4dim_SC;
+  int lat_4dim_SCSC;
   int lat_4dim_DCC;
   dim3 gridDim_3dim[_3DIM_];
   dim3 gridDim_2dim[_2DIM_];
@@ -152,6 +153,7 @@ template <typename T> struct LatticeSet {
         lat_4dim = host_params[_LAT_XYZT_];
         lat_4dim_C = lat_4dim * _LAT_C_;
         lat_4dim_SC = lat_4dim * _LAT_SC_;
+        lat_4dim_SCSC = lat_4dim * _LAT_SCSC_;
         lat_4dim_DCC = lat_4dim * _LAT_CCD_;
         gridDim = lat_4dim / _BLOCK_SIZE_;
         for (int i = 0; i < _DIM_; i++) {
