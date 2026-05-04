@@ -2,6 +2,7 @@
 #define _LATTICE_SET_H
 #pragma once
 #include "./define.h"
+#include "./lattice_cuda.h"
 namespace qcu {
 template <typename T>
 __global__ void give_param(void *device_param, int vals_index, int val);
@@ -56,6 +57,10 @@ template <typename T> struct LatticeSet {
   void *device_params_odd_no_dag;
   void *device_params_even_dag;
   void *device_params_odd_dag;
+  void *device_vec0;
+  void *device_vec1;
+  void *device_vec2;
+  void *device_vals;
   void give(void *_params, void *_argv) {
     for (int i = 0; i < _PARAMS_SIZE_; i++) {
       host_params[i] = static_cast<int *>(_params)[i];
@@ -374,13 +379,27 @@ template <typename T> struct LatticeSet {
                              lat_3dim_Half_SC[i] * sizeof(LatticeComplex<T>)));
         }
       }
-      if (host_params[_SET_PLAN_] >= _SET_PLAN1_) // just for bistabcg and cg
+      if (host_params[_SET_PLAN_] >=
+          _SET_PLAN1_) // just for bistabcg and cg and the whole dslash for them
       {
         for (int i = 0; i < _DIM_; i++) { // give cuda setup
           CUBLAS_CHECK(cublasCreate(&cublasHs[i]));
           checkCudaErrors(
               cudaStreamCreateWithFlags(&streams[i], cudaStreamNonBlocking));
           CUBLAS_CHECK(cublasSetStream(cublasHs[i], streams[i]));
+        }
+        {
+          checkCudaErrors(cudaMallocAsync(
+              &device_vec0, lat_4dim_SC * sizeof(LatticeComplex<T>), stream));
+          checkCudaErrors(cudaMallocAsync(
+              &device_vec1, lat_4dim_SC * sizeof(LatticeComplex<T>), stream));
+          checkCudaErrors(cudaMallocAsync(
+              &device_vec2, lat_4dim_SC * sizeof(LatticeComplex<T>), stream));
+          checkCudaErrors(cudaMallocAsync(
+              &device_vals, _vals_size_ * sizeof(LatticeComplex<T>), stream));
+          give_1custom<T>
+              <<<1, 1, 0, stream>>>(device_vals, _lat_4dim_, T(lat_4dim), 0.0);
+          checkCudaErrors(cudaStreamSynchronize(stream));
         }
       }
       if (host_params[_SET_PLAN_] >= _SET_PLAN2_) // for clover dslash
