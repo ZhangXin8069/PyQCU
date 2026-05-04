@@ -2,10 +2,10 @@ import torch
 from pyqcu import tools, dslash, lattice
 from pyqcu.cuda import qcu, define
 from pyqcu.cuda.define import params, argv, set_ptrs
-params[define._LAT_X_] = 4*4
-params[define._LAT_Y_] = 4*4
-params[define._LAT_Z_] = 4*4
-params[define._LAT_T_] = 8*4
+params[define._LAT_X_] = 4*1
+params[define._LAT_Y_] = 4*1
+params[define._LAT_Z_] = 4*1
+params[define._LAT_T_] = 8*1
 params[define._LAT_XYZT_] = params[define._LAT_X_] * \
     params[define._LAT_Y_]*params[define._LAT_Z_]*params[define._LAT_T_]
 params[define._GRID_X_], params[define._GRID_Y_], params[define._GRID_Z_], params[
@@ -103,7 +103,7 @@ for i in range(10):
     qcu_dest = fermion_out_o.clone()
     operator = dslash.operator(
         U=qcu_U, clover_term=refer_clover_term, kappa=1 / (2 * argv[define._MASS_] + 8), verbose=True, support_parity=True)
-    refer_dest = operator.matvec_parity(src_o=fermion_in_o)
+    refer_dest = operator.matvec_parity4fermion(fermion_o=fermion_in_o)
     print('qcu_dest:', qcu_dest.flatten()[:100])
     print('refer_dest:', refer_dest.flatten()[:100])
     print('Difference:', tools.norm(refer_dest-qcu_dest)/tools.norm(qcu_dest))
