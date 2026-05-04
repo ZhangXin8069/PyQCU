@@ -299,6 +299,9 @@ class operator:
     def matvec_parity(self, src_o: torch.Tensor) -> torch.Tensor:
         return self.matvec_oo(src_o=src_o)-self.matvec_oe(src_e=self.matvec_ee_inv(src_e=self.matvec_eo(src_o=src_o)))
 
+    def matvec_parity4fermion(self, fermion_o: torch.Tensor) -> torch.Tensor:
+        return self.matvec_parity(src_o=fermion_o.reshape([12]+list(fermion_o.shape)[2:])).reshape(fermion_o.shape)
+
     def give_b_parity(self, b_e: torch.Tensor, b_o: torch.Tensor) -> torch.Tensor:
         return -self.matvec_oe(src_e=self.matvec_ee_inv(src_e=b_e))+b_o
 
