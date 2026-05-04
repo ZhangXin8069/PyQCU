@@ -30,16 +30,16 @@ void applyCloversQcu(long long _clover, long long _clover_inv, long long _gauge,
       }
       {
         // make clover
-        _clover_dslash_inv.make_test(gauge);
-        // checkCudaErrors(
-        //     cudaStreamSynchronize(_clover_dslash_inv.set_ptr->stream));
-        // CUBLAS_CHECK(_cublasCopy<float>(
-        //     _clover_dslash_inv.set_ptr->cublasH,
-        //     _clover_dslash_inv.set_ptr->lat_4dim_SCSC * _REAL_IMAG_,
-        //     (float *)_clover_dslash.clover, 1,
-        //     (float *)_clover_dslash_inv.clover, 1));
-        // checkCudaErrors(
-        //     cudaStreamSynchronize(_clover_dslash_inv.set_ptr->stream));
+        // _clover_dslash_inv.make_test(gauge);
+        checkCudaErrors(
+            cudaStreamSynchronize(_clover_dslash_inv.set_ptr->stream));
+        CUBLAS_CHECK(_cublasCopy<float>(
+            _clover_dslash_inv.set_ptr->cublasH,
+            _clover_dslash_inv.set_ptr->lat_4dim_SCSC * _REAL_IMAG_,
+            (float *)_clover_dslash.clover, 1,
+            (float *)_clover_dslash_inv.clover, 1));
+        checkCudaErrors(
+            cudaStreamSynchronize(_clover_dslash_inv.set_ptr->stream));
       }
       {
         // inverse clover
@@ -52,7 +52,16 @@ void applyCloversQcu(long long _clover, long long _clover_inv, long long _gauge,
       }
       {
         // make clover
-        _clover_dslash_inv.make(gauge);
+        // _clover_dslash_inv.make(gauge);
+        checkCudaErrors(
+            cudaStreamSynchronize(_clover_dslash_inv.set_ptr->stream));
+        CUBLAS_CHECK(_cublasCopy<float>(
+            _clover_dslash_inv.set_ptr->cublasH,
+            _clover_dslash_inv.set_ptr->lat_4dim_SCSC * _REAL_IMAG_,
+            (float *)_clover_dslash.clover, 1,
+            (float *)_clover_dslash_inv.clover, 1));
+        checkCudaErrors(
+            cudaStreamSynchronize(_clover_dslash_inv.set_ptr->stream));
       }
       {
         // inverse clover
@@ -80,7 +89,16 @@ void applyCloversQcu(long long _clover, long long _clover_inv, long long _gauge,
       }
       {
         // make clover
-        _clover_dslash_inv.make_test(gauge);
+        // _clover_dslash_inv.make_test(gauge);
+        checkCudaErrors(
+            cudaStreamSynchronize(_clover_dslash_inv.set_ptr->stream));
+        CUBLAS_CHECK(_cublasCopy<double>(
+            _clover_dslash_inv.set_ptr->cublasH,
+            _clover_dslash_inv.set_ptr->lat_4dim_SCSC * _REAL_IMAG_,
+            (double *)_clover_dslash.clover, 1,
+            (double *)_clover_dslash_inv.clover, 1));
+        checkCudaErrors(
+            cudaStreamSynchronize(_clover_dslash_inv.set_ptr->stream));
       }
       {
         // inverse clover
@@ -93,7 +111,16 @@ void applyCloversQcu(long long _clover, long long _clover_inv, long long _gauge,
       }
       {
         // make clover
-        _clover_dslash_inv.make(gauge);
+        // _clover_dslash_inv.make(gauge);
+        checkCudaErrors(
+            cudaStreamSynchronize(_clover_dslash_inv.set_ptr->stream));
+        CUBLAS_CHECK(_cublasCopy<double>(
+            _clover_dslash_inv.set_ptr->cublasH,
+            _clover_dslash_inv.set_ptr->lat_4dim_SCSC * _REAL_IMAG_,
+            (double *)_clover_dslash.clover, 1,
+            (double *)_clover_dslash_inv.clover, 1));
+        checkCudaErrors(
+            cudaStreamSynchronize(_clover_dslash_inv.set_ptr->stream));
       }
       {
         // inverse clover
