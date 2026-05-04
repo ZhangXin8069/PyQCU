@@ -389,6 +389,7 @@ template <typename T> struct LatticeSet {
           CUBLAS_CHECK(cublasSetStream(cublasHs[i], streams[i]));
         }
         {
+          checkCudaErrors(cudaStreamSynchronize(stream));
           checkCudaErrors(cudaMallocAsync(
               &device_vec0, lat_4dim_SC * sizeof(LatticeComplex<T>), stream));
           checkCudaErrors(cudaMallocAsync(
@@ -547,6 +548,12 @@ template <typename T> struct LatticeSet {
           checkCudaErrors(cudaStreamSynchronize(streams[i]));
           CUBLAS_CHECK(cublasDestroy(cublasHs[i]));
           checkCudaErrors(cudaStreamDestroy(streams[i]));
+        }
+        {
+          checkCudaErrors(cudaFreeAsync(device_vec0, stream));
+          checkCudaErrors(cudaFreeAsync(device_vec1, stream));
+          checkCudaErrors(cudaFreeAsync(device_vec2, stream));
+          checkCudaErrors(cudaFreeAsync(device_vals, stream));
         }
       }
       if (host_params[_SET_PLAN_] >= _SET_PLAN2_) // for clover dslash
