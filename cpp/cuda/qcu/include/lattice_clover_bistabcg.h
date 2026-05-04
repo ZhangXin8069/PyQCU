@@ -180,6 +180,18 @@ template <typename T> struct LatticeCloverBistabCg {
     __init();
     _run_init();
   }
+  void init(void *_gauge, void *_clover_ee, void *_clover_oo,
+            void *_clover_ee_inv, void *_clover_oo_inv) {
+    gauge = _gauge;
+    clover_ee = _clover_ee;
+    clover_oo = _clover_oo;
+    clover_ee_inv = _clover_ee_inv;
+    clover_oo_inv = _clover_oo_inv;
+    clover_dslash_ee.init(clover_ee);
+    clover_dslash_oo.init(clover_oo);
+    clover_dslash_ee_inv.init(clover_ee_inv);
+    clover_dslash_oo_inv.init(clover_oo_inv);
+  }
   void _dot_mpi(void *vec0, void *vec1, const int vals_index,
                 const int stream_index) {
     // dest(val) = _dot(A,B)
