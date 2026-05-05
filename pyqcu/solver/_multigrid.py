@@ -10,16 +10,13 @@ from pyqcu.cuda import qcu, define
 
 
 class multigrid:
-    def __init__(self, dtype_list: List[torch.dtype], device_list: List[torch.device],  U: torch.Tensor, clover_term: torch.Tensor, kappa: Optional[torch.Tensor] = torch.Tensor([0.1]), u_0: Optional[torch.Tensor] = torch.Tensor([1.0]), gauge_eo: Optional[torch.Tensor] = None, clover_ee: Optional[torch.Tensor] = None, clover_oo: Optional[torch.Tensor] = None, clover_ee_inv: Optional[torch.Tensor] = None, clover_oo_inv: Optional[torch.Tensor] = None, min_size: int = 4, max_level: int = 4, mg_grid_size: List[int] = [2, 2, 2, 2], num_convergence_sample: int = 50, dof_list: List[int] = [12, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24], tol: float = 1e-6, max_iter: int = 1000, num_restart: int = 3, root: int = 0, support_parity: bool = False, verbose: bool = True):
+    def __init__(self, dtype_list: List[torch.dtype], device_list: List[torch.device],  U: torch.Tensor, clover_term: torch.Tensor, kappa: Optional[torch.Tensor] = torch.Tensor([0.1]), u_0: Optional[torch.Tensor] = torch.Tensor([1.0]), clover_ee_inv: Optional[torch.Tensor] = None, clover_oo_inv: Optional[torch.Tensor] = None, min_size: int = 4, max_level: int = 4, mg_grid_size: List[int] = [2, 2, 2, 2], num_convergence_sample: int = 50, dof_list: List[int] = [12, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24], tol: float = 1e-6, max_iter: int = 1000, num_restart: int = 5, root: int = 0, support_parity: bool = False, verbose: bool = True):
         self.comm = MPI.COMM_WORLD
         self.rank = self.comm.Get_rank()
         self.lat_size = list(U.shape[-4:])  # xyzt
         self.min_size = min_size
         self.max_level = max_level
-        self.kappa = kappa if kappa is not None else 0.1
-        self.gauge_eo = gauge_eo
-        self.clover_ee = clover_ee
-        self.clover_oo = clover_oo
+        self.kappa = kappa if kappa is not None else torch.Tensor([0.1])
         self.clover_ee_inv = clover_ee_inv
         self.clover_oo_inv = clover_oo_inv
         self.mass = (1/self.kappa - 8)/2  # just for plot......
@@ -28,7 +25,7 @@ class multigrid:
         self.max_iter = max_iter
         self.num_restart = num_restart
         self.root = root
-        self.with_cuda_qcu = True if self.gauge_eo is not None and self.clover_ee is not None and self.clover_oo is not None and self.clover_ee_inv is not None and self.clover_oo_inv is not None else False
+        self.with_cuda_qcu = True if self.clover_ee_inv is not None and self.clover_oo_inv is not None else False
         self.support_parity = support_parity
         self.verbose = verbose
         # Build grid list
@@ -55,7 +52,7 @@ class multigrid:
         for device in self.device_list:
             tools.set_device(device=device)
         self.op_list = [dslash.operator(U=U,
-                                        clover_term=clover_term, verbose=self.verbose, kappa=kappa, u_0=u_0, support_parity=support_parity if self.with_cuda_qcu is False else False)]
+                                        clover_term=clover_term, verbose=self.verbose, kappa=self.kappa, u_0=self.u_0, support_parity=self.support_parity, clover_ee_inv=self.clover_ee_inv, clover_oo_inv=self.clover_oo_inv,)]
         self.b = _torch.randn(size=[12]+self.lat_size,
                               dtype=self.dtype_list[0], device=self.device_list[0])
         self.x0 = _torch.randn(
@@ -91,7 +88,7 @@ class multigrid:
                 torch_dtype=self.dtype_list[0])
             params[define._SET_INDEX_] = 0
             params[define._SET_PLAN_] = 1
-            params[define._VERBOSE_] = 1
+            params[define._VERBOSE_] = 0
             params[define._SEED_] = 42
             argv = argv.to(dtype=define.dtype(
                 params[define._DATA_TYPE_]).to_real())
@@ -101,10 +98,16 @@ class multigrid:
             self.set_ptrs = set_ptrs.clone()
             self.params = params.clone()
             self.argv = argv.clone()
+            qcu.applyInitQcu(self.set_ptrs, self.params, self.argv)
+            self.gauge_eo = tools.oooxyzt2poooxyzt(
+                input_array=self.op_list[0].hopping.U)  # type: ignore
+            self.clover_ee = self.op_list[0].sitting.M_e
+            self.clover_oo = self.op_list[0].sitting.M_o
             self.fermion_in_eo = torch.zeros(size=[2, 4, 3]+define.lat_shape(params)).to(
                 dtype=define.dtype(params[define._DATA_TYPE_]), device=torch.device('cuda'))
             self.fermion_out_eo = torch.zeros(size=[2, 4, 3]+define.lat_shape(params)).to(
                 dtype=define.dtype(params[define._DATA_TYPE_]), device=torch.device('cuda'))
+            self.dest_o = self.fermion_out_eo[1]
 
         for i in range(1, len(self.lat_size_list)):
             _null_vecs = _torch.randn(size=[self.dof_list[i], self.dof_list[i-1]] +
@@ -121,8 +124,8 @@ class multigrid:
                     self.argv[define._ATOL_] = _tol
                     qcu.applyInitQcu(self.set_ptrs, self.params, self.argv)
                     qcu.applyCloverBistabCgQcu(self.fermion_out_eo, self.fermion_in_eo, self.gauge_eo, self.clover_ee,  # type: ignore
-                                               self.clover_oo, self.clover_ee_inv, self.clover_oo_inv,  set_ptrs, params)  # type: ignore
-                    return tools.poooxyzt2oooxyzt(input_array=self.fermion_out_eo)
+                                               self.clover_oo, self.clover_ee_inv, self.clover_oo_inv,  self.set_ptrs, self.params)  # type: ignore
+                    return tools.poooxyzt2oooxyzt(input_array=self.fermion_out_eo).reshape(b.shape)
                 bistabcg = _bistabcg
             else:
                 bistabcg = None
@@ -172,7 +175,15 @@ class multigrid:
             b_e = b_eo[0]
             b_o = b_eo[1]
             b = self.op_list[0].give_b_parity(b_e=b_e, b_o=b_o)
-            matvec = self.op_list[0].matvec_parity
+            if self.with_cuda_qcu is None:
+                matvec = self.op_list[0].matvec_parity
+            else:
+                def _matvec(src_o: torch.Tensor) -> torch.Tensor:
+                    self.params[define._SET_INDEX_] = 0
+                    qcu.applyCloverBistabCgDslashQcu(self.dest_o, src_o, self.gauge_eo,
+                                                     self.clover_ee, self.clover_oo, self.clover_ee_inv, self.clover_oo_inv,  self.set_ptrs, self.params)  # type: ignore
+                    return self.dest_o.reshape(src_o.shape)
+                matvec = _matvec
         x = torch.zeros_like(b)
         r = b - matvec(x)
         r_norm = tools.norm(r)

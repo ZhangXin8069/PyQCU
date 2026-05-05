@@ -7,7 +7,7 @@
 #include "./lattice_mpi.h"
 #include "./lattice_wilson_dslash.h"
 namespace qcu {
-#define PRINT_MULTI_GPU_CLOVER_BISTABCG
+// #define PRINT_MULTI_GPU_CLOVER_BISTABCG
 template <typename T> struct LatticeCloverBistabCg {
   LatticeSet<T> *set_ptr;
   cudaError_t err;
