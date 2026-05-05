@@ -135,7 +135,7 @@ print('Difference:', tools.norm(refer_clover_term -
 # print("pyqcu_src.is_contiguous():", pyqcu_src.is_contiguous())
 # print("pyqcu_dest.is_contiguous():", pyqcu_dest.is_contiguous())
 mg = solver.multigrid(dtype_list=[pyqcu_U.dtype]*10, device_list=[pyqcu_U.device]*10, U=pyqcu_U,
-                      clover_term=refer_clover_term, kappa=1 / (2 * argv[define._MASS_] + 8), gauge_eo=gauge_eo, clover_ee=clover_ee, clover_oo=clover_oo, clover_ee_inv=clover_ee_inv, clover_oo_inv=clover_oo_inv, tol=1e-6, max_iter=1000, max_level=3, num_restart=3, support_parity=True, verbose=True)
+                      clover_term=refer_clover_term, kappa=1 / (2 * argv[define._MASS_] + 8), clover_ee_inv=clover_ee_inv, clover_oo_inv=clover_oo_inv, tol=1e-6, max_iter=1000, max_level=3, num_restart=3, support_parity=True, verbose=True)
 mg.init()
 for i in range(10):
     pyqcu_dest = mg.solve(b=pyqcu_src)
