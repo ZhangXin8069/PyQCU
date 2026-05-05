@@ -54,6 +54,7 @@ namespace qcu {
 #define _LAT_R32_ 7
 #define _LAT_R64_ 8
 #define _LAT_R128_ 9
+#define _DATA_TYPE_SIZE_ 10
 #define _SET_INDEX_ 15
 #define _SET_PLAN_ 16
 #define _SET_PLAN_N_2_ -2 // just for laplacian

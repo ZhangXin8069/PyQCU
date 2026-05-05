@@ -1,5 +1,5 @@
 import torch
-from typing import Callable, List
+from typing import Callable, List, Optional
 from pyqcu import solver, tools
 import pyqcu.cann as _torch
 force_use_npu = False
@@ -8,6 +8,7 @@ force_use_npu = False
 def give_null_vecs(
     null_vecs: torch.Tensor,
     matvec: Callable[[torch.Tensor], torch.Tensor],
+    bistabcg: Optional[Callable] = None,
     normalize: bool = True, ortho_r: bool = False, ortho_null_vecs: bool = False, verbose: bool = True
 ) -> torch.Tensor:
     dof = null_vecs.shape[0]
@@ -20,8 +21,13 @@ def give_null_vecs(
                     null_vecs[j], null_vecs[j])*null_vecs[j]
         # v=r-A^{-1}Ar
         # tol needs to be bigger...
-        null_vecs[i] -= solver.bistabcg(b=matvec(null_vecs[i]),
-                                        matvec=matvec, tol=5e-5, verbose=verbose)
+        if bistabcg is not None:
+            print("using custom bistabcg to give null vec......")
+            null_vecs[i] -= bistabcg(b=matvec(null_vecs[i]),
+                                     tol=5e-5, verbose=verbose)
+        else:
+            null_vecs[i] -= solver.bistabcg(b=matvec(null_vecs[i]),
+                                            matvec=matvec, tol=5e-5, verbose=verbose)
         if ortho_null_vecs:
             # The orthogonalization of null_vecs
             for j in range(0, i):
