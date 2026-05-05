@@ -299,14 +299,20 @@ class operator:
     def matvec_parity(self, src_o: torch.Tensor) -> torch.Tensor:
         return self.matvec_oo(src_o=src_o)-self.matvec_oe(src_e=self.matvec_ee_inv(src_e=self.matvec_eo(src_o=src_o)))
 
-    def matvec_parity4fermion(self, fermion_o: torch.Tensor) -> torch.Tensor:
-        return self.matvec_parity(src_o=fermion_o.reshape([12]+list(fermion_o.shape)[2:])).reshape(fermion_o.shape)
+    def matvec_parity4fermion(self, fermion_in_o: torch.Tensor) -> torch.Tensor:
+        return self.matvec_parity(src_o=fermion_in_o.reshape([12]+list(fermion_in_o.shape)[2:])).reshape(fermion_in_o.shape)
 
     def give_b_parity(self, b_e: torch.Tensor, b_o: torch.Tensor) -> torch.Tensor:
         return -self.matvec_oe(src_e=self.matvec_ee_inv(src_e=b_e))+b_o
 
+    def give_b_parity4fermion(self, fermion_in_e: torch.Tensor, fermion_in_o: torch.Tensor) -> torch.Tensor:
+        return self.give_b_parity(b_e=fermion_in_e.reshape([12]+list(fermion_in_e.shape)[2:]), b_o=fermion_in_o.reshape([12]+list(fermion_in_o.shape)[2:])).reshape(fermion_in_e.shape)
+
     def give_x_e(self, b_e: torch.Tensor, x_o: torch.Tensor) -> torch.Tensor:
         return self.matvec_ee_inv(src_e=(b_e-self.matvec_eo(src_o=x_o)))
+
+    def give_x_e4fermion(self, fermion_in_e: torch.Tensor, fermion_out_o: torch.Tensor) -> torch.Tensor:
+        return self.give_x_e(b_e=fermion_in_e.reshape([12]+list(fermion_in_e.shape)[2:]), x_o=fermion_out_o.reshape([12]+list(fermion_out_o.shape)[2:])).reshape(fermion_in_e.shape)
 
     def matvec_eeo(self, src_e: torch.Tensor, src_o: torch.Tensor) -> torch.Tensor:
         return self.matvec_eo(src_o=src_o)+self.matvec_ee(src_e=src_e)
