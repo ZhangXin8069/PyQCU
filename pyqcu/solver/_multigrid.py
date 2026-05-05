@@ -175,7 +175,7 @@ class multigrid:
             b_e = b_eo[0]
             b_o = b_eo[1]
             b = self.op_list[0].give_b_parity(b_e=b_e, b_o=b_o)
-            if self.with_cuda_qcu is None:
+            if self.with_cuda_qcu is False:
                 matvec = self.op_list[0].matvec_parity
             else:
                 def _matvec(src_o: torch.Tensor) -> torch.Tensor:
