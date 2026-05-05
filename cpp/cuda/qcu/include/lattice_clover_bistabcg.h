@@ -7,7 +7,7 @@
 #include "./lattice_mpi.h"
 #include "./lattice_wilson_dslash.h"
 namespace qcu {
-// #define PRINT_MULTI_GPU_WILSON_BISTABCG
+#define PRINT_MULTI_GPU_CLOVER_BISTABCG
 template <typename T> struct LatticeCloverBistabCg {
   LatticeSet<T> *set_ptr;
   cudaError_t err;
@@ -345,7 +345,7 @@ template <typename T> struct LatticeCloverBistabCg {
                 x_o, p, s, set_ptr->device_vals);
       }
       {
-#ifdef PRINT_MULTI_GPU_WILSON_BISTABCG
+#ifdef PRINT_MULTI_GPU_CLOVER_BISTABCG
         std::cout << "##RANK:" << set_ptr->host_params[_NODE_RANK_]
                   << "##LOOP:" << loop
                   << "##Residual(norm2):" << host_vals[_norm2_tmp_]._data.x
