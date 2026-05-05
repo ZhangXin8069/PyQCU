@@ -109,7 +109,7 @@ class hopping:
 
 
 class sitting:
-    def __init__(self, clover_term: Optional[torch.Tensor] = None, support_parity: bool = False):
+    def __init__(self, clover_term: Optional[torch.Tensor] = None, clover_ee_inv: Optional[torch.Tensor] = None, clover_oo_inv: Optional[torch.Tensor] = None, support_parity: bool = False):
         self.M = torch.zeros([])
         self.clover_term = clover_term
         if self.clover_term is not None:  # remmber to add I
@@ -121,12 +121,16 @@ class sitting:
                 _ = tools.oooxyzt2poooxyzt(input_array=self.M)
                 self.M_e = _[0]
                 self.M_o = _[1]
-                self.M_inv = dslash.inverse(clover_term=self.M)
-                self.M_e_inv = torch.zeros([])
-                self.M_o_inv = torch.zeros([])
-                _ = tools.oooxyzt2poooxyzt(input_array=self.M_inv)
-                self.M_e_inv = _[0]
-                self.M_o_inv = _[1]
+                if clover_ee_inv is None and clover_oo_inv is None:
+                    self.M_inv = dslash.inverse(clover_term=self.M)
+                    self.M_e_inv = torch.zeros([])
+                    self.M_o_inv = torch.zeros([])
+                    _ = tools.oooxyzt2poooxyzt(input_array=self.M_inv)
+                    self.M_e_inv = _[0]
+                    self.M_o_inv = _[1]
+                else:
+                    self.M_e_inv = clover_ee_inv
+                    self.M_o_inv = clover_oo_inv
 
     def matvec(self, src: torch.Tensor) -> torch.Tensor:
         dtype = src.dtype
@@ -140,7 +144,7 @@ class sitting:
 
 
 class operator:
-    def __init__(self,  U: Optional[torch.Tensor] = None, clover_term: Optional[torch.Tensor] = None, fine_hopping: Optional[hopping] = None, fine_sitting: Optional[sitting] = None, local_ortho_null_vecs: Optional[torch.Tensor] = None, kappa: Optional[torch.Tensor] = torch.Tensor([0.1]), u_0: Optional[torch.Tensor] = torch.Tensor([1.0]), support_parity: bool = False, verbose: bool = True):
+    def __init__(self,  U: Optional[torch.Tensor] = None, clover_term: Optional[torch.Tensor] = None, clover_ee_inv: Optional[torch.Tensor] = None, clover_oo_inv: Optional[torch.Tensor] = None, fine_hopping: Optional[hopping] = None, fine_sitting: Optional[sitting] = None, local_ortho_null_vecs: Optional[torch.Tensor] = None, kappa: Optional[torch.Tensor] = torch.Tensor([0.1]), u_0: Optional[torch.Tensor] = torch.Tensor([1.0]), support_parity: bool = False, verbose: bool = True):
         self.hopping = hopping(U=U, kappa=kappa, u_0=u_0,
                                support_parity=support_parity)
         self.sitting = sitting(clover_term=clover_term,
