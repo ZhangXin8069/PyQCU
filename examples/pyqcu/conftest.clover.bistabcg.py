@@ -2,10 +2,10 @@ import torch
 from pyqcu import tools, dslash, lattice, solver
 from pyqcu.cuda import qcu, define
 from pyqcu.cuda.define import params, argv, set_ptrs
-params[define._LAT_X_] = 4*1
-params[define._LAT_Y_] = 4*1
-params[define._LAT_Z_] = 4*1
-params[define._LAT_T_] = 8*1
+params[define._LAT_X_] = 4*4
+params[define._LAT_Y_] = 4*4
+params[define._LAT_Z_] = 4*4
+params[define._LAT_T_] = 8*4
 params[define._LAT_XYZT_] = params[define._LAT_X_] * \
     params[define._LAT_Y_]*params[define._LAT_Z_]*params[define._LAT_T_]
 params[define._GRID_X_], params[define._GRID_Y_], params[define._GRID_Z_], params[
@@ -86,33 +86,56 @@ print('qcu_clover_term:', qcu_clover_term.flatten()[:100])
 print('refer_clover_term:', refer_clover_term.flatten()[:100])
 print('Difference:', tools.norm(refer_clover_term -
       qcu_clover_term)/tools.norm(qcu_clover_term))
+
 params[define._VERBOSE_] = 1
 params[define._SET_INDEX_] += 1
 params[define._SET_PLAN_] = 1
 params[define._PARITY_] = 0
 qcu.applyInitQcu(set_ptrs, params, argv)
+
+for i in range(10):
+    fermion_out_eo = torch.zeros_like(fermion_out_eo)
+    qcu.applyCloverBistabCgQcu(fermion_out_eo, fermion_in_eo, gauge_eo,
+                               clover_ee, clover_oo, clover_ee_inv, clover_oo_inv,  set_ptrs, params)
+    print(set_ptrs)
+    qcu_dest = tools.poooxyzt2oooxyzt(input_array=fermion_out_eo)
+    refer_src = dslash.give_wilson(
+        src=qcu_dest, U=qcu_U, kappa=1 / (2 * argv[define._MASS_] + 8), with_I=True)+dslash.give_clover(src=qcu_dest, clover_term=refer_clover_term)
+    print('qcu_src:', qcu_src.flatten()[:100])
+    print('refer_src:', refer_src.flatten()[:100])
+    print('Difference:', tools.norm(refer_src-qcu_src)/tools.norm(qcu_src))
+print("gauge_eo.is_contiguous():", gauge_eo.is_contiguous())
+print("fermion_in_eo.is_contiguous():", fermion_in_eo.is_contiguous())
+print("fermion_in_out.is_contiguous():", fermion_out_eo.is_contiguous())
+print("qcu_src.is_contiguous():", qcu_src.is_contiguous())
+print("qcu_dest.is_contiguous():", qcu_dest.is_contiguous())
+
 for i in range(10):
     fermion_out_eo = torch.zeros_like(fermion_out_eo)
     fermion_in_e = fermion_in_eo[0]
     fermion_in_o = fermion_in_eo[1]
     fermion_out_e = fermion_out_eo[0]
     fermion_out_o = fermion_out_eo[1]
+    dest_o = fermion_out_eo[1].clone()
+    operator = dslash.operator(
+        U=qcu_U, clover_term=refer_clover_term, kappa=1 / (2 * argv[define._MASS_] + 8), verbose=True, support_parity=True)
 
     def matvec(src_o):
-        dest_o = torch.zeros_like(src_o)
         qcu.applyCloverBistabCgDslashQcu(dest_o, src_o, gauge_eo,
                                          clover_ee, clover_oo, clover_ee_inv, clover_oo_inv,  set_ptrs, params)
         return dest_o
-    fermion_out_o = solver.bistabcg(b=operator.give_b_parity(
-        b_e=fermion_in_e, b_o=fermion_in_o), matvec=matvec)
-    print(set_ptrs)
-    qcu_dest = fermion_out_o.clone()
-    operator = dslash.operator(
-        U=qcu_U, clover_term=refer_clover_term, kappa=1 / (2 * argv[define._MASS_] + 8), verbose=True, support_parity=True)
-    refer_dest = operator.matvec_parity4fermion(fermion_o=fermion_in_o)
-    print('qcu_dest:', qcu_dest.flatten()[:100])
-    print('refer_dest:', refer_dest.flatten()[:100])
-    print('Difference:', tools.norm(refer_dest-qcu_dest)/tools.norm(qcu_dest))
+    fermion_out_o = solver.bistabcg(b=operator.give_b_parity4fermion(
+        fermion_in_e=fermion_in_e, fermion_in_o=fermion_in_o), matvec=matvec)
+    fermion_out_e = operator.give_x_e4fermion(
+        fermion_in_e=fermion_in_e, fermion_out_o=fermion_out_o)
+    fermion_out_eo[0] = fermion_out_e
+    fermion_out_eo[1] = fermion_out_o
+    qcu_dest = tools.poooxyzt2oooxyzt(input_array=fermion_out_eo)
+    refer_src = dslash.give_wilson(
+        src=qcu_dest, U=qcu_U, kappa=1 / (2 * argv[define._MASS_] + 8), with_I=True)+dslash.give_clover(src=qcu_dest, clover_term=refer_clover_term)
+    print('qcu_src:', qcu_src.flatten()[:100])
+    print('refer_src:', refer_src.flatten()[:100])
+    print('Difference:', tools.norm(refer_src-qcu_src)/tools.norm(qcu_src))
 print("gauge_eo.is_contiguous():", gauge_eo.is_contiguous())
 print("fermion_in_eo.is_contiguous():", fermion_in_eo.is_contiguous())
 print("fermion_in_out.is_contiguous():", fermion_out_eo.is_contiguous())
