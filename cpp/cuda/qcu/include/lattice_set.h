@@ -672,10 +672,10 @@ template <typename T> struct LatticeSet {
     printf("host_argv[_MASS_]                            :%e\n", host_argv[_MASS_]);
     printf("host_argv[_ATOL_]                            :%e\n", host_argv[_ATOL_]);
     printf("host_argv[_SIGMA_]                           :%e\n", host_argv[_SIGMA_]);
-    printf("host_argv[__MG_LEVEL1_ATOL__]                :%e\n", host_argv[_MG_LEVEL1_ATOL_]);
-    printf("host_argv[__MG_LEVEL2_ATOL__]                :%e\n", host_argv[_MG_LEVEL2_ATOL_]);
-    printf("host_argv[__MG_LEVEL3_ATOL__]                :%e\n", host_argv[_MG_LEVEL3_ATOL_]);
-    printf("host_argv[__MG_LEVEL4_ATOL__]                :%e\n", host_argv[_MG_LEVEL4_ATOL_]);
+    printf("host_argv[_MG_LEVEL1_ATOL_]                  :%e\n", host_argv[_MG_LEVEL1_ATOL_]);
+    printf("host_argv[_MG_LEVEL2_ATOL_]                  :%e\n", host_argv[_MG_LEVEL2_ATOL_]);
+    printf("host_argv[_MG_LEVEL3_ATOL_]                  :%e\n", host_argv[_MG_LEVEL3_ATOL_]);
+    printf("host_argv[_MG_LEVEL4_ATOL_]                  :%e\n", host_argv[_MG_LEVEL4_ATOL_]);
     printf("lat_2dim[_XY_]                               :%d\n", lat_2dim[_XY_]);
     printf("lat_2dim[_XZ_]                               :%d\n", lat_2dim[_XZ_]);
     printf("lat_2dim[_XT_]                               :%d\n", lat_2dim[_XT_]);
