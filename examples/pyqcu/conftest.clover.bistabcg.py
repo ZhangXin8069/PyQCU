@@ -110,7 +110,7 @@ print("fermion_in_out.is_contiguous():", fermion_out_eo.is_contiguous())
 print("qcu_src.is_contiguous():", qcu_src.is_contiguous())
 print("qcu_dest.is_contiguous():", qcu_dest.is_contiguous())
 
-for i in range(10):
+for i in range(1):
     fermion_out_eo = torch.zeros_like(fermion_out_eo)
     fermion_in_e = fermion_in_eo[0]
     fermion_in_o = fermion_in_eo[1]
@@ -141,4 +141,3 @@ print("fermion_in_eo.is_contiguous():", fermion_in_eo.is_contiguous())
 print("fermion_in_out.is_contiguous():", fermion_out_eo.is_contiguous())
 print("qcu_src.is_contiguous():", qcu_src.is_contiguous())
 print("qcu_dest.is_contiguous():", qcu_dest.is_contiguous())
-exit()
