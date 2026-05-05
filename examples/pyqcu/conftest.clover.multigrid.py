@@ -136,22 +136,24 @@ print('Difference:', tools.norm(refer_clover_term -
 # print("pyqcu_dest.is_contiguous():", pyqcu_dest.is_contiguous())
 
 
-mg = solver.multigrid(dtype_list=[pyqcu_U.dtype]*10, device_list=[pyqcu_U.device]*10, U=pyqcu_U,
-                      clover_term=refer_clover_term, kappa=1 / (2 * argv[define._MASS_] + 8), tol=1e-6, max_iter=1000, max_level=3, num_restart=3, support_parity=True, verbose=True)
-mg.init()
-for i in range(1):
-    pyqcu_dest = mg.solve(b=pyqcu_src)
-    refer_src = dslash.give_wilson(
-        src=pyqcu_dest, U=pyqcu_U, kappa=1 / (2 * argv[define._MASS_] + 8), with_I=True)+dslash.give_clover(src=pyqcu_dest, clover_term=refer_clover_term)
-    print('pyqcu_src:', pyqcu_src.flatten()[:100])
-    print('refer_src:', refer_src.flatten()[:100])
-    print('Difference:', tools.norm(refer_src-pyqcu_src)/tools.norm(pyqcu_src))
-mg.plot()
-print("gauge_eo.is_contiguous():", gauge_eo.is_contiguous())
-print("fermion_in_eo.is_contiguous():", fermion_in_eo.is_contiguous())
-print("fermion_in_out.is_contiguous():", fermion_out_eo.is_contiguous())
-print("pyqcu_src.is_contiguous():", pyqcu_src.is_contiguous())
-print("pyqcu_dest.is_contiguous():", pyqcu_dest.is_contiguous())
+if 1:
+    mg = solver.multigrid(dtype_list=[pyqcu_U.dtype]*10, device_list=[pyqcu_U.device]*10, U=pyqcu_U,
+                          clover_term=refer_clover_term, kappa=1 / (2 * argv[define._MASS_] + 8), tol=1e-6, max_iter=1000, max_level=3, num_restart=3, support_parity=True, verbose=True)
+    mg.init()
+    for i in range(1):
+        pyqcu_dest = mg.solve(b=pyqcu_src)
+        refer_src = dslash.give_wilson(
+            src=pyqcu_dest, U=pyqcu_U, kappa=1 / (2 * argv[define._MASS_] + 8), with_I=True)+dslash.give_clover(src=pyqcu_dest, clover_term=refer_clover_term)
+        print('pyqcu_src:', pyqcu_src.flatten()[:100])
+        print('refer_src:', refer_src.flatten()[:100])
+        print('Difference:', tools.norm(
+            refer_src-pyqcu_src)/tools.norm(pyqcu_src))
+    mg.plot()
+    print("gauge_eo.is_contiguous():", gauge_eo.is_contiguous())
+    print("fermion_in_eo.is_contiguous():", fermion_in_eo.is_contiguous())
+    print("fermion_in_out.is_contiguous():", fermion_out_eo.is_contiguous())
+    print("pyqcu_src.is_contiguous():", pyqcu_src.is_contiguous())
+    print("pyqcu_dest.is_contiguous():", pyqcu_dest.is_contiguous())
 
 
 mg = solver.multigrid(dtype_list=[pyqcu_U.dtype]*10, device_list=[pyqcu_U.device]*10, U=pyqcu_U,
