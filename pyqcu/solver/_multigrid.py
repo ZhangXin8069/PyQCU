@@ -4,22 +4,31 @@ from pyqcu import tools, dslash
 import pyqcu.cann as _torch
 import mpi4py.MPI as MPI
 from time import perf_counter
+import torch
+from pyqcu import tools, dslash
+from pyqcu.cuda import qcu, define
 
 
 class multigrid:
-    def __init__(self, dtype_list: List[torch.dtype], device_list: List[torch.device],  U: torch.Tensor, clover_term: torch.Tensor, kappa: Optional[torch.Tensor] = torch.Tensor([0.1]), u_0: Optional[torch.Tensor] = torch.Tensor([1.0]), min_size: int = 4, max_level: int = 4, mg_grid_size: List[int] = [2, 2, 2, 2], num_convergence_sample: int = 50, dof_list: List[int] = [12, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24], tol: float = 1e-6, max_iter: int = 1000, num_restart: int = 3, root: int = 0, support_parity: bool = False, verbose: bool = True):
+    def __init__(self, dtype_list: List[torch.dtype], device_list: List[torch.device],  U: torch.Tensor, clover_term: torch.Tensor, kappa: Optional[torch.Tensor] = torch.Tensor([0.1]), u_0: Optional[torch.Tensor] = torch.Tensor([1.0]), gauge_eo: Optional[torch.Tensor] = None, clover_ee: Optional[torch.Tensor] = None, clover_oo: Optional[torch.Tensor] = None, clover_ee_inv: Optional[torch.Tensor] = None, clover_oo_inv: Optional[torch.Tensor] = None, min_size: int = 4, max_level: int = 4, mg_grid_size: List[int] = [2, 2, 2, 2], num_convergence_sample: int = 50, dof_list: List[int] = [12, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24], tol: float = 1e-6, max_iter: int = 1000, num_restart: int = 3, root: int = 0, support_parity: bool = False, verbose: bool = True):
         self.comm = MPI.COMM_WORLD
         self.rank = self.comm.Get_rank()
         self.lat_size = list(U.shape[-4:])  # xyzt
         self.min_size = min_size
         self.max_level = max_level
         self.kappa = kappa if kappa is not None else 0.1
+        self.gauge_eo = gauge_eo
+        self.clover_ee = clover_ee
+        self.clover_oo = clover_oo
+        self.clover_ee_inv = clover_ee_inv
+        self.clover_oo_inv = clover_oo_inv
         self.mass = (1/self.kappa - 8)/2  # just for plot......
         self.u_0 = u_0
         self.tol = tol
         self.max_iter = max_iter
         self.num_restart = num_restart
         self.root = root
+        self.with_cuda_qcu = True if self.gauge_eo is not None and self.clover_ee is not None and self.clover_oo is not None and self.clover_ee_inv is not None and self.clover_oo_inv is not None else False
         self.support_parity = support_parity
         self.verbose = verbose
         # Build grid list
@@ -46,7 +55,7 @@ class multigrid:
         for device in self.device_list:
             tools.set_device(device=device)
         self.op_list = [dslash.operator(U=U,
-                                        clover_term=clover_term, verbose=self.verbose, kappa=kappa, u_0=u_0, support_parity=support_parity)]
+                                        clover_term=clover_term, verbose=self.verbose, kappa=kappa, u_0=u_0, support_parity=support_parity if self.with_cuda_qcu is False else False)]
         self.b = _torch.randn(size=[12]+self.lat_size,
                               dtype=self.dtype_list[0], device=self.device_list[0])
         self.x0 = _torch.randn(
@@ -62,12 +71,65 @@ class multigrid:
         # Build local-orthonormal near-null space vectors
         comm = MPI.COMM_WORLD
         comm.Barrier()
+        if self.with_cuda_qcu:
+            from pyqcu.cuda.define import params, argv, set_ptrs
+            params[define._LAT_X_] = self.lat_size[define._LAT_X_]
+            params[define._LAT_Y_] = self.lat_size[define._LAT_Y_]
+            params[define._LAT_Z_] = self.lat_size[define._LAT_Z_]
+            params[define._LAT_T_] = self.lat_size[define._LAT_T_]
+            params[define._LAT_XYZT_] = params[define._LAT_X_] * \
+                params[define._LAT_Y_]*params[define._LAT_Z_] * \
+                params[define._LAT_T_]
+            params[define._GRID_X_], params[define._GRID_Y_], params[define._GRID_Z_], params[
+                define._GRID_T_] = tools.give_grid_size()
+            params[define._PARITY_] = 0
+            params[define._NODE_RANK_] = self.comm.Get_rank()
+            params[define._NODE_SIZE_] = self.comm.Get_size()
+            params[define._DAGGER_] = 0
+            params[define._MAX_ITER_] = self.max_iter
+            params[define._DATA_TYPE_] = define.epytd(
+                torch_dtype=self.dtype_list[0])
+            params[define._SET_INDEX_] = 0
+            params[define._SET_PLAN_] = 1
+            params[define._VERBOSE_] = 1
+            params[define._SEED_] = 42
+            argv = argv.to(dtype=define.dtype(
+                params[define._DATA_TYPE_]).to_real())
+            argv[define._MASS_] = self.mass
+            argv[define._ATOL_] = self.tol
+            argv[define._SIGMA_] = 0.1
+            self.set_ptrs = set_ptrs.clone()
+            self.params = params.clone()
+            self.argv = argv.clone()
+            self.fermion_in_eo = torch.zeros(size=[2, 4, 3]+define.lat_shape(params)).to(
+                dtype=define.dtype(params[define._DATA_TYPE_]), device=torch.device('cuda'))
+            self.fermion_out_eo = torch.zeros(size=[2, 4, 3]+define.lat_shape(params)).to(
+                dtype=define.dtype(params[define._DATA_TYPE_]), device=torch.device('cuda'))
+
         for i in range(1, len(self.lat_size_list)):
             _null_vecs = _torch.randn(size=[self.dof_list[i], self.dof_list[i-1]] +
                                       self.lat_size_list[i-1], dtype=self.dtype_list[i-1], device=self.device_list[i-1])
+            if self.with_cuda_qcu and i == 1:
+                def _bistabcg(b: torch.Tensor, tol: float = 1e-6, max_iter: int = 1000, x0:  Optional[torch.Tensor] = None, if_rtol: bool = False, verbose: bool = True) -> torch.Tensor:
+                    if if_rtol:
+                        _tol = tools.norm(b)*tol
+                    else:
+                        _tol = tol
+                    self.fermion_in_eo = tools.oooxyzt2poooxyzt(input_array=b)
+                    self.params[define._MAX_ITER_] = max_iter
+                    self.params[define._SET_INDEX_] += 1
+                    self.argv[define._ATOL_] = _tol
+                    qcu.applyInitQcu(self.set_ptrs, self.params, self.argv)
+                    qcu.applyCloverBistabCgQcu(self.fermion_out_eo, self.fermion_in_eo, self.gauge_eo, self.clover_ee,  # type: ignore
+                                               self.clover_oo, self.clover_ee_inv, self.clover_oo_inv,  set_ptrs, params)  # type: ignore
+                    return tools.poooxyzt2oooxyzt(input_array=self.fermion_out_eo)
+                bistabcg = _bistabcg
+            else:
+                bistabcg = None
             _null_vecs = tools.give_null_vecs(
                 null_vecs=_null_vecs,
                 matvec=self.op_list[i-1].matvec,
+                bistabcg=bistabcg,
                 verbose=self.verbose).to(dtype=self.dtype_list[i], device=self.device_list[i])
             self.nv_list.append(_null_vecs)
             _local_ortho_null_vecs = tools.local_orthogonalize(
