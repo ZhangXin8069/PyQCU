@@ -5,7 +5,7 @@ from typing import List, Optional
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 size = comm.Get_size()
-_SET_PTRS_SIZE_ = 10
+_SET_PTRS_SIZE_ = 100
 _LAT_P_ = 2
 # Copy from PyQCU/cpp/cuda/qcu/include/define.h
 _LAT_X_ = 0
@@ -33,6 +33,7 @@ _LAT_R16_ = 6
 _LAT_R32_ = 7
 _LAT_R64_ = 8
 _LAT_R128_ = 9
+_DATA_TYPE_SIZE_ = 10
 _SET_INDEX_ = 15
 _SET_PLAN_ = 16
 _SET_PLAN_N_2_ = -2  # just for laplacian
@@ -87,30 +88,42 @@ _MG_LEVEL2_ATOL_ = 4
 _MG_LEVEL3_ATOL_ = 5
 _MG_LEVEL4_ATOL_ = 6
 _ARGV_SIZE_ = 7
-_LAT_C64_IN_TENSOR_ = torch.Tensor(_LAT_C64_, device=torch.device('cpu'))
+_LAT_C64_IN_TENSOR_ = torch.Tensor([_LAT_C64_], device=torch.device('cpu'))
 
 
 def dtype(_data_type_: Optional[torch.Tensor] = _LAT_C64_IN_TENSOR_) -> torch.dtype:
-    if _data_type_ == _LAT_C16_:
+    if _data_type_ == torch.Tensor([_LAT_C16_], device=torch.device('cpu')):
         print("Doesn't support complex16")
-    elif _data_type_ == _LAT_C32_:
+        return torch.int
+    elif _data_type_ == torch.Tensor([_LAT_C32_], device=torch.device('cpu')):
+        return torch.complex32
+    elif _data_type_ == torch.Tensor([_LAT_C64_], device=torch.device('cpu')):
         return torch.complex64
-    elif _data_type_ == _LAT_C64_:
-        return torch.complex64
-    elif _data_type_ == _LAT_C128_:
+    elif _data_type_ == torch.Tensor([_LAT_C128_], device=torch.device('cpu')):
         return torch.complex128
-    elif _data_type_ == _LAT_C256_:
+    elif _data_type_ == torch.Tensor([_LAT_C256_], device=torch.device('cpu')):
         print("Doesn't support complex256")
-    elif _data_type_ == _LAT_R8_:
+        return torch.int
+    elif _data_type_ == torch.Tensor([_LAT_R8_], device=torch.device('cpu')):
         print("Doesn't support real8")
-    elif _data_type_ == _LAT_R16_:
+        return torch.int
+    elif _data_type_ == torch.Tensor([_LAT_R16_], device=torch.device('cpu')):
         return torch.float16
-    elif _data_type_ == _LAT_R32_:
+    elif _data_type_ == torch.Tensor([_LAT_R32_], device=torch.device('cpu')):
         return torch.float32
-    elif _data_type_ == _LAT_R64_:
+    elif _data_type_ == torch.Tensor([_LAT_R64_], device=torch.device('cpu')):
         return torch.float64
-    elif _data_type_ == _LAT_R128_:
+    elif _data_type_ == torch.Tensor([_LAT_R128_], device=torch.device('cpu')):
         print("Doesn't support real128")
+        return torch.int
+    raise
+
+
+def epytd(torch_dtype: Optional[torch.dtype]) -> torch.Tensor:
+    for i in range(_DATA_TYPE_SIZE_):
+        _data_type_ = torch.Tensor([i], device=torch.device('cpu'))
+        if dtype(_data_type_=_data_type_) == torch_dtype:
+            return _data_type_
     raise
 
 
