@@ -9,12 +9,13 @@ def bistabcg(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], to
     x = x0.clone() if x0 is not None else _torch.randn_like(b)
     r = b - matvec(x)
     r_norm = tools.norm(r)
+    b_norm = tools.norm(b)
     if if_rtol:
-        _tol = tools.norm(b)*tol
+        _tol = b_norm*tol
     else:
         _tol = tol
     if verbose:
-        print(f"PYQCU::SOLVER::BISTABCG:\n Norm of b:{tools.norm(b)}")
+        print(f"PYQCU::SOLVER::BISTABCG:\n Norm of b:{b_norm}")
         print(f"PYQCU::SOLVER::BISTABCG:\n Norm of r:{r_norm}")
         print(f"PYQCU::SOLVER::BISTABCG:\n Norm of x0:{tools.norm(x)}")
     if r_norm < _tol:
@@ -32,7 +33,8 @@ def bistabcg(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], to
     start_time = perf_counter()
     iter_times = []
     for i in range(max_iter):
-        iter_start_time = perf_counter()
+        if verbose:
+            iter_start_time = perf_counter()
         rho = tools.vdot(r_tilde, r)
         beta = (rho / rho_prev) * (alpha / omega)
         rho_prev = rho
@@ -46,8 +48,9 @@ def bistabcg(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], to
         x = x + alpha * p + omega * s
         r = s - omega * t
         r_norm = tools.norm(r)
-        iter_time = perf_counter() - iter_start_time
-        iter_times.append(iter_time)
+        if verbose:
+            iter_time = perf_counter() - iter_start_time
+            iter_times.append(iter_time)
         if verbose:
             # print(f"alpha,beta,omega:{alpha,beta,omega}\n")
             print(

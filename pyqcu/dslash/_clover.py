@@ -102,6 +102,14 @@ def make_clover(U: torch.Tensor, kappa: Optional[torch.Tensor] = torch.Tensor([0
         (4, 3, 4, 3, U.shape[-4], U.shape[-3], U.shape[-2], U.shape[-1]), dtype=U.dtype, device=U.device)
     # Define directions with corresponding axes and gamma_gamma matrices
     ward_ward_keys = ['xy', 'xz', 'xt', 'yz', 'yt', 'zt']
+    # Precompute sigma matrices on target device/dtype
+    _device = U.device
+    _dtype = U.dtype
+    _sigma = {wk: lattice.gamma_gamma[lattice.ward_wards[wk]['ward']].to(_device).type(_dtype)
+              for wk in ward_ward_keys}
+    # Precompute clover coefficient once
+    _coeff = float(kappa/u_0) if (u_0 is not None and kappa is not None) else 1.0
+    _clover_factor = -0.125 * _coeff
     # Give clover term for each direction
     for ward_ward_key in ward_ward_keys:
         '''
@@ -119,8 +127,7 @@ def make_clover(U: torch.Tensor, kappa: Optional[torch.Tensor] = torch.Tensor([0
         mu = ward_ward['mu']
         nu = ward_ward['nu']
         # $$ \sigma_{\mu,\nu} &= -i/2*(\gamma_{\mu}\gamma_{\nu} - \gamma_{\nu}\gamma_{\mu}) &= -i/2*2\gamma_{\mu}\gamma_{\nu}\\ $$
-        sigma = lattice.gamma_gamma[ward_ward['ward']].to(
-            U.device).type(U.dtype)
+        sigma = _sigma[ward_ward_key]
         if verbose:
             print(
                 f"PYQCU::DSLASH::CLOVER:\n Processing {ward_ward_key}-direction (mu={mu},nu={nu})...")
@@ -251,12 +258,7 @@ def make_clover(U: torch.Tensor, kappa: Optional[torch.Tensor] = torch.Tensor([0
         sigmaF = _torch.einsum(
             'Ss,Ccxyzt->SCscxyzt', sigma, F)
         # Make Clover term
-        if u_0 is not None and kappa is not None:
-            _ = float(kappa/u_0)
-        else:
-            _ = 1.0
-        # clover += -0.125/u_0*kappa*sigmaF
-        clover += -0.125*_*sigmaF
+        clover += _clover_factor * sigmaF  # -0.125 * kappa/u_0 * sigmaF
         if verbose:
             print(
                 f"PYQCU::DSLASH::CLOVER:\n sigmaF term norm: {_torch.norm(sigmaF).item()}")
@@ -268,7 +270,7 @@ def make_clover(U: torch.Tensor, kappa: Optional[torch.Tensor] = torch.Tensor([0
 
 
 def add_I(clover_term: torch.Tensor, verbose: bool = False) -> torch.Tensor:
-    _clover_term = clover_term.reshape(12, 12, -1).clone()
+    _clover_term = clover_term.reshape(12, 12, -1)
     if verbose:
         print('PYQCU::DSLASH::CLOVER:\n Clover is adding I......')
         print(
@@ -283,9 +285,9 @@ def add_I(clover_term: torch.Tensor, verbose: bool = False) -> torch.Tensor:
 
 
 def cut_I(clover_term: torch.Tensor, verbose: bool = False) -> torch.Tensor:
-    _clover_term = clover_term.reshape(12, 12, -1).clone()
+    _clover_term = clover_term.reshape(12, 12, -1)
     if verbose:
-        print('PYQCU::DSLASH::CLOVER:\n Clover is adding I......')
+        print('PYQCU::DSLASH::CLOVER:\n Clover is cutting I......')
         print(
             f"PYQCU::DSLASH::CLOVER:\n _clover_term.shape:{_clover_term.shape}")
     eye = _torch.eye(12, dtype=_clover_term.dtype,
@@ -298,13 +300,15 @@ def cut_I(clover_term: torch.Tensor, verbose: bool = False) -> torch.Tensor:
 
 
 def inverse(clover_term: torch.Tensor, verbose: bool = False) -> torch.Tensor:
-    _clover_term = clover_term.reshape(12, 12, -1).clone()
+    _clover_term = clover_term.reshape(12, 12, -1)
     if verbose:
         print('PYQCU::DSLASH::CLOVER:\n Clover is inversing......')
         print(
             f"PYQCU::DSLASH::CLOVER:\n _clover_term.shape:{_clover_term.shape}")
-    for i in range(_clover_term.shape[-1]):
-        _clover_term[:, :, i] = torch.linalg.inv(_clover_term[:, :, i])
+    # Batched inversion: move site dim to batch, invert all 12x12 matrices at once
+    _clover_term = torch.linalg.inv(
+        _clover_term.permute(2, 0, 1)
+    ).permute(1, 2, 0)
     dest = _clover_term.reshape(clover_term.shape)
     if verbose:
         print(f"dest.shape:{dest.shape}")

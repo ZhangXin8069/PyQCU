@@ -134,10 +134,17 @@ def give_grid_size() -> List[int]:
     return dest
 
 
+_eo_mask_cache = {}
+
+
 def give_eo_mask(oootzy_t_p: torch.Tensor, eo: Optional[int], verbose=False) -> torch.Tensor:
     if verbose:
         print("PYQCU::TOOLS::DEFINE:\n give_eo_mask......")
     shape = oootzy_t_p.shape
+    device = oootzy_t_p.device
+    cache_key = (shape[-4], shape[-3], shape[-2], shape[-1], eo, device)
+    if cache_key in _eo_mask_cache:
+        return _eo_mask_cache[cache_key]
     # Create coordinate grids for original shape
     coords = torch.meshgrid(
         torch.arange(shape[-4]),
@@ -149,7 +156,9 @@ def give_eo_mask(oootzy_t_p: torch.Tensor, eo: Optional[int], verbose=False) -> 
     # Sum coordinates to determine checkerboard pattern
     sums = coords[lattice.wards['x']] + coords[lattice.wards['y']] + \
         coords[lattice.wards['z']]  # x+y+z
-    return sums % 2 == eo
+    mask = sums % 2 == eo
+    _eo_mask_cache[cache_key] = mask
+    return mask
 
 
 def slice_dim(dims_num: int = 4, ward: int = 0, start: Optional[int] = None, stop: Optional[int] = None, step: int = 2, point: Optional[int] = None) -> tuple:
