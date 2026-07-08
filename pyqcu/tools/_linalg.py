@@ -37,4 +37,4 @@ def norm(
     Returns:
         global norm
     """
-    return torch.sqrt(vdot(a=a.flatten(), b=a.flatten()).real).item()
+    return torch.sqrt(vdot(a=a, b=a).real).item()

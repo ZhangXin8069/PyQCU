@@ -4,8 +4,6 @@ from pyqcu import tools, dslash
 import pyqcu.cann as _torch
 import mpi4py.MPI as MPI
 from time import perf_counter
-import torch
-from pyqcu import tools, dslash
 from pyqcu.cuda import qcu, define
 
 
