@@ -27,40 +27,40 @@ def give_wilson(src: torch.Tensor,
     U_dag = U.permute(1, 0, 2, 3, 4, 5, 6).conj()
     # Initialize dest tensor
     dest = src.clone() if with_I else torch.zeros_like(src)
+    # Precompute kappa/u_0 factor once
+    _factor = float(kappa/u_0) if (u_0 is not None and kappa is not None) else 1.0
+    # Precompute I, gamma, I±gamma on target device/dtype once
+    _device = src.device
+    _dtype = src.dtype
+    I = lattice.I.to(_device).type(_dtype)
+    gamma_dev = {wk: lattice.gamma[lattice.wards[wk]].to(_device).type(_dtype)
+                 for wk in lattice.ward_keys}
+    I_minus_gamma = {wk: I - gamma_dev[wk] for wk in lattice.ward_keys}
+    I_plus_gamma = {wk: I + gamma_dev[wk] for wk in lattice.ward_keys}
     # Apply Wilson-Dirac operator for each direction
-    I = lattice.I.to(src.device).type(src.dtype)
     for ward_key in lattice.ward_keys:
         ward = lattice.wards[ward_key]
-        gamma_mu = lattice.gamma[ward].to(src.device).type(src.dtype)
         if verbose:
             print(
                 f"PYQCU::DSLASH::WILSON:\n Processing {ward_key} (ward={ward})...")
         # Extract gauge field for current direction
         U_mu = U[..., ward, :, :, :, :]  # [c1, c2, x, y, z, t]
         U_dag_mu = U_dag[..., ward, :, :, :, :]  # [c1, c2, x, y, z, t]
-        # Term 1: (r - γ_μ) U_{x,μ} src_{x+μ}
+        # Term 1: (1 - γ_μ) U_{x,μ} src_{x+μ}
         src_plus = _torch.roll(src, shifts=-1, dims=ward)
-        # Contract color indices: U_mu * src_plus
         U_src_plus = _torch.einsum('Ccxyzt,scxyzt->sCxyzt', U_mu, src_plus)
-        # Apply (r - gamma_mu) in spin space
         term1 = _torch.einsum(
-            'Ss,sCxyzt->SCxyzt', (I - gamma_mu), U_src_plus)
-        # Term 2: (r + γ_μ) U_{x-μ,μ}^† src_{x-μ}
+            'Ss,sCxyzt->SCxyzt', I_minus_gamma[ward_key], U_src_plus)
+        # Term 2: (1 + γ_μ) U_{x-μ,μ}^† src_{x-μ}
         src_minus = _torch.roll(src, shifts=1, dims=ward)
         U_dag_minus = _torch.roll(U_dag_mu, shifts=1, dims=ward)
-        # Contract color indices: U_dag_minus * src_minus
         U_dag_src_minus = _torch.einsum(
             'Ccxyzt,scxyzt->sCxyzt', U_dag_minus, src_minus)
-        # Apply (r + gamma_mu) in spin space
         term2 = _torch.einsum(
-            'Ss,sCxyzt->SCxyzt', (I + gamma_mu), U_dag_src_minus)
+            'Ss,sCxyzt->SCxyzt', I_plus_gamma[ward_key], U_dag_src_minus)
         # Combine terms and subtract from dest
         hopping = term1 + term2
-        if u_0 is not None and kappa is not None:
-            _ = float(kappa/u_0)
-        else:
-            _ = 1.0
-        dest -= _ * hopping
+        dest -= _factor * hopping
         if verbose:
             print(
                 f"PYQCU::DSLASH::WILSON:\n Hopping term norm: {_torch.norm(hopping).item()}")
@@ -86,59 +86,59 @@ def give_wilson_eo(
     U_o = U_eo[1].clone()
     U_o_dag = U_o.permute(1, 0, 2, 3, 4, 5, 6).conj()
     # Initialize dest_e tensor
-    # dest_e = src_o.clone() # move this I term to sitting term from this hopping term(origin wilson term)
     dest_e = torch.zeros_like(src_o)
+    # Precompute kappa/u_0 factor once
+    _factor = float(kappa/u_0) if (u_0 is not None and kappa is not None) else 1.0
+    # Precompute I, gamma, I±gamma on target device/dtype once
+    _device = src_o.device
+    _dtype = src_o.dtype
+    I = lattice.I.to(_device).type(_dtype)
+    gamma_dev = {wk: lattice.gamma[lattice.wards[wk]].to(_device).type(_dtype)
+                 for wk in lattice.ward_p_keys}
+    I_minus_gamma = {wk: I - gamma_dev[wk] for wk in lattice.ward_p_keys}
+    I_plus_gamma = {wk: I + gamma_dev[wk] for wk in lattice.ward_p_keys}
+    # Precompute eo masks for t_p direction
+    t_p_masks = None
     # Apply Wilson-Dirac operator for each direction
-    I = lattice.I.to(src_o.device).type(src_o.dtype)
     for ward_key in lattice.ward_p_keys:
         ward = lattice.wards[ward_key]
-        gamma_mu = lattice.gamma[ward].to(src_o.device).type(src_o.dtype)
         if verbose:
             print(
                 f"PYQCU::DSLASH::WILSON:\n Processing {ward_key} (ward={ward})...")
-        # Give eo mask for parity decomposition
-        if ward_key == 't_p':
-            even_mask = tools.give_eo_mask(oootzy_t_p=src_o, eo=0)
-            odd_mask = tools.give_eo_mask(oootzy_t_p=src_o, eo=1)
+        # Give eo mask for parity decomposition (computed once and cached)
+        if ward_key == 't_p' and t_p_masks is None:
+            t_p_masks = (
+                tools.give_eo_mask(oootzy_t_p=src_o, eo=0),
+                tools.give_eo_mask(oootzy_t_p=src_o, eo=1),
+            )
         # Extract gauge field for current direction
         U_e_mu = U_e[..., ward, :, :, :, :]  # [c1, c2, x, y, z, t_p]
         U_o_dag_mu = U_o_dag[..., ward, :, :, :, :]  # [c1, c2, x, y, z, t_p]
-        # Term 1: (r - γ_μ) U_{x,μ} src_{x+μ}
+        # Term 1: (1 - γ_μ) U_{x,μ} src_{x+μ}
         src_o_plus = _torch.roll(
             src_o, shifts=-1, dims=ward)
-        if ward_key == 't_p':  # -1 to 0 caused by parity decomposition\
-            src_o_plus[..., even_mask] = src_o[...,
-                                               even_mask]  # parity(src)=(x+y+z+t)%2=1,eo(src)==(x+y+z)%2=0,so:t_p(src)%2=1,move_plus=0
-        # Contract color indices: U_eo_mu * src_o_plus
+        if ward_key == 't_p':
+            src_o_plus[..., t_p_masks[0]] = src_o[..., t_p_masks[0]]
         U_e_src_o_plus = _torch.einsum(
             'Ccxyzt,scxyzt->sCxyzt', U_e_mu, src_o_plus)
-        # Apply (r - gamma_mu) in spin space
         term1 = _torch.einsum(
-            'Ss,sCxyzt->SCxyzt', (I - gamma_mu), U_e_src_o_plus)
-        # Term 2: (r + γ_μ) U_{x-μ,μ}^† src_{x-μ}
+            'Ss,sCxyzt->SCxyzt', I_minus_gamma[ward_key], U_e_src_o_plus)
+        # Term 2: (1 + γ_μ) U_{x-μ,μ}^† src_{x-μ}
         src_o_minus = _torch.roll(
             src_o, shifts=1, dims=ward)
-        if ward_key == 't_p':  # 1 to 0 caused by parity decomposition\
-            src_o_minus[..., odd_mask] = src_o[...,
-                                               odd_mask]  # parity(src)=(x+y+z+t)%2=1,eo(src)==(x+y+z)%2=1,so:t_p(src)%2=0,move_minus=0
+        if ward_key == 't_p':
+            src_o_minus[..., t_p_masks[1]] = src_o[..., t_p_masks[1]]
         U_o_dag_minus = _torch.roll(
             U_o_dag_mu, shifts=1, dims=ward)
-        if ward_key == 't_p':  # 1 to 0 caused by parity decomposition\
-            U_o_dag_minus[..., odd_mask] = U_o_dag_mu[...,
-                                                      odd_mask]  # parity(U)=(x+y+z+t)%2=1,eo(U)==(x+y+z)%2=1,so:t_p(U)%2=0,move_minus=0
-        # Contract color indices: U_eo_dag_minus * src_o_minus
+        if ward_key == 't_p':
+            U_o_dag_minus[..., t_p_masks[1]] = U_o_dag_mu[..., t_p_masks[1]]
         U_o_dag_src_o_minus = _torch.einsum(
             'Ccxyzt,scxyzt->sCxyzt', U_o_dag_minus, src_o_minus)
-        # Apply (r + gamma_mu) in spin space
         term2 = _torch.einsum(
-            'Ss,sCxyzt->SCxyzt', (I + gamma_mu), U_o_dag_src_o_minus)
+            'Ss,sCxyzt->SCxyzt', I_plus_gamma[ward_key], U_o_dag_src_o_minus)
         # Combine terms and subtract from dest_e
         hopping = term1 + term2
-        if u_0 is not None and kappa is not None:
-            _ = float(kappa/u_0)
-        else:
-            _ = 1.0
-        dest_e -= _ * hopping
+        dest_e -= _factor * hopping
         if verbose:
             print(
                 f"PYQCU::DSLASH::WILSON:\n Hopping term norm: {_torch.norm(hopping).item()}")
@@ -163,60 +163,60 @@ def give_wilson_oe(
     U_e = U_eo[0].clone()
     U_o = U_eo[1].clone()
     U_e_dag = U_e.permute(1, 0, 2, 3, 4, 5, 6).conj()
-    # Initialize dest_e tensor
-    # dest_o = src_e.clone() # move this I term to sitting term from this hopping term(origin wilson term)
+    # Initialize dest_o tensor
     dest_o = torch.zeros_like(src_e)
+    # Precompute kappa/u_0 factor once
+    _factor = float(kappa/u_0) if (u_0 is not None and kappa is not None) else 1.0
+    # Precompute I, gamma, I±gamma on target device/dtype once
+    _device = src_e.device
+    _dtype = src_e.dtype
+    I = lattice.I.to(_device).type(_dtype)
+    gamma_dev = {wk: lattice.gamma[lattice.wards[wk]].to(_device).type(_dtype)
+                 for wk in lattice.ward_p_keys}
+    I_minus_gamma = {wk: I - gamma_dev[wk] for wk in lattice.ward_p_keys}
+    I_plus_gamma = {wk: I + gamma_dev[wk] for wk in lattice.ward_p_keys}
+    # Precompute eo masks for t_p direction
+    t_p_masks = None
     # Apply Wilson-Dirac operator for each direction
-    I = lattice.I.to(src_e.device).type(src_e.dtype)
     for ward_key in lattice.ward_p_keys:
         ward = lattice.wards[ward_key]
-        gamma_mu = lattice.gamma[ward].to(src_e.device).type(src_e.dtype)
         if verbose:
             print(
                 f"PYQCU::DSLASH::WILSON:\n Processing {ward_key} (ward={ward})...")
-        # Give eo mask for parity decomposition
-        if ward_key == 't_p':
-            even_mask = tools.give_eo_mask(oootzy_t_p=src_e, eo=0)
-            odd_mask = tools.give_eo_mask(oootzy_t_p=src_e, eo=1)
+        # Give eo mask for parity decomposition (computed once and cached)
+        if ward_key == 't_p' and t_p_masks is None:
+            t_p_masks = (
+                tools.give_eo_mask(oootzy_t_p=src_e, eo=0),
+                tools.give_eo_mask(oootzy_t_p=src_e, eo=1),
+            )
         # Extract gauge field for current direction
         U_e_dag_mu = U_e_dag[..., ward, :, :, :, :]  # [c1, c2, x, y, z, t_p]
         U_o_mu = U_o[..., ward, :, :, :, :]  # [c1, c2, x, y, z, t_p]
-        # Term 1: (r - γ_μ) U_{x,μ} src_{x+μ}
+        # Term 1: (1 - γ_μ) U_{x,μ} src_{x+μ}
         src_e_plus = _torch.roll(
             src_e, shifts=-1, dims=ward)
-        if ward_key == 't_p':  # -1 to 0 caused by parity decomposition\
-            src_e_plus[..., odd_mask] = src_e[...,
-                                              odd_mask]  # parity(src)=(x+y+z+t)%2=0,eo(src)==(x+y+z)%2=1,so:t_p(src)%2=1,move_plus=0
-        # Contract color indices: U_eo_mu * src_o_plus
+        if ward_key == 't_p':
+            src_e_plus[..., t_p_masks[1]] = src_e[..., t_p_masks[1]]
         U_o_src_e_plus = _torch.einsum(
             'Ccxyzt,scxyzt->sCxyzt', U_o_mu, src_e_plus)
-        # Apply (r - gamma_mu) in spin space
         term1 = _torch.einsum(
-            'Ss,sCxyzt->SCxyzt', (I - gamma_mu), U_o_src_e_plus)
-        # Term 2: (r + γ_μ) U_{x-μ,μ}^† src_{x-μ}
+            'Ss,sCxyzt->SCxyzt', I_minus_gamma[ward_key], U_o_src_e_plus)
+        # Term 2: (1 + γ_μ) U_{x-μ,μ}^† src_{x-μ}
         src_e_minus = _torch.roll(
             src_e, shifts=1, dims=ward)
-        if ward_key == 't_p':  # 1 to 0 caused by parity decomposition\
-            src_e_minus[..., even_mask] = src_e[...,
-                                                even_mask]  # parity(src)=(x+y+z+t)%2=0,eo(src)==(x+y+z)%2=0,so:t_p(src)%2=0,move_minus=0
+        if ward_key == 't_p':
+            src_e_minus[..., t_p_masks[0]] = src_e[..., t_p_masks[0]]
         U_e_dag_minus = _torch.roll(
             U_e_dag_mu, shifts=1, dims=ward)
-        if ward_key == 't_p':  # 1 to 0 caused by parity decomposition\
-            U_e_dag_minus[..., even_mask] = U_e_dag_mu[...,
-                                                       even_mask]  # parity(U)=(x+y+z+t)%2=0,eo(U)==(x+y+z)%2=0,so:t_p(U)%2=0,move_minus=0
-        # Contract color indices: U_eo_dag_minus * src_o_minus
+        if ward_key == 't_p':
+            U_e_dag_minus[..., t_p_masks[0]] = U_e_dag_mu[..., t_p_masks[0]]
         U_e_dag_src_e_minus = _torch.einsum(
             'Ccxyzt,scxyzt->sCxyzt', U_e_dag_minus, src_e_minus)
-        # Apply (r + gamma_mu) in spin space
         term2 = _torch.einsum(
-            'Ss,sCxyzt->SCxyzt', (I + gamma_mu), U_e_dag_src_e_minus)
-        # Combine terms and subtract from dest_e
+            'Ss,sCxyzt->SCxyzt', I_plus_gamma[ward_key], U_e_dag_src_e_minus)
+        # Combine terms and subtract from dest_o
         hopping = term1 + term2
-        if u_0 is not None and kappa is not None:
-            _ = float(kappa/u_0)
-        else:
-            _ = 1.0
-        dest_o -= _ * hopping
+        dest_o -= _factor * hopping
         if verbose:
             print(
                 f"PYQCU::DSLASH::WILSON:\n Hopping term norm: {_torch.norm(hopping).item()}")
@@ -233,15 +233,13 @@ def give_hopping_plus(ward: int, U: torch.Tensor, kappa: Optional[torch.Tensor] 
     ward = lattice.wards[ward_key]
     I = lattice.I.to(U.device).type(U.dtype)
     gamma_mu = lattice.gamma[ward].to(U.device).type(U.dtype)
+    I_minus_gamma = I - gamma_mu
     if verbose:
         print(f"PYQCU::DSLASH::WILSON:\n give_hopping_{ward_key}_plus......")
     U_mu = U[..., ward, :, :, :, :]
-    if u_0 is not None and kappa is not None:
-        _ = float(kappa/u_0)
-    else:
-        _ = 1.0
-    return - _ * _torch.einsum(
-        'Ss,Ccxyzt->SCscxyzt', (I - gamma_mu), U_mu).reshape([12, 12]+list(U.shape[-4:]))  # sc->e
+    _factor = float(kappa/u_0) if (u_0 is not None and kappa is not None) else 1.0
+    return - _factor * _torch.einsum(
+        'Ss,Ccxyzt->SCscxyzt', I_minus_gamma, U_mu).reshape([12, 12]+list(U.shape[-4:]))  # sc->e
 
 
 def give_hopping_minus(ward: int, U: torch.Tensor, U_head: Optional[torch.Tensor] = None, kappa: Optional[torch.Tensor] = torch.Tensor([0.1]),
@@ -250,6 +248,7 @@ def give_hopping_minus(ward: int, U: torch.Tensor, U_head: Optional[torch.Tensor
     ward = lattice.wards[ward_key]
     I = lattice.I.to(U.device).type(U.dtype)
     gamma_mu = lattice.gamma[ward].to(U.device).type(U.dtype)
+    I_plus_gamma = I + gamma_mu
     if verbose:
         print(f"PYQCU::DSLASH::WILSON:\n give_hopping_{ward_key}_minus......")
     U_dag = U.permute(1, 0, 2, 3, 4, 5, 6).conj()
@@ -260,12 +259,9 @@ def give_hopping_minus(ward: int, U: torch.Tensor, U_head: Optional[torch.Tensor
         U_head_dag_mu = U_head_dag[..., ward, :, :, :]
         U_dag_minus[tools.slice_dim(dims_num=6, ward=ward, point=0)
                     ] = U_head_dag_mu.clone()
-    if u_0 is not None and kappa is not None:
-        _ = float(kappa/u_0)
-    else:
-        _ = 1.0
-    return - _ * _torch.einsum(
-        'Ss,Ccxyzt->SCscxyzt', (I + gamma_mu), U_dag_minus).reshape([12, 12]+list(U.shape[-4:]))  # sc->e
+    _factor = float(kappa/u_0) if (u_0 is not None and kappa is not None) else 1.0
+    return - _factor * _torch.einsum(
+        'Ss,Ccxyzt->SCscxyzt', I_plus_gamma, U_dag_minus).reshape([12, 12]+list(U.shape[-4:]))  # sc->e
 
 
 def give_wilson_plus(ward: int, src: torch.Tensor, hopping: torch.Tensor, src_tail: Optional[torch.Tensor] = None, parity: Optional[int] = None, verbose: bool = False) -> torch.Tensor:
