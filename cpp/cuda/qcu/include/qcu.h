@@ -14,4 +14,6 @@
 #include "./lattice_wilson_bistabcg.h"
 #include "./lattice_wilson_cg.h"
 #include "./lattice_wilson_dslash.h"
+#include "./multigrid.h"
+#include "./lattice_multigrid.h"
 #endif
