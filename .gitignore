@@ -42,3 +42,12 @@ lib/*
 *.tsv
 *.prof
 *.pyc
+*.aux
+*.toc
+*.fls
+*.log
+*.nav
+*.snm
+*.xdv
+*.fdb_latexmk
+./refer/.*.log
