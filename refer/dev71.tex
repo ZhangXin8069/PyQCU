@@ -1,0 +1,853 @@
+\documentclass[11pt,a4paper]{article}
+
+% Packages
+\usepackage[UTF8]{ctex}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{geometry}
+\usepackage{fancyhdr}
+\usepackage{tikz}
+\usetikzlibrary{positioning,arrows,shapes}
+
+\geometry{margin=2.5cm}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    citecolor=blue,
+    urlcolor=blue,
+}
+
+% Code listing style
+\lstdefinestyle{cppstyle}{
+    language=C++,
+    basicstyle=\ttfamily\small,
+    keywordstyle=\color{blue}\bfseries,
+    commentstyle=\color{gray}\itshape,
+    stringstyle=\color{red},
+    numbers=left,
+    numberstyle=\tiny\color{gray},
+    frame=single,
+    breaklines=true,
+    tabsize=2,
+    showstringspaces=false,
+}
+\lstdefinestyle{pythonstyle}{
+    language=Python,
+    basicstyle=\ttfamily\small,
+    keywordstyle=\color{blue}\bfseries,
+    commentstyle=\color{gray}\itshape,
+    stringstyle=\color{red},
+    numbers=left,
+    numberstyle=\tiny\color{gray},
+    frame=single,
+    breaklines=true,
+    tabsize=2,
+    showstringspaces=false,
+}
+
+\title{\textbf{PyQCU中CUDA C++版MultiGrid求解器的\\设计与优化解析}}
+\author{张 Xin}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+\newpage
+
+%==========================================================================
+\section{引言}
+%==========================================================================
+
+格点量子色动力学（Lattice QCD）中，求解大规模稀疏线性系统 $D\psi = \chi$ 是计算最密集的环节之一。
+Dirac算子 $D$ 的条件数随夸克质量减小而急剧增长，导致传统Krylov子空间方法（如CG、BiCGStab）收敛缓慢。
+代数多重网格（Algebraic Multigrid, AMG）方法通过构造近零空间（near-null space）和层级粗化算子，
+能够显著克服临界减速（critical slowing down）问题，在物理夸克质量下保持接近常数的收敛速率。
+
+PyQCU是一个基于Python/Cython与CUDA的格点QCD计算框架，其MultiGrid求解器采用``Python驱动 + CUDA C++加速''的混合架构：
+\begin{itemize}
+    \item \textbf{Python层：}负责层级构造、近零空间生成、Galerkin粗化、延拓/限制操作以及V-cycle控制流；
+    \item \textbf{CUDA C++层：}负责最细层级上Wilson/Clover Dirac算子的高性能计算、BiCGStab迭代求解以及MPI多GPU通信。
+\end{itemize}
+
+本文对该MultiGrid求解器的完整设计与优化策略进行系统性解析，内容涵盖：
+\begin{enumerate}
+    \item Clover-improved Wilson Dirac算子的数学形式与CUDA实现；
+    \item Even-Odd预条件Schur补系统的构造；
+    \item BiStabCG（BiCGStab）求解器的CUDA多流并行优化；
+    \item 近零空间向量的生成与局域正交化；
+    \item Galerkin投影构建粗网格算子；
+    \item 多层次V-cycle递归求解与自适应Level-back机制；
+    \item MPI多GPU通信的Overlap优化；
+    \item Cython桥接层的设计。
+\end{enumerate}
+
+%==========================================================================
+\section{数学基础：Clover-improved Wilson Dirac算子}
+%==========================================================================
+
+\subsection{Wilson Dirac算子}
+
+连续QCD中的Dirac算子为 $D = \gamma_\mu D_\mu + m$。在格点上，使用Wilson离散化方案：
+
+\begin{equation}
+D_W(x,y) = \delta_{x,y} - \kappa \sum_{\mu=0}^{3} \left[(1-\gamma_\mu)U_{x,\mu}\delta_{x+\hat{\mu},y} + (1+\gamma_\mu)U^\dagger_{x-\hat{\mu},\mu}\delta_{x-\hat{\mu},y}\right]
+\end{equation}
+
+其中 $\kappa = 1/(2m + 8)$ 为hopping参数，$U_{x,\mu} \in SU(3)$ 为规范场链路变量，$\gamma_\mu$ 为4×4 Dirac gamma矩阵。
+在PyQCU代码中，该算子实现于 \texttt{pyqcu/dslash/\_wilson.py} 的 \texttt{give\_wilson} 函数。
+
+\subsection{Clover改进项}
+
+为消除 $\mathcal{O}(a)$ 的格点离散化误差，加入Sheikholeslami-Wohlert（Clover）项：
+
+\begin{equation}
+D_C = D_W - \frac{a^2\kappa}{u_0^4}\sum_{\mu<\nu}\sigma_{\mu\nu}F_{\mu\nu}\delta_{x,y}
+\end{equation}
+
+其中 $\sigma_{\mu\nu} = -\frac{i}{2}[\gamma_\mu,\gamma_\nu]$，场强张量 $F_{\mu\nu}$ 由四个link的clover plaquette构造：
+
+\begin{align}
+F_{\mu\nu} &= \frac{1}{8i}\Big[
+    U_{x,\mu}U_{x+\hat{\mu},\nu}U^\dagger_{x+\hat{\nu},\mu}U^\dagger_{x,\nu} \\
+    &+ U_{x,\nu}U^\dagger_{x-\hat{\mu}+\hat{\nu},\mu}U^\dagger_{x-\hat{\mu},\nu}U_{x-\hat{\mu},\mu} \\
+    &+ U^\dagger_{x-\hat{\mu},\mu}U^\dagger_{x-\hat{\mu}-\hat{\nu},\nu}U_{x-\hat{\mu}-\hat{\nu},\mu}U_{x-\hat{\nu},\nu} \\
+    &+ U^\dagger_{x-\hat{\nu},\nu}U_{x-\hat{\nu},\mu}U_{x-\hat{\nu}+\hat{\mu},\nu}U^\dagger_{x,\mu} - \text{h.c.}\Big]
+\end{align}
+
+Clover项在PyQCU中的Python实现见 \texttt{pyqcu/dslash/\_clover.py::make\_clover}，CUDA C++实现见
+\texttt{cpp/cuda/qcu/include/lattice\_clover\_dslash.h::make\_clover}。
+
+最终完整的Clover Dirac算子写为 $A = I + T$，其中 $T$ 为Clover项（spin×color空间中的12×12矩阵），
+$I$ 为单位矩阵。在代码中通过 \texttt{add\_I} 和 \texttt{cut\_I} 在两种形式之间转换。
+
+\subsection{数据布局}
+
+PyQCU中张量的维度约定如下（见表\ref{tab:layout}）：
+
+\begin{table}[h]
+\centering
+\caption{关键张量的维度布局}
+\label{tab:layout}
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{张量} & \textbf{形状} & \textbf{索引含义} \\
+\midrule
+Gauge场 $U$     & [3,3,4,Lx,Ly,Lz,Lt] & [color,color,direction,x,y,z,t] \\
+Fermion场 $\psi$ & [4,3,Lx,Ly,Lz,Lt]   & [spin,color,x,y,z,t] \\
+Clover项 $A$   & [4,3,4,3,Lx,Ly,Lz,Lt] & [spin,color,spin,color,x,y,z,t] \\
+12分量压缩形式  & [12,12,Lx,Ly,Lz,Lt]  & [spin×color, spin×color, x,y,z,t] \\
+Even-Odd分离   & [2, ...]             & [parity=even/odd, ...] \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+在CUDA C++层中，数据进行了一维扁平化存储。每个格点位置的12个spin-color分量（\texttt{\_LAT\_SC\_=12}）
+连续存储，然后按格点索引排列。规范场每个格点存储4个方向的SU(3)矩阵，
+在Dslash计算中通过宏 \texttt{get\_u} 加载当前方向上的3×3矩阵及反余子式重构的第三行元素。
+
+%==========================================================================
+\section{Even-Odd预条件}
+%==========================================================================
+
+\subsection{数学原理}
+
+将格点按照 $(x+y+z+t) \bmod 2$ 分为偶(even)和奇(odd)两个子集，Dirac方程 $A\psi = \chi$ 可写为分块形式：
+
+\begin{equation}
+\begin{pmatrix} A_{ee} & A_{eo} \\ A_{oe} & A_{oo} \end{pmatrix}
+\begin{pmatrix} \psi_e \\ \psi_o \end{pmatrix} =
+\begin{pmatrix} \chi_e \\ \chi_o \end{pmatrix}
+\end{equation}
+
+其中 $A_{ee}$ 和 $A_{oo}$ 仅包含对角（Clover+质量）项，$A_{eo}$ 和 $A_{oe}$ 包含hopping项。
+消去 $\psi_e$ 得到关于 $\psi_o$ 的Schur补系统：
+
+\begin{equation}
+\underbrace{(A_{oo} - A_{oe}A_{ee}^{-1}A_{eo})}_{\equiv \hat{A}}\psi_o = \underbrace{\chi_o - A_{oe}A_{ee}^{-1}\chi_e}_{\equiv \hat{b}}
+\end{equation}
+
+该系统的条件数约为原系统的平方根，显著改善了迭代求解的收敛性。
+
+\subsection{CUDA实现}
+
+在CUDA层面，Even-Odd预条件的Dslash操作由 \texttt{dslash} 成员函数实现（\texttt{lattice\_clover\_bistabcg.h:116-131}）：
+
+\begin{lstlisting}[style=cppstyle]
+void dslash(void *fermion_out, void *fermion_in) {
+    // Step 1: D_eo * src_o  (Wilson hopping, even<-odd)
+    wilson_dslash.run_eo(set_ptr->device_vec0, fermion_in, gauge);
+    // Step 2: A_ee^{-1} * (D_eo * src_o) (Clover inverse on even sites)
+    give_copy_vals<T><<<...>>>(set_ptr->device_vec2, set_ptr->device_vec0);
+    clover_dslash_ee_inv.give(set_ptr->device_vec2);
+    // Step 3: -kappa^2 * D_oe * (A_ee^{-1} * D_eo * src_o) (Wilson, odd<-even)
+    wilson_dslash.run_oe(set_ptr->device_vec1, set_ptr->device_vec2, gauge);
+    // Step 4: A_oo * src_o + (-kappa^2 * D_oe * A_ee^{-1} * D_eo * src_o)
+    give_copy_vals<T><<<...>>>(set_ptr->device_vec2, fermion_in);
+    clover_dslash_oo.give(set_ptr->device_vec2);
+    bistabcg_give_dest_o<T><<<...>>>(
+        fermion_out, set_ptr->device_vec2, set_ptr->device_vec1, ...);
+}
+\end{lstlisting}
+
+注意CUDA实现中使用了Clover逆矩阵 \texttt{clover\_ee\_inv} 作为输入（由Python层计算并提供），
+避免了每次迭代时重复求逆。$\hat{A}$ 的操作涉及四次算子应用：
+
+\begin{equation}
+\hat{A} \cdot src_o = A_{oo} \cdot src_o - \kappa^2 D_{oe}(A_{ee}^{-1}(D_{eo}(src_o)))
+\end{equation}
+
+其中 $\kappa^2$ 因子出现在两次hopping操作各含一个 $-\kappa$ 因子。
+
+%==========================================================================
+\section{BiStabCG求解器的CUDA多流优化}
+%==========================================================================
+
+\subsection{BiCGStab算法}
+
+BiStabCG（即BiCGStab，双共轭梯度稳定化方法）用于在每个层级（特别是最粗层级）上
+求解线性系统。算法流程如算法\ref{alg:bicgstab}所示。
+
+\begin{algorithm}[h]
+\caption{BiCGStab求解器}
+\label{alg:bicgstab}
+\begin{algorithmic}[1]
+\Require $A$, $b$, 初始猜测 $x_0$, 容差 $\varepsilon$, 最大迭代次数 $N_{\max}$
+\Ensure 近似解 $x$
+
+\State $r_0 \gets b - A x_0$
+\State 选取 $\tilde{r}_0$ 满足 $(\tilde{r}_0, r_0) \neq 0$（代码中取 $\tilde{r}_0 = r_0$）
+\State $\rho_0 \gets \alpha \gets \omega_0 \gets 1$
+\State $v_0 \gets p_0 \gets 0$
+\For{$i = 1, 2, \dots, N_{\max}$}
+    \State $\rho_i \gets (\tilde{r}_0, r_{i-1})$
+    \State $\beta \gets (\rho_i / \rho_{i-1})(\alpha / \omega_{i-1})$
+    \State $p_i \gets r_{i-1} + \beta(p_{i-1} - \omega_{i-1}v_{i-1})$
+    \State $v_i \gets A p_i$ \Comment{矩阵向量乘}
+    \State $\alpha \gets \rho_i / (\tilde{r}_0, v_i)$
+    \State $s \gets r_{i-1} - \alpha v_i$
+    \State $t \gets A s$ \Comment{矩阵向量乘}
+    \State $\omega_i \gets (t, s) / (t, t)$
+    \State $x_i \gets x_{i-1} + \alpha p_i + \omega_i s$
+    \State $r_i \gets s - \omega_i t$
+    \If{$\|r_i\| < \varepsilon$} \Return $x_i$
+    \EndIf
+\EndFor
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{CUDA多流并行优化}
+
+PyQCU的CUDA C++ BiStabCG实现在 \texttt{lattice\_clover\_bistabcg.h} 中，
+采用四路CUDA Stream并行策略最大化GPU利用率。
+核心设计思想是将内积计算（需要MPI Allreduce同步）与向量更新（纯本地操作）分配到不同stream上并行执行。
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[
+    node distance=1.5cm,
+    stream/.style={rectangle,draw,minimum width=2.5cm,minimum height=0.7cm,font=\small},
+    arrow/.style={->,>=stealth}
+]
+\node[stream,fill=blue!20] (s0) {Stream A: dot(r\_tilde,r)};
+\node[stream,fill=green!20,below of=s0] (s1) {Stream B: update x\_o};
+\node[stream,fill=yellow!20,below of=s1] (s2) {Stream C: dot(r,r)};
+\node[stream,fill=red!20,below of=s2] (s3) {Stream D: dot(r\_tilde,v)};
+\node[right=2cm of s0,text width=3cm] (n0) {cuBLAS dot + MPI Allreduce};
+\node[right=2cm of s1,text width=3cm] (n1) {Element-wise kernel (无同步)};
+\node[right=2cm of s2,text width=3cm] (n2) {cuBLAS dot + MPI Allreduce};
+\node[right=2cm of s3,text width=3cm] (n3) {cuBLAS dot + MPI Allreduce};
+\end{tikzpicture}
+\caption{BiStabCG迭代中的四路CUDA Stream流水线}
+\label{fig:streams}
+\end{figure}
+
+每个四路stream（\texttt{\_a\_}, \texttt{\_b\_}, \texttt{\_c\_}, \texttt{\_d\_}）被分配不同的任务流：
+\begin{itemize}
+    \item \textbf{Stream A (\_a\_):} 计算 $\rho = (\tilde{r}, r)$，更新 $p = r + \beta(p - \omega v)$，更新 $s = r - \alpha v$，更新 $r = s - \omega t$；
+    \item \textbf{Stream B (\_b\_):} 更新 $x = x + \alpha p + \omega s$；
+    \item \textbf{Stream C (\_c\_):} 计算 $\|r\|^2$，计算 $(t, s)$；
+    \item \textbf{Stream D (\_d\_):} 计算 $(\tilde{r}, v)$，计算 $(t, t)$，计算 $\omega = (t,s)/(t,t)$。
+\end{itemize}
+
+内积的MPI Allreduce采用``cuBLAS Dot $\to$ D2H copy $\to$ MPI Barrier $\to$ MPI\_Allreduce $\to$ H2D copy''的流水线，
+在 \texttt{\_dot\_mpi} 函数中实现。
+
+此外，Dslash计算（包含MPI halo交换和内部格点计算）在主stream上执行，
+与其他四个计算stream通过 \texttt{cudaStreamSynchronize} 进行同步。
+
+\subsection{Wilson Dslash的CUDA Kernel设计}
+
+Wilson Dslash的CUDA kernel（\texttt{wilson\_dslash.cu}）每个线程处理一个格点，
+在一个kernel内完成所有4个方向的hopping操作。核心循环结构为：
+
+\begin{lstlisting}[style=cppstyle]
+template <typename T>
+__global__ void wilson_dslash(void *device_U, void *device_src,
+                               void *device_dest, void *device_params) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    // 从一维线程索引解码出 (x,y,z,t) 坐标
+    int x = idx / (lat_y * lat_z * lat_t);
+    int y = (idx % (lat_y * lat_z * lat_t)) / (lat_z * lat_t);
+    int z = (idx % (lat_z * lat_t)) / lat_t;
+    int t = idx % lat_t;
+
+    // 加载本格点的src (12个spin-color分量)
+    get_src(src, origin_src, lat_xyzt);
+
+    // 对每个方向: 加载U矩阵 → 加载邻居src → SU(3)×spinor乘法
+    // X-方向: (1+γ_x) * U^†(x-μ) * src(x-μ)
+    move_backward(move, x, lat_x);
+    tmp_U = origin_U + move*lat_y*lat_z*lat_t + offset_X;
+    get_u(U, tmp_U, lat_xyzt);
+    // 计算 SU(3) 矩阵与spinor的乘积，施加 (1±γ_μ) 投影
+    for (int c0 = 0; c0 < 3; c0++) {
+        for (int c1 = 0; c1 < 3; c1++) {
+            dest_spinor[c0] += U_dagger[c1*3+c0] * src_spinor[c1];
+        }
+    }
+    // ... 类似处理 X+, Y-, Y+, Z-, Z+, T-, T+
+}
+\end{lstlisting}
+
+关键优化点：
+\begin{itemize}
+    \item \textbf{SU(3)矩阵压缩：}每个SU(3)矩阵只存储前两行的6个复数，第三行通过 $u^*_{ij} = \varepsilon_{ikl}\varepsilon_{jmn}u_{km}u_{ln}/2$ 从反余子式重构（宏 \texttt{get\_u} 中的后三行赋值），节省了1/3的全局内存带宽；
+    \item \textbf{寄存器内计算：}每个线程将本格点的12个spin-color分量、邻居src分量和SU(3)矩阵元素全部加载到寄存器中，dest也在寄存器中累加后统一写回；
+    \item \textbf{Even-Odd掩码：}在t方向上的Even-Odd跳跃由宏 \texttt{move\_forward\_t} 和 \texttt{move\_backward\_t} 处理，避免了分支发散。
+\end{itemize}
+
+\subsection{MPI通信与计算的Overlap}
+
+Wilson Dslash的MPI实现（\texttt{lattice\_wilson\_dslash.h::run\_mpi}）采用以下流水线策略：
+
+\begin{enumerate}
+    \item \textbf{阶段1 — 边界发送：}四个方向stream（\texttt{stream\_dims[X/Y/Z/T]}）同时启动边界数据pack kernel，将需要发送的halo数据打包到send buffer；完成后异步D2H拷贝；
+    \item \textbf{阶段2 — 内部计算：}主stream启动内部格点（不含边界）的Dslash kernel，与阶段1的D2H拷贝并行；
+    \item \textbf{阶段3 — MPI通信：}每个方向依次进行MPI\_Sendrecv（阻塞），交换halo数据；
+    \item \textbf{阶段4 — 边界接收计算：}H2D拷贝接收数据到GPU，启动边界接收kernel补全边界贡献。
+\end{enumerate}
+
+该设计的性能优势在于：内部格点计算（占总计算的绝大部分）与halo数据打包/D2H拷贝重叠执行。
+也可切换到非阻塞MPI模式（\texttt{run\_mpi\_non\_block}）使用MPI\_Isend/MPI\_Irecv配合MPI\_Wait，
+进一步增大overlap窗口。
+
+注意Clover项构建（\texttt{lattice\_clover\_dslash.h::\_make\_mpi}）涉及更复杂的通信模式：
+除了一维halo交换（每个方向单独通信），还需要二维对角方向的halo交换
+（如xy、xz、xt、yz、yt、zt），每个二维面需要4个通信（BB、FB、BF、FF），
+以支持跨角格点的clover plaquette计算。
+
+%==========================================================================
+\section{MultiGrid层级构造}
+%==========================================================================
+
+\subsection{整体架构}
+
+PyQCU的MultiGrid求解器（\texttt{pyqcu/solver/\_multigrid.py}）采用V-cycle递归结构。
+系统架构分为三个核心层次：
+
+\begin{enumerate}
+    \item \textbf{Python控制层（\texttt{pyqcu/solver/\_multigrid.py::multigrid}）：}管理层级构造、参数配置、V-cycle调度、自适应level-back策略和收敛监控；
+    \item \textbf{Python算子层（\texttt{pyqcu/dslash/\_operator.py::operator}）：}通过Galerkin投影构建粗网格上的hopping和sitting（Clover）算子；
+    \item \textbf{CUDA C++加速层：}在最细层级提供高性能的Dslash + BiCGStab求解（通过Cython桥接调用 \texttt{qcu.applyCloverBistabCgQcu}）。
+\end{enumerate}
+
+\subsection{层级参数}
+
+MultiGrid的层级结构由以下参数控制：
+
+\begin{itemize}
+    \item \texttt{min\_size}: 每个方向的最小格点数，决定粗化的终止条件；
+    \item \texttt{max\_level}: 最大层级数（含最细层级）；
+    \item \texttt{mg\_grid\_size = [bx, by, bz, bt]}: 每个粗网格块的大小，即粗化因子；
+    \item \texttt{dof\_list}: 每层的自由度（近零空间向量数目），典型值 [12, 24, 24, 24, ...]；
+    \item \texttt{dtype\_list}: 每层的数据类型（例如 [complex64, complex128, complex128, ...]）；
+    \item \texttt{device\_list}: 每层的计算设备（例如 [cuda, cpu, cpu, ...]）。
+\end{itemize}
+
+层级格点大小列表通过迭代粗化生成（\texttt{pyqcu/solver/\_multigrid.py:33-36}）：
+
+\begin{lstlisting}[style=pythonstyle]
+_lat_size = self.lat_size
+while all(_ >= self.min_size for _ in _lat_size) and len(self.lat_size_list) < self.max_level:
+    self.lat_size_list.append(_lat_size)
+    _lat_size = [_lat_size[d] // self.mg_grid_size[d] for d in range(4)]
+\end{lstlisting}
+
+\subsection{近零空间生成 (\texttt{give\_null\_vecs})}
+
+近零空间向量（null-space vectors）是AMG方法的核心，它们张成Dirac算子低模本征空间的近似。
+生成过程（\texttt{pyqcu/tools/\_multigrid.py::give\_null\_vecs}）为每个向量执行带逆的幂迭代：
+
+\begin{equation}
+v^{(i)} = v^{(i)} - A^{-1} A v^{(i)}
+\end{equation}
+
+代码实现中，对每个随机初始化的向量 $v^{(i)}$：
+\begin{enumerate}
+    \item 应用 $A \cdot v^{(i)}$ 得到右端向量；
+    \item 调用BiCGStab求解 $A x = A v^{(i)}$，初始猜测为 $x_0 = v^{(i)}$；
+    \item $v^{(i)} \gets v^{(i)} - x$，即 $v^{(i)} - A^{-1}Av^{(i)}$，这近似于投影到低模空间；
+    \item 可选地，对 $v^{(i)}$ 关于前面的向量做Gram-Schmidt正交化；
+    \item 归一化：$v^{(i)} \gets v^{(i)} / \|v^{(i)}\|$。
+\end{enumerate}
+
+如果提供了CUDA加速的BiCGStab（\texttt{with\_cuda\_qcu=True}），最细层级使用CUDA C++求解器；
+否则回退到纯Python的BiCGStab。
+
+\subsection{局域正交化 (\texttt{local\_orthogonalize})}
+
+近零空间向量需要在每个粗网格块内局域正交化，以保证粗网格算子的稀疏性和良条件性。
+给定近零空间向量 $\phi^{(i)} \in \mathbb{C}^{[E, e, X\cdot x, Y\cdot y, Z\cdot z, T\cdot t]}$，
+其中 $E$ 是粗自由度数目，$e$ 是细自由度，$(X,Y,Z,T)$ 是粗网格维度，$(x,y,z,t)$ 是每个粗块内的细网格维度：
+
+\begin{enumerate}
+    \item 将向量reshape为 $[X, Y, Z, T, E, e, x, y, z, t]$；
+    \item 置换维度和合并为 $[n_{\text{blocks}}, E, \text{local\_dim}]$，其中 $n_{\text{blocks}}=X\times Y\times Z\times T$，
+          $\text{local\_dim}=e\times x\times y\times z\times t$；
+    \item 对每个粗网格块独立进行QR分解：$Q, R = \text{QR}(A^T)$，其中 $A\in\mathbb{C}^{\text{local\_dim}\times E}$；
+    \item 可选地归一化 $Q$ 的每一列：$Q = Q / \|Q\|_{\text{column}}$；
+    \item 恢复原始维度排列。
+\end{enumerate}
+
+这一步骤的复杂张量重塑和置换在Python代码中通过 \texttt{reshape}, \texttt{permute}, \texttt{view} 组合实现，
+QR分解使用PyTorch的 \texttt{torch.linalg.qr}（或NPU兼容的自定义路径）。
+
+\subsection{Galerkin投影构建粗网格算子}
+
+粗网格算子的构造遵循Galerkin变分原理（\texttt{pyqcu/dslash/\_operator.py::operator.\_\_init\_\_}，第153-217行）：
+
+\begin{equation}
+A_{\text{coarse}} = R A_{\text{fine}} P
+\end{equation}
+
+其中 $P = \Phi$（局域正交化后的近零空间向量矩阵）和 $R = \Phi^\dagger$ 分别是延拓（prolongation）和限制（restriction）算子。
+
+代码实现中，粗网格算子的构造通过显式作用于每个粗基向量来完成。
+对每个粗方向的基向量 $e_c$（即粗空间中的一个单位向量）：
+
+\begin{lstlisting}[style=pythonstyle]
+for e in range(coarse_dof):  # 对每个粗自由度
+    for ward in range(4):     # 对每个方向
+        # 构建指向特定粗格点和粗自由度的测试向量
+        _src_c = zeros_like(...)
+        _src_c[e][slice_dim(ward=ward, start=0)] = 1.0
+        # 延拓到细网格
+        _src_f = tools.prolong(local_ortho_null_vecs, _src_c)
+        # 在细网格上应用hopping算子
+        _dest_f_plus = fine_hopping.matvec_plus(ward, _src_f)
+        _dest_f_minus = fine_hopping.matvec_minus(ward, _src_f)
+        # 限制回粗网格
+        _dest_c_plus = tools.restrict(local_ortho_null_vecs, _dest_f_plus)
+        _dest_c_minus = tools.restrict(local_ortho_null_vecs, _dest_f_minus)
+        # 填充粗hopping和sitting矩阵
+        ...
+    # 对sitting（Clover）部分做同样处理
+    _src_c = ones_like(...)
+    _src_f = tools.prolong(local_ortho_null_vecs, _src_c)
+    _dest_f = fine_sitting.matvec(src=_src_f)
+    _dest_c = tools.restrict(local_ortho_null_vecs, _dest_f)
+    self.sitting.M[:, e] += _dest_c
+\end{lstlisting}
+
+这个过程将细网格算子的hopping（on-site部分和hopping部分）和sitting（Clover）成分分别在每个方向上
+显式作用，然后通过限制操作投影到粗空间，构建出粗网格上的完整算子的矩阵表示。
+
+\subsection{延拓与限制操作}
+
+延拓（prolongation）和限制（restriction）操作在 \texttt{pyqcu/tools/\_multigrid.py} 中实现，
+使用Einstein求和约定：
+
+\begin{subequations}
+\begin{align}
+\text{Restrict:}\quad & v_{\text{coarse}}(E,X,Y,Z,T) = \sum_{e,x,y,z,t} \Phi^\dagger(E,e,Xx,Yy,Zz,Tt) \cdot v_{\text{fine}}(e,Xx,Yy,Zz,Tt) \\
+\text{Prolong:}\quad & v_{\text{fine}}(e,Xx,Yy,Zz,Tt) = \sum_{E,X,Y,Z,T} \Phi(E,e,Xx,Yy,Zz,Tt) \cdot v_{\text{coarse}}(E,X,Y,Z,T)
+\end{align}
+\end{subequations}
+
+CUDA版本使用 \texttt{torch.einsum} 实现：
+\begin{lstlisting}[style=pythonstyle]
+# Restrict
+return _torch.einsum("EeXxYyZzTt,eXxYyZzTt->EXYZT",
+                      local_ortho_null_vecs.conj(), _fine_vec)
+# Prolong
+return _torch.einsum("EeXxYyZzTt,EXYZT->eXxYyZzTt",
+                      local_ortho_null_vecs, _coarse_vec)
+\end{lstlisting}
+
+NPU版本（不支持超过8维的tensor）采用分步reshape+permute策略，将高维操作拆解为多步低维操作。
+
+%==========================================================================
+\section{V-cycle递归求解与自适应策略}
+%==========================================================================
+
+\subsection{V-cycle递归结构}
+
+MultiGrid求解器的核心是 \texttt{cycle} 方法（\texttt{pyqcu/solver/\_multigrid.py:167-294}），
+实现递归V-cycle，如算法\ref{alg:vcycle}所示。
+
+\begin{algorithm}[h]
+\caption{MultiGrid V-Cycle}
+\label{alg:vcycle}
+\begin{algorithmic}[1]
+\Function{cycle}{level}
+    \State $b \gets b_{\text{list}}[\text{level}]$
+    \If{level == 0 $\land$ support\_parity}
+        \State 切换到Even-Odd预条件系统: $\hat{A} x_o = \hat{b}$
+    \EndIf
+    \State $x \gets 0$, $r \gets b - A x$
+    \If{$\|r\| < \text{tol}$} \Return $x$
+    \EndIf
+    \State 初始化BiCGStab变量: $\tilde{r}, \rho, \alpha, \omega, p, v, s, t$
+
+    \For{$i = 0, \dots, \text{max\_iter}-1$}
+        \State 执行一步BiCGStab迭代（更新 $x$, $r$, $\rho$, $\alpha$, $\omega$ 等）
+        \State $\text{count\_restart} \gets \text{count\_restart} + 1$
+
+        \If{level $<$ num\_level $-1$ $\land$ count\_restart $>$ num\_restart}
+            \State \textbf{// 粗网格校正}
+            \State $r \gets b - A x$  \Comment{重新计算残差}
+            \State $r_{\text{coarse}} \gets \text{restrict}(r)$
+                \Comment{限制残差到粗网格}
+            \State $e_{\text{coarse}} \gets \text{cycle}(\text{level}+1)$
+                \Comment{递归求解粗网格校正}
+            \State $e_{\text{fine}} \gets \text{prolong}(e_{\text{coarse}})$
+                \Comment{延拓校正到细网格}
+            \State $x \gets x + e_{\text{fine}}$
+            \State $r \gets b - A x$
+            \State $\text{count\_restart} \gets 0$
+        \EndIf
+
+        \State $\|r\| \gets$ norm($r$)
+        \If{level == 0}
+            \State 记录收敛历史; 执行自适应level-back检查
+        \EndIf
+        \If{$\|r\| < \text{tol}$} \Return $x$
+        \EndIf
+    \EndFor
+    \State \Return $x$
+\EndFunction
+\end{algorithmic}
+\end{algorithm}
+
+V-cycle的关键特征：
+\begin{itemize}
+    \item \textbf{每层使用BiCGStab作为smoother：}在每个层级上，BiCGStab迭代充当平滑器（smoother），消除高频误差分量；
+    \item \textbf{周期性粗网格校正：}每 \texttt{num\_restart} 步（默认5步）进行一次粗网格校正，将当前残差限制到下一个粗层级并递归求解校正方程；
+    \item \textbf{非对称V-cycle：}粗层级使用更大的容差（$\|r\| \times 0.5$）和最粗层级使用 $\|r\| \times 0.1$，形成一种``指数松弛''策略。
+\end{itemize}
+
+\subsection{自适应Level-Back机制}
+
+当收敛停滞时，\texttt{adaptive} 方法自动将有效层级数减少到1（即仅在最细层级上使用BiCGStab），
+避免粗网格校正无法有效改善收敛的情况。检测逻辑（\texttt{pyqcu/solver/\_multigrid.py:152-165}）：
+
+\begin{lstlisting}[style=pythonstyle]
+def adaptive(self, iter: int = 0):
+    if self.convergence_tol > 3:
+        self.num_level = 1  # 回退到仅最细层级
+    if (iter+1)*2 < self.num_convergence_sample+1:
+        return
+    convergence_now = self.convergence_history[-1]
+    convergence_sample = self.convergence_history[-(self.num_convergence_sample+1):-1]
+    count = 0
+    for convergence in convergence_sample:
+        if convergence < convergence_now:
+            count += 1
+    if count >= self.num_convergence_sample // 2:
+        self.convergence_tol += 1  # 停滞计数递增
+\end{lstlisting}
+
+该机制监控最近 \texttt{num\_convergence\_sample} 次（默认50次）残差历史：
+如果半数以上历史残差小于当前残差（即收敛在变差），\texttt{convergence\_tol} 递增；
+当累积到4次以上停滞判断时，强制回退到单层级BiCGStab求解。
+
+%==========================================================================
+\section{CUDA C++ MultiGrid参数体系}
+%==========================================================================
+
+PyQCU的C++ define头文件（\texttt{cpp/cuda/qcu/include/define.h}）中预留了完整的MultiGrid参数体系。
+参数通过 \texttt{params} 数组（\texttt{\_PARAMS\_SIZE\_ = 54}）和 \texttt{argv} 数组（\texttt{\_ARGV\_SIZE\_ = 7}）传递。
+
+\subsection{MultiGrid相关参数索引}
+
+\begin{table}[h]
+\centering
+\caption{MultiGrid层级参数索引（define.h）}
+\label{tab:mg_params}
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{宏定义} & \textbf{索引} & \textbf{含义} \\
+\midrule
+\texttt{\_MG\_NUM\_LEVEL\_} & 17 & MultiGrid总层级数 \\
+\texttt{\_MG\_LEVEL\_INDEX\_} & 18 & 当前层级索引 \\
+\multicolumn{3}{c}{\textit{Level 1（最细层）}} \\
+\texttt{\_MG\_LEVEL1\_E\_} & 19 & 自由度数目（近零空间向量数）\\
+\texttt{\_MG\_LEVEL1\_X/Y/Z/T\_} & 20-23 & 粗格点维度 \\
+\texttt{\_MG\_LEVEL1\_MAX\_ITER\_} & 24 & 最大迭代次数 \\
+\texttt{\_MG\_LEVEL1\_DATA\_TYPE\_} & 25 & 数据类型 \\
+\texttt{\_MG\_LEVEL1\_NUM\_RESTART\_} & 26 & 重启间隔 \\
+\multicolumn{3}{c}{\textit{Level 2-4（类似）}} \\
+\texttt{\_MG\_LEVEL2/3/4\_E\_ ...} & 27-50 & 同上 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[h]
+\centering
+\caption{MultiGrid argv参数索引}
+\label{tab:mg_argv}
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{宏定义} & \textbf{索引} & \textbf{含义} \\
+\midrule
+\texttt{\_MASS\_} & 0 & 质量参数 \\
+\texttt{\_ATOL\_} & 1 & 全局容差 \\
+\texttt{\_SIGMA\_} & 2 & $\sigma$参数 \\
+\texttt{\_MG\_LEVEL1\_ATOL\_} & 3 & Level 1容差 \\
+\texttt{\_MG\_LEVEL2\_ATOL\_} & 4 & Level 2容差 \\
+\texttt{\_MG\_LEVEL3\_ATOL\_} & 5 & Level 3容差 \\
+\texttt{\_MG\_LEVEL4\_ATOL\_} & 6 & Level 4容差 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+注：当前版本CUDA C++端的MultiGrid参数体系已定义但完整的多层级CUDA实现尚在开发中。
+目前MultiGrid的V-cycle逻辑在Python层实现，仅在最细层级调用CUDA加速的Clover BiCGStab Dslash。
+
+%==========================================================================
+\section{Python-CUDA桥接层（Cython）}
+%==========================================================================
+
+\subsection{Cython接口设计}
+
+PyQCU使用Cython（\texttt{pyqcu/cuda/qcu/qcu.pyx}）作为Python与CUDA C++之间的桥接层。
+所有CUDA函数接收裸指针（封装为 \texttt{long long} 类型），通过Cython直接传递tensor的底层数据指针：
+
+\begin{lstlisting}[style=pythonstyle]
+# Python端调用
+fermion_out_ptr = fermion_out.contiguous().data_ptr()
+gauge_ptr = gauge.contiguous().data_ptr()
+qcu.applyCloverBistabCgQcu(
+    fermion_out_ptr, fermion_in_ptr, gauge_ptr,
+    clover_ee_ptr, clover_oo_ptr,
+    clover_ee_inv_ptr, clover_oo_inv_ptr,
+    set_ptrs_ptr, params_ptr
+)
+\end{lstlisting}
+
+C++端通过 \texttt{reinterpret\_cast} 将\texttt{long long}恢复为指针。
+
+\subsection{参数传递}
+
+参数分为三类：
+
+\begin{enumerate}
+    \item \textbf{params (int32, 54维):} 格点维度、网格维度、数据类型、迭代次数、plan选择等整数参数；
+    \item \textbf{argv (float/complex, 7维):} 物理参数（质量、容差、$\sigma$等）；
+    \item \textbf{set\_ptrs (int64):} 预分配的指针槽位，用于存储C++端创建的 \texttt{LatticeSet} 指针等运行时对象。
+\end{enumerate}
+
+\texttt{pyqcu/cuda/define.py} 与 \texttt{cpp/cuda/qcu/include/define.h} 保持同步，
+定义了这些参数数组的索引常量。
+
+\subsection{Plan系统}
+
+C++后端使用Plan系统区分不同的计算模式：
+
+\begin{itemize}
+    \item \texttt{\_SET\_PLAN\_N\_2\_ (-2)}: Laplacian算子
+    \item \texttt{\_SET\_PLAN\_N\_1\_ (-1)}: Gauss规范场生成
+    \item \texttt{\_SET\_PLAN0\_ (0)}: Wilson Dslash
+    \item \texttt{\_SET\_PLAN1\_ (1)}: BiCGStab/CG及其Dslash
+    \item \texttt{\_SET\_PLAN2\_ (2)}: Clover Dslash
+\end{itemize}
+
+不同plan分配不同大小的scratch buffer（\texttt{LatticeSet::init} 中的条件分支），
+通过 \texttt{\_SET\_INDEX\_} 参数区分同一plan下不同计算实例，避免buffer重用冲突。
+
+\subsection{生命周期管理}
+
+每次调用使用以下模式：
+
+\begin{lstlisting}[style=pythonstyle]
+# 1. 初始化（分配GPU内存、创建stream、copy参数）
+qcu.applyInitQcu(set_ptrs, params, argv)
+# 2. 多次调用核心计算
+qcu.applyCloverBistabCgQcu(...)  # 或 applyCloverBistabCgDslashQcu
+qcu.applyCloverBistabCgQcu(...)  # 可以多次调用
+# 3. 清理（释放内存、销毁stream）
+qcu.applyEndQcu(set_ptrs, params)
+\end{lstlisting}
+
+在 \texttt{applyInitQcu}（\texttt{apply\_init.cu}）中，C++创建 \texttt{LatticeSet<T>} 对象并调用 \texttt{init()}，
+分配所有必要的GPU内存和CUDA资源。该对象的指针存储在 \texttt{set\_ptrs[\_SET\_INDEX\_]} 中。
+后续调用通过该指针访问已初始化的资源。
+
+\subsection{MultiGrid中的CUDA调用}
+
+在MultiGrid的 \texttt{init} 方法中（\texttt{pyqcu/solver/\_multigrid.py:65-145}），
+CUDA加速的BiCGStab被封装为一个闭包：
+
+\begin{lstlisting}[style=pythonstyle]
+if self.with_cuda_qcu and i == 1:  # 仅在level 1使用CUDA
+    def _bistabcg(b, tol, max_iter, x0, ...):
+        fermion_in_eo = tools.oooxyzt2poooxyzt(b)
+        qcu.applyCloverBistabCgQcu(
+            fermion_out_eo, fermion_in_eo, gauge_eo,
+            clover_ee, clover_oo, clover_ee_inv, clover_oo_inv,
+            set_ptrs, params)
+        return tools.poooxyzt2oooxyzt(fermion_out_eo)
+    bistabcg = _bistabcg
+\end{lstlisting}
+
+这使近零空间向量的生成可以利用CUDA加速的求解器，随后粗层级算子构造在Python中完成。
+
+%==========================================================================
+\section{性能优化策略总结}
+%==========================================================================
+
+\subsection{CUDA Kernel级优化}
+
+\begin{enumerate}
+    \item \textbf{SU(3)矩阵压缩存储：}仅存储前两行6个复数（12个float），第三行通过解析公式从反余子式重建，减少33\%的全局内存带宽；
+    \item \textbf{寄存器驻留计算：}所有spin-color分量、邻点src、SU(3)矩阵均保持在寄存器中，dest在寄存器中累加，避免共享内存/全局内存的中间写入；
+    \item \textbf{Kernel融合：}四个方向的hopping操作在一个kernel中完成，避免多次kernel启动开销；
+    \item \textbf{Coalesced内存访问：}一维线程索引映射到格点的一维展开，确保相邻线程访问相邻全局内存地址；
+    \item \textbf{Stream并行：}Dslash使用4个方向stream并行处理边界打包，BiCGStab使用4个计算stream流水线化内积与向量更新。
+\end{enumerate}
+
+\subsection{MPI通信优化}
+
+\begin{enumerate}
+    \item \textbf{计算-通信Overlap：}内部格点kernel与边界数据D2H拷贝并行执行；
+    \item \textbf{Pinned Memory：}所有MPI缓冲区使用 \texttt{cudaMallocHost} 分配的页锁定内存，支持异步DMA传输；
+    \item \textbf{非阻塞MPI：}支持MPI\_Isend/MPI\_Irecv非阻塞通信模式，可进一步增加overlap；
+    \item \textbf{Clover通信的2D面交换：}Clover项构造需要跨角邻居数据，通过6个二维面（xy,xz,xt,yz,yt,zt）的4通道（BB,FB,BF,FF）MPI\_Sendrecv实现。
+\end{enumerate}
+
+\subsection{算法级优化}
+
+\begin{enumerate}
+    \item \textbf{Even-Odd预条件：}将条件数降低为原系统的平方根，显著加速BiCGStab收敛；
+    \item \textbf{多层级粗化：}粗化因子通常取 $2^4=16$，每层的自由度从12递增到24或更大，平衡粗网格算子的精度和求解成本；
+    \item \textbf{自适应Level-Back：}收敛停滞时自动回退，避免粗网格校正无效时的浪费；
+    \item \textbf{混合精度策略：}最细层级使用complex64（单精度），粗层级使用complex128（双精度），在精度和性能间取得平衡；
+    \item \textbf{设备异构计算：}最细层级在GPU上执行（利用CUDA加速），粗层级可在CPU上执行（粗层级数据量小，通信开销可忽略）。
+\end{enumerate}
+
+\subsection{内存管理优化}
+
+\begin{enumerate}
+    \item \textbf{Clover逆矩阵预计算：}在Python层预先计算 $A_{ee}^{-1}$ 和 $A_{oo}^{-1}$（12×12矩阵的批量求逆），避免每次迭代重复计算；
+    \item \textbf{Scratch Buffer复用：}通过Plan系统和 \texttt{\_SET\_INDEX\_} 参数管理多组scratch buffer的生命周期；
+    \item \textbf{Lazy Memory Allocation：}C++后端使用 \texttt{cudaMallocAsync} 在指定stream上异步分配，避免全局同步。
+\end{enumerate}
+
+%==========================================================================
+\section{代码结构导航}
+%==========================================================================
+
+表\ref{tab:code_nav}给出了MultiGrid相关代码在PyQCU代码库中的完整导航。
+
+\begin{table}[h]
+\centering
+\caption{MultiGrid相关代码位置}
+\label{tab:code_nav}
+\begin{tabular}{@{}lp{9cm}@{}}
+\toprule
+\textbf{模块} & \textbf{文件路径} \\
+\midrule
+MG求解器（Python） & \texttt{pyqcu/solver/\_multigrid.py} \\
+MG工具函数 & \texttt{pyqcu/tools/\_multigrid.py} \\
+Dslash算子 & \texttt{pyqcu/dslash/\_operator.py} \\
+Wilson Dslash & \texttt{pyqcu/dslash/\_wilson.py} \\
+Clover项 & \texttt{pyqcu/dslash/\_clover.py} \\
+BiCGStab（Python） & \texttt{pyqcu/solver/\_bistabcg.py} \\
+Cython桥接 & \texttt{pyqcu/cuda/qcu/qcu.pyx, qcu.pxd} \\
+参数定义 & \texttt{pyqcu/cuda/define.py} \\
+\midrule
+Wi Dslash Kernel & \texttt{cpp/cuda/qcu/src/wilson\_dslash.cu} \\
+Wilson Dslash MPI & \texttt{cpp/cuda/qcu/include/lattice\_wilson\_dslash.h} \\
+Clover Dslash MPI & \texttt{cpp/cuda/qcu/include/lattice\_clover\_dslash.h} \\
+Clover BiCGStab & \texttt{cpp/cuda/qcu/include/lattice\_clover\_bistabcg.h} \\
+Wilson BiCGStab & \texttt{cpp/cuda/qcu/include/lattice\_wilson\_bistabcg.h} \\
+Lattice Set管理 & \texttt{cpp/cuda/qcu/include/lattice\_set.h} \\
+核心Define & \texttt{cpp/cuda/qcu/include/define.h} \\
+初始化/清理 & \texttt{cpp/cuda/qcu/src/apply\_init.cu, apply\_end.cu} \\
+Clover BiCGStab入口 & \texttt{cpp/cuda/qcu/src/apply\_clover\_bistabcg.cu} \\
+Clover Dslash入口 & \texttt{cpp/cuda/qcu/src/apply\_clover\_bistabcg\_dslash.cu} \\
+CMake配置（NVIDIA） & \texttt{cpp/cuda/qcu/CMakeLists-nv.txt} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+%==========================================================================
+\section{总结与展望}
+%==========================================================================
+
+本文对PyQCU中CUDA C++版MultiGrid求解器的设计与实现进行了全面解析。
+系统采用``Python控制 + CUDA加速''的混合架构，在Python层完成层级构造、近零空间生成、
+Galerkin投影和V-cycle递归控制，在CUDA C++层提供高性能的Wilson/Clover Dslash算子和BiCGStab求解器。
+
+当前实现的优化亮点包括：
+\begin{itemize}
+    \item SU(3)矩阵压缩存储与寄存器内计算；
+    \item Even-Odd预条件Schur补系统；
+    \item 多CUDA Stream并行的BiCGStab实现；
+    \item MPI通信与计算的Overlap流水线；
+    \item 自适应Level-Back收敛控制；
+    \item 混合精度与异构设备计算。
+\end{itemize}
+
+未来可能的优化方向包括：
+\begin{enumerate}
+    \item \textbf{全层级CUDA加速：}将粗层级的Dslash和BiCGStab也移植到CUDA，避免CPU-GPU数据传输；
+    \item \textbf{聚合型AMG：}从当前的块QR正交化转向聚合型（aggregation-based）粗化，减少粗网格算子的构造开销；
+    \item \textbf{K-cycle/W-cycle：}实现更复杂的多重网格循环策略，提高粗网格校正效果；
+    \item \textbf{Tensor Core加速：}利用GPU Tensor Core进行SU(3)矩阵乘法和spinor投影的混合精度计算；
+    \item \textbf{通信优化：}使用CUDA-aware MPI（GPUDirect RDMA）消除CPU staging buffer；
+    \item \textbf{自适应平滑器：}根据局部误差特性动态选择Chebyshev、GMRES或MR作为平滑器。
+\end{enumerate}
+
+%==========================================================================
+\bibliographystyle{unsrt}
+\begin{thebibliography}{99}
+
+\bibitem{saad2003}
+Y. Saad, \textit{Iterative Methods for Sparse Linear Systems}, 2nd ed., SIAM, 2003.
+
+\bibitem{frommer2014}
+A. Frommer, K. Kahl, S. Krieg, B. Leder, and M. Rottmann,
+``Adaptive aggregation-based domain decomposition multigrid for the lattice Wilson--Dirac operator,''
+\textit{SIAM J. Sci. Comput.}, vol. 36, no. 4, pp. A1581--A1608, 2014.
+
+\bibitem{babich2010}
+R. Babich, J. Brannick, R. C. Brower, M. A. Clark, T. A. Manteuffel, S. F. McCormick, J. C. Osborn, and C. Rebbi,
+``Adaptive multigrid algorithm for the lattice Wilson-Dirac operator,''
+\textit{Phys. Rev. Lett.}, vol. 105, p. 201602, 2010.
+
+\bibitem{clark2010}
+M. A. Clark, R. Babich, K. Barros, R. C. Brower, and C. Rebbi,
+``Solving lattice QCD systems of equations using mixed precision solvers on GPUs,''
+\textit{Comput. Phys. Commun.}, vol. 181, pp. 1517--1528, 2010.
+
+\bibitem{sheikholeslami1985}
+B. Sheikholeslami and R. Wohlert,
+``Improved continuum limit lattice action for QCD with Wilson fermions,''
+\textit{Nucl. Phys. B}, vol. 259, p. 572, 1985.
+
+\bibitem{van1992}
+H. A. van der Vorst,
+``Bi-CGSTAB: A fast and smoothly converging variant of Bi-CG for the solution of nonsymmetric linear systems,''
+\textit{SIAM J. Sci. Stat. Comput.}, vol. 13, no. 2, pp. 631--644, 1992.
+
+\end{thebibliography}
+
+\end{document}
