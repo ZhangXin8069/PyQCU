@@ -61,6 +61,99 @@ class multigrid:
         self.num_convergence_sample = num_convergence_sample
         self.convergence_history = []
         self.convergence_tol = 0
+        # Pre-allocated CUDA tensors for restrict/prolong (level 0 -> 1)
+        self._mg_restrict_out = None
+        self._mg_prolong_out = None
+        self._mg_coarse_dslash_out = None
+        self._mg_coarse_hopping_packed = None
+
+    def _restrict_cuda(self, fine_vec: torch.Tensor, level: int) -> torch.Tensor:
+        """CUDA-accelerated restriction using C++ backend."""
+        lonv = self.lonv_list[level]
+        E = lonv.shape[0]
+        e = fine_vec.shape[0]
+        Xf, Yf, Zf, Tf = fine_vec.shape[1:]
+        Xc, Yc, Zc, Tc = self.lat_size_list[level+1]
+        # Set multigrid params
+        self.params[define._LAT_X_] = Xf
+        self.params[define._LAT_Y_] = Yf
+        self.params[define._LAT_Z_] = Zf
+        self.params[define._LAT_T_] = Tf
+        self.params[define._MG_LEVEL1_X_] = Xc
+        self.params[define._MG_LEVEL1_Y_] = Yc
+        self.params[define._MG_LEVEL1_Z_] = Zc
+        self.params[define._MG_LEVEL1_T_] = Tc
+        self.params[define._MG_LEVEL1_E_] = E
+        self.params[define._MG_NUM_LEVEL_] = e  # fine DOF
+        # Allocate or reuse output tensor
+        if self._mg_restrict_out is None or self._mg_restrict_out.shape != torch.Size([E, Xc, Yc, Zc, Tc]):
+            self._mg_restrict_out = torch.zeros(
+                [E, Xc, Yc, Zc, Tc], dtype=fine_vec.dtype, device=fine_vec.device)
+        qcu.applyMultigridRestrictQcu(
+            self._mg_restrict_out, fine_vec, lonv, self.set_ptrs, self.params)
+        return self._mg_restrict_out
+
+    def _prolong_cuda(self, coarse_vec: torch.Tensor, level: int) -> torch.Tensor:
+        """CUDA-accelerated prolongation using C++ backend."""
+        lonv = self.lonv_list[level]
+        E = coarse_vec.shape[0]
+        e = lonv.shape[1]
+        Xc, Yc, Zc, Tc = coarse_vec.shape[1:]
+        Xf = Xc * self.mg_grid_size[0]
+        Yf = Yc * self.mg_grid_size[1]
+        Zf = Zc * self.mg_grid_size[2]
+        Tf = Tc * self.mg_grid_size[3]
+        # Set multigrid params
+        self.params[define._LAT_X_] = Xf
+        self.params[define._LAT_Y_] = Yf
+        self.params[define._LAT_Z_] = Zf
+        self.params[define._LAT_T_] = Tf
+        self.params[define._MG_LEVEL1_X_] = Xc
+        self.params[define._MG_LEVEL1_Y_] = Yc
+        self.params[define._MG_LEVEL1_Z_] = Zc
+        self.params[define._MG_LEVEL1_T_] = Tc
+        self.params[define._MG_LEVEL1_E_] = E
+        self.params[define._MG_NUM_LEVEL_] = e  # fine DOF
+        # Allocate or reuse output tensor
+        if self._mg_prolong_out is None or self._mg_prolong_out.shape != torch.Size([e, Xf, Yf, Zf, Tf]):
+            self._mg_prolong_out = torch.zeros(
+                [e, Xf, Yf, Zf, Tf], dtype=coarse_vec.dtype, device=coarse_vec.device)
+        qcu.applyMultigridProLongQcu(
+            self._mg_prolong_out, coarse_vec, lonv, self.set_ptrs, self.params)
+        return self._mg_prolong_out
+
+    def _coarse_dslash_cuda(self, src: torch.Tensor, level: int) -> torch.Tensor:
+        """CUDA-accelerated coarse-grid dslash using C++ backend."""
+        op = self.op_list[level]
+        E, Xc, Yc, Zc, Tc = src.shape
+        # Pack hopping matrices: [2, 4, E, E, Xc, Yc, Zc, Tc]
+        # dim0: 0=plus, 1=minus; dim1: 0=X, 1=Y, 2=Z, 3=T
+        if (self._mg_coarse_hopping_packed is None or
+                self._mg_coarse_hopping_packed.shape != torch.Size([2, 4, E, E, Xc, Yc, Zc, Tc])):
+            hopping_packed = torch.zeros(
+                [2, 4, E, E, Xc, Yc, Zc, Tc],
+                dtype=src.dtype, device=src.device)
+            for ward in range(4):
+                hopping_packed[0, ward] = op.hopping.M_plus_list[ward].to(
+                    dtype=src.dtype, device=src.device)
+                hopping_packed[1, ward] = op.hopping.M_minus_list[ward].to(
+                    dtype=src.dtype, device=src.device)
+            self._mg_coarse_hopping_packed = hopping_packed
+        # Set multigrid params
+        self.params[define._MG_LEVEL1_X_] = Xc
+        self.params[define._MG_LEVEL1_Y_] = Yc
+        self.params[define._MG_LEVEL1_Z_] = Zc
+        self.params[define._MG_LEVEL1_T_] = Tc
+        self.params[define._MG_NUM_LEVEL_] = E  # coarse DOF
+        # Allocate or reuse output tensor
+        if (self._mg_coarse_dslash_out is None or
+                self._mg_coarse_dslash_out.shape != src.shape):
+            self._mg_coarse_dslash_out = torch.zeros_like(src)
+        qcu.applyMultigridCoarseDslashQcu(
+            self._mg_coarse_dslash_out, src,
+            self._mg_coarse_hopping_packed, op.sitting.M,
+            self.set_ptrs, self.params)
+        return self._mg_coarse_dslash_out
 
     def init(self):
         # Build local-orthonormal near-null space vectors
@@ -166,6 +259,10 @@ class multigrid:
 
     def cycle(self, level: int = 0) -> torch.Tensor:
         matvec = self.op_list[level].matvec
+        if self.with_cuda_qcu and level == 1:
+            def _coarse_matvec(src: torch.Tensor) -> torch.Tensor:
+                return self._coarse_dslash_cuda(src=src, level=level)
+            matvec = _coarse_matvec
         b = self.b_list[level].clone()
         if level == 0 and self.support_parity:
             b_origin = b.clone()
@@ -239,14 +336,20 @@ class multigrid:
                     x_origin = tools.poooxyzt2oooxyzt(
                         input_array=torch.stack([x_e, x], dim=0))
                     r = b_origin-self.op_list[0].matvec(src=x_origin)
-                r_coarse = tools.restrict(
-                    local_ortho_null_vecs=self.lonv_list[level], fine_vec=r)
+                if self.with_cuda_qcu and level == 0:
+                    r_coarse = self._restrict_cuda(fine_vec=r, level=level)
+                else:
+                    r_coarse = tools.restrict(
+                        local_ortho_null_vecs=self.lonv_list[level], fine_vec=r)
                 self.b_list[level+1] = r_coarse.to(dtype=self.dtype_list[level+1],
                                                    device=self.device_list[level+1])
                 e_coarse = self.cycle(level=level+1).to(dtype=self.dtype_list[level],
                                                         device=self.device_list[level])
-                e_fine = tools.prolong(
-                    local_ortho_null_vecs=self.lonv_list[level], coarse_vec=e_coarse)
+                if self.with_cuda_qcu and level == 0:
+                    e_fine = self._prolong_cuda(coarse_vec=e_coarse, level=level)
+                else:
+                    e_fine = tools.prolong(
+                        local_ortho_null_vecs=self.lonv_list[level], coarse_vec=e_coarse)
                 if level == 0 and self.support_parity:
                     e_fine_eo = tools.oooxyzt2poooxyzt(e_fine)
                     e_fine = e_fine_eo[1]
