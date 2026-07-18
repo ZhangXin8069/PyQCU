@@ -126,6 +126,9 @@ __global__ void multigrid_coarse_dslash(void *fermion_out, void *fermion_in,
   int total_output = E * vol;
   if (global_idx >= total_output)
     return;
+  // Early exit for invalid parameters
+  if (E <= 0 || vol <= 0)
+    return;
 
   LatticeComplex<T> *out = static_cast<LatticeComplex<T> *>(fermion_out);
   LatticeComplex<T> *in = static_cast<LatticeComplex<T> *>(fermion_in);
@@ -136,7 +139,7 @@ __global__ void multigrid_coarse_dslash(void *fermion_out, void *fermion_in,
   int E_out = global_idx / vol;
   int site = global_idx - E_out * vol;
 
-  // Decompose site into (x, y, z, t)
+  // Decompose site into (x, y, z, t) — row-major (C-order) layout
   int stride_YZT = Y * Z * T;
   int stride_ZT = Z * T;
   int x = site / stride_YZT;
@@ -146,34 +149,32 @@ __global__ void multigrid_coarse_dslash(void *fermion_out, void *fermion_in,
   int z = rest / T;
   int t = rest - z * T;
 
-  // Strides for hopping: shape [2, 4, E, E, X, Y, Z, T]
+  // Strides for hopping: shape [2, 4, E, E, X, Y, Z, T] in C-order
   // dim order: pm(2) × dir(4) × Eout(E) × Ein(E) × X × Y × Z × T
-  int hop_vol = X * Y * Z * T;
+  int hop_vol = vol;
   int hop_stride_Ein = hop_vol;
   int hop_stride_Eout = E * hop_stride_Ein;
   int hop_stride_dir = E * hop_stride_Eout;
   int hop_stride_pm = 4 * hop_stride_dir;
 
-  // Strides for sitting: shape [E, E, X, Y, Z, T]
+  // Strides for sitting: shape [E, E, X, Y, Z, T] in C-order
   int sit_stride_Ein = hop_vol;
   int sit_stride_Eout = E * sit_stride_Ein;
 
-  // Strides for fermion: shape [E, X, Y, Z, T]
+  // Strides for fermion: shape [E, X, Y, Z, T] in C-order
   int ferm_stride_E = hop_vol;
 
   LatticeComplex<T> sum(0.0, 0.0);
 
-  // Sitting term: sum_e sitting[E_out, e, x, y, z, t] * in[e, x, y, z, t]
-  int sit_base = E_out * sit_stride_Eout + x * stride_YZT + y * stride_ZT +
-                 z * T + t;
+  // --- Sitting term ---
+  // out[E_out, x,y,z,t] = sum_e sitting[E_out, e, x,y,z,t] * in[e, x,y,z,t]
+  int sit_base = E_out * sit_stride_Eout + site;
   for (int e = 0; e < E; e++) {
-    int sit_idx = sit_base + e * sit_stride_Ein;
-    int in_idx = e * ferm_stride_E + site;
-    sum += sit[sit_idx] * in[in_idx];
+    sum += sit[sit_base + e * sit_stride_Ein] * in[e * ferm_stride_E + site];
   }
 
-  // Hopping term: 4 directions × plus/minus
-  // Direction offsets: X->X±1, Y->Y±1, Z->Z±1, T->T±1
+  // --- Hopping term: 4 directions × plus/minus ---
+  // Direction data: offset (stride in flattened index), dim size, coordinate
   int dir_offsets[4] = {stride_YZT, stride_ZT, T, 1};
   int dir_dims[4] = {X, Y, Z, T};
   int dir_coords[4] = {x, y, z, t};
@@ -183,28 +184,24 @@ __global__ void multigrid_coarse_dslash(void *fermion_out, void *fermion_in,
     int dim = dir_dims[d];
     int coord = dir_coords[d];
 
-    // Forward neighbor (plus): in[x + e_d]
+    // Forward neighbor: site + e_d (periodic)
     int fwd_coord = (coord + 1) % dim;
     int fwd_site = site - coord * offset + fwd_coord * offset;
 
-    // Backward neighbor (minus): in[x - e_d]
+    // Backward neighbor: site - e_d (periodic)
     int bwd_coord = (coord - 1 + dim) % dim;
     int bwd_site = site - coord * offset + bwd_coord * offset;
 
-    // Hopping plus: hopping[0, d, E_out, e, x, y, z, t]
+    // Base offsets for plus/minus hopping at this site, direction, E_out
     int hop_plus_base = 0 * hop_stride_pm + d * hop_stride_dir +
                         E_out * hop_stride_Eout + site;
-    // Hopping minus: hopping[1, d, E_out, e, x, y, z, t]
     int hop_minus_base = 1 * hop_stride_pm + d * hop_stride_dir +
                          E_out * hop_stride_Eout + site;
 
     for (int e = 0; e < E; e++) {
-      int hop_plus_idx = hop_plus_base + e * hop_stride_Ein;
-      int hop_minus_idx = hop_minus_base + e * hop_stride_Ein;
-      int in_fwd_idx = e * ferm_stride_E + fwd_site;
-      int in_bwd_idx = e * ferm_stride_E + bwd_site;
-      sum += hop[hop_plus_idx] * in[in_fwd_idx];
-      sum += hop[hop_minus_idx] * in[in_bwd_idx];
+      int e_offset = e * hop_stride_Ein;
+      sum += hop[hop_plus_base + e_offset] * in[e * ferm_stride_E + fwd_site];
+      sum += hop[hop_minus_base + e_offset] * in[e * ferm_stride_E + bwd_site];
     }
   }
 
