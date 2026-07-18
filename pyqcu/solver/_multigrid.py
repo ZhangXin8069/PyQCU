@@ -66,6 +66,7 @@ class multigrid:
         self._mg_prolong_out = None
         self._mg_coarse_dslash_out = None
         self._mg_coarse_hopping_packed = None
+        self._mg_coarse_hopping_packed_level = None  # track which level is cached
 
     def _restrict_cuda(self, fine_vec: torch.Tensor, level: int) -> torch.Tensor:
         """CUDA-accelerated restriction using C++ backend."""
@@ -123,37 +124,74 @@ class multigrid:
         return self._mg_prolong_out
 
     def _coarse_dslash_cuda(self, src: torch.Tensor, level: int) -> torch.Tensor:
-        """CUDA-accelerated coarse-grid dslash using C++ backend."""
+        """CUDA-accelerated coarse-grid dslash using C++ backend.
+
+        Applies the coarse-grid Dirac operator D_coarse = sitting + hopping_plus + hopping_minus.
+        Data layout:
+          - fermion:  [E, Xc, Yc, Zc, Tc]
+          - hopping:  [2, 4, E, E, Xc, Yc, Zc, Tc] (pm × dir × Eout × Ein × XYZT)
+          - sitting:  [E, E, Xc, Yc, Zc, Tc]
+        """
         op = self.op_list[level]
         E, Xc, Yc, Zc, Tc = src.shape
+        # Ensure we use the base LatticeSet (index 0) for the CUDA stream
+        self.params[define._SET_INDEX_] = 0
         # Pack hopping matrices: [2, 4, E, E, Xc, Yc, Zc, Tc]
         # dim0: 0=plus, 1=minus; dim1: 0=X, 1=Y, 2=Z, 3=T
+        target_shape = torch.Size([2, 4, E, E, Xc, Yc, Zc, Tc])
         if (self._mg_coarse_hopping_packed is None or
-                self._mg_coarse_hopping_packed.shape != torch.Size([2, 4, E, E, Xc, Yc, Zc, Tc])):
+                self._mg_coarse_hopping_packed.shape != target_shape or
+                self._mg_coarse_hopping_packed.device != src.device or
+                self._mg_coarse_hopping_packed_level != level):
             hopping_packed = torch.zeros(
-                [2, 4, E, E, Xc, Yc, Zc, Tc],
-                dtype=src.dtype, device=src.device)
+                target_shape, dtype=src.dtype, device=src.device)
             for ward in range(4):
                 hopping_packed[0, ward] = op.hopping.M_plus_list[ward].to(
                     dtype=src.dtype, device=src.device)
                 hopping_packed[1, ward] = op.hopping.M_minus_list[ward].to(
                     dtype=src.dtype, device=src.device)
             self._mg_coarse_hopping_packed = hopping_packed
-        # Set multigrid params
+            self._mg_coarse_hopping_packed_level = level
+        # Set multigrid params for the C++ backend
         self.params[define._MG_LEVEL1_X_] = Xc
         self.params[define._MG_LEVEL1_Y_] = Yc
         self.params[define._MG_LEVEL1_Z_] = Zc
         self.params[define._MG_LEVEL1_T_] = Tc
-        self.params[define._MG_NUM_LEVEL_] = E  # coarse DOF
+        self.params[define._MG_NUM_LEVEL_] = E  # coarse DOF (repurposed)
+        # Ensure sitting tensor is on the correct device and dtype
+        sitting = op.sitting.M.to(dtype=src.dtype, device=src.device)
         # Allocate or reuse output tensor
         if (self._mg_coarse_dslash_out is None or
-                self._mg_coarse_dslash_out.shape != src.shape):
+                self._mg_coarse_dslash_out.shape != src.shape or
+                self._mg_coarse_dslash_out.device != src.device):
             self._mg_coarse_dslash_out = torch.zeros_like(src)
         qcu.applyMultigridCoarseDslashQcu(
             self._mg_coarse_dslash_out, src,
-            self._mg_coarse_hopping_packed, op.sitting.M,
+            self._mg_coarse_hopping_packed, sitting,
             self.set_ptrs, self.params)
         return self._mg_coarse_dslash_out
+
+    def _verify_coarse_dslash(self, level: int = 1, tol: float = 1e-3) -> bool:
+        """Debug helper: verify CUDA coarse dslash against Python einsum version.
+
+        Generates random input, compares CUDA output with Python reference.
+        Returns True if max absolute difference < tol.
+        """
+        op = self.op_list[level]
+        Xc, Yc, Zc, Tc = self.lat_size_list[level]
+        E = self.dof_list[level]
+        dtype = self.dtype_list[level]
+        device = self.device_list[level]
+        src = torch.randn([E, Xc, Yc, Zc, Tc], dtype=dtype, device=device)
+        # Python reference (einsum-based)
+        ref = op.matvec(src)
+        # CUDA path
+        cu = self._coarse_dslash_cuda(src, level=level)
+        diff = (ref - cu).abs().max().item()
+        if self.rank == self.root:
+            print(f"PYQCU::SOLVER::MULTIGRID::VERIFY:\n "
+                  f"level={level}, max|ref-cuda| = {diff:.6e}")
+        return diff < tol
 
     def init(self):
         # Build local-orthonormal near-null space vectors
