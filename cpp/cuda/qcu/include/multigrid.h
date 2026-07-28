@@ -15,6 +15,6 @@ __global__ void multigrid_prolong(void *fine_out, void *coarse_in,
 template <typename T>
 __global__ void multigrid_coarse_dslash(void *fermion_out, void *fermion_in,
                                          void *hopping, void *sitting,
-                                         int E, int X, int Y, int Z, int T);
+                                         int E, int X, int Y, int Z, int Lt);
 } // namespace qcu
 #endif
