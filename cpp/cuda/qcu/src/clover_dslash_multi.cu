@@ -63,6 +63,10 @@ __global__ void make_clover_all(
   LatticeComplex<T> tmp3[_LAT_CC_];
   LatticeComplex<T> U[_LAT_CC_];
   LatticeComplex<T> clover[_LAT_SCSC_];
+  // NOTE: boundary detection assumes lat >= 2 for all directions.
+  // The t-direction gate (move_wards[_B_T_] == lat_t - 1) correctly
+  // identifies boundary sites when lat_t >= 2. The lat_t == 1 limit
+  // (single-site time) is not used in practical LQCD calculations.
   // just all
   int if_b_x = (move_wards[_B_X_] == lat_x - 1);
   int if_b_y = (move_wards[_B_Y_] == lat_y - 1);

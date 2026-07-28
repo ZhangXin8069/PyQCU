@@ -81,7 +81,13 @@ __global__ void bistabcg_give_dest_o(void *device_dest_o, void *device_src_o,
       (static_cast<LatticeComplex<T> *>(device_vec1) + idx);
   int _ = int(((LatticeComplex<T> *)device_vals)[_lat_4dim_]._data.x);
   for (int i = 0; i < _LAT_SC_ * _; i += _) {
-    dest_o[i] = src_o[i] - vec1[i] * kappa * kappa; // dest_o=ans_o-kappa^2*tmp1
+    // NOTE: kappa^2 is correct for odd-preconditioned Clover-Wilson system.
+    // The preconditioned system is M_oo - kappa^2 * M_oe * M_ee^{-1} * M_eo.
+    // After solving for x_o, the even-site solution is:
+    //   x_e = M_ee^{-1} (b_e - kappa * M_eo * x_o)
+    //   dest_o = ans_o - kappa^2 * tmp1   (where tmp1 = M_oe * x_e / kappa)
+    // The extra kappa comes from the Wilson hopping term's kappa factor.
+    dest_o[i] = src_o[i] - vec1[i] * kappa * kappa; // kappa^2 in odd-preconditioned system
   }
 }
 template <typename T>

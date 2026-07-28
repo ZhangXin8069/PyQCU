@@ -20,8 +20,10 @@ __global__ void wilson_dslash(void *device_U, void *device_src,
   int lat_z = params[_LAT_Z_];
   int lat_t = params[_LAT_T_];
   int lat_xyzt = params[_LAT_XYZT_];
-  // BUGFIX 2026-07-28 R2: bounds guard (using parity = thread linear index).
-  if (parity >= lat_xyzt) return;
+  // BUGFIX 2026-07-28 R2: bounds guard for ceiling-division grid size.
+  // When lat_4dim is not a multiple of _BLOCK_SIZE_, extra threads are launched
+  // to cover all sites. These threads must exit immediately to avoid OOB access.
+  if (idx >= lat_xyzt) return;
   int move;
   move = lat_y * lat_z * lat_t;
   int x = parity / move;
@@ -286,8 +288,10 @@ __global__ void wilson_dslash_inside(void *device_U, void *device_src,
   int lat_z = params[_LAT_Z_];
   int lat_t = params[_LAT_T_];
   int lat_xyzt = params[_LAT_XYZT_];
-  // BUGFIX 2026-07-28 R2: bounds guard (using parity = thread linear index).
-  if (parity >= lat_xyzt) return;
+  // BUGFIX 2026-07-28 R2: bounds guard for ceiling-division grid size.
+  // When lat_4dim is not a multiple of _BLOCK_SIZE_, extra threads are launched
+  // to cover all sites. These threads must exit immediately to avoid OOB access.
+  if (idx >= lat_xyzt) return;
   int move;
   move = lat_y * lat_z * lat_t;
   int x = parity / move;
@@ -558,8 +562,10 @@ wilson_dslash_x_send(void *device_U, void *device_src, void *device_params,
   int lat_z = params[_LAT_Z_];
   int lat_t = params[_LAT_T_];
   int lat_xyzt = params[_LAT_XYZT_];
-  // BUGFIX 2026-07-28 R2: bounds guard (using parity = thread linear index).
-  if (parity >= lat_xyzt) return;
+  // BUGFIX 2026-07-28 R2: bounds guard for ceiling-division grid size.
+  // When lat_4dim is not a multiple of _BLOCK_SIZE_, extra threads are launched
+  // to cover all sites. These threads must exit immediately to avoid OOB access.
+  if (idx >= lat_xyzt) return;
   int move;
   move = lat_y * lat_z * lat_t;
   int x = parity / move;
@@ -655,8 +661,10 @@ wilson_dslash_x_recv(void *device_U, void *device_dest, void *device_params,
   int lat_z = params[_LAT_Z_];
   int lat_t = params[_LAT_T_];
   int lat_xyzt = params[_LAT_XYZT_];
-  // BUGFIX 2026-07-28 R2: bounds guard (using parity = thread linear index).
-  if (parity >= lat_xyzt) return;
+  // BUGFIX 2026-07-28 R2: bounds guard for ceiling-division grid size.
+  // When lat_4dim is not a multiple of _BLOCK_SIZE_, extra threads are launched
+  // to cover all sites. These threads must exit immediately to avoid OOB access.
+  if (idx >= lat_xyzt) return;
   int move;
   move = lat_y * lat_z * lat_t;
   int x = parity / move;
@@ -755,8 +763,10 @@ wilson_dslash_y_send(void *device_U, void *device_src, void *device_params,
   int lat_z = params[_LAT_Z_];
   int lat_t = params[_LAT_T_];
   int lat_xyzt = params[_LAT_XYZT_];
-  // BUGFIX 2026-07-28 R2: bounds guard (using parity = thread linear index).
-  if (parity >= lat_xyzt) return;
+  // BUGFIX 2026-07-28 R2: bounds guard for ceiling-division grid size.
+  // When lat_4dim is not a multiple of _BLOCK_SIZE_, extra threads are launched
+  // to cover all sites. These threads must exit immediately to avoid OOB access.
+  if (idx >= lat_xyzt) return;
   int move;
   move = lat_y * lat_z * lat_t;
   int x = parity / move;
@@ -852,8 +862,10 @@ wilson_dslash_y_recv(void *device_U, void *device_dest, void *device_params,
   int lat_z = params[_LAT_Z_];
   int lat_t = params[_LAT_T_];
   int lat_xyzt = params[_LAT_XYZT_];
-  // BUGFIX 2026-07-28 R2: bounds guard (using parity = thread linear index).
-  if (parity >= lat_xyzt) return;
+  // BUGFIX 2026-07-28 R2: bounds guard for ceiling-division grid size.
+  // When lat_4dim is not a multiple of _BLOCK_SIZE_, extra threads are launched
+  // to cover all sites. These threads must exit immediately to avoid OOB access.
+  if (idx >= lat_xyzt) return;
   int move;
   move = lat_y * lat_z * lat_t;
   int x = parity / move;
@@ -953,8 +965,10 @@ wilson_dslash_z_send(void *device_U, void *device_src, void *device_params,
   int lat_z = 1; // so let z=0 first, then z = lat_z -1
   int lat_t = params[_LAT_T_];
   int lat_xyzt = params[_LAT_XYZT_];
-  // BUGFIX 2026-07-28 R2: bounds guard (using parity = thread linear index).
-  if (parity >= lat_xyzt) return;
+  // BUGFIX 2026-07-28 R2: bounds guard for ceiling-division grid size.
+  // When lat_4dim is not a multiple of _BLOCK_SIZE_, extra threads are launched
+  // to cover all sites. These threads must exit immediately to avoid OOB access.
+  if (idx >= lat_xyzt) return;
   int move;
   move = lat_y * lat_z * lat_t;
   int x = parity / move;
@@ -1050,8 +1064,10 @@ wilson_dslash_z_recv(void *device_U, void *device_dest, void *device_params,
   int lat_z = 1; // so let z=0 first, then z = lat_z -1
   int lat_t = params[_LAT_T_];
   int lat_xyzt = params[_LAT_XYZT_];
-  // BUGFIX 2026-07-28 R2: bounds guard (using parity = thread linear index).
-  if (parity >= lat_xyzt) return;
+  // BUGFIX 2026-07-28 R2: bounds guard for ceiling-division grid size.
+  // When lat_4dim is not a multiple of _BLOCK_SIZE_, extra threads are launched
+  // to cover all sites. These threads must exit immediately to avoid OOB access.
+  if (idx >= lat_xyzt) return;
   int move;
   move = lat_y * lat_z * lat_t;
   int x = parity / move;
@@ -1151,8 +1167,10 @@ wilson_dslash_t_send(void *device_U, void *device_src, void *device_params,
   // int lat_t = ttttsc[_t_];
   int lat_t = 1; // so let t=0 first, then t = lat_t -1
   int lat_xyzt = params[_LAT_XYZT_];
-  // BUGFIX 2026-07-28 R2: bounds guard (using parity = thread linear index).
-  if (parity >= lat_xyzt) return;
+  // BUGFIX 2026-07-28 R2: bounds guard for ceiling-division grid size.
+  // When lat_4dim is not a multiple of _BLOCK_SIZE_, extra threads are launched
+  // to cover all sites. These threads must exit immediately to avoid OOB access.
+  if (idx >= lat_xyzt) return;
   int move;
   move = lat_y * lat_z * lat_t;
   int x = parity / move;
@@ -1254,8 +1272,10 @@ wilson_dslash_t_recv(void *device_U, void *device_dest, void *device_params,
   // int lat_t = ttttsc[_t_];
   int lat_t = 1; // so let t=0 first, then t = lat_t -1
   int lat_xyzt = params[_LAT_XYZT_];
-  // BUGFIX 2026-07-28 R2: bounds guard (using parity = thread linear index).
-  if (parity >= lat_xyzt) return;
+  // BUGFIX 2026-07-28 R2: bounds guard for ceiling-division grid size.
+  // When lat_4dim is not a multiple of _BLOCK_SIZE_, extra threads are launched
+  // to cover all sites. These threads must exit immediately to avoid OOB access.
+  if (idx >= lat_xyzt) return;
   int move;
   move = lat_y * lat_z * lat_t;
   int x = parity / move;

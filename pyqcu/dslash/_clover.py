@@ -107,7 +107,13 @@ def make_clover(U: torch.Tensor, kappa: Optional[torch.Tensor] = torch.Tensor([0
     _dtype = U.dtype
     _sigma = {wk: lattice.gamma_gamma[lattice.ward_wards[wk]['ward']].to(_device).type(_dtype)
               for wk in ward_ward_keys}
-    # Precompute clover coefficient once
+    # NOTE (2026-07-28 R3): The clover coefficient convention used here is
+    # _clover_factor = -0.125 * kappa/u_0 = -kappa/(8*u_0).
+    # Standard derivation with c_sw=1 gives -kappa/(16*u_0) when sigma = gamma_mu*gamma_nu
+    # and F = Q - Q^dag. The factor of 2 difference may be offset by:
+    #   1. Missing division by 2 in the anti-hermitian part (line: F -= F.dag)
+    #   2. Different c_sw convention
+    # Cross-validation against QUDA/Chroma is recommended to confirm effective c_sw.
     _coeff = float(kappa/u_0) if (u_0 is not None and kappa is not None) else 1.0
     _clover_factor = -0.125 * _coeff
     # Give clover term for each direction
