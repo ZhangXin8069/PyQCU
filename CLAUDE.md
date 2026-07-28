@@ -39,11 +39,18 @@ cd examples && pytest .
 
 # Run a single test file with MPI
 mpirun -np 4 python examples/pyqcu/conftest.py
+
+# Clover multigrid solver test
+mpirun -np 1 python examples/qcu/conftest.clover.multigrid.py
 ```
 
-**C++ backend build details:** `cpp/cuda/qcu/make.sh` symlinks `CMakeLists-nv.txt` (NVIDIA) or `CMakeLists-dcu.txt` (DCU/ROCm) to `CMakeLists.txt`, then runs cmake + make. The resulting `libqcu.so` exposes C functions declared in `cpp/cuda/qcu/python/pyqcu.h`. The C++ build sources its own `env.sh` for CUDA toolkit paths.
+**C++ backend build details:** `cpp/cuda/qcu/make.sh` uses `set -e` for error detection, symlinks `CMakeLists-nv.txt` (NVIDIA) or `CMakeLists-dcu.txt` (DCU/ROCm) to `CMakeLists.txt`, then runs cmake + make with `&&` chaining. The resulting `libqcu.so` exposes C functions declared in `cpp/cuda/qcu/python/pyqcu.h`. The C++ build sources its own `env.sh` for CUDA toolkit paths.
 
-**Cython build details:** `setup.py` defines a single extension `pyqcu.cuda.qcu` from `pyqcu/cuda/qcu/qcu.pyx`, linking against `libqcu.so`. It also runs `build.sh` as a pre-build step via the custom `CMakeBuild` command class.
+**Cython build details:** `setup.py` defines a single extension `pyqcu.cuda.qcu` from `pyqcu/cuda/qcu/qcu.pyx`, linking against `libqcu.so`. It also runs `build.sh` as a pre-build step via the custom `CMakeBuild` command class. Key setup.py details:
+- `python_requires=">=3.8"` (PyTorch 2.x hard requirement)
+- `find_packages(exclude=["pyqcu.testing.*", "pyqcu.testing"])` — correct pattern matching
+- `package_data={"pyqcu.cuda.qcu": ["*.pyi"]}` — includes type stubs in wheel
+- Imports only `Extension` from distutils, `setup` from setuptools (avoiding the distutils `setup` → setuptools `setup` override bug)
 
 ## Architecture
 
@@ -55,7 +62,7 @@ pyqcu/
 ├── smear/       — Stout gauge field smearing
 ├── tools/       — MPI grid helpers, I/O (HDF5+MPIO), einsum (TileLang JIT), linalg, multigrid prolong/restrict
 ├── testing/     — Integration tests exercising all components
-├── cuda/        — Cython bridge (qcu.pyx/.pxd) + parameter constants (define.py) for the C++ CUDA backend
+├── cuda/        — Cython bridge (qcu.pyx/.pxd/.pyi) + parameter constants (define.py) + package init (__init__.py) for the C++ CUDA backend
 ├── cann/        — Torch compatibility layer for Ascend NPU (handles complex ops not natively supported on NPU)
 ├── dtk/         — stub for DCU/ROCm (no implementation yet)
 └── maca/        — stub for Maca (no implementation yet)
@@ -167,6 +174,7 @@ The Cython module `pyqcu.cuda.qcu` exposes these functions (each takes raw tenso
 | `applyGaussGaugeQcu` | Gaussian gauge field generation (plan -1) |
 | `applyMultigridRestrictQcu` / `applyMultigridProLongQcu` | MG restrict/prolong with null vectors |
 | `applyMultigridCoarseDslashQcu` | Coarse-grid dslash (hopping + sitting) |
+| `applyCloverMultigridQcu` | Full Clover multigrid V-cycle solver |
 
 ### C++ backend internal structure
 
@@ -179,6 +187,7 @@ The CUDA backend (`cpp/cuda/qcu/src/`) is organized by operator type:
 - `apply_clover_bistabcg.cu` / `apply_clover_bistabcg_dslash.cu` — Clover BiStabCG solver + its dslash
 - `apply_wilson_cg.cu` / `apply_wilson_cg_dslash.cu` — Wilson CG solver + its dslash
 - `apply_multigrid.cu` — multigrid restrict/prolong/coarse-dslash
+- `apply_clover_multigrid.cu` — Clover multigrid solver entry point (C API bridge)
 - `lattice_mpi.cu` — MPI halo exchange helpers
 - `lattice_cuda.cu` — CUDA utility functions (stream management, etc.)
 
@@ -269,3 +278,71 @@ cd examples/profiler && mpirun -np 1 python -u conftest.py
 **Logging convention:** All modules use the pattern `PYQCU::MODULE::SUBMODULE:\n message` for print-based logging, controlled by `verbose` flags on most functions and classes.
 
 **Device/dtype flexibility:** Most classes accept and preserve the device/dtype of their input tensors. When internal precomputed matrices are on a different device, explicit `.to()` casts are used.
+
+## Clover Multigrid Solver (C++ CUDA)
+
+The C++ backend now includes a full Clover multigrid solver (`cpp/cuda/qcu/include/lattice_clover_multigrid.h`, ~1100 lines). It performs V-cycle iterations with BiStabCG smoothing at each level, matching the Python MG algorithm in `pyqcu/solver/_multigrid.py` but using CUDA streams for parallelism.
+
+**Stream architecture (5 streams):**
+
+```
+main (strm):   dslash operations (fine_dslash_op / coarse_dslash_op)
+_a_:           dot(r_tilde,r) → give_1beta → give_p → give_s → give_r
+_b_:           give_1rho_prev → give_x_o
+_c_:           dot(t,s), convergence-check dot(r,r)
+_d_:           dot(r_tilde,v) → give_1alpha → dot(t,t) → give_1omega
+```
+
+**Critical invariants** (failures here caused NaN and segfault bugs during development):
+
+1. **Scalars live only in `device_vals`.** No host→device scalar memcpy inside the iteration loop. All scalar updates are done by GPU kernels writing directly to `device_vals`. This eliminated a race condition where host-side writes interleaved with kernel reads on other streams.
+
+2. **Full stream sync at bottom of each iteration.** Sync ALL 5 streams before starting the next iteration. Missing syncs caused stale reads of `device_vals` slots and residual oscillation.
+
+3. **`_send_tmp_` scratch pattern for dot products.** cublasDot writes to `_send_tmp_` (scratch slot index 7), then MPI_Allreduce, then copy to target slot. Never write cublasDot directly to the target slot — another stream could read the unreduced value during the MPI window.
+
+4. **`mpi_real_type<T>()` template.** Dispatches `MPI_FLOAT` for float, `MPI_DOUBLE` for double. Hardcoding `MPI_FLOAT` breaks double-precision runs.
+
+5. **`run_mpi` uses blocking `MPI_Sendrecv` — no `MPI_Wait` needed.** Only `run_mpi_non_block` (using `MPI_Isend`) requires `MPI_Wait`. Adding `MPI_Wait` to the blocking path causes segfault on uninitialized request handles.
+
+**C API:** `applyCloverMultigridQcu` in `pyqcu.h` takes fermion in/out, gauge, clover_ee, clover_oo, clover_ee_inv, clover_oo_inv, set_ptrs, params. The Python entry point is `qcu.applyCloverMultigridQcu(...)` via Cython.
+
+**Test:** `examples/qcu/conftest.clover.multigrid.py` — single-GPU correctness test at 8×8×8×16 lattice, outputs convergence log to `logs/clover_multigrid.log` and performance report to `logs/clover_multigrid_report.log`.
+
+## Type Stub (pyi)
+
+`pyqcu/cuda/qcu/qcu.pyi` (155 lines) provides full type annotations with docstrings for all 22 Cython bridge functions. New in R3 — enables IDE autocomplete and type checking for the CUDA backend. The stub covers: init/end, Wilson/Clover dslash, Wilson/Clover BiStabCG, Wilson CG, Laplacian, Gauss gauge, multigrid restrict/prolong/coarse-dslash, and Clover multigrid. `setup.py` includes it via `package_data`.
+
+## Logging & Reports
+
+The `logs/` directory contains development reports and debug artifacts. When adding new reports, place them here with date-based naming:
+
+| Pattern | Purpose |
+|---------|---------|
+| `logs/dev<N>.md` / `.pdf` / `.tex` | Development milestone reports (between stab tags) |
+| `logs/bug<N>.md` | Bug discovery & code review reports |
+| `logs/review-*.md` | Code review findings |
+| `logs/fix-report-*.md` | Bug fix summaries |
+| `logs/debug/fix-log*.md` | Per-round fix logs |
+| `logs/results/*.md` | Final/remaining fix reports |
+| `logs/clover_multigrid.log` | C++ solver convergence output |
+| `logs/*.png` | Performance charts, convergence plots |
+
+**Tagging convention:** The project uses `cctag` (~/configure/bin/cctag) with three independent counters: `stab<N>` (stable milestones), `dev<N>` (development snapshots), `bug<N>` (bug fix markers). Tags are annotated with changelogs. The current baseline is `stab23`.
+
+## Known Fixed Bugs (Anti-Patterns)
+
+These bugs were found and fixed during the R1–R3 reviews. They represent patterns to avoid:
+
+| Pattern | Example | Consequence |
+|---------|---------|-------------|
+| Complex `operator*=` overwriting `_data.x` before using it in `_data.y` | `lattice_complex.h` | All complex multiplication wrong |
+| `cudaMallocAsync` buffer size mismatch with kernel write size | `gauss_gauge.cu` | OOB write |
+| GPU buffer re-allocation overwriting existing pointers without `cudaFreeAsync` | `lattice_wilson_cg.h` | Memory leak |
+| Integer division where ceiling division is needed for grid dimensions | `lattice_set.h` | Sites skipped |
+| Bare `except:` swallowing `KeyboardInterrupt` | `_define.py`, `testing/__init__.py` | Unstoppable processes |
+| `torch.linalg.inv` called in Python for-loop instead of batched | `_clover.py` | 10-50x slower |
+| `self.sitting` (an object) used as truthy check instead of `self.sitting.clover_term is not None` | `_operator.py` | Always-true condition |
+| Gathering MPI tuples in `(t,z,y,x)` order but unpacking as `(x,y,z,t)` | `_io.py` | Data written to wrong location |
+| Stout smearing `nstep>1` loop not updating `U` between steps | `_stout.py` | nstep degraded to 1 |
+| `python_requires=">=3.6"` when PyTorch 2.x needs ≥3.8 | `setup.py` | pip install fails on Py3.7 |
