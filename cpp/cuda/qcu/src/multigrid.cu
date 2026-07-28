@@ -120,9 +120,9 @@ __global__ void multigrid_prolong(void *fine_out, void *coarse_in,
 template <typename T>
 __global__ void multigrid_coarse_dslash(void *fermion_out, void *fermion_in,
                                          void *hopping, void *sitting,
-                                         int E, int X, int Y, int Z, int T) {
+                                         int E, int X, int Y, int Z, int Lt) {
   int global_idx = blockIdx.x * blockDim.x + threadIdx.x;
-  int vol = X * Y * Z * T;
+  int vol = X * Y * Z * Lt;
   int total_output = E * vol;
   if (global_idx >= total_output)
     return;
@@ -140,14 +140,14 @@ __global__ void multigrid_coarse_dslash(void *fermion_out, void *fermion_in,
   int site = global_idx - E_out * vol;
 
   // Decompose site into (x, y, z, t) — row-major (C-order) layout
-  int stride_YZT = Y * Z * T;
-  int stride_ZT = Z * T;
+  int stride_YZT = Y * Z * Lt;
+  int stride_ZT = Z * Lt;
   int x = site / stride_YZT;
   int rest = site - x * stride_YZT;
   int y = rest / stride_ZT;
   rest -= y * stride_ZT;
-  int z = rest / T;
-  int t = rest - z * T;
+  int z = rest / Lt;
+  int t = rest - z * Lt;
 
   // Strides for hopping: shape [2, 4, E, E, X, Y, Z, T] in C-order
   // dim order: pm(2) × dir(4) × Eout(E) × Ein(E) × X × Y × Z × T
@@ -175,8 +175,8 @@ __global__ void multigrid_coarse_dslash(void *fermion_out, void *fermion_in,
 
   // --- Hopping term: 4 directions × plus/minus ---
   // Direction data: offset (stride in flattened index), dim size, coordinate
-  int dir_offsets[4] = {stride_YZT, stride_ZT, T, 1};
-  int dir_dims[4] = {X, Y, Z, T};
+  int dir_offsets[4] = {stride_YZT, stride_ZT, Lt, 1};
+  int dir_dims[4] = {X, Y, Z, Lt};
   int dir_coords[4] = {x, y, z, t};
 
   for (int d = 0; d < 4; d++) {
@@ -222,8 +222,8 @@ template __global__ void multigrid_prolong<double>(
     int Yf, int Zf, int Tf, int Xc, int Yc, int Zc, int Tc);
 template __global__ void multigrid_coarse_dslash<float>(
     void *fermion_out, void *fermion_in, void *hopping, void *sitting,
-    int E, int X, int Y, int Z, int T);
+    int E, int X, int Y, int Z, int Lt);
 template __global__ void multigrid_coarse_dslash<double>(
     void *fermion_out, void *fermion_in, void *hopping, void *sitting,
-    int E, int X, int Y, int Z, int T);
+    int E, int X, int Y, int Z, int Lt);
 } // namespace qcu
