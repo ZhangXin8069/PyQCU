@@ -16,4 +16,5 @@
 #include "./lattice_wilson_dslash.h"
 #include "./multigrid.h"
 #include "./lattice_multigrid.h"
+#include "./lattice_clover_multigrid.h"
 #endif
