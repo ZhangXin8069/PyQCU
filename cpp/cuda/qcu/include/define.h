@@ -2,6 +2,11 @@
 #define _DEFINE_H
 #include "./lattice_complex.h"
 namespace qcu {
+// CUDA kernel block size.
+// 8/16  — for debugging and testing small lattices (development default)
+// 128  — recommended for NVIDIA GPU production builds
+// 256  — recommended for AMD DCU / ROCm production builds
+// TODO: make this configurable via CMake or runtime parameter
 // #define _BLOCK_SIZE_ 8 // for test small lattice
 #define _BLOCK_SIZE_ 16 // for test small lattice
 // #define _BLOCK_SIZE_ 128 // better for nv

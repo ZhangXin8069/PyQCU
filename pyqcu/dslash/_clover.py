@@ -34,19 +34,19 @@ def make_clover(U: torch.Tensor, kappa: Optional[torch.Tensor] = torch.Tensor([0
                 U_tail4send = U[tools.slice_dim(
                                 dims_num=7, ward=ward, point=-1)].cpu().contiguous().numpy()
                 U_head4recv = np.zeros_like(U_tail4send)
-                comm.Barrier()
+                # OPT: removed redundant Barrier() — Sendrecv is already blocking (2026-07-28)
                 comm.Sendrecv(sendbuf=U_tail4send, dest=rank_plus_list[ward], sendtag=rank,
                               recvbuf=U_head4recv, source=rank_minus_list[ward], recvtag=rank_minus_list[ward])
-                comm.Barrier()
+                # OPT: removed redundant Barrier() — Sendrecv is already blocking (2026-07-28)
                 U_head_list[ward] = torch.from_numpy(U_head4recv).to(
                     device=U.device)
                 U_head4send = U[tools.slice_dim(
                                 dims_num=7, ward=ward, point=0)].cpu().contiguous().numpy()
                 U_tail4recv = np.zeros_like(U_head4send)
-                comm.Barrier()
+                # OPT: removed redundant Barrier() — Sendrecv is already blocking (2026-07-28)
                 comm.Sendrecv(sendbuf=U_head4send, dest=rank_minus_list[ward], sendtag=rank_minus_list[ward],
                               recvbuf=U_tail4recv, source=rank_plus_list[ward], recvtag=rank)
-                comm.Barrier()
+                # OPT: removed redundant Barrier() — Sendrecv is already blocking (2026-07-28)
                 U_tail_list[ward] = torch.from_numpy(U_tail4recv).to(
                     device=U.device)
         U_head_tail_list = [[torch.zeros([]), torch.zeros(
@@ -71,28 +71,28 @@ def make_clover(U: torch.Tensor, kappa: Optional[torch.Tensor] = torch.Tensor([0
                     U_tail_head4send = U[tools.slice_dim_dim(
                         dims_num=7, ward_a=mu, point_a=-1, ward_b=nu, point_b=0)].cpu().contiguous().numpy()
                     U_head_tail4recv = np.zeros_like(U_tail_head4send)
-                    comm.Barrier()
+                    # OPT: removed redundant Barrier() — Sendrecv is already blocking (2026-07-28)
                     comm.Sendrecv(sendbuf=U_tail_head4send, dest=tools.give_rank_plus_minus(ward_a=mu, ward_b=nu, rank=rank), sendtag=rank,
                                   recvbuf=U_head_tail4recv, source=tools.give_rank_minus_plus(ward_a=mu, ward_b=nu, rank=rank), recvtag=tools.give_rank_minus_plus(ward_a=mu, ward_b=nu, rank=rank))
-                    comm.Barrier()
+                    # OPT: removed redundant Barrier() — Sendrecv is already blocking (2026-07-28)
                     U_head_tail_list[mu][nu] = torch.from_numpy(U_head_tail4recv).to(
                         device=U.device)
                     U_tail_tail4send = U[tools.slice_dim_dim(
                         dims_num=7, ward_a=mu, point_a=-1, ward_b=nu, point_b=-1)].cpu().contiguous().numpy()
                     U_head_head4recv = np.zeros_like(U_tail_tail4send)
-                    comm.Barrier()
+                    # OPT: removed redundant Barrier() — Sendrecv is already blocking (2026-07-28)
                     comm.Sendrecv(sendbuf=U_tail_tail4send, dest=tools.give_rank_plus_plus(ward_a=mu, ward_b=nu, rank=rank), sendtag=rank,
                                   recvbuf=U_head_head4recv, source=tools.give_rank_minus_minus(ward_a=mu, ward_b=nu, rank=rank), recvtag=tools.give_rank_minus_minus(ward_a=mu, ward_b=nu, rank=rank))
-                    comm.Barrier()
+                    # OPT: removed redundant Barrier() — Sendrecv is already blocking (2026-07-28)
                     U_head_head_list[mu][nu] = torch.from_numpy(U_head_head4recv).to(
                         device=U.device)
                     U_head_head4send = U[tools.slice_dim_dim(
                         dims_num=7, ward_a=mu, point_a=0, ward_b=nu, point_b=0)].cpu().contiguous().numpy()
                     U_tail_tail4recv = np.zeros_like(U_head_head4send)
-                    comm.Barrier()
+                    # OPT: removed redundant Barrier() — Sendrecv is already blocking (2026-07-28)
                     comm.Sendrecv(sendbuf=U_head_head4send, dest=tools.give_rank_minus_minus(ward_a=mu, ward_b=nu, rank=rank), sendtag=tools.give_rank_minus_minus(ward_a=mu, ward_b=nu, rank=rank),
                                   recvbuf=U_tail_tail4recv, source=tools.give_rank_plus_plus(ward_a=mu, ward_b=nu, rank=rank), recvtag=rank)
-                    comm.Barrier()
+                    # OPT: removed redundant Barrier() — Sendrecv is already blocking (2026-07-28)
                     U_tail_tail_list[mu][nu] = torch.from_numpy(U_tail_tail4recv).to(
                         device=U.device)
     # Compute adjoint gauge field (dagger conjugate)

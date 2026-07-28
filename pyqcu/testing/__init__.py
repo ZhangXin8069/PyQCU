@@ -361,7 +361,8 @@ def test_solver(kind: str = 'clover', method: str = 'bistabcg', kappa: Optional[
         mg.plot()
     else:
         raise ValueError(
-            f"PYQCU::TESTING::SOLVER::SOLVER: {solver} is not supported.")
+            # BUGFIX 2026-07-28: use method (user parameter) instead of solver (module object)
+            f"PYQCU::TESTING::SOLVER::SOLVER: method '{method}' is not supported. Supported: 'bistabcg', 'multigrid'.")
     diff = tools.norm(x - refer_x) / tools.norm(refer_x)
     print(
         f"PYQCU::TESTING::SOLVER::REFER_U:\n {tools.norm(refer_U)}")
