@@ -283,6 +283,15 @@ template <typename T> struct LatticeWilsonDslash {
     checkCudaErrors(cudaStreamSynchronize(set_ptr->stream_dims[_Y_]));
     checkCudaErrors(cudaStreamSynchronize(set_ptr->stream_dims[_Z_]));
     checkCudaErrors(cudaStreamSynchronize(set_ptr->stream_dims[_T_]));
+    // NOTE: run_mpi_non_block uses MPI_Isend/Irecv, wait for sends to complete.
+    MPI_Wait(&set_ptr->send_request[_B_X_], MPI_STATUS_IGNORE);
+    MPI_Wait(&set_ptr->send_request[_F_X_], MPI_STATUS_IGNORE);
+    MPI_Wait(&set_ptr->send_request[_B_Y_], MPI_STATUS_IGNORE);
+    MPI_Wait(&set_ptr->send_request[_F_Y_], MPI_STATUS_IGNORE);
+    MPI_Wait(&set_ptr->send_request[_B_Z_], MPI_STATUS_IGNORE);
+    MPI_Wait(&set_ptr->send_request[_F_Z_], MPI_STATUS_IGNORE);
+    MPI_Wait(&set_ptr->send_request[_B_T_], MPI_STATUS_IGNORE);
+    MPI_Wait(&set_ptr->send_request[_F_T_], MPI_STATUS_IGNORE);
   }
   void run_mpi(void *fermion_out, void *fermion_in, void *gauge,
                void *_device_params) {
@@ -541,6 +550,7 @@ template <typename T> struct LatticeWilsonDslash {
     checkCudaErrors(cudaStreamSynchronize(set_ptr->stream_dims[_Y_]));
     checkCudaErrors(cudaStreamSynchronize(set_ptr->stream_dims[_Z_]));
     checkCudaErrors(cudaStreamSynchronize(set_ptr->stream_dims[_T_]));
+    // NOTE: run_mpi uses blocking MPI_Sendrecv, no MPI_Wait needed here.
   }
   void _run(void *fermion_out, void *fermion_in, void *gauge,
             void *_device_params) {

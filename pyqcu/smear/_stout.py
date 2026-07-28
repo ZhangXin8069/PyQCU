@@ -11,57 +11,53 @@ force_use_npu = False
 
 
 def stout_smear(U: torch.Tensor, nstep: int = 1, rho: float = 0.12, support_parallel: bool = False):
-    if support_parallel:
-        grid_size = tools.give_grid_size()
-        comm = MPI.COMM_WORLD
-        rank = comm.Get_rank()
-        rank_plus_list = [tools.give_rank_plus(
-            ward=ward) for ward in range(4)]
-        rank_minus_list = [tools.give_rank_minus(
-            ward=ward) for ward in range(4)]
-        U_head_list = [torch.zeros([]), torch.zeros(
-            []), torch.zeros([]), torch.zeros([])]  # xyzt
-        U_tail_list = [torch.zeros([]), torch.zeros(
-            []), torch.zeros([]), torch.zeros([])]  # xyzt
-        for ward in range(4):
-            if grid_size[ward] != 1:
-                U_tail4send = U[tools.slice_dim(
-                                dims_num=7, ward=ward, point=-1)].cpu().contiguous().numpy()
-                U_head4recv = np.zeros_like(U_tail4send)
-                comm.Barrier()
-                comm.Sendrecv(sendbuf=U_tail4send, dest=rank_plus_list[ward], sendtag=rank,
-                              recvbuf=U_head4recv, source=rank_minus_list[ward], recvtag=rank_minus_list[ward])
-                comm.Barrier()
-                U_head_list[ward] = torch.from_numpy(U_head4recv).to(
-                    device=U.device)
-                U_head4send = U[tools.slice_dim(
-                                dims_num=7, ward=ward, point=0)].cpu().contiguous().numpy()
-                U_tail4recv = np.zeros_like(U_head4send)
-                comm.Barrier()
-                comm.Sendrecv(sendbuf=U_head4send, dest=rank_minus_list[ward], sendtag=rank_minus_list[ward],
-                              recvbuf=U_tail4recv, source=rank_plus_list[ward], recvtag=rank)
-                comm.Barrier()
-                U_tail_list[ward] = torch.from_numpy(U_tail4recv).to(
-                    device=U.device)
-        U_head_tail_list = [[torch.zeros([]), torch.zeros(
-            []), torch.zeros([]), torch.zeros([])], [torch.zeros([]), torch.zeros(
+    # BUGFIX 2026-07-28: MPI boundary data must be recomputed each step
+    # since the gauge field U changes with each smearing step.
+    for step in range(nstep):
+        if support_parallel:
+            grid_size = tools.give_grid_size()
+            comm = MPI.COMM_WORLD
+            rank = comm.Get_rank()
+            rank_plus_list = [tools.give_rank_plus(
+                ward=ward) for ward in range(4)]
+            rank_minus_list = [tools.give_rank_minus(
+                ward=ward) for ward in range(4)]
+            U_head_list = [torch.zeros([]), torch.zeros(
+                []), torch.zeros([]), torch.zeros([])]  # xyzt
+            U_tail_list = [torch.zeros([]), torch.zeros(
+                []), torch.zeros([]), torch.zeros([])]  # xyzt
+            for ward in range(4):
+                if grid_size[ward] != 1:
+                    U_tail4send = U[tools.slice_dim(
+                                    dims_num=7, ward=ward, point=-1)].cpu().contiguous().numpy()
+                    U_head4recv = np.zeros_like(U_tail4send)
+                    comm.Sendrecv(sendbuf=U_tail4send, dest=rank_plus_list[ward], sendtag=rank,
+                                  recvbuf=U_head4recv, source=rank_minus_list[ward], recvtag=rank_minus_list[ward])
+                    U_head_list[ward] = torch.from_numpy(U_head4recv).to(
+                        device=U.device)
+                    U_head4send = U[tools.slice_dim(
+                                    dims_num=7, ward=ward, point=0)].cpu().contiguous().numpy()
+                    U_tail4recv = np.zeros_like(U_head4send)
+                    comm.Sendrecv(sendbuf=U_head4send, dest=rank_minus_list[ward], sendtag=rank_minus_list[ward],
+                                  recvbuf=U_tail4recv, source=rank_plus_list[ward], recvtag=rank)
+                    U_tail_list[ward] = torch.from_numpy(U_tail4recv).to(
+                        device=U.device)
+            U_head_tail_list = [[torch.zeros([]), torch.zeros(
                 []), torch.zeros([]), torch.zeros([])], [torch.zeros([]), torch.zeros(
                     []), torch.zeros([]), torch.zeros([])], [torch.zeros([]), torch.zeros(
-                        []), torch.zeros([]), torch.zeros([])]]
-        #  NEVER NEVER USE THE SHIT LIKE THAT "[[torch.zeros([]), torch.zeros([]), torch.zeros([]), torch.zeros([])]]*4"
-        for mu in range(4):
-            for nu in range(4):
-                if mu != nu and grid_size[mu] != 1 and grid_size[nu] != 1:
-                    U_tail_head4send = U[tools.slice_dim_dim(
-                        dims_num=7, ward_a=mu, point_a=-1, ward_b=nu, point_b=0)].cpu().contiguous().numpy()
-                    U_head_tail4recv = np.zeros_like(U_tail_head4send)
-                    comm.Barrier()
-                    comm.Sendrecv(sendbuf=U_tail_head4send, dest=tools.give_rank_plus_minus(ward_a=mu, ward_b=nu, rank=rank), sendtag=rank,
-                                  recvbuf=U_head_tail4recv, source=tools.give_rank_minus_plus(ward_a=mu, ward_b=nu, rank=rank), recvtag=tools.give_rank_minus_plus(ward_a=mu, ward_b=nu, rank=rank))
-                    comm.Barrier()
-                    U_head_tail_list[mu][nu] = torch.from_numpy(U_head_tail4recv).to(
-                        device=U.device)
-    for _ in range(nstep):
+                        []), torch.zeros([]), torch.zeros([])], [torch.zeros([]), torch.zeros(
+                            []), torch.zeros([]), torch.zeros([])]]
+            #  NEVER NEVER USE THE SHIT LIKE THAT "[[torch.zeros([]), torch.zeros([]), torch.zeros([]), torch.zeros([])]]*4"
+            for mu in range(4):
+                for nu in range(4):
+                    if mu != nu and grid_size[mu] != 1 and grid_size[nu] != 1:
+                        U_tail_head4send = U[tools.slice_dim_dim(
+                            dims_num=7, ward_a=mu, point_a=-1, ward_b=nu, point_b=0)].cpu().contiguous().numpy()
+                        U_head_tail4recv = np.zeros_like(U_tail_head4send)
+                        comm.Sendrecv(sendbuf=U_tail_head4send, dest=tools.give_rank_plus_minus(ward_a=mu, ward_b=nu, rank=rank), sendtag=rank,
+                                      recvbuf=U_head_tail4recv, source=tools.give_rank_minus_plus(ward_a=mu, ward_b=nu, rank=rank), recvtag=tools.give_rank_minus_plus(ward_a=mu, ward_b=nu, rank=rank))
+                        U_head_tail_list[mu][nu] = torch.from_numpy(U_head_tail4recv).to(
+                            device=U.device)
         Q = torch.zeros_like(U)
         for mu in range(4):
             # for mu in range(4 - 1):
@@ -168,5 +164,7 @@ def stout_smear(U: torch.Tensor, nstep: int = 1, rho: float = 0.12, support_para
                            torch.eye(3).to(dtype=U.dtype, device=U.device))
         f1 = _torch.einsum("Dxyzt,abDxyzt->abDxyzt", f1, Q)
         f2 = _torch.einsum("Dxyzt,abDxyzt,bcDxyzt->acDxyzt", f2, Q, Q)
-        dest = _torch.einsum("abDxyzt,bcDxyzt->acDxyzt", f0 + f1 + f2, U)
-    return dest
+        # BUGFIX 2026-07-28: update U with dest so next iteration uses the
+        # smeared gauge field rather than re-smearing the original U.
+        U = _torch.einsum("abDxyzt,bcDxyzt->acDxyzt", f0 + f1 + f2, U)
+    return U

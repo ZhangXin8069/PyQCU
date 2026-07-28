@@ -27,10 +27,10 @@ class hopping:
                     U_tail4send = self.U[tools.slice_dim(
                         dims_num=7, ward=ward, point=-1)].cpu().contiguous().numpy()
                     U_head4recv = np.zeros_like(U_tail4send)
-                    self.comm.Barrier()
+                    # OPT: removed redundant Barrier() — Sendrecv is already blocking (2026-07-28)
                     self.comm.Sendrecv(sendbuf=U_tail4send, dest=self.rank_plus_list[ward], sendtag=self.rank,
                                        recvbuf=U_head4recv, source=self.rank_minus_list[ward], recvtag=self.rank_minus_list[ward])
-                    self.comm.Barrier()
+                    # OPT: removed redundant Barrier() — Sendrecv is already blocking (2026-07-28)
                     U_head = torch.from_numpy(U_head4recv).to(
                         device=self.U.device)
                 else:
@@ -69,10 +69,10 @@ class hopping:
             src_head4send = src[tools.slice_dim(
                 dims_num=5, ward=ward, point=0)].cpu().contiguous().numpy()
             src_tail4recv = np.zeros_like(src_head4send)
-            self.comm.Barrier()
+            # OPT: removed redundant Barrier() — Sendrecv is already blocking (2026-07-28)
             self.comm.Sendrecv(sendbuf=src_head4send, dest=self.rank_minus_list[ward], sendtag=self.rank_minus_list[ward],
                                recvbuf=src_tail4recv, source=self.rank_plus_list[ward], recvtag=self.rank)
-            self.comm.Barrier()
+            # OPT: removed redundant Barrier() — Sendrecv is already blocking (2026-07-28)
             src_tail = torch.from_numpy(src_tail4recv).to(
                 device=src.device)
         else:
@@ -90,10 +90,10 @@ class hopping:
             src_tail4send = src[tools.slice_dim(
                 dims_num=5, ward=ward, point=-1)].cpu().contiguous().numpy()
             src_head4recv = np.zeros_like(src_tail4send)
-            self.comm.Barrier()
+            # OPT: removed redundant Barrier() — Sendrecv is already blocking (2026-07-28)
             self.comm.Sendrecv(sendbuf=src_tail4send, dest=self.rank_plus_list[ward], sendtag=self.rank,
                                recvbuf=src_head4recv, source=self.rank_minus_list[ward], recvtag=self.rank_minus_list[ward])
-            self.comm.Barrier()
+            # OPT: removed redundant Barrier() — Sendrecv is already blocking (2026-07-28)
             src_head = torch.from_numpy(src_head4recv).to(
                 device=src.device)
         else:
@@ -133,6 +133,10 @@ class sitting:
                     self.M_o_inv = clover_oo_inv
 
     def matvec(self, src: torch.Tensor) -> torch.Tensor:
+        # BUGFIX 2026-07-28: when clover_term is None (pure Wilson fermions),
+        # the sitting operator acts as identity. Return src unchanged.
+        if self.clover_term is None:
+            return src
         dtype = src.dtype
         device = src.device
         _dtype = self.M.dtype
@@ -217,6 +221,10 @@ class operator:
                 self.sitting.M[:, e] += _dest_c.clone()
 
     def matvec(self, src: torch.Tensor) -> torch.Tensor:
+        # Heuristic: detect [spin=4, color=3, ...] layout vs [12, ...] (flattened spin×color).
+        # This is safe because spin=4 and color=3 are physical constants in lattice QCD,
+        # and spacetime dimensions are even (needed for parity splitting), so coarse-grid
+        # DOF values (12, 24, ...) will never match the (4, 3) signature.
         if src.shape[0] == 4 and src.shape[1] == 3:
             return (self.hopping.matvec(src=src.reshape([12]+list(src.shape)[2:]))+self.sitting.matvec(src=src.reshape([12]+list(src.shape)[2:]))).reshape([4, 3]+list(src.shape)[2:])
         else:
@@ -225,23 +233,25 @@ class operator:
     def matvec_eo(self, src_o: torch.Tensor) -> torch.Tensor:
         dest_e = torch.zeros_like(src_o)
         for ward in range(4):
-            if self.hopping.grid_size[ward] != 1 or self.sitting:
+            # BUGFIX 2026-07-28: self.sitting is an object (always truthy in Python).
+            # Use explicit check for clover_term being non-None instead.
+            if self.hopping.grid_size[ward] != 1 or self.sitting.clover_term is not None:
                 src_head4send = src_o[tools.slice_dim(
                     dims_num=5, ward=ward, point=0)].cpu().contiguous().numpy()
                 src_tail4recv = np.zeros_like(src_head4send)
-                self.hopping.comm.Barrier()
+                # OPT: removed redundant Barrier() — Sendrecv is already blocking (2026-07-28)
                 self.hopping.comm.Sendrecv(sendbuf=src_head4send, dest=self.hopping.rank_minus_list[ward], sendtag=self.hopping.rank_minus_list[ward],
                                            recvbuf=src_tail4recv, source=self.hopping.rank_plus_list[ward], recvtag=self.hopping.rank)
-                self.hopping.comm.Barrier()
+                # OPT: removed redundant Barrier() — Sendrecv is already blocking (2026-07-28)
                 src_tail = torch.from_numpy(src_tail4recv).to(
                     device=src_o.device)
                 src_tail4send = src_o[tools.slice_dim(
                     dims_num=5, ward=ward, point=-1)].cpu().contiguous().numpy()
                 src_head4recv = np.zeros_like(src_tail4send)
-                self.hopping.comm.Barrier()
+                # OPT: removed redundant Barrier() — Sendrecv is already blocking (2026-07-28)
                 self.hopping.comm.Sendrecv(sendbuf=src_tail4send, dest=self.hopping.rank_plus_list[ward], sendtag=self.hopping.rank,
                                            recvbuf=src_head4recv, source=self.hopping.rank_minus_list[ward], recvtag=self.hopping.rank_minus_list[ward])
-                self.hopping.comm.Barrier()
+                # OPT: removed redundant Barrier() — Sendrecv is already blocking (2026-07-28)
                 src_head = torch.from_numpy(src_head4recv).to(
                     device=src_o.device)
             else:
@@ -256,23 +266,25 @@ class operator:
     def matvec_oe(self, src_e: torch.Tensor) -> torch.Tensor:
         dest_o = torch.zeros_like(src_e)
         for ward in range(4):
-            if self.hopping.grid_size[ward] != 1 or self.sitting:
+            # BUGFIX 2026-07-28: self.sitting is an object (always truthy in Python).
+            # Use explicit check for clover_term being non-None instead.
+            if self.hopping.grid_size[ward] != 1 or self.sitting.clover_term is not None:
                 src_head4send = src_e[tools.slice_dim(
                     dims_num=5, ward=ward, point=0)].cpu().contiguous().numpy()
                 src_tail4recv = np.zeros_like(src_head4send)
-                self.hopping.comm.Barrier()
+                # OPT: removed redundant Barrier() — Sendrecv is already blocking (2026-07-28)
                 self.hopping.comm.Sendrecv(sendbuf=src_head4send, dest=self.hopping.rank_minus_list[ward], sendtag=self.hopping.rank_minus_list[ward],
                                            recvbuf=src_tail4recv, source=self.hopping.rank_plus_list[ward], recvtag=self.hopping.rank)
-                self.hopping.comm.Barrier()
+                # OPT: removed redundant Barrier() — Sendrecv is already blocking (2026-07-28)
                 src_tail = torch.from_numpy(src_tail4recv).to(
                     device=src_e.device)
                 src_tail4send = src_e[tools.slice_dim(
                     dims_num=5, ward=ward, point=-1)].cpu().contiguous().numpy()
                 src_head4recv = np.zeros_like(src_tail4send)
-                self.hopping.comm.Barrier()
+                # OPT: removed redundant Barrier() — Sendrecv is already blocking (2026-07-28)
                 self.hopping.comm.Sendrecv(sendbuf=src_tail4send, dest=self.hopping.rank_plus_list[ward], sendtag=self.hopping.rank,
                                            recvbuf=src_head4recv, source=self.hopping.rank_minus_list[ward], recvtag=self.hopping.rank_minus_list[ward])
-                self.hopping.comm.Barrier()
+                # OPT: removed redundant Barrier() — Sendrecv is already blocking (2026-07-28)
                 src_head = torch.from_numpy(src_head4recv).to(
                     device=src_e.device)
             else:
@@ -285,18 +297,28 @@ class operator:
         return dest_o
 
     def matvec_ee(self, src_e: torch.Tensor) -> torch.Tensor:
+        # BUGFIX 2026-07-28: when clover_term is None (pure Wilson),
+        # sitting = I, so M_e * src_e = src_e (identity).
+        if self.sitting.clover_term is None:
+            return src_e
         return _torch.einsum(
             "EeXYZT, eXYZT->EXYZT", self.sitting.M_e, src_e)
 
     def matvec_oo(self, src_o: torch.Tensor) -> torch.Tensor:
+        if self.sitting.clover_term is None:
+            return src_o
         return _torch.einsum(
             "EeXYZT, eXYZT->EXYZT", self.sitting.M_o, src_o)
 
     def matvec_ee_inv(self, src_e: torch.Tensor) -> torch.Tensor:
+        if self.sitting.clover_term is None:
+            return src_e
         return _torch.einsum(
             "EeXYZT, eXYZT->EXYZT", self.sitting.M_e_inv, src_e)
 
     def matvec_oo_inv(self, src_o: torch.Tensor) -> torch.Tensor:
+        if self.sitting.clover_term is None:
+            return src_o
         return _torch.einsum(
             "EeXYZT, eXYZT->EXYZT", self.sitting.M_o_inv, src_o)
 
@@ -330,6 +352,4 @@ class operator:
         src_o = src_eo[1]
         dest_e = self.matvec_eeo(src_e=src_e, src_o=src_o)
         dest_o = self.matvec_oeo(src_e=src_e, src_o=src_o)
-        print(dest_e.shape)
-        print(dest_o.shape)
         return tools.poooxyzt2oooxyzt(input_array=torch.stack([dest_e, dest_o], dim=0))
