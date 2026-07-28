@@ -155,6 +155,11 @@ class operator:
                                support_parity=support_parity)
         self.verbose = verbose
         if fine_hopping is not None and fine_sitting is not None and local_ortho_null_vecs is not None:
+            # Galerkin coarse-grid operator construction via P^T D_fine P.
+            # Assumes coarsening factor = 2 in each direction (mg_grid_size = [2,2,2,2]).
+            # Each fine site has exactly 1 even and 1 odd sub-site, so even/odd
+            # separation uses step=2. For non-standard coarsening factors, the
+            # even/odd parity decomposition would need to be generalized.
             shape = local_ortho_null_vecs.shape  # EeXxYyZzTt
             coarse_shape = [shape[-8], shape[-6],
                             shape[-4], shape[-2]]  # XYZT
@@ -233,9 +238,10 @@ class operator:
     def matvec_eo(self, src_o: torch.Tensor) -> torch.Tensor:
         dest_e = torch.zeros_like(src_o)
         for ward in range(4):
-            # BUGFIX 2026-07-28: self.sitting is an object (always truthy in Python).
-            # Use explicit check for clover_term being non-None instead.
-            if self.hopping.grid_size[ward] != 1 or self.sitting.clover_term is not None:
+            # OPT 2026-07-28: MPI halo exchange is only needed when grid_size > 1.
+            # The original condition forced MPI communication even for single-process
+            # directions. Halo exchange is purely about process boundaries.
+            if self.hopping.grid_size[ward] != 1:
                 src_head4send = src_o[tools.slice_dim(
                     dims_num=5, ward=ward, point=0)].cpu().contiguous().numpy()
                 src_tail4recv = np.zeros_like(src_head4send)
@@ -266,9 +272,10 @@ class operator:
     def matvec_oe(self, src_e: torch.Tensor) -> torch.Tensor:
         dest_o = torch.zeros_like(src_e)
         for ward in range(4):
-            # BUGFIX 2026-07-28: self.sitting is an object (always truthy in Python).
-            # Use explicit check for clover_term being non-None instead.
-            if self.hopping.grid_size[ward] != 1 or self.sitting.clover_term is not None:
+            # OPT 2026-07-28: MPI halo exchange is only needed when grid_size > 1.
+            # The original condition forced MPI communication even for single-process
+            # directions. Halo exchange is purely about process boundaries.
+            if self.hopping.grid_size[ward] != 1:
                 src_head4send = src_e[tools.slice_dim(
                     dims_num=5, ward=ward, point=0)].cpu().contiguous().numpy()
                 src_tail4recv = np.zeros_like(src_head4send)

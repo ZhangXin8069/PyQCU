@@ -1,6 +1,8 @@
 import datetime
 import os
-import comm
+# BUGFIX 2026-07-28 R3: "import comm" referenced a nonexistent module. Replaced with
+# standard mpi4py MPI import which provides the communicator used in profiling.
+from mpi4py import MPI as comm
 from pyqcu.testing import *
 import torch
 # test_import()
