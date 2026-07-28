@@ -130,10 +130,14 @@ def stout_smear(U: torch.Tensor, nstep: int = 1, rho: float = 0.12, support_para
                                    torch.eye(3).to(dtype=U.dtype, device=U.device))
         c0 = _torch.einsum("abDxyzt,bcDxyzt,caDxyzt->Dxyzt", Q, Q, Q).real / 3
         c1 = _torch.einsum("abDxyzt,baDxyzt->Dxyzt", Q, Q).real / 2
-        c0_max = 2 * (c1 / 3) ** (3 / 2)
+        # BUGFIX 2026-07-28 R2: numerical stability — clamp c1 to avoid c0_max=0
+        # and guard arccos domain; add epsilon to f_denom to prevent division by zero.
+        c1 = torch.clamp(c1, min=1e-15)  # prevent c1=0 → c0_max=0
         parity = c0 < 0
         c0 = torch.abs(c0)
-        theta = torch.arccos(c0 / c0_max)
+        c0_max = 2 * (c1 / 3) ** (3 / 2)
+        ratio = torch.clamp(c0 / c0_max, -1.0 + 1e-15, 1.0 - 1e-15)  # arccos domain
+        theta = torch.arccos(ratio)
         u = (c1 / 3) ** 0.5 * torch.cos(theta / 3)
         w = c1**0.5 * torch.sin(theta / 3)
         u_sq = u**2
@@ -146,16 +150,44 @@ def stout_smear(U: torch.Tensor, nstep: int = 1, rho: float = 0.12, support_para
         large = torch.abs(w) > 0.05
         w_large = w[large]
         sinc_w[large] = torch.sin(w_large) / w_large
-        f_denom = 1 / (9 * u_sq - w_sq)
+        # BUGFIX 2026-07-28 R2: add epsilon to prevent division by zero when 9*u^2 == w^2
+        f_denom = 1 / (9 * u_sq - w_sq + 1e-15)
         f0 = ((u_sq - w_sq) * e_2iu + e_iu * (8 * u_sq * cos_w +
               2j * u * (3 * u_sq + w_sq) * sinc_w)) * f_denom
         f1 = (2 * u * e_2iu - e_iu * (2 * u * cos_w -
               1j * (3 * u_sq - w_sq) * sinc_w)) * f_denom
         f2 = (e_2iu - e_iu * (cos_w + 3j * u * sinc_w)) * f_denom
         if (U.device.type == 'npu' or force_use_npu) and torch.is_complex(U):
+            # NPU complex decomposition for parity sign convention.
+            # Standard (CUDA/CPU) path:
+            #   f0[parity] =  f0[parity].conj()    → real same, imag flipped
+            #   f1[parity] = -f1[parity].conj()    → real negated, imag flipped-then-negated-back
+            #   f2[parity] = -f2[parity].conj()    → real negated, imag flipped
+            #
+            # f0: conj() = (a+bi)* = a-bi. NPU: imag → -imag. Correct.
             f0.imag[parity] = -f0.imag[parity]
-            f1.imag[parity] = -f1.imag[parity]
-            f2.imag[parity] = -f2.imag[parity]
+            #
+            # f1: -f1.conj() = -(a-bi) = -a+bi.
+            # real: negate (-a). imag: conj flips to -b, leading minus flips back → +b.
+            # NPU: real = -real, imag = +imag (i.e., NO negation on imag — the conj flip
+            # and the leading minus cancel each other).
+            # BUGFIX 2026-07-28 R3: previous R2 fix incorrectly negated imag (gave -a-bi).
+            f1.real[parity] = -f1.real[parity]            # -a
+            f1.imag[parity] =  f1.imag[parity]            # +b (NOT -b: conj+minus cancel)
+            #
+            # f2: -f2.conj() = -(a-bi) × (-1) = ?? Wait, f2[parity] = -f2[parity].conj()
+            # Actually f2 only has the leading minus (no conj→negate interplay issue):
+            # -f2.conj() = -(a-bi) = -a+bi.
+            # Wait, that's the same as f1! Let me re-check the code...
+            # f2[parity] = -f2[parity].conj() on line 162 in standard path.
+            # But f2 has NO leading minus in stout formula; this parity flip applies to
+            # the stout SU(3) projection coefficients when c0 < 0.
+            # f2 parity: -f2.conj(). Same as f1, so imag should be +imag.
+            # Actually wait, let me re-examine line 162:
+            # f2[parity] = -f2[parity].conj()
+            # This IS the same as f1. So same logic applies: imag gets NO negation.
+            f2.real[parity] = -f2.real[parity]            # -a
+            f2.imag[parity] =  f2.imag[parity]            # +b (NOT -b)
         else:
             f0[parity] = f0[parity].conj()
             f1[parity] = -f1[parity].conj()
@@ -164,7 +196,9 @@ def stout_smear(U: torch.Tensor, nstep: int = 1, rho: float = 0.12, support_para
                            torch.eye(3).to(dtype=U.dtype, device=U.device))
         f1 = _torch.einsum("Dxyzt,abDxyzt->abDxyzt", f1, Q)
         f2 = _torch.einsum("Dxyzt,abDxyzt,bcDxyzt->acDxyzt", f2, Q, Q)
-        # BUGFIX 2026-07-28: update U with dest so next iteration uses the
-        # smeared gauge field rather than re-smearing the original U.
+        # BUGFIX 2026-07-28: rebind local U to the smeared gauge field so
+        # the next iteration uses the updated field. Note this is NOT an
+        # in-place update of the caller's tensor — the function returns
+        # the new tensor, and the loop body rebinds the local variable.
         U = _torch.einsum("abDxyzt,bcDxyzt->acDxyzt", f0 + f1 + f2, U)
     return U
