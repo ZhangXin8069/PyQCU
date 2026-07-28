@@ -30,6 +30,9 @@ void applyEndQcu(long long _set_ptrs, long long _params) {
              double(duration) / 1e9);
     } else {
       set_ptr->end();
+      // BUGFIX 2026-07-28: delete host LatticeSet to prevent memory leak.
+      // applyInitQcu allocates with 'new'; end() only frees GPU resources.
+      delete set_ptr;
     }
   } else if (data_type == _LAT_C128_) {
     // end for lattice_set
@@ -53,6 +56,9 @@ void applyEndQcu(long long _set_ptrs, long long _params) {
              double(duration) / 1e9);
     } else {
       set_ptr->end();
+      // BUGFIX 2026-07-28: delete host LatticeSet to prevent memory leak.
+      // applyInitQcu allocates with 'new'; end() only frees GPU resources.
+      delete set_ptr;
     }
   } else {
     printf("data_type error\n");

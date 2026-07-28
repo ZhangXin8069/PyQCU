@@ -154,14 +154,18 @@ __global__ void _make_gauss_gauge(void *device_U, void *device_random_8dtzyx,
 template <typename T> void make_gauss_gauge(void *device_U, void *set_ptr) {
   void *device_random_8dtzyx;
   LatticeSet<T> *_set_ptr = static_cast<LatticeSet<T> *>(set_ptr);
+
+  // BUGFIX 2026-07-28: use correct allocation size in both branches.
+  // Give_random_8dtzyx kernel writes lat_4dim * _LAT_D_ * (_LAT_CC_-1) = lat_4dim * 4 * 8 = lat_4dim * 32 elements.
+  // The non-verbose branch used lat_4dim * _LAT_S_ (= 4) which is only 1/8 of needed size → OOB write.
+  size_t alloc_size = _set_ptr->lat_4dim * _LAT_D_ * (_LAT_CC_ - 1) * sizeof(LatticeComplex<T>);
+
+  checkCudaErrors(cudaStreamSynchronize(_set_ptr->stream));
+  checkCudaErrors(cudaMallocAsync(&device_random_8dtzyx, alloc_size,
+                                  _set_ptr->stream));
+
   if (_set_ptr->host_params[_VERBOSE_]) {
     auto start = std::chrono::high_resolution_clock::now();
-    checkCudaErrors(cudaStreamSynchronize(_set_ptr->stream));
-    checkCudaErrors(
-        cudaMallocAsync(&device_random_8dtzyx,
-                        _set_ptr->lat_4dim * _LAT_D_ * (_LAT_CC_ - 1) *
-                            sizeof(LatticeComplex<T>),
-                        _set_ptr->stream));
     give_random_8dtzyx<T>
         <<<_set_ptr->gridDim, _set_ptr->blockDim, 0, _set_ptr->stream>>>(
             device_random_8dtzyx, _set_ptr->device_params,
@@ -180,11 +184,6 @@ template <typename T> void make_gauss_gauge(void *device_U, void *set_ptr) {
            "sec\n",
            double(duration) / 1e9);
   } else {
-    checkCudaErrors(cudaStreamSynchronize(_set_ptr->stream));
-    checkCudaErrors(cudaMallocAsync(&device_random_8dtzyx,
-                                    _set_ptr->lat_4dim * _LAT_S_ *
-                                        sizeof(LatticeComplex<T>),
-                                    _set_ptr->stream));
     give_random_8dtzyx<T>
         <<<_set_ptr->gridDim, _set_ptr->blockDim, 0, _set_ptr->stream>>>(
             device_random_8dtzyx, _set_ptr->device_params,
@@ -195,6 +194,9 @@ template <typename T> void make_gauss_gauge(void *device_U, void *set_ptr) {
             _set_ptr->sigma());
     checkCudaErrors(cudaStreamSynchronize(_set_ptr->stream));
   }
+
+  // BUGFIX 2026-07-28: free allocated GPU memory to prevent leak
+  checkCudaErrors(cudaFreeAsync(device_random_8dtzyx, _set_ptr->stream));
 }
 //@@@CUDA_TEMPLATE_FOR_DEVICE@@@
 template void make_gauss_gauge<double>(void *device_U, void *set_ptr);

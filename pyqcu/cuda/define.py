@@ -116,7 +116,8 @@ def dtype(_data_type_: Optional[torch.Tensor] = _LAT_C64_IN_TENSOR_) -> torch.dt
     elif _data_type_ == torch.Tensor([_LAT_R128_], device=torch.device('cpu')):
         print("Doesn't support real128")
         return torch.int
-    raise
+    # BUGFIX 2026-07-28: explicit error message instead of bare raise.
+    raise ValueError(f"Unsupported QCU data type constant: {_data_type_.item()}")
 
 
 def epytd(torch_dtype: Optional[torch.dtype]) -> torch.Tensor:
@@ -124,7 +125,8 @@ def epytd(torch_dtype: Optional[torch.dtype]) -> torch.Tensor:
         _data_type_ = torch.Tensor([i], device=torch.device('cpu'))
         if dtype(_data_type_=_data_type_) == torch_dtype:
             return _data_type_
-    raise
+    # BUGFIX 2026-07-28: explicit error with torch dtype that failed mapping.
+    raise ValueError(f"No QCU data type constant maps to torch dtype: {torch_dtype}")
 
 
 def lat_shape(params: torch.Tensor) -> List[int]:

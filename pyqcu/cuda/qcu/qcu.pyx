@@ -1,4 +1,8 @@
 cimport qcu
+# BUGFIX NOTE 2026-07-28: These module-level cdef variables are shared across all
+# bridge functions. This is safe ONLY under the Python GIL (single-threaded).
+# If any C function uses 'nogil', another thread could overwrite these pointers,
+# causing use-after-free or data corruption. TODO: move to function-local scope.
 cdef long long set_ptrs
 cdef long long fermion_out
 cdef long long fermion_in

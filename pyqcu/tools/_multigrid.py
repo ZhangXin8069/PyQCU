@@ -12,6 +12,9 @@ def give_null_vecs(
     normalize: bool = True, ortho_r: bool = False, ortho_null_vecs: bool = False, verbose: bool = True
 ) -> torch.Tensor:
     dof = null_vecs.shape[0]
+    # NOTE: null_vecs parameter is used as a template for shape/dtype/device only.
+    # The input tensor's values are discarded; a fresh random initialization
+    # is used to seed the inverse iteration procedure.
     null_vecs = _torch.randn_like(null_vecs)  # [Eexyzt]
     for i in range(dof):
         if ortho_r:

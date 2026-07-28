@@ -77,8 +77,11 @@ template <typename T> struct LatticeComplex {
   }
   __host__ __device__ __inline__ LatticeComplex &
   operator*=(const LatticeComplex &other) {
-    _data.x = _data.x * other._data.x - _data.y * other._data.y;
-    _data.y = _data.x * other._data.y + _data.y * other._data.x;
+    // BUGFIX 2026-07-28: save old _data.x before overwriting it.
+    // _data.y computation uses the NEW _data.x if not saved, yielding wrong result.
+    T old_x = _data.x;
+    _data.x = old_x * other._data.x - _data.y * other._data.y;
+    _data.y = old_x * other._data.y + _data.y * other._data.x;
     return *this;
   }
   __host__ __device__ __inline__ LatticeComplex &operator*=(const T &other) {
@@ -88,9 +91,11 @@ template <typename T> struct LatticeComplex {
   }
   __host__ __device__ __inline__ LatticeComplex &
   operator/=(const LatticeComplex &other) {
+    // BUGFIX 2026-07-28: save old _data.x before overwriting it.
+    T old_x = _data.x;
     T denom = other._data.x * other._data.x + other._data.y * other._data.y;
-    _data.x = (_data.x * other._data.x + _data.y * other._data.y) / denom;
-    _data.y = (_data.y * other._data.x - _data.x * other._data.y) / denom;
+    _data.x = (old_x * other._data.x + _data.y * other._data.y) / denom;
+    _data.y = (_data.y * other._data.x - old_x * other._data.y) / denom;
     return *this;
   }
   __host__ __device__ __inline__ LatticeComplex &operator/=(const T &other) {
