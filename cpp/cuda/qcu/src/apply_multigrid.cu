@@ -103,21 +103,21 @@ void applyMultigridCoarseDslashQcu(long long _fermion_out,
   int X = params[_MG_LEVEL1_X_];
   int Y = params[_MG_LEVEL1_Y_];
   int Z = params[_MG_LEVEL1_Z_];
-  int T = params[_MG_LEVEL1_T_];
+  int Lt = params[_MG_LEVEL1_T_];
   if (data_type == _LAT_C64_) {
     LatticeSet<float> *set_ptr =
         static_cast<LatticeSet<float> *>(
             (void *)(static_cast<long long *>(set_ptrs)[set_index]));
     LatticeMultigridCoarseDslash<float> _coarse_dslash;
     _coarse_dslash.give(set_ptr);
-    _coarse_dslash.run(fermion_out, fermion_in, hopping, sitting, E, X, Y, Z, T);
+    _coarse_dslash.run(fermion_out, fermion_in, hopping, sitting, E, X, Y, Z, Lt);
   } else if (data_type == _LAT_C128_) {
     LatticeSet<double> *set_ptr =
         static_cast<LatticeSet<double> *>(
             (void *)(static_cast<long long *>(set_ptrs)[set_index]));
     LatticeMultigridCoarseDslash<double> _coarse_dslash;
     _coarse_dslash.give(set_ptr);
-    _coarse_dslash.run(fermion_out, fermion_in, hopping, sitting, E, X, Y, Z, T);
+    _coarse_dslash.run(fermion_out, fermion_in, hopping, sitting, E, X, Y, Z, Lt);
   } else {
     printf("data_type error in applyMultigridCoarseDslashQcu\n");
   }
