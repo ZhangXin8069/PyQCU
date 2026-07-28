@@ -43,13 +43,13 @@ template <typename T> struct LatticeMultigridCoarseDslash {
   cudaError_t err;
   void give(LatticeSet<T> *_set_ptr) { set_ptr = _set_ptr; }
   void run(void *fermion_out, void *fermion_in, void *hopping, void *sitting,
-           int E, int X, int Y, int Z, int T) {
+           int E, int X, int Y, int Z, int Lt) {
     checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
-    int total_output = E * X * Y * Z * T;
+    int total_output = E * X * Y * Z * Lt;
     dim3 gridDim((total_output + _BLOCK_SIZE_ - 1) / _BLOCK_SIZE_);
     dim3 blockDim(_BLOCK_SIZE_);
     multigrid_coarse_dslash<T><<<gridDim, blockDim, 0, set_ptr->stream>>>(
-        fermion_out, fermion_in, hopping, sitting, E, X, Y, Z, T);
+        fermion_out, fermion_in, hopping, sitting, E, X, Y, Z, Lt);
     err = cudaGetLastError();
     checkCudaErrors(err);
     checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
