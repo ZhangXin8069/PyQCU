@@ -58,15 +58,18 @@ def gridoooxyzt2hdf5oooxyzt(
         local_data = input_tensor.cpu().contiguous().numpy()
         # Gather all local data to rank 0
         all_data = comm.gather(local_data, root=0)
+        # BUGFIX 2026-07-28: unify shape with MPI path (x, y, z, t order).
+        # Gather order is (t, z, y, x); unpack must match, then reorder for HDF5 slicing.
         all_indices = comm.gather(
             (grid_index_t, grid_index_z, grid_index_y, grid_index_x), root=0)
         if rank == 0:
             with h5py.File(file_name, 'w') as f:
+                # Shape matches MPI path for cross-compatibility
                 dest = f.create_dataset('data', shape=(
-                    *prefix_shape, lat_t, lat_z, lat_y, lat_x), dtype=dtype)
+                    *prefix_shape, lat_x, lat_y, lat_z, lat_t), dtype=dtype)
                 # Write each rank's data to the correct position
                 for data, indices in zip(all_data, all_indices):
-                    idx_x, idx_y, idx_z, idx_t = indices
+                    idx_t, idx_z, idx_y, idx_x = indices
                     dest[...,
                          idx_x*grid_lat_x:idx_x*grid_lat_x+grid_lat_x,
                          idx_y*grid_lat_y:idx_y*grid_lat_y+grid_lat_y,
@@ -129,11 +132,12 @@ def hdf5oooxyzt2gridoooxyzt(
                 # Read and scatter data to all ranks
                 local_blocks = []
                 for r in range(comm.Get_size()):
-                    # Calculate indices for rank r
-                    r_idx_x = r % grid_x
-                    r_idx_y = (r // grid_x) % grid_y
-                    r_idx_z = (r // (grid_x * grid_y)) % grid_z
-                    r_idx_t = r // (grid_x * grid_y * grid_z)
+                    # BUGFIX 2026-07-28: use C-order (last-dim-fastest) decomposition
+                    # matching give_grid_index() which uses arange.reshape(give_grid_size()).
+                    r_idx_t = r % grid_t                         # last dim, fastest varying
+                    r_idx_z = (r // grid_t) % grid_z
+                    r_idx_y = (r // (grid_t * grid_z)) % grid_y
+                    r_idx_x = r // (grid_t * grid_z * grid_y)    # first dim, slowest varying
                     block = all_data[...,
                                      r_idx_x*grid_lat_x:r_idx_x*grid_lat_x+grid_lat_x,
                                      r_idx_y*grid_lat_y:r_idx_y*grid_lat_y+grid_lat_y,

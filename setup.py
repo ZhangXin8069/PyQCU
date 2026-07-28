@@ -1,6 +1,9 @@
 from setuptools import setup, find_packages
 import subprocess
-from distutils.core import Extension, setup
+# BUGFIX 2026-07-28: import only Extension from distutils, NOT setup.
+# The previous `from distutils.core import Extension, setup` was overriding
+# setuptools.setup with distutils.setup, silently disabling setuptools features.
+from distutils.core import Extension
 from setuptools.command.build_ext import build_ext
 from Cython.Build import cythonize
 import numpy
@@ -35,7 +38,8 @@ setup(
     description="Python wrapper for QCU written in Cython.",
     author="ZhangXin8069",
     author_email="zhangxin8069@qq.com",
-    packages=find_packages(exclude=["test.*"]),
+    # BUGFIX 2026-07-28: test modules are in pyqcu.testing, not test.*
+    packages=find_packages(exclude=["pyqcu.testing.*", "pyqcu.testing"]),
     ext_modules=ext_modules,
     license="MIT",
     cmdclass={'build_ext': CMakeBuild},
