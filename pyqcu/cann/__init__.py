@@ -58,9 +58,14 @@ def einsum(equation: str, *operands) -> torch.Tensor:
             op) else op for op in operands]
         imag_parts = [op.imag if torch.is_complex(
             op) else torch.zeros_like(op) for op in operands]
-        real_real = torch.einsum(equation, *real_parts)
-        imag_imag = torch.einsum(equation, *imag_parts)
-        if len(operands) == 2:
+
+        n_ops = len(operands)
+
+        if n_ops == 2:
+            # 2-operand case: "a+ib" * "c+id"
+            # real: a*c - b*d, imag: a*d + b*c
+            real_real = torch.einsum(equation, *real_parts)
+            imag_imag = torch.einsum(equation, *imag_parts)
             if torch.is_complex(operands[0]) and torch.is_complex(operands[1]):
                 real_imag = torch.einsum(
                     equation, real_parts[0], imag_parts[1])
@@ -79,8 +84,48 @@ def einsum(equation: str, *operands) -> torch.Tensor:
                 imag_result = torch.einsum(
                     equation, real_parts[0], imag_parts[1])
         else:
-            real_result = real_real
-            imag_result = torch.zeros_like(real_real)
+            # BUGFIX 2026-07-28: General N-operand complex einsum.
+            # For Z = Prod(a_k + i*b_k):
+            #   Re(Z) = sum_{mask with even #imag} (-1)^(|mask|/2) * prod(masked_parts)
+            #   Im(Z) = sum_{mask with odd  #imag} (-1)^(|mask|//2) * prod(masked_parts)
+            # where masked_parts[k] = imag if bit k set, else real.
+            # For n_ops=3, explicit formula yields 4 real and 4 imag contributions
+            # matching the general 2^n = 8 terms with correct i^n factors.
+            #
+            # Iterate over all 2^n sign combinations:
+            real_result = torch.einsum(equation, *real_parts)
+            # BUGFIX 2026-07-28: start imag_result at zero; the all-imaginary
+            # combination is processed in the loop below with correct sign.
+            imag_result = torch.zeros_like(real_result)
+
+            for combo_bits in range(1, 1 << n_ops):
+                # Select parts for this combination
+                selected = []
+                n_imag = 0
+                for k in range(n_ops):
+                    if (combo_bits >> k) & 1:
+                        selected.append(imag_parts[k])
+                        n_imag += 1
+                    else:
+                        selected.append(real_parts[k])
+
+                term = torch.einsum(equation, *selected)
+                # sign = i^(n_imag): i^1=i, i^2=-1, i^3=-i, i^4=1, ...
+                sign = 1.0
+                if n_imag % 4 == 0:
+                    sign = 1.0
+                elif n_imag % 4 == 1:
+                    sign = 0.0  # contributes to imag with +1
+                elif n_imag % 4 == 2:
+                    sign = -1.0
+                elif n_imag % 4 == 3:
+                    sign = 0.0  # contributes to imag with -1
+
+                if n_imag % 2 == 0:  # contributes to real
+                    real_result = real_result + sign * term
+                else:
+                    imag_sign = 1.0 if n_imag % 4 == 1 else -1.0
+                    imag_result = imag_result + imag_sign * term
         return real_result + imag_result * 1j
     else:
         return torch.einsum(equation, *operands)

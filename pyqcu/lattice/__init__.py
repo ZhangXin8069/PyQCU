@@ -1,27 +1,34 @@
 from typing import Optional
 import mpi4py.MPI as MPI
-from typing import Optional
+# BUGFIX 2026-07-28: removed duplicate `from typing import Optional` import.
 import pyqcu.cann as _torch
+# Note: torch is imported for det() which doesn't have an NPU equivalent.
 import torch
 from argparse import Namespace
 from math import sqrt
 Namespace.__module__ = "pyqcu.lattice"
+# Ward indices use negative indexing by convention: the spatial/temporal dimensions
+# are always the last four axes of any tensor in this library (layout "...xyzt").
+# Using negative indices (e.g., -4 for x, -3 for y, -2 for z, -1 for t) makes
+# indexing robust to arbitrary prefix dimensions (spin, color, parity, etc.).
+# For 4-dim tensors, ward -4 == index 0; for higher-dim tensors, the ward
+# correctly indexes into the last 4 axes regardless of the prefix shape.
 wards = dict()
-wards['x'] = 0 - 4
-wards['y'] = 1 - 4
-wards['z'] = 2 - 4
-wards['t'] = 3 - 4
-wards['t_p'] = 3 - 4
-wards['xy'] = 0 - 6
-wards['xz'] = 1 - 6
-wards['xt'] = 2 - 6
-wards['yz'] = 3 - 6
-wards['yt'] = 4 - 6
-wards['zt'] = 5 - 6
-wards['xyz'] = 0 - 4
-wards['xyt'] = 1 - 4
-wards['xzt'] = 2 - 4
-wards['yzt'] = 3 - 4
+wards['x'] = 0 - 4       # -4 → last 4th axis (x)
+wards['y'] = 1 - 4       # -3 → last 3rd axis (y)
+wards['z'] = 2 - 4       # -2 → last 2nd axis (z)
+wards['t'] = 3 - 4       # -1 → last axis (t)
+wards['t_p'] = 3 - 4     # -1 → last axis (t, parity-split variant)
+wards['xy'] = 0 - 6      # gamma_gamma index for xy commutator
+wards['xz'] = 1 - 6      # gamma_gamma index for xz commutator
+wards['xt'] = 2 - 6      # gamma_gamma index for xt commutator
+wards['yz'] = 3 - 6      # gamma_gamma index for yz commutator
+wards['yt'] = 4 - 6      # gamma_gamma index for yt commutator
+wards['zt'] = 5 - 6      # gamma_gamma index for zt commutator
+wards['xyz'] = 0 - 4     # 3D ward index
+wards['xyt'] = 1 - 4     # 3D ward index
+wards['xzt'] = 2 - 4     # 3D ward index
+wards['yzt'] = 3 - 4     # 3D ward index
 ward_keys = ['x', 'y', 'z', 't']
 ward_p_keys = ['x', 'y', 'z', 't_p']
 ward_wards = dict()

@@ -97,7 +97,8 @@ def check_mpi_support():
             test_file = f'_test_mpi_support_{comm.Get_rank()}.h5'
             with h5py.File(test_file, 'w', driver='mpio', comm=comm) as f:
                 pass
-            if comm.Get_rank() == 0 and os.path.exists(test_file):
+            # BUGFIX 2026-07-28: delete temp files on ALL ranks, not just rank 0.
+            if os.path.exists(test_file):
                 os.remove(test_file)
             return True
         except:

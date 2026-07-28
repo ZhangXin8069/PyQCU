@@ -31,10 +31,10 @@ def bistabcg(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], to
     alpha = torch.tensor(1.0, dtype=b.dtype, device=b.device)
     omega = torch.tensor(1.0, dtype=b.dtype, device=b.device)
     start_time = perf_counter()
+    # BUGFIX 2026-07-28: always track iter_times to avoid ZeroDivisionError when verbose=False
     iter_times = []
     for i in range(max_iter):
-        if verbose:
-            iter_start_time = perf_counter()
+        iter_start_time = perf_counter()
         rho = tools.vdot(r_tilde, r)
         beta = (rho / rho_prev) * (alpha / omega)
         rho_prev = rho
@@ -48,9 +48,8 @@ def bistabcg(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], to
         x = x + alpha * p + omega * s
         r = s - omega * t
         r_norm = tools.norm(r)
-        if verbose:
-            iter_time = perf_counter() - iter_start_time
-            iter_times.append(iter_time)
+        iter_time = perf_counter() - iter_start_time
+        iter_times.append(iter_time)
         if verbose:
             # print(f"alpha,beta,omega:{alpha,beta,omega}\n")
             print(
@@ -63,11 +62,13 @@ def bistabcg(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], to
     else:
         print("PYQCU::SOLVER::BISTABCG:\n Warning: Maximum iterations reached, may not have converged")
     total_time = perf_counter() - start_time
-    avg_iter_time = sum(iter_times) / len(iter_times)
-    print(f"PYQCU::SOLVER::BISTABCG:\n Performance Statistics:")
-    print(f"PYQCU::SOLVER::BISTABCG:\n Total iterations: {len(iter_times)}")
-    print(f"PYQCU::SOLVER::BISTABCG:\n Total time: {total_time:.6f} seconds")
-    print(
-        f"PYQCU::SOLVER::BISTABCG:\n Average time per iteration: {avg_iter_time:.6f} s")
-    print(f"PYQCU::SOLVER::BISTABCG:\n Final residual: {r_norm:.2e}")
+    # BUGFIX 2026-07-28: guard against empty iter_times and only print stats when verbose
+    if verbose and len(iter_times) > 0:
+        avg_iter_time = sum(iter_times) / len(iter_times)
+        print(f"PYQCU::SOLVER::BISTABCG:\n Performance Statistics:")
+        print(f"PYQCU::SOLVER::BISTABCG:\n Total iterations: {len(iter_times)}")
+        print(f"PYQCU::SOLVER::BISTABCG:\n Total time: {total_time:.6f} seconds")
+        print(
+            f"PYQCU::SOLVER::BISTABCG:\n Average time per iteration: {avg_iter_time:.6f} s")
+        print(f"PYQCU::SOLVER::BISTABCG:\n Final residual: {r_norm:.2e}")
     return x

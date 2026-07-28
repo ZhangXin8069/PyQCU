@@ -9,6 +9,10 @@ template <typename T>
 __global__ void wilson_dslash(void *device_U, void *device_src,
                               void *device_dest, void *device_params) {
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
+  // NOTE: 'parity' is reused as a temporary coordinate-decomposition variable.
+  // The input 'idx' is decomposed into (x,y,z,t) using 'parity' as workspace,
+  // then overwritten with params[_PARITY_] for its actual parity semantics.
+  // This reuse avoids declaring extra registers.
   int parity = idx;
   int *params = static_cast<int *>(device_params);
   int lat_x = params[_LAT_X_];
@@ -269,6 +273,10 @@ template <typename T>
 __global__ void wilson_dslash_inside(void *device_U, void *device_src,
                                      void *device_dest, void *device_params) {
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
+  // NOTE: 'parity' is reused as a temporary coordinate-decomposition variable.
+  // The input 'idx' is decomposed into (x,y,z,t) using 'parity' as workspace,
+  // then overwritten with params[_PARITY_] for its actual parity semantics.
+  // This reuse avoids declaring extra registers.
   int parity = idx;
   int *params = static_cast<int *>(device_params);
   int lat_x = params[_LAT_X_];
@@ -1315,6 +1323,10 @@ wilson_dslash_t_recv(void *device_U, void *device_dest, void *device_params,
   add_dest_t(origin_dest, dest, lat_xyzt, (move == 1 - lat_t)); // even-odd
 #endif
 }
+// Template instantiations for supported QCU data types.
+// LatticeComplex<float>  ↔ _LAT_C64_  (complex64)
+// LatticeComplex<double> ↔ _LAT_C128_ (complex128)
+// These are the only two precision modes currently used.
 //@@@CUDA_TEMPLATE_FOR_DEVICE@@@
 template __global__ void wilson_dslash<double>(void *device_U, void *device_src,
                                                void *device_dest,

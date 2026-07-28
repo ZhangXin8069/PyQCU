@@ -80,7 +80,7 @@ Reference docs live in `docs/` — `dims.md` (dimension naming), `env.md` (Pytho
 
 ### Module-level code in `pyqcu/lattice/__init__.py`
 
-The lattice module runs initialization code at import time (not lazy): it defines gamma matrices (γ₀…γ₃, γ₅, γ_μ γ_ν commutators), Gell-Mann matrices (λ₁…λ₈, SU(3) generators), and `ward` index mappings (`wards`, `ward_keys`, `ward_wards`). These are plain module-level tensors on CPU. The `check_su3()` function verifies unitarity, det=1, and minor identities. `generate_gauge_field()` creates random SU(3) gauge links via exponential map of random Gell-Mann combinations.
+The lattice module runs initialization code at import time (not lazy): it defines gamma matrices (γ₀…γ₃, γ₅ = γ₀γ₁γ₂γ₃), the six γ_μ γ_ν products stored in `gamma_gamma`, Gell-Mann matrices (λ₁…λ₈, SU(3) generators), and `ward` index mappings (`wards`, `ward_keys`, `ward_wards`). Ward indices use negative indexing (e.g., `wards['x'] = -4`) — see the convention note below. These are plain module-level tensors on CPU. The `check_su3()` function verifies unitarity, det=1, and minor identities. `generate_gauge_field()` creates random SU(3) gauge links via exponential map of random Gell-Mann combinations.
 
 ### `pyqcu.cann` — NPU compatibility layer
 
@@ -89,7 +89,7 @@ All Python code imports `pyqcu.cann as _torch` instead of using `torch` directly
 - **CUDA/CPU path:** delegates straight to `torch.*`
 - **NPU path** (`device.type == 'npu'` or `force_use_npu=True`): decomposes complex ops into real/imaginary parts
 
-Set `pyqcu.cann.force_use_npu = True` to test NPU code paths on CPU without NPU hardware.
+Set `pyqcu.cann.force_use_npu = True` to test NPU code paths on CPU without NPU hardware. Note: some modules (`dslash/_wilson.py`, `tools/_define.py`, `tools/_multigrid.py`, `smear/_stout.py`) also have their own `force_use_npu` module-level variable for per-module NPU debugging; the global `pyqcu.cann.force_use_npu` controls the shared `cann` layer only.
 
 Functions provided (always use these instead of raw torch calls anywhere complex tensors might run on NPU):
 - **Math:** `abs`, `vdot`, `norm`, `sqrt`, `matmul`
@@ -200,6 +200,8 @@ The multigrid solver (`solver.multigrid`) supports:
 - Local orthogonalization of null vectors (`tools.local_orthogonalize`)
 - Coarse-grid restrict/prolong with optional CUDA acceleration (`applyMultigridRestrictQcu`/`applyMultigridProLongQcu`)
 
+Note: `pyqcu/solver/_gmres.py` is a placeholder stub — the GMRES solver is planned but not yet implemented. The current solver suite consists of BiStabCG and multigrid only.
+
 ### Data layout conventions
 
 | Tensor | Shape | Notes |
@@ -213,6 +215,8 @@ The multigrid solver (`solver.multigrid`) supports:
 HDF5 I/O uses dimension order `zyxt` (fastest to slowest: t, z, y, x) internally. Conversion functions `ccdxyzt2ccdptzyx` and `scxyzt2psctzyx` handle the reordering between the tensor layout and the file layout. See `docs/dims.md` for the full naming scheme.
 
 The dimension order convention uses letters: `s`=spin, `c`=color, `d`=direction, `p`=parity, `x/y/z/t`=spacetime.
+
+**Negative ward index convention:** All tensors in PyQCU follow the `...xyzt` layout — spacetime dimensions are always the last four axes. Ward indices use negative integers (e.g., `wards['x'] = -4`) so they correctly index the spacetime axes regardless of how many prefix dimensions (spin, color, parity, etc.) the tensor has. This is by design, not a bug.
 
 ### TileLang integration
 
