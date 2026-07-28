@@ -1,0 +1,892 @@
+# PyQCU 代码与文档循环审查报告
+
+**日期**: 2026-07-28  
+**审查范围**: 全库 Python/Cython/CUDA 源码及文档  
+**审查方式**: 逐文件阅读，交叉引用 CLAUDE.md 文档
+
+---
+
+## 目录
+
+1. [严重 Bug (Correctness)](#1-严重-bug-correctness)
+2. [中等 Bug (Likely Wrong)](#2-中等-bug-likely-wrong)
+3. [代码质量问题 (Code Quality)](#3-代码质量问题-code-quality)
+4. [性能优化建议 (Performance)](#4-性能优化建议-performance)
+5. [文档-代码不一致 (Doc-Code Mismatch)](#5-文档-代码不一致-doc-code-mismatch)
+6. [缺失功能/死代码 (Missing/Dead Code)](#6-缺失功能死代码-missingdead-code)
+
+---
+
+## 1. 严重 Bug (Correctness)
+
+### 1.1 I/O 模块：串行 fallback 中 gather 索引顺序错误
+
+**文件**: `pyqcu/tools/_io.py:62,69`  
+**严重程度**: 🔴 严重 — 数据写入错误位置
+
+```python
+# 第62行 gather 时按 (t, z, y, x) 顺序:
+all_indices = comm.gather(
+    (grid_index_t, grid_index_z, grid_index_y, grid_index_x), root=0)
+
+# 第69行 unpack 时按 (x, y, z, t) 顺序:
+idx_x, idx_y, idx_z, idx_t = indices
+```
+
+`gather` 的元组顺序是 `(t, z, y, x)`，但解包时使用了 `(x, y, z, t)` 顺序，导致索引错位。t 维度的索引被赋给了 x，x 被赋给了 t。**在串行 fallback 路径中，数据会被写入错误的 HDF5 位置。**
+
+**修复**: 将第69行改为 `idx_t, idx_z, idx_y, idx_x = indices`，或将第62行 gather 顺序改为 `(grid_index_x, grid_index_y, grid_index_z, grid_index_t)`。
+
+### 1.2 `stout_smear` — `nstep > 1` 无效：每步都使用原始 U，未更新
+
+**文件**: `pyqcu/smear/_stout.py:64-172`  
+**严重程度**: 🔴 严重 — 多次 smearing 结果等价于 nstep=1
+
+```python
+for _ in range(nstep):          # line 64
+    Q = torch.zeros_like(U)
+    # ... 计算 staple sum Q，使用 U ...
+    dest = _torch.einsum("abDxyzt,bcDxyzt->acDxyzt", f0 + f1 + f2, U)  # line 171
+return dest
+```
+
+每轮迭代都从**原始 `U`** 出发计算 `Q` 和指数因子，`dest` 被计算后又在下轮迭代中被覆盖。循环结束后只返回最后一轮的结果，等价于 `nstep=1`。
+
+**修复**: 在循环末尾（第171行后）添加 `U = dest`，并在每次迭代中更新 MPI 边界数据（见 1.3）。
+
+### 1.3 `stout_smear` — MPI 边界数据在多步 smearing 中不更新
+
+**文件**: `pyqcu/smear/_stout.py:22-63`  
+**严重程度**: 🔴 严重（与 1.2 联动）
+
+MPI halo exchange（`U_head_list`, `U_tail_list`, `U_head_tail_list`）在循环**之前**计算一次。当修复 1.2 后，gauge field 每步都会变化，但边界数据保持初始值不变，导致并行结果错误。
+
+### 1.4 `cann.einsum` — NPU 上 3+ 操作数复数 einsum 丢弃虚部
+
+**文件**: `pyqcu/cann/__init__.py:81-83`  
+**严重程度**: 🔴 严重 — NPU 上产生错误结果
+
+```python
+if len(operands) == 2:
+    # 正确处理 2 操作数：分解实部/虚部
+    ...
+else:
+    real_result = real_real
+    imag_result = torch.zeros_like(real_real)  # 虚部直接归零！
+```
+
+对于 3 个及以上操作数的复数 einsum，虚部被强制设为零。虽然当前代码中可能未使用 3+ 操作数 einsum，但这是 API 层面的静默错误。
+
+### 1.5 `operator.matvec_eo` / `matvec_oe` 条件判断始终为真
+
+**文件**: `pyqcu/dslash/_operator.py:228,259`  
+**严重程度**: 🔴 严重 — 不必要的 MPI 通信开销
+
+```python
+if self.hopping.grid_size[ward] != 1 or self.sitting:
+```
+
+`self.sitting` 是一个 `sitting` 对象实例，在 Python 中始终为 truthy（即使 `clover_term=None`）。这意味着**每个方向、每次调用都会执行两个 Sendrecv 的 MPI 通信**，即使 `grid_size[ward] == 1`（单进程）。这会导致严重的性能退化。
+
+**修复**: 改为 `self.sitting.clover_term is not None` 或移除这个条件（该条件原本的意图似乎是"如果有 clover term 就需要通信"，但逻辑不正确）。
+
+### 1.3 `_gmres.py` 文件为空
+
+**文件**: `pyqcu/solver/_gmres.py`  
+**严重程度**: 🔴 — 导入会失败
+
+该文件被 `solver/__init__.py` 导入但内容为空（或不存在有效实现）。任何尝试使用 GMRES 的代码都会在运行时失败。
+
+### 1.4 四维坐标计算中 parity 变量的错误使用
+
+**文件**: `cpp/cuda/qcu/src/wilson_dslash.cu:12,22-27`  
+**严重程度**: 🔴 — 变量名误导，可能导致坐标索引错误
+
+```cpp
+int idx = blockIdx.x * blockDim.x + threadIdx.x;
+int parity = idx;  // 这里用 parity 作为临时变量存储 idx
+// ...
+int x = parity / move;      // 正确：计算 x 坐标
+parity -= x * move;          // 正确：剩余部分
+int y = parity / move;      // 正确：计算 y 坐标
+parity -= y * move;          // 正确
+int z = parity / lat_t;     // 正确：计算 z 坐标
+int t = parity - z * lat_t; // 正确：计算 t 坐标
+parity = params[_PARITY_];  // 覆盖为真正的 parity 值
+```
+
+虽然最终结果正确（因为在覆盖前已经完成了所有坐标计算），但使用 `parity` 作为坐标分解的临时变量极其容易引入 bug。如果在 `parity = params[_PARITY_]` 之前插入新代码使用 `parity` 就会出错。
+
+**修复**: 使用独立变量名如 `idx_rem` 或 `tmp` 进行坐标分解。
+
+### 1.6 `check_mpi_support` — 非 root 进程临时文件泄漏
+
+**文件**: `pyqcu/tools/_define.py:97-101`  
+**严重程度**: 🔴 严重
+
+```python
+test_file = f'_test_mpi_support_{comm.Get_rank()}.h5'
+# ... 创建文件 ...
+if comm.Get_rank() == 0 and os.path.exists(test_file):
+    os.remove(test_file)  # 仅 root 清理！
+```
+
+每个非 root 进程创建 `_test_mpi_support_{rank}.h5` 但从不删除。多次运行后工作目录留下大量孤儿文件。
+
+### 1.7 `hdf5oooxyzt2gridoooxyzt` 串行 fallback rank 索引不一致
+
+**文件**: `pyqcu/tools/_io.py:131-134`  
+**严重程度**: 🔴 严重 — 数据分发到错误进程
+
+```python
+r_idx_x = r % grid_x
+r_idx_y = (r // grid_x) % grid_y
+```
+
+串行读取器手动计算 rank 索引（x 最快），但 `give_grid_index()` 使用 `sorted(groups.tolist())` 的网格，实际维度顺序因 `sorted()` 而改变。数据可能被 scatter 到错误的 MPI 进程。
+
+### 1.8 `give_null_vecs` 无条件覆盖用户输入
+
+**文件**: `pyqcu/tools/_multigrid.py:15`  
+**严重程度**: 🔴 严重 — API 语义错误
+
+```python
+def give_null_vecs(null_vecs: torch.Tensor, ...):
+    null_vecs = _torch.randn_like(null_vecs)  # 无条件覆盖用户输入！
+```
+
+函数签名暗示 `null_vecs` 可作为初始猜测传入，但第一行就用随机数覆盖。调用者提供的任何初始值被静默丢弃。
+
+### 1.9 `test_solver` 错误消息使用模块对象而非参数值
+
+**文件**: `pyqcu/testing/__init__.py:363`  
+**严重程度**: 🔴 严重
+
+```python
+raise ValueError(
+    f"PYQCU::TESTING::SOLVER::SOLVER: {solver} is not supported.")
+#                                      ^^^^^^ 应该是 {method}！
+```
+
+`solver` 是导入的模块对象（`<module 'pyqcu.solver'>`），而非用户传入的 `method` 参数（如 `'bistabcg'` 或 `'multigrid'`）。错误消息不会指示实际不支持的方法名。
+
+### 1.10 `operator.matvec` 中脆弱的形状检测
+
+**文件**: `pyqcu/dslash/_operator.py:220-221`  
+**严重程度**: 🟡 中等
+
+```python
+if src.shape[0] == 4 and src.shape[1] == 3:
+```
+
+这是一个启发式判断：维度 0=4 且 1=3 则推断为 `[spin,color,...]` 布局。但如果某个其他张量恰好满足此条件（如 coarse-grid DOF=4 的 odd-site 张量），会被错误地 reshape 为 `[12,...]`。
+
+**修复**: 使用显式的布局标志参数，而非基于 shape 的启发式判断。
+
+### 1.11 `check_mpi_support` — 临时文件泄漏 on non-root ranks  
+**(已记录于 1.6)**
+
+### 1.12 `give_eo_mask` 注释与代码不一致
+
+**文件**: `pyqcu/tools/_define.py:158`  
+**严重程度**: 🟢 轻微
+
+```python
+sums = coords[lattice.wards['x']] + coords[lattice.wards['y']] + \
+    coords[lattice.wards['z']]  # x+y+z
+```
+
+注释说 `x+y+z`，但 `wards['x']=-4, wards['y']=-3, wards['z']=-2`（Python 负索引），实际索引 `coords[0], coords[1], coords[2]` 对应 meshgrid 创建的 `(t, z, y)`。实际计算的是 `t+z+y`（因 `indexing='ij'`，坐标顺序为 t,z,y,x），恰好与 `x+y+z` 等价但注释有误导性。
+
+---
+
+## 2. 中等 Bug (Likely Wrong)
+
+### 2.1 BiCGStab 求解器在 verbose=False 时 ZeroDivisionError
+
+**文件**: `pyqcu/solver/_bistabcg.py:51-53,66`  
+**严重程度**: 🟡 中等
+
+```python
+if verbose:
+    iter_time = perf_counter() - iter_start_time
+    iter_times.append(iter_time)
+```
+
+当 `verbose=False` 时，`iter_times` 列表始终为空，但第66行：
+```python
+avg_iter_time = sum(iter_times) / len(iter_times)  # ZeroDivisionError!
+```
+
+**修复**: 将 `iter_time` 的记录移到 verbose 条件外，或在使用 `iter_times` 前检查其是否为空。
+
+### 2.2 性能统计无视 verbose 标志
+
+**文件**: `pyqcu/solver/_bistabcg.py:66-72`  
+**严重程度**: 🟡 中等
+
+第66-72行的性能统计总是打印，即使 `verbose=False`：
+```python
+total_time = perf_counter() - start_time
+avg_iter_time = sum(iter_times) / len(iter_times)
+print(f"PYQCU::SOLVER::BISTABCG:\n Performance Statistics:")
+# ... always prints
+```
+
+**修复**: 添加 `if verbose:` 条件。
+
+### 2.3 `cuda/define.py` 中 `dtype()` 函数缺少 else 分支
+
+**文件**: `pyqcu/cuda/define.py:94-119`  
+**严重程度**: 🟡 中等
+
+```python
+def dtype(_data_type_: ...) -> torch.dtype:
+    if _data_type_ == torch.Tensor([_LAT_C16_], ...):
+        ...
+    elif ...:
+        ...
+    raise  # 裸 raise，没有异常信息
+```
+
+最后的 `raise` 没有异常类或消息，且没有 `else` 分支的显式异常处理。如果传入了不支持的 `_data_type_`，会得到一个不友好的 `RuntimeError: No active exception to re-raise`。
+
+**修复**: 改为 `raise ValueError(f"Unsupported data type: {_data_type_}")`。
+
+### 2.4 `give_eo_mask` 在坐标求和时使用了负索引但实际应为正索引
+
+**文件**: `pyqcu/tools/_define.py:157-158`  
+
+```python
+sums = coords[lattice.wards['x']] + coords[lattice.wards['y']] + \
+    coords[lattice.wards['z']]  # x+y+z
+```
+
+`lattice.wards['x']` 的值是 `-4`（Python 算术 `0-4`），`coords[-4]` 在 4 元素 tuple 中等同于 `coords[0]`。这碰巧工作正常（负索引回绕），但代码意图不明确。同时，缺少 `t` 坐标的求和（checkerboard 分割只需要空间坐标，这是正确的，但注释不够清晰）。
+
+### 2.5 CUDA 核函数模板仅实例化了 float 和 double
+
+**文件**: `cpp/cuda/qcu/src/wilson_dslash.cu:1318-1405`  
+**严重程度**: 🟡 中等
+
+CUDA 核函数仅对 `float` 和 `double` 进行了显式模板实例化。但 QCU 支持 `LAT_C64`（complex64，即 `float2`）和 `LAT_C128`（complex128，即 `double2`）。CUDA 的 `LatticeComplex<float>` 应该对应 complex64，`LatticeComplex<double>` 对应 complex128 — 这取决于 `LatticeComplex` 模板的实现。如果 `LatticeComplex` 的模板参数是有别于 `float`/`double` 的类型，核函数将链接失败。
+
+### 2.6 `_operator.py` 中遗留的 debug print
+
+**文件**: `pyqcu/dslash/_operator.py:333-334`  
+**严重程度**: 🟡 中等
+
+```python
+print(dest_e.shape)
+print(dest_o.shape)
+```
+
+这是 `matvec_all()` 方法中的调试代码，会在正常运行时输出。不应出现在生产代码中。
+
+---
+
+## 3. 代码质量问题 (Code Quality)
+
+### 3.1 多处使用可变默认参数
+
+**文件**: `pyqcu/dslash/_wilson.py:11-12`, `pyqcu/dslash/_clover.py:9-10`, `pyqcu/dslash/_operator.py:10,147`, `pyqcu/solver/_multigrid.py:11`  
+**严重程度**: 🟢 轻微（实践中不会导致 bug，但违反最佳实践）
+
+```python
+def give_wilson(src, U, kappa: Optional[torch.Tensor] = torch.Tensor([0.1]), ...):
+```
+
+`torch.Tensor([0.1])` 在函数定义时求值，创建了一个持久的 tensor 对象。虽然该默认值在函数内从未被修改，但这违反了 Python 可变默认参数的最佳实践。
+
+**修复**: 使用 `None` 作为默认值，在函数体内检查：
+```python
+def give_wilson(src, U, kappa: Optional[torch.Tensor] = None, ...):
+    if kappa is None:
+        kappa = torch.Tensor([0.1])
+```
+
+### 3.2 `lattice/__init__.py` 中重复导入和未使用的导入
+
+**文件**: `pyqcu/lattice/__init__.py:1,3,5`  
+
+```python
+from typing import Optional  # line 1
+from typing import Optional  # line 3 — 重复
+import torch                   # line 5 — 未直接使用（所有 torch 调用通过 _torch）
+```
+
+### 3.3 模块级变量 `force_use_npu` 分散在多处
+
+**文件**: `pyqcu/dslash/_wilson.py:5`, `pyqcu/tools/_define.py:8`, `pyqcu/tools/_multigrid.py:5`, `pyqcu/smear/_stout.py:7`  
+
+多个模块各自定义了 `force_use_npu = False`，但这些与 `pyqcu.cann.force_use_npu` 不是同一个变量。它们只在各自的模块内被检查，而 `pyqcu.cann.force_use_npu` 是真正的全局开关。建议统一使用 `pyqcu.cann.force_use_npu`。
+
+### 3.4 Gamma 矩阵的 ward 索引使用负整数
+
+**文件**: `pyqcu/lattice/__init__.py:10-24`  
+
+```python
+wards['x'] = 0 - 4    # = -4，Python 中索引 -4 == 0（对 4 元素张量）
+wards['y'] = 1 - 4    # = -3，Python 中索引 -3 == 1
+wards['z'] = 2 - 4    # = -2
+wards['t'] = 3 - 4    # = -1
+```
+
+这利用 Python 负索引特性实现了正确的映射，但代码极其不直观。注释说 `0 - 4` 看起来像注释掉的表达式，而不像有意为之的编码。建议使用模运算或显式文档说明。
+
+### 3.5 Gamma 矩阵注释格式错误
+
+**文件**: `pyqcu/lattice/__init__.py:79-95`  
+
+```python
+# gamma_gamma0 xy-direction)     # 缺少开括号 (
+```
+
+### 3.6 `check_su3()` 中使用 `torch.linalg.det` 而非 `_torch`
+
+**文件**: `pyqcu/lattice/__init__.py:127`  
+
+```python
+det_U = torch.linalg.det(U_mat)  # 应使用 _torch 保持一致性
+```
+
+虽然 `det` 可能不需要 NPU 特殊处理，但违反了"所有 torch 调用通过 `_torch`"的约定。
+
+### 3.7 `generate_gauge_field` 中缺少 CUDA 可用性检查
+
+**文件**: `pyqcu/lattice/__init__.py:168-169`  
+
+```python
+if U.device.type == 'cuda':
+    torch.cuda.manual_seed_all(seed)  # 如果 CUDA 不可用会报错
+```
+
+如果 `U.device.type == 'cuda'` 为真但 CUDA 实际不可用（例如在仅支持 NPU 的环境中），`torch.cuda.manual_seed_all` 会抛出异常。
+
+### 3.8 `_bistabcg.py` 中 `iter_times` 始终被填充（第二轮检查纠正）
+
+**文件**: `pyqcu/solver/_bistabcg.py:51-53`  
+
+实际上在 verbose=True 时 `iter_times` 会被填充，但 `iter_start_time` 在 `if verbose:` 块内定义，可能导致 `iter_time` 引用了未定义变量（在第54行的第二个 `if verbose:` 中使用 `iter_time`）。
+
+等等——让我重新检查：第36-37行 `if verbose: iter_start_time = perf_counter()`，第52行 `iter_time = perf_counter() - iter_start_time` —— 如果 `verbose=False`，`iter_start_time` 未定义，但第52行在 `if verbose:` 块外执行……不，第52行也在第一个 `if verbose:` 块内吗？
+
+重新检查第36-53行：
+```python
+for i in range(max_iter):
+    if verbose:              # line 36
+        iter_start_time = perf_counter()  # line 37
+    rho = tools.vdot(...)    # line 38 (不在 verbose 块内)
+    ...
+    if verbose:              # line 51
+        iter_time = perf_counter() - iter_start_time  # line 52
+        iter_times.append(iter_time)  # line 53
+```
+
+是的，如果 `verbose=False`，第52行不会执行，所以没有 `NameError`。但在 `verbose=False` 时 `iter_times` 为空的问题仍然存在（见 2.1）。
+
+### 3.9 `multigrid.cycle()` 中 `iter_times` 的问题
+
+**文件**: `pyqcu/solver/_multigrid.py:402-403,417`  
+
+`iter_times` 在第403行总是被填充（不在 verbose 条件内），所以 `avg_iter_time` 计算不会出错。但第417-425行的统计总是打印（不在 verbose 条件内），与第348行 `print(f"PYQCU::SOLVER::MULTIGRID:\n {level}:Starting Iterations")` 一样无视 verbose 标志。
+
+---
+
+## 4. 性能优化建议 (Performance)
+
+### 4.1 `make_clover()` 中的冗余 MPI Barrier
+
+**文件**: `pyqcu/dslash/_clover.py:37,40,46,49,74,77,83,86,92,95`  
+**严重程度**: 🟢 优化
+
+`Sendrecv` 本身已经是阻塞操作，在每次 `Sendrecv` 前后使用 `comm.Barrier()` 是冗余的，会引入不必要的同步开销。例如：
+
+```python
+comm.Barrier()
+comm.Sendrecv(...)
+comm.Barrier()
+```
+
+两个 `Barrier` 加上 `Sendrecv` 的隐式同步意味着每个方向需要 3 次全局同步。对于 4 个方向的 halo 交换，这导致了显著的等待时间。
+
+**建议**: 移除 `Sendrecv` 前后的 `Barrier()` 调用（除非有明确的正确性需求）。
+
+### 4.2 `_bistabcg.py` 中重复计算 `tools.norm(b)`
+
+**文件**: `pyqcu/solver/_bistabcg.py:12,18-19`  
+
+`b_norm` 在第12行计算，第18行再次隐式计算（通过 `tools.norm(b)` 的 print 语句），第19行再次计算。`tools.norm` 涉及全局 MPI Allreduce，开销较大。
+
+**建议**: 缓存 `b_norm` 结果，在 verbose 输出中复用。
+
+### 4.3 Clover 构建中的重复 MPI 通信模式
+
+**文件**: `pyqcu/dslash/_clover.py:68-97`, `pyqcu/smear/_stout.py:51-63`  
+
+在 `make_clover` 和 `stout_smear` 中，对角线方向的 halo 交换代码几乎完全相同。可以考虑提取为 `tools` 中的一个共享函数（例如 `exchange_gauge_halos`），减少重复代码。
+
+### 4.4 Python Wilson dslash 的逐方向循环
+
+**文件**: `pyqcu/dslash/_wilson.py:41-66`  
+
+```python
+for ward_key in lattice.ward_keys:
+    ward = lattice.wards[ward_key]
+    ...
+    U_mu = U[..., ward, :, :, :, :]
+    U_dag_mu = U_dag[..., ward, :, :, :, :]
+```
+
+每个方向分别计算，产生 4 次独立的 einsum 调用。对于大批量计算，将 4 个方向合并为一个 batched einsum 可以减少 Python 开销和 kernel launch 次数。
+
+### 4.5 CUDA 核函数中 `_BLOCK_SIZE_` 硬编码为 16
+
+**文件**: `cpp/cuda/qcu/include/define.h:6`  
+
+```cpp
+#define _BLOCK_SIZE_ 16 // for test small lattice
+```
+
+注释说 "for test small lattice"，暗示这不是生产配置。对于现代 GPU，128 或 256 的 block size 通常更优（被注释掉的选项）。这会导致显著的性能损失。
+
+**建议**: 使 `_BLOCK_SIZE_` 可配置，或根据 `_LAT_XYZT_` 自动选择。
+
+### 4.6 `give_eo_mask` 每次调用创建 meshgrid
+
+**文件**: `pyqcu/tools/_define.py:149-155`  
+
+虽然有缓存机制（`_eo_mask_cache`），但缓存键包含 `device`——同一个逻辑 mask 在 CPU 和 CUDA 上会分别创建。对于多 GPU 场景，可以考虑在创建后在目标设备上复制，而不是独立计算。
+
+---
+
+## 5. 文档-代码不一致 (Doc-Code Mismatch)
+
+### 5.1 CLAUDE.md 描述的 gamma_5 计算与代码不一致
+
+**CLAUDE.md 说**:
+> gamma matrices (γ₀…γ₃, γ₅, γ_μ γ_ν commutators)
+
+**实际代码** (`pyqcu/lattice/__init__.py:74-75`):
+```python
+gamma_5 = torch.matmul(gamma[wards['x']], torch.matmul(
+    gamma[wards['y']], torch.matmul(gamma[wards['z']], gamma[wards['t']])))
+```
+
+这计算的是 `γ₀ γ₁ γ₂ γ₃`（乘积），而非通常的 `γ₅ = γ₀ γ₁ γ₂ γ₃`。在欧氏空间中这确实是 γ₅ 的标准定义，但 CLAUDE.md 将其描述为 "commutators" 是不准确的——`gamma_gamma` 中存储的才是 commutators。
+
+### 5.2 CLAUDE.md 描述 `tools.oooxyzt2poooxyzt` 缺少维度说明
+
+**CLAUDE.md**: 提到该函数将标准布局转为 parity-split `[p=2, ...]`
+
+**实际代码** (`pyqcu/tools/_define.py:381-425`): 函数总是沿 x 方向分割（`x//2`），但函数签名接受任意维度的张量。对于非 x 方向为主导的 checkerboard 分割，行为可能不符合预期。
+
+### 5.3 CLAUDE.md 说 `force_use_npu` 用于测试 NPU 路径
+
+**CLAUDE.md**:
+> Set `pyqcu.cann.force_use_npu = True` to test NPU code paths on CPU without NPU hardware.
+
+**实际代码**: 多个模块有自己的 `force_use_npu` 模块级变量（`_wilson.py:5`, `_define.py:8`, `_multigrid.py:5`），这些独立于 `pyqcu.cann.force_use_npu`。设置全局 `pyqcu.cann.force_use_npu = True` 不会自动启用这些模块的 NPU 路径，导致行为不一致。
+
+### 5.4 CUDA backend Plan 系统的文档
+
+**CLAUDE.md 描述**:
+> The C++ backend uses `_SET_PLAN_` (params index 16) to select which kernel plan to execute
+
+Plan 值与代码一致，但文档未说明 **必须在每次 C++ 调用之间递增 `_SET_INDEX_`** 的要求已在代码注释中提到。文档已覆盖此点但应在 init 章节更显眼地标注。
+
+---
+
+## 6. 缺失功能/死代码 (Missing/Dead Code)
+
+### 6.1 TileLang 导入的静默失败
+
+**文件**: `pyqcu/tools/__init__.py:36-41`  
+
+```python
+try:
+    from ._matul import matmul_gpu as matmul_gpu
+    from ._matul import matmul_cpu as matmul_cpu
+    from ._einsum import Eexyzt_exyzt2Exyzt as Eexyzt_exyzt2Exyzt
+except Exception as e:
+    print(f"Error:{e}")
+```
+
+如果 TileLang 不可用，`matmul_gpu` 等名称不会被定义，但后续代码（如 `test_matmul`）仍可能尝试导入它们。CLAUDE.md 说 "silently degrades"，但 `print(f"Error:{e}")` 实际上并不静默——它会在每次导入时打印错误消息。
+
+### 6.2 未使用的 `_roll.py` 模块
+
+**文件**: `pyqcu/tools/_roll.py`  
+
+该模块存在于文件系统中，但在 `tools/__init__.py` 中未被导入。如果它包含重要功能，它是死代码；如果不需要，应删除。
+
+### 6.3 未实现的 GMRES 求解器
+
+**文件**: `pyqcu/solver/_gmres.py`  
+
+文件存在但内容为空。如果计划实现 GMRES，应该添加 TODO；否则应删除或明确标记为 stub。
+
+### 6.4 DCU/ROCm 后端标记为 stub
+
+**CLAUDE.md**:
+> `cpp/dtk/qcu/` — Stub for DCU (ROCm/HIP) backend (no implementation yet)
+
+`pyqcu/dtk/` 和 `cpp/dtk/qcu/` 是占位符。根据 git 历史，这些已经存在了一段时间。建议要么实现，要么添加明确的 README 说明计划。
+
+### 6.5 未使用的变量 `tools_Eexyzt_exyzt2Exyzt`
+
+**文件**: `pyqcu/dslash/_wilson.py:6-7`  
+
+```python
+# tools_Eexyzt_exyzt2Exyzt = True
+tools_Eexyzt_exyzt2Exyzt = False
+```
+
+该变量被注释掉的 `True` 值和当前 `False` 值同时存在，表明这是一个开发中的特性切换。目前始终使用 `_torch.einsum` 路径，TileLang 优化的路径被跳过。要么完成 TileLang 集成并移除开关，要么删除相关代码。
+
+### 6.6 `_matul.py` 中 `warp_size` 被导入但可能不适用
+
+**文件**: `pyqcu/tools/_matul.py`  
+
+CLAUDE.md 提到 TileLang 核函数使用 `warp_size = 128`。对于 NVIDIA GPU，warp size 通常是 32；128 对于 AMD GPU 的 wavefront 可能是合理的，但作为硬编码值不够灵活。
+
+---
+
+---
+
+## 7. C++ CUDA 后端专项审查 (C++ Backend Specific)
+
+### 7.1 🔴 CRITICAL: `gauss_gauge.cu` 非 verbose 路径内存分配不足 (OOB Write)
+
+**文件**: `cpp/cuda/qcu/src/gauss_gauge.cu:183-186`  
+**严重程度**: 🔴🔴 致命 — 越界写入导致内存损坏
+
+```cpp
+// verbose 路径 (正确): 每 site 分配 32 个元素
+cudaMallocAsync(&device_random_8dtzyx, lat_4dim * _LAT_D_ * (_LAT_CC_ - 1) * sizeof(...));
+//                                           4     *  8      = 32 ✓
+
+// 非 verbose 路径 (错误): 每 site 仅分配 4 个元素
+cudaMallocAsync(&device_random_8dtzyx, lat_4dim * _LAT_S_ * sizeof(...));
+//                                           4         =  4 ✗
+```
+
+`_LAT_S_` = 4，但 `give_random_8dtzyx` 核函数每 site 写入 32 个元素。非 verbose 路径分配的内存只有需要的 1/8。**这是一个确定性的越界写入 bug，会导致 GPU 内存损坏。**
+
+### 7.2 🔴 CRITICAL: `LatticeComplex::operator*=` 复数乘法实现错误
+
+**文件**: `cpp/cuda/qcu/include/lattice_complex.h:79-83`  
+**严重程度**: 🔴🔴 致命 — 计算结果错误
+
+```cpp
+__host__ __device__ __inline__ LatticeComplex &operator*=(const LatticeComplex &other) {
+    _data.x = _data.x * other._data.x - _data.y * other._data.y;  // 覆盖了 _data.x!
+    _data.y = _data.x * other._data.y + _data.y * other._data.x;  // 使用了新的 _data.x!
+    return *this;
+}
+```
+
+第二行使用的 `_data.x` 是第一行**修改后**的值，而非原始值。正确的实现应保存临时变量：
+```cpp
+T old_x = _data.x;
+_data.x = old_x * other._data.x - _data.y * other._data.y;
+_data.y = old_x * other._data.y + _data.y * other._data.x;
+```
+
+如果代码中任何地方调用了复数 `*=` 操作符，结果将是错误的。
+
+### 7.3 🔴 HIGH: `apply_init.cu` / `apply_end.cu` 内存泄漏
+
+**文件**: `cpp/cuda/qcu/src/apply_init.cu:14,39` 和 `apply_end.cu`  
+**严重程度**: 🔴 严重
+
+`applyInitQcu` 中 `new LatticeSet<float>()` / `new LatticeSet<double>()` 创建的对象在 `applyEndQcu` 中从未被 `delete`。`applyEndQcu` 只调用了 `end()` 方法释放 GPU 资源，但 host 端的 `LatticeSet` 对象本身泄漏了。每次 init/end 循环泄漏约几 KB host 内存。
+
+### 7.4 🔴 HIGH: `gauss_gauge.cu` GPU 内存泄漏
+
+**文件**: `cpp/cuda/qcu/src/gauss_gauge.cu:161,184`  
+**严重程度**: 🔴 严重
+
+`device_random_8dtzyx` 通过 `cudaMallocAsync` 分配，但在 `make_gauss_gauge` 函数中从未通过 `cudaFreeAsync` 释放。每次调用泄漏 `lat_4dim * 32 * sizeof(T)` 字节的 GPU 内存。
+
+### 7.5 🔴 HIGH: `run_mpi_non_block` 未等待 MPI_Isend 完成
+
+**文件**: `cpp/cuda/qcu/include/lattice_wilson_dslash.h` (run_mpi_non_block 函数)  
+**严重程度**: 🔴 严重
+
+该函数发出 `MPI_Isend` 和 `MPI_Irecv`，然后只对 `recv_request` 调用 `MPI_Wait`，从未等待 `send_request`。根据 MPI 标准，发送缓冲区在 `MPI_Wait` 完成前不应被重用。这可能导致发送数据损坏。
+
+### 7.6 🟡 MEDIUM: `_MG_NUM_LEVEL_` 参数语义重载
+
+**文件**: `cpp/cuda/qcu/src/apply_multigrid.cu:18,59,102`  
+**严重程度**: 🟡 中等 — 文档不一致
+
+CLAUDE.md 记载 `_MG_NUM_LEVEL_`（索引 17）表示 multigrid 层数，但在 `applyMultigridRestrictQcu` 和 `applyMultigridProLongQcu` 中，此参数被重载为 "fine-grid degrees of freedom"。`applyMultigridCoarseDslashQcu` 中又被重载为 "coarse DOF"。这与文档矛盾且极易误用。
+
+### 7.7 🟡 MEDIUM: `_inverse` 宏无 pivot 容差检查
+
+**文件**: `cpp/cuda/qcu/include/define.h:479-510` 和 `clover_dslash_single.cu:871`  
+**严重程度**: 🟡 中等
+
+Clover 矩阵求逆使用高斯消元法但没有 pivot 容差检查。如果遇到（近似）奇异矩阵，会产生 NaN 或无穷大值。
+
+### 7.8 🟡 MEDIUM: Scalar 更新核函数无线程数守卫
+
+**文件**: `cpp/cuda/qcu/src/bistabcg.cu:4-25`, `cpp/cuda/qcu/src/cg.cu:74-88`  
+**严重程度**: 🟡 中等
+
+BiCGStab/CG 的标量更新核函数（`give_1beta`, `give_1alpha` 等）读写全局内存标量，但没有强制单线程启动。如果被意外配置为多线程启动，会产生竞态条件。
+
+### 7.9 🟢 LOW: `norm2()` 命名误导
+
+**文件**: `cpp/cuda/qcu/include/lattice_complex.h:124`  
+**严重程度**: 🟢 轻微
+
+```cpp
+__host__ __device__ __inline__ T norm2() const {
+    return sqrt(_data.x * _data.x + _data.y * _data.y);  // 返回 |z|，不是 |z|^2
+}
+```
+
+函数名 `norm2` 通常表示范数平方 (`|z|^2`)，但实现返回的是范数本身 (`|z|`，含 `sqrt`)。
+
+### 7.10 🔵 PERF: `_BLOCK_SIZE_` 硬编码为 16
+
+**文件**: `cpp/cuda/qcu/include/define.h:6`  
+**严重程度**: 🔵 性能
+
+注释自身承认 "better for nv" 需要 128，"better for dcu" 需要 256。当前值 16 导致极低的 GPU 占用率。
+
+### 7.11 🔵 PERF: `make_clover` 核函数寄存器压力过大
+
+**文件**: `cpp/cuda/qcu/src/clover_dslash_single.cu:48-50`  
+**严重程度**: 🔵 性能
+
+`clover[144]` 局部数组（`_LAT_SCSC_` = 144 个 `double2` = 2304 字节）导致严重的寄存器溢出到 local memory。对性能有显著影响。
+
+### 7.12 🟢 LOW: `device_random_8dtzyx` 仅使用一个 curand 状态
+
+**文件**: `cpp/cuda/qcu/src/gauss_gauge.cu:13-20`  
+**严重程度**: 🟢 轻微
+
+声明了 `state_real` 和 `state_imag` 两个 curand 状态，但只使用了 `state_real`。实部和虚部从同一随机序列抽取，降低了有效随机性。
+
+---
+
+---
+
+## 8. Cython Bridge / 构建系统 / 测试 / 文档专项审查
+
+### 8.1 🔴 CRITICAL: `setup.py` 中 `setup` 从 distutils 和 setuptools 双重导入
+
+**文件**: `setup.py:1,3`  
+**严重程度**: 🔴 严重
+
+```python
+from setuptools import setup, find_packages      # line 1
+from distutils.core import Extension, setup       # line 3 — 覆盖了 setuptools.setup!
+```
+
+第3行用 `distutils.core.setup` 覆盖了 `setuptools.setup`。`CMakeBuild` 继承自 `setuptools.command.build_ext.build_ext`（第12行），但实际调用的是 distutils 的 `setup()`，这可能导致 setuptools 特性（`install_requires`、`entry_points` 等）被静默禁用。
+
+### 8.2 🔴 CRITICAL: `applyEndQcu` 从未被调用
+
+**严重程度**: 🔴 严重 — 所有测试中 GPU 内存泄漏
+
+`applyEndQcu` 在 `qcu.pxd`、`qcu.pyx` 和 C++ 源码中均有实现，但**零个测试文件**调用它。每次 `applyInitQcu` 调用都分配 `LatticeSet` 及相关 GPU 内存（device pointers, streams）。没有 `applyEndQcu` 意味着这些资源在测试运行期间永远不会释放。多个测试串联运行时会累积 GPU 内存消耗，最终可能导致 OOM。
+
+### 8.3 🔴 CRITICAL: `docs/examples.md` 文档完全失效
+
+**文件**: `docs/examples.md`  
+**严重程度**: 🔴 严重
+
+整个文档只有一行：
+```
+run in **PyQCU/examples** with `pytest .`
+```
+
+但这行指令在任何新 checkout 的仓库中都会失败，因为：
+1. 没有提及需要 `source env.sh`
+2. 没有提及需要 `bash build.sh`（编译 C++ CUDA 库）
+3. 没有提及需要 `python setup.py build_ext --inplace`（编译 Cython 扩展）
+4. `conftest.*.py` 文件实际上不是 pytest 测试文件（不包含 `test_*` 函数），它们是独立脚本
+5. 没有提及 MPI 需求（`mpirun`）
+6. 没有提及 CUDA 要求
+
+### 8.4 🔴 HIGH: `qcu.pyx` 中模块级 `cdef` 变量作为临时变量使用
+
+**文件**: `pyqcu/cuda/qcu/qcu.pyx:2-13`  
+**严重程度**: 🔴 严重
+
+```cython
+cdef long long set_ptrs      # 模块级全局变量
+cdef long long fermion_out
+...
+def applyInitQcu(_set_ptrs, _params, _argv):
+    set_ptrs = _set_ptrs.contiguous().data_ptr()  # 写入共享全局
+    ...
+    qcu.applyInitQcu(set_ptrs, params, argv)
+```
+
+所有 bridge 函数共享同一组 `cdef` 全局变量。虽然 GIL 保证了单线程安全，但如果有任何 C 函数释放 GIL（`with nogil:`），这些指针可能被另一个线程覆盖，导致 use-after-free 或数据损坏。
+
+**修复**: 将 `cdef` 变量移入每个函数体内为局部变量。
+
+### 8.5 🔴 HIGH: 21 个 Cython bridge 函数中有 10 个零测试覆盖
+
+**严重程度**: 🔴 严重
+
+以下函数在 Cython 层声明和实现，但**从未被任何测试调用**：
+
+| 函数 | 状态 |
+|------|------|
+| `testWilsonDslashQcu` | 从未测试 |
+| `applyWilsonDslashQcu` | 从未测试 |
+| `testCloverDslashQcu` | 从未测试 |
+| `applyCloverDslashQcu` | 从未测试 |
+| `applyWilsonCgDslashQcu` | 从未测试 |
+| `applyLaplacianQcu` | 从未测试 |
+| `applyCloverQcu` | 从未测试 |
+| `applyDslashQcu` | 从未测试 |
+| `applyEndQcu` | 从未测试 |
+| `applyCloversQcu` | 从未测试 |
+
+这些函数中 Cython 声明或底层 C++ 实现的任何 bug 都无法被现有测试发现。
+
+### 8.6 🟡 MEDIUM: `setup.py` 缺少 build-time 依赖声明
+
+**文件**: `setup.py:5-6`  
+**严重程度**: 🟡 中等
+
+```python
+from Cython.Build import cythonize  # 需要预装 Cython
+import numpy                          # 需要预装 numpy
+```
+
+`numpy` 和 `Cython` 在构建时需要，但未在 `setup_requires` 或 `pyproject.toml` 中声明。如果在干净的 Python 环境中运行 `pip install .`，会在 `numpy.get_include()` 调用时崩溃。
+
+### 8.7 🟡 MEDIUM: 测试覆盖范围极窄 — 每文件仅 1 个活跃配置
+
+**严重程度**: 🟡 中等
+
+- `examples/pyqcu/conftest.py`: 60+ 行被注释，仅测 `test_dslash_clover(with_data=False, device=cpu)`
+- `examples/cpu/conftest.py`: 65 行被注释，仅测 1 个 solver 配置
+- `examples/npu/conftest.py`: 50+ 行被注释，仅测 1 个 multigrid 配置
+- `examples/pyqcu/conftest.clover.bistabcg.py`: solver 验证部分**全部被注释** (85-154 行)
+- `examples/pyqcu/conftest.clover.multigrid.py`: solver 验证部分**全部被注释** (84-136 行)
+
+CI 实际上几乎不运行任何测试。Wilson dslash、BiStabCG、multigrid 的大部分验证路径都被禁用。
+
+### 8.8 🟡 MEDIUM: `conftest.bistabcg.py` 文件名与内容不匹配
+
+**文件**: `examples/pyqcu/conftest.bistabcg.py:5-6`  
+**严重程度**: 🟡 中等
+
+```python
+# 文件名说 "bistabcg"，但实际调用：
+test_solver(method='multigrid', ...)
+```
+
+这个文件的单一测试配置使用 `method='multigrid'` 而非 `method='bistabcg'`。且 `max_level=1` 使 multigrid 退化为普通 BiStabCG（无粗网格修正），说明原始意图显然是测试 `bistabcg`。
+
+### 8.9 🟡 MEDIUM: `docs/install.md` Markdown 格式错误
+
+**文件**: `docs/install.md:1`  
+**严重程度**: 🟡 中等
+
+```markdown
+'''bash
+bash ./install.sh
+'''
+```
+
+使用了单引号 `'''` 而非反引号 `` ``` ``，代码块不会在任何 Markdown 渲染器中正确显示。此外完全没有提及前提条件（CUDA toolkit、MPI、PyTorch、numpy、cython、C++ 编译器），也没有说明需要先运行 `build.sh`。
+
+### 8.10 🟡 MEDIUM: `dims.md` 缺少 eo 晶格大小变化说明
+
+**文件**: `docs/dims.md`  
+**严重程度**: 🟡 中等
+
+文档显示 `gauge_eo.shape = [p]+[c,c,d]+[x,y,z,t]`，但未说明 eo 分解后的张量实际维度是 `[x, y, z, t//2]`（最后一维因 parity 分割而减半）。这是代码中 `lat_shape()` 的实际行为（`define.py:130`），缺失此说明会误导读者。
+
+### 8.11 🟢 LOW: `setup.py` 中 `find_packages(exclude=["test.*"])` 无效
+
+**文件**: `setup.py:38`  
+**严重程度**: 🟢 轻微
+
+exclude 模式匹配 `test.*`，但项目中的测试包名为 `pyqcu.testing`。此排除规则从未匹配任何包，`pyqcu.testing` 总是被打包。
+
+### 8.12 🟢 LOW: `conftest.*.py` 命名误导
+
+**严重程度**: 🟢 轻微
+
+所有测试文件命名为 `conftest.*.py`，在 pytest 约定中表示 "fixture 配置文件"。但这些文件实际是独立 Python 脚本（包含直接函数调用，无 `test_*` 函数）。pytest 不会自动发现 `conftest.bistabcg.py`（仅发现 `conftest.py`）。运行 `pytest .` 将收集零个测试并报告 "no tests ran"。
+
+### 8.13 🟢 LOW: `cimport qcu` 与 `def` 函数同名
+
+**文件**: `pyqcu/cuda/qcu/qcu.pyx:1,14`  
+**严重程度**: 🟢 轻微
+
+```cython
+cimport qcu          # 导入 C 函数声明
+def applyInitQcu(...):   # Python 包装函数
+    qcu.applyInitQcu(...)  # 调用 C 函数
+```
+
+Python 包装函数与 C 函数同名。这在 Cython 中是正确的，但如果误写为 `applyInitQcu(...)`（缺少 `qcu.` 前缀），将导致无限递归。
+
+---
+
+## 总结统计
+
+| 严重程度 | 数量 |
+|---------|------|
+| 🔴🔴 致命 | 2 |
+| 🔴 严重 | 18 |
+| 🟡 中等 | 19 |
+| 🟢 代码质量 | 14 |
+| 🔵 性能优化 | 8 |
+| 📝 文档不一致 | 7 |
+| ⚪ 缺失/死代码 | 6 |
+| **总计** | **74** |
+
+## 优先修复建议
+
+1. **🔥 紧急修复 (数据正确性)**:
+   - `lattice_complex.h:79-83` — `operator*=` 复数乘法错误 (7.2)
+   - `gauss_gauge.cu:183-186` — 非 verbose 路径 OOB 写入 (7.1)
+   - `smear/_stout.py:64-172` — `nstep>1` 无效，U 未在迭代中更新 (1.2)
+   - `smear/_stout.py:22-63` — 多步 smearing 时 MPI 边界数据过期 (1.3)
+   - `cann/__init__.py:81-83` — NPU 3+ 操作数 einsum 丢弃虚部 (1.4)
+   - `_io.py:62,69` — I/O gather 索引 (t,z,y,x) vs unpack (x,y,z,t) (1.1)
+   - `_io.py:131-134` — 串行读取 rank 索引与 give_grid_index 不一致 (1.7)
+   - `_operator.py:228,259` — `self.sitting` 条件恒真 (1.5)
+
+2. **🔴 本迭代修复 (内存/资源泄漏)**:
+   - `apply_end.cu` — LatticeSet 对象未 delete (7.3)
+   - `gauss_gauge.cu:161,184` — GPU 内存泄漏 (7.4)
+   - `lattice_wilson_dslash.h` — MPI_Isend 未等待 (7.5)
+   - 所有测试文件 — `applyEndQcu` 从未被调用 (8.2)
+   - `qcu.pyx:2-13` — 模块级 cdef 全局变量 (8.4)
+   - `_define.py:97-101` — check_mpi_support 临时文件泄漏 (1.6)
+   - `_bistabcg.py:66` — verbose=False 时 ZeroDivisionError (2.1)
+
+3. **🟡 下个迭代 (正确性风险 / 测试覆盖)**:
+   - 10 个 Cython bridge 函数零测试覆盖 (8.5)
+   - `setup.py:1,3` — distutils/setuptools 双重导入 (8.1)
+   - `_multigrid.py:15` — give_null_vecs 丢弃用户输入 (1.8)
+   - `_MG_NUM_LEVEL_` 参数语义重载 (7.6)
+   - `_inverse` 宏无 pivot 检查 (7.7)
+   - `testing/__init__.py:363` — 错误消息用错变量 (1.9)
+   - 各 conftest 文件注释掉的测试恢复 (8.7)
+
+4. **🔵 持续改进 (性能/质量/文档)**:
+   - 冗余 MPI Barrier 清理 (4.1)
+   - `_BLOCK_SIZE_` 改为 128/256 (7.10)
+   - make_clover 寄存器压力优化 (7.11)
+   - `setup.py` 添加 build-time 依赖声明 (8.6)
+   - `docs/examples.md` 完全重写 (8.3)
+   - `docs/install.md` 修复格式和补全内容 (8.9)
+   - `docs/dims.md` 补充 eo 维度变化说明 (8.10)
+   - 可变默认参数清理、重复导入清理
+   - 代码去重（halo exchange 提取为公共函数）
