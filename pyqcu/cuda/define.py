@@ -93,8 +93,7 @@ _LAT_C64_IN_TENSOR_ = torch.Tensor([_LAT_C64_], device=torch.device('cpu'))
 
 def dtype(_data_type_: Optional[torch.Tensor] = _LAT_C64_IN_TENSOR_) -> torch.dtype:
     if _data_type_ == torch.Tensor([_LAT_C16_], device=torch.device('cpu')):
-        print("Doesn't support complex16")
-        return torch.int
+        raise ValueError(f"Unsupported QCU data type: _LAT_C16_ (complex16) at constant {_data_type_.item()}")
     elif _data_type_ == torch.Tensor([_LAT_C32_], device=torch.device('cpu')):
         return torch.complex32
     elif _data_type_ == torch.Tensor([_LAT_C64_], device=torch.device('cpu')):
@@ -102,11 +101,9 @@ def dtype(_data_type_: Optional[torch.Tensor] = _LAT_C64_IN_TENSOR_) -> torch.dt
     elif _data_type_ == torch.Tensor([_LAT_C128_], device=torch.device('cpu')):
         return torch.complex128
     elif _data_type_ == torch.Tensor([_LAT_C256_], device=torch.device('cpu')):
-        print("Doesn't support complex256")
-        return torch.int
+        raise ValueError(f"Unsupported QCU data type: _LAT_C256_ (complex256)")
     elif _data_type_ == torch.Tensor([_LAT_R8_], device=torch.device('cpu')):
-        print("Doesn't support real8")
-        return torch.int
+        raise ValueError(f"Unsupported QCU data type: _LAT_R8_ (real8)")
     elif _data_type_ == torch.Tensor([_LAT_R16_], device=torch.device('cpu')):
         return torch.float16
     elif _data_type_ == torch.Tensor([_LAT_R32_], device=torch.device('cpu')):
@@ -114,9 +111,7 @@ def dtype(_data_type_: Optional[torch.Tensor] = _LAT_C64_IN_TENSOR_) -> torch.dt
     elif _data_type_ == torch.Tensor([_LAT_R64_], device=torch.device('cpu')):
         return torch.float64
     elif _data_type_ == torch.Tensor([_LAT_R128_], device=torch.device('cpu')):
-        print("Doesn't support real128")
-        return torch.int
-    # BUGFIX 2026-07-28: explicit error message instead of bare raise.
+        raise ValueError(f"Unsupported QCU data type: _LAT_R128_ (real128)")
     raise ValueError(f"Unsupported QCU data type constant: {_data_type_.item()}")
 
 

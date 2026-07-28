@@ -37,18 +37,11 @@ template <typename T> struct LatticeWilsonCg {
         &p, set_ptr->lat_4dim_SC * sizeof(LatticeComplex<T>), set_ptr->stream));
     checkCudaErrors(cudaMallocAsync(
         &v, set_ptr->lat_4dim_SC * sizeof(LatticeComplex<T>), set_ptr->stream));
-    checkCudaErrors(cudaMallocAsync(
-        &set_ptr->device_vec0, set_ptr->lat_4dim_SC * sizeof(LatticeComplex<T>),
-        set_ptr->stream));
-    checkCudaErrors(cudaMallocAsync(
-        &set_ptr->device_vec1, set_ptr->lat_4dim_SC * sizeof(LatticeComplex<T>),
-        set_ptr->stream));
-    checkCudaErrors(cudaMallocAsync(
-        &set_ptr->device_vec2, set_ptr->lat_4dim_SC * sizeof(LatticeComplex<T>),
-        set_ptr->stream));
-    checkCudaErrors(cudaMallocAsync(&set_ptr->device_vals,
-                                    _vals_size_ * sizeof(LatticeComplex<T>),
-                                    set_ptr->stream));
+    // BUGFIX 2026-07-28 R2: REMOVED re-allocation of set_ptr->device_vec0/1/2
+    // and device_vals. These are already allocated by LatticeSet::init() when
+    // plan >= _SET_PLAN1_. Re-allocating here overwrites the LatticeSet pointers,
+    // leaking the original GPU memory allocations. The BiStabCG solver correctly
+    // reuses these buffers; CG was the only solver with this bug.
     give_1custom<T><<<1, 1, 0, set_ptr->stream>>>(
         set_ptr->device_vals, _lat_4dim_, T(set_ptr->lat_4dim), 0.0);
     checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));

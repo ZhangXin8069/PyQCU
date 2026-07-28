@@ -134,7 +134,11 @@ class multigrid:
         """
         op = self.op_list[level]
         E, Xc, Yc, Zc, Tc = src.shape
-        # Ensure we use the base LatticeSet (index 0) for the CUDA stream
+        # NOTE: SET_INDEX_ is reset to 0 for coarse dslash. This is safe because
+        # the coarse dslash operates at a different multigrid level and does not
+        # overlap with fine-level BiCGStab iterations that increment SET_INDEX_.
+        # If coarse dslash were ever called concurrently with fine-level ops,
+        # a dedicated SET_INDEX_ per level would be required.
         self.params[define._SET_INDEX_] = 0
         # Pack hopping matrices: [2, 4, E, E, Xc, Yc, Zc, Tc]
         # dim0: 0=plus, 1=minus; dim1: 0=X, 1=Y, 2=Z, 3=T
@@ -348,15 +352,24 @@ class multigrid:
         print(f"PYQCU::SOLVER::MULTIGRID:\n {level}:Starting Iterations")
         for i in range(self.max_iter):
             iter_start_time = perf_counter()
+            # BUGFIX 2026-07-28 R2: BiCGStab breakdown detection (same as _bistabcg.py).
             rho = tools.vdot(r_tilde, r)
+            if abs(rho) < 1e-30:
+                raise RuntimeError(f"MG BiCGStab breakdown at level {level} iter {i}: rho ≈ 0")
             beta = (rho / rho_prev) * (alpha / omega)
             rho_prev = rho
             p = r + beta * (p - omega * v)
             v = matvec(p)
-            alpha = rho / tools.vdot(r_tilde, v)
+            rtv = tools.vdot(r_tilde, v)
+            if abs(rtv) < 1e-30:
+                raise RuntimeError(f"MG BiCGStab breakdown at level {level} iter {i}: vdot(r_tilde,v) ≈ 0")
+            alpha = rho / rtv
             s = r - alpha * v
             t = matvec(s)
-            omega = tools.vdot(t, s) / tools.vdot(t, t)
+            tts = tools.vdot(t, t)
+            if abs(tts) < 1e-30:
+                raise RuntimeError(f"MG BiCGStab breakdown at level {level} iter {i}: vdot(t,t) ≈ 0")
+            omega = tools.vdot(t, s) / tts
             x = x + alpha * p + omega * s
             r = s - omega * t
             r_norm = tools.norm(r)
@@ -394,6 +407,21 @@ class multigrid:
                 x = x + e_fine
                 r = b - matvec(x)
                 count_restart = 0
+                # BUGFIX 2026-07-28 R3: BiCGStab state must be fully reset after
+                # a coarse-grid correction. The residual r has changed, so the
+                # shadow vector r_tilde, the search directions p/v/s/t, and the
+                # scalar coefficients rho_prev/alpha/omega must all be reinitialized.
+                # Without this, rho = vdot(r_tilde_old, r_new) gives meaningless
+                # results, causing convergence degradation or divergence.
+                r_tilde = r.clone()
+                p = torch.zeros_like(b)
+                v = torch.zeros_like(b)
+                s = torch.zeros_like(b)
+                t = torch.zeros_like(b)
+                rho = torch.tensor(1.0, dtype=b.dtype, device=b.device)
+                rho_prev = torch.tensor(1.0, dtype=b.dtype, device=b.device)
+                alpha = torch.tensor(1.0, dtype=b.dtype, device=b.device)
+                omega = torch.tensor(1.0, dtype=b.dtype, device=b.device)
             r_norm = tools.norm(r)
             if level == 0:
                 self.convergence_history.append(r_norm)
@@ -455,10 +483,6 @@ class multigrid:
         if self.rank == self.root:
             import matplotlib.pyplot as plt
             import numpy as np
-            try:
-                np.Inf = np.inf  # type: ignore
-            except Exception as e:
-                print(f"Error: {e}")
             plt.figure(figsize=(10, 6))
             plt.title(
                 f"PYQCU::SOLVER::MULTIGRID:\n convergence_history(mass={self.mass})\n self.dof_list:{self.dof_list}\n self.lat_size_list:{self.lat_size_list}\n self.dtype_list:{self.dtype_list}\n self.device_list:{self.device_list}", fontsize=12)
