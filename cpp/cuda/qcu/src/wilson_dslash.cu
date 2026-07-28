@@ -20,6 +20,8 @@ __global__ void wilson_dslash(void *device_U, void *device_src,
   int lat_z = params[_LAT_Z_];
   int lat_t = params[_LAT_T_];
   int lat_xyzt = params[_LAT_XYZT_];
+  // BUGFIX 2026-07-28 R2: bounds guard (using parity = thread linear index).
+  if (parity >= lat_xyzt) return;
   int move;
   move = lat_y * lat_z * lat_t;
   int x = parity / move;
@@ -284,6 +286,8 @@ __global__ void wilson_dslash_inside(void *device_U, void *device_src,
   int lat_z = params[_LAT_Z_];
   int lat_t = params[_LAT_T_];
   int lat_xyzt = params[_LAT_XYZT_];
+  // BUGFIX 2026-07-28 R2: bounds guard (using parity = thread linear index).
+  if (parity >= lat_xyzt) return;
   int move;
   move = lat_y * lat_z * lat_t;
   int x = parity / move;
@@ -490,6 +494,10 @@ __global__ void wilson_dslash_inside(void *device_U, void *device_src,
       get_src(src, tmp_src, lat_xyzt);
     }
     {
+      // NOTE: the gate conditions (move != lat_t-1) and (move != 1-lat_t)
+      // assume lat_t >= 2. For lat_t == 1 (single-site time dimension,
+      // used only in theoretical limits or tests), the t-direction has no
+      // distinct neighbors, so behavior at this limit is undefined by design.
       for (int c0 = 0; c0 < _LAT_C_ * (move != lat_t - 1);
            c0++) { // just inside
         tmp0 = zero;
@@ -550,6 +558,8 @@ wilson_dslash_x_send(void *device_U, void *device_src, void *device_params,
   int lat_z = params[_LAT_Z_];
   int lat_t = params[_LAT_T_];
   int lat_xyzt = params[_LAT_XYZT_];
+  // BUGFIX 2026-07-28 R2: bounds guard (using parity = thread linear index).
+  if (parity >= lat_xyzt) return;
   int move;
   move = lat_y * lat_z * lat_t;
   int x = parity / move;
@@ -645,6 +655,8 @@ wilson_dslash_x_recv(void *device_U, void *device_dest, void *device_params,
   int lat_z = params[_LAT_Z_];
   int lat_t = params[_LAT_T_];
   int lat_xyzt = params[_LAT_XYZT_];
+  // BUGFIX 2026-07-28 R2: bounds guard (using parity = thread linear index).
+  if (parity >= lat_xyzt) return;
   int move;
   move = lat_y * lat_z * lat_t;
   int x = parity / move;
@@ -743,6 +755,8 @@ wilson_dslash_y_send(void *device_U, void *device_src, void *device_params,
   int lat_z = params[_LAT_Z_];
   int lat_t = params[_LAT_T_];
   int lat_xyzt = params[_LAT_XYZT_];
+  // BUGFIX 2026-07-28 R2: bounds guard (using parity = thread linear index).
+  if (parity >= lat_xyzt) return;
   int move;
   move = lat_y * lat_z * lat_t;
   int x = parity / move;
@@ -838,6 +852,8 @@ wilson_dslash_y_recv(void *device_U, void *device_dest, void *device_params,
   int lat_z = params[_LAT_Z_];
   int lat_t = params[_LAT_T_];
   int lat_xyzt = params[_LAT_XYZT_];
+  // BUGFIX 2026-07-28 R2: bounds guard (using parity = thread linear index).
+  if (parity >= lat_xyzt) return;
   int move;
   move = lat_y * lat_z * lat_t;
   int x = parity / move;
@@ -937,6 +953,8 @@ wilson_dslash_z_send(void *device_U, void *device_src, void *device_params,
   int lat_z = 1; // so let z=0 first, then z = lat_z -1
   int lat_t = params[_LAT_T_];
   int lat_xyzt = params[_LAT_XYZT_];
+  // BUGFIX 2026-07-28 R2: bounds guard (using parity = thread linear index).
+  if (parity >= lat_xyzt) return;
   int move;
   move = lat_y * lat_z * lat_t;
   int x = parity / move;
@@ -1032,6 +1050,8 @@ wilson_dslash_z_recv(void *device_U, void *device_dest, void *device_params,
   int lat_z = 1; // so let z=0 first, then z = lat_z -1
   int lat_t = params[_LAT_T_];
   int lat_xyzt = params[_LAT_XYZT_];
+  // BUGFIX 2026-07-28 R2: bounds guard (using parity = thread linear index).
+  if (parity >= lat_xyzt) return;
   int move;
   move = lat_y * lat_z * lat_t;
   int x = parity / move;
@@ -1131,6 +1151,8 @@ wilson_dslash_t_send(void *device_U, void *device_src, void *device_params,
   // int lat_t = ttttsc[_t_];
   int lat_t = 1; // so let t=0 first, then t = lat_t -1
   int lat_xyzt = params[_LAT_XYZT_];
+  // BUGFIX 2026-07-28 R2: bounds guard (using parity = thread linear index).
+  if (parity >= lat_xyzt) return;
   int move;
   move = lat_y * lat_z * lat_t;
   int x = parity / move;
@@ -1232,6 +1254,8 @@ wilson_dslash_t_recv(void *device_U, void *device_dest, void *device_params,
   // int lat_t = ttttsc[_t_];
   int lat_t = 1; // so let t=0 first, then t = lat_t -1
   int lat_xyzt = params[_LAT_XYZT_];
+  // BUGFIX 2026-07-28 R2: bounds guard (using parity = thread linear index).
+  if (parity >= lat_xyzt) return;
   int move;
   move = lat_y * lat_z * lat_t;
   int x = parity / move;

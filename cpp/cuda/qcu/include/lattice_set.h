@@ -137,12 +137,18 @@ template <typename T> struct LatticeSet {
         lat_2dim[_YZ_] = host_params[_LAT_Y_] * host_params[_LAT_Z_];
         lat_2dim[_YT_] = host_params[_LAT_Y_] * host_params[_LAT_T_];
         lat_2dim[_ZT_] = host_params[_LAT_Z_] * host_params[_LAT_T_];
-        gridDim_2dim[_XY_] = lat_2dim[_XY_] / _BLOCK_SIZE_;
-        gridDim_2dim[_XZ_] = lat_2dim[_XZ_] / _BLOCK_SIZE_;
-        gridDim_2dim[_XT_] = lat_2dim[_XT_] / _BLOCK_SIZE_;
-        gridDim_2dim[_YZ_] = lat_2dim[_YZ_] / _BLOCK_SIZE_;
-        gridDim_2dim[_YT_] = lat_2dim[_YT_] / _BLOCK_SIZE_;
-        gridDim_2dim[_ZT_] = lat_2dim[_ZT_] / _BLOCK_SIZE_;
+        // BUGFIX 2026-07-28 R2: use ceiling division to handle cases where
+        // lat_*dim is not a multiple of _BLOCK_SIZE_. Integer division truncates,
+        // silently skipping the remaining sites. The main dslash kernel has
+        // a corresponding bounds guard (if idx >= volume, return).
+        // For typical lattice dimensions (powers of 2, multiples of BLOCK_SIZE=16),
+        // the ceiling form is equivalent to floor division.
+        gridDim_2dim[_XY_] = (lat_2dim[_XY_] + _BLOCK_SIZE_ - 1) / _BLOCK_SIZE_;
+        gridDim_2dim[_XZ_] = (lat_2dim[_XZ_] + _BLOCK_SIZE_ - 1) / _BLOCK_SIZE_;
+        gridDim_2dim[_XT_] = (lat_2dim[_XT_] + _BLOCK_SIZE_ - 1) / _BLOCK_SIZE_;
+        gridDim_2dim[_YZ_] = (lat_2dim[_YZ_] + _BLOCK_SIZE_ - 1) / _BLOCK_SIZE_;
+        gridDim_2dim[_YT_] = (lat_2dim[_YT_] + _BLOCK_SIZE_ - 1) / _BLOCK_SIZE_;
+        gridDim_2dim[_ZT_] = (lat_2dim[_ZT_] + _BLOCK_SIZE_ - 1) / _BLOCK_SIZE_;
         lat_3dim[_YZT_] =
             host_params[_LAT_Y_] * host_params[_LAT_Z_] * host_params[_LAT_T_];
         lat_3dim[_XZT_] =
@@ -151,16 +157,16 @@ template <typename T> struct LatticeSet {
             host_params[_LAT_X_] * host_params[_LAT_Y_] * host_params[_LAT_T_];
         lat_3dim[_XYZ_] =
             host_params[_LAT_X_] * host_params[_LAT_Y_] * host_params[_LAT_Z_];
-        gridDim_3dim[_YZT_] = lat_3dim[_YZT_] / _BLOCK_SIZE_;
-        gridDim_3dim[_XZT_] = lat_3dim[_XZT_] / _BLOCK_SIZE_;
-        gridDim_3dim[_XYT_] = lat_3dim[_XYT_] / _BLOCK_SIZE_;
-        gridDim_3dim[_XYZ_] = lat_3dim[_XYZ_] / _BLOCK_SIZE_;
+        gridDim_3dim[_YZT_] = (lat_3dim[_YZT_] + _BLOCK_SIZE_ - 1) / _BLOCK_SIZE_;
+        gridDim_3dim[_XZT_] = (lat_3dim[_XZT_] + _BLOCK_SIZE_ - 1) / _BLOCK_SIZE_;
+        gridDim_3dim[_XYT_] = (lat_3dim[_XYT_] + _BLOCK_SIZE_ - 1) / _BLOCK_SIZE_;
+        gridDim_3dim[_XYZ_] = (lat_3dim[_XYZ_] + _BLOCK_SIZE_ - 1) / _BLOCK_SIZE_;
         lat_4dim = host_params[_LAT_XYZT_];
         lat_4dim_C = lat_4dim * _LAT_C_;
         lat_4dim_SC = lat_4dim * _LAT_SC_;
         lat_4dim_SCSC = lat_4dim * _LAT_SCSC_;
         lat_4dim_DCC = lat_4dim * _LAT_CCD_;
-        gridDim = lat_4dim / _BLOCK_SIZE_;
+        gridDim = (lat_4dim + _BLOCK_SIZE_ - 1) / _BLOCK_SIZE_;
         for (int i = 0; i < _DIM_; i++) {
           lat_3dim_C[i] = lat_3dim[i] * _LAT_C_;
           lat_3dim_Half_SC[i] = lat_3dim[i] * _LAT_HALF_SC_;

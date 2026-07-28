@@ -90,7 +90,7 @@ def check_mpi_support():
     try:
         # Try to check h5py configuration
         return h5py.get_config().mpi
-    except:
+    except Exception:
         # If can't determine, try to create a test file
         try:
             comm = MPI.COMM_WORLD
@@ -101,7 +101,7 @@ def check_mpi_support():
             if os.path.exists(test_file):
                 os.remove(test_file)
             return True
-        except:
+        except Exception:
             return False
 
 
@@ -130,8 +130,12 @@ def give_grid_size() -> List[int]:
     for f in sorted(factors, reverse=True):
         idx = np.argmin(groups)   # index of smallest product
         groups[idx] *= f
+    # NOTE: sorted() reorders grid dimensions from smallest to largest value.
+    # This makes the mapping between spatial directions (x,y,z,t) and grid axes
+    # dependent on numerical values rather than spatial convention. All internal
+    # code uses give_grid_size and give_grid_index consistently, so this is
+    # internally correct, but external I/O code must use the same functions.
     dest = sorted(groups.tolist())
-    # print(f"PYQCU::TOOLS::DEFINE:\n give_grid_size: {dest}")
     return dest
 
 
@@ -342,7 +346,7 @@ def whole_xyzt2local_xyzt(
     return torch.from_numpy(recvbuf).to(device=device)
 
 
-def set_device(device: torch.device):
+def set_device(device: torch.device, verbose: bool = True):
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     size = comm.Get_size()
@@ -375,8 +379,9 @@ def set_device(device: torch.device):
         pass
     else:
         raise ValueError(f"Unsupported device type: {dev_type}")
-    print(
-        f"PYQCU::TOOLS::DEFINE:\n [MPI Rank {rank}/{size}] Using {dev_type}:{local_rank}")
+    if verbose:
+        print(
+            f"PYQCU::TOOLS::DEFINE:\n [MPI Rank {rank}/{size}] Using {dev_type}:{local_rank}")
 
 
 def oooxyzt2poooxyzt(input_array: torch.Tensor, verbose: bool = False) -> torch.Tensor:

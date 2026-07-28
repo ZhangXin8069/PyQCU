@@ -35,16 +35,33 @@ def bistabcg(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], to
     iter_times = []
     for i in range(max_iter):
         iter_start_time = perf_counter()
+        # BUGFIX 2026-07-28 R2: BiCGStab breakdown detection.
+        # rho ≈ 0 means r_tilde ⟂ r (method has lost orthogonality).
+        # vdot(r_tilde, v) ≈ 0 is a pivot breakdown (division by zero).
+        # vdot(t, t) ≈ 0 means t ≈ 0 (rare lucky breakdown, or stagnation).
         rho = tools.vdot(r_tilde, r)
+        if abs(rho) < 1e-30:
+            raise RuntimeError(
+                f"BiCGStab breakdown at iter {i}: rho ≈ 0 "
+                f"(r_tilde orthogonal to r). The method cannot continue.")
         beta = (rho / rho_prev) * (alpha / omega)
         rho_prev = rho
         p = r + beta * (p - omega * v)
         v = matvec(p)
-        alpha = rho / tools.vdot(r_tilde, v)
+        rtv = tools.vdot(r_tilde, v)
+        if abs(rtv) < 1e-30:
+            raise RuntimeError(
+                f"BiCGStab breakdown at iter {i}: vdot(r_tilde, v) ≈ 0 "
+                f"(pivot breakdown). The method cannot continue.")
+        alpha = rho / rtv
         s = r - alpha * v
         t = matvec(s)
-        omega = tools.vdot(t, s) / \
-            tools.vdot(t, t)
+        tts = tools.vdot(t, t)
+        if abs(tts) < 1e-30:
+            raise RuntimeError(
+                f"BiCGStab breakdown at iter {i}: vdot(t, t) ≈ 0 "
+                f"(t is zero or near-zero). The method cannot continue.")
+        omega = tools.vdot(t, s) / tts
         x = x + alpha * p + omega * s
         r = s - omega * t
         r_norm = tools.norm(r)

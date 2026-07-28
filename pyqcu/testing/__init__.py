@@ -23,6 +23,16 @@ def test_lattice(lat_size: List[int] = [8, 8, 8, 16], dtype: torch.dtype = torch
     print(f"PYQCU::TESTING::LATTICE::GELL_MANN:\n {lattice.gell_mann}")
     print(
         f"PYQCU::TESTING::LATTICE:\n Gauge field SU(3) check: {lattice.check_su3(refer_U, verbose=True)}")
+    # BUGFIX 2026-07-28 R3: add assertion so pytest can detect failures.
+    assert lattice.check_su3(refer_U, tol=1e-3, verbose=False), "SU(3) check failed"
+    # Verify gamma matrix algebra
+    gamma_test = lattice.gamma.to(device=device).type(dtype)
+    for mu in range(4):
+        g_mu = gamma_test[mu]
+        g_mu_sq = torch.matmul(g_mu, g_mu)
+        identity = torch.eye(4, dtype=dtype, device=device)
+        assert torch.allclose(g_mu_sq, identity, rtol=1e-6, atol=1e-6), f"gamma_{mu}^2 != I"
+    print(f"PYQCU::TESTING::LATTICE:\n Gamma matrix algebra: PASS")
 
 
 def test_dslash_wilson(kappa: Optional[torch.Tensor] = torch.Tensor([0.1]), lat_size: List[int] = [8, 8, 8, 16],  dtype: torch.dtype = torch.complex64, device: torch.device = torch.device('cpu'), with_data: bool = False, support_parallel: bool = True):
@@ -90,6 +100,8 @@ def test_dslash_wilson(kappa: Optional[torch.Tensor] = torch.Tensor([0.1]), lat_
         f"PYQCU::TESTING::DSLASH::WILSON:\n Time cost: {time_end-time_start}")
     print(
         f"PYQCU::TESTING::DSLASH::WILSON:\n Difference between computed and reference dslash: {diff}")
+    # BUGFIX 2026-07-28 R3: add assertion for pytest integration.
+    assert diff < 1e-4, f"Wilson dslash relative error {diff} exceeds tolerance 1e-4"
 
 
 def test_dslash_parity(lat_size: List[int] = [8, 8, 8, 16], kappa: Optional[torch.Tensor] = torch.Tensor([0.1]),  dtype: torch.dtype = torch.complex64, device: torch.device = torch.device('cpu')):
@@ -384,6 +396,8 @@ def test_solver(kind: str = 'clover', method: str = 'bistabcg', kappa: Optional[
         f"PYQCU::TESTING::SOLVER::TIME: {time_end - time_start}")
     print(
         f"PYQCU::TESTING::SOLVER:\n Difference between computed and reference solution: {diff}")
+    # BUGFIX 2026-07-28 R3: add assertion for pytest integration.
+    assert diff < 1e-3, f"Solver relative error {diff} exceeds tolerance 1e-3"
 
 
 def test_matmul():
@@ -428,7 +442,8 @@ def test_matmul():
     try:
         jit_cpu = tilelang.compile(func_cpu, out_idx=[2], target="llvm")
         cpu_target_name = "LLVM"
-    except:
+    # BUGFIX 2026-07-28 R3: bare except catches KeyboardInterrupt etc. Use Exception.
+    except Exception:
         jit_cpu = tilelang.compile(func_cpu, out_idx=[2], target="c")
         cpu_target_name = "C"
     # print(jit_cpu.get_kernel_source())

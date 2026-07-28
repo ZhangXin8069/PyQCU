@@ -26,6 +26,12 @@ namespace qcu {
 #define _send_tmp_ 7
 #define _norm2_tmp_ 8
 #define _diff2_tmp_ 9
+// NOTE: _lat_4dim_ is stored as float/double in device_vals and read back
+// via int(float_val). For float (23-bit mantissa), exact integers are only
+// representable up to ~1.67e7 sites (≈ 64^4 = 1.68e7, borderline).
+// For double (52-bit mantissa), this is never an issue. The extraction pattern
+// used throughout solver kernels is:
+//   int lat = int(((LatticeComplex<T> *)device_vals)[_lat_4dim_]._data.x);
 #define _lat_4dim_ 10
 #define _vals_size_ 11
 #define _NO_USE_ 0
@@ -217,7 +223,13 @@ namespace qcu {
 #define _GRID_EXAMPLE_ 1
 #define _MEM_POOL_ 0
 #define _CHECK_ERROR_ 1
+// When 1: single-GPU runs go through the full MPI codepath (Isend/Irecv to self),
+// ensuring MPI paths are tested even on single-GPU setups. When 0: single-GPU
+// shortcut is used (send buffer directly feeds recv kernel), bypassing MPI.
+// Default 1 for maximum test coverage of MPI code paths.
 #define _WILSON_AND_LAPLACIAN_TEST_SINGLE_IN_MULTI_ 1
+// When 1: multi-GPU clover test runs within a single-GPU environment.
+// Default 0 (production: multi-GPU clover runs on multi-GPU only).
 #define _CLOVER_TEST_MULTI_IN_SINGLE_ 0
 // cublas API error checking
 #define CUBLAS_CHECK(err)                                                      \

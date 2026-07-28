@@ -151,7 +151,11 @@ def hdf5oooxyzt2gridoooxyzt(
                     f"PYQCU::TOOLS::IO:\n Data is loaded from {file_name} (Serial mode)")
         else:
             local_blocks = None
-        # Scatter data to all ranks
+        # NOTE: comm.scatter uses pickle serialization internally.
+        # For very large lattices (> 64^4 with float32: > 4 GB per block),
+        # this may hit pickle's 2GB size limit. In such cases, the MPI I/O
+        # path (HAS_MPI_SUPPORT=True) should be preferred as it avoids
+        # serialization entirely.
         dest = comm.scatter(local_blocks, root=0)
         if verbose:
             print(f"PYQCU::TOOLS::IO:\n rank {rank}: Dest Shape: {dest.shape}")

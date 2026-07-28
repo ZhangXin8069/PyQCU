@@ -18,12 +18,13 @@ def vdot(
     device = a.device
     assert a.device == b.device, "a and b must be on the same device"
     comm = MPI.COMM_WORLD
-    comm.Barrier()
+    # OPT 2026-07-28 R2: removed redundant Barrier() — Allreduce is already blocking.
+    # Each BiCGStab iteration calls vdot ~5 times; removing these saves ~10
+    # unnecessary global synchronizations per iteration.
     local_dot = _torch.vdot(a.flatten(), b.flatten())
     sendbuf = local_dot.detach().cpu().contiguous().numpy()
     recvbuf = np.zeros_like(sendbuf)
     comm.Allreduce(sendbuf=sendbuf, recvbuf=recvbuf, op=MPI.SUM)
-    comm.Barrier()
     return torch.from_numpy(recvbuf).to(device=device)
 
 

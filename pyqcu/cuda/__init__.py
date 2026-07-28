@@ -1,0 +1,10 @@
+# BUGFIX 2026-07-28 R3: pyqcu/cuda/__init__.py was missing, preventing the package
+# from being discovered by find_packages() in non-editable (pip install) mode.
+# Without this file, `from pyqcu.cuda import qcu, define` would raise ImportError
+# because define.py is not included in the wheel and the package is undiscoverable.
+#
+# This file makes pyqcu.cuda a proper Python package. The public API is:
+#   from pyqcu.cuda import qcu       # Cython bridge to libqcu.so
+#   from pyqcu.cuda import define    # Parameter constants and dtype helpers
+from argparse import Namespace
+Namespace.__module__ = "pyqcu.cuda"

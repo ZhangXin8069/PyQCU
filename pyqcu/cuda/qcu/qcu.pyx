@@ -15,6 +15,18 @@ cdef long long clover_oo_inv
 cdef long long gauge
 cdef long long params
 cdef long long argv
+# BUGFIX 2026-07-28 R3: add missing cdef declarations for multigrid bridge
+# function pointer variables. Without cdef, Cython treats them as Python int
+# objects, inserting type conversions on every C function call.
+cdef long long coarse_out
+cdef long long fine_in
+cdef long long null_vecs
+cdef long long fine_out
+cdef long long coarse_in
+cdef long long hopping
+cdef long long sitting
+cdef long long laplacian_out
+cdef long long laplacian_in
 def applyInitQcu(_set_ptrs, _params, _argv):
     set_ptrs = _set_ptrs.contiguous().data_ptr()
     params = _params.contiguous().data_ptr()

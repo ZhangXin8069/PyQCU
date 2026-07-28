@@ -39,11 +39,14 @@ setup(
     author="ZhangXin8069",
     author_email="zhangxin8069@qq.com",
     # BUGFIX 2026-07-28: test modules are in pyqcu.testing, not test.*
+    # R3: pyqcu.cuda now has __init__.py, so find_packages discovers it.
     packages=find_packages(exclude=["pyqcu.testing.*", "pyqcu.testing"]),
+    package_data={"pyqcu.cuda.qcu": ["*.pyi"]},
     ext_modules=ext_modules,
     license="MIT",
     cmdclass={'build_ext': CMakeBuild},
-    python_requires=">=3.6",
+    # BUGFIX 2026-07-28 R3: PyTorch 2.x requires Python >= 3.8.
+    python_requires=">=3.8",
     install_requires=["mpi4py", "cython", "h5py", "torch"],
     url="https://github.com/zhangxin8069/PyQCU",
     keywords=['c++', 'cuda', 'python',
