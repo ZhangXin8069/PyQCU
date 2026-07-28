@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 PyQCU is a Python/Cython wrapper for QCU, a CUDA-accelerated lattice Quantum Chromodynamics (QCD) library. It implements Wilson and Clover Dirac operators, BiStabCG and multigrid solvers, stout smearing, and gauge field generation — all MPI-distributed across a 4D process grid.
 
-**Dependencies:** Python ≥ 3.10, PyTorch, Cython, mpi4py, h5py, TileLang, numpy, CUDA toolkit.
+**Dependencies:** Python ≥ 3.10, PyTorch, Cython, mpi4py, h5py, numpy, CUDA toolkit. TileLang is optional (runtime try/except import; not in `setup.py`'s `install_requires`).
 
 ## Two-Layer Architecture
 
@@ -23,14 +23,16 @@ The multigrid solver can mix both layers: finest-level smoothing via the C++ bac
 ```bash
 # Setup environment (LD_LIBRARY_PATH, PYTHONPATH)
 source ./env.sh
+# Also sets MPI_ALLOW_RUN_AS_ROOT=1, OMPI_ALLOW_RUN_AS_ROOT=1,
+# OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1 — needed for containerized/dev environments
 
 # Build C++ CUDA backend → libqcu.so
 bash ./build.sh
-# (internally: cd cpp/cuda/qcu && source ./env.sh && make.sh)
+# (internally: cd cpp/cuda/qcu && source ./env.sh && bash ./make.sh)
 
 # Build Cython extension (pyqcu.cuda.qcu) in-place
 bash ./install.sh
-# (internally: python setup.py build_ext --inplace)
+# (internally: python setup.py build_ext --inplace && rm -rf ./build)
 
 # Run examples/tests
 cd examples && pytest .
@@ -55,13 +57,23 @@ pyqcu/
 ├── testing/     — Integration tests exercising all components
 ├── cuda/        — Cython bridge (qcu.pyx/.pxd) + parameter constants (define.py) for the C++ CUDA backend
 ├── cann/        — Torch compatibility layer for Ascend NPU (handles complex ops not natively supported on NPU)
-├── dtk/         — stub (DCU/ROCm)
-└── maca/        — stub (Maca)
+├── dtk/         — stub for DCU/ROCm (no implementation yet)
+└── maca/        — stub for Maca (no implementation yet)
 cpp/
 ├── cuda/qcu/    — Primary backend: CUDA kernels, MPI halo exchange, solvers
-├── cann/qcu/    — Stub for Ascend CANN backend
-├── dtk/qcu/     — Stub for DCU (ROCm/HIP) backend
-└── maca/qcu/    — Stub for Maca backend
+├── cann/qcu/    — Stub for Ascend CANN backend (no implementation yet)
+├── dtk/qcu/     — Stub for DCU (ROCm/HIP) backend (no implementation yet)
+└── maca/qcu/    — Stub for Maca backend (no implementation yet)
+examples/
+├── pyqcu/       — Pure-Python operator/solver tests (main test suite)
+├── qcu/         — C++ CUDA backend tests via Cython bridge
+├── cpu/         — CPU-only tests
+├── npu/         — Ascend NPU tests
+├── dcu/         — DCU (ROCm/HIP) tests
+├── profiler/    — Perfetto tracing
+├── benchmark/   — Performance benchmarks
+├── tilelang/    — TileLang kernel tests
+└── data/        — Reference HDF5 files used for validation when with_data=True
 ```
 
 Reference docs live in `docs/` — `dims.md` (dimension naming), `env.md` (Python environment setup), `install.md`, `examples.md`, `profiler.md`.
@@ -74,12 +86,16 @@ The lattice module runs initialization code at import time (not lazy): it define
 
 All Python code imports `pyqcu.cann as _torch` instead of using `torch` directly. This module wraps torch operations that fail on Ascend NPU (which doesn't natively support complex tensors):
 
-- **CUDA/CPU path:** delegates straight to `torch.*` (e.g., `torch.norm`, `torch.einsum`, `torch.roll`, `torch.vdot`)
+- **CUDA/CPU path:** delegates straight to `torch.*`
 - **NPU path** (`device.type == 'npu'` or `force_use_npu=True`): decomposes complex ops into real/imaginary parts
 
 Set `pyqcu.cann.force_use_npu = True` to test NPU code paths on CPU without NPU hardware.
 
-Functions provided: `abs`, `vdot`, `norm`, `roll`, `allclose`, `einsum`. Always use these instead of raw torch calls anywhere complex tensors might run on NPU.
+Functions provided (always use these instead of raw torch calls anywhere complex tensors might run on NPU):
+- **Math:** `abs`, `vdot`, `norm`, `sqrt`, `matmul`
+- **Reduction/shape:** `roll`, `allclose`, `einsum`
+- **Creation:** `zeros`, `zeros_like`, `randn`, `randn_like`, `eye`
+- **Linear algebra:** `linalg_qr` (falls back to CPU on NPU for complex inputs)
 
 ### `dslash.operator` — assembled Dirac operator
 
@@ -113,14 +129,44 @@ The C++ backend uses `_SET_PLAN_` (params index 16) to select which kernel plan 
 | `_SET_PLAN1_` | 1 | BiStabCG / CG (and their dslash) |
 | `_SET_PLAN2_` | 2 | Clover dslash |
 
-**Critical:** Increment `_SET_INDEX_` (params index 15) between successive C++ calls to avoid scratch buffer reuse conflicts. `applyInitQcu` allocates buffers; `applyEndQcu` frees them.
+**Critical:** The C++ backend call lifecycle is:
+
+```python
+qcu.applyInitQcu(set_ptrs, params, argv)          # allocate buffers
+# ... perform operations ...
+params[define._SET_INDEX_] += 1                     # MUST increment between calls
+qcu.applyEndQcu(set_ptrs, params)                   # free buffers
+```
+
+Failing to increment `_SET_INDEX_` between successive C++ calls causes scratch buffer reuse conflicts that produce wrong results. `applyInitQcu` allocates buffers; `applyEndQcu` frees them.
 
 Parameters are passed as three flat tensors whose Python-side indices are defined in `pyqcu/cuda/define.py` (must stay in sync with `cpp/cuda/qcu/include/define.h`):
-- **`params`** (int32, size 54): lattice dims, grid sizes, data types, iteration counts, plan selection
-- **`argv`** (float, size 8): physical parameters (mass, tolerance, sigma, per-level MG tolerances)
+- **`params`** (int32, size 54): lattice dims, grid sizes, data types, iteration counts, plan selection, multigrid level configs
+- **`argv`** (float, size 7): physical parameters — mass (idx 0), atol (1), sigma (2), per-level MG tolerances (3–6)
 - **`set_ptrs`** (int64, size 100): scratch pointers managed by the C++ runtime
 
-All C functions take raw pointers cast to `long long` from `tensor.contiguous().data_ptr()`. See `pyqcu.h` for the full C API surface.
+All C functions take raw pointers cast to `long long` from `tensor.contiguous().data_ptr()`. See `pyqcu.h` for the full C API surface. A type stub file `pyqcu/cuda/qcu.pyi` provides full type annotations, docstrings with tensor layout conventions, and default parameter values — useful for IDE support.
+
+**Data type mapping:** `pyqcu/cuda/define.py` provides `dtype(_data_type_)` to convert between QCU's internal data type constants (`_LAT_C64_`, `_LAT_R32_`, etc.) and PyTorch dtypes, and `epytd(torch_dtype)` for the reverse mapping.
+
+### Python-level C API (Cython bridge)
+
+The Cython module `pyqcu.cuda.qcu` exposes these functions (each takes raw tensor pointers):
+
+| Function | Purpose |
+|----------|---------|
+| `applyInitQcu` / `applyEndQcu` | Allocate / free scratch buffers |
+| `applyWilsonDslashQcu` | Wilson dslash (plan 0) |
+| `applyCloverDslashQcu` | Clover dslash (plan 2) |
+| `applyWilsonBistabCgQcu` / `applyWilsonBistabCgDslashQcu` | Wilson BiStabCG solver + its dslash (plan 1) |
+| `applyWilsonCgQcu` / `applyWilsonCgDslashQcu` | Wilson CG solver + its dslash (plan 1) |
+| `applyCloverBistabCgQcu` / `applyCloverBistabCgDslashQcu` | Clover BiStabCG (needs clover_ee/oo and their inverses) |
+| `applyCloverQcu` / `applyCloversQcu` | Build Clover term (and its inverse) |
+| `applyDslashQcu` | Combined Wilson+Clover dslash in one call |
+| `applyLaplacianQcu` | Laplacian operator (plan -2) |
+| `applyGaussGaugeQcu` | Gaussian gauge field generation (plan -1) |
+| `applyMultigridRestrictQcu` / `applyMultigridProLongQcu` | MG restrict/prolong with null vectors |
+| `applyMultigridCoarseDslashQcu` | Coarse-grid dslash (hopping + sitting) |
 
 ### C++ backend internal structure
 
@@ -178,11 +224,12 @@ Note: TileLang import is optional — the try/except in `tools/__init__.py` sile
 
 Tests are defined as Python functions in `pyqcu/testing/__init__.py`:
 - `test_lattice` — SU(3) gauge generation and validation
-- `test_dslash_wilson` — Wilson Dirac operator (supports `with_data=True` to validate against reference HDF5 data)
+- `test_dslash_wilson` — Wilson Dirac operator (supports `with_data=True` to validate against reference HDF5 data from `examples/data/`)
+- `test_dslash_parity` — Parity-preconditioned Wilson+Clover operator with MPI
 - `test_dslash_clover` — Clover term construction
-- `test_solver` — BiStabCG solver correctness
+- `test_solver` — BiStabCG (`method='bistabcg'`) and multigrid (`method='multigrid'`) solver correctness
+- `test_matmul` — TileLang vs PyTorch matmul benchmark
 - `test_smear_stout` — Stout smearing
-- `test_multigrid` — Multigrid solver
 
 Each `examples/*/conftest.py` acts as a pytest entry point that imports from `pyqcu.testing` and calls specific test functions. The `conftest.py` files are manually edited to uncomment the test(s) to run. Run them with:
 
@@ -203,6 +250,8 @@ Example subdirectories by backend:
 - `examples/data/` — reference HDF5 files (gauge fields, sources, expected results) used for validation when `with_data=True`
 
 ### Profiling
+
+The profiler wraps operations with `torch.profiler.profile(...)` using `record_shapes=True`, `with_modules=True`, `with_flops=True`, and exports Chrome trace format:
 
 ```bash
 cd examples/profiler && mpirun -np 1 python -u conftest.py
