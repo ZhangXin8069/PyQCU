@@ -226,4 +226,96 @@ template __global__ void multigrid_coarse_dslash<float>(
 template __global__ void multigrid_coarse_dslash<double>(
     void *fermion_out, void *fermion_in, void *hopping, void *sitting,
     int E, int X, int Y, int Z, int Lt);
+// ---- Parity-split ↔ full-site layout conversion kernels ----
+// Layouts:
+//   Full-site:   [sc, X, Y, Z, Lt]       — all sites, contiguous t
+//   Parity odd:  [sc, X, Y, Z, Lt/2]     — only odd t-slices, compact
+//   Parity even: [sc, X, Y, Z, Lt/2]     — only even t-slices, compact
+//
+// Parity is defined by t-coordinate parity: even t ∈ even parity, odd t ∈ odd.
+// In the full-site layout, even t values are 0,2,4,…,Lt-2 and odd are 1,3,5,…,Lt-1.
+// In parity-split, each parity stores contiguously: t_half ∈ [0, Lt/2-1].
+// Mapping: full_t_odd = 2 * t_half + 1, full_t_even = 2 * t_half.
+template <typename T>
+__global__ void multigrid_odd_to_full(void *full_out, void *odd_in,
+                                       int sc, int X, int Y, int Z, int Lt_full) {
+  int idx = blockIdx.x * blockDim.x + threadIdx.x;
+  int Lt_half = Lt_full / 2;
+  int vol_half = X * Y * Z * Lt_half;
+  int total_output = sc * vol_half;
+  if (idx >= total_output) return;
+
+  // --- Decompose idx into (sc, x, y, z, t_half) for parity-split layout ---
+  int sc_idx = idx / vol_half;
+  int site = idx - sc_idx * vol_half;
+  int stride_YZT_half = Y * Z * Lt_half;
+  int stride_ZT_half = Z * Lt_half;
+  int x = site / stride_YZT_half;
+  int rem = site - x * stride_YZT_half;
+  int y = rem / stride_ZT_half;
+  rem -= y * stride_ZT_half;
+  int z = rem / Lt_half;
+  int t_half = rem - z * Lt_half;
+
+  // --- Map to full-site: t_full = 2 * t_half + 1 (odd t-slices) ---
+  int t_full = 2 * t_half + 1;
+  int vol_full = X * Y * Z * Lt_full;
+  int stride_YZT_full = Y * Z * Lt_full;
+  int stride_ZT_full = Z * Lt_full;
+  int dest_idx = sc_idx * vol_full
+               + x * stride_YZT_full
+               + y * stride_ZT_full
+               + z * Lt_full
+               + t_full;
+
+  LatticeComplex<T> *d = static_cast<LatticeComplex<T>*>(full_out);
+  LatticeComplex<T> *s = static_cast<LatticeComplex<T>*>(odd_in);
+  d[dest_idx] = s[idx];
+}
+
+template <typename T>
+__global__ void multigrid_full_to_odd(void *odd_out, void *full_in,
+                                       int sc, int X, int Y, int Z, int Lt_full) {
+  int idx = blockIdx.x * blockDim.x + threadIdx.x;
+  int Lt_half = Lt_full / 2;
+  int vol_half = X * Y * Z * Lt_half;
+  int total_output = sc * vol_half;
+  if (idx >= total_output) return;
+
+  // --- Decompose idx into (sc, x, y, z, t_half) for parity-split layout ---
+  int sc_idx = idx / vol_half;
+  int site = idx - sc_idx * vol_half;
+  int stride_YZT_half = Y * Z * Lt_half;
+  int stride_ZT_half = Z * Lt_half;
+  int x = site / stride_YZT_half;
+  int rem = site - x * stride_YZT_half;
+  int y = rem / stride_ZT_half;
+  rem -= y * stride_ZT_half;
+  int z = rem / Lt_half;
+  int t_half = rem - z * Lt_half;
+
+  // --- Map to full-site: t_full = 2 * t_half + 1 (odd t-slices) ---
+  int t_full = 2 * t_half + 1;
+  int vol_full = X * Y * Z * Lt_full;
+  int stride_YZT_full = Y * Z * Lt_full;
+  int stride_ZT_full = Z * Lt_full;
+  int src_idx = sc_idx * vol_full
+              + x * stride_YZT_full
+              + y * stride_ZT_full
+              + z * Lt_full
+              + t_full;
+
+  LatticeComplex<T> *d = static_cast<LatticeComplex<T>*>(odd_out);
+  LatticeComplex<T> *s = static_cast<LatticeComplex<T>*>(full_in);
+  d[idx] = s[src_idx];
+}
+// Template instantiations for conversion kernels
+template __global__ void multigrid_odd_to_full<float>(
+    void*, void*, int, int, int, int, int);
+template __global__ void multigrid_odd_to_full<double>(
+    void*, void*, int, int, int, int, int);
+template __global__ void multigrid_full_to_odd<float>(
+    void*, void*, int, int, int, int, int);
+template __global__ void multigrid_full_to_odd<double>(
+    void*, void*, int, int, int, int, int);
 } // namespace qcu
