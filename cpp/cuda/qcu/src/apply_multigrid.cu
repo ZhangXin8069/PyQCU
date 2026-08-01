@@ -14,11 +14,11 @@ void applyMultigridRestrictQcu(long long _coarse_out, long long _fine_in,
   int set_index = params[_SET_INDEX_];
   int data_type = params[_DATA_TYPE_];
   int E = params[_MG_LEVEL1_E_];
-  int e = params[_MG_NUM_LEVEL_]; // repurposed: fine DOF for this restrict call
+  int e = _LAT_SC_; // FIX: was _MG_NUM_LEVEL_ (2), fine DOF is always 12
   int Xf = params[_LAT_X_];
   int Yf = params[_LAT_Y_];
   int Zf = params[_LAT_Z_];
-  int Tf = params[_LAT_T_];
+  int Tf = params[_LAT_T_]; // NOTE: caller must set _LAT_T_ to full-site T
   int Xc = params[_MG_LEVEL1_X_];
   int Yc = params[_MG_LEVEL1_Y_];
   int Zc = params[_MG_LEVEL1_Z_];
@@ -56,7 +56,7 @@ void applyMultigridProLongQcu(long long _fine_out, long long _coarse_in,
   int set_index = params[_SET_INDEX_];
   int data_type = params[_DATA_TYPE_];
   int E = params[_MG_LEVEL1_E_];
-  int e = params[_MG_NUM_LEVEL_]; // repurposed: fine DOF for this prolong call
+  int e = _LAT_SC_; // FIX: was _MG_NUM_LEVEL_ (2), fine DOF is always 12
   int Xf = params[_LAT_X_];
   int Yf = params[_LAT_Y_];
   int Zf = params[_LAT_Z_];
