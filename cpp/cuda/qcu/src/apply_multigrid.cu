@@ -99,7 +99,7 @@ void applyMultigridCoarseDslashQcu(long long _fermion_out,
   int *params = (int *)_params;
   int set_index = params[_SET_INDEX_];
   int data_type = params[_DATA_TYPE_];
-  int E = params[_MG_NUM_LEVEL_];
+  int E = params[_MG_LEVEL1_E_];  // FIX: was _MG_NUM_LEVEL_ (wrong param index!)
   int X = params[_MG_LEVEL1_X_];
   int Y = params[_MG_LEVEL1_Y_];
   int Z = params[_MG_LEVEL1_Z_];
