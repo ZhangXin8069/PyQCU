@@ -27,6 +27,7 @@ lib/*
 *.c
 *.bin
 *dist
+*.pt*
 *.h5*
 *.hdf5*
 *.hdf

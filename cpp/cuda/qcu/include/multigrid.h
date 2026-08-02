@@ -76,5 +76,16 @@ __global__ void multigrid_coarse_solve(void *x, void *rhs, void *r_tilde,
                                        void *t, void *sitting, void *hop_nn,
                                        void *hop_diag, int E, int X, int Y,
                                        int Z, int Lt, int max_iter, T tol);
+/**
+ * @brief Cooperative-groups PARALLEL fused coarse BiStabCG solve.
+ * @see multigrid.cu for full documentation.
+ */
+template <typename T, int NT>
+__global__ void multigrid_coarse_solve_cg(void *x, void *rhs, void *r_tilde,
+                                          void *r, void *p, void *v, void *s,
+                                          void *t, void *sitting, void *hop_nn,
+                                          void *hop_diag, int E, int X, int Y,
+                                          int Z, int Lt, int max_iter, T tol,
+                                          void *partials);
 } // namespace qcu
 #endif

@@ -183,12 +183,19 @@ template <typename T> struct LatticeCloverMultigrid {
   void *corr_scratch;     // full-site scratch for the guarded V-cycle correction
                           // (holds D·e_fine so the correction can be tested and
                           //  reverted without disturbing the solution)
+  void *coarse_partials;  // [1024] LatticeComplex scratch for cooperative
+                          // fused coarse-solve cross-block dot reductions
 
   // ---- Host mirror for convergence check ----
   LatticeComplex<T> host_vals[_vals_size_];
   std::vector<T> conv_history;
   double level_times[8];
   double solve_time_ms;
+  // ---- Section timing (2026-08-02) ----
+  double prof_fine_iter_ms = 0;   // total fine-level iteration time
+  double prof_vcycle_ms = 0;      // total V-cycle correction overhead
+  double prof_coarse_solve_ms = 0;// total coarse-solve time inside v_cycle
+  int    prof_n_vcycles = 0;
   // Coarse-iteration cost breakdown (accumulated for profiling)
   double prof_coarse_dslash_ms = 0;   // wide coarse dslash kernels
   double prof_coarse_dot_ms = 0;      // coarse dot products
@@ -267,17 +274,42 @@ template <typename T> struct LatticeCloverMultigrid {
     T tol_factor = levels[lev].tol;
     if (tol_factor <= 0) tol_factor = (T)1e-3;
     auto q0=std::chrono::high_resolution_clock::now();
-    multigrid_coarse_solve<T><<<1, 256, 0, set_ptr->stream>>>(
-        st.x, st.rhs, st.r_tilde, st.r, st.p, st.v, st.s, st.t,
-        sit_packed[lev-1], hop_nn[lev-1], hop_diag[lev-1],
-        E, Xc, Yc, Zc, Ltc, st.max_iter, tol_factor);
+    const int NT = 256;
+    const int n = E * Xc * Yc * Zc * Ltc;
+    int grid_sz = (n + NT - 1) / NT;
+    // Cap the grid to what can be co-resident on this device (cooperative
+    // launch requires the whole grid resident at once).
+    static int max_blocks_per_sm = -1, sm_count = -1;
+    if (max_blocks_per_sm < 0) {
+      cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+          &max_blocks_per_sm,
+          (const void*)multigrid_coarse_solve_cg<T,NT>, NT, 0);
+      cudaDeviceProp prop;
+      cudaGetDeviceProperties(&prop, 0);
+      sm_count = prop.multiProcessorCount;
+    }
+    int max_blocks = max_blocks_per_sm * sm_count;
+    if (grid_sz > max_blocks) grid_sz = max_blocks;
+    if (rank==0 && verbose)
+      printf("MG: fused grid=%d (cap=%d, sm=%d, occ=%d/block) n=%d\n",
+             grid_sz, max_blocks, sm_count, max_blocks_per_sm, n);
+    void *args[] = {
+        (void*)&st.x, (void*)&st.rhs, (void*)&st.r_tilde, (void*)&st.r,
+        (void*)&st.p, (void*)&st.v, (void*)&st.s, (void*)&st.t,
+        (void*)&sit_packed[lev-1], (void*)&hop_nn[lev-1],
+        (void*)&hop_diag[lev-1],
+        (void*)&E, (void*)&Xc, (void*)&Yc, (void*)&Zc, (void*)&Ltc,
+        (void*)&st.max_iter, (void*)&tol_factor, (void*)&coarse_partials};
+    checkCudaErrors(cudaLaunchCooperativeKernel(
+        (const void*)multigrid_coarse_solve_cg<T,NT>,
+        dim3(grid_sz), dim3(NT), args, 0, set_ptr->stream));
     checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
     auto q1=std::chrono::high_resolution_clock::now();
     if (rank==0)
       log_write<T>("PYQCU::SOLVER::MULTIGRID::\n "+std::to_string(lev)+
-        ": FUSED coarse solve ("+std::to_string(E)+" dof, "+
+        ": FUSED-PARALLEL coarse solve ("+std::to_string(E)+" dof, "+
         std::to_string(Xc)+"x"+std::to_string(Yc)+"x"+std::to_string(Zc)+
-        "x"+std::to_string(Ltc)+") in "+
+        "x"+std::to_string(Ltc)+", grid="+std::to_string(grid_sz)+") in "+
         std::to_string(std::chrono::duration<double,std::milli>(q1-q0).count())+" ms",rank,true);
   }
 
@@ -521,6 +553,7 @@ template <typename T> struct LatticeCloverMultigrid {
     dim3 gv=site_grid(lev), bv=dim3(_BLOCK_SIZE_);
     const LatticeComplex<T>* rt = static_cast<const LatticeComplex<T>*>(st.r_tilde);
     const LatticeComplex<T>* r  = static_cast<const LatticeComplex<T>*>(st.r);
+    auto tc0=std::chrono::high_resolution_clock::now();
 
     // 1. rho = <r_tilde, r>
     coarse_dot_kernel<T,256><<<1,256,0,S>>>(rt, r, st.vec_sz, &dv[_rho_]);
@@ -557,11 +590,27 @@ template <typename T> struct LatticeCloverMultigrid {
     checkCudaErrors(cudaMemcpyAsync(&host_vals[_norm2_tmp_], &dv[_norm2_tmp_],
         sizeof(LatticeComplex<T>), cudaMemcpyDeviceToHost, S));
     checkCudaErrors(cudaStreamSynchronize(S));
+    // NOTE: the per-iteration cost here is dominated by the host sync above
+    // (~170 us) plus the ~14 tiny kernel launches — NOT by the wide dslash
+    // (prof_coarse_dslash_ms stays < 1 ms across the whole solve).
+    auto tc1=std::chrono::high_resolution_clock::now();
+    prof_coarse_vec_ms += std::chrono::duration<double,std::milli>(tc1-tc0).count();
   }
 
   void bistabcg_iter(int lev) {
     // Coarse levels use the single-stream overhead-light path.
     if (lev >= 1) { bistabcg_iter_coarse(lev); return; }
+    // Single-rank fine level: use the sync-light single-stream path
+    // (cublasDot directly into device_vals on the main stream, ONE sync per
+    // iteration instead of ~20).  Multi-rank keeps the 5-stream MPI path.
+    if (set_ptr->host_params[_GRID_X_] == 1 &&
+        set_ptr->host_params[_GRID_Y_] == 1 &&
+        set_ptr->host_params[_GRID_Z_] == 1 &&
+        set_ptr->host_params[_GRID_T_] == 1 &&
+        !_WILSON_AND_LAPLACIAN_TEST_SINGLE_IN_MULTI_) {
+      bistabcg_iter_fine_fast();
+      return;
+    }
     auto &st=levels[lev];
     bool fine=(lev==0); cudaStream_t S=set_ptr->stream;
     // fullsite: level 0 solved on FULL-site vectors (support_parity=False style).
@@ -654,6 +703,61 @@ template <typename T> struct LatticeCloverMultigrid {
     checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_b_]));
     checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_c_]));
     checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_d_]));
+  }
+
+  // ==================================================================
+  // Single-rank, single-stream, sync-light BiStabCG iteration (level 0).
+  //
+  // WHY (2026-08-02): the reference 5-stream iteration (bistabcg_iter)
+  // costs ~6 ms/iter on this WSL2/V100 box because every dot performs
+  //   cublasDot -> D2H memcpy -> MPI_Barrier -> cudaStreamSynchronize
+  //   (~170 us each) -> MPI_Allreduce -> H2D memcpy,
+  // and there are ~20 such syncs per iteration.  For a 1x1x1x1 process
+  // grid MPI_Allreduce is the identity, so we write each dot straight into
+  // device_vals on the MAIN stream (cublasH is bound to set_ptr->stream).
+  // In-stream ordering makes every consumer kernel see the result; we sync
+  // ONCE at the end so host_vals[_norm2_tmp_] holds the convergence
+  // residual.  Mathematically identical to bistabcg_iter, ~20x fewer syncs.
+  //
+  // This is only valid for single-rank runs (no MPI reduction needed).
+  // ==================================================================
+  void bistabcg_iter_fine_fast() {
+    auto &st=levels[0]; cudaStream_t S=set_ptr->stream;
+    LatticeComplex<T>* dv=static_cast<LatticeComplex<T>*>(set_ptr->device_vals);
+    dim3 gv=set_ptr->gridDim, bv=set_ptr->blockDim;
+    const int n=(int)st.vec_sz;  // = lat_4dim_SC elements (odd-site vector)
+    // The dslash outputs (st.v / st.t) are consumed by the NEXT kernel on the
+    // same main stream, so run_mpi's final sync is redundant — save ~340 us/iter.
+    wilson_dslash.skip_final_sync_ = true;
+    // 1. rho = <r_tilde, r>                       (on-device, no host round-trip)
+    CUBLAS_CHECK(_cublasDot<T>(set_ptr->cublasH, n, st.r_tilde,1,st.r,1,&dv[_rho_]));
+    // 2. beta = (rho/rho_prev)*(alpha/omega); rho_prev = rho
+    bistabcg_give_1beta<T><<<1,1,0,S>>>(dv);
+    bistabcg_give_1rho_prev<T><<<1,1,0,S>>>(dv);
+    // 3. p = r + beta*(p - omega*v)
+    bistabcg_give_p<T><<<gv,bv,0,S>>>(st.p, st.r, st.v, dv);
+    // 3.5 convergence residual ||r||^2 -> host (the ONLY host read this iter)
+    CUBLAS_CHECK(_cublasDot<T>(set_ptr->cublasH, n, st.r,1,st.r,1,&dv[_norm2_tmp_]));
+    checkCudaErrors(cudaMemcpyAsync(&host_vals[_norm2_tmp_],&dv[_norm2_tmp_],
+        sizeof(LatticeComplex<T>),cudaMemcpyDeviceToHost,S));
+    // 4. v = S·p
+    fine_dslash_op(st.v, st.p);
+    // 5. alpha = rho / <r_tilde, v>
+    CUBLAS_CHECK(_cublasDot<T>(set_ptr->cublasH, n, st.r_tilde,1,st.v,1,&dv[_tmp0_]));
+    bistabcg_give_1alpha<T><<<1,1,0,S>>>(dv);
+    // 6. s = r - alpha*v
+    bistabcg_give_s<T><<<gv,bv,0,S>>>(st.s, st.r, st.v, dv);
+    // 7. t = S·s
+    fine_dslash_op(st.t, st.s);
+    // 8. omega = <t,s> / <t,t>
+    CUBLAS_CHECK(_cublasDot<T>(set_ptr->cublasH, n, st.t,1,st.s,1,&dv[_tmp0_]));
+    CUBLAS_CHECK(_cublasDot<T>(set_ptr->cublasH, n, st.t,1,st.t,1,&dv[_tmp1_]));
+    bistabcg_give_1omega<T><<<1,1,0,S>>>(dv);
+    // 9. r = s - omega*t ;  x = x + alpha*p + omega*s
+    bistabcg_give_r<T><<<gv,bv,0,S>>>(st.r, st.s, st.t, dv);
+    bistabcg_give_x_o<T><<<gv,bv,0,S>>>(st.x, st.p, st.s, dv);
+    // 10. single sync so host_vals[_norm2_tmp_] is valid for the caller
+    checkCudaErrors(cudaStreamSynchronize(S));
   }
 
   // ==================================================================
@@ -999,6 +1103,20 @@ template <typename T> struct LatticeCloverMultigrid {
     T rn = 0;
     LatticeComplex<T>*dv=static_cast<LatticeComplex<T>*>(set_ptr->device_vals);
 
+    // ====================================================================
+    // COARSEST LEVEL: COOPERATIVE PARALLEL FUSED BiStabCG SOLVE (2026-08-02)
+    // --------------------------------------------------------------------
+    // The per-iteration coarse path below costs ~1.3 ms/iter on this
+    // WSL2/V100 box (~14 tiny kernel launches + 1 host sync per iteration;
+    // the wide dslash is only ~2 us).  multigrid_coarse_solve_cg() fuses the
+    // ENTIRE BiStabCG solve into ONE cooperative kernel with grid.sync()
+    // barriers — no host syncs inside.  Valid at the coarsest level only.
+    // ====================================================================
+    if (lev == num_levels - 1) {
+      coarse_solve_fused(lev);
+      return rn;
+    }
+
     // ---- Save and patch _lat_4dim_ for this level ----
     // The BiStabCG kernels use device_vals[_lat_4dim_] as the site-count
     // stride.  For coarse levels the volume differs, so patch it.
@@ -1073,6 +1191,7 @@ template <typename T> struct LatticeCloverMultigrid {
       bistabcg_iter(lev);
       auto ci1=std::chrono::high_resolution_clock::now();
       double csec=std::chrono::duration<double>(ci1-ci0).count();
+      prof_coarse_solve_ms += std::chrono::duration<double,std::milli>(ci1-ci0).count();
       idx++;
       T rn_new = sqrt(host_vals[_norm2_tmp_].real());
       // Breakdown guard: if residual is NaN or exploded, stop.
@@ -1194,6 +1313,8 @@ template <typename T> struct LatticeCloverMultigrid {
     checkCudaErrors(cudaMallocAsync(&parity_tmp, full_bytes, set_ptr->stream));
     checkCudaErrors(cudaMallocAsync(&parity_dst, full_bytes, set_ptr->stream));
     checkCudaErrors(cudaMallocAsync(&corr_scratch, full_bytes, set_ptr->stream));
+    checkCudaErrors(cudaMallocAsync(&coarse_partials,
+        1024 * sizeof(LatticeComplex<T>), set_ptr->stream));
 
     checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
 
@@ -1305,6 +1426,7 @@ template <typename T> struct LatticeCloverMultigrid {
       bistabcg_iter(0);
       auto ti1=std::chrono::high_resolution_clock::now();
       double sec=std::chrono::duration<double>(ti1-ti0).count(); tti+=sec; total++;
+      prof_fine_iter_ms += std::chrono::duration<double,std::milli>(ti1-ti0).count();
       count_restart++;
 
       T rn2=host_vals[_norm2_tmp_].real();
@@ -1345,6 +1467,8 @@ template <typename T> struct LatticeCloverMultigrid {
 
       // ---- V-cycle coarse correction ----
       if(num_levels>1 && num_restart>0 && count_restart>=num_restart){
+        auto vc_t0=std::chrono::high_resolution_clock::now();
+        prof_n_vcycles++;
         if(rank==0&&verbose)
           log_write<T>("PYQCU::SOLVER::MULTIGRID::\n V-cycle correction at iteration "+std::to_string(it),rank,true);
 
@@ -1382,6 +1506,8 @@ template <typename T> struct LatticeCloverMultigrid {
         checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_b_]));
         checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_c_]));
         checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_d_]));
+        auto vc_t1=std::chrono::high_resolution_clock::now();
+        prof_vcycle_ms += std::chrono::duration<double,std::milli>(vc_t1-vc_t0).count();
       }
     }
 
@@ -1421,6 +1547,15 @@ template <typename T> struct LatticeCloverMultigrid {
       prof<<"PROF_COARSE: dslash="<<std::fixed<<std::setprecision(1)<<prof_coarse_dslash_ms
           <<"ms dot="<<prof_coarse_dot_ms<<"ms";
       log_write<T>(prof.str(),rank,false);
+      // ---- Section timing report (2026-08-02) ----
+      std::ostringstream sect;
+      sect<<"PROF_SECTIONS: fine_iter="<<std::fixed<<std::setprecision(1)
+          <<prof_fine_iter_ms<<"ms vcycle="<<prof_vcycle_ms
+          <<"ms n_vcycles="<<prof_n_vcycles
+          <<" coarse_solve="<<prof_coarse_solve_ms
+          <<"ms coarse_vec="<<prof_coarse_vec_ms
+          <<"ms coarse_dslash="<<prof_coarse_dslash_ms<<"ms";
+      log_write<T>(sect.str(),rank,true);
     }
   }
 
@@ -1490,7 +1625,7 @@ template <typename T> struct LatticeCloverMultigrid {
     F(r_full);F(e_odd_buf);
     F(full_x);F(full_rhs);F(full_r);F(full_rt);
     F(full_p);F(full_v);F(full_s);F(full_t);
-    F(parity_tmp);F(parity_dst);F(corr_scratch);
+    F(parity_tmp);F(parity_dst);F(corr_scratch);F(coarse_partials);
     for(int i=1;i<num_levels;i++)levels[i].free_all(set_ptr->stream);
     delete[] levels;levels=nullptr;delete[] null_vecs;null_vecs=nullptr;
     delete[] hop_nn;hop_nn=nullptr;delete[] hop_diag;hop_diag=nullptr;
