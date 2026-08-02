@@ -217,6 +217,136 @@ __global__ void multigrid_coarse_dslash(void *fermion_out, void *fermion_in,
 
   out[global_idx] = sum;
 }
+/**
+ * @brief Wide-stencil coarse-grid dslash for the SCHUR-consistent coarse operator
+ *        A_c = P^T S P (on-site + nearest-neighbour + diagonal couplings).
+ *
+ * The Schur operator S = D_oo - k^2 H_oe D_ee^{-1} H_eo couples odd sites x to
+ * x, x±2μ (nearest in the coarse grid) AND x±μ±ν (diagonal), so its Galerkin
+ * projection A_c = P^T S P has a 33-tensor stencil:
+ *   sit      [E, E, X, Y, Z, T]            on-site
+ *   hop_nn   [2, 4, E, E, X, Y, Z, T]      nearest (pm × dir)
+ *   hop_diag [2, 2, 6, E, E, X, Y, Z, T]   diagonal (s1 × s2 × pair)
+ *      pair: 0=(x,y) 1=(x,z) 2=(x,t) 3=(y,z) 4=(y,t) 5=(z,t); sign 0=+1 1=-1
+ *
+ * Kernel convention:
+ *   out[j,c] += sit[j,e,c]·in[e,c]
+ *             + hop_nn[pm,d,j,e,c]·in[e, c + pm?(+1):(-1) e_d]
+ *             + hop_diag[s1,s2,pair,j,e,c]·in[e, c + s1 e_d1 + s2 e_d2]
+ *
+ * Layout is C-order (t fastest) everywhere, matching multigrid_coarse_dslash.
+ */
+template <typename T>
+__global__ void multigrid_coarse_dslash_wide(void *fermion_out, void *fermion_in,
+                                             void *sitting, void *hop_nn,
+                                             void *hop_diag, int E, int X, int Y,
+                                             int Z, int Lt) {
+  int global_idx = blockIdx.x * blockDim.x + threadIdx.x;
+  int vol = X * Y * Z * Lt;
+  int total_output = E * vol;
+  if (global_idx >= total_output) return;
+  if (E <= 0 || vol <= 0) return;
+
+  LatticeComplex<T> *out = static_cast<LatticeComplex<T>*>(fermion_out);
+  LatticeComplex<T> *in  = static_cast<LatticeComplex<T>*>(fermion_in);
+  LatticeComplex<T> *sit = static_cast<LatticeComplex<T>*>(sitting);
+  LatticeComplex<T> *nn  = static_cast<LatticeComplex<T>*>(hop_nn);
+  LatticeComplex<T> *dg  = static_cast<LatticeComplex<T>*>(hop_diag);
+
+  int E_out = global_idx / vol;
+  int site  = global_idx - E_out * vol;
+
+  // Decompose site into (x, y, z, t) — C-order layout
+  int stride_YZT = Y * Z * Lt;
+  int stride_ZT  = Z * Lt;
+  int x = site / stride_YZT;
+  int rest = site - x * stride_YZT;
+  int y = rest / stride_ZT;
+  rest -= y * stride_ZT;
+  int z = rest / Lt;
+  int t = rest - z * Lt;
+
+  // Strides: [.., E, E, X, Y, Z, T] C-order
+  int hop_vol = vol;
+  int str_Ein  = hop_vol;
+  int str_Eout = E * str_Ein;
+  int str_dir  = E * str_Eout;
+  int str_pm   = 4 * str_dir;
+  int str_s2   = 6 * str_Eout;          // hop_diag [s1,s2,pair,..] after s1? see below
+  // hop_diag dims: [2(s1), 2(s2), 6(pair), E, E, X, Y, Z, T]
+  int dg_str_s2   = 6 * E * str_Eout;   // s2 stride
+  int dg_str_s1   = 2 * dg_str_s2;      // s1 stride
+  // (pair stride is E*str_Eout)
+  int dg_str_pair = E * str_Eout;
+
+  int sit_str_Ein  = hop_vol;
+  int sit_str_Eout = E * sit_str_Ein;
+  int ferm_str_E   = hop_vol;
+
+  LatticeComplex<T> sum(0.0, 0.0);
+
+  // --- Sitting (on-site) ---
+  int sit_base = E_out * sit_str_Eout + site;
+  for (int e = 0; e < E; e++) {
+    sum += sit[sit_base + e * sit_str_Ein] * in[e * ferm_str_E + site];
+  }
+
+  // --- Nearest neighbours: 4 directions × plus/minus ---
+  int dir_offsets[4] = {stride_YZT, stride_ZT, Lt, 1};
+  int dir_dims[4]    = {X, Y, Z, Lt};
+  int dir_coords[4]  = {x, y, z, t};
+  for (int d = 0; d < 4; d++) {
+    int offset = dir_offsets[d];
+    int dim    = dir_dims[d];
+    int coord  = dir_coords[d];
+    int fwd_coord = (coord + 1) % dim;
+    int bwd_coord = (coord - 1 + dim) % dim;
+    int fwd_site  = site - coord * offset + fwd_coord * offset;
+    int bwd_site  = site - coord * offset + bwd_coord * offset;
+    int nn_plus_base  = 0 * str_pm + d * str_dir + E_out * str_Eout + site;
+    int nn_minus_base = 1 * str_pm + d * str_dir + E_out * str_Eout + site;
+    for (int e = 0; e < E; e++) {
+      int e_off = e * str_Ein;
+      sum += nn[nn_plus_base  + e_off] * in[e * ferm_str_E + fwd_site];
+      sum += nn[nn_minus_base + e_off] * in[e * ferm_str_E + bwd_site];
+    }
+  }
+
+  // --- Diagonal couplings: 6 pairs × 4 sign combos ---
+  // hop_diag [s1,s2,pair,E,E,X,Y,Z,T]: neighbour = c + s1*e_d1 + s2*e_d2
+  int pair_d1[6] = {0, 0, 0, 1, 1, 2};  // (x,y),(x,z),(x,t),(y,z),(y,t),(z,t)
+  int pair_d2[6] = {1, 2, 3, 2, 3, 3};
+  for (int pi = 0; pi < 6; pi++) {
+    int d1 = pair_d1[pi], d2 = pair_d2[pi];
+    for (int s1i = 0; s1i < 2; s1i++) {      // 0 → +1, 1 → -1
+      for (int s2i = 0; s2i < 2; s2i++) {
+        int s1 = (s1i == 0) ? 1 : -1;
+        int s2 = (s2i == 0) ? 1 : -1;
+        // neighbour coordinate along d1, d2
+        int n1 = (dir_coords[d1] + s1 + dir_dims[d1]) % dir_dims[d1];
+        int n2 = (dir_coords[d2] + s2 + dir_dims[d2]) % dir_dims[d2];
+        int ns = site;
+        if (d1 == 0)      ns = ns - x * stride_YZT + n1 * stride_YZT;
+        else if (d1 == 1) ns = ns - y * stride_ZT + n1 * stride_ZT;
+        else if (d1 == 2) ns = ns - z * Lt + n1 * Lt;
+        else              ns = ns - t + n1;      // d1 == 3
+        // apply d2 on the (possibly d1-shifted) coordinates
+        int cur = (d2 == 0) ? (ns / stride_YZT) :
+                  (d2 == 1) ? ((ns % stride_YZT) / stride_ZT) :
+                  (d2 == 2) ? ((ns % stride_ZT) / Lt) :
+                              (ns % Lt);
+        int delta = n2 - cur;
+        ns += delta * dir_offsets[d2];
+        int dg_base = s1i * dg_str_s1 + s2i * dg_str_s2 + pi * dg_str_pair +
+                      E_out * str_Eout + site;
+        for (int e = 0; e < E; e++) {
+          sum += dg[dg_base + e * str_Ein] * in[e * ferm_str_E + ns];
+        }
+      }
+    }
+  }
+  out[global_idx] = sum;
+}
 // Explicit template instantiations
 template __global__ void multigrid_restrict<float>(
     void *coarse_out, void *fine_in, void *null_vecs, int E, int e, int Xf,
@@ -236,6 +366,12 @@ template __global__ void multigrid_coarse_dslash<float>(
 template __global__ void multigrid_coarse_dslash<double>(
     void *fermion_out, void *fermion_in, void *hopping, void *sitting,
     int E, int X, int Y, int Z, int Lt);
+template __global__ void multigrid_coarse_dslash_wide<float>(
+    void *fermion_out, void *fermion_in, void *sitting, void *hop_nn,
+    void *hop_diag, int E, int X, int Y, int Z, int Lt);
+template __global__ void multigrid_coarse_dslash_wide<double>(
+    void *fermion_out, void *fermion_in, void *sitting, void *hop_nn,
+    void *hop_diag, int E, int X, int Y, int Z, int Lt);
 // ---- Parity-split ↔ full-site layout conversion kernels ----
 // Layouts:
 //   Full-site:   [sc, X, Y, Z, Lt]       — all sites, contiguous t
