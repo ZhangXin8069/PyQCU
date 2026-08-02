@@ -47,6 +47,30 @@
 
 namespace qcu {
 
+/**
+ * @brief Single-block reduction dot product for tiny coarse-level vectors.
+ * Computes <a,b> = Σ conj(a[i])·b[i] into *out (device_vals[vals_idx]).
+ * Coarse vectors are a few thousand complex elements, so this avoids the
+ * cublasDot launch + D2H/H2D memcpy overhead that dominated coarse solves
+ * (416 ms of a 1.9 s solve before this kernel was introduced).
+ */
+template <typename T, int NT>
+__global__ void coarse_dot_kernel(const LatticeComplex<T> *a,
+                                  const LatticeComplex<T> *b, int n,
+                                  LatticeComplex<T> *out) {
+  __shared__ LatticeComplex<T> sdata[NT];
+  int idx = threadIdx.x;
+  LatticeComplex<T> sum(0, 0);
+  for (int i = idx; i < n; i += NT) sum += a[i].conj() * b[i];
+  sdata[idx] = sum;
+  __syncthreads();
+  for (int s = NT / 2; s > 0; s >>= 1) {
+    if (idx < s) sdata[idx] += sdata[idx + s];
+    __syncthreads();
+  }
+  if (idx == 0) out[0] = sdata[0];
+}
+
 // ---- Logging infrastructure ----
 inline void ensure_log_dir() {
   struct stat st;
@@ -120,7 +144,12 @@ template <typename T> struct LatticeCloverMultigrid {
   // ---- Multigrid hierarchy ----
   int num_levels, mg_grid_size[4];
   MgLevelState<T> *levels;
-  void **null_vecs, **hop_packed, **sit_packed;
+  // SCHUR-consistent coarse operators (33-tensor stencil):
+  //   null_vecs[fl]  — odd-lattice null vectors [E_{l+1}, 12, X_l, Y_l, Z_l, T_l/2]
+  //   hop_nn[fl]     — nearest-neighbour hopping [2, 4, E, E, X_c, Y_c, Z_c, T_c]
+  //   hop_diag[fl]   — diagonal hopping [2, 2, 6, E, E, X_c, Y_c, Z_c, T_c]
+  //   sit_packed[fl] — on-site block [E, E, X_c, Y_c, Z_c, T_c]
+  void **null_vecs, **hop_nn, **hop_diag, **sit_packed;
 
   // ---- Solver parameters ----
   int max_iter;
@@ -160,6 +189,10 @@ template <typename T> struct LatticeCloverMultigrid {
   std::vector<T> conv_history;
   double level_times[8];
   double solve_time_ms;
+  // Coarse-iteration cost breakdown (accumulated for profiling)
+  double prof_coarse_dslash_ms = 0;   // wide coarse dslash kernels
+  double prof_coarse_dot_ms = 0;      // coarse dot products
+  double prof_coarse_vec_ms = 0;      // coarse vector kernels
 
   void give(LatticeSet<T> *_s) {
     set_ptr=_s; wilson_dslash.give(_s);
@@ -198,16 +231,24 @@ template <typename T> struct LatticeCloverMultigrid {
   }
 
   /**
-   * @brief Coarse-grid full-site dslash (hopping + sitting).
-   * Operates on full-site (non-parity-split) vectors.
+   * @brief Coarse-grid Schur-consistent dslash (wide 33-tensor stencil).
+   *
+   * Applies A_c = P^T S P for the SCHUR-consistent coarse operator.  The Schur
+   * operator S = D_oo - k^2 H_oe D_ee^{-1} H_eo couples odd sites x to x±2μ
+   * (nearest in the coarse grid) AND x±μ±ν (diagonal), so the Galerkin coarse
+   * operator needs the WIDE stencil (on-site + 8 nearest + 24 diagonal).
+   * Operates on coarse-lattice vectors [E, Xc, Yc, Zc, Tc].
    */
   void coarse_dslash_op(void *out, void *in, int lev) {
     int E=levels[lev].dof, Xc=levels[lev].X, Yc=levels[lev].Y,
         Zc=levels[lev].Z, Ltc=levels[lev].Lt;
     int t=E*Xc*Yc*Zc*Ltc;
     dim3 g((t+_BLOCK_SIZE_-1)/_BLOCK_SIZE_);
-    multigrid_coarse_dslash<T><<<g,_BLOCK_SIZE_,0,set_ptr->stream>>>(
-        out,in,hop_packed[lev-1],sit_packed[lev-1],E,Xc,Yc,Zc,Ltc);
+    auto p0=std::chrono::high_resolution_clock::now();
+    multigrid_coarse_dslash_wide<T><<<g,_BLOCK_SIZE_,0,set_ptr->stream>>>(
+        out,in,sit_packed[lev-1],hop_nn[lev-1],hop_diag[lev-1],E,Xc,Yc,Zc,Ltc);
+    auto p1=std::chrono::high_resolution_clock::now();
+    prof_coarse_dslash_ms += std::chrono::duration<double,std::milli>(p1-p0).count();
   }
 
   // ==================================================================
@@ -380,16 +421,24 @@ template <typename T> struct LatticeCloverMultigrid {
 
   /**
    * @brief Dot product for coarse-level vectors (single GPU, no MPI).
+   *
+   * Uses the single-block reduction kernel coarse_dot_kernel (see above)
+   * instead of cublasDot — profiling showed the cublas launch + memcpy
+   * overhead dominated coarse solves.  Writes device_vals[vals_idx] on-device
+   * and mirrors to host_vals only for the convergence check.
    */
   void dot_coarse(void *a, void *b, int lv, int vals_idx, int si) {
+    auto d0=std::chrono::high_resolution_clock::now();
     LatticeComplex<T> *dv=static_cast<LatticeComplex<T>*>(set_ptr->device_vals);
-    CUBLAS_CHECK(_cublasDot<T>(set_ptr->cublasHs[si],levels[lv].vec_sz,
-        a,1,b,1,&dv[_send_tmp_]));
-    checkCudaErrors(cudaMemcpyAsync(&host_vals[vals_idx],&dv[_send_tmp_],
-        sizeof(LatticeComplex<T>),cudaMemcpyDeviceToHost,set_ptr->streams[si]));
+    coarse_dot_kernel<T, 256><<<1, 256, 0, set_ptr->streams[si]>>>(
+        static_cast<const LatticeComplex<T>*>(a), static_cast<const LatticeComplex<T>*>(b),
+        levels[lv].vec_sz, &dv[vals_idx]);
+    // Mirror to host ONLY for the convergence check (host_vals[_norm2_tmp_]).
+    checkCudaErrors(cudaMemcpyAsync(&host_vals[vals_idx], &dv[vals_idx],
+        sizeof(LatticeComplex<T>), cudaMemcpyDeviceToHost, set_ptr->streams[si]));
     checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[si]));
-    checkCudaErrors(cudaMemcpyAsync(&dv[vals_idx],&host_vals[vals_idx],
-        sizeof(LatticeComplex<T>),cudaMemcpyHostToDevice,set_ptr->streams[si]));
+    auto d1=std::chrono::high_resolution_clock::now();
+    prof_coarse_dot_ms += std::chrono::duration<double,std::milli>(d1-d0).count();
   }
 
   // ---- Vector helpers ----
@@ -422,7 +471,67 @@ template <typename T> struct LatticeCloverMultigrid {
   // FIX: Full stream sync at end of iteration to ensure all device_vals
   // updates are visible before the next iteration reads them.
   // ==================================================================
+  /**
+   * @brief Single-stream, overhead-light BiStabCG iteration for COARSE levels.
+   *
+   * Coarse vectors are tiny (a few thousand complex elements), so the 5-stream
+   * parallel dot architecture used at the fine level is pure overhead: it
+   * performs ~4 cublasDot + 4 memcpy + ~10 stream syncs per iteration, which
+   * dominated the coarse solve (profiling: dots = 416 ms, vector kernels =
+   * ~445 ms of a 2 s solve).  This version:
+   *   - uses a single stream (serialised kernels — tiny anyway),
+   *   - computes every dot with the single-block reduction kernel writing
+   *     directly into device_vals (no cublas, no per-dot memcpy),
+   *   - mirrors the convergence norm to host only ONCE per iteration.
+   * Semantics match the standard BiStabCG exactly (r_tilde, p/v/s/t, scalars).
+   */
+  void bistabcg_iter_coarse(int lev) {
+    auto &st=levels[lev]; cudaStream_t S=set_ptr->stream;
+    LatticeComplex<T> *dv=static_cast<LatticeComplex<T>*>(set_ptr->device_vals);
+    dim3 gv=site_grid(lev), bv=dim3(_BLOCK_SIZE_);
+    const LatticeComplex<T>* rt = static_cast<const LatticeComplex<T>*>(st.r_tilde);
+    const LatticeComplex<T>* r  = static_cast<const LatticeComplex<T>*>(st.r);
+
+    // 1. rho = <r_tilde, r>
+    coarse_dot_kernel<T,256><<<1,256,0,S>>>(rt, r, st.vec_sz, &dv[_rho_]);
+    // 2. beta = (rho/rho_prev)*(alpha/omega);  rho_prev = rho
+    bistabcg_give_1beta<T><<<1,1,0,S>>>(dv);
+    bistabcg_give_1rho_prev<T><<<1,1,0,S>>>(dv);
+    // 3. p = r + beta*(p - omega*v)
+    bistabcg_give_p<T><<<gv,bv,0,S>>>(st.p, st.r, st.v, dv);
+    // 4. v = A_c·p
+    coarse_dslash_op(st.v, st.p, lev);
+    // 5. alpha = rho / <r_tilde, v>
+    coarse_dot_kernel<T,256><<<1,256,0,S>>>(rt, static_cast<const LatticeComplex<T>*>(st.v),
+                                            st.vec_sz, &dv[_tmp0_]);
+    bistabcg_give_1alpha<T><<<1,1,0,S>>>(dv);
+    // 6. s = r - alpha*v
+    bistabcg_give_s<T><<<gv,bv,0,S>>>(st.s, st.r, st.v, dv);
+    // 7. t = A_c·s
+    coarse_dslash_op(st.t, st.s, lev);
+    // 8. omega = <t,s>/<t,t>
+    coarse_dot_kernel<T,256><<<1,256,0,S>>>(static_cast<const LatticeComplex<T>*>(st.t),
+                                            static_cast<const LatticeComplex<T>*>(st.s),
+                                            st.vec_sz, &dv[_tmp0_]);
+    coarse_dot_kernel<T,256><<<1,256,0,S>>>(static_cast<const LatticeComplex<T>*>(st.t),
+                                            static_cast<const LatticeComplex<T>*>(st.t),
+                                            st.vec_sz, &dv[_tmp1_]);
+    bistabcg_give_1omega<T><<<1,1,0,S>>>(dv);
+    // 9. r = s - omega*t;  x = x + alpha*p + omega*s
+    bistabcg_give_r<T><<<gv,bv,0,S>>>(st.r, st.s, st.t, dv);
+    bistabcg_give_x_o<T><<<gv,bv,0,S>>>(st.x, st.p, st.s, dv);
+    // 10. convergence norm ||r||² -> host (once per iteration)
+    coarse_dot_kernel<T,256><<<1,256,0,S>>>(static_cast<const LatticeComplex<T>*>(st.r),
+                                            static_cast<const LatticeComplex<T>*>(st.r),
+                                            st.vec_sz, &dv[_norm2_tmp_]);
+    checkCudaErrors(cudaMemcpyAsync(&host_vals[_norm2_tmp_], &dv[_norm2_tmp_],
+        sizeof(LatticeComplex<T>), cudaMemcpyDeviceToHost, S));
+    checkCudaErrors(cudaStreamSynchronize(S));
+  }
+
   void bistabcg_iter(int lev) {
+    // Coarse levels use the single-stream overhead-light path.
+    if (lev >= 1) { bistabcg_iter_coarse(lev); return; }
     auto &st=levels[lev];
     bool fine=(lev==0); cudaStream_t S=set_ptr->stream;
     // fullsite: level 0 solved on FULL-site vectors (support_parity=False style).
@@ -445,11 +554,14 @@ template <typename T> struct LatticeCloverMultigrid {
     }
 
     // Step 1: ρ = (r_tilde, r)           [stream _a_]
+    auto tp0=std::chrono::high_resolution_clock::now();
     if(fine){
       if(fullsite) dot_full_mpi(st.r_tilde,st.r,_rho_,_a_);
       else         dot_mpi(st.r_tilde,st.r,_rho_,_a_);
     }
     else dot_coarse(st.r_tilde,st.r,lev,_rho_,_a_);
+    auto tp1=std::chrono::high_resolution_clock::now();
+    double dt_dot1=std::chrono::duration<double,std::micro>(tp1-tp0).count();
 
     // Step 2: β=(ρ/ρ_prev)*(α/ω)          [_a_];  ρ_prev←ρ [_b_]
     checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_b_]));
@@ -752,13 +864,19 @@ template <typename T> struct LatticeCloverMultigrid {
       if(levels[i].X<=0)  levels[i].X=levels[i-1].X/2;
       if(levels[i].Y<=0)  levels[i].Y=levels[i-1].Y/2;
       if(levels[i].Z<=0)  levels[i].Z=levels[i-1].Z/2;
-      if(levels[i].Lt<=0) levels[i].Lt=levels[i-1].Lt; // coarse uses full Lt, not halved
+      // SCHUR mode: level 0 Lt is the HALVED (odd-lattice) T = T_full/2;
+      // the coarse level is the coarsened odd-lattice, so Lt is coarsened
+      // again by 2 (T_full/4).  (For the full-site mode this used the same Lt.)
+      if(levels[i].Lt<=0) levels[i].Lt=levels[i-1].Lt/2;
       levels[i].vol=levels[i].X*levels[i].Y*levels[i].Z*levels[i].Lt;
       levels[i].vec_sz=(size_t)levels[i].dof*levels[i].vol;
 
-      // Read per-level max_iter and num_restart from params
+      // Read per-level max_iter from params; num_restart for coarse level i
+      // comes from the NEXT level's restart slot (_MG_LEVEL(i+1)_NUM_RESTART_)
+      // because _MG_LEVEL1_NUM_RESTART_ is used for the FINE level-0 frequency.
       levels[i].max_iter=set_ptr->host_params[oMI+b];
-      levels[i].num_restart=set_ptr->host_params[oNR+b];
+      int nr_slot = oNR + b + _MG_PARAMS_SIZE_;   // next level's restart slot
+      levels[i].num_restart = (nr_slot < _PARAMS_SIZE_) ? set_ptr->host_params[nr_slot] : 0;
       if(levels[i].max_iter<=0) levels[i].max_iter=50;
       if(levels[i].num_restart<=0) levels[i].num_restart=3;
 
@@ -788,8 +906,9 @@ template <typename T> struct LatticeCloverMultigrid {
       // then the effective coarsening in full-site is 2 (parity restore).
       if(levels[0].Lt>0&&levels[1].Lt>0)mg_grid_size[3]=levels[0].Lt/levels[1].Lt;
     }
-    null_vecs=new void*[num_levels]; hop_packed=new void*[num_levels]; sit_packed=new void*[num_levels];
-    for(int i=0;i<num_levels;i++)null_vecs[i]=hop_packed[i]=sit_packed[i]=nullptr;
+    null_vecs=new void*[num_levels]; hop_nn=new void*[num_levels];
+    hop_diag=new void*[num_levels]; sit_packed=new void*[num_levels];
+    for(int i=0;i<num_levels;i++){null_vecs[i]=hop_nn[i]=hop_diag[i]=sit_packed[i]=nullptr;}
 
     if(rank==0){
       std::ostringstream oss;
@@ -813,13 +932,14 @@ template <typename T> struct LatticeCloverMultigrid {
    * @brief Set coarse-grid operators for a given fine level transition.
    *
    * Called from the C API bridge after init() but before run().
-   * @param fl  Fine level index (0 = level 0→1, 1 = level 1→2, etc.)
-   * @param nv  Null vectors for restrict/prolong [E_{l+1}, e_l, X_l, Y_l, Z_l, T_l]
-   * @param hp  Hopping matrices [2, 4, E_{l+1}, E_{l+1}, X_{l+1}, Y_{l+1}, Z_{l+1}, T_{l+1}]
-   * @param sp  Sitting matrices [E_{l+1}, E_{l+1}, X_{l+1}, Y_{l+1}, Z_{l+1}, T_{l+1}]
+   * @param fl   Fine level index (0 = level 0→1, 1 = level 1→2, etc.)
+   * @param nv   Null vectors for restrict/prolong [E_{l+1}, 12, X_l, Y_l, Z_l, T_l/2]
+   * @param hnn  Nearest-neighbour hopping [2, 4, E, E, X_c, Y_c, Z_c, T_c]
+   * @param hdg  Diagonal hopping [2, 2, 6, E, E, X_c, Y_c, Z_c, T_c]
+   * @param sp   On-site block [E, E, X_c, Y_c, Z_c, T_c]
    */
-  void set_coarse_ops(int fl,void*nv,void*hp,void*sp){
-    if(fl>=0&&fl<num_levels-1){null_vecs[fl]=nv;hop_packed[fl]=hp;sit_packed[fl]=sp;}
+  void set_coarse_ops(int fl,void*nv,void*hnn,void*hdg,void*sp){
+    if(fl>=0&&fl<num_levels-1){null_vecs[fl]=nv;hop_nn[fl]=hnn;hop_diag[fl]=hdg;sit_packed[fl]=sp;}
   }
 
   // ==================================================================
@@ -833,94 +953,49 @@ template <typename T> struct LatticeCloverMultigrid {
   // For coarse levels: ns=5 pre + np=3 post smoothing steps.
   // For coarsest level: ns=10 steps (no coarse correction).
   // ==================================================================
+  // ==================================================================
+  // Recursive V-cycle for the SCHUR-consistent multigrid.
+  //
+  // For levels >= 1 (coarse), solve A_lev·x = rhs by BiStabCG converging to
+  // a RELATIVE tolerance (matching pyqcu/solver/_multigrid.py cycle()):
+  //   * coarsest level:   0.1 × ||rhs||
+  //   * inner levels:     0.5 × ||rhs||
+  // with a coarse-grid correction (recursive V-cycle) every num_restart
+  // iterations.  The coarse operator is the 33-tensor Schur Galerkin
+  // A_c = P^T S P (on-site + nearest + diagonal couplings).
+  // ==================================================================
   T v_cycle(int lev) {
-    auto&st=levels[lev]; cudaStream_t S=set_ptr->stream;
+    auto &st=levels[lev]; cudaStream_t S=set_ptr->stream;
     T rn = 0;
-
-    // ---- Save and update _lat_4dim_ for coarse level ----
-    // The BiStabCG kernels (bistabcg_give_p, _s, _x_o, _r, _diff2, etc.) use
-    // device_vals[_lat_4dim_] as the site-count stride.  At the fine level this
-    // is set correctly during LatticeSet::init().  For coarse levels the volume
-    // differs, so we must patch _lat_4dim_ to match the current level.
-    // NOTE: save the CURRENT device_vals value (which may be the full-site
-    // fine volume in level-0 full-site mode), not the host constant.
     LatticeComplex<T>*dv=static_cast<LatticeComplex<T>*>(set_ptr->device_vals);
-    // Save the current fine-level _lat_4dim_ via a proper device→host memcpy
-    // (device_vals is DEVICE memory; host-side dereference would segfault).
+
+    // ---- Save and patch _lat_4dim_ for this level ----
+    // The BiStabCG kernels use device_vals[_lat_4dim_] as the site-count
+    // stride.  For coarse levels the volume differs, so patch it.
     LatticeComplex<T> saved_lat4;
     checkCudaErrors(cudaMemcpy(&saved_lat4, &dv[_lat_4dim_],
         sizeof(LatticeComplex<T>), cudaMemcpyDeviceToHost));
     T saved_lat_4dim = saved_lat4.real();
-    // _lat_4dim_ is the stride the BiStabCG kernels use between DOF blocks.
-    // For a level with vec_sz = E*vol elements and _LAT_SC_=12, the stride
-    // must be vec_sz/_LAT_SC_ so that _LAT_SC_*stride == vec_sz covers the
-    // whole vector (this equals vol only when E == 12).
     LatticeComplex<T> coarse_vol_val((T)(st.vec_sz / _LAT_SC_), 0.0);
     checkCudaErrors(cudaMemcpyAsync(&dv[_lat_4dim_], &coarse_vol_val,
         sizeof(LatticeComplex<T>), cudaMemcpyHostToDevice, S));
     checkCudaErrors(cudaStreamSynchronize(S));
 
-    // ---- Verify RHS is not NaN ----
+    // ---- Init: x=0, r=rhs, r_tilde=r, p=v=s=t=0 ----
+    zero_c(st.x, lev);
+    copy_c(st.r, st.rhs, lev);
+    copy_c(st.r_tilde, st.r, lev);
+    zero_c(st.p, lev); zero_c(st.v, lev); zero_c(st.s, lev); zero_c(st.t, lev);
     {
-      size_t n=st.vec_sz;
-      CUBLAS_CHECK(_cublasDot<T>(set_ptr->cublasHs[_a_],n,st.rhs,1,st.rhs,1,&dv[_send_tmp_]));
-      LatticeComplex<T> ht; checkCudaErrors(cudaMemcpyAsync(&ht,&dv[_send_tmp_],sizeof(LatticeComplex<T>),cudaMemcpyDeviceToHost,set_ptr->streams[_a_]));
-      checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_a_]));
-      T nb2 = ht.real();
-      if (!std::isfinite(nb2)) {
-        if(rank==0) log_write<T>("PYQCU::SOLVER::MULTIGRID::\n FATAL: NaN in coarse RHS at level "+std::to_string(lev),rank,true);
-        LatticeComplex<T> restore_vol2(saved_lat_4dim, 0.0);
-        checkCudaErrors(cudaMemcpyAsync(&dv[_lat_4dim_], &restore_vol2, sizeof(LatticeComplex<T>), cudaMemcpyHostToDevice, S));
-        checkCudaErrors(cudaStreamSynchronize(S));
-        return (T)1e30;
-      }
-      T nb=sqrt(nb2<0?0:nb2);
-      if(rank==0&&verbose){
-        log_write<T>("PYQCU::SOLVER::MULTIGRID::\n "+std::to_string(lev)+":Norm of b:"+std::to_string(nb),rank,true);
-        log_write<T>("PYQCU::SOLVER::MULTIGRID::\n "+std::to_string(lev)+":Norm of r:"+std::to_string(nb),rank,true);
-        log_write<T>("PYQCU::SOLVER::MULTIGRID::\n "+std::to_string(lev)+":Norm of x0:0.000000",rank,true);
-        log_write<T>("PYQCU::SOLVER::MULTIGRID::\n "+std::to_string(lev)+":Starting Iterations",rank,true);
-      }
+      LatticeComplex<T> one(1,0), z(0,0);
+      checkCudaErrors(cudaMemcpyAsync(&dv[_rho_],&z,sizeof(LatticeComplex<T>),cudaMemcpyHostToDevice,S));
+      checkCudaErrors(cudaMemcpyAsync(&dv[_rho_prev_],&one,sizeof(LatticeComplex<T>),cudaMemcpyHostToDevice,S));
+      checkCudaErrors(cudaMemcpyAsync(&dv[_alpha_],&one,sizeof(LatticeComplex<T>),cudaMemcpyHostToDevice,S));
+      checkCudaErrors(cudaMemcpyAsync(&dv[_omega_],&one,sizeof(LatticeComplex<T>),cudaMemcpyHostToDevice,S));
     }
-
-    // One-time TOP sync
-    checkCudaErrors(cudaStreamSynchronize(S));
-    checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_a_]));
-    checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_b_]));
-    checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_c_]));
-    checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_d_]));
-
-    // Init: x=0, r=b, r_tilde=r, p=v=s=t=0
-    zero_c(st.x,lev); copy_c(st.r,st.rhs,lev); copy_c(st.r_tilde,st.r,lev);
-    zero_c(st.p,lev); zero_c(st.v,lev); zero_c(st.s,lev); zero_c(st.t,lev);
     checkCudaErrors(cudaStreamSynchronize(S));
 
-    // Set device_vals to initial BiStabCG scalars
-    dv=static_cast<LatticeComplex<T>*>(set_ptr->device_vals);
-    LatticeComplex<T> one(1,0),z(0,0);
-    checkCudaErrors(cudaMemcpyAsync(&dv[_rho_],&z,sizeof(LatticeComplex<T>),cudaMemcpyHostToDevice,S));
-    checkCudaErrors(cudaMemcpyAsync(&dv[_rho_prev_],&one,sizeof(LatticeComplex<T>),cudaMemcpyHostToDevice,S));
-    checkCudaErrors(cudaMemcpyAsync(&dv[_alpha_],&one,sizeof(LatticeComplex<T>),cudaMemcpyHostToDevice,S));
-    checkCudaErrors(cudaMemcpyAsync(&dv[_omega_],&one,sizeof(LatticeComplex<T>),cudaMemcpyHostToDevice,S));
-    checkCudaErrors(cudaStreamSynchronize(S));
-
-    // Smoothing strategy:
-    //   * COARSEST level (lev == num_levels-1): solve to a relative tolerance
-    //     (0.1 × initial residual) so the coarse correction is accurate enough
-    //     to actually reduce the fine residual.  This matches the Python
-    //     reference (_multigrid.py sets _tol = r_norm*0.1 at the coarsest level).
-    //   * Inner levels: fixed pre/post smoothing (V-cycle pattern); the
-    //     even-coarser correction handles the low modes.
-    bool is_coarsest = (lev == num_levels-1);
-    // Pre-smoothing: inner levels use the V-cycle pattern.  The coarsest level
-    // skips pre-smoothing (the post-smoothing loop iterates to the relative
-    // tolerance directly) so it never wastes iterations on an already-converged
-    // residual, which would risk a BiStabCG breakdown at ~machine precision.
-    int ns = is_coarsest ? 0 : 5;
-    int np = is_coarsest ? 0 : 3;
-    int cap = is_coarsest ? 100 : (ns + np);
-    int idx = 0;
-    // Initial residual: r = rhs (x was zeroed), so ||r|| = ||rhs||.
+    // Initial residual norm ||rhs|| (x was zeroed)
     T r0 = 0; LatticeComplex<T> hc0;
     CUBLAS_CHECK(_cublasDot<T>(set_ptr->cublasHs[_a_],(int)st.vec_sz,
         st.rhs,1,st.rhs,1,&dv[_send_tmp_]));
@@ -929,111 +1004,102 @@ template <typename T> struct LatticeCloverMultigrid {
     MPI_Barrier(MPI_COMM_WORLD);checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_a_]));
     T g0=hc0.real();MPI_Allreduce(MPI_IN_PLACE,&g0,1,mpi_real_type<T>(),MPI_SUM,MPI_COMM_WORLD);
     MPI_Barrier(MPI_COMM_WORLD); r0 = sqrt(g0<0?0:g0);
-    T target = is_coarsest ? (T)0.1 * r0 : (T)0;
 
-    // ---- Pre-smoothing ----
-    for (int i = 0; i < ns; i++) {
-      auto t0=std::chrono::high_resolution_clock::now();
-      bistabcg_iter(lev);
-      auto t1=std::chrono::high_resolution_clock::now();
-      double sec=std::chrono::duration<double>(t1-t0).count();
-      rn = sqrt(host_vals[_norm2_tmp_].real());
-      idx++;
-      if(rank==0&&verbose){
-        std::ostringstream bm,fm;
-        bm<<"PYQCU::SOLVER::MULTIGRID::\n B-"<<lev<<"-bistabcg-Iteration "<<i
-          <<": Residual = "<<std::scientific<<rn;
-        log_write<T>(bm.str(),rank,true);
-        fm<<"PYQCU::SOLVER::MULTIGRID::\n F-"<<lev<<"-bistabcg-Iteration "<<i
-          <<": Residual = "<<std::scientific<<rn<<", Time = "<<std::fixed<<std::setprecision(6)<<sec<<" s";
-        log_write<T>(fm.str(),rank,true);
-      }
+    if(rank==0&&verbose){
+      log_write<T>("PYQCU::SOLVER::MULTIGRID::\n "+std::to_string(lev)+":Norm of b:"+std::to_string(r0),rank,true);
+      log_write<T>("PYQCU::SOLVER::MULTIGRID::\n "+std::to_string(lev)+":Norm of r:"+std::to_string(r0),rank,true);
+      log_write<T>("PYQCU::SOLVER::MULTIGRID::\n "+std::to_string(lev)+":Norm of x0:0.000000",rank,true);
+      log_write<T>("PYQCU::SOLVER::MULTIGRID::\n "+std::to_string(lev)+":Starting Iterations",rank,true);
     }
 
-    // ---- Coarse-grid correction (skip at coarsest level) ----
-    if (lev < num_levels-1) {
-      checkCudaErrors(cudaStreamSynchronize(S));
-
-      // Compute residual: r = rhs - D_c * x
-      coarse_dslash_op(set_ptr->device_vec0, st.x, lev);
-      checkCudaErrors(cudaStreamSynchronize(S));
-      dim3 gc_site=site_grid(lev);
-      give_copy_vals<T><<<gc_site,_BLOCK_SIZE_,0,S>>>(set_ptr->device_vec2, st.rhs);
-      bistabcg_give_diff2<T><<<gc_site,_BLOCK_SIZE_,0,S>>>(set_ptr->device_vec2,set_ptr->device_vec0,st.r,set_ptr->device_vals);
-      checkCudaErrors(cudaStreamSynchronize(S));
-
-      // Restrict → coarse solve → prolong
-      restrict_op(levels[lev+1].rhs, st.r, lev);
-      zero_c(levels[lev+1].x, lev+1);
-      checkCudaErrors(cudaStreamSynchronize(S));
-
-      v_cycle(lev+1);
-
-      prolong_op(set_ptr->device_vec0, levels[lev+1].x, lev);
-      checkCudaErrors(cudaStreamSynchronize(S));
-
-      // Add correction to x (for coarse levels, data is full-site, no parity
-      // extraction needed — prolong already maps coarse full-site → fine full-site)
-      LatticeComplex<T> oc(1,0);
-      CUBLAS_CHECK(_cublasAxpy<T>(set_ptr->cublasH, (int)st.vec_sz, &oc,
-          set_ptr->device_vec0, 1, st.x, 1));
-      checkCudaErrors(cudaStreamSynchronize(S));
-
-      // Recompute residual after correction
-      coarse_dslash_op(set_ptr->device_vec0, st.x, lev);
-      checkCudaErrors(cudaStreamSynchronize(S));
-      give_copy_vals<T><<<gc_site,_BLOCK_SIZE_,0,S>>>(set_ptr->device_vec2, st.rhs);
-      bistabcg_give_diff2<T><<<gc_site,_BLOCK_SIZE_,0,S>>>(set_ptr->device_vec2,set_ptr->device_vec0,st.r,set_ptr->device_vals);
-      checkCudaErrors(cudaStreamSynchronize(S));
-
-      // Reset shadow vector and BiStabCG state
-      copy_c(st.r_tilde, st.r, lev);
-      reset_bistabcg_state(lev);
-
-      checkCudaErrors(cudaStreamSynchronize(S));
-    }
-
-    // ---- Post-smoothing ----
-    // COARSEST level: iterate only while rn > target (relative tolerance);
-    // there is NO minimum iteration count — once the residual is small enough
-    // we stop immediately (extra iterations near machine precision trigger
-    // BiStabCG breakdowns, i.e. division by a ~0 rho/rtv/tts → NaN).
-    // Inner levels: np fixed post-smoothing steps.
-    for (int j = 0; is_coarsest ? (rn > target && idx < cap) : (j < np); j++) {
-      auto t0=std::chrono::high_resolution_clock::now();
-      bistabcg_iter(lev);
-      auto t1=std::chrono::high_resolution_clock::now();
-      double sec=std::chrono::duration<double>(t1-t0).count();
-      T rn_new = sqrt(host_vals[_norm2_tmp_].real());
-      // Breakdown guard: if the residual is NaN or exploded, stop iterating.
-      if(!std::isfinite(rn_new) || rn_new > (T)1e8 * rn) { rn = rn_new; idx++; break; }
-      rn = rn_new;
-      idx++;
-      if(rank==0&&verbose){
-        std::ostringstream bm,fm;
-        bm<<"PYQCU::SOLVER::MULTIGRID::\n B-"<<lev<<"-bistabcg-Iteration "<<idx
-          <<": Residual = "<<std::scientific<<rn;
-        log_write<T>(bm.str(),rank,true);
-        fm<<"PYQCU::SOLVER::MULTIGRID::\n F-"<<lev<<"-bistabcg-Iteration "<<idx
-          <<": Residual = "<<std::scientific<<rn<<", Time = "<<std::fixed<<std::setprecision(6)<<sec<<" s";
-        log_write<T>(fm.str(),rank,true);
-      }
-    }
-
-    // Report convergence
-    if(rank==0&&verbose)
-      log_write<T>("PYQCU::SOLVER::MULTIGRID::\n "+std::to_string(lev)+
-        ": Converged at iteration "+
-        std::to_string(idx)+" with residual "+std::to_string(rn),rank,true);
-
-    // Final sync
+    // ---- ONE-TIME TOP sync ----
     checkCudaErrors(cudaStreamSynchronize(S));
     checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_a_]));
     checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_b_]));
     checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_c_]));
     checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_d_]));
 
-    // ---- Restore _lat_4dim_ to fine-level value ----
+    // Coarse-level convergence target: RELATIVE tolerance read from argv
+    // (levels[lev].tol).  The concept experiments showed the V-cycle correction
+    // needs a TIGHT coarse solve (~1e-3 relative) to be effective — the loose
+    // 0.1·r0 default disrupts the fine BiStabCG Krylov space without reducing
+    // the low-frequency error.
+    bool is_coarsest = (lev == num_levels-1);
+    T tol_factor = levels[lev].tol;
+    if (tol_factor <= 0) tol_factor = is_coarsest ? (T)1e-3 : (T)1e-2;
+    T target = tol_factor * r0;
+    int count_restart = 0;
+    int idx = 0;
+    LatticeComplex<T> one(1,0);
+    // rn tracks the PREVIOUS iteration's residual for the breakdown guard.
+    // BUGFIX 2026-08-02: initialise it to r0 — starting from 0 made the very
+    // first iteration's guard (rn_new > 1e8·0) fire immediately, so the coarse
+    // solve "converged" at iteration 1 without doing any work (e_coarse = 0),
+    // making every V-cycle correction a no-op that only reset the Krylov space.
+    rn = r0;
+
+    for (int i=0; i<st.max_iter; i++) {
+      auto ci0=std::chrono::high_resolution_clock::now();
+      bistabcg_iter(lev);
+      auto ci1=std::chrono::high_resolution_clock::now();
+      double csec=std::chrono::duration<double>(ci1-ci0).count();
+      idx++;
+      T rn_new = sqrt(host_vals[_norm2_tmp_].real());
+      // Breakdown guard: if residual is NaN or exploded, stop.
+      if(!std::isfinite(rn_new) || rn_new > (T)1e8 * rn) { rn = rn_new; break; }
+      rn = rn_new;
+      if(rank==0&&verbose){
+        std::ostringstream bm,fm;
+        bm<<"PYQCU::SOLVER::MULTIGRID::\n B-"<<lev<<"-bistabcg-Iteration "<<i
+          <<": Residual = "<<std::scientific<<rn;
+        log_write<T>(bm.str(),rank,true);
+        fm<<"PYQCU::SOLVER::MULTIGRID::\n F-"<<lev<<"-bistabcg-Iteration "<<i
+          <<": Residual = "<<std::scientific<<rn<<", Time = "<<std::fixed<<std::setprecision(6)<<csec<<" s";
+        log_write<T>(fm.str(),rank,true);
+      }
+      if (rn < target) break;
+      count_restart++;
+      if (!is_coarsest && count_restart >= st.num_restart) {
+        // ---- Coarse-grid correction to the next level ----
+        restrict_op(levels[lev+1].rhs, st.r, lev);
+        zero_c(levels[lev+1].x, lev+1);
+        checkCudaErrors(cudaStreamSynchronize(S));
+
+        v_cycle(lev+1);
+
+        prolong_op(set_ptr->device_vec1, levels[lev+1].x, lev);
+        checkCudaErrors(cudaStreamSynchronize(S));
+
+        // x += P·e
+        CUBLAS_CHECK(_cublasAxpy<T>(set_ptr->cublasH, (int)st.vec_sz, &one,
+            set_ptr->device_vec1, 1, st.x, 1));
+        checkCudaErrors(cudaStreamSynchronize(S));
+
+        // r = rhs - A_lev·x
+        coarse_dslash_op(set_ptr->device_vec0, st.x, lev);
+        checkCudaErrors(cudaStreamSynchronize(S));
+        bistabcg_give_diff2<T><<<site_grid(lev),_BLOCK_SIZE_,0,S>>>(
+            st.rhs, set_ptr->device_vec0, st.r, dv);
+        checkCudaErrors(cudaStreamSynchronize(S));
+
+        // Reset BiStabCG state
+        copy_c(st.r_tilde, st.r, lev);
+        reset_bistabcg_state(lev);
+        count_restart = 0;
+
+        checkCudaErrors(cudaStreamSynchronize(S));
+        checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_a_]));
+        checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_b_]));
+        checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_c_]));
+        checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_d_]));
+      }
+    }
+
+    if(rank==0&&verbose)
+      log_write<T>("PYQCU::SOLVER::MULTIGRID::\n "+std::to_string(lev)+
+        ": Converged at iteration "+std::to_string(idx)+" with residual "+std::to_string(rn),rank,true);
+
+    // ---- Restore _lat_4dim_ ----
     LatticeComplex<T> restore_vol(saved_lat_4dim, 0.0);
     checkCudaErrors(cudaMemcpyAsync(&dv[_lat_4dim_], &restore_vol,
         sizeof(LatticeComplex<T>), cudaMemcpyHostToDevice, S));
@@ -1101,15 +1167,17 @@ template <typename T> struct LatticeCloverMultigrid {
 
     checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
 
-    // Wire level 0 state to FULL-SITE working vectors (is_fullsite=true).
-    levels[0].x=full_x;levels[0].rhs=full_rhs;levels[0].r=full_r;levels[0].r_tilde=full_rt;
-    levels[0].p=full_p;levels[0].v=full_v;levels[0].s=full_s;levels[0].t=full_t;
+    // Wire level 0 to the ODD-site (Schur) working vectors — this matches
+    // pyqcu/solver/_multigrid.py with support_parity=True and is consistent
+    // with applyCloverBistabCgDslashQcu (the parity-preconditioned Clover dslash
+    // S·v = D_oo·v - k^2·H_oe·D_ee^{-1}·H_eo·v).
+    // x_o is the odd part of the output buffer (fermion_out_eo + lat_4dim_SC).
+    levels[0].x=x_o; levels[0].rhs=b__o; levels[0].r=r0; levels[0].r_tilde=rt0;
+    levels[0].p=p0; levels[0].v=v0; levels[0].s=s0; levels[0].t=t0;
     levels[0].owned=false;
-    levels[0].is_fullsite=true;
-    // Level 0 Lt is HALVED in parse_params (parity).  For the full-site solve,
-    // the effective volume is 2*levels[0].vol; the BiStabCG kernels use
-    // device_vals[_lat_4dim_] which run() patches to this full volume.
-    // Coarse levels stay full-site (is_fullsite=false default).
+    levels[0].is_fullsite=false;
+    // Level 0 Lt is HALVED in parse_params (parity odd-lattice T/2).
+    // Coarse levels are the coarsened odd-lattice (is_fullsite=false).
 
     if(rank==0){
       std::ostringstream oss;
@@ -1133,38 +1201,56 @@ template <typename T> struct LatticeCloverMultigrid {
   //     b_eo is first combined into a full-site RHS, and the final full-site
   //     solution is split back into parity-split output.
   // ==================================================================
+  // ==================================================================
+  // Main solve — SCHUR (parity-preconditioned) level-0 BiStabCG with
+  // recursive V-cycle coarse corrections.
+  //
+  // Solves  S·x_o = b__o  where  S = D_oo - k^2·H_oe·D_ee^{-1}·H_eo
+  // and     b__o = b_o + k·H_oe·D_ee^{-1}·b_e.
+  // The level-0 dslash (fine_dslash_op) is exactly applyCloverBistabCgDslashQcu,
+  // so the solver is consistent with the Clover BiStabCG reference.
+  //
+  // The coarse space is built from the Schur operator's own null vectors
+  // (capturing S's low modes, which differ from the full operator D's low
+  // modes — this is why the previous full-D-based coarse space was ineffective).
+  // V-cycle: restrict the SCHUR residual directly, solve the coarse operator
+  // A_c = P^T S P (33-tensor stencil), prolong, add to x_o, recompute the
+  // Schur residual, and reset the BiStabCG state.
+  // ==================================================================
   void run() {
     auto t0=std::chrono::high_resolution_clock::now();
-    auto&st=levels[0]; cudaStream_t S=set_ptr->stream;
-    int full_vol = 2 * st.vol;                        // full-site volume X·Y·Z·T
-    size_t full_n = (size_t)_LAT_SC_ * full_vol;      // total complex elements
-    size_t full_bytes = full_n * sizeof(LatticeComplex<T>);
+    auto &st=levels[0]; cudaStream_t S=set_ptr->stream;
     LatticeComplex<T>*dv=static_cast<LatticeComplex<T>*>(set_ptr->device_vals);
 
-    // Patch _lat_4dim_ to the full-site fine volume.  All BiStabCG kernels
-    // (bistabcg_give_p/_s/_x_o/_r/_diff2 and give_copy_vals) use this as the
-    // site-count stride; for the full-site level-0 vectors it must equal
-    // 2*levels[0].vol.  v_cycle() saves/restores it around coarse solves.
-    LatticeComplex<T> full_vol_val((T)full_vol, 0.0);
-    checkCudaErrors(cudaMemcpyAsync(&dv[_lat_4dim_], &full_vol_val,
-        sizeof(LatticeComplex<T>), cudaMemcpyHostToDevice, S));
-    checkCudaErrors(cudaStreamSynchronize(S));
-    dim3 gf=dim3((full_vol+_BLOCK_SIZE_-1)/_BLOCK_SIZE_), bf=dim3(_BLOCK_SIZE_);
-
-    // ---- Reconstruct full-site RHS from parity-split input b_eo ----
-    // b_eo = [2, sc, X, Y, Z, T/2]; even channel at offset 0, odd at lat_4dim_SC.
-    parity_to_full(full_rhs, fermion_in_eo);
+    // 1. Build the Schur RHS: b__o = b_o + k·H_oe·D_ee^{-1}·b_e
+    setup_b__o();
     checkCudaErrors(cudaStreamSynchronize(S));
 
-    // ---- Log initial state ----
+    // 2. Initialise BiStabCG state on the ODD vectors (x=0, r=b__o, ...)
+    checkCudaErrors(cudaMemsetAsync(st.x, 0, st.vec_sz*sizeof(LatticeComplex<T>), S));
+    copy_c(st.r, st.rhs, 0);
+    copy_c(st.r_tilde, st.r, 0);
+    zero_c(st.p, 0); zero_c(st.v, 0); zero_c(st.s, 0); zero_c(st.t, 0);
+    {
+      LatticeComplex<T> one(1,0), z(0,0);
+      checkCudaErrors(cudaMemcpyAsync(&dv[_rho_],&z,sizeof(LatticeComplex<T>),cudaMemcpyHostToDevice,S));
+      checkCudaErrors(cudaMemcpyAsync(&dv[_rho_prev_],&one,sizeof(LatticeComplex<T>),cudaMemcpyHostToDevice,S));
+      checkCudaErrors(cudaMemcpyAsync(&dv[_alpha_],&one,sizeof(LatticeComplex<T>),cudaMemcpyHostToDevice,S));
+      checkCudaErrors(cudaMemcpyAsync(&dv[_omega_],&one,sizeof(LatticeComplex<T>),cudaMemcpyHostToDevice,S));
+    }
+    checkCudaErrors(cudaStreamSynchronize(S));
+
+    // 3. Log the initial Schur residual norm ||b__o||
     if(rank==0){
-      CUBLAS_CHECK(_cublasDot<T>(set_ptr->cublasHs[_a_],(int)full_n,
-          full_rhs,1,full_rhs,1,&dv[_send_tmp_]));
-      LatticeComplex<T> ht; checkCudaErrors(cudaMemcpyAsync(&ht,&dv[_send_tmp_],
-          sizeof(LatticeComplex<T>),cudaMemcpyDeviceToHost,set_ptr->streams[_a_]));
-      MPI_Barrier(MPI_COMM_WORLD);checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_a_]));
-      T g=ht.real();MPI_Allreduce(MPI_IN_PLACE,&g,1,mpi_real_type<T>(),MPI_SUM,MPI_COMM_WORLD);
-      MPI_Barrier(MPI_COMM_WORLD); T nb=sqrt(g);
+      LatticeComplex<T> ht;
+      CUBLAS_CHECK(_cublasDot<T>(set_ptr->cublasHs[_a_], set_ptr->lat_4dim_SC,
+          st.rhs,1,st.rhs,1, &dv[_send_tmp_]));
+      checkCudaErrors(cudaMemcpyAsync(&ht,&dv[_send_tmp_],sizeof(LatticeComplex<T>),
+          cudaMemcpyDeviceToHost,set_ptr->streams[_a_]));
+      MPI_Barrier(MPI_COMM_WORLD); checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_a_]));
+      T g=ht.real(); MPI_Allreduce(MPI_IN_PLACE,&g,1,mpi_real_type<T>(),MPI_SUM,MPI_COMM_WORLD);
+      MPI_Barrier(MPI_COMM_WORLD);
+      T nb=sqrt(g<0?0:g);
       log_write<T>("PYQCU::SOLVER::MULTIGRID::\n 0:Norm of b:"+std::to_string(nb),rank,true);
       log_write<T>("PYQCU::SOLVER::MULTIGRID::\n 0:Norm of r:"+std::to_string(nb),rank,true);
       log_write<T>("PYQCU::SOLVER::MULTIGRID::\n 0:Norm of x0:0.000000",rank,true);
@@ -1178,38 +1264,19 @@ template <typename T> struct LatticeCloverMultigrid {
     checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_c_]));
     checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_d_]));
 
-    // ---- Init state: x=0, r=b, r_tilde=r, p=v=s=t=0 ----
-    checkCudaErrors(cudaMemsetAsync(full_x, 0, full_bytes, S));
-    checkCudaErrors(cudaStreamSynchronize(S));
-    give_copy_vals<T><<<gf,bf,0,S>>>(st.r, st.rhs);          // r = b
-    give_copy_vals<T><<<gf,bf,0,S>>>(st.r_tilde, st.r);      // r_tilde = r
-    checkCudaErrors(cudaMemsetAsync(full_p, 0, full_bytes, S));
-    checkCudaErrors(cudaMemsetAsync(full_v, 0, full_bytes, S));
-    checkCudaErrors(cudaMemsetAsync(full_s, 0, full_bytes, S));
-    checkCudaErrors(cudaMemsetAsync(full_t, 0, full_bytes, S));
-    checkCudaErrors(cudaStreamSynchronize(S));
-
-    // Set initial BiStabCG scalars
-    LatticeComplex<T> one(1,0), z(0,0);
-    checkCudaErrors(cudaMemcpyAsync(&dv[_rho_],&z,sizeof(LatticeComplex<T>),cudaMemcpyHostToDevice,S));
-    checkCudaErrors(cudaMemcpyAsync(&dv[_rho_prev_],&one,sizeof(LatticeComplex<T>),cudaMemcpyHostToDevice,S));
-    checkCudaErrors(cudaMemcpyAsync(&dv[_alpha_],&one,sizeof(LatticeComplex<T>),cudaMemcpyHostToDevice,S));
-    checkCudaErrors(cudaMemcpyAsync(&dv[_omega_],&one,sizeof(LatticeComplex<T>),cudaMemcpyHostToDevice,S));
-    checkCudaErrors(cudaStreamSynchronize(S));
-
-    // ---- Main BiStabCG loop ----
+    // 4. Main BiStabCG loop (level-0 Schur)
     T atol2=atol*atol;
     int total=0; double tti=0;
-    int count_restart = 0;
+    int count_restart=0;
+    LatticeComplex<T> one(1,0);
 
-    for(int it=0;it<max_iter;it++){
+    for(int it=0; it<max_iter; it++){
       auto ti0=std::chrono::high_resolution_clock::now();
-      bistabcg_iter(0);   // dispatches to full-site dslash + full dots
+      bistabcg_iter(0);
       auto ti1=std::chrono::high_resolution_clock::now();
-      double sec=std::chrono::duration<double>(ti1-ti0).count();tti+=sec;total++;
+      double sec=std::chrono::duration<double>(ti1-ti0).count(); tti+=sec; total++;
       count_restart++;
 
-      // Convergence check from host_vals[_norm2_tmp_] (lagged by ~1 iter)
       T rn2=host_vals[_norm2_tmp_].real();
       T rn=sqrt(rn2<0?0:rn2);
       conv_history.push_back(rn);
@@ -1225,24 +1292,20 @@ template <typename T> struct LatticeCloverMultigrid {
       }
 
       // Divergence safeguard — BiStabCG can break down (rho≈0) on the
-      // ill-conditioned full operator; restart from the CURRENT x instead of
-      // discarding it.  Recompute r = b - D·x and reset the Krylov state.
+      // ill-conditioned Schur operator; restart from the CURRENT x_o.
       if(!std::isfinite(rn)||rn>(T)1e10){
         if(rank==0&&verbose)log_write<T>("PYQCU::SOLVER::MULTIGRID::\n Restart at "+std::to_string(it),rank,true);
+        fine_dslash_op(set_ptr->device_vec0, x_o);          // S·x_o
         checkCudaErrors(cudaStreamSynchronize(S));
-        fine_full_dslash_op(corr_scratch, full_x);           // corr_scratch = D·x
-        checkCudaErrors(cudaStreamSynchronize(S));
-        give_copy_vals<T><<<gf,bf,0,S>>>(parity_tmp, full_rhs);
-        bistabcg_give_diff2<T><<<gf,bf,0,S>>>(
-            parity_tmp, corr_scratch, st.r, set_ptr->device_vals);  // st.r = b - D·x
-        checkCudaErrors(cudaStreamSynchronize(S));
-        give_copy_vals<T><<<gf,bf,0,S>>>(st.r_tilde, st.r);
-        reset_bistabcg_state_full();
-        count_restart = 0;
+        bistabcg_give_diff2<T><<<set_ptr->gridDim,set_ptr->blockDim,0,S>>>(
+            st.rhs, set_ptr->device_vec0, st.r, dv);        // st.r = b__o - S·x_o
+        copy_c(st.r_tilde, st.r, 0);
+        reset_bistabcg_state_l0();
+        count_restart=0;
         continue;
       }
 
-      // Convergence check
+      // Convergence check (Schur residual)
       if(rn2<atol2){
         if(rank==0&&verbose)
           log_write<T>("PYQCU::SOLVER::MULTIGRID::\n Converged at iteration "+
@@ -1250,106 +1313,40 @@ template <typename T> struct LatticeCloverMultigrid {
         break;
       }
 
-      // ---- V-cycle correction ----
-      // The current residual st.r is the FULL residual (we solve the full
-      // operator), so it can be restricted directly — no parity reconstruction.
-      // V-cycles are attempted only while the residual is above a small floor:
-      // once the error is small the coarse space cannot represent it (the
-      // corrections are rejected by the guard anyway), and BiStabCG finishes
-      // the last factor on its own — this avoids the low-residual stall.
-      if(num_levels>1 && num_restart>0 && count_restart >= num_restart && rn > (T)1e-3){
+      // ---- V-cycle coarse correction ----
+      if(num_levels>1 && num_restart>0 && count_restart>=num_restart){
         if(rank==0&&verbose)
-          log_write<T>("PYQCU::SOLVER::MULTIGRID::\n V-cycle correction at iteration "+std::to_string(it)+" (rn="+std::to_string(rn)+")",rank,true);
+          log_write<T>("PYQCU::SOLVER::MULTIGRID::\n V-cycle correction at iteration "+std::to_string(it),rank,true);
 
-        // Temporarily expose level-0 as full-site for restrict/prolong
-        int orig_Lt_0 = levels[0].Lt;
-        size_t orig_vec_sz_0 = levels[0].vec_sz;
-        int orig_vol_0 = levels[0].vol;
-        levels[0].Lt = Lt_full;
-        levels[0].vol = full_vol;
-        levels[0].vec_sz = full_n;
-
-        // Step 1: restrict the full-site residual → coarse RHS
+        // 1. Restrict the SCHUR residual (odd-site) -> coarse RHS
         restrict_op(levels[1].rhs, st.r, 0);
         zero_c(levels[1].x, 1);
         checkCudaErrors(cudaStreamSynchronize(S));
 
-        // Step 2: solve on coarse grid (recursive V-cycle)
+        // 2. Solve the coarse problem A_c·e_c = P^T·r (recursive V-cycle)
         v_cycle(1);
 
-        // Step 3: prolong coarse solution → full-site correction (into r_full)
-        prolong_op(r_full, levels[1].x, 0);
+        // 3. Prolong the coarse correction -> odd-site e_fine
+        prolong_op(e_odd_buf, levels[1].x, 0);
         checkCudaErrors(cudaStreamSynchronize(S));
 
-        // Restore level-0 dims
-        levels[0].Lt = orig_Lt_0;
-        levels[0].vol = orig_vol_0;
-        levels[0].vec_sz = orig_vec_sz_0;
-
-        // Step 4: GUARDED correction.
-        //   r_full holds e_fine = P·e_coarse (the correction).
-        //   Compute r_after = ||b - D·(x + e_fine)|| WITHOUT touching x, then
-        //   keep the correction only if it REDUCES the residual.  This
-        //   guarantees the V-cycle never makes the solve worse (the coarse
-        //   space may not represent small-scale error well, in which case the
-        //   correction is discarded and plain BiStabCG smoothing continues).
-        T rn_before = rn;
-
-        // D·e_fine into corr_scratch
-        fine_full_dslash_op(corr_scratch, r_full);
-        checkCudaErrors(cudaStreamSynchronize(S));
-        // Save current residual r (st.r) into parity_tmp, then
-        // st.r = r - D·e_fine  (the residual that would result).
-        give_copy_vals<T><<<gf,bf,0,S>>>(parity_tmp, st.r);
-        bistabcg_give_diff2<T><<<gf,bf,0,S>>>(
-            parity_tmp, corr_scratch, st.r, set_ptr->device_vals);
+        // 4. x_o += e_fine
+        CUBLAS_CHECK(_cublasAxpy<T>(set_ptr->cublasH, set_ptr->lat_4dim_SC, &one,
+            e_odd_buf, 1, x_o, 1));
         checkCudaErrors(cudaStreamSynchronize(S));
 
-        // ||r - D·e_fine||
-        LatticeComplex<T> ht;
-        CUBLAS_CHECK(_cublasDot<T>(set_ptr->cublasHs[_a_],(int)full_n,
-            st.r,1,st.r,1,&dv[_send_tmp_]));
-        checkCudaErrors(cudaMemcpyAsync(&ht,&dv[_send_tmp_],sizeof(LatticeComplex<T>),
-            cudaMemcpyDeviceToHost,set_ptr->streams[_a_]));
-        MPI_Barrier(MPI_COMM_WORLD);checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_a_]));
-        T gr_after=ht.real();MPI_Allreduce(MPI_IN_PLACE,&gr_after,1,
-            mpi_real_type<T>(),MPI_SUM,MPI_COMM_WORLD);
-        MPI_Barrier(MPI_COMM_WORLD);
-        T corr_rn=sqrt(gr_after<0?0:gr_after);
-        conv_history.push_back(corr_rn);
+        // 5. Recompute the Schur residual: st.r = b__o - S·x_o
+        fine_dslash_op(set_ptr->device_vec0, x_o);
+        checkCudaErrors(cudaStreamSynchronize(S));
+        bistabcg_give_diff2<T><<<set_ptr->gridDim,set_ptr->blockDim,0,S>>>(
+            st.rhs, set_ptr->device_vec0, st.r, dv);
+        checkCudaErrors(cudaStreamSynchronize(S));
 
-        bool keep = (corr_rn < rn_before);
-        if (keep) {
-          // Accept: x += e_fine; st.r already holds the new residual.
-          LatticeComplex<T> oc(1,0);
-          CUBLAS_CHECK(_cublasAxpy<T>(set_ptr->cublasH,(int)full_n,
-              &oc,r_full,1,full_x,1));
-          checkCudaErrors(cudaStreamSynchronize(S));
-        } else {
-          // Reject: restore st.r to the pre-correction residual.
-          give_copy_vals<T><<<gf,bf,0,S>>>(st.r, parity_tmp);
-          checkCudaErrors(cudaStreamSynchronize(S));
-        }
+        // 6. Reset the BiStabCG state (r_tilde=r, p=v=s=t=0, scalars)
+        copy_c(st.r_tilde, st.r, 0);
+        reset_bistabcg_state_l0();
+        count_restart=0;
 
-        // Step 7: log correction effectiveness
-        if (rank==0&&verbose) {
-          std::ostringstream oss;
-          oss<<"PYQCU::SOLVER::MULTIGRID::\n V-cyc corr at "<<it
-             <<": before="<<std::scientific<<rn_before<<" after="<<corr_rn
-             <<" "<<(keep?"KEEP":"REJECT");
-          log_write<T>(oss.str(),rank,true);
-        }
-
-        // Step 8: reset BiStabCG state after a KEPT correction (the solution
-        // changed, so the Krylov space is stale).  A rejected correction leaves
-        // the solution unchanged — let BiStabCG continue without a restart.
-        if (keep) {
-          give_copy_vals<T><<<gf,bf,0,S>>>(st.r_tilde, st.r);
-          reset_bistabcg_state_full();
-        }
-        count_restart = 0;
-
-        // Full sync after state reset
         checkCudaErrors(cudaStreamSynchronize(S));
         checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_a_]));
         checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_b_]));
@@ -1365,10 +1362,11 @@ template <typename T> struct LatticeCloverMultigrid {
     checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_c_]));
     checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_d_]));
 
-    // Convert the full-site solution back to parity-split output layout.
-    // fermion_out_eo is [2, sc, X, Y, Z, T/2]: even at offset 0, odd at
-    // lat_4dim_SC.  This matches the applyCloverBistabCgQcu output layout.
-    full_to_parity(fermion_out_eo, full_x);
+    // 5. Recover the even part of the solution and write the parity-split output.
+    //    recover_x_e() writes x_e = D_ee^{-1}(b_e + k·H_eo·x_o) to the EVEN part
+    //    of fermion_out_eo; x_o is already in the ODD part.  This matches the
+    //    applyCloverBistabCgQcu output layout exactly.
+    recover_x_e();
     checkCudaErrors(cudaStreamSynchronize(S));
 
     auto t1=std::chrono::high_resolution_clock::now();
@@ -1389,6 +1387,10 @@ template <typename T> struct LatticeCloverMultigrid {
       std::ostringstream ch;ch<<"CONVERGENCE_HISTORY: [";
       for(size_t j=0;j<conv_history.size();j++){if(j>0)ch<<",";ch<<std::scientific<<conv_history[j];}
       ch<<"]";log_write<T>(ch.str(),rank,false);
+      std::ostringstream prof;
+      prof<<"PROF_COARSE: dslash="<<std::fixed<<std::setprecision(1)<<prof_coarse_dslash_ms
+          <<"ms dot="<<prof_coarse_dot_ms<<"ms";
+      log_write<T>(prof.str(),rank,false);
     }
   }
 
@@ -1461,7 +1463,8 @@ template <typename T> struct LatticeCloverMultigrid {
     F(parity_tmp);F(parity_dst);F(corr_scratch);
     for(int i=1;i<num_levels;i++)levels[i].free_all(set_ptr->stream);
     delete[] levels;levels=nullptr;delete[] null_vecs;null_vecs=nullptr;
-    delete[] hop_packed;hop_packed=nullptr;delete[] sit_packed;sit_packed=nullptr;
+    delete[] hop_nn;hop_nn=nullptr;delete[] hop_diag;hop_diag=nullptr;
+    delete[] sit_packed;sit_packed=nullptr;
     checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
   }
 };

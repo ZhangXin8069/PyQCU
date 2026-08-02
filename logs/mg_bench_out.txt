@@ -1,0 +1,125 @@
+##RANK:0##LOOP:91##Residual(norm2):(9.813e-13,6.41465e-23i)
+PYQCU::SOLVER::MULTIGRID::
+ self.dof_list:[12, 48]
+ self.lat_size_list:[[8, 8, 8, 8], [4, 4, 4, 4]]
+ num_restart:10
+ tol:1.000000e-06
+ max_iter:1000
+ Lt_full:16
+ mg_grid_size:[2,2,2,2]
+PYQCU::QCU::MULTIGRID::
+ MG_INIT_COMPLETE: 2 levels, Lt_full=16, num_restart=10
+PYQCU::SOLVER::MULTIGRID::
+ 0:Norm of b:247.919067
+PYQCU::SOLVER::MULTIGRID::
+ 0:Norm of r:247.919067
+PYQCU::SOLVER::MULTIGRID::
+ 0:Norm of x0:0.000000
+PYQCU::SOLVER::MULTIGRID::
+ 0:Starting Iterations
+PYQCU::SOLVER::MULTIGRID::
+ Performance Statistics:
+PYQCU::SOLVER::MULTIGRID::
+ Total iterations: 88
+PYQCU::SOLVER::MULTIGRID::
+ Total time: 1.327464 seconds
+PYQCU::SOLVER::MULTIGRID::
+ Average time per iteration: 0.006200 s
+PYQCU::SOLVER::MULTIGRID::
+ Final residual: 9.544138e-07
+MG init=1.4ms end=0.0ms solve=1327.5ms
+##RANK:0##LOOP:91##Residual(norm2):(9.813e-13,6.41465e-23i)
+PYQCU::SOLVER::MULTIGRID::
+ self.dof_list:[12, 48]
+ self.lat_size_list:[[8, 8, 8, 8], [4, 4, 4, 4]]
+ num_restart:10
+ tol:1.000000e-06
+ max_iter:1000
+ Lt_full:16
+ mg_grid_size:[2,2,2,2]
+PYQCU::QCU::MULTIGRID::
+ MG_INIT_COMPLETE: 2 levels, Lt_full=16, num_restart=10
+PYQCU::SOLVER::MULTIGRID::
+ 0:Norm of b:247.919067
+PYQCU::SOLVER::MULTIGRID::
+ 0:Norm of r:247.919067
+PYQCU::SOLVER::MULTIGRID::
+ 0:Norm of x0:0.000000
+PYQCU::SOLVER::MULTIGRID::
+ 0:Starting Iterations
+PYQCU::SOLVER::MULTIGRID::
+ Performance Statistics:
+PYQCU::SOLVER::MULTIGRID::
+ Total iterations: 88
+PYQCU::SOLVER::MULTIGRID::
+ Total time: 1.264653 seconds
+PYQCU::SOLVER::MULTIGRID::
+ Average time per iteration: 0.006868 s
+PYQCU::SOLVER::MULTIGRID::
+ Final residual: 9.544138e-07
+MG init=0.5ms end=0.5ms solve=1264.7ms
+##RANK:0##LOOP:91##Residual(norm2):(9.813e-13,6.41465e-23i)
+PYQCU::SOLVER::MULTIGRID::
+ self.dof_list:[12, 48]
+ self.lat_size_list:[[8, 8, 8, 8], [4, 4, 4, 4]]
+ num_restart:10
+ tol:1.000000e-06
+ max_iter:1000
+ Lt_full:16
+ mg_grid_size:[2,2,2,2]
+PYQCU::QCU::MULTIGRID::
+ MG_INIT_COMPLETE: 2 levels, Lt_full=16, num_restart=10
+PYQCU::SOLVER::MULTIGRID::
+ 0:Norm of b:247.919067
+PYQCU::SOLVER::MULTIGRID::
+ 0:Norm of r:247.919067
+PYQCU::SOLVER::MULTIGRID::
+ 0:Norm of x0:0.000000
+PYQCU::SOLVER::MULTIGRID::
+ 0:Starting Iterations
+PYQCU::SOLVER::MULTIGRID::
+ Performance Statistics:
+PYQCU::SOLVER::MULTIGRID::
+ Total iterations: 88
+PYQCU::SOLVER::MULTIGRID::
+ Total time: 1.678910 seconds
+PYQCU::SOLVER::MULTIGRID::
+ Average time per iteration: 0.008373 s
+PYQCU::SOLVER::MULTIGRID::
+ Final residual: 9.544138e-07
+MG init=0.6ms end=0.4ms solve=1678.9ms
+##RANK:0##LOOP:91##Residual(norm2):(9.813e-13,6.41465e-23i)
+Cooling GPU 20s...
+  [level 1] E=48 CACHED coarse=[4, 4, 4, 4]
+BiStabCG: ['198', '749', '534'] ms  best=198
+MG      : ['1266', '1680', '1579'] ms  best=1266
+speedup (best) = 0.156x   vs_ref=3.22e-07
+PYQCU::SOLVER::MULTIGRID::
+ self.dof_list:[12, 48]
+ self.lat_size_list:[[8, 8, 8, 8], [4, 4, 4, 4]]
+ num_restart:10
+ tol:1.000000e-06
+ max_iter:1000
+ Lt_full:16
+ mg_grid_size:[2,2,2,2]
+PYQCU::QCU::MULTIGRID::
+ MG_INIT_COMPLETE: 2 levels, Lt_full=16, num_restart=10
+PYQCU::SOLVER::MULTIGRID::
+ 0:Norm of b:247.919067
+PYQCU::SOLVER::MULTIGRID::
+ 0:Norm of r:247.919067
+PYQCU::SOLVER::MULTIGRID::
+ 0:Norm of x0:0.000000
+PYQCU::SOLVER::MULTIGRID::
+ 0:Starting Iterations
+PYQCU::SOLVER::MULTIGRID::
+ Performance Statistics:
+PYQCU::SOLVER::MULTIGRID::
+ Total iterations: 88
+PYQCU::SOLVER::MULTIGRID::
+ Total time: 1.577398 seconds
+PYQCU::SOLVER::MULTIGRID::
+ Average time per iteration: 0.007103 s
+PYQCU::SOLVER::MULTIGRID::
+ Final residual: 9.544138e-07
+MG init=0.6ms end=0.5ms solve=1577.4ms
