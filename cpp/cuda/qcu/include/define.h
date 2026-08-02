@@ -226,8 +226,12 @@ namespace qcu {
 // When 1: single-GPU runs go through the full MPI codepath (Isend/Irecv to self),
 // ensuring MPI paths are tested even on single-GPU setups. When 0: single-GPU
 // shortcut is used (send buffer directly feeds recv kernel), bypassing MPI.
-// Default 1 for maximum test coverage of MPI code paths.
-#define _WILSON_AND_LAPLACIAN_TEST_SINGLE_IN_MULTI_ 1
+// NOTE (2026-08-02): set to 0 for the single-rank fast path in run_mpi() —
+// the full MPI halo exchange (send->D2H->MPI->H2D->recv) costs ~9 stream
+// syncs per dslash (~170 us each on this WSL2/V100 box).  Multi-rank runs
+// (grid != 1x1x1x1) always use the MPI codepath regardless of this flag, so
+// MPI correctness is still validated by `mpirun -np N` tests.
+#define _WILSON_AND_LAPLACIAN_TEST_SINGLE_IN_MULTI_ 0
 // When 1: multi-GPU clover test runs within a single-GPU environment.
 // Default 0 (production: multi-GPU clover runs on multi-GPU only).
 #define _CLOVER_TEST_MULTI_IN_SINGLE_ 0
