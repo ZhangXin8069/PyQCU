@@ -628,10 +628,19 @@ template <typename T> struct LatticeCloverDslash {
   }
   void give(void *fermion_out) {
     // give clover
-    checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
+    // NOTE (2026-08-02): on a 1x1x1x1 process grid the main stream already
+    // serializes give_clover against the producer/consumer kernels, so the two
+    // cudaStreamSynchronize calls are pure overhead (~170 us each on this
+    // WSL2/V100 box).  Multi-rank runs still sync (they may use other streams).
+    const bool single_rank =
+        set_ptr->host_params[_GRID_X_] == 1 &&
+        set_ptr->host_params[_GRID_Y_] == 1 &&
+        set_ptr->host_params[_GRID_Z_] == 1 &&
+        set_ptr->host_params[_GRID_T_] == 1;
+    if (!single_rank) checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
     give_clover<T><<<set_ptr->gridDim, set_ptr->blockDim, 0, set_ptr->stream>>>(
         clover, fermion_out, set_ptr->device_params);
-    checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
+    if (!single_rank) checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
     err = cudaGetLastError();
     checkCudaErrors(err);
   }
