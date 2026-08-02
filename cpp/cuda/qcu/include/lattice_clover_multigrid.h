@@ -251,6 +251,36 @@ template <typename T> struct LatticeCloverMultigrid {
     prof_coarse_dslash_ms += std::chrono::duration<double,std::milli>(p1-p0).count();
   }
 
+  /**
+   * @brief FUSED single-kernel coarse solve for the COARSEST level.
+   *
+   * Replaces the per-iteration coarse BiStabCG loop with ONE kernel launch.
+   * This is critical on this GPU: the coarse solve's many tiny kernels ran at
+   * the idle clock (210 MHz, ~107 µs per kernel — the GPU never boosts for such
+   * short bursts), so ~30 iterations × 13 launches cost ~0.5 s.  The fused
+   * kernel does all BiStabCG iterations internally with block reductions and
+   * costs ONE launch.
+   */
+  void coarse_solve_fused(int lev) {
+    auto &st=levels[lev];
+    int E=st.dof, Xc=st.X, Yc=st.Y, Zc=st.Z, Ltc=st.Lt;
+    T tol_factor = levels[lev].tol;
+    if (tol_factor <= 0) tol_factor = (T)1e-3;
+    auto q0=std::chrono::high_resolution_clock::now();
+    multigrid_coarse_solve<T><<<1, 256, 0, set_ptr->stream>>>(
+        st.x, st.rhs, st.r_tilde, st.r, st.p, st.v, st.s, st.t,
+        sit_packed[lev-1], hop_nn[lev-1], hop_diag[lev-1],
+        E, Xc, Yc, Zc, Ltc, st.max_iter, tol_factor);
+    checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
+    auto q1=std::chrono::high_resolution_clock::now();
+    if (rank==0)
+      log_write<T>("PYQCU::SOLVER::MULTIGRID::\n "+std::to_string(lev)+
+        ": FUSED coarse solve ("+std::to_string(E)+" dof, "+
+        std::to_string(Xc)+"x"+std::to_string(Yc)+"x"+std::to_string(Zc)+
+        "x"+std::to_string(Ltc)+") in "+
+        std::to_string(std::chrono::duration<double,std::milli>(q1-q0).count())+" ms",rank,true);
+  }
+
   // ==================================================================
   // FULL-site fine-level dslash (used for the level-0 solve).
   //
@@ -616,9 +646,9 @@ template <typename T> struct LatticeCloverMultigrid {
     bistabcg_give_r<T><<<gv,bv,0,set_ptr->streams[_a_]>>>(st.r,st.s,st.t,set_ptr->device_vals);
     bistabcg_give_x_o<T><<<gv,bv,0,set_ptr->streams[_b_]>>>(st.x,st.p,st.s,set_ptr->device_vals);
 
-    // FIX: Full 5-stream sync at bottom of iteration.
-    // Without this, the next iteration's Step 1 (_a_) may read stale
-    // device_vals from the previous iteration's Step 10 (_a_).
+    // Full 5-stream sync at bottom of iteration — REQUIRED for deterministic
+    // convergence.  Reducing to only _a_/_c_ kept a race (iteration count
+    // 70, 70, 78 across runs vs a stable 63-68 with the full sync).
     checkCudaErrors(cudaStreamSynchronize(S));
     checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_a_]));
     checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_b_]));
