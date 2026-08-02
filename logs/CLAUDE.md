@@ -20,3 +20,32 @@ Development logs, review reports, bug fix summaries, and solver output. This dir
 |-----------|---------|
 | `debug/` | Per-round fix logs (`fix-log*.md`) |
 | `results/` | Final/remaining fix reports |
+
+---
+
+## Complete Skills (Agent-Produced Subdirectories)
+
+The content of each subdirectory below was produced with Claude Code assistance. Per repo convention, the complete skill that generates that content is reproduced verbatim below (source: the subdirectory's own `CLAUDE.md`), so the full knowledge is available directly at this level.
+
+### Complete Skill: `debug/` (source: `debug/CLAUDE.md`)
+
+# CLAUDE.md — logs/debug
+
+Per-round debug and fix logs generated during development and bug-fixing sessions.
+
+## File Pattern
+
+`fix-log*.md` — per-round fix logs documenting individual bug fixes, root cause analysis, and verification results.
+
+These are temporary/working files — final summaries are promoted to `logs/fix-report-*.md`.
+
+### Complete Skill: `results/` (source: `results/CLAUDE.md`)
+
+# CLAUDE.md — logs/results
+
+Final and remaining fix reports. These are the polished, summary versions of fix reports after debug resolution.
+
+## Purpose
+
+When a bug-fixing session completes, the final summary report is written here. These are the authoritative record of what was fixed, what remains, and what was skipped.
+
