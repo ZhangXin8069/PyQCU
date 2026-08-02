@@ -1,0 +1,9 @@
+[ref] parity BiStabCG: iters=?
+[mg E=48 nvi=1 ct=1e-03]: iters=76 vc=7 res=1.61e-07 vs_ref=3.31e-07 bd=False
+[mg E=48 nvi=1 ct=1e-06]: iters=68 vc=6 res=1.63e-07 vs_ref=3.40e-07 bd=False
+[mg E=48 nvi=2 ct=1e-03]: iters=56 vc=5 res=1.61e-07 vs_ref=3.35e-07 bd=False
+[mg E=48 nvi=2 ct=1e-06]: iters=60 vc=5 res=1.66e-07 vs_ref=3.33e-07 bd=False
+[mg E=64 nvi=1 ct=1e-03]: iters=66 vc=6 res=1.62e-07 vs_ref=3.36e-07 bd=False
+[mg E=64 nvi=1 ct=1e-06]: iters=65 vc=6 res=1.61e-07 vs_ref=3.35e-07 bd=False
+[mg E=64 nvi=2 ct=1e-03]: iters=60 vc=5 res=1.69e-07 vs_ref=3.36e-07 bd=False
+[mg E=64 nvi=2 ct=1e-06]: iters=66 vc=6 res=1.62e-07 vs_ref=3.32e-07 bd=False

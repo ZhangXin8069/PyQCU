@@ -17,6 +17,16 @@ __global__ void multigrid_coarse_dslash(void *fermion_out, void *fermion_in,
                                          void *hopping, void *sitting,
                                          int E, int X, int Y, int Z, int Lt);
 /**
+ * @brief Wide-stencil coarse dslash for the Schur-consistent coarse operator
+ *        A_c = P^T S P (on-site + nearest-neighbour + diagonal couplings).
+ * @see multigrid.cu for the full stencil documentation.
+ */
+template <typename T>
+__global__ void multigrid_coarse_dslash_wide(void *fermion_out, void *fermion_in,
+                                             void *sitting, void *hop_nn,
+                                             void *hop_diag, int E, int X, int Y,
+                                             int Z, int Lt);
+/**
  * @brief Convert parity-split odd-site data to full-site layout (odd t-slices only).
  *
  * Converts a parity-split odd buffer [sc, X, Y, Z, Lt/2] to a full-site buffer

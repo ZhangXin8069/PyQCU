@@ -1,0 +1,5 @@
+[ref] parity BiStabCG on 8x8x8x16: iters=?
+[schurMG dof=24 r=5]: iters=90 vc=17 res=1.57e-07 vs_ref=3.32e-07 bd=False
+[schurMG dof=24 r=10]: iters=94 vc=9 res=1.57e-07 vs_ref=3.29e-07 bd=False
+[schurMG dof=48 r=5]: iters=70 vc=13 res=1.58e-07 vs_ref=3.30e-07 bd=False
+[schurMG dof=48 r=10]: iters=60 vc=5 res=1.74e-07 vs_ref=3.37e-07 bd=False
