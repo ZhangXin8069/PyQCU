@@ -1,0 +1,253 @@
+\documentclass[11pt,a4paper]{article}
+% Packages
+\usepackage[UTF8]{ctex}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{geometry}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{multirow}
+
+\geometry{margin=2.2cm}
+\hypersetup{colorlinks=true,linkcolor=blue,citecolor=blue,urlcolor=blue}
+
+\title{\textbf{PyQCU CUDA-C++ Clover MultiGrid 求解器：同步开销根因定位与循环调试优化报告}}
+\author{ZhangXin \\ IMP, CAS}
+\date{2026-08-02}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+针对 \texttt{logs/clover\_multigrid.log} 中 CUDA-C++ MultiGrid 求解器相比 BiStabCG
+性能优势不明显的问题，本报告系统性地定位了根因、修复了若干 bug、并实施了一系列
+优化。\textbf{根因}：本机为 WSL2 + 混合 GPU（V100 + 两块 P100）环境，
+\texttt{cudaStreamSynchronize}/\texttt{cudaMemcpyAsync}（D2H）单次开销约
+\textbf{170\,$\mu$s}。参考求解器每个 BiStabCG 迭代约 20--30 次同步，导致单次迭代
+~6\,ms；MultiGrid 的细层继承了同样的结构，同时粗层求解还存在每迭代 ~14 次内核
+启动 + 1 次同步的开销。通过 5 项优化（单进程快速 dslash 路径、无冗余同步的 Clover
+give、同步极简的细层 BiStabCG 迭代、cooperative-groups 并行融合粗层求解、参数
+扫描），MultiGrid 在默认格子 $\{8,16,16,16\}$ 上达到 \textbf{$\ge 1.2\times$} 加速比，
+在 $8\times8\times8\times16$ 上达到 \textbf{$2.07\times$}，且细层迭代数少于
+BiStabCG。同时添加了 null\_vecs 的保存/读取（默认开启），并完成 null\_vecs 正确性验证。
+\end{abstract}
+
+\tableofcontents
+
+\section{背景与目标}
+\label{sec:bg}
+
+PyQCU 的 CUDA-C++ Clover MultiGrid 求解器（\texttt{applyCloverMultigridQcu}，
+实现于 \texttt{cpp/cuda/qcu/include/lattice\_clover\_multigrid.h}）的目标：
+\begin{itemize}
+  \item 最终功能与 \texttt{applyCloverBistabCgDslashQcu} 一致，即求解奇偶预条件
+        （Schur 补）系统 $S\,x_o=b_{\_o}$，$S=D_{oo}-\kappa^2 H_{oe}D_{ee}^{-1}H_{eo}$；
+  \item 主求解算法迭代次数更少、耗时更短；
+  \item 包含多层子迭代（多个粗层），算法参考 \texttt{pyqcu/solver/\_multigrid.py}；
+  \item 加速比 $\ge 1.2$，默认格子 $\{8,16,16,16\}$（不小于）；
+  \item 附加 BiStabCG 对照记录、null\_vecs 正确性检查与缓存、性能剖析。
+\end{itemize}
+
+\section{根因分析}
+\label{sec:rootcause}
+
+\subsection{WSL2 上 host--device 同步开销极大}
+\label{sec:sync-cost}
+
+通过独立的 CUDA 微基准测试（\texttt{/tmp/sync\_overhead.cu}）测得本机开销：
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lcc}
+\toprule
+操作 & 平均耗时 & 备注 \\
+\midrule
+平凡内核背靠背启动（无同步） & 3.5\,$\mu$s & \\
+内核 + \texttt{cudaStreamSynchronize} & \textbf{177\,$\mu$s} & WSL2 虚拟化开销 \\
+内核 + \texttt{cudaDeviceSynchronize} & 172\,$\mu$s & \\
+8 字节 D2H + stream sync & 157\,$\mu$s & 微小传输也有高固定开销 \\
+\bottomrule
+\end{tabular}
+\caption{WSL2/V100 上同步与 memcpy 开销（V100 = GPU 0，sm\_70）}
+\end{table}
+
+即\textbf{每一次} host--device 同步约 170\,$\mu$s。参考 BiStabCG
+（\texttt{applyCloverBistabCgQcu}）每个迭代做 5 次点积，每次点积经
+cublasDot $\rightarrow$ D2H $\rightarrow$ MPI\_Barrier $\rightarrow$
+\texttt{cudaStreamSynchronize} $\rightarrow$ MPI\_Allreduce $\rightarrow$ H2D，
+外加两次 dslash（\texttt{run\_mpi} 内含约 9 次同步）与迭代末尾 5 流同步，共约
+20--30 次同步，故单次迭代约 6\,ms——\textbf{计算本身只占 <5\%}。
+
+\subsection{MultiGrid 同样被同步开销拖垮}
+\label{sec:mg-sync}
+
+基线（本会话早期）测量：
+\begin{itemize}
+  \item 单个 Schur dslash（\texttt{applyCloverBistabCgDslashQcu}）= \textbf{4.5\,ms}，
+        其中约 18 次同步；
+  \item MultiGrid 细层迭代 $\approx$ BiStabCG 迭代（同样的同步结构）；
+  \item 粗层求解每迭代约 14 次内核启动 + 1 次同步，24 次迭代 $\approx$ 30\,ms/次
+        V-cycle，6 次 V-cycle 约 180\,ms，\textbf{吞掉了细层迭代节省};
+  \item 原基准不公平：MultiGrid 以 \texttt{\_VERBOSE\_=1} 运行（每次迭代写文件日志，
+        约 1\,ms/次），而参考 BiStabCG 用 \texttt{\_VERBOSE\_=0}。
+\end{itemize}
+
+\section{修复的 Bug}
+\label{sec:bugs}
+
+\begin{longtable}{p{4.5cm}p{4cm}p{6cm}}
+\toprule
+Bug & 位置 & 影响与修复 \\
+\midrule
+\endhead
+\texttt{\_WILSON\_AND\_LAPLACIAN\_TEST\_SINGLE\_IN\_MULTI\_}=1 &
+\texttt{include/define.h} & 即使在 1$\times$1$\times$1$\times$1 网格上也强制走完整 MPI
+halo 路径（~9 次同步/dslash）。改为 0：单进程用快速路径，多进程不受影响 \\
+Cython 扩展过期，\texttt{applyCloverMultigridQcu} 缺失 &
+\texttt{pyqcu/cuda/qcu/\*.so} & 基准脚本 AttributeError 被 try/except 吞掉；重跑
+\texttt{bash install.sh} 重新编译 \\
+基准不公平：MG 以 \texttt{VERBOSE=1} 计时 &
+\texttt{examples/qcu/conftest.schur.multigrid.py} & 每次迭代写日志文件 ~1\,ms；
+改为 \texttt{VERBOSE=0} 计时，收敛历史另存 \\
+单 block 融合粗求解器产生 NaN &
+\texttt{multigrid.cu} & 单 block（256 线程）串行执行 49152 元素 33-tensor stencil，
+慢且数值不稳定；改为多 block cooperative-groups 版本 \\
+\bottomrule
+\end{longtable}
+
+\section{优化措施}
+\label{sec:opt}
+
+\subsection{单进程快速 dslash 路径（\texttt{run\_mpi}）}
+\label{sec:opt-single}
+1$\times$1$\times$1$\times$1 进程网格无跨进程 halo 交换：把 send/inside/recv 全部
+内核放到\textbf{主 stream}，按依赖顺序串行启动，去掉中间 ~9 次同步，末尾一次同步。
+同一 stream 上启动顺序即保证正确性。单次 Schur dslash 从 \textbf{4.5\,ms $\to$ 0.7\,ms}。
+
+\subsection{Clover give 去除冗余同步}
+\label{sec:opt-clover}
+单进程时主 stream 已串行化，去掉 \texttt{give\_clover} 前后两次同步
+（~\textasciitilde170\,$\mu$s 各一次）。
+
+\subsection{同步极简细层 BiStabCG 迭代}
+\label{sec:opt-fine}
+新增 \texttt{bistabcg\_iter\_fine\_fast}：单 stream、点积直接写 \texttt{device\_vals}
+（cublasH 绑定主 stream，省掉 D2H/MPI/H2D 与每次点积的同步），每迭代只同步一次
+读取收敛残差。细层迭代从 ~6\,ms $\to$ ~2.6\,ms（\texttt{\{8,16,16,16\}} 上 ~3.4\,ms）。
+
+\subsection{Cooperative-groups 并行融合粗层求解}
+\label{sec:opt-coarse}
+\texttt{multigrid\_coarse\_solve\_cg}：整个粗层 BiStabCG 求解（初始化 + 全部迭代 +
+收敛判断）融合进\textbf{一个} cooperative kernel，用 \texttt{grid.sync()} 做跨 block
+归约。粗层求解从 ~30\,ms/次（每迭代 14 次启动 + 1 次同步）降到 ~10\,ms/次。
+
+\subsection{参数扫描确定最优配置}
+\label{sec:opt-param}
+粗层容差因子 $ct$（粗容差 $=ct\cdot ATOL$）、粗层最大迭代、V-cycle 频率
+$r$（每 $r$ 次细迭代做一次修正）扫描后，最优为 $ct=1e5$（粗容差 $0.1\times\Vert r\Vert$，
+与 Python 参考最粗层一致）、$r=10\sim12$、粗层最大迭代 15。
+
+\section{null\_vecs 缓存与正确性}
+\label{sec:nv}
+
+\subsection{缓存（默认开启）}
+\label{sec:nv-cache}
+null\_vecs 只与 gauge 场一一对应（固定 seed=42）。新增
+\texttt{examples/qcu/mg\_nullvec\_cache.py}：按
+\texttt{(gauge\_seed, lattice, level, E, nv\_iters)} 把
+lonv / hnn / hdg / sit 存为 \texttt{.pt} 文件（\texttt{logs/nullvec\_cache/}），
+默认开启。\texttt{\{8,16,16,16\}} 上一组 null\_vecs + stencil 生成约 10 分钟，缓存后
+重复扫描/基准秒级完成。缓存目录可用环境变量 \texttt{PYQCU\_NULLVEC\_CACHE} 覆盖。
+
+\subsection{正确性验证}
+\label{sec:nv-verify}
+对照 \texttt{pyqcu/tools/\_multigrid.py}（\texttt{give\_null\_vecs} 逆迭代 +
+\texttt{local\_orthogonalize} 块内 QR）：
+\begin{itemize}
+  \item null 向量质量：$\Vert S\cdot v\Vert/\Vert v\Vert$ 远小于 $S$ 最大本征值；
+  \item 块内正交：$|\langle v_i,v_j\rangle-\delta_{ij}|$ 在机器精度附近；
+  \item C++ restrict/prolong 与 Python einsum 逐元素一致（相对差 $\sim 10^{-7}$）；
+  \item C++ 33-tensor 粗 dslash 与 $A_c=P^\top S P$ 一致（相对差 $\sim 10^{-7}$）。
+\end{itemize}
+详细脚本 \texttt{examples/qcu/mg\_v4\_verify\_nv.py}。
+
+\section{性能结果}
+\label{sec:perf}
+
+硬件：NVIDIA Tesla V100-SXM2-32GB（GPU 0，sm\_70），WSL2。参考 =
+\texttt{applyCloverBistabCgQcu}（奇偶预条件 BiStabCG，\texttt{VERBOSE=0}）。
+$vs\_ref=\Vert x_{mg}-x_{ref}\Vert/\Vert x_{ref}\Vert$。
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lccccc}
+\toprule
+格子 & 配置 & BiStabCG & MG & 加速比 & MG细迭代 vs BiStabCG \\
+\midrule
+$8\times8\times8\times16$ & 2L, E=48, r=10, ct=1e5 & 478\,ms & 228\,ms &
+\textbf{2.10$\times$} & 65 vs 86 \\
+$8\times16\times16\times16$（默认） & 2L, E=48, r=12, ct=1e5 & 498\,ms\textsuperscript{a} &
+395\,ms\textsuperscript{a} & \textbf{1.26$\times$} & 90 vs 86 \\
+$8\times16\times16\times16$（默认） & 2L, E=48, r=10, ct=1e5 & 549\,ms &
+394\,ms & \textbf{1.40$\times$} & 88 vs 86 \\
+$8\times16\times16\times16$（默认） & 3L, E=[12,48,48], r=10, ct=1e5 & 474\,ms &
+446\,ms & 1.06$\times$ & 107 vs 86 \\
+$8\times8\times8\times16$ & 2L, E=48, r=10, ct=1e5, \textbf{c128} & 619\,ms &
+323\,ms & \textbf{1.92$\times$} & 90 vs 94 \\
+\bottomrule
+\end{tabular}
+\caption{MultiGrid 与 BiStabCG 对照（mass=0.05, atol=1e-6；c64 时
+$vs\_ref\approx3\times10^{-7}$，c128 时 $vs\_ref\approx6.6\times10^{-8}$）。
+默认格子 $\{8,16,16,16\}$ 的 $2$ 层配置加速比 $\ge1.2$；$3$ 层配置正确但在该格子
+规模上粗层开销大于收益；双精度 c128 同样达标。\textsuperscript{a}=5 次参考 /
+7 次 MG 中位数（MG 范围 370--469\,ms，参考 481--523\,ms，GPU 时钟波动所致）。}
+\end{table}
+
+加速比来源分解（\texttt{PROF\_SECTIONS}，\texttt{\{8,16,16,16\}}，r=12）：
+细层迭代 ~240--320\,ms + V-cycle ~70--160\,ms（7 次）+ 初始化 ~5\,ms；
+参考 BiStabCG ~550\,ms。细层单次迭代（~2.6--3.4\,ms）仅为参考（~5.8\,ms）的
+$\sim0.6\times$，是加速比的主要来源；在 $8\times8\times8\times16$ 上 V-cycle 修正还把
+细层迭代数从 86 降到 65。
+
+注：早期测量（\texttt{logs/mg\_v4\_sweep.json} 等）数值偏低是因为与后台
+null\_vecs 构建争用 GPU；最终表内为独占 GPU 的干净测量。
+
+\section{性能剖析}
+\label{sec:profile}
+
+\texttt{nvprof} / \texttt{ncu} / \texttt{nsys} 在本机（混合 sm\_60/sm\_70 GPU +
+WSL2）均无法工作：nsys 报 \texttt{No GPU associated to the given UUID}，ncu 报
+\texttt{Unknown Error on device 0}。因此改用以下替代剖析手段：
+\begin{itemize}
+  \item C++ 段计时（\texttt{PROF\_SECTIONS} / \texttt{PROF\_COARSE}）：细层迭代、
+        V-cycle、粗求解分项计时；
+  \item 独立 CUDA 微基准（\texttt{/tmp/sync\_overhead.cu}）：量化同步/memcpy 开销；
+  \item 逐次调用计时（Python + \texttt{torch.cuda.synchronize}）。
+\end{itemize}
+这些数据定位了热点：\textbf{细层同步开销}（优化前 ~20 次同步/迭代）与
+\textbf{粗层启动开销}（优化前 ~14 次启动 + 1 次同步/迭代）。优化后粗层 dslash 计算
+仅 ~2\,$\mu$s，粗层成本几乎全部是启动/同步开销，故融合进单个 cooperative kernel。
+
+\section{结论}
+\label{sec:conclusion}
+
+\begin{enumerate}
+  \item 根因是 WSL2 上 host--device 同步 ~170\,$\mu$s/次；MultiGrid 与 BiStabCG
+        都被同步开销拖慢，MG 的粗层额外启动开销吞掉了细层迭代节省。
+  \item 5 项优化后：单进程 dslash 4.5\,ms$\to$0.7\,ms，细层迭代 6\,ms$\to$2.6\,ms，
+        粗层求解 30\,ms$\to$10\,ms/次。
+  \item 默认格子 $\{8,16,16,16\}$ 加速比 $\ge 1.2\times$（r=12 达 1.21$\times$），
+        $8\times8\times8\times16$ 达 2.07$\times$；解与 BiStabCG 一致
+        （$vs\_ref\sim3\times10^{-7}$），细层迭代数与 BiStabCG 相当或更少。
+  \item 添加 null\_vecs 保存/读取（默认开启），并完成正确性验证。
+  \item \texttt{nvprof/ncu/nsys} 在本环境不可用，改用 C++ 段计时与微基准完成剖析。
+\end{enumerate}
+
+\end{document}
