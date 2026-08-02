@@ -42,21 +42,37 @@ def build_stencil(S, lonv, E, e, lat_fine_odd, lat_coarse_odd, dt, device):
             sit[:,ee,cx,cy,cz,ct]=dc[:,cx,cy,cz,ct]
             # nearest: hop_nn[pm,d,:,ee,c] = A_c[:,e,c, c ± e_d]; fill at reciprocal site
             for d in range(4):
-                # plus coupling at bwd_d(P)
-                n=ccoords[:]; n[d]=(n[d]-1+dims[d])%dims[d]
-                hop_nn[0,d,:,ee,n[0],n[1],n[2],n[3]]=dc[:,n[0],n[1],n[2],n[3]]
-                # minus coupling at fwd_d(P)
-                n=ccoords[:]; n[d]=(n[d]+1)%dims[d]
-                hop_nn[1,d,:,ee,n[0],n[1],n[2],n[3]]=dc[:,n[0],n[1],n[2],n[3]]
+                b=ccoords[:]; b[d]=(b[d]-1+dims[d])%dims[d]
+                f=ccoords[:]; f[d]=(f[d]+1)%dims[d]
+                if b[d] == f[d]:
+                    # 2-site periodic dimension: the +1 and -1 neighbours are the
+                    # SAME site.  The coarse dslash kernel sums hop_nn[0]·in[fwd] +
+                    # hop_nn[1]·in[bwd] (both read the same neighbour), so each must
+                    # carry HALF the coupling to avoid double counting.
+                    hop_nn[0,d,:,ee,b[0],b[1],b[2],b[3]]=0.5*dc[:,b[0],b[1],b[2],b[3]]
+                    hop_nn[1,d,:,ee,f[0],f[1],f[2],f[3]]=0.5*dc[:,f[0],f[1],f[2],f[3]]
+                else:
+                    hop_nn[0,d,:,ee,b[0],b[1],b[2],b[3]]=dc[:,b[0],b[1],b[2],b[3]]
+                    hop_nn[1,d,:,ee,f[0],f[1],f[2],f[3]]=dc[:,f[0],f[1],f[2],f[3]]
             # diagonal: hop_diag[s1,s2,pair,:,ee,c] = A_c[:,e,c, c+s1 e_d1+s2 e_d2];
-            #            fill at reciprocal site P' - (s1 e_d1 + s2 e_d2)
+            #            fill at reciprocal site P' - (s1 e_d1 + s2 e_d2).
+            # For 2-site periodic dims several sign combos reach the SAME
+            # neighbour (e.g. d1 has 2 sites: +e_d1 and -e_d1 are the same
+            # site); the kernel sums all sign combos, so the coupling must be
+            # SPLIT among coincident combos to avoid double counting.
             for pi,(d1,d2) in enumerate(PAIRS):
+                targets = {}
                 for s1i,s1 in enumerate(SIGN):
                     for s2i,s2 in enumerate(SIGN):
                         n=ccoords[:]
                         n[d1]=(n[d1]-s1+dims[d1])%dims[d1]
                         n[d2]=(n[d2]-s2+dims[d2])%dims[d2]
-                        hop_diag[s1i,s2i,pi,:,ee,n[0],n[1],n[2],n[3]]=dc[:,n[0],n[1],n[2],n[3]]
+                        key=(n[0],n[1],n[2],n[3])
+                        targets.setdefault(key, []).append((s1i,s2i))
+                for key, combos in targets.items():
+                    w = 1.0/len(combos)
+                    for (s1i,s2i) in combos:
+                        hop_diag[s1i,s2i,pi,:,ee,key[0],key[1],key[2],key[3]] = w*dc[:,key[0],key[1],key[2],key[3]]
         if (c_idx+1)%64==0 and c_idx>0:
             print(f"    probing {c_idx+1}/{Nc} ({time.perf_counter()-t0:.1f}s)")
     print(f"  stencil build: {time.perf_counter()-t0:.1f}s for {E*Nc} probes")
