@@ -34,6 +34,9 @@ __global__ void multigrid_coarse_dslash(void *fermion_out, void *fermion_in,
 template <typename T>
 __global__ void multigrid_odd_to_full(void *full_out, void *odd_in, int sc,
                                        int X, int Y, int Z, int Lt_full);
+template <typename T>
+__global__ void multigrid_even_to_full(void *full_out, void *even_in, int sc,
+                                       int X, int Y, int Z, int Lt_full);
 /**
  * @brief Extract parity-split odd-site data from a full-site buffer.
  *
@@ -49,6 +52,9 @@ __global__ void multigrid_odd_to_full(void *full_out, void *odd_in, int sc,
  */
 template <typename T>
 __global__ void multigrid_full_to_odd(void *odd_out, void *full_in, int sc,
+                                       int X, int Y, int Z, int Lt_full);
+template <typename T>
+__global__ void multigrid_full_to_even(void *even_out, void *full_in, int sc,
                                        int X, int Y, int Z, int Lt_full);
 } // namespace qcu
 #endif
