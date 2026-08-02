@@ -118,8 +118,16 @@ def dtype(_data_type_: Optional[torch.Tensor] = _LAT_C64_IN_TENSOR_) -> torch.dt
 def epytd(torch_dtype: Optional[torch.dtype]) -> torch.Tensor:
     for i in range(_DATA_TYPE_SIZE_):
         _data_type_ = torch.Tensor([i], device=torch.device('cpu'))
-        if dtype(_data_type_=_data_type_) == torch_dtype:
-            return _data_type_
+        # BUGFIX 2026-08-02: dtype() raises for unsupported constants (e.g.
+        # _LAT_C16_ at i=0). Skip those during the reverse-mapping search
+        # instead of letting the raise abort the whole loop. Otherwise epytd()
+        # can never map complex64/128, which blocks the multigrid with_cuda_qcu
+        # path (pyqcu/solver/_multigrid.py::init calls epytd on dtype_list[0]).
+        try:
+            if dtype(_data_type_=_data_type_) == torch_dtype:
+                return _data_type_
+        except ValueError:
+            continue
     # BUGFIX 2026-07-28: explicit error with torch dtype that failed mapping.
     raise ValueError(f"No QCU data type constant maps to torch dtype: {torch_dtype}")
 

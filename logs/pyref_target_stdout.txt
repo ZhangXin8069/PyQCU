@@ -1,0 +1,113 @@
+##RANK:0##LOOP:85##Residual(norm2):(9.40252e-13,3.23187e-24i)
+##RANK:0##LOOP:69##Residual(norm2):(2.31245e-10,-2.76192e-21i)
+##RANK:0##LOOP:65##Residual(norm2):(1.70278e-09,2.45383e-20i)
+##RANK:0##LOOP:69##Residual(norm2):(1.26395e-09,9.76679e-21i)
+##RANK:0##LOOP:67##Residual(norm2):(1.94704e-09,-1.3637e-20i)
+##RANK:0##LOOP:71##Residual(norm2):(1.3852e-09,-2.13655e-20i)
+##RANK:0##LOOP:69##Residual(norm2):(1.39631e-09,2.86405e-20i)
+##RANK:0##LOOP:69##Residual(norm2):(1.03075e-09,-2.07573e-20i)
+##RANK:0##LOOP:68##Residual(norm2):(1.60084e-09,1.91441e-20i)
+##RANK:0##LOOP:66##Residual(norm2):(2.23592e-09,-7.80515e-20i)
+##RANK:0##LOOP:67##Residual(norm2):(1.22581e-09,-1.3507e-20i)
+##RANK:0##LOOP:69##Residual(norm2):(1.25713e-09,-5.91704e-21i)
+##RANK:0##LOOP:69##Residual(norm2):(9.02876e-10,9.2332e-22i)
+##RANK:0##LOOP:67##Residual(norm2):(3.60237e-10,-5.06889e-21i)
+##RANK:0##LOOP:69##Residual(norm2):(6.4569e-10,1.66856e-20i)
+##RANK:0##LOOP:69##Residual(norm2):(2.36381e-09,-4.71166e-20i)
+##RANK:0##LOOP:67##Residual(norm2):(2.29808e-09,-1.29969e-20i)
+##RANK:0##LOOP:67##Residual(norm2):(1.92612e-09,-2.33935e-20i)
+##RANK:0##LOOP:69##Residual(norm2):(3.63606e-10,-4.99295e-21i)
+##RANK:0##LOOP:69##Residual(norm2):(1.50243e-09,-4.72791e-21i)
+##RANK:0##LOOP:69##Residual(norm2):(9.37922e-10,-6.3124e-21i)
+##RANK:0##LOOP:68##Residual(norm2):(2.30259e-09,9.35501e-22i)
+##RANK:0##LOOP:69##Residual(norm2):(1.38447e-10,5.39266e-22i)
+##RANK:0##LOOP:71##Residual(norm2):(1.56553e-09,4.86197e-20i)
+##RANK:0##LOOP:70##Residual(norm2):(6.50233e-10,-1.82077e-20i)
+##RANK:0##LOOP:66##Residual(norm2):(2.13812e-09,2.81342e-21i)
+##RANK:0##LOOP:65##Residual(norm2):(8.77086e-10,-1.87986e-20i)
+##RANK:0##LOOP:66##Residual(norm2):(2.47683e-09,-9.85396e-20i)
+##RANK:0##LOOP:69##Residual(norm2):(7.94286e-10,-7.43389e-21i)
+##RANK:0##LOOP:65##Residual(norm2):(2.41199e-09,4.00932e-20i)
+##RANK:0##LOOP:68##Residual(norm2):(2.33989e-09,6.9097e-20i)
+##RANK:0##LOOP:69##Residual(norm2):(1.13248e-09,7.06469e-21i)
+##RANK:0##LOOP:69##Residual(norm2):(1.19072e-09,2.81546e-20i)
+##RANK:0##LOOP:69##Residual(norm2):(2.53875e-10,9.42609e-22i)
+##RANK:0##LOOP:68##Residual(norm2):(1.79557e-09,5.4655e-21i)
+##RANK:0##LOOP:69##Residual(norm2):(2.14244e-09,-3.81379e-20i)
+##RANK:0##LOOP:69##Residual(norm2):(1.20209e-09,-1.17786e-20i)
+##RANK:0##LOOP:67##Residual(norm2):(2.21228e-09,-5.12535e-20i)
+##RANK:0##LOOP:66##Residual(norm2):(2.30983e-09,-4.78206e-20i)
+##RANK:0##LOOP:66##Residual(norm2):(2.15701e-09,-3.26e-20i)
+##RANK:0##LOOP:65##Residual(norm2):(1.84968e-09,-5.50733e-20i)
+##RANK:0##LOOP:69##Residual(norm2):(1.24088e-09,2.48197e-20i)
+##RANK:0##LOOP:66##Residual(norm2):(2.31851e-09,2.52201e-20i)
+##RANK:0##LOOP:72##Residual(norm2):(4.4247e-10,-2.70887e-21i)
+##RANK:0##LOOP:69##Residual(norm2):(6.83718e-10,-1.18337e-20i)
+##RANK:0##LOOP:72##Residual(norm2):(4.02939e-10,2.37148e-21i)
+##RANK:0##LOOP:67##Residual(norm2):(1.49565e-09,-2.19664e-20i)
+##RANK:0##LOOP:68##Residual(norm2):(2.31916e-09,-8.40282e-21i)
+##RANK:0##LOOP:69##Residual(norm2):(1.15457e-09,6.57987e-21i)
+##RANK:0##LOOP:70##Residual(norm2):(2.45564e-09,-1.88135e-20i)
+##RANK:0##LOOP:71##Residual(norm2):(6.40982e-10,-7.09002e-21i)
+##RANK:0##LOOP:65##Residual(norm2):(2.42934e-09,1.79907e-20i)
+##RANK:0##LOOP:66##Residual(norm2):(2.47444e-09,-9.75042e-22i)
+##RANK:0##LOOP:68##Residual(norm2):(9.99935e-10,-3.17763e-21i)
+##RANK:0##LOOP:69##Residual(norm2):(4.40666e-10,-1.60496e-21i)
+##RANK:0##LOOP:67##Residual(norm2):(8.5255e-10,-2.14138e-20i)
+##RANK:0##LOOP:69##Residual(norm2):(8.15183e-10,5.2099e-21i)
+##RANK:0##LOOP:69##Residual(norm2):(1.08745e-09,2.99389e-20i)
+##RANK:0##LOOP:67##Residual(norm2):(1.53119e-09,-3.33049e-20i)
+##RANK:0##LOOP:69##Residual(norm2):(2.17072e-09,8.5311e-20i)
+##RANK:0##LOOP:66##Residual(norm2):(2.04816e-09,3.8904e-20i)
+##RANK:0##LOOP:66##Residual(norm2):(6.53293e-10,6.91561e-21i)
+##RANK:0##LOOP:69##Residual(norm2):(1.09898e-09,-1.19839e-20i)
+##RANK:0##LOOP:70##Residual(norm2):(6.7327e-10,-2.41076e-20i)
+##RANK:0##LOOP:63##Residual(norm2):(2.42069e-09,-4.95934e-20i)
+##RANK:0##LOOP:69##Residual(norm2):(5.04251e-10,2.28712e-20i)
+##RANK:0##LOOP:67##Residual(norm2):(2.39075e-09,2.41153e-20i)
+##RANK:0##LOOP:71##Residual(norm2):(6.00399e-11,-6.76501e-22i)
+##RANK:0##LOOP:69##Residual(norm2):(1.22704e-09,-1.35789e-21i)
+##RANK:0##LOOP:67##Residual(norm2):(9.70504e-10,2.2473e-20i)
+##RANK:0##LOOP:70##Residual(norm2):(4.69855e-10,-1.6186e-21i)
+##RANK:0##LOOP:68##Residual(norm2):(1.93119e-09,4.32917e-20i)
+##RANK:0##LOOP:67##Residual(norm2):(2.08207e-09,5.78303e-20i)
+[a] parity BiStabCG: 837.0 ms  res=3.361e-07
+PYQCU::SOLVER::MULTIGRID:
+ self.dof_list:[12, 24]
+PYQCU::SOLVER::MULTIGRID:
+ self.dtype_list:[torch.complex64, torch.complex64]
+PYQCU::SOLVER::MULTIGRID:
+ self.device_list:[device(type='cuda'), device(type='cuda')]
+PYQCU::SOLVER::MULTIGRID:
+ self.lat_size_list:[[8, 16, 16, 16], [4, 8, 8, 8]]
+PYQCU::TOOLS::DEFINE:
+ [MPI Rank 0/1] Using cuda:0
+PYQCU::TOOLS::DEFINE:
+ [MPI Rank 0/1] Using cuda:0
+[b] MG parity=True levels=2 restart=5: 4872.8 ms  iters=242  res=2.573e-07  vs_ref=3.833e-07  speedup=0.172x
+PYQCU::SOLVER::MULTIGRID:
+ self.dof_list:[12, 24]
+PYQCU::SOLVER::MULTIGRID:
+ self.dtype_list:[torch.complex64, torch.complex64]
+PYQCU::SOLVER::MULTIGRID:
+ self.device_list:[device(type='cuda'), device(type='cuda')]
+PYQCU::SOLVER::MULTIGRID:
+ self.lat_size_list:[[8, 16, 16, 16], [4, 8, 8, 8]]
+PYQCU::TOOLS::DEFINE:
+ [MPI Rank 0/1] Using cuda:0
+PYQCU::TOOLS::DEFINE:
+ [MPI Rank 0/1] Using cuda:0
+[b] MG parity=True levels=2 restart=3: 5783.4 ms  iters=221  res=2.505e-07  vs_ref=4.198e-07  speedup=0.145x
+PYQCU::SOLVER::MULTIGRID:
+ self.dof_list:[12, 24]
+PYQCU::SOLVER::MULTIGRID:
+ self.dtype_list:[torch.complex64, torch.complex64]
+PYQCU::SOLVER::MULTIGRID:
+ self.device_list:[device(type='cuda'), device(type='cuda')]
+PYQCU::SOLVER::MULTIGRID:
+ self.lat_size_list:[[8, 16, 16, 16], [4, 8, 8, 8]]
+PYQCU::TOOLS::DEFINE:
+ [MPI Rank 0/1] Using cuda:0
+PYQCU::TOOLS::DEFINE:
+ [MPI Rank 0/1] Using cuda:0
+[b] MG parity=True levels=3 restart=5: 5140.0 ms  iters=231  res=2.319e-07  vs_ref=3.837e-07  speedup=0.163x

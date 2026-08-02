@@ -1,0 +1,52 @@
+##RANK:0##LOOP:92##Residual(norm2):(8.71863e-13,5.07505e-23i)
+[ref] BiStabCG res=3.598e-07
+    probing 64/256 (17.8s)
+    probing 128/256 (35.5s)
+    probing 192/256 (54.3s)
+    probing 256/256 (72.0s)
+  stencil build: 72.0s for 12288 probes
+  [level 1] E=48 nv_time=160.2s coarse=[4, 4, 4, 4]
+[mg] time=1098.6ms
+[mg] res=1.6001e-07 vs_ref=3.1361e-07
+PYQCU::SOLVER::MULTIGRID::
+ self.dof_list:[12, 48]
+ self.lat_size_list:[[8, 8, 8, 8], [4, 4, 4, 4]]
+ num_restart:10
+ tol:1.000000e-06
+ max_iter:1000
+ Lt_full:16
+ mg_grid_size:[2,2,2,2]
+PYQCU::QCU::MULTIGRID::
+ MG_INIT_COMPLETE: 2 levels, Lt_full=16, num_restart=10
+PYQCU::SOLVER::MULTIGRID::
+ 0:Norm of b:247.729584
+PYQCU::SOLVER::MULTIGRID::
+ 0:Norm of r:247.729584
+PYQCU::SOLVER::MULTIGRID::
+ 0:Norm of x0:0.000000
+PYQCU::SOLVER::MULTIGRID::
+ 0:Starting Iterations
+PYQCU::SOLVER::MULTIGRID::
+ Performance Statistics:
+PYQCU::SOLVER::MULTIGRID::
+ Total iterations: 68
+PYQCU::SOLVER::MULTIGRID::
+ Total time: 1.097752 seconds
+PYQCU::SOLVER::MULTIGRID::
+ Average time per iteration: 0.004834 s
+PYQCU::SOLVER::MULTIGRID::
+ Final residual: 5.806208e-07
+Traceback (most recent call last):
+  File "/root/PyQCU/examples/qcu/mg_cpp_verify.py", line 77, in <module>
+    main()
+  File "/root/PyQCU/examples/qcu/mg_cpp_verify.py", line 67, in main
+    schur_res=tools.norm(b__o - S(x_o_mg))/tools.norm(b__o)
+  File "/root/PyQCU/pyqcu/dslash/_operator.py", line 333, in matvec_parity
+    return self.matvec_oo(src_o=src_o)-self.matvec_oe(src_e=self.matvec_ee_inv(src_e=self.matvec_eo(src_o=src_o)))
+  File "/root/PyQCU/pyqcu/dslash/_operator.py", line 317, in matvec_oo
+    return _torch.einsum(
+  File "/root/PyQCU/pyqcu/cann/__init__.py", line 131, in einsum
+    return torch.einsum(equation, *operands)
+  File "/usr/local/lib/python3.10/dist-packages/torch/functional.py", line 373, in einsum
+    return _VF.einsum(equation, operands)  # type: ignore[attr-defined]
+RuntimeError: einsum(): the number of subscripts in the equation (5) does not match the number of dimensions (7) for operand 1 and no ellipsis was given
