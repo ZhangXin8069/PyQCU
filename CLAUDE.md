@@ -346,3 +346,329 @@ These bugs were found and fixed during the R1–R3 reviews. They represent patte
 | Gathering MPI tuples in `(t,z,y,x)` order but unpacking as `(x,y,z,t)` | `_io.py` | Data written to wrong location |
 | Stout smearing `nstep>1` loop not updating `U` between steps | `_stout.py` | nstep degraded to 1 |
 | `python_requires=">=3.6"` when PyTorch 2.x needs ≥3.8 | `setup.py` | pip install fails on Py3.7 |
+
+---
+
+## Complete Skills (Agent-Produced Subdirectories)
+
+The content of each subdirectory below was produced with Claude Code assistance. Per repo convention, the complete skill that generates that content is reproduced verbatim below (source: the subdirectory's own `CLAUDE.md`), so the full knowledge is available directly at this level.
+
+### Complete Skill: `pyqcu/` (source: `pyqcu/CLAUDE.md`)
+
+# CLAUDE.md — pyqcu
+
+Top-level Python package for QCU: CUDA-accelerated lattice QCD library. Implements Wilson/Clover Dirac operators, BiStabCG and multigrid solvers, stout smearing, and gauge field generation — all MPI-distributed across a 4D process grid.
+
+## Two-Layer Architecture
+
+1. **Pure Python** (`dslash/`, `solver/`, `smear/`) — PyTorch-based implementations for CPU, CUDA GPU, or Ascend NPU (via `pyqcu.cann`).
+2. **C++ CUDA backend** (`cuda/` → `cpp/cuda/qcu/`) — Hand-tuned CUDA kernels with MPI halo exchange, accessed through a Cython bridge (`pyqcu.cuda.qcu`).
+
+The multigrid solver can mix both layers: finest-level smoothing via the C++ backend (`with_cuda_qcu=True`) and coarser levels in pure Python.
+
+## Subpackages
+
+| Package | Purpose |
+|---------|---------|
+| `lattice/` | Gamma matrices, Gell-Mann matrices, SU(3) checks, gauge field generation |
+| `dslash/` | Wilson & Clover Dirac operators, hopping/sitting decomposition, even-odd preconditioning, coarse-grid Galerkin projection |
+| `solver/` | BiCGStab(l) solver, adaptive multigrid (AMG) V-cycle solver, GMRES stub |
+| `smear/` | Stout gauge field smearing (iterative, MPI-capable) |
+| `tools/` | MPI grid helpers, HDF5 I/O (parallel + serial), einsum (TileLang JIT), linear algebra, multigrid restrict/prolong/null-vectors |
+| `testing/` | Integration tests for all components |
+| `cuda/` | Cython bridge to `libqcu.so` + parameter constants (`define.py`) |
+| `cann/` | Torch compatibility layer for Ascend NPU (complex ops decomposition) |
+| `dtk/` | Placeholder for DCU/ROCm backend (no implementation yet) |
+| `maca/` | Placeholder for Maca backend (no implementation yet) |
+
+## Key Convention
+
+All code imports `pyqcu.cann as _torch` instead of `torch` directly. On CUDA/CPU it delegates to torch; on NPU it decomposes complex ops into real/imaginary parts (Ascend NPU doesn't natively support complex tensors).
+
+## Data Layout Conventions
+
+| Tensor | Shape | Notes |
+|--------|-------|-------|
+| Gauge field (U) | `[3, 3, 4, Lx, Ly, Lz, Lt]` | `[color, color, direction, x, y, z, t]` |
+| Fermion field | `[4, 3, Lx, Ly, Lz, Lt]` | `[spin, color, x, y, z, t]` |
+| Clover term | `[4, 3, 4, 3, Lx, Ly, Lz, Lt]` | `[spin, color, spin, color, x, y, z, t]` |
+| Parity-split (prefix `p`) | `[2, ...original...]` | `p=0` is even sites, `p=1` is odd (prepended dim) |
+| Flattened spin×color | `[12, ...]` or `[E, ...]` | E = degrees of freedom per site |
+
+Spacetime dimensions are always the last four axes (`...xyzt` layout). Ward indices use negative indexing (`wards['x'] = -4`, `wards['t'] = -1`) to be robust against arbitrary prefix dimensions.
+
+## Build & Run
+
+```bash
+source ./env.sh                # LD_LIBRARY_PATH, PYTHONPATH, MPI flags
+bash ./build.sh                # build libqcu.so (C++ CUDA backend)
+bash ./install.sh              # build Cython extension in-place
+
+# Tests
+cd examples && pytest .
+mpirun -np 4 python examples/pyqcu/conftest.py
+```
+
+## Logging Convention
+
+All modules use: `PYQCU::MODULE::SUBMODULE:\n message`
+
+### Complete Skill: `cpp/` (source: `cpp/CLAUDE.md`)
+
+# CLAUDE.md — cpp
+
+C++ backend implementations for PyQCU. Each subdirectory targets a different GPU architecture.
+
+## Backends
+
+| Directory | Architecture | Status |
+|-----------|-------------|--------|
+| `cuda/qcu/` | NVIDIA CUDA | **Active** — primary production backend |
+| `cann/qcu/` | Huawei Ascend CANN | Placeholder stub |
+| `dtk/qcu/` | AMD DCU / ROCm (HIP) | Placeholder stub |
+| `maca/qcu/` | Maca | Placeholder stub |
+
+## Active Backend: cpp/cuda/qcu
+
+The CUDA backend implements hand-tuned kernels for Wilson/Clover dslash, BiStabCG/CG solvers, multigrid V-cycle, and gauge field generation — all with MPI halo exchange across a 4D process grid. Accessed from Python through the Cython bridge in `pyqcu/cuda/qcu/`.
+
+## Build
+
+Each backend should have its own `env.sh` for compiler/linker paths and a `make.sh` or CMake-based build script. The active CUDA backend uses `CMakeLists-nv.txt` (symlinked to `CMakeLists.txt`) with cmake + make chaining.
+
+### Complete Skill: `examples/` (source: `examples/CLAUDE.md`)
+
+# CLAUDE.md — examples
+
+Test examples and benchmarks for PyQCU, organized by backend target.
+
+## Directory Map
+
+| Directory | Target | Description |
+|-----------|--------|-------------|
+| `pyqcu/` | CPU/CUDA/NPU | Pure-Python operator/solver tests (main test suite) |
+| `qcu/` | NVIDIA CUDA | C++ CUDA backend tests via Cython bridge |
+| `cpu/` | CPU | CPU-only tests (BiStabCG, MPI) |
+| `npu/` | Ascend NPU | NPU-specific tests |
+| `dcu/` | AMD DCU | DCU/ROCm tests |
+| `profiler/` | All | Perfetto tracing with `torch.profiler` |
+| `benchmark/` | All | Performance benchmarks |
+| `tilelang/` | CUDA | TileLang kernel tests |
+| `gpu/` | GPU | Empty — GPU test placeholder |
+| `data/` | — | Reference HDF5 files for validation (`with_data=True`) |
+
+## Running Tests
+
+```bash
+cd examples && pytest .                              # all conftest.py files
+mpirun -np 4 python examples/pyqcu/conftest.py       # single file with MPI
+```
+
+Each subdirectory has its own `conftest.py` that imports test functions from `pyqcu.testing` and calls them. Conftest files are manually edited to uncomment desired tests.
+
+## Reference Data
+
+`examples/data/` contains HDF5 files with precomputed gauge fields, sources, and expected results used for validation when tests are run with `with_data=True`.
+
+### Complete Skill: `docs/` (source: `docs/CLAUDE.md`)
+
+# CLAUDE.md — docs
+
+Reference documentation for PyQCU.
+
+## Files
+
+| File | Content |
+|------|---------|
+| `dims.md` | Dimension naming scheme (`s`=spin, `c`=color, `d`=direction, `p`=parity, `x/y/z/t`=spacetime). Documents conventions for `ccdxyzt`, `scxyzt`, `psctzyx` etc. |
+| `env.md` | Python environment setup — required variables (`QUDA_PATH`, `LD_LIBRARY_PATH`, `PYTHONPATH`) |
+| `install.md` | Installation guide — build.sh + install.sh workflow |
+| `examples.md` | Examples usage guide — how to run tests and interpret output |
+| `profiler.md` | Profiling guide — using torch.profiler and Perfetto |
+
+### Complete Skill: `refer/` (source: `refer/CLAUDE.md`)
+
+# CLAUDE.md — refer
+
+Reference documents for development history.
+
+## Contents
+
+| File | Description |
+|------|-------------|
+| `dev71.md` | Development milestone 71 markdown report |
+| `dev71.pdf` | Development milestone 71 PDF report |
+| `dev71.tex` | Development milestone 71 LaTeX source |
+
+These are historical reference documents tracking development progress and design decisions.
+
+### Complete Skill: `logs/` (source: `logs/CLAUDE.md`)
+
+# CLAUDE.md — logs
+
+Development logs, review reports, bug fix summaries, and solver output. This directory is gitignored — contents are not versioned.
+
+## File Patterns
+
+| Pattern | Purpose |
+|---------|---------|
+| `dev<N>.md` | Development milestone reports |
+| `bug<N>.md` | Bug discovery & code review reports |
+| `review-*.md` | Code review findings (e.g., `review-2026-07-28.md`) |
+| `fix-report-*.md` | Bug fix summaries |
+| `multigrid_report.md` | MG solver performance reports |
+| `clover_multigrid.log` | C++ solver convergence output |
+| `*.png` | Performance charts, convergence plots |
+
+## Subdirectories
+
+| Directory | Purpose |
+|-----------|---------|
+| `debug/` | Per-round fix logs (`fix-log*.md`) |
+| `results/` | Final/remaining fix reports |
+
+### Complete Skill: `.claude/` (source: `.claude/CLAUDE.md`)
+
+# CLAUDE.md — .claude
+
+Claude Code configuration directory for the PyQCU repository. Holds agent skills and machine-local settings.
+
+## Contents
+
+| Path | Purpose |
+|------|---------|
+| `settings.local.json` | Machine-local Claude Code settings (untracked — do not commit) |
+| `skills/` | Agent skill directory — reusable markdown knowledge files loaded on demand by Claude Code |
+
+## Skills (`skills/`)
+
+`skills/` is an agent-generated skill directory. Each skill is a markdown file with YAML frontmatter (`name`, `description`). Skills are surfaced to Claude Code sessions automatically; invoking a skill loads its full content into context.
+
+Current skills:
+
+| File | Skill | Description |
+|------|-------|-------------|
+| `skills/past-work.md` | `past-work` | Past work history of PyQCU — what was built, optimized, and remains TODO |
+
+## Complete Skill: `past-work`
+
+Per repo convention, the complete skill of the agent skill directory `skills/` is reproduced below (verbatim source: `skills/past-work.md`) so it is available directly at this level.
+
+```markdown
+---
+name: past-work
+description: Past work history of PyQCU - what was built, optimized, and remains TODO
+---
+
+# Past Work
+
+PyQCU began in April 2026 as a Python/Cython GPU lattice QCD library. The git history spans 2026-04-27 to 2026-07-20 (~3 months, 60 commits).
+
+## Phase 1: Foundation (2026-04-27 to 2026-04-28)
+
+**What was built:**
+- Project scaffolding: `setup.py`, `env.sh`, `build.sh`, `install.sh`, directory structure
+- `pyqcu/lattice/` — Gamma matrices, Gell-Mann matrices, SU(3) checks, gauge field generation
+- `pyqcu/dslash/` — Wilson Dirac operator (`_wilson.py`), hopping/sitting/operator classes (`_operator.py`)
+- `pyqcu/solver/` — BiStabCG (`_bistabcg.py`), GMRES stub
+- `pyqcu/tools/` — MPI grid helpers, HDF5 I/O, linalg, parity conversion, einsum stubs
+- `pyqcu/cann/` — NPU compatibility layer (complex op decomposition for Ascend)
+- `pyqcu/testing/` — Integration tests
+- C++ CUDA backend skeleton: `cpp/cuda/qcu/` with CMake build, all kernel files, Cython bridge (`qcu.pyx`, `define.py`, `pyqcu.h`)
+- Test infrastructure: `examples/pyqcu/`, `examples/qcu/`, `examples/cpu/`, `examples/npu/`, `examples/dcu/`, `examples/profiler/`
+
+**Key design decisions made in this phase:**
+- Two-layer architecture: pure Python (PyTorch) for dev/testing + C++ CUDA for production
+- `pyqcu.cann` as _torch import throughout (NPU compatibility)
+- Flat parameter tensor protocol (`params`, `argv`, `set_ptrs`) for Cython↔C++ bridge
+- Plan system (`_SET_PLAN_`) for kernel dispatch
+- MPI 4D process grid auto-factorization
+
+## Phase 2: Core Feature Completion (2026-05-04 to 2026-05-05)
+
+**What was built:**
+- Clover term construction (`_clover.py`) — field strength F_μν from plaquettes, sigma matrix products, MPI halo exchange for 12 gauge link patterns
+- Clover dslash in C++: `clover_dslash_single.cu`, `clover_dslash_multi.cu`, `clover_dslash_comm.cu`
+- Wilson BiStabCG, Wilson CG, Clover BiStabCG — both Python (`_bistabcg.py` with parity preconditioning) and C++ (`apply_wilson_bistabcg.cu`, `apply_clover_bistabcg.cu`, `apply_wilson_cg.cu`)
+- Clover bistabcg dslash parity preconditioning in C++ (`apply_clover_bistabcg_dslash.cu`)
+- Multigrid solver (`solver/_multigrid.py`) — level hierarchy construction, null vector generation via BiStabCG inverse iteration, local orthogonalization, Galerkin coarse-grid projection, V-cycle with adaptive level-back
+- Multigrid tools (`tools/_multigrid.py`) — `give_null_vecs`, `local_orthogonalize`, `restrict`, `prolong`
+- Batch clover inversion (`apply_clovers.cu`) — Clover term + its inverse computed in C++
+- Stout smearing (`smear/_stout.py`) with MPI halo exchange support
+- MPI correctness fixes in `lattice_set.h` and dslash operators
+- Major C++ refactoring: consolidated Wilson/Clover BiStabCG/CG dslash templates in header files
+
+**Key achievements:**
+- Full Clover fermion operator (Wilson + clover term) working on both Python and C++ backends
+- Multigrid solver with configurable levels, data types, and devices
+- All solvers verified against reference HDF5 data
+
+## Phase 3: Optimization (2026-07-05 to 2026-07-08)
+
+**12 optimizations applied across 6 files** (documented in `log/stab23.log`):
+
+| # | Optimization | File | Impact |
+|---|-------------|------|--------|
+| 1 | Batch matrix inversion | `pyqcu/dslash/_clover.py` | ~10-50x for clover inverse (N loops → 1 batch) |
+| 2 | Tensor device/type caching | `pyqcu/dslash/_wilson.py` | Eliminated per-direction `.to()`/`.type()` |
+| 3 | I±γ matrix precomputation | `pyqcu/dslash/_wilson.py` | 4 subtractions → dict lookup |
+| 4 | Sigma matrix precomputation | `pyqcu/dslash/_clover.py` | 6 `.to()`/`.type()` → dict lookup |
+| 5 | Clover coefficient precompute | `pyqcu/dslash/_clover.py` | Eliminated 6 redundant float casts |
+| 6 | Remove unnecessary `.clone()` | `pyqcu/dslash/_clover.py` | 3 deep copies eliminated |
+| 7 | Cache `give_eo_mask` | `pyqcu/tools/_define.py` | Avoid repeated meshgrid creation |
+| 8 | Store `tools.norm(b)` | `pyqcu/solver/_bistabcg.py` | 1 redundant MPI Allreduce removed |
+| 9 | Conditional perf_counter | `pyqcu/solver/_bistabcg.py` | Skip timer in silent mode |
+| 10 | Remove duplicate import | `pyqcu/solver/_multigrid.py` | Code cleanup |
+| 11 | Fix redundant `.flatten()` | `pyqcu/tools/_linalg.py` | Double flatten eliminated |
+| 12 | Fix cut_I log message | `pyqcu/dslash/_clover.py` | Correctness fix |
+
+**Reference document:** `refer/dev71.md` — 861-line design doc for CUDA C++ MultiGrid implementation (July 2026). Comprehensive analysis of Python multigrid implementation, C++ backend infrastructure, and optimization strategy for moving multigrid to CUDA. Contains detailed code snippets, architecture diagrams, and implementation roadmap.
+
+**Environment fix:** `env.sh` updated with MPI root permissions and proper library paths.
+
+## Phase 4: CUDA Multigrid Acceleration + Polish (2026-07-14 to 2026-07-20)
+
+**What was built:**
+- CUDA multigrid kernels (`cpp/cuda/qcu/src/multigrid.cu`) — 229 lines: restrict, prolong, and coarse dslash CUDA kernels with multi-GPU support
+- Cython bridge expanded: `applyMultigridRestrictQcu`, `applyMultigridProLongQcu`, `applyMultigridCoarseDslashQcu`
+- Python multigrid CUDA integration (`pyqcu/solver/_multigrid.py`) — `_restrict_cuda`, `_prolong_cuda`, `_coarse_dslash_cuda` methods that pack/unpack data for the C++ backend, with per-level caching
+- CLAUDE.md created and iteratively improved (3 revisions covering architecture, build, and conventions)
+- `.gitignore` added
+
+## Current State (2026-07-20)
+
+### Working ✅
+- Wilson and Clover Dirac operators (Python + C++ CUDA)
+- BiStabCG and CG solvers (Python + C++ CUDA)
+- Wilson and Clover parity-preconditioned solvers (C++ CUDA)
+- Multigrid solver (Python, with optional CUDA finest-level smoothing)
+- Stout gauge smearing (Python)
+- Gauge field generation and SU(3) validation
+- MPI-distributed 4D process grid with halo exchange
+- HDF5 I/O (MPI parallel + serial fallback)
+- NPU compatibility layer (Ascend)
+- TileLang JIT kernels for specific einsum patterns
+- Perfetto profiling support
+- CUDA-accelerated restrict/prolong/coarse-dslash in multigrid
+
+### Stubs / Placeholders
+- `cpp/cann/qcu/`, `cpp/dtk/qcu/`, `cpp/maca/qcu/` — PASS stubs only
+- `pyqcu/solver/_gmres.py` — PASS stub
+- `pyqcu/dtk/`, `pyqcu/maca/` — PASS stubs
+
+### Known Gaps / TODO
+- **CUDA multigrid main loop** — `multigrid.cu` has restrict/prolong/coarse-dslash kernels but no full V-cycle loop in C++. The V-cycle logic lives in `pyqcu/solver/_multigrid.py`.
+- **GMRES solver** — stub only
+- **DCU/CANN/MACA backends** — no implementation beyond stubs
+- **CUDA coarse-grid operator construction** — Galerkin projection is done in Python, not on GPU
+
+### Key Reference Files
+| File | Content |
+|------|---------|
+| `refer/dev71.md` | CUDA C++ MultiGrid design document (861 lines) |
+| `refer/dev71.pdf` | PDF version of the design doc |
+| `refer/dev71.tex` | LaTeX source for the design doc |
+| `log/stab23.log` | Optimization report (12 optimizations, July 2026) |
+| `examples/data/` | Reference HDF5 files for Wilson and Clover validation |
+```
+

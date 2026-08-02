@@ -50,3 +50,18 @@ General N-operand complex einsum uses a combinatorial approach. For Z = Π(a_k +
 ## Subdirectory
 
 `qcu/` — placeholder stub (empty `PASS` file), no implementation yet.
+
+---
+
+## Complete Skills (Agent-Produced Subdirectories)
+
+The content of each subdirectory below was produced with Claude Code assistance. Per repo convention, the complete skill that generates that content is reproduced verbatim below (source: the subdirectory's own `CLAUDE.md`), so the full knowledge is available directly at this level.
+
+### Complete Skill: `qcu/` (source: `qcu/CLAUDE.md`)
+
+# CLAUDE.md — pyqcu.cann.qcu
+
+Placeholder for the Ascend NPU C++ Cython bridge. No implementation yet.
+
+Contains only an empty `PASS` file as a directory placeholder.
+
