@@ -101,18 +101,28 @@ __global__ void multigrid_prolong(void *fine_out, void *coarse_in,
   int iz_c = iz_f / z;
   int it_c = it_f / t;
 
-  // Strides for null vectors and coarse vector
+  // Strides for null vectors and coarse vector.
+  // The null-vector and coarse/fine vectors are C-order tensors
+  // [E, e, X, Y, Z, T] and [E, X, Y, Z, T] respectively, i.e. the LAST
+  // (t) dimension is contiguous (stride 1).  The coarse-site index must
+  // therefore use t-fastest strides:  x*(Yc*Zc*Tc) + y*(Zc*Tc) + z*Tc + t.
+  // (Historical bug: this used x + Xc*y + Xc*Yc*z + Xc*Yc*Zc*t — the
+  // transpose/X-fastest convention — which mismatches the tensor layout
+  // for any coarse site with t>0 or mixed coordinates.)
   int nv_stride_E = e * fine_vol;
   int coarse_stride_E = Xc * Yc * Zc * Tc;
+  int coarse_stride_YZT = Yc * Zc * Tc;
+  int coarse_stride_ZT = Zc * Tc;
+  // C-order coarse-site index (t fastest):
+  int coarse_site = ix_c * coarse_stride_YZT + iy_c * coarse_stride_ZT +
+                    iz_c * Tc + it_c;
 
   LatticeComplex<T> sum(0.0, 0.0);
   int fine_idx = global_idx;
 
   for (int E_idx = 0; E_idx < E; E_idx++) {
     int nv_idx = E_idx * nv_stride_E + fine_idx;
-    int coarse_idx =
-        E_idx * coarse_stride_E +
-        (ix_c + Xc * (iy_c + Yc * (iz_c + Zc * it_c)));
+    int coarse_idx = E_idx * coarse_stride_E + coarse_site;
     sum += nv[nv_idx] * cin[coarse_idx];
   }
   out[global_idx] = sum;
@@ -229,13 +239,18 @@ template __global__ void multigrid_coarse_dslash<double>(
 // ---- Parity-split ↔ full-site layout conversion kernels ----
 // Layouts:
 //   Full-site:   [sc, X, Y, Z, Lt]       — all sites, contiguous t
-//   Parity odd:  [sc, X, Y, Z, Lt/2]     — only odd t-slices, compact
-//   Parity even: [sc, X, Y, Z, Lt/2]     — only even t-slices, compact
+//   Parity-split:[2, sc, X, Y, Z, Lt/2]  — channel 0 = even, channel 1 = odd
 //
-// Parity is defined by t-coordinate parity: even t ∈ even parity, odd t ∈ odd.
-// In the full-site layout, even t values are 0,2,4,…,Lt-2 and odd are 1,3,5,…,Lt-1.
-// In parity-split, each parity stores contiguously: t_half ∈ [0, Lt/2-1].
-// Mapping: full_t_odd = 2 * t_half + 1, full_t_even = 2 * t_half.
+// CRITICAL — parity convention (checkerboard, matches tools.oooxyzt2poooxyzt):
+//   A full site (x,y,z,t) belongs to parity p = (x+y+z+t) % 2.
+//   Let eo = (x+y+z) % 2 (spatial parity).  For a given spatial site:
+//     * even parity (p=0): t_full = 2*t_half + eo
+//     * odd  parity (p=1): t_full = 2*t_half + (1 - eo)
+//   So t_half is NOT simply "even/odd t"; the t-offset depends on (x+y+z)%2.
+//   (Historical bug: these kernels used t_full = 2*t_half+1 unconditionally,
+//   which is only correct when (x+y+z) is even.  For (x+y+z) odd the odd
+//   channel lives on EVEN t-slices, so the mapping was scrambled and every
+//   V-cycle correction blew up the residual.)
 template <typename T>
 __global__ void multigrid_odd_to_full(void *full_out, void *odd_in,
                                        int sc, int X, int Y, int Z, int Lt_full) {
@@ -257,8 +272,9 @@ __global__ void multigrid_odd_to_full(void *full_out, void *odd_in,
   int z = rem / Lt_half;
   int t_half = rem - z * Lt_half;
 
-  // --- Map to full-site: t_full = 2 * t_half + 1 (odd t-slices) ---
-  int t_full = 2 * t_half + 1;
+  // --- Map odd-channel → full-site t: t_full = 2*t_half + (1 - eo) ---
+  int eo = (x + y + z) & 1;        // spatial parity
+  int t_full = 2 * t_half + (1 - eo);
   int vol_full = X * Y * Z * Lt_full;
   int stride_YZT_full = Y * Z * Lt_full;
   int stride_ZT_full = Z * Lt_full;
@@ -271,6 +287,82 @@ __global__ void multigrid_odd_to_full(void *full_out, void *odd_in,
   LatticeComplex<T> *d = static_cast<LatticeComplex<T>*>(full_out);
   LatticeComplex<T> *s = static_cast<LatticeComplex<T>*>(odd_in);
   d[dest_idx] = s[idx];
+}
+
+template <typename T>
+__global__ void multigrid_even_to_full(void *full_out, void *even_in,
+                                       int sc, int X, int Y, int Z, int Lt_full) {
+  // Even channel → full-site.  Same checkerboard convention as the odd kernel:
+  //   even parity (p=0): t_full = 2*t_half + eo,  eo = (x+y+z)%2.
+  int idx = blockIdx.x * blockDim.x + threadIdx.x;
+  int Lt_half = Lt_full / 2;
+  int vol_half = X * Y * Z * Lt_half;
+  int total_output = sc * vol_half;
+  if (idx >= total_output) return;
+
+  int sc_idx = idx / vol_half;
+  int site = idx - sc_idx * vol_half;
+  int stride_YZT_half = Y * Z * Lt_half;
+  int stride_ZT_half = Z * Lt_half;
+  int x = site / stride_YZT_half;
+  int rem = site - x * stride_YZT_half;
+  int y = rem / stride_ZT_half;
+  rem -= y * stride_ZT_half;
+  int z = rem / Lt_half;
+  int t_half = rem - z * Lt_half;
+
+  int eo = (x + y + z) & 1;
+  int t_full = 2 * t_half + eo;
+  int vol_full = X * Y * Z * Lt_full;
+  int stride_YZT_full = Y * Z * Lt_full;
+  int stride_ZT_full = Z * Lt_full;
+  int dest_idx = sc_idx * vol_full
+               + x * stride_YZT_full
+               + y * stride_ZT_full
+               + z * Lt_full
+               + t_full;
+
+  LatticeComplex<T> *d = static_cast<LatticeComplex<T>*>(full_out);
+  LatticeComplex<T> *s = static_cast<LatticeComplex<T>*>(even_in);
+  d[dest_idx] = s[idx];
+}
+
+template <typename T>
+__global__ void multigrid_full_to_even(void *even_out, void *full_in,
+                                       int sc, int X, int Y, int Z, int Lt_full) {
+  // Full-site even-parity site → even channel.
+  // even channel: t_full = 2*t_half + eo  ⇒  t_half = (t_full - eo)/2.
+  int idx = blockIdx.x * blockDim.x + threadIdx.x;
+  int Lt_half = Lt_full / 2;
+  int vol_half = X * Y * Z * Lt_half;
+  int total_output = sc * vol_half;
+  if (idx >= total_output) return;
+
+  int sc_idx = idx / vol_half;
+  int site = idx - sc_idx * vol_half;
+  int stride_YZT_half = Y * Z * Lt_half;
+  int stride_ZT_half = Z * Lt_half;
+  int x = site / stride_YZT_half;
+  int rem = site - x * stride_YZT_half;
+  int y = rem / stride_ZT_half;
+  rem -= y * stride_ZT_half;
+  int z = rem / Lt_half;
+  int t_half = rem - z * Lt_half;
+
+  int eo = (x + y + z) & 1;
+  int t_full = 2 * t_half + eo;
+  int vol_full = X * Y * Z * Lt_full;
+  int stride_YZT_full = Y * Z * Lt_full;
+  int stride_ZT_full = Z * Lt_full;
+  int src_idx = sc_idx * vol_full
+              + x * stride_YZT_full
+              + y * stride_ZT_full
+              + z * Lt_full
+              + t_full;
+
+  LatticeComplex<T> *d = static_cast<LatticeComplex<T>*>(even_out);
+  LatticeComplex<T> *s = static_cast<LatticeComplex<T>*>(full_in);
+  d[idx] = s[src_idx];
 }
 
 template <typename T>
@@ -294,8 +386,10 @@ __global__ void multigrid_full_to_odd(void *odd_out, void *full_in,
   int z = rem / Lt_half;
   int t_half = rem - z * Lt_half;
 
-  // --- Map to full-site: t_full = 2 * t_half + 1 (odd t-slices) ---
-  int t_full = 2 * t_half + 1;
+  // --- Map full-site odd-parity site → odd-channel t_half ---
+  // odd channel: t_full = 2*t_half + (1-eo)  ⇒  t_half = (t_full + eo - 1)/2
+  int eo = (x + y + z) & 1;        // spatial parity
+  int t_full = 2 * t_half + (1 - eo);
   int vol_full = X * Y * Z * Lt_full;
   int stride_YZT_full = Y * Z * Lt_full;
   int stride_ZT_full = Z * Lt_full;
@@ -314,8 +408,16 @@ template __global__ void multigrid_odd_to_full<float>(
     void*, void*, int, int, int, int, int);
 template __global__ void multigrid_odd_to_full<double>(
     void*, void*, int, int, int, int, int);
+template __global__ void multigrid_even_to_full<float>(
+    void*, void*, int, int, int, int, int);
+template __global__ void multigrid_even_to_full<double>(
+    void*, void*, int, int, int, int, int);
 template __global__ void multigrid_full_to_odd<float>(
     void*, void*, int, int, int, int, int);
 template __global__ void multigrid_full_to_odd<double>(
+    void*, void*, int, int, int, int, int);
+template __global__ void multigrid_full_to_even<float>(
+    void*, void*, int, int, int, int, int);
+template __global__ void multigrid_full_to_even<double>(
     void*, void*, int, int, int, int, int);
 } // namespace qcu
