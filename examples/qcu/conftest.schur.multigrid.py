@@ -59,7 +59,7 @@ def build_config(Lx,Ly,Lz,Lt,MASS,ATOL,NUM_LEVELS,DOF_LIST,MG_GRID,NUM_RESTART,
     if NUM_LEVELS>=3: av[define._MG_LEVEL2_ATOL_]=ATOL*COARSE_TOL_FACTOR
     return av
 
-CACHE_DIR = "/tmp/PyQCU_schur_cache"
+CACHE_DIR = "/root/PyQCU/logs/nullvec_cache"
 os.makedirs(CACHE_DIR, exist_ok=True)
 
 def build_schur_levels(op, S, NUM_LEVELS, DOF_LIST, MG_GRID, lat_full, E, dt, device, nv_iters=2, use_cache=True):
