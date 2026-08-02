@@ -276,6 +276,12 @@ def make_clover(U: torch.Tensor, kappa: Optional[torch.Tensor] = torch.Tensor([0
 
 
 def add_I(clover_term: torch.Tensor, verbose: bool = False) -> torch.Tensor:
+    # BUGFIX 2026-08-02: do NOT modify the input tensor in place.
+    # `_clover_term = clover_term.reshape(12,12,-1)` is a VIEW; the old
+    # `_clover_term += eye` wrote I+T back into the caller's clover_term,
+    # corrupting any later reuse of that tensor (e.g. recomputing the
+    # residual with `give_clover(x, clover_term)` after the operator was
+    # built). Build a fresh tensor instead.
     _clover_term = clover_term.reshape(12, 12, -1)
     if verbose:
         print('PYQCU::DSLASH::CLOVER:\n Clover is adding I......')
@@ -283,14 +289,15 @@ def add_I(clover_term: torch.Tensor, verbose: bool = False) -> torch.Tensor:
             f"PYQCU::DSLASH::CLOVER:\n _clover_term.shape:{_clover_term.shape}")
     eye = _torch.eye(12, dtype=_clover_term.dtype,
                      device=_clover_term.device)
-    _clover_term += eye.unsqueeze(-1)
-    dest = _clover_term.reshape(clover_term.shape)
+    dest = (_clover_term + eye.unsqueeze(-1)).reshape(clover_term.shape)
     if verbose:
         print(f"PYQCU::DSLASH::CLOVER:\n dest.shape:{dest.shape}")
     return dest
 
 
 def cut_I(clover_term: torch.Tensor, verbose: bool = False) -> torch.Tensor:
+    # BUGFIX 2026-08-02: do NOT modify the input tensor in place (same reason
+    # as add_I — the reshape is a view, `-=` would corrupt the caller's data).
     _clover_term = clover_term.reshape(12, 12, -1)
     if verbose:
         print('PYQCU::DSLASH::CLOVER:\n Clover is cutting I......')
@@ -298,8 +305,7 @@ def cut_I(clover_term: torch.Tensor, verbose: bool = False) -> torch.Tensor:
             f"PYQCU::DSLASH::CLOVER:\n _clover_term.shape:{_clover_term.shape}")
     eye = _torch.eye(12, dtype=_clover_term.dtype,
                      device=_clover_term.device)
-    _clover_term -= eye.unsqueeze(-1)
-    dest = _clover_term.reshape(clover_term.shape)
+    dest = (_clover_term - eye.unsqueeze(-1)).reshape(clover_term.shape)
     if verbose:
         print(f"PYQCU::DSLASH::CLOVER:\n dest.shape:{dest.shape}")
     return dest
