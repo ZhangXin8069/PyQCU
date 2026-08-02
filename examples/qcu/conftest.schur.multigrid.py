@@ -189,10 +189,10 @@ def run(label, Lx,Ly,Lz,Lt,MASS,ATOL,NUM_LEVELS,DOF_LIST,MG_GRID,NUM_RESTART=10,
 if __name__=="__main__":
     # (label, Lx,Ly,Lz,Lt, mass, atol, levels, dof, mg_grid, restart, coarse_max_iter, coarse_tol_factor, DT, nvi)
     CONFIGS = [
-        ("8x8x8x16_c64_2L",  8, 8, 8, 16, 0.05, 1e-6, 2, [12,48], [2,2,2,2], 10, 200, 1e3, define._LAT_C64_, 2),
-        ("8x16x16x16_c64_2L",8,16,16,16,0.05,1e-6, 2, [12,48], [2,2,2,2], 10, 200, 1e3, define._LAT_C64_, 2),
-        ("8x16x16x16_c64_3L",8,16,16,16,0.05,1e-6, 3, [12,48,48],[2,2,2,2],10, 200, 1e3, define._LAT_C64_, 2),
-    ][:1]  # TEMP: run config 1 only for profiling
+        ("8x8x8x16_c64_2L",  8, 8, 8, 16, 0.05, 1e-6, 2, [12,48], [2,2,2,2], 10, 200, 1e4, define._LAT_C64_, 2),
+        ("8x16x16x16_c64_2L",8,16,16,16,0.05,1e-6, 2, [12,48], [2,2,2,2], 10, 200, 1e4, define._LAT_C64_, 2),
+        ("8x16x16x16_c64_3L",8,16,16,16,0.05,1e-6, 3, [12,48,48],[2,2,2,2],10, 200, 1e4, define._LAT_C64_, 2),
+    ]
     results=[]
     for cfg in CONFIGS:
         label,Lx,Ly,Lz,Lt,MASS,ATOL,LVL,DOF,MGGRID,NR,CMI,CTF,DT,NVI=cfg
