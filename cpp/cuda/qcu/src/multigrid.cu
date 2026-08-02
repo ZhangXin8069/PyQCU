@@ -1,6 +1,8 @@
 #include "../include/qcu.h"
+#include <cooperative_groups.h>
 #pragma optimize(5)
 namespace qcu {
+namespace cg = cooperative_groups;
 template <typename T>
 __global__ void multigrid_restrict(void *coarse_out, void *fine_in,
                                    void *null_vecs, int E, int e, int Xf, int Yf,
@@ -543,6 +545,218 @@ __global__ void multigrid_coarse_solve(void *x, void *rhs, void *r_tilde,
 }
 #undef _CS_REDUCE
 
+// ====================================================================
+// COOPERATIVE-GROUPS PARALLEL FUSED COARSE BiStabCG SOLVE (2026-08-02)
+// --------------------------------------------------------------------
+// Replaces the per-iteration coarse path (bistabcg_iter_coarse: ~14 tiny
+// kernel launches + 1 host sync per iteration, ~1.3 ms/iter on this
+// WSL2/V100 box — the launch/execution overhead, NOT compute) with ONE
+// cooperative kernel that runs the ENTIRE BiStabCG solve in-kernel.
+//
+// grid.sync() is the only "barrier" (~2-5 us each); per iteration there
+// are 4 cross-block reductions (rho, rtv, [ts,tt], norm2) = 8 grid.syncs,
+// plus the wide 33-tensor dslash, all grid-strided across n elements.
+//
+// Launch: cudaLaunchCooperativeKernel with grid = ceil(n/NT) blocks.
+// Requires the grid to be co-resident (n <= ~50k elements for NT=256 on a
+// V100) — always true for the coarsest level of our lattices.
+//
+// @param partials  scratch [gridDim.x] LatticeComplex — per-block dot sums
+// @param target    convergence target (||r|| < target), target = tol*||rhs||
+// ====================================================================
+template <typename T, int NT>
+__global__ void multigrid_coarse_solve_cg(
+    void *x, void *rhs, void *r_tilde, void *r, void *p, void *v, void *s,
+    void *t, void *sitting, void *hop_nn, void *hop_diag,
+    int E, int X, int Y, int Z, int Lt, int max_iter, T tol,
+    void *partials) {
+  cg::grid_group grid = cg::this_grid();
+  const int n = E * X * Y * Z * Lt;
+  const int tid = threadIdx.x;
+  const int bid = blockIdx.x;
+  const int nblocks = gridDim.x;
+  const int NT_local = NT;
+  __shared__ LatticeComplex<T> sred[NT];
+
+  LatticeComplex<T> *xr  = static_cast<LatticeComplex<T>*>(x);
+  LatticeComplex<T> *br  = static_cast<LatticeComplex<T>*>(rhs);
+  LatticeComplex<T> *rtr = static_cast<LatticeComplex<T>*>(r_tilde);
+  LatticeComplex<T> *rr  = static_cast<LatticeComplex<T>*>(r);
+  LatticeComplex<T> *pr  = static_cast<LatticeComplex<T>*>(p);
+  LatticeComplex<T> *vr  = static_cast<LatticeComplex<T>*>(v);
+  LatticeComplex<T> *sr  = static_cast<LatticeComplex<T>*>(s);
+  LatticeComplex<T> *tr  = static_cast<LatticeComplex<T>*>(t);
+  const LatticeComplex<T> *sit = static_cast<const LatticeComplex<T>*>(sitting);
+  const LatticeComplex<T> *nn  = static_cast<const LatticeComplex<T>*>(hop_nn);
+  const LatticeComplex<T> *dg  = static_cast<const LatticeComplex<T>*>(hop_diag);
+  LatticeComplex<T> *prt = static_cast<LatticeComplex<T>*>(partials);
+
+  // ---- Init vectors (grid-stride) ----
+  for (int i = bid * NT_local + tid; i < n; i += nblocks * NT_local) {
+    xr[i] = LatticeComplex<T>(0,0);
+    rr[i] = br[i];
+    rtr[i] = br[i];
+    pr[i] = LatticeComplex<T>(0,0);
+    vr[i] = LatticeComplex<T>(0,0);
+    sr[i] = LatticeComplex<T>(0,0);
+    tr[i] = LatticeComplex<T>(0,0);
+  }
+  grid.sync();
+
+  // ---- ||rhs|| (r0) via block reduction ----
+  {
+    LatticeComplex<T> sum(0,0);
+    for (int i = bid * NT_local + tid; i < n; i += nblocks * NT_local)
+      sum += br[i].conj() * br[i];
+    sred[tid] = sum; __syncthreads();
+    for (int k = NT_local/2; k > 0; k >>= 1) {
+      if (tid < k) sred[tid] += sred[tid+k];
+      __syncthreads();
+    }
+    if (tid == 0) prt[bid] = sred[0];
+    grid.sync();
+    // every block sums the partials locally
+    LatticeComplex<T> tot(0,0);
+    for (int b = 0; b < nblocks; b++) tot += prt[b];
+    T r0 = sqrt(tot.real() > 0 ? tot.real() : 0);
+    T target = tol * r0;
+    grid.sync();  // before next block-partial overwrites prt[]
+
+    if (r0 < (T)1e-30) return;
+
+    // ---- Wide 33-tensor coarse dslash (out = A_c·in), grid-stride ----
+    auto dslash = [&](LatticeComplex<T> *out, const LatticeComplex<T> *in) {
+      int vol = X*Y*Z*Lt;
+      int stride_YZT = Y*Z*Lt, stride_ZT = Z*Lt;
+      int str_Ein = vol, str_Eout = E*vol, str_dir = E*str_Eout, str_pm = 4*str_dir;
+      int dg_str_s1 = 2*6*E*str_Eout, dg_str_s2 = 6*E*str_Eout, dg_str_pair = E*str_Eout;
+      int d1s[6] = {0,0,0,1,1,2}, d2s[6] = {1,2,3,2,3,3};
+      int offs[4] = {stride_YZT, stride_ZT, Lt, 1}, dims[4] = {X,Y,Z,Lt};
+      for (int idx = bid*NT_local + tid; idx < n; idx += nblocks*NT_local) {
+        int E_out = idx / (X*Y*Z*Lt);
+        int site  = idx - E_out * (X*Y*Z*Lt);
+        int xc = site / stride_YZT; int rem = site % stride_YZT;
+        int yc = rem / stride_ZT;   rem %= stride_ZT;
+        int zc = rem / Lt;          int tc = rem % Lt;
+        int coords[4] = {xc,yc,zc,tc};
+        LatticeComplex<T> sum(0,0);
+        int sb = E_out*str_Eout + site;
+        for (int e=0; e<E; e++) sum += sit[sb + e*str_Ein] * in[e*str_Ein + site];
+        for (int d=0; d<4; d++) {
+          int fwd=(coords[d]+1)%dims[d], bwd=(coords[d]-1+dims[d])%dims[d];
+          int fs = site - coords[d]*offs[d] + fwd*offs[d];
+          int bs = site - coords[d]*offs[d] + bwd*offs[d];
+          int nb = E_out*str_Eout + site;
+          for (int e=0; e<E; e++) {
+            sum += nn[0*str_pm + d*str_dir + nb + e*str_Ein] * in[e*str_Ein + fs];
+            sum += nn[1*str_pm + d*str_dir + nb + e*str_Ein] * in[e*str_Ein + bs];
+          }
+        }
+        for (int pi=0; pi<6; pi++) {
+          int d1=d1s[pi], d2=d2s[pi];
+          for (int s1i=0; s1i<2; s1i++) for (int s2i=0; s2i<2; s2i++) {
+            int sgn1 = s1i==0?1:-1, sgn2 = s2i==0?1:-1;
+            int n1 = (coords[d1]+sgn1+dims[d1])%dims[d1];
+            int n2 = (coords[d2]+sgn2+dims[d2])%dims[d2];
+            int ns = site;
+            if (d1==0) ns = ns - xc*stride_YZT + n1*stride_YZT;
+            else if (d1==1) ns = ns - yc*stride_ZT + n1*stride_ZT;
+            else if (d1==2) ns = ns - zc*Lt + n1*Lt;
+            else ns = ns - tc + n1;
+            int cur = (d2==0)?(ns/stride_YZT):(d2==1)?((ns%stride_YZT)/stride_ZT):(d2==2)?((ns%stride_ZT)/Lt):(ns%Lt);
+            ns += (n2-cur)*offs[d2];
+            int db = s1i*dg_str_s1 + s2i*dg_str_s2 + pi*dg_str_pair + E_out*str_Eout + site;
+            for (int e=0; e<E; e++) sum += dg[db + e*str_Ein] * in[e*str_Ein + ns];
+          }
+        }
+        out[idx] = sum;
+      }
+    };
+
+    // ---- Block dot: computes <a,b> partial into prt[bid] ----
+    auto block_dot = [&](const LatticeComplex<T>* a, const LatticeComplex<T>* b) {
+      LatticeComplex<T> sum(0,0);
+      for (int i = bid*NT_local + tid; i < n; i += nblocks*NT_local)
+        sum += a[i].conj() * b[i];
+      sred[tid] = sum; __syncthreads();
+      for (int k = NT_local/2; k > 0; k >>= 1) {
+        if (tid < k) sred[tid] += sred[tid+k];
+        __syncthreads();
+      }
+      if (tid == 0) prt[bid] = sred[0];
+      grid.sync();
+      LatticeComplex<T> tot(0,0);
+      for (int b = 0; b < nblocks; b++) tot += prt[b];
+      grid.sync();  // protect prt[] before next block_dot overwrites
+      return tot;
+    };
+
+    LatticeComplex<T> rho(1,0), rho_prev(1,0), alpha(1,0), omega(1,0);
+    for (int it = 0; it < max_iter; ++it) {
+      // 1. rho = <rt, r>
+      rho = block_dot(rtr, rr);
+      // 2. beta; rho_prev = rho
+      LatticeComplex<T> beta = (rho / rho_prev) * (alpha / omega);
+      rho_prev = rho;
+      // 3. p = r + beta*(p - omega*v)
+      for (int i = bid*NT_local + tid; i < n; i += nblocks*NT_local)
+        pr[i] = rr[i] + beta * (pr[i] - omega * vr[i]);
+      __syncthreads();
+      // 4. v = A_c·p
+      dslash(vr, pr);
+      __syncthreads();
+      // 5. rtv; alpha = rho/rtv
+      LatticeComplex<T> rtv = block_dot(rtr, vr);
+      alpha = rho / rtv;
+      // 6. s = r - alpha*v
+      for (int i = bid*NT_local + tid; i < n; i += nblocks*NT_local)
+        sr[i] = rr[i] - alpha * vr[i];
+      __syncthreads();
+      // 7. t = A_c·s
+      dslash(tr, sr);
+      __syncthreads();
+      // 8. ts = <t,s>, tt = <t,t>  (one pass)
+      {
+        LatticeComplex<T> s1(0,0), s2(0,0);
+        for (int i = bid*NT_local + tid; i < n; i += nblocks*NT_local) {
+          s1 += tr[i].conj() * sr[i];
+          s2 += tr[i].conj() * tr[i];
+        }
+        sred[tid] = s1; __syncthreads();
+        for (int k = NT_local/2; k > 0; k >>= 1) {
+          if (tid < k) sred[tid] += sred[tid+k];
+          __syncthreads();
+        }
+        if (tid == 0) prt[bid] = sred[0];
+        grid.sync();
+        LatticeComplex<T> ts(0,0);
+        for (int b = 0; b < nblocks; b++) ts += prt[b];
+        grid.sync();
+        sred[tid] = s2; __syncthreads();
+        for (int k = NT_local/2; k > 0; k >>= 1) {
+          if (tid < k) sred[tid] += sred[tid+k];
+          __syncthreads();
+        }
+        if (tid == 0) prt[bid] = sred[0];
+        grid.sync();
+        LatticeComplex<T> tt(0,0);
+        for (int b = 0; b < nblocks; b++) tt += prt[b];
+        grid.sync();
+        omega = ts / tt;
+      }
+      // 9. r = s - omega*t ; x += alpha*p + omega*s
+      for (int i = bid*NT_local + tid; i < n; i += nblocks*NT_local) {
+        rr[i] = sr[i] - omega * tr[i];
+        xr[i] = xr[i] + alpha * pr[i] + omega * sr[i];
+      }
+      __syncthreads();
+      // 10. ||r||^2 and convergence
+      LatticeComplex<T> nr = block_dot(rr, rr);
+      if (nr.real() < target * target) break;
+    }
+  }
+}
+
 // Explicit template instantiations
 template __global__ void multigrid_restrict<float>(
     void *coarse_out, void *fine_in, void *null_vecs, int E, int e, int Xf,
@@ -574,6 +788,12 @@ template __global__ void multigrid_coarse_solve<float>(
 template __global__ void multigrid_coarse_solve<double>(
     void*, void*, void*, void*, void*, void*, void*, void*, void*, void*,
     void*, int, int, int, int, int, int, double);
+template __global__ void multigrid_coarse_solve_cg<float, 256>(
+    void*, void*, void*, void*, void*, void*, void*, void*, void*, void*,
+    void*, int, int, int, int, int, int, float, void*);
+template __global__ void multigrid_coarse_solve_cg<double, 256>(
+    void*, void*, void*, void*, void*, void*, void*, void*, void*, void*,
+    void*, int, int, int, int, int, int, double, void*);
 // ---- Parity-split ↔ full-site layout conversion kernels ----
 // Layouts:
 //   Full-site:   [sc, X, Y, Z, Lt]       — all sites, contiguous t
