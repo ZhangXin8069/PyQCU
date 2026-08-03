@@ -1,0 +1,13 @@
+\begin{table}[h]\centering
+\begin{tabular}{lcccc}
+\toprule
+格子 & BiStabCG(ms) & MG(ms) & 加速比 & 迭代(MG/ref) \\
+\midrule
+$\{16,16,16,16\}$ & 529 & 655 & 0.81$\times$ & 108/90 \\
+$\{8,16,16,16\}$ & 464 & 399 & 1.16$\times$ & 89/86 \\
+$\{8,16,16,32\}$ & 666 & 597 & 1.11$\times$ & 119/105 \\
+$\{8,8,8,16\}$ & 465 & 192 & 2.43$\times$ & 64/85 \\
+\bottomrule
+\end{tabular}
+\caption{格子大小对照：c64, 2L, r=10, ct=$10^5$, cmi=15（干净 min of 5 对）}
+\end{table}
