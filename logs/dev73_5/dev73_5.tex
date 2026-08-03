@@ -110,18 +110,19 @@ $\|r\|=5.80\times10^{-7}$}，耗时约 \textbf{565\,ms}（min of 3）。
 \centering
 \begin{tabular}{lcccccc}
 \toprule
-配置 & 细层迭代 & MG 耗时(ms) & BiStabCG(ms) & 加速比 & 全残差$|Dx-b|/|b|$ & vs 参考 \\
+测量条件 & 细层迭代 & MG 耗时(ms) & BiStabCG(ms) & 加速比 & 全残差$|Dx-b|/|b|$ & vs 参考 \\
 \midrule
-base\_2L & 77--96 & 537--580 & 565 & 0.98--1.05$\times$ & $1.5\times10^{-7}$ & $3.2\times10^{-7}$ \\
-base\_3L & 89      & 563--572 & 565 & 0.99--1.00$\times$ & $1.5\times10^{-7}$ & $3.2\times10^{-7}$ \\
+独立进程（GPU 空闲） & 79--97 & 420$\pm$28 & 560 & \textbf{1.33$\times$} & $1.5\times10^{-7}$ & $3.2\times10^{-7}$ \\
+参数扫描中（连续负载） & 77--96 & 537--580 & 565 & 0.98--1.05$\times$ & $1.5\times10^{-7}$ & $3.2\times10^{-7}$ \\
+base\_3L（独立） & 89 & 563--572 & 565 & 0.99--1.00$\times$ & $1.5\times10^{-7}$ & $3.2\times10^{-7}$ \\
 \bottomrule
 \end{tabular}
-\caption{默认配置下 MG 与 BiStabCG 对照。MG 迭代次数少于参考，但总耗时仅略优；
-运行间存在约 $\pm10\%$ 计时噪声与迭代次数非确定性（见 \S\ref{sec:nd}）。}
+\caption{默认配置下 MG 与 BiStabCG 对照。MG 细层迭代数少于参考（85），加速比在
+$0.98$--$1.33\times$ 之间，强烈依赖 GPU 时钟状态与进程/分配器状态（见 \S\ref{sec:nd}）。}
 \end{table}
 
 \paragraph{重要发现：迭代次数的运行间非确定性。} 同一 base 配置在不同时刻运行，
-细层迭代次数在 \textbf{77--96} 之间波动（见 \S\ref{sec:nd}）。解的精度稳定
+细层迭代次数在 \textbf{77--97} 之间波动（见 \S\ref{sec:nd}）。解的精度稳定
 （$|Dx-b|/|b|\approx1.5\times10^{-7}$）。
 
 \subsection{计算热点分布}
@@ -245,13 +246,63 @@ cmi=200 & 88 & 601 & 0.94$\times$ & $1.46\times10^{-7}$ & $3.27\times10^{-7}$ \\
 \section{精度扫描（单精度 vs 双精度）}
 \label{sec:precision}
 
-（c128 结果在 \S\ref{sec:c128}。）
+在同一默认格子 $\{8,16,16,16\}$ 上对比单精度 c64 与双精度 c128（base 配置，2 层）。
+\begin{table}[H]
+\centering
+\begin{tabular}{lcccccc}
+\toprule
+精度 & 细层迭代 & MG(ms) & BiStabCG(ms) & 加速比 & 全残差$|Dx-b|/|b|$ & vs 参考 \\
+\midrule
+c64（单） & 77--96 & 537--580 & 565 & 0.98--1.05$\times$ & $1.5\times10^{-7}$ & $3.2\times10^{-7}$ \\
+c128（双） & 85      & 649       & 592 & 0.91$\times$       & $1.2\times10^{-9}$ & $2.9\times10^{-8}$ \\
+\bottomrule
+\end{tabular}
+\caption{单/双精度对照。双精度将解的精度提高约两个数量级
+（$1.5\times10^{-7}\to1.2\times10^{-9}$），MG 耗时约增加 12\%（主要是粗算子与
+求解器均为 complex128）。双精度下迭代数与单精度相当（85 vs 77--96）。}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.8\textwidth]{figs/conv_base_8x16x16x16_c128.png}
+\caption{双精度 c128 的 MG 与 BiStabCG 收敛曲线（残差轨迹与单精度一致，见
+\S\ref{sec:base}）。}
+\end{figure}
+
+双精度的好处在正确性指标上体现更明显：gauge SU(3) 偏差从 $10^{-7}$ 降到 $10^{-16}$，
+null\_vecs 正交性/粗算子一致性从 $10^{-6}/10^{-7}$ 降到 $10^{-15}$（见 \S\ref{sec:correct}）。
 
 % =====================================================================
 \section{格子大小扫描}
 \label{sec:lattice}
 
-（16$^4$ 结果在 \S\ref{sec:16}。）
+在更大格子 $\{16,16,16,16\}$（体积为默认的 4 倍）上运行 base 配置（单精度 c64）。
+\begin{table}[H]
+\centering
+\begin{tabular}{lcccccc}
+\toprule
+配置 & 细层迭代 & MG(ms) & BiStabCG(ms) & 加速比 & 全残差$|Dx-b|/|b|$ & vs 参考 \\
+\midrule
+$\{8,16,16,16\}$ 2 层 & 77--96 & 537--580 & 565 & 0.98--1.05$\times$ & $1.5\times10^{-7}$ & $3.2\times10^{-7}$ \\
+$\{16,16,16,16\}$ 2 层 & 99 & 1007 & 616 & 0.61$\times$ & $1.5\times10^{-7}$ & $2.9\times10^{-7}$ \\
+$\{16,16,16,16\}$ 3 层 & 97 & 763  & 616 & 0.81$\times$ & $1.5\times10^{-7}$ & $3.0\times10^{-7}$ \\
+\bottomrule
+\end{tabular}
+\caption{格子大小对照。注意 16$^4$ 的 BiStabCG 参考仅 616\,ms（迭代 92 次，因 WSL2
+同步开销主导，每迭代约 6--7\,ms 与默认格子相当）。16$^4$ 上 MG 反而变慢：V-cycle
+校正（restrict/prolong + 粗层求解）开销随格子增大而放大（2 层 vcycle 约 686\,ms），
+抵消了细层迭代的节省。}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.8\textwidth]{figs/conv_base_16x16x16x16_c64.png}
+\caption{$\{16,16,16,16\}$ 上 MG 与 BiStabCG 收敛曲线。}
+\end{figure}
+
+16$^4$ 的 null\_vecs 构建（含逆迭代与 33-tensor stencil 探测）耗时约
+\textbf{31\,min}（L1，2048 粗格点 $\times$ 48 探测）+ 约 2\,min（L2）；这是
+Python 端逐点探测的固有成本，与默认格子（约 10\,min）成正比。
 
 % =====================================================================
 \section{正确性检查}
@@ -260,12 +311,20 @@ cmi=200 & 88 & 601 & 0.94$\times$ & $1.46\times10^{-7}$ & $3.27\times10^{-7}$ \\
 \subsection{gauge SU(3) 性质}
 对 C++ 后端 \texttt{applyGaussGaugeQcu} 生成的 gauge（seed=42）做完整 SU(3) 检查
 （\texttt{pyqcu/lattice/check\_su3}）：
-\begin{itemize}
-  \item 酉性 $\max|U^\dagger U-I| = 2.98\times10^{-7}$
-  \item 行列式 $\max|\det U-1| = 3.59\times10^{-7}$
-  \item 次幺正（minor）恒等式最大偏差 $= 2.39\times10^{-7}$
-  \item \texttt{check\_su3} 综合判定 \textbf{PASS}（全部 $<10^{-6}$，共 131072 个链接）
-\end{itemize}
+\begin{table}[H]
+\centering
+\begin{tabular}{lcccc}
+\toprule
+配置 & $\max|U^\dagger U-I|$ & $\max|\det U-1|$ & minor 恒等式 max & 判定 \\
+\midrule
+c64 $\{8,16,16,16\}$ & $2.98\times10^{-7}$ & $3.59\times10^{-7}$ & $2.39\times10^{-7}$ & PASS \\
+c64 $\{16,16,16,16\}$ & $2.98\times10^{-7}$ & $4.18\times10^{-7}$ & $2.39\times10^{-7}$ & PASS \\
+c128 $\{8,16,16,16\}$ & $6.66\times10^{-16}$ & $8.88\times10^{-16}$ & $5.56\times10^{-16}$ & PASS \\
+\bottomrule
+\end{tabular}
+\caption{gauge SU(3) 三项检查的最大偏差。单精度 $\sim3\times10^{-7}$（$<10^{-6}$ 阈值），
+双精度受机器精度限制 $\sim10^{-16}$。}
+\end{table}
 
 \begin{figure}[H]
 \centering
@@ -274,10 +333,15 @@ cmi=200 & 88 & 601 & 0.94$\times$ & $1.46\times10^{-7}$ & $3.27\times10^{-7}$ \\
 \end{figure}
 
 \subsection{解的误差}
-对所有配置，MG 解与 BiStabCG 参考的相对误差 $\|x_{\rm MG}-x_{\rm ref}\|/\|x_{\rm ref}\|$
-均 $\approx 3.2\times10^{-7}$，全算子残差 $|Dx-b|/|b|\approx1.5\times10^{-7}$（低于
-容差 $10^{-6}$），两者一致性好（图~\ref{fig:solerr}）。2 层与 3 层、不同参数配置间
-精度无退化。
+对所有配置，MG 解与 BiStabCG 参考的相对误差与全算子残差 $|Dx-b|/|b|$ 如下
+（均低于对应容差）：
+\begin{itemize}
+  \item c64 $\{8,16,16,16\}$（全部 13 个参数配置）：$\|x_{\rm MG}-x_{\rm ref}\|/\|x_{\rm ref}\|
+        \approx3.2\times10^{-7}$，$|Dx-b|/|b|\approx1.5\times10^{-7}$；各配置间无退化。
+  \item c64 $\{16,16,16,16\}$：$|Dx-b|/|b|\approx1.5\times10^{-7}$，vs 参考
+        $\approx2.9\times10^{-7}$。
+  \item c128 $\{8,16,16,16\}$：$|Dx-b|/|b|\approx1.2\times10^{-9}$（约 2 个数量级更准）。
+\end{itemize}
 
 \begin{figure}[H]
 \centering
@@ -290,52 +354,46 @@ cmi=200 & 88 & 601 & 0.94$\times$ & $1.46\times10^{-7}$ & $3.27\times10^{-7}$ \\
 对每层局部正交化后的 null 向量做三项检查（图~\ref{fig:nv}）：
 \begin{itemize}
   \item \textbf{块内正交性}：每粗块 $P^\dagger P\approx I$，最大偏差
-        $1.5\times10^{-6}$（L1）/ $7.7\times10^{-6}$（L2）；对角 $=1.0$，最大非对角
-        $\le 3.1\times10^{-7}$。
-  \item \textbf{粗算子一致性}：33-tensor stencil $A_c$ 与算子形式的
-        $P^\top S P$（\texttt{restrict(S(prolong(v)))}）相对误差 $\le 2.5\times10^{-7}$。
-  \item \textbf{零模质量}：$\|S P\|/\|P\|$（逐向量）均值 $\approx 0.96$（L1）/
-        $0.89$（L2），而 $S$ 的最大本征值（幂迭代）$\approx1.17$（L1）/ $1.07$（L2）。
-        即 null 向量\textbf{并非强低模主导}（Rayleigh 商约为 $\lambda_{\max}$ 的
-        $0.8\times$），但 Galerkin 粗校正仍有效降低迭代数——这是值得进一步研究的现象
-        （可能由于逆迭代构造在 Schur 系统上的收敛性，以及 V-cycle 校正的容差机制）。
+        $1.5\times10^{-6}$（c64 L1）/ $7.7\times10^{-6}$（c64 L2），对角 $=1.0$，最大
+        非对角 $\le3.1\times10^{-7}$；c128 下达到 $10^{-15}$。
+  \item \textbf{粗算子一致性}：33-tensor stencil $A_c$ 与算子形式的 $P^\top S P$
+        相对误差 $2.1\times10^{-7}$（c64）/ $3.9\times10^{-16}$（c128）。
+  \item \textbf{零模质量}：$\|S P\|/\|P\|$（逐向量）均值 $\approx0.86$--$0.99$（各
+        配置各层），而 $S$ 的最大本征值（幂迭代）$\approx1.07$--$1.17$。即 null
+        向量\textbf{并非强低模主导}（Rayleigh 商约为 $\lambda_{\max}$ 的 $0.8\times$），
+        但 Galerkin 粗校正仍有效降低迭代数——这是值得进一步研究的现象（可能由于逆迭代
+        构造在 Schur 系统上的收敛性，以及 V-cycle 校正的容差机制）。
 \end{itemize}
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.95\textwidth]{figs/nullvec_8x16x16x16_c64.png}
-\caption{null\_vecs 三项正确性指标（L1、L2 两层）。}
+\caption{null\_vecs 三项正确性指标（$\{8,16,16,16\}$ c64，L1、L2 两层）。}
 \label{fig:nv}
 \end{figure}
-
-% =====================================================================
-\section{双精度 c128 结果}
-\label{sec:c128}
-（待补。）
-
-% =====================================================================
-\section{更大格子 $\{16,16,16,16\}$ 结果}
-\label{sec:16}
-（待补。）
 
 % =====================================================================
 \section{结论}
 \label{sec:concl}
 
-基于 $\{8,16,16,16\}$ 单精度的系统测试：
+综合 $\{8,16,16,16\}$（默认）、$\{16,16,16,16\}$、c64/c128 的系统测试：
 \begin{enumerate}
-  \item \textbf{MG 迭代数少于 BiStabCG}（77--89 vs 85），但\textbf{总耗时仅略优或相当}
-        （0.8--1.05$\times$），主因是 WSL2 上的同步开销与融合粗层求解尚未完全抵消
-        额外成本。
-  \item \textbf{进入下一层频率（num\_restart）是最敏感的求解器参数}：$r=5$ 过频导致
-        迭代数升至 139，$r=10$ 最优，$r=20$ 校正不足。
-  \item \textbf{最粗层收敛条件}：过紧的 coarse tol（1e2）明显增加 V-cycle 开销
-        （0.81$\times$）；放宽（1e5）与较小的 coarse max iter（15）更优。
-  \item \textbf{层数}：3 层在 8$^3$ 级格子上无净收益。
-  \item \textbf{非确定性}：最粗层融合求解的并行归约引入运行间迭代数波动
-        （约 79--96），但不影响解的精度。
-  \item \textbf{正确性}：gauge 满足 SU(3)（$<10^{-6}$）；MG 解与 BiStabCG 参考一致
-        （$3\times10^{-7}$）；null\_vecs 满足块内正交与粗算子一致性（$<10^{-5}$）。
+  \item \textbf{默认格子上 MG 与 BiStabCG 相当、偶有加速}：MG 细层迭代（77--97）少于
+        BiStabCG（85），但总耗时高度依赖 GPU 时钟/进程状态——独立测量 $1.33\times$，
+        扫描中 $0.98$--$1.05\times$。
+  \item \textbf{进入下一层频率（num\_restart）是最敏感参数}：$r=5$ 过频使迭代升至 139，
+        $r=10$ 最优，$r=20$ 校正不足。
+  \item \textbf{最粗层收敛条件}：过紧 coarse tol（1e2）显著增加 V-cycle 开销
+        （0.81$\times$）；放宽（1e5）与较小 coarse max iter（15）更优。
+  \item \textbf{更大格子 16$^4$ 上 MG 反而变慢}（0.61--0.81$\times$）：V-cycle 校正
+        （restrict/prolong + 粗层求解）开销随格子放大，抵消细层节省。
+  \item \textbf{双精度 c128}：解的精度提升约两个数量级（$|Dx-b|/|b|=1.2\times10^{-9}$），
+        MG 耗时约 +12\%。
+  \item \textbf{非确定性}：最粗层融合求解的并行归约引入运行间迭代数波动（79--97），
+        不影响解的精度。
+  \item \textbf{正确性}：gauge 满足 SU(3)（c64 $<10^{-6}$，c128 $<10^{-15}$）；MG 解与
+        BiStabCG 参考一致（$3\times10^{-7}$ / $3\times10^{-8}$）；null\_vecs 块内正交
+        与粗算子一致性 $<10^{-5}$（c64）/ $<10^{-15}$（c128）。
 \end{enumerate}
 
 \end{document}
