@@ -629,6 +629,59 @@ qcu.applyInitQcu(set_ptrs, params, argv)          # allocate
 qcu.applyEndQcu(set_ptrs, params)                  # free
 ```
 
+---
+
+## Complete Skills (Agent-Produced Subdirectories)
+
+The content of each subdirectory below was produced with Claude Code assistance. Per repo convention, the complete skill that generates that content is reproduced verbatim below (source: the subdirectory's own `CLAUDE.md`), so the full knowledge is available directly at this level.
+
+### Complete Skill: `qcu/` (source: `qcu/CLAUDE.md`)
+
+# CLAUDE.md — pyqcu.cuda.qcu
+
+Cython extension module — bridges Python to the C++ CUDA backend `libqcu.so`.
+
+## Files
+
+| File | Purpose |
+|------|---------|
+| `qcu.pyx` | Cython source: thin wrappers around C functions from `pyqcu.h` |
+| `qcu.pxd` | Cython declarations: `cdef extern` block (must match `pyqcu.h` exactly) |
+| `qcu.pyi` | Python type stub for IDE autocomplete |
+
+## C API Surface
+
+All 22 C functions are exposed. Each takes raw tensor data pointers as `long long`:
+
+| Function | Purpose |
+|----------|---------|
+| `applyInitQcu` / `applyEndQcu` | Allocate / free scratch buffers |
+| `applyWilsonDslashQcu` | Wilson dslash |
+| `applyCloverDslashQcu` | Clover dslash |
+| `applyWilsonBistabCgQcu` / `applyWilsonBistabCgDslashQcu` | Wilson BiStabCG solver + dslash |
+| `applyWilsonCgQcu` / `applyWilsonCgDslashQcu` | Wilson CG solver + dslash |
+| `applyCloverBistabCgQcu` / `applyCloverBistabCgDslashQcu` | Clover BiStabCG (requires clover_ee/oo + inverses) |
+| `applyCloverQcu` / `applyCloversQcu` | Build Clover term (and inverse) |
+| `applyDslashQcu` | Combined Wilson+Clover dslash |
+| `applyLaplacianQcu` | Laplacian operator |
+| `applyGaussGaugeQcu` | Gaussian gauge field generation |
+| `applyMultigridRestrictQcu` / `applyMultigridProLongQcu` | MG restrict/prolong with null vectors |
+| `applyMultigridCoarseDslashQcu` | Coarse-grid dslash |
+| `applyCloverMultigridQcu` | Full Clover multigrid V-cycle |
+
+## Call Lifecycle
+
+```python
+qcu.applyInitQcu(set_ptrs, params, argv)   # allocate buffers
+# ... perform operations ...
+params[define._SET_INDEX_] += 1              # MUST increment between calls
+qcu.applyEndQcu(set_ptrs, params)            # free buffers
+```
+
+## Synchronization
+
+The `.pxd` file must exactly match the C declarations in `cpp/cuda/qcu/python/pyqcu.h`. Any mismatch causes silent memory corruption.
+
 ### Complete Skill: `cann/` (source: `cann/CLAUDE.md`)
 
 # CLAUDE.md — pyqcu.cann
@@ -684,6 +737,20 @@ General N-operand complex einsum uses a combinatorial approach. For Z = Π(a_k +
 
 `qcu/` — placeholder stub (empty `PASS` file), no implementation yet.
 
+---
+
+## Complete Skills (Agent-Produced Subdirectories)
+
+The content of each subdirectory below was produced with Claude Code assistance. Per repo convention, the complete skill that generates that content is reproduced verbatim below (source: the subdirectory's own `CLAUDE.md`), so the full knowledge is available directly at this level.
+
+### Complete Skill: `qcu/` (source: `qcu/CLAUDE.md`)
+
+# CLAUDE.md — pyqcu.cann.qcu
+
+Placeholder for the Ascend NPU C++ Cython bridge. No implementation yet.
+
+Contains only an empty `PASS` file as a directory placeholder.
+
 ### Complete Skill: `dtk/` (source: `dtk/CLAUDE.md`)
 
 # CLAUDE.md — pyqcu.dtk
@@ -699,4 +766,3 @@ Contains only an empty `PASS` file as a directory placeholder.
 Placeholder for Maca backend. No implementation yet.
 
 Contains only an empty `PASS` file as a directory placeholder.
-
