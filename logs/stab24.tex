@@ -1,0 +1,741 @@
+\documentclass[11pt,a4paper]{article}
+% Packages
+\usepackage[UTF8]{ctex}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{geometry}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{multirow}
+\usepackage{float}
+
+\geometry{margin=2.2cm}
+\hypersetup{colorlinks=true,linkcolor=blue,citecolor=blue,urlcolor=blue}
+\graphicspath{{./}}
+
+\title{\textbf{PyQCU CUDA-C++ Clover MultiGrid 系列开发报告（git tag dev73 $\rightarrow$ dev73\_5）：\\
+同步开销根因、Schur 一致粗空间与性能结果}}
+\author{ZhangXin \\ IMP, CAS}
+\date{2026-08-03}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+本报告对象为 \texttt{git tag dev73*} 共六个版本标签（\texttt{dev73}、\texttt{dev73\_1}、
+\texttt{dev73\_2}、\texttt{dev73\_3}、\texttt{dev73\_4}、\texttt{dev73\_5}），
+系统总结 CUDA-C++ Clover MultiGrid 求解器（\texttt{applyCloverMultigridQcu}）从
+``正确但无性能优势''到\textbf{最高 $2.43\times$ 加速}的完整演进。报告基于
+\texttt{logs/} 下的全部开发/调试/优化/结果报告与 \texttt{examples/qcu/} 下的全部
+测试/基准/剖析脚本，给出\textbf{计算结果分析}（gauge 的 $SU(3)$ 性质、解误差、
+null\_vecs 正确性、迭代次数）与\textbf{计算性能分析}（耗时、加速比、热点分解、
+规模效应、参数扫描），并\textbf{以 dev73\_5 为范例对各版本做对照讨论}，讲明从
+dev73 到 dev73\_5 的每一处改动、其原由与最终效果。
+
+\vspace{1em}
+\textbf{演进主线}：\texttt{dev73}（首个完整实现，正确性 $6.23\times10^{-7}$，加速比
+仅 $0.87$--$1.28\times$）$\rightarrow$ \texttt{dev73\_2}（修 10 个根因 bug，level-0 改全算子，
+正确但更慢 $0.15$--$0.41\times$）$\rightarrow$ \texttt{dev73\_3}（粗空间改基于 Schur 算子
+$S$ 自身零模、粗算子 $A_c=P^\top S P$ 物化为 33 张量 stencil，主求解迭代 $\sim$90$\to$63--68、
+减少约 30\%，但受 RTX 4060 内核启动延迟限制）$\rightarrow$ \texttt{dev73\_4}（定位 WSL2
+同步开销 $\sim$177\,$\mu$s/次为根因，5 项同步极简优化，V100 上默认格子
+$\{8,16,16,16\}$ 2 层中位数加速比 $1.26\times$、$8\times8\times8\times16$ 达 $2.07\times$）
+$\rightarrow$ \texttt{dev73\_5}（建立干净测量协议并做精度/格子/参数扩展扫描，
+$8\times8\times8\times16$ 复现 $2.43\times$（c64）/ $1.97\times$（c128），同时揭示
+加速比随格子规模增大而\textbf{下降且非单调}的规模效应）。全系列解与参考 BiStabCG
+一致（$vs\_ref\sim3\times10^{-7}$ c64 / $4\times10^{-8}$ c128）。
+\end{abstract}
+
+\tableofcontents
+
+% =====================================================================
+\section{引言与范围}
+\label{sec:intro}
+
+\subsection{对象}
+\label{sec:objects}
+
+本报告的分析对象是 \texttt{git tag dev73*} 全部六个版本标签：
+
+\begin{table}[H]
+\centering
+\begin{tabular}{llll}
+\toprule
+tag & 提交 & 日期 & 一句话主题 \\
+\midrule
+\texttt{dev73}   & bd81d31 & 2026-07-28 & 首个完整 C++ CUDA Clover MG（953 行）\\
+\texttt{dev73\_1} & cfbd753 & 2026-08-01 & 全库 CLAUDE.md 文档体系 \\
+\texttt{dev73\_2} & d296612 & 2026-08-02 & MG 系统调试（10 个根因 bug）+ 全算子 level-0 \\
+\texttt{dev73\_3} & a1b9a95 & 2026-08-02 & Schur 一致粗空间 + 33 张量粗算子 \\
+\texttt{dev73\_4} & a724357 & 2026-08-02 & 同步开销根因 + 5 项同步极简优化 \\
+\texttt{dev73\_5} & 1955795 & 2026-08-03 & 干净测量协议 + 精度/格子/参数扩展扫描 \\
+\bottomrule
+\end{tabular}
+\caption{dev73* 系列版本标签一览}
+\end{table}
+
+\subsection{数据来源}
+\label{sec:sources}
+
+\begin{itemize}
+  \item \textbf{日志与报告}（\texttt{logs/}）：\texttt{dev73.md/.tex/.pdf}、
+        \texttt{mg-debug-optimize-report-2026-08-01.md}、
+        \texttt{multigrid-v2-report-2026-08-01.md}、
+        \texttt{multigrid-v3-final-report-2026-08-01.md}、
+        \texttt{multigrid-fix-report-2026-08-01.md}、
+        \texttt{schur-multigrid-report-2026-08-02.tex/.pdf}、
+        \texttt{mg-v4-report-2026-08-02.tex/.pdf}、
+        \texttt{mg-v4-fix-report-2026-08-02.md}、
+        \texttt{dev73\_5.tex/.pdf/.md} 及其表格（\texttt{dev73\_5\_tbl\_*.tex}）与
+        图表（\texttt{dev73\_5\_*.png}）；
+  \item \textbf{原始收敛/计时日志}：\texttt{clover\_multigrid.log}、
+        \texttt{clover\_multigrid\_test.log}、\texttt{mg\_bench\_out.txt}、
+        \texttt{mg\_iter\_sweep\_out.txt}、\texttt{mg\_param\_sweep\_out.txt}、
+        \texttt{schur\_mg\_test\_stdout.txt}、\texttt{pyref\_*.log} 等；
+  \item \textbf{结构化结果}：\texttt{multigrid\_report.json}、\texttt{mg\_dev\_results.json}、
+        \texttt{schur\_mg\_results.json}、\texttt{bench\_report.json}；
+  \item \textbf{脚本}（\texttt{examples/qcu/}）：\texttt{conftest.clover.multigrid.py}、
+        \texttt{bench\_cpp\_mg.py}、\texttt{mg\_dev\_*}、\texttt{v3\_*}、\texttt{quick\_test.py}、
+        \texttt{verify\_coarse.py}、\texttt{diag\_coarse.py}、\texttt{mg\_v4\_*}、
+        \texttt{mg\_dev73\_5\_*}（约 60 个脚本）。
+\end{itemize}
+
+\subsection{硬件环境}
+\label{sec:hardware}
+
+系列开发期间硬件发生一次切换，是解释性能跳变的关键背景：
+\begin{itemize}
+  \item \textbf{dev73 -- dev73\_3}：NVIDIA GeForce RTX 4060 Laptop（SM 8.9），
+        WSL2。dev73\_3 明确测得求解期间 GPU 稳定运行在 \textbf{210 MHz 空闲频率、
+        利用率 2--5\%}，即\textbf{内核启动延迟主导}（约 107\,$\mu$s/次启动）；
+  \item \textbf{dev73\_4 -- dev73\_5}：NVIDIA Tesla V100-SXM2-32GB（SM 7.0），
+        WSL2。同步开销根因（$\sim$177\,$\mu$s/次）与性能结果均在此硬件测得。
+\end{itemize}
+
+\section{时间线与各 tag 改动概述}
+\label{sec:timeline}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{p{1.7cm}p{3.4cm}p{9.5cm}}
+\toprule
+tag & 净变更（vs 前一 tag） & 主要内容 \\
+\midrule
+dev73 & — & 首个完整 C++ CUDA Clover MG（\texttt{lattice\_clover\_multigrid.h} 953 行，
+5 流并行、\texttt{device\_vals} 标量管理、\texttt{mpi\_real\_type<T>} 精度模板）；
+三轮全库审查 135 项发现、33 个 bug 修复；12 项性能优化；CLQCD 参考文档 dev71 \\
+dev73\_1 & 43 文件 +1247 & 全库 CLAUDE.md 文档体系（Python 包 / cpp 后端 / examples /
+docs/logs/refer），清理旧 CMakeLists 符号链接，无功能代码改动 \\
+dev73\_2 & 45 文件 +5491/$\sim$451 & MG 系统调试：修 10 个根因 bug（prolong 转置索引、
+checkerboard 奇偶转换、粗修正缓冲被 clobber、指针按 float 而非复元素推进、全 site 网格
+尺寸、粗层 DOF、segfault 等）；level-0 重写为\textbf{全算子}；粗层 sitting 用单位算子 +
+受保护修正；新增约 18 个调试/基准脚本与 4 份报告 \\
+dev73\_3 & 40 文件 +8917/$\sim$367 & \textbf{Schur 一致}粗空间：粗空间改基于 $S$ 自身
+零模，$A_c=P^\top S P$ 物化为 33 张量 stencil（on-site+8 最近邻+24 对角）；粗层性能
+（cublasDot$\to$单块 dot、单流轻量粗迭代、融合单 kernel 粗解）；修 V-cycle/数值 bug
+与 2 个 Python 层 bug；新增 \texttt{conftest.schur.multigrid.py} 与约 20 个脚本 \\
+dev73\_4 & 18 文件 +1430/$\sim$35 & 定位 WSL2 同步开销根因（$\sim$177\,$\mu$s/次）；
+5 项同步极简优化；修 4 个 v4 bug；null\_vecs 缓存与正确性验证；参数扫描与最终基准 \\
+dev73\_5 & 24 文件 +2012 & 结果扩展：新增测量脚本族 \texttt{mg\_dev73\_5\_*}，
+干净测量协议（独立进程+ref/MG 交叉计时，min of 5 对），精度/格子/参数扫描，收敛/
+热点/加速比/时间/扫描图表与 LaTeX 表格 \\
+\bottomrule
+\end{tabular}
+\caption{dev73 系列各 tag 净变更与主要内容}
+\end{table}
+
+\section{方法与符号}
+\label{sec:method}
+
+\textbf{求解对象}：奇偶预条件（Schur 补）Clover 系统
+\begin{equation}
+  S\,x_{\_o}=b_{\_o},\qquad
+  S=D_{oo}-\kappa^2\,H_{oe}\,D_{ee}^{-1}\,H_{eo},
+\end{equation}
+参考求解器 = \texttt{applyCloverBistabCgQcu}（奇偶预条件 BiStabCG，
+\texttt{VERBOSE=0}）；MultiGrid = \texttt{applyCloverMultigridQcu}
+（Schur 一致、多层粗层、33 张量粗算子、null\_vecs 缓存）。
+
+\textbf{固定变量}（dev73\_4/dev73\_5）：mass=0.05、atol=$10^{-6}$、
+gauge\_seed=42、$\kappa=1/(2\cdot0.05+8)\approx0.1235$、sigma=0.1、
+null\_vecs 逆迭代 \texttt{nv\_iters=2}、E=48；默认格子 $\{8,16,16,16\}$（各向均不小于）。
+
+\textbf{误差定义}：$vs\_ref=\Vert x_{mg}-x_{ref}\Vert/\Vert x_{ref}\Vert$
+（MG 解与参考解相对差）；$mg\_res=\Vert b-D x_{mg}\Vert/\Vert b\Vert$（MG 全残差）。
+
+\textbf{测量协议}（dev73\_5，干净测量）：每个配置在\textbf{独立进程}中完成；
+参考 BiStabCG 与 MG \textbf{交叉计时}（ref, mg, ref, mg, \dots），各取 5 对的
+\textbf{最小值与中位数}，最小化 GPU 时钟漂移影响。
+
+\textbf{热点}：C++ 段计时 \texttt{PROF\_SECTIONS}
+（\texttt{fine\_iter}/\texttt{vcycle}/\texttt{coarse\_solve}/\texttt{coarse\_dslash}）。
+
+% =====================================================================
+\section{计算结果分析}
+\label{sec:result-analysis}
+
+本节按 dev73 系列的\textbf{计算结果}（数值正确性）做系统分析。所有版本最终都
+收敛到与参考 BiStabCG 相同的解。
+
+\subsection{Gauge 的 SU(3) 性质}
+\label{sec:gauge}
+
+C++ Gauss 生成的 gauge 场（seed=42）经 \texttt{pyqcu.lattice.check\_su3} 检查：
+幺正性 $\max|U^\dagger U-I|$ 与 $\max|\det U-1|$ 在 c64 下单精度水平
+（$\sim3\times10^{-7}$）、c128 下机器精度水平（$\sim10^{-16}$），
+\texttt{check\_su3} 返回 \texttt{True}，满足 $SU(3)$（幺正性、$\det=1$、minor 恒等式）。
+\input{dev73_5_tbl_verify.tex}
+
+\subsection{解误差与全残差}
+\label{sec:solution}
+
+\begin{itemize}
+  \item \textbf{dev73}（RTX 4060）：相对差 $\Vert x_{mg}-x_{ref}\Vert/\Vert x_{ref}\Vert
+        = 6.23\times10^{-7}$，0 个 NaN，~104 次迭代收敛到 $5.7\times10^{-7}$；
+  \item \textbf{dev73\_2}：全部配置（1/2/3 层、c64/c128、多格子多质量）收敛到与
+        BiStabCG 相同的解，$vs\_ref\in[10^{-11},10^{-6}]$；c128 达 $3\times10^{-11}$；
+  \item \textbf{dev73\_3}：$vs\_ref\approx3\sim4\times10^{-7}$（c64），
+        33 张量粗算子与算子自由 $A_c$ 一致到 $2\times10^{-7}$；
+  \item \textbf{dev73\_4 / dev73\_5}：$vs\_ref\approx3.2\times10^{-7}$（c64）/
+        $2.4\times10^{-8}$（c128），与 v4 一致；MG 自身全残差
+        $mg\_res\approx1.5\times10^{-7}$（c64）/ $6\times10^{-9}$（c128）。
+\end{itemize}
+
+\subsection{null\_vecs 正确性}
+\label{sec:nullvec}
+
+对照 \texttt{pyqcu/tools/\_multigrid.py}（逆迭代 + 块内 QR）做四重检查
+（\texttt{mg\_v4\_verify\_nv.py}）：
+\begin{itemize}
+  \item \textbf{零模质量}：$\Vert S v\Vert/\Vert v\Vert\sim10^{-1}\sim10^0$，与 $S$
+        最大本征值 $\sim1.2$ 同一量级或更小，证明 null\_vecs 捕获了 $S$ 的低模；
+  \item \textbf{块内正交}：$\max|\langle v_i,v_j\rangle-\delta_{ij}|\sim3.6\times10^{-7}$
+        （c64）/ $4.4\times10^{-16}$（c128），与机器精度一致；
+  \item \textbf{restrict/prolong}：C++ 与 Python einsum 逐元素一致（相对差
+        $\sim10^{-7}$，c64）/ $\sim10^{-15}$（c128）；
+  \item \textbf{33 张量粗 dslash}：与 $A_c=P^\top S P$ 一致（相对差 $\sim10^{-7}$）。
+\end{itemize}
+
+\subsection{迭代次数演进}
+\label{sec:iterations}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lcccl}
+\toprule
+tag & 求解器类型 & MG 细迭代 & 参考迭代 & 说明 \\
+\midrule
+dev73   & 奇偶预条件 + V-cycle & $\sim$104 & $\sim$85--90 & 首个实现，迭代无优势 \\
+dev73\_2 & 全算子 level-0 & $\sim$190--434 & $\sim$100 & 全算子本身更慢，V-cycle 未降迭代 \\
+dev73\_3 & Schur 一致 + V-cycle & 63--68 & $\sim$90 & \textbf{$\sim$30\% 减少} \\
+dev73\_4 & Schur 一致 + V-cycle & 65（小格子）/88--90（默认） & 86 & 小格子上 V-cycle 降迭代 \\
+dev73\_5 & Schur 一致 + V-cycle & 64--119（各配置） & 85--105 & 与参考相当或更少 \\
+\bottomrule
+\end{tabular}
+\caption{主求解迭代次数随版本的演进}
+\end{table}
+
+\textbf{要点}：迭代次数优势在 \texttt{dev73\_3} 的 Schur 一致粗空间出现（$\sim$90$\to$63--68），
+但 dev73\_3 阶段该优势被 RTX 4060 的内核启动延迟（210\,MHz 空闲频率）完全抵消；
+dev73\_4 在 V100 上消除同步开销后，迭代优势才转化为真正的墙钟加速。
+
+% =====================================================================
+\section{计算性能分析}
+\label{sec:perf-analysis}
+
+\subsection{各版本性能矩阵}
+\label{sec:perf-matrix}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{llcccc}
+\toprule
+tag & 硬件 & 格子 & 配置 & 加速比 & MG/ref 耗时(ms) \\
+\midrule
+dev73   & RTX 4060 & 8$\times$8$\times$8$\times$16 & 1L & 0.87--1.28$\times$ & 1742--3636 \\
+dev73\_2 & RTX 4060 & 8$\times$8$\times$8$\times$16 & 2L & 0.21$\times$ & 648 / 135 \\
+dev73\_2 & RTX 4060 & 8$\times$16$\times$16$\times$16 & 2L & 0.19$\times$ & 979 / 183 \\
+dev73\_3 & RTX 4060 & 8$\times$16$\times$16$\times$16 & 2L & 0.170$\times$ & 1137 / 194 \\
+dev73\_3 & RTX 4060 & 8$\times$16$\times$16$\times$16 & 3L & 0.186$\times$ & 1083 / 202 \\
+dev73\_4 & V100     & 8$\times$16$\times$16$\times$16 & 2L r=12 & \textbf{1.26$\times$} & 395 / 498 \\
+dev73\_4 & V100     & 8$\times$8$\times$8$\times$16 & 2L r=10 & \textbf{2.10$\times$} & 228 / 478 \\
+dev73\_5 & V100     & 8$\times$16$\times$16$\times$16 & 2L r=10（默认） & 1.16$\times$ & 399 / 464 \\
+dev73\_5 & V100     & 8$\times$8$\times$8$\times$16 & 2L r=10 c64 & \textbf{2.43$\times$} & 192 / 465 \\
+\bottomrule
+\end{tabular}
+\caption{性能演进矩阵（dev73\_2 起为干净/独占 GPU 测量；dev73\_4 为独占 GPU 干净测量）}
+\end{table}
+
+\subsection{性能演进}
+\label{sec:perf-evolution}
+
+\textbf{dev73（基线）}：首个 C++ Clover MG 正确性达标（$6.23\times10^{-7}$），但
+墙钟仅 $0.87$--$1.28\times$（随运行变化），求解时间 1742--3636\,ms（冷启动到稳定）。
+
+\textbf{dev73\_2（修 bug + 全算子）}：10 个根因 bug 修复后各配置\textbf{数值全部正确}，
+但 level-0 从奇偶预条件改为\textbf{全算子}，迭代数反升至 190--434，且小格子上 V-cycle
+开销大于收益，墙钟 $0.15$--$0.41\times$。诚实结论：即使更优 null 向量也无法在该问题
+规模（mass 0.05、中格子）上让 V-cycle 收益超过对 Krylov 空间的扰动。
+
+\textbf{dev73\_3（Schur 一致）}：粗空间改基于 $S$ 自身零模后，迭代数显著下降
+（$\sim$90$\to$63--68，$E{=}48,r{=}10$），主求解迭代数要求\textbf{首次满足}。
+但墙钟仍慢（2L $0.170\times$、3L $0.186\times$）：RTX 4060 稳定在 210\,MHz 空闲频率，
+内核启动延迟（$\sim$107\,$\mu$s/次）主导，MG 启动预算（细层 819 次 + 粗解 $\sim$2600 次
+$\approx$ 3419 次）约为参考的 3 倍。粗解被确认为最大热点（dslash 仅 3\,ms，
+dot+同步占 $\sim$416\,ms）。此阶段提出了融合粗解内核等优化方向，但当前硬件无法兑现。
+
+\textbf{dev73\_4（同步根因 + 优化，V100）}：在 V100 上测得 WSL2 虚拟化
+\texttt{cudaStreamSynchronize} 开销约 \textbf{177\,$\mu$s/次}——参考 BiStabCG 每迭代
+20--30 次同步 $\Rightarrow$ 单次迭代约 6\,ms（计算 <5\%）。实施 5 项同步极简优化后：
+\begin{itemize}
+  \item 单进程 dslash 快速路径（去掉中间 ~9 次同步）：Schur dslash
+        \textbf{4.5\,ms $\to$ 0.7\,ms}；
+  \item Clover give 去冗余同步（$\sim$170\,$\mu$s $\times$ 2）；
+  \item 同步极简细层 BiStabCG（\texttt{bistabcg\_iter\_fine\_fast}，点积直接写
+        \texttt{device\_vals}，每迭代 1 次同步）：细迭代 \textbf{~6\,ms $\to$ ~2.6\,ms}；
+  \item cooperative-groups 并行融合粗层求解（\texttt{multigrid\_coarse\_solve\_cg}，
+        整个粗 BiStabCG 融合进一个 kernel，\texttt{grid.sync()} 跨 block 归约）：
+        粗求解 \textbf{~30\,ms $\to$ ~10\,ms/次}；
+  \item 参数扫描：ct=$10^5$（粗容差 $0.1\times\Vert r\Vert$，与 Python 参考一致）、
+        粗层最大迭代 15、V-cycle 频率 $r=10\sim12$。
+\end{itemize}
+最终：默认格子 $\{8,16,16,16\}$ 2 层中位数加速比 \textbf{1.26$\times$}
+（r=10 时 1.40$\times$），$8\times8\times8\times16$ 达 \textbf{2.07$\times$}
+（c128 1.92$\times$）。加速比主要来自细层单迭代成本（$\sim$2.6--3.4\,ms vs 参考
+$\sim$5.8\,ms，$\sim$0.6$\times$）与小格子上更少的迭代（65 vs 86）。
+
+\textbf{dev73\_5（干净测量 + 扩展扫描，V100）}：建立独立进程 + ref/MG 交叉计时、
+min of 5 对的干净测量协议后，沿精度/格子/求解器参数三条扫描轴给出完整对照（见
+第~\ref{sec:dev735} 节）。$8\times8\times8\times16$ 复现 \textbf{2.43$\times$}
+（c64）/ \textbf{1.97$\times$}（c128）；默认格子 2L 基准 \textbf{1.16$\times$}
+（MG 399\,ms 与 v4 的 394\,ms 一致；参考本会话更快 464\,ms vs v4 的 549\,ms，
+GPU 时钟所致）。
+
+\subsection{热点分解（PROF\_SECTIONS）}
+\label{sec:hotspot}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.92\textwidth]{dev73_5_hotspot.png}
+\caption{dev73\_5：MG 计算热点分解（ms）——细层迭代 / V-cycle / 粗层求解。}
+\label{fig:hotspot}
+\end{figure}
+
+对 2 层配置，最粗层采用融合并行粗层求解（cooperative kernel），耗时计入 V-cycle，
+故 \texttt{coarse\_solve}$\approx0$；对 3 层配置，中间层按逐迭代 BiStabCG 走
+（\texttt{coarse\_solve} 非零）。dev73\_5 默认格子 c128 下 V-cycle 约 441\,ms、
+占 MG 总耗时 69\%（双精度粗层求解开销主导）；$\{16,16,16,16\}$ 下 V-cycle 约
+383\,ms、占 59\%。
+
+\subsection{规模效应}
+\label{sec:scale}
+
+\input{dev73_5_tbl_lattice.tex}
+
+加速比随格子增大而\textbf{下降且非单调}：
+$8\times8\times8\times16$ 2.43$\times$ $\rightarrow$ 默认 $\{8,16,16,16\}$ 1.16$\times$
+$\rightarrow$ $\{8,16,16,32\}$（t 方向放大）1.11$\times$ $\rightarrow$
+$\{16,16,16,16\}$（x 方向放大）0.81$\times$。原因是单进程（WSL2）环境下粗层 V-cycle
+修正的开销随格子规模增大而增长：$\{16,16,16,16\}$ 上 V-cycle 约 383\,ms 占 59\%，
+且大格子上 V-cycle 修正并未显著减少细层迭代数（108 vs 参考 90），粗层开销大于收益；
+$\{8,16,16,32\}$ 上细层迭代升至 119（参考 105），但单次细层迭代（$\sim$5.0\,ms）仍快于
+参考（$\sim$6.3\,ms），故 MG 仍略优（1.11$\times$）。结论：MG 优势在\textbf{细层迭代
+成本高于粗层修正成本}的配置（小格子、单精度）下最大。
+
+\subsection{精度扫描}
+\label{sec:precision}
+
+\input{dev73_5_tbl_prec.tex}
+
+双精度 c128 将解精度提高约两个数量级（$vs\_ref$ 从 $3.2\times10^{-7}$ 降到
+$2.4\times10^{-8}$），但默认格子上加速比低于单精度（c128 粗层融合并行求解开销显著
+增大，0.73$\times$）；在更小的 $8\times8\times8\times16$ 上 c128 达标
+（1.97$\times$，粗层规模小、双精度开销不占主导）。
+
+\subsection{参数扫描（默认格子 c64 2L）}
+\label{sec:params}
+
+\input{dev73_5_tbl_sweep.tex}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{dev73_5_sweep.png}
+\caption{dev73\_5：求解器参数对加速比的影响（默认格子 c64 2L，干净 min）——左 V-cycle
+频率 $r$、中 最粗层容差 $ct$、右 最粗层最大迭代 $cmi$。}
+\label{fig:sweep}
+\end{figure}
+
+\begin{itemize}
+  \item \textbf{V-cycle 频率 $r$（是否进入下一层）}：$r=5$ 时粗层校正过于频繁，破坏
+        细层 BiStabCG 的 Krylov 空间（0.87$\times$）；$r=10\sim12$ 最优（1.16--1.18$\times$）；
+        $r=20$ 校正不足但 V-cycle 次数最少（5 次），本会话测得 1.26$\times$。
+  \item \textbf{最粗层容差 $ct$}：$ct=10^2$（最紧）粗解迭代过多；放宽到
+        $ct=10^4\sim10^5$ 收益最大（1.12--1.16$\times$），与 Python 参考最粗层
+        $0.1\times\Vert r\Vert$ 一致（$ct=10^5$ 即相对容差 $10^{-1}$）。
+  \item \textbf{最粗层最大迭代 $cmi$}：15--200 间影响较小，$cmi=15$ 即可（波动主要
+        来自 GPU 时钟）。
+  \item \textbf{层数}：默认格子上 3 层 1.32$\times$ 略优于 2 层（1.16$\times$）；
+        v4 在连续负载下测得 3 层 1.06$\times$（粗层开销大于收益）。额外粗层不显著
+        退化，迭代数始终与 BiStabCG 相当或更少。
+\end{itemize}
+
+% =====================================================================
+\section{对照讨论（以 dev73\_5 为范例）}
+\label{sec:comparison}
+
+以 dev73\_5 为范例（最完整、测量最干净、数据最全），对各版本做横向对照。
+
+\subsection{完整性能总表（dev73\_5）}
+\label{sec:dev735}
+
+\input{dev73_5_tbl_main.tex}
+
+\textbf{与 v4 最终结果一致性}（dev73\_5 复现 v4）：$8\times8\times8\times16$ 2.43$\times$
+（v4 记录 2.07--2.10$\times$）；默认格子 MG 耗时 399\,ms（v4 394\,ms）；细层迭代 89 vs 86
+（v4 88 vs 86）；$vs\_ref\approx3.2\times10^{-7}$ 一致。c128 在默认格子上 <1（0.73$\times$，
+双精度粗层求解开销主导），在更小格子上达标（1.97$\times$，复现 v4）。
+
+\subsection{各版本对照表}
+\label{sec:cross}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{p{1.5cm}p{1.6cm}p{3.2cm}p{2.4cm}p{5cm}}
+\toprule
+tag & 正确性($vs\_ref$) & 迭代(MG/ref) & 加速比 & 主要瓶颈/主题 \\
+\midrule
+dev73   & $6.23\times10^{-7}$ & $\sim$104/85--90 & 0.87--1.28$\times$ & 首个实现，同步开销未优化 \\
+dev73\_1 & — & — & — & 文档体系（无功能改动） \\
+dev73\_2 & $10^{-11}$--$10^{-6}$ & 190--434/$\sim$100 & 0.15--0.41$\times$ & 数值正确；全算子 level-0 更慢 \\
+dev73\_3 & $\sim$$4\times10^{-7}$ & 63--68/$\sim$90 & 0.17--0.19$\times$ & Schur 一致；4060 内核启动延迟 \\
+dev73\_4 & $\sim$$3\times10^{-7}$ & 65--90/86 & 1.06--2.10$\times$ & 同步根因 + 5 项优化（V100） \\
+dev73\_5 & $\sim$$3.2\times10^{-7}$ & 64--119/85--105 & 0.73--2.43$\times$ & 干净测量 + 全参数扩展 \\
+\bottomrule
+\end{tabular}
+\caption{dev73 系列各版本横向对照（以 dev73\_5 为完整基准）}
+\end{table}
+
+\textbf{讨论要点}：
+\begin{enumerate}
+  \item \textbf{正确性主线贯穿始终}：从 dev73 的 $6.23\times10^{-7}$ 到 dev73\_5 的
+        $3.2\times10^{-7}$，解的精度始终与参考一致；c128 把精度推高两个数量级。
+        正确性是性能优化的前提——dev73\_2 牺牲性能换来了\textbf{数值彻底正确}，
+        为后续优化奠定了基础。
+  \item \textbf{迭代次数与墙钟性能分叉}：迭代优势（dev73\_3 起）与墙钟优势（dev73\_4
+        起）之间隔着\textbf{同步/启动开销}这道坎。dev73\_3 在 RTX 4060 上迭代减 30\%
+        但墙钟更慢；换到 V100 并消除同步开销后（dev73\_4），同一算法结构立即转化为
+        $1.26$--$2.43\times$ 加速。\textbf{性能瓶颈是执行开销而非算法}。
+  \item \textbf{测量协议决定结论}：dev73\_4 之前用 \texttt{VERBOSE=1} 给 MG 计时（每次
+        迭代写日志 $\sim$1\,ms），且与后台 null\_vecs 构建争用 GPU；dev73\_5 建立
+        \textbf{干净测量协议}（独立进程 + 交叉计时 + min of 5 对）后，绝对耗时对 GPU
+        时钟仍敏感（$\pm$10\%），但\textbf{迭代数与解精度是稳健指标}。
+  \item \textbf{规模效应}：加速比随格子增大而下降（2.43$\to$1.16$\to$1.11$\to$0.81$\times$），
+        揭示当前单进程实现中粗层 V-cycle 修正的开销随规模增长；这与 v4 记录的 3 层
+        粗层开销大于收益（1.06$\times$）一致，也与 dev73\_2 的诚实结论呼应——MG 的
+        优势窗口在细层迭代成本占比高的配置。
+\end{enumerate}
+
+\subsection{收敛历史对照}
+\label{sec:conv}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\textwidth]{dev73_5_conv_8x16x16x16_c64.png}
+\caption{默认格子 $\{8,16,16,16\}$ c64：MG 各参数配置 vs BiStabCG 参考的收敛历史}
+\label{fig:conv-161616-c64}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\textwidth]{dev73_5_conv_8x16x16x16_c128.png}
+\caption{默认格子 $\{8,16,16,16\}$ c128：MG vs BiStabCG 参考的收敛历史}
+\label{fig:conv-161616-c128}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\textwidth]{dev73_5_conv_8x8x8x16_c64.png}
+\caption{格子 $8\times8\times8\times16$ c64：MG vs BiStabCG 参考的收敛历史}
+\label{fig:conv-88816}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\textwidth]{dev73_5_conv_8x8x8x16_c128.png}
+\caption{格子 $8\times8\times8\times16$ c128：MG vs BiStabCG 参考的收敛历史}
+\label{fig:conv-88816-c128}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\textwidth]{dev73_5_conv_16x16x16x16_c64.png}
+\caption{格子 $\{16,16,16,16\}$ c64：MG vs BiStabCG 参考的收敛历史}
+\label{fig:conv-16x16x16x16}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\textwidth]{dev73_5_conv_8x16x16x32_c64.png}
+\caption{格子 $\{8,16,16,32\}$ c64：MG vs BiStabCG 参考的收敛历史}
+\label{fig:conv-8161632}
+\end{figure}
+
+\subsection{加速比与耗时对照（dev73\_5）}
+\label{sec:speedup-time}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.92\textwidth]{dev73_5_speedup.png}
+\caption{dev73\_5：各配置干净加速比（min of 5 对；横线为 median）}
+\label{fig:speedup}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.92\textwidth]{dev73_5_time.png}
+\caption{dev73\_5：求解耗时对照（干净 min）——BiStabCG（参考） vs MultiGrid}
+\label{fig:time}
+\end{figure}
+
+% =====================================================================
+\section{从 dev73 到 dev73\_5：改动、原由与最终效果}
+\label{sec:evolution}
+
+三条主线并行推进：\textbf{正确性}（bug 修复与算法一致化）、\textbf{性能}（同步开销
+根因与同步极简优化）、\textbf{工程}（文档、脚本、缓存、测量协议、报告）。
+
+\subsection{正确性主线}
+\label{sec:ev-correct}
+
+\begin{enumerate}
+  \item \textbf{dev73：首个实现 + 大规模审查}。C++ Clover MG（953 行）一次成型，
+        5 流并行、\texttt{device\_vals} 仅 GPU 写、\texttt{mpi\_real\_type<T>} 精度模板。
+        三轮审查（135 项发现）修复 33 个 bug，其中 5 个致命
+        （\texttt{lattice\_complex} 的 \texttt{operator*=}、\texttt{gauss\_gauge}
+        越界写、CG 内存泄漏、grid dim 截断、\texttt{cuda} 包缺失）。
+        \textbf{原由}：正确性是一切的前提；审查发现复数乘法、越界写等会被静默污染
+        结果的缺陷。\textbf{最终效果}：$6.23\times10^{-7}$ 正确性达标，测试 8/8$\to$10/10$\to$13/13
+        全通过。
+  \item \textbf{dev73\_2：根因 bug + 全算子 level-0}。修 10 个根因 bug（索引转置、
+        checkerboard 奇偶、缓冲覆盖、指针算术、网格尺寸、粗层 DOF、segfault、NaN）。
+        \textbf{原由}：V-cycle 残差爆炸、3 层 NaN、coarse dslash 与 Python 差 97\%——
+        需逐项定位。level-0 改全算子以匹配 Python 参考
+        （\texttt{support\_parity=False}），并采用\textbf{受保护修正}（仅当修正确实
+        降低残差才接受）保证 V-cycle 永不坏事。\textbf{最终效果}：全配置数值正确
+        （$vs\_ref\in[10^{-11},10^{-6}]$），但性能退回 $0.15$--$0.41\times$——\textbf{为
+        正确性付出的一次性代价}，同时获得关键认识：全算子 level-0 迭代数本就更差。
+  \item \textbf{dev73\_3：Schur 一致粗空间}。\textbf{原由}：诊断发现粗空间基于\textbf{全
+        算子 $D$} 的零模与 Schur 算子 $S$ 的低模\textbf{不匹配}，V-cycle 修正失效甚至
+        反弹。\textbf{改动}：粗空间改基于 $S$ 自身零模（用 $S$ 的 matvec 逆迭代）；
+        $A_c=P^\top S P$ 含对角耦合（实测 $|\text{on-site}|=0.77$、
+        $|\text{nearest}|=0.79$、$|\text{diagonal}|=0.26$），故物化为 33 张量 stencil
+        （on-site + 8 最近邻 + 24 对角），与算子自由版一致到 $2\times10^{-7}$。
+        另修 breakdown guard 的 \texttt{rn} 初值 bug、粗层 $L_t$ 再减半、槽位偏移等。
+        \textbf{最终效果}：迭代数 $\sim$90$\to$63--68（**减少约 30\%**），主求解算法
+        ``迭代次数更少''的要求\textbf{首次满足}；但 RTX 4060 的启动延迟使墙钟仍慢。
+  \item \textbf{dev73\_4：公平计时 + 同步修复}。修 4 个 bug：Cython 扩展过期、单进程
+        强制 MPI halo、MG 以 \texttt{VERBOSE=1} 计时不公平、单 block 融合粗求解 NaN。
+        \textbf{原由}：性能结论被不公平测量与同步开销污染。\textbf{最终效果}：正确性
+        保持（$vs\_ref\sim3\times10^{-7}$），null\_vecs 缓存默认开启 + 四重正确性验证。
+\end{enumerate}
+
+\subsection{性能主线}
+\label{sec:ev-perf}
+
+\begin{enumerate}
+  \item \textbf{根因定位（dev73\_4）}：独立微基准测得 WSL2 上
+        \texttt{cudaStreamSynchronize} $\sim$177\,$\mu$s/次；参考 BiStabCG 每迭代
+        20--30 次同步 $\Rightarrow$ $\sim$6\,ms/迭代（计算 <5\%）。MG 细层继承同结构，
+        粗层另有每迭代 $\sim$14 次启动 + 1 次同步。\textbf{原由}：MG 的迭代优势被
+        执行开销吞掉——问题不在算法而在\textbf{每次同步的虚拟化固定开销}。
+  \item \textbf{5 项同步极简优化（dev73\_4）}：单进程 dslash 快速路径（Schur dslash
+        $4.5\to0.7$\,ms）、Clover give 去冗余同步、同步极简细层 BiStabCG
+        （细迭代 $\sim$6$\to$2.6\,ms）、cooperative-groups 融合粗解
+        （$\sim$30$\to$10\,ms/次）、参数扫描（$ct=10^5, maxiter=15, r=10\sim12$）。
+        \textbf{最终效果}：默认格子 2 层中位数 1.26$\times$、$8\times8\times8\times16$
+        2.07$\times$（c128 1.92$\times$）——\textbf{从 $\le$0.19$\times$ 到 $\ge$1.2$\times$
+        的关键一跃}。
+  \item \textbf{测量协议（dev73\_5）}：独立进程 + ref/MG 交叉计时 + min of 5 对。
+        \textbf{原由}：绝对耗时对 GPU 时钟敏感（同一配置参考 432--488\,ms vs v4 记录
+        481--523\,ms），需排除噪声得出稳健结论。\textbf{最终效果}：加速比随格子增大而
+        下降且非单调的\textbf{规模效应}被清晰揭示（2.43$\to$1.16$\to$1.11$\to$0.81$\times$），
+        明确了 MG 当前单进程实现的最优适用窗口。
+\end{enumerate}
+
+\subsection{工程主线}
+\label{sec:ev-eng}
+
+\begin{enumerate}
+  \item \textbf{文档}：dev73 建立 CLAUDE.md 体系并给出 CLQCD 参考文档 dev71；
+        dev73\_1 补齐全库子目录文档；dev73\_2 完善 ``父目录嵌入子目录完整 skill'' 的
+        文档约定。
+  \item \textbf{脚本}：dev73\_2 起累积约 60 个测试/调试/基准脚本
+        （\texttt{mg\_dev\_*}、\texttt{v3\_*}、\texttt{mg\_v4\_*}、
+        \texttt{mg\_dev73\_5\_*}），形成 ``独立脚本'' + ``脚本族''（bench/clean/collect/
+        mktable/plots/verify）的测量基础设施，JSON 结构化结果 + LaTeX 表格自动生成，
+        保证报告数字与数据一致。
+  \item \textbf{缓存}：null\_vecs 只与 gauge 一一对应（seed=42），
+        \texttt{mg\_nullvec\_cache.py} 按 (gauge\_seed, lattice, level, E, nv\_iters)
+        缓存，默认开启；一组 null\_vecs + stencil 生成约 10 分钟，缓存后重复扫描/基准
+        秒级完成。
+  \item \textbf{报告}：每阶段产出 LaTeX PDF 报告（dev73、schur-multigrid、
+        mg-v4、dev73\_5），本报告（stab24）为系列的汇总。
+\end{enumerate}
+
+\subsection{净变更统计}
+\label{sec:ev-stats}
+
+dev73 $\to$ dev73\_5 累计：\textbf{150 文件，+18{,}790 / $-550$ 行}。其中
+C++ 核心 \texttt{lattice\_clover\_multigrid.h} 从 953 行增至约 1100+ 行（dev73\_4 又
++149 行），\texttt{multigrid.cu} 增加约 420 行（cooperative 融合粗解），
+\texttt{examples/qcu} 从 10 个脚本增至 55 个脚本。
+
+% =====================================================================
+\section{结论}
+\label{sec:conclusion}
+
+\begin{enumerate}
+  \item \textbf{正确性}：dev73 系列六个版本最终全部与参考 BiStabCG 解一致
+        （$vs\_ref\sim3\times10^{-7}$ c64 / $4\times10^{-8}$ c128）；gauge 满足 $SU(3)$；
+        null\_vecs 四重检查全部通过。正确性演进路径：审查修 bug（dev73）$\to$ 全算子
+        一致化（dev73\_2）$\to$ Schur 一致粗空间（dev73\_3）$\to$ 公平计时 + 缓存验证
+        （dev73\_4）。
+  \item \textbf{性能}：从 dev73 的 $0.87$--$1.28\times$（无优势）到 dev73\_5 的
+        $8\times8\times8\times16$ 上 $2.43\times$、默认格子 $1.16\times$。关键一跃发生在
+        dev73\_4——定位 WSL2 同步开销根因（$\sim$177\,$\mu$s/次）并做 5 项同步极简优化。
+        dev73\_3 的 Schur 一致粗空间（迭代 $-30\%$）是必要前提，但只有消除执行开销
+        后才转化为墙钟加速。
+  \item \textbf{规模效应与适用窗口}：加速比随格子增大而下降且非单调
+        （2.43$\to$1.16$\to$1.11$\to$0.81$\times$）；c128 在默认格子上 <1。MG 当前单进程
+        实现的最优窗口是\textbf{小格子、单精度、细层迭代成本占主导}的配置。
+  \item \textbf{测量与工程}：干净测量协议（独立进程 + 交叉计时 + min of 5）与
+        脚本族/JSON/LaTeX 表格流水线保证了结论稳健、数字可复现；绝对耗时对 GPU 时钟
+        敏感（$\pm$10\%），迭代数与解精度为稳健指标。
+\end{enumerate}
+
+% =====================================================================
+\appendix
+\section{图表清单（所有数据图表）}
+\label{app:figs}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{llp{8.5cm}}
+\toprule
+tag & 图表 & 内容 \\
+\midrule
+dev73 & \texttt{multigrid\_result.png} & 首个 Clover MG 正确性 + 收敛历史 \\
+dev73 & \texttt{multigrid\_performance.png} & Clover MG 性能对比 + 收敛历史 \\
+dev73 & \texttt{multigrid\_performance\_0.png} & 初始性能测试（高分辨率长图，附录仅列示） \\
+dev73\_2 & \texttt{mg\_convergence.png} & dev73\_2 调试期收敛历史 \\
+dev73\_2 & \texttt{multigrid\_result\_L1.png} & 1 层 MG 结果 \\
+dev73\_2 & \texttt{multigrid\_result\_L2.png} & 2 层 MG 结果 \\
+dev73\_3 & \texttt{schur\_mg\_convergence.png} & Schur MG 收敛历史（三个配置） \\
+dev73\_5 & \texttt{dev73\_5\_conv\_*.png}（6 张） & 各格子/精度收敛历史 \\
+dev73\_5 & \texttt{dev73\_5\_hotspot.png} & 计算热点分解 \\
+dev73\_5 & \texttt{dev73\_5\_speedup.png} & 各配置干净加速比 \\
+dev73\_5 & \texttt{dev73\_5\_time.png} & 求解耗时对照 \\
+dev73\_5 & \texttt{dev73\_5\_sweep.png} & 参数扫描曲线 \\
+\bottomrule
+\end{tabular}
+\caption{dev73 系列全部数据图表清单（正文章节已附图 16 张）}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.9\textwidth]{multigrid_result.png}
+\caption{dev73：首个 C++ Clover MG 正确性（$6.23\times10^{-7}$）与收敛历史。}
+\label{fig:dev73-result}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.95\textwidth]{multigrid_performance.png}
+\caption{dev73：Clover MG 性能对比 + 收敛历史（RTX 4060，$0.87$--$1.28\times$）。}
+\label{fig:dev73-perf}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.95\textwidth]{mg_convergence.png}
+\caption{dev73\_2：调试期 MG 收敛历史（全算子 level-0，数值正确但墙钟更慢）。}
+\label{fig:dev732-conv}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.95\textwidth]{multigrid_result_L1.png}
+\caption{dev73\_2：1 层 MG 结果。}
+\label{fig:dev732-L1}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.95\textwidth]{multigrid_result_L2.png}
+\caption{dev73\_2：2 层 MG 结果。}
+\label{fig:dev732-L2}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.9\textwidth]{schur_mg_convergence.png}
+\caption{dev73\_3：C++ Schur MultiGrid 的 Schur 残差收敛历史（三个配置均收敛到
+$1\times10^{-6}$，与 BiStabCG 解一致；迭代 $\sim$90$\to$63--68）。}
+\label{fig:dev733-conv}
+\end{figure}
+
+\section{数据文件清单}
+\label{app:data}
+
+\begin{itemize}
+  \item \texttt{logs/multigrid\_report.json} —— dev73 阶段 MG 收敛数据；
+  \item \texttt{logs/mg\_dev\_results.json} —— dev73\_2 多配置结果
+        （1L/2L/3L，c64/c128，多格子多质量）；
+  \item \texttt{logs/schur\_mg\_results.json} —— dev73\_3 Schur MG 结果
+        （8$\times$8$\times$8$\times$16 c64 2L：ref 139\,ms / mg 329\,ms / $vs\_ref$ $5.4\times10^{-7}$；
+        8$\times$16$\times$16$\times$16 c64 2L：193\,ms / 1137\,ms / $2.9\times10^{-7}$）；
+  \item \texttt{logs/dev73\_5\_results.json}、\texttt{dev73\_5\_clean\_*.json}、
+        \texttt{dev73\_5\_bench.json}、\texttt{dev73\_5\_verify\_*.json} —— dev73\_5
+        干净计时/收敛/热点/正确性汇总；
+  \item 原始日志：\texttt{clover\_multigrid.log}、\texttt{mg\_bench\_out.txt}、
+        \texttt{mg\_iter\_sweep\_out.txt}、\texttt{mg\_param\_sweep\_out.txt}、
+        \texttt{schur\_mg\_test\_stdout.txt}、\texttt{pyref\_target\_*.log}。
+\end{itemize}
+
+\section{脚本文件清单（examples/qcu）}
+\label{app:scripts}
+
+\begin{itemize}
+  \item \textbf{测试}：\texttt{conftest.clover.multigrid.py}、
+        \texttt{conftest.schur.multigrid.py}、\texttt{quick\_test.py}、
+        \texttt{verify\_coarse.py}、\texttt{diag\_coarse.py}；
+  \item \textbf{dev73\_2 调试}：\texttt{mg\_dev\_*}、\texttt{v3\_diag\_rp.py}、
+        \texttt{v3\_verify\_rp.py}；
+  \item \textbf{dev73\_3 概念/诊断}：\texttt{mg\_schur\_concept.py}、
+        \texttt{mg\_pyref\_expt.py}、\texttt{mg\_strategy.py}、
+        \texttt{mg\_stencil\_build.py}、\texttt{mg\_stencil\_mg.py}、
+        \texttt{mg\_iter\_sweep.py}、\texttt{mg\_param\_sweep.py}、
+        \texttt{mg\_micro\_bench.py}、\texttt{mg\_verify\_level2.py}；
+  \item \textbf{dev73\_4}：\texttt{mg\_nullvec\_cache.py}、\texttt{mg\_v4\_bench.py}、
+        \texttt{mg\_v4\_sweep.py}、\texttt{mg\_v4\_verify\_nv.py}、
+        \texttt{mg\_v4\_diag1.py}、\texttt{mg\_v4\_build1616.py}、
+        \texttt{mg\_v4\_verbose\_log.py}；
+  \item \textbf{dev73\_5 测量族}：\texttt{mg\_dev73\_5\_clean.py}（独立进程干净计时）、
+        \texttt{mg\_dev73\_5\_bench.py}（连续负载扫描）、
+        \texttt{mg\_dev73\_5\_verify.py}（正确性）、\texttt{mg\_dev73\_5\_collect.py}
+        （汇总 JSON）、\texttt{mg\_dev73\_5\_mktable.py}（LaTeX 表格）、
+        \texttt{mg\_dev73\_5\_plots.py}（图表）。
+\end{itemize}
+
+\end{document}
