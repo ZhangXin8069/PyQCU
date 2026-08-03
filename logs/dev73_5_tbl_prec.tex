@@ -1,0 +1,11 @@
+\begin{table}[h]\centering
+\begin{tabular}{lcccc}
+\toprule
+精度 & BiStabCG(ms) & MG(ms) & 加速比 & 迭代(MG/ref) \\
+\midrule
+c128（双精度） & 466 & 637 & 0.73$\times$ & 71/87 \\
+c64（单精度） & 464 & 399 & 1.16$\times$ & 89/86 \\
+\bottomrule
+\end{tabular}
+\caption{精度对照：默认格子 $\{8,16,16,16\}$，2L, r=10, ct=$10^5$, cmi=15（干净 min of 5 对）}
+\end{table}

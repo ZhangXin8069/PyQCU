@@ -1,0 +1,17 @@
+\begin{longtable}{llcccc}
+\toprule
+变量 & 值 & BiStabCG(ms) & MG(ms) & 加速比 & 迭代(MG/ref) \\
+\midrule
+\endhead
+最粗层容差 $ct$ & ct=1e+02 & 430 & 407 & 1.06$\times$ & 79/86 \\
+最粗层容差 $ct$ & ct=1e+03 & 474 & 433 & 1.10$\times$ & 88/86 \\
+最粗层容差 $ct$ & ct=1e+04 & 481 & 428 & 1.12$\times$ & 79/86 \\
+基准 & r=10, ct=$10^5$, cmi=15 & 464 & 399 & 1.16$\times$ & 89/86 \\
+最粗层迭代 $cmi$ & cmi=200 & 488 & 400 & 1.22$\times$ & 79/86 \\
+最粗层迭代 $cmi$ & cmi=50 & 406 & 399 & 1.02$\times$ & 86/86 \\
+V-cycle 频率 $r$ & r=12 & 467 & 397 & 1.18$\times$ & 103/86 \\
+V-cycle 频率 $r$ & r=15 & 456 & 446 & 1.02$\times$ & 112/86 \\
+V-cycle 频率 $r$ & r=20 & 474 & 376 & 1.26$\times$ & 110/86 \\
+V-cycle 频率 $r$ & r=5 & 433 & 500 & 0.87$\times$ & 109/86 \\
+\bottomrule
+\end{longtable}
