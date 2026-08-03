@@ -1699,6 +1699,7 @@ Development logs, review reports, bug fix summaries, and solver output. Mileston
 | Pattern | Purpose |
 |---------|---------|
 | `dev<N>.md` / `.tex` / `.pdf` | Development milestone reports (e.g., `dev73_5.md`, plus generated tables `dev73_5_tbl_*.tex` and figures `dev73_5_*.png`) |
+| `stab<N>.md` / `.tex` / `.pdf` | Stable-milestone summary reports (e.g., `stab24.*` — dev73→dev73_5 MultiGrid series) |
 | `bug<N>.md` | Bug discovery & code review reports |
 | `review-*.md` | Code review findings (e.g., `review-2026-07-28.md`) |
 | `fix-report-*.md` | Bug fix summaries |
