@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 _PATH=$(
-    cd "$(dirname "$0")"
+    cd "$(dirname "${BASH_SOURCE[0]:-$0}")"
     pwd
 )
-_NAME=$(basename "$0")
+_NAME=$(basename "${BASH_SOURCE[0]:-$0}")
 echo "###${_NAME} in ${_PATH} is sourcing...:$(date "+%Y-%m-%d-%H-%M-%S")###"
 export LD_LIBRARY_PATH=${_PATH}/cpp/cuda/qcu:$LD_LIBRARY_PATH
 export PYTHONPATH=${_PATH}:${PYTHONPATH}
