@@ -52,3 +52,13 @@ lib/*
 *.xdv
 *.fdb_latexmk
 ./refer/.*.log
+
+# ==== 补充自 /root/configure/.gitignore ====
+tmp/*
+lib/_package/linux/2048
+*.Identifier
+*~
+*.bak
+*.err
+*.vrb
+*.env
