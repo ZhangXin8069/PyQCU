@@ -55,7 +55,7 @@ if __name__=="__main__":
         t = run_mg(av,fi,g,fo,ce,coo,cei,coi)  # includes warmup effect (2nd call)
         # parse fine iters from log
         conv=[]
-        lp="/root/PyQCU/logs/clover_multigrid.log"
+        lp=os.path.expanduser("~/PyQCU/logs/clover_multigrid.log")
         if os.path.exists(lp):
             with open(lp) as f2:
                 for line in f2:

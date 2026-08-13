@@ -46,7 +46,7 @@ def run_cfg(E, nvi, restart, ctf, cmi=300):
     qcu_mg=tools.poooxyzt2oooxyzt(fo); qcu_src=tools.poooxyzt2oooxyzt(fi)
     res=tools.norm(dslash.give_wilson(qcu_mg,qcu_U,KAPPA,True)+dslash.give_clover(qcu_mg,ref_cl)-qcu_src)/tools.norm(qcu_src)
     conv=[]
-    lp="/root/PyQCU/logs/clover_multigrid.log"
+    lp=os.path.expanduser("~/PyQCU/logs/clover_multigrid.log")
     if os.path.exists(lp):
         with open(lp) as f:
             for line in f:

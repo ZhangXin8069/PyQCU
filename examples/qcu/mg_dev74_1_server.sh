@@ -11,7 +11,7 @@
 #   GATE=1.5 可选（默认 1.5）
 set -euo pipefail
 
-REPO=/root/PyQCU
+REPO=${HOME}/PyQCU
 LOG_DIR="$REPO/logs"
 RUN="${RUN:-0}"
 GATE="${GATE:-1.5}"

@@ -53,7 +53,7 @@ def run_solve(restart, coarse_tol_factor, coarse_max_iter=200):
     mg_vs_ref=tools.norm(qcu_mg-qcu_ref)/tools.norm(qcu_ref)
     # parse fine iters from solve_time log? (verbose off -> no log). Use conv from log.
     conv=[]
-    log_path="/root/PyQCU/logs/clover_multigrid.log"
+    log_path=os.path.expanduser("~/PyQCU/logs/clover_multigrid.log")
     if os.path.exists(log_path):
         with open(log_path) as f:
             for line in f:

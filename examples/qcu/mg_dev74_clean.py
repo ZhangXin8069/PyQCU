@@ -38,7 +38,7 @@ from mg_nullvec_cache import build_or_load_coarse_ops
 from mg_dev73_5_bench import ref_conv_history, parse_mg_log
 from mg_dev74_dslash import make_cuda_schur_ops
 
-LOG_DIR = "/root/PyQCU/logs"
+LOG_DIR = os.path.expanduser("~/PyQCU/logs")
 LOG_PATH = os.path.join(LOG_DIR, "clover_multigrid.log")
 
 
@@ -47,7 +47,7 @@ def rss_kb():
 
 
 def cache_disk_mb():
-    d = "/root/PyQCU/logs/nullvec_cache"
+    d = os.path.expanduser("~/PyQCU/logs/nullvec_cache")
     total = 0
     if os.path.isdir(d):
         for root, _, files in os.walk(d):

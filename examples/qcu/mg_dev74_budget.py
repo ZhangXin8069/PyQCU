@@ -26,7 +26,7 @@ x_o 等）与求解中间量按实测校准系数 α 外推：VRAM(V) = α·V + 
 """
 import os, sys, json
 
-LOG_DIR = "/root/PyQCU/logs"
+LOG_DIR = os.path.expanduser("~/PyQCU/logs")
 # 按格点体积的常量（c64, 2L, E=48）
 CONST_PER_V = 24192.0   # bytes per lattice point (Python-side tensors, above)
 # 每 CudaSchurOp 实例（LatticeSet scratch）的额外开销 —— 由实测校准
