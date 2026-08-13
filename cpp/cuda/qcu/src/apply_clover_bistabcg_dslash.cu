@@ -2,13 +2,19 @@
 #include "../python/pyqcu.h"
 #pragma optimize(5)
 using namespace qcu;
+// dev74 MT: removed the two cudaDeviceSynchronize() calls (entry + exit).
+// dslash() already synchronizes its own stream(s) before returning
+// (single-rank fast path: cudaStreamSynchronize(set_ptr->stream); multi-rank:
+// sync_if_multi on every dim stream).  A global device sync serialized
+// concurrent CudaSchurOp instances (each owns a private non-blocking stream),
+// which destroyed multi-threaded stencil-build parallelism.  Semantics for a
+// single caller are unchanged (output is ready on return).
 void applyCloverBistabCgDslashQcu(long long _fermion_out, long long _fermion_in,
                                   long long _gauge, long long _clover_ee,
                                   long long _clover_oo,
                                   long long _clover_ee_inv,
                                   long long _clover_oo_inv, long long _set_ptrs,
                                   long long _params) {
-  cudaDeviceSynchronize();
   void *fermion_out = (void *)_fermion_out;
   void *fermion_in = (void *)_fermion_in;
   void *gauge = (void *)_gauge;
@@ -40,5 +46,4 @@ void applyCloverBistabCgDslashQcu(long long _fermion_out, long long _fermion_in,
   } else {
     printf("data_type error\n");
   }
-  cudaDeviceSynchronize();
 }
