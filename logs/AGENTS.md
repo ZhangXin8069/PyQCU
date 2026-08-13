@@ -30,6 +30,9 @@
 | `debug/` | 每轮修复日志（`fix-log*.md`） |
 | `results/` | 最终/剩余修复报告 |
 | `nullvec_cache/` | 粗算子缓存（共享，运行产物，不入库） |
+| `test11/` | dev74* 整合测试套件（代码+产物同目录；历史版） |
+| `test12/` | dev74* 整合测试套件（test11_1 优化版）：代码+脚本在根，**每次运行产物归档版本目录 `test12/v<ts>/`**（含 `env.json` 环境快照），跨环境可横向比对 |
 
 运行指南与脚本位置：dev73/dev74 套件脚本在 `examples/qcu/dev73/`、`examples/qcu/dev74/`，
-产物（json/tex/png）直接写入本目录对应 tag 子目录。
+产物（json/tex/png）直接写入本目录对应 tag 子目录；test11/test12 套件自包含于
+`logs/test11/`、`logs/test12/`（含运行脚本 run-local.sh / run-snsc.sh）。
