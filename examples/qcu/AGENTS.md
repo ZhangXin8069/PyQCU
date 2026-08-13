@@ -46,3 +46,16 @@ mpirun -np 1 python examples/qcu/conftest.clover.multigrid.py
 | `mg_dev74_cluster.sh` | 集群大格子运行（dry-run 默认，`RUN=1` 执行；16x32x32x32 单卡可行，16x32x32x64 需分阶段构建，24x32x32x64 需多卡） |
 
 注意：`CudaSchurOp` 依赖 C++ 端 `applyCloverBistabCgDslashQcu`（已移除首尾全局 `cudaDeviceSynchronize`，见 `cpp/cuda/qcu/src/apply_clover_bistabcg_dslash.cu`）；多线程构建在单卡无收益（GPU 瓶颈），面向多卡/多节点集群。
+
+## Dev74_1 服务器套件（加速比 > 1.5 验证）
+
+| 脚本 | 功能 |
+|---|---|
+| `mg_dev74_1_sweep.py` | 本地/服务器参数扫描（r/ct/cmi/levels，独立进程干净测量）→ `logs/dev74_1_sweep.json` |
+| `mg_dev74_1_check.py` | 加速比断言（默认 gate=1.5；`--file` 显式指定 json，exit 0/1/2） |
+| `mg_dev74_1_server.sh` | 服务器一键流程（Step 0 自检 → Step 1 强制闸门 8x8x8x16 → Step 2 扫描 → Step 3/4 大格子 → Step 5 断言；`RUN=1` 执行） |
+
+运行指南：`logs/dev74_1_guide.md` / `.tex` / `.pdf`。关键结论：本地小卡 MG 恒慢
+（speedup<1，硬件特性），服务器 V100-32G 8x8x8x16 实测 2.43x 达标；参数相对行为
+（3L>2L、r20>r10）两 GPU 一致可迁移；16x32x32x32 单卡 cold 可行，16x32x32x64 需
+分阶段构建，24x32x32x64 需多卡。
