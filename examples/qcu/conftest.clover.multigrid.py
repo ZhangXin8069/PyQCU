@@ -16,7 +16,7 @@ from pyqcu import tools, dslash, solver
 from pyqcu.cuda import qcu
 from pyqcu.cuda.define import params, argv, set_ptrs, define
 
-LOG_DIR = "/root/PyQCU/logs"
+LOG_DIR = os.path.expanduser("~/PyQCU/logs")
 os.makedirs(LOG_DIR, exist_ok=True)
 
 # ---- Configuration matrix ----

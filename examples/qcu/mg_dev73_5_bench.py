@@ -17,7 +17,7 @@
 （CONVERGENCE_HISTORY）、计算热点（PROF_SECTIONS: fine_iter/vcycle/coarse_solve/
 coarse_dslash），并附参考 BiStabCG 的逐迭代收敛历史（同算子 Python 复现）。
 
-用法（在 /root/PyQCU 下运行以保证 logs/clover_multigrid.log 落到 logs/）：
+用法（在 ${HOME}/PyQCU 下运行以保证 logs/clover_multigrid.log 落到 logs/）：
     source ./env.sh && CUDA_VISIBLE_DEVICES=2 \
         python examples/qcu/mg_dev73_5_bench.py [--only prefix ...]
 输出：logs/dev73_5_bench.json
@@ -44,7 +44,7 @@ _csm = _load("csm", os.path.join(os.path.dirname(os.path.abspath(__file__)),
 build_config = _csm.build_config
 from mg_nullvec_cache import build_or_load_coarse_ops
 
-LOG_DIR = "/root/PyQCU/logs"
+LOG_DIR = os.path.expanduser("~/PyQCU/logs")
 LOG_PATH = os.path.join(LOG_DIR, "clover_multigrid.log")
 
 # 参考收敛历史缓存：key = (lattice_tuple, precision)

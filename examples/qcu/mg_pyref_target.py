@@ -57,7 +57,7 @@ def run():
         print(f"[b] MG parity=True levels={nlev} restart={nrestart}: {solve_time*1000:.1f} ms  "
               f"iters={n0}  res={res:.3e}  vs_ref={vs:.3e}  speedup={ref_time/solve_time:.3f}x")
         # dump verbose to a file for the record
-        with open(f"/root/PyQCU/logs/pyref_target_L{nlev}_r{nrestart}.log","w") as f:
+        with open(os.path.expanduser(f"~/PyQCU/logs/pyref_target_L{nlev}_r{nrestart}.log"),"w") as f:
             f.write(out)
 
 if __name__=="__main__":

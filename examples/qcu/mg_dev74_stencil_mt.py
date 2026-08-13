@@ -24,7 +24,7 @@ from mg_pyref_expt import setup_gpu
 from mg_stencil_build import build_stencil, PAIRS, SIGN
 from mg_dev74_dslash import make_cuda_schur_ops
 
-LOG_DIR = "/root/PyQCU/logs"
+LOG_DIR = os.path.expanduser("~/PyQCU/logs")
 
 
 def probe_point(S, lonv, E, ee, c_idx, sit, hop_nn, hop_diag, dims, Nc):

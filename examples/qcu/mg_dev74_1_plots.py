@@ -30,7 +30,7 @@ plt.rcParams["font.family"] = ["DejaVu Sans", "Droid Sans Fallback",
                                "AR PL UMing CN", "Noto Sans CJK SC"]
 plt.rcParams["axes.unicode_minus"] = False
 
-LOG_DIR = "/root/PyQCU/logs"
+LOG_DIR = os.path.expanduser("~/PyQCU/logs")
 
 # ---- validated palette (dataviz skill, light mode) ----
 C = {

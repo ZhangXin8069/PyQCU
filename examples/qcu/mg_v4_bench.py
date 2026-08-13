@@ -26,7 +26,7 @@ _csm = _load("csm", os.path.join(os.path.dirname(os.path.abspath(__file__)),
 build_config = _csm.build_config
 from mg_nullvec_cache import build_or_load_coarse_ops
 
-LOG_DIR = "/root/PyQCU/logs"
+LOG_DIR = os.path.expanduser("~/PyQCU/logs")
 
 
 def bench_one(label, Lx, Ly, Lz, Lt, MASS, ATOL, NUM_LEVELS, DOF_LIST, MG_GRID,
