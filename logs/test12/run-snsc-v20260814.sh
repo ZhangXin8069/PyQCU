@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# test12 —— 服务器（SNSC）运行脚本。默认显存档 16GB；预留 32GB 档（VRAM=32）。
+# test12 —— 服务器（SNSC）运行脚本 v20260814（A100-40GB 对照版）。
+# 默认显存档 40GB（A100-40GB）；16/32GB 档仍可用 VRAM 覆盖。
 # test11_1 的优化版：每次运行创建版本目录 logs/test12/v<YYYYMMDDHHMM>/，
 # 全部产物与运行日志落在该目录（互不覆盖，跨环境可横向比对）。
 #
@@ -7,10 +8,13 @@
 #   Step 0  自检（nvidia-smi 显存 / torch / qcu 桥）
 #   Step 1  快速验证：8x8x8x16 干净测量（正确性 + 基准数据）
 #   Step 2  参数扫描：8x16x16x16（9 配置）→ test12_sweep.json
-#   Step 3  大格子全流程：16G 档 8x32x32x32（cold+warm 单卡可行）/
-#                       32G 档 16x32x32x32（VRAM=32 启用）
-#   Step 4  大格子 warm 探索：16G 档 16x32x32x32（cold 26.5GB 超档，需外部缓存，
-#           OOM 仅记录不中断）/ 32G 档 16x32x32x64
+#   Step 3  大格子全流程：16G 档 8x32x32x32（cold 13.3G / warm 6.8G）/
+#                       32/40G 档 16x32x32x32（cold 27.8G / warm 13.8G；
+#                       40G 档更大候选 24x32x32x32 cold 41.7G 超档，故同 32G 档）
+#   Step 4  大格子 warm 探索：16G 档 16x32x32x32（cold 26.5G 超档）/
+#                       32G 档 16x32x32x64（warm 27.5G 可行）/
+#                       40G 档 20x32x32x64（warm 34.4G ≈86% 可行，
+#                       cold 69.5G 超档需外部缓存，OOM 仅记录不中断）
 #   Step 5  collect / budget / mktable / plots / plots1
 #   Step 6  归档收敛日志
 #
@@ -18,16 +22,17 @@
 #   每步 timeout 防卡壳；单步失败仅记录继续（不中断整条流程）。
 #
 # 用法：
-#   bash logs/test12/run-snsc.sh              # 实际执行（16GB 档）
-#   VRAM=32 bash logs/test12/run-snsc.sh      # 预留 32GB 档（暂不启用）
-#   bash logs/test12/run-snsc.sh --dry-run    # 只打印命令
+#   bash logs/test12/run-snsc-v20260814.sh          # 实际执行（40GB 档，A100-40GB）
+#   VRAM=16 bash logs/test12/run-snsc-v20260814.sh  # 16GB 档（兼容旧卡）
+#   VRAM=32 bash logs/test12/run-snsc-v20260814.sh  # 32GB 档（兼容旧卡）
+#   bash logs/test12/run-snsc-v20260814.sh --dry-run    # 只打印命令
 set -uo pipefail
 
 REPO="${HOME}/PyQCU"
 WORK="$REPO/logs/test12"
 MAIN="$WORK/main.py"
 TS=$(date +%Y%m%d-%H%M%S)
-VRAM="${VRAM:-16}"                 # 默认 16GB；预留 32GB 档
+VRAM="${VRAM:-40}"                 # 默认 40GB（A100-40GB）；16/32 档可覆盖
 
 # ---- 版本目录：v<YYYYMMDDHHMM>；同分钟重跑加 -<SS> 防覆盖 ----
 VDIR="$WORK/v$(date +%Y%m%d%H%M)"
@@ -70,7 +75,7 @@ step "Step 2: 参数优化扫描 —— 8x16x16x16（9 配置，每配置 timeou
 run 7200 python "$MAIN" sweep --lattice 8 16 16 16 --pairs 3 --timeout 1800
 
 if [ "$VRAM" -ge 32 ]; then
-  step "Step 3: 大格子 16x32x32x32（32G 档：cold 26.5G / warm 13.5G，全流程可行）"
+  step "Step 3: 大格子 16x32x32x32（32/40G 档：cold 27.8G / warm 13.8G，全流程可行）"
   run 28800 python "$MAIN" clean --lattice 16 32 32 32 --prec c64 --levels 2 \
       --restart 10 --ct 1e5 --cmi 15 --pairs 3
 else
@@ -79,8 +84,13 @@ else
       --restart 10 --ct 1e5 --cmi 15 --pairs 3
 fi
 
-if [ "$VRAM" -ge 32 ]; then
-  step "Step 4: 大格子 16x32x32x64 warm 探索（cold 53G 超档需分阶段，warm 27G 可行）"
+if [ "$VRAM" -ge 40 ]; then
+  step "Step 4: 大格子 20x32x32x64 warm 探索（40G 档：warm 34.4G ≈86% 可行；cold 69.5G 超档需外部缓存）"
+  run 28800 python "$MAIN" clean --lattice 20 32 32 64 --prec c64 --levels 2 \
+      --restart 10 --ct 1e5 --cmi 15 --pairs 2 || \
+    echo "[warn] 20x32x32x64 失败（预期 cold OOM），已记录，继续。可先在其他大显存卡构建 nullvec 缓存再 warm 复测"
+elif [ "$VRAM" -ge 32 ]; then
+  step "Step 4: 大格子 16x32x32x64 warm 探索（cold 55.6G 超 32G 档需分阶段，warm 27.5G 可行）"
   run 28800 python "$MAIN" clean --lattice 16 32 32 64 --prec c64 --levels 2 \
       --restart 10 --ct 1e5 --cmi 15 --pairs 2 || \
     echo "[warn] 16x32x32x64 失败（预期 cold OOM），已记录，继续。可先在其他 32G 卡构建 nullvec 缓存再 warm 复测"
