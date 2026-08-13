@@ -53,6 +53,7 @@ mpirun -np 1 python examples/qcu/conftest.clover.multigrid.py
 |---|---|
 | `mg_dev74_1_sweep.py` | 本地/服务器参数扫描（r/ct/cmi/levels，独立进程干净测量）→ `logs/dev74_1_sweep.json` |
 | `mg_dev74_1_check.py` | 加速比断言（默认 gate=1.5；`--file` 显式指定 json，exit 0/1/2） |
+| `mg_dev74_1_plots.py` | 作图（范围与 dev73_5 一致：收敛历史/热点/加速比/耗时/参数扫描）→ `logs/dev74_1_*.png` |
 | `mg_dev74_1_server.sh` | 服务器一键流程（Step 0 自检 → Step 1 强制闸门 8x8x8x16 → Step 2 扫描 → Step 3/4 大格子 → Step 5 断言；`RUN=1` 执行） |
 
 运行指南：`logs/dev74_1_guide.md` / `.tex` / `.pdf`。关键结论：本地小卡 MG 恒慢

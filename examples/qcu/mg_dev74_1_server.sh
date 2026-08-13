@@ -19,6 +19,7 @@ PY="python"
 CLEAN="$REPO/examples/qcu/mg_dev74_clean.py"
 SWEEP="$REPO/examples/qcu/mg_dev74_1_sweep.py"
 CHECK="$REPO/examples/qcu/mg_dev74_1_check.py"
+PLOTS="$REPO/examples/qcu/mg_dev74_1_plots.py"
 
 step() { echo; echo "===== $1 ====="; }
 
@@ -60,5 +61,8 @@ step "Step 5: 汇总断言"
 run $PY "$CHECK" --gate "$GATE" --label "dev74_1 server final" \
   --file "$LOG_DIR/dev74_1_sweep.json"
 
-step "完成。结果：logs/dev74_1_sweep.json + dev74_clean_L*.json"
+step "Step 6: 生成图表（范围与 dev73_5 一致：收敛/热点/加速比/耗时/扫描）"
+run $PY "$PLOTS" --lattice 8 16 16 16
+
+step "完成。结果：logs/dev74_1_sweep.json + dev74_clean_L*.json + dev74_1_*.png"
 echo "说明：24x32x32x64（warm 42.3GB）单卡不可行，需多卡 MPI 分布式（后续工作）。"
