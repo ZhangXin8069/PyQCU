@@ -35,7 +35,7 @@ PyQCU：Lattice QCD 的 Python/Cython 库 —— CUDA 加速的 Wilson/Clover Di
 | `examples/` | 测试入口：`pyqcu/`（主套件）、`qcu/`（C++ 后端；dev 套件归档于 `qcu/dev73/`、`qcu/dev74/`，产物写 `logs/dev73/`、`logs/dev74/`）、`cpu/npu/dcu/gpu/tilelang/profiler/benchmark/`、`data/`（参考 HDF5） |
 | `docs/` | dims.md、env.md、install.md、examples.md、profiler.md |
 | `refer/` | 开发历史报告（dev71.*） |
-| `logs/` | 按 tag 归档：`dev<N>/`、`stab<N>/`、`bug<N>/` 子目录（如 `dev73/`、`dev73/stab24/`、`dev74/`、`bug30/`；`logs/<tag>/**` 在 .gitignore 全豁免入库），根目录留 `fix-report-*.md`、`debug/`、`results/` 与共享缓存 `nullvec_cache/` |
+| `logs/` | 按 tag 归档：`dev<N>/`、`stab<N>/`、`bug<N>/` 子目录（如 `dev73/`、`dev73/stab24/`、`dev74/`、`bug30/`；`logs/<tag>/**` 在 .gitignore 全豁免入库），根目录留 `fix-report-*.md`、`debug/`、`results/` 与共享缓存 `nullvec_cache/`；测试套件 `test11/`（历史版）与 `test12/`（当前版，产物归档 `test12/v<ts>/`） |
 
 ## 已知反模式（勿重复）
 
