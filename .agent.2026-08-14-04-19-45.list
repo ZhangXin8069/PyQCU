@@ -1,4 +1,0 @@
----- [2026-08-14 04:20:00] 第 1 条用户输入 ----
-~all 所有log/tag-name下的文件不再被.gitignore排除，其中tag-name形如stab**，dev**，test**，bug**
----- [2026-08-14 04:21:00] 第 2 条用户输入 ----
-~all 所有log/tag-name文件夹下的文件不再被.gitignore排除，其中tag-name形如stab**，dev**，test**，bug**
