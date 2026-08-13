@@ -1658,8 +1658,13 @@ for _f in ["/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",
         fm.fontManager.addfont(_f)
     except Exception:
         pass
-plt.rcParams["font.family"] = ["DejaVu Sans", "Droid Sans Fallback",
-                               "AR PL UMing CN", "Noto Sans CJK SC"]
+_font_families = ["DejaVu Sans", "Droid Sans Fallback", "AR PL UMing CN"]
+try:
+    fm.findfont("Noto Sans CJK SC", fallback_to_default=False)
+    _font_families.append("Noto Sans CJK SC")
+except ValueError:
+    pass
+plt.rcParams["font.family"] = _font_families
 plt.rcParams["axes.unicode_minus"] = False
 
 C = {
