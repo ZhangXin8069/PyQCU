@@ -3,7 +3,7 @@
 examples/pyqcu/conftest.clover.multigrid-v20260506.log) for the default
 lattice {8,16,16,16} with VERBOSE=1. Output -> logs/clover_multigrid.log."""
 import sys, os, torch, time
-sys.path.insert(0, "/root/PyQCU/examples/qcu")
+sys.path.insert(0, os.path.expanduser("~/PyQCU/examples/qcu"))
 from pyqcu import tools, dslash
 from pyqcu.cuda import qcu
 import pyqcu.cuda.define as define
@@ -12,11 +12,11 @@ import importlib.util
 def _load(name, path):
     spec = importlib.util.spec_from_file_location(name, path)
     mod = importlib.util.module_from_spec(spec); spec.loader.exec_module(mod); return mod
-_csm = _load("csm", "/root/PyQCU/examples/qcu/conftest.schur.multigrid.py")
+_csm = _load("csm", os.path.expanduser("~/PyQCU/examples/qcu/conftest.schur.multigrid.py"))
 build_config = _csm.build_config
 from mg_nullvec_cache import build_or_load_coarse_ops
 
-open("/root/PyQCU/logs/clover_multigrid.log", "w").close()
+open(os.path.expanduser("~/PyQCU/logs/clover_multigrid.log"), "w").close()
 Lx,Ly,Lz,Lt=8,16,16,16; MASS=0.05; ATOL=1e-6; DT=define._LAT_C64_
 av = build_config(Lx,Ly,Lz,Lt,MASS,ATOL,2,[12,48],[2,2,2,2],12,15,1e5,DT)
 device=torch.device('cuda'); dt=define.dtype(DT); ls=define.lat_shape(params)

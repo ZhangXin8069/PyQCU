@@ -11,7 +11,7 @@
   * 粗算子构建可选 C++ CUDA Schur 算子（applyCloverBistabCgDslashQcu，
     --build cpp）：单线程实测比 Python matvec_parity 快 ~2x（多线程仅多卡有效）
 
-用法（/root/PyQCU 下）：
+用法（${HOME}/PyQCU 下）：
     source ./env.sh && python examples/qcu/mg_dev74_bench.py [--cluster] [--build py|cpp]
 输出：logs/dev74_bench.json, logs/dev74_budget_*.json（预算预测）
 """
@@ -40,7 +40,7 @@ from mg_dev73_5_bench import parse_mg_log, ref_conv_history
 from mg_dev74_dslash import make_cuda_schur_ops
 from mg_dev74_budget import vram_model, rss_model, disk_cache_bytes
 
-LOG_DIR = "/root/PyQCU/logs"
+LOG_DIR = os.path.expanduser("~/PyQCU/logs")
 LOG_PATH = os.path.join(LOG_DIR, "clover_multigrid.log")
 
 _REF_HIST_CACHE = {}
@@ -54,7 +54,7 @@ def rss_kb():
 
 
 def cache_disk_mb():
-    d = "/root/PyQCU/logs/nullvec_cache"
+    d = os.path.expanduser("~/PyQCU/logs/nullvec_cache")
     total = 0
     if os.path.isdir(d):
         for root, _, files in os.walk(d):

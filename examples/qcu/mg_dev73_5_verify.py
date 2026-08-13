@@ -11,7 +11,7 @@
      c. C++ restrict/prolong 与 Python einsum 一致
      d. C++ 33-tensor 粗 dslash 与 Python A_c = P^T S P 一致
 
-用法（在 /root/PyQCU 下运行）：
+用法（在 ${HOME}/PyQCU 下运行）：
     source ./env.sh && CUDA_VISIBLE_DEVICES=2 \
         python examples/qcu/mg_dev73_5_verify.py [--lattice 8 16 16 16] [--prec c64]
 输出：logs/dev73_5_verify.json（含参考收敛历史，供画图）
