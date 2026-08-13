@@ -62,3 +62,17 @@ lib/_package/linux/2048
 *.err
 *.vrb
 *.env
+
+# ==== logs 下 tag 目录（stab**/dev**/test**/bug**）豁免所有文件 ====
+logs/stab*/
+logs/dev*/
+logs/test*/
+logs/bug*/
+!logs/stab*/
+!logs/dev*/
+!logs/test*/
+!logs/bug*/
+!logs/stab*/**
+!logs/dev*/**
+!logs/test*/**
+!logs/bug*/**
