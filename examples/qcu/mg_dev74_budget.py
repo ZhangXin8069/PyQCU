@@ -45,8 +45,18 @@ def disk_cache_bytes(V, levels=2, E=48):
 
 
 def vram_model(v, alpha_kb_per_v=ALPHA_DEFAULT, beta_mb=BETA_DEFAULT):
-    """预测峰值显存（MB）。"""
+    """预测峰值显存（MB）——cold（含粗算子构建）峰值。"""
     return CONST_PER_V * v / 1e6 + alpha_kb_per_v * v / 1024.0 + beta_mb
+
+
+def vram_model_warm(v, alpha_kb_per_v=ALPHA_DEFAULT, beta_mb=BETA_DEFAULT):
+    """预测峰值显存（MB）——warm（nullvec 缓存命中，仅求解）。
+
+    常驻粗算子张量（lonv/hnn/hdg/sit, 24.2 KB/V）+ 求解中间量
+    （实测 ref 阶段 ~3 KB/V），叠加 C++ scratch 校准项。
+    """
+    return (CONST_PER_V * v / 1e6 +
+            (alpha_kb_per_v / 11.0) * v / 1024.0 + beta_mb)
 
 
 def rss_model(v, alpha_ram_kb_per_v=5.0, beta_ram_mb=1200.0):
@@ -92,12 +102,15 @@ def budget_table(mode="cluster", alpha=None, beta=None):
     for L in LATTICES[mode]:
         V = L[0] * L[1] * L[2] * L[3]
         vram = vram_model(V, alpha, beta)
+        vram_warm = vram_model_warm(V, alpha, beta)
         rss = rss_model(V)
         disk = disk_cache_bytes(V, levels=2)
         rows.append({"lattice": list(L), "V": V,
-                     "pred_vram_mb": round(vram), "pred_rss_mb": round(rss),
+                     "pred_vram_mb": round(vram), "pred_vram_warm_mb": round(vram_warm),
+                     "pred_rss_mb": round(rss),
                      "pred_disk_mb": round(disk / 1e6, 1),
                      "vram_frac_32g": round(vram / (32 * 1024), 3),
+                     "vram_warm_frac_32g": round(vram_warm / (32 * 1024), 3),
                      "rss_frac_512g": round(rss / (512 * 1024), 3)})
     return rows
 
@@ -118,13 +131,14 @@ def main():
         else:
             print("[fit] dev74_bench.json 无实测数据，使用默认系数")
     rows = budget_table(args.mode, alpha, beta)
-    print(f"{'lattice':20s} {'V':>9s} {'VRAM(MB)':>9s} {'RSS(MB)':>9s} "
-          f"{'disk(MB)':>9s} {'VRAM/32G':>9s} {'RSS/512G':>9s}")
+    print(f"{'lattice':20s} {'V':>9s} {'VRAM_cold':>10s} {'VRAM_warm':>10s} "
+          f"{'RSS(MB)':>9s} {'disk(MB)':>9s} {'cold/32G':>9s} {'warm/32G':>9s}")
     for r in rows:
         print(f"{'x'.join(map(str, r['lattice'])):20s} {r['V']:9d} "
-              f"{r['pred_vram_mb']:9d} {r['pred_rss_mb']:9d} "
+              f"{r['pred_vram_mb']:10d} {r['pred_vram_warm_mb']:10d} "
+              f"{r['pred_rss_mb']:9d} "
               f"{r['pred_disk_mb']:9.1f} {r['vram_frac_32g']:9.3f} "
-              f"{r['rss_frac_512g']:9.3f}")
+              f"{r['vram_warm_frac_32g']:9.3f}")
     out = os.path.join(LOG_DIR, f"dev74_budget_{args.mode}.json")
     with open(out, "w") as f:
         json.dump({"alpha_kb_per_v": alpha, "beta_mb": beta, "rows": rows},

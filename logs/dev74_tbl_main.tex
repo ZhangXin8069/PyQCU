@@ -1,0 +1,10 @@
+% dev74 —— 本地验证结果（RTX 4060 8GB, c64, 2L, r10 ct1e5 cmi15）
+\begin{tabular}{lcccccc}
+\hline
+配置 & ref(ms) & MG(ms) & 加速比 & iters(MG/ref) & vs\_ref & 显存(MB) \\
+\hline
+\texttt{L8x8x8x16\_c64\_L2\_r10\_ct1e+05\_cmi15\_py} & 76 & 176 & 0.43 & 75/86 & 3.2e-07 & 408 \\
+\texttt{8x16x16x16\_c64\_2L\_r10\_ct1e5\_cmi15} & 140 & 513 & 0.27 & 89/86 & 3.2e-07 & 1768 \\
+\texttt{16x16x16x16\_c64\_2L\_r10\_ct1e5\_cmi15} & 193 & 960 & 0.20 & 129/91 & 3.0e-07 & 3525 \\
+\hline
+\end{tabular}
