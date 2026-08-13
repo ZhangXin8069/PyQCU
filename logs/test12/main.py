@@ -41,9 +41,61 @@ import os, sys, time, json, glob, subprocess, resource, argparse
 _HERE = os.path.dirname(os.path.abspath(__file__))            # logs/test12
 REPO = os.path.abspath(os.path.join(_HERE, os.pardir, os.pardir))
 
-WORKDIR = _HERE
+# 输出目录重定向：优先级 --outdir > 环境变量 TEST12_OUTDIR > 默认 logs/test12。
+# 运行脚本每次运行创建版本目录 v<YYYYMMDDHHMM>/ 并 export TEST12_OUTDIR。
+WORKDIR = os.environ.get("TEST12_OUTDIR", _HERE)
 # C++ 端写死 "logs/clover_multigrid.log"（相对 REPO），Python 端必须读同一路径
 LOG_PATH = os.path.join(REPO, "logs", "clover_multigrid.log")
+
+
+def _git_snapshot():
+    try:
+        br = subprocess.run(["git", "rev-parse", "--abbrev-ref", "HEAD"],
+                            cwd=REPO, capture_output=True, text=True, timeout=10)
+        hd = subprocess.run(["git", "log", "-1", "--oneline"],
+                            cwd=REPO, capture_output=True, text=True, timeout=10)
+        return br.stdout.strip() or "?", (hd.stdout.strip() or "?")
+    except Exception:
+        return "?", "?"
+
+
+def _gpu_snapshot():
+    try:
+        out = subprocess.run(
+            ["nvidia-smi", "--query-gpu=name,memory.total,driver_version",
+             "--format=csv,noheader"],
+            capture_output=True, text=True, timeout=10)
+        parts = [p.strip() for p in out.stdout.strip().split(",")] \
+            if out.stdout.strip() else []
+        return (parts[0], parts[1], parts[2]) if len(parts) == 3 else (None,) * 3
+    except Exception:
+        return (None,) * 3
+
+
+def dump_env(cmdline=None):
+    """输出目录写入 env.json（环境快照，跨环境比对的基准）。"""
+    import socket
+    branch, head = _git_snapshot()
+    gname, gmem, gdrv = _gpu_snapshot()
+    env = {
+        "time": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "hostname": socket.gethostname(),
+        "gpu_name": gname,
+        "gpu_mem": gmem,
+        "gpu_driver": gdrv,
+        "torch": torch.__version__,
+        "cuda_available": bool(torch.cuda.is_available()),
+        "cuda_device": torch.cuda.get_device_name(0)
+        if torch.cuda.is_available() else None,
+        "python": sys.version.split()[0],
+        "git_branch": branch,
+        "git_head": head,
+        "cmdline": cmdline or " ".join(sys.argv),
+    }
+    os.makedirs(WORKDIR, exist_ok=True)
+    with open(os.path.join(WORKDIR, "env.json"), "w") as f:
+        json.dump(env, f, indent=2)
+    return env
 
 import torch
 from pyqcu import tools, dslash
@@ -2034,10 +2086,16 @@ def cmd_stencil_mt(args):
 # 子命令分派
 # ----------------------------------------------------------------------
 def main():
+    global WORKDIR
     ap = argparse.ArgumentParser(description="test12 —— dev74* 整合测试套件")
+    # 公共参数：--outdir 经 parents 注入每个子命令（子命令后亦可指定）
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument("--outdir", default=None,
+                        help="输出目录（默认 $TEST12_OUTDIR，再默认 logs/test12/；"
+                             "运行脚本传版本目录 v<ts>/）")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
-    p = sub.add_parser("clean", help="干净测量 + 资源统计（独立进程）")
+    p = sub.add_parser("clean", parents=[common], help="干净测量 + 资源统计（独立进程）")
     p.add_argument("--lattice", nargs=4, type=int, default=[8, 16, 16, 16])
     p.add_argument("--prec", default="c64", choices=["c64", "c128"])
     p.add_argument("--levels", type=int, default=2)
@@ -2049,19 +2107,19 @@ def main():
     p.add_argument("--build", default="py", choices=["py", "cpp"])
     p.set_defaults(func=cmd_clean)
 
-    p = sub.add_parser("bench", help="批量基准（预算自动跳过超限配置）")
+    p = sub.add_parser("bench", parents=[common], help="批量基准（预算自动跳过超限配置）")
     p.add_argument("--mode", default="local", choices=["local", "server"])
     p.add_argument("--vram", type=int, default=16, help="显存档（GB），默认 16")
     p.add_argument("--only", nargs="+", default=None)
     p.add_argument("--build", default="py", choices=["py", "cpp"])
     p.set_defaults(func=cmd_bench)
 
-    p = sub.add_parser("verify", help="正确性验证")
+    p = sub.add_parser("verify", parents=[common], help="正确性验证")
     p.add_argument("--lattice", nargs=4, type=int, default=[8, 8, 8, 16])
     p.add_argument("--prec", default="c64", choices=["c64", "c128"])
     p.set_defaults(func=cmd_verify)
 
-    p = sub.add_parser("sweep", help="参数扫描（r/ct/cmi/levels × speedup）")
+    p = sub.add_parser("sweep", parents=[common], help="参数扫描（r/ct/cmi/levels × speedup）")
     p.add_argument("--lattice", nargs=4, type=int, default=[8, 8, 8, 16])
     p.add_argument("--pairs", type=int, default=3)
     p.add_argument("--gate", type=float, default=1.5)
@@ -2069,43 +2127,52 @@ def main():
                    help="每配置子进程超时（秒），防卡壳")
     p.set_defaults(func=cmd_sweep)
 
-    p = sub.add_parser("check", help="加速比断言（exit 0/1/2）")
+    p = sub.add_parser("check", parents=[common], help="加速比断言（exit 0/1/2）")
     p.add_argument("--gate", type=float, default=1.5)
     p.add_argument("--label", default="test12 check")
     p.add_argument("--file", action="append", default=None)
     p.set_defaults(func=cmd_check)
 
-    p = sub.add_parser("budget", help="预算表（默认 16G 档，--vram 32 预留）")
+    p = sub.add_parser("budget", parents=[common], help="预算表（默认 16G 档，--vram 32 预留）")
     p.add_argument("--mode", default="server", choices=["local", "server"])
     p.add_argument("--vram", type=int, default=16, help="显存档（GB）：16 默认 / 32 预留")
     p.add_argument("--fit", action="store_true")
     p.set_defaults(func=cmd_budget)
 
-    p = sub.add_parser("collect", help="汇总 → test12_results.json")
+    p = sub.add_parser("collect", parents=[common], help="汇总 → test12_results.json")
     p.set_defaults(func=cmd_collect)
 
-    p = sub.add_parser("mktable", help="LaTeX 表 → test12_tbl_*.tex")
+    p = sub.add_parser("mktable", parents=[common], help="LaTeX 表 → test12_tbl_*.tex")
     p.add_argument("--mode", default="server", choices=["local", "server"])
     p.add_argument("--vram", type=int, default=16)
     p.set_defaults(func=cmd_mktable)
 
-    p = sub.add_parser("plots", help="dev74 风格图 → test12_*.png")
+    p = sub.add_parser("plots", parents=[common], help="dev74 风格图 → test12_*.png")
     p.add_argument("--vram", type=int, default=16)
     p.set_defaults(func=cmd_plots)
 
-    p = sub.add_parser("plots1", help="dev74_1 风格图（dev73_5 范围）→ test12_1_*.png")
-    p.add_argument("--file", default=os.path.join(WORKDIR, "test12_sweep.json"))
+    p = sub.add_parser("plots1", parents=[common], help="dev74_1 风格图（dev73_5 范围）→ test12_1_*.png")
+    p.add_argument("--file", default=None)
     p.add_argument("--lattice", nargs=4, type=int, default=None)
     p.set_defaults(func=cmd_plots1)
 
-    p = sub.add_parser("layout_test", help="C++ Schur 算子布局对照实验")
+    p = sub.add_parser("layout_test", parents=[common], help="C++ Schur 算子布局对照实验")
     p.set_defaults(func=cmd_layout_test)
 
-    p = sub.add_parser("stencil_mt", help="多线程 stencil build 对照")
+    p = sub.add_parser("stencil_mt", parents=[common], help="多线程 stencil build 对照")
     p.add_argument("--threads", type=int, default=4)
     p.set_defaults(func=cmd_stencil_mt)
 
     args = ap.parse_args()
+    # 输出目录重定向：--outdir 优先于环境变量；子进程（sweep→clean）经
+    # TEST12_OUTDIR 环境变量继承同一版本目录
+    if args.outdir:
+        WORKDIR = os.path.abspath(args.outdir)
+    os.environ["TEST12_OUTDIR"] = WORKDIR
+    if args.cmd == "plots1" and args.file is None:
+        args.file = os.path.join(WORKDIR, "test12_sweep.json")
+    os.makedirs(WORKDIR, exist_ok=True)
+    dump_env()
     args.func(args)
 
 

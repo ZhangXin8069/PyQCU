@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
-# test12 —— 本地运行脚本（RTX 4060 8GB 小卡验证）。
+# test12 —— 本地运行脚本（RTX 4060 8GB 小卡验证）。test11_1 的优化版：
+# 每次运行创建版本目录 logs/test12/v<YYYYMMDDHHMM>/，全部产物与运行日志
+# 落在该目录（互不覆盖，跨环境可横向比对）。
 #
 # 流程：verify → clean 8x8x8x16 → bench local → sweep 8x8x8x16
 #       → collect/mktable/plots/plots1 → 归档收敛日志。
 # 特点：
-#   * 完整终端输出（tee 归档到 logs/test12/run-local-<ts>.log）
+#   * 版本目录 v<ts>/：tee 完整输出 + 所有 json/png/tex + env.json + 收敛日志
 #   * 每步 timeout 防卡壳；单步失败仅记录并继续（GRID 保持轻量）
 #
 # 用法：
@@ -16,7 +18,14 @@ REPO="${HOME}/PyQCU"
 WORK="$REPO/logs/test12"
 MAIN="$WORK/main.py"
 TS=$(date +%Y%m%d-%H%M%S)
-LOG_FILE="$WORK/run-local-$TS.log"
+
+# ---- 版本目录：v<YYYYMMDDHHMM>；同分钟重跑加 -<SS> 防覆盖 ----
+VDIR="$WORK/v$(date +%Y%m%d%H%M)"
+if [ -e "$VDIR" ]; then VDIR="$VDIR-$(date +%S)"; fi
+mkdir -p "$VDIR"
+export TEST12_OUTDIR="$VDIR"
+LOG_FILE="$VDIR/run-local-$TS.log"
+
 DRY="${DRY:-${1:-}}"
 [ "$DRY" = "--dry-run" ] && DRY=1 || DRY=0
 
@@ -38,6 +47,7 @@ cd "$REPO" || exit 1
 source ./env.sh >/dev/null 2>&1
 exec > >(tee -a "$LOG_FILE") 2>&1
 echo "=== test12 local runner start $(date) ==="
+echo "版本目录: $VDIR"
 echo "GPU: $(nvidia-smi --query-gpu=name,memory.total --format=csv,noheader 2>/dev/null | head -1)"
 
 step "Step 0: 环境自检"
@@ -64,12 +74,13 @@ step "Step 6: 汇总 + 表 + 图"
 run 300 python "$MAIN" collect
 run 300 python "$MAIN" mktable --mode server --vram 16
 run 300 python "$MAIN" plots --vram 16
-run 300 python "$MAIN" plots1 --file "$WORK/test12_sweep.json"
+run 300 python "$MAIN" plots1
 
 step "Step 7: 归档收敛日志（C++ 写死 REPO/logs/clover_multigrid.log）"
-cp -f "$REPO/logs/clover_multigrid.log" "$WORK/clover_multigrid.log" 2>/dev/null \
-  && echo "archived → $WORK/clover_multigrid.log" || echo "[warn] 无收敛日志"
+cp -f "$REPO/logs/clover_multigrid.log" "$VDIR/clover_multigrid.log" 2>/dev/null \
+  && echo "archived → $VDIR/clover_multigrid.log" || echo "[warn] 无收敛日志"
 
 echo
 echo "=== 完成。完整输出: $LOG_FILE ==="
-echo "产物目录: $WORK （test12_*.json / test12_*.png / test12_tbl_*.tex）"
+echo "版本目录: $VDIR （run-local-*.log + env.json + test12_*.json/png/tex）"
+echo "跨环境比对：各环境各跑一次本脚本，目录 v* 下同名产物可直接 diff/叠图。"

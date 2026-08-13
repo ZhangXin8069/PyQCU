@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 # test12 —— 服务器（SNSC）运行脚本。默认显存档 16GB；预留 32GB 档（VRAM=32）。
+# test11_1 的优化版：每次运行创建版本目录 logs/test12/v<YYYYMMDDHHMM>/，
+# 全部产物与运行日志落在该目录（互不覆盖，跨环境可横向比对）。
 #
 # 流程（简化版，无加速比 gate 断言）：
 #   Step 0  自检（nvidia-smi 显存 / torch / qcu 桥）
@@ -12,8 +14,8 @@
 #   Step 5  collect / budget / mktable / plots / plots1
 #   Step 6  归档收敛日志
 #
-# 特点：完整终端输出（tee 归档 run-snsc-<ts>.log）；每步 timeout 防卡壳；
-#   单步失败仅记录继续（不中断整条流程）。
+# 特点：版本目录 v<ts>/（tee 完整输出 + 全部产物 + env.json + 收敛日志）；
+#   每步 timeout 防卡壳；单步失败仅记录继续（不中断整条流程）。
 #
 # 用法：
 #   bash logs/test12/run-snsc.sh              # 实际执行（16GB 档）
@@ -25,10 +27,17 @@ REPO="${HOME}/PyQCU"
 WORK="$REPO/logs/test12"
 MAIN="$WORK/main.py"
 TS=$(date +%Y%m%d-%H%M%S)
-LOG_FILE="$WORK/run-snsc-$TS.log"
+VRAM="${VRAM:-16}"                 # 默认 16GB；预留 32GB 档
+
+# ---- 版本目录：v<YYYYMMDDHHMM>；同分钟重跑加 -<SS> 防覆盖 ----
+VDIR="$WORK/v$(date +%Y%m%d%H%M)"
+if [ -e "$VDIR" ]; then VDIR="$VDIR-$(date +%S)"; fi
+mkdir -p "$VDIR"
+export TEST12_OUTDIR="$VDIR"
+LOG_FILE="$VDIR/run-snsc-$TS.log"
+
 DRY="${DRY:-${1:-}}"
 [ "$DRY" = "--dry-run" ] && DRY=1 || DRY=0
-VRAM="${VRAM:-16}"                 # 默认 16GB；预留 32GB 档
 
 step() { echo; echo "===== $1 ====="; }
 run() { # $1=timeout_s  "$@"=command ；失败仅记录
@@ -45,6 +54,7 @@ cd "$REPO" || exit 1
 source ./env.sh >/dev/null 2>&1
 exec > >(tee -a "$LOG_FILE") 2>&1
 echo "=== test12 server runner start $(date) | VRAM=${VRAM}G ==="
+echo "版本目录: $VDIR"
 echo "GPU: $(nvidia-smi --query-gpu=name,memory.total --format=csv,noheader 2>/dev/null | head -1)"
 
 step "Step 0: 环境自检"
@@ -86,14 +96,15 @@ run 300 python "$MAIN" collect
 run 300 python "$MAIN" budget --mode server --vram "$VRAM"
 run 300 python "$MAIN" mktable --mode server --vram "$VRAM"
 run 300 python "$MAIN" plots --vram "$VRAM"
-run 300 python "$MAIN" plots1 --file "$WORK/test12_sweep.json"
+run 300 python "$MAIN" plots1
 
 step "Step 6: 归档收敛日志"
-cp -f "$REPO/logs/clover_multigrid.log" "$WORK/clover_multigrid.log" 2>/dev/null \
-  && echo "archived → $WORK/clover_multigrid.log" || echo "[warn] 无收敛日志"
+cp -f "$REPO/logs/clover_multigrid.log" "$VDIR/clover_multigrid.log" 2>/dev/null \
+  && echo "archived → $VDIR/clover_multigrid.log" || echo "[warn] 无收敛日志"
 
 echo
 echo "=== 完成。完整输出: $LOG_FILE ==="
-echo "产物目录: $WORK （test12_*.json / test12_*.png / test12_tbl_*.tex）"
+echo "版本目录: $VDIR （run-snsc-*.log + env.json + test12_*.json/png/tex）"
+echo "跨环境比对：各环境各跑一次本脚本，目录 v* 下同名产物可直接 diff/叠图。"
 echo "说明：nullvec 缓存共享 $REPO/logs/nullvec_cache（PYQCU_NULLVEC_CACHE 可覆盖）；"
 echo "      首次构建粗算子耗时长（8x32x32x32 ~1-2h），缓存命中后秒级。"
