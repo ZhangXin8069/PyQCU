@@ -32,10 +32,10 @@ PyQCU：Lattice QCD 的 Python/Cython 库 —— CUDA 加速的 Wilson/Clover Di
 | `pyqcu/` | 纯 Python 实现：`lattice/`（gamma/Gell-Mann 矩阵、SU(3)）、`dslash/`（Wilson/Clover 算子）、`solver/`（BiStabCG、multigrid；`_gmres.py` 为占位）、`smear/`（stout）、`tools/`（MPI 网格、HDF5 I/O、linalg、multigrid 工具、TileLang JIT）、`testing/`（集成测试）、`cuda/`（Cython 桥）、`cann/dtk/maca`（NPU 兼容层与占位） |
 | `cpp/cuda/qcu/` | C++ CUDA 后端：`src/`（.cu 内核）、`include/`（26 个模板头）、`python/pyqcu.h`（C API，须与 qcu.pxd 同步）、`logs/` |
 | `cpp/{cann,dtk,maca}/qcu/` | 占位 PASS，无实现 |
-| `examples/` | 测试入口：`pyqcu/`（主套件）、`qcu/`（C++ 后端）、`cpu/npu/dcu/gpu/tilelang/profiler/benchmark/`、`data/`（参考 HDF5） |
+| `examples/` | 测试入口：`pyqcu/`（主套件）、`qcu/`（C++ 后端；dev 套件归档于 `qcu/dev73/`、`qcu/dev74/`，产物写 `logs/dev73/`、`logs/dev74/`）、`cpu/npu/dcu/gpu/tilelang/profiler/benchmark/`、`data/`（参考 HDF5） |
 | `docs/` | dims.md、env.md、install.md、examples.md、profiler.md |
 | `refer/` | 开发历史报告（dev71.*） |
-| `logs/` | 里程碑/修复报告（dev<N>/stab<N>/bug<N>/fix-report-*）及 `debug/`、`results/` 子目录 |
+| `logs/` | 按 tag 归档：`dev<N>/`、`stab<N>/`、`bug<N>/` 子目录（如 `dev73/`、`dev73/stab24/`、`dev74/`、`bug30/`；`logs/<tag>/**` 在 .gitignore 全豁免入库），根目录留 `fix-report-*.md`、`debug/`、`results/` 与共享缓存 `nullvec_cache/` |
 
 ## 已知反模式（勿重复）
 

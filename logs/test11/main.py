@@ -34,8 +34,6 @@ import os, sys, time, json, glob, subprocess, resource, argparse
 # ----------------------------------------------------------------------
 _HERE = os.path.dirname(os.path.abspath(__file__))            # logs/test11
 REPO = os.path.abspath(os.path.join(_HERE, os.pardir, os.pardir))
-QCU_DIR = os.path.join(REPO, "examples", "qcu")
-sys.path.insert(0, QCU_DIR)
 
 WORKDIR = _HERE
 # C++ 端写死 "logs/clover_multigrid.log"（相对 REPO），Python 端必须读同一路径
@@ -46,25 +44,455 @@ from pyqcu import tools, dslash
 from pyqcu.cuda import qcu
 import pyqcu.cuda.define as define
 from pyqcu.cuda.define import params, argv, set_ptrs
+from pyqcu.lattice import check_su3
 
-# 辅助模块（非 dev74*，直接复用）
-import importlib.util
+# ----------------------------------------------------------------------
+# 内联辅助实现（照抄自 examples/qcu/dev73* 与 conftest.schur.multigrid；
+# main.py 自包含 —— 不 import 任何 dev73*/dev74* 模块）
+# ----------------------------------------------------------------------
+# 1) 33-tensor 粗算子 stencil（原 mg_stencil_build.py）
+#    sit[E,E,Xc,Yc,Zc,Tc] 近邻 hop_nn[2,4,...] 对角 hop_diag[2,2,6,...]
+PAIRS = [(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]   # (d1,d2), d1<d2
+SIGN = [1, -1]
 
 
-def _load(name, path):
-    spec = importlib.util.spec_from_file_location(name, path)
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod
+def build_stencil(S, lonv, E, e, lat_fine_odd, lat_coarse_odd, dt, device):
+    X, Y, Z, Th = lat_fine_odd
+    Xc, Yc, Zc, Tc = lat_coarse_odd
+    Nc = Xc * Yc * Zc * Tc
+    sit = torch.zeros([E, E, Xc, Yc, Zc, Tc], dtype=dt, device=device)
+    hop_nn = torch.zeros([2, 4, E, E, Xc, Yc, Zc, Tc], dtype=dt, device=device)
+    hop_diag = torch.zeros([2, 2, 6, E, E, Xc, Yc, Zc, Tc], dtype=dt, device=device)
+    str_Y = Yc * Zc * Tc
+    str_Z = Zc * Tc
+    dims = [Xc, Yc, Zc, Tc]
+    t0 = time.perf_counter()
+    for c_idx in range(Nc):
+        cx = c_idx // str_Y; rem = c_idx % str_Y
+        cy = rem // str_Z; rem %= str_Z
+        cz = rem // Tc; ct = rem % Tc
+        ccoords = [cx, cy, cz, ct]
+        for ee in range(E):
+            src_c = torch.zeros([E, Xc, Yc, Zc, Tc], dtype=dt, device=device)
+            src_c[ee, cx, cy, cz, ct] = 1.0
+            f = tools.prolong(local_ortho_null_vecs=lonv, coarse_vec=src_c)
+            dc = tools.restrict(local_ortho_null_vecs=lonv, fine_vec=S(f))
+            sit[:, ee, cx, cy, cz, ct] = dc[:, cx, cy, cz, ct]
+            for d in range(4):
+                b = ccoords[:]; b[d] = (b[d] - 1 + dims[d]) % dims[d]
+                fwd = ccoords[:]; fwd[d] = (fwd[d] + 1) % dims[d]
+                if b[d] == fwd[d]:
+                    hop_nn[0, d, :, ee, b[0], b[1], b[2], b[3]] = 0.5 * dc[:, b[0], b[1], b[2], b[3]]
+                    hop_nn[1, d, :, ee, fwd[0], fwd[1], fwd[2], fwd[3]] = 0.5 * dc[:, fwd[0], fwd[1], fwd[2], fwd[3]]
+                else:
+                    hop_nn[0, d, :, ee, b[0], b[1], b[2], b[3]] = dc[:, b[0], b[1], b[2], b[3]]
+                    hop_nn[1, d, :, ee, fwd[0], fwd[1], fwd[2], fwd[3]] = dc[:, fwd[0], fwd[1], fwd[2], fwd[3]]
+            for pi, (d1, d2) in enumerate(PAIRS):
+                targets = {}
+                for s1i, s1 in enumerate(SIGN):
+                    for s2i, s2 in enumerate(SIGN):
+                        n = ccoords[:]
+                        n[d1] = (n[d1] - s1 + dims[d1]) % dims[d1]
+                        n[d2] = (n[d2] - s2 + dims[d2]) % dims[d2]
+                        key = (n[0], n[1], n[2], n[3])
+                        targets.setdefault(key, []).append((s1i, s2i))
+                for key, combos in targets.items():
+                    w = 1.0 / len(combos)
+                    for (s1i, s2i) in combos:
+                        hop_diag[s1i, s2i, pi, :, ee, key[0], key[1], key[2], key[3]] = w * dc[:, key[0], key[1], key[2], key[3]]
+        if (c_idx + 1) % 64 == 0 and c_idx > 0:
+            print(f"    probing {c_idx + 1}/{Nc} ({time.perf_counter() - t0:.1f}s)")
+    print(f"  stencil build: {time.perf_counter() - t0:.1f}s for {E * Nc} probes")
+    return hop_nn, hop_diag, sit
 
 
-_csm = _load("csm", os.path.join(QCU_DIR, "conftest.schur.multigrid.py"))
-build_config = _csm.build_config
-from mg_nullvec_cache import build_or_load_coarse_ops
-from mg_stencil_build import build_stencil, apply_stencil, PAIRS, SIGN
-from mg_dev73_5_bench import ref_conv_history, parse_mg_log
-from mg_dev73_5_verify import build_base, verify_lattice, verify_nullvecs
-from mg_pyref_expt import setup_gpu
+def apply_stencil(hop_nn, hop_diag, sit, v_c):
+    E = v_c.shape[0]
+    Xc, Yc, Zc, Tc = v_c.shape[1:]
+    out = torch.einsum("EeXYZT,eXYZT->EXYZT", sit, v_c).clone()
+    for d in range(4):
+        fwd = torch.roll(v_c, shifts=-1, dims=d + 1)
+        bwd = torch.roll(v_c, shifts=1, dims=d + 1)
+        out += torch.einsum("EeXYZT,eXYZT->EXYZT", hop_nn[0, d], fwd)
+        out += torch.einsum("EeXYZT,eXYZT->EXYZT", hop_nn[1, d], bwd)
+    for pi, (d1, d2) in enumerate(PAIRS):
+        for s1i, s1 in enumerate(SIGN):
+            for s2i, s2 in enumerate(SIGN):
+                shift = [0, 0, 0, 0]
+                shift[d1] = -s1
+                shift[d2] = -s2
+                v_shift = torch.roll(v_c, shifts=tuple(shift), dims=(1, 2, 3, 4))
+                out += torch.einsum("EeXYZT,eXYZT->EXYZT", hop_diag[s1i, s2i, pi], v_shift)
+    return out
+
+
+# 2) nullvec 粗算子缓存（原 mg_nullvec_cache.py；PYQCU_NULLVEC_CACHE 可覆盖）
+DEFAULT_CACHE_DIR = os.environ.get("PYQCU_NULLVEC_CACHE",
+                                   os.path.join(REPO, "logs", "nullvec_cache"))
+_KEYS = ["lonv", "hnn", "hdg", "sit"]
+
+
+def cache_dir():
+    os.makedirs(DEFAULT_CACHE_DIR, exist_ok=True)
+    return DEFAULT_CACHE_DIR
+
+
+def cache_tag(gauge_seed, lat_full, level, E, nv_iters, dt_name="c64"):
+    L = "x".join(str(x) for x in lat_full)
+    return f"L{L}_lv{level}_E{E}_nvi{nv_iters}_{dt_name}"
+
+
+def load_coarse_ops(gauge_seed, lat_full, level, E, nv_iters, dt_name="c64",
+                    device=torch.device("cuda")):
+    d = cache_dir()
+    tags = [cache_tag(gauge_seed, lat_full, level, E, nv_iters, dt_name)]
+    if dt_name == "c64":
+        tags.append(cache_tag(gauge_seed, lat_full, level, E, nv_iters, "").rstrip("_"))
+    for tag in tags:
+        if all(os.path.exists(os.path.join(d, tag + "_" + k + ".pt")) for k in _KEYS):
+            return [torch.load(os.path.join(d, tag + "_" + k + ".pt"),
+                               map_location=device) for k in _KEYS]
+    return None
+
+
+def save_coarse_ops(gauge_seed, lat_full, level, E, nv_iters, dt_name, lonv,
+                    hnn, hdg, sit):
+    tag = cache_tag(gauge_seed, lat_full, level, E, nv_iters, dt_name)
+    d = cache_dir()
+    for k, t in zip(_KEYS, [lonv, hnn, hdg, sit]):
+        torch.save(t.detach().cpu(), os.path.join(d, tag + "_" + k + ".pt"))
+
+
+def build_or_load_coarse_ops(gauge_seed, lat_full, level, E, E_prev,
+                             lat_fine, lat_coarse, S, dt, device,
+                             nv_iters=2, use_cache=True, save=True,
+                             verbose=True):
+    _real = dt.to_real() if hasattr(dt, "to_real") else dt
+    dt_name = {torch.float32: "c64", torch.float64: "c128"}[_real]
+    if use_cache:
+        cached = load_coarse_ops(gauge_seed, lat_full, level, E, nv_iters,
+                                 dt_name, device)
+        if cached is not None:
+            if verbose:
+                print(f"  [level {level}] E={E} CACHED coarse={lat_coarse}")
+            return cached
+    t0 = torch.cuda.Event(enable_timing=True)
+    t1 = torch.cuda.Event(enable_timing=True)
+    _null = torch.randn([E, E_prev] + lat_fine, dtype=dt, device=device)
+    for _ in range(nv_iters):
+        _null = tools.give_null_vecs(null_vecs=_null, matvec=S,
+                                     bistabcg=None, verbose=False)
+    lonv = tools.local_orthogonalize(null_vecs=_null,
+                                     coarse_lat_size=lat_coarse, verbose=False)
+    t0.record()
+    hnn, hdg, sit = build_stencil(S, lonv, E, E_prev, lat_fine, lat_coarse,
+                                  dt, device)
+    t1.record()
+    torch.cuda.synchronize()
+    if verbose:
+        print(f"  [level {level}] E={E} built nv+stencil in "
+              f"{t0.elapsed_time(t1) / 1000:.1f}s coarse={lat_coarse}")
+    if save:
+        save_coarse_ops(gauge_seed, lat_full, level, E, nv_iters, dt_name,
+                        lonv, hnn, hdg, sit)
+    return lonv, hnn, hdg, sit
+
+
+# 3) C++ 参数协议 build_config（原 conftest.schur.multigrid.py）
+def build_config(Lx, Ly, Lz, Lt, MASS, ATOL, NUM_LEVELS, DOF_LIST, MG_GRID,
+                 NUM_RESTART, COARSE_MAX_ITER, COARSE_TOL_FACTOR,
+                 DT=define._LAT_C64_):
+    params[define._LAT_X_] = Lx; params[define._LAT_Y_] = Ly
+    params[define._LAT_Z_] = Lz; params[define._LAT_T_] = Lt
+    params[define._LAT_XYZT_] = Lx * Ly * Lz * Lt
+    params[define._GRID_X_], params[define._GRID_Y_], params[define._GRID_Z_], params[define._GRID_T_] = tools.give_grid_size()
+    params[define._PARITY_] = 0; params[define._NODE_RANK_] = 0; params[define._NODE_SIZE_] = 1
+    params[define._DAGGER_] = 0; params[define._MAX_ITER_] = 1000
+    params[define._DATA_TYPE_] = DT
+    params[define._SET_INDEX_] = 0; params[define._SET_PLAN_] = 1
+    params[define._VERBOSE_] = 0; params[define._SEED_] = 42; params[define._TEST_IN_CPU_] = 0
+    params[define._MG_NUM_LEVEL_] = NUM_LEVELS
+    if NUM_LEVELS >= 2:
+        params[define._MG_LEVEL1_E_] = DOF_LIST[1]
+        params[define._MG_LEVEL1_X_] = Lx // MG_GRID[0]
+        params[define._MG_LEVEL1_Y_] = Ly // MG_GRID[1]
+        params[define._MG_LEVEL1_Z_] = Lz // MG_GRID[2]
+        params[define._MG_LEVEL1_T_] = Lt // (2 * MG_GRID[3])
+        params[define._MG_LEVEL1_MAX_ITER_] = COARSE_MAX_ITER
+        params[define._MG_LEVEL1_DATA_TYPE_] = DT
+        params[define._MG_LEVEL1_NUM_RESTART_] = NUM_RESTART
+    if NUM_LEVELS >= 3:
+        params[define._MG_LEVEL2_E_] = DOF_LIST[2]
+        params[define._MG_LEVEL2_X_] = Lx // (MG_GRID[0] * MG_GRID[0])
+        params[define._MG_LEVEL2_Y_] = Ly // (MG_GRID[1] * MG_GRID[1])
+        params[define._MG_LEVEL2_Z_] = Lz // (MG_GRID[2] * MG_GRID[2])
+        params[define._MG_LEVEL2_T_] = Lt // (4 * MG_GRID[3])
+        params[define._MG_LEVEL2_MAX_ITER_] = 200
+        params[define._MG_LEVEL2_DATA_TYPE_] = DT
+        params[define._MG_LEVEL2_NUM_RESTART_] = 3
+    av = argv.to(dtype=define.dtype(DT).to_real())
+    av[define._MASS_] = MASS; av[define._ATOL_] = ATOL; av[define._SIGMA_] = 0.1
+    if NUM_LEVELS >= 2:
+        av[define._MG_LEVEL1_ATOL_] = ATOL * COARSE_TOL_FACTOR
+    if NUM_LEVELS >= 3:
+        av[define._MG_LEVEL2_ATOL_] = ATOL * COARSE_TOL_FACTOR
+    return av
+
+
+# 4) 参考 BiStabCG 收敛历史 + C++ 日志解析（原 mg_dev73_5_bench.py）
+def parse_mg_log(path=LOG_PATH):
+    """返回 (conv_history, prof_sections, total_iterations)。"""
+    import re
+    conv, prof, n_iter = [], None, None
+    if os.path.exists(path):
+        for line in open(path):
+            m = re.search(r'CONVERGENCE_HISTORY:\s*\[([^\]]*)\]', line)
+            if m:
+                conv = [float(x) for x in m.group(1).split(",") if x.strip()]
+            m = re.search(r'PROF_SECTIONS:\s*(.*)', line)
+            if m:
+                prof = m.group(1).strip()
+            m = re.search(r'Total iterations:\s*(\d+)', line)
+            if m:
+                n_iter = int(m.group(1))
+    prof_d = {}
+    if prof:
+        for tok in prof.split():
+            if "=" in tok:
+                k, v = tok.split("=")
+                v = v.rstrip("ms")
+                prof_d[k] = float(v)
+    return conv, prof_d, n_iter
+
+
+def bistabcg_history(b, matvec, tol, max_iter=2000):
+    x = torch.zeros_like(b)
+    r = b - matvec(x)
+    r_norm = float(tools.norm(r))
+    hist = [r_norm]
+    if r_norm < tol:
+        return x, hist
+    r_tilde = r.clone()
+    p = torch.zeros_like(b)
+    v = torch.zeros_like(b)
+    s = torch.zeros_like(b)
+    t = torch.zeros_like(b)
+    rho = torch.tensor(1.0, dtype=b.dtype, device=b.device)
+    rho_prev = torch.tensor(1.0, dtype=b.dtype, device=b.device)
+    alpha = torch.tensor(1.0, dtype=b.dtype, device=b.device)
+    omega = torch.tensor(1.0, dtype=b.dtype, device=b.device)
+    for i in range(max_iter):
+        rho = tools.vdot(r_tilde, r)
+        if abs(rho) < 1e-30:
+            break
+        beta = (rho / rho_prev) * (alpha / omega)
+        rho_prev = rho
+        p = r + beta * (p - omega * v)
+        v = matvec(p)
+        rtv = tools.vdot(r_tilde, v)
+        if abs(rtv) < 1e-30:
+            break
+        alpha = rho / rtv
+        s = r - alpha * v
+        t = matvec(s)
+        tts = tools.vdot(t, t)
+        if abs(tts) < 1e-30:
+            break
+        omega = tools.vdot(t, s) / tts
+        x = x + alpha * p + omega * s
+        r = s - omega * t
+        r_norm = float(tools.norm(r))
+        hist.append(r_norm)
+        if r_norm < tol:
+            break
+    return x, hist
+
+
+def ref_conv_history(op, qcu_src, tol):
+    """在奇偶 Schur 系统上复现参考 BiStabCG，返回逐迭代残差历史。"""
+    ls_full = list(qcu_src.shape[2:])        # [X,Y,Z,T]
+    ls_odd = ls_full.copy()
+    ls_odd[3] //= 2
+    eo = tools.oooxyzt2poooxyzt(qcu_src)     # [2,4,3,X,Y,Z,T//2]
+    b_e = eo[0].reshape([12] + ls_odd)
+    b_o = eo[1].reshape([12] + ls_odd)
+    b = op.give_b_parity(b_e, b_o)
+    _, hist = bistabcg_history(b, op.matvec_parity, tol)
+    return hist
+
+
+# 5) setup_gpu（原 mg_pyref_expt.py，layout_test / stencil_mt 用）
+def setup_gpu(Lx, Ly, Lz, Lt, MASS, ATOL, DT=define._LAT_C64_):
+    KAPPA = 1.0 / (2 * MASS + 8)
+    params[define._LAT_X_] = Lx; params[define._LAT_Y_] = Ly
+    params[define._LAT_Z_] = Lz; params[define._LAT_T_] = Lt
+    params[define._LAT_XYZT_] = Lx * Ly * Lz * Lt
+    params[define._GRID_X_], params[define._GRID_Y_], params[define._GRID_Z_], params[define._GRID_T_] = tools.give_grid_size()
+    params[define._PARITY_] = 0; params[define._NODE_RANK_] = 0; params[define._NODE_SIZE_] = 1
+    params[define._DAGGER_] = 0; params[define._MAX_ITER_] = 1000
+    params[define._DATA_TYPE_] = DT
+    params[define._SET_INDEX_] = 0; params[define._SET_PLAN_] = 1
+    params[define._VERBOSE_] = 0; params[define._SEED_] = 42; params[define._TEST_IN_CPU_] = 0
+    params[define._MG_NUM_LEVEL_] = 1
+    av = argv.to(dtype=define.dtype(DT).to_real())
+    av[define._MASS_] = MASS; av[define._ATOL_] = ATOL; av[define._SIGMA_] = 0.1
+    device = torch.device('cuda')
+    dt = define.dtype(DT)
+    ls = define.lat_shape(params)
+    g = torch.zeros([2, 3, 3, 4] + ls, dtype=dt, device=device)
+    fi = torch.randn([2, 4, 3] + ls, dtype=dt, device=device)
+    ce = torch.zeros([4, 3, 4, 3] + ls, dtype=dt, device=device)
+    cei = torch.zeros_like(ce); coo = torch.zeros_like(ce); coi = torch.zeros_like(ce)
+    params[define._SET_INDEX_] = 0; params[define._SET_PLAN_] = -1
+    qcu.applyInitQcu(set_ptrs, params, av)
+    qcu.applyGaussGaugeQcu(g, set_ptrs, params)
+    params[define._SET_INDEX_] += 1; params[define._SET_PLAN_] = 2; params[define._PARITY_] = 0
+    qcu.applyInitQcu(set_ptrs, params, av)
+    qcu.applyCloversQcu(ce, cei, g, set_ptrs, params)
+    params[define._SET_INDEX_] += 1; params[define._SET_PLAN_] = 2; params[define._PARITY_] = 1
+    qcu.applyInitQcu(set_ptrs, params, av)
+    qcu.applyCloversQcu(coo, coi, g, set_ptrs, params)
+    U_full = tools.poooxyzt2oooxyzt(g)
+    b_full = tools.poooxyzt2oooxyzt(fi)
+    clover = dslash.make_clover(U_full, kappa=KAPPA)
+    return U_full, b_full, clover, KAPPA, av, (g, fi, ce, coo, cei, coi)
+
+
+# 6) verify 辅助（原 mg_dev73_5_verify.py）
+def build_base(Lx, Ly, Lz, Lt, MASS, ATOL, NUM_LEVELS, DOF_LIST, MG_GRID,
+               DT, gauge_seed=42):
+    av = build_config(Lx, Ly, Lz, Lt, MASS, ATOL, NUM_LEVELS, DOF_LIST,
+                      MG_GRID, 10, 15, 1e5, DT)
+    KAPPA = 1.0 / (2 * MASS + 8)
+    device = torch.device('cuda')
+    dt = define.dtype(DT)
+    ls = define.lat_shape(params)
+    torch.manual_seed(gauge_seed)
+    g = torch.zeros([2, 3, 3, 4] + ls, dtype=dt, device=device)
+    fi = torch.randn([2, 4, 3] + ls, dtype=dt, device=device)
+    fo_ref = torch.zeros_like(fi)
+    ce = torch.zeros([4, 3, 4, 3] + ls, dtype=dt, device=device)
+    cei = torch.zeros_like(ce)
+    coo = torch.zeros_like(ce)
+    coi = torch.zeros_like(ce)
+
+    params[define._SET_INDEX_] = 0
+    params[define._SET_PLAN_] = -1
+    qcu.applyInitQcu(set_ptrs, params, av)
+    qcu.applyGaussGaugeQcu(g, set_ptrs, params)
+    params[define._SET_INDEX_] += 1
+    params[define._SET_PLAN_] = 2
+    params[define._PARITY_] = 0
+    qcu.applyInitQcu(set_ptrs, params, av)
+    qcu.applyCloversQcu(ce, cei, g, set_ptrs, params)
+    params[define._SET_INDEX_] += 1
+    params[define._SET_PLAN_] = 2
+    params[define._PARITY_] = 1
+    qcu.applyInitQcu(set_ptrs, params, av)
+    qcu.applyCloversQcu(coo, coi, g, set_ptrs, params)
+
+    params[define._SET_INDEX_] += 1
+    params[define._SET_PLAN_] = 1
+    params[define._VERBOSE_] = 0
+    qcu.applyInitQcu(set_ptrs, params, av)
+    torch.cuda.synchronize()
+    qcu.applyCloverBistabCgQcu(fo_ref, fi, g, ce, coo, cei, coi, set_ptrs, params)
+    torch.cuda.synchronize()
+
+    qcu_U = tools.poooxyzt2oooxyzt(g)
+    qcu_src = tools.poooxyzt2oooxyzt(fi)
+    qcu_ref = tools.poooxyzt2oooxyzt(fo_ref)
+    ref_cl = dslash.make_clover(qcu_U, kappa=KAPPA)
+    op = dslash.operator(U=qcu_U, clover_term=ref_cl, kappa=torch.Tensor([KAPPA]),
+                         support_parity=True, verbose=False)
+    return dict(av=av, KAPPA=KAPPA, device=device, dt=dt, ls=ls, g=g, fi=fi,
+                fo_ref=fo_ref, ce=ce, cei=cei, coo=coo, coi=coi,
+                qcu_U=qcu_U, qcu_src=qcu_src, qcu_ref=qcu_ref, ref_cl=ref_cl,
+                op=op, S=op.matvec_parity)
+
+
+def verify_lattice(qcu_U):
+    """check_su3：幺正性 / det=1 / minor 恒等式 + 量化指标。"""
+    t0 = time.perf_counter()
+    ok = check_su3(qcu_U, tol=1e-2 if qcu_U.dtype == torch.float32 else 1e-3,
+                   verbose=False)
+    dt = time.perf_counter() - t0
+    U = qcu_U  # [c_in, c_out, dir, X,Y,Z,T]
+    I3 = torch.eye(3, dtype=qcu_U.dtype, device=qcu_U.device)
+    UH_U = torch.einsum('bam...,bcm...->acm...', U.conj(), U)
+    unit = (UH_U - I3.view(3, 3, 1, 1, 1, 1, 1)).abs().max().item()
+    dets = torch.linalg.det(U.permute(2, 3, 4, 5, 6, 0, 1))
+    detdev = (dets - 1).abs().max().item()
+    return {"check_su3": bool(ok), "max_unit_err": float(unit),
+            "max_det_dev": float(detdev), "sec": dt}
+
+
+def verify_nullvecs(op, S, lonv, hnn, hdg, sit, E, E_prev, lat_fine,
+                    lat_coarse, dt, device, n_sample=4):
+    """null_vecs 四重检查。lonv: [E, E_prev, Xf,Yf,Zf,Tf]。"""
+    out = {}
+    ratios = []
+    for k in range(min(n_sample, E)):
+        v = lonv[k]
+        Av = S(v.reshape([E_prev] + lat_fine)).reshape(E, -1)
+        ratios.append((torch.linalg.norm(Av) / torch.linalg.norm(lonv[k])).item())
+    v = torch.randn([E_prev] + lat_fine, dtype=dt, device=device)
+    v = v / torch.linalg.norm(v)
+    _real_dt = torch.float32 if dt == torch.complex64 else torch.float64
+    lam = torch.tensor(0.0, dtype=_real_dt, device=device)
+    for _ in range(20):
+        w = S(v).flatten()
+        vf = v.flatten()
+        lam = torch.real(torch.vdot(w, vf))
+        v = w.reshape(v.shape) / torch.linalg.norm(w)
+    out["null_ratios"] = ratios
+    out["S_lambda_max"] = abs(float(lam))
+    X, Y, Z, T = lat_coarse
+    x, y, z, t = [lat_fine[d] // lat_coarse[d] for d in range(4)]
+    vb = lonv.reshape(E, E_prev, X, x, Y, y, Z, z, T, t)
+    block = vb[:, :, 0, :, 0, :, 0, :, 0, :].reshape(E, -1)
+    G = block @ block.conj().T
+    off = G - torch.eye(E, dtype=dt, device=device)
+    out["ortho_offdiag_max"] = float(off.abs().max().item())
+    out["ortho_diag_min"] = float(torch.diag(G).real.min().item())
+    out["ortho_diag_max"] = float(torch.diag(G).real.max().item())
+    out["restrict_rel_diff"] = None
+    out["prolong_rel_diff"] = None
+    if E_prev == 12:
+        fine_vec = torch.randn([E_prev] + lat_fine, dtype=dt, device=device)
+        r_py = tools.restrict(local_ortho_null_vecs=lonv, fine_vec=fine_vec)
+        params[define._LAT_X_] = lat_fine[0]
+        params[define._LAT_Y_] = lat_fine[1]
+        params[define._LAT_Z_] = lat_fine[2]
+        params[define._LAT_T_] = lat_fine[3]
+        params[define._MG_LEVEL1_X_] = X
+        params[define._MG_LEVEL1_Y_] = Y
+        params[define._MG_LEVEL1_Z_] = Z
+        params[define._MG_LEVEL1_T_] = T
+        params[define._MG_LEVEL1_E_] = E
+        params[define._MG_NUM_LEVEL_] = 12
+        out_r = torch.zeros([E, X, Y, Z, T], dtype=dt, device=device)
+        qcu.applyMultigridRestrictQcu(out_r, fine_vec, lonv, set_ptrs, params)
+        out["restrict_max_diff"] = float((out_r - r_py).abs().max().item())
+        out["restrict_rel_diff"] = float((out_r - r_py).abs().max().item() /
+                                         (r_py.abs().max().item() + 1e-30))
+        coarse_vec = torch.randn([E, X, Y, Z, T], dtype=dt, device=device)
+        p_py = tools.prolong(local_ortho_null_vecs=lonv, coarse_vec=coarse_vec)
+        out_p = torch.zeros([E_prev] + lat_fine, dtype=dt, device=device)
+        qcu.applyMultigridProLongQcu(out_p, coarse_vec, lonv, set_ptrs, params)
+        out["prolong_max_diff"] = float((out_p - p_py).abs().max().item())
+        out["prolong_rel_diff"] = float((out_p - p_py).abs().max().item() /
+                                        (p_py.abs().max().item() + 1e-30))
+    src_c = torch.randn([E, X, Y, Z, T], dtype=dt, device=device)
+
+    def Ac(v):
+        f = tools.prolong(local_ortho_null_vecs=lonv, coarse_vec=v)
+        return tools.restrict(local_ortho_null_vecs=lonv, fine_vec=S(f))
+    ref = Ac(src_c)
+    cu = apply_stencil(hnn, hdg, sit, src_c)
+    out["coarse_dslash_rel_diff"] = float((cu - ref).abs().max().item() /
+                                          (ref.abs().max().item() + 1e-30))
+    return out
 
 
 def rss_kb():
@@ -115,6 +543,9 @@ class CudaSchurOp(object):
         qcu.applyCloverBistabCgDslashQcu(
             y_o, x_o, self._g, self._ce, self._coo, self._cei, self._coi,
             set_ptrs, self.params)
+        # BUGFIX test11: C++ dslash 在私有 stream 异步执行（dev74 MT 移除全局同步），
+        # 返回后 y_o 可能未写完 —— 必须先同步再返回，否则读取产生竞态（非确定结果）
+        torch.cuda.synchronize()
         return y_o
 
     def release(self):
