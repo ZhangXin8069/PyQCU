@@ -8,7 +8,7 @@
 """
 import json, os
 
-LOG_DIR = "/root/PyQCU/logs"
+LOG_DIR = os.path.expanduser("~/PyQCU/logs")
 
 
 def esc(s):

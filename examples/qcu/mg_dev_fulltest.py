@@ -183,7 +183,7 @@ def run(label, Lx, Ly, Lz, Lt, MASS, ATOL, NUM_LEVELS, DOF_LIST, MG_GRID,
 
     # Parse convergence from log
     conv = []
-    log_path = os.path.join("/root/PyQCU/logs", "clover_multigrid.log")
+    log_path = os.path.join(os.path.expanduser("~/PyQCU/logs"), "clover_multigrid.log")
     if os.path.exists(log_path):
         with open(log_path) as f:
             for line in f:
@@ -236,6 +236,6 @@ if __name__ == "__main__":
               f"iter={len(r['conv'])}")
     # Save JSON report
     import json
-    with open("/root/PyQCU/logs/mg_dev_results.json","w") as f:
+    with open(os.path.expanduser("~/PyQCU/logs/mg_dev_results.json"),"w") as f:
         json.dump({"results":[{k:(v if not isinstance(v,list) else v) for k,v in r.items() if k!="conv"} for r in results]}, f, indent=2)
-    print("Report saved to /root/PyQCU/logs/mg_dev_results.json")
+    print(f"Report saved to {os.path.expanduser('~/PyQCU/logs/mg_dev_results.json')}")

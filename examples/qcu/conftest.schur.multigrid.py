@@ -59,7 +59,7 @@ def build_config(Lx,Ly,Lz,Lt,MASS,ATOL,NUM_LEVELS,DOF_LIST,MG_GRID,NUM_RESTART,
     if NUM_LEVELS>=3: av[define._MG_LEVEL2_ATOL_]=ATOL*COARSE_TOL_FACTOR
     return av
 
-CACHE_DIR = "/root/PyQCU/logs/nullvec_cache"
+CACHE_DIR = os.path.expanduser("~/PyQCU/logs/nullvec_cache")
 os.makedirs(CACHE_DIR, exist_ok=True)
 
 def build_schur_levels(op, S, NUM_LEVELS, DOF_LIST, MG_GRID, lat_full, E, dt, device, nv_iters=2, use_cache=True):
@@ -165,7 +165,7 @@ def run(label, Lx,Ly,Lz,Lt,MASS,ATOL,NUM_LEVELS,DOF_LIST,MG_GRID,NUM_RESTART=10,
     speedup=ref_time/mg_time if mg_time>0 else 0
 
     conv=[]
-    log_path=os.path.join("/root/PyQCU/logs", log_fn)
+    log_path=os.path.join(os.path.expanduser("~/PyQCU/logs"), log_fn)
     if os.path.exists(log_path):
         with open(log_path) as f:
             for line in f:
@@ -207,5 +207,5 @@ if __name__=="__main__":
         print(f"{r['label']}: BiStabCG={r['ref_time']*1000:.1f}ms MG={r['mg_time']*1000:.1f}ms "
               f"speedup={r['speedup']:.3f}x res={r['mg_res']:.3e} vs_ref={r['mg_vs_ref']:.3e} "
               f"iters={len([c for c in r['conv'] if c>1e-6])} {r['status']}")
-    with open("/root/PyQCU/logs/schur_mg_results.json","w") as f:
+    with open(os.path.expanduser("~/PyQCU/logs/schur_mg_results.json"),"w") as f:
         json.dump({"results":[{k:(v if not isinstance(v,list) else v) for k,v in r.items() if k!="conv"} for r in results]},f,indent=2)
