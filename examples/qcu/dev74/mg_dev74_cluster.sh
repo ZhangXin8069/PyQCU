@@ -9,13 +9,13 @@
 #   C 级（单卡不可行，需多卡分布式）：24x32x32x64
 #
 # 用法：
-#   bash examples/qcu/mg_dev74_cluster.sh            # dry-run：只打印命令
-#   RUN=1 bash examples/qcu/mg_dev74_cluster.sh      # 实际执行（集群上）
-#   bash examples/qcu/mg_dev74_cluster.sh --build-cpp  # 粗算子构建用 C++ dslash
+#   bash examples/qcu/dev74/mg_dev74_cluster.sh            # dry-run：只打印命令
+#   RUN=1 bash examples/qcu/dev74/mg_dev74_cluster.sh      # 实际执行（集群上）
+#   bash examples/qcu/dev74/mg_dev74_cluster.sh --build-cpp  # 粗算子构建用 C++ dslash
 set -euo pipefail
 
 REPO=${HOME}/PyQCU
-LOG_DIR="$REPO/logs"
+LOG_DIR="$REPO/logs/dev74"
 RUN="${RUN:-0}"
 BUILD="${1:---build py}"
 LAT16="16 32 32 32"
@@ -27,7 +27,7 @@ echo "=== dev74 cluster runner (RUN=$RUN, $BUILD) ==="
 # ---------- A 级：16x32x32x32（cold+warm 均可行，~28GB cold / ~14GB warm）----------
 run_one() { # $1=label  $2..$5=lattice
   local label=$1; shift
-  local cmd="python $REPO/examples/qcu/mg_dev74_clean.py --lattice $1 $2 $3 $4 \
+  local cmd="python $REPO/examples/qcu/dev74/mg_dev74_clean.py --lattice $1 $2 $3 $4 \
 --prec c64 --levels 2 --restart 10 --ct 1e5 --cmi 15 --pairs 5 $BUILD"
   if [ "$RUN" = "1" ]; then
     echo ">>> $cmd"
@@ -43,10 +43,10 @@ run_one 16x32x32x64 $LAT64
 run_one 24x32x32x64 $LAT24
 
 echo "--- 汇总与报告 ---"
-summary="python $REPO/examples/qcu/mg_dev74_collect.py && \
-python $REPO/examples/qcu/mg_dev74_budget.py --fit --mode cluster && \
-python $REPO/examples/qcu/mg_dev74_mktable.py && \
-python $REPO/examples/qcu/mg_dev74_plots.py"
+summary="python $REPO/examples/qcu/dev74/mg_dev74_collect.py && \
+python $REPO/examples/qcu/dev74/mg_dev74_budget.py --fit --mode cluster && \
+python $REPO/examples/qcu/dev74/mg_dev74_mktable.py && \
+python $REPO/examples/qcu/dev74/mg_dev74_plots.py"
 if [ "$RUN" = "1" ]; then
   echo ">>> $summary"
   (cd "$REPO" && source ./env.sh >/dev/null 2>&1 && bash -c "$summary")

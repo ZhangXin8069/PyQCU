@@ -12,7 +12,7 @@ dev73_5_clean 协议（ref/mg 交叉计时，min of pairs，独立进程）基�
         python examples/qcu/mg_dev74_clean.py \
             --lattice 8 8 8 16 --prec c64 --levels 2 --restart 10 \
             --ct 1e5 --cmi 15 --pairs 5 [--build cpp]
-输出：logs/dev74_clean_<label>.json
+输出：logs/dev74/dev74_clean_<label>.json
 """
 import torch, os, sys, time, json, resource
 from pyqcu import tools, dslash
@@ -38,7 +38,7 @@ from mg_nullvec_cache import build_or_load_coarse_ops
 from mg_dev73_5_bench import ref_conv_history, parse_mg_log
 from mg_dev74_dslash import make_cuda_schur_ops
 
-LOG_DIR = os.path.expanduser("~/PyQCU/logs")
+LOG_DIR = os.path.expanduser("~/PyQCU/logs/dev74")
 LOG_PATH = os.path.join(LOG_DIR, "clover_multigrid.log")
 
 

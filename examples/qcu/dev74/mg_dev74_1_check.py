@@ -12,7 +12,7 @@
 """
 import json, os, glob, sys
 
-LOG_DIR = os.path.expanduser("~/PyQCU/logs")
+LOG_DIR = os.path.expanduser("~/PyQCU/logs/dev74")
 
 
 def load_all(files):

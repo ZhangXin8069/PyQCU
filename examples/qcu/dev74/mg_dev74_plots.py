@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """dev74 —— 生成图表（性能 + 资源 + 收敛）。
 
-图（logs/dev74_*.png）：
+图（logs/dev74/dev74_*.png）：
   * dev74_speedup.png —— 加速比 vs 格点体积（本机实测 + dev73_5 V100 参考）
   * dev74_vram.png    —— 峰值显存 vs 格点体积（实测 cold/warm + 校准模型外推）
   * dev74_time.png    —— ref/MG 耗时 vs 格点体积
@@ -14,7 +14,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
-LOG_DIR = os.path.expanduser("~/PyQCU/logs")
+LOG_DIR = os.path.expanduser("~/PyQCU/logs/dev74")
 
 
 def main():
