@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""dev73_5 —— 汇总所有测量到 logs/dev73_5_results.json。
+"""dev73_5 —— 汇总所有测量到 logs/dev73/dev73_5_results.json。
 
 合并：
   * dev73_5_clean_*.json       —— 干净（独立进程）计时：ref/mg min+median 加速比
@@ -10,7 +10,7 @@
 """
 import json, os, glob
 
-LOG_DIR = os.path.expanduser("~/PyQCU/logs")
+LOG_DIR = os.path.expanduser("~/PyQCU/logs/dev73")
 
 
 def load(p):

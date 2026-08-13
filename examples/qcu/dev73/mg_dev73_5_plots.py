@@ -1,18 +1,15 @@
 #!/usr/bin/env python3
-"""dev74_1 —— 图表生成（收敛历史 / 热点 / 加速比 / 耗时对照 / 参数扫描）。
-
-作图范围与 tag dev73_5 一致（mg_dev73_5_plots.py 的 5 类图），
-输入改为 dev74_1 数据源 logs/dev74_1_sweep.json。
+"""dev73_5 —— 图表生成（收敛历史 / 热点 / 加速比 / 耗时对照）。
 
 使用 dataviz 技能验证过的亮色分类/顺序调色板（light mode）：
   series 顺序: blue #2a78d6 → green #008300 → magenta #e87ba4 → yellow #eda100
               → aqua #1baf7a → orange #eb6834 → violet #4a3aa7 → red #e34948
   ink: 主 #0b0b0b / 次 #52514e / 弱 #898781；网格 #e1e0d9；面 #fcfcfb
 
-输入：logs/dev74_1_sweep.json（含每配置 conv_mg/ref_hist/prof/计时/资源统计）
-输出：logs/dev74_1_*.png
+输入：logs/dev73/dev73_5_bench.json, logs/dev73/dev73_5_ref_conv.json, logs/dev73/dev73_5_verify_*.json
+输出：logs/dev73/dev73_5_*.png
 """
-import json, os
+import json, os, math
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.font_manager as fm
@@ -30,7 +27,7 @@ plt.rcParams["font.family"] = ["DejaVu Sans", "Droid Sans Fallback",
                                "AR PL UMing CN", "Noto Sans CJK SC"]
 plt.rcParams["axes.unicode_minus"] = False
 
-LOG_DIR = os.path.expanduser("~/PyQCU/logs")
+LOG_DIR = os.path.expanduser("~/PyQCU/logs/dev73")
 
 # ---- validated palette (dataviz skill, light mode) ----
 C = {
@@ -68,14 +65,9 @@ def fig_save(fig, name, dpi=150):
     print(f"saved {path}")
 
 
-def short_label(r):
-    """长 label（L8x16x16x16_c64_L2_r5_ct1e+05_cmi15_py）→ 短显示名。"""
-    return (f"L{r['levels']} r{r['restart']} ct{r['ct']:.0e} "
-            f"cmi{r['cmi']}")
-
-
 def plot_conv(results):
     """逐配置收敛历史：MG（蓝）vs 参考 BiStabCG（绿）。"""
+    # 按 (lattice, precision) 分组，一个格子一张图，每张图内多个 MG 配置
     groups = {}
     for r in results:
         key = (tuple(r["lattice"]), r["precision"])
@@ -90,16 +82,20 @@ def plot_conv(results):
                      color=INK, fontsize=11)
         ax.set_xlabel("迭代次数", color=INK2)
         ax.set_ylabel("Schur 残差 ||r||", color=INK2)
+        # 参考
         if ref_hist:
             ax.plot(range(len(ref_hist)), ref_hist, color=C["green"],
                     lw=2.0, label="BiStabCG (参考)", marker="o", ms=3, zorder=3)
+        # MG 各配置
         for i, r in enumerate(rs):
             conv = r.get("conv_mg")
             if not conv:
                 continue
             color = SEQUENTIAL_BLUE[(i + 2) % len(SEQUENTIAL_BLUE)]
+            lbl = (f"MG r={r['restart']} ct={r['ct']:.0e}"
+                   f" cmi={r['cmi']} L{r['levels']}")
             ax.plot(range(len(conv)), conv, color=color, lw=1.6,
-                    label=short_label(r), marker="s", ms=2.5, zorder=3)
+                    label=lbl, marker="s", ms=2.5, zorder=3)
         ax.set_yscale("log")
         ax.set_ylim(1e-7, 1e3)
         ax.axhline(1e-6, color=MUTED, lw=1, ls="--", zorder=1)
@@ -107,7 +103,7 @@ def plot_conv(results):
                 ha="right", va="bottom", transform=ax.get_yaxis_transform())
         ax.legend(fontsize=8, frameon=False, loc="best")
         fig.tight_layout()
-        fig_save(fig, f"dev74_1_conv_{lat_f}_{prec}.png")
+        fig_save(fig, f"dev73_5_conv_{lat_f}_{prec}.png")
 
 
 def plot_hotspot(results):
@@ -117,7 +113,7 @@ def plot_hotspot(results):
               ("coarse_solve", "粗层求解 coarse_solve", C["orange"]),
               ("coarse_dslash", "粗层 dslash", C["violet"])]
     rs = [r for r in results if r.get("prof")]
-    labels = [short_label(r) for r in rs]
+    labels = [r["label"] for r in rs]
     vals = {k: [r.get("prof", {}).get(k, 0.0) for r in rs] for k, _, _ in fields}
     fig, ax = plt.subplots(figsize=(9.5, 5.0))
     _style(ax)
@@ -136,29 +132,28 @@ def plot_hotspot(results):
             ax.text(t + 2, yy, f"{t:.0f}ms", color=INK2, fontsize=7.5,
                     va="center")
     ax.set_yticks(y)
-    ax.set_yticklabels(labels, fontsize=8)
+    ax.set_yticklabels(labels, fontsize=6.5)
     ax.set_xlabel("耗时 (ms)", color=INK2)
     ax.legend(fontsize=8, frameon=False, loc="lower right")
     ax.grid(True, axis="x", color=GRID, linewidth=0.6)
     ax.grid(False, axis="y")
     fig.tight_layout()
-    fig_save(fig, "dev74_1_hotspot.png")
+    fig_save(fig, "dev73_5_hotspot.png")
 
 
 def plot_speedup(results):
     """各配置干净加速比（min 与 median 误差棒）条形图。"""
     rs = sorted([r for r in results if r.get("speedup_min") is not None],
                 key=lambda r: r["speedup_min"])
-    labels = [short_label(r) for r in rs]
+    labels = [r["label"] for r in rs]
     sp = [r["speedup_min"] for r in rs]
     n = len(rs)
     colors = [SEQUENTIAL_BLUE[6 - (n - 1 - i) * 5 // max(n - 1, 1)]
               if n > 1 else C["blue"]
               for i in range(n)]
-    pairs = max((len(r.get("ref_times_ms", [])) for r in rs), default=3)
     fig, ax = plt.subplots(figsize=(9.5, 5.2))
     _style(ax)
-    ax.set_title(f"MultiGrid vs BiStabCG 加速比（干净测量，min of {pairs} 对）",
+    ax.set_title("MultiGrid vs BiStabCG 加速比（干净测量，min of 5 对）",
                  color=INK, fontsize=11)
     y = np.arange(n)[::-1]
     ax.barh(y, sp, color=colors, height=0.62, edgecolor=SURF, linewidth=0.5)
@@ -174,18 +169,18 @@ def plot_speedup(results):
                     markersize=6)
     ax.axvline(1.0, color=MUTED, lw=1.2, ls="--")
     ax.set_yticks(y)
-    ax.set_yticklabels(labels, fontsize=8)
+    ax.set_yticklabels(labels, fontsize=6.5)
     ax.set_xlabel("加速比 (ref/min / mg/min)", color=INK2)
     ax.set_xlim(0, max(sp) * 1.35 + 0.1)
     fig.tight_layout()
-    fig_save(fig, "dev74_1_speedup.png")
+    fig_save(fig, "dev73_5_speedup.png")
 
 
 def plot_time(results):
     """MG 与参考干净耗时分组条形图（min）。"""
     rs = sorted([r for r in results if r.get("mg_min_ms") is not None],
                 key=lambda r: r["ref_min_ms"] - r["mg_min_ms"])
-    labels = [short_label(r) for r in rs]
+    labels = [r["label"] for r in rs]
     ref = [r["ref_min_ms"] for r in rs]
     mg = [r["mg_min_ms"] for r in rs]
     y = np.arange(len(rs))[::-1]
@@ -202,14 +197,14 @@ def plot_time(results):
         ax.text(mg[i] + 2, yy - h / 2, f"{mg[i]:.0f}", color=INK2, fontsize=7,
                 va="center")
     ax.set_yticks(y)
-    ax.set_yticklabels(labels, fontsize=8)
+    ax.set_yticklabels(labels, fontsize=6.5)
     ax.set_xlabel("耗时 (ms)", color=INK2)
     ax.legend(fontsize=8, frameon=False, loc="lower right")
     fig.tight_layout()
-    fig_save(fig, "dev74_1_time.png")
+    fig_save(fig, "dev73_5_time.png")
 
 
-def plot_sweep_curves(results, lattice):
+def plot_sweep_curves(results):
     """参数扫描曲线：对默认格子，分别画 r / ct / cmi 对加速比的影响（干净 min）。"""
     fig, axes = plt.subplots(1, 3, figsize=(12, 3.8))
     for ax, key, xlabel, title in [
@@ -218,7 +213,7 @@ def plot_sweep_curves(results, lattice):
         (axes[2], "cmi", "最粗层最大迭代 cmi", "最粗层迭代上限扫描 (r=10, ct=1e5)"),
     ]:
         _style(ax)
-        pts = [r for r in results if tuple(r["lattice"]) == lattice
+        pts = [r for r in results if tuple(r["lattice"]) == (8, 16, 16, 16)
                and r["precision"] == "c64" and r["levels"] == 2
                and r.get("speedup_min") is not None]
         seen = {}
@@ -245,27 +240,20 @@ def plot_sweep_curves(results, lattice):
         ax.grid(True, axis="y", color=GRID, linewidth=0.6)
         ax.grid(False, axis="x")
     fig.tight_layout()
-    fig_save(fig, "dev74_1_sweep.png")
+    fig_save(fig, "dev73_5_sweep.png")
 
 
 def main():
-    import argparse
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--file", default=os.path.join(LOG_DIR, "dev74_1_sweep.json"))
-    ap.add_argument("--lattice", nargs=4, type=int, default=None,
-                    help="sweep 曲线用格子（缺省取 json 顶层 lattice）")
-    args = ap.parse_args()
-    data = load(args.file)
+    data = load(os.path.join(LOG_DIR, "dev73_5_results.json"))
     results = data["results"]
     if not results:
         print("no results yet")
         return
-    lattice = tuple(args.lattice) if args.lattice else tuple(data.get("lattice", (8, 16, 16, 16)))
     plot_conv(results)
     plot_hotspot(results)
     plot_speedup(results)
     plot_time(results)
-    plot_sweep_curves(results, lattice)
+    plot_sweep_curves(results)
 
 
 if __name__ == "__main__":

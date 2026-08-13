@@ -86,7 +86,7 @@ def main():
     print("\n=== BEST ===")
     for r in results[:3]:
         print(f"{r['label']}: {r['speedup']:.3f}x  mg={r['mg']*1000:.0f}ms iters={r['iters']}")
-    with open(os.path.expanduser("~/PyQCU/logs/mg_v4_sweep.json"),"w") as f:
+    with open(os.path.expanduser("~/PyQCU/logs/dev73/mg_v4_sweep.json"),"w") as f:
         json.dump(results,f,indent=2)
 
 if __name__=="__main__":

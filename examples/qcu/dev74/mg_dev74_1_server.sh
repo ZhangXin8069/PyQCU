@@ -6,20 +6,20 @@
 #   Step 1 为强制闸门：8x8x8x16 达标（预期 ~2.4x）才继续后续步骤。
 #
 # 用法：
-#   bash examples/qcu/mg_dev74_1_server.sh            # dry-run：打印命令
-#   RUN=1 bash examples/qcu/mg_dev74_1_server.sh      # 实际执行（服务器上）
+#   bash examples/qcu/dev74/mg_dev74_1_server.sh            # dry-run：打印命令
+#   RUN=1 bash examples/qcu/dev74/mg_dev74_1_server.sh      # 实际执行（服务器上）
 #   GATE=1.5 可选（默认 1.5）
 set -euo pipefail
 
 REPO=${HOME}/PyQCU
-LOG_DIR="$REPO/logs"
+LOG_DIR="$REPO/logs/dev74"
 RUN="${RUN:-0}"
 GATE="${GATE:-1.5}"
 PY="python"
-CLEAN="$REPO/examples/qcu/mg_dev74_clean.py"
-SWEEP="$REPO/examples/qcu/mg_dev74_1_sweep.py"
-CHECK="$REPO/examples/qcu/mg_dev74_1_check.py"
-PLOTS="$REPO/examples/qcu/mg_dev74_1_plots.py"
+CLEAN="$REPO/examples/qcu/dev74/mg_dev74_clean.py"
+SWEEP="$REPO/examples/qcu/dev74/mg_dev74_1_sweep.py"
+CHECK="$REPO/examples/qcu/dev74/mg_dev74_1_check.py"
+PLOTS="$REPO/examples/qcu/dev74/mg_dev74_1_plots.py"
 
 step() { echo; echo "===== $1 ====="; }
 
@@ -64,5 +64,5 @@ run $PY "$CHECK" --gate "$GATE" --label "dev74_1 server final" \
 step "Step 6: 生成图表（范围与 dev73_5 一致：收敛/热点/加速比/耗时/扫描）"
 run $PY "$PLOTS" --lattice 8 16 16 16
 
-step "完成。结果：logs/dev74_1_sweep.json + dev74_clean_L*.json + dev74_1_*.png"
+step "完成。结果：logs/dev74/dev74_1_sweep.json + dev74_clean_L*.json + dev74_1_*.png"
 echo "说明：24x32x32x64（warm 42.3GB）单卡不可行，需多卡 MPI 分布式（后续工作）。"

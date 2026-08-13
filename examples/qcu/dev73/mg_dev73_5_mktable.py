@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """dev73_5 —— 从 JSON 生成 LaTeX 表格片段，保证报告数字与数据一致。
 
-输入：logs/dev73_5_bench.json, logs/dev73_5_verify_*.json
-输出：logs/dev73_5_tbl_{main,prec,lattice,sweep,verify}.tex（供 dev73_5.tex \input）
+输入：logs/dev73/dev73_5_bench.json, logs/dev73/dev73_5_verify_*.json
+输出：logs/dev73/dev73_5_tbl_{main,prec,lattice,sweep,verify}.tex（供 dev73_5.tex \input）
 """
 import json, os, glob
 
-LOG_DIR = os.path.expanduser("~/PyQCU/logs")
+LOG_DIR = os.path.expanduser("~/PyQCU/logs/dev73")
 
 
 def fmt_time(ms):

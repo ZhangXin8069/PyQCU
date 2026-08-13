@@ -3,7 +3,7 @@
 
 对每个 (lattice, r, ct, cmi, levels) 配置以独立进程调用 mg_dev74_clean.py
 （干净测量协议：ref/mg 交叉计时 min of pairs），汇总到
-logs/dev74_1_sweep.json。
+logs/dev74/dev74_1_sweep.json。
 
 优化方向（物理机制）：MG 慢于 BiStabCG 的主因是粗层求解开销占比；
   * r（V-cycle 频率）大 → 少进入粗层
@@ -13,11 +13,11 @@ logs/dev74_1_sweep.json。
 
 用法：
     source ./env.sh && python examples/qcu/mg_dev74_1_sweep.py [--lattice 8 8 8 16] [--pairs 3]
-输出：logs/dev74_1_sweep.json（含每配置 speedup_min/med 与达标标记）
+输出：logs/dev74/dev74_1_sweep.json（含每配置 speedup_min/med 与达标标记）
 """
 import os, sys, json, subprocess
 
-LOG_DIR = os.path.expanduser("~/PyQCU/logs")
+LOG_DIR = os.path.expanduser("~/PyQCU/logs/dev74")
 HERE = os.path.dirname(os.path.abspath(__file__))
 CLEAN = os.path.join(HERE, "mg_dev74_clean.py")
 

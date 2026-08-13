@@ -10,7 +10,7 @@ scratch），线程内串行探测自己分到的 c_idx 区间。
 
 用法（正确性对照 + 性能对比）：
     source ./env.sh && python examples/qcu/mg_dev74_stencil_mt.py
-输出：logs/dev74_stencil_mt.json（串行/多线程耗时、加速比、stencil 等价误差）
+输出：logs/dev74/dev74_stencil_mt.json（串行/多线程耗时、加速比、stencil 等价误差）
 """
 import os, sys, time, json
 from concurrent.futures import ThreadPoolExecutor
@@ -24,7 +24,7 @@ from mg_pyref_expt import setup_gpu
 from mg_stencil_build import build_stencil, PAIRS, SIGN
 from mg_dev74_dslash import make_cuda_schur_ops
 
-LOG_DIR = os.path.expanduser("~/PyQCU/logs")
+LOG_DIR = os.path.expanduser("~/PyQCU/logs/dev74")
 
 
 def probe_point(S, lonv, E, ee, c_idx, sit, hop_nn, hop_diag, dims, Nc):
