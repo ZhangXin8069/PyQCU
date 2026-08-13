@@ -1,0 +1,58 @@
+{
+  "alpha_kb_per_v": 30.83,
+  "beta_mb": -27.0,
+  "vram_gb": 16,
+  "rows": [
+    {
+      "lattice": [
+        8,
+        32,
+        32,
+        32
+      ],
+      "V": 262144,
+      "pred_vram_mb": 14207,
+      "pred_vram_warm_mb": 7032,
+      "pred_rss_mb": 2480,
+      "pred_disk_mb": 11173.6,
+      "vram_frac": 0.867,
+      "vram_warm_frac": 0.429,
+      "rss_frac_512g": 0.005,
+      "vram_gb": 16
+    },
+    {
+      "lattice": [
+        16,
+        32,
+        32,
+        32
+      ],
+      "V": 524288,
+      "pred_vram_mb": 28442,
+      "pred_vram_warm_mb": 14090,
+      "pred_rss_mb": 3760,
+      "pred_disk_mb": 22347.3,
+      "vram_frac": 1.736,
+      "vram_warm_frac": 0.86,
+      "rss_frac_512g": 0.007,
+      "vram_gb": 16
+    },
+    {
+      "lattice": [
+        16,
+        32,
+        32,
+        64
+      ],
+      "V": 1048576,
+      "pred_vram_mb": 56910,
+      "pred_vram_warm_mb": 28207,
+      "pred_rss_mb": 6320,
+      "pred_disk_mb": 44694.5,
+      "vram_frac": 3.474,
+      "vram_warm_frac": 1.722,
+      "rss_frac_512g": 0.012,
+      "vram_gb": 16
+    }
+  ]
+}

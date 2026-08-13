@@ -1,0 +1,41 @@
+{
+  "lattice": [
+    8,
+    8,
+    8,
+    16
+  ],
+  "precision": "c64",
+  "gauge": {
+    "check_su3": true,
+    "max_unit_err": 2.385159802997805e-07,
+    "max_det_dev": 3.5832567846227903e-07,
+    "sec": 0.08468743700359482
+  },
+  "dslash_cpp_vs_py": {
+    "rel_err": 9.701384317330735e-08,
+    "t_py_ms": 6.613,
+    "t_cpp_ms": 1.825,
+    "speedup": 3.62
+  },
+  "ref_solution": {
+    "ref_res": 3.5217887147121634e-07
+  },
+  "nullvecs": {
+    "null_ratios": [
+      0.43940094113349915,
+      0.3411179780960083,
+      0.23907414078712463,
+      0.7808170318603516
+    ],
+    "S_lambda_max": 1.1699111461639404,
+    "ortho_offdiag_max": 2.3842022756070946e-07,
+    "ortho_diag_min": 0.9999998211860657,
+    "ortho_diag_max": 1.000000238418579,
+    "restrict_rel_diff": 4.565648123467661e-07,
+    "prolong_rel_diff": 2.314534188810437e-07,
+    "restrict_max_diff": 1.4317527075036196e-06,
+    "prolong_max_diff": 3.998401041371835e-07,
+    "coarse_dslash_rel_diff": 3.3404778958526253e-07
+  }
+}
