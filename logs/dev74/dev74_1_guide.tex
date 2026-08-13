@@ -1,0 +1,96 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[UTF8]{ctex}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{geometry}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{enumitem}
+\geometry{margin=2.2cm}
+\hypersetup{colorlinks=true,linkcolor=blue,urlcolor=blue}
+\graphicspath{{./}}
+\title{\textbf{dev74\_1 —— 服务器运行指南（MG vs BiStabCG 加速比 > 1.5）}}
+\author{ZhangXin \\ IMP, CAS}
+\date{2026-08-13}
+\begin{document}
+\maketitle
+
+\begin{abstract}
+服务器（512G 内存 / 32G 显存，dev73\_5 实测 GPU：Tesla V100-SXM2-32GB）上运行
+Clover MultiGrid 相对 BiStabCG 的加速比验证流程，目标 \texttt{speedup\_min $>=$ 1.5}。
+依据：dev73\_5 在 V100-32G 实测 8x8x8x16 = \textbf{2.43x}。本指南以 Step 1 为
+\textbf{强制闸门}：8x8x8x16 达标后才进入大格子步骤。一键执行：
+\texttt{RUN=1 bash examples/qcu/mg\_dev74\_1\_server.sh}。
+\end{abstract}
+
+\section{环境准备（一次性）}
+\begin{enumerate}
+  \item 代码与构建：\texttt{git clone gitee.com/zhangxin8069/PyQCU}；\texttt{source ./env.sh}；
+    \texttt{bash ./build.sh}（C++ CUDA 后端）；\texttt{bash ./install.sh}（Cython 扩展）。
+  \item 自检：\texttt{nvidia-smi}（确认 32G 显存）；\texttt{torch.cuda.is\_available()}；
+    \texttt{from pyqcu.cuda import qcu}（Cython 桥）。
+  \item （可选）同步本地 \texttt{logs/nullvec\_cache} 避免重复构建粗算子。
+\end{enumerate}
+
+\section{Step 1 —— 快速验证（强制闸门，预期 2.4x）}
+\begin{verbatim}
+python examples/qcu/dev74/mg_dev74_clean.py --lattice 8 8 8 16 --prec c64 \
+    --levels 2 --restart 10 --ct 1e5 --cmi 15 --pairs 5
+python examples/qcu/dev74/mg_dev74_1_check.py --gate 1.5 --label "Step1 gate" \
+    --file logs/dev74/dev74_clean_L8x8x8x16*.json
+\end{verbatim}
+闸门失败时：检查 GPU 占用/时钟节流（\texttt{nvidia-smi -q -d CLOCK}）、
+\texttt{logs/clover\_multigrid.log} 异常、换卡重试。
+
+\section{Step 2 —— 参数优化扫描（8x16x16x16）}
+\texttt{python examples/qcu/mg\_dev74\_1\_sweep.py --lattice 8 16 16 16}
+自动扫描 9 配置。参数优先级（本地与 V100 数据交叉一致）：
+
+\begin{center}
+\begin{tabular}{lcc}
+\hline
+参数 & 推荐 & 效果 \\
+\hline
+levels & \textbf{3L} & 最强优化项（V100: 1.32x vs 2L 1.16x） \\
+restart r & \textbf{20} & 少进粗层（V100: 1.26x） \\
+cmi & 15--200 & 影响小 \\
+ct & 1e5 & 大容差减少粗层迭代 \\
+\hline
+\end{tabular}
+\end{center}
+
+\section{Step 3/4 —— 大格子（预算来自 dev74 实测校准模型）}
+\begin{itemize}
+  \item \textbf{16x32x32x32}：cold 28.4GB / warm 14.1GB，单卡全流程可行；
+    粗算子构建首次 1--2 小时（\texttt{--build cpp} 快 2 倍），缓存命中后秒级。
+  \item \textbf{16x32x32x64}：warm 28.2GB 可行；cold 56.9GB 超 32G——
+    \textbf{分阶段}：先 \texttt{--build cpp --pairs 1} 构建缓存，再 warm 测量。
+  \item \textbf{24x32x32x64}：warm 42.3GB 单卡不可行，需多卡 MPI（后续工作）。
+\end{itemize}
+
+\section{Step 5 —— 汇总断言与一键流程}
+\texttt{python examples/qcu/mg\_dev74\_1\_check.py --gate 1.5 --file logs/dev74\_1\_sweep.json}
+一键：\texttt{RUN=1 bash examples/qcu/mg\_dev74\_1\_server.sh}
+（Step 0--5 全自动，任一步断言失败即停止，退出码非零）。
+
+\section{故障排查速查}
+\begin{center}
+\begin{tabular}{ll}
+\hline
+现象 & 排查 \\
+\hline
+闸门失败 & GPU 占用/时钟节流/驱动；查 clover\_multigrid.log \\
+16x32x32x64 cold OOM & 阶段 A/B 分离；--build cpp；确认空闲显存 $\ge$ 30G \\
+构建太久 & nullvec 缓存复用；--build cpp \\
+check 无数据 & 先跑 Step 1/2 生成 json \\
+\hline
+\end{tabular}
+\end{center}
+
+\section{参数约定}
+mass=0.05, atol=$10^{-6}$, gauge\_seed=42, $\kappa=1/(2m+8)$, E=48,
+NV\_ITERS=2, MG\_GRID=[2,2,2,2]，参考=applyCloverBistabCgQcu（VERBOSE=0）；
+独立进程 + ref/mg 交叉计时 + min of N pairs。
+\end{document}
