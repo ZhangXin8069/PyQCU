@@ -27,6 +27,9 @@ logs/test12/
 │                     （8x8x8x16 2L/3L、8x16x16x16 3L；Step 5 输出
 │                     本地实测 vs dev73_5 V100 服务器参考对照表）
 ├── run-snsc.sh       服务器运行脚本（默认 16GB 档，VRAM=32 预留 32GB 档）
+├── run-snsc-v20260814.sh
+│                     服务器 A100-40GB 对照脚本（默认 40GB 档，VRAM=16/32 可覆盖；
+│                     Step 4 最大格子 20x32x32x64，warm 34.4G ≈86% 可行）
 ├── AGENTS.md         本文件（复现与比对指南）
 └── v<YYYYMMDDHHMM>/  每次运行生成的版本目录（如 v202608140624；同分钟重跑加 -<SS>）
     ├── run-local-<ts>.log / run-snsc-<ts>.log   完整终端输出（tee 归档）
@@ -36,7 +39,7 @@ logs/test12/
     ├── test12_sweep.json                        参数扫描（r/ct/cmi/levels × speedup）
     ├── test12_verify_*.json                     正确性验证（gauge/解/null_vecs/CudaSchurOp 对照）
     ├── test12_results.json                      collect 汇总（表/图输入）
-    ├── test12_budget_server_*g.json             显存/内存/磁盘预算表（16G/32G 档）
+    ├── test12_budget_server_*g.json             显存/内存/磁盘预算表（16G/32G/40G 档）
     ├── test12_tbl_*.tex                         LaTeX 表（性能/资源/预算）
     ├── test12_*.png / test12_1_*.png            图（dev74 风格 / dev74_1 风格，范围同 dev73_5）
     └── clover_multigrid.log                     C++ 收敛日志归档副本
@@ -59,6 +62,9 @@ bash logs/test12/run-local-v20260814.sh      # 实际执行；--dry-run 只打�
 # 服务器（16GB 显存默认档）
 bash logs/test12/run-snsc.sh                 # 实际执行
 VRAM=32 bash logs/test12/run-snsc.sh         # 预留 32GB 档（暂不启用）
+
+# 服务器 A100-40GB（40GB 显存默认档；16/32 档可覆盖）
+bash logs/test12/run-snsc-v20260814.sh       # 实际执行；--dry-run 只打印命令
 ```
 
 环境前提：C++ CUDA 后端与 Cython 扩展已构建（`bash ./build.sh && bash ./install.sh`）。
@@ -73,7 +79,7 @@ bench   --mode local|server --vram 16 [--only 前缀...] [--build py|cpp]
 verify  --lattice 8 8 8 16 --prec c64
 sweep   --lattice 8 8 8 16 --pairs 3 --timeout 1800     # 子进程=main.py clean，透传输出
 check   --gate 1.5 --file test12_sweep.json             # 可选工具（流程不再强制 gate）
-budget  --mode server --vram 16|32 [--fit]              # 默认 16G 档，32G 预留
+budget  --mode server --vram 16|32|40 [--fit]          # 默认 16G 档，32/40 预留
 collect | mktable --mode server --vram 16 | plots --vram 16 | plots1 [--file ...]
 layout_test | stencil_mt --threads 4
 ```
@@ -102,6 +108,8 @@ bash logs/test12/run-local.sh
 bash logs/test12/run-snsc.sh
 # 环境 C（服务器 32G）
 VRAM=32 bash logs/test12/run-snsc.sh
+# 环境 D（服务器 A100-40GB）
+bash logs/test12/run-snsc-v20260814.sh
 ```
 
 → 每次运行产生独立 `v<ts>/`，产物**同名同构**（test12_results.json / test12_*.png /
@@ -114,8 +122,10 @@ test12_tbl_*.tex 命名一致）：
 ## 关键约定（沿用 test11）
 
 - **显存档**：`--vram 16`（默认）对应服务器 16GB 卡；`--vram 32` / `VRAM=32`
-  为预留 32GB 档。16G 档大格子：8x32x32x32（cold 13.3G / warm 6.8G 全流程可行）、
-  16x32x32x32（cold 26.5G 超档，warm 13.5G 需外部缓存）。
+  为预留 32GB 档；`--vram 40` / `VRAM=40` 为 A100-40GB 档（run-snsc-v20260814.sh
+  默认）。16G 档大格子：8x32x32x32（cold 13.3G / warm 6.8G 全流程可行）、
+  16x32x32x32（cold 26.5G 超档，warm 13.5G 需外部缓存）。40G 档最大格子：
+  20x32x32x64（warm 34.4G ≈86% 可行，cold 69.5G 超档需外部缓存）。
 - **nullvec 缓存**：共享 `logs/nullvec_cache`（`PYQCU_NULLVEC_CACHE` 可覆盖），
   跨 tag 复用粗算子，避免重复构建（8x32x32x32 首次构建 ~1-2h，缓存命中后秒级）。
 - **CudaSchurOp 同步**：`matvec` 内 `torch.cuda.synchronize()`（test11 BUGFIX，

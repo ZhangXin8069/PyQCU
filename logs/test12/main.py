@@ -17,7 +17,7 @@ TEST12_OUTDIR），该运行的全部产物与运行日志落在版本目录内�
   verify       正确性验证（gauge/解/null_vecs/CudaSchurOp 对照）
   sweep        参数扫描（r/ct/cmi/levels × speedup）→ test12_sweep.json
   check        加速比断言（--gate 1.5 默认，exit 0/1/2）
-  budget       显存/内存/磁盘预算表（--vram 16|32，默认 16GB）
+  budget       显存/内存/磁盘预算表（--vram 16|32|40，默认 16GB）
   collect      汇总 → test12_results.json
   mktable      LaTeX 表 → test12_tbl_*.tex
   plots        dev74 风格图 → test12_*.png
@@ -657,8 +657,9 @@ def rss_model(v, alpha_ram_kb_per_v=ALPHA_RAM, beta_ram_mb=BETA_RAM):
 
 
 def vram_gb_option(vram):
-    """显存档位：16（默认）/ 32（预留）。"""
-    return 16 if vram is None or int(vram) <= 16 else 32
+    """显存档位：16（默认）/ 32（预留）/ 40（A100-40GB）。"""
+    v = 16 if vram is None else int(vram)
+    return 40 if v >= 40 else 32 if v >= 32 else 16
 
 
 LATTICES = {
@@ -668,6 +669,10 @@ LATTICES = {
 # 32GB 档服务器格子（预留，--vram 32 启用）
 LATTICES32 = {
     "server": [(16, 32, 32, 32), (16, 32, 32, 64), (24, 32, 32, 64)],
+}
+# 40GB 档服务器格子（A100-40GB，--vram 40 启用；20x32x32x64 warm 34.4G ≈ 86%）
+LATTICES40 = {
+    "server": [(16, 32, 32, 32), (16, 32, 32, 64), (20, 32, 32, 64)],
 }
 
 
@@ -697,7 +702,8 @@ def budget_table(mode="server", vram=16, alpha=None, beta=None, alpha_warm=None)
         beta = BETA_DEFAULT
     if alpha_warm is None:
         alpha_warm = ALPHA_WARM
-    lats = LATTICES32[mode] if vram >= 32 else LATTICES[mode]
+    lats = LATTICES40[mode] if vram >= 40 else (
+        LATTICES32[mode] if vram >= 32 else LATTICES[mode])
     vram_mb = vram * 1024
     rows = []
     for L in lats:
@@ -1335,7 +1341,7 @@ def cmd_check(args):
 
 
 # ----------------------------------------------------------------------
-# budget —— 预算表（原 mg_dev74_budget.py，--vram 16|32）
+# budget —— 预算表（原 mg_dev74_budget.py，--vram 16|32|40）
 # ----------------------------------------------------------------------
 def cmd_budget(args):
     alpha, beta = ALPHA_DEFAULT, BETA_DEFAULT
@@ -1362,8 +1368,10 @@ def cmd_budget(args):
         json.dump({"alpha_kb_per_v": alpha, "beta_mb": beta, "vram_gb": vram,
                    "rows": rows}, f, indent=2)
     print(f"wrote {out}")
-    print(f"说明：16x32x32x64 warm {rows[-1]['pred_vram_warm_mb']}MB —— "
-          f"{'可行' if rows[-1]['vram_warm_frac'] < 0.95 else f'超 {vram}G 档，需分阶段/多卡'}")
+    last = rows[-1]
+    last_l = "x".join(map(str, last["lattice"]))
+    print(f"说明：{last_l} warm {last['pred_vram_warm_mb']}MB —— "
+          f"{'可行' if last['vram_warm_frac'] < 0.95 else f'超 {vram}G 档，需分阶段/多卡'}")
 
 
 # ----------------------------------------------------------------------
@@ -2138,9 +2146,9 @@ def main():
     p.add_argument("--file", action="append", default=None)
     p.set_defaults(func=cmd_check)
 
-    p = sub.add_parser("budget", parents=[common], help="预算表（默认 16G 档，--vram 32 预留）")
+    p = sub.add_parser("budget", parents=[common], help="预算表（默认 16G 档，--vram 32/40 预留）")
     p.add_argument("--mode", default="server", choices=["local", "server"])
-    p.add_argument("--vram", type=int, default=16, help="显存档（GB）：16 默认 / 32 预留")
+    p.add_argument("--vram", type=int, default=16, help="显存档（GB）：16 默认 / 32 / 40")
     p.add_argument("--fit", action="store_true")
     p.set_defaults(func=cmd_budget)
 
