@@ -7,7 +7,7 @@
 
 用法：
     source ./env.sh && python examples/qcu/mg_dev74_verify.py [--lattice 8 8 8 16]
-输出：logs/dev74_verify.json
+输出：logs/dev74/dev74_verify.json
 """
 import torch, os, sys, time, json
 from pyqcu import tools, dslash

@@ -14,7 +14,7 @@
 用法（在 ${HOME}/PyQCU 下运行）：
     source ./env.sh && CUDA_VISIBLE_DEVICES=2 \
         python examples/qcu/mg_dev73_5_verify.py [--lattice 8 16 16 16] [--prec c64]
-输出：logs/dev73_5_verify.json（含参考收敛历史，供画图）
+输出：logs/dev73/dev73_5_verify.json（含参考收敛历史，供画图）
 """
 import torch, os, sys, time, json
 from pyqcu import tools, dslash

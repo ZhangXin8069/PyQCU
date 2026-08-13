@@ -13,7 +13,7 @@
 
 用法（${HOME}/PyQCU 下）：
     source ./env.sh && python examples/qcu/mg_dev74_bench.py [--cluster] [--build py|cpp]
-输出：logs/dev74_bench.json, logs/dev74_budget_*.json（预算预测）
+输出：logs/dev74/dev74_bench.json, logs/dev74/dev74_budget_*.json（预算预测）
 """
 import torch, os, sys, time, json, re, resource
 from pyqcu import tools, dslash
@@ -40,7 +40,7 @@ from mg_dev73_5_bench import parse_mg_log, ref_conv_history
 from mg_dev74_dslash import make_cuda_schur_ops
 from mg_dev74_budget import vram_model, rss_model, disk_cache_bytes
 
-LOG_DIR = os.path.expanduser("~/PyQCU/logs")
+LOG_DIR = os.path.expanduser("~/PyQCU/logs/dev74")
 LOG_PATH = os.path.join(LOG_DIR, "clover_multigrid.log")
 
 _REF_HIST_CACHE = {}

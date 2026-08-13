@@ -11,7 +11,7 @@
         python examples/qcu/mg_dev73_5_clean.py \
             --lattice 8 16 16 16 --prec c64 --levels 2 --restart 10 \
             --ct 1e5 --cmi 15 --pairs 5
-输出：logs/dev73_5_clean_<label>.json
+输出：logs/dev73/dev73_5_clean_<label>.json
 """
 import torch, os, sys, time, json
 from pyqcu import tools, dslash
@@ -36,7 +36,7 @@ build_config = _csm.build_config
 from mg_nullvec_cache import build_or_load_coarse_ops
 from mg_dev73_5_bench import ref_conv_history
 
-LOG_DIR = os.path.expanduser("~/PyQCU/logs")
+LOG_DIR = os.path.expanduser("~/PyQCU/logs/dev73")
 LOG_PATH = os.path.join(LOG_DIR, "clover_multigrid.log")
 
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""dev74 —— 汇总所有测量到 logs/dev74_results.json。
+"""dev74 —— 汇总所有测量到 logs/dev74/dev74_results.json。
 
 合并：
   * dev74_bench.json            —— 本地/集群 bench（计时 + 资源统计 + 收敛/热点）
@@ -9,7 +9,7 @@
 """
 import json, os, glob
 
-LOG_DIR = os.path.expanduser("~/PyQCU/logs")
+LOG_DIR = os.path.expanduser("~/PyQCU/logs/dev74")
 
 
 def load(p):
