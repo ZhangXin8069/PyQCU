@@ -9,7 +9,7 @@ from pyqcu.cuda import qcu
 import pyqcu.cuda.define as define
 from pyqcu.cuda.define import params, argv, set_ptrs
 
-LOG_DIR = "/root/PyQCU/logs"
+LOG_DIR = os.path.expanduser("~/PyQCU/logs")
 os.makedirs(LOG_DIR, exist_ok=True)
 
 # Configurations to test

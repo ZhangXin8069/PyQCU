@@ -145,7 +145,7 @@ def run(label, Lx, Ly, Lz, Lt, MASS, ATOL, NUM_LEVELS, DOF_LIST, MG_GRID,
     speedup = ref_time/mg_time if mg_time > 0 else 0
 
     conv = []
-    log_path = os.path.join("/root/PyQCU/logs", log_fn)
+    log_path = os.path.join(os.path.expanduser("~/PyQCU/logs"), log_fn)
     if os.path.exists(log_path):
         with open(log_path) as f:
             for line in f:

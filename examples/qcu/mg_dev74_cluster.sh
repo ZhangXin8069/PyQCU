@@ -14,7 +14,7 @@
 #   bash examples/qcu/mg_dev74_cluster.sh --build-cpp  # 粗算子构建用 C++ dslash
 set -euo pipefail
 
-REPO=/root/PyQCU
+REPO=${HOME}/PyQCU
 LOG_DIR="$REPO/logs"
 RUN="${RUN:-0}"
 BUILD="${1:---build py}"

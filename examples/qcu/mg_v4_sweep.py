@@ -54,7 +54,7 @@ def run_one(Lx,Ly,Lz,Lt,MASS,ATOL,NUM_LEVELS,DOF_LIST,MG_GRID,NUM_RESTART,COARSE
     qcu_mg=tools.poooxyzt2oooxyzt(fo_mg)
     mg_vs_ref=tools.norm(qcu_mg-qcu_ref)/tools.norm(qcu_ref)
     conv=[]
-    lp="/root/PyQCU/logs/clover_multigrid.log"
+    lp=os.path.expanduser("~/PyQCU/logs/clover_multigrid.log")
     if os.path.exists(lp):
         import re
         for line in open(lp):
@@ -86,7 +86,7 @@ def main():
     print("\n=== BEST ===")
     for r in results[:3]:
         print(f"{r['label']}: {r['speedup']:.3f}x  mg={r['mg']*1000:.0f}ms iters={r['iters']}")
-    with open("/root/PyQCU/logs/mg_v4_sweep.json","w") as f:
+    with open(os.path.expanduser("~/PyQCU/logs/mg_v4_sweep.json"),"w") as f:
         json.dump(results,f,indent=2)
 
 if __name__=="__main__":

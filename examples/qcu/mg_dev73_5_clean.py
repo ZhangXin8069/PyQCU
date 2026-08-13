@@ -36,7 +36,7 @@ build_config = _csm.build_config
 from mg_nullvec_cache import build_or_load_coarse_ops
 from mg_dev73_5_bench import ref_conv_history
 
-LOG_DIR = "/root/PyQCU/logs"
+LOG_DIR = os.path.expanduser("~/PyQCU/logs")
 LOG_PATH = os.path.join(LOG_DIR, "clover_multigrid.log")
 
 

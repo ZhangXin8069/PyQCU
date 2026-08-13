@@ -10,7 +10,7 @@ from pyqcu.cuda.define import params, argv, set_ptrs
 Lx,Ly,Lz,Lt = 8,8,8,16
 MASS = 0.05; ATOL = 1e-6; KAPPA = 1.0/(2*MASS+8)
 
-sys.stdout = open('/root/PyQCU/logs/quick_test.log', 'w'); sys.stderr = sys.stdout
+sys.stdout = open(os.path.expanduser('~/PyQCU/logs/quick_test.log'), 'w'); sys.stderr = sys.stdout
 print("=== Quick MG Test ===")
 
 for NUM_LEVELS in [1, 2]:

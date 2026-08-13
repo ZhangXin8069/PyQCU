@@ -10,7 +10,7 @@
 """
 import json, os, glob
 
-LOG_DIR = "/root/PyQCU/logs"
+LOG_DIR = os.path.expanduser("~/PyQCU/logs")
 
 
 def load(p):

@@ -17,7 +17,7 @@ logs/dev74_1_sweep.json。
 """
 import os, sys, json, subprocess
 
-LOG_DIR = "/root/PyQCU/logs"
+LOG_DIR = os.path.expanduser("~/PyQCU/logs")
 HERE = os.path.dirname(os.path.abspath(__file__))
 CLEAN = os.path.join(HERE, "mg_dev74_clean.py")
 

@@ -3,8 +3,8 @@
 import torch
 from pyqcu import tools, dslash, solver
 import pyqcu.cuda.define as define
-import sys
-sys.path.insert(0, "/root/PyQCU/examples/qcu")
+import sys, os
+sys.path.insert(0, os.path.expanduser("~/PyQCU/examples/qcu"))
 from mg_pyref_expt import setup_gpu
 
 Lx,Ly,Lz,Lt = 8,8,8,16
