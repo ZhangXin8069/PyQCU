@@ -890,3 +890,5 @@ timestamp=2026-08-13T23:08:45.386Z level=INFO run=f8c66fd5 message="llm runtime 
 timestamp=2026-08-13T23:08:49.380Z level=INFO run=f8c66fd5 message=tracking hash=6717c16f45c9190a1cc4aad335b2a565fefafa85 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
 timestamp=2026-08-13T23:08:49.413Z level=INFO run=f8c66fd5 message=loop session.id=ses_002b22a4affeWsThDZdVwF6IB4 step=14
 timestamp=2026-08-13T23:08:49.424Z level=INFO run=f8c66fd5 message="exiting loop" session.id=ses_002b22a4affeWsThDZdVwF6IB4
+timestamp=2026-08-13T23:22:24.815Z level=INFO run=f8c66fd5 message="disposing all instances"
+timestamp=2026-08-13T23:22:24.817Z level=INFO run=f8c66fd5 message="disposing instance" directory=/root/PyQCU/logs/test12
