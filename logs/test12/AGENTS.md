@@ -22,6 +22,10 @@ dev73*/dev74*/test11 模块，仅内联照抄）。
 logs/test12/
 ├── main.py           全部测试代码（子命令入口，--outdir 公共参数）
 ├── run-local.sh      本地运行脚本（RTX 4060 8GB 小卡验证）
+├── run-local-v20260814.sh
+│                     本地实测服务器 >1.2 加速比配置的对照脚本
+│                     （8x8x8x16 2L/3L、8x16x16x16 3L；Step 5 输出
+│                     本地实测 vs dev73_5 V100 服务器参考对照表）
 ├── run-snsc.sh       服务器运行脚本（默认 16GB 档，VRAM=32 预留 32GB 档）
 ├── AGENTS.md         本文件（复现与比对指南）
 └── v<YYYYMMDDHHMM>/  每次运行生成的版本目录（如 v202608140624；同分钟重跑加 -<SS>）
@@ -49,6 +53,8 @@ source ./env.sh
 
 # 本地（小格子验证）——自动创建 logs/test12/v<ts>/
 bash logs/test12/run-local.sh                # 实际执行；--dry-run 只打印命令
+# 本地实测「服务器 >1.2 加速比配置」对照（8x8x8x16 2L/3L、8x16x16x16 3L）
+bash logs/test12/run-local-v20260814.sh      # 实际执行；--dry-run 只打印命令
 
 # 服务器（16GB 显存默认档）
 bash logs/test12/run-snsc.sh                 # 实际执行
