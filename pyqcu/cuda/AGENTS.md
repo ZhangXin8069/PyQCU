@@ -83,10 +83,11 @@ qcu.applyEndQcu(set_ptrs, params)                  # 释放
 - 每线程独立 params/argv/set_ptrs 副本 + `torch.cuda.set_device(dev_id)`（CUDA current device 线程局部）。
 - 多线程多卡驱动见 `_multi_gpu.py`（`MultiGpuMultigrid`，单 MPI rank）；单算子见 `_schur_op.py`（`CudaSchurOp`）。
 
-## 已知问题（2026-08-14 记录）
+## 已知问题与修复（2026-08-14）
 
-- **C++ Clover MG 对"T 方向不粗化"（coarse T 保持原值）2 层配置越界**：
-  `conftest.clover.multigrid.py` 的 2L 配置（MG_GRID=[2,2,2,1] → coarse [4,4,4,16]）
-  在 V-cycle coarse solve 阶段触发 illegal memory access（lattice_clover_multigrid.h:1530）。
-  1L 配置 PASS（speedup 1.58x）。T 方向正常粗化的 2L（coarse T/4）在
-  conftest.schur.multigrid.py 中 PASS。修复需深入 C++ 内核的粗层尺寸假设，暂缓。
+- **conftest.clover.multigrid.py 旧协议修复**（已解决）：该测试原用旧协议
+  （set_ptrs base=10 3 槽/层、无 hop_diag、`level1_T = Lt//MG_GRID[3]`、E=12 粗空间）
+  与 C++ 新协议（base=30 4 槽 33-tensor、粗层 T = Lt/(2·MG_GRID[3])）不符，
+  2L 配置触发 illegal memory access（lattice_clover_multigrid.h:1523）或 nan。
+  已重构为 `build_schur_levels`（33-tensor）+ E=48 粗空间；8x8x8x16 2L/2L_r3、
+  12³×16 2L 全 PASS（残差 ~1.5e-7）。

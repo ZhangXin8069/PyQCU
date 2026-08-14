@@ -24,10 +24,10 @@ os.makedirs(LOG_DIR, exist_ok=True)
 CONFIGS = [
     # (label, Lx,Ly,Lz,Lt, mass, atol, num_levels, dof_list, mg_grid, restart, coarse_max_iter, coarse_tol_factor)
     ("8x8x8x16_c64_m0.05_1L",  8, 8, 8, 16, 0.05, 1e-6, 1, [12],       [2,2,2,1], 5,  50,  10.0),
-    ("8x8x8x16_c64_m0.05_2L",  8, 8, 8, 16, 0.05, 1e-6, 2, [12,12],    [2,2,2,1], 5,  50,  10.0),
-    ("8x8x8x16_c64_m0.05_2L_r3",8, 8, 8, 16, 0.05, 1e-6, 2, [12,12],   [2,2,2,1], 3,  30,  10.0),
-    ("12x12x12x16_c64_m0.05_2L",12,12,12,16,0.05, 1e-6, 2, [12,12],    [2,2,2,1], 5,  80,  10.0),
-    ("16x16x16x16_c64_m0.05_2L",16,16,16,16,0.05,1e-6, 2, [12,12],     [2,2,2,1], 5, 100,  10.0),
+    ("8x8x8x16_c64_m0.05_2L",  8, 8, 8, 16, 0.05, 1e-6, 2, [12,48],    [2,2,2,1], 5,  50,  10.0),
+    ("8x8x8x16_c64_m0.05_2L_r3",8, 8, 8, 16, 0.05, 1e-6, 2, [12,48],   [2,2,2,1], 3,  30,  10.0),
+    ("12x12x12x16_c64_m0.05_2L",12,12,12,16,0.05, 1e-6, 2, [12,48],    [2,2,2,1], 5,  80,  10.0),
+    ("16x16x16x16_c64_m0.05_2L",16,16,16,16,0.05,1e-6, 2, [12,48],     [2,2,2,1], 5, 100,  10.0),
     ("8x8x8x16_c64_m0.10_2L",  8, 8, 8, 16, 0.10, 1e-6, 2, [12,12],    [2,2,2,1], 5,  50,  10.0),
 ]
 
@@ -72,7 +72,7 @@ for ci, (label, Lx, Ly, Lz, Lt, MASS, ATOL, NUM_LEVELS, DOF_LIST, MG_GRID, NUM_R
 
     params[define._MG_NUM_LEVEL_] = NUM_LEVELS
     if NUM_LEVELS >= 2:
-        level1_T = Lt // MG_GRID[3]  # coarse level uses full Lt (un-halved)
+        level1_T = Lt // (2 * MG_GRID[3])  # SCHUR mode: odd-lattice T/2 再粗化 2 = T_full/4（对齐 C++ parse_params）
         params[define._MG_LEVEL1_E_] = DOF_LIST[1]
         params[define._MG_LEVEL1_X_] = Lx // MG_GRID[0]
         params[define._MG_LEVEL1_Y_] = Ly // MG_GRID[1]
@@ -144,71 +144,29 @@ for ci, (label, Lx, Ly, Lz, Lt, MASS, ATOL, NUM_LEVELS, DOF_LIST, MG_GRID, NUM_R
         log("  [3/5] Building coarse-grid operators...")
         U_full = qcu_U
         op_fine = dslash.operator(U=U_full, clover_term=ref_cl, kappa=KAPPA,
-                                   support_parity=False, verbose=False)
+                                   support_parity=True, verbose=False)
+        # 粗算子构建需要 Schur 算子（奇数格输入）
+        S_build = op_fine.matvec_parity if hasattr(op_fine, 'matvec_parity') else op_fine.matvec
 
         lat_sizes = [[Lx, Ly, Lz, Lt]]
         for i in range(1, NUM_LEVELS):
             lat_sizes.append([max(lat_sizes[i-1][d] // MG_GRID[d], 1) for d in range(4)])
 
-        op_list = [op_fine]
-        lonv_list = []; hop_packed_list = []; sit_packed_list = []
-        for i in range(1, NUM_LEVELS):
-            dof_fine = DOF_LIST[i-1]; dof_coarse = DOF_LIST[i]
-            lat_fine = lat_sizes[i-1]; lat_coarse = lat_sizes[i]
-            log(f"    Level {i-1}→{i}: fine {lat_fine} (dof={dof_fine}), coarse {lat_coarse} (dof={dof_coarse})")
-
-            # Generate null vectors via inverse iteration
-            _null_vecs = torch.randn([dof_coarse, dof_fine] + lat_fine,
-                                      dtype=dtype_t, device=device)
-
-            # Use Python BiStabCG (bistabcg=None means Python path)
-            t_null = perf_counter()
-            _null_vecs = tools.give_null_vecs(null_vecs=_null_vecs,
-                matvec=op_list[i-1].matvec, bistabcg=None, verbose=True)
-            null_time = perf_counter() - t_null
-            log(f"      Null vec generation: {null_time:.3f}s")
-
-            # Check eigenvalue approximation quality
-            ev_ratios = []
-            for k in range(min(3, dof_coarse)):
-                Av = op_list[i-1].matvec(_null_vecs[k])
-                ratio = tools.norm(Av / _null_vecs[k].abs().clamp(min=1e-30))
-                ev_ratios.append(ratio)
-            log(f"      ||A*v/v|| ratios: {[f'{r:.4f}' for r in ev_ratios]} (small → better null vec)")
-
-            _lonv = tools.local_orthogonalize(null_vecs=_null_vecs,
-                coarse_lat_size=lat_coarse, verbose=True)
-
-            # Reshape from blocked to flat for C++
-            E_lonv = _lonv.shape[0]; e_lonv = _lonv.shape[1]
-            Xc=_lonv.shape[2]; mgx=_lonv.shape[3]; Yc=_lonv.shape[4]; mgy=_lonv.shape[5]
-            Zc=_lonv.shape[6]; mgz=_lonv.shape[7]; Tc=_lonv.shape[8]; mgt=_lonv.shape[9]
-            _lonv_flat = _lonv.reshape(E_lonv, e_lonv,
-                Xc*mgx, Yc*mgy, Zc*mgz, Tc*mgt).contiguous()
-            lonv_list.append(_lonv_flat)
-
-            # Build coarse operator
-            coarse_op = dslash.operator(fine_hopping=op_list[i-1].hopping,
-                fine_sitting=op_list[i-1].sitting,
-                local_ortho_null_vecs=_lonv, verbose=True)
-            op_list.append(coarse_op)
-
-            # Pack hopping and sitting
-            E = dof_coarse; Xc, Yc, Zc, Tc = lat_coarse
-            hp = torch.zeros([2,4,E,E,Xc,Yc,Zc,Tc], dtype=dtype_t, device=device)
-            for ward in range(4):
-                hp[0,ward] = coarse_op.hopping.M_plus_list[ward].to(dtype=dtype_t, device=device)
-                hp[1,ward] = coarse_op.hopping.M_minus_list[ward].to(dtype=dtype_t, device=device)
-            hop_packed_list.append(hp)
-            sit_packed_list.append(coarse_op.sitting.M.to(dtype=dtype_t, device=device))
+        from pyqcu.cuda._multi_gpu import build_schur_levels as _bsl
+        _lat_full = [Lx, Ly, Lz, Lt]
+        lonv_list, hop_nn_l, hop_diag_l, sit_l = _bsl(
+            op_fine, S_build,
+            NUM_LEVELS, [12] + DOF_LIST[1:], MG_GRID, _lat_full, DOF_LIST[1],
+            dtype_t, device, nv_iters=1, use_cache=False, cache_dir=None, verbose=False)
 
         log(f"    Coarse ops: {len(lonv_list)} level(s) built")
 
-        # Wire into set_ptrs
+        # Wire into set_ptrs (新协议: base=30, 4 槽/层: lonv/hop_nn/hop_diag/sit)
         for fl in range(len(lonv_list)):
-            set_ptrs[10 + 3*fl + 0] = lonv_list[fl].contiguous().data_ptr()
-            set_ptrs[10 + 3*fl + 1] = hop_packed_list[fl].contiguous().data_ptr()
-            set_ptrs[10 + 3*fl + 2] = sit_packed_list[fl].contiguous().data_ptr()
+            set_ptrs[30 + 4*fl + 0] = lonv_list[fl].contiguous().data_ptr()
+            set_ptrs[30 + 4*fl + 1] = hop_nn_l[fl].contiguous().data_ptr()
+            set_ptrs[30 + 4*fl + 2] = hop_diag_l[fl].contiguous().data_ptr()
+            set_ptrs[30 + 4*fl + 3] = sit_l[fl].contiguous().data_ptr()
 
     # ---- Phase 4: C++ MG solver ----
     log("  [4/5] C++ MG solver...")
