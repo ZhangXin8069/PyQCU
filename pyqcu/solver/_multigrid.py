@@ -67,6 +67,7 @@ class multigrid:
         self._mg_coarse_dslash_out = None
         self._mg_coarse_hopping_packed = None
         self._mg_coarse_hopping_packed_level = None  # track which level is cached
+        self._max_set_index = -1  # init 创建的 C++ LatticeSet 最大槽位（end 释放用）
 
     def _restrict_cuda(self, fine_vec: torch.Tensor, level: int) -> torch.Tensor:
         """CUDA-accelerated restriction using C++ backend."""
@@ -235,6 +236,8 @@ class multigrid:
             self.params = params.clone()
             self.argv = argv.clone()
             qcu.applyInitQcu(self.set_ptrs, self.params, self.argv)
+            self._max_set_index = max(
+                self._max_set_index, int(self.params[define._SET_INDEX_]))
             self.gauge_eo = tools.oooxyzt2poooxyzt(
                 input_array=self.op_list[0].hopping.U)  # type: ignore
             self.clover_ee = self.op_list[0].sitting.M_e
@@ -259,6 +262,8 @@ class multigrid:
                     self.params[define._SET_INDEX_] += 1
                     self.argv[define._ATOL_] = _tol
                     qcu.applyInitQcu(self.set_ptrs, self.params, self.argv)
+                    self._max_set_index = max(
+                        self._max_set_index, int(self.params[define._SET_INDEX_]))
                     qcu.applyCloverBistabCgQcu(self.fermion_out_eo, self.fermion_in_eo, self.gauge_eo, self.clover_ee,  # type: ignore
                                                self.clover_oo, self.clover_ee_inv, self.clover_oo_inv,  self.set_ptrs, self.params)  # type: ignore
                     return tools.poooxyzt2oooxyzt(input_array=self.fermion_out_eo).reshape(b.shape)
@@ -281,6 +286,30 @@ class multigrid:
             self.op_list.append(dslash.operator(fine_hopping=self.op_list[i-1].hopping, fine_sitting=self.op_list[i -
                                 1].sitting, local_ortho_null_vecs=_local_ortho_null_vecs,  verbose=self.verbose))
         comm.Barrier()
+
+    def end(self):
+        """释放 C++ LatticeSet 资源（防多实例/重复调用显存泄漏 OOM）。
+
+        init 创建的 LatticeSet（槽位 0.._max_set_index，含 _bistabcg 的
+        逆迭代实例）全部 applyEndQcu 释放；调用后实例不可再 solve。
+        """
+        if self.with_cuda_qcu and self._max_set_index >= 0:
+            for _idx in range(self._max_set_index + 1):
+                self.params[define._SET_INDEX_] = _idx
+                try:
+                    qcu.applyEndQcu(self.set_ptrs, self.params)
+                except Exception:
+                    pass
+            self._max_set_index = -1
+
+    def __del__(self):
+        # 隐式 GC 释放时机不可控：先同步设备再释放，减少与并发 C++ 操作的干扰。
+        # 多实例循环场景请显式 end() + del + gc.collect()（见 AGENTS.md）。
+        try:
+            torch.cuda.synchronize()
+            self.end()
+        except Exception:
+            pass
 
     def levels_back(self):
         self.convergence_tol = 0
