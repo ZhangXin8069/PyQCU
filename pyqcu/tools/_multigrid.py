@@ -305,8 +305,8 @@ def give_null_vecs_mt(matvec_ops, dof, e, lat_fine_odd, dtype, device,
                             device=device, generator=gen)
             try:
                 for _ in range(nv_iters):
-                    # 相对单线程版收紧容差：C++ matvec 噪声底 ~2e-6（float32），
-                    # 5e-5 绝对容差导致残差卡噪声层不收敛（max_iter 空转）。
+                    # 与单线程 give_null_vecs 一致的容差（CudaSchurOp 修复后
+                    # matvec 精确，5e-5 可正常收敛）。
                     v = v - solver.bistabcg(b=mv(v), matvec=mv, tol=5e-5, verbose=False)
                 nrm = torch.linalg.norm(v)
                 if not torch.isfinite(v).all() or float(nrm) == 0.0:
