@@ -71,21 +71,26 @@ class CudaSchurOp(object):
         # 独立 set_ptrs 副本：多线程各持一份，互不干扰
         self.set_ptrs = _module_set_ptrs.clone()
         self._g, self._ce, self._coo, self._cei, self._coi = g, ce, coo, cei, coi
+        self._y_buf = None
+        self._y_buf_shape = None
         qcu.applyInitQcu(self.set_ptrs, self.params, av)
 
     def matvec(self, x_o):
         # 输入/输出必须连续：桥函数 .contiguous() 会拷贝，若输出非连续则
         # C++ 写入副本、原张量内容不变（垃圾）导致求解错误。
         x_c = x_o.contiguous()
-        # 同步 torch 默认流：torch 异步内核（如上一轮 vdot/norm）可能仍在
-        # 执行且其内存块被 empty_like 复用；C++ 私有流与其无同步 → 数据竞争
-        # （随机错误，实测 8x8x8x16 上 ~1/6 调用出错）。同步后分配/写入安全。
+        # C++ 输出写预分配固定缓冲（不经过 torch 分配器，避免池复用与
+        # C++ 私有流之间的深层竞争——实测 torch 池复用时偶发结果错误）；
+        # 设备级同步保证 C++ 私有流完成，再 clone 到新张量（默认流语义）。
+        if self._y_buf is None or self._y_buf_shape != tuple(x_c.shape):
+            self._y_buf = torch.empty_like(x_c)
+            self._y_buf_shape = tuple(x_c.shape)
         torch.cuda.current_stream().synchronize()
-        y_o = torch.empty_like(x_c)
         qcu.applyCloverBistabCgDslashQcu(
-            y_o, x_c, self._g, self._ce, self._coo, self._cei, self._coi,
+            self._y_buf, x_c, self._g, self._ce, self._coo, self._cei, self._coi,
             self.set_ptrs, self.params)
-        return y_o
+        torch.cuda.synchronize()
+        return self._y_buf.clone()
 
     def release(self):
         """释放本实例 scratch：用本实例 params/set_ptrs 调 applyEndQcu。
