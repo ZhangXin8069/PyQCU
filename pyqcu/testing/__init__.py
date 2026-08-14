@@ -573,6 +573,50 @@ def test_h5py_multithread(nthreads: int = 4, tmp_dir: str = None,
     return tmp_dir
 
 
+def test_multigrid_multithread(nthreads: int = 2, lat_size: List[int] = [8, 8, 8, 8],
+                               mass: float = 0.05, tol: float = 1e-5,
+                               verbose: bool = False):
+    """Python multigrid 多线程实例并行验证。
+
+    每线程独立 solver.multigrid 实例（with_cuda_qcu 混合路径）并行求解，
+    判据：各实例残差 < 1e-5。要求调用方已预热 torch lazy 初始化
+    （MultiGpuMultigrid.solve 内置预热；本测试开头也预热）。
+    """
+    from concurrent.futures import ThreadPoolExecutor
+    from pyqcu import lattice, dslash, solver
+    dt = torch.complex64
+    dev = torch.device('cuda')
+    _w = torch.randn([4, 4], dtype=dt, device=dev)
+    torch.linalg.inv(_w)
+    torch.cuda.synchronize()
+    U = torch.zeros([3, 3, 4] + lat_size, dtype=dt, device=dev)
+    lattice.generate_gauge_field(U, seed=42, sigma=0.1, verbose=False)
+    kappa = torch.Tensor([1 / (2 * mass + 8)])
+    clover = dslash.make_clover(U, kappa=kappa)
+
+    def run_mg(_):
+        torch.cuda.set_device(0)
+        op0 = dslash.operator(U=U, clover_term=clover, kappa=kappa,
+                              support_parity=True, verbose=False)
+        mg = solver.multigrid(dtype_list=[dt]*10, device_list=[dev]*10, U=U,
+                              clover_term=clover, kappa=kappa,
+                              clover_ee_inv=op0.sitting.M_e_inv,
+                              clover_oo_inv=op0.sitting.M_o_inv,
+                              tol=tol, max_iter=1000, max_level=1, num_restart=3,
+                              support_parity=True, verbose=False)
+        mg.init()
+        b = torch.randn([4, 3] + lat_size, dtype=dt, device=dev)
+        mg.solve(b)
+        return float(mg.convergence_history[-1])
+
+    with ThreadPoolExecutor(max_workers=nthreads) as ex:
+        rs = list(ex.map(run_mg, range(nthreads)))
+    assert all(r < 1e-5 for r in rs), f"multigrid multithread residuals {rs}"
+    print(f"PYQCU::TESTING::SOLVER::MULTIGRID::MT:\n "
+          f"{nthreads} thread instances PASS (residuals {[f'{r:.1e}' for r in rs]})")
+    return rs
+
+
 def test_multi_gpu_multigrid(nthreads: int = 2, lat_size: List[int] = [8, 8, 8, 16],
                              mass: float = 0.05, atol: float = 1e-6,
                              num_levels: int = 2, tol: float = 1e-5, verbose: bool = True,
