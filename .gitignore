@@ -28,7 +28,8 @@ lib/*
 *.bin
 *dist
 *.pt*
-*.h5*
+*.h5
+*.h5.*
 *.hdf5*
 *.hdf
 *.npy

@@ -66,3 +66,17 @@ MPI 网格管理、HDF5 I/O、线性代数、张量操作、多重网格转移�
 ## 日志约定
 
 `PYQCU::TOOLS::<SUBMODULE>::\n message`
+
+### 33-tensor Schur stencil build（`_multigrid.py`）
+
+- `PAIRS`/`SIGN` 常量；`build_stencil(matvec, lonv, E, e, lat_fine_odd, lat_coarse_odd, dt, device)` 单线程；
+  `build_stencil_mt(matvec_ops, ..., nthreads)` 多线程（每线程一个 matvec 算子，探测点写集不相交，线程安全）；
+  `apply_stencil(hop_nn, hop_diag, sit, v_c)` Python 参考实现（A_c = P^T S P）。
+- 由 dev73/mg_stencil_build.py 与 test12/main.py::build_stencil_mt 合并迁移。
+
+### HDF5 本地持久化（`_io.py`）
+
+- `save_tensor_h5(tensor, file_name, dataset)` / `load_tensor_h5(file_name, dataset, device)` —
+  每次调用独立 File 句柄（with 语句），多线程安全；null-vector/粗网格算子缓存 `.h5` 用。
+- 多 dataset 缓存须**单句柄一次写完**（`with h5py.File(f,'w') as f: create_dataset(...)` 多个），
+  逐 dataset 用 'w' 模式会覆盖重建文件导致前序 dataset 丢失。

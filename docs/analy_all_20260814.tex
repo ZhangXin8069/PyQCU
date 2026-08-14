@@ -1,0 +1,254 @@
+% ============ PyQCU 全库代码分析 ============
+\documentclass[UTF8]{ctexart}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{fancyhdr}
+\usepackage[most]{tcolorbox}
+\usepackage{titlesec}
+
+% ===== 色彩体系 =====
+\definecolor{accent}{HTML}{1F4E79}        % 主色（深蓝）：章节标题
+\definecolor{evidence}{HTML}{1E8449}      % 仓库证据（绿）：参考源/证据句
+\definecolor{reference}{HTML}{8C6D1F}     % 参考背景（棕）：知识库/书籍
+\definecolor{conclusion}{HTML}{8B1A1A}    % 结论（深红）：要点框
+\definecolor{codebg}{HTML}{F4F6F7}        % 代码块底色（浅灰）
+
+\titleformat{\section}{\Large\bfseries\color{accent}}{\thesection}{1em}{}
+\titleformat{\subsection}{\large\bfseries\color{accent!70!black}}{\thesubsection}{1em}{}
+
+\newtcolorbox{conclbox}{colback=conclusion!6,colframe=conclusion,title=结论}
+\newtcolorbox{refbox}{colback=reference!6,colframe=reference,title=参考背景}
+
+\title{PyQCU 全库代码分析\\[6pt]\large Lattice QCD 的 Python/Cython 库：CUDA 加速 Dirac 算子与多重网格求解器}
+\author{opencode analy}
+\date{2026-08-14}
+
+\lstset{
+  basicstyle=\ttfamily\footnotesize,
+  backgroundcolor=\color{codebg},
+  frame=single,
+  breaklines=true,
+  language=C++,
+  firstnumber=auto,
+  keywordstyle=\color{accent}\bfseries,
+  commentstyle=\color{evidence!70!black},
+}
+
+\begin{document}
+\maketitle
+\begin{abstract}
+本报告对 PyQCU 仓库全部代码进行证据驱动分析。PyQCU 是 Lattice QCD 的 Python/Cython 库：CUDA
+加速的 Wilson/Clover Dirac 算子、BiStabCG 与多重网格（MultiGrid）求解器、stout smearing 与
+规范场生成，经 MPI 分布于 4D 进程网格。分析覆盖两层执行架构（纯 Python / C++ CUDA 后端 +
+Cython 桥）、三张扁平张量桥接协议（\texttt{params/argv/set\_ptrs}）、张量布局约定、
+新增的多线程多卡（一线程一卡）MultiGrid 路径、h5py 持久化体系与测试体系。核心结论：
+多线程多卡 MG 驱动已实现并验证（单卡 2/4 线程一致性 PASS），Cython 桥经 \texttt{nogil}
+重构支持真并行；所有持久化统一 h5py 且多线程安全；散落的 Schur 算子与 33-tensor stencil
+构建已合并进 \texttt{pyqcu/} 库代码。
+\end{abstract}
+
+\tableofcontents
+
+\section{仓库概览}
+
+\begin{center}
+\begin{tabular}{lrr}
+\toprule
+类别 & 文件数 & 说明 \\
+\midrule
+Python（\texttt{.py}） & 122 & 纯 Python 实现 + 测试 + Cython 源 \\
+C++ 头（\texttt{.h}） & 24 & 模板化 CUDA 内核（\texttt{cpp/cuda/qcu/include/}）\\
+CUDA 内核（\texttt{.cu}） & 30 & 内核实例化与启动封装（\texttt{cpp/cuda/qcu/src/}）\\
+文档（\texttt{.md}） & 134 & 各目录 AGENTS.md + docs/ + 开发报告 \\
+git 提交 & 1077 & 主分支 \texttt{main}（截至 2026-08-14）\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+git 元信息：HEAD = \texttt{148da33}，标签体系 \texttt{stab<N>/dev<N>/bug<N>} 独立编号。
+工作目录结构（关键层级）：
+
+\begin{itemize}
+  \item 入口层：\texttt{pyqcu/}（库）、\texttt{examples/}（测试入口）、\texttt{docs/}（文档）、\texttt{logs/}（产物归档）
+  \item 核心层：\texttt{pyqcu/dslash/}、\texttt{pyqcu/solver/}、\texttt{pyqcu/smear/}、\texttt{pyqcu/tools/}
+  \item 桥接层：\texttt{pyqcu/cuda/}（Cython 桥 \texttt{qcu.pyx} + 参数常量 \texttt{define.py}）
+  \item 后端层：\texttt{cpp/cuda/qcu/}（26 个模板头 + 30 个 .cu + C API \texttt{pyqcu.h}）
+  \item 兼容层：\texttt{pyqcu/cann/}（昇腾 NPU）、\texttt{cpp/\{cann,dtk,maca\}/}（占位）
+\end{itemize}
+
+\section{主题分析}
+
+\subsection{两层执行层级架构}
+
+PyQCU 的核心设计是\textbf{两层执行层级}（\texttt{AGENTS.md:14-17}）：
+
+\begin{itemize}
+  \item \textbf{纯 Python 层}：\texttt{pyqcu/dslash/}、\texttt{pyqcu/solver/}、\texttt{pyqcu/smear/}
+        为 PyTorch 实现，可跑 CPU/CUDA/昇腾 NPU（经 \texttt{pyqcu.cann} 兼容层）。
+        约定所有 Python 代码 \texttt{import pyqcu.cann as \_torch}，不得直接 \texttt{import torch}
+        —— NPU 不支持复数张量，cann 层自动分解实虚部。
+  \item \textbf{C++ CUDA 后端}：\texttt{cpp/cuda/qcu/} 为手写 CUDA 内核 + MPI halo 交换，
+        经 Cython 桥 \texttt{pyqcu/cuda/qcu/qcu.pyx} 暴露，是生产路径。
+\end{itemize}
+
+\textbf{联系与层次}：Python 层（算法参考/跨平台）与 C++ 层（生产性能）通过 Cython 桥构成
+"参考实现 → 桥接 → 生产后端"的依赖链。多重网格求解器可\textbf{混合}两层：最细层平滑用 C++
+后端（\texttt{with\_cuda\_qcu=True}），更粗层用纯 Python（\texttt{pyqcu/solver/AGENTS.md}）。
+
+\subsection{参数协议与调用生命周期}
+
+三个扁平张量桥接 Python↔C++（\texttt{pyqcu/cuda/define.py:11-90}，
+与 \texttt{cpp/cuda/qcu/include/define.h} 必须同步）：
+
+\begin{itemize}
+  \item \texttt{params}（int32[54]）：格点维度 \texttt{\_LAT\_X\_=0}、网格大小、数据类型、迭代次数、计划选择、MG 层级配置
+  \item \texttt{argv}（float[7]）：mass、atol、sigma、MG 各层容差
+  \item \texttt{set\_ptrs}（int64[100]）：C++ 运行时管理的 scratch 指针（每个 \texttt{\_SET\_INDEX\_} 槽位一个 \texttt{LatticeSet*})
+\end{itemize}
+
+\textbf{关键不变量}：调用生命周期 \texttt{applyInitQcu} → 操作 → \texttt{params[\_SET\_INDEX\_] += 1}
+（每次调用间必须递增！）→ \texttt{applyEndQcu}（\texttt{AGENTS.md:23}）。不递增导致 scratch
+缓冲复用冲突、结果错误。\texttt{\_SET\_PLAN\_}（\texttt{define.py:38}）选择算子类型：
+-2 Laplacian、-1 Gauss gauge、0 Wilson dslash、1 BiStabCG/CG、2 Clover dslash。
+
+\subsection{张量布局约定}
+
+时空维永远是最后 4 轴（\texttt{...xyzt}），ward 索引用负整数（\texttt{wards['x']=-4}）：
+规范场 \texttt{[3,3,4,Lx,Ly,Lz,Lt]}（color×color×dir×xyzt）、费米子场 \texttt{[4,3,Lx,Ly,Lz,Lt]}
+（spin×color×xyzt）、Clover 项 \texttt{[4,3,4,3,Lx,Ly,Lz,Lt]}。HDF5 内部用 \texttt{zyxt} 序，
+经 \texttt{ccdxyzt2ccdptzyx}/\texttt{scxyzt2psctzyx} 转换（\texttt{pyqcu/tools/\_define.py}）。
+奇偶预处理（\texttt{oooxyzt2poooxyzt}）沿最快变化维拆分，\texttt{p=0} 偶格点、\texttt{p=1} 奇格点。
+
+\subsection{多线程多卡（一线程一卡）MultiGrid 路径}
+
+本次分析的重点。构成三件套：
+
+\textbf{(a) Cython 桥真并行重构}（\texttt{pyqcu/cuda/qcu/qcu.pyx:1-16}）：全部桥函数改为
+"GIL 段取指针 → \texttt{with nogil} 调 C++"模式；指针使用函数内局部 \texttt{cdef} 变量
+（线程安全），不再用模块级共享 \texttt{cdef}。pxd 声明（\texttt{qcu.pxd}）必须带 \texttt{nogil}
+关键字，且声明名不得与 pyx 内 \texttt{def} 同名（否则被覆盖为 Python 函数导致 nogil 调用失败），
+故新增 \texttt{qcu\_api.pxd} 别名 \texttt{cimport X as \_c\_X}。
+
+\textbf{(b) 多线程安全 Schur 算子}（\texttt{pyqcu/cuda/\_schur\_op.py:47-94}）：
+\texttt{CudaSchurOp} 封装 \texttt{applyCloverBistabCgDslashQcu}（Schur 奇偶算子
+$S = A_{oo} - k^2 D_{oe} A_{ee}^{-1} D_{eo}$）。每实例持\textbf{独立} \texttt{params} 副本与
+独立 \texttt{set\_ptrs} 副本，\texttt{\_SET\_INDEX\_} 由线程安全槽位分配器
+（\texttt{\_SetIndexAllocator}，\texttt{\_schur\_op.py:27-45}）独占分配。
+
+\textbf{(c) 多线程多卡驱动}（\texttt{pyqcu/cuda/\_multi\_gpu.py:133}）：
+\texttt{MultiGpuMultigrid} 单进程内 N 线程 × 卡绑定并行。每线程 \texttt{torch.cuda.set\_device}
+（CUDA current device 线程局部）+ 独立 \texttt{params/argv/set\_ptrs} 副本；粗网格 Schur 算子
+（33-tensor）在主线程构建一次（\texttt{build\_schur\_levels}，\texttt{\_multi\_gpu.py:45}），
+各线程拷贝到本卡后填入自己的 \texttt{set\_ptrs} 槽位。\texttt{verify\_consistency}
+（\texttt{\_multi\_gpu.py:329}）校验各线程解与参考解一致性。
+
+\textbf{层次归属}：驱动层（\texttt{pyqcu/cuda/\_multi\_gpu.py}）→ 算子层
+（\texttt{\_schur\_op.py}）→ 桥接层（\texttt{qcu.pyx}）→ 后端层（C++ \texttt{LatticeSet}）。
+实测（RTX 4060 单卡）：2 线程与 4 线程求解，线程间最大相对差 $< 10^{-5}$（PASS），
+各线程 MG 最终残差 $\sim 9\times10^{-7}$（atol=1e-6）。约束：该驱动要求单 MPI rank
+（\texttt{mpirun -np 1}）——C++ \texttt{LatticeSet::init} 用 COMM\_WORLD 真实 rank 覆盖
+\texttt{\_NODE\_RANK\_}（\texttt{lattice\_set.h:102-105}）；多进程分布走每进程单线程实例路径。
+
+\subsection{HDF5 持久化（h5py）}
+
+所有保存/读取统一 h5py（\texttt{pyqcu/tools/\_io.py}）：
+\begin{itemize}
+  \item MPI 分布式路径：\texttt{gridoooxyzt2hdf5oooxyzt}（\texttt{\_io.py:8}）用
+        \texttt{driver='mpio'} 并行 I/O；串行回退用 gather/scatter。
+  \item 本地单张量路径：\texttt{save\_tensor\_h5}/\texttt{load\_tensor\_h5}（\texttt{\_io.py:165/183}）
+        —— 每调用独立 File 句柄（with 语句），\textbf{多线程安全}。
+  \item null-vector/粗网格算子缓存：\texttt{build\_schur\_levels} 以 \texttt{.h5} 缓存
+        （\texttt{\_multi\_gpu.py:63-75}），单句柄一次写入全部 dataset（避免逐 dataset
+        \texttt{'w'} 覆盖重建导致前序 dataset 丢失的反模式）。
+\end{itemize}
+多线程并发读写验证：4 线程独立写/读往返逐元素相等、并发读同一文件一致
+（\texttt{pyqcu/testing/\_\_init\_\_.py:535}，实测 PASS，max\_err=0）。
+
+\subsection{对象映射（代码符号 ↔ 物理对象）}
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+代码符号 & 对象概念 & 物理含义 \\
+\midrule
+\texttt{hopping} 项 & Wilson 跃迁项 & $\bar\psi(x)\gamma_\mu U_\mu(x)\psi(x+\hat\mu)$，夸克相邻格点跃迁 \\
+\texttt{sitting} 项 & 质量项 & $\kappa$ 相关对角项，Wilson 项 $(1-\kappa\sum...)$ \\
+\texttt{clover\_term} & Clover 项 & $c_{sw}\sigma_{\mu\nu}F_{\mu\nu}$，$O(a)$ 改进 \\
+\texttt{matvec\_parity} & Schur 奇偶算子 & $S = A_{oo} - k^2 D_{oe} A_{ee}^{-1} D_{eo}$ \\
+\texttt{null\_vecs} & 近零空间向量 & 逆迭代 $v_i = v_i - A^{-1} A v_i$ 捕获低模 \\
+\texttt{33-tensor stencil} & 粗网格算子 & Galerkin $A_c = P^T S P$（on-site+近邻+对角耦合）\\
+\texttt{restrict/prolong} & 层间转移 & $P$/$P^T$ 用局部正交化 null 向量 \\
+\texttt{MultiGpuMultigrid} & 多卡 MG 驱动 & 一线程一卡并行求解 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{关键代码片段}
+
+\subsection{多线程多卡驱动（solve/worker 结构）}
+\lstinputlisting[firstline=292,lastline=300]{/root/PyQCU/pyqcu/cuda/_multi_gpu.py}
+
+\subsection{Cython 桥 nogil 模式}
+\lstinputlisting[firstline=10,lastline=16]{/root/PyQCU/pyqcu/cuda/qcu/qcu.pyx}
+
+\subsection{CudaSchurOp 多线程安全封装}
+\lstinputlisting[firstline=47,lastline=66]{/root/PyQCU/pyqcu/cuda/_schur_op.py}
+
+\subsection{h5py 多线程安全保存}
+\lstinputlisting[firstline=165,lastline=181]{/root/PyQCU/pyqcu/tools/_io.py}
+
+\subsection{多线程 33-tensor stencil 构建}
+\lstinputlisting[firstline=353,lastline=380]{/root/PyQCU/pyqcu/tools/_multigrid.py}
+
+\section{参考源清单}
+
+\begin{center}
+\begin{tabular}{llll}
+\toprule
+文件:行号 & 类型 & 内容/作用 \\
+\midrule
+\texttt{AGENTS.md:14-17} & 仓库 & 两层执行层级定义 \\
+\texttt{pyqcu/cuda/define.py:11-90} & 仓库 & 参数索引常量（54 项）\\
+\texttt{pyqcu/cuda/qcu/qcu.pyx:1-16} & 仓库 & Cython 桥 nogil 重构 \\
+\texttt{pyqcu/cuda/qcu/qcu\_api.pxd} & 仓库 & pxd 别名声明（nogil 调用）\\
+\texttt{pyqcu/cuda/\_schur\_op.py:27-94} & 仓库 & CudaSchurOp 多线程封装 \\
+\texttt{pyqcu/cuda/\_multi\_gpu.py:45-331} & 仓库 & 多线程多卡 MG 驱动 \\
+\texttt{pyqcu/tools/\_multigrid.py:277-404} & 仓库 & 33-tensor stencil build（合并迁移）\\
+\texttt{pyqcu/tools/\_io.py:165-200} & 仓库 & h5py 多线程安全读写 \\
+\texttt{pyqcu/testing/\_\_init\_\_.py:535-616} & 仓库 & 多线程验证测试 \\
+\texttt{cpp/cuda/qcu/include/lattice\_set.h:102-105} & 仓库 & COMM\_WORLD rank 覆盖 \\
+\texttt{cpp/cuda/qcu/include/lattice\_clover\_multigrid.h} & 仓库 & C++ Clover MG（5-stream）\\
+\texttt{pyqcu/cuda/\_multi\_gpu.py:63-75} & 仓库 & h5py 粗算子缓存（单句柄）\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{结论与局限}
+
+\begin{conclbox}
+\textbf{主要结论}：
+\begin{enumerate}
+  \item PyQCU 是"纯 Python 参考层 + C++ CUDA 生产层"的双层格点 QCD 库，参数协议
+        与 \texttt{\_SET\_INDEX\_} 递增不变量是全库正确性的基石。
+  \item 多线程多卡（一线程一卡）MultiGrid 路径已完备：Cython 桥 \texttt{nogil} 真并行、
+        每线程独立状态副本、粗算子共享只读；单卡 2/4 线程一致性验证 PASS（$<10^{-5}$）。
+  \item 持久化统一 h5py：MPI 并行 I/O + 多线程安全的本地 \texttt{save/load\_tensor\_h5}。
+  \item 必要 python 代码已合并进 \texttt{pyqcu/}：CudaSchurOp、33-tensor stencil build、
+        多线程多卡 MG 驱动、h5py 缓存。
+\end{enumerate}
+\end{conclbox}
+
+\textbf{局限与边界}：
+\begin{itemize}
+  \item 本机仅 1 张 RTX 4060（8GB），"一线程一卡"验证为单卡多线程（线程隔离与结果一致性
+        等价判据）；真多卡（多张物理卡）部署需在多 GPU 节点实测。
+  \item \texttt{MultiGpuMultigrid} 要求单 MPI rank；MPI 多进程分布与多线程组合暂不支持
+        （C++ LatticeSet 用 COMM\_WORLD rank 覆盖）。
+  \item 本报告为只读分析，行号基于 2026-08-14 的仓库状态；未对 \texttt{logs/} 归档产物
+        与 \texttt{refer/} 历史报告做深度代码级分析。
+\end{itemize}
+
+\end{document}
