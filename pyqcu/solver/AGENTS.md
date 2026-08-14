@@ -47,3 +47,12 @@ Dirac 方程 D ψ = η 的迭代求解器。
 
 - `MultiGpuMultigrid`/`verify_multi_gpu_mg`：延迟导入（`__getattr__`，避免 tools._multigrid ↔ solver 循环依赖），
   单进程多线程一线程一卡运行 C++ Clover Multigrid；要求单 MPI rank（mpirun -np 1）。
+
+### CUDA 混合路径同步与 breakdown 重启（2026-08-14）
+
+- **同步**：`_matvec`/`_restrict_cuda`/`_prolong_cuda`/`_coarse_dslash_cuda` 的 C++ 调用后
+  必须 `torch.cuda.synchronize()` —— C++ 私有流写固定输出缓冲，与 torch 默认流无
+  跨流同步 → iter 0 breakdown（vdot(r_tilde,v)≈0）。此前依赖隐式时序，偶发失败。
+- **BiCGStab 自动重启**：breakdown（rho/rtv/tts < 1e-20 或 alpha/omega 非有限）时
+  保留当前 x/r，重置影子向量与系数后继续（不再抛 RuntimeError）；收敛不受影响
+  （8x8x8x8 1L residual 8.7e-7、8x8x8x16 2L 7.8e-7 实测）。
