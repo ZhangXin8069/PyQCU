@@ -160,3 +160,35 @@ def hdf5oooxyzt2gridoooxyzt(
         if verbose:
             print(f"PYQCU::TOOLS::IO:\n rank {rank}: Dest Shape: {dest.shape}")
         return torch.from_numpy(dest).to(device=device)
+
+
+def save_tensor_h5(tensor: torch.Tensor, file_name: str, dataset: str = 'data',
+                   verbose: bool = False):
+    """单张量 HDF5 保存（h5py，多线程安全）。
+
+    每次调用新建独立 File 句柄（with 语句），不持有全局句柄；
+    多线程各线程独立调用即可安全并发（HDF5 线程安全模式），
+    适用于 null-vector / 粗网格算子缓存等本地持久化。
+    张量内部布局 xyzt 原样保存；用户自行保证与加载端布局约定一致。
+    """
+    import numpy as np
+    arr = tensor.detach().cpu().contiguous().numpy()
+    with h5py.File(file_name, 'w') as f:
+        f.create_dataset(dataset, data=arr)
+    if verbose:
+        print(f"PYQCU::TOOLS::IO:\n Tensor {tuple(tensor.shape)} saved to "
+              f"{file_name} (dataset='{dataset}')")
+
+
+def load_tensor_h5(file_name: str, dataset: str = 'data', device: torch.device = torch.device('cpu'),
+                   verbose: bool = False) -> torch.Tensor:
+    """单张量 HDF5 读取（h5py，多线程安全）。
+
+    每次调用新建独立 File 句柄（with 语句）；多线程并发读取安全。
+    """
+    with h5py.File(file_name, 'r') as f:
+        arr = f[dataset][...]
+    if verbose:
+        print(f"PYQCU::TOOLS::IO:\n Tensor {arr.shape} loaded from "
+              f"{file_name} (dataset='{dataset}')")
+    return torch.from_numpy(arr).to(device=device)
