@@ -235,6 +235,11 @@ namespace qcu {
 // When 1: multi-GPU clover test runs within a single-GPU environment.
 // Default 0 (production: multi-GPU clover runs on multi-GPU only).
 #define _CLOVER_TEST_MULTI_IN_SINGLE_ 0
+// When 1: every rank binds device 0 instead of getLocalRank(), allowing
+// multi-rank (mpirun -np N) MPI tests on a single-GPU machine.  The full MPI
+// codepath (halo exchange, Allgather, Allreduce) runs for real — only the
+// device mapping is shared.  Default 0 (production: one rank per GPU).
+#define _TEST_SINGLE_GPU_MULTI_RANK_ 1
 // cublas API error checking
 #define CUBLAS_CHECK(err)                                                      \
   do {                                                                         \
