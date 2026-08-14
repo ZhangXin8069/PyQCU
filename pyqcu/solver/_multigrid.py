@@ -92,6 +92,7 @@ class multigrid:
                 [E, Xc, Yc, Zc, Tc], dtype=fine_vec.dtype, device=fine_vec.device)
         qcu.applyMultigridRestrictQcu(
             self._mg_restrict_out, fine_vec, lonv, self.set_ptrs, self.params)
+        torch.cuda.synchronize()  # C++ 私有流完成后再返回（固定缓冲复用）
         return self._mg_restrict_out
 
     def _prolong_cuda(self, coarse_vec: torch.Tensor, level: int) -> torch.Tensor:
@@ -121,6 +122,7 @@ class multigrid:
                 [e, Xf, Yf, Zf, Tf], dtype=coarse_vec.dtype, device=coarse_vec.device)
         qcu.applyMultigridProLongQcu(
             self._mg_prolong_out, coarse_vec, lonv, self.set_ptrs, self.params)
+        torch.cuda.synchronize()
         return self._mg_prolong_out
 
     def _coarse_dslash_cuda(self, src: torch.Tensor, level: int) -> torch.Tensor:
@@ -173,6 +175,7 @@ class multigrid:
             self._mg_coarse_dslash_out, src,
             self._mg_coarse_hopping_packed, sitting,
             self.set_ptrs, self.params)
+        torch.cuda.synchronize()
         return self._mg_coarse_dslash_out
 
     def _verify_coarse_dslash(self, level: int = 1, tol: float = 1e-3) -> bool:
@@ -319,6 +322,7 @@ class multigrid:
                     self.params[define._SET_INDEX_] = 0
                     qcu.applyCloverBistabCgDslashQcu(self.dest_o, src_o, self.gauge_eo,
                                                      self.clover_ee, self.clover_oo, self.clover_ee_inv, self.clover_oo_inv,  self.set_ptrs, self.params)  # type: ignore
+                    torch.cuda.synchronize()  # C++ 私有流完成后再读固定缓冲
                     return self.dest_o.reshape(src_o.shape)
                 matvec = _matvec
         x = torch.zeros_like(b)
@@ -353,23 +357,48 @@ class multigrid:
         for i in range(self.max_iter):
             iter_start_time = perf_counter()
             # BUGFIX 2026-07-28 R2: BiCGStab breakdown detection (same as _bistabcg.py).
-            rho = tools.vdot(r_tilde, r)
-            if abs(rho) < 1e-30:
-                raise RuntimeError(f"MG BiCGStab breakdown at level {level} iter {i}: rho ≈ 0")
-            beta = (rho / rho_prev) * (alpha / omega)
-            rho_prev = rho
-            p = r + beta * (p - omega * v)
-            v = matvec(p)
-            rtv = tools.vdot(r_tilde, v)
-            if abs(rtv) < 1e-30:
-                raise RuntimeError(f"MG BiCGStab breakdown at level {level} iter {i}: vdot(r_tilde,v) ≈ 0")
-            alpha = rho / rtv
-            s = r - alpha * v
-            t = matvec(s)
-            tts = tools.vdot(t, t)
-            if abs(tts) < 1e-30:
-                raise RuntimeError(f"MG BiCGStab breakdown at level {level} iter {i}: vdot(t,t) ≈ 0")
-            omega = tools.vdot(t, s) / tts
+            # 2026-08-14: breakdown 改为自动重启（保留当前 x/r，重置影子向量与系数）
+            # 而非抛错 —— BiCGStab 对某些右端项在迭代中会合法 breakdown，
+            # 重启后通常继续收敛；迭代预算不变。
+            try:
+                rho = tools.vdot(r_tilde, r)
+                if abs(rho) < 1e-20:
+                    raise RuntimeError("rho")
+                beta = (rho / rho_prev) * (alpha / omega)
+                rho_prev = rho
+                p = r + beta * (p - omega * v)
+                v = matvec(p)
+                rtv = tools.vdot(r_tilde, v)
+                if abs(rtv) < 1e-20:
+                    raise RuntimeError("rtv")
+                alpha = rho / rtv
+                if not torch.isfinite(alpha):
+                    raise RuntimeError("alpha non-finite")
+                s = r - alpha * v
+                t = matvec(s)
+                tts = tools.vdot(t, t)
+                if abs(tts) < 1e-20:
+                    raise RuntimeError("tts")
+                omega = tools.vdot(t, s) / tts
+                if not torch.isfinite(omega):
+                    raise RuntimeError("omega non-finite")
+            except RuntimeError:
+                if self.verbose:
+                    print(f"PYQCU::SOLVER::MULTIGRID:\n {level}:BiCGStab breakdown "
+                          f"at iter {i}, restarting...")
+                r_tilde = r.clone()
+                p = torch.zeros_like(b)
+                v = torch.zeros_like(b)
+                s = torch.zeros_like(b)
+                t = torch.zeros_like(b)
+                rho = torch.tensor(1.0, dtype=b.dtype, device=b.device)
+                rho_prev = torch.tensor(1.0, dtype=b.dtype, device=b.device)
+                alpha = torch.tensor(1.0, dtype=b.dtype, device=b.device)
+                omega = torch.tensor(1.0, dtype=b.dtype, device=b.device)
+                r_norm = tools.norm(r)
+                if level == 0:
+                    self.convergence_history.append(r_norm)
+                continue
             x = x + alpha * p + omega * s
             r = s - omega * t
             r_norm = tools.norm(r)
