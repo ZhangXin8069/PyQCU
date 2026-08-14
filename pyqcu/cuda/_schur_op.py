@@ -58,9 +58,12 @@ class CudaSchurOp(object):
         device: 绑定的 torch 设备（多线程多卡模式下每线程一个 device）
     """
 
-    def __init__(self, av, g, ce, coo, cei, coi, device=None):
+    def __init__(self, av, g, ce, coo, cei, coi, device=None, params=None):
         self.device = device if device is not None else torch.device('cuda')
-        self.params = _module_params.clone()
+        if params is not None:
+            self.params = params.clone()
+        else:
+            self.params = _module_params.clone()
         self.params[define._SET_INDEX_] = _GLOBAL_SET_ALLOC.next()
         self.set_index = int(self.params[define._SET_INDEX_])
         self.params[define._SET_PLAN_] = 1
@@ -71,9 +74,16 @@ class CudaSchurOp(object):
         qcu.applyInitQcu(self.set_ptrs, self.params, av)
 
     def matvec(self, x_o):
-        y_o = torch.empty_like(x_o)
+        # 输入/输出必须连续：桥函数 .contiguous() 会拷贝，若输出非连续则
+        # C++ 写入副本、原张量内容不变（垃圾）导致求解错误。
+        x_c = x_o.contiguous()
+        # 同步 torch 默认流：torch 异步内核（如上一轮 vdot/norm）可能仍在
+        # 执行且其内存块被 empty_like 复用；C++ 私有流与其无同步 → 数据竞争
+        # （随机错误，实测 8x8x8x16 上 ~1/6 调用出错）。同步后分配/写入安全。
+        torch.cuda.current_stream().synchronize()
+        y_o = torch.empty_like(x_c)
         qcu.applyCloverBistabCgDslashQcu(
-            y_o, x_o, self._g, self._ce, self._coo, self._cei, self._coi,
+            y_o, x_c, self._g, self._ce, self._coo, self._cei, self._coi,
             self.set_ptrs, self.params)
         return y_o
 
@@ -93,9 +103,16 @@ class CudaSchurOp(object):
             pass
 
 
-def make_cuda_schur_ops(av, g, ce, coo, cei, coi, n=1, device=None, verbose=False):
-    """创建 n 个互不冲突的 CudaSchurOp 实例（多线程各持一个）。单线程调用。"""
-    ops = [CudaSchurOp(av, g, ce, coo, cei, coi, device=device) for _ in range(n)]
+def make_cuda_schur_ops(av, g, ce, coo, cei, coi, n=1, device=None, params=None,
+                        verbose=False):
+    """创建 n 个互不冲突的 CudaSchurOp 实例（多线程各持一个）。单线程调用。
+
+    params: 可选，与 gauge/clover 格点维度一致的 params 模板（克隆后分配
+            独立 _SET_INDEX_ 槽位）；缺省用模块级 params（默认 32³ 格点，
+            与 gauge/clover 维度不符会导致内核越界，务必传入）。
+    """
+    ops = [CudaSchurOp(av, g, ce, coo, cei, coi, device=device, params=params)
+           for _ in range(n)]
     if verbose:
         print(f"PYQCU::CUDA::SCHUR_OP:\n created {n} CudaSchurOp set_index="
               f"{[o.set_index for o in ops]}")

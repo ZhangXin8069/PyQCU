@@ -67,3 +67,5 @@ mpirun -np 1 python examples/qcu/conftest.clover.multigrid.py
 （speedup<1，硬件特性），服务器 V100-32G 8x8x8x16 实测 2.43x 达标；参数相对行为
 （3L>2L、r20>r10）两 GPU 一致可迁移；16x32x32x32 单卡 cold 可行，16x32x32x64 需
 分阶段构建，24x32x32x64 需多卡。
+
+| `conftest.multi_gpu.py` | 多线程多卡 C++ Clover MG 一致性验证（`test_multi_gpu_multigrid`；单卡环境 N 线程共享一卡验证线程隔离） |
