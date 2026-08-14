@@ -15,6 +15,8 @@ Cython bridge package for the C++ CUDA backend (`libqcu.so`).
 | `qcu/qcu.pxd` | Cython declaration file — `cdef extern` block matching `pyqcu.h` |
 | `qcu/qcu.pyi` | Type stub (155 lines) — full type annotations, docstrings, and default values for IDE support |
 | `define.py` | Parameter constants (`_LAT_X_`, `_SET_PLAN_`, etc.) and dtype conversion helpers (`dtype()`, `epytd()`) |
+| `_schur_op.py` | `CudaSchurOp` — C++ Schur odd-site operator wrapper (per-instance independent params/set_ptrs, thread-safe slot allocator; matvec uses preallocated buffer + device sync + clone to avoid deep pool/stream races) |
+| `_multi_gpu.py` | `MultiGpuMultigrid` — multi-thread multi-GPU C++ Clover MG driver (one-thread-one-GPU; consistency + independent-problem modes; `save_report` JSON; single-MPI-rank constraint) |
 
 ## Public API
 

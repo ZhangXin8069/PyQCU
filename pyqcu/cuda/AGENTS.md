@@ -82,3 +82,11 @@ qcu.applyEndQcu(set_ptrs, params)                  # 释放
 - pxd 的 cdef extern 声明必须带 `nogil` 关键字；pxd 声明名不得与 pyx 内 def 同名（用 `qcu_api.pxd` 别名 `cimport X as _c_X`，同名会被覆盖为 Python 函数导致 nogil 调用失败）。
 - 每线程独立 params/argv/set_ptrs 副本 + `torch.cuda.set_device(dev_id)`（CUDA current device 线程局部）。
 - 多线程多卡驱动见 `_multi_gpu.py`（`MultiGpuMultigrid`，单 MPI rank）；单算子见 `_schur_op.py`（`CudaSchurOp`）。
+
+## 已知问题（2026-08-14 记录）
+
+- **C++ Clover MG 对"T 方向不粗化"（coarse T 保持原值）2 层配置越界**：
+  `conftest.clover.multigrid.py` 的 2L 配置（MG_GRID=[2,2,2,1] → coarse [4,4,4,16]）
+  在 V-cycle coarse solve 阶段触发 illegal memory access（lattice_clover_multigrid.h:1530）。
+  1L 配置 PASS（speedup 1.58x）。T 方向正常粗化的 2L（coarse T/4）在
+  conftest.schur.multigrid.py 中 PASS。修复需深入 C++ 内核的粗层尺寸假设，暂缓。
