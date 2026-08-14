@@ -267,7 +267,11 @@ template <typename T> struct LatticeSet {
           cudaEventRecord(start, 0);
           cudaEventSynchronize(start);
           // checkCudaErrors(cudaSetDevice(host_params[_NODE_RANK_])); // !!!!!!
-          checkCudaErrors(cudaSetDevice(getLocalRank())); // !!!!!!
+          // One rank per GPU (local rank within the shared-memory node).
+          // _TEST_SINGLE_GPU_MULTI_RANK_ forces device 0 for single-GPU
+          // multi-rank MPI tests (see define.h).
+          checkCudaErrors(cudaSetDevice(
+              _TEST_SINGLE_GPU_MULTI_RANK_ ? 0 : getLocalRank())); // !!!!!!
         }
         { // give basic cuda setup
           CUBLAS_CHECK(cublasCreate(&cublasH));

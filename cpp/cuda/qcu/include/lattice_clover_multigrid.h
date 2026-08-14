@@ -191,6 +191,16 @@ template <typename T> struct LatticeCloverMultigrid {
   std::vector<T> conv_history;
   double level_times[8];
   double solve_time_ms;
+
+  // ---- Multi-rank (multi-GPU) support ----
+  // The backend runs the redundant-global model: every rank holds the FULL
+  // (parity-halved) lattice, keeps it consistent via halo exchange, and
+  // synchronises scalars with MPI_Allreduce.  Coarse dslash needs no inter-rank
+  // data (periodic wrap on the full coarse grid is exact), but coarse dots must
+  // be Allreduced so every rank sees the global value.  Single-rank runs never
+  // touch the MPI paths.
+  bool mg_multi = false;          // true when the 4D process grid != 1x1x1x1
+
   // ---- Section timing (2026-08-02) ----
   double prof_fine_iter_ms = 0;   // total fine-level iteration time
   double prof_vcycle_ms = 0;      // total V-cycle correction overhead
@@ -488,6 +498,9 @@ template <typename T> struct LatticeCloverMultigrid {
    * instead of cublasDot — profiling showed the cublas launch + memcpy
    * overhead dominated coarse solves.  Writes device_vals[vals_idx] on-device
    * and mirrors to host_vals only for the convergence check.
+   *
+   * Multi-rank: the local partial sum is reduced across ranks with
+   * MPI_Allreduce (real/imag separately) so every rank sees the global dot.
    */
   void dot_coarse(void *a, void *b, int lv, int vals_idx, int si) {
     auto d0=std::chrono::high_resolution_clock::now();
@@ -499,6 +512,20 @@ template <typename T> struct LatticeCloverMultigrid {
     checkCudaErrors(cudaMemcpyAsync(&host_vals[vals_idx], &dv[vals_idx],
         sizeof(LatticeComplex<T>), cudaMemcpyDeviceToHost, set_ptr->streams[si]));
     checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[si]));
+    if (mg_multi) {
+      T gx = host_vals[vals_idx].real(), gy = host_vals[vals_idx].imag();
+      MPI_Allreduce(MPI_IN_PLACE, &gx, 1, mpi_real_type<T>(), MPI_SUM,
+                    MPI_COMM_WORLD);
+      MPI_Allreduce(MPI_IN_PLACE, &gy, 1, mpi_real_type<T>(), MPI_SUM,
+                    MPI_COMM_WORLD);
+      host_vals[vals_idx] = LatticeComplex<T>(gx, gy);
+      // Mirror the reduced value back to device_vals — the BiStabCG kernels
+      // read the scalars from device memory.
+      checkCudaErrors(cudaMemcpyAsync(&dv[vals_idx], &host_vals[vals_idx],
+          sizeof(LatticeComplex<T>), cudaMemcpyHostToDevice,
+          set_ptr->streams[si]));
+      checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[si]));
+    }
     auto d1=std::chrono::high_resolution_clock::now();
     prof_coarse_dot_ms += std::chrono::duration<double,std::milli>(d1-d0).count();
   }
@@ -1113,6 +1140,9 @@ template <typename T> struct LatticeCloverMultigrid {
     // barriers — no host syncs inside.  Valid at the coarsest level only.
     // ====================================================================
     if (lev == num_levels - 1) {
+      // Fused single-launch coarse solve.  In the redundant-global multi-rank
+      // model every rank holds the full coarse grid and the fused kernel
+      // needs no inter-rank data, so the fused path is valid for ALL ranks.
       coarse_solve_fused(lev);
       return rn;
     }
@@ -1266,6 +1296,21 @@ template <typename T> struct LatticeCloverMultigrid {
     clover_dslash_ee.init(clover_ee);clover_dslash_oo.init(clover_oo);
     clover_dslash_ee_inv.init(clover_ee_inv);clover_dslash_oo_inv.init(clover_oo_inv);
     parse_params();
+
+    // Multi-rank (multi-GPU) mode: 4D process grid != 1x1x1x1.  Coarse dslash
+    // and coarse dots then dispatch to the MPI paths (Allgather + Allreduce).
+    mg_multi = !(set_ptr->host_params[_GRID_X_] == 1 &&
+                 set_ptr->host_params[_GRID_Y_] == 1 &&
+                 set_ptr->host_params[_GRID_Z_] == 1 &&
+                 set_ptr->host_params[_GRID_T_] == 1);
+    if (mg_multi && rank == 0 && verbose) {
+      log_write<T>("PYQCU::QCU::MULTIGRID::\n MG_MULTI_RANK: process grid ["+
+        std::to_string(set_ptr->host_params[_GRID_X_])+","+
+        std::to_string(set_ptr->host_params[_GRID_Y_])+","+
+        std::to_string(set_ptr->host_params[_GRID_Z_])+","+
+        std::to_string(set_ptr->host_params[_GRID_T_])+"] — coarse MPI paths active",
+        rank, true);
+    }
 
     // Set up parity-split pointers (even/odd parts of fermion buffers)
     b_e=fermion_in_eo;
