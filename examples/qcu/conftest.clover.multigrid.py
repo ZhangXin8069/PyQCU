@@ -14,7 +14,8 @@ from time import perf_counter
 import numpy as np
 from pyqcu import tools, dslash, solver
 from pyqcu.cuda import qcu
-from pyqcu.cuda.define import params, argv, set_ptrs, define
+import pyqcu.cuda.define as define
+from pyqcu.cuda.define import params, argv, set_ptrs
 
 LOG_DIR = os.path.expanduser("~/PyQCU/logs")
 os.makedirs(LOG_DIR, exist_ok=True)
@@ -171,7 +172,7 @@ for ci, (label, Lx, Ly, Lz, Lt, MASS, ATOL, NUM_LEVELS, DOF_LIST, MG_GRID, NUM_R
             ev_ratios = []
             for k in range(min(3, dof_coarse)):
                 Av = op_list[i-1].matvec(_null_vecs[k])
-                ratio = tools.norm(Av / _null_vecs[k].abs().clamp(min=1e-30)).item()
+                ratio = tools.norm(Av / _null_vecs[k].abs().clamp(min=1e-30))
                 ev_ratios.append(ratio)
             log(f"      ||A*v/v|| ratios: {[f'{r:.4f}' for r in ev_ratios]} (small → better null vec)")
 
