@@ -396,6 +396,23 @@ class MultiGpuMultigrid(object):
         self._results = results
         return results
 
+    def save_report(self, path: str):
+        """导出求解报告（JSON：配置/每线程耗时/残差/一致性）。"""
+        import json
+        if self._results is None:
+            raise RuntimeError("PYQCU::CUDA::MULTI_GPU:\n call solve() first")
+        rep = dict(self._results)
+        rep['threads'] = [{k: (float(v) if torch.is_tensor(v) and v.numel() == 1
+                               else (v.tolist() if torch.is_tensor(v) and v.numel() <= 16
+                                     else (f"<tensor{v.shape}>" if torch.is_tensor(v) else v)))
+                           for k, v in t.items()} for t in rep['threads']]
+        rep['device_ids'] = list(rep['device_ids'])
+        rep['dof_list'] = list(rep['dof_list'])
+        rep['lat_size'] = list(rep['lat_size'])
+        with open(path, 'w') as f:
+            json.dump(rep, f, indent=2)
+        print(f"PYQCU::CUDA::MULTI_GPU:\n report saved to {path}")
+
     def verify_consistency(self, tol: float = 1e-5) -> dict:
         """校验各线程解与线程 0 解（参考）的一致性（相对误差 < tol）。"""
         if self._results is None:
