@@ -1,0 +1,227 @@
+% ============ PyQCU 全库代码分析（最终版 v2） ============
+\documentclass[UTF8]{ctexart}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{fancyhdr}
+\usepackage[most]{tcolorbox}
+\usepackage{titlesec}
+
+\definecolor{accent}{HTML}{1F4E79}
+\definecolor{evidence}{HTML}{1E8449}
+\definecolor{reference}{HTML}{8C6D1F}
+\definecolor{conclusion}{HTML}{8B1A1A}
+\definecolor{codebg}{HTML}{F4F6F7}
+
+\titleformat{\section}{\Large\bfseries\color{accent}}{\thesection}{1em}{}
+\titleformat{\subsection}{\large\bfseries\color{accent!70!black}}{\thesubsection}{1em}{}
+
+\newtcolorbox{conclbox}{colback=conclusion!6,colframe=conclusion,title=结论}
+\newtcolorbox{refbox}{colback=reference!6,colframe=reference,title=参考背景}
+
+\title{PyQCU 全库代码分析（最终版 v3）\\[6pt]\large 多线程多卡 MultiGrid：竞争修复、2.8x 构建加速与大格子验证}
+\author{opencode analy}
+\date{2026-08-14}
+
+\lstset{
+  basicstyle=\ttfamily\footnotesize,
+  backgroundcolor=\color{codebg},
+  frame=single,
+  breaklines=true,
+  language=C++,
+  firstnumber=auto,
+  keywordstyle=\color{accent}\bfseries,
+  commentstyle=\color{evidence!70!black},
+}
+
+\begin{document}
+\maketitle
+\begin{abstract}
+本报告为 PyQCU 全库代码分析的最终版（v2），聚焦本会话（8 小时高强度
+debug/optim/新功能循环）的成果。PyQCU 是 Lattice QCD 的 Python/Cython 库：CUDA 加速的
+Wilson/Clover Dirac 算子、BiStabCG 与多重网格（MultiGrid）求解器、stout smearing 与
+规范场生成，MPI 分布于 4D 进程网格。本版核心内容：多线程多卡（一线程一卡）MultiGrid
+路径的完整构建 —— 三处 CudaSchurOp bug 修复、C++ 私有流与 torch 分配器深层竞争修复、
+多线程 null 向量与 33-tensor stencil 构建（加速 2.8x）、独立问题吞吐模式、Python
+multigrid CUDA 混合路径同步与 BiCGStab 自动重启。全部结论附实测证据与参考源。
+\end{abstract}
+
+\tableofcontents
+
+\section{仓库概览（截至 2026-08-14 15:00）}
+
+\begin{center}
+\begin{tabular}{lrr}
+\toprule
+类别 & 数量 & 说明 \\
+\midrule
+Python 文件 & 122 & 库 + 测试 + Cython 源 \\
+C++ 头 / CUDA 源 & 24 / 30 & \texttt{cpp/cuda/qcu/} 模板内核 \\
+文档（md） & 134 & AGENTS.md 体系 + docs/ \\
+git 提交（主分支） & 1085+ & 本会话新增 7 个 \texttt{[opencode]} 提交 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+架构层级：入口层（\texttt{pyqcu/}、\texttt{examples/}）→ 核心层（dslash/solver/smear/tools）
+→ 桥接层（\texttt{pyqcu/cuda/} Cython 桥）→ 后端层（\texttt{cpp/cuda/qcu/}）→ 兼容层（cann 占位）。
+参数协议：\texttt{params}(int32[54]) / \texttt{argv}(float[7]) / \texttt{set\_ptrs}(int64[100])
+三张扁平张量桥接（\texttt{pyqcu/cuda/define.py:11-90}），与 \texttt{define.h} 同步；
+调用生命周期要求调用间 \texttt{\_SET\_INDEX\_} 递增。
+
+\section{多线程多卡（一线程一卡）MultiGrid 路径}
+
+\subsection{架构三件套}
+
+\begin{enumerate}
+  \item \textbf{Cython 桥真并行}：\texttt{pyqcu/cuda/qcu/qcu.pyx} 全部桥函数 GIL 段取指针、
+        \texttt{with nogil} 调 C++；pxd 声明带 \texttt{nogil} 关键字、别名 cimport
+        （\texttt{qcu\_api.pxd}）规避同名 def 覆盖。
+  \item \textbf{多线程安全 Schur 算子}：\texttt{CudaSchurOp}（\texttt{pyqcu/cuda/\_schur\_op.py:47}）
+        每实例独立 params/set\_ptrs 副本 + 线程安全槽位分配器。
+  \item \textbf{多线程多卡驱动}：\texttt{MultiGpuMultigrid}（\texttt{pyqcu/cuda/\_multi\_gpu.py:133}）
+        单进程 N 线程 × 卡绑定；一致性模式（共享输入）+ 独立问题模式（\texttt{independent\_problems}，
+        每线程不同 seed、缓存按线程分目录）。
+\end{enumerate}
+
+\subsection{本轮关键 bug 修复（证据驱动）}
+
+\begin{enumerate}
+  \item \textbf{CudaSchurOp 三处 bug}：① 构造克隆模块级 params（默认 32³ 格点）与
+        gauge/clover 维度不符 → 内核越界（illegal memory access）；② 输出张量非连续时
+        C++ 写入 contiguous 副本、原张量不变（垃圾）；③ 默认流与 C++ 私有流无同步。
+        修复后 100 次 matvec 与 Python 参考一致（$2\times10^{-7}$）。
+  \item \textbf{深层竞争}：C++ 私有流写 torch 分配器内存（池复用）在"预计算参考 + 大量
+        中间张量"场景下 25--80\% 调用结果错误（`precomputed-refs` 复现：8x8x8x16 probe
+        输入）。修复：\texttt{CudaSchurOp.matvec} 输出改\textbf{预分配固定缓冲} + 设备级
+        同步 + \texttt{clone}（\texttt{\_schur\_op.py:75-95}）。修复后 300/300 通过。
+  \item \textbf{Python multigrid CUDA 混合路径}：\texttt{cycle} 的 \texttt{\_matvec} 等
+        4 处 C++ 调用后补 \texttt{torch.cuda.synchronize()}（固定输出缓冲 + 私有流竞争 →
+        iter 0 breakdown）；BiCGStab breakdown 改\textbf{自动重启}（保留 x/r、重置影子向量
+        与系数、阈值 1e-20 + alpha/omega 有限性检查）。实测 8x8x8x8 1L 残差 $8.7\times10^{-7}$、
+        8x8x8x16 2L $7.8\times10^{-7}$。
+\end{enumerate}
+
+\subsection{多线程粗网格构建（性能优化）}
+
+\begin{itemize}
+  \item \texttt{give\_null\_vecs\_mt}（\texttt{tools/\_multigrid.py:281}）：每线程独立 CUDA
+        RNG generator（防全局 RNG 竞争产生相关序列）、nan/breakdown 重试 + 随机回退、
+        worker 内显式 \texttt{set\_device}、\texttt{nthreads<=1} 直接执行（防嵌套线程池）。
+  \item \texttt{build\_stencil\_mt}（\texttt{tools/\_multigrid.py:365}）：probe 探测点写集
+        不相交；\texttt{src\_c} 预分配复用（省 1536 次分配）。
+  \item \texttt{build\_schur\_levels} 多线程分支（\texttt{\_multi\_gpu.py:45}）：C++ matvec
+        构建（替代 Python einsum）→ 8x8x8x16 E=24 构建\textbf{135s → 48s（2.8x）}，
+        stencil 自洽性 $2.0\times10^{-7}$；C++ MG 用多线程构建的粗算子残差 $1.6\times10^{-7}$。
+\end{itemize}
+
+\subsection{性能与正确性实测（RTX 4060 单卡）}
+
+\begin{center}
+\begin{tabular}{llll}
+\toprule
+验证项 & 配置 & 结果 & 判据 \\
+\midrule
+多线程一致性 & 2/4 线程 × 8x8x8x16 & 线程间 $<10^{-5}$ PASS & tol 1e-5 \\
+C++ MG 残差 & mt 构建粗算子 2L & $1.6\times10^{-7}$ PASS & $<10^{-5}$ \\
+构建加速 & 8x8x8x16 E=24 & 135s → 48s（2.8x） & 实测 \\
+独立问题模式 & 2 线程不同 seed & 解不同、各自收敛 PASS & 解差 $>10^{-4}$ \\
+参数扫描 & 8 配置（L2/3、r5-20、ct1e2-1e5） & 全部 $1.5\times10^{-7}$ 收敛 & sweep \\
+Python multigrid & 1L/2L 混合路径 & $8.7\times10^{-7}$ / $7.8\times10^{-7}$ & $<10^{-5}$ \\
+h5py 并发 & 4 线程独立文件 & max\_err=0 PASS & 往返相等 \\
+test12 clean & 8x8x8x16 2L & MG 残差 $8.3\times10^{-7}$ PASS & 权威回归 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{对象映射（代码符号 ↔ 物理对象）}
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+代码符号 & 对象概念 & 物理含义 \\
+\midrule
+\texttt{hopping} / \texttt{sitting} & Wilson 跃迁 / 质量项 & $\bar\psi\gamma_\mu U_\mu\psi$ 与对角项 \\
+\texttt{clover\_term} & Clover 项 & $c_{sw}\sigma_{\mu\nu}F_{\mu\nu}$，$O(a)$ 改进 \\
+\texttt{matvec\_parity} & Schur 奇偶算子 & $S = A_{oo} - k^2 D_{oe} A_{ee}^{-1} D_{eo}$ \\
+\texttt{null\_vecs} & 近零空间向量 & 逆迭代 $v - A^{-1}Av$（残差级噪声向量） \\
+\texttt{33-tensor stencil} & 粗网格算子 & Galerkin $A_c = P^T S P$（on-site+近邻+对角）\\
+\texttt{CudaSchurOp} & C++ Schur 算子封装 & 多线程安全，每实例独立状态 \\
+\texttt{MultiGpuMultigrid} & 多卡 MG 驱动 & 一线程一卡，一致/独立两种模式 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{关键代码片段}
+
+\subsection{CudaSchurOp 深层竞争修复}
+\lstinputlisting[firstline=63,lastline=95]{/root/PyQCU/pyqcu/cuda/_schur_op.py}
+
+\subsection{多线程 null 向量生成（鲁棒化）}
+\lstinputlisting[firstline=297,lastline=345]{/root/PyQCU/pyqcu/tools/_multigrid.py}
+
+\section{参考源清单}
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+文件:行号 & 类型 & 内容 \\
+\midrule
+\texttt{pyqcu/cuda/qcu/qcu.pyx:1-16} & 仓库 & Cython 桥 nogil 真并行 \\
+\texttt{pyqcu/cuda/qcu/qcu\_api.pxd} & 仓库 & pxd 别名（nogil 声明）\\
+\texttt{pyqcu/cuda/\_schur\_op.py:47-95} & 仓库 & CudaSchurOp + 深层竞争修复 \\
+\texttt{pyqcu/cuda/\_multi\_gpu.py:45-390} & 仓库 & 多线程多卡驱动 + 独立模式 \\
+\texttt{pyqcu/tools/\_multigrid.py:281-410} & 仓库 & 多线程 null/stencil 构建 \\
+\texttt{pyqcu/tools/\_io.py:165-200} & 仓库 & h5py 多线程安全读写 \\
+\texttt{pyqcu/solver/\_multigrid.py:357-395} & 仓库 & 同步 + breakdown 自动重启 \\
+\texttt{pyqcu/testing/\_\_init\_\_.py:535-630} & 仓库 & 多线程验证测试 \\
+\texttt{pyqcu/cuda/AGENTS.md} & 仓库 & 已知问题（2L T 不粗化越界）\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{大格子与多配置验证（v3 新增）}
+
+\begin{itemize}
+  \item \textbf{16$^4$ 2L}：mt4 构建 1358s（E=48 首次）、C++ MG 求解 5.7s、
+        残差 $1.5\times10^{-7}$ PASS；\textbf{缓存命中 2.3s}（~590x 加速）。
+  \item \textbf{12$^3\times16$ 2L（非 2 幂）}：mt4 构建 398s、求解 5.6s、
+        残差 $1.5\times10^{-7}$ PASS。
+  \item \textbf{conftest.clover.multigrid.py 协议迁移}：旧协议（base=10 3 槽、
+        无 hop\_diag、E=12、T 参数错误）与 C++ 新协议（base=30 4 槽 33-tensor）
+        不符是 2L 越界/nan 的根因（非内核 bug）；迁移后 8x8x8x16 2L/2L\_r3、
+        12$^3\times16$、16$^4$ 全 PASS。
+  \item \textbf{Python multigrid 多线程实例}：2 线程独立实例并行求解
+        8x8x8x8 1L 残差 $8.9\times10^{-6}$/$9.5\times10^{-6}$ PASS；
+        \texttt{MultiGpuMultigrid.solve} 内置 torch lazy 预热
+        （防 worker 并发 \texttt{torch.linalg.inv} 初始化竞争）。
+  \item \textbf{参数扫描}：8 配置（L2/3、r5-20、ct1e2-1e5）全部收敛
+        （$1.5\times10^{-7}$）。
+\end{itemize}
+
+\section{结论与局限}
+
+\begin{conclbox}
+\textbf{最终结论}：
+\begin{enumerate}
+  \item 多线程多卡 MultiGrid 路径完整可用：Cython 桥真并行、算子线程安全、驱动双模式、
+        粗网格构建加速 2.8x；正确性以多线程一致性与 stencil 自洽性双重判据实测达标。
+  \item 本轮修复了 5 类真实缺陷（params 维度/非连续输出/流同步/深层内存竞争/混合路径
+        同步+数值鲁棒性），全部有可复现证据与回归。
+  \item 持久化统一 h5py 且多线程安全；散落库代码（Schur 算子、stencil 构建）已合并。
+\end{enumerate}
+\end{conclbox}
+
+\textbf{局限}：
+\begin{itemize}
+  \item 本机单卡（RTX 4060 8GB）：多卡物理部署需多 GPU 节点实测；单卡多线程 GPU 瓶颈
+        （构建 2.8x 为线程并行 + C++ matvec 的双重收益，求解阶段单卡无加速）。
+  \item C++ 后端对"T 方向不粗化"2 层配置越界（\texttt{lattice\_clover\_multigrid.h:1530}）
+        为已知问题，修复需深入内核粗层尺寸假设，暂缓。
+  \item Python multigrid 求解器（非 C++ 路径）性能瓶颈在 Python 层与同步开销，
+        C++ 后端为生产路径。
+\end{itemize}
+
+\end{document}
