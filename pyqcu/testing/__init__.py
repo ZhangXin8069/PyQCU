@@ -530,3 +530,74 @@ def test_smear_stout(lat_size: List[int] = [8, 8, 8, 16], device: torch.device =
     #     print(f"whole_smear_U:\n{whole_smear_U}")
     #     print(f"_whole_smear_U:\n{_whole_smear_U}")
     #     print(f"whole_smear_U-_whole_smear_U:\n{whole_smear_U-_whole_smear_U}")
+
+
+def test_h5py_multithread(nthreads: int = 4, tmp_dir: str = None,
+                          dtype: torch.dtype = torch.complex64,
+                          lat_size: List[int] = [4, 4, 4, 8]):
+    """h5py 多线程读写验证（任务②）。
+
+    每线程独立 h5py.File 句柄（with 语句），并发写/读各自文件，
+    校验往返一致（逐元素相等）；再验证多线程并发读同一文件。
+    """
+    import tempfile, os
+    from concurrent.futures import ThreadPoolExecutor
+    from pyqcu.tools import save_tensor_h5, load_tensor_h5
+    if tmp_dir is None:
+        tmp_dir = tempfile.mkdtemp(prefix="pyqcu_h5_mt_")
+    os.makedirs(tmp_dir, exist_ok=True)
+    data = [_torch.randn(size=[12]+lat_size, dtype=dtype, device=torch.device('cpu')) for _ in range(nthreads)]
+
+    def write_read(tid):
+        fname = os.path.join(tmp_dir, f"mt_{tid}.h5")
+        save_tensor_h5(data[tid], fname, dataset="data")
+        back = load_tensor_h5(fname, dataset="data", device=torch.device('cpu'))
+        return float((back - data[tid]).abs().max().item())
+
+    def read_shared(fname, tid):
+        # 多线程并发读同一文件（独立句柄）
+        return float(load_tensor_h5(fname, dataset="data",
+                                    device=torch.device('cpu')).abs().max().item())
+
+    shared_file = os.path.join(tmp_dir, "shared.h5")
+    save_tensor_h5(data[0], shared_file, dataset="data")
+    with ThreadPoolExecutor(max_workers=nthreads) as ex:
+        max_errs = list(ex.map(write_read, range(nthreads)))
+        norms = list(ex.map(lambda t: read_shared(shared_file, t), range(nthreads)))
+    max_err = max(max_errs)
+    assert max_err == 0.0, f"h5py multithread round-trip max error {max_err}"
+    assert all(abs(n - float(data[0].abs().max().item())) < 1e-12 for n in norms), \
+        "h5py concurrent shared-file read mismatch"
+    print(f"PYQCU::TESTING::TOOLS::IO:\n h5py multithread ({nthreads} threads) "
+          f"write/read round-trip: PASS (max_err={max_err:.1e})")
+    return tmp_dir
+
+
+def test_multi_gpu_multigrid(nthreads: int = 2, lat_size: List[int] = [8, 8, 8, 16],
+                             mass: float = 0.05, atol: float = 1e-6,
+                             num_levels: int = 2, tol: float = 1e-5, verbose: bool = True):
+    """多线程多卡 C++ Clover Multigrid 一致性验证（任务①，一线程一卡）。
+
+    单卡环境：nthreads 线程共享一张卡，验证线程隔离与结果一致性；
+    多卡环境：每线程绑定 device_ids[tid % n_gpus]，验证跨卡一致性。
+    判据：各线程解与线程 0 参考解的最大相对差 < tol，且每个线程的
+    MG 解与自身 BiStabCG 参考解的相对残差达标（数值上 ≈ 1）。
+    """
+    from pyqcu.cuda._multi_gpu import MultiGpuMultigrid
+    mg = MultiGpuMultigrid(lat_size=list(lat_size), mass=mass, atol=atol,
+                           num_levels=num_levels, nthreads=nthreads,
+                           verbose=verbose)
+    results = mg.solve()
+    consistency = mg.verify_consistency(tol=tol)
+    assert consistency['all_pass'], \
+        f"multi-GPU MG consistency failed: {consistency['checks']}"
+    # 各线程 MG 解 vs 本线程 BiStabCG 参考（相对残差应 ≈ 1，验证求解收敛）
+    for t in results['threads']:
+        d = (t['mg'] - t['ref']).abs().max().item()
+        ref_max = t['ref'].abs().max().item()
+        rel = d / (ref_max + 1e-30)
+        assert rel < 1e-3, f"tid={t['tid']} MG vs BiStabCG rel diff {rel} >= 1e-3"
+    print(f"PYQCU::TESTING::SOLVER::MULTIGRID::MULTI_GPU:\n "
+          f"{nthreads} threads x {len(mg.device_ids)} GPU(s): PASS "
+          f"(consistency tol={tol})")
+    return results, consistency
