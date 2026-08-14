@@ -6,6 +6,13 @@ description: pyqcu.solver 目录的完整生成 skill：BiCGStab(l) 与自适应
 
 Iterative solvers for the Dirac equation D ψ = η.
 
+## CUDA 混合路径约定（2026-08-14）
+
+- `_matvec`/`_restrict_cuda`/`_prolong_cuda`/`_coarse_dslash_cuda` 的 C++ 调用后必须
+  `torch.cuda.synchronize()`（C++ 私有流写固定输出缓冲，与 torch 默认流无跨流同步）。
+- BiCGStab breakdown 自动重启（保留 x/r，重置影子向量与系数，阈值 1e-20 +
+  alpha/omega 有限性检查），不再抛 RuntimeError。
+
 ## Files
 
 | File | Purpose |

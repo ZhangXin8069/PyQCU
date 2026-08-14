@@ -6,6 +6,14 @@ description: pyqcu.tools 目录的完整生成 skill：MPI 网格/奇偶分割/�
 
 Utility modules for MPI grid management, HDF5 I/O, linear algebra, tensor operations, multigrid transfers, and TileLang JIT kernels.
 
+## 多线程构建工具（2026-08-14）
+
+- `give_null_vecs_mt(matvec_ops, ...)` — 多线程 null 向量（每线程独立 CUDA generator、
+  nan/breakdown 重试、worker 内 set_device、nthreads<=1 直接执行防嵌套线程池）
+- `build_stencil_mt(matvec_ops, lonv, ...)` — 多线程 33-tensor stencil（probe 写集不相交、
+  src_c 预分配复用）；与单线程构建逐元素一致（0 误差）
+- `apply_stencil(hop_nn, hop_diag, sit, v)` — Python 参考实现（A_c = P^T S P）
+
 ## Files
 
 | File | Purpose |
