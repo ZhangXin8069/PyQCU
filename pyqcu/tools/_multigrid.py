@@ -278,8 +278,75 @@ PAIRS = [(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]  # (d1,d2) with d1<d2
 SIGN = [1, -1]
 
 
+def give_null_vecs_mt(matvec_ops, dof, e, lat_fine_odd, dtype, device,
+                      nv_iters=1, nthreads=None, seed=42, verbose=True):
+    """多线程 null 向量生成（逆迭代，向量相互独立，写集不相交）。
+
+    matvec_ops: 每线程一个 matvec 算子（如 CudaSchurOp 实例列表；各实例持独立
+                LatticeSet/cublas handle，多线程调用安全）。
+    语义与 give_null_vecs 等价：v = randn；v -= A^{-1} A v（bistabcg 解，tol=5e-5）；
+    归一化。返回 [dof, e]+lat_fine_odd 张量（device 上）。
+    多线程安全性：每线程独立 CUDA RNG generator（避免全局 RNG 竞争产生相关
+    随机序列导致 BiCGStab 病态）；breakdown/nan 时重采样重试，最终回退随机向量。
+    """
+    from concurrent.futures import ThreadPoolExecutor
+    nthreads = nthreads or len(matvec_ops)
+    null = torch.zeros([dof, e] + list(lat_fine_odd), dtype=dtype, device=device)
+    chunk = (dof + nthreads - 1) // nthreads
+
+    def _gen(op, i, tid):
+        # 每向量独立 CUDA generator（线程内顺序使用，无竞争）
+        gen = torch.Generator(device=device).manual_seed(
+            (seed + tid * 104729 + i * 10007) % (2**31 - 1))
+        mv = op.matvec if hasattr(op, 'matvec') else op
+        v = None
+        for _try in range(5):
+            v = torch.randn([e] + list(lat_fine_odd), dtype=dtype,
+                            device=device, generator=gen)
+            try:
+                for _ in range(nv_iters):
+                    # 相对单线程版收紧容差：C++ matvec 噪声底 ~2e-6（float32），
+                    # 5e-5 绝对容差导致残差卡噪声层不收敛（max_iter 空转）。
+                    v = v - solver.bistabcg(b=mv(v), matvec=mv, tol=5e-6, verbose=False)
+                nrm = torch.linalg.norm(v)
+                if not torch.isfinite(v).all() or float(nrm) == 0.0:
+                    continue
+                v = v / nrm
+                if torch.isfinite(v).all():
+                    return v
+            except RuntimeError:
+                # BiCGStab breakdown on random rhs: resample and retry
+                continue
+        # 最终回退：归一化随机向量（避免 zeros 导致 norm 除零）
+        if v is None or not torch.isfinite(v).all() or float(torch.linalg.norm(v)) == 0.0:
+            v = torch.randn([e] + list(lat_fine_odd), dtype=dtype,
+                            device=device, generator=gen)
+            v = v / torch.linalg.norm(v)
+        return v
+
+    def worker(tid):
+        # 显式绑定设备上下文（与 MultiGpuMultigrid 约定一致）：worker 线程
+        # 首次 CUDA 操作须 set_device，否则 torch per-thread 默认流/CUDA 状态
+        # 与 C++ 后端调用环境不一致，导致多线程下 matvec 结果异常。
+        torch.cuda.set_device(device.index if (device.type == 'cuda' and device.index is not None) else 0)
+        op = matvec_ops[tid % len(matvec_ops)]
+        c0 = tid * chunk
+        c1 = min(dof, c0 + chunk)
+        for i in range(c0, c1):
+            null[i] = _gen(op, i, tid)
+
+    with ThreadPoolExecutor(max_workers=nthreads) as ex:
+        list(ex.map(worker, range(nthreads)))
+    if verbose:
+        import time
+        print(f"PYQCU::TOOLS::MULTIGRID:\n null_vecs build ({nthreads} threads): "
+              f"{dof} vectors, nv_iters={nv_iters}")
+    return null
+
+
 def _probe_point(matvec, lonv, E, ee, c_idx, sit, hop_nn, hop_diag, dims, Nc):
     """单点探测：(c_idx, ee) 处的 33-tensor 耦合。写集互不相交，可并行。"""
+    mv = matvec.matvec if hasattr(matvec, 'matvec') else matvec
     Xc, Yc, Zc, Tc = dims
     str_Y, str_Z = Yc * Zc * Tc, Zc * Tc
     cx = c_idx // str_Y; rem = c_idx % str_Y
@@ -289,7 +356,7 @@ def _probe_point(matvec, lonv, E, ee, c_idx, sit, hop_nn, hop_diag, dims, Nc):
     src_c = torch.zeros([E, Xc, Yc, Zc, Tc], dtype=sit.dtype, device=sit.device)
     src_c[ee, cx, cy, cz, ct] = 1.0
     f = prolong(local_ortho_null_vecs=lonv, coarse_vec=src_c)
-    dc = restrict(local_ortho_null_vecs=lonv, fine_vec=matvec(f))
+    dc = restrict(local_ortho_null_vecs=lonv, fine_vec=mv(f))
     sit[:, ee, cx, cy, cz, ct] = dc[:, cx, cy, cz, ct]
     for d in range(4):
         b = ccoords[:]; b[d] = (b[d] - 1 + dims[d]) % dims[d]

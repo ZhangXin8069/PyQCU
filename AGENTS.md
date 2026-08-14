@@ -24,12 +24,14 @@ PyQCU：Lattice QCD 的 Python/Cython 库 —— CUDA 加速的 Wilson/Clover Di
 - **张量布局**：规范场 `[3,3,4,Lx,Ly,Lz,Lt]`、费米子场 `[4,3,Lx,Ly,Lz,Lt]`、Clover 项 `[4,3,4,3,Lx,Ly,Lz,Lt]`；时空维永远是最后 4 轴（`...xyzt`），ward 索引用负整数（`wards['x']=-4`）。HDF5 内部用 `zyxt` 序，经 `ccdxyzt2ccdptzyx`/`scxyzt2psctzyx` 转换。
 - **日志约定**：`PYQCU::MODULE::SUBMODULE:\n message`，由 verbose 标志控制。
 - **测试**：测试函数在 `pyqcu/testing/__init__.py`，`examples/*/conftest.py` 手动取消注释要运行的测试。
+- **多线程多卡（一线程一卡）**：`pyqcu/cuda/_multi_gpu.py`（`MultiGpuMultigrid`）单进程内 N 线程 × 卡绑定并行；每线程独立 `params/argv/set_ptrs` 副本（`_SET_INDEX_` 各自从 0 计数）。Cython 桥（`qcu.pyx`）全部函数在 GIL 段取指针、`with nogil` 调 C++（真并行）；pxd 的 cdef extern 声明必须带 `nogil` 关键字，且 pxd 声明名不得与 pyx 内 def 同名（用 `qcu_api.pxd` 别名 cimport）。MultiGpuMultigrid 要求单 MPI rank（C++ LatticeSet 用 COMM_WORLD rank 覆盖 `_NODE_RANK_`）。
+- **HDF5 持久化（h5py）**：所有保存/读取走 h5py；`pyqcu/tools/_io.py` 的 `save_tensor_h5`/`load_tensor_h5`（每调用独立 File 句柄，多线程安全）+ MPI mpio 路径（`gridoooxyzt2hdf5oooxyzt`）。null-vector/粗网格算子缓存 `.h5`（单句柄一次写全部 dataset，勿逐 dataset 覆盖重建）。
 
 ## 目录结构
 
 | 路径 | 内容 |
 |---|---|
-| `pyqcu/` | 纯 Python 实现：`lattice/`（gamma/Gell-Mann 矩阵、SU(3)）、`dslash/`（Wilson/Clover 算子）、`solver/`（BiStabCG、multigrid；`_gmres.py` 为占位）、`smear/`（stout）、`tools/`（MPI 网格、HDF5 I/O、linalg、multigrid 工具、TileLang JIT）、`testing/`（集成测试）、`cuda/`（Cython 桥）、`cann/dtk/maca`（NPU 兼容层与占位） |
+| `pyqcu/` | 纯 Python 实现：`lattice/`（gamma/Gell-Mann 矩阵、SU(3)）、`dslash/`（Wilson/Clover 算子）、`solver/`（BiStabCG、multigrid；`_gmres.py` 为占位）、`smear/`（stout）、`tools/`（MPI 网格、HDF5 I/O、linalg、multigrid 工具含 33-tensor stencil build、TileLang JIT）、`testing/`（集成测试）、`cuda/`（Cython 桥 + `_schur_op.py` 多线程 Schur 算子 + `_multi_gpu.py` 多线程多卡 MG 驱动）、`cann/dtk/maca`（NPU 兼容层与占位） |
 | `cpp/cuda/qcu/` | C++ CUDA 后端：`src/`（.cu 内核）、`include/`（26 个模板头）、`python/pyqcu.h`（C API，须与 qcu.pxd 同步）、`logs/` |
 | `cpp/{cann,dtk,maca}/qcu/` | 占位 PASS，无实现 |
 | `examples/` | 测试入口：`pyqcu/`（主套件）、`qcu/`（C++ 后端；dev 套件归档于 `qcu/dev73/`、`qcu/dev74/`，产物写 `logs/dev73/`、`logs/dev74/`）、`cpu/npu/dcu/gpu/tilelang/profiler/benchmark/`、`data/`（参考 HDF5） |

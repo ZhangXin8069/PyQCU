@@ -32,6 +32,7 @@ from ._io import hdf5oooxyzt2gridoooxyzt as hdf5oooxyzt2gridoooxyzt
 from ._io import save_tensor_h5 as save_tensor_h5
 from ._io import load_tensor_h5 as load_tensor_h5
 from ._multigrid import give_null_vecs as give_null_vecs
+from ._multigrid import give_null_vecs_mt as give_null_vecs_mt
 from ._multigrid import local_orthogonalize as local_orthogonalize
 from ._multigrid import restrict as restrict
 from ._multigrid import prolong as prolong
