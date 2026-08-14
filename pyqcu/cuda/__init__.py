@@ -6,5 +6,7 @@
 # This file makes pyqcu.cuda a proper Python package. The public API is:
 #   from pyqcu.cuda import qcu       # Cython bridge to libqcu.so
 #   from pyqcu.cuda import define    # Parameter constants and dtype helpers
+#   from pyqcu.cuda import schur_op  # CudaSchurOp (multi-thread-safe Schur op)
+#   from pyqcu.cuda import multi_gpu # MultiGpuMultigrid (one-thread-one-GPU driver)
 from argparse import Namespace
 Namespace.__module__ = "pyqcu.cuda"
