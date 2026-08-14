@@ -276,13 +276,17 @@ class MultiGpuMultigrid(object):
                 params_t, argv_t, set_ptrs_t, dev, self.mass, self.atol,
                 self.dt, seed=42 + tid, verbose=False)
             # 粗算子构建直接用 C++ matvec（避免 worker 内 Python clover inverse
-            # 的 torch lazy 初始化并发冲突；也更快）
+            # 的 torch lazy 初始化并发冲突；也更快）。
+            # 独立问题各线程 seed 不同 → 缓存 key 相同 → 必须按线程分目录，
+            # 否则多线程写同一缓存文件互相污染。
+            cache_t = (os.path.join(self.cache_dir, f"tid{tid}")
+                       if self.cache_dir else None)
             ops_t = [CudaSchurOp(av, g, ce, coo, cei, coi, params=params_t)]
             coarse = list(zip(*build_schur_levels(
                 None, None, self.num_levels, self.dof_list, self.mg_grid,
                 self.lat_size, self.dof_list[1], self.dt, dev,
                 nv_iters=self.nv_iters, use_cache=self.use_cache,
-                cache_dir=self.cache_dir, verbose=False,
+                cache_dir=cache_t, verbose=False,
                 matvec_ops=ops_t, nthreads=1)))
             for o in ops_t: o.release()
         else:
@@ -357,7 +361,19 @@ class MultiGpuMultigrid(object):
                              kappa=torch.Tensor([kappa]), support_parity=True,
                              verbose=False)
         S = op.matvec_parity
-        coarse = self._build_coarse_ops(S, self.dof_list[1], main_dev)
+        # 粗算子构建默认用多线程路径（C++ matvec，加速 ~2x；每线程一个 op）
+        if self.nthreads > 1:
+            ops_build = [CudaSchurOp(av, g, ce, coo, cei, coi, params=params_t)
+                         for _ in range(min(self.nthreads, 4))]
+            coarse = build_schur_levels(
+                op, S, self.num_levels, self.dof_list, self.mg_grid, self.lat_size,
+                self.dof_list[1], self.dt, main_dev, nv_iters=self.nv_iters,
+                use_cache=self.use_cache, cache_dir=self.cache_dir, verbose=False,
+                matvec_ops=ops_build, nthreads=len(ops_build))
+            for o in ops_build:
+                o.release()
+        else:
+            coarse = self._build_coarse_ops(S, self.dof_list[1], main_dev)
         shared = {'g': g, 'fi': fi, 'ce': ce, 'cei': cei, 'coo': coo, 'coi': coi,
                   'coarse': list(zip(*coarse))}  # [(lonv,hnn,hdg,sit)] per coarse level
         # 清理主线程临时 LatticeSet（setup 用），避免槽位与工作线程混淆
