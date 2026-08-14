@@ -65,3 +65,12 @@ Dirac 方程 D ψ = η 的迭代求解器。
   如 `torch.linalg.inv(torch.randn([4,4], device='cuda'))`），否则 worker 并发
   首次触发报 "lazy wrapper should be called at most once"。
   `MultiGpuMultigrid.solve()` 已内置该预热。
+
+### 多实例资源管理（2026-08-14）
+
+- `multigrid.end()` 释放 init 创建的 C++ LatticeSet（槽位 0.._max_set_index）；
+  `__del__` 自动调用（先设备同步）。16³×32 大格子单实例 init 构建仍可能 OOM
+  （null 向量逆迭代每向量一个 LatticeSet 的 pre-existing 设计，小格子正常）。
+- **多实例循环必须显式**：`mg.end(); del mg; gc.collect()` —— 依赖隐式 GC 释放
+  的时机不可控，会与后续实例的 C++ 操作并发干扰（实测 3 实例循环隐式 GC 时
+  第 2 个实例残差 ~O(1)；显式 end+del+gc 后 3 实例全 9e-7 收敛）。
