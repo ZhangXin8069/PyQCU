@@ -575,28 +575,39 @@ def test_h5py_multithread(nthreads: int = 4, tmp_dir: str = None,
 
 def test_multi_gpu_multigrid(nthreads: int = 2, lat_size: List[int] = [8, 8, 8, 16],
                              mass: float = 0.05, atol: float = 1e-6,
-                             num_levels: int = 2, tol: float = 1e-5, verbose: bool = True):
-    """多线程多卡 C++ Clover Multigrid 一致性验证（任务①，一线程一卡）。
+                             num_levels: int = 2, tol: float = 1e-5, verbose: bool = True,
+                             independent_problems: bool = False):
+    """多线程多卡 C++ Clover Multigrid 验证（任务①，一线程一卡）。
 
     单卡环境：nthreads 线程共享一张卡，验证线程隔离与结果一致性；
     多卡环境：每线程绑定 device_ids[tid % n_gpus]，验证跨卡一致性。
-    判据：各线程解与线程 0 参考解的最大相对差 < tol，且每个线程的
+    independent_problems=False（默认）：共享输入，各线程解一致（< tol）；
+    =True：每线程独立问题（不同 seed），解应不同且各自收敛。
+    判据：一致性模式各线程解与线程 0 最大相对差 < tol，且每个线程的
     MG 解与自身 BiStabCG 参考解的相对残差达标（数值上 ≈ 1）。
     """
     from pyqcu.cuda._multi_gpu import MultiGpuMultigrid
     mg = MultiGpuMultigrid(lat_size=list(lat_size), mass=mass, atol=atol,
                            num_levels=num_levels, nthreads=nthreads,
-                           verbose=verbose)
+                           verbose=verbose,
+                           independent_problems=independent_problems)
     results = mg.solve()
-    consistency = mg.verify_consistency(tol=tol)
-    assert consistency['all_pass'], \
-        f"multi-GPU MG consistency failed: {consistency['checks']}"
-    # 各线程 MG 解 vs 本线程 BiStabCG 参考（相对残差应 ≈ 1，验证求解收敛）
     for t in results['threads']:
         d = (t['mg'] - t['ref']).abs().max().item()
         ref_max = t['ref'].abs().max().item()
         rel = d / (ref_max + 1e-30)
         assert rel < 1e-3, f"tid={t['tid']} MG vs BiStabCG rel diff {rel} >= 1e-3"
+    if independent_problems:
+        # 独立问题：不同线程解应不同（不同 seed 的规范场/源）
+        mg0 = results['threads'][0]['mg']; mg1 = results['threads'][1]['mg']
+        d = float((mg0 - mg1).abs().max())
+        assert d > 1e-4, f"independent problems gave identical solutions (d={d})"
+        print(f"PYQCU::TESTING::SOLVER::MULTIGRID::MULTI_GPU:\n "
+              f"{nthreads} threads independent problems: PASS (solutions differ)")
+        return results, None
+    consistency = mg.verify_consistency(tol=tol)
+    assert consistency['all_pass'], \
+        f"multi-GPU MG consistency failed: {consistency['checks']}"
     print(f"PYQCU::TESTING::SOLVER::MULTIGRID::MULTI_GPU:\n "
           f"{nthreads} threads x {len(mg.device_ids)} GPU(s): PASS "
           f"(consistency tol={tol})")
