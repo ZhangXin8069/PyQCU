@@ -269,3 +269,136 @@ def prolong_npu(local_ortho_null_vecs: torch.Tensor, coarse_vec: torch.Tensor) -
     dest = dest.reshape(-1, Y, Z, T, y, z, t)
     dest = dest.permute(0, 1, 4, 2, 5, 3, 6)  # [eXx,Y,y,Z,z,T,t]
     return dest.reshape(e, X*x, Y * y, Z * z, T * t)
+
+
+# ===================== Schur 33-tensor stencil build（Galerkin 粗网格算子） =====================
+# 由 dev73/mg_stencil_build.py 与 test12/main.py::build_stencil_mt 合并迁移。
+
+PAIRS = [(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]  # (d1,d2) with d1<d2
+SIGN = [1, -1]
+
+
+def _probe_point(matvec, lonv, E, ee, c_idx, sit, hop_nn, hop_diag, dims, Nc):
+    """单点探测：(c_idx, ee) 处的 33-tensor 耦合。写集互不相交，可并行。"""
+    Xc, Yc, Zc, Tc = dims
+    str_Y, str_Z = Yc * Zc * Tc, Zc * Tc
+    cx = c_idx // str_Y; rem = c_idx % str_Y
+    cy = rem // str_Z; rem %= str_Z
+    cz = rem // Tc; ct = rem % Tc
+    ccoords = [cx, cy, cz, ct]
+    src_c = torch.zeros([E, Xc, Yc, Zc, Tc], dtype=sit.dtype, device=sit.device)
+    src_c[ee, cx, cy, cz, ct] = 1.0
+    f = prolong(local_ortho_null_vecs=lonv, coarse_vec=src_c)
+    dc = restrict(local_ortho_null_vecs=lonv, fine_vec=matvec(f))
+    sit[:, ee, cx, cy, cz, ct] = dc[:, cx, cy, cz, ct]
+    for d in range(4):
+        b = ccoords[:]; b[d] = (b[d] - 1 + dims[d]) % dims[d]
+        fwd = ccoords[:]; fwd[d] = (fwd[d] + 1) % dims[d]
+        if b[d] == fwd[d]:
+            # 2-site periodic dim: ±1 neighbours coincide; kernel sums both
+            # hops, each must carry HALF the coupling.
+            hop_nn[0, d, :, ee, b[0], b[1], b[2], b[3]] = 0.5 * dc[:, b[0], b[1], b[2], b[3]]
+            hop_nn[1, d, :, ee, fwd[0], fwd[1], fwd[2], fwd[3]] = 0.5 * dc[:, fwd[0], fwd[1], fwd[2], fwd[3]]
+        else:
+            hop_nn[0, d, :, ee, b[0], b[1], b[2], b[3]] = dc[:, b[0], b[1], b[2], b[3]]
+            hop_nn[1, d, :, ee, fwd[0], fwd[1], fwd[2], fwd[3]] = dc[:, fwd[0], fwd[1], fwd[2], fwd[3]]
+    for pi, (d1, d2) in enumerate(PAIRS):
+        targets = {}
+        for s1i, s1 in enumerate(SIGN):
+            for s2i, s2 in enumerate(SIGN):
+                n = ccoords[:]
+                n[d1] = (n[d1] - s1 + dims[d1]) % dims[d1]
+                n[d2] = (n[d2] - s2 + dims[d2]) % dims[d2]
+                key = (n[0], n[1], n[2], n[3])
+                targets.setdefault(key, []).append((s1i, s2i))
+        for key, combos in targets.items():
+            w = 1.0 / len(combos)
+            for (s1i, s2i) in combos:
+                hop_diag[s1i, s2i, pi, :, ee, key[0], key[1], key[2], key[3]] = w * dc[:, key[0], key[1], key[2], key[3]]
+
+
+def build_stencil(matvec, lonv, E, e, lat_fine_odd, lat_coarse_odd, dt, device, verbose=True):
+    """单线程 33-tensor 粗网格 Schur 算子构建。
+
+    Stencil:
+      sit      [E,E,Xc,Yc,Zc,Tc]                       on-site
+      hop_nn   [2,4,E,E,Xc,Yc,Zc,Tc]                   nearest (pm × dir)
+      hop_diag [2,2,6,E,E,Xc,Yc,Zc,Tc]                 diagonal (s1 × s2 × pair)
+          pair: 0=(x,y) 1=(x,z) 2=(x,t) 3=(y,z) 4=(y,t) 5=(z,t); sign 0=+1 1=-1
+
+    Kernel convention (multigrid_coarse_dslash_wide):
+      out[j,c] += sit[j,e,c]·in[e,c]
+               + hop_nn[pm,d,j,e,c]·in[e, c + pm?(+1):(-1) e_d]
+               + hop_diag[s1,s2,pair,j,e,c]·in[e, c + s1 e_d1 + s2 e_d2]
+    """
+    import time
+    Xc, Yc, Zc, Tc = lat_coarse_odd
+    Nc = Xc * Yc * Zc * Tc
+    dims = [Xc, Yc, Zc, Tc]
+    sit = torch.zeros([E, E, Xc, Yc, Zc, Tc], dtype=dt, device=device)
+    hop_nn = torch.zeros([2, 4, E, E, Xc, Yc, Zc, Tc], dtype=dt, device=device)
+    hop_diag = torch.zeros([2, 2, 6, E, E, Xc, Yc, Zc, Tc], dtype=dt, device=device)
+    t0 = time.perf_counter()
+    for c_idx in range(Nc):
+        for ee in range(E):
+            _probe_point(matvec, lonv, E, ee, c_idx, sit, hop_nn, hop_diag, dims, Nc)
+        if verbose and (c_idx + 1) % 64 == 0:
+            print(f"    probing {c_idx+1}/{Nc} ({time.perf_counter()-t0:.1f}s)")
+    if verbose:
+        print(f"PYQCU::TOOLS::MULTIGRID:\n stencil build (1 thread): "
+              f"{time.perf_counter()-t0:.1f}s for {E*Nc} probes")
+    return hop_nn, hop_diag, sit
+
+
+def build_stencil_mt(matvec_ops, lonv, E, e, lat_fine_odd, lat_coarse_odd,
+                     dt, device, nthreads=4, verbose=True):
+    """多线程 33-tensor stencil build。matvec_ops: 每线程一个 matvec 算子（如 CudaSchurOp 列表）。
+
+    各线程探测点写集不相交（probe_point 写 sit/hop_nn/hop_diag 的不同坐标片），
+    线程安全；适合多卡（一线程一卡）场景用每线程独立 GPU 算子并行构建。
+    """
+    from concurrent.futures import ThreadPoolExecutor
+    import time
+    Xc, Yc, Zc, Tc = lat_coarse_odd
+    Nc = Xc * Yc * Zc * Tc
+    dims = [Xc, Yc, Zc, Tc]
+    sit = torch.zeros([E, E, Xc, Yc, Zc, Tc], dtype=dt, device=device)
+    hop_nn = torch.zeros([2, 4, E, E, Xc, Yc, Zc, Tc], dtype=dt, device=device)
+    hop_diag = torch.zeros([2, 2, 6, E, E, Xc, Yc, Zc, Tc], dtype=dt, device=device)
+    t0 = time.perf_counter()
+    chunk = (Nc + nthreads - 1) // nthreads
+
+    def worker(tid):
+        op = matvec_ops[tid % len(matvec_ops)]
+        c0 = tid * chunk
+        c1 = min(Nc, c0 + chunk)
+        for c_idx in range(c0, c1):
+            for ee in range(E):
+                _probe_point(op, lonv, E, ee, c_idx, sit, hop_nn, hop_diag, dims, Nc)
+
+    with ThreadPoolExecutor(max_workers=nthreads) as ex:
+        list(ex.map(worker, range(nthreads)))
+    dt_build = time.perf_counter() - t0
+    if verbose:
+        print(f"PYQCU::TOOLS::MULTIGRID:\n stencil build ({nthreads} threads): "
+              f"{dt_build:.1f}s for {E*Nc} probes ({E*Nc/max(dt_build,1e-9):.0f} probes/s)")
+    return hop_nn, hop_diag, sit
+
+
+def apply_stencil(hop_nn, hop_diag, sit, v_c):
+    """应用 33-tensor 粗网格算子 A_c = P^T S P（Python 参考实现）。"""
+    E = v_c.shape[0]
+    Xc, Yc, Zc, Tc = v_c.shape[1:]
+    out = _torch.einsum("EeXYZT,eXYZT->EXYZT", sit, v_c).clone()
+    for d in range(4):
+        fwd = _torch.roll(v_c, shifts=-1, dims=d+1)
+        bwd = _torch.roll(v_c, shifts=1, dims=d+1)
+        out += _torch.einsum("EeXYZT,eXYZT->EXYZT", hop_nn[0, d], fwd)
+        out += _torch.einsum("EeXYZT,eXYZT->EXYZT", hop_nn[1, d], bwd)
+    for pi, (d1, d2) in enumerate(PAIRS):
+        for s1i, s1 in enumerate(SIGN):
+            for s2i, s2 in enumerate(SIGN):
+                shift = [0, 0, 0, 0]; shift[d1] = -s1; shift[d2] = -s2
+                v_shift = _torch.roll(v_c, shifts=tuple(shift), dims=(1, 2, 3, 4))
+                out += _torch.einsum("EeXYZT,eXYZT->EXYZT", hop_diag[s1i, s2i, pi], v_shift)
+    return out

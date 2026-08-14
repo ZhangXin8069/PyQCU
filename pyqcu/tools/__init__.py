@@ -29,10 +29,17 @@ from ._define import psctzyx2scxyzt as psctzyx2scxyzt
 from ._define import scxyzt2psctzyx as scxyzt2psctzyx
 from ._io import gridoooxyzt2hdf5oooxyzt as gridoooxyzt2hdf5oooxyzt
 from ._io import hdf5oooxyzt2gridoooxyzt as hdf5oooxyzt2gridoooxyzt
+from ._io import save_tensor_h5 as save_tensor_h5
+from ._io import load_tensor_h5 as load_tensor_h5
 from ._multigrid import give_null_vecs as give_null_vecs
 from ._multigrid import local_orthogonalize as local_orthogonalize
 from ._multigrid import restrict as restrict
 from ._multigrid import prolong as prolong
+from ._multigrid import PAIRS as PAIRS
+from ._multigrid import SIGN as SIGN
+from ._multigrid import build_stencil as build_stencil
+from ._multigrid import build_stencil_mt as build_stencil_mt
+from ._multigrid import apply_stencil as apply_stencil
 try:
     from ._matul import matmul_gpu as matmul_gpu
     from ._matul import matmul_cpu as matmul_cpu
