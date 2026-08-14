@@ -56,3 +56,12 @@ Dirac 方程 D ψ = η 的迭代求解器。
 - **BiCGStab 自动重启**：breakdown（rho/rtv/tts < 1e-20 或 alpha/omega 非有限）时
   保留当前 x/r，重置影子向量与系数后继续（不再抛 RuntimeError）；收敛不受影响
   （8x8x8x8 1L residual 8.7e-7、8x8x8x16 2L 7.8e-7 实测）。
+
+### 多线程实例并行（Python multigrid）
+
+- 每线程独立 `solver.multigrid` 实例（各持独立 params/set_ptrs/状态）可并行求解
+  （2 线程 8x8x8x8 1L 实测 6.3e-7/9.5e-7 均收敛）。
+- **前提**：线程池启动前主线程须预热 torch lazy 初始化（clover inverse 等，
+  如 `torch.linalg.inv(torch.randn([4,4], device='cuda'))`），否则 worker 并发
+  首次触发报 "lazy wrapper should be called at most once"。
+  `MultiGpuMultigrid.solve()` 已内置该预热。
