@@ -1,0 +1,28 @@
+---- [2026-08-14-07-53-24] optim 会话开始 ----
+目标: 修改 run-snsc-v20260814.sh 对应 A100-40GB；如可行增大最大格子
+约束: 不破坏 16/32G 档；main.py 只做必要配套
+工作目录: /root/PyQCU/logs/test12
+git: main 0aa9793 2026-08-14-07-50-06
+文件: run-snsc-v20260814.sh == run-snsc.sh (diff 为空)
+基线(显存预算模型, 40G=40960MB):
+  16x32x32x32  cold=27.8G(69%)  warm=13.8G(34%)  [Step3 全流程可行]
+  16x32x32x64  cold=55.6G(139%) warm=27.5G(69%)   [warm 可行]
+  20x32x32x64  cold=69.5G(174%) warm=34.4G(86%)   [warm 可行, 最大]
+  24x32x32x64  cold=83.4G      warm=41.3G(103%)   [超 40G 档]
+  24x32x32x32  cold=41.7G(104%) warm=20.7G(52%)   [cold 超档]
+结论: Step3=16x32x32x32(40G 档同 32G 档); Step4=20x32x32x64(V 增大 25%)
+---- [2026-08-14-07-55-33] 会话尾 ----
+改动:
+  main.py: vram_gb_option 支持 40 档; 新增 LATTICES40(budget_table 40G 档选择);
+           budget 说明行改为动态格子名; docstring/argparse 文案
+  run-snsc-v20260814.sh: 默认 VRAM=40(A100-40GB); Step3: >=32 → 16x32x32x32;
+           Step4: >=40 → 20x32x32x64(最大格子 V 增大 25%), 32 → 16x32x32x64, else 16x32x32x32
+  AGENTS.md: 目录树/快速开始/子命令/跨环境/显存档同步 40G 档
+验证:
+  bash -n OK; py_compile OK
+  dry-run: 40 档 Step3=16x32x32x32 Step4=20x32x32x64; VRAM=32/16 档分支不变
+  budget --vram 40 → test12_budget_server_40g.json, LATTICES40 3 行, warm/fr 0.344/0.689/0.861
+  budget --vram 16/32 回归输出与历史一致
+  dry-run 测试残留 v202608140754{, -49} 已删除
+权衡: 20x32x32x64 warm 34.4G 为模型预测(≈86%)，实测可能 OOM，脚本有 || warn 容错
+遗留: run-snsc.sh 保持 16G 档不变(通用版); 20x32x32x64 需外部卡先构建 nullvec 缓存才能 warm

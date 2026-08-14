@@ -1,0 +1,610 @@
+timestamp=2026-08-13T23:50:19.130Z level=INFO run=a704806d message="loading tui config" path=/root/.config/opencode/tui.json
+timestamp=2026-08-13T23:50:19.133Z level=INFO run=a704806d message="applying tui config" path=/root/.config/opencode/tui.json order=1
+timestamp=2026-08-13T23:50:19.910Z level=INFO run=9203f28d message="creating instance" directory=/root/PyQCU/logs/test12
+timestamp=2026-08-13T23:50:19.912Z level=INFO run=9203f28d message=fromDirectory directory=/root/PyQCU/logs/test12
+timestamp=2026-08-13T23:50:19.959Z level=INFO run=9203f28d message=bootstrapping directory=/root/PyQCU/logs/test12
+timestamp=2026-08-13T23:50:19.965Z level=INFO run=9203f28d message=loading path=/root/.config/opencode/config.json
+timestamp=2026-08-13T23:50:19.966Z level=INFO run=9203f28d message=loading path=/root/.config/opencode/opencode.json
+timestamp=2026-08-13T23:50:19.966Z level=INFO run=9203f28d message=loading path=/root/.config/opencode/opencode.jsonc
+timestamp=2026-08-13T23:50:19.996Z level=DEBUG run=9203f28d message="loading config from /root/PyQCU/.opencode/opencode.json"
+timestamp=2026-08-13T23:50:19.996Z level=INFO run=9203f28d message=loading path=/root/PyQCU/.opencode/opencode.json
+timestamp=2026-08-13T23:50:19.997Z level=DEBUG run=9203f28d message="loading config from /root/PyQCU/.opencode/opencode.jsonc"
+timestamp=2026-08-13T23:50:19.997Z level=INFO run=9203f28d message=loading path=/root/PyQCU/.opencode/opencode.jsonc
+timestamp=2026-08-13T23:50:20.001Z level=DEBUG run=9203f28d message="loading config from /root/.opencode/opencode.json"
+timestamp=2026-08-13T23:50:20.001Z level=INFO run=9203f28d message=loading path=/root/.opencode/opencode.json
+timestamp=2026-08-13T23:50:20.001Z level=DEBUG run=9203f28d message="loading config from /root/.opencode/opencode.jsonc"
+timestamp=2026-08-13T23:50:20.002Z level=INFO run=9203f28d message=loading path=/root/.opencode/opencode.jsonc
+timestamp=2026-08-13T23:50:20.014Z level=DEBUG run=9203f28d message="loaded custom config from OPENCODE_CONFIG_CONTENT"
+timestamp=2026-08-13T23:50:20.031Z level=INFO run=9203f28d message="all LSPs are disabled"
+timestamp=2026-08-13T23:50:20.032Z level=INFO run=9203f28d message="all formatters are disabled"
+timestamp=2026-08-13T23:50:20.032Z level=INFO run=9203f28d message=init
+timestamp=2026-08-13T23:50:21.015Z level=WARN run=9203f28d message="duplicate skill name" name=cann existing=/root/PyQCU/.opencode/skills/cann/SKILL.md duplicate=/root/PyQCU/.opencode/skills/cann.v2/SKILL.md
+timestamp=2026-08-13T23:50:21.015Z level=WARN run=9203f28d message="duplicate skill name" name=cuda existing=/root/PyQCU/.opencode/skills/cuda.v2/SKILL.md duplicate=/root/PyQCU/.opencode/skills/cuda/SKILL.md
+timestamp=2026-08-13T23:50:21.016Z level=WARN run=9203f28d message="duplicate skill name" name=qcu existing=/root/PyQCU/.opencode/skills/qcu.v2/SKILL.md duplicate=/root/PyQCU/.opencode/skills/qcu/SKILL.md
+timestamp=2026-08-13T23:50:21.018Z level=WARN run=9203f28d message="duplicate skill name" name=debug existing=/root/PyQCU/.opencode/skills/debug/SKILL.md duplicate=/root/.opencode/skills/debug/SKILL.md
+timestamp=2026-08-13T23:50:21.022Z level=INFO run=9203f28d message=init count=70
+timestamp=2026-08-13T23:50:21.110Z level=INFO run=9203f28d message="watcher backend" directory=/root/PyQCU/logs/test12 platform=linux backend=inotify
+timestamp=2026-08-13T23:50:21.117Z level=INFO run=9203f28d message="project copy refresh started" projectID=a0c9d09d7c4839fa35fa0091bd720616efad9b56
+timestamp=2026-08-13T23:50:21.247Z level=INFO run=9203f28d message=created id=ses_0027750c0ffeHjFxVRo9IBos0k slug=shiny-wizard version=1.18.18 projectID=a0c9d09d7c4839fa35fa0091bd720616efad9b56 directory=/root/PyQCU/logs/test12 path=logs/test12 workspaceID=undefined parentID=undefined title="New session - 2026-08-13T23:50:21.247Z" agent=build model.id=deepseek-v4-flash model.providerID=opencode-go model.variant=max metadata=undefined permission=undefined cost=0 tokens.input=0 tokens.output=0 tokens.reasoning=0 tokens.cache.read=0 tokens.cache.write=0 time.created=1786665021247 time.updated=1786665021247
+timestamp=2026-08-13T23:50:21.417Z level=INFO run=9203f28d message=loop session.id=ses_0027750c0ffeHjFxVRo9IBos0k step=0
+timestamp=2026-08-13T23:50:21.437Z level=INFO run=9203f28d message="project copy refresh done" projectID=a0c9d09d7c4839fa35fa0091bd720616efad9b56 updated=[] removed=[]
+timestamp=2026-08-13T23:50:21.445Z level=INFO run=9203f28d message=stream providerID=opencode-go modelID=deepseek-v4-flash session.id=ses_0027750c0ffeHjFxVRo9IBos0k small=true agent=title mode=primary
+timestamp=2026-08-13T23:50:21.461Z level=INFO run=9203f28d message="llm runtime selected" llm.runtime=ai-sdk llm.provider=opencode-go llm.model=deepseek-v4-flash
+timestamp=2026-08-13T23:50:21.486Z level=INFO run=9203f28d message="booting location services" directory=/root/PyQCU/logs/test12 workspaceID=undefined
+timestamp=2026-08-13T23:50:21.965Z level=INFO run=9203f28d message=tracking hash=8686bdfa9690dd965186940ac86e0ebc69074318 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:50:21.972Z level=INFO run=9203f28d message="shell tool using shell" shell=/usr/bin/bash
+timestamp=2026-08-13T23:50:22.020Z level=INFO run=9203f28d message="watcher backend" directory=/root/PyQCU/logs/test12 platform=linux backend=inotify
+timestamp=2026-08-13T23:50:22.024Z level=INFO run=9203f28d message="project copy refresh started" projectID=a0c9d09d7c4839fa35fa0091bd720616efad9b56
+timestamp=2026-08-13T23:50:22.506Z level=INFO run=9203f28d message="project copy refresh done" projectID=a0c9d09d7c4839fa35fa0091bd720616efad9b56 updated=[] removed=[]
+timestamp=2026-08-13T23:50:22.511Z level=INFO run=9203f28d message="booting location services" directory=/root/PyQCU/logs/test12 workspaceID=undefined
+timestamp=2026-08-13T23:50:22.523Z level=INFO run=9203f28d message=process session.id=ses_0027750c0ffeHjFxVRo9IBos0k messageID=msg_ffd88afeb0013tqum2y5lMvfbN
+timestamp=2026-08-13T23:50:22.524Z level=INFO run=9203f28d message=stream providerID=opencode-go modelID=deepseek-v4-flash session.id=ses_0027750c0ffeHjFxVRo9IBos0k small=false agent=build mode=primary
+timestamp=2026-08-13T23:50:22.525Z level=INFO run=9203f28d message="llm runtime selected" llm.runtime=ai-sdk llm.provider=opencode-go llm.model=deepseek-v4-flash
+timestamp=2026-08-13T23:50:27.083Z level=INFO run=9203f28d message=evaluated permission=bash pattern="printf '%s\\n' \"---- [2026-08-14 07:50:18] 第 1 条用户输入 ----\" \"你是一个多身份智能体，拥有以下可切换的提示词身份。每项任务开始前，先判定任务性质并激活最匹配的身份（见【身份体系】），全程以该身份的口吻、标准与专长行事；专业不对口时不得强行套用。\" >> /root/PyQCU/logs/test12/.agent.2026-08-14-07-50-18.list" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:50:27.261Z level=INFO run=9203f28d message=tracking hash=e3317546f377439b71c95ddafb31ee20ffb3debd cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:50:27.303Z level=INFO run=9203f28d message=loop session.id=ses_0027750c0ffeHjFxVRo9IBos0k step=1
+timestamp=2026-08-13T23:50:27.357Z level=INFO run=9203f28d message=tracking hash=6ce24856898595adb7d80fe17048426a8767d2d4 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:50:27.373Z level=INFO run=9203f28d message=process session.id=ses_0027750c0ffeHjFxVRo9IBos0k messageID=msg_ffd88c6e90016v7rLK25ER3mkU
+timestamp=2026-08-13T23:50:27.374Z level=INFO run=9203f28d message=stream providerID=opencode-go modelID=deepseek-v4-flash session.id=ses_0027750c0ffeHjFxVRo9IBos0k small=false agent=build mode=primary
+timestamp=2026-08-13T23:50:27.376Z level=INFO run=9203f28d message="llm runtime selected" llm.runtime=ai-sdk llm.provider=opencode-go llm.model=deepseek-v4-flash
+timestamp=2026-08-13T23:50:32.364Z level=INFO run=9203f28d message=tracking hash=8fe5de6bcc01118acc6e1d5b5a92b6a278f89614 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:50:32.415Z level=INFO run=9203f28d message=loop session.id=ses_0027750c0ffeHjFxVRo9IBos0k step=2
+timestamp=2026-08-13T23:50:32.416Z level=INFO run=9203f28d message="exiting loop" session.id=ses_0027750c0ffeHjFxVRo9IBos0k
+timestamp=2026-08-13T23:51:06.080Z level=INFO run=9203f28d message=loop session.id=ses_0027750c0ffeHjFxVRo9IBos0k step=0
+timestamp=2026-08-13T23:51:06.112Z level=INFO run=9203f28d message=tracking hash=efb37d203013b90e6a40a8a10f207325a94ba9c1 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:51:06.131Z level=INFO run=9203f28d message=process session.id=ses_0027750c0ffeHjFxVRo9IBos0k messageID=msg_ffd895e62001PXZ4mIRYwLFkhQ
+timestamp=2026-08-13T23:51:06.132Z level=INFO run=9203f28d message=stream providerID=opencode-go modelID=deepseek-v4-flash session.id=ses_0027750c0ffeHjFxVRo9IBos0k small=false agent=build mode=primary
+timestamp=2026-08-13T23:51:06.134Z level=INFO run=9203f28d message="llm runtime selected" llm.runtime=ai-sdk llm.provider=opencode-go llm.model=deepseek-v4-flash
+timestamp=2026-08-13T23:51:09.771Z level=INFO run=9203f28d message=evaluated permission=bash pattern="printf '%s\\n' \"---- [2026-08-14 07:50:19] 第 2 条用户输入 ----\" \"~optim 修改/root/PyQCU/logs/test12/run-snsc-v20260814.sh，使之对应A100-40GB，如果能，同时也增大最大格子\" >> /root/PyQCU/logs/test12/.agent.2026-08-14-07-50-18.list" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:51:09.802Z level=INFO run=9203f28d message=tracking hash=a9257c997a7f6aad4810ab5a9b8546ebef3d411c cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:51:09.866Z level=INFO run=9203f28d message=loop session.id=ses_0027750c0ffeHjFxVRo9IBos0k step=1
+timestamp=2026-08-13T23:51:09.901Z level=INFO run=9203f28d message=tracking hash=e061fd79b8a2712c506a4b15e1c734b1e5dee23f cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:51:09.914Z level=INFO run=9203f28d message=process session.id=ses_0027750c0ffeHjFxVRo9IBos0k messageID=msg_ffd896d2c001uSf1OAR5lZ0xgf
+timestamp=2026-08-13T23:51:09.916Z level=INFO run=9203f28d message=stream providerID=opencode-go modelID=deepseek-v4-flash session.id=ses_0027750c0ffeHjFxVRo9IBos0k small=false agent=build mode=primary
+timestamp=2026-08-13T23:51:09.918Z level=INFO run=9203f28d message="llm runtime selected" llm.runtime=ai-sdk llm.provider=opencode-go llm.model=deepseek-v4-flash
+timestamp=2026-08-13T23:51:12.201Z level=INFO run=9203f28d message=evaluated permission=skill pattern=optim action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:51:12.269Z level=INFO run=9203f28d message=tracking hash=f16d2bc88db9f85e50a12dff70925b062284e2cd cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:51:12.330Z level=INFO run=9203f28d message=loop session.id=ses_0027750c0ffeHjFxVRo9IBos0k step=2
+timestamp=2026-08-13T23:51:12.377Z level=INFO run=9203f28d message=tracking hash=d88a721d35ca4ff1f65b0ef2c2effef3b30caf2d cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:51:12.385Z level=INFO run=9203f28d message=process session.id=ses_0027750c0ffeHjFxVRo9IBos0k messageID=msg_ffd8976cd001f9nlpuxIqEIo3L
+timestamp=2026-08-13T23:51:12.385Z level=INFO run=9203f28d message=stream providerID=opencode-go modelID=deepseek-v4-flash session.id=ses_0027750c0ffeHjFxVRo9IBos0k small=false agent=build mode=primary
+timestamp=2026-08-13T23:51:12.387Z level=INFO run=9203f28d message="llm runtime selected" llm.runtime=ai-sdk llm.provider=opencode-go llm.model=deepseek-v4-flash
+timestamp=2026-08-13T23:51:16.442Z level=INFO run=9203f28d message=evaluated permission=bash pattern="ls -1t .optim.*.log 2>/dev/null" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:51:16.442Z level=INFO run=9203f28d message=evaluated permission=bash pattern="head -3" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:51:16.442Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"---\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:51:16.443Z level=INFO run=9203f28d message=evaluated permission=bash pattern="ls -la run-*.sh main.py 2>/dev/null" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:51:16.498Z level=INFO run=9203f28d message=tracking hash=ac6df64e441f7a8f348e0570626bb037fa4469bf cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:51:16.541Z level=INFO run=9203f28d message=loop session.id=ses_0027750c0ffeHjFxVRo9IBos0k step=3
+timestamp=2026-08-13T23:51:16.584Z level=INFO run=9203f28d message=tracking hash=e1451873191dda7dae7afbba5aa522982c20fca5 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:51:16.596Z level=INFO run=9203f28d message=process session.id=ses_0027750c0ffeHjFxVRo9IBos0k messageID=msg_ffd898745001c6eVeXMCAdgK7x
+timestamp=2026-08-13T23:51:16.597Z level=INFO run=9203f28d message=stream providerID=opencode-go modelID=deepseek-v4-flash session.id=ses_0027750c0ffeHjFxVRo9IBos0k small=false agent=build mode=primary
+timestamp=2026-08-13T23:51:16.599Z level=INFO run=9203f28d message="llm runtime selected" llm.runtime=ai-sdk llm.provider=opencode-go llm.model=deepseek-v4-flash
+timestamp=2026-08-13T23:51:19.624Z level=INFO run=9203f28d message=evaluated permission=read pattern=logs/test12/run-snsc-v20260814.sh action.permission=read action.pattern=* action.action=allow
+timestamp=2026-08-13T23:51:19.633Z level=INFO run=9203f28d message="touching file" file=/root/PyQCU/logs/test12/run-snsc-v20260814.sh
+timestamp=2026-08-13T23:51:19.789Z level=INFO run=9203f28d message=evaluated permission=read pattern=logs/test12/run-snsc.sh action.permission=read action.pattern=* action.action=allow
+timestamp=2026-08-13T23:51:19.801Z level=INFO run=9203f28d message="touching file" file=/root/PyQCU/logs/test12/run-snsc.sh
+timestamp=2026-08-13T23:51:19.831Z level=INFO run=9203f28d message=tracking hash=868fa6f5753bb12b09766869f8544fad29839a73 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:51:19.868Z level=INFO run=9203f28d message=loop session.id=ses_0027750c0ffeHjFxVRo9IBos0k step=4
+timestamp=2026-08-13T23:51:19.908Z level=INFO run=9203f28d message=tracking hash=fc76f1c484d76dfe0467bc00324c3213a0c664a7 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:51:19.922Z level=INFO run=9203f28d message=process session.id=ses_0027750c0ffeHjFxVRo9IBos0k messageID=msg_ffd89943e001mM955qFjUrXeZl
+timestamp=2026-08-13T23:51:19.923Z level=INFO run=9203f28d message=stream providerID=opencode-go modelID=deepseek-v4-flash session.id=ses_0027750c0ffeHjFxVRo9IBos0k small=false agent=build mode=primary
+timestamp=2026-08-13T23:51:19.925Z level=INFO run=9203f28d message="llm runtime selected" llm.runtime=ai-sdk llm.provider=opencode-go llm.model=deepseek-v4-flash
+timestamp=2026-08-13T23:51:20.508Z level=INFO run=9203f28d message=cleanup prune=7.days
+timestamp=2026-08-13T23:51:25.110Z level=INFO run=9203f28d message=evaluated permission=grep pattern=vram|budget|VRAM action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:51:25.323Z level=INFO run=9203f28d message=tracking hash=8c6860bd54a897b6748e7b9797b3befff67b148b cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:51:25.362Z level=INFO run=9203f28d message=loop session.id=ses_0027750c0ffeHjFxVRo9IBos0k step=5
+timestamp=2026-08-13T23:51:25.399Z level=INFO run=9203f28d message=tracking hash=0b35129e97845dd69fb40e1fd53356dbbe9f9408 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:51:25.412Z level=INFO run=9203f28d message=process session.id=ses_0027750c0ffeHjFxVRo9IBos0k messageID=msg_ffd89a9b5001WYUTbPQGz8vcWy
+timestamp=2026-08-13T23:51:25.413Z level=INFO run=9203f28d message=stream providerID=opencode-go modelID=deepseek-v4-flash session.id=ses_0027750c0ffeHjFxVRo9IBos0k small=false agent=build mode=primary
+timestamp=2026-08-13T23:51:25.415Z level=INFO run=9203f28d message="llm runtime selected" llm.runtime=ai-sdk llm.provider=opencode-go llm.model=deepseek-v4-flash
+timestamp=2026-08-13T23:51:29.228Z level=INFO run=9203f28d message=evaluated permission=grep pattern=vram action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:51:29.293Z level=INFO run=9203f28d message=tracking hash=a23771ba6310bfb613ceda24392c25e4022e72d0 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:51:29.330Z level=INFO run=9203f28d message=loop session.id=ses_0027750c0ffeHjFxVRo9IBos0k step=6
+timestamp=2026-08-13T23:51:29.370Z level=INFO run=9203f28d message=tracking hash=69b9a5448b70f7ce7c751d0f9fcc93abebe3f896 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:51:29.384Z level=INFO run=9203f28d message=process session.id=ses_0027750c0ffeHjFxVRo9IBos0k messageID=msg_ffd89b935001t5W21ucTFbL8AV
+timestamp=2026-08-13T23:51:29.384Z level=INFO run=9203f28d message=stream providerID=opencode-go modelID=deepseek-v4-flash session.id=ses_0027750c0ffeHjFxVRo9IBos0k small=false agent=build mode=primary
+timestamp=2026-08-13T23:51:29.386Z level=INFO run=9203f28d message="llm runtime selected" llm.runtime=ai-sdk llm.provider=opencode-go llm.model=deepseek-v4-flash
+timestamp=2026-08-13T23:51:33.320Z level=INFO run=9203f28d message=evaluated permission=read pattern=logs/test12/main.py action.permission=read action.pattern=* action.action=allow
+timestamp=2026-08-13T23:51:33.341Z level=INFO run=9203f28d message="touching file" file=/root/PyQCU/logs/test12/main.py
+timestamp=2026-08-13T23:51:33.385Z level=INFO run=9203f28d message=tracking hash=9e4f3e8dbbaeca9b22e4200e70d1580330a81501 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:51:33.420Z level=INFO run=9203f28d message=loop session.id=ses_0027750c0ffeHjFxVRo9IBos0k step=7
+timestamp=2026-08-13T23:51:33.466Z level=INFO run=9203f28d message=tracking hash=e69af1b5a76d280288fe2eac01e6274417df6e09 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:51:33.472Z level=INFO run=9203f28d message=process session.id=ses_0027750c0ffeHjFxVRo9IBos0k messageID=msg_ffd89c92f0011i76IsVV7phaF7
+timestamp=2026-08-13T23:51:33.473Z level=INFO run=9203f28d message=stream providerID=opencode-go modelID=deepseek-v4-flash session.id=ses_0027750c0ffeHjFxVRo9IBos0k small=false agent=build mode=primary
+timestamp=2026-08-13T23:51:33.475Z level=INFO run=9203f28d message="llm runtime selected" llm.runtime=ai-sdk llm.provider=opencode-go llm.model=deepseek-v4-flash
+timestamp=2026-08-13T23:52:13.844Z level=INFO run=9203f28d message=evaluated permission=read pattern=logs/test12/main.py action.permission=read action.pattern=* action.action=allow
+timestamp=2026-08-13T23:52:13.881Z level=INFO run=9203f28d message="touching file" file=/root/PyQCU/logs/test12/main.py
+timestamp=2026-08-13T23:52:14.158Z level=INFO run=9203f28d message=tracking hash=5f04466eb3c08fd2da7f54b10edcd511f8481fa0 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:52:14.267Z level=INFO run=9203f28d message=loop session.id=ses_0027750c0ffeHjFxVRo9IBos0k step=8
+timestamp=2026-08-13T23:52:14.308Z level=INFO run=9203f28d message=tracking hash=44c514bff00697ef6a14f667f5e141336ce81133 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:52:14.323Z level=INFO run=9203f28d message=process session.id=ses_0027750c0ffeHjFxVRo9IBos0k messageID=msg_ffd8a68be001MUfUvhogSZYy0n
+timestamp=2026-08-13T23:52:14.324Z level=INFO run=9203f28d message=stream providerID=opencode-go modelID=deepseek-v4-flash session.id=ses_0027750c0ffeHjFxVRo9IBos0k small=false agent=build mode=primary
+timestamp=2026-08-13T23:52:14.326Z level=INFO run=9203f28d message="llm runtime selected" llm.runtime=ai-sdk llm.provider=opencode-go llm.model=deepseek-v4-flash
+timestamp=2026-08-13T23:52:32.227Z level=INFO run=9203f28d message=evaluated permission=read pattern=logs/test12/main.py action.permission=read action.pattern=* action.action=allow
+timestamp=2026-08-13T23:52:32.242Z level=INFO run=9203f28d message="touching file" file=/root/PyQCU/logs/test12/main.py
+timestamp=2026-08-13T23:52:32.308Z level=INFO run=9203f28d message=tracking hash=cbc849a48a3faa3dc6042a82c69f5d960ff45e97 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:52:32.358Z level=INFO run=9203f28d message=loop session.id=ses_0027750c0ffeHjFxVRo9IBos0k step=9
+timestamp=2026-08-13T23:52:32.414Z level=INFO run=9203f28d message=tracking hash=4e049927d0e5641d436ddf3fe721337aae0e66a4 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:52:32.429Z level=INFO run=9203f28d message=process session.id=ses_0027750c0ffeHjFxVRo9IBos0k messageID=msg_ffd8aaf6a0012p2BaubwhM5ttG
+timestamp=2026-08-13T23:52:32.430Z level=INFO run=9203f28d message=stream providerID=opencode-go modelID=deepseek-v4-flash session.id=ses_0027750c0ffeHjFxVRo9IBos0k small=false agent=build mode=primary
+timestamp=2026-08-13T23:52:32.432Z level=INFO run=9203f28d message="llm runtime selected" llm.runtime=ai-sdk llm.provider=opencode-go llm.model=deepseek-v4-flash
+timestamp=2026-08-13T23:52:58.522Z level=INFO run=9203f28d message=evaluated permission=read pattern=logs/test12/main.py action.permission=read action.pattern=* action.action=allow
+timestamp=2026-08-13T23:52:58.539Z level=INFO run=9203f28d message="touching file" file=/root/PyQCU/logs/test12/main.py
+timestamp=2026-08-13T23:52:58.590Z level=INFO run=9203f28d message=tracking hash=a48eba14a6a82dcd98105bfba26a83bba2f74c83 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:52:58.625Z level=INFO run=9203f28d message=loop session.id=ses_0027750c0ffeHjFxVRo9IBos0k step=10
+timestamp=2026-08-13T23:52:58.665Z level=INFO run=9203f28d message=tracking hash=bbc448a1e44c580572b49ac00fa183ef5c5ed818 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:52:58.680Z level=INFO run=9203f28d message=process session.id=ses_0027750c0ffeHjFxVRo9IBos0k messageID=msg_ffd8b1603001OQ734LGnGYJG7D
+timestamp=2026-08-13T23:52:58.681Z level=INFO run=9203f28d message=stream providerID=opencode-go modelID=deepseek-v4-flash session.id=ses_0027750c0ffeHjFxVRo9IBos0k small=false agent=build mode=primary
+timestamp=2026-08-13T23:52:58.683Z level=INFO run=9203f28d message="llm runtime selected" llm.runtime=ai-sdk llm.provider=opencode-go llm.model=deepseek-v4-flash
+timestamp=2026-08-13T23:53:05.722Z level=INFO run=9203f28d message=evaluated permission=bash pattern="python3 - << 'EOF'\nCONST_PER_V = 24192.0\ndef vram_model(V, alpha=30.83, beta=-27.0):\n    return CONST_PER_V*V/1e6 + alpha*V/1024.0 + beta\ndef vram_warm(V, alpha=2.8, beta=-27.0):\n    return CONST_PER_V*V/1e6 + alpha*V/1024.0 + beta\nlats = [(16,32,32,32),(16,32,32,64),(20,32,32,64),(24,32,32,64),(24,32,32,32),(32,32,32,32)]\nfor L in lats:\n    V = L[0]*L[1]*L[2]*L[3]\n    c, w = vram_model(V), vram_warm(V)\n    print(f\"{'x'.join(map(str,L)):>14s} V={V:9d}  cold={c:8.1f}MB {c/1024:5.1f}G ({c/(40*1024)*100:5.1f}% of 40G)  warm={w:8.1f}MB {w/1024:5.1f}G ({w/(40*1024)*100:5.1f}% of 40G)\")\nEOF" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:53:05.799Z level=INFO run=9203f28d message=tracking hash=da5f4770b05935f25adaab8f61503b2743bfc5b6 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:53:05.849Z level=INFO run=9203f28d message=loop session.id=ses_0027750c0ffeHjFxVRo9IBos0k step=11
+timestamp=2026-08-13T23:53:05.887Z level=INFO run=9203f28d message=tracking hash=c698d1c640fedfaa18c853799590bce906894a72 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:53:05.900Z level=INFO run=9203f28d message=process session.id=ses_0027750c0ffeHjFxVRo9IBos0k messageID=msg_ffd8b323d001pRUgwQVkhicYdI
+timestamp=2026-08-13T23:53:05.901Z level=INFO run=9203f28d message=stream providerID=opencode-go modelID=deepseek-v4-flash session.id=ses_0027750c0ffeHjFxVRo9IBos0k small=false agent=build mode=primary
+timestamp=2026-08-13T23:53:05.903Z level=INFO run=9203f28d message="llm runtime selected" llm.runtime=ai-sdk llm.provider=opencode-go llm.model=deepseek-v4-flash
+timestamp=2026-08-13T23:53:24.732Z level=INFO run=9203f28d message=evaluated permission=bash pattern="date +%Y-%m-%d-%H-%M-%S" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:53:24.732Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"$LOG\" > /tmp/opencode/optimlog.txt" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:53:24.732Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"---- [$TS] optim 会话开始 ----\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:53:24.733Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"目标: 修改 run-snsc-v20260814.sh 对应 A100-40GB；如可行增大最大格子\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:53:24.733Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"约束: 不破坏 16/32G 档；main.py 只做必要配套\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:53:24.733Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"工作目录: $(pwd)\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:53:24.733Z level=INFO run=9203f28d message=evaluated permission=bash pattern=pwd action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:53:24.733Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"git: $(git rev-parse --abbrev-ref HEAD 2>/dev/null) $(git log -1 --oneline 2>/dev/null)\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:53:24.734Z level=INFO run=9203f28d message=evaluated permission=bash pattern="git rev-parse --abbrev-ref HEAD 2>/dev/null" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:53:24.734Z level=INFO run=9203f28d message=evaluated permission=bash pattern="git log -1 --oneline 2>/dev/null" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:53:24.734Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"文件: run-snsc-v20260814.sh == run-snsc.sh (diff 为空)\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:53:24.734Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"基线(显存预算模型, 40G=40960MB):\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:53:24.735Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"  16x32x32x32  cold=27.8G(69%)  warm=13.8G(34%)  [Step3 全流程可行]\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:53:24.735Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"  16x32x32x64  cold=55.6G(139%) warm=27.5G(69%)   [warm 可行]\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:53:24.735Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"  20x32x32x64  cold=69.5G(174%) warm=34.4G(86%)   [warm 可行, 最大]\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:53:24.735Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"  24x32x32x64  cold=83.4G      warm=41.3G(103%)   [超 40G 档]\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:53:24.735Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"  24x32x32x32  cold=41.7G(104%) warm=20.7G(52%)   [cold 超档]\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:53:24.735Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"结论: Step3=16x32x32x32(40G 档同 32G 档); Step4=20x32x32x64(V 增大 25%)\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:53:25.030Z level=INFO run=9203f28d message=evaluated permission=bash pattern="git status --short -- logs/test12/" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:53:25.030Z level=INFO run=9203f28d message=evaluated permission=bash pattern="head -20" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:53:25.030Z level=INFO run=9203f28d message=evaluated permission=bash pattern="git diff --stat -- logs/test12/run-snsc.sh logs/test12/run-snsc-v20260814.sh" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:53:25.085Z level=INFO run=9203f28d message=tracking hash=7338e7293c498ddb2358078bbde56fec54f099e1 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:53:25.175Z level=INFO run=9203f28d message=loop session.id=ses_0027750c0ffeHjFxVRo9IBos0k step=12
+timestamp=2026-08-13T23:53:25.265Z level=INFO run=9203f28d message=tracking hash=625d4d296c7bead18f3dfe169addf2ac597d755f cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:53:25.275Z level=INFO run=9203f28d message=process session.id=ses_0027750c0ffeHjFxVRo9IBos0k messageID=msg_ffd8b7dbb001xfpvJNO4tcw90z
+timestamp=2026-08-13T23:53:25.276Z level=INFO run=9203f28d message=stream providerID=opencode-go modelID=deepseek-v4-flash session.id=ses_0027750c0ffeHjFxVRo9IBos0k small=false agent=build mode=primary
+timestamp=2026-08-13T23:53:25.286Z level=INFO run=9203f28d message="llm runtime selected" llm.runtime=ai-sdk llm.provider=opencode-go llm.model=deepseek-v4-flash
+timestamp=2026-08-13T23:53:30.528Z level=INFO run=9203f28d message=evaluated permission=read pattern=logs/test12/main.py action.permission=read action.pattern=* action.action=allow
+timestamp=2026-08-13T23:53:30.539Z level=INFO run=9203f28d message="touching file" file=/root/PyQCU/logs/test12/main.py
+timestamp=2026-08-13T23:53:30.579Z level=INFO run=9203f28d message=tracking hash=35e49f7ba1bae6eb17ea94f3588de1ca66c90eb0 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:53:30.619Z level=INFO run=9203f28d message=loop session.id=ses_0027750c0ffeHjFxVRo9IBos0k step=13
+timestamp=2026-08-13T23:53:30.666Z level=INFO run=9203f28d message=tracking hash=b4b3596e58ba5a5ffb3de60d240e2677e4263e15 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:53:30.672Z level=INFO run=9203f28d message=process session.id=ses_0027750c0ffeHjFxVRo9IBos0k messageID=msg_ffd8b92fe0012wYXzzk5lRhP7L
+timestamp=2026-08-13T23:53:30.673Z level=INFO run=9203f28d message=stream providerID=opencode-go modelID=deepseek-v4-flash session.id=ses_0027750c0ffeHjFxVRo9IBos0k small=false agent=build mode=primary
+timestamp=2026-08-13T23:53:30.675Z level=INFO run=9203f28d message="llm runtime selected" llm.runtime=ai-sdk llm.provider=opencode-go llm.model=deepseek-v4-flash
+timestamp=2026-08-13T23:53:34.367Z level=INFO run=9203f28d message=evaluated permission=edit pattern=logs/test12/main.py action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:53:34.368Z level=INFO run=9203f28d message=formatting file=/root/PyQCU/logs/test12/main.py
+timestamp=2026-08-13T23:53:34.376Z level=INFO run=9203f28d message="touching file" file=/root/PyQCU/logs/test12/main.py
+timestamp=2026-08-13T23:53:34.794Z level=INFO run=9203f28d message=evaluated permission=edit pattern=logs/test12/main.py action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:53:34.796Z level=INFO run=9203f28d message=formatting file=/root/PyQCU/logs/test12/main.py
+timestamp=2026-08-13T23:53:34.802Z level=INFO run=9203f28d message="touching file" file=/root/PyQCU/logs/test12/main.py
+timestamp=2026-08-13T23:53:34.943Z level=INFO run=9203f28d message=tracking hash=c99385acc9abfcbaaf1c582be21bf58da8655f44 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:53:35.021Z level=INFO run=9203f28d message=loop session.id=ses_0027750c0ffeHjFxVRo9IBos0k step=14
+timestamp=2026-08-13T23:53:35.094Z level=INFO run=9203f28d message=tracking hash=5b31c4d01a60bcdf06020f17e0e4d419d7fdea27 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:53:35.114Z level=INFO run=9203f28d message=process session.id=ses_0027750c0ffeHjFxVRo9IBos0k messageID=msg_ffd8ba431001b2JSfKBEcMLeKb
+timestamp=2026-08-13T23:53:35.114Z level=INFO run=9203f28d message=stream providerID=opencode-go modelID=deepseek-v4-flash session.id=ses_0027750c0ffeHjFxVRo9IBos0k small=false agent=build mode=primary
+timestamp=2026-08-13T23:53:35.115Z level=INFO run=9203f28d message="llm runtime selected" llm.runtime=ai-sdk llm.provider=opencode-go llm.model=deepseek-v4-flash
+timestamp=2026-08-13T23:53:38.489Z level=INFO run=9203f28d message=evaluated permission=edit pattern=logs/test12/main.py action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:53:38.490Z level=INFO run=9203f28d message=formatting file=/root/PyQCU/logs/test12/main.py
+timestamp=2026-08-13T23:53:38.494Z level=INFO run=9203f28d message="touching file" file=/root/PyQCU/logs/test12/main.py
+timestamp=2026-08-13T23:53:39.136Z level=INFO run=9203f28d message=evaluated permission=edit pattern=logs/test12/main.py action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:53:39.137Z level=INFO run=9203f28d message=formatting file=/root/PyQCU/logs/test12/main.py
+timestamp=2026-08-13T23:53:39.144Z level=INFO run=9203f28d message="touching file" file=/root/PyQCU/logs/test12/main.py
+timestamp=2026-08-13T23:53:39.498Z level=INFO run=9203f28d message=evaluated permission=edit pattern=logs/test12/main.py action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:53:39.499Z level=INFO run=9203f28d message=formatting file=/root/PyQCU/logs/test12/main.py
+timestamp=2026-08-13T23:53:39.504Z level=INFO run=9203f28d message="touching file" file=/root/PyQCU/logs/test12/main.py
+timestamp=2026-08-13T23:53:39.537Z level=INFO run=9203f28d message=tracking hash=9b7812dded4125300f5b6da82ba7b6cf0e350dc7 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:53:39.651Z level=INFO run=9203f28d message=loop session.id=ses_0027750c0ffeHjFxVRo9IBos0k step=15
+timestamp=2026-08-13T23:53:39.734Z level=INFO run=9203f28d message=tracking hash=35d8683460ad53bbec6009ae067af97da3a03ac7 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:53:39.751Z level=INFO run=9203f28d message=process session.id=ses_0027750c0ffeHjFxVRo9IBos0k messageID=msg_ffd8bb64a0015sO4ntgCfNhKqw
+timestamp=2026-08-13T23:53:39.752Z level=INFO run=9203f28d message=stream providerID=opencode-go modelID=deepseek-v4-flash session.id=ses_0027750c0ffeHjFxVRo9IBos0k small=false agent=build mode=primary
+timestamp=2026-08-13T23:53:39.753Z level=INFO run=9203f28d message="llm runtime selected" llm.runtime=ai-sdk llm.provider=opencode-go llm.model=deepseek-v4-flash
+timestamp=2026-08-13T23:53:42.362Z level=INFO run=9203f28d message=evaluated permission=grep pattern=vram.*help|add_argument.*vram|--vram action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:53:42.451Z level=INFO run=9203f28d message=tracking hash=3e678aa5400be8f096ee2be7abe44a7bb724306b cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:53:42.481Z level=INFO run=9203f28d message=loop session.id=ses_0027750c0ffeHjFxVRo9IBos0k step=16
+timestamp=2026-08-13T23:53:42.518Z level=INFO run=9203f28d message=tracking hash=62ce6aa624ab4b165d79de6d111c54184942b08e cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:53:42.529Z level=INFO run=9203f28d message=process session.id=ses_0027750c0ffeHjFxVRo9IBos0k messageID=msg_ffd8bc154001GOlDf1n14swskQ
+timestamp=2026-08-13T23:53:42.530Z level=INFO run=9203f28d message=stream providerID=opencode-go modelID=deepseek-v4-flash session.id=ses_0027750c0ffeHjFxVRo9IBos0k small=false agent=build mode=primary
+timestamp=2026-08-13T23:53:42.531Z level=INFO run=9203f28d message="llm runtime selected" llm.runtime=ai-sdk llm.provider=opencode-go llm.model=deepseek-v4-flash
+timestamp=2026-08-13T23:53:45.793Z level=INFO run=9203f28d message=evaluated permission=read pattern=logs/test12/main.py action.permission=read action.pattern=* action.action=allow
+timestamp=2026-08-13T23:53:45.827Z level=INFO run=9203f28d message="touching file" file=/root/PyQCU/logs/test12/main.py
+timestamp=2026-08-13T23:53:45.865Z level=INFO run=9203f28d message=tracking hash=845b53a0ce6dad21aa1f387c15bfa43f3f4b9194 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:53:45.902Z level=INFO run=9203f28d message=loop session.id=ses_0027750c0ffeHjFxVRo9IBos0k step=17
+timestamp=2026-08-13T23:53:45.934Z level=INFO run=9203f28d message=tracking hash=9ad856955722ae71dc305a5a9bad8d51c873c711 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:53:45.953Z level=INFO run=9203f28d message=process session.id=ses_0027750c0ffeHjFxVRo9IBos0k messageID=msg_ffd8bceb1001yKN3Eevgzh6Q44
+timestamp=2026-08-13T23:53:45.954Z level=INFO run=9203f28d message=stream providerID=opencode-go modelID=deepseek-v4-flash session.id=ses_0027750c0ffeHjFxVRo9IBos0k small=false agent=build mode=primary
+timestamp=2026-08-13T23:53:45.955Z level=INFO run=9203f28d message="llm runtime selected" llm.runtime=ai-sdk llm.provider=opencode-go llm.model=deepseek-v4-flash
+timestamp=2026-08-13T23:53:48.828Z level=INFO run=9203f28d message=evaluated permission=edit pattern=logs/test12/main.py action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:53:48.830Z level=INFO run=9203f28d message=formatting file=/root/PyQCU/logs/test12/main.py
+timestamp=2026-08-13T23:53:48.836Z level=INFO run=9203f28d message="touching file" file=/root/PyQCU/logs/test12/main.py
+timestamp=2026-08-13T23:53:48.900Z level=INFO run=9203f28d message=tracking hash=46138981253a7eacd8e77b5d41bdaceb04f02b69 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:53:48.952Z level=INFO run=9203f28d message=loop session.id=ses_0027750c0ffeHjFxVRo9IBos0k step=18
+timestamp=2026-08-13T23:53:48.993Z level=INFO run=9203f28d message=tracking hash=e0a870f13954d05e0fd2b78729770b365d0d5076 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:53:49.011Z level=INFO run=9203f28d message=process session.id=ses_0027750c0ffeHjFxVRo9IBos0k messageID=msg_ffd8bda9c001xX4C70hNU5BkmL
+timestamp=2026-08-13T23:53:49.012Z level=INFO run=9203f28d message=stream providerID=opencode-go modelID=deepseek-v4-flash session.id=ses_0027750c0ffeHjFxVRo9IBos0k small=false agent=build mode=primary
+timestamp=2026-08-13T23:53:49.013Z level=INFO run=9203f28d message="llm runtime selected" llm.runtime=ai-sdk llm.provider=opencode-go llm.model=deepseek-v4-flash
+timestamp=2026-08-13T23:54:00.003Z level=INFO run=9203f28d message=evaluated permission=edit pattern=logs/test12/run-snsc-v20260814.sh action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:54:00.003Z level=INFO run=9203f28d message=formatting file=/root/PyQCU/logs/test12/run-snsc-v20260814.sh
+timestamp=2026-08-13T23:54:00.007Z level=INFO run=9203f28d message="touching file" file=/root/PyQCU/logs/test12/run-snsc-v20260814.sh
+timestamp=2026-08-13T23:54:00.043Z level=INFO run=9203f28d message=tracking hash=b49d74b38937e8bb64593cdb3ff476df9883d998 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:54:00.083Z level=INFO run=9203f28d message=loop session.id=ses_0027750c0ffeHjFxVRo9IBos0k step=19
+timestamp=2026-08-13T23:54:00.131Z level=INFO run=9203f28d message=tracking hash=8724f11df1f274c83f584dae12a82eb92598c6f6 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:54:00.140Z level=INFO run=9203f28d message=process session.id=ses_0027750c0ffeHjFxVRo9IBos0k messageID=msg_ffd8c0617001M3gxtGamr2kPDj
+timestamp=2026-08-13T23:54:00.141Z level=INFO run=9203f28d message=stream providerID=opencode-go modelID=deepseek-v4-flash session.id=ses_0027750c0ffeHjFxVRo9IBos0k small=false agent=build mode=primary
+timestamp=2026-08-13T23:54:00.143Z level=INFO run=9203f28d message="llm runtime selected" llm.runtime=ai-sdk llm.provider=opencode-go llm.model=deepseek-v4-flash
+timestamp=2026-08-13T23:54:08.321Z level=INFO run=9203f28d message=evaluated permission=edit pattern=logs/test12/run-snsc-v20260814.sh action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:54:08.322Z level=INFO run=9203f28d message=formatting file=/root/PyQCU/logs/test12/run-snsc-v20260814.sh
+timestamp=2026-08-13T23:54:08.325Z level=INFO run=9203f28d message="touching file" file=/root/PyQCU/logs/test12/run-snsc-v20260814.sh
+timestamp=2026-08-13T23:54:08.351Z level=INFO run=9203f28d message=tracking hash=c4eec5ce0fa664ad832f70d5a25ad3d0832fc277 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:54:08.397Z level=INFO run=9203f28d message=loop session.id=ses_0027750c0ffeHjFxVRo9IBos0k step=20
+timestamp=2026-08-13T23:54:08.436Z level=INFO run=9203f28d message=tracking hash=dad25d7fd73ef245a6be7cd72388be331cd6bec2 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:54:08.450Z level=INFO run=9203f28d message=process session.id=ses_0027750c0ffeHjFxVRo9IBos0k messageID=msg_ffd8c2691001uFy1wwuVIb9deU
+timestamp=2026-08-13T23:54:08.451Z level=INFO run=9203f28d message=stream providerID=opencode-go modelID=deepseek-v4-flash session.id=ses_0027750c0ffeHjFxVRo9IBos0k small=false agent=build mode=primary
+timestamp=2026-08-13T23:54:08.452Z level=INFO run=9203f28d message="llm runtime selected" llm.runtime=ai-sdk llm.provider=opencode-go llm.model=deepseek-v4-flash
+timestamp=2026-08-13T23:54:12.374Z level=INFO run=9203f28d message=evaluated permission=read pattern=logs/test12/AGENTS.md action.permission=read action.pattern=* action.action=allow
+timestamp=2026-08-13T23:54:12.392Z level=INFO run=9203f28d message="touching file" file=/root/PyQCU/logs/test12/AGENTS.md
+timestamp=2026-08-13T23:54:12.417Z level=INFO run=9203f28d message=tracking hash=ef714c5bd66a363cd7b9e736c6f8b7fc0ef80995 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:54:12.451Z level=INFO run=9203f28d message=loop session.id=ses_0027750c0ffeHjFxVRo9IBos0k step=21
+timestamp=2026-08-13T23:54:12.487Z level=INFO run=9203f28d message=tracking hash=c24f60264442e1da9e0f2e92a988f36d8f31e56a cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:54:12.501Z level=INFO run=9203f28d message=process session.id=ses_0027750c0ffeHjFxVRo9IBos0k messageID=msg_ffd8c366600124yDBT5aAFG92G
+timestamp=2026-08-13T23:54:12.502Z level=INFO run=9203f28d message=stream providerID=opencode-go modelID=deepseek-v4-flash session.id=ses_0027750c0ffeHjFxVRo9IBos0k small=false agent=build mode=primary
+timestamp=2026-08-13T23:54:12.504Z level=INFO run=9203f28d message="llm runtime selected" llm.runtime=ai-sdk llm.provider=opencode-go llm.model=deepseek-v4-flash
+timestamp=2026-08-13T23:54:16.111Z level=INFO run=9203f28d message=evaluated permission=edit pattern=logs/test12/AGENTS.md action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:54:16.111Z level=INFO run=9203f28d message=formatting file=/root/PyQCU/logs/test12/AGENTS.md
+timestamp=2026-08-13T23:54:16.114Z level=INFO run=9203f28d message="touching file" file=/root/PyQCU/logs/test12/AGENTS.md
+timestamp=2026-08-13T23:54:17.052Z level=INFO run=9203f28d message=evaluated permission=edit pattern=logs/test12/AGENTS.md action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:54:17.053Z level=INFO run=9203f28d message=formatting file=/root/PyQCU/logs/test12/AGENTS.md
+timestamp=2026-08-13T23:54:17.055Z level=INFO run=9203f28d message="touching file" file=/root/PyQCU/logs/test12/AGENTS.md
+timestamp=2026-08-13T23:54:17.080Z level=INFO run=9203f28d message=tracking hash=c53590edf801760ed50f7ce4c9d9365f08dbc678 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:54:17.118Z level=INFO run=9203f28d message=loop session.id=ses_0027750c0ffeHjFxVRo9IBos0k step=22
+timestamp=2026-08-13T23:54:17.152Z level=INFO run=9203f28d message=tracking hash=0d4e966d4d0c2268023defe24ffe283d482f0709 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:54:17.158Z level=INFO run=9203f28d message=process session.id=ses_0027750c0ffeHjFxVRo9IBos0k messageID=msg_ffd8c48a2001Uq4RnmSVLjKaiA
+timestamp=2026-08-13T23:54:17.158Z level=INFO run=9203f28d message=stream providerID=opencode-go modelID=deepseek-v4-flash session.id=ses_0027750c0ffeHjFxVRo9IBos0k small=false agent=build mode=primary
+timestamp=2026-08-13T23:54:17.160Z level=INFO run=9203f28d message="llm runtime selected" llm.runtime=ai-sdk llm.provider=opencode-go llm.model=deepseek-v4-flash
+timestamp=2026-08-13T23:54:21.017Z level=INFO run=9203f28d message=evaluated permission=read pattern=logs/test12/AGENTS.md action.permission=read action.pattern=* action.action=allow
+timestamp=2026-08-13T23:54:21.032Z level=INFO run=9203f28d message="touching file" file=/root/PyQCU/logs/test12/AGENTS.md
+timestamp=2026-08-13T23:54:21.062Z level=INFO run=9203f28d message=tracking hash=101e84859e62f3a3ca90bffda4194f7662e97e70 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:54:21.111Z level=INFO run=9203f28d message=loop session.id=ses_0027750c0ffeHjFxVRo9IBos0k step=23
+timestamp=2026-08-13T23:54:21.146Z level=INFO run=9203f28d message=tracking hash=cb8dd23debe5edbdcb1425feb3bf467303724ce6 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:54:21.165Z level=INFO run=9203f28d message=process session.id=ses_0027750c0ffeHjFxVRo9IBos0k messageID=msg_ffd8c583b0013n58felkd0LOBR
+timestamp=2026-08-13T23:54:21.166Z level=INFO run=9203f28d message=stream providerID=opencode-go modelID=deepseek-v4-flash session.id=ses_0027750c0ffeHjFxVRo9IBos0k small=false agent=build mode=primary
+timestamp=2026-08-13T23:54:21.168Z level=INFO run=9203f28d message="llm runtime selected" llm.runtime=ai-sdk llm.provider=opencode-go llm.model=deepseek-v4-flash
+timestamp=2026-08-13T23:54:24.783Z level=INFO run=9203f28d message=evaluated permission=edit pattern=logs/test12/AGENTS.md action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:54:24.784Z level=INFO run=9203f28d message=formatting file=/root/PyQCU/logs/test12/AGENTS.md
+timestamp=2026-08-13T23:54:24.787Z level=INFO run=9203f28d message="touching file" file=/root/PyQCU/logs/test12/AGENTS.md
+timestamp=2026-08-13T23:54:24.790Z level=INFO run=9203f28d message=evaluated permission=edit pattern=logs/test12/AGENTS.md action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:54:24.791Z level=INFO run=9203f28d message=formatting file=/root/PyQCU/logs/test12/AGENTS.md
+timestamp=2026-08-13T23:54:24.793Z level=INFO run=9203f28d message="touching file" file=/root/PyQCU/logs/test12/AGENTS.md
+timestamp=2026-08-13T23:54:26.926Z level=INFO run=9203f28d message=evaluated permission=edit pattern=logs/test12/AGENTS.md action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:54:26.927Z level=INFO run=9203f28d message=formatting file=/root/PyQCU/logs/test12/AGENTS.md
+timestamp=2026-08-13T23:54:26.931Z level=INFO run=9203f28d message="touching file" file=/root/PyQCU/logs/test12/AGENTS.md
+timestamp=2026-08-13T23:54:26.973Z level=INFO run=9203f28d message=tracking hash=88c2073216a4152cc3da74284bc34212865dd0da cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:54:27.001Z level=INFO run=9203f28d message=loop session.id=ses_0027750c0ffeHjFxVRo9IBos0k step=24
+timestamp=2026-08-13T23:54:27.039Z level=INFO run=9203f28d message=tracking hash=572272507cdeacf1eaaa5962eea7aa2ce589186e cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:54:27.053Z level=INFO run=9203f28d message=process session.id=ses_0027750c0ffeHjFxVRo9IBos0k messageID=msg_ffd8c6f3d001nEv9AHoGU0Cs1Y
+timestamp=2026-08-13T23:54:27.054Z level=INFO run=9203f28d message=stream providerID=opencode-go modelID=deepseek-v4-flash session.id=ses_0027750c0ffeHjFxVRo9IBos0k small=false agent=build mode=primary
+timestamp=2026-08-13T23:54:27.056Z level=INFO run=9203f28d message="llm runtime selected" llm.runtime=ai-sdk llm.provider=opencode-go llm.model=deepseek-v4-flash
+timestamp=2026-08-13T23:54:31.135Z level=INFO run=9203f28d message=evaluated permission=edit pattern=logs/test12/AGENTS.md action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:54:31.136Z level=INFO run=9203f28d message=formatting file=/root/PyQCU/logs/test12/AGENTS.md
+timestamp=2026-08-13T23:54:31.139Z level=INFO run=9203f28d message="touching file" file=/root/PyQCU/logs/test12/AGENTS.md
+timestamp=2026-08-13T23:54:31.173Z level=INFO run=9203f28d message=tracking hash=3733f781302193bc8e1299f38c2f982b659c39f7 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:54:31.212Z level=INFO run=9203f28d message=loop session.id=ses_0027750c0ffeHjFxVRo9IBos0k step=25
+timestamp=2026-08-13T23:54:31.260Z level=INFO run=9203f28d message=tracking hash=206e09cea9eff7d30dd1db09ce1c40d74fa0c34b cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:54:31.266Z level=INFO run=9203f28d message=process session.id=ses_0027750c0ffeHjFxVRo9IBos0k messageID=msg_ffd8c7fb0001bUAnbCOScnCnjM
+timestamp=2026-08-13T23:54:31.267Z level=INFO run=9203f28d message=stream providerID=opencode-go modelID=deepseek-v4-flash session.id=ses_0027750c0ffeHjFxVRo9IBos0k small=false agent=build mode=primary
+timestamp=2026-08-13T23:54:31.269Z level=INFO run=9203f28d message="llm runtime selected" llm.runtime=ai-sdk llm.provider=opencode-go llm.model=deepseek-v4-flash
+timestamp=2026-08-13T23:54:41.860Z level=INFO run=9203f28d message=evaluated permission=bash pattern="bash -n run-snsc-v20260814.sh" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:54:41.860Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"bash -n OK\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:54:41.861Z level=INFO run=9203f28d message=evaluated permission=bash pattern="python3 -m py_compile main.py" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:54:41.861Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"py_compile OK\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:54:41.947Z level=INFO run=9203f28d message=tracking hash=6d0cfa41530b88d9bbd46b54d4614c73871638ce cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:54:41.995Z level=INFO run=9203f28d message=loop session.id=ses_0027750c0ffeHjFxVRo9IBos0k step=26
+timestamp=2026-08-13T23:54:42.035Z level=INFO run=9203f28d message=tracking hash=9c52bb0e71496a54aae500c910870f11b2984d58 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:54:42.051Z level=INFO run=9203f28d message=process session.id=ses_0027750c0ffeHjFxVRo9IBos0k messageID=msg_ffd8ca9cf001H32prZz0Q50TkE
+timestamp=2026-08-13T23:54:42.052Z level=INFO run=9203f28d message=stream providerID=opencode-go modelID=deepseek-v4-flash session.id=ses_0027750c0ffeHjFxVRo9IBos0k small=false agent=build mode=primary
+timestamp=2026-08-13T23:54:42.053Z level=INFO run=9203f28d message="llm runtime selected" llm.runtime=ai-sdk llm.provider=opencode-go llm.model=deepseek-v4-flash
+timestamp=2026-08-13T23:54:45.419Z level=INFO run=9203f28d message=evaluated permission=bash pattern="bash run-snsc-v20260814.sh --dry-run 2>&1" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:54:45.419Z level=INFO run=9203f28d message=evaluated permission=bash pattern="grep -E \"Step [0-9]|clean --lattice|budget|mktable|plots\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:54:45.508Z level=INFO run=9203f28d message=tracking hash=55dcd7dd74b0e0f34ae2f4bdd2b11e5f9618d534 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:54:45.545Z level=INFO run=9203f28d message=loop session.id=ses_0027750c0ffeHjFxVRo9IBos0k step=27
+timestamp=2026-08-13T23:54:45.592Z level=INFO run=9203f28d message=tracking hash=17e1753922d9ca50ef233c3c3c76d912fa605301 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:54:45.612Z level=INFO run=9203f28d message=process session.id=ses_0027750c0ffeHjFxVRo9IBos0k messageID=msg_ffd8cb7ad001KyDTljWeCxFq7l
+timestamp=2026-08-13T23:54:45.614Z level=INFO run=9203f28d message=stream providerID=opencode-go modelID=deepseek-v4-flash session.id=ses_0027750c0ffeHjFxVRo9IBos0k small=false agent=build mode=primary
+timestamp=2026-08-13T23:54:45.617Z level=INFO run=9203f28d message="llm runtime selected" llm.runtime=ai-sdk llm.provider=opencode-go llm.model=deepseek-v4-flash
+timestamp=2026-08-13T23:54:49.803Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"--- VRAM=32 ---\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:54:49.803Z level=INFO run=9203f28d message=evaluated permission=bash pattern="VRAM=32 bash run-snsc-v20260814.sh --dry-run 2>&1" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:54:49.803Z level=INFO run=9203f28d message=evaluated permission=bash pattern="grep -E \"^===== Step [34]|clean --lattice\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:54:49.803Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"--- VRAM=16 ---\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:54:49.804Z level=INFO run=9203f28d message=evaluated permission=bash pattern="VRAM=16 bash run-snsc-v20260814.sh --dry-run 2>&1" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:54:49.929Z level=INFO run=9203f28d message=tracking hash=914c4c4da8fc2f3a8680915f45b1cc0852de61a4 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:54:49.964Z level=INFO run=9203f28d message=loop session.id=ses_0027750c0ffeHjFxVRo9IBos0k step=28
+timestamp=2026-08-13T23:54:50.015Z level=INFO run=9203f28d message=tracking hash=28a915773663f66a0c8eaaf2c299d6ec7b7b510f cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:54:50.024Z level=INFO run=9203f28d message=process session.id=ses_0027750c0ffeHjFxVRo9IBos0k messageID=msg_ffd8cc8f2001BTcx5Zzgqbp4ib
+timestamp=2026-08-13T23:54:50.026Z level=INFO run=9203f28d message=stream providerID=opencode-go modelID=deepseek-v4-flash session.id=ses_0027750c0ffeHjFxVRo9IBos0k small=false agent=build mode=primary
+timestamp=2026-08-13T23:54:50.035Z level=INFO run=9203f28d message="llm runtime selected" llm.runtime=ai-sdk llm.provider=opencode-go llm.model=deepseek-v4-flash
+timestamp=2026-08-13T23:54:52.743Z level=INFO run=9203f28d message="resolved path" arg=/tmp/opencode/v40test resolved=/tmp/opencode/v40test
+timestamp=2026-08-13T23:54:52.747Z level=INFO run=9203f28d message=evaluated permission=external_directory pattern=/tmp/opencode/* action.permission=external_directory action.pattern=/tmp/opencode/* action.action=allow
+timestamp=2026-08-13T23:54:52.747Z level=INFO run=9203f28d message=evaluated permission=bash pattern="mkdir -p /tmp/opencode/v40test" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:54:52.747Z level=INFO run=9203f28d message=evaluated permission=bash pattern="python main.py budget --mode server --vram 40 --outdir /tmp/opencode/v40test" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:54:52.747Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"---\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:54:52.747Z level=INFO run=9203f28d message=evaluated permission=bash pattern="ls /tmp/opencode/v40test/" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:54:55.128Z level=INFO run=9203f28d message=tracking hash=fa324ac42485bcdbd2814cd78a61c7cc2dfaeb4a cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:54:55.164Z level=INFO run=9203f28d message=loop session.id=ses_0027750c0ffeHjFxVRo9IBos0k step=29
+timestamp=2026-08-13T23:54:55.203Z level=INFO run=9203f28d message=tracking hash=501b95b67ffdd1aab393ab77c06b60f0b7314f91 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:54:55.216Z level=INFO run=9203f28d message=process session.id=ses_0027750c0ffeHjFxVRo9IBos0k messageID=msg_ffd8cdd400014Ria1clECevA77
+timestamp=2026-08-13T23:54:55.217Z level=INFO run=9203f28d message=stream providerID=opencode-go modelID=deepseek-v4-flash session.id=ses_0027750c0ffeHjFxVRo9IBos0k small=false agent=build mode=primary
+timestamp=2026-08-13T23:54:55.218Z level=INFO run=9203f28d message="llm runtime selected" llm.runtime=ai-sdk llm.provider=opencode-go llm.model=deepseek-v4-flash
+timestamp=2026-08-13T23:55:03.965Z level=INFO run=9203f28d message=evaluated permission=edit pattern=logs/test12/main.py action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:55:03.966Z level=INFO run=9203f28d message=formatting file=/root/PyQCU/logs/test12/main.py
+timestamp=2026-08-13T23:55:03.972Z level=INFO run=9203f28d message="touching file" file=/root/PyQCU/logs/test12/main.py
+timestamp=2026-08-13T23:55:04.002Z level=INFO run=9203f28d message=tracking hash=8eb79fdc6e8af0418eb4f70cf02f77dc570f8593 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:55:04.037Z level=INFO run=9203f28d message=loop session.id=ses_0027750c0ffeHjFxVRo9IBos0k step=30
+timestamp=2026-08-13T23:55:04.131Z level=INFO run=9203f28d message=tracking hash=590eec6015db724be4594446ae25d87c728cc1d9 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:55:04.145Z level=INFO run=9203f28d message=process session.id=ses_0027750c0ffeHjFxVRo9IBos0k messageID=msg_ffd8cffe9001E7gPlwhhEjqTPz
+timestamp=2026-08-13T23:55:04.147Z level=INFO run=9203f28d message=stream providerID=opencode-go modelID=deepseek-v4-flash session.id=ses_0027750c0ffeHjFxVRo9IBos0k small=false agent=build mode=primary
+timestamp=2026-08-13T23:55:04.149Z level=INFO run=9203f28d message="llm runtime selected" llm.runtime=ai-sdk llm.provider=opencode-go llm.model=deepseek-v4-flash
+timestamp=2026-08-13T23:55:07.085Z level=INFO run=9203f28d message=evaluated permission=bash pattern="python main.py budget --mode server --vram 40 --outdir /tmp/opencode/v40test 2>&1" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:55:07.085Z level=INFO run=9203f28d message=evaluated permission=bash pattern="tail -2" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:55:07.085Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"--- vram 16 回归 ---\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:55:07.086Z level=INFO run=9203f28d message=evaluated permission=bash pattern="python main.py budget --mode server --vram 16 --outdir /tmp/opencode/v40test 2>&1" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:55:07.086Z level=INFO run=9203f28d message=evaluated permission=bash pattern="tail -3" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:55:07.086Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"--- vram 32 回归 ---\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:55:07.086Z level=INFO run=9203f28d message=evaluated permission=bash pattern="python main.py budget --mode server --vram 32 --outdir /tmp/opencode/v40test 2>&1" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:55:14.165Z level=INFO run=9203f28d message=tracking hash=89606c5d5b9cc144f5a2153ad65d31cfb027ad88 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:55:14.200Z level=INFO run=9203f28d message=loop session.id=ses_0027750c0ffeHjFxVRo9IBos0k step=31
+timestamp=2026-08-13T23:55:14.239Z level=INFO run=9203f28d message=tracking hash=cea7e22ed0223c7d1392c496683fb2cde3ee4ec8 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:55:14.254Z level=INFO run=9203f28d message=process session.id=ses_0027750c0ffeHjFxVRo9IBos0k messageID=msg_ffd8d279c001iuTRdNKURXbXsF
+timestamp=2026-08-13T23:55:14.255Z level=INFO run=9203f28d message=stream providerID=opencode-go modelID=deepseek-v4-flash session.id=ses_0027750c0ffeHjFxVRo9IBos0k small=false agent=build mode=primary
+timestamp=2026-08-13T23:55:14.256Z level=INFO run=9203f28d message="llm runtime selected" llm.runtime=ai-sdk llm.provider=opencode-go llm.model=deepseek-v4-flash
+timestamp=2026-08-13T23:55:18.506Z level=INFO run=9203f28d message="resolved path" arg=/tmp/opencode/v40test resolved=/tmp/opencode/v40test
+timestamp=2026-08-13T23:55:18.509Z level=INFO run=9203f28d message=evaluated permission=external_directory pattern=/tmp/opencode/v40test/* action.permission=external_directory action.pattern=/tmp/opencode/* action.action=allow
+timestamp=2026-08-13T23:55:18.510Z level=INFO run=9203f28d message=evaluated permission=bash pattern="ls -dt v20260814* 2>/dev/null" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:55:18.510Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"---\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:55:18.510Z level=INFO run=9203f28d message=evaluated permission=bash pattern="grep -q dry-run \"$d/run-snsc-\"*.log 2>/dev/null" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:55:18.510Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"dry-run 目录: $d\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:55:18.510Z level=INFO run=9203f28d message=evaluated permission=bash pattern="rm -rf /tmp/opencode/v40test" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:55:18.591Z level=INFO run=9203f28d message=tracking hash=fa3ca76c32b15a35a4d6a6ecaef7e2e0725e6ae1 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:55:18.630Z level=INFO run=9203f28d message=loop session.id=ses_0027750c0ffeHjFxVRo9IBos0k step=32
+timestamp=2026-08-13T23:55:18.687Z level=INFO run=9203f28d message=tracking hash=abf846d827e795a5d150730406905110a5d620d5 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:55:18.705Z level=INFO run=9203f28d message=process session.id=ses_0027750c0ffeHjFxVRo9IBos0k messageID=msg_ffd8d38ed001WyK3GmlbCDpMvk
+timestamp=2026-08-13T23:55:18.706Z level=INFO run=9203f28d message=stream providerID=opencode-go modelID=deepseek-v4-flash session.id=ses_0027750c0ffeHjFxVRo9IBos0k small=false agent=build mode=primary
+timestamp=2026-08-13T23:55:18.708Z level=INFO run=9203f28d message="llm runtime selected" llm.runtime=ai-sdk llm.provider=opencode-go llm.model=deepseek-v4-flash
+timestamp=2026-08-13T23:55:22.114Z level=INFO run=9203f28d message="resolved path" arg=v202608140754 resolved=/root/PyQCU/logs/test12/v202608140754
+timestamp=2026-08-13T23:55:22.115Z level=INFO run=9203f28d message="resolved path" arg=v202608140754-49 resolved=/root/PyQCU/logs/test12/v202608140754-49
+timestamp=2026-08-13T23:55:22.115Z level=INFO run=9203f28d message=evaluated permission=bash pattern="rm -rf v202608140754 v202608140754-49" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:55:22.116Z level=INFO run=9203f28d message=evaluated permission=bash pattern="ls -d v2026*" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:55:22.153Z level=INFO run=9203f28d message=tracking hash=130def46efd02f655db7cd87aa6626ab276e6384 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:55:22.189Z level=INFO run=9203f28d message=loop session.id=ses_0027750c0ffeHjFxVRo9IBos0k step=33
+timestamp=2026-08-13T23:55:22.234Z level=INFO run=9203f28d message=tracking hash=5148b491adbad30738470ddc78d1e891248d00c5 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:55:22.248Z level=INFO run=9203f28d message=process session.id=ses_0027750c0ffeHjFxVRo9IBos0k messageID=msg_ffd8d46d4001D1CiLVKlL73meM
+timestamp=2026-08-13T23:55:22.249Z level=INFO run=9203f28d message=stream providerID=opencode-go modelID=deepseek-v4-flash session.id=ses_0027750c0ffeHjFxVRo9IBos0k small=false agent=build mode=primary
+timestamp=2026-08-13T23:55:22.251Z level=INFO run=9203f28d message="llm runtime selected" llm.runtime=ai-sdk llm.provider=opencode-go llm.model=deepseek-v4-flash
+timestamp=2026-08-13T23:55:26.167Z level=INFO run=9203f28d message=evaluated permission=bash pattern="git diff --stat" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:55:26.167Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"===\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:55:26.167Z level=INFO run=9203f28d message=evaluated permission=bash pattern="diff run-snsc.sh run-snsc-v20260814.sh" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:55:26.168Z level=INFO run=9203f28d message=evaluated permission=bash pattern="grep -cE \"^[<>]\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:55:26.168Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"两脚本差异行数（预期 >0）\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:55:26.282Z level=INFO run=9203f28d message=tracking hash=47ef960e077c561c91e45bfcf061e8fbf73da1a2 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:55:26.314Z level=INFO run=9203f28d message=loop session.id=ses_0027750c0ffeHjFxVRo9IBos0k step=34
+timestamp=2026-08-13T23:55:26.349Z level=INFO run=9203f28d message=tracking hash=5e4e40f81b4431d444a41f6911badc9e92308355 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:55:26.355Z level=INFO run=9203f28d message=process session.id=ses_0027750c0ffeHjFxVRo9IBos0k messageID=msg_ffd8d56ee001VhILM4QzgU5HHS
+timestamp=2026-08-13T23:55:26.356Z level=INFO run=9203f28d message=stream providerID=opencode-go modelID=deepseek-v4-flash session.id=ses_0027750c0ffeHjFxVRo9IBos0k small=false agent=build mode=primary
+timestamp=2026-08-13T23:55:26.357Z level=INFO run=9203f28d message="llm runtime selected" llm.runtime=ai-sdk llm.provider=opencode-go llm.model=deepseek-v4-flash
+timestamp=2026-08-13T23:55:29.403Z level=INFO run=9203f28d message=evaluated permission=bash pattern="diff logs/test12/run-snsc.sh logs/test12/run-snsc-v20260814.sh" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:55:29.403Z level=INFO run=9203f28d message=evaluated permission=bash pattern="grep -cE \"^[<>]\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:55:33.132Z level=INFO run=9203f28d message=evaluated permission=bash pattern="ls -t .optim.*.log" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:55:33.132Z level=INFO run=9203f28d message=evaluated permission=bash pattern="head -1" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:55:33.132Z level=INFO run=9203f28d message=evaluated permission=bash pattern="sed 's/\\.optim\\.//;s/\\.log//'" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:55:33.132Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"---- [$(date +%Y-%m-%d-%H-%M-%S)] 会话尾 ----\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:55:33.132Z level=INFO run=9203f28d message=evaluated permission=bash pattern="date +%Y-%m-%d-%H-%M-%S" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:55:33.132Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"改动:\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:55:33.132Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"  main.py: vram_gb_option 支持 40 档; 新增 LATTICES40(budget_table 40G 档选择);\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:55:33.132Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"           budget 说明行改为动态格子名; docstring/argparse 文案\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:55:33.132Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"  run-snsc-v20260814.sh: 默认 VRAM=40(A100-40GB); Step3: >=32 → 16x32x32x32;\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:55:33.132Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"           Step4: >=40 → 20x32x32x64(最大格子 V 增大 25%), 32 → 16x32x32x64, else 16x32x32x32\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:55:33.133Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"  AGENTS.md: 目录树/快速开始/子命令/跨环境/显存档同步 40G 档\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:55:33.133Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"验证:\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:55:33.133Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"  bash -n OK; py_compile OK\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:55:33.134Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"  dry-run: 40 档 Step3=16x32x32x32 Step4=20x32x32x64; VRAM=32/16 档分支不变\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:55:33.134Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"  budget --vram 40 → test12_budget_server_40g.json, LATTICES40 3 行, warm/fr 0.344/0.689/0.861\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:55:33.135Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"  budget --vram 16/32 回归输出与历史一致\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:55:33.136Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"  dry-run 测试残留 v202608140754{, -49} 已删除\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:55:33.136Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"权衡: 20x32x32x64 warm 34.4G 为模型预测(≈86%)，实测可能 OOM，脚本有 || warn 容错\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:55:33.136Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"遗留: run-snsc.sh 保持 16G 档不变(通用版); 20x32x32x64 需外部卡先构建 nullvec 缓存才能 warm\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:55:33.195Z level=INFO run=9203f28d message=tracking hash=5f6a665da999712d3f676ae5524af52a16fa5082 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:55:33.229Z level=INFO run=9203f28d message=loop session.id=ses_0027750c0ffeHjFxVRo9IBos0k step=35
+timestamp=2026-08-13T23:55:33.264Z level=INFO run=9203f28d message=tracking hash=5183174be8cf6e391e7cda642d696350b4ccdbca cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:55:33.271Z level=INFO run=9203f28d message=process session.id=ses_0027750c0ffeHjFxVRo9IBos0k messageID=msg_ffd8d71f10013CoLkJmxqsoxtb
+timestamp=2026-08-13T23:55:33.271Z level=INFO run=9203f28d message=stream providerID=opencode-go modelID=deepseek-v4-flash session.id=ses_0027750c0ffeHjFxVRo9IBos0k small=false agent=build mode=primary
+timestamp=2026-08-13T23:55:33.284Z level=INFO run=9203f28d message="llm runtime selected" llm.runtime=ai-sdk llm.provider=opencode-go llm.model=deepseek-v4-flash
+timestamp=2026-08-13T23:55:44.941Z level=INFO run=9203f28d message=tracking hash=f489ff45d208bf4788c343cbf47672d42d104f7d cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:55:44.975Z level=INFO run=9203f28d message=loop session.id=ses_0027750c0ffeHjFxVRo9IBos0k step=36
+timestamp=2026-08-13T23:55:44.981Z level=INFO run=9203f28d message="exiting loop" session.id=ses_0027750c0ffeHjFxVRo9IBos0k
+timestamp=2026-08-13T23:57:26.148Z level=INFO run=9203f28d message=loop session.id=ses_0027750c0ffeHjFxVRo9IBos0k step=0
+timestamp=2026-08-13T23:57:26.185Z level=INFO run=9203f28d message=tracking hash=9fbd7b954b7aeab1a5d7193b0b344815f34e0c5b cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:57:26.210Z level=INFO run=9203f28d message=process session.id=ses_0027750c0ffeHjFxVRo9IBos0k messageID=msg_ffd8f2b08001R26rX5KChiPava
+timestamp=2026-08-13T23:57:26.211Z level=INFO run=9203f28d message=stream providerID=opencode-go modelID=deepseek-v4-flash session.id=ses_0027750c0ffeHjFxVRo9IBos0k small=false agent=build mode=primary
+timestamp=2026-08-13T23:57:26.213Z level=INFO run=9203f28d message="llm runtime selected" llm.runtime=ai-sdk llm.provider=opencode-go llm.model=deepseek-v4-flash
+timestamp=2026-08-13T23:57:29.597Z level=INFO run=9203f28d message=evaluated permission=bash pattern="printf '%s\\n' \"---- [2026-08-14 07:57:00] 第 3 条用户输入 ----\" \"~tag test12_1\" >> /root/PyQCU/logs/test12/.agent.2026-08-14-07-50-18.list" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:57:29.632Z level=INFO run=9203f28d message=tracking hash=95f7f7a2e7cb69e56dcdcbaf387af663cf0805bc cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:57:29.670Z level=INFO run=9203f28d message=loop session.id=ses_0027750c0ffeHjFxVRo9IBos0k step=1
+timestamp=2026-08-13T23:57:29.716Z level=INFO run=9203f28d message=tracking hash=2798b129712f3fd4620a9f0374134ce144377f31 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:57:29.729Z level=INFO run=9203f28d message=process session.id=ses_0027750c0ffeHjFxVRo9IBos0k messageID=msg_ffd8f38cc0011QPYjFGpzJKStV
+timestamp=2026-08-13T23:57:29.729Z level=INFO run=9203f28d message=stream providerID=opencode-go modelID=deepseek-v4-flash session.id=ses_0027750c0ffeHjFxVRo9IBos0k small=false agent=build mode=primary
+timestamp=2026-08-13T23:57:29.731Z level=INFO run=9203f28d message="llm runtime selected" llm.runtime=ai-sdk llm.provider=opencode-go llm.model=deepseek-v4-flash
+timestamp=2026-08-13T23:57:33.090Z level=INFO run=9203f28d message=evaluated permission=skill pattern=tag action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:57:33.134Z level=INFO run=9203f28d message=tracking hash=33e74692f01471331700ee9ce58b6867da8164ec cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:57:33.167Z level=INFO run=9203f28d message=loop session.id=ses_0027750c0ffeHjFxVRo9IBos0k step=2
+timestamp=2026-08-13T23:57:33.213Z level=INFO run=9203f28d message=tracking hash=e396b75f23b8a9e6624f4712481c10c0f43451ba cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:57:33.220Z level=INFO run=9203f28d message=process session.id=ses_0027750c0ffeHjFxVRo9IBos0k messageID=msg_ffd8f467c001KG6iCmlyZFe2Z5
+timestamp=2026-08-13T23:57:33.220Z level=INFO run=9203f28d message=stream providerID=opencode-go modelID=deepseek-v4-flash session.id=ses_0027750c0ffeHjFxVRo9IBos0k small=false agent=build mode=primary
+timestamp=2026-08-13T23:57:33.228Z level=INFO run=9203f28d message="llm runtime selected" llm.runtime=ai-sdk llm.provider=opencode-go llm.model=deepseek-v4-flash
+timestamp=2026-08-13T23:57:40.429Z level=INFO run=9203f28d message=evaluated permission=bash pattern="ls -1t .tag.*.log 2>/dev/null" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:57:40.429Z level=INFO run=9203f28d message=evaluated permission=bash pattern="head -3" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:57:40.430Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"---\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:57:40.430Z level=INFO run=9203f28d message=evaluated permission=bash pattern="git tag -l" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:57:40.431Z level=INFO run=9203f28d message=evaluated permission=bash pattern="head -40" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:57:40.431Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"---remote---\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:57:40.431Z level=INFO run=9203f28d message=evaluated permission=bash pattern="git remote -v" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:57:40.485Z level=INFO run=9203f28d message=tracking hash=4308911ff7d6e104a671a3259d5b0805159b6fd3 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:57:40.525Z level=INFO run=9203f28d message=loop session.id=ses_0027750c0ffeHjFxVRo9IBos0k step=3
+timestamp=2026-08-13T23:57:40.581Z level=INFO run=9203f28d message=tracking hash=f7c46472e6d2d5cc3a2ef3f3d313b5acedc6bfdd cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:57:40.599Z level=INFO run=9203f28d message=process session.id=ses_0027750c0ffeHjFxVRo9IBos0k messageID=msg_ffd8f63310011fTu4QcNGtwBM3
+timestamp=2026-08-13T23:57:40.600Z level=INFO run=9203f28d message=stream providerID=opencode-go modelID=deepseek-v4-flash session.id=ses_0027750c0ffeHjFxVRo9IBos0k small=false agent=build mode=primary
+timestamp=2026-08-13T23:57:40.601Z level=INFO run=9203f28d message="llm runtime selected" llm.runtime=ai-sdk llm.provider=opencode-go llm.model=deepseek-v4-flash
+timestamp=2026-08-13T23:57:52.588Z level=INFO run=9203f28d message=evaluated permission=bash pattern="tail -80 \"$(ls -1t .tag.*.log | head -1)\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:57:52.589Z level=INFO run=9203f28d message=evaluated permission=bash pattern="ls -1t .tag.*.log" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:57:52.589Z level=INFO run=9203f28d message=evaluated permission=bash pattern="head -1" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:57:52.589Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"===2===\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:57:52.589Z level=INFO run=9203f28d message=evaluated permission=bash pattern="tail -30 \"$(ls -1t .tag.*.log | sed -n 2p)\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:57:52.589Z level=INFO run=9203f28d message=evaluated permission=bash pattern="sed -n 2p" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:57:52.638Z level=INFO run=9203f28d message=tracking hash=a29c07f4f8d79aaf52c57ca8e3a90263721b3e1e cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:57:52.676Z level=INFO run=9203f28d message=loop session.id=ses_0027750c0ffeHjFxVRo9IBos0k step=4
+timestamp=2026-08-13T23:57:52.722Z level=INFO run=9203f28d message=tracking hash=1f28a8c3e247e9db9f4e64d2eb9f708d377c08c0 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:57:52.736Z level=INFO run=9203f28d message=process session.id=ses_0027750c0ffeHjFxVRo9IBos0k messageID=msg_ffd8f92ab001FCziCGlOC0dBP9
+timestamp=2026-08-13T23:57:52.737Z level=INFO run=9203f28d message=stream providerID=opencode-go modelID=deepseek-v4-flash session.id=ses_0027750c0ffeHjFxVRo9IBos0k small=false agent=build mode=primary
+timestamp=2026-08-13T23:57:52.739Z level=INFO run=9203f28d message="llm runtime selected" llm.runtime=ai-sdk llm.provider=opencode-go llm.model=deepseek-v4-flash
+timestamp=2026-08-13T23:57:58.700Z level=INFO run=9203f28d message=evaluated permission=bash pattern="git tag -l --sort=-v:refname" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:57:58.700Z level=INFO run=9203f28d message=evaluated permission=bash pattern="grep -E '^(test|stab|dev|bug)[0-9]+(_[0-9]+)?$'" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:57:58.700Z level=INFO run=9203f28d message=evaluated permission=bash pattern="head -8" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:57:58.700Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"--- 基线 test12..HEAD ---\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:57:58.701Z level=INFO run=9203f28d message=evaluated permission=bash pattern="git log test12..HEAD --oneline --no-merges" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:57:58.701Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"--- diff stat ---\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:57:58.701Z level=INFO run=9203f28d message=evaluated permission=bash pattern="git diff test12..HEAD --stat" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:57:58.701Z level=INFO run=9203f28d message=evaluated permission=bash pattern="tail -15" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:57:58.701Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"--- 未提交 ---\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:57:58.702Z level=INFO run=9203f28d message=evaluated permission=bash pattern="git status --short" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:57:58.702Z level=INFO run=9203f28d message=evaluated permission=bash pattern="head -20" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:57:58.825Z level=INFO run=9203f28d message=tracking hash=97173d130fbfdb0fe6103dcbed51a611c536980b cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:57:58.859Z level=INFO run=9203f28d message=loop session.id=ses_0027750c0ffeHjFxVRo9IBos0k step=5
+timestamp=2026-08-13T23:57:58.901Z level=INFO run=9203f28d message=tracking hash=2b4daeddaeb5d9d5f0438aa11ca3cf3c738ce42b cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:57:58.914Z level=INFO run=9203f28d message=process session.id=ses_0027750c0ffeHjFxVRo9IBos0k messageID=msg_ffd8faacf001RiTl3Y5A93qO5E
+timestamp=2026-08-13T23:57:58.915Z level=INFO run=9203f28d message=stream providerID=opencode-go modelID=deepseek-v4-flash session.id=ses_0027750c0ffeHjFxVRo9IBos0k small=false agent=build mode=primary
+timestamp=2026-08-13T23:57:58.917Z level=INFO run=9203f28d message="llm runtime selected" llm.runtime=ai-sdk llm.provider=opencode-go llm.model=deepseek-v4-flash
+timestamp=2026-08-13T23:58:11.683Z level=INFO run=9203f28d message=evaluated permission=bash pattern="git log test12..HEAD --format='%h %s%n  files: %' --name-only --stat" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:58:11.683Z level=INFO run=9203f28d message=evaluated permission=bash pattern="head -40" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:58:11.750Z level=INFO run=9203f28d message=tracking hash=5dfbf57ad30df7be8eca4eae258827f991f9fe01 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:58:11.804Z level=INFO run=9203f28d message=loop session.id=ses_0027750c0ffeHjFxVRo9IBos0k step=6
+timestamp=2026-08-13T23:58:11.848Z level=INFO run=9203f28d message=tracking hash=8da77652f6be9d797e762aa2e138e3340261b4a4 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:58:11.863Z level=INFO run=9203f28d message=process session.id=ses_0027750c0ffeHjFxVRo9IBos0k messageID=msg_ffd8fdd61001dLWjNQ9qNpXHhu
+timestamp=2026-08-13T23:58:11.863Z level=INFO run=9203f28d message=stream providerID=opencode-go modelID=deepseek-v4-flash session.id=ses_0027750c0ffeHjFxVRo9IBos0k small=false agent=build mode=primary
+timestamp=2026-08-13T23:58:11.865Z level=INFO run=9203f28d message="llm runtime selected" llm.runtime=ai-sdk llm.provider=opencode-go llm.model=deepseek-v4-flash
+timestamp=2026-08-13T23:58:19.217Z level=INFO run=9203f28d message=asking id=que_ffd8ffa51001rXM6RG8eix5u1Y questions=1
+timestamp=2026-08-13T23:58:26.424Z level=INFO run=9203f28d message=replied requestID=que_ffd8ffa51001rXM6RG8eix5u1Y answers="[[\"提交后打标（推荐）\"]]"
+timestamp=2026-08-13T23:58:26.447Z level=INFO run=9203f28d message=tracking hash=589ee006ef8aa289ac29a397d329196db5cadbf9 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:58:26.499Z level=INFO run=9203f28d message=loop session.id=ses_0027750c0ffeHjFxVRo9IBos0k step=7
+timestamp=2026-08-13T23:58:26.550Z level=INFO run=9203f28d message=tracking hash=89c2977800a25e36e035af951f8824ed50475cf2 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:58:26.565Z level=INFO run=9203f28d message=process session.id=ses_0027750c0ffeHjFxVRo9IBos0k messageID=msg_ffd9016c9001BumoljQMTkoDMH
+timestamp=2026-08-13T23:58:26.565Z level=INFO run=9203f28d message=stream providerID=opencode-go modelID=deepseek-v4-flash session.id=ses_0027750c0ffeHjFxVRo9IBos0k small=false agent=build mode=primary
+timestamp=2026-08-13T23:58:26.567Z level=INFO run=9203f28d message="llm runtime selected" llm.runtime=ai-sdk llm.provider=opencode-go llm.model=deepseek-v4-flash
+timestamp=2026-08-13T23:58:33.945Z level=INFO run=9203f28d message=evaluated permission=bash pattern="grep -nE \"test12|agent|optim|logs/\" .gitignore" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:58:33.946Z level=INFO run=9203f28d message=evaluated permission=bash pattern=head action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:58:33.946Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"--- 追踪状态 ---\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:58:33.946Z level=INFO run=9203f28d message=evaluated permission=bash pattern="git status --short -- logs/test12/" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:58:34.004Z level=INFO run=9203f28d message=tracking hash=a81f1ed0cbd6fd9086e35a755e33be0db6c17e70 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:58:34.063Z level=INFO run=9203f28d message=loop session.id=ses_0027750c0ffeHjFxVRo9IBos0k step=8
+timestamp=2026-08-13T23:58:34.109Z level=INFO run=9203f28d message=tracking hash=c6fb64ec26199be1e38dee784443ea436ed2c7e1 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:58:34.122Z level=INFO run=9203f28d message=process session.id=ses_0027750c0ffeHjFxVRo9IBos0k messageID=msg_ffd90345700181Nj7r35YYtgPy
+timestamp=2026-08-13T23:58:34.123Z level=INFO run=9203f28d message=stream providerID=opencode-go modelID=deepseek-v4-flash session.id=ses_0027750c0ffeHjFxVRo9IBos0k small=false agent=build mode=primary
+timestamp=2026-08-13T23:58:34.125Z level=INFO run=9203f28d message="llm runtime selected" llm.runtime=ai-sdk llm.provider=opencode-go llm.model=deepseek-v4-flash
+timestamp=2026-08-13T23:58:46.377Z level=INFO run=9203f28d message="resolved path" arg=.optim.2026-08-14-07-53-24 resolved=/root/PyQCU/logs/test12/.optim.2026-08-14-07-53-24
+timestamp=2026-08-13T23:58:46.378Z level=INFO run=9203f28d message="resolved path" arg=.optim.2026-08-14-07-53-24 resolved=/root/PyQCU/logs/test12/.optim.2026-08-14-07-53-24
+timestamp=2026-08-13T23:58:46.378Z level=INFO run=9203f28d message=evaluated permission=bash pattern="cat .optim.2026-08-14-07-53-24 >> .optim.2026-08-14-07-53-24.log" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:58:46.378Z level=INFO run=9203f28d message=evaluated permission=bash pattern="rm .optim.2026-08-14-07-53-24" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:58:46.379Z level=INFO run=9203f28d message=evaluated permission=bash pattern="ls -la .optim.*" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:58:46.762Z level=INFO run=9203f28d message=tracking hash=2fe7aa394d3095a45b03e175a70a7a49be2eb8b1 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:58:46.802Z level=INFO run=9203f28d message=loop session.id=ses_0027750c0ffeHjFxVRo9IBos0k step=9
+timestamp=2026-08-13T23:58:46.860Z level=INFO run=9203f28d message=tracking hash=3a887e9359d2e7a53f644b8ae13c89704389ca5a cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:58:46.868Z level=INFO run=9203f28d message=process session.id=ses_0027750c0ffeHjFxVRo9IBos0k messageID=msg_ffd90661a001qGjFYwF4UbqfIP
+timestamp=2026-08-13T23:58:46.868Z level=INFO run=9203f28d message=stream providerID=opencode-go modelID=deepseek-v4-flash session.id=ses_0027750c0ffeHjFxVRo9IBos0k small=false agent=build mode=primary
+timestamp=2026-08-13T23:58:46.871Z level=INFO run=9203f28d message="llm runtime selected" llm.runtime=ai-sdk llm.provider=opencode-go llm.model=deepseek-v4-flash
+timestamp=2026-08-13T23:58:54.560Z level=INFO run=9203f28d message=evaluated permission=bash pattern="git log -5 --format='%h %s'" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:58:54.560Z level=INFO run=9203f28d message=evaluated permission=bash pattern="head -8" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:58:54.561Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"---\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:58:54.561Z level=INFO run=9203f28d message=evaluated permission=bash pattern="git log test12 -1 --format='%h %s %ad' --date=iso" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:58:55.233Z level=INFO run=9203f28d message=tracking hash=baadabda73335e4fbf1826437b62c10c9c212a1c cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:58:55.285Z level=INFO run=9203f28d message=loop session.id=ses_0027750c0ffeHjFxVRo9IBos0k step=10
+timestamp=2026-08-13T23:58:55.336Z level=INFO run=9203f28d message=tracking hash=8b48bdaa0694bd4d27b0f074744ce87192498c2f cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:58:55.349Z level=INFO run=9203f28d message=process session.id=ses_0027750c0ffeHjFxVRo9IBos0k messageID=msg_ffd90873e001b7dhENhuStGakX
+timestamp=2026-08-13T23:58:55.350Z level=INFO run=9203f28d message=stream providerID=opencode-go modelID=deepseek-v4-flash session.id=ses_0027750c0ffeHjFxVRo9IBos0k small=false agent=build mode=primary
+timestamp=2026-08-13T23:58:55.352Z level=INFO run=9203f28d message="llm runtime selected" llm.runtime=ai-sdk llm.provider=opencode-go llm.model=deepseek-v4-flash
+timestamp=2026-08-13T23:59:01.022Z level=INFO run=9203f28d message=evaluated permission=bash pattern="date +%Y-%m-%d-%H-%M-%S" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:59:01.022Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"$LOG\" > /tmp/opencode/taglog.txt" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:59:01.023Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"---- [$TS] .tag 会话头 ----\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:59:01.023Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"工作目录: $(pwd)\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:59:01.023Z level=INFO run=9203f28d message=evaluated permission=bash pattern=pwd action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:59:01.023Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"分支: $(git rev-parse --abbrev-ref HEAD)  HEAD: $(git log -1 --oneline)\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:59:01.023Z level=INFO run=9203f28d message=evaluated permission=bash pattern="git rev-parse --abbrev-ref HEAD" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:59:01.024Z level=INFO run=9203f28d message=evaluated permission=bash pattern="git log -1 --oneline" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:59:01.024Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"请求: ~tag test12_1（test12 子版本，显式完整标签名 Case A）\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:59:01.024Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"用户确认: 提交 40G 适配工作区改动后打标（同上次 test12 流程）\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:59:01.024Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"---- 基线调查 ----\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:59:01.024Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"基线: test12 (d853307, 2026-08-14-07-08-28)\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:59:01.024Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"test12..HEAD 提交 4 个:\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:59:01.025Z level=INFO run=9203f28d message=evaluated permission=bash pattern="git log test12..HEAD --oneline --no-merges" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:59:01.111Z level=INFO run=9203f28d message=tracking hash=dc610bce179d0bbc27088a4941c0f7a37a412aaf cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:59:01.183Z level=INFO run=9203f28d message=loop session.id=ses_0027750c0ffeHjFxVRo9IBos0k step=11
+timestamp=2026-08-13T23:59:01.232Z level=INFO run=9203f28d message=tracking hash=2ad8e43dc4440a30b01ec650aee021a59a38953d cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:59:01.248Z level=INFO run=9203f28d message=process session.id=ses_0027750c0ffeHjFxVRo9IBos0k messageID=msg_ffd909e47001PWTDdfdSwH3spX
+timestamp=2026-08-13T23:59:01.248Z level=INFO run=9203f28d message=stream providerID=opencode-go modelID=deepseek-v4-flash session.id=ses_0027750c0ffeHjFxVRo9IBos0k small=false agent=build mode=primary
+timestamp=2026-08-13T23:59:01.250Z level=INFO run=9203f28d message="llm runtime selected" llm.runtime=ai-sdk llm.provider=opencode-go llm.model=deepseek-v4-flash
+timestamp=2026-08-13T23:59:05.517Z level=INFO run=9203f28d message=evaluated permission=bash pattern="git add logs/test12/AGENTS.md logs/test12/main.py logs/test12/run-snsc-v20260814.sh logs/test12/__pycache__/main.cpython-310.pyc" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:59:05.517Z level=INFO run=9203f28d message=evaluated permission=bash pattern="git commit -m \"2026-08-14-07-59-$(date +%S)\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:59:05.517Z level=INFO run=9203f28d message=evaluated permission=bash pattern="date +%S" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:59:05.517Z level=INFO run=9203f28d message=evaluated permission=bash pattern="git push origin main" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:59:05.517Z level=INFO run=9203f28d message=evaluated permission=bash pattern="tail -3" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:59:08.718Z level=INFO run=9203f28d message=tracking hash=490e7a44ef1e58f311ca6028e72ea56baa12be18 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:59:08.758Z level=INFO run=9203f28d message=loop session.id=ses_0027750c0ffeHjFxVRo9IBos0k step=12
+timestamp=2026-08-13T23:59:08.819Z level=INFO run=9203f28d message=tracking hash=8d520da99537b5b3c23b38a818e0be333db342ee cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:59:08.833Z level=INFO run=9203f28d message=process session.id=ses_0027750c0ffeHjFxVRo9IBos0k messageID=msg_ffd90bbdc001nZOS2tB2GB4wOT
+timestamp=2026-08-13T23:59:08.833Z level=INFO run=9203f28d message=stream providerID=opencode-go modelID=deepseek-v4-flash session.id=ses_0027750c0ffeHjFxVRo9IBos0k small=false agent=build mode=primary
+timestamp=2026-08-13T23:59:08.835Z level=INFO run=9203f28d message="llm runtime selected" llm.runtime=ai-sdk llm.provider=opencode-go llm.model=deepseek-v4-flash
+timestamp=2026-08-13T23:59:17.142Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"Type:    test12_1 (test 系列子版本, Case A 显式名)\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:59:17.142Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"Message: $MSG\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:59:17.142Z level=INFO run=9203f28d message=evaluated permission=bash pattern="git tag -a test12_1 -m \"$MSG\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:59:17.143Z level=INFO run=9203f28d message=evaluated permission=bash pattern="git tag -l --format='%(refname:short) | %(subject)' test12_1" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:59:17.208Z level=INFO run=9203f28d message=tracking hash=c6f09712399590d56443fc5ebc76ae375cc56eb4 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:59:17.259Z level=INFO run=9203f28d message=loop session.id=ses_0027750c0ffeHjFxVRo9IBos0k step=13
+timestamp=2026-08-13T23:59:17.305Z level=INFO run=9203f28d message=tracking hash=a4d75364a5c5a14c03f0547ec2d6e32ed407c211 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:59:17.317Z level=INFO run=9203f28d message=process session.id=ses_0027750c0ffeHjFxVRo9IBos0k messageID=msg_ffd90dd13001tigUvJ7ii9q5aY
+timestamp=2026-08-13T23:59:17.318Z level=INFO run=9203f28d message=stream providerID=opencode-go modelID=deepseek-v4-flash session.id=ses_0027750c0ffeHjFxVRo9IBos0k small=false agent=build mode=primary
+timestamp=2026-08-13T23:59:17.320Z level=INFO run=9203f28d message="llm runtime selected" llm.runtime=ai-sdk llm.provider=opencode-go llm.model=deepseek-v4-flash
+timestamp=2026-08-13T23:59:20.681Z level=INFO run=9203f28d message=evaluated permission=bash pattern="git push origin test12_1 2>&1" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:59:20.681Z level=INFO run=9203f28d message=evaluated permission=bash pattern="tail -3" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:59:23.608Z level=INFO run=9203f28d message=tracking hash=43c0de9110a949a083c1a68ec3c5790e9421f205 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:59:23.677Z level=INFO run=9203f28d message=loop session.id=ses_0027750c0ffeHjFxVRo9IBos0k step=14
+timestamp=2026-08-13T23:59:23.725Z level=INFO run=9203f28d message=tracking hash=dc84c95bc64d6911c7b62d591a9d9b3dcaa6b77f cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:59:23.738Z level=INFO run=9203f28d message=process session.id=ses_0027750c0ffeHjFxVRo9IBos0k messageID=msg_ffd90f6230015LD7V1WTTYJyur
+timestamp=2026-08-13T23:59:23.738Z level=INFO run=9203f28d message=stream providerID=opencode-go modelID=deepseek-v4-flash session.id=ses_0027750c0ffeHjFxVRo9IBos0k small=false agent=build mode=primary
+timestamp=2026-08-13T23:59:23.740Z level=INFO run=9203f28d message="llm runtime selected" llm.runtime=ai-sdk llm.provider=opencode-go llm.model=deepseek-v4-flash
+timestamp=2026-08-13T23:59:28.367Z level=INFO run=9203f28d message="resolved path" arg=/tmp/opencode/taglog.txt resolved=/tmp/opencode/taglog.txt
+timestamp=2026-08-13T23:59:28.376Z level=INFO run=9203f28d message="resolved path" arg=/tmp/opencode/taglog.txt resolved=/tmp/opencode/taglog.txt
+timestamp=2026-08-13T23:59:28.377Z level=INFO run=9203f28d message="resolved path" arg=/tmp/opencode/optimlog.txt resolved=/tmp/opencode/optimlog.txt
+timestamp=2026-08-13T23:59:28.378Z level=INFO run=9203f28d message=evaluated permission=external_directory pattern=/tmp/opencode/* action.permission=external_directory action.pattern=/tmp/opencode/* action.action=allow
+timestamp=2026-08-13T23:59:28.379Z level=INFO run=9203f28d message=evaluated permission=bash pattern="basename $(cat /tmp/opencode/taglog.txt)" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:59:28.379Z level=INFO run=9203f28d message=evaluated permission=bash pattern="cat /tmp/opencode/taglog.txt" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:59:28.379Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"---- [$(date +%Y-%m-%d-%H-%M-%S)] 执行 ----\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:59:28.379Z level=INFO run=9203f28d message=evaluated permission=bash pattern="date +%Y-%m-%d-%H-%M-%S" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:59:28.379Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"提交: 9cdf306 (4 files, +53/-25)\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:59:28.380Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"push main: OK (0aa9793..9cdf306)\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:59:28.380Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"tag test12_1 创建: OK\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:59:28.380Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"push test12_1: OK (new tag)\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:59:28.380Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"---- [$(date +%Y-%m-%d-%H-%M-%S)] 会话尾 ----\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:59:28.380Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"汇总: test12_1 覆盖 test12..HEAD 4 提交 + 9cdf306；5 项变更\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:59:28.380Z level=INFO run=9203f28d message=evaluated permission=bash pattern="echo \"遗留: 无\"" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:59:28.380Z level=INFO run=9203f28d message=evaluated permission=bash pattern="rm -f /tmp/opencode/taglog.txt /tmp/opencode/optimlog.txt" action.permission=* action.action=allow action.pattern=*
+timestamp=2026-08-13T23:59:28.451Z level=INFO run=9203f28d message=tracking hash=d912ac7b277c846b6c6203ae90a5817772c8831c cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:59:28.497Z level=INFO run=9203f28d message=loop session.id=ses_0027750c0ffeHjFxVRo9IBos0k step=15
+timestamp=2026-08-13T23:59:28.537Z level=INFO run=9203f28d message=tracking hash=5ee1d356607a1ae4b8a7b3d42132c6f9e801fe63 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:59:28.549Z level=INFO run=9203f28d message=process session.id=ses_0027750c0ffeHjFxVRo9IBos0k messageID=msg_ffd9108f9001wCQfqpkIwZ5FXI
+timestamp=2026-08-13T23:59:28.549Z level=INFO run=9203f28d message=stream providerID=opencode-go modelID=deepseek-v4-flash session.id=ses_0027750c0ffeHjFxVRo9IBos0k small=false agent=build mode=primary
+timestamp=2026-08-13T23:59:28.550Z level=INFO run=9203f28d message="llm runtime selected" llm.runtime=ai-sdk llm.provider=opencode-go llm.model=deepseek-v4-flash
+timestamp=2026-08-13T23:59:33.695Z level=INFO run=9203f28d message=tracking hash=53866144be28b491baeef8289709d0eeb669f4e1 cwd=/root/PyQCU/logs/test12 git=/root/.local/share/opencode/snapshot/a0c9d09d7c4839fa35fa0091bd720616efad9b56/674e5c82072d1869aca80c511b3984cc8eadb75b
+timestamp=2026-08-13T23:59:33.745Z level=INFO run=9203f28d message=loop session.id=ses_0027750c0ffeHjFxVRo9IBos0k step=16
+timestamp=2026-08-13T23:59:33.751Z level=INFO run=9203f28d message="exiting loop" session.id=ses_0027750c0ffeHjFxVRo9IBos0k
