@@ -169,7 +169,8 @@ class MultiGpuMultigrid(object):
     def __init__(self, lat_size=None, mass=0.05, atol=1e-6, num_levels=2,
                  dof_list=None, mg_grid=None, num_restart=10, coarse_max_iter=200,
                  coarse_tol_factor=1e4, nv_iters=2, nthreads=None, device_ids=None,
-                 use_cache=True, cache_dir=None, verbose=True):
+                 use_cache=True, cache_dir=None, verbose=True,
+                 independent_problems=False):
         from mpi4py import MPI
         # C++ LatticeSet::init 用 MPI_COMM_WORLD 真实 rank 覆盖 _NODE_RANK_，
         # 多线程独立实例语义要求单 rank（多进程分布走每进程单线程实例路径）。
@@ -208,6 +209,7 @@ class MultiGpuMultigrid(object):
             nthreads = len(self.device_ids)
         self.nthreads = nthreads
         self.dt = torch.complex64
+        self.independent_problems = independent_problems
         self._results = None
 
     def _build_coarse_ops(self, S, E, device):
@@ -258,16 +260,37 @@ class MultiGpuMultigrid(object):
             av[define._MG_LEVEL2_ATOL_] = self.atol * self.coarse_tol_factor
 
     def _worker(self, tid, shared):
-        """单线程完整 MG 流程（绑定 device_ids[tid % n]）。"""
+        """单线程完整 MG 流程（绑定 device_ids[tid % n]）。
+
+        independent_problems=True 时每线程独立生成规范场/Clover/源与粗算子
+        （每线程不同 seed），无共享状态 —— 多卡吞吐并行模式；
+        否则共享输入 + 每线程拷贝（一致性验证模式）。
+        """
         dev_id = self.device_ids[tid % len(self.device_ids)]
         torch.cuda.set_device(dev_id)
         dev = torch.device(f'cuda:{dev_id}')
         params_t, argv_t, set_ptrs_t = _clone_state()
         self._config_params(params_t, argv_t, set_ptrs_t, argv_t)
-        # 共享输入（规范场/Clover/源）拷贝到本卡
-        g = shared['g'].to(dev); fi = shared['fi'].to(dev)
-        ce = shared['ce'].to(dev); cei = shared['cei'].to(dev)
-        coo = shared['coo'].to(dev); coi = shared['coi'].to(dev)
+        if self.independent_problems:
+            g, fi, ce, cei, coo, coi, U_f, b_f, cl_f, kap, av = _setup_gpu_tensors(
+                params_t, argv_t, set_ptrs_t, dev, self.mass, self.atol,
+                self.dt, seed=42 + tid, verbose=False)
+            # 粗算子构建直接用 C++ matvec（避免 worker 内 Python clover inverse
+            # 的 torch lazy 初始化并发冲突；也更快）
+            ops_t = [CudaSchurOp(av, g, ce, coo, cei, coi, params=params_t)]
+            coarse = list(zip(*build_schur_levels(
+                None, None, self.num_levels, self.dof_list, self.mg_grid,
+                self.lat_size, self.dof_list[1], self.dt, dev,
+                nv_iters=self.nv_iters, use_cache=self.use_cache,
+                cache_dir=self.cache_dir, verbose=False,
+                matvec_ops=ops_t, nthreads=1)))
+            for o in ops_t: o.release()
+        else:
+            # 共享输入（规范场/Clover/源）拷贝到本卡
+            g = shared['g'].to(dev); fi = shared['fi'].to(dev)
+            ce = shared['ce'].to(dev); cei = shared['cei'].to(dev)
+            coo = shared['coo'].to(dev); coi = shared['coi'].to(dev)
+            coarse = shared['coarse']
         # 独立 LatticeSet 槽位（每线程从自己的 0 开始）
         params_t[define._SET_INDEX_] = 0; params_t[define._SET_PLAN_] = -1
         qcu.applyInitQcu(set_ptrs_t, params_t, argv_t)
@@ -281,7 +304,7 @@ class MultiGpuMultigrid(object):
         qcu.applyInitQcu(set_ptrs_t, params_t, argv_t)
         qcu.applyCloversQcu(coo, coi, g, set_ptrs_t, params_t)
         # 粗网格算子拷贝到本卡，填入 set_ptrs 槽位
-        for fl, (lonv, hnn, hdg, sit) in enumerate(shared['coarse']):
+        for fl, (lonv, hnn, hdg, sit) in enumerate(coarse):
             base = _SET_PTRS_COARSE_BASE_ + 4 * fl
             set_ptrs_t[base + 0] = lonv.to(dev).contiguous().data_ptr()
             set_ptrs_t[base + 1] = hnn.to(dev).contiguous().data_ptr()
@@ -310,6 +333,20 @@ class MultiGpuMultigrid(object):
         """并行求解：每线程一个完整 C++ MG 流程。返回 {'threads': [...], 'results': ...}。"""
         from concurrent.futures import ThreadPoolExecutor
         main_dev = torch.device(f'cuda:{self.device_ids[0]}')
+        if self.independent_problems:
+            # 每线程独立问题：主线程仅建公共状态，不做共享构建
+            threads = []
+            from concurrent.futures import ThreadPoolExecutor as _TPE
+            with _TPE(max_workers=self.nthreads) as ex:
+                for r in ex.map(lambda tid: self._worker(tid, None), range(self.nthreads)):
+                    threads.append(r)
+            results = {'threads': threads, 'lat_size': self.lat_size,
+                       'mass': self.mass, 'atol': self.atol,
+                       'nthreads': self.nthreads, 'device_ids': self.device_ids,
+                       'num_levels': self.num_levels, 'dof_list': self.dof_list,
+                       'independent_problems': True}
+            self._results = results
+            return results
         # 主线程生成共享输入（规范场/Clover/源）与粗网格算子
         params_t, argv_t, set_ptrs_t = _clone_state()
         self._config_params(params_t, argv_t, set_ptrs_t, argv_t)

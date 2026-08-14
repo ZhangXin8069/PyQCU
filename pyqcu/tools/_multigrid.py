@@ -307,7 +307,7 @@ def give_null_vecs_mt(matvec_ops, dof, e, lat_fine_odd, dtype, device,
                 for _ in range(nv_iters):
                     # 相对单线程版收紧容差：C++ matvec 噪声底 ~2e-6（float32），
                     # 5e-5 绝对容差导致残差卡噪声层不收敛（max_iter 空转）。
-                    v = v - solver.bistabcg(b=mv(v), matvec=mv, tol=5e-6, verbose=False)
+                    v = v - solver.bistabcg(b=mv(v), matvec=mv, tol=5e-5, verbose=False)
                 nrm = torch.linalg.norm(v)
                 if not torch.isfinite(v).all() or float(nrm) == 0.0:
                     continue
@@ -335,8 +335,12 @@ def give_null_vecs_mt(matvec_ops, dof, e, lat_fine_odd, dtype, device,
         for i in range(c0, c1):
             null[i] = _gen(op, i, tid)
 
-    with ThreadPoolExecutor(max_workers=nthreads) as ex:
-        list(ex.map(worker, range(nthreads)))
+    if nthreads <= 1:
+        # 单线程直接执行（避免嵌套线程池触发 torch lazy-wrapper 冲突）
+        worker(0)
+    else:
+        with ThreadPoolExecutor(max_workers=nthreads) as ex:
+            list(ex.map(worker, range(nthreads)))
     if verbose:
         import time
         print(f"PYQCU::TOOLS::MULTIGRID:\n null_vecs build ({nthreads} threads): "
@@ -344,8 +348,12 @@ def give_null_vecs_mt(matvec_ops, dof, e, lat_fine_odd, dtype, device,
     return null
 
 
-def _probe_point(matvec, lonv, E, ee, c_idx, sit, hop_nn, hop_diag, dims, Nc):
-    """单点探测：(c_idx, ee) 处的 33-tensor 耦合。写集互不相交，可并行。"""
+def _probe_point(matvec, lonv, E, ee, c_idx, sit, hop_nn, hop_diag, dims, Nc,
+                  src_c=None):
+    """单点探测：(c_idx, ee) 处的 33-tensor 耦合。写集互不相交，可并行。
+
+    src_c: 可选预分配探针张量 [E, Xc, Yc, Zc, Tc]（每 probe 复用，省分配开销）。
+    """
     mv = matvec.matvec if hasattr(matvec, 'matvec') else matvec
     Xc, Yc, Zc, Tc = dims
     str_Y, str_Z = Yc * Zc * Tc, Zc * Tc
@@ -353,7 +361,10 @@ def _probe_point(matvec, lonv, E, ee, c_idx, sit, hop_nn, hop_diag, dims, Nc):
     cy = rem // str_Z; rem %= str_Z
     cz = rem // Tc; ct = rem % Tc
     ccoords = [cx, cy, cz, ct]
-    src_c = torch.zeros([E, Xc, Yc, Zc, Tc], dtype=sit.dtype, device=sit.device)
+    if src_c is None:
+        src_c = torch.zeros([E, Xc, Yc, Zc, Tc], dtype=sit.dtype, device=sit.device)
+    else:
+        src_c.zero_()
     src_c[ee, cx, cy, cz, ct] = 1.0
     f = prolong(local_ortho_null_vecs=lonv, coarse_vec=src_c)
     dc = restrict(local_ortho_null_vecs=lonv, fine_vec=mv(f))
@@ -406,9 +417,11 @@ def build_stencil(matvec, lonv, E, e, lat_fine_odd, lat_coarse_odd, dt, device, 
     hop_nn = torch.zeros([2, 4, E, E, Xc, Yc, Zc, Tc], dtype=dt, device=device)
     hop_diag = torch.zeros([2, 2, 6, E, E, Xc, Yc, Zc, Tc], dtype=dt, device=device)
     t0 = time.perf_counter()
+    src_c = torch.zeros([E, Xc, Yc, Zc, Tc], dtype=dt, device=device)
     for c_idx in range(Nc):
         for ee in range(E):
-            _probe_point(matvec, lonv, E, ee, c_idx, sit, hop_nn, hop_diag, dims, Nc)
+            _probe_point(matvec, lonv, E, ee, c_idx, sit, hop_nn, hop_diag, dims, Nc,
+                         src_c=src_c)
         if verbose and (c_idx + 1) % 64 == 0:
             print(f"    probing {c_idx+1}/{Nc} ({time.perf_counter()-t0:.1f}s)")
     if verbose:
@@ -437,14 +450,19 @@ def build_stencil_mt(matvec_ops, lonv, E, e, lat_fine_odd, lat_coarse_odd,
 
     def worker(tid):
         op = matvec_ops[tid % len(matvec_ops)]
+        src_c = torch.zeros([E, Xc, Yc, Zc, Tc], dtype=dt, device=device)
         c0 = tid * chunk
         c1 = min(Nc, c0 + chunk)
         for c_idx in range(c0, c1):
             for ee in range(E):
-                _probe_point(op, lonv, E, ee, c_idx, sit, hop_nn, hop_diag, dims, Nc)
+                _probe_point(op, lonv, E, ee, c_idx, sit, hop_nn, hop_diag, dims, Nc,
+                             src_c=src_c)
 
-    with ThreadPoolExecutor(max_workers=nthreads) as ex:
-        list(ex.map(worker, range(nthreads)))
+    if nthreads <= 1:
+        worker(0)
+    else:
+        with ThreadPoolExecutor(max_workers=nthreads) as ex:
+            list(ex.map(worker, range(nthreads)))
     dt_build = time.perf_counter() - t0
     if verbose:
         print(f"PYQCU::TOOLS::MULTIGRID:\n stencil build ({nthreads} threads): "
