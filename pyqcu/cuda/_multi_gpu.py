@@ -337,6 +337,15 @@ class MultiGpuMultigrid(object):
         """并行求解：每线程一个完整 C++ MG 流程。返回 {'threads': [...], 'results': ...}。"""
         from concurrent.futures import ThreadPoolExecutor
         main_dev = torch.device(f'cuda:{self.device_ids[0]}')
+        # 主线程预热 torch lazy 初始化（clover inverse 等）：worker 线程并发
+        # 首次触发 torch.linalg.inv 等 lazy backend 会报 "lazy wrapper should
+        # be called at most once"，预热后在主线程完成初始化。
+        try:
+            _w = torch.randn([4, 4], dtype=self.dt, device=main_dev)
+            torch.linalg.inv(_w)
+            torch.cuda.synchronize()
+        except Exception:
+            pass
         if self.independent_problems:
             # 每线程独立问题：主线程仅建公共状态，不做共享构建
             threads = []
