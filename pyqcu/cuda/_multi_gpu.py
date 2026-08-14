@@ -289,6 +289,10 @@ class MultiGpuMultigrid(object):
                 cache_dir=cache_t, verbose=False,
                 matvec_ops=ops_t, nthreads=1)))
             for o in ops_t: o.release()
+            # 释放 _setup_gpu_tensors 创建的 3 个临时 LatticeSet（防每次 solve 泄漏）
+            for _idx in (0, 1, 2):
+                params_t[define._SET_INDEX_] = _idx
+                qcu.applyEndQcu(set_ptrs_t, params_t)
         else:
             # 共享输入（规范场/Clover/源）拷贝到本卡
             g = shared['g'].to(dev); fi = shared['fi'].to(dev)
@@ -330,6 +334,12 @@ class MultiGpuMultigrid(object):
         torch.cuda.synchronize(); t0 = time.perf_counter()
         qcu.applyCloverMultigridQcu(fo_mg, fi, g, ce, coo, cei, coi, set_ptrs_t, params_t)
         torch.cuda.synchronize(); mg_time = time.perf_counter() - t0
+        # 释放本线程 LatticeSet（防泄漏）：
+        # 独立模式：0/1/2 已在粗算子构建后清理；求解用 3(BiStabCG 参考)/4(MG)
+        # 一致性模式：worker 也创建了 0(gauge)/1,2(clover)/3/4 → 全清
+        for _idx in (3, 4) if self.independent_problems else (0, 1, 2, 3, 4):
+            params_t[define._SET_INDEX_] = _idx
+            qcu.applyEndQcu(set_ptrs_t, params_t)
         return {'tid': tid, 'device': dev_id, 'mg': fo_mg.cpu(), 'ref': fo_ref.cpu(),
                 'ref_time': ref_time, 'mg_time': mg_time}
 
