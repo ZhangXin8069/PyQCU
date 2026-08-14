@@ -42,3 +42,8 @@ Dirac 方程 D ψ = η 的迭代求解器。
 **收敛跟踪**：每轮记录两次 `r_norm`（粗网格校正前后）。plot 显示两者。
 
 **调试工具**：`_verify_coarse_dslash(level, tol)` 对比 CUDA 粗网格 dslash 与 Python einsum 参考。
+
+### 多线程多卡驱动
+
+- `MultiGpuMultigrid`/`verify_multi_gpu_mg`：延迟导入（`__getattr__`，避免 tools._multigrid ↔ solver 循环依赖），
+  单进程多线程一线程一卡运行 C++ Clover Multigrid；要求单 MPI rank（mpirun -np 1）。

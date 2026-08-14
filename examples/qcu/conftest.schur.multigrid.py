@@ -17,7 +17,8 @@ from pyqcu.cuda import qcu
 import pyqcu.cuda.define as define
 from pyqcu.cuda.define import params, argv, set_ptrs
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from mg_stencil_build import build_stencil, PAIRS, SIGN
+# 2026-08-14: build_stencil 已合并迁移到 pyqcu.tools（dev73/mg_stencil_build.py）
+from pyqcu.tools import build_stencil, PAIRS, SIGN
 
 def build_config(Lx,Ly,Lz,Lt,MASS,ATOL,NUM_LEVELS,DOF_LIST,MG_GRID,NUM_RESTART,
                  COARSE_MAX_ITER,COARSE_TOL_FACTOR,DT=define._LAT_C64_):
@@ -96,7 +97,7 @@ def build_schur_levels(op, S, NUM_LEVELS, DOF_LIST, MG_GRID, lat_full, E, dt, de
         lonvs.append(lonv); hnn_l.append(hnn); hdg_l.append(hdg); sit_l.append(sit)
         # --- For the NEXT level, the "fine operator" is the materialized A_c ---
         def make_A(S_in, hnn_i, hdg_i, sit_i):
-            from mg_stencil_build import apply_stencil
+            from pyqcu.tools import apply_stencil
             def A(v): return apply_stencil(hnn_i, hdg_i, sit_i, v)
             return A
         S = make_A(S, hnn, hdg, sit)

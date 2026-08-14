@@ -43,14 +43,20 @@ def _clone_state():
 
 
 def build_schur_levels(op, S, num_levels, dof_list, mg_grid, lat_full, E, dt, device,
-                       nv_iters=2, use_cache=True, cache_dir=None, verbose=True):
+                       nv_iters=2, use_cache=True, cache_dir=None, verbose=True,
+                       matvec_ops=None, nthreads=None):
     """构建 S 的 null 向量 + 33-tensor Galerkin 粗算子 A_c = P^T S P。
 
     返回 (lonvs, hnn_l, hdg_l, sit_l) 列表（每粗层一项）。
     结果以 h5py 缓存到磁盘（keyed by lattice/dof/nv_iters），
     重复运行跳过昂贵的 setup（与任务②的 h5py 多线程读写约定一致）。
+
+    matvec_ops: 可选，每线程一个 matvec 算子（如 CudaSchurOp 实例列表）——
+                给定时 null 向量生成（give_null_vecs_mt）与 stencil 构建
+                （build_stencil_mt）均多线程并行，适合多卡/多线程加速；
+                否则用单线程 Python matvec S。
     """
-    from pyqcu.tools import build_stencil, apply_stencil
+    from pyqcu.tools import build_stencil, apply_stencil, build_stencil_mt, give_null_vecs_mt
     if cache_dir is None:
         cache_dir = os.path.join(os.path.expanduser("~/PyQCU/logs"), "nullvec_cache")
     os.makedirs(cache_dir, exist_ok=True)
@@ -71,14 +77,25 @@ def build_schur_levels(op, S, num_levels, dof_list, mg_grid, lat_full, E, dt, de
                 print(f"  [level {lvl}] E={E_c} CACHED coarse={lat_coarse_odd}")
         else:
             t0 = time.perf_counter()
-            _null = torch.randn([E_c, E_prev] + lat_fine_odd, dtype=dt, device=device)
-            for _ in range(nv_iters):
-                _null = tools.give_null_vecs(null_vecs=_null, matvec=S, bistabcg=None,
-                                             verbose=False)
+            if matvec_ops is not None:
+                _null = give_null_vecs_mt(
+                    matvec_ops, E_c, E_prev, lat_fine_odd, dt, device,
+                    nv_iters=nv_iters, nthreads=nthreads, verbose=False)
+            else:
+                _null = torch.randn([E_c, E_prev] + lat_fine_odd, dtype=dt, device=device)
+                for _ in range(nv_iters):
+                    _null = tools.give_null_vecs(null_vecs=_null, matvec=S, bistabcg=None,
+                                                 verbose=False)
             lonv = tools.local_orthogonalize(null_vecs=_null, coarse_lat_size=lat_coarse_odd,
                                              verbose=False)
-            hnn, hdg, sit = build_stencil(S, lonv, E_c, E_prev, lat_fine_odd,
-                                          lat_coarse_odd, dt, device, verbose=verbose)
+            if matvec_ops is not None:
+                hnn, hdg, sit = build_stencil_mt(
+                    matvec_ops, lonv, E_c, E_prev, lat_fine_odd, lat_coarse_odd,
+                    dt, device, nthreads=nthreads or len(matvec_ops), verbose=verbose)
+            else:
+                hnn, hdg, sit = build_stencil(S, lonv, E_c, E_prev,
+                                              lat_fine_odd, lat_coarse_odd,
+                                              dt=dt, device=device, verbose=verbose)
             # 单句柄一次写入全部 dataset（避免逐 dataset 覆盖重建文件）
             import h5py
             with h5py.File(cache_file, 'w') as f:
@@ -153,6 +170,15 @@ class MultiGpuMultigrid(object):
                  dof_list=None, mg_grid=None, num_restart=10, coarse_max_iter=200,
                  coarse_tol_factor=1e4, nv_iters=2, nthreads=None, device_ids=None,
                  use_cache=True, cache_dir=None, verbose=True):
+        from mpi4py import MPI
+        # C++ LatticeSet::init 用 MPI_COMM_WORLD 真实 rank 覆盖 _NODE_RANK_，
+        # 多线程独立实例语义要求单 rank（多进程分布走每进程单线程实例路径）。
+        if MPI.COMM_WORLD.Get_size() > 1:
+            raise RuntimeError(
+                "PYQCU::CUDA::MULTI_GPU:\n MultiGpuMultigrid requires a single "
+                "MPI rank (mpirun -np 1): multi-process distribution uses "
+                "per-rank single-thread instances; multi-GPU parallelism inside "
+                "one process uses one-thread-one-GPU.")
         if lat_size is None:
             lat_size = [8, 8, 8, 16]
         if mg_grid is None:
@@ -197,9 +223,17 @@ class MultiGpuMultigrid(object):
         params_t[define._LAT_X_] = Lx; params_t[define._LAT_Y_] = Ly
         params_t[define._LAT_Z_] = Lz; params_t[define._LAT_T_] = Lt
         params_t[define._LAT_XYZT_] = Lx * Ly * Lz * Lt
+        # 每线程/每进程独立完整实例：单 rank 网格（无 MPI 分布 halo），
+        # 多卡并行通过线程×卡绑定实现，不依赖 MPI 通信。
         params_t[define._GRID_X_], params_t[define._GRID_Y_], \
-            params_t[define._GRID_Z_], params_t[define._GRID_T_] = tools.give_grid_size()
+            params_t[define._GRID_Z_], params_t[define._GRID_T_] = 1, 1, 1, 1
+        params_t[define._NODE_RANK_] = 0
+        params_t[define._NODE_SIZE_] = 1
         params_t[define._DATA_TYPE_] = define.epytd(self.dt)
+        # mass/atol/sigma 必须显式设置（模块级 argv 默认 mass=-3.5 会奇异）
+        av[define._MASS_] = self.mass
+        av[define._ATOL_] = self.atol
+        av[define._SIGMA_] = 0.1
         params_t[define._MG_NUM_LEVEL_] = self.num_levels
         if self.num_levels >= 2:
             params_t[define._MG_LEVEL1_E_] = self.dof_list[1]
