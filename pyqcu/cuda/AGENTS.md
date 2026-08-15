@@ -91,3 +91,25 @@ qcu.applyEndQcu(set_ptrs, params)                  # 释放
   2L 配置触发 illegal memory access（lattice_clover_multigrid.h:1523）或 nan。
   已重构为 `build_schur_levels`（33-tensor）+ E=48 粗空间；8x8x8x16 2L/2L_r3、
   12³×16 2L 全 PASS（残差 ~1.5e-7）。
+
+- **P100(sm_60) 混合多卡修复**（2026-08-14，2×P100-16GB + V100-32GB 三卡实测）：
+  - **C++ LatticeSet::init 不再强制 `cudaSetDevice`**（lattice_set.h）：单 MPI rank
+    （多线程多卡）时跳过设备切换——线程已 `torch.cuda.set_device` 绑定本卡，
+    强制切到 device 0 会让 P100 线程的内核在 V100 上写 P100 内存 → illegal
+    memory access；多进程分布（comm_size>1）仍按 local rank 绑定。
+  - **P100 上 torch 无 kernel image**（torch 2.10 仅 sm_70+）：`_multi_gpu.py`
+    所有设备张量改用 `torch.empty`（纯 cudaMalloc）+ CPU 生成后 H2D 拷贝；
+    禁用 `zeros/randn` 填充内核。C++ 后端 libqcu.so 含 sm_60 SASS，不受影响。
+  - **独立问题模式粗算子构建移到 V100 主线程**：worker 内构建含 torch 运算
+    （`give_null_vecs_mt`/`build_stencil_mt`）在 P100 不可行；且 worker 不得
+    重新 `applyGaussGaugeQcu`（会用模块默认 _SEED_ 覆盖主线程 seed=42+tid
+    预生成的规范场 → 粗算子不匹配发散）。
+  - **粗算子拷贝保留引用**：`.to(dev)` 跨设备产生新张量，须持有引用再取
+    `data_ptr`，否则 GC 回收后悬垂指针 → 4x4x4x8 等小格子 MG 结果 nan。
+  - **cooperative launch 按当前设备查询 occupancy**（lattice_clover_multigrid.h）：
+    硬编码 device 0（V100 80 SM）会让 P100 线程（56 SM）grid 超限；occupancy/
+    sm_count 缓存须按设备分槽（static 数组逐设备初始化）。
+  - **性能参数**：8x8x8x16 3 线程×3 卡，`num_restart=5, coarse_max_iter=15,
+    coarse_tol_factor=1e5` → MG 加速比 median 2.36、min 2.18、最优 3.06
+    （对比多线程 BiStabCG）；单线程 V100 基准 2.19。大格子（16³×16、
+    8x16x16x32）MG 本身慢（coarse solve 开销，历史特性），用 r10。

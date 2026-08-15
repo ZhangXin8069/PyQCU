@@ -77,7 +77,11 @@ def build_schur_levels(op, S, num_levels, dof_list, mg_grid, lat_full, E, dt, de
                 print(f"  [level {lvl}] E={E_c} CACHED coarse={lat_coarse_odd}")
         else:
             t0 = time.perf_counter()
-            if matvec_ops is not None:
+            if matvec_ops is not None and lvl == 1:
+                # 多线程 C++ matvec 仅适用于最细层（E_prev=12）：CudaSchurOp
+                # 是 12 维 Schur 算子，lvl>=2 输入维度 E_prev>12 会越界
+                # （16³×16 3L 实测 illegal memory access, lattice_wilson_dslash.h:601）。
+                # lvl>=2 回退单线程 Python stencil（S 已按层更新为 apply_stencil）。
                 _null = give_null_vecs_mt(
                     matvec_ops, E_c, E_prev, lat_fine_odd, dt, device,
                     nv_iters=nv_iters, nthreads=nthreads, verbose=False)
@@ -88,7 +92,7 @@ def build_schur_levels(op, S, num_levels, dof_list, mg_grid, lat_full, E, dt, de
                                                  verbose=False)
             lonv = tools.local_orthogonalize(null_vecs=_null, coarse_lat_size=lat_coarse_odd,
                                              verbose=False)
-            if matvec_ops is not None:
+            if matvec_ops is not None and lvl == 1:
                 hnn, hdg, sit = build_stencil_mt(
                     matvec_ops, lonv, E_c, E_prev, lat_fine_odd, lat_coarse_odd,
                     dt, device, nthreads=nthreads or len(matvec_ops), verbose=verbose)
@@ -130,10 +134,13 @@ def _setup_gpu_tensors(params_t, argv_t, set_ptrs_t, device, mass, atol, dt, see
     av[define._ATOL_] = atol
     av[define._SIGMA_] = 0.1
     ls = define.lat_shape(params_t)
-    g = torch.zeros([2, 3, 3, 4] + ls, dtype=dt, device=device)
-    fi = torch.randn([2, 4, 3] + ls, dtype=dt, device=device)
-    ce = torch.zeros([4, 3, 4, 3] + ls, dtype=dt, device=device)
-    cei = torch.zeros_like(ce); coo = torch.zeros_like(ce); coi = torch.zeros_like(ce)
+    # P100(sm_60) 兼容：torch 2.10 无 sm_60 kernel image，zeros/randn 填充内核
+    # 在 P100 上失败并污染 CUDA 错误状态；empty（纯 cudaMalloc）与 CPU 生成 +
+    # H2D 拷贝（driver memcpy）均可用。C++ 后端会写满 g/ce/coo 等输出缓冲。
+    g = torch.empty([2, 3, 3, 4] + ls, dtype=dt, device=device)
+    fi = torch.randn([2, 4, 3] + ls, dtype=dt, device='cpu').to(device)
+    ce = torch.empty([4, 3, 4, 3] + ls, dtype=dt, device=device)
+    cei = torch.empty_like(ce); coo = torch.empty_like(ce); coi = torch.empty_like(ce)
     params_t[define._SET_INDEX_] = 0; params_t[define._SET_PLAN_] = -1
     qcu.applyInitQcu(set_ptrs_t, params_t, av); qcu.applyGaussGaugeQcu(g, set_ptrs_t, params_t)
     params_t[define._SET_INDEX_] += 1; params_t[define._SET_PLAN_] = 2; params_t[define._PARITY_] = 0
@@ -167,8 +174,8 @@ class MultiGpuMultigrid(object):
     """
 
     def __init__(self, lat_size=None, mass=0.05, atol=1e-6, num_levels=2,
-                 dof_list=None, mg_grid=None, num_restart=10, coarse_max_iter=200,
-                 coarse_tol_factor=1e4, nv_iters=2, nthreads=None, device_ids=None,
+                 dof_list=None, mg_grid=None, num_restart=5, coarse_max_iter=15,
+                 coarse_tol_factor=1e5, nv_iters=2, nthreads=None, device_ids=None,
                  use_cache=True, cache_dir=None, verbose=True,
                  independent_problems=False):
         from mpi4py import MPI
@@ -272,27 +279,14 @@ class MultiGpuMultigrid(object):
         params_t, argv_t, set_ptrs_t = _clone_state()
         self._config_params(params_t, argv_t, set_ptrs_t, argv_t)
         if self.independent_problems:
-            g, fi, ce, cei, coo, coi, U_f, b_f, cl_f, kap, av = _setup_gpu_tensors(
-                params_t, argv_t, set_ptrs_t, dev, self.mass, self.atol,
-                self.dt, seed=42 + tid, verbose=False)
-            # 粗算子构建直接用 C++ matvec（避免 worker 内 Python clover inverse
-            # 的 torch lazy 初始化并发冲突；也更快）。
-            # 独立问题各线程 seed 不同 → 缓存 key 相同 → 必须按线程分目录，
-            # 否则多线程写同一缓存文件互相污染。
-            cache_t = (os.path.join(self.cache_dir, f"tid{tid}")
-                       if self.cache_dir else None)
-            ops_t = [CudaSchurOp(av, g, ce, coo, cei, coi, params=params_t)]
-            coarse = list(zip(*build_schur_levels(
-                None, None, self.num_levels, self.dof_list, self.mg_grid,
-                self.lat_size, self.dof_list[1], self.dt, dev,
-                nv_iters=self.nv_iters, use_cache=self.use_cache,
-                cache_dir=cache_t, verbose=False,
-                matvec_ops=ops_t, nthreads=1)))
-            for o in ops_t: o.release()
-            # 释放 _setup_gpu_tensors 创建的 3 个临时 LatticeSet（防每次 solve 泄漏）
-            for _idx in (0, 1, 2):
-                params_t[define._SET_INDEX_] = _idx
-                qcu.applyEndQcu(set_ptrs_t, params_t)
+            # 独立问题：规范场/Clover/源与粗算子由主线程在 V100 预构建
+            # （P100 无 torch kernel image，粗算子构建的 torch 运算只能在 V100
+            # 完成），本线程只做 D2D 拷贝 + C++ 求解。
+            st = shared['t'][tid]
+            g = st['g'].to(dev); fi = st['fi'].to(dev)
+            ce = st['ce'].to(dev); cei = st['cei'].to(dev)
+            coo = st['coo'].to(dev); coi = st['coi'].to(dev)
+            coarse = st['coarse']
         else:
             # 共享输入（规范场/Clover/源）拷贝到本卡
             g = shared['g'].to(dev); fi = shared['fi'].to(dev)
@@ -302,7 +296,11 @@ class MultiGpuMultigrid(object):
         # 独立 LatticeSet 槽位（每线程从自己的 0 开始）
         params_t[define._SET_INDEX_] = 0; params_t[define._SET_PLAN_] = -1
         qcu.applyInitQcu(set_ptrs_t, params_t, argv_t)
-        qcu.applyGaussGaugeQcu(g, set_ptrs_t, params_t)
+        if not self.independent_problems:
+            # 共享模式：worker 本地重新生成规范场（seed 与主线程一致）；
+            # 独立模式：g 已由主线程按 seed=42+tid 预生成并拷贝（重新生成
+            # 会用 worker 模块默认 _SEED_ 覆盖，与粗算子不匹配 → 发散）。
+            qcu.applyGaussGaugeQcu(g, set_ptrs_t, params_t)
         params_t[define._SET_INDEX_] += 1; params_t[define._SET_PLAN_] = 2
         params_t[define._PARITY_] = 0
         qcu.applyInitQcu(set_ptrs_t, params_t, argv_t)
@@ -312,22 +310,30 @@ class MultiGpuMultigrid(object):
         qcu.applyInitQcu(set_ptrs_t, params_t, argv_t)
         qcu.applyCloversQcu(coo, coi, g, set_ptrs_t, params_t)
         # 粗网格算子拷贝到本卡，填入 set_ptrs 槽位
+        # 注意：.to(dev) 在跨设备时产生新张量，必须保留引用（_coarse_dev），
+        # 否则临时对象被 GC 回收后 data_ptr 悬垂，C++ 求解读到垃圾（nan）。
+        _coarse_dev = []
         for fl, (lonv, hnn, hdg, sit) in enumerate(coarse):
             base = _SET_PTRS_COARSE_BASE_ + 4 * fl
-            set_ptrs_t[base + 0] = lonv.to(dev).contiguous().data_ptr()
-            set_ptrs_t[base + 1] = hnn.to(dev).contiguous().data_ptr()
-            set_ptrs_t[base + 2] = hdg.to(dev).contiguous().data_ptr()
-            set_ptrs_t[base + 3] = sit.to(dev).contiguous().data_ptr()
+            lonv_d, hnn_d, hdg_d, sit_d = (lonv.to(dev).contiguous(),
+                                           hnn.to(dev).contiguous(),
+                                           hdg.to(dev).contiguous(),
+                                           sit.to(dev).contiguous())
+            _coarse_dev.extend([lonv_d, hnn_d, hdg_d, sit_d])
+            set_ptrs_t[base + 0] = lonv_d.data_ptr()
+            set_ptrs_t[base + 1] = hnn_d.data_ptr()
+            set_ptrs_t[base + 2] = hdg_d.data_ptr()
+            set_ptrs_t[base + 3] = sit_d.data_ptr()
         # 参考 BiStabCG
         params_t[define._SET_INDEX_] += 1; params_t[define._SET_PLAN_] = 1
         params_t[define._VERBOSE_] = 0
         qcu.applyInitQcu(set_ptrs_t, params_t, argv_t)
-        fo_ref = torch.zeros_like(fi)
+        fo_ref = torch.empty_like(fi)
         torch.cuda.synchronize(); t0 = time.perf_counter()
         qcu.applyCloverBistabCgQcu(fo_ref, fi, g, ce, coo, cei, coi, set_ptrs_t, params_t)
         torch.cuda.synchronize(); ref_time = time.perf_counter() - t0
         # C++ Clover Multigrid
-        fo_mg = torch.zeros_like(fi)
+        fo_mg = torch.empty_like(fi)
         params_t[define._SET_INDEX_] += 1; params_t[define._SET_PLAN_] = 1
         params_t[define._VERBOSE_] = 0
         qcu.applyInitQcu(set_ptrs_t, params_t, argv_t)
@@ -335,9 +341,10 @@ class MultiGpuMultigrid(object):
         qcu.applyCloverMultigridQcu(fo_mg, fi, g, ce, coo, cei, coi, set_ptrs_t, params_t)
         torch.cuda.synchronize(); mg_time = time.perf_counter() - t0
         # 释放本线程 LatticeSet（防泄漏）：
-        # 独立模式：0/1/2 已在粗算子构建后清理；求解用 3(BiStabCG 参考)/4(MG)
-        # 一致性模式：worker 也创建了 0(gauge)/1,2(clover)/3/4 → 全清
-        for _idx in (3, 4) if self.independent_problems else (0, 1, 2, 3, 4):
+        # 两种模式下 worker 都创建了 0(gauge)/1,2(clover)/3(BiStabCG)/4(MG)
+        # （独立模式的粗算子构建在 V100 主线程完成，其 0/1/2 已在主线程清理）；
+        # 独立模式跳过 applyGaussGaugeQcu，但 0 槽位的 LatticeSet 仍已 init → 全清
+        for _idx in (0, 1, 2, 3, 4):
             params_t[define._SET_INDEX_] = _idx
             qcu.applyEndQcu(set_ptrs_t, params_t)
         return {'tid': tid, 'device': dev_id, 'mg': fo_mg.cpu(), 'ref': fo_ref.cpu(),
@@ -357,11 +364,39 @@ class MultiGpuMultigrid(object):
         except Exception:
             pass
         if self.independent_problems:
-            # 每线程独立问题：主线程仅建公共状态，不做共享构建
+            # 每线程独立问题：主线程在 V100 上为每线程预构建规范场/Clover/源与
+            # 粗算子（P100 无 torch kernel image，粗算子构建的 torch 运算只能在
+            # V100 完成；线程只在各自卡上做 D2D 拷贝 + C++ 求解）。
+            # 各线程 seed 不同 → 缓存 key 相同 → 必须按线程分目录，否则多线程
+            # 写同一缓存文件互相污染。
+            shared_t = {}
+            for tid in range(self.nthreads):
+                pt, at, st = _clone_state()
+                self._config_params(pt, at, st, at)
+                g, fi, ce, cei, coo, coi, _, _, _, _, av = _setup_gpu_tensors(
+                    pt, at, st, main_dev, self.mass, self.atol, self.dt,
+                    seed=42 + tid, verbose=False)
+                cache_t = (os.path.join(self.cache_dir, f"tid{tid}")
+                           if self.cache_dir else None)
+                ops_t = [CudaSchurOp(av, g, ce, coo, cei, coi, params=pt)]
+                coarse = list(zip(*build_schur_levels(
+                    None, None, self.num_levels, self.dof_list, self.mg_grid,
+                    self.lat_size, self.dof_list[1], self.dt, main_dev,
+                    nv_iters=self.nv_iters, use_cache=self.use_cache,
+                    cache_dir=cache_t, verbose=False,
+                    matvec_ops=ops_t, nthreads=1)))
+                for o in ops_t:
+                    o.release()
+                for _idx in (0, 1, 2):
+                    pt[define._SET_INDEX_] = _idx
+                    qcu.applyEndQcu(st, pt)
+                shared_t[tid] = {'g': g, 'fi': fi, 'ce': ce, 'cei': cei,
+                                 'coo': coo, 'coi': coi, 'coarse': coarse}
             threads = []
             from concurrent.futures import ThreadPoolExecutor as _TPE
             with _TPE(max_workers=self.nthreads) as ex:
-                for r in ex.map(lambda tid: self._worker(tid, None), range(self.nthreads)):
+                for r in ex.map(lambda tid: self._worker(tid, {'t': shared_t}),
+                                range(self.nthreads)):
                     threads.append(r)
             results = {'threads': threads, 'lat_size': self.lat_size,
                        'mass': self.mass, 'atol': self.atol,
