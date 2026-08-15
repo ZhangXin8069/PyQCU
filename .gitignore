@@ -36,8 +36,8 @@ lib/*
 *.npz
 *.DS_Store
 # *.png
-*.jpg
-*.jpeg
+# *.jpg
+# *.jpeg
 # *.log
 *.json
 *.csv
@@ -64,9 +64,3 @@ lib/_package/linux/2048
 *.vrb
 *.env
 *.list
-
-# ==== logs：排除所有文件（保留 AGENTS.md），不排除文件夹 ====
-logs/**
-!logs/**/
-!logs/**/AGENTS.md
-
