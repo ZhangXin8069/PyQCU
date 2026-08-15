@@ -44,7 +44,7 @@ def _clone_state():
 
 def build_schur_levels(op, S, num_levels, dof_list, mg_grid, lat_full, E, dt, device,
                        nv_iters=2, use_cache=True, cache_dir=None, verbose=True,
-                       matvec_ops=None, nthreads=None):
+                       matvec_ops=None, nthreads=None, av=None, params_template=None):
     """构建 S 的 null 向量 + 33-tensor Galerkin 粗算子 A_c = P^T S P。
 
     返回 (lonvs, hnn_l, hdg_l, sit_l) 列表（每粗层一项）。
@@ -55,14 +55,23 @@ def build_schur_levels(op, S, num_levels, dof_list, mg_grid, lat_full, E, dt, de
                 给定时 null 向量生成（give_null_vecs_mt）与 stencil 构建
                 （build_stencil_mt）均多线程并行，适合多卡/多线程加速；
                 否则用单线程 Python matvec S。
+    2026-08-15 扩展：lvl>=2 同样走多线程 C++ matvec。每层构建完成后用
+                本层 33-tensor stencil 创建 CudaCoarseSchurOp 列表（宽版
+                粗层 Schur 算子，任意 DOF E），替换细层 CudaSchurOp 继续
+                下一层 —— 消除 lvl>=2 的单线程 Python stencil 瓶颈
+                （16x16x16x32 3L 的 lv2 构建 ~50min → ~2min）。
+                av/params_template 给定时才启用；否则 lvl>=2 回退单线程。
     """
     from pyqcu.tools import build_stencil, apply_stencil, build_stencil_mt, give_null_vecs_mt
+    from pyqcu.cuda._schur_op import CudaCoarseSchurOp
     if cache_dir is None:
         cache_dir = os.path.join(os.path.expanduser("~/PyQCU/logs"), "nullvec_cache")
     os.makedirs(cache_dir, exist_ok=True)
     lonvs, hnn_l, hdg_l, sit_l = [], [], [], []
     lat_fine_odd = [lat_full[0], lat_full[1], lat_full[2], lat_full[3] // 2]
     E_prev = 12
+    coarse_ops = matvec_ops  # 当前层 matvec 算子（细层 CudaSchurOp / 粗层 CudaCoarseSchurOp）
+    created_ops = []         # 本函数创建的粗层 ops（结束时统一 release）
     for lvl in range(1, num_levels):
         E_c = dof_list[lvl]
         lat_coarse_odd = [lat_fine_odd[d] // mg_grid[d] for d in range(4)]
@@ -77,13 +86,10 @@ def build_schur_levels(op, S, num_levels, dof_list, mg_grid, lat_full, E, dt, de
                 print(f"  [level {lvl}] E={E_c} CACHED coarse={lat_coarse_odd}")
         else:
             t0 = time.perf_counter()
-            if matvec_ops is not None and lvl == 1:
-                # 多线程 C++ matvec 仅适用于最细层（E_prev=12）：CudaSchurOp
-                # 是 12 维 Schur 算子，lvl>=2 输入维度 E_prev>12 会越界
-                # （16³×16 3L 实测 illegal memory access, lattice_wilson_dslash.h:601）。
-                # lvl>=2 回退单线程 Python stencil（S 已按层更新为 apply_stencil）。
+            if coarse_ops is not None:
+                # 多线程 C++ matvec（细层 CudaSchurOp；粗层 CudaCoarseSchurOp）
                 _null = give_null_vecs_mt(
-                    matvec_ops, E_c, E_prev, lat_fine_odd, dt, device,
+                    coarse_ops, E_c, E_prev, lat_fine_odd, dt, device,
                     nv_iters=nv_iters, nthreads=nthreads, verbose=False)
             else:
                 _null = torch.randn([E_c, E_prev] + lat_fine_odd, dtype=dt, device=device)
@@ -92,10 +98,10 @@ def build_schur_levels(op, S, num_levels, dof_list, mg_grid, lat_full, E, dt, de
                                                  verbose=False)
             lonv = tools.local_orthogonalize(null_vecs=_null, coarse_lat_size=lat_coarse_odd,
                                              verbose=False)
-            if matvec_ops is not None and lvl == 1:
+            if coarse_ops is not None:
                 hnn, hdg, sit = build_stencil_mt(
-                    matvec_ops, lonv, E_c, E_prev, lat_fine_odd, lat_coarse_odd,
-                    dt, device, nthreads=nthreads or len(matvec_ops), verbose=verbose)
+                    coarse_ops, lonv, E_c, E_prev, lat_fine_odd, lat_coarse_odd,
+                    dt, device, nthreads=nthreads or len(coarse_ops), verbose=verbose)
             else:
                 hnn, hdg, sit = build_stencil(S, lonv, E_c, E_prev,
                                               lat_fine_odd, lat_coarse_odd,
@@ -110,8 +116,21 @@ def build_schur_levels(op, S, num_levels, dof_list, mg_grid, lat_full, E, dt, de
                       f"coarse={lat_coarse_odd}")
         lonvs.append(lonv); hnn_l.append(hnn); hdg_l.append(hdg); sit_l.append(sit)
         S = lambda v, _hnn=hnn, _hdg=hdg, _sit=sit: apply_stencil(_hnn, _hdg, _sit, v)
+        # 下一层 matvec：本层 stencil 的 C++ 宽版算子（任意 E），
+        # 未传 av/params_template 时回退单线程 Python（coarse_ops=None）。
+        if coarse_ops is not None and av is not None and params_template is not None:
+            coarse_ops = [
+                CudaCoarseSchurOp(av, E_c, lat_coarse_odd,
+                                  (hnn.to(device), hdg.to(device), sit.to(device)),
+                                  device=device, params=params_template)
+                for _ in range(len(matvec_ops))]
+            created_ops.extend(coarse_ops)
+        else:
+            coarse_ops = None
         E_prev = E_c
         lat_fine_odd = lat_coarse_odd
+    for o in created_ops:
+        o.release()
     return lonvs, hnn_l, hdg_l, sit_l
 
 
@@ -396,7 +415,7 @@ class MultiGpuMultigrid(object):
                     self.lat_size, self.dof_list[1], self.dt, main_dev,
                     nv_iters=self.nv_iters, use_cache=self.use_cache,
                     cache_dir=cache_t, verbose=False,
-                    matvec_ops=ops_t, nthreads=1)))
+                    matvec_ops=ops_t, nthreads=1, av=av, params_template=pt)))
                 for o in ops_t:
                     o.release()
                 for _idx in (0, 1, 2):
@@ -435,7 +454,8 @@ class MultiGpuMultigrid(object):
                 op, S, self.num_levels, self.dof_list, self.mg_grid, self.lat_size,
                 self.dof_list[1], self.dt, main_dev, nv_iters=self.nv_iters,
                 use_cache=self.use_cache, cache_dir=self.cache_dir, verbose=False,
-                matvec_ops=ops_build, nthreads=len(ops_build))
+                matvec_ops=ops_build, nthreads=len(ops_build),
+                av=av, params_template=params_t)
             for o in ops_build:
                 o.release()
         else:
