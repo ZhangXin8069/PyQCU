@@ -53,6 +53,12 @@ namespace qcu {
  * Coarse vectors are a few thousand complex elements, so this avoids the
  * cublasDot launch + D2H/H2D memcpy overhead that dominated coarse solves
  * (416 ms of a 1.9 s solve before this kernel was introduced).
+ *
+ * 2026-08-15 dev76: large-lattice coarse levels (16x16x16x32 lv1 has
+ * E=48 × 8x8x8x8 = 196608 elements) made the single-block version the
+ * dominant coarse-solve cost (~768 serial adds per thread).  The new
+ * multi-block path coarse_dot_kernel_multi + coarse_dot_reduce_kernel
+ * (grid-stride, then a 1-block second reduction) restores parallelism.
  */
 template <typename T, int NT>
 __global__ void coarse_dot_kernel(const LatticeComplex<T> *a,
@@ -62,6 +68,42 @@ __global__ void coarse_dot_kernel(const LatticeComplex<T> *a,
   int idx = threadIdx.x;
   LatticeComplex<T> sum(0, 0);
   for (int i = idx; i < n; i += NT) sum += a[i].conj() * b[i];
+  sdata[idx] = sum;
+  __syncthreads();
+  for (int s = NT / 2; s > 0; s >>= 1) {
+    if (idx < s) sdata[idx] += sdata[idx + s];
+    __syncthreads();
+  }
+  if (idx == 0) out[0] = sdata[0];
+}
+
+// Multi-block grid-stride reduction: partials[bid] = block-local <a,b> slice.
+template <typename T, int NT>
+__global__ void coarse_dot_kernel_multi(const LatticeComplex<T> *a,
+                                        const LatticeComplex<T> *b, int n,
+                                        LatticeComplex<T> *partials) {
+  __shared__ LatticeComplex<T> sdata[NT];
+  int idx = threadIdx.x, bid = blockIdx.x, nblk = gridDim.x;
+  int stride = nblk * NT;
+  LatticeComplex<T> sum(0, 0);
+  for (int i = bid * NT + idx; i < n; i += stride) sum += a[i].conj() * b[i];
+  sdata[idx] = sum;
+  __syncthreads();
+  for (int s = NT / 2; s > 0; s >>= 1) {
+    if (idx < s) sdata[idx] += sdata[idx + s];
+    __syncthreads();
+  }
+  if (idx == 0) partials[bid] = sdata[0];
+}
+
+// Second reduction over nblk partials (1 block).
+template <typename T, int NT>
+__global__ void coarse_dot_reduce_kernel(const LatticeComplex<T> *partials,
+                                         int nblk, LatticeComplex<T> *out) {
+  __shared__ LatticeComplex<T> sdata[NT];
+  int idx = threadIdx.x;
+  LatticeComplex<T> sum(0, 0);
+  for (int i = idx; i < nblk; i += NT) sum += partials[i];
   sdata[idx] = sum;
   __syncthreads();
   for (int s = NT / 2; s > 0; s >>= 1) {
@@ -514,9 +556,22 @@ template <typename T> struct LatticeCloverMultigrid {
   void dot_coarse(void *a, void *b, int lv, int vals_idx, int si) {
     auto d0=std::chrono::high_resolution_clock::now();
     LatticeComplex<T> *dv=static_cast<LatticeComplex<T>*>(set_ptr->device_vals);
-    coarse_dot_kernel<T, 256><<<1, 256, 0, set_ptr->streams[si]>>>(
-        static_cast<const LatticeComplex<T>*>(a), static_cast<const LatticeComplex<T>*>(b),
-        levels[lv].vec_sz, &dv[vals_idx]);
+    // 2026-08-15 dev76: large coarse vectors (>= 64K elements) use the
+    // multi-block grid-stride reduction (single-block serialized ~768 adds
+    // per thread at 196608 elements dominated the coarse solve).
+    int n = (int)levels[lv].vec_sz;
+    if (n >= 65536) {
+      int nblk = (n + 255) / 256; if (nblk > 256) nblk = 256;
+      coarse_dot_kernel_multi<T, 256><<<nblk, 256, 0, set_ptr->streams[si]>>>(
+          static_cast<const LatticeComplex<T>*>(a),
+          static_cast<const LatticeComplex<T>*>(b), n, coarse_partials);
+      coarse_dot_reduce_kernel<T, 256><<<1, 256, 0, set_ptr->streams[si]>>>(
+          coarse_partials, nblk, &dv[vals_idx]);
+    } else {
+      coarse_dot_kernel<T, 256><<<1, 256, 0, set_ptr->streams[si]>>>(
+          static_cast<const LatticeComplex<T>*>(a), static_cast<const LatticeComplex<T>*>(b),
+          n, &dv[vals_idx]);
+    }
     // Mirror to host ONLY for the convergence check (host_vals[_norm2_tmp_]).
     checkCudaErrors(cudaMemcpyAsync(&host_vals[vals_idx], &dv[vals_idx],
         sizeof(LatticeComplex<T>), cudaMemcpyDeviceToHost, set_ptr->streams[si]));
@@ -590,9 +645,26 @@ template <typename T> struct LatticeCloverMultigrid {
     const LatticeComplex<T>* rt = static_cast<const LatticeComplex<T>*>(st.r_tilde);
     const LatticeComplex<T>* r  = static_cast<const LatticeComplex<T>*>(st.r);
     auto tc0=std::chrono::high_resolution_clock::now();
+    // 2026-08-15 dev76: multi-block dot for large coarse vectors
+    // (single-block serial reduction dominated the coarse solve on
+    //  16x16x16x32 lv1 = 196608 elements).
+    const int n = (int)st.vec_sz;
+    const bool mb = (n >= 65536);
+    int nblk = (n + 255) / 256; if (nblk > 256) nblk = 256;
+    auto cdot = [&](const LatticeComplex<T>* a, const LatticeComplex<T>* b,
+                    int slot) {
+      if (mb) {
+        coarse_dot_kernel_multi<T, 256><<<nblk, 256, 0, S>>>(
+            a, b, n, coarse_partials);
+        coarse_dot_reduce_kernel<T, 256><<<1, 256, 0, S>>>(
+            coarse_partials, nblk, &dv[slot]);
+      } else {
+        coarse_dot_kernel<T, 256><<<1, 256, 0, S>>>(a, b, n, &dv[slot]);
+      }
+    };
 
     // 1. rho = <r_tilde, r>
-    coarse_dot_kernel<T,256><<<1,256,0,S>>>(rt, r, st.vec_sz, &dv[_rho_]);
+    cdot(rt, r, _rho_);
     // 2. beta = (rho/rho_prev)*(alpha/omega);  rho_prev = rho
     bistabcg_give_1beta<T><<<1,1,0,S>>>(dv);
     bistabcg_give_1rho_prev<T><<<1,1,0,S>>>(dv);
@@ -601,28 +673,24 @@ template <typename T> struct LatticeCloverMultigrid {
     // 4. v = A_c·p
     coarse_dslash_op(st.v, st.p, lev);
     // 5. alpha = rho / <r_tilde, v>
-    coarse_dot_kernel<T,256><<<1,256,0,S>>>(rt, static_cast<const LatticeComplex<T>*>(st.v),
-                                            st.vec_sz, &dv[_tmp0_]);
+    cdot(rt, static_cast<const LatticeComplex<T>*>(st.v), _tmp0_);
     bistabcg_give_1alpha<T><<<1,1,0,S>>>(dv);
     // 6. s = r - alpha*v
     bistabcg_give_s<T><<<gv,bv,0,S>>>(st.s, st.r, st.v, dv);
     // 7. t = A_c·s
     coarse_dslash_op(st.t, st.s, lev);
     // 8. omega = <t,s>/<t,t>
-    coarse_dot_kernel<T,256><<<1,256,0,S>>>(static_cast<const LatticeComplex<T>*>(st.t),
-                                            static_cast<const LatticeComplex<T>*>(st.s),
-                                            st.vec_sz, &dv[_tmp0_]);
-    coarse_dot_kernel<T,256><<<1,256,0,S>>>(static_cast<const LatticeComplex<T>*>(st.t),
-                                            static_cast<const LatticeComplex<T>*>(st.t),
-                                            st.vec_sz, &dv[_tmp1_]);
+    cdot(static_cast<const LatticeComplex<T>*>(st.t),
+         static_cast<const LatticeComplex<T>*>(st.s), _tmp0_);
+    cdot(static_cast<const LatticeComplex<T>*>(st.t),
+         static_cast<const LatticeComplex<T>*>(st.t), _tmp1_);
     bistabcg_give_1omega<T><<<1,1,0,S>>>(dv);
     // 9. r = s - omega*t;  x = x + alpha*p + omega*s
     bistabcg_give_r<T><<<gv,bv,0,S>>>(st.r, st.s, st.t, dv);
     bistabcg_give_x_o<T><<<gv,bv,0,S>>>(st.x, st.p, st.s, dv);
     // 10. convergence norm ||r||² -> host (once per iteration)
-    coarse_dot_kernel<T,256><<<1,256,0,S>>>(static_cast<const LatticeComplex<T>*>(st.r),
-                                            static_cast<const LatticeComplex<T>*>(st.r),
-                                            st.vec_sz, &dv[_norm2_tmp_]);
+    cdot(static_cast<const LatticeComplex<T>*>(st.r),
+         static_cast<const LatticeComplex<T>*>(st.r), _norm2_tmp_);
     checkCudaErrors(cudaMemcpyAsync(&host_vals[_norm2_tmp_], &dv[_norm2_tmp_],
         sizeof(LatticeComplex<T>), cudaMemcpyDeviceToHost, S));
     checkCudaErrors(cudaStreamSynchronize(S));
