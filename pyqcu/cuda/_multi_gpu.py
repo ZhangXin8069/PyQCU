@@ -353,7 +353,11 @@ class MultiGpuMultigrid(object):
     def solve(self):
         """并行求解：每线程一个完整 C++ MG 流程。返回 {'threads': [...], 'results': ...}。"""
         from concurrent.futures import ThreadPoolExecutor
-        main_dev = torch.device(f'cuda:{self.device_ids[0]}')
+        # 主线程 Python 层运算（粗算子构建、poooxyzt2oooxyzt、make_clover 等）
+        # 统一在 cuda:0（V100, sm_70+）：P100(sm_60) 无 torch kernel image，
+        # 任何 torch 内核在 P100 上都会报 cudaErrorNoKernelImageForDevice；
+        # workers 各卡只做 D2D 拷贝 + C++ 求解（libqcu.so 含 sm_60 SASS）。
+        main_dev = torch.device('cuda:0')
         # 主线程预热 torch lazy 初始化（clover inverse 等）：worker 线程并发
         # 首次触发 torch.linalg.inv 等 lazy backend 会报 "lazy wrapper should
         # be called at most once"，预热后在主线程完成初始化。
