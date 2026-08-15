@@ -358,6 +358,14 @@ class MultiGpuMultigrid(object):
         # 任何 torch 内核在 P100 上都会报 cudaErrorNoKernelImageForDevice；
         # workers 各卡只做 D2D 拷贝 + C++ 求解（libqcu.so 含 sm_60 SASS）。
         main_dev = torch.device('cuda:0')
+        # BUGFIX 2026-08-15: 主线程 current device 必须锁定 V100。上一实例
+        # （或本实例共享模式结尾）可能把主线程 current device 切到 P100
+        # （torch.cuda.set_device 是进程级、C++ 线程局部 current device 跟随），
+        # 导致后续实例主线程的 C++ 调用（applyInitQcu/applyGaussGaugeQcu 等）
+        # 在 P100 上执行而张量在 V100 → illegal memory access。
+        # （CUDA current device 是线程局部的：主线程显式设定 V100 后，
+        #   worker 线程各自 set_device 不受影响。）
+        torch.cuda.set_device(int(main_dev.index))
         # 主线程预热 torch lazy 初始化（clover inverse 等）：worker 线程并发
         # 首次触发 torch.linalg.inv 等 lazy backend 会报 "lazy wrapper should
         # be called at most once"，预热后在主线程完成初始化。
@@ -445,8 +453,10 @@ class MultiGpuMultigrid(object):
         with ThreadPoolExecutor(max_workers=self.nthreads) as ex:
             for r in ex.map(lambda tid: self._worker(tid, shared), range(self.nthreads)):
                 threads.append(r)
-        # 主线程参考解（设备 0，单线程，与线程 0 相同输入）
-        torch.cuda.set_device(self.device_ids[0])
+        # BUGFIX 2026-08-15: 移除污染主线程 current device 的 set_device
+        # （历史残留：无主线程参考解计算）。主线程 device 已由 solve() 开头
+        # 锁定 V100，连续多实例安全（否则下一实例主线程 C++ 在 P100 上写
+        # V100 张量 → illegal memory access）。
         results = {'threads': threads, 'lat_size': self.lat_size,
                    'mass': self.mass, 'atol': self.atol,
                    'nthreads': self.nthreads, 'device_ids': self.device_ids,
