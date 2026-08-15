@@ -173,6 +173,29 @@ def applyMultigridCoarseDslashQcu(
     """
     ...
 
+def applyMultigridCoarseDslashWideQcu(
+    fermion_out: torch.Tensor, fermion_in: torch.Tensor,
+    sitting: torch.Tensor, hop_nn: torch.Tensor, hop_diag: torch.Tensor,
+    set_ptrs: torch.Tensor, params: torch.Tensor,
+) -> None:
+    """CUDA-accelerated wide-stencil coarse-grid Schur operator A_c = P^T S P.
+
+    Wide 33-tensor stencil (on-site + 8 nearest + 24 diagonal couplings),
+    Schur-consistent coarse operator used for coarse-level null-vector
+    generation and stencil probing (arbitrary DOF E).
+
+    Tensor layouts:
+      fermion_out/in:  [E, X, Y, Z, Lt]  (coarse DOF × coarse odd lattice)
+      sitting:         [E, E, X, Y, Z, Lt]
+      hop_nn:          [2, 4, E, E, X, Y, Z, Lt]   (pm × ward)
+      hop_diag:        [2, 2, 6, E, E, X, Y, Z, Lt] (s1 × s2 × pair)
+
+    Params used:
+      _MG_LEVEL1_E_ = E (coarse DOF)
+      _MG_LEVEL1_X_, _Y_, _Z_, _T_ = coarse odd lattice
+    """
+    ...
+
 def applyCloverMultigridQcu(
     fermion_out: torch.Tensor, fermion_in: torch.Tensor, gauge: torch.Tensor,
     clover_ee: torch.Tensor, clover_oo: torch.Tensor,
