@@ -20,6 +20,8 @@ logs/test13/
 ├── main.py           全部测试代码（子命令入口，--outdir 公共参数）
 ├── run-local.sh      本地运行脚本（P100×2 多线程 + V100 单线程大格子）
 ├── AGENTS.md         本文件（复现与比对指南）
+├── test13_report.md  收尾结果报告（2026-08-15；本次工作汇总）
+├── docs/             analy 报告（analy_test13_*.tex/.pdf）
 └── v<YYYYMMDDHHMM>/  每次运行生成的版本目录（同分钟重跑加 -<SS>）
     ├── run-local-<ts>.log              完整终端输出（tee 归档）
     ├── env.h5                          环境快照（h5py；GPU/软件/git/命令）
@@ -82,6 +84,13 @@ collect | mktable | plots                         # 汇总 h5 / LaTeX 表 / PNG 
 - **nullvec 缓存**：共享 `logs/nullvec_cache`（`PYQCU_NULLVEC_CACHE` 可覆盖），
   跨 tag 复用粗算子；缓存 key 不区分设备，V100/P100 共享。
 - **收敛日志**：C++ 端写死 `REPO/logs/clover_multigrid.log`，运行脚本结束归档副本。
+- **entries 读取**（2026-08-15 修复）：save_dict_h5 将 dict 列表写为数字 key 子组、
+  读取还原为 list——消费方统一经 `_entries_list()` 展开（main.py:557），
+  勿按 dict `.values()` 处理；dataset 还原键为 `d_lattice`（用 `_lat_str()` 取格子串，
+  main.py:622）。
+- **bench 配置**（2026-08-15 调整）：V100 组为 16x16x16x16 3L + 8x16x16x16 3L
+  （16x16x16x32 求解偏慢且无完整缓存，实测超 30min，已移除；大格子预算见
+  budget 子命令）。
 
 ## 跨环境比对
 
