@@ -446,20 +446,19 @@ class MultiGpuMultigrid(object):
                              kappa=torch.Tensor([kappa]), support_parity=True,
                              verbose=False)
         S = op.matvec_parity
-        # 粗算子构建默认用多线程路径（C++ matvec，加速 ~2x；每线程一个 op）
-        if self.nthreads > 1:
-            ops_build = [CudaSchurOp(av, g, ce, coo, cei, coi, params=params_t)
-                         for _ in range(min(self.nthreads, 4))]
-            coarse = build_schur_levels(
-                op, S, self.num_levels, self.dof_list, self.mg_grid, self.lat_size,
-                self.dof_list[1], self.dt, main_dev, nv_iters=self.nv_iters,
-                use_cache=self.use_cache, cache_dir=self.cache_dir, verbose=False,
-                matvec_ops=ops_build, nthreads=len(ops_build),
-                av=av, params_template=params_t)
-            for o in ops_build:
-                o.release()
-        else:
-            coarse = self._build_coarse_ops(S, self.dof_list[1], main_dev)
+        # 粗算子构建统一走 C++ matvec 路径（每线程一个 op；单线程 nthreads=1
+        # 也用 1 个 CudaSchurOp，避免 Python matvec 构建大格子 50min+ 瓶颈
+        # —— 16x16x16x32 3L 实测 1 小时未完成，C++ 路径分钟级）
+        ops_build = [CudaSchurOp(av, g, ce, coo, cei, coi, params=params_t)
+                     for _ in range(max(1, min(self.nthreads, 4)))]
+        coarse = build_schur_levels(
+            op, S, self.num_levels, self.dof_list, self.mg_grid, self.lat_size,
+            self.dof_list[1], self.dt, main_dev, nv_iters=self.nv_iters,
+            use_cache=self.use_cache, cache_dir=self.cache_dir, verbose=False,
+            matvec_ops=ops_build, nthreads=len(ops_build),
+            av=av, params_template=params_t)
+        for o in ops_build:
+            o.release()
         shared = {'g': g, 'fi': fi, 'ce': ce, 'cei': cei, 'coo': coo, 'coi': coi,
                   'coarse': list(zip(*coarse))}  # [(lonv,hnn,hdg,sit)] per coarse level
         # 清理主线程临时 LatticeSet（setup 用），避免槽位与工作线程混淆
