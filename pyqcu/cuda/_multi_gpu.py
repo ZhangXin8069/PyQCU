@@ -44,12 +44,13 @@ def _clone_state():
 
 def build_schur_levels(op, S, num_levels, dof_list, mg_grid, lat_full, E, dt, device,
                        nv_iters=2, use_cache=True, cache_dir=None, verbose=True,
-                       matvec_ops=None, nthreads=None, av=None, params_template=None):
+                       matvec_ops=None, nthreads=None, av=None, params_template=None,
+                       nv_tol=1e-2, batch_build=True):
     """构建 S 的 null 向量 + 33-tensor Galerkin 粗算子 A_c = P^T S P。
 
     返回 (lonvs, hnn_l, hdg_l, sit_l) 列表（每粗层一项）。
-    结果以 h5py 缓存到磁盘（keyed by lattice/dof/nv_iters），
-    重复运行跳过昂贵的 setup（与任务②的 h5py 多线程读写约定一致）。
+    结果以 h5py 缓存到磁盘（keyed by lattice/dof/nv_iters/nv_tol），
+    重复运行跳过昂贵的 setup（与 h5py 多线程读写约定一致）。
 
     matvec_ops: 可选，每线程一个 matvec 算子（如 CudaSchurOp 实例列表）——
                 给定时 null 向量生成（give_null_vecs_mt）与 stencil 构建
@@ -58,11 +59,22 @@ def build_schur_levels(op, S, num_levels, dof_list, mg_grid, lat_full, E, dt, de
     2026-08-15 扩展：lvl>=2 同样走多线程 C++ matvec。每层构建完成后用
                 本层 33-tensor stencil 创建 CudaCoarseSchurOp 列表（宽版
                 粗层 Schur 算子，任意 DOF E），替换细层 CudaSchurOp 继续
-                下一层 —— 消除 lvl>=2 的单线程 Python stencil 瓶颈
-                （16x16x16x32 3L 的 lv2 构建 ~50min → ~2min）。
+                下一层 —— 消除 lvl>=2 的单线程 Python stencil 瓶颈。
                 av/params_template 给定时才启用；否则 lvl>=2 回退单线程。
+
+    nv_tol: null 向量 BiCGStab 解容差（1e-2 默认，5e-5 在粗层大系统迭代爆炸）。
+
+    batch_build=True（默认）：stencil 探测批量化 —— 固定 c_idx 一次批量全部
+                E 探针（_probe_point_batch，torch 批量 matvec）。细层用
+                _schur_matvec_batch(op)（dslash.operator 组件 einsum），
+                lvl>=2 用 _stencil_matvec_batch（本层 stencil 批量版），
+                消除逐探针 C++ 调用+同步开销。要求 op 为 dslash.operator
+                （V100 主线程 torch 可用；P100 sm_60 无 torch kernel 时
+                构建本就在主线程 V100 完成）。实测 8x8x8x16 lv1：
+                135s → ~15s（10 倍），16x16x16x32 lv1（196608 probes）~36min → ~3min。
     """
     from pyqcu.tools import build_stencil, apply_stencil, build_stencil_mt, give_null_vecs_mt
+    from pyqcu.tools._multigrid import _schur_matvec_batch, _stencil_matvec_batch
     from pyqcu.cuda._schur_op import CudaCoarseSchurOp
     if cache_dir is None:
         cache_dir = os.path.join(os.path.expanduser("~/PyQCU/logs"), "nullvec_cache")
@@ -72,10 +84,16 @@ def build_schur_levels(op, S, num_levels, dof_list, mg_grid, lat_full, E, dt, de
     E_prev = 12
     coarse_ops = matvec_ops  # 当前层 matvec 算子（细层 CudaSchurOp / 粗层 CudaCoarseSchurOp）
     created_ops = []         # 本函数创建的粗层 ops（结束时统一 release）
+    # 批量 matvec（batch_build 模式）：细层用 dslash.operator 的批量 Schur，
+    # lvl>=2 用本层 stencil 的批量版（_stencil_matvec_batch）
+    if batch_build and op is not None:
+        batch_mv = lambda x, _op=op: _schur_matvec_batch(_op, x)
+    else:
+        batch_mv = None
     for lvl in range(1, num_levels):
         E_c = dof_list[lvl]
         lat_coarse_odd = [lat_fine_odd[d] // mg_grid[d] for d in range(4)]
-        tag = f"L{lat_full[0]}x{lat_full[1]}x{lat_full[2]}x{lat_full[3]}_lv{lvl}_E{E_c}_nvi{nv_iters}"
+        tag = f"L{lat_full[0]}x{lat_full[1]}x{lat_full[2]}x{lat_full[3]}_lv{lvl}_E{E_c}_nvi{nv_iters}_t{nv_tol}"
         cache_file = os.path.join(cache_dir, tag + ".h5")
         if use_cache and os.path.exists(cache_file):
             lonv = tools.load_tensor_h5(cache_file, dataset="lonv", device=device)
@@ -86,11 +104,18 @@ def build_schur_levels(op, S, num_levels, dof_list, mg_grid, lat_full, E, dt, de
                 print(f"  [level {lvl}] E={E_c} CACHED coarse={lat_coarse_odd}")
         else:
             t0 = time.perf_counter()
-            if coarse_ops is not None:
+            if batch_build and batch_mv is not None:
+                # 批量 null 向量生成（torch 批量 BiCGStab）+ 批量探测
+                _null = give_null_vecs_mt(
+                    coarse_ops, E_c, E_prev, lat_fine_odd, dt, device,
+                    nv_iters=nv_iters, nthreads=nthreads, verbose=False,
+                    nv_tol=nv_tol, batch_matvec=batch_mv)
+            elif coarse_ops is not None:
                 # 多线程 C++ matvec（细层 CudaSchurOp；粗层 CudaCoarseSchurOp）
                 _null = give_null_vecs_mt(
                     coarse_ops, E_c, E_prev, lat_fine_odd, dt, device,
-                    nv_iters=nv_iters, nthreads=nthreads, verbose=False)
+                    nv_iters=nv_iters, nthreads=nthreads, verbose=False,
+                    nv_tol=nv_tol)
             else:
                 _null = torch.randn([E_c, E_prev] + lat_fine_odd, dtype=dt, device=device)
                 for _ in range(nv_iters):
@@ -98,7 +123,12 @@ def build_schur_levels(op, S, num_levels, dof_list, mg_grid, lat_full, E, dt, de
                                                  verbose=False)
             lonv = tools.local_orthogonalize(null_vecs=_null, coarse_lat_size=lat_coarse_odd,
                                              verbose=False)
-            if coarse_ops is not None:
+            if batch_build and batch_mv is not None:
+                # 批量探测（torch einsum，主线程 V100）
+                hnn, hdg, sit = build_stencil_mt(
+                    [batch_mv], lonv, E_c, E_prev, lat_fine_odd, lat_coarse_odd,
+                    dt, device, nthreads=1, verbose=verbose, batch=True)
+            elif coarse_ops is not None:
                 hnn, hdg, sit = build_stencil_mt(
                     coarse_ops, lonv, E_c, E_prev, lat_fine_odd, lat_coarse_odd,
                     dt, device, nthreads=nthreads or len(coarse_ops), verbose=verbose)
@@ -116,6 +146,10 @@ def build_schur_levels(op, S, num_levels, dof_list, mg_grid, lat_full, E, dt, de
                       f"coarse={lat_coarse_odd}")
         lonvs.append(lonv); hnn_l.append(hnn); hdg_l.append(hdg); sit_l.append(sit)
         S = lambda v, _hnn=hnn, _hdg=hdg, _sit=sit: apply_stencil(_hnn, _hdg, _sit, v)
+        # 下一层批量 matvec：本层 stencil 的批量版（任意 E）
+        if batch_build and op is not None:
+            st = (sit, hnn, hdg)  # _stencil_matvec_batch 约定 (sit, hop_nn, hop_diag)
+            batch_mv = lambda x, _st=st: _stencil_matvec_batch(_st, x)
         # 下一层 matvec：本层 stencil 的 C++ 宽版算子（任意 E），
         # 未传 av/params_template 时回退单线程 Python（coarse_ops=None）。
         if coarse_ops is not None and av is not None and params_template is not None:

@@ -89,8 +89,23 @@ collect | mktable | plots                         # 汇总 h5 / LaTeX 表 / PNG 
   勿按 dict `.values()` 处理；dataset 还原键为 `d_lattice`（用 `_lat_str()` 取格子串，
   main.py:622）。
 - **bench 配置**（2026-08-15 调整）：V100 组为 16x16x16x16 3L + 8x16x16x16 3L
-  （16x16x16x32 求解偏慢且无完整缓存，实测超 30min，已移除；大格子预算见
-  budget 子命令）。
+  （16x16x16x32 求解偏慢，移除；大格子预算见 budget 子命令）。
+- **粗算子构建加速**（2026-08-15 test14 优化，pyqcu/tools/_multigrid.py +
+  pyqcu/cuda/_multi_gpu.py）：
+  * nv_tol=1e-2（默认）：null 向量 BiCGStab 容差从 5e-5 放宽 —— 粗层大系统
+    （16x16x16x32 lv2，196608 未知数）5e-5 迭代爆炸（>34min 未完成）→ 分钟级；
+    小格子 8x8x8x16 质量等价（rel_diff=0，sweep 16/16≥1.5 vs test13 11/16）。
+  * 批量 stencil 探测（_probe_point_batch + _schur_matvec_batch +
+    _stencil_matvec_batch）：固定 c_idx 一次批量全部 E 探针（torch einsum，
+    单位向量 prolong 切片化 + restrict 邻域块局部化）—— 8x8x8x16 lv1
+    12288 probes 135.6s → 3.3s（21 倍）；16x16x16x32 lv1（196608 probes）
+    ~36min → ~3min。
+  * 批量 BiCGStab（_bistabcg_batch）：null 向量 dof 个右端一次批量迭代
+    （标量按批独立 + 复数安全除法）—— 16x16x16x32 lv2 从 40min+ → 83s。
+  * 实测 16x16x16x32 3L 完整构建 86s（原 1h+ 未完成）；求解正确
+    （consistency=True），speedup=0.75（大格子 MG coarse solve 开销，
+    历史特性，正确性优先）。
+  * 缓存 key 含 `_t{nv_tol}` 后缀（旧 5e-5 缓存自动失效重建）。
 
 ## 跨环境比对
 
