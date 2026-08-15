@@ -270,8 +270,19 @@ template <typename T> struct LatticeSet {
           // One rank per GPU (local rank within the shared-memory node).
           // _TEST_SINGLE_GPU_MULTI_RANK_ forces device 0 for single-GPU
           // multi-rank MPI tests (see define.h).
-          checkCudaErrors(cudaSetDevice(
-              _TEST_SINGLE_GPU_MULTI_RANK_ ? 0 : getLocalRank())); // !!!!!!
+          // BUGFIX 2026-08-14 (P100/sm_60 多线程多卡): 单 MPI rank 时不得
+          // 强制 cudaSetDevice(0) —— MultiGpuMultigrid 一线程一卡模式下
+          // 线程已 torch.cuda.set_device(dev_id) 绑定本卡，C++ 再切换到
+          // device 0 会使后续内核在 V100 上写 P100 内存 → illegal memory
+          // access。仅多进程分布（comm_size>1）时按 local rank 绑定设备。
+          {
+            int _comm_size = 1;
+            MPI_Comm_size(MPI_COMM_WORLD, &_comm_size);
+            if (_comm_size > 1) {
+              checkCudaErrors(cudaSetDevice(
+                  _TEST_SINGLE_GPU_MULTI_RANK_ ? 0 : getLocalRank()));
+            }
+          } // !!!!!!
         }
         { // give basic cuda setup
           CUBLAS_CHECK(cublasCreate(&cublasH));
