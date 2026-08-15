@@ -289,20 +289,29 @@ template <typename T> struct LatticeCloverMultigrid {
     int grid_sz = (n + NT - 1) / NT;
     // Cap the grid to what can be co-resident on this device (cooperative
     // launch requires the whole grid resident at once).
-    static int max_blocks_per_sm = -1, sm_count = -1;
-    if (max_blocks_per_sm < 0) {
+    // BUGFIX 2026-08-14 (P100/sm_60 多线程多卡): 必须按**当前线程绑定设备**
+    // 查询 SM 数与 occupancy —— 硬编码 device 0（V100, 80 SM）会让 P100
+    // 线程（56 SM）的 grid 超限；且 static 缓存须按设备分槽，否则多线程
+    // 共用一份值互相污染。
+    static int max_blocks_per_sm[16], sm_count[16];
+    static bool occ_init[16] = {false};
+    int cur_dev = 0;
+    cudaGetDevice(&cur_dev);
+    if (cur_dev < 0 || cur_dev >= 16) cur_dev = 0;
+    if (!occ_init[cur_dev]) {
       cudaOccupancyMaxActiveBlocksPerMultiprocessor(
-          &max_blocks_per_sm,
+          &max_blocks_per_sm[cur_dev],
           (const void*)multigrid_coarse_solve_cg<T,NT>, NT, 0);
       cudaDeviceProp prop;
-      cudaGetDeviceProperties(&prop, 0);
-      sm_count = prop.multiProcessorCount;
+      cudaGetDeviceProperties(&prop, cur_dev);
+      sm_count[cur_dev] = prop.multiProcessorCount;
+      occ_init[cur_dev] = true;
     }
-    int max_blocks = max_blocks_per_sm * sm_count;
+    int max_blocks = max_blocks_per_sm[cur_dev] * sm_count[cur_dev];
     if (grid_sz > max_blocks) grid_sz = max_blocks;
     if (rank==0 && verbose)
       printf("MG: fused grid=%d (cap=%d, sm=%d, occ=%d/block) n=%d\n",
-             grid_sz, max_blocks, sm_count, max_blocks_per_sm, n);
+             grid_sz, max_blocks, sm_count[cur_dev], max_blocks_per_sm[cur_dev], n);
     void *args[] = {
         (void*)&st.x, (void*)&st.rhs, (void*)&st.r_tilde, (void*)&st.r,
         (void*)&st.p, (void*)&st.v, (void*)&st.s, (void*)&st.t,
