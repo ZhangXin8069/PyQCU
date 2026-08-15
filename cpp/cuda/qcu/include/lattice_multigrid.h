@@ -55,5 +55,22 @@ template <typename T> struct LatticeMultigridCoarseDslash {
     checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
   }
 };
+template <typename T> struct LatticeMultigridCoarseDslashWide {
+  LatticeSet<T> *set_ptr;
+  cudaError_t err;
+  void give(LatticeSet<T> *_set_ptr) { set_ptr = _set_ptr; }
+  void run(void *fermion_out, void *fermion_in, void *sitting, void *hop_nn,
+           void *hop_diag, int E, int X, int Y, int Z, int Lt) {
+    checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
+    int total_output = E * X * Y * Z * Lt;
+    dim3 gridDim((total_output + _BLOCK_SIZE_ - 1) / _BLOCK_SIZE_);
+    dim3 blockDim(_BLOCK_SIZE_);
+    multigrid_coarse_dslash_wide<T><<<gridDim, blockDim, 0, set_ptr->stream>>>(
+        fermion_out, fermion_in, sitting, hop_nn, hop_diag, E, X, Y, Z, Lt);
+    err = cudaGetLastError();
+    checkCudaErrors(err);
+    checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
+  }
+};
 } // namespace qcu
 #endif
