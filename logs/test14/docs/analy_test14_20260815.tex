@@ -1,0 +1,304 @@
+% ============================================================
+% analy 报告 — test14 多线程 CUDA C++ MultiGrid 测试工作
+% 编译: xelatex 两遍；交付前 Overfull 计数必须为 0
+% ============================================================
+\documentclass[UTF8]{ctexart}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{amsmath}
+\usepackage{microtype}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{xltabular}
+\usepackage{tabularx}
+\usepackage{hyperref}
+\usepackage{fancyhdr}
+\usepackage[most]{tcolorbox}
+\usepackage{titlesec}
+
+% ===== 色板 =====
+\definecolor{accent}{HTML}{1F4E79}
+\definecolor{evidence}{HTML}{1E8449}
+\definecolor{reference}{HTML}{8C6D1F}
+\definecolor{conclusion}{HTML}{8B1A1A}
+\definecolor{codebg}{HTML}{F4F6F7}
+\definecolor{struct}{HTML}{3B3B98}
+\definecolor{relation}{HTML}{0E7C7B}
+\definecolor{idea}{HTML}{B03A2E}
+\definecolor{warn}{HTML}{D35400}
+\definecolor{hl}{HTML}{FDF6E3}
+
+\setlength{\emergencystretch}{3em}
+\hypersetup{colorlinks=true,linkcolor=accent,urlcolor=relation}
+
+\titleformat{\section}{\Large\bfseries\color{accent}}{\thesection}{1em}{}
+\titleformat{\subsection}{\large\bfseries\color{struct}}{\thesubsection}{1em}{}
+\titleformat{\subsubsection}{\normalsize\bfseries\color{struct!70!black}}{\thesubsubsection}{1em}{}
+
+\newtcolorbox{conclbox}{breakable,colback=conclusion!6,colframe=conclusion,title=结论}
+\newtcolorbox{refbox}{breakable,colback=reference!6,colframe=reference,title=参考背景}
+\newtcolorbox{ideabox}{breakable,colback=idea!6,colframe=idea,title=项目思路}
+\newtcolorbox{warnbox}{breakable,colback=warn!6,colframe=warn,title=局限与风险}
+\newtcolorbox{keybox}{breakable,colback=hl,colframe=accent,title=要点}
+
+\lstset{
+  basicstyle=\ttfamily\footnotesize,
+  backgroundcolor=\color{codebg},
+  frame=single,
+  language=python,
+  firstnumber=auto,
+  keywordstyle=\color{accent}\bfseries,
+  commentstyle=\color{evidence!70!black},
+  stringstyle=\color{struct},
+  breaklines=true,
+  breakatwhitespace=false,
+  postbreak=\mbox{\textcolor{accent}{$\hookrightarrow$}\space},
+  keepspaces=true,
+  columns=flexible,
+  numbers=left,numberstyle=\tiny\color{struct!60!black},
+}
+
+\title{test14 --- 多线程版（一线程一卡）CUDA C++ MultiGrid 求解器测试与粗算子构建加速}
+\author{opencode analy}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+本报告分析 PyQCU 仓库的 test14 测试工作：多线程版（一线程一卡）CUDA C++
+MultiGrid 求解器的正确性与性能测试套件（\texttt{logs/test14/}），以及本次工作
+的核心技术改进——粗算子构建加速（\texttt{pyqcu/tools/\_multigrid.py} 与
+\texttt{pyqcu/cuda/\_multi\_gpu.py}）。三视角概览：\textcolor{struct}{主体结构}为
+纯 Python（PyTorch）+ C++ CUDA 双执行层级；\textcolor{relation}{各部分关系}为
+Cython 桥连接 Python 编排层与 C++ 内核层，h5py 持久化贯穿测试套件；
+\textcolor{idea}{项目思路}为物理正确性优先、真多线程并行、构建瓶颈消除。
+核心结论：16x16x16x32 3L 粗算子构建从 1 小时+未完成降至 86 秒（约 40 倍），
+多线程 MG 加速比 sweep 16/16 配置达到 gate=1.5（test13 为 11/16），
+最佳加速比 2.49。
+\end{abstract}
+
+\tableofcontents
+
+% ================= 1 仓库概览 =================
+\section{仓库概览}
+\subsection{目录结构}
+\begin{lstlisting}[language=bash]
+PyQCU/
+├── pyqcu/                 # 纯 Python 实现（lattice/dslash/solver/smear/tools/testing/cuda/cann）
+│   ├── dslash/            # Wilson/Clover 狄拉克算子
+│   ├── solver/            # BiStabCG、multigrid
+│   ├── tools/             # MPI 网格、HDF5 I/O、33-tensor stencil build、批量 BiCGStab
+│   └── cuda/              # Cython 桥 + CudaSchurOp + MultiGpuMultigrid
+├── cpp/cuda/qcu/          # C++ CUDA 后端（手写内核 + MPI halo 交换）
+├── examples/              # 测试入口
+├── logs/
+│   ├── test12/            # 单线程版测试套件
+│   ├── test13/            # 多线程版测试套件（前代）
+│   ├── test14/            # 多线程版测试套件（本次，含粗算子构建加速）
+│   └── nullvec_cache/     # 粗算子 h5py 缓存
+└── docs/                  # 技术文档
+\end{lstlisting}
+
+\subsection{规模统计与 git 信息}
+\begin{table}[htbp]\centering
+\begin{tabular}{ll}
+\toprule
+指标 & 实测值 \\
+\midrule
+Python 文件数 & 126 \\
+文档数（.md） & 141 \\
+Python 总行数 & 22536 \\
+提交数 & 1105 \\
+标签数 & 126 \\
+test14 套件 main.py 行数 & 816 \\
+粗算子构建优化代码 & \_multigrid.py +536 行 / \_multi\_gpu.py +53 行 \\
+\bottomrule
+\end{tabular}
+\caption{仓库实测统计（数据来源: find/wc/git 实测）}
+\end{table}
+
+% ================= 2 主体结构 =================
+\section{主体结构}
+PyQCU 为格点 QCD 数值库，采用\textcolor{struct}{双执行层级}架构：
+\begin{table}[htbp]\centering
+\begin{tabularx}{\textwidth}{llX}
+\toprule
+\textcolor{struct}{层次} & 目录 & \textcolor{struct}{职责} \\
+\midrule
+入口层 & examples/、logs/test14/main.py & 测试入口与套件编排（verify/clean/bench/sweep） \\
+核心层 & pyqcu/dslash、solver、smear & 物理算子与求解器（PyTorch 实现） \\
+C++ 内核层 & cpp/cuda/qcu/ & 手写 CUDA 内核 + MPI halo（生产路径） \\
+桥接层 & pyqcu/cuda/ & Cython 桥 + 多线程多卡驱动（MultiGpuMultigrid） \\
+工具层 & pyqcu/tools/ & MPI 网格、HDF5 I/O、33-tensor stencil、批量 BiCGStab \\
+文档层 & AGENTS.md、docs/ & 项目约定与设计文档 \\
+\bottomrule
+\end{tabularx}
+\caption{主体结构分层（数据来源: 全库索引实测）}
+\end{table}
+
+\textcolor{struct}{本次工作的核心层改动}在工具层与桥接层：
+\begin{itemize}
+\item \texttt{pyqcu/tools/\_multigrid.py:281-341} --- 新增批量 BiCGStab
+  \texttt{\_bistabcg\_batch}（null 向量生成批量化）；
+\item \texttt{pyqcu/tools/\_multigrid.py:509-640} --- 新增批量 Schur/stencil matvec
+  与批量探测 \texttt{\_probe\_point\_batch}；
+\item \texttt{pyqcu/cuda/\_multi\_gpu.py:45-74} --- \texttt{build\_schur\_levels}
+  新增 \texttt{nv\_tol} 与 \texttt{batch\_build} 参数（批量构建路径）。
+\end{itemize}
+
+% ================= 3 各部分关系 =================
+\section{各部分关系}
+\begin{keybox}
+\textbf{依赖主链:} \textcolor{relation}{logs/test14/main.py → pyqcu/cuda/\_multi\_gpu.py
+(MultiGpuMultigrid) → pyqcu/cuda/\_schur\_op.py (CudaSchurOp) →
+pyqcu/cuda/qcu.pyx (Cython 桥) → cpp/cuda/qcu/libqcu.so (C++ 内核)；
+粗算子构建: \_multi\_gpu.py:build\_schur\_levels → tools/\_multigrid.py
+(\_schur\_matvec\_batch/\_stencil\_matvec\_batch/\_bistabcg\_batch)；
+持久化: h5py（save\_dict\_h5/load\_dict\_h5，nullvec\_cache 共享缓存）}
+\end{keybox}
+
+关键关系链（本次优化前后对比）：
+\begin{itemize}
+\item \textcolor{relation}{旧路径}：粗算子构建 = 逐探针 C++ 调用（1.64ms/次同步）
+  + 逐向量 BiCGStab（tol=5e-5）→ 16x16x16x32 lv2 34 分钟+未完成；
+\item \textcolor{relation}{新路径}：批量探测（一次 48 探针 torch einsum）+ 批量
+  BiCGStab（48 右端一次迭代）+ 容差放宽（1e-2）→ 同任务 86 秒。
+\end{itemize}
+
+版本演进（git 实测）：test12（单线程）→ test13（多线程 MultiGpuMultigrid，
+\emph{dafeaa4}）→ test14（粗算子构建加速，\emph{673fb7d}，本次）。
+
+% ================= 4 项目思路 =================
+\section{项目思路}
+\subsection{设计意图}
+\begin{itemize}
+\item \textcolor{idea}{双执行层级}：纯 Python 路径保证可移植性（CPU/NPU），
+  C++ CUDA 路径保证性能——物理正确性优先，性能其次；
+\item \textcolor{idea}{一线程一卡}：多线程绑定独立 GPU，Cython 桥 \texttt{with nogil}
+  真并行，避免 GIL 串行化；
+\item \textcolor{idea}{h5py-only 持久化}：独立 File 句柄保证多线程安全，缓存
+  跨 tag 复用（nullvec\_cache）。
+\end{itemize}
+\subsection{演进脉络}
+test14 的动机源于 test13 的已知瓶颈：16x16x16x32 3L 粗算子构建 1 小时未完成，
+只能从 bench 配置中移除该格子。本次工作通过三段式优化（容差放宽 → 批量探测 →
+批量 BiCGStab）将构建降到分钟级，使大格子重新可测。
+\subsection{典型工作流}
+\begin{itemize}
+\item 入口：\texttt{run-local.sh}（设备编排 + 版本目录 v<ts>/）；
+\item 测试：\texttt{main.py verify → clean → bench → sweep → check}；
+\item 汇总：\texttt{collect → mktable → plots}（h5py 结果 → LaTeX 表/PNG 图）。
+\end{itemize}
+
+\begin{ideabox}
+项目思路核心：物理（格点 QCD 求解器）正确性为第一优先级；性能优化遵循
+"先消除单点瓶颈（构建），再测求解加速比"的原则；一切测量以实测为准
+（加速比、构建耗时均来自本次本机实测）。
+\end{ideabox}
+
+% ================= 5 主题分析 =================
+\section{主题分析}
+\subsection{粗算子构建瓶颈定位（为什么慢）}
+粗算子 $A_c = P^T S P$（33-tensor stencil）的构建包含两段计算：
+\begin{itemize}
+\item null 向量生成：每个向量一次 BiCGStab 解（tol=5e-5），粗层大系统
+  （16x16x16x32 lv2，196608 未知数）条件数差，迭代爆炸；
+\item stencil 探测：每格点每 dof 一次 C++ matvec（1.64ms 含同步），
+  lv1 共 196608 次探测。
+\end{itemize}
+实测证据：\texttt{pyqcu/tools/\_multigrid.py:354-356} 记录了 5e-5 容差的
+迭代爆炸问题；本机实测 stencil 探测仅 91 probes/s（135.6s/12288 probes）。
+
+\subsection{三段式优化}
+\textbf{① 容差放宽}（\texttt{nv\_tol=1e-2}）：null 向量只需近似近零空间
+（逆迭代收敛要求远低于最终求解 atol），MG 收敛由细层平滑保证
+（\texttt{pyqcu/cuda/\_multi\_gpu.py:65-66}）。小格子质量等价验证：
+8x8x8x16 2L rel\_diff=0。
+
+\textbf{② 批量探测}（\texttt{\_probe\_point\_batch}，\texttt{\_multigrid.py:576}）：
+固定粗格点 c\_idx 一次批量全部 E=48 探针——单位向量 prolong 结果 = lonv 直接
+切片（零 einsum），restrict 只需 $\pm 1$ 邻域（$\le 33$ 点）局部收缩
+（\texttt{\_multigrid.py:576-640}）。8x8x8x16 lv1：135.6s → 3.3s（21 倍）。
+
+\textbf{③ 批量 BiCGStab}（\texttt{\_bistabcg\_batch}，\texttt{\_multigrid.py:281}）：
+dof 个右端一次批量迭代，标量（rho/alpha/omega/beta）按批独立，复数安全除法
+（\texttt{\_multigrid.py:316-327}）。与逐场 solver.bistabcg 等价（err=1.2e-5 实测）。
+16x16x16x32 lv2：40min+ → 83s。
+
+\subsection{实测结果}
+\begin{table}[htbp]\centering
+\begin{tabular}{lll}
+\toprule
+指标 & test13 & test14 \\
+\midrule
+16x16x16x32 3L 粗算子构建 & 1h+ 未完成 & \textbf{86s}（约 40 倍） \\
+8x8x8x16 lv1 stencil 探测 & 135.6s & 3.3s（21 倍） \\
+16x16x16x32 lv2 null 向量 & 40min+ & 83s \\
+sweep 加速比通过率（gate=1.5） & 11/16 & \textbf{16/16} \\
+sweep 最佳加速比 & 2.15 & \textbf{2.49} \\
+bench 最佳加速比（8x8x8x16 2L） & 2.10 & \textbf{2.17} \\
+\bottomrule
+\end{tabular}
+\caption{test13 vs test14 关键指标（数据来源: 本次本机实测）}
+\end{table}
+
+verify 全 PASS（一致性 rel=0、独立问题、V100 大格子、h5py 4 线程 IO）。
+16x16x16x32 3L 求解正确（consistency=True），speedup=0.75（大格子 MG coarse
+solve 开销，历史特性，正确性优先）。
+
+% ================= 6 关键代码/文档片段 =================
+\section{关键代码/文档片段}
+批量 BiCGStab 核心循环（标量按批独立）：
+\lstinputlisting[firstline=281,lastline=341]{/root/PyQCU/pyqcu/tools/_multigrid.py}
+
+批量探测（固定 c\_idx 一次全部 E 探针）：
+\lstinputlisting[firstline=576,lastline=640]{/root/PyQCU/pyqcu/tools/_multigrid.py}
+
+build\_schur\_levels 批量路径入口：
+\lstinputlisting[firstline=45,lastline=74]{/root/PyQCU/pyqcu/cuda/_multi_gpu.py}
+
+% ================= 7 参考源清单 =================
+\section{参考源清单}
+\begin{xltabular}{\textwidth}{llX}
+\toprule
+\textcolor{evidence}{参考源} & 类型 & 内容/作用 \\
+\midrule
+\endhead
+\texttt{\nolinkurl{pyqcu/tools/_multigrid.py:281-341}} & 仓库 & 批量 BiCGStab（null 向量批量化） \\
+\texttt{\nolinkurl{pyqcu/tools/_multigrid.py:509-555}} & 仓库 & 批量 Schur / 33-tensor stencil matvec \\
+\texttt{\nolinkurl{pyqcu/tools/_multigrid.py:576-640}} & 仓库 & 批量探测（单位向量 prolong 切片化） \\
+\texttt{\nolinkurl{pyqcu/cuda/_multi_gpu.py:45-74}} & 仓库 & build\_schur\_levels nv\_tol/batch\_build 参数 \\
+\texttt{\nolinkurl{pyqcu/cuda/_multi_gpu.py:107-128}} & 仓库 & 批量 null 生成 + 批量探测调用路径 \\
+\texttt{\nolinkurl{logs/test14/test14_report.md:1-40}} & 仓库 & 本次工作汇总与实测结果 \\
+\texttt{\nolinkurl{logs/test14/AGENTS.md}} & 仓库 & 套件复现与比对指南 \\
+\texttt{\nolinkurl{logs/test14/main.py}} & 仓库 & 测试套件（816 行，h5py 持久化） \\
+\bottomrule
+\end{xltabular}
+
+% ================= 8 结论与局限 =================
+\section{结论与局限}
+\begin{conclbox}
+三视角结论：\textcolor{struct}{结构}——双执行层级（Python 编排 + C++ 内核）经
+Cython 桥连接；\textcolor{relation}{关系}——批量 matvec 与批量 BiCGStab 取代
+逐探针 C++ 调用，h5py 缓存贯穿；\textcolor{idea}{思路}——先消除构建瓶颈再测
+求解加速比，物理正确性优先。
+主题结论：粗算子构建三段式加速（容差放宽 + 批量探测 + 批量 BiCGStab）使
+16x16x16x32 3L 从 1h+ 降至 86s；多线程 MG 相对多线程 BiStabCG 加速比
+sweep 16/16 达 gate=1.5，最佳 2.49（均优于 test13）。
+\end{conclbox}
+\begin{refbox}
+格点 QCD 多重网格的构建开销（Galerkin 投影 $P^T S P$）是已知研究热点；
+本工作通过线性算子批量化与精度权衡（null 向量容差）将构建成本降为可忽略，
+属于工程层面的标准做法（与 QUDA 等生产库的多重网格 setup 策略一致）。
+\end{refbox}
+\begin{warnbox}
+\textcolor{warn}{未验证}项：① 大格子（16x16x16x32 以上）MG 求解加速比 <1
+为历史特性，本次未做求解器内核优化（超出测试套件范围）；② 批量路径依赖
+主线程 V100（torch einsum），P100 构建时仍走旧 C++ 路径——本机构建本就在
+V100 主线程，无实际影响；③ nv\_tol=1e-2 对超大格子（16x16x16x64 档）的
+null 向量质量未单独验证（预算表显示可容纳，未实测）。
+\end{warnbox}
+
+\end{document}
