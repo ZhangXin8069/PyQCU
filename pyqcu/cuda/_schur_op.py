@@ -25,20 +25,41 @@ from pyqcu.cuda.define import set_ptrs as _module_set_ptrs
 
 
 class _SetIndexAllocator:
-    """全局 set_index 槽位分配器（线程安全）。
+    """全局 set_index 槽位分配器（线程安全，带槽位回收）。
 
-    每个 CudaSchurOp 实例在共享 set_ptrs 中独占一个槽位
-    （_SET_INDEX_ 对应 set_ptrs[_SET_INDEX_] = LatticeSet*）。
+    每个 CudaSchurOp/CudaCoarseSchurOp 实例在各自的 set_ptrs 副本中独占
+    一个槽位（_SET_INDEX_ 对应 set_ptrs[_SET_INDEX_] = LatticeSet*）。
+    set_ptrs 为 int64[100]：槽位必须避开粗算子区
+    （_SET_PTRS_COARSE_BASE_=30 起），上限 MAX_SLOTS=24。
+    实例 release() 时归还槽位供复用 —— 长时间循环（bench/sweep 逐配置
+    创建/释放实例）下槽位 = 同时活跃实例数，不会累积越界
+    （历史 BUG：单调递增不回收，20+ 配置后 set_index>100 → C++ 端
+    set_ptrs[set_index] 越界写堆 → applyEndQcu free 崩溃）。
     """
+
+    MAX_SLOTS = 24
 
     def __init__(self):
         self._counter = 0
+        self._free = []
         self._lock = threading.Lock()
 
     def next(self) -> int:
         with self._lock:
+            if self._free:
+                return self._free.pop()
+            if self._counter >= self.MAX_SLOTS:
+                raise RuntimeError(
+                    "PYQCU::CUDA::SCHUR_OP:\n set_index 槽位耗尽（MAX_SLOTS=%d），"
+                    "存在未 release 的算子实例（泄漏）" % self.MAX_SLOTS)
             self._counter += 1
             return self._counter
+
+    def free(self, idx):
+        """归还槽位（实例 release() 后调用）。"""
+        with self._lock:
+            if idx not in self._free and idx <= self._counter:
+                self._free.append(idx)
 
 
 _GLOBAL_SET_ALLOC = _SetIndexAllocator()
@@ -98,6 +119,7 @@ class CudaSchurOp(object):
         注意 applyEndQcu 释放 set_ptrs 中该槽位对应的 LatticeSet。
         """
         qcu.applyEndQcu(self.set_ptrs, self.params)
+        _GLOBAL_SET_ALLOC.free(self.set_index)
         self.set_index = None
 
     def __del__(self):
@@ -189,6 +211,7 @@ class CudaCoarseSchurOp(object):
 
     def release(self):
         qcu.applyEndQcu(self.set_ptrs, self.params)
+        _GLOBAL_SET_ALLOC.free(self.set_index)
         self.set_index = None
 
     def __del__(self):
