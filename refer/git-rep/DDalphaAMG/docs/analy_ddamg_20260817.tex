@@ -1,0 +1,424 @@
+% ============================================================
+% analy 报告 — 规范模板 v2（xelatex + ctex）
+% 主题: DDalphaAMG 软件库全面分析
+% 编译: xelatex 两遍; 交付前 Overfull / Float too large 均为 0
+% ============================================================
+\documentclass[UTF8]{ctexart}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{microtype}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{xltabular}
+\usepackage{tabularx}
+\usepackage{hyperref}
+\usepackage{fancyhdr}
+\usepackage[most]{tcolorbox}
+\usepackage{titlesec}
+
+\definecolor{accent}{HTML}{1F4E79}
+\definecolor{evidence}{HTML}{1E8449}
+\definecolor{reference}{HTML}{8C6D1F}
+\definecolor{conclusion}{HTML}{8B1A1A}
+\definecolor{codebg}{HTML}{F4F6F7}
+\definecolor{struct}{HTML}{3B3B98}
+\definecolor{relation}{HTML}{0E7C7B}
+\definecolor{idea}{HTML}{B03A2E}
+\definecolor{warn}{HTML}{D35400}
+\definecolor{hl}{HTML}{FDF6E3}
+
+\setlength{\emergencystretch}{3em}
+\hypersetup{colorlinks=true,linkcolor=accent,urlcolor=relation}
+
+\titleformat{\section}{\Large\bfseries\color{accent}}{\thesection}{1em}{}
+\titleformat{\subsection}{\large\bfseries\color{struct}}{\thesubsection}{1em}{}
+\titleformat{\subsubsection}{\normalsize\bfseries\color{struct!70!black}}{\thesubsubsection}{1em}{}
+
+\newtcolorbox{conclbox}{breakable,colback=conclusion!6,colframe=conclusion,title=结论}
+\newtcolorbox{refbox}{breakable,colback=reference!6,colframe=reference,title=参考背景}
+\newtcolorbox{ideabox}{breakable,colback=idea!6,colframe=idea,title=项目思路}
+\newtcolorbox{warnbox}{breakable,colback=warn!6,colframe=warn,title=局限与风险}
+\newtcolorbox{keybox}{breakable,colback=hl,colframe=accent,title=要点}
+
+\lstset{
+  basicstyle=\ttfamily\footnotesize,
+  backgroundcolor=\color{codebg},
+  frame=single,
+  language=C,
+  firstnumber=auto,
+  keywordstyle=\color{accent}\bfseries,
+  commentstyle=\color{evidence!70!black},
+  stringstyle=\color{struct},
+  breaklines=true,
+  breakatwhitespace=false,
+  postbreak=\mbox{\textcolor{accent}{$\hookrightarrow$}\space},
+  keepspaces=true,
+  columns=flexible,
+  numbers=left,numberstyle=\tiny\color{struct!60!black},
+}
+
+\title{DDalphaAMG 软件库全面分析报告}
+\author{opencode analy}
+\date{2026-08-17}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+本报告对格点 QCD 多重网格求解器库 \textbf{DDalphaAMG}（位于
+\url{/root/PyQCU/refer/git-rep/DDalphaAMG}）进行只读全面分析。该库以聚合型代数多重网格
+（AMG）方法求解 Wilson--Clover 狄拉克方程 $D_W(U,m_0)\psi=\eta$，平滑器采用 Schwarz 交替过程
+（SAP），并含 CUDA 移植、SSE/AVX 向量化与 MPI/OpenMP 并行。报告覆盖三视角：\textcolor{struct}{主体结构}
+（入口/核心/GPU/测试分层）、\textcolor{relation}{各部分关系}（sed 模板实例化链、
+`src → CUDA` 分派链、`ini → run → dd\_alpha\_amg` 运行链）、\textcolor{idea}{项目思路}
+（模板化精度生成、自适应 setup、K-cycle 设计动机）；并对"从编译到运行"完整工作流按 A 框架
+15 步重现。本快照非独立 git 仓库（共享父仓库 \texttt{/root/PyQCU/.git}），且缺少 CPU 侧
+\texttt{.c} 实现文件与 \texttt{Makefile}，相关证据以现有 \texttt{*\_generic.h} 声明与
+\texttt{src/gpu/*.cu} 实现为准。
+\end{abstract}
+
+\tableofcontents
+
+\section{仓库概览}
+
+\subsection{目录结构}
+\begin{lstlisting}[language=bash]
+DDalphaAMG/
+|-- README / COPYING / CREDITS / NEWS       # 说明与许可
+|-- MakeSettings.mk(.template)              # 用户编译配置
+|-- double.sed / float.sed                  # 精度实例化脚本
+|-- compile_modules.sh / setup_env_and_compile.sh
+|-- run / submit_E250_*.job / sub8to4.sh    # 运行/作业脚本
+|-- test.sh / test_wrapper.sh               # 一键测试
+|-- doxygen.conf                            # Doxygen 配置
+|-- src/          # 核心源码（79 头 + gpu/ 18 .cu + proxies/）
+|-- test/         # 集成测试与 gtest（26 个 ini + CUDA 组件测试）
+|-- conf/         # 预置规范场配置（4^4 / 8^4）
+|-- doc/          # 用户手册 user_doc.tex + bib
+|-- docs/         # 本报告与历史 pure 报告
+|-- ini/ repro/   # 样例参数与复现实验
+|-- dependencies/ # BLAS/LAPACK/BLACS/ScaLAPACK/QMP/QIO 安装脚本
+|-- include/ lib/ bin/ output/              # 构建产物占位（空）
+\end{lstlisting}
+
+\subsection{规模统计与 git 信息}
+\begin{table}[htbp]\centering
+\begin{tabular}{ll}
+\toprule
+指标 & 实测值 \\
+\midrule
+跟踪文件数 & 201（含 test/conf/docs） \\
+\texttt{src/} 全部 & 129 文件 / 19060 行 \\
+\texttt{src/gpu/}（CUDA） & 43 文件 / 10424 行（含 18 个 .cu） \\
+\texttt{src/*.h}（顶层头） & 79 文件 / 8503 行 \\
+\texttt{test/} & 29 文件 / 3709 行 \\
+最大单文件 & \texttt{src/gpu/cuda\_oddeven\_generic.cu} 4532 行 \\
+独立 git 仓库 & 否（共享 /root/PyQCU/.git，快照形态） \\
+\bottomrule
+\end{tabular}
+\caption{仓库实测统计（数据来源: find/wc/git 实测）}
+\end{table}
+
+\section{主体结构}
+\begin{xltabular}{\textwidth}{lXX}
+\toprule
+\textcolor{struct}{层次} & 目录 & \textcolor{struct}{职责} \\
+\midrule
+\endhead
+入口层 & \texttt{\nolinkurl{src/top_level.h}} 等 & 顶层驱动：\texttt{\nolinkurl{wilson_driver}}/\texttt{solve}/\texttt{\nolinkurl{solve_driver}}（外求解器路径选择）\\
+核心层 & \texttt{src/} & AMG 算法：Dirac 算子、偶奇预处理、自适应 setup、聚合/插值、粗算子、SAP、V/K-cycle、Krylov 求解器 \\
+GPU 层 & \texttt{src/gpu/} & CUDA 内核：Wilson+Clover、块级偶奇 Schur、粗算子、ghost 通信、FGMRES/局部 MINRES \\
+分派层 & \texttt{src/proxies/} & CPU/GPU 按 \texttt{CUDA\_OPT} 编译宏分派（如 \texttt{\nolinkurl{dirac_proxy_generic.h}}） \\
+向量化层 & \texttt{src/sse\_*.h} & SSE/AVX 双缓冲向量化实现（\texttt{\nolinkurl{sse_dirac.h}} 548 行） \\
+并行层 & \texttt{\nolinkurl{src/communication_generic.h}} 等 & MPI halo 交换（8 方向 boundary table + 双缓冲）与 OpenMP 嵌套线程 \\
+配置层 & \texttt{ini/}, \texttt{sample*.ini} 等 & 输入参数文件：几何/精度/方法/多级参数 \\
+构建层 & \texttt{MakeSettings.mk}, \texttt{*.sed} & 编译配置、精度模板实例化、环境装配（setup\_env\_and\_compile.sh） \\
+工具层 & \texttt{dependencies/}, \texttt{run} & 依赖安装、配置切分、进程数计算与启动 \\
+文档层 & \texttt{doc/user\_doc.tex} 等 & 用户手册、Doxygen 项目配置 \\
+测试层 & \texttt{test/} & 集成回归（integration\_test.sh）+ 26 个 ini + gtest \\
+\bottomrule
+\caption{主体结构分层（数据来源: 全库索引实测）}
+\end{xltabular}
+
+\begin{keybox}
+\textbf{要点：}本库以"头文件模板 + sed 实例化"为核心组织方式——同一算法以
+\texttt{*\_generic.h} 书写，经 \texttt{double.sed}/\texttt{float.sed} 替换 \texttt{PRECISION}
+占位符生成 \texttt{*\_double.h}/\texttt{*\_float.h}；CPU 侧仅保留声明与 static inline，
+完整实现集中在 CUDA \texttt{.cu} 内核。
+\end{keybox}
+
+\section{各部分关系}
+
+\subsection{精度实例化链（核心生成机制）}
+\begin{keybox}
+\textbf{依赖主链:} \textcolor{relation}{\texttt{*\_generic.h}（含 PRECISION 占位符）
+$\xrightarrow{\texttt{double.sed}/\texttt{float.sed}}$ \texttt{*\_double.h}/\texttt{*\_float.h}
+$\xrightarrow{\texttt{src/main.h}}$ 头文件装配}
+\end{keybox}
+证据：\texttt{double.sed:1} 为 \texttt{s/PRECISION/double/g}；\texttt{\nolinkurl{src/main.h:91-92}}
+引用 \texttt{\nolinkurl{main_pre_def_float.h/double.h}}，\texttt{\nolinkurl{src/main.h:106-243}} 完成
+全部头文件装配。
+双精度与单精度两套实例可共存（\texttt{\nolinkurl{level_struct.h:13-99}} 中
+\texttt{op\_double}/\texttt{op\_float} 并存），支撑混合精度求解（\texttt{\nolinkurl{doc/user_doc.tex:84}}）。
+
+\subsection{CPU/GPU 分派链}
+\begin{keybox}
+\textbf{依赖主链:} \textcolor{relation}{\texttt{src/proxies/*.h}（按 \texttt{CUDA\_OPT} 宏）
+$\rightarrow$ \texttt{d\_plus\_clover\_cpu}（CPU 声明）或 \texttt{cuda\_d\_plus\_clover}（GPU 内核）}
+\end{keybox}
+证据：\texttt{src/proxies/dirac\_proxy\_generic.h:1-8} 按 \texttt{CUDA\_OPT} 选择 CPU/GPU 实现；
+\texttt{MakeSettings.mk:17-41} 的 \texttt{CUDA\_ENABLER}/\texttt{SSE\_ENABLER}/\texttt{AVX\_ENABLER}
+开关控制编译宏。\textcolor{warn}{注意}：本快照中 CPU \texttt{.c} 实现缺失，\texttt{*\_generic.h}
+仅保留声明与 static inline 工具函数，完整逻辑需对照 CUDA \texttt{.cu}。
+
+\subsection{运行链}
+\begin{keybox}
+\textbf{依赖主链:} \textcolor{relation}{\texttt{<input>.ini}（几何/精度/方法参数）
+$\rightarrow$ \texttt{run}（计算 MPI 进程数）$\rightarrow$ \texttt{mpirun dd\_alpha\_amg <ini>}
+$\rightarrow$ 输出到 \texttt{output/}}
+\end{keybox}
+证据：\texttt{run:87-99} 由 \texttt{np = $\prod_\mu$ global/local} 计算进程数（公式亦见
+\texttt{doc/user\_doc.tex:59-60}）；\texttt{run:196-210} 执行 \texttt{mpirun}。
+
+\subsection{文件依赖关系汇总}
+\begin{xltabular}{\textwidth}{llX}
+\toprule
+\textcolor{relation}{源（A）} & 目标（B） & 关系类型 \\
+\midrule
+\endhead
+\texttt{double.sed}/\texttt{float.sed} & \texttt{*\_double.h}/\texttt{*\_float.h} & 生成（s/PRECISION/.../g）\\
+\texttt{src/main.h} & 全部 \texttt{*\_PRECISION.h} & 包含/装配 \\
+\texttt{src/gpu/cuda\_*.generic.*} & \texttt{src/gpu/*.cu} & 模板实例化与 kernel 发射 \\
+\texttt{src/proxies/*.h} & CPU 声明 / CUDA 内核 & 编译期分派 \\
+\texttt{MakeSettings.mk} & 构建 & 配置驱动 \\
+\texttt{sample*.ini} & \texttt{dd\_alpha\_amg} & 运行时输入 \\
+\texttt{run} & \texttt{mpirun} & 进程数计算 + 启动 \\
+\texttt{doc/user\_doc.tex} & \texttt{user\_doc.pdf} & 文档生成（make documentation）\\
+\bottomrule
+\caption{各部分关系汇总（数据来源: 源码与配置实测）}
+\end{xltabular}
+
+\section{项目思路}
+
+\subsection{设计意图}
+DDalphaAMG 以"聚合型代数多重网格 + Schwarz 平滑器"为核心竞争力：针对 Wilson--Clover
+算子近零模导致 Krylov 求解器收敛退化的问题，用自适应 setup 构造插值算子
+（\texttt{\nolinkurl{src/setup_generic.h:30}} \texttt{iterative\_PRECISION\_setup}），经
+Galerkin 三重积 $P^\dagger D P$ 构造粗算子（\texttt{\nolinkurl{src/coarse_operator_generic.h:31}}
+\texttt{coarse\_operator\_PRECISION\_setup}），每层用 SAP 平滑
+（\texttt{\nolinkurl{src/schwarz_generic.h:49-56}}
+additive/red-black/sixteen-color 三变体），实现格子无关的收敛率。设计上强调
+\textbf{可移植性}：同一算法头经精度 sed 与 CPU/GPU 分派层适配多架构
+（MPI/OpenMP/SSE/CUDA）。
+
+\begin{ideabox}
+\textbf{项目思路核心总结：}一个"算法模板化、实现分派化、精度实例化"的格点 QCD 多重网格
+求解器——算法逻辑写一遍（\texttt{*\_generic.h}），编译期决定精度（double/float）与后端
+（CPU/SSE/CUDA），运行时由 ini 决定多级几何与方法。
+\end{ideabox}
+
+\subsection{演进脉络}
+\texttt{NEWS:1-9} 记录 v1606（首版）与 v1701（多文件配置 IO）两个里程碑；
+\texttt{doc/user\_doc.tex:50} 说明 v1701 新增多文件配置读取。当前版本的核心新增为
+CUDA 移植（\texttt{README:4} 注明 Wilson 等关键部分已移植 CUDA）。\texttt{CREDITS:1-15}
+列出八位开发者。\texttt{repro/matthaei2023/} 为 Matthaei 2023 论文复现参数，反映
+"算法论文-复现实验"的持续演进路径。
+
+\subsection{典型工作流}
+从零运行一次求解的标准流程：
+\begin{enumerate}
+  \item 改 \texttt{compile\_modules.sh}/\texttt{MakeSettings.mk}（模块与编译器路径）；
+  \item \texttt{. setup\_env\_and\_compile.sh}（source 后 make 编译）；
+  \item 配置 \texttt{sample\_E250\_CPU/GPU.ini} 的几何/精度/方法参数；
+  \item \texttt{sbatch submit\_E250\_*.job}（SLURM 提交）或 \texttt{run <ini>}（本地）；
+  \item 结果写入 \texttt{output/}，必要时开 \texttt{-DPROFILING}/\texttt{-DTRACK\_RES} 等 CFLAG 调优。
+\end{enumerate}
+证据：\texttt{README:6-13}（推荐用法）、\texttt{doc/user\_doc.tex:35-40}（运行）、
+\texttt{doc/user\_doc.tex:94-107}（CFLAG）。
+
+\section{主题分析——工作全流程重现（A 代码工作框架）}
+
+本节将"用 DDalphaAMG 完成一次 Wilson--Clover 求解"作为一项具体代码工作，按 A 框架 15 步
+完整重现。由于本快照不可构建运行，\textcolor{warn}{实测执行步骤}（A7/A8/A9）标注
+未验证，以文档与源码证据推断。
+
+\subsection{A1 目的与前期准备}
+\textbf{目的：}为格点 QCD 的 Wilson--Clover 狄拉克方程
+$D_W(U,m_0)\psi=\eta$ 提供快速反演器（\texttt{doc/user\_doc.tex:21-26}）。
+\textbf{前置条件：}C 编译器、MPI 库、BLAS/LAPACK（可经 \texttt{dependencies/}
+脚本安装 LAPACK 3.9.0、BLACS/ScaLAPACK、USQCD QMP/QIO）。证据：
+\texttt{doc/user\_doc.tex:22}、\texttt{dependencies/install\_dependencies\_01.sh}。
+
+\subsection{A2 输入是什么}
+\begin{itemize}
+  \item 规范场配置 $U$（DDalphaAMG 自有格式/LIME/多文件，\texttt{doc/user\_doc.tex:47-50}）；
+  \item 参数文件 \texttt{.ini}：配置路径、各层 global/local/block lattice、test vectors 数、
+        setup 迭代数、$m_0$、$c_{sw}$、method、mixed precision、kcycle 等
+        （\texttt{doc/user\_doc.tex:53-89}）；
+  \item 右端项 $\eta$（由求解入口构建）。
+\end{itemize}
+
+\subsection{A3 输出应该是什么}
+解向量 $\psi = D^{-1}\eta$（多精度下为各层解 + 残差），可选输出各层残差/
+CGL 收敛曲线（CFLAG \texttt{-DTRACK\_RES}/\texttt{-DCOARSE\_RES}，
+\texttt{doc/user\_doc.tex:99-100}）。
+
+\subsection{A4 整体框架}
+主流程：\texttt{dd\_alpha\_amg <ini>} $\rightarrow$ 解析参数（\texttt{src/init.h}）$\rightarrow$
+逐层 setup（\texttt{init\_generic.h:27-37}）$\rightarrow$ 外求解器
+（\texttt{src/top\_level.h:27-30}）$\rightarrow$ V/K-cycle 递归（\texttt{src/vcycle\_generic.h:38}）。
+
+\subsection{A5 关键细节}
+\begin{itemize}
+  \item \textbf{自适应 setup：}随机初值 $\rightarrow$ SAP 平滑 test vectors $\rightarrow$
+        聚合内 Gram--Schmidt 正交化 $\rightarrow$ 定义插值算子
+        （\texttt{src/setup\_generic.h:29-32}、\texttt{src/linalg\_generic.h:102-143}）；
+  \item \textbf{粗算子：}三重积 $P^\dagger D P$ 的聚合内/跨聚合块
+        （\texttt{src/coarse\_operator\_generic.h:34-37}）；
+  \item \textbf{γ$_5$-Hermite：}$D^\dagger=\gamma_5 D\gamma_5$ 使粗算子呈块结构
+        $A=A^\dagger$、$D=D^\dagger$、$C=-B^\dagger$
+        （\texttt{\nolinkurl{src/coarse_operator_generic.h:124-127}}）；
+  \item \textbf{K-cycle：}每层以 FGMRES 包裹两格方法（\texttt{doc/user\_doc.tex:85}）。
+\end{itemize}
+
+\subsection{A6 任务如何正确执行}
+\begin{enumerate}
+  \item 复制 \texttt{MakeSettings.mk.template} 为 \texttt{MakeSettings.mk} 并调整编译器路径
+        （\texttt{README:25-30}）；
+  \item \texttt{. setup\_env\_and\_compile.sh} 或 \texttt{make -j8 dd\_alpha\_amg}
+        （\texttt{README:10-12,32-36}）；
+  \item \texttt{mpirun -np <n> dd\_alpha\_amg <your.ini>}（\texttt{doc/user\_doc.tex:36-39}），
+        $n$ 由几何参数决定。
+\end{enumerate}
+
+\subsection{A7 实际执行情况}
+\textcolor{warn}{未验证}：本快照缺少 \texttt{Makefile} 与 CPU \texttt{.c} 实现，无法在
+本环境构建与执行；用户手册仅给出推荐执行路径（\texttt{README:6-13}）。
+
+\subsection{A8 实际输出情况}
+\textcolor{warn}{未验证}：无实测运行输出；预期为解向量文件与残差日志。
+
+\subsection{A9 结果分析}
+\textcolor{warn}{未验证}：无法实测。文献证据（\texttt{doc/user\_doc.bib:1-29}，
+Frommer 2013/2014、Rottmann 博士论文）表明 AMG+SAP 在 Wilson--Clover 系统上可获格子无关
+收敛率。
+
+\subsection{A10 综合分析}
+\textbf{代码--对象映射：}本库代码符号对应物理对象的映射表如下（依据源码与
+\texttt{doc/user\_doc.tex}）：
+\begin{xltabular}{\textwidth}{llX}
+\toprule
+\textcolor{struct}{代码符号} & 物理/算法对象 & 含义 \\
+\midrule
+\endhead
+\texttt{D[36*i+9*mu]} & $U_\mu(x)$ 规范 link & 每方向 9 复分量跳跃矩阵 \\
+\texttt{op->clover[42*i]} & clover 项 & 每格点 12×12 块（对角 12 + 上三角 30，含 $4+m_0$ 平移）\\
+\texttt{prp\_mu/prn\_mu} & 投影 $\tfrac12(1\mp\gamma_\mu)$ & spin 投影 \\
+\texttt{gamma5\_PRECISION} & $\gamma_5$-Hermite 对称性 & $D^\dagger=\gamma_5D\gamma_5$\\
+\texttt{test\_vector} & 近零模近似基 & 每聚合 n 个试验向量 $\rightarrow$ 粗格自由度 2n \\
+\texttt{block\_lattice/num\_colors} & Schwarz 块与着色 & 1 additive / 2 red-black / 16 色 \\
+\texttt{csw / m0} & $c_{sw}$、$m_0=1/(2\kappa)-4$ & clover 系数与裸质量 \\
+\texttt{comm.boundary\_table} & halo 边界 & 8 方向（$\pm T\pm Z\pm Y\pm X$）通信面 \\
+\bottomrule
+\caption{代码符号 ↔ 对象映射（数据来源: src/*.h 与 doc/user_doc.tex 实测）}
+\end{xltabular}
+
+\subsection{A11 结尾总结}
+\begin{conclbox}
+DDalphaAMG 是一个结构高度模板化的聚合型 AMG 求解器：算法写一遍、精度双实例、后端多分派，
+配合 SAP 平滑与自适应 setup，是针对 Wilson--Clover 系统的高效反演方案。
+\end{conclbox}
+
+\subsection{A12 结尾评价}
+\textbf{优点：}模板化保证单精度/双精度/CPU/GPU 逻辑一致；SAP+K-cycle 设计经文献验证；
+CLI 参数完整支持多级几何调优。\textbf{可改进：}本快照缺失 Makefile 与 CPU 实现使可复现性
+受限；头文件巨量（\texttt{cuda\_oddeven\_generic.cu} 4532 行）维护成本高。
+
+\subsection{A13 补充说明}
+\textcolor{warn}{局限：}CPU \texttt{.c} 实现与 Makefile 未入库，GPU 为实际生产路径；
+\url{/root/PyQCU/refer/git-rep/DDalphaAMG} 非独立 git 仓库。
+
+\subsection{A14 参考源}
+本节证据汇总见第 7 节参考源清单（约 20 条）。
+
+\subsection{A15 附录与附件（如有）}
+\url{/root/PyQCU/refer/git-rep/DDalphaAMG/doc/user_doc.tex} 为用户手册全文；
+\url{/root/PyQCU/refer/git-rep/DDalphaAMG/docs/pure_qcd_amg_20260815.tex} 为历史核心剖析报告。
+
+\section{关键代码/文档片段}
+
+\begin{lstlisting}[language=C]
+void wilson_driver( vector_double solution, vector_double source,
+                    level_struct *l, struct Thread *threading );
+void solve( vector_double solution, vector_double source,
+            level_struct *l, struct Thread *threading );
+\end{lstlisting}
+参考源：\texttt{src/top\_level.h:27-31}（顶层驱动声明）
+
+\begin{lstlisting}[language=C]
+void smoother_PRECISION( vector_PRECISION phi, vector_PRECISION Dphi,
+                         vector_PRECISION eta, int n, const int res,
+                         complex_PRECISION shift, level_struct *l,
+                         struct Thread *threading );
+void vcycle_PRECISION( vector_PRECISION phi, vector_PRECISION Dphi,
+                       vector_PRECISION eta, int res, level_struct *l,
+                       struct Thread *threading );
+\end{lstlisting}
+参考源：\texttt{src/vcycle\_generic.h:35-39}（V-cycle 与平滑器声明）
+
+\begin{lstlisting}[language=C]
+void additive_schwarz_PRECISION( ... );
+void red_black_schwarz_PRECISION( ... );
+void sixteen_color_schwarz_PRECISION( ... );
+\end{lstlisting}
+参考源：\texttt{src/schwarz\_generic.h:49-56}（SAP 三种 Schwarz 变体）
+
+\section{参考源清单}
+\begin{xltabular}{\textwidth}{llX}
+\toprule
+\textcolor{evidence}{参考源} & 类型 & 内容/作用 \\
+\midrule
+\endhead
+\texttt{\nolinkurl{README:4-13}} & 仓库 & CUDA 移植说明与 JUWELS 推荐用法 \\
+\texttt{\nolinkurl{README:21-36}} & 仓库 & 安装与编译目标（dd\_alpha\_amg/library/documentation）\\
+\texttt{\nolinkurl{MakeSettings.mk:17-41}} & 仓库 & CUDA/SSE/AVX 编译开关 \\
+\texttt{\nolinkurl{double.sed:1}} & 仓库 & 精度实例化脚本（PRECISION$\rightarrow$double）\\
+\texttt{\nolinkurl{src/top_level.h:27-31}} & 仓库 & 顶层求解驱动声明 \\
+\texttt{\nolinkurl{src/init.h:29-45}} & 仓库 & 初始化/参数解析 \\
+\texttt{\nolinkurl{src/init_generic.h:27-37}} & 仓库 & 逐层 setup \\
+\texttt{\nolinkurl{src/setup_generic.h:27-32}} & 仓库 & 自适应 setup/插值定义 \\
+\texttt{\nolinkurl{src/vcycle_generic.h:35-39}} & 仓库 & V-cycle 递归 \\
+\texttt{\nolinkurl{src/schwarz_generic.h:49-56}} & 仓库 & SAP 三种着色变体 \\
+\texttt{\nolinkurl{src/coarse_operator_generic.h:31-37}} & 仓库 & 粗算子三重积 setup \\
+\texttt{\nolinkurl{src/coarse_operator_generic.h:124-127}} & 仓库 & γ$_5$-Hermite 块结构 \\
+\texttt{\nolinkurl{src/oddeven_generic.h:27-64}} & 仓库 & 偶奇预处理/Schur 补 \\
+\texttt{\nolinkurl{src/ghost_generic.h:25-43}} & 仓库 & halo 通信原语 \\
+\texttt{\nolinkurl{src/linsolve_generic.h:30-56}} & 仓库 & FGMRES/CGN/BiCGstab/MINRES \\
+\texttt{\nolinkurl{src/gcrodr_generic.h:25-32}} & 仓库 & 最粗层 GCR-ODR \\
+\texttt{\nolinkurl{src/proxies/dirac_proxy_generic.h:1-8}} & 仓库 & CPU/GPU 分派 \\
+\texttt{\nolinkurl{src/gpu/cuda_dirac_generic.cu:171-211}} & 仓库 & GPU Wilson+Clover kernel 发射 \\
+\texttt{\nolinkurl{src/gpu/cuda_oddeven_generic.cu}} & 仓库 & 块级偶奇求解（4532 行）\\
+\texttt{\nolinkurl{doc/user_doc.tex:21-26}} & 仓库 & 求解方程与算法简介 \\
+\texttt{\nolinkurl{doc/user_doc.tex:53-89}} & 仓库 & 几何/Dirac/多级参数语义 \\
+\texttt{\nolinkurl{doc/user_doc.tex:94-107}} & 仓库 & 调优 CFLAG 清单 \\
+\texttt{\nolinkurl{run:87-99}} & 仓库 & MPI 进程数公式 \\
+\texttt{\nolinkurl{doc/user_doc.bib:1-29}} & 仓库 & 方法文献（Frommer 2013/2014、Rottmann）\\
+\bottomrule
+\end{xltabular}
+
+\section{结论与局限}
+\begin{conclbox}
+三视角结论：\textcolor{struct}{结构}——"头文件模板 + sed 实例化 + CUDA 分派"的分层组织；
+\textcolor{relation}{关系}——精度链（generic$\rightarrow$double/float）、分派链（CPU/GPU）、
+运行链（ini$\rightarrow$run$\rightarrow$mpirun）三条主链贯通；\textcolor{idea}{思路}——
+用模板化换取多精度多后端的可移植性，以聚合 AMG+SAP 换取格子无关收敛率。
+\end{conclbox}
+\begin{warnbox}
+\textcolor{warn}{未验证}：A7/A8/A9 实测执行步骤无法在本快照验证（缺 Makefile 与 CPU 实现）；
+行号均经 read/grep 核实；本库非独立 git 仓库。
+\end{warnbox}
+
+\end{document}
