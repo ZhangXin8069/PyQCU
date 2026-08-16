@@ -1,0 +1,623 @@
+% ============================================================
+% pure 报告 — 规范模板 v2（xelatex + ctex）
+% 用途: 穷尽剖析项目核心部分（算法 / 物理图像与公式 / 代码-物理映射）
+% 编译: xelatex 两次; 交付前 Overfull 计数必须为 0
+% ============================================================
+\documentclass[UTF8]{ctexart}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{amsmath}
+\usepackage{microtype}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{xltabular}
+\usepackage{tabularx}
+\usepackage{hyperref}
+\usepackage{fancyhdr}
+\usepackage[most]{tcolorbox}
+\usepackage{titlesec}
+
+\definecolor{accent}{HTML}{1F4E79}
+\definecolor{evidence}{HTML}{1E8449}
+\definecolor{reference}{HTML}{8C6D1F}
+\definecolor{conclusion}{HTML}{8B1A1A}
+\definecolor{codebg}{HTML}{F4F6F7}
+\definecolor{algo}{HTML}{E67E22}
+\definecolor{phys}{HTML}{6C3483}
+\definecolor{map}{HTML}{C2185B}
+\definecolor{warn}{HTML}{D35400}
+\definecolor{hl}{HTML}{FDF6E3}
+
+\setlength{\emergencystretch}{3em}
+\hypersetup{colorlinks=true,linkcolor=accent,urlcolor=phys}
+
+\titleformat{\section}{\Large\bfseries\color{accent}}{\thesection}{1em}{}
+\titleformat{\subsection}{\large\bfseries\color{phys}}{\thesubsection}{1em}{}
+\titleformat{\subsubsection}{\normalsize\bfseries\color{phys!70!black}}{\thesubsubsection}{1em}{}
+
+\newtcolorbox{conclbox}{breakable,colback=conclusion!6,colframe=conclusion,title=结论}
+\newtcolorbox{refbox}{breakable,colback=reference!6,colframe=reference,title=参考背景}
+\newtcolorbox{algobox}{breakable,colback=algo!6,colframe=algo,title=核心算法}
+\newtcolorbox{physbox}{breakable,colback=phys!6,colframe=phys,title=物理图像}
+\newtcolorbox{mapbox}{breakable,colback=map!6,colframe=map,title=代码-物理映射}
+\newtcolorbox{warnbox}{breakable,colback=warn!6,colframe=warn,title=局限与风险}
+\newtcolorbox{keybox}{breakable,colback=hl,colframe=accent,title=要点}
+
+\lstset{
+  basicstyle=\ttfamily\footnotesize,
+  backgroundcolor=\color{codebg},
+  frame=single,
+  language=python,
+  firstnumber=auto,
+  keywordstyle=\color{accent}\bfseries,
+  commentstyle=\color{evidence!70!black},
+  stringstyle=\color{map},
+  breaklines=true,
+  breakatwhitespace=false,
+  postbreak=\mbox{\textcolor{accent}{$\hookrightarrow$}\space},
+  keepspaces=true,
+  columns=flexible,
+  numbers=left,numberstyle=\tiny\color{phys!60!black},
+}
+
+\title{PyQUDA 核心部分穷尽剖析}
+\author{opencode pure}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+本项目为格点 QCD 研究框架 \textbf{PyQUDA}：QUDA 的 Cython Python 包装与高层物理工具库
+（仓库根与 \texttt{pyquda\_core/} 合计核心代码约 12112 行）。\textbf{项目性质判定：代码-物理交叉向}——
+纯代码算法（Remez 有理逼近、$\gamma$ 矩阵符号代数、MPI 网格自动生成）与物理算法实现
+（HISQ 改进作用量、HMC 辛积分器、梯度流标度、源场构造、准轴向规范固定）并重，QUDA 参数
+封装与文件 I/O 为辅。穷尽枚举 \textbf{18 个}核心部分候选：\textbf{深挖 10 / 浅析 7 / 排除 1}。
+最深剖析结论：$\gamma$ 代数的位运算实现（16 元素 Clifford 代数编码为 4-bit 索引）与
+HISQ 路径系数表（Fat7/Naik/Lepage 改进）是本仓库最具竞争力的核心；HMC 辛积分器
+（O2/O4 优化分割）与准轴向规范固定（纯 Python+cupy 实现，QUDA 未内置）为第二梯队。
+\end{abstract}
+
+\tableofcontents
+
+% ================= 1 项目定位与核心部分清单 =================
+\section{项目定位与核心部分清单}
+
+\subsection{项目性质判定}
+
+\begin{keybox}
+\textbf{项目性质:} \textcolor{phys}{代码-物理交叉向}（依据: 实测核心代码 12112 行中，
+物理算法实现约占 40\%——HISQ 路径系数、HMC 积分器、梯度流、源构造、规范固定；
+纯代码算法约占 40\%——Remez、$\gamma$ 代数、网格生成、纯 Python 规范场；
+纯 QUDA 参数封装与 I/O 约占 20\%）。
+\end{keybox}
+
+PyQUDA 定位为格点 QCD 研究框架（\texttt{README.md:1-7}）：基于最新 QUDA \texttt{develop}
+分支，以 Python 便捷性 + QUDA/CuPy 高性能为目标，覆盖夸克传播子、HMC、规范固定、
+smearing、梯度流、多格式文件 I/O（\texttt{README.md:9-38}）。仓库自述功能清单与代码结构
+一致；以下按穷尽原则枚举全部核心部分候选。
+
+\subsection{核心部分总清单（穷尽枚举）}
+
+\begin{xltabular}{\textwidth}{lXlX}
+\toprule
+\textcolor{algo}{编号} & 核心部分与路径 & 处理态 & 独特性概述 \\
+\midrule
+\endhead
+C1 & Remez 有理逼近 \texttt{\nolinkurl{pyquda_utils/alg_remez.py}} & 深挖 & 高精度 gmpy2 实现 + 部分分式输出，HMC 有理近似的系数发生器 \\
+C2 & $\gamma$ 矩阵符号代数 \texttt{\nolinkurl{pyquda/gamma.py}} & 深挖 & 4-bit 索引编码 Clifford 代数，位运算乘积与转置/共轭性质 \\
+C3 & 默认 MPI 网格生成 \texttt{\nolinkurl{pyquda_comm/__init__.py}} & 深挖 & 因数分解枚举全部分割，以通信量为目标函数自动选优 \\
+C4 & 纯 Python SU(N) 规范场 \texttt{\nolinkurl{pyquda_utils/gauge_nd_sun.py}} & 深挖 & NumPy 实现 N 维 link 场与 MPI 边界交换，弱场测试基准 \\
+C5 & HMC 辛积分器 \texttt{\nolinkurl{pyquda/hmc.py}} & 深挖 & O2/O4 优化分割积分器族，支持嵌套多层 \\
+C6 & HISQ 作用量与改进 link 系数 \texttt{\nolinkurl{pyquda/action/hisq.py}}、\texttt{\nolinkurl{pyquda/dirac/general.py}} & 深挖 & Fat7/Naik/Lepage 路径系数表 + tadpole 因子，物理改进作用量 \\
+C7 & 准轴向规范固定 \texttt{\nolinkurl{pyquda_utils/quasi_axial_gauge_fixing.py}} & 深挖 & 纯 Python+cupy 实现，QUDA 未内置（等待合并） \\
+C8 & even-odd/lexico 布局重排 \texttt{\nolinkurl{pyquda/field.py}} & 深挖 & QUDA 奇偶预条件数据布局与字典序布局互转 \\
+C9 & 源场构造与高斯 smearing \texttt{\nolinkurl{pyquda_utils/source.py}} & 深挖 & point/wall/volume 源 + 三种 Wuppertal smearing 兼容方案 \\
+C10 & 梯度流与 $t_0/w_0$ 标度 \texttt{\nolinkurl{pyquda/field.py}} & 深挖 & Wilson/Symanzik 流实现与格距标度设定插值 \\
+C11 & QUDA C API 封装层 \texttt{\nolinkurl{pyquda/dirac/general.py}}、\texttt{\nolinkurl{pyquda/dirac/abstract.py}} & 浅析 & 精度/重构矩阵、MG 参数化、HISQ link 构造链，工程性强 \\
+C12 & 数组后端抽象层 \texttt{\nolinkurl{pyquda_comm/array.py}} & 浅析 & numpy/cupy/dpnp/torch 四后端 $\times$ 四目标矩阵 \\
+C13 & 多格式文件 I/O \texttt{\nolinkurl{pyquda_io}} & 浅析 & Chroma、MILC、KYU、XQCD、NERSC、OpenQCD、LIME、ILDG 共 8 格式 \\
+C14 & 相位场构造 \texttt{\nolinkurl{pyquda_utils/phase_v2.py}} & 浅析 & 位置/距离/动量/网格四类相位，用于源场调制 \\
+C15 & Wilson loop \texttt{\nolinkurl{pyquda_utils/wilson_loop.py}} & 浅析 & 用协变平移算子拼装任意闭合路径 \\
+C16 & 规范固定/平滑化/可观测量 \texttt{\nolinkurl{pyquda/field.py}} & 浅析 & OVR/FFT 规范固定、APE/stout/HYP 平滑、plaquette 等 \\
+C17 & SciDAC checksum \texttt{\nolinkurl{pyquda_utils/checksum.py}} & 浅析 & CRC32 + 循环移位 + MPI BXOR 归约的分布式校验和 \\
+C18 & 第三方/工具代码 \texttt{\nolinkurl{pycparser}}、\texttt{\nolinkurl{pycontract}}、examples、tests & 排除 & 上游或非本仓库原创，不构成竞争力 \\
+\bottomrule
+\end{xltabular}
+
+各候选的处理态依据随正文给出；排除项 C18 理由：\texttt{\nolinkurl{pyquda_core/pycparser}} 与
+\texttt{\nolinkurl{pyquda_plugins/pycparser}} 为第三方 C 解析库、\texttt{\nolinkurl{pycontract}} 为契约测试库、
+\texttt{\nolinkurl{quda/include/*.h}} 为上游 QUDA 头文件、examples/tests 为使用示例与验证脚手架，
+均非本仓库原创逻辑，故不进剖析主体。
+
+% ================= 2 核心部分深度剖析 =================
+\section{核心部分深度剖析}
+
+% ---------- C1 Remez ----------
+\subsection{C1 Remez 有理逼近（纯代码框架）}
+
+\begin{algobox}
+\textbf{核心算法:} Remez 交换算法——在区间 $[a,b]$ 上求有理逼近 $R(x) = P_n(x)/Q_d(x)$，
+使加权相对误差在 $n+d+2$ 个节点上等波纹分布；迭代复杂度 $\mathcal{O}(N^3)$/轮
+（$N=n+d+1$ 线性系统），gmpy2 高精度运算（约 3.32 bit/十进制位）。
+\end{algobox}
+
+\textbf{算法原理。} 输入为目标函数 $f(x)$、分子分母阶数 $(n,d)$、区间 $[a,b]$ 与精度；
+输出为部分分式展开（PFE）的极点与留数（\texttt{getPFE()}/\texttt{getIPFE()}）。流程：
+
+\begin{enumerate}
+\item \textbf{初始节点}：切比雪夫型分布 $\xi_i = a + \tfrac{1-e^r}{1-e} (b-a)$
+（\texttt{alg\_remez.py:158-171}），$r$ 按 $\cos$ 网格取值；
+\item \textbf{方程求解}：在 $N=n+d+1$ 个节点上写插值方程 $R(\xi_i) - f(\xi_i) = \pm E$，
+对 $n+d+2$ 个未知量（$n+d+1$ 个系数 + 误差 $E$）解线性系统
+（\texttt{alg\_remez.py:286-304}），LU 分解采用部分主元 + 基于浮点精度的奇异判据
+（\texttt{alg\_remez.py:10-40}，LU 分解借鉴 mpmath）；
+\item \textbf{局部搜索}：在相邻极值之间以变步长搜索误差局部极值并更新节点
+（\texttt{alg\_remez.py:181-263}），步长自适应收缩（\texttt{delta *= 0.5}）；
+\item \textbf{收敛判据}：相对 spread $\sigma = (e_{\max}-e_{\min})/e_{\min} < 10^{-15}$
+（\texttt{alg\_remez.py:137}）；
+\item \textbf{求根与 PFE}：对分子/分母多项式用 Newton-Raphson 求根
+（\texttt{rtnewt}，上限 10000 次迭代，\texttt{alg\_remez.py:340-350}），再展开为
+部分分式（\texttt{pfe}，\texttt{alg\_remez.py:374-407}）。
+\end{enumerate}
+
+\textbf{复杂度。} 每轮迭代解 $N\times N$ 稠密线性系统：时间 $\mathcal{O}(N^3)$、空间
+$\mathcal{O}(N^2)$；典型收敛需数十轮（\texttt{generateApprox} 打印每 100 轮状态）。
+对 HMC 用途（阶 $(20,20)$ 量级）在毫秒~秒级完成，属一次性预处理开销。
+
+\textbf{正确性论证。} 奇异矩阵显式检测（基于精度缩放容差 \texttt{alg\_remez.py:11-13}）；
+根收敛失败返回 0 并中止；$\sigma$ 判据保证等波纹。\textcolor{warn}{未验证}项：浮点
+退化区间（$a\to b$）行为未在测试中覆盖。
+
+\textbf{独特竞争力。} 对照原版 AlgRemez（C 库）与 mpmath：本实现以 gmpy2 提供任意精度，
+直接输出 PFE 残差/极点供 HMC 有理近似使用（见 C6），且是仓库内唯一的高精度数值算法
+载体。
+
+% ---------- C2 Gamma 代数 ----------
+\subsection{C2 $\gamma$ 矩阵符号代数（纯代码框架）}
+
+\begin{algobox}
+\textbf{核心算法:} 将 $4\times4$ Clifford 代数的 16 个元素 $\Gamma_A$（$A$ 为 4-bit 掩码）
+编码为位运算对象：乘积用异或 + 符号表，转置/共轭用奇偶计数；稀疏表示下每个元素仅
+4 个非零元。复杂度：$\gamma$ 乘法 $\mathcal{O}(1)$。
+\end{algobox}
+
+\textbf{算法原理。} 索引编码（\texttt{gamma.py:216-233}）：\texttt{index} 的 bit0--bit3
+分别标记 $\gamma_1,\gamma_2,\gamma_3,\gamma_4$，\texttt{index=0} 为单位元。\texttt{matrix}
+方法按位组合出 $4\times4$ 矩阵（\texttt{gamma.py:17-25}）。\textbf{关键表}：
+\texttt{popsign[m] = $(-1)^{\mathrm{popcount}(m)}$}（\texttt{gamma.py:217}，16 项全部
+与定义一致，本报告逐项核验）。
+
+\begin{equation}\label{eq:gamma-mul}
+\Gamma_A \Gamma_B \;=\; (-1)^{\#\{(i,j):\, i\in A,\ j\in B,\ i>j\}}\; \Gamma_{A\oplus B}
+\end{equation}
+
+乘积实现（\texttt{gamma.py:266-279}）按 $\gamma_4$、$\gamma_3$、$\gamma_2$ 分级：含
+$\gamma_4$ 则与 $B$ 中 $\gamma_1,\gamma_2,\gamma_3$ 各交换一次（每交换一个负号），即乘
+\texttt{popsign[B\,\&\,0b0111]}；含 $\gamma_3$ 则乘 \texttt{popsign[B\,\&\,0b0011]}；
+含 $\gamma_2$ 则乘 \texttt{popsign[B\,\&\,0b0001]}。这与 \eqref{eq:gamma-mul} 的反转
+数公式等价（分级累加各负号）。
+
+转置、共轭转置与 Dirac 共轭性质（\texttt{gamma.py:281-299}），经手工核验
+（DeGrand--Rossi 基下 $\gamma_i^\dagger = \gamma_i$，$\gamma_1^T = \gamma_3^T = -\gamma_i$，
+$\gamma_2^T = \gamma_4^T = \gamma_i$）：
+
+\begin{align}
+(\Gamma_A)^{\mathsf T} &= (-1)^{\binom{n}{2}} \, (-1)^{|A\cap\{1,3\}|}\,\Gamma_A, \quad n=\mathrm{popcount}(A) \label{eq:gamma-T}\\
+(\Gamma_A)^{\dagger} &= (-1)^{\binom{n}{2}}\,\Gamma_A \label{eq:gamma-H}\\
+(\Gamma_A)^{\mathsf D} &\equiv (\gamma_4 \Gamma_A \gamma_4)^{\dagger} = (-1)^{\binom{n}{2}} \, (-1)^{|A\cap\{1,2,3\}|}\,\Gamma_A \label{eq:gamma-D}
+\end{align}
+
+推导依据：乘积转置反序并逐对交换，反转数 $=\binom{n}{2}$（下标升序时任意两元为一对反转）；
+$\gamma_1,\gamma_3$ 反对称故额外 $(-1)^{|A\cap\{1,3\}|}$；共轭转置在 DR 基下仅剩反转
+因子；Dirac 共轭额外计入与 $\gamma_4$ 的交换。抽样验证：$\Gamma_3 = \gamma_1\gamma_2$
+（\texttt{index=3}），$(\Gamma_3)^\dagger = \gamma_2^\dagger\gamma_1^\dagger = \gamma_2\gamma_1
+= -\gamma_1\gamma_2$，与 \eqref{eq:gamma-H} 给出 $-1$ 一致。\textcolor{accent}{确证}。
+
+\textbf{正确性论证。} 稀疏表 \texttt{gamma\_indices/gamma\_data}（\texttt{gamma.py:137-173}）
+每元素仅 4 个非零元，与稠密矩阵逐项对应（手工抽查 $\gamma_1$、$\gamma_5$ 一致）；
+\texttt{Projector}（16 系数线性组合，\texttt{gamma.py:314-419}）加法/乘法/转置逐系数
+分发。\textcolor{warn}{未验证}：无单元测试直接覆盖全部 16 元素互乘（仓库测试以
+\texttt{test\_pycontract} 等间接覆盖）。
+
+\textbf{独特竞争力。} 位运算实现 Clifford 代数在通用数值库（NumPy/SciPy）中不存在；
+双基切换（DeGrand--Rossi 与 Dirac--Pauli，\texttt{gamma.py:28-121}）+ 稀疏表示 + 符号
+代数三合一，是自旋-色结构投影（如介子插值场 $\bar\psi\Gamma\psi$）的直接载体。
+
+% ---------- C3 网格生成 ----------
+\subsection{C3 默认 MPI 网格生成（纯代码框架）}
+
+\begin{algobox}
+\textbf{核心算法:} 对 MPI 进程数 $P$ 与格点尺寸 $L$，枚举全部可整除的分割方案
+（素数因子的组合划分），以\textbf{通信量估计}为目标函数自动选择最优网格；
+复杂度为组合枚举，$P$ 为实际规模（$10^0$--$10^3$）时可接受。
+\end{algobox}
+
+\textbf{算法原理。} 三层结构（\texttt{pyquda\_comm/\_\_init\_\_.py:159-262}）：
+\texttt{\_composition(n,d)} 枚举 $n$ 拆成 $d$ 个非负整数；\texttt{\_factorization(k,d)}
+把 $k$ 分解为素数幂的 $d$ 维组合；\texttt{\_partition} 递归生成全部分割
+$\{G_1,\dots,G_4\}$。对每个候选计算通信量
+
+\begin{equation}\label{eq:comm}
+C(\{G\}) = \sum_{\mu} 2\,\frac{V}{L_\mu/G_\mu}\;\big[\text{节点间面}+\text{NIC 面}\big],
+\end{equation}
+
+其中节点间面按子格表面 $\tfrac{V}{L_\mu/G_\mu} = \prod_{\nu\ne\mu} L_\nu/G_\nu$ 估计，
+NIC（网络接口卡）面在共享内存方向归一时减半（\texttt{\_\_init\_\_.py:243-255}），取
+$(C, \text{nic\_size}, \text{nic\_count})$ 字典序最小（\texttt{\_\_init\_\_.py:256-261}）。
+支持 6 种网格映射（default/t\_fastest/x\_fastest/minimize/shared/dist\_graph）。
+
+\textbf{正确性论证。} 体积整除校验（\texttt{\_\_init\_\_.py:225}）；even-odd 约束——子格
+各向须为偶数或尺寸为 1（\texttt{\_\_init\_\_.py:143-149}）；求不出合法网格时显式报错。
+\textcolor{accent}{确证}。
+
+\textbf{独特竞争力。} 对照手写网格分配：自动枚举 + 通信最小化，且区分节点间/共享内存
+两级通信成本，是 PyQUDA 多 GPU 部署可用性的关键支撑。
+
+% ---------- C4 纯 Python SU(N) 规范场 ----------
+\subsection{C4 纯 Python SU(N) 规范场（纯代码框架）}
+
+\begin{algobox}
+\textbf{核心算法:} NumPy 数组存储 $N_d$ 维 SU(N) link 场，MPI 点对点交换实现
+\texttt{shift}/\texttt{matmul\_shift} 算子，$3^{N_d}$ 邻域枚举实现边界扩展。
+时间 $\mathcal{O}(V N_c^3)$，通信 $\mathcal{O}(\text{表面})$。
+\end{algobox}
+
+\textbf{算法原理。} \texttt{LatticeLink}（\texttt{gauge\_nd\_sun.py:38-171}）持有一份
+子格数据；\texttt{shift(mu, dagger)} 把边界切片发给相邻 rank 并接收对应切片：
+\texttt{dir = 1-2*(mu//Nd)} 区分正反方向，\texttt{dagger} 时发送共轭转置
+（\texttt{gauge\_nd\_sun.py:74-115}）。\texttt{LatticeGauge.exchange} 用
+\texttt{stride = 3\textasciicircum(Nd-1-mu)} 枚举 $3^{N_d}$ 个 $\Delta\in\{-1,0,1\}^{N_d}$
+邻域做边界交换（\texttt{gauge\_nd\_sun.py:226-251}）；\texttt{link} 把多个 link 沿路径
+收缩（\texttt{gauge\_nd\_sun.py:272-276}）。
+
+\textbf{正确性论证。} 初始化为单位场（\texttt{gauge\_nd\_sun.py:51-52}）；单进程
+（\texttt{rank == dest == source}）退化为本地切片；边界交换前 \texttt{ascontiguousarray}
+保证 MPI 缓冲区连续。\textcolor{accent}{确证}。
+
+\textbf{独特竞争力。} 纯 NumPy 实现 SU(N) 规范场（对照 \texttt{pyquda\_comm/field.py}
+的 Cython+CuPy 实现），是 \texttt{tests/weak\_field} 弱场解析检验的独立数值基准。
+
+% ---------- C5 HMC 积分器 ----------
+\subsection{C5 HMC 辛积分器（代码-物理交叉）}
+
+\begin{physbox}
+\textbf{物理图像:} 在相空间 $(U,\pi)$ 上沿哈密顿量 $H = \tfrac12\sum\pi^2 + S(U)$
+做分子动力学演化；辛积分器保持相空间体积，使 Metropolis 接受率不随步长恶化，
+HMC 于是成为格点 QCD 产生精确规范场系综的标准方法。
+\end{physbox}
+
+模型设定：作用量 $S = S_{\mathrm{gauge}} + \sum_f S_f$；费米子以伪费米子 $\phi$ 积分
+（\texttt{hmc.py:393-397} 的 docstring 直接给出）：
+
+\begin{align}
+S_f &= \phi^\dagger \left(\mathcal{M}^\dagger \mathcal{M}\right)^{-1} \phi,
+\qquad \phi = \mathcal{M}^{1/2}\eta,\ \eta \sim e^{-\eta^\dagger\eta} \label{eq:pseudo}\\
+\mathcal{M}^{-1} &= \alpha_0 + \sum_i \frac{\alpha_i}{\mathcal{M}^\dagger\mathcal{M} + \beta_i}
+\label{eq:rational}
+\end{align}
+
+\eqref{eq:rational} 的有理近似系数（$\alpha_0,\alpha_i,\beta_i$ = norm/residue/offset）
+即由 C1 的 Remez 算法生成，经 \texttt{RationalParam}（\texttt{action/abstract.py:24-33}）
+注入 multishift 逆变。接受判据（\texttt{hmc.py:494-495}）：
+
+\begin{equation}\label{eq:accept}
+P_{\mathrm{acc}} = \min\left(1,\ e^{-\Delta H}\right)
+\end{equation}
+
+\textbf{辛积分器族。} \texttt{hmc.py:37-259} 实现 8 个优化分割积分器（2 阶与 4 阶，
+变量名 \texttt{O2Nf*Ng*[VP]} 语义为阶数/力类型/变体），系数与文献
+Omelyan--Mryglod--Folk（CPC 146, 188 (2002)，DOI 10.1016/S0010-4655(02)00754-3）的
+表列值逐项对应（代码内注释标注等式号），如 \texttt{O2Nf2Ng0V.lambda\_ =
+0.1931833275037836}、\texttt{O4Nf4Ng0P.rho\_ = 0.1786178958448091} 等。
+\texttt{INT\_3G1F} 为三阶混合力分割（3 次 gauge 力 + 1 次 fermion 力结构）。
+\textbf{嵌套支持}：\texttt{HMC.hmc\_inner}（\texttt{hmc.py:268,487-490}）允许外层
+gauge 分割 + 内层 fermion 分割的多层积分（多重时间步）。
+
+\textbf{代码-物理映射（局部）}：
+
+\begin{xltabular}{\textwidth}{llX}
+\toprule
+\textcolor{map}{代码符号} & 物理对象 & 物理含义与参考源 \\
+\midrule
+\endhead
+\texttt{updateGauge(dt)} & $\pi \to U$ 演化步 & $U \to e^{i dt\,\pi}U$（辛分割的 gauge 子步）；\texttt{\nolinkurl{pyquda/hmc.py:441-442}} \\
+\texttt{updateMom(dt)} & $U \to \pi$ 演化步 & $\pi \to \pi - dt\,\partial S/\partial U$（力子步）；\texttt{\nolinkurl{pyquda/hmc.py:444-448}} \\
+\texttt{samplePhi()} & 伪费米子采样 & $\phi = \mathcal{M}^{1/2}\eta$，\eqref{eq:pseudo}；\texttt{\nolinkurl{pyquda/hmc.py:393-408}} \\
+\texttt{accept(delta\_s)} & Metropolis 接受 & \eqref{eq:accept}，MPI bcast 保证一致随机数；\texttt{\nolinkurl{pyquda/hmc.py:494-495}} \\
+\texttt{RationalParam} & 有理近似系数 & \eqref{eq:rational} 的 $\{\alpha_0,\alpha_i,\beta_i\}$；\texttt{\nolinkurl{pyquda/action/abstract.py:24-33}} \\
+\bottomrule
+\end{xltabular}
+
+\textbf{极限校验。} 步长 $dt\to 0$ 时各积分器收敛到精确演化（各子步系数和恒为 1，
+逐类核验：如 \texttt{O4Nf4Ng0P} 系数 $2\rho+2\theta+(1-2\theta-2\rho)=1$）；$\Delta H \le 0$
+时接受率 $\to 1$，符合 \eqref{eq:accept} 极限。\textcolor{accent}{确证}。
+
+% ---------- C6 HISQ ----------
+\subsection{C6 HISQ 作用量与改进 link 系数（代码-物理交叉）}
+
+\begin{physbox}
+\textbf{物理图像:} HISQ（Highly Improved Staggered Quark）作用量通过把 link 替换为
+\textbf{平滑化 link}（Fat7 型 $V$、$W$ 链与 Naik/Lepage 长链组合）消除 staggered 费米子
+的 $\mathcal{O}(a^2)$ 离散误差与味道分裂，是当前大规模 QCD 谱学计算的主流轻夸克作用量。
+\end{physbox}
+
+\textbf{路径系数表}（\texttt{\detokenize{general.py:655-711}}，代码注释给出各项来源，本报告
+对照标准 Fat7/Naik/Lepage 约定核验）：以 $u_0$（tadpole 因子，\texttt{\nolinkurl{1/tadpole_coeff}}）
+为幂次的 6 路径系数：
+
+\begin{equation}\label{eq:hisq}
+V_\mu = \underbrace{\left(\tfrac18 + \tfrac{6}{16} + \tfrac18\right)}_{\text{单 link: Fat7+ Lepage(2 项)+ Naik}} U_\mu
+- \tfrac{u_0^2}{24}\,\mathrm{Naik} - \tfrac{u_0^2}{16}\,C_{\mu\nu}^{(1)}
++ \tfrac{u_0^4}{64}\,C_{\mu\nu\rho}^{(2)} - \tfrac{u_0^6}{384}\,C_{\mu\nu\rho\sigma}^{(3)}
+- \tfrac{u_0^4}{16}\,C_{\mu\nu}^{(2\mathrm{d})}
+\end{equation}
+
+代码中 \texttt{path\_coeff\_1} 用于构造 $V$/$W$ link、\texttt{path\_coeff\_2} 用于构造
+$X$/long link（含 $2\times$ Lepage 项、Naik 无 $u_0$ 因子）、\texttt{path\_coeff\_3} 为
+$\epsilon$（\texttt{naik\_epsilon}）修正链。组装流程
+\texttt{computeULink $\to$ computeWLink $\to$ computeXLink（+Epsilon）}
+（\texttt{dirac/general.py:714-804}；\texttt{action/hisq.py:77-93}），tadpole 与 scale
+在 \texttt{loadFatLongGauge} 中设置（\texttt{general.py:818-844}，\texttt{scale =
+-(1+naik\_epsilon)/(24u_0^2)} 即 Naik 项归一）。
+
+\textbf{伪费米子与 multishift 逆变。} \texttt{HISQAction}（\texttt{action/hisq.py:24-145}）
+用 \eqref{eq:rational} 的力/采样/作用量三套有理系数分别做 multishift CG
+（\texttt{action/abstract.py:82-143}）；\texttt{MultiHISQAction} 把多个 HISQ 伪费米子
+（可含不同 \texttt{naik\_epsilon}）的残差/偏移系数拼接为单一 \texttt{coeff} 矩阵后
+一次 \texttt{computeHISQForceQuda} 求力（\texttt{action/hisq.py:148-186}），避免重复
+构造 $V,W$ 链——这是对 QUDA 接口的高层复用设计。\textcolor{accent}{确证}。
+
+\textbf{代码-物理映射（局部）}：
+
+\begin{xltabular}{\textwidth}{llX}
+\toprule
+\textcolor{map}{代码符号} & 物理对象 & 物理含义与参考源 \\
+\midrule
+\endhead
+\texttt{path\_coeff\_1} & Fat7 link $V_\mu$ 路径系数 & \eqref{eq:hisq} 前 6 项；\texttt{\nolinkurl{pyquda/dirac/general.py:681-688}} \\
+\texttt{path\_coeff\_2} & HISQ long link $X_\mu$ 系数 & 2 倍 Lepage、Naik 无 tadpole；\texttt{\nolinkurl{pyquda/dirac/general.py:691-699}} \\
+\texttt{naik\_epsilon} & $\epsilon$ 修正 & $\epsilon$ 项链 path\_coeff\_3 线性叠加；\texttt{\nolinkurl{pyquda/dirac/general.py:701-709}} \\
+\texttt{tadpole\_coeff} & tadpole 因子 $u_0$ & $u_0^{-1}$ 进入各路径幂次；\texttt{\nolinkurl{pyquda/dirac/general.py:655-656}} \\
+\texttt{coeff} & 力系数矩阵 & $\{2\alpha_i,\ \beta_i\}$ 拼接，multishift 求力；\texttt{\nolinkurl{pyquda/action/hisq.py:51-75}} \\
+\bottomrule
+\end{xltabular}
+
+\textbf{极限校验。} $u_0 \to 1$（\texttt{tadpole\_coeff=1}）时各幂次因子消失，回到未
+tadpole 改进的纯 Fat7+Naik+Lepage 组合；\texttt{naik\_epsilon = 0} 时 $\epsilon$ 链自动
+跳过（\texttt{general.py:786-804} 的 \texttt{if naik\_epsilon != 0}）。\textcolor{accent}{确证}。
+
+% ---------- C7 准轴向规范固定 ----------
+\subsection{C7 准轴向规范固定（代码-物理交叉）}
+
+\begin{physbox}
+\textbf{物理图像:} 沿固定方向 $\mu$ 逐层累乘 link 得到前缀积 $P(x)$，其极分解
+$P(x) = v\,e^{i w}\,v^\dagger$ 给出使 $U_\mu$ 对角化的规范旋转；以分数幂平滑取根
+（指数 $x_\mu/L$ 连续推进），得到\textbf{准轴向规范}（部分轴向规范），用于强子矩阵元
+等物理量的规范依赖控制。
+\end{physbox}
+
+\textbf{算法原理}（\texttt{quasi\_axial\_gauge\_fixing.py:6-70}）：
+
+\begin{enumerate}
+\item 前缀积：\texttt{gauge\_prod[i] = U(i-1)\cdots U(0)}（逐层 \texttt{contract} 收缩，
+\eqref{eq:axial} 定义）；
+\item 跨 rank 链式传播：每个 rank 把本块前缀积传给下一 rank（\texttt{gi} 方向
+\texttt{Send/Recv} 链，\texttt{:33-52}），最后一块为全局前缀积 $P$；
+\item 特征分解 $P = v e^{iw} v^\dagger$（\texttt{np.linalg.eig}，\texttt{:53-55}），
+旋转场按局部位移插值：
+\end{enumerate}
+
+\begin{equation}\label{eq:axial}
+\Omega(x) = v(x)\,\exp\!\Big(i\,\tfrac{x_\mu + g_\mu L_\mu}{L}\,w(x)\Big)\,v^\dagger(x),
+\qquad U_\mu(x) \to \Omega(x)\,U_\mu(x)\,\Omega^\dagger(x+\hat\mu)
+\end{equation}
+
+\texttt{rotate[i] = U(i-1)^\dagger\cdots U(0)^\dagger \cdot v \cdot e^{i (i+g_i L_i)/G_i w}}
+（\texttt{:56-59}）与 \eqref{eq:axial} 一致（累乘反序 + 相位推进）；随后
+\texttt{gauge.data = rotate.conj() @ gauge.data}（\texttt{:64}）作用规范旋转，
+并用 \texttt{covDev} 将旋转场传播到其余方向（\texttt{:65-69}）。
+
+\textbf{独特竞争力。} QUDA 本身不提供该功能（README 标注 \texttt{waiting for QUDA merge}），
+本实现为仓库独有；以 \texttt{opt\_einsum} 优化收缩、cupy 承载 GPU 数据、MPI 链式
+通信规避全归约，是纯 Python 层实现格点算法的代表。\textcolor{phys}{推断}级：\eqref{eq:axial}
+的分数幂相位的物理解释（使 $U_\mu$ 沿方向缓变对角化）由代码结构推断，未与文献逐式核对。
+
+% ---------- C8 even-odd 布局 ----------
+\subsection{C8 even-odd 布局重排（代码-物理交叉）}
+
+\begin{physbox}
+\textbf{物理图像:} even-odd（奇偶）预条件把格点按棋盘色 $(-1)^{x+y+z+t}$ 分成两个
+子格；Dirac 算子成为分块 2 阶结构，Schur 补只在半个格点上求解，计算量减半。
+QUDA 内部以 even-odd 顺序存储数据，Python 层需在字典序与 even-odd 序之间互转。
+\end{physbox}
+
+判定规则（\texttt{pyquda/field.py:50-93}）：
+
+\begin{equation}\label{eq:eo}
+\mathrm{eo}(x) = (x + y + z + t) \bmod 2,\qquad
+\text{even 块 } x \text{ 为偶数} \ \Leftrightarrow\ (y+z+t) \bmod 2 = 0
+\end{equation}
+
+\texttt{lexico}（\texttt{:50-71}）：even-odd 序 $\to$ 字典序，偶数 $(y+z+t)$ 层把
+$x$ 偶/奇半格交替放置（\texttt{data\_lexico[..., 0::2]} 与 \texttt{[..., 1::2]}）；
+\texttt{evenodd}（\texttt{:74-93}）为逆变换。实现以 NumPy 高级索引完成，复杂度
+$\mathcal{O}(V)$；两个方向的显式循环仅为奇偶层切换，与 QUDA 的
+\texttt{QUDA\_QDP\_GAUGE\_ORDER} 布局约定对应（\texttt{dirac/general.py:262}）。
+
+\textbf{正确性论证。} 断言轴数（\texttt{:51,75}）与奇偶字段尺寸（\texttt{Lx//2}）；
+两函数互为逆变换（往返一致，结构对称）。\textcolor{accent}{确证}。此布局也是
+\texttt{source.py} 中点源放置（\texttt{source.py:36-44}）与 checksum 顺序的前提。
+
+% ---------- C9 源场与 smearing ----------
+\subsection{C9 源场构造与高斯 smearing（代码-物理交叉）}
+
+\begin{physbox}
+\textbf{物理图像:} 两点关联函数 $\langle O(t)\,O^\dagger(0)\rangle$ 需要指定插值场
+算子 $O = \bar\psi\,\Gamma\,\psi$ 的基态源（point/wall 等）；高斯（Wuppertal）smearing
+以扩散迭代展宽源，增强与基态的重叠、压低激发态污染。
+\end{physbox}
+
+\textbf{源场。} \texttt{source.py:25-46} 的 \texttt{point} 源按 even-odd 布局放置
+$\delta$ 源（\eqref{eq:eo} 判定所在块与 $x/2$ 折半索引）；\texttt{wall}/\texttt{volume}
+为时间片/全空间扩展源；\texttt{momentum} 用相位调制（C14）；\texttt{colorvector} 载入
+任意颜色矢量；\texttt{source12/source3} 组装 $12\times12$（自旋$\times$色）与
+$3\times3$ 传播子源（\texttt{:268-327}）。
+
+\textbf{高斯 smearing}。主入口 \texttt{gaussianSmear}（\texttt{:360-394}）以
+\texttt{wuppertalSmear} 迭代；参数关系（\texttt{:373}）：
+
+\begin{equation}\label{eq:smear}
+\alpha = \frac{1}{4n/\rho^2 - 6}
+\qquad(\rho \text{ 为目标半径, } n \text{ 为步数})
+\end{equation}
+
+\textcolor{warn}{未验证}：\eqref{eq:smear} 分母取 $-6$ 而非 $+6$ 的约定来源（与 Chroma
+对齐），本报告未与外部文献核对，标注为仓库约定。\texttt{\_gaussian2} 用 Laplace dslash
+实现：\texttt{kappa = -xi*rho**2/4/n\_steps}、\texttt{mass = 1/(2*kappa) - 4}
+（\texttt{:455-457}，Wilson 参数化 $m = 1/(2\kappa) - 4$ 的标准定义，\textcolor{accent}{确证}）；
+\texttt{\_gaussian1} 为奇偶分离的手写 Laplacian 迭代（\texttt{:477-505}）。
+
+\textbf{代码-物理映射}：
+
+\begin{xltabular}{\textwidth}{llX}
+\toprule
+\textcolor{map}{代码符号} & 物理对象 & 物理含义与参考源 \\
+\midrule
+\endhead
+\texttt{t\_srce} & 源位置 & 格点坐标/时间片（point: 4 维；wall: t）；\texttt{\nolinkurl{pyquda_utils/source.py:25-66}} \\
+\texttt{spin, color} & 自旋-色指标 & $\Gamma$ 结构的选择下标；\texttt{\nolinkurl{pyquda_utils/source.py:38-44}} \\
+\texttt{rho, n\_steps} & smearing 半径/步数 & \eqref{eq:smear} 的 $\rho,n$；\texttt{\nolinkurl{pyquda_utils/source.py:373}} \\
+\texttt{kappa} & Wilson 跳跃参数 & $m = 1/(2\kappa) - 4$；\texttt{\nolinkurl{pyquda_utils/source.py:455-457}} \\
+\bottomrule
+\end{xltabular}
+
+\textbf{极限校验。} $n\to\infty$ 或 $\rho\to 0$ 时 $\alpha\to 0$（源不发散）；$\rho$ 有限
+增大时 $\alpha\to 1/6$ 之下限（$\rho\to\infty$ 时 $\alpha \to 1/6$，扩散算符保持正定）。
+\textcolor{accent}{确证}。
+
+% ---------- C10 梯度流 ----------
+\subsection{C10 梯度流与 $t_0/w_0$ 标度（纯物理框架）}
+
+\begin{physbox}
+\textbf{物理图像:} 令规范场沿作用量的负梯度流动
+$\dot{V}_\mu = -g_0^2\,\partial_{\mu,x} S(V)\,V_\mu$，短程 UV 涨落随流动时间 $t$ 指数
+衰减，流后的场给出无扰动标度量的定义——以 $t^2\langle E(t)\rangle = 0.3$ 定义 $t_0$，
+以其对数导数为 0.3 定义 $w_0$，实现格距标定（L\"uscher 2010 方案）。
+\end{physbox}
+
+模型设定：Wilson 流与 Symanzik 流两种流方程（作用量分别为单 plaquette 与改进组合）；
+代码以 \texttt{epsilon} 步长逐层推进并逐层取观测（\texttt{pyquda/field.py:252-268}、
+\texttt{:299-315}）。标度实现（\texttt{:270-297}）：
+
+\begin{align}
+t^2\langle E(t)\rangle\Big|_{t=t_0} &= 0.3, \qquad
+t\,\frac{d}{dt}\big[t^2\langle E(t)\rangle\big]\Big|_{t=w_0^2} = 0.3 \label{eq:t0w0}
+\end{align}
+
+代码中以离散量 \texttt{t2E = (step*epsilon)**2 * energy[0]} 与
+\texttt{tdt2E = (step-0.5)*(t2E - t2E\_old)}（\texttt{:285-290}）分别对应 \eqref{eq:t0w0}
+两个定义式，越阈值后按线性插值回推连续时间（\texttt{t0} 的 \texttt{(step - (t2E-0.3)/(t2E-t2E\_old)) * epsilon}，
+\texttt{:287-290}），\texttt{w0} 同理取其平方根。超时未达 0.3 阈值时显式报错
+（\texttt{:292-295}）。
+
+\textbf{极限校验。} $\epsilon \to 0$ 时离散插值回到连续定义（一阶插值误差 $\mathcal{O}(\epsilon^2)$，
+可忽略）；流动时间足够长时 $t^2E \to $ 常量（微扰平台），$t_0/w_0$ 存在。\textcolor{accent}{确证}。
+\texttt{wilsonFlowScale} 与 \texttt{symanzikFlowScale} 为同构实现，差异仅在流方程。
+
+% ================= 3 独特性与竞争力评估 =================
+\section{独特性与竞争力评估}
+
+\begin{table}[htbp]\centering
+\begin{tabularx}{\textwidth}{lXX}
+\toprule
+\textcolor{algo}{独特点} & 对比基准 & 优势与证据 \\
+\midrule
+$\gamma$ 代数位运算实现（C2） & 通用矩阵库/手写 $4\times4$ & 符号级乘法 $\mathcal{O}(1)$、转置/共轭自动推导、双基切换；公式 \eqref{eq:gamma-mul}--\eqref{eq:gamma-D} 逐项核验 \\
+Remez 高精度有理逼近（C1） & AlgRemez（C）、mpmath & gmpy2 任意精度 + 直接 PFE 输出，服务 HMC 有理近似 \\
+HISQ 路径系数表（C6） & QUDA 文档系数 & 系数+幂次+注释来源齐备，多伪费米子融合一次求力 \\
+自动网格生成（C3） & 手写/QUDA 默认 & 通信量目标函数最小化 + 两级通信成本建模 \\
+准轴向规范固定（C7） & QUDA（未提供） & 仓库独有纯 Python 实现，链式 MPI + 特征分解 \\
+纯 Python SU(N) 规范场（C4） & 编译型实现 & 独立弱场解析检验基准（\texttt{tests/weak\_field}） \\
+辛积分器族（C5） & 通用 RK 积分器 & 辛性 + 文献优化系数 + 嵌套多层 \\
+\bottomrule
+\end{tabularx}
+\caption{独特性评估（数据来源: 实测/推导核验）}
+\end{table}
+
+局限（对应 \textcolor{warn}{未验证} 标注）：C2 全 16 元素互乘无直接单元测试；C7 相位
+的物理动机为推断级；C9 \eqref{eq:smear} 的 $-6$ 约定未与外部文献核对；C1 退化区间行为
+未测。
+
+% ================= 4 关键片段与公式 =================
+\section{关键片段与公式}
+
+核心公式集中在 \eqref{eq:gamma-mul}--\eqref{eq:axial}、\eqref{eq:pseudo}--\eqref{eq:t0w0}
+（各节已编号引用）。以下直引代表性代码片段（与正文行号一致）：
+
+\lstinputlisting[firstline=266,lastline=299]{/Users/zhangxin/PyQUDA/pyquda_core/pyquda/gamma.py}
+% 第 299 行为 H 属性结束；片段为 C2 乘积与共轭性质实现
+
+\lstinputlisting[firstline=674,lastline=711]{/Users/zhangxin/PyQUDA/pyquda_core/pyquda/dirac/general.py}
+% C6 HISQ 路径系数表
+
+\lstinputlisting[firstline=37,lastline=62]{/Users/zhangxin/PyQUDA/pyquda_core/pyquda/hmc.py}
+% C5 INT_3G1F 三阶混合力辛积分器
+
+\lstinputlisting[firstline=270,lastline=297]{/Users/zhangxin/PyQUDA/pyquda_core/pyquda/field.py}
+% C10 梯度流标度 t0/w0
+
+\lstinputlisting[firstline=27,lastline=64]{/Users/zhangxin/PyQUDA/pyquda_utils/quasi_axial_gauge_fixing.py}
+% C7 准轴向规范固定核心
+
+% ================= 5 参考源清单 =================
+\section{参考源清单}
+
+\begin{xltabular}{\textwidth}{llX}
+\toprule
+\textcolor{evidence}{参考源} & 类型 & 内容/作用 \\
+\midrule
+\endhead
+\texttt{\nolinkurl{pyquda_utils/alg_remez.py:94-156}} & 仓库 & Remez 主循环与收敛判据（C1） \\
+\texttt{\nolinkurl{pyquda_utils/alg_remez.py:364-407}} & 仓库 & PFE 部分分式展开（C1） \\
+\texttt{\nolinkurl{pyquda/gamma.py:216-312}} & 仓库 & $\gamma$ 符号代数与乘积/共轭实现（C2） \\
+\texttt{\nolinkurl{pyquda/gamma.py:314-419}} & 仓库 & Projector 线性组合（C2） \\
+\texttt{\nolinkurl{pyquda_comm/__init__.py:159-262}} & 仓库 & 网格枚举与通信最小化（C3） \\
+\texttt{\nolinkurl{pyquda_utils/gauge_nd_sun.py:74-156}} & 仓库 & shift/matmul\_shift 算子（C4） \\
+\texttt{\nolinkurl{pyquda/hmc.py:37-259}} & 仓库 & 辛积分器族与文献系数（C5） \\
+\texttt{\nolinkurl{pyquda/hmc.py:393-495}} & 仓库 & 伪费米子采样与接受判据（C5） \\
+\texttt{\nolinkurl{pyquda/action/hisq.py:24-186}} & 仓库 & HISQ 作用量/力与多伪费米子融合（C6） \\
+\texttt{\nolinkurl{pyquda/dirac/general.py:655-844}} & 仓库 & HISQ 路径系数与 link 组装链（C6） \\
+\texttt{\nolinkurl{pyquda_utils/quasi_axial_gauge_fixing.py:6-70}} & 仓库 & 准轴向规范固定（C7） \\
+\texttt{\nolinkurl{pyquda/field.py:50-93}} & 仓库 & even-odd/lexico 重排（C8） \\
+\texttt{\nolinkurl{pyquda_utils/source.py:25-421}} & 仓库 & 源场构造与 smearing 方案（C9） \\
+\texttt{\nolinkurl{pyquda/field.py:252-344}} & 仓库 & 梯度流与 $t_0/w_0$ 标度（C10） \\
+\texttt{\nolinkurl{pyquda/dirac/general.py:69-138}} & 仓库 & 精度/重构矩阵（C11） \\
+\texttt{\nolinkurl{pyquda_comm/array.py:19-78}} & 仓库 & 后端设备 API 矩阵（C12） \\
+\texttt{\nolinkurl{pyquda_utils/checksum.py:8-23}} & 仓库 & SciDAC checksum（C17） \\
+\texttt{\nolinkurl{README.md:1-38}} & 仓库 & 项目定位与功能清单 \\
+\bottomrule
+\end{xltabular}
+
+% ================= 6 结论 =================
+\section{结论}
+
+\begin{conclbox}
+穷尽剖析结论：核心部分共 18 个候选，\textbf{深挖 10 / 浅析 7 / 排除 1}。
+PyQUDA 的\textbf{最强竞争力}是三层结构：① 符号/数值级核心算法——$\gamma$ 代数的
+位运算实现（C2，公式 \eqref{eq:gamma-mul}--\eqref{eq:gamma-D} 全部核验）与高精度
+Remez 有理逼近（C1）；② 物理改进作用量与算法——HISQ 路径系数表（C6，Fat7/Naik/Lepage
++tadpole 体系完整）、HMC 辛积分器族（C5，O2/O4 优化系数）与梯度流标度（C10，
+$t_0/w_0$ 插值）；③ 仓库独有的算法载体——准轴向规范固定（C7）与纯 Python SU(N)
+规范场（C4）。浅析 7 项为工程化封装（QUDA API 层、数组后端、I/O、相位、Wilson loop、
+规范固定/平滑化、checksum），支撑性强但非独特竞争力；排除 1 项为第三方代码。
+\end{conclbox}
+
+\begin{warnbox}
+未验证/推断项：C2 的 16 元素互乘无直接单元测试；C7 相位物理动机为推断级；C9
+\eqref{eq:smear} 的 $-6$ 约定未与外部文献核对；C1 退化区间行为未覆盖。上述均已在正文
+分级标注，不改变结论成立性。分析为只读进行，未改动任何仓库文件。
+\end{warnbox}
+
+\end{document}
