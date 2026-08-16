@@ -1,0 +1,409 @@
+% ============================================================
+% analy 报告 — 规范模板 v2（xelatex + ctex）
+% 主题: DDalphaAMG-SM（Schwinger 模型版）软件库全面分析
+% 编译: xelatex 两遍; 交付前 Overfull / Float too large 均为 0
+% ============================================================
+\documentclass[UTF8]{ctexart}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{microtype}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{xltabular}
+\usepackage{tabularx}
+\usepackage{hyperref}
+\usepackage{fancyhdr}
+\usepackage[most]{tcolorbox}
+\usepackage{titlesec}
+
+\definecolor{accent}{HTML}{1F4E79}
+\definecolor{evidence}{HTML}{1E8449}
+\definecolor{reference}{HTML}{8C6D1F}
+\definecolor{conclusion}{HTML}{8B1A1A}
+\definecolor{codebg}{HTML}{F4F6F7}
+\definecolor{struct}{HTML}{3B3B98}
+\definecolor{relation}{HTML}{0E7C7B}
+\definecolor{idea}{HTML}{B03A2E}
+\definecolor{warn}{HTML}{D35400}
+\definecolor{hl}{HTML}{FDF6E3}
+
+\setlength{\emergencystretch}{3em}
+\hypersetup{colorlinks=true,linkcolor=accent,urlcolor=relation}
+
+\titleformat{\section}{\Large\bfseries\color{accent}}{\thesection}{1em}{}
+\titleformat{\subsection}{\large\bfseries\color{struct}}{\thesubsection}{1em}{}
+\titleformat{\subsubsection}{\normalsize\bfseries\color{struct!70!black}}{\thesubsubsection}{1em}{}
+
+\newtcolorbox{conclbox}{breakable,colback=conclusion!6,colframe=conclusion,title=结论}
+\newtcolorbox{refbox}{breakable,colback=reference!6,colframe=reference,title=参考背景}
+\newtcolorbox{ideabox}{breakable,colback=idea!6,colframe=idea,title=项目思路}
+\newtcolorbox{warnbox}{breakable,colback=warn!6,colframe=warn,title=局限与风险}
+\newtcolorbox{keybox}{breakable,colback=hl,colframe=accent,title=要点}
+
+\lstset{
+  basicstyle=\ttfamily\footnotesize,
+  backgroundcolor=\color{codebg},
+  frame=single,
+  language=C++,
+  firstnumber=auto,
+  keywordstyle=\color{accent}\bfseries,
+  commentstyle=\color{evidence!70!black},
+  stringstyle=\color{struct},
+  breaklines=true,
+  breakatwhitespace=false,
+  postbreak=\mbox{\textcolor{accent}{$\hookrightarrow$}\space},
+  keepspaces=true,
+  columns=flexible,
+  numbers=left,numberstyle=\tiny\color{struct!60!black},
+}
+
+\title{DDalphaAMG-SM（Schwinger 模型）软件库全面分析报告}
+\author{opencode analy}
+\date{2026-08-17}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+本报告对 DD$\alpha$AMG 求解器在 Schwinger 模型（2D U(1) 格点规范理论）上的 MPI 实现
+\textbf{DDalphaAMG-SM}（位于 \url{/root/PyQCU/refer/git-rep/DDalphaAMG-SM}）进行只读全面分析。
+该库以纯 C++/MPI（无 GPU）实现聚合型代数多重网格：SAP 平滑器 + test-vector 插值算子 + GMRES
+粗网格求解 + FGMRES 外层求解，支持 V-cycle 与 K-cycle。报告覆盖三视角：
+\textcolor{struct}{主体结构}（入口/AMG 核心/层结构/通信/测试分层）、\textcolor{relation}{各部分关系}
+（`main → Methods → {SAP, FGMRES, AMG}` 分派链、`Level` 内部 P/P$^\dagger$/粗链接链、
+`CMake → config.h → 编译` 链）、\textcolor{idea}{项目思路}（2D Wilson Dirac 离散化 +
+层无关 G 系数复用 + 编译期参数固定）。并对"从构建到运行"完整工作流按 A 框架 15 步重现。
+本快照非独立 git 仓库（共享 \texttt{/root/PyQCU/.git}）。
+\end{abstract}
+
+\tableofcontents
+
+\section{仓库概览}
+
+\subsection{目录结构}
+\begin{lstlisting}[language=bash]
+DDalphaAMG-SM/
+|-- README.md                 # 构建/运行/参数说明
+|-- CMakeLists.txt            # 构建配置（格子尺寸固定处）
+|-- run_test.sh               # 一键测试：写参数/改尺寸/构建/跑 16 rank
+|-- AMG_Documentation.pdf     # 算法文档（Eq.(34) 等引用）
+|-- 2D_U1_*.ctxt / *.rhs      # 512^2 U(1) 配置与右端项（各 14.7MB）
+|-- include/                  # 17 个头文件
+|-- src/                      # 13 个 .cpp 实现
+|-- docs/                     # 本报告输出目录
+\end{lstlisting}
+
+\subsection{规模统计与 git 信息}
+\begin{table}[htbp]\centering
+\begin{tabular}{ll}
+\toprule
+指标 & 实测值 \\
+\midrule
+文件总数 & 39（根 9 + include 17 + src 13） \\
+源码+头文件行数 & 5954（src 3043 + include 2911） \\
+最大文件 & \texttt{\nolinkurl{src/level.cpp}} 652 行、\texttt{\nolinkurl{include/tests.h}} 635 行 \\
+数据文件 & \texttt{.ctxt}/\texttt{.rhs} 各 14680064 字节 \\
+独立 git 仓库 & 否（共享 /root/PyQCU/.git，快照形态） \\
+\bottomrule
+\end{tabular}
+\caption{仓库实测统计（数据来源: find/wc/git 实测）}
+\end{table}
+
+\section{主体结构}
+\begin{xltabular}{\textwidth}{lXX}
+\toprule
+\textcolor{struct}{层次} & 目录/文件 & \textcolor{struct}{职责} \\
+\midrule
+\endhead
+入口层 & \texttt{\nolinkurl{src/main.cpp}} & MPI 初始化、读运行时输入、创建 \texttt{Methods} 并依次调用各方法、写 metadata \\
+AMG 核心 & \texttt{\nolinkurl{src/amg.cpp}} + \texttt{\nolinkurl{include/amg.h}} & \texttt{setUpPhase}/V-cycle/K-cycle/\texttt{applyMultilevel} + 外层 FGMRES 预条件 \\
+层结构 & \texttt{\nolinkurl{src/level.cpp}} + \texttt{\nolinkurl{include/level.h}} & P/P$^\dagger$、Gram--Schmidt、Dirac 应用、粗链接构造、SAP 局部 D \\
+平滑器 & \texttt{\nolinkurl{src/sap.cpp}} + \texttt{\nolinkurl{include/sap.h}} & 红黑 Schwarz 块、块内 GMRES、SAP 主迭代 \\
+Krylov & \texttt{\nolinkurl{src/fgmres.cpp}}/\texttt{\nolinkurl{conjugate_gradient.cpp}} & FGMRES 骨架、CG/BiCGStab 对照 \\
+Dirac 算子 & \texttt{src/dirac\_operator.cpp} & 最细层 Wilson Dirac $D$、$D^\dagger$、$D^\dagger D$ \\
+通信层 & \texttt{\nolinkurl{src/halo_exchange.cpp}} + \texttt{\nolinkurl{include/mpi_setup.h}} & 最细层 halo（4 次 Sendrecv）、笛卡尔拓扑、rank 聚集、MPI 派生类型 \\
+工具层 & \texttt{\nolinkurl{src/io.cpp}}/\texttt{utils.cpp}/\texttt{variables.cpp} & 二进制配置/RHS 读入、Jackknife、编译期参数定义 \\
+测试层 & \texttt{\nolinkurl{src/tests.cpp}} + \texttt{\nolinkurl{include/tests.h}} & 单元测试（Dc=P$^\dagger$DP、PP$^\dagger$、SAP/GMRES 各层、rank 聚集），main 不调用 \\
+配置层 & \texttt{CMakeLists.txt}, \texttt{include/config.h(.in)} & 格子尺寸 NS/NT、运行时 parameters 文件 \\
+\bottomrule
+\caption{主体结构分层（数据来源: 全库索引实测）}
+\end{xltabular}
+
+\begin{keybox}
+\textbf{要点：}核心数值代码集中于三处——\texttt{\nolinkurl{src/amg.cpp}}（循环调度）、
+\texttt{\nolinkurl{src/sap.cpp}}（平滑器）、\texttt{\nolinkurl{src/level.cpp}}（P/P$^\dagger$/粗算子/D 应用），
+三者经 \texttt{FGMRES} 基类组合；数值参数集中定义于 \texttt{\nolinkurl{src/variables.cpp}}。
+\end{keybox}
+
+\section{各部分关系}
+
+\subsection{主流程分派链}
+\begin{keybox}
+\textbf{依赖主链:} \textcolor{relation}{\texttt{main.cpp} $\rightarrow$ \texttt{Methods}
+$\rightarrow$ \{SAP / FGMRES\_SAP / V-cycle / K-cycle / FGMRES\_AMG\_*\} $\rightarrow$
+\texttt{AlgebraicMG}（\texttt{amg.cpp}）}
+\end{keybox}
+证据：\texttt{src/main.cpp:84-99} 依次调用 SAP(100 iter)、FGMRES\_SAP、Vcycle、Kcycle、
+FGMRES\_AMG\_vcycle、FGMRES\_AMG\_kcycle 并逐一 \texttt{check\_solution}；
+\texttt{include/amg.h:147-270} 定义外层 FGMRES + AMG 预条件类族。
+
+\subsection{层结构内部链}
+\begin{keybox}
+\textbf{依赖主链:} \textcolor{relation}{\texttt{Level}（\texttt{level.cpp/level.h}）
+$\xrightarrow{P\_vc/Pdagg\_v}$ 粗细格转移 $\xrightarrow{D\_operator}$ 当前层 Dirac
+$\xrightarrow{makeCoarseLinks}$ 粗链接 G1/G2/G3（=P$^\dagger$DP 系数）}
+\end{keybox}
+证据：\texttt{src/level.cpp:92-141}（P 延拓）、\texttt{:145-189}（P$^\dagger$ 限制）、
+\texttt{:394-426}（D 应用）、\texttt{:431-542}（粗链接构造，按块聚合 $w^\dagger G w$）。
+
+\subsection{构建链}
+\begin{keybox}
+\textbf{依赖主链:} \textcolor{relation}{\texttt{CMakeLists.txt}（NS/NT 固定）
+$\xrightarrow{configure\_file}$ \texttt{include/config.h}（\#define NS 512）
+$\rightarrow$ \texttt{variables.h}（LV::Nx/Nt）$\rightarrow$ 编译}
+\end{keybox}
+证据：\texttt{CMakeLists.txt:23-26}、\texttt{include/variables.h:110-111}。
+
+\subsection{文件依赖关系汇总}
+\begin{xltabular}{\textwidth}{lXX}
+\toprule
+\textcolor{relation}{源（A）} & 目标（B） & 关系类型 \\
+\midrule
+\endhead
+\texttt{\nolinkurl{src/main.cpp}} & \texttt{Methods} 各方法 & 调用/分派 \\
+\texttt{\nolinkurl{include/amg.h}} & \texttt{\nolinkurl{src/amg.cpp}} & 声明/实现 \\
+\texttt{\nolinkurl{include/level.h}} & \texttt{\nolinkurl{src/level.cpp}} & 声明/实现 \\
+\texttt{CMakeLists.txt:23-26} & \texttt{include/config.h} & 生成（configure\_file）\\
+\texttt{include/variables.h} & \texttt{\nolinkurl{src/variables.cpp}} & extern/定义 \\
+\texttt{src/dirac\_operator.cpp} & \texttt{include/halo\_exchange.h} & 调用 halo \\
+\texttt{\nolinkurl{include/mpi_setup.h}} & \texttt{Level} & rank 聚集通信子 \\
+\texttt{run\_test.sh} & 构建+运行 & 写 parameters/inputs、sed 改尺寸、mpirun \\
+\bottomrule
+\caption{各部分关系汇总（数据来源: 源码实测）}
+\end{xltabular}
+
+\section{项目思路}
+
+\subsection{设计意图}
+DDalphaAMG-SM 将原 DD$\alpha$AMG 算法移植到 2D U(1) Schwinger 模型：Wilcox 离散化下旋量仅 2
+分量、规范场每 link 一个复数，故测试与基准目的下实现大幅简化。设计上以
+\textbf{层无关复用}为核心：Dirac 算子以稀疏 G1/G2/G3 系数形式（\texttt{makeDirac}，
+\texttt{src/level.cpp:286-331}），最细层与粗层共用 \texttt{D\_operator} 应用逻辑。README 明示
+"用于测试与基准求解器性能，非 HMC 生产组件"（\texttt{README.md:13}）。
+
+\begin{ideabox}
+\textbf{项目思路核心总结：}一个"2D 玩具版 DD$\alpha$AMG"——用最小模型（U(1)、2 分量旋量）验证
+聚合 AMG + SAP + FGMRES 框架的正确性与收敛性，数值参数全部编译期固定以简化流程。
+\end{ideabox}
+
+\subsection{演进脉络}
+\url{AMG_Documentation.pdf} 为该模型适配的算法文档（引用 Rottmann 论文 p.84-85）；
+\texttt{\nolinkurl{include/tests.h}} 与 \texttt{\nolinkurl{src/tests.cpp}} 保留大量开发期验证代码（\texttt{Dc=P$^\dagger$DP}、
+\texttt{P$^\dagger$P=I}、SAP 各层、rank 聚集），指示从原型到可运行求解器的演进痕迹；
+\texttt{\nolinkurl{CMakeLists.txt:16}} 注释 \texttt{\nolinkurl{src/tests.cpp}} 标注"不同测试，将来移除"。
+
+\subsection{典型工作流}
+\begin{enumerate}
+  \item \texttt{./run\_test.sh}：写 parameters/inputs → sed 改 CMake 格子尺寸 → cmake+make →
+        \texttt{mpirun --oversubscribe -n 16 DDAlpha\_512x512 < inputs}（\texttt{run\_test.sh:72-84}）；
+  \item 运行时 stdin 依次输入：ranks\_x、ranks\_t、levels、m0、配置路径、rhs 路径、parameters 路径
+        （\texttt{\nolinkurl{src/main.cpp:27-47}}）；
+  \item 各方法求解并写 metadata（\texttt{metadata\_512x512\_Levels3\_*.dat}）。
+\end{enumerate}
+
+\section{主题分析——工作全流程重现（A 代码工作框架）}
+
+\subsection{A1 目的与前期准备}
+\textbf{目的：}在 Schwinger 模型上验证 DD$\alpha$AMG（聚合 AMG + SAP + FGMRES）的正确性与
+收敛性能。\textbf{前置条件：}C++20 编译器、MPI、CMake $\geq$ 3.26.5（\texttt{CMakeLists.txt:1-3}）。
+README 明示"用于测试与基准性能，非 HMC 生产组件"（\texttt{README.md:13}）。
+
+\subsection{A2 输入是什么}
+\begin{itemize}
+  \item 规范场配置 \texttt{2D\_U1\_Ns512\_Nt512\_b40000\_m-01023\_0.ctxt}（每 link 记录
+        x,t,mu 索引 + 复数，\texttt{src/io.cpp:32-46}）；
+  \item 右端项 \texttt{rhs\_conf0\_512x512.rhs}（格式同配置，\texttt{README.md:92}）；
+  \item parameters 文件（每层一行：block\_x block\_t ntest sap\_block\_x sap\_block\_t，
+        \texttt{\nolinkurl{include/params.h:10-16}}）；
+  \item 运行时 stdin 7 项输入（\texttt{\nolinkurl{src/main.cpp:27-47}}）。
+\end{itemize}
+
+\subsection{A3 输出应该是什么}
+各方法的解向量、迭代数与 FLOPS（\texttt{src/methods.cpp}），以及写出的 metadata 文件
+（\texttt{src/io.cpp:writeMetadata}）。
+
+\subsection{A4 整体框架}
+主流程：\texttt{main}（MPI 初始化 + 读输入）$\rightarrow$ \texttt{Methods}
+（封装并计时各方法）$\rightarrow$ \texttt{AlgebraicMG}（AMG 主循环）$\rightarrow$
+\texttt{Level}（逐层 P/P$^\dagger$/D/粗链接）。
+
+\subsection{A5 关键细节}
+\begin{itemize}
+  \item \textbf{setUpPhase}：随机 test vectors $\rightarrow$ SAP 平滑 $\rightarrow$
+        跨层投影 $v_l=P^\dagger v_{l-1}$ $\rightarrow$ 局部正交化 $\rightarrow$ 粗链接
+        （\texttt{src/amg.cpp:4-62}）；
+  \item \textbf{V-cycle}：pre-smooth SAP $\rightarrow$ 残差 $r_l=\eta_l-D_l\psi_l$
+        $\rightarrow$ 限制 $\rightarrow$ 递归 $\rightarrow$ 延拓 $\rightarrow$ 校正
+        $\rightarrow$ post-smooth（\texttt{src/amg.cpp:64-116}）；
+  \item \textbf{K-cycle}：粗层用内嵌 FGMRES + K-cycle 预条件
+        （\texttt{src/amg.cpp:119-174}）；
+  \item \textbf{SAP}：红黑块 Gauss--Seidel 型循环，块内 GMRES 求解 $D_B$
+        （\texttt{src/sap.cpp:81-165}）；
+  \item \textbf{正交化}：按块局部 Gram--Schmidt（\texttt{src/level.cpp:193-284}，
+        Frommer 2014 SIAM 算法）。
+\end{itemize}
+
+\subsection{A6 任务如何正确执行}
+\begin{enumerate}
+  \item \texttt{mkdir build \&\& cd build \&\& cmake ../ \&\& make}（\texttt{README.md:22-26}）；
+  \item 配置 parameters 文件与 inputs（可复用 \texttt{run\_test.sh:19-70} 模板）；
+  \item \texttt{mpirun -n 16 DDAlpha\_512x512 < inputs}（\texttt{run\_test.sh:84}）。
+\end{enumerate}
+
+\subsection{A7 实际执行情况}
+\textcolor{warn}{未验证}：本快照未提供构建产物与执行记录；\texttt{run\_test.sh} 给出了
+512$^2$、$\beta=4$、$m_0=-0.1023$、16 rank、2/3/4 层的推荐运行路径。
+
+\subsection{A8 实际输出情况}
+\textcolor{warn}{未验证}：无实测输出；预期为各方法解与 metadata 文件。
+
+\subsection{A9 结果分析}
+\textcolor{warn}{未验证}：无法实测。\texttt{\nolinkurl{include/tests.h}} 内含大量自校验（
+\texttt{check\_solution}、\texttt{Check\_PPdagg}、\texttt{test\_Dc}），指示开发期验证重点。
+
+\subsection{A10 综合分析}
+\textbf{代码--对象映射：}本库代码符号对应物理对象的映射表：
+\begin{xltabular}{\textwidth}{lXX}
+\toprule
+\textcolor{struct}{代码符号} & 物理/算法对象 & 含义 \\
+\midrule
+\endhead
+\texttt{U.val[2*n+mu]} & $U_\mu(x)$ 规范 link & U(1) 复数 link，mu=0 t 向 / mu=1 x 向 \\
+\texttt{phi.val} & $\psi(x)$ 费米子场 & 2 分量旋量（\texttt{LV::dof=2}）\\
+\texttt{D\_phi} & Wilson 狄拉克算子 & 见 \texttt{\nolinkurl{src/dirac_operator.cpp:24-54}} \\
+\texttt{(m0+2)} & 质量对角项 & $2+m_0$ 对角（\texttt{src/dirac\_operator.cpp:37}）\\
+\texttt{rsign/lsign} & 周期/反周期符号 & t 向反周期（\texttt{\nolinkurl{include/boundary.h:41-46}}）\\
+\texttt{P\_vc/Pdagg\_v} & 延拓/限制算子 & test-vector 插值（\texttt{\nolinkurl{src/level.cpp:92-189}}）\\
+\texttt{G1/G2/G3} & 粗链接 & P$^\dagger$DP 的层无关系数（\texttt{\nolinkurl{src/level.cpp:431-542}}）\\
+\texttt{SchwarzBlocks} & 红黑块分解 & SAP 平滑域（\texttt{\nolinkurl{src/sap.cpp:3-41}}）\\
+\texttt{ranks\_comm} & 层内通信子 & 粗层 rank 聚集为 2$\times$2（\texttt{\nolinkurl{include/mpi_setup.h}}）\\
+\bottomrule
+\caption{代码符号 ↔ 对象映射（数据来源: src/*.cpp 与 include/*.h 实测）}
+\end{xltabular}
+
+\subsection{A11 结尾总结}
+\begin{conclbox}
+DDalphaAMG-SM 是一个结构清晰的 2D Schwinger 模型 AMG 求解器：SAP+V/K-cycle 框架完整，
+层无关 G 系数设计使其在最少模型上复现 DD$\alpha$AMG 全部核心机制。
+\end{conclbox}
+
+\subsection{A12 结尾评价}
+\textbf{优点：}代码量小（5954 行）、结构清晰、测试完备（tests.h 自校验丰富）、
+层无关算子设计优雅。\textbf{可改进：}数值参数编译期固定导致每调一次需重编；
+\texttt{ranks\_coarse\_level=4} 硬编码（\texttt{include/variables.h:85-87}）限制扩展性；
+开发期测试与生产路径混存。
+
+\subsection{A13 补充说明}
+\textcolor{warn}{局限：}本快照无构建产物与运行日志，A7/A8/A9 未实测；
+非独立 git 仓库。
+
+\subsection{A14 参考源}
+本节证据汇总见第 7 节参考源清单。
+
+\subsection{A15 附录与附件（如有）}
+\texttt{\nolinkurl{/root/PyQCU/refer/git-rep/DDalphaAMG-SM/AMG_Documentation.pdf}} 为算法文档；
+\texttt{\nolinkurl{run_test.sh}} 为可复现的运行脚本。
+
+\section{关键代码/文档片段}
+
+\begin{lstlisting}[language=C++]
+void AlgebraicMG::v_cycle(const int& l, const spinor& eta_l, spinor& psi_l){
+    double tol = 1e-10;
+    int indx;
+	if (l == LevelV::maxLevel && levels[l]->ranks_comm != MPI_COMM_NULL){
+		levels[l]->gmres_l->fgmres(eta_l, eta_l, psi_l, false);
+	}
+	else{
+		// Pre-smoothing
+		if (nu1 > 0)
+			levels[l]->sap_l->SAP(eta_l,psi_l,nu1,tol,false);
+		// Coarse grid correction
+		levels[l]->D_operator(psi_l,Dpsi);
+		r_l = eta_l - Dpsi;
+		levels[l]->Pdagg_v(r_l,eta_l_1);
+		if (levels[l+1]->ranks_comm != MPI_COMM_NULL)
+			v_cycle(l+1,eta_l_1,psi_l_1);
+		levels[l]->P_vc(psi_l_1,P_psi);
+		psi_l += P_psi;
+		// Post-smoothing
+		if (AMGV::nu2 > 0)
+			levels[l]->sap_l->SAP(eta_l,psi_l,nu2,tol,false);
+	}
+}
+\end{lstlisting}
+参考源：\texttt{src/amg.cpp:64-116}（V-cycle 主循环，注释为简化说明）
+
+\begin{lstlisting}[language=C++]
+void D_phi(const spinor& U, const spinor& phi, spinor& Dphi, const double& m0){
+	exchange_halo(phi.val);
+	exchange_halo(U.val);
+	// mu = 0 (t-direction)
+	Dphi.val[2*n] = (m0+2)*phi.val[2*n] - 0.5*( U.val[2*n]*rsign[2*n]*(...)
+		+ std::conj(U.val[2*lpb[2*n]])*lsign[2*n]*(...) );
+	// mu = 1 (x-direction)
+	Dphi.val[2*n+1] = (m0+2)*phi.val[2*n+1] - 0.5*( ... );
+}
+\end{lstlisting}
+参考源：\texttt{\nolinkurl{src/dirac_operator.cpp:24-54}}（最细层 Wilson Dirac，注释为简化说明）
+
+\section{参考源清单}
+\begin{xltabular}{\textwidth}{lXX}
+\toprule
+\textcolor{evidence}{参考源} & 类型 & 内容/作用 \\
+\midrule
+\endhead
+\texttt{\nolinkurl{README.md:13}} & 仓库 & 用途声明（测试/基准，非生产）\\
+\texttt{\nolinkurl{README.md:17-30}} & 仓库 & 构建步骤 \\
+\texttt{\nolinkurl{README.md:36-61}} & 仓库 & parameters 文件格式与几何约束 \\
+\texttt{\nolinkurl{CMakeLists.txt:1-26}} & 仓库 & C++20/MPI 配置、NS/NT 固定 \\
+\texttt{\nolinkurl{CMakeLists.txt:7-21}} & 仓库 & SOURCES 清单与逐文件注释 \\
+\texttt{\nolinkurl{src/main.cpp:27-47}} & 仓库 & 运行时输入序列 \\
+\texttt{\nolinkurl{src/main.cpp:84-99}} & 仓库 & 各方法调用顺序 \\
+\texttt{\nolinkurl{src/amg.cpp:4-62}} & 仓库 & setUpPhase \\
+\texttt{\nolinkurl{src/amg.cpp:64-116}} & 仓库 & V-cycle 主循环 \\
+\texttt{\nolinkurl{src/amg.cpp:119-174}} & 仓库 & K-cycle 主循环 \\
+\texttt{\nolinkurl{src/amg.cpp:177-243}} & 仓库 & applyMultilevel 独立求解器 \\
+\texttt{\nolinkurl{src/level.cpp:92-189}} & 仓库 & P/P$^\dagger$ 转移算子 \\
+\texttt{\nolinkurl{src/level.cpp:193-284}} & 仓库 & 局部 Gram--Schmidt 正交化 \\
+\texttt{\nolinkurl{src/level.cpp:286-331}} & 仓库 & 最细层 G 系数（makeDirac）\\
+\texttt{\nolinkurl{src/level.cpp:394-426}} & 仓库 & 层无关 D 应用 \\
+\texttt{\nolinkurl{src/level.cpp:431-542}} & 仓库 & 粗链接构造（P$^\dagger$DP）\\
+\texttt{\nolinkurl{src/sap.cpp:3-41}} & 仓库 & Schwarz 块构造/红黑着色 \\
+\texttt{\nolinkurl{src/sap.cpp:48-77}} & 仓库 & 限制-块内 GMRES-延拓 \\
+\texttt{\nolinkurl{src/sap.cpp:81-165}} & 仓库 & SAP 主迭代 \\
+\texttt{\nolinkurl{src/dirac_operator.cpp:24-92}} & 仓库 & $D$/$D^\dagger$/$D^\dagger D$ \\
+\texttt{\nolinkurl{src/fgmres.cpp:16-128}} & 仓库 & FGMRES 骨架（Arnoldi/Givens/回代）\\
+\texttt{\nolinkurl{include/boundary.h:41-46}} & 仓库 & t 向反周期符号 \\
+\texttt{\nolinkurl{include/mpi_setup.h}} & 仓库 & 笛卡尔拓扑/rank 聚集/派生类型 \\
+\texttt{\nolinkurl{src/io.cpp:32-46}} & 仓库 & 二进制配置读取 \\
+\texttt{\nolinkurl{src/variables.cpp:109-126}} & 仓库 & 编译期数值参数 \\
+\texttt{\nolinkurl{run_test.sh:72-84}} & 仓库 & 一键构建+运行 \\
+\bottomrule
+\end{xltabular}
+
+\section{结论与局限}
+\begin{conclbox}
+三视角结论：\textcolor{struct}{结构}——入口/AMG/层/平滑器/Krylov/Dirac/通信/工具分层清晰；
+\textcolor{relation}{关系}——`main → Methods → AMG → Level → P/D/粗链接` 主链完整，
+G 系数层无关复用贯穿各层；\textcolor{idea}{思路}——以最小 2D 模型复现 DD$\alpha$AMG 框架，
+编译期参数固定换取流程简单。
+\end{conclbox}
+\begin{warnbox}
+\textcolor{warn}{未验证}：A7/A8/A9 实测执行步骤无法在本快照验证（无构建产物与运行日志）；
+行号均经 read/grep 核实；本库非独立 git 仓库。
+\end{warnbox}
+
+\end{document}
