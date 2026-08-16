@@ -1,0 +1,211 @@
+% ============================================================
+% analy 报告 — dev78 中/大格子参数优化（num_restart）
+% 编译: xelatex 两遍；交付前 Overfull 计数必须为 0
+% ============================================================
+\documentclass[UTF8]{ctexart}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{amsmath}
+\usepackage{microtype}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{xltabular}
+\usepackage{tabularx}
+\usepackage{hyperref}
+\usepackage{fancyhdr}
+\usepackage[most]{tcolorbox}
+\usepackage{titlesec}
+
+% ===== 色板 =====
+\definecolor{accent}{HTML}{1F4E79}
+\definecolor{evidence}{HTML}{1E8449}
+\definecolor{reference}{HTML}{8C6D1F}
+\definecolor{conclusion}{HTML}{8B1A1A}
+\definecolor{codebg}{HTML}{F4F6F7}
+\definecolor{struct}{HTML}{3B3B98}
+\definecolor{relation}{HTML}{0E7C7B}
+\definecolor{idea}{HTML}{B03A2E}
+\definecolor{warn}{HTML}{D35400}
+\definecolor{hl}{HTML}{FDF6E3}
+
+\setlength{\emergencystretch}{3em}
+\hypersetup{colorlinks=true,linkcolor=accent,urlcolor=relation}
+
+\titleformat{\section}{\Large\bfseries\color{accent}}{\thesection}{1em}{}
+\titleformat{\subsection}{\large\bfseries\color{struct}}{\thesubsection}{1em}{}
+\titleformat{\subsubsection}{\normalsize\bfseries\color{struct!70!black}}{\thesubsubsection}{1em}{}
+
+\newtcolorbox{conclbox}{breakable,colback=conclusion!6,colframe=conclusion,title=结论}
+\newtcolorbox{refbox}{breakable,colback=reference!6,colframe=reference,title=参考背景}
+\newtcolorbox{ideabox}{breakable,colback=idea!6,colframe=idea,title=项目思路}
+\newtcolorbox{warnbox}{breakable,colback=warn!6,colframe=warn,title=局限与风险}
+\newtcolorbox{keybox}{breakable,colback=hl,colframe=accent,title=要点}
+
+\lstset{
+  basicstyle=\ttfamily\footnotesize,
+  backgroundcolor=\color{codebg},
+  frame=single,
+  language=python,
+  firstnumber=auto,
+  keywordstyle=\color{accent}\bfseries,
+  commentstyle=\color{evidence!70!black},
+  stringstyle=\color{struct},
+  breaklines=true,
+  breakatwhitespace=false,
+  postbreak=\mbox{\textcolor{accent}{$\hookrightarrow$}\space},
+  keepspaces=true,
+  columns=flexible,
+  numbers=left,numberstyle=\tiny\color{struct!60!black},
+}
+
+\title{dev78 --- 多线程 CUDA C++ MultiGrid 中/大格子参数优化（num\_restart）}
+\author{opencode analy}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+本报告分析 PyQCU 仓库 dev78 里程碑：多线程版（一线程一卡）CUDA C++ MultiGrid
+求解器中/大格子的参数优化。核心改进为 \texttt{num\_restart} 参数调整
+（8x16x16x16 2L/3L 从 5 增至 10、16x16x16x16 2L 从 10 增至 20），
+属于纯参数优化（无 C++ 代码改动）。三视角概览：
+\textcolor{struct}{主体结构}为测试套件 bench 配置驱动；
+\textcolor{relation}{各部分关系}为 V-cycle 频率（num\_restart）直接决定
+粗层求解次数，而粗层求解是中格子校正的主导成本；
+\textcolor{idea}{项目思路}为先用 PROF\_SECTIONS 定位主导开销，再用参数
+调整消除浪费。核心结论：8x16x16x16 2L 加速比 0.33-0.69 → 1.05-1.22
+（约 3 倍）、3L 0.45-0.72 → 1.41（约 2 倍）；bench 中位加速比
+1.148 → 1.210。
+\end{abstract}
+
+\tableofcontents
+
+% ================= 1 仓库概览 =================
+\section{目录概览}
+\begin{table}[htbp]\centering
+\begin{tabular}{ll}
+\toprule
+指标 & 实测值 \\
+\midrule
+本里程碑改动 & logs/dev78/main.py（bench 配置，无 C++ 改动） \\
+优化参数 & num\_restart（V-cycle 频率） \\
+测试套件 & logs/dev78/（main.py 子命令 + v<ts>/ + h5py） \\
+\bottomrule
+\end{tabular}
+\caption{dev78 里程碑实测统计（数据来源: git/find 实测）}
+\end{table}
+
+% ================= 2 主体结构 =================
+\section{主体结构}
+测试套件结构与 test13/14/dev76 一致：单文件 main.py 子命令入口 +
+版本化产物目录 + h5py 持久化。\textcolor{struct}{本次改动}仅
+\texttt{\_bench\_configs}（\texttt{logs/dev78/main.py:409-432}）——
+各配置的 num\_restart 参数。
+
+% ================= 3 各部分关系 =================
+\section{各部分关系}
+\begin{keybox}
+\textbf{参数-开销关系:} \textcolor{relation}{num\_restart（每 N 次 fine 迭代
+一次 V-cycle）→ V-cycle 次数 → 粗层求解次数（fused 33-58ms/次 或普通多 block
+~117ms/次）→ 总求解时间。r5 时 8x16x16x16 2L 的 n\_vcycles 达 13-44 次，
+粗层求解占 vcycle 时间的绝大部分（602-2244ms）}
+\end{keybox}
+
+dev76 已优化粗层单次求解（归约 10 倍）；dev78 进一步减少粗层求解
+\textcolor{relation}{次数}（频率减半）。
+
+% ================= 4 项目思路 =================
+\section{项目思路}
+\subsection{设计意图}
+\begin{itemize}
+\item \textcolor{idea}{测量驱动}：PROF\_SECTIONS 显示 8x16x16x16 2L 的
+  n\_vcycles=13-44（爆炸），vcycle 远超 fine\_iter——校正频率过高且无效；
+\item \textcolor{idea}{最小改动}：参数调整（r5→r10）无需代码改动即可
+  减半粗层求解次数；
+\item \textcolor{idea}{参数普适性验证}：V100 单线程与 P100×2 多线程
+  均验证（1.22 / 1.05）。
+\end{itemize}
+\subsection{演进脉络}
+test14（构建加速）→ dev76（粗层求解加速）→ dev78（V-cycle 频率优化）。
+
+\begin{ideabox}
+项目思路核心：粗层求解是中格子校正的主导成本——先优化单次求解（dev76），
+再优化调用次数（dev78，num\_restart）；纯参数优化收益可达 3 倍。
+\end{ideabox}
+
+% ================= 5 主题分析 =================
+\section{主题分析}
+\subsection{瓶颈定位}
+8x16x16x16 2L r5（dev76）：fine\_iter=214ms vs vcycle=602ms（n\_vcycles=13）；
+ct1e4 时更差（fine=620ms vcycle=2244ms n\_vcycles=44）。粗层 fused 每次
+38-58ms × 13 次 = 主导成本。
+
+\subsection{参数优化}
+\begin{itemize}
+\item 8x16x16x16 2L：r5→r10 → V-cycle 次数减半，粗层求解减半；
+\item 8x16x16x16 3L：r5→r10 → 0.705 → 1.414；
+\item 16x16x16x16 2L：r10→r20 → 0.496 → 0.738（仍 <1，层数固有）。
+\end{itemize}
+
+\subsection{实测结果}
+\begin{table}[htbp]\centering
+\begin{tabular}{llll}
+\toprule
+配置 & dev76 & dev78 & 提升 \\
+\midrule
+P100x2 8x16x16x16 2L & 0.33-0.69 & \textbf{1.05-1.22} & 约 3 倍 \\
+P100x2 8x16x16x16 3L & 0.45-0.72 & \textbf{1.41} & 约 2 倍 \\
+P100x2 8x8x8x16 3L & 2.14-2.16 & \textbf{2.29} & +6\% \\
+V100 16x16x16x16 3L & 1.12-1.33 & \textbf{1.18-1.33} & 持平 \\
+P100x2 16x16x16x16 2L & 0.62-0.66 & \textbf{0.74}（r20） & +12\% \\
+\bottomrule
+\end{tabular}
+\caption{dev76 vs dev78 关键指标（数据来源: 本次本机实测）}
+\end{table}
+
+verify 全 PASS；bench median 1.148 → 1.210、max 2.135 → 2.288；
+sweep 13/16 ≥ gate=1.5（best=2.499）。
+
+% ================= 6 关键代码/文档片段 =================
+\section{关键代码/文档片段}
+bench 配置（r10/r20 参数优化）：
+\lstinputlisting[firstline=409,lastline=432]{/root/PyQCU/logs/dev78/main.py}
+
+% ================= 7 参考源清单 =================
+\section{参考源清单}
+\begin{xltabular}{\textwidth}{llX}
+\toprule
+\textcolor{evidence}{参考源} & 类型 & 内容/作用 \\
+\midrule
+\endhead
+\texttt{\nolinkurl{logs/dev78/main.py:409-432}} & 仓库 & bench 配置（r10/r20） \\
+\texttt{\nolinkurl{logs/dev78/dev78_report.md}} & 仓库 & 本次工作汇总 \\
+\texttt{\nolinkurl{logs/dev78/AGENTS.md}} & 仓库 & 套件复现指南 \\
+\texttt{\nolinkurl{logs/dev78/v202608160153/test78_results.h5}} & 仓库 & 最终汇总数据 \\
+\bottomrule
+\end{xltabular}
+
+% ================= 8 结论与局限 =================
+\section{结论与局限}
+\begin{conclbox}
+三视角结论：\textcolor{struct}{结构}——测试套件 bench 配置层；
+\textcolor{relation}{关系}——num\_restart 直接控制粗层求解次数；
+\textcolor{idea}{思路}——先优化单次求解再优化调用次数。
+主题结论：r10/r20 参数使 8x16x16x16 2L/3L 加速比提升 2-3 倍并突破
+1.0（1.05-1.41），bench 中位加速比 1.148 → 1.210。
+\end{conclbox}
+\begin{refbox}
+多重网格的 V-cycle 频率（每 N 次迭代校正一次）是标准调参点；本工作确认
+中格子粗层求解成本高时降低校正频率是有效策略（与 QUDA 的 restart 调参
+实践一致）。
+\end{refbox}
+\begin{warnbox}
+\textcolor{warn}{未验证}项：① 16x16x16x16 2L 仍 <1（0.74，层数固有），
+未做更细参数探索（cmi/ct 联合扫描）；② 参数优化未代码化（仍由测试
+配置指定，C++ 端无自适应逻辑）；③ 8x16x16x16 3L 的 r15 中间值未测
+（r10 与 r20 之间的最优未确认）。
+\end{warnbox}
+
+\end{document}
