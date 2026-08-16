@@ -17,18 +17,18 @@ from pyqcu.cuda import qcu
 import pyqcu.cuda.define as define
 from pyqcu.cuda.define import params, argv, set_ptrs
 
-LOG_DIR = os.path.expanduser("~/PyQCU/logs")
+LOG_DIR = os.path.expanduser("~/PyQCU/logs/tmp")
 os.makedirs(LOG_DIR, exist_ok=True)
 
 # ---- Configuration matrix ----
 CONFIGS = [
     # (label, Lx,Ly,Lz,Lt, mass, atol, num_levels, dof_list, mg_grid, restart, coarse_max_iter, coarse_tol_factor)
-    ("8x8x8x16_c64_m0.05_1L",  8, 8, 8, 16, 0.05, 1e-6, 1, [12],       [2,2,2,1], 5,  50,  10.0),
+    # ("8x8x8x16_c64_m0.05_1L",  8, 8, 8, 16, 0.05, 1e-6, 1, [12],       [2,2,2,1], 5,  50,  10.0),
     ("8x8x8x16_c64_m0.05_2L",  8, 8, 8, 16, 0.05, 1e-6, 2, [12,48],    [2,2,2,1], 5,  50,  10.0),
-    ("8x8x8x16_c64_m0.05_2L_r3",8, 8, 8, 16, 0.05, 1e-6, 2, [12,48],   [2,2,2,1], 3,  30,  10.0),
-    ("12x12x12x16_c64_m0.05_2L",12,12,12,16,0.05, 1e-6, 2, [12,48],    [2,2,2,1], 5,  80,  10.0),
-    ("16x16x16x16_c64_m0.05_2L",16,16,16,16,0.05,1e-6, 2, [12,48],     [2,2,2,1], 5, 100,  10.0),
-    ("8x8x8x16_c64_m0.10_2L",  8, 8, 8, 16, 0.10, 1e-6, 2, [12,12],    [2,2,2,1], 5,  50,  10.0),
+    # ("8x8x8x16_c64_m0.05_2L_r3",8, 8, 8, 16, 0.05, 1e-6, 2, [12,48],   [2,2,2,1], 3,  30,  10.0),
+    # ("12x12x12x16_c64_m0.05_2L",12,12,12,16,0.05, 1e-6, 2, [12,48],    [2,2,2,1], 5,  80,  10.0),
+    # ("16x16x16x16_c64_m0.05_2L",16,16,16,16,0.05,1e-6, 2, [12,48],     [2,2,2,1], 5, 100,  10.0),
+    # ("8x8x8x16_c64_m0.10_2L",  8, 8, 8, 16, 0.10, 1e-6, 2, [12,12],    [2,2,2,1], 5,  50,  10.0),
 ]
 
 def log(msg, fn="clover_multigrid_test.log"):
