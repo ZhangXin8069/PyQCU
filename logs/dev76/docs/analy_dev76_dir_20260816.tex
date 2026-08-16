@@ -1,0 +1,279 @@
+% ============================================================
+% analy 报告 — logs/dev76 测试套件全面分析
+% 编译: xelatex 两遍；交付前 Overfull 计数必须为 0
+% ============================================================
+\documentclass[UTF8]{ctexart}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{amsmath}
+\usepackage{microtype}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{xltabular}
+\usepackage{tabularx}
+\usepackage{hyperref}
+\usepackage{fancyhdr}
+\usepackage[most]{tcolorbox}
+\usepackage{titlesec}
+
+% ===== 色板 =====
+\definecolor{accent}{HTML}{1F4E79}
+\definecolor{evidence}{HTML}{1E8449}
+\definecolor{reference}{HTML}{8C6D1F}
+\definecolor{conclusion}{HTML}{8B1A1A}
+\definecolor{codebg}{HTML}{F4F6F7}
+\definecolor{struct}{HTML}{3B3B98}
+\definecolor{relation}{HTML}{0E7C7B}
+\definecolor{idea}{HTML}{B03A2E}
+\definecolor{warn}{HTML}{D35400}
+\definecolor{hl}{HTML}{FDF6E3}
+
+\setlength{\emergencystretch}{3em}
+\hypersetup{colorlinks=true,linkcolor=accent,urlcolor=relation}
+
+\titleformat{\section}{\Large\bfseries\color{accent}}{\thesection}{1em}{}
+\titleformat{\subsection}{\large\bfseries\color{struct}}{\thesubsection}{1em}{}
+\titleformat{\subsubsection}{\normalsize\bfseries\color{struct!70!black}}{\thesubsubsection}{1em}{}
+
+\newtcolorbox{conclbox}{breakable,colback=conclusion!6,colframe=conclusion,title=结论}
+\newtcolorbox{refbox}{breakable,colback=reference!6,colframe=reference,title=参考背景}
+\newtcolorbox{ideabox}{breakable,colback=idea!6,colframe=idea,title=项目思路}
+\newtcolorbox{warnbox}{breakable,colback=warn!6,colframe=warn,title=局限与风险}
+\newtcolorbox{keybox}{breakable,colback=hl,colframe=accent,title=要点}
+
+\lstset{
+  basicstyle=\ttfamily\footnotesize,
+  backgroundcolor=\color{codebg},
+  frame=single,
+  language=python,
+  firstnumber=auto,
+  keywordstyle=\color{accent}\bfseries,
+  commentstyle=\color{evidence!70!black},
+  stringstyle=\color{struct},
+  breaklines=true,
+  breakatwhitespace=false,
+  postbreak=\mbox{\textcolor{accent}{$\hookrightarrow$}\space},
+  keepspaces=true,
+  columns=flexible,
+  numbers=left,numberstyle=\tiny\color{struct!60!black},
+}
+
+\title{logs/dev76 目录全面分析 --- 多线程 CUDA C++ MultiGrid 测试套件}
+\author{opencode analy}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+本报告对 \texttt{logs/dev76/} 目录进行全面分析：它是一套完整的测试套件，
+用于验证多线程版（一线程一卡）CUDA C++ MultiGrid 求解器的正确性与性能，
+并记录 dev76 里程碑的粗层求解优化成果。三视角概览：
+\textcolor{struct}{主体结构}为单文件 main.py 子命令入口 + 版本化产物目录
+v<ts>/ + h5py 持久化；\textcolor{relation}{各部分关系}为测试脚本经 Cython
+桥驱动 C++ 后端，粗算子构建与求解阶段通过 h5py 缓存复用；
+\textcolor{idea}{项目思路}为物理正确性优先、真多线程并行、以实测数据驱动
+优化。核心结论：verify 全 PASS；bench 最佳 8x8x8x16 3L 加速比 2.13；
+sweep 14/16 配置达到 gate=1.5；dev76 优化使粗层求解 10 倍加速
+（coarse\_solve 533ms → 42ms）。
+\end{abstract}
+
+\tableofcontents
+
+% ================= 1 仓库概览 =================
+\section{目录概览}
+\subsection{logs/dev76 文件清单}
+\begin{lstlisting}[language=bash]
+logs/dev76/
+├── main.py              全部测试代码（816 行，子命令入口）
+├── run-local.sh         运行脚本（设备编排 + 版本目录，101 行）
+├── AGENTS.md            复现与比对指南（134 行）
+├── dev76_report.md      收尾结果报告（47 行）
+├── docs/                analy 报告（analy_dev76_*.tex/.pdf）
+├── logs/                C++ 收敛日志归档
+└── v<YYYYMMDDHHMM>/     版本化产物目录（每次运行独立）
+    ├── test76_verify.h5        正确性验证
+    ├── test76_clean_*.h5       干净测量
+    ├── test76_bench.h5         批量基准
+    ├── test76_sweep.h5         参数扫描
+    ├── test76_results.h5       collect 汇总
+    ├── test76_budget_*g.h5     显存预算
+    ├── test76_tbl_*.tex        LaTeX 表
+    └── test76_*.png            图
+\end{lstlisting}
+
+\subsection{版本目录实测（v202608160001，最终归档）}
+\begin{table}[htbp]\centering
+\begin{tabular}{lll}
+\toprule
+指标 & 实测值 & 说明 \\
+\midrule
+bench 中位加速比 & 1.148 & 7 配置 \\
+bench 最大加速比 & 2.135 & 8x8x8x16 3L P100x2 \\
+sweep 最大加速比 & 2.306 & L3 r10 ct1e5 cmi10 \\
+sweep 通过率（gate=1.5） & 14/16 & 8x8x8x16 P100x2 \\
+verify 正确性 & 全 PASS & rel\_diff=0 \\
+\bottomrule
+\end{tabular}
+\caption{logs/dev76 最终产物实测统计（数据来源: test76\_results.h5 / verify.h5 实测）}
+\end{table}
+
+% ================= 2 主体结构 =================
+\section{主体结构}
+\texttt{logs/dev76/} 的分层结构：
+\begin{table}[htbp]\centering
+\begin{tabularx}{\textwidth}{llX}
+\toprule
+\textcolor{struct}{层次} & 文件 & \textcolor{struct}{职责} \\
+\midrule
+入口层 & main.py / run-local.sh & 测试编排（verify/clean/bench/sweep/check/budget） \\
+被测对象 & pyqcu/cuda/\_multi\_gpu.py & MultiGpuMultigrid（N 线程 × 卡并行） \\
+数据层 & env.h5 / test76\_*.h5 & h5py 持久化（独立 File 句柄多线程安全） \\
+文档层 & AGENTS.md / dev76\_report.md / docs/ & 复现指南 / 汇总 / analy 报告 \\
+\bottomrule
+\end{tabularx}
+\caption{主体结构分层（数据来源: 全库索引实测）}
+\end{table}
+
+main.py 的子命令体系（\texttt{logs/dev76/main.py:757-812}）：
+verify → clean → bench → sweep → check → budget → collect → mktable → plots，
+每子命令产出独立 h5 文件，最终 collect 汇总。
+
+% ================= 3 各部分关系 =================
+\section{各部分关系}
+\begin{keybox}
+\textbf{依赖主链:} \textcolor{relation}{run-local.sh → main.py →
+pyqcu/cuda/\_multi\_gpu.py (MultiGpuMultigrid) → pyqcu/cuda/qcu.pyx (Cython
+桥) → cpp/cuda/qcu/libqcu.so (C++ 内核)；粗算子构建经 build\_schur\_levels
+（batch 路径）→ logs/nullvec\_cache h5py 缓存；结果经 save\_dict\_h5 →
+test76\_*.h5 → collect/mktable/plots}
+\end{keybox}
+
+\textcolor{relation}{优化与测试的关系}（dev76 里程碑闭环）：
+\begin{itemize}
+\item C++ 优化（lattice\_clover\_multigrid.h 多 block 归约）→ bench 验证
+  （8x8x8x16 2L 1.83→2.01）→ sweep 参数确认（best 2.31）→ 归档 v<ts>/；
+\item 粗算子构建（test14 批量路径）→ nullvec\_cache 跨 tag 复用 → 测试
+  秒级启动（16x16x16x32 3L 构建 86s 一次性成本）。
+\end{itemize}
+
+% ================= 4 项目思路 =================
+\section{项目思路}
+\subsection{设计意图}
+\begin{itemize}
+\item \textcolor{idea}{版本化产物}：每次运行独立 v<ts>/ 目录，跨环境可横向
+  比对（env.h5 记录 GPU/软件/git 快照）；
+\item \textcolor{idea}{h5py-only 持久化}：独立 File 句柄保证多线程安全，
+  结果字典经 attrs+datasets 存储（save\_dict\_h5）；
+\item \textcolor{idea}{真多线程}：求解热点在 worker 线程各自卡上并行
+  （qcu.pyx with nogil），测试脚本只编排收集。
+\end{itemize}
+\subsection{演进脉络}
+\texttt{logs/test12（单线程）→ test13（多线程 MultiGpuMultigrid）→
+test14（粗算子构建加速）→ dev76（粗层求解加速，本次）}。
+每个里程碑在前者基础上消除一个瓶颈：构建 1h+ → 86s（test14），
+粗层求解 533ms → 42ms（dev76）。
+\subsection{典型工作流}
+\begin{itemize}
+\item 运行：\texttt{source env.sh → bash logs/dev76/run-local.sh}；
+\item 产物：\texttt{v<ts>/} 版本目录（h5py 结果 + 表 + 图）；
+\item 比对：\texttt{diff} 两个版本的 test76\_results.h5 横向对比。
+\end{itemize}
+
+\begin{ideabox}
+项目思路核心：先消除构建/求解瓶颈，再测加速比；一切以实测为准；
+套件可复现、可比对、可演进。
+\end{ideabox}
+
+% ================= 5 主题分析 =================
+\section{主题分析}
+\subsection{测试覆盖（verify）}
+正确性验证四合一（\texttt{logs/dev76/main.py:305-354}）：
+\begin{itemize}
+\item 一致性模式：2 线程 × P100×2 共享输入，各线程解一致（rel\_diff=0）；
+\item 独立问题模式：2 线程不同 seed，解不同且各自收敛（|d|=7.75）；
+\item V100 单线程大格子：8x16x16x16 3L（rel\_diff=0）；
+\item h5py 多线程 IO：4 线程并发写/读往返（max\_err=0）。
+\end{itemize}
+
+\subsection{性能结果（bench）}
+\begin{table}[htbp]\centering
+\begin{tabular}{lllll}
+\toprule
+配置 & 设备 & ref(s) & mg(s) & speedup \\
+\midrule
+8x8x8x16 2L & P100x2 & 0.685 & 0.342 & \textbf{2.007} \\
+8x8x8x16 3L & P100x2 & 0.685 & 0.321 & \textbf{2.135} \\
+8x16x16x16 2L & P100x2 & 0.655 & 1.994 & 0.329 \\
+8x16x16x16 3L & P100x2 & 0.687 & 0.996 & 0.690 \\
+16x16x16x16 2L & P100x2 & 0.766 & 1.191 & 0.643 \\
+16x16x16x16 3L & V100 & 0.698 & 0.608 & \textbf{1.148} \\
+8x16x16x16 3L & V100 & 0.650 & 0.474 & \textbf{1.370} \\
+\bottomrule
+\end{tabular}
+\caption{bench 实测（数据来源: test76\_bench.h5）}
+\end{table}
+
+规律：3L 优于 2L（粗层更小、递归校正更有效）；中/大格子 2L $<$1 为
+层数固有特性；小格子（8x8x8x16）加速比 2.0-2.1。
+
+\subsection{参数扫描（sweep）}
+16 配置（levels × restart × ct × cmi）14/16 $\ge$ 1.5；最佳 2.306
+（L3 r10 ct1e5 cmi10）。\textcolor{relation}{r10 > r5}（V-cycle 频率
+更高收敛更快）、\textcolor{relation}{ct1e5 > ct1e4}（粗层容差更紧）、
+\textcolor{relation}{3L > 2L} 均与 test13/14 一致（参数相对行为可迁移）。
+
+\subsection{dev76 优化成果}
+粗层点积多 block 归约（\texttt{lattice\_clover\_multigrid.h:82-112}）：
+16x16x16x32 3L 中间粗层（196608 元素）coarse\_solve 533ms → 42ms
+（约 10 倍）；大最粗层（$\ge$64K）fused 回退普通迭代路径。
+
+% ================= 6 关键代码/文档片段 =================
+\section{关键代码/文档片段}
+measure\_multi（单配置测量核心）：
+\lstinputlisting[firstline=252,lastline=271]{/root/PyQCU/logs/dev76/main.py}
+
+多 block 归约 kernel（dev76 核心优化）：
+\lstinputlisting[firstline=74,lastline=112]{/root/PyQCU/cpp/cuda/qcu/include/lattice_clover_multigrid.h}
+
+% ================= 7 参考源清单 =================
+\section{参考源清单}
+\begin{xltabular}{\textwidth}{llX}
+\toprule
+\textcolor{evidence}{参考源} & 类型 & 内容/作用 \\
+\midrule
+\endhead
+\texttt{\nolinkurl{logs/dev76/main.py:252-299}} & 仓库 & measure\_multi 测量逻辑 \\
+\texttt{\nolinkurl{logs/dev76/main.py:305-354}} & 仓库 & verify 四合一验证 \\
+\texttt{\nolinkurl{logs/dev76/AGENTS.md}} & 仓库 & 套件约定与复现指南 \\
+\texttt{\nolinkurl{logs/dev76/dev76_report.md}} & 仓库 & 里程碑汇总 \\
+\texttt{\nolinkurl{logs/dev76/v202608160001/test76_results.h5}} & 仓库 & 最终汇总数据 \\
+\texttt{\nolinkurl{logs/dev76/v202608152354/test76_verify.h5}} & 仓库 & 正确性验证 \\
+\texttt{\nolinkurl{cpp/cuda/qcu/include/lattice_clover_multigrid.h:74-112}} & 仓库 & 多 block 归约 kernel \\
+\texttt{\nolinkurl{cpp/cuda/qcu/include/lattice_clover_multigrid.h:1227}} & 仓库 & fused 最粗层阈值 \\
+\bottomrule
+\end{xltabular}
+
+% ================= 8 结论与局限 =================
+\section{结论与局限}
+\begin{conclbox}
+三视角结论：\textcolor{struct}{结构}——单文件子命令套件 + 版本目录 + h5py
+数据层；\textcolor{relation}{关系}——Python 编排经 Cython 桥驱动 C++ 内核，
+缓存复用贯穿；\textcolor{idea}{思路}——先消瓶颈再测加速比，实测驱动。
+主题结论：logs/dev76 完整记录 dev76 里程碑——粗层求解 10 倍加速、
+全 3L 配置加速比提升（+5\%~28\%）、verify 全 PASS、sweep 14/16 达标。
+\end{conclbox}
+\begin{refbox}
+多线程多卡 MultiGrid 测试套件设计（版本目录 + 环境快照 + 参数扫描）与
+QUDA/Chroma 等生产框架的 benchmark 实践一致；加速比语义
+（墙钟 = max 各线程）为多线程并行测试的标准定义。
+\end{refbox}
+\begin{warnbox}
+\textcolor{warn}{未验证}项：① 16x16x16x32 3L 未纳入 bench（求解慢，
+已知特性），其优化成果仅在 dev76 专项测试确认；② 2L 大格子 $<$1 未做
+更细参数探索（cmi 50/200 提升有限）；③ h5py IO 并发上限仅测 4 线程，
+更高并发未验证。
+\end{warnbox}
+
+\end{document}
