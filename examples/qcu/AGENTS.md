@@ -24,6 +24,15 @@ mpirun -np 1 python examples/qcu/conftest.clover.multigrid.py
 
 输出：收敛日志 → `logs/clover_multigrid.log`，性能报告 → `logs/clover_multigrid_report.log`
 
+### conftest.clover.multigrid.py 运行约定（2026-08-16 修复后）
+
+- **日志路径**：脚本必须设置 `os.environ["QCU_LOG_DIR"] = LOG_DIR`——C++ `log_write` 默认写 cwd 相对路径 `logs/clover_multigrid.log`，不重定向则 Python 端（读 `~/PyQCU/logs/tmp/clover_multigrid.log`）解析不到 `CONVERGENCE_HISTORY`，`Conv pts=0`、出图失败。
+- **MG 参数**：`COARSE_MAX_ITER` 必须 ≥200（=50 时粗 solve 每轮截断在 target 之前，粗解精度不足 → V-cycle 校正无效 → 500 次跑满）；`nv_iters` 用 20（=1 时粗算子质量差，V-cycle 同样失效）。
+- C++ 端（`lattice_clover_multigrid.h` / `multigrid.cu`）配套修复：
+  - 粗 solve（fused + 普通路径）`r0 < 1e-4` 时跳过（fp32 下 target 不可达 → BiStabCG 0/0 → nan 毒化 fine 残差）；
+  - `run()` V-cycle 在 fine Schur 残差 `rn ≤ 100·atol` 时停止（空转校正 + state reset 使残差反弹 ~1e-5）；
+  - `run_test` 全算子残差须在掩码棋盘布局 `[12,X,Y,Z,T]`（通道 `lat_4dim_SC`）上直算（`b=b_e+b_o`，`D·x` 用掩码算子组件）；`parity_to_full`/`full_to_parity` 假设 `[..,T/2]` 压缩布局，与细层不匹配，误用会报 `|D*x-b|/|b|~1.16`（解实际正确）。
+
 ## Dev 套件（dev73_5 / dev74 / dev74_1）
 
 按里程碑归档于子目录，产物统一落到 `logs/<tag>/` 对应子目录：
