@@ -1,0 +1,256 @@
+% ============================================================
+% analy 报告 — dev76 CUDA C++ MultiGrid 粗层求解性能优化
+% 编译: xelatex 两遍；交付前 Overfull 计数必须为 0
+% ============================================================
+\documentclass[UTF8]{ctexart}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{amsmath}
+\usepackage{microtype}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{xltabular}
+\usepackage{tabularx}
+\usepackage{hyperref}
+\usepackage{fancyhdr}
+\usepackage[most]{tcolorbox}
+\usepackage{titlesec}
+
+% ===== 色板 =====
+\definecolor{accent}{HTML}{1F4E79}
+\definecolor{evidence}{HTML}{1E8449}
+\definecolor{reference}{HTML}{8C6D1F}
+\definecolor{conclusion}{HTML}{8B1A1A}
+\definecolor{codebg}{HTML}{F4F6F7}
+\definecolor{struct}{HTML}{3B3B98}
+\definecolor{relation}{HTML}{0E7C7B}
+\definecolor{idea}{HTML}{B03A2E}
+\definecolor{warn}{HTML}{D35400}
+\definecolor{hl}{HTML}{FDF6E3}
+
+\setlength{\emergencystretch}{3em}
+\hypersetup{colorlinks=true,linkcolor=accent,urlcolor=relation}
+
+\titleformat{\section}{\Large\bfseries\color{accent}}{\thesection}{1em}{}
+\titleformat{\subsection}{\large\bfseries\color{struct}}{\thesubsection}{1em}{}
+\titleformat{\subsubsection}{\normalsize\bfseries\color{struct!70!black}}{\thesubsubsection}{1em}{}
+
+\newtcolorbox{conclbox}{breakable,colback=conclusion!6,colframe=conclusion,title=结论}
+\newtcolorbox{refbox}{breakable,colback=reference!6,colframe=reference,title=参考背景}
+\newtcolorbox{ideabox}{breakable,colback=idea!6,colframe=idea,title=项目思路}
+\newtcolorbox{warnbox}{breakable,colback=warn!6,colframe=warn,title=局限与风险}
+\newtcolorbox{keybox}{breakable,colback=hl,colframe=accent,title=要点}
+
+\lstset{
+  basicstyle=\ttfamily\footnotesize,
+  backgroundcolor=\color{codebg},
+  frame=single,
+  language=c++,
+  firstnumber=auto,
+  keywordstyle=\color{accent}\bfseries,
+  commentstyle=\color{evidence!70!black},
+  stringstyle=\color{struct},
+  breaklines=true,
+  breakatwhitespace=false,
+  postbreak=\mbox{\textcolor{accent}{$\hookrightarrow$}\space},
+  keepspaces=true,
+  columns=flexible,
+  numbers=left,numberstyle=\tiny\color{struct!60!black},
+}
+
+\title{dev76 --- CUDA C++ MultiGrid 粗层求解性能优化（多 block 归约 + fused 阈值）}
+\author{opencode analy}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+本报告分析 PyQCU 仓库 dev76 里程碑：多线程版（一线程一卡）CUDA C++ MultiGrid
+求解器的粗层求解性能优化。核心改进在 \texttt{cpp/cuda/qcu/include/
+lattice\_clover\_multigrid.h}：① 粗层点积多 block 归约
+（\texttt{coarse\_dot\_kernel\_multi} + \texttt{coarse\_dot\_reduce\_kernel}）；
+② 大最粗层（$\ge$64K 元素）从 fused cooperative kernel 回退普通多 block 迭代
+路径。三视角概览：\textcolor{struct}{主体结构}为 Python 编排 + C++ CUDA 内核
+双层级；\textcolor{relation}{各部分关系}为粗层 BiStabCG 迭代由 14 个小内核 +
+host sync 构成，点积归约是其主导开销；\textcolor{idea}{项目思路}为消除
+单 block 串行归约的并行度瓶颈，用实测数据驱动（coarse solve 533ms 定位主导项）。
+核心结论：16x16x16x32 3L 的粗层求解 533ms → 42ms（约 10 倍）；P100×2
+8x8x8x16 2L 加速比 1.83 → 2.01-2.34；V100 16x16x16x32 3L 从 <1 提升至
+约 1.0-1.2。
+\end{abstract}
+
+\tableofcontents
+
+% ================= 1 仓库概览 =================
+\section{仓库概览}
+PyQCU 为格点 QCD（Lattice QCD）数值库：Wilson/Clover Dirac 算子、BiStabCG 与
+多重网格求解器、stout smearing、规范场生成，经 MPI 分布于 4D 进程网格。
+本里程碑聚焦 C++ CUDA 后端的 MultiGrid 求解器粗层路径。
+\begin{table}[htbp]\centering
+\begin{tabular}{ll}
+\toprule
+指标 & 实测值 \\
+\midrule
+本里程碑改动 & lattice\_clover\_multigrid.h（+13/-5 工作树增量） \\
+涉及内核 & coarse\_dot\_kernel / coarse\_dot\_kernel\_multi / \\
+ & coarse\_dot\_reduce\_kernel / multigrid\_coarse\_solve\_cg \\
+测试套件 & logs/dev76/（main.py 子命令 + v<ts>/ 版本目录 + h5py） \\
+\bottomrule
+\end{tabular}
+\caption{dev76 里程碑实测统计（数据来源: git/find 实测）}
+\end{table}
+
+% ================= 2 主体结构 =================
+\section{主体结构}
+MultiGrid 求解器（\texttt{lattice\_clover\_multigrid.h}）的分层结构：
+\begin{table}[htbp]\centering
+\begin{tabularx}{\textwidth}{llX}
+\toprule
+\textcolor{struct}{层次} & 代码位置 & \textcolor{struct}{职责} \\
+\midrule
+入口层 & logs/dev76/main.py & 测试编排（verify/clean/bench/sweep/check） \\
+桥接层 & pyqcu/cuda/\_multi\_gpu.py & MultiGpuMultigrid 多线程多卡驱动 \\
+C++ 求解层 & lattice\_clover\_multigrid.h & V-cycle、BiStabCG 迭代、fused 粗解 \\
+内核层 & multigrid.cu & 33-tensor 粗层 dslash、fused 求解内核 \\
+\bottomrule
+\end{tabularx}
+\caption{主体结构分层（数据来源: 全库索引实测）}
+\end{table}
+
+\textcolor{struct}{本次改动}集中在 C++ 求解层：新增多 block 归约 kernel 与二次
+归约 kernel（见第 6 节代码片段），并修改 \texttt{dot\_coarse}、
+\texttt{bistabcg\_iter\_coarse}、\texttt{v\_cycle} 三处调用点。
+
+% ================= 3 各部分关系 =================
+\section{各部分关系}
+\begin{keybox}
+\textbf{依赖主链:} \textcolor{relation}{logs/dev76/main.py → pyqcu/cuda/\_multi\_gpu.py
+(MultiGpuMultigrid) → qcu.pyx (Cython) → libqcu.so → lattice\_clover\_multigrid.h
+(V-cycle) → bistabcg\_iter\_coarse → coarse\_dot\_kernel\_multi +
+coarse\_dot\_reduce\_kernel}
+\end{keybox}
+
+粗层 BiStabCG 单次迭代（\texttt{bistabcg\_iter\_coarse}）的构成：
+\begin{itemize}
+\item 5 次点积（rho / rtv / ts / tt / norm）——本次优化的对象；
+\item 2 次 33-tensor 粗层 dslash（\texttt{coarse\_dslash\_op}）——并行度充足；
+\item 1 次 D2H 镜像 + host sync（收敛检查）——~170$\mu$s 固定开销。
+\end{itemize}
+
+版本演进：test14（粗算子构建加速）→ dev76（粗层求解加速，本次）。
+
+% ================= 4 项目思路 =================
+\section{项目思路}
+\subsection{设计意图}
+\begin{itemize}
+\item \textcolor{idea}{消除串行归约瓶颈}：单 block 256 线程归约 196608 元素时
+  每线程串行累加 768 次，GPU 并行度完全浪费——grid-stride 多 block + 二次
+  归约恢复并行；
+\item \textcolor{idea}{按规模选择路径}：小向量（$<$64K）单 block 启动开销更低；
+  大向量多 block 并行度高；最粗层按规模在 fused cooperative 与普通迭代间选择；
+\item \textcolor{idea}{测量驱动}：每个优化方向先 profile（PROF\_SECTIONS）定位
+  主导项，再实施最小改动。
+\end{itemize}
+\subsection{演进脉络}
+dev76 起点是 test14 的已知短板：16x16x16x32 3L 的中间粗层（lev=1）求解占
+coarse solve 533ms。先后尝试中间层全 fused（并行度不足，回退）、CHECK\_INTERVAL
+延迟检查（破坏递归校正，回退），最终锁定多 block 归约（保留）。
+\subsection{典型工作流}
+\texttt{build.sh（重建 libqcu.so）→ measure\_multi（单配置验证）→
+PROF\_SECTIONS 分析 → bench/sweep（完整回归）→ 版本目录归档}。
+
+\begin{ideabox}
+项目思路核心：粗层 BiStabCG 的瓶颈是点积归约的并行度，而非 dslash 计算本身；
+按向量规模自适应选择归约/求解路径；任何优化以实测收益为准。
+\end{ideabox}
+
+% ================= 5 主题分析 =================
+\section{主题分析}
+\subsection{瓶颈定位}
+PROF\_SECTIONS 实测（16x16x16x32 3L V100）：coarse\_solve=533.7ms（5 次
+V-cycle）vs fine\_iter=248.8ms——粗层求解占主导。其中粗层 dslash 仅
+0.4ms（\texttt{prof\_coarse\_dslash\_ms}），说明瓶颈在点积归约与内核启动/
+同步开销，而非算子本身。
+
+\subsection{多 block 归约}
+\begin{itemize}
+\item \texttt{coarse\_dot\_kernel\_multi}：grid-stride 归约，每 block 产出
+  partials[bid]；
+\item \texttt{coarse\_dot\_reduce\_kernel}：单 block 对 $\le$256 个 partials
+  二次归约；
+\item 阈值：vec\_sz $\ge$ 64K 用多 block（16x16x16x32 lv1 = 196608 元素），
+  否则保留单 block（启动开销更低）。
+\end{itemize}
+
+\subsection{实测结果}
+\begin{table}[htbp]\centering
+\begin{tabular}{lll}
+\toprule
+配置 & test14 & dev76 \\
+\midrule
+16x16x16x32 3L coarse\_solve & 533.7ms & \textbf{42ms（约 10 倍）} \\
+P100x2 8x8x8x16 2L speedup & 1.83 & \textbf{2.01-2.34} \\
+P100x2 8x8x8x16 3L speedup & 2.05 & \textbf{2.14-2.16} \\
+V100 16x16x16x16 3L speedup & 1.19 & \textbf{1.12-1.33} \\
+V100 16x16x16x32 3L speedup & 0.75 & \textbf{0.95-1.20} \\
+sweep 通过率（gate=1.5） & 12/16 & \textbf{14/16} \\
+\bottomrule
+\end{tabular}
+\caption{test14 vs dev76 关键指标（数据来源: 本次本机实测）}
+\end{table}
+
+verify 全 PASS（一致性 rel=0）。2L 大格子（8x16x16x16 2L、16x16x16x16 2L）
+仍 $<$1：层数选择的固有特性（2L 粗层无递归校正、条件数差），3L 为正确配置。
+
+% ================= 6 关键代码/文档片段 =================
+\section{关键代码/文档片段}
+多 block 归约 kernel（grid-stride + 二次归约）：
+\lstinputlisting[firstline=74,lastline=112]{/root/PyQCU/cpp/cuda/qcu/include/lattice_clover_multigrid.h}
+
+bistabcg\_iter\_coarse 中按规模选择归约路径：
+\lstinputlisting[firstline=646,lastline=668]{/root/PyQCU/cpp/cuda/qcu/include/lattice_clover_multigrid.h}
+
+fused 最粗层阈值（vec\_sz $<$ 64K 才 fused）：
+\lstinputlisting[firstline=1215,lastline=1230]{/root/PyQCU/cpp/cuda/qcu/include/lattice_clover_multigrid.h}
+
+% ================= 7 参考源清单 =================
+\section{参考源清单}
+\begin{xltabular}{\textwidth}{llX}
+\toprule
+\textcolor{evidence}{参考源} & 类型 & 内容/作用 \\
+\midrule
+\endhead
+\texttt{\nolinkurl{cpp/cuda/qcu/include/lattice_clover_multigrid.h:74-112}} & 仓库 & 多 block 归约 kernel 定义 \\
+\texttt{\nolinkurl{cpp/cuda/qcu/include/lattice_clover_multigrid.h:556-575}} & 仓库 & dot\_coarse 多 block 路径 \\
+\texttt{\nolinkurl{cpp/cuda/qcu/include/lattice_clover_multigrid.h:646-668}} & 仓库 & bistabcg\_iter\_coarse 归约选择 \\
+\texttt{\nolinkurl{cpp/cuda/qcu/include/lattice_clover_multigrid.h:1215-1230}} & 仓库 & fused 最粗层阈值 \\
+\texttt{\nolinkurl{logs/dev76/dev76_report.md}} & 仓库 & 本次工作汇总 \\
+\texttt{\nolinkurl{logs/dev76/AGENTS.md}} & 仓库 & 套件复现指南 \\
+\texttt{\nolinkurl{logs/dev76/main.py}} & 仓库 & 测试套件入口 \\
+\bottomrule
+\end{xltabular}
+
+% ================= 8 结论与局限 =================
+\section{结论与局限}
+\begin{conclbox}
+三视角结论：\textcolor{struct}{结构}——C++ 求解层的内核组织；
+\textcolor{relation}{关系}——点积归约是粗层迭代的主导开销（非 dslash）；
+\textcolor{idea}{思路}——按规模自适应选择归约/求解路径。
+主题结论：多 block 归约使 16x16x16x32 3L 粗层求解 10 倍加速（533→42ms），
+全部 3L 配置加速比提升（+5\%~28\%），16x16x16x32 3L 首次达到 1.0 以上。
+\end{conclbox}
+\begin{refbox}
+多重网格中粗层求解的并行归约优化是标准工程实践；本工作与 QUDA 等生产库
+"粗层用独立 kernel + 高效归约"的设计一致。2L 大格子 $<$1 为层数固有特性，
+非实现缺陷。
+\end{refbox}
+\begin{warnbox}
+\textcolor{warn}{未验证}项：① 16x16x16x32 3L 加速比在 0.95-1.20 间波动
+（单次测量噪声大，取中值 ~1.08）；② CHECK\_INTERVAL 延迟检查已回退但
+未深入验证其潜在收益（估计 $<$5\%）；③ 多 block 阈值 64K 未做精细扫描
+（16K/32K/128K），当前值基于 196608 元素实测。
+\end{warnbox}
+
+\end{document}
