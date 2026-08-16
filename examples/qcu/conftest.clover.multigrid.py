@@ -24,14 +24,28 @@ os.makedirs(LOG_DIR, exist_ok=True)
 # 用环境变量 QCU_LOG_DIR 把 C++ 日志重定向到与 Python 相同的目录。
 os.environ["QCU_LOG_DIR"] = LOG_DIR
 
+# ---- Device selection ----
+# 注意：CUDA 运行时枚举顺序与 nvidia-smi 顺序可能不同——本机实测
+# cuda:0=V100-32G（性能最佳）、cuda:1/2=P100-16G（nvidia-smi 为 0/1=P100, 2=V100）。
+# C++ 端单 rank 不调用 cudaSetDevice，跟随 torch 当前设备，故 set_device 同时
+# 约束 Python 与 C++ 两端。可用 QCU_DEVICE_ID 覆盖（如 1/2 强制 P100）。
+QCU_DEVICE_ID = int(os.environ.get("QCU_DEVICE_ID", "0"))
+torch.cuda.set_device(QCU_DEVICE_ID)
+
 # ---- Configuration matrix ----
 CONFIGS = [
     # (label, Lx,Ly,Lz,Lt, mass, atol, num_levels, dof_list, mg_grid, restart, coarse_max_iter, coarse_tol_factor)
-    # ("8x8x8x16_c64_m0.05_1L",  8, 8, 8, 16, 0.05, 1e-6, 1, [12],       [2,2,2,1], 5,  50,  10.0),
-    ("8x8x8x16_c64_m0.05_2L",  8, 8, 8, 16, 0.05, 1e-6, 2, [12,48],    [2,2,2,1], 5, 200,  10.0),
+    ("8x8x8x16_c64_m0.05_1L",  8, 8, 8, 16, 0.05, 1e-6, 1, [12],       [2,2,2,1], 5,  50,  10.0),
+    ("8x8x8x16_c64_m0.05_2L",  8, 8, 8, 16, 0.05, 1e-6, 2, [12,48],    [2,2,2,1], 5, 200, 3000.0),
     # ("8x8x8x16_c64_m0.05_2L_r3",8, 8, 8, 16, 0.05, 1e-6, 2, [12,48],   [2,2,2,1], 3, 200,  10.0),
-    # ("12x12x12x16_c64_m0.05_2L",12,12,12,16,0.05, 1e-6, 2, [12,48],    [2,2,2,1], 5, 200,  10.0),
-    # ("16x16x16x16_c64_m0.05_2L",16,16,16,16,0.05,1e-6, 2, [12,48],     [2,2,2,1], 5, 200,  10.0),
+    # 3L: 大格子较 2L 提速 37-47%（coarsest 变小、level1 迭代 ~13 次即达 tol）
+    ("12x12x12x16_c64_m0.05_2L",12,12,12,16,0.05, 1e-6, 2, [12,48,48],  [2,2,2,1], 5, 200, 3000.0),
+    ("12x12x12x16_c64_m0.05_1L",12,12,12,16,0.05, 1e-6, 1, [12,48,48],  [2,2,2,1], 5, 200, 3000.0),
+    ("12x12x12x16_c64_m0.05_3L",12,12,12,16,0.05, 1e-6, 3, [12,48,48],  [2,2,2,1], 5, 200, 3000.0),
+    ("16x16x16x16_c64_m0.05_2L",16,16,16,16,0.05, 1e-6, 2, [12,48,48],  [2,2,2,1], 5, 200, 3000.0),
+    ("16x16x16x16_c64_m0.05_3L",16,16,16,16,0.05, 1e-6, 3, [12,48,48],  [2,2,2,1], 5, 200, 3000.0),
+    ("16x16x16x16_c64_m0.05_1L",16,16,16,16,0.05, 1e-6, 1, [12,24,24],  [2,2,2,1], 5, 200, 3000.0),
+    ("16x16x16x16_c64_m0.05_3L",16,16,16,16,0.05, 1e-6, 3, [12,24,24],  [2,2,2,1], 5, 200, 3000.0),
     # ("8x8x8x16_c64_m0.10_2L",  8, 8, 8, 16, 0.10, 1e-6, 2, [12,12],    [2,2,2,1], 5,  50,  10.0),
 ]
 
@@ -47,6 +61,7 @@ for f in ["clover_multigrid_test.log", "clover_multigrid.log"]:
     open(os.path.join(LOG_DIR, f), "w").close()
 
 log("=" * 80)
+log(f"  Device: {torch.cuda.get_device_name(QCU_DEVICE_ID)} (cuda:{QCU_DEVICE_ID})")
 log("PyQCU C++ CUDA Clover Multigrid — Multi-Configuration Test Suite")
 log(f"  Configs: {len(CONFIGS)}")
 log(f"  TIMESTAMP: {datetime.now().isoformat()}")
@@ -84,26 +99,26 @@ for ci, (label, Lx, Ly, Lz, Lt, MASS, ATOL, NUM_LEVELS, DOF_LIST, MG_GRID, NUM_R
         params[define._MG_LEVEL1_T_] = level1_T
         params[define._MG_LEVEL1_MAX_ITER_] = COARSE_MAX_ITER
         params[define._MG_LEVEL1_DATA_TYPE_] = define._LAT_C64_
-        params[define._MG_LEVEL1_NUM_RESTART_] = 3  # coarse restart (not used for 2L currently)
+        params[define._MG_LEVEL1_NUM_RESTART_] = 5  # V-cycle 频率（3→5: 扫描最优，vcycle 次数 6→4）
 
     if NUM_LEVELS >= 3:
         params[define._MG_LEVEL2_E_] = DOF_LIST[2] if len(DOF_LIST) > 2 else 24
         params[define._MG_LEVEL2_X_] = Lx // (MG_GRID[0] * MG_GRID[0])
         params[define._MG_LEVEL2_Y_] = Ly // (MG_GRID[1] * MG_GRID[1])
         params[define._MG_LEVEL2_Z_] = Lz // (MG_GRID[2] * MG_GRID[2])
-        params[define._MG_LEVEL2_T_] = Lt // (MG_GRID[3] * MG_GRID[3])
+        params[define._MG_LEVEL2_T_] = level1_T // MG_GRID[3]  # SCHUR: level1 T 再粗化（build_schur_levels 同约定）
         params[define._MG_LEVEL2_MAX_ITER_] = 200
         params[define._MG_LEVEL2_DATA_TYPE_] = define._LAT_C64_
-        params[define._MG_LEVEL2_NUM_RESTART_] = 3
+        params[define._MG_LEVEL2_NUM_RESTART_] = 5  # level1→level2 校正频率
 
     argv_new = argv.to(dtype=define.dtype(params[define._DATA_TYPE_]).to_real())
     argv_new[define._MASS_] = MASS; argv_new[define._ATOL_] = ATOL; argv_new[define._SIGMA_] = 0.1
     if NUM_LEVELS >= 2:
         argv_new[define._MG_LEVEL1_ATOL_] = ATOL * COARSE_TOL_FACTOR
     if NUM_LEVELS >= 3:
-        argv_new[define._MG_LEVEL2_ATOL_] = ATOL * 0.1
+        argv_new[define._MG_LEVEL2_ATOL_] = ATOL * COARSE_TOL_FACTOR * 3  # level2 可比 level1 松（迭代 ~1/2）
 
-    device = torch.device('cuda')
+    device = torch.device(f"cuda:{QCU_DEVICE_ID}")
     dtype_t = define.dtype(params[define._DATA_TYPE_])
     lat_shape = define.lat_shape(params)
 
@@ -161,7 +176,7 @@ for ci, (label, Lx, Ly, Lz, Lt, MASS, ATOL, NUM_LEVELS, DOF_LIST, MG_GRID, NUM_R
         lonv_list, hop_nn_l, hop_diag_l, sit_l = _bsl(
             op_fine, S_build,
             NUM_LEVELS, [12] + DOF_LIST[1:], MG_GRID, _lat_full, DOF_LIST[1],
-            dtype_t, device, nv_iters=20, use_cache=False, cache_dir=None, verbose=False)
+            dtype_t, device, nv_iters=20, use_cache=True, cache_dir=None, verbose=False)
 
         log(f"    Coarse ops: {len(lonv_list)} level(s) built")
 
