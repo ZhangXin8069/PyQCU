@@ -1,0 +1,511 @@
+% ============================================================
+% pure 报告 — 规范模板 v2（xelatex + ctex）
+% 主题: DDalphaAMG 核心物理算法与代码-物理映射穷尽剖析
+% 编译: xelatex 两遍; 交付前 Overfull 计数必须为 0
+% ============================================================
+\documentclass[UTF8]{ctexart}
+% 宏包顺序固定，不可调整（存在依赖：tcolorbox 依赖 xcolor 等）
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{amsmath}              % 公式编号 \label/\eqref 交叉引用
+\usepackage{amsfonts}             % \mathbb 双线体（供 \mathbb{1} 使用）
+\usepackage{microtype}            % 微排版，缓解长词/URL 溢出
+\usepackage{listings}             % 代码直引 \lstinputlisting
+\usepackage{xcolor}
+\usepackage{booktabs}             % 表格粗线规范
+\usepackage{longtable}            % 长表自动跨页（核心部分清单必用）
+\usepackage{xltabular}            % 跨页+自动换行合体（longtable+tabularx，长表用）
+\usepackage{tabularx}             % X 列自动换行（防表格溢出）
+\usepackage{hyperref}             % 书签/链接（最后加载，避免与其它宏包冲突）
+\usepackage{fancyhdr}             % 页眉页脚
+\usepackage[most]{tcolorbox}      % most = 含 breakable（彩色框可跨页）
+\usepackage{titlesec}             % 章节标题着色
+
+% ===== 色板（语义化；全文档同一颜色只表达同一类含义）=====
+\definecolor{accent}{HTML}{1F4E79}        % 主色(深蓝): 章节标题/强调主色
+\definecolor{evidence}{HTML}{1E8449}      % 仓库证据(绿): 参考源/证据句/代码注释
+\definecolor{reference}{HTML}{8C6D1F}     % 参考背景(棕): 知识库/书籍旁证
+\definecolor{conclusion}{HTML}{8B1A1A}    % 结论(深红): 结论框
+\definecolor{codebg}{HTML}{F4F6F7}        % 代码块底色(浅灰)
+% —— pure 场景色（三类核心 + 状态）——
+\definecolor{algo}{HTML}{E67E22}          % 算法(橙): 核心算法/数据结构/复杂度
+\definecolor{phys}{HTML}{6C3483}          % 物理(紫): 物理图像/公式/推导链
+\definecolor{map}{HTML}{C2185B}           % 映射(玫红): 代码符号↔物理对象
+\definecolor{warn}{HTML}{D35400}          % 未验证/局限(橙红): 风险与缺口
+\definecolor{hl}{HTML}{FDF6E3}            % 重点强调(浅黄底): 关键句底色
+
+% ===== 全局防溢出设置 =====
+\setlength{\emergencystretch}{3em}        % 长词/URL 断行缓冲
+\hypersetup{colorlinks=true,linkcolor=accent,urlcolor=phys} % 链接着色
+
+% ===== 层次分明的标题 =====
+\titleformat{\section}{\Large\bfseries\color{accent}}{\thesection}{1em}{}
+\titleformat{\subsection}{\large\bfseries\color{phys}}{\thesubsection}{1em}{}
+\titleformat{\subsubsection}{\normalsize\bfseries\color{phys!70!black}}{\thesubsubsection}{1em}{}
+
+% ===== 彩色标识框（均带 breakable 防跨页溢出）=====
+\newtcolorbox{conclbox}{breakable,colback=conclusion!6,colframe=conclusion,title=结论}
+\newtcolorbox{refbox}{breakable,colback=reference!6,colframe=reference,title=参考背景}
+\newtcolorbox{algobox}{breakable,colback=algo!6,colframe=algo,title=核心算法}
+\newtcolorbox{physbox}{breakable,colback=phys!6,colframe=phys,title=物理图像}
+\newtcolorbox{mapbox}{breakable,colback=map!6,colframe=map,title=代码-物理映射}
+\newtcolorbox{warnbox}{breakable,colback=warn!6,colframe=warn,title=局限与风险}
+\newtcolorbox{keybox}{breakable,colback=hl,colframe=accent,title=要点}
+
+% ===== 代码样式（防溢出关键）=====
+\lstset{
+  basicstyle=\ttfamily\footnotesize,
+  backgroundcolor=\color{codebg},
+  frame=single,
+  language=c,
+  firstnumber=auto,
+  keywordstyle=\color{accent}\bfseries,
+  commentstyle=\color{evidence!70!black},
+  stringstyle=\color{map},
+  breaklines=true,            % 长行自动断行
+  breakatwhitespace=false,    % 任意位置断行（防超长 token 溢出）
+  postbreak=\mbox{\textcolor{accent}{$\hookrightarrow$}\space},
+  keepspaces=true,
+  columns=flexible,
+  numbers=left,numberstyle=\tiny\color{phys!60!black},
+}
+
+\title{DD$\alpha$AMG：格点 QCD Wilson--Clover 求解器核心物理与算法穷尽剖析}
+\author{opencode pure（物理+代码复合视角）}
+\date{2026-08-15}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+本报告对 \texttt{DDalphaAMG}（格点 QCD Wilson--Clover 费米子逆变器，聚合型代数多重网格 AMG 求解器）
+进行穷尽剖析。项目性质判定为\textbf{代码--物理交叉向}：主体为 \texttt{src/} 下约 4.6 万行物理计算代码，
+配以 \texttt{doc/user\_doc.tex} 的 Wilson--Dirac 方程说明，核心竞争力是物理上源于 Wilson 费米子
+近零模局部相干性的\textbf{自适应多重网格}设计及其工程实现。共枚举 12 个候选核心部分
+（C1--C12），其中 \textbf{7 个深挖}（Wilson--Clover 算子、偶奇预处理、自适应 setup、
+几何聚合与插值、粗算子三重积、Schwarz 平滑器、K-cycle 与最粗层 GCR-ODR）、
+\textbf{3 个浅析}（外求解器与混合精度、ghost 通信、向量化与 CUDA）、\textbf{2 个排除}（配置/IO/测试脚手架、构建体系）。
+最深结论：该代码把 ``松弛化试验向量逼近近零模子空间'' 的物理思想落为
+``聚合内 Gram--Schmidt + 逐聚合三重积 + spin 块结构存储'' 的数值方案，
+并以 $\gamma_5$-Hermite 性（$D^\dagger=\gamma_5 D \gamma_5$）作为粗算子块结构存储的对称性依据，
+同时用通信--计算重叠与 SIMD/CUDA 双层加速保证大规模可扩展性。
+\end{abstract}
+
+\tableofcontents
+
+% ================= 1 项目定位与核心部分清单 =================
+\section{项目定位与核心部分清单}
+
+\subsection{项目性质判定}
+\begin{keybox}
+\textbf{项目性质:} \textcolor{phys}{代码--物理交叉向}。判定依据（实测）：
+\begin{itemize}
+\item 主体文件为 \texttt{src/} 下 134 个 \texttt{.c/.h} 文件（约 46k 行，含 \texttt{src/gpu/} CUDA 代码约 15k 行），
+全部为物理计算代码：Dirac 算子、Schur 补、多重网格、Krylov 求解器；
+\item \texttt{README} 声明：``The DDalphaAMG solver library is an inverter for Wilson-Clover fermions from lattice QCD''；
+\item \texttt{doc/user\_doc.tex:26} 直接给出所求解方程 $D_W(U,m_0)\psi=\eta$ 与质量约定 $m_0=1/(2\kappa)-4$；
+\item 报告剖析框架：\textcolor{map}{代码符号 $\leftrightarrow$ 物理对象双向映射表} + 逐符号解释。
+\end{itemize}
+\end{keybox}
+
+\subsection{核心部分总清单（穷尽枚举）}
+穷尽枚举仓库全部独特竞争力载体，三态（深挖/浅析/排除）填满，无``未处理''项。
+\begin{xltabular}{\textwidth}{lllX}
+\toprule
+\textcolor{algo}{编号} & 核心部分 & 处理态 & 独特性概述 \\
+\midrule
+\endhead
+C1 & Wilson--Clover Dirac 算子 & 深挖 & 物理核心：hopping 项 $(1\pm\gamma_\mu)$ 投影结构 + clover 叶场强 \\
+C2 & 偶奇（even-odd）预处理 & 深挖 & 6$\times$6 逐点 Cholesky $LL^\dagger$ + Schur 补约化 \\
+C3 & 自适应 setup（试验向量松弛与 bootstrap） & 深挖 & 以 V-cycle/F-cycle 松弛逼近近零模，``自适应'' 之名所在 \\
+C4 & 几何聚合与插值 $P$ & 深挖 & 无强度连接探测的块聚合；聚合内正交化；spin 块结构 \\
+C5 & 粗算子三重积 $P^\dagger D P$ 构造 & 深挖 & 逐聚合受限 Dirac 作用 + $\gamma_5$-Hermite 块存储 \\
+C6 & Schwarz 平滑器（SAP 族） & 深挖 & additive/红黑/16 色着色 + 局部 MINRES/odd-even 块求解 \\
+C7 & V-cycle/K-cycle 与最粗层 GCR-ODR & 深挖 & 回收子空间 deflation 求解器 + 多项式预处理选项 \\
+C8 & 外求解器 FGMRES 与混合精度 & 浅析 & 双精度外层 + 单精度预处理层次（含全混合精度选项） \\
+C9 & ghost 通信与通信--计算重叠 & 浅析 & 方向流水线 sendrecv/wait 交错，隐藏 MPI 延迟 \\
+C10 & SSE/AVX 向量化与 CUDA GPU 移植 & 浅析 & 分层数据布局与组件化 kernel，CPU/GPU 双路径 \\
+C11 & ini 配置/配置读取/IO（LIME）/测试框架 & 排除 & 通用脚手架，非核心竞争力 \\
+C12 & Makefile/doxygen/文档构建体系 & 排除 & 通用构建工具链，无独特算法内容 \\
+\bottomrule
+\end{xltabular}
+
+% ================= 2 核心部分深度剖析 =================
+\section{核心部分深度剖析}
+
+\subsection{C1 Wilson--Clover Dirac 算子（物理核心）}
+\begin{physbox}
+\textbf{物理图像:} Wilson 费米子把夸克场 $\psi(x)$（每格点 3 色 $\times$ 4 自旋 $=12$ 复自由度）放上超立方体格点，
+用最近邻跳跃项离散一阶导数（携 $\gamma$ 矩阵保证费米子场论性质），用 clover 项修正格点离散误差至 $\mathcal{O}(a)$；
+作用量参数为 $\kappa$（跳跃强度）与 $c_{sw}$（clover 系数）。
+\end{physbox}
+
+Wilson--Dirac 算子（质量约定 $m_0=1/(2\kappa)-4$，见 \texttt{\nolinkurl{doc/user_doc.tex:26}}）：
+\begin{equation}\label{eq:wilson}
+D_W = (4+m_0)\,\mathbb{1} \;-\; \frac{1}{2}\sum_{\mu=0}^{3}
+\Big[\, (1-\gamma_\mu)\, U_\mu(x)\,\delta_{x+\hat\mu,y}
++ (1+\gamma_\mu)\, U_\mu^\dagger(x-\hat\mu)\,\delta_{x-\hat\mu,y}\,\Big] \;+\; c_{sw}\, C(x)\,\delta_{x,y} .
+\end{equation}
+其中 $U_\mu(x)\in SU(3)$ 为规范场（格点 link），$C(x)$ 为 clover 场：
+\begin{equation}\label{eq:clover}
+C(x) = \mathbb{1} \;-\; \sum_{\mu<\nu} \gamma_\mu\gamma_\nu \otimes Q_{\mu\nu}(x),\qquad
+Q_{\mu\nu} = \tfrac{1}{16}\Big[ P_{\mu\nu}+P_{\nu,-\mu}+P_{-\mu,-\nu}+P_{-\nu,\mu} \Big] - (\nu\leftrightarrow\mu),
+\end{equation}
+$P_{\mu\nu}$ 为 $\mu\nu$ 平面 plaquette（代码 \texttt{\nolinkurl{src/dirac.c:305-356}} 逐 plaquette 累加后 $\times 1/16$）。
+
+\textbf{推导依据:} 式 \eqref{eq:wilson} 为 Wilson 格点 Dirac 算子的标准定义（跳跃项由一阶差分 $\nabla_\mu$ 与 Laplace 项 $\Delta_\mu$ 组合而来，$\frac12(1\pm\gamma_\mu)$ 为 spin 投影算子）；式 \eqref{eq:clover} 由 clover-leaf 四 plaquette 平均构造场强。\textcolor{phys}{量纲检查:} $\kappa$ 无量纲，$m_0$ 以 $\kappa^{-1}$ 为单位无量纲；\textcolor{phys}{极限校验:} $\kappa\to 0$（$m_0\to\infty$）时 $D_W\to (4+m_0)\mathbb{1}$（纯对角，trivial）；$\kappa=1/8$（$m_0=0$）恢复无质量 Wilson 算子。
+
+\textbf{代码实现（关键机制）:} 存储的 link 矩阵预先乘以 $1/2$（\texttt{\nolinkurl{src/dirac.c:81}}），
+使 \eqref{eq:wilson} 的 $1/2$ 因子被吸收；每方向的 hop 项按 ``投影 $\to$ 乘 $U$/$U^\dagger$ $\to$ 提升回全 spinor'' 三步流水线实现，
+负方向先发 ghost 通信与本地乘 $U^\dagger$ 重叠（\texttt{\nolinkurl{src/dirac_generic.c:187-198,202-223}}），
+正方向等待后乘 $U$（\texttt{\nolinkurl{src/dirac_generic.c:239-268}}）。
+若 $c_{sw}=0$，clover 退化为对角 shift（\texttt{\nolinkurl{src/dirac.c:56-58}}）。
+
+\begin{mapbox}
+\textbf{映射原则:} 每个关键代码符号必有物理对象，双向可查，无孤儿符号。
+\end{mapbox}
+\begin{xltabular}{\textwidth}{llX}
+\toprule
+\textcolor{map}{代码符号} & 物理对象 & 物理含义与参考源 \\
+\midrule
+\endhead
+\texttt{op->D[36*i+9*mu]} & $U_\mu(x)/2$ 3$\times$3 色矩阵 & 存储 link 已含 $1/2$ 因子；\texttt{\nolinkurl{src/dirac.c:81}} \\
+\texttt{prp\_mu}/\texttt{prn\_mu} & $\frac12(1-\gamma_\mu)$ / $\frac12(1+\gamma_\mu)$ & 正向/负向 spin 投影；\texttt{\nolinkurl{src/sse_dirac.h:29-36}} \\
+\texttt{op->clover[42*i]} & clover 12$\times$12 块（对角 12 + 上三角 30） & 对角含 shift $4+m_0$；\texttt{\nolinkurl{src/dirac.c:42-49}} \\
+\texttt{op->shift} & $4+m_0=1/(2\kappa)$ & \texttt{\nolinkurl{src/operator_generic.c:210}} \\
+\texttt{neighbor[4*k+mu]} & $x+\hat\mu$ 近邻格点 & 最近邻跳跃结构；\texttt{\nolinkurl{src/dirac_generic.c:202}} \\
+\texttt{g.csw} / \texttt{g.op\_double.D} & clover 系数 / 规范场 & \texttt{\nolinkurl{src/dd_alpha_amg.c:106,241-243}} \\
+\bottomrule
+\end{xltabular}
+
+\textcolor{phys}{对称性（后续全部块结构的前提）:} $\gamma_5$-Hermite 性
+\begin{equation}\label{eq:g5herm}
+D^\dagger = \gamma_5\, D\, \gamma_5 \qquad\Longleftrightarrow\qquad D=\gamma_5 D^\dagger \gamma_5 ,
+\end{equation}
+代码中以 \texttt{gamma5\_PRECISION}（\texttt{\nolinkurl{src/dirac_generic.c:295-304}}，前 6 分量取负号）显式实现，
+并被用于定义伴随算子（\texttt{\nolinkurl{src/dirac_generic.c:288-292}}）与最粗层 $\gamma_5$-对称算子（\texttt{\nolinkurl{src/coarse_operator_generic.c:352-381}}）。
+
+\lstinputlisting[firstline=187,lastline=198]{/Users/zhangxin/DDalphaAMG/src/dirac_generic.c}
+\vspace{2mm}\noindent\textcolor{evidence}{证据}：负方向投影先于通信发起，为后续 ghost 重叠做准备。
+
+\subsection{C2 偶奇（even-odd）预处理}
+\begin{physbox}
+\textbf{物理图像:} 超立方格点天然二色（奇偶）可分。由于 hopping 只连接异色格点，重排后 $D$ 的偶块 $D_{ee}$、$D_{oo}$
+为逐格点 12$\times$12 块对角矩阵（clover + shift），可精确求逆，从而把整个系统约化为仅偶子格上的 Schur 补方程。
+\end{physbox}
+
+偶奇重排与 Schur 补（\texttt{\nolinkurl{src/oddeven_generic.c:732-772}} 逐行实现）：
+\begin{align}
+D = \begin{pmatrix} D_{ee} & D_{eo}\\ D_{oe} & D_{oo} \end{pmatrix},
+\qquad
+S = D_{ee} - D_{eo}\,D_{oo}^{-1}\,D_{oe},
+\qquad
+D x = b \;\Rightarrow\; \begin{cases}
+x_{odd} = D_{oo}^{-1}(b_{odd}-D_{oe}\,x_{even}),\\
+S\,x_{even} = b_{even}-D_{eo}\,D_{oo}^{-1}b_{odd}.
+\end{cases}
+\label{eq:schur}
+\end{align}
+$D_{ee},D_{oo}$ 逐点 Hermite 块（spin 结构下为两个 6$\times$6 块），代码用 Cholesky $LL^\dagger$ 分解
+（\texttt{\nolinkurl{src/oddeven_generic.c:34-87}}），求解用前代+回代（\texttt{\nolinkurl{src/oddeven_generic.c:90-124}}），
+应用算子用 $LL^\dagger$ 乘法（\texttt{\nolinkurl{src/oddeven_generic.c:127-160}}），分解只做一次、求解复用。
+
+\textbf{正确性论证:} Schur 补约化在数学上精确（无近似）；Cholesky 要求 $D_{ee},D_{oo}$ Hermite 正定——
+对实质量 $m_0$ 满足（$4+m_0>0$ 即 $\kappa<1/2$，物理区成立）。代码内置自检例程
+\texttt{oddeven\_PRECISION\_test}（\texttt{\nolinkurl{src/oddeven_generic.c:1465}}）与
+\texttt{coarse\_oddeven\_PRECISION\_test} 验证 odd-even 布局下算子一致。
+
+\begin{xltabular}{\textwidth}{llX}
+\toprule
+\textcolor{map}{代码符号} & 物理对象 & 物理含义与参考源 \\
+\midrule
+\endhead
+\texttt{diag\_ee}/\texttt{diag\_oo} & $D_{ee}$/$D_{oo}$ 逐点作用 & \texttt{\nolinkurl{src/oddeven_generic.c:163-285}} \\
+\texttt{diag\_oo\_inv} & $D_{oo}^{-1}$（$LL^\dagger$ 回代） & \texttt{\nolinkurl{src/oddeven_generic.c:256}} \\
+\texttt{apply\_schur\_complement} & $S$ 应用 & \texttt{\nolinkurl{src/oddeven_generic.c:732}} \\
+\texttt{block\_to\_oddeven} & 偶奇重排（数据布局） & \texttt{\nolinkurl{src/oddeven_generic.c:590}} \\
+\texttt{op->num\_even\_sites} & 偶子格格点数 & \texttt{\nolinkurl{src/oddeven_generic.c:742-743}} \\
+\bottomrule
+\end{xltabular}
+
+\subsection{C3 自适应 setup（试验向量松弛与 bootstrap）}
+\begin{physbox}
+\textbf{物理图像（本库名字 ``adaptive'' 的来源）:} 多重网格要高效，插值 $P$ 的像空间必须``几乎包含''$D$ 的近零模。
+物理直觉：Wilson 费米子的小本征模在强耦合背景下是\textbf{局部相干的}（local coherence）——一个近似低模在局部光滑，
+只需在格点局部小块（聚合）内用少量基向量张成。但低模细节未知，于是\textbf{自适应地}用平滑器
+（对随机试验向量做多步 V-cycle/2 层校正）把高频成分滤掉，剩余分量逼近低模分量；迭代多轮收敛逼近真近零模子空间。
+\end{physbox}
+
+\textbf{流程（\texttt{\nolinkurl{src/setup_generic.c:498-577}}，interpolation=2/3 时）:}
+\begin{enumerate}
+\item 试验向量初始化为随机（\texttt{\nolinkurl{src/setup_generic.c:220-222}}），或由上层限定而来；
+\item 每轮：全体试验向量 Gram--Schmidt 正交化（\texttt{\nolinkurl{src/setup_generic.c:531}}）；
+\item 对每个试验向量 $v_i$：\texttt{vcycle\_PRECISION(x, v\_i)} 一步多重网格（含粗层校正 + 平滑）
+      （\texttt{\nolinkurl{src/setup_generic.c:542}}），再归一化（\texttt{\nolinkurl{src/setup_generic.c:480-493}}）——
+      等价于对随机向量施加 $D^{-1}$ 的近似，滤掉高频；
+\item 用更新后的试验向量 \texttt{re\_setup} 重建全部粗层（\texttt{\nolinkurl{src/setup_generic.c:556}}）；
+\item 递归到下一层（bootstrap 迭代次数随层深缩减，\texttt{\nolinkurl{src/setup_generic.c:558-565}}）。
+\end{enumerate}
+\texttt{interpolation=1} 走 2 层扩展路径 \texttt{inv\_iter\_2lvl\_extension\_setup}
+（\texttt{\nolinkurl{src/setup_generic.c:367-459}}）：限制 $\to$ 粗层 FGMRES 解 $\to$ 插值回 $\to$ 后平滑 $\to$ 归一化。
+试验向量品质可选分析（Rayleigh 商 $\lambda=\langle v, \gamma_5 D v\rangle/\langle v,v\rangle$，
+\texttt{\nolinkurl{src/setup_generic.c:580-602}}）。
+
+\begin{keybox}
+\textbf{自适应闭环（推断）:} 每轮松弛后试验向量被用于重建粗算子（C5），下一轮松弛就在新粗算子上进行——
+``近零模学习'' 与 ``粗空间构造'' 交替推进，这正是 adaptive AMG 区别于一次性插值方案的核心。
+证据：\texttt{\nolinkurl{src/setup_generic.c:556}} 每轮结束后必然调用 \texttt{re\_setup\_PRECISION}。
+\end{keybox}
+
+\subsection{C4 几何聚合与插值 $P$}
+\begin{physbox}
+\textbf{物理图像:} 一个聚合（aggregate）= 一个边长为聚合因子 $a_\mu$ 的格点超立方块；
+每个聚合对应一个粗格点。粗格点每``点''自由度 = 试验向量数 $n$（spin 块结构下每块 $n$ 个基向量），
+因此粗算子每格点为 $2n\times 2n$ 块矩阵。插值 $P$ 为逐聚合的``片''拼接：块对角（spin 块间不混）的基向量表。
+\end{physbox}
+
+\textbf{聚合表（\texttt{\nolinkurl{src/coarsening_generic.c:39-92}}）:} 纯几何构造，无任何强度连接（strength-of-connection）探测——
+这是它与经典代数多重网格（Ruge--Stüben）的本质区别：QCD 的规范对称性让几何块聚合足够有效，且免去探测成本。
+聚合因子由全局格点尺寸比值决定（\texttt{\nolinkurl{src/init.c:62-65}}），每聚合邻接信息分类为
+``聚合内 hop''（self coupling 用）与``跨聚合 hop''（neighbor coupling 用）（\texttt{\nolinkurl{src/coarsening_generic.c:63-73}}）。
+
+\textbf{插值基（\texttt{\nolinkurl{src/interpolation_generic.c:74-90}} 与 \texttt{\nolinkurl{src/linalg_generic.c:400-456}}）:}
+试验向量经\textbf{聚合内 Gram--Schmidt}（\texttt{gram\_schmidt\_on\_aggregates}）正交化后逐聚合写入
+\texttt{op}（布局 $[site, spin\text{-}half, k]$）；插值
+（\texttt{\nolinkurl{src/interpolation_generic.c:130-166}}）与限制
+（\texttt{\nolinkurl{src/interpolation_generic.c:169-207}}）均逐聚合并行，限制即 $P^\dagger$（取共轭）。
+spin 块结构：每格点粗向量 $2n$ 个分量，前 $n$ 个驱动 spin 上半、后 $n$ 个驱动 spin 下半，互不混叠
+（\texttt{\nolinkurl{src/interpolation_generic.c:106-122}} 中每 site 两个 k1 块各自只用自己的系数区段）。
+
+\begin{xltabular}{\textwidth}{llX}
+\toprule
+\textcolor{map}{代码符号} & 物理对象 & 物理含义与参考源 \\
+\midrule
+\endhead
+\texttt{is->num\_agg} & 聚合总数 & 各方向局部格点/聚合因子之积；\texttt{\nolinkurl{src/coarsening_generic.c:43-48}} \\
+\texttt{l->coarsening[mu]} & 聚合边长 $a_\mu$ & \texttt{\nolinkurl{src/init.c:62-65}} \\
+\texttt{num\_eig\_vect} & 每聚合基向量数 $n$ & 粗点自由度；\texttt{\nolinkurl{src/init.c:53}} \\
+\texttt{num\_lattice\_site\_var} & 每点自由度 $2n$ & 两 spin 块；\texttt{\nolinkurl{src/init.c:54}} \\
+\texttt{agg\_index}/\texttt{agg\_boundary\_*} & 聚合内/跨聚合 hop 表 & \texttt{\nolinkurl{src/coarsening_generic.c:70-91}} \\
+\texttt{is->op} & 逐聚合基向量表（即 $P$） & \texttt{\nolinkurl{src/interpolation_generic.c:74-90}} \\
+\bottomrule
+\end{xltabular}
+
+\subsection{C5 粗算子三重积 $P^\dagger D P$ 构造}
+\begin{physbox}
+\textbf{物理图像:} 多重网格把原方程投影到插值像空间：粗方程 $D_c\,x_c = b_c$ 须满足
+Galerkin 条件 $D_c = P^\dagger D P$，保证变分性质与 $\gamma_5$-Hermite 性继承。
+\end{physbox}
+
+\begin{equation}\label{eq:galerkin}
+D_c = P^\dagger\, D\, P ,\qquad
+\text{(Hermite 继承) } D_c^\dagger = \gamma_5 D_c \gamma_5 \ \Rightarrow\
+D_c = \begin{pmatrix} A & B\\ C & D \end{pmatrix},\ A=A^\dagger,\ D=D^\dagger,\ C=-B^\dagger .
+\end{equation}
+\textbf{推导依据:} 由式 \eqref{eq:g5herm} 与 $P$ 的 spin 块结构直接推出块约束 $C=-B^\dagger$
+（代码注释 \texttt{\nolinkurl{src/coarse_operator_generic.c:110-112,298-300}} 与存储布局一致）。
+
+\textbf{实现（\texttt{\nolinkurl{src/coarse_operator_generic.c:54-97}}）:} 对每个试验向量 $v_i$ 与方向 $\mu$：
+先更新 ghost，再对\textbf{逐聚合受限} Dirac 算子施加 self/neighbor coupling
+（\nolinkurl{d_plus_clover_aggregate}/\nolinkurl{d_neighbor_aggregate}，\texttt{\nolinkurl{src/dirac_generic.c:315-470}}——
+``block-and-2spin-restricted''：只计算聚合内与跨聚合边界的 hop），最后累加
+$\sum_x \overline{v_k(x)}\,[D v_i](x)$ 到对应块（\texttt{\nolinkurl{src/coarse_operator_generic.c:100-206}}）。
+\textbf{关键优化}：利用式 \eqref{eq:galerkin} 的块对称性，clover 存储只存上三角 $A$、上三角 $D$ 与 $B$
+（\texttt{\nolinkurl{src/coarse_operator_generic.c:100-112}}），作用时以 \texttt{nmvh}（负共轭转置乘）重建 $C=-B^\dagger$
+（\texttt{\nolinkurl{src/coarse_operator_generic.c:289-316}}）——存储减半、FLOP 减半。
+\textbf{正确性自检}：\texttt{coarse\_operator\_PRECISION\_test\_routine}
+（\texttt{\nolinkurl{src/coarse_operator_generic.c:429-571}}）内置 $(P^\dagger D P - D_c)\phi$ 的范数检验。
+
+\textbf{复杂度（推断）:} 设 $N$ 为细层格点数，$n$ 为试验向量数，$V_a$ 为聚合体积：
+self-coupling 部分 $\mathcal{O}(n^2 N)$（聚合内局部），neighbor-coupling 需每方向每向量一次 ghost 交换；
+总 setup 每轮 $\mathcal{O}(n^2 N)$ 量级，与粗层规模无关。对比朴素全局 $P^\dagger D P$（需 $P^\dagger$ 全局转置通信），
+逐聚合方案把通信限制在聚合边界，这是大规模可扩展的关键。
+
+\subsection{C6 Schwarz 平滑器（SAP 族）}
+\begin{physbox}
+\textbf{物理图像:} SAP（Schwarz 交替过程）把一个全局方程按空间块分解，交替解各块局部方程并更新邻居；
+多色着色的目的与经典红黑 GS 完全一致——相邻块互不触碰、消除数据竞争并允许同一色内并行。块尺寸由
+\texttt{block lattice} 给定（建议 $4^4$，\texttt{\nolinkurl{doc/user_doc.tex:64}}），
+block lattice 必须整除聚合边长（\texttt{\nolinkurl{doc/user_doc.tex:65}}）保证聚合与块对齐。
+\end{physbox}
+
+三种变体（\texttt{\nolinkurl{src/vcycle_generic.c:40-65}} 按 \texttt{g.method} 分派）：
+\begin{itemize}
+\item additive（method 1，\texttt{\nolinkurl{src/schwarz_generic.c:1118-1298}}）：1 色，全块并行更新，$\phi\gets M \phi$（加性误差传播）；
+\item red-black（method 2，\texttt{\nolinkurl{src/schwarz_generic.c:1301-1472}}）：2 色 8 步子循环，
+      \texttt{commdir} 数组控制每步只需 4 方向中的 2 个方向通信（\texttt{\nolinkurl{src/schwarz_generic.c:1316}}）——
+      逐步让最新数据到达下一色块，最大化通信--计算重叠；
+\item 16 色（method 3，\texttt{\nolinkurl{src/schwarz_generic.c:1695}}）：$\sigma$ 表（\texttt{\nolinkurl{src/schwarz_generic.c:376}}）给出 16 色顺序，
+      每色内块不共享任何边界，完全无通信；块数不足时自动退化为红黑（\texttt{\nolinkurl{src/schwarz_generic.c:364-373}}）。
+\end{itemize}
+块求解器（\texttt{\nolinkurl{src/schwarz_generic.c:1128}}）：细层 odd-even 开启时用
+\texttt{block\_solve\_oddeven}（块内 Schur 约化 + 最小残量迭代，\texttt{\nolinkurl{src/oddeven_generic.c:1379}}），
+否则/粗层用 \texttt{local\_minres}（\texttt{\nolinkurl{src/linsolve_generic.c:1695}}）。
+支持松弛因子 \texttt{relax\_fac}（\texttt{\nolinkurl{src/schwarz_generic.c:1391-1394}}）。
+平滑器调用入口 \texttt{smoother\_PRECISION}（\texttt{\nolinkurl{src/vcycle_generic.c:31-203}}），
+method 4 时块内以 FGMRES/BiCGstab 求解（\texttt{\nolinkurl{src/schwarz_generic.c:92-110}}）。
+
+\begin{xltabular}{\textwidth}{llX}
+\toprule
+\textcolor{map}{代码符号} & 物理对象 & 物理含义与参考源 \\
+\midrule
+\endhead
+\texttt{block\_lattice[mu]} & Schwarz 块边长 & 分块尺度；\texttt{\nolinkurl{src/schwarz_generic.c:115-118}} \\
+\texttt{num\_colors} & 着色数（1/2/16） & \texttt{\nolinkurl{src/schwarz_generic.c:357-374}} \\
+\texttt{block\_list[step]} & 同色块索引表 & \texttt{\nolinkurl{src/schwarz_generic.c:140-154}} \\
+\texttt{block\_solve\_oddeven} & 块内 Schur 精确求解 & \texttt{\nolinkurl{src/oddeven_generic.c:1379}} \\
+\texttt{local\_minres} & 块内最小残量迭代 & \texttt{\nolinkurl{src/linsolve_generic.c:1695}} \\
+\texttt{relax\_fac} & 松弛因子 $\omega$ & \texttt{\nolinkurl{src/schwarz_generic.c:1391}} \\
+\bottomrule
+\end{xltabular}
+
+\subsection{C7 V-cycle/K-cycle 与最粗层 GCR-ODR}
+\begin{physbox}
+\textbf{物理图像:} V-cycle 是标准的 ``平滑--粗校正--平滑'' 递归；K-cycle（\texttt{\nolinkurl{doc/user_doc.tex:85}}）
+把每一层都包一层 FGMRES，使各层成为自适应两水平法——以少量迭代换取显著更好的收敛因子，等价于对每个非最粗层做 flexible 加速。
+最粗层是全局 Krylov 求解的瓶颈：GCR-ODR（\texttt{flgcrodr}）用\textbf{回收子空间}（deflation/recycling）
+在多次右端项求解（每次 V-cycle 调用即一个右端项）之间复用近不变子空间，避免停滞。
+\end{physbox}
+
+\textbf{V-cycle 流程（\texttt{\nolinkurl{src/vcycle_generic.c:206-330}}）:} 限制残差 $\to$ 递归粗层
+（kcycle 开启时粗层为 FGMRES 包裹，\texttt{\nolinkurl{src/vcycle_generic.c:245-251}}）$\to$ 插值 $\to$ 后平滑。
+最粗层：odd-even 化后用 \texttt{coarse\_solve\_odd\_even}（FGMRES 或 GCRODR，\texttt{\nolinkurl{src/vcycle_generic.c:256-307}}）；
+GCRODR 停滞时自动重建回收子空间（\texttt{\nolinkurl{src/vcycle_generic.c:279-297}}）。
+
+\textbf{GCR-ODR 核心（\texttt{\nolinkurl{src/gcrodr_generic.c:372-701}}）:}
+\begin{itemize}
+\item 初始化阶段：一次短 FGMRES（$k+1$ 维）后，若收敛慢（$m>k$），由 Krylov 基构造回收空间
+      $U_k$、$C_k=AU_k$（QR 分解 + $U=YR^{-1}$，\texttt{\nolinkurl{src/gcrodr_generic.c:458-504}}）；
+\item 求解阶段：\textcolor{phys}{初始投影} $x \leftarrow x + U_k\,C_k^\dagger r$，$r \leftarrow r - C_k C_k^\dagger r$
+      （\texttt{\nolinkurl{src/gcrodr_generic.c:506-538}}，即把残差中属于回收子空间的分量一步消除）；
+\item 后续调用复用 $C,U$（\texttt{update\_CU=0} 时跳过重建），停滞则重建
+      （\texttt{\nolinkurl{src/vcycle_generic.c:279-297}} 的 \texttt{coarsest\_level\_resets}）。
+\end{itemize}
+可选多项式预处理（POLYPREC 编译开关）：harmonic Ritz 值 + Leja 排序构造最小多项式
+（\texttt{\nolinkurl{src/polyprec_generic.c:67-157}}，应用 \texttt{\nolinkurl{src/polyprec_generic.c:248}}），
+配合 GCRODR 时以多项式预条件化右端（\texttt{\nolinkurl{src/init_generic.c:142-147}}）。
+
+\begin{keybox}
+\textbf{为什么这样设计（推断）:} 每次 V-cycle 调用最粗层求解都是一次新的右端项求解；若无回收，
+粗层 Krylov 每次从零开始，成本随外迭代线性增长。回收子空间把``已经学到的低频信息''跨右端项复用——
+与自适应 setup 的``低频学习''哲学一脉相承（C3），只是作用在时间维度上。
+\end{keybox}
+
+\begin{xltabular}{\textwidth}{llX}
+\toprule
+\textcolor{map}{代码符号} & 物理对象 & 物理含义与参考源 \\
+\midrule
+\endhead
+\texttt{g.kcycle}/\texttt{kcycle\_tol} & K-cycle 开关/容差 & \texttt{\nolinkurl{src/vcycle_generic.c:245-251}} \\
+\texttt{U}/\texttt{C} & 回收子空间与 $AU_k$ & \texttt{\nolinkurl{src/gcrodr_generic.c:384-386}} \\
+\texttt{update\_CU}/\texttt{CU\_usable} & 回收空间重建标志 & \texttt{\nolinkurl{src/gcrodr_generic.c:344-346,494}} \\
+\texttt{coarse\_solve\_odd\_even} & 最粗层 Schur 求解 & \texttt{\nolinkurl{src/vcycle_generic.c:280}} \\
+\texttt{harmonic\_ritz}/\texttt{leja\_ordering} & 多项式谱信息获取/排序 & \texttt{\nolinkurl{src/polyprec_generic.c:67,95}} \\
+\bottomrule
+\end{xltabular}
+
+\subsection{C8 浅析：外求解器 FGMRES 与混合精度}
+\texttt{wilson\_driver}（\texttt{\nolinkurl{src/top_level.c:64-104}}）选择求解路径：method $<0$ 用 CGN，
+否则 FGMRES（\texttt{\nolinkurl{src/linsolve_generic.c:549}} 起），预条件器即 V/K-cycle 多重网格
+（\texttt{vcycle\_PRECISION} 作为 \texttt{preconditioner} 挂入 \texttt{fgmres\_PRECISION\_struct}，
+见 \texttt{\nolinkurl{src/init.c:152-173}}）。混合精度：\texttt{mixed\_precision=1} 时预条件器（整个多重网格层次）用单精度、
+外层 FGMRES 用双精度（\texttt{\nolinkurl{doc/user_doc.tex:84}}）；\texttt{=2} 时外 FGMRES 本体也换混合精度实现
+（\texttt{fgmres\_MP}，\texttt{\nolinkurl{src/top_level.c:84-87}}，残差估计精度稍降为已知局限）。
+单精度预条件器用 \texttt{re\_setup\_float}（\texttt{\nolinkurl{src/dd_alpha_amg.c:74-77}}）重建。
+
+\subsection{C9 浅析：ghost 通信与通信--计算重叠}
+\texttt{ghost\_generic.c} 提供两级原语：\texttt{ghost\_sendrecv}（非阻塞发起）与 \texttt{ghost\_wait}（等待），
+以及\textbf{按方向}的 \texttt{negative\_sendrecv}/\texttt{negative\_wait}
+（\texttt{\nolinkurl{src/ghost_generic.c:24-93}}）。C1 的 hop 项把``负方向通信''与本地正方向计算交错
+（\texttt{\nolinkurl{src/dirac_generic.c:187-236}}）；C6 的红黑/16 色 Schwarz 每步只需部分方向通信
+（\texttt{\nolinkurl{src/schwarz_generic.c:1375-1380}}），把通信延迟藏在块计算中。
+粗层经 \texttt{level\_comm} 通信子（\texttt{\nolinkurl{src/gcrodr_generic.c:523}}）减少参与进程
+（粗层允许进程 idle，\texttt{\nolinkurl{doc/user_doc.tex:66}}）。
+
+\subsection{C10 浅析：SSE/AVX 向量化与 CUDA GPU 移植}
+SSE 版通过 \texttt{sse\_*.c/h} 与 \texttt{vectorized\_blas\_avx.h}/\texttt{avx512.h} 提供复杂数向量原语与
+``deinterleaved+双缓冲''布局（\texttt{\nolinkurl{src/sse_complex_double_intrinsic.h:29-84}}），
+聚合与块要求对齐（\texttt{\nolinkurl{doc/user_doc.tex:65}}）。GPU 版（\texttt{src/gpu/}，约 15k 行 .cu）
+组件化实现 Dirac 算子 kernel（\texttt{cuda\_dirac\_kernels\_generic.cu}）、odd-even 求解器
+（\texttt{cuda\_oddeven\_generic.cu}，4.5k 行为仓库最大单文件）、Schwarz 与 ghost；
+CPU/GPU 路径经 \texttt{proxies/} 层以条件编译切换（如 \texttt{\nolinkurl{src/proxies/oddeven_proxy_generic.c:11-15}}）。
+README 注明 CUDA 移植为当前版本重点。
+
+% ================= 3 独特性与竞争力评估 =================
+\section{独特性与竞争力评估}
+\begin{table}[htbp]\centering
+\begin{tabularx}{\textwidth}{lXX}
+\toprule
+\textcolor{algo}{独特点} & 对比基准 & 优势与证据 \\
+\midrule
+自适应聚合型 AMG（C3/C4） & 经典 Ruge--Stüben AMG（需强度连接探测） & 几何块聚合免探测，逐聚合正交化 $\mathcal{O}(n^2N)$ 局部化；证据：\texttt{\nolinkurl{src/coarsening_generic.c:39-92}} \\
+逐聚合受限三重积（C5） & 全局 $P^\dagger D P$ 转置通信 & 通信限制在聚合边界；$\gamma_5$-Hermite 块存储使 clover 存储/FLOP 减半；证据：\texttt{\nolinkurl{src/coarse_operator_generic.c:100-112}} \\
+SAP 平滑器族（C6） & 标准 pointwise 光滑 & 块级 MINRES/odd-even 解 + 多色无竞争并行；证据：\texttt{\nolinkurl{src/schwarz_generic.c:1301}} \\
+GCR-ODR 回收子空间（C7） & 普通 FGMRES 最粗层 & 跨右端项复用近不变子空间，V-cycle 内粗解成本摊销；证据：\texttt{\nolinkurl{src/gcrodr_generic.c:506-538}} \\
+通信--计算重叠（C9） & 阻塞式 MPI & 方向流水线 + 着色化通信调度；证据：\texttt{\nolinkurl{src/dirac_generic.c:187-236}} \\
+三层并行 + 混合精度 & 单精度/双精度固定方案 & MPI+OpenMP+SIMD（+CUDA），预条件器单精度、外求解器双精度；证据：\texttt{\nolinkurl{doc/user_doc.tex:84}} \\
+\bottomrule
+\end{tabularx}
+\caption{独特性评估（证据来源: 仓库代码直引，全部\textcolor{accent}{确证}于文件内容）}
+\end{table}
+
+% ================= 4 关键片段与公式 =================
+\section{关键片段与公式}
+\textbf{核心公式汇总}：Wilson 算子 \eqref{eq:wilson}、clover 场 \eqref{eq:clover}、$\gamma_5$-Hermite 性 \eqref{eq:g5herm}、
+偶奇 Schur 补 \eqref{eq:schur}、Galerkin 粗算子与块结构 \eqref{eq:galerkin}。
+\textbf{极限校验总览}：$\kappa\to0$ 时 $D\to(4+m_0)\mathbb{1}$（对角极限，式 \eqref{eq:wilson} 退化为 shift）；\\
+$c_{sw}\to0$ 时 clover 项消失（代码 \texttt{\nolinkurl{src/dirac.c:56-58}} 直接走对角分支）；\\
+$V\to\infty$（无限体积）时 Schur 补方程尺寸减半、逐点 Cholesky 结构不变（式 \eqref{eq:schur} 与格点尺寸无关）。\\
+\textbf{代表性代码片段}（其余直引见各节）：
+\lstinputlisting[firstline=292,lastline=315]{/Users/zhangxin/DDalphaAMG/src/coarse_operator_generic.c}
+\vspace{2mm}\noindent\textcolor{evidence}{证据}：\texttt{coarse\_self\_couplings\_PRECISION} 以
+\texttt{mvp}/\texttt{mvh}/\texttt{nmvh} 三种原语覆盖式 \eqref{eq:galerkin} 的 $A,B,D,C$ 四个块。
+
+% ================= 5 参考源清单 =================
+\section{参考源清单}
+\begin{xltabular}{\textwidth}{llX}
+\toprule
+\textcolor{evidence}{参考源} & 类型 & 内容/作用 \\
+\midrule
+\endhead
+\texttt{\detokenize{src/dirac_generic.c:160-304}} & 仓库 & Wilson--Clover 算子 CPU 实现（投影/通信/提升流水线） \\
+\texttt{\detokenize{src/dirac.c:24-59,305-403}} & 仓库 & clover 项生成（plaquette 求和与 $\gamma_\mu\gamma_\nu$ 张量积） \\
+\texttt{\detokenize{src/oddeven_generic.c:34-160,732-828}} & 仓库 & Cholesky、Schur 补、odd-even 求解 \\
+\texttt{\detokenize{src/setup_generic.c:113-130,367-577}} & 仓库 & 自适应 setup（2lvl 扩展、f-cycle bootstrap、重设） \\
+\texttt{\detokenize{src/coarsening_generic.c:39-165}} & 仓库 & 几何聚合索引表构造 \\
+\texttt{\detokenize{src/interpolation_generic.c:74-207}} & 仓库 & 插值/限制实现 \\
+\texttt{\detokenize{src/coarse_operator_generic.c:54-206,289-427}} & 仓库 & 三重积粗算子、块结构存储与作用 \\
+\texttt{\detokenize{src/schwarz_generic.c:1118-1472}} & 仓库 & additive/red-black Schwarz 平滑器 \\
+\texttt{\detokenize{src/vcycle_generic.c:31-330}} & 仓库 & 平滑器分派与 V-cycle/K-cycle \\
+\texttt{\detokenize{src/gcrodr_generic.c:372-701}} & 仓库 & GCR-ODR 回收子空间求解器 \\
+\texttt{\detokenize{src/linsolve_generic.c:549-838}} & 仓库 & FGMRES/BiCGstab 求解器 \\
+\texttt{\detokenize{doc/user_doc.tex:19-107}} & 仓库 & 质量约定 $m_0=1/(2\kappa)-4$、K-cycle、混合精度语义 \\
+\texttt{\detokenize{src/dd_alpha_amg.c:325-396}} & 仓库 & 外部调用接口（\texttt{wilson\_solve}） \\
+\bottomrule
+\end{xltabular}
+
+% ================= 6 结论 =================
+\section{结论}
+\begin{conclbox}
+\textbf{穷尽剖析结论}：核心部分 12 项 = \textbf{7 深挖 / 3 浅析 / 2 排除}。
+DDalphaAMG 的最强竞争力是\textbf{物理思想--数值方案--工程实现三层的自洽闭环}：
+\begin{enumerate}
+\item 物理层：Wilson 费米子近零模局部相干性 + $\gamma_5$-Hermite 对称性（式 \eqref{eq:g5herm}）为整个方法奠基；
+\item 算法层：自适应试验向量松弛（C3）驱动几何聚合插值（C4），Galerkin 三重积（式 \eqref{eq:galerkin}）构建粗算子（C5），
+      SAP 平滑（C6）、K-cycle（C7）与 GCR-ODR 回收（C7）构成完整求解链；
+\item 工程层：通信--计算重叠（C9）、SIMD/CUDA（C10）、混合精度（C8）保证大规模可扩展与峰值效率。
+\end{enumerate}
+代码中每个关键符号都能溯源到上述三层中的物理对象（映射表双向可查，无孤儿符号）。
+\end{conclbox}
+\begin{warnbox}
+\textbf{局限与未验证项}：
+\begin{itemize}
+\item 收敛因子/加速比等数值性能数据未在本仓库实测（需配置+编译+运行，超出只读剖析范围）——
+  本报告的复杂度结论为\textcolor{phys}{推断}级（由代码结构推导），非实测；
+\item 文献宣称的``体积无关收敛''（DD\textalpha AMG 论文）未在本仓库内验证，报告中未采信为确证；
+\item GPU 路径（C10）细节仅浅析：kernel 内部实现与性能特征未逐行核对；
+\item 式 \eqref{eq:clover} 的符号约定（$1/16$ 因子与 $\gamma_\mu\gamma_\nu$ 前符号）以代码
+  \texttt{\nolinkurl{src/dirac.c:352,385}} 为据；不同文献的 clover 归一化约定可能差 $1/4$ 倍。
+\end{itemize}
+\end{warnbox}
+
+\end{document}
