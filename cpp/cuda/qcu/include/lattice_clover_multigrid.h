@@ -1229,7 +1229,7 @@ template <typename T> struct LatticeCloverMultigrid {
     // 92 ms vs 7 ms per V-cycle).  Fall back to the ordinary iterative
     // path below (which now uses the multi-block reduction kernels).
     // ====================================================================
-    if (lev == num_levels - 1 && st.vec_sz < 65536) {
+    if (lev == num_levels - 1 && st.vec_sz < 262144) {
       // Fused single-launch coarse solve.  In the redundant-global multi-rank
       // model every rank holds the full coarse grid and the fused kernel
       // needs no inter-rank data, so the fused path is valid for ALL ranks.

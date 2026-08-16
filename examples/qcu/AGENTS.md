@@ -26,12 +26,17 @@ mpirun -np 1 python examples/qcu/conftest.clover.multigrid.py
 
 ### conftest.clover.multigrid.py 运行约定（2026-08-16 修复后）
 
+- **设备选择**：脚本默认 `QCU_DEVICE_ID=0`（可用环境变量覆盖）。**CUDA 运行时枚举与 nvidia-smi 顺序不同**——本机实测 `cuda:0=V100-32G`（性能最佳）、`cuda:1/2=P100-16G`（nvidia-smi 为 `0/1=P100, 2=V100`）；C++ 端单 rank 不调用 `cudaSetDevice`，跟随 torch 当前设备，脚本内 `torch.cuda.set_device` 同时约束两端。P100（sm_60）在当前 torch（CUDA 12.6，sm_70+）下无 kernel image，无法跑本脚本。
 - **日志路径**：脚本必须设置 `os.environ["QCU_LOG_DIR"] = LOG_DIR`——C++ `log_write` 默认写 cwd 相对路径 `logs/clover_multigrid.log`，不重定向则 Python 端（读 `~/PyQCU/logs/tmp/clover_multigrid.log`）解析不到 `CONVERGENCE_HISTORY`，`Conv pts=0`、出图失败。
-- **MG 参数**：`COARSE_MAX_ITER` 必须 ≥200（=50 时粗 solve 每轮截断在 target 之前，粗解精度不足 → V-cycle 校正无效 → 500 次跑满）；`nv_iters` 用 20（=1 时粗算子质量差，V-cycle 同样失效）。
+- **MG 参数**（2026-08-16 optim 后）：`COARSE_MAX_ITER` 必须 ≥200（=50 时粗 solve 每轮截断在 target 之前，粗解精度不足 → V-cycle 校正无效 → 500 次跑满）；`nv_iters` 用 20（=1 时粗算子质量差，V-cycle 同样失效）；`COARSE_TOL_FACTOR` 用 3000（粗 solve 相对 tol=3e-3，扫描 10/100/300/1000/3000/10000/30000，3000 为速度-稳定最优：8x8x8x16 MG 0.503→0.255s，speedup 1.0→1.9）；`_MG_LEVEL1_NUM_RESTART_`=5（V-cycle 频率 3→5，n_vcycles 6→4）；`use_cache=True`（粗算子缓存 `~/PyQCU/logs/nullvec_cache/`，key 含格子/dof/nv_iters/nv_tol，参数变化自动 miss 重建；3 配置全缓存命中时总运行 9min→18s）。
+- **3L 配置**（大格子优化，2026-08-16）：`12x12x12x16`/`16x16x16x16` 用 3 层 `[12,48,48]`（较 2L 提速 25-40%，coarsest 变小、level1 普通路径 ~13-28 次迭代即达 tol）；8x8x8x16 保持 2L（3L 时 level1 变普通路径反劣化 4.6 倍）。配套：`_MG_LEVEL2_ATOL_=ATOL×CF×3`（level2 可比 level1 松，迭代减半）；`_MG_LEVEL2_NUM_RESTART_`=5（level1→level2 校正频率）；`_MG_LEVEL2_T_ = level1_T//MG_GRID[3]`（SCHUR 半 T 链，原 `Lt//(MG_GRID[3]^2)` 与实际粗算子 3x3x3x8 不符 → C++ 越界读）。
 - C++ 端（`lattice_clover_multigrid.h` / `multigrid.cu`）配套修复：
   - 粗 solve（fused + 普通路径）`r0 < 1e-4` 时跳过（fp32 下 target 不可达 → BiStabCG 0/0 → nan 毒化 fine 残差）；
   - `run()` V-cycle 在 fine Schur 残差 `rn ≤ 100·atol` 时停止（空转校正 + state reset 使残差反弹 ~1e-5）；
-  - `run_test` 全算子残差须在掩码棋盘布局 `[12,X,Y,Z,T]`（通道 `lat_4dim_SC`）上直算（`b=b_e+b_o`，`D·x` 用掩码算子组件）；`parity_to_full`/`full_to_parity` 假设 `[..,T/2]` 压缩布局，与细层不匹配，误用会报 `|D*x-b|/|b|~1.16`（解实际正确）。
+  - `run_test` 全算子残差须在掩码棋盘布局 `[12,X,Y,Z,T]`（通道 `lat_4dim_SC`）上直算（`b=b_e+b_o`，`D·x` 用掩码算子组件）；`parity_to_full`/`full_to_parity` 假设 `[..,T/2]` 压缩布局，与细层不匹配，误用会报 `|D*x-b|/|b|~1.16`（解实际正确）；
+  - fused 粗 solve 阈值 65536→262144（大粗层 82944/196608 也走 fused——普通路径每迭代 ~5ms host 同步主导；fused 大粗层 ~13ms/iter 带宽受限，仍占优 ~10%）。
+  - **fused grid 下限实验（回退）**：grid<SM 数时补 block 会引入 nan（cooperative 部分空转 block 的 block_dot 竞争），勿再启用。
+  - **fused 数值非确定性（WSL2）**：`coarse_solve_cg`（cooperative + grid.sync）在同一输入下解有 ~1e-7 级双模波动（NT=128、`__threadfence` 均无效；普通路径完全确定）——WSL2 驱动层 cooperative 同步问题，解始终正确收敛（PASS）；mg_time 波动（如 16x16x16x16 1.1-1.9s）主因为环境 GPU 频率/调度（`nvidia-smi -lgc` 锁频在 WSL2 报 Unknown Error 不可用），非代码问题。
 
 ## Dev 套件（dev73_5 / dev74 / dev74_1）
 
