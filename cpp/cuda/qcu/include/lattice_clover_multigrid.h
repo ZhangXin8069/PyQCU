@@ -564,9 +564,10 @@ template <typename T> struct LatticeCloverMultigrid {
       int nblk = (n + 255) / 256; if (nblk > 256) nblk = 256;
       coarse_dot_kernel_multi<T, 256><<<nblk, 256, 0, set_ptr->streams[si]>>>(
           static_cast<const LatticeComplex<T>*>(a),
-          static_cast<const LatticeComplex<T>*>(b), n, coarse_partials);
+          static_cast<const LatticeComplex<T>*>(b), n,
+          static_cast<LatticeComplex<T>*>(coarse_partials));
       coarse_dot_reduce_kernel<T, 256><<<1, 256, 0, set_ptr->streams[si]>>>(
-          coarse_partials, nblk, &dv[vals_idx]);
+          static_cast<const LatticeComplex<T>*>(coarse_partials), nblk, &dv[vals_idx]);
     } else {
       coarse_dot_kernel<T, 256><<<1, 256, 0, set_ptr->streams[si]>>>(
           static_cast<const LatticeComplex<T>*>(a), static_cast<const LatticeComplex<T>*>(b),
@@ -655,9 +656,9 @@ template <typename T> struct LatticeCloverMultigrid {
                     int slot) {
       if (mb) {
         coarse_dot_kernel_multi<T, 256><<<nblk, 256, 0, S>>>(
-            a, b, n, coarse_partials);
+            a, b, n, static_cast<LatticeComplex<T>*>(coarse_partials));
         coarse_dot_reduce_kernel<T, 256><<<1, 256, 0, S>>>(
-            coarse_partials, nblk, &dv[slot]);
+            static_cast<const LatticeComplex<T>*>(coarse_partials), nblk, &dv[slot]);
       } else {
         coarse_dot_kernel<T, 256><<<1, 256, 0, S>>>(a, b, n, &dv[slot]);
       }
@@ -1215,8 +1216,15 @@ template <typename T> struct LatticeCloverMultigrid {
     // the wide dslash is only ~2 us).  multigrid_coarse_solve_cg() fuses the
     // ENTIRE BiStabCG solve into ONE cooperative kernel with grid.sync()
     // barriers — no host syncs inside.  Valid at the coarsest level only.
+    //
+    // 2026-08-15 dev76: for LARGE coarsest levels (vec_sz >= 64K, e.g.
+    // 16x16x16x16 2L coarse [8,8,8,4] = 98304 elements) the fused kernel
+    // is NOT faster: its per-iteration grid.sync() barriers × many
+    // iterations cost more than the ordinary multi-block path (measured
+    // 92 ms vs 7 ms per V-cycle).  Fall back to the ordinary iterative
+    // path below (which now uses the multi-block reduction kernels).
     // ====================================================================
-    if (lev == num_levels - 1) {
+    if (lev == num_levels - 1 && st.vec_sz < 65536) {
       // Fused single-launch coarse solve.  In the redundant-global multi-rank
       // model every rank holds the full coarse grid and the fused kernel
       // needs no inter-rank data, so the fused path is valid for ALL ranks.
