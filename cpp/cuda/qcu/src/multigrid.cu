@@ -622,7 +622,7 @@ __global__ void multigrid_coarse_solve_cg(
     T target = tol * r0;
     grid.sync();  // before next block-partial overwrites prt[]
 
-    if (r0 < (T)1e-30) return;
+    if (r0 < (T)1e-4) return;
 
     // ---- Wide 33-tensor coarse dslash (out = A_c·in), grid-stride ----
     auto dslash = [&](LatticeComplex<T> *out, const LatticeComplex<T> *in) {
