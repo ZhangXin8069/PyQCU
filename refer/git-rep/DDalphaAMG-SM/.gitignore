@@ -1,0 +1,5 @@
+build/
+.vscode/
+*.ctxt
+!2D_U1_Ns512_Nt512_b40000_m-01023_0.ctxt
+confs/
