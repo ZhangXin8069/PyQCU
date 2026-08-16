@@ -19,15 +19,19 @@ from pyqcu.cuda.define import params, argv, set_ptrs
 
 LOG_DIR = os.path.expanduser("~/PyQCU/logs/tmp")
 os.makedirs(LOG_DIR, exist_ok=True)
+# C++ 端 log_write 默认写 cwd/logs/clover_multigrid.log（相对路径），与本脚本
+# 的 LOG_DIR（~/PyQCU/logs/tmp）错配会导致收敛历史解析为空、出图失败。
+# 用环境变量 QCU_LOG_DIR 把 C++ 日志重定向到与 Python 相同的目录。
+os.environ["QCU_LOG_DIR"] = LOG_DIR
 
 # ---- Configuration matrix ----
 CONFIGS = [
     # (label, Lx,Ly,Lz,Lt, mass, atol, num_levels, dof_list, mg_grid, restart, coarse_max_iter, coarse_tol_factor)
     # ("8x8x8x16_c64_m0.05_1L",  8, 8, 8, 16, 0.05, 1e-6, 1, [12],       [2,2,2,1], 5,  50,  10.0),
-    ("8x8x8x16_c64_m0.05_2L",  8, 8, 8, 16, 0.05, 1e-6, 2, [12,48],    [2,2,2,1], 5,  50,  10.0),
-    # ("8x8x8x16_c64_m0.05_2L_r3",8, 8, 8, 16, 0.05, 1e-6, 2, [12,48],   [2,2,2,1], 3,  30,  10.0),
-    # ("12x12x12x16_c64_m0.05_2L",12,12,12,16,0.05, 1e-6, 2, [12,48],    [2,2,2,1], 5,  80,  10.0),
-    # ("16x16x16x16_c64_m0.05_2L",16,16,16,16,0.05,1e-6, 2, [12,48],     [2,2,2,1], 5, 100,  10.0),
+    ("8x8x8x16_c64_m0.05_2L",  8, 8, 8, 16, 0.05, 1e-6, 2, [12,48],    [2,2,2,1], 5, 200,  10.0),
+    # ("8x8x8x16_c64_m0.05_2L_r3",8, 8, 8, 16, 0.05, 1e-6, 2, [12,48],   [2,2,2,1], 3, 200,  10.0),
+    # ("12x12x12x16_c64_m0.05_2L",12,12,12,16,0.05, 1e-6, 2, [12,48],    [2,2,2,1], 5, 200,  10.0),
+    # ("16x16x16x16_c64_m0.05_2L",16,16,16,16,0.05,1e-6, 2, [12,48],     [2,2,2,1], 5, 200,  10.0),
     # ("8x8x8x16_c64_m0.10_2L",  8, 8, 8, 16, 0.10, 1e-6, 2, [12,12],    [2,2,2,1], 5,  50,  10.0),
 ]
 
@@ -157,7 +161,7 @@ for ci, (label, Lx, Ly, Lz, Lt, MASS, ATOL, NUM_LEVELS, DOF_LIST, MG_GRID, NUM_R
         lonv_list, hop_nn_l, hop_diag_l, sit_l = _bsl(
             op_fine, S_build,
             NUM_LEVELS, [12] + DOF_LIST[1:], MG_GRID, _lat_full, DOF_LIST[1],
-            dtype_t, device, nv_iters=1, use_cache=False, cache_dir=None, verbose=False)
+            dtype_t, device, nv_iters=20, use_cache=False, cache_dir=None, verbose=False)
 
         log(f"    Coarse ops: {len(lonv_list)} level(s) built")
 
@@ -204,6 +208,7 @@ for ci, (label, Lx, Ly, Lz, Lt, MASS, ATOL, NUM_LEVELS, DOF_LIST, MG_GRID, NUM_R
         "ref_residual": float(ref_res), "mg_residual": float(mg_res),
         "mg_vs_ref": float(mg_vs_ref), "speedup": speedup,
         "convergence": [float(c) for c in conv[:500]],
+        "atol": float(ATOL),
         "status": status, "mg_iterations": len([c for c in conv if c > ATOL]),
     }
     results.append(result)
@@ -241,7 +246,7 @@ try:
         conv_data = [c for c in r['convergence'] if c > 0 and c < 1e6]
         if conv_data:
             ax.semilogy(conv_data, 'b-', linewidth=1)
-            ax.axhline(y=ATOL, color='gray', linestyle='--', alpha=0.5, label=f'tol={ATOL:.0e}')
+            ax.axhline(y=r.get('atol', ATOL), color='gray', linestyle='--', alpha=0.5, label=f"tol={r.get('atol', ATOL):.0e}")
         ax.set_title(f"{r['label']}\nspeedup={r['speedup']:.2f}x, {r['status']}")
         ax.set_xlabel('Record'); ax.set_ylabel('Residual'); ax.grid(True, alpha=0.3)
     # Hide unused axes
