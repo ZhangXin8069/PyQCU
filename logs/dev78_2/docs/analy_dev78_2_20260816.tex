@@ -1,0 +1,345 @@
+% ============================================================
+% analy 报告 — dev78_2 多线程 MultiGrid 求解器完整测试与分析
+% 核心新增：全求解器迭代残差图（MG 实测 + ref 复现）补全
+% 编译: xelatex 两遍；交付前 Overfull 计数必须为 0
+% ============================================================
+\documentclass[UTF8]{ctexart}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{amsmath}
+\usepackage{microtype}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{xltabular}
+\usepackage{tabularx}
+\usepackage{hyperref}
+\usepackage{fancyhdr}
+\usepackage[most]{tcolorbox}
+\usepackage{titlesec}
+\usepackage{graphicx}
+
+% ===== 色板 =====
+\definecolor{accent}{HTML}{1F4E79}
+\definecolor{evidence}{HTML}{1E8449}
+\definecolor{reference}{HTML}{8C6D1F}
+\definecolor{conclusion}{HTML}{8B1A1A}
+\definecolor{codebg}{HTML}{F4F6F7}
+\definecolor{struct}{HTML}{3B3B98}
+\definecolor{relation}{HTML}{0E7C7B}
+\definecolor{idea}{HTML}{B03A2E}
+\definecolor{warn}{HTML}{D35400}
+\definecolor{hl}{HTML}{FDF6E3}
+
+\setlength{\emergencystretch}{3em}
+\hypersetup{colorlinks=true,linkcolor=accent,urlcolor=relation}
+
+\titleformat{\section}{\Large\bfseries\color{accent}}{\thesection}{1em}{}
+\titleformat{\subsection}{\large\bfseries\color{struct}}{\thesubsection}{1em}{}
+\titleformat{\subsubsection}{\normalsize\bfseries\color{struct!70!black}}{\thesubsubsection}{1em}{}
+
+\newtcolorbox{conclbox}{breakable,colback=conclusion!6,colframe=conclusion,title=结论}
+\newtcolorbox{refbox}{breakable,colback=reference!6,colframe=reference,title=参考背景}
+\newtcolorbox{ideabox}{breakable,colback=idea!6,colframe=idea,title=项目思路}
+\newtcolorbox{warnbox}{breakable,colback=warn!6,colframe=warn,title=局限与风险}
+\newtcolorbox{keybox}{breakable,colback=hl,colframe=accent,title=要点}
+
+\lstset{
+  basicstyle=\ttfamily\footnotesize,
+  backgroundcolor=\color{codebg},
+  frame=single,
+  language=python,
+  firstnumber=auto,
+  keywordstyle=\color{accent}\bfseries,
+  commentstyle=\color{evidence!70!black},
+  stringstyle=\color{struct},
+  breaklines=true,
+  breakatwhitespace=false,
+  postbreak=\mbox{\textcolor{accent}{$\hookrightarrow$}\space},
+  keepspaces=true,
+  columns=flexible,
+  numbers=left,numberstyle=\tiny\color{struct!60!black},
+}
+
+\title{dev78\_2 --- 多线程 MultiGrid 求解器完整测试与分析（全求解器迭代残差图补全 + 详细报告）}
+\author{opencode test+analy}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+本报告覆盖 logs/dev78\_2/ 的完整测试与分析：follow logs/dev78\_1
+（同构套件：main.py 子命令 + 版本化产物目录 + h5py 持久化），继续参考
+\{logs、dev74\} 输出形式；\textbf{核心新增为全部求解器的迭代残差图}——
+MG 实测（C++ CONVERGENCE\_HISTORY）与参考 BiStabCG 复现曲线，逐配置
+（21 张）/逐格子多参数对比（7 张）/全配置汇总（1 张）全覆盖。三视角
+概览：\textcolor{struct}{主体结构}为测试套件叠加残差采集层（conv 子命令
++ 日志增量解析）与图表层（29 张残差图）；
+\textcolor{relation}{各部分关系}为参数（r/ct/cmi）→ 粗层校正质量与
+V-cycle 频率 → MG 迭代数 → 加速比的主链，残差曲线为其直接证据；
+\textcolor{idea}{项目思路}为正确性验证从"终态一致"深化到"收敛路径一致"。
+核心结论：verify 全 PASS；bench 中位加速比 \textbf{1.411}、最大
+\textbf{2.303}；sweep 13/16 $\ge$ 1.5（best 2.413）；\textbf{21 配置
+MG/ref 残差全部收敛 $<$ 1e-6}，多线程各线程残差曲线重合。
+\end{abstract}
+
+\tableofcontents
+
+% ================= 1 概览 =================
+\section{目录概览}
+logs/dev78\_2/ 结构（与 dev78\_1/dev74 输出形式对齐）：
+\begin{lstlisting}[language=bash]
+logs/dev78_2/
+├── main.py / run-local.sh / AGENTS.md   套件代码（新增 conv / conv_plots 子命令）
+├── dev78_2_report.md                    详细报告（md）
+├── docs/                                analy 报告（tex/pdf）
+└── v202608160300/                       本次运行版本目录
+    ├── run-local-20260816-030004.log     完整运行日志（verify/clean/bench/sweep）
+    ├── run-local-continue-*.log          续跑日志（check/collect/budget/conv）
+    ├── clover_multigrid.log             C++ 收敛日志归档
+    ├── dev78_2_verify.h5 / bench.h5 / sweep.h5 / results.h5
+    ├── dev78_2_conv.h5                  迭代残差数据（21 配置，实测+复现）
+    ├── dev78_2_clean_L*.h5 / budget_16g.h5 / budget_32g.h5
+    ├── dev78_2_speedup.png / time.png / sweep.png / hotspot.png
+    ├── dev78_2_conv_*.png               ★ 29 张迭代残差图（本套件核心新增）
+    ├── dev78_2_vram_16g.png / _32g.png / prof.png / conv_bench.png
+    └── dev78_2_tbl_bench.tex / tbl_sweep.tex
+\end{lstlisting}
+
+\begin{table}[htbp]\centering
+\small
+\begin{tabular}{ll}
+\toprule
+指标 & 实测值 \\
+\midrule
+verify & 全 PASS（一致性/独立/V100/h5py IO） \\
+bench 中位加速比 & \textbf{1.411} \\
+bench 最大加速比 & \textbf{2.303}（8x8x8x16 2L P100x2） \\
+sweep 通过率（gate=1.5） & 13/16（best 2.413） \\
+conv 残差收敛率 & \textbf{21/21 全收敛（$<$ 1e-6）} \\
+图表数 & 36 张 PNG（含 29 张残差图）+ 2 张表 \\
+日志数 & 2 运行日志 + C++ 收敛日志 \\
+\bottomrule
+\end{tabular}
+\caption{dev78\_2 实测统计（数据来源: results.h5 / conv.h5 / 文件清单实测）}
+\end{table}
+
+% ================= 2 主体结构 =================
+\section{主体结构}
+\begin{table}[htbp]\centering
+\begin{tabularx}{\textwidth}{llX}
+\toprule
+\textcolor{struct}{层次} & 文件 & \textcolor{struct}{职责} \\
+\midrule
+入口层 & main.py / run-local.sh & 测试编排（11 子命令：verify/clean/bench/sweep/check/budget/conv/conv\_plots/collect/mktable/plots） \\
+数据层 & dev78\_2\_*.h5 & h5py 持久化结果（含 conv 残差数据） \\
+残差采集层 & conv 子命令 + 收敛日志 & CONVERGENCE\_HISTORY 增量解析 + ref 复现 \\
+图表层 & *.png / tbl\_*.tex & speedup/time/sweep/hotspot/conv/vram/prof \\
+文档层 & dev78\_2\_report.md / docs/ & 详细报告与 analy \\
+\bottomrule
+\end{tabularx}
+\caption{主体结构分层（数据来源: 全库索引实测）}
+\end{table}
+
+与 dev74/dev78\_1 输出对齐：dev74 有 conv（收敛图）、vram、budget、speedup
+图；dev78\_1 补足 conv\_bench、vram\_16g/32g、prof；
+\textcolor{struct}{dev78\_2 的核心增量是残差图从"1 张日志提取"升级为
+"21 配置逐配置全采集"}（实测 MG + 复现 ref，覆盖 verify/bench/sweep
+全部配置）。
+
+% ================= 3 各部分关系 =================
+\section{各部分关系}
+\begin{keybox}
+\textbf{参数-收敛-性能主链:} \textcolor{relation}{num\_restart（V-cycle
+频率）与 coarse\_tol\_factor（粗层容差）→ 粗层校正质量 → MG 迭代残差
+路径（CONVERGENCE\_HISTORY 可见）→ 总迭代数 → 求解时间与加速比。}
+残差曲线是这条主链的\textbf{直接观测证据}：ct1e4 时校正弱、迭代数
+膨胀（如 L2 r10 ct1e4 cmi10 达 120 次）；ct1e5+cmi15 时迭代少且
+speedup 高（L3 r10 ct1e5 cmi15 45 次 / 2.43）。
+\end{keybox}
+
+跨里程碑演进（bench 中位加速比）：dev76（粗层归约优化）1.148 →
+dev78（r 参数优化）1.210 → dev78\_1（完整复测）1.422 →
+dev78\_2（残差深化）\textbf{1.411}（持平，单次运行波动）。
+
+残差数据链路：C++ `applyCloverMultigridQcu` 无条件写
+`CONVERGENCE\_HISTORY: [r0,...]`（lattice\_clover\_multigrid.h:1673，
+非 verbose 依赖）→ logs/clover\_multigrid.log → conv 子命令按偏移增量
+解析（多线程每线程一条）→ dev78\_2\_conv.h5 → conv\_plots 成图。
+
+% ================= 4 项目思路 =================
+\section{项目思路}
+\subsection{设计意图}
+\begin{itemize}
+\item \textcolor{idea}{残差补齐}：性能数据（speedup）之外补齐收敛路径
+  证据——每个求解器（MG 各配置 + 参考 BiStabCG）的迭代残差曲线全部成图；
+\item \textcolor{idea}{零生产改动}：MG 残差直接采 C++ 既有日志输出，ref
+  残差用同一 Schur 算子 Python 复现（dev73\_5 已验证）——不修改 C++
+  生产代码，零回归风险；
+\item \textcolor{idea}{输出对齐}：参考 dev74 的图表/日志/报告形式，
+  跨里程碑可比（dev76→dev78→dev78\_1→dev78\_2 同构产物）。
+\end{itemize}
+\subsection{演进脉络}
+test12（单线程）→ test13（多线程）→ test14（构建加速）→ dev76（粗层
+求解加速）→ dev78（V-cycle 频率优化）→ dev78\_1（完整复测）→
+dev78\_2（残差图补全与深化，本次）。
+\subsection{典型工作流}
+\texttt{run-local.sh → 版本目录 v<ts>/ → main.py 各子命令 →
+conv/conv\_plots（残差采集与成图）→ make\_extra\_plots.py（conv\_bench/
+vram/prof）→ 报告 md/tex/pdf}。
+
+\begin{ideabox}
+项目思路核心：求解器验证的完备性 = 正确性（终态一致）+ 性能（加速比）+
+\textbf{收敛性（残差路径一致）} 三证合一；本套件把收敛性证据补全到
+逐配置粒度。
+\end{ideabox}
+
+% ================= 5 主题分析 =================
+\section{主题分析}
+\subsection{正确性（verify）}
+四合一验证全 PASS：一致性（2xP100 rel\_diff=[0.0,0.0]）、独立问题
+（|d|=5.60）、V100 大格子 3L（rel\_diff=[0.0]）、h5py 4 线程 IO
+（max\_err=0.0）。
+
+\subsection{性能（bench, pairs=3）}
+\begin{table}[htbp]\centering
+\begin{tabular}{lllll}
+\toprule
+配置 & 设备 & r & speedup & 相对 dev78\_1 \\
+\midrule
+8x8x8x16 2L & P100x2 & 5 & \textbf{2.303} & 持平（1.94-2.01） \\
+8x8x8x16 3L & P100x2 & 5 & \textbf{2.223} & 持平（2.14-2.29） \\
+8x16x16x16 2L & P100x2 & 10 & 1.049 & 持平（1.05-1.48） \\
+8x16x16x16 3L & P100x2 & 10 & \textbf{1.748} & 提升（1.41） \\
+16x16x16x16 2L & P100x2 & 20 & 0.700 & 持平（0.66-0.74） \\
+16x16x16x16 3L & V100 & 10 & 1.141 & 持平（1.17） \\
+8x16x16x16 3L & V100 & 10 & 1.411 & 持平（1.42） \\
+\bottomrule
+\end{tabular}
+\caption{bench 实测（数据来源: dev78\_2\_bench.h5）}
+\end{table}
+
+\subsection{参数扫描（sweep, 8x8x8x16 P100x2）}
+16 配置 13/16 $\ge$ 1.5（best \textbf{2.413}：L3 r10 ct1e5 cmi15）。
+参数相对行为与 test13/14/dev78\_1 一致：r10 > r5（V-cycle 频率）、
+ct1e5 > ct1e4（粗层容差）、cmi15 > cmi10（粗层迭代上限）、3L > 2L。
+<1.5 的 3 个配置集中于 r5+ct1e4 组合（粗层校正弱区，参数空间已知弱区，
+非回归）。
+
+\subsection{迭代残差分析（本套件核心新增）}
+\subsubsection{数据源与方法}
+\begin{enumerate}
+\item \textbf{MG 实测}：C++ 每次求解无条件写 CONVERGENCE\_HISTORY 到
+  logs/clover\_multigrid.log（lattice\_clover\_multigrid.h:1673）；
+  conv 子命令按文件偏移增量解析（多线程时每线程一条，均保留）。
+\item \textbf{参考 BiStabCG 复现}：C++ stdout 仅输出收敛点
+  （PRINT 宏默认关闭）；用同一 Schur 算子 + 同一算法在 torch 上
+  复现完整残差历史（\_bistabcg\_history，dev73\_5 已验证方案，
+  数学等价、零 C++ 改动）。
+\item 覆盖 21 个去重配置（bench 7 + sweep 16 + verify 3 去重后 21），
+  每配置记录 MG 曲线（每线程一条）+ ref 曲线 + speedup。
+\end{enumerate}
+
+\subsubsection{收敛统计}
+\begin{table}[htbp]\centering
+\small
+\begin{tabular}{llllllll}
+\toprule
+格子 & L & r & ct & cmi & MG 迭代 & MG 末残差 & ref 迭代 \\
+\midrule
+8x8x8x16 & 2 & 5 & 1e5 & 15 & 55 & 6.74e-07 & 90 \\
+8x8x8x16 & 3 & 5 & 1e5 & 15 & 35 & 8.68e-07 & 90 \\
+8x16x16x16 & 2 & 10 & 1e5 & 15 & 88 & 8.75e-07 & 88 \\
+8x16x16x16 & 3 & 10 & 1e5 & 15 & 58 & 6.99e-07 & 88 \\
+16x16x16x16 & 2 & 20 & 1e5 & 15 & 114 & 7.88e-07 & 89 \\
+16x16x16x16 & 3 & 10 & 1e5 & 15 & 59 & 7.13e-07 & 89 \\
+8x8x8x16 & 2 & 5 & 1e4 & 10 & 60 & 8.90e-07 & 90 \\
+8x8x8x16 & 2 & 5 & 1e4 & 15 & 55 & 6.81e-07 & 90 \\
+8x8x8x16 & 2 & 5 & 1e5 & 10 & 69 & 9.69e-07 & 90 \\
+8x8x8x16 & 2 & 10 & 1e4 & 10 & 120 & 8.21e-07 & 90 \\
+8x8x8x16 & 2 & 10 & 1e4 & 15 & 75 & 9.08e-07 & 90 \\
+8x8x8x16 & 2 & 10 & 1e5 & 10 & 96 & 7.92e-07 & 90 \\
+8x8x8x16 & 2 & 10 & 1e5 & 15 & 86 & 5.66e-07 & 90 \\
+8x8x8x16 & 3 & 5 & 1e4 & 10 & 35 & 8.53e-07 & 90 \\
+8x8x8x16 & 3 & 5 & 1e4 & 15 & 30 & 8.49e-07 & 90 \\
+8x8x8x16 & 3 & 5 & 1e5 & 10 & 34 & 9.91e-07 & 90 \\
+8x8x8x16 & 3 & 10 & 1e4 & 10 & 56 & 7.25e-07 & 90 \\
+8x8x8x16 & 3 & 10 & 1e4 & 15 & 46 & 6.13e-07 & 90 \\
+8x8x8x16 & 3 & 10 & 1e5 & 10 & 47 & 5.45e-07 & 90 \\
+8x8x8x16 & 3 & 10 & 1e5 & 15 & 45 & 9.08e-07 & 90 \\
+4x4x4x8 & 2 & 5 & 1e5 & 15 & 48 & 6.67e-07 & 81 \\
+\bottomrule
+\end{tabular}
+\caption{conv 21 配置残差统计（MG 迭代数/末残差/ref 迭代数；MG 曲线每条
+配置 2 条=每线程 1 条，V100 配置 1 条）}
+\end{table}
+
+\subsubsection{收敛行为解读}
+\begin{enumerate}
+\item \textbf{21/21 全收敛}：MG 与 ref 全部达 atol=1e-6（末残差 $<$ 1e-6），
+  无发散/伪收敛。
+\item \textbf{MG 迭代优势}：8x8x8x16 上 MG 30-120 次 vs ref 90 次
+  （3L 配置 30-56 次显著少于 ref）；16x16x16x16 2L r20 114 次
+  （V-cycle 频率低，与 speedup$<$1 对应）。
+\item \textbf{多线程残差一致}：P100×2 配置 2 线程残差曲线重合（迭代数与
+  残差路径相同）——残差层面独立佐证线程一致性。
+\item \textbf{参数-收敛联动}：ct1e4 校正弱 → 迭代膨胀（120 次）；
+  ct1e5+cmi15 → 迭代少 + speedup 高（45 次 / 2.43）。cmi10 粗层迭代
+  上限不足时部分配置迭代偏大。
+\item \textbf{V-cycle 阶梯结构}：曲线呈平台-骤降（粗层校正后细层残差
+  骤降），平台长度 $\approx$ num\_restart；r10 平台长于 r5 但校正更充分。
+\end{enumerate}
+
+\subsubsection{残差图清单（29 张）}
+\begin{itemize}
+\item 逐配置 21 张：`dev78\_2\_conv\_<lat>\_L<n>\_r<n>\_ct<n>\_cmi<n>.png`
+  —— MG 各线程曲线 + ref + atol 线 + speedup 标注；
+\item 逐格子逐 L 7 张：`dev78\_2\_conv\_<lat>\_L<n>.png` —— 同组多参数
+  MG 对比 + ref（dev74\_1 风格）；
+\item 全配置汇总 1 张：`dev78\_2\_conv\_all.png` —— 4 格子子图；
+\item 日志提取 1 张：`dev78\_2\_conv\_bench.png`（make\_extra\_plots）。
+\end{itemize}
+
+\subsection{资源预算（budget）}
+\begin{table}[htbp]\centering
+\begin{tabular}{lllll}
+\toprule
+格子 & cold(GB) & warm(GB) & 16G 占比 & 32G 占比 \\
+\midrule
+8x8x8x16 & 0.99 & 0.78 & 6.2\% & 3.1\% \\
+8x16x16x16 & 2.26 & 1.43 & 14.1\% & 7.1\% \\
+16x16x16x16 & 3.95 & 2.29 & 24.7\% & 12.3\% \\
+16x16x16x32 & 7.32 & 4.01 & 45.8\% & 22.9\% \\
+16x16x16x64 & 14.08 & 7.45 & \textbf{88.0\%} & 44.0\% \\
+\bottomrule
+\end{tabular}
+\caption{budget 模型（ALPHA\_DEFAULT=0.0528 GB/V cold、WARM=0.0269、
+BETA=580MB，test12 校准）}
+\end{table}
+
+% ================= 6 结论 =================
+\section{结论}
+\begin{conclbox}
+\begin{enumerate}
+\item 完整复测确认 dev78\_1 成果：bench 中位 1.411、best 2.303
+  （8x8x8x16 2L P100x2）、sweep 13/16 $\ge$ 1.5（best 2.413）、verify 全 PASS；
+\item \textbf{全求解器迭代残差图补全}：21 配置 MG 实测残差（含多线程
+  各线程曲线）与 ref 复现残差全部成图（29 张）且全部收敛 $<$ 1e-6——
+  正确性从"终态一致"深化到"收敛路径一致"；
+\item 收敛路径分析印证参数优化机理：ct/cmi 决定粗层校正质量、r 决定
+  V-cycle 频率，二者联动决定 MG 迭代数与加速比。
+\end{enumerate}
+\end{conclbox}
+
+\begin{warnbox}
+\begin{itemize}
+\item 16x16x16x16 2L r20=0.700 仍 $<$ 1（层数固有特性：粗层求解开销主导）；
+\item conv 的 ref 曲线为 Python 复现（数学等价但非 C++ 直接输出；
+  C++ PRINT 宏关闭时无法直采）；
+\item sweep 3 个 $<$1.5 配置为 r5+ct1e4 参数弱区（非回归）；
+\item 16x16x16x64 未实测（仅预算模型，16G 档 88\% 上限有风险）。
+\end{itemize}
+\end{warnbox}
+
+\end{document}
