@@ -38,6 +38,7 @@
 #include "./multigrid.h"
 #include <chrono>
 #include <cmath>
+#include <cstdlib>
 #include <fstream>
 #include <iomanip>
 #include <sstream>
@@ -116,13 +117,17 @@ __global__ void coarse_dot_reduce_kernel(const LatticeComplex<T> *partials,
 // ---- Logging infrastructure ----
 inline void ensure_log_dir() {
   struct stat st;
-  if (stat("logs", &st) != 0) mkdir("logs", 0755);
+  const char* qdir = std::getenv("QCU_LOG_DIR");
+  const char* dir = qdir ? qdir : "logs";
+  if (stat(dir, &st) != 0) mkdir(dir, 0755);
 }
 
 template <typename T>
 inline void log_write(const std::string &msg, int rank, bool to_stdout = true) {
   ensure_log_dir();
-  std::ofstream f("logs/clover_multigrid.log", std::ios_base::app);
+  const char* qdir = std::getenv("QCU_LOG_DIR");
+  std::string log_path = std::string(qdir ? qdir : "logs") + "/clover_multigrid.log";
+  std::ofstream f(log_path, std::ios_base::app);
   if (f.is_open()) {
     auto now = std::chrono::system_clock::now();
     auto tt = std::chrono::system_clock::to_time_t(now);
@@ -1268,6 +1273,19 @@ template <typename T> struct LatticeCloverMultigrid {
     T g0=hc0.real();MPI_Allreduce(MPI_IN_PLACE,&g0,1,mpi_real_type<T>(),MPI_SUM,MPI_COMM_WORLD);
     MPI_Barrier(MPI_COMM_WORLD); r0 = sqrt(g0<0?0:g0);
 
+    // Skip the coarse solve when the coarse RHS is already tiny: in fp32 the
+    // target tol*r0 then falls below the achievable precision, the BiStabCG
+    // scalars hit 0/0 and the solve returns NaN, poisoning the fine residual
+    // (observed with coarse max_iter=200 at fine residual ~6e-6).  The fine
+    // BiStabCG tail converges by itself from ~1e-5 down to atol.
+    if (r0 < (T)1e-4) {
+      LatticeComplex<T> restore_vol(saved_lat_4dim, 0.0);
+      checkCudaErrors(cudaMemcpyAsync(&dv[_lat_4dim_], &restore_vol,
+          sizeof(LatticeComplex<T>), cudaMemcpyHostToDevice, S));
+      checkCudaErrors(cudaStreamSynchronize(S));
+      return rn;
+    }
+
     if(rank==0&&verbose){
       log_write<T>("PYQCU::SOLVER::MULTIGRID::\n "+std::to_string(lev)+":Norm of b:"+std::to_string(r0),rank,true);
       log_write<T>("PYQCU::SOLVER::MULTIGRID::\n "+std::to_string(lev)+":Norm of r:"+std::to_string(r0),rank,true);
@@ -1596,7 +1614,12 @@ template <typename T> struct LatticeCloverMultigrid {
       }
 
       // ---- V-cycle coarse correction ----
-      if(num_levels>1 && num_restart>0 && count_restart>=num_restart){
+      // Skip once the fine Schur residual is small: the coarse solve cannot
+      // deliver corrections below its fp32 precision floor (~1e-5·||P^T·r||),
+      // and an empty/noisy correction only resets the BiStabCG Krylov space,
+      // bouncing the residual back to ~1e-5 (observed: 500 full iterations).
+      if(num_levels>1 && num_restart>0 && count_restart>=num_restart
+         && rn > (T)100 * atol){
         auto vc_t0=std::chrono::high_resolution_clock::now();
         prof_n_vcycles++;
         if(rank==0&&verbose)
@@ -1707,35 +1730,77 @@ template <typename T> struct LatticeCloverMultigrid {
     LatticeComplex<T> fv((T)full_vol,0.0);
     checkCudaErrors(cudaMemcpyAsync(&dv[_lat_4dim_],&fv,sizeof(LatticeComplex<T>),cudaMemcpyHostToDevice,S));
     checkCudaErrors(cudaStreamSynchronize(S));
-    // b_full → parity_dst, x_full → parity_tmp, D·x_full → r_full
-    parity_to_full(parity_dst, fermion_in_eo);
-    parity_to_full(parity_tmp, fermion_out_eo);
-    checkCudaErrors(cudaStreamSynchronize(S));
-    fine_full_dslash_op(r_full, parity_tmp);              // r_full = D·x
-    checkCudaErrors(cudaStreamSynchronize(S));
-    // residual = b - D·x → parity_tmp (via give_diff2: vec = x - ans)
-    bistabcg_give_diff2<T><<<gf,bf,0,S>>>(parity_dst, r_full, parity_tmp, set_ptr->device_vals);
-    checkCudaErrors(cudaStreamSynchronize(S));
-    LatticeComplex<T> ht;
-    CUBLAS_CHECK(_cublasDot<T>(set_ptr->cublasHs[_a_],(int)full_n,parity_tmp,1,parity_tmp,1,&dv[_send_tmp_]));
-    checkCudaErrors(cudaMemcpyAsync(&ht,&dv[_send_tmp_],sizeof(LatticeComplex<T>),cudaMemcpyDeviceToHost,set_ptr->streams[_a_]));
-    MPI_Barrier(MPI_COMM_WORLD);checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_a_]));
-    T gn=ht.real();MPI_Allreduce(MPI_IN_PLACE,&gn,1,mpi_real_type<T>(),MPI_SUM,MPI_COMM_WORLD);MPI_Barrier(MPI_COMM_WORLD);
-    T dn=sqrt(gn<0?0:gn);
-    CUBLAS_CHECK(_cublasDot<T>(set_ptr->cublasHs[_a_],(int)full_n,parity_dst,1,parity_dst,1,&dv[_send_tmp_]));
-    checkCudaErrors(cudaMemcpyAsync(&ht,&dv[_send_tmp_],sizeof(LatticeComplex<T>),cudaMemcpyDeviceToHost,set_ptr->streams[_a_]));
-    MPI_Barrier(MPI_COMM_WORLD);checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_a_]));
-    T gb=ht.real();MPI_Allreduce(MPI_IN_PLACE,&gb,1,mpi_real_type<T>(),MPI_SUM,MPI_COMM_WORLD);MPI_Barrier(MPI_COMM_WORLD);
-    T nb=sqrt(gb<0?0:gb);
-    T rd=(nb>(T)1e-30)?dn/nb:dn;
-    if(rank==0){
-      printf("=== MULTIGRID SOLVER REPORT ===\nTotal time: %.3f ms (%.3f s)\n",tm,tm/1000.);
-      printf("Solve time: %.3f ms\n",solve_time_ms);
-      printf("Levels: %d, Restart: %d\n",num_levels,num_restart);
-      printf("Convergence history entries: %zu\n",conv_history.size());
-      if(!conv_history.empty()){printf("Initial residual: %.6e\n",conv_history[0]);
-        printf("Final residual:   %.6e\n",conv_history.back());}
-      printf("Relative residual |D*x - b|/|b|: %.6e\n",rd);
+    // ---- Full-site residual on the MASKED [12,X,Y,Z,T] layout ----
+    // b_e/b_o are checkerboard-masked channels (size lat_4dim_SC): b_e holds
+    // the even sites with odd sites zero and vice versa, so b_full = b_e+b_o.
+    // The old parity_to_full/full_to_parity kernels assumed a [..., T/2]-
+    // compressed channel layout, silently dropped the even channel
+    // (|b_full| measured 313 vs the true |b| = 444, giving |D*x-b|/|b|~1.16),
+    // so we assemble b and D·x from the masked components directly.
+    {
+      cudaStream_t S=set_ptr->stream;
+      const int n=(int)set_ptr->lat_4dim_SC;               // one masked channel
+      LatticeComplex<T> *xe=static_cast<LatticeComplex<T>*>(fermion_out_eo);
+      LatticeComplex<T> *xo=static_cast<LatticeComplex<T>*>(fermion_out_eo)+n;
+      // vec0 = D_ee·x_e - κ·H_eo·x_o = (D·x)_e
+      CUBLAS_CHECK(_cublasCopy<T>(set_ptr->cublasH,n*_REAL_IMAG_,
+          (T*)xe,1,(T*)set_ptr->device_vec0,1));
+      clover_dslash_ee.give(set_ptr->device_vec0);
+      wilson_dslash.run_eo(set_ptr->device_vec1,xo,gauge);
+      checkCudaErrors(cudaStreamSynchronize(S));
+      LatticeComplex<T> neg_kap(-kappa_val,0.0);
+      CUBLAS_CHECK(_cublasAxpy<T>(set_ptr->cublasH,n,&neg_kap,
+          set_ptr->device_vec1,1,set_ptr->device_vec0,1));
+      checkCudaErrors(cudaStreamSynchronize(S));
+      // vec2 = D_oo·x_o - κ·H_oe·x_e = (D·x)_o
+      CUBLAS_CHECK(_cublasCopy<T>(set_ptr->cublasH,n*_REAL_IMAG_,
+          (T*)xo,1,(T*)set_ptr->device_vec2,1));
+      clover_dslash_oo.give(set_ptr->device_vec2);
+      wilson_dslash.run_oe(set_ptr->device_vec1,xe,gauge);
+      checkCudaErrors(cudaStreamSynchronize(S));
+      CUBLAS_CHECK(_cublasAxpy<T>(set_ptr->cublasH,n,&neg_kap,
+          set_ptr->device_vec1,1,set_ptr->device_vec2,1));
+      checkCudaErrors(cudaStreamSynchronize(S));
+      // parity_dst = b_e + b_o - (D·x)_e - (D·x)_o = b - D·x (masked full-site)
+      LatticeComplex<T> one(1,0), mone(-1,0);
+      CUBLAS_CHECK(_cublasCopy<T>(set_ptr->cublasH,n*_REAL_IMAG_,
+          (T*)b_e,1,(T*)parity_dst,1));
+      CUBLAS_CHECK(_cublasAxpy<T>(set_ptr->cublasH,n,&one,(T*)b_o,1,(T*)parity_dst,1));
+      CUBLAS_CHECK(_cublasAxpy<T>(set_ptr->cublasH,n,&mone,
+          (T*)set_ptr->device_vec0,1,(T*)parity_dst,1));
+      CUBLAS_CHECK(_cublasAxpy<T>(set_ptr->cublasH,n,&mone,
+          (T*)set_ptr->device_vec2,1,(T*)parity_dst,1));
+      checkCudaErrors(cudaStreamSynchronize(S));
+      // |b|² = |b_e|² + |b_o|² (masked channels are disjoint site sets)
+      LatticeComplex<T> ht;
+      CUBLAS_CHECK(_cublasDot<T>(set_ptr->cublasHs[_a_],n,parity_dst,1,parity_dst,1,&dv[_send_tmp_]));
+      checkCudaErrors(cudaMemcpyAsync(&ht,&dv[_send_tmp_],sizeof(LatticeComplex<T>),
+          cudaMemcpyDeviceToHost,set_ptr->streams[_a_]));
+      MPI_Barrier(MPI_COMM_WORLD);checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_a_]));
+      T gn=ht.real();MPI_Allreduce(MPI_IN_PLACE,&gn,1,mpi_real_type<T>(),MPI_SUM,MPI_COMM_WORLD);MPI_Barrier(MPI_COMM_WORLD);
+      T dn=sqrt(gn<0?0:gn);
+      CUBLAS_CHECK(_cublasDot<T>(set_ptr->cublasHs[_a_],n,b_e,1,b_e,1,&dv[_send_tmp_]));
+      checkCudaErrors(cudaMemcpyAsync(&ht,&dv[_send_tmp_],sizeof(LatticeComplex<T>),
+          cudaMemcpyDeviceToHost,set_ptr->streams[_a_]));
+      MPI_Barrier(MPI_COMM_WORLD);checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_a_]));
+      T gbe=ht.real();MPI_Allreduce(MPI_IN_PLACE,&gbe,1,mpi_real_type<T>(),MPI_SUM,MPI_COMM_WORLD);MPI_Barrier(MPI_COMM_WORLD);
+      CUBLAS_CHECK(_cublasDot<T>(set_ptr->cublasHs[_a_],n,b_o,1,b_o,1,&dv[_send_tmp_]));
+      checkCudaErrors(cudaMemcpyAsync(&ht,&dv[_send_tmp_],sizeof(LatticeComplex<T>),
+          cudaMemcpyDeviceToHost,set_ptr->streams[_a_]));
+      MPI_Barrier(MPI_COMM_WORLD);checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_a_]));
+      T gbo=ht.real();MPI_Allreduce(MPI_IN_PLACE,&gbo,1,mpi_real_type<T>(),MPI_SUM,MPI_COMM_WORLD);MPI_Barrier(MPI_COMM_WORLD);
+      T nb=sqrt(gbe+gbo);
+      T rd=(nb>(T)1e-30)?dn/nb:dn;
+      if(rank==0){
+        printf("=== MULTIGRID SOLVER REPORT ===\nTotal time: %.3f ms (%.3f s)\n",tm,tm/1000.);
+        printf("Solve time: %.3f ms\n",solve_time_ms);
+        printf("Levels: %d, Restart: %d\n",num_levels,num_restart);
+        printf("Convergence history entries: %zu\n",conv_history.size());
+        if(!conv_history.empty()){printf("Initial residual: %.6e\n",conv_history[0]);
+          printf("Final residual:   %.6e\n",conv_history.back());}
+        printf("Relative residual |D*x - b|/|b|: %.6e\n",rd);
+        printf("VERIFY: |b_full|=%.6e |Dx-b|=%.6e (|b_e|^2=%.4e |b_o|^2=%.4e)\n",nb,dn,gbe,gbo);
+      }
     }
     set_ptr->err=cudaGetLastError();checkCudaErrors(set_ptr->err);
   }
