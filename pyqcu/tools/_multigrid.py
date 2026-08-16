@@ -360,7 +360,10 @@ def give_null_vecs_mt(matvec_ops, dof, e, lat_fine_odd, dtype, device,
     null 向量从逐场 C++（40min+）提速至分钟级。
     """
     from concurrent.futures import ThreadPoolExecutor
-    nthreads = nthreads or len(matvec_ops)
+    if batch_matvec is not None:
+        nthreads = nthreads or 1
+    else:
+        nthreads = nthreads or len(matvec_ops)
     null = torch.zeros([dof, e] + list(lat_fine_odd), dtype=dtype, device=device)
     chunk = (dof + nthreads - 1) // nthreads
 
