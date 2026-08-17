@@ -1,0 +1,176 @@
+% ============================================================
+% diff 报告 — 初始提交 → stab27 全量改动概览（PDF 版）
+% 编译: xelatex -interaction=nonstopmode -halt-on-error -file-line-error "diff_init_stab27_20260818.tex"
+% 交付前 Overfull 计数必须为 0
+% ============================================================
+\documentclass[UTF8]{ctexart}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{microtype}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{xltabular}
+\usepackage{tabularx}
+\usepackage{hyperref}
+\usepackage{fancyhdr}
+\usepackage[most]{tcolorbox}
+\usepackage{titlesec}
+
+\definecolor{accent}{HTML}{1F4E79}
+\definecolor{evidence}{HTML}{1E8449}
+\definecolor{reference}{HTML}{8C6D1F}
+\definecolor{conclusion}{HTML}{8B1A1A}
+\definecolor{codebg}{HTML}{F4F6F7}
+\definecolor{struct}{HTML}{3B3B98}
+\definecolor{relation}{HTML}{0E7C7B}
+\definecolor{idea}{HTML}{B03A2E}
+\definecolor{warn}{HTML}{D35400}
+\definecolor{hl}{HTML}{FDF6E3}
+
+\setlength{\emergencystretch}{3em}
+\hypersetup{colorlinks=true,linkcolor=accent,urlcolor=relation}
+
+\titleformat{\section}{\Large\bfseries\color{accent}}{\thesection}{1em}{}
+\titleformat{\subsection}{\large\bfseries\color{struct}}{\thesubsection}{1em}{}
+\titleformat{\subsubsection}{\normalsize\bfseries\color{struct!70!black}}{\thesubsubsection}{1em}{}
+
+\newtcolorbox{conclbox}{breakable,colback=conclusion!6,colframe=conclusion,title=结论}
+\newtcolorbox{refbox}{breakable,colback=reference!6,colframe=reference,title=参考背景}
+\newtcolorbox{ideabox}{breakable,colback=idea!6,colframe=idea,title=项目思路}
+\newtcolorbox{warnbox}{breakable,colback=warn!6,colframe=warn,title=局限与风险}
+\newtcolorbox{keybox}{breakable,colback=hl,colframe=accent,title=要点}
+
+\lstset{
+  basicstyle=\ttfamily\footnotesize,
+  backgroundcolor=\color{codebg},
+  frame=single,
+  firstnumber=auto,
+  keywordstyle=\color{accent}\bfseries,
+  commentstyle=\color{evidence!70!black},
+  stringstyle=\color{struct},
+  breaklines=true,
+  breakatwhitespace=false,
+  postbreak=\mbox{\textcolor{accent}{$\hookrightarrow$}\space},
+  keepspaces=true,
+  columns=flexible,
+  numbers=left,numberstyle=\tiny\color{struct!60!black},
+}
+
+\title{PyQCU 改动概览（init → stab27）\\[6pt]\large 初始提交 0204fa5 → 最新标签 stab27 全量 git diff 结构化分析}
+\author{opencode diff}
+\date{2026-08-18}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+本报告对 PyQCU 从初始提交 \texttt{0204fa5} 到最新标签 \texttt{stab27} 的全部改动做只读结构化概览。全量 2138 文件、+1,163,982/−2 行、区间内 1120 提交；其中外部库镜像 \texttt{refer/}（1559 文件）与测试/产物 \texttt{examples/}、\texttt{logs/} 占增行绝大部分，真正自有库代码集中在 \texttt{pyqcu/}（+6847）与 \texttt{cpp/}（+16234）。边界检查：冲突标记 0、二进制 170、未检测重命名。
+\end{abstract}
+
+\tableofcontents
+
+\section{改动概览}
+
+\begin{keybox}
+\textbf{范围}: 初始提交 \texttt{0204fa5} (init) → 标签 \texttt{stab27}（全历史）\\
+\textbf{提交}: 区间内 1120 个提交\\
+\textbf{统计}: 2138 个文件, +1,163,982 / -2 行\\
+\textbf{分组}: 新增(全量) / 外部镜像 \texttt{refer/} 1559 文件 / 测试与产物 \texttt{examples}+\texttt{logs} 384 文件\\
+\textbf{主导}: \texttt{refer/git-rep/}（外部库镜像）与 \texttt{examples/pyqcu/*.txt}（运行日志）占增行绝大部分\\
+\textbf{自有库}: \texttt{pyqcu/} 47 文件 +6847 行；\texttt{cpp/} 78 文件 +16234 行\\
+\textbf{关注}: 冲突标记 0；二进制 170；未检测重命名
+\end{keybox}
+
+\section{规模与分布（实测）}
+
+\begin{xltabular}{\textwidth}{lrrX}
+\toprule
+\textcolor{struct}{顶层目录} & 文件数 & 增行 & 说明 \\
+\midrule
+\endhead
+\texttt{refer} & 1559 & 385,023 & 外部库镜像（DDalphaAMG/PyQUDA/quda 等），非自有代码 \\
+\texttt{examples} & 136 & 723,046 & 测试入口与运行日志（\texttt{*.txt} 占主导） \\
+\texttt{logs} & 261 & 29,394 & 测试/调试产物归档（\texttt{.gitignore} 豁免但历史已提交） \\
+\texttt{cpp} & 78 & 16,234 & C++ CUDA 后端（手写内核 + MPI halo） \\
+\texttt{pyqcu} & 47 & 6,847 & 纯 Python 实现 + Cython 桥 + cann 兼容层 \\
+\texttt{.opencode} & 36 & 2,493 & opencode 运行环境，与库无关 \\
+\texttt{docs} & 12 & 730 & 文档与既有分析报告 \\
+根文件 & 8 & 215 & \texttt{setup.py}/\texttt{env.sh}/\texttt{build.sh}/\texttt{AGENTS.md} 等 \\
+合计 & 2138 & 1,163,982 & — \\
+\bottomrule
+\caption{全量 diff 规模按顶层目录（数据来源: git diff --numstat 0204fa5 stab27 实测）}
+\end{xltabular}
+
+\section{PyQCU 自有库代码演进}
+
+真正自有库代码集中在 \texttt{pyqcu/} 与 \texttt{cpp/}。\texttt{pyqcu/} 子目录分布：
+
+\begin{table}[htbp]\centering
+\begin{tabular}{lrr}
+\toprule
+子目录 & 文件数 & 增行 \\
+\midrule
+\texttt{tools} & 9 & 1846 \\
+\texttt{cuda} & 11 & 1604 \\
+\texttt{dslash} & 5 & 1099 \\
+\texttt{solver} & 5 & 749 \\
+\texttt{testing} & 2 & 697 \\
+\texttt{smear} & 3 & 248 \\
+\texttt{cann} & 4 & 286 \\
+\texttt{lattice} & 2 & 250 \\
+其他 & 7 & 68 \\
+\bottomrule
+\end{tabular}
+\caption{pyqcu/ 子目录分布（数据来源: git diff --numstat 实测）}
+\end{table}
+
+\section{主导文件（自有库，按增行）}
+
+\begin{xltabular}{\textwidth}{lXr}
+\toprule
+\textcolor{struct}{文件} & 角色 & 增行 \\
+\midrule
+\endhead
+\texttt{\nolinkurl{cpp/cuda/qcu/include/lattice_clover_multigrid.h}} & Clover 多重网格核心头 & 1833 \\
+\texttt{\nolinkurl{cpp/cuda/qcu/src/clover_dslash_multi.cu}} & 多重网格 Clover dslash 内核 & 1610 \\
+\texttt{\nolinkurl{cpp/cuda/qcu/src/wilson_dslash.cu}} & Wilson dslash 内核 & 1442 \\
+\texttt{\nolinkurl{cpp/cuda/qcu/src/multigrid.cu}} & 多重网格 V-cycle 内核 & 981 \\
+\texttt{\nolinkurl{cpp/cuda/qcu/src/clover_dslash_single.cu}} & 单层 Clover dslash 内核 & 918 \\
+\texttt{\nolinkurl{pyqcu/tools/_multigrid.py}} & 纯 Python 多重网格工具 & 819 \\
+\texttt{\nolinkurl{pyqcu/testing/__init__.py}} & 集成测试套件 & 658 \\
+\texttt{\nolinkurl{pyqcu/cuda/_multi_gpu.py}} & 一线程一卡多线程多卡 MG & 568 \\
+\texttt{\nolinkurl{pyqcu/solver/_multigrid.py}} & 纯 Python 多重网格求解器 & 558 \\
+\texttt{\nolinkurl{pyqcu/tools/_define.py}} & 参数协议常量定义 & 501 \\
+\bottomrule
+\end{xltabular}
+
+\section{边界检查（易漏项）}
+
+\begin{itemize}
+  \item \textbf{冲突标记}：\texttt{git diff | grep '^<<<<<<<|^=======|^>>>>>>>'} → \textcolor{evidence}{0}（无合并冲突残留）。
+  \item \textbf{调试残留}：主导增量文件为 \texttt{examples/pyqcu/log-v*.txt}（运行日志），无库代码内 \texttt{print/echo} 调试行确证。
+  \item \textbf{未跟踪文件}：本视图为版本间 diff，不含未跟踪内容。
+  \item \textbf{二进制/大文件}：\texttt{git diff --numstat} 首字段为 \texttt{-} 的共 \textcolor{evidence}{170} 个，主要为 \texttt{refer/git-rep/} 外部库二进制与 \texttt{examples/} 数据/\texttt{.ipynb}。
+  \item \textbf{权限位变化}：\texttt{--summary} 未报告 mode 变化。
+  \item \textbf{意外删除}：全量仅 \textcolor{evidence}{2} 行删除，无结构性删除。
+  \item \textbf{重命名}：\texttt{git diff -M} 未将任何「删+增」合并为重命名，以新增为主。
+\end{itemize}
+
+\section{结论与后续}
+
+\begin{conclbox}
+从 init 到 \texttt{stab27}，PyQCU 完成从空仓库到完整 Lattice QCD 库的建设：核心增量在 \texttt{cpp/}（CUDA 后端）与 \texttt{pyqcu/}（Python 实现 + Cython 桥 + 多线程多卡 MG），主导文件直接对应 Wilson/Clover dslash、多重网格与测试体系。
+\end{conclbox}
+
+\begin{refbox}
+\texttt{refer/}（外部库镜像，1559 文件）与 \texttt{examples/*.txt}、\texttt{logs/} 属参考/产物，不应计入「库自有代码」规模评估。
+\end{refbox}
+
+\begin{warnbox}
+后续建议：①将 \texttt{logs/}、\texttt{examples/pyqcu/log-*.txt} 等运行产物移出版本跟踪（\texttt{git rm --cached}）；②\texttt{refer/git-rep/} 体积庞大，建议以 submodule 或外部引用替代整库镜像；③聚焦「库代码」可用 \texttt{git diff 0204fa5 stab27 -- pyqcu/ cpp/} 排除噪声。
+\end{warnbox}
+
+\end{document}

@@ -1,0 +1,198 @@
+% ============================================================
+% pure 报告（补充）— 多重网格 V-cycle 15 步全流程深剖
+% 编译: xelatex -interaction=nonstopmode -halt-on-error -file-line-error "pure_mg_20260818.tex"
+% 交付前 Overfull 计数必须为 0
+% ============================================================
+\documentclass[UTF8]{ctexart}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{microtype}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{xltabular}
+\usepackage{tabularx}
+\usepackage{hyperref}
+\usepackage{fancyhdr}
+\usepackage[most]{tcolorbox}
+\usepackage{titlesec}
+
+\definecolor{accent}{HTML}{1F4E79}
+\definecolor{evidence}{HTML}{1E8449}
+\definecolor{reference}{HTML}{8C6D1F}
+\definecolor{conclusion}{HTML}{8B1A1A}
+\definecolor{codebg}{HTML}{F4F6F7}
+\definecolor{struct}{HTML}{3B3B98}
+\definecolor{relation}{HTML}{0E7C7B}
+\definecolor{idea}{HTML}{B03A2E}
+\definecolor{warn}{HTML}{D35400}
+\definecolor{hl}{HTML}{FDF6E3}
+
+\setlength{\emergencystretch}{3em}
+\hypersetup{colorlinks=true,linkcolor=accent,urlcolor=relation}
+\makeatletter
+\g@addto@macro\UrlBreaks{\do\_\do\-}
+\makeatother
+
+\titleformat{\section}{\Large\bfseries\color{accent}}{\thesection}{1em}{}
+\titleformat{\subsection}{\large\bfseries\color{struct}}{\thesubsection}{1em}{}
+\titleformat{\subsubsection}{\normalsize\bfseries\color{struct!70!black}}{\thesubsubsection}{1em}{}
+
+\newtcolorbox{conclbox}{breakable,colback=conclusion!6,colframe=conclusion,title=结论}
+\newtcolorbox{refbox}{breakable,colback=reference!6,colframe=reference,title=参考背景}
+\newtcolorbox{ideabox}{breakable,colback=idea!6,colframe=idea,title=项目思路}
+\newtcolorbox{warnbox}{breakable,colback=warn!6,colframe=warn,title=局限与风险}
+\newtcolorbox{keybox}{breakable,colback=hl,colframe=accent,title=要点}
+
+\lstset{
+  basicstyle=\ttfamily\footnotesize,
+  backgroundcolor=\color{codebg},
+  frame=single,
+  firstnumber=auto,
+  keywordstyle=\color{accent}\bfseries,
+  commentstyle=\color{evidence!70!black},
+  stringstyle=\color{struct},
+  breaklines=true,
+  breakatwhitespace=false,
+  postbreak=\mbox{\textcolor{accent}{$\hookrightarrow$}\space},
+  keepspaces=true,
+  columns=flexible,
+  numbers=left,numberstyle=\tiny\color{struct!60!black},
+}
+
+\title{PyQCU 核心算法深剖（补充）：多重网格 V-cycle\\[6pt]\large 15 步全流程重现（代码—物理交叉框架 A）}
+\author{opencode pure}
+\date{2026-08-18}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+本报告作为 \texttt{pure\_pyqcu\_20260818} 的补充，对 PyQCU 最强竞争力——多重网格（MultiGrid）V-cycle 求解器——按「分析思路框架」A（代码/软件工作）15 步做全流程深剖。证据均来自当前 HEAD（\texttt{a456932}）逐行 read/gzip 核实。核心结论：V-cycle 以近零空间向量（null space）经 Galerkin 投影 $A_c=P^T D_{fine} P$ 构造粗算子，递归消除低频误差；细层用 C++ CUDA 后端 BiCGStab 平滑（5-stream 架构），粗层纯 Python；粗网格校正后强制重置 BiCGStab 全部状态（R3 fix）并支持 breakdown 自动重启（R2 演进）。实测收敛数据引自 \texttt{pyqcu/solver/AGENTS.md}。
+\end{abstract}
+
+\tableofcontents
+
+\section{候选归属与性质判定}
+本报告聚焦 \texttt{pure\_pyqcu\_20260818} 清单中的 C4（多重网格 V-cycle，深挖）。项目性质为\textbf{代码—物理交叉}：V-cycle 的每个代码符号（\texttt{lonv\_list}、\texttt{restrict/prolong}、\texttt{cycle(level)}、\texttt{v\_cycle}）均有唯一物理对象（低频模态基 $P$、限制/延拓、$D_l$ 层算子、递归粗层），故以 A 框架为主体、B 元素（物理图像）并入各步。
+
+\section{工作全流程重现（A 代码工作框架）}
+
+\subsection{A1 目的与前期准备}
+\textbf{为什么存在}：求解格点 QCD 狄拉克方程 $D\psi=\eta$ 时，细层 Dirac 算子 $D$ 的条件数随体积 $\propto V$，普通 Krylov 法（如 BiCGStab）在红外（低频）模态上收敛极慢；多重网格用粗网格显式消除低频误差，将迭代次数与体积解耦（\texttt{pyqcu/solver/AGENTS.md}「multigrid 类」）。\textbf{前置条件}：规范场 $U$、Clover 项、$\kappa/u_0$、近零空间向量；生产路径需先 \texttt{build.sh}+\texttt{install.sh} 构建 \texttt{libqcu.so} 与 Cython 扩展（\texttt{AGENTS.md:10}）。
+
+\subsection{A2 输入}
+\begin{xltabular}{\textwidth}{llX}
+\toprule
+\textcolor{relation}{输入} & 类型 & 参考源 \\
+\midrule
+\endhead
+$U$（规范场） & \texttt{[3,3,4,X,Y,Z,T]} & \texttt{\_multigrid.py:241} \\
+clover\_ee/oo & 块对角 Clover & \texttt{\_multigrid.py:243-244} \\
+$\kappa, u_0$ & 标量 & \texttt{AGENTS.md} 构造参数 \\
+lonv（近零空间） & 逆迭代生成 & \texttt{\_multigrid.py:273-278} \\
+$b$（右端） & 费米子场 & \texttt{\_multigrid.py:340,524} \\
+\bottomrule
+\end{xltabular}
+
+\subsection{A3 输出（应是什么）}
+解 $x$（费米子场，$\psi$），以及 \texttt{convergence\_history}（每轮残差，用于 \texttt{adaptive} 停滞判定与绘图，\texttt{\_multigrid.py:368,434,484}）。正确性判据：细层残差降至 \texttt{tol}（默认绝对容差，\texttt{\_multigrid.py:369}）。
+
+\subsection{A4 整体框架}
+多层递归：层 $l$ 上先 BiCGStab 平滑，再做粗网格校正——将残差限制到层 $l+1$、递归 \texttt{cycle(l+1)} 求粗解、延拓回细层校正；最细层（$l=0$）走 C++ CUDA 后端（\texttt{with\_cuda\_qcu=True}），层 1 走 C++ 粗网格 dslash，层 2+ 纯 Python einsum（\texttt{pyqcu/solver/AGENTS.md}「执行层」）。递归入口 \texttt{\_multigrid.py:455} \texttt{self.cycle(level=level+1)}。
+
+\subsection{A5 关键细节}
+\begin{itemize}
+  \item \textbf{Galerkin 粗算子}：\texttt{operator()} 用 \texttt{prolong→matvec→restrict} 单格点探测 $P^T D_{fine} P$，写入 \texttt{sitting.M} 与 \texttt{hopping.M\_plus/minus\_list}（\texttt{\_operator.py:157-226}）。
+  \item \textbf{R3 fix}：粗校正后 \texttt{x=x+e\_fine} 使残差改变，必须重置 \nolinkurl{r_tilde,p,v,s,t,rho,rho_prev,alpha,omega}（\texttt{\_multigrid.py:465-482}）。
+  \item \textbf{自动重启}：breakdown（\nolinkurl{rho/rtv/tts<1e-20} 或非有限）时保留 x/r 重置状态后继续（\nolinkurl{_multigrid.py:392-430}）。
+  \item \textbf{5-stream}（C++ 端）：\nolinkurl{main/_a_/_b_/_c_/_d_} 并行 BiCGStab 子步骤（\nolinkurl{lattice_clover_multigrid.h:20-31}）。
+\end{itemize}
+
+\subsection{A6 任务如何正确执行}
+典型调用链（生产路径）：\texttt{multigrid.init()}（构建 null 空间与粗算子）→ \texttt{multigrid.solve(b)} → \texttt{cycle(0)} 递归 → \texttt{multigrid.end()} 释放 scratch（\nolinkurl{_multigrid.py:204,523,290}）。C++ 后端每次调用间必须 \nolinkurl{params[_SET_INDEX_]+=1}（\nolinkurl{_multigrid.py:262}），否则 scratch 冲突。
+
+\subsection{A7 实际执行情况}
+\textcolor{warn}{未验证（本静态分析会话未构建 libqcu.so / 无 GPU 运行）}。以下为仓库既有实测记录（\texttt{pyqcu/solver/AGENTS.md}「CUDA 混合路径同步与 breakdown 重启」「多线程实例并行」）：
+\begin{keybox}
+\textbf{文档化实测}：8x8x8x8 1L 残差 8.7e-7；8x8x8x16 2L 残差 7.8e-7（自动重启后收敛不受影响）；2 线程 8x8x8x8 1L 并行各 6.3e-7/9.5e-7 均收敛；3 实例循环显式 \texttt{end()+del+gc.collect()} 后全 9e-7 收敛。
+\end{keybox}
+
+\subsection{A8 实际输出情况}
+上述实测下，输出 $x$ 满足 $||Dx-b||<\text{tol}$，且 \texttt{convergence\_history} 单调下降（粗校正前后双采样，\texttt{\_multigrid.py:434,484}）。\textcolor{warn}{未验证}：本次会话未亲自产生输出数值。
+
+\subsection{A9 结果分析}
+结合 A7 文档数据：多层（2L）在 8x8x8x16 上残差 7.8e-7，说明粗网格校正有效消除了 BiCGStab 单独难以收敛的低频模态；自动重启（R2）使偶发 breakdown 不再中断求解，收敛不受影响；R3 fix 避免了粗校正后 \texttt{rho=vdot(r\_tilde\_old,r\_new)} 无意义导致的收敛退化/发散（\texttt{\_multigrid.py:468-473} 注释）。多线程实例并行要求显式资源管理，否则隐式 GC 与 C++ 操作并发导致残差 ~O(1)（\texttt{\_multigrid.py:290-303}）。
+
+\subsection{A10 综合分析}
+V-cycle 是 PyQCU 与朴素 BiCGStab 的根本分野：它将「红外慢模态」显式下推到粗网格用更少自由度求解。Galerkin 投影保证粗算子与细算子谱一致（\texttt{\_operator.py:158} 注释）；5-stream 与 device 端标量（\texttt{cpp/.../AGENTS.md} 关键不变量 1）保证 C++ 平滑的高吞吐；R3/R2 两处 fix 是工程鲁棒性的关键，缺失其一即退化或发散。这与纯 Python 参考实现（\texttt{\_multigrid.py}）形成「生产后端 + 可验证参考」双轨。
+
+\subsection{A11 结尾总结}
+\begin{conclbox}
+多重网格 V-cycle = 近零空间 Galerkin 粗化 + 递归粗校正 + BiCGStab 平滑；其工程正确性依赖三处关键：Galerkin 谱一致性、粗校正后 R3 状态重置、breakdown 自动重启（R2）。PyQCU 以「C++ CUDA 5-stream 细层 + 纯 Python 粗层」混合，兼顾性能与可验证性。
+\end{conclbox}
+
+\subsection{A12 结尾评价}
+\textbf{优点}：低频误差消除显著、收敛与体积解耦、双后端可交叉验证、R2/R3 提升鲁棒性。\textbf{可改进}：null 向量逆迭代每向量一个 LatticeSet，大格子（16³×32）单实例 init 仍可能 OOM（\texttt{pyqcu/solver/AGENTS.md}「多实例资源管理」）；粗算子 33-tensor 宽 stencil 构建成本需批量优化（见 C6）。
+
+\subsection{A13 补充说明}
+\textbf{假设/局限}：A7/A8 实际运行未在本次会话执行（环境未构建 GPU 后端），数据引自仓库 AGENTS.md 文档；Galerkin 构造假设每方向粗化因子 2（\texttt{\_operator.py:159} 注释），非标准粗化因子需泛化奇偶分解。
+
+\subsection{A14 参考源}
+见第 5 节参考源清单。
+
+\subsection{A15 附录}
+关键代码片段见第 4 节（\lstinputlisting 直引）：内层 BiCGStab 平滑（\texttt{\_multigrid.py:255-270}）、粗校正 + R3 fix（\texttt{\_multigrid.py:442-481}）、Galerkin 构建（\texttt{\_operator.py:174-213}）、C++ 5-stream（\texttt{lattice\_clover\_multigrid.h:20-31}）。
+
+\section{关键代码/文档片段}
+
+内层 BiCGStab 平滑（细层 C++ 后端，\texttt{\_multigrid.py:255-270}）：
+
+\begin{lstinputlisting}[firstline=255,lastline=270,language=python]{/root/PyQCU/pyqcu/solver/_multigrid.py}
+\end{lstinputlisting}
+
+粗网格校正触发 + R3 fix（\texttt{\_multigrid.py:442-481}）：
+
+\begin{lstinputlisting}[firstline=442,lastline=481,language=python]{/root/PyQCU/pyqcu/solver/_multigrid.py}
+\end{lstinputlisting}
+
+Galerkin 粗算子单格点探测 $P^T D_{fine} P$（\texttt{\_operator.py:174-213}）：
+
+\begin{lstinputlisting}[firstline=174,lastline=213,language=python]{/root/PyQCU/pyqcu/dslash/_operator.py}
+\end{lstinputlisting}
+
+C++ 端 5-stream 架构（\texttt{lattice\_clover\_multigrid.h:20-31}）：
+
+\begin{lstinputlisting}[firstline=20,lastline=31,language=c++]{/root/PyQCU/cpp/cuda/qcu/include/lattice_clover_multigrid.h}
+\end{lstinputlisting}
+
+\section{参考源清单}
+
+\begin{xltabular}{\textwidth}{llX}
+\toprule
+\textcolor{evidence}{参考源} & 类型 & 内容/作用 \\
+\midrule
+\endhead
+\texttt{\nolinkurl{pyqcu/solver/_multigrid.py:204-289}} & 仓库 & init() 构建 null 空间与粗算子 \\
+\texttt{\nolinkurl{pyqcu/solver/_multigrid.py:334-521}} & 仓库 & cycle() V-cycle 递归主体 \\
+\texttt{\nolinkurl{pyqcu/solver/_multigrid.py:442-482}} & 仓库 & 粗校正触发 + R3 fix \\
+\texttt{\nolinkurl{pyqcu/solver/_multigrid.py:392-430}} & 仓库 & breakdown 自动重启（R2） \\
+\texttt{\nolinkurl{pyqcu/dslash/_operator.py:157-226}} & 仓库 & Galerkin 粗算子 P\^{}T D P \\
+\texttt{\nolinkurl{cpp/cuda/qcu/include/lattice_clover_multigrid.h:20-31}} & 仓库 & 5-stream 架构 \\
+\texttt{\nolinkurl{pyqcu/solver/AGENTS.md}} & 仓库 & 文档化实测收敛数据 \\
+\bottomrule
+\end{xltabular}
+
+\section{结论与局限}
+
+\begin{conclbox}
+多重网格 V-cycle 是 PyQCU 最强竞争力：Galerkin 粗化 + 递归校正 + BiCGStab 平滑，配 C++ 5-stream 与 R2/R3 鲁棒性修复，实现「收敛与体积解耦」。本报告 15 步全流程重现，证据均逐行核实。
+\end{conclbox}
+
+\begin{warnbox}
+未覆盖/局限：A7/A8 实际运行未在本会话执行（环境未构建 GPU 后端），实测数据引自仓库 AGENTS.md；Galerkin 粗化因子固定为 2；33-tensor 宽 stencil 构建（C6）与多线程多卡驱动（C8）未在本报告展开，见主 pure 报告。
+\end{warnbox}
+
+\end{document}
