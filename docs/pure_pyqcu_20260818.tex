@@ -1,0 +1,236 @@
+% ============================================================
+% pure 报告 — PyQCU 核心算法穷尽剖析（规范模板 v2，xelatex + ctex）
+% 编译: xelatex -interaction=nonstopmode -halt-on-error -file-line-error "pure_pyqcu_20260818.tex"
+% 交付前 Overfull 计数必须为 0
+% ============================================================
+\documentclass[UTF8]{ctexart}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{microtype}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{xltabular}
+\usepackage{tabularx}
+\usepackage{hyperref}
+\usepackage{fancyhdr}
+\usepackage[most]{tcolorbox}
+\usepackage{titlesec}
+
+\definecolor{accent}{HTML}{1F4E79}
+\definecolor{evidence}{HTML}{1E8449}
+\definecolor{reference}{HTML}{8C6D1F}
+\definecolor{conclusion}{HTML}{8B1A1A}
+\definecolor{codebg}{HTML}{F4F6F7}
+\definecolor{struct}{HTML}{3B3B98}
+\definecolor{relation}{HTML}{0E7C7B}
+\definecolor{idea}{HTML}{B03A2E}
+\definecolor{warn}{HTML}{D35400}
+\definecolor{hl}{HTML}{FDF6E3}
+
+\setlength{\emergencystretch}{3em}
+\hypersetup{colorlinks=true,linkcolor=accent,urlcolor=relation}
+
+\titleformat{\section}{\Large\bfseries\color{accent}}{\thesection}{1em}{}
+\titleformat{\subsection}{\large\bfseries\color{struct}}{\thesubsection}{1em}{}
+\titleformat{\subsubsection}{\normalsize\bfseries\color{struct!70!black}}{\thesubsubsection}{1em}{}
+
+\newtcolorbox{conclbox}{breakable,colback=conclusion!6,colframe=conclusion,title=结论}
+\newtcolorbox{refbox}{breakable,colback=reference!6,colframe=reference,title=参考背景}
+\newtcolorbox{ideabox}{breakable,colback=idea!6,colframe=idea,title=项目思路}
+\newtcolorbox{warnbox}{breakable,colback=warn!6,colframe=warn,title=局限与风险}
+\newtcolorbox{keybox}{breakable,colback=hl,colframe=accent,title=要点}
+
+\lstset{
+  basicstyle=\ttfamily\footnotesize,
+  backgroundcolor=\color{codebg},
+  frame=single,
+  firstnumber=auto,
+  keywordstyle=\color{accent}\bfseries,
+  commentstyle=\color{evidence!70!black},
+  stringstyle=\color{struct},
+  breaklines=true,
+  breakatwhitespace=false,
+  postbreak=\mbox{\textcolor{accent}{$\hookrightarrow$}\space},
+  keepspaces=true,
+  columns=flexible,
+  numbers=left,numberstyle=\tiny\color{struct!60!black},
+}
+
+\title{PyQCU 核心算法穷尽剖析\\[6pt]\large 代码—物理双向映射：Wilson/Clover dslash、BiStabCG、多重网格与一线程一卡并行}
+\author{opencode pure}
+\date{2026-08-18}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+本报告对 PyQCU 核心算法做穷尽剖析，判定项目为\textbf{代码—物理交叉}性质（判定依据：C++ CUDA 内核 + 纯 Python 实现 + SU(3) 规范物理等量共存）。穷尽枚举 8 个核心候选，三态分配为深挖 7 / 浅析 1 / 排除若干。每个深挖部分给出代码—物理双向映射与唯一竞争力证据。最强竞争力：多重网格（Galerkin 宽 stencil + 粗校正后 BiCGStab 状态重置 R3 fix + 5-stream + 混合并行）与一线程一卡 \texttt{with nogil} 真并行。
+\end{abstract}
+
+\tableofcontents
+
+% ================= 1 项目定位与核心清单 =================
+\section{项目定位与核心部分清单}
+
+\subsection{性质判定}
+实测：\texttt{cpp/cuda/qcu/src/} 30 个 CUDA 内核（物理求解执行体）、\texttt{pyqcu/dslash/} 纯 Python 算子（含 Wilson 算子公式与 \texttt{wards} 负索引物理约定）、\texttt{pyqcu/lattice/} 的 gamma/Gell-Mann/SU(3) 数学对象，三者共存 → \textcolor{struct}{交叉向}（代码↔物理符号一一对应）。
+
+\subsection{穷尽候选清单（三态闭环）}
+
+\begin{xltabular}{\textwidth}{llX}
+\toprule
+编号 & 候选 & 三态（深挖/浅析/排除） \\
+\midrule
+\endhead
+C1 & Wilson Dirac 算子 & \textcolor{struct}{深挖} \\
+C2 & Clover Dirac 算子 & \textcolor{struct}{深挖} \\
+C3 & BiStabCG 求解器 & \textcolor{struct}{深挖} \\
+C4 & 多重网格 V-cycle & \textcolor{struct}{深挖} \\
+C5 & stout smearing & 浅析 \\
+C6 & 33-tensor stencil / 批量 BiCGStab & \textcolor{struct}{深挖} \\
+C7 & CUDA 内核与 MPI halo 交换架构 & \textcolor{struct}{深挖} \\
+C8 & Cython 桥 nogil 真并行 & \textcolor{struct}{深挖} \\
+E1 & \texttt{\_gmres.py} & 排除（占位 stub，未实现） \\
+E2 & \texttt{cpp/\{cann,dtk,maca\}/} & 排除（PASS 占位，无实现） \\
+E3 & TileLang JIT（\texttt{\_einsum} 等） & 排除（可选降级，非核心） \\
+\bottomrule
+\caption{核心部分候选清单（穷尽枚举，三态填满；数据来源: 全库索引 + 子代理核实行号）}
+\end{xltabular}
+
+计数：深挖 7（C1-C4,C6-C8）、浅析 1（C5）、排除 3（E1-E3），无未处理候选。
+
+% ================= 2 逐部分深剖 =================
+\section{核心部分逐深剖}
+
+\subsection{C1 Wilson Dirac 算子（dslash）}
+\paragraph{是什么} Wilson-Dirac 算子把夸克场在相邻格点的跃迁编码为 SU(3) link 与 Dirac $\gamma$ 矩阵的收缩；奇偶预处理把 $12\times12$ 矩阵分裂为偶↔奇耦合（\texttt{\_wilson.py:16}）。
+\paragraph{代码—物理映射}
+\begin{xltabular}{\textwidth}{llX}
+\toprule
+\textcolor{relation}{代码符号} & 物理对象 & 参考源 \\
+\midrule
+\endhead
+\texttt{U\_mu = U[...,ward,...]} & 方向 $\mu$ 的 SU(3) link $U_{x,\mu}$ & \texttt{\_wilson.py:47} \\
+\texttt{I\_minus\_gamma/I\_plus\_gamma} & $(1\mp\gamma_\mu)$ 自旋投影 & \texttt{\_wilson.py:38-39} \\
+\texttt{\_torch.roll(src, $\mp$1)} & 费米子沿 $\mu$ 的格点跃迁 $x\pm\mu$ & \texttt{\_wilson.py:50,55} \\
+\texttt{kappa/u\_0} & Wilson 质量 $\kappa$ 与 tadpole 改进 $u_0$ & \texttt{\_wilson.py:31} \\
+\texttt{give\_wilson\_eo/oe} & 偶→奇/奇→偶子块 $D_{oe}/D_{eo}$ & \texttt{\_wilson.py:74,152} \\
+\bottomrule
+\end{xltabular}
+\paragraph{唯一竞争力} 纯 Python（CPU/CUDA/NPU）与手写 CUDA 内核双路径并存；hopping 项显式拆为 $M^\pm$ 并 reshape 为 \texttt{[12,12,X,Y,Z,T]}，与 C++ 按方向打包的 \texttt{hopping} 张量同构（子代理核实 \texttt{\_wilson.py:230-294}）。
+
+\subsection{C2 Clover Dirac 算子}
+\paragraph{是什么} 改进 Wilson 费米作用量的对角项 $M = I + c_{sw}\kappa\sum_{\mu<\nu}\sigma_{\mu\nu}F_{\mu\nu}$，$F_{\mu\nu}$ 由 4-plaquette（clover leaf）构造，消除 $O(a)$ 离散化误差（\texttt{\_clover.py:13-15}）。
+\paragraph{代码—物理映射}
+\begin{xltabular}{\textwidth}{llX}
+\toprule
+\textcolor{relation}{代码符号} & 物理对象 & 参考源 \\
+\midrule
+\endhead
+\texttt{U\_mu,U\_nu,U\_dag\_mu,U\_dag\_nu} & plaquette 四角 link & \texttt{\_clover.py:141-144} \\
+\texttt{F += einsum(U$\cdot$U$\cdot$U$^\dag\cdot$U$^\dag$)} & 单 plaquette → 色电场强 & \texttt{\_clover.py:236-240} \\
+\texttt{F -= F\^{}.T.conj()} & 反厄米化 $F-F^\dag$ & \texttt{\_clover.py:262} \\
+\texttt{sigma = gamma\_gamma[...]} & $\sigma_{\mu\nu}=-i/2[\gamma_\mu,\gamma_\nu]$ & \texttt{\_clover.py:108} \\
+\texttt{\_clover\_factor=-0.125$\cdot\kappa$/u\_0} & 改进系数 $c_{sw}$ & \texttt{\_clover.py:118} \\
+\texttt{clover [4,3,4,3,XYZT]} & 块对角 Clover 项 & \texttt{\_clover.py:101-102} \\
+\bottomrule
+\end{xltabular}
+\paragraph{关键片段} $F_{\mu\nu}$ 四 plaquette + 反厄米 + $\sigma$ 收缩：
+\begin{lstinputlisting}[firstline=234,lastline=267,language=python]{/root/PyQCU/pyqcu/dslash/_clover.py}
+\end{lstinputlisting}
+\paragraph{唯一竞争力} 批量 12×12 求逆（禁止逐点 for 循环，\texttt{\_clover.py:314-327}）；Clover 项形状严格为 \texttt{[4,3,4,3,X,Y,Z,T]}（\texttt{AGENTS.md:37}）。
+
+\subsection{C3 BiStabCG 求解器}
+\paragraph{是什么} 求解 $D\psi=\eta$ 的 BiCGStab 迭代，残差双正交于影子残差 $\tilde r$，每步两 matvec（\nolinkurl{_bistabcg.py:8-91}）。
+\paragraph{代码—物理映射} \nolinkurl{matvec}↔狄拉克算子 $D$；\nolinkurl{r=b-matvec(x)}↔残余 $r=\eta-D\psi$；\nolinkurl{rho=vdot(r_tilde,r)}↔双正交标量 $\rho=\langle\tilde r,r\rangle$；\nolinkurl{alpha=rho/rtv}↔步长 $\alpha$；\nolinkurl{omega=vdot(t,s)/tts}↔稳定化 $\omega$（子代理核实 \nolinkurl{_bistabcg.py:36-66}）。
+\paragraph{关键片段}
+\begin{lstinputlisting}[firstline=36,lastline=66,language=python]{/root/PyQCU/pyqcu/solver/_bistabcg.py}
+\end{lstinputlisting}
+\paragraph{唯一竞争力} 2026-07-28 起 breakdown 改自动重启（保留 x/r，重置影子向量）；C++ 后端标量 \texttt{rho/alpha/omega/beta} 全留 device，迭代内无 host→device 标量拷贝（\texttt{\_SET\_PLAN\_=1}，\texttt{define.py:42}）。
+
+\subsection{C4 多重网格 V-cycle}
+\paragraph{是什么} 自适应多重网格：细层奇偶预处理 Clover 平滑（BiCGStab）+ 粗网格校正；近零空间向量经 Galerkin 投影 $A_c=P^T D_{fine} P$ 构造粗算子，递归消除低频误差（\texttt{\_multigrid.py:204-521}）。
+\paragraph{代码—物理映射} \nolinkurl{lonv_list}↔近零空间（低频模态）基 $P$；\nolinkurl{restrict/prolong}↔$P^T/P$；\nolinkurl{cycle(level)}↔V-cycle；\nolinkurl{e_fine=prolong(e_coarse)}↔粗解提升校正；\nolinkurl{v_cycle(lev+1)}↔递归粗层（\nolinkurl{lattice_clover_multigrid.h:1350}）。
+\paragraph{关键片段} 粗校正后 BiCGStab 状态重置（R3 fix，避免 $\rho=\langle\tilde r_{old},r_{new}\rangle$ 无意义）：
+\begin{lstinputlisting}[firstline=465,lastline=482,language=python]{/root/PyQCU/pyqcu/solver/_multigrid.py}
+\end{lstinputlisting}
+\paragraph{唯一竞争力} Galerkin 既支持纯 Python 探测也支持 33-tensor 宽 stencil（耦合同格点 + 8 近邻 + 24 对角）；最粗层用 cooperative 融合单 kernel BiStabCG；5-stream 架构；\texttt{with\_cuda\_qcu} 混合并行（细层 C++、更粗纯 Python）。
+
+\subsection{C5 stout smearing（浅析）}
+\paragraph{是什么} Stout 规范场涂抹：每步 $U_{new}=e^{Q}\cdot U$，$Q$ 为反厄米 su(3) 元（Morningstar-Peardon 投影，\texttt{\_stout.py:13-204}）。
+\paragraph{代码—物理映射} \nolinkurl{Q_mu}↔su(3) 涂抹生成元；\nolinkurl{0.5j*(Q.conj().T-Q)}↔反厄米化；\texttt{c0=Tr(Q$^3$)/3}, \texttt{c1=Tr(Q$^2$)/2}↔投影不变量；\texttt{halo 每步重算}↔修复 \nolinkurl{nstep>1} 不更新 U 的反模式（子代理核实 \nolinkurl{_stout.py:100-130}）。
+\paragraph{定位} 重要但属预处理辅助，非核心求解算子，故浅析。
+
+\subsection{C6 33-tensor stencil 构建 / 批量 BiCGStab}
+\paragraph{是什么} 逐格点探测 $A_c=P^T S P$ 的「宽」stencil（8 近邻 + 24 对角，因 Schur 算子耦合同格点 $\pm2\mu$ 与 $\mu\pm\nu$ 对角）；批量 BiCGStab 同时对 batch 维全部右端求解（\texttt{\_multigrid.py:277-819}）。
+\paragraph{代码—物理映射} \texttt{sit[E,E,Xc,Yc,Zc,Tc]}↔on-site 块 $A_c(x,x)$；\texttt{hop\_nn[2,4,E,E,...]}↔近邻耦合 $A_c(x,x\pm\mu)$；\texttt{hop\_diag[2,2,6,E,E,...]}↔对角耦合 $A_c(x,x\pm\mu\pm\nu)$；\texttt{\_bistabcg\_batch}↔多右端近零空间逆迭代。
+\paragraph{唯一竞争力} 批量版把 null 向量生成从逐场 C++（40min+）提速到分钟级（\texttt{8x8x8x16} 约 135s→15s，10×；子代理核实 \texttt{\_multigrid.py:751-755}）。
+
+\subsection{C7 CUDA 内核与 MPI halo 交换架构}
+\paragraph{是什么} 手写 CUDA 内核 + 4D 进程网格 MPI halo 交换，构成 dslash 与 MG 的执行骨架（\texttt{lattice\_wilson\_dslash.h:17-602}）。
+\paragraph{唯一竞争力} 5-stream 架构（MG，\texttt{lattice\_clover\_multigrid.h:27-30}）；dslash 单 rank 快速路径（\texttt{grid==[1,1,1,1]} 时省去中间同步，\texttt{:321-601}）；MPI halo 用阻塞 \texttt{MPI\_Sendrecv}（dslash）/\texttt{MPI\_Isend/Irecv}；标量 \texttt{MPI\_Allreduce}。\texttt{define.h:43-122} 与 \texttt{define.py:11-90} 严格同步。
+\paragraph{关键片段} dslash 单 rank 快速路径判定与末尾单次 sync：
+\begin{lstinputlisting}[firstline=1344,lastline=1350,language=c++]{/root/PyQCU/cpp/cuda/qcu/include/lattice_clover_multigrid.h}
+\end{lstinputlisting}
+
+\subsection{C8 Cython 桥 nogil 真并行}
+\paragraph{是什么} \texttt{qcu.pyx} 把 \texttt{pyqcu.h} 的 C 函数包成 Python 可调用；GIL 段取张量裸指针 → \texttt{with nogil} 调 C++，多线程可真并行进入 \texttt{libqcu.so}（\texttt{qcu.pyx:1-215}）。
+\paragraph{代码—物理映射} \texttt{with nogil: \_c\_applyInitQcu(...)}↔释放 GIL 进入后端（真并行前提）；\texttt{cdef long long ...data\_ptr()}↔张量裸指针桥接（params/argv/set\_ptrs 协议）；\texttt{qcu\_api.pxd} 别名 cimport↔避免与 pyx \texttt{def} 同名覆盖导致 nogil 失效；\texttt{MultiGpuMultigrid}↔一线程一卡并行（单 MPI rank）。
+\paragraph{关键片段}
+\begin{lstinputlisting}[firstline=10,lastline=16,language=python]{/root/PyQCU/pyqcu/cuda/qcu/qcu.pyx}
+\end{lstinputlisting}
+\paragraph{唯一竞争力} 每线程独立 params/argv/set\_ptrs 副本 + \texttt{torch.cuda.set\_device} 绑定，GIL 释放后真并行（\texttt{\_multi\_gpu.py:8-14,40-42}）。
+
+% ================= 3 独特性评估 =================
+\section{独特性评估}
+
+\begin{xltabular}{\textwidth}{llX}
+\toprule
+\textcolor{struct}{核心部分} & 独特性 & 证据 \\
+\midrule
+\endhead
+C4 多重网格 & 强 & R3 fix + 5-stream + 混合并行 + 33-tensor 宽 stencil \\
+C8 一线程一卡 & 强 & nogil + 每线程独立副本 + 单 MPI rank \\
+C3 BiStabCG & 中 & 自动重启 breakdown + device 标量 \\
+C1/C2 dslash & 中 & 双后端同构 + 批量逆（禁 for 循环） \\
+C6 批量构建 & 强 & 10× 提速 null 向量生成 \\
+C7 CUDA/MPI & 中 & 单 rank 快速路径 + 5-stream \\
+\bottomrule
+\end{xltabular}
+
+% ================= 4 参考源清单 =================
+\section{参考源清单}
+
+\begin{xltabular}{\textwidth}{llX}
+\toprule
+\textcolor{evidence}{参考源} & 类型 & 内容/作用 \\
+\midrule
+\endhead
+\texttt{\nolinkurl{pyqcu/dslash/_wilson.py:16,47-63}} & 仓库 & Wilson 算子公式与 hopping \\
+\texttt{\nolinkurl{pyqcu/dslash/_clover.py:13-15,101-327}} & 仓库 & Clover 项构造与批量逆 \\
+\texttt{\nolinkurl{pyqcu/solver/_bistabcg.py:8-91}} & 仓库 & BiCGStab 迭代体 \\
+\texttt{\nolinkurl{pyqcu/solver/_multigrid.py:204-521}} & 仓库 & V-cycle 与 R3 fix \\
+\texttt{\nolinkurl{pyqcu/smear/_stout.py:13-203}} & 仓库 & stout 涂抹与投影 \\
+\texttt{\nolinkurl{pyqcu/tools/_multigrid.py:277-819}} & 仓库 & 33-tensor 与批量 BiCGStab \\
+\texttt{\nolinkurl{cpp/cuda/qcu/include/lattice_wilson_dslash.h:17-602}} & 仓库 & dslash 内核 + halo \\
+\texttt{\nolinkurl{cpp/cuda/qcu/include/lattice_clover_multigrid.h:27-1350}} & 仓库 & MG 5-stream + V-cycle \\
+\texttt{\nolinkurl{pyqcu/cuda/qcu/qcu.pyx:1-215}} & 仓库 & Cython 桥 nogil 调用 \\
+\texttt{\nolinkurl{pyqcu/cuda/_multi_gpu.py:1-537}} & 仓库 & 一线程一卡 MultiGpuMultigrid \\
+\bottomrule
+\end{xltabular}
+
+% ================= 5 结论与局限 =================
+\section{结论与局限}
+
+\begin{conclbox}
+PyQCU 最强竞争力在「多重网格（Galerkin 宽 stencil + R3 fix + 5-stream + 混合并行）」与「一线程一卡 \texttt{with nogil} 真并行」两项。Wilson/Clover dslash 以双后端同构 + 批量逆保证正确与性能；BiStabCG 以设备端标量 + 自动重启取胜。穷尽 8 候选，三态闭环（深挖 7 / 浅析 1 / 排除 3）。
+\end{conclbox}
+
+\begin{warnbox}
+未覆盖/局限：CUDA 内核逐行执行语义未全量验证（抽样代表文件）；33-tensor 与批量 BiCGStab 的实际加速比未在本次静态报告中实测；E1-E3 排除项未展开（占位/可选）。所有行号经子代理 read/grep 核实，但建议对 \texttt{lattice\_clover\_multigrid.h} 等大体量头文件做二次复核。
+\end{warnbox}
+
+\end{document}
