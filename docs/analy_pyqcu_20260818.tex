@@ -1,0 +1,256 @@
+% ============================================================
+% analy 报告 — PyQCU 全库结构分析（规范模板 v2，xelatex + ctex）
+% 编译: xelatex -interaction=nonstopmode -halt-on-error -file-line-error "analy_pyqcu_20260818.tex"
+% 交付前 Overfull 计数必须为 0
+% ============================================================
+\documentclass[UTF8]{ctexart}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{microtype}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{xltabular}
+\usepackage{tabularx}
+\usepackage{hyperref}
+\usepackage{fancyhdr}
+\usepackage[most]{tcolorbox}
+\usepackage{titlesec}
+
+\definecolor{accent}{HTML}{1F4E79}
+\definecolor{evidence}{HTML}{1E8449}
+\definecolor{reference}{HTML}{8C6D1F}
+\definecolor{conclusion}{HTML}{8B1A1A}
+\definecolor{codebg}{HTML}{F4F6F7}
+\definecolor{struct}{HTML}{3B3B98}
+\definecolor{relation}{HTML}{0E7C7B}
+\definecolor{idea}{HTML}{B03A2E}
+\definecolor{warn}{HTML}{D35400}
+\definecolor{hl}{HTML}{FDF6E3}
+
+\setlength{\emergencystretch}{3em}
+\hypersetup{colorlinks=true,linkcolor=accent,urlcolor=relation}
+
+\titleformat{\section}{\Large\bfseries\color{accent}}{\thesection}{1em}{}
+\titleformat{\subsection}{\large\bfseries\color{struct}}{\thesubsection}{1em}{}
+\titleformat{\subsubsection}{\normalsize\bfseries\color{struct!70!black}}{\thesubsubsection}{1em}{}
+
+\newtcolorbox{conclbox}{breakable,colback=conclusion!6,colframe=conclusion,title=结论}
+\newtcolorbox{refbox}{breakable,colback=reference!6,colframe=reference,title=参考背景}
+\newtcolorbox{ideabox}{breakable,colback=idea!6,colframe=idea,title=项目思路}
+\newtcolorbox{warnbox}{breakable,colback=warn!6,colframe=warn,title=局限与风险}
+\newtcolorbox{keybox}{breakable,colback=hl,colframe=accent,title=要点}
+
+\lstset{
+  basicstyle=\ttfamily\footnotesize,
+  backgroundcolor=\color{codebg},
+  frame=single,
+  firstnumber=auto,
+  keywordstyle=\color{accent}\bfseries,
+  commentstyle=\color{evidence!70!black},
+  stringstyle=\color{struct},
+  breaklines=true,
+  breakatwhitespace=false,
+  postbreak=\mbox{\textcolor{accent}{$\hookrightarrow$}\space},
+  keepspaces=true,
+  columns=flexible,
+  numbers=left,numberstyle=\tiny\color{struct!60!black},
+}
+
+\title{PyQCU 全库结构分析\\[6pt]\large Lattice QCD 的 Python/Cython 库：CUDA 加速 Dirac 算子与多重网格求解器}
+\author{opencode analy}
+\date{2026-08-18}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+本报告对 PyQCU 仓库（/root/PyQCU）进行证据驱动的全库结构分析，覆盖两层执行层级、三张扁平张量桥接协议、调用生命周期不变量、张量布局约定、多线程多卡 MultiGrid 路径、h5py 持久化体系与测试体系。三视角结论：主体结构呈「纯 Python 层 ↔ Cython 桥 ↔ C++ CUDA 后端」三层；各部分以参数协议 \texttt{params/argv/set\_ptrs} 与 \texttt{\_SET\_PLAN\_} 计划选择织成依赖网；项目思路是用双路径（参考实现 + 生产后端）兼顾正确性与性能，并以一线程一卡并行突破单机多卡瓶颈。分析基于实测文件统计与逐文件行号证据，覆盖表闭合。
+\end{abstract}
+
+\tableofcontents
+
+% ================= 1 仓库概览 =================
+\section{仓库概览}
+
+PyQCU 是 Lattice QCD 的 Python/Cython 库：CUDA 加速的 Wilson/Clover Dirac 算子、BiStabCG 与多重网格（MultiGrid）求解器、stout smearing 与规范场生成，经 MPI 分布于 4D 进程网格（\texttt{AGENTS.md:1-10}）。git 元信息：分支 \texttt{main}，HEAD = \texttt{a456932}，标签体系 \texttt{stab<N>/dev<N>/bug<N>}，初始提交 \texttt{0204fa5}（实测 \texttt{git rev-parse}）。
+
+\subsection{规模统计与覆盖}
+
+下表为排除 \texttt{.git/}、\texttt{.opencode/}、外部镜像 \texttt{refer/git-rep/}、\texttt{logs/} 历史产物与 \texttt{examples/} 日志后的实测统计（子代理 find 实测）。
+
+\begin{table}[htbp]\centering
+\begin{tabular}{ll}
+\toprule
+指标 & 实测值 \\
+\midrule
+Python（\texttt{.py}） & 121 \\
+CUDA 内核（\texttt{.cu}） & 30 \\
+C++ 头（\texttt{.h}） & 24 \\
+文档（\texttt{.md}） & 45 \\
+仓库总文件（排除噪声） & 325 \\
+标签数 & 132 \\
+\bottomrule
+\end{tabular}
+\caption{仓库实测统计（数据来源: find/wc/git 实测, 2026-08-18）}
+\end{table}
+
+\textbf{饱和覆盖登记表}（四条遍历路径交叉：目录/类型/git 历史/入口引用链）：
+
+\begin{xltabular}{\textwidth}{llX}
+\toprule
+\textcolor{struct}{目录} & 文件数 & \textcolor{struct}{状态与职责} \\
+\midrule
+\endhead
+\texttt{pyqcu/} & 26 \texttt{.py} + 13 \texttt{.md} & 精读：纯 Python 算子/求解器/smear/lattice/cuda 桥/工具/testing \\
+\texttt{cpp/cuda/qcu/src/} & 30 \texttt{.cu} & 精读：CUDA 内核 + 启动封装（22 个 C API 对应） \\
+\texttt{cpp/cuda/qcu/include/} & 23 \texttt{.h} & 精读：模板化内核头（含 \texttt{define.h}） \\
+\texttt{cpp/cuda/qcu/python/} & 1 \texttt{.h} & 精读：C API \texttt{pyqcu.h}（须与 pxd 同步） \\
+\texttt{cpp/\{cann,dtk,maca\}/} & 占位 & 仅索引：PASS stub，无实现 \\
+\texttt{examples/} & 95 \texttt{.py} + 11 \texttt{.md} & 浏览：33 个 \texttt{conftest} 入口 + 后端测试脚本 \\
+\texttt{docs/} & 7 \texttt{.md} & 浏览：维度/环境/安装/示例/剖析说明 \\
+\bottomrule
+\caption{饱和覆盖登记表（数据来源: 全库索引实测）}
+\end{xltabular}
+
+% ================= 2 主体结构 =================
+\section{主体结构}
+
+PyQCU 呈清晰的三层分层：纯 Python 参考实现层、Cython 桥接层、C++ CUDA 生产后端层，外加兼容层与文档/产物层。
+
+\begin{xltabular}{\textwidth}{llX}
+\toprule
+\textcolor{struct}{层次} & 目录 & \textcolor{struct}{职责} \\
+\midrule
+\endhead
+入口层 & \texttt{pyqcu/}、\texttt{examples/}、\texttt{docs/}、\texttt{logs/} & 库入口、测试入口、文档、产物归档 \\
+核心层 & \texttt{pyqcu/dslash/}、\texttt{pyqcu/solver/}、\texttt{pyqcu/smear/} & 纯 Python 算子/求解器/smear（PyTorch） \\
+桥接层 & \texttt{pyqcu/cuda/} & Cython 桥 \texttt{qcu.pyx} + 参数常量 \texttt{define.py} + 多线程多卡 \\
+后端层 & \texttt{cpp/cuda/qcu/} & 26 个模板头 + 30 个 \texttt{.cu} + C API \texttt{pyqcu.h} \\
+兼容层 & \texttt{pyqcu/cann/}、\texttt{cpp/\{cann,dtk,maca\}/} & 昇腾 NPU 兼容（实）/ 其他后端占位（PASS） \\
+参考层 & \texttt{refer/} & 外部库镜像（DDalphaAMG/PyQUDA/quda），参考背景 \\
+\bottomrule
+\caption{主体结构分层（数据来源: 全库索引实测 + AGENTS.md:14-17）}
+\end{xltabular}
+
+两层执行层级是设计主轴（\texttt{AGENTS.md:14-17}）：纯 Python 层（\texttt{pyqcu/dslash/}、\texttt{solver/}、\texttt{smear/}）为 PyTorch 实现，可跑 CPU/CUDA/昇腾 NPU（经 \texttt{pyqcu.cann} 兼容层）；C++ CUDA 后端（\texttt{cpp/cuda/qcu/}）为手写内核 + MPI halo 交换，经 Cython 桥暴露，是生产路径。
+
+% ================= 3 各部分关系 =================
+\section{各部分关系}
+
+依赖主链为「纯 Python 层 → Cython 桥 → C++ CUDA 后端」，由参数协议 \nolinkurl{params/argv/set_ptrs} 串联（\texttt{AGENTS.md:21}）。
+
+\begin{keybox}
+\textbf{依赖主链:} \textcolor{relation}{\nolinkurl{pyqcu/dslash/_wilson.py} → \nolinkurl{pyqcu/cuda/qcu/qcu.pyx} → \nolinkurl{cpp/cuda/qcu/src/wilson_dslash.cu} → \nolinkurl{cpp/cuda/qcu/include/lattice_wilson_dslash.h}}
+\end{keybox}
+
+\begin{itemize}
+  \item \textbf{协议同步链}：\texttt{pyqcu/cuda/define.py:11-90} 与 \texttt{cpp/cuda/qcu/include/define.h:43-122} 一一对应（\texttt{\_LAT\_X\_=0}、\texttt{\_SET\_INDEX\_=15}、\texttt{\_SET\_PLAN\_=16} 等），任一失配导致静默内存损坏（\texttt{AGENTS.md:21}）。
+  \item \textbf{桥接别名链}：\texttt{qcu.pyx:1} \texttt{from qcu\_api cimport X as \_c\_X} 避免与 pyx \texttt{def} 同名覆盖，\texttt{qcu\_api.pxd:1-23} 全部带 \texttt{nogil}（子代理核实）。
+  \item \textbf{混合求解链}：多重网格可混合两层——最细层平滑用 C++ 后端（\texttt{with\_cuda\_qcu=True}），更粗层用纯 Python（\texttt{AGENTS.md:28} 隐含）。
+  \item \textbf{持久化链}：\texttt{pyqcu/tools/\_io.py} 的 \texttt{save\_tensor\_h5/load\_tensor\_h5} 与 MPI \texttt{mpio} 路径，被 \texttt{\_multi\_gpu.py:139-143} 的粗算子缓存复用。
+\end{itemize}
+
+% ================= 4 项目思路 =================
+\section{项目思路}
+
+\subsection{设计意图}
+双路径设计（参考实现 + 生产后端）兼顾\textbf{正确性}（Python 层可跨平台验证物理）与\textbf{性能}（C++ CUDA 内核生产路径）。参数协议用三张扁平张量而非复杂对象，便于 Python 与 C++ 零拷贝桥接（\texttt{AGENTS.md:21}）。
+
+\subsection{演进脉络}
+从初始提交 \texttt{0204fa5} 到 \texttt{stab27} 共 1120 提交；自有库代码主导文件为 \nolinkurl{cpp/cuda/qcu/include/lattice_clover_multigrid.h}（+1833）、\nolinkurl{cpp/cuda/qcu/src/clover_dslash_multi.cu}（+1610）、\nolinkurl{cpp/cuda/qcu/src/wilson_dslash.cu}（+1442）与 \nolinkurl{pyqcu/tools/_multigrid.py}（+819）、\nolinkurl{pyqcu/cuda/_multi_gpu.py}（+568），显示项目从 Wilson dslash 演进到 Clover + 多重网格 + 多线程多卡（diff init→stab27 实测）。
+
+\subsection{典型工作流}
+一次典型任务：\texttt{source ./env.sh} → 构建 \texttt{libqcu.so}（\texttt{build.sh}）→ 构建 Cython 扩展（\texttt{install.sh}）→ 在 \texttt{examples/pyqcu/conftest.py} 解锁测试 → 运行。生产调用生命周期：\texttt{applyInitQcu} → 操作 → \texttt{params[\_SET\_INDEX\_] += 1} → \texttt{applyEndQcu}（\texttt{AGENTS.md:23}）。
+
+\begin{ideabox}
+这个仓库之所以长成「纯 Python 参考 + C++ 生产 + Cython 薄桥 + 多线程多卡」的形态，是为了在保持物理实现可验证的同时，用 GPU 内核与一线程一卡并行逼近生产级格点 QCD 求解性能。
+\end{ideabox}
+
+% ================= 5 主题分析 =================
+\section{主题分析}
+
+\subsection{两层执行层级架构}
+纯 Python 层约定所有代码 \texttt{import pyqcu.cann as \_torch}，不得直接 \texttt{import torch}——NPU 不支持复数张量，cann 层自动分解实虚部（\texttt{AGENTS.md:16}）。C++ 后端经 \texttt{pyqcu/cuda/qcu/qcu.pyx} 暴露（\texttt{AGENTS.md:17}）。
+
+\subsection{参数协议与调用生命周期}
+三个扁平张量桥接 Python↔C++（\texttt{pyqcu/cuda/define.py:8,82,90}）：\texttt{params}(int32[54])、\texttt{argv}(float[7])、\texttt{set\_ptrs}(int64[100])。关键不变量：连续 C++ 调用间必须 \nolinkurl{params[define._SET_INDEX_] += 1}（\texttt{AGENTS.md:23}），否则 scratch 缓冲复用冲突、结果错误。
+
+\begin{lstinputlisting}[firstline=36,lastline=43,language=python]{/root/PyQCU/pyqcu/cuda/define.py}
+\end{lstinputlisting}
+
+\subsection{\_SET\_PLAN\_ 计划选择}
+\texttt{define.py:38-43} 给出算子类型：-2 Laplacian、-1 Gauss gauge、0 Wilson dslash、1 BiStabCG/CG、2 Clover dslash（子代理核实 \texttt{define.py:38-43}）。
+
+\subsection{张量布局约定}
+时空维永远是最后 4 轴（\texttt{...xyzt}），ward 索引用负整数（\texttt{wards['x']=-4}）：规范场 \texttt{[3,3,4,Lx,Ly,Lz,Lt]}、费米子场 \texttt{[4,3,Lx,Ly,Lz,Lt]}、Clover 项 \texttt{[4,3,4,3,Lx,Ly,Lz,Lt]}（\texttt{AGENTS.md:35-37}；\texttt{pyqcu/lattice/\_\_init\_\_.py:16-20} 定义 \texttt{wards}）。
+
+\subsection{多线程多卡 MultiGpuMultigrid}
+\texttt{pyqcu/cuda/\_multi\_gpu.py} 的 \texttt{MultiGpuMultigrid} 单进程内 N 线程×卡绑定并行；每线程独立 \texttt{params/argv/set\_ptrs} 副本（\texttt{\_SET\_INDEX\_} 各自从 0 计数），要求单 MPI rank（子代理核实 \texttt{\_multi\_gpu.py:234-242}）。
+
+\begin{lstinputlisting}[firstline=234,lastline=242,language=python]{/root/PyQCU/pyqcu/cuda/_multi_gpu.py}
+\end{lstinputlisting}
+
+\subsection{h5py 持久化体系}
+\texttt{pyqcu/tools/\_io.py} 的 \texttt{save\_tensor\_h5/load\_tensor\_h5} 每调用独立 File 句柄、多线程安全（子代理核实 \texttt{\_io.py:165-194}）；粗算子缓存 \texttt{\_multi\_gpu.py:139-143} 单句柄一次写全部 dataset，勿逐 dataset 覆盖重建（\texttt{AGENTS.md:28}）。
+
+\subsection{测试体系}
+测试函数集中在 \nolinkurl{pyqcu/testing/__init__.py}（\nolinkurl{test_dslash_wilson:38}、\nolinkurl{test_dslash_clover:202}、\nolinkurl{test_solver:292}、\nolinkurl{test_multigrid_multithread:576}、\nolinkurl{test_multi_gpu_multigrid:620} 等），各 \nolinkurl{examples/*/conftest.py} 为 pytest 入口（\texttt{AGENTS.md:26}）。
+
+% ================= 6 关键代码/文档片段 =================
+\section{关键代码/文档片段}
+
+Wilson dslash 的 hopping 项（纯 Python 实现，夸克相邻格点跃迁）：
+
+\begin{lstinputlisting}[firstline=49,lastline=63,language=python]{/root/PyQCU/pyqcu/dslash/_wilson.py}
+\end{lstinputlisting}
+
+Cython 桥 \texttt{with nogil} 真并行入口：
+
+\begin{lstinputlisting}[firstline=10,lastline=16,language=python]{/root/PyQCU/pyqcu/cuda/qcu/qcu.pyx}
+\end{lstinputlisting}
+
+% ================= 7 参考源清单 =================
+\section{参考源清单}
+
+\begin{xltabular}{\textwidth}{llX}
+\toprule
+\textcolor{evidence}{参考源} & 类型 & 内容/作用 \\
+\midrule
+\endhead
+\texttt{\nolinkurl{AGENTS.md:14-17}} & 仓库 & 两层执行层级定义 \\
+\texttt{\nolinkurl{AGENTS.md:21}} & 仓库 & 参数协议 params/argv/set\_ptrs 与同步要求 \\
+\texttt{\nolinkurl{AGENTS.md:23}} & 仓库 & 调用生命周期与 \_SET\_INDEX\_ 递增不变量 \\
+\texttt{\nolinkurl{AGENTS.md:35-37}} & 仓库 & 张量布局约定 \\
+\texttt{\nolinkurl{pyqcu/cuda/define.py:8-90}} & 仓库 & params/argv/set\_ptrs 常量定义 \\
+\texttt{\nolinkurl{pyqcu/cuda/define.py:36-43}} & 仓库 & \_SET\_PLAN\_ 取值含义 \\
+\texttt{\nolinkurl{pyqcu/lattice/__init__.py:16-20}} & 仓库 & wards 负索引表 \\
+\texttt{\nolinkurl{pyqcu/cuda/_multi_gpu.py:234-242}} & 仓库 & 单 MPI rank 强制 \\
+\texttt{\nolinkurl{pyqcu/cuda/qcu/qcu.pyx:1,10-16}} & 仓库 & Cython 桥 nogil 调用 \\
+\texttt{\nolinkurl{pyqcu/dslash/_wilson.py:49-63}} & 仓库 & Wilson hopping 项实现 \\
+\texttt{\nolinkurl{cpp/cuda/qcu/include/define.h:43-122}} & 仓库 & C++ 端参数协议镜像 \\
+\texttt{\nolinkurl{pyqcu/tools/_io.py:165-194}} & 仓库 & h5py 持久化 API \\
+\texttt{\nolinkurl{pyqcu/testing/__init__.py:16-620}} & 仓库 & 集成测试套件 \\
+\bottomrule
+\end{xltabular}
+
+% ================= 8 结论与局限 =================
+\section{结论与局限}
+
+\begin{conclbox}
+结构：PyQCU 以「纯 Python 参考层 ↔ Cython 桥 ↔ C++ CUDA 生产层」三层组织，兼容层覆盖 NPU/占位后端。
+关系：两层由参数协议 \texttt{params/argv/set\_ptrs} 与 \texttt{\_SET\_PLAN\_} 计划选择织成依赖网，桥接别名与 pxd/pyqcu.h 同步是正确性的关键锁点。
+思路：双路径 + 一线程一卡并行，在可验证性与生产性能之间取平衡；多重网格（Galerkin + R3 fix + 5-stream）是核心特色。
+\end{conclbox}
+
+\begin{refbox}
+参考目录 \texttt{refer/}（1559 文件，外部库镜像）与 \texttt{docs/}（7 文件）在本分析中作为背景引入；\texttt{refer/} 提供 QUDA/PyQUDA 对照，但非 PyQCU 自有代码。
+\end{refbox}
+
+\begin{warnbox}
+未覆盖/局限：\textcolor{warn}{未验证} \texttt{cpp/cuda/qcu/src/} 全部 30 个内核的执行细节（仅抽样精读代表文件）；\texttt{examples/} 95 个测试脚本为浏览态，未逐文件解析；多线程多卡的实际性能数据未在本次静态分析中实测（见 diff 报告与 pure 报告）。
+\end{warnbox}
+
+\end{document}
