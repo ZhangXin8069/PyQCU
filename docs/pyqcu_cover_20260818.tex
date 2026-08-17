@@ -1,0 +1,42 @@
+% ============================================================
+% PyQCU 合并报告 — 统一封面 / 导览页
+% ============================================================
+\documentclass[UTF8]{ctexart}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\definecolor{accent}{HTML}{1F4E79}
+\definecolor{struct}{HTML}{3B3B98}
+\hypersetup{colorlinks=true,linkcolor=accent,urlcolor=struct}
+\title{PyQCU 仓库分析报告（合并版）\\[6pt]\large Lattice QCD 的 Python/Cython 库：结构分析 · 核心算法剖析 · 多重网格深剖 · 全量改动概览}
+\author{opencode（analy / pure / diff）}
+\date{2026-08-18}
+\begin{document}
+\maketitle
+\begin{abstract}
+本合并报告汇集对 PyQCU（/root/PyQCU）仓库的四份分析产物，按「先结构、后算法、再深剖、末沿革」的顺序编排，便于一次性审阅：
+\end{abstract}
+\tableofcontents
+
+\section{本合并报告包含的内容}
+\begin{enumerate}
+  \item \textbf{全库结构分析（analy）}——主体结构 / 各部分关系 / 项目思路三视角，覆盖参数协议、调用生命周期、张量布局、多线程多卡、h5py 持久化与测试体系。
+  \item \textbf{核心算法穷尽剖析（pure）}——代码—物理交叉性质判定；穷尽枚举 8 候选（深挖 7 / 浅析 1 / 排除 3），含 Wilson/Clover dslash、BiStabCG、多重网格、stout、33-tensor、CUDA/MPI、Cython 桥的双向映射。
+  \item \textbf{多重网格 V-cycle 15 步深剖（pure 补充）}——按代码工作框架 A1–A15 全流程重现，含 Galerkin 粗化、R3 fix、自动重启、5-stream 的证据直引。
+  \item \textbf{全量改动概览（diff，init→stab27）}——初始提交 \texttt{0204fa5} 到最新标签 \texttt{stab27} 的 2138 文件 / +1.16M 行改动结构化分析，含自有库演进与边界检查。
+\end{enumerate}
+
+\section{阅读指引}
+\begin{itemize}
+  \item 想了解「仓库怎么组织」→ 第 1 份（analy）。
+  \item 想了解「最强竞争力是什么」→ 第 2 份（pure）。
+  \item 想深入「多重网格如何工作」→ 第 3 份（pure 补充，15 步）。
+  \item 想了解「仓库如何演进」→ 第 4 份（diff）。
+\end{itemize}
+
+\section{产物与验证}
+四份子报告均经 xelatex 双遍编译，交付前 \texttt{Overfull} 与 \texttt{Float too large} 计数均为 0。证据均带 \texttt{文件:行号}，关键片段直引仓库原文件（片段见各子报告）。
+
+\section{说明}
+本报告各子报告保留独立标题页与目录，合并后按上述顺序连续编排；如需交叉检索，请使用 PDF 书签/目录。所有分析为只读，未改动仓库任何文件（git 提交请用户自行操作）。
+\end{document}
