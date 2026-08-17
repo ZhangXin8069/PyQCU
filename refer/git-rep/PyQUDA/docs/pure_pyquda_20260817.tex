@@ -1,0 +1,253 @@
+% ============================================================
+% pure 报告 — 规范模板（xelatex + ctex）
+% 主题: PyQUDA 核心部分穷尽剖析
+% 编译: xelatex 两遍; 交付前 Overfull / Float too large 均为 0
+% ============================================================
+\documentclass[UTF8]{ctexart}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{microtype}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{xltabular}
+\usepackage{tabularx}
+\usepackage{hyperref}
+\usepackage{fancyhdr}
+\usepackage[most]{tcolorbox}
+\usepackage{titlesec}
+
+\definecolor{accent}{HTML}{1F4E79}
+\definecolor{evidence}{HTML}{1E8449}
+\definecolor{reference}{HTML}{8C6D1F}
+\definecolor{conclusion}{HTML}{8B1A1A}
+\definecolor{codebg}{HTML}{F4F6F7}
+\definecolor{algo}{HTML}{E67E22}
+\definecolor{phys}{HTML}{6C3483}
+\definecolor{map}{HTML}{C2185B}
+\definecolor{warn}{HTML}{D35400}
+\definecolor{hl}{HTML}{FDF6E3}
+
+\setlength{\emergencystretch}{3em}
+\hypersetup{colorlinks=true,linkcolor=accent,urlcolor=map}
+
+\titleformat{\section}{\Large\bfseries\color{accent}}{\thesection}{1em}{}
+\titleformat{\subsection}{\large\bfseries\color{phys}}{\thesubsection}{1em}{}
+\titleformat{\subsubsection}{\normalsize\bfseries\color{phys!70!black}}{\thesubsubsection}{1em}{}
+
+\newtcolorbox{conclbox}{breakable,colback=conclusion!6,colframe=conclusion,title=结论}
+\newtcolorbox{refbox}{breakable,colback=reference!6,colframe=reference,title=参考背景}
+\newtcolorbox{warnbox}{breakable,colback=warn!6,colframe=warn,title=局限与风险}
+\newtcolorbox{keybox}{breakable,colback=hl,colframe=accent,title=要点}
+
+\lstset{
+  basicstyle=\ttfamily\footnotesize,
+  backgroundcolor=\color{codebg},
+  frame=single,
+  language=Python,
+  firstnumber=auto,
+  keywordstyle=\color{accent}\bfseries,
+  commentstyle=\color{evidence!70!black},
+  stringstyle=\color{phys},
+  breaklines=true,
+  breakatwhitespace=false,
+  postbreak=\mbox{\textcolor{accent}{$\hookrightarrow$}\space},
+  keepspaces=true,
+  columns=flexible,
+  numbers=left,numberstyle=\tiny\color{phys!60!black},
+}
+
+\title{PyQUDA 核心部分穷尽剖析报告}
+\author{opencode pure}
+\date{2026-08-17}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+本报告对 \url{/root/PyQCU/refer/git-rep/PyQUDA} 的核心部分进行穷尽剖析。
+项目性质判定为\textbf{代码-物理交叉向}：QUDA 的 Python/Cython 包装库，物理 API（Dirac 算子、
+HMC、smearing、flow）封装 QUDA 算法，独特竞争力在自动 Cython 桥生成。穷尽枚举 10 个核心
+候选（C1--C10），其中\textbf{深挖 6 / 浅析 3 / 排除 1}：深挖部分含代码-物理映射表与证据。
+独特竞争力定位：pycparser 驱动的桥自动生成、多后端数组抽象、物理对象封装层次。
+非独立 git 仓库。
+\end{abstract}
+
+\tableofcontents
+
+\section{项目定位与核心部分清单}
+
+\subsection{项目性质判定}
+\begin{keybox}
+\textbf{性质判定：交叉向。}物理 API（\texttt{WilsonDirac}/\texttt{CloverWilsonDirac}/
+\texttt{HMC}/smearing/flow）为核心，工程机制（桥生成/多后端）为支撑。判定依据：
+\texttt{pyquda/dirac/wilson.py:10-25}（Wilson 物理封装）、\texttt{pyquda\_pyx.py:140}
+（桥生成）。
+\end{keybox}
+
+\subsection{核心部分总清单（穷尽枚举）}
+\begin{xltabular}{\textwidth}{lXXX}
+\toprule
+\textcolor{map}{编号} & 候选 & 三态 & 理由 \\
+\midrule
+\endhead
+C1 & 自动 Cython 桥生成 & 深挖 & 本库独特竞争力 \\
+C2 & Wilson/Clover Dirac 封装 & 深挖 & 物理核心 API \\
+C3 & Multigrid 参数与对象封装 & 深挖 & 求解性能核心 \\
+C4 & HMC 积分器族 & 深挖 & 物理工作流核心 \\
+C5 & GaugeDirac（smear/flow/plaquette）& 深挖 & 规范场操作核心 \\
+C6 & 多后端数组抽象 & 深挖 & 可移植性核心 \\
+C7 & 多格式 I/O & 浅析 & 支持性组件 \\
+C8 & 插件框架 & 浅析 & 扩展机制 \\
+C9 & 基转换（Dirac--Pauli↔DeGrand--Rossi）& 浅析 & 物理约定转换 \\
+C10 & pyi stub 人工维护 & 排除 & 工程维护 \\
+\bottomrule
+\caption{核心部分清单三态（数据来源: 全库索引实测）}
+\end{xltabular}
+
+\section{核心部分深度剖析}
+
+\subsection{C1 自动 Cython 桥生成}
+\textbf{物理图像/工程对象：}QUDA C API 庞大（Quda*Param 结构族 + 数十函数），手工写
+Cython 桥易错且难同步。\textbf{机制：}\texttt{pyquda\_pyx.py:140}（\texttt{build\_pyquda\_pyx}）
+用 pycparser 解析 \texttt{QUDA\_PATH/include/quda.h}（\texttt{:142-144}），收集枚举与
+Param 结构字段（\texttt{:186-207}），按字段类型（普通/scalar 指针/数组/multigrid/void 指针）
+注入模板片段（\texttt{:378-426}），写出 \texttt{src/quda.pxd}/\texttt{quda.pyx}/
+\texttt{enum\_quda.py}（\texttt{:428-434}）。\textbf{为什么这样设计：}QUDA API 随版本演进，
+自动生成保证同步；\texttt{README.md:100} 注明函数签名与 docstring 仍需人工维护（pyi）。
+
+\subsection{C2 Wilson/Clover Dirac 封装}
+\textbf{物理图像：}$\kappa = 1/[2(m+1+(N_d-1)/\xi)]$ 为 Wilson 各向异性质量参数化。
+\textbf{代码映射：}
+\begin{xltabular}{\textwidth}{lXX}
+\toprule
+\textcolor{map}{代码符号} & 物理对象 & 含义 \\
+\midrule
+\endhead
+\texttt{WilsonDirac} & Wilson 费米子算子 & 各向同性/异性（wilson.py:10-25）\\
+\texttt{CloverWilsonDirac} & Clover 算子 & 支持 multigrid（clover\_wilson.py:10）\\
+\texttt{HISQDirac/StaggeredDirac} & HISQ/staggered & 高精度作用量 \\
+\texttt{kappa} & $\kappa$ & $1/[2(m+1+(N_d-1)/\xi)]$\\
+\texttt{multigrid} & 聚合预条件子 & geo\_block\_size 驱动 \\
+\bottomrule
+\caption{映射表 C2（数据来源: pyquda/dirac/*.py 实测）}
+\end{xltabular}
+\textbf{推导链：}\texttt{WilsonDirac.\_\_init\_\_} 依次构造 QudaGaugeParam、
+QudaMultigridParam、QudaInvertParam（\texttt{wilson.py:19-47}），设置精度与重构
+（\texttt{setPrecision}/\texttt{setReconstruct}）。\textbf{极限校验：}$\xi=1$ 各向同性时
+$\kappa=1/[2(m+N_d)]$ 退化为标准 Wilson。
+
+\subsection{C3 Multigrid 参数与对象封装}
+\textbf{物理图像：}多重网格以几何块（geo\_block\_size）驱动聚合构造，作为 Dirac 反演的
+预条件子。\textbf{机制：}\texttt{general.py:283}（\texttt{newQudaMultigridParam} 构建
+QudaMultigridParam/QudaMultigridInvertParam）、\texttt{general.py:478}
+（\texttt{class Multigrid}：new/update/destroy 映射 quda.in.pyx:262-274）、
+\texttt{pyquda\_utils/geo\_block\_size.py:9}（块大小规范化）。
+\textbf{为什么封装：}multigrid 生命周期（setup 与参数刷新）复杂，对象封装隐藏细节，
+thin\_update 支持配置不变时快速刷新（\texttt{wilson.py:49-51}）。
+
+\subsection{C4 HMC 积分器族}
+\textbf{物理图像：}HMC 用分子动力学积分生成规范场系综。\textbf{机制：}
+\texttt{hmc.py:262}（\texttt{class HMC} 主驱动）、\texttt{:28-260}（Integrator 基类与
+O2Nf1Ng0V、O2Nf2Ng0V、O4Nf4Ng0V 等具体积分器）、\texttt{action/gauge.py}
+（\texttt{GaugeAction}）、\texttt{action/clover\_wilson.py}（1/2 味 Clover 力）、
+\texttt{action/hisq.py}（N 味 HISQ）。\textbf{代码-物理映射：}O2 积分器
+\begin{equation}\label{eq:o2}
+\texttt{updateMom}(\tfrac{dt}{2}) \to \texttt{updateGauge}(dt) \to \texttt{updateMom}(\tfrac{dt}{2}),
+\end{equation}
+即蛙跳式二阶积分（\texttt{examples/1\_Quenched\_HMC.py:33-38}，BAB Eq.(23)）。
+\textbf{极限校验：}单步 $n\_steps=1$ 退化为标准 leapfrog。
+
+\subsection{C5 GaugeDirac（smear/flow/plaquette）}
+\textbf{物理图像：}规范场操作：APE/stout/HYP smearing（平滑 UV 涨落）、Wilson/Symanzik
+gradient flow、plaquette 作用量密度。\textbf{机制：}\texttt{field.py:224/211/237}
+（APE/stout/HYP 高层方法）、\texttt{:252-299}（wilsonFlow/symanzikFlow 及 Scale/Chroma
+变体）、\texttt{dirac/gauge.py:307/288/326/349/370}（QUDA 调用）、桥
+\texttt{quda.in.pyx:410-413}（performGaugeSmearQuda/performWFlowQuda）。
+\textbf{为什么统一于 GaugeDirac：}规范场相关操作集中在单一对象，用户经
+\texttt{pyquda\_utils/core.py:388}（getDirac）获取。
+
+\subsection{C6 多后端数组抽象}
+\textbf{工程对象：}格点场数据须在 numpy/cupy/dpnp/torch 间切换。\textbf{机制：}
+\texttt{pyquda\_comm/array.py}（BackendType/BackendTargetType）、
+\texttt{pyquda\_comm/field.py}（LatticeInfo 与 Lattice* 场类，evenodd/lexico 序，halo）、
+\texttt{pyquda\_comm/pointer.pyx}（Pointer Cython 实现）。\textbf{为什么这样设计：}
+多 GPU 架构（CUDA/Intel GPU）与 Python 生态（CuPy/PyTorch）并存（\texttt{README.md:3-7}），
+后端抽象使物理层与具体数组库解耦。
+
+\section{独特性与竞争力评估}
+\begin{xltabular}{\textwidth}{lXX}
+\toprule
+\textcolor{algo}{核心} & 独特竞争力 & 对比朴素实现 \\
+\midrule
+\endhead
+自动 Cython 桥 & pycparser 解析 QUDA 头生成桥 & 手写 Cython \\
+对象封装层次 & FermionDirac 族统一接口 & 平铺函数 \\
+多后端数组抽象 & numpy/cupy/dpnp/torch & 绑定单库 \\
+物理工作流 & HMC/传播子/2pt/PCAC 示例 & 仅反演 \\
+\bottomrule
+\caption{独特性评估（数据来源: 源码实测）}
+\end{xltabular}
+
+\section{关键片段与公式}
+\begin{lstlisting}[language=Python]
+class WilsonDirac(FermionDirac):
+    def __init__(self, latt_info, mass, tol, maxiter, multigrid=None):
+        kappa = 1 / (2 * (mass + 1 + (latt_info.Nd - 1) / latt_info.anisotropy))
+        super().__init__(latt_info)
+        self.newQudaGaugeParam()
+        self.newQudaMultigridParam(multigrid, mass, kappa)
+        self.newQudaInvertParam(mass, kappa, tol, maxiter)
+        self.setPrecision()
+        self.setReconstruct()
+\end{lstlisting}
+参考源：\texttt{pyquda/dirac/wilson.py:10-25}（WilsonDirac 构造）
+
+核心公式汇总：
+\begin{align}
+\kappa &= \frac{1}{2\left(m+1+\frac{N_d-1}{\xi}\right)}, \label{eq:k}\\
+D_{\text{Wilson}} &= \frac{1}{\kappa}\mathbb{1} - \sum_\mu\left[(1-\gamma_\mu)U_\mu\delta_{+} + (1+\gamma_\mu)U_\mu^\dagger\delta_{-}\right]. \label{eq:dw}
+\end{align}
+
+\section{参考源清单}
+{\small
+\begin{xltabular}{\textwidth}{XXX}
+\toprule
+\textcolor{evidence}{参考源} & 类型 & 内容/作用 \\
+\midrule
+\endhead
+\texttt{\nolinkurl{pyquda_core/pyquda_pyx.py:140}} & 仓库 & 桥生成入口 \\
+\texttt{\nolinkurl{pyquda_core/pyquda_pyx.py:186-207}} & 仓库 & pycparser 解析 \\
+\texttt{\nolinkurl{pyquda_core/pyquda_pyx.py:378-434}} & 仓库 & 模板注入与写出 \\
+\texttt{\nolinkurl{pyquda_core/pyquda/dirac/wilson.py:10-25}} & 仓库 & WilsonDirac 构造 \\
+\texttt{\nolinkurl{pyquda_core/pyquda/dirac/general.py:283}} & 仓库 & newQudaMultigridParam \\
+\texttt{\nolinkurl{pyquda_core/pyquda/dirac/general.py:478}} & 仓库 & class Multigrid \\
+\texttt{\nolinkurl{pyquda_core/pyquda/hmc.py:262}} & 仓库 & class HMC \\
+\texttt{\nolinkurl{pyquda_core/pyquda/field.py:224-299}} & 仓库 & smear/flow 高层 \\
+\texttt{\nolinkurl{pyquda_core/pyquda/dirac/gauge.py:288-370}} & 仓库 & QUDA smear/flow 调用 \\
+\texttt{\nolinkurl{pyquda_core/pyquda_comm/array.py}} & 仓库 & 多后端抽象 \\
+\texttt{\nolinkurl{pyquda_core/pyquda_comm/field.py}} & 仓库 & 场类与 halo \\
+\texttt{\nolinkurl{pyquda_utils/core.py:61,388}} & 仓库 & invert/getDirac \\
+\texttt{\nolinkurl{examples/1_Quenched_HMC.py:29-38}} & 仓库 & O2 积分器 \\
+\texttt{\nolinkurl{pyquda_core/setup.py:8-10}} & 仓库 & 构建期桥生成 \\
+\texttt{\nolinkurl{README.md:3-7}} & 仓库 & 项目定位 \\
+\bottomrule
+\end{xltabular}
+}
+
+\section{结论}
+\begin{conclbox}
+PyQUDA 的核心竞争力是\textbf{自动 Cython 桥生成 + 面向对象物理封装 + 多后端数组抽象}：
+以 pycparser 驱动桥生成保证与 QUDA API 同步，以 FermionDirac 族统一物理接口，以数组后端
+抽象换取 CUDA/Intel GPU 可移植，覆盖从反演到 HMC 的完整科研流程。穷尽枚举 10 个候选，
+深挖 6 项均有代码-物理映射证据。
+\end{conclbox}
+\begin{warnbox}
+\textcolor{warn}{局限：}依赖 pycparser 子模块与 QUDA 精确版本；pyi stub 需人工维护；
+插件依赖外部扩展库（contract/gwu）；未实测运行（无 QUDA 安装）；非独立 git 仓库。
+\end{warnbox}
+
+\end{document}
