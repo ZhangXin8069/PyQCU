@@ -1,0 +1,403 @@
+% ============================================================
+% analy 报告 — 规范模板 v2（xelatex + ctex）
+% 主题: quda（QUDA 1.1.0）软件库全面分析
+% 编译: xelatex 两遍; 交付前 Overfull / Float too large 均为 0
+% ============================================================
+\documentclass[UTF8]{ctexart}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{microtype}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{xltabular}
+\usepackage{tabularx}
+\usepackage{hyperref}
+\usepackage{fancyhdr}
+\usepackage[most]{tcolorbox}
+\usepackage{titlesec}
+
+\definecolor{accent}{HTML}{1F4E79}
+\definecolor{evidence}{HTML}{1E8449}
+\definecolor{reference}{HTML}{8C6D1F}
+\definecolor{conclusion}{HTML}{8B1A1A}
+\definecolor{codebg}{HTML}{F4F6F7}
+\definecolor{struct}{HTML}{3B3B98}
+\definecolor{relation}{HTML}{0E7C7B}
+\definecolor{idea}{HTML}{B03A2E}
+\definecolor{warn}{HTML}{D35400}
+\definecolor{hl}{HTML}{FDF6E3}
+
+\setlength{\emergencystretch}{3em}
+\hypersetup{colorlinks=true,linkcolor=accent,urlcolor=relation}
+
+\titleformat{\section}{\Large\bfseries\color{accent}}{\thesection}{1em}{}
+\titleformat{\subsection}{\large\bfseries\color{struct}}{\thesubsection}{1em}{}
+\titleformat{\subsubsection}{\normalsize\bfseries\color{struct!70!black}}{\thesubsubsection}{1em}{}
+
+\newtcolorbox{conclbox}{breakable,colback=conclusion!6,colframe=conclusion,title=结论}
+\newtcolorbox{refbox}{breakable,colback=reference!6,colframe=reference,title=参考背景}
+\newtcolorbox{ideabox}{breakable,colback=idea!6,colframe=idea,title=项目思路}
+\newtcolorbox{warnbox}{breakable,colback=warn!6,colframe=warn,title=局限与风险}
+\newtcolorbox{keybox}{breakable,colback=hl,colframe=accent,title=要点}
+
+\lstset{
+  basicstyle=\ttfamily\footnotesize,
+  backgroundcolor=\color{codebg},
+  frame=single,
+  language=C++,
+  firstnumber=auto,
+  keywordstyle=\color{accent}\bfseries,
+  commentstyle=\color{evidence!70!black},
+  stringstyle=\color{struct},
+  breaklines=true,
+  breakatwhitespace=false,
+  postbreak=\mbox{\textcolor{accent}{$\hookrightarrow$}\space},
+  keepspaces=true,
+  columns=flexible,
+  numbers=left,numberstyle=\tiny\color{struct!60!black},
+}
+
+\title{quda（QUDA 1.1.0）软件库全面分析报告}
+\author{opencode analy}
+\date{2026-08-17}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+本报告对 NVIDIA GPU 上的格点 QCD 库 \textbf{QUDA 1.1.0}（位于
+\url{/root/PyQCU/refer/git-rep/quda}）进行只读全面分析。QUDA 是 C++/CUDA 实现的完整格点 QCD
+计算库：多种 Dirac 作用量（Wilson/Clover/域墙/Möbius/twisted/staggered/HISQ）、dslash 内核族、
+Krylov 求解器族（CG/BiCGstab/GCR/MR/CACG/GMRESDR 等）、multigrid、特征求解与 deflation、
+HMC 力、规范场 smearing/flow、以及 C/Fortran 接口。报告覆盖三视角：\textcolor{struct}{主体结构}
+（头/内核/实现/接口/测试分层）、\textcolor{relation}{各部分关系}
+（`quda.h C API → interface\_quda.cpp → 求解器/算子` 链、`\texttt{*.in.cu} → configure\_file → 内核实例`
+生成链、`targets/{cuda,hip,generic}` 后端抽象）、\textcolor{idea}{项目思路}
+（性能导向的 JIT/模板实例化 + 多后端可移植 + 生态接口兼容）。并对"从配置构建到运行测试"完整
+工作流按 A 框架 15 步重现。本快照非独立 git 仓库（共享 \texttt{/root/PyQCU/.git}）。
+\end{abstract}
+
+\tableofcontents
+
+\section{仓库概览}
+
+\subsection{目录结构}
+\begin{lstlisting}[language=bash]
+quda/
+|-- CMakeLists.txt / QUDAConfig.cmake.in     # 构建配置与导出
+|-- README.md / NEWS / LICENSE
+|-- include/                                 # 310 文件 / 112066 行
+|   |-- *.h / *.cuh                          # 类与 C API（quda.h 1859 行）
+|   |-- kernels/                             # 106 个 .cuh 设备端内核
+|   |-- targets/{cuda,hip,generic}/          # 设备后端抽象
+|   `-- externals/                           # CLI11/json 单头库
+|-- lib/                                     # 326 文件 / 80306 行
+|   |-- *.cpp / *.cu / *.in.cu               # 实现与内核模板
+|   |-- interface/                           # C/Fortran BLAS 接口
+|   |-- generate/                            # wrap.py（QMP PMPI wrapper）
+|   `-- targets/                             # 设备层实现
+|-- tests/                                   # 144 文件 / 64558 行
+|   |-- host_reference/                      # CPU 参考实现
+|   |-- googletest/                          # 35 文件 / 27370 行
+|   `-- utils/
+|-- cmake/ ci/ jenkins/ .github/             # 构建模块与 CI
+|-- doc/ (Doxyfile.in) / docs/               # Doxygen 与本报告
+\end{lstlisting}
+
+\subsection{规模统计与 git 信息}
+\begin{table}[htbp]\centering
+\begin{tabular}{ll}
+\toprule
+指标 & 实测值 \\
+\midrule
+版本 & QUDA 1.1.0（CMakeLists.txt:120） \\
+全仓库 & 807 文件 / 264730 行 \\
+include/ & 310 文件 / 112066 行 \\
+lib/ & 326 文件 / 80306 行（153 .cu + 110 .cpp） \\
+tests/ & 144 文件 / 64558 行 \\
+独立 git 仓库 & 否（共享 /root/PyQCU/.git，快照形态） \\
+\bottomrule
+\end{tabular}
+\caption{仓库实测统计（数据来源: find/wc/git 实测）}
+\end{table}
+
+\section{主体结构}
+\begin{xltabular}{\textwidth}{lXX}
+\toprule
+\textcolor{struct}{层次} & 目录 & \textcolor{struct}{职责} \\
+\midrule
+\endhead
+C API 层 & \nolinkurl{include/quda.h} & Quda*Param 结构族与 \nolinkurl{initQuda/invertQuda/dslashQuda} 等 C 函数声明 \\
+接口实现层 & \nolinkurl{lib/interface_quda.cpp} & initQuda:554、dslashQuda:1890、invertQuda:3144、computeGaugeForceQuda:4084 等 \\
+算子层 & \nolinkurl{include/dirac_quda.h} + \nolinkurl{lib/dirac_*.cpp} & Dirac 类族（Wilson/Clover/域墙/Möbius/twisted/staggered/coarse）\\
+内核层 & \nolinkurl{include/kernels/*.cuh} & dslash\_wilson.cuh（WilsonArg:18、apply:117）、coarse\_op\_kernel.cuh 等 106 个 \\
+启动层 & \nolinkurl{include/dslash.h} + \nolinkurl{include/instantiate_dslash.h} & Dslash 模板类与按精度/重构实例化 \\
+求解器层 & \nolinkurl{include/invert_quda.h} + \nolinkurl{lib/inv_*.cpp} & \nolinkurl{CG/BiCGstab/BiCGstabL/GCR/MR/CACG/CAGCR/SD/GMRESDR} \\
+Multigrid & \nolinkurl{include/multigrid.h} + \nolinkurl{lib/multigrid.cpp} & MG 类（multigrid.h:263）、operator():1131、\\
+& & \nolinkurl{generateNullVectors:1275} \\
+特征/收缩 & \nolinkurl{include/eigensolve_quda.h} 等 & TRLM/IRAM、Deflation、EigCG \\
+场/规范/Clover & \nolinkurl{color_spinor_field.h} 等 & 场对象、规范场序（重构压缩）、clover 项 \\
+通信层 & \nolinkurl{communicator_quda.h} + \nolinkurl{lib/communicator_*.cpp} & MPI/QMP/single 后端、halo 交换（\nolinkurl{color_spinor_field.cpp:1256}）\\
+BLAS 层 & \nolinkurl{include/blas_quda.h} + lib & 设备 BLAS、LAPACK 接口 \\
+构建层 & \texttt{cmake/}, \nolinkurl{lib/CMakeLists.txt} 等 & Find\*.cmake、\texttt{*.in.cu} configure\_file 批量实例化 \\
+构建层 & cmake/ + targets/ & Find\*.cmake、\texttt{*.in.cu} configure\_file 批量实例化 \\
+测试层 & \texttt{tests/} + \nolinkurl{host_reference/} + googletest & dslash/invert/multigrid/eigensolve 等约 30 个可执行 \\
+\bottomrule
+\caption{主体结构分层（数据来源: 全库索引实测）}
+\end{xltabular}
+
+\begin{keybox}
+\textbf{要点：}QUDA 以"C API + 类族分层 + 内核模板实例化 + 多后端抽象"组织：
+物理接口统一于 \texttt{quda.h}，算法实现按算子/求解器拆分，内核以 \texttt{*.in.cu} 模板
+批量生成，设备差异由 \texttt{targets/{cuda,hip,generic}} 隔离。
+\end{keybox}
+
+\section{各部分关系}
+
+\subsection{C API 调用链}
+\begin{keybox}
+\textbf{依赖主链:} \textcolor{relation}{\texttt{quda.h}（QudaInvertParam 等）
+$\rightarrow$ \nolinkurl{lib/interface_quda.cpp}（invertQuda:3144 等）
+$\rightarrow$ 求解器/算子类族 $\rightarrow$ \nolinkurl{include/kernels/*.cuh} 内核}
+\end{keybox}
+证据：\nolinkurl{include/quda.h:1230}（invertQuda 声明）、
+\nolinkurl{lib/interface_quda.cpp:3144}（实现）、
+\nolinkurl{include/invert_quda.h:381}（Solver 基类）。
+
+\subsection{内核生成链}
+\begin{keybox}
+\textbf{依赖主链:} \textcolor{relation}{\nolinkurl{lib/dslash_wilson.in.cu} 等模板
+$\xrightarrow{\text{configure\_file}}$ \nolinkurl{dslash_wilson.cu}（按精度/重构批量实例化）}
+\end{keybox}
+证据：\nolinkurl{lib/CMakeLists.txt}（\texttt{*.in.cu} 经 configure\_file 生成内核实例）；
+\nolinkurl{include/instantiate_dslash.h} 按 reconstruct/精度/颜色实例化。
+
+\subsection{后端抽象链}
+\begin{keybox}
+\textbf{依赖主链:} \textcolor{relation}{\texttt{include/targets/{cuda,hip,generic}/}
+（设备抽象）$\leftarrow$ \texttt{lib/targets/}（实现）
+$\leftarrow$ \nolinkurl{CMakeLists.txt QUDA_TARGET_TYPE}（CMakeLists.txt:77）}
+\end{keybox}
+
+\subsection{文件依赖关系汇总}
+\begin{xltabular}{\textwidth}{lXX}
+\toprule
+\textcolor{relation}{源（A）} & 目标（B） & 关系类型 \\
+\midrule
+\endhead
+\nolinkurl{include/quda.h} & \nolinkurl{lib/interface_quda.cpp} & 声明/实现 \\
+\nolinkurl{lib/interface_quda.cpp} & 求解器/算子类族 & 调用 \\
+\texttt{lib/*.in.cu} & \texttt{lib/*.cu} & 生成（configure\_file）\\
+\nolinkurl{include/kernels/*.cuh} & \texttt{lib/*.cu} & 内核包含 \\
+\nolinkurl{include/dirac_quda.h} & \nolinkurl{lib/dirac_*.cpp} & 类族实现 \\
+\nolinkurl{include/communicator_quda.h} & \nolinkurl{lib/communicator_*.cpp} & 后端实现 \\
+\nolinkurl{include/quda_define.h.in} & \nolinkurl{include/quda_define.h} & 宏生成 \\
+\texttt{cmake/Find\*.cmake} & 构建 & 依赖查找 \\
+\texttt{tests/*} & \nolinkurl{host_reference/*} & 参考对比 \\
+\bottomrule
+\caption{各部分关系汇总（数据来源: 源码实测）}
+\end{xltabular}
+
+\section{项目思路}
+
+\subsection{设计意图}
+QUDA 的目标是"在 GPU 上高效执行格点 QCD 全部核心计算"：以 C API 供 QDP/MILC/OpenQCD 等
+生态调用（\texttt{CMakeLists.txt:173-180} QUDA\_INTERFACE\_*），算法层按算子/求解器类族组织，
+内核层用模板化 \texttt{.in.cu} + configure\_file 批量实例化以支撑多精度/多重构组合，
+设备层以 targets 抽象支持 CUDA/HIP。性能优化手段包括 JIT（QUDA\_JITIFY）、MMA 张量核
+（QUDA\_ENABLE\_MMA）、shared memory spill、GPU-direct P2P 通信。
+
+\begin{ideabox}
+\textbf{项目思路核心总结：}一个"生态接口统一、算法类族化、内核模板化、设备抽象化"的
+高性能格点 QCD 库——用 C API 兼容生态，用模板批量生成应对精度/重构组合爆炸，
+用 targets 抽象换取 CUDA/HIP 可移植。
+\end{ideabox}
+
+\subsection{演进脉络}
+\nolinkurl{CMakeLists.txt:120} 标注版本 1.1.0；\texttt{NEWS} 记录版本历史。构建选项的丰富
+（\nolinkurl{QUDA_DIRAC_*} 8 项、\nolinkurl{QUDA_MULTIGRID}、
+\nolinkurl{QUDA_CLOVER_DYNAMIC}、\nolinkurl{QUDA_BLOCKSOLVER}、
+\nolinkurl{QUDA_SSTEP}、\nolinkurl{QUDA_USE_EIGEN}）反映功能逐代扩展路径；
+\texttt{ci/}、\texttt{jenkins/}、\texttt{.github/} 三套 CI 表明成熟的多平台持续集成。
+
+\subsection{典型工作流}
+\begin{enumerate}
+  \item 配置：\nolinkurl{cmake -DQUDA_TARGET_TYPE=CUDA -DQUDA_GPU_ARCH=sm_80 ...}
+        （\texttt{CMakeLists.txt:77}、\nolinkurl{lib/targets/cuda/target_cuda.cmake:12}）；
+  \item 构建：\texttt{make}（\texttt{*.in.cu} 批量生成内核）；
+  \item 运行测试：\nolinkurl{tests/dslash_test}、\nolinkurl{tests/invert_test}、
+        \nolinkurl{tests/multigrid_benchmark_test} 等（\nolinkurl{tests/CMakeLists.txt:58-271}）。
+\end{enumerate}
+
+\section{主题分析——工作全流程重现（A 代码工作框架）}
+
+\subsection{A1 目的与前期准备}
+\textbf{目的：}在 NVIDIA GPU 上执行格点 QCD 计算（dslash、反演、multigrid、HMC 力）。
+\textbf{前置条件：}CUDA toolkit（或 HIP/SYCL）、CMake、可选 QMP/QIO/MAGMA/Eigen 依赖
+（\texttt{cmake/Find*.cmake}）。
+
+\subsection{A2 输入是什么}
+\begin{itemize}
+  \item 构建参数：\nolinkurl{QUDA_TARGET_TYPE}、\nolinkurl{QUDA_GPU_ARCH}、
+        \nolinkurl{QUDA_DIRAC_*}、\nolinkurl{QUDA_MULTIGRID} 等
+        （\nolinkurl{CMakeLists.txt:77,145-154,266-267}）；
+  \item 运行时 Quda 参数：\nolinkurl{QudaGaugeParam/QudaInvertParam/QudaMultigridParam}
+        （\nolinkurl{quda.h:32,102,629}）；
+  \item 规范场与 Clover 场数据。
+\end{itemize}
+
+\subsection{A3 输出应该是什么}
+反演解（\texttt{invertQuda}）、dslash 结果（\texttt{dslashQuda}）、特征向量（\texttt{eigensolveQuda}）、
+力场（computeGaugeForceQuda 等）及测试程序输出。
+
+\subsection{A4 整体框架}
+构建：\texttt{cmake} 配置 $\rightarrow$ \texttt{*.in.cu} 生成 $\rightarrow$ 编译；
+运行：测试驱动 $\rightarrow$ \texttt{quda.h} API $\rightarrow$ \nolinkurl{interface_quda.cpp}
+$\rightarrow$ 算子/求解器 $\rightarrow$ 内核。
+
+\subsection{A5 关键细节}
+\begin{itemize}
+  \item \textbf{multigrid：}MG 类（\nolinkurl{multigrid.h:263}），
+        V-cycle \nolinkurl{operator():1131}、null 向量生成
+        \nolinkurl{generateNullVectors:1275}、特征向量
+        \nolinkurl{generateEigenVectors:1646}；
+  \item \textbf{求解器族：}\nolinkurl{CG:715、BiCGstab:949、BiCGstabL:992}、
+        \nolinkurl{GCR:1105、GMRESDR:1629}（\nolinkurl{invert_quda.h}）；
+  \item \textbf{halo 交换：}ColorSpinorField::exchangeGhost（\nolinkurl{color_spinor_field.cpp:1256}）
+        P2P/fused/零拷贝分支，\nolinkurl{comm_peer2peer_enabled_global()} 控制 GPU-direct；
+  \item \textbf{SU(3) 重构：}gauge\_field\_order.h 支持 8/12/13/18 元素压缩。
+\end{itemize}
+
+\subsection{A6 任务如何正确执行}
+\begin{enumerate}
+  \item \nolinkurl{cmake -B build -DQUDA_TARGET_TYPE=CUDA -DQUDA_GPU_ARCH=sm_80}
+        （\nolinkurl{lib/targets/cuda/target_cuda.cmake:12,21}）；
+  \item \texttt{cmake --build build}；
+  \item \nolinkurl{./tests/dslash_test --help} 查看并运行参数化测试。
+\end{enumerate}
+
+\subsection{A7 实际执行情况}
+\textcolor{warn}{未验证}：本快照无构建产物与运行记录，无法实测。
+
+\subsection{A8 实际输出情况}
+\textcolor{warn}{未验证}：无实测输出；测试程序覆盖 dslash/invert/multigrid/eigensolve/
+deflation/blas/force 等。
+
+\subsection{A9 结果分析}
+\textcolor{warn}{未验证}：无法实测。\nolinkurl{tests/host_reference/} 提供 CPU 参考
+（dslash\_reference.cpp、wilson\_dslash\_reference.cpp、clover\_reference.cpp）作为正确性基准。
+
+\subsection{A10 综合分析}
+\textbf{代码--对象映射：}本库代码符号对应物理对象的映射表：
+\begin{xltabular}{\textwidth}{lXX}
+\toprule
+\textcolor{struct}{代码符号} & 物理/算法对象 & 含义 \\
+\midrule
+\endhead
+\texttt{Dirac\*} 类族 & 格点 Dirac 算子 & Wilson/Clover/域墙/Möbius/twisted/staggered \\
+\texttt{GaugeField} & $U_\mu(x)$ 规范链接场 & SU(3) 重构压缩（8/12/13/18）\\
+\texttt{CloverField} & clover 项 & $c_{sw}\sigma_{\mu\nu}F_{\mu\nu}(x)$\\
+\texttt{ColorSpinorField} & $\psi(x)$ 夸克场 & spin 4 $\times$ color 3 分量 \\
+\texttt{MG/Transfer} & 近零模聚合预条件子 & 粗细格转移 \\
+\nolinkurl{gauge_force_quda} & HMC 力 & plaquette/clover/HISQ 路径力 \\
+\texttt{TRLM/IRAM} & 特征求解器 & 低模 deflation 用 \\
+\texttt{Deflation} & 特征向量 deflation & 子空间求解 \\
+\bottomrule
+\caption{代码符号 ↔ 对象映射（数据来源: include/ 与 lib/ 实测）}
+\end{xltabular}
+
+\subsection{A11 结尾总结}
+\begin{conclbox}
+QUDA 是功能最完整的 GPU 格点 QCD 库：生态接口 + 类族算法 + 模板内核 + 多后端抽象四层架构
+成熟，multigrid/特征求解/力场计算覆盖科研全流程，是 PyQCU 的 C++ CUDA 后端的权威参照。
+\end{conclbox}
+
+\subsection{A12 结尾评价}
+\textbf{优点：}架构分层清晰、内核模板化应对组合爆炸、多后端（CUDA/HIP）可移植、CI 完备。
+\textbf{可改进：}构建选项繁多（QUDA\_DIRAC\_* 等 20+ 宏）学习成本高；本版本无 HMC 集成器
+（力仅经 C API 暴露）。
+
+\subsection{A13 补充说明}
+\textcolor{warn}{局限：}本快照无构建产物，A7/A8/A9 未实测；非独立 git 仓库。
+
+\subsection{A14 参考源}
+本节证据汇总见第 7 节参考源清单。
+
+\subsection{A15 附录与附件（如有）}
+\url{/root/PyQCU/refer/git-rep/quda/docs/pure_quda_core_20260815.tex} 为历史核心剖析报告；
+\nolinkurl{tests/host_reference/} 为参考实现。
+
+\section{关键代码/文档片段}
+
+\begin{lstlisting}[language=C++]
+  void MG::operator()(cvector_ref<ColorSpinorField> &x,
+                      cvector_ref<const ColorSpinorField> &b)
+\end{lstlisting}
+参考源：\texttt{lib/multigrid.cpp:1131}（MG V-cycle 入口）
+
+\begin{lstlisting}[language=C++]
+  void MG::generateNullVectors(std::vector<ColorSpinorField> &B, bool refresh)
+\end{lstlisting}
+参考源：\texttt{lib/multigrid.cpp:1275}（null 向量生成）
+
+\begin{lstlisting}[language=C++]
+class Solver { ... };       // invert_quda.h:381
+class CG : public Solver {...};      // invert_quda.h:715
+class BiCGstab : public Solver {...};    // invert_quda.h:949
+class GMRESDR : public Solver {...};     // invert_quda.h:1629
+\end{lstlisting}
+参考源：\nolinkurl{include/invert_quda.h:381,715,949,1629}（求解器类族，示意）
+
+\section{参考源清单}
+{\small
+\begin{xltabular}{\textwidth}{XXX}
+\toprule
+\textcolor{evidence}{参考源} & 类型 & 内容/作用 \\
+\midrule
+\endhead
+\nolinkurl{CMakeLists.txt:77} & 仓库 & QUDA\_TARGET\_TYPE（CUDA/HIP/SYCL）\\
+\nolinkurl{CMakeLists.txt:120} & 仓库 & 版本 1.1.0 \\
+\nolinkurl{CMakeLists.txt:145-154} & 仓库 & QUDA\_DIRAC\_* 8 项 \\
+\nolinkurl{CMakeLists.txt:173-180} & 仓库 & QUDA\_INTERFACE\_* 生态接口 \\
+\nolinkurl{CMakeLists.txt:266-267} & 仓库 & QUDA\_MULTIGRID \\
+\nolinkurl{lib/targets/cuda/target_cuda.cmake:12,21} & 仓库 & GPU 架构默认/取值 \\
+\nolinkurl{include/quda.h:32,102,629} & 仓库 & Quda*Param 结构 \\
+\nolinkurl{include/quda.h:1230} & 仓库 & invertQuda 声明 \\
+\nolinkurl{lib/interface_quda.cpp:554} & 仓库 & initQuda \\
+\nolinkurl{lib/interface_quda.cpp:3144} & 仓库 & invertQuda \\
+\nolinkurl{lib/interface_quda.cpp:4084} & 仓库 & computeGaugeForceQuda \\
+\nolinkurl{include/invert_quda.h:381,715,949,1629} & 仓库 & Solver/CG/BiCGstab/GMRESDR \\
+\nolinkurl{include/multigrid.h:263} & 仓库 & class MG \\
+\nolinkurl{lib/multigrid.cpp:1131} & 仓库 & MG::operator() \\
+\nolinkurl{lib/multigrid.cpp:1275} & 仓库 & generateNullVectors \\
+\nolinkurl{lib/multigrid.cpp:1646} & 仓库 & generateEigenVectors \\
+\nolinkurl{include/kernels/dslash_wilson.cuh:18,117} & 仓库 & WilsonArg/apply 内核 \\
+\nolinkurl{include/dslash.h:33} & 仓库 & Dslash 内核启动模板 \\
+\nolinkurl{include/instantiate_dslash.h} & 仓库 & 精度/重构实例化 \\
+\nolinkurl{lib/color_spinor_field.cpp:1256} & 仓库 & exchangeGhost \\
+\nolinkurl{include/eigensolve_quda.h:16,336,567} & 仓库 & EigenSolver/TRLM/IRAM \\
+\nolinkurl{include/deflation.h:75} & 仓库 & Deflation \\
+\nolinkurl{include/gauge_field_order.h} & 仓库 & SU(3) 重构压缩 \\
+\nolinkurl{lib/communicator_mpi.cpp:106} & 仓库 & comm\_init \\
+\nolinkurl{tests/CMakeLists.txt:58--271} & 仓库 & 测试可执行清单 \\
+\nolinkurl{tests/host_reference/} & 仓库 & CPU 参考实现 \\
+\bottomrule
+\end{xltabular}
+}
+
+\section{结论与局限}
+\begin{conclbox}
+三视角结论：\textcolor{struct}{结构}——C API/算子/内核/后端/测试五层完整；
+\textcolor{relation}{关系}——`quda.h → interface\_quda.cpp → 类族 → kernels/*.cuh` 主链贯通，
+\texttt{*.in.cu} 模板批量生成内核，targets 抽象隔离设备；\textcolor{idea}{思路}——
+生态接口兼容 + 模板化性能内核 + 多后端可移植，是生产级格点 QCD GPU 库的范式。
+\end{conclbox}
+\begin{warnbox}
+\textcolor{warn}{未验证}：A7/A8/A9 实测执行步骤无法在本快照验证（无构建产物）；行号均经
+read/grep 核实；本库非独立 git 仓库。
+\end{warnbox}
+
+\end{document}
