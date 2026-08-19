@@ -342,7 +342,7 @@ def _vdot_batch(a, b):
 
 def give_null_vecs_mt(matvec_ops, dof, e, lat_fine_odd, dtype, device,
                       nv_iters=1, nthreads=None, seed=42, verbose=True,
-                      nv_tol=1e-2, batch_matvec=None):
+                      nv_tol=1e-2, batch_matvec=None, batch_chunk=8):
     """多线程 null 向量生成（逆迭代，向量相互独立，写集不相交）。
 
     matvec_ops: 每线程一个 matvec 算子（如 CudaSchurOp 实例列表；各实例持独立
@@ -397,16 +397,28 @@ def give_null_vecs_mt(matvec_ops, dof, e, lat_fine_odd, dtype, device,
         return v
 
     if batch_matvec is not None:
-        # 批量模式：dof 个右端一次批量 BiCGStab（逆迭代 nv_iters 次）
-        v_all = torch.randn([dof, e] + list(lat_fine_odd), dtype=dtype,
-                            device=device)
-        for _ in range(nv_iters):
-            x_all = _bistabcg_batch(batch_matvec(v_all), batch_matvec, tol=nv_tol)
-            v_all = v_all - x_all
-        nrm = torch.linalg.norm(v_all.reshape(dof, -1), dim=1)
-        nrm = torch.clamp(nrm, min=1e-30)
-        bc = [dof] + [1] * (v_all.ndim - 1)
-        v_all = v_all / nrm.view(bc)
+        # 批量模式：dof 个右端一次批量 BiCGStab（逆迭代 nv_iters 次）。
+        # 2026-08-18：分块（batch chunk）执行，降低峰值显存 —— 大格子
+        # （24x24x24x72）上全 batch 一次 BiCGStab 的 7 个工作向量
+        # （每 [chunk,12,...] 1.15GB@24）+ matvec 中间张量叠加超过 32GB。
+        # 每块独立收敛到 nv_tol，语义与全 batch 等价（逆迭代每块独立）。
+        import math as _math
+        chunk = _math.gcd(dof, max(1, batch_chunk or 8))
+        if chunk < 1:
+            chunk = dof
+        v_all = torch.zeros([dof, e] + list(lat_fine_odd), dtype=dtype, device=device)
+        for c0 in range(0, dof, chunk):
+            c1 = min(dof, c0 + chunk)
+            vb = torch.randn([c1 - c0, e] + list(lat_fine_odd), dtype=dtype,
+                             device=device)
+            for _ in range(nv_iters):
+                xb = _bistabcg_batch(batch_matvec(vb), batch_matvec, tol=nv_tol)
+                vb = vb - xb
+            nrm = torch.linalg.norm(vb.reshape(c1 - c0, -1), dim=1)
+            nrm = torch.clamp(nrm, min=1e-30)
+            bc = [c1 - c0] + [1] * (vb.ndim - 1)
+            vb = vb / nrm.view(bc)
+            v_all[c0:c1] = vb
         null = v_all
     else:
         def worker(tid):
@@ -817,3 +829,249 @@ def apply_stencil(hop_nn, hop_diag, sit, v_c):
                 v_shift = _torch.roll(v_c, shifts=tuple(shift), dims=(1, 2, 3, 4))
                 out += _torch.einsum("EeXYZT,eXYZT->EXYZT", hop_diag[s1i, s2i, pi], v_shift)
     return out
+
+
+# ======================================================================
+# 局部化批量 Schur 与 stencil 构建（2026-08-18，test15 24x24x24x72 大格子）
+# ----------------------------------------------------------------------
+# 背景：24x24x24x72 lv1（31104 粗格点）stencil 探测，全格 torch 批量
+# (_schur_matvec_batch, 2.58s/点) 约 22 小时、C++ 逐场 (CudaSchurOp 14.33ms
+# × 746496) 约 178 分钟均不可行。本文件实现局部化：每个粗格点 c 只需
+# Schur 在 c 窗口（W=10，覆盖 c±1 块 + 半径 2 padding）内的作用，
+# 与全格 Schur 在中心 c±1 块逐点验证 diff=0（local_test4/local_probe2）。
+# 实测 24x24x24x72 lv1 单点 ~54ms → 31104 点 ~28 min（setup 一次性，缓存复用）。
+# ======================================================================
+
+
+class BatchedLocalSchur:
+    """局部化批量 Schur 奇偶算子 S = A_oo - k² D_oe A_ee⁻¹ D_eo。
+
+    op: dslash.operator（支持奇偶，保留 hopping.M_e/o_plus/minus_list、
+        sitting.M_e_inv/M_o 组件；其余可 slim 释放）。
+    idx: [K,4,W] 每个粗格点 c 的窗口全局坐标（x0..x0+W 模格点）。
+    x_local: [K, B, e, W,W,W,W]（K=窗口批量、B=探针数=24、e=12 dof）。
+    输出 [K, B, e, W,W,W,W]，在中心 c±1 块与全格 Schur 一致。
+
+    2026-08-18：窗口起点 x0 = 2c - (W//2 - 1)，c 块 [2c,2c+2) 居中；
+    输出只需中心 [W//2-3, W//2+3)（c±1 块）。einsum 的 dof 标签约定：
+    M（[E,e,..]）的第一维是输出 dof（E），第二维是输入 dof（e）；
+    x 的 dof 维是输入，须标 e（不能用 E），否则 einsum 语义错（数值错）。
+    """
+
+    def __init__(self, op, Xf, Yf, Zf, Tf, W=10):
+        self.op = op
+        self.W = W
+        self.dims = (Xf, Yf, Zf, Tf)
+        self.Mep = [op.hopping.M_e_plus_list[d] for d in range(4)]
+        self.Mem = [op.hopping.M_e_minus_list[d] for d in range(4)]
+        self.Mop = [op.hopping.M_o_plus_list[d] for d in range(4)]
+        self.Mom = [op.hopping.M_o_minus_list[d] for d in range(4)]
+        self.Me_inv = op.sitting.M_e_inv
+        self.Mo = op.sitting.M_o
+        self.ar = torch.arange(W, device=op.hopping.M_e_plus_list[0].device)
+        self.sp = (self.ar + 1) % W
+        self.sm = (self.ar - 1) % W
+
+    def _slicem(self, M, idx, starts=None):
+        """对 K 个窗口做 M[:, :, 窗口] 切片 → [K,E,e,W,W,W,W]。
+
+        starts: 可选 [K,4] 整数窗口起点（避免 .item() 同步）；给定时优先用
+        连续切片（快 ~86 倍），否则回退高级索引。
+        """
+        K = idx.shape[0]
+        W = self.W
+        Xf, Yf, Zf, Tf = self.dims
+        out = torch.empty([K, 12, 12, W, W, W, W], dtype=M.dtype, device=M.device)
+        if starts is not None:
+            for k in range(K):
+                x0, y0, z0, t0 = starts[k]
+                if (x0 + W <= Xf and y0 + W <= Yf and z0 + W <= Zf and t0 + W <= Tf):
+                    out[k] = M[:, :, x0:x0 + W, y0:y0 + W, z0:z0 + W, t0:t0 + W]
+                else:
+                    ix, iy, iz, it = idx[k, 0], idx[k, 1], idx[k, 2], idx[k, 3]
+                    out[k] = M[:, :, ix][:, :, :, iy][:, :, :, :, iz][:, :, :, :, :, it]
+            return out
+        for k in range(K):
+            ix, iy, iz, it = idx[k, 0], idx[k, 1], idx[k, 2], idx[k, 3]
+            x0, y0, z0, t0 = ix[0].item(), iy[0].item(), iz[0].item(), it[0].item()
+            if (ix[-1].item() == (x0 + W - 1) % Xf and iy[-1].item() == (y0 + W - 1) % Yf and
+                    iz[-1].item() == (z0 + W - 1) % Zf and it[-1].item() == (t0 + W - 1) % Tf and
+                    x0 + W <= Xf and y0 + W <= Yf and z0 + W <= Zf and t0 + W <= Tf):
+                out[k] = M[:, :, x0:x0 + W, y0:y0 + W, z0:z0 + W, t0:t0 + W]
+            else:
+                out[k] = M[:, :, ix][:, :, :, iy][:, :, :, :, iz][:, :, :, :, :, it]
+        return out
+
+    def _masks(self, idx, K, E):
+        """t 方向 (wd=3) 掩码：even 格点 (x+y+z)%2==0，odd 反之（全局坐标）。"""
+        W = self.W
+        xgk = idx[:, 0].view(K, W, 1, 1, 1)
+        ygk = idx[:, 1].view(K, 1, W, 1, 1)
+        zgk = idx[:, 2].view(K, 1, 1, W, 1)
+        me = ((xgk + ygk + zgk) % 2 == 0).expand(K, W, W, W, W)
+        mo = ~me
+        mek = me.view(K, 1, 1, W, W, W, W).expand(K, E, 12, W, W, W, W)
+        mok = mo.view(K, 1, 1, W, W, W, W).expand(K, E, 12, W, W, W, W)
+        return mek, mok
+
+    def __call__(self, x_local, idx, starts=None):
+        K = x_local.shape[0]
+        W = self.W
+        E = x_local.shape[1]
+        Mep = [self._slicem(self.Mep[d], idx, starts) for d in range(4)]
+        Mem = [self._slicem(self.Mem[d], idx, starts) for d in range(4)]
+        Mop = [self._slicem(self.Mop[d], idx, starts) for d in range(4)]
+        Mom = [self._slicem(self.Mom[d], idx, starts) for d in range(4)]
+        Me_inv = self._slicem(self.Me_inv, idx, starts)
+        Mo = self._slicem(self.Mo, idx, starts)
+        mek, mok = self._masks(idx, K, E)
+        # even: D_oe（even 输出），配 M_e_plus/minus，t 向 mask
+        dest_e = torch.zeros([K, E, 12, W, W, W, W], dtype=x_local.dtype, device=x_local.device)
+        for d in range(4):
+            src_p = torch.roll(x_local, shifts=-1, dims=d + 3)
+            src_m = torch.roll(x_local, shifts=1, dims=d + 3)
+            if d == 3:
+                src_p = torch.where(mek, x_local, src_p)
+                src_m = torch.where(mok, x_local, src_m)
+            dest_e += torch.einsum("kEexyzt,kBexyzt->kBExyzt", Mep[d], src_p)
+            dest_e += torch.einsum("kEexyzt,kBexyzt->kBExyzt", Mem[d], src_m)
+        # xe_inv = A_ee⁻¹ · dest_e：dest_e 的 dof 是 even 输入 → 标 e
+        xe_inv = torch.einsum("kEeXYZT,kBeXYZT->kBEXYZT", Me_inv, dest_e)
+        # odd: D_eo（odd 输出），配 M_o_plus/minus，t 向 mask（odd/eo 对调）
+        dest_o = torch.zeros([K, E, 12, W, W, W, W], dtype=x_local.dtype, device=x_local.device)
+        for d in range(4):
+            src_p = torch.roll(xe_inv, shifts=-1, dims=d + 3)
+            src_m = torch.roll(xe_inv, shifts=1, dims=d + 3)
+            if d == 3:
+                src_p = torch.where(mok, xe_inv, src_p)
+                src_m = torch.where(mek, xe_inv, src_m)
+            dest_o += torch.einsum("kEexyzt,kBexyzt->kBExyzt", Mop[d], src_p)
+            dest_o += torch.einsum("kEexyzt,kBexyzt->kBExyzt", Mom[d], src_m)
+        # out = A_oo · x：x 的 dof 是 odd 输入 → 标 e
+        out = torch.einsum("kEeXYZT,kBeXYZT->kBEXYZT", Mo, x_local)
+        return out - dest_o
+
+
+def _probe_point_batch_local(lsch, lonv, E, c_idx, sit, hop_nn, hop_diag, dims, Nc, W):
+    """局部化批量单点探测：用 BatchedLocalSchur 替代全格 _schur_matvec_batch。
+
+    与 _probe_point_batch 数学等价（中心 c±1 块验证 diff=0）：prolong 在
+    窗口内 c 块填充 lonv，局部 Schur，restrict 到 c±1 邻域 33 个粗格点。
+    """
+    Xc, Yc, Zc, Tc = dims
+    str_Y, str_Z = Yc * Zc * Tc, Zc * Tc
+    cx = c_idx // str_Y
+    rem = c_idx % str_Y
+    cy = rem // str_Z
+    rem %= str_Z
+    cz = rem // Tc
+    ct = rem % Tc
+    ccoords = [cx, cy, cz, ct]
+    E_l, e, X, x, Y, y, Z, z, T, t = lonv.shape
+    off = W // 2 - 1
+    Xf, Yf, Zf, Tf = lsch.dims
+    x0 = 2 * cx - off
+    y0 = 2 * cy - off
+    z0 = 2 * cz - off
+    t0 = 2 * ct - off
+    ix = (torch.arange(x0, x0 + W, device=lonv.device)) % Xf
+    iy = (torch.arange(y0, y0 + W, device=lonv.device)) % Yf
+    iz = (torch.arange(z0, z0 + W, device=lonv.device)) % Zf
+    it = (torch.arange(t0, t0 + W, device=lonv.device)) % Tf
+    idx = torch.stack([ix, iy, iz, it]).unsqueeze(0)  # [1,4,W]
+    f_local = torch.zeros([1, E, e, W, W, W, W], dtype=lonv.dtype, device=lonv.device)
+    f_local[0, :, :, off:off + 2, off:off + 2, off:off + 2, off:off + 2] = \
+        lonv[:, :, cx, :, cy, :, cz, :, ct, :].reshape(E, e, x, y, z, t)
+    starts = [(x0 % Xf, y0 % Yf, z0 % Zf, t0 % Tf)]
+    dc_local = lsch(f_local, idx, starts)[0]  # [E, e, W,W,W,W]
+    # 33 个相关粗格点（c 本身 + 4 方向 ±1 + 6 对角 ±1，去重保序）
+    pts = [(cx, cy, cz, ct)]
+    for d in range(4):
+        b = ccoords[:]
+        b[d] = (b[d] - 1 + dims[d]) % dims[d]
+        fwd = ccoords[:]
+        fwd[d] = (fwd[d] + 1) % dims[d]
+        pts.append(tuple(b))
+        pts.append(tuple(fwd))
+    for (d1, d2) in PAIRS:
+        for s1 in SIGN:
+            for s2 in SIGN:
+                n = ccoords[:]
+                n[d1] = (n[d1] - s1 + dims[d1]) % dims[d1]
+                n[d2] = (n[d2] - s2 + dims[d2]) % dims[d2]
+                pts.append(tuple(n))
+    seen, uniq = set(), []
+    for p in pts:
+        if p not in seen:
+            seen.add(p)
+            uniq.append(p)
+    # 窗口内 p 块偏移（全局 2p 减去窗口起点，模格点）
+    x0m = x0 % Xf
+    y0m = y0 % Yf
+    z0m = z0 % Zf
+    t0m = t0 % Tf
+    dc_p = torch.stack([
+        dc_local[:, :, (2 * p[0] - x0m) % Xf:(2 * p[0] - x0m) % Xf + 2,
+                (2 * p[1] - y0m) % Yf:(2 * p[1] - y0m) % Yf + 2,
+                (2 * p[2] - z0m) % Zf:(2 * p[2] - z0m) % Zf + 2,
+                (2 * p[3] - t0m) % Tf:(2 * p[3] - t0m) % Tf + 2]
+        for p in uniq])
+    lonv_p = torch.stack([lonv[:, :, p[0], :, p[1], :, p[2], :, p[3], :]
+                          for p in uniq])
+    dc_vals = torch.einsum("Paexyzt,Pbexyzt->Pab", lonv_p.conj(), dc_p)  # [P,E,E]
+    dc_by_pt = {p: dc_vals[i] for i, p in enumerate(uniq)}
+    # 写回（系数约定与 _probe_point_batch 一致）
+    sit[:, :, cx, cy, cz, ct] = dc_by_pt[(cx, cy, cz, ct)]
+    for d in range(4):
+        b = ccoords[:]
+        b[d] = (b[d] - 1 + dims[d]) % dims[d]
+        fwd = ccoords[:]
+        fwd[d] = (fwd[d] + 1) % dims[d]
+        if b[d] == fwd[d]:
+            hop_nn[0, d, :, :, b[0], b[1], b[2], b[3]] = 0.5 * dc_by_pt[tuple(b)]
+            hop_nn[1, d, :, :, fwd[0], fwd[1], fwd[2], fwd[3]] = 0.5 * dc_by_pt[tuple(fwd)]
+        else:
+            hop_nn[0, d, :, :, b[0], b[1], b[2], b[3]] = dc_by_pt[tuple(b)]
+            hop_nn[1, d, :, :, fwd[0], fwd[1], fwd[2], fwd[3]] = dc_by_pt[tuple(fwd)]
+    for pi, (d1, d2) in enumerate(PAIRS):
+        targets = {}
+        for s1i, s1 in enumerate(SIGN):
+            for s2i, s2 in enumerate(SIGN):
+                n = ccoords[:]
+                n[d1] = (n[d1] - s1 + dims[d1]) % dims[d1]
+                n[d2] = (n[d2] - s2 + dims[d2]) % dims[d2]
+                key = (n[0], n[1], n[2], n[3])
+                targets.setdefault(key, []).append((s1i, s2i))
+        for key, combos in targets.items():
+            w = 1.0 / len(combos)
+            for (s1i, s2i) in combos:
+                hop_diag[s1i, s2i, pi, :, :, key[0], key[1], key[2], key[3]] = \
+                    w * dc_by_pt[key]
+    return dc_by_pt
+
+
+def build_stencil_local(lsch, lonv, E, lat_fine_odd, lat_coarse_odd,
+                        dt, device, verbose=True):
+    """局部化 33-tensor stencil 构建（24x24x24x72 大格子）。
+
+    用 BatchedLocalSchur 在 c 窗口内计算 Schur（替代全格 matvec），
+    单线程顺序探测全部粗格点。返回 (hop_nn, hop_diag, sit)。
+    """
+    import time
+    Xc, Yc, Zc, Tc = lat_coarse_odd
+    Nc = Xc * Yc * Zc * Tc
+    dims = [Xc, Yc, Zc, Tc]
+    W = lsch.W
+    sit = torch.zeros([E, E, Xc, Yc, Zc, Tc], dtype=dt, device=device)
+    hop_nn = torch.zeros([2, 4, E, E, Xc, Yc, Zc, Tc], dtype=dt, device=device)
+    hop_diag = torch.zeros([2, 2, 6, E, E, Xc, Yc, Zc, Tc], dtype=dt, device=device)
+    t0 = time.perf_counter()
+    for c_idx in range(Nc):
+        _probe_point_batch_local(lsch, lonv, E, c_idx, sit, hop_nn,
+                                 hop_diag, dims, Nc, W)
+    dt_build = time.perf_counter() - t0
+    if verbose:
+        print(f"PYQCU::TOOLS::MULTIGRID:\n stencil build (local): "
+              f"{dt_build:.1f}s for {E * Nc} probes "
+              f"({E * Nc / max(dt_build, 1e-9):.0f} probes/s)")
+    return hop_nn, hop_diag, sit
