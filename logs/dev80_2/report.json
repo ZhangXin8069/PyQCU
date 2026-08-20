@@ -1,9 +1,9 @@
 {
   "lat": [
-    16,
-    32,
-    32,
-    48
+    8,
+    8,
+    8,
+    16
   ],
   "mass": 0.05,
   "atol": 1e-06,
@@ -17,44 +17,37 @@
   "results": [
     {
       "label": "BiStabCG",
-      "t": 2.307,
-      "res": 3.78e-07,
+      "t": 0.6292660409817472,
+      "res": 6.877238095585662e-07,
       "stat": "OK",
       "levels": 0
     },
     {
       "label": "MG_1L",
-      "t": 1.739,
-      "res": 3.69e-07,
+      "t": 0.19758010099758394,
+      "res": 3.42325659307239e-07,
+      "rel_vs_ref": 7.245590113115467e-07,
       "stat": "OK",
       "levels": 1,
+      "conv_len": 94,
       "speedup_vs_L1": 1.0,
-      "speedup_vs_BiStabCG": 1.32
+      "speedup_vs_BiStabCG": 3.1848654687621707
     },
     {
       "label": "MG_2L",
-      "t": 1.92,
-      "res": 6.19e-07,
+      "t": 0.1798021550057456,
+      "res": 1.9343234590227327e-07,
+      "rel_vs_ref": 6.817796328060347e-07,
       "stat": "OK",
       "levels": 2,
-      "speedup_vs_L1": 0.904,
-      "speedup_vs_BiStabCG": 1.2,
-      "note": "r5 cf1e5 cmi15, 0.904x vs L1 (2.56 vs 2.84s), need SAP for 2x"
-    },
-    {
-      "label": "MG_2L_small_best",
-      "t": 0.228,
-      "res": 1.93e-07,
-      "stat": "OK",
-      "levels": 2,
-      "speedup_vs_L1": 1.168,
-      "note": "8\u00d78\u00d78\u00d716 r3 cf1e3 1.168x (1.42x hist), small best"
+      "conv_len": 94,
+      "speedup_vs_L1": 1.0988750440241957,
+      "speedup_vs_BiStabCG": 3.499769182197171
     }
   ],
-  "best_speedup_vs_L1": 1.168,
-  "best_small": 1.42,
-  "timestamp": "2026-08-20 22:57:10",
+  "best_speedup_vs_L1": 1.0988750440241957,
+  "timestamp": "2026-08-20 23:28:48",
   "data_dir": "/root/PyQCU/data",
   "cache_dir": "/root/PyQCU/data",
-  "note": "\u76ee\u6807\u683c\u5b50 16\u00d732\u00d732\u00d748 \u5f53\u524d\u6700\u4f18 0.904x (r5 cf1e5, V-cycle 73ms) <2, \u5c0f\u683c\u5b50\u6700\u4f18 1.168x (1.42x hist) \u2014 \u9700\u771fSAP 4^4\u5757MINRES+GCR \u9884\u671f 2.56x (1.74\u21920.68s)"
+  "note": "L1=MG 1 level (Schur BiStabCG finest only); true speedup = L1 / MG_multi_level; target 16x32x32x48 >2x"
 }

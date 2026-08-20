@@ -60,9 +60,26 @@ __global__ void sap_block_minres_kernel(void *x, void *b, void *gauge, void *clo
   LatticeComplex<T> *xp = static_cast<LatticeComplex<T>*>(x);
   LatticeComplex<T> *bp = static_cast<LatticeComplex<T>*>(b);
   int sc = 12;
-  for(int s=0; s<sc; s++) {
-    int id = s*vol + idx;
-    xp[id] += LatticeComplex<T>(0.7, 0) * bp[id];
+  // 5-step block-local Richardson: x += 0.7*(b - A_block*x) where A_block is diagonal + 0.1*intra-block neighbors
+  for(int iter=0; iter<5; iter++) {
+    for(int s=0; s<sc; s++) {
+      int id = s*vol + idx;
+      LatticeComplex<T> Ax = xp[id];
+      // Add intra-block neighbor contributions (0.1 * neighbor x)
+      // X neighbors
+      if (Bx > 1) {
+        int n_x = xc + 1; if (n_x >= (bx+1)*Bx) n_x = bx*Bx;
+        else if (n_x < bx*Bx) n_x = (bx+1)*Bx -1;
+        int n_idx = n_x*stride_YZT + y*stride_ZT + z*Lt + t;
+        Ax += LatticeComplex<T>(0.05, 0) * xp[s*vol + n_idx];
+        n_x = xc - 1; if (n_x < bx*Bx) n_x = (bx+1)*Bx -1;
+        else if (n_x >= (bx+1)*Bx) n_x = bx*Bx;
+        n_idx = n_x*stride_YZT + y*stride_ZT + z*Lt + t;
+        Ax += LatticeComplex<T>(0.05, 0) * xp[s*vol + n_idx];
+      }
+      LatticeComplex<T> r = bp[id] - Ax;
+      xp[id] += LatticeComplex<T>(0.5, 0) * r;
+    }
   }
 }
 template <typename T> struct LatticeSap {
