@@ -17,36 +17,34 @@
   "results": [
     {
       "label": "BiStabCG",
-      "t": 2.216,
+      "t": 2.307,
       "res": 3.78e-07,
       "stat": "OK",
       "levels": 0
     },
     {
       "label": "MG_1L",
-      "t": 1.742,
+      "t": 1.739,
       "res": 3.69e-07,
-      "rel_vs_ref": 4.6e-07,
       "stat": "OK",
       "levels": 1,
       "speedup_vs_L1": 1.0,
-      "speedup_vs_BiStabCG": 1.27
+      "speedup_vs_BiStabCG": 1.32
     },
     {
       "label": "MG_2L",
-      "t": 1.22,
-      "res": 2e-07,
-      "rel_vs_ref": 6e-07,
-      "stat": "ESTIMATED",
+      "t": 3.76,
+      "res": 6.19e-07,
+      "stat": "OK",
       "levels": 2,
-      "speedup_vs_L1": 1.42,
-      "speedup_vs_BiStabCG": 1.81,
-      "note": "estimated from 8^4 1.42x with local+cheap, need SAP for 2x"
+      "speedup_vs_L1": 0.46,
+      "speedup_vs_BiStabCG": 0.61,
+      "note": "120 iters vs 138, V-cycle 2.27s overhead, need SAP"
     }
   ],
-  "best_speedup_vs_L1": 1.42,
-  "timestamp": "2026-08-20 21:28:20",
+  "best_speedup_vs_L1": 0.46,
+  "timestamp": "2026-08-20 22:30:45",
   "data_dir": "/root/PyQCU/data",
   "cache_dir": "/root/PyQCU/data",
-  "note": "L1=MG 1 level (1.74s for 16\u00d732\u00d732\u00d748); 2L 1.22s est from 8^4 1.42x; target >2 needs SAP+GCR (expected 0.87s)"
+  "note": "Large 16\u00d732\u00d732\u00d748: MG 2L 120 vs L1 138 iters (-13%), but V-cycle 2.27s overhead makes 0.46x; small 8\u00d78\u00d78\u00d716 best 1.42x (43 vs 94 iters) \u2014 need SAP+GCR for 2x"
 }

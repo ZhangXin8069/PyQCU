@@ -107,6 +107,14 @@ MG 2L    : 超时 (>400s 首次, >650s 仍在 null vec 阶段) — 见 §4
 
 **下一步**: 优先实现 SAP (4^4 块, 5步 MINRES) + GCR 外层, 预计 8^4 1.42→2.3x, 16×32×32×48 1.0→2.1x (迭代 138→45, V-cycle 15ms→8ms via 混合精度), 配合已实现的 4min 构建 (vs 24min) 达到分钟级 guard
 
+## 7.1 大格子最新实测 (E12, r3 cf1e3 cmi15, accurate+local W10, 784s build)
+```
+BiStabCG : 2.307s
+MG L1    : 1.739s (138 iters, 12ms/iter) 1.32x vs BiStabCG
+MG 2L    : 3.764s (120 iters, 12.3ms/iter, V-cycle 2.27s/31次=73ms/次, coarse 1.86s) 0.46x vs L1 (反而慢, 迭代仅 -13%)
+```
+- 结论: 即使 accurate+local, 2L 仅 -13% 迭代, 但 V-cycle 2.27s 开销使总时间 1.73→3.76s (2.16x 慢), 与小格子 1.42x 相反；说明大格子粗空间 (E12) 未捕捉低模, 需 SAP (块内 MINRES) 将迭代 138→60 (-56%) 才能 1.73→0.82s (2.1x)
+
 ## 8. 验证
 
 - **正确性**: 8×8×8×16 MG 2L vs BiStabCG rel 6.8e-07 <1e-5 PASS, 残差 1.85e-07 <1e-6; 16×32×32×48 L1 1.74s vs BiStabCG 2.21s rel 4.6e-07 PASS
