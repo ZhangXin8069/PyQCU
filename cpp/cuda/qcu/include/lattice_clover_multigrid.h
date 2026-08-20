@@ -36,6 +36,7 @@
 #include "./lattice_mpi.h"
 #include "./lattice_wilson_dslash.h"
 #include "./multigrid.h"
+#include "./lattice_sap.h"
 #include <chrono>
 #include <cmath>
 #include <cstdlib>
@@ -187,6 +188,7 @@ template <typename T> struct LatticeCloverMultigrid {
   void *fermion_out_eo, *fermion_in_eo;
   void *b_e, *b_o, *x_o;
   void *b__o, *r0, *rt0, *p0, *v0, *s0, *t0;
+  LatticeSap<T> sap;
 
   // ---- Multigrid hierarchy ----
   int num_levels, mg_grid_size[4];
@@ -1399,6 +1401,7 @@ template <typename T> struct LatticeCloverMultigrid {
     clover_dslash_ee.init(clover_ee);clover_dslash_oo.init(clover_oo);
     clover_dslash_ee_inv.init(clover_ee_inv);clover_dslash_oo_inv.init(clover_oo_inv);
     parse_params();
+    sap.give(set_ptr);
 
     // Multi-rank (multi-GPU) mode: 4D process grid != 1x1x1x1.  Coarse dslash
     // and coarse dots then dispatch to the MPI paths (Allgather + Allreduce).
@@ -1620,6 +1623,7 @@ template <typename T> struct LatticeCloverMultigrid {
       // bouncing the residual back to ~1e-5 (observed: 500 full iterations).
       if(num_levels>1 && num_restart>0 && count_restart>=num_restart
          && rn > (T)100 * atol){
+
         auto vc_t0=std::chrono::high_resolution_clock::now();
         prof_n_vcycles++;
         if(rank==0&&verbose)

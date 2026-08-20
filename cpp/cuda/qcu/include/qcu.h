@@ -17,4 +17,5 @@
 #include "./multigrid.h"
 #include "./lattice_multigrid.h"
 #include "./lattice_clover_multigrid.h"
+#include "./lattice_sap.h"
 #endif
