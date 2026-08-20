@@ -479,20 +479,51 @@ class MultiGpuMultigrid(object):
         op = dslash.operator(U=U_full, clover_term=clover_full,
                              kappa=torch.Tensor([kappa]), support_parity=True,
                              verbose=False)
-        S = op.matvec_parity
-        # 粗算子构建统一走 C++ matvec 路径（每线程一个 op；单线程 nthreads=1
-        # 也用 1 个 CudaSchurOp，避免 Python matvec 构建大格子 50min+ 瓶颈
-        # —— 16x16x16x32 3L 实测 1 小时未完成，C++ 路径分钟级）
-        ops_build = [CudaSchurOp(av, g, ce, coo, cei, coi, params=params_t)
-                     for _ in range(max(1, min(self.nthreads, 4)))]
-        coarse = build_schur_levels(
-            op, S, self.num_levels, self.dof_list, self.mg_grid, self.lat_size,
-            self.dof_list[1], self.dt, main_dev, nv_iters=self.nv_iters,
-            use_cache=self.use_cache, cache_dir=self.cache_dir, verbose=False,
-            matvec_ops=ops_build, nthreads=len(ops_build),
-            av=av, params_template=params_t)
-        for o in ops_build:
-            o.release()
+         S = op.matvec_parity
+        # 粗算子构建：缓存命中时免 C++ 构建（24³×72 大格子显存优化）。
+        # 2026-08-20 test15：原逻辑对 24³×72 E24 缓存已命中仍创建 ops_build
+        # （1–4 个 CudaSchurOp，各分配独立 LatticeSet scratch），额外 ~2–8 GB
+        # 显存导致 32 GB 紧张时 OOM（实测 build_schur_levels 加载已需 6.7 GB）。
+        # 新增 fast-path：先检查全部粗层缓存是否命中，命中则走纯加载路径
+        #（matvec_ops=None），零额外显存；未命中才走 C++ 加速路径。
+        cache_hit = False
+        if self.use_cache and self.cache_dir is not None:
+            try:
+                lat_fine_odd = [self.lat_size[0], self.lat_size[1],
+                                self.lat_size[2], self.lat_size[3] // 2]
+                all_hit = True
+                for lvl in range(1, self.num_levels):
+                    E_c = self.dof_list[lvl]
+                    lat_coarse_odd = [lat_fine_odd[d] // self.mg_grid[d] for d in range(4)]
+                    tag = f"L{self.lat_size[0]}x{self.lat_size[1]}x{self.lat_size[2]}x{self.lat_size[3]}_lv{lvl}_E{E_c}_nvi{self.nv_iters}_t1e-2"
+                    cf = os.path.join(self.cache_dir, tag + ".h5")
+                    if not os.path.exists(cf):
+                        all_hit = False
+                        break
+                    lat_fine_odd = lat_coarse_odd
+                cache_hit = all_hit
+            except Exception:
+                cache_hit = False
+        if cache_hit:
+            ops_build = []
+            coarse = build_schur_levels(
+                op, S, self.num_levels, self.dof_list, self.mg_grid, self.lat_size,
+                self.dof_list[1], self.dt, main_dev, nv_iters=self.nv_iters,
+                use_cache=self.use_cache, cache_dir=self.cache_dir, verbose=False,
+                matvec_ops=None, nthreads=1,
+                av=None, params_template=None)
+        else:
+            # 未命中：走 C++ matvec 加速路径（原逻辑，避免 Python 大格子 50min 瓶颈）
+            ops_build = [CudaSchurOp(av, g, ce, coo, cei, coi, params=params_t)
+                         for _ in range(max(1, min(self.nthreads, 4)))]
+            coarse = build_schur_levels(
+                op, S, self.num_levels, self.dof_list, self.mg_grid, self.lat_size,
+                self.dof_list[1], self.dt, main_dev, nv_iters=self.nv_iters,
+                use_cache=self.use_cache, cache_dir=self.cache_dir, verbose=False,
+                matvec_ops=ops_build, nthreads=len(ops_build),
+                av=av, params_template=params_t)
+            for o in ops_build:
+                o.release()
         shared = {'g': g, 'fi': fi, 'ce': ce, 'cei': cei, 'coo': coo, 'coi': coi,
                   'coarse': list(zip(*coarse))}  # [(lonv,hnn,hdg,sit)] per coarse level
         # 清理主线程临时 LatticeSet（setup 用），避免槽位与工作线程混淆

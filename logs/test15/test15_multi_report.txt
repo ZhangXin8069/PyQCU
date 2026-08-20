@@ -1,0 +1,3 @@
+multi 24x24x24x72 V100 vs P100x2
+e0: nthreads=1 devices=[np.int64(0)] mg_wall=2.610s
+e1: nthreads=2 devices=[np.int64(1), np.int64(2)] mg_wall=3.450s

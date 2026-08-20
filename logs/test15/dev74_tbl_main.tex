@@ -1,0 +1,17 @@
+\begin{tabular}{l c}
+\hline
+参数 & 值 \\
+\hline
+格子 & $24\times24\times24\times72$ \\
+质量 $m$ & 0.05 \\
+$\kappa=1/(2m+8)$ & 0.1230 \\
+容差 $atol$ & $1e-6$ \\
+粗层 $E$ & 24 (lv1/lv2) \\
+$MG\_GRID$ & $[2,2,2,2]$ \\
+$nv\_iters$ & 20 \\
+基线 & MG L1 (Schur BiStabCG 单层) \\
+参考 & Clover BiStabCG \\
+设备 & V100-32GB (单卡) / P100-16GB×2 (双卡) \\
+gate & 1.0 (24³×72) \\
+\hline
+\end{tabular}
