@@ -1,0 +1,21 @@
+bench 24x24x24x72  gate=1.0  l1_med=2.808s  ref=3.197s
+L2 r15 ct1e+02: t=3.510s speedup_vs_L1=0.800 rel=0.00e+00 converged=True
+L2 r15 ct1e+03: t=3.426s speedup_vs_L1=0.820 rel=0.00e+00 converged=True
+L3 r15 ct1e+03: t=2.736s speedup_vs_L1=1.026 rel=0.00e+00 converged=True
+L3 r15 ct1e+05: t=2.660s speedup_vs_L1=1.056 rel=0.00e+00 converged=True
+L3 r20 ct1e+02: t=2.692s speedup_vs_L1=1.043 rel=0.00e+00 converged=True
+L3 r20 ct1e+03: t=3.094s speedup_vs_L1=0.908 rel=0.00e+00 converged=True
+L3 r20 ct1e+05: t=2.567s speedup_vs_L1=1.094 rel=0.00e+00 converged=True
+L3 r30 ct1e+02: t=2.615s speedup_vs_L1=1.074 rel=0.00e+00 converged=True
+L3 r30 ct1e+03: t=2.537s speedup_vs_L1=1.107 rel=0.00e+00 converged=True
+L3 r30 ct1e+05: t=2.864s speedup_vs_L1=0.980 rel=0.00e+00 converged=True
+L2 r15 ct1e+05: t=3.504s speedup_vs_L1=0.801 rel=0.00e+00 converged=True
+L2 r20 ct1e+02: t=3.399s speedup_vs_L1=0.826 rel=0.00e+00 converged=True
+L2 r20 ct1e+03: t=3.522s speedup_vs_L1=0.797 rel=0.00e+00 converged=True
+L2 r20 ct1e+05: t=3.505s speedup_vs_L1=0.801 rel=0.00e+00 converged=True
+L2 r30 ct1e+02: t=3.797s speedup_vs_L1=0.740 rel=0.00e+00 converged=True
+L2 r30 ct1e+03: t=3.856s speedup_vs_L1=0.728 rel=0.00e+00 converged=True
+L2 r30 ct1e+05: t=3.593s speedup_vs_L1=0.781 rel=0.00e+00 converged=True
+L3 r15 ct1e+02: t=2.803s speedup_vs_L1=1.002 rel=0.00e+00 converged=True
+best speedup_vs_L1=1.107 (L3 r30 ct1e+03)
+RESULT: ALL PASS
