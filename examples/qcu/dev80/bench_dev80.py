@@ -187,10 +187,10 @@ def solve_bistabcg(g, fi, ce, cei, coo, coi, params_t, av, device, lat, mass, at
         except Exception as e:
             return None, 0, "FAIL", traceback.format_exc()
 
-def solve_mg(g, fi, ce, cei, coo, coi, U_full, clover_full, lat, mass, atol, num_levels, dof_list_in, device, timeout=300, verbose=False):
+def solve_mg(g, fi, ce, cei, coo, coi, U_full, clover_full, lat, mass, atol, num_levels, dof_list_in, device, timeout=300, verbose=False, rs=5, cf=1e5, cmi=15, nvi=2):
     """C++ Clover MG 求解，含粗算子构建，带超时，缓存到 DATA_DIR"""
     def _run():
-        nonlocal U_full, clover_full
+        nonlocal U_full, clover_full, g, fi, ce, cei, coo, coi
         # 统一使用 eff_dof 避免 UnboundLocalError（Python 局部变量提升）
         dof_list = list(dof_list_in)
         # 32^4 显存优化：预先降 E（避免后续读取未定义）
@@ -217,10 +217,10 @@ def solve_mg(g, fi, ce, cei, coo, coi, U_full, clover_full, lat, mass, atol, num
             p[define._MG_LEVEL1_Y_]=Ly//MG_GRID[1]
             p[define._MG_LEVEL1_Z_]=Lz//MG_GRID[2]
             p[define._MG_LEVEL1_T_]=Lt//(2*MG_GRID[3])
-            p[define._MG_LEVEL1_MAX_ITER_]=15
+            p[define._MG_LEVEL1_MAX_ITER_]=cmi
             p[define._MG_LEVEL1_DATA_TYPE_]=DT
-            p[define._MG_LEVEL1_NUM_RESTART_]=5
-            a2[define._MG_LEVEL1_ATOL_]=atol*1e5
+            p[define._MG_LEVEL1_NUM_RESTART_]=rs
+            a2[define._MG_LEVEL1_ATOL_]=atol*cf
         if num_levels>=3:
             eff_e2 = dof_list[2] if lat!=[32,32,32,32] or dof_list[2]<=12 else 12
             p[define._MG_LEVEL2_E_]=eff_e2
@@ -231,12 +231,36 @@ def solve_mg(g, fi, ce, cei, coo, coi, U_full, clover_full, lat, mass, atol, num
             p[define._MG_LEVEL2_MAX_ITER_]=200
             p[define._MG_LEVEL2_DATA_TYPE_]=DT
             p[define._MG_LEVEL2_NUM_RESTART_]=3
-            a2[define._MG_LEVEL2_ATOL_]=atol*1e5
+            a2[define._MG_LEVEL2_ATOL_]=atol*cf
         # 粗算子构建（若 num_levels==1 则跳过）
         if num_levels>=2:
             import gc
+            from pyqcu.tools import HierarchicalCache
+            # 分层显存：粗构建前将非必需的 gauge/clover/source 从 VRAM→RAM→DISK（data/）
+            # 32^4 上 op 已占 28GB，粗构建再分配 1GB 即 OOM；分层后 VRAM 仅保留 op，余下转存
+            hcache = HierarchicalCache(cache_dir=DATA_DIR)
+            # 注册非必需张量（g/fi/ce 等求解必需但粗构建期间可暂存）
+            for name, t in [("g", g), ("fi", fi), ("ce", ce), ("cei", cei), ("coo", coo), ("coi", coi)]:
+                try:
+                    hcache.register(name, t)
+                except Exception:
+                    pass
+            # 若 VRAM 仍不足，优先 offload 到 RAM，RAM 不足则到 DISK（data/hier_*.h5）
+            # 粗构建前主动 offload 非必需张量到 RAM（保留 op 在 VRAM）
+            for name in ["g", "fi", "ce", "cei", "coo", "coi"]:
+                ht = hcache.tensors.get(name)
+                if ht and ht.is_on_vram():
+                    # 检查 VRAM 可用，若 <2GB 则 offload
+                    try:
+                        free = torch.cuda.mem_get_info(device)[0]
+                    except:
+                        free = 0
+                    if free < 2*1024**3:
+                        ht.offload_to_ram()
+                        if verbose:
+                            print(f"[Hierarchical] offload {name} -> {ht.memory_tier()} (free {free/1e9:.1f}GB)")
             if verbose and lat==[32,32,32,32]:
-                print(f"[OOM fix] 32^4 dof {dof_list} (E12 cap to fit 32GB)")
+                print(f"[Hierarchical] 32^4 dof {dof_list} (E12 cap) status {hcache.status()}")
             # 释放 Python 侧大张量（U_full/clover_full 与 op 内部 hopping 重复）
             # 保留 g/fi/ce 等求解必需，U_full/clover_full 仅粗构建需要，构建后即删
             kappa = 1.0/(2*mass+8)
@@ -255,7 +279,7 @@ def solve_mg(g, fi, ce, cei, coo, coi, U_full, clover_full, lat, mass, atol, num
             try:
                 lonvs, hnn_l, hdg_l, sit_l = build_schur_levels(
                     op, S, num_levels, dof_list, MG_GRID, lat, dof_list[1],
-                    define.dtype(DT), device, nv_iters=2, use_cache=True, cache_dir=CACHE_DIR, verbose=verbose,
+                    define.dtype(DT), device, nv_iters=nvi, use_cache=True, cache_dir=CACHE_DIR, verbose=verbose,
                     batch_build=use_batch)
             except torch.cuda.OutOfMemoryError as e:
                 print(f"[OOM] coarse build OOM {e}, try empty_cache retry with E=8")
@@ -279,6 +303,28 @@ def solve_mg(g, fi, ce, cei, coo, coi, U_full, clover_full, lat, mass, atol, num
             gc.collect(); torch.cuda.empty_cache()
             if verbose:
                 print(f"[mem after coarse] allocated {torch.cuda.memory_allocated()/1e9:.2f}GB")
+            # 回迁非必需张量到 VRAM 供求解（分层 VRAM→RAM→DISK）
+            for name in ["g", "fi", "ce", "cei", "coo", "coi"]:
+                ht = hcache.tensors.get(name)
+                if ht:
+                    try:
+                        t = ht.to_device(device)
+                        if name == "g":
+                            g = t
+                        elif name == "fi":
+                            fi = t
+                        elif name == "ce":
+                            ce = t
+                        elif name == "cei":
+                            cei = t
+                        elif name == "coo":
+                            coo = t
+                        elif name == "coi":
+                            coi = t
+                        if verbose:
+                            print(f"[Hierarchical] reload {name} -> {ht.memory_tier()}")
+                    except Exception as e:
+                        print(f"[Hierarchical] reload {name} failed {e}")
             for fl in range(len(lonvs)):
                 s[30+4*fl+0]=lonvs[fl].contiguous().data_ptr()
                 s[30+4*fl+1]=hnn_l[fl].contiguous().data_ptr()
@@ -335,6 +381,10 @@ def main():
     parser.add_argument("--mass", type=float, default=0.05)
     parser.add_argument("--atol", type=float, default=1e-6)
     parser.add_argument("--timeout", type=int, default=300)
+    parser.add_argument("--rs", type=int, default=5, help="num_restart (V-cycle frequency)")
+    parser.add_argument("--cf", type=float, default=1e5, help="coarse_tol_factor")
+    parser.add_argument("--cmi", type=int, default=15, help="coarse_max_iter")
+    parser.add_argument("--nvi", type=int, default=2, help="nullvec nv_iters")
     parser.add_argument("--verbose", action="store_true")
     args=parser.parse_args()
 
@@ -400,8 +450,8 @@ def main():
             dof = DOF_3L
         else:
             dof = [12]*nl
-        print(f"\n[MG {nl}L] dof={dof} ...")
-        fo_mg, t_mg, conv, stat_mg, err_mg = solve_mg(g, fi, ce, cei, coo, coi, U_full, clover_full, lat, args.mass, args.atol, nl, dof, gen_dev if nl>=2 else device, timeout=args.timeout, verbose=args.verbose)
+        print(f"\n[MG {nl}L] dof={dof} rs={args.rs} cf={args.cf} cmi={args.cmi} nvi={args.nvi} ...")
+        fo_mg, t_mg, conv, stat_mg, err_mg = solve_mg(g, fi, ce, cei, coo, coi, U_full, clover_full, lat, args.mass, args.atol, nl, dof, gen_dev if nl>=2 else device, timeout=args.timeout, verbose=args.verbose, rs=args.rs, cf=args.cf, cmi=args.cmi, nvi=args.nvi)
         if fo_mg is not None:
             qcu_U = tools.poooxyzt2oooxyzt(g)
             qcu_src = tools.poooxyzt2oooxyzt(fi)

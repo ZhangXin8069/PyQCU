@@ -496,7 +496,11 @@ class MultiGpuMultigrid(object):
                 cache_hit = all_hit
             except Exception:
                 cache_hit = False
-        if cache_hit:
+        # 1L 特例：无粗层，直接空 coarse
+        if self.num_levels == 1:
+            coarse = ([], [], [], [])
+            ops_build = []
+        elif cache_hit:
             ops_build = []
             coarse = build_schur_levels(
                 op, S, self.num_levels, self.dof_list, self.mg_grid, self.lat_size,
@@ -517,7 +521,7 @@ class MultiGpuMultigrid(object):
             for o in ops_build:
                 o.release()
         shared = {'g': g, 'fi': fi, 'ce': ce, 'cei': cei, 'coo': coo, 'coi': coi,
-                  'coarse': list(zip(*coarse))}  # [(lonv,hnn,hdg,sit)] per coarse level
+                  'coarse': list(zip(*coarse)) if coarse and coarse[0] else []}  # [(lonv,hnn,hdg,sit)] per coarse level
         # 清理主线程临时 LatticeSet（setup 用），避免槽位与工作线程混淆
         params_t[define._SET_INDEX_] = 0; params_t[define._SET_PLAN_] = -1
         qcu.applyEndQcu(set_ptrs_t, params_t)
