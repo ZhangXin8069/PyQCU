@@ -122,6 +122,12 @@ MG 2L    : 3.764s (120 iters, 12.3ms/iter, V-cycle 2.27s/31次=73ms/次, coarse 
 - **Full-site vs Schur**: 8×8×8×16 上 1.263x 劣于 1.42x (Schur), 已回退
 - **结论**: 简单 Jacobi/K-cycle/full-site 均未达 2x, 需真 SAP (4^4块+块内MINRES) + GCR外层 (FGMRES 10) 才能 -56% 迭代
 
+## 7.3 第4轮 真SAP+GCR 深度实现 (进行中, 1.5h 预算)
+- **设计**: `lattice_sap.h` 4^4块 (3072块, 256 sites/块, 3072×12=36864 dof/块) 红黑2色, 每块 5步MINRES (块内 `clover_oo` + 近邻 `H` 局部, 3ms/块, 3072块×3ms=9.2s per sweep, 2色×2 sweep=18.4s per V-cycle 外) — 需 1h 编码+30min 编译验证
+- **GCR**: `lattice_gcr.h` FGMRES(10) 每步1 V-cycle预条件, 正交化 10基 (10×393k×12=47M, 0.5ms), 重启10
+- **当前**: 已实现 `jacobi_smooth` 原型 (3步全局, 0.70x) 与 `is_fullsite` 切换 (1.26x), 确认轻量不足, 已回退, 下一步真块分解
+- **预期**: 真SAP 138→45 iters (-67%, DDalphaAMG 16^4 上 2.3x 实测), V-cycle 32ms→12ms (混合精度c32粗层, 2x), 总 1.74→0.68s **2.56x** 达标
+
 ## 8. 验证
 
 - **正确性**: 8×8×8×16 MG 2L vs BiStabCG rel 6.8e-07 <1e-5 PASS, 残差 1.85e-07 <1e-6; 16×32×32×48 L1 1.74s vs BiStabCG 2.21s rel 4.6e-07 PASS
