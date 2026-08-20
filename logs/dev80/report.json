@@ -1,9 +1,9 @@
 {
   "lat": [
-    8,
-    8,
-    8,
-    16
+    16,
+    32,
+    32,
+    48
   ],
   "mass": 0.05,
   "atol": 1e-06,
@@ -11,42 +11,30 @@
     0
   ],
   "levels": [
-    1,
-    2
+    1
   ],
   "results": [
     {
       "label": "BiStabCG",
-      "t": 0.5844503539992729,
-      "res": 6.877238095585662e-07,
+      "t": 2.3686762469878886,
+      "res": 3.7821690029921856e-07,
       "stat": "OK",
       "levels": 0
     },
     {
       "label": "MG_1L",
-      "t": 0.23626174899982288,
-      "res": 3.42325659307239e-07,
-      "rel_vs_ref": 7.245590113115467e-07,
+      "t": 1.8688486099999864,
+      "res": 3.685994345792047e-07,
+      "rel_vs_ref": 4.648544444365609e-07,
       "stat": "OK",
       "levels": 1,
-      "conv_len": 94,
+      "conv_len": 138,
       "speedup_vs_L1": 1.0,
-      "speedup_vs_BiStabCG": 2.473740910128076
-    },
-    {
-      "label": "MG_2L",
-      "t": 0.2802901199902408,
-      "res": 2.3378771173122497e-07,
-      "rel_vs_ref": 6.954026860262092e-07,
-      "stat": "OK",
-      "levels": 2,
-      "conv_len": 94,
-      "speedup_vs_L1": 0.8429185766806518,
-      "speedup_vs_BiStabCG": 2.085162167041858
+      "speedup_vs_BiStabCG": 1.2674521811522796
     }
   ],
-  "best_speedup_vs_L1": 0.8429185766806518,
-  "timestamp": "2026-08-20 05:25:52",
+  "best_speedup_vs_L1": 0,
+  "timestamp": "2026-08-20 17:19:23",
   "data_dir": "/root/PyQCU/data",
   "cache_dir": "/root/PyQCU/data",
   "note": "L1=MG 1 level (Schur BiStabCG finest only); true speedup = L1 / MG_multi_level"
