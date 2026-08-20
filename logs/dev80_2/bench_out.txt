@@ -1,5 +1,5 @@
 lat [16, 32, 32, 48] mass 0.05 atol 1e-06
-BiStabCG t=2.216s res=3.78e-07
-MG_1L t=1.742s res=3.69e-07 speedup_vs_BiStabCG 1.27x
-MG_2L t=~0.9s est (43 iters, 1.42x vs L1 on 8^4, 预计 1.74→1.22s for 16×32×32×48 with SAP, 目标 0.87s for 2x)
-best speedup_vs_L1 1.42x (8^4, r3 cf1e3) / 1.27x (16×32×32×48 L1 vs BiStabCG) — 待 SAP 实现后 2.1x
+BiStabCG t=2.307s res=3.78e-07
+MG_1L t=1.739s res=3.69e-07 speedup_vs_BiStabCG 1.32x
+MG_2L t=3.764s res=6.19e-07 iter 120 vs 138 (-13%) V-cycle 2.27s/31次 => 0.46x vs L1 (反而慢)
+best speedup_vs_L1 1.42x (8×8×8×16 r3 cf1e3 cmi15, 43 vs 94 iters, 0.177s) — 16×32×32×48 需 SAP 预期 2.1x (1.74→0.82s)
