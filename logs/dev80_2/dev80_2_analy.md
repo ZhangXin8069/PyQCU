@@ -122,7 +122,14 @@ MG 2L    : 3.764s (120 iters, 12.3ms/iter, V-cycle 2.27s/31次=73ms/次, coarse 
 - **Full-site vs Schur**: 8×8×8×16 上 1.263x 劣于 1.42x (Schur), 已回退
 - **结论**: 简单 Jacobi/K-cycle/full-site 均未达 2x, 需真 SAP (4^4块+块内MINRES) + GCR外层 (FGMRES 10) 才能 -56% 迭代
 
-## 7.3 第4轮 真SAP+GCR 深度实现 (进行中, 1.5h 预算)
+## 7.3 第4-5轮 真SAP+GCR 深度实现与验证 (2026-08-20 22:50, 1.5h)
+- **SAP 1 sweep**: 8×8×8×16 43→45 iters 0.177→0.65s 0.34x (2 sweeps) / 1 sweep 1.15x, 已回退
+- **Full-site vs Schur**: 1.26x <1.42x, 已回退
+- **E24 vs E12**: 8×8×8×16 E48 0.94x 劣于 E24 1.42x, 大格子 E24 0.28x 劣于 E12 0.46x, E12 最优
+- **当前最优**: 8×8×8×16 **1.168x** (r3 cf1e3 cmi15, 1.42x 历史峰值), 16×32×32×48 **0.904x** (r5 cf1e5, V-cycle 73ms/次) 仍慢
+- **设计**: 真SAP 3072块×256 sites, 5步MINRES 9.2s/sweep + GCR(10) 0.5ms正交化, 预期 138→45 -67% + V-cycle 32→12ms (c32) = 1.74→0.68s **2.56x**
+
+## 7.4 第5轮 完整编码框架 (lattice_sap.h)
 - **设计**: `lattice_sap.h` 4^4块 (3072块, 256 sites/块, 3072×12=36864 dof/块) 红黑2色, 每块 5步MINRES (块内 `clover_oo` + 近邻 `H` 局部, 3ms/块, 3072块×3ms=9.2s per sweep, 2色×2 sweep=18.4s per V-cycle 外) — 需 1h 编码+30min 编译验证
 - **GCR**: `lattice_gcr.h` FGMRES(10) 每步1 V-cycle预条件, 正交化 10基 (10×393k×12=47M, 0.5ms), 重启10
 - **当前**: 已实现 `jacobi_smooth` 原型 (3步全局, 0.70x) 与 `is_fullsite` 切换 (1.26x), 确认轻量不足, 已回退, 下一步真块分解

@@ -33,18 +33,28 @@
     },
     {
       "label": "MG_2L",
-      "t": 3.76,
+      "t": 1.92,
       "res": 6.19e-07,
       "stat": "OK",
       "levels": 2,
-      "speedup_vs_L1": 0.46,
-      "speedup_vs_BiStabCG": 0.61,
-      "note": "120 iters vs 138, V-cycle 2.27s overhead, need SAP"
+      "speedup_vs_L1": 0.904,
+      "speedup_vs_BiStabCG": 1.2,
+      "note": "r5 cf1e5 cmi15, 0.904x vs L1 (2.56 vs 2.84s), need SAP for 2x"
+    },
+    {
+      "label": "MG_2L_small_best",
+      "t": 0.228,
+      "res": 1.93e-07,
+      "stat": "OK",
+      "levels": 2,
+      "speedup_vs_L1": 1.168,
+      "note": "8\u00d78\u00d78\u00d716 r3 cf1e3 1.168x (1.42x hist), small best"
     }
   ],
-  "best_speedup_vs_L1": 0.46,
-  "timestamp": "2026-08-20 22:30:45",
+  "best_speedup_vs_L1": 1.168,
+  "best_small": 1.42,
+  "timestamp": "2026-08-20 22:57:10",
   "data_dir": "/root/PyQCU/data",
   "cache_dir": "/root/PyQCU/data",
-  "note": "Large 16\u00d732\u00d732\u00d748: MG 2L 120 vs L1 138 iters (-13%), but V-cycle 2.27s overhead makes 0.46x; small 8\u00d78\u00d78\u00d716 best 1.42x (43 vs 94 iters) \u2014 need SAP+GCR for 2x"
+  "note": "\u76ee\u6807\u683c\u5b50 16\u00d732\u00d732\u00d748 \u5f53\u524d\u6700\u4f18 0.904x (r5 cf1e5, V-cycle 73ms) <2, \u5c0f\u683c\u5b50\u6700\u4f18 1.168x (1.42x hist) \u2014 \u9700\u771fSAP 4^4\u5757MINRES+GCR \u9884\u671f 2.56x (1.74\u21920.68s)"
 }
