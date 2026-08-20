@@ -49,5 +49,10 @@ except Exception as e:
     print(f"Error:{e}")
 from ._linalg import vdot as vdot
 from ._linalg import norm as norm
+from ._hierarchical import HierarchicalTensor as HierarchicalTensor
+from ._hierarchical import HierarchicalCache as HierarchicalCache
+from ._hierarchical import offload_to_ram as offload_to_ram
+from ._hierarchical import offload_to_disk as offload_to_disk
+from ._hierarchical import reload_to_vram as reload_to_vram
 from argparse import Namespace
 Namespace.__module__ = "pyqcu.tools"
