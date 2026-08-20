@@ -318,7 +318,7 @@ def solve_mg(g, fi, ce, cei, coo, coi, U_full, clover_full, lat, mass, atol, num
                             x = x + omega * r
                         return x
                     # 大格子用 cheap 近似逆，小格子仍用精确 BiCGStab
-                    use_cheap = vol >= 500000
+                    use_cheap = False  # disabled for accuracy, was vol>=500000
                     batch_mv_raw = lambda x, _op=op: _schur_matvec_batch(_op, x)
                     if use_cheap:
                         # cheap: 5 Jacobi steps per inverse iteration
@@ -534,7 +534,7 @@ def main():
             if lat==[32,32,32,32]:
                 dof = [12,8]
             elif lat==[16,32,32,48]:
-                dof = [12,12]  # 16x32x32x48: E24->12, probes 294k batch ~4.5min (vs 589k 9min)，nvi 2->1 可再半
+                dof = [12,12]  # 16x32x32x48: E12 local W10 ~4min
             else:
                 dof = DOF_2L
         elif nl==3:
