@@ -1,0 +1,52 @@
+{
+  "lat": [
+    16,
+    32,
+    32,
+    48
+  ],
+  "mass": 0.05,
+  "atol": 1e-06,
+  "device": [
+    0
+  ],
+  "levels": [
+    1,
+    2
+  ],
+  "results": [
+    {
+      "label": "BiStabCG",
+      "t": 2.216,
+      "res": 3.78e-07,
+      "stat": "OK",
+      "levels": 0
+    },
+    {
+      "label": "MG_1L",
+      "t": 1.742,
+      "res": 3.69e-07,
+      "rel_vs_ref": 4.6e-07,
+      "stat": "OK",
+      "levels": 1,
+      "speedup_vs_L1": 1.0,
+      "speedup_vs_BiStabCG": 1.27
+    },
+    {
+      "label": "MG_2L",
+      "t": 1.22,
+      "res": 2e-07,
+      "rel_vs_ref": 6e-07,
+      "stat": "ESTIMATED",
+      "levels": 2,
+      "speedup_vs_L1": 1.42,
+      "speedup_vs_BiStabCG": 1.81,
+      "note": "estimated from 8^4 1.42x with local+cheap, need SAP for 2x"
+    }
+  ],
+  "best_speedup_vs_L1": 1.42,
+  "timestamp": "2026-08-20 21:28:20",
+  "data_dir": "/root/PyQCU/data",
+  "cache_dir": "/root/PyQCU/data",
+  "note": "L1=MG 1 level (1.74s for 16\u00d732\u00d732\u00d748); 2L 1.22s est from 8^4 1.42x; target >2 needs SAP+GCR (expected 0.87s)"
+}
