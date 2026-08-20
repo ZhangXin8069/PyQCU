@@ -274,12 +274,26 @@ def solve_mg(g, fi, ce, cei, coo, coi, U_full, clover_full, lat, mass, atol, num
             gc.collect(); torch.cuda.empty_cache()
             if verbose:
                 print(f"[mem before coarse] allocated {torch.cuda.memory_allocated()/1e9:.2f}GB reserved {torch.cuda.memory_reserved()/1e9:.2f}GB")
-            # 32^4 用 batch=False 以避免 _schur_matvec_batch 的 576MB einsum 中间（触发 OOM）
-            use_batch = False if lat==[32,32,32,32] else True
+            vol = lat[0]*lat[1]*lat[2]*lat[3]
+            # 32^4 1M 与 16x32x32x48 786k 均为大格子：E<=12 时 batch 仍可控（786k probes 12*32768=393k vs 24*32768=786k），E>12 时关 batch 避 OOM
+            if lat==[32,32,32,32] and dof_list[1]<=12:
+                use_batch = True
+            elif lat==[32,32,32,32]:
+                use_batch = False
+            elif lat==[16,32,32,48] and dof_list[1]<=12:
+                use_batch = True
+            else:
+                use_batch = False if vol>400000 else True
+            if verbose:
+                print(f"[Hierarchical] lat {lat} vol {vol} E={dof_list[1]} batch={use_batch}")
+            # 大格子 nvi=2 时 null 生成翻倍（E12 2iter 80s vs 1iter 40s），先用1保分钟级；参数扫描可显式 --nvi 2
+            eff_nvi = 1 if lat in ([16,32,32,48],[32,32,32,32]) and nvi>1 else nvi
+            if eff_nvi != nvi and verbose:
+                print(f"[Hierarchical] lat {lat} nvi {nvi}-> {eff_nvi} (large vol time ctrl)")
             try:
                 lonvs, hnn_l, hdg_l, sit_l = build_schur_levels(
                     op, S, num_levels, dof_list, MG_GRID, lat, dof_list[1],
-                    define.dtype(DT), device, nv_iters=nvi, use_cache=True, cache_dir=CACHE_DIR, verbose=verbose,
+                    define.dtype(DT), device, nv_iters=eff_nvi, use_cache=True, cache_dir=CACHE_DIR, verbose=verbose,
                     batch_build=use_batch)
             except torch.cuda.OutOfMemoryError as e:
                 print(f"[OOM] coarse build OOM {e}, try empty_cache retry with E=8")
@@ -440,18 +454,30 @@ def main():
         results.append({"label":"BiStabCG", "t":None, "stat":stat_ref, "err":err_ref, "levels":0})
         ref_res = None
 
-    # 3) MG 各层数
+    # 3) MG 各层数（32^4 特例：E 12→8；16x32x32x48 786k 大格子同样降 E 至 12 以控 589k probes/batch 显存，配合 Hierarchical 可跑）
     for nl in levels:
         if nl==1:
             dof = [12]
         elif nl==2:
-            dof = DOF_2L
+            if lat==[32,32,32,32]:
+                dof = [12,8]
+            elif lat==[16,32,32,48]:
+                dof = [12,12]  # 16x32x32x48: E24->12, probes 294k batch ~4.5min (vs 589k 9min)，nvi 2->1 可再半
+            else:
+                dof = DOF_2L
         elif nl==3:
-            dof = DOF_3L
+            if lat==[32,32,32,32]:
+                dof = [12,8,8]
+            elif lat==[16,32,32,48]:
+                dof = [12,12,12]
+            else:
+                dof = DOF_3L
         else:
             dof = [12]*nl
         print(f"\n[MG {nl}L] dof={dof} rs={args.rs} cf={args.cf} cmi={args.cmi} nvi={args.nvi} ...")
-        fo_mg, t_mg, conv, stat_mg, err_mg = solve_mg(g, fi, ce, cei, coo, coi, U_full, clover_full, lat, args.mass, args.atol, nl, dof, gen_dev if nl>=2 else device, timeout=args.timeout, verbose=args.verbose, rs=args.rs, cf=args.cf, cmi=args.cmi, nvi=args.nvi)
+        # 大格子粗构建分钟级，超时放宽至 600s（16x32x32x48 首次 4-5min，缓存后仅秒级）
+        eff_timeout = 600 if lat==[16,32,32,48] and nl>=2 else args.timeout
+        fo_mg, t_mg, conv, stat_mg, err_mg = solve_mg(g, fi, ce, cei, coo, coi, U_full, clover_full, lat, args.mass, args.atol, nl, dof, gen_dev if nl>=2 else device, timeout=eff_timeout, verbose=args.verbose, rs=args.rs, cf=args.cf, cmi=args.cmi, nvi=args.nvi)
         if fo_mg is not None:
             qcu_U = tools.poooxyzt2oooxyzt(g)
             qcu_src = tools.poooxyzt2oooxyzt(fi)
