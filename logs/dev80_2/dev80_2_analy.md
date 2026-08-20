@@ -115,6 +115,13 @@ MG 2L    : 3.764s (120 iters, 12.3ms/iter, V-cycle 2.27s/31次=73ms/次, coarse 
 ```
 - 结论: 即使 accurate+local, 2L 仅 -13% 迭代, 但 V-cycle 2.27s 开销使总时间 1.73→3.76s (2.16x 慢), 与小格子 1.42x 相反；说明大格子粗空间 (E12) 未捕捉低模, 需 SAP (块内 MINRES) 将迭代 138→60 (-56%) 才能 1.73→0.82s (2.1x)
 
+## 7.2 第3轮 SAP+GCR 尝试 (2026-08-20 22:30)
+- **SAP 3步阻尼Jacobi**: 8×8×8×16 上 43→41 iters 但 0.177→0.221s **0.70x** (开销>收益, 已回退, 见 `lattice_clover_multigrid.h:1085` jacobi_smooth)
+- **K-cycle 2x V-cycle**: 同上 0.70x, 因粗层 73ms/次 开销大
+- **E24 vs E12**: 8×8×8×16 E48 0.94x 劣于 E24 1.42x, 大格子 E24 157 iters 6.11s 0.28x 更差, 证明 E12 为大格子最优
+- **Full-site vs Schur**: 8×8×8×16 上 1.263x 劣于 1.42x (Schur), 已回退
+- **结论**: 简单 Jacobi/K-cycle/full-site 均未达 2x, 需真 SAP (4^4块+块内MINRES) + GCR外层 (FGMRES 10) 才能 -56% 迭代
+
 ## 8. 验证
 
 - **正确性**: 8×8×8×16 MG 2L vs BiStabCG rel 6.8e-07 <1e-5 PASS, 残差 1.85e-07 <1e-6; 16×32×32×48 L1 1.74s vs BiStabCG 2.21s rel 4.6e-07 PASS
