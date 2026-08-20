@@ -1,0 +1,17 @@
+\begin{tabular}{l c}
+\hline
+参数 & 值 \\
+\hline
+格子 & $16\times32\times32\times48$ (目标) / $8\times8\times8\times16$ (实测) \\
+质量 $m$ & 0.05 \\
+$\kappa$ & 0.1230 \\
+容差 $atol$ & $1e-6$ \\
+粗层 $E$ & 12 (L1) / 24 (8^4 2L) / 12 (16×32×32×48) \\
+$MG\_GRID$ & $[2,2,2,2]$ \\
+$nv\_iters$ & 1 (cheap 5-step Jacobi) \\
+基线 & MG L1 (Schur BiStabCG 单层, 1.74s for 16×32×32×48, 0.227s for 8^4) \\
+参考 & Clover BiStabCG (0.606s for 8^4, 2.21s for 16×32×32×48) \\
+设备 & V100-32GB (单卡) / P100-16GB×2 (双卡, 待 cache) \\
+gate & 1.42x (8^4 best r3 cf1e3 cmi15) / 目标 >2.0 \\
+\hline
+\end{tabular}
