@@ -346,22 +346,14 @@ class MultiGpuMultigrid(object):
             ce = shared['ce'].to(dev); cei = shared['cei'].to(dev)
             coo = shared['coo'].to(dev); coi = shared['coi'].to(dev)
             coarse = shared['coarse']
-        # 独立 LatticeSet 槽位（每线程从自己的 0 开始）
-        params_t[define._SET_INDEX_] = 0; params_t[define._SET_PLAN_] = -1
-        qcu.applyInitQcu(set_ptrs_t, params_t, argv_t)
-        if not self.independent_problems:
-            # 共享模式：worker 本地重新生成规范场（seed 与主线程一致）；
-            # 独立模式：g 已由主线程按 seed=42+tid 预生成并拷贝（重新生成
-            # 会用 worker 模块默认 _SEED_ 覆盖，与粗算子不匹配 → 发散）。
-            qcu.applyGaussGaugeQcu(g, set_ptrs_t, params_t)
-        params_t[define._SET_INDEX_] += 1; params_t[define._SET_PLAN_] = 2
-        params_t[define._PARITY_] = 0
-        qcu.applyInitQcu(set_ptrs_t, params_t, argv_t)
-        qcu.applyCloversQcu(ce, cei, g, set_ptrs_t, params_t)
-        params_t[define._SET_INDEX_] += 1; params_t[define._SET_PLAN_] = 2
-        params_t[define._PARITY_] = 1
-        qcu.applyInitQcu(set_ptrs_t, params_t, argv_t)
-        qcu.applyCloversQcu(coo, coi, g, set_ptrs_t, params_t)
+        # 2026-08-20 dev80 fix: 共享/独立模式均由主线程在 V100 预生成 gauge/clover 并拷贝，
+        # worker 不再本地重新生成（P100 sm_60 上 GaussGauge/BiStabCG 内核缺 image 且浪费显存）。
+        # 原逻辑共享模式每 worker 重跑 GaussGauge（seed 一致）+ 2 次 Clovers（各需 LatticeSet scratch），
+        # 在 32^4 上每 worker 额外 ~3GB scratch 且 P100 上直接 no kernel image。
+        # 现改为零拷贝复用：g/ce/coo 均为 V100 预生成后 D2D 拷贝到本卡，worker 仅需 BiStabCG/MG 的 plan1 LatticeSet。
+        # 若需独立 gauge 演化，改为主线程按 seed=42+tid 预生成（solve() 独立分支已做）。
+        pass  # gauge/clover 已由主线程生成并拷贝，无需 worker 本地重建
+        # 保留占位以保持 set_ptrs 槽位计数与旧逻辑兼容（但不再 init 0/1/2）
         # 粗网格算子拷贝到本卡，填入 set_ptrs 槽位
         # 注意：.to(dev) 在跨设备时产生新张量，必须保留引用（_coarse_dev），
         # 否则临时对象被 GC 回收后 data_ptr 悬垂，C++ 求解读到垃圾（nan）。
@@ -377,8 +369,8 @@ class MultiGpuMultigrid(object):
             set_ptrs_t[base + 1] = hnn_d.data_ptr()
             set_ptrs_t[base + 2] = hdg_d.data_ptr()
             set_ptrs_t[base + 3] = sit_d.data_ptr()
-        # 参考 BiStabCG
-        params_t[define._SET_INDEX_] += 1; params_t[define._SET_PLAN_] = 1
+        # 参考 BiStabCG（worker 仅需 plan1 的 2 个 LatticeSet，gauge/clover 已由主线程预生成并 D2D 拷贝）
+        params_t[define._SET_INDEX_] = 0; params_t[define._SET_PLAN_] = 1
         params_t[define._VERBOSE_] = 0
         qcu.applyInitQcu(set_ptrs_t, params_t, argv_t)
         fo_ref = torch.empty_like(fi)
@@ -387,19 +379,19 @@ class MultiGpuMultigrid(object):
         torch.cuda.synchronize(); ref_time = time.perf_counter() - t0
         # C++ Clover Multigrid
         fo_mg = torch.empty_like(fi)
-        params_t[define._SET_INDEX_] += 1; params_t[define._SET_PLAN_] = 1
+        params_t[define._SET_INDEX_] = 1; params_t[define._SET_PLAN_] = 1
         params_t[define._VERBOSE_] = 0
         qcu.applyInitQcu(set_ptrs_t, params_t, argv_t)
         torch.cuda.synchronize(); t0 = time.perf_counter()
         qcu.applyCloverMultigridQcu(fo_mg, fi, g, ce, coo, cei, coi, set_ptrs_t, params_t)
         torch.cuda.synchronize(); mg_time = time.perf_counter() - t0
-        # 释放本线程 LatticeSet（防泄漏）：
-        # 两种模式下 worker 都创建了 0(gauge)/1,2(clover)/3(BiStabCG)/4(MG)
-        # （独立模式的粗算子构建在 V100 主线程完成，其 0/1/2 已在主线程清理）；
-        # 独立模式跳过 applyGaussGaugeQcu，但 0 槽位的 LatticeSet 仍已 init → 全清
-        for _idx in (0, 1, 2, 3, 4):
+        # 释放本线程 LatticeSet（仅 0/BiStabCG 和 1/MG 两个槽位）
+        for _idx in (0, 1):
             params_t[define._SET_INDEX_] = _idx
-            qcu.applyEndQcu(set_ptrs_t, params_t)
+            try:
+                qcu.applyEndQcu(set_ptrs_t, params_t)
+            except Exception:
+                pass
         return {'tid': tid, 'device': dev_id, 'mg': fo_mg.cpu(), 'ref': fo_ref.cpu(),
                 'ref_time': ref_time, 'mg_time': mg_time}
 
@@ -479,7 +471,7 @@ class MultiGpuMultigrid(object):
         op = dslash.operator(U=U_full, clover_term=clover_full,
                              kappa=torch.Tensor([kappa]), support_parity=True,
                              verbose=False)
-         S = op.matvec_parity
+        S = op.matvec_parity
         # 粗算子构建：缓存命中时免 C++ 构建（24³×72 大格子显存优化）。
         # 2026-08-20 test15：原逻辑对 24³×72 E24 缓存已命中仍创建 ops_build
         # （1–4 个 CudaSchurOp，各分配独立 LatticeSet scratch），额外 ~2–8 GB
