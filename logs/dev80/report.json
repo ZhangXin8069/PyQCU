@@ -1,9 +1,9 @@
 {
   "lat": [
-    32,
-    32,
-    32,
-    32
+    8,
+    8,
+    8,
+    16
   ],
   "mass": 0.05,
   "atol": 1e-06,
@@ -17,32 +17,36 @@
   "results": [
     {
       "label": "BiStabCG",
-      "t": 3.592670273996191,
-      "res": 3.848653173389714e-07,
+      "t": 0.5844503539992729,
+      "res": 6.877238095585662e-07,
       "stat": "OK",
       "levels": 0
     },
     {
       "label": "MG_1L",
-      "t": 3.0506987019907683,
-      "res": 3.804383251940635e-07,
-      "rel_vs_ref": 4.838257098009733e-07,
+      "t": 0.23626174899982288,
+      "res": 3.42325659307239e-07,
+      "rel_vs_ref": 7.245590113115467e-07,
       "stat": "OK",
       "levels": 1,
-      "conv_len": 143,
+      "conv_len": 94,
       "speedup_vs_L1": 1.0,
-      "speedup_vs_BiStabCG": 1.1776548997289549
+      "speedup_vs_BiStabCG": 2.473740910128076
     },
     {
       "label": "MG_2L",
-      "t": null,
-      "stat": "FAIL",
-      "err": "Traceback (most recent call last):\n  File \"/root/PyQCU/examples/qcu/dev80/bench_dev80.py\", line 323, in solve_mg\n    fo, t, conv = fut.result(timeout=timeout)\n  File \"/usr/lib/python3.10/concurrent/futures/_base.py\", line 458, in result\n    return self.__get_result()\n  File \"/usr/lib/python3.10/concurrent/futures/_base.py\", line 403, in __get_result\n    raise self._exception\n  File \"/usr/lib/python3.10/concurrent/futures/thread.py\", line 58, in run\n    result = self.fn(*self.args, **self.kwargs)\n  File \"/root/PyQCU/examples/qcu/dev80/bench_dev80.py\", line 256, in _run\n    lonvs, hnn_l, hdg_l, sit_l = build_schur_levels(\n  File \"/root/PyQCU/pyqcu/cuda/_multi_gpu.py\", line 122, in build_schur_levels\n    _null = tools.give_null_vecs(null_vecs=_null, matvec=S, bistabcg=None,\n  File \"/root/PyQCU/pyqcu/tools/_multigrid.py\", line 36, in give_null_vecs\n    null_vecs[i] -= solver.bistabcg(b=matvec(null_vecs[i]),\n  File \"/root/PyQCU/pyqcu/solver/_bistabcg.py\", line 50, in bistabcg\n    v = matvec(p)\n  File \"/root/PyQCU/pyqcu/dslash/_operator.py\", line 333, in matvec_parity\n    return self.matvec_oo(src_o=src_o)-self.matvec_oe(src_e=self.matvec_ee_inv(src_e=self.matvec_eo(src_o=src_o)))\n  File \"/root/PyQCU/pyqcu/dslash/_operator.py\", line 317, in matvec_oo\n    return _torch.einsum(\n  File \"/root/PyQCU/pyqcu/cann/__init__.py\", line 131, in einsum\n    return torch.einsum(equation, *operands)\n  File \"/usr/local/lib/python3.10/dist-packages/torch/functional.py\", line 373, in einsum\n    return _VF.einsum(equation, operands)  # type: ignore[attr-defined]\ntorch.OutOfMemoryError: CUDA out of memory. Tried to allocate 576.00 MiB. GPU 0 has a total capacity of 32.00 GiB of which 0 bytes is free. Including non-PyTorch memory, this process has 17179869184.00 GiB memory in use. Of the allocated memory 30.06 GiB is allocated by PyTorch, and 601.75 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)\n",
-      "levels": 2
+      "t": 0.2802901199902408,
+      "res": 2.3378771173122497e-07,
+      "rel_vs_ref": 6.954026860262092e-07,
+      "stat": "OK",
+      "levels": 2,
+      "conv_len": 94,
+      "speedup_vs_L1": 0.8429185766806518,
+      "speedup_vs_BiStabCG": 2.085162167041858
     }
   ],
-  "best_speedup_vs_L1": 0,
-  "timestamp": "2026-08-20 03:46:08",
+  "best_speedup_vs_L1": 0.8429185766806518,
+  "timestamp": "2026-08-20 05:25:52",
   "data_dir": "/root/PyQCU/data",
   "cache_dir": "/root/PyQCU/data",
   "note": "L1=MG 1 level (Schur BiStabCG finest only); true speedup = L1 / MG_multi_level"
