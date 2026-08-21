@@ -105,6 +105,15 @@ MG 2L    : 1.97s res 2.11e-07 rel 3.7e-07 (147 iters, 11.9ms/iter, fine 1734ms, 
 
 **下一步**: 优先实现 **真 SAP (4^4 块, 红黑2色→16色, 块内 5步 MINRES, 约 9.2s/sweep 需 1h 编码+编译, 预期 138→60 -56% at +80ms) + GCR(10) 外层 (1h)**, 配合已实现的 4min→2min 局部构建 (6x) 与 Hierarchical (OOM→可跑), 预计 8×8×8×16 1.42→2.3x, 16×32×32×48 0.88→2.1x (1.97→0.94s, 迭代 147→60, V-cycle 26→12ms via c32), 达标后 `~tag dev80_3`
 
+
+## 7.2 FGMRES(10)+MG 追加试验 (2026-08-21 00:59, 本轮“继续”之三)
+- **实现**: `lattice_clover_multigrid.h` 将 `run_gcr()` 重构为 `FGMRES(10)` (Arnoldi `V[m+1]` `Z[m]` `H[(m+1)×m]` `cs/sn` Givens QR, `z=M^{-1}v_j` 1 V-cycle `18ms`→`3ms fused` 目标, `w=A z_j` `h_ij=(w,v_i)` `w-=h_ij v_i`, `h_{j+1,j}=||w||` `v_{j+1}=w/h`, `Givens` `cs=|h_jj|/r` `sn=conj(h_next)·h_jj/|h_jj|/r` `r=√(|h_jj|²+|h_next|²)`, `s_0=β` `s_{j+1}=-conj(sn)s_j`, `H·y=s` 回代 `x+=Z·y`, `m=10` 重启, `dot_mpi`/`cublasAxpy`/`_cublasScal` 5-stream, `V/Z` 各`10×37.6MB` `752MB`), `lattice_cuda.h` 新增 `_cublasScal` (`Cscal`/`Zscal`), `lattice_cuda.cu` 实现 `Cscal`/`Zscal`, `V[0]` 拷贝 `cudaMemcpyAsync` (原 `_cublasCopy` `void*` 失配), `sum→sum_c` 重命名, `<complex>` 头, `log_write` `\n` 转义
+- **编译**: `bash ./build.sh` `SUCCESS` 23M (警告20054 `__shared__` 动态初始化, `V[0]` 拷贝 `cudaMemcpyAsync` 修复 `no instance` 已解)
+- **实测 16×32×32×48 V100** (`--gcr` 复用标志, 实为FGMRES, `r15 cf1e3 cmi3`):
+  - `1L FGMRES(10)`: `2.89s 190it final2.38e-03` vs `1L` BiStabCG `1.73s 138it 4.7e-07` (`FGMRES` 慢 `67%` `2.89/1.73=1.67×`, `PROF fine2622ms vcycle62ms 190vcycles` `13.8ms/iter` vs `11.9ms`, `β=2422` `s_{j+1}=2.38e-03` 刚达 `β·atol=2.4e-3` 阈值, 真`9.1e-07` 更小, 190 vs 138 `+37%` 迭代)
+  - `2L FGMRES(10)+MG`: `32.28s 1000it final2.35e3` 发散 `0.09×` (`rel0.76`, `PROF fine31324ms vcycle18285ms 1000vcycles` `31ms/iter` `18ms` V-cycle `1000×18=18s` + `fine31s`, 与 `GCR 0.08×` 同根因 `1000×(12ms+18ms)=30s` 超时, `H` `10×10` `Givens` 累积 `β/α` 相位 `1000` 次漂移 `2.38e-03→2.35e3` 发散, `V/Z` `752MB` 占 `2.4%` 可行但 `1000` 次 `V-cycle 18ms` 主导)
+- **回退**: 默认 `BiStabCG` 基线 `0.88×` (1.73→1.96 `6vc159ms` `80ms coarse`), `FGMRES` 仅 `--gcr` 时启用, 已验证 `--gcr` 发散 (`32.28s` vs `1.96` `16×` 慢), 留待 `dot` 槽位独立 `_fgmres_tmp` + 轻量 `1×V-cycle 3ms fused` + `H` `10×10` `cs/sn` 复数 `Givens` 精修 1h + `V/Z` `752MB` 复用
+
 ## 8. 验证
 
 - **正确性**: 16×32×32×48 MG 2L (r15 cf1e3 cmi3) vs C++ BiStabCG rel 3.7e-07 <1e-5 PASS, 残差 2.11e-07 <1e-6; L1 1.73s vs BiStabCG 2.25s rel 4.6e-07 PASS, 收敛率 138 vs 147 (仅 -11% 但正确)
