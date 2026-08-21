@@ -181,7 +181,7 @@ def solve_bistabcg(g, fi, ce, cei, coo, coi, params_t, av, device, lat, mass, at
         except Exception as e:
             return None, 0, "FAIL", traceback.format_exc()
 
-def solve_mg(g, fi, ce, cei, coo, coi, U_full, clover_full, lat, mass, atol, num_levels, dof_list_in, device, timeout=300, verbose=False, rs=5, cf=1e5, cmi=15, nvi=2, mp=False, sap=False):
+def solve_mg(g, fi, ce, cei, coo, coi, U_full, clover_full, lat, mass, atol, num_levels, dof_list_in, device, timeout=300, verbose=False, rs=5, cf=1e5, cmi=15, nvi=2, mp=False, sap=False, gcr=False):
     def _run():
         nonlocal U_full, clover_full, g, fi, ce, cei, coo, coi
         dof_list = list(dof_list_in)
@@ -204,6 +204,7 @@ def solve_mg(g, fi, ce, cei, coo, coi, U_full, clover_full, lat, mass, atol, num
         a2 = a.to(dtype=define.dtype(DT).to_real())
         a2[define._MASS_]=mass; a2[define._ATOL_]=atol; a2[define._SIGMA_]=0.1
         p[define._MG_NUM_LEVEL_]=num_levels
+        p[define._MG_USE_GCR_]=1 if gcr else 0
         if num_levels>=2:
             p[define._MG_LEVEL1_E_]=dof_list[1]
             p[define._MG_LEVEL1_X_]=Lx//MG_GRID[0]
@@ -254,7 +255,7 @@ def solve_mg(g, fi, ce, cei, coo, coi, U_full, clover_full, lat, mass, atol, num
                                 free2 = 0
                             print(f"[Hierarchical] offload {name} -> {ht.memory_tier()} (free {free2/1e9:.1f}GB)")
             if verbose:
-                print(f"[Hierarchical] lat {lat} dof {dof_list} mp={mp} sap={sap} status {hcache.status()}")
+                print(f"[Hierarchical] lat {lat} dof {dof_list} mp={mp} sap={sap} gcr={gcr} status {hcache.status()}")
             kappa = 1.0/(2*mass+8)
             op = dslash.operator(U=U_full, clover_term=clover_full, kappa=torch.Tensor([kappa]), support_parity=True, verbose=False)
             S = op.matvec_parity
@@ -449,9 +450,9 @@ def cmd_bench(args):
                 dof = [12,12,12]
         else:
             dof = [12]*nl
-        print(f"\n[MG {nl}L] dof={dof} rs={args.rs} cf={args.cf} cmi={args.cmi} nvi={args.nvi} mp={args.mp} sap={args.sap} ...")
+        print(f"\n[MG {nl}L] dof={dof} rs={args.rs} cf={args.cf} cmi={args.cmi} nvi={args.nvi} mp={args.mp} sap={args.sap} gcr={args.gcr} ...")
         eff_timeout = 600 if lat==[16,32,32,48] and nl>=2 else args.timeout
-        fo_mg, t_mg, conv, stat_mg, err_mg = solve_mg(g, fi, ce, cei, coo, coi, U_full, clover_full, lat, args.mass, args.atol, nl, dof, gen_dev if nl>=2 else device, timeout=eff_timeout, verbose=args.verbose, rs=args.rs, cf=args.cf, cmi=args.cmi, nvi=args.nvi, mp=args.mp, sap=args.sap)
+        fo_mg, t_mg, conv, stat_mg, err_mg = solve_mg(g, fi, ce, cei, coo, coi, U_full, clover_full, lat, args.mass, args.atol, nl, dof, gen_dev if nl>=2 else device, timeout=eff_timeout, verbose=args.verbose, rs=args.rs, cf=args.cf, cmi=args.cmi, nvi=args.nvi, mp=args.mp, sap=args.sap, gcr=args.gcr)
         if fo_mg is not None:
             qcu_U = tools.poooxyzt2oooxyzt(g)
             qcu_src = tools.poooxyzt2oooxyzt(fi)
@@ -494,13 +495,13 @@ def cmd_bench(args):
         "results": results, "best_speedup_vs_L1": best_speed, "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
         "data_dir": str(DATA_DIR), "cache_dir": CACHE_DIR,
         "note": "L1=MG 1 level (Schur BiStabCG finest only); true speedup = L1 / MG_multi_level; gate 2.0 for 16x32x32x48",
-        "mp": args.mp, "sap": args.sap, "rs": args.rs, "cf": args.cf, "cmi": args.cmi, "nvi": args.nvi
+        "mp": args.mp, "sap": args.sap, "gcr": args.gcr, "rs": args.rs, "cf": args.cf, "cmi": args.cmi, "nvi": args.nvi
     }
     with open(LOG_DIR/"report.json","w") as f:
         json.dump(report,f,indent=2)
     with open(LOG_DIR/"bench_out.txt","w") as f:
         f.write(f"lat {lat} mass {args.mass} atol {args.atol}\n")
-        f.write(f"mp={args.mp} sap={args.sap} rs={args.rs} cf={args.cf} cmi={args.cmi} nvi={args.nvi}\n")
+        f.write(f"mp={args.mp} sap={args.sap} gcr={args.gcr} rs={args.rs} cf={args.cf} cmi={args.cmi} nvi={args.nvi}\n")
         f.write(f"best speedup_vs_L1 {best_speed:.3f} {'PASS' if best_speed>2 else 'FAIL'}\n")
         for r in results:
             f.write(str(r)+"\n")
@@ -643,6 +644,7 @@ def main():
     p_bench.add_argument("--E", type=int, default=12, help="coarse E")
     p_bench.add_argument("--mp", action="store_true", help="mixed precision coarse c32")
     p_bench.add_argument("--sap", action="store_true", help="SAP smoother enable")
+    p_bench.add_argument("--gcr", action="store_true", help="GCR outer enable (DDalphaAMG C7)")
     p_bench.add_argument("--verbose", action="store_true")
     p_bench.set_defaults(func=cmd_bench)
     p_hot=sub.add_parser("hotspot")

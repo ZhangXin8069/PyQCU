@@ -147,3 +147,14 @@ MG 2L    : 1.97s res 2.11e-07 rel 3.7e-07 (147 iters, 11.9ms/iter, fine 1734ms, 
 - `logs/dev80_2/*.md, report.json` (8×8×8×16 1.42x, 16×32×32×48 1.74s L1, 4min→2.1s 缓存, Hierarchical)
 - `logs/dev80_3/report.json, bench_out.txt, conv_*.txt, clover_multigrid.log, bench_bar.png` (16×32×32×48 0.88x, 1.73vs1.96, 6 configs, V100 28.6G)
 
+
+## 7.1 GCR(10)+MG 追加试验 (2026-08-21 00:45, 本轮“继续”)
+- **实现**: `define.h: _MG_USE_GCR_ 54` (`_PARAMS_SIZE_ 55`) + `pyqcu/cuda/define.py` 同步 + `lattice_clover_multigrid.h` 新增 `apply_mg_prec` (1×V-cycle: restrict→v_cycle→prolong) + `run_gcr()` (GCR(10) 外层, `z=M^{-1}r` 1 V-cycle, `q=A z`, Gram-Schmidt `q-=βAp`, `z-=βp`, `α=(q,r)/(q,q)`, `x+=αz`, `r-=αq`, `m=10` 重启, `dot_mpi`/`cublasAxpy` 5-stream 同步, `p/Ap` 各10×37.6MB 752MB) + `run()` 首行 `if(_MG_USE_GCR_) run_gcr()` 分派 + `main.py --gcr` (`p[_MG_USE_GCR_]=1`)
+- **编译**: `bash ./build.sh` 23M sm_60+PTX `SUCCESS` (警告 20054 `__shared__` 动态初始化, 可忽略)
+- **实测 16×32×32×48 V100** (`--gcr`, `r15 cf1e3 cmi3`):
+  - `1L GCR(10)`: `3.14s 152 iters final 2.29e-03` (vs BiStabCG `2.13s 152 iters 4.7e-07`), `1L` GCR 比 `1L` BiStabCG 慢 `47%` (`3.14/2.13=1.47×`), 收敛 `2.29e-03` 刚达 `b_norm·atol=2.4e-3` 阈值, 真残差 `8.35e-07` 反而更小 (递归`r`漂移)
+  - `2L GCR(10)+MG`: `37.99s 1000 iters final 2.35e3` 发散 (`rel 0.76`, `0.08×` vs L1), `PROF fine 37873ms vcycle18421ms 1000vcycles` (每GCR iter 1 V-cycle 18ms, 1000×18=18s + fine 37s), `1000` 次 `M^{-1}r` 均做 `v_cycle(1)` 的 `coarse BiStabCG 3 iters` → `1000×(12ms+18ms)=30s` 超时
+- **根因**: `apply_mg_prec` 的 `v_cycle(1)` 仍做 `coarse BiStabCG` 至 `tol·r0` (3 iters, 18ms), 非单次 `V-cycle` (3ms), `1000` 次调用 → `18s` 开销；GCR 的 `dot_mpi` 与 `v_cycle` 的 `dot_coarse` 共用 `_tmp0_/_tmp1_/_send_tmp_` 槽位, `v_cycle` 后 `host_vals[_tmp0_]` 被覆盖, 虽重算但 `MPI_Allreduce` 的 `host_vals` 镜像与 `device_vals` 不一致导致 `β/α` 计算偏差；`dot_aa` 实部归一化 `β=dot_aq/dot_aa` 忽略虚部 `dot_aa.imag≈0` 但 `dot_aq` 复数除复数引入相位误差, 累积 `1000` 次后 `r` 漂移 `2.29e-3→2.35e3` 发散
+- **回退**: 默认 `p[_MG_USE_GCR_]=0` 保持 `BiStabCG` 基线 `0.88×` (1.73→1.96s), `GCR` 仅 `--gcr` 时启用, 已验证 `--gcr` 发散, 留待 `FGMRES(10)` 重构 (`bistabcg.h→fgmres.h` 1h, 正交化 `10基47M 0.5ms` 已备) 与 `dot` 槽位隔离 (`_gcr_tmp0` 独立)
+- **量纲**: GCR `m=10` 需 `10×37.6MB×2=752MB` + `r` 37M, 总 `789M` 占 V100 `32G` 的 `2.4%`, 可行, 但 `1000` 次 `V-cycle 18ms` → `18s` 主导, 需轻量 `1×V-cycle 3ms` (fused) + `dot` 隔离
+
