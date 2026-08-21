@@ -82,6 +82,26 @@ __global__ void sap_block_minres_kernel(void *x, void *b, void *gauge, void *clo
     }
   }
 }
+template <typename T>
+__global__ void sap_update_kernel_16(void *x, void *r, int X, int Y, int Z, int Lt, int Bx, int By, int Bz, int Bt, int color, T omega) {
+  int idx = blockIdx.x * blockDim.x + threadIdx.x;
+  int vol = X * Y * Z * Lt;
+  if (idx >= vol) return;
+  int stride_YZT = Y * Z * Lt;
+  int stride_ZT = Z * Lt;
+  int xc = idx / stride_YZT;
+  int rem = idx % stride_YZT;
+  int y = rem / stride_ZT; rem %= stride_ZT;
+  int z = rem / Lt; int t = rem % Lt;
+  int bx = xc / Bx; int by = y / By; int bz = z / Bz; int bt = t / Bt;
+  int block_color = (bx & 1) | ((by & 1) << 1) | ((bz & 1) << 2) | ((bt & 1) << 3);
+  if (block_color != color) return;
+  LatticeComplex<T> *xp = static_cast<LatticeComplex<T>*>(x);
+  LatticeComplex<T> *rp = static_cast<LatticeComplex<T>*>(r);
+  int sc = 12;
+  LatticeComplex<T> om(omega, 0);
+  for(int s=0; s<sc; s++) xp[s*vol + idx] += om * rp[s*vol + idx];
+}
 template <typename T> struct LatticeSap {
   LatticeSet<T> *set_ptr;
   int Bx=4, By=4, Bz=4, Bt=4;
@@ -112,6 +132,18 @@ template <typename T> struct LatticeSap {
     int vol = X * Y * Z * Lt;
     dim3 grid((vol+127)/128); dim3 block(128);
     sap_update_kernel<T><<<grid, block, 0, stream>>>(x, r, X, Y, Z, Lt, Bx, By, Bz, Bt, 1, omega);
+  }
+  void sweep_16(void *x, void *r, T omega, int color, cudaStream_t stream) {
+    int X = set_ptr->host_params[_LAT_X_];
+    int Y = set_ptr->host_params[_LAT_Y_];
+    int Z = set_ptr->host_params[_LAT_Z_];
+    int Lt = set_ptr->host_params[_LAT_T_] / 2;
+    int vol = X * Y * Z * Lt;
+    dim3 grid((vol+127)/128); dim3 block(128);
+    sap_update_kernel_16<T><<<grid, block, 0, stream>>>(x, r, X, Y, Z, Lt, Bx, By, Bz, Bt, color, omega);
+  }
+  void sweep_16colors(void *x, void *r, T omega, cudaStream_t stream) {
+    for(int c=0;c<16;c++) sweep_16(x, r, omega, c, stream);
   }
   void block_minres(void *x, void *b, void *gauge, void *clover, int color, cudaStream_t stream) {
     int X = set_ptr->host_params[_LAT_X_];
