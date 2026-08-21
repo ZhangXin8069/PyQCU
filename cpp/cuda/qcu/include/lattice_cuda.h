@@ -20,6 +20,9 @@ template <typename T>
 cublasStatus_t _cublasDot(cublasHandle_t handle, int n, const void *x, int incx,
                           const void *y, int incy, void *result);
 template <typename T>
+cublasStatus_t _cublasScal(cublasHandle_t handle, int n, const void *alpha,
+                           void *x, int incx);
+template <typename T>
 __global__ void give_copy_vals(void *device_dest, void *device_src);
 template <typename T>
 __global__ void give_random_vals(void *device_random_vals, unsigned long seed);

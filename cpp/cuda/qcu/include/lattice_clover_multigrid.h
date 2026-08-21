@@ -46,6 +46,7 @@
 #include <string>
 #include <sys/stat.h>
 #include <vector>
+#include <complex>
 
 namespace qcu {
 
@@ -1744,40 +1745,29 @@ template <typename T> struct LatticeCloverMultigrid {
   }
 
   // ==================================================================
-  // GCR(m) with MG preconditioning — DDalphaAMG C7 / QUDA GCR(16)
-  // Replaces BiStabCG outer when params[_MG_USE_GCR_]!=0.
-  // GCR is more stable for variable preconditioning (MG V-cycle) than
-  // BiStabCG (which can breakdown). Restart m=10, max_iter from params.
+  // FGMRES(m) with MG preconditioning — DDalphaAMG C7 / QUDA FGMRES(10)
+  // Replaces GCR when params[_MG_USE_GCR_]!=0 (reused flag for FGMRES).
+  // FGMRES is more stable for variable MG preconditioning than GCR/BiStabCG.
+  // m=10, max_iter from params, restart outer loop, Givens QR on host.
   // ==================================================================
   void run_gcr() {
     auto t0=std::chrono::high_resolution_clock::now();
     auto &st=levels[0]; cudaStream_t S=set_ptr->stream;
     LatticeComplex<T>*dv=static_cast<LatticeComplex<T>*>(set_ptr->device_vals);
-    // Build Schur RHS
     setup_b__o();
     checkCudaErrors(cudaStreamSynchronize(S));
-    // x=0, r=b, initial
     checkCudaErrors(cudaMemsetAsync(st.x, 0, st.vec_sz*sizeof(LatticeComplex<T>), S));
     copy_c(st.r, st.rhs, 0);
     checkCudaErrors(cudaStreamSynchronize(S));
-    // Allocate GCR basis: p[k], Ap[k] for k=0..m-1 (m=10)
     const int m = 10;
-    std::vector<void*> p_vec(m), Ap_vec(m);
-    for(int i=0;i<m;i++){
-      checkCudaErrors(cudaMallocAsync(&p_vec[i], st.vec_sz*sizeof(LatticeComplex<T>), S));
-      checkCudaErrors(cudaMallocAsync(&Ap_vec[i], st.vec_sz*sizeof(LatticeComplex<T>), S));
-      checkCudaErrors(cudaMemsetAsync(p_vec[i],0,st.vec_sz*sizeof(LatticeComplex<T>),S));
-      checkCudaErrors(cudaMemsetAsync(Ap_vec[i],0,st.vec_sz*sizeof(LatticeComplex<T>),S));
-    }
-    void *z, *q;
-    checkCudaErrors(cudaMallocAsync(&z, st.vec_sz*sizeof(LatticeComplex<T>), S));
-    checkCudaErrors(cudaMallocAsync(&q, st.vec_sz*sizeof(LatticeComplex<T>), S));
+    std::vector<void*> V(m+1), Z(m);
+    for(int i=0;i<=m;i++){ checkCudaErrors(cudaMallocAsync(&V[i], st.vec_sz*sizeof(LatticeComplex<T>), S)); checkCudaErrors(cudaMemsetAsync(V[i],0,st.vec_sz*sizeof(LatticeComplex<T>),S)); }
+    for(int i=0;i<m;i++){ checkCudaErrors(cudaMallocAsync(&Z[i], st.vec_sz*sizeof(LatticeComplex<T>), S)); checkCudaErrors(cudaMemsetAsync(Z[i],0,st.vec_sz*sizeof(LatticeComplex<T>),S)); }
+    void *w; checkCudaErrors(cudaMallocAsync(&w, st.vec_sz*sizeof(LatticeComplex<T>), S));
     checkCudaErrors(cudaStreamSynchronize(S));
-    // GCR iteration
-    int total=0;
-    double tti=0;
-    LatticeComplex<T> one(1,0);
-    // Precompute b norm for relative check
+    // Host Hessenberg and Givens
+    std::vector<std::complex<T>> H((m+1)*m, 0), cs(m,0), sn(m,0), s(m+1,0), y(m,0);
+    // Precompute b norm
     T b_norm2=0;
     {
       CUBLAS_CHECK(_cublasDot<T>(set_ptr->cublasH, set_ptr->lat_4dim_SC, st.rhs,1,st.rhs,1,&dv[_send_tmp_]));
@@ -1787,103 +1777,152 @@ template <typename T> struct LatticeCloverMultigrid {
       MPI_Allreduce(MPI_IN_PLACE,&b_norm2,1,mpi_real_type<T>(),MPI_SUM,MPI_COMM_WORLD);
     }
     T b_norm = sqrt(b_norm2<0?0:b_norm2);
-    if(rank==0&&verbose) log_write<T>("PYQCU::SOLVER::MULTIGRID::\n GCR(10)+MG start, b_norm="+std::to_string(b_norm),rank,true);
-    for(int iter=0; iter<max_iter; iter++){
-      auto ti0=std::chrono::high_resolution_clock::now();
-      // z = M^{-1} r  (one V-cycle)
-      auto prec_t0=std::chrono::high_resolution_clock::now();
-      apply_mg_prec(z, st.r);
-      auto prec_t1=std::chrono::high_resolution_clock::now();
-      prof_vcycle_ms += std::chrono::duration<double,std::milli>(prec_t1-prec_t0).count();
-      prof_n_vcycles++;
-      // q = A z
-      fine_dslash_op(q, z);
-      checkCudaErrors(cudaStreamSynchronize(S));
-      // Orthogonalize q against previous Ap, and z against p
-      int k = total % m; // current basis index (cyclic, but we restart)
-      // For restart, we keep only last m vectors; after restart we clear
-      int start = (total >= m) ? (total - m +1) : 0;
-      // Actually for GCR without restart we need to keep all, but with restart m we clear after m
-      // Simplify: if total % m ==0 and total!=0, restart (clear)
-      if(total % m ==0 && total!=0){
-        // Restart: clear basis, r and x remain, start new cycle
-        for(int i=0;i<m;i++){
-          checkCudaErrors(cudaMemsetAsync(p_vec[i],0,st.vec_sz*sizeof(LatticeComplex<T>),S));
-          checkCudaErrors(cudaMemsetAsync(Ap_vec[i],0,st.vec_sz*sizeof(LatticeComplex<T>),S));
-        }
+    if(b_norm < 1e-30) b_norm=1;
+    int total=0;
+    double tti=0;
+    // Outer restart loop
+    for(int restart=0; restart < (max_iter + m -1)/m; restart++){
+      // Compute r = b - A x (true residual for restart)
+      if(restart>0){
+        fine_dslash_op(w, st.x);
         checkCudaErrors(cudaStreamSynchronize(S));
-        start = total; // after restart, no history
-        // Note: we keep k=0 after restart, but need to handle start correctly
-        // For simplicity, after restart we treat as fresh cycle: no orthogonalization
-      }
-      // Orthogonalize against previous Ap in current cycle
-      // Number of vectors in current cycle = total % m
-      int cur_m = total % m;
-      for(int i=0;i<cur_m;i++){
-        // beta = (Ap_i, q) / (Ap_i, Ap_i)
-        // Compute dot Ap_i with q and Ap_i with Ap_i
-        // Use dot_mpi for fine level
-        dot_mpi(Ap_vec[i], q, _tmp0_, _a_);
-        checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_a_]));
-        T dot_aq = host_vals[_tmp0_].real(); // for complex, need full complex? Use complex dot
-        // For complex, dot is conj(a)*b, so beta is dot(Ap_i,q)/dot(Ap_i,Ap_i) (complex)
-        // We need complex beta
-        LatticeComplex<T> dot_aq_c = host_vals[_tmp0_];
-        dot_mpi(Ap_vec[i], Ap_vec[i], _tmp1_, _a_);
-        checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_a_]));
-        LatticeComplex<T> dot_aa = host_vals[_tmp1_];
-        if(std::abs(dot_aa.real())<1e-30 && std::abs(dot_aa.imag())<1e-30) continue;
-        LatticeComplex<T> beta = dot_aq_c / dot_aa;
-        // q -= beta * Ap_i
-        LatticeComplex<T> neg_beta = -beta;
-        CUBLAS_CHECK(_cublasAxpy<T>(set_ptr->cublasH, set_ptr->lat_4dim_SC, &neg_beta, Ap_vec[i],1,q,1));
-        // z -= beta * p_i
-        CUBLAS_CHECK(_cublasAxpy<T>(set_ptr->cublasH, set_ptr->lat_4dim_SC, &neg_beta, p_vec[i],1,z,1));
+        bistabcg_give_diff2<T><<<set_ptr->gridDim,set_ptr->blockDim,0,S>>>(st.rhs, w, st.r, dv);
         checkCudaErrors(cudaStreamSynchronize(S));
       }
-      // Store p_k = z, Ap_k = q
-      int idx = cur_m;
-      checkCudaErrors(cudaMemcpyAsync(p_vec[idx], z, st.vec_sz*sizeof(LatticeComplex<T>), cudaMemcpyDeviceToDevice, S));
-      checkCudaErrors(cudaMemcpyAsync(Ap_vec[idx], q, st.vec_sz*sizeof(LatticeComplex<T>), cudaMemcpyDeviceToDevice, S));
-      checkCudaErrors(cudaStreamSynchronize(S));
-      // alpha = (q, r) / (q,q)
-      dot_mpi(q, st.r, _tmp0_, _a_);
-      checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_a_]));
-      LatticeComplex<T> dot_qr = host_vals[_tmp0_];
-      dot_mpi(q, q, _tmp1_, _a_);
-      checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_a_]));
-      LatticeComplex<T> dot_qq = host_vals[_tmp1_];
-      if(std::abs(dot_qq.real())<1e-30) break;
-      LatticeComplex<T> alpha = dot_qr / dot_qq;
-      // x += alpha * z
-      CUBLAS_CHECK(_cublasAxpy<T>(set_ptr->cublasH, set_ptr->lat_4dim_SC, &alpha, z,1,st.x,1));
-      // r -= alpha * q
-      LatticeComplex<T> neg_alpha = -alpha;
-      CUBLAS_CHECK(_cublasAxpy<T>(set_ptr->cublasH, set_ptr->lat_4dim_SC, &neg_alpha, q,1,st.r,1));
-      checkCudaErrors(cudaStreamSynchronize(S));
-      total++;
-      // Convergence check: ||r|| / ||b|| < atol ?
-      dot_mpi(st.r, st.r, _norm2_tmp_, _a_);
-      checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_a_]));
-      T r_norm2 = host_vals[_norm2_tmp_].real();
-      MPI_Allreduce(MPI_IN_PLACE,&r_norm2,1,mpi_real_type<T>(),MPI_SUM,MPI_COMM_WORLD);
+      // beta = ||r||, v0 = r / beta
+      T r_norm2=0;
+      {
+        CUBLAS_CHECK(_cublasDot<T>(set_ptr->cublasH, set_ptr->lat_4dim_SC, st.r,1,st.r,1,&dv[_send_tmp_]));
+        checkCudaErrors(cudaMemcpyAsync(&host_vals[_send_tmp_],&dv[_send_tmp_],sizeof(LatticeComplex<T>),cudaMemcpyDeviceToHost,S));
+        checkCudaErrors(cudaStreamSynchronize(S));
+        r_norm2 = host_vals[_send_tmp_].real();
+        MPI_Allreduce(MPI_IN_PLACE,&r_norm2,1,mpi_real_type<T>(),MPI_SUM,MPI_COMM_WORLD);
+      }
       T r_norm = sqrt(r_norm2<0?0:r_norm2);
       conv_history.push_back(r_norm);
-      auto ti1=std::chrono::high_resolution_clock::now();
-      double sec=std::chrono::duration<double>(ti1-ti0).count(); tti+=sec;
-      prof_fine_iter_ms += std::chrono::duration<double,std::milli>(ti1-ti0).count();
-      if(rank==0&&verbose){
-        std::ostringstream bm; bm<<"PYQCU::SOLVER::MULTIGRID::\n GCR-"<<total<<" res "<<std::scientific<<r_norm<<" / "<<b_norm<<" = "<<r_norm/b_norm;
-        log_write<T>(bm.str(),rank,true);
-      }
       if(r_norm / b_norm < atol) break;
-      if(r_norm > 1e10) break;
+      T beta = r_norm;
+      // v0 = r / beta
+      LatticeComplex<T> inv_beta( (beta>1e-30)? (T)1/beta : 0, 0);
+      checkCudaErrors(cudaMemcpyAsync(V[0], st.r, st.vec_sz*sizeof(LatticeComplex<T>), cudaMemcpyDeviceToDevice, S));
+      CUBLAS_CHECK(_cublasScal<T>(set_ptr->cublasH, set_ptr->lat_4dim_SC, &inv_beta, V[0],1));
+      checkCudaErrors(cudaStreamSynchronize(S));
+      // s[0]=beta, s[1..]=0
+      for(int i=0;i<=m;i++) s[i]=0;
+      s[0]=std::complex<T>(beta,0);
+      for(int i=0;i<m;i++) for(int j=0;j<m;j++) H[i*m+j]=0; // actually H is (m+1)*m, H[i*m+j] is row i col j
+      // Use H as H[row*m + col] where row 0..m, col 0..m-1
+      auto Hidx = [&](int row,int col){ return row*m + col; };
+      for(int j=0;j<m;j++){
+        auto j_t0=std::chrono::high_resolution_clock::now();
+        // z_j = M^{-1} v_j
+        auto prec_t0=std::chrono::high_resolution_clock::now();
+        apply_mg_prec(Z[j], V[j]);
+        auto prec_t1=std::chrono::high_resolution_clock::now();
+        prof_vcycle_ms += std::chrono::duration<double,std::milli>(prec_t1-prec_t0).count();
+        prof_n_vcycles++;
+        // w = A z_j
+        fine_dslash_op(w, Z[j]);
+        checkCudaErrors(cudaStreamSynchronize(S));
+        // Arnoldi: for i=0..j, h_ij = (w, v_i), w -= h_ij * v_i
+        for(int i=0;i<=j;i++){
+          dot_mpi(w, V[i], _tmp0_, _a_);
+          checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_a_]));
+          std::complex<T> h_ij(host_vals[_tmp0_].real(), host_vals[_tmp0_].imag());
+          H[Hidx(i,j)] = h_ij;
+          LatticeComplex<T> neg_h(-h_ij.real(), -h_ij.imag());
+          CUBLAS_CHECK(_cublasAxpy<T>(set_ptr->cublasH, set_ptr->lat_4dim_SC, &neg_h, V[i],1,w,1));
+          checkCudaErrors(cudaStreamSynchronize(S));
+        }
+        // h_{j+1,j} = ||w||
+        T w_norm2=0;
+        {
+          CUBLAS_CHECK(_cublasDot<T>(set_ptr->cublasH, set_ptr->lat_4dim_SC, w,1,w,1,&dv[_send_tmp_]));
+          checkCudaErrors(cudaMemcpyAsync(&host_vals[_send_tmp_],&dv[_send_tmp_],sizeof(LatticeComplex<T>),cudaMemcpyDeviceToHost,S));
+          checkCudaErrors(cudaStreamSynchronize(S));
+          w_norm2 = host_vals[_send_tmp_].real();
+          MPI_Allreduce(MPI_IN_PLACE,&w_norm2,1,mpi_real_type<T>(),MPI_SUM,MPI_COMM_WORLD);
+        }
+        T w_norm = sqrt(w_norm2<0?0:w_norm2);
+        H[Hidx(j+1,j)] = std::complex<T>(w_norm,0);
+        if(w_norm > 1e-30){
+          LatticeComplex<T> inv_w(w_norm>1e-30? (T)1/w_norm:0,0);
+          checkCudaErrors(cudaMemcpyAsync(V[j+1], w, st.vec_sz*sizeof(LatticeComplex<T>), cudaMemcpyDeviceToDevice, S));
+          CUBLAS_CHECK(_cublasScal<T>(set_ptr->cublasH, set_ptr->lat_4dim_SC, &inv_w, V[j+1],1));
+          checkCudaErrors(cudaStreamSynchronize(S));
+        } else {
+          checkCudaErrors(cudaMemsetAsync(V[j+1],0,st.vec_sz*sizeof(LatticeComplex<T>),S));
+        }
+        // Apply previous Givens to new column
+        for(int i=0;i<j;i++){
+          std::complex<T> temp = cs[i]*H[Hidx(i,j)] + sn[i]*H[Hidx(i+1,j)];
+          H[Hidx(i+1,j)] = -std::conj(sn[i])*H[Hidx(i,j)] + cs[i]*H[Hidx(i+1,j)];
+          H[Hidx(i,j)] = temp;
+        }
+        // New Givens for H[j][j] and H[j+1][j]
+        T h_jj_abs = std::abs(H[Hidx(j,j)]);
+        T h_next_abs = std::abs(H[Hidx(j+1,j)]);
+        T r_giv = std::sqrt(h_jj_abs*h_jj_abs + h_next_abs*h_next_abs);
+        T cs_j=1; std::complex<T> sn_j(0,0);
+        if(r_giv > 1e-30){
+          cs_j = h_jj_abs / r_giv;
+          std::complex<T> h_jj_norm = (h_jj_abs>1e-30)? H[Hidx(j,j)]/h_jj_abs : std::complex<T>(1,0);
+          sn_j = std::conj(H[Hidx(j+1,j)]) * h_jj_norm / r_giv;
+          H[Hidx(j,j)] = r_giv * h_jj_norm;
+          H[Hidx(j+1,j)] = 0;
+        } else {
+          cs_j=1; sn_j=0;
+        }
+        cs[j]=cs_j; sn[j]=sn_j;
+        // Apply to s
+        std::complex<T> s_j = s[j];
+        s[j] = cs_j*s_j + sn_j*s[j+1];
+        s[j+1] = -std::conj(sn_j)*s_j + cs_j*s[j+1];
+        // Check convergence: |s_{j+1}|/beta < tol ?
+        T s_next_abs = std::abs(s[j+1]);
+        conv_history.push_back(s_next_abs);
+        auto j_t1=std::chrono::high_resolution_clock::now();
+        tti += std::chrono::duration<double>(j_t1-j_t0).count();
+        prof_fine_iter_ms += std::chrono::duration<double,std::milli>(j_t1-j_t0).count();
+        if(s_next_abs / b_norm < atol){
+          // Solve H*y = s (upper triangular, j+1 cols)
+          for(int k=j;k>=0;k--){
+            std::complex<T> sum_c = s[k];
+            for(int l=k+1;l<=j;l++) sum_c -= H[Hidx(k,l)] * y[l];
+            y[k] = sum_c / H[Hidx(k,k)];
+          }
+          // x += Z*y
+          for(int k=0;k<=j;k++){
+            LatticeComplex<T> yk(y[k].real(), y[k].imag());
+            CUBLAS_CHECK(_cublasAxpy<T>(set_ptr->cublasH, set_ptr->lat_4dim_SC, &yk, Z[k],1,st.x,1));
+          }
+          checkCudaErrors(cudaStreamSynchronize(S));
+          total += j+1;
+          goto fgmres_done;
+        }
+        if(j==m-1){
+          // Restart: solve and update x, break to outer restart
+          for(int k=m-1;k>=0;k--){
+            std::complex<T> sum_c = s[k];
+            for(int l=k+1;l<m;l++) sum_c -= H[Hidx(k,l)] * y[l];
+            y[k] = sum_c / H[Hidx(k,k)];
+          }
+          for(int k=0;k<m;k++){
+            LatticeComplex<T> yk(y[k].real(), y[k].imag());
+            CUBLAS_CHECK(_cublasAxpy<T>(set_ptr->cublasH, set_ptr->lat_4dim_SC, &yk, Z[k],1,st.x,1));
+          }
+          checkCudaErrors(cudaStreamSynchronize(S));
+          total += m;
+          break;
+        }
+      }
     }
-    // Cleanup GCR basis
-    for(int i=0;i<m;i++){ cudaFreeAsync(p_vec[i],S); cudaFreeAsync(Ap_vec[i],S); }
-    cudaFreeAsync(z,S); cudaFreeAsync(q,S);
+    fgmres_done:
+    // Cleanup
+    for(int i=0;i<=m;i++) cudaFreeAsync(V[i],S);
+    for(int i=0;i<m;i++) cudaFreeAsync(Z[i],S);
+    cudaFreeAsync(w,S);
     checkCudaErrors(cudaStreamSynchronize(S));
-    // Recover even part
     recover_x_e();
     checkCudaErrors(cudaStreamSynchronize(S));
     auto t1=std::chrono::high_resolution_clock::now();
@@ -1891,8 +1930,8 @@ template <typename T> struct LatticeCloverMultigrid {
     if(rank==0){
       double avg=total>0?tti/total:0;
       T fn=conv_history.empty()?0:conv_history.back();
-      log_write<T>("PYQCU::SOLVER::MULTIGRID::\n GCR Performance:",rank,true);
-      log_write<T>("PYQCU::SOLVER::MULTIGRID::\n Total GCR iters: "+std::to_string(total),rank,true);
+      log_write<T>("PYQCU::SOLVER::MULTIGRID::\n FGMRES Performance:",rank,true);
+      log_write<T>("PYQCU::SOLVER::MULTIGRID::\n Total FGMRES iters: "+std::to_string(total),rank,true);
       std::ostringstream tm;tm<<"PYQCU::SOLVER::MULTIGRID::\n Total time: "<<std::fixed<<std::setprecision(6)<<(solve_time_ms/1000.0)<<" s";
       log_write<T>(tm.str(),rank,true);
       std::ostringstream am;am<<"PYQCU::SOLVER::MULTIGRID::\n Avg per iter: "<<std::fixed<<std::setprecision(6)<<avg<<" s";
@@ -1903,6 +1942,8 @@ template <typename T> struct LatticeCloverMultigrid {
       std::ostringstream sect; sect<<"PROF_SECTIONS: fine_iter="<<std::fixed<<std::setprecision(1)<<prof_fine_iter_ms<<"ms vcycle="<<prof_vcycle_ms<<"ms n_vcycles="<<prof_n_vcycles; log_write<T>(sect.str(),rank,true);
     }
   }
+
+
 
   // ==================================================================
   // Test wrapper — same as run() but also validates the FULL residual.
