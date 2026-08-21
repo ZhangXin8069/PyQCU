@@ -17,42 +17,41 @@
   "results": [
     {
       "label": "BiStabCG",
-      "t": 2.130151774006663,
+      "t": 2.2501982760149986,
       "res": 3.7821690029921856e-07,
       "stat": "OK",
       "levels": 0
     },
     {
       "label": "MG_1L",
-      "t": 3.141684925009031,
-      "res": 8.35474020914418e-07,
-      "rel_vs_ref": 1.7666286369989242e-05,
+      "t": 1.7320808089862112,
+      "res": 3.685994345792047e-07,
+      "rel_vs_ref": 4.648544444365609e-07,
       "stat": "OK",
       "levels": 1,
-      "conv_len": 152,
+      "conv_len": 138,
       "speedup_vs_L1": 1.0,
-      "speedup_vs_BiStabCG": 0.6780284544289684
+      "speedup_vs_BiStabCG": 1.299130077731213
     },
     {
       "label": "MG_2L",
-      "t": 37.992965176992584,
-      "res": 0.7659790368075213,
-      "rel_vs_ref": 0.7632828741464163,
+      "t": 1.9664823309867643,
+      "res": 2.1125689136459435e-07,
+      "rel_vs_ref": 3.7608284898908823e-07,
       "stat": "OK",
       "levels": 2,
-      "conv_len": 152,
-      "speedup_vs_L1": 0.08269122745153733,
-      "speedup_vs_BiStabCG": 0.05606700514380014
+      "conv_len": 138,
+      "speedup_vs_L1": 0.8808016129578279,
+      "speedup_vs_BiStabCG": 1.1442758679076805
     }
   ],
-  "best_speedup_vs_L1": 0.08269122745153733,
-  "timestamp": "2026-08-21 00:46:56",
+  "best_speedup_vs_L1": 0.8808016129578279,
+  "timestamp": "2026-08-21 00:07:45",
   "data_dir": "/root/PyQCU/data",
   "cache_dir": "/root/PyQCU/data",
   "note": "L1=MG 1 level (Schur BiStabCG finest only); true speedup = L1 / MG_multi_level; gate 2.0 for 16x32x32x48",
   "mp": false,
   "sap": false,
-  "gcr": true,
   "rs": 15,
   "cf": 1000.0,
   "cmi": 3,
