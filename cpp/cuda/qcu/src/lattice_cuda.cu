@@ -96,6 +96,17 @@ cublasStatus_t _cublasDot<float>(cublasHandle_t handle, int n, const void *x,
   return cublasDotcEx(handle, n, x, CUDA_C_32F, incx, y, CUDA_C_32F, incy,
                       result, CUDA_C_32F, CUDA_C_32F);
 }
+template <>
+cublasStatus_t _cublasScal<float>(cublasHandle_t handle, int n,
+                                  const void *alpha, void *x, int incx) {
+  return cublasCscal(handle, n, (const cuComplex *)alpha, (cuComplex *)x, incx);
+}
+template <>
+cublasStatus_t _cublasScal<double>(cublasHandle_t handle, int n,
+                                   const void *alpha, void *x, int incx) {
+  return cublasZscal(handle, n, (const cuDoubleComplex *)alpha,
+                     (cuDoubleComplex *)x, incx);
+}
 template <typename T>
 __global__ void give_copy_vals(void *device_dest, void *device_src) {
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
