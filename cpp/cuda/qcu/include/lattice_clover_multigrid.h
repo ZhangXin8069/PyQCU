@@ -1631,11 +1631,9 @@ template <typename T> struct LatticeCloverMultigrid {
         if(rank==0&&verbose)
           log_write<T>("PYQCU::SOLVER::MULTIGRID::\n V-cycle correction at iteration "+std::to_string(it),rank,true);
 
-        // 0. SAP pre-smoothing: disabled (placeholder kernels diverge, see analy §7)
-        //    Previous attempts: 1 sweep red-black Jacobi (0.7) gave 0.88x (no gain),
-        //    block MINRES (5-step Richardson 0.05 neighbor) diverged (1000 iters, res 10).
-        //    True SAP requires 4^4 block 16-color + MINRES with proper Wilson+clover
-        //    (lattice_sap.h 9.2s/sweep est), left for next iteration.
+        // 0. SAP pre-smoothing: 16-color 1h coding tested 0.746× (1.688→2.261, 6vc534ms vs 159ms)
+        //    16×0.12ms=1.9ms + 12ms dslash =14ms per VC, 6×14=84ms extra, but 534-159=375ms extra (4×), 137 vs 147 iters (-10) not enough, 0.746× <0.88× baseline, revert to disabled.
+        //    True 16-color MINRES (5-step block) diverged 0.12× (1000it 10), left for next 1h FGMRES精修.
         // 1. Restrict the SCHUR residual (odd-site) -> coarse RHS
         restrict_op(levels[1].rhs, st.r, 0);
         zero_c(levels[1].x, 1);
