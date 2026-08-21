@@ -167,3 +167,12 @@ MG 2L    : 1.97s res 2.11e-07 rel 3.7e-07 (147 iters, 11.9ms/iter, fine 1734ms, 
 - **回退**: 默认 `p[_MG_USE_GCR_]=0` 保持 `BiStabCG` 基线 `0.88×` (1.73→1.96s), `GCR` 仅 `--gcr` 时启用, 已验证 `--gcr` 发散, 留待 `FGMRES(10)` 重构 (`bistabcg.h→fgmres.h` 1h, 正交化 `10基47M 0.5ms` 已备) 与 `dot` 槽位隔离 (`_gcr_tmp0` 独立)
 - **量纲**: GCR `m=10` 需 `10×37.6MB×2=752MB` + `r` 37M, 总 `789M` 占 V100 `32G` 的 `2.4%`, 可行, 但 `1000` 次 `V-cycle 18ms` → `18s` 主导, 需轻量 `1×V-cycle 3ms` (fused) + `dot` 隔离
 
+
+## 7.3 SAP 16色 1h编码追加试验 (2026-08-21 01:16, 本轮“继续SAP 16色1h编码”)
+- **实现**: `lattice_sap.h` 新增 `sap_update_kernel_16` (`block_color=(bx&1)|((by&1)<<1)|((bz&1)<<2)|((bt&1)<<3)` 16色, `4^4`块`1536` `256`点) + `LatticeSap::sweep_16`/`sweep_16colors` (16×128线程 `0.12ms/色` `16×0.12=1.9ms` per VC) + `lattice_clover_multigrid.h` 启用 `16×0.7` (`omega 0.7` `16×.12=1.9ms` + `fine_dslash 12ms` `14ms` per VC `6×14=84ms`预期)
+- **编译**: `bash ./build.sh` 23M `SUCCESS` (保留`lattice_sap.h` 16色, `sweep_16colors` 已编译)
+- **实测 16×32×32×48 V100** (`r15 cf1e3 cmi3` 6vc):
+  - 无SAP基线: `1.73s 138it` `L1` vs `1.96s 147it` `0.88×` (`fine1734ms vcycle159ms 6×26ms` `80ms coarse`)
+  - `16色 SAP 0.7` (16×1 sweep): `1.688s 138it` `L1` vs `2.261s 137it` `0.746×` (`fine1651ms vcycle534ms 6×89ms` `69ms coarse` `+375ms` vs `159ms` `4×`预期`84ms`, `137 vs 147` `-10` iter `-6%`不足` -56%` `1.73→0.82`阈值, `0.746<0.88`反而慢`15%` `2.26/1.96=1.15×`)
+- **根因**: `16×0.12ms=1.9ms` + `12ms` `14ms` per VC预期, 实测`89ms` per VC (`534/6=89` vs `26`基线 `+63ms` `5×` `1.9ms`→`63ms` 因`16`次`cudaLaunch` `16×30us=0.48ms` + `16×` `mem`同步`16×2ms=32ms` + `fine_dslash` `12ms` `→44ms` vs `14ms`预估 `3×`), `137 vs 147`仅`-6%` (`-11%`基线已`-11%`, `16色`仅多`-6%` `10` iter, 需`-56%` `138→60`), `16色` `Jacobi` `x+=ωr` 对`Wilson+clover`对角`12`非`1`故`ω0.7`非最优 (`0.5`试`0.12×`更差, `1.0` `0.746×`同)
+- **回退**: 已回退`lattice_clover_multigrid.h`至`// 0. SAP disabled` (保留`lattice_sap.h` 16色代码, 1h编码完成, `sweep_16colors` 已编译), 默认`BiStabCG` `0.88×` (1.73→1.96), `16色`仅代码保留, 下一步`16色 5步 MINRES` (`block_minres_kernel` `0.05`邻点 `5×` `3ms/块` `9.2s`需`FGMRES`精修, 已备`lattice_sap.h` `9.2s`估算, 需`dot`隔离`1×VC 3ms fused`)
