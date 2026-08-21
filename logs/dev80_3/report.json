@@ -1,0 +1,59 @@
+{
+  "lat": [
+    16,
+    32,
+    32,
+    48
+  ],
+  "mass": 0.05,
+  "atol": 1e-06,
+  "device": [
+    0
+  ],
+  "levels": [
+    1,
+    2
+  ],
+  "results": [
+    {
+      "label": "BiStabCG",
+      "t": 2.2501982760149986,
+      "res": 3.7821690029921856e-07,
+      "stat": "OK",
+      "levels": 0
+    },
+    {
+      "label": "MG_1L",
+      "t": 1.7320808089862112,
+      "res": 3.685994345792047e-07,
+      "rel_vs_ref": 4.648544444365609e-07,
+      "stat": "OK",
+      "levels": 1,
+      "conv_len": 138,
+      "speedup_vs_L1": 1.0,
+      "speedup_vs_BiStabCG": 1.299130077731213
+    },
+    {
+      "label": "MG_2L",
+      "t": 1.9664823309867643,
+      "res": 2.1125689136459435e-07,
+      "rel_vs_ref": 3.7608284898908823e-07,
+      "stat": "OK",
+      "levels": 2,
+      "conv_len": 138,
+      "speedup_vs_L1": 0.8808016129578279,
+      "speedup_vs_BiStabCG": 1.1442758679076805
+    }
+  ],
+  "best_speedup_vs_L1": 0.8808016129578279,
+  "timestamp": "2026-08-21 00:07:45",
+  "data_dir": "/root/PyQCU/data",
+  "cache_dir": "/root/PyQCU/data",
+  "note": "L1=MG 1 level (Schur BiStabCG finest only); true speedup = L1 / MG_multi_level; gate 2.0 for 16x32x32x48",
+  "mp": false,
+  "sap": false,
+  "rs": 15,
+  "cf": 1000.0,
+  "cmi": 3,
+  "nvi": 1
+}
