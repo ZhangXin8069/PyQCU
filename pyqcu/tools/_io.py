@@ -1,8 +1,10 @@
 from pyqcu.tools import HAS_MPI_SUPPORT, give_grid_index, give_grid_size
 import h5py
+import os
+import numpy as np
 import torch
 from mpi4py import MPI
-from typing import List
+from typing import List, Union
 
 
 def gridoooxyzt2hdf5oooxyzt(
@@ -192,3 +194,115 @@ def load_tensor_h5(file_name: str, dataset: str = 'data', device: torch.device =
         print(f"PYQCU::TOOLS::IO:\n Tensor {arr.shape} loaded from "
               f"{file_name} (dataset='{dataset}')")
     return torch.from_numpy(arr).to(device=device)
+
+
+# ----------------------------------------------------------------------
+# dict ↔ HDF5（嵌套结果字典持久化）
+# 整合自 logs/dev78_2/main.py::save_dict_h5/load_dict_h5
+# （examples/qcu/test15_5/main.py::_save_dict_h5 等 9 份拷贝的收敛实现）。
+# 单句柄一次写全部内容（tmp + os.replace 原子替换），多线程安全。
+# ----------------------------------------------------------------------
+
+def _dict_h5_write(g, k: str, v):
+    """单个键值写入：标量/字符串 → attrs；数组/列表 → dataset 'd_<key>'；dict → 子组。"""
+    if isinstance(v, dict):
+        sub = g.create_group(k)
+        for kk, vv in v.items():
+            _dict_h5_write(sub, kk, vv)
+    elif isinstance(v, torch.Tensor):
+        g.create_dataset("d_" + k, data=v.detach().cpu().contiguous().numpy())
+    elif isinstance(v, np.ndarray):
+        g.create_dataset("d_" + k, data=v)
+    elif isinstance(v, np.generic):
+        g.attrs[k] = v.item()
+    elif isinstance(v, (bool, int, float, complex)):
+        g.attrs[k] = v
+    elif isinstance(v, (str, np.str_)):
+        # h5py 对 numpy.str_（定长 unicode）无转换路径，统一转 python str
+        g.attrs[k] = str(v)
+    elif isinstance(v, (list, tuple)):
+        if v and all(isinstance(x, dict) for x in v):
+            # dict 列表 → 子组 '0','1',...（h5py 无 Object dtype 等价物）
+            sub = g.create_group(k)
+            for i, x in enumerate(v):
+                _dict_h5_write(sub, str(i), x)
+        elif v and all(isinstance(x, (list, tuple)) for x in v):
+            # 变长数值列表（如 MG 残差历史每线程一条）→ h5py vlen dataset
+            dt = h5py.vlen_dtype(np.dtype('f8'))
+            dset = g.create_dataset("d_" + k, (len(v),), dtype=dt)
+            for i, x in enumerate(v):
+                dset[i] = np.asarray(x, dtype='f8')
+        elif v and all(isinstance(x, str) for x in v):
+            # 字符串列表 → vlen utf-8（h5py 无定长 unicode 转换路径）
+            g.create_dataset("d_" + k,
+                             data=np.array(v, dtype=h5py.string_dtype('utf-8')))
+        else:
+            g.create_dataset("d_" + k, data=np.asarray(v))
+    elif v is None:
+        g.attrs[k] = "None"
+    else:
+        g.attrs[k] = str(v)
+
+
+def save_dict_h5(path: str, d: dict, verbose: bool = False):
+    """dict（标量/字符串/列表/ndarray/torch.Tensor/嵌套 dict）→ .h5。
+
+    单句柄一次写入全部内容（h5py 多线程安全约定：每次调用独立 File 句柄，
+    tmp + os.replace 原子替换）。标量/字符串 → attrs；list/tuple/ndarray/
+    Tensor → dataset 'd_<key>'；嵌套 dict → 子组；dict 列表 → 数字 key 子组。
+    """
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    tmp = path + ".tmp"
+    with h5py.File(tmp, 'w') as f:
+        for k, v in d.items():
+            _dict_h5_write(f, k, v)
+    os.replace(tmp, path)
+    if verbose:
+        print(f"PYQCU::TOOLS::IO:\n dict ({len(d)} keys) saved to {path}")
+
+
+def _dict_h5_attr_val(v):
+    """h5py attr 值还原为 python 标量（bytes/ndarray/generic 解包）。"""
+    if isinstance(v, bytes):
+        return v.decode()
+    if isinstance(v, np.ndarray) and v.dtype.kind in "US":
+        return v.item().decode() if v.size == 1 else [x.decode() for x in v.tolist()]
+    if isinstance(v, np.generic):
+        return v.item()
+    return v
+
+
+def _dict_h5_load_group(g) -> Union[dict, list]:
+    """h5 Group → dict（attrs 标量 + datasets 数组 + 子组递归）。"""
+    d = {}
+    for k, v in g.attrs.items():
+        d[k] = _dict_h5_attr_val(v)
+    for k in g.keys():
+        item = g[k]
+        if isinstance(item, h5py.Dataset):
+            arr = item[...]
+            if getattr(arr.dtype, "kind", None) == "O" and arr.size \
+                    and isinstance(arr.ravel()[0], bytes):
+                # 字符串列表 dataset（vlen utf-8）→ 解码为 str 数组
+                arr = np.array([x.decode("utf-8") for x in arr.ravel()],
+                               dtype=object).reshape(arr.shape)
+            # 剥去写入端加的 'd_' 前缀（与 save_dict_h5 对称往返）
+            d[k[2:] if k.startswith("d_") else k] = arr
+        else:
+            d[k] = _dict_h5_load_group(item)
+    if d and all(k.isdigit() for k in d):
+        # 数字 key 组 → dict 列表还原（_dict_h5_write 的对称操作）
+        return [d[str(i)] for i in range(len(d))]
+    return d
+
+
+def load_dict_h5(path: str, verbose: bool = False) -> Union[dict, list]:
+    """save_dict_h5 的逆：.h5 → dict（attrs 标量 + datasets 数组 + 子组）。
+
+    顶层键全为数字字符串时返回列表（与 _dict_h5_write 的 dict 列表编码对称）。
+    """
+    with h5py.File(path, 'r') as f:
+        d = _dict_h5_load_group(f)
+    if verbose:
+        print(f"PYQCU::TOOLS::IO:\n dict ({len(d)} keys) loaded from {path}")
+    return d
