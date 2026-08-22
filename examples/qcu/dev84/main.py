@@ -207,8 +207,23 @@ def ensure_nullvec(lat, E, nvi, op, S, device, verbose=False, timeout_s=600,
                                   device, nv_iters=nvi, nthreads=1, verbose=False,
                                   nv_tol=1e-2, batch_matvec=batch_mv)
     from pyqcu.tools._multigrid import local_orthogonalize, build_stencil_local, BatchedLocalSchur
-    lonv = local_orthogonalize(null_vecs=_null, coarse_lat_size=[d // 2 for d in lat_fine_odd],
-                               verbose=False)
+    # dev84 指令23 分级: QR 正交化 OOM 时转 CPU (纯数学, 无算子依赖)
+    try:
+        lonv = local_orthogonalize(null_vecs=_null,
+                                   coarse_lat_size=[d // 2 for d in lat_fine_odd],
+                                   verbose=False)
+    except (torch.cuda.OutOfMemoryError, RuntimeError) as _e:
+        if "out of memory" not in str(_e).lower():
+            raise
+        print("[nullvec] local_orthogonalize OOM -> CPU fallback", flush=True)
+        torch.cuda.empty_cache()
+        _nc = _null.cpu()
+        del _null
+        torch.cuda.empty_cache()
+        lonv = local_orthogonalize(null_vecs=_nc,
+                                   coarse_lat_size=[d // 2 for d in lat_fine_odd],
+                                   verbose=False).to(device=device)
+        del _nc
     del _null
     lsch = BatchedLocalSchur(op, *lat_fine_odd, W=10)
     hnn, hdg, sit = build_stencil_local(lsch, lonv, E, lat_fine_odd,
