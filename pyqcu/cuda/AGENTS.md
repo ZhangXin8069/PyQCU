@@ -14,6 +14,7 @@ C++ CUDA 后端（`libqcu.so`）的 Cython 桥包。
 | `define.py` | 参数常量（`_LAT_X_`、`_SET_PLAN_` 等）与 dtype 转换工具（`dtype()`、`epytd()`） |
 | `_schur_op.py` | `CudaSchurOp` — C++ Schur 奇偶算子封装（每实例独立 params/set_ptrs 副本 + 槽位分配器，多线程安全） |
 | `_multi_gpu.py` | `MultiGpuMultigrid` — 多线程多卡 C++ Clover MG 驱动（一线程一卡，单 MPI rank），`build_schur_levels`（33-tensor 粗算子 + h5py 缓存） |
+| `_logs.py` | C++ 后端收敛日志解析（2026-08-22 整合）：`parse_mg_log(path)` → (残差列表, PROF_SECTIONS ms 字典, 总迭代数)；`parse_convergence_histories(path, offset)` → (histories, 新偏移) 增量收集逐次求解的 CONVERGENCE_HISTORY；默认路径 `<repo>/logs/clover_multigrid.log` |
 
 ## 公共 API
 
