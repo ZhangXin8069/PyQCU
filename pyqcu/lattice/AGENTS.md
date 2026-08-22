@@ -41,3 +41,16 @@ wards['t_p'] = -1  # 奇偶拆分的时间（与 t 同索引）
 ## 数据布局
 
 规范场 U：`[3, 3, 4, Lx, Ly, Lz, Lt]` = `[color, color, direction, x, y, z, t]`
+
+### 源场构造（`_source.py`，参考 PyQUDA pyquda_utils/source.py）
+
+布局 `[4, 3, Lx, Ly, Lz, Lt]`；spin/color 为 None 时该自由度维全填。
+
+- `point_source(latt_size, t_srce=[x,y,z,t], spin=None, color=None)` — 时空 δ 源
+- `wall_source(latt_size, t_srce=int, ...)` — 固定时间片全空间
+- `volume_source(latt_size, ...)` — 全时空
+- `z2_source(latt_size, seed=None)` — Z2 噪声 ±1（随机源平均）
+- `momentum_source(latt_size, mode=[nx,ny,nz,nt], t_srce=None|int)` — 平面波 exp(i2π n·x/L)
+- `fermion_source(latt_size, kind, ...)` — 统一分派：kind ∈ {point, wall, volume, momentum, z2}
+
+dtype/device 可选参数，默认 complex128/cpu。momentum 的 wall 型与体积型仅差时间片支撑。
