@@ -20,3 +20,7 @@ def __getattr__(name):
             _MULTI_GPU_CACHE["verify_multi_gpu_mg"] = _VM
         return _MULTI_GPU_CACHE[name]
     raise AttributeError(f"module 'pyqcu.solver' has no attribute '{name}'")
+from ._multishift_cg import multishift_cg as multishift_cg
+from ._multishift_cg import multishift_cg_true_residuals as multishift_cg_true_residuals
+from ._cacg import cacg as cacg
+from ._lanczos import tr_lanczos as tr_lanczos

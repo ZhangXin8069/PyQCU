@@ -10,6 +10,9 @@ Dirac 方程 D ψ = η 的迭代求解器。
 | `_multigrid.py` | 自适应多重网格 (AMG) V-cycle 求解器，最细层 CUDA 加速 |
 | `_gmres.py` | `fgmres` — FGMRES(m) 右预条件求解器（flexible GMRES，移植自 DDalphaAMG-SM fgmres.cpp） |
 | `_mr.py` | `mr` — MR 最小残差求解器（quda inv_mr 思想，非 Krylov 平滑器；正规方程方向 p=A†r + 步长 ω 阻尼） |
+| `_multishift_cg.py` | `multishift_cg` — 多质量 CG（quda updateAlphaZeta 递推；一次 matvec 序列同时解全部移位系统） |
+| `_cacg.py` | `cacg` — CA-CG（s-step CG，MGS 正交化基 + 极小残差块解，quda 思想稳健化移植） |
+| `_lanczos.py` | `tr_lanczos` — thick-restart Lanczos 特征底座（Wu–Simon arrowhead 重启，deflation 用 Ritz 对） |
 
 ## 导出 API
 
@@ -104,3 +107,43 @@ c128 实测严格单调收敛（10274 迭代 rel 2.5e-10）；c64 有精度地�
 - **多实例循环必须显式**：`mg.end(); del mg; gc.collect()` —— 依赖隐式 GC 释放
   的时机不可控，会与后续实例的 C++ 操作并发干扰（实测 3 实例循环隐式 GC 时
   第 2 个实例残差 ~O(1)；显式 end+del+gc 后 3 实例全 9e-7 收敛）。
+
+## 2026-08-22 整合新增（refer 源：quda/PyQUDA 移植）
+
+### `multishift_cg(b, matvec, shifts, tol=1e-6, max_iter=1000, x0=None, if_rtol=False, verbose=True) → List[Tensor]`
+
+多质量 CG（quda inv_multi_cg_quda.cpp updateAlphaZeta 递推，Jegerlehner hep-lat/9612014）：
+一次 matvec 序列同时解 `(A+σ_i)x_i=b`（A Hermitian 正定）。shifts 升序，最低者为主链，
+其移位**就地折入 Ap**（`Ap += σ₀·p`，quda axpyReDot 语义）；其余链 ζ/α/β 相对主链递推。
+
+- **勿移除 σ₀ 折叠**：内部 r 必须恒为 (A+σ₀) 的真残差——只折进标量 pAp 不折进向量时
+  r 漂移量恰为 σ·x 累积，收敛判据失真（实测 N=32 即现 rel≈0.17 假收敛）
+- **勿加中途重同步**：周期性替换 r/p 打断 CG 共轭性 → 发散（实测残差 24→214 单调恶化）
+- ζ 数值防护：非有限或 |ζ|>1e15 时冻结该移位（c64 精度地板防护）
+- 主链仅在其余移位全体收敛后才允许停（`converged_count >= n-1` 门）
+- `multishift_cg_true_residuals(b, shifted_matvec, shifts, xs)` 验证助手
+- 实测：c128 rel~1e-14；c64 κ~8 时 ~2e-7
+
+### `cacg(b, matvec, tol=1e-6, max_iter=1000, x0=None, n_krylov=8, ...)`
+
+CA-CG（s-step CG，quda inv_ca_cg.cpp 思想）：每外迭代构建 m 维 Krylov 基（m 次 matvec
+一次同步块），MGS 正交化 + 极小残差块解，块末真残差可靠更新。
+
+- **与 quda 的两处有意偏差**：(a) MGS 正交化基替代裸幂基（裸幂基 ‖A^i r‖ 指数膨胀→Gram
+  病态→廉价残差与真残差脱钩，实测 N=64 即崩；quda 靠 Chebyshev 基规避且其 CA-CG 模板
+  实例化已禁用）；(b) 跨块 beta 对齐未移植 → 收敛率≈重启 GMRES(m)，单调性由 minres 保证
+- Gram/G/x 更新用堆叠 [k,N] 批量 matmul（k² 独立 vdot 的 7.8× 提速实测）
+- 实测：c128 rel~2e-15（κ~8）；c64 ~2e-7
+
+### `tr_lanczos(matvec, v0, ncv=32, k=6, tol=1e-8, max_iter=400) → (evals, evecs)`
+
+thick-restart Lanczos 特征底座（quda eig_trlm 思想，Wu–Simon）：正交基显式投影矩阵 H、
+全重正交化、基满后保留 k 个最低 Ritz 向量+残差方向重启（arrowhead 解析重建 H）。
+为 GMRES-DR/eigCG 类 deflation 提供 Ritz 对底座。
+
+- **H 必须对称双写**：`H[l][j]=H[j][l]=col[l]`——torch eigh 读下三角，单侧填充会读到
+  相邻步残留的垃圾行（实测出现 -56.8 假 Ritz 值，A⪰0.5 不可能）
+- **pending 占位保护**：重启/注入后末行列是零占位；循环退出走 fallback 前必须补算末列
+  （1 次 matvec），否则谱被零特征值污染（实测返回 θ=0.0000）
+- 收敛双闸门：估计 |β·S[-1,i]|<tol·|θ| 通过后再做真残差核验 ‖Ay−θy‖≤100·tol·|θ|（防 c64 假收敛）
+- 实测：c128 分离谱 k=5 err~1e-14；c64 ~2.5e-6
