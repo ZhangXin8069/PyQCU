@@ -84,6 +84,22 @@ qcu.applyEndQcu(set_ptrs, params)                  # 释放
 - 每线程独立 params/argv/set_ptrs 副本 + `torch.cuda.set_device(dev_id)`（CUDA current device 线程局部）。
 - 多线程多卡驱动见 `_multi_gpu.py`（`MultiGpuMultigrid`，单 MPI rank）；单算子见 `_schur_op.py`（`CudaSchurOp`）。
 
+## dev84 平台与算法结论（2026-08-22，详见 examples/qcu/dev84/dev84_report.md）
+
+- **WSL2 内核执行税 ~300µs/内核**（GPU 侧派发，与工作量无关）：细粒度多内核路径
+  （逐迭代点积/标量更新）在本箱不可扩展。落地模式：CUDA Graph 段回放
+  （8 迭代/段，lattice_clover_multigrid.h `coarse_graph_ensure/run`）+
+  零拷贝映射内存读标量（cudaHostAllocMapped，绕开 D2H memcpyAsync）+
+  守卫型标量内核（mg_give_1beta_rp 等，防 ρ→0 分裂 NaN）+ SYNC DIET
+  （同流序不中途同步）。V-cycle 156→60ms。
+- **nullvec 容差语义**：`solver.bistabcg` 默认绝对容差 —— give_null_vecs* 传小 tol
+  在大格子上退化为精确逆→归一化噪声向量（‖Sv‖/‖v‖≈谱 RMS，粗空间无效）。
+  已修为 if_rtol 相对容差（dev84_1）；诊断方法=隔离测单次校正收缩因子
+  ρ_V=||r−S·P·A_c⁻¹·R·r||/||r||（Galerkin 精确粗解），ρ_V≈1 即粗空间无效。
+- **16×32×32×48 m=0.05 Schur 谱为连续中等谱**（无孤立低模簇；收敛 ~0.77/iter
+  几何式）——聚合粗空间/谱收缩/块 Jacobi 均无法在该格子给出 >2 真实加速比；
+  历史小格子高加速比系测量口径问题（指令 9 复证）。
+
 ## 已知问题与修复（2026-08-14）
 
 - **conftest.clover.multigrid.py 旧协议修复**（已解决）：该测试原用旧协议
