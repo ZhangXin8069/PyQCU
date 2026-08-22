@@ -8,6 +8,8 @@ MPI 网格管理、HDF5 I/O、线性代数、张量操作、多重网格转移�
 |---|---|
 | `_define.py` | MPI 网格尺寸分解、rank 邻居、奇偶拆分（oooxyzt2poooxyzt/poooxyzt2oooxyzt）、维度重排（ccdxyzt↔ccdptzyx、scxyzt↔psctzyx）、dtype 转换表、设备设置、slice 工具、质因数分解 |
 | `_io.py` | HDF5 I/O（`driver='mpio'` MPI 并行 I/O + 串行 gather/scatter 回退）+ dict 级序列化（`save_dict_h5`/`load_dict_h5`） |
+| `_env.py` | 环境与资源快照（2026-08-22 整合自 logs/dev78_2 与 examples/qcu/dev74）：`git_snapshot`/`gpu_snapshot`/`gpu_used_mb`/`rss_kb`/`nullvec_cache_dir`/`cache_disk_mb`/`dump_env_h5`（写 env.h5 经 save_dict_h5） |
+| `_budget.py` | 显存/RSS/磁盘预算模型（2026-08-22 整合，dev74 主本）：`vram_model`(cold)/`vram_model_warm`/`rss_model`/`disk_cache_bytes`(E 参数化)/`fit_from_bench`(json 实测拟合 α)/`budget_table(mode, vram_gb)`；常量 CONST_PER_V=24192 B/V、α=2.6 KB/V、β=512 MB |
 | `_linalg.py` | 向量点积（`vdot`）与范数（`norm`） |
 | `_einsum.py` | TileLang JIT einsum 内核 — `Eexyzt_exyzt2Exyzt`（可选，try/except 导入） |
 | `_matul.py` | TileLang 矩阵乘内核 `matmul_gpu`/`matmul_cpu`（可选） |
