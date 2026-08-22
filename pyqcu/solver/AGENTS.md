@@ -9,6 +9,7 @@ Dirac 方程 D ψ = η 的迭代求解器。
 | `_bistabcg.py` | BiCGStab(l) 求解器 + `bistabcg_history`（零初始解逐迭代残差历史复现） |
 | `_multigrid.py` | 自适应多重网格 (AMG) V-cycle 求解器，最细层 CUDA 加速 |
 | `_gmres.py` | `fgmres` — FGMRES(m) 右预条件求解器（flexible GMRES，移植自 DDalphaAMG-SM fgmres.cpp） |
+| `_mr.py` | `mr` — MR 最小残差求解器（quda inv_mr 思想，非 Krylov 平滑器；正规方程方向 p=A†r + 步长 ω 阻尼） |
 
 ## 导出 API
 
@@ -38,6 +39,16 @@ matvec/precond 调用前自动 reshape 回输入形状（任意布局兼容）�
 
 实测（RTX 4060 / CPU，4x4x4x8 Wilson D，kappa=0.125，rtol 1e-6）：FGMRES 与 BiStabCG 解
 一致（相对差 ~8e-6），CPU/CUDA 残差一致 9.4e-7。
+
+### `mr(b, matvec, tol=1e-6, max_iter=1000, x0=None, matvec_dag=None, omega=1.0, if_rtol=False, verbose=True, history=None)`
+
+MR 最小残差迭代（quda inv_mr 思想）：`p=A†r; α=ω·<p,p>/<Ap,Ap>; x+=αp; r-=αAp`。
+每迭代一次 A + 一次 A†，内存 O(1) 向量数，作 MG smoother 或粗略预求解。
+**`matvec_dag=None` 默认取 A 自共轭——仅当算子 Hermitian 时正确**（如奇偶 Schur 补；
+Wilson 全算子是 γ₅-Hermitian 非厄米，必须显式传 `matvec_dag = γ₅·A·γ₅`
+（spin 维 diag(1,1,-1,-1)），否则步长错误可发散）。
+c128 实测严格单调收敛（10274 迭代 rel 2.5e-10）；c64 有精度地板（~1e-4 相对），
+平滑器级精度预期。
 
 ### `multigrid` 类
 
