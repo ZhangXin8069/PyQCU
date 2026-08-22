@@ -384,9 +384,14 @@ def cmd_setup(args):
         load_gauge(lat, args.mass, args.atol, verbose=True)
     if args.E > 0:
         device = torch.device("cuda:0")
+        # dev84 指令23: 大体量 setup 先释放非 CudaSchurOp 所需资产
+        del b_full
+        import gc as _gc; _gc.collect(); torch.cuda.empty_cache()
         op = dslash.operator(U=U_full, clover_term=clover_full,
                              kappa=torch.Tensor([kappa]), support_parity=True, verbose=False)
         S = op.matvec_parity
+        del fi
+        _gc.collect(); torch.cuda.empty_cache()
         ensure_nullvec(lat, args.E, args.nvi, op, S, device, verbose=True,
                        cpp_ctx=dict(av=av, g=g, ce=ce, coo=coo, cei=cei, coi=coi, params=p),
                        gen=args.gen, suf=args.nvsuf)
