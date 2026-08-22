@@ -656,3 +656,72 @@ def test_multi_gpu_multigrid(nthreads: int = 2, lat_size: List[int] = [8, 8, 8, 
           f"{nthreads} threads x {len(mg.device_ids)} GPU(s): PASS "
           f"(consistency tol={tol})")
     return results, consistency
+
+
+def verify_nullvecs(S, lonv, lat_fine: List[int], lat_coarse: List[int],
+                    n_sample: int = 4, stencil=None, verbose: bool = False):
+    """null 向量质量四重诊断。
+
+    整合自 logs/test11/main.py::verify_nullvecs 与
+    examples/qcu/dev73/mg_dev73_5_verify.py::verify_nullvecs：
+    粗算子构建（tools.build_stencil*/give_null_vecs*）后的标准验收工具。
+
+    Args:
+        S: 细层算子可调用（[E_prev]+lat_fine → 同形，如奇偶 Schur 算子）
+        lonv: 局部正交 null 向量组 [E, E_prev, *lat_fine]（全局细格子布局）
+        lat_fine / lat_coarse: 细/粗格子 [X, Y, Z, T]
+        n_sample: 近零性抽样检查的向量数
+        stencil: 可选 (hnn, hdg, sit) 33-tensor 粗层 stencil；提供时追加
+                 Galerkin 一致性检查 A_c ≈ Pᵀ S P（tools.apply_stencil 对照）
+
+    Returns:
+        dict：null_ratios（||S v||/||v||，越小越近零空间）、
+              S_lambda_max（幂迭代谱半径估计）、
+              ortho_offdiag_max / ortho_diag_min / ortho_diag_max（块内 Gram 矩阵，
+              理想 0 / 1 / 1）、galerkin_rel_diff（仅提供 stencil 时，fp32 ~1e-5 内）
+    """
+    dt, device = lonv.dtype, lonv.device
+    E, E_prev = lonv.shape[0], lonv.shape[1]
+    out = {}
+    ratios = []
+    for k in range(min(n_sample, E)):
+        v = lonv[k]
+        Av = S(v.reshape([E_prev] + list(lat_fine)))
+        ratios.append(float(torch.linalg.norm(Av) / torch.linalg.norm(lonv[k])))
+    out["null_ratios"] = ratios
+
+    v = _torch.randn(size=[E_prev] + list(lat_fine), dtype=dt, device=device)
+    v = v / torch.linalg.norm(v)
+    _real_dt = torch.float32 if dt == torch.complex64 else torch.float64
+    lam = torch.tensor(0.0, dtype=_real_dt, device=device)
+    for _ in range(20):
+        w = S(v).flatten()
+        vf = v.flatten()
+        lam = torch.real(torch.vdot(w, vf))
+        v = w.reshape(v.shape) / torch.linalg.norm(w)
+    out["S_lambda_max"] = abs(float(lam))
+
+    X, Y, Z, T = lat_coarse
+    x, y, z, t = [lat_fine[d] // lat_coarse[d] for d in range(4)]
+    vb = lonv.reshape(E, E_prev, X, x, Y, y, Z, z, T, t)
+    block = vb[:, :, 0, :, 0, :, 0, :, 0, :].reshape(E, -1)
+    G = block @ block.conj().T
+    off = G - torch.eye(E, dtype=dt, device=device)
+    out["ortho_offdiag_max"] = float(off.abs().max().item())
+    out["ortho_diag_min"] = float(torch.diag(G).real.min().item())
+    out["ortho_diag_max"] = float(torch.diag(G).real.max().item())
+
+    if stencil is not None:
+        hnn, hdg, sit = stencil
+        src_c = _torch.randn(size=[E, X, Y, Z, T], dtype=dt, device=device)
+
+        def Ac(v):
+            f = tools.prolong(local_ortho_null_vecs=lonv, coarse_vec=v)
+            return tools.restrict(local_ortho_null_vecs=lonv, fine_vec=S(f))
+        ref = Ac(src_c)
+        cu = tools.apply_stencil(hnn, hdg, sit, src_c)
+        out["galerkin_rel_diff"] = float((cu - ref).abs().max().item() /
+                                         (ref.abs().max().item() + 1e-30))
+    if verbose:
+        print(f"PYQCU::TESTING::NULLVEC:\n {out}")
+    return out

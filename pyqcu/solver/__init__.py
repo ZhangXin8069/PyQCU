@@ -1,4 +1,6 @@
 from ._bistabcg import bistabcg as bistabcg
+from ._bistabcg import bistabcg_history as bistabcg_history
+from ._gmres import fgmres as fgmres
 from ._multigrid import multigrid as multigrid
 from argparse import Namespace
 Namespace.__module__ = "pyqcu.solver"

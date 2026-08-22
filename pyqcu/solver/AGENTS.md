@@ -6,19 +6,38 @@ Dirac 方程 D ψ = η 的迭代求解器。
 
 | 文件 | 用途 |
 |---|---|
-| `_bistabcg.py` | BiCGStab(l) 求解器 |
+| `_bistabcg.py` | BiCGStab(l) 求解器 + `bistabcg_history`（零初始解逐迭代残差历史复现） |
 | `_multigrid.py` | 自适应多重网格 (AMG) V-cycle 求解器，最细层 CUDA 加速 |
-| `_gmres.py` | GMRES 求解器 — **占位 stub，未实现** |
+| `_gmres.py` | `fgmres` — FGMRES(m) 右预条件求解器（flexible GMRES，移植自 DDalphaAMG-SM fgmres.cpp） |
 
 ## 导出 API
 
-### `bistabcg(b, matvec, tol=1e-6, max_iter=1000, x0=None, if_rtol=False, verbose=True)`
+### `bistabcg(b, matvec, tol=1e-6, max_iter=1000, x0=None, if_rtol=False, verbose=True, history=None)`
 
-标准 BiCGStab。`matvec` 为可调用对象 `matvec(src) → dest`。
+标准 BiCGStab。`matvec` 为可调用对象 `matvec(src) → dest`。`history` 传入 list 时逐迭代追加
+`float(||r||)`（含初始 ||r0||，共 max_iter+1 条以内）——供收敛曲线绘制与 h5 持久化。
 
 **Breakdown 检测（R2 增加）**：`rho ≈ 0`、`vdot(r_tilde, v) ≈ 0`（pivot breakdown）、`vdot(t, t) ≈ 0` 时抛 `RuntimeError`。
 
 **容差**：`if_rtol=True` 用 `tol * ||b||`；否则绝对 `tol`。
+
+### `bistabcg_history(b, matvec, tol=1e-6, max_iter=2000, if_rtol=False) -> List[float]`
+
+零初始解复现 BiCGStab 逐迭代残差历史 `[||r0||, ||r1||, ...]`（整合自 logs/dev78_2 与
+examples/qcu/dev73 的同名函数）。用途：C++ 求解路径只输出收敛点，用同一 matvec 在
+torch 上数学等价复现参考收敛曲线（零 C++ 改动）。breakdown 时返回已收集部分并打印
+提示（不抛异常，画图友好）。
+
+### `fgmres(b, matvec, tol=1e-6, max_iter=1000, restart=30, x0=None, precond=None, if_rtol=False, verbose=True, history=None)`
+
+FGMRES(m)：右预条件广义极小残量（flexible GMRES），`precond` 可逐迭代变化（SAP/MG
+smoother 等非常数预条件）；`precond=None` 退化为标准 GMRES(m)。算法：Arnoldi MGS 正交化 +
+复 Givens 旋转 + 上三角回代 + 重启（DDalphaAMG-SM 移植）。`history` 语义：内迭代追加残差
+估计 `|g[j+1]|`，每重启周期末追加真实残差 `||b-Ax||`。Krylov 基存储为展平向量，
+matvec/precond 调用前自动 reshape 回输入形状（任意布局兼容）。
+
+实测（RTX 4060 / CPU，4x4x4x8 Wilson D，kappa=0.125，rtol 1e-6）：FGMRES 与 BiStabCG 解
+一致（相对差 ~8e-6），CPU/CUDA 残差一致 9.4e-7。
 
 ### `multigrid` 类
 

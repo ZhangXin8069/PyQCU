@@ -7,7 +7,7 @@ MPI 网格管理、HDF5 I/O、线性代数、张量操作、多重网格转移�
 | 文件 | 用途 |
 |---|---|
 | `_define.py` | MPI 网格尺寸分解、rank 邻居、奇偶拆分（oooxyzt2poooxyzt/poooxyzt2oooxyzt）、维度重排（ccdxyzt↔ccdptzyx、scxyzt↔psctzyx）、dtype 转换表、设备设置、slice 工具、质因数分解 |
-| `_io.py` | HDF5 I/O（`driver='mpio'` MPI 并行 I/O + 串行 gather/scatter 回退） |
+| `_io.py` | HDF5 I/O（`driver='mpio'` MPI 并行 I/O + 串行 gather/scatter 回退）+ dict 级序列化（`save_dict_h5`/`load_dict_h5`） |
 | `_linalg.py` | 向量点积（`vdot`）与范数（`norm`） |
 | `_einsum.py` | TileLang JIT einsum 内核 — `Eexyzt_exyzt2Exyzt`（可选，try/except 导入） |
 | `_matul.py` | TileLang 矩阵乘内核 `matmul_gpu`/`matmul_cpu`（可选） |
@@ -80,3 +80,13 @@ MPI 网格管理、HDF5 I/O、线性代数、张量操作、多重网格转移�
   每次调用独立 File 句柄（with 语句），多线程安全；null-vector/粗网格算子缓存 `.h5` 用。
 - 多 dataset 缓存须**单句柄一次写完**（`with h5py.File(f,'w') as f: create_dataset(...)` 多个），
   逐 dataset 用 'w' 模式会覆盖重建文件导致前序 dataset 丢失。
+
+### dict 级 HDF5 序列化（`_io.py`，2026-08-22 整合自 logs/dev78_2）
+
+- `save_dict_h5(path, d, verbose)` / `load_dict_h5(path, verbose) -> dict|list` —
+  嵌套 dict（标量/bool/complex/str/None/list/tuple/ndarray/Tensor/嵌套 dict/dict 列表）
+  ↔ .h5；单句柄 tmp + `os.replace` 原子替换，多线程安全。
+- 编码：标量/字符串 → attrs（np.generic 先 `.item()`）；数组/数值列表 → dataset `d_<key>`；
+  变长数值列表 → vlen f8；**字符串列表 → vlen utf-8**（h5py 无定长 unicode 转换路径）；
+  dict 列表 → 数字 key 子组，读取对称还原为 list。
+- **往返对称**：读取自动剥 `d_` 前缀（dev78_2 原版需消费方自行剥，库级已修复）。
