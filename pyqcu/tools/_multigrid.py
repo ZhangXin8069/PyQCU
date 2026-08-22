@@ -33,8 +33,13 @@ def give_null_vecs(
             null_vecs[i] -= bistabcg(b=matvec(null_vecs[i]),
                                      tol=5e-5, verbose=verbose)
         else:
+            # dev84 修复: nv_tol/tol 此前为绝对容差语义 —— 大格子上 ‖Av‖~O(10²-10³)
+            # 时 5e-5 绝对值近似精确解, v-A⁻¹(Av)≈舍入噪声, 归一化后得到的是
+            # 随机向量而非近零模 (实测 ‖Sv‖/‖v‖≈0.4≈谱 RMS, ρ_V≈0.976,
+            # 见 examples/qcu/dev84/dev84_report.md §3.2)。改相对容差。
             null_vecs[i] -= solver.bistabcg(b=matvec(null_vecs[i]),
-                                            matvec=matvec, tol=5e-5, verbose=verbose)
+                                            matvec=matvec, tol=5e-5,
+                                            if_rtol=True, verbose=verbose)
         if ortho_null_vecs:
             # Gram-Schmidt orthogonalization of null_vecs (same optimization).
             for j in range(0, i):
@@ -278,13 +283,15 @@ PAIRS = [(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]  # (d1,d2) with d1<d2
 SIGN = [1, -1]
 
 
-def _bistabcg_batch(b_batch, matvec_batch, tol=1e-2, max_iter=2000):
+def _bistabcg_batch(b_batch, matvec_batch, tol=1e-2, max_iter=2000,
+                    if_rtol=False):
     """批量 BiCGStab：同时对 batch 维（B）内的全部右端求解。
 
     b_batch: [B, e, X, Y, Z, T/2]；matvec_batch: 批量 matvec（同形 → 同形）。
     标量（rho/alpha/omega/beta）按批独立（[B] 向量），迭代直到全部批次收敛
     或 max_iter。breakdown（rho/rtv/tts≈0）批次用 eps 保护避免除零，
     最终未收敛批次由调用方回退随机（与 give_null_vecs_mt 语义一致）。
+    if_rtol=True 时 tol 为相对容差（以各批初始 ‖b‖ 为基准）。
     2026-08-15：null 向量生成批量化 —— 16x16x16x32 lv2 的 48 个右端
     （196608 未知数）一次迭代（C++ 逐场 40min+ → torch 批量分钟级）。
     """
@@ -292,7 +299,14 @@ def _bistabcg_batch(b_batch, matvec_batch, tol=1e-2, max_iter=2000):
     x = torch.zeros_like(b_batch)
     r = b_batch.clone()
     r_norm = torch.linalg.norm(r.reshape(B, -1), dim=1)
-    if bool((r_norm < tol).all()):
+    b_norm = r_norm.clone()
+    if if_rtol:
+        conv_tol = tol * torch.clamp(b_norm, min=1e-30)
+        conv_tol = torch.where(b_norm < 1e-30, torch.zeros_like(conv_tol),
+                               conv_tol)
+    else:
+        conv_tol = torch.full_like(r_norm, tol)
+    if bool((r_norm < conv_tol).all()):
         return x
     r_tilde = r.clone()
     p = torch.zeros_like(b_batch)
@@ -327,7 +341,7 @@ def _bistabcg_batch(b_batch, matvec_batch, tol=1e-2, max_iter=2000):
         x = x + alpha.view(bc) * p + omega.view(bc) * s
         r = s - omega.view(bc) * t
         r_norm = torch.linalg.norm(r.reshape(B, -1), dim=1)
-        if bool((r_norm < tol).all()):
+        if bool((r_norm < conv_tol).all()):
             break
     return x
 
@@ -351,10 +365,14 @@ def give_null_vecs_mt(matvec_ops, dof, e, lat_fine_odd, dtype, device,
     归一化。返回 [dof, e]+lat_fine_odd 张量（device 上）。
     多线程安全性：每线程独立 CUDA RNG generator（避免全局 RNG 竞争产生相关
     随机序列导致 BiCGStab 病态）；breakdown/nan 时重采样重试，最终回退随机向量。
-    nv_tol: null 向量 BiCGStab 解容差。null 向量只需近似近零空间（逆迭代的
-    收敛要求远低于最终求解 atol），2026-08-15 实测 5e-5 在粗层大系统
-    （16x16x16x32 lv2，196608 未知数）上迭代爆炸（>34min 未完成）；
-    放宽至 1e-2 显著加速，粗算子质量足够（MG 收敛由细层平滑保证）。
+    nv_tol: null 向量 BiCGStab 解容差（dev84 起为**相对**容差，if_rtol=True）。
+    null 向量只需近似近零空间（逆迭代的收敛要求远低于最终求解 atol），
+    2026-08-15 实测 5e-5 在粗层大系统（16x16x16x32 lv2，196608 未知数）上
+    迭代爆炸（>34min 未完成）；放宽至 1e-2 显著加速，粗算子质量足够
+    （MG 收敛由细层平滑保证）。
+    dev84 教训：此前 nv_tol 为绝对容差 —— 大格子上 ‖Av‖~O(10²-10³) 时它近似
+    精确逆，v-A⁻¹(Av)≈舍入噪声，归一化后得到随机向量（‖Sv‖/‖v‖≈谱 RMS，
+    ρ_V≈0.976，粗空间无效）；改相对容差后逆迭代真正按 λ⁻¹ 富集低模。
     batch_matvec: 可选批量 matvec（[B,e,...] → 同形）。给定时全部 dof 个
     右端一次批量 BiCGStab（_bistabcg_batch）——16x16x16x32 等大格子
     null 向量从逐场 C++（40min+）提速至分钟级。
@@ -379,7 +397,10 @@ def give_null_vecs_mt(matvec_ops, dof, e, lat_fine_odd, dtype, device,
             try:
                 for _ in range(nv_iters):
                     # 与单线程 give_null_vecs 一致的语义；容差见 nv_tol 说明。
-                    v = v - solver.bistabcg(b=mv(v), matvec=mv, tol=nv_tol, verbose=False)
+                    # dev84: if_rtol=True — nv_tol 为相对容差 (修复绝对容差
+                    # 在大格子上退化为精确逆→噪声向量的问题, 见报告 §3.2)。
+                    v = v - solver.bistabcg(b=mv(v), matvec=mv, tol=nv_tol,
+                                            if_rtol=True, verbose=False)
                 nrm = torch.linalg.norm(v)
                 if not torch.isfinite(v).all() or float(nrm) == 0.0:
                     continue
@@ -412,7 +433,9 @@ def give_null_vecs_mt(matvec_ops, dof, e, lat_fine_odd, dtype, device,
             vb = torch.randn([c1 - c0, e] + list(lat_fine_odd), dtype=dtype,
                              device=device)
             for _ in range(nv_iters):
-                xb = _bistabcg_batch(batch_matvec(vb), batch_matvec, tol=nv_tol)
+                # dev84: 相对容差 — 以各批次初始 ‖r‖ 为基准
+                xb = _bistabcg_batch(batch_matvec(vb), batch_matvec,
+                                     tol=nv_tol, if_rtol=True)
                 vb = vb - xb
             nrm = torch.linalg.norm(vb.reshape(c1 - c0, -1), dim=1)
             nrm = torch.clamp(nrm, min=1e-30)
