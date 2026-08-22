@@ -116,6 +116,181 @@ __global__ void coarse_dot_reduce_kernel(const LatticeComplex<T> *partials,
   if (idx == 0) out[0] = sdata[0];
 }
 
+// ====================================================================
+// dev84: DEVICE-SIDE CG scalars for the MG smoother (apply_mg_prec).
+// --------------------------------------------------------------------
+// The previous smoother read rr/pv to the host once per CG step (2 host
+// syncs × μ_pre steps per V-cycle ≈ several ms of pure latency).  These
+// kernels keep α/β/rr entirely in device_vals — the smoother loop then
+// runs with ZERO host syncs (fixed step count, quda Nsteps semantics).
+//   _tmp0_     : rr        (<r,r>, real)
+//   _tmp1_     : pv        (<p,Ap>, real)
+//   _rho_prev_ : rr_prev   (for β, free in the smoother context)
+//   _alpha_    : α = rr/pv
+//   _beta_     : β = rr_new/rr
+// ====================================================================
+template <typename T>
+__global__ void mg_cg_give_alpha(LatticeComplex<T> *dv) {
+  if (threadIdx.x == 0 && blockIdx.x == 0) {
+    T pv = dv[_tmp1_].real();
+    if (pv < (T)0) pv = -pv;
+    if (pv < (T)1e-30) { LatticeComplex<T> z((T)0, (T)0); dv[_alpha_] = z; }
+    else {
+      LatticeComplex<T> a(dv[_tmp0_].real() / pv, (T)0);
+      dv[_alpha_] = a;
+    }
+  }
+}
+
+template <typename T>
+__global__ void mg_cg_update_xr(LatticeComplex<T> *x, const LatticeComplex<T> *p,
+                                LatticeComplex<T> *r, const LatticeComplex<T> *ap,
+                                const LatticeComplex<T> *dv, int n) {
+  size_t i = blockIdx.x * (size_t)blockDim.x + threadIdx.x;
+  if (i >= (size_t)n) return;
+  LatticeComplex<T> al = dv[_alpha_];
+  x[i] = x[i] + al * p[i];
+  r[i] = r[i] - al * ap[i];
+}
+
+template <typename T>
+__global__ void mg_cg_give_beta(LatticeComplex<T> *dv) {
+  if (threadIdx.x == 0 && blockIdx.x == 0) {
+    LatticeComplex<T> rrn = dv[_tmp0_], rrp = dv[_rho_prev_];
+    T denom = rrp.real();
+    LatticeComplex<T> b((T)0, (T)0);
+    if (denom > (T)1e-30) b = LatticeComplex<T>(rrn.real() / denom, (T)0);
+    dv[_beta_] = b;
+    dv[_rho_prev_] = rrn;   // rr_prev <- rr_new
+  }
+}
+
+template <typename T>
+__global__ void mg_cg_update_p(LatticeComplex<T> *p, const LatticeComplex<T> *r,
+                               const LatticeComplex<T> *dv, int n) {
+  size_t i = blockIdx.x * (size_t)blockDim.x + threadIdx.x;
+  if (i >= (size_t)n) return;
+  p[i] = r[i] + dv[_beta_] * p[i];
+}
+
+// ====================================================================
+// dev84: GUARDED BiCGStab scalar updates for the SYNC-FREE coarse solve.
+// --------------------------------------------------------------------
+// The coarse Schur operator A_c = Pᵀ S P of a Clover-Wilson Dirac is only
+// γ5-Hermitian (S† = γ5 S γ5), NOT Hermitian — measured on 16x32x32x48:
+// plain CG DIVERGES there (residual 6084 after 200 steps vs ‖rhs‖≈878),
+// so BiCGStab remains the right algorithm class.  But a FIXED-STEP
+// sync-free BiCGStab iterates far past convergence where ρ→0 breaks down
+// (β = ρ/ρ_prev · α/ω → 0/0 NaN poisoning x_c).  These variants clamp
+// every scalar against the stored problem scale (‖b‖² stashed in
+// _diff2_tmp_) and against NaN/Inf, turning post-convergence iterations
+// into harmless no-ops — the host never reads anything mid-solve.
+//   scale units: dots entering these kernels are all ⟨·,·⟩ ~ ‖b‖².
+//   thresholds : 1e-13·scale (double) — well below useful signal, far
+//                above the fp64 denormal floor.
+// ====================================================================
+template <typename T> __device__ inline bool mg_bad(T re, T im) {
+  return !((re == re) && (im == im) && fabs(re) != INFINITY &&
+           fabs(im) != INFINITY);
+}
+
+template <typename T>
+__global__ void mg_give_1beta(LatticeComplex<T> *vals) {
+  if (threadIdx.x == 0 && blockIdx.x == 0) {
+    LatticeComplex<T> scale = vals[_diff2_tmp_];
+    T sc = scale.real();
+    LatticeComplex<T> rho = vals[_rho_], rp = vals[_rho_prev_];
+    LatticeComplex<T> al = vals[_alpha_], om = vals[_omega_];
+    bool bad = sc <= (T)0 ||
+               mg_bad<T>(rho.real(), rho.imag()) ||
+               mg_bad<T>(rp.real(), rp.imag()) ||
+               mg_bad<T>(al.real(), al.imag()) ||
+               mg_bad<T>(om.real(), om.imag());
+    T mag_rho = fabs(rho.real()) + fabs(rho.imag());
+    if (bad || mag_rho < (T)1e-13 * sc) {
+      vals[_beta_] = LatticeComplex<T>((T)0, (T)0);
+      vals[_rho_prev_] = LatticeComplex<T>((T)1, (T)0);
+    } else {
+      vals[_beta_] = (rho / rp) * (al / om);
+    }
+  }
+}
+
+template <typename T>
+__global__ void mg_give_1alpha(LatticeComplex<T> *vals) {
+  if (threadIdx.x == 0 && blockIdx.x == 0) {
+    LatticeComplex<T> scale = vals[_diff2_tmp_];
+    T sc = scale.real();
+    LatticeComplex<T> d = vals[_tmp0_];   // <r_tilde, v>
+    bool bad = sc <= (T)0 || mg_bad<T>(d.real(), d.imag());
+    if (bad || fabs(d.real()) + fabs(d.imag()) < (T)1e-13 * sc) {
+      vals[_alpha_] = LatticeComplex<T>((T)0, (T)0);
+    } else {
+      vals[_alpha_] = vals[_rho_] / d;
+    }
+  }
+}
+
+template <typename T>
+__global__ void mg_give_1omega(LatticeComplex<T> *vals) {
+  if (threadIdx.x == 0 && blockIdx.x == 0) {
+    LatticeComplex<T> scale = vals[_diff2_tmp_];
+    T sc = scale.real();
+    LatticeComplex<T> num = vals[_tmp0_];   // <t,s>
+    LatticeComplex<T> den = vals[_tmp1_];   // <t,t>
+    bool bad = sc <= (T)0 || mg_bad<T>(num.real(), num.imag()) ||
+               mg_bad<T>(den.real(), den.imag());
+    if (bad || fabs(den.real()) + fabs(den.imag()) < (T)1e-13 * sc) {
+      vals[_omega_] = LatticeComplex<T>((T)0, (T)0);
+    } else {
+      vals[_omega_] = num / den;
+    }
+  }
+}
+
+// dev84 kernel-count diet: β-update + ρ_prev←ρ fused (was 2 launches).
+template <typename T>
+__global__ void mg_give_1beta_rp(LatticeComplex<T> *vals) {
+  if (threadIdx.x == 0 && blockIdx.x == 0) {
+    LatticeComplex<T> scale = vals[_diff2_tmp_];
+    T sc = scale.real();
+    LatticeComplex<T> rho = vals[_rho_], rp = vals[_rho_prev_];
+    LatticeComplex<T> al = vals[_alpha_], om = vals[_omega_];
+    bool bad = sc <= (T)0 ||
+               mg_bad<T>(rho.real(), rho.imag()) ||
+               mg_bad<T>(rp.real(), rp.imag()) ||
+               mg_bad<T>(al.real(), al.imag()) ||
+               mg_bad<T>(om.real(), om.imag());
+    T mag_rho = fabs(rho.real()) + fabs(rho.imag());
+    if (bad || mag_rho < (T)1e-13 * sc) {
+      vals[_beta_] = LatticeComplex<T>((T)0, (T)0);
+      vals[_rho_prev_] = LatticeComplex<T>((T)1, (T)0);
+    } else {
+      vals[_beta_] = (rho / rp) * (al / om);
+      vals[_rho_prev_] = rho;
+    }
+  }
+}
+
+// dev84 kernel-count diet: r = s − ω·t  and  x += α·p + ω·s  fused (was 2
+// launches over the same index space).
+template <typename T>
+__global__ void mg_give_rx(LatticeComplex<T> *r, const LatticeComplex<T> *s,
+                           const LatticeComplex<T> *t, LatticeComplex<T> *x,
+                           const LatticeComplex<T> *p,
+                           const LatticeComplex<T> *dv, int n4) {
+  // n4 counts _LAT_SC_-element groups (site-grid convention of give_r/give_x_o)
+  int i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i >= n4) return;
+  LatticeComplex<T> om = dv[_omega_], al = dv[_alpha_];
+  size_t base = (size_t)i * _LAT_SC_;
+  for (int k = 0; k < _LAT_SC_; k++) {
+    size_t j = base + k;
+    r[j] = s[j] - om * t[j];
+    x[j] = x[j] + al * p[j] + om * s[j];
+  }
+}
+
 // ---- Logging infrastructure ----
 inline void ensure_log_dir() {
   struct stat st;
@@ -150,6 +325,10 @@ template <typename T> struct MgLevelState {
   size_t vec_sz;
   bool owned;        // true = buffers allocated by us, false = external (level 0)
   bool is_fullsite;  // true = this level operates on FULL-site vectors (no parity)
+  bool has_solution; // true = x holds a usable previous solution (warm start)
+  T r0_ref = 0;      // dev84: ||r|| of the FIRST solve at this level — the
+                     // absolute anchor for the relative tolerance (warm-start
+                     // cycles would otherwise chase an ever-shrinking target)
   int max_iter;      // per-level max iterations
   T tol;             // per-level tolerance
   int num_restart;   // per-level restart interval for coarse correction
@@ -168,6 +347,7 @@ template <typename T> struct MgLevelState {
     owned=true;
     checkCudaErrors(cudaMemsetAsync(x,  0, nbytes, stream));
     checkCudaErrors(cudaMemsetAsync(rhs,0, nbytes, stream));
+    has_solution=false;
   }
   void free_all(cudaStream_t stream) {
     if(!owned) return;
@@ -260,6 +440,59 @@ template <typename T> struct LatticeCloverMultigrid {
   double prof_coarse_dslash_ms = 0;   // wide coarse dslash kernels
   double prof_coarse_dot_ms = 0;      // coarse dot products
   double prof_coarse_vec_ms = 0;      // coarse vector kernels
+
+  // dev84: cached fine-site value of dv[_lat_4dim_] so v_cycle() need not do
+  // a BLOCKING D2H memcpy on every entry (the patched value is always the
+  // same level-0 volume within one solve).
+  bool lat4_cache_valid = false;
+  double lat4_cached = 0;
+  // dev84 CUDA-GRAPH segment replay: on this WSL2 box a kernel launch costs
+  // ~75 µs host-side and a stream sync flushes the WHOLE queued backlog
+  // (nvprof: sync cost grew from 38 ms to 531 ms as queue depth grew).  We
+  // capture SEG=8 coarse BiCGStab iterations into a graph once per level and
+  // REPLAY it between host residual checks — launch overhead collapses ~100×
+  // and each check sees a shallow queue.  Single-rank only (multi-rank dslash
+  // contains blocking MPI, not capturable).
+  static const int GRAPH_SEG = 8;
+  bool graph_ready[8] = {};
+  cudaGraph_t graph[8] = {};
+  cudaGraphExec_t graph_exec[8] = {};
+
+  void coarse_graph_ensure(int lev) {
+    if (mg_multi || graph_ready[lev]) return;
+    cudaStream_t S = set_ptr->stream;
+    checkCudaErrors(cudaStreamBeginCapture(S, cudaStreamCaptureModeThreadLocal));
+    for (int i = 0; i < GRAPH_SEG; i++) bistabcg_iter_coarse(lev, false);
+    cudaGraph_t g = nullptr;
+    checkCudaErrors(cudaStreamEndCapture(S, &g));
+    checkCudaErrors(cudaGraphInstantiate(&graph_exec[lev], g, nullptr, nullptr, 0));
+    graph[lev] = g;
+    graph_ready[lev] = true;
+  }
+
+  void coarse_graph_run(int lev, int n_iter) {
+    if (mg_multi || !graph_ready[lev]) {
+      for (int i = 0; i < n_iter; i++) bistabcg_iter_coarse(lev, false);
+      return;
+    }
+    for (int r = 0; r < n_iter / GRAPH_SEG; r++)
+      checkCudaErrors(cudaGraphLaunch(graph_exec[lev], set_ptr->stream));
+    for (int r = 0; r < n_iter % GRAPH_SEG; r++) bistabcg_iter_coarse(lev, false);
+  }
+
+  int prof_n_coarse_iters = 0;   // dev84: total coarse BiStabCG iterations
+  double prof_check_ms = 0;      // dev84: time inside block residual checks
+  int prof_n_checks = 0;         // dev84: number of block residual checks
+  double prof_ck_kernel_ms = 0;  // dev84: check breakdown — dot-kernel launch
+  double prof_ck_d2h_ms = 0;     // dev84: check breakdown — memcpy enqueue
+  double prof_ck_sync_ms = 0;    // dev84: check breakdown — stream sync
+  long mg_cycle_counter = 0;     // dev84: V-cycle counter for safety-check cadence
+  // dev84 zero-copy staging: dot results land directly in host-visible pinned
+  // memory (cudaHostAllocMapped) — no cudaMemcpyAsync D2H anywhere in the
+  // coarse path.  [0]=residual norm²  [1]=cold-solve ‖rhs‖²
+  LatticeComplex<T> *check_host = nullptr;   // host-visible
+  void *check_dev = nullptr;                 // device alias of the same pages
+
 
   void give(LatticeSet<T> *_s) {
     set_ptr=_s; wilson_dslash.give(_s);
@@ -623,6 +856,61 @@ template <typename T> struct LatticeCloverMultigrid {
   }
 
   // ==================================================================
+  // dev84: coarse-level dot into a device_vals slot — NO host sync.
+  // Shared by bistabcg_iter_coarse() and coarse_resid_norm().  Multi-block
+  // path for n ≥ 65536 (dev76), single-block otherwise.  In the redundant-
+  // global multi-rank model all ranks compute bitwise-identical partials
+  // (replicated data, deterministic kernels), so no MPI Allreduce is needed
+  // here — matching the existing iteration semantics.
+  // ==================================================================
+  void coarse_dot_slot(int lev, const LatticeComplex<T>* a,
+                       const LatticeComplex<T>* b, int slot) {
+    coarse_dot_dest(lev, a, b,
+        &static_cast<LatticeComplex<T>*>(set_ptr->device_vals)[slot]);
+  }
+
+  // dev84: same dot with an EXPLICIT destination — used to write results into
+  // zero-copy mapped host memory (bypasses cudaMemcpyAsync D2H entirely; on
+  // this WSL2 box each D2H memcpyAsync enqueue costs ~40 ms!).
+  void coarse_dot_dest(int lev, const LatticeComplex<T>* a,
+                       const LatticeComplex<T>* b, LatticeComplex<T>* dest) {
+    cudaStream_t S = set_ptr->stream;
+    const int n = (int)levels[lev].vec_sz;
+    // dev84: SINGLE-BLOCK dot for everything below ~1M elements.  On this box
+    // each kernel execution costs ~300 µs GPU-side regardless of work, so the
+    // 2-kernel multi-block path (partials + reduce) always loses to one
+    // 1-block grid-stride kernel (~125 µs of memory traffic at n=294912).
+    if (n >= 1048576) {
+      int nblk = (n + 255) / 256; if (nblk > 256) nblk = 256;
+      coarse_dot_kernel_multi<T, 256><<<nblk, 256, 0, S>>>(
+          a, b, n, static_cast<LatticeComplex<T>*>(coarse_partials));
+      coarse_dot_reduce_kernel<T, 256><<<1, 256, 0, S>>>(
+          static_cast<const LatticeComplex<T>*>(coarse_partials), nblk, dest);
+    } else {
+      coarse_dot_kernel<T, 256><<<1, 256, 0, S>>>(a, b, n, dest);
+    }
+  }
+
+  // Host-visible ||r|| at a coarse level: ONE dot + ONE D2H + ONE sync.
+  // Used by the block-checked coarse solve loop (every check_every iters).
+  T coarse_resid_norm(int lev) {
+    auto &st = levels[lev];
+    cudaStream_t S = set_ptr->stream;
+    auto k0=std::chrono::high_resolution_clock::now();
+    coarse_dot_dest(lev, static_cast<const LatticeComplex<T>*>(st.r),
+                    static_cast<const LatticeComplex<T>*>(st.r),
+                    static_cast<LatticeComplex<T>*>(check_dev));
+    auto k1=std::chrono::high_resolution_clock::now();
+    checkCudaErrors(cudaStreamSynchronize(S));
+    auto k2=std::chrono::high_resolution_clock::now();
+    prof_ck_kernel_ms += std::chrono::duration<double,std::milli>(k1-k0).count();
+    prof_ck_sync_ms += std::chrono::duration<double,std::milli>(k2-k1).count();
+    T g = check_host[0].real();
+    return sqrt(g < (T)0 ? (T)0 : g);
+  }
+
+
+  // ==================================================================
   // BiStabCG iteration — EXACT sync pattern of BistabCg::_run()
   //
   // Convergence residual (||r||²) is written to host_vals[_norm2_tmp_]
@@ -646,8 +934,14 @@ template <typename T> struct LatticeCloverMultigrid {
    *     directly into device_vals (no cublas, no per-dot memcpy),
    *   - mirrors the convergence norm to host only ONCE per iteration.
    * Semantics match the standard BiStabCG exactly (r_tilde, p/v/s/t, scalars).
+   *
+   * dev84: with_norm=false skips step 10 entirely (no ||r||² dot, no D2H, no
+   * sync) — the caller then checks the residual every `check_every` iterations
+   * via coarse_resid_norm() instead of every iteration.  On 16x32x32x48 the
+   * coarse solve is ~100 iterations × ~1.3 ms of pure host-sync latency; block
+   * checking removes ≥7/8 of that sync cost while keeping the breakdown guard.
    */
-  void bistabcg_iter_coarse(int lev) {
+  void bistabcg_iter_coarse(int lev, bool with_norm = true) {
     auto &st=levels[lev]; cudaStream_t S=set_ptr->stream;
     LatticeComplex<T> *dv=static_cast<LatticeComplex<T>*>(set_ptr->device_vals);
     dim3 gv=site_grid(lev), bv=dim3(_BLOCK_SIZE_);
@@ -657,33 +951,24 @@ template <typename T> struct LatticeCloverMultigrid {
     // 2026-08-15 dev76: multi-block dot for large coarse vectors
     // (single-block serial reduction dominated the coarse solve on
     //  16x16x16x32 lv1 = 196608 elements).
-    const int n = (int)st.vec_sz;
-    const bool mb = (n >= 65536);
-    int nblk = (n + 255) / 256; if (nblk > 256) nblk = 256;
+    // dev84: shared by coarse_resid_norm() via coarse_dot_slot().
     auto cdot = [&](const LatticeComplex<T>* a, const LatticeComplex<T>* b,
-                    int slot) {
-      if (mb) {
-        coarse_dot_kernel_multi<T, 256><<<nblk, 256, 0, S>>>(
-            a, b, n, static_cast<LatticeComplex<T>*>(coarse_partials));
-        coarse_dot_reduce_kernel<T, 256><<<1, 256, 0, S>>>(
-            static_cast<const LatticeComplex<T>*>(coarse_partials), nblk, &dv[slot]);
-      } else {
-        coarse_dot_kernel<T, 256><<<1, 256, 0, S>>>(a, b, n, &dv[slot]);
-      }
-    };
+                    int slot) { coarse_dot_slot(lev, a, b, slot); };
 
     // 1. rho = <r_tilde, r>
     cdot(rt, r, _rho_);
     // 2. beta = (rho/rho_prev)*(alpha/omega);  rho_prev = rho
-    bistabcg_give_1beta<T><<<1,1,0,S>>>(dv);
-    bistabcg_give_1rho_prev<T><<<1,1,0,S>>>(dv);
+    //    dev84: GUARDED variants — post-convergence ρ→0 breakdown clamped to
+    //    β=0 instead of 0/0 NaN (fixed-step sync-free loop never checks host).
+    //    dev84 kernel-count diet: β+ρ_prev fused into one launch.
+    mg_give_1beta_rp<T><<<1,1,0,S>>>(dv);
     // 3. p = r + beta*(p - omega*v)
     bistabcg_give_p<T><<<gv,bv,0,S>>>(st.p, st.r, st.v, dv);
     // 4. v = A_c·p
     coarse_dslash_op(st.v, st.p, lev);
     // 5. alpha = rho / <r_tilde, v>
     cdot(rt, static_cast<const LatticeComplex<T>*>(st.v), _tmp0_);
-    bistabcg_give_1alpha<T><<<1,1,0,S>>>(dv);
+    mg_give_1alpha<T><<<1,1,0,S>>>(dv);
     // 6. s = r - alpha*v
     bistabcg_give_s<T><<<gv,bv,0,S>>>(st.s, st.r, st.v, dv);
     // 7. t = A_c·s
@@ -693,16 +978,28 @@ template <typename T> struct LatticeCloverMultigrid {
          static_cast<const LatticeComplex<T>*>(st.s), _tmp0_);
     cdot(static_cast<const LatticeComplex<T>*>(st.t),
          static_cast<const LatticeComplex<T>*>(st.t), _tmp1_);
-    bistabcg_give_1omega<T><<<1,1,0,S>>>(dv);
+    mg_give_1omega<T><<<1,1,0,S>>>(dv);
     // 9. r = s - omega*t;  x = x + alpha*p + omega*s
-    bistabcg_give_r<T><<<gv,bv,0,S>>>(st.r, st.s, st.t, dv);
-    bistabcg_give_x_o<T><<<gv,bv,0,S>>>(st.x, st.p, st.s, dv);
-    // 10. convergence norm ||r||² -> host (once per iteration)
-    cdot(static_cast<const LatticeComplex<T>*>(st.r),
-         static_cast<const LatticeComplex<T>*>(st.r), _norm2_tmp_);
-    checkCudaErrors(cudaMemcpyAsync(&host_vals[_norm2_tmp_], &dv[_norm2_tmp_],
-        sizeof(LatticeComplex<T>), cudaMemcpyDeviceToHost, S));
-    checkCudaErrors(cudaStreamSynchronize(S));
+    //    dev84 kernel-count diet: both elementwise updates fused (one launch).
+    {
+      size_t eff = st.vec_sz;   // coarse levels: vec_sz/_LAT_SC_ site groups
+      int t4 = (int)(eff / _LAT_SC_);
+      mg_give_rx<T><<<(t4+_BLOCK_SIZE_-1)/_BLOCK_SIZE_,_BLOCK_SIZE_,0,S>>>(
+          static_cast<LatticeComplex<T>*>(st.r),
+          static_cast<const LatticeComplex<T>*>(st.s),
+          static_cast<const LatticeComplex<T>*>(st.t),
+          static_cast<LatticeComplex<T>*>(st.x),
+          static_cast<const LatticeComplex<T>*>(st.p), dv, t4);
+    }
+    // 10. convergence norm ||r||² -> host (once per iteration, or never when
+    //     with_norm=false — the caller block-checks via coarse_resid_norm())
+    if (with_norm) {
+      cdot(static_cast<const LatticeComplex<T>*>(st.r),
+           static_cast<const LatticeComplex<T>*>(st.r), _norm2_tmp_);
+      checkCudaErrors(cudaMemcpyAsync(&host_vals[_norm2_tmp_], &dv[_norm2_tmp_],
+          sizeof(LatticeComplex<T>), cudaMemcpyDeviceToHost, S));
+      checkCudaErrors(cudaStreamSynchronize(S));
+    }
     // NOTE: the per-iteration cost here is dominated by the host sync above
     // (~170 us) plus the ~14 tiny kernel launches — NOT by the wide dslash
     // (prof_coarse_dslash_ms stays < 1 ms across the whole solve).
@@ -1232,49 +1529,67 @@ template <typename T> struct LatticeCloverMultigrid {
     // 92 ms vs 7 ms per V-cycle).  Fall back to the ordinary iterative
     // path below (which now uses the multi-block reduction kernels).
     // ====================================================================
+    // dev84 EXPERIMENT RESULT: fused cooperative solve at vec_sz=294912 ran
+    // 85–112 ms/coarse-solve HERE (grid.sync() × ~100 internal iterations are
+    // as expensive as any other sync on this box) — SLOWER than graph-replay
+    // segments (~50 ms).  Threshold restored to 262144; graphs win at sizes
+    // beyond the fused sweet spot.
     if (lev == num_levels - 1 && st.vec_sz < 262144) {
       // Fused single-launch coarse solve.  In the redundant-global multi-rank
       // model every rank holds the full coarse grid and the fused kernel
       // needs no inter-rank data, so the fused path is valid for ALL ranks.
       coarse_solve_fused(lev);
+      st.has_solution = true;   // dev84: 供后续 V-cycle 热启动 (fused 内部仍从零解)
       return rn;
     }
 
     // ---- Save and patch _lat_4dim_ for this level ----
     // The BiStabCG kernels use device_vals[_lat_4dim_] as the site-count
     // stride.  For coarse levels the volume differs, so patch it.
-    LatticeComplex<T> saved_lat4;
-    checkCudaErrors(cudaMemcpy(&saved_lat4, &dv[_lat_4dim_],
-        sizeof(LatticeComplex<T>), cudaMemcpyDeviceToHost));
-    T saved_lat_4dim = saved_lat4.real();
+    // dev84: the saved fine value is cached on first use — the blocking D2H
+    // below used to cost a full device sync on EVERY v_cycle entry.
+    if (!lat4_cache_valid) {
+      LatticeComplex<T> saved_lat4;
+      checkCudaErrors(cudaMemcpy(&saved_lat4, &dv[_lat_4dim_],
+          sizeof(LatticeComplex<T>), cudaMemcpyDeviceToHost));
+      lat4_cached = (double)saved_lat4.real();
+      lat4_cache_valid = true;
+    }
+    T saved_lat_4dim = (T)lat4_cached;
     LatticeComplex<T> coarse_vol_val((T)(st.vec_sz / _LAT_SC_), 0.0);
+    // dev84 SYNC DIET: async H2D on S orders before all later S work — no sync
     checkCudaErrors(cudaMemcpyAsync(&dv[_lat_4dim_], &coarse_vol_val,
         sizeof(LatticeComplex<T>), cudaMemcpyHostToDevice, S));
-    checkCudaErrors(cudaStreamSynchronize(S));
 
-    // ---- Init: x=0, r=rhs, r_tilde=r, p=v=s=t=0 ----
-    zero_c(st.x, lev);
-    copy_c(st.r, st.rhs, lev);
-    copy_c(st.r_tilde, st.r, lev);
-    zero_c(st.p, lev); zero_c(st.v, lev); zero_c(st.s, lev); zero_c(st.t, lev);
-    {
-      LatticeComplex<T> one(1,0), z(0,0);
-      checkCudaErrors(cudaMemcpyAsync(&dv[_rho_],&z,sizeof(LatticeComplex<T>),cudaMemcpyHostToDevice,S));
-      checkCudaErrors(cudaMemcpyAsync(&dv[_rho_prev_],&one,sizeof(LatticeComplex<T>),cudaMemcpyHostToDevice,S));
-      checkCudaErrors(cudaMemcpyAsync(&dv[_alpha_],&one,sizeof(LatticeComplex<T>),cudaMemcpyHostToDevice,S));
-      checkCudaErrors(cudaMemcpyAsync(&dv[_omega_],&one,sizeof(LatticeComplex<T>),cudaMemcpyHostToDevice,S));
+    // dev84: capture the SEG-iteration graph BEFORE any other ops this entry
+    // (capture scope must contain only the iteration kernels).
+    coarse_graph_ensure(lev);
+
+    // ---- Init ----
+    // 2026-08-22 dev84 WARM START: 中间/粗层在连续 V-cycle 间复用上次解作为初值
+    // (同一 A_c, 不同 RHS)。粗残差在相邻校正间变化缓慢, 从零解起每轮要 ~100 次
+    // 粗迭代 (dev84 实测 19 V-cycle 共 2665ms 粗迭代开销); 热启动把每轮粗解成本
+    // 压到数十次以内。首轮 (has_solution=false) 保持 x=0 原语义。
+    // dev84 SYNC DIET: 全部发射在 S 上按序执行, 中途无需同步。
+    bool first_solve = !(st.r0_ref > (T)0);
+
+    // Initial residual norm — dev84: 只在本层首次求解时计算 (host 需要它定标
+    // target=r0_ref·tol 与守卫量表 _diff2_tmp_)；热启动周期直接复用 r0_ref,
+    // 省掉一次 D2H + MPI_Barrier×2 (~3 次同步/V-cycle)。WSL2 上每次同步 ~1ms。
+    // 此处对 rhs 取范数 (冷启动 x=0 ⇒ r=rhs)。
+    T r0 = 0;
+    if (first_solve || !st.has_solution) {
+      LatticeComplex<T> hc0;
+      CUBLAS_CHECK(_cublasDot<T>(set_ptr->cublasHs[_a_],(int)st.vec_sz,
+          st.rhs,1,st.rhs,1,&dv[_send_tmp_]));
+      checkCudaErrors(cudaMemcpyAsync(&hc0,&dv[_send_tmp_],sizeof(LatticeComplex<T>),
+          cudaMemcpyDeviceToHost,set_ptr->streams[_a_]));
+      MPI_Barrier(MPI_COMM_WORLD);checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_a_]));
+      T g0=hc0.real();MPI_Allreduce(MPI_IN_PLACE,&g0,1,mpi_real_type<T>(),MPI_SUM,MPI_COMM_WORLD);
+      MPI_Barrier(MPI_COMM_WORLD); r0 = sqrt(g0<0?0:g0);
+    } else {
+      r0 = st.r0_ref;
     }
-    checkCudaErrors(cudaStreamSynchronize(S));
-
-    // Initial residual norm ||rhs|| (x was zeroed)
-    T r0 = 0; LatticeComplex<T> hc0;
-    CUBLAS_CHECK(_cublasDot<T>(set_ptr->cublasHs[_a_],(int)st.vec_sz,
-        st.rhs,1,st.rhs,1,&dv[_send_tmp_]));
-    checkCudaErrors(cudaMemcpyAsync(&hc0,&dv[_send_tmp_],sizeof(LatticeComplex<T>),
-        cudaMemcpyDeviceToHost,set_ptr->streams[_a_]));
-    MPI_Barrier(MPI_COMM_WORLD);checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_a_]));
-    T g0=hc0.real();MPI_Allreduce(MPI_IN_PLACE,&g0,1,mpi_real_type<T>(),MPI_SUM,MPI_COMM_WORLD);
-    MPI_Barrier(MPI_COMM_WORLD); r0 = sqrt(g0<0?0:g0);
 
     // Skip the coarse solve when the coarse RHS is already tiny: in fp32 the
     // target tol*r0 then falls below the achievable precision, the BiStabCG
@@ -1297,98 +1612,134 @@ template <typename T> struct LatticeCloverMultigrid {
     }
 
     // ---- ONE-TIME TOP sync ----
+    // dev84 SYNC DIET: 粗层所有工作发射在主流 S (cublasH 绑定 S, cdot 内核也在
+    // S)。r0 的 D2H 已在其分支内同步 streams[_a_]。这里只保留一次 S 同步,
+    // 替换原先的 5 流全同步 (WSL2 每次 ~1ms)。
     checkCudaErrors(cudaStreamSynchronize(S));
-    checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_a_]));
-    checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_b_]));
-    checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_c_]));
-    checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_d_]));
-
-    // Coarse-level convergence target: RELATIVE tolerance read from argv
-    // (levels[lev].tol).  The concept experiments showed the V-cycle correction
-    // needs a TIGHT coarse solve (~1e-3 relative) to be effective — the loose
-    // 0.1·r0 default disrupts the fine BiStabCG Krylov space without reducing
-    // the low-frequency error.
     bool is_coarsest = (lev == num_levels-1);
     T tol_factor = levels[lev].tol;
     if (tol_factor <= 0) tol_factor = is_coarsest ? (T)1e-3 : (T)1e-2;
-    T target = tol_factor * r0;
-    int count_restart = 0;
+    // ==================================================================
+    // dev84 ABSOLUTE-REFERENCED TARGET: with warm starts the incoming ||r||
+    // shrinks cycle over cycle, so a purely relative target chases an
+    // ever-smaller bar and nearly every solve ran to max_iter (measured:
+    // ~200/200 coarse iters on most V-cycles even after warm starting).
+    // Anchor the bar to the FIRST solve's ||r||: later (warm) cycles exit as
+    // soon as they are as accurate as the first one was required to be.
+    // ==================================================================
+    if (!(st.r0_ref > (T)0)) st.r0_ref = r0;
+    T target = tol_factor * st.r0_ref;
     int idx = 0;
     LatticeComplex<T> one(1,0);
-    // rn tracks the PREVIOUS iteration's residual for the breakdown guard.
-    // BUGFIX 2026-08-02: initialise it to r0 — starting from 0 made the very
-    // first iteration's guard (rn_new > 1e8·0) fire immediately, so the coarse
-    // solve "converged" at iteration 1 without doing any work (e_coarse = 0),
-    // making every V-cycle correction a no-op that only reset the Krylov space.
+    // rn tracks the PREVIOUS check's residual for the explosion guard.
     rn = r0;
 
-    for (int i=0; i<st.max_iter; i++) {
-      auto ci0=std::chrono::high_resolution_clock::now();
-      bistabcg_iter(lev);
-      auto ci1=std::chrono::high_resolution_clock::now();
-      double csec=std::chrono::duration<double>(ci1-ci0).count();
-      prof_coarse_solve_ms += std::chrono::duration<double,std::milli>(ci1-ci0).count();
-      idx++;
-      T rn_new = sqrt(host_vals[_norm2_tmp_].real());
-      // Breakdown guard: if residual is NaN or exploded, stop.
-      if(!std::isfinite(rn_new) || rn_new > (T)1e8 * rn) { rn = rn_new; break; }
-      rn = rn_new;
-      if(rank==0&&verbose){
-        std::ostringstream bm,fm;
-        bm<<"PYQCU::SOLVER::MULTIGRID::\n B-"<<lev<<"-bistabcg-Iteration "<<i
-          <<": Residual = "<<std::scientific<<rn;
-        log_write<T>(bm.str(),rank,true);
-        fm<<"PYQCU::SOLVER::MULTIGRID::\n F-"<<lev<<"-bistabcg-Iteration "<<i
-          <<": Residual = "<<std::scientific<<rn<<", Time = "<<std::fixed<<std::setprecision(6)<<csec<<" s";
-        log_write<T>(fm.str(),rank,true);
-      }
-      if (rn < target) break;
-      count_restart++;
-      if (!is_coarsest && count_restart >= st.num_restart) {
-        // ---- Coarse-grid correction to the next level ----
-        restrict_op(levels[lev+1].rhs, st.r, lev);
-        zero_c(levels[lev+1].x, lev+1);
-        checkCudaErrors(cudaStreamSynchronize(S));
-
-        v_cycle(lev+1);
-
-        prolong_op(set_ptr->device_vec1, levels[lev+1].x, lev);
-        checkCudaErrors(cudaStreamSynchronize(S));
-
-        // x += P·e
-        CUBLAS_CHECK(_cublasAxpy<T>(set_ptr->cublasH, (int)st.vec_sz, &one,
-            set_ptr->device_vec1, 1, st.x, 1));
-        checkCudaErrors(cudaStreamSynchronize(S));
-
-        // r = rhs - A_lev·x
-        coarse_dslash_op(set_ptr->device_vec0, st.x, lev);
-        checkCudaErrors(cudaStreamSynchronize(S));
-        bistabcg_give_diff2<T><<<site_grid(lev),_BLOCK_SIZE_,0,S>>>(
-            st.rhs, set_ptr->device_vec0, st.r, dv);
-        checkCudaErrors(cudaStreamSynchronize(S));
-
-        // Reset BiStabCG state
-        copy_c(st.r_tilde, st.r, lev);
-        reset_bistabcg_state(lev);
-        count_restart = 0;
-
-        checkCudaErrors(cudaStreamSynchronize(S));
-        checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_a_]));
-        checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_b_]));
-        checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_c_]));
-        checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_d_]));
-      }
+    // ==================================================================
+    // dev84 SYNC-FREE GUARDED-BiCGStab COARSE SOLVE: nvprof on this box shows
+    // EVERY host↔device round-trip costs ~0.5–40 ms (WSL2 hypervisor thunk;
+    // 4248 cudaStreamSynchronize = 6.1 s, 3266 cudaMemcpyAsync = 2.1 s in one
+    // solve), while a coarse iteration is only ~75 µs of launches.  We run a
+    // FIXED step count with ZERO host reads, relying on
+    //   a) guarded scalar kernels (mg_give_1beta/1alpha/1omega): the coarse
+    //      operator is γ5-Hermitian — plain CG DIVERGES there (measured:
+    //      residual 6084 vs ‖rhs‖≈878 after 200 steps) — BiCGStab stays, but
+    //      its ρ→0 breakdown past convergence must be clamped to β=0/α=0/ω=0
+    //      instead of NaN,
+    //   b) the outer fine-level true-residual restart guard,
+    //   c) ONE safety check every SAFETY_EVERY V-cycles (+ cold solves).
+    // ==================================================================
+    {
+      // problem-scale stash for the guards: ‖b‖² (units of every ⟨·,·⟩)
+      LatticeComplex<T> sc(st.r0_ref * st.r0_ref, 0.0);
+      checkCudaErrors(cudaMemcpyAsync(&dv[_diff2_tmp_], &sc,
+          sizeof(LatticeComplex<T>), cudaMemcpyHostToDevice, S));
+    }
+    // warm start: r = rhs − A_c·x with CURRENT x; cold: x=0 ⇒ r=rhs
+    if (!st.has_solution) {
+      zero_c(st.x, lev);
+      copy_c(st.r, st.rhs, lev);
+    } else {
+      copy_c(st.r, st.rhs, lev);
+      coarse_dslash_op(set_ptr->device_vec0, st.x, lev);
+      LatticeComplex<T> mone_ws(-1.0, 0.0);
+      CUBLAS_CHECK(_cublasAxpy<T>(set_ptr->cublasH, (int)st.vec_sz, &mone_ws,
+          set_ptr->device_vec0, 1, st.r, 1));
+    }
+    copy_c(st.r_tilde, st.r, lev);
+    zero_c(st.p, lev); zero_c(st.v, lev); zero_c(st.s, lev); zero_c(st.t, lev);
+    {
+      LatticeComplex<T> z(0,0);
+      checkCudaErrors(cudaMemcpyAsync(&dv[_rho_],&z,sizeof(LatticeComplex<T>),cudaMemcpyHostToDevice,S));
+      checkCudaErrors(cudaMemcpyAsync(&dv[_rho_prev_],&one,sizeof(LatticeComplex<T>),cudaMemcpyHostToDevice,S));
+      checkCudaErrors(cudaMemcpyAsync(&dv[_alpha_],&one,sizeof(LatticeComplex<T>),cudaMemcpyHostToDevice,S));
+      checkCudaErrors(cudaMemcpyAsync(&dv[_omega_],&one,sizeof(LatticeComplex<T>),cudaMemcpyHostToDevice,S));
     }
 
-    if(rank==0&&verbose)
-      log_write<T>("PYQCU::SOLVER::MULTIGRID::\n "+std::to_string(lev)+
-        ": Converged at iteration "+std::to_string(idx)+" with residual "+std::to_string(rn),rank,true);
+    const int SAFETY_EVERY = 6;
+    ++mg_cycle_counter;
+    const bool warm = st.has_solution;
+    const bool do_safety = (!warm) || (mg_cycle_counter % SAFETY_EVERY == 0);
+
+    auto ci0=std::chrono::high_resolution_clock::now();
+    if (is_coarsest) {
+      // ---- segment-replay solve: GRAPH_SEG iterations per host check ----
+      // dev84: 每段一次检查 — 图回放把 8 次迭代压成 1 次 launch, 队列浅,
+      // 检查同步在本箱上从 ~40-500ms 掉回毫秒级; 收敛语义与 r5 一致
+      // (target=r0_ref·tol, 爆炸即丢弃 x_c)。
+      int done = 0;
+      while (done < st.max_iter) {
+        coarse_graph_run(lev, GRAPH_SEG);
+        done += GRAPH_SEG; idx = done;
+        auto ck0=std::chrono::high_resolution_clock::now();
+        T rn_new = coarse_resid_norm(lev);
+        auto ck1=std::chrono::high_resolution_clock::now();
+        prof_check_ms += std::chrono::duration<double,std::milli>(ck1-ck0).count();
+        prof_n_checks++;
+        if (!std::isfinite(rn_new) || rn_new > (T)1e4 * rn) {
+          rn = rn_new; st.has_solution = false; zero_c(st.x, lev); break;
+        }
+        rn = rn_new;
+        if (rn < target) break;
+      }
+      if(rank==0&&verbose){
+        std::ostringstream bm;
+        bm<<"PYQCU::SOLVER::MULTIGRID::\n B-"<<lev<<"-bicg it "<<idx
+          <<": Residual = "<<std::scientific<<rn<<" (target "<<target<<")";
+        log_write<T>(bm.str(),rank,true);
+      }
+    } else {
+      // ---- Inner level: pre-smooth → coarse correction → post-smooth ----
+      // dev84: 原实现每 num_restart 次迭代校正一次并全流同步；固定步数语义下
+      // 改为 DDalphaAMG pre/coarse/post 结构。第二段前重算真残差并复位状态。
+      const int steps = warm ? 64 : st.max_iter;
+      const int pre = steps/2, post = steps - pre;
+      idx = steps;
+      coarse_graph_run(lev, pre);
+      restrict_op(levels[lev+1].rhs, st.r, lev);
+      zero_c(levels[lev+1].x, lev+1);
+      v_cycle(lev+1);
+      prolong_op(set_ptr->device_vec1, levels[lev+1].x, lev);
+      CUBLAS_CHECK(_cublasAxpy<T>(set_ptr->cublasH, (int)st.vec_sz, &one,
+          set_ptr->device_vec1, 1, st.x, 1));
+      coarse_dslash_op(set_ptr->device_vec0, st.x, lev);
+      bistabcg_give_diff2<T><<<site_grid(lev),_BLOCK_SIZE_,0,S>>>(
+          st.rhs, set_ptr->device_vec0, st.r, dv);
+      copy_c(st.r_tilde, st.r, lev);
+      reset_bistabcg_state(lev);
+      coarse_graph_run(lev, post);
+    }
+    auto ci1=std::chrono::high_resolution_clock::now();
+    prof_coarse_solve_ms += std::chrono::duration<double,std::milli>(ci1-ci0).count();
+
+    // dev84: 记录本层已有解, 下一 V-cycle 热启动
+    st.has_solution = true;
+    prof_n_coarse_iters += idx;
 
     // ---- Restore _lat_4dim_ ----
+    // dev84 SYNC DIET: async H2D on S — 后续内核同流有序, 无需同步
     LatticeComplex<T> restore_vol(saved_lat_4dim, 0.0);
     checkCudaErrors(cudaMemcpyAsync(&dv[_lat_4dim_], &restore_vol,
         sizeof(LatticeComplex<T>), cudaMemcpyHostToDevice, S));
-    checkCudaErrors(cudaStreamSynchronize(S));
 
     return rn;
   }
@@ -1434,6 +1785,11 @@ template <typename T> struct LatticeCloverMultigrid {
     checkCudaErrors(cudaMallocAsync(&v0,sc,set_ptr->stream));
     checkCudaErrors(cudaMallocAsync(&s0,sc,set_ptr->stream));
     checkCudaErrors(cudaMallocAsync(&t0,sc,set_ptr->stream));
+
+    // dev84: zero-copy staging for scalar host reads (see coarse_resid_norm)
+    checkCudaErrors(cudaHostAlloc(&check_host, 4*sizeof(LatticeComplex<T>),
+        cudaHostAllocMapped));
+    checkCudaErrors(cudaHostGetDevicePointer(&check_dev, check_host, 0));
 
     // Allocate full-site residual buffer for V-cycle correction
     // Full-site size = _LAT_SC_ * X * Y * Z * Lt_full where Lt_full = 2 * levels[0].Lt
@@ -1533,6 +1889,36 @@ template <typename T> struct LatticeCloverMultigrid {
     // 2. Initialise BiStabCG state on the ODD vectors (x=0, r=b__o, ...)
     checkCudaErrors(cudaMemsetAsync(st.x, 0, st.vec_sz*sizeof(LatticeComplex<T>), S));
     copy_c(st.r, st.rhs, 0);
+    // ---- dev84 R5 DEFLATED START ----------------------------------------
+    // quda/DDalphaAMG 粗空间的主要价值在"低模消除"。把一次 V-cycle 校正作为
+    // 初始猜测 (x₀ = P·A_c⁻¹·Pᵀ·b)：近零模被粗解吸收后剩余谱聚于高频带，
+    // Krylov 收敛大幅加快。与循环内校正不同：只做一次、**不触碰任何
+    // BiCGStab 状态**（r̂₀ 直接取收缩后的真残差）。循环内校正仍由
+    // num_restart 独立控制（rs=0 ⇒ 纯 deflated BiCGStab）。
+    if(num_levels>1 && set_ptr->host_params[_MG_USE_DEFLATE_]!=0){
+      auto df_t0=std::chrono::high_resolution_clock::now();
+      prof_n_vcycles++;
+      restrict_op(levels[1].rhs, st.r, 0);
+      zero_c(levels[1].x, 1);
+      checkCudaErrors(cudaStreamSynchronize(S));
+      v_cycle(1);
+      prolong_op(e_odd_buf, levels[1].x, 0);
+      checkCudaErrors(cudaStreamSynchronize(S));
+      {
+        LatticeComplex<T> one_df(1,0);
+        CUBLAS_CHECK(_cublasAxpy<T>(set_ptr->cublasH,(int)set_ptr->lat_4dim_SC,
+            &one_df, e_odd_buf, 1, x_o, 1));
+      }
+      fine_dslash_op(set_ptr->device_vec0, x_o);
+      checkCudaErrors(cudaStreamSynchronize(S));
+      bistabcg_give_diff2<T><<<set_ptr->gridDim,set_ptr->blockDim,0,S>>>(
+          st.rhs, set_ptr->device_vec0, st.r, dv);
+      checkCudaErrors(cudaStreamSynchronize(S));
+      prof_vcycle_ms += std::chrono::duration<double,std::milli>(
+          std::chrono::high_resolution_clock::now()-df_t0).count();
+      if(rank==0&&verbose)
+        log_write<T>("PYQCU::SOLVER::MULTIGRID::\n DEFLATE start applied",rank,true);
+    }
     copy_c(st.r_tilde, st.r, 0);
     zero_c(st.p, 0); zero_c(st.v, 0); zero_c(st.s, 0); zero_c(st.t, 0);
     {
@@ -1635,39 +2021,31 @@ template <typename T> struct LatticeCloverMultigrid {
         //    16×0.12ms=1.9ms + 12ms dslash =14ms per VC, 6×14=84ms extra, but 534-159=375ms extra (4×), 137 vs 147 iters (-10) not enough, 0.746× <0.88× baseline, revert to disabled.
         //    True 16-color MINRES (5-step block) diverged 0.12× (1000it 10), left for next 1h FGMRES精修.
         // 1. Restrict the SCHUR residual (odd-site) -> coarse RHS
+        // dev84 SYNC DIET: 全部工作发射在主流 S 上按序执行, 中途同步全部去除
+        // (WSL2 每次 host↔device 往返 ~1-40ms, 见 v_cycle 内注释)。
         restrict_op(levels[1].rhs, st.r, 0);
         zero_c(levels[1].x, 1);
-        checkCudaErrors(cudaStreamSynchronize(S));
 
         // 2. Solve the coarse problem A_c·e_c = P^T·r (recursive V-cycle)
         v_cycle(1);
 
         // 3. Prolong the coarse correction -> odd-site e_fine
         prolong_op(e_odd_buf, levels[1].x, 0);
-        checkCudaErrors(cudaStreamSynchronize(S));
 
         // 4. x_o += e_fine
         CUBLAS_CHECK(_cublasAxpy<T>(set_ptr->cublasH, set_ptr->lat_4dim_SC, &one,
             e_odd_buf, 1, x_o, 1));
-        checkCudaErrors(cudaStreamSynchronize(S));
 
         // 5. Recompute the Schur residual: st.r = b__o - S·x_o
         fine_dslash_op(set_ptr->device_vec0, x_o);
-        checkCudaErrors(cudaStreamSynchronize(S));
         bistabcg_give_diff2<T><<<set_ptr->gridDim,set_ptr->blockDim,0,S>>>(
             st.rhs, set_ptr->device_vec0, st.r, dv);
-        checkCudaErrors(cudaStreamSynchronize(S));
 
         // 6. Reset the BiStabCG state (r_tilde=r, p=v=s=t=0, scalars)
         copy_c(st.r_tilde, st.r, 0);
         reset_bistabcg_state_l0();
         count_restart=0;
 
-        checkCudaErrors(cudaStreamSynchronize(S));
-        checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_a_]));
-        checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_b_]));
-        checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_c_]));
-        checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_d_]));
         auto vc_t1=std::chrono::high_resolution_clock::now();
         prof_vcycle_ms += std::chrono::duration<double,std::milli>(vc_t1-vc_t0).count();
       }
@@ -1716,7 +2094,11 @@ template <typename T> struct LatticeCloverMultigrid {
           <<"ms n_vcycles="<<prof_n_vcycles
           <<" coarse_solve="<<prof_coarse_solve_ms
           <<"ms coarse_vec="<<prof_coarse_vec_ms
-          <<"ms coarse_dslash="<<prof_coarse_dslash_ms<<"ms";
+          <<"ms coarse_dslash="<<prof_coarse_dslash_ms
+          <<"ms coarse_iters="<<prof_n_coarse_iters
+          <<" checks="<<prof_n_checks<<" check_ms="<<prof_check_ms
+          <<" ck(k/d/s)=" <<prof_ck_kernel_ms<<"/"<<prof_ck_d2h_ms
+          <<"/"<<prof_ck_sync_ms;
       log_write<T>(sect.str(),rank,true);
     }
   }
@@ -1725,6 +2107,18 @@ template <typename T> struct LatticeCloverMultigrid {
   // MG preconditioner: one V-cycle (restrict + coarse solve + prolong)
   // Input:  in  (fine residual, odd)
   // Output: out (preconditioned vector, odd)
+  //
+  // 2026-08-22 dev84 — quda MG::operator() (lib/multigrid.cpp:1131) 对齐改造:
+  //   pre-smoothing (μ_pre 固定步 CG) → R → coarse → P。
+  //   此前的"纯粗校正"预条件子有两个致命问题:
+  //   a) 无平滑 → 高频误差全留给外层 FGMRES, ρ≈0.5+ 无加速;
+  //   b) 粗 RHS < 1e-4 时 v_cycle 跳过解 → 返回零向量 → Arnoldi 崩溃
+  //      (实测 dev84 GCR 轮: 1100 iters 残差卡在 0.77)。
+  //   平滑器选固定步数 CG: Schur 补 S = D_oo − κ²H_oe D_ee⁻¹ H_eo 是
+  //   Hermitian 正定 (D_ee⁻†=D_ee⁻¹, H_oe†=H_eo), CG 等效 Chebyshev,
+  //   每步恰 1 次 matvec、无收敛分支 (quda smoother_tol/Nsteps 语义)。
+  //   复用 levels[0] 的 BiCGStab 空闲缓冲 rt0(r_s)/p0(p_s)/device_vec1(Ap_s)
+  //   —— GCR 模式下 run() 主循环不在运行, 无冲突。
   // ==================================================================
   void apply_mg_prec(void *out, void *in) {
     cudaStream_t S=set_ptr->stream;
@@ -1734,12 +2128,62 @@ template <typename T> struct LatticeCloverMultigrid {
       checkCudaErrors(cudaStreamSynchronize(S));
       return;
     }
-    restrict_op(levels[1].rhs, in, 0);
-    zero_c(levels[1].x, 1);
+    LatticeComplex<T> *dv=static_cast<LatticeComplex<T>*>(set_ptr->device_vals);
+    const int n=(int)set_ptr->lat_4dim_SC;
+    int mu_pre = set_ptr->host_params[_MG_MU_PRE_];
+    if (mu_pre <= 0) mu_pre = 4;   // dev84 默认 4 步（quda smoother Nsteps 语义）
+
+    // ---- init: out=0, r_s=rt0←in, p_s=p0←r, rr=<r,r>, ω槽清零 ----
+    // dev84: rr/rr_prev 驻留设备端 (_tmp0_/_rho_prev_)，循环内零 host 同步。
+    checkCudaErrors(cudaMemsetAsync(out, 0, n*sizeof(LatticeComplex<T>), S));
+    CUBLAS_CHECK(_cublasCopy<T>(set_ptr->cublasH,n*_REAL_IMAG_,(T*)in,1,(T*)rt0,1));
+    CUBLAS_CHECK(_cublasCopy<T>(set_ptr->cublasH,n*_REAL_IMAG_,(T*)rt0,1,(T*)p0,1));
+    {
+      LatticeComplex<T> z(0,0);
+      checkCudaErrors(cudaMemcpyAsync(&dv[_omega_],&z,sizeof(LatticeComplex<T>),cudaMemcpyHostToDevice,S));
+    }
+    CUBLAS_CHECK(_cublasDot<T>(set_ptr->cublasH,n,rt0,1,rt0,1,&dv[_tmp0_]));
+    checkCudaErrors(cudaMemcpyAsync(&dv[_rho_prev_],&dv[_tmp0_],
+        sizeof(LatticeComplex<T>),cudaMemcpyDeviceToDevice,S));
+
+    const int cg_blocks = (n + 255) / 256;
+
+    // ---- μ_pre 步固定 CG (无收敛检查；α/β 设备端计算, quda Nsteps 语义) ----
+    // 每步: Ap=S·p → pv=<p,Ap> → α=rr/pv → x+=αp, r-=αAp → rr=<r,r>
+    //       → β=rr_new/rr_prev → p=r+βp。全程单流 S, 无任何同步/D2H。
+    for (int k=0;k<mu_pre;k++) {
+      fine_dslash_op(set_ptr->device_vec1, p0);            // Ap = S·p
+      CUBLAS_CHECK(_cublasDot<T>(set_ptr->cublasH,n,p0,1,set_ptr->device_vec1,1,&dv[_tmp1_]));
+      mg_cg_give_alpha<T><<<1,1,0,S>>>(dv);
+      mg_cg_update_xr<T><<<cg_blocks,256,0,S>>>(
+          static_cast<LatticeComplex<T>*>(out),
+          static_cast<const LatticeComplex<T>*>(p0),
+          static_cast<LatticeComplex<T>*>(rt0),
+          static_cast<const LatticeComplex<T>*>(set_ptr->device_vec1), dv, n);
+      CUBLAS_CHECK(_cublasDot<T>(set_ptr->cublasH,n,rt0,1,rt0,1,&dv[_tmp0_]));
+      mg_cg_give_beta<T><<<1,1,0,S>>>(dv);
+      mg_cg_update_p<T><<<cg_blocks,256,0,S>>>(
+          static_cast<LatticeComplex<T>*>(p0),
+          static_cast<const LatticeComplex<T>*>(rt0), dv, n);
+    }
     checkCudaErrors(cudaStreamSynchronize(S));
+
+    // ---- R: 当前残差限制到粗层 ----
+    restrict_op(levels[1].rhs, rt0, 0);
+    // dev84: 不再清零 levels[1].x —— coarse_solve_cg 普通路径配合 has_solution
+    // 热启动可跨 V-cycle 复用粗解；fused 路径内核从零起算并整体覆写 x，
+    // 两条路径语义均正确。
+    checkCudaErrors(cudaStreamSynchronize(S));
+    // ---- coarse solve ----
     v_cycle(1);
-    prolong_op(out, levels[1].x, 0);
+    // ---- P: 校正延拓回细层并累加 ----
+    prolong_op(set_ptr->device_vec1, levels[1].x, 0);
     checkCudaErrors(cudaStreamSynchronize(S));
+    LatticeComplex<T> one(1,0);
+    CUBLAS_CHECK(_cublasAxpy<T>(set_ptr->cublasH, n, &one,
+        set_ptr->device_vec1, 1, out, 1));
+    checkCudaErrors(cudaStreamSynchronize(S));
+    // ν_post 平滑省略 (v1): 外层 FGMRES 承担剩余高频误差
   }
 
   // ==================================================================
@@ -2052,7 +2496,14 @@ template <typename T> struct LatticeCloverMultigrid {
     F(full_x);F(full_rhs);F(full_r);F(full_rt);
     F(full_p);F(full_v);F(full_s);F(full_t);
     F(parity_tmp);F(parity_dst);F(corr_scratch);F(coarse_partials);
+    if(check_host!=nullptr){cudaFreeHost(check_host);check_host=nullptr;check_dev=nullptr;}
     for(int i=1;i<num_levels;i++)levels[i].free_all(set_ptr->stream);
+    // dev84: free captured coarse-solve graphs
+    for(int l=0;l<8;l++){
+      if(graph_exec[l]!=nullptr){cudaGraphExecDestroy(graph_exec[l]);graph_exec[l]=nullptr;}
+      if(graph[l]!=nullptr){cudaGraphDestroy(graph[l]);graph[l]=nullptr;}
+      graph_ready[l]=false;
+    }
     delete[] levels;levels=nullptr;delete[] null_vecs;null_vecs=nullptr;
     delete[] hop_nn;hop_nn=nullptr;delete[] hop_diag;hop_diag=nullptr;
     delete[] sit_packed;sit_packed=nullptr;

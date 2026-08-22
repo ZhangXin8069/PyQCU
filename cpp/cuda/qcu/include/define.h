@@ -112,7 +112,9 @@ namespace qcu {
 #define _SEED_ 52
 #define _TEST_IN_CPU_ 53
 #define _MG_USE_GCR_ 54
-#define _PARAMS_SIZE_ 55
+#define _MG_USE_DEFLATE_ 55
+#define _MG_MU_PRE_ 56
+#define _PARAMS_SIZE_ 57
 #define _MASS_ 0
 #define _ATOL_ 1
 #define _SIGMA_ 2
