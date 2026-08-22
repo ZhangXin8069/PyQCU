@@ -205,3 +205,9 @@ def generate_gauge_field(U: torch.Tensor, sigma: float = 0.1, seed: Optional[int
         print(
             f"PYQCU::TESTING::LATTICE:\n Gauge field norm: {_torch.norm(U).item()}")
     return U
+from ._source import point_source as point_source
+from ._source import wall_source as wall_source
+from ._source import volume_source as volume_source
+from ._source import z2_source as z2_source
+from ._source import momentum_source as momentum_source
+from ._source import fermion_source as fermion_source

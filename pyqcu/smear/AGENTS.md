@@ -39,3 +39,20 @@
 - f₀：imag = −imag（共轭）
 - f₁：real = −real，imag 不变（共轭 + 前导负号抵消）
 - f₂：同 f₁
+
+## Wuppertal 高斯 smearing（`_wuppertal.py`，2026-08-22 整合自 PyQUDA gaussianSmear/quda wuppertalSmear）
+
+### `wuppertal_smear(src, U, rho=4.0, nstep=40, support_parallel=False)`
+
+费米子场高斯平滑迭代（Chroma 同约定 σ = ρ²/(4·nstep)）：
+
+```
+x'(x) = (1 − 6σ)·x(x) + σ·Σ_μ [ U_μ(x)·x(x+μ̂) + U_μ†(x−μ̂)·x(x−μ̂) ]
+```
+
+- 布局契约严格：src `[4,3,Lx,Ly,Lz,Lt]`、U `[3,3,4,...]`（assert 校验）
+- 规范场迭代期固定 → U halo 每次调用只交换一次；src 每步变化 → 边界每步重算
+- einsum 用全显式字母 `"abxyzt,mbxyzt->maxyzt"`——**勿用省略号**（`"ab...,sc...->sa..."` 中
+  c 不在输出会被当作收缩索引求和，实测导致自旋维被平均的错误结果）
+- 后向项须同时滚动 link 与场：`V_roll(x)=U†(x−μ)` 且场取 `roll(src,+1)`
+- 白噪声输入的范数在 smearing 后**减小**（高频被压制）——物理预期勿写反
