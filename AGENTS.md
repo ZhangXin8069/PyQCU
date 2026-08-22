@@ -31,7 +31,7 @@ PyQCU：Lattice QCD 的 Python/Cython 库 —— CUDA 加速的 Wilson/Clover Di
 
 | 路径 | 内容 |
 |---|---|
-| `pyqcu/` | 纯 Python 实现：`lattice/`（gamma/Gell-Mann 矩阵、SU(3)）、`dslash/`（Wilson/Clover 算子）、`solver/`（BiStabCG、multigrid；`_gmres.py` 为占位）、`smear/`（stout）、`tools/`（MPI 网格、HDF5 I/O、linalg、multigrid 工具含 33-tensor stencil build、批量 BiCGStab `_bistabcg_batch`、TileLang JIT）、`testing/`（集成测试）、`cuda/`（Cython 桥 + `_schur_op.py` 多线程 Schur 算子 + `_multi_gpu.py` 多线程多卡 MG 驱动，`build_schur_levels` 批量构建 `batch_build`）、`cann/dtk/maca`（NPU 兼容层与占位） |
+| `pyqcu/` | 纯 Python 实现：`lattice/`（gamma/Gell-Mann 矩阵、SU(3)）、`dslash/`（Wilson/Clover 算子）、`solver/`（BiStabCG + `bistabcg_history` 残差历史、FGMRES `_gmres.py`（DDalphaAMG-SM 移植，右预条件）、multigrid）、`smear/`（stout）、`tools/`（MPI 网格、HDF5 I/O 含 dict 级 `save_dict_h5`/`load_dict_h5`、linalg、multigrid 工具含 33-tensor stencil build、批量 BiCGStab `_bistabcg_batch`、TileLang JIT）、`testing/`（集成测试含 `verify_nullvecs` null 向量质量诊断）、`cuda/`（Cython 桥 + `_schur_op.py` 多线程 Schur 算子 + `_multi_gpu.py` 多线程多卡 MG 驱动 + `_logs.py` 后端日志解析，`build_schur_levels` 批量构建 `batch_build`）、`cann/dtk/maca`（NPU 兼容层与占位） |
 | `cpp/cuda/qcu/` | C++ CUDA 后端：`src/`（.cu 内核）、`include/`（26 个模板头）、`python/pyqcu.h`（C API，须与 qcu.pxd 同步）、`logs/` |
 | `cpp/{cann,dtk,maca}/qcu/` | 占位 PASS，无实现 |
 | `examples/` | 测试入口：`pyqcu/`（主套件）、`qcu/`（C++ 后端；dev 套件归档于 `qcu/dev73/`、`qcu/dev74/`，产物写 `logs/dev73/`、`logs/dev74/`）、`cpu/npu/dcu/gpu/tilelang/profiler/benchmark/`、`data/`（参考 HDF5） |
