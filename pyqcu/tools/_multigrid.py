@@ -997,14 +997,17 @@ def _probe_point_batch_local(lsch, lonv, E, c_idx, sit, hop_nn, hop_diag, dims, 
     y0 = 2 * cy - off
     z0 = 2 * cz - off
     t0 = 2 * ct - off
-    ix = (torch.arange(x0, x0 + W, device=lonv.device)) % Xf
-    iy = (torch.arange(y0, y0 + W, device=lonv.device)) % Yf
-    iz = (torch.arange(z0, z0 + W, device=lonv.device)) % Zf
-    it = (torch.arange(t0, t0 + W, device=lonv.device)) % Tf
+    _opdev = lsch.Mep[0].device
+    # dev84: lonv 可驻留 CPU —— 探测工作张量全部锚定算子设备
+    ix = (torch.arange(x0, x0 + W, device=_opdev)) % Xf
+    iy = (torch.arange(y0, y0 + W, device=_opdev)) % Yf
+    iz = (torch.arange(z0, z0 + W, device=_opdev)) % Zf
+    it = (torch.arange(t0, t0 + W, device=_opdev)) % Tf
     idx = torch.stack([ix, iy, iz, it]).unsqueeze(0)  # [1,4,W]
-    f_local = torch.zeros([1, E, e, W, W, W, W], dtype=lonv.dtype, device=lonv.device)
-    f_local[0, :, :, off:off + 2, off:off + 2, off:off + 2, off:off + 2] = \
-        lonv[:, :, cx, :, cy, :, cz, :, ct, :].reshape(E, e, x, y, z, t)
+    f_local = torch.zeros([1, E, e, W, W, W, W], dtype=lonv.dtype, device=_opdev)
+    _blk = lonv[:, :, cx, :, cy, :, cz, :, ct, :].reshape(E, e, x, y, z, t)
+    if _blk.device != _opdev:
+        _blk = _blk.to(_opdev, non_blocking=True)
     starts = [(x0 % Xf, y0 % Yf, z0 % Zf, t0 % Tf)]
     dc_local = lsch(f_local, idx, starts)[0]  # [E, e, W,W,W,W]
     # 33 个相关粗格点（c 本身 + 4 方向 ±1 + 6 对角 ±1，去重保序）
@@ -1039,8 +1042,11 @@ def _probe_point_batch_local(lsch, lonv, E, c_idx, sit, hop_nn, hop_diag, dims, 
                 (2 * p[2] - z0m) % Zf:(2 * p[2] - z0m) % Zf + 2,
                 (2 * p[3] - t0m) % Tf:(2 * p[3] - t0m) % Tf + 2]
         for p in uniq])
-    lonv_p = torch.stack([lonv[:, :, p[0], :, p[1], :, p[2], :, p[3], :]
-                          for p in uniq])
+    # dev84: lonv 可驻留 CPU —— 邻域切片统一上卡后再收缩
+    _lp = [lonv[:, :, pp[0], :, pp[1], :, pp[2], :, pp[3], :] for pp in uniq]
+    _dev = dc_p.device
+    _lp = [t.to(_dev) if t.device != _dev else t for t in _lp]
+    lonv_p = torch.stack(_lp)
     dc_vals = torch.einsum("Paexyzt,Pbexyzt->Pab", lonv_p.conj(), dc_p)  # [P,E,E]
     dc_by_pt = {p: dc_vals[i] for i, p in enumerate(uniq)}
     # 写回（系数约定与 _probe_point_batch 一致）

@@ -220,11 +220,14 @@ def ensure_nullvec(lat, E, nvi, op, S, device, verbose=False, timeout_s=600,
         _nc = _null.cpu()
         del _null
         torch.cuda.empty_cache()
+        # 驻留 CPU: 探测循环按需取块切片(_probe_point_batch_local 已守卫),
+        # 避免 GPU 上 op 资产+lonv 双峰
         lonv = local_orthogonalize(null_vecs=_nc,
                                    coarse_lat_size=[d // 2 for d in lat_fine_odd],
-                                   verbose=False).to(device=device)
+                                   verbose=False)
         del _nc
-    del _null
+    else:
+        del _null
     lsch = BatchedLocalSchur(op, *lat_fine_odd, W=10)
     hnn, hdg, sit = build_stencil_local(lsch, lonv, E, lat_fine_odd,
                                         [d // 2 for d in lat_fine_odd],
@@ -244,6 +247,82 @@ def ensure_nullvec(lat, E, nvi, op, S, device, verbose=False, timeout_s=600,
     print(f"[nullvec] built in {time.perf_counter()-t0:.1f}s -> {cf}", flush=True)
     del lsch
     torch.cuda.empty_cache()
+
+
+
+def cmd_setup_staged(args):
+    """dev84 指令23 三阶段分进程构建（大体量 OOM 规避）：
+      stage=nulls   : CudaSchurOp 逆迭代 -> data/<tag>.rawnulls.h5   后退出
+      stage=ortho   : CPU local_orthogonalize -> data/<tag>.lonv.h5  后退出
+      stage=stencil : 全新进程建算子+流式探测 -> data/<tag> 完整缓存     后退出
+    每进程只持一份大资产。"""
+    import h5py
+    lat = [int(x) for x in args.lat.split(",")]
+    lat_fine_odd = [lat[0], lat[1], lat[2], lat[3] // 2]
+    E, nvi = args.E, args.nvi
+    tag_base = nv_tag(lat, E, nvi, args.nvsuf)
+    f_raw = DATA_DIR / tag_base.replace(".h5", ".rawnulls.h5")
+    f_lonv = DATA_DIR / tag_base.replace(".h5", ".lonv.h5")
+    cf = DATA_DIR / tag_base
+    stage = args.stage
+    dt = define.dtype(DT)
+    device = torch.device("cuda:0")
+
+    def _op_and_ctx():
+        g, fi, ce, cei, coo, coi, U_full, b_full, clover_full, kappa, av, p = \
+            load_gauge(lat, args.mass, args.atol, verbose=False)
+        del fi, b_full
+        import gc as _g; _g.collect(); torch.cuda.empty_cache()
+        return av, g, ce, coo, cei, coi, p
+
+    if stage == "nulls":
+        av, g, ce, coo, cei, coi, p = _op_and_ctx()
+        from pyqcu.cuda._schur_op import CudaSchurOp
+        from pyqcu.tools import give_null_vecs_mt
+        cu = CudaSchurOp(av, g, ce, coo, cei, coi, params=p)
+        nv = give_null_vecs_mt([cu], E, 12, lat_fine_odd, dt, device,
+                               nv_iters=nvi, nthreads=1, verbose=False,
+                               nv_tol=3e-2)
+        cu.release()
+        with h5py.File(f_raw, "w") as f:
+            f.create_dataset("null", data=nv.detach().cpu().contiguous().numpy())
+        print(f"[staged:nulls] -> {f_raw}", flush=True)
+
+    elif stage == "ortho":
+        from pyqcu.tools._multigrid import local_orthogonalize
+        with h5py.File(f_raw, "r") as f:
+            nv = torch.from_numpy(f["null"][()]).to(dt)
+        lonv = local_orthogonalize(null_vecs=nv,
+                                   coarse_lat_size=[d // 2 for d in lat_fine_odd],
+                                   verbose=False)
+        with h5py.File(f_lonv, "w") as f:
+            f.create_dataset("lonv", data=lonv.contiguous().cpu().numpy())
+        print(f"[staged:ortho] -> {f_lonv}", flush=True)
+
+    elif stage == "stencil":
+        _, _, _, _, _, _, U_full, _, clover_full, kappa, av, p = \
+            load_gauge(lat, args.mass, args.atol, verbose=False)
+        from pyqcu.tools._multigrid import BatchedLocalSchur, build_stencil_local
+        # 探测需 hopping/sitting: 与 cmd_setup 同路径构建算子视图
+        opv = dslash.operator(U=U_full, clover_term=clover_full,
+                              kappa=torch.Tensor([kappa]),
+                              support_parity=True, verbose=False)
+        lsch = BatchedLocalSchur(opv, *lat_fine_odd, W=10)
+        with h5py.File(f_lonv, "r") as f:
+            lonv = torch.from_numpy(f["lonv"][()]).to(dt)  # 驻留 CPU(探测切片守卫)
+        hnn, hdg, sit = build_stencil_local(lsch, lonv, E, lat_fine_odd,
+                                            [d // 2 for d in lat_fine_odd],
+                                            dt, device, verbose=True)
+        with h5py.File(cf, "w") as f:
+            for key, tt in (("lonv", lonv), ("hnn", hnn), ("hdg", hdg), ("sit", sit)):
+                f.create_dataset(key, data=tt.detach().cpu().contiguous().numpy())
+        alt = DATA_DIR / tag_base.replace("_t1e-2", "_t0.01").replace(".h5", ".h5")
+        try:
+            if not alt.exists():
+                os.symlink(str(cf), str(alt))
+        except Exception:
+            pass
+        print(f"[staged:stencil] -> {cf}", flush=True)
 
 
 def solve_bistabcg(g, fi, ce, cei, coo, coi, lat, mass, atol, timeout=300, max_iter=1000):
@@ -631,7 +710,8 @@ def main():
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest="cmd")
     for name, extra in (("setup", []), ("bench", []), ("verify", []), ("multi", []),
-                        ("hotspot", []), ("check", []), ("report", [])):
+                        ("hotspot", []), ("check", []), ("report", []),
+                        ("setup_staged", [])):
         sp = sub.add_parser(name)
         sp.add_argument("--lat", type=str, default="16,32,32,48")
         sp.add_argument("--mass", type=float, default=MASS)
@@ -653,6 +733,9 @@ def main():
                              "ddamg=DDalphaAMG式松相对容差近似逆 (dev84)")
         sp.add_argument("--nvsuf", type=str, default="",
                         help="nullvec 缓存 tag 后缀 (如 _dd)")
+        if name == "setup_staged":
+            sp.add_argument("--stage", type=str, default="nulls",
+                            choices=["nulls", "ortho", "stencil"])
         sp.add_argument("--deflate", action="store_true",
                         help="收缩启动: 一次粗校正作初值, 不重置 Krylov (dev84 R5)")
         if name == "check":
