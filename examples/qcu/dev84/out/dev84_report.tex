@@ -178,6 +178,21 @@ $0.55\sim0.66\times$；FGMRES(10) 预条件 $0.49\times$；deflate $0.68\times$�
 \caption{Schur 残差收敛对比（V100，solve 相位）：L1 vs 多层。数据来源：实测 CONVERGENCE\_HISTORY。}
 \end{figure}
 
+\begin{figure}[htbp]\centering
+\includegraphics[width=0.86\linewidth,keepaspectratio]{dev84_volume.png}
+\caption{体积标度：speedup vs L1 随体量平坦转降（统一口径 rs5/cf3e3/cmi200），>2 全体量不可达。数据来源：各体量最优实测。}
+\end{figure}
+
+\begin{figure}[htbp]\centering
+\includegraphics[width=0.8\linewidth,keepaspectratio]{dev84_volume.png}
+\caption{体积标度：统一口径（rs5/cf3e3/cmi200）下 speedup 随体量平坦转降——大格子有利假设证伪。数据来源：四体量实测。}
+\end{figure}
+
+\begin{figure}[htbp]\centering
+\includegraphics[width=0.86\linewidth,keepaspectratio]{dev84_volume.png}
+\caption{体积标度：speedup\_vs\_L1 随体量平坦转降（0.62/0.57/0.70/0.42），$>2$ 全体量不可达。数据来源：各体量最优实测。}
+\end{figure}
+
 多卡验证（指令 4/17）：single V100 mg=4.264s / bistabcg=2.379s；
 multi P100$\times$2 mg=3.275s / bistabcg=2.594s；一致性双 PASS；
 并行比 $1.302\times$。冗余全局模型下多卡为吞吐/一致性语义。
