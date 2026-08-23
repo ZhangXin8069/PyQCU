@@ -2279,6 +2279,11 @@ template <typename T> struct LatticeCloverMultigrid {
     int total=0;
     double tti=0;
     // Outer restart loop
+    // dev84 GATE: 预条件子自适应门控 —— 窗口(W=6 步)几何平均残差因子 g,
+    // g>=0.9 连续 2 窗即永久停用 MG 预条件子(退化为无预条件 FGMRES),
+    // 防止弱预条件子纯烧 V-cycle。粗空间有效时门控永不触发。
+    const int gW = 6; const double gTH = 0.9;
+    int g_win_n=0, g_fail=0; double g_win_ln=0; bool g_prec_off=false;
     for(int restart=0; restart < (max_iter + m -1)/m; restart++){
       // Compute r = b - A x (true residual for restart)
       if(restart>0){
@@ -2313,9 +2318,11 @@ template <typename T> struct LatticeCloverMultigrid {
       auto Hidx = [&](int row,int col){ return row*m + col; };
       for(int j=0;j<m;j++){
         auto j_t0=std::chrono::high_resolution_clock::now();
-        // z_j = M^{-1} v_j
+        // z_j = M^{-1} v_j   (dev84 GATE: 停用时 M=identity)
         auto prec_t0=std::chrono::high_resolution_clock::now();
-        apply_mg_prec(Z[j], V[j]);
+        if(!g_prec_off) apply_mg_prec(Z[j], V[j]);
+        else checkCudaErrors(cudaMemcpyAsync(Z[j], V[j],
+                 st.vec_sz*sizeof(LatticeComplex<T>), cudaMemcpyDeviceToDevice, S));
         auto prec_t1=std::chrono::high_resolution_clock::now();
         prof_vcycle_ms += std::chrono::duration<double,std::milli>(prec_t1-prec_t0).count();
         prof_n_vcycles++;
@@ -2379,6 +2386,25 @@ template <typename T> struct LatticeCloverMultigrid {
         // Check convergence: |s_{j+1}|/beta < tol ?
         T s_next_abs = std::abs(s[j+1]);
         conv_history.push_back(s_next_abs);
+        // dev84 GATE 窗口评估
+        {
+          double ln_r=std::log((double)std::max(s_next_abs,(T)1e-30));
+          if(g_win_n==0){ g_win_ln=ln_r; g_win_n=1; }
+          else {
+            g_win_n++;
+            if(g_win_n>=gW){
+              double gfac=std::exp((ln_r-g_win_ln)/g_win_n);
+              if(gfac>=gTH){ if(++g_fail>=2 && !g_prec_off){
+                  g_prec_off=true;
+                  if(rank==0&&verbose)
+                    log_write<T>("PYQCU::SOLVER::MULTIGRID::\n GCR-GATE: preconditioner disabled"
+                      " (window factor "+std::to_string(gfac)+" >= "+std::to_string(gTH)+")",rank,true);
+                } }
+              else g_fail=0;
+              g_win_n=0;
+            }
+          }
+        }
         auto j_t1=std::chrono::high_resolution_clock::now();
         tti += std::chrono::duration<double>(j_t1-j_t0).count();
         prof_fine_iter_ms += std::chrono::duration<double,std::milli>(j_t1-j_t0).count();
