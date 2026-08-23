@@ -107,4 +107,14 @@ MG\_2L 2.89s——MG\_L1/BiStabCG=1.14×，MG 全路径逐项受益。
    本轮 C++ 优化（图回放/零拷贝/守卫标量）建议回流 dev 主线。
 3. 数据资产：`data/L16x32x32x48_lv1_E12_nvi{8,12_dd,24}_t1e-2.h5`、gauge seed42 一一对应（指令 15/22）。
 
+## 附录：剖析工具边界（指令 12）
+
+| 工具 | 本箱状态 |
+|---|---|
+| nvprof | ✅ 可用 —— 全量 API/内核剖析已存档（logs/dev84/nvprof_summary.log），定位出同步病理与内核税 |
+| torch.profiler (kineto) | ⚠️ 跨线程 C++ 内核不捕获（0 kernel）——MG 求解经工作线程发射；单线程路径正常 |
+| nsys | ❌ WSL2 下 GPU UUID 关联失败（GpuTicksConverter NotFoundException） |
+
+结论：终版热点以 nvprof 为权威依据；hotspot 子命令已加 `--only` 门控支持分进程捕获。
+
 —— 报告生成：opencode auto-all（.auto.2026-08-22-11-51-32.log 全程留痕）
