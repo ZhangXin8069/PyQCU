@@ -65,6 +65,10 @@ L1 的 138 迭代 ×14ms 已近带宽极限（Schur matvec 读 clover 逆 ~0.9GB
 
 ![conv](dev84_conv.png)
 
+![volume](dev84_volume.png)
+
+![volume](dev84_volume.png)
+
 ## 四、多卡验证（指令 4/17）
 
 `multi` 子命令输出镜像于 `out/multi_report.json`（P100×2 一致性 + 单/双线程墙钟）。
@@ -83,6 +87,8 @@ L1 的 138 迭代 ×14ms 已近带宽极限（Schur matvec 读 clover 逆 ~0.9GB
    1×体量 0.65–0.71×、**1.5×体量(24×32×32×48) 0.421×**——加速比随体量
    平坦转降：粗解成本随体量增长而校正效力不变，>2 在全体量不可达，
    「大格子有利」假设证伪。
+
+![volume](dev84_volume.png)
 2. 库级修复建议（后续 PR）：`give_null_vecs*` 全面改相对容差并文档化 if_rtol 陷阱；
    本轮 C++ 优化（图回放/零拷贝/守卫标量）建议回流 dev 主线。
 3. 数据资产：`data/L16x32x32x48_lv1_E12_nvi{8,12_dd,24}_t1e-2.h5`、gauge seed42 一一对应（指令 15/22）。
