@@ -1969,6 +1969,22 @@ template <typename T> struct LatticeCloverMultigrid {
     int count_restart=0;
     LatticeComplex<T> one(1,0);
 
+    // ==================================================================
+    // dev84 ADAPTIVE CORRECTION GATE: 实测(报告§3)在连续谱算子上 V-cycle
+    // 校正对迭代数无净收益(138→138)而每次校正 ~50ms —— 多层恒劣于 L1。
+    // 门控策略：先跑 mg_calib_iters 次纯 BiCGStab 标定收敛斜率 s0；
+    // 之后允许校正, 但每个观测窗(W=12 迭代)测斜率 s1, 若连续 2 窗
+    // s1 < 1.15·s0 (加速不足) 则永久停用校正 → 多层性能退回并稳定在
+    // L1 水平, 保证 MG 永不劣于基线。粗空间有效时门控自动保持开启。
+    // ==================================================================
+    const int mg_calib_iters = 30;
+    const int mg_gate_window = 12;
+    const double mg_gate_factor = 1.15;
+    double mg_ln_rn0 = 0, mg_slope0 = 0;
+    int mg_calib_done = 0;
+    int mg_win_iters = 0; double mg_win_rn = 0; int mg_fail_wins = 0;
+    bool mg_corr_off = false;
+
     for(int it=0; it<max_iter; it++){
       auto ti0=std::chrono::high_resolution_clock::now();
       bistabcg_iter(0);
@@ -1980,6 +1996,37 @@ template <typename T> struct LatticeCloverMultigrid {
       T rn2=check_host[1].real();   // dev84: zero-copy fine norm (mapped)
       T rn=sqrt(rn2<0?0:rn2);
       conv_history.push_back(rn);
+
+      // ---- dev84 自适应校正门控: 标定与窗口斜率监测 ----
+      if(num_levels>1 && num_restart>0){
+        if(!mg_calib_done){
+          if(total==1){ mg_ln_rn0 = std::log((double)rn); }
+          if(total>=mg_calib_iters){
+            double ln_now=std::log((double)std::max(rn,(T)1e-30));
+            mg_slope0=(ln_now-mg_ln_rn0)/mg_calib_iters;
+            mg_calib_done=1; mg_win_iters=0; mg_win_rn=std::log((double)std::max(rn,(T)1e-30));
+            if(rank==0&&verbose)
+              log_write<T>("PYQCU::SOLVER::MULTIGRID::\n GATE: calibrated slope0="
+                +std::to_string(mg_slope0),rank,true);
+          }
+        } else if(!mg_corr_off){
+          mg_win_iters++;
+          if(mg_win_iters>=mg_gate_window){
+            double ln_now=std::log((double)std::max(rn,(T)1e-30));
+            double s1=(ln_now-mg_win_rn)/mg_win_iters;
+            if(s1 < mg_gate_factor*mg_slope0){
+              if(++mg_fail_wins>=2){
+                mg_corr_off=true;
+                if(rank==0&&verbose)
+                  log_write<T>("PYQCU::SOLVER::MULTIGRID::\n GATE: corrections disabled"
+                    " (s1="+std::to_string(s1)+" < "+std::to_string(mg_gate_factor)
+                    +"*s0="+std::to_string(mg_slope0)+")",rank,true);
+              }
+            } else { mg_fail_wins=0; }
+            mg_win_iters=0; mg_win_rn=ln_now;
+          }
+        }
+      }
 
       if(rank==0&&verbose){
         std::ostringstream bm,fm;
@@ -2018,8 +2065,8 @@ template <typename T> struct LatticeCloverMultigrid {
       // deliver corrections below its fp32 precision floor (~1e-5·||P^T·r||),
       // and an empty/noisy correction only resets the BiStabCG Krylov space,
       // bouncing the residual back to ~1e-5 (observed: 500 full iterations).
-      if(num_levels>1 && num_restart>0 && count_restart>=num_restart
-         && rn > (T)100 * atol){
+      if(num_levels>1 && num_restart>0 && !mg_corr_off && mg_calib_done
+         && count_restart>=num_restart && rn > (T)100 * atol){
 
         auto vc_t0=std::chrono::high_resolution_clock::now();
         prof_n_vcycles++;
