@@ -99,6 +99,10 @@ qcu.applyEndQcu(set_ptrs, params)                  # 释放
 - **16×32×32×48 m=0.05 Schur 谱为连续中等谱**（无孤立低模簇；收敛 ~0.77/iter
   几何式）——聚合粗空间/谱收缩/块 Jacobi 均无法在该格子给出 >2 真实加速比；
   历史小格子高加速比系测量口径问题（指令 9 复证）。
+- **大体量 nullvec/stencil 构建**：`examples/qcu/dev84/main.py setup_staged`
+  三阶段分进程流水线（nulls→ortho→stencil，阶段间经硬盘，指令 23 端到端实现）；
+  `_probe_point_batch_local` 已加设备守卫（lonv 可驻留 CPU）。体积标度实测：
+  speedup_vs_L1 随体量平坦转降（0.62@0.09× → 0.42@1.5×），大格子假设证伪。
 
 ## 已知问题与修复（2026-08-14）
 
