@@ -1146,10 +1146,11 @@ template <typename T> struct LatticeCloverMultigrid {
     bistabcg_give_1rho_prev<T><<<1,1,0,S>>>(dv);
     // 3. p = r + beta*(p - omega*v)
     bistabcg_give_p<T><<<gv,bv,0,S>>>(st.p, st.r, st.v, dv);
-    // 3.5 convergence residual ||r||^2 -> host (the ONLY host read this iter)
-    CUBLAS_CHECK(_cublasDot<T>(set_ptr->cublasH, n, st.r,1,st.r,1,&dv[_norm2_tmp_]));
-    checkCudaErrors(cudaMemcpyAsync(&host_vals[_norm2_tmp_],&dv[_norm2_tmp_],
-        sizeof(LatticeComplex<T>),cudaMemcpyDeviceToHost,S));
+    // 3.5 convergence residual ||r||^2 -> ZERO-COPY mapped page (the ONLY
+    //     host read this iter).  dev84: cublasDot 写入映射宿主页别名,
+    //     免去每次迭代的 D2H memcpyAsync (WSL2 每次 thunk ~0.6ms)。
+    CUBLAS_CHECK(_cublasDot<T>(set_ptr->cublasH, n, st.r,1,st.r,1,
+        static_cast<LatticeComplex<T>*>(check_dev) + 1));
     // 4. v = S·p
     fine_dslash_op(st.v, st.p);
     // 5. alpha = rho / <r_tilde, v>
@@ -1164,9 +1165,17 @@ template <typename T> struct LatticeCloverMultigrid {
     CUBLAS_CHECK(_cublasDot<T>(set_ptr->cublasH, n, st.t,1,st.t,1,&dv[_tmp1_]));
     bistabcg_give_1omega<T><<<1,1,0,S>>>(dv);
     // 9. r = s - omega*t ;  x = x + alpha*p + omega*s
-    bistabcg_give_r<T><<<gv,bv,0,S>>>(st.r, st.s, st.t, dv);
-    bistabcg_give_x_o<T><<<gv,bv,0,S>>>(st.x, st.p, st.s, dv);
-    // 10. single sync so host_vals[_norm2_tmp_] is valid for the caller
+    //    dev84 kernel-count diet: 双元素级更新融合为一次发射 (mg_give_rx)
+    {
+      int n4=(int)(n/_LAT_SC_);
+      mg_give_rx<T><<<gv,bv,0,S>>>(
+          static_cast<LatticeComplex<T>*>(st.r),
+          static_cast<const LatticeComplex<T>*>(st.s),
+          static_cast<const LatticeComplex<T>*>(st.t),
+          static_cast<LatticeComplex<T>*>(st.x),
+          static_cast<const LatticeComplex<T>*>(st.p), dv, n4);
+    }
+    // 10. single sync so check_host[1] (mapped) is valid for the caller
     checkCudaErrors(cudaStreamSynchronize(S));
   }
 
@@ -1968,7 +1977,7 @@ template <typename T> struct LatticeCloverMultigrid {
       prof_fine_iter_ms += std::chrono::duration<double,std::milli>(ti1-ti0).count();
       count_restart++;
 
-      T rn2=host_vals[_norm2_tmp_].real();
+      T rn2=check_host[1].real();   // dev84: zero-copy fine norm (mapped)
       T rn=sqrt(rn2<0?0:rn2);
       conv_history.push_back(rn);
 
