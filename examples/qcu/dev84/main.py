@@ -641,22 +641,28 @@ def cmd_hotspot(args):
     torch.cuda.set_device(0)
     import torch.profiler as profiler
     print(f"=== dev84 hotspot {lat} on {torch.cuda.get_device_name(0)} ===")
-    g, fi, ce, cei, coo, coi, U_full, b_full, clover_full, kappa, av, p = \
-        load_gauge(lat, args.mass, args.atol)
-    with profiler.profile(activities=[profiler.ProfilerActivity.CPU,
-                                      profiler.ProfilerActivity.CUDA],
-                          record_shapes=True) as prof:
-        solve_bistabcg(g, fi, ce, cei, coo, coi, lat, args.mass, args.atol, timeout=300)
-    prof.export_chrome_trace(str(OUT_DIR / "trace_bistabcg.json"))
-    print(f"[hotspot] trace_bistabcg.json saved")
+    only = getattr(args, "only", "all")
+    if only in ("all", "bistabcg"):
+      g, fi, ce, cei, coo, coi, U_full, b_full, clover_full, kappa, av, p = \
+          load_gauge(lat, args.mass, args.atol)
+      with profiler.profile(activities=[profiler.ProfilerActivity.CPU,
+                                        profiler.ProfilerActivity.CUDA],
+                            record_shapes=True) as prof:
+          solve_bistabcg(g, fi, ce, cei, coo, coi, lat, args.mass, args.atol, timeout=300)
+      prof.export_chrome_trace(str(OUT_DIR / "trace_bistabcg.json"))
+      print(f"[hotspot] trace_bistabcg.json saved")
+      del g, fi, U_full, clover_full
+    if only not in ("all", "mg2l"):
+        return
     g2, fi2, ce2, cei2, coo2, coi2, U2, b2, cl2, k2, av2, p2 = \
         load_gauge(lat, args.mass, args.atol)
     with profiler.profile(activities=[profiler.ProfilerActivity.CPU,
                                       profiler.ProfilerActivity.CUDA],
                           record_shapes=True) as prof2:
-        solve_mg(g2, fi2, ce2, cei2, coo2, coi2, U2, cl2, lat, args.mass, args.atol,
-                 2, args.E, torch.device("cuda:0"), timeout=600,
+        solve_mg(g2, fi2, ce2, cei2, coo2, coi2, U2, cl2, lat, args.mass,
+                 args.atol, 2, args.E, torch.device("cuda:0"), timeout=600,
                  rs=args.rs, cf=args.cf, cmi=args.cmi, nvi=args.nvi, verbose=False)
+        torch.cuda.synchronize()
     prof2.export_chrome_trace(str(OUT_DIR / "trace_mg2l.json"))
     print("[hotspot] trace_mg2l.json saved")
     try:
@@ -740,6 +746,9 @@ def main():
                         help="收缩启动: 一次粗校正作初值, 不重置 Krylov (dev84 R5)")
         if name == "check":
             sp.add_argument("--gate", type=float, default=2.0)
+        if name == "hotspot":
+            sp.add_argument("--only", type=str, default="all",
+                            choices=["all", "bistabcg", "mg2l"])
         sp.add_argument("--verbose", action="store_true")
         sp.set_defaults(func=globals()[f"cmd_{name}"])
     args = ap.parse_args()
