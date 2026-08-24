@@ -12,7 +12,7 @@ MPI 网格管理、HDF5 I/O、线性代数、张量操作、多重网格转移�
 | `_budget.py` | 显存/RSS/磁盘预算模型（2026-08-22 整合，dev74 主本）：`vram_model`(cold)/`vram_model_warm`/`rss_model`/`disk_cache_bytes`(E 参数化)/`fit_from_bench`(json 实测拟合 α)/`budget_table(mode, vram_gb)`；常量 CONST_PER_V=24192 B/V、α=2.6 KB/V、β=512 MB |
 | `_linalg.py` | 向量点积（`vdot`）与范数（`norm`） |
 | `_einsum.py` | TileLang JIT einsum 内核 — `Eexyzt_exyzt2Exyzt`（可选，try/except 导入） |
-| `_matul.py` | TileLang 矩阵乘内核 `matmul_gpu`/`matmul_cpu`（可选） |
+| `_matul.py` | TileLang 矩阵乘内核 `matmul_gpu`/`matmul_cpu`（可选）。**含 tilelang 0.1.7.post3 上游 bug 热修**：import 时条件性补挂四处同名 TensorCoreIntrinEmitter 缺失的 `_legalize_to_buffer_region`（bug36）；fp16 默认配置已验证（4096³=cuBLAS 94%），fp32 sm70 与 64 小 block 为上游另案不可用 |
 | `_multigrid.py` | Null 向量生成（`give_null_vecs`）、局部正交化（`local_orthogonalize`）、restrict/prolong — 全部带 NPU 兼容回退 |
 | `_roll.py` | 张量滚动工具 |
 
