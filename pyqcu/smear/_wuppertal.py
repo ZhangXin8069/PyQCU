@@ -61,8 +61,13 @@ def wuppertal_smear(src: torch.Tensor, U: torch.Tensor, rho: float = 4.0,
     """
     assert src.ndim == 6 and src.shape[0] == 4 and src.shape[1] == 3, \
         "PYQCU::SMEAR::WUPPERTAL:\n src must be [4, 3, Lx, Ly, Lz, Lt]"
+    assert nstep >= 1, \
+        "PYQCU::SMEAR::WUPPERTAL:\n nstep must be >= 1 (sigma = rho^2/(4*nstep) divides by nstep)"
     sigma = rho * rho / (4.0 * nstep)
-    wards = [-4, -3, -2, -1]
+    # 空间三维 (x,y,z) smear，6 邻居 — 与中心系数 (1-6*sigma) 自洽（文献 Wuppertal/quda
+    # wuppertalSmear 仅空间；时间切片保持局域）。若含 t(-1) 则为 8 邻居，常数场每步
+    # 被放大 x(1+2*sigma)，nstep 步后指数发散（实测 U=I 常数场 dev=44@nstep=10, rho=4）。
+    wards = [-4, -3, -2]
     x = src.clone()
     grid_size = tools.give_grid_size()
     u_head_list, u_tail_list = [torch.zeros([])] * 4, [torch.zeros([])] * 4
@@ -73,7 +78,7 @@ def wuppertal_smear(src: torch.Tensor, U: torch.Tensor, rho: float = 4.0,
         if support_parallel:
             s_head_list, s_tail_list = _exchange_boundaries(x, dims_num=x.ndim)
         acc = _torch.zeros_like(x)
-        for mu in range(4):
+        for mu in range(len(wards)):
             w = wards[mu]
             U_mu = U[:, :, mu]
             # 前向：U_μ(x)·x(x+μ̂)
