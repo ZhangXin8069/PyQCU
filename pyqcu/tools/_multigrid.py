@@ -48,23 +48,21 @@ def give_null_vecs(
                 null_vecs[i] -= (proj / norm_sq) * null_vecs[j]
         if normalize:
             null_vecs[i] /= tools.norm(null_vecs[i])
-        if verbose:
-            print(
-                f"PYQCU::TOOLS::MATRIX:\n (_matvec(null_vecs[i])/null_vecs[i]).flatten()[:10]:{(matvec(null_vecs[i])/null_vecs[i]).flatten()[:10]}")
     if verbose and null_vecs.device.type != 'npu':
         print(f"PYQCU::TOOLS::MATRIX:\n Near-null space check:")
+        flat = null_vecs.reshape(dof, -1)
+        gram = (flat @ flat.conj().T).abs()
+        off = gram.clone()
+        off.fill_diagonal_(0)
+        off_diag = off.max().item()
         for i in range(dof):
             Av = matvec(null_vecs[i])
             print(
                 f"PYQCU::TOOLS::MATRIX:\n Vector {i}: ||A*v/v|| = {tools.norm(Av/null_vecs[i]):.6e}")
             print(
-                f"PYQCU::TOOLS::MATRIX:\n Vector {i}: A*v/v:100 = {(Av/null_vecs[i]).flatten()[:100]}")
-            print(
                 f"PYQCU::TOOLS::MATRIX:\n tools.norm(null_vecs[{i}]):.6e:{tools.norm(null_vecs[i]):.6e}")
-            # orthogonalization
-            for j in range(0, i+1):
-                print(
-                    f"PYQCU::TOOLS::MATRIX:\n tools.vdot(null_vecs[{i}],null_vecs[{j}]):{tools.vdot(null_vecs[i],null_vecs[j])}")
+        print(
+            f"PYQCU::TOOLS::MATRIX:\n Orthogonality: max|<v_i,v_j>| (i!=j) = {off_diag:.3e}")
     return null_vecs
 
 

@@ -554,5 +554,4 @@ class multigrid:
             if save_path is None:
                 save_path = "convergence_history.png"
             plt.savefig(save_path, dpi=300)
-            plt.show()
             plt.close()
