@@ -39,8 +39,11 @@ def _exchange_boundaries(field: torch.Tensor, dims_num: int):
             head_list[w] = torch.from_numpy(head4recv).to(device=field.device)
             head4send = field[tools.slice_dim(dims_num=dims_num, ward=w, point=0)].cpu().contiguous().numpy()
             tail4recv = np.zeros_like(head4send)
+            # tag 语义: #1 tag=发方rank; #2 sendtag=minus(发方)=收方rank ⇒ 接收侧 recvtag 必须
+            # 等于本 rank(=对方的 minus)。原 recvtag=rank_plus 在 grid=2 周期退化(plus==minus)
+            # 时与对方 sendtag 交叉错位 → 双方各等一条永不出现的消息(Sendrecv 死锁)。
             comm.Sendrecv(sendbuf=head4send, dest=rank_minus_list[w], sendtag=rank_minus_list[w],
-                          recvbuf=tail4recv, source=rank_plus_list[w], recvtag=rank_plus_list[w])
+                          recvbuf=tail4recv, source=rank_plus_list[w], recvtag=rank)
             tail_list[w] = torch.from_numpy(tail4recv).to(device=field.device)
     return head_list, tail_list
 
@@ -93,7 +96,8 @@ def wuppertal_smear(src: torch.Tensor, U: torch.Tensor, rho: float = 4.0,
                 x_minus[tools.slice_dim(dims_num=x.ndim, ward=mu, point=0)] = \
                     s_head_list[mu].to(x_minus.dtype)
                 V_roll[tools.slice_dim(dims_num=V_roll.ndim, ward=mu, point=0)] = \
-                    u_head_list[mu].conj().permute(1, 0, *range(2, U_mu.ndim)).to(V_roll.dtype)
+                    u_head_list[mu][:, :, mu].conj().permute(
+                        1, 0, *range(2, u_head_list[mu].ndim - 1)).to(V_roll.dtype)
             acc = acc + _torch.einsum("abxyzt,mbxyzt->maxyzt", U_mu, x_plus)
             acc = acc + _torch.einsum("abxyzt,mbxyzt->maxyzt", V_roll, x_minus)
         x = (1.0 - 6.0 * sigma) * x + sigma * acc
