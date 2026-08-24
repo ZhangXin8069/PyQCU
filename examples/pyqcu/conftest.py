@@ -62,3 +62,4 @@ import torch
 # test_smear_stout(device=torch.device('cpu'), dtype=torch.complex64)
 test_dslash_clover(with_data=False, device=torch.device(
     'cpu'), dtype=torch.complex64)
+# test_smear_wuppertal(device=torch.device('cpu'))  # 三重不变量回归(test16)
