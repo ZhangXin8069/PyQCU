@@ -76,3 +76,353 @@ lib/_package/linux/2048
 .tag.*
 .up.*
 .all.*
+# ---- 追加自 lib/_gitignore 模板 (gadd-ignore.sh)：逐行精确匹配去重补加，分节含义见该模板 ----
+# ============================================================================
+# configure 仓库通用 .gitignore
+# ----------------------------------------------------------------------------
+# 本文件即仓库根 .gitignore；lib/_gitignore 为其符号链接（模板引用入口）。
+#
+# 分节索引：
+#   [01] 通用临时与备份         [02] 操作系统特有文件     [03] 编辑器与 IDE
+#   [04] 通用构建系统产物       [05] C / C++              [06] Fortran/HPC/CUDA
+#   [07] Python / Jupyter       [08] Java / JVM           [09] PHP / Composer
+#   [10] JS / TS / Node.js      [11] Go / Rust            [12] LaTeX
+#   [13] 科学计算数据与大文件   [14] 日志/缓存/agent 产物 [15] 密钥与凭据
+#   [16] 本仓库专属：护栏 + 历史保留激进模式
+# 维护约定：
+#   1) 新增语言产物 → 追加到对应编号分节；没有则新建编号分节并更新本索引；
+#   2) 注释一律独占一行（gitignore 不支持行尾注释）；
+#   3) [04]/[16] 的激进模式为本仓库历史约定，复制到其他项目前须逐条甄别；
+#   4) 每次改动后必须验证：git ls-files -ci --exclude-standard 应为空（零误伤）。
+# 来源参考：github/gitignore 官方模板（Python/Java/PHP/C++/Node/Rust/Global 等）
+# ==== [01] 通用临时与备份文件 ====
+# vim 交换文件族（*.swp / *.swo / *.swn 均被 *.sw* 覆盖）
+*.tmp
+*.orig
+*.rej
+# ==== [02] 操作系统特有文件 ====
+# --- macOS ---
+.DS_Store
+._*
+.Spotlight-V100
+.Trashes
+.fseventsd
+# --- Windows ---
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+# --- Linux 桌面 ---
+.directory
+.Trash-*
+# --- 内核崩溃转储 ---
+core.[0-9]*
+vgcore.[0-9]*
+# ==== [03] 编辑器与 IDE ====
+# --- Vim ---
+*.un~
+.netrwhist
+# --- Emacs（自动保存与锁文件）---
+\#*\#
+.\#*
+# --- Eclipse ---
+# --- VS Code ---
+tempCodeRunnerFile.py
+# --- JetBrains（IntelliJ / PyCharm / CLion / DataGrip…）---
+# 默认不忽略整个 .idea/（保留项目级配置入库的自由）；如需全局忽略放开下一行
+# .idea/
+*.iml
+# ==== [04] 通用构建系统产物（CMake/Make 及跨语言输出目录）====
+build/
+dist/
+out/
+coverage/
+target/
+# --- 历史保留的激进模式：匹配面很宽，收紧或删除前先想清楚 ---
+# *build    匹配任何以 build 结尾的名字（含 rebuild/docker-build 等非目录项）
+# *draft    匹配任何以 draft 结尾的名字
+# *dist     匹配任何以 dist 结尾的名字
+# *Makefile 匹配任意以大写 Makefile 结尾的名字（小写 makefile/GNUmakefile 不匹配）
+# ==== [05] C / C++ ====
+# 预编译头与依赖文件
+*.d
+*.gch
+*.pch
+# 目标文件
+*.slo
+*.lo
+*.obj
+# 动态库
+*.so.*
+*.dylib
+*.dll
+# 静态库
+*.lai
+*.la
+*.a
+*.lib
+# 可执行文件（*.out 同时覆盖 LaTeX hyperref 的 .out）
+*.exe
+*.app
+# MSVC 中间产物
+*.pdb
+*.idb
+*.ilk
+*.exp
+*.opendb
+ipch/
+# 注：本仓库另有历史约定 *.c 一律忽略，见 [16]
+# ==== [06] Fortran / HPC / CUDA / 性能分析 ====
+# Fortran 模块文件（Go 模块清单是源文件，紧跟其后放行）
+*.mod
+!go.mod
+*.smod
+# CUDA 编译产物
+*.cubin
+*.ptx
+*.fatbin
+*.gpu
+# NVIDIA Nsight 系列（Systems / Compute / Profiler）
+*.qdstrm
+*.ncu-rep
+*.qrep
+# gprof / perf 采样输出
+gmon.out
+perf.data
+perf.data.old
+# Slurm 输出 slurm-<jobid>.out 已由 [05] *.out 覆盖，无需单列
+# ==== [07] Python / Jupyter ====
+# 字节码与类型检查/测试/静态分析缓存
+__pycache__/
+*.py[codz]
+*$py.class
+*.sage.py
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.pytype/
+.ruff_cache/
+.hypothesis/
+cython_debug/
+# 打包与分发（lib/ 为上游 Python 安装目录含义，对本仓库的护栏见 [16]）
+.Python
+develop-eggs/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg
+.installed.cfg
+MANIFEST
+*.manifest
+*.spec
+pip-log.txt
+pip-delete-this-directory.txt
+# 单元测试与覆盖率报告
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+nosetests.xml
+coverage.xml
+*.cover
+*.py.cover
+cover/
+# 翻译文件
+*.mo
+*.pot
+# Web 框架杂项（Django / Flask / Scrapy / Sphinx / PyBuilder）
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+instance/
+.webassets-cache
+.scrapy
+docs/_build/
+.pybuilder/
+# Jupyter / IPython
+.ipynb_checkpoints
+profile_default/
+ipython_config.py
+# 环境管理器锁文件按上游建议默认入库，如需忽略自行放开
+# Pipfile.lock
+# uv.lock
+# poetry.lock
+# poetry.toml
+# pdm.lock
+# pdm.toml
+.pdm-python
+.pdm-build/
+.pixi
+# PEP 582（pyflow / pdm）
+__pypackages__/
+# 任务调度与消息队列运行时数据
+celerybeat-schedule
+celerybeat.pid
+*.rdb
+*.aof
+*.pid
+mnesia/
+rabbitmq/
+rabbitmq-data/
+activemq-data/
+# 虚拟环境目录
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.venv
+# Python 相关 IDE / 工具
+.spyderproject
+.spyproject
+.ropeproject
+.abstra/
+marimo/_static/
+marimo/_lsp/
+__marimo__/
+# ==== [08] Java / JVM ====
+# 编译产物
+*.class
+*.ctxt
+.mtj.tmp/
+# Gradle 用户主目录（Maven/Gradle 的 target/、build/ 已在 [04]）
+.gradle/
+# 归档包：压缩包一律不入库（已跟踪的 _snsc/*.tgz、_package/win/*.exe 不受影响）
+*.jar
+*.war
+*.nar
+*.ear
+*.zip
+*.tar.gz
+*.tgz
+*.rar
+*.7z
+# JVM 崩溃日志与诊断文件
+hs_err_pid*
+replay_pid*
+*.hprof
+*.jfr
+# ==== [09] PHP / Composer ====
+vendor/
+composer.phar
+.phpunit.result.cache
+.phpunit.cache/
+# composer.lock 对应用工程建议入库（上游同款约定），故不在模板中忽略
+# ==== [10] JavaScript / TypeScript / Node.js ====
+node_modules/
+.npm
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.eslintcache
+*.tsbuildinfo
+.parcel-cache/
+.next/
+.nuxt/
+# ==== [11] Go / Rust ====
+# Go 测试二进制（go.mod / go.sum 是源文件，勿忽略）
+*.test
+# Rust（target/ 已在 [04]；Cargo.lock 对库工程建议入库）
+**/*.rs.bk
+# ==== [12] LaTeX ====
+# 编译中间产物
+*.lof
+*.lot
+*.synctex.gz
+*.synctex(busy)
+*.bbl
+*.blg
+*.bcf
+*.run.xml
+*.idx
+*.ind
+*.ilg
+*.glo
+*.gls
+*.glsdefs
+*.ist
+*.acn
+*.acr
+*.alg
+*.spl
+# beamer / hyperref 辅助文件（hyperref 的 .out 已被 [05] *.out 覆盖）
+# minted 缓存目录
+_minted*/
+# ==== [13] 科学计算数据与大文件 ====
+# 数组 / 张量 / 模型权重
+*.pt
+*.pth
+*.ckpt
+*.onnx
+*.safetensors
+*.pb
+*.joblib
+*.pkl
+*.pickle
+# HDF5 家族（*.h5* 已含 .h5/.he5 等）
+*.h5*
+# 科学数据格式（netCDF / CERN ROOT / FITS / MATLAB / 列式存储）
+*.nc
+*.cdf
+*.root
+*.fits
+*.mat
+*.parquet
+*.feather
+*.zarr/
+# 格点 QCD 数据（SciDAC/LIME 与 ILDG）
+*.lime
+*.ildg
+# ==== [14] 日志 / 缓存 / agent 运行时产物 ====
+# opencode 系列（agent/auto/optim/debug/all/tag）运行日志与会话清单，仓库约定不入库；
+# 位于 [16] 护栏树内的同类文件由文件末尾"运行时产物最终例外"块兜底
+.agent.*
+# ==== [15] 密钥与凭据（安全红线，任何情况下不得入库）====
+.env
+.envrc
+.key
+.key.tmp
+*.key
+*.pem
+*.p12
+*.pfx
+*.jks
+.pypirc
+.streamlit/secrets.toml
+# ==== [16] 本仓库专属：护栏与历史保留模式 ====
+# --- 防误伤护栏 ---
+# 上游 Python 模板的 lib/ 会静默吞掉本仓库核心目录 lib/ 下所有新增文件；
+# 用否定模式重新放行该目录本身（子目录内容仍受其余规则正常约束）。
+!lib/
+# --- 历史保留的全局忽略（语义激进，复制到其他项目前逐条甄别）---
+# *.c       本仓库不跟踪 C 源码（已跟踪的 _package/linux/2048.c 为例外，不受影响）
+# *.bin     二进制杂项不入库
+# *.json    数据文件不入库（已跟踪样例不受影响）
+# *.csv     数据文件不入库
+# *.tsv     数据文件不入库
+# *.env.sh  环境脚本快照不入库
+# .ssub.sh  集群提交脚本本地副本不入库
+*.env.sh
+# --- 参考资料树全放行（必须置于全文件末尾）---
+# gitignore 按"末条优先"裁决：以下否定模式覆盖此前一切规则，含 *Makefile/*build
+# 对 oh-my-zsh 插件目录的剪枝误伤、*.c/*.json/*.env 对插件样例的扩展名误伤、
+# *.exe/*.tgz/*.tar.gz 对参考包的归档误伤。这些树是"仅参考不部署"的第三方/
+# 二进制参考资料（见 AGENTS.md），内容永远以仓库实际跟踪为准。
+!lib/_oh-my-zsh/**
+!lib/_package/**
+!lib/_clash/**
+!lib/_snsc/**
+# --- 运行时产物最终例外 ---
+# opencode 系列日志/清单即使位于上述参考资料树内也不入库：
+# 置于树级护栏之后，按末条优先重新生效，与 [14] 全局规则构成"规则→放行→例外"闭环
