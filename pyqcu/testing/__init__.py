@@ -710,8 +710,11 @@ def verify_nullvecs(S, lonv, lat_fine: List[int], lat_coarse: List[int],
     粗算子构建（tools.build_stencil*/give_null_vecs*）后的标准验收工具。
 
     Args:
-        S: 细层算子可调用（[E_prev]+lat_fine → 同形，如奇偶 Schur 算子）
-        lonv: 局部正交 null 向量组 [E, E_prev, *lat_fine]（全局细格子布局）
+        S: 细层算子可调用（[E_prev]+lat_fine → 同形，如奇偶 Schur 算子
+           op.matvec_parity —— kappa 已吸收进 hopping 组件，勿显式乘 k²）
+        lonv: 局部正交 null 向量组，**10 维块结构** [E, E_prev, X,x,Y,y,Z,z,T,t]
+              （local_orthogonalize 输出原样传入；restrict/prolong/Gram 分支均按
+              块约定索引，传物理布局会在 prolong 处 shape 崩溃）
         lat_fine / lat_coarse: 细/粗格子 [X, Y, Z, T]
         n_sample: 近零性抽样检查的向量数
         stencil: 可选 (hnn, hdg, sit) 33-tensor 粗层 stencil；提供时追加
