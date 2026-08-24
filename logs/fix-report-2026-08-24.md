@@ -37,6 +37,7 @@ bug37 修复 benchmark/conftest.py 收集期笔误崩溃。
 | NPU 路径回归 | 无昇腾硬件 |
 | ~~with_data 参考 HDF5~~ **已重建** | C++ 后端即独立实现源；L16³ Wilson 组 + L8³ clover 组生成器入库（logs/session-2026-08-24/gen_*_ref.py），h5 因 gitignore 由其确定性再生；solver 双后端交叉 rel=8.6e-07 |
 | tilelang fp32-gemm sm70 / 64 小 block 数值错 | tilelang 包内模板/fragment 布局问题（上游另案，fp16 主语义不受影响） |
+| ~~clover 双实现 ~12% 约定分歧~~ **已澄清为实验伪影** | 对照基线 κ 错配（C++ argv MASS=0⇒内部 κ=0.125 vs 误用 Python κ=1.0）；正确口径下 C++ applyClovers ≡ Python make_clover+add_I，rel=9.5e-09 位级一致 |
 | verify_nullvecs Galerkin 分支对非块布局的容错 | 已文档化规避（须传 10 维块结构），转换层属可选增强 |
 
 —— 报告生成：opencode auto 循环（bug31–37 / test16 / dev85 全程实测留痕）
