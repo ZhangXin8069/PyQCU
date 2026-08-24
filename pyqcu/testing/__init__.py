@@ -575,6 +575,32 @@ def test_smear_wuppertal(lat_size: List[int] = [8, 8, 8, 16], rho: float = 4.0,
         f"(rho={rho}, nstep={nstep})")
 
 
+def test_npu_emulation(lat_size: List[int] = [8, 8, 8, 16],
+                       dtype: torch.dtype = torch.complex64,
+                       device: torch.device = torch.device('cpu')):
+    """cann 层 NPU 复数分解路径模拟回归（2026-08-24 整合）。
+
+    force_use_npu=True 强制 cann 复数算术(vdot/norm/abs)走实虚分解分支
+    （与真机 NPU 行为同构），在 CPU 上验证该路径正确性。
+    覆盖 lattice/dslash_wilson/smear_stout/solver_bistabcg 四组件；
+    全局开关以 try/finally 恢复，防污染后续测试。
+    """
+    import pyqcu.cann as _cann_mod
+    _saved = _cann_mod.force_use_npu
+    _cann_mod.force_use_npu = True
+    try:
+        test_lattice(lat_size=lat_size, dtype=dtype, device=device)
+        test_dslash_wilson(lat_size=lat_size, dtype=dtype, device=device)
+        test_smear_stout(lat_size=lat_size, device=device, dtype=dtype)
+        test_solver(kind='wilson', method='bistabcg',
+                    lat_size=[8, 8, 8, 8], dtype=dtype, device=device)
+        print("PYQCU::TESTING::NPU::EMULATION:\n"
+              " lattice/dslash_wilson/smear_stout/solver_bistabcg all PASS "
+              "(force_use_npu decomposed-complex path)")
+    finally:
+        _cann_mod.force_use_npu = _saved
+
+
 def test_h5py_multithread(nthreads: int = 4, tmp_dir: str = None,
                           dtype: torch.dtype = torch.complex64,
                           lat_size: List[int] = [4, 4, 4, 8]):
