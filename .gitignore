@@ -64,3 +64,15 @@ lib/_package/linux/2048
 *.vrb
 *.env
 *.list
+
+# agent 会话日志（不入库约定）
+.agent.*.log
+.auto.*
+.debug.*
+.optim.*
+.test.*
+.diff.*
+.init.*
+.tag.*
+.up.*
+.all.*
