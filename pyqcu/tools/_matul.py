@@ -1,6 +1,48 @@
 import tilelang.language as T
 
 
+def _patch_tilelang_mma_legalize():
+    """tilelang 0.1.7.post3 上游 bug 本地热修(2026-08-24)。
+
+    mma_macro_generator.TensorCoreIntrinEmitter 的 copy/gemm lowering 调用
+    self._legalize_to_buffer_region(共 4 处),但该类未定义此方法
+    (仅 mfma_macro_generator.MatrixCoreIntrinEmitter 有)→ T.gemm 编译期
+    AttributeError: 'TensorCoreIntrinEmitter' object has no attribute
+    '_legalize_to_buffer_region'。照抄上游 mfma 实现补挂;已存在则不动。
+    """
+    try:
+        from tilelang.intrinsics import mma_macro_generator as _mmg
+        from tilelang.intrinsics import mfma_macro_generator as _mfma
+        _src = getattr(_mfma.MatrixCoreIntrinEmitter,
+                       "_legalize_to_buffer_region", None)
+        if _src is None:
+            return
+        _fn = getattr(_src, "__func__", _src)
+        # 三处同名 TensorCoreIntrinEmitter(mma/wgmma/tcgen05)+基类,幂等补挂
+        import importlib
+        for _mod_name in ("tilelang.intrinsics.mma_macro_generator",
+                          "tilelang.intrinsics.wgemma_macro_generator",
+                          "tilelang.intrinsics.wgmma_macro_generator",
+                          "tilelang.intrinsics.tcgen05_macro_generator",
+                          "tilelang.intrinsics.mma_sm70_macro_generator",
+                          "tilelang.intrinsics.mfma_macro_generator"):
+            try:
+                _mod = importlib.import_module(_mod_name)
+            except Exception:
+                continue
+            for _cls_name in ("TensorCoreIntrinEmitter", "MMAIntrinEmitter"):
+                _cls = getattr(_mod, _cls_name, None)
+                if _cls is not None and not hasattr(_cls,
+                                                    "_legalize_to_buffer_region"):
+                    setattr(_cls, "_legalize_to_buffer_region",
+                            staticmethod(_fn))
+    except Exception:
+        pass
+
+
+_patch_tilelang_mma_legalize()
+
+
 def matmul_gpu(M, N, K, block_M=128, block_N=128, block_K=32, dtype=T.float16, accum_dtype=T.float32):
     @T.prim_func
     def main(
