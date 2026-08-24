@@ -4,10 +4,13 @@
 
 包含多种格点尺寸的规范场、费米子源与期望的算子/求解器输出。
 
-## 现状（2026-08-24）
+## 现状（2026-08-24 二次更新：Wilson 组已跨后端重建）
 
-**当前目录为空（仅本文件）**：`refer.wilson.*.L32K0_125.*.h5`、`refer.clover.*.L32Y16K1.*.h5`
-从未入 git（`git ls-files` 仅跟踪本文件），仓库内无副本、无生成脚本，来源不可考。
-影响：`pyqcu/testing` 的 `test_dslash_wilson(with_data=True)`、`test_dslash_clover(with_data=True)`、
-`test_solver(with_data=True)` 路径因文件缺失报 OSError——属环境资产缺失，非代码缺陷；
-核心算子正确性由非 data 测试路径覆盖。若重建参考数据，须以独立实现生成并入库。
+原 L32 参考数据从未入库且来源不可考。现以 **C++ CUDA 后端为独立实现源**重建 Wilson 组
+（L16³, mass=0⇒κ=0.125, c64, seed42；生成器 `logs/session-2026-08-24/gen_wilson_ref.py`）：
+`refer.wilson.{U,src,b,x,dest}.L16K0_125.*.h5` 共 ~44MB 已入库，
+测试分支尺寸同步改为 L16。验证：dslash par 7.1e-08 / nopar 0.0 /
+solver 跨后端 rel 8.6e-07（Python BiCGStab vs C++ BistabCg）。
+
+clover 组（L32Y16K1）因原规格 GB 级未重建，`test_dslash_clover(with_data=True)`
+仍不可用（如需可同法以小格子生成）。

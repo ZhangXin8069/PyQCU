@@ -61,14 +61,14 @@ def test_dslash_wilson(kappa: Optional[torch.Tensor] = torch.Tensor([0.1]), lat_
     else:
         kappa = torch.Tensor([0.125])
         dtype = torch.complex64
-        lat_size = [32, 32, 32, 32]
+        lat_size = [16, 16, 16, 16]
         path = pyqcu.__file__.replace('pyqcu/__init__.py', 'examples/data/')
         refer_U = tools.hdf5oooxyzt2gridoooxyzt(
-            file_name=path+'refer.wilson.U.L32K0_125.ccdxyzt.c64.h5', lat_size=lat_size, device=device, verbose=True)
+            file_name=path+'refer.wilson.U.L16K0_125.ccdxyzt.c64.h5', lat_size=lat_size, device=device, verbose=True)
         refer_src = tools.hdf5oooxyzt2gridoooxyzt(
-            file_name=path+'refer.wilson.src.L32K0_125.scxyzt.c64.h5', lat_size=lat_size, device=device, verbose=True)
+            file_name=path+'refer.wilson.src.L16K0_125.scxyzt.c64.h5', lat_size=lat_size, device=device, verbose=True)
         refer_dest = tools.hdf5oooxyzt2gridoooxyzt(
-            file_name=path+'refer.wilson.dest.L32K0_125.scxyzt.c64.h5', lat_size=lat_size, device=device, verbose=True)
+            file_name=path+'refer.wilson.dest.L16K0_125.scxyzt.c64.h5', lat_size=lat_size, device=device, verbose=True)
         refer_clover_term = torch.zeros(
             size=[4, 3, 4, 3]+list(refer_src.shape)[2:], dtype=dtype, device=device)
         operator = dslash.operator(
@@ -326,14 +326,14 @@ def test_solver(kind: str = 'clover', method: str = 'bistabcg', kappa: Optional[
                                               4, 3]+lat_size, root=root, dtype=dtype, device=device)
     else:
         kappa = torch.Tensor([0.125])
-        lat_size = [32, 32, 32, 32]
+        lat_size = [16, 16, 16, 16]
         path = pyqcu.__file__.replace('pyqcu/__init__.py', 'examples/data/')
         refer_U = tools.hdf5oooxyzt2gridoooxyzt(
-            file_name=path+'refer.wilson.U.L32K0_125.ccdxyzt.c64.h5', lat_size=lat_size, device=device, verbose=True)
+            file_name=path+'refer.wilson.U.L16K0_125.ccdxyzt.c64.h5', lat_size=lat_size, device=device, verbose=True)
         refer_x = tools.hdf5oooxyzt2gridoooxyzt(
-            file_name=path+'refer.wilson.x.L32K0_125.scxyzt.c64.h5', lat_size=lat_size, device=device, verbose=True)
+            file_name=path+'refer.wilson.x.L16K0_125.scxyzt.c64.h5', lat_size=lat_size, device=device, verbose=True)
         refer_b = tools.hdf5oooxyzt2gridoooxyzt(
-            file_name=path+'refer.wilson.b.L32K0_125.scxyzt.c64.h5', lat_size=lat_size, device=device, verbose=True)
+            file_name=path+'refer.wilson.b.L16K0_125.scxyzt.c64.h5', lat_size=lat_size, device=device, verbose=True)
         refer_clover_term = torch.zeros(
             size=[4, 3, 4, 3]+list(refer_b.shape)[2:], dtype=dtype, device=device)
     operator = dslash.operator(
