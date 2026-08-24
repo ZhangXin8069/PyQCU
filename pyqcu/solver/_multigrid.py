@@ -8,7 +8,12 @@ from pyqcu.cuda import qcu, define
 
 
 class multigrid:
-    def __init__(self, dtype_list: List[torch.dtype], device_list: List[torch.device],  U: torch.Tensor, clover_term: torch.Tensor, kappa: Optional[torch.Tensor] = torch.Tensor([0.1]), u_0: Optional[torch.Tensor] = torch.Tensor([1.0]), clover_ee_inv: Optional[torch.Tensor] = None, clover_oo_inv: Optional[torch.Tensor] = None, min_size: int = 4, max_level: int = 4, mg_grid_size: List[int] = [2, 2, 2, 2], num_convergence_sample: int = 50, dof_list: List[int] = [12, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24], tol: float = 1e-6, max_iter: int = 1000, num_restart: int = 5, root: int = 0, support_parity: bool = False, verbose: bool = True):
+    def __init__(self, dtype_list: List[torch.dtype], device_list: List[torch.device],  U: torch.Tensor, clover_term: torch.Tensor, kappa: Optional[torch.Tensor] = torch.Tensor([0.1]), u_0: Optional[torch.Tensor] = torch.Tensor([1.0]), clover_ee_inv: Optional[torch.Tensor] = None, clover_oo_inv: Optional[torch.Tensor] = None, min_size: int = 4, max_level: int = 4, mg_grid_size: List[int] = [2, 2, 2, 2], num_convergence_sample: int = 50, dof_list: List[int] = [12, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24], tol: float = 1e-6, max_iter: int = 1000, num_restart: int = 5, root: int = 0, support_parity: bool = False, verbose: bool = True, seed: Optional[int] = None):
+        """自适应多重网格 V-cycle 求解器。
+
+        seed: 可选确定性种子 —— 给定时初始 b/x0 用独立本地 Generator 生成
+        （多线程实例并行时消除全局 RNG 竞争，残差可复现）；None 保持全局 RNG 行为。
+        """
         self.comm = MPI.COMM_WORLD
         self.rank = self.comm.Get_rank()
         self.lat_size = list(U.shape[-4:])  # xyzt
@@ -51,10 +56,24 @@ class multigrid:
             tools.set_device(device=device)
         self.op_list = [dslash.operator(U=U,
                                         clover_term=clover_term, verbose=self.verbose, kappa=self.kappa, u_0=self.u_0, support_parity=self.support_parity, clover_ee_inv=self.clover_ee_inv, clover_oo_inv=self.clover_oo_inv,)]
-        self.b = _torch.randn(size=[12]+self.lat_size,
-                              dtype=self.dtype_list[0], device=self.device_list[0])
-        self.x0 = _torch.randn(
-            size=[12]+self.lat_size, dtype=self.dtype_list[0], device=self.device_list[0])
+        if seed is not None:
+            # bug40 后续: 多线程实例并行时全局 RNG 竞争使初始 b/x0 非确定;
+            # 显式 seed 时用本地 Generator(每实例独立流),残差可复现。
+            # 实数 randn 无需 cann 复数分解; cann.randn 不透传 generator 故直用 torch
+            g_b = torch.Generator(device=self.device_list[0]).manual_seed(seed)
+            self.b = torch.randn(size=[12]+self.lat_size,
+                                 dtype=self.dtype_list[0],
+                                 device=self.device_list[0],
+                                 generator=g_b)
+            g_x = torch.Generator(device=self.device_list[0]).manual_seed(seed + 1_000_000)
+            self.x0 = torch.randn(
+                size=[12]+self.lat_size, dtype=self.dtype_list[0],
+                device=self.device_list[0], generator=g_x)
+        else:
+            self.b = _torch.randn(size=[12]+self.lat_size,
+                                  dtype=self.dtype_list[0], device=self.device_list[0])
+            self.x0 = _torch.randn(
+                size=[12]+self.lat_size, dtype=self.dtype_list[0], device=self.device_list[0])
         self.b_list = [self.b.clone()]
         self.nv_list = []  # null_vecs_list
         self.lonv_list = []  # local_ortho_null_vecs_list
