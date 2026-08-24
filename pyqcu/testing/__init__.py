@@ -59,7 +59,7 @@ def test_dslash_wilson(kappa: Optional[torch.Tensor] = torch.Tensor([0.1]), lat_
         dest_eo[1] = dest_o
         dest = tools.poooxyzt2oooxyzt(input_array=src_eo+dest_eo, verbose=True)
     else:
-        kappa = torch.Tensor(0.125)
+        kappa = torch.Tensor([0.125])
         dtype = torch.complex64
         lat_size = [32, 32, 32, 32]
         path = pyqcu.__file__.replace('pyqcu/__init__.py', 'examples/data/')
@@ -325,7 +325,7 @@ def test_solver(kind: str = 'clover', method: str = 'bistabcg', kappa: Optional[
         refer_b = tools.whole_xyzt2local_xyzt(whole_array=whole_b, whole_shape=[
                                               4, 3]+lat_size, root=root, dtype=dtype, device=device)
     else:
-        kappa = torch.Tensor(0.125)
+        kappa = torch.Tensor([0.125])
         lat_size = [32, 32, 32, 32]
         path = pyqcu.__file__.replace('pyqcu/__init__.py', 'examples/data/')
         refer_U = tools.hdf5oooxyzt2gridoooxyzt(
