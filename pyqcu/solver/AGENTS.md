@@ -94,6 +94,13 @@ c128 实测严格单调收敛（10274 迭代 rel 2.5e-10）；c64 有精度地�
 
 - 每线程独立 `solver.multigrid` 实例（各持独立 params/set_ptrs/状态）可并行求解
   （2 线程 8x8x8x8 1L 实测 6.3e-7/9.5e-7 均收敛）。
+- **确定性（2026-08-24 bug41）**：构造新增可选 `seed` 参数——给定时初始 b/x0 用
+  独立本地 CUDA Generator 生成，消除多实例全局 RNG 竞争（默认 None 行为不变）。
+  注意 cann.randn 不透传 generator，实数 randn 分支直用 torch.randn。
+- **solve 后必须显式释放（2026-08-24 bug41 补强）**：ThreadPoolExecutor 并发场景
+  实测特定时序下单实例千迭代停滞（残差 ~7.9 不收敛）；`mg.solve()` 后立即
+  `mg.end(); del mg; gc.collect(); torch.cuda.synchronize()` 后连续 3 轮双实例
+  全收敛（8.0~9.9e-06 稳定区间）。
 - **前提**：线程池启动前主线程须预热 torch lazy 初始化（clover inverse 等，
   如 `torch.linalg.inv(torch.randn([4,4], device='cuda'))`），否则 worker 并发
   首次触发报 "lazy wrapper should be called at most once"。
