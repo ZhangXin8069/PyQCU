@@ -683,7 +683,8 @@ def test_multigrid_multithread(nthreads: int = 2, lat_size: List[int] = [8, 8, 8
                               clover_ee_inv=op0.sitting.M_e_inv,
                               clover_oo_inv=op0.sitting.M_o_inv,
                               tol=tol, max_iter=1000, max_level=1, num_restart=3,
-                              support_parity=True, verbose=False)
+                              support_parity=True, verbose=False,
+                              seed=100 + _)  # bug38 后续: 初始 b/x0 亦确定性化
         mg.init()
         # bug38: 右端项固定 seed —— multigrid tol 为绝对容差,随机 b 使收敛残差
         # 具统计方差(实测 3.7e-04~9.5e-06 波动),套件连跑时偶发假失败;
@@ -692,7 +693,14 @@ def test_multigrid_multithread(nthreads: int = 2, lat_size: List[int] = [8, 8, 8
         b = torch.randn([4, 3] + lat_size, generator=g, dtype=dt,
                         device='cpu').to(dev)
         mg.solve(b)
-        return float(mg.convergence_history[-1])
+        res = float(mg.convergence_history[-1])
+        # 多实例资源管理(AGENTS.md): 显式释放防隐式 GC 与后续实例 C++ 操作竞争
+        import gc as _gc
+        mg.end()
+        del mg
+        _gc.collect()
+        torch.cuda.synchronize()
+        return res
 
     with ThreadPoolExecutor(max_workers=nthreads) as ex:
         rs = list(ex.map(run_mg, range(nthreads)))
