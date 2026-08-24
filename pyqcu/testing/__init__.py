@@ -532,6 +532,49 @@ def test_smear_stout(lat_size: List[int] = [8, 8, 8, 16], device: torch.device =
     #     print(f"whole_smear_U-_whole_smear_U:\n{whole_smear_U-_whole_smear_U}")
 
 
+def test_smear_wuppertal(lat_size: List[int] = [8, 8, 8, 16], rho: float = 4.0,
+                         nstep: int = 40, device: torch.device = torch.device('cpu'),
+                         dtype: torch.dtype = torch.complex64):
+    """Wuppertal 高斯 smearing 三重不变量回归（2026-08-24，bug33/nstep 防护整合）。
+
+    1. nstep>=1 输入防护（nstep=0 曾致 sigma=rho^2/(4*nstep) 裸除零）；
+    2. 自由场(U=I)常数场不动点 —— wards 含 t 维时为 8 邻居 hop 配 (1-6σ) 系数，
+       常数场每步 x(1+2σ) 指数发散（bug33，实测 U=I dev=44@nstep10）；
+    3. 默认参数白噪声范数收缩（高频压制物理预期，σ=rho²/(4·nstep)=0.1<1/6 收缩域）。
+    """
+    from pyqcu.smear import wuppertal_smear
+    U_eye = torch.eye(3, dtype=dtype, device=device)
+    U_eye = U_eye[:, :, None, None, None, None, None].expand(
+        3, 3, 4, *lat_size).contiguous()
+
+    try:
+        wuppertal_smear(_torch.randn(size=[4, 3] + lat_size, dtype=dtype,
+                                     device=device),
+                        _torch.zeros(size=[3, 3, 4] + lat_size, dtype=dtype,
+                                     device=device),
+                        rho=rho, nstep=0)
+        raise AssertionError("nstep=0 did not raise (input guard missing)")
+    except AssertionError as e:
+        assert "nstep" in str(e), f"unexpected guard message: {e}"
+
+    c = _torch.randn(size=[4, 3] + lat_size, dtype=dtype, device=device)
+    const = c[0, 0, 0, 0, 0, 0].expand_as(c).contiguous()
+    out_const = wuppertal_smear(const, U_eye, rho=rho, nstep=10)
+    # 注意: tools.norm 已返回 float(内部 .item()),勿再二次 .item()
+    rel_dev = tools.norm(out_const - const) / tools.norm(const)
+    assert rel_dev < 1e-4, \
+        f"free-field constant field not a fixed point: rel_dev={rel_dev:.2e}"
+
+    src = _torch.randn(size=[4, 3] + lat_size, dtype=dtype, device=device)
+    ratio = tools.norm(wuppertal_smear(src, U_eye, rho=rho,
+                                       nstep=nstep)) / tools.norm(src)
+    assert ratio < 1.0, f"white-noise norm must shrink, got ratio={ratio:.3f}"
+    print(
+        f"PYQCU::TESTING::SMEAR::WUPPERTAL:\n"
+        f" fixed_point_rel_dev={rel_dev:.2e}, noise_norm_ratio={ratio:.3f} "
+        f"(rho={rho}, nstep={nstep})")
+
+
 def test_h5py_multithread(nthreads: int = 4, tmp_dir: str = None,
                           dtype: torch.dtype = torch.complex64,
                           lat_size: List[int] = [4, 4, 4, 8]):
