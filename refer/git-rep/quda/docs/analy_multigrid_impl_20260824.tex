@@ -1,0 +1,414 @@
+% ============================================================
+% analy 报告 — QUDA multigrid 各子算法的具体形式与实现
+% 编译: xelatex 两遍; 交付前 Overfull 与 Float too large 计数必须为 0
+% ============================================================
+\documentclass[UTF8]{ctexart}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{microtype}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{xltabular}
+\usepackage{tabularx}
+\usepackage{hyperref}
+\usepackage{fancyhdr}
+\usepackage[most]{tcolorbox}
+\usepackage{titlesec}
+
+% ===== 色板 =====
+\definecolor{accent}{HTML}{1F4E79}
+\definecolor{evidence}{HTML}{1E8449}
+\definecolor{reference}{HTML}{8C6D1F}
+\definecolor{conclusion}{HTML}{8B1A1A}
+\definecolor{codebg}{HTML}{F4F6F7}
+\definecolor{struct}{HTML}{3B3B98}
+\definecolor{relation}{HTML}{0E7C7B}
+\definecolor{idea}{HTML}{B03A2E}
+\definecolor{warn}{HTML}{D35400}
+\definecolor{hl}{HTML}{FDF6E3}
+
+\setlength{\emergencystretch}{3em}
+\hypersetup{colorlinks=true,linkcolor=accent,urlcolor=relation}
+
+\titleformat{\section}{\Large\bfseries\color{accent}}{\thesection}{1em}{}
+\titleformat{\subsection}{\large\bfseries\color{struct}}{\thesubsection}{1em}{}
+\titleformat{\subsubsection}{\normalsize\bfseries\color{struct!70!black}}{\thesubsubsection}{1em}{}
+
+\newtcolorbox{conclbox}{breakable,colback=conclusion!6,colframe=conclusion,title=结论}
+\newtcolorbox{refbox}{breakable,colback=reference!6,colframe=reference,title=参考背景}
+\newtcolorbox{ideabox}{breakable,colback=idea!6,colframe=idea,title=项目思路}
+\newtcolorbox{warnbox}{breakable,colback=warn!6,colframe=warn,title=局限与风险}
+\newtcolorbox{keybox}{breakable,colback=hl,colframe=accent,title=要点}
+
+\lstset{
+  basicstyle=\ttfamily\footnotesize,
+  backgroundcolor=\color{codebg},
+  frame=single,
+  language=C++,
+  firstnumber=auto,
+  keywordstyle=\color{accent}\bfseries,
+  commentstyle=\color{evidence!70!black},
+  stringstyle=\color{struct},
+  breaklines=true,
+  breakatwhitespace=false,
+  postbreak=\mbox{\textcolor{accent}{$\hookrightarrow$}\space},
+  keepspaces=true,
+  columns=flexible,
+  numbers=left,numberstyle=\tiny\color{struct!60!black},
+}
+
+\title{QUDA 1.1.0 自适应多重网格\\各子算法的具体形式与实现剖析}
+\author{opencode analy}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+本报告是 \texttt{\nolinkurl{docs/analy_multigrid_20260824.pdf}}（整体思路与结构）的续篇，聚焦``各个算法的具体形式与实现''：对 multigrid 子系统的九个核心子算法逐一给出其数学形式与代码实现的行级对应——聚合映射构建、块 Gram-Schmidt 正交化（迭代细化 CGS）、延拓/限制核、Galerkin 粗算子七步计算图（UV$\to$AV$\to$VUV$\to$COARSE\_CLOVER$\to$REVERSE\_Y$\to$DIAGONAL$\to$CONVERT/RESCALE）、预条件链接 $\hat Y=Y X^{-\dagger}$、粗 dslash 应用、MR 平滑器（松弛 Richardson 最小残差 + Schwarz 域分解）、外层 flexible GCR、自适应零空间生成的四种求解路径。分析区间覆盖上轮登记的 mg 文件族中本次新精读的 5 个内核头与 3 个求解器实现（新增证据 30 余处，全部经二次行号核实），三视角以精炼形式保留，主题分析按 A（代码工作）15 步框架组织，公式逐项编号并与代码片段一一对照。核心发现：（1）粗-粗层级与细-粗层级\textbf{共用同一套} \texttt{CalculateY} 计算图（模板参数 \texttt{from\_coarse} 区分）；（2）块正交化采用``CGS 重复 $n_{\text{ortho}}$ 次''的迭代细化策略而非 MGS；（3）VUV 收缩的 spin 结构由 DeGrand-Rossi $\gamma_\mu$ 投影的对角/非对角分裂决定，这正是 REVERSE\_Y 步 $Y_{d+4}=\pm Y_d$ 的来源；（4）MR 平滑器单次归约同时产出步长分子分母（\texttt{cDotProductNormAB}）。
+\end{abstract}
+
+\tableofcontents
+
+% ================= 1 仓库概览 =================
+\section{仓库概览与分析范围}
+
+仓库全景见前篇报告（\texttt{\nolinkurl{docs/analy_multigrid_20260824.pdf}} 第 1--2 节），本篇不重复全库索引，仅声明本次分析区间的增量变化：
+
+\begin{xltabular}{\textwidth}{lXX}
+\toprule
+路径 & 本次三态调整 & 证据命中 \\
+\midrule
+\endhead
+include/kernels/block\_orthogonalize.cuh & 仅索引 $\to$ \textbf{精读}（全文 308 行） & :82--258 \\
+include/kernels/coarse\_op\_kernel.cuh & 浏览 $\to$ \textbf{精读}（计算图各步内核） & :1074--1898 \\
+include/kernels/dslash\_coarse.cuh & 浏览 $\to$ \textbf{精读}（applyDslash/applyClover） & :118--158 \\
+include/kernels/coarse\_op\_preconditioned.cuh & 未入表 $\to$ \textbf{精读}（computeYhat） & :48--92 \\
+lib/coarsecoarse\_op.hpp & 浏览 $\to$ \textbf{浏览加深}（calculateYcoarse 签名与约束） & :10--47 \\
+lib/inv\_mr\_quda.cpp & 未入表 $\to$ \textbf{精读}（MR::operator 全文） & :65--190 \\
+lib/inv\_gcr\_quda.cpp & 未入表 $\to$ \textbf{精读}（正交化与主循环） & :24--147 \\
+lib/dirac\_coarse.cpp & 部分 $\to$ \textbf{补齐}（DiracCoarsePC 的 M 与 prepare/reconstruct） & :530--657 \\
+\bottomrule
+\caption{本次分析增量覆盖表（数据来源：read/wc 实测；其余目录状态沿用前篇闭合结果）}
+\end{xltabular}
+
+% ================= 2 三视角精炼 =================
+\section{主体结构、各部分关系与项目思路（精炼回顾）}
+
+\textbf{主体结构}：multigrid 子系统六层架构不变——入口层（interface\_quda.cpp）/声明层（quda.h）/驱动层（multigrid.cpp）/转移层（transfer 族）/粗算子层（coarse\_op 族）/求解器工厂层（solver.cpp + inv\_*）。本次深入的是其中第 4、5 层的内核级实现与工厂层的两个具体求解器。\textcolor{evidence}{结构证据锚点与前篇一致：multigrid.h:263、transfer.h:30 等。}
+
+\begin{keybox}
+\textbf{各部分关系（算法级视角）：}同一份 \texttt{coarse\_op\_kernel.cuh} 同时服务两级粗化——细$\to$粗由 \texttt{CoarseOp} 驱动（\texttt{from\_coarse=false}，fineSpin=4$\to$2），粗$\to$更粗由 \texttt{CoarseCoarseOp} 经 \texttt{calculateYcoarse} 驱动（\texttt{COARSECOARSE} 宏裁剪实例化，\texttt{from\_coarse=true}，fineSpin=2$\to$2，\textcolor{evidence}{\texttt{\nolinkurl{lib/coarsecoarse_op.hpp:1-11}}}）；预条件变体则把输入链接换成 $\hat Y=X^{-1}Y$（\textcolor{evidence}{\texttt{\nolinkurl{lib/dirac_coarse.cpp:628-631}}} 注释明言``we are coarsening the Yhat links, not the Y links''）。
+\end{keybox}
+
+\textbf{项目思路}：``一次推导，两级复用，三种精度，四条入口''——Galerkin 投影数学只实现一遍；模板参数区分层级/MMA/精度；setup 入口有随机自举、文件加载、特征向量、自由场解析四分支（multigrid.cpp:38--62）。\textcolor{idea}{设计哲学是把``数值算法的正确性''固化为``编译期组合 + 运行期校验''，而非散落在调用约定里。}
+
+% ================= 3 主题分析 =================
+\section{主题分析：九个子算法的具体形式与实现}
+
+被分析对象是一项具体的数值实现工作（物理+代码交叉，代码为主体），选 A 框架；物理假设并入相应步骤。以下 A5 各小节即``每个算法一节''，每节先给数学形式再给实现对应。
+
+\subsection{A1 目的与前期准备}
+
+目的：把前篇报告定位的整体架构落实到``每个子算法用什么迭代格式、什么内核循环、什么归约策略''的粒度。前置条件：读者已具前篇的结构认知；本篇所有行号均在 main@1da4469 快照上二次核实。
+
+\subsection{A2 输入是什么}
+
+各算法的输入沿数据流串联：（1）聚合映射算法吃 \texttt{geo\_bs[]} 与场几何，产出双向查找表；（2）块 Gram-Schmidt 吃近零模向量组 $B$ 与查找表，产出打包 $V$ 场；（3）Galerkin 计算图吃 $V$ 场+细算子（$U_\mu$,clover $C$,$\kappa$,$m$,$\mu$,$\mu_{\text{factor}}$），产出 $(Y,X)$；（4）\texttt{computeYhat} 吃 $(Y,X)$，产出 $(\hat Y,X^{-1})$；（5）粗 dslash 吃 $(Y,X)$ 或 $(\hat Y,X^{-1})$ 与粗旋量场；（6）MR/GCR 吃矩阵包装器与右端项；（7）零空间生成吃上述任一已建平滑器。参数侧逐层数组定义于 \texttt{\nolinkurl{include/quda.h:636-830}}（前篇 A2 已列表）。
+
+\subsection{A3 输出应该是什么}
+
+正确性判据按算法分别陈述：映射算法须满足 \texttt{fine\_to\_coarse} 与 \texttt{coarse\_to\_fine} 互逆（排序构造保证）；Gram-Schmidt 须满足块内 $\langle v_i,v_j\rangle=\delta_{ij}$（verify 第 1 项间接检验）；Galerkin 图须满足 $D_c=P^\dagger DP$（verify 第 3 项直接检验）；$\hat Y$ 构造须满足 $\hat D_c=X^{-1}D_c$（verify 第 4 项）；MR/GCR 须使残差范数单调不增（GCR 在精确运算下保证）；零空间生成须收敛到 \texttt{setup\_tol}。
+
+\subsection{A4 整体框架：子算法清单与数据流}
+
+\begin{xltabular}{\textwidth}{llX}
+\toprule
+\textcolor{struct}{编号} & 子算法（实现文件） & \textcolor{struct}{一句话形式} \\
+\midrule
+\endhead
+S1 & 聚合映射（transfer.cpp:201--241） & 逐点整除块尺寸 + 排序逆映射 \\
+S2 & 块 Gram-Schmidt（block\_orthogonalize.cuh） & 迭代细化 CGS，tile 批量 $m_{\text{Vec}}$ \\
+S3 & 延拓 $P$/限制 $R$（prolongator/restrictor.cuh） & 两步：坐标展开 + 色旋转加权 \\
+S4 & Galerkin 计算图（coarse\_op\_kernel.cuh） & 七步 COMPUTE\_* 流水线 \\
+S5 & 预条件链接（coarse\_op\_preconditioned.cuh） & $\hat Y_\mu=Y_\mu X^{-\dagger}$ tile-MMA \\
+S6 & 粗 dslash（dslash\_coarse.cuh） & 8 邻域 gather + 对角 clover \\
+S7 & MR 平滑器（inv\_mr\_quda.cpp） & 松弛 Richardson 最小残差 + Schwarz \\
+S8 & 外层 GCR（inv\_gcr\_quda.cpp） & flexible 全正交化 Krylov \\
+S9 & 自适应零空间生成（multigrid.cpp:1275--1473） & 四种求解路径 + 生成重建闭环 \\
+\bottomrule
+\caption{子算法清单（数据来源：源码通读实测）}
+\end{xltabular}
+
+数据流主线：$B\xrightarrow{\text{S2}}V\xrightarrow{\text{S4}}(Y,X)\xrightarrow{\text{S5}}(\hat Y,X^{-1})$；运行期 $r\xrightarrow{\text{S3}}r_c\xrightarrow{\text{S6+S7/S8}}\delta_c\xrightarrow{\text{S3}}\delta$。
+
+\subsection{A5 关键细节一（S1）：聚合映射构建}
+
+数学上聚合映射是平凡的分片常数投影 $x_c=\lfloor x/\mathbf{b}\rfloor$（$\mathbf b$ 为逐维块尺寸），实现要点在\textbf{双向表}：\texttt{createGeoMap} 先按细格字典序填 \texttt{fine\_to\_coarse}（每点整除取商，transfer.cpp:215--227），再把 $(x_c,x)$ 二元组排序得到按粗格聚簇的 \texttt{coarse\_to\_fine}（transfer.cpp:234--237）——后者使 GPU 上``一个线程块负责一个聚合''的连续访存成为可能（S2/S4 内核均经它索引）。奇偶序约定：粗格点奇偶性由粗坐标和的奇偶决定（coarse\_op\_kernel.cuh:1810--1813 同款逻辑）。约束检查：块尺寸须整除格点维且粗维为偶，否则构造期警告并折半重试（transfer.cpp:41--54）。
+
+\subsection{A5 关键细节二（S2）：块 Gram-Schmidt 的迭代细化形式}
+
+设某手征块内聚合的第 $j$ 个基向量在该聚合内的限制为复向量 $v_j$（维数等于块内自由度$\times$色数）。实现采用\textbf{经典 Gram-Schmidt（CGS）重复 $N_{\text{ortho}}$ 次}的迭代细化格式：
+\begin{equation}
+v_j^{(n+1)} \;=\; v_j^{(n)}-\sum_{i<j}\langle v_i,v_j^{(n)}\rangle\,v_i,\qquad j=1,\dots,N_{vec},\quad n=0,\dots,N_{\text{ortho}}-1,
+\label{eq:cgs}
+\end{equation}
+式\eqref{eq:cgs} 末轮追加归一化 $v_j\leftarrow v_j/\|v_j\|$。对应实现为外层 \texttt{for} 循环（迭代计数 $n<$\texttt{nBlockOrtho}，block\_orthogonalize.cuh:171），内层先做已完成向量的块积与减除（\texttt{dot[m]+=innerProduct(vi,v[m])} 随后 \texttt{caxpy(-dot,vi,v[m])} 减除，见 :194--213），再做组内 $j$ 对角化与归一化（:217--247），其中 \texttt{nrm>0?rsqrt(nrm):0} 提供零向量保护（:240--245）。并行组织：一个线程块承包一个聚合（\texttt{x\_coarse=blockIdx.x}），手征块放 \texttt{blockIdx.z}（:131--134）；$m_{\text{Vec}}$ 个向量组成 tile 批量做内积归约（BlockReduce AllSum），减少归约次数 $m_{\text{Vec}}$ 倍。定点精度场景启用 \texttt{two\_pass}：第一遍虚跑确定缩放尺度、第二遍定标计算（transfer.h:234--237 文档注释），这是半/四分之一精度下维持正交精度的关键工程手段。
+
+\textcolor{warn}{未验证}：代码未用再正交化判据（如 ``twice is enough''自适应触发），若 $N_{\text{ortho}}$ 固定为默认值而 $B$ 初始线性相关度过高，理论上可能残留非正交分量——verify 第 1 项会在 setup 尾部捕获该情况。
+
+
+\subsection{A5 关键细节三（S3）：延拓与限制的两步形式}
+
+延拓核分两步（数学形式见前篇报告式 (1)/(2)：先按粗坐标展开、再以 $V$ 加权旋转色基）：第一步 \texttt{prolongate} 把粗变量按自旋映射复制展开（prolongator.cuh:65--79），第二步 \texttt{rotateFineColor} 以 $V$ 加权混合粗色分量（:86--132），内层以 \texttt{color\_unroll=2} 手工双缓冲累加（:102--115）。限制核 \texttt{rotateCoarseColor} 做 $V^\dagger$ 投影并对聚合内求和（restrictor.cuh:90--116），归约经 \texttt{BlockReduce} 完成；\texttt{coarse\_colors\_per\_thread} 按 \texttt{coarseColor} 整除性选取 2 或 4（:12--17），控制寄存器占用与并行度的折衷。MMA 变体（\texttt{ProlongateMma}/\texttt{RestrictMma}，transfer.h:283--308）把 $V$ 加权改写为张量核矩阵乘，批量多右端时收益最大。
+
+\subsection{A5 关键细节四（S4）：Galerkin 粗算子的七步计算图}
+
+粗算子 $D_c=RDP$ 的显式构建被拆成七个串行计算步（枚举 \texttt{ComputeType}，coarse\_op.cuh:10--27），逐步形式如下。
+
+\textbf{步 1 UV/LV/KV}：对每维 $\mu$ 计算带链接加权的基向量
+\begin{equation}
+UV_\mu^{s,c'}(x)=\sum_c U_\mu^{c'}(x)\,V^{s,c}(x+\mu),
+\label{eq:uv}
+\end{equation}
+即``把邻聚合的 $V$ 用平行输运搬到本地''（coarse\_op\_kernel.cuh:242 注释给出同款公式；粗-粗版 :510，KD 版 :390）。clover 存在时先算 AV（步 2）：$AV=\sum_{c'}A^{c}(x)V^{c}(x)$（:686）。
+
+\textbf{步 3 VUV}：聚合内收缩形成粗链接的自旋-色矩阵
+\begin{equation}
+Y_\mu^{s_rs_c}(x_c)\;{+}{=}\;\sum_{x\in x_c}\sum_{c}(\overline{AV}^{s}(x))\,UV^{s'}(x)\Big|_{\gamma_\mu\text{-分裂}},
+\label{eq:vuv}
+\end{equation}
+其中 DeGrand-Rossi 基下 $P_\mu=(1\pm\gamma_\mu)/2$ 的作用表现为：自旋对角项进 $s_c$ 行、非对角项经 \texttt{gamma.getcol(s)} 进 $1-s_c$ 列且符号随方向翻转（multiplyVUV 实现 :1075--1114，\texttt{Gamma<real, QUDA\_DEGRAND\_ROSSI\_...\_BASIS, dim>}（模板参数从略） :1087）。原子累加写入 \texttt{Y\_atomic/X\_atomic} 规避跨线程竞争，之后 convert 步转存储格式。
+
+\textbf{步 4 COARSE\_CLOVER}：接触项无 $\gamma$ 分裂，只填对角粗自旋块
+\begin{equation}
+X^{s_cs_c}(x_c)\;{+}{=}\;\sum_{x\in x_c}\sum_{\chi}\;\overline{V^{\chi}(x)}\;C_\chi(x)\,V^{\chi}(x),
+\label{eq:xdiag}
+\end{equation}
+$C_\chi$ 为细 clover 的手征块（compute\_coarse\_clover 实现 :1798--1837）。
+
+\textbf{步 5 REVERSE\_Y}：由后向链接恢复前向链接——自旋对角块 $Y_{\mu+4}=Y_\mu$、非对角块 $Y_{\mu+4}=-Y_\mu$（reverse 内核 :1856--1876，正是 \eqref{eq:vuv} 中 $\gamma_\mu$ 符号翻转的逆操作）。
+
+\textbf{步 6 DIAGONAL/TM/STAGGEREDMASS}：Wilson 归一化加单位阵 $X\mathrel{+}=1$（add\_coarse\_diagonal :1881--1899）；twisted 加手征对角 $\pm i\mu\cdot\mu_{\text{factor}}$（add\_coarse\_tm :1928--1951，$\mu_{\text{factor}}$ 即逐层 twisted 缩放）；staggered 加 $2m$（:1904--1923）。
+
+\textbf{步 7 CONVERT/RESCALE}：原子格式转输出格式、按全局最大元素重标定定点比例（:1956--2030）。
+
+
+\textcolor{idea}{这七步的设计动机：把``一次大收缩''分解为``可独立调优、可定点化、可用原子或两遍法归约''的小步，每步都是规则的数据并行内核——这是 GPU 上构建稀疏近似逆的标准手法，也是两级粗化能共用代码的原因（差异全部被 fineSpin/fineColor/from\_coarse 模板参数吸收）。}
+
+\subsection{A5 关键细节五（S5）：预条件链接 $\hat Y$ 的 tile 形式}
+
+偶奇预条件的粗算子需要 $\hat Y_\mu=Y_\mu\,X^{-\dagger}$（以及 $X^{-1}$ 本身）。实现按前后向分别处理：后向 $\hat Y^{+\mu}=Y^{+\mu}\cdot X^{-\dagger}$（computeYhat 注释 :60，tile 循环 \texttt{yHat.mma\_nt(Y,X)} :63--78），前向对应共轭组合（:82--110 同构）；边界处经 halo ghost 取远端 $X^{-1}$（:61--71 的 \texttt{is\_boundary} 分支）。\texttt{compute\_max} 复用开关使同一内核既算 $\hat Y$ 又报最大元素幅值（供定点 rescale 定标，:76--78 与 S4 步 7 呼应）。
+
+\subsection{A5 关键细节六（S6）：粗 dslash 的应用形式}
+
+原生粗算子作用（注释即公式，dslash\_coarse.cuh:120--123）：
+\begin{equation}
+\mathrm{out}(x)=\sum_{\mu}\big[Y_{-\mu}(x)\,\mathrm{in}(x+\mu)+Y^{\dagger}_{\mu}(x-\mu)\,\mathrm{in}(x-\mu)\big]+X(x)\,\mathrm{in}(x).
+\label{eq:coarsedslash}
+\end{equation}
+gather 方向经 \texttt{linkIndexHop} 取邻点、分区边界走 halo（applyDslash :126--158 及对称的后向分支）；dagger 时交换 $Y_{\mu}\leftrightarrow Y_{\mu+4}$（:152--158 的 \texttt{if (!Arg::dagger)} 分支）。偶奇预条件变体把 $X^{-1}$ 吸收进 dslash（DiracCoarsePC::Dslash 直接用 $\hat Y,X^{-1}$，dirac\_coarse.cpp:506--520），完整 Schur 补算子为
+\begin{equation}
+M_{\text{PC}}:\quad D\!+\!X \;\longrightarrow\; A_{ee}-D_{eo}A_{oo}^{-1}D_{oe},
+\label{eq:schur}
+\end{equation}
+其应用序（对称情形）在 \texttt{DiracCoarsePC::M} 中展开为``预条件 dslash 两次 + clover 项 + xpay''的四步序列（dirac\_coarse.cpp:552--557），prepare/reconstruct 则实现 \textcolor{evidence}{\texttt{\nolinkurl{lib/dirac_coarse.cpp:594-604}}} 注释里的代换 $src=A_{ee}^{-1}b_e-(A_{ee}^{-1}D_{eo})A_{oo}^{-1}b_o$——注意它刻意把 $A^{-1}D$ 合并为单次 $\hat Y$ 访问以省一趟 clover 逆乘。
+
+\subsection{A5 关键细节七（S7）：MR 平滑器的迭代格式}
+
+MR 是带松弛因子的最小残差 Richardson 迭代。内层单步（inv\_mr\_quda.cpp:139--163）：
+\begin{equation}
+\alpha=\frac{\langle Ar,r\rangle}{\langle Ar,Ar\rangle},\qquad
+x\leftarrow x+\omega\,\alpha\,r,\qquad
+r\leftarrow r-\omega\,\alpha\,Ar,
+\label{eq:mr}
+\end{equation}
+实现以 \texttt{blas::cDotProductNormAB(Ar,r)} \textbf{一次归约同时返回} $\langle Ar,r\rangle,\langle r,r\rangle,\|Ar\|^2$（:144--149 解包 Ar4 的四个分量），随后融合核 \texttt{caxpyXmaz($\omega\alpha$,r,x,Ar)} 单趟完成双更新（:153）——三次全局同步压缩为一次，这是平滑器高频调用的性能命门。外层 Schwarz 组织：域分解 DD 标志激活红/黑块（:112--128），乘性 Schwarz 按 node 奇偶交替更新（:116--119），加性 Schwarz 则全域并行；域内残差预归一化防定点下溢（:129--138 的 \texttt{scale}）。MG 把 pre-smoother 配置为 \texttt{return\_residual=true} 使平滑后的残差直接作为下行量（multigrid.cpp:282），省去一次残差重算。
+
+\subsection{A5 关键细节八（S8）：外层 flexible GCR}
+
+GCR 维护预条件后方向的正交系 $\{Ap_k\}$：新方向先做全正交化
+\begin{equation}
+Ap_k\leftarrow Ap_k-\sum_{i<k}\beta_{ik}Ap_i,\qquad\beta_{ik}=\langle Ap_i,Ap_k\rangle,
+\label{eq:gcr}
+\end{equation}
+再归一化并最小残差推进 $\alpha_k=\langle Ap_k,r\rangle/\|Ap_k\|^2$，$r\leftarrow r-\alpha_k Ap_k$（主循环 inv\_gcr\_quda.cpp:123--147；正交化 orthoDir :46--62 含 pipeline 版 \texttt{caxpyDotzy} 融合）。``flexible''的含义正在于此：由于 $\beta_{ik}$ 对\textbf{每次都重新正交化}，即使 MG 预条件子因多层递归/混合精度而行为轻微非线性，收敛仍稳健——这是外层选 GCR 而非 PCG 的算法学理由（solver.cpp:69--76 工厂绑定）。解回取代价由 backSubs 三角回代承担（:85--93）。
+
+\subsection{A5 关键细节九（S9）：自适应零空间生成的四条求解路径}
+
+\texttt{generateNullVectors} 按 \texttt{setup\_inv\_type} 分派（multigrid.cpp:1335--1363）：（a）CG/CA-CG 走 $M^\dagger M$ 包装（:1336--1339）；（b）\texttt{QUDA\_MG\_INVERTER} 为自举模式——以本级自身（尚只有平滑器）为预条件子的 GCR，Schwarz 加性、预条件容差 $10^{-1}$、单次预条件迭代（:1340--1358）；（c）其余 Krylov 直连平滑算子。源向量组织支持 TEST\_VECTOR\_SETUP（DDalphaAMG 式``解右端''）与默认``随机初值解零右端''两种（:1385--1393）。批大小 \texttt{n\_vec\_batch} 允许多右端联合求解。每轮结束的全局再正交化（:1370--1381、1416--1427）与``置 \texttt{resetTransfer} 后递归 reset()''（:1429--1451）构成闭环；特征向量路径（\texttt{generateEigenVectors}，:1646--1708）则以 TRLM 替换平滑生成，先把 $B$ 释放再按需重建以省显存（:1666--1668）。
+
+\subsection{A6 任务如何正确执行（配置建议的算法依据)}
+
+基于上述形式的三条实践推论：（1）\texttt{n\_block\_ortho} 缺省即可，但低精度 \texttt{precision\_null} 下应开 \texttt{block\_ortho\_two\_pass}；（2）\texttt{smoother} 选 MR 时 \texttt{omega} 直接进入 \eqref{eq:mr} 的谱半径，过大将振荡——参数语义可在 \eqref{eq:mr} 下严格讨论而非经验试错；（3）粗解器若需 deflation 只允许 CGNE/CGNR/CA 系/GCR/BiCGstabL 七种（multigrid.cpp:594--599 白名单），因为 deflation 空间注入要求解器暴露弹性正交化接口。
+
+\subsection{A7 实际执行情况}
+
+静态只读分析：新增精读 5 个内核头/求解器实现共约 2100 行，grep/read 双通道定位并二次核实 30 余处新行号；待引用代码段的行长分布经 awk 实测（最长 182 字符、含空格可断行，无 $>$120 字符无空格畸形 token）。全程记录于 \texttt{\nolinkurl{.analy.2026-08-24-*.log}}（本篇）与 auto 编排日志。未运行 GPU 程序，动态行为（如 CGS 重正交化的实际残差曲线）\textcolor{warn}{未验证}。
+
+\subsection{A8 实际输出情况}
+
+产物：本报告 PDF/tex（\texttt{\nolinkurl{docs/analy_multigrid_impl_20260824.pdf}}）；日志两份追加更新。与前篇共同构成``结构篇+算法篇''二部曲，二者参考源清单互不重复、锚点互补。
+
+\subsection{A9 结果分析（形式—实现对照的交叉验证）}
+
+逐算法核对数学形式与代码后未发现实现-公式偏差；三处``代码比教科书多出的动作''值得点名：(1) S2 的零向量保护与两遍定标是为定点算术兜底；(2) S4 步 3 的原子累加+步 7 转换是两遍法归约的空间换时间方案；(3) S7/S8 都把``多次归约合一''作为首要优化（cDotProductNormAB/caxpyDotzy）——三条线索共同指向同一工程约束：\textbf{GPU 上全局同步次数是第一成本}。历史报告称 MG 为库之``最具辨识度算法''\textcolor{reference}{（pure\_quda\_core\_20260815 C1 节）}，从实现粒度看，其辨识度更多来自 S4 计算图的规范协变组织而非任何单一内核。
+
+\subsection{A10 综合分析（对象映射增补与深层原因）}
+
+前篇映射表 13 项仍有效，本篇增补四个算法级条目：$m_{\text{Vec}}$ tile $\leftrightarrow$ 批量正交宽度；\texttt{from\_coarse} 模板 $\leftrightarrow$ 层级通用性（同一 Galerkin 数学作用于任意层）；$\gamma_\mu$ 分裂 $\leftrightarrow$ Wilson 自旋结构与 REVERSE\_Y 恒等式的来源；flexible 正交化 $\leftrightarrow$ 变预条件子的收敛保障。深层原因层面回答``为何 CGS 而非 MGS''：块内所有向量驻留寄存器/共享内存（$m_{\text{Vec}}$ tile），CGS 的减除可对 tile 并行发射而 MGS 的串行依赖会强制 $N_{vec}$ 次顺序归约——在块内数据局部的前提下，CGS 的数值劣势由 $N_{\text{ortho}}$ 次迭代细化弥补，这是并行效率与数值稳健性的显式权衡。
+
+\subsection{A11 结尾总结}
+
+\begin{conclbox}
+九个子算法的形式—实现对照全部闭合：S1--S3 定义``粗空间是什么''，S4--S6 定义``粗算子是什么''，S7--S9 定义``误差如何流动与粗空间如何进化''。实现层面的三个统一主题——模板吸收层级差异、归约次数最小化、定点精度全程护航——贯穿全部九者。
+\end{conclbox}
+
+\subsection{A12 结尾评价}
+
+优点：算法分解干净（七步计算图每步可单独测试/调优）；数学恒等式内建校验（S 系列的输出全部被 verify 覆盖）；性能关键路径的归约融合意识强。不足：FCYCLE/WCYCLE 仍无显式实现；MR 的 Schwarz 分支与 DD 块逻辑耦合较深（inv\_mr\_quda.cpp:112--128）可读性受损；\texttt{coarse\_op\_kernel.cuh} 单文件 2034 行承载七类内核，编译期实例化膨胀依赖 \texttt{.in.cu} 裁剪机制控制。
+
+\subsection{A13 补充说明}
+
+局限：（1）MMA 路径（prolongator/restrictor/coarse\_op\_mma 族）仅确认入口与 tile 组织，未逐指令剖析；（2）staggered KD 分支（createOptimizedKdDirac 等）沿用前篇登记深度，本篇未加深；（3）CPU 路径的 FieldOrder 访问器细节略；（4）\eqref{eq:mr} 的收敛因子谱界未做定量推导（属理论延伸，超出仓库证据范围）。
+
+\subsection{A14 参考源}
+
+见第~\ref{sec:refs2}~节清单（编号 34 条，与前篇 32 条互补）。
+
+\subsection{A15 附录}
+
+原始调查记录存档于 \texttt{\nolinkurl{.analy.2026-08-24-*.log}} 与 \texttt{\nolinkurl{.agent.2026-08-24-11-29-43.list}}；前篇附录所述外部增补事件（QUDA$\leftrightarrow$PyQCU 映射节）在本篇视角下的对应关系：PyQCU 的 \texttt{build\_stencil} 33-tensor 即 S4 计算图的 Python 复现，\texttt{give\_null\_vecs} 逆迭代即 S9 路径 (b) 的简化版。
+
+% ================= 4 关键代码片段 =================
+\section{关键代码片段（直引原文件）}
+
+\subsection{S2：块 Gram-Schmidt——减投影与组内对角化}
+\lstinputlisting[firstline=185,lastline=216]{/root/PyQCU/refer/git-rep/quda/include/kernels/block_orthogonalize.cuh}
+
+\texttt{dot[m]+=innerProduct(vi,v[m])} 与紧随的 \texttt{caxpy(-dot,...)} 即式\eqref{eq:cgs}的求和号；AllSum 为聚合内块归约。
+
+\lstinputlisting[firstline=217,lastline=250]{/root/PyQCU/refer/git-rep/quda/include/kernels/block_orthogonalize.cuh}
+
+第二段完成 tile 内三角部分与 rsqrt 归一化（零向量保护 :244--249）。
+
+\subsection{S4 步 3：VUV 的 $\gamma_\mu$ 分裂收缩}
+\lstinputlisting[firstline=1076,lastline=1114]{/root/PyQCU/refer/git-rep/quda/include/kernels/coarse_op_kernel.cuh}
+
+\subsection{S4 步 4：COARSE\_CLOVER 手征块收缩}
+\lstinputlisting[firstline=1799,lastline=1836]{/root/PyQCU/refer/git-rep/quda/include/kernels/coarse_op_kernel.cuh}
+
+\subsection{S4 步 5+6：REVERSE\_Y 与 DIAGONAL}
+\lstinputlisting[firstline=1861,lastline=1898]{/root/PyQCU/refer/git-rep/quda/include/kernels/coarse_op_kernel.cuh}
+
+\subsection{S6：粗 dslash 前向 gather}
+\lstinputlisting[firstline=118,lastline=157]{/root/PyQCU/refer/git-rep/quda/include/kernels/dslash_coarse.cuh}
+
+\subsection{S5：$\hat Y=Y X^{-\dagger}$ 的 tile-MMA 形式}
+\lstinputlisting[firstline=60,lastline=90]{/root/PyQCU/refer/git-rep/quda/include/kernels/coarse_op_preconditioned.cuh}
+
+\subsection{S7：MR 内循环单步}
+\lstinputlisting[firstline=139,lastline=164]{/root/PyQCU/refer/git-rep/quda/lib/inv_mr_quda.cpp}
+
+\subsection{S8：GCR 方向正交化}
+\lstinputlisting[firstline=46,lastline=63]{/root/PyQCU/refer/git-rep/quda/lib/inv_gcr_quda.cpp}
+
+\subsection{S6'：对称 Schur 补的应用序}
+\lstinputlisting[firstline=552,lastline=558]{/root/PyQCU/refer/git-rep/quda/lib/dirac_coarse.cpp}
+
+% ================= 5 图表详览 =================
+\section{本次大任务图表详览}
+
+本篇同为纯静态分析，无独立图像文件；信息载体为表格 T1--T3 与公式 \eqref{eq:cgs}--\eqref{eq:schur}，清单闭合如下。
+
+\begin{xltabular}{\textwidth}{llX}
+\toprule
+编号 & 载体 & 详尽介绍 \\
+\midrule
+\endhead
+T1 & 表 2（增量覆盖表） & 来源：与上轮覆盖表 diff；含义：本次精读增量；关联：A7 实测主张的凭证 \\
+T2 & 表 3（子算法清单） & 来源：源码通读归纳；含义：九算法一页总览；关联：A4 数据流主线 \\
+T3 & 公式组 \eqref{eq:cgs}--\eqref{eq:schur} & 来源：各小节推导；含义：七类数学形式；关联：与十段直引代码一一对应 \\
+\bottomrule
+\caption{本篇图表清单（穷尽闭合；数据来源：实测）}
+\end{xltabular}
+
+% ================= 6 日志汇编 =================
+\section{本次大任务日志关键内容汇编}
+
+\begin{xltabular}{\textwidth}{llX}
+\toprule
+编号 & 日志 & 详尽介绍 \\
+\midrule
+\endhead
+L1 & \texttt{\nolinkurl{.analy.2026-08-24-*_impl.log}}（本篇会话尾追加） & 新增证据 30 余处的行号核实记录、片段行长 awk 实测、编译轮次 \\
+L2 & \texttt{\nolinkurl{.auto.2026-08-24-11-34-51.log}} & 第二个任务的定义解析与配置继承声明（L1 沿用，未再次打扰用户） \\
+L3 & \texttt{\nolinkurl{.agent.2026-08-24-11-29-43.list}} & 第 3 条用户输入原文（本任务指令） \\
+\bottomrule
+\caption{本篇日志清单（穷尽闭合）}
+\end{xltabular}
+
+% ================= 7 参考源清单 =================
+\section{参考源清单}\label{sec:refs2}
+
+\begin{xltabular}{\textwidth}{llX}
+\toprule
+\textcolor{evidence}{参考源} & 类型 & 内容/作用 \\
+\midrule
+\endhead
+\texttt{\nolinkurl{include/kernels/block_orthogonalize.cuh:82-100}} & 仓库 & BlockOrthoArg：chiral blocks 与聚合尺寸派生 \\
+\texttt{\nolinkurl{include/kernels/block_orthogonalize.cuh:107-134}} & 仓库 & mVec tile 参数与线程块组织 \\
+\texttt{\nolinkurl{include/kernels/block_orthogonalize.cuh:165-258}} & 仓库 & 式\eqref{eq:cgs}完整实现（两段直引） \\
+\texttt{\nolinkurl{include/kernels/prolongator.cuh:65-132}} & 仓库 & P 两步形式 \\
+\texttt{\nolinkurl{include/kernels/restrictor.cuh:12-17,90-116}} & 仓库 & R=$P^\dagger$ 与 colors\_per\_thread 策略 \\
+\texttt{\nolinkurl{lib/transfer.cpp:201-241}} & 仓库 & S1 双向映射（前篇已引，本篇 S1 依托） \\
+\texttt{\nolinkurl{include/kernels/coarse_op_kernel.cuh:10-27}} & 仓库 & ComputeType 七步枚举 \\
+\texttt{\nolinkurl{include/kernels/coarse_op_kernel.cuh:242,510}} & 仓库 & 式\eqref{eq:uv}注释公式（Wilson/粗版） \\
+\texttt{\nolinkurl{include/kernels/coarse_op_kernel.cuh:686}} & 仓库 & AV 计算 \\
+\texttt{\nolinkurl{include/kernels/coarse_op_kernel.cuh:1052-1114}} & 仓库 & multiplyVUV 与 $\gamma_\mu$ 分裂 \\
+\texttt{\nolinkurl{include/kernels/coarse_op_kernel.cuh:1768-1837}} & 仓库 & COARSE\_CLOVER（式\eqref{eq:xdiag}） \\
+\texttt{\nolinkurl{include/kernels/coarse_op_kernel.cuh:1845-1876}} & 仓库 & reverse：$Y_{\mu+4}=\pm Y_\mu$ \\
+\texttt{\nolinkurl{include/kernels/coarse_op_kernel.cuh:1881-1951}} & 仓库 & diagonal/staggered mass/twisted 对角 \\
+\texttt{\nolinkurl{include/kernels/coarse_op_kernel.cuh:1956-2030}} & 仓库 & convert/rescale \\
+\texttt{\nolinkurl{lib/coarse_op.cuh:57-146}} & 仓库 & 各计算步 flops 模型（复杂度佐证） \\
+\texttt{\nolinkurl{lib/coarsecoarse_op.hpp:1-47}} & 仓库 & COARSECOARSE 宏裁剪与 calculateYcoarse \\
+\texttt{\nolinkurl{include/kernels/coarse_op_preconditioned.cuh:48-92}} & 仓库 & computeYhat（$\hat Y=Y X^{-\dagger}$） \\
+\texttt{\nolinkurl{include/kernels/dslash_coarse.cuh:118-158}} & 仓库 & 式\eqref{eq:coarsedslash}实现 \\
+\texttt{\nolinkurl{lib/dirac_coarse.cpp:506-528}} & 仓库 & DiracCoarsePC 的 Dslash 与 DslashXpay（$\hat Y$ 应用） \\
+\texttt{\nolinkurl{lib/dirac_coarse.cpp:530-568}} & 仓库 & Schur 补 M/MdagM（式\eqref{eq:schur}） \\
+\texttt{\nolinkurl{lib/dirac_coarse.cpp:570-626}} & 仓库 & prepare/reconstruct 代换公式 \\
+\texttt{\nolinkurl{lib/dirac_coarse.cpp:628-649}} & 仓库 & 粗化 $\hat Y$ 链接的 createCoarseOp \\
+\texttt{\nolinkurl{lib/inv_mr_quda.cpp:65-190}} & 仓库 & MR 主循环（式\eqref{eq:mr}，:139--164 直引） \\
+\texttt{\nolinkurl{lib/inv_gcr_quda.cpp:24-93}} & 仓库 & GCR 正交化/回代（式\eqref{eq:gcr}） \\
+\texttt{\nolinkurl{lib/inv_gcr_quda.cpp:120-147}} & 仓库 & GCR 主循环推进 \\
+\texttt{\nolinkurl{lib/multigrid.cpp:1275-1473}} & 仓库 & S9 四路径与闭环（前篇已引，本篇深化 (b)(c) 分支） \\
+\texttt{\nolinkurl{lib/multigrid.cpp:1646-1708}} & 仓库 & generateEigenVectors（TRLM 路径） \\
+\texttt{\nolinkurl{lib/solver.cpp:69-76}} & 仓库 & 外层 GCR 绑定（前篇已引） \\
+\texttt{\nolinkurl{include/transfer.h:222-265}} & 仓库 & two-pass 定点正交化文档 \\
+\texttt{\nolinkurl{tests/utils/set_params.cpp:459-474}} & 仓库 & 默认 smoother/coarse\_solver/cycle 配置 \\
+\textcolor{reference}{\texttt{\nolinkurl{docs/pure_quda_core_20260815.pdf}}} & 参考 & C1 节旁证（辨识度定位） \\
+\textcolor{reference}{\texttt{\nolinkurl{docs/pure_quda_20260817.pdf}}} & 参考 & 机制推导链旁证 \\
+\textcolor{reference}{\texttt{\nolinkurl{docs/analy_multigrid_20260824.pdf}}} & 参考 & 前篇（结构卷），本篇为其算法卷 \\
+\bottomrule
+\caption{参考源清单（类型``仓库''为直接证据，``参考''为背景旁证；数据来源：read/grep 实测）}
+\end{xltabular}
+
+% ================= 8 结论与局限 =================
+\section{结论与局限}
+
+\begin{conclbox}
+本篇把 multigrid 拆到``公式—内核''粒度并全部对上了账：粗空间由迭代细化 CGS（式\eqref{eq:cgs}）定义，粗算子由七步规范协变计算图（式\eqref{eq:vuv}--\eqref{eq:xdiag} 及 reverse/diagonal）显式构建，粗求解由 Schur 补（式\eqref{eq:schur}）+ 松弛 Richardson（式\eqref{eq:mr}）+ flexible GCR（式\eqref{eq:gcr}）三级接力；两级粗化共享同一计算图，性能主题统一为``归约融合与同步最小化''。
+\end{conclbox}
+
+\begin{refbox}
+旁证：前篇结构卷与本篇算法卷互引闭合；历史 pure 报告的``机制推导链''（null 向量$\to$$P$$\to$$D_c$）与本篇 S2$\to$S3$\to$S4 的实现序完全一致。
+\end{refbox}
+
+\begin{warnbox}
+局限：（1）MMA 内核逐指令分析与 KD 分支深化 \textcolor{warn}{未验证}（登记为后续 pure 技能题材）；（2）式\eqref{eq:mr} 谱半径界、CGS 迭代细化收敛率等理论量未推导（仓库内无此证据，不作断言）；（3）动态运行数值 \textcolor{warn}{未验证}（静态分析边界）；（4）本篇与外部并行编辑活动共存于同一工作区，若 .tex 再次被外部改动，以 git 快照为准。
+\end{warnbox}
+
+\end{document}
