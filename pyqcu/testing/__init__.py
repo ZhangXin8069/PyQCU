@@ -202,14 +202,14 @@ def test_dslash_parity(lat_size: List[int] = [8, 8, 8, 16], kappa: Optional[torc
 def test_dslash_clover(device: torch.device = torch.device('cpu'), with_data: bool = False, dtype: torch.dtype = torch.complex64):
     if with_data:
         kappa = torch.Tensor([1.0])
-        lat_size = [32, 16, 32, 32]
+        lat_size = [8, 8, 8, 8]
         path = pyqcu.__file__.replace('pyqcu/__init__.py', 'examples/data/')
         refer_U = tools.hdf5oooxyzt2gridoooxyzt(
-            file_name=path+'refer.clover.U.L32Y16K1.ccdxyzt.c64.h5', lat_size=lat_size, device=device, verbose=True)
+            file_name=path+'refer.clover.U.L8K1.ccdxyzt.c64.h5', lat_size=lat_size, device=device, verbose=True)
         refer_clover_term = tools.hdf5oooxyzt2gridoooxyzt(
-            file_name=path+'refer.clover.clover_term.L32Y16K1.scscxyzt.c64.h5', lat_size=lat_size, device=device, verbose=True)
+            file_name=path+'refer.clover.clover_term.L8K1.scscxyzt.c64.h5', lat_size=lat_size, device=device, verbose=True)
         refer_clover_inv_term = tools.hdf5oooxyzt2gridoooxyzt(
-            file_name=path+'refer.clover.clover_inv_term.L32Y16K1.scscxyzt.c64.h5', lat_size=lat_size, device=device, verbose=True)
+            file_name=path+'refer.clover.clover_inv_term.L8K1.scscxyzt.c64.h5', lat_size=lat_size, device=device, verbose=True)
         clover_term = dslash.make_clover(U=refer_U, kappa=kappa, verbose=True)
         clover_term = dslash.add_I(clover_term=clover_term, verbose=True)
         diff = tools.norm(clover_term - refer_clover_term) / \
