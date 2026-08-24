@@ -8,8 +8,10 @@
 
 原 L32 参考数据从未入库且来源不可考。现以 **C++ CUDA 后端为独立实现源**重建 Wilson 组
 （L16³, mass=0⇒κ=0.125, c64, seed42；生成器 `logs/session-2026-08-24/gen_wilson_ref.py`）：
-`refer.wilson.{U,src,b,x,dest}.L16K0_125.*.h5` 共 ~44MB 已入库，
-测试分支尺寸同步改为 L16。验证：dslash par 7.1e-08 / nopar 0.0 /
+`refer.wilson.{U,src,b,x,dest}.L16K0_125.*.h5` 共 ~44MB（**因 .gitignore `*.h5`
+不入库**，由归档生成器 `logs/session-2026-08-24/gen_wilson_ref.py` 确定性再生——
+seed42 + C++ 确定性内核；clover 组同理由 gen_clover_ref.py 再生）。
+测试分支尺寸同步改为 L16/L8。验证：dslash par 7.1e-08 / nopar 0.0 /
 solver 跨后端 rel 8.6e-07（Python BiCGStab vs C++ BistabCg）。
 
 clover 组（L32Y16K1）因原规格 GB 级未重建，`test_dslash_clover(with_data=True)`

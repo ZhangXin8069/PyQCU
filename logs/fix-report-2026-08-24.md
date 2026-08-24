@@ -35,7 +35,7 @@ bug37 修复 benchmark/conftest.py 收集期笔误崩溃。
 | 项 | 阻塞点 |
 |----|--------|
 | NPU 路径回归 | 无昇腾硬件 |
-| with_data 参考 HDF5 重建 | 原数据从未入库、无生成器、不可自举伪造（见 examples/data/AGENTS.md） |
+| ~~with_data 参考 HDF5~~ **已重建** | C++ 后端即独立实现源；L16³ Wilson 组 + L8³ clover 组生成器入库（logs/session-2026-08-24/gen_*_ref.py），h5 因 gitignore 由其确定性再生；solver 双后端交叉 rel=8.6e-07 |
 | tilelang fp32-gemm sm70 / 64 小 block 数值错 | tilelang 包内模板/fragment 布局问题（上游另案，fp16 主语义不受影响） |
 | verify_nullvecs Galerkin 分支对非块布局的容错 | 已文档化规避（须传 10 维块结构），转换层属可选增强 |
 
