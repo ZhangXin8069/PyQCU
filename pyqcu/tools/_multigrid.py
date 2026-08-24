@@ -1003,9 +1003,11 @@ def _probe_point_batch_local(lsch, lonv, E, c_idx, sit, hop_nn, hop_diag, dims, 
     it = (torch.arange(t0, t0 + W, device=_opdev)) % Tf
     idx = torch.stack([ix, iy, iz, it]).unsqueeze(0)  # [1,4,W]
     f_local = torch.zeros([1, E, e, W, W, W, W], dtype=lonv.dtype, device=_opdev)
+    # bug35: e46a4cf 重构曾遗失本赋值语句(探测输入恒零→stencil 静默全零),恢复之。
     _blk = lonv[:, :, cx, :, cy, :, cz, :, ct, :].reshape(E, e, x, y, z, t)
     if _blk.device != _opdev:
         _blk = _blk.to(_opdev, non_blocking=True)
+    f_local[0, :, :, off:off + 2, off:off + 2, off:off + 2, off:off + 2] = _blk
     starts = [(x0 % Xf, y0 % Yf, z0 % Zf, t0 % Tf)]
     dc_local = lsch(f_local, idx, starts)[0]  # [E, e, W,W,W,W]
     # 33 个相关粗格点（c 本身 + 4 方向 ±1 + 6 对角 ±1，去重保序）
