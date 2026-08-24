@@ -30,6 +30,18 @@ except ImportError:
 DEFAULT_CACHE_DIR = Path.home() / "PyQCU" / "data"
 DEFAULT_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
+def _norm_device(device) -> torch.device:
+    """规范设备对象: 无索引 'cuda' 展开为当前卡 'cuda:N'。
+
+    torch.device('cuda') != torch.device('cuda:0')(相等性含索引),
+    否则 to_device 对无索引输入误判"不在目标卡"而坠入回迁分支。
+    """
+    d = torch.device(device)
+    if d.type == 'cuda' and d.index is None:
+        d = torch.device('cuda', torch.cuda.current_device())
+    return d
+
+
 def _ram_available_bytes() -> int:
     try:
         return psutil.virtual_memory().available
@@ -130,6 +142,7 @@ class HierarchicalTensor:
     def to_device(self, device: torch.device) -> torch.Tensor:
         """确保在指定 device 的 VRAM 上，必要时从 RAM/DISK 回迁（带 VRAM 空间检查）。"""
         with self.lock:
+            device = _norm_device(device)
             if self.vram is not None and self.vram.device == device:
                 self.last_access = time.time()
                 return self.vram
@@ -204,6 +217,7 @@ class HierarchicalCache:
     def offload_lru(self, device: torch.device, needed_bytes: int):
         """按 LRU 将非活跃张量 offload，直到 VRAM 满足 needed_bytes 或无可 offload。"""
         with self.lock:
+            device = _norm_device(device)
             # 按 last_access 排序，最久未访问的先 offload
             candidates = sorted(self.tensors.values(), key=lambda x: x.last_access)
             for ht in candidates:
