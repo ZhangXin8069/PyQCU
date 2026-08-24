@@ -1,8 +1,9 @@
 # session-2026-08-24 — 无人值守会话验证资产（bug31–37）
 
 8 个回归验证脚本，对应 `logs/fix-report-2026-08-24.md` 的方法论闭环。
-运行方式：`source ./env.sh && python logs/session-2026-08-24/<脚本>`（工作目录=仓库根；
-MPI 脚本加 `mpirun -np N --oversubscribe`）。
+运行方式：`source ./env.sh && python $PWD/logs/session-2026-08-24/<脚本>`（工作目录=仓库根；
+**MPI 脚本必须用绝对路径**——OpenMPI 进程侧无法解析相对路径，报 could not access）。
+全量关门回归：13/13 PASS（2026-08-24 终验，两 MPI 脚本以绝对路径复跑确认）。
 
 | 脚本 | 验证内容 | 预期结果 |
 |------|---------|---------|
