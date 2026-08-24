@@ -601,7 +601,9 @@ def cmd_verify(args):
 
 def cmd_multi(args):
     lat = [int(x) for x in args.lat.split(",")]
-    nl = int(args.levels)
+    # 兼容两种输入: "1,2"(层列表,len=层数) / 单整数 "N"(=N 层); 默认值 "1,2" 此前 int() 直接崩溃
+    _lv = [int(x) for x in args.levels.split(",") if x.strip()]
+    nl = len(_lv) if len(_lv) > 1 else (_lv[0] if _lv else 2)
     dof = [12] + [args.E] * (nl - 1)
     common = dict(lat_size=lat, mass=args.mass, atol=args.atol, num_levels=nl,
                   dof_list=dof, mg_grid=MG_GRID, num_restart=args.rs,
