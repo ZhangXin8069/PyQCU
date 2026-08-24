@@ -37,7 +37,7 @@ PyQCU：Lattice QCD 的 Python/Cython 库 —— CUDA 加速的 Wilson/Clover Di
 | `examples/` | 测试入口：`pyqcu/`（主套件）、`qcu/`（C++ 后端；dev 套件归档于 `qcu/dev73/`、`qcu/dev74/`，产物写 `logs/dev73/`、`logs/dev74/`）、`cpu/npu/dcu/gpu/tilelang/profiler/benchmark/`、`data/`（参考 HDF5） |
 | `docs/` | dims.md、env.md、install.md、examples.md、profiler.md |
 | `refer/` | 开发历史报告（dev71.*） |
-| `logs/` | 按 tag 归档：`dev<N>/`、`stab<N>/`、`bug<N>/` 子目录（如 `dev73/`、`dev73/stab24/`、`dev74/`、`bug30/`、`dev76/`、`dev78/`、`dev78_1/`、`dev78_2/`、`dev84/`；`logs/<tag>/**` 在 .gitignore 全豁免入库），根目录留 `fix-report-*.md`、`debug/`、`results/` 与共享缓存 `nullvec_cache/`；测试套件 `test11/`（历史版）、`test12/`（单线程版）、`test13/`（多线程版）、`test14/`（多线程版+粗算子构建加速）、`dev78_2/`（多线程 MultiGrid 残差图）与 `examples/qcu/dev84/`（当前版：16×32×32×48 MultiGrid 真实加速比攻坚 — CUDA Graph 段回放/零拷贝标量/守卫标量内核/粗空间诊断 ρ_V，报告 `examples/qcu/dev84/dev84_report.md`） |
+| `logs/` | 按 tag 归档：`dev<N>/`、`stab<N>/`、`bug<N>/` 子目录（如 `dev73/`、`dev73/stab24/`、`dev74/`、`bug30/`、`dev76/`、`dev78/`、`dev78_1/`、`dev78_2/`、`dev84/`；`logs/<tag>/**` 在 .gitignore 全豁免入库），根目录留 `fix-report-*.md`、`debug/`、`results/` 与共享缓存 `nullvec_cache/`；测试套件 `test11/`（历史版）、`test12/`（单线程版）、`test13/`（多线程版）、`test14/`（多线程版+粗算子构建加速）、`dev78_2/`（多线程 MultiGrid 残差图）、`session-2026-08-24/`（bug31–37 无人值守会话验证资产：8 脚本+README，覆盖基线/求解器族/MPI/Wuppertal/stencil/Galerkin/等价性）与 `examples/qcu/dev84/`（当前版：16×32×32×48 MultiGrid 真实加速比攻坚 — CUDA Graph 段回放/零拷贝标量/守卫标量内核/粗空间诊断 ρ_V，报告 `examples/qcu/dev84/dev84_report.md`） |
 
 ## 已知反模式（勿重复）
 
