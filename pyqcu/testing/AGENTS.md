@@ -19,6 +19,7 @@
 | `test_solver(kind, method, kappa, lat_size, dtype, device, with_data, max_level, num_restart, support_parity)` | BiStabCG 与 multigrid；`method='bistabcg'` 标准/奇偶预处理 BiCGStab；`method='multigrid'` 全 V-cycle `init()+solve()+plot()`；相对误差 < 1e-3 |
 | `test_matmul()` | TileLang JIT 矩阵乘 vs PyTorch（GPU 4096² vs cuBLAS；CPU 1024² vs MKL/OneDNN）；打印 TFLOPS 对比表 |
 | `test_smear_stout(lat_size, device, dtype)` | 跨 MPI 网格 stout smearing；各 rank 对比局部并行 smear vs 整网格参考；smearing 前后验证 SU(3) |
+| `test_smear_wuppertal(lat_size, rho, nstep, device, dtype)` | Wuppertal 三重不变量回归（2026-08-24）：nstep≥1 防护、自由场(U=I)常数场不动点（wards 含 t 时发散，bug33）、默认参数白噪声范数收缩 |
 | `verify_nullvecs(S, lonv, lat_fine, lat_coarse, n_sample=4, stencil=None, verbose=False)` | null 向量质量四重诊断（2026-08-22 整合自 logs/test11 与 examples/qcu/dev73）：近零性 `||S v||/||v||`、幂迭代谱半径、块内正交性（Gram 矩阵）、可选 Galerkin 一致性 `A_c ≈ Pᵀ S P`（提供 33-tensor stencil 时）；返回 dict，判据由调用方断言 |
 
 ## 运行测试

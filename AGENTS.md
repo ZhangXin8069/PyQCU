@@ -41,6 +41,8 @@ PyQCU：Lattice QCD 的 Python/Cython 库 —— CUDA 加速的 Wilson/Clover Di
 
 ## 已知反模式（勿重复）
 
+- `torch.Tensor(<标量>)` 已被新版 PyTorch 移除（TypeError: data must be a sequence）——一律用列表包装 `torch.Tensor([x])`（bug31）
+- `tools.norm()` 返回 **float**（内部已 .item()）——二次 `.item()` 会 AttributeError（本会话三踩）
 - 复数 `operator*=` 覆盖 `_data.x` 前先使用（lattice_complex.h）
 - `cudaMallocAsync` 缓冲大小与内核写大小不匹配
 - 裸 `except:` 吞掉 KeyboardInterrupt
