@@ -2171,6 +2171,22 @@ template <typename T> struct LatticeCloverMultigrid {
       log_write<T>(am.str(),rank,true);
       std::ostringstream fm;fm<<"PYQCU::SOLVER::MULTIGRID::\n Final residual: "<<std::scientific<<fn;
       log_write<T>(fm.str(),rank,true);
+      // ---- dev87 S6-lite: 末次真残差（全算子口径, quda verify() 精神） ----
+      if(set_ptr->host_params[_GRID_X_]==1 && set_ptr->host_params[_GRID_Y_]==1 &&
+         set_ptr->host_params[_GRID_Z_]==1 && set_ptr->host_params[_GRID_T_]==1 &&
+         total>0){
+        compute_full_residual();
+        auto &stF=levels[0];
+        CUBLAS_CHECK(_cublasDot<T>(set_ptr->cublasH,(int)stF.vec_sz,
+            (T*)stF.r,1,(T*)stF.r,1,
+            static_cast<LatticeComplex<T>*>(check_dev)+1));
+        checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
+        T frn=sqrt(check_host[1].real()<0?(T)0:check_host[1].real());
+        std::ostringstream tr;tr<<"PYQCU::SOLVER::MULTIGRID::\n FINAL TRUE residual (full-op) = "
+          <<std::scientific<<frn<<"  relative = "<<std::scientific
+          <<(bnorm2>(T)0? frn/sqrt(bnorm2):(T)0);
+        log_write<T>(tr.str(),rank,true);
+      }
       std::ostringstream ch;ch<<"CONVERGENCE_HISTORY: [";
       for(size_t j=0;j<conv_history.size();j++){if(j>0)ch<<",";ch<<std::scientific<<conv_history[j];}
       ch<<"]";log_write<T>(ch.str(),rank,false);

@@ -118,3 +118,19 @@ WSL2 映射原子**间歇性可见**：有界自旋路径会偶发采到陈旧�
 
 结论：组件实现正确；MG 门控停用校正源于物理谱而非代码。quda 侧不外露同层
 null 向量诊断接口，其质量只能间接由 MG 外层收敛行为体现（9 次 GCR @tol1e-8）。
+
+## 九、P5 补充落地与 P6 回归收束
+
+- S6-lite 已落地：`applyCloverMultigridQcu` 结束时自报
+  `FINAL TRUE residual (full-op) = 1.48e-6 (relative 6.1e-10)`
+  （与外部 harness 口径一致，quda verify() 精神的最小实现）。
+- S1/S2/S4/S5 缓办、S3 待做（理由见矩阵补充清单更新）。
+- 回归：conftest.multi_gpu 三场景全 PASS（一致性 tol=1e-5）；
+  conftest.clover.bistabcg.dslash 首迭代差 1.9e-6 ✓
+  （该脚本尾部除零为其自身槽位复用遗留问题，先于本任务存在，另行处理）。
+
+## 十、终局状态
+
+对照矩阵 G1-G10：G2/G3/G4.1/G5(部分)/G6/G7.1/G8.7/G10 全部 [x] 实测闭环；
+G1 统计口径、G8.2/8.5 等结构性差异项以注记形式存档。库级产出：
+停机语义修复(bug42)、真残差刷新与相对判据、S6-lite 日志。
