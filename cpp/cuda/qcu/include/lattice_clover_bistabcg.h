@@ -151,9 +151,14 @@ template <typename T> struct LatticeCloverBistabCg {
     give_custom_vals<T>
         <<<set_ptr->gridDim, set_ptr->blockDim, 0, set_ptr->stream>>>(p, 0.0,
                                                                       0.0);
-    give_random_vals<T>
-        <<<set_ptr->gridDim, set_ptr->blockDim, 0, set_ptr->stream>>>(x_o,
-                                                                      23333);
+    if(set_ptr->host_params[_MG_USE_INIT_GUESS_]){
+      // dev87 S3: warm start —— 保留调用方预填在 fermion_out 奇半的 x0
+      // （对标 quda use_init_guess；r 由下方 dslash+give_rr 真实计算）
+    } else {
+      give_random_vals<T>
+          <<<set_ptr->gridDim, set_ptr->blockDim, 0, set_ptr->stream>>>(x_o,
+                                                                        23333);
+    }
     dslash(r, x_o);
     bistabcg_give_rr<T>
         <<<set_ptr->gridDim, set_ptr->blockDim, 0, set_ptr->stream>>>(

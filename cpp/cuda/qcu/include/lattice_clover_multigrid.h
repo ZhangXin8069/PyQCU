@@ -1783,7 +1783,14 @@ template <typename T> struct LatticeCloverMultigrid {
     b_e=fermion_in_eo;
     b_o=static_cast<LatticeComplex<T>*>(fermion_in_eo)+set_ptr->lat_4dim_SC;
     x_o=static_cast<LatticeComplex<T>*>(fermion_out_eo)+set_ptr->lat_4dim_SC;
-    checkCudaErrors(cudaMemsetAsync(x_o,0,set_ptr->lat_4dim_SC*sizeof(LatticeComplex<T>),set_ptr->stream));
+    // dev87 S3: warm start —— params[_MG_USE_INIT_GUESS_]!=0 时跳过清零，
+    // 以调用方预填在 fermion_out 奇半中的解作为 x0（对标 quda use_init_guess）。
+    if(set_ptr->host_params[_MG_USE_INIT_GUESS_]){
+      if(rank==0&&verbose)
+        log_write<T>("PYQCU::SOLVER::MULTIGRID::\n INIT_GUESS: x_o seeded from fermion_out",rank,true);
+    } else {
+      checkCudaErrors(cudaMemsetAsync(x_o,0,set_ptr->lat_4dim_SC*sizeof(LatticeComplex<T>),set_ptr->stream));
+    }
 
     // Allocate level-0 BiStabCG working vectors (parity-split layout)
     size_t sc=set_ptr->lat_4dim_SC*sizeof(LatticeComplex<T>);
@@ -1896,8 +1903,18 @@ template <typename T> struct LatticeCloverMultigrid {
     checkCudaErrors(cudaStreamSynchronize(S));
 
     // 2. Initialise BiStabCG state on the ODD vectors (x=0, r=b__o, ...)
-    checkCudaErrors(cudaMemsetAsync(st.x, 0, st.vec_sz*sizeof(LatticeComplex<T>), S));
-    copy_c(st.r, st.rhs, 0);
+    // dev87 S3: warm start 时保留调用方经 fermion_out 预填的 x0（st.x≡x_o），
+    // 初值残差 r = b__o − S·x0 真实计算。
+    if(set_ptr->host_params[_MG_USE_INIT_GUESS_]){
+      fine_dslash_op(set_ptr->device_vec0, st.x);
+      checkCudaErrors(cudaStreamSynchronize(S));
+      bistabcg_give_diff2<T><<<set_ptr->gridDim,set_ptr->blockDim,0,S>>>(
+          st.rhs, set_ptr->device_vec0, st.r, dv);
+      checkCudaErrors(cudaStreamSynchronize(S));
+    } else {
+      checkCudaErrors(cudaMemsetAsync(st.x, 0, st.vec_sz*sizeof(LatticeComplex<T>), S));
+      copy_c(st.r, st.rhs, 0);
+    }
     // ---- dev84 R5 DEFLATED START ----------------------------------------
     // quda/DDalphaAMG 粗空间的主要价值在"低模消除"。把一次 V-cycle 校正作为
     // 初始猜测 (x₀ = P·A_c⁻¹·Pᵀ·b)：近零模被粗解吸收后剩余谱聚于高频带，
