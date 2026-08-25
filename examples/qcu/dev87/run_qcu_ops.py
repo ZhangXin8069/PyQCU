@@ -141,7 +141,7 @@ def main():
     dev = pick_v100()
     print(f"[dev87] device={torch.cuda.get_device_name(dev)}")
     g_dev = load_gauge_h5(args.lat, args.mass, device="cuda")
-    ce, coo, cei, coi, s, p, av = make_clover_tensors(g_dev, args.lat, args.mass)
+    ce, cei, coo, coi, s, p, av = make_clover_tensors(g_dev, args.lat, args.mass)
     export_qdp_gauge(g_dev, args.lat, args.mass)
     if args.case in ("schur_dslash", "all"):
         print(case_schur_dslash(args.lat, args.mass, g_dev, ce, coo, cei, coi, s, p, av))
