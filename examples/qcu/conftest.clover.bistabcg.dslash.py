@@ -103,7 +103,7 @@ for i in range(10):
     qcu_dest = fermion_out_o.clone()
     operator = dslash.operator(
         U=qcu_U, clover_term=refer_clover_term, kappa=1 / (2 * argv[define._MASS_] + 8), verbose=True, support_parity=True)
-    refer_dest = operator.matvec_parity4fermion(fermion_o=fermion_in_o)
+    refer_dest = operator.matvec_parity4fermion(fermion_in_o=fermion_in_o)
     print('qcu_dest:', qcu_dest.flatten()[:100])
     print('refer_dest:', refer_dest.flatten()[:100])
     print('Difference:', tools.norm(refer_dest-qcu_dest)/tools.norm(qcu_dest))
