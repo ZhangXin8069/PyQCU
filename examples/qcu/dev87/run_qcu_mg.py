@@ -78,7 +78,23 @@ def main():
     s[base + 2] = hdg.contiguous().data_ptr()
     s[base + 3] = sit.contiguous().data_ptr()
 
-    npz = np.load(OUT / "qcu_clover_solve.npz")
+    # dev87 形状守卫：基线 npz 与目标格子不一致时自动经 run_qcu_ops 重建
+    import subprocess
+    expect = [Lx, Ly, Lz, Lt // 2]
+    npz_path = OUT / "qcu_clover_solve.npz"
+    need = True
+    if npz_path.exists():
+        zz = np.load(npz_path)
+        need = list(zz["b_eo"].shape[-4:]) != expect
+    if need:
+        print("[dev87-mg] 基线形状不匹配 -> 重跑 run_qcu_ops clover_solve", flush=True)
+        r = subprocess.run([sys.executable, str(Path(__file__).resolve().parent / "run_qcu_ops.py"),
+                            "--case", "clover_solve", "--lat", *[str(v) for v in lat],
+                            "--mass", str(args.mass)], capture_output=True, text=True)
+        if r.returncode != 0:
+            raise RuntimeError("baseline rebuild failed: " + r.stderr[-800:])
+    npz = np.load(npz_path)
+    assert list(npz["b_eo"].shape[-4:]) == expect, "baseline shape still mismatched"
     b_eo = torch.from_numpy(npz["b_eo"]).to("cuda")
     x_ref = torch.from_numpy(npz["x_eo"]).to("cuda")
 
