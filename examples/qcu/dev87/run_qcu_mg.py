@@ -82,7 +82,8 @@ def main():
     b_eo = torch.from_numpy(npz["b_eo"]).to("cuda")
     x_ref = torch.from_numpy(npz["x_eo"]).to("cuda")
 
-    idx = int(p[define._SET_INDEX_].item())
+    s[:_SET_PTRS_COARSE_BASE_] = 0   # dev87: 清除已结束集合的陈旧句柄
+    idx = 2
     p[define._SET_INDEX_] = idx; p[define._SET_PLAN_] = 1
     p[define._PARITY_] = 0; p[define._MAX_ITER_] = 1000; p[define._VERBOSE_] = 0
     qcu.applyInitQcu(s, p, av)
