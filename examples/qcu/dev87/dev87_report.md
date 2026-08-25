@@ -182,3 +182,23 @@ quda 缩放对照四项断言，产物 out/regression.json。
 ```
 后续任何触及 `lattice_clover_multigrid.h`/`lattice_clover_bistabcg.h`/
 协议层的改动，跑本闸门即可在分钟级复验本轮全部结论。
+
+## 十四、热点剖析与稳定性浸泡（收束补充）
+
+### 热点（torch.profiler, CUDA runtime 视角；CUPTI 内核级本机不可用）
+applyCloverBistabCgQcu 单次求解（atol=1e-6, 16³×48, V100）：
+
+| 运行时 API | 次数 | CPU 自耗时 | 占比 |
+|---|---|---|---|
+| cudaStreamSynchronize | 3097 | **1.896 s** | ~92% |
+| cudaMemcpyAsync | 1995 | 0.194 s | 8.9% |
+| cudaLaunchKernel | 8573 | 0.069 s | 3.2% |
+
+结论：剩余瓶颈是**细粒度迭代内的流同步次数**（均值 612µs/次，WSL2 thunk），
+内核发射本身仅 ~69ms。后续优化方向明确：把 dev84 的"图段回放/SYNC DIET"
+思想延伸到普通 BiCGStab 路径（如收敛检查映射读降频、多迭代合段），
+理论上限可再削 ~1.5s/2.0s。本轮不做（保持已验证稳定态，改动留待下阶段）。
+
+### 稳定性浸泡
+run_all.py --with-quda 连续 3 次：GREEN 4/4 ×3（18.1/18.3/18.2s，
+零失败零抖动）。刷新/热启动/相对停机新路径在重复运行下确定且稳定。
