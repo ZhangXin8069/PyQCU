@@ -66,11 +66,18 @@ def field_to_scxyzt(info, f):
 
 
 def reconstruct_full_b(b_eo):
-    """PyQCU [2,4,3,x,y,z,T/2] -> (s,c,x,y,z,t)。"""
-    import torch
-    from pyqcu import tools
-    t_dev = torch.from_numpy(b_eo).to("cuda")
-    return tools.poooxyzt2oooxyzt(t_dev).cpu().numpy()
+    """PyQCU [2,s,c,xh,y,z,T] -> (s,c,X,y,z,T)。x 维交错还原。"""
+    # 实际 shape: [2,s,c,xh,y,z,T] — p_=2(奇偶), xh=X/2
+    p_, s_, c_, xh_, y_, z_, T_ = b_eo.shape
+    out = np.zeros((s_, c_, xh_*2, y_, z_, T_), dtype=b_eo.dtype)
+    out[..., 0::2, :, :, :] = b_eo[0]   # even sites: global x = 2*xi
+    out[..., 1::2, :, :, :] = b_eo[1]   # odd sites:  global x = 2*xi+1
+    return out.reshape(s_*c_, *b_eo.shape[3:5].__class__(b_eo.shape[3]), y_, z_, T_) if False else \
+        out.reshape(p_ * s_, xh_*2, y_, z_, T_) if False else \
+        out.reshape(b_eo.shape[0]*b_eo.shape[1]*b_eo.shape[2],
+                    b_eo.shape[3], b_eo.shape[4], b_eo.shape[5], b_eo.shape[6])
+
+
 
 
 def rel_diff(a, b):
@@ -95,7 +102,12 @@ def case_solve(core, lat, mass, tol, maxiter):
     x_qcu = reconstruct_full_b(npz["x_eo"])  # 同一布局恢复管线
 
     info = make_info(core, lat)
-    b = to_fermion_field(core, info, b_full)
+    # b_full: (s,c,X,y,z,T) → tzyxsc 给 quda evenodd
+    b_12 = np.ascontiguousarray(b_full.reshape(12, *lat))  # [12,X,Y,Z,T]
+    tzyxsc = np.ascontiguousarray(np.transpose(b_12.astype(np.complex128), (4,3,2,1,0)))
+    x_np = info.evenodd(tzyxsc, False)
+    from pyquda.field import LatticeFermion as _LF
+    b_lf = _LF(info, torch.from_numpy(np.ascontiguousarray(x_np)).to("cuda"))
     dirac = core.getClover(info, mass, tol, maxiter, clover_csw_t=1.0)
     try:
         from pyquda.enum_quda import QudaInverterType
@@ -113,13 +125,11 @@ def case_solve(core, lat, mass, tol, maxiter):
         wd.invert_param.dslash_type = _QDT.QUDA_WILSON_DIRAC
         wd.loadGauge(to_gauge_field(core, info, qdp))
         t0 = time.perf_counter()
-        x = wd.invert(b)
+        x = wd.invert(b_lf)
     else:
         dirac.loadGauge(to_gauge_field(core, info, qdp))
         t0 = time.perf_counter()
-        x = dirac.invert(b)
-    t0 = time.perf_counter()
-    x = dirac.invert(b)
+        x = dirac.invert(b_lf)
     torch.cuda.synchronize() if hasattr(torch, "cuda") else None
     solve_s = time.perf_counter() - t0
     x_q = field_to_scxyzt(info, x)
@@ -164,7 +174,7 @@ def case_mg(core, lat, mass, tol, maxiter, nvec=24, block=(2, 2, 2, 2)):
 
     info = make_info(core, lat)
     if b_full is not None:
-        b = to_fermion_field(core, info, b_full)
+        pass  # replaced above
     else:
         from pyquda.field import LatticeFermion
         X, Y, Z, T = lat
