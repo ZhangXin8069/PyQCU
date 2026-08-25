@@ -114,7 +114,8 @@ namespace qcu {
 #define _MG_USE_GCR_ 54
 #define _MG_USE_DEFLATE_ 55
 #define _MG_MU_PRE_ 56
-#define _PARAMS_SIZE_ 57
+#define _MG_USE_INIT_GUESS_ 57
+#define _PARAMS_SIZE_ 58
 #define _MASS_ 0
 #define _ATOL_ 1
 #define _SIGMA_ 2

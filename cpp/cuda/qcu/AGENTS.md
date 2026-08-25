@@ -19,7 +19,7 @@ bash ./make.sh        # symlink CMakeLists-nv.txt → CMakeLists.txt, 然后 cma
 
 ## 参数协议
 
-- `params` (int32[54])：格点维度、网格大小、数据类型、迭代次数、计划选择、MG 层级配置
+- `params` (int32[58])：格点维度、网格大小、数据类型、迭代次数、计划选择、MG 层级配置、`_MG_USE_INIT_GUESS_`(57, x0 热启动)
 - `argv` (float[7])：mass、atol、sigma、MG 容差
 - `set_ptrs` (int64[100])：scratch 缓冲指针
 
