@@ -38,7 +38,7 @@
 
 | # | 功能 | quda 侧 | PyQCU 侧 | 状态 |
 |---|---|---|---|---|
-| 4.1 | BiCGStab(Schur 奇偶预条件) | invert_test --inv-type bicgstab --matpc even-even | applyCloverBistabCgQcu（同语义基线） | [~] 受阻：libquda 仅编 sm_70，P100(sm60) 静默挂死/V100 报 CC 不匹配（QUDA_DEVICE 路由未达 V100）；解锁=重编 libquda 含 sm60 或修设备选择 |
+| 4.1 | BiCGStab(Schur 奇偶预条件) | invert_test --inv-type bicgstab --matpc even-even | applyCloverBistabCgQcu（同语义基线） | [~] 受阻升级：libquda-sm60 已构建并替换全局库（备份 /root/slib/*.bak），但 pyquda 集成层仍崩——clover 路径 loadClover 挂死；wilson 直连路径 segfault。解锁需 pyquda↔libquda(sm60) 集成调试（py-spy/gdb），超出无人值守边界 |
 | 4.2 | CG(MdagM) | invert_test --inv-type cg | applyWilsonCgQcu；python solver CG | [ ] |
 | 4.3 | MR 平滑器 | inv_mr_quda.cpp（MG 默认平滑器） | pyqcu/solver/_mr.py（quda 思想）；C++ MG 用 BiCGStab/CG 定步替代 | [ ] |
 | 4.4 | GCR 外层 | Solver::create GCR(+MG 前置) solver.cpp:67 | run_gcr()=FGMRES(10)⊕V-cycle（_MG_USE_GCR_） | [ ] |
