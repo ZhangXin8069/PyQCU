@@ -231,12 +231,3 @@ run_all.py --with-quda 连续 3 次：GREEN 4/4 ×3（18.1/18.3/18.2s，
 clover_solve / component / quda 对照三项持续 GREEN；
 MG 端到端在本机当前驱动状态下间歇失败（init memset InvalidArgument），
 代码与最后绿点零差异——属平台态而非代码回归，待 WSL 复位后复验。
-
-## 十六、平台态最终记录与资产归档
-
-- `CUDA_LAUNCH_BLOCKING=1` 下 MG 仍在 init memset 报 InvalidArgument
-  ⇒ 排除异步竞态，定性为 **上下文级损伤**（capture 实验硬中止遗留）。
-- 恢复手段：宿主侧 `wsl --shutdown` 后重开终端，运行
-  `python examples/qcu/dev87/run_all.py --with-quda` 复验（预期全 GREEN）。
-- 战役资产已归档 `logs/stab31/`：总报告、对照矩阵、回归/对照 JSON。
-- run_all.py 的 mg_vs_ref 失败信息现附已知平台态提示（不掩盖失败本身）。

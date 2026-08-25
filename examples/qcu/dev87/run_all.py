@@ -73,8 +73,10 @@ def t_mg_end_to_end():
                         "--cmi", "200", "--ctf", "3000"],
                        capture_output=True, text=True, timeout=900)
     j = json.loads((HERE / "out" / "qcu_clover_mg.json").read_text())
-    check("mg_vs_ref", r.returncode == 0 and j["rel_diff_vs_bistabcg"] < 1e-5,
-          f"rel={j['rel_diff_vs_bistabcg']:.3e} wall={j['mg_wall_s']:.2f}s")
+    ok = r.returncode == 0 and j["rel_diff_vs_bistabcg"] < 1e-5
+    hint = "" if ok else " | 已知平台态: WSL2 驱动上下文劣化(见报告§15), 宿主 wsl --shutdown 后复验"
+    check("mg_vs_ref", ok,
+          f"rc={r.returncode} rel={j['rel_diff_vs_bistabcg']:.3e} wall={j['mg_wall_s']:.2f}s{hint}")
 
 
 def t_component():
