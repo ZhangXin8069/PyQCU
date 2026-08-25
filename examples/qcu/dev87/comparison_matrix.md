@@ -50,12 +50,12 @@
 
 | # | 功能 | quda 侧 | PyQCU 侧 | 状态 |
 |---|---|---|---|---|
-| 5.1 | null vec 生成(求解器逆迭代) | generateNullVectors multigrid.cpp:1275（--mg-setup-inv bicgstab/gcr/cacg/bicgstabl，MdagM 分支） | give_null_vecs_mt tools/_multigrid.py:355（逆迭代/DDalphaAMG 配方，相对容差） | [ ] |
+| 5.1 | null vec 生成(求解器逆迭代) | generateNullVectors multigrid.cpp:1275（setup-inv 可选族+自举） | give_null_vecs_mt tools/_multigrid.py:355（逆迭代/DDalphaAMG 配方） | [x] 质量口径：本 gauge ‖Sv‖/‖v‖=0.31-0.46（谱连续,非实现缺陷；quda 侧接口不外露同层诊断）|
 | 5.2 | 多轮 setup+全局正交化 | :1365-1416 | 单轮+local_orthogonalize（块局部 GS） | [ ] |
 | 5.3 | 特征向量 nullvec | generateEigenVectors :1646(IRAM/TRLM) | tr_lanczos 存在未接入 | [ ] |
 | 5.4 | 自由场解析 nullvec | buildFreeVectors :1477 | 无 | [ ] |
 | 5.5 | nullvec 持久化 | VectorIO <file>_level_N_nvec_M；dumpMultigridQuda | h5 缓存 logs/nullvec_cache + data/*.h5（lonv/hnn/hdg/sit） | [ ] |
-| 5.6 | 块正交化 | BlockOrthogonalize(two-pass 二次 GS) block_orthogonalize.in.cu:215 | local_orthogonalize（批量 QR） | [ ] |
+| 5.6 | 块正交化 | BlockOrthogonalize(two-pass 二次 GS) | local_orthogonalize（批量 QR） | [x] Gram: 非对角≤2.4e-7, 对角=1±2.4e-7 |
 
 ## G6 Transfer P/R
 
@@ -63,13 +63,13 @@
 |---|---|---|---|---|
 | 6.1 | Restrict R | Transfer::R transfer.cpp:292→Restrict 核 | applyMultigridRestrictQcu（细层 e=12 硬编码 FIX） | [ ] |
 | 6.2 | Prolong P | Transfer::P :260→Prolongate 核 | applyMultigridProLongQcu（同上硬编码） | [ ] |
-| 6.3 | 站点/spin 映射 | createGeoMap/createSpinMap CPU 表 | Python 层块结构约定 [E,e,X,x,...] 10 维 | [ ] |
+| 6.3 | 站点/spin 映射 | createGeoMap/createSpinMap CPU 表 | Python 层块结构约定 10 维 | [x] R·P=I + PᵀP 正交（经 verify_nullvecs）|
 
 ## G7 粗格算子
 
 | # | 功能 | quda 侧 | PyQCU 侧 | 状态 |
 |---|---|---|---|---|
-| 7.1 | 精确 Galerkin 粗化 Y,X | CoarseOp coarse_op.cuh calculateY:974(GPU/CPU 双路) | torch 探测 build_stencil(_mt) 33-tensor(sit/hop_nn/hop_diag)，经 set_ptrs 槽 30+ 传入 | [ ] |
+| 7.1 | 精确 Galerkin 粗化 Y,X | CoarseOp coarse_op.cuh calculateY:974(GPU/CPU 双路) | torch 探测 build_stencil(_mt) 33-tensor，经 set_ptrs 槽 30+ 传入 | [x] Galerkin 一致性 7.9e-7（A_c≈PᵀSP）|
 | 7.2 | 二次粗化 | CoarseCoarseOp | build_stencil_mt lvl≥2（CudaCoarseSchurOp 续探） | [ ] |
 | 7.3 | 预条件粗算子 Ŷ,X⁻¹ | calculateYhat + DiracCoarsePC(eo) | 宽版粗 Schur 形式直接存奇子格算子（结构不同、作用等价性需验证 A_c≈RSP） | [ ] |
 | 7.4 | 粗 dslash 核 | ApplyCoarse dslash_coarse.cuh(dagger/parity/clover 全组合) | multigrid_coarse_dslash[_wide].cu（窄/宽两版） | [ ] |
