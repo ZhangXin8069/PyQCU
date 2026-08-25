@@ -3,8 +3,11 @@
 单位规范 -> clover 项为零，M = 2κm·1 + κD_hop（各库质量项约定差异直接显形）。
 对同一随机源作用并扫描匹配变体（直配/转置色/厄米），报告最优相对差。
 """
+import os
 import sys
 from pathlib import Path
+
+os.environ.setdefault("CUDA_VISIBLE_DEVICES", "2")
 
 import numpy as np
 import torch
@@ -22,12 +25,26 @@ def unit_gauge_full(lat):
     X, Y, Z, T = lat
     e = torch.eye(3, dtype=torch.complex64)
     u = e.view(3, 3, 1, 1, 1, 1, 1).expand(3, 3, 4, X, Y, Z, T)
-    return u.contiguous().cuda()
+    return u.contiguous().to("cuda")
 
 
 def main():
     kappa = 1.0 / (2 * MASS + 8)
     import pyquda
+    # pyquda 0.10.54 initDevice 硬编码 device=-1 → rank0 恒选 GPU0(P100)。
+    # 本机 libquda 仅编 sm_70 → 须 V100(cuda 物理卡2)。用 CUDA_VISIBLE_DEVICES
+    # 无法穿透(pyquda 内部 MPI 枚举仍见全卡), 故直接 patch initDevice 默认值。
+    # pyquda 0.10.54: init()→initDevice(backend,target,-1,mps) 且
+    # initQUDA(grid_size, device) 均硬编码 rank0 设备。本机 libquda 仅 sm_70。
+    # 用 CUDA_VISIBLE_DEVICES=2 让逻辑0=V100, 并 patch 两处设备选择入口兜底。
+    import os as _os
+    assert _os.environ.get("CUDA_VISIBLE_DEVICES", "") == "2", "须 CUDA_VISIBLE_DEVICES=2"
+    import pyquda as _pq
+    import pyquda_comm as _pc
+    _orig_id = _pc.initDevice
+    def _dev2(backend, target, device=-1, enable_mps=False):
+        return _orig_id(backend, target, 0, enable_mps)   # 逻辑0 = V100
+    _pc.initDevice = _dev2
     pyquda.init(grid_size=[1, 1, 1, 1], latt_size=LAT, backend="torch", backend_target="cuda",
                 enable_nvshmem=False, enable_tuning=False,
                 resource_path="/tmp/opencode/quda_resource",
