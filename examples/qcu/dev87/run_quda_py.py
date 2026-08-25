@@ -124,12 +124,16 @@ def case_solve(core, lat, mass, tol, maxiter):
     solve_s = time.perf_counter() - t0
     x_q = field_to_scxyzt(info, x)
     rd, na, nb = rel_diff(x_q, x_qcu)
+    scale = mass + 4.0
+    rd_scaled = rel_diff(x_q * scale, x_qcu)[0]
     ip = dirac.invert_param
     res = save_result("quda_clover_solve", {
         "lat": lat, "mass": mass, "tol": tol,
         "iters": int(ip.iter), "secs": float(ip.secs), "wall_s": solve_s,
         "gflops": float(ip.gflops),
-        "rel_diff_vs_qcu": rd, "norm_quda": na, "norm_qcu": nb,
+        "rel_diff_vs_qcu_raw": rd,
+        "rel_diff_vs_qcu": rd_scaled, "norm_scale": scale,
+        "norm_quda": na, "norm_qcu": nb,
     })
     np.savez_compressed(OUT / "quda_clover_solve.npz", x_scxyzt=x_q)
     try:
