@@ -39,6 +39,8 @@ def main():
     # 用 CUDA_VISIBLE_DEVICES=2 让逻辑0=V100, 并 patch 两处设备选择入口兜底。
     import pyquda as _pq
     import pyquda_comm as _pc
+    _orig_id = _pc.initDevice
+
     def _dev2(backend, target, device=-1, enable_mps=False):
         return _orig_id(backend, target, 2, enable_mps)   # 物理卡2=V100
     _pq.initDevice = _dev2      # __init__.py:143 的绑定
