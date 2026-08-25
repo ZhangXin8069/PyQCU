@@ -85,7 +85,7 @@
 | 8.4 | 粗解器 | PreconditionedSolver 包（coarse_solver[level] 可选族+粗格 deflation 注入） | bistabcg_iter_coarse/coarse_solve_fused(cooperative) | [ ] |
 | 8.5 | K-cycle | coarse_solver=RECURSIVE | 无 | [ ] |
 | 8.6 | verify 自检五项 | MG::verify :745(P·R 正交/Galerkin/厄米等) | verify_nullvecs(Python 测试层四重诊断)+run_test 全残差 | [ ] |
-| 8.7 | 收敛判据/可靠更新 | reliable_delta/pipeline/累加器流水线 | r0_ref 锚定+自适应门控停用校正；无可靠更新 | [ ] |
+| 8.7 | 收敛判据/可靠更新 | reliable_delta/pipeline/累加器流水线 | r0_ref 锚定+自适应门控；dev87 加周期真残差刷新(每50迭代)+相对停机 | [x] 对齐验证 |
 
 ## G9 驱动生命周期与工程面
 

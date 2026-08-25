@@ -49,3 +49,30 @@
 1. P4-F3：核对 C++ run()/bistabcg 停机判据源码，给出全算子残差停机选项或修正文档口径；
 2. G8/G10：MG 端到端对照（quda multigrid=[[2,2,2,2],[24]] vs PyQCU E12/E48）+ 性能表；
 3. G5-G7 组件级对照推进；S1-S6 补充候选评估。
+
+## 六、阶段 2 增补（2026-08-25 下午）：F3 根因修复
+
+### 根因链（全部实测）
+1. 运行器缺陷：`main()` 解包 make_clover_tensors 把 cei/coo 对调 →
+   求解器拿到奇偶互换的 Clover 逆（已修正 run_qcu_ops/run_qcu_mg）。
+2. 库级缺陷（真实）：lattice_clover_multigrid.h 主循环 fp32 递推残差漂移 ——
+   跟踪 rn 降到 9.2e-7 时真 Schur 残差 62.9（16³×48 实测），
+   绝对判据 rn²<atol² 在大 ‖b‖ 下系统性早停。
+   （quda 同场景靠 reliable updates 规避 —— 即矩阵 G8.7 缺口。）
+
+### 修复（cpp/cuda/qcu/include/lattice_clover_multigrid.h）
+- 周期真残差刷新：单 rank 每 50 次迭代 compute_full_residual() 覆写 st.r
+  并 reset_bistabcg_state_l0()，映射收敛量同步刷新；
+- 停机改相对：rn² < atol²·‖b__o‖²（与 run_gcr 的 r/b 语义对齐）；
+  V-cycle 门控阈值同步改相对。
+
+### 回归数字（16×32×32×48, m=0.05, atol=1e-6）
+| 指标 | 修复前 | 修复后 |
+|---|---|---|
+| 全算子真相对残差 | 2.48e-2 | **3.72e-7** |
+| MG vs BiCGStab 解差 | 2.65e-2 | **3.50e-7** |
+| G4.1 vs quda(缩放 m+4) | 0.753(未缩放口径) | **3.85e-7** |
+| solve 用时(V100) | 2.54 s | 2.09 s |
+
+遗留：n_vycles=0 为该 gauge 谱不可压缩下的门控正确行为（非回归）；
+多 rank 刷新路径未启用（需全局归约，后续接 MPI Allreduce）。

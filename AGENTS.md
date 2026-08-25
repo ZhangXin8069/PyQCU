@@ -25,6 +25,7 @@ PyQCU：Lattice QCD 的 Python/Cython 库 —— CUDA 加速的 Wilson/Clover Di
 - **日志约定**：`PYQCU::MODULE::SUBMODULE:\n message`，由 verbose 标志控制。
 - **测试**：测试函数在 `pyqcu/testing/__init__.py`，`examples/*/conftest.py` 手动取消注释要运行的测试。
 - **多线程多卡（一线程一卡）**：`pyqcu/cuda/_multi_gpu.py`（`MultiGpuMultigrid`）单进程内 N 线程 × 卡绑定并行；每线程独立 `params/argv/set_ptrs` 副本（`_SET_INDEX_` 各自从 0 计数）。Cython 桥（`qcu.pyx`）全部函数在 GIL 段取指针、`with nogil` 调 C++（真并行）；pxd 的 cdef extern 声明必须带 `nogil` 关键字，且 pxd 声明名不得与 pyx 内 def 同名（用 `qcu_api.pxd` 别名 cimport）。MultiGpuMultigrid 要求单 MPI rank（C++ LatticeSet 用 COMM_WORLD rank 覆盖 `_NODE_RANK_`）。
+- **求解器停机语义（dev87 起）**：`applyCloverMultigridQcu` 主循环停机为相对判据 rn²<atol²·‖b__o‖²，且单 rank 每 50 迭代做周期真残差刷新（reliable-update，防 fp32 递推漂移）；多 rank 刷新未启用。
 - **HDF5 持久化（h5py）**：所有保存/读取走 h5py；`pyqcu/tools/_io.py` 的 `save_tensor_h5`/`load_tensor_h5`（每调用独立 File 句柄，多线程安全）+ MPI mpio 路径（`gridoooxyzt2hdf5oooxyzt`）。null-vector/粗网格算子缓存 `.h5`（单句柄一次写全部 dataset，勿逐 dataset 覆盖重建）。
 
 ## 目录结构
@@ -38,7 +39,7 @@ PyQCU：Lattice QCD 的 Python/Cython 库 —— CUDA 加速的 Wilson/Clover Di
 | `skills/` | 项目技能库（39 个技能目录：SKILL.md + 简短 AGENTS.md，目录级领域知识文档；索引与技能表见 `skills/AGENTS.md`；2026-08-25 自 `.opencode/skills` 迁出，源目录已删除，需 opencode 加载时从本库同步） |
 | `docs/` | dims.md、env.md、install.md、examples.md、profiler.md |
 | `refer/` | 开发历史报告（dev71.*） |
-| `logs/` | 按 tag 归档：`dev<N>/`、`stab<N>/`、`bug<N>/` 子目录（如 `dev73/`、`dev73/stab24/`、`dev74/`、`bug30/`、`dev76/`、`dev78/`、`dev78_1/`、`dev78_2/`、`dev84/`；`logs/<tag>/**` 在 .gitignore 全豁免入库），根目录留 `fix-report-*.md`、`debug/`、`results/` 与共享缓存 `nullvec_cache/`；测试套件 `test11/`（历史版）、`test12/`（单线程版）、`test13/`（多线程版）、`test14/`（多线程版+粗算子构建加速）、`dev78_2/`（多线程 MultiGrid 残差图）、`session-2026-08-24/`（bug31–37 无人值守会话验证资产：8 脚本+README，覆盖基线/求解器族/MPI/Wuppertal/stencil/Galerkin/等价性）与 `examples/qcu/dev84/`（当前版：16×32×32×48 MultiGrid 真实加速比攻坚 — CUDA Graph 段回放/零拷贝标量/守卫标量内核/粗空间诊断 ρ_V，报告 `examples/qcu/dev84/dev84_report.md`） |
+| `logs/` | 按 tag 归档：`dev<N>/`、`stab<N>/`、`bug<N>/` 子目录（如 `dev73/`、`dev73/stab24/`、`dev74/`、`bug30/`、`dev76/`、`dev78/`、`dev78_1/`、`dev78_2/`、`dev84/`；`logs/<tag>/**` 在 .gitignore 全豁免入库），根目录留 `fix-report-*.md`、`debug/`、`results/` 与共享缓存 `nullvec_cache/`；测试套件 `test11/`（历史版）、`test12/`（单线程版）、`test13/`（多线程版）、`test14/`（多线程版+粗算子构建加速）、`dev78_2/`（多线程 MultiGrid 残差图）、`session-2026-08-24/`（bug31–37 无人值守会话验证资产：8 脚本+README，覆盖基线/求解器族/MPI/Wuppertal/stencil/Galerkin/等价性）与 `examples/qcu/dev84/`（16×32×32×48 MultiGrid 加速比攻坚，报告 dev84_report.md）、`dev87/`（与 quda/PyQUDA 对照单测工作区：对照矩阵 G1-G10、双侧运行器、算子约定锚定——两库 Wilson/Clover 仅差归一化 m+4=1/(2κ)，报告 dev87_report.md） |
 
 ## 已知反模式（勿重复）
 
