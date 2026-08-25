@@ -23,15 +23,15 @@
 
 | # | 功能 | quda 侧 | PyQCU 侧 | 状态 |
 |---|---|---|---|---|
-| 2.1 | Dslash 单奇偶 | dslashQuda(parity) | applyWilsonDslashQcu(plan0) | [ ] |
-| 2.2 | Mat/MatDagMat | MatQuda/MatDagMatQuda | applyDslashQcu(Wilson+Clover 组合)；Wilson 全格点 fine_full_dslash_op 内部 | [ ] |
+| 2.1 | Dslash 单奇偶 | dslashQuda(parity) | applyWilsonDslashQcu(plan0) | [~] 经 Mat 级验证 |
+| 2.2 | Mat/MatDagMat | MatQuda/MatDagMatQuda | applyDslashQcu(Wilson+Clover 组合)；Wilson 全格点 fine_full_dslash_op 内部 | [x] M_q=(m+4)·M_p，cos=1 |
 | 2.3 | CPU 参考一致性 | dslash_test.cpp vs host 参考 | testWilsonDslashQcu(run_test 路径) | [ ] |
 
 ## G3 Clover 项与 Clover dslash
 
 | # | 功能 | quda 侧 | PyQCU 侧 | 状态 |
 |---|---|---|---|---|
-| 3.1 | Clover 项构建(+逆) | createCloverQuda / cloverQuda(inverse=true) | applyCloverQcu / applyCloversQcu | [ ] |
+| 3.1 | Clover 项构建(+逆) | createCloverQuda / cloverQuda(inverse=true) | applyCloverQcu / applyCloversQcu | [x] 差分法 cos=1.000000，scale=4.05 |
 | 3.2 | Clover dslash 奇偶 | cloverQuda / dslash_test --test MatPC | applyCloverDslashQcu(plan2) | [ ] |
 
 ## G4 求解器族（MG 的直接依赖）
