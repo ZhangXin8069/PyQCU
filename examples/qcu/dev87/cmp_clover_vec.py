@@ -119,7 +119,7 @@ def phase_b():
         ls = complex((torch.sum(torch.conj(yy.ravel()) * d_q_t.ravel())
                       / (float(tools.norm(yy)) ** 2 + 1e-30)).item())
         res = float(tools.norm((d_q_t - ls * yy).ravel()) / nb)
-        best[name] = {"cos": cc, "scale": ls, "rel_res": res}
+        best[name] = {"cos": cc, "scale_re": ls.real, "scale_im": ls.imag, "rel_res": res}
         print(f"[clv] {name:14s} cos={cc:+.6f} ls_scale={ls:+.5f} rel_after_scale={res:.4e}")
 
     import json

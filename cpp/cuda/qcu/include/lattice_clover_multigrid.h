@@ -1965,6 +1965,17 @@ template <typename T> struct LatticeCloverMultigrid {
 
     // 4. Main BiStabCG loop (level-0 Schur)
     T atol2=atol*atol;
+    // dev87: 相对停机 —— atol 以 ‖b__o‖ 归一（与 run_gcr 的 r_norm/b_norm 语义
+    // 对齐）。fp32 真残差可达 ~1e-7 相对量级，绝对判据在大 ||b|| 下失真。
+    T bnorm2=(T)1;
+    { LatticeComplex<T>* dv=static_cast<LatticeComplex<T>*>(set_ptr->device_vals);
+      CUBLAS_CHECK(_cublasDot<T>(set_ptr->cublasH,(int)set_ptr->lat_4dim_SC,
+          (T*)b__o,1,(T*)b__o,1,&dv[_norm2_tmp_]));
+      LatticeComplex<T> hbn;
+      checkCudaErrors(cudaMemcpyAsync(&hbn,&dv[_norm2_tmp_],
+          sizeof(LatticeComplex<T>),cudaMemcpyDeviceToHost,set_ptr->stream));
+      checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
+      bnorm2=hbn.real(); }
     int total=0; double tti=0;
     int count_restart=0;
     LatticeComplex<T> one(1,0);
@@ -1995,6 +2006,30 @@ template <typename T> struct LatticeCloverMultigrid {
 
       T rn2=check_host[1].real();   // dev84: zero-copy fine norm (mapped)
       T rn=sqrt(rn2<0?0:rn2);
+
+      // ---- dev87 RELIABLE-RESIDUAL REFRESH (quda-style reliable update) ----
+      // fp32 递推漂移：跟踪 rn 与真残差脱钩（实测 16^3x48：tracked 9.2e-7 而
+      // 真值 62.9）。每 50 次迭代用 compute_full_residual() 的真 Schur 残差
+      // （r_o_full ≡ b__o − S·x_o）覆写递推向量并复位 Krylov 标量，随后以
+      // 真值刷新映射收敛量。仅单 rank（多 rank 需全局归约，走 MPI 路径不变）。
+      if(set_ptr->host_params[_GRID_X_] == 1 &&
+         set_ptr->host_params[_GRID_Y_] == 1 &&
+         set_ptr->host_params[_GRID_Z_] == 1 &&
+         set_ptr->host_params[_GRID_T_] == 1 &&
+         total > 0 && total % 50 == 0){
+        compute_full_residual();
+        auto &stR=levels[0];
+        CUBLAS_CHECK(_cublasCopy<T>(set_ptr->cublasH,set_ptr->lat_4dim_SC*_REAL_IMAG_,
+            (T*)set_ptr->device_vec2,1,(T*)stR.r,1));
+        CUBLAS_CHECK(_cublasDot<T>(set_ptr->cublasH,(int)stR.vec_sz,
+            (T*)stR.r,1,(T*)stR.r,1,
+            static_cast<LatticeComplex<T>*>(check_dev)+1));
+        reset_bistabcg_state_l0();
+        count_restart=0;
+        checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
+        rn2=check_host[1].real(); rn=sqrt(rn2<0?0:rn2);
+        conv_history.back()=rn;
+      }
       conv_history.push_back(rn);
 
       // ---- dev84 自适应校正门控: 标定与窗口斜率监测 ----
@@ -2052,8 +2087,8 @@ template <typename T> struct LatticeCloverMultigrid {
         continue;
       }
 
-      // Convergence check (Schur residual)
-      if(rn2<atol2){
+      // Convergence check (Schur residual, RELATIVE to ‖b__o‖ since dev87)
+      if(rn2<atol2*bnorm2){
         if(rank==0&&verbose)
           log_write<T>("PYQCU::SOLVER::MULTIGRID::\n Converged at iteration "+
             std::to_string(it)+" with residual "+std::to_string(rn),rank,true);
@@ -2066,7 +2101,7 @@ template <typename T> struct LatticeCloverMultigrid {
       // and an empty/noisy correction only resets the BiStabCG Krylov space,
       // bouncing the residual back to ~1e-5 (observed: 500 full iterations).
       if(num_levels>1 && num_restart>0 && !mg_corr_off && mg_calib_done
-         && count_restart>=num_restart && rn > (T)100 * atol){
+         && count_restart>=num_restart && rn2 > (T)10000 * atol2 * bnorm2){
 
         auto vc_t0=std::chrono::high_resolution_clock::now();
         prof_n_vcycles++;
