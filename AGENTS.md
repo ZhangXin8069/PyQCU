@@ -39,7 +39,7 @@ PyQCU：Lattice QCD 的 Python/Cython 库 —— CUDA 加速的 Wilson/Clover Di
 | `skills/` | 项目技能库（39 个技能目录：SKILL.md + 简短 AGENTS.md，目录级领域知识文档；索引与技能表见 `skills/AGENTS.md`；2026-08-25 自 `.opencode/skills` 迁出，源目录已删除，需 opencode 加载时从本库同步） |
 | `docs/` | dims.md、env.md、install.md、examples.md、profiler.md |
 | `refer/` | 开发历史报告（dev71.*） |
-| `logs/` | 按 tag 归档：`dev<N>/`、`stab<N>/`、`bug<N>/` 子目录（如 `dev73/`、`dev73/stab24/`、`dev74/`、`bug30/`、`dev76/`、`dev78/`、`dev78_1/`、`dev78_2/`、`dev84/`；`logs/<tag>/**` 在 .gitignore 全豁免入库），根目录留 `fix-report-*.md`、`debug/`、`results/` 与共享缓存 `nullvec_cache/`；测试套件 `test11/`（历史版）、`test12/`（单线程版）、`test13/`（多线程版）、`test14/`（多线程版+粗算子构建加速）、`dev78_2/`（多线程 MultiGrid 残差图）、`session-2026-08-24/`（bug31–37 无人值守会话验证资产：8 脚本+README，覆盖基线/求解器族/MPI/Wuppertal/stencil/Galerkin/等价性）与 `examples/qcu/dev84/`（16×32×32×48 MultiGrid 加速比攻坚，报告 dev84_report.md）、`dev87/`（与 quda/PyQUDA 对照单测工作区：对照矩阵 G1-G10、双侧运行器、算子约定锚定——两库 Wilson/Clover 仅差归一化 m+4=1/(2κ)，报告 dev87_report.md） |
+| `logs/` | 按 tag 归档：`dev<N>/`、`stab<N>/`、`bug<N>/` 子目录（如 `dev73/`、`dev73/stab24/`、`dev74/`、`bug30/`、`dev76/`、`dev78/`、`dev78_1/`、`dev78_2/`、`dev84/`；`logs/<tag>/**` 在 .gitignore 全豁免入库），根目录留 `fix-report-*.md`、`debug/`、`results/` 与共享缓存 `nullvec_cache/`；测试套件 `test11/`（历史版）、`test12/`（单线程版）、`test13/`（多线程版）、`test14/`（多线程版+粗算子构建加速）、`dev78_2/`（多线程 MultiGrid 残差图）、`session-2026-08-24/`（bug31–37 无人值守会话验证资产：8 脚本+README，覆盖基线/求解器族/MPI/Wuppertal/stencil/Galerkin/等价性）与 `examples/qcu/dev84/`（16×32×32×48 MultiGrid 加速比攻坚，报告 dev84_report.md）、`dev87/`（与 quda/PyQUDA 对照单测工作区：对照矩阵 G1-G10、双侧运行器、算子约定锚定——两库 Wilson/Clover 仅差归一化 m+4=1/(2κ)，报告 dev87_report.md；一键回归闸门 run_all.py --with-quda） |
 
 ## 已知反模式（勿重复）
 
