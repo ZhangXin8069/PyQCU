@@ -1543,10 +1543,10 @@ template <typename T> struct LatticeCloverMultigrid {
     // as expensive as any other sync on this box) — SLOWER than graph-replay
     // segments (~50 ms).  Threshold restored to 262144; graphs win at sizes
     // beyond the fused sweet spot.
-    if (lev == num_levels - 1 && st.vec_sz < 262144) {
-      // Fused single-launch coarse solve.  In the redundant-global multi-rank
-      // model every rank holds the full coarse grid and the fused kernel
-      // needs no inter-rank data, so the fused path is valid for ALL ranks.
+    if (lev == num_levels - 1 && st.vec_sz < 262144 && !mg_multi) {
+      // Fused single-launch coarse solve.  dev87: 多 rank 下 cooperative
+      // grid.sync 与 MPI 组合在本平台触发 illegal access（实测 np=2 崩溃），
+      // 回退普通迭代路径；单 rank 语义不变。
       coarse_solve_fused(lev);
       st.has_solution = true;   // dev84: 供后续 V-cycle 热启动 (fused 内部仍从零解)
       return rn;
@@ -1985,14 +1985,20 @@ template <typename T> struct LatticeCloverMultigrid {
     // dev87: 相对停机 —— atol 以 ‖b__o‖ 归一（与 run_gcr 的 r_norm/b_norm 语义
     // 对齐）。fp32 真残差可达 ~1e-7 相对量级，绝对判据在大 ||b|| 下失真。
     T bnorm2=(T)1;
-    { LatticeComplex<T>* dv=static_cast<LatticeComplex<T>*>(set_ptr->device_vals);
+    if(mg_multi){
+      // dev87: 多 rank 下 ‖b__o‖² 必须全局归约（分布式奇子格）
+      dot_mpi(b__o,b__o,_norm2_tmp_,0);
+      bnorm2=host_vals[_norm2_tmp_].real();
+    } else {
+      LatticeComplex<T>* dv=static_cast<LatticeComplex<T>*>(set_ptr->device_vals);
       CUBLAS_CHECK(_cublasDot<T>(set_ptr->cublasH,(int)set_ptr->lat_4dim_SC,
           (T*)b__o,1,(T*)b__o,1,&dv[_norm2_tmp_]));
       LatticeComplex<T> hbn;
       checkCudaErrors(cudaMemcpyAsync(&hbn,&dv[_norm2_tmp_],
           sizeof(LatticeComplex<T>),cudaMemcpyDeviceToHost,set_ptr->stream));
       checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
-      bnorm2=hbn.real(); }
+      bnorm2=hbn.real();
+    }
     int total=0; double tti=0;
     int count_restart=0;
     LatticeComplex<T> one(1,0);
