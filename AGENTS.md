@@ -18,7 +18,7 @@ PyQCU：Lattice QCD 的 Python/Cython 库 —— CUDA 加速的 Wilson/Clover Di
 
 ## 关键惯例
 
-- **参数协议**：`params`（int32[57]，dev84 起 `_MG_USE_DEFLATE_=55`/`_MG_MU_PRE_=56`）、`argv`（float[7]）、`set_ptrs`（int64[100]）三个扁平张量桥接 Python↔C++；`pyqcu/cuda/define.py` 与 `cpp/cuda/qcu/include/define.h` 必须同步。
+- **参数协议**：`params`（int32[58]，dev84 起 `_MG_USE_DEFLATE_=55`/`_MG_MU_PRE_=56`，dev87 起 `_MG_USE_INIT_GUESS_=57`=x0 热启动开关，warm 时以 fermion_out 预填解为初值）、`argv`（float[7]）、`set_ptrs`（int64[100]）三个扁平张量桥接 Python↔C++；`pyqcu/cuda/define.py` 与 `cpp/cuda/qcu/include/define.h` 必须同步。
 - **`_SET_PLAN_` 计划选择**：-2 Laplacian、-1 Gauss gauge、0 Wilson dslash、1 BiStabCG/CG、2 Clover dslash。
 - **调用生命周期**：`applyInitQcu` → 操作 → **`params[define._SET_INDEX_] += 1`（每次调用间必须递增！）** → `applyEndQcu`。不递增导致 scratch 缓冲复用冲突、结果错误。
 - **张量布局**：规范场 `[3,3,4,Lx,Ly,Lz,Lt]`、费米子场 `[4,3,Lx,Ly,Lz,Lt]`、Clover 项 `[4,3,4,3,Lx,Ly,Lz,Lt]`；时空维永远是最后 4 轴（`...xyzt`），ward 索引用负整数（`wards['x']=-4`）。HDF5 内部用 `zyxt` 序，经 `ccdxyzt2ccdptzyx`/`scxyzt2psctzyx` 转换。

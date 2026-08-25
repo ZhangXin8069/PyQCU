@@ -94,7 +94,7 @@
 | 9.1 | 建/销毁层次 | newMultigridQuda/destroyMultigridQuda | applyInitQcu→applyCloverMultigridQcu→applyEndQcu(set_ptrs 槽位生命周期) | [ ] |
 | 9.2 | gauge 更新后薄/全刷新 | updateMultigridQuda(thin/full) :2946 | 无（重建全部） | [ ] |
 | 9.3 | 逐层混合精度 | 全字段 per-level precision/sloppy | _MG_LEVELn_DATA_TYPE_ 槽存在但 parse_params 不读（声明未实现） | [ ] |
-| 9.4 | 外部初值热启动 | use_init_guess | C++ init 强制 x_o=0 | [ ] |
+| 9.4 | 外部初值热启动 | use_init_guess | params[_MG_USE_INIT_GUESS_](57)：跳过 x_o 清零/随机化，r 真算；双求解器类支持 | [x] WARM 0.35s vs COLD 1.94s（16³×48），解一致 3.5e-7 |
 | 9.5 | 多右端项 | invertMultiSrcQuda | 无 C++ 批量（tools/_bistabcg_batch 为 Python 层） | [ ] |
 | 9.6 | MPI 分布 | 分布式粗格+ghost 打包 | 冗余全局粗格+Allreduce 点积；单 rank 多线程多卡 | [ ] |
 | 9.7 | tensor-core MMA | *_use_mma[level] 全链路 | 无（平台 sm_70 SIMT mma 变体存在但未实现） | [ ] |
