@@ -29,7 +29,11 @@ SEED_DEFAULT = 42
 
 
 def pick_v100():
-    """按 v20260825 指令17 选 V100-32GB（torch 枚举本机为 cuda:0）。"""
+    """按 v20260825 指令17 选 V100-32GB；QCU_DEVICE_ID 可显式覆盖。"""
+    env = os.environ.get("QCU_DEVICE_ID")
+    if env is not None:
+        i = int(env); torch.cuda.set_device(i)
+        return i
     for i in range(torch.cuda.device_count()):
         if "V100" in torch.cuda.get_device_name(i):
             torch.cuda.set_device(i)
