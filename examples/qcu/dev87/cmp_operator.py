@@ -37,14 +37,14 @@ def main():
     # pyquda 0.10.54: init()→initDevice(backend,target,-1,mps) 且
     # initQUDA(grid_size, device) 均硬编码 rank0 设备。本机 libquda 仅 sm_70。
     # 用 CUDA_VISIBLE_DEVICES=2 让逻辑0=V100, 并 patch 两处设备选择入口兜底。
-    import os as _os
-    assert _os.environ.get("CUDA_VISIBLE_DEVICES", "") == "2", "须 CUDA_VISIBLE_DEVICES=2"
     import pyquda as _pq
     import pyquda_comm as _pc
-    _orig_id = _pc.initDevice
     def _dev2(backend, target, device=-1, enable_mps=False):
-        return _orig_id(backend, target, 0, enable_mps)   # 逻辑0 = V100
-    _pc.initDevice = _dev2
+        return _orig_id(backend, target, 2, enable_mps)   # 物理卡2=V100
+    _pq.initDevice = _dev2      # __init__.py:143 的绑定
+    _pc.initDevice = _dev2      # 兜底
+    # initQUDA(getGridSize(), getArrayDevice()) — getArrayDevice 在
+    # initDevice 后返回 _ARRAY_DEVICE=2 ✓ 无需再改
     pyquda.init(grid_size=[1, 1, 1, 1], latt_size=LAT, backend="torch", backend_target="cuda",
                 enable_nvshmem=False, enable_tuning=False,
                 resource_path="/tmp/opencode/quda_resource",
