@@ -112,12 +112,12 @@
 
 | 序 | 缺口 | 依据 | 备注 |
 |---|---|---|---|
-| S1 | per-level 混合精度接线 | G9.3 声明未实现 | 近乎 bug 修复；quda 全字段对照 |
-| S2 | Chebyshev 平滑器 | G8.3 缺失 | quda inv_chebyshev；MG 标配 |
-| S3 | x0 热启动通道 | G9.4 | use_init_guess 对标 |
-| S4 | thin update(gauge 变化后) | G9.2 | updateMultigridQuda thin 档对标 |
-| S5 | setup 多轮+全局再正交 | G5.2 | 提升粗空间质量 |
-| S6 | verify() 五项自检入 C++ | G8.6 | Galerkin 一致性闭环 |
+| S1 | per-level 混合精度接线 | G9.3 声明未实现 | **缓**：体量大；且快照上游未启用 double-MG 的教训提示先定精度策略 |
+| S2 | Chebyshev 平滑器 | G8.3 缺失 | **缓**：本平台内核税下固定步 CG/BiCGStab 已等效（见 MG 注释）；健康平台再评估 |
+| S3 | x0 热启动通道 | G9.4 | 待做：需协议扩展或复用 DEFLATE 槽语义 |
+| S4 | thin update(gauge 变化后) | G9.2 | **缓**：PyQCU 缓存重建成本低，收益场景少 |
+| S5 | setup 多轮+全局再正交 | G5.2 | **缓**：本 gauge 质量受谱限制（§8），多轮无益 |
+| S6 | verify() 五项自检入 C++ | G8.6 | **已落 S6-lite**：run() 末尾 FINAL TRUE residual(full-op) 日志（bug42 后追加）|
 | 范围外 | MMA/K-cycle/MADWF/NVSHMEM/分布式粗格 | 平台与体量 | 如实报告不做，非静默跳过 |
 
 ## 构建与运行资产
