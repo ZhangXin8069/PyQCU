@@ -166,3 +166,19 @@ plaq_std 差 ~2.3×，均值符号/幅度不同）。使用跨库规范场时须
   通信路径为单 rank 假设，先于本任务存在）。单 rank 全链路回归保持绿。
 - 结论：多 rank MG 的完整对照属独立后续任务；本阶段保证不因 dev87 改动
   恶化其现状，并消除两处潜在/实际崩溃点。
+
+## 十三、终局：一键回归闸门
+
+`run_all.py [--with-quda]`：串联 G4.1 真残差 / G8 MG-vs-参考 / G5-G7 组件 /
+quda 缩放对照四项断言，产物 out/regression.json。
+
+终局实测（2026-08-25，V100，缓存全热）：
+```
+[PASS] clover_solve_true_res: rel=3.720e-07 wall=2.10s
+[PASS] mg_vs_ref:             rel=3.499e-07 wall=2.42s
+[PASS] component_quality:     galerkin=7.90e-07 ortho_offdiag=2.38e-07
+[PASS] quda_solve_scaled_agreement: rel=3.842e-07 iters=120
+=== regression GREEN (4/4) in 18.3s ===
+```
+后续任何触及 `lattice_clover_multigrid.h`/`lattice_clover_bistabcg.h`/
+协议层的改动，跑本闸门即可在分钟级复验本轮全部结论。
