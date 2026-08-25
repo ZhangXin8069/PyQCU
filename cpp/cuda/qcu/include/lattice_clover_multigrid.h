@@ -1007,7 +1007,7 @@ template <typename T> struct LatticeCloverMultigrid {
     prof_coarse_vec_ms += std::chrono::duration<double,std::milli>(tc1-tc0).count();
   }
 
-  void bistabcg_iter(int lev) {
+  void bistabcg_iter(int lev, bool host_sync=true) {
     // Coarse levels use the single-stream overhead-light path.
     if (lev >= 1) { bistabcg_iter_coarse(lev); return; }
     // Single-rank fine level: use the sync-light single-stream path
@@ -1131,7 +1131,7 @@ template <typename T> struct LatticeCloverMultigrid {
   //
   // This is only valid for single-rank runs (no MPI reduction needed).
   // ==================================================================
-  void bistabcg_iter_fine_fast() {
+  void bistabcg_iter_fine_fast(bool host_sync=true) {
     auto &st=levels[0]; cudaStream_t S=set_ptr->stream;
     LatticeComplex<T>* dv=static_cast<LatticeComplex<T>*>(set_ptr->device_vals);
     dim3 gv=set_ptr->gridDim, bv=set_ptr->blockDim;
@@ -1176,7 +1176,9 @@ template <typename T> struct LatticeCloverMultigrid {
           static_cast<const LatticeComplex<T>*>(st.p), dv, n4);
     }
     // 10. single sync so check_host[1] (mapped) is valid for the caller
-    checkCudaErrors(cudaStreamSynchronize(S));
+    // dev87 SYNC-DIET: 非检查点迭代跳过末尾同步（调用方在检查点统一读）
+    if(host_sync)
+      checkCudaErrors(cudaStreamSynchronize(S));
   }
 
   // ==================================================================
@@ -2021,11 +2023,16 @@ template <typename T> struct LatticeCloverMultigrid {
 
     for(int it=0; it<max_iter; it++){
       auto ti0=std::chrono::high_resolution_clock::now();
-      bistabcg_iter(0);
+      // dev87 SYNC-DIET: 每 CHECK_STRIDE 次迭代才做一次主机同步+收敛检查；
+      // 非检查点迭代跳过末尾同步（算术不变，仅观测降频，至多多算 K-1 步）。
+      const int CHECK_STRIDE = 4;
+      bool do_check = (total % CHECK_STRIDE == CHECK_STRIDE - 1);
+      bistabcg_iter(0, do_check);
       auto ti1=std::chrono::high_resolution_clock::now();
       double sec=std::chrono::duration<double>(ti1-ti0).count(); tti+=sec; total++;
       prof_fine_iter_ms += std::chrono::duration<double,std::milli>(ti1-ti0).count();
       count_restart++;
+      if(!do_check){ continue; }
 
       T rn2=check_host[1].real();   // dev84: zero-copy fine norm (mapped)
       T rn=sqrt(rn2<0?0:rn2);
@@ -2039,7 +2046,7 @@ template <typename T> struct LatticeCloverMultigrid {
          set_ptr->host_params[_GRID_Y_] == 1 &&
          set_ptr->host_params[_GRID_Z_] == 1 &&
          set_ptr->host_params[_GRID_T_] == 1 &&
-         total > 0 && total % 50 == 0){
+         total > 0 && total % 48 == 0){  // 48 对齐 CHECK_STRIDE=4 检查网格
         compute_full_residual();
         auto &stR=levels[0];
         CUBLAS_CHECK(_cublasCopy<T>(set_ptr->cublasH,set_ptr->lat_4dim_SC*_REAL_IMAG_,
@@ -2058,7 +2065,7 @@ template <typename T> struct LatticeCloverMultigrid {
       // ---- dev84 自适应校正门控: 标定与窗口斜率监测 ----
       if(num_levels>1 && num_restart>0){
         if(!mg_calib_done){
-          if(total==1){ mg_ln_rn0 = std::log((double)rn); }
+          if(mg_ln_rn0 == 0){ mg_ln_rn0 = std::log((double)std::max(rn,(T)1e-30)); }
           if(total>=mg_calib_iters){
             double ln_now=std::log((double)std::max(rn,(T)1e-30));
             mg_slope0=(ln_now-mg_ln_rn0)/mg_calib_iters;
@@ -2068,7 +2075,7 @@ template <typename T> struct LatticeCloverMultigrid {
                 +std::to_string(mg_slope0),rank,true);
           }
         } else if(!mg_corr_off){
-          mg_win_iters++;
+          mg_win_iters += CHECK_STRIDE;   // 以迭代数计窗
           if(mg_win_iters>=mg_gate_window){
             double ln_now=std::log((double)std::max(rn,(T)1e-30));
             double s1=(ln_now-mg_win_rn)/mg_win_iters;
