@@ -86,7 +86,7 @@ def main():
     p[define._SET_INDEX_] = idx; p[define._SET_PLAN_] = 1
     p[define._PARITY_] = 0; p[define._MAX_ITER_] = 1000; p[define._VERBOSE_] = 0
     qcu.applyInitQcu(s, p, av)
-    x_mg = torch.empty_like(b_eo)
+    x_mg = torch.zeros_like(b_eo)
     torch.cuda.synchronize(); t0 = time.perf_counter()
     qcu.applyCloverMultigridQcu(x_mg, b_eo, g, ce, coo, cei, coi, s, p)
     torch.cuda.synchronize(); mg_time = time.perf_counter() - t0

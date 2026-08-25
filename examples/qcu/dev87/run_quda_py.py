@@ -133,9 +133,10 @@ def case_solve(core, lat, mass, tol, maxiter):
     torch.cuda.synchronize() if hasattr(torch, "cuda") else None
     solve_s = time.perf_counter() - t0
     x_q = field_to_scxyzt(info, x)
-    rd, na, nb = rel_diff(x_q, x_qcu)
+    x_qcu_reshaped = x_qcu.reshape(4, 3, *x_q.shape[2:])
+    rd, na, nb = rel_diff(x_q, x_qcu_reshaped)
     scale = mass + 4.0
-    rd_scaled = rel_diff(x_q * scale, x_qcu)[0]
+    rd_scaled = rel_diff(x_q * scale, x_qcu_reshaped)[0]
     ip = dirac.invert_param
     res = save_result("quda_clover_solve", {
         "lat": lat, "mass": mass, "tol": tol,
