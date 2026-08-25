@@ -107,6 +107,10 @@ def case_solve(core, lat, mass, tol, maxiter):
         # CloverWilsonDirac.loadClover 在本机构造即卡死，根因待查上游）
         from pyquda.dirac.wilson import WilsonDirac
         wd = WilsonDirac(info, mass, tol, maxiter)
+        # gdb 定位: invertQuda 尾部 checkClover 因 inv_param 仍为 clover 型而
+        # 解引用未加载的 clover 指针 → SIGSEGV。显式降级为 WILSON 型跳过。
+        from pyquda.enum_quda import QudaDiracType as _QDT
+        wd.invert_param.dslash_type = _QDT.QUDA_WILSON_DIRAC
         wd.loadGauge(to_gauge_field(core, info, qdp))
         t0 = time.perf_counter()
         x = wd.invert(b)
@@ -136,21 +140,49 @@ def case_solve(core, lat, mass, tol, maxiter):
 
 
 def case_mg(core, lat, mass, tol, maxiter, nvec=24, block=(2, 2, 2, 2)):
-    qdp = np.load(OUT / "gauge_qdp_c64.npy")
-    npz = np.load(OUT / "qcu_clover_solve.npz")
-    b_full = reconstruct_full_b(npz["b_eo"])
+    qdp_path = OUT / "gauge_qdp_c64.npy"
+    npz_path = OUT / "qcu_clover_solve.npz"
+    meta = json.loads((OUT / "qdp_gauge_meta.json").read_text()) \
+        if (OUT / "qdp_gauge_meta.json").exists() else {"lat_xyzt": [16, 32, 32, 48]}
+    if list(lat) == list(meta.get("lat_xyzt", [])) and qdp_path.exists() and npz_path.exists():
+        qdp = np.load(qdp_path)
+        b_full = reconstruct_full_b(np.load(npz_path)["b_eo"])
+    else:
+        # 格子不匹配（如 smoke）：内部生成随机规范+源，保持流程自洽
+        rng = np.random.default_rng(42)
+        X, Y, Z, T = lat
+        e3 = np.zeros((3, 3), dtype=np.complex128); e3[:] = np.eye(3)
+        u = np.tile(e3.reshape(1, 1, 1, 1, 3, 3), (4, T, Z, Y, X, 1, 1)) * 0.0
+        u += rng.normal(size=(4, T, Z, Y, X, 3, 3)) + 1j * rng.normal(size=(4, T, Z, Y, X, 3, 3))
+        u /= np.linalg.norm(u, axis=(-2, -1), keepdims=True)
+        qdp = np.ascontiguousarray(u)
+        b_full = None
 
     info = make_info(core, lat)
-    b = to_fermion_field(core, info, b_full)
+    if b_full is not None:
+        b = to_fermion_field(core, info, b_full)
+    else:
+        from pyquda.field import LatticeFermion
+        X, Y, Z, T = lat
+        rng = np.random.default_rng(7)
+        tzyxsc = rng.normal(size=(T, Z, Y, X, 4, 3)) + 1j * rng.normal(size=(T, Z, Y, X, 4, 3))
+        b = LatticeFermion(info, torch.from_numpy(
+            info.evenodd(np.ascontiguousarray(tzyxsc.astype(np.complex128)), False)).to("cuda"))
+    geo_levels = [list(block)]
+    if all(l // b // b >= 2 for l, b in zip(lat, block)):
+        geo_levels.append(list(block))
     dirac = core.getClover(info, mass, tol, maxiter, clover_csw_t=1.0,
-                           multigrid=[list(block), [nvec]])
+                           multigrid=geo_levels)
     try:
-        from pyquda.enum_quda import QudaInverterType
-        for lv in range(len(dirac.multigrid.param.setup_inv_type) if hasattr(dirac.multigrid.param,'setup_inv_type') else 0):
-            pass
-    except Exception:
-        pass
-    _force_double(dirac)
+        # nvec 经 Multigrid.setParam 覆盖为指定值（默认工厂为 24）
+        mg_obj = dirac.multigrid
+        if hasattr(mg_obj, "setParam"):
+            for lv in range(len(mg_obj.param.n_vec)):
+                mg_obj.setParam(n_vec=nvec, level=lv)
+    except Exception as e:
+        print("[mg] setParam(nvec) fallback to default:", e)
+    # 注意：MG 层精度保持 quda 默认（本快照未启用 GPU_MULTIGRID_DOUBLE，
+    # 强推 double 会触发 block_orthogonalize 编译期禁用分支）
     t_setup0 = time.perf_counter()
     dirac.loadGauge(to_gauge_field(core, info, qdp))
     setup_s = time.perf_counter() - t_setup0
@@ -158,6 +190,14 @@ def case_mg(core, lat, mass, tol, maxiter, nvec=24, block=(2, 2, 2, 2)):
     x = dirac.invert(b)
     solve_s = time.perf_counter() - t0
     ip = dirac.invert_param
+    # 解一致性导出：与 PyQCU 同 b 的 MG 解对照（归一化 m+4）
+    try:
+        yd = x.data.cpu().numpy() if hasattr(x.data, "cpu") else np.asarray(x.data)
+        y_lex = np.asarray(info.lexico(np.ascontiguousarray(yd), False))
+        x_q_mg = np.ascontiguousarray(np.transpose(y_lex, (4, 5, 3, 2, 1, 0)))
+        np.savez_compressed(OUT / "quda_clover_mg.npz", x_scxyzt=x_q_mg)
+    except Exception as e:
+        print("[mg] export x failed:", e)
     res = save_result("quda_clover_mg", {
         "lat": lat, "mass": mass, "tol": tol, "nvec": nvec, "block": list(block),
         "setup_s": setup_s, "iters": int(ip.iter), "secs": float(ip.secs),
@@ -248,6 +288,7 @@ def main():
     ap.add_argument("--tol", type=float, default=1e-8)
     ap.add_argument("--maxiter", type=int, default=2000)
     ap.add_argument("--nvec", type=int, default=24)
+    ap.add_argument("--block", type=int, nargs=4, default=[2,2,2,2])
     ap.add_argument("--random-gauge", action="store_true")
     args = ap.parse_args()
     core = build_core(args.lat)
@@ -258,7 +299,7 @@ def main():
     if args.case in ("solve", "all"):
         print(case_solve(core, args.lat, args.mass, args.tol, args.maxiter))
     if args.case in ("mg", "all"):
-        print(case_mg(core, args.lat, args.mass, args.tol, args.maxiter, args.nvec))
+        print(case_mg(core, args.lat, args.mass, args.tol, args.maxiter, args.nvec, tuple(args.block)))
 
 
 if __name__ == "__main__":
