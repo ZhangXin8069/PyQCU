@@ -2,3 +2,4 @@
 export QUDA_INSTALL=/tmp/opencode/quda-install
 export QUDA_PATH=$QUDA_INSTALL
 export LD_LIBRARY_PATH=$QUDA_INSTALL/lib:$LD_LIBRARY_PATH
+export DEV87_REDUCE_SYNC=1

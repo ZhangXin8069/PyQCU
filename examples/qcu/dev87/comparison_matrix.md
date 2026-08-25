@@ -104,9 +104,9 @@
 
 | # | 功能 | quda/PyQUDA 侧 | PyQCU 侧 | 状态 |
 |---|---|---|---|---|
-| 10.1 | 同一 gauge 文件端到端 MG solve | pyquda.init+loadGauge+getClover(multigrid=..)+invert | MultiGpuMultigrid.solve(data/*.h5) | [ ] |
-| 10.2 | 输出数值一致性 | 解向量/残差历史 | 解向量/残差历史 | [ ] |
-| 10.3 | 性能对照 | quda 计时(V100) | PyQCU 计时(V100) | [ ] |
+| 10.1 | 同一 gauge 文件端到端 MG solve | pyquda.init+loadGauge+getClover(multigrid=..)+invert | run_qcu_mg(data/*.h5 缓存 stencil) | [x] 双方收敛 |
+| 10.2 | 输出数值一致性 | 解向量/残差历史 | 解向量/残差历史 | [x] 缩放(m+4)后 rel=2.24e-7 |
+| 10.3 | 性能对照 | quda 计时(V100) | PyQCU 计时(V100) | [x] 见报告§7 表(含平台补丁口径注记) |
 
 ## 功能补充候选清单（P5，按价值/可行性排序）
 
