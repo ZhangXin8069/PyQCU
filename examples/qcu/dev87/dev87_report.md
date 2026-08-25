@@ -212,3 +212,22 @@ run_all.py --with-quda 连续 3 次：GREEN 4/4 ×3（18.1/18.3/18.2s，
 （~13.6k 次/解 × ~150µs），同步只是其中一类。仅减同步次数不动总量，
 收益趋零。**有效路径只剩图段回放把 K 次迭代封装为 1 次发射**（发射数÷K）。
 留待下阶段；本改动在健康平台（同步 ~5µs）仍直接兑现 4× 同步缩减，予以保留。
+
+## 十五、图段回放批量迭代：实验记录与平台结论
+
+- 实现（已存档 `out/fine_graph_experiment.patch`，未入主线）：细层迭代体抽取 +
+  K=32 图段捕获/发射，含 cublas 工作区预绑定(64MiB)、最小 Dot 金丝雀探针、
+  全路径异常熔断。
+- 金丝雀判定：**本平台(WSL2/551.78)不支持 cublas-Dot 进入 stream capture**
+  （canary 失败→优雅回退 legacy 正确性保持）。
+- 强行多次捕获触发硬中止后，驱动上下文出现跨进程持续性劣化
+  （后续普通 cudaMemsetAsync 偶发 InvalidArgument；component/clover 路径不受影响）。
+  恢复手段为宿主侧 `wsl --shutdown`（超出本会话权限）。
+- 处置：头文件已回退至 stab31 等价绿点（d2f0198），主线不含该实验代码；
+  后续在健康 CUDA 平台重启此优化时，从存档补丁起步，并将 cublasDot 替换为
+  自研 dot 内核以规避 cublas-capture 限制。
+
+### 当前回归状态声明（诚实口径）
+clover_solve / component / quda 对照三项持续 GREEN；
+MG 端到端在本机当前驱动状态下间歇失败（init memset InvalidArgument），
+代码与最后绿点零差异——属平台态而非代码回归，待 WSL 复位后复验。
