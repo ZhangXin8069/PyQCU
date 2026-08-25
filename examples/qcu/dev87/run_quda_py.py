@@ -274,9 +274,7 @@ def case_opcmp(core, lat, mass, random_gauge=False):
                    part_hop.ravel().cpu().numpy(),
                    part_clov.ravel().cpu().numpy()], axis=1)
     bv = y_quda.ravel().cpu().numpy()
-    G = Ap.conj().T @ Ap
-    rhs = Ap.conj().T @ bv
-    solv = np.linalg.solve(G, rhs)
+    solv, *_ = np.linalg.lstsq(Ap, bv, rcond=None)
     fit_rel = float(np.linalg.norm(Ap @ solv - bv) / np.linalg.norm(bv))
     sol = solv
     print(f"[opcmp] coeffs src={complex(sol[0]):.6f} hop={complex(sol[1]):.6f} "
