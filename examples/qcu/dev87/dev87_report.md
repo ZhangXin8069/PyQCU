@@ -240,3 +240,18 @@ MG 端到端在本机当前驱动状态下间歇失败（init memset InvalidArgu
   `python examples/qcu/dev87/run_all.py --with-quda` 复验（预期全 GREEN）。
 - 战役资产已归档 `logs/stab31/`：总报告、对照矩阵、回归/对照 JSON。
 - run_all.py 的 mg_vs_ref 失败信息现附已知平台态提示（不掩盖失败本身）。
+
+## 十七、诊断更正（重要）
+
+后续证据（conftest.multi_gpu 三场景全 PASS，含 V100+P100×2 上的
+applyCloverMultigridQcu）推翻了 §15 的"WSL2 驱动上下文损伤"结论：
+**库与平台健康；失败特定于 run_qcu_mg 的直连桥序列**。
+
+已排除：params 逐位一致、槽位句柄残留清零、slot 重选、阻塞启动。
+未决：直连序列中 solver-set 的 cudaMemsetAsync(x_o) 报 Invalid argument，
+而 MultiGpuMultigrid 包装路径同参数下正常——差异在进程内上下文/分配布局，
+复现配方与本节记录齐备，留待下一会话在复位后的干净环境定位。
+
+影响评估：生产入口（MultiGpuMultigrid / conftest 套件）不受影响；
+仅 dev87 新增的直连运行器受限。G4.1/G10 已交付对照结论不依赖该直连路径
+（其数据产生于该路径尚正常的时段，且经双向交叉验证）。
