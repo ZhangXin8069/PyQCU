@@ -40,7 +40,7 @@
 |---|---|---|---|---|
 | 4.1 | BiCGStab(Schur 奇偶预条件) | invert_test --inv-type bicgstab --matpc even-even | applyCloverBistabCgQcu（同语义基线） | [x] PyQCU/QUDA 双方真实求解；以 m+4=4.05 归一化后解差约 4.1e-7 |
 | 4.2 | CG(MdagM) | invert_test --inv-type cg | applyWilsonCgQcu；python solver CG | [ ] |
-| 4.3 | MR 平滑器 | inv_mr_quda.cpp（MG 默认平滑器） | pyqcu/solver/_mr.py（quda 思想）；C++ MG 用 BiCGStab/CG 定步替代 | [~] 代码路径存在/运行过，但尚未完成同参数 MR 性能闭环 |
+| 4.3 | MR 平滑器 | inv_mr_quda.cpp（MG 默认平滑器） | pyqcu/solver/_mr.py（quda 思想）；C++ MG 支持设备端 MR 定步更新 | [x] 2L 普通 V-cycle 与 FGMRES/MG 预条件真实运行；大格 full-op 真残差 7.97e-7 |
 | 4.4 | GCR 外层 | Solver::create GCR(+MG 前置) solver.cpp:67 | run_gcr()=FGMRES(10)⊕V-cycle（_MG_USE_GCR_） | [x] 1L/2L/3L 均真实运行；正确但本机比普通 MG 慢 |
 | 4.5 | CA-CG/CA-GCR | inv_ca_cg/inv_ca_gcr | python _cacg.py；C++ 无 | [ ] |
 | 4.6 | 多移位 CG | invertMultiShiftQuda | python _multishift_cg.py（updateAlphaZeta 同源） | [ ] |
@@ -81,7 +81,7 @@
 |---|---|---|---|---|
 | 8.1 | V-cycle 递归 | MG::operator() multigrid.cpp:1131(pre→R→coarse→P→post) | v_cycle lattice_clover_multigrid.h:1520(热启动+图回放+守卫) | [x] 1L/2L/3L 真实端到端运行 |
 | 8.2 | W/F-cycle | cycle_type 经 RECURSIVE 粗解器包装 | 无（仅 V） | [ ] |
-| 8.3 | 平滑器族 | MR 默认；Chebyshev/CA-GCR/BiCGStabL 可选；nu_pre/post 分离 | level0 内嵌 BiCGStab 定步；FGMRES 路径 μ_pre 步 CG；无 Chebyshev | [~] 普通/GCR 路径已真实运行；其余族未一一闭环 |
+| 8.3 | 平滑器族 | MR 默认；Chebyshev/CA-GCR/BiCGStabL 可选；nu_pre/post 分离 | 粗层支持 CG 或 MR 定步；FGMRES 路径的细层 μ_pre 也支持 MR；普通外层仍为 BiCGStab；无 Chebyshev | [~] MR 普通/GCR 路径已真实运行；Chebyshev、CA-GCR、BiCGStabL 等其余族未闭环 |
 | 8.4 | 粗解器 | PreconditionedSolver 包（coarse_solver[level] 可选族+粗格 deflation 注入） | bistabcg_iter_coarse/coarse_solve_fused(cooperative) | [x] 2L/3L 粗解路径真实运行 |
 | 8.5 | K-cycle | coarse_solver=RECURSIVE | 无 | [ ] |
 | 8.6 | verify 自检五项 | MG::verify :745(P·R 正交/Galerkin/厄米等) | verify_nullvecs(Python 测试层四重诊断)+run_test 全残差 | [~] PyQCU 四项组件诊断+full-op 真残差已测，尚非 C++ 五项同接口 |
@@ -120,6 +120,7 @@ Python full Wilson+Clover 算子重新作用后的相对残差，`rel_diff_vs_bi
 |---|---:|---:|---:|---|
 | 1L | 1.378 | 6.55e-6 | 3.92e-7 | 通过 |
 | 2L, E=12 | 1.412 | 8.57e-6 | 6.59e-7 | 通过 |
+| 2L + MR, E=12 | 1.445 | 8.57e-6 | 6.59e-7 | 通过（MR） |
 | 2L + deflate | 1.350 | 6.77e-6 | 4.83e-7 | 通过 |
 | 2L + warm（cold→warm） | cold 1.412 / warm 0.198 | warm 3.66e-6 | warm 4.41e-7 | 通过 |
 | 2L + GCR/FGMRES | 5.015 | 1.27e-6 | 6.86e-7 | 通过 |
@@ -128,6 +129,12 @@ Python full Wilson+Clover 算子重新作用后的相对残差，`rel_diff_vs_bi
 （`0.976×`），GCR 正确但约为普通 2L 的 `0.28×`。3L 的缓存链也在
 `8×8×8×16, E=24/E=24` 上真实运行，真残差为 `5.94e-7`；目前只有
 小格 3L 缓存验证，不能据此宣称大格 3L 性能收益。
+
+本轮新增 MR 验证：同一大格配置下，MR 为 `1.445 s`，相邻 CG 基线为
+`1.420 s`（单次运行约慢 `1.7%`，计时波动下不作为性能结论）；两者均为
+68 次外层迭代、2 次 V-cycle，且输出真残差与解差相同。小格
+`4×4×4×8` 上普通 MR 与 FGMRES/MR 也分别真实进入粗层，耗时
+`0.145/0.250 s`，真残差为 `5.46e-7/6.58e-7`。
 
 组件级 `restrict/prolong/coarse dslash` 的 L2 相对误差分别为
 `2.09e-7/6.40e-8/2.65e-7（窄）/5.01e-7（宽）`，窄/宽粗核中位耗时
@@ -149,7 +156,7 @@ QUDA/PyQUDA 对照使用独立进程，统一大格的直接 Clover 解在
 | 序 | 缺口 | 依据 | 备注 |
 |---|---|---|---|
 | S1 | per-level 混合精度接线 | G9.3 声明未实现 | **缓**：体量大；且快照上游未启用 double-MG 的教训提示先定精度策略 |
-| S2 | Chebyshev 平滑器 | G8.3 缺失 | **缓**：本平台内核税下固定步 CG/BiCGStab 已等效（见 MG 注释）；健康平台再评估 |
+| S2 | Chebyshev 平滑器 | G8.3 仍缺失 | **部分落地**：MR 已补齐并实测；Chebyshev/CA-GCR/BiCGStabL 仍待实现，健康平台再评估 |
 | S3 | x0 热启动通道 | G9.4 | 待做：需协议扩展或复用 DEFLATE 槽语义 |
 | S4 | thin update(gauge 变化后) | G9.2 | **缓**：PyQCU 缓存重建成本低，收益场景少 |
 | S5 | setup 多轮+全局再正交 | G5.2 | **缓**：本 gauge 质量受谱限制（§8），多轮无益 |

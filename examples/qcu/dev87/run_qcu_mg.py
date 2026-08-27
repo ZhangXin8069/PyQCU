@@ -1,7 +1,7 @@
 """dev87 PyQCU C++ MultiGrid 端到端运行器。
 
 复用 data/ 统一 gauge、源 b 与 33-tensor stencil 缓存；支持 1/2/3-level、
-GCR(FGMRES)、deflate 以及同一 RHS 的 warm start。3-level 只读取已有缓存，
+GCR(FGMRES)、CG/MR 平滑器、deflate 以及同一 RHS 的 warm start。3-level 只读取已有缓存，
 缺缓存时立即失败，不自动触发长时间 setup。
 
 示例（source ./env.sh 后）：
@@ -10,6 +10,7 @@ GCR(FGMRES)、deflate 以及同一 RHS 的 warm start。3-level 只读取已有�
   python examples/qcu/dev87/run_qcu_mg.py --lat 8 8 8 16 --levels 3 --E 24 --coarse-E 24
   python examples/qcu/dev87/run_qcu_mg.py --levels 2 --deflate --warm
   python examples/qcu/dev87/run_qcu_mg.py --levels 2 --gcr --mu-pre 4
+  python examples/qcu/dev87/run_qcu_mg.py --levels 2 --smoother mr --mu-pre 4
 """
 import argparse
 import json
@@ -84,6 +85,8 @@ def main():
     ap.add_argument("--ctf", type=float, default=3000.0)
     ap.add_argument("--max-iter", type=int, default=1000)
     ap.add_argument("--mu-pre", type=int, default=4)
+    ap.add_argument("--smoother", choices=("cg", "mr"), default="cg",
+                    help="MG 粗层及 GCR 预条件器的固定步平滑器")
     ap.add_argument("--gcr", action="store_true",
                     help="启用 C++ _MG_USE_GCR_ 路径（实现为 FGMRES(10)+MG 预条件）")
     ap.add_argument("--deflate", action="store_true",
@@ -133,7 +136,10 @@ def main():
     p[define._DATA_TYPE_] = dt
     av[define._MASS_] = args.mass; av[define._ATOL_] = args.atol; av[define._SIGMA_] = 0.1
     p[define._MG_NUM_LEVEL_] = args.levels
-    p[define._MG_USE_GCR_] = int(args.gcr)
+    mode = define._MG_MODE_GCR_ if args.gcr else 0
+    if args.smoother == "mr":
+        mode |= define._MG_MODE_MR_SMOOTHER_
+    p[define._MG_USE_GCR_] = mode
     p[define._MG_USE_DEFLATE_] = int(args.deflate)
     p[define._MG_MU_PRE_] = args.mu_pre
     p[define._MAX_ITER_] = args.max_iter
@@ -218,7 +224,8 @@ def main():
         "mg_grid": args.mg_grid, "restart": args.restart,
         "coarse_max_iter": args.cmi, "coarse_tol_factor": args.ctf,
         "max_iter": args.max_iter, "mu_pre": args.mu_pre,
-        "gcr": bool(args.gcr), "deflate": bool(args.deflate),
+        "gcr": bool(args.gcr), "smoother": args.smoother,
+        "deflate": bool(args.deflate),
         "warm_requested": bool(args.warm),
         "mg_wall_s": mg_time,
         "rel_diff_vs_bistabcg": float((torch.linalg.norm(
@@ -261,6 +268,8 @@ def main():
     label = args.label
     if label is None:
         label = f"{args.levels}l"
+        if args.smoother == "mr":
+            label += "_mr"
         if args.gcr:
             label += "_gcr"
         if args.deflate:
