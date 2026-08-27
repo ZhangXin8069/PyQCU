@@ -86,6 +86,6 @@ __global__ void multigrid_coarse_solve_cg(void *x, void *rhs, void *r_tilde,
                                           void *t, void *sitting, void *hop_nn,
                                           void *hop_diag, int E, int X, int Y,
                                           int Z, int Lt, int max_iter, T tol,
-                                          void *partials);
+                                          void *partials, void *breakdown);
 } // namespace qcu
 #endif
