@@ -115,6 +115,12 @@ namespace qcu {
 #define _MG_USE_DEFLATE_ 55
 #define _MG_MU_PRE_ 56
 #define _MG_USE_INIT_GUESS_ 57
+// _MG_USE_GCR_ is a backwards-compatible mode bit mask:
+//   _MG_MODE_GCR_          — use the FGMRES outer solver
+//   _MG_MODE_MR_SMOOTHER_  — use QUDA-style MR smoothing in MG
+// Existing callers that write 0/1 retain their original semantics.
+#define _MG_MODE_GCR_ 1
+#define _MG_MODE_MR_SMOOTHER_ 2
 #define _PARAMS_SIZE_ 58
 #define _MASS_ 0
 #define _ATOL_ 1

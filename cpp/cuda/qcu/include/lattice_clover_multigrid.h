@@ -173,6 +173,47 @@ __global__ void mg_cg_update_p(LatticeComplex<T> *p, const LatticeComplex<T> *r,
   p[i] = r[i] + dv[_beta_] * p[i];
 }
 
+template <typename T> __device__ inline bool mg_bad(T re, T im);
+
+// QUDA-style minimal-residual smoother.  For a non-Hermitian coarse
+// operator, MR uses the current residual itself as the correction direction:
+//   Ar = A r,  alpha = <Ar,r>/<Ar,Ar>,
+//   x <- x + alpha r,  r <- r - alpha Ar.
+// The two dots and alpha stay on the device so this remains a fixed-step,
+// synchronization-free smoother just like the existing CG path.  A zero or
+// invalid denominator is treated as a no-op; this is the smoother analogue of
+// the guarded BiCGStab scalar updates and prevents a singular coarse stencil
+// from poisoning the enclosing solve with NaNs.
+template <typename T>
+__global__ void mg_mr_give_alpha(LatticeComplex<T> *dv) {
+  if (threadIdx.x == 0 && blockIdx.x == 0) {
+    LatticeComplex<T> num = dv[_tmp0_];  // <Ar,r>
+    LatticeComplex<T> den = dv[_tmp1_];  // <Ar,Ar>
+    T d = den.real();
+    bool bad = mg_bad<T>(num.real(), num.imag()) ||
+               mg_bad<T>(den.real(), den.imag()) || d <= (T)1e-30;
+    if (bad) {
+      dv[_alpha_] = LatticeComplex<T>((T)0, (T)0);
+    } else {
+      LatticeComplex<T> alpha = num / LatticeComplex<T>(d, (T)0);
+      if (mg_bad<T>(alpha.real(), alpha.imag()))
+        alpha = LatticeComplex<T>((T)0, (T)0);
+      dv[_alpha_] = alpha;
+    }
+  }
+}
+
+template <typename T>
+__global__ void mg_mr_update_xr(LatticeComplex<T> *x, LatticeComplex<T> *r,
+                                const LatticeComplex<T> *ar,
+                                const LatticeComplex<T> *dv, int n) {
+  size_t i = blockIdx.x * (size_t)blockDim.x + threadIdx.x;
+  if (i >= (size_t)n) return;
+  LatticeComplex<T> alpha = dv[_alpha_];
+  x[i] = x[i] + alpha * r[i];
+  r[i] = r[i] - alpha * ar[i];
+}
+
 // ====================================================================
 // dev84: GUARDED BiCGStab scalar updates for the SYNC-FREE coarse solve.
 // --------------------------------------------------------------------
@@ -434,6 +475,8 @@ template <typename T> struct LatticeCloverMultigrid {
   int max_iter;
   T atol;
   int num_restart, rank;
+  int solver_mode = 0;
+  bool use_mr_smoother = false;
   bool verbose;
   T kappa_val;
 
@@ -531,6 +574,7 @@ template <typename T> struct LatticeCloverMultigrid {
   }
 
   int prof_n_coarse_iters = 0;   // dev84: total coarse BiStabCG iterations
+  int prof_n_mr_iters = 0;       // fixed MR smoother steps
   double prof_check_ms = 0;      // dev84: time inside block residual checks
   int prof_n_checks = 0;         // dev84: number of block residual checks
   double prof_ck_kernel_ms = 0;  // dev84: check breakdown — dot-kernel launch
@@ -1077,6 +1121,37 @@ template <typename T> struct LatticeCloverMultigrid {
     prof_coarse_vec_ms += std::chrono::duration<double,std::milli>(tc1-tc0).count();
   }
 
+  // One fixed-step MR smoothing update on a coarse level.  The caller has
+  // already initialized st.r = st.rhs - A_c st.x (or st.r = st.rhs for a
+  // cold solve).  Unlike BiStabCG this needs no Krylov shadow/search state,
+  // which makes it suitable for both pre- and post-smoothing.
+  void mr_iter_coarse(int lev) {
+    auto &st = levels[lev];
+    cudaStream_t S = set_ptr->stream;
+    LatticeComplex<T> *dv =
+        static_cast<LatticeComplex<T> *>(set_ptr->device_vals);
+    coarse_dslash_op(st.v, st.r, lev);  // Ar
+    coarse_dot_slot(lev, static_cast<const LatticeComplex<T> *>(st.v),
+                    static_cast<const LatticeComplex<T> *>(st.r), _tmp0_);
+    coarse_dot_slot(lev, static_cast<const LatticeComplex<T> *>(st.v),
+                    static_cast<const LatticeComplex<T> *>(st.v), _tmp1_);
+    mg_mr_give_alpha<T><<<1, 1, 0, S>>>(dv);
+    mg_mr_update_xr<T><<<site_grid(lev), _BLOCK_SIZE_, 0, S>>>(
+        static_cast<LatticeComplex<T> *>(st.x),
+        static_cast<LatticeComplex<T> *>(st.r),
+        static_cast<const LatticeComplex<T> *>(st.v), dv,
+        static_cast<int>(st.vec_sz));
+    ++prof_n_mr_iters;
+  }
+
+  void coarse_smoother_run(int lev, int n_iter) {
+    if (use_mr_smoother) {
+      for (int i = 0; i < n_iter; ++i) mr_iter_coarse(lev);
+    } else {
+      coarse_graph_run(lev, n_iter);
+    }
+  }
+
   void bistabcg_iter(int lev, bool host_sync=true) {
     // Coarse levels use the single-stream overhead-light path.
     if (lev >= 1) { bistabcg_iter_coarse(lev); return; }
@@ -1456,6 +1531,14 @@ template <typename T> struct LatticeCloverMultigrid {
   // Params parsing — reads MG configuration from host_params.
   // ==================================================================
   void parse_params() {
+    solver_mode = set_ptr->host_params[_MG_USE_GCR_];
+    const int known_modes = _MG_MODE_GCR_ | _MG_MODE_MR_SMOOTHER_;
+    if (solver_mode < 0 || (solver_mode & ~known_modes) != 0) {
+      throw std::invalid_argument(
+          "Clover Multigrid: unsupported _MG_USE_GCR_ mode bits=" +
+          std::to_string(solver_mode));
+    }
+    use_mr_smoother = (solver_mode & _MG_MODE_MR_SMOOTHER_) != 0;
     const int requested_levels = set_ptr->host_params[_MG_NUM_LEVEL_];
     // The flat params protocol contains four coarse-level records
     // (LEVEL1..LEVEL4), hence level 0 plus at most four coarse levels.
@@ -1616,7 +1699,8 @@ template <typename T> struct LatticeCloverMultigrid {
       oss<<"]\n num_restart:"<<num_restart<<"\n tol:"<<std::scientific<<atol
          <<"\n max_iter:"<<max_iter<<"\n Lt_full:"<<Lt_full
          <<"\n mg_grid_size:["<<mg_grid_size[0]<<","<<mg_grid_size[1]<<","
-         <<mg_grid_size[2]<<","<<mg_grid_size[3]<<"]";
+         <<mg_grid_size[2]<<","<<mg_grid_size[3]<<"]"
+         <<"\n smoother:"<<(use_mr_smoother ? "MR" : "CG");
       log_write<T>(oss.str(),rank,true);
     }
     solve_time_ms=0; for(int i=0;i<8;i++)level_times[i]=0;
@@ -1726,8 +1810,9 @@ template <typename T> struct LatticeCloverMultigrid {
         sizeof(LatticeComplex<T>), cudaMemcpyHostToDevice, S));
 
     // dev84: capture the SEG-iteration graph BEFORE any other ops this entry
-    // (capture scope must contain only the iteration kernels).
-    coarse_graph_ensure(lev);
+    // (capture scope must contain only the iteration kernels).  MR uses a
+    // different recurrence and therefore bypasses the BiStabCG graph.
+    if (!use_mr_smoother) coarse_graph_ensure(lev);
 
     // ---- Init ----
     // 2026-08-22 dev84 WARM START: 中间/粗层在连续 V-cycle 间复用上次解作为初值
@@ -1878,7 +1963,7 @@ template <typename T> struct LatticeCloverMultigrid {
       const int steps = warm ? 64 : st.max_iter;
       const int pre = steps/2, post = steps - pre;
       idx = steps;
-      coarse_graph_run(lev, pre);
+      coarse_smoother_run(lev, pre);
       restrict_op(levels[lev+1].rhs, st.r, lev);
       zero_c(levels[lev+1].x, lev+1);
       v_cycle(lev+1);
@@ -1890,7 +1975,7 @@ template <typename T> struct LatticeCloverMultigrid {
           st.rhs, set_ptr->device_vec0, st.r, dv);
       copy_c(st.r_tilde, st.r, lev);
       reset_bistabcg_state(lev);
-      coarse_graph_run(lev, post);
+      coarse_smoother_run(lev, post);
     }
     auto ci1=std::chrono::high_resolution_clock::now();
     prof_coarse_solve_ms += std::chrono::duration<double,std::milli>(ci1-ci0).count();
@@ -2015,7 +2100,8 @@ template <typename T> struct LatticeCloverMultigrid {
       std::ostringstream oss;
       oss<<"PYQCU::QCU::MULTIGRID::\n MG_INIT_COMPLETE: "<<num_levels
          <<" levels, Lt_full="<<Lt_full
-         <<", num_restart="<<num_restart;
+         <<", num_restart="<<num_restart
+         <<", smoother="<<(use_mr_smoother ? "MR" : "CG");
       log_write<T>(oss.str(),rank,true);
     }
   }
@@ -2054,7 +2140,7 @@ template <typename T> struct LatticeCloverMultigrid {
     // after init(); fail before launching any kernel if one transition is
     // incomplete instead of dereferencing a null device pointer.
     validate_coarse_ops();
-    if (set_ptr->host_params[_MG_USE_GCR_] != 0) { run_gcr(); return; }
+    if ((solver_mode & _MG_MODE_GCR_) != 0) { run_gcr(); return; }
     auto t0=std::chrono::high_resolution_clock::now();
     auto &st=levels[0]; cudaStream_t S=set_ptr->stream;
     LatticeComplex<T>*dv=static_cast<LatticeComplex<T>*>(set_ptr->device_vals);
