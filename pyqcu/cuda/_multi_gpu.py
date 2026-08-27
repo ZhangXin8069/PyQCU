@@ -37,6 +37,24 @@ from pyqcu.cuda._schur_op import CudaSchurOp
 _SET_PTRS_COARSE_BASE_ = 30
 
 
+def _coarse_cache_paths(cache_dir, lat_full, level, E, nv_iters, nv_tol):
+    """Return equivalent cache names, preferring the repository spelling.
+
+    Older runs formatted ``1e-2`` as ``t0.01`` while the shared ``data/``
+    assets use ``t1e-2``.  Treat the names as aliases for reads so a cache hit
+    never silently turns into a multi-minute stencil rebuild.  New writes use
+    the first (canonical) name.
+    """
+    base = (f"L{lat_full[0]}x{lat_full[1]}x{lat_full[2]}x{lat_full[3]}"
+            f"_lv{level}_E{E}_nvi{nv_iters}_t")
+    value = float(nv_tol)
+    if abs(value - 1e-2) <= 1e-12:
+        labels = ("1e-2", "0.01")
+    else:
+        labels = (f"{nv_tol}", f"{value:g}")
+    return [os.path.join(cache_dir, base + label + ".h5") for label in labels]
+
+
 def _clone_state():
     """每线程独立 params/argv/set_ptrs 副本。"""
     return (_module_params.clone(), _module_argv.clone(), _module_set_ptrs.clone())
@@ -93,8 +111,10 @@ def build_schur_levels(op, S, num_levels, dof_list, mg_grid, lat_full, E, dt, de
     for lvl in range(1, num_levels):
         E_c = dof_list[lvl]
         lat_coarse_odd = [lat_fine_odd[d] // mg_grid[d] for d in range(4)]
-        tag = f"L{lat_full[0]}x{lat_full[1]}x{lat_full[2]}x{lat_full[3]}_lv{lvl}_E{E_c}_nvi{nv_iters}_t{nv_tol}"
-        cache_file = os.path.join(cache_dir, tag + ".h5")
+        cache_paths = _coarse_cache_paths(
+            cache_dir, lat_full, lvl, E_c, nv_iters, nv_tol)
+        cache_file = next((p for p in cache_paths if use_cache and os.path.exists(p)),
+                          cache_paths[0])
         if use_cache and os.path.exists(cache_file):
             lonv = tools.load_tensor_h5(cache_file, dataset="lonv", device=device)
             hnn = tools.load_tensor_h5(cache_file, dataset="hnn", device=device)
@@ -191,7 +211,11 @@ def _setup_gpu_tensors(params_t, argv_t, set_ptrs_t, device, mass, atol, dt, see
     # 在 P100 上失败并污染 CUDA 错误状态；empty（纯 cudaMalloc）与 CPU 生成 +
     # H2D 拷贝（driver memcpy）均可用。C++ 后端会写满 g/ce/coo 等输出缓冲。
     g = torch.empty([2, 3, 3, 4] + ls, dtype=dt, device=device)
-    fi = torch.randn([2, 4, 3] + ls, dtype=dt, device='cpu').to(device)
+    # 与规范场 seed 一样固定源场的随机流；这样单卡/多卡性能和数值对照
+    # 使用完全相同的输入，而不是被全局 RNG 的调用顺序悄悄改变。
+    fi_gen = torch.Generator(device='cpu').manual_seed(int(seed) + 1)
+    fi = torch.randn([2, 4, 3] + ls, dtype=dt, device='cpu',
+                     generator=fi_gen).to(device)
     ce = torch.empty([4, 3, 4, 3] + ls, dtype=dt, device=device)
     cei = torch.empty_like(ce); coo = torch.empty_like(ce); coi = torch.empty_like(ce)
     params_t[define._SET_INDEX_] = 0; params_t[define._SET_PLAN_] = -1
@@ -219,7 +243,7 @@ class MultiGpuMultigrid(object):
         device_ids: 显式设备 id 列表（默认 range(可见设备数)；
             线程 tid 绑定 device_ids[tid % len(device_ids)]）
         use_cache / cache_dir: 粗网格算子 h5py 缓存
-        verbose: 详细输出
+        verbose: 详细输出；seed: 规范场与源场的可复现实验种子
 
     方法：
         solve(): 并行求解（每线程一个完整 MG 流程），返回结果字典
@@ -230,7 +254,7 @@ class MultiGpuMultigrid(object):
                  dof_list=None, mg_grid=None, num_restart=5, coarse_max_iter=15,
                  coarse_tol_factor=1e5, nv_iters=2, nthreads=None, device_ids=None,
                  use_cache=True, cache_dir=None, verbose=True,
-                 independent_problems=False):
+                 independent_problems=False, seed=42):
         from mpi4py import MPI
         # C++ LatticeSet::init 用 MPI_COMM_WORLD 真实 rank 覆盖 _NODE_RANK_，
         # 多线程独立实例语义要求单 rank（多进程分布走每进程单线程实例路径）。
@@ -270,6 +294,7 @@ class MultiGpuMultigrid(object):
         self.nthreads = nthreads
         self.dt = torch.complex64
         self.independent_problems = independent_problems
+        self.seed = int(seed)
         self._results = None
 
     def _build_coarse_ops(self, S, E, device):
@@ -432,7 +457,7 @@ class MultiGpuMultigrid(object):
                 self._config_params(pt, at, st, at)
                 g, fi, ce, cei, coo, coi, _, _, _, _, av = _setup_gpu_tensors(
                     pt, at, st, main_dev, self.mass, self.atol, self.dt,
-                    seed=42 + tid, verbose=False)
+                    seed=self.seed + tid, verbose=False)
                 cache_t = (os.path.join(self.cache_dir, f"tid{tid}")
                            if self.cache_dir else None)
                 ops_t = [CudaSchurOp(av, g, ce, coo, cei, coi, params=pt)]
@@ -467,7 +492,8 @@ class MultiGpuMultigrid(object):
         self._config_params(params_t, argv_t, set_ptrs_t, argv_t)
         g, fi, ce, cei, coo, coi, U_full, b_full, clover_full, kappa, av = \
             _setup_gpu_tensors(params_t, argv_t, set_ptrs_t, main_dev, self.mass,
-                               self.atol, self.dt, verbose=self.verbose)
+                               self.atol, self.dt, seed=self.seed,
+                               verbose=self.verbose)
         op = dslash.operator(U=U_full, clover_term=clover_full,
                              kappa=torch.Tensor([kappa]), support_parity=True,
                              verbose=False)
@@ -487,9 +513,10 @@ class MultiGpuMultigrid(object):
                 for lvl in range(1, self.num_levels):
                     E_c = self.dof_list[lvl]
                     lat_coarse_odd = [lat_fine_odd[d] // self.mg_grid[d] for d in range(4)]
-                    tag = f"L{self.lat_size[0]}x{self.lat_size[1]}x{self.lat_size[2]}x{self.lat_size[3]}_lv{lvl}_E{E_c}_nvi{self.nv_iters}_t1e-2"
-                    cf = os.path.join(self.cache_dir, tag + ".h5")
-                    if not os.path.exists(cf):
+                    paths = _coarse_cache_paths(
+                        self.cache_dir, self.lat_size, lvl, E_c,
+                        self.nv_iters, 1e-2)
+                    if not any(os.path.exists(cf) for cf in paths):
                         all_hit = False
                         break
                     lat_fine_odd = lat_coarse_odd

@@ -227,19 +227,19 @@ run_all.py --with-quda 连续 3 次：GREEN 4/4 ×3（18.1/18.3/18.2s，
   后续在健康 CUDA 平台重启此优化时，从存档补丁起步，并将 cublasDot 替换为
   自研 dot 内核以规避 cublas-capture 限制。
 
-### 当前回归状态声明（诚实口径）
+### 当时的临时回归状态（已被后续复验修正）
 clover_solve / component / quda 对照三项持续 GREEN；
 MG 端到端在本机当前驱动状态下间歇失败（init memset InvalidArgument），
 代码与最后绿点零差异——属平台态而非代码回归，待 WSL 复位后复验。
 
-## 十六、平台态最终记录与资产归档
+## 十六、阶段性平台态记录与资产归档（后续已修正）
 
 - `CUDA_LAUNCH_BLOCKING=1` 下 MG 仍在 init memset 报 InvalidArgument
   ⇒ 排除异步竞态，定性为 **上下文级损伤**（capture 实验硬中止遗留）。
 - 恢复手段：宿主侧 `wsl --shutdown` 后重开终端，运行
   `python examples/qcu/dev87/run_all.py --with-quda` 复验（预期全 GREEN）。
 - 战役资产已归档 `logs/stab31/`：总报告、对照矩阵、回归/对照 JSON。
-- run_all.py 的 mg_vs_ref 失败信息现附已知平台态提示（不掩盖失败本身）。
+- 当时版本的 run_all.py 的 mg_vs_ref 失败信息曾附平台态提示（不掩盖失败本身）。
 
 ## 十七、诊断更正（重要）
 
@@ -268,3 +268,69 @@ cos=1.000000/scale=4.05。三者相互矛盾 ⇒ 存在未被识别的实验耦�
   {单位/热规范} × {单精度/双精度} × {新进程对} 的算子级全组合，
   并先复跑 cmp_operator.py 与 cmp_clover_vec.py 确认旧锚定可复现性。
 在此之前，G4.1/G10 的已交付数字以 logs/stab31/ 归档件为准。
+
+## 十九、最终复验补充（2026-08-27）
+
+本节更新并覆盖前面关于“驱动上下文损伤”的临时判断。随着后续
+`conftest.multi_gpu` 和本节直连运行器复验，库与 CUDA 平台均可正常工作；
+旧异常应归因于当时 `run_qcu_mg.py` 的桥接调用序列/槽位生命周期排查过程，
+不能再作为当前平台限制。`run_all.py` 的失败提示已同步改成要求检查本次
+直连日志，不再把失败预先归因于 WSL2。
+
+本次收尾时还捕获并修复了一个独立的闸门环境问题：`env.sh` 的 QCU 库路径
+曾排在旧的 `sm_60` `libquda.so` 之前，导致 V100 上出现
+`no kernel image available`；`run_all.py` 现在为 QUDA 子进程显式前置
+`quda_env.sh` 指定的 `sm_70` 安装路径。修复后完整
+`run_all.py --with-quda` 为 `GREEN (5/5)`，总耗时 `424.8 s`。
+
+### 1. PyQCU MultiGrid 实际配置矩阵
+
+统一大格为 `16×32×32×48`、`m=0.05`、`atol=1e-6`、
+`mg_grid=[2,2,2,2]`，粗算子从 `data/` 的 E=12 HDF5 缓存读取。墙钟是
+`applyCloverMultigridQcu` 调用的同步后耗时；真残差由 Python full
+Wilson+Clover 算子重新计算。
+
+| 配置 | 墙钟(s) | 与 BiCGStab 参考解差异 | full-op 真残差 | 结论 |
+|---|---:|---:|---:|---|
+| 1L | 1.378 | 6.55e-6 | 3.92e-7 | 通过 |
+| 2L, E=12 | 1.412 | 8.57e-6 | 6.59e-7 | 通过 |
+| 2L + deflate | 1.350 | 6.77e-6 | 4.83e-7 | 通过 |
+| 2L + warm | cold 1.412 / warm 0.198 | warm 3.66e-6 | warm 4.41e-7 | 通过 |
+| 2L + GCR/FGMRES | 5.015 | 1.27e-6 | 6.86e-7 | 通过 |
+
+因此，当前大格上 2L 相对 1L 为 `0.976×`，没有额外加速；warm 约有
+`7.1×` 加速；GCR/FGMRES 数值正确但约为普通 2L 的 `0.28×`。deflate
+本次只显示小幅墙钟差异，不能据一次运行宣称性能收益。3L 也已在
+`8×8×8×16, E=24/E=24` 的已有缓存上真实运行，真残差 `5.94e-7`；
+尚无大格 3L 缓存，故不外推其性能。
+
+组件级实测结果为：restrict/prolong L2 误差 `2.09e-7/6.40e-8`，窄/宽
+粗 dslash 误差 `2.65e-7/5.01e-7`，最新回归的 Galerkin 误差 `9.47e-7`，Gram
+非对角最大值 `2.38e-7`。窄/宽粗核中位耗时约 `0.775/1.881 ms`。
+
+### 2. QUDA/PyQUDA 交叉结果与口径
+
+双方运行严格分进程，避免 `libqcu.so` 与 `libquda.so` 的 CUDA runtime
+符号/上下文相互影响。直接 Clover 求解在 `m+4=4.05` 缩放后解差为
+`3.91e-7`；最新 MG 输出的交叉结果为 `8.63e-6`。QUDA MG 本次归档为
+`setup=270.43 s`、`solve=82.12 s`、9 次迭代；PyQCU 读取离线粗算子，
+且两侧容差、精度和外层算法不同，因此不能将这两个数字直接当成公平的
+端到端算法倍率。
+
+多线程多卡实测中，V100 单卡、P100 单卡及 P100×2 的结果一致性均通过
+`1e-5`；P100 单卡到 P100×2 的并行比为 `0.970×`，当前机器未获得加速。
+
+### 3. 结论与未完成项
+
+本轮已完成并真实运行闭环的核心范围是：Wilson/Clover 算子锚定、
+BiCGStab、V-cycle 1/2/3-level（3L 为小格缓存验证）、GCR、deflate、
+warm start、transfer、Galerkin、粗 dslash、full-op 真残差、缓存加载及
+单 rank 多线程多卡一致性。仍未实现或未完成同参数闭环的项目包括 QUDA
+的 W/F/K-cycle、MR/Chebyshev/CA-GCR 等全部平滑器族、动态 thin gauge
+update、逐层混合精度、真正分布式粗格、MMA/NVSHMEM，以及 C++ 版完整
+五项 `verify()` 接口；矩阵中均保留为 `[ ]` 或 `[~]`，没有静默跳过。
+
+最新证据文件为 `out/qcu_mg_matrix_*.json`、`out/component_cuda.json`、
+`out/multigpu.json`、`out/quda_clover_{solve,mg}.json`。后续修改
+`lattice_clover_multigrid.h`、`lattice_clover_bistabcg.h` 或参数协议后，
+应至少重新运行语法检查、`test_mg_breakdown.py` 和 `run_all.py`。
