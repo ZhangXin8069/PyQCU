@@ -3,7 +3,6 @@
 % 编译: xelatex 两遍；交付前 Overfull=0, Float too large=0
 % ============================================================
 \documentclass[UTF8,aspectratio=169,11pt]{ctexbeamer}
-\errorcontextlines=100
 
 \usepackage{amsmath,amssymb}
 \usepackage{graphicx}
@@ -725,12 +724,12 @@ split_into_Y_and_X(Dc):
         H_{-\mu}(x,y)=(1+\gamma_\mu)U_\mu^\dagger(x-\hat\mu)\,\delta_{y,x-\hat\mu}.
       \end{equation*}
       \begin{block}{同一粗点}
-        若 (\lfloor x/b\rfloor=\lfloor (x\pm\hat\mu)/b\rfloor)，该项是 coarse local term，累加 (X(q))，并保留 spin/color 矩阵结构。
+        若 \(\lfloor x/b\rfloor=\lfloor (x\pm\hat\mu)/b\rfloor\)，该项是 coarse local term，累加 \(X(q)\)，并保留 spin/color 矩阵结构。
       \end{block}
     \end{column}
     \begin{column}{0.49\textwidth}
       \begin{block}{相邻粗点}
-        若终点落入 (q\pm\hat\mu)，该项写入对应方向的 (Y\)；粗算子 apply 时从 neighbor coarse spinor gather。
+        若终点落入 \(q\pm\hat\mu\)，该项写入对应方向的 \(Y\)；粗算子 apply 时从 neighbor coarse spinor gather。
       \end{block}
       \begin{center}
         \begin{tikzpicture}[node distance=0.45cm and 0.55cm]
@@ -798,9 +797,9 @@ if twisted:
       \centering
       \begin{tikzpicture}[node distance=0.18cm and 0.2cm]
         \node[flowwide,text width=1.65cm,font=\scriptsize] (q) {粗点 (q\)};
-        \node[state,text width=1.65cm,font=\scriptsize,right=of q] (x) {(X(q)\)\(N_s^cN_c^c\) 方阵};
-        \node[state,text width=1.65cm,font=\scriptsize,above right=0.3cm and 0.22cm of q] (yf) {(Y_{+\mu}(q)\)\(q\to q+\mu\)};
-        \node[state,text width=1.65cm,font=\scriptsize,below right=0.3cm and 0.22cm of q] (yb) {(Y_{-\mu}(q)\)\(q\to q-\mu\)};
+        \node[state,text width=1.65cm,font=\scriptsize,right=of q] (x) {\(X(q)\)\\\(N_s^cN_c^c\) 方阵};
+        \node[state,text width=1.65cm,font=\scriptsize,above right=0.3cm and 0.22cm of q] (yf) {\(Y_{+\mu}(q)\)\\\(q\to q+\mu\)};
+        \node[state,text width=1.65cm,font=\scriptsize,below right=0.3cm and 0.22cm of q] (yb) {\(Y_{-\mu}(q)\)\\\(q\to q-\mu\)};
         \node[phase,text width=1.85cm,font=\scriptsize,right=1.45cm of yf] (gf) {forward ghost\边界邻点};
         \node[phase,text width=1.85cm,font=\scriptsize,right=1.45cm of yb] (gb) {backward ghost\边界邻点};
         \draw[arrow] (q)--(x);
@@ -844,7 +843,7 @@ build_pc_links(Y, X):
   \end{lstlisting}
   \vspace{0.07cm}
   \begin{alertblock}{最容易写反的地方}
-    forward 是左乘 (X^{-1})，backward 是右乘 (X^{-\dagger})，且 backward link 的坐标是邻点 (q-\mu)。逐点写成统一的 (X^{-1}Y) 会破坏 \\(hat D-A^{-1}D\\) 检查。
+    forward 是左乘 \(X^{-1}\)，backward 是右乘 \(X^{-\dagger}\)，且 backward link 的坐标是邻点 \(q-\mu\)。逐点写成统一的 \(X^{-1}Y\) 会破坏 \(\hat D-A^{-1}D\) 检查。
   \end{alertblock}
   \source{`calculateYhat` 的注释与实现：\codepath{lib/coarse_op_preconditioned.in.cu:147-203}；矩阵 tile：\codepath{include/kernels/coarse_op_preconditioned.cuh:48-124}。伪代码保持左右顺序。}
 \end{frame}
@@ -974,7 +973,7 @@ apply_coarse_dslash:
     \end{column}
     \begin{column}{0.48\textwidth}
       \begin{alertblock}{aggregate 不跨 rank 的假设不能擅自删除}
-        map 是 local volume 上的聚合索引；若 block 跨 MPI 分区，需要先重新定义 aggregate ownership 或通信，不能仅靠 coarse dslash 的 halo 修补 setup 的 (V\) 访问。
+        map 是 local volume 上的聚合索引；若 block 跨 MPI 分区，需要先重新定义 aggregate ownership 或通信，不能仅靠 coarse dslash 的 halo 修补 setup 的 \(V\) 访问。
       \end{alertblock}
     \end{column}
   \end{columns}
