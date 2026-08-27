@@ -97,8 +97,8 @@
         \begin{tabular}{@{}l@{}}
           \verified\quad `MG::operator()' 实现递归 V-cycle；\\
           \verified\quad `Transfer' 同时提供 $P$ 与 $R$；\\
-          \verified\quad coarse operator 由 UV/VUV 等 kernel 装配；\\
-          \verified\quad `verify()' 比较 $RDP$ 与 native coarse apply。
+          \verified\quad UV/VUV 装配粗算子；\\
+          \verified\quad `verify()' 比较 $RDP$ 与 native apply；
         \end{tabular}
       \end{block}
       \begin{alertblock}{报告边界}
@@ -117,11 +117,12 @@
       \draw[arrow] (a)--(b)--(c)--(d)--(e);
     \end{tikzpicture}
   \end{center}
+  \vspace{-0.05cm}
   \source{\codepath{lib/multigrid.cpp:1131-1224}；\codepath{lib/transfer.cpp}。}
 \end{frame}
 
 \begin{frame}[t]{问题的第一性原理：粗空间要近似难解的低频子空间}
-  \small
+  \footnotesize
   \begin{columns}[T,totalwidth=\textwidth]
     \begin{column}{0.48\textwidth}
       \begin{block}{误差分解}
@@ -148,13 +149,13 @@
       \end{block}
     \end{column}
   \end{columns}
-  \vspace{0.12cm}
+  \vspace{0.02cm}
   \begin{center}
     \begin{tikzpicture}[node distance=0.25cm and 0.35cm]
-      \node[phase] (h) {局部高频误差};
-      \node[phase,right=of h] (s) {smoother\(S\)};
-      \node[phase,below=of h] (l) {长程低频误差};
-      \node[phase,right=of l] (c) {粗空间\(P/R\)};
+      \node[phase,minimum height=0.50cm,font=\tiny] (h) {局部高频误差};
+      \node[phase,minimum height=0.50cm,font=\tiny,right=of h] (s) {smoother\(S\)};
+      \node[phase,minimum height=0.50cm,font=\tiny,below=of h] (l) {长程低频误差};
+      \node[phase,minimum height=0.50cm,font=\tiny,right=of l] (c) {粗空间\(P/R\)};
       \draw[arrow] (h)--(s);
       \draw[arrow] (l)--(c);
       \draw[relation] (s)--(c);
@@ -164,7 +165,7 @@
 \end{frame}
 
 \begin{frame}[t]{对象与生命周期：API 只负责入口，MG 层级负责状态}
-  \small
+  \footnotesize
   \begin{columns}[T,totalwidth=\textwidth]
     \begin{column}{0.54\textwidth}
       \begin{tabular}{@{}l@{}}
@@ -205,6 +206,7 @@
       \end{alertblock}
     \end{column}
   \end{columns}
+  \vspace{-0.17cm}
   \source{API：\codepath{include/quda.h:1256-1292}；构造/更新：\codepath{lib/interface_quda.cpp:2853-3053}。}
 \end{frame}
 
@@ -236,7 +238,8 @@
           TRUE：各层可独立生成 $B$；\\
           FALSE：先做 $B_{\ell+1}=R_\ell B_\ell$，\\
           再重建下一层 Transfer。\\[0.2em]
-          这不是内存优化，而是改变 setup 数据流。
+          这不是内存优化，而是改变\\
+          setup 数据流。
         \end{tabular}
       \end{block}
       \begin{alertblock}{顺序约束}
@@ -330,8 +333,10 @@
       \begin{block}{变体}
         \begin{tabular}{@{}l@{}}
           aggregate：真正使用 $V$；\\
-          coarse-KD：固定 staggered KD 结构；\\
-          optimized-KD：元数据/等体积映射，\\
+          coarse-KD：固定 staggered\\
+          KD 结构；\\
+          optimized-KD：元数据/等体积\\
+          映射，\\
           不能直接套用 aggregate 公式。
         \end{tabular}
       \end{block}
@@ -450,7 +455,7 @@
 \end{frame}
 
 \begin{frame}[t]{递归 V-cycle（2/2）：限制、粗解、校正、后平滑}
-  \small
+  \footnotesize
   \begin{block}{按源码控制流展开}
     \begin{tabular}{@{}l@{}}
       $r_c\leftarrow R_\ell\,\text{residual}$ \\
@@ -491,8 +496,10 @@
         \begin{tabular}{@{}l@{}}
           $\text{coarse solver}=\text{PreconditionedSolver}(\text{solver},$ \\
           $\qquad\text{MG/smoother})$ \\
-          $\text{solver}\in\{\text{GCR},\text{CGNR/CGNE},\text{BiCGStabL},\text{CA variants},\ldots\}$ \\
-          $\text{next level MG}\;\Rightarrow\;\text{one application of recursive preconditioner}$ \\
+          $\text{solver}\in\{\text{GCR},\text{CGNR/CGNE},\text{BiCGStabL},$\\
+          $\qquad\text{CA variants},\ldots\}$ \\
+          $\text{next level MG}\;\Rightarrow\;\text{one recursive}$\\
+          $\qquad\text{preconditioner application}$ \\
           $\text{bottom level}\;\Rightarrow\;\text{Krylov solve/deflation as configured}$
         \end{tabular}
       \end{block}
@@ -502,7 +509,8 @@
         \begin{tabular}{@{}l@{}}
           \texttt{VCYCLE}：中间层可直接复用 coarse MG；\\
           \texttt{RECURSIVE}：创建 solver wrapper；\\
-          FCYCLE/WCYCLE 枚举存在，但本实现工厂未走通用分支。\\[0.2em]
+          FCYCLE/WCYCLE 枚举存在，但本实现\\
+          工厂未走通用分支。\\[0.2em]
           不能只凭枚举名声称已实现完整 F/W cycle。
         \end{tabular}
       \end{block}
@@ -533,7 +541,7 @@
     \end{column}
     \begin{column}{0.34\textwidth}
       {\scriptsize
-      \begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{0.46\linewidth}>{\raggedright\arraybackslash}X@{}}
+      \begin{tabularx}{0.98\linewidth}{@{}>{\raggedright\arraybackslash}p{0.46\linewidth}>{\raggedright\arraybackslash}X@{}}
         \toprule
         开关/字段 & 影响 \\
         \midrule
@@ -541,8 +549,8 @@
         \texttt{setup\_location} & null/setup 与粗算子构造位置 \\
         \texttt{precision\_null} & $B/V$ 存储精度 \\
         \begin{tabular}{@{}l@{}}\texttt{smoother\_halo\_}\\\texttt{precision}\end{tabular} & smoother halo 精度 \\
-        \begin{tabular}{@{}l@{}}\texttt{setup/dslash/}\\\texttt{transfer\_use\_mma}\end{tabular} & 三类 kernel 的 MMA 选择 \\
-        fixed-point & max/scale/convert 协议 \\
+        \begin{tabular}{@{}l@{}}\texttt{setup/dslash/}\\\texttt{transfer\_use\_}\\\texttt{mma}\end{tabular} & 三类 kernel 的 MMA 选择 \\
+        fixed-point & \begin{tabular}{@{}l@{}}max/scale/\\convert 协议\end{tabular} \\
         \bottomrule
       \end{tabularx}}
     \end{column}
@@ -573,7 +581,7 @@
 \end{frame}
 
 \begin{frame}[t]{验证矩阵：把“粗化正确”拆成可定位的不变量}
-  \small
+  \footnotesize
   \begin{columns}[T,totalwidth=\textwidth]
     \begin{column}{0.62\textwidth}
       \begin{block}{验证伪代码}
