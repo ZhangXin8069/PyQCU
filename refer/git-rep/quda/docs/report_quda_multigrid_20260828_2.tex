@@ -45,7 +45,7 @@
     \insertshorttitle\hfill\insertframenumber/\inserttotalframenumber
   \end{beamercolorbox}}}
 
-\newcommand{\source}[1]{\vspace{0.04em}\par\noindent\parbox[t]{\linewidth}{\raggedright\tiny\color{muted}来源：#1\par}}
+\newcommand{\source}[1]{\vspace{0.04em}\par\noindent\parbox[t]{0.96\linewidth}{\raggedright\tiny\color{muted}来源：#1\par}}
 \newcommand{\verified}{\textcolor{evidence}{确证}}
 \newcommand{\inferred}{\textcolor{accent}{推断}}
 \newcommand{\unverified}{\textcolor{warning}{未验证}}
@@ -222,14 +222,15 @@
           $\quad D_{\ell+1}\leftarrow\text{Galerkin}(D_\ell,T_\ell)$ \\
           $\quad S_\ell\leftarrow\text{makeSmoother}(D_\ell,\text{cfg}_\ell)$ \\
           $\quad B_{\ell+1}\leftarrow R_\ell B_\ell\quad(\text{或独立生成})$ \\
-          $\quad MG_{\ell+1}\leftarrow\text{setupLevel}(\ell+1,D_{\ell+1},B_{\ell+1})$ \\
+          $\quad MG_{\ell+1}\leftarrow\text{setupLevel}(\ell+1,$ \\
+          $\qquad D_{\ell+1},B_{\ell+1})$ \\
           $\quad C_\ell\leftarrow\text{coarseSolver}(MG_{\ell+1},S_{\ell+1})$ \\
           $\quad\textbf{return }(T_\ell,D_{\ell+1},S_\ell,C_\ell)$ \\
           $\textbf{else:}\quad S_{L-1}\leftarrow\text{bottom solver/smoother}$
         \end{tabular}
       \end{block}
     \end{column}
-    \begin{column}{0.34\textwidth}
+    \begin{column}{0.30\textwidth}
       \begin{block}{generate\_all\_levels}
         \begin{tabular}{@{}l@{}}
           TRUE：各层可独立生成 $B$；\\
@@ -266,7 +267,7 @@
         \end{tabular}
       \end{block}
     \end{column}
-    \begin{column}{0.31\textwidth}
+    \begin{column}{0.30\textwidth}
       \begin{block}{关键语义}
         `TEST' 分支以 $B$ 为右端、零初值；普通 null setup 以 $B$ 为初值、零右端，让迭代器保留慢模而衰减快模。
       \end{block}
@@ -295,7 +296,7 @@
         \end{tabular}
       \end{block}
     \end{column}
-    \begin{column}{0.31\textwidth}
+    \begin{column}{0.30\textwidth}
       \begin{block}{实现对应}
         首轮从 $B$ 读入；后续重复轮次从 $V$ 读入。CUDA kernel 以 coarse aggregate、chirality 和向量 tile 并行化；`mVec' 只是批量化，不改变 Gram--Schmidt 顺序语义。
       \end{block}
@@ -316,13 +317,13 @@
         \begin{tabular}{@{}l@{}}
           $a(x)\leftarrow\text{coarseSite}(x_\mu/b_\mu)$ \\
           $s_c\leftarrow\text{spinMap}(s_f,\text{parity})$ \\
-          $\textbf{P: }\psi_f(x,s_f,c_f)\leftarrow\sum_{c_c,j}V_j(x,s_f,c_f;c_c)\,\eta_c(a(x),s_c,c_c,j)$ \\
-          $\textbf{R: }\eta_c(a,s_c,c_c,j)\leftarrow\sum_{x\in a,s_f,c_f}V_j(x,s_f,c_f;c_c)^\dagger\psi_f(x,s_f,c_f)$ \\
+          $\textbf{P: }\psi_f(x)\leftarrow\sum_{c_c,j}V_j(x)\,\eta_c(a(x),s_c,c_c,j)$ \\
+          $\textbf{R: }\eta_c(a)\leftarrow\sum_{x\in a}V(x)^\dagger\psi_f(x)$ \\
           $R=P^\dagger\quad\text{（aggregate；同一 }V,\;a(x),\;\text{spinMap）}$
         \end{tabular}
       \end{block}
     \end{column}
-    \begin{column}{0.35\textwidth}
+    \begin{column}{0.32\textwidth}
       \begin{block}{索引/边界检查}
         \texttt{fine\_to\_coarse} 覆盖每个细点；\texttt{coarse\_to\_fine} 按 aggregate 排序。block size 要整除局部格点，并受奇偶 coarse 维限制。
       \end{block}
@@ -346,19 +347,21 @@
       \begin{block}{Wilson/Clover 及其变体的装配伪代码}
         \footnotesize
         \begin{tabular}{@{}l@{}}
-          $\text{exchangeGhost}(V,nFace),\qquad nFace=1\;(\text{Wilson/Clover}),\;3\;(\text{ASQTAD})$ \\
+          $\text{exchangeGhost}(V,nFace)$ \\
+          $\qquad nFace=1\;(\text{Wilson/Clover}),\;3\;(\text{ASQTAD})$ \\
           $\textbf{if preconditioned Clover: }AV\leftarrow C^{-1}V$ \\
           $\textbf{for }\mu=0,\ldots,3\text{ and each direction}:$ \\
           $\quad UV_\mu\leftarrow U_\mu V\quad(\text{或 }U_\mu AV)$ \\
           $\quad Y_\mu\mathrel{+}=V^\dagger(UV_\mu)$ \\
-          $\quad\textbf{if long link: }LV_\mu\leftarrow L_\mu V;\;Y_\mu\mathrel{+}=V^\dagger(LV_\mu)$ \\
+          $\quad\textbf{if long link: }LV_\mu\leftarrow L_\mu V$ \\
+          $\qquad Y_\mu\mathrel{+}=V^\dagger(LV_\mu)$ \\
           $\textbf{if not bidirectional: }Y_{+\mu}\leftarrow\text{reverse}(Y_{-\mu})$ \\
           $X\leftarrow V^\dagger C V+I+\text{twisted-mass/local terms}$ \\
           $\textbf{return }D_c=(X\text{ 的 local block})+(Y\text{ 的 hopping blocks})$
         \end{tabular}
       \end{block}
     \end{column}
-    \begin{column}{0.32\textwidth}
+    \begin{column}{0.30\textwidth}
       \begin{block}{为什么有 UV/VUV}
         $UV$ 先把 fine link 作用到所有基向量；$V^\dagger(UV)$ 再投影到粗颜色/自旋。这样避免逐列显式构造矩阵，且可在 kernel 中原子累加。
       \end{block}
@@ -482,22 +485,23 @@
 \begin{frame}[t]{coarse solver 与 cycle：V-cycle 不是唯一的“求解器对象”}
   \small
   \begin{columns}[T,totalwidth=\textwidth]
-    \begin{column}{0.49\textwidth}
+    \begin{column}{0.47\textwidth}
       \begin{block}{wrapper 语义}
         \scriptsize
         \begin{tabular}{@{}l@{}}
-          $\text{coarse solver}=\text{PreconditionedSolver}(\text{solver},\text{MG/smoother})$ \\
+          $\text{coarse solver}=\text{PreconditionedSolver}(\text{solver},$ \\
+          $\qquad\text{MG/smoother})$ \\
           $\text{solver}\in\{\text{GCR},\text{CGNR/CGNE},\text{BiCGStabL},\text{CA variants},\ldots\}$ \\
           $\text{next level MG}\;\Rightarrow\;\text{one application of recursive preconditioner}$ \\
           $\text{bottom level}\;\Rightarrow\;\text{Krylov solve/deflation as configured}$
         \end{tabular}
       \end{block}
     \end{column}
-    \begin{column}{0.49\textwidth}
+    \begin{column}{0.47\textwidth}
       \begin{block}{当前快照实际支持的分支}
         \begin{tabular}{@{}l@{}}
-          \texttt{QUDA\_MG\_CYCLE\_VCYCLE}：中间层可直接复用 coarse MG；\\
-          \texttt{QUDA\_MG\_CYCLE\_RECURSIVE}：创建 solver wrapper；\\
+          \texttt{VCYCLE}：中间层可直接复用 coarse MG；\\
+          \texttt{RECURSIVE}：创建 solver wrapper；\\
           FCYCLE/WCYCLE 枚举存在，但本实现工厂未走通用分支。\\[0.2em]
           不能只凭枚举名声称已实现完整 F/W cycle。
         \end{tabular}
@@ -674,20 +678,22 @@
       \begin{tabular}{@{}l@{}}
         $B\;\to\;V\;\to\;RDP\;\to\;\text{recursive V-cycle}$ \\
         $\text{verify }(PRB,RP\eta,RDP\eta,\text{PC},\text{normality})$ \\
-        $\text{only then enable half/fixed-point/MMA/halo optimizations}$
+        $\text{only then enable half/fixed-point/MMA/halo}$ \\
+        $\text{optimizations}$
       \end{tabular}
     \end{column}
-    \begin{column}{0.42\textwidth}
+    \begin{column}{0.40\textwidth}
+      \scriptsize
       \begin{tabularx}{\linewidth}{@{}lX@{}}
         \toprule
         主题 & 主要源码 \\
         \midrule
         层级/setup & \codepath{lib/multigrid.cpp} \\
-        P/R 与 map & \codepath{lib/transfer.cpp}, \codepath{include/transfer.h} \\
-        block GS & \codepath{include/kernels/block_orthogonalize.cuh} \\
+        P/R 与 map & \begin{tabular}[t]{@{}l@{}}\codepath{lib/transfer.cpp},\\\codepath{include/transfer.h}\end{tabular} \\
+        block GS & \begin{tabular}[t]{@{}l@{}}\codepath{include/kernels/}\\\codepath{block_orthogonalize.cuh}\end{tabular} \\
         coarse operator & \codepath{lib/coarse_op.cuh} \\
         coarse Dirac/PC & \codepath{lib/dirac_coarse.cpp} \\
-        API/参数/测试 & \codepath{lib/interface_quda.cpp}, \codepath{include/quda.h}, \codepath{tests/} \\
+        API/参数/测试 & \begin{tabular}[t]{@{}l@{}}\codepath{lib/interface_quda.cpp},\\\codepath{include/quda.h},\codepath{tests/}\end{tabular} \\
         \bottomrule
       \end{tabularx}
     \end{column}
