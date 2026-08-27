@@ -83,6 +83,9 @@ _MG_USE_GCR_ = 54
 _MG_USE_DEFLATE_ = 55
 _MG_MU_PRE_ = 56
 _MG_USE_INIT_GUESS_ = 57
+# _MG_USE_GCR_ is a backwards-compatible mode bit mask.
+_MG_MODE_GCR_ = 1
+_MG_MODE_MR_SMOOTHER_ = 2
 _PARAMS_SIZE_ = 58
 _MASS_ = 0
 _ATOL_ = 1
