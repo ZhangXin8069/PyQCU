@@ -2,8 +2,8 @@
 
 用法（source ./env.sh 后，单卡 V100）：
   python examples/qcu/dev87/run_all.py [--with-quda]
-默认仅 PyQCU 侧（~6 分钟）；--with-quda 追加 quda/PyQUDA 解对照（需 QUDA 环境与
-libquda 可用，另 +2 分钟）。任一断言失败即 exit 1。
+默认仅 PyQCU 侧（当前约 30 秒）；--with-quda 追加 quda/PyQUDA 解对照（需 QUDA
+环境与 libquda 可用，当前无调优缓存时约另需 7 分钟）。任一断言失败即 exit 1。
 """
 import argparse
 import json
@@ -37,6 +37,26 @@ def check(name, ok, detail):
         FAILED.append(name)
 
 
+def _quda_process_env():
+    """为 QUDA 子进程显式选择 dev87 的库，隔离 env.sh 的旧库前缀。"""
+    env = os.environ.copy()
+    install = env.get("QUDA_INSTALL")
+    script = HERE / "quda_env.sh"
+    if not install and script.exists():
+        for line in script.read_text().splitlines():
+            prefix = "export QUDA_INSTALL="
+            if line.startswith(prefix):
+                install = line[len(prefix):].strip().strip('"').strip("'")
+                break
+    if install:
+        env["QUDA_INSTALL"] = install
+        env["QUDA_PATH"] = install
+        old_ld = env.get("LD_LIBRARY_PATH", "")
+        env["LD_LIBRARY_PATH"] = f"{install}/lib:{old_ld}"
+        env.setdefault("DEV87_REDUCE_SYNC", "1")
+    return env
+
+
 def t_clover_solve_and_truth():
     """G4.1 基线：全求解器解的全算子真相对残差（修复后应 ~1e-7）。"""
     lat, m = LAT_DEFAULT, MASS_DEFAULT
@@ -65,36 +85,120 @@ def t_clover_solve_and_truth():
 
 def t_mg_end_to_end():
     """G8/G10 PyQCU MG：解 vs BiCGStab 参考一致性。"""
-    npz = np.load(OUT := HERE / "out" / "qcu_clover_solve.npz")
-    _ = npz  # noqa: F841
     import subprocess
+    out_dir = HERE / "out"
+    mg_json = out_dir / "qcu_clover_mg.json"
+    before_ns = mg_json.stat().st_mtime_ns if mg_json.exists() else -1
     r = subprocess.run([sys.executable, str(HERE / "run_qcu_mg.py"),
                         "--levels", "2", "--E", "12", "--nvi", "1",
                         "--cmi", "200", "--ctf", "3000"],
                        capture_output=True, text=True, timeout=900)
-    j = json.loads((HERE / "out" / "qcu_clover_mg.json").read_text())
-    ok = r.returncode == 0 and j["rel_diff_vs_bistabcg"] < 1e-5
-    hint = "" if ok else " | 已知平台态: WSL2 驱动上下文劣化(见报告§15), 宿主 wsl --shutdown 后复验"
+    if r.returncode != 0:
+        tail = (r.stderr or r.stdout)[-500:].replace("\n", " ")
+        check("mg_vs_ref", False, f"rc={r.returncode} 子进程失败: {tail}")
+        return
+    if not mg_json.exists() or mg_json.stat().st_mtime_ns <= before_ns:
+        check("mg_vs_ref", False, "子进程成功但未生成本次 qcu_clover_mg.json（拒绝读取旧结果）")
+        return
+    try:
+        j = json.loads(mg_json.read_text())
+        lat = list(j["lat"])
+        expected = list(LAT_DEFAULT)
+        rel = float(j["rel_diff_vs_bistabcg"])
+        ok = lat == expected and np.isfinite(rel) and rel < 1e-5
+        detail = f"rc=0 lat={lat} rel={rel:.3e} wall={float(j['mg_wall_s']):.2f}s"
+    except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError) as e:
+        check("mg_vs_ref", False, f"结果文件无效: {e!r}")
+        return
+    hint = "" if ok else (
+        " | 直连运行器历史‘驱动上下文损伤’假设已由 MultiGpu 与直连复验排除；"
+        "本次失败应按 run_qcu_mg 的桥接序列和本次日志定位")
     check("mg_vs_ref", ok,
-          f"rc={r.returncode} rel={j['rel_diff_vs_bistabcg']:.3e} wall={j['mg_wall_s']:.2f}s{hint}")
+          detail + hint)
 
 
 def t_component():
     """G5-G7 组件诊断：Galerkin/正交性阈值断言。"""
-    import component_diag  # noqa: F401  (复用其 main 产物)
-    j = json.loads((HERE / "out" / "component_diag.json").read_text())
-    gal = float(j["galerkin_rel_diff"])
-    off = float(j["ortho_offdiag_max"])
-    check("component_quality", gal < 1e-5 and off < 1e-5,
-          f"galerkin={gal:.2e} ortho_offdiag={off:.2e}")
+    import component_diag
+    path = HERE / "out" / "component_diag.json"
+    before_ns = path.stat().st_mtime_ns if path.exists() else -1
+    component_diag.main()
+    if not path.exists() or path.stat().st_mtime_ns <= before_ns:
+        check("component_quality", False, "组件诊断未生成本次结果（拒绝读取旧结果）")
+        return
+    try:
+        j = json.loads(path.read_text())
+        lat = list(j["lat"])
+        gal = float(j["galerkin_rel_diff"])
+        off = float(j["ortho_offdiag_max"])
+        ok = (lat == list(LAT_DEFAULT) and np.isfinite(gal) and
+              np.isfinite(off) and gal < 1e-5 and off < 1e-5)
+        check("component_quality", ok,
+              f"lat={lat} galerkin={gal:.2e} ortho_offdiag={off:.2e}")
+    except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError) as e:
+        check("component_quality", False, f"组件结果无效: {e!r}")
 
 
 def t_quda_scaled():
-    """G4.1 双方解对照（缩放 m+4 口径）。"""
-    zq = json.loads((HERE / "out" / "quda_clover_solve.json").read_text())
-    rd = float(zq["rel_diff_vs_qcu"])
-    check("quda_solve_scaled_agreement", rd < 1e-5,
-          f"rel_diff(scaled m+4)={rd:.3e} iters={zq.get('iters')}")
+    """G4.1 双方真实运行与解对照（缩放 m+4 口径）。"""
+    import subprocess
+    out_dir = HERE / "out"
+    solve_json = out_dir / "quda_clover_solve.json"
+    mg_json = out_dir / "quda_clover_mg.json"
+    before = {p: p.stat().st_mtime_ns if p.exists() else -1
+              for p in (solve_json, mg_json)}
+    r = subprocess.run([sys.executable, str(HERE / "run_quda_py.py"),
+                        "--case", "all", "--lat", *map(str, LAT_DEFAULT),
+                        "--mass", str(MASS_DEFAULT), "--nvec", "12",
+                        "--block", "2", "2", "2", "2"],
+                       env=_quda_process_env(),
+                       capture_output=True, text=True, timeout=900)
+    if r.returncode != 0:
+        tail = (r.stderr or r.stdout)[-700:].replace("\n", " ")
+        check("quda_solve_scaled_agreement", False,
+              f"QUDA/PyQUDA 子进程失败 rc={r.returncode}: {tail}")
+        return
+    stale = [str(p.name) for p, old in before.items()
+             if not p.exists() or p.stat().st_mtime_ns <= old]
+    if stale:
+        check("quda_solve_scaled_agreement", False,
+              "QUDA 子进程成功但结果未刷新: " + ", ".join(stale))
+        return
+    try:
+        zq = json.loads(solve_json.read_text())
+        zmg = json.loads(mg_json.read_text())
+        lat_ok = list(zq["lat"]) == list(LAT_DEFAULT) and list(zmg["lat"]) == list(LAT_DEFAULT)
+        rd = float(zq["rel_diff_vs_qcu"])
+        ok = lat_ok and np.isfinite(rd) and rd < 1e-5
+        detail = f"lat={zq['lat']} rel_diff(scaled m+4)={rd:.3e} iters={zq.get('iters')}"
+    except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError) as e:
+        check("quda_solve_scaled_agreement", False, f"QUDA 结果文件无效: {e!r}")
+        return
+    check("quda_solve_scaled_agreement", ok, detail)
+
+    # MG 的 QUDA 端解也必须与同一 b、同一布局下的 PyQCU MG 解比较；只
+    # 看求解器迭代数会遗漏 transfer/coarse-op 的系统性布局错误。
+    try:
+        from run_quda_py import reconstruct_full_b
+        qcu_x = reconstruct_full_b(np.load(out_dir / "qcu_clover_mg.npz")["x_eo"])
+        quda_x = np.load(out_dir / "quda_clover_mg.npz")["x_scxyzt"]
+        # reconstruct_full_b 返回合并 spin/color 的 [12,X,Y,Z,T]；
+        # PyQUDA 导出保留 [4,3,X,Y,Z,T]。两者是同一内存语义，比较前
+        # 只展开/合并这两个内部自由度，不能把形状差误判为布局差。
+        if quda_x.ndim == 6 and quda_x.shape[:2] == (4, 3):
+            qcu_cmp = qcu_x.reshape(quda_x.shape)
+        else:
+            qcu_cmp = qcu_x
+        if quda_x.shape != qcu_cmp.shape:
+            raise ValueError(f"MG 解 shape 不同: QCU={qcu_x.shape}, QUDA={quda_x.shape}")
+        scale = float(MASS_DEFAULT + 4.0)
+        mg_rel = float(np.linalg.norm((quda_x * scale - qcu_cmp).ravel()) /
+                       max(np.linalg.norm(qcu_cmp.ravel()), 1e-30))
+        mg_ok = np.isfinite(mg_rel) and mg_rel < 1e-4
+        check("quda_mg_scaled_agreement", mg_ok,
+              f"rel_diff(scaled m+4)={mg_rel:.3e} qcu_wall={json.loads((out_dir / 'qcu_clover_mg.json').read_text())['mg_wall_s']:.2f}s quda_setup={zmg.get('setup_s'):.2f}s quda_solve={zmg.get('wall_s'):.2f}s")
+    except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError) as e:
+        check("quda_mg_scaled_agreement", False, f"MG 解对照失败: {e!r}")
 
 
 def main():

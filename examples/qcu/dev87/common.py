@@ -45,8 +45,9 @@ def gauge_tag(lat, mass, seed=SEED_DEFAULT):
     return f"gauge_{lat[0]}x{lat[1]}x{lat[2]}x{lat[3]}_m{mass}_seed{seed}_c64.h5"
 
 
-def nv_tag(lat, E, nvi, suf=""):
-    return f"L{lat[0]}x{lat[1]}x{lat[2]}x{lat[3]}_lv1_E{E}_nvi{nvi}{suf}_t1e-2.h5"
+def nv_tag(lat, E, nvi, suf="", level=1):
+    return (f"L{lat[0]}x{lat[1]}x{lat[2]}x{lat[3]}_lv{level}_E{E}"
+            f"_nvi{nvi}{suf}_t1e-2.h5")
 
 
 def load_gauge_h5(lat, mass=MASS_DEFAULT, seed=SEED_DEFAULT, device="cuda"):
@@ -60,9 +61,24 @@ def load_gauge_h5(lat, mass=MASS_DEFAULT, seed=SEED_DEFAULT, device="cuda"):
     return torch.from_numpy(g_np).to(device)
 
 
-def load_stencil(lat, E=12, nvi=1, suf="", device="cuda"):
-    """读 data/*_lv1_*.h5 -> (lonv,hnn,hdg,sit) 33-tensor 粗算子资产。"""
+def load_stencil(lat, E=12, nvi=1, suf="", device="cuda", level=1):
+    """读取指定层的 33-tensor 粗算子缓存。
+
+    ``level`` 是从细层到粗层的 transition 编号：1 表示 level-0→1，
+    2 表示 level-1→2。兼容历史缓存中的 ``t0.01`` 文件名。
+    """
     path = DATA_DIR / nv_tag(lat, E, nvi, suf)
+    if level != 1:
+        path = DATA_DIR / nv_tag(lat, E, nvi, suf, level=level)
+    # 历史缓存同时存在 ``t0.01`` 与 ``t1e-2`` 两种等价命名；优先使用
+    # 规范化的新命名，缺失时只做只读回退，避免为小格子重复构建粗算子。
+    if not path.exists() and not suf:
+        legacy = DATA_DIR / (
+            f"L{lat[0]}x{lat[1]}x{lat[2]}x{lat[3]}_lv{level}_E{E}"
+            f"_nvi{nvi}_t0.01.h5"
+        )
+        if legacy.exists():
+            path = legacy
     if not path.exists():
         raise FileNotFoundError(path)
     return tuple(tools.load_tensor_h5(str(path), dataset=k, device=device)
