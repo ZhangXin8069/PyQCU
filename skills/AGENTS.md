@@ -25,7 +25,7 @@ frontmatter：name 与目录名一致 + description 写触发场景（何时使�
 目录文档（Files / Exported API / Key Anti-Patterns / Lessons）。项目知识条目须带实测数字与
 出处路径（logs/<tag>/...），不写未验证内容。
 
-## 技能表（39/39）
+## 技能表（40/40）
 
 | 技能 | 用途 |
 |---|---|
@@ -53,6 +53,7 @@ frontmatter：name 与目录名一致 + description 写触发场景（何时使�
 | `maca` | cpp/maca 目录的完整生成 skill：Maca C++ 后端容器目录（占位）。 |
 | `npu` | examples/npu 目录的完整生成 skill：昇腾 NPU 测试（可用 force_use_npu 在 CPU 上测 NPU 路径）。 |
 | `profiler` | examples/profiler 目录的完整生成 skill：torch.profiler 性能剖析，导出 Chrome trace 供 Perfetto 可视化。 |
+| `pyquda` | examples/pyquda 目录的完整生成 skill：PyQCU 与 PyQuda-0.3.2（QUDA 1.1.0）双进程隔离对比套件——Wilson/Clover dslash、BiCGStab/CG 求解的结果与性能对比（残差/逐迭代残差/耗时/作图），含维度排布转换（pyqcu 切 t vs pyquda 切 x）与归一化锚定（m+4=1/(2κ)）。 |
 | `pyqcu` | examples/pyqcu 目录的完整生成 skill：纯 Python 算子/求解器主测试套件（conftest 入口 + 各 conftest.*.py 变体）。 |
 | `python` | cpp/cuda/qcu/python 目录的完整生成 skill：pyqcu.h C API 声明（22 个 extern C 函数），必须与 qcu.pxd 完全同步。 |
 | `qcu.v2` | examples/qcu 目录的完整生成 skill：经 Cython 桥测 C++ CUDA 后端；含 dev73_5 多重网格性能基准套件（clean/bench/verify/collect/mktable/plots）。 |
