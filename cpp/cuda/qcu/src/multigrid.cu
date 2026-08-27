@@ -3,6 +3,38 @@
 #pragma optimize(5)
 namespace qcu {
 namespace cg = cooperative_groups;
+
+template <typename T>
+__device__ inline bool multigrid_cg_bad(const LatticeComplex<T> &z) {
+  return !((z.real() == z.real()) && (z.imag() == z.imag()) &&
+           fabs(z.real()) != INFINITY && fabs(z.imag()) != INFINITY);
+}
+
+template <typename T>
+__device__ inline T multigrid_cg_abs1(const LatticeComplex<T> &z) {
+  return fabs(z.real()) + fabs(z.imag());
+}
+
+template <typename T>
+__device__ inline bool multigrid_cg_near_zero(const LatticeComplex<T> &z,
+                                              T scale) {
+  return multigrid_cg_bad(z) ||
+         multigrid_cg_abs1(z) <= (T)1e-13 * scale;
+}
+
+// Every thread in the cooperative grid calls this helper.  A single global
+// flag records the first invalid recurrence scalar, and grid.sync() makes the
+// decision uniform before any thread can leave the iteration loop.  This is
+// essential: an early return by only one block would deadlock later grid.sync
+// calls, while allowing the recurrence to continue would poison x with NaN.
+template <typename T>
+__device__ inline bool multigrid_cg_abort(cg::grid_group &grid, int tid,
+                                          int *breakdown, bool bad) {
+  if (bad && tid == 0) atomicExch(breakdown, 1);
+  grid.sync();
+  return *breakdown != 0;
+}
+
 template <typename T>
 __global__ void multigrid_restrict(void *coarse_out, void *fine_in,
                                    void *null_vecs, int E, int e, int Xf, int Yf,
@@ -569,7 +601,7 @@ __global__ void multigrid_coarse_solve_cg(
     void *x, void *rhs, void *r_tilde, void *r, void *p, void *v, void *s,
     void *t, void *sitting, void *hop_nn, void *hop_diag,
     int E, int X, int Y, int Z, int Lt, int max_iter, T tol,
-    void *partials) {
+    void *partials, void *breakdown_ptr) {
   cg::grid_group grid = cg::this_grid();
   const int n = E * X * Y * Z * Lt;
   const int tid = threadIdx.x;
@@ -590,6 +622,7 @@ __global__ void multigrid_coarse_solve_cg(
   const LatticeComplex<T> *nn  = static_cast<const LatticeComplex<T>*>(hop_nn);
   const LatticeComplex<T> *dg  = static_cast<const LatticeComplex<T>*>(hop_diag);
   LatticeComplex<T> *prt = static_cast<LatticeComplex<T>*>(partials);
+  int *breakdown = static_cast<int*>(breakdown_ptr);
 
   // ---- Init vectors (grid-stride) ----
   for (int i = bid * NT_local + tid; i < n; i += nblocks * NT_local) {
@@ -618,11 +651,17 @@ __global__ void multigrid_coarse_solve_cg(
     // every block sums the partials locally
     LatticeComplex<T> tot(0,0);
     for (int b = 0; b < nblocks; b++) tot += prt[b];
+    bool bad_norm = multigrid_cg_bad(tot) || tot.real() < (T)0;
+    if (multigrid_cg_abort<T>(grid, tid, breakdown, bad_norm)) return;
     T r0 = sqrt(tot.real() > 0 ? tot.real() : 0);
     T target = tol * r0;
+    bool bad_target = (tol != tol) || fabs(tol) == INFINITY || tol < (T)0 ||
+                      (target != target) || fabs(target) == INFINITY;
+    if (multigrid_cg_abort<T>(grid, tid, breakdown, bad_target)) return;
     grid.sync();  // before next block-partial overwrites prt[]
 
     if (r0 < (T)1e-4) return;
+    const T scale = tot.real();
 
     // ---- Wide 33-tensor coarse dslash (out = A_c·in), grid-stride ----
     auto dslash = [&](LatticeComplex<T> *out, const LatticeComplex<T> *in) {
@@ -695,8 +734,23 @@ __global__ void multigrid_coarse_solve_cg(
     for (int it = 0; it < max_iter; ++it) {
       // 1. rho = <rt, r>
       rho = block_dot(rtr, rr);
+      if (multigrid_cg_abort<T>(
+              grid, tid, breakdown,
+              multigrid_cg_bad(rho) ||
+                  multigrid_cg_near_zero(rho, scale)))
+        break;
       // 2. beta; rho_prev = rho
+      bool bad_recurrence = multigrid_cg_bad(rho_prev) ||
+                            multigrid_cg_bad(alpha) ||
+                            multigrid_cg_bad(omega) ||
+                            multigrid_cg_abs1(omega) <= (T)1e-13 ||
+                            (it > 0 && multigrid_cg_near_zero(rho_prev, scale));
+      if (multigrid_cg_abort<T>(grid, tid, breakdown, bad_recurrence))
+        break;
       LatticeComplex<T> beta = (rho / rho_prev) * (alpha / omega);
+      if (multigrid_cg_abort<T>(grid, tid, breakdown,
+                                multigrid_cg_bad(beta)))
+        break;
       rho_prev = rho;
       // 3. p = r + beta*(p - omega*v)
       for (int i = bid*NT_local + tid; i < n; i += nblocks*NT_local)
@@ -707,7 +761,15 @@ __global__ void multigrid_coarse_solve_cg(
       __syncthreads();
       // 5. rtv; alpha = rho/rtv
       LatticeComplex<T> rtv = block_dot(rtr, vr);
+      if (multigrid_cg_abort<T>(
+              grid, tid, breakdown,
+              multigrid_cg_bad(rtv) ||
+                  multigrid_cg_near_zero(rtv, scale)))
+        break;
       alpha = rho / rtv;
+      if (multigrid_cg_abort<T>(grid, tid, breakdown,
+                                multigrid_cg_bad(alpha)))
+        break;
       // 6. s = r - alpha*v
       for (int i = bid*NT_local + tid; i < n; i += nblocks*NT_local)
         sr[i] = rr[i] - alpha * vr[i];
@@ -742,7 +804,17 @@ __global__ void multigrid_coarse_solve_cg(
         LatticeComplex<T> tt(0,0);
         for (int b = 0; b < nblocks; b++) tt += prt[b];
         grid.sync();
+        if (multigrid_cg_abort<T>(
+                grid, tid, breakdown,
+                multigrid_cg_bad(ts) || multigrid_cg_bad(tt) ||
+                    multigrid_cg_near_zero(tt, scale)))
+          break;
         omega = ts / tt;
+        if (multigrid_cg_abort<T>(
+                grid, tid, breakdown,
+                multigrid_cg_bad(omega) ||
+                    multigrid_cg_abs1(omega) <= (T)1e-13))
+          break;
       }
       // 9. r = s - omega*t ; x += alpha*p + omega*s
       for (int i = bid*NT_local + tid; i < n; i += nblocks*NT_local) {
@@ -752,6 +824,10 @@ __global__ void multigrid_coarse_solve_cg(
       __syncthreads();
       // 10. ||r||^2 and convergence
       LatticeComplex<T> nr = block_dot(rr, rr);
+      if (multigrid_cg_abort<T>(
+              grid, tid, breakdown,
+              multigrid_cg_bad(nr) || nr.real() < (T)0))
+        break;
       if (nr.real() < target * target) break;
     }
   }
@@ -790,10 +866,10 @@ template __global__ void multigrid_coarse_solve<double>(
     void*, int, int, int, int, int, int, double);
 template __global__ void multigrid_coarse_solve_cg<float, 256>(
     void*, void*, void*, void*, void*, void*, void*, void*, void*, void*,
-    void*, int, int, int, int, int, int, float, void*);
+    void*, int, int, int, int, int, int, float, void*, void*);
 template __global__ void multigrid_coarse_solve_cg<double, 256>(
     void*, void*, void*, void*, void*, void*, void*, void*, void*, void*,
-    void*, int, int, int, int, int, int, double, void*);
+    void*, int, int, int, int, int, int, double, void*, void*);
 // ---- Parity-split ↔ full-site layout conversion kernels ----
 // Layouts:
 //   Full-site:   [sc, X, Y, Z, Lt]       — all sites, contiguous t

@@ -195,24 +195,53 @@ template <typename T> __device__ inline bool mg_bad(T re, T im) {
 }
 
 template <typename T>
+__device__ inline T mg_abs1(const LatticeComplex<T> &z) {
+  return fabs(z.real()) + fabs(z.imag());
+}
+
+// Dot products have units of ||rhs||^2.  Use the first-solve norm as their
+// scale, while scalar recurrence coefficients (omega, in particular) use an
+// absolute floor because they are dimensionless.
+template <typename T>
+__device__ inline bool mg_near_zero(const LatticeComplex<T> &z, T scale) {
+  return mg_bad<T>(scale, (T)0) || scale <= (T)0 ||
+         mg_abs1(z) <= (T)1e-13 * scale;
+}
+
+template <typename T>
+__device__ inline bool mg_small_scalar(const LatticeComplex<T> &z) {
+  return mg_bad<T>(z.real(), z.imag()) || mg_abs1(z) <= (T)1e-13;
+}
+
+template <typename T>
+__device__ inline bool mg_bad_scale(const LatticeComplex<T> &scale) {
+  return mg_bad<T>(scale.real(), scale.imag()) || scale.real() <= (T)0;
+}
+
+template <typename T>
 __global__ void mg_give_1beta(LatticeComplex<T> *vals) {
   if (threadIdx.x == 0 && blockIdx.x == 0) {
     LatticeComplex<T> scale = vals[_diff2_tmp_];
     T sc = scale.real();
     LatticeComplex<T> rho = vals[_rho_], rp = vals[_rho_prev_];
     LatticeComplex<T> al = vals[_alpha_], om = vals[_omega_];
-    bool bad = sc <= (T)0 ||
-               mg_bad<T>(rho.real(), rho.imag()) ||
+    bool initial = rp.real() == (T)1 && rp.imag() == (T)0 &&
+                   al.real() == (T)1 && al.imag() == (T)0 &&
+                   om.real() == (T)1 && om.imag() == (T)0;
+    bool bad = mg_bad_scale<T>(scale) || mg_bad<T>(rho.real(), rho.imag()) ||
                mg_bad<T>(rp.real(), rp.imag()) ||
                mg_bad<T>(al.real(), al.imag()) ||
-               mg_bad<T>(om.real(), om.imag());
-    T mag_rho = fabs(rho.real()) + fabs(rho.imag());
-    if (bad || mag_rho < (T)1e-13 * sc) {
-      vals[_beta_] = LatticeComplex<T>((T)0, (T)0);
-      vals[_rho_prev_] = LatticeComplex<T>((T)1, (T)0);
-    } else {
-      vals[_beta_] = (rho / rp) * (al / om);
+               mg_bad<T>(om.real(), om.imag()) ||
+               mg_near_zero<T>(rho, sc) ||
+               (!initial && mg_near_zero<T>(rp, sc)) ||
+               mg_small_scalar<T>(om);
+    LatticeComplex<T> beta((T)0, (T)0);
+    if (!bad) {
+      beta = (rho / rp) * (al / om);
+      if (mg_bad<T>(beta.real(), beta.imag()))
+        beta = LatticeComplex<T>((T)0, (T)0);
     }
+    vals[_beta_] = beta;
   }
 }
 
@@ -221,13 +250,18 @@ __global__ void mg_give_1alpha(LatticeComplex<T> *vals) {
   if (threadIdx.x == 0 && blockIdx.x == 0) {
     LatticeComplex<T> scale = vals[_diff2_tmp_];
     T sc = scale.real();
+    LatticeComplex<T> rho = vals[_rho_];
     LatticeComplex<T> d = vals[_tmp0_];   // <r_tilde, v>
-    bool bad = sc <= (T)0 || mg_bad<T>(d.real(), d.imag());
-    if (bad || fabs(d.real()) + fabs(d.imag()) < (T)1e-13 * sc) {
-      vals[_alpha_] = LatticeComplex<T>((T)0, (T)0);
-    } else {
-      vals[_alpha_] = vals[_rho_] / d;
+    bool bad = mg_bad_scale<T>(scale) || mg_bad<T>(rho.real(), rho.imag()) ||
+               mg_bad<T>(d.real(), d.imag()) || mg_near_zero<T>(rho, sc) ||
+               mg_near_zero<T>(d, sc);
+    LatticeComplex<T> alpha((T)0, (T)0);
+    if (!bad) {
+      alpha = rho / d;
+      if (mg_bad<T>(alpha.real(), alpha.imag()))
+        alpha = LatticeComplex<T>((T)0, (T)0);
     }
+    vals[_alpha_] = alpha;
   }
 }
 
@@ -238,13 +272,15 @@ __global__ void mg_give_1omega(LatticeComplex<T> *vals) {
     T sc = scale.real();
     LatticeComplex<T> num = vals[_tmp0_];   // <t,s>
     LatticeComplex<T> den = vals[_tmp1_];   // <t,t>
-    bool bad = sc <= (T)0 || mg_bad<T>(num.real(), num.imag()) ||
-               mg_bad<T>(den.real(), den.imag());
-    if (bad || fabs(den.real()) + fabs(den.imag()) < (T)1e-13 * sc) {
-      vals[_omega_] = LatticeComplex<T>((T)0, (T)0);
-    } else {
-      vals[_omega_] = num / den;
+    bool bad = mg_bad_scale<T>(scale) || mg_bad<T>(num.real(), num.imag()) ||
+               mg_bad<T>(den.real(), den.imag()) || mg_near_zero<T>(den, sc);
+    LatticeComplex<T> omega((T)0, (T)0);
+    if (!bad) {
+      omega = num / den;
+      if (mg_bad<T>(omega.real(), omega.imag()))
+        omega = LatticeComplex<T>((T)0, (T)0);
     }
+    vals[_omega_] = omega;
   }
 }
 
@@ -256,17 +292,30 @@ __global__ void mg_give_1beta_rp(LatticeComplex<T> *vals) {
     T sc = scale.real();
     LatticeComplex<T> rho = vals[_rho_], rp = vals[_rho_prev_];
     LatticeComplex<T> al = vals[_alpha_], om = vals[_omega_];
-    bool bad = sc <= (T)0 ||
-               mg_bad<T>(rho.real(), rho.imag()) ||
+    bool initial = rp.real() == (T)1 && rp.imag() == (T)0 &&
+                   al.real() == (T)1 && al.imag() == (T)0 &&
+                   om.real() == (T)1 && om.imag() == (T)0;
+    bool bad = mg_bad_scale<T>(scale) || mg_bad<T>(rho.real(), rho.imag()) ||
                mg_bad<T>(rp.real(), rp.imag()) ||
                mg_bad<T>(al.real(), al.imag()) ||
-               mg_bad<T>(om.real(), om.imag());
-    T mag_rho = fabs(rho.real()) + fabs(rho.imag());
-    if (bad || mag_rho < (T)1e-13 * sc) {
-      vals[_beta_] = LatticeComplex<T>((T)0, (T)0);
+               mg_bad<T>(om.real(), om.imag()) ||
+               mg_near_zero<T>(rho, sc) ||
+               (!initial && mg_near_zero<T>(rp, sc)) ||
+               mg_small_scalar<T>(om);
+    LatticeComplex<T> beta((T)0, (T)0);
+    if (!bad) {
+      beta = (rho / rp) * (al / om);
+      if (mg_bad<T>(beta.real(), beta.imag()))
+        beta = LatticeComplex<T>((T)0, (T)0);
+    } else {
+      vals[_rho_prev_] = LatticeComplex<T>((T)1, (T)0);
+      vals[_beta_] = beta;
+      return;
+    }
+    vals[_beta_] = beta;
+    if (mg_bad<T>(beta.real(), beta.imag())) {
       vals[_rho_prev_] = LatticeComplex<T>((T)1, (T)0);
     } else {
-      vals[_beta_] = (rho / rp) * (al / om);
       vals[_rho_prev_] = rho;
     }
   }
@@ -415,6 +464,7 @@ template <typename T> struct LatticeCloverMultigrid {
                           //  reverted without disturbing the solution)
   void *coarse_partials;  // [1024] LatticeComplex scratch for cooperative
                           // fused coarse-solve cross-block dot reductions
+  int *coarse_breakdown = nullptr; // cooperative coarse-solve abort flag
 
   // ---- Host mirror for convergence check ----
   LatticeComplex<T> host_vals[_vals_size_];
@@ -561,7 +611,7 @@ template <typename T> struct LatticeCloverMultigrid {
    * kernel does all BiStabCG iterations internally with block reductions and
    * costs ONE launch.
    */
-  void coarse_solve_fused(int lev) {
+  bool coarse_solve_fused(int lev) {
     auto &st=levels[lev];
     int E=st.dof, Xc=st.X, Yc=st.Y, Zc=st.Z, Ltc=st.Lt;
     T tol_factor = levels[lev].tol;
@@ -595,17 +645,36 @@ template <typename T> struct LatticeCloverMultigrid {
     if (rank==0 && verbose)
       printf("MG: fused grid=%d (cap=%d, sm=%d, occ=%d/block) n=%d\n",
              grid_sz, max_blocks, sm_count[cur_dev], max_blocks_per_sm[cur_dev], n);
+    checkCudaErrors(cudaMemsetAsync(coarse_breakdown, 0, sizeof(int),
+                                    set_ptr->stream));
     void *args[] = {
         (void*)&st.x, (void*)&st.rhs, (void*)&st.r_tilde, (void*)&st.r,
         (void*)&st.p, (void*)&st.v, (void*)&st.s, (void*)&st.t,
         (void*)&sit_packed[lev-1], (void*)&hop_nn[lev-1],
         (void*)&hop_diag[lev-1],
         (void*)&E, (void*)&Xc, (void*)&Yc, (void*)&Zc, (void*)&Ltc,
-        (void*)&st.max_iter, (void*)&tol_factor, (void*)&coarse_partials};
+        (void*)&st.max_iter, (void*)&tol_factor, (void*)&coarse_partials,
+        (void*)&coarse_breakdown};
     checkCudaErrors(cudaLaunchCooperativeKernel(
         (const void*)multigrid_coarse_solve_cg<T,NT>,
         dim3(grid_sz), dim3(NT), args, 0, set_ptr->stream));
     checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
+    int breakdown = 0;
+    checkCudaErrors(cudaMemcpy(&breakdown, coarse_breakdown, sizeof(int),
+                               cudaMemcpyDeviceToHost));
+    if (breakdown != 0) {
+      // A breakdown means that the coarse operator supplied by the caller is
+      // singular (or numerically unusable).  Discard the partial correction;
+      // the fine-level Krylov solve remains a valid fallback.
+      zero_c(st.x, lev);
+      checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
+      if (rank == 0) {
+        log_write<T>("PYQCU::SOLVER::MULTIGRID::\n " +
+                         std::to_string(lev) +
+                         ": fused coarse solve breakdown; correction dropped",
+                     rank, true);
+      }
+    }
     auto q1=std::chrono::high_resolution_clock::now();
     if (rank==0)
       log_write<T>("PYQCU::SOLVER::MULTIGRID::\n "+std::to_string(lev)+
@@ -613,6 +682,7 @@ template <typename T> struct LatticeCloverMultigrid {
         std::to_string(Xc)+"x"+std::to_string(Yc)+"x"+std::to_string(Zc)+
         "x"+std::to_string(Ltc)+", grid="+std::to_string(grid_sz)+") in "+
         std::to_string(std::chrono::duration<double,std::milli>(q1-q0).count())+" ms",rank,true);
+    return breakdown == 0;
   }
 
   // ==================================================================
@@ -1386,16 +1456,88 @@ template <typename T> struct LatticeCloverMultigrid {
   // Params parsing — reads MG configuration from host_params.
   // ==================================================================
   void parse_params() {
-    num_levels=set_ptr->host_params[_MG_NUM_LEVEL_];
-    if(num_levels<1)num_levels=1; if(num_levels>8)num_levels=8;
-    levels=new MgLevelState<T>[num_levels];
+    const int requested_levels = set_ptr->host_params[_MG_NUM_LEVEL_];
+    // The flat params protocol contains four coarse-level records
+    // (LEVEL1..LEVEL4), hence level 0 plus at most four coarse levels.
+    const int max_levels = 1 +
+        (_PARAMS_SIZE_ - _MG_LEVEL1_E_) / _MG_PARAMS_SIZE_;
+    if (requested_levels < 1 || requested_levels > max_levels) {
+      throw std::invalid_argument(
+          "Clover Multigrid: _MG_NUM_LEVEL_=" +
+          std::to_string(requested_levels) + " is outside [1," +
+          std::to_string(max_levels) + "] supported by the params protocol");
+    }
+    num_levels = requested_levels;
+
+    max_iter = set_ptr->host_params[_MAX_ITER_];
+    atol = set_ptr->host_argv[_ATOL_];
+    kappa_val = set_ptr->kappa();
+    if (max_iter <= 0) {
+      throw std::invalid_argument(
+          "Clover Multigrid: _MAX_ITER_ must be positive");
+    }
+    if (!std::isfinite(atol) || atol <= (T)0) {
+      throw std::invalid_argument(
+          "Clover Multigrid: fine tolerance must be finite and positive");
+    }
+    if (!std::isfinite(kappa_val)) {
+      throw std::invalid_argument(
+          "Clover Multigrid: kappa computed from mass is not finite");
+    }
 
     // Level 0: parity-split layout (Lt is halved by LatticeSet::give)
+    const int fine_dims[4] = {
+        set_ptr->host_params[_LAT_X_], set_ptr->host_params[_LAT_Y_],
+        set_ptr->host_params[_LAT_Z_], set_ptr->host_params[_LAT_T_]};
+    for (int d = 0; d < 4; ++d) {
+      if (fine_dims[d] <= 0) {
+        throw std::invalid_argument(
+            "Clover Multigrid: fine lattice dimensions must be positive");
+      }
+    }
+
+    // Validate every configured coarse record before allocating any device
+    // state.  In particular, never walk past params[57] when a stale caller
+    // supplies an oversized level count, and never silently fabricate a
+    // non-dividing hierarchy from a zero dimension.
+    const int fine_data_type = set_ptr->host_params[_DATA_TYPE_];
+    int prev_dims[4] = {fine_dims[0], fine_dims[1], fine_dims[2], fine_dims[3]};
+    for (int i = 1; i < num_levels; ++i) {
+      const int b = (i - 1) * _MG_PARAMS_SIZE_;
+      const int coarse_data_type =
+          set_ptr->host_params[_MG_LEVEL1_DATA_TYPE_ + b];
+      if (coarse_data_type != fine_data_type) {
+        throw std::invalid_argument(
+            "Clover Multigrid: mixed fine/coarse data types are unsupported "
+            "(level " + std::to_string(i) + ")");
+      }
+      const int dims[4] = {
+          set_ptr->host_params[_MG_LEVEL1_X_ + b],
+          set_ptr->host_params[_MG_LEVEL1_Y_ + b],
+          set_ptr->host_params[_MG_LEVEL1_Z_ + b],
+          set_ptr->host_params[_MG_LEVEL1_T_ + b]};
+      const int dof = set_ptr->host_params[_MG_LEVEL1_E_ + b];
+      if (dof <= 0) {
+        throw std::invalid_argument(
+            "Clover Multigrid: coarse E must be positive at level " +
+            std::to_string(i));
+      }
+      for (int d = 0; d < 4; ++d) {
+        if (dims[d] <= 0 || prev_dims[d] % dims[d] != 0) {
+          throw std::invalid_argument(
+              "Clover Multigrid: coarse dimensions must be positive and "
+              "divide the previous level at level " + std::to_string(i));
+        }
+        prev_dims[d] = dims[d];
+      }
+    }
+
+    levels=new MgLevelState<T>[num_levels];
     levels[0].dof=_LAT_SC_;
-    levels[0].X=set_ptr->host_params[_LAT_X_];
-    levels[0].Y=set_ptr->host_params[_LAT_Y_];
-    levels[0].Z=set_ptr->host_params[_LAT_Z_];
-    levels[0].Lt=set_ptr->host_params[_LAT_T_]; // already halved (parity-split)
+    levels[0].X=fine_dims[0];
+    levels[0].Y=fine_dims[1];
+    levels[0].Z=fine_dims[2];
+    levels[0].Lt=fine_dims[3]; // already halved (parity-split)
     levels[0].vol=levels[0].X*levels[0].Y*levels[0].Z*levels[0].Lt;
     levels[0].vec_sz=(size_t)levels[0].dof*levels[0].vol;
 
@@ -1415,14 +1557,9 @@ template <typename T> struct LatticeCloverMultigrid {
       levels[i].Y=set_ptr->host_params[oY+b];
       levels[i].Z=set_ptr->host_params[oZ+b];
       levels[i].Lt=set_ptr->host_params[oL+b];
-      if(levels[i].dof<=0)levels[i].dof=24;
-      if(levels[i].X<=0)  levels[i].X=levels[i-1].X/2;
-      if(levels[i].Y<=0)  levels[i].Y=levels[i-1].Y/2;
-      if(levels[i].Z<=0)  levels[i].Z=levels[i-1].Z/2;
       // SCHUR mode: level 0 Lt is the HALVED (odd-lattice) T = T_full/2;
       // the coarse level is the coarsened odd-lattice, so Lt is coarsened
       // again by 2 (T_full/4).  (For the full-site mode this used the same Lt.)
-      if(levels[i].Lt<=0) levels[i].Lt=levels[i-1].Lt/2;
       levels[i].vol=levels[i].X*levels[i].Y*levels[i].Z*levels[i].Lt;
       levels[i].vec_sz=(size_t)levels[i].dof*levels[i].vol;
 
@@ -1439,13 +1576,15 @@ template <typename T> struct LatticeCloverMultigrid {
       int tol_idx = _MG_LEVEL1_ATOL_ + (i-1);
       if(tol_idx < _ARGV_SIZE_) levels[i].tol = set_ptr->host_argv[tol_idx];
       else levels[i].tol = atol * (T)0.1; // default: 0.1 × fine tolerance
+      if (!std::isfinite(levels[i].tol)) {
+        throw std::invalid_argument(
+            "Clover Multigrid: coarse tolerance must be finite at level " +
+            std::to_string(i));
+      }
+      if (levels[i].tol <= (T)0) levels[i].tol = atol * (T)0.1;
 
       levels[i].alloc(levels[i].dof,levels[i].X,levels[i].Y,levels[i].Z,levels[i].Lt,set_ptr->stream);
     }
-
-    max_iter=set_ptr->host_params[_MAX_ITER_];
-    atol=set_ptr->host_argv[_ATOL_];
-    kappa_val=set_ptr->kappa();
 
     // Read num_restart from params (FIX: was hardcoded to 3)
     num_restart=set_ptr->host_params[_MG_LEVEL1_NUM_RESTART_];
@@ -1495,6 +1634,18 @@ template <typename T> struct LatticeCloverMultigrid {
    */
   void set_coarse_ops(int fl,void*nv,void*hnn,void*hdg,void*sp){
     if(fl>=0&&fl<num_levels-1){null_vecs[fl]=nv;hop_nn[fl]=hnn;hop_diag[fl]=hdg;sit_packed[fl]=sp;}
+  }
+
+  void validate_coarse_ops() const {
+    for (int fl = 0; fl < num_levels - 1; ++fl) {
+      if (null_vecs[fl] == nullptr || hop_nn[fl] == nullptr ||
+          hop_diag[fl] == nullptr || sit_packed[fl] == nullptr) {
+        throw std::invalid_argument(
+            "Clover Multigrid: coarse operator pointers are incomplete at "
+            "level transition " + std::to_string(fl) +
+            " (need null_vecs, hop_nn, hop_diag and sitting)");
+      }
+    }
   }
 
   // ==================================================================
@@ -1549,8 +1700,10 @@ template <typename T> struct LatticeCloverMultigrid {
       // Fused single-launch coarse solve.  dev87: 多 rank 下 cooperative
       // grid.sync 与 MPI 组合在本平台触发 illegal access（实测 np=2 崩溃），
       // 回退普通迭代路径；单 rank 语义不变。
-      coarse_solve_fused(lev);
-      st.has_solution = true;   // dev84: 供后续 V-cycle 热启动 (fused 内部仍从零解)
+      st.has_solution = coarse_solve_fused(lev);
+      // On breakdown coarse_solve_fused() has already dropped x to zero;
+      // forcing a cold solve on the next V-cycle avoids warm-starting from a
+      // state whose Krylov recurrence was interrupted.
       return rn;
     }
 
@@ -1841,6 +1994,8 @@ template <typename T> struct LatticeCloverMultigrid {
     checkCudaErrors(cudaMallocAsync(&corr_scratch, full_bytes, set_ptr->stream));
     checkCudaErrors(cudaMallocAsync(&coarse_partials,
         1024 * sizeof(LatticeComplex<T>), set_ptr->stream));
+    checkCudaErrors(cudaMallocAsync(&coarse_breakdown, sizeof(int),
+                                    set_ptr->stream));
 
     checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
 
@@ -1895,6 +2050,10 @@ template <typename T> struct LatticeCloverMultigrid {
   // Schur residual, and reset the BiStabCG state.
   // ==================================================================
   void run() {
+    // applyCloverMultigridQcu wires the external coarse assets immediately
+    // after init(); fail before launching any kernel if one transition is
+    // incomplete instead of dereferencing a null device pointer.
+    validate_coarse_ops();
     if (set_ptr->host_params[_MG_USE_GCR_] != 0) { run_gcr(); return; }
     auto t0=std::chrono::high_resolution_clock::now();
     auto &st=levels[0]; cudaStream_t S=set_ptr->stream;
@@ -2659,6 +2818,10 @@ template <typename T> struct LatticeCloverMultigrid {
     F(full_x);F(full_rhs);F(full_r);F(full_rt);
     F(full_p);F(full_v);F(full_s);F(full_t);
     F(parity_tmp);F(parity_dst);F(corr_scratch);F(coarse_partials);
+    if (coarse_breakdown != nullptr) {
+      checkCudaErrors(cudaFreeAsync(coarse_breakdown, set_ptr->stream));
+      coarse_breakdown = nullptr;
+    }
     if(check_host!=nullptr){cudaFreeHost(check_host);check_host=nullptr;check_dev=nullptr;}
     for(int i=1;i<num_levels;i++)levels[i].free_all(set_ptr->stream);
     // dev84: free captured coarse-solve graphs
