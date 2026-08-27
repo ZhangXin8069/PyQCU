@@ -2528,25 +2528,46 @@ template <typename T> struct LatticeCloverMultigrid {
     checkCudaErrors(cudaMemcpyAsync(&dv[_rho_prev_],&dv[_tmp0_],
         sizeof(LatticeComplex<T>),cudaMemcpyDeviceToDevice,S));
 
-    const int cg_blocks = (n + 255) / 256;
+    const int smoother_blocks = (n + 255) / 256;
 
-    // ---- μ_pre 步固定 CG (无收敛检查；α/β 设备端计算, quda Nsteps 语义) ----
-    // 每步: Ap=S·p → pv=<p,Ap> → α=rr/pv → x+=αp, r-=αAp → rr=<r,r>
-    //       → β=rr_new/rr_prev → p=r+βp。全程单流 S, 无任何同步/D2H。
-    for (int k=0;k<mu_pre;k++) {
-      fine_dslash_op(set_ptr->device_vec1, p0);            // Ap = S·p
-      CUBLAS_CHECK(_cublasDot<T>(set_ptr->cublasH,n,p0,1,set_ptr->device_vec1,1,&dv[_tmp1_]));
-      mg_cg_give_alpha<T><<<1,1,0,S>>>(dv);
-      mg_cg_update_xr<T><<<cg_blocks,256,0,S>>>(
-          static_cast<LatticeComplex<T>*>(out),
-          static_cast<const LatticeComplex<T>*>(p0),
-          static_cast<LatticeComplex<T>*>(rt0),
-          static_cast<const LatticeComplex<T>*>(set_ptr->device_vec1), dv, n);
-      CUBLAS_CHECK(_cublasDot<T>(set_ptr->cublasH,n,rt0,1,rt0,1,&dv[_tmp0_]));
-      mg_cg_give_beta<T><<<1,1,0,S>>>(dv);
-      mg_cg_update_p<T><<<cg_blocks,256,0,S>>>(
-          static_cast<LatticeComplex<T>*>(p0),
-          static_cast<const LatticeComplex<T>*>(rt0), dv, n);
+    if (use_mr_smoother) {
+      // ---- μ_pre 步固定 MR（匹配 quda inv_mr_quda.cpp 的核心更新） ----
+      // 每步: Ar=S·r → α=<Ar,r>/<Ar,Ar> → x+=αr, r-=αAr。
+      // MR 不要求 S 为 Hermitian；这正是 Schur 粗算子相对 CG 的稳健性
+      // 优势。两个点积和标量更新均在主流设备端完成。
+      for (int k = 0; k < mu_pre; ++k) {
+        fine_dslash_op(set_ptr->device_vec1, rt0);  // Ar = S·r
+        CUBLAS_CHECK(_cublasDot<T>(set_ptr->cublasH, n,
+            set_ptr->device_vec1, 1, rt0, 1, &dv[_tmp0_]));
+        CUBLAS_CHECK(_cublasDot<T>(set_ptr->cublasH, n,
+            set_ptr->device_vec1, 1, set_ptr->device_vec1, 1,
+            &dv[_tmp1_]));
+        mg_mr_give_alpha<T><<<1, 1, 0, S>>>(dv);
+        mg_mr_update_xr<T><<<smoother_blocks, 256, 0, S>>>(
+            static_cast<LatticeComplex<T> *>(out),
+            static_cast<LatticeComplex<T> *>(rt0),
+            static_cast<const LatticeComplex<T> *>(set_ptr->device_vec1),
+            dv, n);
+      }
+    } else {
+      // ---- μ_pre 步固定 CG (无收敛检查；α/β 设备端计算, quda Nsteps 语义) ----
+      // 每步: Ap=S·p → pv=<p,Ap> → α=rr/pv → x+=αp, r-=αAp → rr=<r,r>
+      //       → β=rr_new/rr_prev → p=r+βp。全程单流 S, 无任何同步/D2H。
+      for (int k=0;k<mu_pre;k++) {
+        fine_dslash_op(set_ptr->device_vec1, p0);            // Ap = S·p
+        CUBLAS_CHECK(_cublasDot<T>(set_ptr->cublasH,n,p0,1,set_ptr->device_vec1,1,&dv[_tmp1_]));
+        mg_cg_give_alpha<T><<<1,1,0,S>>>(dv);
+        mg_cg_update_xr<T><<<smoother_blocks,256,0,S>>>(
+            static_cast<LatticeComplex<T>*>(out),
+            static_cast<const LatticeComplex<T>*>(p0),
+            static_cast<LatticeComplex<T>*>(rt0),
+            static_cast<const LatticeComplex<T>*>(set_ptr->device_vec1), dv, n);
+        CUBLAS_CHECK(_cublasDot<T>(set_ptr->cublasH,n,rt0,1,rt0,1,&dv[_tmp0_]));
+        mg_cg_give_beta<T><<<1,1,0,S>>>(dv);
+        mg_cg_update_p<T><<<smoother_blocks,256,0,S>>>(
+            static_cast<LatticeComplex<T>*>(p0),
+            static_cast<const LatticeComplex<T>*>(rt0), dv, n);
+      }
     }
     checkCudaErrors(cudaStreamSynchronize(S));
 
