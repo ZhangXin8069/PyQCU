@@ -66,16 +66,27 @@ def field_to_scxyzt(info, f):
 
 
 def reconstruct_full_b(b_eo):
-    """PyQCU [2,s,c,xh,y,z,T] -> (s,c,X,y,z,T)。x 维交错还原。"""
-    # 实际 shape: [2,s,c,xh,y,z,T] — p_=2(奇偶), xh=X/2
-    p_, s_, c_, xh_, y_, z_, T_ = b_eo.shape
-    out = np.zeros((s_, c_, xh_*2, y_, z_, T_), dtype=b_eo.dtype)
-    out[..., 0::2, :, :, :] = b_eo[0]   # even sites: global x = 2*xi
-    out[..., 1::2, :, :, :] = b_eo[1]   # odd sites:  global x = 2*xi+1
-    return out.reshape(s_*c_, *b_eo.shape[3:5].__class__(b_eo.shape[3]), y_, z_, T_) if False else \
-        out.reshape(p_ * s_, xh_*2, y_, z_, T_) if False else \
-        out.reshape(b_eo.shape[0]*b_eo.shape[1]*b_eo.shape[2],
-                    b_eo.shape[3], b_eo.shape[4], b_eo.shape[5], b_eo.shape[6])
+    """PyQCU [2,s,c,X,Y,Z,T/2] -> [s*c,X,Y,Z,T]。
+
+    ``oooxyzt2poooxyzt`` 按四维 checkerboard
+    ``(X+Y+Z+T) % 2`` 展平后写入两个 parity 面；它不是只在某一
+    个坐标轴上交错。这里用同一掩码逆变换，避免跨库 b/x 比较被布局
+    重排污染。
+    """
+    p_, s_, c_, X_, Y_, Z_, T_half = b_eo.shape
+    if p_ != 2:
+        raise ValueError(f"expected two parity planes, got shape={b_eo.shape}")
+    if T_half <= 0:
+        raise ValueError(f"invalid compressed extent T/2={T_half}")
+    T_ = 2 * T_half
+    coords = np.indices((X_, Y_, Z_, T_), sparse=False)
+    even = (coords.sum(axis=0).reshape(-1) % 2) == 0
+    odd = ~even
+    out = np.empty((s_, c_, X_, Y_, Z_, T_), dtype=b_eo.dtype)
+    out_flat = out.reshape(s_ * c_, -1)
+    out_flat[:, even] = np.ascontiguousarray(b_eo[0]).reshape(s_ * c_, -1)
+    out_flat[:, odd] = np.ascontiguousarray(b_eo[1]).reshape(s_ * c_, -1)
+    return np.ascontiguousarray(out.reshape(s_ * c_, X_, Y_, Z_, T_))
 
 
 
@@ -174,26 +185,46 @@ def case_mg(core, lat, mass, tol, maxiter, nvec=24, block=(2, 2, 2, 2)):
         b_full = None
 
     info = make_info(core, lat)
+    from pyquda.field import LatticeFermion
     if b_full is not None:
-        pass  # replaced above
+        # The QCU source was generated in [s,c,X,Y,Z,T] after the exact
+        # four-dimensional checkerboard merge above.  Convert it to the
+        # [t,z,y,x,s,c] lexicographic order expected by PyQUDA before its
+        # x-checkerboard packing.
+        b_12 = np.ascontiguousarray(b_full.reshape(12, *lat))
+        tzyxsc = np.ascontiguousarray(np.transpose(
+            b_12.astype(np.complex128), (4, 3, 2, 1, 0)))
+        b = LatticeFermion(
+            info,
+            torch.from_numpy(np.ascontiguousarray(
+                info.evenodd(tzyxsc, False))).to("cuda"))
     else:
-        from pyquda.field import LatticeFermion
         X, Y, Z, T = lat
         rng = np.random.default_rng(7)
         tzyxsc = rng.normal(size=(T, Z, Y, X, 4, 3)) + 1j * rng.normal(size=(T, Z, Y, X, 4, 3))
         b = LatticeFermion(info, torch.from_numpy(
             info.evenodd(np.ascontiguousarray(tzyxsc.astype(np.complex128)), False)).to("cuda"))
+    # PyQUDA's ``newQudaMultigridParam`` appends the terminal
+    # ``[4,4,4,4]`` level itself.  Therefore one user block describes one
+    # fine->coarse transition; appending it here accidentally created a
+    # third level for the default ``block=[2,2,2,2]`` and made this run
+    # incomparable with PyQCU's ``--levels 2`` case.
     geo_levels = [list(block)]
-    if all(l // b // b >= 2 for l, b in zip(lat, block)):
-        geo_levels.append(list(block))
     dirac = core.getClover(info, mass, tol, maxiter, clover_csw_t=1.0,
                            multigrid=geo_levels)
     try:
         # nvec 经 Multigrid.setParam 覆盖为指定值（默认工厂为 24）
         mg_obj = dirac.multigrid
-        if hasattr(mg_obj, "setParam"):
-            for lv in range(len(mg_obj.param.n_vec)):
-                mg_obj.setParam(n_vec=nvec, level=lv)
+        if mg_obj is not None and mg_obj.param is not None:
+            # PyQUDA 的 setParam 只接收 solver tolerance/平滑参数，
+            # n_vec 是 QudaMultigridParam 的独立属性。
+            mg_obj.param.n_vec = [nvec] * len(mg_obj.param.n_vec)
+            # 该 QUDA 构建的 MMA Y-hat 内核只实例化 N=12/48/64/128/192；
+            # Clover spin block=2 时 nvec=12 会形成 N=24，必须走 SIMT
+            # 粗算子路径，否则 setup 直接 MPI_ABORT。
+            mg_obj.param.setup_use_mma = [0] * len(mg_obj.param.setup_use_mma)
+            mg_obj.param.dslash_use_mma = [0] * len(mg_obj.param.dslash_use_mma)
+            mg_obj.param.transfer_use_mma = [0] * len(mg_obj.param.transfer_use_mma)
     except Exception as e:
         print("[mg] setParam(nvec) fallback to default:", e)
     # 注意：MG 层精度保持 quda 默认（本快照未启用 GPU_MULTIGRID_DOUBLE，
