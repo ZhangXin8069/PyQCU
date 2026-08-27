@@ -1,0 +1,677 @@
+% ============================================================
+% report 学术成果展示 — QUDA multigrid 算法实现
+% 编译: xelatex 两遍；交付前 Overfull=0, Float too large=0
+% ============================================================
+\documentclass[UTF8,aspectratio=169,11pt]{ctexbeamer}
+
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,calc,fit,shapes.geometric}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{microtype}
+\usepackage{hyperref}
+
+% ===== 色板 =====
+\definecolor{primary}{HTML}{17365D}
+\definecolor{accent}{HTML}{1F77B4}
+\definecolor{evidence}{HTML}{1E8449}
+\definecolor{warning}{HTML}{C55A11}
+\definecolor{muted}{HTML}{5B6573}
+\definecolor{panel}{HTML}{F4F7FA}
+\definecolor{linegray}{HTML}{CBD5E1}
+\definecolor{good}{HTML}{EAF5EE}
+\definecolor{warnbg}{HTML}{FFF4E8}
+\definecolor{violet}{HTML}{6C4A9E}
+
+\setbeamersize{text margin left=0.55cm,text margin right=0.55cm}
+\setlength{\emergencystretch}{2em}
+\setbeamertemplate{navigation symbols}{}
+\setbeamercolor{normal text}{fg=black!86,bg=white}
+\setbeamercolor{structure}{fg=primary}
+\setbeamercolor{frametitle}{fg=primary,bg=white}
+\setbeamercolor{block title}{fg=primary,bg=panel}
+\setbeamercolor{block body}{fg=black!86,bg=panel}
+\setbeamercolor{alerted text}{fg=warning}
+\setbeamerfont{frametitle}{size=\large,series=\bfseries}
+\setbeamerfont{normal text}{size=\normalsize}
+\setbeamertemplate{frametitle}{\vskip0.12cm\insertframetitle\par\vskip0.08cm}
+\setbeamertemplate{footline}{%
+  \hbox{\begin{beamercolorbox}[wd=\paperwidth,ht=2.3ex,dp=0.9ex,
+    leftskip=0.55cm,rightskip=0.55cm]{author in head/foot}%
+    \scriptsize\color{muted}\insertshortauthor\hfill
+    \insertshorttitle\hfill\insertframenumber/\inserttotalframenumber
+  \end{beamercolorbox}}}
+
+% ===== 状态、来源和图形 =====
+\newcommand{\source}[1]{\vspace{0.05em}\par{\raggedright\scriptsize\color{muted}来源：#1\par}}
+\newcommand{\verified}{\textcolor{evidence}{确证}}
+\newcommand{\inferred}{\textcolor{accent}{推断}}
+\newcommand{\unverified}{\textcolor{warning}{未验证}}
+\newcommand{\codepath}[1]{\texttt{\detokenize{#1}}}
+
+\tikzset{
+  flow/.style={draw=accent,fill=accent!8,rounded corners=2pt,align=center,
+    minimum height=0.72cm,text width=2.05cm,font=\small},
+  flowwide/.style={draw=accent,fill=accent!8,rounded corners=2pt,align=center,
+    minimum height=0.68cm,text width=2.5cm,font=\small},
+  state/.style={draw=primary,fill=primary!7,rounded corners=2pt,align=center,
+    minimum height=0.68cm,text width=2.4cm,font=\small},
+  phase/.style={draw=violet,fill=violet!8,rounded corners=2pt,align=center,
+    minimum height=0.62cm,text width=2.33cm,font=\scriptsize},
+  decision/.style={draw=warning,fill=warning!10,diamond,aspect=2,align=center,
+    inner sep=1.5pt,font=\small},
+  arrow/.style={-{Latex[length=2mm]},draw=primary,semithick},
+  relation/.style={-{Latex[length=1.7mm]},draw=muted,thin,dashed},
+  dotarrow/.style={-{Latex[length=1.7mm]},draw=accent,thin,dotted}
+}
+
+\lstset{
+  basicstyle=\ttfamily\scriptsize,
+  backgroundcolor=\color{panel},frame=single,
+  breaklines=true,breakatwhitespace=false,keepspaces=true,
+  columns=flexible,firstnumber=auto,
+  keywordstyle=\color{primary}\bfseries,
+  commentstyle=\color{evidence!70!black},
+  stringstyle=\color{accent},
+  numbers=left,numberstyle=\tiny\color{muted}
+}
+
+\title[QUDA multigrid 实现]{QUDA multigrid 算法实现}
+\subtitle{从近零模聚合到递归粗格求解的源码证据链}
+\author[源码分析汇报]{源码分析汇报}
+\institute{QUDA 参考源码快照}
+\date{2026 年 8 月 27 日}
+
+\begin{document}
+
+% ============================================================
+\begin{frame}[plain]
+  \titlepage
+\end{frame}
+
+\begin{frame}[t]{结论先行：QUDA 的 MG 是一个可递归、可验证的自适应预条件器}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \begin{column}{0.31\textwidth}
+      \begin{block}{已确证的主链}
+        \centering
+        \vspace{0.08cm}
+        \fbox{\(B\) 近零模}\(\ \to\ \)\fbox{\(V\) 聚合基}\(\ \to\ \)\fbox{\(D_c=RDP\)}
+        \vspace{0.1cm}
+
+        每层保存 Transfer、粗 Dirac、平滑器和下一层 \texttt{MG}。
+      \end{block}
+    \end{column}
+    \begin{column}{0.31\textwidth}
+      \begin{block}{运行期闭环}
+        \centering
+        \begin{tikzpicture}[node distance=0.14cm and 0.2cm]
+          \node[flow,text width=1.55cm,font=\scriptsize] (a) {预平滑\(\nu_{\rm pre}\)};
+          \node[flow,text width=1.55cm,font=\scriptsize,right=of a] (b) {限制\(Rr\)};
+          \node[flow,text width=1.55cm,font=\scriptsize,below=of b] (c) {递归粗解};
+          \node[flow,text width=1.55cm,font=\scriptsize,left=of c] (d) {延拓\(P\delta_c\)};
+          \draw[arrow] (a)--(b)--(c)--(d);
+        \end{tikzpicture}
+        \vspace{0.08cm}
+
+        后平滑清除粗校正引入的高频误差。
+      \end{block}
+    \end{column}
+    \begin{column}{0.31\textwidth}
+      \begin{block}{当前判断与边界}
+        \verified：源码内建四类算子一致性检查。\\[0.2em]
+        \inferred：递归 MG 负责低频，平滑器负责局部/高频。\\[0.2em]
+        \unverified：本次未运行 GPU/MPI，暂无吞吐或收敛曲线。
+      \end{block}
+    \end{column}
+  \end{columns}
+  \vfill
+  \begin{alertblock}{汇报重点}
+    不是只列出 ``V-cycle'' 名称，而是追踪 \(P/R\)、Galerkin 粗化、预条件粗算子、求解器工厂与验证钩子如何在源码中闭合。
+  \end{alertblock}
+  \source{\codepath{lib/multigrid.cpp:1131-1224, 745-1128}；图为源码控制流抽象。}
+\end{frame}
+
+\begin{frame}[t]{问题与验收标准：粗空间必须保留难解的低频分量}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \begin{column}{0.48\textwidth}
+      \begin{block}{物理/数值对象}
+        格点 Dirac 算子在小质量或强耦合背景下会出现难以由局部平滑器消除的长程误差。MG 的实现目标是用近零模张成的粗空间表示这部分误差，再把局部高频误差交给平滑器。
+        \vspace{0.12cm}
+
+        关键映射必须满足维数一致性：
+        \begin{equation*}
+          \begin{gathered}
+            V:\mathcal V_c\to\mathcal V_f,\quad
+            R:\mathcal V_f\to\mathcal V_c,\\[-0.15em]
+            D_c=RDP.
+          \end{gathered}
+        \end{equation*}
+      \end{block}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \small
+      \begin{tabularx}{\linewidth}{@{}l>{\raggedright\arraybackslash}X@{}}
+        \toprule
+        输入/控制量 & 影响实现的参数 \\
+        \midrule
+        层级 & \texttt{n\_level}，最多由编译常量限制 \\
+        聚合 & \texttt{geo\_block\_size}、\texttt{spin\_block\_size} \\
+        粗空间 & \texttt{n\_vec}、\texttt{precision\_null} \\
+        迭代 & \texttt{nu\_pre}、\texttt{nu\_post}、\texttt{cycle\_type} \\
+        正确性 & \(P^\dagger P\)、\(D_c-RDP\)、normality \\
+        \bottomrule
+      \end{tabularx}
+      \vspace{0.16cm}
+      \begin{block}{成功判据}
+        \(P\) 与 \(R\) 在聚合子空间上近似互伴；粗算子与隐式投影一致；预条件变体与 \(X^{-1}D\) 一致；求解器残差达到设定容差。
+      \end{block}
+    \end{column}
+  \end{columns}
+  \source{参数定义：\codepath{include/quda.h:638-835}；粗场维数：\codepath{lib/dirac_coarse.cpp:121-169}；验收实现：\codepath{lib/multigrid.cpp:785-880, 883-1068}。}
+\end{frame}
+
+\begin{frame}[t]{总体架构：公共 API 只负责装配，\texttt{MG} 负责递归控制}
+  \centering
+  \begin{tikzpicture}[node distance=0.32cm and 0.22cm]
+    \node[flowwide,font=\scriptsize] (api) {公共入口\\\texttt{newMultigrid}\\\texttt{Quda}};
+    \node[flowwide,font=\scriptsize,right=of api] (pack) {\texttt{multigrid}\\\texttt{\_solver}\\细格 Dirac + 参数};
+    \node[flowwide,font=\scriptsize,right=of pack] (mg) {\texttt{MG}\\每层状态机};
+    \node[flowwide,font=\scriptsize,right=of mg] (transfer) {\texttt{Transfer}\\聚合、\(P/R\)};
+    \node[flowwide,font=\scriptsize,right=of transfer] (dirac) {\texttt{DiracCoarse}\\\(Y,X,\hat Y,X^{-1}\)};
+    \draw[arrow] (api)--(pack)--(mg)--(transfer)--(dirac);
+
+    \node[state,below=0.48cm of mg] (smooth) {平滑器\\MR / GCR / CA};
+    \node[state,below=0.48cm of dirac] (solver) {粗层求解器\\递归或底层 Krylov};
+    \draw[relation] (mg)--(smooth);
+    \draw[relation] (mg)--(solver);
+    \draw[relation] (solver.south) |- node[below,font=\scriptsize]{下一层同构} (mg.south);
+  \end{tikzpicture}
+  \vspace{0.28cm}
+  \begin{columns}[T,totalwidth=0.94\textwidth]
+    \begin{column}{0.46\textwidth}
+      \begin{block}{对象与存储}
+        每个非底层保存近零模 \(B\)、Transfer、粗链接 \(Y\)、局部项 \(X\)；需要偶奇预条件时再构造 \(\hat Y\) 与 \(X^{-1}\)。
+      \end{block}
+    \end{column}
+    \begin{column}{0.46\textwidth}
+      \begin{block}{物理维数检查}
+        粗链接的内部维数是 \(N_s^c\times N_c^c\)，其中 \(N_c^c=N_{\rm vec}\)，\(N_s^c=N_s/\texttt{spin\_block}\)；因此聚合不仅缩小时空网格，也重新组织自旋/色自由度。
+      \end{block}
+    \end{column}
+  \end{columns}
+  \source{入口装配：\codepath{lib/interface_quda.cpp:2853-2927}；对象构造：\codepath{include/multigrid.h:75-217}；粗场维数：\codepath{lib/dirac_coarse.cpp:121-145}。}
+\end{frame}
+
+\begin{frame}[t]{设置阶段：近零模由平滑/特征路径产生，并可递归传递}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \begin{column}{0.58\textwidth}
+      \centering
+      \begin{tikzpicture}[node distance=0.2cm]
+        \node[state,text width=2.2cm,font=\scriptsize] (b) {随机、文件或自由场\(B_0\)};
+        \node[state,text width=2.2cm,font=\scriptsize,below=of b] (gen) {setup solver\\\texttt{generateNull}\\\texttt{Vectors}};
+        \node[state,text width=2.2cm,font=\scriptsize,below=of gen] (ortho) {全局正交化 + 块正交化\\得到 \(V\)};
+        \node[decision,font=\scriptsize,below=of ortho] (all) {生成全部层？};
+        \node[state,text width=2.2cm,font=\scriptsize,below left=0.24cm and 0.4cm of all] (restrict) {\(B_{\ell+1}=R B_\ell\)};
+        \node[state,text width=2.2cm,font=\scriptsize,below right=0.24cm and 0.4cm of all] (next) {下一层重新 setup};
+        \draw[arrow] (b)--(gen)--(ortho)--(all);
+        \draw[arrow] (all)--node[left,font=\scriptsize]{否}(restrict);
+        \draw[arrow] (all)--node[right,font=\scriptsize]{是}(next);
+      \end{tikzpicture}
+    \end{column}
+    \begin{column}{0.38\textwidth}
+      \small
+      \begin{block}{四类入口}
+        代码按优先级支持：读取、特征、迭代生成近零模、自由场；setup 可选 CG/CA-CG、GCR、MG。
+      \end{block}
+      \begin{block}{关键实现判断}
+        \texttt{use\_init\_guess=YES} 让生成/刷新从现有 \(B\) 开始；MG setup 还把自身作为 GCR 预条件器，形成自举闭环。
+      \end{block}
+    \end{column}
+  \end{columns}
+  \source{入口分支：\codepath{lib/multigrid.cpp:36-62}；setup 参数与 solver 选择：\codepath{lib/multigrid.cpp:1275-1363}；刷新/向下传递：\codepath{lib/multigrid.cpp:1365-1451}。}
+\end{frame}
+
+\begin{frame}[t]{聚合与块正交化：把局部近零模变成可用的粗基}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \begin{column}{0.49\textwidth}
+      \footnotesize
+      \begin{block}{几何映射}
+        逐维整除得到 \(x_c^\mu=\left\lfloor x_f^\mu/b_\mu\right\rfloor\)。先建 \texttt{fine\_to\_coarse}，再按 \((x_c,x_f)\) 排序为连续访问的 \texttt{coarse\_to\_fine}。块尺寸须整除局部格点，当前索引避免奇数粗维。
+      \end{block}
+      \vspace{0.04cm}
+      \begin{block}{块内迭代细化}
+        经典 Gram--Schmidt 重复 \(N_{\rm ortho}\) 次：
+        \begin{equation*}
+          v_j\leftarrow v_j-\sum_{i<j}\langle v_i,v_j\rangle v_i,
+          \qquad v_j\leftarrow v_j/\|v_j\|.
+        \end{equation*}
+        一个线程块处理一个聚合；\texttt{mVec} 个向量以 tile 批量归约。
+      \end{block}
+    \end{column}
+    \begin{column}{0.47\textwidth}
+      \centering
+      \resizebox{0.92\linewidth}{!}{%
+        \begin{tikzpicture}[node distance=0.15cm and 0.12cm]
+          \node[flow,text width=1.6cm,font=\scriptsize] (map) {细格点\\\(x_f\)};
+          \node[flow,text width=1.6cm,font=\scriptsize,right=of map] (agg) {聚合\\\(x_c\)};
+          \node[flow,text width=1.6cm,font=\scriptsize,right=of agg] (sort) {排序逆索引\\连续访存};
+          \draw[arrow] (map)--(agg)--(sort);
+          \node[phase,text width=1.8cm,font=\tiny,below=0.42cm of agg] (load) {加载 \(B\) 或旧 \(V\)};
+          \node[phase,text width=1.8cm,font=\tiny,right=of load] (proj) {内积 + 减除\\块内正交};
+          \node[phase,text width=1.8cm,font=\tiny,right=of proj] (norm) {范数归约\\归一化};
+          \draw[arrow] (load)--(proj)--(norm);
+          \draw[relation] (norm.south) |- ++(0,-0.25) -| node[below,font=\scriptsize]{重复 \(N_{\rm ortho}\) 次} (load.south);
+        \end{tikzpicture}%
+      }
+      \vspace{0.18cm}
+      \begin{alertblock}{精度工程}
+        \texttt{block\_ortho\_two\_pass} 在低精度下先估计尺度，再定标计算；这改善定点/半精度下的正交化稳定性，但不是自适应误差证明。
+      \end{alertblock}
+    \end{column}
+  \end{columns}
+  \source{映射：\codepath{lib/transfer.cpp:200-241}；块正交化：\codepath{include/kernels/block_orthogonalize.cuh:141-253}；参数语义：\codepath{include/quda.h:647-657}。}
+\end{frame}
+
+\begin{frame}[t]{延拓/限制是同一局部基的两种方向：\(P\) 展开，\(R\) 投影}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \begin{column}{0.42\textwidth}
+      \begin{equation*}
+        (P\,\psi_c)(x_f)
+        =V(x_f)\,\psi_c\!\left(x_c(x_f)\right),
+      \end{equation*}
+      \begin{equation*}
+        (R\,\psi_f)(x_c)
+        =\sum_{x_f\in x_c}V^\dagger(x_f)\,\psi_f(x_f).
+      \end{equation*}
+      \vspace{0.08cm}
+      \begin{block}{局部正交性的意义}
+        若每个聚合内 \(V^\dagger V\approx I\)，则 \(R\approx P^\dagger\)，并且粗变量的量纲/自旋色分块与构造时一致。
+      \end{block}
+    \end{column}
+    \begin{column}{0.55\textwidth}
+      \centering
+      \begin{tikzpicture}[node distance=0.18cm and 0.2cm]
+        \node[flowwide,text width=1.5cm,font=\scriptsize] (c) {粗旋量\\\(\psi_c(x_c)\)};
+        \node[state,text width=1.5cm,font=\scriptsize,right=of c] (expand) {坐标展开\\重复到聚合};
+        \node[state,text width=1.5cm,font=\scriptsize,right=of expand] (v) {\(V\) 颜色旋转\\得到细旋量};
+        \node[flowwide,text width=1.5cm,font=\scriptsize,right=of v] (f) {细旋量\\\(\psi_f(x_f)\)};
+        \draw[arrow] (c)--node[above,font=\scriptsize]{\(P\)}(expand)--(v)--(f);
+        \draw[relation] (f.south) |- ++(0,-0.58) -| node[below,font=\scriptsize]{\(V^\dagger\) + 聚合归约：\(R\)} (c.south);
+      \end{tikzpicture}
+      \vspace{0.2cm}
+      \begin{block}{GPU 实现}
+        Prolongator 先由几何映射取粗点，再以 \(V\) 混合颜色；Restrictor 对 \(V\) 取共轭并用 block reduction 聚合。MMA 变体只替换矩阵乘实现，不改变数学接口。
+      \end{block}
+    \end{column}
+  \end{columns}
+  \source{延拓：\codepath{include/kernels/prolongator.cuh:65-132}；限制：\codepath{include/kernels/restrictor.cuh:90-124}；MMA 接口：\codepath{include/multigrid.h:650-687}。}
+\end{frame}
+
+\begin{frame}[t]{Galerkin 粗化被拆成可调的 GPU 计算图，而不是一次黑盒矩阵乘}
+  \centering
+  \begin{tikzpicture}[node distance=0.22cm and 0.16cm]
+    \node[phase] (p1) {1. UV / LV / KV\\链接乘基};
+    \node[phase,right=of p1] (p2) {2. AV\\clover 或逆项乘基};
+    \node[phase,right=of p2] (p3) {3. VUV / VLV\\聚合内收缩};
+    \node[phase,right=of p3] (p4) {4. coarse clover\\构造 \(X\)};
+    \node[phase,below=0.32cm of p1] (p5) {5. reverse\\补齐双向 \(Y\)};
+    \node[phase,right=of p5] (p6) {6. diagonal / TM / mass\\局部项补全};
+    \node[phase,right=of p6] (p7) {7. convert / rescale\\存储格式与尺度};
+    \draw[arrow] (p1)--(p2)--(p3)--(p4);
+    \draw[arrow] (p4.south) |- (p5.east);
+    \draw[arrow] (p5)--(p6)--(p7);
+  \end{tikzpicture}
+      \vspace{0.08cm}
+  \begin{equation*}
+    D_c=RDP\quad\Longrightarrow\quad
+    Y_\mu\sim V^\dagger\,U_\mu\,V,\qquad
+    X\sim V^\dagger C V+I+\text{(质量/扭质量项)}.
+  \end{equation*}
+  \begin{columns}[T,totalwidth=0.94\textwidth]
+    \begin{column}{0.46\textwidth}
+      \begin{block}{Wilson 自旋结构}
+        DeGrand--Rossi 基下 \(P_\mu=(1\pm\gamma_\mu)\) 产生自旋对角/非对角块；非对角项显式调用 \texttt{gamma.apply}，换方向翻转符号。
+      \end{block}
+    \end{column}
+    \begin{column}{0.46\textwidth}
+      \begin{block}{两级复用}
+        \texttt{coarsecoarse\_op.hpp} 通过 \texttt{from\_coarse} 复用 \texttt{calculateY}；fine/coarse spin-color 差别由模板参数吸收。
+      \end{block}
+    \end{column}
+  \end{columns}
+  \vspace{-0.08cm}
+  \source{\codepath{lib/coarse_op.cuh:1043-1457}；\codepath{include/kernels/coarse_op_kernel.cuh:1067-1138}；\codepath{lib/coarsecoarse_op.hpp:5-32}。}
+\end{frame}
+
+\begin{frame}[t]{偶奇预条件把粗算子变成 \(\hat Y,X^{-1}\) 的 Schur 补系统}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \begin{column}{0.47\textwidth}
+      \footnotesize
+      \begin{block}{粗 dslash 的局部形式}
+        \begin{equation*}
+          \begin{aligned}
+            D_{\rm hop}\psi(x)&=\sum_\mu\bigl[Y_{-\mu}(x)\psi(x+\mu)\\[-0.15em]
+            &\quad+Y_\mu^\dagger(x-\mu)\psi(x-\mu)\bigr].
+          \end{aligned}
+        \end{equation*}
+        GPU 内核分开前/后向 gather：内部点直取，边界点取 halo；\(X\psi(x)\) 同 kernel 加入局部项。
+      \end{block}
+      \vspace{0.04cm}
+      \begin{equation*}
+        \begin{gathered}
+          \hat Y_{+\mu}=X^{-1}Y_{+\mu},\\[-0.15em]
+          \hat Y_{-\mu}=Y_{-\mu}X^{-\dagger}.
+        \end{gathered}
+      \end{equation*}
+    \end{column}
+    \begin{column}{0.49\textwidth}
+      \centering
+      \begin{tikzpicture}[node distance=0.2cm and 0.3cm]
+        \node[flow,text width=1.8cm,font=\scriptsize] (a) {输入\\偶/奇子格};
+        \node[flow,text width=1.8cm,font=\scriptsize,right=of a] (b) {\(A^{-1}D\)\\预条件 dslash};
+        \node[flow,text width=1.8cm,font=\scriptsize,below=of b] (c) {另一侧 dslash\\+ clover \(X\)};
+        \node[state,text width=2.35cm,font=\scriptsize,below=of a] (d) {\(M_{\rm PC}=A_{ee}-D_{eo}A_{oo}^{-1}D_{oe}\)};
+        \draw[arrow] (a)--(b)--(c)--(d);
+      \end{tikzpicture}
+      \vspace{0.1cm}
+      \begin{block}{实现上的关键区别}
+        \texttt{DiracCoarsePC::Dslash} 使用 \(\hat Y,X^{-1}\)；\texttt{createCoarseOp} 明确：PC 系统向下粗化 \(\hat Y\)，不是原始 \(Y\)。
+      \end{block}
+    \end{column}
+  \end{columns}
+  \source{粗 dslash/PC：\codepath{include/kernels/dslash_coarse.cuh:126-289}、\codepath{lib/dirac_coarse.cpp:530-649}；预条件链接：\codepath{include/kernels/coarse_op_preconditioned.cuh:60-120}。}
+\end{frame}
+
+\begin{frame}[t]{平滑器消除局部误差，外层 GCR 允许每次使用不同的 MG 预条件效果}
+  \centering
+  \begin{tikzpicture}[node distance=0.16cm and 0.18cm]
+    \node[flow,text width=1.85cm,font=\scriptsize] (r) {残差 \(r\)};
+    \node[flow,text width=1.85cm,font=\scriptsize,right=of r] (pre) {预平滑\\MR / Schwarz};
+    \node[flow,text width=1.85cm,font=\scriptsize,right=of pre] (res) {\(Rr\)\\粗残差};
+    \node[flow,text width=1.85cm,font=\scriptsize,right=of res] (coarse) {递归粗解\\GCR / MG};
+    \node[flow,text width=1.85cm,font=\scriptsize,right=of coarse] (pro) {\(P\delta_c\)\\粗校正};
+    \node[flow,text width=1.85cm,font=\scriptsize,right=of pro] (post) {后平滑\\\(\nu_{\rm post}\)};
+    \draw[arrow] (r)--(pre)--(res)--(coarse)--(pro)--(post);
+  \end{tikzpicture}
+  \vspace{0.18cm}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \begin{column}{0.31\textwidth}
+      \begin{block}{MR 平滑器}
+        每步用 \(\alpha=(Ar,r)/(Ar,Ar)\) 更新 \(x\leftarrow x+\omega\alpha r\)、\(r\leftarrow r-\omega\alpha Ar\)；源码用一次复合归约同时产生所需内积/范数。Schwarz 时按红黑或加性块处理。
+      \end{block}
+    \end{column}
+    \begin{column}{0.31\textwidth}
+      \begin{block}{MG 的 pre/post 装配}
+        \texttt{createSmoother()} 将 \texttt{nu\_pre} 与 \texttt{nu\_post} 分别写入两个 Solver；预平滑返回残差，后平滑以当前解为初值。
+      \end{block}
+    \end{column}
+    \begin{column}{0.31\textwidth}
+      \begin{block}{GCR 外层}
+        每轮先调用预条件器 \(K(r)\)，再用 \(A p_k\) 建立正交方向；达到 Krylov 长度或可靠更新点时重算真残差并重启。
+      \end{block}
+    \end{column}
+  \end{columns}
+  \source{MG 控制流：\codepath{lib/multigrid.cpp:1171-1221}；平滑器装配：\codepath{lib/multigrid.cpp:273-337}；MR：\codepath{lib/inv_mr_quda.cpp:65-190}；GCR：\codepath{lib/inv_gcr_quda.cpp:307-407}。}
+\end{frame}
+
+\begin{frame}[t]{精度与硬件路径是同一算法的实现层，而非另一套 MG 数学}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \begin{column}{0.24\textwidth}
+      \begin{block}{低精度零空间}
+        \centering
+        \(B,V\)\\
+        \texttt{precision\_null}\\[0.1em]
+        低精度存储减小带宽与显存压力；块正交化支持 two-pass。
+      \end{block}
+    \end{column}
+    \begin{column}{0.24\textwidth}
+      \begin{block}{Halo 与通信}
+        \centering
+        \(V\xrightarrow{\text{exchangeGhost}}V_{\rm halo}\)\\[0.1em]
+        粗 dslash 对边界点走 ghost；平滑器可单独设置 halo 精度和 global reduction。
+      \end{block}
+    \end{column}
+    \begin{column}{0.24\textwidth}
+      \begin{block}{MMA / Tensor Core}
+        \centering
+        \texttt{setup\_use\_mma}\\
+        \texttt{dslash\_use\_mma}\\
+        \texttt{transfer\_use\_mma}\\[0.1em]
+        替换 tile 矩阵乘与布局，接口保持不变。
+      \end{block}
+    \end{column}
+    \begin{column}{0.24\textwidth}
+      \begin{block}{定点尺度}
+        \centering
+        \(M\to sM\)\\[0.1em]
+        先找最大幅值，再 convert/rescale；链接和局部项分别处理尺度。
+      \end{block}
+    \end{column}
+  \end{columns}
+  \vspace{0.26cm}
+  \begin{alertblock}{工程判断}
+    代码通过模板参数、字段布局、halo 交换和尺度核，把同一 (RDP) 计算图映射到 CPU、CUDA、低精度和 MMA 路径；但“更快”需要硬件上的基线实测，不能由源码静态阅读推出。
+  \end{alertblock}
+  \source{two-pass 参数：\codepath{include/quda.h:650-669}；ghost 与 setup：\codepath{lib/coarse_op.cuh:1051-1062}；尺度/转换：\codepath{lib/coarse_op.cuh:1227-1368, 1443-1457}；MMA 参数：\codepath{include/quda.h:659-669}。}
+\end{frame}
+
+\begin{frame}[t]{公共 API：一次 setup，随后可 thin/full update 并复用 MG 状态}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \begin{column}{0.56\textwidth}
+      \centering
+      \begin{tikzpicture}[node distance=0.14cm and 0.14cm]
+        \node[state,text width=1.55cm,font=\tiny] (load) {已加载 gauge\\\texttt{loadGaugeQuda}};
+        \node[state,text width=1.55cm,font=\tiny,right=of load] (new) {检查参数 + 建立\\细格 Dirac / \texttt{MG}};
+        \node[state,text width=1.55cm,font=\tiny,right=of new] (solve) {反复求解\\复用 \(B,Y,X\)};
+        \node[decision,text width=1.9cm,font=\tiny,inner sep=1pt,below=of solve] (update) {gauge / clover 改变？};
+        \node[state,text width=1.55cm,font=\tiny,below left=0.18cm and 0.3cm of update] (thin) {thin update\\只更新场与质量};
+        \node[state,text width=1.55cm,font=\tiny,below right=0.18cm and 0.3cm of update] (full) {full update\\重建粗层};
+        \draw[arrow] (load)--(new)--(solve)--(update);
+        \draw[arrow] (update)--node[left,font=\tiny]{稳定}(thin);
+        \draw[arrow] (update)--node[right,font=\tiny]{重建}(full);
+      \end{tikzpicture}
+    \end{column}
+    \begin{column}{0.4\textwidth}
+      \scriptsize
+      \begin{tabularx}{\linewidth}{@{}p{0.42\linewidth}X@{}}
+        \toprule
+        API & 作用 \\
+        \midrule
+        \shortstack[l]{\texttt{newMultigrid}\\[-0.15em]\texttt{Quda}} & 参数检查、细层与递归构造 \\
+        \shortstack[l]{\texttt{updateMultigrid}\\[-0.15em]\texttt{Quda}} & thin 或 full 更新 \\
+        \shortstack[l]{\texttt{dumpMultigrid}\\[-0.15em]\texttt{Quda}} & 导出零空间向量 \\
+        \shortstack[l]{\texttt{destroyMultigrid}\\[-0.15em]\texttt{Quda}} & 释放递归资源 \\
+        \bottomrule
+      \end{tabularx}
+      \vspace{0.14cm}
+      \begin{block}{限制条件}
+        当前入口要求外层使用 direct solve；平滑器 solve type 只接受 direct / direct-PC。粗层可选择递归 MG 或显式 Krylov 包装器。
+      \end{block}
+    \end{column}
+  \end{columns}
+  \source{构造与限制：\codepath{lib/interface_quda.cpp:2853-2927}；更新分支：\codepath{lib/interface_quda.cpp:2946-3055}；API 声明：\codepath{include/quda.h:1256-1289}。}
+\end{frame}
+
+\begin{frame}[t]{验证与风险：源码有强校验钩子，但本次没有动态通过记录}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \begin{column}{0.68\textwidth}
+      \scriptsize
+      \begin{tabularx}{\linewidth}{@{}l l X@{}}
+        \toprule
+        检查对象 & 代码判据 & 目的 \\
+        \midrule
+        零空间投影 & \((1-PP^\dagger)v_k\) & 检查细向量是否落在聚合子空间 \\
+        粗空间闭合 & \((1-P^\dagger P)\eta_c\) & 检查 (R/P) 是否保持粗变量 \\
+        Galerkin & \(D_c-P^\dagger DP\) & native 粗算子与显式投影一致 \\
+        PC dslash & \(\hat D_c-A^{-1}D_c\) & 预条件链接是否正确 \\
+        normality & \(\eta^\dagger M^\dagger M\eta\) 虚部相对量 & 检查求解器所需算子性质 \\
+        \bottomrule
+      \end{tabularx}
+    \end{column}
+    \begin{column}{0.28\textwidth}
+        \begin{alertblock}{本次状态}
+        \verified：上述检查均有源码实现，且按精度设置容差。\\[0.15em]
+        \unverified：本次未启动 CUDA/MPI，不能声称检查通过。\\[0.15em]
+        ASQTAD 长链接或聚合尺寸过小时，代码会跳过部分 verify。
+      \end{alertblock}
+    \end{column}
+  \end{columns}
+  \vspace{0.03cm}
+  \begin{center}
+    \begin{tikzpicture}[node distance=0.18cm and 0.25cm]
+      \node[flowwide,text width=2.25cm,font=\scriptsize] (src) {源码构造};
+      \node[decision,font=\scriptsize,right=of src] (q) {动态测试通过？};
+      \node[flowwide,text width=2.25cm,font=\scriptsize,right=of q] (claim) {才可报告\\残差/性能};
+      \draw[arrow] (src)--(q); \draw[arrow] (q)--node[above,font=\scriptsize]{是} (claim);
+    \end{tikzpicture}
+  \end{center}
+  \vspace{-0.11cm}
+  \source{verify：\codepath{lib/multigrid.cpp:745-832, 866-999, 1001-1068}；ASQTAD：\codepath{lib/multigrid.cpp:896-925}。}
+\end{frame}
+
+\begin{frame}[t]{阶段结论与下一步：先把实现正确性变成可重复的运行证据}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \begin{column}{0.31\textwidth}
+      \begin{block}{已经回答}
+        \verified：从 API 到 \texttt{MG::operator()} 的依赖链闭合。\\[0.15em]
+        \verified：(P/R)、Galerkin、PC Schur、MR/GCR 均有直接源码锚点。\\[0.15em]
+        \inferred：低频由粗空间承担，高频由平滑器承担。
+      \end{block}
+    \end{column}
+    \begin{column}{0.31\textwidth}
+      \begin{alertblock}{尚未回答}
+        未获得：不同 \(n_{\rm vec}\)、聚合尺寸、cycle type 的收敛曲线。\\[0.15em]
+        未获得：CPU/GPU、MMA/非 MMA、单 rank/MPI 的时间和带宽。\\[0.15em]
+        这些不能从静态代码行号推导。
+      \end{alertblock}
+    \end{column}
+    \begin{column}{0.31\textwidth}
+      \begin{block}{建议验收产物}
+        1. 单 GPU Wilson/Clover smoke：verify 全部通过。\\[0.15em]
+        2. `multigrid\_evolve\_test`：重复 update 后记录真残差。\\[0.15em]
+        3. `multigrid\_benchmark\_test`：固定格点与 RHS，给出无 MG 基线。
+      \end{block}
+    \end{column}
+  \end{columns}
+  \vfill
+  \begin{center}
+    \begin{tikzpicture}[node distance=0.25cm]
+      \node[flowwide] (a) {静态证据\\本报告};
+      \node[flowwide,right=of a] (b) {单卡/单 rank\\正确性};
+      \node[flowwide,right=of b] (c) {MPI + 多配置\\收敛};
+      \node[flowwide,right=of c] (d) {性能与参数\\决策};
+      \draw[arrow] (a)--(b)--(c)--(d);
+    \end{tikzpicture}
+  \end{center}
+  \source{测试入口：\codepath{tests/multigrid_evolve_test.cpp:103-179}、\codepath{tests/multigrid_benchmark_test.cpp:135-153}；以上为建议执行顺序，非本次实测结果。}
+\end{frame}
+
+\appendix
+
+\begin{frame}[t]{附录 A：15 步分析框架覆盖（1/2）}
+  \scriptsize
+  \begin{tabularx}{\textwidth}{@{}c l X l@{}}
+    \toprule
+    步骤 & 必答问题 & 本报告归宿 & 证据状态 \\
+    \midrule
+    1 & 目的与准备 & 为什么需要粗空间；准备 gauge、参数与层级 & 本页主题定义 \\
+    2 & 输入是什么 & \(n_{\rm level}\)、聚合、零空间、求解器参数 & \codepath{include/quda.h:638-835} \\
+    3 & 输出是什么 & \(V\)、\(Y/X\)、\(\hat Y/X^{-1}\)、递归解 & \codepath{lib/dirac_coarse.cpp:121-223} \\
+    4 & 整体框架 & API \(\to\) MG \(\to\) Transfer/Coarse/solver & \codepath{lib/interface_quda.cpp:2853-2927} \\
+    5 & 关键细节 & 映射、CGS、\(P/R\)、Galerkin、Schur & \codepath{lib/transfer.cpp:200-241} 等 \\
+    6 & 如何正确执行 & new \(\to\) setup \(\to\) solve \(\to\) update/destroy & \codepath{include/quda.h:1256-1289} \\
+    7 & 实际执行情况 & 本次只读源码与现有测试入口，未启 CUDA/MPI & \unverified：无运行日志 \\
+    8 & 实际输出情况 & 本次交付为源码分析 slides；无性能/残差数据 & \verified：PDF/TeX 产物 \\
+    \bottomrule
+  \end{tabularx}
+  \vspace{0.18cm}
+  \begin{block}{范围说明}
+    主题聚焦 QUDA multigrid 算法实现；数值结果页不伪造曲线，动态执行缺口在主体“验证与风险”页显式保留。
+  \end{block}
+\end{frame}
+
+\begin{frame}[t]{附录 A：15 步分析框架覆盖（2/2）}
+  \scriptsize
+  \begin{tabularx}{\textwidth}{@{}c l X l@{}}
+    \toprule
+    步骤 & 必答问题 & 本报告归宿 & 证据状态 \\
+    \midrule
+    9 & 结果分析 & 从 verify 钩子解释 \(P/R\)、Galerkin、PC 一致性 & \codepath{lib/multigrid.cpp:785-1068} \\
+    10 & 综合分析 & 低频/高频分工与模板化 GPU 计算图的关系 & \inferred：由控制流与内核结构推出 \\
+    11 & 结尾总结 & MG 是可递归、可验证的自适应预条件器 & \verified/\inferred\ \\
+    12 & 结尾评价 & 优点：层级复用；缺点：配置与动态验证成本高 & 源码结构 + 未验证项 \\
+    13 & 补充说明 & ASQTAD/低精度/硬件路径的边界 & \codepath{lib/multigrid.cpp:896-925} 等 \\
+    14 & 参考源 & 逐页来源脚注与本页代码索引 & 本报告全部来源 \\
+    15 & 附录与附件 & 直接引用源码片段；不附造假运行数据 & \verified：见后两页 \\
+    \bottomrule
+  \end{tabularx}
+  \vspace{0.2cm}
+  \begin{alertblock}{置信度分层}
+    “源码做了什么”是确证；“为什么有利于低频误差”是算法层推断；“在特定 GPU 上提升多少”必须等待实测。
+  \end{alertblock}
+\end{frame}
+
+\begin{frame}[t]{附录 B：递归求解主循环（源码直引）}
+  \lstinputlisting[firstline=1192,lastline=1205,basicstyle=\ttfamily\tiny]{../lib/multigrid.cpp}
+  \vspace{0.06cm}
+  \begin{block}{阅读提示}
+    上段展示 \(R\to\) 粗解 \(\to P\) 的顺序，以及有预平滑时将粗校正加回当前解的分支；prepare/reconstruct 负责偶奇/全场约定。
+  \end{block}
+  \source{原文件：\codepath{lib/multigrid.cpp:1192-1205}；代码未转写。}
+\end{frame}
+
+\begin{frame}[t]{附录 B：setup 与 Galerkin 计算图（源码直引）}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \begin{column}{0.48\textwidth}
+      \lstinputlisting[firstline=1383,lastline=1393,basicstyle=\ttfamily\tiny]{../lib/multigrid.cpp}
+      \source{\codepath{lib/multigrid.cpp:1383-1393}}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \lstinputlisting[firstline=1166,lastline=1179,basicstyle=\ttfamily\tiny]{../lib/coarse_op.cuh}
+      \source{\codepath{lib/coarse_op.cuh:1166-1179}}
+    \end{column}
+  \end{columns}
+  \vspace{0.06cm}
+  \begin{block}{对应关系}
+    左：按 batch 将 \(B\) 送入 setup solver；右：按方向先做 UV，再做 VUV，累加粗链接。
+  \end{block}
+\end{frame}
+
+\begin{frame}[t]{附录 B：Galerkin 与 PC 正确性检查（源码直引）}
+  \lstinputlisting[firstline=883,lastline=899,basicstyle=\ttfamily\tiny]{../lib/multigrid.cpp}
+  \vspace{0.06cm}
+  \begin{alertblock}{证据边界}
+    该片段确证 QUDA 将 native 粗算子与显式 \(P^\dagger DP\) 对比；误差数值和通过状态仍需真实运行日志。
+  \end{alertblock}
+  \source{原文件：\codepath{lib/multigrid.cpp:883-899}；代码未转写；动态结果本次未验证。}
+\end{frame}
+
+\begin{frame}[t]{附录 C：源码证据索引}
+  \scriptsize
+  \begin{tabularx}{\textwidth}{@{}l X@{}}
+    \toprule
+    主题 & 直接证据 \\
+    \midrule
+    层级对象与参数 & \codepath{include/multigrid.h:75-217}；\codepath{include/quda.h:638-835} \\
+    API 装配/更新 & \codepath{lib/interface_quda.cpp:2853-3055} \\
+    零空间生成 & \codepath{lib/multigrid.cpp:36-62, 1275-1472} \\
+    聚合映射/正交化 & \codepath{lib/transfer.cpp:25-54, 200-241}；\codepath{include/kernels/block_orthogonalize.cuh:141-253} \\
+    (P/R) & \codepath{include/kernels/prolongator.cuh:65-132}；\codepath{include/kernels/restrictor.cuh:90-124} \\
+    Galerkin 粗化 & \codepath{lib/coarse_op.cuh:10-27, 1043-1463}\newline \codepath{include/kernels/coarse_op_kernel.cuh:1067-1138, 1768-2031} \\
+    粗 dslash / PC & \codepath{include/kernels/dslash_coarse.cuh:126-375}；\codepath{lib/dirac_coarse.cpp:506-649} \\
+    平滑器/外层求解器 & \codepath{lib/inv_mr_quda.cpp:65-190}；\codepath{lib/inv_gcr_quda.cpp:307-428} \\
+    验证与测试入口 & \codepath{lib/multigrid.cpp:745-1128}；\codepath{tests/multigrid_evolve_test.cpp:103-179} \\
+    \bottomrule
+  \end{tabularx}
+  \vfill
+  \begin{center}
+    \textcolor{muted}{报告结论只使用上述源码锚点；性能、收敛和硬件收益留待动态测试。}
+  \end{center}
+\end{frame}
+
+\end{document}
