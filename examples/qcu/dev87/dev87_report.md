@@ -294,6 +294,7 @@ Wilson+Clover 算子重新计算。
 |---|---:|---:|---:|---|
 | 1L | 1.378 | 6.55e-6 | 3.92e-7 | 通过 |
 | 2L, E=12 | 1.412 | 8.57e-6 | 6.59e-7 | 通过 |
+| 2L + MR, E=12 | 1.445 | 8.57e-6 | 6.59e-7 | 通过（MR） |
 | 2L + deflate | 1.350 | 6.77e-6 | 4.83e-7 | 通过 |
 | 2L + warm | cold 1.412 / warm 0.198 | warm 3.66e-6 | warm 4.41e-7 | 通过 |
 | 2L + GCR/FGMRES | 5.015 | 1.27e-6 | 6.86e-7 | 通过 |
@@ -303,6 +304,14 @@ Wilson+Clover 算子重新计算。
 本次只显示小幅墙钟差异，不能据一次运行宣称性能收益。3L 也已在
 `8×8×8×16, E=24/E=24` 的已有缓存上真实运行，真残差 `5.94e-7`；
 尚无大格 3L 缓存，故不外推其性能。
+
+本轮补齐并验证了 QUDA 风格 MR 平滑器。普通 2L V-cycle 与
+FGMRES/MG 预条件路径均支持 `--smoother mr`；大格 MR 实测 `1.445 s`，
+相邻 CG 基线 `1.420 s`，两者均为 68 次外层迭代、2 次 V-cycle，full-op
+真残差 `7.97e-7`，相对 BiCGStab 参考解差 `8.57e-6`。小格
+`4×4×4×8` 的普通 MR 与 FGMRES/MR 也真实触发粗层，分别得到真残差
+`5.46e-7` 与 `6.58e-7`。大格单次 MR 约慢 `1.7%`，受单次 GPU 计时波动影响，
+当前只确认数值兼容性，未宣称性能收益。
 
 组件级实测结果为：restrict/prolong L2 误差 `2.09e-7/6.40e-8`，窄/宽
 粗 dslash 误差 `2.65e-7/5.01e-7`，最新回归的 Galerkin 误差 `9.47e-7`，Gram
@@ -323,10 +332,10 @@ Wilson+Clover 算子重新计算。
 ### 3. 结论与未完成项
 
 本轮已完成并真实运行闭环的核心范围是：Wilson/Clover 算子锚定、
-BiCGStab、V-cycle 1/2/3-level（3L 为小格缓存验证）、GCR、deflate、
+BiCGStab、V-cycle 1/2/3-level（3L 为小格缓存验证）、GCR、MR 平滑器、deflate、
 warm start、transfer、Galerkin、粗 dslash、full-op 真残差、缓存加载及
 单 rank 多线程多卡一致性。仍未实现或未完成同参数闭环的项目包括 QUDA
-的 W/F/K-cycle、MR/Chebyshev/CA-GCR 等全部平滑器族、动态 thin gauge
+的 W/F/K-cycle、Chebyshev/CA-GCR/BiCGStabL 等其余平滑器族、动态 thin gauge
 update、逐层混合精度、真正分布式粗格、MMA/NVSHMEM，以及 C++ 版完整
 五项 `verify()` 接口；矩阵中均保留为 `[ ]` 或 `[~]`，没有静默跳过。
 
