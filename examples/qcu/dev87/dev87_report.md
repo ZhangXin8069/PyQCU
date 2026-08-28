@@ -308,10 +308,24 @@ Wilson+Clover 算子重新计算。
 本轮补齐并验证了 QUDA 风格 MR 平滑器。普通 2L V-cycle 与
 FGMRES/MG 预条件路径均支持 `--smoother mr`；大格 MR 实测 `1.445 s`，
 相邻 CG 基线 `1.420 s`，两者均为 68 次外层迭代、2 次 V-cycle，full-op
-真残差 `7.97e-7`，相对 BiCGStab 参考解差 `8.57e-6`。小格
+真残差 `6.59e-7`，相对 BiCGStab 参考解差 `8.57e-6`。小格
 `4×4×4×8` 的普通 MR 与 FGMRES/MR 也真实触发粗层，分别得到真残差
 `5.46e-7` 与 `6.58e-7`。大格单次 MR 约慢 `1.7%`，受单次 GPU 计时波动影响，
 当前只确认数值兼容性，未宣称性能收益。
+
+本轮新增三类路径。2L Chebyshev 固定步多项式平滑器在统一大格上耗时
+`1.431 s`，full-op 真残差 `6.59e-7`；2L CA-GCR（4 阶块、双遍 MGS、
+Gram 小系统，块退化时回退 FGMRES）在 `atol=1e-8,max_iter=400` 下耗时
+`5.215 s`，与 BiCGStab 参考解差 `3.37e-7`，full-op 真残差 `1.43e-7`。
+后者已达到单精度误差平台附近，但本次 400 次块步仍未达到请求的 `1e-8`，
+因此不把该严格配置表述为按容差收敛；在常用 `atol=1e-6` 冒烟配置下真残差为
+`7.58e-7`。
+
+3L 小格缓存上递归 W/F/K-cycle 均完成真实运行（`8×8×8×16`、
+`E=24/E=24`）：W/F 的 full-op 真残差分别为 `1.36e-6/1.36e-6`，
+K-cycle 为 `5.97e-6`，对应配置 `atol=1e-5`；三条路径均无 NaN 或非法访问。
+在 FGMRES 外层的 W/F/K 组合上又以宽松 `atol=1e-3` 做了安全冒烟，真残差分别为
+`2.78e-4/2.78e-4/2.70e-4`。这些结果验证了递归与回退路径，尚不足以证明性能优于 V-cycle。
 
 组件级实测结果为：restrict/prolong L2 误差 `2.09e-7/6.40e-8`，窄/宽
 粗 dslash 误差 `2.65e-7/5.01e-7`，最新回归的 Galerkin 误差 `9.47e-7`，Gram
@@ -332,14 +346,46 @@ FGMRES/MG 预条件路径均支持 `--smoother mr`；大格 MR 实测 `1.445 s`�
 ### 3. 结论与未完成项
 
 本轮已完成并真实运行闭环的核心范围是：Wilson/Clover 算子锚定、
-BiCGStab、V-cycle 1/2/3-level（3L 为小格缓存验证）、GCR、MR 平滑器、deflate、
-warm start、transfer、Galerkin、粗 dslash、full-op 真残差、缓存加载及
-单 rank 多线程多卡一致性。仍未实现或未完成同参数闭环的项目包括 QUDA
-的 W/F/K-cycle、Chebyshev/CA-GCR/BiCGStabL 等其余平滑器族、动态 thin gauge
-update、逐层混合精度、真正分布式粗格、MMA/NVSHMEM，以及 C++ 版完整
-五项 `verify()` 接口；矩阵中均保留为 `[ ]` 或 `[~]`，没有静默跳过。
+BiCGStab、V/W/F/K-cycle 递归（3L 为小格缓存验证）、GCR/FGMRES、CA-GCR、
+CG/MR/Chebyshev 平滑器、deflate、warm start、transfer、Galerkin、粗 dslash、
+full-op 真残差、缓存加载、逐层混合精度、真正分布式粗格及单 rank 多线程多卡
+一致性。固定 `L=2` 的 BiCGStabL、2L/3L 的 c64/c128 混合路径，以及阻塞
+host-staging MPI 粗格 halo 已在下一阶段补齐并通过冒烟/等价性验证。仍未实现或
+未完成同参数闭环的项目包括动态 thin gauge update、MMA/NVSHMEM，以及 C++ 版
+完整五项 `verify()` 接口；矩阵中均保留为 `[ ]` 或 `[~]`，没有静默跳过。
 
 最新证据文件为 `out/qcu_mg_matrix_*.json`、`out/component_cuda.json`、
 `out/multigpu.json`、`out/quda_clover_{solve,mg}.json`。后续修改
 `lattice_clover_multigrid.h`、`lattice_clover_bistabcg.h` 或参数协议后，
 应至少重新运行语法检查、`test_mg_breakdown.py` 和 `run_all.py`。
+
+## 二十、BiCGStabL、逐层混合精度与真正分布式粗格（2026-08-28）
+
+### 实现边界
+
+- BiCGStabL 当前实现为固定 `L=2` 的外层块迭代，包含可靠重启、粗校正后的
+  Krylov 状态重置，以及末尾不完整 block 的边界保护；这不是可配置的任意 `L`。
+- 每个 MG 层使用独立的 c64/c128 擦除存储。跨层 restrict/prolong 不依赖隐式
+  指针类型，而是经过显式 mixed-precision cast kernel；`_MG_LEVELn_DATA_TYPE_`
+  已接入参数解析与层级构造。
+- 粗格不再复制完整全局向量：每个 rank 只保存自己的局部粗格和局部 33 点
+  stencil。跨 rank 的 32 个邻居采用阻塞 host-staging halo，粗层点积、fine 层
+  点积和相对残差范数使用 MPI 全局归约。
+
+### 最新真实运行
+
+- 单 rank 大格 `16×32×32×48`、fine c64/coarse c128、`max_iter=80` 的
+  BiCGStabL 运行完成 80 次迭代，full-op 真相对残差约 `7.85e-7`。
+- 单 rank 3L c64→c128→c64 路径及 3L BiCGStabL mixed 路径真实运行；大格
+  c64→c128、c128→c64 2L 路径均稳定。大格 mixed 标准 BiCGStab 在
+  `max_iter=80` 时真残差约 `3e-6`，受迭代上限限制，不能据此宣称已达到更严
+  容差；小格提高到 `max_iter=160` 时真残差约 `7.7e-7`。
+- 最新库构建完成：`build.sh` 成功链接 `libqcu.so`。
+- MPI `np=2, grid=[1,1,1,2]` 的同精度与 `--bicgstab-l --coarse-dtype c128`
+  mixed MG 冒烟均退出码为 0，无死锁或非法访问。
+- 独立粗算子等价性复测：`grid=[1,1,1,2]`、c64 的全局 L2 相对误差为
+  `5.60e-7`；`grid=[2,1,1,1]`、c128 为 `1.03e-15`。两项均将 rank-local
+  输出重建为全局场后，与完整周期参考 stencil 比较。
+
+因此，“真正分布式粗格”在正确性意义上已经落地；当前限制是通信仍为阻塞
+host-staging，没有做 device-aware MPI、通信计算重叠或 NVSHMEM 性能声明。

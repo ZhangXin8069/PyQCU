@@ -12,6 +12,25 @@ __global__ void multigrid_prolong(void *fine_out, void *coarse_in,
                                   void *null_vecs, int E, int e, int Xf, int Yf,
                                   int Zf, int Tf, int Xc, int Yc, int Zc,
                                   int Tc);
+/**
+ * @brief Mixed-precision restriction/prolongation.
+ *
+ * The null vectors live in the child-level precision.  Restriction casts the
+ * parent input into that precision before accumulating; prolongation casts
+ * the child result back to the parent precision.  Keeping the casts in the
+ * kernel prevents a void* coarse buffer from ever being interpreted with the
+ * wrong element size.
+ */
+template <typename Out, typename In>
+__global__ void multigrid_restrict_cast(void *coarse_out, void *fine_in,
+                                        void *null_vecs, int E, int e, int Xf,
+                                        int Yf, int Zf, int Tf, int Xc, int Yc,
+                                        int Zc, int Tc);
+template <typename Out, typename In>
+__global__ void multigrid_prolong_cast(void *fine_out, void *coarse_in,
+                                       void *null_vecs, int E, int e, int Xf,
+                                       int Yf, int Zf, int Tf, int Xc, int Yc,
+                                       int Zc, int Tc);
 template <typename T>
 __global__ void multigrid_coarse_dslash(void *fermion_out, void *fermion_in,
                                          void *hopping, void *sitting,
@@ -26,6 +45,18 @@ __global__ void multigrid_coarse_dslash_wide(void *fermion_out, void *fermion_in
                                              void *sitting, void *hop_nn,
                                              void *hop_diag, int E, int X, int Y,
                                              int Z, int Lt);
+/**
+ * @brief Wide stencil dslash using a padded local coarse-grid halo.
+ *
+ * ``halo`` has layout [E, X+2, Y+2, Z+2, T+2].  Interior neighbours are read
+ * from ``fermion_in``; only coordinates outside the local block are read from
+ * the halo.  This is the distributed counterpart of
+ * multigrid_coarse_dslash_wide.
+ */
+template <typename T>
+__global__ void multigrid_coarse_dslash_wide_halo(
+    void *fermion_out, void *fermion_in, void *halo, void *sitting,
+    void *hop_nn, void *hop_diag, int E, int X, int Y, int Z, int Lt);
 /**
  * @brief Convert parity-split odd-site data to full-site layout (odd t-slices only).
  *
