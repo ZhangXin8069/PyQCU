@@ -1,7 +1,7 @@
 """dev87 PyQCU C++ MultiGrid 端到端运行器。
 
 复用 data/ 统一 gauge、源 b 与 33-tensor stencil 缓存；支持 1/2/3-level、
-GCR(FGMRES)、CG/MR 平滑器、deflate 以及同一 RHS 的 warm start。3-level 只读取已有缓存，
+GCR/CA-GCR、CG/MR/Chebyshev 平滑器、V/W/F/K-cycle、deflate 以及同一 RHS 的 warm start。3-level 只读取已有缓存，
 缺缓存时立即失败，不自动触发长时间 setup。
 
 示例（source ./env.sh 后）：
@@ -11,6 +11,9 @@ GCR(FGMRES)、CG/MR 平滑器、deflate 以及同一 RHS 的 warm start。3-leve
   python examples/qcu/dev87/run_qcu_mg.py --levels 2 --deflate --warm
   python examples/qcu/dev87/run_qcu_mg.py --levels 2 --gcr --mu-pre 4
   python examples/qcu/dev87/run_qcu_mg.py --levels 2 --smoother mr --mu-pre 4
+  python examples/qcu/dev87/run_qcu_mg.py --levels 2 --smoother chebyshev
+  python examples/qcu/dev87/run_qcu_mg.py --levels 2 --smoother ca-gcr
+  python examples/qcu/dev87/run_qcu_mg.py --levels 3 --cycle k --gcr
 """
 import argparse
 import json
@@ -27,7 +30,7 @@ import torch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from common import (ATOL_DEFAULT, LAT_DEFAULT, MASS_DEFAULT, load_gauge_h5,
-                    load_stencil, pick_v100, save_result)
+                    load_stencil, parse_complex_dtype, pick_v100, save_result)
 from pyqcu.cuda import define, qcu
 from pyqcu.cuda._multi_gpu import _SET_PTRS_COARSE_BASE_
 
@@ -78,6 +81,11 @@ def main():
     ap.add_argument("--E", type=int, default=12)
     ap.add_argument("--coarse-E", type=int, nargs="+", default=None,
                     help="level-2 及以后每层的 E；例如 3-level 用 --E 24 --coarse-E 24")
+    ap.add_argument("--fine-dtype", choices=("c64", "c128"), default="c64",
+                    help="level-0 物理算子、gauge、Clover 和 RHS 的复数精度")
+    ap.add_argument("--coarse-dtypes", nargs="+", choices=("c64", "c128"),
+                    default=None,
+                    help="各 transition 的粗层精度；数量必须为 levels-1，默认全部跟随 fine-dtype")
     ap.add_argument("--nvi", type=int, default=1)
     ap.add_argument("--mg-grid", type=int, nargs=4, default=[2, 2, 2, 2])
     ap.add_argument("--restart", type=int, default=5)
@@ -85,10 +93,19 @@ def main():
     ap.add_argument("--ctf", type=float, default=3000.0)
     ap.add_argument("--max-iter", type=int, default=1000)
     ap.add_argument("--mu-pre", type=int, default=4)
-    ap.add_argument("--smoother", choices=("cg", "mr"), default="cg",
-                    help="MG 粗层及 GCR 预条件器的固定步平滑器")
+    ap.add_argument("--smoother",
+                    choices=("cg", "mr", "chebyshev", "ca-gcr"),
+                    default="cg",
+                    help="MG 粗层及 GCR 预条件器的固定步平滑器；ca-gcr 选择 CA-GCR 外层")
     ap.add_argument("--gcr", action="store_true",
                     help="启用 C++ _MG_USE_GCR_ 路径（实现为 FGMRES(10)+MG 预条件）")
+    ap.add_argument("--solver", choices=("bicgstab", "bicgstab-l", "gcr", "ca-gcr"),
+                    default=None,
+                    help="外层求解器；默认由 --gcr/--bicgstab-l/--smoother 推导")
+    ap.add_argument("--bicgstab-l", action="store_true",
+                    help="启用固定 L=2 的 C++ BiCGStab(L) 外层求解器")
+    ap.add_argument("--cycle", choices=("v", "w", "f", "k"), default="v",
+                    help="递归粗网格 cycle 类型（默认 v）")
     ap.add_argument("--deflate", action="store_true",
                     help="启用一次 V-cycle 初始 deflation（仅非 GCR 主循环有意义）")
     ap.add_argument("--warm", action="store_true",
@@ -105,30 +122,62 @@ def main():
         raise ValueError("--lat 与 --mg-grid 必须为正整数")
     if args.levels > 1 and args.E <= 0:
         raise ValueError("--E 必须为正整数")
+    selected = args.solver
+    if args.gcr:
+        if selected is not None and selected != "gcr":
+            raise ValueError("--gcr 与 --solver 的选择冲突")
+        selected = "gcr"
+    if args.bicgstab_l:
+        if selected is not None and selected != "bicgstab-l":
+            raise ValueError("--bicgstab-l 与 --solver 的选择冲突")
+        selected = "bicgstab-l"
+    if selected is None:
+        selected = "ca-gcr" if args.smoother == "ca-gcr" else "bicgstab"
+    if selected == "gcr" and args.smoother == "ca-gcr":
+        raise ValueError("FGMRES 与 --smoother ca-gcr 不能同时选择")
+    if selected == "bicgstab-l" and args.smoother == "ca-gcr":
+        raise ValueError("BiCGStabL 与 --smoother ca-gcr 不能同时选择")
     coarse_es = list(args.coarse_E or [args.E] * max(0, args.levels - 2))
     if len(coarse_es) != max(0, args.levels - 2):
         raise ValueError("--coarse-E 的数量必须等于 levels-2")
     level_es = [args.E] + coarse_es if args.levels > 1 else []
+    fine_dtype, fine_code = parse_complex_dtype(args.fine_dtype)
+    if args.coarse_dtypes is None:
+        coarse_dtype_names = [args.fine_dtype] * max(0, args.levels - 1)
+    else:
+        coarse_dtype_names = list(args.coarse_dtypes)
+        if len(coarse_dtype_names) != max(0, args.levels - 1):
+            raise ValueError("--coarse-dtypes 的数量必须等于 levels-1")
+    level_dtype_names = [args.fine_dtype] + coarse_dtype_names
+    level_dtype_codes = [fine_code]
+    level_dtypes = [fine_dtype]
+    for name in coarse_dtype_names:
+        dtype_i, code_i = parse_complex_dtype(name)
+        level_dtypes.append(dtype_i)
+        level_dtype_codes.append(code_i)
 
     dev = pick_v100()
     print(f"[dev87-mg] device={torch.cuda.get_device_name(dev)}")
     lat = args.lat
     Lx, Ly, Lz, Lt = lat
-    g = load_gauge_h5(lat, args.mass, device="cuda")
+    g = load_gauge_h5(lat, args.mass, device="cuda", dtype=fine_dtype)
     coarse_assets = []
     for level, E in enumerate(level_es, start=1):
         # 只读既有缓存；load_stencil 不会生成文件。
-        coarse_assets.append(load_stencil(lat, E, args.nvi, device="cuda",
-                                          level=level))
-        print(f"[dev87-mg] cache level={level} E={E} loaded", flush=True)
+        coarse_assets.append(load_stencil(
+            lat, E, args.nvi, device="cuda", level=level,
+            dtype=level_dtypes[level]))
+        print(f"[dev87-mg] cache level={level} E={E} "
+              f"dtype={level_dtype_names[level]} loaded", flush=True)
 
     # Clover 张量构建会返回新的参数/指针副本（SET_INDEX 已推进到 2），
     # 所以先完成它，再把 MG 配置写回最终会传给 solver 的 p/av。否则
     # 返回值会覆盖这里提前写入的 _MG_NUM_LEVEL_ 等字段。
     from common import make_clover_tensors
-    ce, cei, coo, coi, s, p, av = make_clover_tensors(g, lat, args.mass)
+    ce, cei, coo, coi, s, p, av = make_clover_tensors(
+        g, lat, args.mass, dtype=fine_dtype, data_type=fine_code)
 
-    dt = define._LAT_C64_
+    dt = fine_code
     p[define._LAT_X_] = Lx; p[define._LAT_Y_] = Ly; p[define._LAT_Z_] = Lz; p[define._LAT_T_] = Lt
     p[define._LAT_XYZT_] = Lx * Ly * Lz * Lt
     p[define._GRID_X_] = p[define._GRID_Y_] = p[define._GRID_Z_] = p[define._GRID_T_] = 1
@@ -136,9 +185,26 @@ def main():
     p[define._DATA_TYPE_] = dt
     av[define._MASS_] = args.mass; av[define._ATOL_] = args.atol; av[define._SIGMA_] = 0.1
     p[define._MG_NUM_LEVEL_] = args.levels
-    mode = define._MG_MODE_GCR_ if args.gcr else 0
+    mode = 0
+    if selected == "gcr":
+        mode |= define._MG_MODE_GCR_
+    elif selected == "bicgstab-l":
+        mode |= define._MG_MODE_BICGSTABL_
+    elif selected == "ca-gcr":
+        mode |= define._MG_MODE_CA_GCR_
     if args.smoother == "mr":
         mode |= define._MG_MODE_MR_SMOOTHER_
+    elif args.smoother == "chebyshev":
+        mode |= define._MG_MODE_CHEBYSHEV_
+    elif args.smoother == "ca-gcr" and selected != "ca-gcr":
+        mode |= define._MG_MODE_CA_GCR_
+    cycle_bits = {
+        "v": 0,
+        "w": define._MG_MODE_W_CYCLE_,
+        "f": define._MG_MODE_F_CYCLE_,
+        "k": define._MG_MODE_K_CYCLE_,
+    }
+    mode |= cycle_bits[args.cycle]
     p[define._MG_USE_GCR_] = mode
     p[define._MG_USE_DEFLATE_] = int(args.deflate)
     p[define._MG_MU_PRE_] = args.mu_pre
@@ -152,7 +218,7 @@ def main():
         p[define._MG_LEVEL1_Z_ + off] = Lz // (args.mg_grid[2] ** level)
         p[define._MG_LEVEL1_T_ + off] = Lt // (2 * (args.mg_grid[3] ** level))
         p[define._MG_LEVEL1_MAX_ITER_ + off] = args.cmi
-        p[define._MG_LEVEL1_DATA_TYPE_ + off] = dt
+        p[define._MG_LEVEL1_DATA_TYPE_ + off] = level_dtype_codes[level]
         p[define._MG_LEVEL1_NUM_RESTART_ + off] = args.restart
         av[define._MG_LEVEL1_ATOL_ + level - 1] = args.atol * args.ctf
 
@@ -183,8 +249,11 @@ def main():
             raise RuntimeError("baseline rebuild failed: " + r.stderr[-800:])
     npz = np.load(npz_path)
     assert list(npz["b_eo"].shape[-4:]) == expect, "baseline shape still mismatched"
-    b_eo = torch.from_numpy(npz["b_eo"]).to("cuda")
-    x_ref = torch.from_numpy(npz["x_eo"]).to("cuda")
+    # The reference archive is c64, but the C++ entry point dispatches from
+    # _DATA_TYPE_.  Always cast both RHS and reference to the selected fine
+    # precision before passing raw pointers to the backend.
+    b_eo = torch.from_numpy(npz["b_eo"]).to(device="cuda", dtype=fine_dtype)
+    x_ref = torch.from_numpy(npz["x_eo"]).to(device="cuda", dtype=fine_dtype)
 
     s[:_SET_PTRS_COARSE_BASE_] = 0   # 清除已结束集合的陈旧句柄
 
@@ -221,10 +290,13 @@ def main():
     result = {
         "lat": lat, "mass": args.mass, "atol": args.atol,
         "levels": args.levels, "E": level_es, "nvi": args.nvi,
+        "fine_dtype": args.fine_dtype,
+        "coarse_dtypes": coarse_dtype_names,
         "mg_grid": args.mg_grid, "restart": args.restart,
         "coarse_max_iter": args.cmi, "coarse_tol_factor": args.ctf,
         "max_iter": args.max_iter, "mu_pre": args.mu_pre,
-        "gcr": bool(args.gcr), "smoother": args.smoother,
+        "solver": selected, "gcr": selected == "gcr", "smoother": args.smoother,
+        "cycle": args.cycle,
         "deflate": bool(args.deflate),
         "warm_requested": bool(args.warm),
         "mg_wall_s": mg_time,
@@ -242,7 +314,7 @@ def main():
                 (x_warm - x_ref).ravel()) / torch.linalg.norm(x_ref.ravel())).item()),
             "warm_history_len": len(warm_history),
             "warm_history_final": warm_history[-1] if warm_history else None,
-            "warm_semantics": "ignored_by_run_gcr" if args.gcr else "enabled",
+            "warm_semantics": "ignored_by_run_gcr" if selected == "gcr" else "enabled",
         })
         x_save = x_warm
     else:
@@ -270,8 +342,16 @@ def main():
         label = f"{args.levels}l"
         if args.smoother == "mr":
             label += "_mr"
-        if args.gcr:
+        elif args.smoother == "chebyshev":
+            label += "_cheb"
+        elif args.smoother == "ca-gcr":
+            label += "_ca-gcr"
+        if selected == "gcr":
             label += "_gcr"
+        elif selected == "bicgstab-l":
+            label += "_bicgstab-l"
+        if args.cycle != "v":
+            label += "_" + args.cycle
         if args.deflate:
             label += "_deflate"
         if args.warm:

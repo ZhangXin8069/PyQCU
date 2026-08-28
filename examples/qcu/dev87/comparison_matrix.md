@@ -40,9 +40,9 @@
 |---|---|---|---|---|
 | 4.1 | BiCGStab(Schur 奇偶预条件) | invert_test --inv-type bicgstab --matpc even-even | applyCloverBistabCgQcu（同语义基线） | [x] PyQCU/QUDA 双方真实求解；以 m+4=4.05 归一化后解差约 4.1e-7 |
 | 4.2 | CG(MdagM) | invert_test --inv-type cg | applyWilsonCgQcu；python solver CG | [ ] |
-| 4.3 | MR 平滑器 | inv_mr_quda.cpp（MG 默认平滑器） | pyqcu/solver/_mr.py（quda 思想）；C++ MG 支持设备端 MR 定步更新 | [x] 2L 普通 V-cycle 与 FGMRES/MG 预条件真实运行；大格 full-op 真残差 7.97e-7 |
+| 4.3 | MR 平滑器 | inv_mr_quda.cpp（MG 默认平滑器） | pyqcu/solver/_mr.py（quda 思想）；C++ MG 支持设备端 MR 定步更新 | [x] 2L 普通 V-cycle 与 FGMRES/MG 预条件真实运行；大格 full-op 真残差 6.59e-7 |
 | 4.4 | GCR 外层 | Solver::create GCR(+MG 前置) solver.cpp:67 | run_gcr()=FGMRES(10)⊕V-cycle（_MG_USE_GCR_） | [x] 1L/2L/3L 均真实运行；正确但本机比普通 MG 慢 |
-| 4.5 | CA-CG/CA-GCR | inv_ca_cg/inv_ca_gcr | python _cacg.py；C++ 无 | [ ] |
+| 4.5 | CA-CG/CA-GCR | inv_ca_cg/inv_ca_gcr | Python `_cacg.py`（CA-CG）；C++ `run_ca_gcr()`（4 阶块、双遍 MGS、Gram 小系统、奇异回退 FGMRES） | [x] CA-GCR 2L 真实运行；`atol=1e-6` 真残差 7.58e-7，严格 `atol=1e-8` 在 400 次块步后为 1.43e-7（fp32 平台） |
 | 4.6 | 多移位 CG | invertMultiShiftQuda | python _multishift_cg.py（updateAlphaZeta 同源） | [ ] |
 | 4.7 | deflate(eigcg/IRAM 低模) | newDeflationQuda/deflated_invert_test；CG 内 deflate 钩子 | _MG_USE_DEFLATE_=一次 V-cycle 校正作初值（弱对应）；python tr_lanczos 未接 C++ | [~] PyQCU 一次 V-cycle 初值真实运行；不是 QUDA eigcg/IRAM 同实现 |
 
@@ -80,10 +80,10 @@
 | # | 功能 | quda 侧 | PyQCU 侧 | 状态 |
 |---|---|---|---|---|
 | 8.1 | V-cycle 递归 | MG::operator() multigrid.cpp:1131(pre→R→coarse→P→post) | v_cycle lattice_clover_multigrid.h:1520(热启动+图回放+守卫) | [x] 1L/2L/3L 真实端到端运行 |
-| 8.2 | W/F-cycle | cycle_type 经 RECURSIVE 粗解器包装 | 无（仅 V） | [ ] |
-| 8.3 | 平滑器族 | MR 默认；Chebyshev/CA-GCR/BiCGStabL 可选；nu_pre/post 分离 | 粗层支持 CG 或 MR 定步；FGMRES 路径的细层 μ_pre 也支持 MR；普通外层仍为 BiCGStab；无 Chebyshev | [~] MR 普通/GCR 路径已真实运行；Chebyshev、CA-GCR、BiCGStabL 等其余族未闭环 |
+| 8.2 | W/F-cycle | cycle_type 经 RECURSIVE 粗解器包装 | `v_cycle()` 递归 `coarse_correction()`，W=两次递归 W，F=递归 F+V | [x] 3L W/F 真实运行；无 NaN/非法访问，full-op 真残差均约 1.36e-6 |
+| 8.3 | 平滑器族 | MR 默认；Chebyshev/CA-GCR/BiCGStabL 可选；nu_pre/post 分离 | 粗层支持 CG/MR/Chebyshev；`run_ca_gcr()` 提供 CA-GCR 外层；外层 `run_bicgstab_l()` 固定 L=2 | [x] CG/MR/Chebyshev/CA-GCR/BiCGStabL 均已闭环；BiCGStabL 当前固定 L=2 |
 | 8.4 | 粗解器 | PreconditionedSolver 包（coarse_solver[level] 可选族+粗格 deflation 注入） | bistabcg_iter_coarse/coarse_solve_fused(cooperative) | [x] 2L/3L 粗解路径真实运行 |
-| 8.5 | K-cycle | coarse_solver=RECURSIVE | 无 | [ ] |
+| 8.5 | K-cycle | coarse_solver=RECURSIVE | `k_cycle_correction()`：递归 K-cycle 作为短重启 FGMRES(m=2) 右预条件器 | [x] 3L K-cycle 真实运行；`atol=1e-5` 下 full-op 真残差 5.97e-6 |
 | 8.6 | verify 自检五项 | MG::verify :745(P·R 正交/Galerkin/厄米等) | verify_nullvecs(Python 测试层四重诊断)+run_test 全残差 | [~] PyQCU 四项组件诊断+full-op 真残差已测，尚非 C++ 五项同接口 |
 | 8.7 | 收敛判据/可靠更新 | reliable_delta/pipeline/累加器流水线 | r0_ref 锚定+自适应门控；dev87 加周期真残差刷新(每50迭代)+相对停机 | [x] 对齐验证 |
 
@@ -93,10 +93,10 @@
 |---|---|---|---|---|
 | 9.1 | 建/销毁层次 | newMultigridQuda/destroyMultigridQuda | applyInitQcu→applyCloverMultigridQcu→applyEndQcu(set_ptrs 槽位生命周期) | [x] 双方真实建/销毁并重复运行 |
 | 9.2 | gauge 更新后薄/全刷新 | updateMultigridQuda(thin/full) :2946 | 无（重建全部） | [ ] |
-| 9.3 | 逐层混合精度 | 全字段 per-level precision/sloppy | _MG_LEVELn_DATA_TYPE_ 槽存在但 parse_params 不读（声明未实现） | [ ] |
+| 9.3 | 逐层混合精度 | 全字段 per-level precision/sloppy | `_MG_LEVELn_DATA_TYPE_` 逐层解析；c64/c128 擦除存储；restrict/prolong 显式 cast kernel | [x] 2L/3L 单 rank 与 2-rank `c64→c128` 真实运行 |
 | 9.4 | 外部初值热启动 | use_init_guess | params[_MG_USE_INIT_GUESS_](57)：跳过 x_o 清零/随机化，r 真算；双求解器类支持 | [x] 大格 WARM 0.198s vs COLD 1.412s，解一致 3.7e-6 |
 | 9.5 | 多右端项 | invertMultiSrcQuda | 无 C++ 批量（tools/_bistabcg_batch 为 Python 层） | [ ] |
-| 9.6 | MPI 分布 | 分布式粗格+ghost 打包 | 冗余全局粗格+Allreduce 点积；单 rank 多线程多卡 | [~] 单 rank 多线程多卡真实通过；多 rank 粗格仍受既有布局约束 |
+| 9.6 | MPI 分布 | 分布式粗格+ghost 打包 | rank-local 粗格/粗算子；33 点 stencil 的 32 邻居 host-staging halo；粗层与 fine 层点积全局 Allreduce | [x] 2-rank 粗算子等价性与 MG/BiCGStabL 冒烟通过；阻塞通信，未声明 overlap/NVSHMEM 性能 |
 | 9.7 | tensor-core MMA | *_use_mma[level] 全链路 | 无（平台 sm_70 SIMT mma 变体存在但未实现） | [ ] |
 | 9.8 | setup 位置可编程 | setup_location/location per-level CUDA/CPU | 固定 GPU | [ ] |
 
@@ -151,17 +151,14 @@ QUDA/PyQUDA 对照使用独立进程，统一大格的直接 Clover 解在
 结果文件：`out/qcu_mg_matrix_*.json`、`out/component_cuda.json`、
 `out/multigpu.json`、`out/quda_clover_{solve,mg}.json`。
 
-## 功能补充候选清单（P5，按价值/可行性排序）
+## 后续功能候选清单（按价值/可行性排序）
 
 | 序 | 缺口 | 依据 | 备注 |
 |---|---|---|---|
-| S1 | per-level 混合精度接线 | G9.3 声明未实现 | **缓**：体量大；且快照上游未启用 double-MG 的教训提示先定精度策略 |
-| S2 | Chebyshev 平滑器 | G8.3 仍缺失 | **部分落地**：MR 已补齐并实测；Chebyshev/CA-GCR/BiCGStabL 仍待实现，健康平台再评估 |
-| S3 | x0 热启动通道 | G9.4 | 待做：需协议扩展或复用 DEFLATE 槽语义 |
-| S4 | thin update(gauge 变化后) | G9.2 | **缓**：PyQCU 缓存重建成本低，收益场景少 |
-| S5 | setup 多轮+全局再正交 | G5.2 | **缓**：本 gauge 质量受谱限制（§8），多轮无益 |
-| S6 | verify() 五项自检入 C++ | G8.6 | **已落 S6-lite**：run() 末尾 FINAL TRUE residual(full-op) 日志（bug42 后追加）|
-| 范围外 | MMA/K-cycle/MADWF/NVSHMEM/分布式粗格 | 平台与体量 | 如实报告不做，非静默跳过 |
+| S1 | 动态 thin update（规范场变化后） | G9.2 | **待做**：当前策略为安全地重建全部层次 |
+| S2 | setup 多轮+全局再正交 | G5.2 | **缓**：本 gauge 质量受谱限制；现有单轮 local setup 已完成闭环 |
+| S3 | C++ 版完整 `verify()` 五项接口 | G8.6 | **待做**：当前已有 Python 四项组件诊断与 full-op 真残差 |
+| 范围外 | MMA/MADWF/NVSHMEM | 平台与体量 | 当前未实现；分布式粗格已落地，但采用阻塞 host-staging halo |
 
 ## 构建与运行资产
 
