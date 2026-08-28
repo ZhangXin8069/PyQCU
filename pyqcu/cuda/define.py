@@ -83,9 +83,19 @@ _MG_USE_GCR_ = 54
 _MG_USE_DEFLATE_ = 55
 _MG_MU_PRE_ = 56
 _MG_USE_INIT_GUESS_ = 57
-# _MG_USE_GCR_ is a backwards-compatible mode bit mask.
+# _MG_USE_GCR_ is a backwards-compatible mode bit mask.  Keep these values
+# synchronized with cpp/cuda/qcu/include/define.h; the params ABI stays 58.
 _MG_MODE_GCR_ = 1
 _MG_MODE_MR_SMOOTHER_ = 2
+# Alternative coarse smoothers / outer solver.
+_MG_MODE_CHEBYSHEV_ = 4
+_MG_MODE_CA_GCR_ = 8
+# Recursive cycle selection; zero means the historical V-cycle.
+_MG_MODE_W_CYCLE_ = 16
+_MG_MODE_F_CYCLE_ = 32
+_MG_MODE_K_CYCLE_ = 64
+_MG_MODE_BICGSTABL_ = 128
+_MG_MODE_CYCLE_MASK_ = _MG_MODE_W_CYCLE_ | _MG_MODE_F_CYCLE_ | _MG_MODE_K_CYCLE_
 _PARAMS_SIZE_ = 58
 _MASS_ = 0
 _ATOL_ = 1

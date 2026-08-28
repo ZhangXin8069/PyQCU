@@ -10,6 +10,40 @@ __device__ inline bool multigrid_cg_bad(const LatticeComplex<T> &z) {
            fabs(z.real()) != INFINITY && fabs(z.imag()) != INFINITY);
 }
 
+// local_orthogonalize stores null vectors in the blocked layout
+// [E,e,Xc,bx,Yc,by,Zc,bz,Tc,bt].  This is not the same memory order as the
+// flattened [E,e,Xf,Yf,Zf,Tf] vector used by the solver: block-local
+// coordinates are interleaved with coarse coordinates.  Keep the address
+// calculation shared by homogeneous and mixed-precision transfer kernels.
+__device__ inline size_t multigrid_null_index(
+    int E_idx, int e_idx, int ix_f, int iy_f, int iz_f, int it_f, int e,
+    int Xf, int Yf, int Zf, int Tf, int Xc, int Yc, int Zc, int Tc) {
+  const int bx = Xf / Xc;
+  const int by = Yf / Yc;
+  const int bz = Zf / Zc;
+  const int bt = Tf / Tc;
+  const int ix_c = ix_f / bx;
+  const int iy_c = iy_f / by;
+  const int iz_c = iz_f / bz;
+  const int it_c = it_f / bt;
+  const int dx = ix_f - ix_c * bx;
+  const int dy = iy_f - iy_c * by;
+  const int dz = iz_f - iz_c * bz;
+  const int dt = it_f - it_c * bt;
+
+  size_t idx = static_cast<size_t>(E_idx);
+  idx = idx * static_cast<size_t>(e) + static_cast<size_t>(e_idx);
+  idx = idx * static_cast<size_t>(Xc) + static_cast<size_t>(ix_c);
+  idx = idx * static_cast<size_t>(bx) + static_cast<size_t>(dx);
+  idx = idx * static_cast<size_t>(Yc) + static_cast<size_t>(iy_c);
+  idx = idx * static_cast<size_t>(by) + static_cast<size_t>(dy);
+  idx = idx * static_cast<size_t>(Zc) + static_cast<size_t>(iz_c);
+  idx = idx * static_cast<size_t>(bz) + static_cast<size_t>(dz);
+  idx = idx * static_cast<size_t>(Tc) + static_cast<size_t>(it_c);
+  idx = idx * static_cast<size_t>(bt) + static_cast<size_t>(dt);
+  return idx;
+}
+
 template <typename T>
 __device__ inline T multigrid_cg_abs1(const LatticeComplex<T> &z) {
   return fabs(z.real()) + fabs(z.imag());
@@ -70,7 +104,6 @@ __global__ void multigrid_restrict(void *coarse_out, void *fine_in,
   int fine_vol = Xf * Yf * Zf * Tf;
   int stride_YfZfTf = Yf * Zf * Tf;
   int stride_ZfTf = Zf * Tf;
-  int nv_stride_E = e * fine_vol;
 
   LatticeComplex<T> sum(0.0, 0.0);
   int fine_start = ix_c * x * stride_YfZfTf + iy_c * y * stride_ZfTf +
@@ -85,9 +118,17 @@ __global__ void multigrid_restrict(void *coarse_out, void *fine_in,
         for (int dt = 0; dt < t; dt++) {
           int fine_site = fine_start + ix_f_offset + iy_f_offset +
                           iz_f_offset + dt;
+          int ix_f = fine_site / stride_YfZfTf;
+          int rem = fine_site - ix_f * stride_YfZfTf;
+          int iy_f = rem / stride_ZfTf;
+          rem -= iy_f * stride_ZfTf;
+          int iz_f = rem / Tf;
+          int it_f = rem - iz_f * Tf;
           for (int e_idx = 0; e_idx < e; e_idx++) {
             int fine_idx = e_idx * fine_vol + fine_site;
-            int nv_idx = E_idx * nv_stride_E + fine_idx;
+            size_t nv_idx = multigrid_null_index(
+                E_idx, e_idx, ix_f, iy_f, iz_f, it_f, e, Xf, Yf, Zf, Tf,
+                Xc, Yc, Zc, Tc);
             sum += nv[nv_idx].conj() * in[fine_idx];
           }
         }
@@ -135,15 +176,8 @@ __global__ void multigrid_prolong(void *fine_out, void *coarse_in,
   int iz_c = iz_f / z;
   int it_c = it_f / t;
 
-  // Strides for null vectors and coarse vector.
-  // The null-vector and coarse/fine vectors are C-order tensors
-  // [E, e, X, Y, Z, T] and [E, X, Y, Z, T] respectively, i.e. the LAST
-  // (t) dimension is contiguous (stride 1).  The coarse-site index must
-  // therefore use t-fastest strides:  x*(Yc*Zc*Tc) + y*(Zc*Tc) + z*Tc + t.
-  // (Historical bug: this used x + Xc*y + Xc*Yc*z + Xc*Yc*Zc*t — the
-  // transpose/X-fastest convention — which mismatches the tensor layout
-  // for any coarse site with t>0 or mixed coordinates.)
-  int nv_stride_E = e * fine_vol;
+  // The coarse vector is C-order [E,Xc,Yc,Zc,Tc].  Null vectors use the
+  // blocked 10-D layout; their physical fine-site index is not contiguous.
   int coarse_stride_E = Xc * Yc * Zc * Tc;
   int coarse_stride_YZT = Yc * Zc * Tc;
   int coarse_stride_ZT = Zc * Tc;
@@ -152,15 +186,271 @@ __global__ void multigrid_prolong(void *fine_out, void *coarse_in,
                     iz_c * Tc + it_c;
 
   LatticeComplex<T> sum(0.0, 0.0);
-  int fine_idx = global_idx;
-
   for (int E_idx = 0; E_idx < E; E_idx++) {
-    int nv_idx = E_idx * nv_stride_E + fine_idx;
+    size_t nv_idx = multigrid_null_index(
+        E_idx, e_idx, ix_f, iy_f, iz_f, it_f, e, Xf, Yf, Zf, Tf, Xc, Yc,
+        Zc, Tc);
     int coarse_idx = E_idx * coarse_stride_E + coarse_site;
     sum += nv[nv_idx] * cin[coarse_idx];
   }
   out[global_idx] = sum;
 }
+
+// ---------------------------------------------------------------------------
+// Explicit cross-precision transfer kernels.
+//
+// A transition owns its null vectors in the child precision.  The old
+// same-type kernels are intentionally kept for the homogeneous fast path;
+// these variants make the conversion part of the memory access rather than
+// relying on a reinterpret_cast<void*> at the call site.
+// ---------------------------------------------------------------------------
+template <typename Out, typename In>
+__device__ inline LatticeComplex<Out>
+multigrid_cast_complex(const LatticeComplex<In> &value) {
+  return LatticeComplex<Out>((Out)value.real(), (Out)value.imag());
+}
+
+template <typename Out, typename In>
+__global__ void multigrid_restrict_cast(void *coarse_out, void *fine_in,
+                                        void *null_vecs, int E, int e, int Xf,
+                                        int Yf, int Zf, int Tf, int Xc, int Yc,
+                                        int Zc, int Tc) {
+  int global_idx = blockIdx.x * blockDim.x + threadIdx.x;
+  int coarse_vol = Xc * Yc * Zc * Tc;
+  int total_output = E * coarse_vol;
+  if (global_idx >= total_output) return;
+
+  LatticeComplex<Out> *out = static_cast<LatticeComplex<Out> *>(coarse_out);
+  const LatticeComplex<In> *in =
+      static_cast<const LatticeComplex<In> *>(fine_in);
+  // Restriction writes the child/coarse precision (Out), so the null vectors
+  // used for the local projection are in that same child precision.  ``In``
+  // is only the parent/fine input type.
+  const LatticeComplex<Out> *nv =
+      static_cast<const LatticeComplex<Out> *>(null_vecs);
+
+  int E_idx = global_idx / coarse_vol;
+  int rest = global_idx - E_idx * coarse_vol;
+  int ix_c = rest / (Yc * Zc * Tc);
+  rest -= ix_c * (Yc * Zc * Tc);
+  int iy_c = rest / (Zc * Tc);
+  rest -= iy_c * (Zc * Tc);
+  int iz_c = rest / Tc;
+  int it_c = rest - iz_c * Tc;
+
+  int x = Xf / Xc;
+  int y = Yf / Yc;
+  int z = Zf / Zc;
+  int t = Tf / Tc;
+  int fine_vol = Xf * Yf * Zf * Tf;
+  int stride_YfZfTf = Yf * Zf * Tf;
+  int stride_ZfTf = Zf * Tf;
+  int fine_start = ix_c * x * stride_YfZfTf + iy_c * y * stride_ZfTf +
+                   iz_c * z * Tf + it_c * t;
+
+  LatticeComplex<Out> sum((Out)0, (Out)0);
+  for (int dx = 0; dx < x; ++dx) {
+    for (int dy = 0; dy < y; ++dy) {
+      for (int dz = 0; dz < z; ++dz) {
+        for (int dt = 0; dt < t; ++dt) {
+          int fine_site = fine_start + dx * stride_YfZfTf +
+                          dy * stride_ZfTf + dz * Tf + dt;
+          int ix_f = fine_site / stride_YfZfTf;
+          int rem = fine_site - ix_f * stride_YfZfTf;
+          int iy_f = rem / stride_ZfTf;
+          rem -= iy_f * stride_ZfTf;
+          int iz_f = rem / Tf;
+          int it_f = rem - iz_f * Tf;
+          for (int e_idx = 0; e_idx < e; ++e_idx) {
+            int fine_idx = e_idx * fine_vol + fine_site;
+            size_t nv_idx = multigrid_null_index(
+                E_idx, e_idx, ix_f, iy_f, iz_f, it_f, e, Xf, Yf, Zf, Tf,
+                Xc, Yc, Zc, Tc);
+            sum += nv[nv_idx].conj() *
+                   multigrid_cast_complex<Out>(in[fine_idx]);
+          }
+        }
+      }
+    }
+  }
+  out[global_idx] = sum;
+}
+
+template <typename Out, typename In>
+__global__ void multigrid_prolong_cast(void *fine_out, void *coarse_in,
+                                       void *null_vecs, int E, int e, int Xf,
+                                       int Yf, int Zf, int Tf, int Xc, int Yc,
+                                       int Zc, int Tc) {
+  int global_idx = blockIdx.x * blockDim.x + threadIdx.x;
+  int fine_vol = Xf * Yf * Zf * Tf;
+  int total_output = e * fine_vol;
+  if (global_idx >= total_output) return;
+
+  LatticeComplex<Out> *out = static_cast<LatticeComplex<Out> *>(fine_out);
+  const LatticeComplex<In> *cin =
+      static_cast<const LatticeComplex<In> *>(coarse_in);
+  // Prolongation consumes the child/coarse vector (In) and writes the parent
+  // vector (Out); null vectors are stored with the child level as well.
+  const LatticeComplex<In> *nv =
+      static_cast<const LatticeComplex<In> *>(null_vecs);
+
+  int e_idx = global_idx / fine_vol;
+  int fine_site = global_idx - e_idx * fine_vol;
+  int stride_YfZfTf = Yf * Zf * Tf;
+  int stride_ZfTf = Zf * Tf;
+  int ix_f = fine_site / stride_YfZfTf;
+  int rest = fine_site - ix_f * stride_YfZfTf;
+  int iy_f = rest / stride_ZfTf;
+  rest -= iy_f * stride_ZfTf;
+  int iz_f = rest / Tf;
+  int it_f = rest - iz_f * Tf;
+
+  int x = Xf / Xc;
+  int y = Yf / Yc;
+  int z = Zf / Zc;
+  int t = Tf / Tc;
+  int ix_c = ix_f / x;
+  int iy_c = iy_f / y;
+  int iz_c = iz_f / z;
+  int it_c = it_f / t;
+  int coarse_vol = Xc * Yc * Zc * Tc;
+  int coarse_stride_YZT = Yc * Zc * Tc;
+  int coarse_stride_ZT = Zc * Tc;
+  int coarse_site = ix_c * coarse_stride_YZT + iy_c * coarse_stride_ZT +
+                    iz_c * Tc + it_c;
+
+  LatticeComplex<Out> sum((Out)0, (Out)0);
+  for (int E_idx = 0; E_idx < E; ++E_idx) {
+    size_t nv_idx = multigrid_null_index(
+        E_idx, e_idx, ix_f, iy_f, iz_f, it_f, e, Xf, Yf, Zf, Tf, Xc, Yc,
+        Zc, Tc);
+    int coarse_idx = E_idx * coarse_vol + coarse_site;
+    sum += multigrid_cast_complex<Out>(nv[nv_idx]) *
+           multigrid_cast_complex<Out>(cin[coarse_idx]);
+  }
+  out[global_idx] = sum;
+}
+
+// ---------------------------------------------------------------------------
+// Distributed wide-stencil kernel.
+//
+// The ordinary wide kernel uses periodic modulo indexing because its input is
+// a complete coarse lattice.  In an MPI run each rank owns only a local block.
+// The host-side MG driver fills ``halo`` with the 32 remote neighbour blocks;
+// this kernel reads the local vector for an interior neighbour and the padded
+// halo for a coordinate outside the local block.  The halo layout is
+// [E, X+2, Y+2, Z+2, Lt+2], with one layer on every side.
+// ---------------------------------------------------------------------------
+template <typename T>
+__device__ inline LatticeComplex<T> multigrid_halo_read(
+    const LatticeComplex<T> *in, const LatticeComplex<T> *halo, int E,
+    int X, int Y, int Z, int Lt, int e, int x, int y, int z, int t,
+    int dx, int dy, int dz, int dt) {
+  int nx = x + dx, ny = y + dy, nz = z + dz, nt = t + dt;
+  if (nx >= 0 && nx < X && ny >= 0 && ny < Y && nz >= 0 && nz < Z &&
+      nt >= 0 && nt < Lt) {
+    int vol = X * Y * Z * Lt;
+    int site = ((nx * Y + ny) * Z + nz) * Lt + nt;
+    return in[e * vol + site];
+  }
+  int hvol = (X + 2) * (Y + 2) * (Z + 2) * (Lt + 2);
+  int hsite = ((((nx + 1) * (Y + 2) + (ny + 1)) * (Z + 2) +
+                (nz + 1)) * (Lt + 2) + (nt + 1));
+  return halo[e * hvol + hsite];
+}
+
+template <typename T>
+__global__ void multigrid_coarse_dslash_wide_halo(
+    void *fermion_out, void *fermion_in, void *halo, void *sitting,
+    void *hop_nn, void *hop_diag, int E, int X, int Y, int Z, int Lt) {
+  int global_idx = blockIdx.x * blockDim.x + threadIdx.x;
+  int vol = X * Y * Z * Lt;
+  int total_output = E * vol;
+  if (global_idx >= total_output || E <= 0 || vol <= 0) return;
+
+  LatticeComplex<T> *out = static_cast<LatticeComplex<T> *>(fermion_out);
+  const LatticeComplex<T> *in =
+      static_cast<const LatticeComplex<T> *>(fermion_in);
+  const LatticeComplex<T> *h = static_cast<const LatticeComplex<T> *>(halo);
+  const LatticeComplex<T> *sit =
+      static_cast<const LatticeComplex<T> *>(sitting);
+  const LatticeComplex<T> *nn =
+      static_cast<const LatticeComplex<T> *>(hop_nn);
+  const LatticeComplex<T> *dg =
+      static_cast<const LatticeComplex<T> *>(hop_diag);
+
+  int E_out = global_idx / vol;
+  int site = global_idx - E_out * vol;
+  int stride_YZT = Y * Z * Lt;
+  int stride_ZT = Z * Lt;
+  int x = site / stride_YZT;
+  int rest = site - x * stride_YZT;
+  int y = rest / stride_ZT;
+  rest -= y * stride_ZT;
+  int z = rest / Lt;
+  int t = rest - z * Lt;
+
+  int str_Ein = vol;
+  int str_Eout = E * str_Ein;
+  int str_dir = E * str_Eout;
+  int str_pm = 4 * str_dir;
+  int dg_str_s2 = 6 * E * str_Eout;
+  int dg_str_s1 = 2 * dg_str_s2;
+  int dg_str_pair = E * str_Eout;
+  LatticeComplex<T> sum(0.0, 0.0);
+
+  int sit_base = E_out * str_Eout + site;
+  for (int e = 0; e < E; ++e)
+    sum += sit[sit_base + e * str_Ein] * in[e * vol + site];
+
+  int dir_dx[4] = {1, 0, 0, 0};
+  int dir_dy[4] = {0, 1, 0, 0};
+  int dir_dz[4] = {0, 0, 1, 0};
+  int dir_dt[4] = {0, 0, 0, 1};
+  for (int d = 0; d < 4; ++d) {
+    int sx = dir_dx[d], sy = dir_dy[d], sz = dir_dz[d], st = dir_dt[d];
+    int plus_base = d * str_dir + E_out * str_Eout + site;
+    int minus_base = str_pm + d * str_dir + E_out * str_Eout + site;
+    for (int e = 0; e < E; ++e) {
+      sum += nn[plus_base + e * str_Ein] *
+             multigrid_halo_read(in, h, E, X, Y, Z, Lt, e, x, y, z, t,
+                                 sx, sy, sz, st);
+      sum += nn[minus_base + e * str_Ein] *
+             multigrid_halo_read(in, h, E, X, Y, Z, Lt, e, x, y, z, t,
+                                 -sx, -sy, -sz, -st);
+    }
+  }
+
+  int pair_d1[6] = {0, 0, 0, 1, 1, 2};
+  int pair_d2[6] = {1, 2, 3, 2, 3, 3};
+  int coords[4] = {x, y, z, t};
+  for (int pi = 0; pi < 6; ++pi) {
+    int d1 = pair_d1[pi], d2 = pair_d2[pi];
+    for (int s1i = 0; s1i < 2; ++s1i) {
+      for (int s2i = 0; s2i < 2; ++s2i) {
+        int s1 = s1i == 0 ? 1 : -1;
+        int s2 = s2i == 0 ? 1 : -1;
+        int dx = 0, dy = 0, dz = 0, dt = 0;
+        if (d1 == 0) dx = s1;
+        else if (d1 == 1) dy = s1;
+        else if (d1 == 2) dz = s1;
+        else dt = s1;
+        if (d2 == 0) dx = s2;
+        else if (d2 == 1) dy = s2;
+        else if (d2 == 2) dz = s2;
+        else dt = s2;
+        int dg_base = s1i * dg_str_s1 + s2i * dg_str_s2 +
+                      pi * dg_str_pair + E_out * str_Eout + site;
+        for (int e = 0; e < E; ++e)
+          sum += dg[dg_base + e * str_Ein] *
+                 multigrid_halo_read(in, h, E, X, Y, Z, Lt, e, x, y, z, t,
+                                     dx, dy, dz, dt);
+      }
+    }
+  }
+  out[global_idx] = sum;
+}
+
 template <typename T>
 __global__ void multigrid_coarse_dslash(void *fermion_out, void *fermion_in,
                                          void *hopping, void *sitting,
@@ -846,6 +1136,30 @@ template __global__ void multigrid_prolong<float>(
 template __global__ void multigrid_prolong<double>(
     void *fine_out, void *coarse_in, void *null_vecs, int E, int e, int Xf,
     int Yf, int Zf, int Tf, int Xc, int Yc, int Zc, int Tc);
+template __global__ void multigrid_restrict_cast<float, float>(
+    void *coarse_out, void *fine_in, void *null_vecs, int E, int e, int Xf,
+    int Yf, int Zf, int Tf, int Xc, int Yc, int Zc, int Tc);
+template __global__ void multigrid_restrict_cast<float, double>(
+    void *coarse_out, void *fine_in, void *null_vecs, int E, int e, int Xf,
+    int Yf, int Zf, int Tf, int Xc, int Yc, int Zc, int Tc);
+template __global__ void multigrid_restrict_cast<double, float>(
+    void *coarse_out, void *fine_in, void *null_vecs, int E, int e, int Xf,
+    int Yf, int Zf, int Tf, int Xc, int Yc, int Zc, int Tc);
+template __global__ void multigrid_restrict_cast<double, double>(
+    void *coarse_out, void *fine_in, void *null_vecs, int E, int e, int Xf,
+    int Yf, int Zf, int Tf, int Xc, int Yc, int Zc, int Tc);
+template __global__ void multigrid_prolong_cast<float, float>(
+    void *fine_out, void *coarse_in, void *null_vecs, int E, int e, int Xf,
+    int Yf, int Zf, int Tf, int Xc, int Yc, int Zc, int Tc);
+template __global__ void multigrid_prolong_cast<float, double>(
+    void *fine_out, void *coarse_in, void *null_vecs, int E, int e, int Xf,
+    int Yf, int Zf, int Tf, int Xc, int Yc, int Zc, int Tc);
+template __global__ void multigrid_prolong_cast<double, float>(
+    void *fine_out, void *coarse_in, void *null_vecs, int E, int e, int Xf,
+    int Yf, int Zf, int Tf, int Xc, int Yc, int Zc, int Tc);
+template __global__ void multigrid_prolong_cast<double, double>(
+    void *fine_out, void *coarse_in, void *null_vecs, int E, int e, int Xf,
+    int Yf, int Zf, int Tf, int Xc, int Yc, int Zc, int Tc);
 template __global__ void multigrid_coarse_dslash<float>(
     void *fermion_out, void *fermion_in, void *hopping, void *sitting,
     int E, int X, int Y, int Z, int Lt);
@@ -858,6 +1172,12 @@ template __global__ void multigrid_coarse_dslash_wide<float>(
 template __global__ void multigrid_coarse_dslash_wide<double>(
     void *fermion_out, void *fermion_in, void *sitting, void *hop_nn,
     void *hop_diag, int E, int X, int Y, int Z, int Lt);
+template __global__ void multigrid_coarse_dslash_wide_halo<float>(
+    void *fermion_out, void *fermion_in, void *halo, void *sitting,
+    void *hop_nn, void *hop_diag, int E, int X, int Y, int Z, int Lt);
+template __global__ void multigrid_coarse_dslash_wide_halo<double>(
+    void *fermion_out, void *fermion_in, void *halo, void *sitting,
+    void *hop_nn, void *hop_diag, int E, int X, int Y, int Z, int Lt);
 template __global__ void multigrid_coarse_solve<float>(
     void*, void*, void*, void*, void*, void*, void*, void*, void*, void*,
     void*, int, int, int, int, int, int, float);
