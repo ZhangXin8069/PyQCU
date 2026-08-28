@@ -1,0 +1,754 @@
+% ============================================================
+% PyQCU 纯 Python 多重网格算法实现 — 技术报告
+% 编译：xelatex 两遍；本文件仅引用源代码，不修改源代码。
+% ============================================================
+\documentclass[UTF8,aspectratio=169,11pt]{ctexbeamer}
+
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{hyperref}
+
+\definecolor{primary}{HTML}{17365D}
+\definecolor{accent}{HTML}{1F77B4}
+\definecolor{evidence}{HTML}{1E8449}
+\definecolor{reference}{HTML}{8B5A2B}
+\definecolor{conclusion}{HTML}{8B1E3F}
+\definecolor{codebg}{HTML}{F2F4F7}
+\definecolor{struct}{HTML}{3949AB}
+\definecolor{relation}{HTML}{00838F}
+\definecolor{idea}{HTML}{A3472F}
+\definecolor{warn}{HTML}{C55A11}
+\definecolor{hl}{HTML}{FFF3CD}
+\definecolor{muted}{HTML}{5B6573}
+
+\setbeamersize{text margin left=0.55cm,text margin right=0.55cm}
+\setlength{\emergencystretch}{2em}
+\setbeamertemplate{navigation symbols}{}
+\setbeamercolor{normal text}{fg=black!86,bg=white}
+\setbeamercolor{structure}{fg=primary}
+\setbeamercolor{frametitle}{fg=primary,bg=white}
+\setbeamercolor{block title}{fg=primary,bg=gray!8}
+\setbeamercolor{block body}{fg=black!86,bg=gray!4}
+\setbeamerfont{frametitle}{size=\large,series=\bfseries}
+\setbeamerfont{normal text}{size=\normalsize}
+\setbeamertemplate{frametitle}{%
+  \vskip0.12cm\insertframetitle\par\vskip0.08cm}
+\setbeamertemplate{footline}{%
+  \hbox{\begin{beamercolorbox}[wd=\paperwidth,ht=2.3ex,dp=0.9ex,
+    leftskip=0.55cm,rightskip=0.55cm]{author in head/foot}%
+    \scriptsize\color{muted}\insertshortauthor\hfill
+    \insertshorttitle\hfill\insertframenumber/\inserttotalframenumber
+  \end{beamercolorbox}}}
+
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\newcolumntype{P}[1]{>{\raggedright\arraybackslash}p{#1}}
+\newcommand{\source}[1]{%
+  \vspace{0.06em}\par{\raggedright\scriptsize\color{muted}来源：#1\par}}
+\newcommand{\pathref}[1]{\nolinkurl{#1}}
+\newcommand{\verified}{\textcolor{evidence}{确证}}
+\newcommand{\inferred}{\textcolor{accent}{推断}}
+\newcommand{\unverified}{\textcolor{warn}{未验证}}
+\newcommand{\risk}{\textcolor{warn}{风险}}
+\newcommand{\goodbox}[1]{\colorbox{evidence!10}{\parbox{0.90\linewidth}{#1}}}
+\newcommand{\warnbox}[1]{\colorbox{warn!12}{\parbox{0.90\linewidth}{\scriptsize #1}}}
+
+\lstset{
+  language=Python,
+  basicstyle=\ttfamily\scriptsize,
+  backgroundcolor=\color{codebg},
+  frame=single,
+  rulecolor=\color{gray!35},
+  breaklines=true,
+  breakatwhitespace=false,
+  keepspaces=true,
+  columns=flexible,
+  numbers=left,
+  numberstyle=\tiny\color{muted},
+  keywordstyle=\color{primary}\bfseries,
+  commentstyle=\color{evidence!70!black},
+  stringstyle=\color{accent}
+}
+
+\title[纯 Python Multigrid]{PyQCU 纯 Python 多重网格算法实现}
+\subtitle{层级构建、Galerkin 粗算子、BiCGStab 平滑与证据化核验}
+\author[代码审计与算法报告]{代码审计与算法报告}
+\institute{PyQCU}
+\date{2026-08-28}
+
+\begin{document}
+
+\begin{frame}[plain]
+  \titlepage
+\end{frame}
+
+\section{结论与范围}
+
+\begin{frame}[t]{结论先行：V-cycle 骨架完整，但粗层算子存在可复现语义断裂}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \begin{column}{0.31\textwidth}
+      \begin{block}{已确证}
+        \small
+        层级尺寸、近零模、局部块 QR、$P^\dagger/P$ 转移、BiCGStab 平滑、递归粗修正与 R3 状态重置均有明确代码路径。
+      \end{block}
+    \end{column}
+    \begin{column}{0.31\textwidth}
+      \begin{block}{核验结果}
+        \small
+        单层 $4^4$ Wilson CPU 实测真实残差
+        $4.81\times10^{-11}$；转移往返误差
+        $8.88\times10^{-16}$。
+      \end{block}
+    \end{column}
+    \begin{column}{0.31\textwidth}
+      \begin{block}{首要行动}
+        \small
+        粗层已构造的 $M$ 被
+        \texttt{clover\_term is None} 分支绕过；
+        另需补齐 $s$ 提前收敛与外部 $x^{(0)}$ 接入。
+      \end{block}
+    \end{column}
+  \end{columns}
+  \vspace{0.2em}
+  \begin{tabular}{@{}p{0.92\linewidth}@{}}
+    \goodbox{\textbf{当前判断：}\ \verified{} 细层 BiCGStab 与层间转移具备可运行实现；
+    \risk{} 纯 Python 多层 Galerkin 算子的“构造式”与“应用式”目前不一致，
+    因而不能把多层收敛性归因于已正确实现的粗空间。}
+  \end{tabular}
+  \source{\pathref{solver/_multigrid.py:353-540}；\pathref{dslash/_operator.py:157-226}；
+  本会话 CPU 只读 smoke 实验。}
+\end{frame}
+
+\begin{frame}[t]{任务定义与证据边界}
+  \begin{block}{任务定义}
+    面向学者和后续开发者，解析 \pathref{solver/_multigrid.py} 的纯 Python 多重网格实现：
+    说明物理对象、数学算子、层级工作流、停止语义与当前证据；不修改源代码。
+  \end{block}
+  \vspace{0.15em}
+  \scriptsize
+  \begin{center}
+    \begin{tabular}{@{}P{0.20\textwidth}P{0.55\textwidth}P{0.18\textwidth}@{}}
+      \toprule
+      范围 & 角色与分析内容 & 状态 \\
+      \midrule
+      \pathref{solver/_multigrid.py} & 主入口、层级管理、V-cycle、BiCGStab、adaptive、solve & \verified{} 精读 \\
+      \pathref{tools/_multigrid.py} & 近零模、局部 QR、restrict/prolong & \verified{} 主题函数精读 \\
+      \pathref{dslash/_operator.py} & 细层算子、Galerkin 粗算子、Wilson/Clover sitting & \verified{} 直接依赖精读 \\
+      \pathref{dslash/_wilson.py} & hopping 矩阵与邻居作用方向 & \verified{} 直接依赖精读 \\
+      \pathref{tools/_linalg.py}、\pathref{tools/_define.py}、\pathref{cann/__init__.py} & MPI 内积、范数、布局、NPU 兼容 & \verified{} 相关段落 \\
+      CUDA 内核、示例、日志、全仓库 benchmark & 非纯 Python 实现或超出本次限定边界 & \unverified{} 未覆盖 \\
+      \bottomrule
+    \end{tabular}
+  \end{center}
+  \source{范围来自用户指定的 \pathref{solver/_multigrid.py}；局部 AGENTS 约定已读取。}
+\end{frame}
+
+\section{三视角：结构、关系、思路}
+
+\begin{frame}[t]{主体结构：求解器由五个可追踪层次组成}
+  \begin{center}
+    \tiny
+    \begin{tabular}{@{}P{0.20\textwidth}P{0.55\textwidth}P{0.18\textwidth}@{}}
+      \toprule
+      层次 & 责任 & 关键证据 \\
+      \midrule
+      求解入口 & 维护参数、层级尺寸、右端项与生命周期，输出 \texttt{[4,3,Lx,Ly,Lz,Lt]} & \pathref{solver/_multigrid.py:10-89,542-557} \\
+      V-cycle 控制 & 当前层 BiCGStab；周期性残差限制、粗层递归、细层校正 & \pathref{solver/_multigrid.py:353-540} \\
+      层间表示 & 随机近零模 $\rightarrow$ 局部正交基 $\rightarrow$ $R/P$ & \pathref{solver/_multigrid.py:270-306}；\pathref{tools/_multigrid.py:8-139} \\
+      Dirac 算子 & $D=S+H$；hopping 处理四个方向，sitting 处理局部项 & \pathref{dslash/_operator.py:9-147}；\pathref{dslash/_wilson.py:230-324} \\
+      全局数值支持 & MPI Allreduce 的 $v^\dagger w$ 与全局范数；NPU 复数拆分兼容 & \pathref{tools/_linalg.py:7-41}；\pathref{cann/__init__.py:7-41,55-140} \\
+      \bottomrule
+    \end{tabular}
+  \end{center}
+  \vspace{0em}
+  \source{代码调用摘要；主体路径为纯 Python（\pathref{solver/_multigrid.py:353-540}）。}
+\end{frame}
+
+\begin{frame}[t]{各部分关系：构建链与求解链在同一对象上汇合}
+  \begin{center}
+    \begin{tabular}{@{}p{0.92\linewidth}@{}}
+      \toprule
+      \textbf{输入：}\ $U,\;C,\;\kappa,\;u_0,\;\{d_i\},\;\{g_\mu\},\;\text{dtype/device}$
+      \\
+      $\Downarrow$ \\
+      \textbf{细层：}\ $D_0=S_0+H_0$，由 \texttt{dslash.operator} 组合 Wilson/Clover 作用
+      \\
+      $\Downarrow$ \\
+      \textbf{每个层间接口：}\quad
+      $V_i\ \xrightarrow{\text{local QR}}\ P_i,\qquad
+      R_i=P_i^\dagger,\qquad
+      D_{i+1}\ \xleftarrow{\text{Galerkin}}\ P_i^\dagger D_i P_i$
+      \\
+      $\Downarrow$ \\
+      \textbf{求解：}\quad
+      $\texttt{solve} \rightarrow \texttt{cycle(0)}
+      \rightarrow \text{BiCGStab smoothing}
+      \rightarrow R_i r_i
+      \rightarrow \texttt{cycle(i+1)}
+      \rightarrow P_i e_{i+1}$
+      \\
+      $\Downarrow$ \\
+      \textbf{输出：}\ $x_0$ 的展平内部表示 \texttt{[12,xyzt]}
+      $\rightarrow$ 返回费米子布局 \texttt{[4,3,xyzt]}。
+      \\
+      \bottomrule
+    \end{tabular}
+  \end{center}
+  \source{\pathref{solver/_multigrid.py:223-307,353-540}；
+  \pathref{dslash/_operator.py:157-226}。箭头表示真实调用/数据依赖。}
+\end{frame}
+
+\begin{frame}[t]{项目思路：以低模近零空间压缩长程误差}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \begin{column}{0.48\textwidth}
+      \begin{block}{为什么使用近零模}
+        \small
+        细层迭代器对高频误差通常容易削弱，难点是低频误差。逆迭代式
+        $v\leftarrow v-A^{-1}Av$ 用宽松相对容差保留慢变分量，再把这些分量组织成粗空间。
+      \end{block}
+      \begin{block}{为什么局部 QR}
+        \small
+        每个粗格点对应一个细块；块内 QR 使
+        $P_i^\dagger P_i\simeq I$，保证限制/延拓不会因基向量尺度漂移而放大误差。
+      \end{block}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \begin{block}{为什么 Galerkin}
+        \small
+        $D_{i+1}=P_i^\dagger D_iP_i$ 将细层物理算子投影到粗空间，保留规范场、spin-color 耦合和局部/邻接结构。
+      \end{block}
+      \begin{block}{为什么自适应回退}
+        \small
+        若窗口中当前残差比过半历史值更差，累计停滞计数；连续达到阈值后停止继续进入粗层，避免无效粗修正。
+      \end{block}
+    \end{column}
+  \end{columns}
+  \vspace{0.1em}
+  \begin{center}
+    \tiny
+    \begin{tabular}{@{}P{0.16\textwidth}P{0.30\textwidth}P{0.44\textwidth}@{}}
+      \toprule
+      时间 & 代码演进证据 & 对当前实现的影响 \\
+      \midrule
+      2026-07-28 & R2 breakdown 检测 & 数值奇异时自动重启，保留 $x,r$ \\
+      2026-08-14 & CUDA 同步、资源释放、R3 状态重置 & 混合路径生命周期更明确 \\
+      2026-08-24 & seed 与多实例资源约定 & 随机初始化可复现，但不改变粗算子语义 \\
+      \bottomrule
+    \end{tabular}
+  \end{center}
+  \vspace{-0.30em}
+  \source{演进旁证：\pathref{tools/_multigrid.py:29-42}；
+  \pathref{solver/_multigrid.py:407-449}；设计动机标注为 \inferred{}。}
+\end{frame}
+
+\begin{frame}[t]{对象映射：代码张量对应格点 QCD 中的什么}
+  \begin{center}
+    \scriptsize
+    \begin{tabular}{@{}P{0.18\textwidth}P{0.48\textwidth}P{0.28\textwidth}@{}}
+      \toprule
+      代码对象 & 数学/物理对象 & 布局或作用 \\
+      \midrule
+      \texttt{U} & 规范链变量 $U_\mu(x)\in SU(3)$ & \texttt{[3,3,4,Lx,Ly,Lz,Lt]}，四个方向平移 \\
+      \texttt{D/S/H} & Clover/Wilson Dirac 算子、局部项、hopping 项 & $D=S+H$；$H$ 连接相邻格点 \\
+      \texttt{null\_vecs} & 近零空间候选向量 & $[E_i,E_{i-1},xyzt]$，逆迭代后归一化 \\
+      \texttt{lonv/P} & 每个粗块的局部正交基/延拓 & $[E_i,E_{i-1},X,x,Y,y,Z,z,T,t]$ \\
+      \texttt{restrict/prolong} & $P^\dagger$ 限制 / $P$ 延拓 & 粗残差压缩、粗修正返回细层 \\
+      \texttt{r\_tilde,p,v,s,t} & BiCGStab 的影子残差、搜索/像向量 & 每层独立维护，粗修正后全部重置 \\
+      \texttt{b\_list[level]} & 当前层方程右端项 & 细层为原始 $b$，粗层为 $P^\dagger r$ \\
+      \bottomrule
+    \end{tabular}
+  \end{center}
+  \source{\pathref{solver/_multigrid.py:19-79,392-400}；
+  \pathref{tools/_multigrid.py:69-139}；
+  \pathref{dslash/_wilson.py:10-18,230-264}。}
+\end{frame}
+
+\section{算法主体}
+
+\begin{frame}[t]{层级构建（1/2）：由格点尺寸和自由度生成层次}
+  \begin{center}
+    \small
+    \begin{tabular}{@{}p{0.93\linewidth}@{}}
+      \toprule
+      \textbf{Input:}\quad
+      $L^{(0)}=(L_x,L_y,L_z,L_t)$，最小尺寸 $m$，层数上限 $K$，
+      粗化因子 $g=(g_x,g_y,g_z,g_t)$，每层自由度 $E_i$。
+      \\
+      \textbf{Initialize:}\quad
+      $\texttt{lat\_size\_list}\gets[\ ],\quad\ell\gets L^{(0)}$。
+      \\
+      \textbf{while:}\quad
+      $\min_\mu \ell_\mu\ge m$ 且已加入层数 $<K$：
+      \\
+      \quad $\texttt{lat\_size\_list.append}(\ell)$。
+      \\
+      \quad $\ell_\mu\gets\lfloor\ell_\mu/g_\mu\rfloor$，$\mu\in\{x,y,z,t\}$。
+      \\
+      \textbf{Set state:}\quad
+      $N_{\rm level}\gets|\texttt{lat\_size\_list}|$，
+      $\texttt{dof/dtype/device}\gets$ 对应前缀切片。
+      \\
+      \textbf{Sanity condition:}\quad
+      $\ell_\mu$ 必须可被局部块尺寸整除，否则局部正交化的 reshape/assert 不能成立。
+      \\
+      \textbf{Pure-Python alignment:}\quad
+      $g=(2,2,2,2)$ 与粗算子构建器的偶/奇坐标探针假设一致。
+      \\
+      \textbf{Output:}\quad
+      $L^{(0)}\to L^{(1)}\to\cdots\to L^{(N-1)}$ 及每层算子容器。
+      \\
+      \bottomrule
+    \end{tabular}
+  \end{center}
+  \source{\pathref{solver/_multigrid.py:34-45}；
+  \pathref{tools/_multigrid.py:69-85}；
+  \pathref{dslash/_operator.py:157-166}。}
+\end{frame}
+
+\begin{frame}[t]{层级构建（2/2）：近零模到局部正交粗空间}
+  \begin{center}
+    \small
+    \begin{tabular}{@{}p{0.93\linewidth}@{}}
+      \toprule
+      \textbf{For } $i=1,\ldots,N-1$：
+      生成随机候选 $V_i\in\mathbb{C}^{E_i\times E_{i-1}\times L^{(i-1)}}$。
+      \\
+      \quad \textbf{Inverse iteration:}\quad
+      $v_{i,k}\gets v_{i,k}-A_{i-1}^{-1}(A_{i-1}v_{i,k})$，
+      其中 $A^{-1}$ 由 BiCGStab 近似实现，相对容差为 $5\times10^{-5}$。
+      \\
+      \quad \textbf{Normalize:}\quad
+      $v_{i,k}\gets v_{i,k}/\|v_{i,k}\|$。
+      \\
+      \quad \textbf{Block reshape:}\quad
+      $[E_i,E_{i-1},Xx,Yy,Zz,Tt]\to
+      [X,Y,Z,T,E_i,E_{i-1},x,y,z,t]$。
+      \\
+      \quad \textbf{Local QR:}\quad
+      $A_{\rm block}\in\mathbb{C}^{(E_{i-1}xyzt)\times E_i}$，
+      $A_{\rm block}=Q_{\rm block}R_{\rm block}$。
+      \\
+      \quad \textbf{Restore:}\quad
+      $Q_{\rm block}\to
+      P_i[E_i,E_{i-1},X,x,Y,y,Z,z,T,t]$。
+      \\
+      \quad \textbf{Construct:}\quad
+      $D_i\gets P_i^\dagger D_{i-1}P_i$ 的代码探针并入
+      \texttt{op\_list}。
+      \\
+      \textbf{End for.}\quad
+      保存 \texttt{nv\_list}、\texttt{lonv\_list}、\texttt{b\_list} 与 \texttt{op\_list}。
+      \\
+      \bottomrule
+    \end{tabular}
+  \end{center}
+  \source{\pathref{solver/_multigrid.py:270-306}；
+  \pathref{tools/_multigrid.py:8-66,69-109}。}
+\end{frame}
+
+\begin{frame}[t]{转移算子：局部正交性使限制与延拓成为伴随对}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \begin{column}{0.50\textwidth}
+      \begin{block}{数学定义}
+        \small
+        对局部正交基 $P_i$：
+        \[
+          (R_i v)_{E,X,Y,Z,T}
+          =\sum_{e,x,y,z,t}
+          P_i^\dagger{}_{E,e,Xx,Yy,Zz,Tt}
+          v_{e,Xx,Yy,Zz,Tt},
+        \]
+        \[
+          (P_i c)_{e,Xx,Yy,Zz,Tt}
+          =\sum_E P_i{}_{E,e,Xx,Yy,Zz,Tt}c_{E,X,Y,Z,T}.
+        \]
+        因此 $R_i=P_i^\dagger$，理想情况下 $R_iP_i=I$。
+      \end{block}
+    \end{column}
+    \begin{column}{0.46\textwidth}
+      \begin{block}{CPU/float64 受控核验}
+        \small
+        细格点：$4^4$；粗格点：$2^4$；
+        $E_i=2$、$E_{i-1}=1$。
+        \[
+        \max|P^\dagger P-I|=4.44\times10^{-16},
+        \]
+        \[
+        \max|R(Pc)-c|=8.88\times10^{-16}.
+        \]
+        \verified{} 转移路径数值自洽。
+      \end{block}
+    \end{column}
+  \end{columns}
+  \vspace{0.15em}
+  \begin{tabular}{@{}p{0.92\linewidth}@{}}
+    \goodbox{\textbf{物理含义：}\ 延拓把粗格点自由度展开为细格点上的低频场形状；
+    限制用共轭转置把细层残差投影回同一低频子空间。}
+  \end{tabular}
+  \source{\pathref{tools/_multigrid.py:112-139}；
+  \pathref{tools/_multigrid.py:86-105}；
+  实测命令：CPU、float64、随机候选、固定 seed=7。}
+\end{frame}
+
+\begin{frame}[t]{Galerkin 粗算子：构造公式正确，当前纯 Python 应用分支未闭合}
+  \begin{center}
+    \scriptsize
+    \begin{tabular}{@{}P{0.15\textwidth}P{0.53\textwidth}P{0.24\textwidth}@{}}
+      \toprule
+      阶段 & 代码行为 & 数学意义 \\
+      \midrule
+      初始化 & \texttt{sitting.M} 与四个方向的 \texttt{M\_plus/M\_minus} 置零 & 为 $E_i\times E_i$ 粗矩阵分配空间 \\
+      探针 & 对每个粗自由度、每个方向构造粗基向量并 \texttt{prolong} & 计算 $P_i e_a$ \\
+      细层作用 & 分别应用 \texttt{fine\_hopping.matvec\_plus/minus} & 得到 $H_{i-1}P_i e_a$ \\
+      回投影 & \texttt{restrict} 细层结果 & 得到 $P_i^\dagger H_{i-1}P_i e_a$ \\
+      归类 & 同块部分写入 \texttt{sitting.M}，跨块部分写入 hopping & 保留粗层局部项与邻接项 \\
+      细层局部项 & \texttt{fine\_sitting.matvec} 回投影并累加到 \texttt{sitting.M} & 得到完整 $P_i^\dagger D_{i-1}P_i$ \\
+      应用分支 & \texttt{sitting.matvec} 在 \texttt{clover\_term is None} 时直接返回输入 & 绕过已构造的粗层 \texttt{M} \\
+      \bottomrule
+    \end{tabular}
+  \end{center}
+  \vspace{0.1em}
+  \begin{tabular}{@{}p{0.92\linewidth}@{}}
+    \warnbox{\textbf{\risk{} 可复现证据：}\ 纯 Wilson、$U=I$、$4^4\to2^4$、
+    $E_i=2$ 时，粗层 \texttt{M-I} 范数为 $0.160529$；
+    默认应用与 $P^\dagger D P$ 最大差为 $0.0564071$。
+    临时让 \texttt{sitting.matvec} 使用构造出的 \texttt{M} 后，差为 $9.93\times10^{-16}$。}
+  \end{tabular}
+  \source{\pathref{dslash/_operator.py:157-226}；
+  \pathref{dslash/_operator.py:135-147}；
+  \pathref{solver/_multigrid.py:305-306}；
+  本会话 Galerkin 对照实验。}
+\end{frame}
+
+\begin{frame}[t]{V-cycle 核心（1/2）：每层先执行 BiCGStab 平滑}
+  \begin{center}
+    \small
+    \begin{tabular}{@{}p{0.93\linewidth}@{}}
+      \toprule
+      \textbf{Input:}\quad
+      当前层算子 $A_\ell$、右端 $b_\ell$、平滑容差 \texttt{\_tol}、最大迭代数。
+      \\
+      \textbf{Initialize:}\quad
+      $x\gets0,\ r\gets b_\ell-A_\ell x,\ \tilde r\gets r$；
+      $p,v,s,t\gets0$，$\rho_{\rm prev},\alpha,\omega\gets1$。
+      \\
+      \textbf{for } $i=0,1,\ldots$：
+      \\
+      \quad $\rho_i\gets\tilde r^\dagger r$；若 $|\rho_i|<10^{-20}$，进入自动重启。
+      \\
+      \quad $\beta_i\gets(\rho_i/\rho_{\rm prev})(\alpha/\omega)$；
+      $p\gets r+\beta_i(p-\omega v)$。
+      \\
+      \quad $v\gets A_\ell p$；若 $|\tilde r^\dagger v|<10^{-20}$，进入自动重启。
+      \\
+      \quad $\alpha\gets\rho_i/(\tilde r^\dagger v)$；
+      $s\gets r-\alpha v$。
+      \\
+      \quad \textbf{Expected early branch:}\quad
+      \textbf{if } $\|s\|\le\texttt{tol}$ \textbf{ then } $x\gets x+\alpha p$
+      \textbf{ and stop}。
+      \quad \risk{\ 当前代码未实现。}
+      \\
+      \quad $t\gets A_\ell s$；若 $|t^\dagger t|<10^{-20}$，进入自动重启。
+      \\
+      \bottomrule
+    \end{tabular}
+  \end{center}
+  \source{\pathref{solver/_multigrid.py:376-449}；
+  用户提供的 BiCGStab 伪代码（书目信息未提供，仅作格式/算法参照）。}
+\end{frame}
+
+\begin{frame}[t]{V-cycle 核心（2/2）：残差更新、粗修正与状态重置}
+  \begin{center}
+    \small
+    \begin{tabular}{@{}p{0.93\linewidth}@{}}
+      \toprule
+      \quad $\omega\gets(t^\dagger s)/(t^\dagger t)$；若非有限，进入自动重启。
+      \\
+      \quad $x\gets x+\alpha p+\omega s$，$\quad r\gets s-\omega t$。
+      \\
+      \quad 记录细层残差；若 $\|r\|<\texttt{\_tol}$，本层返回。
+      \\
+      \quad \texttt{count\_restart += 1}；当 $\ell<N-1$ 且
+      \texttt{count\_restart > num\_restart} 时启动粗网格周期。
+      \\
+      \textbf{Cycle start:}\quad
+      $r_{\ell+1}\gets R_\ell r_\ell$，写入 \texttt{b\_list[level+1]}。
+      \\
+      \quad $e_{\ell+1}\gets\texttt{cycle(level+1)}$；
+      $e_\ell\gets P_\ell e_{\ell+1}$。
+      \\
+      \quad $x_\ell\gets x_\ell+e_\ell$；
+      $r_\ell\gets b_\ell-A_\ell x_\ell$（重新计算真残差）。
+      \\
+      \textbf{R3 reset:}\quad
+      $\tilde r\gets r$，$p,v,s,t\gets0$，
+      $\rho_{\rm prev},\alpha,\omega\gets1$。
+      \\
+      \textbf{Stop:}\quad
+      $\|r_\ell\|<\texttt{\_tol}$ 或达到 \texttt{max\_iter}；否则回到下一次平滑。
+      \\
+      \textbf{Output:}\quad
+      当前层 $x_\ell$；层 0 再恢复为 \texttt{[4,3,xyzt]}。
+      \\
+      \bottomrule
+    \end{tabular}
+  \end{center}
+  \source{\pathref{solver/_multigrid.py:450-540}；
+  R3 状态重置证据：\pathref{solver/_multigrid.py:487-501}。}
+\end{frame}
+
+\begin{frame}[t]{停止语义与自适应回退：代码中的“收敛”不是单一判据}
+  \begin{center}
+    \scriptsize
+    \begin{tabular}{@{}P{0.15\textwidth}P{0.46\textwidth}P{0.31\textwidth}@{}}
+      \toprule
+      位置 & 判据/状态变更 & 解释 \\
+      \midrule
+      初始检查 & $\|r_0\|<\texttt{tol}$（层 0）或
+      $0.5\|r_0\|/0.1\|r_0\|$（粗层） & 粗层只做相对初始残差的内部求解 \\
+      BiCGStab 循环 & $\|r_i\|<\texttt{\_tol}$ & 当前层返回；层 0 的 \texttt{\_tol} 为用户绝对 \texttt{tol} \\
+      自适应窗口 & 当前残差大于等于窗口中至少一半历史改善值 & \texttt{convergence\_tol += 1}，表示停滞 \\
+      层级回退 & \texttt{convergence\_tol > 3} & 将 \texttt{num\_level} 置为 1，不再进入粗层 \\
+      求解复位 & \texttt{levels\_back()} 只复位计数和层数 & \texttt{convergence\_history} 当前未清空，重复 solve 会沿用旧历史 \\
+      初值接口 & \texttt{solve(x0=...)} 保存到 \texttt{self.x0} & \texttt{cycle} 重新创建零初值；当前代码未消费 \texttt{self.x0} \\
+      \bottomrule
+    \end{tabular}
+  \end{center}
+  \vspace{0.15em}
+  \begin{tabular}{@{}p{0.92\linewidth}@{}}
+    \warnbox{\textbf{\risk{} 语义边界：}\ 代码打印的“Final residual”是递推残差；
+    单层实测另外计算的真残差与其一致，但多层/低精度场景仍应显式做
+    $\|b-Dx\|$ 复核。}
+  \end{tabular}
+  \source{\pathref{solver/_multigrid.py:338-351,376-390,502-517,542-557}。}
+\end{frame}
+
+\begin{frame}[t]{物理与极限检查：应保持的结构不变量}
+  \begin{center}
+    \scriptsize
+    \begin{tabular}{@{}P{0.15\textwidth}P{0.53\textwidth}P{0.24\textwidth}@{}}
+      \toprule
+      检查 & 预期不变量 & 当前证据 \\
+      \midrule
+      规范协变结构 & hopping 保持 $(1\mp\gamma_\mu)U_\mu$ 与反向
+      $(1\pm\gamma_\mu)U^\dagger_\mu$ 的方向配对 & \verified{} \pathref{dslash/_wilson.py:10-18,230-264} \\
+      局部性 & 单个粗块只连接自身及四方向邻居；同块项进入 sitting & \verified{} 构造代码存在，应用分支有风险 \\
+      粗空间正交 & $P^\dagger P=I$ 块内成立 & \verified{} float64 误差 $4.44\times10^{-16}$ \\
+      零 hopping 极限 & $\kappa\to0$ 时 $D\to I$，粗算子应退化为单位 & \inferred{} 能掩盖当前内部 hopping 丢失，不能证明有限 $\kappa$ 正确 \\
+      奇偶预处理 & Schur 算子应在粗转移前后保持同一 parity 语义 & \unverified{} 当前代码在粗限制前重建 full residual，需专门对照 \\
+      量纲/尺度 & residual 范数与 \texttt{tol} 同为无量纲离散线性系统量 & \verified{} 代码只比较范数；物理格距未进入该接口 \\
+      \bottomrule
+    \end{tabular}
+  \end{center}
+  \source{\pathref{dslash/_wilson.py:10-18,230-264}；
+  \pathref{solver/_multigrid.py:360-375,462-485}；
+  物理极限结论中标注 \inferred{} / \unverified{}。}
+\end{frame}
+
+\section{实测证据与评价}
+
+\begin{frame}[t]{实测证据：单层正确运行，多层证据暴露粗层缺口}
+  \begin{center}
+    \scriptsize
+    \begin{tabular}{@{}P{0.07\textwidth}P{0.30\textwidth}P{0.40\textwidth}P{0.13\textwidth}@{}}
+      \toprule
+      ID & 设置与命令性质 & 实际输出 & 状态 \\
+      \midrule
+      C1 & CPU、Wilson、$U=I$、$4^4$、\texttt{dof=[12]}、
+      \texttt{tol=1e-10}、\texttt{max\_iter=30}，调用 \texttt{solve} & 返回
+      \texttt{[4,3,4,4,4,4]}；真实残差 $4.8097878\times10^{-11}$；
+      history 长度 49 & \verified{} \\
+      C2 & CPU、float64、随机局部基，$4^4\to2^4$，检查
+      QR 与 \texttt{restrict(prolong(c))} & $\max|P^\dagger P-I|=4.44\times10^{-16}$；
+      $\max|RPc-c|=8.88\times10^{-16}$ & \verified{} \\
+      C3 & CPU、float64、Wilson Galerkin 对照，$E_i=2$ & 默认
+      $\max|D_c c-RD_fPc|=5.6407137\times10^{-2}$；
+      临时使用 \texttt{sitting.M} 后 $9.9301366\times10^{-16}$ & \verified{} 风险定位 \\
+      C4 & 两层 \texttt{init/solve}，$4^4\to2^4$、\texttt{dof=[12,1]}、
+      \texttt{max\_iter=12}、\texttt{tol=1e-4} & 初始化完成；最终真实细层残差
+      $1.4218765\times10^{-3}$，未达设定容差 & \unverified{} 未通过 \\
+      \bottomrule
+    \end{tabular}
+  \end{center}
+  \source{C1--C4 均为本会话在 MPI size=1、CPU 上执行的只读 Python 实验；
+  C3 还使用了仅在内存中改变分支条件的诊断对照。}
+\end{frame}
+
+\begin{frame}[t]{缺陷与改进优先级：先恢复数学闭合，再扩展验证}
+  \begin{center}
+    \scriptsize
+    \begin{tabular}{@{}P{0.06\textwidth}P{0.29\textwidth}P{0.34\textwidth}P{0.21\textwidth}@{}}
+      \toprule
+      优先级 & 观察到的实现问题 & 影响 & 建议验收 \\
+      \midrule
+      P0 & 粗层 \texttt{sitting.M} 已含同块 hopping，但
+      \texttt{clover\_term is None} 直接返回输入 & $D_c\ne P^\dagger D_fP$，多层校正方程改变 & 修复后 C3 最大差
+      $\le10^{-12}$（float64） \\
+      P1 & $s$ 足够小时未提前接受 $x+\alpha p$；$t=0$ 被当作 breakdown & 精确/幸运收敛可能反复重启；identity 受控例触发
+      \texttt{ZeroDivisionError} & identity、对角矩阵与随机矩阵测试均无异常且残差达标 \\
+      P1 & \texttt{solve(x0)} 只写 \texttt{self.x0}，\texttt{cycle} 固定零初值 & 热启动接口名存实亡 & 非零 $x^{(0)}$ 的初始残差与结果可观测改变 \\
+      P2 & \texttt{convergence\_history} 未在新 solve 开始时清空 & 重复求解的 adaptive/plot 历史混合 & 两次 solve 的 history 分段独立 \\
+      P2 & \texttt{except RuntimeError} 覆盖整个数值块 & 后端真正运行时错误可能被误报为 breakdown & 只捕获显式 breakdown 类型/标志 \\
+      P2 & \texttt{mg\_grid\_size} 可配置，但粗算子构造注释和探针按 2 粗化 & 非标准粗化因子可能错位 & 非 2 因子下 Galerkin 对照通过或明确拒绝 \\
+      \bottomrule
+    \end{tabular}
+  \end{center}
+  \source{\pathref{solver/_multigrid.py:411-449}；
+  \pathref{dslash/_operator.py:157-226}；
+  identity 受控实验：\texttt{ZeroDivisionError}。}
+\end{frame}
+
+\begin{frame}[t]{下一步：可验收的最小修复—验证闭环}
+  \begin{center}
+    \scriptsize
+    \begin{tabular}{@{}P{0.07\textwidth}P{0.25\textwidth}P{0.46\textwidth}P{0.13\textwidth}@{}}
+      \toprule
+      阶段 & 目标 & 可验收产物/判据 & 当前状态 \\
+      \midrule
+      1 & 修复粗层 sitting 应用语义 & 在粗算子对象中区分“细层纯 Wilson 的 identity”
+      与“已构造 Galerkin 的 \texttt{M}”；C3 误差 $\le10^{-12}$ & 待实现 \\
+      2 & 对齐 BiCGStab 参考伪代码 & 增加 $\|s\|$ 早停；breakdown 不再吞后端异常；
+      identity test 不抛除零 & 待实现 \\
+      3 & 接通热启动和历史状态 & \texttt{x0} 真正进入 \texttt{cycle}；每次 solve 清空或分段记录历史 & 待实现 \\
+      4 & 回归数学关系 & $RP=I$、$D_c=P^\dagger D_fP$、full residual 三项对照 & 本报告已提供基线 \\
+      5 & 物理/并行扩展 & Wilson/Clover、parity、MPI size>1、不同 dtype 的真残差与收敛曲线 & \unverified{} 未执行 \\
+      \bottomrule
+    \end{tabular}
+  \end{center}
+  \source{行动项由 C1--C4 证据和 \pathref{solver/_multigrid.py:353-557} 推出；
+  非本次任务授权范围内未修改代码。}
+\end{frame}
+
+\section{分析框架与交接}
+
+\begin{frame}[t]{分析框架 A1--A8：从目的到实际输出}
+  \begin{center}
+    \scriptsize
+    \begin{tabular}{@{}P{0.12\textwidth}P{0.62\textwidth}P{0.20\textwidth}@{}}
+      \toprule
+      步骤 & 本报告结论 & 证据状态/入口 \\
+      \midrule
+      A1 目的与前置 & 用层间粗空间削弱低频误差；需 PyTorch、MPI、算子与布局约定 & \verified{} \pathref{solver/_multigrid.py:10-58} \\
+      A2 输入 & $U,C,\kappa,u_0$、层级尺寸、dtype/device、tol/max\_iter、可选 parity & \verified{} \pathref{solver/_multigrid.py:11-45} \\
+      A3 输出 & 求解场 \texttt{[4,3,xyzt]}，并保留收敛历史/可选图 & \verified{} \pathref{solver/_multigrid.py:542-576} \\
+      A4 整体框架 & \texttt{init} 建层，\texttt{solve} 进入 \texttt{cycle}，各层用同一 BiCGStab 结构 & \verified{} \pathref{solver/_multigrid.py:223-307,353-540} \\
+      A5 关键细节 & 逆迭代、局部 QR、$R/P$、Galerkin 探针、R3 reset & \verified{} 相关代码已逐段精读 \\
+      A6 正确执行 & 构造 $\to$ \texttt{init()} $\to$ \texttt{solve()}；多层必须先准备 \texttt{lonv/op\_list} & \verified{} \pathref{solver/_multigrid.py:223-307} \\
+      A7 实际执行 & 运行 C1--C4 的 CPU、MPI size=1 受控实验 & \verified{} 本会话命令输出 \\
+      A8 实际输出 & 单层达标；转移达标；多层未达 tol；Galerkin 差异可定位 & \verified{} / \unverified{} 分项标识 \\
+      \bottomrule
+    \end{tabular}
+  \end{center}
+  \source{分析框架来自 \pathref{/root/configure/skills/analy/references/analysis-framework.md}；
+  A1--A8 已在主体页展开。}
+\end{frame}
+
+\begin{frame}[t]{分析框架 A9--A15：结果、评价、局限与交接}
+  \begin{center}
+    \scriptsize
+    \begin{tabular}{@{}P{0.12\textwidth}P{0.62\textwidth}P{0.20\textwidth}@{}}
+      \toprule
+      步骤 & 本报告结论 & 证据状态/下一入口 \\
+      \midrule
+      A9 结果分析 & C3 说明问题位于粗层 \texttt{M} 的应用分支，而不是 $P/R$ 数值精度 & \verified{} C3 诊断对照 \\
+      A10 综合分析 & 算法设计与代码骨架一致，但构造式/应用式断裂会破坏多层数学闭合 & \inferred{} 由代码+实验推出 \\
+      A11 结尾总结 & 单层细层求解与转移通过；多层不能宣称已正确 & \verified{} 结论先行页 \\
+      A12 结尾评价 & 优点是模块化、MPI 内积、NPU 兼容、R3 reset；缺点是上述接口/粗算子风险 & \verified{} / \risk{} \\
+      A13 补充说明 & parity、MPI>1、Clover、多 dtype、非二倍粗化均未完成本轮验证 & \unverified{} 明确列出 \\
+      A14 参考源 & 目标代码、直接依赖、局部 AGENTS、用户伪代码与本会话命令 & 见来源索引 \\
+      A15 附录与附件 & 本报告的 \pathref{docs/report_multigrid_python_20260828.tex} 与同名 PDF、代码直引片段、C1--C4 原始数值与版式账本 & \verified{} 交付物 \\
+      \bottomrule
+    \end{tabular}
+  \end{center}
+  \source{分析框架来自 \pathref{/root/configure/skills/analy/references/analysis-framework.md}；
+  A9--A15 的结论均在正文对应页保留来源与状态。}
+\end{frame}
+
+\begin{frame}[t]{交接索引与版式账本：后续 agent 可直接从证据继续}
+  \begin{center}
+    \scriptsize
+    \begin{tabular}{@{}P{0.16\textwidth}P{0.32\textwidth}P{0.19\textwidth}P{0.23\textwidth}@{}}
+      \toprule
+      视觉对象 & 主张/来源 & 占用与拆分边界 & 版式风险/缓解 \\
+      \midrule
+      V1 层级单列表 & 尺寸递归与输入输出；\pathref{solver/_multigrid.py:34-45} & 整页单列，8 行；不拆循环体 & 长公式已拆行，列宽约 0.93 倍版心 \\
+      V2 近零模单列表 & $v-A^{-1}Av$ 与 QR；\pathref{tools/_multigrid.py:8-109} & 整页单列，8 行；QR 为不可拆单元 & 公式/中文行均可换行 \\
+      V3 转移公式 & $R=P^\dagger$、$RP=I$；\pathref{tools/_multigrid.py:112-139} & 左公式+右证据，单页闭合 & 公式分两式，列宽总和含列间距小于 0.96 \\
+      V4 Galerkin 表 & 构造/应用分支与 C3；\pathref{dslash/_operator.py:157-226} & 7 行整页，不拆诊断结论 & 长路径使用 \texttt{pathref}，风险框不跨页 \\
+      V5/V6 BiCGStab & 用户伪代码映射与 R3；\pathref{solver/_multigrid.py:376-501} & 两页按“平滑/校正”语义拆分 & 单列 p 列，避免 tabular 浮动体 \\
+      V7 实测表 & C1--C4 原始结果；本会话命令 & 4 行整页，不拆结果行 & 数值带科学计数法，未画无来源曲线 \\
+      V8 代码直引 & 源码逐字节片段；\pathref{solver/_multigrid.py:376-387,542-550} & 每段不超过 12 行 & listings 断行；中文正文不混入代码块 \\
+      \bottomrule
+    \end{tabular}
+  \end{center}
+  \source{视觉对象、宽高、拆分边界和风险为 report 交接字段；所有主体页均为固定 frame。}
+\end{frame}
+
+\section{附录：代码证据与来源}
+
+\begin{frame}[t]{附录：代码证据 1——当前层从零初值进入 BiCGStab}
+  \lstinputlisting[firstline=376,lastline=387]{/root/PyQCU/pyqcu/solver/_multigrid.py}
+  \vspace{0.15em}
+  \begin{tabular}{@{}p{0.92\linewidth}@{}}
+    \textbf{读法：}\ 代码在 \texttt{cycle} 中无条件执行 \texttt{x = torch.zeros\_like(b)}；
+    因而 \texttt{solve} 保存的 \texttt{self.x0} 不会改变这一段的初始状态。
+  \end{tabular}
+  \source{原文件直引：\pathref{solver/_multigrid.py:376-387}。}
+\end{frame}
+
+\begin{frame}[t]{附录：代码证据 2——solve 保存 x0，但没有把它传给 cycle}
+  \lstinputlisting[firstline=542,lastline=550]{/root/PyQCU/pyqcu/solver/_multigrid.py}
+  \vspace{0.15em}
+  \begin{tabular}{@{}p{0.92\linewidth}@{}}
+    \textbf{读法：}\ \texttt{x0} 在第 547 行被 reshape/clone 到 \texttt{self.x0}，
+    随后直接调用 \texttt{self.cycle()}；\texttt{cycle} 的零初值证据见上一页。
+  \end{tabular}
+  \source{原文件直引：\pathref{solver/_multigrid.py:542-550}。}
+\end{frame}
+
+\begin{frame}[t]{附录：来源索引、状态与下游动作}
+  \begin{center}
+    \scriptsize
+    \begin{tabular}{@{}P{0.28\textwidth}P{0.48\textwidth}P{0.16\textwidth}@{}}
+      \toprule
+      来源 & 用途 & 状态 \\
+      \midrule
+      \pathref{solver/_multigrid.py:10-576} & 主类、V-cycle、停止和接口 & 代码确证 \\
+      \pathref{tools/_multigrid.py:8-139} & 近零模、局部 QR、转移 & 代码确证 \\
+      \pathref{dslash/_operator.py:150-362} & 算子组合、粗算子、parity & 代码确证；parity 部分未实测 \\
+      \pathref{dslash/_wilson.py:10-18,230-324} & Wilson 数学定义与 hopping 实现 & 代码确证 \\
+      \pathref{tools/_linalg.py:7-41}、\pathref{tools/_define.py:126-178} & 全局内积、范数、布局与 MPI 网格 & 代码确证 \\
+      \texttt{git log --follow -- solver/\_multigrid.py} & R2/R3、资源与 seed 演进线索 & 历史旁证 \\
+      C1--C4 只读 Python 命令 & 运行行为、数值误差、缺陷定位 & 实测确证/未通过项 \\
+      用户提供的 BiCGStab 表格 & 伪代码排版与早停分支参照；完整书目信息未提供 & 外部背景，非仓库证据 \\
+      \bottomrule
+    \end{tabular}
+  \end{center}
+  \vspace{0.1em}
+  \begin{tabular}{@{}p{0.92\linewidth}@{}}
+    \textbf{后续 agent 入口：}\ 首先调用 \texttt{debug}/\texttt{test} 处理 P0/P1；
+    P0 修复后再用 \texttt{pure} 深挖 Galerkin 与 parity 物理映射；
+    最后调用 \texttt{report} 或 \texttt{diff} 更新证据与展示。
+  \end{tabular}
+  \source{完整源文件与页码已在各页标注；本报告未修改任何源代码。}
+\end{frame}
+
+\begin{frame}[plain]
+  \begin{center}
+    \vfill
+    {\Large\color{primary}\bfseries 阶段结论}\\[0.6em]
+    {\large 纯 Python 多重网格的层级与 V-cycle 控制流清楚可追踪；\\
+    多层正确性当前受粗层 \texttt{sitting.M} 应用分支限制。}\\[1em]
+    {\small 下一次验证的最小闭环：\quad
+    $RP=I\quad+\quad D_c=P^\dagger D_fP\quad+\quad
+    \|b-Dx\|$ 真残差回归。}
+    \vfill
+  \end{center}
+  \source{结论汇总自 C1--C4 与 \pathref{solver/_multigrid.py} 代码证据。}
+\end{frame}
+
+\end{document}
