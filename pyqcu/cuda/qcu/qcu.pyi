@@ -17,7 +17,7 @@ def applyInitQcu(
 
     Args:
         set_ptrs: int64 tensor, shape [100]. Scratch pointer table.
-        params: int32 tensor, shape [54]. Lattice dimensions,
+        params: int32 tensor, shape [58]. Lattice dimensions,
                 grid sizes, data types, iteration counts, plan selection, MG config.
         argv: real-valued tensor, shape [7]. Physical params:
               mass (idx 0), atol (idx 1), sigma (idx 2), MG level tolerances (3-6).
@@ -213,9 +213,10 @@ def applyCloverMultigridQcu(
       clover_ee/oo/inv:  [4, 3, 4, 3, X, Y, Z, Lt/2]
 
     Coarse-grid operators are passed via set_ptrs:
-      set_ptrs[10 + 3*fl + 0] = null_vecs (LONV) pointer  [E_{fl+1}, e_fl, X_fl, Y_fl, Z_fl, T_fl]
-      set_ptrs[10 + 3*fl + 1] = hop_packed pointer         [2, 4, E_{fl+1}, E_{fl+1}, X_{fl+1}, Y_{fl+1}, Z_{fl+1}, T_{fl+1}]
-      set_ptrs[10 + 3*fl + 2] = sit_packed pointer         [E_{fl+1}, E_{fl+1}, X_{fl+1}, Y_{fl+1}, Z_{fl+1}, T_{fl+1}]
+      set_ptrs[30 + 4*fl + 0] = null_vecs pointer           [E_{fl+1}, e_fl, X_fl, Y_fl, Z_fl, T_fl]
+      set_ptrs[30 + 4*fl + 1] = hop_nn pointer              [2, 4, E_{fl+1}, E_{fl+1}, X_{fl+1}, Y_{fl+1}, Z_{fl+1}, T_{fl+1}]
+      set_ptrs[30 + 4*fl + 2] = hop_diag pointer            [2, 2, 6, E_{fl+1}, E_{fl+1}, X_{fl+1}, Y_{fl+1}, Z_{fl+1}, T_{fl+1}]
+      set_ptrs[30 + 4*fl + 3] = sit_packed pointer          [E_{fl+1}, E_{fl+1}, X_{fl+1}, Y_{fl+1}, Z_{fl+1}, T_{fl+1}]
 
     Params used:
       _MG_NUM_LEVEL_ = number of MG levels
@@ -223,10 +224,25 @@ def applyCloverMultigridQcu(
       _MG_LEVEL1_MAX_ITER_ = max iterations for coarse BiStabCG
       _MG_LEVEL1_NUM_RESTART_ = V-cycle interval (every N fine iterations)
       _MAX_ITER_ = max fine-level iterations
+      _MG_USE_GCR_ = mode bit mask selecting GCR/MR/Chebyshev/CA-GCR,
+                     W/F/K-cycle, or BiCGStabL variants
       _VERBOSE_ = 0 or 1 for logging
 
     argv:
       _ATOL_ = fine-level convergence tolerance
       _MG_LEVEL1_ATOL_ = initial coarse-level tolerance (may be overridden by relative tol)
+    """
+    ...
+
+def verifyCloverMultigridQcu(
+    fermion_out: torch.Tensor, fermion_in: torch.Tensor, gauge: torch.Tensor,
+    clover_ee: torch.Tensor, clover_oo: torch.Tensor,
+    clover_ee_inv: torch.Tensor, clover_oo_inv: torch.Tensor,
+    set_ptrs: torch.Tensor, params: torch.Tensor,
+) -> int:
+    """Run all five C++ multigrid diagnostics.
+
+    Returns 0 for PASS, 1 for a diagnostic FAIL, and 2 for a bridge/runtime
+    error.  The caller still owns the outer ``applyEndQcu`` lifecycle.
     """
     ...
