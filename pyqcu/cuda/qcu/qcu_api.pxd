@@ -21,3 +21,4 @@ cdef extern from "pyqcu.h":
     void applyMultigridCoarseDslashQcu(long long _fermion_out, long long _fermion_in, long long _hopping, long long _sitting, long long _set_ptrs, long long _params) nogil
     void applyMultigridCoarseDslashWideQcu(long long _fermion_out, long long _fermion_in, long long _sitting, long long _hop_nn, long long _hop_diag, long long _set_ptrs, long long _params) nogil
     void applyCloverMultigridQcu(long long _fermion_out, long long _fermion_in, long long _gauge, long long _clover_ee, long long _clover_oo, long long _clover_ee_inv, long long _clover_oo_inv, long long _set_ptrs, long long _params) nogil
+    int verifyCloverMultigridQcu(long long _fermion_out, long long _fermion_in, long long _gauge, long long _clover_ee, long long _clover_oo, long long _clover_ee_inv, long long _clover_oo_inv, long long _set_ptrs, long long _params) nogil

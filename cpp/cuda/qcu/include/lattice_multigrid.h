@@ -29,12 +29,25 @@ inline int multigrid_coarse_shift_component_host(int direction,
 }
 
 inline size_t multigrid_coarse_face_sites_host(int direction, int X, int Y,
-                                                int Z, int Lt) {
+                                                int Z, int Lt,
+                                                const int grid[4]) {
   const int dims[4] = {X, Y, Z, Lt};
   size_t result = 1;
-  for (int d = 0; d < 4; ++d)
-    if (multigrid_coarse_shift_component_host(direction, d) == 0)
+  bool distributed = false;
+  for (int d = 0; d < 4; ++d) {
+    const int shift = multigrid_coarse_shift_component_host(direction, d);
+    if (shift != 0 && grid[d] > 1) distributed = true;
+  }
+  // A direction that is periodic entirely inside this rank never needs a
+  // remote halo.  Returning zero keeps its wire slot empty and, importantly,
+  // avoids making the packed buffer scale with the full local volume when
+  // only one process-grid axis is distributed.
+  if (!distributed) return 0;
+  for (int d = 0; d < 4; ++d) {
+    const int shift = multigrid_coarse_shift_component_host(direction, d);
+    if (shift == 0 || grid[d] == 1)
       result *= static_cast<size_t>(dims[d]);
+  }
   return result;
 }
 
@@ -131,9 +144,21 @@ template <typename U, typename SetT> struct CoarseHaloExchange
       for (int k = 0; k < 4; ++k)
         shift[k] = multigrid_coarse_shift_component_host(d, k);
       peer[d] = multigrid_coarse_rank_shift(set_ptr, shift);
-      const size_t face = multigrid_coarse_face_sites_host(d, X, Y, Z, Lt);
+      const size_t face = multigrid_coarse_face_sites_host(
+          d, X, Y, Z, Lt, grid);
       if (face > max_face) max_face = face;
-      const size_t count = static_cast<size_t>(2) * static_cast<size_t>(E) * face;
+    }
+    // Each direction owns a fixed [E, max_face] slot.  MPI is passed a
+    // contiguous real-scalar range, so a short face must include the per-E
+    // padding between channels; otherwise E>1 directions with face<max_face
+    // would transmit the next channel from the wrong offset.
+    for (int d = 0; d < 32; ++d) {
+      const size_t face = multigrid_coarse_face_sites_host(
+          d, X, Y, Z, Lt, grid);
+      const size_t count = face == 0
+                               ? 0
+                               : static_cast<size_t>(2) *
+                                     static_cast<size_t>(E) * max_face;
       if (count > static_cast<size_t>(std::numeric_limits<int>::max()))
         throw std::invalid_argument("coarse MPI halo message is too large");
       real_count[d] = static_cast<int>(count);
@@ -212,7 +237,8 @@ template <typename U, typename SetT> struct CoarseHaloExchange
     const int blocks = static_cast<int>((total + _BLOCK_SIZE_ - 1) /
                                         static_cast<long long>(_BLOCK_SIZE_));
     multigrid_coarse_pack_halo<U><<<blocks, _BLOCK_SIZE_, 0, exchange_stream>>>(
-        device_send, device_in, E, X, Y, Z, Lt, static_cast<int>(max_face));
+        device_send, device_in, E, X, Y, Z, Lt, grid[0], grid[1], grid[2],
+        grid[3], static_cast<int>(max_face));
     checkCudaErrors(cudaGetLastError());
 
     // A self-neighbour is a periodic wrap inside this rank.  Populate its
@@ -281,7 +307,6 @@ template <typename U, typename SetT> struct CoarseHaloExchange
       wait_requests();
       if (!use_device_mpi) {
         for (int h = 0; h < 32; ++h) {
-          const int source_direction = h ^ 1;
           if (peer[h] == rank) continue;
           const size_t bytes = static_cast<size_t>(real_count[h]) * sizeof(U);
           checkCudaErrors(cudaMemcpyAsync(
@@ -295,7 +320,8 @@ template <typename U, typename SetT> struct CoarseHaloExchange
     const int blocks = static_cast<int>((total + _BLOCK_SIZE_ - 1) /
                                         static_cast<long long>(_BLOCK_SIZE_));
     multigrid_coarse_unpack_halo<U><<<blocks, _BLOCK_SIZE_, 0, exchange_stream>>>(
-        halo, device_recv, E, X, Y, Z, Lt, static_cast<int>(max_face));
+        halo, device_recv, E, X, Y, Z, Lt, grid[0], grid[1], grid[2], grid[3],
+        static_cast<int>(max_face));
     checkCudaErrors(cudaGetLastError());
     checkCudaErrors(cudaEventRecord(halo_ready, exchange_stream));
     checkCudaErrors(cudaStreamWaitEvent(compute_stream, halo_ready, 0));
@@ -518,18 +544,30 @@ template <typename T> struct LatticeMultigridCoarseDslashWide {
         multigrid_coarse_dslash_wide_halo_region<T>
             <<<gridDim, blockDim, 0, set_ptr->stream>>>(
                 fermion_out, fermion_in, exchange.device_halo(), sitting,
-                hop_nn, hop_diag, E, X, Y, Z, Lt, 0);
+                hop_nn, hop_diag, E, X, Y, Z, Lt,
+                set_ptr->host_params[_GRID_X_],
+                set_ptr->host_params[_GRID_Y_],
+                set_ptr->host_params[_GRID_Z_],
+                set_ptr->host_params[_GRID_T_], 0);
         exchange.finish(set_ptr->stream);
         multigrid_coarse_dslash_wide_halo_region<T>
             <<<gridDim, blockDim, 0, set_ptr->stream>>>(
                 fermion_out, fermion_in, exchange.device_halo(), sitting,
-                hop_nn, hop_diag, E, X, Y, Z, Lt, 1);
+                hop_nn, hop_diag, E, X, Y, Z, Lt,
+                set_ptr->host_params[_GRID_X_],
+                set_ptr->host_params[_GRID_Y_],
+                set_ptr->host_params[_GRID_Z_],
+                set_ptr->host_params[_GRID_T_], 1);
       } else {
         exchange.finish(set_ptr->stream);
         multigrid_coarse_dslash_wide_halo<T>
             <<<gridDim, blockDim, 0, set_ptr->stream>>>(
                 fermion_out, fermion_in, exchange.device_halo(), sitting,
-                hop_nn, hop_diag, E, X, Y, Z, Lt);
+                hop_nn, hop_diag, E, X, Y, Z, Lt,
+                set_ptr->host_params[_GRID_X_],
+                set_ptr->host_params[_GRID_Y_],
+                set_ptr->host_params[_GRID_Z_],
+                set_ptr->host_params[_GRID_T_]);
       }
     } else {
       multigrid_coarse_dslash_wide<T><<<gridDim, blockDim, 0,

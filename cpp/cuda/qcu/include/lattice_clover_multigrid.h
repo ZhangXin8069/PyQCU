@@ -521,7 +521,6 @@ struct MgLevelStateAny {
   void *x = nullptr, *rhs = nullptr, *r = nullptr, *r_tilde = nullptr;
   void *p = nullptr, *v = nullptr, *s = nullptr, *t = nullptr;
   void *dot_tmp = nullptr, *dot_partials = nullptr;
-  void *halo_device = nullptr, *input_host = nullptr, *halo_host = nullptr;
   int data_type = _LAT_C64_;
   int dof = 0, X = 0, Y = 0, Z = 0, Lt = 0, vol = 0;
   size_t vec_sz = 0;
@@ -557,20 +556,6 @@ struct MgLevelStateAny {
     has_solution = false;
   }
 
-  template <typename U>
-  void alloc_halo(cudaStream_t stream) {
-    size_t nbytes = vec_sz * sizeof(LatticeComplex<U>);
-    size_t hvol = static_cast<size_t>(X + 2) * static_cast<size_t>(Y + 2) *
-                  static_cast<size_t>(Z + 2) * static_cast<size_t>(Lt + 2);
-    checkCudaErrors(cudaMallocAsync(&halo_device,
-                                    hvol * static_cast<size_t>(dof) *
-                                        sizeof(LatticeComplex<U>), stream));
-    checkCudaErrors(cudaMallocHost(&input_host, nbytes));
-    checkCudaErrors(cudaMallocHost(&halo_host,
-                                   hvol * static_cast<size_t>(dof) *
-                                       sizeof(LatticeComplex<U>)));
-  }
-
   void free_all(cudaStream_t stream) {
     auto F = [&](void *&p) {
       if (p != nullptr) {
@@ -579,15 +564,7 @@ struct MgLevelStateAny {
       }
     };
     F(x); F(rhs); F(r); F(r_tilde); F(p); F(v); F(s); F(t);
-    F(dot_tmp); F(dot_partials); F(halo_device);
-    if (input_host != nullptr) {
-      checkCudaErrors(cudaFreeHost(input_host));
-      input_host = nullptr;
-    }
-    if (halo_host != nullptr) {
-      checkCudaErrors(cudaFreeHost(halo_host));
-      halo_host = nullptr;
-    }
+    F(dot_tmp); F(dot_partials);
     owned = false;
   }
 };
@@ -610,10 +587,6 @@ template <typename T> struct LatticeCloverMultigrid {
   // ---- Multigrid hierarchy ----
   int num_levels, mg_grid_size[4];
   MgLevelState<T> *levels = nullptr;
-  // Distributed coarse-grid halo/staging state.  The array is type-erased so
-  // the same exchange implementation can serve homogeneous and mixed trees;
-  // only halo_* / input_host are used for the homogeneous entries.
-  MgLevelStateAny coarse_halo[8];
   // One typed-erased exchange object per coarse level.  The object owns the
   // private exchange stream/events and chooses NVSHMEM, CUDA-aware MPI or
   // pinned-host staging at runtime without changing the vector ABI.
@@ -781,32 +754,56 @@ template <typename T> struct LatticeCloverMultigrid {
         out,set_ptr->device_vec2,set_ptr->device_vec1,kappa_val,set_ptr->device_vals);
   }
 
+  /**
+   * @brief Apply the adjoint of the odd Schur complement.
+   *
+   * The Wilson hopping kernels expose both dagger choices and the Clover
+   * blocks are Hermitian.  Therefore
+   *
+   *   S^\dagger = D_{oo}^\dagger
+   *                - \kappa^2 H_{eo}^\dagger D_{ee}^{-\dagger} H_{oe}^\dagger
+   *
+   * can use the same inverse even block and the dagger Wilson kernels.  This
+   * helper is kept next to fine_dslash_op() so the normal-operator verifier
+   * exercises exactly the production Schur layout rather than a host-side
+   * reconstruction.
+   */
+  void fine_dslash_dag_op(void *out, void *in) {
+    // The parity argument of the Wilson kernel denotes the OUTPUT parity.
+    // Therefore run_eo_dag is the adjoint of the normal odd->even block
+    // (H_oe^dag: odd -> even), and run_oe_dag is the adjoint of the normal
+    // even->odd block (H_eo^dag: even -> odd).  This is the same ordering as
+    // LatticeWilsonCg::_wilson_dslash_dag().
+    wilson_dslash.run_eo_dag(set_ptr->device_vec0, in, gauge);
+    give_copy_vals<T><<<set_ptr->gridDim, set_ptr->blockDim, 0,
+                        set_ptr->stream>>>(
+        set_ptr->device_vec2, set_ptr->device_vec0);
+    clover_dslash_ee_inv.give(set_ptr->device_vec2);
+    wilson_dslash.run_oe_dag(set_ptr->device_vec1, set_ptr->device_vec2,
+                             gauge);
+    give_copy_vals<T><<<set_ptr->gridDim, set_ptr->blockDim, 0,
+                        set_ptr->stream>>>(
+        set_ptr->device_vec2, in);
+    clover_dslash_oo.give(set_ptr->device_vec2);
+    bistabcg_give_dest_o<T><<<set_ptr->gridDim, set_ptr->blockDim, 0,
+                              set_ptr->stream>>>(
+        out, set_ptr->device_vec2, set_ptr->device_vec1, kappa_val,
+        set_ptr->device_vals);
+  }
+
   // Exchange one local coarse vector into the one-site padded halo shared by
   // all coarse dslash paths.  The implementation lives in
   // lattice_multigrid.h so homogeneous and mixed-precision trees cannot drift
   // apart in their MPI boundary conventions.
   template <typename U>
-  void exchange_coarse_halo_typed(int lev, void *in,
-                                  MgLevelStateAny &hs) {
-    (void)hs;
+  void exchange_coarse_halo_typed(int lev, void *in) {
     // The precision dispatch is checked by the caller; the type-erased
     // exchange owns a matching U-typed pack/unpack implementation.
     coarse_exchange[lev].begin(in, set_ptr->stream);
   }
 
-  void init_coarse_halo_state(int lev, int data_type, int E, int X, int Y,
-                              int Z, int Lt) {
-    coarse_halo[lev].data_type = data_type;
-    coarse_halo[lev].dof = E;
-    coarse_halo[lev].X = X;
-    coarse_halo[lev].Y = Y;
-    coarse_halo[lev].Z = Z;
-    coarse_halo[lev].Lt = Lt;
-    coarse_halo[lev].vol = X * Y * Z * Lt;
-    coarse_halo[lev].vec_sz = static_cast<size_t>(E) * coarse_halo[lev].vol;
-    coarse_halo[lev].elem_bytes =
-        data_type == _LAT_C64_ ? sizeof(LatticeComplex<float>)
-                               : sizeof(LatticeComplex<double>);
+  void init_coarse_exchange(int lev, int data_type, int E, int X, int Y,
+                            int Z, int Lt) {
     coarse_exchange[lev].init(set_ptr, data_type, E, X, Y, Z, Lt);
   }
 
@@ -826,27 +823,32 @@ template <typename T> struct LatticeCloverMultigrid {
     dim3 g((t+_BLOCK_SIZE_-1)/_BLOCK_SIZE_);
     auto p0=std::chrono::high_resolution_clock::now();
     if (mg_multi) {
-      MgLevelStateAny &hs = coarse_halo[lev];
-      exchange_coarse_halo_typed<T>(lev, in, hs);
+      exchange_coarse_halo_typed<T>(lev, in);
       if (qcu_mpi_overlap_enabled()) {
         multigrid_coarse_dslash_wide_halo_region<T>
             <<<g, _BLOCK_SIZE_, 0, set_ptr->stream>>>(
                 out, in, coarse_exchange[lev].device_halo(),
                 sit_packed[lev - 1], hop_nn[lev - 1], hop_diag[lev - 1], E,
-                Xc, Yc, Zc, Ltc, 0);
+                Xc, Yc, Zc, Ltc, set_ptr->host_params[_GRID_X_],
+                set_ptr->host_params[_GRID_Y_], set_ptr->host_params[_GRID_Z_],
+                set_ptr->host_params[_GRID_T_], 0);
         coarse_exchange[lev].finish(set_ptr->stream);
         multigrid_coarse_dslash_wide_halo_region<T>
             <<<g, _BLOCK_SIZE_, 0, set_ptr->stream>>>(
                 out, in, coarse_exchange[lev].device_halo(),
                 sit_packed[lev - 1], hop_nn[lev - 1], hop_diag[lev - 1], E,
-                Xc, Yc, Zc, Ltc, 1);
+                Xc, Yc, Zc, Ltc, set_ptr->host_params[_GRID_X_],
+                set_ptr->host_params[_GRID_Y_], set_ptr->host_params[_GRID_Z_],
+                set_ptr->host_params[_GRID_T_], 1);
       } else {
         coarse_exchange[lev].finish(set_ptr->stream);
         multigrid_coarse_dslash_wide_halo<T>
             <<<g, _BLOCK_SIZE_, 0, set_ptr->stream>>>(
                 out, in, coarse_exchange[lev].device_halo(),
                 sit_packed[lev - 1], hop_nn[lev - 1], hop_diag[lev - 1], E,
-                Xc, Yc, Zc, Ltc);
+                Xc, Yc, Zc, Ltc, set_ptr->host_params[_GRID_X_],
+                set_ptr->host_params[_GRID_Y_], set_ptr->host_params[_GRID_Z_],
+                set_ptr->host_params[_GRID_T_]);
       }
     } else {
       multigrid_coarse_dslash_wide<T><<<g,_BLOCK_SIZE_,0,set_ptr->stream>>>(
@@ -1074,7 +1076,12 @@ template <typename T> struct LatticeCloverMultigrid {
     return lev == 0 ? levels[0].Lt : mixed_levels[lev].Lt;
   }
   size_t mixed_vec_sz(int lev) const {
-    return lev == 0 ? levels[0].vec_sz : mixed_levels[lev].vec_sz;
+    // Homogeneous hierarchies deliberately keep the legacy typed
+    // MgLevelState allocation and never create mixed_levels.  Verification
+    // still uses this helper for type-erased vector sizes, so dispatch to the
+    // typed storage unless a heterogeneous hierarchy is actually active.
+    return (lev == 0 || !mixed_precision) ? levels[lev].vec_sz
+                                          : mixed_levels[lev].vec_sz;
   }
 
   template <typename Out, typename In>
@@ -1214,26 +1221,32 @@ template <typename T> struct LatticeCloverMultigrid {
     const int n = E * X * Y * Z * Lt;
     dim3 g((n + _BLOCK_SIZE_ - 1) / _BLOCK_SIZE_);
     if (mg_multi) {
-      exchange_coarse_halo_typed<U>(lev, in, st);
+      exchange_coarse_halo_typed<U>(lev, in);
       if (qcu_mpi_overlap_enabled()) {
         multigrid_coarse_dslash_wide_halo_region<U>
             <<<g, _BLOCK_SIZE_, 0, set_ptr->stream>>>(
                 out, in, coarse_exchange[lev].device_halo(),
                 sit_packed[lev - 1], hop_nn[lev - 1], hop_diag[lev - 1], E, X,
-                Y, Z, Lt, 0);
+                Y, Z, Lt, set_ptr->host_params[_GRID_X_],
+                set_ptr->host_params[_GRID_Y_], set_ptr->host_params[_GRID_Z_],
+                set_ptr->host_params[_GRID_T_], 0);
         coarse_exchange[lev].finish(set_ptr->stream);
         multigrid_coarse_dslash_wide_halo_region<U>
             <<<g, _BLOCK_SIZE_, 0, set_ptr->stream>>>(
                 out, in, coarse_exchange[lev].device_halo(),
                 sit_packed[lev - 1], hop_nn[lev - 1], hop_diag[lev - 1], E, X,
-                Y, Z, Lt, 1);
+                Y, Z, Lt, set_ptr->host_params[_GRID_X_],
+                set_ptr->host_params[_GRID_Y_], set_ptr->host_params[_GRID_Z_],
+                set_ptr->host_params[_GRID_T_], 1);
       } else {
         coarse_exchange[lev].finish(set_ptr->stream);
         multigrid_coarse_dslash_wide_halo<U>
             <<<g, _BLOCK_SIZE_, 0, set_ptr->stream>>>(
                 out, in, coarse_exchange[lev].device_halo(),
                 sit_packed[lev - 1], hop_nn[lev - 1], hop_diag[lev - 1], E, X,
-                Y, Z, Lt);
+                Y, Z, Lt, set_ptr->host_params[_GRID_X_],
+                set_ptr->host_params[_GRID_Y_], set_ptr->host_params[_GRID_Z_],
+                set_ptr->host_params[_GRID_T_]);
       }
     } else {
       multigrid_coarse_dslash_wide<U><<<g, _BLOCK_SIZE_, 0,
@@ -2697,6 +2710,442 @@ template <typename T> struct LatticeCloverMultigrid {
     }
   }
 
+  // ==================================================================
+  // C++ verification interface
+  // ==================================================================
+  //
+  // The public verify* methods below intentionally operate on the same
+  // device kernels and typed dispatch used by the solver.  A host-side
+  // reimplementation would only test a second algorithm and would miss the
+  // layout/precision/halo errors that matter here.  Every metric is a
+  // globally reduced norm or inner product when the process grid is
+  // distributed.
+
+  int verify_type(int lev) const {
+    return level_data_type[lev];
+  }
+
+  size_t verify_elements(int lev) const {
+    return mixed_vec_sz(lev);
+  }
+
+  size_t verify_element_bytes(int lev) const {
+    return verify_type(lev) == _LAT_C64_ ? sizeof(LatticeComplex<float>)
+                                         : sizeof(LatticeComplex<double>);
+  }
+
+  double verify_tolerance(int lev) const {
+    return verify_type(lev) == _LAT_C64_ ? 2.0e-3 : 1.0e-8;
+  }
+
+  double verify_galerkin_tolerance(int lev) const {
+    // The wide stencil is assembled from a finite-precision probing pass;
+    // allow its construction error to be larger than a pure transfer check.
+    return verify_type(lev) == _LAT_C64_ ? 5.0e-2 : 1.0e-6;
+  }
+
+  bool verify_is_ready() const {
+    if (set_ptr == nullptr || levels == nullptr || num_levels < 1)
+      return false;
+    if (num_levels > 1 &&
+        (null_vecs == nullptr || hop_nn == nullptr || hop_diag == nullptr ||
+         sit_packed == nullptr))
+      return false;
+    for (int fl = 0; fl < num_levels - 1; ++fl) {
+      if (null_vecs[fl] == nullptr || hop_nn[fl] == nullptr ||
+          hop_diag[fl] == nullptr || sit_packed[fl] == nullptr)
+        return false;
+    }
+    return true;
+  }
+
+  bool verify_ready_or_log(const char *name) const {
+    if (verify_is_ready()) return true;
+    std::ostringstream oss;
+    oss << "PYQCU::VERIFY::MULTIGRID::\n " << name
+        << ": unavailable (solver is not initialized or coarse operators are incomplete)";
+    log_write<T>(oss.str(), rank, true);
+    return false;
+  }
+
+  void verify_alloc_any(int lev, void **ptr) {
+    if (ptr == nullptr) throw std::invalid_argument("null verify allocation slot");
+    *ptr = nullptr;
+    const size_t bytes = verify_elements(lev) * verify_element_bytes(lev);
+    if (bytes == 0) throw std::invalid_argument("zero-sized verify vector");
+    checkCudaErrors(cudaMallocAsync(ptr, bytes, set_ptr->stream));
+  }
+
+  void verify_free_any(void *&ptr) {
+    if (ptr != nullptr) {
+      checkCudaErrors(cudaFreeAsync(ptr, set_ptr->stream));
+      ptr = nullptr;
+    }
+  }
+
+  void verify_fill_any(int lev, void *out, unsigned long seed) {
+    const int n = static_cast<int>(verify_elements(lev));
+    dim3 g((n + _BLOCK_SIZE_ - 1) / _BLOCK_SIZE_);
+    if (verify_type(lev) == _LAT_C64_)
+      multigrid_fill_test_vector<float><<<g, _BLOCK_SIZE_, 0,
+                                          set_ptr->stream>>>(out, n, seed);
+    else
+      multigrid_fill_test_vector<double><<<g, _BLOCK_SIZE_, 0,
+                                           set_ptr->stream>>>(out, n, seed);
+    checkCudaErrors(cudaGetLastError());
+  }
+
+  void verify_zero_any(int lev, void *out) {
+    checkCudaErrors(cudaMemsetAsync(
+        out, 0, verify_elements(lev) * verify_element_bytes(lev),
+        set_ptr->stream));
+  }
+
+  void verify_copy_any(int lev, void *out, const void *in) {
+    checkCudaErrors(cudaMemcpyAsync(
+        out, in, verify_elements(lev) * verify_element_bytes(lev),
+        cudaMemcpyDeviceToDevice, set_ptr->stream));
+  }
+
+  void verify_axpy_any(int lev, void *y, const void *x,
+                       const std::complex<double> &alpha) {
+    const int n = static_cast<int>(verify_elements(lev));
+    if (verify_type(lev) == _LAT_C64_) {
+      LatticeComplex<float> a(static_cast<float>(alpha.real()),
+                              static_cast<float>(alpha.imag()));
+      CUBLAS_CHECK(_cublasAxpy<float>(set_ptr->cublasH, n, &a, x, 1, y, 1));
+    } else {
+      LatticeComplex<double> a(alpha.real(), alpha.imag());
+      CUBLAS_CHECK(_cublasAxpy<double>(set_ptr->cublasH, n, &a, x, 1, y, 1));
+    }
+  }
+
+  void verify_difference_any(int lev, void *out, const void *a,
+                             const void *b) {
+    verify_copy_any(lev, out, a);
+    verify_axpy_any(lev, out, b, std::complex<double>(-1.0, 0.0));
+  }
+
+  std::complex<double> verify_dot_any(int lev, const void *a,
+                                      const void *b) {
+    if (lev == 0) {
+      std::complex<T> z = fine_dot_host(const_cast<void *>(a),
+                                        const_cast<void *>(b),
+                                        static_cast<int>(verify_elements(lev)));
+      return std::complex<double>(static_cast<double>(z.real()),
+                                  static_cast<double>(z.imag()));
+    }
+    if (mixed_precision) {
+      if (verify_type(lev) == _LAT_C64_) {
+        std::complex<float> z = mixed_dot_host_typed<float>(
+            lev, a, b);
+        return std::complex<double>(static_cast<double>(z.real()),
+                                    static_cast<double>(z.imag()));
+      }
+      std::complex<double> z = mixed_dot_host_typed<double>(lev, a, b);
+      return z;
+    }
+    std::complex<T> z = coarse_dot_host(lev, const_cast<void *>(a),
+                                        const_cast<void *>(b));
+    return std::complex<double>(static_cast<double>(z.real()),
+                                static_cast<double>(z.imag()));
+  }
+
+  double verify_norm_any(int lev, const void *v) {
+    std::complex<double> z = verify_dot_any(lev, v, v);
+    if (!std::isfinite(z.real()) || !std::isfinite(z.imag()) ||
+        z.real() < 0.0)
+      return std::numeric_limits<double>::infinity();
+    return std::sqrt(z.real());
+  }
+
+  double verify_relative_error_any(int lev, const void *difference,
+                                   const void *reference) {
+    const double numerator = verify_norm_any(lev, difference);
+    const double denominator = verify_norm_any(lev, reference);
+    if (!std::isfinite(numerator) || !std::isfinite(denominator))
+      return std::numeric_limits<double>::infinity();
+    if (denominator <= 1.0e-30)
+      return numerator <= 1.0e-30 ? 0.0
+                                  : std::numeric_limits<double>::infinity();
+    return numerator / denominator;
+  }
+
+  void verify_restrict_any(void *coarse, const void *fine, int fl) {
+    if (mixed_precision)
+      mixed_restrict_op(coarse, const_cast<void *>(fine), fl);
+    else
+      restrict_op(coarse, const_cast<void *>(fine), fl);
+  }
+
+  void verify_prolong_any(void *fine, const void *coarse, int fl) {
+    if (mixed_precision)
+      mixed_prolong_op(fine, const_cast<void *>(coarse), fl);
+    else
+      prolong_op(fine, const_cast<void *>(coarse), fl);
+  }
+
+  void verify_apply_any(void *out, const void *in, int lev) {
+    if (lev == 0)
+      fine_dslash_op(out, const_cast<void *>(in));
+    else if (mixed_precision)
+      mixed_coarse_dslash_op(out, const_cast<void *>(in), lev);
+    else
+      coarse_dslash_op(out, const_cast<void *>(in), lev);
+  }
+
+  bool verify_report(const std::string &name, double error,
+                     double threshold) const {
+    const bool pass = std::isfinite(error) && error <= threshold;
+    std::ostringstream oss;
+    oss << "PYQCU::VERIFY::MULTIGRID::\n " << name
+        << ": error=" << std::scientific << std::setprecision(8) << error
+        << " threshold=" << threshold << " " << (pass ? "PASS" : "FAIL");
+    log_write<T>(oss.str(), rank, true);
+    return pass;
+  }
+
+  /** Verify the coarse-space projection R P eta_c ~= eta_c. */
+  bool verify_projection() {
+    if (!verify_ready_or_log("projection")) return false;
+    if (num_levels == 1)
+      return verify_report("projection", 0.0, verify_tolerance(0));
+
+    bool ok = true;
+    for (int fl = 0; fl < num_levels - 1; ++fl) {
+      const int child = fl + 1;
+      void *eta = nullptr, *peta = nullptr, *rpeta = nullptr;
+      verify_alloc_any(child, &eta);
+      verify_alloc_any(fl, &peta);
+      verify_alloc_any(child, &rpeta);
+      verify_fill_any(child, eta, 0x5100UL + static_cast<unsigned long>(fl));
+      verify_prolong_any(peta, eta, fl);
+      verify_restrict_any(rpeta, peta, fl);
+      checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
+
+      void *difference = nullptr;
+      verify_alloc_any(child, &difference);
+      verify_difference_any(child, difference, rpeta, eta);
+      const double error = verify_relative_error_any(child, difference, eta);
+      verify_free_any(difference);
+      verify_free_any(eta);
+      verify_free_any(peta);
+      verify_free_any(rpeta);
+      checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
+
+      std::ostringstream label;
+      label << "projection[level=" << fl << "->" << child << "]";
+      ok = verify_report(label.str(), error, verify_tolerance(child)) && ok;
+    }
+    return ok;
+  }
+
+  /** Verify that restriction and prolongation are adjoints in their layouts. */
+  bool verify_restriction_prolongation() {
+    if (!verify_ready_or_log("restriction_prolongation")) return false;
+    if (num_levels == 1)
+      return verify_report("restriction_prolongation", 0.0,
+                           verify_tolerance(0));
+
+    bool ok = true;
+    for (int fl = 0; fl < num_levels - 1; ++fl) {
+      const int child = fl + 1;
+      void *fine = nullptr, *coarse = nullptr, *restricted = nullptr,
+           *prolonged = nullptr;
+      verify_alloc_any(fl, &fine);
+      verify_alloc_any(child, &coarse);
+      verify_alloc_any(child, &restricted);
+      verify_alloc_any(fl, &prolonged);
+      verify_fill_any(fl, fine, 0x5200UL + static_cast<unsigned long>(fl));
+      verify_fill_any(child, coarse, 0x5300UL + static_cast<unsigned long>(fl));
+      verify_restrict_any(restricted, fine, fl);
+      verify_prolong_any(prolonged, coarse, fl);
+
+      const std::complex<double> lhs =
+          verify_dot_any(fl, prolonged, fine);  // <P c, v>
+      const std::complex<double> rhs =
+          verify_dot_any(child, coarse, restricted);  // <c, R v>
+      const double scale = std::max(
+          1.0e-30, std::max(std::abs(lhs), std::abs(rhs)));
+      const double error = std::abs(lhs - rhs) / scale;
+
+      verify_free_any(fine);
+      verify_free_any(coarse);
+      verify_free_any(restricted);
+      verify_free_any(prolonged);
+      checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
+
+      std::ostringstream label;
+      label << "restriction_prolongation[level=" << fl << "->" << child
+            << "]";
+      ok = verify_report(label.str(), error,
+                         std::max(verify_tolerance(fl), verify_tolerance(child))) &&
+           ok;
+    }
+    return ok;
+  }
+
+  /** Verify the explicitly stored coarse stencil against R S P. */
+  bool verify_galerkin() {
+    if (!verify_ready_or_log("galerkin")) return false;
+    if (num_levels == 1)
+      return verify_report("galerkin", 0.0, verify_tolerance(0));
+
+    bool ok = true;
+    for (int fl = 0; fl < num_levels - 1; ++fl) {
+      const int child = fl + 1;
+      void *eta = nullptr, *peta = nullptr, *sp = nullptr, *rsp = nullptr,
+           *ac = nullptr, *difference = nullptr;
+      verify_alloc_any(child, &eta);
+      verify_alloc_any(fl, &peta);
+      verify_alloc_any(fl, &sp);
+      verify_alloc_any(child, &rsp);
+      verify_alloc_any(child, &ac);
+      verify_alloc_any(child, &difference);
+      verify_fill_any(child, eta, 0x5400UL + static_cast<unsigned long>(fl));
+      verify_prolong_any(peta, eta, fl);
+      verify_apply_any(sp, peta, fl);
+      verify_restrict_any(rsp, sp, fl);
+      verify_apply_any(ac, eta, child);
+      verify_difference_any(child, difference, rsp, ac);
+      const double error = verify_relative_error_any(child, difference, ac);
+
+      verify_free_any(eta);
+      verify_free_any(peta);
+      verify_free_any(sp);
+      verify_free_any(rsp);
+      verify_free_any(ac);
+      verify_free_any(difference);
+      checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
+
+      std::ostringstream label;
+      label << "galerkin[level=" << fl << "->" << child << "]";
+      ok = verify_report(label.str(), error,
+                         verify_galerkin_tolerance(child)) && ok;
+    }
+    return ok;
+  }
+
+  /**
+   * Verify the odd Schur complement directly in its two parity blocks.
+   *
+   * For x_e = kappa D_ee^{-1} H_eo x_o, the even block residual
+   * D_ee x_e - kappa H_eo x_o must vanish, while the odd block
+   * D_oo x_o - kappa H_oe x_e must equal S x_o.  Keeping the check in the
+   * parity-split layout avoids making the full-site conversion itself part of
+   * this operator diagnostic.
+   */
+  bool verify_preconditioned_operator() {
+    if (!verify_ready_or_log("preconditioned_operator")) return false;
+    const int n = static_cast<int>(levels[0].vec_sz);
+    void *odd = nullptr, *schur = nullptr, *difference = nullptr;
+    verify_alloc_any(0, &odd);
+    verify_alloc_any(0, &schur);
+    verify_alloc_any(0, &difference);
+    verify_fill_any(0, odd, 0x5500UL);
+    verify_apply_any(schur, odd, 0);
+
+    // even_tmp = kappa D_ee^{-1} H_eo odd
+    wilson_dslash.run_eo(set_ptr->device_vec0, odd, gauge);
+    clover_dslash_ee_inv.give(set_ptr->device_vec0);
+    LatticeComplex<T> kappa(kappa_val, 0);
+    CUBLAS_CHECK(_cublasScal<T>(set_ptr->cublasH, n, &kappa,
+                                set_ptr->device_vec0, 1));
+
+    // even_residual = D_ee x_e - kappa H_eo x_o.  device_vec0 retains x_e
+    // and device_vec2 is reused for the residual; this is exactly the same
+    // sequence as the production Schur application, but without a layout
+    // round trip through full_x/full_v.
+    give_copy_vals<T><<<set_ptr->gridDim, set_ptr->blockDim, 0,
+                        set_ptr->stream>>>(set_ptr->device_vec2,
+                                           set_ptr->device_vec0);
+    clover_dslash_ee.give(set_ptr->device_vec2);
+    wilson_dslash.run_eo(set_ptr->device_vec1, odd, gauge);
+    LatticeComplex<T> neg_kappa(-kappa_val, 0);
+    CUBLAS_CHECK(_cublasAxpy<T>(set_ptr->cublasH, n, &neg_kappa,
+                                set_ptr->device_vec1, 1,
+                                set_ptr->device_vec2, 1));
+    checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
+    const double odd_norm = verify_norm_any(0, odd);
+    const double even_norm = verify_norm_any(0, set_ptr->device_vec2);
+    const double even_error =
+        std::isfinite(odd_norm) && odd_norm > 1.0e-30
+            ? even_norm / odd_norm
+            : (even_norm <= 1.0e-30 ? 0.0
+                                    : std::numeric_limits<double>::infinity());
+
+    // odd_residual = D_oo x_o - kappa H_oe x_e.  x_e is still in vec0.
+    give_copy_vals<T><<<set_ptr->gridDim, set_ptr->blockDim, 0,
+                        set_ptr->stream>>>(set_ptr->device_vec2, odd);
+    clover_dslash_oo.give(set_ptr->device_vec2);
+    wilson_dslash.run_oe(set_ptr->device_vec1, set_ptr->device_vec0, gauge);
+    CUBLAS_CHECK(_cublasAxpy<T>(set_ptr->cublasH, n, &neg_kappa,
+                                set_ptr->device_vec1, 1,
+                                set_ptr->device_vec2, 1));
+    checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
+    verify_difference_any(0, difference, set_ptr->device_vec2, schur);
+    const double odd_error = verify_relative_error_any(0, difference, schur);
+    const double error = std::max(odd_error, even_error);
+
+    std::ostringstream detail;
+    detail << "PYQCU::VERIFY::MULTIGRID::\n preconditioned_operator_detail: "
+            << "even_block_error=" << std::scientific << std::setprecision(8)
+            << even_error << " odd_block_error=" << odd_error;
+    log_write<T>(detail.str(), rank, true);
+
+    verify_free_any(odd);
+    verify_free_any(schur);
+    verify_free_any(difference);
+    checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
+    return verify_report("preconditioned_operator", error,
+                         verify_tolerance(0));
+  }
+
+  /** Verify positivity and adjoint consistency of S^\dagger S. */
+  bool verify_normal_operator() {
+    if (!verify_ready_or_log("normal_operator")) return false;
+    void *odd = nullptr, *image = nullptr, *normal = nullptr;
+    verify_alloc_any(0, &odd);
+    verify_alloc_any(0, &image);
+    verify_alloc_any(0, &normal);
+    verify_fill_any(0, odd, 0x5600UL);
+    fine_dslash_op(image, odd);
+    fine_dslash_dag_op(normal, image);
+    const std::complex<double> lhs = verify_dot_any(0, odd, normal);
+    const std::complex<double> rhs = verify_dot_any(0, image, image);
+    const double scale = std::max(1.0e-30, std::abs(rhs.real()));
+    const double energy_error = std::abs(lhs.real() - rhs.real()) / scale;
+    const double imaginary_error = std::abs(lhs.imag()) / scale;
+    double error = std::max(energy_error, imaginary_error);
+    if (lhs.real() < -verify_tolerance(0) * scale) error = 1.0;
+
+    verify_free_any(odd);
+    verify_free_any(image);
+    verify_free_any(normal);
+    checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
+    return verify_report("normal_operator", error, verify_tolerance(0));
+  }
+
+  /** Run all five diagnostics and emit a single aggregate status line. */
+  bool verify() {
+    const bool projection = verify_projection();
+    const bool transfer = verify_restriction_prolongation();
+    const bool galerkin = verify_galerkin();
+    const bool preconditioned = verify_preconditioned_operator();
+    const bool normal = verify_normal_operator();
+    const bool ok = projection && transfer && galerkin && preconditioned && normal;
+    std::ostringstream oss;
+    oss << "PYQCU::VERIFY::MULTIGRID::\n verify(): projection="
+        << (projection ? "PASS" : "FAIL")
+        << " restriction_prolongation=" << (transfer ? "PASS" : "FAIL")
+        << " galerkin=" << (galerkin ? "PASS" : "FAIL")
+        << " preconditioned_operator=" << (preconditioned ? "PASS" : "FAIL")
+        << " normal_operator=" << (normal ? "PASS" : "FAIL")
+        << " overall=" << (ok ? "PASS" : "FAIL");
+    log_write<T>(oss.str(), rank, true);
+    return ok;
+  }
+
   std::complex<T> coarse_dot_host(int lev, void *a, void *b) {
     LatticeComplex<T> *dest =
         check_dev == nullptr
@@ -3297,9 +3746,9 @@ template <typename T> struct LatticeCloverMultigrid {
     }
     if (mg_multi) {
       for (int lev = 1; lev < num_levels; ++lev)
-        init_coarse_halo_state(lev, level_data_type[lev], levels[lev].dof,
-                               levels[lev].X, levels[lev].Y, levels[lev].Z,
-                               levels[lev].Lt);
+        init_coarse_exchange(lev, level_data_type[lev], levels[lev].dof,
+                             levels[lev].X, levels[lev].Y, levels[lev].Z,
+                             levels[lev].Lt);
     }
     if (mg_multi && rank == 0 && verbose) {
       log_write<T>("PYQCU::QCU::MULTIGRID::\n MG_MULTI_RANK: process grid ["+
@@ -5163,7 +5612,6 @@ template <typename T> struct LatticeCloverMultigrid {
     for (int i = 1; i < num_levels; ++i) {
       levels[i].free_all(set_ptr->stream);
       coarse_exchange[i].release();
-      coarse_halo[i].free_all(set_ptr->stream);
     }
     if (mixed_levels != nullptr) {
       for (int i = 1; i < num_levels; ++i)
