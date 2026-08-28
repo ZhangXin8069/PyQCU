@@ -57,6 +57,68 @@ template <typename T>
 __global__ void multigrid_coarse_dslash_wide_halo(
     void *fermion_out, void *fermion_in, void *halo, void *sitting,
     void *hop_nn, void *hop_diag, int E, int X, int Y, int Z, int Lt);
+
+/**
+ * @brief Pack all 32 one-hop coarse-grid halo faces/edges/corners on device.
+ *
+ * ``packed`` is laid out as [direction, E, free-face-site] with a fixed
+ * per-direction stride ``max_face``.  The direction table is the 16 canonical
+ * axial/two-axis shifts and their opposites.  MPI sees two real scalars per
+ * LatticeComplex element, while this kernel works in complex elements.
+ */
+template <typename T>
+__global__ void multigrid_coarse_pack_halo(
+    void *packed, const void *fermion_in, int E, int X, int Y, int Z, int Lt,
+    int max_face);
+
+/**
+ * @brief Unpack the received 32 direction buffers into the padded halo.
+ */
+template <typename T>
+__global__ void multigrid_coarse_unpack_halo(
+    void *halo, const void *packed, int E, int X, int Y, int Z, int Lt,
+    int max_face);
+
+/**
+ * @brief Apply the distributed wide stencil to either the interior or the
+ *        boundary.  ``boundary_only=0`` computes sites whose complete stencil
+ *        is local; ``boundary_only=1`` computes the complement.
+ */
+template <typename T>
+__global__ void multigrid_coarse_dslash_wide_halo_region(
+    void *fermion_out, void *fermion_in, void *halo, void *sitting,
+    void *hop_nn, void *hop_diag, int E, int X, int Y, int Z, int Lt,
+    int boundary_only);
+
+#if defined(QCU_HAVE_NVSHMEM)
+/**
+ * @brief GPU-initiated put of the 32 packed coarse-grid halo directions.
+ *
+ * ``device_recv`` is a symmetric NVSHMEM allocation.  Direction h is written
+ * to the receive slot on PE peer(h^1), so that the remote unpack kernel can
+ * use the same direction-indexed layout as the MPI path.
+ */
+template <typename T>
+__global__ void multigrid_nvshmem_put_halo(
+    void *device_recv, const void *device_send, int E, int X, int Y, int Z,
+    int Lt, int max_face, int grid_x, int grid_y, int grid_z, int grid_t,
+    int coord_x, int coord_y, int coord_z, int coord_t, int rank);
+#endif
+
+/**
+ * @brief Deterministic generic test-vector and subtraction kernels used by
+ *        the C++ multigrid verification path.
+ */
+template <typename T>
+__global__ void multigrid_fill_test_vector(void *out, int n, unsigned long seed);
+template <typename T>
+__global__ void multigrid_difference(void *out, const void *a, const void *b,
+                                     int n);
+template <typename T>
+__global__ void multigrid_extract_null_vector(void *out, const void *null_vecs,
+                                              int vector_index, int E, int e,
+                                              int Xf, int Yf, int Zf, int Tf,
+                                              int Xc, int Yc, int Zc, int Tc);
 /**
  * @brief Convert parity-split odd-site data to full-site layout (odd t-slices only).
  *
