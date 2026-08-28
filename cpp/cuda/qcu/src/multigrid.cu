@@ -332,6 +332,244 @@ __global__ void multigrid_prolong_cast(void *fine_out, void *coarse_in,
 }
 
 // ---------------------------------------------------------------------------
+// Device-side coarse halo packing/unpacking.
+// ---------------------------------------------------------------------------
+// The 16 canonical shifts are
+//   x, y, z, t, x+y, x-y, x+z, x-z, x+t, x-t, y+z, y-z, y+t, y-t, z+t, z-t
+// followed by their opposites.  Keeping this table in a small device helper
+// avoids a per-level device allocation for metadata and gives both transport
+// paths exactly the same wire order.
+__device__ inline int multigrid_coarse_shift_component(int direction,
+                                                       int component) {
+  int pair = direction >> 1;
+  int value = 0;
+  if (pair == 0 && component == 0) value = 1;
+  if (pair == 1 && component == 1) value = 1;
+  if (pair == 2 && component == 2) value = 1;
+  if (pair == 3 && component == 3) value = 1;
+  if (pair == 4 && (component == 0 || component == 1)) value = 1;
+  if (pair == 5 && (component == 0 || component == 1))
+    value = component == 0 ? 1 : -1;
+  if (pair == 6 && (component == 0 || component == 2)) value = 1;
+  if (pair == 7 && (component == 0 || component == 2))
+    value = component == 0 ? 1 : -1;
+  if (pair == 8 && (component == 0 || component == 3)) value = 1;
+  if (pair == 9 && (component == 0 || component == 3))
+    value = component == 0 ? 1 : -1;
+  if (pair == 10 && (component == 1 || component == 2)) value = 1;
+  if (pair == 11 && (component == 1 || component == 2))
+    value = component == 1 ? 1 : -1;
+  if (pair == 12 && (component == 1 || component == 3)) value = 1;
+  if (pair == 13 && (component == 1 || component == 3))
+    value = component == 1 ? 1 : -1;
+  if (pair == 14 && (component == 2 || component == 3)) value = 1;
+  if (pair == 15 && (component == 2 || component == 3))
+    value = component == 2 ? 1 : -1;
+  return (direction & 1) == 0 ? value : -value;
+}
+
+__device__ inline int multigrid_coarse_face_sites(int direction, int X, int Y,
+                                                  int Z, int Lt) {
+  int dims[4] = {X, Y, Z, Lt};
+  int result = 1;
+  for (int d = 0; d < 4; ++d)
+    if (multigrid_coarse_shift_component(direction, d) == 0) result *= dims[d];
+  return result;
+}
+
+template <typename T>
+__global__ void multigrid_coarse_pack_halo(
+    void *packed, const void *fermion_in, int E, int X, int Y, int Z, int Lt,
+    int max_face) {
+  const int vol = X * Y * Z * Lt;
+  const long long direction_stride = (long long)E * max_face;
+  const long long total = 32LL * direction_stride;
+  const long long global_idx = (long long)blockIdx.x * blockDim.x + threadIdx.x;
+  if (global_idx >= total || E <= 0 || vol <= 0 || max_face <= 0) return;
+
+  const int direction = (int)(global_idx / direction_stride);
+  const long long local = global_idx - (long long)direction * direction_stride;
+  const int face_sites = multigrid_coarse_face_sites(direction, X, Y, Z, Lt);
+  const int e = (int)(local / max_face);
+  const int k = (int)(local - (long long)e * max_face);
+  if (e >= E || k >= face_sites) return;
+
+  int dims[4] = {X, Y, Z, Lt};
+  int free_dims[4];
+  int nfree = 0;
+  for (int d = 0; d < 4; ++d)
+    if (multigrid_coarse_shift_component(direction, d) == 0)
+      free_dims[nfree++] = d;
+
+  int coordinate[4] = {0, 0, 0, 0};
+  int q = k;
+  for (int i = nfree - 1; i >= 0; --i) {
+    const int d = free_dims[i];
+    coordinate[d] = q % dims[d];
+    q /= dims[d];
+  }
+  for (int d = 0; d < 4; ++d) {
+    const int shift = multigrid_coarse_shift_component(direction, d);
+    if (shift != 0) coordinate[d] = shift > 0 ? dims[d] - 1 : 0;
+  }
+
+  const int site = ((coordinate[0] * Y + coordinate[1]) * Z +
+                    coordinate[2]) * Lt + coordinate[3];
+  const LatticeComplex<T> *in =
+      static_cast<const LatticeComplex<T> *>(fermion_in);
+  LatticeComplex<T> *out = static_cast<LatticeComplex<T> *>(packed);
+  out[(long long)direction * direction_stride + (long long)e * max_face + k] =
+      in[(long long)e * vol + site];
+}
+
+template <typename T>
+__global__ void multigrid_coarse_unpack_halo(
+    void *halo, const void *packed, int E, int X, int Y, int Z, int Lt,
+    int max_face) {
+  const long long hvol = (long long)(X + 2) * (Y + 2) * (Z + 2) * (Lt + 2);
+  const long long direction_stride = (long long)E * max_face;
+  const long long total = 32LL * direction_stride;
+  const long long global_idx = (long long)blockIdx.x * blockDim.x + threadIdx.x;
+  if (global_idx >= total || E <= 0 || max_face <= 0) return;
+
+  const int direction = (int)(global_idx / direction_stride);
+  const long long local = global_idx - (long long)direction * direction_stride;
+  const int face_sites = multigrid_coarse_face_sites(direction, X, Y, Z, Lt);
+  const int e = (int)(local / max_face);
+  const int k = (int)(local - (long long)e * max_face);
+  if (e >= E || k >= face_sites) return;
+
+  int dims[4] = {X, Y, Z, Lt};
+  int free_dims[4];
+  int nfree = 0;
+  for (int d = 0; d < 4; ++d)
+    if (multigrid_coarse_shift_component(direction, d) == 0)
+      free_dims[nfree++] = d;
+
+  int coordinate[4] = {1, 1, 1, 1};
+  int q = k;
+  for (int i = nfree - 1; i >= 0; --i) {
+    const int d = free_dims[i];
+    coordinate[d] = q % dims[d] + 1;
+    q /= dims[d];
+  }
+  for (int d = 0; d < 4; ++d) {
+    const int shift = multigrid_coarse_shift_component(direction, d);
+    if (shift != 0) coordinate[d] = shift > 0 ? dims[d] + 1 : 0;
+  }
+  const int hsite = (((coordinate[0] * (Y + 2) + coordinate[1]) * (Z + 2) +
+                      coordinate[2]) * (Lt + 2) + coordinate[3]);
+  const LatticeComplex<T> *in = static_cast<const LatticeComplex<T> *>(packed);
+  LatticeComplex<T> *out = static_cast<LatticeComplex<T> *>(halo);
+  out[(long long)e * hvol + hsite] =
+      in[(long long)direction * direction_stride + (long long)e * max_face + k];
+}
+
+template <typename T>
+__global__ void multigrid_fill_test_vector(void *out, int n,
+                                           unsigned long seed) {
+  const int i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i >= n || n <= 0) return;
+  // Deterministic, non-degenerate complex data.  The irrational-looking
+  // phase prevents a periodic zero pattern for common lattice volumes while
+  // keeping verification independent of curand state and global RNG state.
+  const T phase = (T)(0.17320508075688773) * (T)(i + 1) +
+                  (T)(0.011131) * (T)(seed & 0xffffUL);
+  LatticeComplex<T> *values = static_cast<LatticeComplex<T> *>(out);
+  values[i] = LatticeComplex<T>(sin(phase) + (T)0.25 * cos((T)0.37 * phase),
+                               cos(phase) - (T)0.15 * sin((T)0.61 * phase));
+}
+
+template <typename T>
+__global__ void multigrid_difference(void *out, const void *a, const void *b,
+                                      int n) {
+  const int i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i >= n || n <= 0) return;
+  const LatticeComplex<T> *av = static_cast<const LatticeComplex<T> *>(a);
+  const LatticeComplex<T> *bv = static_cast<const LatticeComplex<T> *>(b);
+  LatticeComplex<T> *ov = static_cast<LatticeComplex<T> *>(out);
+  ov[i] = av[i] - bv[i];
+}
+
+template <typename T>
+__global__ void multigrid_extract_null_vector(
+    void *out, const void *null_vecs, int vector_index, int E, int e, int Xf,
+    int Yf, int Zf, int Tf, int Xc, int Yc, int Zc, int Tc) {
+  const int fine_vol = Xf * Yf * Zf * Tf;
+  const int idx = blockIdx.x * blockDim.x + threadIdx.x;
+  const int total = e * fine_vol;
+  if (idx >= total || vector_index < 0 || vector_index >= E || e <= 0 ||
+      fine_vol <= 0)
+    return;
+
+  const int e_idx = idx / fine_vol;
+  const int site = idx - e_idx * fine_vol;
+  const int stride_yzt = Yf * Zf * Tf;
+  const int stride_zt = Zf * Tf;
+  const int x = site / stride_yzt;
+  int rest = site - x * stride_yzt;
+  const int y = rest / stride_zt;
+  rest -= y * stride_zt;
+  const int z = rest / Tf;
+  const int t = rest - z * Tf;
+  const size_t nv_idx = multigrid_null_index(
+      vector_index, e_idx, x, y, z, t, e, Xf, Yf, Zf, Tf, Xc, Yc, Zc, Tc);
+  const LatticeComplex<T> *nv =
+      static_cast<const LatticeComplex<T> *>(null_vecs);
+  LatticeComplex<T> *dst = static_cast<LatticeComplex<T> *>(out);
+  dst[idx] = nv[nv_idx];
+}
+
+#if defined(QCU_HAVE_NVSHMEM)
+__device__ inline int multigrid_nvshmem_rank_shift(
+    int direction, int grid_x, int grid_y, int grid_z, int grid_t,
+    int coord_x, int coord_y, int coord_z, int coord_t) {
+  const int dims[4] = {grid_x, grid_y, grid_z, grid_t};
+  int coord[4] = {coord_x, coord_y, coord_z, coord_t};
+  for (int d = 0; d < 4; ++d) {
+    const int shift = multigrid_coarse_shift_component(direction, d);
+    if (dims[d] > 1) {
+      coord[d] += shift;
+      if (coord[d] < 0) coord[d] += dims[d];
+      if (coord[d] >= dims[d]) coord[d] -= dims[d];
+    }
+  }
+  return ((coord[0] * dims[1] + coord[1]) * dims[2] + coord[2]) * dims[3] +
+         coord[3];
+}
+
+template <typename T>
+__global__ void multigrid_nvshmem_put_halo(
+    void *device_recv, const void *device_send, int E, int X, int Y, int Z,
+    int Lt, int max_face, int grid_x, int grid_y, int grid_z, int grid_t,
+    int coord_x, int coord_y, int coord_z, int coord_t, int rank) {
+  const int direction = blockIdx.x * blockDim.x + threadIdx.x;
+  if (direction >= 32 || E <= 0 || max_face <= 0) return;
+  const int target = multigrid_nvshmem_rank_shift(
+      direction, grid_x, grid_y, grid_z, grid_t, coord_x, coord_y, coord_z,
+      coord_t);
+  if (target != rank) {
+    const size_t face_sites = static_cast<size_t>(
+        multigrid_coarse_face_sites(direction, X, Y, Z, Lt));
+    const size_t bytes = static_cast<size_t>(2) * static_cast<size_t>(E) *
+                         face_sites * sizeof(T);
+    const size_t stride_bytes = static_cast<size_t>(E) *
+                                static_cast<size_t>(max_face) *
+                                sizeof(LatticeComplex<T>);
+    const int receive_direction = direction ^ 1;
+    char *remote_receive = static_cast<char *>(device_recv) +
+                           static_cast<size_t>(receive_direction) *
+                               stride_bytes;
+    const char *local_send = static_cast<const char *>(device_send) +
+                             static_cast<size_t>(direction) * stride_bytes;
+    nvshmem_putmem_nbi(remote_receive, local_send, bytes, target);
+  }
+  __syncthreads();
+  if (threadIdx.x == 0 && blockIdx.x == 0) nvshmem_quiet();
+}
+#endif
+
+// ---------------------------------------------------------------------------
 // Distributed wide-stencil kernel.
 //
 // The ordinary wide kernel uses periodic modulo indexing because its input is
@@ -360,10 +598,10 @@ __device__ inline LatticeComplex<T> multigrid_halo_read(
 }
 
 template <typename T>
-__global__ void multigrid_coarse_dslash_wide_halo(
+__device__ inline void multigrid_coarse_dslash_wide_halo_impl(
     void *fermion_out, void *fermion_in, void *halo, void *sitting,
-    void *hop_nn, void *hop_diag, int E, int X, int Y, int Z, int Lt) {
-  int global_idx = blockIdx.x * blockDim.x + threadIdx.x;
+    void *hop_nn, void *hop_diag, int E, int X, int Y, int Z, int Lt,
+    int boundary_only, int global_idx) {
   int vol = X * Y * Z * Lt;
   int total_output = E * vol;
   if (global_idx >= total_output || E <= 0 || vol <= 0) return;
@@ -389,6 +627,10 @@ __global__ void multigrid_coarse_dslash_wide_halo(
   rest -= y * stride_ZT;
   int z = rest / Lt;
   int t = rest - z * Lt;
+
+  const bool is_boundary = x == 0 || x == X - 1 || y == 0 || y == Y - 1 ||
+                           z == 0 || z == Z - 1 || t == 0 || t == Lt - 1;
+  if (boundary_only >= 0 && (is_boundary ? 1 : 0) != boundary_only) return;
 
   int str_Ein = vol;
   int str_Eout = E * str_Ein;
@@ -449,6 +691,27 @@ __global__ void multigrid_coarse_dslash_wide_halo(
     }
   }
   out[global_idx] = sum;
+}
+
+template <typename T>
+__global__ void multigrid_coarse_dslash_wide_halo(
+    void *fermion_out, void *fermion_in, void *halo, void *sitting,
+    void *hop_nn, void *hop_diag, int E, int X, int Y, int Z, int Lt) {
+  const int global_idx = blockIdx.x * blockDim.x + threadIdx.x;
+  multigrid_coarse_dslash_wide_halo_impl<T>(
+      fermion_out, fermion_in, halo, sitting, hop_nn, hop_diag, E, X, Y, Z,
+      Lt, -1, global_idx);
+}
+
+template <typename T>
+__global__ void multigrid_coarse_dslash_wide_halo_region(
+    void *fermion_out, void *fermion_in, void *halo, void *sitting,
+    void *hop_nn, void *hop_diag, int E, int X, int Y, int Z, int Lt,
+    int boundary_only) {
+  const int global_idx = blockIdx.x * blockDim.x + threadIdx.x;
+  multigrid_coarse_dslash_wide_halo_impl<T>(
+      fermion_out, fermion_in, halo, sitting, hop_nn, hop_diag, E, X, Y, Z,
+      Lt, boundary_only, global_idx);
 }
 
 template <typename T>
@@ -1357,6 +1620,32 @@ __global__ void multigrid_full_to_odd(void *odd_out, void *full_in,
   LatticeComplex<T> *s = static_cast<LatticeComplex<T>*>(full_in);
   d[idx] = s[src_idx];
 }
+// Template instantiations for coarse communication and verification kernels.
+template __global__ void multigrid_coarse_pack_halo<float>(
+    void*, const void*, int, int, int, int, int, int);
+template __global__ void multigrid_coarse_pack_halo<double>(
+    void*, const void*, int, int, int, int, int, int);
+template __global__ void multigrid_coarse_unpack_halo<float>(
+    void*, const void*, int, int, int, int, int, int);
+template __global__ void multigrid_coarse_unpack_halo<double>(
+    void*, const void*, int, int, int, int, int, int);
+template __global__ void multigrid_coarse_dslash_wide_halo_region<float>(
+    void*, void*, void*, void*, void*, void*, int, int, int, int, int, int);
+template __global__ void multigrid_coarse_dslash_wide_halo_region<double>(
+    void*, void*, void*, void*, void*, void*, int, int, int, int, int, int);
+template __global__ void multigrid_fill_test_vector<float>(
+    void*, int, unsigned long);
+template __global__ void multigrid_fill_test_vector<double>(
+    void*, int, unsigned long);
+template __global__ void multigrid_difference<float>(
+    void*, const void*, const void*, int);
+template __global__ void multigrid_difference<double>(
+    void*, const void*, const void*, int);
+template __global__ void multigrid_extract_null_vector<float>(
+    void*, const void*, int, int, int, int, int, int, int, int, int, int, int);
+template __global__ void multigrid_extract_null_vector<double>(
+    void*, const void*, int, int, int, int, int, int, int, int, int, int, int);
+
 // Template instantiations for conversion kernels
 template __global__ void multigrid_odd_to_full<float>(
     void*, void*, int, int, int, int, int);
@@ -1374,4 +1663,12 @@ template __global__ void multigrid_full_to_even<float>(
     void*, void*, int, int, int, int, int);
 template __global__ void multigrid_full_to_even<double>(
     void*, void*, int, int, int, int, int);
+#if defined(QCU_HAVE_NVSHMEM)
+template __global__ void multigrid_nvshmem_put_halo<float>(
+    void*, const void*, int, int, int, int, int, int, int, int, int, int, int,
+    int, int, int, int, int);
+template __global__ void multigrid_nvshmem_put_halo<double>(
+    void*, const void*, int, int, int, int, int, int, int, int, int, int, int,
+    int, int, int, int, int);
+#endif
 } // namespace qcu
