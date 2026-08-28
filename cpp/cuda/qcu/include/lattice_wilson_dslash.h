@@ -16,6 +16,9 @@ template <typename T> struct LatticeWilsonDslash {
   void give(LatticeSet<T> *_set_ptr) { set_ptr = _set_ptr; }
   void run_mpi_non_block(void *fermion_out, void *fermion_in, void *gauge,
                          void *_device_params) {
+    const bool force_mpi = _WILSON_AND_LAPLACIAN_TEST_SINGLE_IN_MULTI_ != 0;
+    const bool device_mpi = qcu_mpi_can_use_buffer<T>(
+        set_ptr->device_send_vec[_B_X_]);
     checkCudaErrors(cudaStreamSynchronize(set_ptr->stream)); // needed
     checkCudaErrors(cudaStreamSynchronize(set_ptr->stream_dims[_X_]));
     checkCudaErrors(cudaStreamSynchronize(set_ptr->stream_dims[_Y_]));
@@ -26,8 +29,8 @@ template <typename T> struct LatticeWilsonDslash {
                                 0, set_ptr->stream_dims[_X_]>>>(
           gauge, fermion_in, _device_params, set_ptr->device_send_vec[_B_X_],
           set_ptr->device_send_vec[_F_X_]);
-      if (set_ptr->host_params[_GRID_X_] != 1 ||
-          _WILSON_AND_LAPLACIAN_TEST_SINGLE_IN_MULTI_) { // x part d2h
+      if (!device_mpi && (set_ptr->host_params[_GRID_X_] != 1 ||
+                          force_mpi)) { // x part d2h
         checkCudaErrors(cudaMemcpyAsync(
             set_ptr->host_send_vec[_B_X_], set_ptr->device_send_vec[_B_X_],
             sizeof(T) * set_ptr->lat_3dim_SC[_X_], cudaMemcpyDeviceToHost,
@@ -41,8 +44,8 @@ template <typename T> struct LatticeWilsonDslash {
                                 0, set_ptr->stream_dims[_Y_]>>>(
           gauge, fermion_in, _device_params, set_ptr->device_send_vec[_B_Y_],
           set_ptr->device_send_vec[_F_Y_]);
-      if (set_ptr->host_params[_GRID_Y_] != 1 ||
-          _WILSON_AND_LAPLACIAN_TEST_SINGLE_IN_MULTI_) { // y part d2h
+      if (!device_mpi && (set_ptr->host_params[_GRID_Y_] != 1 ||
+                          force_mpi)) { // y part d2h
         checkCudaErrors(cudaMemcpyAsync(
             set_ptr->host_send_vec[_B_Y_], set_ptr->device_send_vec[_B_Y_],
             sizeof(T) * set_ptr->lat_3dim_SC[_Y_], cudaMemcpyDeviceToHost,
@@ -56,8 +59,8 @@ template <typename T> struct LatticeWilsonDslash {
                                 0, set_ptr->stream_dims[_Z_]>>>(
           gauge, fermion_in, _device_params, set_ptr->device_send_vec[_B_Z_],
           set_ptr->device_send_vec[_F_Z_]);
-      if (set_ptr->host_params[_GRID_Z_] != 1 ||
-          _WILSON_AND_LAPLACIAN_TEST_SINGLE_IN_MULTI_) { // z part d2h
+      if (!device_mpi && (set_ptr->host_params[_GRID_Z_] != 1 ||
+                          force_mpi)) { // z part d2h
         checkCudaErrors(cudaMemcpyAsync(
             set_ptr->host_send_vec[_B_Z_], set_ptr->device_send_vec[_B_Z_],
             sizeof(T) * set_ptr->lat_3dim_SC[_Z_], cudaMemcpyDeviceToHost,
@@ -71,8 +74,8 @@ template <typename T> struct LatticeWilsonDslash {
                                 0, set_ptr->stream_dims[_T_]>>>(
           gauge, fermion_in, _device_params, set_ptr->device_send_vec[_B_T_],
           set_ptr->device_send_vec[_F_T_]);
-      if (set_ptr->host_params[_GRID_T_] != 1 ||
-          _WILSON_AND_LAPLACIAN_TEST_SINGLE_IN_MULTI_) { // t part d2h
+      if (!device_mpi && (set_ptr->host_params[_GRID_T_] != 1 ||
+                          force_mpi)) { // t part d2h
         checkCudaErrors(cudaMemcpyAsync(
             set_ptr->host_send_vec[_B_T_], set_ptr->device_send_vec[_B_T_],
             sizeof(T) * set_ptr->lat_3dim_SC[_T_] / _EVEN_ODD_,
@@ -92,7 +95,7 @@ template <typename T> struct LatticeWilsonDslash {
     {
       // x edge part
       checkCudaErrors(cudaStreamSynchronize(set_ptr->stream_dims[_X_]));
-      if (set_ptr->host_params[_GRID_X_] == 1) {
+      if (set_ptr->host_params[_GRID_X_] == 1 && !force_mpi) {
         // no comm
         // edge recv part
         wilson_dslash_x_recv<T><<<set_ptr->gridDim_3dim[_X_], set_ptr->blockDim,
@@ -101,16 +104,24 @@ template <typename T> struct LatticeWilsonDslash {
             set_ptr->device_send_vec[_B_X_]);
       } else {
         // comm
-        _MPI_Isend<T>(set_ptr->host_send_vec[_B_X_], set_ptr->lat_3dim_SC[_X_],
+        const void *send_b = device_mpi ? set_ptr->device_send_vec[_B_X_]
+                                        : set_ptr->host_send_vec[_B_X_];
+        const void *send_f = device_mpi ? set_ptr->device_send_vec[_F_X_]
+                                        : set_ptr->host_send_vec[_F_X_];
+        void *recv_f = device_mpi ? set_ptr->device_recv_vec[_F_X_]
+                                  : set_ptr->host_recv_vec[_F_X_];
+        void *recv_b = device_mpi ? set_ptr->device_recv_vec[_B_X_]
+                                  : set_ptr->host_recv_vec[_B_X_];
+        _MPI_Isend<T>(send_b, set_ptr->lat_3dim_SC[_X_],
                       set_ptr->move_wards[_B_X_], _B_X_, MPI_COMM_WORLD,
                       &set_ptr->send_request[_B_X_]);
-        _MPI_Irecv<T>(set_ptr->host_recv_vec[_F_X_], set_ptr->lat_3dim_SC[_X_],
+        _MPI_Irecv<T>(recv_f, set_ptr->lat_3dim_SC[_X_],
                       set_ptr->move_wards[_F_X_], _B_X_, MPI_COMM_WORLD,
                       &set_ptr->recv_request[_B_X_]);
-        _MPI_Isend<T>(set_ptr->host_send_vec[_F_X_], set_ptr->lat_3dim_SC[_X_],
+        _MPI_Isend<T>(send_f, set_ptr->lat_3dim_SC[_X_],
                       set_ptr->move_wards[_F_X_], _F_X_, MPI_COMM_WORLD,
                       &set_ptr->send_request[_F_X_]);
-        _MPI_Irecv<T>(set_ptr->host_recv_vec[_B_X_], set_ptr->lat_3dim_SC[_X_],
+        _MPI_Irecv<T>(recv_b, set_ptr->lat_3dim_SC[_X_],
                       set_ptr->move_wards[_B_X_], _F_X_, MPI_COMM_WORLD,
                       &set_ptr->recv_request[_F_X_]);
       }
@@ -118,7 +129,7 @@ template <typename T> struct LatticeWilsonDslash {
     {
       // y edge part
       checkCudaErrors(cudaStreamSynchronize(set_ptr->stream_dims[_Y_]));
-      if (set_ptr->host_params[_GRID_Y_] == 1) {
+      if (set_ptr->host_params[_GRID_Y_] == 1 && !force_mpi) {
         // no comm
         // edge recv part
         wilson_dslash_y_recv<T><<<set_ptr->gridDim_3dim[_Y_], set_ptr->blockDim,
@@ -127,16 +138,24 @@ template <typename T> struct LatticeWilsonDslash {
             set_ptr->device_send_vec[_B_Y_]);
       } else {
         // comm
-        _MPI_Isend<T>(set_ptr->host_send_vec[_B_Y_], set_ptr->lat_3dim_SC[_Y_],
+        const void *send_b = device_mpi ? set_ptr->device_send_vec[_B_Y_]
+                                        : set_ptr->host_send_vec[_B_Y_];
+        const void *send_f = device_mpi ? set_ptr->device_send_vec[_F_Y_]
+                                        : set_ptr->host_send_vec[_F_Y_];
+        void *recv_f = device_mpi ? set_ptr->device_recv_vec[_F_Y_]
+                                  : set_ptr->host_recv_vec[_F_Y_];
+        void *recv_b = device_mpi ? set_ptr->device_recv_vec[_B_Y_]
+                                  : set_ptr->host_recv_vec[_B_Y_];
+        _MPI_Isend<T>(send_b, set_ptr->lat_3dim_SC[_Y_],
                       set_ptr->move_wards[_B_Y_], _B_Y_, MPI_COMM_WORLD,
                       &set_ptr->send_request[_B_Y_]);
-        _MPI_Irecv<T>(set_ptr->host_recv_vec[_F_Y_], set_ptr->lat_3dim_SC[_Y_],
+        _MPI_Irecv<T>(recv_f, set_ptr->lat_3dim_SC[_Y_],
                       set_ptr->move_wards[_F_Y_], _B_Y_, MPI_COMM_WORLD,
                       &set_ptr->recv_request[_B_Y_]);
-        _MPI_Isend<T>(set_ptr->host_send_vec[_F_Y_], set_ptr->lat_3dim_SC[_Y_],
+        _MPI_Isend<T>(send_f, set_ptr->lat_3dim_SC[_Y_],
                       set_ptr->move_wards[_F_Y_], _F_Y_, MPI_COMM_WORLD,
                       &set_ptr->send_request[_F_Y_]);
-        _MPI_Irecv<T>(set_ptr->host_recv_vec[_B_Y_], set_ptr->lat_3dim_SC[_Y_],
+        _MPI_Irecv<T>(recv_b, set_ptr->lat_3dim_SC[_Y_],
                       set_ptr->move_wards[_B_Y_], _F_Y_, MPI_COMM_WORLD,
                       &set_ptr->recv_request[_F_Y_]);
       }
@@ -144,7 +163,7 @@ template <typename T> struct LatticeWilsonDslash {
     {
       // z edge part
       checkCudaErrors(cudaStreamSynchronize(set_ptr->stream_dims[_Z_]));
-      if (set_ptr->host_params[_GRID_Z_] == 1) {
+      if (set_ptr->host_params[_GRID_Z_] == 1 && !force_mpi) {
         // no comm
         // edge recv part
         wilson_dslash_z_recv<T><<<set_ptr->gridDim_3dim[_Z_], set_ptr->blockDim,
@@ -153,16 +172,24 @@ template <typename T> struct LatticeWilsonDslash {
             set_ptr->device_send_vec[_B_Z_]);
       } else {
         // comm
-        _MPI_Isend<T>(set_ptr->host_send_vec[_B_Z_], set_ptr->lat_3dim_SC[_Z_],
+        const void *send_b = device_mpi ? set_ptr->device_send_vec[_B_Z_]
+                                        : set_ptr->host_send_vec[_B_Z_];
+        const void *send_f = device_mpi ? set_ptr->device_send_vec[_F_Z_]
+                                        : set_ptr->host_send_vec[_F_Z_];
+        void *recv_f = device_mpi ? set_ptr->device_recv_vec[_F_Z_]
+                                  : set_ptr->host_recv_vec[_F_Z_];
+        void *recv_b = device_mpi ? set_ptr->device_recv_vec[_B_Z_]
+                                  : set_ptr->host_recv_vec[_B_Z_];
+        _MPI_Isend<T>(send_b, set_ptr->lat_3dim_SC[_Z_],
                       set_ptr->move_wards[_B_Z_], _B_Z_, MPI_COMM_WORLD,
                       &set_ptr->send_request[_B_Z_]);
-        _MPI_Irecv<T>(set_ptr->host_recv_vec[_F_Z_], set_ptr->lat_3dim_SC[_Z_],
+        _MPI_Irecv<T>(recv_f, set_ptr->lat_3dim_SC[_Z_],
                       set_ptr->move_wards[_F_Z_], _B_Z_, MPI_COMM_WORLD,
                       &set_ptr->recv_request[_B_Z_]);
-        _MPI_Isend<T>(set_ptr->host_send_vec[_F_Z_], set_ptr->lat_3dim_SC[_Z_],
+        _MPI_Isend<T>(send_f, set_ptr->lat_3dim_SC[_Z_],
                       set_ptr->move_wards[_F_Z_], _F_Z_, MPI_COMM_WORLD,
                       &set_ptr->send_request[_F_Z_]);
-        _MPI_Irecv<T>(set_ptr->host_recv_vec[_B_Z_], set_ptr->lat_3dim_SC[_Z_],
+        _MPI_Irecv<T>(recv_b, set_ptr->lat_3dim_SC[_Z_],
                       set_ptr->move_wards[_B_Z_], _F_Z_, MPI_COMM_WORLD,
                       &set_ptr->recv_request[_F_Z_]);
       }
@@ -170,7 +197,7 @@ template <typename T> struct LatticeWilsonDslash {
     {
       // t edge part
       checkCudaErrors(cudaStreamSynchronize(set_ptr->stream_dims[_T_]));
-      if (set_ptr->host_params[_GRID_T_] == 1) {
+      if (set_ptr->host_params[_GRID_T_] == 1 && !force_mpi) {
         // no comm
         // edge recv part
         wilson_dslash_t_recv<T><<<set_ptr->gridDim_3dim[_T_], set_ptr->blockDim,
@@ -179,104 +206,112 @@ template <typename T> struct LatticeWilsonDslash {
             set_ptr->device_send_vec[_B_T_]);
       } else {
         // comm
-        _MPI_Isend<T>(set_ptr->host_send_vec[_B_T_],
+        const void *send_b = device_mpi ? set_ptr->device_send_vec[_B_T_]
+                                        : set_ptr->host_send_vec[_B_T_];
+        const void *send_f = device_mpi ? set_ptr->device_send_vec[_F_T_]
+                                        : set_ptr->host_send_vec[_F_T_];
+        void *recv_f = device_mpi ? set_ptr->device_recv_vec[_F_T_]
+                                  : set_ptr->host_recv_vec[_F_T_];
+        void *recv_b = device_mpi ? set_ptr->device_recv_vec[_B_T_]
+                                  : set_ptr->host_recv_vec[_B_T_];
+        _MPI_Isend<T>(send_b,
                       set_ptr->lat_3dim_SC[_T_] / _EVEN_ODD_,
                       set_ptr->move_wards[_B_T_], _B_T_, MPI_COMM_WORLD,
                       &set_ptr->send_request[_B_T_]);
-        _MPI_Irecv<T>(set_ptr->host_recv_vec[_F_T_],
+        _MPI_Irecv<T>(recv_f,
                       set_ptr->lat_3dim_SC[_T_] / _EVEN_ODD_,
                       set_ptr->move_wards[_F_T_], _B_T_, MPI_COMM_WORLD,
                       &set_ptr->recv_request[_B_T_]);
-        _MPI_Isend<T>(set_ptr->host_send_vec[_F_T_],
+        _MPI_Isend<T>(send_f,
                       set_ptr->lat_3dim_SC[_T_] / _EVEN_ODD_,
                       set_ptr->move_wards[_F_T_], _F_T_, MPI_COMM_WORLD,
                       &set_ptr->send_request[_F_T_]);
-        _MPI_Irecv<T>(set_ptr->host_recv_vec[_B_T_],
+        _MPI_Irecv<T>(recv_b,
                       set_ptr->lat_3dim_SC[_T_] / _EVEN_ODD_,
                       set_ptr->move_wards[_B_T_], _F_T_, MPI_COMM_WORLD,
                       &set_ptr->recv_request[_F_T_]);
       }
     }
-    if (set_ptr->host_params[_GRID_X_] != 1 ||
-        _WILSON_AND_LAPLACIAN_TEST_SINGLE_IN_MULTI_) { // x part h2d
+    if (set_ptr->host_params[_GRID_X_] != 1 || force_mpi) { // x part recv wait/h2d
       MPI_Wait(&set_ptr->recv_request[_B_X_], MPI_STATUS_IGNORE);
-      checkCudaErrors(cudaMemcpyAsync(
-          set_ptr->device_recv_vec[_F_X_], set_ptr->host_recv_vec[_F_X_],
-          sizeof(T) * set_ptr->lat_3dim_SC[_X_], cudaMemcpyHostToDevice,
-          set_ptr->stream_dims[_X_]));
+      if (!device_mpi)
+        checkCudaErrors(cudaMemcpyAsync(
+            set_ptr->device_recv_vec[_F_X_], set_ptr->host_recv_vec[_F_X_],
+            sizeof(T) * set_ptr->lat_3dim_SC[_X_], cudaMemcpyHostToDevice,
+            set_ptr->stream_dims[_X_]));
       MPI_Wait(&set_ptr->recv_request[_F_X_], MPI_STATUS_IGNORE);
-      checkCudaErrors(cudaMemcpyAsync(
-          set_ptr->device_recv_vec[_B_X_], set_ptr->host_recv_vec[_B_X_],
-          sizeof(T) * set_ptr->lat_3dim_SC[_X_], cudaMemcpyHostToDevice,
-          set_ptr->stream_dims[_X_]));
+      if (!device_mpi)
+        checkCudaErrors(cudaMemcpyAsync(
+            set_ptr->device_recv_vec[_B_X_], set_ptr->host_recv_vec[_B_X_],
+            sizeof(T) * set_ptr->lat_3dim_SC[_X_], cudaMemcpyHostToDevice,
+            set_ptr->stream_dims[_X_]));
     }
-    if (set_ptr->host_params[_GRID_Y_] != 1 ||
-        _WILSON_AND_LAPLACIAN_TEST_SINGLE_IN_MULTI_) { // y part h2d
+    if (set_ptr->host_params[_GRID_Y_] != 1 || force_mpi) { // y part recv wait/h2d
       MPI_Wait(&set_ptr->recv_request[_B_Y_], MPI_STATUS_IGNORE);
-      checkCudaErrors(cudaMemcpyAsync(
-          set_ptr->device_recv_vec[_F_Y_], set_ptr->host_recv_vec[_F_Y_],
-          sizeof(T) * set_ptr->lat_3dim_SC[_Y_], cudaMemcpyHostToDevice,
-          set_ptr->stream_dims[_Y_]));
+      if (!device_mpi)
+        checkCudaErrors(cudaMemcpyAsync(
+            set_ptr->device_recv_vec[_F_Y_], set_ptr->host_recv_vec[_F_Y_],
+            sizeof(T) * set_ptr->lat_3dim_SC[_Y_], cudaMemcpyHostToDevice,
+            set_ptr->stream_dims[_Y_]));
       MPI_Wait(&set_ptr->recv_request[_F_Y_], MPI_STATUS_IGNORE);
-      checkCudaErrors(cudaMemcpyAsync(
-          set_ptr->device_recv_vec[_B_Y_], set_ptr->host_recv_vec[_B_Y_],
-          sizeof(T) * set_ptr->lat_3dim_SC[_Y_], cudaMemcpyHostToDevice,
-          set_ptr->stream_dims[_Y_]));
+      if (!device_mpi)
+        checkCudaErrors(cudaMemcpyAsync(
+            set_ptr->device_recv_vec[_B_Y_], set_ptr->host_recv_vec[_B_Y_],
+            sizeof(T) * set_ptr->lat_3dim_SC[_Y_], cudaMemcpyHostToDevice,
+            set_ptr->stream_dims[_Y_]));
     }
-    if (set_ptr->host_params[_GRID_Z_] != 1 ||
-        _WILSON_AND_LAPLACIAN_TEST_SINGLE_IN_MULTI_) { // z part h2d
+    if (set_ptr->host_params[_GRID_Z_] != 1 || force_mpi) { // z part recv wait/h2d
       MPI_Wait(&set_ptr->recv_request[_B_Z_], MPI_STATUS_IGNORE);
-      checkCudaErrors(cudaMemcpyAsync(
-          set_ptr->device_recv_vec[_F_Z_], set_ptr->host_recv_vec[_F_Z_],
-          sizeof(T) * set_ptr->lat_3dim_SC[_Z_], cudaMemcpyHostToDevice,
-          set_ptr->stream_dims[_Z_]));
+      if (!device_mpi)
+        checkCudaErrors(cudaMemcpyAsync(
+            set_ptr->device_recv_vec[_F_Z_], set_ptr->host_recv_vec[_F_Z_],
+            sizeof(T) * set_ptr->lat_3dim_SC[_Z_], cudaMemcpyHostToDevice,
+            set_ptr->stream_dims[_Z_]));
       MPI_Wait(&set_ptr->recv_request[_F_Z_], MPI_STATUS_IGNORE);
-      checkCudaErrors(cudaMemcpyAsync(
-          set_ptr->device_recv_vec[_B_Z_], set_ptr->host_recv_vec[_B_Z_],
-          sizeof(T) * set_ptr->lat_3dim_SC[_Z_], cudaMemcpyHostToDevice,
-          set_ptr->stream_dims[_Z_]));
+      if (!device_mpi)
+        checkCudaErrors(cudaMemcpyAsync(
+            set_ptr->device_recv_vec[_B_Z_], set_ptr->host_recv_vec[_B_Z_],
+            sizeof(T) * set_ptr->lat_3dim_SC[_Z_], cudaMemcpyHostToDevice,
+            set_ptr->stream_dims[_Z_]));
     }
-    if (set_ptr->host_params[_GRID_T_] != 1 ||
-        _WILSON_AND_LAPLACIAN_TEST_SINGLE_IN_MULTI_) { // t part h2d
+    if (set_ptr->host_params[_GRID_T_] != 1 || force_mpi) { // t part recv wait/h2d
       MPI_Wait(&set_ptr->recv_request[_B_T_], MPI_STATUS_IGNORE);
-      checkCudaErrors(cudaMemcpyAsync(
-          set_ptr->device_recv_vec[_F_T_], set_ptr->host_recv_vec[_F_T_],
-          sizeof(T) * set_ptr->lat_3dim_SC[_T_] / _EVEN_ODD_,
-          cudaMemcpyHostToDevice, set_ptr->stream_dims[_T_]));
+      if (!device_mpi)
+        checkCudaErrors(cudaMemcpyAsync(
+            set_ptr->device_recv_vec[_F_T_], set_ptr->host_recv_vec[_F_T_],
+            sizeof(T) * set_ptr->lat_3dim_SC[_T_] / _EVEN_ODD_,
+            cudaMemcpyHostToDevice, set_ptr->stream_dims[_T_]));
       MPI_Wait(&set_ptr->recv_request[_F_T_], MPI_STATUS_IGNORE);
-      checkCudaErrors(cudaMemcpyAsync(
-          set_ptr->device_recv_vec[_B_T_], set_ptr->host_recv_vec[_B_T_],
-          sizeof(T) * set_ptr->lat_3dim_SC[_T_] / _EVEN_ODD_,
-          cudaMemcpyHostToDevice, set_ptr->stream_dims[_T_]));
+      if (!device_mpi)
+        checkCudaErrors(cudaMemcpyAsync(
+            set_ptr->device_recv_vec[_B_T_], set_ptr->host_recv_vec[_B_T_],
+            sizeof(T) * set_ptr->lat_3dim_SC[_T_] / _EVEN_ODD_,
+            cudaMemcpyHostToDevice, set_ptr->stream_dims[_T_]));
     }
     {
       // edge recv part
-      if (set_ptr->host_params[_GRID_X_] != 1 ||
-          _WILSON_AND_LAPLACIAN_TEST_SINGLE_IN_MULTI_) { // x part recv
+      if (set_ptr->host_params[_GRID_X_] != 1 || force_mpi) { // x part recv
         checkCudaErrors(cudaStreamSynchronize(set_ptr->stream_dims[_X_]));
         wilson_dslash_x_recv<T><<<set_ptr->gridDim_3dim[_X_], set_ptr->blockDim,
                                   0, set_ptr->stream>>>(
             gauge, fermion_out, _device_params, set_ptr->device_recv_vec[_B_X_],
             set_ptr->device_recv_vec[_F_X_]);
       }
-      if (set_ptr->host_params[_GRID_Y_] != 1 ||
-          _WILSON_AND_LAPLACIAN_TEST_SINGLE_IN_MULTI_) { // y part recv
+      if (set_ptr->host_params[_GRID_Y_] != 1 || force_mpi) { // y part recv
         checkCudaErrors(cudaStreamSynchronize(set_ptr->stream_dims[_Y_]));
         wilson_dslash_y_recv<T><<<set_ptr->gridDim_3dim[_Y_], set_ptr->blockDim,
                                   0, set_ptr->stream>>>(
             gauge, fermion_out, _device_params, set_ptr->device_recv_vec[_B_Y_],
             set_ptr->device_recv_vec[_F_Y_]);
       }
-      if (set_ptr->host_params[_GRID_Z_] != 1 ||
-          _WILSON_AND_LAPLACIAN_TEST_SINGLE_IN_MULTI_) { // z part recv
+      if (set_ptr->host_params[_GRID_Z_] != 1 || force_mpi) { // z part recv
         checkCudaErrors(cudaStreamSynchronize(set_ptr->stream_dims[_Z_]));
         wilson_dslash_z_recv<T><<<set_ptr->gridDim_3dim[_Z_], set_ptr->blockDim,
                                   0, set_ptr->stream>>>(
             gauge, fermion_out, _device_params, set_ptr->device_recv_vec[_B_Z_],
             set_ptr->device_recv_vec[_F_Z_]);
       }
-      if (set_ptr->host_params[_GRID_T_] != 1 ||
-          _WILSON_AND_LAPLACIAN_TEST_SINGLE_IN_MULTI_) { // t part recv
+      if (set_ptr->host_params[_GRID_T_] != 1 || force_mpi) { // t part recv
         checkCudaErrors(cudaStreamSynchronize(set_ptr->stream_dims[_T_]));
         wilson_dslash_t_recv<T><<<set_ptr->gridDim_3dim[_T_], set_ptr->blockDim,
                                   0, set_ptr->stream>>>(
@@ -301,6 +336,9 @@ template <typename T> struct LatticeWilsonDslash {
   }
   void run_mpi(void *fermion_out, void *fermion_in, void *gauge,
                void *_device_params) {
+    const bool force_mpi = _WILSON_AND_LAPLACIAN_TEST_SINGLE_IN_MULTI_ != 0;
+    const bool device_mpi = qcu_mpi_can_use_buffer<T>(
+        set_ptr->device_send_vec[_B_X_]);
     // ====================================================================
     // SINGLE-RANK FAST PATH (2026-08-02)
     // --------------------------------------------------------------------
@@ -319,7 +357,7 @@ template <typename T> struct LatticeWilsonDslash {
     // syncs into ~10 us of launches.
     // ====================================================================
     const bool single_rank =
-        !_WILSON_AND_LAPLACIAN_TEST_SINGLE_IN_MULTI_ &&
+        !force_mpi &&
         set_ptr->host_params[_GRID_X_] == 1 &&
         set_ptr->host_params[_GRID_Y_] == 1 &&
         set_ptr->host_params[_GRID_Z_] == 1 &&
@@ -346,8 +384,8 @@ template <typename T> struct LatticeWilsonDslash {
       // NOTE: for single_rank, dim_stream() returns the main stream, so all
       // send kernels serialize with the inside/recv kernels (no halo syncs).
       // (y/z/t sends follow the same pattern: stream = dim_stream(_Y_/Z_/T_).)
-      if (set_ptr->host_params[_GRID_X_] != 1 ||
-          _WILSON_AND_LAPLACIAN_TEST_SINGLE_IN_MULTI_) { // x part d2h
+      if (!device_mpi && (set_ptr->host_params[_GRID_X_] != 1 ||
+                          force_mpi)) { // x part d2h
         checkCudaErrors(cudaMemcpyAsync(
             set_ptr->host_send_vec[_B_X_], set_ptr->device_send_vec[_B_X_],
             sizeof(T) * set_ptr->lat_3dim_SC[_X_], cudaMemcpyDeviceToHost,
@@ -361,8 +399,8 @@ template <typename T> struct LatticeWilsonDslash {
                                 0, dim_stream(_Y_)>>>(
           gauge, fermion_in, _device_params, set_ptr->device_send_vec[_B_Y_],
           set_ptr->device_send_vec[_F_Y_]);
-      if (set_ptr->host_params[_GRID_Y_] != 1 ||
-          _WILSON_AND_LAPLACIAN_TEST_SINGLE_IN_MULTI_) { // y part d2h
+      if (!device_mpi && (set_ptr->host_params[_GRID_Y_] != 1 ||
+                          force_mpi)) { // y part d2h
         checkCudaErrors(cudaMemcpyAsync(
             set_ptr->host_send_vec[_B_Y_], set_ptr->device_send_vec[_B_Y_],
             sizeof(T) * set_ptr->lat_3dim_SC[_Y_], cudaMemcpyDeviceToHost,
@@ -376,8 +414,8 @@ template <typename T> struct LatticeWilsonDslash {
                                 0, dim_stream(_Z_)>>>(
           gauge, fermion_in, _device_params, set_ptr->device_send_vec[_B_Z_],
           set_ptr->device_send_vec[_F_Z_]);
-      if (set_ptr->host_params[_GRID_Z_] != 1 ||
-          _WILSON_AND_LAPLACIAN_TEST_SINGLE_IN_MULTI_) { // z part d2h
+      if (!device_mpi && (set_ptr->host_params[_GRID_Z_] != 1 ||
+                          force_mpi)) { // z part d2h
         checkCudaErrors(cudaMemcpyAsync(
             set_ptr->host_send_vec[_B_Z_], set_ptr->device_send_vec[_B_Z_],
             sizeof(T) * set_ptr->lat_3dim_SC[_Z_], cudaMemcpyDeviceToHost,
@@ -391,8 +429,8 @@ template <typename T> struct LatticeWilsonDslash {
                                 0, dim_stream(_T_)>>>(
           gauge, fermion_in, _device_params, set_ptr->device_send_vec[_B_T_],
           set_ptr->device_send_vec[_F_T_]);
-      if (set_ptr->host_params[_GRID_T_] != 1 ||
-          _WILSON_AND_LAPLACIAN_TEST_SINGLE_IN_MULTI_) { // t part d2h
+      if (!device_mpi && (set_ptr->host_params[_GRID_T_] != 1 ||
+                          force_mpi)) { // t part d2h
         checkCudaErrors(cudaMemcpyAsync(
             set_ptr->host_send_vec[_B_T_], set_ptr->device_send_vec[_B_T_],
             sizeof(T) * set_ptr->lat_3dim_SC[_T_] / _EVEN_ODD_,
@@ -412,7 +450,7 @@ template <typename T> struct LatticeWilsonDslash {
     {
       // x edge part
       sync_if_multi(set_ptr->stream_dims[_X_]);
-      if (set_ptr->host_params[_GRID_X_] == 1) {
+      if (set_ptr->host_params[_GRID_X_] == 1 && !force_mpi) {
         // no comm
         // edge recv part
         wilson_dslash_x_recv<T><<<set_ptr->gridDim_3dim[_X_], set_ptr->blockDim,
@@ -421,14 +459,22 @@ template <typename T> struct LatticeWilsonDslash {
             set_ptr->device_send_vec[_B_X_]);
       } else {
         // comm
-        _MPI_Sendrecv<T>(set_ptr->host_send_vec[_B_X_],
+        const void *send_b = device_mpi ? set_ptr->device_send_vec[_B_X_]
+                                        : set_ptr->host_send_vec[_B_X_];
+        const void *send_f = device_mpi ? set_ptr->device_send_vec[_F_X_]
+                                        : set_ptr->host_send_vec[_F_X_];
+        void *recv_f = device_mpi ? set_ptr->device_recv_vec[_F_X_]
+                                  : set_ptr->host_recv_vec[_F_X_];
+        void *recv_b = device_mpi ? set_ptr->device_recv_vec[_B_X_]
+                                  : set_ptr->host_recv_vec[_B_X_];
+        _MPI_Sendrecv<T>(send_b,
                          set_ptr->lat_3dim_SC[_X_], set_ptr->move_wards[_B_X_],
-                         _B_X_, set_ptr->host_recv_vec[_F_X_],
+                         _B_X_, recv_f,
                          set_ptr->lat_3dim_SC[_X_], set_ptr->move_wards[_F_X_],
                          _B_X_, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        _MPI_Sendrecv<T>(set_ptr->host_send_vec[_F_X_],
+        _MPI_Sendrecv<T>(send_f,
                          set_ptr->lat_3dim_SC[_X_], set_ptr->move_wards[_F_X_],
-                         _F_X_, set_ptr->host_recv_vec[_B_X_],
+                         _F_X_, recv_b,
                          set_ptr->lat_3dim_SC[_X_], set_ptr->move_wards[_B_X_],
                          _F_X_, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
       }
@@ -436,7 +482,7 @@ template <typename T> struct LatticeWilsonDslash {
     {
       // y edge part
       sync_if_multi(set_ptr->stream_dims[_Y_]);
-      if (set_ptr->host_params[_GRID_Y_] == 1) {
+      if (set_ptr->host_params[_GRID_Y_] == 1 && !force_mpi) {
         // no comm
         // edge recv part
         wilson_dslash_y_recv<T><<<set_ptr->gridDim_3dim[_Y_], set_ptr->blockDim,
@@ -445,14 +491,22 @@ template <typename T> struct LatticeWilsonDslash {
             set_ptr->device_send_vec[_B_Y_]);
       } else {
         // comm
-        _MPI_Sendrecv<T>(set_ptr->host_send_vec[_B_Y_],
+        const void *send_b = device_mpi ? set_ptr->device_send_vec[_B_Y_]
+                                        : set_ptr->host_send_vec[_B_Y_];
+        const void *send_f = device_mpi ? set_ptr->device_send_vec[_F_Y_]
+                                        : set_ptr->host_send_vec[_F_Y_];
+        void *recv_f = device_mpi ? set_ptr->device_recv_vec[_F_Y_]
+                                  : set_ptr->host_recv_vec[_F_Y_];
+        void *recv_b = device_mpi ? set_ptr->device_recv_vec[_B_Y_]
+                                  : set_ptr->host_recv_vec[_B_Y_];
+        _MPI_Sendrecv<T>(send_b,
                          set_ptr->lat_3dim_SC[_Y_], set_ptr->move_wards[_B_Y_],
-                         _B_Y_, set_ptr->host_recv_vec[_F_Y_],
+                         _B_Y_, recv_f,
                          set_ptr->lat_3dim_SC[_Y_], set_ptr->move_wards[_F_Y_],
                          _B_Y_, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        _MPI_Sendrecv<T>(set_ptr->host_send_vec[_F_Y_],
+        _MPI_Sendrecv<T>(send_f,
                          set_ptr->lat_3dim_SC[_Y_], set_ptr->move_wards[_F_Y_],
-                         _F_Y_, set_ptr->host_recv_vec[_B_Y_],
+                         _F_Y_, recv_b,
                          set_ptr->lat_3dim_SC[_Y_], set_ptr->move_wards[_B_Y_],
                          _F_Y_, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
       }
@@ -460,7 +514,7 @@ template <typename T> struct LatticeWilsonDslash {
     {
       // z edge part
       sync_if_multi(set_ptr->stream_dims[_Z_]);
-      if (set_ptr->host_params[_GRID_Z_] == 1) {
+      if (set_ptr->host_params[_GRID_Z_] == 1 && !force_mpi) {
         // no comm
         // edge recv part
         wilson_dslash_z_recv<T><<<set_ptr->gridDim_3dim[_Z_], set_ptr->blockDim,
@@ -469,14 +523,22 @@ template <typename T> struct LatticeWilsonDslash {
             set_ptr->device_send_vec[_B_Z_]);
       } else {
         // comm
-        _MPI_Sendrecv<T>(set_ptr->host_send_vec[_B_Z_],
+        const void *send_b = device_mpi ? set_ptr->device_send_vec[_B_Z_]
+                                        : set_ptr->host_send_vec[_B_Z_];
+        const void *send_f = device_mpi ? set_ptr->device_send_vec[_F_Z_]
+                                        : set_ptr->host_send_vec[_F_Z_];
+        void *recv_f = device_mpi ? set_ptr->device_recv_vec[_F_Z_]
+                                  : set_ptr->host_recv_vec[_F_Z_];
+        void *recv_b = device_mpi ? set_ptr->device_recv_vec[_B_Z_]
+                                  : set_ptr->host_recv_vec[_B_Z_];
+        _MPI_Sendrecv<T>(send_b,
                          set_ptr->lat_3dim_SC[_Z_], set_ptr->move_wards[_B_Z_],
-                         _B_Z_, set_ptr->host_recv_vec[_F_Z_],
+                         _B_Z_, recv_f,
                          set_ptr->lat_3dim_SC[_Z_], set_ptr->move_wards[_F_Z_],
                          _B_Z_, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        _MPI_Sendrecv<T>(set_ptr->host_send_vec[_F_Z_],
+        _MPI_Sendrecv<T>(send_f,
                          set_ptr->lat_3dim_SC[_Z_], set_ptr->move_wards[_F_Z_],
-                         _F_Z_, set_ptr->host_recv_vec[_B_Z_],
+                         _F_Z_, recv_b,
                          set_ptr->lat_3dim_SC[_Z_], set_ptr->move_wards[_B_Z_],
                          _F_Z_, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
       }
@@ -484,7 +546,7 @@ template <typename T> struct LatticeWilsonDslash {
     {
       // t edge part
       sync_if_multi(set_ptr->stream_dims[_T_]);
-      if (set_ptr->host_params[_GRID_T_] == 1) {
+      if (set_ptr->host_params[_GRID_T_] == 1 && !force_mpi) {
         // no comm
         // edge recv part
         wilson_dslash_t_recv<T><<<set_ptr->gridDim_3dim[_T_], set_ptr->blockDim,
@@ -493,22 +555,30 @@ template <typename T> struct LatticeWilsonDslash {
             set_ptr->device_send_vec[_B_T_]);
       } else {
         // comm
+        const void *send_b = device_mpi ? set_ptr->device_send_vec[_B_T_]
+                                        : set_ptr->host_send_vec[_B_T_];
+        const void *send_f = device_mpi ? set_ptr->device_send_vec[_F_T_]
+                                        : set_ptr->host_send_vec[_F_T_];
+        void *recv_f = device_mpi ? set_ptr->device_recv_vec[_F_T_]
+                                  : set_ptr->host_recv_vec[_F_T_];
+        void *recv_b = device_mpi ? set_ptr->device_recv_vec[_B_T_]
+                                  : set_ptr->host_recv_vec[_B_T_];
         _MPI_Sendrecv<T>(
-            set_ptr->host_send_vec[_B_T_],
+            send_b,
             set_ptr->lat_3dim_SC[_T_] / _EVEN_ODD_, set_ptr->move_wards[_B_T_],
-            _B_T_, set_ptr->host_recv_vec[_F_T_],
+            _B_T_, recv_f,
             set_ptr->lat_3dim_SC[_T_] / _EVEN_ODD_, set_ptr->move_wards[_F_T_],
             _B_T_, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         _MPI_Sendrecv<T>(
-            set_ptr->host_send_vec[_F_T_],
+            send_f,
             set_ptr->lat_3dim_SC[_T_] / _EVEN_ODD_, set_ptr->move_wards[_F_T_],
-            _F_T_, set_ptr->host_recv_vec[_B_T_],
+            _F_T_, recv_b,
             set_ptr->lat_3dim_SC[_T_] / _EVEN_ODD_, set_ptr->move_wards[_B_T_],
             _F_T_, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
       }
     }
-    if (set_ptr->host_params[_GRID_X_] != 1 ||
-        _WILSON_AND_LAPLACIAN_TEST_SINGLE_IN_MULTI_) { // x part h2d
+    if (!device_mpi && (set_ptr->host_params[_GRID_X_] != 1 ||
+                        force_mpi)) { // x part h2d
       checkCudaErrors(cudaMemcpyAsync(
           set_ptr->device_recv_vec[_F_X_], set_ptr->host_recv_vec[_F_X_],
           sizeof(T) * set_ptr->lat_3dim_SC[_X_], cudaMemcpyHostToDevice,
@@ -518,8 +588,8 @@ template <typename T> struct LatticeWilsonDslash {
           sizeof(T) * set_ptr->lat_3dim_SC[_X_], cudaMemcpyHostToDevice,
           set_ptr->stream_dims[_X_]));
     }
-    if (set_ptr->host_params[_GRID_Y_] != 1 ||
-        _WILSON_AND_LAPLACIAN_TEST_SINGLE_IN_MULTI_) { // y part h2d
+    if (!device_mpi && (set_ptr->host_params[_GRID_Y_] != 1 ||
+                        force_mpi)) { // y part h2d
       checkCudaErrors(cudaMemcpyAsync(
           set_ptr->device_recv_vec[_F_Y_], set_ptr->host_recv_vec[_F_Y_],
           sizeof(T) * set_ptr->lat_3dim_SC[_Y_], cudaMemcpyHostToDevice,
@@ -529,8 +599,8 @@ template <typename T> struct LatticeWilsonDslash {
           sizeof(T) * set_ptr->lat_3dim_SC[_Y_], cudaMemcpyHostToDevice,
           set_ptr->stream_dims[_Y_]));
     }
-    if (set_ptr->host_params[_GRID_Z_] != 1 ||
-        _WILSON_AND_LAPLACIAN_TEST_SINGLE_IN_MULTI_) { // z part h2d
+    if (!device_mpi && (set_ptr->host_params[_GRID_Z_] != 1 ||
+                        force_mpi)) { // z part h2d
       checkCudaErrors(cudaMemcpyAsync(
           set_ptr->device_recv_vec[_F_Z_], set_ptr->host_recv_vec[_F_Z_],
           sizeof(T) * set_ptr->lat_3dim_SC[_Z_], cudaMemcpyHostToDevice,
@@ -540,8 +610,8 @@ template <typename T> struct LatticeWilsonDslash {
           sizeof(T) * set_ptr->lat_3dim_SC[_Z_], cudaMemcpyHostToDevice,
           set_ptr->stream_dims[_Z_]));
     }
-    if (set_ptr->host_params[_GRID_T_] != 1 ||
-        _WILSON_AND_LAPLACIAN_TEST_SINGLE_IN_MULTI_) { // t part h2d
+    if (!device_mpi && (set_ptr->host_params[_GRID_T_] != 1 ||
+                        force_mpi)) { // t part h2d
       checkCudaErrors(cudaMemcpyAsync(
           set_ptr->device_recv_vec[_F_T_], set_ptr->host_recv_vec[_F_T_],
           sizeof(T) * set_ptr->lat_3dim_SC[_T_] / _EVEN_ODD_,
@@ -553,32 +623,28 @@ template <typename T> struct LatticeWilsonDslash {
     }
     {
       // edge recv part
-      if (set_ptr->host_params[_GRID_X_] != 1 ||
-          _WILSON_AND_LAPLACIAN_TEST_SINGLE_IN_MULTI_) { // x part recv
+      if (set_ptr->host_params[_GRID_X_] != 1 || force_mpi) { // x part recv
         sync_if_multi(set_ptr->stream_dims[_X_]);
         wilson_dslash_x_recv<T><<<set_ptr->gridDim_3dim[_X_], set_ptr->blockDim,
                                   0, set_ptr->stream>>>(
             gauge, fermion_out, _device_params, set_ptr->device_recv_vec[_B_X_],
             set_ptr->device_recv_vec[_F_X_]);
       }
-      if (set_ptr->host_params[_GRID_Y_] != 1 ||
-          _WILSON_AND_LAPLACIAN_TEST_SINGLE_IN_MULTI_) { // y part recv
+      if (set_ptr->host_params[_GRID_Y_] != 1 || force_mpi) { // y part recv
         sync_if_multi(set_ptr->stream_dims[_Y_]);
         wilson_dslash_y_recv<T><<<set_ptr->gridDim_3dim[_Y_], set_ptr->blockDim,
                                   0, set_ptr->stream>>>(
             gauge, fermion_out, _device_params, set_ptr->device_recv_vec[_B_Y_],
             set_ptr->device_recv_vec[_F_Y_]);
       }
-      if (set_ptr->host_params[_GRID_Z_] != 1 ||
-          _WILSON_AND_LAPLACIAN_TEST_SINGLE_IN_MULTI_) { // z part recv
+      if (set_ptr->host_params[_GRID_Z_] != 1 || force_mpi) { // z part recv
         sync_if_multi(set_ptr->stream_dims[_Z_]);
         wilson_dslash_z_recv<T><<<set_ptr->gridDim_3dim[_Z_], set_ptr->blockDim,
                                   0, set_ptr->stream>>>(
             gauge, fermion_out, _device_params, set_ptr->device_recv_vec[_B_Z_],
             set_ptr->device_recv_vec[_F_Z_]);
       }
-      if (set_ptr->host_params[_GRID_T_] != 1 ||
-          _WILSON_AND_LAPLACIAN_TEST_SINGLE_IN_MULTI_) { // t part recv
+      if (set_ptr->host_params[_GRID_T_] != 1 || force_mpi) { // t part recv
         sync_if_multi(set_ptr->stream_dims[_T_]);
         wilson_dslash_t_recv<T><<<set_ptr->gridDim_3dim[_T_], set_ptr->blockDim,
                                   0, set_ptr->stream>>>(

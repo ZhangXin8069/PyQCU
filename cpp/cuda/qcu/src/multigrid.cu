@@ -369,18 +369,30 @@ __device__ inline int multigrid_coarse_shift_component(int direction,
 }
 
 __device__ inline int multigrid_coarse_face_sites(int direction, int X, int Y,
-                                                  int Z, int Lt) {
+                                                  int Z, int Lt, int grid_x,
+                                                  int grid_y, int grid_z,
+                                                  int grid_t) {
   int dims[4] = {X, Y, Z, Lt};
+  int grid[4] = {grid_x, grid_y, grid_z, grid_t};
+  bool distributed = false;
+  for (int d = 0; d < 4; ++d) {
+    if (multigrid_coarse_shift_component(direction, d) != 0 &&
+        grid[d] > 1)
+      distributed = true;
+  }
+  if (!distributed) return 0;
   int result = 1;
   for (int d = 0; d < 4; ++d)
-    if (multigrid_coarse_shift_component(direction, d) == 0) result *= dims[d];
+    if (multigrid_coarse_shift_component(direction, d) == 0 ||
+        grid[d] == 1)
+      result *= dims[d];
   return result;
 }
 
 template <typename T>
 __global__ void multigrid_coarse_pack_halo(
     void *packed, const void *fermion_in, int E, int X, int Y, int Z, int Lt,
-    int max_face) {
+    int grid_x, int grid_y, int grid_z, int grid_t, int max_face) {
   const int vol = X * Y * Z * Lt;
   const long long direction_stride = (long long)E * max_face;
   const long long total = 32LL * direction_stride;
@@ -389,16 +401,18 @@ __global__ void multigrid_coarse_pack_halo(
 
   const int direction = (int)(global_idx / direction_stride);
   const long long local = global_idx - (long long)direction * direction_stride;
-  const int face_sites = multigrid_coarse_face_sites(direction, X, Y, Z, Lt);
+  const int face_sites = multigrid_coarse_face_sites(
+      direction, X, Y, Z, Lt, grid_x, grid_y, grid_z, grid_t);
   const int e = (int)(local / max_face);
   const int k = (int)(local - (long long)e * max_face);
   if (e >= E || k >= face_sites) return;
 
   int dims[4] = {X, Y, Z, Lt};
+  int grid[4] = {grid_x, grid_y, grid_z, grid_t};
   int free_dims[4];
   int nfree = 0;
   for (int d = 0; d < 4; ++d)
-    if (multigrid_coarse_shift_component(direction, d) == 0)
+    if (multigrid_coarse_shift_component(direction, d) == 0 || grid[d] == 1)
       free_dims[nfree++] = d;
 
   int coordinate[4] = {0, 0, 0, 0};
@@ -410,7 +424,8 @@ __global__ void multigrid_coarse_pack_halo(
   }
   for (int d = 0; d < 4; ++d) {
     const int shift = multigrid_coarse_shift_component(direction, d);
-    if (shift != 0) coordinate[d] = shift > 0 ? dims[d] - 1 : 0;
+    if (shift != 0 && grid[d] > 1)
+      coordinate[d] = shift > 0 ? dims[d] - 1 : 0;
   }
 
   const int site = ((coordinate[0] * Y + coordinate[1]) * Z +
@@ -425,7 +440,7 @@ __global__ void multigrid_coarse_pack_halo(
 template <typename T>
 __global__ void multigrid_coarse_unpack_halo(
     void *halo, const void *packed, int E, int X, int Y, int Z, int Lt,
-    int max_face) {
+    int grid_x, int grid_y, int grid_z, int grid_t, int max_face) {
   const long long hvol = (long long)(X + 2) * (Y + 2) * (Z + 2) * (Lt + 2);
   const long long direction_stride = (long long)E * max_face;
   const long long total = 32LL * direction_stride;
@@ -434,16 +449,18 @@ __global__ void multigrid_coarse_unpack_halo(
 
   const int direction = (int)(global_idx / direction_stride);
   const long long local = global_idx - (long long)direction * direction_stride;
-  const int face_sites = multigrid_coarse_face_sites(direction, X, Y, Z, Lt);
+  const int face_sites = multigrid_coarse_face_sites(
+      direction, X, Y, Z, Lt, grid_x, grid_y, grid_z, grid_t);
   const int e = (int)(local / max_face);
   const int k = (int)(local - (long long)e * max_face);
   if (e >= E || k >= face_sites) return;
 
   int dims[4] = {X, Y, Z, Lt};
+  int grid[4] = {grid_x, grid_y, grid_z, grid_t};
   int free_dims[4];
   int nfree = 0;
   for (int d = 0; d < 4; ++d)
-    if (multigrid_coarse_shift_component(direction, d) == 0)
+    if (multigrid_coarse_shift_component(direction, d) == 0 || grid[d] == 1)
       free_dims[nfree++] = d;
 
   int coordinate[4] = {1, 1, 1, 1};
@@ -455,7 +472,8 @@ __global__ void multigrid_coarse_unpack_halo(
   }
   for (int d = 0; d < 4; ++d) {
     const int shift = multigrid_coarse_shift_component(direction, d);
-    if (shift != 0) coordinate[d] = shift > 0 ? dims[d] + 1 : 0;
+    if (shift != 0 && grid[d] > 1)
+      coordinate[d] = shift > 0 ? dims[d] + 1 : 0;
   }
   const int hsite = (((coordinate[0] * (Y + 2) + coordinate[1]) * (Z + 2) +
                       coordinate[2]) * (Lt + 2) + coordinate[3]);
@@ -550,19 +568,25 @@ __global__ void multigrid_nvshmem_put_halo(
       coord_t);
   if (target != rank) {
     const size_t face_sites = static_cast<size_t>(
-        multigrid_coarse_face_sites(direction, X, Y, Z, Lt));
-    const size_t bytes = static_cast<size_t>(2) * static_cast<size_t>(E) *
-                         face_sites * sizeof(T);
-    const size_t stride_bytes = static_cast<size_t>(E) *
-                                static_cast<size_t>(max_face) *
-                                sizeof(LatticeComplex<T>);
-    const int receive_direction = direction ^ 1;
-    char *remote_receive = static_cast<char *>(device_recv) +
-                           static_cast<size_t>(receive_direction) *
-                               stride_bytes;
-    const char *local_send = static_cast<const char *>(device_send) +
-                             static_cast<size_t>(direction) * stride_bytes;
-    nvshmem_putmem_nbi(remote_receive, local_send, bytes, target);
+        multigrid_coarse_face_sites(direction, X, Y, Z, Lt, grid_x, grid_y,
+                                    grid_z, grid_t));
+    if (face_sites > 0) {
+      // device_send/device_recv use a fixed [E,max_face] slot.  Transfer the
+      // complete slot so every E channel keeps the same offset on the remote
+      // PE when face_sites is smaller than max_face.
+      const size_t bytes = static_cast<size_t>(2) * static_cast<size_t>(E) *
+                           static_cast<size_t>(max_face) * sizeof(T);
+      const size_t stride_bytes = static_cast<size_t>(E) *
+                                  static_cast<size_t>(max_face) *
+                                  sizeof(LatticeComplex<T>);
+      const int receive_direction = direction ^ 1;
+      char *remote_receive = static_cast<char *>(device_recv) +
+                             static_cast<size_t>(receive_direction) *
+                                 stride_bytes;
+      const char *local_send = static_cast<const char *>(device_send) +
+                               static_cast<size_t>(direction) * stride_bytes;
+      nvshmem_putmem_nbi(remote_receive, local_send, bytes, target);
+    }
   }
   __syncthreads();
   if (threadIdx.x == 0 && blockIdx.x == 0) nvshmem_quiet();
@@ -583,17 +607,36 @@ template <typename T>
 __device__ inline LatticeComplex<T> multigrid_halo_read(
     const LatticeComplex<T> *in, const LatticeComplex<T> *halo, int E,
     int X, int Y, int Z, int Lt, int e, int x, int y, int z, int t,
-    int dx, int dy, int dz, int dt) {
+    int dx, int dy, int dz, int dt, int grid_x, int grid_y, int grid_z,
+    int grid_t) {
   int nx = x + dx, ny = y + dy, nz = z + dz, nt = t + dt;
-  if (nx >= 0 && nx < X && ny >= 0 && ny < Y && nz >= 0 && nz < Z &&
-      nt >= 0 && nt < Lt) {
+  int coordinates[4] = {nx, ny, nz, nt};
+  int dims[4] = {X, Y, Z, Lt};
+  int grid[4] = {grid_x, grid_y, grid_z, grid_t};
+  bool remote = false;
+  for (int d = 0; d < 4; ++d) {
+    if (coordinates[d] >= 0 && coordinates[d] < dims[d]) continue;
+    if (grid[d] == 1) {
+      // A non-distributed axis wraps inside this rank.  Keeping it in the
+      // local coordinate range is what lets an x+y remote hop use the x
+      // face while applying y periodicity locally.
+      coordinates[d] %= dims[d];
+      if (coordinates[d] < 0) coordinates[d] += dims[d];
+    } else {
+      remote = true;
+    }
+  }
+  if (!remote) {
     int vol = X * Y * Z * Lt;
-    int site = ((nx * Y + ny) * Z + nz) * Lt + nt;
+    int site = ((coordinates[0] * Y + coordinates[1]) * Z +
+                coordinates[2]) * Lt + coordinates[3];
     return in[e * vol + site];
   }
   int hvol = (X + 2) * (Y + 2) * (Z + 2) * (Lt + 2);
-  int hsite = ((((nx + 1) * (Y + 2) + (ny + 1)) * (Z + 2) +
-                (nz + 1)) * (Lt + 2) + (nt + 1));
+  int hsite = ((((coordinates[0] + 1) * (Y + 2) +
+                 (coordinates[1] + 1)) * (Z + 2) +
+                (coordinates[2] + 1)) * (Lt + 2) +
+               (coordinates[3] + 1));
   return halo[e * hvol + hsite];
 }
 
@@ -601,7 +644,8 @@ template <typename T>
 __device__ inline void multigrid_coarse_dslash_wide_halo_impl(
     void *fermion_out, void *fermion_in, void *halo, void *sitting,
     void *hop_nn, void *hop_diag, int E, int X, int Y, int Z, int Lt,
-    int boundary_only, int global_idx) {
+    int grid_x, int grid_y, int grid_z, int grid_t, int boundary_only,
+    int global_idx) {
   int vol = X * Y * Z * Lt;
   int total_output = E * vol;
   if (global_idx >= total_output || E <= 0 || vol <= 0) return;
@@ -628,8 +672,11 @@ __device__ inline void multigrid_coarse_dslash_wide_halo_impl(
   int z = rest / Lt;
   int t = rest - z * Lt;
 
-  const bool is_boundary = x == 0 || x == X - 1 || y == 0 || y == Y - 1 ||
-                           z == 0 || z == Z - 1 || t == 0 || t == Lt - 1;
+  const bool is_boundary =
+      (grid_x > 1 && (x == 0 || x == X - 1)) ||
+      (grid_y > 1 && (y == 0 || y == Y - 1)) ||
+      (grid_z > 1 && (z == 0 || z == Z - 1)) ||
+      (grid_t > 1 && (t == 0 || t == Lt - 1));
   if (boundary_only >= 0 && (is_boundary ? 1 : 0) != boundary_only) return;
 
   int str_Ein = vol;
@@ -656,10 +703,12 @@ __device__ inline void multigrid_coarse_dslash_wide_halo_impl(
     for (int e = 0; e < E; ++e) {
       sum += nn[plus_base + e * str_Ein] *
              multigrid_halo_read(in, h, E, X, Y, Z, Lt, e, x, y, z, t,
-                                 sx, sy, sz, st);
+                                 sx, sy, sz, st, grid_x, grid_y, grid_z,
+                                 grid_t);
       sum += nn[minus_base + e * str_Ein] *
              multigrid_halo_read(in, h, E, X, Y, Z, Lt, e, x, y, z, t,
-                                 -sx, -sy, -sz, -st);
+                                 -sx, -sy, -sz, -st, grid_x, grid_y, grid_z,
+                                 grid_t);
     }
   }
 
@@ -686,7 +735,8 @@ __device__ inline void multigrid_coarse_dslash_wide_halo_impl(
         for (int e = 0; e < E; ++e)
           sum += dg[dg_base + e * str_Ein] *
                  multigrid_halo_read(in, h, E, X, Y, Z, Lt, e, x, y, z, t,
-                                     dx, dy, dz, dt);
+                                     dx, dy, dz, dt, grid_x, grid_y, grid_z,
+                                     grid_t);
       }
     }
   }
@@ -696,22 +746,23 @@ __device__ inline void multigrid_coarse_dslash_wide_halo_impl(
 template <typename T>
 __global__ void multigrid_coarse_dslash_wide_halo(
     void *fermion_out, void *fermion_in, void *halo, void *sitting,
-    void *hop_nn, void *hop_diag, int E, int X, int Y, int Z, int Lt) {
+    void *hop_nn, void *hop_diag, int E, int X, int Y, int Z, int Lt,
+    int grid_x, int grid_y, int grid_z, int grid_t) {
   const int global_idx = blockIdx.x * blockDim.x + threadIdx.x;
   multigrid_coarse_dslash_wide_halo_impl<T>(
       fermion_out, fermion_in, halo, sitting, hop_nn, hop_diag, E, X, Y, Z,
-      Lt, -1, global_idx);
+      Lt, grid_x, grid_y, grid_z, grid_t, -1, global_idx);
 }
 
 template <typename T>
 __global__ void multigrid_coarse_dslash_wide_halo_region(
     void *fermion_out, void *fermion_in, void *halo, void *sitting,
     void *hop_nn, void *hop_diag, int E, int X, int Y, int Z, int Lt,
-    int boundary_only) {
+    int grid_x, int grid_y, int grid_z, int grid_t, int boundary_only) {
   const int global_idx = blockIdx.x * blockDim.x + threadIdx.x;
   multigrid_coarse_dslash_wide_halo_impl<T>(
       fermion_out, fermion_in, halo, sitting, hop_nn, hop_diag, E, X, Y, Z,
-      Lt, boundary_only, global_idx);
+      Lt, grid_x, grid_y, grid_z, grid_t, boundary_only, global_idx);
 }
 
 template <typename T>
@@ -1437,10 +1488,12 @@ template __global__ void multigrid_coarse_dslash_wide<double>(
     void *hop_diag, int E, int X, int Y, int Z, int Lt);
 template __global__ void multigrid_coarse_dslash_wide_halo<float>(
     void *fermion_out, void *fermion_in, void *halo, void *sitting,
-    void *hop_nn, void *hop_diag, int E, int X, int Y, int Z, int Lt);
+    void *hop_nn, void *hop_diag, int E, int X, int Y, int Z, int Lt,
+    int grid_x, int grid_y, int grid_z, int grid_t);
 template __global__ void multigrid_coarse_dslash_wide_halo<double>(
     void *fermion_out, void *fermion_in, void *halo, void *sitting,
-    void *hop_nn, void *hop_diag, int E, int X, int Y, int Z, int Lt);
+    void *hop_nn, void *hop_diag, int E, int X, int Y, int Z, int Lt,
+    int grid_x, int grid_y, int grid_z, int grid_t);
 template __global__ void multigrid_coarse_solve<float>(
     void*, void*, void*, void*, void*, void*, void*, void*, void*, void*,
     void*, int, int, int, int, int, int, float);
@@ -1622,17 +1675,19 @@ __global__ void multigrid_full_to_odd(void *odd_out, void *full_in,
 }
 // Template instantiations for coarse communication and verification kernels.
 template __global__ void multigrid_coarse_pack_halo<float>(
-    void*, const void*, int, int, int, int, int, int);
+    void*, const void*, int, int, int, int, int, int, int, int, int, int);
 template __global__ void multigrid_coarse_pack_halo<double>(
-    void*, const void*, int, int, int, int, int, int);
+    void*, const void*, int, int, int, int, int, int, int, int, int, int);
 template __global__ void multigrid_coarse_unpack_halo<float>(
-    void*, const void*, int, int, int, int, int, int);
+    void*, const void*, int, int, int, int, int, int, int, int, int, int);
 template __global__ void multigrid_coarse_unpack_halo<double>(
-    void*, const void*, int, int, int, int, int, int);
+    void*, const void*, int, int, int, int, int, int, int, int, int, int);
 template __global__ void multigrid_coarse_dslash_wide_halo_region<float>(
-    void*, void*, void*, void*, void*, void*, int, int, int, int, int, int);
+    void*, void*, void*, void*, void*, void*, int, int, int, int, int, int,
+    int, int, int, int);
 template __global__ void multigrid_coarse_dslash_wide_halo_region<double>(
-    void*, void*, void*, void*, void*, void*, int, int, int, int, int, int);
+    void*, void*, void*, void*, void*, void*, int, int, int, int, int, int,
+    int, int, int, int);
 template __global__ void multigrid_fill_test_vector<float>(
     void*, int, unsigned long);
 template __global__ void multigrid_fill_test_vector<double>(
