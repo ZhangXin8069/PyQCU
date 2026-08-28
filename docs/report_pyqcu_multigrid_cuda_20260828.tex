@@ -1,0 +1,819 @@
+% ============================================================
+% PyQCU CUDA C++ 多重网格算法实现 — 学术成果展示
+% 编译：xelatex 两遍；交付闸门：Overfull=0, Float too large=0
+% ============================================================
+\documentclass[UTF8,aspectratio=169,11pt]{ctexbeamer}
+
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,calc,fit,shapes.geometric}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{caption}
+\usepackage{microtype}
+\usepackage{hyperref}
+
+\captionsetup{skip=0pt}
+\setlength{\textfloatsep}{0pt}
+\setlength{\intextsep}{0pt}
+
+\definecolor{primary}{HTML}{17365D}
+\definecolor{accent}{HTML}{1F77B4}
+\definecolor{evidence}{HTML}{1E8449}
+\definecolor{warning}{HTML}{C55A11}
+\definecolor{muted}{HTML}{5B6573}
+\definecolor{panel}{HTML}{F4F7FA}
+\definecolor{linegray}{HTML}{CBD5E1}
+\definecolor{good}{HTML}{EAF5EE}
+\definecolor{warnbg}{HTML}{FFF4E8}
+\definecolor{violet}{HTML}{6A3D9A}
+
+\setbeamersize{text margin left=0.55cm,text margin right=0.55cm}
+\setlength{\emergencystretch}{2em}
+\setbeamertemplate{navigation symbols}{}
+\setbeamercolor{normal text}{fg=black!86,bg=white}
+\setbeamercolor{structure}{fg=primary}
+\setbeamercolor{frametitle}{fg=primary,bg=white}
+\setbeamercolor{block title}{fg=primary,bg=panel}
+\setbeamercolor{block body}{fg=black!86,bg=panel}
+\setbeamerfont{frametitle}{size=\large,series=\bfseries}
+\setbeamerfont{normal text}{size=\normalsize}
+\setbeamertemplate{frametitle}{%
+  \vskip0.12cm\insertframetitle\par\vskip0.08cm}
+\setbeamertemplate{footline}{%
+  \hbox{\begin{beamercolorbox}[wd=\paperwidth,ht=2.3ex,dp=0.9ex,
+    leftskip=0.55cm,rightskip=0.55cm]{author in head/foot}%
+    \scriptsize\color{muted}\insertshortauthor\hfill
+    \insertshorttitle\hfill\insertframenumber/\inserttotalframenumber
+  \end{beamercolorbox}}}
+
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\newcolumntype{P}[1]{>{\raggedright\arraybackslash}p{#1}}
+\newcommand{\source}[1]{%
+  \vspace{0.06em}\par{\raggedright\scriptsize\color{muted}来源：#1\par}}
+\newcommand{\code}[1]{\nolinkurl{#1}}
+\newcommand{\verified}{\textcolor{evidence}{确证}}
+\newcommand{\inferred}{\textcolor{accent}{推断}}
+\newcommand{\unverified}{\textcolor{warning}{未验证}}
+\newcommand{\risk}{\textcolor{warning}{风险}}
+\newcommand{\passmark}{\textcolor{evidence}{PASS}}
+\newcommand{\failmark}{\textcolor{warning}{待补测}}
+
+\tikzset{
+  flow/.style={draw=accent,fill=accent!8,rounded corners=2pt,align=center,
+    minimum height=0.68cm,text width=2.18cm,font=\small},
+  state/.style={draw=primary,fill=primary!7,rounded corners=2pt,align=center,
+    minimum height=0.64cm,text width=2.35cm,font=\small},
+  decision/.style={draw=warning,fill=warning!10,diamond,aspect=2.1,align=center,
+    inner sep=1.5pt,font=\small},
+  arrow/.style={-{Latex[length=2mm]},draw=primary,semithick},
+  relation/.style={-{Latex[length=1.7mm]},draw=muted,thin,dashed}
+}
+
+\lstset{
+  basicstyle=\ttfamily\scriptsize,
+  backgroundcolor=\color{panel},frame=single,
+  breaklines=true,breakatwhitespace=false,keepspaces=true,
+  columns=flexible,numbers=left,numberstyle=\tiny\color{muted},
+  keywordstyle=\color{primary}\bfseries,
+  commentstyle=\color{evidence!70!black},stringstyle=\color{accent}
+}
+
+\title[PyQCU CUDA MG]{PyQCU 多重网格算法实现}
+\subtitle{CUDA C++ 版：求解器族、递归 Cycle、混合精度与分布式粗格}
+\author[代码审计与算法验证]{代码审计与算法验证}
+\institute{PyQCU · Lattice QCD}
+\date{2026-08-28}
+
+\begin{document}
+
+\begin{frame}[plain]
+  \titlepage
+\end{frame}
+
+\section{结论与问题}
+
+\begin{frame}[t]{结论先行：请求的 CUDA C++ 多重网格功能已形成可运行闭环}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \begin{column}{0.32\textwidth}
+      \begin{block}{已完成}
+        \small
+        Chebyshev、CA-GCR、固定 $L=2$ BiCGStabL；V/W/F/K-cycle；逐层 c64/c128；
+        32 方向分布式粗格；device-aware MPI、重叠路径、可选 NVSHMEM；五项 C++ \code{verify()}。
+      \end{block}
+    \end{column}
+    \begin{column}{0.32\textwidth}
+      \begin{block}{直接证据}
+        \small
+        大格 $16\times32\times32\times48$ 上新求解器的 full-op 真残差均低于
+        $8.1\times10^{-7}$；3-level W/F/K 小格均通过；五项 verify 返回 \code{status=0}。
+      \end{block}
+    \end{column}
+    \begin{column}{0.32\textwidth}
+      \begin{block}{当前边界}
+        \small
+        \verified{} 正确性已测；\inferred{} 性能收益尚未证明。
+        NVSHMEM 专用编译环境与 device-aware 实际 MPI 能力在当前机器未实测，不能外推吞吐。
+      \end{block}
+    \end{column}
+  \end{columns}
+  \vspace{0.25em}
+  \begin{tabular}{@{}p{0.94\textwidth}@{}}
+    \colorbox{good}{\parbox{0.92\textwidth}{\textbf{阶段判断：}\quad
+      代码层面已经覆盖本轮指定的算法与通信接口；验收重点从“有没有实现”转为“健康 CUDA/MPI 平台上的性能、任意 $L$ 与更大层次的系统性复测”。}}
+  \end{tabular}
+  \source{实现：\code{cpp/cuda/qcu/include/lattice_clover_multigrid.h}、\code{lattice_multigrid.h}、\code{lattice_mpi.h}；结果：\code{examples/qcu/dev87/out/qcu_mg_verify_*.json}；C++ verify 实测记录：\code{logs/codex-session-01a044db-06cb-7961-9db6-1938455f04cb.md}。}
+\end{frame}
+
+\begin{frame}[t]{问题与验收口径：粗网格必须同时保持物理算子和全局数值语义}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \begin{column}{0.48\textwidth}
+      \setlength{\jot}{1pt}
+      \begin{align*}
+        D &= S+H,\\
+        S_{\rm Schur} &= D_{oo}-\kappa^2H_{oe}D_{ee}^{-1}H_{eo},\\
+        A_c &= R S_{\rm Schur} P\simeq P^\dagger S_{\rm Schur}P.
+      \end{align*}
+      \begin{block}{物理图像}
+        \footnotesize
+        平滑器压低高频误差；近零空间将低频误差压到粗格；Galerkin 粗算子保留
+        spin--color 耦合和规范场背景。由于 Schur 算子跨两次 hopping，粗格是
+        “on-site + 8 nearest + 24 diagonal”的 33 点模板。
+      \end{block}
+    \end{column}
+      \begin{column}{0.48\textwidth}
+      \footnotesize
+      \renewcommand{\arraystretch}{0.80}
+      \begin{tabular}{@{}P{0.28\linewidth}P{0.58\linewidth}@{}}
+        \toprule
+        验收量 & 通过含义 \\
+        \midrule
+        $\|R P\eta-\eta\|/\|\eta\|$ & 粗空间投影不漂移 \\
+        $\|\langle Pc,v\rangle-\langle c,Rv\rangle\|$ & transfer 伴随关系 \\
+        $\|A_c\eta-RSP\eta\|/\|A_c\eta\|$ & Galerkin 一致性 \\
+        Schur 两 parity block & 预条件算子确实实现 \\
+        $\langle x,S^\dagger Sx\rangle=\|Sx\|^2$ & normal operator 正性 \\
+        full-op $\|b-Dx\|/\|b\|$ & 生产求解真实残差 \\
+        \bottomrule
+      \end{tabular}
+    \end{column}
+  \end{columns}
+  \vspace{-0.35em}
+  \begin{center}
+        \footnotesize
+        统一主测例：$L=(16,32,32,48)$，$m=0.05$，$\mathrm{atol}=10^{-6}$；
+        $\mathrm{mg\_grid}=(2,2,2,2)$，fine=c64；3L 另用 $8^3\times16$。
+  \end{center}
+  \vspace{-0.18em}
+  \source{实现：\code{src/multigrid.cu:858-987}、\code{lattice_clover_multigrid.h:2908-3147}。}
+\end{frame}
+
+\section{架构与数据}
+
+\begin{frame}[t]{总体流程：从规范场和 null vectors 到可验证的细层解}
+  \begin{center}
+    \begin{tikzpicture}[scale=0.88,transform shape,node distance=0.22cm and 0.22cm]
+      \node[flow] (u) {规范场 $U$\newline Clover $C$};
+      \node[flow,right=of u] (basis) {null vectors\newline 局部正交化};
+      \node[flow,right=of basis] (gal) {Galerkin\newline $A_c=RSP$};
+      \node[flow,right=of gal] (solve) {平滑器 +\newline 递归 cycle};
+      \node[decision,right=of solve] (check) {真残差\newline 通过？};
+      \draw[arrow] (u) -- (basis);
+      \draw[arrow] (basis) -- (gal);
+      \draw[arrow] (gal) -- (solve);
+      \draw[arrow] (solve) -- (check);
+      \draw[relation] (check.south) |- ++(0,-0.55) -| node[below,font=\scriptsize]{否：可靠重启/继续} (solve.south);
+    \end{tikzpicture}
+  \end{center}
+  \vspace{-0.18em}
+  \begin{table}[htbp]
+    \centering
+    \caption*{Multigrid production workflow}
+    \footnotesize
+    \renewcommand{\arraystretch}{0.78}
+    \begin{tabular}{@{}l@{}}
+      $\text{Input: } U,\;C,\;b,\;x^{(0)},\;\{P_\ell,R_\ell,A_\ell\},\;\text{dtype}_\ell,\;\text{MPI grid}$ \\
+      $\text{Initialize: } D_0\to S_0,\quad r_0\gets b-S_0x^{(0)},\quad \text{state}_\ell\gets(x,r,\tilde r,p,v,s,t)$ \\
+      $\text{for } k=0,1,\ldots\ \text{iterate:}$ \\
+      \quad $\text{smooth}_{0}(r_0)\;\to\;\text{if interval reached, }r_{\ell+1}\gets R_\ell r_\ell$ \\
+      \quad $x_{\ell+1}\gets\text{cycle}_{\ell+1}(r_{\ell+1}),\quad x_\ell\gets x_\ell+P_\ell x_{\ell+1}$ \\
+      \quad $r_\ell\gets b_\ell-A_\ell x_\ell,\quad\text{coarse correction 后重置 Krylov 状态}$ \\
+      $\text{if }\|r_0\|\le\mathrm{atol}\,\|b_0\|\text{ then stop; otherwise continue}$ \\
+      $\text{Output: }x_0,\;\text{full-site true residual},\;\text{verification report}$
+    \end{tabular}
+  \end{table}
+  \source{实现：\code{lattice_clover_multigrid.h:3236-3690,4422-4435}；图为逻辑抽象。}
+\end{frame}
+
+\begin{frame}[t]{数据和接口：层级状态、参数协议与生命周期均显式化}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \begin{column}{0.54\textwidth}
+      \small
+      \begin{tabular}{@{}P{0.28\linewidth}P{0.62\linewidth}@{}}
+        \toprule
+        对象 & CUDA C++ 约定 \\
+        \midrule
+        fine vector & 奇偶 Schur 向量；外部 full-site 解在桥中恢复 \\
+        coarse vector & $[E_\ell,X_\ell,Y_\ell,Z_\ell,T_\ell]$，$T$ 为最快布局 \\
+        33 点算子 & $[E,E,X,Y,Z,T]$、$[2,4,E,E,\cdots]$、$[2,2,6,E,E,\cdots]$ \\
+        null vector & blocked $[E,e,X,b_x,Y,b_y,Z,b_z,T,b_t]$ \\
+        transition slots & 每个 fine$\to$coarse 绑定 null / nn / diag / sit 四个指针 \\
+        \bottomrule
+      \end{tabular}
+    \end{column}
+    \begin{column}{0.42\textwidth}
+      \begin{block}{扁平协议}
+        \small
+        \code{params}: int32[58]；\code{argv}: float[7]；\code{set_ptrs}: int64[100]。\\
+        \code{_MG_LEVELn_DATA_TYPE_} 选择逐层 c64/c128；mode bits 选择平滑器、外层和 cycle。
+      \end{block}
+      \begin{block}{安全生命周期}
+        \small
+        \code{applyInitQcu}\ $\to$ 操作 \ $\to$ \code{params[_SET_INDEX_] += 1}\ $\to$ \code{applyEndQcu}。\\
+        计数不递增会造成 scratch 槽位冲突；verify 与 solve 共用初始化和清理边界。
+      \end{block}
+    \end{column}
+  \end{columns}
+  \source{参数：\code{pyqcu/cuda/define.py:80-98} 与 \code{cpp/cuda/qcu/include/define.h:116-130}；桥：\code{pyqcu/cuda/qcu/qcu.pyx:216-240}。}
+\end{frame}
+
+\section{算法实现}
+
+\begin{frame}[t]{Chebyshev 平滑：用一次谱尺度采样构造稳定多项式}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \begin{column}{0.64\textwidth}
+      \begin{table}[htbp]
+        \centering
+        \caption*{Pseudocode — Chebyshev smoother for one MG level}
+        \small
+        \begin{tabular}{@{}l@{}}
+          $\text{Input: } A_\ell,\;x,\;r,\;n_{\rm smooth}$ \\
+          $\text{Sample: } q\gets A_\ell r,\quad \widehat\rho\gets\|q\|/\|r\|$ \\
+          $\lambda_{\max}\gets 8\widehat\rho,\quad \lambda_{\min}\gets0.05\lambda_{\max},\quad
+            \theta\gets(\lambda_{\max}+\lambda_{\min})/2$ \\
+          $p\gets0,\quad\alpha\gets1/\theta,\quad\beta\gets0$ \\
+          $\text{for } k=0,1,\ldots,n_{\rm smooth}-1\ \text{iterate:}$ \\
+          \quad $p\gets\alpha r+\beta p$ \\
+          \quad $x\gets x+p,\quad r\gets r-A_\ell p$ \\
+          \quad $\beta_{k+1}\gets(\delta\alpha/2)^2,\quad
+            \alpha_{k+1}\gets1/(\theta-\beta_{k+1})$ \\
+          \quad $\text{if denominator invalid, use }\beta\gets0,\;\alpha\gets0.8/\lambda_{\max}$ \\
+          $\text{Output: }x,r\quad(\text{finite update or guarded fallback})$
+        \end{tabular}
+      \end{table}
+    \end{column}
+    \begin{column}{0.34\textwidth}
+      \begin{block}{物理/数值判断}
+        \small
+        $\widehat\rho$ 只是局部样本；因 Schur 算子非正规，区间是保守平滑启发式，
+        不是谱包络定理。有限性保护避免一次坏估计将 NaN 传入粗层。
+      \end{block}
+      \begin{block}{实测}
+        \small
+        大格 2L：$t=1.442\,\mathrm{s}$，
+        full-op 真残差 $6.59\times10^{-7}$，
+        与 BiCGStab 解差 $8.57\times10^{-6}$。
+      \end{block}
+    \end{column}
+  \end{columns}
+  \source{实现：\code{lattice_clover_multigrid.h:1732-1855}；数据：\code{out/qcu_mg_verify_chebyshev.json}。}
+\end{frame}
+
+\begin{frame}[t]{CA-GCR：四阶块、双遍 MGS 与小系统回退控制通信代价}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \begin{column}{0.65\textwidth}
+      \begin{table}[htbp]
+        \centering
+        \caption*{Pseudocode — communication-avoiding GCR with MG preconditioning}
+        \footnotesize
+        \begin{tabular}{@{}l@{}}
+          $\text{Input: } A,\;M^{-1}=\text{MG},\;r_0=b-Ax_0,\quad s=4$ \\
+          $\text{Initialize: } q_j\gets A^j r_0\ (j=0,\ldots,s-1)$ \\
+          $\text{for each block } k\ \text{iterate:}$ \\
+          \quad $\{q_j\}\gets\text{two-pass modified Gram--Schmidt}(\{q_j\})$ \\
+          \quad $z_j\gets M^{-1}q_j,\quad w_j\gets A z_j$ \\
+          \quad $G_{ij}\gets\langle w_i,w_j\rangle,\quad h_i\gets\langle w_i,r\rangle$ \\
+          \quad $G\gamma=h\quad(\text{partial pivoting; singular block }\to\text{ FGMRES fallback})$ \\
+          \quad $x\gets x+\sum_j\gamma_jz_j,\quad r\gets r-\sum_j\gamma_jw_j$ \\
+          \quad $\text{if }\|r\|\le\mathrm{atol}\,\|b\|\text{ then stop; otherwise start next block}$ \\
+          $\text{Output: }x,\;\text{block residual history}$
+        \end{tabular}
+      \end{table}
+    \end{column}
+    \begin{column}{0.33\textwidth}
+      \begin{block}{为什么是 CA}
+        \small
+        多个 Krylov 方向共享一次块级 Gram/归约；代价转移到小型 host 线性系统。
+        双遍 MGS 控制块内失正交，坏块显式回退而非污染解。
+      \end{block}
+      \begin{block}{实测}
+        \small
+        大格 2L：$t=24.262\,\mathrm{s}$，
+        \par 真残差 $7.34\times10^{-7}$；
+        \par 解差 $1.87\times10^{-6}$，历史长度 26。
+      \end{block}
+    \end{column}
+  \end{columns}
+  \source{实现：\code{lattice_clover_multigrid.h:L5000-L5265}；\\
+    数据：\code{out/qcu_mg_verify_ca_gcr.json}。}
+\end{frame}
+
+\begin{frame}[t]{BiCGStabL：固定 $L=2$ 的短块递推、可靠重启和粗校正一致性}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \begin{column}{0.67\textwidth}
+      \begin{table}[htbp]
+        \centering
+        \caption*{Pseudocode — BiCGStabL(2) outer solve with MG correction}
+        \footnotesize
+        \begin{tabular}{@{}l@{}}
+          $\text{Input: } S,\;b,\;x_0,\quad L=2,\quad\text{cycle interval }n_r$ \\
+          $r_0\gets b-Sx_0,\quad\tilde r\gets r_0,\quad(\rho_0,\alpha,\omega)\gets(1,1,1)$ \\
+          $\text{for } k=0,1,\ldots\ \text{while }\|r\|>\mathrm{atol}\,\|b\|:\ $ \\
+          \quad $\text{for } j=0,\ldots,\min(L-1,\text{remaining})\text{ do BiCG step on }u_j,r_j$ \\
+          \quad $G_{ij}\gets\langle r_{i+1},r_{j+1}\rangle,\quad g_i\gets\langle r_{i+1},r_0\rangle$ \\
+          \quad $G\gamma=g,\quad x\gets x+\sum_i\gamma_i u_i,\quad r_0\gets r_0-\sum_i\gamma_i r_{i+1}$ \\
+          \quad $\text{if }G\text{ 奇异/标量非有限：从真残差重启；连续 4 次后回退 BiCGStab}$ \\
+          \quad $\text{if }\text{since\_correction}\ge n_r:\ x\gets x+P A_c^{-1}Rr,\ \text{并重置全部 Krylov 状态}$ \\
+          \quad $\text{每 8 个 block 重新计算 }r=b-Sx\quad(\text{reliable update})$ \\
+          $\text{Output: }x,\;r,\;\text{history}$
+        \end{tabular}
+      \end{table}
+    \end{column}
+    \begin{column}{0.29\textwidth}
+      \begin{block}{关键不变量}
+        \small
+        粗校正改变 $x$，旧的影子/搜索方向不再属于当前 Krylov 空间，必须同步重置。
+        $\max_{\rm iter}\not\equiv0\pmod L$ 时只处理合法的末尾 partial block。
+      \end{block}
+      \begin{block}{实测}
+        \small
+        大格 $t=3.105\,\mathrm{s}$；
+        \par 真残差 $8.02\times10^{-7}$；
+        \par 解差 $4.85\times10^{-6}$。
+      \end{block}
+    \end{column}
+  \end{columns}
+  \source{实现：\code{lattice_clover_multigrid.h:L3926-L4293}；\\
+    数据：\code{out/qcu_mg_verify_bicgstab_l.json}；$L=2$。}
+\end{frame}
+
+\begin{frame}[t]{V/W/F/K-cycle（1/2）：同一 transfer 状态机上的四种递归策略}
+  \begin{table}[htbp]
+    \centering
+    \caption*{Pseudocode — recursive multigrid cycle dispatch}
+    \small
+    \renewcommand{\arraystretch}{0.82}
+    \begin{tabular}{@{}l@{}}
+      $\text{Input: }(A_\ell,r_\ell),\;P_\ell,R_\ell,\;\text{cycle kind}\in\{V,W,F,K\}$ \\
+      $\text{Pre-smooth: }x_\ell\gets\text{smooth}(A_\ell,r_\ell,\nu_{\rm pre})$ \\
+      $\text{Restrict: }r_{\ell+1}\gets R_\ell\,(r_\ell-A_\ell x_\ell)$ \\
+      $\text{if }\ell\text{ is coarsest: solve }A_{\ell+1}e_{\ell+1}=r_{\ell+1}\text{ and return}$ \\
+      $\text{if V: }e_{\ell+1}\gets\mathrm{V}(r_{\ell+1})$ \\
+      $\text{if W: }e_{\ell+1}\gets\mathrm{W}(r_{\ell+1});\quad\mathrm{W}(\cdot)\text{ second time}$ \\
+      $\text{if F: }e_{\ell+1}\gets\mathrm{F}(r_{\ell+1});\quad\mathrm{V}(\cdot)\text{ second time}$ \\
+      $\text{if K: }e_{\ell+1}\gets\text{FGMRES}(m=2,\;\text{right preconditioner}=\mathrm{K})$ \\
+      $\text{Prolong/update: }x_\ell\gets x_\ell+P_\ell e_{\ell+1},\quad r_\ell\gets b_\ell-A_\ell x_\ell$ \\
+      $\text{Post-smooth: }x_\ell\gets\text{smooth}(A_\ell,r_\ell,\nu_{\rm post})$ \\
+      $\text{Output: }x_\ell\text{ and refreshed residual}$
+    \end{tabular}
+  \end{table}
+  \source{递归：\code{lattice_clover_multigrid.h:3236-3446,3460-3690}；伪代码为实现逻辑抽象。}
+\end{frame}
+
+\begin{frame}[t]{V/W/F/K-cycle（2/2）：3L 小格验证通过，但暂不外推性能}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \begin{column}{0.60\textwidth}
+      \begin{center}
+        \footnotesize
+        \begin{tabular}{@{}lrrr@{}}
+          \toprule
+          3L 小格配置 & 墙钟 / s & 解差 & 真残差 \\
+          \midrule
+          W, $E=(24,24)$ & 0.229 & $5.91\times10^{-6}$ & $5.95\times10^{-7}$ \\
+          F, $E=(24,24)$ & 0.253 & $5.91\times10^{-6}$ & $5.95\times10^{-7}$ \\
+          K, $E=(24,24)$ & 0.205 & $5.81\times10^{-6}$ & $5.93\times10^{-7}$ \\
+          \bottomrule
+        \end{tabular}
+      \end{center}
+    \end{column}
+    \begin{column}{0.34\textwidth}
+      \begin{block}{证据判断}
+        \footnotesize
+        三种递归策略均无 NaN、非法访问，且 full-op 真残差约为
+        $5.9\times10^{-7}$。
+        \par\vspace{0.2em}
+        \inferred{} 当前结果证明递归分支可运行；样本为
+        $8^3\times16$ 缓存验证，不能外推大格性能收益。
+      \end{block}
+    \end{column}
+  \end{columns}
+  \source{数据：\code{out/qcu_mg_verify_3l_*_cycle.json}；\\
+    3L 为 $8^3\times16$ 缓存验证。}
+\end{frame}
+
+\section{混合精度与分布式}
+
+\begin{frame}[t]{逐层混合精度：显式 cast kernel 保持每层存储类型和残差语义}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \begin{column}{0.66\textwidth}
+      \begin{table}[htbp]
+        \centering
+        \caption*{Pseudocode — heterogeneous precision transition}
+        \footnotesize
+        \renewcommand{\arraystretch}{0.80}
+        \begin{tabular}{@{}l@{}}
+          $\text{Input: }\{A_\ell,P_\ell,R_\ell\},\;\text{type}_0,\ldots,\text{type}_{L-1}\in\{\mathrm{c64},\mathrm{c128}\}$ \\
+          $\text{Allocate: }x_\ell,r_\ell,\text{operators}_\ell\text{ in their declared level type}$ \\
+          $\text{Restrict: }r_{\ell+1}\gets R_\ell\,\mathrm{cast}_{\text{type}_{\ell+1}\leftarrow\text{type}_{\ell}}(r_\ell)$ \\
+          $\text{Coarse solve: }A_{\ell+1}e_{\ell+1}=r_{\ell+1}\text{ using native }\text{type}_{\ell+1}$ \\
+          $\text{Prolong: }e_\ell\gets P_\ell\,\mathrm{cast}_{\text{type}_{\ell}\leftarrow\text{type}_{\ell+1}}(e_{\ell+1})$ \\
+          $x_0\gets x_0+e_0,\quad r_0\gets b_0-A_0x_0,\quad\text{reset fine Krylov state}$ \\
+          $\text{if }\|r_0\|\le\mathrm{atol}\,\|b_0\|\text{ then stop; otherwise continue}$ \\
+          $\text{Output: }x_0\text{ with full-op residual evaluated in fine precision}$
+        \end{tabular}
+      \end{table}
+    \end{column}
+    \begin{column}{0.30\textwidth}
+      \begin{block}{工程保证}
+        \small
+        不再用 \code{reinterpret_cast} 假设相邻层类型相同；restrict/prolong 分别由
+        \code{multigrid_restrict_cast} 与 \code{multigrid_prolong_cast} 完成。
+      \end{block}
+      \begin{block}{实测}
+        \small
+        fine c64/coarse c128：$t=5.375\,\mathrm{s}$，真残差 $7.54\times10^{-7}$；
+        fine c128/coarse c64：真残差 $6.32\times10^{-7}$。
+      \end{block}
+    \end{column}
+  \end{columns}
+  \vspace{-0.55em}
+  \source{实现：\code{multigrid.cu:L199-L331}、\code{lattice_clover_multigrid.h:L4295-L4420}；数据：\code{out/*mixed*.json}。}
+\end{frame}
+
+\begin{frame}[t]{真正分布式粗格：每个 rank 只持有局部 33 点算子和局部向量}
+  \begin{table}[htbp]
+    \centering
+    \caption*{Pseudocode — distributed coarse dslash with 32-neighbour halo}
+    \small
+    \renewcommand{\arraystretch}{0.80}
+    \begin{tabular}{@{}l@{}}
+      $\text{Input: }x_{\rm local},\;A_c^{\rm local},\;\text{rank coordinates},\;\text{periodic process grid}$ \\
+      $\text{Map: }\{\pm e_\mu,\;\pm e_\mu\pm e_\nu\}\to\text{32 signed neighbour directions}$ \\
+      $\text{Pack: }\text{device kernel extracts every local boundary face into fixed }[32,E,\text{face}]\text{ slots}$ \\
+      $\text{Exchange: }\text{post 32 matching receives, then 32 sends; self-neighbours use device copy}$ \\
+      $\text{Unpack: }\text{fill one-site padded halo }[E,X+2,Y+2,Z+2,T+2]$ \\
+      $\text{Apply: }y\gets A_c^{\rm local}x_{\rm local}\text{ using local interior and halo boundary values}$ \\
+      $\text{Reduce: }\langle u,v\rangle_{\rm global}\gets\mathrm{MPI\_Allreduce}(\langle u,v\rangle_{\rm local})$ \\
+      $\text{Output: }y_{\rm local}\text{; global scalar and relative residual are rank-consistent}$
+    \end{tabular}
+  \end{table}
+  \vspace{-0.05em}
+  \begin{center}
+    \small
+    \renewcommand{\arraystretch}{0.82}
+    \begin{tabular}{@{}lcc@{}}
+      \toprule
+      分布式等价性场景 & 全局相对误差 & 结果 \\
+      \midrule
+      $\mathrm{grid}=(1,1,1,2)$，c64 & $5.60\times10^{-7}$ & \passmark{} \\
+      $\mathrm{grid}=(2,1,1,1)$，c128 & $1.03\times10^{-15}$ & \passmark{} \\
+      MPI MG / BiCGStabL，np=2 & 无死锁、无非法访问 & \passmark{} \\
+      \bottomrule
+    \end{tabular}
+  \end{center}
+  \source{halo：\code{cpp/cuda/qcu/include/lattice_multigrid.h:11-329} 与 \code{src/multigrid.cu:334-765}；测试：\code{examples/qcu/dev87/coarse_mpi_smoke.py}。}
+\end{frame}
+
+\begin{frame}[t]{通信计算重叠与 transport 选择（1/2）：正确性优先的三层回退}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \begin{column}{0.31\textwidth}
+      \begin{block}{device-aware MPI}
+        \small
+        \code{PYQCU_MPI_DEVICE_AWARE=auto|0|1}。查询 MPI 厂商能力并检查 pointer attribute；
+        能力不足或显式 off 时回退 pinned-host staging，避免把 device pointer 误交给普通 MPI。
+      \end{block}
+    \end{column}
+    \begin{column}{0.31\textwidth}
+      \begin{block}{overlap}
+        \small
+        \code{PYQCU_MPI_OVERLAP=on|off}。nonblocking halo 请求在飞行时先计算 interior，
+        请求完成后再执行 boundary；mixed 与 homogeneous 两条路径共用事件和 stream。
+      \end{block}
+    \end{column}
+    \begin{column}{0.31\textwidth}
+      \begin{block}{NVSHMEM}
+        \small
+        CMake 以 \code{QCU_ENABLE_NVSHMEM=ON} 显式启用；运行时 \code{PYQCU_NVSHMEM=1}，
+        通过 MPI communicator 对齐 PE，使用 symmetric receive buffer 与 \code{putmem_nbi}。
+      \end{block}
+    \end{column}
+  \end{columns}
+  \vspace{0.18em}
+  \begin{center}
+    \small
+    \fcolorbox{linegray}{panel}{\parbox{0.84\textwidth}{\centering
+      选择顺序：显式启用且 PE 对齐的 NVSHMEM
+      $\rightarrow$ 能力与 pointer 检查通过的 CUDA-aware MPI
+      $\rightarrow$ pinned-host staging。}}
+  \end{center}
+  \source{实现：\code{lattice_mpi.h:38-159}、\code{lattice_multigrid.h:227-329}、\code{CMakeLists-nv.txt:4-54}；图示为策略摘要。}
+\end{frame}
+
+\begin{frame}[t]{通信计算重叠与 transport 选择（2/2）：回退不改变数值 wire order}
+  \begin{table}[htbp]
+    \centering
+    \caption*{Pseudocode — safe communication policy}
+    \small
+    \renewcommand{\arraystretch}{0.82}
+    \begin{tabular}{@{}l@{}}
+      $\text{Input: }\text{device buffer},\;\text{MPI capability},\;\text{environment flags}$ \\
+      $\text{Choose: }\text{NVSHMEM if explicitly built+requested+PE map agrees}$ \\
+      $\text{else choose: }\text{CUDA-aware MPI if capability and pointer check pass}$ \\
+      $\text{else choose: }\text{pinned-host pack/copy + ordinary MPI}$ \\
+      $\text{If overlap: }\text{post transport}\to\text{compute interior}\to\text{wait/unpack}\to\text{compute boundary}$ \\
+      $\text{If any capability check fails: }\text{fall back without changing numerical wire order}$ \\
+      $\text{Output: }\text{completed halo and transport name in diagnostic state}$
+    \end{tabular}
+  \end{table}
+  \begin{center}\small
+    \fcolorbox{linegray}{warnbg}{\parbox{0.84\textwidth}{\textbf{证据边界：}\quad
+      overlap、device-aware 与 NVSHMEM 的代码路径已编译进设计；当前 smoke 主要验证
+      host-staging/非重叠等价性。\par
+      NVSHMEM headers/library 与真实 CUDA-aware MPI 能力在本环境未安装或未完成实测，故不作性能结论。}}
+  \end{center}
+  \source{实现：\code{lattice_mpi.h:38-159}、\code{lattice_multigrid.h:227-329}、\code{CMakeLists-nv.txt:4-54}；分区 kernel：\code{multigrid.cu:758-765}。}
+\end{frame}
+
+\section{验证与结果}
+
+\begin{frame}[t]{五项 C++ verify（1/2）：从 transfer 到 normal operator 的统一契约}
+  \begin{table}[htbp]
+    \centering
+    \caption*{Pseudocode — complete C++ multigrid verify() contract}
+    \small
+    \renewcommand{\arraystretch}{0.82}
+    \begin{tabular}{@{}l@{}}
+      $\text{Input: }\text{initialized hierarchy},\;\{P_\ell,R_\ell,A_\ell\},\;\text{fine Clover data}$ \\
+      $\text{1. Projection: }\eta_c\to P\eta_c\to RP\eta_c,\quad\|RP\eta_c-\eta_c\|/\|\eta_c\|$ \\
+      $\text{2. Transfer: }\langle Pc,v\rangle\ \text{versus}\ \langle c,Rv\rangle$ \\
+      $\text{3. Galerkin: }\eta_c\to P\eta_c\to S(P\eta_c)\to RSP\eta_c\ \text{versus}\ A_c\eta_c$ \\
+      $\text{4. Preconditioned operator: }D_{ee}x_e-\kappa H_{eo}x_o\ \text{and}\ D_{oo}x_o-\kappa H_{oe}x_e-Sx_o$ \\
+      $\text{5. Normal operator: }\langle x,S^\dagger Sx\rangle\ \text{versus}\ \langle Sx,Sx\rangle,\quad\text{positivity}$ \\
+      $\text{Aggregate: }\text{overall}\gets(1)\land(2)\land(3)\land(4)\land(5)$ \\
+      $\text{Output: }0=\text{all pass},\;1=\text{diagnostic fail},\;2=\text{bridge/runtime error}$
+    \end{tabular}
+  \end{table}
+  \source{接口：\code{cpp/cuda/qcu/src/apply_clover_multigrid_verify.cu:14-125}、\code{lattice_clover_multigrid.h:2908-3147}；伪代码概括五项诊断与返回语义。}
+\end{frame}
+
+\begin{frame}[t]{五项 C++ verify（2/2）：五项误差均通过，接口返回 status=0}
+  \begin{center}
+    \small
+    \begin{tabular}{@{}lcc@{}}
+      \toprule
+      诊断 & 实测相对误差 & 状态 \\
+      \midrule
+      projection & $2.32\times10^{-7}$ & \passmark{} \\
+      restriction / prolongation & $4.70\times10^{-7}$ & \passmark{} \\
+      Galerkin & $6.14\times10^{-7}$ & \passmark{} \\
+      preconditioned operator & $3.71\times10^{-8}$ & \passmark{} \\
+      normal operator & $0$ & \passmark{} \\
+      \bottomrule
+    \end{tabular}\quad\texttt{status=0}
+  \end{center}
+  \begin{block}{验收结论}
+    \small
+    五项接口在同一初始化/清理边界内聚合执行；最大实测相对误差为
+    $6.14\times10^{-7}$，所有诊断返回 \code{status=0}。
+  \end{block}
+  \source{接口：\code{apply_clover_multigrid_verify.cu:14-125}、\code{lattice_clover_multigrid.h:2908-3147}；Cython：\code{qcu.pyx:216-240}；数值记录：本会话日志。}
+\end{frame}
+
+\begin{frame}[t]{统一大格结果：所有新求解路径达到 full-op 真残差验收线}
+  \begin{center}
+    \small
+    \begin{tabular}{@{}P{0.25\textwidth}rrrr@{}}
+      \toprule
+      路径 & 墙钟 / s & 历史长度 & 参考解差异 & full-op 真残差 \\
+      \midrule
+      Chebyshev smoother & 1.442 & 17 & $8.57\times10^{-6}$ & $6.59\times10^{-7}$ \\
+      CA-GCR ($s=4$) & 24.262 & 26 & $1.87\times10^{-6}$ & $7.34\times10^{-7}$ \\
+      BiCGStabL ($L=2$) & 3.105 & 58 & $4.85\times10^{-6}$ & $8.02\times10^{-7}$ \\
+      mixed c64$\to$c128 & 5.375 & 86 & $5.14\times10^{-6}$ & $7.54\times10^{-7}$ \\
+      \bottomrule
+    \end{tabular}
+  \end{center}
+  \vspace{0.2em}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \begin{column}{0.48\textwidth}
+      \begin{block}{量纲与口径}
+        \small
+        墙钟是 CUDA 调用同步后的秒；真残差重新作用 full Wilson+Clover 算子，
+        分母为同一 RHS 范数。解差只作为同一 PyQCU BiCGStab 参考的数值一致性指标。
+      \end{block}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \begin{block}{判断}
+        \small
+        \verified{} 代码分支和数值闭环成立；\inferred{} CA-GCR 当前代价明显更高，
+        不能因为通信规避的理论目标而宣称实测加速。
+      \end{block}
+    \end{column}
+  \end{columns}
+  \source{数据：\code{out/qcu_mg_verify_chebyshev.json}、\code{qcu_mg_verify_ca_gcr.json}、\code{qcu_mg_verify_bicgstab_l.json}、\code{qcu_mg_verify_mixed_c64_c128.json}；统一 $16\times32\times32\times48$、$m=0.05$、$\mathrm{atol}=10^{-6}$。}
+\end{frame}
+
+\begin{frame}[t]{回归闸门与边界测试（1/2）：构建、桥接与求解路径均通过}
+  \begin{center}
+    \small
+    \begin{tabular}{@{}P{0.30\textwidth}P{0.43\textwidth}P{0.14\textwidth}@{}}
+      \toprule
+      闸门 & 证据 & 结果 \\
+      \midrule
+      CUDA C++ build & \code{bash ./build.sh} 成功链接 \code{libqcu.so}，float/double 模板均完成 & \passmark{} \\
+      Cython bridge & \code{bash ./install.sh} 成功；\code{verifyCloverMultigridQcu} 导出 & \passmark{} \\
+      default regression & \code{run_all.py}：真残差、MG/reference、component quality & GREEN (3/3) \\
+      breakdown guard & \code{test_mg_breakdown.py}：零粗算子不污染解 & 1 passed \\
+      \bottomrule
+    \end{tabular}
+  \end{center}
+  \source{回归：\code{examples/qcu/dev87/out/regression.json}；构建命令来自仓库 \code{AGENTS.md}。}
+\end{frame}
+
+\begin{frame}[t]{回归闸门与边界测试（2/2）：MPI、递归 cycle 与资源边界均有记录}
+  \begin{center}
+    \small
+    \begin{tabular}{@{}P{0.30\textwidth}P{0.43\textwidth}P{0.14\textwidth}@{}}
+      \toprule
+      闸门 & 证据 & 结果 \\
+      \midrule
+      coarse MPI equivalence & np=2，多种 process grid、精度、overlap 请求 & \passmark{} \\
+      3L cycle matrix & W/F/K 无 NaN、无非法访问，full-op 残差约 $5.9\times10^{-7}$ & \passmark{} \\
+      \bottomrule
+    \end{tabular}
+  \end{center}
+  \vspace{0.25em}
+  \begin{block}{异常资源与失败边界}
+    \small
+    P100×16 的一次运行受显存资源不足影响，未计为算法失败；NVSHMEM 专用编译未在本机完成。
+    \par CUDA 编译仍有既有的 dynamic initialization / unused variable 警告，但不影响构建退出码和本轮测试。
+  \end{block}
+  \source{MPI driver：\code{run_qcu_mg_mpi.py}、\code{coarse_mpi_smoke.py}；3L 数据：\code{out/qcu_mg_verify_3l_{w,f,k}_cycle.json}。}
+\end{frame}
+
+\section{风险与交付}
+
+\begin{frame}[t]{当前风险：正确性已闭环，但性能声明仍需拆分证据等级}
+  \begin{center}
+    \small
+    \begin{tabular}{@{}P{0.22\textwidth}P{0.36\textwidth}P{0.28\textwidth}@{}}
+      \toprule
+      项目 & 已知事实 & 不应外推的结论 \\
+      \midrule
+      3L W/F/K & $8^3\times16$ 缓存真实运行，数值通过 & 不能外推大格 3L 性能收益 \\
+      CA-GCR & 大格真残差 $7.34\times10^{-7}$ & 当前 24.3 s 不能代表健康平台通信收益 \\
+      混合精度 & 2L/3L 单 rank，2-rank smoke 通过 & 尚未覆盖任意层数/动态误差预算 \\
+      device-aware MPI & capability query 与安全回退代码已实现 & 当前环境未证明 MPI 真正接收 device pointer \\
+      overlap & interior/boundary kernel 顺序和事件已实现 & 尚无独立 kernel overlap speedup 曲线 \\
+      NVSHMEM & opt-in CMake、PE 对齐、put/quiet/barrier 路径存在 & 未在 NVSHMEM 环境编译/运行 \\
+      BiCGStabL & 固定 $L=2$，有重启/回退 & 不是任意可配置 $L$ 的通用实现 \\
+      \bottomrule
+    \end{tabular}
+  \end{center}
+  \source{状态依据：\code{out/qcu_mg_verify_*.json}、\code{lattice_mpi.h}、\code{lattice_multigrid.h}；“未验证”遵循证据分级，不以静态代码替代实测。}
+\end{frame}
+
+\begin{frame}[t]{交付结论：功能闭环已完成，性能进入平台验收阶段}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \begin{column}{0.47\textwidth}
+      \begin{block}{本阶段可交付}
+        \small
+        \begin{tabular}{@{}P{0.72\linewidth}P{0.22\linewidth}@{}}
+          \toprule
+          产物 & 状态 \\
+          \midrule
+          CUDA C++ MG 算法族 & \passmark{} \\
+          per-level mixed precision & \passmark{} \\
+          rank-local coarse + 32 halo & \passmark{} \\
+          overlap/device-aware/NVSHMEM API & \passmark{} / 未实测 \\
+          C++/Cython 五项 verify & \passmark{} \\
+          回归与本报告 & \passmark{} \\
+          \bottomrule
+        \end{tabular}
+      \end{block}
+    \end{column}
+    \begin{column}{0.49\textwidth}
+      \begin{block}{当前边界}
+        \small
+        \verified{} 算法、混合精度、分布式粗格和五项 verify 已形成数值闭环。
+        \par\vspace{0.2em}
+        \unverified{} device-aware MPI、NVSHMEM 真实通信能力与大格 3L 性能仍待专用平台补测。
+      \end{block}
+      \begin{block}{下一步验收对象}
+        \small
+        固定 RHS 与 wire order，对比三种 transport 的通信/计算时间；覆盖大格、多 rank、
+        逐层混合精度及非整除 $L$。
+      \end{block}
+    \end{column}
+  \end{columns}
+  \vspace{-0.12em}
+  \begin{center}
+    \footnotesize
+    \textbf{结论：}实现工作完成；\\[-0.1em]
+    性能与部署条件转入健康通信栈验收；\\[-0.1em]
+    当前数值结论不变。
+  \end{center}
+  \source{交付：本报告 PDF 与 TeX；状态：差异检查、工作树与标签。}
+\end{frame}
+
+\begin{frame}[t]{下一步验收：在健康通信栈上量化性能并扩展边界}
+  \begin{table}[htbp]
+    \centering
+    \caption*{Pseudocode — next reproducible acceptance loop}
+    \footnotesize
+    \renewcommand{\arraystretch}{0.82}
+    \begin{tabular}{@{}P{0.88\textwidth}@{}}
+      \textbf{Select:} healthy CUDA-aware MPI node + NVSHMEM toolchain \\
+      \textbf{Build:} compile off/on matrix for device-aware and NVSHMEM \\
+      \textbf{Measure:} $t_{\rm pack},t_{\rm MPI},t_{\rm interior},t_{\rm boundary}$ and bandwidth \\
+      \textbf{Compare:} host-staging vs device-aware vs NVSHMEM, same wire order and RHS \\
+      \textbf{Stress:} large 3L, multiple ranks, mixed precision, non-multiple $L$ \\
+      \textbf{Accept:} all five verify + full-op residual + no deadlock or illegal access \\
+      \textbf{Output:} platform-qualified performance report
+    \end{tabular}
+  \end{table}
+  \vspace{0.2em}
+  \begin{center}
+    \fcolorbox{linegray}{warnbg}{\parbox{0.82\textwidth}{\centering
+      性能结论必须在对应通信栈上实测；当前报告只对数值正确性和安全回退作确证。}}
+  \end{center}
+  \source{验收计划：由本轮通信接口、MPI smoke 与 full-op residual 闭环推导；性能数据尚未验证。}
+\end{frame}
+
+\appendix
+
+\begin{frame}[t]{附录：关键 mode bits 与可复现命令}
+  \begin{center}
+    \scriptsize
+    \begin{tabular}{@{}lrl@{}}
+      \toprule
+      语义 & bit & 接口选择 \\
+      \midrule
+      FGMRES/GCR & 1 & \code{--gcr} \\
+      MR smoother & 2 & \code{--smoother mr} \\
+      Chebyshev & 4 & \code{--smoother chebyshev} \\
+      CA-GCR & 8 & \code{--smoother ca-gcr} \\
+      W/F/K cycle & 16 / 32 / 64 & \code{--cycle w|f|k} \\
+      BiCGStabL & 128 & \code{--bicgstab-l} \\
+      \bottomrule
+    \end{tabular}
+  \end{center}
+  \vspace{0.15em}
+  \begin{table}[htbp]
+    \centering
+    \caption*{Pseudocode — reproducible invocation contract}
+    \footnotesize
+    \renewcommand{\arraystretch}{0.80}
+    \begin{tabular}{@{}l@{}}
+      $\text{Prepare: }\texttt{source ./env.sh}$ \\
+      $\text{Build: }\texttt{bash ./build.sh}\ ;\ \texttt{bash ./install.sh}$ \\
+      $\text{Run solver: }\texttt{python examples/qcu/dev87/run\_qcu\_mg.py --levels 2 --E 12}$ \\
+      $\text{Run 3L cycle: }\texttt{... --levels 3 --E 24 --coarse-E 24 --cycle w|f|k}$ \\
+      $\text{Run mixed: }\texttt{... --fine-dtype c64 --coarse-dtypes c128}$ \\
+      $\text{Run MPI smoke: }\texttt{mpirun -np 2 python examples/qcu/dev87/coarse\_mpi\_smoke.py}$ \\
+      $\text{Check: }\texttt{python examples/qcu/dev87/run\_all.py}\ ;\ \texttt{git diff --check}$
+    \end{tabular}
+  \end{table}
+  \source{CLI：\code{examples/qcu/dev87/run_qcu_mg.py}、\code{run_qcu_mg_mpi.py}；mode 定义：\code{pyqcu/cuda/define.py:88-98}。}
+\end{frame}
+
+\begin{frame}[t]{附录：证据索引与最终状态}
+  \begin{center}
+    \small
+    \renewcommand{\arraystretch}{0.82}
+    \begin{tabular}{@{}P{0.34\textwidth}P{0.50\textwidth}@{}}
+      \toprule
+      证据域 & 文件/结果 \\
+      \midrule
+      求解器族与 cycle & \code{out/qcu_mg_verify_{chebyshev,ca_gcr,bicgstab_l}.json}；\code{out/qcu_mg_verify_3l_{w,f,k}_cycle.json} \\
+      混合精度 & \code{out/qcu_mg_verify_mixed_c64_c128.json}；\code{out/qcu_mg_mixed_c128_c64.json} \\
+      分布式粗格 & \code{examples/qcu/dev87/coarse_mpi_smoke.py}；MPI 运行输出 \\
+      C++ verify & \code{apply_clover_multigrid_verify.cu}；\code{lattice_clover_multigrid.h:2908-3147} \\
+      回归闸门 & \code{out/regression.json}，GREEN (3/3) \\
+      构建/桥接 & \code{build.sh}、\code{install.sh}；导出符号 \code{verifyCloverMultigridQcu} \\
+      \bottomrule
+    \end{tabular}
+  \end{center}
+  \vspace{-0.08em}
+  \begin{center}
+    \colorbox{good}{\parbox{0.80\textwidth}{\centering\small
+      结果可复查，未验证项已显式标注；\\
+      代码未提交、未推送，最终仅创建本地注释标签。}}
+  \end{center}
+  \source{完整源码与实验记录均位于当前仓库；本页用于追问时的路径索引。}
+\end{frame}
+
+\end{document}

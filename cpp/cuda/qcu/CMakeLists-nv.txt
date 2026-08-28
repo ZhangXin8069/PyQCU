@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.8)
 project(qcu LANGUAGES C CXX CUDA)
 set(CMAKE_CXX_STANDARD 11)
+option(QCU_ENABLE_NVSHMEM "Enable the optional NVSHMEM coarse-grid transport" OFF)
 message(STATUS "PATH is: $ENV{PATH}")
 message(STATUS "LD_LIBRARY_PATH is: $ENV{LD_LIBRARY_PATH}")
 # 统一低版本兼容：默认 sm60（P100），V100 通过 PTX JIT 运行（任务22.2）
@@ -21,3 +22,34 @@ target_link_libraries(qcu ${MPI_C_LIBRARIES})
 target_link_libraries(qcu ${CUDA_LIBRARIES})
 target_link_libraries(qcu curand)
 target_link_libraries(qcu cublas)
+
+# NVSHMEM is deliberately opt-in.  A normal CUDA/MPI build must not need the
+# headers or library, while an explicit request must fail during configure
+# instead of producing a binary whose optional transport silently disappears.
+if(QCU_ENABLE_NVSHMEM)
+  find_path(QCU_NVSHMEM_INCLUDE_DIR
+            NAMES nvshmem.h
+            HINTS $ENV{NVSHMEM_HOME} $ENV{NVSHMEM_ROOT}
+            PATH_SUFFIXES include)
+  find_path(QCU_NVSHMEMX_INCLUDE_DIR
+            NAMES nvshmemx.h
+            HINTS $ENV{NVSHMEM_HOME} $ENV{NVSHMEM_ROOT}
+            PATH_SUFFIXES include)
+  find_library(QCU_NVSHMEM_LIBRARY
+               NAMES nvshmem
+               HINTS $ENV{NVSHMEM_HOME} $ENV{NVSHMEM_ROOT}
+               PATH_SUFFIXES lib lib64)
+  if(NOT QCU_NVSHMEM_INCLUDE_DIR OR
+     NOT QCU_NVSHMEMX_INCLUDE_DIR OR
+     NOT QCU_NVSHMEM_LIBRARY)
+    message(FATAL_ERROR
+      "QCU_ENABLE_NVSHMEM=ON requires nvshmem.h, nvshmemx.h and libnvshmem")
+  endif()
+  target_include_directories(qcu PRIVATE
+    ${QCU_NVSHMEM_INCLUDE_DIR} ${QCU_NVSHMEMX_INCLUDE_DIR})
+  target_compile_definitions(qcu PRIVATE QCU_HAVE_NVSHMEM=1)
+  target_link_libraries(qcu ${QCU_NVSHMEM_LIBRARY})
+  message(STATUS "NVSHMEM enabled: ${QCU_NVSHMEM_LIBRARY}")
+else()
+  message(STATUS "NVSHMEM disabled (set -DQCU_ENABLE_NVSHMEM=ON to enable)")
+endif()

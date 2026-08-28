@@ -56,7 +56,8 @@ __global__ void multigrid_coarse_dslash_wide(void *fermion_out, void *fermion_in
 template <typename T>
 __global__ void multigrid_coarse_dslash_wide_halo(
     void *fermion_out, void *fermion_in, void *halo, void *sitting,
-    void *hop_nn, void *hop_diag, int E, int X, int Y, int Z, int Lt);
+    void *hop_nn, void *hop_diag, int E, int X, int Y, int Z, int Lt,
+    int grid_x, int grid_y, int grid_z, int grid_t);
 
 /**
  * @brief Pack all 32 one-hop coarse-grid halo faces/edges/corners on device.
@@ -69,7 +70,7 @@ __global__ void multigrid_coarse_dslash_wide_halo(
 template <typename T>
 __global__ void multigrid_coarse_pack_halo(
     void *packed, const void *fermion_in, int E, int X, int Y, int Z, int Lt,
-    int max_face);
+    int grid_x, int grid_y, int grid_z, int grid_t, int max_face);
 
 /**
  * @brief Unpack the received 32 direction buffers into the padded halo.
@@ -77,7 +78,7 @@ __global__ void multigrid_coarse_pack_halo(
 template <typename T>
 __global__ void multigrid_coarse_unpack_halo(
     void *halo, const void *packed, int E, int X, int Y, int Z, int Lt,
-    int max_face);
+    int grid_x, int grid_y, int grid_z, int grid_t, int max_face);
 
 /**
  * @brief Apply the distributed wide stencil to either the interior or the
@@ -88,7 +89,7 @@ template <typename T>
 __global__ void multigrid_coarse_dslash_wide_halo_region(
     void *fermion_out, void *fermion_in, void *halo, void *sitting,
     void *hop_nn, void *hop_diag, int E, int X, int Y, int Z, int Lt,
-    int boundary_only);
+    int grid_x, int grid_y, int grid_z, int grid_t, int boundary_only);
 
 #if defined(QCU_HAVE_NVSHMEM)
 /**
