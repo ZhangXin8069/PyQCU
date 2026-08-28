@@ -59,9 +59,9 @@ inline bool qcu_parse_bool_env(const char *name, bool default_value) {
 inline bool qcu_mpi_compile_cuda_aware() {
 #if defined(MPIX_CUDA_AWARE_SUPPORT)
   return MPIX_CUDA_AWARE_SUPPORT != 0;
-#elif defined(MPIX_CUDA_AWARE)
-  return MPIX_CUDA_AWARE != 0;
-#elif defined(OMPI_HAVE_MPI_EXT_CUDA) && defined(MPIX_Query_cuda_support)
+#elif defined(MPICH_GPU_SUPPORT_ENABLED)
+  return true;
+#elif defined(OMPI_HAVE_MPI_EXT_CUDA)
   return MPIX_Query_cuda_support() != 0;
 #else
   // OMPI_HAVE_MPI_EXT_CUDA only says that the extension header was built; in
