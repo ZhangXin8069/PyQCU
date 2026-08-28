@@ -1,0 +1,514 @@
+% ============================================================
+% DDalphaAMG 多重网格算法实现 — 源码取证版
+% 编译: xelatex 两遍；本报告不修改源代码，不虚构运行数据
+% ============================================================
+\documentclass[UTF8,aspectratio=169,11pt]{ctexbeamer}
+
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{microtype}
+\usepackage{hyperref}
+
+\definecolor{primary}{HTML}{17365D}
+\definecolor{accent}{HTML}{1F77B4}
+\definecolor{evidence}{HTML}{1E8449}
+\definecolor{warning}{HTML}{C55A11}
+\definecolor{muted}{HTML}{5B6573}
+\definecolor{panel}{HTML}{F4F7FA}
+\definecolor{linegray}{HTML}{CBD5E1}
+\definecolor{good}{HTML}{EAF5EE}
+\definecolor{warnbg}{HTML}{FFF4E8}
+
+\setbeamersize{text margin left=0.55cm,text margin right=0.55cm}
+\setlength{\emergencystretch}{2em}
+\setbeamertemplate{navigation symbols}{}
+\setbeamercolor{normal text}{fg=black!86,bg=white}
+\setbeamercolor{structure}{fg=primary}
+\setbeamercolor{frametitle}{fg=primary,bg=white}
+\setbeamercolor{block title}{fg=primary,bg=panel}
+\setbeamercolor{block body}{fg=black!86,bg=panel}
+\setbeamerfont{frametitle}{size=\large,series=\bfseries}
+\setbeamerfont{normal text}{size=\normalsize}
+\setbeamertemplate{frametitle}{%
+  \vskip0.12cm\insertframetitle\par\vskip0.08cm}
+\setbeamertemplate{footline}{%
+  \hbox{\begin{beamercolorbox}[wd=\paperwidth,ht=2.3ex,dp=0.9ex,
+    leftskip=0.55cm,rightskip=0.55cm]{author in head/foot}%
+    \scriptsize\color{muted}\insertshortauthor\hfill
+    \insertshorttitle\hfill\insertframenumber/\inserttotalframenumber
+  \end{beamercolorbox}}}
+
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\newcommand{\source}[1]{%
+  \vspace{0.06em}\par{\raggedright\scriptsize\color{muted}来源：#1\par}}
+\newcommand{\verified}{\textcolor{evidence}{确证}}
+\newcommand{\inferred}{\textcolor{accent}{推断}}
+\newcommand{\unverified}{\textcolor{warning}{未验证}}
+\newcommand{\code}[1]{\nolinkurl{#1}}
+\newcommand{\claim}[1]{\textcolor{primary}{\textbf{#1}}}
+\newcommand{\compactframe}{%
+  \small
+  \setlength{\tabcolsep}{3pt}%
+  \renewcommand{\arraystretch}{0.86}%
+}
+\newcommand{\denseframe}{%
+  \footnotesize
+  \setlength{\tabcolsep}{2.5pt}%
+  \renewcommand{\arraystretch}{0.76}%
+}
+
+\lstset{
+  basicstyle=\ttfamily\scriptsize,
+  backgroundcolor=\color{panel},frame=single,
+  breaklines=true,breakatwhitespace=false,keepspaces=true,
+  columns=flexible,firstnumber=auto,
+  keywordstyle=\color{primary}\bfseries,
+  commentstyle=\color{evidence!70!black},
+  stringstyle=\color{accent},
+  numbers=left,numberstyle=\tiny\color{muted}
+}
+
+\title[DDalphaAMG 多重网格]{DDalphaAMG 的多重网格算法实现}
+\subtitle{源码取证、数学结构与当前快照边界}
+\author[源码分析]{源码分析（物理+代码视角）}
+\institute{DDalphaAMG Wilson--Clover 求解器快照}
+\date{2026-08-28}
+
+\begin{document}
+
+\begin{frame}[plain]
+  \titlepage
+\end{frame}
+
+% S1：结论先行
+\begin{frame}[t]{核心判断：算法链清晰，但当前快照不足以声称端到端可复现}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \begin{column}{0.30\textwidth}
+      \begin{block}{设计层\;\verified}
+        用户手册明确将问题定义为 Wilson--Dirac 方程的聚合型 AMG；SAP 是平滑器，K-cycle 和混合精度由参数控制。
+      \end{block}
+    \end{column}
+    \begin{column}{0.30\textwidth}
+      \begin{block}{实现层\;\verified}
+        当前树保留 level 状态、插值/限制接口、Galerkin 粗算子块乘、CUDA 细格 Dirac 与奇偶 Schur 组件。
+      \end{block}
+    \end{column}
+    \begin{column}{0.30\textwidth}
+      \begin{block}{边界\;\unverified}
+        setup/V-cycle/interpolation 的 CPU 主体不在当前文件树；CUDA 粗层 Schur 有明确 TODO，未有本次运行数据。
+      \end{block}
+    \end{column}
+  \end{columns}
+  \vspace{0.25cm}
+  \begin{center}
+    \begin{tabularx}{0.94\textwidth}{@{}Y@{}}
+      \toprule
+      \textbf{本报告的结论口径：}把源码中可以逐行核验的算子/数据布局，与由接口、参数和用户手册共同支持的算法意图分开；\textbf{不把历史报告中指向缺失 `.c` 文件的行号当作当前实现证据}。\\
+      \bottomrule
+    \end{tabularx}
+  \end{center}
+  \source{设计：\code{doc/user_doc.tex:21--26,79--85}；状态：\code{src/level_struct.h:13--90}、\code{src/coarse_operator_generic.h:29--57}、\code{src/gpu/cuda_coarse_oddeven_generic.cu:24--91}}
+\end{frame}
+
+% S2：问题、物理图像和验收判据
+\begin{frame}[t]{问题不是“把矩阵变小”，而是把低模误差交给可表示的粗空间}
+  \denseframe
+  \scriptsize
+  \begin{align*}
+    D_W(U,m_0)\,\psi &= \eta,
+    &m_0&=\frac{1}{2\kappa}-4,\\[-1mm]
+    R_\ell&=P_\ell^\dagger,
+    &D_{\ell+1}&=R_\ell D_\ell P_\ell .
+  \end{align*}
+  \begin{tabularx}{0.96\textwidth}{@{}p{0.20\textwidth}YY@{}}
+    \toprule
+    对象 & 物理/数值含义 & 报告中的验收口径 \\
+    \midrule
+    $U,m_0,c_{sw}$ & 规范背景、质量和 clover 参数；细格算子作用在每格点 $12=4\times3$ 个复自由度上。 & 只确认输入约定，不从参数样例推导性能。 \\
+    $P$ & 聚合内 test vectors 张成的局部低模近似空间。 & 必须能解释聚合、局部正交化和粗格自由度。 \\
+    $S_\ell$ & SAP/局部求解器，优先消除粗化前仍然振荡的误差。 & 必须说明块、着色、局部迭代和 odd-even 分支。 \\
+    $D_{\ell+1}$ & Galerkin 粗算子，负责低频/近零模误差的校正。 & 必须给出 $P^\dagger D P$、存储块和作用路径。 \\
+    \bottomrule
+  \end{tabularx}
+  \vspace{0cm}
+  \begin{block}{极限检查}
+    $\kappa\to0$ 时质量 shift 主导、系统趋于对角；$c_{sw}\to0$ 时 clover 分支退化。它们是理解算子边界的检查，不是当前快照的运行结果。
+  \end{block}
+  \source{方程/参数：\code{doc/user_doc.tex:21--26,76--85}；细格 CUDA 作用：\code{src/gpu/cuda_dirac_generic.cu:309--410}；物理极限为公式推断。}
+\end{frame}
+
+% S3：层级与状态
+\begin{frame}[t]{层级是显式对象：每个 level 同时携带算子、粗化、平滑与求解状态}
+  \denseframe
+  \scriptsize
+  \begin{tabularx}{0.96\textwidth}{@{}p{0.25\textwidth}p{0.28\textwidth}Y@{}}
+    \toprule
+    level 状态 & 代码字段 & 在多重网格中的职责 \\
+    \midrule
+    细/粗算子 & \code{op_double/op_float}、\code{oe_op_double/oe_op_float} & 原始 Dirac/粗算子与 odd-even 版本；精度实例并存。 \\
+    插值层 & \code{is_double/is_float} & 聚合数、索引、\code{test_vector}、\code{interpolation}、bootstrap 向量与粗算子数据。 \\
+    平滑层 & \code{s_double/s_float} & 块列表、颜色、边界、局部缓冲与块内求解所需状态。 \\
+    Krylov 层 & \code{p_*}、\code{sp_*}、\code{dummy_p_*} & K-cycle、平滑器和占位求解器的 GMRES 状态。 \\
+    几何/容量 & \code{global_lattice}、\code{local_lattice}、\code{coarsening}、\code{vector_size} & 记录本层格点、聚合比、局部/ghost 体积与自由度。 \\
+    递归关系 & \code{next_level}、\code{depth} & 从当前 level 进入更粗 level；最粗层以无下一级为边界。 \\
+    \bottomrule
+  \end{tabularx}
+  \vspace{0.12cm}
+  \begin{tabular}{@{}l@{}}
+    $\text{输入 }(U,\eta,\text{geometry})
+      \;\longrightarrow\;\text{level 初始化}
+      \;\longrightarrow\;\text{setup / }P,D_c
+      \;\longrightarrow\;\text{外层 FGMRES 调用多重网格}
+      \;\longrightarrow\;\psi$ \\
+    \quad 流程接口包括 \code{method_setup}、\code{next_level_setup} 与 \code{method_update}。
+  \end{tabular}
+  \source{结构：\code{src/level_struct.h:13--90}；插值结构：\code{src/algorithm_structs_generic.h:271--314}；流程接口：\code{src/init.h:29--44}。}
+\end{frame}
+
+% S4：几何聚合
+\begin{frame}[t]{几何聚合把细格局部自由度压缩为粗格的 $2n_\ell$ 个分量}
+  \denseframe
+  \begin{align*}
+    a_\ell(\mu)&=\frac{L_\ell(\mu)}{L_{\ell+1}(\mu)},
+    &n_\ell&=\text{本层 test vectors 数},
+    &N^{\rm site}_{\ell+1}&=2n_\ell\quad(\text{粗层自旋块约定}).
+  \end{align*}
+  \begin{tabularx}{0.96\textwidth}{@{}p{0.25\textwidth}p{0.28\textwidth}Y@{}}
+    \toprule
+    约束/样例 & 当前仓库证据 & 对实现的影响 \\
+    \midrule
+    聚合整除 & $L_\ell/L_{\ell+1}$、局部格点/聚合和聚合/块均要求为正整数。 & 聚合索引可以预计算；跨聚合 hop 落在边界表中。 \\
+    进程收缩 & 全局/局部格点的进程比例随层变粗单调不增。 & 粗层允许进程 idle，level 通信子不能简单等同于细层。 \\
+    样例 $d0\to d1$ & $8^4\to2^4$，故 $a_0(\mu)=4$；$d0$ 块为 $4^4$，有 24 个 test vectors。 & 这是可复现的配置样例，不是性能基线。 \\
+    最粗层 & 样例 $d1$ 的 test/setup 参数为 0。 & 粗层不再建立下一级 AMG；转交粗网格求解接口。 \\
+    \bottomrule
+  \end{tabularx}
+  \vspace{0.12cm}
+  \begin{tabular}{@{}l@{}}
+    $\text{fine site }(12\text{ complex d.o.f.})
+      \;\xrightarrow[\text{aggregate}]{P^\dagger}\;
+      \text{coarse site }(2n_\ell\text{ complex d.o.f.})$ \\
+    \quad 该映射由 level、插值和粗算子索引支持；聚合构造函数体缺失。
+  \end{tabular}
+  \source{几何约束：\code{doc/user_doc.tex:52--71}；样例：\code{sample_devel.ini:34--55}；字段：\code{src/level_struct.h:51--73}、\code{src/algorithm_structs_generic.h:308--314}。}
+\end{frame}
+
+% S5：adaptive setup
+\begin{frame}[t]{自适应 setup 的核心是“平滑试验向量—局部正交—重建粗空间”闭环}
+  \denseframe
+  \begin{center}
+  \small
+  \begin{tabular}{@{}l@{}}
+    $\text{Input: }V^{(0)},\;\{a_\ell,n_\ell\},\;\texttt{setup\_iter}$ \\
+    $\text{Initialize: }\text{allocate }\texttt{test\_vector},\;\texttt{interpolation},\;\texttt{bootstrap\_vector}$ \\
+    $\text{for }k=0,1,\ldots,\texttt{setup\_iter}-1\text{ iterate:}$ \\
+    \quad $\text{orthogonalize }V^{(k)}\text{ on each aggregate}$ \\
+    \quad $\text{relax/inverse-iterate }V^{(k)}\text{ with the current multilevel preconditioner}$ \\
+    \quad $\text{define }P^{(k+1)}\text{ from the aggregate-local vectors}$ \\
+    \quad $\text{rebuild }D_{\ell+1}^{(k+1)}=(P^{(k+1)})^\dagger D_\ell P^{(k+1)}$ \\
+    \quad $\text{if the next level exists, bootstrap/setup it; otherwise stop setup recursion}$ \\
+    $\text{Output: }P_\ell,\;D_{\ell+1},\;\text{level-local solver state}$
+  \end{tabular}
+  \end{center}
+  \vspace{0cm}
+  \begin{tabularx}{0.96\textwidth}{@{}p{0.18\textwidth}Y@{}}
+    \toprule
+    证据等级 & 解释 \\
+    \midrule
+    \verified & 接口直接暴露 \code{iterative_setup}、\code{re_setup}、\code{interpolation_define}、\code{inv_iter_inv_fcycle}；线性代数接口直接暴露 aggregate Gram--Schmidt。 \\
+    \inferred & 上表的“平滑→重建→递归”是由接口命名、test/bootstrap 字段与用户手册的 interpolation 模式拼出的算法契约。 \\
+    \unverified & 当前文件树没有 setup/interpolation/vcycle 的函数体，故无法确认每个版本的精确调用顺序、停止判据和数值收益。 \\
+    \bottomrule
+  \end{tabularx}
+  \source{setup 接口：\code{src/setup_generic.h:27--32}；Gram--Schmidt 接口：\code{src/linalg_generic.h:122--140}；状态字段：\code{src/algorithm_structs_generic.h:308--314}；模式：\code{sample_devel.ini:91--100}。}
+\end{frame}
+
+% S6：restriction/prolongation/Galerkin
+\begin{frame}[t]{限制、粗算子与延拓组成一个可检查的 Galerkin 粗校正}
+  \denseframe
+  \scriptsize
+  \begin{tabular}{@{}l@{}}
+    $\text{Input: }x_\ell,\;b_\ell,\;P_\ell$ \\
+    $r_\ell\gets b_\ell-D_\ell x_\ell$ \\
+    $r_{\ell+1}\gets R_\ell r_\ell,\qquad R_\ell=P_\ell^\dagger$ \\
+    $D_{\ell+1}\gets R_\ell D_\ell P_\ell$ \\
+    $e_{\ell+1}\gets\mathcal{M}_{\ell+1}(r_{\ell+1})$ \\
+    $x_\ell\gets x_\ell+P_\ell e_{\ell+1}$ \\
+    $\text{Output: corrected }x_\ell\text{ and residual for post-smoothing}$
+  \end{tabular}
+  \vspace{0cm}
+  \begin{tabularx}{0.96\textwidth}{@{}p{0.25\textwidth}p{0.28\textwidth}Y@{}}
+    \toprule
+    操作 & 当前接口 & 必须保持的数学关系 \\
+    \midrule
+    延拓 & \code{interpolate}、\code{interpolate3} & 粗向量回到细格；其局部支撑由聚合布局决定。 \\
+    限制 & \code{restrict} & 在复数内积约定下对应 $P^\dagger$，不能误当作普通注入。 \\
+    粗算子 setup & \code{coarse_operator_setup}、\code{set_coarse_*_coupling} & 逐聚合 self/neighbor coupling 组织 $P^\dagger D P$。 \\
+    粗算子 apply & \code{apply_coarse_operator}、\code{apply_coarse_operator_dagger} & 递归求解和伴随/对称性检查共用粗层表示。 \\
+    \bottomrule
+  \end{tabularx}
+  \begin{block}{正确性检查}
+    若 $P$ 的列空间确实承载近零模，粗校正应主要消除平滑器难以处理的低频误差；这是 AMG 的数值设计目标，当前快照没有提供收敛曲线来验证它。
+  \end{block}
+  \source{接口：\code{src/interpolation_generic.h:27--36}；粗算子接口：\code{src/coarse_operator_generic.h:29--57}；$D_c=P^\dagger D P$ 为 Galerkin 定义。}
+\end{frame}
+
+% S7：coarse operator storage
+\begin{frame}[t]{粗算子存储显式利用块结构：Hermitian 对角块 + 一个非对角块}
+  \denseframe
+  \scriptsize
+  \begin{align*}
+    D_c(x,\mu)&=\begin{pmatrix}A&B\\C&D\end{pmatrix},
+    &A&=A^\dagger,\quad D=D^\dagger,\quad C=-B^\dagger,\\
+    D_c(x,-\mu)&=\begin{pmatrix}A^\ast&-C^\ast\\-B^\ast&D^\ast\end{pmatrix},
+    &n&=\frac{\texttt{num\_lattice\_site\_var}}{2}.
+  \end{align*}
+  \begin{tabularx}{0.96\textwidth}{@{}p{0.22\textwidth}p{0.30\textwidth}Y@{}}
+    \toprule
+    组件 & 存储/作用方式 & 代码证据与含义 \\
+    \midrule
+    普通 $D\phi$ & \code{mv}/\code{nmv} 对列存 $n\times n$ 块乘；四块按 $A,C,B,D$ 依次移动指针。 & 直接展示粗 hop 的块布局和符号。 \\
+    伴随 $D^\dagger\phi$ & \code{mvh}/\code{nmvh} 使用共轭转置；负号编码 $C=-B^\dagger$。 & 不需要独立复制全部方向块。 \\
+    Hermitian self block & \code{mvp} 只读取 packed 上三角并补出下三角。 & 代码注释明确 self coupling 的 $A,D$ 为 Hermitian。 \\
+    SIMD 路径 & SSE 版本将 self/neighbor coupling 按 spin 块和列方向组织，并提供 vectorized copy。 & 这是布局优化证据；不等同于完整 CUDA AMG。 \\
+    \bottomrule
+  \end{tabularx}
+  \vspace{0.08cm}
+  \begin{tabular}{@{}l@{}}
+    $\text{保存 }\{\text{upper}(A),\text{upper}(D),B\}
+      \;\Longrightarrow\;\text{作用时由共轭转置恢复 }C$ \\
+    \quad\inferred\;相对完整 $2n\times2n$ 矩阵可降低存储/算术量；实际收益需 benchmark，当前未验证。
+  \end{tabular}
+  \source{块结构/列存乘：\code{src/coarse_operator_generic.h:62--117,119--225}；SSE 映射：\code{src/sse_coarse_operator.h:42--139,142--240}。}
+\end{frame}
+
+% S8：V/K cycle
+\begin{frame}[t]{V-cycle 是递归骨架，K-cycle 用 FGMRES 重新组合两层预条件器}
+  \denseframe
+  \scriptsize
+  \begin{tabular}{@{}l@{}}
+    $\text{Input: }(\phi_\ell,\eta_\ell),\;D_\ell,\;P_\ell,\;\text{level }\ell$ \\
+    $\text{pre-smooth: }\phi_\ell\gets S_\ell(\phi_\ell,\eta_\ell)$ \\
+    $r_\ell\gets\eta_\ell-D_\ell\phi_\ell$ \\
+    $\text{if }\ell=\ell_{\rm coarse}:\quad e_\ell\gets\text{coarse solver}(r_\ell)$ \\
+    $\text{else: }r_{\ell+1}\gets P_\ell^\dagger r_\ell;\quad e_{\ell+1}\gets\mathcal{M}_{\ell+1}(r_{\ell+1});\quad e_\ell\gets P_\ell e_{\ell+1}$ \\
+    $\phi_\ell\gets\phi_\ell+e_\ell$ \\
+    $\text{post-smooth: }\phi_\ell\gets S_\ell(\phi_\ell,\eta_\ell);\quad\text{Output: }\phi_\ell$
+  \end{tabular}
+  \vspace{0.13cm}
+  \begin{tabularx}{0.96\textwidth}{@{}p{0.23\textwidth}p{0.28\textwidth}Y@{}}
+    \toprule
+    模式 & 用户可调参数 & 算法含义 \\
+    \midrule
+    V-cycle & \texttt{d\_i} preconditioner cycles、\texttt{post smooth iter} & 递归一次粗校正，再回到细格后平滑。 \\
+    K-cycle & \code{kcycle=1}、length、restarts、tolerance & 用户手册将粗网格 GMRES 替换为由下一层两水平法预条件的 FGMRES；可视作带 FGMRES 包装的 W 型递归。 \\
+    最粗层 & \code{coarse_solve_odd_even}、\code{coarse_apply_schur_complement} & 粗层不再递归，转为 GMRES/odd-even 相关求解接口。 \\
+    当前证据边界 & \code{src/vcycle_generic.h} 只有声明与依赖 & 循环契约可确认；V/K 调度函数体不在当前文件树，具体实现仍需补齐。 \\
+    \bottomrule
+  \end{tabularx}
+  \source{V-cycle 接口：\code{src/vcycle_generic.h:25--39}；最粗层接口：\code{src/coarse_oddeven_generic.h:30--45}；K-cycle 语义/参数：\code{doc/user_doc.tex:79--85}、\code{sample_devel.ini:102--109}。}
+\end{frame}
+
+% S9：SAP and Schur
+\begin{frame}[t]{SAP 平滑器处理局部高频误差，odd-even Schur 把块内代数结构显式化}
+  \compactframe
+  \begin{align*}
+    D&=\begin{pmatrix}D_{ee}&D_{eo}\\D_{oe}&D_{oo}\end{pmatrix},
+    &S_e&=D_{ee}-D_{eo}D_{oo}^{-1}D_{oe}.
+  \end{align*}
+  \begin{tabularx}{0.96\textwidth}{@{}p{0.24\textwidth}p{0.31\textwidth}Y@{}}
+    \toprule
+    平滑分支 & 接口/参数 & 作用 \\
+    \midrule
+    Additive Schwarz & \code{additive_schwarz}；method 1 & 各块独立更新，适合并行但不显式串行传播最新边界。 \\
+    Red--black Schwarz & \code{red_black_schwarz}；method 2 & 两色块更新，依赖关系可控；样例测试大量采用该路径。 \\
+    16-color Schwarz & \code{sixteen_color_schwarz}；method 3 & 更细粒度着色；同色块无直接边界依赖。 \\
+    块内求解 & \code{block_solve_oddeven}、\code{local_minres}；\code{block iter} & 用 Schur 约化或局部最小残量迭代完成块内近似逆。 \\
+    \bottomrule
+  \end{tabularx}
+  \vspace{0.1cm}
+  \begin{tabular}{@{}l@{}}
+    $\text{SAP step: }r\gets\eta-D\phi\;\longrightarrow\;\text{select color/block}\;\longrightarrow\;\text{local solve}\;\longrightarrow\;\phi\gets\phi+\omega\,\delta\phi$ \\
+    \quad 高频误差由块内局部求解衰减；低频误差留给 $P^\dagger D P$ 的粗校正。
+  \end{tabular}
+  \source{平滑器接口：\code{src/schwarz_generic.h:36--61}；odd-even/块求解接口：\code{src/oddeven_generic.h:39--61}；method 参数：\code{sample_devel.ini:118--128}。当前树无对应 CPU 函数体。}
+\end{frame}
+
+% S10：CUDA direct evidence
+\begin{frame}[t]{CUDA 奇偶路径可逐步核验：投影/通信/对角逆/Schur 组合已落地}
+  \denseframe
+  \begin{center}
+  \small
+  \begin{tabular}{@{}l@{}}
+    $\text{Input: }u=(u_e,u_o)$ \\
+    $y_e\gets D_{ee}u_e$ \\
+    $t_o\gets D_{oe}u_e\quad(\text{odd target: hopping + ghost exchange})$ \\
+    $q_o\gets D_{oo}^{-1}t_o$ \\
+    $t_e\gets D_{eo}q_o$ \\
+    $y_e\gets y_e-t_e\;=\;(D_{ee}-D_{eo}D_{oo}^{-1}D_{oe})u_e$ \\
+    $\text{Output: }y_e\text{ in componentwise/chunkwise wrapper}$
+  \end{tabular}
+  \end{center}
+  \vspace{0.08cm}
+  \begin{tabularx}{0.96\textwidth}{@{}p{0.25\textwidth}p{0.28\textwidth}Y@{}}
+    \toprule
+    源码阶段 & 直接观察 & 实现含义 \\
+    \midrule
+    $D_{ee}$ & \code{cuda_diag_ee_componentwise} & 逐点 clover/self coupling。 \\
+    $D_{oe}$/$D_{eo}$ & \code{cuda_hopping_term} & 只接受 \code{_EVEN_SITES} 或 \code{_ODD_SITES}；投影后进行邻居矩阵乘。 \\
+    通信 & \code{cuda_ghost_sendrecv/wait} & 负/正方向投影分开发送和等待，允许把本地 kernel 与 halo 路径编排。 \\
+    组合 & \code{cuda_apply_schur_complement} & 代码顺序与 Schur 公式逐项一致，最后执行向量减法。 \\
+    \bottomrule
+  \end{tabularx}
+  \source{Schur 组合：\code{src/gpu/cuda_oddeven_generic.cu:4001--4042}；方向 hopping/ghost：\code{src/gpu/cuda_oddeven_generic.cu:4093--4209}；布局转换：\code{src/gpu/cuda_oddeven_generic.cu:4044--4091}。}
+\end{frame}
+
+% S11：CUDA boundary
+\begin{frame}[t]{CUDA 后端的“细格算子已实现”不能外推为“多级 AMG 已完整实现”}
+  \denseframe
+  \scriptsize
+  \begin{tabularx}{0.96\textwidth}{@{}p{0.29\textwidth}p{0.29\textwidth}Y@{}}
+    \toprule
+    观察 & 证据 & 对端到端结论的限制 \\
+    \midrule
+    细格 operator allocation & \code{cuda_operator_alloc} 在 \code{l->depth != 0} 时直接 return。 & 当前代码明确优先支持 depth 0 的 GPU operator 状态。 \\
+    细格 vector wrapper & wrapper 在 depth 非 0 时报错，并写明粗格内存交互尚未充分测试。 & 不能据此声称 CUDA 粗格延拓/限制和递归已验证。 \\
+    粗层 Schur & \code{coarse_apply_schur_complement_CUDA} 开头写有 TODO；中间把数据拷回 CPU，调用 CPU 粗层对角/跳跃操作。 & CUDA 粗层路径是部分实现/回退混合，不是纯 GPU 闭环。 \\
+    CUDA Krylov/smoother & \code{cuda_solve_oddeven} 对 GMRES smoother 和 method 5 打印“has not been constructed”。 & K-cycle 所需的 GPU FGMRES 组合不能从当前文件得到完整确证。 \\
+    \bottomrule
+  \end{tabularx}
+  \vspace{0cm}
+  \begin{block}{严格结论}
+    \verified：CUDA 细格 Wilson--Clover、组件化布局和细格 odd-even kernel 存在。\\
+    \unverified：当前快照的 CUDA 多层 setup、粗格递归和完整 K-cycle 端到端执行；性能、收敛和加速比均未测量。
+  \end{block}
+  \source{分配边界：\code{src/gpu/cuda_operator_generic.cu:44--75}；细格 wrapper：\code{src/gpu/cuda_dirac_generic.cu:631--661}；粗 Schur TODO/CPU 混合：\code{src/gpu/cuda_coarse_oddeven_generic.cu:24--91}；smoother 限制：\code{src/gpu/cuda_oddeven_generic.cu:4429--4451}。}
+\end{frame}
+
+% S12：config and reproducibility
+\begin{frame}[t]{参数文件把算法选择暴露为可复现实验矩阵，但不提供结果本身}
+  \denseframe
+  \scriptsize
+  \begin{tabularx}{0.96\textwidth}{@{}p{0.27\textwidth}p{0.22\textwidth}Y@{}}
+    \toprule
+    参数组 & 样例值 & 控制的算法行为 \\
+    \midrule
+    层级/聚合 & 2 层；$8^4\to2^4$；$d0$ block $=4^4$ & 细/粗格几何、Schwarz 块和聚合比。 \\
+    setup & $d0$ test vectors $=24$；setup iter $=4$；interpolation $=2$ & 试验向量数量、setup 轮数和 f-cycle inverse-iteration 模式。 \\
+    precision & mixed precision $=1$ & 用户手册定义为单精度预条件器、双精度外层 FGMRES。 \\
+    odd-even & $=1$ & 粗层 GMRES/块内求解可走 odd-even；粗层几何需满足偶性约束。 \\
+    coarse solve & 30 iter；50 restarts；$10^{-2}$ & 最粗层 Krylov 停止与重启上限。 \\
+    K-cycle & on；length 5；2 restarts；$10^{-1}$ & 用 FGMRES 包装两层预条件器的深度/精度。 \\
+    outer solve & method 2；relative tol $10^{-10}$ & red--black Schwarz 外层路径与相对残差目标。 \\
+    \bottomrule
+  \end{tabularx}
+  \vspace{0.12cm}
+  \begin{tabular}{@{}l@{}}
+    $np=\displaystyle\prod_{\mu=1}^{4}\frac{L_0(\mu)}{L^{\rm local}_0(\mu)},\qquad
+      \frac{L_\ell}{L_{\ell+1}},\;\frac{L^{\rm local}_\ell}{a_\ell},\;\frac{a_\ell}{L^{\rm block}_\ell}\in\mathbb{Z}_{>0}$ \\
+    \quad 上述是几何可用性约束；“可用”不等于“本快照已成功构建并收敛”。
+  \end{tabular}
+  \source{样例：\code{sample_devel.ini:34--55,89--109,118--135}；约束/混合精度/K-cycle：\code{doc/user_doc.tex:52--85}。}
+\end{frame}
+
+% S13：evidence and next steps
+\begin{frame}[t]{证据账本：最强结论是算法接口与局部 kernel，最大风险是缺少调度主体}
+  \denseframe
+  \scriptsize
+  \begin{tabularx}{0.96\textwidth}{@{}p{0.27\textwidth}p{0.18\textwidth}Y@{}}
+    \toprule
+    主张 & 状态 & 依据/缺口 \\
+    \midrule
+    聚合型 AMG + SAP & \verified & 用户手册定义；setup、interpolation、Schwarz 接口成组出现。 \\
+    自适应 setup 的精确循环 & \inferred & test/bootstrap 字段、Gram--Schmidt 和 setup API 支持；函数体缺失。 \\
+    $D_c=P^\dagger D P$ 的块作用 & \verified & 粗算子接口、列存矩阵乘和 Hermitian block 注释直接可查。 \\
+    V/K-cycle 的完整递归调度 & \inferred & vcycle/K-cycle 接口与参数语义存在；当前树无主体实现。 \\
+    CUDA 细格 Schur & \verified & CUDA 函数顺序与 Schur 公式逐项对应。 \\
+    收敛率、加速比、可扩展性 & \unverified & 当前没有本次运行日志；不能用文献或样例参数代替测量。 \\
+    \bottomrule
+  \end{tabularx}
+  \vspace{0.12cm}
+  \begin{tabularx}{0.96\textwidth}{@{}p{0.17\textwidth}Y@{}}
+    \toprule
+    下一验证门槛 & 可验收产物 \\
+    \midrule
+    补齐源码 & 找回与 generic 头匹配的 setup/interpolation/vcycle/linsolve CPU 实现及 Makefile/构建版本。 \\
+    构建回归 & 在 4$^4$/8$^4$ 配置上记录 \code{TRACK_RES}、\code{COARSE_RES}、\code{SCHWARZ_RES} 和真实残差。 \\
+    GPU 边界测试 & 单独验证 depth 0、粗层 Schur、数据回拷和 K-cycle；失败时保留最小复现日志。 \\
+    \bottomrule
+  \end{tabularx}
+  \source{证据索引见附录；诊断开关：\code{doc/user_doc.tex:94--106}；测试入口：\code{test/integration_test.sh:29--50}。时间节点和性能目标均未由仓库指定。}
+\end{frame}
+
+% S14：结论
+\begin{frame}[t]{结论：DDalphaAMG 的多重网格思想已形成闭环，当前交付应标为“部分可核验”}
+  \compactframe
+  \begin{tabular}{@{}l@{}}
+    $\text{物理问题: }D_W(U,m_0)\psi=\eta$ \\
+    \quad$\downarrow$\quad 近零模/低频误差需要粗空间承载 \\
+    $\text{setup: test vectors}\;\longrightarrow\;\text{aggregate-local basis}\;\longrightarrow\;P$ \\
+    $\text{Galerkin: }D_{\ell+1}=P_\ell^\dagger D_\ell P_\ell$ \\
+    $\text{solve: SAP\;(高频)}\; + \;\text{V/K-cycle coarse correction\;(低频)}$ \\
+    $\text{implementation: level state + packed coarse blocks + odd-even/CUDA kernels}$ \\
+    $\text{verification: local algebra is inspectable; end-to-end hierarchy and performance remain open}$
+  \end{tabular}
+  \vspace{0.18cm}
+  \begin{block}{一句话带走}
+    该快照最有价值的实现决策是：用自适应聚合空间表示近零模，用 Galerkin 粗算子传递低频误差，用 SAP/Schur 处理局部高频结构；但缺失的层级调度主体和 CUDA 粗层 TODO 使“完整运行实现”仍不能被当前证据闭合。
+  \end{block}
+  \source{综合依据：\code{src/setup_generic.h:27--32}、\code{src/interpolation_generic.h:27--36}、\code{src/coarse_operator_generic.h:29--57}、\code{src/vcycle_generic.h:35--39}、\code{src/oddeven_generic.h:27--61}。}
+\end{frame}
+
+\appendix
+
+% A1：源码证据索引
+\begin{frame}[t]{附录 A：源码证据索引（当前快照）}
+  \denseframe
+  \scriptsize
+  \begin{tabularx}{0.96\textwidth}{@{}p{0.27\textwidth}p{0.32\textwidth}Y@{}}
+    \toprule
+    主题 & 文件:行号 & 用途 \\
+    \midrule
+    level 生命周期/容量 & \code{src/level_struct.h:13--90} & 细/粗算子、插值、Schwarz、GMRES、next level。 \\
+    setup 契约 & \code{src/setup_generic.h:27--32} & setup、重建、inverse-iteration/f-cycle 接口。 \\
+    聚合/插值契约 & \code{src/coarsening_generic.h:25--29}；\code{src/interpolation_generic.h:27--36} & 索引表、限制、延拓和插值算子定义入口。 \\
+    粗算子局部代数 & \code{src/coarse_operator_generic.h:62--225} & 列存矩阵乘、伴随乘、$2n\times2n$ 块结构。 \\
+    粗算子 CUDA self block & \code{src/gpu/cuda_coarse_operator_generic.cu:24--126} & shared memory、packed Hermitian self coupling kernel。 \\
+    平滑器/块求解 & \code{src/schwarz_generic.h:36--61}；\code{src/oddeven_generic.h:39--61} & SAP 变体、块 odd-even、局部 MINRES 接口。 \\
+    cycle/linear solve & \code{src/vcycle_generic.h:35--39}；\code{src/linsolve_generic.h:30--51} & V-cycle、FGMRES/FGCR/粗层求解接口。 \\
+    CUDA Schur & \code{src/gpu/cuda_oddeven_generic.cu:4001--4209} & 细格 Schur、hopping、ghost 和布局转换。 \\
+    CUDA 缺口 & \code{src/gpu/cuda_coarse_oddeven_generic.cu:24--91} & 粗 Schur TODO 与 CPU 混合路径。 \\
+    \bottomrule
+  \end{tabularx}
+  \source{表内文件路径均相对于当前工作目录。}
+\end{frame}
+
+% A2：接口和参数证据
+\begin{frame}[t]{附录 B：接口—参数—验证命令的最小闭环}
+  \compactframe
+  \begin{tabular}{@{}l@{}}
+    $\text{API input: }\texttt{dd\_alpha\_amg\_init}\;(U,m_0,c_{sw},\text{amg\_params})$ \\
+    \quad$\downarrow$\quad\texttt{dd\_alpha\_amg\_setup(iterations,status)} \\
+    $\text{Setup state: }\texttt{mg\_setup\_status}\;\longrightarrow\;P,D_c,\text{level hierarchy}$ \\
+    \quad$\downarrow$\quad\texttt{dd\_alpha\_amg\_wilson\_solve(out,in,tol,\ldots)} \\
+    $\text{Verification: true residual + coarse/SAP residual + no CUDA fallback ambiguity}$
+  \end{tabular}
+  \vspace{0.18cm}
+  \begin{tabularx}{0.96\textwidth}{@{}p{0.35\textwidth}Y@{}}
+    \toprule
+    证据 & 作用 \\
+    \midrule
+    \code{src/dd_alpha_amg.h:41--83} & 外部初始化、场更新通知、setup、solve、preconditioner 和 free 的接口。 \\
+    \code{src/dd_alpha_amg_parameters.h:25--50} & 层数、几何、basis/setup/post-smooth、粗层迭代和质量参数的结构化配置。 \\
+    \code{doc/user_doc.tex:94--106} & 建议打开真实残差、粗层残差、Schwarz 残差和 test-vector 分析的诊断开关。 \\
+    \code{README:21--36} & 说明求解器定位与构建/运行入口；当前快照仍需检查实际 Makefile/CPU 实现是否恢复。 \\
+    \bottomrule
+  \end{tabularx}
+  \source{本附录只列出可复查入口，不把未执行的命令或预期输出写成实测结果。}
+\end{frame}
+
+\end{document}
