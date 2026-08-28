@@ -34,6 +34,7 @@
 #include "./lattice_clover_dslash.h"
 #include "./lattice_cuda.h"
 #include "./lattice_mpi.h"
+#include "./lattice_multigrid.h"
 #include "./lattice_wilson_dslash.h"
 #include "./multigrid.h"
 #include "./lattice_sap.h"
@@ -613,6 +614,10 @@ template <typename T> struct LatticeCloverMultigrid {
   // the same exchange implementation can serve homogeneous and mixed trees;
   // only halo_* / input_host are used for the homogeneous entries.
   MgLevelStateAny coarse_halo[8];
+  // One typed-erased exchange object per coarse level.  The object owns the
+  // private exchange stream/events and chooses NVSHMEM, CUDA-aware MPI or
+  // pinned-host staging at runtime without changing the vector ABI.
+  CoarseHaloExchangeAny<T> coarse_exchange[8];
   MgLevelStateAny *mixed_levels = nullptr;
   int level_data_type[8] = {};
   bool mixed_precision = false;
@@ -783,10 +788,10 @@ template <typename T> struct LatticeCloverMultigrid {
   template <typename U>
   void exchange_coarse_halo_typed(int lev, void *in,
                                   MgLevelStateAny &hs) {
-    (void)lev;
-    multigrid_exchange_coarse_halo<U, T>(
-        set_ptr, in, hs.dof, hs.X, hs.Y, hs.Z, hs.Lt, hs.input_host,
-        hs.halo_host, hs.halo_device);
+    (void)hs;
+    // The precision dispatch is checked by the caller; the type-erased
+    // exchange owns a matching U-typed pack/unpack implementation.
+    coarse_exchange[lev].begin(in, set_ptr->stream);
   }
 
   void init_coarse_halo_state(int lev, int data_type, int E, int X, int Y,
@@ -799,13 +804,10 @@ template <typename T> struct LatticeCloverMultigrid {
     coarse_halo[lev].Lt = Lt;
     coarse_halo[lev].vol = X * Y * Z * Lt;
     coarse_halo[lev].vec_sz = static_cast<size_t>(E) * coarse_halo[lev].vol;
-    if (data_type == _LAT_C64_) {
-      coarse_halo[lev].elem_bytes = sizeof(LatticeComplex<float>);
-      coarse_halo[lev].alloc_halo<float>(set_ptr->stream);
-    } else {
-      coarse_halo[lev].elem_bytes = sizeof(LatticeComplex<double>);
-      coarse_halo[lev].alloc_halo<double>(set_ptr->stream);
-    }
+    coarse_halo[lev].elem_bytes =
+        data_type == _LAT_C64_ ? sizeof(LatticeComplex<float>)
+                               : sizeof(LatticeComplex<double>);
+    coarse_exchange[lev].init(set_ptr, data_type, E, X, Y, Z, Lt);
   }
 
   /**
@@ -826,9 +828,26 @@ template <typename T> struct LatticeCloverMultigrid {
     if (mg_multi) {
       MgLevelStateAny &hs = coarse_halo[lev];
       exchange_coarse_halo_typed<T>(lev, in, hs);
-      multigrid_coarse_dslash_wide_halo<T><<<g,_BLOCK_SIZE_,0,set_ptr->stream>>>(
-          out,in,hs.halo_device,sit_packed[lev-1],hop_nn[lev-1],
-          hop_diag[lev-1],E,Xc,Yc,Zc,Ltc);
+      if (qcu_mpi_overlap_enabled()) {
+        multigrid_coarse_dslash_wide_halo_region<T>
+            <<<g, _BLOCK_SIZE_, 0, set_ptr->stream>>>(
+                out, in, coarse_exchange[lev].device_halo(),
+                sit_packed[lev - 1], hop_nn[lev - 1], hop_diag[lev - 1], E,
+                Xc, Yc, Zc, Ltc, 0);
+        coarse_exchange[lev].finish(set_ptr->stream);
+        multigrid_coarse_dslash_wide_halo_region<T>
+            <<<g, _BLOCK_SIZE_, 0, set_ptr->stream>>>(
+                out, in, coarse_exchange[lev].device_halo(),
+                sit_packed[lev - 1], hop_nn[lev - 1], hop_diag[lev - 1], E,
+                Xc, Yc, Zc, Ltc, 1);
+      } else {
+        coarse_exchange[lev].finish(set_ptr->stream);
+        multigrid_coarse_dslash_wide_halo<T>
+            <<<g, _BLOCK_SIZE_, 0, set_ptr->stream>>>(
+                out, in, coarse_exchange[lev].device_halo(),
+                sit_packed[lev - 1], hop_nn[lev - 1], hop_diag[lev - 1], E,
+                Xc, Yc, Zc, Ltc);
+      }
     } else {
       multigrid_coarse_dslash_wide<T><<<g,_BLOCK_SIZE_,0,set_ptr->stream>>>(
           out,in,sit_packed[lev-1],hop_nn[lev-1],hop_diag[lev-1],E,Xc,Yc,Zc,Ltc);
@@ -1196,10 +1215,26 @@ template <typename T> struct LatticeCloverMultigrid {
     dim3 g((n + _BLOCK_SIZE_ - 1) / _BLOCK_SIZE_);
     if (mg_multi) {
       exchange_coarse_halo_typed<U>(lev, in, st);
-      multigrid_coarse_dslash_wide_halo<U><<<g, _BLOCK_SIZE_, 0,
-                                             set_ptr->stream>>>(
-          out, in, st.halo_device, sit_packed[lev - 1], hop_nn[lev - 1],
-          hop_diag[lev - 1], E, X, Y, Z, Lt);
+      if (qcu_mpi_overlap_enabled()) {
+        multigrid_coarse_dslash_wide_halo_region<U>
+            <<<g, _BLOCK_SIZE_, 0, set_ptr->stream>>>(
+                out, in, coarse_exchange[lev].device_halo(),
+                sit_packed[lev - 1], hop_nn[lev - 1], hop_diag[lev - 1], E, X,
+                Y, Z, Lt, 0);
+        coarse_exchange[lev].finish(set_ptr->stream);
+        multigrid_coarse_dslash_wide_halo_region<U>
+            <<<g, _BLOCK_SIZE_, 0, set_ptr->stream>>>(
+                out, in, coarse_exchange[lev].device_halo(),
+                sit_packed[lev - 1], hop_nn[lev - 1], hop_diag[lev - 1], E, X,
+                Y, Z, Lt, 1);
+      } else {
+        coarse_exchange[lev].finish(set_ptr->stream);
+        multigrid_coarse_dslash_wide_halo<U>
+            <<<g, _BLOCK_SIZE_, 0, set_ptr->stream>>>(
+                out, in, coarse_exchange[lev].device_halo(),
+                sit_packed[lev - 1], hop_nn[lev - 1], hop_diag[lev - 1], E, X,
+                Y, Z, Lt);
+      }
     } else {
       multigrid_coarse_dslash_wide<U><<<g, _BLOCK_SIZE_, 0,
                                         set_ptr->stream>>>(
@@ -3258,14 +3293,9 @@ template <typename T> struct LatticeCloverMultigrid {
           mixed_levels[lev].alloc<double>(levels[lev].dof, levels[lev].X,
               levels[lev].Y, levels[lev].Z, levels[lev].Lt, set_ptr->stream);
         }
-        if (mg_multi) {
-          if (level_data_type[lev] == _LAT_C64_)
-            mixed_levels[lev].alloc_halo<float>(set_ptr->stream);
-          else
-            mixed_levels[lev].alloc_halo<double>(set_ptr->stream);
-        }
       }
-    } else if (mg_multi) {
+    }
+    if (mg_multi) {
       for (int lev = 1; lev < num_levels; ++lev)
         init_coarse_halo_state(lev, level_data_type[lev], levels[lev].dof,
                                levels[lev].X, levels[lev].Y, levels[lev].Z,
@@ -5132,6 +5162,7 @@ template <typename T> struct LatticeCloverMultigrid {
     if(check_host!=nullptr){cudaFreeHost(check_host);check_host=nullptr;check_dev=nullptr;}
     for (int i = 1; i < num_levels; ++i) {
       levels[i].free_all(set_ptr->stream);
+      coarse_exchange[i].release();
       coarse_halo[i].free_all(set_ptr->stream);
     }
     if (mixed_levels != nullptr) {
