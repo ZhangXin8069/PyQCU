@@ -42,6 +42,7 @@
 #include <cstdlib>
 #include <fstream>
 #include <iomanip>
+#include <limits>
 #include <sstream>
 #include <string>
 #include <sys/stat.h>
@@ -49,6 +50,10 @@
 #include <complex>
 
 namespace qcu {
+
+// Recursive cycle selected by the _MG_USE_GCR_ mode bits.  V is the
+// backwards-compatible default (no cycle bit set).
+enum class MgCycleKind { V = 0, W = 1, F = 2, K = 3 };
 
 /**
  * @brief Single-block reduction dot product for tiny coarse-level vectors.
@@ -212,6 +217,66 @@ __global__ void mg_mr_update_xr(LatticeComplex<T> *x, LatticeComplex<T> *r,
   LatticeComplex<T> alpha = dv[_alpha_];
   x[i] = x[i] + alpha * r[i];
   r[i] = r[i] - alpha * ar[i];
+}
+
+// ====================================================================
+// Fixed-step Chebyshev semi-iteration for smoothing.
+// --------------------------------------------------------------------
+// The usual Chebyshev smoother assumes a positive-real spectrum.  The
+// coarse Schur operator used by this backend is only gamma5-Hermitian, so
+// this is intentionally an explicit, approximate smoother rather than a
+// replacement for BiCGStab.  The host supplies conservative bounds and the
+// kernels reject non-finite updates.  A rejected update leaves the previous
+// finite vector untouched; this is important because a bad polynomial step
+// must not poison the enclosing Krylov solve.
+// ====================================================================
+template <typename T>
+__device__ inline bool mg_cheb_bad(const LatticeComplex<T> &z) {
+  return !((z.real() == z.real()) && (z.imag() == z.imag()) &&
+           fabs(z.real()) != INFINITY && fabs(z.imag()) != INFINITY);
+}
+
+template <typename T>
+__global__ void mg_cheb_update_p_x(LatticeComplex<T> *p, LatticeComplex<T> *x,
+                                   const LatticeComplex<T> *r, T alpha, T beta,
+                                   int n, int *bad) {
+  size_t i = blockIdx.x * (size_t)blockDim.x + threadIdx.x;
+  if (i >= (size_t)n) return;
+  LatticeComplex<T> pi = p[i];
+  LatticeComplex<T> ri = r[i];
+  LatticeComplex<T> xi = x[i];
+  if (mg_cheb_bad(pi) || mg_cheb_bad(ri) || mg_cheb_bad(xi)) {
+    if (bad != nullptr) atomicExch(bad, 1);
+    return;
+  }
+  LatticeComplex<T> pn = ri * alpha + pi * beta;
+  LatticeComplex<T> xn = xi + pn;
+  if (mg_cheb_bad(pn) || mg_cheb_bad(xn)) {
+    if (bad != nullptr) atomicExch(bad, 1);
+    return;
+  }
+  p[i] = pn;
+  x[i] = xn;
+}
+
+template <typename T>
+__global__ void mg_cheb_update_r(LatticeComplex<T> *r,
+                                 const LatticeComplex<T> *ap, int n,
+                                 int *bad) {
+  size_t i = blockIdx.x * (size_t)blockDim.x + threadIdx.x;
+  if (i >= (size_t)n) return;
+  LatticeComplex<T> ri = r[i];
+  LatticeComplex<T> ai = ap[i];
+  if (mg_cheb_bad(ri) || mg_cheb_bad(ai)) {
+    if (bad != nullptr) atomicExch(bad, 1);
+    return;
+  }
+  LatticeComplex<T> rn = ri - ai;
+  if (mg_cheb_bad(rn)) {
+    if (bad != nullptr) atomicExch(bad, 1);
+    return;
+  }
+  r[i] = rn;
 }
 
 // ====================================================================
@@ -410,12 +475,13 @@ template <> inline MPI_Datatype mpi_real_type<double>() { return MPI_DOUBLE; }
 
 // ---- Per-level state container ----
 template <typename T> struct MgLevelState {
-  void *x, *rhs, *r, *r_tilde, *p, *v, *s, *t;
-  int dof, X, Y, Z, Lt, vol;
-  size_t vec_sz;
-  bool owned;        // true = buffers allocated by us, false = external (level 0)
-  bool is_fullsite;  // true = this level operates on FULL-site vectors (no parity)
-  bool has_solution; // true = x holds a usable previous solution (warm start)
+  void *x = nullptr, *rhs = nullptr, *r = nullptr, *r_tilde = nullptr;
+  void *p = nullptr, *v = nullptr, *s = nullptr, *t = nullptr;
+  int dof = 0, X = 0, Y = 0, Z = 0, Lt = 0, vol = 0;
+  size_t vec_sz = 0;
+  bool owned = false; // true = buffers allocated by us, false = external (level 0)
+  bool is_fullsite = false; // true = this level operates on FULL-site vectors
+  bool has_solution = false; // true = x holds a usable previous solution
   T r0_ref = 0;      // dev84: ||r|| of the FIRST solve at this level — the
                      // absolute anchor for the relative tolerance (warm-start
                      // cycles would otherwise chase an ever-shrinking target)
@@ -446,6 +512,85 @@ template <typename T> struct MgLevelState {
   }
 };
 
+// Type-erased storage for a coarse level.  The level's data_type determines
+// how every pointer is allocated and later dispatched; no mixed buffer is ever
+// reinterpreted as the enclosing fine-level T.  This is deliberately separate
+// from MgLevelState<T>, preserving the old homogeneous fast path and its ABI.
+struct MgLevelStateAny {
+  void *x = nullptr, *rhs = nullptr, *r = nullptr, *r_tilde = nullptr;
+  void *p = nullptr, *v = nullptr, *s = nullptr, *t = nullptr;
+  void *dot_tmp = nullptr, *dot_partials = nullptr;
+  void *halo_device = nullptr, *input_host = nullptr, *halo_host = nullptr;
+  int data_type = _LAT_C64_;
+  int dof = 0, X = 0, Y = 0, Z = 0, Lt = 0, vol = 0;
+  size_t vec_sz = 0;
+  size_t elem_bytes = 0;
+  bool owned = false;
+  bool has_solution = false;
+  int max_iter = 0, num_restart = 0;
+  double tol = 0.0;
+
+  template <typename U>
+  void alloc(int _dof, int _X, int _Y, int _Z, int _Lt,
+             cudaStream_t stream) {
+    dof = _dof; X = _X; Y = _Y; Z = _Z; Lt = _Lt;
+    vol = X * Y * Z * Lt;
+    vec_sz = static_cast<size_t>(dof) * static_cast<size_t>(vol);
+    elem_bytes = sizeof(LatticeComplex<U>);
+    data_type = std::is_same<U, double>::value ? _LAT_C128_ : _LAT_C64_;
+    size_t nbytes = vec_sz * elem_bytes;
+    checkCudaErrors(cudaMallocAsync(&x, nbytes, stream));
+    checkCudaErrors(cudaMallocAsync(&rhs, nbytes, stream));
+    checkCudaErrors(cudaMallocAsync(&r, nbytes, stream));
+    checkCudaErrors(cudaMallocAsync(&r_tilde, nbytes, stream));
+    checkCudaErrors(cudaMallocAsync(&p, nbytes, stream));
+    checkCudaErrors(cudaMallocAsync(&v, nbytes, stream));
+    checkCudaErrors(cudaMallocAsync(&s, nbytes, stream));
+    checkCudaErrors(cudaMallocAsync(&t, nbytes, stream));
+    checkCudaErrors(cudaMallocAsync(&dot_tmp, elem_bytes, stream));
+    checkCudaErrors(cudaMallocAsync(&dot_partials,
+                                    1024 * elem_bytes, stream));
+    owned = true;
+    checkCudaErrors(cudaMemsetAsync(x, 0, nbytes, stream));
+    checkCudaErrors(cudaMemsetAsync(rhs, 0, nbytes, stream));
+    has_solution = false;
+  }
+
+  template <typename U>
+  void alloc_halo(cudaStream_t stream) {
+    size_t nbytes = vec_sz * sizeof(LatticeComplex<U>);
+    size_t hvol = static_cast<size_t>(X + 2) * static_cast<size_t>(Y + 2) *
+                  static_cast<size_t>(Z + 2) * static_cast<size_t>(Lt + 2);
+    checkCudaErrors(cudaMallocAsync(&halo_device,
+                                    hvol * static_cast<size_t>(dof) *
+                                        sizeof(LatticeComplex<U>), stream));
+    checkCudaErrors(cudaMallocHost(&input_host, nbytes));
+    checkCudaErrors(cudaMallocHost(&halo_host,
+                                   hvol * static_cast<size_t>(dof) *
+                                       sizeof(LatticeComplex<U>)));
+  }
+
+  void free_all(cudaStream_t stream) {
+    auto F = [&](void *&p) {
+      if (p != nullptr) {
+        checkCudaErrors(cudaFreeAsync(p, stream));
+        p = nullptr;
+      }
+    };
+    F(x); F(rhs); F(r); F(r_tilde); F(p); F(v); F(s); F(t);
+    F(dot_tmp); F(dot_partials); F(halo_device);
+    if (input_host != nullptr) {
+      checkCudaErrors(cudaFreeHost(input_host));
+      input_host = nullptr;
+    }
+    if (halo_host != nullptr) {
+      checkCudaErrors(cudaFreeHost(halo_host));
+      halo_host = nullptr;
+    }
+    owned = false;
+  }
+};
+
 // ====================================================================
 // Main solver class
 // ====================================================================
@@ -463,7 +608,14 @@ template <typename T> struct LatticeCloverMultigrid {
 
   // ---- Multigrid hierarchy ----
   int num_levels, mg_grid_size[4];
-  MgLevelState<T> *levels;
+  MgLevelState<T> *levels = nullptr;
+  // Distributed coarse-grid halo/staging state.  The array is type-erased so
+  // the same exchange implementation can serve homogeneous and mixed trees;
+  // only halo_* / input_host are used for the homogeneous entries.
+  MgLevelStateAny coarse_halo[8];
+  MgLevelStateAny *mixed_levels = nullptr;
+  int level_data_type[8] = {};
+  bool mixed_precision = false;
   // SCHUR-consistent coarse operators (33-tensor stencil):
   //   null_vecs[fl]  — odd-lattice null vectors [E_{l+1}, 12, X_l, Y_l, Z_l, T_l/2]
   //   hop_nn[fl]     — nearest-neighbour hopping [2, 4, E, E, X_c, Y_c, Z_c, T_c]
@@ -477,6 +629,9 @@ template <typename T> struct LatticeCloverMultigrid {
   int num_restart, rank;
   int solver_mode = 0;
   bool use_mr_smoother = false;
+  bool use_chebyshev_smoother = false;
+  bool use_bicgstab_l = false;
+  MgCycleKind cycle_kind = MgCycleKind::V;
   bool verbose;
   T kappa_val;
 
@@ -516,12 +671,10 @@ template <typename T> struct LatticeCloverMultigrid {
   double solve_time_ms;
 
   // ---- Multi-rank (multi-GPU) support ----
-  // The backend runs the redundant-global model: every rank holds the FULL
-  // (parity-halved) lattice, keeps it consistent via halo exchange, and
-  // synchronises scalars with MPI_Allreduce.  Coarse dslash needs no inter-rank
-  // data (periodic wrap on the full coarse grid is exact), but coarse dots must
-  // be Allreduced so every rank sees the global value.  Single-rank runs never
-  // touch the MPI paths.
+  // Fine fields are rank-local and all scalar products are globally reduced.
+  // Each coarse level is rank-local as well; its 33-point stencil obtains the
+  // one-site remote halo through the common host-staging exchange in
+  // lattice_multigrid.h.  Single-rank runs retain the no-MPI fast path.
   bool mg_multi = false;          // true when the 4D process grid != 1x1x1x1
 
   // ---- Section timing (2026-08-02) ----
@@ -580,7 +733,6 @@ template <typename T> struct LatticeCloverMultigrid {
   double prof_ck_kernel_ms = 0;  // dev84: check breakdown — dot-kernel launch
   double prof_ck_d2h_ms = 0;     // dev84: check breakdown — memcpy enqueue
   double prof_ck_sync_ms = 0;    // dev84: check breakdown — stream sync
-  long mg_cycle_counter = 0;     // dev84: V-cycle counter for safety-check cadence
   // dev84 zero-copy staging: dot results land directly in host-visible pinned
   // memory (cudaHostAllocMapped) — no cudaMemcpyAsync D2H anywhere in the
   // coarse path.  [0]=residual norm²  [1]=cold-solve ‖rhs‖²
@@ -624,6 +776,38 @@ template <typename T> struct LatticeCloverMultigrid {
         out,set_ptr->device_vec2,set_ptr->device_vec1,kappa_val,set_ptr->device_vals);
   }
 
+  // Exchange one local coarse vector into the one-site padded halo shared by
+  // all coarse dslash paths.  The implementation lives in
+  // lattice_multigrid.h so homogeneous and mixed-precision trees cannot drift
+  // apart in their MPI boundary conventions.
+  template <typename U>
+  void exchange_coarse_halo_typed(int lev, void *in,
+                                  MgLevelStateAny &hs) {
+    (void)lev;
+    multigrid_exchange_coarse_halo<U, T>(
+        set_ptr, in, hs.dof, hs.X, hs.Y, hs.Z, hs.Lt, hs.input_host,
+        hs.halo_host, hs.halo_device);
+  }
+
+  void init_coarse_halo_state(int lev, int data_type, int E, int X, int Y,
+                              int Z, int Lt) {
+    coarse_halo[lev].data_type = data_type;
+    coarse_halo[lev].dof = E;
+    coarse_halo[lev].X = X;
+    coarse_halo[lev].Y = Y;
+    coarse_halo[lev].Z = Z;
+    coarse_halo[lev].Lt = Lt;
+    coarse_halo[lev].vol = X * Y * Z * Lt;
+    coarse_halo[lev].vec_sz = static_cast<size_t>(E) * coarse_halo[lev].vol;
+    if (data_type == _LAT_C64_) {
+      coarse_halo[lev].elem_bytes = sizeof(LatticeComplex<float>);
+      coarse_halo[lev].alloc_halo<float>(set_ptr->stream);
+    } else {
+      coarse_halo[lev].elem_bytes = sizeof(LatticeComplex<double>);
+      coarse_halo[lev].alloc_halo<double>(set_ptr->stream);
+    }
+  }
+
   /**
    * @brief Coarse-grid Schur-consistent dslash (wide 33-tensor stencil).
    *
@@ -639,8 +823,16 @@ template <typename T> struct LatticeCloverMultigrid {
     int t=E*Xc*Yc*Zc*Ltc;
     dim3 g((t+_BLOCK_SIZE_-1)/_BLOCK_SIZE_);
     auto p0=std::chrono::high_resolution_clock::now();
-    multigrid_coarse_dslash_wide<T><<<g,_BLOCK_SIZE_,0,set_ptr->stream>>>(
-        out,in,sit_packed[lev-1],hop_nn[lev-1],hop_diag[lev-1],E,Xc,Yc,Zc,Ltc);
+    if (mg_multi) {
+      MgLevelStateAny &hs = coarse_halo[lev];
+      exchange_coarse_halo_typed<T>(lev, in, hs);
+      multigrid_coarse_dslash_wide_halo<T><<<g,_BLOCK_SIZE_,0,set_ptr->stream>>>(
+          out,in,hs.halo_device,sit_packed[lev-1],hop_nn[lev-1],
+          hop_diag[lev-1],E,Xc,Yc,Zc,Ltc);
+    } else {
+      multigrid_coarse_dslash_wide<T><<<g,_BLOCK_SIZE_,0,set_ptr->stream>>>(
+          out,in,sit_packed[lev-1],hop_nn[lev-1],hop_diag[lev-1],E,Xc,Yc,Zc,Ltc);
+    }
     auto p1=std::chrono::high_resolution_clock::now();
     prof_coarse_dslash_ms += std::chrono::duration<double,std::milli>(p1-p0).count();
   }
@@ -847,6 +1039,465 @@ template <typename T> struct LatticeCloverMultigrid {
         fo,ci,null_vecs[fl],E,e,Xf,Yf,Zf,Ltf,Xc,Yc,Zc,Ltc);
   }
 
+  int mixed_dof(int lev) const {
+    return lev == 0 ? levels[0].dof : mixed_levels[lev].dof;
+  }
+  int mixed_X(int lev) const {
+    return lev == 0 ? levels[0].X : mixed_levels[lev].X;
+  }
+  int mixed_Y(int lev) const {
+    return lev == 0 ? levels[0].Y : mixed_levels[lev].Y;
+  }
+  int mixed_Z(int lev) const {
+    return lev == 0 ? levels[0].Z : mixed_levels[lev].Z;
+  }
+  int mixed_Lt(int lev) const {
+    return lev == 0 ? levels[0].Lt : mixed_levels[lev].Lt;
+  }
+  size_t mixed_vec_sz(int lev) const {
+    return lev == 0 ? levels[0].vec_sz : mixed_levels[lev].vec_sz;
+  }
+
+  template <typename Out, typename In>
+  void mixed_restrict_typed(void *co, void *fi, int fl) {
+    const int l = fl + 1;
+    const int E = mixed_dof(l), e = mixed_dof(fl);
+    const int Xf = mixed_X(fl), Yf = mixed_Y(fl), Zf = mixed_Z(fl);
+    const int Tf = mixed_Lt(fl);
+    const int Xc = mixed_X(l), Yc = mixed_Y(l), Zc = mixed_Z(l);
+    const int Tc = mixed_Lt(l);
+    const int n = E * Xc * Yc * Zc * Tc;
+    dim3 g((n + _BLOCK_SIZE_ - 1) / _BLOCK_SIZE_);
+    multigrid_restrict_cast<Out, In><<<g, _BLOCK_SIZE_, 0, set_ptr->stream>>>(
+        co, fi, null_vecs[fl], E, e, Xf, Yf, Zf, Tf, Xc, Yc, Zc, Tc);
+  }
+
+  // Restriction is parent precision -> child precision.  Null vectors are
+  // stored in the child precision, so the four explicit combinations are
+  // selected from the params record rather than inferred from pointer size.
+  void mixed_restrict_op(void *co, void *fi, int fl) {
+    const int parent_type = level_data_type[fl];
+    const int child_type = level_data_type[fl + 1];
+    if (child_type == _LAT_C64_ && parent_type == _LAT_C64_)
+      mixed_restrict_typed<float, float>(co, fi, fl);
+    else if (child_type == _LAT_C64_ && parent_type == _LAT_C128_)
+      mixed_restrict_typed<float, double>(co, fi, fl);
+    else if (child_type == _LAT_C128_ && parent_type == _LAT_C64_)
+      mixed_restrict_typed<double, float>(co, fi, fl);
+    else if (child_type == _LAT_C128_ && parent_type == _LAT_C128_)
+      mixed_restrict_typed<double, double>(co, fi, fl);
+    else
+      throw std::invalid_argument("Clover Multigrid: invalid restriction precision pair");
+  }
+
+  template <typename Out, typename In>
+  void mixed_prolong_typed(void *fo, void *ci, int fl) {
+    const int l = fl + 1;
+    const int E = mixed_dof(l), e = mixed_dof(fl);
+    const int Xf = mixed_X(fl), Yf = mixed_Y(fl), Zf = mixed_Z(fl);
+    const int Tf = mixed_Lt(fl);
+    const int Xc = mixed_X(l), Yc = mixed_Y(l), Zc = mixed_Z(l);
+    const int Tc = mixed_Lt(l);
+    const int n = e * Xf * Yf * Zf * Tf;
+    dim3 g((n + _BLOCK_SIZE_ - 1) / _BLOCK_SIZE_);
+    multigrid_prolong_cast<Out, In><<<g, _BLOCK_SIZE_, 0, set_ptr->stream>>>(
+        fo, ci, null_vecs[fl], E, e, Xf, Yf, Zf, Tf, Xc, Yc, Zc, Tc);
+  }
+
+  // Prolongation is child precision -> parent precision.  The null vectors
+  // remain in the child precision (the In template argument); only the
+  // accumulated correction is cast to the parent output type.
+  void mixed_prolong_op(void *fo, void *ci, int fl) {
+    const int parent_type = level_data_type[fl];
+    const int child_type = level_data_type[fl + 1];
+    if (parent_type == _LAT_C64_ && child_type == _LAT_C64_)
+      mixed_prolong_typed<float, float>(fo, ci, fl);
+    else if (parent_type == _LAT_C64_ && child_type == _LAT_C128_)
+      mixed_prolong_typed<float, double>(fo, ci, fl);
+    else if (parent_type == _LAT_C128_ && child_type == _LAT_C64_)
+      mixed_prolong_typed<double, float>(fo, ci, fl);
+    else if (parent_type == _LAT_C128_ && child_type == _LAT_C128_)
+      mixed_prolong_typed<double, double>(fo, ci, fl);
+    else
+      throw std::invalid_argument("Clover Multigrid: invalid prolongation precision pair");
+  }
+
+  template <typename U>
+  void mixed_zero_typed(void *v, size_t n) {
+    checkCudaErrors(cudaMemsetAsync(v, 0, n * sizeof(LatticeComplex<U>),
+                                    set_ptr->stream));
+  }
+
+  template <typename U>
+  void mixed_copy_typed(void *dst, const void *src, size_t n) {
+    checkCudaErrors(cudaMemcpyAsync(dst, src, n * sizeof(LatticeComplex<U>),
+                                    cudaMemcpyDeviceToDevice,
+                                    set_ptr->stream));
+  }
+
+  template <typename U>
+  void mixed_axpy_typed(void *y, const void *x, size_t n,
+                        const std::complex<U> &alpha) {
+    LatticeComplex<U> a(static_cast<U>(alpha.real()),
+                        static_cast<U>(alpha.imag()));
+    CUBLAS_CHECK(_cublasAxpy<U>(set_ptr->cublasH, static_cast<int>(n), &a,
+                                x, 1, y, 1));
+  }
+
+  template <typename U>
+  std::complex<U> mixed_dot_host_typed(int lev, const void *a,
+                                       const void *b) {
+    MgLevelStateAny &st = mixed_levels[lev];
+    const int n = static_cast<int>(st.vec_sz);
+    LatticeComplex<U> *tmp = static_cast<LatticeComplex<U> *>(st.dot_tmp);
+    if (n >= 65536) {
+      int nblk = (n + 255) / 256;
+      if (nblk > 1024) nblk = 1024;
+      coarse_dot_kernel_multi<U, 256><<<nblk, 256, 0, set_ptr->stream>>>(
+          static_cast<const LatticeComplex<U> *>(a),
+          static_cast<const LatticeComplex<U> *>(b), n,
+          static_cast<LatticeComplex<U> *>(st.dot_partials));
+      coarse_dot_reduce_kernel<U, 256><<<1, 256, 0, set_ptr->stream>>>(
+          static_cast<const LatticeComplex<U> *>(st.dot_partials), nblk,
+          tmp);
+    } else {
+      coarse_dot_kernel<U, 256><<<1, 256, 0, set_ptr->stream>>>(
+          static_cast<const LatticeComplex<U> *>(a),
+          static_cast<const LatticeComplex<U> *>(b), n, tmp);
+    }
+    LatticeComplex<U> host(0, 0);
+    checkCudaErrors(cudaMemcpyAsync(&host, tmp, sizeof(host),
+                                    cudaMemcpyDeviceToHost,
+                                    set_ptr->stream));
+    checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
+    U re = host.real(), im = host.imag();
+    if (mg_multi) {
+      MPI_Allreduce(MPI_IN_PLACE, &re, 1, mpi_real_type<U>(), MPI_SUM,
+                    MPI_COMM_WORLD);
+      MPI_Allreduce(MPI_IN_PLACE, &im, 1, mpi_real_type<U>(), MPI_SUM,
+                    MPI_COMM_WORLD);
+    }
+    return std::complex<U>(re, im);
+  }
+
+  template <typename U>
+  T mixed_norm_as_fine_typed(int lev, const void *v) {
+    std::complex<U> z = mixed_dot_host_typed<U>(lev, v, v);
+    U value = z.real();
+    return static_cast<T>(sqrt(value > (U)0 && std::isfinite(value)
+                                    ? value : (U)0));
+  }
+
+  template <typename U>
+  void mixed_coarse_dslash_typed(int lev, void *out, void *in) {
+    MgLevelStateAny &st = mixed_levels[lev];
+    const int E = st.dof, X = st.X, Y = st.Y, Z = st.Z, Lt = st.Lt;
+    const int n = E * X * Y * Z * Lt;
+    dim3 g((n + _BLOCK_SIZE_ - 1) / _BLOCK_SIZE_);
+    if (mg_multi) {
+      exchange_coarse_halo_typed<U>(lev, in, st);
+      multigrid_coarse_dslash_wide_halo<U><<<g, _BLOCK_SIZE_, 0,
+                                             set_ptr->stream>>>(
+          out, in, st.halo_device, sit_packed[lev - 1], hop_nn[lev - 1],
+          hop_diag[lev - 1], E, X, Y, Z, Lt);
+    } else {
+      multigrid_coarse_dslash_wide<U><<<g, _BLOCK_SIZE_, 0,
+                                        set_ptr->stream>>>(
+          out, in, sit_packed[lev - 1], hop_nn[lev - 1], hop_diag[lev - 1],
+          E, X, Y, Z, Lt);
+    }
+  }
+
+  void mixed_coarse_dslash_op(void *out, void *in, int lev) {
+    if (level_data_type[lev] == _LAT_C64_)
+      mixed_coarse_dslash_typed<float>(lev, out, in);
+    else if (level_data_type[lev] == _LAT_C128_)
+      mixed_coarse_dslash_typed<double>(lev, out, in);
+    else
+      throw std::invalid_argument("Clover Multigrid: invalid coarse dslash precision");
+  }
+
+  template <typename U>
+  void mixed_compute_residual_typed(int lev) {
+    MgLevelStateAny &st = mixed_levels[lev];
+    mixed_coarse_dslash_typed<U>(lev, st.v, st.x);
+    mixed_copy_typed<U>(st.r, st.rhs, st.vec_sz);
+    mixed_axpy_typed<U>(st.r, st.v, st.vec_sz,
+                        std::complex<U>(static_cast<U>(-1), 0));
+  }
+
+  // Level 0 is the physical fine Schur operator and is owned by the
+  // enclosing LatticeCloverMultigrid<T>, not by a type-erased coarse state.
+  // Keep this separate from mixed_compute_residual_typed(): the latter uses
+  // the Galerkin stencil indexed by (lev - 1), which does not exist at lev=0.
+  void mixed_compute_fine_residual() {
+    MgLevelState<T> &st = levels[0];
+    fine_dslash_op(set_ptr->device_vec0, st.x);
+    bistabcg_give_diff2<T><<<set_ptr->gridDim, set_ptr->blockDim, 0,
+                              set_ptr->stream>>>(
+        st.rhs, set_ptr->device_vec0, st.r,
+        static_cast<void *>(set_ptr->device_vals));
+  }
+
+  template <typename U>
+  void mixed_smooth_typed(int lev, int n_iter) {
+    MgLevelStateAny &st = mixed_levels[lev];
+    for (int k = 0; k < n_iter; ++k) {
+      mixed_coarse_dslash_typed<U>(lev, st.v, st.r);
+      std::complex<U> num = mixed_dot_host_typed<U>(lev, st.v, st.r);
+      std::complex<U> den = mixed_dot_host_typed<U>(lev, st.v, st.v);
+      U den_abs = static_cast<U>(std::abs(den));
+      if (!std::isfinite(den_abs) || den_abs <= (U)1e-30) break;
+      std::complex<U> alpha = num / den;
+      if (!std::isfinite(alpha.real()) || !std::isfinite(alpha.imag())) break;
+      mixed_axpy_typed<U>(st.x, st.r, st.vec_sz, alpha);
+      mixed_axpy_typed<U>(st.r, st.v, st.vec_sz, -alpha);
+    }
+  }
+
+  template <typename U>
+  void mixed_smooth_cg_typed(int lev, int n_iter) {
+    MgLevelStateAny &st = mixed_levels[lev];
+    mixed_copy_typed<U>(st.p, st.r, st.vec_sz);
+    std::complex<U> rr = mixed_dot_host_typed<U>(lev, st.r, st.r);
+    for (int k = 0; k < n_iter; ++k) {
+      if (!std::isfinite(rr.real()) || !std::isfinite(rr.imag()) ||
+          rr.real() <= (U)1e-30)
+        break;
+      mixed_coarse_dslash_typed<U>(lev, st.v, st.p);
+      std::complex<U> pap = mixed_dot_host_typed<U>(lev, st.p, st.v);
+      if (!std::isfinite(pap.real()) || !std::isfinite(pap.imag()) ||
+          std::abs(pap) <= (U)1e-30)
+        break;
+      std::complex<U> alpha = rr / pap;
+      if (!std::isfinite(alpha.real()) || !std::isfinite(alpha.imag()))
+        break;
+      mixed_axpy_typed<U>(st.x, st.p, st.vec_sz, alpha);
+      mixed_axpy_typed<U>(st.r, st.v, st.vec_sz, -alpha);
+      std::complex<U> rr_new = mixed_dot_host_typed<U>(lev, st.r, st.r);
+      if (!std::isfinite(rr_new.real()) || !std::isfinite(rr_new.imag()) ||
+          rr_new.real() < (U)0)
+        break;
+      std::complex<U> beta = rr_new / rr;
+      mixed_copy_typed<U>(st.t, st.p, st.vec_sz);
+      mixed_copy_typed<U>(st.p, st.r, st.vec_sz);
+      mixed_axpy_typed<U>(st.p, st.t, st.vec_sz, beta);
+      rr = rr_new;
+    }
+  }
+
+  template <typename U>
+  void mixed_smooth_chebyshev_typed(int lev, int n_iter) {
+    if (n_iter <= 0) return;
+    MgLevelStateAny &st = mixed_levels[lev];
+    mixed_coarse_dslash_typed<U>(lev, st.v, st.r);
+    std::complex<U> rr = mixed_dot_host_typed<U>(lev, st.r, st.r);
+    std::complex<U> ar = mixed_dot_host_typed<U>(lev, st.v, st.v);
+    U rr_real = rr.real(), ar_real = ar.real();
+    U ratio = rr_real > (U)0 && ar_real >= (U)0
+                  ? static_cast<U>(sqrt(ar_real / rr_real))
+                  : (U)1;
+    if (!std::isfinite(ratio) || ratio <= (U)0) ratio = (U)1;
+    U lambda_max = (U)8 * ratio;
+    if (!std::isfinite(lambda_max) || lambda_max < (U)1)
+      lambda_max = (U)1;
+    if (lambda_max > (U)1e6) lambda_max = (U)1e6;
+    U lambda_min = (U)0.05 * lambda_max;
+    U theta = (lambda_max + lambda_min) * (U)0.5;
+    U delta = (lambda_max - lambda_min) * (U)0.5;
+    if (!std::isfinite(theta) || theta <= (U)0) return;
+    U alpha = (U)1 / theta, beta = (U)0;
+    mixed_zero_typed<U>(st.p, st.vec_sz);
+    for (int k = 0; k < n_iter; ++k) {
+      mixed_copy_typed<U>(st.t, st.p, st.vec_sz);
+      mixed_zero_typed<U>(st.p, st.vec_sz);
+      mixed_axpy_typed<U>(st.p, st.r, st.vec_sz,
+                          std::complex<U>(alpha, 0));
+      if (beta != (U)0)
+        mixed_axpy_typed<U>(st.p, st.t, st.vec_sz,
+                            std::complex<U>(beta, 0));
+      mixed_axpy_typed<U>(st.x, st.p, st.vec_sz,
+                          std::complex<U>(1, 0));
+      mixed_coarse_dslash_typed<U>(lev, st.v, st.p);
+      mixed_axpy_typed<U>(st.r, st.v, st.vec_sz,
+                          std::complex<U>(-1, 0));
+      U next_beta = (delta * alpha * (U)0.5) *
+                    (delta * alpha * (U)0.5);
+      U denom = theta - next_beta;
+      if (!std::isfinite(next_beta) || !std::isfinite(denom) ||
+          denom <= (U)0) {
+        beta = (U)0;
+        alpha = (U)0.8 / lambda_max;
+      } else {
+        beta = next_beta;
+        alpha = (U)1 / denom;
+      }
+    }
+  }
+
+  template <typename U>
+  void mixed_solve_typed(int lev) {
+    MgLevelStateAny &st = mixed_levels[lev];
+    const size_t n = st.vec_sz;
+    mixed_zero_typed<U>(st.x, n);
+    mixed_copy_typed<U>(st.r, st.rhs, n);
+    mixed_copy_typed<U>(st.r_tilde, st.r, n);
+    mixed_zero_typed<U>(st.p, n);
+    mixed_zero_typed<U>(st.v, n);
+    mixed_zero_typed<U>(st.s, n);
+    mixed_zero_typed<U>(st.t, n);
+    checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
+
+    U rhs_norm = mixed_norm_as_fine_typed<U>(lev, st.rhs);
+    if (!std::isfinite(rhs_norm) || rhs_norm <= (U)1e-30) return;
+    U tol = static_cast<U>(st.tol > 0.0 ? st.tol : 1e-3);
+    U target = tol * rhs_norm;
+    U rn = mixed_norm_as_fine_typed<U>(lev, st.r);
+    std::complex<U> rho_prev(1, 0), alpha(1, 0), omega(1, 0);
+    const U scale = rhs_norm * rhs_norm > (U)1 ? rhs_norm * rhs_norm : (U)1;
+    for (int it = 0; it < st.max_iter && rn > target; ++it) {
+      std::complex<U> rho = mixed_dot_host_typed<U>(lev, st.r_tilde, st.r);
+      if (!std::isfinite(rho.real()) || !std::isfinite(rho.imag()) ||
+          std::abs(rho) <= (U)1e-13 * scale ||
+          std::abs(rho_prev) <= (U)1e-13 * scale ||
+          std::abs(omega) <= (U)1e-30) {
+        // A clean restart from the current residual is preferable to writing
+        // NaNs into a lower-precision coarse level.
+        mixed_copy_typed<U>(st.r_tilde, st.r, n);
+        rho_prev = std::complex<U>(1, 0);
+        alpha = std::complex<U>(1, 0);
+        omega = std::complex<U>(1, 0);
+        mixed_zero_typed<U>(st.p, n);
+        mixed_zero_typed<U>(st.v, n);
+        rho = mixed_dot_host_typed<U>(lev, st.r_tilde, st.r);
+        if (std::abs(rho) <= (U)1e-30) break;
+      }
+      std::complex<U> beta = (rho / rho_prev) * (alpha / omega);
+      // Preserve the previous search direction before replacing p.  The
+      // BiCGStab recurrence is p = r + beta * (p - omega*v); using p itself
+      // as both the source and destination after copying r would silently
+      // turn this into (1 + beta)r and discard the Krylov history.
+      mixed_copy_typed<U>(st.t, st.p, n);
+      mixed_copy_typed<U>(st.p, st.r, n);
+      mixed_axpy_typed<U>(st.p, st.t, n, beta);
+      mixed_axpy_typed<U>(st.p, st.v, n, -beta * omega);
+      mixed_coarse_dslash_typed<U>(lev, st.v, st.p);
+      std::complex<U> denom =
+          mixed_dot_host_typed<U>(lev, st.r_tilde, st.v);
+      if (std::abs(denom) <= (U)1e-30 || !std::isfinite(denom.real()) ||
+          !std::isfinite(denom.imag())) break;
+      alpha = rho / denom;
+      mixed_copy_typed<U>(st.s, st.r, n);
+      mixed_axpy_typed<U>(st.s, st.v, n, -alpha);
+      U sn = mixed_norm_as_fine_typed<U>(lev, st.s);
+      mixed_axpy_typed<U>(st.x, st.p, n, alpha);
+      if (sn <= target) {
+        mixed_copy_typed<U>(st.r, st.s, n);
+        rn = sn;
+        break;
+      }
+      mixed_coarse_dslash_typed<U>(lev, st.t, st.s);
+      std::complex<U> ts = mixed_dot_host_typed<U>(lev, st.t, st.s);
+      std::complex<U> tt = mixed_dot_host_typed<U>(lev, st.t, st.t);
+      if (std::abs(tt) <= (U)1e-30 || !std::isfinite(tt.real()) ||
+          !std::isfinite(tt.imag())) break;
+      omega = ts / tt;
+      mixed_axpy_typed<U>(st.x, st.s, n, omega);
+      mixed_copy_typed<U>(st.r, st.s, n);
+      mixed_axpy_typed<U>(st.r, st.t, n, -omega);
+      mixed_copy_typed<U>(st.p, st.p, n);
+      rn = mixed_norm_as_fine_typed<U>(lev, st.r);
+      rho_prev = rho;
+      if (!std::isfinite(rn)) break;
+    }
+  }
+
+  void mixed_smooth(int lev, int n_iter) {
+    if (use_chebyshev_smoother) {
+      if (level_data_type[lev] == _LAT_C64_)
+        mixed_smooth_chebyshev_typed<float>(lev, n_iter);
+      else
+        mixed_smooth_chebyshev_typed<double>(lev, n_iter);
+    } else if (use_mr_smoother) {
+      if (level_data_type[lev] == _LAT_C64_)
+        mixed_smooth_typed<float>(lev, n_iter);
+      else
+        mixed_smooth_typed<double>(lev, n_iter);
+    } else if (level_data_type[lev] == _LAT_C64_) {
+      mixed_smooth_cg_typed<float>(lev, n_iter);
+    } else {
+      mixed_smooth_cg_typed<double>(lev, n_iter);
+    }
+  }
+
+  void mixed_solve(int lev) {
+    if (level_data_type[lev] == _LAT_C64_)
+      mixed_solve_typed<float>(lev);
+    else
+      mixed_solve_typed<double>(lev);
+  }
+
+  void mixed_coarse_correction(int lev, MgCycleKind child_kind) {
+    const int parent_type = level_data_type[lev];
+    const size_t parent_n = mixed_vec_sz(lev);
+    const size_t parent_bytes = parent_n *
+        (parent_type == _LAT_C64_ ? sizeof(LatticeComplex<float>)
+                                  : sizeof(LatticeComplex<double>));
+    void *corr = nullptr;
+    checkCudaErrors(cudaMallocAsync(&corr, parent_bytes, set_ptr->stream));
+    mixed_restrict_op(mixed_levels[lev + 1].rhs, mixed_levels[lev].r, lev);
+    if (level_data_type[lev + 1] == _LAT_C64_)
+      mixed_zero_typed<float>(mixed_levels[lev + 1].x,
+                              mixed_levels[lev + 1].vec_sz);
+    else
+      mixed_zero_typed<double>(mixed_levels[lev + 1].x,
+                               mixed_levels[lev + 1].vec_sz);
+    mixed_v_cycle(lev + 1, child_kind);
+    mixed_prolong_op(corr, mixed_levels[lev + 1].x, lev);
+    if (parent_type == _LAT_C64_)
+      mixed_axpy_typed<float>(mixed_levels[lev].x, corr, parent_n,
+                              std::complex<float>(1, 0));
+    else
+      mixed_axpy_typed<double>(mixed_levels[lev].x, corr, parent_n,
+                               std::complex<double>(1, 0));
+    if (lev == 0) {
+      mixed_compute_fine_residual();
+    } else if (parent_type == _LAT_C64_) {
+      mixed_compute_residual_typed<float>(lev);
+    } else {
+      mixed_compute_residual_typed<double>(lev);
+    }
+    checkCudaErrors(cudaFreeAsync(corr, set_ptr->stream));
+  }
+
+  void mixed_v_cycle(int lev, MgCycleKind requested_kind) {
+    if (lev >= num_levels - 1) {
+      mixed_solve(lev);
+      return;
+    }
+    MgLevelStateAny &st = mixed_levels[lev];
+    if (level_data_type[lev] == _LAT_C64_) {
+      mixed_zero_typed<float>(st.x, st.vec_sz);
+      mixed_copy_typed<float>(st.r, st.rhs, st.vec_sz);
+    } else {
+      mixed_zero_typed<double>(st.x, st.vec_sz);
+      mixed_copy_typed<double>(st.r, st.rhs, st.vec_sz);
+    }
+    mixed_smooth(lev, 2);
+    if (requested_kind == MgCycleKind::W) {
+      mixed_coarse_correction(lev, MgCycleKind::W);
+      mixed_coarse_correction(lev, MgCycleKind::W);
+    } else if (requested_kind == MgCycleKind::F) {
+      mixed_coarse_correction(lev, MgCycleKind::F);
+      mixed_coarse_correction(lev, MgCycleKind::V);
+    } else if (requested_kind == MgCycleKind::K) {
+      mixed_coarse_correction(lev, MgCycleKind::K);
+    } else {
+      mixed_coarse_correction(lev, MgCycleKind::V);
+    }
+    mixed_smooth(lev, 1);
+  }
+
   // ==================================================================
   // Dot products — matching LatticeCloverBistabCg::_dot_mpi EXACTLY
   // ==================================================================
@@ -965,22 +1616,246 @@ template <typename T> struct LatticeCloverMultigrid {
     int t=(int)(eff / _LAT_SC_);
     return dim3((t+_BLOCK_SIZE_-1)/_BLOCK_SIZE_);
   }
+  dim3 vector_grid(size_t n) {
+    return dim3((int)((n + _BLOCK_SIZE_ - 1) / _BLOCK_SIZE_));
+  }
   void copy_c(void *d,void *s,int l) {
     give_copy_vals<T><<<site_grid(l),_BLOCK_SIZE_,0,set_ptr->stream>>>(d,s);
   }
 
+  // Host-visible norm helpers used only once per Chebyshev smoother call.
+  // Keeping the estimate outside the fixed-step recurrence preserves the
+  // usual Nsteps semantics while avoiding a host round-trip for every
+  // polynomial step.
+  T fine_norm2_host(void *v, int n) {
+    LatticeComplex<T> *dv =
+        static_cast<LatticeComplex<T> *>(set_ptr->device_vals);
+    cudaStream_t S = set_ptr->stream;
+    CUBLAS_CHECK(_cublasDot<T>(set_ptr->cublasH, n, v, 1, v, 1,
+                               &dv[_send_tmp_]));
+    checkCudaErrors(cudaMemcpyAsync(&host_vals[_send_tmp_], &dv[_send_tmp_],
+        sizeof(LatticeComplex<T>), cudaMemcpyDeviceToHost, S));
+    checkCudaErrors(cudaStreamSynchronize(S));
+    T value = host_vals[_send_tmp_].real();
+    if (mg_multi) {
+      MPI_Allreduce(MPI_IN_PLACE, &value, 1, mpi_real_type<T>(), MPI_SUM,
+                    MPI_COMM_WORLD);
+    }
+    return value > (T)0 && std::isfinite(value) ? value : (T)0;
+  }
+
+  std::complex<T> fine_dot_host(void *a, void *b, int n) {
+    LatticeComplex<T> *dv =
+        static_cast<LatticeComplex<T> *>(set_ptr->device_vals);
+    cudaStream_t S = set_ptr->stream;
+    CUBLAS_CHECK(_cublasDot<T>(set_ptr->cublasH, n, a, 1, b, 1,
+                               &dv[_send_tmp_]));
+    checkCudaErrors(cudaMemcpyAsync(&host_vals[_send_tmp_], &dv[_send_tmp_],
+        sizeof(LatticeComplex<T>), cudaMemcpyDeviceToHost, S));
+    checkCudaErrors(cudaStreamSynchronize(S));
+    T re = host_vals[_send_tmp_].real();
+    T im = host_vals[_send_tmp_].imag();
+    if (mg_multi) {
+      MPI_Allreduce(MPI_IN_PLACE, &re, 1, mpi_real_type<T>(), MPI_SUM,
+                    MPI_COMM_WORLD);
+      MPI_Allreduce(MPI_IN_PLACE, &im, 1, mpi_real_type<T>(), MPI_SUM,
+                    MPI_COMM_WORLD);
+    }
+    return std::complex<T>(re, im);
+  }
+
+  T coarse_norm2_host(int lev, void *v) {
+    LatticeComplex<T> *dest =
+        check_dev == nullptr
+            ? static_cast<LatticeComplex<T> *>(set_ptr->device_vals) +
+                  _send_tmp_
+            : static_cast<LatticeComplex<T> *>(check_dev);
+    coarse_dot_dest(lev, static_cast<const LatticeComplex<T> *>(v),
+                    static_cast<const LatticeComplex<T> *>(v), dest);
+    checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
+    T value = check_host == nullptr ? (T)0 : check_host[0].real();
+    if (mg_multi) {
+      MPI_Allreduce(MPI_IN_PLACE, &value, 1, mpi_real_type<T>(), MPI_SUM,
+                    MPI_COMM_WORLD);
+    }
+    return value > (T)0 && std::isfinite(value) ? value : (T)0;
+  }
+
+  // Estimate a deliberately conservative interval for the polynomial.  The
+  // ratio ||A r||/||r|| is only a sample of the spectrum, hence the factor 8;
+  // the lower endpoint is a smoothing cutoff rather than an assertion that
+  // the non-Hermitian Schur operator is positive definite.
+  void chebyshev_bounds(T ratio, T &lambda_min, T &lambda_max) {
+    if (!std::isfinite(ratio) || ratio <= (T)0) ratio = (T)1;
+    lambda_max = (T)8 * ratio;
+    if (!std::isfinite(lambda_max) || lambda_max < (T)1)
+      lambda_max = (T)1;
+    if (lambda_max > (T)1e6) lambda_max = (T)1e6;
+    lambda_min = (T)0.05 * lambda_max;
+    T theta = (lambda_max + lambda_min) * (T)0.5;
+    if (!std::isfinite(theta) || theta <= (T)0) {
+      lambda_min = (T)0.05;
+      lambda_max = (T)1;
+    }
+  }
+
+  void chebyshev_smooth_coarse(int lev, int n_iter) {
+    if (n_iter <= 0) return;
+    auto &st = levels[lev];
+    cudaStream_t S = set_ptr->stream;
+
+    // One sample matvec supplies a scale for this level.  This is intentionally
+    // performed once per call, not once per iteration.
+    coarse_dslash_op(st.v, st.r, lev);
+    T rr2 = coarse_norm2_host(lev, st.r);
+    T ar2 = coarse_norm2_host(lev, st.v);
+    T ratio = (rr2 > (T)0 && ar2 >= (T)0) ? sqrt(ar2 / rr2) : (T)1;
+    T lambda_min, lambda_max;
+    chebyshev_bounds(ratio, lambda_min, lambda_max);
+    T theta = (lambda_max + lambda_min) * (T)0.5;
+    T delta = (lambda_max - lambda_min) * (T)0.5;
+    T alpha = (theta > (T)0) ? (T)1 / theta : (T)0;
+    T beta = (T)0;
+    if (!std::isfinite(alpha) || alpha <= (T)0) {
+      alpha = (T)1 / lambda_max;
+      beta = (T)0;
+    }
+
+    zero_c(st.p, lev);
+    checkCudaErrors(cudaMemsetAsync(coarse_breakdown, 0, sizeof(int), S));
+    int n = static_cast<int>(st.vec_sz);
+    dim3 g = vector_grid(st.vec_sz);
+    for (int k = 0; k < n_iter; ++k) {
+      mg_cheb_update_p_x<T><<<g, _BLOCK_SIZE_, 0, S>>>(
+          static_cast<LatticeComplex<T> *>(st.p),
+          static_cast<LatticeComplex<T> *>(st.x),
+          static_cast<const LatticeComplex<T> *>(st.r), alpha, beta, n,
+          coarse_breakdown);
+      coarse_dslash_op(st.v, st.p, lev);
+      mg_cheb_update_r<T><<<g, _BLOCK_SIZE_, 0, S>>>(
+          static_cast<LatticeComplex<T> *>(st.r),
+          static_cast<const LatticeComplex<T> *>(st.v), n, coarse_breakdown);
+
+      // Chebyshev recurrence: beta_{k+1}=(delta*alpha_k/2)^2,
+      // alpha_{k+1}=1/(theta-beta_{k+1}).  Fall back to damped Richardson
+      // coefficients if roundoff or a bad estimate makes the recurrence
+      // unusable.
+      T next_beta = (delta * alpha * (T)0.5) *
+                    (delta * alpha * (T)0.5);
+      T denom = theta - next_beta;
+      if (!std::isfinite(next_beta) || !std::isfinite(denom) ||
+          denom <= (T)0) {
+        beta = (T)0;
+        alpha = (T)0.8 / lambda_max;
+      } else {
+        beta = next_beta;
+        alpha = (T)1 / denom;
+      }
+    }
+    checkCudaErrors(cudaStreamSynchronize(S));
+    int bad = 0;
+    checkCudaErrors(cudaMemcpy(&bad, coarse_breakdown, sizeof(int),
+                               cudaMemcpyDeviceToHost));
+    if (bad && rank == 0 && verbose) {
+      log_write<T>("PYQCU::SOLVER::MULTIGRID::\n Chebyshev smoother "
+                   "rejected a non-finite update at level " +
+                   std::to_string(lev), rank, true);
+    }
+  }
+
+  void chebyshev_smooth_fine(void *out, void *in, int n_iter) {
+    if (n_iter <= 0) return;
+    cudaStream_t S = set_ptr->stream;
+    const int n = static_cast<int>(set_ptr->lat_4dim_SC);
+
+    // The input residual is already in rt0.  Use device_vec1 only for the
+    // one-time scale sample, then reuse it as A p in the recurrence.
+    fine_dslash_op(set_ptr->device_vec1, in);
+    T rr2 = fine_norm2_host(in, n);
+    T ar2 = fine_norm2_host(set_ptr->device_vec1, n);
+    T ratio = (rr2 > (T)0 && ar2 >= (T)0) ? sqrt(ar2 / rr2) : (T)1;
+    T lambda_min, lambda_max;
+    chebyshev_bounds(ratio, lambda_min, lambda_max);
+    T theta = (lambda_max + lambda_min) * (T)0.5;
+    T delta = (lambda_max - lambda_min) * (T)0.5;
+    T alpha = (theta > (T)0) ? (T)1 / theta : (T)0;
+    T beta = (T)0;
+    if (!std::isfinite(alpha) || alpha <= (T)0) {
+      alpha = (T)1 / lambda_max;
+      beta = (T)0;
+    }
+
+    checkCudaErrors(cudaMemsetAsync(p0, 0,
+        (size_t)n * sizeof(LatticeComplex<T>), S));
+    checkCudaErrors(cudaMemsetAsync(coarse_breakdown, 0, sizeof(int), S));
+    dim3 g = vector_grid(n);
+    for (int k = 0; k < n_iter; ++k) {
+      mg_cheb_update_p_x<T><<<g, _BLOCK_SIZE_, 0, S>>>(
+          static_cast<LatticeComplex<T> *>(p0),
+          static_cast<LatticeComplex<T> *>(out),
+          static_cast<const LatticeComplex<T> *>(in), alpha, beta, n,
+          coarse_breakdown);
+      fine_dslash_op(set_ptr->device_vec1, p0);
+      mg_cheb_update_r<T><<<g, _BLOCK_SIZE_, 0, S>>>(
+          static_cast<LatticeComplex<T> *>(in),
+          static_cast<const LatticeComplex<T> *>(set_ptr->device_vec1), n,
+          coarse_breakdown);
+
+      T next_beta = (delta * alpha * (T)0.5) *
+                    (delta * alpha * (T)0.5);
+      T denom = theta - next_beta;
+      if (!std::isfinite(next_beta) || !std::isfinite(denom) ||
+          denom <= (T)0) {
+        beta = (T)0;
+        alpha = (T)0.8 / lambda_max;
+      } else {
+        beta = next_beta;
+        alpha = (T)1 / denom;
+      }
+    }
+    checkCudaErrors(cudaStreamSynchronize(S));
+    int bad = 0;
+    checkCudaErrors(cudaMemcpy(&bad, coarse_breakdown, sizeof(int),
+                               cudaMemcpyDeviceToHost));
+    if (bad && rank == 0 && verbose) {
+      log_write<T>("PYQCU::SOLVER::MULTIGRID::\n Chebyshev smoother "
+                   "rejected a non-finite fine update", rank, true);
+    }
+  }
+
   // ==================================================================
-  // dev84: coarse-level dot into a device_vals slot — NO host sync.
-  // Shared by bistabcg_iter_coarse() and coarse_resid_norm().  Multi-block
-  // path for n ≥ 65536 (dev76), single-block otherwise.  In the redundant-
-  // global multi-rank model all ranks compute bitwise-identical partials
-  // (replicated data, deterministic kernels), so no MPI Allreduce is needed
-  // here — matching the existing iteration semantics.
+  // Coarse-level dot into a device_vals slot.  Single-rank retains the
+  // original device-only path.  In a genuinely distributed coarse solve the
+  // scalar must be globally reduced before the following vector kernel reads
+  // it; a local dot is not equivalent to a replicated-global implementation
+  // once each rank owns only one coarse block.
   // ==================================================================
   void coarse_dot_slot(int lev, const LatticeComplex<T>* a,
                        const LatticeComplex<T>* b, int slot) {
-    coarse_dot_dest(lev, a, b,
-        &static_cast<LatticeComplex<T>*>(set_ptr->device_vals)[slot]);
+    LatticeComplex<T> *dv =
+        static_cast<LatticeComplex<T> *>(set_ptr->device_vals);
+    coarse_dot_dest(lev, a, b, &dv[slot]);
+    if (!mg_multi) return;
+
+    // coarse_dot_dest() is asynchronous and writes only the local scalar.
+    // Complete that stream work, reduce the two real components separately
+    // (MPI has no portable complex<T> datatype here), and publish the global
+    // value back to device_vals before the next update kernel is launched.
+    checkCudaErrors(cudaMemcpyAsync(&host_vals[slot], &dv[slot],
+        sizeof(LatticeComplex<T>), cudaMemcpyDeviceToHost,
+        set_ptr->stream));
+    checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
+    T re = host_vals[slot].real();
+    T im = host_vals[slot].imag();
+    MPI_Allreduce(MPI_IN_PLACE, &re, 1, mpi_real_type<T>(), MPI_SUM,
+                  MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &im, 1, mpi_real_type<T>(), MPI_SUM,
+                  MPI_COMM_WORLD);
+    host_vals[slot] = LatticeComplex<T>(re, im);
+    checkCudaErrors(cudaMemcpyAsync(&dv[slot], &host_vals[slot],
+        sizeof(LatticeComplex<T>), cudaMemcpyHostToDevice,
+        set_ptr->stream));
+    checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
   }
 
   // dev84: same dot with an EXPLICIT destination — used to write results into
@@ -1020,6 +1895,14 @@ template <typename T> struct LatticeCloverMultigrid {
     prof_ck_kernel_ms += std::chrono::duration<double,std::milli>(k1-k0).count();
     prof_ck_sync_ms += std::chrono::duration<double,std::milli>(k2-k1).count();
     T g = check_host[0].real();
+    // The coarse vector is rank-local in a distributed hierarchy.  The
+    // segment-check norm must therefore use the same global reduction as the
+    // BiCGStab scalar products; otherwise a rank with a small local residual
+    // can terminate the coarse solve while the global error is still large.
+    if (mg_multi) {
+      MPI_Allreduce(MPI_IN_PLACE, &g, 1, mpi_real_type<T>(), MPI_SUM,
+                    MPI_COMM_WORLD);
+    }
     return sqrt(g < (T)0 ? (T)0 : g);
   }
 
@@ -1145,7 +2028,9 @@ template <typename T> struct LatticeCloverMultigrid {
   }
 
   void coarse_smoother_run(int lev, int n_iter) {
-    if (use_mr_smoother) {
+    if (use_chebyshev_smoother) {
+      chebyshev_smooth_coarse(lev, n_iter);
+    } else if (use_mr_smoother) {
       for (int i = 0; i < n_iter; ++i) mr_iter_coarse(lev);
     } else {
       coarse_graph_run(lev, n_iter);
@@ -1532,13 +2417,43 @@ template <typename T> struct LatticeCloverMultigrid {
   // ==================================================================
   void parse_params() {
     solver_mode = set_ptr->host_params[_MG_USE_GCR_];
-    const int known_modes = _MG_MODE_GCR_ | _MG_MODE_MR_SMOOTHER_;
+    const int known_modes = _MG_MODE_GCR_ | _MG_MODE_MR_SMOOTHER_ |
+                            _MG_MODE_CHEBYSHEV_ | _MG_MODE_CA_GCR_ |
+                            _MG_MODE_CYCLE_MASK_ | _MG_MODE_BICGSTABL_;
     if (solver_mode < 0 || (solver_mode & ~known_modes) != 0) {
       throw std::invalid_argument(
           "Clover Multigrid: unsupported _MG_USE_GCR_ mode bits=" +
           std::to_string(solver_mode));
     }
     use_mr_smoother = (solver_mode & _MG_MODE_MR_SMOOTHER_) != 0;
+    use_chebyshev_smoother = (solver_mode & _MG_MODE_CHEBYSHEV_) != 0;
+    use_bicgstab_l = (solver_mode & _MG_MODE_BICGSTABL_) != 0;
+    if (use_mr_smoother && use_chebyshev_smoother) {
+      throw std::invalid_argument(
+          "Clover Multigrid: MR and Chebyshev smoothers are mutually exclusive");
+    }
+    if ((solver_mode & _MG_MODE_GCR_) && (solver_mode & _MG_MODE_CA_GCR_)) {
+      throw std::invalid_argument(
+          "Clover Multigrid: FGMRES and CA-GCR outer solvers are mutually exclusive");
+    }
+    if (use_bicgstab_l &&
+        ((solver_mode & _MG_MODE_GCR_) || (solver_mode & _MG_MODE_CA_GCR_))) {
+      throw std::invalid_argument(
+          "Clover Multigrid: BiCGStabL and FGMRES/CA-GCR outer solvers are mutually exclusive");
+    }
+    const int cycle_bits = solver_mode & _MG_MODE_CYCLE_MASK_;
+    if (__builtin_popcount(static_cast<unsigned int>(cycle_bits)) > 1) {
+      throw std::invalid_argument(
+          "Clover Multigrid: W/F/K cycle bits are mutually exclusive");
+    }
+    if (cycle_bits == _MG_MODE_W_CYCLE_)
+      cycle_kind = MgCycleKind::W;
+    else if (cycle_bits == _MG_MODE_F_CYCLE_)
+      cycle_kind = MgCycleKind::F;
+    else if (cycle_bits == _MG_MODE_K_CYCLE_)
+      cycle_kind = MgCycleKind::K;
+    else
+      cycle_kind = MgCycleKind::V;
     const int requested_levels = set_ptr->host_params[_MG_NUM_LEVEL_];
     // The flat params protocol contains four coarse-level records
     // (LEVEL1..LEVEL4), hence level 0 plus at most four coarse levels.
@@ -1584,16 +2499,24 @@ template <typename T> struct LatticeCloverMultigrid {
     // supplies an oversized level count, and never silently fabricate a
     // non-dividing hierarchy from a zero dimension.
     const int fine_data_type = set_ptr->host_params[_DATA_TYPE_];
+    if (fine_data_type != _LAT_C64_ && fine_data_type != _LAT_C128_) {
+      throw std::invalid_argument(
+          "Clover Multigrid: only complex64/complex128 are supported");
+    }
+    level_data_type[0] = fine_data_type;
+    mixed_precision = false;
     int prev_dims[4] = {fine_dims[0], fine_dims[1], fine_dims[2], fine_dims[3]};
     for (int i = 1; i < num_levels; ++i) {
       const int b = (i - 1) * _MG_PARAMS_SIZE_;
       const int coarse_data_type =
           set_ptr->host_params[_MG_LEVEL1_DATA_TYPE_ + b];
-      if (coarse_data_type != fine_data_type) {
+      if (coarse_data_type != _LAT_C64_ && coarse_data_type != _LAT_C128_) {
         throw std::invalid_argument(
-            "Clover Multigrid: mixed fine/coarse data types are unsupported "
+            "Clover Multigrid: unsupported coarse data type at level "
             "(level " + std::to_string(i) + ")");
       }
+      level_data_type[i] = coarse_data_type;
+      if (coarse_data_type != fine_data_type) mixed_precision = true;
       const int dims[4] = {
           set_ptr->host_params[_MG_LEVEL1_X_ + b],
           set_ptr->host_params[_MG_LEVEL1_Y_ + b],
@@ -1666,7 +2589,10 @@ template <typename T> struct LatticeCloverMultigrid {
       }
       if (levels[i].tol <= (T)0) levels[i].tol = atol * (T)0.1;
 
-      levels[i].alloc(levels[i].dof,levels[i].X,levels[i].Y,levels[i].Z,levels[i].Lt,set_ptr->stream);
+      if (!mixed_precision) {
+        levels[i].alloc(levels[i].dof, levels[i].X, levels[i].Y,
+                        levels[i].Z, levels[i].Lt, set_ptr->stream);
+      }
     }
 
     // Read num_restart from params (FIX: was hardcoded to 3)
@@ -1700,7 +2626,11 @@ template <typename T> struct LatticeCloverMultigrid {
          <<"\n max_iter:"<<max_iter<<"\n Lt_full:"<<Lt_full
          <<"\n mg_grid_size:["<<mg_grid_size[0]<<","<<mg_grid_size[1]<<","
          <<mg_grid_size[2]<<","<<mg_grid_size[3]<<"]"
-         <<"\n smoother:"<<(use_mr_smoother ? "MR" : "CG");
+         <<"\n smoother:"<<(use_chebyshev_smoother ? "Chebyshev" :
+                            (use_mr_smoother ? "MR" : "CG"))
+         <<"\n cycle:"<<(cycle_kind == MgCycleKind::W ? "W" :
+                           (cycle_kind == MgCycleKind::F ? "F" :
+                            (cycle_kind == MgCycleKind::K ? "K" : "V")));
       log_write<T>(oss.str(),rank,true);
     }
     solve_time_ms=0; for(int i=0;i<8;i++)level_times[i]=0;
@@ -1732,6 +2662,305 @@ template <typename T> struct LatticeCloverMultigrid {
     }
   }
 
+  std::complex<T> coarse_dot_host(int lev, void *a, void *b) {
+    LatticeComplex<T> *dest =
+        check_dev == nullptr
+            ? static_cast<LatticeComplex<T> *>(set_ptr->device_vals) +
+                  _send_tmp_
+            : static_cast<LatticeComplex<T> *>(check_dev);
+    coarse_dot_dest(lev, static_cast<const LatticeComplex<T> *>(a),
+                    static_cast<const LatticeComplex<T> *>(b), dest);
+    checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
+    T re = check_host == nullptr ? (T)0 : check_host[0].real();
+    T im = check_host == nullptr ? (T)0 : check_host[0].imag();
+    if (mg_multi) {
+      MPI_Allreduce(MPI_IN_PLACE, &re, 1, mpi_real_type<T>(), MPI_SUM,
+                    MPI_COMM_WORLD);
+      MPI_Allreduce(MPI_IN_PLACE, &im, 1, mpi_real_type<T>(), MPI_SUM,
+                    MPI_COMM_WORLD);
+    }
+    return std::complex<T>(re, im);
+  }
+
+  // Dense solves here are only for the tiny Hessenberg/Gram systems generated
+  // by K-cycle and CA-GCR.  Partial pivoting is enough at this size and keeps
+  // the CUDA build independent of Eigen.  The scale-relative pivot guard
+  // turns a collapsed Krylov block into a clean restart/fallback.
+  bool solve_small_system(const std::vector<std::complex<T>> &matrix,
+                          const std::vector<std::complex<T>> &rhs, int n,
+                          std::vector<std::complex<T>> &solution) {
+    if (n <= 0 || static_cast<int>(matrix.size()) < n * n ||
+        static_cast<int>(rhs.size()) < n)
+      return false;
+    std::vector<std::complex<T>> a(matrix.begin(), matrix.begin() + n * n);
+    solution.assign(rhs.begin(), rhs.begin() + n);
+    T scale = (T)0;
+    for (int i = 0; i < n * n; ++i) {
+      T entry_abs = static_cast<T>(std::abs(a[i]));
+      if (entry_abs > scale) scale = entry_abs;
+    }
+    if (!std::isfinite(scale) || scale <= (T)0) return false;
+    // The previous guard used ``max(1, ||A||_inf)`` implicitly by starting
+    // scale at one.  A perfectly valid Gram block with ||A|| << 1 was then
+    // rejected as singular (the usual BiCGStabL residuals are often in that
+    // range).  Use a relative machine-precision guard instead; the caller
+    // still has a bounded restart path for genuinely rank-deficient blocks.
+    const T pivot_eps = (T)32 * std::numeric_limits<T>::epsilon() * scale;
+    for (int col = 0; col < n; ++col) {
+      int pivot = col;
+      T pivot_abs = static_cast<T>(std::abs(a[col * n + col]));
+      for (int row = col + 1; row < n; ++row) {
+        T candidate = static_cast<T>(std::abs(a[row * n + col]));
+        if (candidate > pivot_abs) {
+          pivot = row;
+          pivot_abs = candidate;
+        }
+      }
+      if (!std::isfinite(pivot_abs) || pivot_abs <= pivot_eps) return false;
+      if (pivot != col) {
+        for (int j = col; j < n; ++j) {
+          std::complex<T> tmp = a[col * n + j];
+          a[col * n + j] = a[pivot * n + j];
+          a[pivot * n + j] = tmp;
+        }
+        std::complex<T> tmp = solution[col];
+        solution[col] = solution[pivot];
+        solution[pivot] = tmp;
+      }
+      for (int row = col + 1; row < n; ++row) {
+        std::complex<T> factor = a[row * n + col] / a[col * n + col];
+        a[row * n + col] = std::complex<T>(0, 0);
+        for (int j = col + 1; j < n; ++j)
+          a[row * n + j] -= factor * a[col * n + j];
+        solution[row] -= factor * solution[col];
+      }
+    }
+    for (int row = n - 1; row >= 0; --row) {
+      std::complex<T> value = solution[row];
+      for (int j = row + 1; j < n; ++j)
+        value -= a[row * n + j] * solution[j];
+      T diagonal = static_cast<T>(std::abs(a[row * n + row]));
+      if (!std::isfinite(diagonal) || diagonal <= pivot_eps) return false;
+      solution[row] = value / a[row * n + row];
+      if (!std::isfinite(solution[row].real()) ||
+          !std::isfinite(solution[row].imag()))
+        return false;
+    }
+    return true;
+  }
+
+  // One recursive coarse correction.  child_kind is explicit so the same
+  // helper implements V, W, F and the K-cycle's recursively preconditioned
+  // solve without duplicating restriction/prolongation state handling.
+  void coarse_correction(int lev, MgCycleKind child_kind) {
+    auto &st = levels[lev];
+    auto &child = levels[lev + 1];
+    cudaStream_t S = set_ptr->stream;
+    LatticeComplex<T> one(1, 0);
+
+    restrict_op(child.rhs, st.r, lev);
+    zero_c(child.x, lev + 1);
+    child.has_solution = false;
+    child.r0_ref = (T)0;
+    v_cycle(lev + 1, child_kind);
+    prolong_op(set_ptr->device_vec1, child.x, lev);
+    CUBLAS_CHECK(_cublasAxpy<T>(set_ptr->cublasH, (int)st.vec_sz, &one,
+                                set_ptr->device_vec1, 1, st.x, 1));
+
+    // Recompute the parent residual before a second W/F correction or post
+    // smoothing.  Level 0 is the fine Schur operator and has no coarse
+    // stencil at index -1; only levels >= 1 use coarse_dslash_op().
+    if (lev == 0)
+      fine_dslash_op(set_ptr->device_vec0, st.x);
+    else
+      coarse_dslash_op(set_ptr->device_vec0, st.x, lev);
+    bistabcg_give_diff2<T><<<site_grid(lev), _BLOCK_SIZE_, 0, S>>>(
+        st.rhs, set_ptr->device_vec0, st.r,
+        static_cast<void *>(set_ptr->device_vals));
+    copy_c(st.r_tilde, st.r, lev);
+    reset_bistabcg_state(lev);
+  }
+
+  // K-cycle coarse correction: solve the next-level equation with a short
+  // right-preconditioned FGMRES.  Each preconditioner application is one
+  // recursive K-cycle.  m=2 is deliberate: it captures the dominant
+  // non-normal component while bounding recursion and device storage.
+  void k_cycle_correction(int lev) {
+    auto &parent = levels[lev];
+    auto &child = levels[lev + 1];
+    cudaStream_t S = set_ptr->stream;
+    const int m = 2;
+    const size_t bytes = child.vec_sz * sizeof(LatticeComplex<T>);
+    std::vector<void *> V(m + 1, nullptr), Z(m, nullptr);
+    void *W = nullptr;
+    void *Xsol = nullptr;
+    void *rhs_saved = nullptr;
+    auto cleanup = [&]() {
+      for (void *p : V)
+        if (p) cudaFreeAsync(p, S);
+      for (void *p : Z)
+        if (p) cudaFreeAsync(p, S);
+      if (W) cudaFreeAsync(W, S);
+      if (Xsol) cudaFreeAsync(Xsol, S);
+      if (rhs_saved) cudaFreeAsync(rhs_saved, S);
+    };
+    for (size_t i = 0; i < V.size(); ++i)
+      checkCudaErrors(cudaMallocAsync(&V[i], bytes, S));
+    for (size_t i = 0; i < Z.size(); ++i)
+      checkCudaErrors(cudaMallocAsync(&Z[i], bytes, S));
+    checkCudaErrors(cudaMallocAsync(&W, bytes, S));
+    checkCudaErrors(cudaMallocAsync(&Xsol, bytes, S));
+    checkCudaErrors(cudaMallocAsync(&rhs_saved, bytes, S));
+    checkCudaErrors(cudaMemcpyAsync(rhs_saved, child.rhs, bytes,
+                                    cudaMemcpyDeviceToDevice, S));
+    checkCudaErrors(cudaMemsetAsync(Xsol, 0, bytes, S));
+    checkCudaErrors(cudaMemsetAsync(child.x, 0, bytes, S));
+    child.has_solution = false;
+    child.r0_ref = (T)0;
+    checkCudaErrors(cudaStreamSynchronize(S));
+
+    auto real_norm = [&](void *v) {
+      std::complex<T> z = coarse_dot_host(lev + 1, v, v);
+      T value = z.real();
+      return sqrt(value > (T)0 && std::isfinite(value) ? value : (T)0);
+    };
+    T beta = real_norm(rhs_saved);
+    if (!std::isfinite(beta) || beta <= (T)1e-30) {
+      checkCudaErrors(cudaMemsetAsync(child.x, 0, bytes, S));
+      checkCudaErrors(cudaMemcpyAsync(child.rhs, rhs_saved, bytes,
+                                      cudaMemcpyDeviceToDevice, S));
+      cleanup();
+      checkCudaErrors(cudaStreamSynchronize(S));
+      return;
+    }
+
+    checkCudaErrors(cudaMemcpyAsync(V[0], rhs_saved, bytes,
+                                    cudaMemcpyDeviceToDevice, S));
+    LatticeComplex<T> inv_beta((T)1 / beta, 0);
+    CUBLAS_CHECK(_cublasScal<T>(set_ptr->cublasH, (int)child.vec_sz,
+                                &inv_beta, V[0], 1));
+    checkCudaErrors(cudaStreamSynchronize(S));
+
+    std::vector<std::complex<T>> H((m + 1) * m, std::complex<T>(0, 0));
+    std::vector<std::complex<T>> cs(m, std::complex<T>(0, 0));
+    std::vector<std::complex<T>> sn(m, std::complex<T>(0, 0));
+    std::vector<std::complex<T>> g(m + 1, std::complex<T>(0, 0));
+    std::vector<std::complex<T>> y(m, std::complex<T>(0, 0));
+    g[0] = std::complex<T>(beta, 0);
+    auto Hidx = [m](int row, int col) { return row * m + col; };
+    int inner = 0;
+    bool breakdown = false;
+
+    for (int j = 0; j < m; ++j) {
+      // M^{-1} v_j: use the child level's K-cycle as a fresh correction.
+      checkCudaErrors(cudaMemcpyAsync(child.rhs, V[j], bytes,
+                                      cudaMemcpyDeviceToDevice, S));
+      checkCudaErrors(cudaMemsetAsync(child.x, 0, bytes, S));
+      child.has_solution = false;
+      child.r0_ref = (T)0;
+      v_cycle(lev + 1, MgCycleKind::K);
+      checkCudaErrors(cudaMemcpyAsync(Z[j], child.x, bytes,
+                                      cudaMemcpyDeviceToDevice, S));
+
+      coarse_dslash_op(W, Z[j], lev + 1);
+      for (int i = 0; i <= j; ++i) {
+        std::complex<T> hij = coarse_dot_host(lev + 1, V[i], W);
+        H[Hidx(i, j)] = hij;
+        LatticeComplex<T> neg_h((T)-hij.real(), (T)-hij.imag());
+        CUBLAS_CHECK(_cublasAxpy<T>(set_ptr->cublasH, (int)child.vec_sz,
+                                    &neg_h, V[i], 1, W, 1));
+        checkCudaErrors(cudaStreamSynchronize(S));
+      }
+      T wnorm = real_norm(W);
+      H[Hidx(j + 1, j)] = std::complex<T>(wnorm, 0);
+      inner = j + 1;
+      if (!std::isfinite(wnorm) || wnorm <= (T)1e-30) {
+        breakdown = true;
+        break;
+      }
+      LatticeComplex<T> inv_wnorm((T)1 / wnorm, 0);
+      checkCudaErrors(cudaMemcpyAsync(V[j + 1], W, bytes,
+                                      cudaMemcpyDeviceToDevice, S));
+      CUBLAS_CHECK(_cublasScal<T>(set_ptr->cublasH, (int)child.vec_sz,
+                                  &inv_wnorm, V[j + 1], 1));
+      checkCudaErrors(cudaStreamSynchronize(S));
+
+      for (int i = 0; i < j; ++i) {
+        std::complex<T> temp = cs[i] * H[Hidx(i, j)] +
+                               sn[i] * H[Hidx(i + 1, j)];
+        H[Hidx(i + 1, j)] = -std::conj(sn[i]) * H[Hidx(i, j)] +
+                            cs[i] * H[Hidx(i + 1, j)];
+        H[Hidx(i, j)] = temp;
+      }
+      T h0 = static_cast<T>(std::abs(H[Hidx(j, j)]));
+      T h1 = static_cast<T>(std::abs(H[Hidx(j + 1, j)]));
+      T denom = sqrt(h0 * h0 + h1 * h1);
+      if (!std::isfinite(denom) || denom <= (T)1e-30) {
+        breakdown = true;
+        break;
+      }
+      T c = h0 / denom;
+      std::complex<T> phase =
+          h0 > (T)1e-30 ? H[Hidx(j, j)] / h0 : std::complex<T>(1, 0);
+      sn[j] = std::conj(H[Hidx(j + 1, j)]) * phase / denom;
+      cs[j] = std::complex<T>(c, 0);
+      H[Hidx(j, j)] = std::complex<T>(denom, 0) * phase;
+      H[Hidx(j + 1, j)] = std::complex<T>(0, 0);
+      std::complex<T> gj = g[j];
+      g[j] = cs[j] * gj + sn[j] * g[j + 1];
+      g[j + 1] = -std::conj(sn[j]) * gj + cs[j] * g[j + 1];
+    }
+
+    if (!breakdown && inner > 0) {
+      std::vector<std::complex<T>> upper(inner * inner,
+                                         std::complex<T>(0, 0));
+      std::vector<std::complex<T>> rhs(inner);
+      for (int i = 0; i < inner; ++i) {
+        rhs[i] = g[i];
+        for (int j = 0; j < inner; ++j)
+          upper[i * inner + j] = H[Hidx(i, j)];
+      }
+      if (!solve_small_system(upper, rhs, inner, y)) breakdown = true;
+    }
+    if (!breakdown) {
+      for (int i = 0; i < inner; ++i) {
+        LatticeComplex<T> yi((T)y[i].real(), (T)y[i].imag());
+        CUBLAS_CHECK(_cublasAxpy<T>(set_ptr->cublasH, (int)child.vec_sz,
+                                    &yi, Z[i], 1, Xsol, 1));
+      }
+      checkCudaErrors(cudaMemcpyAsync(child.x, Xsol, bytes,
+                                      cudaMemcpyDeviceToDevice, S));
+    } else {
+      checkCudaErrors(cudaMemsetAsync(child.x, 0, bytes, S));
+      if (rank == 0 && verbose)
+        log_write<T>("PYQCU::SOLVER::MULTIGRID::\n K-cycle inner FGMRES "
+                     "breakdown; correction dropped", rank, true);
+    }
+    checkCudaErrors(cudaMemcpyAsync(child.rhs, rhs_saved, bytes,
+                                    cudaMemcpyDeviceToDevice, S));
+    child.has_solution = !breakdown;
+    child.r0_ref = (T)0;
+    cleanup();
+    checkCudaErrors(cudaStreamSynchronize(S));
+
+    // The parent must see a freshly computed residual before post-smoothing.
+    LatticeComplex<T> one(1, 0);
+    prolong_op(set_ptr->device_vec1, child.x, lev);
+    CUBLAS_CHECK(_cublasAxpy<T>(set_ptr->cublasH, (int)parent.vec_sz, &one,
+                                set_ptr->device_vec1, 1, parent.x, 1));
+    // As above, the parent of the first transition is the fine Schur
+    // operator, not a coarse level.  Calling coarse_dslash_op(0) would index
+    // sit_packed[-1] and feed an invalid pointer to the wide-stencil kernel.
+    if (lev == 0)
+      fine_dslash_op(set_ptr->device_vec0, parent.x);
+    else
+      coarse_dslash_op(set_ptr->device_vec0, parent.x, lev);
+    bistabcg_give_diff2<T><<<site_grid(lev), _BLOCK_SIZE_, 0, S>>>(
+        parent.rhs, set_ptr->device_vec0, parent.r, set_ptr->device_vals);
+    copy_c(parent.r_tilde, parent.r, lev);
+    reset_bistabcg_state(lev);
+  }
+
   // ==================================================================
   // V-cycle for coarse levels (level ≥ 1).
   //
@@ -1754,7 +2983,7 @@ template <typename T> struct LatticeCloverMultigrid {
   // iterations.  The coarse operator is the 33-tensor Schur Galerkin
   // A_c = P^T S P (on-site + nearest + diagonal couplings).
   // ==================================================================
-  T v_cycle(int lev) {
+  T v_cycle(int lev, MgCycleKind requested_kind = MgCycleKind::V) {
     auto &st=levels[lev]; cudaStream_t S=set_ptr->stream;
     T rn = 0;
     LatticeComplex<T>*dv=static_cast<LatticeComplex<T>*>(set_ptr->device_vals);
@@ -1812,7 +3041,8 @@ template <typename T> struct LatticeCloverMultigrid {
     // dev84: capture the SEG-iteration graph BEFORE any other ops this entry
     // (capture scope must contain only the iteration kernels).  MR uses a
     // different recurrence and therefore bypasses the BiStabCG graph.
-    if (!use_mr_smoother) coarse_graph_ensure(lev);
+    if (!use_mr_smoother && !use_chebyshev_smoother)
+      coarse_graph_ensure(lev);
 
     // ---- Init ----
     // 2026-08-22 dev84 WARM START: 中间/粗层在连续 V-cycle 间复用上次解作为初值
@@ -1895,7 +3125,7 @@ template <typename T> struct LatticeCloverMultigrid {
     //      its ρ→0 breakdown past convergence must be clamped to β=0/α=0/ω=0
     //      instead of NaN,
     //   b) the outer fine-level true-residual restart guard,
-    //   c) ONE safety check every SAFETY_EVERY V-cycles (+ cold solves).
+    //   c) one block-level residual check after each fixed segment.
     // ==================================================================
     {
       // problem-scale stash for the guards: ‖b‖² (units of every ⟨·,·⟩)
@@ -1924,10 +3154,7 @@ template <typename T> struct LatticeCloverMultigrid {
       checkCudaErrors(cudaMemcpyAsync(&dv[_omega_],&one,sizeof(LatticeComplex<T>),cudaMemcpyHostToDevice,S));
     }
 
-    const int SAFETY_EVERY = 6;
-    ++mg_cycle_counter;
     const bool warm = st.has_solution;
-    const bool do_safety = (!warm) || (mg_cycle_counter % SAFETY_EVERY == 0);
 
     auto ci0=std::chrono::high_resolution_clock::now();
     if (is_coarsest) {
@@ -1957,24 +3184,25 @@ template <typename T> struct LatticeCloverMultigrid {
         log_write<T>(bm.str(),rank,true);
       }
     } else {
-      // ---- Inner level: pre-smooth → coarse correction → post-smooth ----
-      // dev84: 原实现每 num_restart 次迭代校正一次并全流同步；固定步数语义下
-      // 改为 DDalphaAMG pre/coarse/post 结构。第二段前重算真残差并复位状态。
+      // ---- Inner level: pre-smooth → recursive cycle(s) → post-smooth ----
+      // The requested cycle controls only the coarse correction pattern.
+      // Every correction helper recomputes the parent residual and resets its
+      // BiStabCG state, so W/F can safely apply more than one correction.
       const int steps = warm ? 64 : st.max_iter;
-      const int pre = steps/2, post = steps - pre;
+      const int pre = steps / 2, post = steps - pre;
       idx = steps;
       coarse_smoother_run(lev, pre);
-      restrict_op(levels[lev+1].rhs, st.r, lev);
-      zero_c(levels[lev+1].x, lev+1);
-      v_cycle(lev+1);
-      prolong_op(set_ptr->device_vec1, levels[lev+1].x, lev);
-      CUBLAS_CHECK(_cublasAxpy<T>(set_ptr->cublasH, (int)st.vec_sz, &one,
-          set_ptr->device_vec1, 1, st.x, 1));
-      coarse_dslash_op(set_ptr->device_vec0, st.x, lev);
-      bistabcg_give_diff2<T><<<site_grid(lev),_BLOCK_SIZE_,0,S>>>(
-          st.rhs, set_ptr->device_vec0, st.r, dv);
-      copy_c(st.r_tilde, st.r, lev);
-      reset_bistabcg_state(lev);
+      if (requested_kind == MgCycleKind::K) {
+        k_cycle_correction(lev);
+      } else if (requested_kind == MgCycleKind::W) {
+        coarse_correction(lev, MgCycleKind::W);
+        coarse_correction(lev, MgCycleKind::W);
+      } else if (requested_kind == MgCycleKind::F) {
+        coarse_correction(lev, MgCycleKind::F);
+        coarse_correction(lev, MgCycleKind::V);
+      } else {
+        coarse_correction(lev, MgCycleKind::V);
+      }
       coarse_smoother_run(lev, post);
     }
     auto ci1=std::chrono::high_resolution_clock::now();
@@ -2010,6 +3238,39 @@ template <typename T> struct LatticeCloverMultigrid {
                  set_ptr->host_params[_GRID_Y_] == 1 &&
                  set_ptr->host_params[_GRID_Z_] == 1 &&
                  set_ptr->host_params[_GRID_T_] == 1);
+
+    // A heterogeneous hierarchy owns its coarse vectors in their declared
+    // precision.  The enclosing T still owns the physical fine operator and
+    // all level-0 buffers; transitions perform explicit casts at their API
+    // boundary.  Keeping this allocation separate prevents the old
+    // MgLevelState<T> helpers from accidentally treating float storage as
+    // double (or vice versa).
+    if (mixed_precision) {
+      mixed_levels = new MgLevelStateAny[num_levels];
+      for (int lev = 1; lev < num_levels; ++lev) {
+        mixed_levels[lev].max_iter = levels[lev].max_iter;
+        mixed_levels[lev].num_restart = levels[lev].num_restart;
+        mixed_levels[lev].tol = static_cast<double>(levels[lev].tol);
+        if (level_data_type[lev] == _LAT_C64_) {
+          mixed_levels[lev].alloc<float>(levels[lev].dof, levels[lev].X,
+              levels[lev].Y, levels[lev].Z, levels[lev].Lt, set_ptr->stream);
+        } else {
+          mixed_levels[lev].alloc<double>(levels[lev].dof, levels[lev].X,
+              levels[lev].Y, levels[lev].Z, levels[lev].Lt, set_ptr->stream);
+        }
+        if (mg_multi) {
+          if (level_data_type[lev] == _LAT_C64_)
+            mixed_levels[lev].alloc_halo<float>(set_ptr->stream);
+          else
+            mixed_levels[lev].alloc_halo<double>(set_ptr->stream);
+        }
+      }
+    } else if (mg_multi) {
+      for (int lev = 1; lev < num_levels; ++lev)
+        init_coarse_halo_state(lev, level_data_type[lev], levels[lev].dof,
+                               levels[lev].X, levels[lev].Y, levels[lev].Z,
+                               levels[lev].Lt);
+    }
     if (mg_multi && rank == 0 && verbose) {
       log_write<T>("PYQCU::QCU::MULTIGRID::\n MG_MULTI_RANK: process grid ["+
         std::to_string(set_ptr->host_params[_GRID_X_])+","+
@@ -2096,12 +3357,45 @@ template <typename T> struct LatticeCloverMultigrid {
     // Level 0 Lt is HALVED in parse_params (parity odd-lattice T/2).
     // Coarse levels are the coarsened odd-lattice (is_fullsite=false).
 
+    // The mixed-precision path uses one type-erased accessor for every level.
+    // Level 0 still lives in the enclosing T-typed buffers, so install a
+    // non-owning alias rather than allocating a second fine Krylov state (or
+    // allowing mixed_levels[0] to remain a null placeholder).
+    if (mixed_precision) {
+      MgLevelStateAny &fine_any = mixed_levels[0];
+      fine_any.x = levels[0].x;
+      fine_any.rhs = levels[0].rhs;
+      fine_any.r = levels[0].r;
+      fine_any.r_tilde = levels[0].r_tilde;
+      fine_any.p = levels[0].p;
+      fine_any.v = levels[0].v;
+      fine_any.s = levels[0].s;
+      fine_any.t = levels[0].t;
+      fine_any.data_type = level_data_type[0];
+      fine_any.dof = levels[0].dof;
+      fine_any.X = levels[0].X;
+      fine_any.Y = levels[0].Y;
+      fine_any.Z = levels[0].Z;
+      fine_any.Lt = levels[0].Lt;
+      fine_any.vol = levels[0].vol;
+      fine_any.vec_sz = levels[0].vec_sz;
+      fine_any.elem_bytes = sizeof(LatticeComplex<T>);
+      fine_any.max_iter = max_iter;
+      fine_any.num_restart = num_restart;
+      fine_any.tol = static_cast<double>(atol);
+      fine_any.owned = false;
+    }
+
     if(rank==0){
       std::ostringstream oss;
       oss<<"PYQCU::QCU::MULTIGRID::\n MG_INIT_COMPLETE: "<<num_levels
          <<" levels, Lt_full="<<Lt_full
          <<", num_restart="<<num_restart
-         <<", smoother="<<(use_mr_smoother ? "MR" : "CG");
+         <<", smoother="<<(use_chebyshev_smoother ? "Chebyshev" :
+                           (use_mr_smoother ? "MR" : "CG"))
+         <<", cycle="<<(cycle_kind == MgCycleKind::W ? "W" :
+                        (cycle_kind == MgCycleKind::F ? "F" :
+                         (cycle_kind == MgCycleKind::K ? "K" : "V")));
       log_write<T>(oss.str(),rank,true);
     }
   }
@@ -2135,12 +3429,532 @@ template <typename T> struct LatticeCloverMultigrid {
   // A_c = P^T S P (33-tensor stencil), prolong, add to x_o, recompute the
   // Schur residual, and reset the BiStabCG state.
   // ==================================================================
+  // ==================================================================
+  // BiCGStab(L) on the fine Schur complement.
+  //
+  // This is the Sleijpen--Fokkema recurrence with a fixed L=2 MR
+  // polynomial.  The BiCG part constructs r_0,r_1,r_2 and u_0,u_1,u_2;
+  // the MR part solves (R^H R) gamma = R^H r_0, R=[r_1,r_2], then applies
+  // x <- x + gamma_0 r_0 + gamma_1 r_1 and
+  // r_0 <- r_0 - gamma_0 r_1 - gamma_1 r_2.
+  //
+  // The short recurrence uses the same Schur operator and MPI-aware dot
+  // product as run().  Every eighth cycle recomputes the true residual and
+  // restarts the polynomial, bounding fp32 cancellation drift.  A singular
+  // Gram block is a numerical breakdown, so the partial state is discarded
+  // and the validated BiCGStab implementation is used as a fallback.
+  // ==================================================================
+  void run_bicgstab_l() {
+    auto t0 = std::chrono::high_resolution_clock::now();
+    auto &st = levels[0];
+    cudaStream_t S = set_ptr->stream;
+    const int n = static_cast<int>(st.vec_sz);
+    const size_t bytes = st.vec_sz * sizeof(LatticeComplex<T>);
+    const int L = 2;
+
+    setup_b__o();
+    checkCudaErrors(cudaStreamSynchronize(S));
+    if (set_ptr->host_params[_MG_USE_INIT_GUESS_]) {
+      fine_dslash_op(set_ptr->device_vec0, st.x);
+      checkCudaErrors(cudaStreamSynchronize(S));
+      bistabcg_give_diff2<T><<<set_ptr->gridDim, set_ptr->blockDim, 0, S>>>(
+          st.rhs, set_ptr->device_vec0, st.r, set_ptr->device_vals);
+    } else {
+      checkCudaErrors(cudaMemsetAsync(st.x, 0, bytes, S));
+      copy_c(st.r, st.rhs, 0);
+    }
+    checkCudaErrors(cudaStreamSynchronize(S));
+
+    std::vector<void *> r(L + 1, nullptr), u(L + 1, nullptr);
+    auto cleanup = [&]() {
+      for (size_t i = 0; i < r.size(); ++i)
+        if (r[i]) cudaFreeAsync(r[i], S);
+      for (size_t i = 0; i < u.size(); ++i)
+        if (u[i]) cudaFreeAsync(u[i], S);
+    };
+    for (size_t i = 0; i < r.size(); ++i)
+      checkCudaErrors(cudaMallocAsync(&r[i], bytes, S));
+    for (size_t i = 0; i < u.size(); ++i)
+      checkCudaErrors(cudaMallocAsync(&u[i], bytes, S));
+    checkCudaErrors(cudaMemcpyAsync(r[0], st.r, bytes,
+                                    cudaMemcpyDeviceToDevice, S));
+    for (int i = 1; i <= L; ++i) {
+      checkCudaErrors(cudaMemsetAsync(r[i], 0, bytes, S));
+      checkCudaErrors(cudaMemsetAsync(u[i], 0, bytes, S));
+    }
+    checkCudaErrors(cudaMemsetAsync(u[0], 0, bytes, S));
+    checkCudaErrors(cudaStreamSynchronize(S));
+
+    auto finite_complex = [](const std::complex<T> &z) {
+      return std::isfinite(z.real()) && std::isfinite(z.imag());
+    };
+    auto near_zero = [](const std::complex<T> &z, T scale) {
+      T s = scale > std::numeric_limits<T>::min()
+                ? scale
+                : std::numeric_limits<T>::min();
+      return std::abs(z) <= (T)1e-13 * s;
+    };
+    auto norm = [&](void *v) {
+      T value = fine_norm2_host(v, n);
+      return sqrt(value > (T)0 && std::isfinite(value) ? value : (T)0);
+    };
+
+    T bnorm = norm(st.rhs);
+    if (!std::isfinite(bnorm) || bnorm <= (T)1e-30) bnorm = (T)1;
+    T dot_scale = bnorm * bnorm;
+    if (!std::isfinite(dot_scale) ||
+        dot_scale <= std::numeric_limits<T>::min())
+      dot_scale = (T)1;
+    T rn = norm(st.r);
+    conv_history.clear();
+    conv_history.push_back(rn);
+    if (rn / bnorm < atol) {
+      cleanup();
+      checkCudaErrors(cudaStreamSynchronize(S));
+      recover_x_e();
+      checkCudaErrors(cudaStreamSynchronize(S));
+      solve_time_ms = std::chrono::duration<double, std::milli>(
+          std::chrono::high_resolution_clock::now() - t0).count();
+      return;
+    }
+
+    // rho0 <- -omega*rho0 at the beginning of every L-step cycle.
+    checkCudaErrors(cudaMemcpyAsync(st.r_tilde, r[0], bytes,
+                                    cudaMemcpyDeviceToDevice, S));
+    std::complex<T> rho0(1, 0), alpha(1, 0), omega(1, 0);
+    int total = 0;
+    int since_correction = 0;
+    bool breakdown = false;
+    std::string breakdown_detail;
+    int consecutive_breakdowns = 0;
+    // A bad shadow product or an ill-conditioned MR block can be transient in
+    // finite precision.  Recompute the true residual and restart the short
+    // recurrence a few times before resorting to the slower BiCGStab path.
+    const int max_breakdown_restarts = 4;
+
+    auto restart_from_true_residual = [&](const std::string &reason) {
+      fine_dslash_op(set_ptr->device_vec0, st.x);
+      checkCudaErrors(cudaStreamSynchronize(S));
+      bistabcg_give_diff2<T><<<set_ptr->gridDim, set_ptr->blockDim, 0, S>>>(
+          st.rhs, set_ptr->device_vec0, st.r, set_ptr->device_vals);
+      checkCudaErrors(cudaStreamSynchronize(S));
+      checkCudaErrors(cudaMemcpyAsync(r[0], st.r, bytes,
+                                      cudaMemcpyDeviceToDevice, S));
+      checkCudaErrors(cudaMemcpyAsync(st.r_tilde, st.r, bytes,
+                                      cudaMemcpyDeviceToDevice, S));
+      for (int i = 1; i <= L; ++i) {
+        checkCudaErrors(cudaMemsetAsync(r[i], 0, bytes, S));
+        checkCudaErrors(cudaMemsetAsync(u[i], 0, bytes, S));
+      }
+      checkCudaErrors(cudaMemsetAsync(u[0], 0, bytes, S));
+      reset_bistabcg_state_l0();
+      checkCudaErrors(cudaStreamSynchronize(S));
+      rn = norm(r[0]);
+      conv_history.push_back(rn);
+      rho0 = std::complex<T>(1, 0);
+      alpha = std::complex<T>(1, 0);
+      omega = std::complex<T>(1, 0);
+      if (rank == 0 && verbose) {
+        log_write<T>("PYQCU::SOLVER::MULTIGRID::\n BiCGStabL reliable "
+                     "restart (" + reason + "), residual=" +
+                     std::to_string(static_cast<double>(rn)),
+                     rank, true);
+      }
+    };
+
+    for (int cycle = 0; total < max_iter && rn / bnorm >= atol; ++cycle) {
+      rho0 *= -omega;
+      std::string cycle_reason;
+      bool cycle_bad = !finite_complex(rho0);
+      if (cycle_bad) cycle_reason = "non-finite rho0";
+      int cycle_steps = 0;
+      // A final partial block is legal when max_iter is not a multiple of L.
+      // The MR projection below must use exactly the vectors generated here;
+      // using the fixed L=2 size would read an uninitialised r[2]/u[2] and
+      // could also report more iterations than the caller allowed.
+      const int block_L = std::min(L, max_iter - total);
+
+      for (int j = 0; j < block_L && !cycle_bad; ++j) {
+        cycle_steps = j + 1;
+        std::complex<T> rho1 = fine_dot_host(st.r_tilde, r[j], n);
+        if (!finite_complex(rho1) || near_zero(rho1, dot_scale) ||
+            near_zero(rho0, dot_scale)) {
+          cycle_bad = true;
+          cycle_reason = !finite_complex(rho1) ? "non-finite rho1" :
+                         (near_zero(rho0, dot_scale) ? "rho0 near zero" :
+                                                        "rho1 near zero");
+          break;
+        }
+        std::complex<T> beta = alpha * rho1 / rho0;
+        if (!finite_complex(beta)) {
+          cycle_bad = true;
+          cycle_reason = "non-finite beta";
+          break;
+        }
+
+        // u_i <- r_i - beta*u_i, i=0..j.
+        for (int i = 0; i <= j; ++i) {
+          LatticeComplex<T> minus_beta((T)-beta.real(), (T)-beta.imag());
+          LatticeComplex<T> one(1, 0);
+          CUBLAS_CHECK(_cublasScal<T>(set_ptr->cublasH, n, &minus_beta,
+                                      u[i], 1));
+          CUBLAS_CHECK(_cublasAxpy<T>(set_ptr->cublasH, n, &one, r[i], 1,
+                                      u[i], 1));
+        }
+        fine_dslash_op(u[j + 1], u[j]);
+        checkCudaErrors(cudaStreamSynchronize(S));
+
+        std::complex<T> denom = fine_dot_host(st.r_tilde, u[j + 1], n);
+        if (!finite_complex(denom) || near_zero(denom, dot_scale)) {
+          cycle_bad = true;
+          cycle_reason = !finite_complex(denom) ? "non-finite alpha denominator" :
+                                                  "alpha denominator near zero";
+          break;
+        }
+        alpha = rho1 / denom;
+        if (!finite_complex(alpha)) {
+          cycle_bad = true;
+          cycle_reason = "non-finite alpha";
+          break;
+        }
+        // BiCGStab(L) accumulates the BiCG component in x during each inner
+        // step.  The short recurrence updates u[0] in every inner step, so
+        // the current solution increment is alpha*u[0] (not alpha*u[j]).
+        // Using u[j] here breaks the Sleijpen--Fokkema state relation between
+        // the stored r/u sequences and the solution, and the following MR
+        // polynomial is then applied to the wrong x.
+        LatticeComplex<T> alpha_c((T)alpha.real(), (T)alpha.imag());
+        CUBLAS_CHECK(_cublasAxpy<T>(set_ptr->cublasH, n, &alpha_c,
+                                    u[0], 1, st.x, 1));
+        LatticeComplex<T> minus_alpha((T)-alpha.real(), (T)-alpha.imag());
+        for (int i = 0; i <= j; ++i)
+          CUBLAS_CHECK(_cublasAxpy<T>(set_ptr->cublasH, n, &minus_alpha,
+                                      u[i + 1], 1, r[i], 1));
+
+        fine_dslash_op(r[j + 1], r[j]);
+        checkCudaErrors(cudaStreamSynchronize(S));
+        rho0 = rho1;
+      }
+
+      if (!cycle_bad) {
+        // MR(block_L): Gram matrix of r_1..r_block_L and projection on r_0.
+        std::vector<std::complex<T>> gram(block_L * block_L,
+                                          std::complex<T>(0, 0));
+        std::vector<std::complex<T>> rhs(block_L, std::complex<T>(0, 0));
+        for (int i = 0; i < block_L; ++i) {
+          rhs[i] = fine_dot_host(r[i + 1], r[0], n);
+          for (int j = 0; j < block_L; ++j)
+            gram[i * block_L + j] = fine_dot_host(r[i + 1], r[j + 1], n);
+        }
+        std::vector<std::complex<T>> gamma;
+        if (!solve_small_system(gram, rhs, block_L, gamma)) {
+          cycle_bad = true;
+          cycle_reason = "singular MR Gram block";
+        } else {
+          if (gamma.size() != static_cast<size_t>(block_L) ||
+              !finite_complex(gamma[block_L - 1])) {
+            cycle_bad = true;
+            cycle_reason = "non-finite MR coefficient";
+          }
+          if (!cycle_bad) {
+            omega = gamma[block_L - 1];
+            for (int i = 0; i < block_L; ++i) {
+              LatticeComplex<T> gi((T)gamma[i].real(), (T)gamma[i].imag());
+              LatticeComplex<T> minus_gi((T)-gamma[i].real(),
+                                         (T)-gamma[i].imag());
+              CUBLAS_CHECK(_cublasAxpy<T>(set_ptr->cublasH, n, &gi,
+                                          r[i], 1, st.x, 1));
+              CUBLAS_CHECK(_cublasAxpy<T>(set_ptr->cublasH, n, &minus_gi,
+                                          r[i + 1], 1, r[0], 1));
+              CUBLAS_CHECK(_cublasAxpy<T>(set_ptr->cublasH, n, &minus_gi,
+                                          u[i + 1], 1, u[0], 1));
+            }
+            checkCudaErrors(cudaMemcpyAsync(st.r, r[0], bytes,
+                                            cudaMemcpyDeviceToDevice, S));
+            checkCudaErrors(cudaStreamSynchronize(S));
+            rn = norm(r[0]);
+            total += block_L;
+            since_correction += block_L;
+            conv_history.push_back(rn);
+            if (!std::isfinite(rn)) {
+              cycle_bad = true;
+              cycle_reason = "non-finite MR residual";
+            }
+          }
+        }
+      }
+
+      if (cycle_bad) {
+        ++consecutive_breakdowns;
+        const int consumed = cycle_steps > 0 ? cycle_steps : 1;
+        total += consumed;
+        std::ostringstream detail;
+        detail << (cycle_reason.empty() ? "unknown breakdown" : cycle_reason)
+               << ", cycle=" << cycle << ", total=" << total
+               << ", rn=" << std::scientific << rn
+               << ", rho0=" << rho0 << ", alpha=" << alpha
+               << ", omega=" << omega;
+        breakdown_detail = detail.str();
+
+        // Do not carry a partially updated Krylov polynomial across a
+        // breakdown.  The true residual is recomputed from the current x;
+        // this is both the reliable-update step and the only mathematically
+        // valid way to resume after an incomplete inner block.
+        restart_from_true_residual(breakdown_detail);
+        if (!std::isfinite(rn)) {
+          breakdown = true;
+          break;
+        }
+        if (rn / bnorm < atol) break;
+        if (consecutive_breakdowns >= max_breakdown_restarts) {
+          breakdown = true;
+          break;
+        }
+        continue;
+      }
+
+      consecutive_breakdowns = 0;
+
+      // A BiCGStabL polynomial changes the fine solution just like an
+      // ordinary Krylov step.  If the caller requested a multigrid interval,
+      // apply the same recursive coarse correction used by BiCGStab and then
+      // restart the short polynomial basis: after x changes, the old
+      // shadow/search vectors are no longer a valid Krylov state.  This also
+      // makes the mixed-precision path a real BiCGStabL+MG solve instead of
+      // silently ignoring all child levels.
+      if (num_levels > 1 && num_restart > 0 &&
+          since_correction >= num_restart &&
+          rn / bnorm >= atol) {
+        auto vc0 = std::chrono::high_resolution_clock::now();
+        ++prof_n_vcycles;
+        if (mixed_precision)
+          mixed_coarse_correction(0, cycle_kind);
+        else
+          coarse_correction(0, cycle_kind);
+        copy_c(st.r_tilde, st.r, 0);
+        checkCudaErrors(cudaMemcpyAsync(r[0], st.r, bytes,
+                                        cudaMemcpyDeviceToDevice, S));
+        for (int i = 1; i <= L; ++i) {
+          checkCudaErrors(cudaMemsetAsync(r[i], 0, bytes, S));
+          checkCudaErrors(cudaMemsetAsync(u[i], 0, bytes, S));
+        }
+        checkCudaErrors(cudaMemsetAsync(u[0], 0, bytes, S));
+        reset_bistabcg_state_l0();
+        checkCudaErrors(cudaStreamSynchronize(S));
+        rn = norm(r[0]);
+        conv_history.push_back(rn);
+        since_correction = 0;
+        rho0 = std::complex<T>(1, 0);
+        alpha = std::complex<T>(1, 0);
+        omega = std::complex<T>(1, 0);
+        prof_vcycle_ms += std::chrono::duration<double, std::milli>(
+            std::chrono::high_resolution_clock::now() - vc0).count();
+      }
+
+      // Reliable restart: recompute b__o - S*x and reset the short basis.
+      if ((cycle + 1) % 8 == 0 && total < max_iter && rn / bnorm >= atol) {
+        fine_dslash_op(set_ptr->device_vec0, st.x);
+        checkCudaErrors(cudaStreamSynchronize(S));
+        bistabcg_give_diff2<T><<<set_ptr->gridDim, set_ptr->blockDim, 0, S>>>(
+            st.rhs, set_ptr->device_vec0, st.r, set_ptr->device_vals);
+        checkCudaErrors(cudaStreamSynchronize(S));
+        checkCudaErrors(cudaMemcpyAsync(r[0], st.r, bytes,
+                                        cudaMemcpyDeviceToDevice, S));
+        checkCudaErrors(cudaMemcpyAsync(st.r_tilde, st.r, bytes,
+                                        cudaMemcpyDeviceToDevice, S));
+        for (int i = 1; i <= L; ++i) {
+          checkCudaErrors(cudaMemsetAsync(r[i], 0, bytes, S));
+          checkCudaErrors(cudaMemsetAsync(u[i], 0, bytes, S));
+        }
+        checkCudaErrors(cudaMemsetAsync(u[0], 0, bytes, S));
+        checkCudaErrors(cudaStreamSynchronize(S));
+        rn = norm(r[0]);
+        conv_history.back() = rn;
+        rho0 = std::complex<T>(1, 0);
+        alpha = std::complex<T>(1, 0);
+        omega = std::complex<T>(1, 0);
+      }
+    }
+
+    cleanup();
+    checkCudaErrors(cudaStreamSynchronize(S));
+    if (breakdown) {
+      if (rank == 0 && verbose)
+        log_write<T>("PYQCU::SOLVER::MULTIGRID::\n BiCGStabL(2) breakdown (" +
+                     breakdown_detail + "); falling back to BiCGStab", rank,
+                     true);
+      int saved_mode = solver_mode;
+      solver_mode &= ~_MG_MODE_BICGSTABL_;
+      use_bicgstab_l = false;
+      conv_history.clear();
+      run();
+      solver_mode = saved_mode;
+      use_bicgstab_l = true;
+      return;
+    }
+
+    recover_x_e();
+    checkCudaErrors(cudaStreamSynchronize(S));
+    solve_time_ms = std::chrono::duration<double, std::milli>(
+        std::chrono::high_resolution_clock::now() - t0).count();
+    if (rank == 0) {
+      std::ostringstream msg;
+      msg << "PYQCU::SOLVER::MULTIGRID::\n BiCGStabL(2) iterations: "
+          << total << ", final residual: " << std::scientific << rn;
+      log_write<T>(msg.str(), rank, true);
+      std::ostringstream ch;
+      ch << "CONVERGENCE_HISTORY: [";
+      for (size_t j = 0; j < conv_history.size(); ++j) {
+        if (j > 0) ch << ",";
+        ch << std::scientific << conv_history[j];
+      }
+      ch << "]";
+      log_write<T>(ch.str(), rank, false);
+    }
+  }
+
+  // ==================================================================
+  // Mixed-precision outer solve.
+  //
+  // Level 0 remains the physical T-typed Schur solve.  Coarse vectors and
+  // operators are dispatched by level_data_type[], while the two transfer
+  // kernels perform the explicit casts at each boundary.  A coarse
+  // correction changes the fine residual, so the fine BiCGStab state is
+  // restarted after every correction (the same invariant as the homogeneous
+  // path).
+  // ==================================================================
+  void run_mixed() {
+    auto t0 = std::chrono::high_resolution_clock::now();
+    MgLevelState<T> &st = levels[0];
+    cudaStream_t S = set_ptr->stream;
+    const int n = static_cast<int>(st.vec_sz);
+    const size_t bytes = st.vec_sz * sizeof(LatticeComplex<T>);
+
+    setup_b__o();
+    checkCudaErrors(cudaStreamSynchronize(S));
+
+    // init() has already honored the warm-start flag, but make the initial
+    // vector choice explicit here so a repeated call cannot inherit stale x0.
+    if (!set_ptr->host_params[_MG_USE_INIT_GUESS_])
+      checkCudaErrors(cudaMemsetAsync(st.x, 0, bytes, S));
+    mixed_compute_fine_residual();
+    checkCudaErrors(cudaStreamSynchronize(S));
+    copy_c(st.r_tilde, st.r, 0);
+    reset_bistabcg_state_l0();
+
+    auto norm = [&](void *v) {
+      T value = fine_norm2_host(v, n);
+      return sqrt(value > (T)0 && std::isfinite(value) ? value : (T)0);
+    };
+    T bnorm = norm(st.rhs);
+    if (!std::isfinite(bnorm) || bnorm <= (T)1e-30) bnorm = (T)1;
+    T rn = norm(st.r);
+    const T target = atol * bnorm;
+    conv_history.clear();
+    conv_history.push_back(rn);
+
+    int total = 0;
+    int since_correction = 0;
+    const bool can_correct = num_levels > 1 && num_restart > 0;
+
+    // Optional one-time deflation uses the same mixed V-cycle as the
+    // periodic correction, then starts BiCGStab from the true residual.
+    if (can_correct && set_ptr->host_params[_MG_USE_DEFLATE_] != 0 &&
+        rn > target) {
+      auto vc0 = std::chrono::high_resolution_clock::now();
+      ++prof_n_vcycles;
+      mixed_coarse_correction(0, cycle_kind);
+      copy_c(st.r_tilde, st.r, 0);
+      reset_bistabcg_state_l0();
+      rn = norm(st.r);
+      conv_history.push_back(rn);
+      prof_vcycle_ms += std::chrono::duration<double, std::milli>(
+          std::chrono::high_resolution_clock::now() - vc0).count();
+    }
+
+    const bool single_rank =
+        set_ptr->host_params[_GRID_X_] == 1 &&
+        set_ptr->host_params[_GRID_Y_] == 1 &&
+        set_ptr->host_params[_GRID_Z_] == 1 &&
+        set_ptr->host_params[_GRID_T_] == 1;
+
+    while (total < max_iter && rn > target) {
+      auto it0 = std::chrono::high_resolution_clock::now();
+      // The fast fine path is valid only without MPI.  In a distributed run
+      // bistabcg_iter() performs the global scalar reductions and full halo
+      // exchange through the ordinary five-stream path.
+      if (single_rank && !_WILSON_AND_LAPLACIAN_TEST_SINGLE_IN_MULTI_)
+        bistabcg_iter_fine_fast(true);
+      else
+        bistabcg_iter(0, true);
+      auto it1 = std::chrono::high_resolution_clock::now();
+      prof_fine_iter_ms += std::chrono::duration<double, std::milli>(it1 - it0).count();
+      ++total;
+      ++since_correction;
+
+      // fine_norm2_host reads the post-update residual.  This is deliberately
+      // explicit for the mixed path: the fast BiCGStab iteration's mapped
+      // check value is the pre-update (lagged) norm.
+      rn = norm(st.r);
+      conv_history.push_back(rn);
+      if (!std::isfinite(rn)) break;
+      if (rn <= target) break;
+
+      if (can_correct && since_correction >= num_restart) {
+        auto vc0 = std::chrono::high_resolution_clock::now();
+        ++prof_n_vcycles;
+        mixed_coarse_correction(0, cycle_kind);
+        // x_o changed, therefore the old shadow/search directions are no
+        // longer a valid Krylov state.  Rebuild the shadow residual and reset
+        // all recurrence scalars before the next fine iteration.
+        copy_c(st.r_tilde, st.r, 0);
+        reset_bistabcg_state_l0();
+        rn = norm(st.r);
+        conv_history.push_back(rn);
+        since_correction = 0;
+        prof_vcycle_ms += std::chrono::duration<double, std::milli>(
+            std::chrono::high_resolution_clock::now() - vc0).count();
+      }
+    }
+
+    checkCudaErrors(cudaStreamSynchronize(S));
+    recover_x_e();
+    checkCudaErrors(cudaStreamSynchronize(S));
+    solve_time_ms = std::chrono::duration<double, std::milli>(
+        std::chrono::high_resolution_clock::now() - t0).count();
+
+    if (rank == 0) {
+      std::ostringstream msg;
+      msg << "PYQCU::SOLVER::MULTIGRID::\n Mixed-precision BiCGStab: "
+          << total << " fine iterations, final residual: "
+          << std::scientific << rn;
+      log_write<T>(msg.str(), rank, true);
+      std::ostringstream ch;
+      ch << "CONVERGENCE_HISTORY: [";
+      for (size_t i = 0; i < conv_history.size(); ++i) {
+        if (i != 0) ch << ",";
+        ch << std::scientific << conv_history[i];
+      }
+      ch << "]";
+      log_write<T>(ch.str(), rank, false);
+    }
+  }
+
   void run() {
     // applyCloverMultigridQcu wires the external coarse assets immediately
     // after init(); fail before launching any kernel if one transition is
     // incomplete instead of dereferencing a null device pointer.
     validate_coarse_ops();
+    if ((solver_mode & _MG_MODE_CA_GCR_) != 0) { run_ca_gcr(); return; }
     if ((solver_mode & _MG_MODE_GCR_) != 0) { run_gcr(); return; }
+    if ((solver_mode & _MG_MODE_BICGSTABL_) != 0) {
+      run_bicgstab_l();
+      return;
+    }
+    if (mixed_precision) {
+      run_mixed();
+      return;
+    }
     auto t0=std::chrono::high_resolution_clock::now();
     auto &st=levels[0]; cudaStream_t S=set_ptr->stream;
     LatticeComplex<T>*dv=static_cast<LatticeComplex<T>*>(set_ptr->device_vals);
@@ -2173,8 +3987,10 @@ template <typename T> struct LatticeCloverMultigrid {
       prof_n_vcycles++;
       restrict_op(levels[1].rhs, st.r, 0);
       zero_c(levels[1].x, 1);
+      levels[1].has_solution = false;
+      levels[1].r0_ref = (T)0;
       checkCudaErrors(cudaStreamSynchronize(S));
-      v_cycle(1);
+      v_cycle(1, cycle_kind);
       prolong_op(e_odd_buf, levels[1].x, 0);
       checkCudaErrors(cudaStreamSynchronize(S));
       {
@@ -2203,17 +4019,22 @@ template <typename T> struct LatticeCloverMultigrid {
     }
     checkCudaErrors(cudaStreamSynchronize(S));
 
-    // 3. Log the initial Schur residual norm ||b__o||
+    // 3. Compute the initial Schur residual norm ||b__o||.  The reduction is
+    // collective: every rank must enter it even though only rank 0 emits the
+    // human-readable log.  Keeping the rank guard around this block deadlocks
+    // a distributed solve before its first Krylov iteration.
+    LatticeComplex<T> ht;
+    CUBLAS_CHECK(_cublasDot<T>(set_ptr->cublasHs[_a_], set_ptr->lat_4dim_SC,
+        st.rhs,1,st.rhs,1, &dv[_send_tmp_]));
+    checkCudaErrors(cudaMemcpyAsync(&ht,&dv[_send_tmp_],sizeof(LatticeComplex<T>),
+        cudaMemcpyDeviceToHost,set_ptr->streams[_a_]));
+    MPI_Barrier(MPI_COMM_WORLD);
+    checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_a_]));
+    T g=ht.real();
+    MPI_Allreduce(MPI_IN_PLACE,&g,1,mpi_real_type<T>(),MPI_SUM,MPI_COMM_WORLD);
+    MPI_Barrier(MPI_COMM_WORLD);
+    T nb=sqrt(g<0?0:g);
     if(rank==0){
-      LatticeComplex<T> ht;
-      CUBLAS_CHECK(_cublasDot<T>(set_ptr->cublasHs[_a_], set_ptr->lat_4dim_SC,
-          st.rhs,1,st.rhs,1, &dv[_send_tmp_]));
-      checkCudaErrors(cudaMemcpyAsync(&ht,&dv[_send_tmp_],sizeof(LatticeComplex<T>),
-          cudaMemcpyDeviceToHost,set_ptr->streams[_a_]));
-      MPI_Barrier(MPI_COMM_WORLD); checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_a_]));
-      T g=ht.real(); MPI_Allreduce(MPI_IN_PLACE,&g,1,mpi_real_type<T>(),MPI_SUM,MPI_COMM_WORLD);
-      MPI_Barrier(MPI_COMM_WORLD);
-      T nb=sqrt(g<0?0:g);
       log_write<T>("PYQCU::SOLVER::MULTIGRID::\n 0:Norm of b:"+std::to_string(nb),rank,true);
       log_write<T>("PYQCU::SOLVER::MULTIGRID::\n 0:Norm of r:"+std::to_string(nb),rank,true);
       log_write<T>("PYQCU::SOLVER::MULTIGRID::\n 0:Norm of x0:0.000000",rank,true);
@@ -2279,7 +4100,11 @@ template <typename T> struct LatticeCloverMultigrid {
       count_restart++;
       if(!do_check){ continue; }
 
-      T rn2=check_host[1].real();   // dev84: zero-copy fine norm (mapped)
+      // The single-rank fast path writes the checked norm to the mapped
+      // zero-copy slot.  The MPI path must use dot_mpi()'s reduced host mirror;
+      // check_host[1] is not populated by the five-stream MPI iteration.
+      T rn2 = mg_multi ? host_vals[_norm2_tmp_].real()
+                       : check_host[1].real();
       T rn=sqrt(rn2<0?0:rn2);
 
       // ---- dev87 RELIABLE-RESIDUAL REFRESH (quda-style reliable update) ----
@@ -2310,11 +4135,13 @@ template <typename T> struct LatticeCloverMultigrid {
       // ---- dev84 自适应校正门控: 标定与窗口斜率监测 ----
       if(num_levels>1 && num_restart>0){
         if(!mg_calib_done){
-          if(mg_ln_rn0 == 0){ mg_ln_rn0 = std::log((double)std::max(rn,(T)1e-30)); }
+          T rn_floor = rn > (T)1e-30 ? rn : (T)1e-30;
+          if(mg_ln_rn0 == 0){ mg_ln_rn0 = std::log((double)rn_floor); }
           if(total>=mg_calib_iters){
-            double ln_now=std::log((double)std::max(rn,(T)1e-30));
+            rn_floor = rn > (T)1e-30 ? rn : (T)1e-30;
+            double ln_now=std::log((double)rn_floor);
             mg_slope0=(ln_now-mg_ln_rn0)/mg_calib_iters;
-            mg_calib_done=1; mg_win_iters=0; mg_win_rn=std::log((double)std::max(rn,(T)1e-30));
+            mg_calib_done=1; mg_win_iters=0; mg_win_rn=std::log((double)rn_floor);
             if(rank==0&&verbose)
               log_write<T>("PYQCU::SOLVER::MULTIGRID::\n GATE: calibrated slope0="
                 +std::to_string(mg_slope0),rank,true);
@@ -2322,7 +4149,8 @@ template <typename T> struct LatticeCloverMultigrid {
         } else if(!mg_corr_off){
           mg_win_iters += CHECK_STRIDE;   // 以迭代数计窗
           if(mg_win_iters>=mg_gate_window){
-            double ln_now=std::log((double)std::max(rn,(T)1e-30));
+            T rn_floor = rn > (T)1e-30 ? rn : (T)1e-30;
+            double ln_now=std::log((double)rn_floor);
             double s1=(ln_now-mg_win_rn)/mg_win_iters;
             if(s1 < mg_gate_factor*mg_slope0){
               if(++mg_fail_wins>=2){
@@ -2391,9 +4219,12 @@ template <typename T> struct LatticeCloverMultigrid {
         // (WSL2 每次 host↔device 往返 ~1-40ms, 见 v_cycle 内注释)。
         restrict_op(levels[1].rhs, st.r, 0);
         zero_c(levels[1].x, 1);
+        levels[1].has_solution = false;
+        levels[1].r0_ref = (T)0;
 
-        // 2. Solve the coarse problem A_c·e_c = P^T·r (recursive V-cycle)
-        v_cycle(1);
+        // 2. Solve the coarse problem A_c·e_c = P^T·r using the selected
+        // recursive cycle.
+        v_cycle(1, cycle_kind);
 
         // 3. Prolong the coarse correction -> odd-site e_fine
         prolong_op(e_odd_buf, levels[1].x, 0);
@@ -2530,7 +4361,11 @@ template <typename T> struct LatticeCloverMultigrid {
 
     const int smoother_blocks = (n + 255) / 256;
 
-    if (use_mr_smoother) {
+    if (use_chebyshev_smoother) {
+      // Chebyshev is an explicitly selected approximate polynomial smoother;
+      // its scale sample is computed once and the recurrence is fixed-step.
+      chebyshev_smooth_fine(out, rt0, mu_pre);
+    } else if (use_mr_smoother) {
       // ---- μ_pre 步固定 MR（匹配 quda inv_mr_quda.cpp 的核心更新） ----
       // 每步: Ar=S·r → α=<Ar,r>/<Ar,Ar> → x+=αr, r-=αAr。
       // MR 不要求 S 为 Hermitian；这正是 Schur 粗算子相对 CG 的稳健性
@@ -2578,7 +4413,14 @@ template <typename T> struct LatticeCloverMultigrid {
     // 两条路径语义均正确。
     checkCudaErrors(cudaStreamSynchronize(S));
     // ---- coarse solve ----
-    v_cycle(1);
+    if (cycle_kind != MgCycleKind::V) {
+      // W/F/K are recursive cycle operators, not persistent coarse solves.
+      // Start each application from a clean child correction.
+      zero_c(levels[1].x, 1);
+      levels[1].has_solution = false;
+      levels[1].r0_ref = (T)0;
+    }
+    v_cycle(1, cycle_kind);
     // ---- P: 校正延拓回细层并累加 ----
     prolong_op(set_ptr->device_vec1, levels[1].x, 0);
     checkCudaErrors(cudaStreamSynchronize(S));
@@ -2589,12 +4431,366 @@ template <typename T> struct LatticeCloverMultigrid {
     // ν_post 平滑省略 (v1): 外层 FGMRES 承担剩余高频误差
   }
 
+  // Mixed-precision counterpart of apply_mg_prec().  The outer FGMRES still
+  // lives in the physical level-0 type T, while restriction, recursive coarse
+  // solves and prolongation dispatch through level_data_type[].  In
+  // particular, do not call the homogeneous restrict_op/prolong_op here:
+  // their void* arguments would make a c64 child look like c128 (or vice
+  // versa) and corrupt the vector by an element-size mismatch.
+  void apply_mg_prec_mixed(void *out, void *in) {
+    cudaStream_t S = set_ptr->stream;
+    const int n = static_cast<int>(levels[0].vec_sz);
+    if (num_levels <= 1) {
+      checkCudaErrors(cudaMemcpyAsync(
+          out, in, levels[0].vec_sz * sizeof(LatticeComplex<T>),
+          cudaMemcpyDeviceToDevice, S));
+      checkCudaErrors(cudaStreamSynchronize(S));
+      return;
+    }
+
+    LatticeComplex<T> *dv =
+        static_cast<LatticeComplex<T> *>(set_ptr->device_vals);
+    int mu_pre = set_ptr->host_params[_MG_MU_PRE_];
+    if (mu_pre <= 0) mu_pre = 4;
+    checkCudaErrors(cudaMemsetAsync(
+        out, 0, levels[0].vec_sz * sizeof(LatticeComplex<T>), S));
+    mixed_copy_typed<T>(rt0, in, levels[0].vec_sz);
+    mixed_copy_typed<T>(p0, rt0, levels[0].vec_sz);
+    LatticeComplex<T> zero(0, 0);
+    checkCudaErrors(cudaMemcpyAsync(&dv[_omega_], &zero, sizeof(zero),
+                                    cudaMemcpyHostToDevice, S));
+    CUBLAS_CHECK(_cublasDot<T>(set_ptr->cublasH, n, rt0, 1, rt0, 1,
+                               &dv[_tmp0_]));
+    checkCudaErrors(cudaMemcpyAsync(&dv[_rho_prev_], &dv[_tmp0_],
+                                    sizeof(LatticeComplex<T>),
+                                    cudaMemcpyDeviceToDevice, S));
+
+    const int blocks = (n + 255) / 256;
+    if (use_chebyshev_smoother) {
+      // This routine operates exclusively on level-0 T-typed buffers, so it
+      // is already safe for a heterogeneous child hierarchy.
+      chebyshev_smooth_fine(out, rt0, mu_pre);
+    } else if (use_mr_smoother) {
+      for (int k = 0; k < mu_pre; ++k) {
+        fine_dslash_op(set_ptr->device_vec1, rt0);
+        CUBLAS_CHECK(_cublasDot<T>(set_ptr->cublasH, n,
+            set_ptr->device_vec1, 1, rt0, 1, &dv[_tmp0_]));
+        CUBLAS_CHECK(_cublasDot<T>(set_ptr->cublasH, n,
+            set_ptr->device_vec1, 1, set_ptr->device_vec1, 1,
+            &dv[_tmp1_]));
+        mg_mr_give_alpha<T><<<1, 1, 0, S>>>(dv);
+        mg_mr_update_xr<T><<<blocks, 256, 0, S>>>(
+            static_cast<LatticeComplex<T> *>(out),
+            static_cast<LatticeComplex<T> *>(rt0),
+            static_cast<const LatticeComplex<T> *>(set_ptr->device_vec1),
+            dv, n);
+      }
+    } else {
+      for (int k = 0; k < mu_pre; ++k) {
+        fine_dslash_op(set_ptr->device_vec1, p0);
+        CUBLAS_CHECK(_cublasDot<T>(set_ptr->cublasH, n, p0, 1,
+            set_ptr->device_vec1, 1, &dv[_tmp1_]));
+        mg_cg_give_alpha<T><<<1, 1, 0, S>>>(dv);
+        mg_cg_update_xr<T><<<blocks, 256, 0, S>>>(
+            static_cast<LatticeComplex<T> *>(out),
+            static_cast<const LatticeComplex<T> *>(p0),
+            static_cast<LatticeComplex<T> *>(rt0),
+            static_cast<const LatticeComplex<T> *>(set_ptr->device_vec1),
+            dv, n);
+        CUBLAS_CHECK(_cublasDot<T>(set_ptr->cublasH, n, rt0, 1, rt0, 1,
+                                   &dv[_tmp0_]));
+        mg_cg_give_beta<T><<<1, 1, 0, S>>>(dv);
+        mg_cg_update_p<T><<<blocks, 256, 0, S>>>(
+            static_cast<LatticeComplex<T> *>(p0),
+            static_cast<const LatticeComplex<T> *>(rt0), dv, n);
+      }
+    }
+    checkCudaErrors(cudaStreamSynchronize(S));
+
+    // R -> recursive mixed-precision coarse solve -> P.  The child state is
+    // reset by mixed_v_cycle(), and its result is explicitly cast back into
+    // the fine scratch buffer before it is accumulated into out.
+    mixed_restrict_op(mixed_levels[1].rhs, rt0, 0);
+    mixed_v_cycle(1, cycle_kind);
+    mixed_prolong_op(set_ptr->device_vec1, mixed_levels[1].x, 0);
+    mixed_axpy_typed<T>(out, set_ptr->device_vec1, levels[0].vec_sz,
+                        std::complex<T>(1, 0));
+    checkCudaErrors(cudaStreamSynchronize(S));
+  }
+
   // ==================================================================
   // FGMRES(m) with MG preconditioning — DDalphaAMG C7 / QUDA FGMRES(10)
   // Replaces GCR when params[_MG_USE_GCR_]!=0 (reused flag for FGMRES).
   // FGMRES is more stable for variable MG preconditioning than GCR/BiStabCG.
   // m=10, max_iter from params, restart outer loop, Givens QR on host.
   // ==================================================================
+  // Communication-avoiding GCR.
+  //
+  // A block contains four powers of the current residual.  The powers are
+  // first orthogonalized in residual space, then every block direction is
+  // passed through the selected right preconditioner (possibly a
+  // heterogeneous, distributed MG hierarchy).  The images A*Z are
+  // orthogonalized by a second MGS pass while applying exactly the same
+  // coefficients to Z.  Consequently each image remains the image of its
+  // correction direction, and the small Gram solve is a genuine block GCR
+  // update rather than an unpreconditioned power iteration.  The true
+  // residual is recomputed once per block, which bounds recurrence drift.
+  void run_ca_gcr() {
+    auto t0 = std::chrono::high_resolution_clock::now();
+    auto &st = levels[0];
+    cudaStream_t S = set_ptr->stream;
+    const int n = static_cast<int>(st.vec_sz);
+    setup_b__o();
+    checkCudaErrors(cudaStreamSynchronize(S));
+
+    // Respect the same initial-guess flag as the BiStabCG path.
+    if (set_ptr->host_params[_MG_USE_INIT_GUESS_]) {
+      fine_dslash_op(set_ptr->device_vec0, st.x);
+      checkCudaErrors(cudaStreamSynchronize(S));
+      bistabcg_give_diff2<T><<<set_ptr->gridDim, set_ptr->blockDim, 0, S>>>(
+          st.rhs, set_ptr->device_vec0, st.r, set_ptr->device_vals);
+    } else {
+      checkCudaErrors(cudaMemsetAsync(st.x, 0,
+          st.vec_sz * sizeof(LatticeComplex<T>), S));
+      copy_c(st.r, st.rhs, 0);
+    }
+    checkCudaErrors(cudaStreamSynchronize(S));
+
+    const int block_dim = 4;
+    std::vector<void *> raw(block_dim + 1, nullptr);
+    std::vector<void *> image(block_dim, nullptr);
+    std::vector<void *> correction(block_dim, nullptr);
+    void *work = nullptr;
+    const size_t bytes = st.vec_sz * sizeof(LatticeComplex<T>);
+    auto cleanup = [&]() {
+      for (void *p : raw)
+        if (p) cudaFreeAsync(p, S);
+      for (void *p : image)
+        if (p) cudaFreeAsync(p, S);
+      for (void *p : correction)
+        if (p) cudaFreeAsync(p, S);
+      if (work) cudaFreeAsync(work, S);
+    };
+    for (size_t i = 0; i < raw.size(); ++i)
+      checkCudaErrors(cudaMallocAsync(&raw[i], bytes, S));
+    for (size_t i = 0; i < image.size(); ++i)
+      checkCudaErrors(cudaMallocAsync(&image[i], bytes, S));
+    for (size_t i = 0; i < correction.size(); ++i)
+      checkCudaErrors(cudaMallocAsync(&correction[i], bytes, S));
+    checkCudaErrors(cudaMallocAsync(&work, bytes, S));
+    checkCudaErrors(cudaStreamSynchronize(S));
+
+    auto norm = [&](void *v) {
+      std::complex<T> z = fine_dot_host(v, v, n);
+      T value = z.real();
+      return sqrt(value > (T)0 && std::isfinite(value) ? value : (T)0);
+    };
+    T bnorm = norm(st.rhs);
+    if (!std::isfinite(bnorm) || bnorm <= (T)1e-30) bnorm = (T)1;
+    T rn = norm(st.r);
+    conv_history.push_back(rn);
+    int total = 0;
+    bool fallback = false;
+    while (total < max_iter && std::isfinite(rn) && rn / bnorm >= atol) {
+      const int remaining = max_iter - total;
+      const int m = block_dim < remaining ? block_dim : remaining;
+      checkCudaErrors(cudaMemcpyAsync(raw[0], st.r, bytes,
+                                      cudaMemcpyDeviceToDevice, S));
+      // Generate the power basis before MGS changes any vector in the block.
+      for (int j = 0; j < m; ++j) {
+        fine_dslash_op(image[j], raw[j]);
+        if (j + 1 < m)
+          checkCudaErrors(cudaMemcpyAsync(raw[j + 1], image[j], bytes,
+                                          cudaMemcpyDeviceToDevice, S));
+      }
+
+      // First MGS pass: build a stable block in residual space.  Do not
+      // update image[j] here: before preconditioning it is A*raw[j], while
+      // the correction used below is M^{-1}*raw[j].
+      int k = 0;
+      for (int j = 0; j < m; ++j) {
+        for (int i = 0; i < k; ++i) {
+          std::complex<T> hij = fine_dot_host(raw[i], raw[j], n);
+          if (!std::isfinite(hij.real()) || !std::isfinite(hij.imag())) {
+            fallback = true;
+            break;
+          }
+          LatticeComplex<T> neg_h((T)-hij.real(), (T)-hij.imag());
+          CUBLAS_CHECK(_cublasAxpy<T>(set_ptr->cublasH, n, &neg_h,
+                                      raw[i], 1, raw[j], 1));
+          checkCudaErrors(cudaStreamSynchronize(S));
+        }
+        if (fallback) break;
+        T qnorm = norm(raw[j]);
+        if (!std::isfinite(qnorm) || qnorm <= (T)1e-12 * bnorm) break;
+        LatticeComplex<T> inv_q((T)1 / qnorm, 0);
+        CUBLAS_CHECK(_cublasScal<T>(set_ptr->cublasH, n, &inv_q, raw[j], 1));
+        CUBLAS_CHECK(_cublasScal<T>(set_ptr->cublasH, n, &inv_q, image[j], 1));
+        checkCudaErrors(cudaStreamSynchronize(S));
+
+        // Reorthogonalize the normalized vector and carry the same
+        // coefficients into its image.
+        for (int i = 0; i < k; ++i) {
+          std::complex<T> hij = fine_dot_host(raw[i], raw[j], n);
+          if (!std::isfinite(hij.real()) || !std::isfinite(hij.imag())) {
+            fallback = true;
+            break;
+          }
+          LatticeComplex<T> neg_h((T)-hij.real(), (T)-hij.imag());
+          CUBLAS_CHECK(_cublasAxpy<T>(set_ptr->cublasH, n, &neg_h,
+                                      raw[i], 1, raw[j], 1));
+          CUBLAS_CHECK(_cublasAxpy<T>(set_ptr->cublasH, n, &neg_h,
+                                      image[i], 1, image[j], 1));
+          checkCudaErrors(cudaStreamSynchronize(S));
+        }
+        if (fallback) break;
+        ++k;
+      }
+      if (k == 0) {
+        // The residual power block has no usable direction.  Treat this as a
+        // numerical block breakdown rather than silently returning the
+        // current, generally unconverged iterate.  The caller will restart
+        // through the validated FGMRES implementation below.
+        fallback = true;
+        break;
+      }
+      if (fallback) break;
+
+      // Right-precondition every stable residual-space direction.  A
+      // preconditioner application is deliberately outside the power-basis
+      // generation above, so a mixed-precision child is never reinterpreted
+      // as the fine precision T.
+      for (int j = 0; j < k; ++j) {
+        if (mixed_precision)
+          apply_mg_prec_mixed(correction[j], raw[j]);
+        else
+          apply_mg_prec(correction[j], raw[j]);
+        fine_dslash_op(image[j], correction[j]);
+      }
+
+      // Second MGS pass: orthogonalize A*Z and carry the same coefficients
+      // into Z.  This is the GCR invariant that makes the later Gram solve
+      // valid even when M is variable across hierarchy levels.
+      int q = 0;
+      for (int j = 0; j < k; ++j) {
+        for (int i = 0; i < q; ++i) {
+          std::complex<T> hij = fine_dot_host(image[i], image[j], n);
+          if (!std::isfinite(hij.real()) || !std::isfinite(hij.imag())) {
+            fallback = true;
+            break;
+          }
+          LatticeComplex<T> neg_h((T)-hij.real(), (T)-hij.imag());
+          CUBLAS_CHECK(_cublasAxpy<T>(set_ptr->cublasH, n, &neg_h,
+                                      image[i], 1, image[j], 1));
+          CUBLAS_CHECK(_cublasAxpy<T>(set_ptr->cublasH, n, &neg_h,
+                                      correction[i], 1, correction[j], 1));
+          checkCudaErrors(cudaStreamSynchronize(S));
+        }
+        if (fallback) break;
+        T qnorm = norm(image[j]);
+        if (!std::isfinite(qnorm)) {
+          fallback = true;
+          break;
+        }
+        if (qnorm <= (T)1e-12 * bnorm) break;
+        LatticeComplex<T> inv_q((T)1 / qnorm, 0);
+        CUBLAS_CHECK(_cublasScal<T>(set_ptr->cublasH, n, &inv_q,
+                                    image[j], 1));
+        CUBLAS_CHECK(_cublasScal<T>(set_ptr->cublasH, n, &inv_q,
+                                    correction[j], 1));
+        checkCudaErrors(cudaStreamSynchronize(S));
+        ++q;
+      }
+      if (q == 0) {
+        // Every preconditioned image collapsed (or was rejected by the
+        // finite-value guard).  A zero-size Gram system has no correction;
+        // use the robust outer fallback instead of reporting a false success.
+        fallback = true;
+        break;
+      }
+      if (fallback) break;
+
+      std::vector<std::complex<T>> gram(q * q, std::complex<T>(0, 0));
+      std::vector<std::complex<T>> rhs(q, std::complex<T>(0, 0));
+      for (int i = 0; i < q; ++i) {
+        rhs[i] = fine_dot_host(image[i], st.r, n);
+        for (int j = 0; j < q; ++j)
+          gram[i * q + j] = fine_dot_host(image[i], image[j], n);
+      }
+      std::vector<std::complex<T>> alpha;
+      int solve_k = q;
+      while (solve_k > 0) {
+        std::vector<std::complex<T>> submat(solve_k * solve_k);
+        std::vector<std::complex<T>> subrhs(solve_k);
+        for (int i = 0; i < solve_k; ++i) {
+          subrhs[i] = rhs[i];
+          for (int j = 0; j < solve_k; ++j)
+            submat[i * solve_k + j] = gram[i * q + j];
+        }
+        if (solve_small_system(submat, subrhs, solve_k, alpha)) break;
+        --solve_k;
+      }
+      if (solve_k == 0) {
+        fallback = true;
+        break;
+      }
+      for (int i = 0; i < solve_k; ++i) {
+        LatticeComplex<T> ai((T)alpha[i].real(), (T)alpha[i].imag());
+        CUBLAS_CHECK(_cublasAxpy<T>(set_ptr->cublasH, n, &ai,
+                                    correction[i], 1, st.x, 1));
+      }
+      fine_dslash_op(work, st.x);
+      bistabcg_give_diff2<T><<<set_ptr->gridDim, set_ptr->blockDim, 0, S>>>(
+          st.rhs, work, st.r, set_ptr->device_vals);
+      checkCudaErrors(cudaStreamSynchronize(S));
+      rn = norm(st.r);
+      conv_history.push_back(rn);
+      total += m;
+      if (!std::isfinite(rn)) {
+        fallback = true;
+        break;
+      }
+      if (rank == 0 && verbose)
+        log_write<T>("PYQCU::SOLVER::MULTIGRID::\n CA-GCR block " +
+                     std::to_string(total / block_dim) + " residual=" +
+                     std::to_string(rn), rank, true);
+    }
+    cleanup();
+    checkCudaErrors(cudaStreamSynchronize(S));
+
+    if (fallback) {
+      // A singular Gram block is a numerical basis-collapse event, not a
+      // reason to return a contaminated solution.  Re-enter the already
+      // validated FGMRES path from a clean state.
+      conv_history.clear();
+      if (rank == 0 && verbose)
+        log_write<T>("PYQCU::SOLVER::MULTIGRID::\n CA-GCR block "
+                     "breakdown; falling back to FGMRES", rank, true);
+      run_gcr();
+      return;
+    }
+
+    recover_x_e();
+    checkCudaErrors(cudaStreamSynchronize(S));
+    auto t1 = std::chrono::high_resolution_clock::now();
+    solve_time_ms =
+        std::chrono::duration<double, std::milli>(t1 - t0).count();
+    if (rank == 0) {
+      std::ostringstream msg;
+      msg << "PYQCU::SOLVER::MULTIGRID::\n CA-GCR iterations: " << total
+          << ", final residual: " << std::scientific << rn;
+      log_write<T>(msg.str(), rank, true);
+      std::ostringstream ch;
+      ch << "CONVERGENCE_HISTORY: [";
+      for (size_t j = 0; j < conv_history.size(); ++j) {
+        if (j > 0) ch << ",";
+        ch << std::scientific << conv_history[j];
+      }
+      ch << "]";
+      log_write<T>(ch.str(), rank, false);
+    }
+  }
+
   void run_gcr() {
     auto t0=std::chrono::high_resolution_clock::now();
     auto &st=levels[0]; cudaStream_t S=set_ptr->stream;
@@ -2667,7 +4863,10 @@ template <typename T> struct LatticeCloverMultigrid {
         auto j_t0=std::chrono::high_resolution_clock::now();
         // z_j = M^{-1} v_j   (dev84 GATE: 停用时 M=identity)
         auto prec_t0=std::chrono::high_resolution_clock::now();
-        if(!g_prec_off) apply_mg_prec(Z[j], V[j]);
+        if(!g_prec_off) {
+          if (mixed_precision) apply_mg_prec_mixed(Z[j], V[j]);
+          else                apply_mg_prec(Z[j], V[j]);
+        }
         else checkCudaErrors(cudaMemcpyAsync(Z[j], V[j],
                  st.vec_sz*sizeof(LatticeComplex<T>), cudaMemcpyDeviceToDevice, S));
         auto prec_t1=std::chrono::high_resolution_clock::now();
@@ -2735,7 +4934,8 @@ template <typename T> struct LatticeCloverMultigrid {
         conv_history.push_back(s_next_abs);
         // dev84 GATE 窗口评估
         {
-          double ln_r=std::log((double)std::max(s_next_abs,(T)1e-30));
+          T residual_floor = s_next_abs > (T)1e-30 ? s_next_abs : (T)1e-30;
+          double ln_r=std::log((double)residual_floor);
           if(g_win_n==0){ g_win_ln=ln_r; g_win_n=1; }
           else {
             g_win_n++;
@@ -2827,7 +5027,7 @@ template <typename T> struct LatticeCloverMultigrid {
     double tm=std::chrono::duration<double,std::milli>(t1-t0).count();
     checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
     cudaStream_t S=set_ptr->stream;
-    int full_vol=2*levels[0].vol; size_t full_n=(size_t)_LAT_SC_*full_vol;
+    int full_vol=2*levels[0].vol;
     dim3 gf=dim3((full_vol+_BLOCK_SIZE_-1)/_BLOCK_SIZE_), bf=dim3(_BLOCK_SIZE_);
     LatticeComplex<T>*dv=static_cast<LatticeComplex<T>*>(set_ptr->device_vals);
     // Patch _lat_4dim_ (in case a coarse solve left it small)
@@ -2930,7 +5130,16 @@ template <typename T> struct LatticeCloverMultigrid {
       coarse_breakdown = nullptr;
     }
     if(check_host!=nullptr){cudaFreeHost(check_host);check_host=nullptr;check_dev=nullptr;}
-    for(int i=1;i<num_levels;i++)levels[i].free_all(set_ptr->stream);
+    for (int i = 1; i < num_levels; ++i) {
+      levels[i].free_all(set_ptr->stream);
+      coarse_halo[i].free_all(set_ptr->stream);
+    }
+    if (mixed_levels != nullptr) {
+      for (int i = 1; i < num_levels; ++i)
+        mixed_levels[i].free_all(set_ptr->stream);
+      delete[] mixed_levels;
+      mixed_levels = nullptr;
+    }
     // dev84: free captured coarse-solve graphs
     for(int l=0;l<8;l++){
       if(graph_exec[l]!=nullptr){cudaGraphExecDestroy(graph_exec[l]);graph_exec[l]=nullptr;}
