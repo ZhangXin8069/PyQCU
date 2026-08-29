@@ -229,3 +229,37 @@ def matmul(input: torch.Tensor, other: torch.Tensor) -> torch.Tensor:
         return (real_real - imag_imag) + (real_imag + imag_real) * 1j
     else:
         return torch.matmul(input, other)
+
+
+def linalg_inv(input: torch.Tensor) -> torch.Tensor:
+    """Batch matrix inverse with the NPU complex compatibility path."""
+    if (input.device.type == 'npu' or force_use_npu) and torch.is_complex(input):
+        input_cpu = input.cpu()
+        result_cpu = torch.linalg.inv(input_cpu)
+        return result_cpu.to(input.device)
+    return torch.linalg.inv(input)
+
+
+def linalg_solve(input: torch.Tensor, other: torch.Tensor) -> torch.Tensor:
+    """Linear solve with the NPU complex compatibility path."""
+    if (input.device.type == 'npu' or force_use_npu) and (
+            torch.is_complex(input) or torch.is_complex(other)):
+        input_cpu = input.cpu()
+        other_cpu = other.cpu()
+        result_cpu = torch.linalg.solve(input_cpu, other_cpu)
+        return result_cpu.to(input.device)
+    return torch.linalg.solve(input, other)
+
+
+def stack(tensors, dim=0) -> torch.Tensor:
+    """Stack tensors while splitting complex inputs on NPU when necessary."""
+    if tensors and (tensors[0].device.type == 'npu' or force_use_npu) and torch.is_complex(tensors[0]):
+        real = torch.stack([tensor.real for tensor in tensors], dim=dim)
+        imag = torch.stack([tensor.imag for tensor in tensors], dim=dim)
+        return real + imag * 1j
+    return torch.stack(tensors, dim=dim)
+
+
+def manual_seed(seed: int):
+    """Expose deterministic seeding without importing torch in pure-Python modules."""
+    return torch.manual_seed(seed)

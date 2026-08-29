@@ -36,7 +36,13 @@ def _solve_upper_triangular(H: List[List[complex]], g: List[complex],
         s = g[i]
         for jj in range(i + 1, n):
             s -= H[i][jj] * eta[jj]
-        eta[i] = s / H[i][i]
+        # Arnoldi can break down for a singular/zero coarse operator.  Keep
+        # the iterate finite and let the true-residual check decide whether
+        # a later restart can make progress; do not divide by an exact zero.
+        if abs(H[i][i]) == 0.0:
+            eta[i] = 0.0 + 0.0j
+        else:
+            eta[i] = s / H[i][i]
     return eta
 
 
@@ -77,6 +83,13 @@ def fgmres(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor],
     if verbose:
         print(f"PYQCU::SOLVER::FGMRES:\n Norm of b:{b_norm}")
         print(f"PYQCU::SOLVER::FGMRES:\n Norm of r:{err}")
+    # A zero coarse residual is a normal event in a V-cycle.  With a
+    # relative tolerance its threshold is also zero, so ``err < _tol`` is
+    # false and the old code would enter Arnoldi with beta=0 and create NaNs.
+    if b_norm == 0.0 or err == 0.0:
+        if verbose:
+            print("PYQCU::SOLVER::FGMRES:\n zero right-hand side/residual")
+        return x
     if err < _tol:
         if verbose:
             print("PYQCU::SOLVER::FGMRES:\n x0 is just right!")
