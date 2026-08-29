@@ -3,6 +3,13 @@ from ._bistabcg import bistabcg_history as bistabcg_history
 from ._gmres import fgmres as fgmres
 from ._mr import mr as mr
 from ._multigrid import multigrid as multigrid
+from ._quda_multigrid import (Checkerboard as Checkerboard,
+                              ParitySchurOperator as ParitySchurOperator,
+                              QudaCoarseOperator as QudaCoarseOperator,
+                              QudaMultigrid as QudaMultigrid,
+                              QudaTransfer as QudaTransfer,
+                              QUDAMultigrid as QUDAMultigrid,
+                              quda_multigrid as quda_multigrid)
 from argparse import Namespace
 Namespace.__module__ = "pyqcu.solver"
 
