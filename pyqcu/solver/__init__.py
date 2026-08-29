@@ -4,6 +4,8 @@ from ._gmres import fgmres as fgmres
 from ._mr import mr as mr
 from ._multigrid import multigrid as multigrid
 from ._quda_multigrid import (Checkerboard as Checkerboard,
+                              CompactParityLayout as CompactParityLayout,
+                              CompactParityOperator as CompactParityOperator,
                               ParitySchurOperator as ParitySchurOperator,
                               QudaCoarseOperator as QudaCoarseOperator,
                               QudaMultigrid as QudaMultigrid,
