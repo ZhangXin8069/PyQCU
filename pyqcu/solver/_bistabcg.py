@@ -81,7 +81,8 @@ def bistabcg(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor], to
                     f"PYQCU::SOLVER::BISTABCG:\n Converged at iteration {i} with residual {r_norm:.6e}")
             break
     else:
-        print("PYQCU::SOLVER::BISTABCG:\n Warning: Maximum iterations reached, may not have converged")
+        if verbose:
+            print("PYQCU::SOLVER::BISTABCG:\n Warning: Maximum iterations reached, may not have converged")
     total_time = perf_counter() - start_time
     # BUGFIX 2026-07-28: guard against empty iter_times and only print stats when verbose
     if verbose and len(iter_times) > 0:

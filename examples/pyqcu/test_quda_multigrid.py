@@ -41,6 +41,13 @@ def _identity_diagonal(dof: int, shape, value: complex = 1.0):
         dof, dof, *shape).clone()
 
 
+def _component_diagonal(shape=FINE_SHAPE):
+    diagonal = torch.zeros(12, 12, *shape, dtype=DTYPE)
+    for component in range(12):
+        diagonal[component, component] = float(component + 1)
+    return diagonal
+
+
 def _fine_matvec_with_hop(diagonal, link, backward=None):
     def matvec(value):
         local = torch.einsum("ijxyzt,jxyzt->ixyzt", diagonal, value)
@@ -259,6 +266,127 @@ def test_multigrid_qcu_transition_assets_are_paired_and_guard_lazy_mode():
     )
     with pytest.raises(RuntimeError, match="matrix-free"):
         lazy.qcu_transition_assets()
+
+
+def test_quda_test_vector_setup_matches_zero_guess_solve():
+    """TEST_VECTOR_SETUP 应等价于从零初值求解 ``D B_new = B``。"""
+    torch.manual_seed(20260834)
+    initial = torch.randn(1, 4, 3, *FINE_SHAPE, dtype=DTYPE)
+    diagonal = _identity_diagonal(12, FINE_SHAPE, value=2.0)
+    mg = QudaMultigrid(
+        fine_matvec=lambda value: 2.0 * value,
+        fine_diagonal=diagonal,
+        lat_size=FINE_SHAPE,
+        null_vectors=initial,
+        block_size=BLOCK,
+        max_level=2,
+        materialize_coarse=False,
+        use_parity=False,
+        setup_method="test",
+        setup_iters=1,
+        setup_tol=1e-7,
+        setup_max_iter=8,
+        setup_post_orthonormalize=False,
+        verbose=False,
+    )
+    mg.setup()
+    assert torch.allclose(mg._null_vectors[0], initial / 2.0,
+                          rtol=2e-5, atol=2e-6)
+    assert mg.setup_history[0]["setup_type"] == "test"
+    assert mg.setup_history[0]["operator"] == "full"
+
+
+@pytest.mark.parametrize(
+    ("method", "operator_kind"),
+    [("inverse", "full"), ("cg", "normal"), ("ca-cg", "normal"),
+     ("krylov", "full"), ("gcr", "full")],
+)
+def test_quda_setup_solver_family_is_finite(method, operator_kind):
+    """QUDA setup solver 家族都应产生有限且可继续 transfer 的基。"""
+    torch.manual_seed(20260835)
+    initial = torch.randn(1, 4, 3, *FINE_SHAPE, dtype=DTYPE)
+    diagonal = _component_diagonal()
+
+    def matvec(value):
+        return torch.einsum("ijxyzt,jxyzt->ixyzt", diagonal, value)
+
+    mg = QudaMultigrid(
+        fine_matvec=matvec,
+        fine_adjoint=matvec,
+        fine_diagonal=diagonal,
+        lat_size=FINE_SHAPE,
+        null_vectors=initial,
+        block_size=BLOCK,
+        max_level=2,
+        materialize_coarse=False,
+        use_parity=False,
+        setup_method=method,
+        setup_iters=1,
+        setup_tol=1e-3,
+        setup_max_iter=3,
+        setup_krylov=2,
+        setup_post_orthonormalize=False,
+        verbose=False,
+    )
+    mg.setup()
+    generated = mg._null_vectors[0]
+    assert torch.isfinite(generated).all()
+    assert mg.setup_history[0]["operator"] == operator_kind
+    assert mg.transfers[0].orthogonality_error() < 2e-5
+
+
+def test_quda_normal_setup_requires_custom_adjoint():
+    diagonal = _identity_diagonal(12, FINE_SHAPE, value=2.0)
+    null, _ = _random_nulls(20260836)
+    mg = QudaMultigrid(
+        fine_matvec=lambda value: 2.0 * value,
+        fine_diagonal=diagonal,
+        lat_size=FINE_SHAPE,
+        null_vectors=null[:1],
+        block_size=BLOCK,
+        max_level=2,
+        materialize_coarse=False,
+        use_parity=False,
+        setup_method="cg",
+        setup_iters=1,
+        setup_max_iter=2,
+        verbose=False,
+    )
+    with pytest.raises(RuntimeError, match="fine_adjoint"):
+        mg.setup()
+
+
+def test_quda_wilson_gamma5_adjoint_enables_normal_setup():
+    """物理 Wilson 路径未显式给 adjoint 时自动使用 γ5 D γ5。"""
+    gauge = torch.zeros(3, 3, 4, *FINE_SHAPE, dtype=DTYPE)
+    for color in range(3):
+        gauge[color, color] = 1.0
+    null, _ = _random_nulls(20260837)
+    mg = QudaMultigrid(
+        U=gauge,
+        kappa=torch.tensor([0.1]),
+        null_vectors=null[:1],
+        block_size=BLOCK,
+        max_level=2,
+        materialize_coarse=False,
+        use_parity=False,
+        setup_method="cg",
+        setup_iters=1,
+        setup_max_iter=2,
+        setup_tol=1e-3,
+        setup_post_orthonormalize=False,
+        verbose=False,
+    )
+    trial = torch.randn(12, *FINE_SHAPE, dtype=DTYPE)
+    image = torch.randn_like(trial)
+    lhs = torch.vdot(mg._fine.apply(trial).flatten(), image.flatten())
+    rhs = torch.vdot(trial.flatten(), mg._fine.adjoint_apply(image).flatten())
+    assert float(torch.abs(lhs - rhs)) / (
+        float(torch.linalg.norm(mg._fine.apply(trial))) *
+        float(torch.linalg.norm(image))) < 2e-5
+    mg.setup()
+    assert mg._fine_adjoint_kind == "gamma5"
+    assert mg.setup_history[0]["operator"] == "normal"
 
 
 def test_staggered_transfer_preserves_parity_blocks():
