@@ -714,7 +714,6 @@ __device__ inline void multigrid_coarse_dslash_wide_halo_impl(
 
   int pair_d1[6] = {0, 0, 0, 1, 1, 2};
   int pair_d2[6] = {1, 2, 3, 2, 3, 3};
-  int coords[4] = {x, y, z, t};
   for (int pi = 0; pi < 6; ++pi) {
     int d1 = pair_d1[pi], d2 = pair_d2[pi];
     for (int s1i = 0; s1i < 2; ++s1i) {
@@ -910,7 +909,6 @@ __global__ void multigrid_coarse_dslash_wide(void *fermion_out, void *fermion_in
   int str_Eout = E * str_Ein;
   int str_dir  = E * str_Eout;
   int str_pm   = 4 * str_dir;
-  int str_s2   = 6 * str_Eout;          // hop_diag [s1,s2,pair,..] after s1? see below
   // hop_diag dims: [2(s1), 2(s2), 6(pair), E, E, X, Y, Z, T]
   int dg_str_s2   = 6 * E * str_Eout;   // s2 stride
   int dg_str_s1   = 2 * dg_str_s2;      // s1 stride
@@ -1008,9 +1006,13 @@ __global__ void multigrid_coarse_dslash_wide(void *fermion_out, void *fermion_in
  * @param tol    relative convergence target (||r|| < tol·||rhs||)
  */
 #define _CS_REDUCE(sum)                                                     \
-  sred[tid] = sum; __syncthreads();                                         \
+  sred[tid].x = (sum).real(); sred[tid].y = (sum).imag(); __syncthreads();   \
   for (int k = NT/2; k > 0; k >>= 1) {                                      \
-    if (tid < k) sred[tid] += sred[tid + k]; __syncthreads();               \
+    if (tid < k) {                                                           \
+      sred[tid].x += sred[tid + k].x;                                        \
+      sred[tid].y += sred[tid + k].y;                                        \
+    }                                                                        \
+    __syncthreads();                                                         \
   }
 
 template <typename T>
@@ -1022,9 +1024,10 @@ __global__ void multigrid_coarse_solve(void *x, void *rhs, void *r_tilde,
   const int NT = 256;
   int n = E * X * Y * Z * Lt;
   int tid = threadIdx.x;
-  __shared__ LatticeComplex<T> sred[NT];
-  __shared__ LatticeComplex<T> s_rho, s_rtv, s_ts, s_tt, s_norm2;
-  __shared__ LatticeComplex<T> s_beta, s_alpha, s_omega;
+  using complex_data = typename LatticeComplex<T>::_data_type;
+  __shared__ complex_data sred[NT];
+  __shared__ complex_data s_rho, s_rtv, s_ts, s_tt, s_norm2;
+  __shared__ complex_data s_beta, s_alpha, s_omega;
   __shared__ T s_r0;
 
   LatticeComplex<T> *xr = static_cast<LatticeComplex<T>*>(x);
@@ -1056,7 +1059,7 @@ __global__ void multigrid_coarse_solve(void *x, void *rhs, void *r_tilde,
     LatticeComplex<T> sum(0,0);
     for (int i = tid; i < n; i += NT) sum += br[i].conj() * br[i];
     _CS_REDUCE(sum);
-    if (tid == 0) s_r0 = sqrt(sred[0].real() > 0 ? sred[0].real() : 0);
+    if (tid == 0) s_r0 = sqrt(sred[0].x > 0 ? sred[0].x : 0);
     __syncthreads();
     if (s_r0 < (T)1e-30) return;
   }
@@ -1120,14 +1123,23 @@ __global__ void multigrid_coarse_solve(void *x, void *rhs, void *r_tilde,
       LatticeComplex<T> sum(0,0);
       for (int i = tid; i < n; i += NT) sum += rtr[i].conj() * rr[i];
       _CS_REDUCE(sum);
-      if (tid == 0) { s_rho = sred[0]; rho = sred[0]; }
+      if (tid == 0) {
+        s_rho = sred[0];
+        rho = LatticeComplex<T>(sred[0].x, sred[0].y);
+      }
       __syncthreads();
     }
     // 2. beta = (rho/rho_prev)*(alpha/omega); rho_prev = rho
-    if (tid == 0) { s_beta = (rho / rho_prev) * (alpha / omega); rho_prev = rho; }
+    if (tid == 0) {
+      LatticeComplex<T> beta = (rho / rho_prev) * (alpha / omega);
+      s_beta.x = beta.real();
+      s_beta.y = beta.imag();
+      rho_prev = rho;
+    }
     __syncthreads();
     // 3. p = r + beta*(p - omega*v)
-    for (int i = tid; i < n; i += NT) pr[i] = rr[i] + s_beta * (pr[i] - omega * vr[i]);
+    LatticeComplex<T> beta(s_beta.x, s_beta.y);
+    for (int i = tid; i < n; i += NT) pr[i] = rr[i] + beta * (pr[i] - omega * vr[i]);
     __syncthreads();
     // 4. v = A_c·p
     dslash(vr, pr);
@@ -1137,7 +1149,13 @@ __global__ void multigrid_coarse_solve(void *x, void *rhs, void *r_tilde,
       LatticeComplex<T> sum(0,0);
       for (int i = tid; i < n; i += NT) sum += rtr[i].conj() * vr[i];
       _CS_REDUCE(sum);
-      if (tid == 0) { rtv = sred[0]; s_alpha = rho / rtv; alpha = s_alpha; }
+      if (tid == 0) {
+        rtv = LatticeComplex<T>(sred[0].x, sred[0].y);
+        LatticeComplex<T> alpha_value = rho / rtv;
+        s_alpha.x = alpha_value.real();
+        s_alpha.y = alpha_value.imag();
+        alpha = alpha_value;
+      }
       __syncthreads();
     }
     // 6. s = r - alpha*v
@@ -1153,13 +1171,36 @@ __global__ void multigrid_coarse_solve(void *x, void *rhs, void *r_tilde,
         sum  += tr[i].conj() * sr[i];
         sum2 += tr[i].conj() * tr[i];
       }
-      sred[tid] = sum; __syncthreads();
-      for (int k = NT/2; k > 0; k >>= 1) { if (tid < k) sred[tid] += sred[tid+k]; __syncthreads(); }
-      if (tid == 0) ts = sred[0];
+      sred[tid].x = sum.real();
+      sred[tid].y = sum.imag();
       __syncthreads();
-      sred[tid] = sum2; __syncthreads();
-      for (int k = NT/2; k > 0; k >>= 1) { if (tid < k) sred[tid] += sred[tid+k]; __syncthreads(); }
-      if (tid == 0) { tt = sred[0]; s_omega = ts / tt; omega = s_omega; }
+      for (int k = NT/2; k > 0; k >>= 1) {
+        if (tid < k) {
+          sred[tid].x += sred[tid+k].x;
+          sred[tid].y += sred[tid+k].y;
+        }
+        __syncthreads();
+      }
+      if (tid == 0)
+        ts = LatticeComplex<T>(sred[0].x, sred[0].y);
+      __syncthreads();
+      sred[tid].x = sum2.real();
+      sred[tid].y = sum2.imag();
+      __syncthreads();
+      for (int k = NT/2; k > 0; k >>= 1) {
+        if (tid < k) {
+          sred[tid].x += sred[tid+k].x;
+          sred[tid].y += sred[tid+k].y;
+        }
+        __syncthreads();
+      }
+      if (tid == 0) {
+        tt = LatticeComplex<T>(sred[0].x, sred[0].y);
+        LatticeComplex<T> omega_value = ts / tt;
+        s_omega.x = omega_value.real();
+        s_omega.y = omega_value.imag();
+        omega = omega_value;
+      }
       __syncthreads();
     }
     // 9. r = s - omega*t ; x = x + alpha*p + omega*s
@@ -1173,9 +1214,11 @@ __global__ void multigrid_coarse_solve(void *x, void *rhs, void *r_tilde,
       LatticeComplex<T> sum(0,0);
       for (int i = tid; i < n; i += NT) sum += rr[i].conj() * rr[i];
       _CS_REDUCE(sum);
-      if (tid == 0) { s_norm2 = sred[0]; }
+      if (tid == 0) {
+        s_norm2 = sred[0];
+      }
       __syncthreads();
-      if (s_norm2.real() < target * target) break;
+      if (s_norm2.x < target * target) break;
     }
   }
 }
@@ -1212,7 +1255,8 @@ __global__ void multigrid_coarse_solve_cg(
   const int bid = blockIdx.x;
   const int nblocks = gridDim.x;
   const int NT_local = NT;
-  __shared__ LatticeComplex<T> sred[NT];
+  using complex_data = typename LatticeComplex<T>::_data_type;
+  __shared__ complex_data sred[NT];
 
   LatticeComplex<T> *xr  = static_cast<LatticeComplex<T>*>(x);
   LatticeComplex<T> *br  = static_cast<LatticeComplex<T>*>(rhs);
@@ -1245,12 +1289,18 @@ __global__ void multigrid_coarse_solve_cg(
     LatticeComplex<T> sum(0,0);
     for (int i = bid * NT_local + tid; i < n; i += nblocks * NT_local)
       sum += br[i].conj() * br[i];
-    sred[tid] = sum; __syncthreads();
+    sred[tid].x = sum.real();
+    sred[tid].y = sum.imag();
+    __syncthreads();
     for (int k = NT_local/2; k > 0; k >>= 1) {
-      if (tid < k) sred[tid] += sred[tid+k];
+      if (tid < k) {
+        sred[tid].x += sred[tid+k].x;
+        sred[tid].y += sred[tid+k].y;
+      }
       __syncthreads();
     }
-    if (tid == 0) prt[bid] = sred[0];
+    if (tid == 0)
+      prt[bid] = LatticeComplex<T>(sred[0].x, sred[0].y);
     grid.sync();
     // every block sums the partials locally
     LatticeComplex<T> tot(0,0);
@@ -1321,12 +1371,18 @@ __global__ void multigrid_coarse_solve_cg(
       LatticeComplex<T> sum(0,0);
       for (int i = bid*NT_local + tid; i < n; i += nblocks*NT_local)
         sum += a[i].conj() * b[i];
-      sred[tid] = sum; __syncthreads();
+      sred[tid].x = sum.real();
+      sred[tid].y = sum.imag();
+      __syncthreads();
       for (int k = NT_local/2; k > 0; k >>= 1) {
-        if (tid < k) sred[tid] += sred[tid+k];
+        if (tid < k) {
+          sred[tid].x += sred[tid+k].x;
+          sred[tid].y += sred[tid+k].y;
+        }
         __syncthreads();
       }
-      if (tid == 0) prt[bid] = sred[0];
+      if (tid == 0)
+        prt[bid] = LatticeComplex<T>(sred[0].x, sred[0].y);
       grid.sync();
       LatticeComplex<T> tot(0,0);
       for (int b = 0; b < nblocks; b++) tot += prt[b];
@@ -1388,22 +1444,34 @@ __global__ void multigrid_coarse_solve_cg(
           s1 += tr[i].conj() * sr[i];
           s2 += tr[i].conj() * tr[i];
         }
-        sred[tid] = s1; __syncthreads();
+        sred[tid].x = s1.real();
+        sred[tid].y = s1.imag();
+        __syncthreads();
         for (int k = NT_local/2; k > 0; k >>= 1) {
-          if (tid < k) sred[tid] += sred[tid+k];
+          if (tid < k) {
+            sred[tid].x += sred[tid+k].x;
+            sred[tid].y += sred[tid+k].y;
+          }
           __syncthreads();
         }
-        if (tid == 0) prt[bid] = sred[0];
+        if (tid == 0)
+          prt[bid] = LatticeComplex<T>(sred[0].x, sred[0].y);
         grid.sync();
         LatticeComplex<T> ts(0,0);
         for (int b = 0; b < nblocks; b++) ts += prt[b];
         grid.sync();
-        sred[tid] = s2; __syncthreads();
+        sred[tid].x = s2.real();
+        sred[tid].y = s2.imag();
+        __syncthreads();
         for (int k = NT_local/2; k > 0; k >>= 1) {
-          if (tid < k) sred[tid] += sred[tid+k];
+          if (tid < k) {
+            sred[tid].x += sred[tid+k].x;
+            sred[tid].y += sred[tid+k].y;
+          }
           __syncthreads();
         }
-        if (tid == 0) prt[bid] = sred[0];
+        if (tid == 0)
+          prt[bid] = LatticeComplex<T>(sred[0].x, sred[0].y);
         grid.sync();
         LatticeComplex<T> tt(0,0);
         for (int b = 0; b < nblocks; b++) tt += prt[b];

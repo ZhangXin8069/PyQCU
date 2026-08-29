@@ -73,17 +73,23 @@ template <typename T, int NT>
 __global__ void coarse_dot_kernel(const LatticeComplex<T> *a,
                                   const LatticeComplex<T> *b, int n,
                                   LatticeComplex<T> *out) {
-  __shared__ LatticeComplex<T> sdata[NT];
+  using complex_data = typename LatticeComplex<T>::_data_type;
+  __shared__ complex_data sdata[NT];
   int idx = threadIdx.x;
   LatticeComplex<T> sum(0, 0);
   for (int i = idx; i < n; i += NT) sum += a[i].conj() * b[i];
-  sdata[idx] = sum;
+  sdata[idx].x = sum.real();
+  sdata[idx].y = sum.imag();
   __syncthreads();
   for (int s = NT / 2; s > 0; s >>= 1) {
-    if (idx < s) sdata[idx] += sdata[idx + s];
+    if (idx < s) {
+      sdata[idx].x += sdata[idx + s].x;
+      sdata[idx].y += sdata[idx + s].y;
+    }
     __syncthreads();
   }
-  if (idx == 0) out[0] = sdata[0];
+  if (idx == 0)
+    out[0] = LatticeComplex<T>(sdata[0].x, sdata[0].y);
 }
 
 // Multi-block grid-stride reduction: partials[bid] = block-local <a,b> slice.
@@ -91,35 +97,47 @@ template <typename T, int NT>
 __global__ void coarse_dot_kernel_multi(const LatticeComplex<T> *a,
                                         const LatticeComplex<T> *b, int n,
                                         LatticeComplex<T> *partials) {
-  __shared__ LatticeComplex<T> sdata[NT];
+  using complex_data = typename LatticeComplex<T>::_data_type;
+  __shared__ complex_data sdata[NT];
   int idx = threadIdx.x, bid = blockIdx.x, nblk = gridDim.x;
   int stride = nblk * NT;
   LatticeComplex<T> sum(0, 0);
   for (int i = bid * NT + idx; i < n; i += stride) sum += a[i].conj() * b[i];
-  sdata[idx] = sum;
+  sdata[idx].x = sum.real();
+  sdata[idx].y = sum.imag();
   __syncthreads();
   for (int s = NT / 2; s > 0; s >>= 1) {
-    if (idx < s) sdata[idx] += sdata[idx + s];
+    if (idx < s) {
+      sdata[idx].x += sdata[idx + s].x;
+      sdata[idx].y += sdata[idx + s].y;
+    }
     __syncthreads();
   }
-  if (idx == 0) partials[bid] = sdata[0];
+  if (idx == 0)
+    partials[bid] = LatticeComplex<T>(sdata[0].x, sdata[0].y);
 }
 
 // Second reduction over nblk partials (1 block).
 template <typename T, int NT>
 __global__ void coarse_dot_reduce_kernel(const LatticeComplex<T> *partials,
                                          int nblk, LatticeComplex<T> *out) {
-  __shared__ LatticeComplex<T> sdata[NT];
+  using complex_data = typename LatticeComplex<T>::_data_type;
+  __shared__ complex_data sdata[NT];
   int idx = threadIdx.x;
   LatticeComplex<T> sum(0, 0);
   for (int i = idx; i < nblk; i += NT) sum += partials[i];
-  sdata[idx] = sum;
+  sdata[idx].x = sum.real();
+  sdata[idx].y = sum.imag();
   __syncthreads();
   for (int s = NT / 2; s > 0; s >>= 1) {
-    if (idx < s) sdata[idx] += sdata[idx + s];
+    if (idx < s) {
+      sdata[idx].x += sdata[idx + s].x;
+      sdata[idx].y += sdata[idx + s].y;
+    }
     __syncthreads();
   }
-  if (idx == 0) out[0] = sdata[0];
+  if (idx == 0)
+    out[0] = LatticeComplex<T>(sdata[0].x, sdata[0].y);
 }
 
 // ====================================================================
