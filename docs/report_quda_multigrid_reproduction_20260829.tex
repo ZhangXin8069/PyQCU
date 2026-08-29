@@ -111,7 +111,7 @@
     \end{column}
     \begin{column}{0.30\textwidth}
       \begin{alertblock}{边界}
-        这是可验证的 Python 参考路径，不是 QUDA 生产 GPU kernel。CUDA/MPI halo、NVSHMEM、完整 setup Krylov 与硬件性能仍 \unverified{}。
+        这是可验证的 Python/QCU 复现路径，不是 QUDA 生产 GPU kernel。QCU 两 rank 小格的 coarse halo 与 Clover MG 闭环已 \verified{}；NVSHMEM、完整 setup Krylov 与硬件性能仍 \unverified{}。
       \end{alertblock}
     \end{column}
   \end{columns}
@@ -128,7 +128,7 @@
   \end{center}
   \vspace{0.18em}
   \begin{tabular}{@{}p{0.94\textwidth}@{}}
-    \colorbox{good}{\parbox{0.905\textwidth}{\textbf{阶段判断：}\quad 已经复现 QUDA 的核心代数对象与奇偶路径；下一阶段才是把 reference operator 替换成批量 kernel、MPI halo 和真实大格求解器。}}
+    \colorbox{good}{\parbox{0.905\textwidth}{\textbf{阶段判断：}\quad 已复现 QUDA 核心代数与奇偶路径；QCU 已通过 33 点 coarse halo 和两 rank Clover MG 小格闭环；下一步建立大格 setup/性能对照。}}
   \end{tabular}
   \source{实现：\codepath{pyqcu/solver/_quda_multigrid.py:188-1407}；测试：\codepath{examples/pyqcu/test_quda_multigrid.py:56-264}；本次命令：\codepath{pytest -q examples/pyqcu/test_quda_multigrid.py}。}
 \end{frame}
@@ -353,7 +353,7 @@
       \end{tikzpicture}
       \vspace{0.3em}
       \begin{alertblock}{当前实现级别}
-        \verified{} 代数检查通过；\unverified{} CUDA 侧 UV/VUV、field order、ghost exchange 尚未迁移。
+        \verified{} 代数检查与 QCU 小格通信通过；\unverified{} QUDA 生产侧 UV/VUV、field order、NVSHMEM 与全面性能等价。
       \end{alertblock}
     \end{column}
   \end{columns}
@@ -555,7 +555,7 @@
   \source{修复：\codepath{solver/_quda_multigrid.py:73-88,377-495,657-862}、\codepath{solver/_gmres.py:31-45,77-147}；QUDA：\codepath{coarse_op_preconditioned.cuh:48-120}。}
 \end{frame}
 
-\begin{frame}[t,fragile]{可复现入口与当前限制：先用 reference 验证，再迁移到生产后端}
+\begin{frame}[t,fragile]{可复现入口与当前限制：reference 已验证，QCU 已有小格闭环}
   \footnotesize
   \begin{columns}[T,totalwidth=\textwidth]
     \begin{column}{0.49\textwidth}
@@ -582,6 +582,7 @@ x = mg.solve(b)
           staggered transfer 1$\to$2；\\[-0.1em]
           materialized 与 matrix-free；\\[-0.1em]
           QCU blocked transfer/33 点槽位；\\[-0.1em]
+          QCU 32 方向 coarse halo 与两 rank Clover MG；\\[-0.1em]
           旧/新导出并存。
         \end{minipage}
       \end{block}
@@ -590,17 +591,16 @@ x = mg.solve(b)
         \begin{minipage}{0.97\linewidth}
           QUDA 原生 GPU kernel 的逐项性能等价；\\[-0.1em]
           QCU/QUDA 完整 MG 的 setup 与性能对照；\\[-0.1em]
-          MPI rank 间 coarse halo/ghost；\\[-0.1em]
           QUDA 的完整 CG/CA-CG/Krylov null setup；\\[-0.1em]
-          大格 $L$、混合精度和生产收敛曲线；\\[-0.1em]
-          C++ CUDA 后端的直接复用。
+          大格/更多 MPI 拓扑、混合精度和生产收敛曲线；\\[-0.1em]
+          NVSHMEM 与其他生产级通信路径。
         \end{minipage}
       \end{alertblock}
     \end{column}
   \end{columns}
   \vspace{0.05em}
   \begin{center}
-    \scriptsize reference 不变量 $\to$ 批量 UV/VUV kernel $\to$ MPI halo $\to$ 全量对照
+    \scriptsize reference 不变量 $\to$ 批量 UV/VUV kernel $\to$ \verified{} MPI halo $\to$ \verified{} 两 rank full MG $\to$ 大格/性能对照
   \end{center}
   \source{入口：\codepath{solver/_quda_multigrid.py:986-1104,1237-1347}；QUDA 参考：\codepath{coarse_op.cuh}、\codepath{multigrid.cpp}。}
 \end{frame}
@@ -635,18 +635,21 @@ x = mg.solve(b)
       \begin{block}{直接证据}
         CPU QCU 布局/槽位/边界：\passmark{} $13/13$；\newline
         QCU CUDA transfer + wide coarse：\passmark{} $1/1$，误差 $<2\times10^{-5}$；\newline
-        批量 stencil builder 消费 blocked $V$：$9.1\times10^{-8}$。
+        批量 stencil builder 消费 blocked $V$：$9.1\times10^{-8}$；\newline
+        MPI wide coarse：\passmark{} c64 $5.60\times10^{-7}$、c128 $1.03\times10^{-15}$；\newline
+        host-staging / overlap：\passmark{} 两路径 $\mathrm{rel}_{\max}=0$；\newline
+        两 rank Clover MG：\passmark{} 真残差 $4.136\times10^{-7}$（72 次迭代）。
       \end{block}
     \end{column}
   \end{columns}
   \vspace{0.05em}
   \begin{alertblock}{规模边界}
-    \scriptsize matrix-free transition 默认不触发逐列 materialize；大格应调用已有 \codepath{tools.build_stencil_mt} / \codepath{build_stencil_local}，再按上述槽位交给 CUDA。这里验证的是代数/ABI 等价，不宣称 setup 性能等价。
+    \scriptsize matrix-free transition 默认不触发逐列 materialize；大格应调用已有 \codepath{tools.build_stencil_mt} / \codepath{build_stencil_local}，再按上述槽位交给 CUDA。MPI 证据来自确定性 33 点周期参考与一组两 rank Clover MG 小格；它证明通信/局部重建闭环，不宣称 QUDA kernel 的 setup 性能等价。
   \end{alertblock}
-  \source{实现：\codepath{_quda_multigrid.py}；测试：\codepath{test_quda_multigrid.py}、\codepath{test_quda_transfer_cuda.py}；kernel：\codepath{cpp/cuda/qcu/src/multigrid.cu}。}
+  \source{实现：\codepath{_quda_multigrid.py}、\codepath{cpp/cuda/qcu/include/lattice_multigrid.h}；测试：\codepath{test_quda_multigrid.py}、\codepath{test_quda_transfer_cuda.py}、\codepath{examples/qcu/dev87/coarse_mpi_equiv.py}、\codepath{coarse_mpi_smoke.py}、\codepath{run_qcu_mg_mpi.py}；kernel：\codepath{cpp/cuda/qcu/src/multigrid.cu}。}
 \end{frame}
 
-\begin{frame}[t,shrink=5]{阶段结论：数学复现已闭环，系统复现仍需三步}
+\begin{frame}[t,shrink=5]{阶段结论：代数与 QCU 两 rank 小格系统验证已闭环，生产复现仍需三步}
   \small
   \begin{columns}[T,totalwidth=\textwidth]
     \begin{column}{0.30\textwidth}
@@ -659,12 +662,12 @@ x = mg.solve(b)
         \]
       \end{block}
       \begin{block}{置信度}
-        \verified{} CPU 小格代数验证；\inferred{} 与 QUDA 源码控制流/存储语义相符。
+        \verified{} CPU 小格代数、QCU 33 点 coarse halo，以及两 rank Clover MG 真残差；\inferred{} 与 QUDA 源码控制流/存储语义相符。
       \end{block}
     \end{column}
     \begin{column}{0.30\textwidth}
       \begin{block}{剩余最大风险}
-        参考路径的精确 materialize 仍是逐点/逐列 Python 实现；大格应走批量/局部 stencil builder。生产级 MPI 通信、完整 setup 和性能尚未形成证据。
+        参考路径的精确 materialize 仍是逐点/逐列 Python 实现；当前完整 MG 仅覆盖 $1\times1\times1\times2$ 小格拓扑。QUDA 生产 kernel 性能、完整 null-vector setup 与大格 scaling 尚未形成证据。
       \end{block}
       \begin{block}{旧实现定位}
         旧类继续作为历史基线；新类是补全 QUDA 语义的并行实现，不做无声替换。
@@ -674,17 +677,17 @@ x = mg.solve(b)
       \begin{block}{下一步可验收产物}
         \scriptsize
         \begin{minipage}{0.97\linewidth}
-          1. 多 rank coarse halo/ghost 与边界回归；\\
-          2. 完整 QUDA 风格 null-vector setup（CG/CA-CG/Krylov）；\\
-          3. 大格 residual、setup 成本与性能表。
+          1. 完整 QUDA 风格 null-vector setup（CG/CA-CG/Krylov）；\\
+          2. 多进程拓扑/大格的 full residual 回归；\\
+          3. setup 成本、迭代数与性能对照表。
         \end{minipage}
       \end{block}
       \begin{alertblock}{需要决策}
-        是否以本 reference 的不变量作为 CUDA/MPI 迁移的 golden contract；本报告没有性能结论，因此无需据此承诺硬件收益。
+        本轮已将 reference 不变量与 QCU 33 点 MPI 结果固定为迁移的 golden contract；后续若要声明硬件收益，还需批准大格/多拓扑 benchmark 资源。
       \end{alertblock}
     \end{column}
   \end{columns}
-  \source{源码：QUDA 四个核心文件；实现/测试：\codepath{_quda_multigrid.py}、\codepath{test_quda_multigrid.py}。}
+  \source{源码：QUDA 四个核心文件；实现/测试：\codepath{_quda_multigrid.py}、\codepath{cpp/cuda/qcu/include/lattice_multigrid.h}、\codepath{examples/qcu/dev87/run_qcu_mg_mpi.py}。}
 \end{frame}
 
 \appendix
@@ -692,7 +695,7 @@ x = mg.solve(b)
 \begin{frame}[t]{附录：源码—对象索引与证据等级}
   \scriptsize
   \begin{center}
-    \renewcommand{\arraystretch}{0.86}
+    \renewcommand{\arraystretch}{0.72}
     \begin{tabularx}{0.96\textwidth}{@{}P{0.25\textwidth}P{0.40\textwidth}Y@{}}
       \toprule
       对象 & QUDA 证据 & PyQCU 证据/状态 \\
@@ -703,15 +706,11 @@ x = mg.solve(b)
       coarse $X/Y$ & \codepath{coarse_op.cuh:1040-1459} & \codepath{_quda_multigrid.py}；Galerkin $RDP$ \\
       PC / Yhat & \codepath{coarse_op_preconditioned.cuh:48-120} & \codepath{_quda_multigrid.py}；方向/存储 \\
       parity / cycle & \codepath{multigrid.cpp:1131-1224} & \codepath{_quda_multigrid.py}；Schur + FGMRES \\
-      生产后端 & CUDA field order、ghost、MPI、MMA、mixed precision & \unverified{}；本任务仅交付 Python reference \\
+      生产/QCU 后端 & CUDA field order、ghost、MPI、MMA、mixed precision & QCU 33 点 coarse halo 与两 rank Clover MG \verified{}；QUDA kernel 性能、完整 setup 与大格 scaling \unverified{} \\
       \bottomrule
     \end{tabularx}
   \end{center}
-  \vspace{0.10em}
-  \begin{block}{证据口径}
-    \scriptsize\verified{} = 本次命令直接支持；\inferred{} = 由源码结构推出；\unverified{} = 尚未运行或不在范围。数值仅来自 CPU 小格。
-  \end{block}
-  \source{表中 QUDA 文件相对 \codepath{refer/git-rep/quda}；PyQCU 求解器文件相对 \codepath{pyqcu/solver}；日志 \codepath{logs/v20260829.txt}。}
+  \source{证据口径：\verified{}=命令直测；\inferred{}=源码推断；\unverified{}=尚未运行或不在范围。表中路径相对 \codepath{refer/git-rep/quda}、\codepath{pyqcu}；日志：\codepath{logs/v20260829.txt}。}
 \end{frame}
 
 \begin{frame}[t]{附录：本次交付清单}
@@ -719,7 +718,9 @@ x = mg.solve(b)
   \begin{tabular}{@{}l@{}}
     \textbf{实现：}\quad \codepath{pyqcu/solver/_quda_multigrid.py}（新 QUDA 风格参考路径）\\
     \textbf{测试：}\quad \codepath{examples/pyqcu/test_quda_multigrid.py}（13 项 CPU 代数/求解器回归）\\
-    \textbf{QCU 桥接：}\quad \codepath{examples/qcu/dev87/test_quda_transfer_cuda.py}（transfer/stencil CUDA 等价）\\
+    \textbf{QCU/MPI：}\quad \codepath{examples/qcu/dev87/test_quda_transfer_cuda.py}\\
+    \hspace{4.8em}\codepath{examples/qcu/dev87/coarse_mpi_equiv.py}、\codepath{examples/qcu/dev87/coarse_mpi_smoke.py}\\
+    \hspace{4.8em}\codepath{examples/qcu/dev87/run_qcu_mg_mpi.py}\\
     \textbf{兼容：}\quad \codepath{pyqcu/solver/__init__.py}、\codepath{pyqcu/cann/__init__.py}\\
     \textbf{稳健性：}\quad \codepath{pyqcu/solver/_gmres.py}（zero RHS 与 breakdown）\\
     \textbf{报告：}\quad \codepath{docs/report_quda_multigrid_reproduction_20260829.tex/.pdf}\\
