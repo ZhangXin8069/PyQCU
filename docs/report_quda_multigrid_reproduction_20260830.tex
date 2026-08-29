@@ -165,7 +165,7 @@
         $\text{createCoarseSolver：封装 coarse solver 与递归 MG}$\\
         $\text{operator：prepare}\to\text{pre-smooth}\to Rr\to\text{recurse}$\\
         $\quad\to Pe_c\to\text{post-smooth}$\\
-        $\text{输出：solution；若类型不同则 reconstruct 后重算 residual}$
+        $\text{输出：solution；类型变化时 reconstruct + residual}$
       \end{tabular}
     \end{column}
     \begin{column}{0.38\textwidth}
@@ -175,7 +175,7 @@
         \node[state,font=\scriptsize,text width=2.55cm,below=of b] (c) {$X,Y$ 与 solver wrapper};
         \node[state,font=\scriptsize,text width=2.55cm,below=of c] (d) {递归 coarse MG};
         \draw[arrow] (a)--(b)--(c)--(d);
-        \draw[relation] (d.east) -- ++(0.40,0) |- node[right=1pt,labelstyle]{返回校正}
+        \draw[relation] (d.east) -- ++(0.15,0) |- node[right=0pt,labelstyle]{回传}
           (b.east);
       \end{tikzpicture}
       \vspace{0.20em}
@@ -197,8 +197,7 @@
       \draw[arrow] (x)--(v)--(r)--(q)--(y);
     \end{tikzpicture}
   \end{center}
-  \source{QUDA：\codepath{refer/git-rep/quda/lib/multigrid.cpp:72-197,1131-1224}；
-    PyQCU：\codepath{pyqcu/solver/_quda_multigrid.py:1915-1986}。}
+  \source{QUDA/PyQCU 递归控制流；完整路径见附录。}
 \end{frame}
 
 \begin{frame}[t]{P/R 与粗算子：局部正交化与 $RDP$ 缺一不可}
@@ -231,26 +230,12 @@
       \end{tabularx}
     \end{column}
   \end{columns}
-  \vspace{0.16em}
-  \begin{center}
-    \begin{tikzpicture}[node distance=0.25cm and 0.28cm]
-      \node[flow] (b) {fine block $b$};
-      \node[flow,right=of b] (v) {局部 $V$};
-      \node[flow,right=of v] (d) {Clover + Gauge $D$};
-      \node[flow,right=of d] (c) {coarse $X,Y$};
-      \draw[arrow] (b)--node[above=1pt,labelstyle]{$\mathrm{CGS/QR}$}(v);
-      \draw[arrow] (v)--node[above=1pt,labelstyle]{$V^\dagger D V$}(d);
-      \draw[arrow] (d)--(c);
-    \end{tikzpicture}
-  \end{center}
+  \vspace{-0.24em}
   \begin{alertblock}{极限检查}
     \scriptsize
-    若 coarse vectors 超过 aggregate 的局部维数，$RP\simeq I_c$ 无法成立；
-    若丢掉 $X$ 或 $Y$，分别改变局部质量/磁场耦合或传播，不能称为完整粗算子。
+    coarse 自由度不得超过 aggregate 局部维数；$X$ 与 $Y$ 必须同时保留。
   \end{alertblock}
-  \source{QUDA：\codepath{refer/git-rep/quda/lib/transfer.cpp:200-328}、
-    \codepath{refer/git-rep/quda/lib/coarse_op.cuh:1035-1459}；
-    PyQCU：\codepath{pyqcu/solver/_quda_multigrid.py:664-1056}。}
+  \source{QUDA transfer/coarse\_op；PyQCU QudaTransfer；完整路径见附录。}
 \end{frame}
 
 \begin{frame}[t]{奇偶处理：MATPC 首层形成 odd Schur，粗层不再重复 checkerboard}
@@ -279,23 +264,15 @@
         \node[state,text width=2.70cm,below=of c] (d) {reconstruct $x_e$};
         \draw[arrow] (a)--(b)--(c)--(d);
       \end{tikzpicture}
-      \vspace{0.06em}
-      \begin{alertblock}{一次减半原则}
+      \vspace{0.03em}
+      \begin{alertblock}{坐标规则}
         \scriptsize
-        $D_f\to S_o$ 已将 parity 压进 odd compact geometry；
-        $A_{\ell+1}=R_\ell A_\ell P_\ell$ 直接 Galerkin，不能再 Schur（否则 $T/4$）。
+        $p=(x+y+z+t)\bmod2,\ e_s=(x+y+z)\bmod2$；
+        $t_{\rm full}=2t_{\rm half}+((p-x-y-z)\bmod2)$。
+        $T$ 与各 local 轴须为偶数。
       \end{alertblock}
     \end{column}
   \end{columns}
-  \vspace{0.04em}
-  \begin{block}{紧凑布局的坐标关系}
-    \scriptsize
-    \begin{align*}
-      p&=(x+y+z+t)\bmod2,\quad e_s=(x+y+z)\bmod2,\\
-      t_{\rm full}&=2t_{\rm half}+((p-x-y-z)\bmod2).
-    \end{align*}
-    odd 页不是简单奇数 $t$ 切片；$T$ 与各 local 物理轴须为偶数。
-  \end{block}
   \source{QUDA：\codepath{refer/git-rep/quda/lib/multigrid.cpp:347-434,1131-1224}；
     QCU：\codepath{cpp/cuda/qcu/src/multigrid.cu:1579-1743}；
     PyQCU：\codepath{pyqcu/solver/_quda_multigrid.py:1094-1370}。}
@@ -382,7 +359,7 @@
   \begin{center}
     \begin{tabular}{@{}l@{}}
       $\text{输入： }\text{fine Schur components},\;\text{local orthogonal }V,\;W=10,\;E$\\
-      $\text{按粗点 }c\text{ 建窗口： }x_0=2c-(W/2-1)，\text{在中心块填充 }E\text{ 个单位探针}$\\
+      $\text{按粗点 }c\text{ 建窗口： }x_0=2c-(W/2-1),\;\text{在中心块填充 }E\text{ 个单位探针}$\\
       $\text{局部 action： }f_c\xrightarrow{D_{oe}}D_{ee}^{-1}\xrightarrow{D_{eo}}S_of_c$\\
       $\text{限制：仅取 }c\text{ 本点、4 轴邻居和 24 个二维对角块，计算 }V^\dagger S_oV$\\
       $\text{写回： }sit,\;hop\_nn,\;hop\_diag\text{；周期退化或窗口不足时回退逐点参考路径}$\\
@@ -403,21 +380,14 @@
     \end{column}
     \begin{column}{0.41\textwidth}
       \begin{tikzpicture}[node distance=0.16cm]
-        \node[phase] (a) {全格探测};
-        \node[phase,below=of a] (b) {局部 $W^4$ 窗口};
-        \node[phase,below=of b] (c) {33 块 restriction};
-        \node[phase,below=of c] (d) {HDF5 coarse asset};
-        \draw[arrow] (a)--(b)--(c)--(d);
+        \node[phase] (a) {局部 $W^4$ 窗口};
+        \node[phase,below=of a] (b) {33 块 restriction};
+        \node[phase,below=of b] (c) {HDF5 coarse asset};
+        \draw[arrow] (a)--(b)--(c);
       \end{tikzpicture}
-      \vspace{0.12em}
-      \begin{block}{支撑边界}
-        \scriptsize
-        更宽 operator 必须扩展窗口与 C++ kernel，禁止静默截断。
-      \end{block}
     \end{column}
   \end{columns}
-  \source{实现：\codepath{pyqcu/tools/_multigrid.py:990-1277}；
-    参考日志：\codepath{logs/v20260818.txt}。}
+  \source{实现与参考：\codepath{pyqcu/tools/_multigrid.py}、\codepath{logs/v20260818.txt}。}
 \end{frame}
 
 \begin{frame}[t]{本轮性能/显存优化：计算批量化，同时把窗口矩阵从“全驻留”改为流式}
@@ -476,26 +446,10 @@
       \bottomrule
     \end{tabularx}
   \end{center}
-  \vspace{0.08em}
-  \begin{columns}[T,totalwidth=\textwidth]
-    \begin{column}{0.45\textwidth}
-      \begin{block}{数值不变量}
-        \scriptsize
-        流式 action 与物化参考逐元素相同；K 批量只改变独立窗口的执行顺序，
-        不改变中心点与 33 个目标块的写集。
-      \end{block}
-    \end{column}
-    \begin{column}{0.45\textwidth}
-      \begin{alertblock}{口径}
-        \scriptsize
-        CPU benchmark 用于证明调度收益和等价性；完整 GPU/MPI 性能仍需在目标设备和
-        固定数据缓存下单独测量，不能从该数字外推 QUDA 原生吞吐。
-      \end{alertblock}
-    \end{column}
-  \end{columns}
+  \vspace{0.04em}
   \source{测试：\codepath{examples/qcu/dev87/test_stencil_batch_local.py}、
-    \codepath{examples/qcu/dev87/test_mg_breakdown.py}；
-    命令：\codepath{pytest -q examples/qcu/dev87/test_stencil_batch_local.py examples/qcu/dev87/test_mg_breakdown.py}。}
+    \codepath{examples/qcu/dev87/test_mg_breakdown.py}；流式与批量等价，
+    CPU 数字仅代表 setup 调度收益，不外推 GPU/MPI 吞吐。}
 \end{frame}
 
 \begin{frame}[t]{分布式与混合精度验证：奇偶、粗 halo 和真残差均有独立证据}
@@ -543,13 +497,10 @@
       \bottomrule
     \end{tabularx}
   \end{center}
-  \vspace{0.04em}
-  \colorbox{warnbg}{\parbox{0.91\textwidth}{\textbf{风险控制：}
-    所有“确证”只对应源码、恒等式或本轮命令输出；CPU batch 加速不外推 GPU；
-    2/4 rank 正确性不外推强 scaling；未测项目保持“未验证”。}}
-  \source{边界实现：\codepath{pyqcu/tools/_multigrid.py:1192-1222,1314-1327}；
-    历史资源分析：\codepath{logs/dev80_2/dev80_2_analy.md:57-74}；
-    MPI 限制记录：\codepath{examples/qcu/dev87/dev87_report.md:375-390}。}
+  \colorbox{warnbg}{\parbox{0.91\textwidth}{\scriptsize
+    \textbf{风险控制：}“确证”均有源码、恒等式或命令依据；CPU batch 不外推 GPU，
+    2/4 rank 不外推强 scaling，未测项标为“未验证”。}}
+  \source{实现：\codepath{pyqcu/tools/_multigrid.py}；MPI 约束：dev87 report。}
 \end{frame}
 
 \begin{frame}[t]{阶段结论与下一步：从“能复现”转向“可扩展 setup”}
@@ -610,7 +561,7 @@
 \begin{frame}[t]{附录：对象—源码—证据索引}
   \scriptsize
   \begin{center}
-    \renewcommand{\arraystretch}{0.88}
+    \renewcommand{\arraystretch}{0.82}
     \begin{tabularx}{0.96\textwidth}{@{}P{0.22\textwidth}P{0.38\textwidth}Y@{}}
       \toprule
       对象 & QUDA 对照 & PyQCU 当前证据 \\
@@ -627,13 +578,12 @@
       \bottomrule
     \end{tabularx}
   \end{center}
-  \vspace{0.04em}
+  \vspace{0em}
   \begin{block}{证据等级}
-    \verified：本轮命令、数值直测或代码恒等式；
-    \inferred：控制流与物理/代数对象的一致性判断；
-    \unverified：QUDA 原生 kernel 公平性能、device-aware overlap、NVSHMEM 与更大体积 setup 峰值。
+    \verified：命令/数值/恒等式；\inferred：一致性判断；
+    \unverified：QUDA kernel 性能、overlap、NVSHMEM 与大体积 setup 峰值。
   \end{block}
-  \source{源码索引与日志：\codepath{logs/v20260818.txt}、\codepath{logs/v20260829.txt}。}
+  \source{补充日志：logs/v20260818.txt、logs/v20260829.txt。}
 \end{frame}
 
 \begin{frame}[t]{附录：本轮验证命令与交付闸门}
@@ -643,7 +593,7 @@
     \texttt{pytest -q examples/qcu/dev87/test\_stencil\_batch\_local.py
       examples/qcu/dev87/test\_mg\_breakdown.py}
       & \textbf{2 passed}\\
-    \texttt{python -m py_compile}（核心工具与 dev87 脚本） & \textbf{通过}\\
+    \texttt{python -m py\_compile}（核心工具与 dev87 脚本） & \textbf{通过}\\
     环境与 CUDA 后端构建（env + build） & \textbf{CUDA backend SUCCESS}\\
     MPI parity round-trip（2/4 rank） & \textbf{all max/rel = 0}\\
     MPI 粗算子等价与 smoke（2 rank） & \textbf{5.60e-7 / 1.03e-15 / 0}\\
