@@ -14,12 +14,15 @@ import torch
 
 from pyqcu import dslash, lattice, tools
 from pyqcu.solver import (
+    CompactParityLayout,
+    CompactParityOperator,
     ParitySchurOperator,
     QudaCoarseOperator,
     QudaMultigrid,
     QudaTransfer,
     multigrid,
 )
+from pyqcu.solver._quda_multigrid import _FineOperator
 from pyqcu.solver._gmres import fgmres
 
 
@@ -431,6 +434,159 @@ def test_checkerboard_schur_reconstructs_even_equation():
     assert torch.linalg.norm(even) / torch.linalg.norm(rhs) < 2e-5
 
 
+def test_compact_parity_layout_roundtrip_matches_qcu_mapping():
+    """紧凑 odd/even 布局应与 QCU 的空间 parity-dependent t 配对一致。"""
+    layout = CompactParityLayout(FINE_SHAPE)
+    field = torch.arange(12 * 4 * 4 * 4 * 4, dtype=torch.float32).reshape(
+        12, *FINE_SHAPE)
+    even_indices = set(layout.indices[0])
+    odd_indices = set(layout.indices[1])
+    assert even_indices.isdisjoint(odd_indices)
+    assert even_indices | odd_indices == set(range(field[0].numel()))
+    for parity in (0, 1):
+        compact = layout.extract(field, parity)
+        restored = layout.embed(compact, parity, dof=12)
+        assert torch.equal(
+            restored.reshape(12, -1)[:, layout.indices[parity]],
+            field.reshape(12, -1)[:, layout.indices[parity]],
+        )
+        for x, y, z, t_half in product(*[
+                range(extent) for extent in layout.compact_shape]):
+            t_full = 2 * t_half + ((parity - x - y - z) & 1)
+            assert (x + y + z + t_full) % 2 == parity
+
+
+def test_compact_schur_matches_dslash_parity_and_adjoint():
+    """compact Schur 应与现有 dslash.operator 的 odd 路径严格同构。"""
+    gauge = torch.zeros(3, 3, 4, *FINE_SHAPE, dtype=DTYPE)
+    for color in range(3):
+        gauge[color, color] = 1.0
+    dslash_operator = dslash.operator(
+        U=gauge, kappa=torch.tensor([0.1]), support_parity=True,
+        verbose=False)
+    diagonal = _identity_diagonal(12, FINE_SHAPE)
+    fine_adjoint = QudaMultigrid._gamma5_hermitian_adjoint(
+        dslash_operator.matvec, 4, 3, FINE_SHAPE)
+    fine = _FineOperator(
+        dslash_operator.matvec, FINE_SHAPE, 4, 3,
+        diagonal=diagonal, adjoint=fine_adjoint)
+    schur = CompactParityOperator(fine)
+    torch.manual_seed(20260840)
+    trial = torch.randn(12, *schur.shape, dtype=DTYPE)
+    image = torch.randn_like(trial)
+    assert torch.allclose(
+        schur.apply(trial), dslash_operator.matvec_parity(trial),
+        rtol=2e-5, atol=2e-6)
+    lhs = torch.vdot(schur.apply(trial).flatten(), image.flatten())
+    rhs = torch.vdot(trial.flatten(), schur.adjoint_apply(image).flatten())
+    assert float(torch.abs(lhs - rhs)) / (
+        float(torch.linalg.norm(schur.apply(trial))) *
+        float(torch.linalg.norm(image))) < 2e-5
+
+    full_rhs = torch.randn(12, *FINE_SHAPE, dtype=DTYPE)
+    odd_trial = torch.randn(12, *schur.shape, dtype=DTYPE)
+    reconstructed = schur.reconstruct(full_rhs, odd_trial)
+    residual = full_rhs - fine.apply(reconstructed)
+    eliminated = schur.layout.extract(residual, schur.eliminated_parity)
+    assert float(torch.linalg.norm(eliminated)) / float(
+        torch.linalg.norm(full_rhs)) < 2e-5
+
+
+def test_compact_test_vector_setup_uses_schur_operator():
+    """TEST_VECTOR_SETUP 在 compact 模式应求解 odd ``S B_new = B``。"""
+    torch.manual_seed(20260841)
+    initial = torch.randn(1, 4, 3, *FINE_SHAPE, dtype=DTYPE)
+    diagonal = _identity_diagonal(12, FINE_SHAPE, value=2.0)
+    mg = QudaMultigrid(
+        fine_matvec=lambda value: 2.0 * value,
+        fine_diagonal=diagonal,
+        fine_adjoint=lambda value: 2.0 * value,
+        lat_size=FINE_SHAPE,
+        null_vectors=initial,
+        block_size=BLOCK,
+        max_level=2,
+        materialize_coarse=False,
+        use_parity=True,
+        setup_operator="schur",
+        setup_method="test",
+        setup_iters=1,
+        setup_tol=1e-7,
+        setup_max_iter=8,
+        setup_post_orthonormalize=False,
+        verbose=False,
+    )
+    mg.setup()
+    initial_flat = initial.reshape(1, 12, *FINE_SHAPE)
+    expected = mg._fine_compact.layout.extract_vectors(initial_flat, 1) / 2.0
+    assert torch.allclose(mg._null_vectors[0], expected,
+                          rtol=2e-5, atol=2e-6)
+    assert mg.setup_history[0]["operator"] == "schur"
+    assert mg.operators[0].shape == (4, 4, 4, 2)
+
+
+def test_compact_multilevel_galerkin_solve_and_qcu_assets():
+    """compact 多层应递归构造 ``R S_o P``，并可重构 full 解/资产。"""
+    torch.manual_seed(20260842)
+    diagonal = _identity_diagonal(12, FINE_SHAPE, value=1.7)
+    link = torch.randn(12, 12, *FINE_SHAPE, dtype=DTYPE) * 0.003
+    backward = torch.randn(12, 12, *FINE_SHAPE, dtype=DTYPE) * 0.003
+    matvec = _fine_matvec_with_hop(diagonal, link, backward)
+    first, _ = _random_nulls(20260843)
+    second = torch.randn(2, 1, 2, 2, 2, 2, 1, dtype=DTYPE)
+    mg = QudaMultigrid(
+        fine_matvec=matvec,
+        fine_diagonal=diagonal,
+        fine_adjoint=matvec,
+        lat_size=FINE_SHAPE,
+        null_vectors=[first, second],
+        dof_list=[12, 2, 2],
+        block_size=[BLOCK, (1, 1, 1, 1)],
+        max_level=3,
+        materialize_coarse=True,
+        use_parity=True,
+        setup_operator="schur",
+        setup_iters=0,
+        nu_pre=1,
+        nu_post=1,
+        coarse_max_iter=24,
+        coarse_tol=1e-6,
+        max_iter=8,
+        tol=1e-5,
+        verbose=False,
+    )
+    diagnostics = mg.diagnostics()
+    assert diagnostics["transfer_RP"] < 2e-5
+    assert diagnostics["galerkin_RDP"] < 2e-5
+    assert diagnostics["schur_reconstruct_even"] < 2e-5
+    assert all(operator.dof == expected for operator, expected in zip(
+        mg.operators, (12, 2, 2)))
+
+    source = torch.randn(4, 3, *FINE_SHAPE, dtype=DTYPE)
+    solution = mg.solve(source)
+    residual = mg.apply(solution) - source
+    assert float(torch.linalg.norm(residual)) / float(
+        torch.linalg.norm(source)) < 2e-4
+    direct_solution = mg.solve_parity(source, tol=1e-5, max_iter=12)
+    direct_residual = mg.apply(direct_solution) - source
+    assert float(torch.linalg.norm(direct_residual)) / float(
+        torch.linalg.norm(source)) < 2e-4
+
+    assets = mg.qcu_transition_assets()
+    assert len(assets) == 2
+    for level, asset in enumerate(assets):
+        transfer = mg.transfers[level]
+        assert asset["compact_parity"] is True
+        assert asset["parity"] == 1
+        assert asset["eliminated_parity"] == 0
+        assert asset["operator_kind"] == (
+            "compact_schur" if level == 0 else "compact_galerkin")
+        assert tuple(asset["fine_full_shape"]) == FINE_SHAPE
+        assert tuple(asset["fine_shape"]) == transfer.fine_shape
+        assert asset["fine_dof"] == transfer.fine_dof
+        assert asset["coarse_dof"] == transfer.coarse_dof
+        assert tuple(asset["null_vectors"].shape) == transfer.qcu_blocked_shape
+
+
 def test_multilevel_vcycle_and_max_level_one():
     null, next_null = _random_nulls(789)
     diagonal = _identity_diagonal(12, FINE_SHAPE, value=2.0)
@@ -534,6 +690,38 @@ def test_wilson_and_clover_gauge_setup():
             max_level=2,
             materialize_coarse=True,
             use_parity=True,
+            verbose=False,
+        )
+        diagnostics = mg.diagnostics()
+        assert diagnostics["transfer_RP"] < 2e-5
+        assert diagnostics["galerkin_RDP"] < 2e-5
+        assert diagnostics["schur_reconstruct_even"] < 3e-4
+
+
+def test_compact_wilson_and_clover_gauge_setup():
+    """实际 Wilson/Clover + Gauge 输入也应进入紧凑 odd hierarchy。"""
+    torch.manual_seed(20260844)
+    gauge = torch.zeros(3, 3, 4, *FINE_SHAPE, dtype=DTYPE)
+    lattice.generate_gauge_field(gauge, seed=20260844, sigma=0.02,
+                                 verbose=False)
+    null, _ = _random_nulls(20260845)
+    clover = torch.zeros(4, 3, 4, 3, *FINE_SHAPE, dtype=DTYPE)
+    for spin in range(4):
+        for color in range(3):
+            clover[spin, color, spin, color] = 0.03
+
+    for clover_term in (None, clover):
+        mg = QudaMultigrid(
+            U=gauge,
+            clover_term=clover_term,
+            kappa=torch.tensor([0.1]),
+            null_vectors=null[:1],
+            block_size=BLOCK,
+            max_level=2,
+            materialize_coarse=False,
+            use_parity=True,
+            setup_operator="schur",
+            setup_iters=0,
             verbose=False,
         )
         diagnostics = mg.diagnostics()
