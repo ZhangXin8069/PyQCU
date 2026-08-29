@@ -27,7 +27,7 @@ from math import prod
 from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple
 
 import pyqcu.cann as _torch
-from pyqcu import dslash, tools
+from pyqcu import dslash, lattice, tools
 
 
 Tensor = Any
@@ -125,6 +125,33 @@ def _call_matvec(operator: Any, value: Tensor) -> Tensor:
     if hasattr(operator, "matvec"):
         return operator.matvec(value)
     return operator(value)
+
+
+def _global_orthogonalise(vectors: Tensor, normalize: bool = True) -> Tensor:
+    """对一组全场向量做重复 CGS 的全局正交化。
+
+    QUDA 在 ``generateNullVectors`` 中可以先做全局正交化，setup 求解后
+    默认还会再做一次；这与 ``QudaTransfer`` 内部的 aggregate-local
+    正交化是两个不同层次。这里使用 ``tools.vdot``，因此在 MPI 运行时
+    内积仍然是全局内积，而不是只在当前 rank 上正交化。
+    """
+    if vectors.ndim < 2:
+        raise ValueError("null vectors 至少需要 [Nvec, ...] 两个维度")
+    result = vectors.clone()
+    eps = 1e-30
+    for current_index in range(int(result.shape[0])):
+        vector = result[current_index].clone()
+        for previous_index in range(current_index):
+            coefficient = tools.vdot(result[previous_index], vector)
+            vector = vector - coefficient * result[previous_index]
+        if normalize:
+            norm = float(tools.norm(vector))
+            if norm <= eps:
+                raise ValueError(
+                    f"null vector {current_index} 在全局正交化后退化，无法归一化")
+            vector = vector / norm
+        result[current_index] = vector
+    return result
 
 
 def _normalise_null_shape(null_vectors: Tensor, fine_spin: int,
@@ -1126,8 +1153,12 @@ class QudaMultigrid:
     ``fine_matvec`` 采用 flat ``[fine_spin*fine_color, ...]`` 输入；也可以
     直接给 ``U``/``clover_term``，此时复用 PyQCU 的 Wilson/Clover dslash。
     ``null_vectors`` 是每个过渡层的列表，元素为 ``[Nvec, fine_dof, ...]``；
-    不提供时按 ``nvec_list`` 生成确定性随机起点，适合结构验证，不等同于
-    QUDA 的 CG/CA-CG/Krylov null-vector setup。
+    显式传入时默认视为已经准备好的向量。没有向量时按 ``nvec_list``
+    生成随机起点；若显式选择 ``setup_method``，则会按 QUDA 的
+    ``NULL_VECTOR_SETUP``/``TEST_VECTOR_SETUP`` 语义迭代更新这些起点。
+    ``setup_method`` 支持 ``random``、``inverse``、``test``、``cg``、
+    ``ca-cg``、``krylov``/``gcr``。其中 ``cg`` 与 ``ca-cg`` 默认作用于
+    正规算子 ``D^dagger D``，其余 Krylov setup 默认作用于原始算子。
     ``dof_list`` 仍可使用旧项目的总 coarse DOF 约定，例如 ``[12,24,24]``；
     本实现会将粗层总 DOF 除以 2 得到每个 coarse-spin block 的 ``Nvec``。
     ``materialize_coarse=True`` 是小格验证模式，会逐列显式保存 ``RDP`` 的
@@ -1157,6 +1188,15 @@ class QudaMultigrid:
                  coarse_tol: float = 1e-8,
                  tol: float = 1e-8, max_iter: int = 100,
                  restart: int = 20,
+                 setup_method: str = "random",
+                 setup_iters: Optional[int] = None,
+                 setup_tol: float = 5e-6,
+                 setup_max_iter: int = 500,
+                 setup_krylov: int = 4,
+                 setup_operator: str = "auto",
+                 setup_type: Optional[str] = None,
+                 setup_pre_orthonormalize: bool = False,
+                 setup_post_orthonormalize: bool = True,
                  direct_solve_max: int = 4096,
                  max_materialize_elements: int = 50_000_000,
                  seed: int = 42, verbose: bool = False):
@@ -1190,12 +1230,35 @@ class QudaMultigrid:
         self.tol = float(tol)
         self.max_iter = int(max_iter)
         self.restart = int(restart)
+        self.setup_method = self._normalise_setup_method(setup_method)
+        if setup_iters is None:
+            # 保持旧接口的默认行为：random 不做迭代；显式选择 setup
+            # 算法时默认执行一次 QUDA 风格 setup。
+            setup_iters = 0 if self.setup_method == "random" else 1
+        self.setup_iters = int(setup_iters)
+        self.setup_tol = float(setup_tol)
+        self.setup_max_iter = int(setup_max_iter)
+        self.setup_krylov = int(setup_krylov)
+        self.setup_operator = self._normalise_setup_operator(setup_operator)
+        self.setup_type = self._normalise_setup_type(setup_type)
+        self.setup_pre_orthonormalize = bool(setup_pre_orthonormalize)
+        self.setup_post_orthonormalize = bool(setup_post_orthonormalize)
+        if self.setup_iters < 0:
+            raise ValueError("setup_iters 必须 >= 0")
+        if self.setup_tol <= 0:
+            raise ValueError("setup_tol 必须 > 0")
+        if self.setup_max_iter <= 0:
+            raise ValueError("setup_max_iter 必须 > 0")
+        if self.setup_krylov <= 0:
+            raise ValueError("setup_krylov 必须 > 0")
         self.direct_solve_max = int(direct_solve_max)
         self.max_materialize_elements = int(max_materialize_elements)
         if self.max_materialize_elements <= 0:
             raise ValueError("max_materialize_elements 必须为正数")
         self.seed = int(seed)
         self._setup_done = False
+        self.setup_history: List[Dict[str, Any]] = []
+        self._fine_adjoint_kind = "explicit" if fine_adjoint is not None else None
 
         if fine_matvec is None:
             assert U is not None
@@ -1210,6 +1273,13 @@ class QudaMultigrid:
             self.fine_dslash = fine_dslash
             fine_matvec = fine_dslash.matvec
             diagonal = self._fine_diagonal_from_dslash(fine_dslash, U)
+            if fine_adjoint is None and self.fine_spin == 4:
+                # Wilson/Clover 满足 gamma5-Hermiticity：D^dagger = gamma5 D
+                # gamma5。这样 CG/CA-CG setup 不需要用户重复写伴随算子。
+                fine_adjoint = self._gamma5_hermitian_adjoint(
+                    fine_matvec, self.fine_spin, self.fine_color,
+                    self.fine_shape)
+                self._fine_adjoint_kind = "gamma5"
         else:
             diagonal = fine_diagonal
             if diagonal is not None:
@@ -1242,6 +1312,83 @@ class QudaMultigrid:
         self.transfers: List[QudaTransfer] = []
         self.operators: List[Any] = []
         self.parity_operators: List[ParitySchurOperator] = []
+
+    @staticmethod
+    def _normalise_setup_method(method: str) -> str:
+        value = str(method).strip().lower().replace("_", "-")
+        aliases = {
+            "null": "inverse",
+            "null-vector": "inverse",
+            "null-vector-setup": "inverse",
+            "bicgstab": "inverse",
+            "test-vector": "test",
+            "test-vector-setup": "test",
+            "cacg": "ca-cg",
+            "ca-cg": "ca-cg",
+            "fgmres": "krylov",
+        }
+        value = aliases.get(value, value)
+        allowed = {"random", "inverse", "test", "cg", "ca-cg", "krylov", "gcr"}
+        if value not in allowed:
+            raise ValueError(
+                f"不支持的 setup_method={method!r}；可选值为 "
+                "random/inverse/test/cg/ca-cg/krylov/gcr")
+        return value
+
+    @staticmethod
+    def _normalise_setup_operator(operator: str) -> str:
+        value = str(operator).strip().lower().replace("_", "-")
+        aliases = {
+            "d": "full",
+            "dirac": "full",
+            "normal-op": "normal",
+            "dagger-d": "normal",
+            "dd": "normal",
+            "matpc": "schur",
+            "pc": "schur",
+        }
+        value = aliases.get(value, value)
+        if value not in {"auto", "full", "normal", "schur"}:
+            raise ValueError(
+                f"不支持的 setup_operator={operator!r}；可选值为 auto/full/normal/schur")
+        return value
+
+    @staticmethod
+    def _normalise_setup_type(setup_type: Optional[str]) -> str:
+        if setup_type is None:
+            return "auto"
+        value = str(setup_type).strip().lower().replace("_", "-")
+        aliases = {
+            "null-vector": "null",
+            "null-vector-setup": "null",
+            "test-vector": "test",
+            "test-vector-setup": "test",
+        }
+        value = aliases.get(value, value)
+        if value not in {"auto", "null", "test"}:
+            raise ValueError(
+                f"不支持的 setup_type={setup_type!r}；可选值为 auto/null/test")
+        return value
+
+    @staticmethod
+    def _gamma5_apply(value: Tensor, spin: int, color: int,
+                      shape: Shape4) -> Tensor:
+        if spin != 4:
+            raise ValueError("gamma5-Hermiticity 目前只支持 fine_spin=4")
+        matrix = lattice.gamma_5.to(device=value.device, dtype=value.dtype)
+        structured = value.reshape(spin, color, *shape)
+        result = _torch.einsum("ab,bcxyzt->acxyzt", matrix, structured)
+        return result.reshape(spin * color, *shape)
+
+    @classmethod
+    def _gamma5_hermitian_adjoint(cls, matvec: Callable[[Tensor], Tensor],
+                                  spin: int, color: int,
+                                  shape: Shape4) -> Callable[[Tensor], Tensor]:
+        def adjoint(value: Tensor) -> Tensor:
+            transformed = cls._gamma5_apply(value, spin, color, shape)
+            result = _call_matvec(matvec, transformed)
+            return cls._gamma5_apply(result, spin, color, shape)
+        return adjoint
 
     @staticmethod
     def _fine_diagonal_from_dslash(operator: Any, U: Tensor) -> Tensor:
@@ -1301,6 +1448,183 @@ class QudaMultigrid:
         # 显式传 null_vectors 管理独立 RNG。
         return _torch.randn(size=shape, dtype=dtype, device=device)
 
+    def _setup_solver_kind(self) -> str:
+        if self.setup_method in {"inverse", "test"}:
+            return "bicgstab"
+        if self.setup_method == "cg":
+            return "cg"
+        if self.setup_method == "ca-cg":
+            return "ca-cg"
+        if self.setup_method in {"krylov", "gcr"}:
+            return "fgmres"
+        return "random"
+
+    def _setup_operator_kind(self, solver_kind: str) -> str:
+        if self.setup_operator == "schur":
+            raise NotImplementedError(
+                "setup_operator='schur' 尚未实现 compact parity 的伴随与 setup；"
+                "请使用 full/normal，或先通过 solve_parity 进行 finest Schur 求解")
+        if self.setup_operator == "normal":
+            return "normal"
+        if self.setup_operator == "full":
+            return "full"
+        # QUDA 的 CG/CA-CG setup 用 DiracMdagM；BiCGStab/GCR 直接作用于
+        # 非厄米 Dirac 算子。auto 正是这一按 solver 类型的默认映射。
+        return "normal" if solver_kind in {"cg", "ca-cg"} else "full"
+
+    @staticmethod
+    def _cg_setup_solve(rhs: Tensor, matvec: Callable[[Tensor], Tensor],
+                        tol: float, max_iter: int,
+                        x0: Optional[Tensor] = None) -> Tensor:
+        """稳健的复数 CG，用于 ``D^dagger D`` null-vector setup。"""
+        x = _torch.zeros_like(rhs) if x0 is None else x0.clone()
+        residual = rhs - matvec(x)
+        initial_norm = float(_torch.norm(residual).item())
+        if initial_norm <= max(float(tol), 1e-30):
+            return x
+        direction = residual.clone()
+        rr = tools.vdot(residual, residual)
+        for _ in range(max(0, int(max_iter))):
+            image = matvec(direction)
+            denominator = tools.vdot(direction, image)
+            if float(_torch.abs(denominator).item()) <= 1e-30:
+                break
+            alpha = rr / denominator
+            x = x + alpha * direction
+            residual = residual - alpha * image
+            residual_norm = float(_torch.norm(residual).item())
+            if residual_norm <= float(tol):
+                break
+            rr_next = tools.vdot(residual, residual)
+            if float(_torch.abs(rr).item()) <= 1e-30:
+                break
+            beta = rr_next / rr
+            direction = residual + beta * direction
+            rr = rr_next
+        return x
+
+    def _setup_linear_solve(self, rhs: Tensor, matvec: Callable[[Tensor], Tensor],
+                            solver_kind: str, tol: float) -> Tensor:
+        """以统一的绝对阈值调用 setup solver。
+
+        QUDA 对零右端的 NULL_VECTOR_SETUP 会以初始 ``||A B||`` 作为
+        relative residual 的基准。这里把 null setup 改写成求解
+        ``A delta = A B``，所以所有 solver 都接收非零右端和同一个绝对
+        阈值；数值上与 ``B <- B-delta`` 完全等价，而且避免了通用
+        FGMRES/CG 对零 RHS 的特殊早停路径。
+        """
+        if solver_kind == "cg":
+            return self._cg_setup_solve(
+                rhs, matvec, tol=tol, max_iter=self.setup_max_iter)
+        if solver_kind == "ca-cg":
+            from ._cacg import cacg
+            try:
+                return cacg(
+                    rhs, matvec, tol=tol, max_iter=self.setup_max_iter,
+                    x0=None, n_krylov=self.setup_krylov,
+                    if_rtol=False, verbose=False)
+            except RuntimeError:
+                # 幂基在病态/低维 toy operator 上可能塌缩；CG 是同一正规
+                # 算子的稳定 fallback，不能让 setup 因为表示方式失败。
+                return self._cg_setup_solve(
+                    rhs, matvec, tol=tol, max_iter=self.setup_max_iter)
+        if solver_kind == "fgmres":
+            from ._gmres import fgmres
+            return fgmres(
+                rhs, matvec, tol=tol, max_iter=self.setup_max_iter,
+                restart=min(self.setup_krylov, max(1, self.setup_max_iter)),
+                x0=None, if_rtol=False, verbose=False)
+
+        from ._bistabcg import bistabcg
+        try:
+            return bistabcg(
+                rhs, matvec, tol=tol, max_iter=self.setup_max_iter,
+                x0=None, if_rtol=False, verbose=False)
+        except RuntimeError:
+            # BiCGStab 在精确一步收敛（例如单位阵）时会遇到 t=0 的
+            # breakdown；QUDA 会把它视作 lucky convergence。用 GMRES
+            # 完成同一个线性问题，保留 setup 的结果而不是丢弃该向量。
+            from ._gmres import fgmres
+            return fgmres(
+                rhs, matvec, tol=tol, max_iter=self.setup_max_iter,
+                restart=min(self.setup_krylov, max(1, self.setup_max_iter)),
+                x0=None, if_rtol=False, verbose=False)
+
+    def _setup_vectors(self, operator: Any, vectors: Tensor,
+                       level: int, solver_kind: str,
+                       operator_kind: str, setup_type: str) -> Tensor:
+        """执行一个层级的 QUDA 风格 null-vector setup。"""
+        if self.setup_iters == 0:
+            return vectors
+
+        if operator_kind == "normal":
+            if (not hasattr(operator, "adjoint_apply") or
+                    (isinstance(operator, _FineOperator) and
+                     operator._adjoint is None)):
+                raise RuntimeError(
+                    "正规算子 setup 需要 fine_adjoint 或可构造的 coarse adjoint；"
+                    "自定义 fine_matvec 不会自动假定 gamma5-Hermiticity")
+
+            def apply_setup(value: Tensor) -> Tensor:
+                image = _call_matvec(operator, value)
+                return _call_matvec(operator.adjoint_apply, image)
+        else:
+            apply_setup = lambda value: _call_matvec(operator, value)
+
+        current = vectors.clone()
+        for iteration in range(self.setup_iters):
+            if self.setup_pre_orthonormalize:
+                current = _global_orthogonalise(current)
+            updated = _torch.zeros_like(current)
+            relative_residuals: List[float] = []
+            for vector_index in range(int(current.shape[0])):
+                basis = current[vector_index]
+                field = basis.reshape(operator.dof, *operator.shape)
+                if setup_type == "test":
+                    rhs = field
+                    rhs_norm = float(_torch.norm(rhs).item())
+                    if rhs_norm <= 1e-30:
+                        solution = _torch.zeros_like(field)
+                        relative_residuals.append(0.0)
+                    else:
+                        threshold = self.setup_tol * rhs_norm
+                        solution = self._setup_linear_solve(
+                            rhs, apply_setup, solver_kind, threshold)
+                        residual = rhs - apply_setup(solution)
+                        relative_residuals.append(
+                            float(_torch.norm(residual).item()) / rhs_norm)
+                else:
+                    # NULL_VECTOR_SETUP: solve A*delta=A*B from zero and
+                    # retain the relaxed residual B-delta. This is the same
+                    # initial-guess relaxation used by QUDA's solver.
+                    image = apply_setup(field)
+                    image_norm = float(_torch.norm(image).item())
+                    if image_norm <= 1e-30:
+                        solution = field.clone()
+                        relative_residuals.append(0.0)
+                    else:
+                        threshold = self.setup_tol * image_norm
+                        correction = self._setup_linear_solve(
+                            image, apply_setup, solver_kind, threshold)
+                        solution = field - correction
+                        residual = image - apply_setup(correction)
+                        relative_residuals.append(
+                            float(_torch.norm(residual).item()) / image_norm)
+                updated[vector_index] = solution.reshape_as(basis)
+            current = updated
+            if self.setup_post_orthonormalize:
+                current = _global_orthogonalise(current)
+            self.setup_history.append({
+                "level": level,
+                "iteration": iteration + 1,
+                "method": self.setup_method,
+                "solver": solver_kind,
+                "operator": operator_kind,
+                "setup_type": setup_type,
+                "relative_residual": relative_residuals,
+            })
+        return current
+
     def setup(self) -> "QudaMultigrid":
         if self._setup_done:
             return self
@@ -1308,16 +1632,37 @@ class QudaMultigrid:
         # 纯 Python 求解器重新直接依赖 torch。显式 null_vectors 时不会
         # 生成随机向量，但仍保持后续随机诊断的可复现起点。
         _torch.manual_seed(self.seed)
+        self.setup_history = []
+        solver_kind = self._setup_solver_kind()
+        if solver_kind != "random":
+            operator_kind = self._setup_operator_kind(solver_kind)
+            if self.setup_type == "auto":
+                setup_type = "test" if self.setup_method == "test" else "null"
+            else:
+                setup_type = self.setup_type
+        else:
+            operator_kind = "full"
+            setup_type = "null"
         current: Any = self._fine
         self.operators = [current]
         self.levels = []
+        self.transfers = []
         for level in range(self._transition_count):
             nvec = self._nvec_list[level]
             if level < len(self._null_vectors):
-                null = self._null_vectors[level]
+                null = self._null_vectors[level].clone()
             else:
                 reference = self._reference_field(current)
                 null = self._random_null(current, nvec, reference.dtype, reference.device)
+            if solver_kind != "random":
+                null = self._setup_vectors(
+                    current, null, level, solver_kind, operator_kind, setup_type)
+                # 保存 setup 后的逻辑向量，便于后续诊断/调用方检查；
+                # QudaTransfer 内部还会按 aggregate 做一次局部正交化。
+                if level < len(self._null_vectors):
+                    self._null_vectors[level] = null
+                else:
+                    self._null_vectors.append(null)
             transfer = QudaTransfer(
                 null_vectors=null, fine_shape=current.shape,
                 fine_spin=current.spin, fine_color=current.color,
