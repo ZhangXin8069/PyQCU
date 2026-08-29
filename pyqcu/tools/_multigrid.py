@@ -939,38 +939,52 @@ class BatchedLocalSchur:
         K = x_local.shape[0]
         W = self.W
         E = x_local.shape[1]
-        Mep = [self._slicem(self.Mep[d], idx, starts) for d in range(4)]
-        Mem = [self._slicem(self.Mem[d], idx, starts) for d in range(4)]
-        Mop = [self._slicem(self.Mop[d], idx, starts) for d in range(4)]
-        Mom = [self._slicem(self.Mom[d], idx, starts) for d in range(4)]
-        Me_inv = self._slicem(self.Me_inv, idx, starts)
-        Mo = self._slicem(self.Mo, idx, starts)
         mek, mok = self._masks(idx, K, E)
+
+        # Keep only one direction's matrix/source/contract temporary alive at
+        # a time.  The previous implementation materialized 18 window
+        # matrices before applying the operator.  For W=10, K=4 this costs
+        # 18*K*12*12*W**4 complex elements (about 0.83 GB at c64 and twice
+        # that at c128 for W=10, K=4), in addition to the Schur work buffers.
+        # Streaming preserves the contraction order while substantially
+        # lowering the peak memory needed by setup.
+        def accumulate_hopping(source, plus_list, minus_list, dest,
+                               plus_mask, minus_mask):
+            for d in range(4):
+                src = torch.roll(source, shifts=-1, dims=d + 3)
+                if d == 3:
+                    src = torch.where(plus_mask, source, src)
+                mat = self._slicem(plus_list[d], idx, starts)
+                dest.add_(torch.einsum(
+                    "kEexyzt,kBexyzt->kBExyzt", mat, src
+                ))
+                del mat, src
+
+                src = torch.roll(source, shifts=1, dims=d + 3)
+                if d == 3:
+                    src = torch.where(minus_mask, source, src)
+                mat = self._slicem(minus_list[d], idx, starts)
+                dest.add_(torch.einsum(
+                    "kEexyzt,kBexyzt->kBExyzt", mat, src
+                ))
+                del mat, src
+
         # even: D_oe（even 输出），配 M_e_plus/minus，t 向 mask
         dest_e = torch.zeros([K, E, 12, W, W, W, W], dtype=x_local.dtype, device=x_local.device)
-        for d in range(4):
-            src_p = torch.roll(x_local, shifts=-1, dims=d + 3)
-            src_m = torch.roll(x_local, shifts=1, dims=d + 3)
-            if d == 3:
-                src_p = torch.where(mek, x_local, src_p)
-                src_m = torch.where(mok, x_local, src_m)
-            dest_e += torch.einsum("kEexyzt,kBexyzt->kBExyzt", Mep[d], src_p)
-            dest_e += torch.einsum("kEexyzt,kBexyzt->kBExyzt", Mem[d], src_m)
+        accumulate_hopping(x_local, self.Mep, self.Mem, dest_e, mek, mok)
         # xe_inv = A_ee⁻¹ · dest_e：dest_e 的 dof 是 even 输入 → 标 e
+        Me_inv = self._slicem(self.Me_inv, idx, starts)
         xe_inv = torch.einsum("kEeXYZT,kBeXYZT->kBEXYZT", Me_inv, dest_e)
+        del Me_inv, dest_e
+
         # odd: D_eo（odd 输出），配 M_o_plus/minus，t 向 mask（odd/eo 对调）
         dest_o = torch.zeros([K, E, 12, W, W, W, W], dtype=x_local.dtype, device=x_local.device)
-        for d in range(4):
-            src_p = torch.roll(xe_inv, shifts=-1, dims=d + 3)
-            src_m = torch.roll(xe_inv, shifts=1, dims=d + 3)
-            if d == 3:
-                src_p = torch.where(mok, xe_inv, src_p)
-                src_m = torch.where(mek, xe_inv, src_m)
-            dest_o += torch.einsum("kEexyzt,kBexyzt->kBExyzt", Mop[d], src_p)
-            dest_o += torch.einsum("kEexyzt,kBexyzt->kBExyzt", Mom[d], src_m)
+        accumulate_hopping(xe_inv, self.Mop, self.Mom, dest_o, mok, mek)
         # out = A_oo · x：x 的 dof 是 odd 输入 → 标 e
+        Mo = self._slicem(self.Mo, idx, starts)
         out = torch.einsum("kEeXYZT,kBeXYZT->kBEXYZT", Mo, x_local)
-        return out - dest_o
+        out.sub_(dest_o)
+        return out
 
 
 def _probe_point_batch_local(lsch, lonv, E, c_idx, sit, hop_nn, hop_diag, dims, Nc, W):
@@ -1010,6 +1024,7 @@ def _probe_point_batch_local(lsch, lonv, E, c_idx, sit, hop_nn, hop_diag, dims, 
     f_local[0, :, :, off:off + 2, off:off + 2, off:off + 2, off:off + 2] = _blk
     starts = [(x0 % Xf, y0 % Yf, z0 % Zf, t0 % Tf)]
     dc_local = lsch(f_local, idx, starts)[0]  # [E, e, W,W,W,W]
+    del f_local, idx, _blk
     # 33 个相关粗格点（c 本身 + 4 方向 ±1 + 6 对角 ±1，去重保序）
     pts = [(cx, cy, cz, ct)]
     for d in range(4):
@@ -1042,12 +1057,14 @@ def _probe_point_batch_local(lsch, lonv, E, c_idx, sit, hop_nn, hop_diag, dims, 
                 (2 * p[2] - z0m) % Zf:(2 * p[2] - z0m) % Zf + 2,
                 (2 * p[3] - t0m) % Tf:(2 * p[3] - t0m) % Tf + 2]
         for p in uniq])
+    del dc_local
     # dev84: lonv 可驻留 CPU —— 邻域切片统一上卡后再收缩
     _lp = [lonv[:, :, pp[0], :, pp[1], :, pp[2], :, pp[3], :] for pp in uniq]
     _dev = dc_p.device
     _lp = [t.to(_dev) if t.device != _dev else t for t in _lp]
     lonv_p = torch.stack(_lp)
     dc_vals = torch.einsum("Paexyzt,Pbexyzt->Pab", lonv_p.conj(), dc_p)  # [P,E,E]
+    del lonv_p, dc_p, _lp
     dc_by_pt = {p: dc_vals[i] for i, p in enumerate(uniq)}
     # 写回（系数约定与 _probe_point_batch 一致）
     sit[:, :, cx, cy, cz, ct] = dc_by_pt[(cx, cy, cz, ct)]
@@ -1079,12 +1096,195 @@ def _probe_point_batch_local(lsch, lonv, E, c_idx, sit, hop_nn, hop_diag, dims, 
     return dc_by_pt
 
 
+def _probe_points_batch_local(lsch, lonv, E, c_indices, sit, hop_nn,
+                              hop_diag, dims, Nc, W):
+    """合并多个粗格点的局部 Galerkin 探测。
+
+    ``_probe_point_batch_local`` 已经把一个粗点的 E 个单位探针合并为
+    batch；本函数再沿粗点方向增加一个 K 维，把 K 个互不相交的窗口交给
+    ``BatchedLocalSchur`` 一次处理。窗口之间没有数据依赖，最终仍按各自
+    粗点写入 stencil，因此不会引入写竞争。
+
+    K 维主要减少局部切片、mask、einsum 和 Python/CUDA 调度开销。窗口边界
+    的坐标仍按每个粗点单独计算；对于周期退化导致 unique 邻域数量不一致
+    的极小格子，回退到已验证的逐点实现，保持原有边界语义。
+    """
+    if not c_indices:
+        return
+    if len(c_indices) == 1:
+        _probe_point_batch_local(lsch, lonv, E, int(c_indices[0]), sit,
+                                 hop_nn, hop_diag, dims, Nc, W)
+        return
+
+    Xc, Yc, Zc, Tc = dims
+    str_Y, str_Z = Yc * Zc * Tc, Zc * Tc
+    E_l, e, X, x, Y, y, Z, z, T, t = lonv.shape
+    Xf, Yf, Zf, Tf = lsch.dims
+    off = W // 2 - 1
+    opdev = lsch.Mep[0].device
+    K = len(c_indices)
+
+    centers = []
+    starts = []
+    windows = []
+    for raw_idx in c_indices:
+        c_idx = int(raw_idx)
+        cx = c_idx // str_Y
+        rem = c_idx % str_Y
+        cy = rem // str_Z
+        rem %= str_Z
+        cz = rem // Tc
+        ct = rem % Tc
+        centers.append((cx, cy, cz, ct))
+        x0, y0, z0, t0 = (2 * cx - off, 2 * cy - off,
+                          2 * cz - off, 2 * ct - off)
+        starts.append((x0 % Xf, y0 % Yf, z0 % Zf, t0 % Tf))
+        windows.append(tuple(
+            torch.arange(q, q + W, device=opdev)
+            for q in (x0, y0, z0, t0)
+        ))
+
+    # The local operator accepts [K, B, e, W, W, W, W], where B=E is the
+    # number of coarse probes at each center.
+    extents = (Xf, Yf, Zf, Tf)
+    idx = torch.stack([
+        torch.stack([windows[k][d] % extents[d] for d in range(4)])
+        for k in range(K)
+    ])
+    f_local = torch.zeros(
+        [K, E, e, W, W, W, W], dtype=lonv.dtype, device=opdev
+    )
+    for k, (cx, cy, cz, ct) in enumerate(centers):
+        block = lonv[:, :, cx, :, cy, :, cz, :, ct, :].reshape(
+            E, e, x, y, z, t
+        )
+        if block.device != opdev:
+            block = block.to(opdev, non_blocking=True)
+        f_local[k, :, :, off:off + x, off:off + y,
+                off:off + z, off:off + t] = block
+
+    dc_local = lsch(f_local, idx, starts)
+    del f_local, idx
+
+    def neighbor_points(center):
+        ccoords = list(center)
+        pts = [tuple(ccoords)]
+        for d in range(4):
+            backward = ccoords[:]
+            backward[d] = (backward[d] - 1 + dims[d]) % dims[d]
+            forward = ccoords[:]
+            forward[d] = (forward[d] + 1) % dims[d]
+            pts.extend((tuple(backward), tuple(forward)))
+        for d1, d2 in PAIRS:
+            for s1 in SIGN:
+                for s2 in SIGN:
+                    point = ccoords[:]
+                    point[d1] = (point[d1] - s1 + dims[d1]) % dims[d1]
+                    point[d2] = (point[d2] - s2 + dims[d2]) % dims[d2]
+                    pts.append(tuple(point))
+        seen, unique = set(), []
+        for point in pts:
+            if point not in seen:
+                seen.add(point)
+                unique.append(point)
+        return unique
+
+    points = [neighbor_points(center) for center in centers]
+    n_points = len(points[0])
+    if any(len(point_list) != n_points for point_list in points[1:]):
+        # Very small periodic dimensions can collapse entries in different
+        # orders.  The existing K=1 routine is the reference path.
+        del dc_local
+        for c_idx in c_indices:
+            _probe_point_batch_local(lsch, lonv, E, int(c_idx), sit, hop_nn,
+                                     hop_diag, dims, Nc, W)
+        return
+
+    # Gather the same relative neighborhood slot for every center.  For the
+    # supported W=10/radius-1 geometry each target block lies wholly inside
+    # its center window; retain an explicit check so a future W change cannot
+    # silently produce a truncated slice.
+    lonv_rows = []
+    dc_rows = []
+    block_extents = (x, y, z, t)
+    for k, point_list in enumerate(points):
+        x0m, y0m, z0m, t0m = starts[k]
+        lp_row, dc_row = [], []
+        for px, py, pz, pt in point_list:
+            q = ((2 * px - x0m) % Xf, (2 * py - y0m) % Yf,
+                 (2 * pz - z0m) % Zf, (2 * pt - t0m) % Tf)
+            if any(q[d] < 0 or q[d] + block_extents[d] > W
+                   for d in range(4)):
+                del dc_local
+                for c_idx in c_indices:
+                    _probe_point_batch_local(lsch, lonv, E, int(c_idx), sit,
+                                             hop_nn, hop_diag, dims, Nc, W)
+                return
+            lp = lonv[:, :, px, :, py, :, pz, :, pt, :].reshape(
+                E_l, e, x, y, z, t
+            )
+            if lp.device != opdev:
+                lp = lp.to(opdev, non_blocking=True)
+            lp_row.append(lp)
+            dc_row.append(dc_local[k, :, :, q[0]:q[0] + x,
+                                    q[1]:q[1] + y, q[2]:q[2] + z,
+                                    q[3]:q[3] + t])
+        lonv_rows.append(torch.stack(lp_row))
+        dc_rows.append(torch.stack(dc_row))
+    lonv_p = torch.stack(lonv_rows)
+    dc_p = torch.stack(dc_rows)
+    del lonv_rows, dc_rows, dc_local
+    dc_vals = torch.einsum(
+        "KPaexyzt,KPbexyzt->KPab", lonv_p.conj(), dc_p
+    )
+    del lonv_p, dc_p
+
+    for k, (cx, cy, cz, ct) in enumerate(centers):
+        point_list = points[k]
+        dc_by_pt = {point: dc_vals[k, i] for i, point in enumerate(point_list)}
+        sit[:, :, cx, cy, cz, ct] = dc_by_pt[(cx, cy, cz, ct)]
+        ccoords = [cx, cy, cz, ct]
+        for d in range(4):
+            backward = ccoords[:]
+            backward[d] = (backward[d] - 1 + dims[d]) % dims[d]
+            forward = ccoords[:]
+            forward[d] = (forward[d] + 1) % dims[d]
+            backward, forward = tuple(backward), tuple(forward)
+            if backward == forward:
+                hop_nn[0, d, :, :, backward[0], backward[1],
+                       backward[2], backward[3]] = 0.5 * dc_by_pt[backward]
+                hop_nn[1, d, :, :, forward[0], forward[1],
+                       forward[2], forward[3]] = 0.5 * dc_by_pt[forward]
+            else:
+                hop_nn[0, d, :, :, backward[0], backward[1],
+                       backward[2], backward[3]] = dc_by_pt[backward]
+                hop_nn[1, d, :, :, forward[0], forward[1],
+                       forward[2], forward[3]] = dc_by_pt[forward]
+        for pi, (d1, d2) in enumerate(PAIRS):
+            targets = {}
+            for s1i, s1 in enumerate(SIGN):
+                for s2i, s2 in enumerate(SIGN):
+                    point = ccoords[:]
+                    point[d1] = (point[d1] - s1 + dims[d1]) % dims[d1]
+                    point[d2] = (point[d2] - s2 + dims[d2]) % dims[d2]
+                    point = tuple(point)
+                    targets.setdefault(point, []).append((s1i, s2i))
+            for point, combos in targets.items():
+                weight = 1.0 / len(combos)
+                for s1i, s2i in combos:
+                    hop_diag[s1i, s2i, pi, :, :, point[0], point[1],
+                              point[2], point[3]] = weight * dc_by_pt[point]
+
+
 def build_stencil_local(lsch, lonv, E, lat_fine_odd, lat_coarse_odd,
-                        dt, device, verbose=True):
+                        dt, device, verbose=True, batch_size=4):
     """局部化 33-tensor stencil 构建（24x24x24x72 大格子）。
 
     用 BatchedLocalSchur 在 c 窗口内计算 Schur（替代全格 matvec），
-    单线程顺序探测全部粗格点。返回 (hop_nn, hop_diag, sit)。
+    单线程探测全部粗格点。默认每批合并 4 个粗格点；``batch_size=1``
+    保留原逐点路径；工作区不足时自动将当前批次减半重试。返回
+    (hop_nn, hop_diag, sit)。批量工作区随 K 近似线性增长，显存紧张时可
+    显式传入更小的 ``batch_size``。
     """
     import time
     Xc, Yc, Zc, Tc = lat_coarse_odd
@@ -1095,9 +1295,37 @@ def build_stencil_local(lsch, lonv, E, lat_fine_odd, lat_coarse_odd,
     hop_nn = torch.zeros([2, 4, E, E, Xc, Yc, Zc, Tc], dtype=dt, device=device)
     hop_diag = torch.zeros([2, 2, 6, E, E, Xc, Yc, Zc, Tc], dtype=dt, device=device)
     t0 = time.perf_counter()
-    for c_idx in range(Nc):
-        _probe_point_batch_local(lsch, lonv, E, c_idx, sit, hop_nn,
-                                 hop_diag, dims, Nc, W)
+    batch_size = max(1, int(batch_size))
+    c0 = 0
+    while c0 < Nc:
+        current = min(batch_size, Nc - c0)
+        while True:
+            c_indices = list(range(c0, c0 + current))
+            try:
+                if current == 1:
+                    _probe_point_batch_local(lsch, lonv, E, c0, sit, hop_nn,
+                                             hop_diag, dims, Nc, W)
+                else:
+                    _probe_points_batch_local(
+                        lsch, lonv, E, c_indices, sit, hop_nn, hop_diag,
+                        dims, Nc, W
+                    )
+                break
+            except RuntimeError as exc:
+                # Large setup assets may leave little contiguous device
+                # memory.  Retry the same, not-yet-written coarse points with
+                # a smaller K; unrelated RuntimeError instances must remain
+                # visible to the caller.
+                if ("out of memory" not in str(exc).lower() or current == 1):
+                    raise
+                current = max(1, current // 2)
+                batch_size = min(batch_size, current)
+                if lsch.Mep[0].device.type == "cuda":
+                    torch.cuda.empty_cache()
+                if verbose:
+                    print(f"PYQCU::TOOLS::MULTIGRID:\n stencil batch OOM; "
+                          f"retry K={current}", flush=True)
+        c0 += current
     dt_build = time.perf_counter() - t0
     if verbose:
         print(f"PYQCU::TOOLS::MULTIGRID:\n stencil build (local): "
