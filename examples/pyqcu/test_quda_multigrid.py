@@ -7,9 +7,12 @@ operator 的代数关系与边界约定，而不是测量性能。旧的 ``multi
 
 from __future__ import annotations
 
+from itertools import product
+
+import pytest
 import torch
 
-from pyqcu import dslash, lattice
+from pyqcu import dslash, lattice, tools
 from pyqcu.solver import (
     ParitySchurOperator,
     QudaCoarseOperator,
@@ -51,6 +54,42 @@ def _fine_matvec_with_hop(diagonal, link, backward=None):
         return local + hop
 
     return matvec
+
+
+def _apply_qcu_blocked_transfer(blocked, coarse, fine_shape, block_size):
+    """用 QCU blocked V 的内存逻辑直接实现 ``P``，供布局回归使用。"""
+    E, e = (int(blocked.shape[0]), int(blocked.shape[1]))
+    coarse_shape = tuple(n // b for n, b in zip(fine_shape, block_size))
+    Xc, Yc, Zc, Tc = coarse_shape
+    bx, by, bz, bt = block_size
+    fine_blocked = torch.einsum(
+        "EeXxYyZzTt,EXYZT->eXxYyZzTt", blocked, coarse)
+    return fine_blocked.reshape(e, *fine_shape)
+
+
+def _restrict_qcu_blocked_transfer(blocked, fine, fine_shape, block_size):
+    """用 QCU blocked V 的内存逻辑直接实现 ``R=V^dagger``。"""
+    Xc, Yc, Zc, Tc = (n // b for n, b in zip(fine_shape, block_size))
+    bx, by, bz, bt = block_size
+    fine_blocked = fine.reshape(
+        int(fine.shape[0]), Xc, bx, Yc, by, Zc, bz, Tc, bt)
+    return torch.einsum(
+        "EeXxYyZzTt,eXxYyZzTt->EXYZT", blocked.conj(), fine_blocked)
+
+
+def _make_full_qcu_blocks(dof, shape):
+    """构造支持所有 33 个 canonical 位移的合成粗算子。"""
+    identity = torch.eye(dof, dtype=DTYPE).reshape(
+        dof, dof, 1, 1, 1, 1).expand(dof, dof, *shape).clone()
+    blocks = {(0, 0, 0, 0): identity}
+    for displacement in product((-1, 0, 1), repeat=4):
+        if displacement == (0, 0, 0, 0) or sum(x != 0 for x in displacement) > 2:
+            continue
+        torch.manual_seed(1000 + sum((i + 2) * (v + 1)
+                                     for i, v in enumerate(displacement)))
+        blocks[displacement] = torch.randn(
+            dof, dof, *shape, dtype=DTYPE) * 0.01
+    return blocks
 
 
 def test_new_and_legacy_multigrid_are_parallel_exports():
@@ -110,6 +149,116 @@ def test_transfer_galerkin_and_quda_yhat_conventions():
     assert torch.linalg.norm(
         coarse_operator.preconditioned_full_apply(coarse_trial) - expected_pc
     ) / torch.linalg.norm(expected_pc) < 2e-5
+
+
+def test_qcu_blocked_transfer_layout_matches_python_transfer():
+    """验证 QCU 的 10 维 blocked V 与 Python ``P/R`` 的逐元素约定。"""
+    null, _ = _random_nulls(20260829)
+    transfer = QudaTransfer(null, FINE_SHAPE, block_size=BLOCK)
+    blocked = transfer.to_qcu_blocked()
+    assert tuple(blocked.shape) == transfer.qcu_blocked_shape
+
+    coarse = torch.randn(
+        transfer.coarse_dof, *transfer.coarse_shape, dtype=DTYPE)
+    fine = torch.randn(transfer.fine_dof, *transfer.fine_shape, dtype=DTYPE)
+    prolong_ref = transfer.prolong(coarse)
+    prolong_blocked = _apply_qcu_blocked_transfer(
+        blocked, coarse, transfer.fine_shape, transfer.block_size)
+    restrict_ref = transfer.restrict(fine)
+    restrict_blocked = _restrict_qcu_blocked_transfer(
+        blocked, fine, transfer.fine_shape, transfer.block_size)
+    assert torch.allclose(prolong_blocked, prolong_ref, rtol=1e-5, atol=1e-5)
+    assert torch.allclose(restrict_blocked, restrict_ref, rtol=1e-5, atol=1e-5)
+
+
+def test_qcu_stencil_pack_matches_all_33_periodic_slots():
+    """验证 33 点槽位顺序及 2 点周期维的重复邻居分摊。"""
+    null, _ = _random_nulls(20260830)
+    transfer = QudaTransfer(null, FINE_SHAPE, block_size=BLOCK)
+    operator = QudaCoarseOperator(transfer, lambda value: value)
+    operator.blocks = _make_full_qcu_blocks(transfer.coarse_dof, transfer.coarse_shape)
+
+    sit, hop_nn, hop_diag = operator.to_qcu_stencil()
+    trial = torch.randn(
+        transfer.coarse_dof, *transfer.coarse_shape, dtype=DTYPE)
+    packed = tools.apply_stencil(hop_nn, hop_diag, sit, trial)
+    direct = operator.apply(trial)
+    assert tuple(sit.shape) == (transfer.coarse_dof, transfer.coarse_dof,
+                                *transfer.coarse_shape)
+    assert tuple(hop_nn.shape) == (2, 4, transfer.coarse_dof,
+                                   transfer.coarse_dof, *transfer.coarse_shape)
+    assert tuple(hop_diag.shape) == (2, 2, 6, transfer.coarse_dof,
+                                     transfer.coarse_dof, *transfer.coarse_shape)
+    assert torch.allclose(packed, direct, rtol=1e-5, atol=1e-5)
+
+
+def test_qcu_stencil_degenerate_extent_and_strict_support_guard():
+    """验证 extent=1 折入 sitting，并拒绝无法表达的宽支撑。"""
+    null, _ = _random_nulls(20260832)
+    transfer = QudaTransfer(null, FINE_SHAPE, block_size=FINE_SHAPE)
+    operator = QudaCoarseOperator(transfer, lambda value: value)
+    identity = _identity_diagonal(transfer.coarse_dof, transfer.coarse_shape)
+    local_shift = identity * 0.25
+    operator.blocks = {
+        (0, 0, 0, 0): identity,
+        (1, 0, 0, 0): local_shift,
+    }
+    sit, hop_nn, hop_diag = operator.to_qcu_stencil()
+    assert torch.allclose(sit, identity + local_shift)
+    assert torch.count_nonzero(hop_nn) == 0
+    assert torch.count_nonzero(hop_diag) == 0
+
+    wider = QudaTransfer(null, FINE_SHAPE, block_size=(1, 1, 1, 1))
+    unsupported = QudaCoarseOperator(wider, lambda value: value)
+    unsupported.blocks = {
+        (0, 0, 0, 0): _identity_diagonal(
+            unsupported.dof, unsupported.shape),
+        (2, 0, 0, 0): _identity_diagonal(
+            unsupported.dof, unsupported.shape),
+    }
+    with pytest.raises(ValueError, match="33 点 stencil"):
+        unsupported.to_qcu_stencil(strict=True)
+
+
+def test_multigrid_qcu_transition_assets_are_paired_and_guard_lazy_mode():
+    """验证多层导出把每条 P 与下一层 stencil 正确配对。"""
+    null, next_null = _random_nulls(20260833)
+    diagonal = _identity_diagonal(12, FINE_SHAPE, value=2.0)
+    mg = QudaMultigrid(
+        fine_matvec=lambda value: 2.0 * value,
+        fine_diagonal=diagonal,
+        fine_adjoint=lambda value: 2.0 * value,
+        lat_size=FINE_SHAPE,
+        null_vectors=[null, next_null],
+        block_size=[BLOCK, (1, 1, 1, 1)],
+        max_level=3,
+        materialize_coarse=True,
+        use_parity=False,
+        verbose=False,
+    )
+    assets = mg.qcu_transition_assets()
+    assert len(assets) == 2
+    for level, asset in enumerate(assets):
+        transfer = mg.transfers[level]
+        operator = mg.operators[level + 1]
+        assert asset["level"] == level
+        assert tuple(asset["null_vectors"].shape) == transfer.qcu_blocked_shape
+        assert tuple(asset["sitting"].shape) == (
+            operator.dof, operator.dof, *operator.shape)
+        assert asset["stencil"][0] is asset["sitting"]
+    lazy = QudaMultigrid(
+        fine_matvec=lambda value: 2.0 * value,
+        fine_diagonal=diagonal,
+        lat_size=FINE_SHAPE,
+        null_vectors=[null],
+        block_size=BLOCK,
+        max_level=2,
+        materialize_coarse=False,
+        use_parity=False,
+        verbose=False,
+    )
+    with pytest.raises(RuntimeError, match="matrix-free"):
+        lazy.qcu_transition_assets()
 
 
 def test_staggered_transfer_preserves_parity_blocks():

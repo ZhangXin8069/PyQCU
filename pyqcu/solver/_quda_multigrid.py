@@ -34,6 +34,9 @@ Tensor = Any
 Coord = Tuple[int, int, int, int]
 Shape4 = Tuple[int, int, int, int]
 BlockKey = Tuple[int, int, int, int]
+_QCU_DIAGONAL_PAIRS = (
+    (0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)
+)
 
 
 def _shape4(shape: Sequence[int]) -> Shape4:
@@ -409,6 +412,43 @@ class QudaTransfer:
 
     P = prolong
 
+    def to_qcu_blocked(self, dtype: Any = None, device: Any = None) -> Tensor:
+        """导出 C++ QCU transfer kernel 所需的 blocked ``V`` 布局。
+
+        Python 参考实现把正交化后的基存为
+        ``[fine_spin, fine_color, coarse_spin, nvec, X, Y, Z, T]``，而
+        ``multigrid_restrict/prolong`` 按 C-order 读取
+        ``[E, e, Xc, bx, Yc, by, Zc, bz, Tc, bt]``。这里的 ``E`` 是
+        ``coarse_spin*nvec``，``e`` 是 ``fine_spin*fine_color``；只做
+        轴重排和每个物理轴的拆分，不改变数值或共轭约定。
+
+        返回值始终 contiguous，可直接作为
+        ``qcu.applyMultigridRestrictQcu``/
+        ``qcu.applyMultigridProLongQcu`` 的 ``null_vecs`` 参数。默认保留
+        正交化基的 dtype/device；显式传入时用于跨精度或跨设备导出。
+        """
+        cx, cy, cz, ct = self.coarse_shape
+        bx, by, bz, bt = self.block_size
+        blocked = self.V.permute(2, 3, 0, 1, 4, 5, 6, 7).reshape(
+            self.coarse_dof, self.fine_dof,
+            cx, bx, cy, by, cz, bz, ct, bt)
+        if dtype is not None or device is not None:
+            blocked = blocked.to(
+                dtype=blocked.dtype if dtype is None else dtype,
+                device=blocked.device if device is None else device)
+        return blocked.contiguous()
+
+    @property
+    def qcu_blocked_shape(self) -> Tuple[int, ...]:
+        """返回 ``to_qcu_blocked`` 的静态 shape，便于 C++ ABI 守卫。"""
+        cx, cy, cz, ct = self.coarse_shape
+        bx, by, bz, bt = self.block_size
+        return (self.coarse_dof, self.fine_dof,
+                cx, bx, cy, by, cz, bz, ct, bt)
+
+    # 语义别名：调用方可按“导出 QCU null vector”或“转换布局”理解。
+    as_qcu_null_vectors = to_qcu_blocked
+
     def restrict_spin_color(self, fine: Tensor) -> Tensor:
         dtype = fine.dtype
         device = fine.device
@@ -722,6 +762,101 @@ class QudaCoarseOperator:
         fine = self.transfer.prolong(value)
         image = _call_matvec(self.fine_operator, fine)
         return self.transfer.restrict(image)
+
+    def to_qcu_stencil(self, dtype: Any = None, device: Any = None,
+                       strict: bool = True) -> Tuple[Tensor, Tensor, Tensor]:
+        """导出 QCU 宽 33 点粗算子的 ``(sit, hop_nn, hop_diag)``。
+
+        ``blocks[d]`` 的约定是
+        ``(D_c x)(q) += blocks[d](q) x(q+d)``。QCU 宽核的存储顺序为：
+
+        * ``sit[E,E,X,Y,Z,T]``：``d=(0,0,0,0)``；
+        * ``hop_nn[2,4,E,E,X,Y,Z,T]``：``pm=0`` 读取 ``q+mu``，
+          ``pm=1`` 读取 ``q-mu``；
+        * ``hop_diag[2,2,6,E,E,X,Y,Z,T]``：符号 0/1 分别表示
+          ``+1/-1``，pair 顺序为 ``xy,xz,xt,yz,yt,zt``。
+
+        粗格某一维为 2 时，``+1`` 与 ``-1`` 指向同一邻点；同一系数会
+        被平均分到所有等价槽位，因而 QCU kernel 的求和仍与
+        ``blocks`` 完全一致。尺寸为 1 的维度直接折入等价的较低阶位移
+        （全零位移进入 ``sit``）。
+
+        ``strict=True`` 时，遇到 33 点模板无法表示的非零位移会抛出异常，
+        避免把更宽的 Galerkin 支撑静默丢失。返回 tensor 均 contiguous，
+        可直接传给 ``qcu.applyMultigridCoarseDslashWideQcu``；其顺序与
+        ``CudaCoarseSchurOp`` 的 stencil 参数一致。
+        """
+        if self.blocks is None:
+            self.build()
+        assert self.blocks is not None
+
+        base_dtype = self.transfer.V.dtype if dtype is None else dtype
+        base_device = self.transfer.V.device if device is None else device
+        shape = self.shape
+        E = self.dof
+        sit = _torch.zeros(
+            size=[E, E, *shape], dtype=base_dtype, device=base_device)
+        hop_nn = _torch.zeros(
+            size=[2, 4, E, E, *shape], dtype=base_dtype, device=base_device)
+        hop_diag = _torch.zeros(
+            size=[2, 2, 6, E, E, *shape], dtype=base_dtype, device=base_device)
+        pair_index = {pair: index for index, pair in
+                      enumerate(_QCU_DIAGONAL_PAIRS)}
+
+        def nonzero_block(block: Tensor) -> bool:
+            # build() already filters at support_tol, but an explicitly supplied
+            # blocks dictionary may contain zero/near-zero unsupported entries.
+            return float(_torch.abs(block).max().item()) > self.support_tol
+
+        for displacement, block in self.blocks.items():
+            canonical = tuple(
+                _signed_displacement(value, shape[dim])
+                for dim, value in enumerate(displacement))
+            if not nonzero_block(block):
+                continue
+
+            axes = [dim for dim, value in enumerate(canonical) if value != 0]
+            if any(abs(canonical[dim]) != 1 for dim in axes) or len(axes) > 2:
+                if strict:
+                    raise ValueError(
+                        "QCU 宽 33 点 stencil 无法表示非零位移 "
+                        f"{displacement}（canonical={canonical}）")
+                continue
+
+            value = block.to(dtype=base_dtype, device=base_device)
+            if not axes:
+                # This also handles a dimension of extent one: all physical
+                # shifts along that axis are the same site and are already
+                # combined in the materialized block.
+                sit += value
+                continue
+
+            # For an extent-two periodic dimension both signs are the same
+            # physical neighbour.  Split one block across the duplicate QCU
+            # sign slots; for larger dimensions the sign is unique.
+            sign_options = []
+            for dim in axes:
+                if shape[dim] == 2:
+                    sign_options.append((0, 1))
+                else:
+                    sign_options.append((0 if canonical[dim] == 1 else 1,))
+            multiplicity = 1
+            for options in sign_options:
+                multiplicity *= len(options)
+            value = value / multiplicity
+
+            for choices in product(*sign_options):
+                if len(axes) == 1:
+                    hop_nn[choices[0], axes[0]] += value
+                else:
+                    first, second = axes
+                    pair = pair_index[(first, second)]
+                    hop_diag[choices[0], choices[1], pair] += value
+
+        return sit.contiguous(), hop_nn.contiguous(), hop_diag.contiguous()
+
+    # Short alias used by callers that treat the result as a packed asset.
+    qcu_stencil = to_qcu_stencil
 
     def _link(self, displacement: BlockKey) -> Tensor:
         if self.blocks is None:
@@ -1304,6 +1439,55 @@ class QudaMultigrid:
         x = x + self.transfers[level].prolong(coarse_error)
         x = self._mr_smooth(level, rhs, x, self.nu_post)
         return x
+
+    def qcu_transition_assets(self, dtype: Any = None, device: Any = None,
+                              strict: bool = True,
+                              materialize: bool = False) -> List[Dict[str, Any]]:
+        """导出每条 fine-to-coarse transition 的 QCU 可消费资产。
+
+        每个返回项包含 ``null_vectors``（QCU blocked ``P`` 布局）以及
+        ``sitting``、``hop_nn``、``hop_diag``（宽 33 点粗算子），并附带
+        两端几何/自由度元数据。返回项的 ``level`` 从 0 开始，对应
+        ``operators[level] -> operators[level + 1]``。
+
+        ``QudaCoarseOperator`` 处于 matrix-free 状态时，默认只读而不触发
+        逐列 materialize；若确实需要从通用 fine operator 生成精确 33 点
+        资产，调用方必须显式传 ``materialize=True``。大格推荐使用
+        ``pyqcu.tools.build_stencil_mt`` 的批量/局部构建器生成 stencil，
+        再交给 CUDA 驱动，以免把 O(N_site*N_dof) 的 reference 探测误当成
+        可扩展 setup 路径。
+        """
+        self.setup()
+        assets: List[Dict[str, Any]] = []
+        for level, transfer in enumerate(self.transfers):
+            coarse = self.operators[level + 1]
+            if not isinstance(coarse, QudaCoarseOperator):
+                raise RuntimeError(
+                    f"transition {level} 的 coarse operator 类型不支持 QCU 导出")
+            if coarse.blocks is None and not materialize:
+                raise RuntimeError(
+                    f"transition {level} 仍是 matrix-free；QCU stencil 导出会触发"
+                    "逐列 materialize。请显式设置 materialize=True，或使用"
+                    " tools.build_stencil_mt/build_stencil_local 构建批量 stencil")
+            sitting, hop_nn, hop_diag = coarse.to_qcu_stencil(
+                dtype=dtype, device=device, strict=strict)
+            null_vectors = transfer.to_qcu_blocked(dtype=dtype, device=device)
+            assets.append({
+                "level": level,
+                "fine_shape": transfer.fine_shape,
+                "coarse_shape": transfer.coarse_shape,
+                "fine_dof": transfer.fine_dof,
+                "coarse_dof": transfer.coarse_dof,
+                "null_vectors": null_vectors,
+                "sitting": sitting,
+                "hop_nn": hop_nn,
+                "hop_diag": hop_diag,
+                "stencil": (sitting, hop_nn, hop_diag),
+            })
+        return assets
+
+    # 面向调用方的同义入口；保留一个明确的主名称，避免与旧 MG API 混淆。
+    export_qcu_assets = qcu_transition_assets
 
     def solve(self, b: Tensor, x0: Optional[Tensor] = None) -> Tensor:
         self.setup()
