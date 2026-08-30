@@ -1,0 +1,737 @@
+QUDA MultiGrid 的算法理解与 PyQCU 复现
+MATPC 紧凑 odd Schur、P/R、Clover/Gauge、33 点粗算子与 setup 优化
+
+代码审计与代数验证
+PyQCU ·Lattice QCD
+
+2026 年 8 月 30 日
+
+本阶段结论：代数闭环与 MPI 闸门通过，setup 进入批量/显存优化
+已完成
+
+本轮证据
+
+资源策略
+
+QUDA 风格 MATPC：细层
+一次 odd Schur；粗层直接
+RDP。P/R、Clover/Gauge、
+33 点 stencil、V-cycle、重构
+与旧实现对照均已落地。
+
+批量局部探测相对逐点为
+0.155 s → 0.122 s，约
+1.266×，最大差为 0；2/4
+rank parity 回环最大差为 0。
+
+Schur 窗口矩阵按方向流式切
+片；工作区不足时当前批次
+自动减半重试。旧缺陷路径
+保留，不做无声替换。
+
+完 整 Df
+
+一 次 So
+
+P0 , R0
+
+R0 So P0
+
+递归 V-cycle
+
+阶段判断：关键不变量已经可测：奇偶布局保持、R = P† 、粗算子保留 local 与 hopping、
+分布式 33 点 halo 与混合精度运行不破坏真残差；当前主要瓶颈从正确性转为 setup 成
+本。
+来源：实现：pyqcu/solver/_quda_multigrid.py:1094-1292,1691-2331；优化：pyqcu/tools/_multigrid.py:938-1334；测试：examples/qcu/dev87/。
+
+代码审计与代数验证
+
+QUDA MG 复现与优化
+
+2/15
+
+QUDA 的递归控制流：reset 建层，operator 做一次完整 V-cycle
+输入：Dℓ , Bℓ , aggregate geometry, precision
+reset：生成/刷新Bℓ 与 Transferℓ
+Bℓ+1,i ← Rℓ Bℓ,i
+createCoarseDirac：Dℓ+1 = Rℓ Dℓ Pℓ
+分别保存 residual、smoother 与 sloppy operator
+createCoarseSolver：封装 coarse solver 与递归 MG
+operator：prepare → pre-smooth → Rr → recurse
+→ Pec → post-smooth
+输出：solution；类型变化时 reconstruct + residual
+
+细格 Dirac 与 B
+Transfer / RDP
+
+回传
+
+X, Y 与 solver
+wrapper
+递归 coarse MG
+
+控制流含义
+粗化只改变表示空间；每一级仍有完整
+operator、平滑器、残差和停止判据。因而
+“粗层只有 dslash”不等价于 QUDA 的 coarse
+Dirac。
+
+细 层 Dℓ
+
+Pℓ 延 拓
+
+Dℓ 作 用
+
+Rℓ 限 制
+
+粗 层 Dℓ+1
+
+来源：QUDA/PyQCU 递归控制流；完整路径见附录。
+
+代码审计与代数验证
+
+QUDA MG 复现与优化
+
+3/15
+
+P/R 与粗算子：局部正交化与 RDP 缺一不可
+Transfer 的物理/代数定义
+a(x) = (⌊x0 /b0 ⌋ , . . . , ⌊x3 /b3 ⌋) ,
+∑
+(Pη)sc (x) =
+Vscqj (x)ηqj (a(x)),
+
+对象
+
+在 RDP 中的作用
+
+Gauge Uµ
+
+进入 Wilson forward/backward
+hopping；方向、边界和伴随决
+定 Y± 。
+进入 local diagonal block X；
+X−1 参与 Schur 与预条件。
+X(q) = V† Dlocal V，不是可省略
+的装饰项。
+Y± (q) = V† Dhop V，保留传播方
+向。
+1 + 8 + 24 = 33 个本点、轴邻居
+和二维对角邻居。
+
+Clover C
+
+j
+
+∑
+
+(Rψ)qj (a) =
+
+V∗scqj (x)ψsc (x),
+
+x∈a,s,c
+
+R = P† ,
+
+RP ≃ Ic .
+
+Wilson/Clover 的细自由度为 Df = 4 × 3 = 12；
+每个 aggregate 内的 block CGS 产生 coarse
+vectors V。
+
+local block
+hopping
+block
+coarse
+stencil
+
+极限检查
+coarse 自由度不得超过 aggregate 局部维数；X 与 Y 必须同时保留。
+来源：QUDA transfer/coarse_op；PyQCU QudaTransfer；完整路径见附录。
+
+代码审计与代数验证
+
+QUDA MG 复现与优化
+
+4/15
+
+奇偶处理：MATPC 首层形成 odd Schur，粗层不再重复 checkerboard
+full (be , bo )
+
+块矩阵与重构
+(
+D=
+
+Dee
+Doe
+
+)
+
+Deo
+,
+Doo
+
+compact bSo
+So = Doo − Doe D−1
+ee Deo .
+
+bSo = bo − Doe D−1
+ee be ,
+So xo = bSo ,
+xe = D−1
+ee (be − Deo xo ).
+Dee 的 Clover/local block 必须可逆；D† 路径需使
+†
+用 (D−1
+ee ) ，不能把 Schur 当作自动 Hermitian。
+
+solve So xo
+reconstruct xe
+
+坐标规则
+p = (x + y + z + t) mod 2, es =
+(x + y + z) mod 2；
+tfull = 2thalf + ((p − x − y − z) mod 2)。T
+与各 local 轴须为偶数。
+
+来源：QUDA：refer/git-rep/quda/lib/multigrid.cpp:347-434,1131-1224；QCU：cpp/cuda/qcu/src/multigrid.cu:1579-1743；PyQCU：
+pyqcu/solver/_quda_multigrid.py:1094-1370。
+
+代码审计与代数验证
+
+QUDA MG 复现与优化
+
+5/15
+
+预条件与 V-cycle：X−1 改善局部尺度，但不删除完整 Dc
+粗层预条件的代数链
+Dc = X + H,
+Dpc = X−1 (Dc − X) = X−1 H,
+Dfull,pc = X−1 Dc = I + Dpc ,
+b + (q) = X−1 (q)Y+ (q).
+Y
+µ
+µ
+backward link 要同时处理存储位置平移、伴随和右侧
+X−† 约定；只检查 forward 不足以证明 PC 算子正确。
+
+r ℓ = b ℓ − Aℓ x ℓ
+xℓ ← smooth(Aℓ , rℓ )
+rℓ+1 ← Rℓ rℓ
+eℓ+1 ← solve(Aℓ+1 , rℓ+1 )
+xℓ ← xℓ + Pℓ eℓ+1
+xℓ ← smooth(Aℓ , rℓ , xℓ )
+K(rℓ ) = xℓ 作为外层 FGMRES/BiCGStab 预条件
+器
+
+实现分离
+QUDA 同时维护 residual operator、smoother
+operator 与 sloppy precision；PyQCU 对应
+preconditioned_apply、v_cycle 与显式 true
+residual。
+
+来源：QUDA：refer/git-rep/quda/include/kernels/coarse_op_preconditioned.cuh、refer/git-rep/quda/lib/dirac_coarse.cpp:351-430,506-626；PyQCU：
+pyqcu/solver/_quda_multigrid.py:912-1056,2021-2034。
+
+代码审计与代数验证
+
+QUDA MG 复现与优化
+
+6/15
+
+PyQCU 的新旧实现边界：新路径复现 QUDA 代数，旧路径作为缺陷对照保留
+维度
+
+新实现：QudaMultigrid +
+CompactParityOperator
+
+旧实现：solver.multigrid
+
+finest operator
+
+完整 Wilson/Clover Df ，一次形成 So
+
+coarse parity
+
+当前 odd compact geometry 上直接
+RDP，不重复减半
+X local block + Y± hopping，支持
+33 点 stencil
+aggregate-local block
+orthogonalization，R = P†
+V/W/F/K-cycle、smoother、
+reconstruct、true residual
+
+MG-0 有奇偶处理，但接口与新
+compact 层级分离
+粗层没有对应的完整 parity 递归约
+束
+粗层算子为不完备的
+hopping/dslash 近似
+历史接口，不能作为 QUDA 等价性
+证据
+作为历史/缺陷实现和对照基线
+
+coarse operator
+P/R
+solve
+
+层级协议
+
+工程边界
+
+A0 = Df , A1 = R0 So P0 , Aℓ+1 = Rℓ Aℓ Pℓ (ℓ ≥ 1)。这
+就是“只在 finest 做 Schur”。
+
+新 API 通过 compact/full round-trip、Galerkin 和
+QCU asset shape；旧实现保留作缺陷对照，不删
+除、不暗中替换。
+
+来源：新实现与旧实现的完整源码索引见附录；对照矩阵为 examples/qcu/dev87/comparison_matrix.md。
+
+代码审计与代数验证
+
+QUDA MG 复现与优化
+
+7/15
+
+局部 33 点 stencil setup：用有限传播半径替代全格 Schur 探测
+输入：fine Schur components, local orthogonal V, W = 10, E
+按粗点c 建窗口：x0 = 2c − (W/2 − 1), 在中心块填充E 个单位探针
+D
+
+D
+
+eo
+局部 action：fc −−oe
+→ D−1
+ee −−→ So fc
+限制：仅取c 本点、4 轴邻居和 24 个二维对角块，计算V† So V
+写回：sit, hop_nn, hop_diag；周期退化或窗口不足时回退逐点参考路径
+输出：[E, E, Xc , Yc , Zc , Tc ] + [2, 4, E, E, · · · ] + [2, 2, 6, E, E, · · · ]
+
+为什么窗口足够
+supp(D) : 1 个轴向 hop,
+supp(So ) : 两次 hop + local inverse,
+supp(RSo P) : c ± 1 块与二维对角块.
+
+局 部 W4
+窗 口
+33 块
+restriction
+HDF5
+coarse asset
+
+W = 10 给中心块外侧 padding，周期边界用坐标模运算
+保持连续切片语义。
+来源：实现与参考：pyqcu/tools/_multigrid.py、logs/v20260818.txt。
+
+代码审计与代数验证
+
+QUDA MG 复现与优化
+
+8/15
+
+本轮性能/显存优化：计算批量化，同时把窗口矩阵从“全驻留”改为流式
+峰值内存的量纲估算
+旧路径在一次 Schur 调用前物化 18 组窗口矩阵：
+Mold = 18K · 12 · 12 · W4 · scplx .
+
+措施
+
+工程效果
+
+K 批量
+
+K 个互不相交窗口一次调度，
+减少 Python/CUDA launch
+与切片开销。
+18 份矩阵不再同时存活，峰
+值随当前方向而非 18 组增
+长。
+f_local、Dlocal 、restrict 临
+时在生命周期末立即释放。
+当前批次按 K → ⌈K/2⌉ 重
+试，已写点不重复写。
+
+流式矩阵
+
+W = 10, K = 4 时，Mold = 0.829 GB（c64），
+1.659 GB（c128），尚未计入 Schur work buffers。
+及时释放
+
+新路径
+每个方向只保留 source、一个矩阵窗口和一次
+contraction temporary；D−1
+ee 、Doo 分阶段切片，
+并在 restrict 前释放局部场。
+
+OOM retry
+
+可调旋钮
+build_stencil_local(...,batch_size=4) 默认批
+量；显存紧张可传更小 K，异常时自动降档，不改变
+RSo P 数学结果。
+
+来源：实现：pyqcu/tools/_multigrid.py:938-987,1026-1067,1166-1240,1279-1334；测量命令：examples/qcu/dev87/test_stencil_batch_local.py 与本轮 CPU
+benchmark。
+
+代码审计与代数验证
+
+QUDA MG 复现与优化
+
+9/15
+
+当前实测：批量局部探测保持逐点结果，并降低 setup 调度成本
+验证项
+
+参考/配置
+
+当前结果
+
+误差/状态
+
+判读
+
+流式 Schur vs 物化公式
+
+随机非对角矩阵、K = 4
+
+shape 一致
+
+max abs = 0
+
+局部 stencil K=1 vs
+K=4
+
+fine 84 、coarse 44 、
+E=3
+
+逐点/批量
+
+max diff = 0
+
+CPU batch benchmark
+
+E = 2, W = 6、4 个粗
+点
+
+0.155 → 0.122 s
+
+1.266×
+
+Python 主回归
+
+pytest -q
+examples/pyqcu
+
+26 passed
+
+exit 0
+
+breakdown guard
+
+zero coarse operator
+
+2 passed
+
+finite output
+
+contraction
+顺序与
+parity mask
+保持
+周期边界和
+内部粗点均
+覆盖
+仅计 setup
+探测，非
+GPU 吞吐声
+明
+既有代
+数/solver 行
+为未回归
+粗求解
+breakdown
+不污染细解
+
+来源：测试：examples/qcu/dev87/test_stencil_batch_local.py、examples/qcu/dev87/test_mg_breakdown.py；流式与批量等价，CPU 数字仅代表 setup 调度收益，不
+外推 GPU/MPI 吞吐。
+
+代码审计与代数验证
+
+QUDA MG 复现与优化
+
+10/15
+
+分布式与混合精度验证：奇偶、粗 halo 和真残差均有独立证据
+路径
+
+配置
+
+实测指标
+
+结论
+
+compact parity round-trip
+
+global max/rel = 0
+
+distributed coarse equivalence
+
+2 rank [2, 1, 1, 1] c64；2
+rank [1, 1, 1, 2] c128
+4 rank [1, 2, 1, 2] c64；
+[1, 1, 2, 2] c128
+2 rank、c64、[2, 1, 1, 1]
+
+distributed coarse equivalence
+
+2 rank、c128、[1, 1, 1, 2]
+
+T/2 页按物理坐标
+重建正确
+X/Y/Z/T rank 原
+点均覆盖
+33 点周期 halo 与
+全局参考一致
+双精度路径一致
+
+coarse dslash smoke
+
+2 rank、host staging、
+overlap off
+2 rank、fine c64/coarse c128
+
+compact parity round-trip
+
+end-to-end MG
+
+global max/rel = 0
+global L2 rel
+= 5.60 × 10−7
+global L2 rel
+= 1.03 × 10−15
+rel max = 0
+true residual rel
+≃ 7.69 × 10−7
+
+无死锁/非法访问
+混合精度粗层可运
+行
+
+MPI 设计判断
+parity 页不能直接按压缩轴切块；先恢复物理格点、切 rank block、再压缩。粗层不做 checkerboard，但保留本 rank 的
+33 点 stencil，并对跨 rank 的 32 个邻居做 halo。
+来源：回环：examples/qcu/dev87/parity_mpi_roundtrip.py:48-118；粗算子：examples/qcu/dev87/coarse_mpi_equiv.py:46-122；MG：
+examples/qcu/dev87/run_qcu_mg_mpi.py:209-222；命令证据：本轮 MPI 运行输出。
+
+代码审计与代数验证
+
+QUDA MG 复现与优化
+
+11/15
+
+当前限制与风险：正确性已闭环，生产性能仍受资产与通信口径约束
+项目
+
+已确证状态
+
+仍需控制的风险/下一步
+
+Schur window
+
+W = 10 对当前 Wilson/Clover
+33 点支撑等价；边界有回退
+矩阵切片流式化；K 批量工作区
+按需减半
+
+更宽 dslash、非局部项需重新证明传
+播半径并扩大窗口
+fine operator 的大体量 Clover/Gauge
+资产仍是主显存项，应继续
+VRAM→RAM→HDF5 分层
+未测通信/计算 overlap、device-aware
+MPI 和 NVSHMEM 吞吐
+误差平台、更多层级和更大体积需固
+定设备复测
+Python setup、QCU kernel、QUDA
+autotune/通信不是同一性能口径
+使用新 API 时需显式选择，避免历
+史缓存与新 compact asset 混用
+
+setup memory
+
+MPI halo
+mixed precision
+QUDA 性能对照
+legacy path
+
+2 rank 等价和 smoke 通过；当
+前为阻塞 host staging
+c64/c128 coarse transition 与
+true residual 通过
+算法控制流/代数对象完成映射
+pyqcu/solver/_multigrid.py
+保留作缺陷对照
+
+风险控制：
+“确证”均有源码、恒等式或命令依据；CPU batch 不外推 GPU，2/4 rank 不外推强 scaling，未测
+项标为“未验证”。
+来源：实现：pyqcu/tools/_multigrid.py；MPI 约束：dev87 report。
+
+代码审计与代数验证
+
+QUDA MG 复现与优化
+
+12/15
+
+阶段结论与下一步：从“能复现”转向“可扩展 setup”
+已确认
+
+本轮交付
+
+下一阶段验收
+
+QUDA 主线：
+B → V → P/R → RDP；
+X、Y、X−1 、Yhat 属于同一粗算
+子体系；
+compact MATPC 只在 finest 做一
+次 odd Schur；
+粗层完整保留 stencil 与
+parity-aware 维度协议。
+
+流式 BatchedLocalSchur、K 批量
+局部探测、OOM 降档重试；parity
+MPI round-trip 测试；流式/物化参
+考测试；本报告
+..._20260830.tex/.pdf。
+
+1. 记录真实 GPU peak memory 与
+K 的曲线；
+2. 大格 setup 的分层驻留和 HDF5
+cache；
+3. halo 通信与计算 overlap；
+4. 同数据/同容差的 QUDA kernel
+benchmark。
+
+稳定性
+build、Python、MPI coarse、MG
+breakdown 和混合精度闸门均为通
+过。
+
+代 数 golden
+contract
+
+MPI/混
+合精度
+
+显存分
+层 setup
+
+设备感知
+benchmark
+
+来源：本轮证据：examples/qcu/dev87/；代码：pyqcu/tools/_multigrid.py:938-1334；数据读写目录：/root/PyQCU/data。
+
+代码审计与代数验证
+
+QUDA MG 复现与优化
+
+13/15
+
+附录：对象—源码—证据索引
+对象
+
+QUDA 对照
+
+PyQCU 当前证据
+
+递归 MG
+geometry/spin map
+
+lib/multigrid.cpp:72-197,1131-1224
+lib/transfer.cpp:200-257
+
+P/R
+
+lib/transfer.cpp:259-328
+
+coarse X/Y
+PC/Yhat
+parity
+
+lib/coarse_op.cuh:1035-1459
+lib/dirac_coarse.cpp:351-430,506-626
+lib/multigrid.cpp:1131-1224
+
+compact map
+setup optimization
+
+cpp/cuda/qcu/src/multigrid.cu:
+1579-1743
+coarse_op.cuh 的局部支撑思想
+
+旧实现
+
+历史 PyQCU 路径
+
+QudaMultigrid.setup/v_cycle
+QudaTransfer，含 Wilson/Clover
+map
+block CGS/QR、R = P† 、compact
+round-trip
+lazy/materialized RDP、33 点资产
+local inverse、preconditioned apply
+odd Schur、reconstruct、no
+repeated checkerboard
+CompactParityLayout、MPI
+round-trip
+BatchedLocalSchur 流式/K 批
+量/OOM retry
+pyqcu/solver/_multigrid.py 保
+留
+
+证据等级
+确证：命令/数值/恒等式；推断：一致性判断；未验证：QUDA kernel 性能、overlap、NVSHMEM 与大体积 setup 峰值。
+来源：补充日志：logs/v20260818.txt、logs/v20260829.txt。
+
+代码审计与代数验证
+
+QUDA MG 复现与优化
+
+14/15
+
+附录：本轮验证命令与交付闸门
+pytest -q examples/pyqcu
+pytest -q examples/qcu/dev87/test_stencil_batch_local.py
+examples/qcu/dev87/test_mg_breakdown.py
+python -m py_compile（核心工具与 dev87 脚本）
+环境与 CUDA 后端构建（env + build）
+MPI parity round-trip（2/4 rank）
+MPI 粗算子等价与 smoke（2 rank）
+端到端 MG（2 rank，coarse c128）
+git diff --check
+
+26 passed
+2 passed
+通过
+CUDA backend SUCCESS
+all max/rel = 0
+5.60e-7 / 1.03e-15 / 0
+exit 0；true residual 7.69e-7
+通过
+
+交付判定
+页面数、渲染页数和逐页检查数必须一致；报告中的性能数字区分 CPU setup benchmark、CUDA/MPI 正确性和未验证
+的 QUDA 原生吞吐，不混用。
+来源：文件与缓存：docs/report_quda_multigrid_reproduction_20260830.tex/.pdf；所有缓存读写遵循 /root/PyQCU/data。
+
+代码审计与代数验证
+
+QUDA MG 复现与优化
+
+15/15
+
+
