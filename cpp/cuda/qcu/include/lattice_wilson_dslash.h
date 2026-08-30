@@ -362,6 +362,24 @@ template <typename T> struct LatticeWilsonDslash {
         set_ptr->host_params[_GRID_Y_] == 1 &&
         set_ptr->host_params[_GRID_Z_] == 1 &&
         set_ptr->host_params[_GRID_T_] == 1;
+
+    // The complete Wilson kernel already implements the periodic compact
+    // parity layout used by this class (LatticeSet stores T/2 and the kernel
+    // maps the t-neighbour with the spatial checkerboard parity).  On a
+    // single rank there is no halo to overlap, so the send/inside/recv split
+    // only adds launch and stream bookkeeping overhead.  Keep the split path
+    // below for multi-rank and forced-MPI tests, where its halo buffers are
+    // required.  In the normal fast path all consumers are on the main
+    // stream; skip_final_sync_ therefore has the same meaning as below.
+    if (single_rank) {
+      wilson_dslash<T><<<set_ptr->gridDim, set_ptr->blockDim, 0,
+                         set_ptr->stream>>>(
+          gauge, fermion_in, fermion_out, _device_params);
+      if (!skip_final_sync_)
+        checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
+      return;
+    }
+
     // Lambda: sync a stream, but ONLY in the multi-rank path (the
     // single-rank path serializes everything on the main stream).
     auto sync_if_multi = [&](cudaStream_t s) {
