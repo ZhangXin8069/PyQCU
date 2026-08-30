@@ -14,11 +14,14 @@ import torch
 
 from pyqcu import dslash, lattice, tools
 from pyqcu.solver import (
+    Checkerboard,
     CompactParityLayout,
     CompactParityOperator,
     ParitySchurOperator,
     QudaCoarseOperator,
+    QudaMatPCOperator,
     QudaMultigrid,
+    QudaStrictMultigrid,
     QudaTransfer,
     multigrid,
 )
@@ -85,6 +88,22 @@ def _restrict_qcu_blocked_transfer(blocked, fine, fine_shape, block_size):
         int(fine.shape[0]), Xc, bx, Yc, by, Zc, bz, Tc, bt)
     return torch.einsum(
         "EeXxYyZzTt,eXxYyZzTt->EXYZT", blocked.conj(), fine_blocked)
+
+
+def _apply_quda_stored_links(links, value, onsite=None):
+    """按 QUDA ``Y/Yhat`` 的 forward/backward link 存储约定作用。"""
+    result = (torch.zeros_like(value) if onsite is None else
+              torch.einsum("ijxyzt,jxyzt->ixyzt", onsite, value))
+    for dim in range(4):
+        result = result + torch.einsum(
+            "ijxyzt,jxyzt->ixyzt", links[0, dim],
+            torch.roll(value, shifts=-1, dims=1 + dim))
+        backward_at_target = torch.roll(
+            links[1, dim], shifts=1, dims=2 + dim).conj().transpose(0, 1)
+        result = result + torch.einsum(
+            "ijxyzt,jxyzt->ixyzt", backward_at_target,
+            torch.roll(value, shifts=1, dims=1 + dim))
+    return result
 
 
 def _make_full_qcu_blocks(dof, shape):
@@ -159,6 +178,162 @@ def test_transfer_galerkin_and_quda_yhat_conventions():
     assert torch.linalg.norm(
         coarse_operator.preconditioned_full_apply(coarse_trial) - expected_pc
     ) / torch.linalg.norm(expected_pc) < 2e-5
+
+
+def test_single_parity_transfer_is_adjoint_and_keeps_full_coarse_geometry():
+    """QUDA 的 parity transfer 只裁 fine 场，coarse 场仍是完整格。"""
+    null, _ = _random_nulls(20260846)
+    transfer = QudaTransfer(null, FINE_SHAPE, block_size=BLOCK)
+    checkerboard = Checkerboard(FINE_SHAPE)
+    coarse = torch.randn(
+        transfer.coarse_dof, *transfer.coarse_shape, dtype=DTYPE)
+
+    for parity in (0, 1):
+        fine_compact = torch.randn(
+            transfer.fine_dof, checkerboard.volume, dtype=DTYPE)
+        prolong_compact = transfer.prolong_parity(coarse, parity)
+        restricted = transfer.restrict_parity(fine_compact, parity)
+        lhs = torch.vdot(prolong_compact.flatten(), fine_compact.flatten())
+        rhs = torch.vdot(coarse.flatten(), restricted.flatten())
+        scale = torch.linalg.norm(prolong_compact) * torch.linalg.norm(fine_compact)
+
+        assert tuple(restricted.shape) == (
+            transfer.coarse_dof, *transfer.coarse_shape)
+        assert tuple(prolong_compact.shape) == (
+            transfer.fine_dof, checkerboard.volume)
+        assert float(torch.abs(lhs - rhs) / scale) < 2e-5
+
+
+def test_quda_matpc_matches_left_preconditioned_block_elimination():
+    """逐层 MATPC 必须是 ``I-Hhat_pq Hhat_qp``，而非永久缩格。"""
+    null, _ = _random_nulls(20260847)
+    transfer = QudaTransfer(null, FINE_SHAPE, block_size=BLOCK)
+    diagonal = _component_diagonal()
+    link = torch.randn(12, 12, *FINE_SHAPE, dtype=DTYPE) * 0.001
+    backward = torch.randn(12, 12, *FINE_SHAPE, dtype=DTYPE) * 0.001
+    coarse_operator = QudaCoarseOperator(
+        transfer, _fine_matvec_with_hop(diagonal, link, backward),
+        materialize=True)
+
+    for parity in (0, 1):
+        matpc = QudaMatPCOperator(coarse_operator, parity=parity)
+        other = 1 - parity
+        trial = torch.randn(
+            coarse_operator.dof, matpc.checkerboard.volume, dtype=DTYPE)
+        full = matpc.checkerboard.embed(trial, parity, coarse_operator.dof)
+        first = coarse_operator.preconditioned_full_apply(full)
+        first_other = matpc.checkerboard.extract(first, other)
+        first_full = matpc.checkerboard.embed(
+            first_other, other, coarse_operator.dof)
+        second = coarse_operator.preconditioned_full_apply(first_full)
+        expected = trial - matpc.checkerboard.extract(second, parity)
+        assert torch.allclose(matpc.apply(trial), expected,
+                              rtol=2e-5, atol=2e-6)
+
+        rhs = torch.randn(
+            coarse_operator.dof, *coarse_operator.shape, dtype=DTYPE)
+        reconstructed = matpc.reconstruct(rhs, trial)
+        residual = rhs - coarse_operator.apply(reconstructed)
+        eliminated = matpc.checkerboard.extract(residual, other)
+        assert float(torch.linalg.norm(eliminated)) / float(
+            torch.linalg.norm(rhs)) < 2e-5
+
+
+def test_strict_quda_hierarchy_coarsens_full_preconditioned_operator():
+    """二次粗化保持 spin=2/full geometry，并逐层满足 ``R X^-1 D P``。"""
+    torch.manual_seed(20260848)
+    diagonal = _component_diagonal()
+    link = torch.randn(12, 12, *FINE_SHAPE, dtype=DTYPE) * 0.0005
+    backward = torch.randn(12, 12, *FINE_SHAPE, dtype=DTYPE) * 0.0005
+    matvec = _fine_matvec_with_hop(diagonal, link, backward)
+    first, second = _random_nulls(20260849)
+    mg = QudaStrictMultigrid(
+        fine_matvec=matvec,
+        fine_diagonal=diagonal,
+        fine_adjoint=matvec,
+        lat_size=FINE_SHAPE,
+        null_vectors=[first, second],
+        dof_list=[12, 4, 4],
+        block_size=[BLOCK, (1, 1, 1, 1)],
+        max_level=3,
+        materialize_coarse=True,
+        use_parity=True,
+        setup_iters=0,
+        target_parity=0,
+        verbose=False,
+    ).setup()
+
+    assert [operator.spin for operator in mg.operators] == [4, 2, 2]
+    assert [operator.dof for operator in mg.operators] == [12, 4, 4]
+    assert [operator.shape for operator in mg.operators] == [
+        FINE_SHAPE, (2, 2, 2, 2), (2, 2, 2, 2)]
+    assert all(transfer.coarse_spin == 2 for transfer in mg.transfers)
+
+    strict_assets = mg.qcu_strict_transition_assets()
+    assert len(strict_assets) == 2
+    for level, asset in enumerate(strict_assets):
+        transfer = mg.transfers[level]
+        child = mg.operators[level + 1]
+        assert asset["operator_kind"] == "quda_full_preconditioned"
+        assert asset["slot_order"] == (
+            "null_vectors", "raw_links", "preconditioned_links",
+            "onsite_pair")
+        assert tuple(asset["fine_shape"]) == transfer.fine_shape
+        assert tuple(asset["coarse_shape"]) == child.shape
+        assert tuple(asset["null_vectors"].shape) == transfer.qcu_blocked_shape
+        assert tuple(asset["raw_links"].shape) == (
+            2, 4, child.dof, child.dof, *child.shape)
+
+    for level, transfer in enumerate(mg.transfers):
+        trial = torch.randn(
+            transfer.coarse_dof, *transfer.coarse_shape, dtype=DTYPE)
+        direct = transfer.restrict(
+            mg.coarsening_operators[level].apply(transfer.prolong(trial)))
+        actual = mg.operators[level + 1].apply(trial)
+        assert float(torch.linalg.norm(actual - direct)) / float(
+            torch.linalg.norm(direct)) < 2e-5
+        assert mg.operators[level + 1].X is not None
+        assert mg.operators[level + 1].X_inv is not None
+        assert mg.operators[level + 1].Yhat_forward is not None
+
+    source = torch.randn(4, 3, *FINE_SHAPE, dtype=DTYPE)
+    solution = mg.solve(source)
+    residual = mg.apply(solution) - source
+    assert float(torch.linalg.norm(residual)) / float(
+        torch.linalg.norm(source)) < 2e-4
+
+
+def test_strict_qcu_assets_preserve_quda_y_yhat_storage_and_actions():
+    """strict 四槽资产必须逐元素重现 raw D 与 ``X^-1 H``。"""
+    null, _ = _random_nulls(20260850)
+    transfer = QudaTransfer(null, FINE_SHAPE, block_size=BLOCK)
+    diagonal = _component_diagonal()
+    link = torch.randn(12, 12, *FINE_SHAPE, dtype=DTYPE) * 0.001
+    backward = torch.randn(12, 12, *FINE_SHAPE, dtype=DTYPE) * 0.001
+    operator = QudaCoarseOperator(
+        transfer, _fine_matvec_with_hop(diagonal, link, backward),
+        materialize=True)
+    assets = operator.to_qcu_strict_assets()
+
+    E = operator.dof
+    shape = operator.shape
+    assert tuple(assets["raw_links"].shape) == (2, 4, E, E, *shape)
+    assert tuple(assets["preconditioned_links"].shape) == (
+        2, 4, E, E, *shape)
+    assert tuple(assets["onsite_pair"].shape) == (2, E, E, *shape)
+    assert all(value.is_contiguous() for value in assets.values())
+
+    trial = torch.randn(E, *shape, dtype=DTYPE)
+    raw = _apply_quda_stored_links(
+        assets["raw_links"], trial, assets["onsite_pair"][0])
+    preconditioned_hopping = _apply_quda_stored_links(
+        assets["preconditioned_links"], trial)
+    assert torch.allclose(raw, operator.apply(trial), rtol=2e-5, atol=2e-6)
+    assert torch.allclose(
+        preconditioned_hopping, operator.preconditioned_apply(trial),
+        rtol=2e-5, atol=2e-6)
+    assert torch.allclose(assets["onsite_pair"][0], operator.X)
+    assert torch.allclose(assets["onsite_pair"][1], operator.X_inv)
 
 
 def test_qcu_blocked_transfer_layout_matches_python_transfer():

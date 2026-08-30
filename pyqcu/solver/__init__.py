@@ -8,10 +8,15 @@ from ._quda_multigrid import (Checkerboard as Checkerboard,
                               CompactParityOperator as CompactParityOperator,
                               ParitySchurOperator as ParitySchurOperator,
                               QudaCoarseOperator as QudaCoarseOperator,
+                              QcuStrictAssetBinding as QcuStrictAssetBinding,
+                              QudaMatPCOperator as QudaMatPCOperator,
                               QudaMultigrid as QudaMultigrid,
+                              QudaStrictMultigrid as QudaStrictMultigrid,
                               QudaTransfer as QudaTransfer,
                               QUDAMultigrid as QUDAMultigrid,
-                              quda_multigrid as quda_multigrid)
+                              QUDAStrictMultigrid as QUDAStrictMultigrid,
+                              quda_multigrid as quda_multigrid,
+                              quda_strict_multigrid as quda_strict_multigrid)
 from argparse import Namespace
 Namespace.__module__ = "pyqcu.solver"
 

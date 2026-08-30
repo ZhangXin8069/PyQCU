@@ -8,5 +8,16 @@
 #   from pyqcu.cuda import define    # Parameter constants and dtype helpers
 #   from pyqcu.cuda import schur_op  # CudaSchurOp (multi-thread-safe Schur op)
 #   from pyqcu.cuda import multi_gpu # MultiGpuMultigrid (one-thread-one-GPU driver)
+
+_LAZY_EXPORTS = {}
+
+
+def __getattr__(name):
+    if name == "CudaStrictMultigridSolver":
+        if name not in _LAZY_EXPORTS:
+            from ._strict_multigrid import CudaStrictMultigridSolver
+            _LAZY_EXPORTS[name] = CudaStrictMultigridSolver
+        return _LAZY_EXPORTS[name]
+    raise AttributeError(f"module 'pyqcu.cuda' has no attribute {name!r}")
 from argparse import Namespace
 Namespace.__module__ = "pyqcu.cuda"

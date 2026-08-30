@@ -262,8 +262,8 @@
         \src{sit / hnn / hdg} & $A_{l+1}$ 的非零块 \\
         \bottomrule
       \end{tabular}
-      \vspace{0.4em}
-      \textcolor{accent}{代码注释常写 $P^T$；复数实现实际使用共轭转置 $P^\dagger$。}
+      \par\vspace{0.18em}
+      \noindent\textcolor{accent}{代码注释常写 $P^T$；复数实现实际使用共轭转置 $P^\dagger$。}
     \end{column}
   \end{columns}
   \source{\src{tools/_multigrid.py:691,738}；\src{lattice_clover_multigrid.h:892}。}
@@ -297,8 +297,8 @@
         $+\mathrm{diag}_{je}(c)x_e(c\pm\hat\mu\pm\hat\nu)$ \\
         \bottomrule
       \end{tabular}
-      \vspace{0.35em}
-      \textcolor{warning}{\footnotesize 33 是耦合位置数，不是自由度数；每个位置承载一个 $E\times E$ 块。}
+      \par\vspace{0.18em}
+      \noindent\textcolor{warning}{\footnotesize 33 是耦合位置数，不是自由度数；每个位置承载一个 $E\times E$ 块。}
     \end{column}
   \end{columns}
   \source{\src{src/multigrid.cu:858,924}；\src{tools/_multigrid.py:738}。}
@@ -315,7 +315,7 @@
         \midrule
         \src{init} & 读取每层 $E,X,Y,Z,T$，分配求解向量 \\
         \src{set ops} & 保存四个外部指针 \\
-        \src{coarse dslash} & 读取当前层 33 点 stencil \\
+        粗层算子 & 读取当前层 33 点 stencil \\
         MPI 多 rank & 先交换粗层 halo，再启动 CUDA kernel \\
         粗层求解 & BiStabCG / fused coarse solve，算子不变 \\
         \bottomrule
