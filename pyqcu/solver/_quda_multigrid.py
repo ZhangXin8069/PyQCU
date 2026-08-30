@@ -43,6 +43,119 @@ _QCU_DIAGONAL_PAIRS = (
 )
 
 
+class QcuStrictAssetBinding:
+    """拥有 strict CUDA 资产并把稳定指针绑定到 ``set_ptrs``。
+
+    绑定对象的生命周期必须覆盖所有后端调用。默认只持有运行期必需的
+    ``Yhat/(X,X^-1)`` 以及递归层间 ``V``；raw ``Y`` 留作 setup/诊断资产，
+    不进入求解期显存。``close`` 只清除仍指向本对象的槽，避免覆盖后来者。
+    """
+
+    def __init__(self, set_ptrs: Tensor, assets: Sequence[Dict[str, Any]],
+                 start_level: int = 1, retain_raw_links: bool = False):
+        from pyqcu.cuda import define
+
+        self.set_ptrs = set_ptrs
+        self.start_level = int(start_level)
+        self.retain_raw_links = bool(retain_raw_links)
+        self._owned: List[Tensor] = []
+        self._bound: List[Tuple[int, int]] = []
+        self._closed = False
+        self.omitted_raw_bytes = 0
+
+        level_count = len(assets) + 1
+        if (level_count < 2 or level_count > 5 or self.start_level < 1 or
+                self.start_level >= level_count):
+            raise ValueError(
+                "strict QCU binding 要求 2..5 层且 start_level 指向 coarse 层")
+        if int(set_ptrs.numel()) < define._SET_PTRS_SIZE_:
+            raise ValueError("set_ptrs 长度不足 strict 四槽资产区")
+        if getattr(set_ptrs.device, "type", str(set_ptrs.device)) != "cpu":
+            raise ValueError("set_ptrs 必须是 CPU int64 张量")
+
+        first_transition = self.start_level - 1
+        for transition in range(first_transition, len(assets)):
+            base = (define._SET_PTRS_STRICT_COARSE_BASE_ +
+                    transition * define._SET_PTRS_STRICT_STRIDE_)
+            for slot in range(define._SET_PTRS_STRICT_STRIDE_):
+                set_ptrs[base + slot] = 0
+
+        def bind(slot: int, tensor: Optional[Tensor], label: str) -> None:
+            if tensor is None:
+                raise ValueError(f"strict QCU 资产 {label} 缺失")
+            if not tensor.is_contiguous():
+                raise ValueError(f"strict QCU 资产 {label} 必须 contiguous")
+            pointer = int(tensor.data_ptr())
+            if pointer == 0:
+                raise ValueError(f"strict QCU 资产 {label} 指针为空")
+            set_ptrs[slot] = pointer
+            self._owned.append(tensor)
+            self._bound.append((slot, pointer))
+
+        for transition in range(first_transition, len(assets)):
+            asset = assets[transition]
+            base = (define._SET_PTRS_STRICT_COARSE_BASE_ +
+                    transition * define._SET_PTRS_STRICT_STRIDE_)
+            preconditioned = asset.get("preconditioned_links")
+            onsite = asset.get("onsite_pair")
+            bind(base + define._SET_PTRS_STRICT_PRECONDITIONED_LINKS_,
+                 preconditioned, f"transition {transition} Yhat")
+            bind(base + define._SET_PTRS_STRICT_ONSITE_PAIR_,
+                 onsite, f"transition {transition} onsite_pair")
+            raw = asset.get("raw_links")
+            if self.retain_raw_links:
+                bind(base + define._SET_PTRS_STRICT_RAW_LINKS_, raw,
+                     f"transition {transition} raw Y")
+            else:
+                # raw Y 与 Yhat 形状/精度完全相同，可由后者精确计量省下的显存。
+                self.omitted_raw_bytes += (
+                    int(preconditioned.numel()) *
+                    int(preconditioned.element_size()))
+            # C++ 在 level L 递归到 L+1 时读取 transition L 的 V。
+            if transition >= self.start_level:
+                bind(base + define._SET_PTRS_STRICT_NULL_,
+                     asset.get("null_vectors"),
+                     f"transition {transition} null_vectors")
+
+        unique = {int(tensor.data_ptr()): tensor for tensor in self._owned}
+        self.resident_bytes = sum(
+            int(tensor.numel()) * int(tensor.element_size())
+            for tensor in unique.values())
+
+    @property
+    def closed(self) -> bool:
+        return self._closed
+
+    def memory_report(self) -> Dict[str, int]:
+        return {
+            "resident_bytes": int(self.resident_bytes),
+            "omitted_raw_bytes": int(self.omitted_raw_bytes),
+            "bound_tensor_count": len(self._owned),
+        }
+
+    def close(self) -> None:
+        if self._closed:
+            return
+        for slot, pointer in self._bound:
+            if int(self.set_ptrs[slot]) == pointer:
+                self.set_ptrs[slot] = 0
+        self._bound.clear()
+        self._owned.clear()
+        self._closed = True
+
+    def __enter__(self) -> "QcuStrictAssetBinding":
+        return self
+
+    def __exit__(self, exc_type: Any, exc: Any, traceback: Any) -> None:
+        self.close()
+
+    def __del__(self) -> None:
+        try:
+            self.close()
+        except Exception:
+            pass
+
+
 def _shape4(shape: Sequence[int]) -> Shape4:
     if len(shape) != 4:
         raise ValueError(f"需要四维时空尺寸，得到 {tuple(shape)}")
@@ -530,6 +643,44 @@ class QudaTransfer:
 
     R = restrict
 
+    def prolong_parity(self, coarse: Tensor, parity: int) -> Tensor:
+        """把完整 coarse 场延拓到指定 fine parity。
+
+        这对应 QUDA ``Transfer::setSiteSubset(PARITY, parity)`` 后的 ``P``：
+        ``V`` 与输入 coarse 场仍定义在完整格上，仅输出 fine 场是单 parity。
+        返回 checkerboard 紧凑布局 ``[fine_dof, fine_volume/2]``。
+        """
+        parity = int(parity)
+        if parity not in (0, 1):
+            raise ValueError(f"parity 必须是 0/1，得到 {parity}")
+        checkerboard = Checkerboard(self.fine_shape)
+        return checkerboard.extract(self.prolong(coarse), parity)
+
+    def restrict_parity(self, fine: Tensor, parity: int) -> Tensor:
+        """把指定 fine parity 限制到完整 coarse 场。
+
+        ``fine`` 可为完整 ``[fine_dof,*fine_shape]``，也可为 checkerboard
+        紧凑布局 ``[fine_dof,fine_volume/2]``。完整输入只读取指定 parity；
+        输出始终为 ``[coarse_dof,*coarse_shape]``，不会永久缩减粗格几何。
+        """
+        parity = int(parity)
+        if parity not in (0, 1):
+            raise ValueError(f"parity 必须是 0/1，得到 {parity}")
+        checkerboard = Checkerboard(self.fine_shape)
+        if (fine.ndim == 2 and int(fine.shape[0]) == self.fine_dof and
+                int(fine.shape[1]) == checkerboard.volume):
+            full = checkerboard.embed(fine, parity, self.fine_dof)
+        elif (fine.ndim == 5 and int(fine.shape[0]) == self.fine_dof and
+              tuple(int(x) for x in fine.shape[-4:]) == self.fine_shape):
+            compact = checkerboard.extract(fine, parity)
+            full = checkerboard.embed(compact, parity, self.fine_dof)
+        else:
+            raise ValueError(
+                "single-parity fine field 应为 "
+                f"[{self.fine_dof},{checkerboard.volume}] 或 "
+                f"[{self.fine_dof},*{self.fine_shape}]，得到 {tuple(fine.shape)}")
+        return self.restrict(full)
+
     def orthogonality_error(self) -> float:
         """返回所有 aggregate/coarse-spin Gram 矩阵的最大非单位误差。"""
         worst = 0.0
@@ -661,6 +812,43 @@ class _FineOperator:
         return _matvec_block(matrix, work).to(dtype=dtype, device=device)
 
 
+class _LeftPreconditionedOperator:
+    """完整场上的 ``X^{-1}D``，即 QUDA 粗化 PC 算子时使用的一阶对象。
+
+    它仍作用于 full lattice；与 parity Schur ``I-Hhat_pq Hhat_qp`` 不同，
+    支撑只是一跳，因此 ``R (X^{-1}D) P`` 仍可保存为粗层 ``X/Y``。
+    """
+
+    def __init__(self, operator: Any):
+        self.operator = operator
+        self.shape = _shape4(operator.shape)
+        self.spin = int(operator.spin)
+        self.color = int(operator.color)
+        self.dof = int(operator.dof)
+
+    def apply(self, value: Tensor) -> Tensor:
+        return self.operator.diagonal_inv_apply(
+            _call_matvec(self.operator, value))
+
+    matvec = apply
+    preconditioned_full_apply = apply
+
+    def adjoint_apply(self, value: Tensor) -> Tensor:
+        if not hasattr(self.operator, "adjoint_apply"):
+            raise RuntimeError("源算子未提供 adjoint")
+        if not hasattr(self.operator, "diagonal_inverse_adjoint_apply"):
+            raise RuntimeError("源算子未提供 diagonal inverse adjoint")
+        transformed = self.operator.diagonal_inverse_adjoint_apply(value)
+        return self.operator.adjoint_apply(transformed)
+
+    def diagonal_apply(self, value: Tensor) -> Tensor:
+        return value
+
+    diagonal_inv_apply = diagonal_apply
+    diagonal_adjoint_apply = diagonal_apply
+    diagonal_inverse_adjoint_apply = diagonal_apply
+
+
 class QudaCoarseOperator:
     """Galerkin coarse operator and QUDA-style ``X/Y/Yhat`` metadata。
 
@@ -693,6 +881,7 @@ class QudaCoarseOperator:
         self.X_inv: Optional[Tensor] = None
         self.Y_forward: Optional[List[Tensor]] = None
         self.Y_backward: Optional[List[Tensor]] = None
+        self.Y_backward_storage: Optional[List[Tensor]] = None
         self.Yhat_forward: Optional[List[Tensor]] = None
         self.Yhat_backward: Optional[List[Tensor]] = None
         self._dense: Optional[Tensor] = None
@@ -949,6 +1138,7 @@ class QudaCoarseOperator:
             *self.shape, self.dof, self.dof).permute(4, 5, 0, 1, 2, 3).contiguous()
         self.Yhat_forward = []
         self.Yhat_backward = []
+        self.Y_backward_storage = []
         for dim in range(4):
             assert self.Y_forward is not None and self.Y_backward is not None
             self.Yhat_forward.append(_matmul_site(self.X_inv, self.Y_forward[dim]))
@@ -960,10 +1150,62 @@ class QudaCoarseOperator:
             backward_storage = _roll_site_tensor(
                 _adjoint_site(self.Y_backward[dim]), tuple(
                     -1 if i == dim else 0 for i in range(4)))
+            self.Y_backward_storage.append(backward_storage)
             source_xinv = _roll_site_tensor(self.X_inv, tuple(
                 -1 if i == dim else 0 for i in range(4)))
             self.Yhat_backward.append(_matmul_site(
                 backward_storage, _adjoint_site(source_xinv)))
+
+    def to_qcu_strict_assets(self, dtype: Any = None,
+                             device: Any = None,
+                             include_raw_links: bool = True
+                             ) -> Dict[str, Any]:
+        """导出 strict coarse level 的 QUDA ``X/Y/Yhat`` 四槽资产。
+
+        返回张量均采用 C-order、时空轴在末尾：
+
+        * ``raw_links[2,4,E,E,X,Y,Z,T]``：原始 ``Y``；
+        * ``preconditioned_links[2,4,E,E,X,Y,Z,T]``：``Yhat``；
+        * ``onsite_pair[2,E,E,X,Y,Z,T]``：依次为 ``X``、``X^{-1}``。
+
+        ``pm=0`` 是目标点 ``q`` 的 forward link。``pm=1`` 是 QUDA 的
+        backward-link 存储：对目标点 ``q`` 的后向动作读取 ``q-mu`` 处
+        link 并取矩阵伴随。这样 CUDA 可直接复现 ``DiracCoarse`` 与
+        ``DiracCoarsePC`` 的非 dagger gather 约定，而无须在 setup 后
+        再转置整个场。
+        """
+        if (self.X is None or self.X_inv is None or
+                self.Y_forward is None or self.Y_backward_storage is None or
+                self.Yhat_forward is None or self.Yhat_backward is None):
+            self.build()
+        assert self.X is not None and self.X_inv is not None
+        assert self.Y_forward is not None
+        assert self.Y_backward_storage is not None
+        assert self.Yhat_forward is not None and self.Yhat_backward is not None
+
+        preconditioned_links = _torch.stack([
+            _torch.stack(self.Yhat_forward, dim=0),
+            _torch.stack(self.Yhat_backward, dim=0),
+        ], dim=0)
+        onsite_pair = _torch.stack([self.X, self.X_inv], dim=0)
+
+        target_dtype = preconditioned_links.dtype if dtype is None else dtype
+        target_device = preconditioned_links.device if device is None else device
+        result: Dict[str, Any] = {
+            "raw_links": None,
+            "preconditioned_links": preconditioned_links.to(
+                dtype=target_dtype, device=target_device).contiguous(),
+            "onsite_pair": onsite_pair.to(
+                dtype=target_dtype, device=target_device).contiguous(),
+        }
+        if include_raw_links:
+            raw_links = _torch.stack([
+                _torch.stack(self.Y_forward, dim=0),
+                _torch.stack(self.Y_backward_storage, dim=0),
+            ], dim=0)
+            result["raw_links"] = raw_links.to(
+                dtype=target_dtype, device=target_device).contiguous()
+        return result
 
     @property
     def dense_matrix(self) -> Tensor:
@@ -1008,6 +1250,30 @@ class QudaCoarseOperator:
         if work.dtype != self.X_inv.dtype or work.device != self.X_inv.device:
             work = work.to(dtype=self.X_inv.dtype, device=self.X_inv.device)
         return _matvec_block(self.X_inv, work).to(dtype=dtype, device=device)
+
+    def diagonal_adjoint_apply(self, value: Tensor) -> Tensor:
+        if self.X is None:
+            self.build()
+        assert self.X is not None
+        dtype = value.dtype
+        device = value.device
+        matrix = _adjoint_site(self.X)
+        work = value
+        if work.dtype != matrix.dtype or work.device != matrix.device:
+            work = work.to(dtype=matrix.dtype, device=matrix.device)
+        return _matvec_block(matrix, work).to(dtype=dtype, device=device)
+
+    def diagonal_inverse_adjoint_apply(self, value: Tensor) -> Tensor:
+        if self.X_inv is None:
+            self.build()
+        assert self.X_inv is not None
+        dtype = value.dtype
+        device = value.device
+        matrix = _adjoint_site(self.X_inv)
+        work = value
+        if work.dtype != matrix.dtype or work.device != matrix.device:
+            work = work.to(dtype=matrix.dtype, device=matrix.device)
+        return _matvec_block(matrix, work).to(dtype=dtype, device=device)
 
     def preconditioned_apply(self, value: Tensor) -> Tensor:
         """应用 QUDA ``DiracCoarsePC::Dslash`` 的非对角部分。
@@ -1089,6 +1355,159 @@ class Checkerboard:
             size=[dof, *self.shape], dtype=compact.dtype, device=compact.device)
         field.reshape(dof, -1)[:, self.indices[int(parity)]] = compact
         return field
+
+
+class QudaMatPCOperator:
+    """QUDA ``DiracCoarsePC`` 的逐层对称 even/odd Schur 算子。
+
+    对 ``D=X+H`` 先定义完整场左预处理算子
+    ``Dhat=X^{-1}D=I+Hhat``，再在目标 parity ``p`` 上作用
+
+    ``M_p = I - Hhat_pq Hhat_qp``，``q=1-p``。
+
+    该对象只负责当前层的求解/平滑；其底层 ``operator`` 和下一层 transfer
+    仍保留完整格几何。这正是 QUDA 将 ``DiracCoarse`` 与
+    ``DiracCoarsePC`` 分开的语义。
+    """
+
+    def __init__(self, operator: Any, parity: int = 0):
+        self.operator = operator
+        self.shape = _shape4(operator.shape)
+        self.spin = int(operator.spin)
+        self.color = int(operator.color)
+        self.dof = int(operator.dof)
+        self.parity = int(parity)
+        if self.parity not in (0, 1):
+            raise ValueError(f"parity 必须是 0/1，得到 {self.parity}")
+        self.other_parity = 1 - self.parity
+        self.checkerboard = Checkerboard(self.shape)
+        self._dense: Optional[Tensor] = None
+
+    def _validate_compact(self, value: Tensor) -> Tensor:
+        if (value.ndim != 2 or int(value.shape[0]) != self.dof or
+                int(value.shape[1]) != self.checkerboard.volume):
+            raise ValueError(
+                f"MATPC field 应为 [{self.dof},{self.checkerboard.volume}]，"
+                f"得到 {tuple(value.shape)}")
+        return value
+
+    def _preconditioned_full(self, value: Tensor) -> Tensor:
+        if hasattr(self.operator, "preconditioned_full_apply"):
+            return self.operator.preconditioned_full_apply(value)
+        return self.operator.diagonal_inv_apply(
+            _call_matvec(self.operator, value))
+
+    def _hopping(self, compact: Tensor, source_parity: int,
+                 target_parity: int) -> Tensor:
+        """应用 ``X_target^{-1} H_target,source``。"""
+        full = self.checkerboard.embed(
+            self._validate_compact(compact), source_parity, self.dof)
+        image = self._preconditioned_full(full)
+        return self.checkerboard.extract(image, target_parity)
+
+    def apply(self, value: Tensor) -> Tensor:
+        value = self._validate_compact(value)
+        first = self._hopping(
+            value, self.parity, self.other_parity)
+        second = self._hopping(
+            first, self.other_parity, self.parity)
+        return value - second
+
+    matvec = apply
+
+    def adjoint_apply(self, value: Tensor) -> Tensor:
+        """参考路径的精确伴随；小格 setup 通过显式 MATPC 矩阵实现。"""
+        value = self._validate_compact(value)
+        dense = self.dense_matrix
+        return (dense.conj().transpose(0, 1) @ value.reshape(-1)).reshape_as(value)
+
+    @property
+    def dense_matrix(self) -> Tensor:
+        if self._dense is not None:
+            return self._dense
+        reference = self.reference_field()
+        n = int(reference.numel())
+        dense = _torch.zeros(
+            size=[n, n], dtype=reference.dtype, device=reference.device)
+        for column in range(n):
+            probe = _torch.zeros_like(reference)
+            probe.reshape(-1)[column] = 1.0
+            dense[:, column] = self.apply(probe).reshape(-1)
+        self._dense = dense
+        return dense
+
+    def rhs(self, full_rhs: Tensor) -> Tensor:
+        """构造对称预处理右端 ``X_p^-1(b_p-H_pq X_q^-1 b_q)``。"""
+        if (full_rhs.ndim != 5 or int(full_rhs.shape[0]) != self.dof or
+                tuple(int(x) for x in full_rhs.shape[-4:]) != self.shape):
+            raise ValueError(
+                f"full rhs 应为 [{self.dof},*{self.shape}]，得到 {tuple(full_rhs.shape)}")
+        b_target = self.checkerboard.extract(full_rhs, self.parity)
+        b_other = self.checkerboard.extract(full_rhs, self.other_parity)
+
+        other_full = self.checkerboard.embed(
+            b_other, self.other_parity, self.dof)
+        other_inverse = self.operator.diagonal_inv_apply(other_full)
+        other_inverse_compact = self.checkerboard.extract(
+            other_inverse, self.other_parity)
+        correction = self._hopping(
+            other_inverse_compact, self.other_parity, self.parity)
+
+        target_full = self.checkerboard.embed(
+            b_target, self.parity, self.dof)
+        target_inverse = self.operator.diagonal_inv_apply(target_full)
+        return (self.checkerboard.extract(target_inverse, self.parity) -
+                correction)
+
+    def reconstruct(self, full_rhs: Tensor, target_solution: Tensor) -> Tensor:
+        """由目标 parity 解恢复另一 parity，并精确满足被消去方程。"""
+        target_solution = self._validate_compact(target_solution)
+        if (full_rhs.ndim != 5 or int(full_rhs.shape[0]) != self.dof or
+                tuple(int(x) for x in full_rhs.shape[-4:]) != self.shape):
+            raise ValueError(
+                f"full rhs 应为 [{self.dof},*{self.shape}]，得到 {tuple(full_rhs.shape)}")
+
+        target_full = self.checkerboard.embed(
+            target_solution, self.parity, self.dof)
+        coupling = self.checkerboard.extract(
+            _call_matvec(self.operator, target_full), self.other_parity)
+        b_other = self.checkerboard.extract(full_rhs, self.other_parity)
+        other_rhs = self.checkerboard.embed(
+            b_other - coupling, self.other_parity, self.dof)
+        other_solution = self.operator.diagonal_inv_apply(other_rhs)
+
+        result = target_full
+        result.reshape(self.dof, -1)[:, self.checkerboard.indices[self.other_parity]] = (
+            other_solution.reshape(self.dof, -1)[:,
+                           self.checkerboard.indices[self.other_parity]])
+        return result
+
+    def reference_field(self) -> Tensor:
+        if isinstance(self.operator, _FineOperator) and self.operator._diagonal is not None:
+            dtype = self.operator._diagonal.dtype
+            device = self.operator._diagonal.device
+        elif isinstance(self.operator, QudaCoarseOperator):
+            dtype = self.operator.transfer.V.dtype
+            device = self.operator.transfer.V.device
+        else:
+            raise RuntimeError("无法推断 MATPC reference field 的 dtype/device")
+        return _torch.zeros(
+            size=[self.dof, self.checkerboard.volume],
+            dtype=dtype, device=device)
+
+    def solve(self, rhs: Tensor, tol: float = 1e-8,
+              max_iter: int = 100, restart: int = 20,
+              direct_solve_max: int = 4096,
+              verbose: bool = False) -> Tensor:
+        rhs = self._validate_compact(rhs)
+        if int(rhs.numel()) <= int(direct_solve_max):
+            solution = _torch.linalg_solve(self.dense_matrix, rhs.reshape(-1))
+            return solution.reshape_as(rhs)
+        from ._gmres import fgmres
+        return fgmres(
+            rhs, self.apply, tol=tol, max_iter=max_iter,
+            restart=min(int(restart), max(1, int(max_iter))),
+            if_rtol=True, verbose=verbose)
 
 
 class CompactParityLayout:
@@ -1430,7 +1849,11 @@ class QudaMultigrid:
                  setup_post_orthonormalize: bool = True,
                  direct_solve_max: int = 4096,
                  max_materialize_elements: int = 50_000_000,
-                 seed: int = 42, verbose: bool = False):
+                 seed: int = 42, verbose: bool = False,
+                 hierarchy_mode: str = "legacy",
+                 coarse_grid_solution_type: str | Sequence[str] = "matpc",
+                 smoother_solve_type: str | Sequence[str] = "direct_pc",
+                 target_parity: int = 0):
         if U is None and fine_matvec is None:
             raise ValueError("U 与 fine_matvec 至少提供一个")
         if U is not None:
@@ -1472,10 +1895,22 @@ class QudaMultigrid:
         self.setup_krylov = int(setup_krylov)
         self.setup_operator = self._normalise_setup_operator(setup_operator)
         self.setup_type = self._normalise_setup_type(setup_type)
-        self._compact_parity = self.setup_operator == "schur"
+        self.hierarchy_mode = self._normalise_hierarchy_mode(hierarchy_mode)
+        self._strict_quda = self.hierarchy_mode == "strict"
+        self.target_parity = int(target_parity)
+        if self.target_parity not in (0, 1):
+            raise ValueError(
+                f"target_parity 必须是 0/1，得到 {self.target_parity}")
+        # ``setup_operator='schur'`` 是旧 compact RSP 层级的入口。严格
+        # QUDA 模式将 setup 算子选择与层级几何分离，始终保留 full fields。
+        self._compact_parity = (
+            self.setup_operator == "schur" and not self._strict_quda)
         if self._compact_parity and not self.use_parity:
             raise ValueError(
                 "setup_operator='schur' 要求 use_parity=True，以固定 odd Schur 语义")
+        if self._strict_quda and not self.use_parity:
+            raise ValueError(
+                "hierarchy_mode='strict' 要求 use_parity=True")
         self.setup_pre_orthonormalize = bool(setup_pre_orthonormalize)
         self.setup_post_orthonormalize = bool(setup_post_orthonormalize)
         if self.setup_iters < 0:
@@ -1542,6 +1977,21 @@ class QudaMultigrid:
         self._block_sizes = self._normalise_block_sizes(block_size)
         transitions = self._number_of_transitions(max_level)
         self._transition_count = transitions
+        level_count = max(1, transitions + 1)
+        self.coarse_grid_solution_types = self._normalise_level_modes(
+            coarse_grid_solution_type, level_count, "coarse_grid_solution_type",
+            {"mat": "mat", "full": "mat", "matpc": "matpc", "pc": "matpc"})
+        self.smoother_solve_types = self._normalise_level_modes(
+            smoother_solve_type, level_count, "smoother_solve_type",
+            {"direct": "direct", "full": "direct",
+             "direct-pc": "direct_pc", "direct_pc": "direct_pc",
+             "pc": "direct_pc", "matpc": "direct_pc"})
+        for level in range(level_count):
+            if (self.coarse_grid_solution_types[level] == "matpc" and
+                    self.smoother_solve_types[level] != "direct_pc"):
+                raise ValueError(
+                    "coarse_grid_solution_type='matpc' 要求同层 "
+                    f"smoother_solve_type='direct_pc'（level={level}）")
         if (self.use_parity and not self._compact_parity and transitions and
                 not self.materialize_coarse):
             raise ValueError(
@@ -1556,6 +2006,45 @@ class QudaMultigrid:
         self.transfers: List[QudaTransfer] = []
         self.operators: List[Any] = []
         self.parity_operators: List[ParitySchurOperator] = []
+        self.matpc_operators: List[QudaMatPCOperator] = []
+        self.coarsening_operators: List[Any] = []
+
+    @staticmethod
+    def _normalise_hierarchy_mode(mode: str) -> str:
+        value = str(mode).strip().lower().replace("_", "-")
+        aliases = {
+            "legacy": "legacy",
+            "compact": "legacy",
+            "rsp": "legacy",
+            "quda": "strict",
+            "quda-strict": "strict",
+            "strict": "strict",
+        }
+        if value not in aliases:
+            raise ValueError(
+                f"不支持的 hierarchy_mode={mode!r}；可选 legacy/strict")
+        return aliases[value]
+
+    @staticmethod
+    def _normalise_level_modes(value: str | Sequence[str], count: int,
+                               name: str,
+                               aliases: Dict[str, str]) -> List[str]:
+        raw = [value] if isinstance(value, str) else list(value)
+        if not raw:
+            raise ValueError(f"{name} 不能为空")
+        if len(raw) == 1:
+            raw = raw * count
+        if len(raw) < count:
+            raise ValueError(
+                f"{name} 数量 {len(raw)} 少于层数 {count}")
+        result: List[str] = []
+        for item in raw[:count]:
+            key = str(item).strip().lower().replace("_", "-")
+            if key not in aliases:
+                raise ValueError(
+                    f"不支持的 {name}={item!r}；可选 {sorted(set(aliases.values()))}")
+            result.append(aliases[key])
+        return result
 
     @staticmethod
     def _normalise_setup_method(method: str) -> str:
@@ -1932,6 +2421,7 @@ class QudaMultigrid:
         self.operators = [current]
         self.levels = []
         self.transfers = []
+        self.coarsening_operators = []
         for level in range(self._transition_count):
             nvec = self._nvec_list[level]
             if level < len(self._null_vectors):
@@ -1959,12 +2449,20 @@ class QudaMultigrid:
                 spin_block_size=1 if self._compact_parity else None,
                 block_size=self._block_sizes[level],
                 n_block_ortho=self.n_block_ortho, verbose=self.verbose)
+            coarsening_operator: Any = current
+            if (self._strict_quda and
+                    self.coarse_grid_solution_types[level] == "matpc" and
+                    self.smoother_solve_types[level] == "direct_pc"):
+                # QUDA coarsens the full-field first-order operator X^{-1}D;
+                # parity Schur is created separately for smoothing/solving.
+                coarsening_operator = _LeftPreconditionedOperator(current)
             coarse = QudaCoarseOperator(
-                transfer, current,
+                transfer, coarsening_operator,
                 materialize=self.materialize_coarse,
                 max_materialize_elements=self.max_materialize_elements,
                 verbose=self.verbose)
             self.transfers.append(transfer)
+            self.coarsening_operators.append(coarsening_operator)
             self.operators.append(coarse)
             self.levels.append(_Level(
                 index=level, operator=current, transfer=transfer,
@@ -1973,7 +2471,15 @@ class QudaMultigrid:
         self.levels.append(_Level(
             index=self._transition_count, operator=current, transfer=None,
             spin=current.spin, color=current.color, shape=current.shape))
-        if self.use_parity and not self._compact_parity:
+        if self._strict_quda:
+            self.matpc_operators = [
+                QudaMatPCOperator(op, parity=self.target_parity)
+                for op in self.operators]
+            # 保留 raw Schur 对象仅供与旧 full-coarse 路径对照；严格 V-cycle
+            # 使用上面的对称左预处理 MATPC 对象。
+            self.parity_operators = [ParitySchurOperator(op)
+                                     for op in self.operators]
+        elif self.use_parity and not self._compact_parity:
             self.parity_operators = [ParitySchurOperator(op)
                                      for op in self.operators]
         elif self._compact_parity:
@@ -2050,6 +2556,63 @@ class QudaMultigrid:
             return value
         return value.reshape(spin, color, *value.shape[-4:])
 
+    @staticmethod
+    def _strict_mr_smooth(matpc: QudaMatPCOperator, rhs: Tensor,
+                          solution: Tensor, steps: int) -> Tensor:
+        """在当前层的 compact MATPC 空间做固定步数 MR。"""
+        x = solution
+        for _ in range(max(0, int(steps))):
+            residual = rhs - matpc.apply(x)
+            image = matpc.apply(residual)
+            denominator = tools.vdot(image, image)
+            if float(_torch.abs(denominator).item()) < 1e-30:
+                break
+            alpha = tools.vdot(image, residual) / denominator
+            x = x + alpha * residual
+        return x
+
+    def _strict_v_cycle(self, rhs: Tensor, level: int) -> Tensor:
+        """复现 QUDA 的 MATPC V-cycle 字段语义。
+
+        当前层可接收 full rhs（递归层入口）或已准备好的单 parity rhs
+        （最外层 MATPC 预条件器入口）。restriction 只读取目标 parity，
+        但下一层 rhs 始终恢复为完整 coarse lattice。
+        """
+        matpc = self.matpc_operators[level]
+        full_input = (
+            rhs.ndim == 5 and int(rhs.shape[0]) == matpc.dof and
+            tuple(int(x) for x in rhs.shape[-4:]) == matpc.shape)
+        if full_input:
+            prepared_rhs = matpc.rhs(rhs)
+        else:
+            prepared_rhs = matpc._validate_compact(rhs)
+
+        if level == len(self.operators) - 1:
+            target_solution = matpc.solve(
+                prepared_rhs, tol=self.coarse_tol,
+                max_iter=self.coarse_max_iter, restart=self.restart,
+                direct_solve_max=self.direct_solve_max,
+                verbose=self.verbose)
+        else:
+            target_solution = _torch.zeros_like(prepared_rhs)
+            target_solution = self._strict_mr_smooth(
+                matpc, prepared_rhs, target_solution, self.nu_pre)
+            residual = prepared_rhs - matpc.apply(target_solution)
+
+            transfer = self.transfers[level]
+            coarse_rhs = transfer.restrict_parity(
+                residual, self.target_parity)
+            coarse_error = self._strict_v_cycle(coarse_rhs, level + 1)
+            correction = transfer.prolong_parity(
+                coarse_error, self.target_parity)
+            target_solution = target_solution + correction
+            target_solution = self._strict_mr_smooth(
+                matpc, prepared_rhs, target_solution, self.nu_post)
+
+        if full_input:
+            return matpc.reconstruct(rhs, target_solution)
+        return target_solution
+
     def _mr_smooth(self, level: int, rhs: Tensor, solution: Tensor,
                    steps: int) -> Tensor:
         operator = self.operators[level]
@@ -2120,6 +2683,8 @@ class QudaMultigrid:
 
     def v_cycle(self, rhs: Tensor, level: int = 0) -> Tensor:
         self.setup()
+        if self._strict_quda:
+            return self._strict_v_cycle(rhs, level)
         operator = self.operators[level]
         if level == len(self.operators) - 1:
             return self._coarse_solve(level, rhs)
@@ -2194,6 +2759,77 @@ class QudaMultigrid:
     # 面向调用方的同义入口；保留一个明确的主名称，避免与旧 MG API 混淆。
     export_qcu_assets = qcu_transition_assets
 
+    def qcu_strict_transition_assets(
+            self, dtype: Any = None, device: Any = None,
+            materialize: bool = False, include_raw_links: bool = True,
+            runtime_start_level: Optional[int] = None
+            ) -> List[Dict[str, Any]]:
+        """导出 strict hierarchy 的四槽后端资产。
+
+        每条 transition 的固定槽序为 ``V/raw Y/Yhat/(X,Xinv)``。与旧
+        33 点 compact-Schur 四槽不同，这里的两端几何都是完整 lattice；
+        single-parity 只在运行 ``R/P`` 时选择 fine site，不改变资产尺寸。
+        """
+        self.setup()
+        if not self._strict_quda:
+            raise RuntimeError(
+                "qcu_strict_transition_assets 仅适用于 hierarchy_mode='strict'")
+        slot_order = (
+            "null_vectors", "raw_links", "preconditioned_links",
+            "onsite_pair")
+        assets: List[Dict[str, Any]] = []
+        for level, transfer in enumerate(self.transfers):
+            coarse = self.operators[level + 1]
+            if not isinstance(coarse, QudaCoarseOperator):
+                raise RuntimeError(
+                    f"transition {level} 的 coarse operator 类型不支持 strict 导出")
+            if coarse.blocks is None and not materialize:
+                raise RuntimeError(
+                    f"transition {level} 仍是 matrix-free；strict 资产导出会触发"
+                    "逐列 materialize。请显式设置 materialize=True，或使用"
+                    "批量 Galerkin 构建器生成 X/Y/Yhat")
+            coarse_assets = coarse.to_qcu_strict_assets(
+                dtype=dtype, device=device,
+                include_raw_links=include_raw_links)
+            include_null = (
+                runtime_start_level is None or level >= runtime_start_level)
+            assets.append({
+                "level": level,
+                "fine_shape": transfer.fine_shape,
+                "coarse_shape": transfer.coarse_shape,
+                "fine_dof": transfer.fine_dof,
+                "coarse_dof": transfer.coarse_dof,
+                "fine_full_geometry": True,
+                "coarse_full_geometry": True,
+                "target_parity": self.target_parity,
+                "operator_kind": "quda_full_preconditioned",
+                "slot_order": slot_order,
+                "null_vectors": (transfer.to_qcu_blocked(
+                    dtype=dtype, device=device) if include_null else None),
+                **coarse_assets,
+            })
+        return assets
+
+    export_qcu_strict_assets = qcu_strict_transition_assets
+
+    def bind_qcu_strict_assets(
+            self, set_ptrs: Tensor, dtype: Any = None, device: Any = None,
+            start_level: int = 1, retain_raw_links: bool = False,
+            materialize: bool = False) -> QcuStrictAssetBinding:
+        """导出并绑定 strict CUDA 运行期资产，返回显式生命周期句柄。
+
+        ``start_level=1`` 表示由首个 coarse 层进入递归；因此 fine→level-1
+        的 ``V`` 不在该 coarse hierarchy 内驻留。raw ``Y`` 默认省略，诊断
+        原语需要时可显式 ``retain_raw_links=True``。
+        """
+        assets = self.qcu_strict_transition_assets(
+            dtype=dtype, device=device, materialize=materialize,
+            include_raw_links=retain_raw_links,
+            runtime_start_level=int(start_level))
+        return QcuStrictAssetBinding(
+            set_ptrs, assets, start_level=start_level,
+            retain_raw_links=retain_raw_links)
+
     def solve(self, b: Tensor, x0: Optional[Tensor] = None) -> Tensor:
         self.setup()
         b_flat, shape_kind = self._to_flat(b, self._fine_full)
@@ -2204,7 +2840,21 @@ class QudaMultigrid:
                 raise ValueError("b 与 x0 的 spin/color 布局必须一致")
         from ._gmres import fgmres
         history: List[float] = []
-        if self._compact_parity:
+        if self._strict_quda:
+            matpc = self.matpc_operators[0]
+            pc_rhs = matpc.rhs(b_flat)
+            pc_guess = None
+            if guess is not None:
+                pc_guess = matpc.checkerboard.extract(
+                    guess, self.target_parity)
+            target_solution = fgmres(
+                pc_rhs, matpc.apply,
+                tol=self.tol, max_iter=self.max_iter, restart=self.restart,
+                x0=pc_guess,
+                precond=lambda residual: self._strict_v_cycle(residual, 0),
+                if_rtol=True, verbose=self.verbose, history=history)
+            solution = matpc.reconstruct(b_flat, target_solution)
+        elif self._compact_parity:
             assert self._fine_compact is not None
             odd_rhs = self._fine_compact.rhs(b_flat)
             odd_guess = None
@@ -2237,19 +2887,21 @@ class QudaMultigrid:
         if not self.use_parity:
             raise RuntimeError("solve_parity 要求 use_parity=True")
         b_flat, shape_kind = self._to_flat(b, self._fine_full)
-        if self._compact_parity:
+        if self._strict_quda:
+            schur = self.matpc_operators[0]
+        elif self._compact_parity:
             assert self._fine_compact is not None
             schur: Any = self._fine_compact
         else:
             schur = self.parity_operators[0]
         from ._gmres import fgmres
-        odd_rhs = schur.rhs(b_flat)
-        odd = fgmres(
-            odd_rhs, schur.apply,
+        parity_rhs = schur.rhs(b_flat)
+        parity_solution = fgmres(
+            parity_rhs, schur.apply,
             tol=self.tol if tol is None else float(tol),
             max_iter=self.max_iter if max_iter is None else int(max_iter),
             restart=self.restart, if_rtol=True, verbose=self.verbose)
-        result = schur.reconstruct(b_flat, odd)
+        result = schur.reconstruct(b_flat, parity_solution)
         if shape_kind == "spin_color":
             return result.reshape(self.fine_spin, self.fine_color, *self.fine_shape)
         return result
@@ -2305,13 +2957,28 @@ class QudaMultigrid:
         result["transfer_projection"] = _relative_norm(
             transfer.prolong(transfer.restrict(fine)), fine)
         coarse_operator = self.operators[1]
-        direct = transfer.restrict(self.operators[0].apply(transfer.prolong(coarse)))
+        galerkin_source = (
+            self.coarsening_operators[0]
+            if self._strict_quda else self.operators[0])
+        direct = transfer.restrict(
+            galerkin_source.apply(transfer.prolong(coarse)))
         result["galerkin_RDP"] = _relative_norm(coarse_operator.apply(coarse) - direct, direct)
         if self.use_parity:
             result["transfer_block_ortho"] = transfer.orthogonality_error()
             # Schur 的重构误差使用一个随机 full rhs；只测试块代数，不要求
             # 外层迭代收敛。
-            if self._compact_parity:
+            if self._strict_quda:
+                schur = self.matpc_operators[0]
+                target_trial = _torch.randn(
+                    size=[self.fine_dof, schur.checkerboard.volume],
+                    dtype=fine.dtype, device=fine.device)
+                reconstructed = schur.reconstruct(full_seed, target_trial)
+                residual = full_seed - self._fine_full.apply(reconstructed)
+                eliminated = schur.checkerboard.extract(
+                    residual, schur.other_parity)
+                result["schur_reconstruct_even"] = _relative_norm(
+                    eliminated, full_seed)
+            elif self._compact_parity:
                 assert self._fine_compact is not None
                 schur: Any = self._fine_compact
                 odd_trial = _torch.randn(
@@ -2335,15 +3002,33 @@ class QudaMultigrid:
         return result
 
 
+class QudaStrictMultigrid(QudaMultigrid):
+    """严格保持 QUDA full-coarse/逐层 MATPC 语义的便捷入口。
+
+    ``QudaMultigrid`` 的 legacy/compact 行为继续保留；本类只固定
+    ``hierarchy_mode='strict'``，其余构造参数完全相同。
+    """
+
+    def __init__(self, *args: Any, **kwargs: Any):
+        requested = kwargs.pop("hierarchy_mode", "strict")
+        if self._normalise_hierarchy_mode(requested) != "strict":
+            raise ValueError(
+                "QudaStrictMultigrid 不接受非 strict hierarchy_mode")
+        super().__init__(*args, hierarchy_mode="strict", **kwargs)
+
+
 # 公开别名：保留小写风格以便与旧 solver.multigrid 并列，也提供 Python
 # 常见的 CamelCase 名称。旧类本身不被替换。
 quda_multigrid = QudaMultigrid
 QUDAMultigrid = QudaMultigrid
+quda_strict_multigrid = QudaStrictMultigrid
+QUDAStrictMultigrid = QudaStrictMultigrid
 
 
 __all__ = [
-    "QudaTransfer", "QudaCoarseOperator", "Checkerboard",
+    "QudaTransfer", "QudaCoarseOperator", "QudaMatPCOperator", "Checkerboard",
     "CompactParityLayout", "CompactParityOperator", "ParitySchurOperator",
-    "QudaMultigrid", "quda_multigrid",
-    "QUDAMultigrid",
+    "QcuStrictAssetBinding",
+    "QudaMultigrid", "quda_multigrid", "QUDAMultigrid",
+    "QudaStrictMultigrid", "quda_strict_multigrid", "QUDAStrictMultigrid",
 ]

@@ -10,7 +10,7 @@ Schur 奇偶算子  S = A_oo - k^2 * D_oe * A_ee^-1 * D_eo，
   * 依赖 applyInitQcu(plan=1) 初始化的 LatticeSet（scratch: device_vec0/1/2 等）
 
 多线程并发约定（一线程一卡）：
-  * 每个 CudaSchurOp 实例持独立 params 副本（int32[54]）与独立 set_ptrs 副本，
+  * 每个 CudaSchurOp 实例持独立 params 副本（int32[58]）与独立 set_ptrs 副本，
     其中 _SET_INDEX_ 独占一个槽位 —— 各线程调用互不干扰，无共享写竞争。
   * 实例构造必须在单线程完成；每实例显存开销 ≈ LatticeSet scratch。
   * 设备绑定：构造时可指定 device；线程内首次调用前须 torch.cuda.set_device。
@@ -113,14 +113,38 @@ class CudaSchurOp(object):
         torch.cuda.synchronize()
         return self._y_buf.clone()
 
+    def matvec_into(self, out, x_o):
+        """将 Schur 作用写入调用方缓冲，避免 Krylov 循环中的 clone。
+
+        ``out`` 与 ``x_o`` 必须是同形、同设备的连续张量；返回 ``out``
+        便于作为普通 callable 使用，但不产生新张量。
+        """
+        if tuple(out.shape) != tuple(x_o.shape):
+            raise ValueError("CudaSchurOp.matvec_into 输入输出形状必须一致")
+        if not out.is_contiguous() or not x_o.is_contiguous():
+            raise ValueError("CudaSchurOp.matvec_into 要求连续张量")
+        torch.cuda.current_stream().synchronize()
+        qcu.applyCloverBistabCgDslashQcu(
+            out, x_o, self._g, self._ce, self._coo, self._cei, self._coi,
+            self.set_ptrs, self.params)
+        torch.cuda.synchronize()
+        return out
+
     def release(self):
         """释放本实例 scratch：用本实例 params/set_ptrs 调 applyEndQcu。
 
         注意 applyEndQcu 释放 set_ptrs 中该槽位对应的 LatticeSet。
         """
-        qcu.applyEndQcu(self.set_ptrs, self.params)
-        _GLOBAL_SET_ALLOC.free(self.set_index)
+        if self.set_index is None:
+            return
+        set_index = self.set_index
+        with torch.cuda.device(self.device):
+            qcu.applyEndQcu(self.set_ptrs, self.params)
+        self.set_ptrs[set_index] = 0
+        _GLOBAL_SET_ALLOC.free(set_index)
         self.set_index = None
+        self._y_buf = None
+        self._y_buf_shape = None
 
     def __del__(self):
         try:
@@ -159,7 +183,7 @@ class CudaCoarseSchurOp(object):
     加速 10-30 倍。
 
     构造约定（同 CudaSchurOp）：
-      * 每实例独立 params 副本（int32[54]）与独立 set_ptrs 副本，
+      * 每实例独立 params 副本（int32[58]）与独立 set_ptrs 副本，
         _SET_INDEX_ 由全局分配器独占一个槽位。
       * 构造必须在单线程完成；调用前须 torch.cuda.set_device(绑定设备)。
       * 几何经 params 的 _MG_LEVEL1_* 槽位传递（C++ 从该处读取
@@ -210,9 +234,16 @@ class CudaCoarseSchurOp(object):
         return self._y_buf.clone()
 
     def release(self):
-        qcu.applyEndQcu(self.set_ptrs, self.params)
-        _GLOBAL_SET_ALLOC.free(self.set_index)
+        if self.set_index is None:
+            return
+        set_index = self.set_index
+        with torch.cuda.device(self.device):
+            qcu.applyEndQcu(self.set_ptrs, self.params)
+        self.set_ptrs[set_index] = 0
+        _GLOBAL_SET_ALLOC.free(set_index)
         self.set_index = None
+        self._y_buf = None
+        self._y_buf_shape = None
 
     def __del__(self):
         try:
