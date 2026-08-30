@@ -2114,7 +2114,7 @@ template <typename T> struct LatticeCloverMultigrid {
         set_ptr->host_params[_GRID_Z_] == 1 &&
         set_ptr->host_params[_GRID_T_] == 1 &&
         !_WILSON_AND_LAPLACIAN_TEST_SINGLE_IN_MULTI_) {
-      bistabcg_iter_fine_fast();
+      bistabcg_iter_fine_fast(host_sync);
       return;
     }
     auto &st=levels[lev];
@@ -2242,11 +2242,14 @@ template <typename T> struct LatticeCloverMultigrid {
     bistabcg_give_1rho_prev<T><<<1,1,0,S>>>(dv);
     // 3. p = r + beta*(p - omega*v)
     bistabcg_give_p<T><<<gv,bv,0,S>>>(st.p, st.r, st.v, dv);
-    // 3.5 convergence residual ||r||^2 -> ZERO-COPY mapped page (the ONLY
-    //     host read this iter).  dev84: cublasDot 写入映射宿主页别名,
-    //     免去每次迭代的 D2H memcpyAsync (WSL2 每次 thunk ~0.6ms)。
-    CUBLAS_CHECK(_cublasDot<T>(set_ptr->cublasH, n, st.r,1,st.r,1,
-        static_cast<LatticeComplex<T>*>(check_dev) + 1));
+    // 3.5 convergence residual ||r||^2 -> ZERO-COPY mapped page only at a
+    //     check point.  Non-check iterations never consume this value, so
+    //     skipping the dot removes one full-vector reduction from 3/4 of the
+    //     fine iterations while preserving the observed stopping semantics.
+    if (host_sync) {
+      CUBLAS_CHECK(_cublasDot<T>(set_ptr->cublasH, n, st.r,1,st.r,1,
+          static_cast<LatticeComplex<T>*>(check_dev) + 1));
+    }
     // 4. v = S·p
     fine_dslash_op(st.v, st.p);
     // 5. alpha = rho / <r_tilde, v>
