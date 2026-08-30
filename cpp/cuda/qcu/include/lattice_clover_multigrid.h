@@ -324,6 +324,70 @@ __device__ inline T mg_abs1(const LatticeComplex<T> &z) {
   return fabs(z.real()) + fabs(z.imag());
 }
 
+// Fine-level Krylov updates are not fixed-step smoothing: a small but valid
+// denominator can carry useful spectral information.  Keep the fine guard at
+// an absolute zero-neighbourhood, so it only handles true breakdowns and
+// does not perturb ordinary BiCGStab coefficients through a coarse-style
+// relative threshold.
+template <typename T>
+__device__ inline bool mg_fine_near_zero(const LatticeComplex<T> &z) {
+  return mg_bad<T>(z.real(), z.imag()) || mg_abs1(z) <= (T)1e-30;
+}
+
+template <typename T>
+__global__ void mg_fine_give_1beta_rp(LatticeComplex<T> *vals) {
+  if (threadIdx.x == 0 && blockIdx.x == 0) {
+    LatticeComplex<T> rho = vals[_rho_], rp = vals[_rho_prev_];
+    LatticeComplex<T> al = vals[_alpha_], om = vals[_omega_];
+    bool initial = rp.real() == (T)1 && rp.imag() == (T)0 &&
+                   al.real() == (T)1 && al.imag() == (T)0 &&
+                   om.real() == (T)1 && om.imag() == (T)0;
+    bool bad = mg_fine_near_zero<T>(rho) ||
+               mg_bad<T>(rp.real(), rp.imag()) ||
+               mg_bad<T>(al.real(), al.imag()) ||
+               mg_bad<T>(om.real(), om.imag()) ||
+               (!initial && mg_fine_near_zero<T>(rp)) ||
+               mg_fine_near_zero<T>(om);
+    LatticeComplex<T> beta((T)0, (T)0);
+    if (!bad) {
+      beta = (rho / rp) * (al / om);
+      if (mg_bad<T>(beta.real(), beta.imag()))
+        beta = LatticeComplex<T>((T)0, (T)0);
+    }
+    vals[_beta_] = beta;
+    vals[_rho_prev_] = bad ? LatticeComplex<T>((T)1, (T)0) : rho;
+  }
+}
+
+template <typename T>
+__global__ void mg_fine_give_1alpha(LatticeComplex<T> *vals) {
+  if (threadIdx.x == 0 && blockIdx.x == 0) {
+    LatticeComplex<T> rho = vals[_rho_], d = vals[_tmp0_];
+    LatticeComplex<T> alpha((T)0, (T)0);
+    if (!mg_fine_near_zero<T>(rho) && !mg_fine_near_zero<T>(d)) {
+      alpha = rho / d;
+      if (mg_bad<T>(alpha.real(), alpha.imag()))
+        alpha = LatticeComplex<T>((T)0, (T)0);
+    }
+    vals[_alpha_] = alpha;
+  }
+}
+
+template <typename T>
+__global__ void mg_fine_give_1omega(LatticeComplex<T> *vals) {
+  if (threadIdx.x == 0 && blockIdx.x == 0) {
+    LatticeComplex<T> num = vals[_tmp0_], den = vals[_tmp1_];
+    LatticeComplex<T> omega((T)0, (T)0);
+    if (!mg_fine_near_zero<T>(den) &&
+        !mg_bad<T>(num.real(), num.imag())) {
+      omega = num / den;
+      if (mg_bad<T>(omega.real(), omega.imag()))
+        omega = LatticeComplex<T>((T)0, (T)0);
+    }
+    vals[_omega_] = omega;
+  }
+}
+
 // Dot products have units of ||rhs||^2.  Use the first-solve norm as their
 // scale, while scalar recurrence coefficients (omega, in particular) use an
 // absolute floor because they are dimensionless.
@@ -2148,11 +2212,22 @@ template <typename T> struct LatticeCloverMultigrid {
     auto tp1=std::chrono::high_resolution_clock::now();
     double dt_dot1=std::chrono::duration<double,std::micro>(tp1-tp0).count();
 
-    // Step 2: β=(ρ/ρ_prev)*(α/ω)          [_a_];  ρ_prev←ρ [_b_]
+    // Step 2: β=(ρ/ρ_prev)*(α/ω); rho_prev is updated on the scalar stream.
     checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_b_]));
-    bistabcg_give_1beta<T><<<1,1,0,set_ptr->streams[_a_]>>>(set_ptr->device_vals);
-    checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_a_]));
-    bistabcg_give_1rho_prev<T><<<1,1,0,set_ptr->streams[_b_]>>>(set_ptr->device_vals);
+    if (fine) {
+      // The generic scalar kernels form 0/0 after an exact Krylov
+      // convergence (or after a coarse correction breakdown).  The guarded
+      // update keeps beta and rho_prev finite without adding a host round
+      // trip while preserving ordinary small, nonzero coefficients.
+      mg_fine_give_1beta_rp<T><<<1,1,0,set_ptr->streams[_a_]>>>(
+          static_cast<LatticeComplex<T> *>(set_ptr->device_vals));
+    } else {
+      bistabcg_give_1beta<T><<<1,1,0,set_ptr->streams[_a_]>>>(
+          set_ptr->device_vals);
+      checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_a_]));
+      bistabcg_give_1rho_prev<T><<<1,1,0,set_ptr->streams[_b_]>>>(
+          set_ptr->device_vals);
+    }
 
     // Step 3: p = r + β·(p−ω·v)          [_a_]
     bistabcg_give_p<T><<<gv,bv,0,set_ptr->streams[_a_]>>>(st.p,st.r,st.v,set_ptr->device_vals);
@@ -2174,7 +2249,11 @@ template <typename T> struct LatticeCloverMultigrid {
     if(fine){ if(fullsite) dot_full_mpi(st.r_tilde,st.v,_tmp0_,_d_);
               else         dot_mpi(st.r_tilde,st.v,_tmp0_,_d_); }
     else     dot_coarse(st.r_tilde,st.v,lev,_tmp0_,_d_);
-    bistabcg_give_1alpha<T><<<1,1,0,set_ptr->streams[_d_]>>>(set_ptr->device_vals);
+    if (fine)
+      mg_fine_give_1alpha<T><<<1,1,0,set_ptr->streams[_d_]>>>(
+          static_cast<LatticeComplex<T> *>(set_ptr->device_vals));
+    else
+      bistabcg_give_1alpha<T><<<1,1,0,set_ptr->streams[_d_]>>>(set_ptr->device_vals);
     checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_d_]));
 
     // Step 6: s = r − α·v                  [_a_]
@@ -2194,7 +2273,11 @@ template <typename T> struct LatticeCloverMultigrid {
     checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_c_]));
 
     // Step 9: ω = τ₀/τ₁                   [_d_]
-    bistabcg_give_1omega<T><<<1,1,0,set_ptr->streams[_d_]>>>(set_ptr->device_vals);
+    if (fine)
+      mg_fine_give_1omega<T><<<1,1,0,set_ptr->streams[_d_]>>>(
+          static_cast<LatticeComplex<T> *>(set_ptr->device_vals));
+    else
+      bistabcg_give_1omega<T><<<1,1,0,set_ptr->streams[_d_]>>>(set_ptr->device_vals);
     checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_d_]));
 
     // Step 10: r=s−ω·t [_a_];  x=x+α·p+ω·s [_b_]
@@ -2238,8 +2321,13 @@ template <typename T> struct LatticeCloverMultigrid {
     // 1. rho = <r_tilde, r>                       (on-device, no host round-trip)
     CUBLAS_CHECK(_cublasDot<T>(set_ptr->cublasH, n, st.r_tilde,1,st.r,1,&dv[_rho_]));
     // 2. beta = (rho/rho_prev)*(alpha/omega); rho_prev = rho
-    bistabcg_give_1beta<T><<<1,1,0,S>>>(dv);
-    bistabcg_give_1rho_prev<T><<<1,1,0,S>>>(dv);
+    // Use a finite-value guard for the fine-level scalar path.  A fine-level
+    // RHS can be an exact (or nearly exact) eigenvector, so a check-stride
+    // iteration may enter with rho=0 before the host observes convergence.
+    // The unguarded generic kernels would then form 0/0 and poison the next
+    // dslash.  The fine-specific guard only treats an absolute zero-neighbourhood
+    // as breakdown, preserving the normal BiCGStab coefficients.
+    mg_fine_give_1beta_rp<T><<<1,1,0,S>>>(dv);
     // 3. p = r + beta*(p - omega*v)
     bistabcg_give_p<T><<<gv,bv,0,S>>>(st.p, st.r, st.v, dv);
     // 3.5 convergence residual ||r||^2 -> ZERO-COPY mapped page only at a
@@ -2254,7 +2342,7 @@ template <typename T> struct LatticeCloverMultigrid {
     fine_dslash_op(st.v, st.p);
     // 5. alpha = rho / <r_tilde, v>
     CUBLAS_CHECK(_cublasDot<T>(set_ptr->cublasH, n, st.r_tilde,1,st.v,1,&dv[_tmp0_]));
-    bistabcg_give_1alpha<T><<<1,1,0,S>>>(dv);
+    mg_fine_give_1alpha<T><<<1,1,0,S>>>(dv);
     // 6. s = r - alpha*v
     bistabcg_give_s<T><<<gv,bv,0,S>>>(st.s, st.r, st.v, dv);
     // 7. t = S·s
@@ -2262,7 +2350,7 @@ template <typename T> struct LatticeCloverMultigrid {
     // 8. omega = <t,s> / <t,t>
     CUBLAS_CHECK(_cublasDot<T>(set_ptr->cublasH, n, st.t,1,st.s,1,&dv[_tmp0_]));
     CUBLAS_CHECK(_cublasDot<T>(set_ptr->cublasH, n, st.t,1,st.t,1,&dv[_tmp1_]));
-    bistabcg_give_1omega<T><<<1,1,0,S>>>(dv);
+    mg_fine_give_1omega<T><<<1,1,0,S>>>(dv);
     // 9. r = s - omega*t ;  x = x + alpha*p + omega*s
     //    dev84 kernel-count diet: 双元素级更新融合为一次发射 (mg_give_rx)
     {
