@@ -47,3 +47,96 @@ void applyCloverBistabCgDslashQcu(long long _fermion_out, long long _fermion_in,
     printf("data_type error\n");
   }
 }
+
+int applyCloverBistabCgPrepareQcu(
+    long long _compact_rhs, long long _full_rhs, long long _gauge,
+    long long _clover_ee, long long _clover_oo, long long _clover_ee_inv,
+    long long _clover_oo_inv, long long _set_ptrs, long long _params) {
+  try {
+    checkCudaErrors(cudaDeviceSynchronize());
+    void *set_ptrs = reinterpret_cast<void *>(_set_ptrs);
+    int *params = reinterpret_cast<int *>(_params);
+    const int set_index = params[_SET_INDEX_];
+    if (params[_DATA_TYPE_] == _LAT_C64_) {
+      auto *set = reinterpret_cast<LatticeSet<float> *>(
+          reinterpret_cast<long long *>(set_ptrs)[set_index]);
+      LatticeCloverBistabCg<float> solver;
+      solver.give(set);
+      solver.init(reinterpret_cast<void *>(_gauge),
+                  reinterpret_cast<void *>(_clover_ee),
+                  reinterpret_cast<void *>(_clover_oo),
+                  reinterpret_cast<void *>(_clover_ee_inv),
+                  reinterpret_cast<void *>(_clover_oo_inv));
+      solver.prepare(reinterpret_cast<void *>(_compact_rhs),
+                     reinterpret_cast<void *>(_full_rhs));
+    } else if (params[_DATA_TYPE_] == _LAT_C128_) {
+      auto *set = reinterpret_cast<LatticeSet<double> *>(
+          reinterpret_cast<long long *>(set_ptrs)[set_index]);
+      LatticeCloverBistabCg<double> solver;
+      solver.give(set);
+      solver.init(reinterpret_cast<void *>(_gauge),
+                  reinterpret_cast<void *>(_clover_ee),
+                  reinterpret_cast<void *>(_clover_oo),
+                  reinterpret_cast<void *>(_clover_ee_inv),
+                  reinterpret_cast<void *>(_clover_oo_inv));
+      solver.prepare(reinterpret_cast<void *>(_compact_rhs),
+                     reinterpret_cast<void *>(_full_rhs));
+    } else {
+      throw std::invalid_argument(
+          "Clover Schur prepare supports complex64/complex128");
+    }
+    return 0;
+  } catch (const std::exception &error) {
+    std::fprintf(stderr, "PYQCU::SOLVER::STRICT_MG::FINE_PREPARE: %s\n",
+                 error.what());
+    return 1;
+  }
+}
+
+int applyCloverBistabCgReconstructQcu(
+    long long _full_out, long long _full_rhs, long long _target_odd,
+    long long _gauge, long long _clover_ee, long long _clover_oo,
+    long long _clover_ee_inv, long long _clover_oo_inv,
+    long long _set_ptrs, long long _params) {
+  try {
+    checkCudaErrors(cudaDeviceSynchronize());
+    void *set_ptrs = reinterpret_cast<void *>(_set_ptrs);
+    int *params = reinterpret_cast<int *>(_params);
+    const int set_index = params[_SET_INDEX_];
+    if (params[_DATA_TYPE_] == _LAT_C64_) {
+      auto *set = reinterpret_cast<LatticeSet<float> *>(
+          reinterpret_cast<long long *>(set_ptrs)[set_index]);
+      LatticeCloverBistabCg<float> solver;
+      solver.give(set);
+      solver.init(reinterpret_cast<void *>(_gauge),
+                  reinterpret_cast<void *>(_clover_ee),
+                  reinterpret_cast<void *>(_clover_oo),
+                  reinterpret_cast<void *>(_clover_ee_inv),
+                  reinterpret_cast<void *>(_clover_oo_inv));
+      solver.reconstruct(reinterpret_cast<void *>(_full_out),
+                         reinterpret_cast<void *>(_full_rhs),
+                         reinterpret_cast<void *>(_target_odd));
+    } else if (params[_DATA_TYPE_] == _LAT_C128_) {
+      auto *set = reinterpret_cast<LatticeSet<double> *>(
+          reinterpret_cast<long long *>(set_ptrs)[set_index]);
+      LatticeCloverBistabCg<double> solver;
+      solver.give(set);
+      solver.init(reinterpret_cast<void *>(_gauge),
+                  reinterpret_cast<void *>(_clover_ee),
+                  reinterpret_cast<void *>(_clover_oo),
+                  reinterpret_cast<void *>(_clover_ee_inv),
+                  reinterpret_cast<void *>(_clover_oo_inv));
+      solver.reconstruct(reinterpret_cast<void *>(_full_out),
+                         reinterpret_cast<void *>(_full_rhs),
+                         reinterpret_cast<void *>(_target_odd));
+    } else {
+      throw std::invalid_argument(
+          "Clover Schur reconstruct supports complex64/complex128");
+    }
+    return 0;
+  } catch (const std::exception &error) {
+    std::fprintf(stderr, "PYQCU::SOLVER::STRICT_MG::FINE_RECONSTRUCT: %s\n",
+                 error.what());
+    return 1;
+  }
+}
