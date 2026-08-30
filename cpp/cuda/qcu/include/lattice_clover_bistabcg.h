@@ -130,6 +130,49 @@ template <typename T> struct LatticeCloverBistabCg {
             fermion_out, set_ptr->device_vec2, set_ptr->device_vec1,
             set_ptr->kappa(), set_ptr->device_vals);
   }
+  void prepare(void *compact_rhs, const void *full_rhs) {
+    const size_t n = static_cast<size_t>(set_ptr->lat_4dim_SC);
+    const LatticeComplex<T> *rhs =
+        static_cast<const LatticeComplex<T> *>(full_rhs);
+    const void *rhs_even = rhs;
+    const void *rhs_odd = rhs + n;
+    checkCudaErrors(cudaMemcpyAsync(
+        set_ptr->device_vec2, rhs_even, n * sizeof(LatticeComplex<T>),
+        cudaMemcpyDeviceToDevice, set_ptr->stream));
+    clover_dslash_ee_inv.give(set_ptr->device_vec2);
+    wilson_dslash.run_oe(set_ptr->device_vec0, set_ptr->device_vec2, gauge);
+    bistabcg_give_b__o<T>
+        <<<set_ptr->gridDim, set_ptr->blockDim, 0, set_ptr->stream>>>(
+            compact_rhs, const_cast<void *>(rhs_odd), set_ptr->device_vec0,
+            set_ptr->kappa(), set_ptr->device_vals);
+    checkCudaErrors(cudaGetLastError());
+    checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
+  }
+  void reconstruct(void *full_out, const void *full_rhs,
+                   const void *target_odd) {
+    const size_t n = static_cast<size_t>(set_ptr->lat_4dim_SC);
+    LatticeComplex<T> *out = static_cast<LatticeComplex<T> *>(full_out);
+    const LatticeComplex<T> *rhs =
+        static_cast<const LatticeComplex<T> *>(full_rhs);
+    checkCudaErrors(cudaMemcpyAsync(
+        out + n, target_odd, n * sizeof(LatticeComplex<T>),
+        cudaMemcpyDeviceToDevice, set_ptr->stream));
+    checkCudaErrors(cudaMemcpyAsync(
+        set_ptr->device_vec0, rhs, n * sizeof(LatticeComplex<T>),
+        cudaMemcpyDeviceToDevice, set_ptr->stream));
+    wilson_dslash.run_eo(set_ptr->device_vec1,
+                         const_cast<void *>(target_odd), gauge);
+    LatticeComplex<T> kappa(set_ptr->kappa(), (T)0);
+    CUBLAS_CHECK(_cublasAxpy<T>(
+        set_ptr->cublasH, static_cast<int>(n), &kappa,
+        set_ptr->device_vec1, 1, set_ptr->device_vec0, 1));
+    clover_dslash_ee_inv.give(set_ptr->device_vec0);
+    checkCudaErrors(cudaMemcpyAsync(
+        out, set_ptr->device_vec0, n * sizeof(LatticeComplex<T>),
+        cudaMemcpyDeviceToDevice, set_ptr->stream));
+    checkCudaErrors(cudaGetLastError());
+    checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
+  }
   void _run_init() {
     checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
     give_1zero<T><<<1, 1, 0, set_ptr->stream>>>(set_ptr->device_vals, _tmp0_);

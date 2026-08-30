@@ -105,6 +105,25 @@ def applyCloverBistabCgDslashQcu(
     set_ptrs: torch.Tensor, params: torch.Tensor,
 ) -> None: ...
 
+def applyCloverBistabCgPrepareQcu(
+    compact_rhs: torch.Tensor, full_rhs: torch.Tensor, gauge: torch.Tensor,
+    clover_ee: torch.Tensor, clover_oo: torch.Tensor,
+    clover_ee_inv: torch.Tensor, clover_oo_inv: torch.Tensor,
+    set_ptrs: torch.Tensor, params: torch.Tensor,
+) -> None:
+    """Prepare the odd symmetric-Schur right-hand side."""
+    ...
+
+def applyCloverBistabCgReconstructQcu(
+    full_out: torch.Tensor, full_rhs: torch.Tensor,
+    target_odd: torch.Tensor, gauge: torch.Tensor,
+    clover_ee: torch.Tensor, clover_oo: torch.Tensor,
+    clover_ee_inv: torch.Tensor, clover_oo_inv: torch.Tensor,
+    set_ptrs: torch.Tensor, params: torch.Tensor,
+) -> None:
+    """Reconstruct the even field from an odd Schur solution."""
+    ...
+
 # --- Laplacian ---
 def applyLaplacianQcu(
     laplacian_out: torch.Tensor, laplacian_in: torch.Tensor,
@@ -194,6 +213,87 @@ def applyMultigridCoarseDslashWideQcu(
       _MG_LEVEL1_E_ = E (coarse DOF)
       _MG_LEVEL1_X_, _Y_, _Z_, _T_ = coarse odd lattice
     """
+    ...
+
+def applyMultigridStrictCoarseQcu(
+    fermion_out: torch.Tensor, fermion_in: torch.Tensor,
+    links: torch.Tensor, onsite_pair: torch.Tensor,
+    set_ptrs: torch.Tensor, params: torch.Tensor,
+    onsite_index: int = -1,
+) -> None:
+    """Apply strict QUDA-stored links on ``[E,X,Y,Z,T]``.
+
+    ``links`` is ``[2,4,E,E,X,Y,Z,T]``.  The backward half is stored at
+    ``q-mu`` and adjointed during the gather.  ``onsite_index=-1`` applies
+    hopping only; 0 and 1 select ``X`` and ``X^-1`` from ``onsite_pair``.
+    """
+    ...
+
+def applyMultigridStrictMatPCQcu(
+    fermion_out: torch.Tensor, fermion_in: torch.Tensor,
+    preconditioned_links: torch.Tensor, scratch: torch.Tensor,
+    set_ptrs: torch.Tensor, params: torch.Tensor, parity: int,
+) -> None:
+    """Apply ``I-Hhat_pq Hhat_qp`` on ``[E,X,Y,Z,T/2]``."""
+    ...
+
+def applyMultigridStrictPrepareQcu(
+    fermion_out: torch.Tensor, full_rhs: torch.Tensor,
+    preconditioned_links: torch.Tensor, onsite_pair: torch.Tensor,
+    scratch: torch.Tensor, set_ptrs: torch.Tensor,
+    params: torch.Tensor, parity: int,
+) -> None:
+    """Prepare the compact symmetric-preconditioned rhs from a full rhs."""
+    ...
+
+def applyMultigridStrictReconstructQcu(
+    full_out: torch.Tensor, full_rhs: torch.Tensor,
+    target_solution: torch.Tensor, preconditioned_links: torch.Tensor,
+    onsite_pair: torch.Tensor, scratch: torch.Tensor,
+    set_ptrs: torch.Tensor, params: torch.Tensor, parity: int,
+) -> None:
+    """Reconstruct the eliminated parity into a full coarse solution."""
+    ...
+
+def applyMultigridStrictRestrictQcu(
+    coarse_out: torch.Tensor, fine_in: torch.Tensor,
+    null_vectors: torch.Tensor, set_ptrs: torch.Tensor,
+    params: torch.Tensor, parity: int,
+) -> None:
+    """Restrict one compact fine parity to a full coarse field."""
+    ...
+
+def applyMultigridStrictProLongQcu(
+    fine_out: torch.Tensor, coarse_in: torch.Tensor,
+    null_vectors: torch.Tensor, set_ptrs: torch.Tensor,
+    params: torch.Tensor, parity: int,
+) -> None:
+    """Prolong a full coarse field to one compact fine parity."""
+    ...
+
+def applyMultigridStrictVCycleQcu(
+    full_out: torch.Tensor, full_rhs: torch.Tensor,
+    set_ptrs: torch.Tensor, params: torch.Tensor,
+    start_level: int = 1,
+) -> int:
+    """Run the recursive strict coarse V-cycle.
+
+    The return value is the exact transient allocation in bytes for the
+    arena-backed hierarchy.  Caller-owned resident transfer/operator assets
+    are not included.
+    """
+    ...
+
+def applyMultigridStrictInitQcu(
+    set_ptrs: torch.Tensor, params: torch.Tensor, start_level: int = 1,
+) -> int:
+    """Allocate a reusable strict coarse hierarchy and return its bytes."""
+    ...
+
+def applyMultigridStrictEndQcu(
+    set_ptrs: torch.Tensor, params: torch.Tensor,
+) -> None:
+    """Release the reusable strict hierarchy before ``applyEndQcu``."""
     ...
 
 def applyCloverMultigridQcu(

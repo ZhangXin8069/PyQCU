@@ -115,6 +115,18 @@ namespace qcu {
 #define _MG_USE_DEFLATE_ 55
 #define _MG_MU_PRE_ 56
 #define _MG_USE_INIT_GUESS_ 57
+// Strict QUDA-style full-coarse hierarchy assets.  This region is disjoint
+// from LatticeSet handles (low slots) and the legacy 33-point MG region
+// [30,46).  Per transition: V, raw Y, Yhat, (X,X^-1).
+#define _SET_PTRS_STRICT_COARSE_BASE_ 60
+#define _SET_PTRS_STRICT_STRIDE_ 4
+#define _SET_PTRS_STRICT_NULL_ 0
+#define _SET_PTRS_STRICT_RAW_LINKS_ 1
+#define _SET_PTRS_STRICT_PRECONDITIONED_LINKS_ 2
+#define _SET_PTRS_STRICT_ONSITE_PAIR_ 3
+// Persistent strict hierarchy handle.  Keep it outside both the LatticeSet
+// slots (1..24) and the four-slot coarse-asset region (60..79).
+#define _SET_PTRS_STRICT_HIERARCHY_ 80
 // _MG_USE_GCR_ is a backwards-compatible mode bit mask.  Existing callers
 // that write 0/1 retain their original semantics; the additional algorithms
 // deliberately live in the unused high bits so the params[58] ABI remains
