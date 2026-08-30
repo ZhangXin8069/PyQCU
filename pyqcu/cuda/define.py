@@ -83,6 +83,13 @@ _MG_USE_GCR_ = 54
 _MG_USE_DEFLATE_ = 55
 _MG_MU_PRE_ = 56
 _MG_USE_INIT_GUESS_ = 57
+_SET_PTRS_STRICT_COARSE_BASE_ = 60
+_SET_PTRS_STRICT_STRIDE_ = 4
+_SET_PTRS_STRICT_NULL_ = 0
+_SET_PTRS_STRICT_RAW_LINKS_ = 1
+_SET_PTRS_STRICT_PRECONDITIONED_LINKS_ = 2
+_SET_PTRS_STRICT_ONSITE_PAIR_ = 3
+_SET_PTRS_STRICT_HIERARCHY_ = 80
 # _MG_USE_GCR_ is a backwards-compatible mode bit mask.  Keep these values
 # synchronized with cpp/cuda/qcu/include/define.h; the params ABI stays 58.
 _MG_MODE_GCR_ = 1
