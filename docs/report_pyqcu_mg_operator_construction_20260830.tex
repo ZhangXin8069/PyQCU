@@ -1,0 +1,422 @@
+% ============================================================
+% PyQCU CUDA-C++ MultiGrid 各层算子构造 — 代码与物理结构整理
+% 编译：xelatex 两遍；交付闸门：Overfull=0, Float too large=0
+% ============================================================
+\documentclass[UTF8,aspectratio=169,11pt]{ctexbeamer}
+
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,calc,fit,shapes.geometric}
+\usepackage{xcolor}
+\usepackage{microtype}
+\usepackage{hyperref}
+
+% ===== 色板：颜色只增强层次，不承载唯一信息 =====
+\definecolor{primary}{HTML}{17365D}
+\definecolor{accent}{HTML}{1F77B4}
+\definecolor{evidence}{HTML}{1E8449}
+\definecolor{warning}{HTML}{C55A11}
+\definecolor{muted}{HTML}{5B6573}
+\definecolor{panel}{HTML}{F4F7FA}
+\definecolor{linegray}{HTML}{CBD5E1}
+\definecolor{good}{HTML}{EAF5EE}
+\definecolor{warnbg}{HTML}{FFF4E8}
+
+\setbeamersize{text margin left=0.55cm,text margin right=0.55cm}
+\setlength{\emergencystretch}{2em}
+\setbeamertemplate{navigation symbols}{}
+\setbeamercolor{normal text}{fg=black!86,bg=white}
+\setbeamercolor{structure}{fg=primary}
+\setbeamercolor{frametitle}{fg=primary,bg=white}
+\setbeamercolor{block title}{fg=primary,bg=panel}
+\setbeamercolor{block body}{fg=black!86,bg=panel}
+\setbeamerfont{frametitle}{size=\large,series=\bfseries}
+\setbeamerfont{normal text}{size=\normalsize}
+\setbeamertemplate{frametitle}{%
+  \vskip0.12cm\insertframetitle\par\vskip0.08cm}
+\setbeamertemplate{footline}{%
+  \hbox{\begin{beamercolorbox}[wd=\paperwidth,ht=2.3ex,dp=0.9ex,
+    leftskip=0.55cm,rightskip=0.55cm]{author in head/foot}%
+    \scriptsize\color{muted}\insertshortauthor\hfill
+    \insertshorttitle\hfill\insertframenumber/\inserttotalframenumber
+  \end{beamercolorbox}}}
+
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\newcolumntype{P}[1]{>{\raggedright\arraybackslash}p{#1}}
+\newcommand{\source}[1]{%
+  \vspace{-0.08em}\par{\raggedright\scriptsize\color{muted}来源：#1\par}}
+\newcommand{\src}[1]{\nolinkurl{#1}}
+\newcommand{\verified}{\textcolor{evidence}{确证}}
+\newcommand{\inferred}{\textcolor{accent}{推断}}
+\newcommand{\unverified}{\textcolor{warning}{未验证}}
+
+\tikzset{
+  flow/.style={draw=accent,fill=accent!8,rounded corners=2pt,align=center,
+    minimum height=0.70cm,text width=2.05cm,font=\small},
+  state/.style={draw=primary,fill=primary!7,rounded corners=2pt,align=center,
+    minimum height=0.64cm,text width=2.55cm,font=\small},
+  arrow/.style={-{Latex[length=2mm]},draw=primary,semithick},
+  relation/.style={-{Latex[length=1.7mm]},draw=muted,thin,dashed},
+  labelstyle/.style={font=\scriptsize,inner sep=1.5pt,fill=white,text=muted}
+}
+
+\title[PyQCU CUDA-C++ MG]{PyQCU CUDA-C++ MultiGrid 各层算子构造}
+\subtitle{从奇子格 Schur 算子到 33 点 Galerkin 粗算子}
+\author[代码与物理结构整理]{代码与物理结构整理}
+\institute{PyQCU · Lattice QCD}
+\date{2026-08-30}
+
+\begin{document}
+
+\begin{frame}[plain]
+  \titlepage
+\end{frame}
+
+\section{结论先行}
+
+\begin{frame}[t]{核心结论：层级由 Python 构造，CUDA-C++ 负责应用}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \begin{column}{0.31\textwidth}
+      \begin{block}{Level 0}
+        \small
+        主求解使用奇子格 Schur 算子
+        \[
+        S=D_{oo}-\kappa^2H_{oe}D_{ee}^{-1}H_{eo}.
+        \]
+      \end{block}
+    \end{column}
+    \begin{column}{0.31\textwidth}
+      \begin{block}{粗层}
+        \small
+        每次转移构造局部正交基 $P_l$，并按
+        \[
+        A_{l+1}=P_l^\dagger A_lP_l
+        \]
+        投影为 33 点 stencil。
+      \end{block}
+    \end{column}
+    \begin{column}{0.31\textwidth}
+      \begin{block}{后端边界}
+        \small
+        C++ 初始化只解析层几何、分配求解向量；通过
+        \src{set_ptrs[30+4*l:34+4*l]} 接收
+        \src{lonv/hnn/hdg/sit}。
+      \end{block}
+    \end{column}
+  \end{columns}
+  \vspace{0.25em}
+  \begin{tabular}{@{}p{0.94\textwidth}@{}}
+    \colorbox{good}{\parbox{0.92\textwidth}{\textbf{当前判断（\verified）：}\quad
+      严格说，当前“CUDA-C++ 版 MultiGrid”不是在 C++ 内部生成粗算子；层级资产由
+      \src{build_schur_levels()} 生成或从 HDF5 缓存加载，\src{libqcu.so} 在 V-cycle 中消费这些资产。}}
+  \end{tabular}
+  \source{\src{pyqcu/cuda/_multi_gpu.py:63,111}；\src{cpp/cuda/qcu/src/apply_clover_multigrid.cu:11,55}；\src{cpp/cuda/qcu/include/lattice_clover_multigrid.h:2796}。}
+\end{frame}
+
+\begin{frame}[t]{总流程：同一条 Galerkin 递归链贯穿全部层级}
+  \begin{center}
+    \begin{tikzpicture}[node distance=0.24cm and 0.20cm,scale=0.91,transform shape]
+      \node[flow] (d) {规范场 $U$\newline Clover $C$};
+      \node[flow,right=of d] (s) {Level 0\newline Schur $S$};
+      \node[flow,right=of s] (nv) {随机向量\newline 低模富集};
+      \node[flow,right=of nv] (p) {局部 QR\newline 得到 $P_l$};
+      \node[flow,right=of p] (g) {Galerkin\newline $P_l^\dagger A_lP_l$};
+      \node[flow,right=of g] (a) {Level $l+1$\newline 33 点应用};
+      \draw[arrow] (d) -- (s);
+      \draw[arrow] (s) -- (nv);
+      \draw[arrow] (nv) -- (p);
+      \draw[arrow] (p) -- (g);
+      \draw[arrow] (g) -- (a);
+      \draw[relation] (a.south) |- ++(0,-0.48) -| node[below=1.5pt,labelstyle]{作为下一层 $A_l$} (nv.south);
+    \end{tikzpicture}
+  \end{center}
+  \vspace{-0.05em}
+  \begin{tabular}{@{}l@{}}
+    $A_0=S,\quad A_1=P_0^\dagger S P_0,\quad
+    A_2=P_1^\dagger A_1P_1,\quad\cdots$ \\
+    每个转移只保存 $\{P_l,\;\text{on-site},\;\text{nearest},\;\text{diagonal}\}$，不保存完整稠密矩阵。
+  \end{tabular}
+  \vspace{0.12em}
+  \begin{block}{为什么递归可行？}
+    \small
+    $P_l$ 具有 aggregate 局部支撑，且 $A_l$ 只有有限邻接范围；因此投影后的
+    $A_{l+1}$ 仍可用固定宽度 stencil 表示，随后重复同一构造流程。
+  \end{block}
+  \source{\src{pyqcu/cuda/_multi_gpu.py:101-185}；\src{pyqcu/tools/_multigrid.py:738-770}。图为实现逻辑抽象。}
+\end{frame}
+
+\section{细层与转移基}
+
+\begin{frame}[t]{Level 0 不是粗化后的 Wilson 算子，而是奇子格 Schur 算子}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \begin{column}{0.49\textwidth}
+      \setlength{\jot}{2pt}
+      \begin{align*}
+        D&=\begin{pmatrix}
+          D_{ee}&-\kappa H_{eo}\\
+          -\kappa H_{oe}&D_{oo}
+        \end{pmatrix},\\
+        A_0\equiv S&=D_{oo}-\kappa^2H_{oe}D_{ee}^{-1}H_{eo}.
+      \end{align*}
+      \begin{block}{物理图像}
+        \small
+        消去偶点后，奇点之间通过“奇 $\to$ 偶 $\to$ 奇”的两次 hopping 相连；
+        偶点的局部 Clover 逆保留规范场背景和 spin--color 耦合。
+      \end{block}
+    \end{column}
+    \begin{column}{0.45\textwidth}
+      \renewcommand{\arraystretch}{0.82}
+      \begin{tabular}{@{}P{0.34\linewidth}P{0.52\linewidth}@{}}
+        \toprule
+        对象 & 当前实现 \\
+        \midrule
+        输入/输出 & 奇子格向量 \\
+        自由度 & $12=4\times3$ \\
+        几何 & $[X,Y,Z,T/2]$ \\
+        细层应用 & C++ \src{fine_dslash_op} \\
+        构造时 matvec & Python \src{op.matvec_parity} 或 \src{CudaSchurOp} \\
+        \bottomrule
+      \end{tabular}
+      \vspace{0.12em}
+      \begin{block}{重要边界}
+        \footnotesize
+        源码中的 full-site 缓冲和最终 full-op 真残差检查不改变当前层级定义；主循环仍在
+        Level 0 调用 Schur 算子。
+      \end{block}
+    \end{column}
+  \end{columns}
+  \source{\src{lattice_clover_multigrid.h:815,4531,4824}；\src{_multi_gpu.py:497}。}
+\end{frame}
+
+\begin{frame}[t]{每条层间转移先构造局部低模基，再定义 $R_l=P_l^\dagger$}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \begin{column}{0.48\textwidth}
+      \begin{tabular}{@{}l@{}}
+        $\text{随机场 }v\in\mathbb{C}^{e_l\times X_l\times Y_l\times Z_l\times T_l}$ \\
+        $\quad\downarrow\quad\text{松弛 BiCGStab 近似求 }A_l^{-1}(A_lv)$ \\
+        $v\leftarrow v-A_l^{-1}(A_lv)$ \\
+        $\quad\downarrow\quad\text{归一化并按 aggregate 重排}$ \\
+        $[E_{l+1},e_l,X_c,b_x,Y_c,b_y,Z_c,b_z,T_c,b_t]$ \\
+        $\quad\downarrow\quad\text{每个 aggregate 做 batched QR}$ \\
+        $P_l\text{ 的局部正交列向量}$
+      \end{tabular}
+      \vspace{0.10em}
+      \begin{block}{低模富集的含义}
+        \footnotesize
+        代码采用宽松相对容差，保留近零空间方向；这不是最终求解精度，而是为粗空间选择代表性基。
+      \end{block}
+    \end{column}
+    \begin{column}{0.45\textwidth}
+      \begin{align*}
+        (R_lv)_J(c)&=\sum_{x\in\mathcal A(c),a}
+          P_{J,a}^*(x)v_a(x),\\
+        (P_lc)_a(x)&=\sum_JP_{J,a}(x)c_J(c).
+      \end{align*}
+      \begin{block}{局部正交性}
+        \small
+        QR 在每个 aggregate 内令
+        \[
+        P_l^\dagger P_l=I
+        \]
+        （各 aggregate 支撑互不重叠），因此 restriction 不需要额外的全局 Gram 矩阵求逆。
+      \end{block}
+    \end{column}
+  \end{columns}
+  \source{\src{tools/_multigrid.py:355,69,112}；\src{src/multigrid.cu:13,73}。}
+\end{frame}
+
+\section{Galerkin 粗算子}
+
+\begin{frame}[t]{Galerkin 构造是逐个粗基向量探测，而不是显式形成完整矩阵}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \begin{column}{0.54\textwidth}
+      \begin{tabular}{@{}l@{}}
+        $\text{for each coarse site }c\text{ and coarse basis }J:$ \\
+        $\quad q\leftarrow e_J(c)$ \\
+        $\quad f\leftarrow P_lq$ \\
+        $\quad d\leftarrow A_lf$ \\
+        $\quad z\leftarrow P_l^\dagger d$ \\
+        $\quad \text{将 }z\text{ 在 }c\text{ 及其 32 个邻接位置的块写入 stencil}$
+      \end{tabular}
+      \vspace{0.4em}
+      \begin{block}{列与块的对应}
+        \footnotesize
+        一个 $(c,J)$ 探针给出 $P_l^\dagger A_lP_l$ 的一列；每个输出位置的系数是
+        $E_{l+1}\times E_{l+1}$ 复矩阵块。
+      \end{block}
+    \end{column}
+    \begin{column}{0.40\textwidth}
+      \begin{equation*}
+        A_{l+1}=P_l^\dagger A_lP_l.
+      \end{equation*}
+      \begin{tabular}{@{}P{0.36\linewidth}P{0.48\linewidth}@{}}
+        \toprule
+        代码对象 & 数学对象 \\
+        \midrule
+        \src{lonv} & $P_l$ \\
+        \src{restrict} & $P_l^\dagger$ \\
+        \src{matvec} & $A_l$ \\
+        \src{sit / hnn / hdg} & $A_{l+1}$ 的非零块 \\
+        \bottomrule
+      \end{tabular}
+      \vspace{0.4em}
+      \textcolor{accent}{代码注释常写 $P^T$；复数实现实际使用共轭转置 $P^\dagger$。}
+    \end{column}
+  \end{columns}
+  \source{\src{tools/_multigrid.py:691,738}；\src{lattice_clover_multigrid.h:892}。}
+\end{frame}
+
+\begin{frame}[t]{Schur 的两次 hopping 使粗层采用 33 点宽 stencil}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \begin{column}{0.43\textwidth}
+      \begin{align*}
+        1&\quad\text{onsite},\\
+        4\times2&=8\quad\text{同方向正/负邻居},\\
+        \binom{4}{2}\times2\times2&=24\quad\text{两方向弯折邻居},\\[2pt]
+        N_{\rm stencil}&=1+8+24=33.
+      \end{align*}
+      \begin{block}{物理图像}
+        \small
+        $D_{oo}$ 给出本地点；两次 hopping 回到原点、沿同一方向前进，或沿两个不同方向转弯。
+      \end{block}
+    \end{column}
+    \begin{column}{0.53\textwidth}
+      \begin{tabular}{@{}P{0.25\linewidth}P{0.63\linewidth}@{}}
+        \toprule
+        张量 & 语义与形状 \\
+        \midrule
+        \src{sit} & onsite：$[E,E,X,Y,Z,T]$ \\
+        \src{hop_nn} & 正/负邻居：$[2,4,E,E,X,Y,Z,T]$ \\
+        \src{hop_diag} & 方向对与符号：$[2,2,6,E,E,X,Y,Z,T]$ \\
+        \midrule
+        应用式 & $y_j(c)=\mathrm{sit}_{je}(c)x_e(c)$\newline
+        $+\mathrm{hop}_{je}(c)x_e(c\pm\hat\mu)$\newline
+        $+\mathrm{diag}_{je}(c)x_e(c\pm\hat\mu\pm\hat\nu)$ \\
+        \bottomrule
+      \end{tabular}
+      \vspace{0.35em}
+      \textcolor{warning}{\footnotesize 33 是耦合位置数，不是自由度数；每个位置承载一个 $E\times E$ 块。}
+    \end{column}
+  \end{columns}
+  \source{\src{src/multigrid.cu:858,924}；\src{tools/_multigrid.py:738}。}
+\end{frame}
+
+\section{运行时边界}
+
+\begin{frame}[t]{C++ 后端的职责：接收四类层级资产并执行宽 stencil}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \begin{column}{0.49\textwidth}
+      \begin{tabular}{@{}P{0.30\linewidth}P{0.56\linewidth}@{}}
+        \toprule
+        阶段 & C++ 行为 \\
+        \midrule
+        \src{init} & 读取每层 $E,X,Y,Z,T$，分配求解向量 \\
+        \src{set ops} & 保存四个外部指针 \\
+        \src{coarse dslash} & 读取当前层 33 点 stencil \\
+        MPI 多 rank & 先交换粗层 halo，再启动 CUDA kernel \\
+        粗层求解 & BiStabCG / fused coarse solve，算子不变 \\
+        \bottomrule
+      \end{tabular}
+    \end{column}
+    \begin{column}{0.47\textwidth}
+      \begin{block}{指针协议}
+        \footnotesize
+        对每个父层 $l$，令 $\texttt{base}=30+4l$：
+        \begin{align*}
+          \texttt{set\_ptrs[base+0]}&\to\texttt{null\_vecs},\\
+          \texttt{set\_ptrs[base+1]}&\to\texttt{hop\_nn},\\
+          \texttt{set\_ptrs[base+2]}&\to\texttt{hop\_diag},\\
+          \texttt{set\_ptrs[base+3]}&\to\texttt{sit\_packed}.
+        \end{align*}
+      \end{block}
+      \begin{block}{实现分工（\verified）}
+        \footnotesize
+        Python 侧决定 $P_l$ 和 $A_{l+1}$ 的数值内容；C++ 侧负责 GPU kernel、scratch、halo 和递归求解。
+      \end{block}
+    \end{column}
+  \end{columns}
+  \source{见末页源码索引：bridge:11；header:892。}
+\end{frame}
+
+\begin{frame}[t]{当前运行路径：缓存命中与构造加速只改变来源，不改变数学算子}
+  \begin{center}
+    \begin{tikzpicture}[node distance=0.35cm and 0.30cm,scale=0.92,transform shape]
+      \node[state] (cfg) {\src{dof_list}, \src{mg_grid}\newline 层级配置};
+      \node[flow,right=of cfg] (hit) {检查\newline HDF5 缓存};
+      \node[flow,right=of hit] (load) {命中：加载\newline \src{lonv/hnn/hdg/sit}};
+      \node[flow,below=of load] (build) {未命中：null\newline QR + probing};
+      \node[flow,left=of build] (mv) {matvec\newline Torch 批量或 C++};
+      \node[state,left=of mv] (run) {传入 \src{set_ptrs}\newline C++ V-cycle};
+      \draw[arrow] (cfg) -- (hit);
+      \draw[arrow] (hit) -- node[above=1.5pt,labelstyle]{是} (load);
+      \draw[relation] (hit.south) |- node[right=1.5pt,labelstyle]{否} (build.north);
+      \draw[arrow] (build) -- (mv);
+      \draw[arrow] (load.south) |- (run.north);
+      \draw[arrow] (mv) -- (run);
+    \end{tikzpicture}
+  \end{center}
+  \vspace{0.1em}
+  \begin{block}{默认路径的细节}
+    \small
+    \src{batch_build=True} 且传入 Python \src{op} 时，构造阶段主要使用 Torch 批量 Schur/stencil matvec；
+    关闭批量模式或显式选择 C++ matvec 时，Level 0 使用 \src{CudaSchurOp}，后续层可使用
+    \src{CudaCoarseSchurOp}。两者都实现同一个 $A_l$。
+  \end{block}
+  \source{\src{_multi_gpu.py:501,539}；\src{_schur_op.py:68,149}；\src{run_qcu_mg.py:164}。}
+\end{frame}
+
+\begin{frame}[t]{V-cycle 中算子的使用顺序与最终边界}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \begin{column}{0.52\textwidth}
+      \begin{tabular}{@{}l@{}}
+        $r_l$：父层残差 \\
+        $\quad\downarrow\quad R_l=P_l^\dagger$ \\
+        $r_{l+1}$：粗层右端 \\
+        $\quad\downarrow\quad A_{l+1}x_{l+1}=r_{l+1}$ \\
+        $x_{l+1}$：递归粗层解 \\
+        $\quad\downarrow\quad P_l$ \\
+        $e_l$：父层修正 \\
+        $\quad\downarrow\quad x_l\leftarrow x_l+e_l$，重算 $r_l$
+      \end{tabular}
+    \end{column}
+    \begin{column}{0.44\textwidth}
+      \begin{block}{层级关系}
+        \small
+        \begin{align*}
+          A_0&=S,\\
+          A_1&=P_0^\dagger S P_0,\\
+          A_2&=P_1^\dagger A_1P_1.
+        \end{align*}
+        对任意更深层重复同样模式。
+      \end{block}
+      \begin{block}{边界}
+        \footnotesize
+        full-site 真残差与偶分量恢复只用于结果检查/输出，不参与粗算子构造；具体测例数值本次未重测。
+      \end{block}
+    \end{column}
+  \end{columns}
+  \source{\src{lattice_clover_multigrid.h:3348,4789,4846}。}
+\end{frame}
+
+\begin{frame}[t]{源码证据索引与范围说明}
+  \begin{tabularx}{0.96\textwidth}{@{}P{0.27\linewidth}P{0.22\linewidth}Y@{}}
+    \toprule
+    证据对象 & 层次 & 关键定位 \\
+    \midrule
+    Level 0 Schur & CUDA-C++ 核心 & \src{lattice_clover_multigrid.h:815} \\
+    层级参数 & CUDA-C++ 初始化 & \src{lattice_clover_multigrid.h:2643} \\
+    null vector & Python 工具 & \src{_multigrid.py:355} \\
+    局部 QR/transfer & Python/CUDA & \src{_multigrid.py:69}；\src{multigrid.cu:73} \\
+    Galerkin probing & Python 工具 & \src{_multigrid.py:691} \\
+    33 点 stencil & CUDA kernel & \src{multigrid.cu:858} \\
+    指针接线 & C API bridge & \src{apply_clover_multigrid.cu:11} \\
+    缓存/构造 & Python 驱动 & \src{_multi_gpu.py:490} \\
+    \bottomrule
+  \end{tabularx}
+  \source{范围：相关入口、核心头文件、CUDA kernel、Python 构造器和缓存入口；源码关系与公式\verified{}，性能与具体 lattice 数值质量\unverified{}。}
+\end{frame}
+
+\end{document}
