@@ -1,0 +1,330 @@
+/usr/local/lib/python3.10/dist-packages/torch/cuda/__init__.py:435: UserWarning: 
+    Found GPU1 Tesla P100-PCIE-16GB which is of cuda capability 6.0.
+    Minimum and Maximum cuda capability supported by this version of PyTorch is
+    (7.0) - (12.0)
+    
+  queued_call()
+/usr/local/lib/python3.10/dist-packages/torch/cuda/__init__.py:435: UserWarning: 
+    Please install PyTorch with a following CUDA
+    configurations:  12.6 following instructions at
+    https://pytorch.org/get-started/locally/
+    
+  queued_call()
+/usr/local/lib/python3.10/dist-packages/torch/cuda/__init__.py:435: UserWarning: 
+    Found GPU2 Tesla P100-PCIE-16GB which is of cuda capability 6.0.
+    Minimum and Maximum cuda capability supported by this version of PyTorch is
+    (7.0) - (12.0)
+    
+  queued_call()
+/usr/local/lib/python3.10/dist-packages/torch/cuda/__init__.py:435: UserWarning: 
+Tesla P100-PCIE-16GB with CUDA capability sm_60 is not compatible with the current PyTorch installation.
+The current PyTorch install supports CUDA capabilities sm_70 sm_75 sm_80 sm_86 sm_90 sm_100 sm_120.
+If you want to use the Tesla P100-PCIE-16GB GPU with PyTorch, please check the instructions at https://pytorch.org/get-started/locally/
+
+  queued_call()
+[multigpu] single V100 device=0
+lattice set whole time:4.381420898 sec
+lattice set whole time:4.356584473 sec
+lattice set whole time:4.054999268 sec
+##RANK:0##LOOP:136##Residual(norm2):(6.70446e-13,4.00369e-24i)
+[multigpu] single P100 device=1
+PYQCU::SOLVER::MULTIGRID::
+ self.dof_list:[12, 12]
+ self.lat_size_list:[[16, 32, 32, 24], [8, 16, 16, 12]]
+ num_restart:3
+ tol:1.000000e-06
+ max_iter:1000
+ Lt_full:48
+ mg_grid_size:[2,2,2,2]
+ smoother:CG
+ cycle:V
+PYQCU::QCU::MULTIGRID::
+ MG_INIT_COMPLETE: 2 levels, Lt_full=48, num_restart=3, smoother=CG, cycle=V
+PYQCU::SOLVER::MULTIGRID::
+ 0:Norm of b:2422.077637
+PYQCU::SOLVER::MULTIGRID::
+ 0:Norm of r:2422.077637
+PYQCU::SOLVER::MULTIGRID::
+ 0:Norm of x0:0.000000
+PYQCU::SOLVER::MULTIGRID::
+ 0:Starting Iterations
+PYQCU::SOLVER::MULTIGRID::
+ Performance Statistics:
+PYQCU::SOLVER::MULTIGRID::
+ Total iterations: 72
+PYQCU::SOLVER::MULTIGRID::
+ Total time: 1.394704 seconds
+PYQCU::SOLVER::MULTIGRID::
+ Average time per iteration: 0.015627 s
+PYQCU::SOLVER::MULTIGRID::
+ Final residual: 2.163538e-03
+PYQCU::SOLVER::MULTIGRID::
+ FINAL TRUE residual (full-op) = 2.044818e-03  relative = 8.442414e-07
+PROF_SECTIONS: fine_iter=1125.1ms vcycle=246.4ms n_vcycles=3 coarse_solve=198.9ms coarse_vec=0.4ms coarse_dslash=0.1ms coarse_iters=48 checks=6 check_ms=197.9 ck(k/d/s)=0.1/0.0/197.8
+MG init=29.8ms end=29.9ms solve=1394.7ms
+lattice set whole time:3.564631836 sec
+lattice set whole time:1.514425293 sec
+lattice set whole time:3.539504150 sec
+lattice set whole time:3.534972412 sec
+lattice set whole time:3.304524902 sec
+##RANK:0##LOOP:136##Residual(norm2):(7.18366e-13,4.14346e-24i)
+[multigpu] multi GPU devices=[1, 2]
+PYQCU::SOLVER::MULTIGRID::
+ self.dof_list:[12, 12]
+ self.lat_size_list:[[16, 32, 32, 24], [8, 16, 16, 12]]
+ num_restart:3
+ tol:1.000000e-06
+ max_iter:1000
+ Lt_full:48
+ mg_grid_size:[2,2,2,2]
+ smoother:CG
+ cycle:V
+PYQCU::QCU::MULTIGRID::
+ MG_INIT_COMPLETE: 2 levels, Lt_full=48, num_restart=3, smoother=CG, cycle=V
+PYQCU::SOLVER::MULTIGRID::
+ 0:Norm of b:2422.077637
+PYQCU::SOLVER::MULTIGRID::
+ 0:Norm of r:2422.077637
+PYQCU::SOLVER::MULTIGRID::
+ 0:Norm of x0:0.000000
+PYQCU::SOLVER::MULTIGRID::
+ 0:Starting Iterations
+PYQCU::SOLVER::MULTIGRID::
+ Performance Statistics:
+PYQCU::SOLVER::MULTIGRID::
+ Total iterations: 72
+PYQCU::SOLVER::MULTIGRID::
+ Total time: 1.818549 seconds
+PYQCU::SOLVER::MULTIGRID::
+ Average time per iteration: 0.019644 s
+PYQCU::SOLVER::MULTIGRID::
+ Final residual: 2.268902e-03
+PYQCU::SOLVER::MULTIGRID::
+ FINAL TRUE residual (full-op) = 2.150269e-03  relative = 8.877789e-07
+PROF_SECTIONS: fine_iter=1414.3ms vcycle=363.8ms n_vcycles=3 coarse_solve=325.1ms coarse_vec=1.1ms coarse_dslash=0.3ms coarse_iters=48 checks=6 check_ms=324.2 ck(k/d/s)=0.1/0.0/324.1
+MG init=28.6ms end=30.9ms solve=1818.5ms
+lattice set whole time:4.915557617 sec
+lattice set whole time:1.985696777 sec
+lattice set whole time:3.688988770 sec
+lattice set whole time:3.685718262 sec
+lattice set whole time:3.461575684 sec
+##RANK:0##LOOP:136##Residual(norm2):(7.18366e-13,4.14346e-24i)
+PYQCU::SOLVER::MULTIGRID::
+ self.dof_list:[12, 12]
+ self.lat_size_list:[[16, 32, 32, 24], [8, 16, 16, 12]]
+ num_restart:3
+ tol:1.000000e-06
+ max_iter:1000
+ Lt_full:48
+ mg_grid_size:[2,2,2,2]
+ smoother:CG
+ cycle:V
+PYQCU::QCU::MULTIGRID::
+ MG_INIT_COMPLETE: 2 levels, Lt_full=48, num_restart=3, smoother=CG, cycle=V
+PYQCU::SOLVER::MULTIGRID::
+ 0:Norm of b:2422.077637
+PYQCU::SOLVER::MULTIGRID::
+ 0:Norm of r:2422.077637
+PYQCU::SOLVER::MULTIGRID::
+ 0:Norm of x0:0.000000
+PYQCU::SOLVER::MULTIGRID::
+ 0:Starting Iterations
+##RANK:0##LOOP:136##Residual(norm2):(7.18366e-13,4.14346e-24i)
+{
+  "lat": [
+    16,
+    32,
+    32,
+    48
+  ],
+  "mass": 0.05,
+  "atol": 1e-06,
+  "num_levels": 2,
+  "dof_list": [
+    12,
+    12
+  ],
+  "mg_grid": [
+    2,
+    2,
+    2,
+    2
+  ],
+  "num_restart": 3,
+  "coarse_max_iter": 15,
+  "coarse_tol_factor": 1000.0,
+  "seed": 42,
+  "cache_dir": "/root/PyQCU/data",
+  "started": "2026-08-30 16:06:34",
+  "results": {
+    "single_v100": {
+      "label": "single_v100",
+      "device_ids": [
+        0
+      ],
+      "wall_s": 8.741538568981923,
+      "mg_parallel_wall_s": 1.46078183199279,
+      "ref_parallel_wall_s": 2.035910385020543,
+      "threads": [
+        {
+          "tid": 0,
+          "device": 0,
+          "device_name": "Tesla V100-SXM2-32GB",
+          "mg_s": 1.46078183199279,
+          "ref_s": 2.035910385020543,
+          "mg_vs_ref_max_abs": 3.097700027865358e-05,
+          "mg_vs_ref_rel_max": 6.644780238767527e-06
+        }
+      ],
+      "consistency": {
+        "tol": 1e-05,
+        "checks": [
+          {
+            "tid": 0,
+            "device": 0,
+            "rel_max_diff": 0.0,
+            "pass": true
+          }
+        ],
+        "all_pass": true
+      }
+    },
+    "single_p100": {
+      "label": "single_p100",
+      "device_ids": [
+        1
+      ],
+      "wall_s": 14.430348686990328,
+      "mg_parallel_wall_s": 1.885606962023303,
+      "ref_parallel_wall_s": 2.7156365659902804,
+      "threads": [
+        {
+          "tid": 0,
+          "device": 1,
+          "device_name": "Tesla P100-PCIE-16GB",
+          "mg_s": 1.885606962023303,
+          "ref_s": 2.7156365659902804,
+          "mg_vs_ref_max_abs": 3.169448609696701e-05,
+          "mg_vs_ref_rel_max": 6.798686591407494e-06
+        }
+      ],
+      "consistency": {
+        "tol": 1e-05,
+        "checks": [
+          {
+            "tid": 0,
+            "device": 1,
+            "rel_max_diff": 0.0,
+            "pass": true
+          }
+        ],
+        "all_pass": true
+      }
+    },
+    "multi_p100": {
+      "label": "multi_p100",
+      "device_ids": [
+        1,
+        2
+      ],
+      "wall_s": 15.282279309991281,
+      "mg_parallel_wall_s": 1.9236818270292133,
+      "ref_parallel_wall_s": 2.743809951003641,
+      "threads": [
+        {
+          "tid": 0,
+          "device": 1,
+          "device_name": "Tesla P100-PCIE-16GB",
+          "mg_s": 1.9236818270292133,
+          "ref_s": 2.743809951003641,
+          "mg_vs_ref_max_abs": 3.169448609696701e-05,
+          "mg_vs_ref_rel_max": 6.798686591407494e-06
+        },
+        {
+          "tid": 1,
+          "device": 2,
+          "device_name": "Tesla P100-PCIE-16GB",
+          "mg_s": 1.497719319013413,
+          "ref_s": 2.143892241991125,
+          "mg_vs_ref_max_abs": 3.169448609696701e-05,
+          "mg_vs_ref_rel_max": 6.798686591407494e-06
+        }
+      ],
+      "consistency": {
+        "tol": 1e-05,
+        "checks": [
+          {
+            "tid": 0,
+            "device": 1,
+            "rel_max_diff": 0.0,
+            "pass": true
+          },
+          {
+            "tid": 1,
+            "device": 2,
+            "rel_max_diff": 0.0,
+            "pass": true
+          }
+        ],
+        "all_pass": true
+      }
+    }
+  },
+  "parallel_speedup_single_p100_over_p100x2": 0.9802072959930643,
+  "cross_model_ratio_v100_over_p100x2": 0.7593676934863545,
+  "mg_vs_ref_speedup_single_v100": 1.3937128326980668,
+  "finished": "2026-08-30 16:07:14"
+}
+[result] /root/PyQCU/examples/qcu/dev87/out/multigpu.json
+PYQCU::SOLVER::MULTIGRID::
+ self.dof_list:[12, 12]
+ self.lat_size_list:[[16, 32, 32, 24], [8, 16, 16, 12]]
+ num_restart:3
+ tol:1.000000e-06
+ max_iter:1000
+ Lt_full:48
+ mg_grid_size:[2,2,2,2]
+ smoother:CG
+ cycle:V
+PYQCU::QCU::MULTIGRID::
+ MG_INIT_COMPLETE: 2 levels, Lt_full=48, num_restart=3, smoother=CG, cycle=V
+PYQCU::SOLVER::MULTIGRID::
+ 0:Norm of b:2422.077637
+PYQCU::SOLVER::MULTIGRID::
+ 0:Norm of r:2422.077637
+PYQCU::SOLVER::MULTIGRID::
+ 0:Norm of x0:0.000000
+PYQCU::SOLVER::MULTIGRID::
+ 0:Starting Iterations
+PYQCU::SOLVER::MULTIGRID::
+ Performance Statistics:
+PYQCU::SOLVER::MULTIGRID::
+ Total iterations: 72
+PYQCU::SOLVER::MULTIGRID::
+ Total time: 1.433315 seconds
+PYQCU::SOLVER::MULTIGRID::
+ Average time per iteration: 0.015302 s
+PYQCU::SOLVER::MULTIGRID::
+ Final residual: 2.268902e-03
+PYQCU::SOLVER::MULTIGRID::
+ FINAL TRUE residual (full-op) = 2.150269e-03  relative = 8.877789e-07
+PROF_SECTIONS: fine_iter=1101.7ms vcycle=294.3ms n_vcycles=3 coarse_solve=257.2ms coarse_vec=0.7ms coarse_dslash=0.1ms coarse_iters=48 checks=6 check_ms=255.9 ck(k/d/s)=0.1/0.0/255.8
+MG init=28.3ms end=29.1ms solve=1433.3ms
+lattice set whole time:4.313456543 sec
+lattice set whole time:1.682765137 sec
+PYQCU::SOLVER::MULTIGRID::
+ Performance Statistics:
+PYQCU::SOLVER::MULTIGRID::
+ Total iterations: 72
+PYQCU::SOLVER::MULTIGRID::
+ Total time: 1.854401 seconds
+PYQCU::SOLVER::MULTIGRID::
+ Average time per iteration: 0.019896 s
+PYQCU::SOLVER::MULTIGRID::
+ Final residual: 2.268902e-03
+PYQCU::SOLVER::MULTIGRID::
+ FINAL TRUE residual (full-op) = 2.150269e-03  relative = 8.877789e-07
+PROF_SECTIONS: fine_iter=1432.5ms vcycle=377.0ms n_vcycles=3 coarse_solve=321.2ms coarse_vec=0.2ms coarse_dslash=0.0ms coarse_iters=48 checks=6 check_ms=320.1 ck(k/d/s)=0.2/0.0/319.9
+MG init=26.8ms end=30.8ms solve=1854.4ms
+lattice set whole time:4.814043457 sec
+lattice set whole time:2.025551514 sec
