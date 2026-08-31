@@ -1,0 +1,197 @@
+#pragma once
+
+#include <kernels/dslash_wilson.cuh>
+
+namespace quda
+{
+
+  template <typename Float, int nColor, int nDim, typename DDArg, QudaReconstructType reconstruct_, bool asymmetric_>
+  struct TwistedMassArg : WilsonArg<Float, nColor, nDim, DDArg, reconstruct_> {
+    typedef typename mapper<Float>::type real;
+    static constexpr bool asymmetric = asymmetric_; /** whether we are applying the asymmetric operator or not */
+    real a;          /** this is the scaling factor */
+    real b;          /** this is the twist factor */
+    real c;          /** dummy parameter to allow us to reuse applyWilsonTM for non-degenerate operator */
+    real a_inv;      /** inverse scaling factor - used to allow early xpay inclusion */
+    real b_inv;      /** inverse twist factor - used to allow early xpay inclusion */
+
+    TwistedMassArg(cvector_ref<ColorSpinorField> &out, cvector_ref<const ColorSpinorField> &in,
+                   const ColorSpinorField &halo, const GaugeField &U, double a, double b, bool xpay,
+                   cvector_ref<const ColorSpinorField> &x, int parity, bool dagger, const int *comm_override) :
+      WilsonArg<Float, nColor, nDim, DDArg, reconstruct_>(out, in, halo, U, xpay ? 1.0 : 0.0, x, parity, dagger,
+                                                          comm_override),
+      a(a),
+      b(dagger ? -b : b), // if dagger flip the twist
+      c(0.0),
+      a_inv(1.0 / (a * (1 + b * b))),
+      b_inv(dagger ? b : -b)
+    {
+      // set parameters for twisting in the packing kernel
+      if (dagger && !asymmetric) {
+        DslashArg<Float, nDim, DDArg>::twist_a = this->a;
+        DslashArg<Float, nDim, DDArg>::twist_b = this->b;
+      }
+    }
+  };
+
+  /**
+     @brief Applies the off-diagonal part of the Wilson operator
+     premultiplied by twist rotation - this is required for applying
+     the symmetric preconditioned twisted-mass dagger operator.
+
+     @param[out] out The out result field
+     @param[in,out] arg Parameter struct
+     @param[in] coord Site coordinate struct
+     @param[in] s Fifth-dimension index
+     @param[in] parity Site parity
+     @param[in] idx Thread index (equal to face index for exterior kernels)
+     @param[in] thread_dim Which dimension this thread corresponds to (fused exterior only)
+  */
+  template <bool dagger, int twist, KernelType kernel_type, typename Coord, typename Arg, typename Vector>
+  __device__ __host__ __forceinline__ void applyWilsonTM(Vector &out, const Arg &arg, Coord &coord, int parity, int idx,
+                                                         int thread_dim, bool &active, int src_idx)
+  {
+    static_assert(twist == 1 || twist == 2, "twist template must equal 1 or 2"); // ensure singlet or doublet
+    typedef typename mapper<typename Arg::Float>::type real;
+    typedef ColorSpinor<real, Arg::nColor, 2> HalfVector;
+    typedef Matrix<complex<real>, Arg::nColor> Link;
+    const int their_spinor_parity = arg.nParity == 2 ? 1 - parity : 0;
+
+#pragma unroll
+    for (int d = 0; d < Arg::nDim; d++) { // loop over dimension
+      // Forward gather - compute fwd offset for vector fetch
+      if (arg.dd_in.doHopping(coord, d, +1)) {
+        const int fwd_idx = getNeighborIndexCB(coord, d, +1, arg.dc);
+        constexpr int proj_dir = dagger ? +1 : -1;
+        const bool ghost = coord.in_boundary[1][d] & isActive<kernel_type>(active, thread_dim, d, coord, arg);
+
+        if (doHalo<kernel_type>(d) && ghost) {
+          // we need to compute the face index if we are updating a face that isn't ours
+          const int ghost_idx = (kernel_type == EXTERIOR_KERNEL_ALL && d != thread_dim) ?
+            ghostFaceIndex<1, Arg::nDim>(coord, arg.dc.X, d, arg.nFace) :
+            idx;
+
+          Link U = arg.U(d, coord.x_cb, parity);
+          HalfVector in = arg.halo.Ghost(d, 1, ghost_idx + (src_idx * arg.Ls + coord.s) * arg.dc.ghostFaceCB[d],
+                                         their_spinor_parity);
+
+          out += (U * in).reconstruct(d, proj_dir);
+        } else if (doBulk<kernel_type>() && !ghost) {
+
+          Link U = arg.U(d, coord.x_cb, parity);
+          Vector in;
+          if (twist == 1) {
+            in = arg.in[src_idx](fwd_idx + coord.s * arg.dc.volume_4d_cb, their_spinor_parity);
+            in = arg.a * (in + arg.b * in.igamma(4)); // apply A^{-1} to in
+          } else {                                    // twisted doublet
+            Vector in0 = arg.in[src_idx](fwd_idx + 0 * arg.dc.volume_4d_cb, their_spinor_parity);
+            Vector in1 = arg.in[src_idx](fwd_idx + 1 * arg.dc.volume_4d_cb, their_spinor_parity);
+            if (coord.s == 0)
+              in = arg.a * (in0 + arg.b * in0.igamma(4) + arg.c * in1);
+            else
+              in = arg.a * (in1 - arg.b * in1.igamma(4) + arg.c * in0);
+          }
+
+          out += (U * in.project(d, proj_dir)).reconstruct(d, proj_dir);
+        }
+      }
+
+      // Backward gather - compute back offset for spinor and gauge fetch
+      if (arg.dd_in.doHopping(coord, d, -1)) {
+        const int back_idx = getNeighborIndexCB(coord, d, -1, arg.dc);
+        const int gauge_idx = back_idx;
+        constexpr int proj_dir = dagger ? -1 : +1;
+        const bool ghost = coord.in_boundary[0][d] & isActive<kernel_type>(active, thread_dim, d, coord, arg);
+
+        if (doHalo<kernel_type>(d) && ghost) {
+          // we need to compute the face index if we are updating a face that isn't ours
+          const int ghost_idx = (kernel_type == EXTERIOR_KERNEL_ALL && d != thread_dim) ?
+            ghostFaceIndex<0, Arg::nDim>(coord, arg.dc.X, d, arg.nFace) :
+            idx;
+
+          Link U = arg.U.Ghost(d, ghost_idx, 1 - parity);
+          HalfVector in = arg.halo.Ghost(d, 0, ghost_idx + (src_idx * arg.Ls + coord.s) * arg.dc.ghostFaceCB[d],
+                                         their_spinor_parity);
+
+          out += (conj(U) * in).reconstruct(d, proj_dir);
+        } else if (doBulk<kernel_type>() && !ghost) {
+
+          Link U = arg.U(d, gauge_idx, 1 - parity);
+          Vector in;
+          if (twist == 1) {
+            in = arg.in[src_idx](back_idx + coord.s * arg.dc.volume_4d_cb, their_spinor_parity);
+            in = arg.a * (in + arg.b * in.igamma(4)); // apply A^{-1} to in
+          } else {                                    // twisted doublet
+            Vector in0 = arg.in[src_idx](back_idx + 0 * arg.dc.volume_4d_cb, their_spinor_parity);
+            Vector in1 = arg.in[src_idx](back_idx + 1 * arg.dc.volume_4d_cb, their_spinor_parity);
+            if (coord.s == 0)
+              in = arg.a * (in0 + arg.b * in0.igamma(4) + arg.c * in1);
+            else
+              in = arg.a * (in1 - arg.b * in1.igamma(4) + arg.c * in0);
+          }
+
+          out += (conj(U) * in.project(d, proj_dir)).reconstruct(d, proj_dir);
+        }
+      }
+    } // nDim
+  }
+
+  template <bool dagger, bool xpay, KernelType kernel_type, typename Arg>
+  struct twistedMassPreconditioned : dslash_default {
+
+    const Arg &arg;
+    template <typename Ftor> constexpr twistedMassPreconditioned(const Ftor &ftor) : arg(ftor.arg) { }
+    static constexpr const char *filename() { return KERNEL_FILE; } // this file name - used for run-time compilation
+    constexpr int twist_pack() const { return (!Arg::asymmetric && dagger) ? 1 : 0; }
+
+    /**
+       @brief Apply the preconditioned twisted-mass dslash
+       - no xpay: out(x) = M*in = a*(1+i*b*gamma_5)D * in
+       - with xpay:  out(x) = M*in = x + a*(1+i*b*gamma_5)D * in
+    */
+    template <KernelType mykernel_type = kernel_type>
+    __device__ __host__ __forceinline__ void operator()(int idx, int src_idx, int parity)
+    {
+      typedef typename mapper<typename Arg::Float>::type real;
+      typedef ColorSpinor<real, Arg::nColor, 4> Vector;
+
+      bool active
+        = mykernel_type == EXTERIOR_KERNEL_ALL ? false : true; // is thread active (non-trival for fused kernel only)
+      int thread_dim;                                        // which dimension is thread working on (fused kernel only)
+      auto coord = getCoords<QUDA_4D_PC, mykernel_type>(arg, idx, 0, parity, thread_dim);
+
+      const int my_spinor_parity = arg.nParity == 2 ? parity : 0;
+
+      Vector out;
+      if (arg.dd_out.isZero(coord)) {
+        if (mykernel_type != EXTERIOR_KERNEL_ALL || active) arg.out[src_idx](coord.x_cb, my_spinor_parity) = out;
+        return;
+      }
+
+      if (!dagger || Arg::asymmetric) // defined in dslash_wilson.cuh
+        applyWilson<dagger, mykernel_type>(out, arg, coord, parity, idx, thread_dim, active, src_idx);
+      else // special dslash for symmetric dagger
+        applyWilsonTM<dagger, 1, mykernel_type>(out, arg, coord, parity, idx, thread_dim, active, src_idx);
+
+      if (xpay && mykernel_type == INTERIOR_KERNEL && !arg.dd_x.isZero(coord)) {
+        Vector x = arg.x[src_idx](coord.x_cb, my_spinor_parity);
+        if (!dagger || Arg::asymmetric) {
+          out += arg.a_inv * (x + arg.b_inv * x.igamma(4)); // apply inverse twist which is undone below
+        } else {
+          out += x; // just directly add since twist already applied in the dslash
+        }
+      } else if (mykernel_type != INTERIOR_KERNEL && active) {
+        // if we're not the interior kernel, then we must sum the partial
+        Vector x = arg.out[src_idx](coord.x_cb, my_spinor_parity);
+        out += x;
+      }
+
+      if (isComplete<mykernel_type>(arg, coord) && active) {
+        if (!dagger || Arg::asymmetric) out = arg.a * (out + arg.b * out.igamma(4)); // apply A^{-1} to D*in
+      }
+
+      if (mykernel_type != EXTERIOR_KERNEL_ALL || active) arg.out[src_idx](coord.x_cb, my_spinor_parity) = out;
+    }
+  };
+
+} // namespace quda
