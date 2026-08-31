@@ -237,6 +237,20 @@ def applyMultigridStrictMatPCQcu(
     """Apply ``I-Hhat_pq Hhat_qp`` on ``[E,X,Y,Z,T/2]``."""
     ...
 
+def applyMultigridStrictFineMatPCQcu(
+    fermion_out: torch.Tensor, fermion_in: torch.Tensor,
+    gauge: torch.Tensor, clover_ee: torch.Tensor, clover_oo: torch.Tensor,
+    clover_ee_inv: torch.Tensor, clover_oo_inv: torch.Tensor,
+    set_ptrs: torch.Tensor, params: torch.Tensor, parity: int,
+) -> None:
+    """Apply normalized fine ``A_p^-1(A_p-kappa^2 H_pq A_q^-1 H_qp)``.
+
+    Both target parities are supported.  This entry is a fine-operator
+    diagnostic/validation primitive; the production fused solver uses the
+    same operation internally.
+    """
+    ...
+
 def applyMultigridStrictPrepareQcu(
     fermion_out: torch.Tensor, full_rhs: torch.Tensor,
     preconditioned_links: torch.Tensor, onsite_pair: torch.Tensor,
@@ -294,6 +308,30 @@ def applyMultigridStrictEndQcu(
     set_ptrs: torch.Tensor, params: torch.Tensor,
 ) -> None:
     """Release the reusable strict hierarchy before ``applyEndQcu``."""
+    ...
+
+def applyMultigridStrictFgmresQcu(
+    full_out: torch.Tensor, full_rhs: torch.Tensor, gauge: torch.Tensor,
+    clover_ee: torch.Tensor, clover_oo: torch.Tensor,
+    clover_ee_inv: torch.Tensor, clover_oo_inv: torch.Tensor,
+    fine_null_vectors: torch.Tensor, set_ptrs: torch.Tensor,
+    params: torch.Tensor, restart: int, max_iter: int, tolerance: float,
+    nu_pre: int = 1, nu_post: int = 1,
+    max_workspace_bytes: Optional[int] = 536870912,
+) -> dict[str, int | bool | float]:
+    """Run fused single-rank strict restarted right-FGMRES.
+
+    ``full_out/full_rhs`` use ``[2,4,3,X,Y,Z,T/2]`` parity layout.  The
+    target parity is selected by ``params[9]`` and the fine action is the
+    normalized Clover MATPC operator on that parity.  With ``params[57] == 1``,
+    the selected target-parity half of ``full_out`` is the warm initial guess.
+    The slot-80 hierarchy must already be initialized.
+
+    Returns ``iterations``, ``converged``, ``final_true_residual`` and the
+    exact persistent fused-workspace ``allocated_bytes``.  Device storage is
+    ``(2*restart+5)`` compact fine vectors plus two full first-coarse fields;
+    the separately allocated recursive hierarchy is excluded.
+    """
     ...
 
 def applyCloverMultigridQcu(

@@ -10,6 +10,7 @@ Examples::
     python examples/qcu/dev87/run_strict_fast.py --list
     python examples/qcu/dev87/run_strict_fast.py
     python examples/qcu/dev87/run_strict_fast.py --tier 1 --fail-fast
+    python examples/qcu/dev87/run_strict_fast.py --only cpu-smoke --fail-fast
     python examples/qcu/dev87/run_strict_fast.py --tier 1 --json result.json
 
 Human progress and child output go to stderr.  Unless ``--json`` names a
@@ -40,10 +41,17 @@ from typing import Sequence
 HERE = Path(__file__).resolve().parent
 REPO_ROOT = HERE.parents[2]
 ENV_SH = REPO_ROOT / "env.sh"
+QUDA_ENV_SH = HERE / "quda_env.sh"
 JSON_CAPTURE_CHARS = 20_000
 
 CPU_TEST = "examples/pyqcu/test_quda_multigrid.py"
 CUDA_TEST = "examples/qcu/dev87/test_quda_transfer_cuda.py"
+FUSED_CUDA_TEST = "examples/qcu/dev87/test_strict_fused_cuda.py"
+GALERKIN_TEST = "examples/qcu/dev87/test_strict_galerkin_fast.py"
+STRICT_BENCH = "examples/qcu/dev87/bench_strict_vs_quda.py"
+STRICT_BENCH_OUTPUT = "examples/qcu/dev87/out/strict_vs_quda_benchmark.json"
+STRICT_QUDA_NULLVEC = "data/L16x32x32x48_nvec12_quda_level_0_nvec_12"
+STRICT_QUDA_MANIFEST = "data/L16x32x32x48_nvec12_quda.conversion.json"
 
 
 @dataclass(frozen=True)
@@ -82,13 +90,24 @@ COMMANDS = (
         name="cpu-smoke",
         tier=0,
         description=(
-            "11 sub-second CPU checks for exports, FGMRES edge cases, "
-            "parity transfer/MATPC, strict assets/layouts and matrix-free mode"
+            "19 focused CPU checks for gamma basis, exports, FGMRES edge cases, strict "
+            "mode/geometry guards, "
+            "parity transfer/MATPC, strict assets/layouts, matrix-free mode and "
+            "colored Galerkin batching"
         ),
         argv=_pytest(
+            _node(CPU_TEST, "test_pyqcu_gamma_basis_matches_quda_degrand_rossi_table"),
             _node(CPU_TEST, "test_new_and_legacy_multigrid_are_parallel_exports"),
             _node(CPU_TEST, "test_fgmres_zero_rhs_stops_without_nan"),
             _node(CPU_TEST, "test_fgmres_breakdown_keeps_singular_case_finite"),
+            _node(
+                CPU_TEST,
+                "test_complex_givens_is_unitary_under_phase_cancellation",
+            ),
+            _node(
+                CPU_TEST,
+                "test_strict_rejects_unimplemented_modes_and_odd_coarse_extent",
+            ),
             _node(
                 CPU_TEST,
                 "test_single_parity_transfer_is_adjoint_and_keeps_full_coarse_geometry",
@@ -96,6 +115,14 @@ COMMANDS = (
             _node(
                 CPU_TEST,
                 "test_quda_matpc_matches_left_preconditioned_block_elimination",
+            ),
+            _node(
+                CPU_TEST,
+                "test_transfer_galerkin_and_quda_yhat_conventions",
+            ),
+            _node(
+                CPU_TEST,
+                "test_strict_quda_hierarchy_coarsens_full_preconditioned_operator",
             ),
             _node(
                 CPU_TEST,
@@ -118,6 +145,18 @@ COMMANDS = (
                 "test_compact_parity_layout_roundtrip_matches_qcu_mapping",
             ),
             _node(CPU_TEST, "test_matrix_free_mode_keeps_coarse_operator_lazy"),
+            _node(
+                GALERKIN_TEST,
+                "test_strict_galerkin_fast_matches_columns_assets_and_matpc",
+            ),
+            _node(
+                GALERKIN_TEST,
+                "test_colored_memory_model_bounds_large_e48_block4_geometry_workspace",
+            ),
+            _node(
+                GALERKIN_TEST,
+                "test_e24_formal_geometry_workspace_tradeoff_is_exact",
+            ),
         ),
         timeout_s=45.0,
         kind="pytest",
@@ -128,8 +167,8 @@ COMMANDS = (
         tier=1,
         description=(
             "CUDA P/R, 33-point stencil, strict X/Y/Yhat, MATPC, prepare and "
-            "reconstruct primitives, persistent recursive V-cycle and bounded "
-            "complete solve"
+            "reconstruct primitives, nontrivial Clover MATPC on both parities, "
+            "persistent recursive V-cycle and bounded complete solve"
         ),
         argv=_pytest(
             _node(
@@ -142,15 +181,19 @@ COMMANDS = (
             ),
             _node(
                 CUDA_TEST,
-                "test_quda_strict_recursive_vcycle_matches_reference_and_arena[1]",
-            ),
-            _node(
-                CUDA_TEST,
-                "test_quda_strict_recursive_vcycle_matches_reference_and_arena[2]",
+                "test_quda_strict_recursive_vcycle_matches_reference_and_arena",
             ),
             _node(
                 CUDA_TEST,
                 "test_fine_clover_prepare_and_reconstruct_match_existing_solver",
+            ),
+            _node(
+                CUDA_TEST,
+                "test_strict_fine_matpc_nontrivial_clover_matches_python_both_parities",
+            ),
+            _node(
+                CUDA_TEST,
+                "test_strict_fused_nontrivial_clover_matches_python_matpc_both_parities",
             ),
             _node(
                 CUDA_TEST,
@@ -162,22 +205,58 @@ COMMANDS = (
         requirement="CUDA device and importable libqcu/Cython backend",
     ),
     CommandSpec(
+        name="cuda-fused-fgmres",
+        tier=1,
+        description=(
+            "Fused C++ right-FGMRES integration, persistent workspace reuse, "
+            "warm x0, budget/descriptor guards and complex128 dispatch"
+        ),
+        argv=_pytest(
+            _node(
+                FUSED_CUDA_TEST,
+                "test_strict_fused_solver_api_reuses_arena_and_warm_x0",
+            ),
+            _node(
+                FUSED_CUDA_TEST,
+                "test_strict_fused_fgmres_rejects_budget_restart_shape_and_dtype",
+            ),
+            _node(
+                FUSED_CUDA_TEST,
+                "test_strict_fused_fgmres_complex128_dispatch_and_residual",
+            ),
+        ),
+        timeout_s=120.0,
+        kind="pytest",
+        requirement="CUDA device and rebuilt libqcu/Cython fused-FGMRES ABI",
+    ),
+    CommandSpec(
         name="real-gauge-quda-comparison",
         tier=2,
         description=(
-            "canonical dev87 real-gauge QCU solve/MG and external QUDA/PyQUDA "
-            "scaled-solution comparison"
+            "canonical dev87 real-gauge Strict PyQCU solve/MG and external "
+            "QUDA/PyQUDA scaled-solution comparison"
         ),
         argv=(
             sys.executable,
-            "examples/qcu/dev87/run_all.py",
-            "--with-quda",
+            STRICT_BENCH,
+            "--profile",
+            "formal",
+            "--side",
+            "both",
+            "--cache-expect",
+            "hit",
+            "--quda-nullvec-prefix",
+            STRICT_QUDA_NULLVEC,
+            "--quda-nullvec-manifest",
+            STRICT_QUDA_MANIFEST,
+            "--output",
+            STRICT_BENCH_OUTPUT,
         ),
         timeout_s=1_200.0,
-        kind="script",
+        kind="benchmark",
         requirement=(
-            "CUDA, dev87 real gauge data, QUDA/PyQUDA, and QUDA runtime libraries; "
-            "the existing run_all.py writes its documented dev87 artifacts"
+            "CUDA, dev87 real gauge/null-vector data, Strict runtime cache, "
+            "QUDA/PyQUDA and QUDA runtime libraries"
         ),
     ),
 )
@@ -206,6 +285,16 @@ def _parser() -> argparse.ArgumentParser:
         choices=(0, 1, 2),
         default=0,
         help="highest cumulative tier to run (default: 0)",
+    )
+    parser.add_argument(
+        "--only",
+        action="append",
+        choices=tuple(spec.name for spec in COMMANDS),
+        metavar="GATE",
+        help=(
+            "run only the named gate; repeat for multiple gates and bypass cumulative "
+            "selection; tier2 still requires --tier 2 (use --list to see names)"
+        ),
     )
     parser.add_argument(
         "--list",
@@ -249,6 +338,10 @@ def _list_commands() -> None:
         print(f"  requires: {spec.requirement}")
         print(f"  command: {shlex.join(spec.argv)}")
     print("\n--timeout SECONDS overrides the timeout separately for every command.")
+    print(
+        "--only GATE runs one named gate without cumulative tier selection; "
+        "repeat it for multiple gates."
+    )
 
 
 def _effective_argv(spec: CommandSpec, fail_fast: bool) -> list[str]:
@@ -259,8 +352,21 @@ def _effective_argv(spec: CommandSpec, fail_fast: bool) -> list[str]:
     return argv
 
 
-def _env_wrapped_argv(argv: Sequence[str]) -> list[str]:
+def _env_wrapped_argv(
+    argv: Sequence[str], *, source_quda_env: bool = False
+) -> list[str]:
     # Positional forwarding avoids interpolating paths or node ids into shell code.
+    if source_quda_env:
+        script = 'set -e\nsource "$1"\nshift\nsource "$1"\nshift\nexec "$@"'
+        return [
+            "bash",
+            "-c",
+            script,
+            "strict-fast-env",
+            str(ENV_SH),
+            str(QUDA_ENV_SH),
+            *argv,
+        ]
     script = 'set -e\nsource "$1"\nshift\nexec "$@"'
     return [
         "bash",
@@ -357,7 +463,7 @@ def _run_command(
 
     try:
         process = subprocess.Popen(
-            _env_wrapped_argv(argv),
+            _env_wrapped_argv(argv, source_quda_env=spec.kind == "benchmark"),
             cwd=REPO_ROOT,
             env=child_env,
             stdout=subprocess.PIPE,
@@ -410,6 +516,10 @@ def _run_command(
     # rc=4 ("no collectors") even though its summary is unambiguously skipped.
     # Keep real missing-node errors fatal whenever the module can be collected.
     elif pytest_all_skipped:
+        status = "skipped"
+    elif spec.kind == "benchmark" and returncode == 2:
+        # bench_strict_vs_quda reserves rc=2 for an explicit environment/input
+        # skip.  Do not turn that into a false pass in the aggregate gate.
         status = "skipped"
     elif returncode != 0:
         status = "failed"
@@ -492,20 +602,37 @@ def _write_json(summary: dict[str, object], destination: str) -> None:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    args = _parser().parse_args(argv)
+    parser = _parser()
+    args = parser.parse_args(argv)
     if args.list_only:
         _list_commands()
         return 0
 
-    selected = [spec for spec in COMMANDS if spec.tier <= args.tier]
+    if args.only:
+        selected_names = set(args.only)
+        selected = [spec for spec in COMMANDS if spec.name in selected_names]
+        selection_mode = "only"
+    else:
+        selected = [spec for spec in COMMANDS if spec.tier <= args.tier]
+        selection_mode = "tier"
+
+    if args.only and args.tier != 2 and any(spec.tier == 2 for spec in selected):
+        parser.error(
+            "--only 选择 tier 2 gate 时必须显式传入 --tier 2"
+        )
+
     started_at = datetime.now(timezone.utc).isoformat()
     started = time.perf_counter()
     results: list[dict[str, object]] = []
     stop_reason: str | None = None
 
     print(
-        f"QUDA-strict fast gate: cumulative tier0..tier{args.tier}, "
-        f"{len(selected)} command(s); env={ENV_SH}",
+        (
+            f"QUDA-strict fast gate: only={','.join(args.only)}"
+            if args.only
+            else f"QUDA-strict fast gate: cumulative tier0..tier{args.tier}"
+        )
+        + f", {len(selected)} command(s); env={ENV_SH}",
         file=sys.stderr,
         flush=True,
     )
@@ -537,6 +664,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     total_s = time.perf_counter() - started
     statuses = [str(result["status"]) for result in results]
     failed = any(status in {"failed", "timeout"} for status in statuses)
+    skipped = any(status in {"skipped", "not_run"} for status in statuses)
     if not ENV_SH.is_file():
         failed = True
     status_counts = {
@@ -549,14 +677,17 @@ def main(argv: Sequence[str] | None = None) -> int:
         "repo_root": str(REPO_ROOT),
         "environment_script": str(ENV_SH),
         "tier_semantics": "cumulative",
+        "selection_mode": selection_mode,
         "requested_tier": args.tier,
-        "selected_tiers": list(range(args.tier + 1)),
+        "selected_tiers": sorted({spec.tier for spec in selected}),
+        "selected_names": [spec.name for spec in selected],
+        "only": list(args.only or []),
         "fail_fast": args.fail_fast,
         "timeout_override_s": args.timeout,
         "started_at_utc": started_at,
         "finished_at_utc": datetime.now(timezone.utc).isoformat(),
         "total_s": round(total_s, 3),
-        "outcome": "failed" if failed else "passed",
+        "outcome": "failed" if failed else "skipped" if skipped else "passed",
         "status_counts": status_counts,
         "stop_reason": stop_reason,
         "machine": {
@@ -582,7 +713,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     except OSError as exc:
         print(f"[FAIL] cannot write JSON output: {exc}", file=sys.stderr)
         return 2
-    return 1 if failed else 0
+    if failed:
+        return 1
+    return 2 if skipped else 0
 
 
 if __name__ == "__main__":

@@ -1,6 +1,7 @@
 from qcu_api cimport applyInitQcu as _c_applyInitQcu, applyEndQcu as _c_applyEndQcu, testWilsonDslashQcu as _c_testWilsonDslashQcu, applyWilsonDslashQcu as _c_applyWilsonDslashQcu, testCloverDslashQcu as _c_testCloverDslashQcu, applyCloverDslashQcu as _c_applyCloverDslashQcu, applyWilsonBistabCgQcu as _c_applyWilsonBistabCgQcu, applyWilsonBistabCgDslashQcu as _c_applyWilsonBistabCgDslashQcu, applyWilsonCgQcu as _c_applyWilsonCgQcu, applyWilsonCgDslashQcu as _c_applyWilsonCgDslashQcu, applyLaplacianQcu as _c_applyLaplacianQcu, applyCloverQcu as _c_applyCloverQcu, applyCloversQcu as _c_applyCloversQcu, applyDslashQcu as _c_applyDslashQcu, applyGaussGaugeQcu as _c_applyGaussGaugeQcu, applyCloverBistabCgQcu as _c_applyCloverBistabCgQcu, applyCloverBistabCgDslashQcu as _c_applyCloverBistabCgDslashQcu, applyMultigridRestrictQcu as _c_applyMultigridRestrictQcu, applyMultigridProLongQcu as _c_applyMultigridProLongQcu, applyMultigridCoarseDslashQcu as _c_applyMultigridCoarseDslashQcu, applyMultigridCoarseDslashWideQcu as _c_applyMultigridCoarseDslashWideQcu, applyCloverMultigridQcu as _c_applyCloverMultigridQcu, verifyCloverMultigridQcu as _c_verifyCloverMultigridQcu
-from qcu_api cimport applyMultigridStrictCoarseQcu as _c_applyMultigridStrictCoarseQcu, applyMultigridStrictMatPCQcu as _c_applyMultigridStrictMatPCQcu, applyMultigridStrictPrepareQcu as _c_applyMultigridStrictPrepareQcu, applyMultigridStrictReconstructQcu as _c_applyMultigridStrictReconstructQcu, applyMultigridStrictRestrictQcu as _c_applyMultigridStrictRestrictQcu, applyMultigridStrictProLongQcu as _c_applyMultigridStrictProLongQcu, applyMultigridStrictVCycleQcu as _c_applyMultigridStrictVCycleQcu, applyMultigridStrictInitQcu as _c_applyMultigridStrictInitQcu, applyMultigridStrictEndQcu as _c_applyMultigridStrictEndQcu
+from qcu_api cimport applyMultigridStrictCoarseQcu as _c_applyMultigridStrictCoarseQcu, applyMultigridStrictMatPCQcu as _c_applyMultigridStrictMatPCQcu, applyMultigridStrictFineMatPCQcu as _c_applyMultigridStrictFineMatPCQcu, applyMultigridStrictPrepareQcu as _c_applyMultigridStrictPrepareQcu, applyMultigridStrictReconstructQcu as _c_applyMultigridStrictReconstructQcu, applyMultigridStrictRestrictQcu as _c_applyMultigridStrictRestrictQcu, applyMultigridStrictProLongQcu as _c_applyMultigridStrictProLongQcu, applyMultigridStrictVCycleQcu as _c_applyMultigridStrictVCycleQcu, applyMultigridStrictInitQcu as _c_applyMultigridStrictInitQcu, applyMultigridStrictEndQcu as _c_applyMultigridStrictEndQcu, applyMultigridStrictFgmresQcu as _c_applyMultigridStrictFgmresQcu
 from qcu_api cimport applyCloverBistabCgPrepareQcu as _c_applyCloverBistabCgPrepareQcu, applyCloverBistabCgReconstructQcu as _c_applyCloverBistabCgReconstructQcu
+import torch
 # 多线程多卡（一线程一卡）约定：
 #   * 所有桥函数在 GIL 段提取张量指针（.contiguous().data_ptr()），
 #     随后 with nogil 释放 GIL 调用 C++ 后端 —— 多线程可真正并行进入
@@ -304,6 +305,44 @@ def applyMultigridStrictMatPCQcu(_fermion_out, _fermion_in, _links, _scratch, _s
         status = _c_applyMultigridStrictMatPCQcu(fermion_out, fermion_in, links, scratch, set_ptrs, params, E, X, Y, Z, T, parity)
     if status != 0:
         raise RuntimeError("applyMultigridStrictMatPCQcu failed")
+def applyMultigridStrictFineMatPCQcu(_fermion_out, _fermion_in, _gauge, _clover_ee, _clover_oo, _clover_ee_inv, _clover_oo_inv, _set_ptrs, _params, int parity):
+    """Apply the normalized fine Clover MATPC action for either target parity."""
+    cdef long long fermion_out, fermion_in, gauge, clover_ee, clover_oo, clover_ee_inv, clover_oo_inv, set_ptrs, params
+    cdef int X, Y, Z, T, status
+    if _fermion_in.ndim != 5 or tuple(_fermion_out.shape) != tuple(_fermion_in.shape):
+        raise ValueError("strict fine MATPC fields must share shape [12,X,Y,Z,T/2]")
+    if int(_fermion_in.shape[0]) != 12:
+        raise ValueError("strict fine MATPC requires 12 fine components")
+    if parity not in (0, 1):
+        raise ValueError("strict fine MATPC parity must be 0 or 1")
+    X, Y, Z = [int(value) for value in _fermion_in.shape[1:4]]
+    T = 2 * int(_fermion_in.shape[4])
+    expected_gauge = (2, 3, 3, 4, X, Y, Z, T // 2)
+    expected_clover = (4, 3, 4, 3, X, Y, Z, T // 2)
+    if tuple(_gauge.shape) != expected_gauge:
+        raise ValueError("strict fine MATPC gauge must have parity-split shape")
+    if any(tuple(value.shape) != expected_clover for value in
+           (_clover_ee, _clover_oo, _clover_ee_inv, _clover_oo_inv)):
+        raise ValueError("strict fine MATPC Clover tensors have invalid shape")
+    if not all(value.is_contiguous() for value in
+               (_fermion_out, _fermion_in, _gauge, _clover_ee, _clover_oo,
+                _clover_ee_inv, _clover_oo_inv, _set_ptrs, _params)):
+        raise ValueError("strict fine MATPC tensors must be contiguous")
+    fermion_out = _fermion_out.data_ptr()
+    fermion_in = _fermion_in.data_ptr()
+    gauge = _gauge.data_ptr()
+    clover_ee = _clover_ee.data_ptr()
+    clover_oo = _clover_oo.data_ptr()
+    clover_ee_inv = _clover_ee_inv.data_ptr()
+    clover_oo_inv = _clover_oo_inv.data_ptr()
+    set_ptrs = _set_ptrs.data_ptr()
+    params = _params.data_ptr()
+    with nogil:
+        status = _c_applyMultigridStrictFineMatPCQcu(
+            fermion_out, fermion_in, gauge, clover_ee, clover_oo,
+            clover_ee_inv, clover_oo_inv, set_ptrs, params, parity)
+    if status != 0:
+        raise RuntimeError("applyMultigridStrictFineMatPCQcu failed")
 def applyMultigridStrictPrepareQcu(_fermion_out, _full_rhs, _links, _onsite_pair, _scratch, _set_ptrs, _params, int parity):
     """Prepare ``X_p^-1(b_p-H_pq X_q^-1 b_q)`` from a full rhs."""
     cdef long long fermion_out, full_rhs, links, onsite_pair, scratch, set_ptrs, params
@@ -476,6 +515,158 @@ def applyMultigridStrictEndQcu(_set_ptrs, _params):
         status = _c_applyMultigridStrictEndQcu(set_ptrs, params)
     if status != 0:
         raise RuntimeError("applyMultigridStrictEndQcu failed")
+def applyMultigridStrictFgmresQcu(
+        _full_out, _full_rhs, _gauge, _clover_ee, _clover_oo,
+        _clover_ee_inv, _clover_oo_inv, _fine_null_vectors,
+        _set_ptrs, _params, int restart, int max_iter, double tolerance,
+        int nu_pre=1, int nu_post=1, max_workspace_bytes=536870912):
+    """Run one fused strict fine-grid restarted right-FGMRES solve.
+
+    ``full_out`` and ``full_rhs`` use parity-split
+    ``[2,4,3,X,Y,Z,T/2]`` layout.  ``params[9]`` selects the target parity;
+    the fine action is the normalized Clover MATPC operator on that parity.
+    If ``params[57]`` is one, the selected target-parity half of ``full_out``
+    is consumed as the warm initial guess before the complete even/odd
+    solution is reconstructed in place.  The slot-80 strict hierarchy must
+    already have been initialized.
+
+    The returned mapping contains ``iterations``, ``converged``,
+    ``final_true_residual`` and the exact persistent fused-workspace
+    ``allocated_bytes``.  The latter is
+    ``((2*restart+5)*Nfine + 2*Ncoarse) * element_size`` and excludes the
+    separately reported coarse-hierarchy allocation.
+    """
+    cdef long long full_out, full_rhs, gauge, clover_ee, clover_oo
+    cdef long long clover_ee_inv, clover_oo_inv, fine_null_vectors
+    cdef long long set_ptrs, params
+    cdef int fine_E, fine_X, fine_Y, fine_Z, fine_T
+    cdef int coarse_E, coarse_X, coarse_Y, coarse_Z, coarse_T
+    cdef int element_bytes, iterations = 0, converged = 0, status
+    cdef double final_true_residual = 0.0
+    cdef unsigned long long budget, allocated_bytes = 0
+    cdef object data_fields, reference_dtype, reference_device
+    cdef object expected_gauge, expected_clover, expected_fine
+    cdef object budget_value, required_bytes
+
+    if _full_rhs.ndim != 7 or tuple(_full_rhs.shape[:3]) != (2, 4, 3):
+        raise ValueError(
+            "strict FGMRES full fields must have shape [2,4,3,X,Y,Z,T/2]")
+    if tuple(_full_out.shape) != tuple(_full_rhs.shape):
+        raise ValueError("strict FGMRES output/rhs shapes must match")
+    fine_E = 12
+    fine_X = int(_full_rhs.shape[3])
+    fine_Y = int(_full_rhs.shape[4])
+    fine_Z = int(_full_rhs.shape[5])
+    fine_T = 2 * int(_full_rhs.shape[6])
+    if (fine_X <= 0 or fine_Y <= 0 or fine_Z <= 0 or fine_T <= 0 or
+            fine_X % 2 or fine_Y % 2 or fine_Z % 2 or fine_T % 2):
+        raise ValueError("strict FGMRES requires positive even X/Y/Z/T")
+
+    expected_gauge = (2, 3, 3, 4, fine_X, fine_Y, fine_Z, fine_T // 2)
+    expected_clover = (4, 3, 4, 3, fine_X, fine_Y, fine_Z, fine_T // 2)
+    if tuple(_gauge.shape) != expected_gauge:
+        raise ValueError("strict FGMRES gauge shape is invalid")
+    if not all(tuple(value.shape) == expected_clover for value in
+               (_clover_ee, _clover_oo, _clover_ee_inv, _clover_oo_inv)):
+        raise ValueError("strict FGMRES Clover shapes are invalid")
+
+    if _fine_null_vectors.ndim != 10:
+        raise ValueError("strict FGMRES null vectors require 10-D blocked layout")
+    coarse_E = int(_fine_null_vectors.shape[0])
+    if int(_fine_null_vectors.shape[1]) != fine_E:
+        raise ValueError("strict FGMRES null vectors require 12 fine dof")
+    coarse_X = int(_fine_null_vectors.shape[2])
+    coarse_Y = int(_fine_null_vectors.shape[4])
+    coarse_Z = int(_fine_null_vectors.shape[6])
+    coarse_T = int(_fine_null_vectors.shape[8])
+    expected_fine = (
+        coarse_X * int(_fine_null_vectors.shape[3]),
+        coarse_Y * int(_fine_null_vectors.shape[5]),
+        coarse_Z * int(_fine_null_vectors.shape[7]),
+        coarse_T * int(_fine_null_vectors.shape[9]))
+    if expected_fine != (fine_X, fine_Y, fine_Z, fine_T):
+        raise ValueError("strict FGMRES null-vector geometry mismatches fine field")
+    if (coarse_E <= 0 or coarse_X <= 0 or coarse_Y <= 0 or
+            coarse_Z <= 0 or coarse_T <= 0):
+        raise ValueError("strict FGMRES coarse geometry must be positive")
+
+    data_fields = (_full_out, _full_rhs, _gauge, _clover_ee, _clover_oo,
+                   _clover_ee_inv, _clover_oo_inv, _fine_null_vectors)
+    if not all(value.is_cuda for value in data_fields):
+        raise ValueError("strict FGMRES fields must be CUDA tensors")
+    if not all(value.is_contiguous() for value in data_fields):
+        raise ValueError("strict FGMRES fields must be contiguous")
+    reference_dtype = _full_rhs.dtype
+    reference_device = _full_rhs.device
+    if reference_dtype not in (torch.complex64, torch.complex128):
+        raise ValueError("strict FGMRES supports torch.complex64/complex128")
+    if not all(value.dtype == reference_dtype for value in data_fields):
+        raise ValueError("strict FGMRES fields must share one complex dtype")
+    if not all(value.device == reference_device for value in data_fields):
+        raise ValueError("strict FGMRES fields must share one CUDA device")
+
+    if (_set_ptrs.is_cuda or _params.is_cuda or
+            not _set_ptrs.is_contiguous() or not _params.is_contiguous()):
+        raise ValueError("strict FGMRES controls must be contiguous CPU tensors")
+    if (_set_ptrs.dtype != torch.int64 or _set_ptrs.numel() < 100 or
+            _params.dtype != torch.int32 or _params.numel() < 58):
+        raise ValueError("strict FGMRES requires int64[100]/int32[58] controls")
+    if restart < 1 or max_iter < 1 or restart > max_iter:
+        raise ValueError("strict FGMRES requires 1 <= restart <= max_iter")
+    if not (0.0 < tolerance < 1.0):
+        raise ValueError("strict FGMRES tolerance must be finite and in (0,1)")
+    if nu_pre < 0 or nu_post < 0:
+        raise ValueError("strict FGMRES MR counts must be non-negative")
+
+    element_bytes = int(_full_rhs.element_size())
+    required_bytes = (
+        ((2 * restart + 5) * (_full_rhs.numel() // 2) +
+         2 * coarse_E * coarse_X * coarse_Y * coarse_Z * coarse_T) *
+        element_bytes)
+    if max_workspace_bytes is None:
+        budget = 18446744073709551615
+    else:
+        budget_value = int(max_workspace_bytes)
+        if budget_value <= 0 or budget_value > 18446744073709551615:
+            raise ValueError("strict FGMRES workspace budget is out of range")
+        if required_bytes > budget_value:
+            raise MemoryError(
+                "strict FGMRES workspace budget is insufficient: "
+                f"required={required_bytes}, budget={budget_value}")
+        budget = budget_value
+
+    # LatticeSet owns a non-blocking private CUDA stream.  Make every Torch
+    # producer (including a freshly copied warm x0) visible before that stream
+    # consumes the raw pointers; the C++ entry synchronizes its stream before
+    # returning, so the output side is already safe for Torch consumers.
+    torch.cuda.current_stream(reference_device).synchronize()
+    full_out = _full_out.data_ptr()
+    full_rhs = _full_rhs.data_ptr()
+    gauge = _gauge.data_ptr()
+    clover_ee = _clover_ee.data_ptr()
+    clover_oo = _clover_oo.data_ptr()
+    clover_ee_inv = _clover_ee_inv.data_ptr()
+    clover_oo_inv = _clover_oo_inv.data_ptr()
+    fine_null_vectors = _fine_null_vectors.data_ptr()
+    set_ptrs = _set_ptrs.data_ptr()
+    params = _params.data_ptr()
+    with nogil:
+        status = _c_applyMultigridStrictFgmresQcu(
+            full_out, full_rhs, gauge, clover_ee, clover_oo,
+            clover_ee_inv, clover_oo_inv, fine_null_vectors,
+            set_ptrs, params, fine_E, fine_X, fine_Y, fine_Z, fine_T,
+            coarse_E, coarse_X, coarse_Y, coarse_Z, coarse_T,
+            element_bytes, restart, max_iter, tolerance, nu_pre, nu_post,
+            budget, &iterations, &converged, &final_true_residual,
+            &allocated_bytes)
+    if status != 0:
+        raise RuntimeError("applyMultigridStrictFgmresQcu failed")
+    return {
+        "iterations": int(iterations),
+        "converged": bool(converged),
+        "final_true_residual": float(final_true_residual),
+        "allocated_bytes": int(allocated_bytes),
+    }
 def applyCloverMultigridQcu(_fermion_out, _fermion_in, _gauge, _clover_ee, _clover_oo, _clover_ee_inv, _clover_oo_inv, _set_ptrs, _params):
     cdef long long fermion_out, fermion_in, gauge, clover_ee, clover_oo, clover_ee_inv, clover_oo_inv, set_ptrs, params
     fermion_out = _fermion_out.contiguous().data_ptr()
