@@ -26,12 +26,31 @@ from pyqcu.solver import (
     multigrid,
 )
 from pyqcu.solver._quda_multigrid import _FineOperator
-from pyqcu.solver._gmres import fgmres
+from pyqcu.solver._gmres import _givens_rotation, fgmres
 
 
 DTYPE = torch.complex64
 FINE_SHAPE = (4, 4, 4, 4)
 BLOCK = (2, 2, 2, 2)
+
+
+def test_pyqcu_gamma_basis_matches_quda_degrand_rossi_table():
+    i = 1j
+    expected = torch.tensor([
+        [[0, 0, 0, i], [0, 0, i, 0],
+         [0, -i, 0, 0], [-i, 0, 0, 0]],
+        [[0, 0, 0, -1], [0, 0, 1, 0],
+         [0, 1, 0, 0], [-1, 0, 0, 0]],
+        [[0, 0, i, 0], [0, 0, 0, -i],
+         [-i, 0, 0, 0], [0, i, 0, 0]],
+        [[0, 0, 1, 0], [0, 0, 0, 1],
+         [1, 0, 0, 0], [0, 1, 0, 0]],
+    ], dtype=DTYPE)
+    torch.testing.assert_close(lattice.gamma, expected, rtol=0.0, atol=0.0)
+    expected_gamma5 = torch.diag(torch.tensor(
+        [1, 1, -1, -1], dtype=DTYPE))
+    torch.testing.assert_close(
+        lattice.gamma_5, expected_gamma5, rtol=0.0, atol=0.0)
 
 
 def _random_nulls(seed: int = 123):
@@ -139,6 +158,59 @@ def test_fgmres_breakdown_keeps_singular_case_finite():
         source, lambda value: torch.zeros_like(value), tol=1e-8,
         if_rtol=True, max_iter=2, verbose=False)
     assert torch.isfinite(result).all()
+
+
+def test_complex_givens_is_unitary_under_phase_cancellation():
+    """QUDA norm(a)+norm(b) 旋转不能被 a^2+b^2 的相位抵消击穿。"""
+    H = [[1.0j], [1.0 + 0.0j]]
+    g = [2.0 - 3.0j, 0.0 + 0.0j]
+    cs = [0.0 + 0.0j]
+    sn = [0.0 + 0.0j]
+    source_norm = abs(g[0])
+
+    _givens_rotation(H, g, cs, sn, 0)
+
+    assert H[1][0] == 0.0
+    assert abs(H[0][0] - 2.0**0.5) < 1.0e-14
+    assert abs(abs(cs[0]) ** 2 + abs(sn[0]) ** 2 - 1.0) < 1.0e-14
+    assert abs((abs(g[0]) ** 2 + abs(g[1]) ** 2) ** 0.5 - source_norm) < 1.0e-14
+
+
+def test_strict_rejects_unimplemented_modes_and_odd_coarse_extent():
+    """strict runtime 不得静默接受尚未实现或不可 checkerboard 的层。"""
+    null, _ = _random_nulls(20260874)
+    diagonal = _identity_diagonal(12, FINE_SHAPE)
+    common = dict(
+        fine_matvec=lambda value: value,
+        fine_diagonal=diagonal,
+        lat_size=FINE_SHAPE,
+        null_vectors=[null],
+        dof_list=[12, 4],
+        block_size=BLOCK,
+        max_level=2,
+        setup_iters=0,
+        verbose=False,
+    )
+    with pytest.raises(ValueError, match="仅完整实现全层"):
+        QudaStrictMultigrid(
+            **common, coarse_grid_solution_type="mat",
+            smoother_solve_type="direct")
+
+    odd_shape = (6, 4, 4, 4)
+    odd_null = torch.randn(2, 4, 3, *odd_shape, dtype=DTYPE)
+    odd_diagonal = _identity_diagonal(12, odd_shape)
+    with pytest.raises(ValueError, match="各维 extent 必须为偶数且至少 2"):
+        QudaStrictMultigrid(
+            fine_matvec=lambda value: value,
+            fine_diagonal=odd_diagonal,
+            lat_size=odd_shape,
+            null_vectors=[odd_null],
+            dof_list=[12, 4],
+            block_size=BLOCK,
+            max_level=2,
+            setup_iters=0,
+            verbose=False,
+        )
 
 
 def test_transfer_galerkin_and_quda_yhat_conventions():
@@ -268,6 +340,11 @@ def test_strict_quda_hierarchy_coarsens_full_preconditioned_operator():
     assert [operator.shape for operator in mg.operators] == [
         FINE_SHAPE, (2, 2, 2, 2), (2, 2, 2, 2)]
     assert all(transfer.coarse_spin == 2 for transfer in mg.transfers)
+    assert all(operator.blocks is None for operator in mg.operators[1:])
+    assert all(operator._strict_packed_assets is not None
+               for operator in mg.operators[1:])
+    assert all(stat["effective_probe_mode"] == "site-batch"
+               for stat in mg.strict_setup_stats)
 
     strict_assets = mg.qcu_strict_transition_assets()
     assert len(strict_assets) == 2
@@ -301,6 +378,13 @@ def test_strict_quda_hierarchy_coarsens_full_preconditioned_operator():
     residual = mg.apply(solution) - source
     assert float(torch.linalg.norm(residual)) / float(
         torch.linalg.norm(source)) < 2e-4
+
+    seal_report = mg.seal_cuda_runtime(runtime_assets_bound=True)
+    assert seal_report["detached_setup_storage_bytes"] > 0
+    assert mg.transfers == [] and mg.operators == []
+    assert mg.seal_cuda_runtime(runtime_assets_bound=True) == seal_report
+    with pytest.raises(RuntimeError, match="seal"):
+        mg.setup()
 
 
 def test_strict_qcu_assets_preserve_quda_y_yhat_storage_and_actions():
@@ -403,6 +487,9 @@ def test_qcu_stencil_degenerate_extent_and_strict_support_guard():
     }
     with pytest.raises(ValueError, match="33 点 stencil"):
         unsupported.to_qcu_stencil(strict=True)
+    unsupported.X = unsupported.blocks[(0, 0, 0, 0)]
+    with pytest.raises(ValueError, match="strict QUDA X/Y"):
+        unsupported._build_links()
 
 
 def test_multigrid_qcu_transition_assets_are_paired_and_guard_lazy_mode():
