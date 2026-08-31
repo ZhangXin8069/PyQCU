@@ -4,7 +4,7 @@
 
 ## 模块级数据（import 时计算，CPU，complex64）
 
-- **`gamma`** — 4×4×4 gamma 矩阵，Dirac-Pauli 表象（γ₀ 反厄米，γ_i 厄米）。形状 `[4, 4, 4]`
+- **`gamma`** — 4×4×4 Euclidean gamma 矩阵，逐元素匹配 QUDA `QUDA_DEGRAND_ROSSI_GAMMA_BASIS`（四个 γ_μ 均厄米）。形状 `[4, 4, 4]`
 - **`gamma_5`** — γ₅ = γ₀γ₁γ₂γ₃。形状 `[4, 4]`
 - **`gamma_gamma`** — 六个 γ_μ γ_ν 积：[γ_x,γ_y]…[γ_z,γ_t]。形状 `[6, 4, 4]`，用作 clover 项的 σ_{μν}
 - **`I`** / **`minus_I`** — 4×4 单位阵（complex64）/−I（预计算）

@@ -12,7 +12,11 @@ def _givens_rotation(H: List[List[complex]], g: List[complex],
         temp = cs[i].conjugate() * H[i][j] + sn[i].conjugate() * H[i + 1][j]
         H[i + 1][j] = -sn[i] * H[i][j] + cs[i] * H[i + 1][j]
         H[i][j] = temp
-    den = abs(H[j][j] ** 2 + H[j + 1][j] ** 2) ** 0.5
+    # The rotation must be unitary in complex arithmetic.  In particular,
+    # ``sqrt(abs(a*a + b*b))`` can spuriously vanish when the two squared
+    # phases cancel (for example a=1j, b=1).  QUDA's FlexArnoldiProcedure
+    # uses sqrt(norm(a) + norm(b)), i.e. the Euclidean norm of the pair.
+    den = (abs(H[j][j]) ** 2 + abs(H[j + 1][j]) ** 2) ** 0.5
     if den == 0.0:
         sn_j, cs_j = 0.0 + 0.0j, 1.0 + 0.0j
         H[j][j] = H[j][j]

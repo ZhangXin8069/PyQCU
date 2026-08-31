@@ -1,8 +1,8 @@
 ---
 name: testing
-description: pyqcu.testing 目录的完整生成 skill：全组件集成测试（函数名 test_*，由 examples/*/conftest.py 引用），含参考 HDF5 数据验证与日志约定。
+description: pyqcu.testing 目录的完整生成 skill：全组件集成测试与 strict MultiGrid 三级快速闸门，含参考数据、CUDA/MPI、显存稳定性和日志约定。
 ---
-# CLAUDE.md — pyqcu.testing
+# pyqcu.testing
 
 Integration tests for all PyQCU components. Tests are Python functions imported by `examples/*/conftest.py` entry points.
 
@@ -72,6 +72,50 @@ Null-vector quality diagnostic requires the explicit 10-dim block structure argu
 cd examples && pytest .                              # all conftest.py files
 mpirun -np 4 python examples/pyqcu/conftest.py       # single file with MPI
 ```
+
+## Strict MultiGrid Fast Gates
+
+Use `python examples/qcu/dev87/run_strict_fast.py`; tiers are cumulative and the default is tier 0. For the shortest edit loop, first run `--list` (no environment sourcing or setup), then run the default tier with `--fail-fast --json <path>` when a machine-readable result is useful:
+
+```bash
+python examples/qcu/dev87/run_strict_fast.py --list
+python examples/qcu/dev87/run_strict_fast.py --fail-fast --json strict-fast.json
+```
+
+- **Tier 0 — CPU algebra smoke:** the focused synthetic suite covers 19 checks for exports, FGMRES edge cases (including complex-Givens phase cancellation), strict mode/geometry guards, `R=P†`, full-coarse parity transfer, MATPC, `X/Y/Yhat` assets/layouts, matrix-free guards and colored Galerkin batching/memory models. This is the edit-loop default.
+- **Tier 1 — CUDA small lattice:** cumulatively adds strict primitive/V-cycle/complete-solve and fused-C++ FGMRES checks covering lazy persistent workspace reuse, warm x0, budget/descriptor guards and complex128 dispatch. Runtime depends on GPU, driver and build; do not encode a fixed seconds claim. Use it before handing off a CUDA change, and ensure Python does not regain a duplicate Krylov arena.
+- **Tier 2 — real gauge + QUDA formal gate:** only selected explicitly with `--tier 2`; runs the formal `bench_strict_vs_quda.py` collector with the canonical real-gauge/null-vector bundle, cache-hit and QIO contracts. It records correctness, true residual, setup/solve timing and schema-v2 memory evidence; a fair speedup is emitted only when both sides pass. It may write its documented dev87 artifacts.
+
+Before any formal QUDA comparison, run and persist two fast, single-rank gates: the `4^4` reduction smoke (`examples/qcu/dev87/smoke_quda_reduction.py`) and an `8^4` Nc24 setup-only probe using `n_vec=12`, `coarse_spin=2`, and no timed solve. Both must be green before formal collection. Judge smoke success from resolved/read-back parameters after setup, never from requested arguments alone; missing resolved evidence is a failure. The formal path must build `QUDA_MULTIGRID_NVEC_LIST=12,24` (comma-separated): `12` serves `BlockOrthogonalize`'s `B.size`, and `24 = n_vec × coarse_spin` serves the coarse color/operator. A build containing only `12` or only `24` ends in `MPI_ABORT`.
+
+Strict CUDA tests must use `hierarchy_mode="strict"`/`QudaStrictMultigrid`, fixed fine `target_parity=1` and coarse `start_level=1`; `setup_operator="schur"` is not a substitute for Strict. Keep the per-instance `_SET_INDEX_` fixed from `CudaSchurOp` construction through Strict init, V-cycle/FGMRES and Strict end; the legacy increment rule is tested separately. For ABI edits, also assert CPU `int32[58]`/`int64[100]` controls and the `params[57]` cold/warm behavior; do not use a fast gate that only checks requested CLI metadata.
+
+When configuring PyQUDA, `QudaMultigridParam` array getters return copies. Copy each complete array column, edit it, assign the complete column with `setattr`, and immediately read it back; indexed mutation such as `param.n_vec[0] = 12` or `param.vec_load[0] = ...` silently changes nothing. Keep the QDP host gauge contiguous `complex128` even for c64 device precision; device `setPrecision(single)` is not a host-gauge dtype conversion.
+
+The runner supports `--list`, `--only <gate>` (repeatable), per-command `--timeout`, `--fail-fast`, and `--json`. `--only` is the short edit-loop path for a named gate and bypasses cumulative tier selection. Keep tier 0 data-free and single-startup where possible; never move real-gauge setup or external QUDA imports into the default gate. The protocol/cache/QIO gate is a seconds-scale suite kept separate from the tiered runner. Run the four focused files together when changing the collector, cache or conversion contract:
+
+```bash
+python -B -m pytest -q -p no:cacheprovider \
+  examples/qcu/dev87/test_prepare_fair_nullvec.py \
+  examples/qcu/dev87/test_convert_full_nullvec_to_quda_qio.py \
+  examples/qcu/dev87/test_bench_strict_protocol.py \
+  examples/qcu/dev87/test_strict_runtime_cache.py
+```
+
+The default tier 0 embeds the three pure-CPU Galerkin fast checks; `--only cpu-smoke` runs them in the same pytest startup, while `--only <other-gate>` isolates a single edit target. Benchmark protocol tests require repository-contained cache directories, persist cache `directory/expect` in the execution record, and prove that a hit/miss mismatch fails before heavy imports or device allocation. They also cover QMP FUNNELED initialization and atexit lifetime without importing PyQUDA. WSL2 guard fixtures must fail closed when forced synchronization is disabled or the selected `libquda.so` is missing, not first in `LD_LIBRARY_PATH`, or lacks the patch marker; synthetic fixtures must assert `report["library_sha256"] == sha256(fixture_binary)`. Qualify the selected production library dynamically in the real reduction smoke rather than hard-coding its digest.
+
+MPI coverage is deliberately separate from the tiered runner:
+
+```bash
+python -m pytest -q -p no:cacheprovider examples/qcu/dev87/test_strict_mpi_preflight.py
+mpirun -np 2 python -m pytest -q -p no:cacheprovider examples/qcu/dev87/test_strict_mpi_preflight.py
+```
+
+These MPI tests cover rank-symmetric preflight plus c64/c128 global dot/norm reduction. The expected capabilities are `global_reduction=True` but `setup_halo=False`, `full_halo=False`, `compact_halo=False`, and distributed `fused_fgmres=False`; production multi-rank solves must still be rejected, and passing these tests must not be reported as a distributed strict solve.
+
+Runtime-cache tests must enforce schema v2 per-tensor streaming SHA256, reject any tensor/metadata tamper before device transfer, bound host chunks to about 8 MiB, and account for two logical reads on a hit. A same-identity concurrent-publication test must fully validate the winning target's manifest, dataset attrs, and tensor SHA256 values before reuse. Fair-QIO protocol tests must fingerprint canonical full `[12,4,3,X,Y,Z,T]` data against `canonical_dataset_sha256`, require `QUDA_DEGRAND_ROSSI_GAMMA_BASIS`, and verify round-trip content with a two-file 8 MiB streaming scan; `source_sha256` is checked only as E12 provenance.
+
+Strict memory tests must distinguish live allocation from allocator reservation: before the first solve the C++ fused workspace is planned but not resident; after it, resident bytes must equal `(2*m+5)*B_f+2*B_c`. Galerkin tests use a separate four-full-field-arena budget: c64 production selects colored `C=12` under a `4 GiB` setup cap, while c128 stays at `C=1` under `1 GiB`; the c64 `512 MiB` value belongs only to outer Krylov. The formal benchmark's memory schema version 2 is a success-record hard gate: sampler start must not call `mem_get_info` on the main thread, stop must not add a final sample, and join timeout must retain the thread handle and fail closed. Require `device_used_max_observed_bytes`, keep the independent device-wide probe and sampler stop outside formal timing/`setup_seconds`, and filter `nvidia-smi` by target GPU UUID with fields named only `max_observed`. QUDA setup and warmup exception tests must release the sampler, multigrid, and Gauge while preserving the primary failure. Warm up, repeat solves, assert no new Torch allocation and stable owned/live bytes, then call `close()` while retaining the solver object and verify hierarchy slots/assets are released. Do not call `empty_cache()` before the leak assertion.
 
 ## Logging Convention
 

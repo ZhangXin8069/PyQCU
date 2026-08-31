@@ -199,6 +199,15 @@ def _roll_field(field: Tensor, displacement: BlockKey) -> Tensor:
     return result
 
 
+def _roll_field_batch(field: Tensor, displacement: BlockKey) -> Tensor:
+    """Batched variant for ``[B,dof,X,Y,Z,T]`` fields."""
+    result = field
+    for dim, delta in enumerate(displacement):
+        if delta:
+            result = _torch.roll(result, shifts=-delta, dims=2 + dim)
+    return result
+
+
 def _roll_site_tensor(field: Tensor, shift: BlockKey) -> Tensor:
     """对 ``[*, X, Y, Z, T]`` 张量按输出索引 ``c <- c-shift`` 平移。"""
     result = field
@@ -211,6 +220,11 @@ def _roll_site_tensor(field: Tensor, shift: BlockKey) -> Tensor:
 def _matvec_block(matrix: Tensor, vector: Tensor) -> Tensor:
     """批量局部矩阵作用，矩阵布局 ``[out, in, X, Y, Z, T]``。"""
     return _torch.einsum("ijxyzt,jxyzt->ixyzt", matrix, vector)
+
+
+def _matvec_block_batch(matrix: Tensor, vector: Tensor) -> Tensor:
+    """Site-matrix action on ``[B,dof,X,Y,Z,T]`` fields."""
+    return _torch.einsum("ijxyzt,bjxyzt->bixyzt", matrix, vector)
 
 
 def _matmul_site(left: Tensor, right: Tensor) -> Tensor:
@@ -733,7 +747,8 @@ class _FineOperator:
     def __init__(self, matvec: Callable[[Tensor], Tensor], shape: Shape4,
                  spin: int, color: int,
                  diagonal: Optional[Tensor] = None,
-                 adjoint: Optional[Callable[[Tensor], Tensor]] = None):
+                 adjoint: Optional[Callable[[Tensor], Tensor]] = None,
+                 batch_matvec: Optional[Callable[[Tensor], Tensor]] = None):
         self._matvec = matvec
         self.shape = shape
         self.spin = int(spin)
@@ -741,12 +756,28 @@ class _FineOperator:
         self.dof = self.spin * self.color
         self._diagonal = diagonal
         self._adjoint = adjoint
+        self._batch_matvec = batch_matvec
         self._diagonal_inv: Dict[Tuple[Any, Any], Tensor] = {}
 
     def apply(self, value: Tensor) -> Tensor:
         return _call_matvec(self._matvec, value)
 
     matvec = apply
+
+    def batch_apply(self, value: Tensor) -> Tensor:
+        expected = (self.dof, *self.shape)
+        if value.ndim != 6 or tuple(int(x) for x in value.shape[1:]) != expected:
+            raise ValueError(
+                f"batch fine field 应为 [B,{self.dof},*{self.shape}]，"
+                f"得到 {tuple(value.shape)}")
+        if self._batch_matvec is None:
+            return _torch.stack([self.apply(item) for item in value], dim=0)
+        result = _call_matvec(self._batch_matvec, value)
+        if tuple(int(x) for x in result.shape) != tuple(int(x) for x in value.shape):
+            raise ValueError("fine_batch_matvec 必须保持输入 shape")
+        return result
+
+    matvec_batch = batch_apply
 
     def adjoint_apply(self, value: Tensor) -> Tensor:
         if self._adjoint is None:
@@ -791,6 +822,15 @@ class _FineOperator:
             work = work.to(dtype=matrix.dtype, device=matrix.device)
         return _matvec_block(matrix, work).to(dtype=dtype, device=device)
 
+    def diagonal_inv_apply_batch(self, value: Tensor) -> Tensor:
+        dtype = value.dtype
+        device = value.device
+        matrix = self.diagonal_inverse(value)
+        work = value
+        if work.dtype != matrix.dtype or work.device != matrix.device:
+            work = work.to(dtype=matrix.dtype, device=matrix.device)
+        return _matvec_block_batch(matrix, work).to(dtype=dtype, device=device)
+
     def diagonal_adjoint_apply(self, value: Tensor) -> Tensor:
         """应用局部对角块的伴随。"""
         dtype = value.dtype
@@ -827,11 +867,28 @@ class _LeftPreconditionedOperator:
         self.dof = int(operator.dof)
 
     def apply(self, value: Tensor) -> Tensor:
+        if hasattr(self.operator, "preconditioned_full_apply"):
+            return self.operator.preconditioned_full_apply(value)
         return self.operator.diagonal_inv_apply(
             _call_matvec(self.operator, value))
 
     matvec = apply
     preconditioned_full_apply = apply
+
+    def batch_apply(self, value: Tensor) -> Tensor:
+        if hasattr(self.operator, "preconditioned_full_apply_batch"):
+            return self.operator.preconditioned_full_apply_batch(value)
+        if hasattr(self.operator, "batch_apply"):
+            image = self.operator.batch_apply(value)
+        else:
+            image = _torch.stack([
+                _call_matvec(self.operator, item) for item in value], dim=0)
+        if hasattr(self.operator, "diagonal_inv_apply_batch"):
+            return self.operator.diagonal_inv_apply_batch(image)
+        return _torch.stack([
+            self.operator.diagonal_inv_apply(item) for item in image], dim=0)
+
+    matvec_batch = batch_apply
 
     def adjoint_apply(self, value: Tensor) -> Tensor:
         if not hasattr(self.operator, "adjoint_apply"):
@@ -884,6 +941,7 @@ class QudaCoarseOperator:
         self.Y_backward_storage: Optional[List[Tensor]] = None
         self.Yhat_forward: Optional[List[Tensor]] = None
         self.Yhat_backward: Optional[List[Tensor]] = None
+        self._strict_packed_assets: Optional[Dict[str, Any]] = None
         self._dense: Optional[Tensor] = None
         if materialize:
             self.build()
@@ -893,12 +951,41 @@ class QudaCoarseOperator:
             raise ValueError(
                 f"粗场应为 [{self.dof}, X,Y,Z,T]，得到 {tuple(value.shape)}")
         if self.blocks is None:
+            if self._strict_packed_assets is not None:
+                return self.diagonal_apply(
+                    self.preconditioned_full_apply(value))
             fine = self.transfer.prolong(value)
             result = _call_matvec(self.fine_operator, fine)
             return self.transfer.restrict(result)
         return self.apply_decomposed(value)
 
     matvec = apply
+
+    def batch_apply(self, value: Tensor) -> Tensor:
+        expected = (self.dof, *self.shape)
+        if value.ndim != 6 or tuple(int(x) for x in value.shape[1:]) != expected:
+            raise ValueError(
+                f"batch coarse field 应为 [B,{self.dof},*{self.shape}]，"
+                f"得到 {tuple(value.shape)}")
+        if self.blocks is None:
+            if self._strict_packed_assets is not None:
+                return self.diagonal_apply_batch(
+                    self.preconditioned_full_apply_batch(value))
+            return _torch.stack([self.apply(item) for item in value], dim=0)
+        dtype = value.dtype
+        device = value.device
+        work = value
+        if (work.dtype != self.transfer.V.dtype or
+                work.device != self.transfer.V.device):
+            work = work.to(
+                dtype=self.transfer.V.dtype, device=self.transfer.V.device)
+        result = _torch.zeros_like(work)
+        for displacement, block in self.blocks.items():
+            result = result + _matvec_block_batch(
+                block, _roll_field_batch(work, displacement))
+        return result.to(dtype=dtype, device=device)
+
+    matvec_batch = batch_apply
 
     def apply_decomposed(self, value: Tensor) -> Tensor:
         if self.blocks is None:
@@ -1110,9 +1197,28 @@ class QudaCoarseOperator:
             size=[self.dof, self.dof, *self.shape], dtype=self.transfer.V.dtype,
             device=self.transfer.V.device)
 
+    def _validate_strict_nearest_neighbor_support(self) -> None:
+        """Reject support that the strict QUDA X/Y ABI cannot represent."""
+        if self.blocks is None:
+            return
+        for displacement, block in self.blocks.items():
+            if float(_torch.abs(block).max().item()) <= self.support_tol:
+                continue
+            canonical = tuple(
+                _signed_displacement(value, self.shape[dim])
+                for dim, value in enumerate(displacement))
+            axes = [dim for dim, value in enumerate(canonical) if value != 0]
+            if (len(axes) > 1 or
+                    any(abs(canonical[dim]) != 1 for dim in axes)):
+                raise ValueError(
+                    "strict QUDA X/Y 仅支持 onsite 与 ±axis 最近邻；"
+                    f"检测到 displacement={displacement} "
+                    f"(canonical={canonical})")
+
     def _build_links(self) -> None:
         if self.blocks is None or self.X is None:
             raise RuntimeError("coarse blocks 未构造")
+        self._validate_strict_nearest_neighbor_support()
         self.Y_forward = []
         self.Y_backward = []
         for dim in range(4):
@@ -1174,6 +1280,24 @@ class QudaCoarseOperator:
         ``DiracCoarsePC`` 的非 dagger gather 约定，而无须在 setup 后
         再转置整个场。
         """
+        if (self._strict_packed_assets is not None and
+                (not include_raw_links or
+                 self._strict_packed_assets.get("raw_links") is not None)):
+            cached = self._strict_packed_assets
+            preconditioned = cached["preconditioned_links"]
+            onsite = cached["onsite_pair"]
+            target_dtype = preconditioned.dtype if dtype is None else dtype
+            target_device = preconditioned.device if device is None else device
+            return {
+                "raw_links": (
+                    cached.get("raw_links").to(
+                        dtype=target_dtype, device=target_device).contiguous()
+                    if include_raw_links else None),
+                "preconditioned_links": preconditioned.to(
+                    dtype=target_dtype, device=target_device).contiguous(),
+                "onsite_pair": onsite.to(
+                    dtype=target_dtype, device=target_device).contiguous(),
+            }
         if (self.X is None or self.X_inv is None or
                 self.Y_forward is None or self.Y_backward_storage is None or
                 self.Yhat_forward is None or self.Yhat_backward is None):
@@ -1240,6 +1364,18 @@ class QudaCoarseOperator:
             work = work.to(dtype=self.X.dtype, device=self.X.device)
         return _matvec_block(self.X, work).to(dtype=dtype, device=device)
 
+    def diagonal_apply_batch(self, value: Tensor) -> Tensor:
+        if self.X is None:
+            self.build()
+        assert self.X is not None
+        dtype = value.dtype
+        device = value.device
+        work = value
+        if work.dtype != self.X.dtype or work.device != self.X.device:
+            work = work.to(dtype=self.X.dtype, device=self.X.device)
+        return _matvec_block_batch(
+            self.X, work).to(dtype=dtype, device=device)
+
     def diagonal_inv_apply(self, value: Tensor) -> Tensor:
         if self.X_inv is None:
             self.build()
@@ -1250,6 +1386,18 @@ class QudaCoarseOperator:
         if work.dtype != self.X_inv.dtype or work.device != self.X_inv.device:
             work = work.to(dtype=self.X_inv.dtype, device=self.X_inv.device)
         return _matvec_block(self.X_inv, work).to(dtype=dtype, device=device)
+
+    def diagonal_inv_apply_batch(self, value: Tensor) -> Tensor:
+        if self.X_inv is None:
+            self.build()
+        assert self.X_inv is not None
+        dtype = value.dtype
+        device = value.device
+        work = value
+        if work.dtype != self.X_inv.dtype or work.device != self.X_inv.device:
+            work = work.to(dtype=self.X_inv.dtype, device=self.X_inv.device)
+        return _matvec_block_batch(
+            self.X_inv, work).to(dtype=dtype, device=device)
 
     def diagonal_adjoint_apply(self, value: Tensor) -> Tensor:
         if self.X is None:
@@ -1315,11 +1463,42 @@ class QudaCoarseOperator:
 
     preconditioned_hopping_apply = preconditioned_apply
 
+    def preconditioned_apply_batch(self, value: Tensor) -> Tensor:
+        """Batched ``X^{-1}(D-X)`` action for colored Galerkin setup."""
+        if (self.X is None or self.Yhat_forward is None or
+                self.Yhat_backward is None):
+            self.build()
+        assert self.Yhat_forward is not None and self.Yhat_backward is not None
+        dtype = value.dtype
+        device = value.device
+        work = value
+        if (work.dtype != self.transfer.V.dtype or
+                work.device != self.transfer.V.device):
+            work = work.to(
+                dtype=self.transfer.V.dtype, device=self.transfer.V.device)
+        result = _torch.zeros_like(work)
+        for dim in range(4):
+            displacement = tuple(1 if i == dim else 0 for i in range(4))
+            result = result + _matvec_block_batch(
+                self.Yhat_forward[dim],
+                _roll_field_batch(work, displacement))
+            storage_shift = tuple(1 if i == dim else 0 for i in range(4))
+            backward_coefficient = _adjoint_site(_roll_site_tensor(
+                self.Yhat_backward[dim], storage_shift))
+            result = result + _matvec_block_batch(
+                backward_coefficient,
+                _roll_field_batch(
+                    work, tuple(-x for x in displacement)))
+        return result.to(dtype=dtype, device=device)
+
     def preconditioned_full_apply(self, value: Tensor) -> Tensor:
         """返回 ``X^{-1}D_c``，即局部项加上 PC hopping。"""
         # X^{-1} X is the identity, while preconditioned_apply contains
         # X^{-1}(D_c-X).
         return value + self.preconditioned_apply(value)
+
+    def preconditioned_full_apply_batch(self, value: Tensor) -> Tensor:
+        return value + self.preconditioned_apply_batch(value)
 
 
 
@@ -1819,6 +1998,7 @@ class QudaMultigrid:
     def __init__(self, U: Optional[Tensor] = None,
                  clover_term: Optional[Tensor] = None,
                  fine_matvec: Optional[Callable[[Tensor], Tensor]] = None,
+                 fine_batch_matvec: Optional[Callable[[Tensor], Tensor]] = None,
                  fine_adjoint: Optional[Callable[[Tensor], Tensor]] = None,
                  fine_diagonal: Optional[Tensor] = None,
                  kappa: Optional[Tensor] = None,
@@ -1849,6 +2029,11 @@ class QudaMultigrid:
                  setup_post_orthonormalize: bool = True,
                  direct_solve_max: int = 4096,
                  max_materialize_elements: int = 50_000_000,
+                 strict_galerkin_mode: str = "column",
+                 strict_galerkin_column_batch: int = 4,
+                 strict_galerkin_projection_batch: int = 4,
+                 strict_galerkin_max_workspace_bytes: Optional[int] = 512 << 20,
+                 strict_galerkin_check_support: bool = True,
                  seed: int = 42, verbose: bool = False,
                  hierarchy_mode: str = "legacy",
                  coarse_grid_solution_type: str | Sequence[str] = "matpc",
@@ -1925,6 +2110,35 @@ class QudaMultigrid:
         self.max_materialize_elements = int(max_materialize_elements)
         if self.max_materialize_elements <= 0:
             raise ValueError("max_materialize_elements 必须为正数")
+        galerkin_mode = str(strict_galerkin_mode).strip().lower().replace("_", "-")
+        galerkin_aliases = {
+            "auto": "auto",
+            "column": "column",
+            "legacy": "column",
+            "site": "site-batch",
+            "site-batch": "site-batch",
+            "colored": "colored",
+            "colour": "colored",
+        }
+        if galerkin_mode not in galerkin_aliases:
+            raise ValueError(
+                "strict_galerkin_mode 可选 auto/column/site-batch/colored")
+        self.strict_galerkin_mode = galerkin_aliases[galerkin_mode]
+        self.strict_galerkin_column_batch = int(strict_galerkin_column_batch)
+        self.strict_galerkin_projection_batch = int(
+            strict_galerkin_projection_batch)
+        if min(self.strict_galerkin_column_batch,
+               self.strict_galerkin_projection_batch) <= 0:
+            raise ValueError("strict Galerkin batch size 必须为正数")
+        self.strict_galerkin_max_workspace_bytes = (
+            None if strict_galerkin_max_workspace_bytes is None else
+            int(strict_galerkin_max_workspace_bytes))
+        if (self.strict_galerkin_max_workspace_bytes is not None and
+                self.strict_galerkin_max_workspace_bytes <= 0):
+            raise ValueError(
+                "strict_galerkin_max_workspace_bytes 必须为正数或 None")
+        self.strict_galerkin_check_support = bool(
+            strict_galerkin_check_support)
         self.seed = int(seed)
         self._setup_done = False
         self.setup_history: List[Dict[str, Any]] = []
@@ -1942,6 +2156,8 @@ class QudaMultigrid:
             fine_dslash = dslash.operator(**dslash_kwargs)
             self.fine_dslash = fine_dslash
             fine_matvec = fine_dslash.matvec
+            if fine_batch_matvec is None:
+                fine_batch_matvec = getattr(fine_dslash, "matvec_batch", None)
             diagonal = self._fine_diagonal_from_dslash(fine_dslash, U)
             if fine_adjoint is None and self.fine_spin == 4:
                 # Wilson/Clover 满足 gamma5-Hermiticity：D^dagger = gamma5 D
@@ -1963,7 +2179,8 @@ class QudaMultigrid:
                     "fine_diagonal；否则无法定义局部块的逆")
         self._fine = _FineOperator(
             fine_matvec, self.fine_shape, self.fine_spin, self.fine_color,
-            diagonal=diagonal, adjoint=fine_adjoint)
+            diagonal=diagonal, adjoint=fine_adjoint,
+            batch_matvec=fine_batch_matvec)
         self._null_vectors = self._normalise_null_list(null_vectors)
         self._fine_full = self._fine
         self._fine_compact: Optional[CompactParityOperator] = None
@@ -1977,6 +2194,12 @@ class QudaMultigrid:
         self._block_sizes = self._normalise_block_sizes(block_size)
         transitions = self._number_of_transitions(max_level)
         self._transition_count = transitions
+        if self._strict_quda:
+            if self.fine_spin == 1:
+                raise ValueError(
+                    "strict standard-staggered/KD 语义尚未实现；当前 strict "
+                    "入口只支持 Wilson/Clover 或 generic spin-2 算子")
+            self._validate_strict_geometry(transitions)
         level_count = max(1, transitions + 1)
         self.coarse_grid_solution_types = self._normalise_level_modes(
             coarse_grid_solution_type, level_count, "coarse_grid_solution_type",
@@ -1992,6 +2215,16 @@ class QudaMultigrid:
                 raise ValueError(
                     "coarse_grid_solution_type='matpc' 要求同层 "
                     f"smoother_solve_type='direct_pc'（level={level}）")
+            if (self._strict_quda and
+                    (self.coarse_grid_solution_types[level] != "matpc" or
+                     self.smoother_solve_types[level] != "direct_pc")):
+                raise ValueError(
+                    "当前 strict runtime 仅完整实现全层 "
+                    "coarse_grid_solution_type='matpc' + "
+                    "smoother_solve_type='direct_pc'；"
+                    f"level={level} 得到 "
+                    f"{self.coarse_grid_solution_types[level]}/"
+                    f"{self.smoother_solve_types[level]}")
         if (self.use_parity and not self._compact_parity and transitions and
                 not self.materialize_coarse):
             raise ValueError(
@@ -2008,6 +2241,9 @@ class QudaMultigrid:
         self.parity_operators: List[ParitySchurOperator] = []
         self.matpc_operators: List[QudaMatPCOperator] = []
         self.coarsening_operators: List[Any] = []
+        self.strict_setup_stats: List[Dict[str, Any]] = []
+        self._cuda_runtime_sealed = False
+        self._cuda_runtime_seal_report: Dict[str, Any] = {}
 
     @staticmethod
     def _normalise_hierarchy_mode(mode: str) -> str:
@@ -2045,6 +2281,29 @@ class QudaMultigrid:
                     f"不支持的 {name}={item!r}；可选 {sorted(set(aliases.values()))}")
             result.append(aliases[key])
         return result
+
+    def _validate_strict_geometry(self, transitions: int) -> None:
+        """Apply QUDA's checkerboard-safe coarse-extent invariant."""
+        shape = self.fine_shape
+        for level in range(transitions):
+            if level >= len(self._block_sizes):
+                raise ValueError("block_size 数量少于层间过渡数")
+            block = self._block_sizes[level]
+            if any(extent % width for extent, width in zip(shape, block)):
+                raise ValueError(
+                    f"strict level {level}: shape={shape} 不能被 "
+                    f"block_size={block} 整除")
+            coarse = tuple(
+                extent // width for extent, width in zip(shape, block))
+            invalid = [
+                (axis, extent) for axis, extent in enumerate(coarse)
+                if extent < 2 or extent % 2
+            ]
+            if invalid:
+                raise ValueError(
+                    "strict QUDA 每次粗化后的各维 extent 必须为偶数且至少 2；"
+                    f"level={level}, coarse_shape={coarse}, invalid={invalid}")
+            shape = coarse  # type: ignore[assignment]
 
     @staticmethod
     def _normalise_setup_method(method: str) -> str:
@@ -2402,6 +2661,9 @@ class QudaMultigrid:
         return current
 
     def setup(self) -> "QudaMultigrid":
+        if self._cuda_runtime_sealed:
+            raise RuntimeError(
+                "hierarchy 已 seal 为 CUDA runtime；Python setup 资产已释放")
         if self._setup_done:
             return self
         # ``cann`` 负责屏蔽 NPU/复数差异；将种子也放在兼容层内，避免
@@ -2422,6 +2684,7 @@ class QudaMultigrid:
         self.levels = []
         self.transfers = []
         self.coarsening_operators = []
+        self.strict_setup_stats = []
         for level in range(self._transition_count):
             nvec = self._nvec_list[level]
             if level < len(self._null_vectors):
@@ -2456,11 +2719,97 @@ class QudaMultigrid:
                 # QUDA coarsens the full-field first-order operator X^{-1}D;
                 # parity Schur is created separately for smoothing/solving.
                 coarsening_operator = _LeftPreconditionedOperator(current)
+            batched_strict_setup = (
+                self._strict_quda and self.materialize_coarse and
+                self.strict_galerkin_mode != "column")
             coarse = QudaCoarseOperator(
                 transfer, coarsening_operator,
-                materialize=self.materialize_coarse,
+                materialize=(self.materialize_coarse and
+                             not batched_strict_setup),
                 max_materialize_elements=self.max_materialize_elements,
                 verbose=self.verbose)
+            if batched_strict_setup:
+                from pyqcu.tools._strict_galerkin import (
+                    build_strict_galerkin,
+                    build_strict_galerkin_colored,
+                    strict_galerkin_colored_memory_model,
+                    strict_galerkin_memory_model,
+                )
+                if hasattr(coarsening_operator, "batch_apply"):
+                    batch_apply = coarsening_operator.batch_apply
+                else:
+                    batch_apply = lambda values: _torch.stack([
+                        _call_matvec(coarsening_operator, item)
+                        for item in values
+                    ], dim=0)
+                setup_mode = self.strict_galerkin_mode
+                if setup_mode == "auto":
+                    site_batch = min(
+                        self.strict_galerkin_projection_batch,
+                        prod(transfer.coarse_shape))
+                    common_model = {
+                        "coarse_dof": transfer.coarse_dof,
+                        "fine_dof": transfer.fine_dof,
+                        "fine_shape": transfer.fine_shape,
+                        "coarse_shape": transfer.coarse_shape,
+                        "block_size": transfer.block_size,
+                        "element_size": int(transfer.V.element_size()),
+                        "include_raw_links": False,
+                        "retain_blocks": False,
+                    }
+                    site_model = strict_galerkin_memory_model(
+                        **common_model, site_batch_size=site_batch)
+                    colored_model = strict_galerkin_colored_memory_model(
+                        **common_model,
+                        column_batch_size=min(
+                            transfer.coarse_dof,
+                            self.strict_galerkin_column_batch),
+                        projection_site_batch_size=site_batch)
+                    budget = self.strict_galerkin_max_workspace_bytes
+                    site_fits = (
+                        budget is None or
+                        site_model["workspace_upper_bytes"] <= budget)
+                    setup_mode = (
+                        "site-batch" if site_fits and
+                        site_model["operator_calls"] <=
+                        colored_model["operator_calls"] else "colored")
+                if setup_mode == "colored":
+                    setup_result = build_strict_galerkin_colored(
+                        transfer,
+                        batch_apply,
+                        column_batch_size=self.strict_galerkin_column_batch,
+                        projection_site_batch_size=(
+                            self.strict_galerkin_projection_batch),
+                        check_fine_support=self.strict_galerkin_check_support,
+                        include_raw_links=False,
+                        retain_blocks=False,
+                        max_workspace_bytes=(
+                            self.strict_galerkin_max_workspace_bytes),
+                        verbose=self.verbose,
+                    )
+                else:
+                    setup_result = build_strict_galerkin(
+                        transfer,
+                        batch_apply,
+                        site_batch_size=self.strict_galerkin_projection_batch,
+                        check_fine_support=self.strict_galerkin_check_support,
+                        include_raw_links=False,
+                        retain_blocks=False,
+                        max_workspace_bytes=(
+                            self.strict_galerkin_max_workspace_bytes),
+                        verbose=self.verbose,
+                    )
+                setup_result.install(coarse)
+                setup_result.stats["requested_probe_mode"] = (
+                    self.strict_galerkin_mode)
+                setup_result.stats["effective_probe_mode"] = setup_mode
+                setup_result.stats["requested_column_batch_size"] = (
+                    self.strict_galerkin_column_batch)
+                setup_result.stats["requested_projection_site_batch_size"] = (
+                    self.strict_galerkin_projection_batch)
+                setup_result.stats["max_workspace_bytes"] = (
+                    self.strict_galerkin_max_workspace_bytes)
+                self.strict_setup_stats.append(dict(setup_result.stats))
             self.transfers.append(transfer)
             self.coarsening_operators.append(coarsening_operator)
             self.operators.append(coarse)
@@ -2488,6 +2837,88 @@ class QudaMultigrid:
             self.parity_operators = [ParitySchurOperator(self._fine_full)]
         self._setup_done = True
         return self
+
+    @staticmethod
+    def _unique_tensor_storage_bytes(values: Iterable[Any]) -> Tuple[int, int]:
+        """Return unique storage bytes/count for tensor-like values."""
+        storages: Dict[Tuple[str, int], int] = {}
+        for value in values:
+            if value is None or not hasattr(value, "data_ptr"):
+                continue
+            try:
+                storage = value.untyped_storage()
+                pointer = int(storage.data_ptr())
+                nbytes = int(storage.nbytes())
+            except (AttributeError, RuntimeError):
+                pointer = int(value.data_ptr())
+                nbytes = int(value.numel()) * int(value.element_size())
+            device = str(getattr(value, "device", "unknown"))
+            storages[(device, pointer)] = max(
+                storages.get((device, pointer), 0), nbytes)
+        return sum(storages.values()), len(storages)
+
+    def seal_cuda_runtime(self, *, runtime_assets_bound: bool = False
+                          ) -> Dict[str, Any]:
+        """Detach Python setup tensors after QCU has bound stable packed assets.
+
+        This is intentionally destructive: Python ``apply/solve/verify`` and a
+        second asset export are disabled.  The C++ binding must already own the
+        packed ``V/Yhat/(X,X^-1)`` tensors, hence the explicit acknowledgement.
+        The returned byte count describes detached storage references; actual
+        allocator reduction can be smaller when the caller retains aliases.
+        """
+        if self._cuda_runtime_sealed:
+            return dict(self._cuda_runtime_seal_report)
+        if not runtime_assets_bound:
+            raise RuntimeError(
+                "seal_cuda_runtime 要求 runtime_assets_bound=True，"
+                "避免释放仍未绑定的 QCU 资产")
+        if not self._strict_quda or not self._setup_done:
+            raise RuntimeError("seal_cuda_runtime 要求已 setup 的 strict hierarchy")
+
+        detached: List[Any] = list(self._null_vectors)
+        for transfer in self.transfers:
+            detached.extend((getattr(transfer, "B", None),
+                             getattr(transfer, "V", None)))
+        detached.append(getattr(self._fine, "_diagonal", None))
+        detached.extend(getattr(self._fine, "_diagonal_inv", {}).values())
+        detached_bytes, detached_count = self._unique_tensor_storage_bytes(detached)
+
+        for transfer in self.transfers:
+            transfer.B = None
+            transfer.V = None
+        self._null_vectors = []
+        self._fine._diagonal = None
+        self._fine._diagonal_inv.clear()
+        self._fine._matvec = None
+        self._fine._adjoint = None
+        self._fine._batch_matvec = None
+        self.U = self.clover_term = self.kappa = self.u_0 = None
+        self.fine_dslash = None
+        for operator in self.operators[1:]:
+            if isinstance(operator, QudaCoarseOperator):
+                operator.blocks = None
+                operator.X = operator.X_inv = None
+                operator.Y_forward = operator.Y_backward = None
+                operator.Y_backward_storage = None
+                operator.Yhat_forward = operator.Yhat_backward = None
+                operator._strict_packed_assets = None
+                operator._dense = None
+                operator.fine_operator = None
+        self.levels = []
+        self.transfers = []
+        self.operators = []
+        self.coarsening_operators = []
+        self.parity_operators = []
+        self.matpc_operators = []
+        self._cuda_runtime_sealed = True
+        self._cuda_runtime_seal_report = {
+            "sealed": True,
+            "detached_setup_storage_bytes": int(detached_bytes),
+            "detached_setup_storage_count": int(detached_count),
+            "note": "allocator delta may be smaller when caller retains aliases",
+        }
+        return dict(self._cuda_runtime_seal_report)
 
     init = setup
 
@@ -2783,7 +3214,8 @@ class QudaMultigrid:
             if not isinstance(coarse, QudaCoarseOperator):
                 raise RuntimeError(
                     f"transition {level} 的 coarse operator 类型不支持 strict 导出")
-            if coarse.blocks is None and not materialize:
+            if (coarse.blocks is None and
+                    coarse._strict_packed_assets is None and not materialize):
                 raise RuntimeError(
                     f"transition {level} 仍是 matrix-free；strict 资产导出会触发"
                     "逐列 materialize。请显式设置 materialize=True，或使用"
@@ -2954,8 +3386,13 @@ class QudaMultigrid:
             _torch.abs(lhs - rhs).item()) / max(
                 float(_torch.norm(transfer.prolong(coarse)).item()) *
                 float(_torch.norm(fine).item()), 1e-30)
+        projected = transfer.prolong(transfer.restrict(fine))
+        projected_twice = transfer.prolong(transfer.restrict(projected))
         result["transfer_projection"] = _relative_norm(
-            transfer.prolong(transfer.restrict(fine)), fine)
+            projected_twice - projected, projected)
+        result["transfer_projection_capture"] = (
+            float(_torch.norm(projected).item()) /
+            max(float(_torch.norm(fine).item()), 1e-30))
         coarse_operator = self.operators[1]
         galerkin_source = (
             self.coarsening_operators[0]
@@ -3014,6 +3451,7 @@ class QudaStrictMultigrid(QudaMultigrid):
         if self._normalise_hierarchy_mode(requested) != "strict":
             raise ValueError(
                 "QudaStrictMultigrid 不接受非 strict hierarchy_mode")
+        kwargs.setdefault("strict_galerkin_mode", "auto")
         super().__init__(*args, hierarchy_mode="strict", **kwargs)
 
 
