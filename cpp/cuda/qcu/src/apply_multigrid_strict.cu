@@ -1,8 +1,11 @@
 #include <algorithm>
 #include <cmath>
+#include <complex>
 #include <cstdio>
 #include <limits>
 #include <stdexcept>
+#include <type_traits>
+#include <vector>
 
 #include "../include/qcu.h"
 #include "../python/pyqcu.h"
@@ -279,6 +282,20 @@ __global__ void strict_add_kernel(
 }
 
 template <typename T>
+__global__ void strict_fine_matpc_update_kernel(
+    void *out_ptr, const void *identity_ptr, const void *cross_ptr,
+    T kappa_squared, int n) {
+  const int index = blockIdx.x * blockDim.x + threadIdx.x;
+  if (index >= n) return;
+  LatticeComplex<T> *out = static_cast<LatticeComplex<T> *>(out_ptr);
+  const LatticeComplex<T> *identity =
+      static_cast<const LatticeComplex<T> *>(identity_ptr);
+  const LatticeComplex<T> *cross =
+      static_cast<const LatticeComplex<T> *>(cross_ptr);
+  out[index] = identity[index] - cross[index] * kappa_squared;
+}
+
+template <typename T>
 __global__ void strict_mr_update_kernel(
     void *x_ptr, void *r_ptr, const void *Ar_ptr,
     LatticeComplex<T> alpha, int n) {
@@ -291,6 +308,246 @@ __global__ void strict_mr_update_kernel(
   const LatticeComplex<T> old_r = r[index];
   x[index] += alpha * old_r;
   r[index] = old_r - alpha * Ar[index];
+}
+
+// The strict solver is deliberately single-rank, so its reductions do not
+// need the MPI staging used by the legacy solver.  Keeping all inner products
+// for one Arnoldi column in one launch is important on WSL2, where the host
+// round trip costs considerably more than the reduction itself.
+template <typename T, int NT>
+__global__ void strict_dot_many_kernel(
+    const LatticeComplex<T> *basis, size_t basis_stride,
+    const LatticeComplex<T> *right, int n, int count,
+    LatticeComplex<T> *out) {
+  using complex_data = typename LatticeComplex<T>::_data_type;
+  const int column = static_cast<int>(blockIdx.x);
+  if (column >= count) return;
+
+  __shared__ complex_data partial[NT];
+  const LatticeComplex<T> *left = basis +
+      static_cast<size_t>(column) * basis_stride;
+  LatticeComplex<T> sum((T)0, (T)0);
+  for (int index = threadIdx.x; index < n; index += NT)
+    sum += left[index].conj() * right[index];
+  partial[threadIdx.x].x = sum.real();
+  partial[threadIdx.x].y = sum.imag();
+  __syncthreads();
+  for (int width = NT / 2; width > 0; width >>= 1) {
+    if (threadIdx.x < width) {
+      partial[threadIdx.x].x += partial[threadIdx.x + width].x;
+      partial[threadIdx.x].y += partial[threadIdx.x + width].y;
+    }
+    __syncthreads();
+  }
+  if (threadIdx.x == 0)
+    out[column] = LatticeComplex<T>(partial[0].x, partial[0].y);
+}
+
+// Two products with the same vector length are reduced together.  This is
+// used by MR and BiCGStab, where both scalars are needed before the next
+// update.  The output is written into the existing device_vals allocation;
+// no additional arena bytes are required.
+template <typename T, int NT>
+__global__ void strict_dot_pair_kernel(
+    const LatticeComplex<T> *left0, const LatticeComplex<T> *right0,
+    const LatticeComplex<T> *left1, const LatticeComplex<T> *right1,
+    int n, LatticeComplex<T> *out) {
+  using complex_data = typename LatticeComplex<T>::_data_type;
+  __shared__ complex_data partial0[NT];
+  __shared__ complex_data partial1[NT];
+  LatticeComplex<T> sum0((T)0, (T)0);
+  for (int index = threadIdx.x; index < n; index += NT)
+    sum0 += left0[index].conj() * right0[index];
+  partial0[threadIdx.x].x = sum0.real();
+  partial0[threadIdx.x].y = sum0.imag();
+
+  LatticeComplex<T> sum1((T)0, (T)0);
+  for (int index = threadIdx.x; index < n; index += NT)
+    sum1 += left1[index].conj() * right1[index];
+  partial1[threadIdx.x].x = sum1.real();
+  partial1[threadIdx.x].y = sum1.imag();
+  __syncthreads();
+  for (int width = NT / 2; width > 0; width >>= 1) {
+    if (threadIdx.x < width) {
+      partial0[threadIdx.x].x += partial0[threadIdx.x + width].x;
+      partial0[threadIdx.x].y += partial0[threadIdx.x + width].y;
+      partial1[threadIdx.x].x += partial1[threadIdx.x + width].x;
+      partial1[threadIdx.x].y += partial1[threadIdx.x + width].y;
+    }
+    __syncthreads();
+  }
+  if (threadIdx.x == 0) {
+    out[0] = LatticeComplex<T>(partial0[0].x, partial0[0].y);
+    out[1] = LatticeComplex<T>(partial1[0].x, partial1[0].y);
+  }
+}
+
+// The original strict dot kernels intentionally used one block so the first
+// implementation had no reduction workspace.  That is a poor trade-off for
+// fine-grid vectors: with a 2M-element vector, every one of 256 threads had
+// to perform roughly 8K serial products.  Keep the same accumulation type and
+// conjugation convention, but split the vector into grid-stride block slices.
+// The second reduction is tiny and remains on the same stream, so the host
+// synchronization/API contract is unchanged.
+template <typename T, int NT>
+__global__ void strict_dot_pair_partial_kernel(
+    const LatticeComplex<T> *left0, const LatticeComplex<T> *right0,
+    const LatticeComplex<T> *left1, const LatticeComplex<T> *right1,
+    int n, LatticeComplex<T> *partials) {
+  using complex_data = typename LatticeComplex<T>::_data_type;
+  __shared__ complex_data partial0[NT];
+  __shared__ complex_data partial1[NT];
+  const int block = blockIdx.x;
+  const int index = block * NT + threadIdx.x;
+  const int stride = gridDim.x * NT;
+  LatticeComplex<T> sum0((T)0, (T)0);
+  LatticeComplex<T> sum1((T)0, (T)0);
+  for (int i = index; i < n; i += stride) {
+    sum0 += left0[i].conj() * right0[i];
+    sum1 += left1[i].conj() * right1[i];
+  }
+  partial0[threadIdx.x].x = sum0.real();
+  partial0[threadIdx.x].y = sum0.imag();
+  partial1[threadIdx.x].x = sum1.real();
+  partial1[threadIdx.x].y = sum1.imag();
+  __syncthreads();
+  for (int width = NT / 2; width > 0; width >>= 1) {
+    if (threadIdx.x < width) {
+      partial0[threadIdx.x].x += partial0[threadIdx.x + width].x;
+      partial0[threadIdx.x].y += partial0[threadIdx.x + width].y;
+      partial1[threadIdx.x].x += partial1[threadIdx.x + width].x;
+      partial1[threadIdx.x].y += partial1[threadIdx.x + width].y;
+    }
+    __syncthreads();
+  }
+  if (threadIdx.x == 0) {
+    partials[block] = LatticeComplex<T>(partial0[0].x, partial0[0].y);
+    partials[gridDim.x + block] =
+        LatticeComplex<T>(partial1[0].x, partial1[0].y);
+  }
+}
+
+template <typename T, int NT>
+__global__ void strict_dot_pair_reduce_kernel(
+    const LatticeComplex<T> *partials, int count,
+    LatticeComplex<T> *out) {
+  using complex_data = typename LatticeComplex<T>::_data_type;
+  __shared__ complex_data partial0[NT];
+  __shared__ complex_data partial1[NT];
+  LatticeComplex<T> sum0((T)0, (T)0);
+  LatticeComplex<T> sum1((T)0, (T)0);
+  for (int i = threadIdx.x; i < count; i += NT) {
+    sum0 += partials[i];
+    sum1 += partials[count + i];
+  }
+  partial0[threadIdx.x].x = sum0.real();
+  partial0[threadIdx.x].y = sum0.imag();
+  partial1[threadIdx.x].x = sum1.real();
+  partial1[threadIdx.x].y = sum1.imag();
+  __syncthreads();
+  for (int width = NT / 2; width > 0; width >>= 1) {
+    if (threadIdx.x < width) {
+      partial0[threadIdx.x].x += partial0[threadIdx.x + width].x;
+      partial0[threadIdx.x].y += partial0[threadIdx.x + width].y;
+      partial1[threadIdx.x].x += partial1[threadIdx.x + width].x;
+      partial1[threadIdx.x].y += partial1[threadIdx.x + width].y;
+    }
+    __syncthreads();
+  }
+  if (threadIdx.x == 0) {
+    out[0] = LatticeComplex<T>(partial0[0].x, partial0[0].y);
+    out[1] = LatticeComplex<T>(partial1[0].x, partial1[0].y);
+  }
+}
+
+template <typename T, int NT>
+__global__ void strict_dot_many_partial_kernel(
+    const LatticeComplex<T> *basis, size_t basis_stride,
+    const LatticeComplex<T> *right, int n, int count,
+    int partial_count, LatticeComplex<T> *partials) {
+  using complex_data = typename LatticeComplex<T>::_data_type;
+  const int column = static_cast<int>(blockIdx.x);
+  const int block = static_cast<int>(blockIdx.y);
+  if (column >= count || block >= partial_count) return;
+  __shared__ complex_data partial[NT];
+  const LatticeComplex<T> *left = basis +
+      static_cast<size_t>(column) * basis_stride;
+  const int index = block * NT + threadIdx.x;
+  const int stride = partial_count * NT;
+  LatticeComplex<T> sum((T)0, (T)0);
+  for (int i = index; i < n; i += stride)
+    sum += left[i].conj() * right[i];
+  partial[threadIdx.x].x = sum.real();
+  partial[threadIdx.x].y = sum.imag();
+  __syncthreads();
+  for (int width = NT / 2; width > 0; width >>= 1) {
+    if (threadIdx.x < width) {
+      partial[threadIdx.x].x += partial[threadIdx.x + width].x;
+      partial[threadIdx.x].y += partial[threadIdx.x + width].y;
+    }
+    __syncthreads();
+  }
+  if (threadIdx.x == 0)
+    partials[column * partial_count + block] =
+        LatticeComplex<T>(partial[0].x, partial[0].y);
+}
+
+template <typename T, int NT>
+__global__ void strict_dot_many_reduce_kernel(
+    const LatticeComplex<T> *partials, int partial_count, int count,
+    LatticeComplex<T> *out) {
+  using complex_data = typename LatticeComplex<T>::_data_type;
+  const int column = static_cast<int>(blockIdx.x);
+  if (column >= count) return;
+  __shared__ complex_data partial[NT];
+  LatticeComplex<T> sum((T)0, (T)0);
+  const LatticeComplex<T> *input =
+      partials + static_cast<size_t>(column) * partial_count;
+  for (int i = threadIdx.x; i < partial_count; i += NT)
+    sum += input[i];
+  partial[threadIdx.x].x = sum.real();
+  partial[threadIdx.x].y = sum.imag();
+  __syncthreads();
+  for (int width = NT / 2; width > 0; width >>= 1) {
+    if (threadIdx.x < width) {
+      partial[threadIdx.x].x += partial[threadIdx.x + width].x;
+      partial[threadIdx.x].y += partial[threadIdx.x + width].y;
+    }
+    __syncthreads();
+  }
+  if (threadIdx.x == 0)
+    out[column] = LatticeComplex<T>(partial[0].x, partial[0].y);
+}
+
+// Apply one Arnoldi orthogonalisation column in a single pass.  The dot
+// coefficients are already resident in the first `count` entries of the
+// temporary V[dot_count] slice, so this removes one cuBLAS launch per basis
+// vector without adding storage or a host-to-device scalar copy.  The loop
+// order matches the former sequential axpy order: w <- w - h_i V_i.
+template <typename T>
+__global__ void strict_orthogonalize_kernel(
+    LatticeComplex<T> *vector, const LatticeComplex<T> *basis,
+    size_t basis_stride, const LatticeComplex<T> *coefficients, int count,
+    int n) {
+  const int index = blockIdx.x * blockDim.x + threadIdx.x;
+  if (index >= n) return;
+  LatticeComplex<T> value = vector[index];
+  for (int column = 0; column < count; ++column)
+    value -= coefficients[column] *
+             basis[static_cast<size_t>(column) * basis_stride + index];
+  vector[index] = value;
+}
+
+template <int NT = 256>
+inline int strict_reduction_blocks(size_t n, int cap = 1024) {
+  if (n == 0) return 1;
+  if (cap < 1) cap = 1;
+  const size_t items_per_block = static_cast<size_t>(NT) * 8;
+  size_t blocks = (n + items_per_block - 1) / items_per_block;
+  blocks = std::max<size_t>(1, std::min<size_t>(blocks, cap));
+  if (blocks > static_cast<size_t>(std::numeric_limits<int>::max()))
+    return std::numeric_limits<int>::max();
+  return static_cast<int>(blocks);
 }
 
 template <typename T>
@@ -467,6 +724,18 @@ inline void strict_validate_transfer_geometry(
     throw std::invalid_argument("strict transfer geometry is not divisible");
 }
 
+// The strict coarse hopping kernel is the dominant kernel in the recursive
+// V-cycle.  Keep its tuning local to this new path: legacy QCU kernels retain
+// the project-wide production block size, so an A/B result cannot silently
+// change unrelated Wilson/Clover operators.
+constexpr int kStrictHoppingBlockSize = 256;
+
+inline int strict_hopping_blocks(size_t n) {
+  return static_cast<int>(
+      (n + static_cast<size_t>(kStrictHoppingBlockSize) - 1) /
+      static_cast<size_t>(kStrictHoppingBlockSize));
+}
+
 template <typename T>
 LatticeSet<T> *strict_get_set(void *set_ptrs, int *params) {
   const int index = params[_SET_INDEX_];
@@ -484,6 +753,80 @@ inline void strict_check_cuda(cudaError_t status, const char *where) {
                  where, cudaGetErrorString(status));
     throw std::runtime_error("strict multigrid CUDA failure");
   }
+}
+
+inline void strict_require_single_rank_backend(const int *params) {
+  if (params == nullptr)
+    throw std::invalid_argument("strict MPI gate received null params");
+
+  int mpi_initialized = 0;
+  if (MPI_Initialized(&mpi_initialized) != MPI_SUCCESS)
+    throw std::runtime_error("strict MPI gate cannot query MPI state");
+  int mpi_finalized = 0;
+  if (mpi_initialized &&
+      MPI_Finalized(&mpi_finalized) != MPI_SUCCESS)
+    throw std::runtime_error("strict MPI gate cannot query MPI finalization");
+
+  int world_size = 1;
+  int world_rank = 0;
+  if (mpi_initialized && !mpi_finalized) {
+    if (MPI_Comm_size(MPI_COMM_WORLD, &world_size) != MPI_SUCCESS ||
+        MPI_Comm_rank(MPI_COMM_WORLD, &world_rank) != MPI_SUCCESS)
+      throw std::runtime_error("strict MPI gate cannot query MPI_COMM_WORLD");
+  }
+
+  if (mpi_finalized || world_size != 1 || world_rank != 0 ||
+      params[_NODE_SIZE_] != 1 || params[_NODE_RANK_] != 0 ||
+      params[_GRID_X_] != 1 || params[_GRID_Y_] != 1 ||
+      params[_GRID_Z_] != 1 || params[_GRID_T_] != 1)
+    throw std::invalid_argument(
+        "strict MPI fail-closed: this backend requires MPI_COMM_WORLD "
+        "size=1 and params NODE_SIZE=1, NODE_RANK=0, "
+        "GRID=(1,1,1,1); global scalar reduction alone is available, "
+        "but distributed setup/halo/fused solve are not implemented");
+}
+
+template <typename T>
+LatticeComplex<T> strict_global_sum_complex(
+    const LatticeComplex<T> &local, int *collective_calls = nullptr) {
+  static_assert(std::is_same<T, float>::value ||
+                    std::is_same<T, double>::value,
+                "strict global reduction supports float/double only");
+
+  int mpi_initialized = 0;
+  if (MPI_Initialized(&mpi_initialized) != MPI_SUCCESS)
+    throw std::runtime_error(
+        "strict global reduction cannot query MPI state");
+  if (!mpi_initialized)
+    return local;
+
+  int mpi_finalized = 0;
+  if (MPI_Finalized(&mpi_finalized) != MPI_SUCCESS)
+    throw std::runtime_error(
+        "strict global reduction cannot query MPI finalization");
+  if (mpi_finalized)
+    throw std::runtime_error(
+        "strict global reduction cannot run after MPI finalization");
+
+  int world_size = 1;
+  if (MPI_Comm_size(MPI_COMM_WORLD, &world_size) != MPI_SUCCESS)
+    throw std::runtime_error(
+        "strict global reduction cannot query MPI_COMM_WORLD");
+  if (world_size == 1)
+    return local;
+  if (world_size < 1)
+    throw std::runtime_error(
+        "strict global reduction received invalid MPI_COMM_WORLD size");
+
+  T values[2] = {local.real(), local.imag()};
+  const MPI_Datatype scalar_type =
+      std::is_same<T, float>::value ? MPI_FLOAT : MPI_DOUBLE;
+  if (MPI_Allreduce(MPI_IN_PLACE, values, 2, scalar_type, MPI_SUM,
+                    MPI_COMM_WORLD) != MPI_SUCCESS)
+    throw std::runtime_error("strict global reduction MPI_Allreduce failed");
+  if (collective_calls != nullptr)
+    ++(*collective_calls);
+  return LatticeComplex<T>(values[0], values[1]);
 }
 
 template <typename T>
@@ -513,13 +856,75 @@ void strict_launch_matpc(
   strict_validate_parity_geometry(X, Y, Z, Tdim);
   LatticeSet<T> *set = strict_get_set<T>(set_ptrs, params);
   const int total = E * X * Y * Z * (Tdim / 2);
-  const int blocks = (total + _BLOCK_SIZE_ - 1) / _BLOCK_SIZE_;
-  strict_hopping_parity_kernel<T><<<blocks, _BLOCK_SIZE_, 0, set->stream>>>(
+  const int blocks = strict_hopping_blocks(total);
+  strict_hopping_parity_kernel<T>
+      <<<blocks, kStrictHoppingBlockSize, 0, set->stream>>>(
       scratch, in, links, nullptr, E, X, Y, Z, Tdim, 1 - parity);
-  strict_hopping_parity_kernel<T><<<blocks, _BLOCK_SIZE_, 0, set->stream>>>(
+  strict_hopping_parity_kernel<T>
+      <<<blocks, kStrictHoppingBlockSize, 0, set->stream>>>(
       out, scratch, links, in, E, X, Y, Z, Tdim, parity);
   strict_check_cuda(cudaGetLastError(), "MATPC launch");
   strict_check_cuda(cudaStreamSynchronize(set->stream), "MATPC sync");
+}
+
+template <typename T>
+void strict_launch_fine_matpc(
+    void *out, const void *in, void *gauge, void *clover_ee,
+    void *clover_oo, void *clover_ee_inv, void *clover_oo_inv,
+    void *set_ptrs, int *params, int parity) {
+  if (out == nullptr || in == nullptr || gauge == nullptr ||
+      clover_ee == nullptr || clover_oo == nullptr ||
+      clover_ee_inv == nullptr || clover_oo_inv == nullptr ||
+      parity < 0 || parity > 1)
+    throw std::invalid_argument("invalid strict fine MATPC descriptor");
+
+  LatticeSet<T> *set = strict_get_set<T>(set_ptrs, params);
+  const int n = set->lat_4dim_SC;
+  if (n <= 0)
+    throw std::invalid_argument("strict fine MATPC has empty compact field");
+
+  LatticeCloverBistabCg<T> fine;
+  fine.give(set);
+  fine.init(gauge, clover_ee, clover_oo, clover_ee_inv, clover_oo_inv);
+
+  // H_{q p}: source parity p -> eliminated parity q.  The Wilson helper
+  // names its kernels by destination/source, so run_oe is 0 -> 1 and run_eo
+  // is 1 -> 0.  Keep this mapping identical to the fused strict solver.
+  if (parity == 0)
+    fine.wilson_dslash.run_oe(set->device_vec0,
+                              const_cast<void *>(in), fine.gauge);
+  else
+    fine.wilson_dslash.run_eo(set->device_vec0,
+                              const_cast<void *>(in), fine.gauge);
+  if (parity == 0)
+    fine.clover_dslash_oo_inv.give(set->device_vec0);
+  else
+    fine.clover_dslash_ee_inv.give(set->device_vec0);
+
+  // H_{p q} A_q^{-1} H_{q p}; the second hopping returns to the target
+  // parity, after which A_p^{-1} completes the symmetric MATPC action.
+  if (parity == 0)
+    fine.wilson_dslash.run_eo(set->device_vec1, set->device_vec0,
+                              fine.gauge);
+  else
+    fine.wilson_dslash.run_oe(set->device_vec1, set->device_vec0,
+                              fine.gauge);
+  if (parity == 0)
+    fine.clover_dslash_ee_inv.give(set->device_vec1);
+  else
+    fine.clover_dslash_oo_inv.give(set->device_vec1);
+
+  const int blocks = (n + _BLOCK_SIZE_ - 1) / _BLOCK_SIZE_;
+  strict_check_cuda(cudaMemcpyAsync(
+                        out, in,
+                        static_cast<size_t>(n) * sizeof(LatticeComplex<T>),
+                        cudaMemcpyDeviceToDevice, set->stream),
+                    "fine MATPC identity copy");
+  strict_fine_matpc_update_kernel<T>
+      <<<blocks, _BLOCK_SIZE_, 0, set->stream>>>(
+          out, out, set->device_vec1, set->kappa() * set->kappa(), n);
+  strict_check_cuda(cudaGetLastError(), "fine MATPC launch");
+  strict_check_cuda(cudaStreamSynchronize(set->stream), "fine MATPC sync");
 }
 
 template <typename T>
@@ -540,7 +945,8 @@ void strict_launch_prepare(
       <<<blocks, _BLOCK_SIZE_, 0, set->stream>>>(
           scratch, full_rhs, onsite_pair, E, X, Y, Z, Lt, 1 - parity, 1);
   // out = X_p^-1 b_p - Hhat_pq X_q^-1 b_q.
-  strict_hopping_parity_kernel<T><<<blocks, _BLOCK_SIZE_, 0, set->stream>>>(
+  strict_hopping_parity_kernel<T>
+      <<<strict_hopping_blocks(total), kStrictHoppingBlockSize, 0, set->stream>>>(
       out, scratch, links, out, E, X, Y, Z, Lt, parity);
   strict_check_cuda(cudaGetLastError(), "prepare launch");
   strict_check_cuda(cudaStreamSynchronize(set->stream), "prepare sync");
@@ -557,14 +963,14 @@ void strict_launch_reconstruct(
   strict_validate_parity_geometry(X, Y, Z, Lt);
   LatticeSet<T> *set = strict_get_set<T>(set_ptrs, params);
   const int half_total = E * X * Y * Z * (Lt / 2);
-  const int half_blocks =
-      (half_total + _BLOCK_SIZE_ - 1) / _BLOCK_SIZE_;
+  const int half_blocks = (half_total + _BLOCK_SIZE_ - 1) / _BLOCK_SIZE_;
+  const int hopping_blocks = strict_hopping_blocks(half_total);
   strict_onsite_full_to_parity_kernel<T>
       <<<half_blocks, _BLOCK_SIZE_, 0, set->stream>>>(
           scratch, full_rhs, onsite_pair, E, X, Y, Z, Lt, 1 - parity, 1);
   // x_q = X_q^-1 b_q - Hhat_qp x_p.
   strict_hopping_parity_kernel<T>
-      <<<half_blocks, _BLOCK_SIZE_, 0, set->stream>>>(
+      <<<hopping_blocks, kStrictHoppingBlockSize, 0, set->stream>>>(
           scratch, target_solution, links, scratch,
           E, X, Y, Z, Lt, 1 - parity);
   const int full_total = 2 * half_total;
@@ -652,6 +1058,8 @@ template <typename T> struct StrictWorkspaceArena {
   void *r = nullptr, *v = nullptr, *tmp = nullptr;
   void *rhat = nullptr, *p = nullptr, *s = nullptr, *t = nullptr;
   void *correction_full = nullptr;
+  void *dot_storage = nullptr;
+  size_t dot_elements = 0;
   size_t bytes = 0;
 
   static size_t align_elements(size_t elements) {
@@ -662,7 +1070,8 @@ template <typename T> struct StrictWorkspaceArena {
   }
 
   void allocate(size_t max_compact, size_t coarsest_compact,
-                size_t max_child_full, cudaStream_t stream) {
+                size_t max_child_full, size_t max_reduction_n,
+                cudaStream_t stream) {
     size_t cursor = 0;
     auto reserve = [&](size_t count) -> size_t {
       const size_t offset = cursor;
@@ -677,6 +1086,10 @@ template <typename T> struct StrictWorkspaceArena {
     const size_t s_offset = reserve(coarsest_compact);
     const size_t t_offset = reserve(coarsest_compact);
     const size_t correction_offset = reserve(max_child_full);
+    const size_t dot_blocks = static_cast<size_t>(
+        strict_reduction_blocks(max_reduction_n));
+    const size_t dot_offset = reserve(2 * dot_blocks);
+    dot_elements = 2 * dot_blocks;
     bytes = cursor * sizeof(LatticeComplex<T>);
     if (bytes == 0) return;
     strict_check_cuda(cudaMallocAsync(&storage, bytes, stream),
@@ -690,6 +1103,7 @@ template <typename T> struct StrictWorkspaceArena {
     s = base + s_offset;
     t = base + t_offset;
     correction_full = max_child_full == 0 ? nullptr : base + correction_offset;
+    dot_storage = base + dot_offset;
   }
 
   void release(cudaStream_t stream) {
@@ -697,6 +1111,140 @@ template <typename T> struct StrictWorkspaceArena {
       strict_check_cuda(cudaFreeAsync(storage, stream),
                         "strict workspace release");
       storage = nullptr;
+    }
+  }
+};
+
+// Fine-grid restarted FGMRES storage.  The whole device arena is attached to
+// the persistent slot-80 hierarchy and is reused by subsequent solves with
+// the same geometry/restart.  Its exact device footprint is
+//
+//   (2 * restart + 5) * fine_compact + 2 * first_coarse_full
+//
+// complex numbers: V[m+1], Z[m], b/r/w/x and the two coarse transfer fields.
+// Hessenberg/Givens data are small host-side vectors and never enter the
+// per-iteration CUDA allocation path.
+template <typename T> struct StrictOuterWorkspace {
+  void *storage = nullptr;
+  std::vector<void *> V;
+  std::vector<void *> Z;
+  void *b = nullptr, *r = nullptr, *w = nullptr, *x = nullptr;
+  void *coarse_rhs = nullptr, *coarse_out = nullptr;
+  std::vector<std::complex<T>> H, cs, sn, g, y;
+  std::vector<LatticeComplex<T>> dot_values;
+  size_t fine_n = 0, coarse_n = 0, bytes = 0;
+  int restart = 0;
+
+  static size_t checked_elements(size_t fine_count, size_t coarse_count,
+                                 int restart_count) {
+    if (restart_count <= 0)
+      throw std::invalid_argument("strict FGMRES restart must be positive");
+    const size_t vectors = static_cast<size_t>(2) * restart_count + 5;
+    const size_t limit = std::numeric_limits<size_t>::max();
+    if (fine_count > limit / vectors)
+      throw std::overflow_error("strict FGMRES fine arena size overflow");
+    const size_t fine_elements = vectors * fine_count;
+    if (coarse_count > (limit - fine_elements) / 2)
+      throw std::overflow_error("strict FGMRES coarse arena size overflow");
+    return fine_elements + 2 * coarse_count;
+  }
+
+  void clear_views() {
+    V.clear();
+    Z.clear();
+    b = r = w = x = nullptr;
+    coarse_rhs = coarse_out = nullptr;
+    H.clear();
+    cs.clear();
+    sn.clear();
+    g.clear();
+    y.clear();
+    dot_values.clear();
+    fine_n = coarse_n = bytes = 0;
+    restart = 0;
+  }
+
+  void release(cudaStream_t stream) {
+    if (storage != nullptr) {
+      strict_check_cuda(cudaFreeAsync(storage, stream),
+                        "strict FGMRES workspace release");
+      storage = nullptr;
+    }
+    clear_views();
+  }
+
+  void release_noexcept(cudaStream_t stream) noexcept {
+    if (storage != nullptr) {
+      (void)cudaFreeAsync(storage, stream);
+      storage = nullptr;
+    }
+    clear_views();
+  }
+
+  void configure(size_t fine_count, size_t coarse_count, int restart_count,
+                 size_t budget_bytes, cudaStream_t stream) {
+    if (fine_count == 0 || coarse_count == 0)
+      throw std::invalid_argument("strict FGMRES workspace has zero extent");
+    const size_t elements =
+        checked_elements(fine_count, coarse_count, restart_count);
+    if (elements > std::numeric_limits<size_t>::max() /
+                       sizeof(LatticeComplex<T>))
+      throw std::overflow_error("strict FGMRES workspace byte overflow");
+    const size_t requested_bytes = elements * sizeof(LatticeComplex<T>);
+    if (requested_bytes > budget_bytes)
+      throw std::invalid_argument("strict FGMRES workspace exceeds budget");
+    if (storage != nullptr && fine_n == fine_count &&
+        coarse_n == coarse_count && restart == restart_count) {
+      if (bytes != requested_bytes)
+        throw std::runtime_error("strict FGMRES workspace accounting drift");
+      return;
+    }
+
+    release(stream);
+    try {
+      V.resize(static_cast<size_t>(restart_count) + 1);
+      Z.resize(static_cast<size_t>(restart_count));
+      H.resize((static_cast<size_t>(restart_count) + 1) * restart_count);
+      cs.resize(static_cast<size_t>(restart_count));
+      sn.resize(static_cast<size_t>(restart_count));
+      g.resize(static_cast<size_t>(restart_count) + 1);
+      y.resize(static_cast<size_t>(restart_count));
+      dot_values.resize(static_cast<size_t>(restart_count) + 1);
+      strict_check_cuda(cudaMallocAsync(&storage, requested_bytes, stream),
+                        "strict FGMRES workspace allocation");
+
+      LatticeComplex<T> *base =
+          static_cast<LatticeComplex<T> *>(storage);
+      size_t cursor = 0;
+      for (int i = 0; i <= restart_count; ++i) {
+        V[static_cast<size_t>(i)] = base + cursor;
+        cursor += fine_count;
+      }
+      for (int i = 0; i < restart_count; ++i) {
+        Z[static_cast<size_t>(i)] = base + cursor;
+        cursor += fine_count;
+      }
+      b = base + cursor;
+      cursor += fine_count;
+      r = base + cursor;
+      cursor += fine_count;
+      w = base + cursor;
+      cursor += fine_count;
+      x = base + cursor;
+      cursor += fine_count;
+      coarse_rhs = base + cursor;
+      cursor += coarse_count;
+      coarse_out = base + cursor;
+      cursor += coarse_count;
+      if (cursor != elements)
+        throw std::runtime_error("strict FGMRES workspace partition drift");
+      fine_n = fine_count;
+      coarse_n = coarse_count;
+      restart = restart_count;
+      bytes = requested_bytes;
+    } catch (...) {
+      release_noexcept(stream);
+      throw;
     }
   }
 };
@@ -712,21 +1260,18 @@ template <typename T> class StrictCoarseHierarchy {
         smoother_steps_(params[_MG_MU_PRE_] > 0 ? params[_MG_MU_PRE_] : 2),
                         persistent_storage_(nullptr), persistent_bytes_(0) {
     try {
+    strict_require_single_rank_backend(params_);
     if (num_levels_ < 2 || num_levels_ > 5 || start_ < 1 ||
         start_ >= num_levels_)
       throw std::invalid_argument(
           "strict hierarchy requires 2..5 levels and a valid coarse start");
     if (parity_ != 0 && parity_ != 1)
       throw std::invalid_argument("strict hierarchy parity must be 0 or 1");
-    if (params_[_GRID_X_] != 1 || params_[_GRID_Y_] != 1 ||
-        params_[_GRID_Z_] != 1 || params_[_GRID_T_] != 1)
-      throw std::invalid_argument(
-          "strict recursive hierarchy currently supports single rank only");
-
     levels_ = new StrictPersistentLevel<T>[num_levels_];
     size_t persistent_elements = 0;
     size_t max_compact = 0;
     size_t max_child_full = 0;
+    size_t max_reduction_n = static_cast<size_t>(set_->lat_4dim_SC);
     for (int level = start_; level < num_levels_; ++level) {
       levels_[level].geometry = strict_read_level(params_, level);
       const int base = _MG_LEVEL1_E_ + (level - 1) * _MG_PARAMS_SIZE_;
@@ -735,6 +1280,8 @@ template <typename T> class StrictCoarseHierarchy {
             "strict recursive hierarchy mixed precision is not enabled yet");
       max_compact = std::max(
           max_compact, levels_[level].geometry.compact_n);
+      max_reduction_n = std::max(
+          max_reduction_n, levels_[level].geometry.compact_n);
       if (level > start_)
         max_child_full = std::max(
             max_child_full, levels_[level].geometry.full_n);
@@ -767,7 +1314,7 @@ template <typename T> class StrictCoarseHierarchy {
     }
     arena_.allocate(
         max_compact, levels_[num_levels_ - 1].geometry.compact_n,
-        max_child_full, set_->stream);
+        max_child_full, max_reduction_n, set_->stream);
     if (params_[_VERBOSE_] && params_[_NODE_RANK_] == 0) {
       const double persistent_mib =
           static_cast<double>(persistent_bytes_) / (1024.0 * 1024.0);
@@ -808,6 +1355,59 @@ template <typename T> class StrictCoarseHierarchy {
       throw std::runtime_error("cannot restore cublas pointer mode");
   }
 
+  size_t run_fgmres(
+      void *full_out, const void *full_rhs, void *gauge, void *clover_ee,
+      void *clover_oo, void *clover_ee_inv, void *clover_oo_inv,
+      const void *fine_null_vectors, int fine_E, int fine_X, int fine_Y,
+      int fine_Z, int fine_T, int coarse_E, int coarse_X, int coarse_Y,
+      int coarse_Z, int coarse_T, int restart, int max_iter, T tolerance,
+      int nu_pre, int nu_post, size_t max_workspace_bytes,
+      int &iterations, bool &converged, T &final_true_residual) {
+    validate_fgmres_descriptor(
+        full_out, full_rhs, gauge, clover_ee, clover_oo, clover_ee_inv,
+        clover_oo_inv, fine_null_vectors, fine_E, fine_X, fine_Y, fine_Z,
+        fine_T, coarse_E, coarse_X, coarse_Y, coarse_Z, coarse_T, restart,
+        max_iter, tolerance, nu_pre, nu_post, max_workspace_bytes);
+
+    const StrictLevelGeometry &coarse = levels_[start_].geometry;
+    const size_t fine_n = static_cast<size_t>(fine_E) * fine_X * fine_Y *
+                          fine_Z * (fine_T / 2);
+    outer_.configure(fine_n, coarse.full_n, restart, max_workspace_bytes,
+                     set_->stream);
+
+    cublasPointerMode_t saved_pointer_mode = CUBLAS_POINTER_MODE_HOST;
+    if (cublasGetPointerMode(set_->cublasH, &saved_pointer_mode) !=
+        CUBLAS_STATUS_SUCCESS)
+      throw std::runtime_error("cannot query strict FGMRES pointer mode");
+    if (cublasSetPointerMode(set_->cublasH, CUBLAS_POINTER_MODE_HOST) !=
+        CUBLAS_STATUS_SUCCESS)
+      throw std::runtime_error("cannot select strict FGMRES host scalars");
+
+    try {
+      LatticeCloverBistabCg<T> fine;
+      fine.give(set_);
+      fine.init(gauge, clover_ee, clover_oo, clover_ee_inv, clover_oo_inv);
+      // Every producer/consumer below uses set_->stream.  Suppress the
+      // single-rank Wilson endpoint syncs and synchronize only at the fused
+      // C entry boundary (coarse dot reductions may still synchronize).
+      fine.wilson_dslash.skip_final_sync_ = true;
+      fgmres_impl(
+          fine, full_out, full_rhs, fine_null_vectors, fine_E, fine_X,
+          fine_Y, fine_Z, fine_T, restart, max_iter, tolerance, nu_pre,
+          nu_post, iterations, converged, final_true_residual);
+      strict_check_cuda(cudaGetLastError(), "strict FGMRES launch");
+      strict_check_cuda(cudaStreamSynchronize(set_->stream),
+                        "strict FGMRES output sync");
+    } catch (...) {
+      (void)cublasSetPointerMode(set_->cublasH, saved_pointer_mode);
+      throw;
+    }
+    if (cublasSetPointerMode(set_->cublasH, saved_pointer_mode) !=
+        CUBLAS_STATUS_SUCCESS)
+      throw std::runtime_error("cannot restore strict FGMRES pointer mode");
+    return outer_.bytes;
+  }
+
   size_t allocated_bytes() const {
     return persistent_bytes_ + arena_.bytes;
   }
@@ -821,11 +1421,13 @@ template <typename T> class StrictCoarseHierarchy {
   int start_, num_levels_, parity_, smoother_steps_;
   StrictPersistentLevel<T> *levels_ = nullptr;
   StrictWorkspaceArena<T> arena_;
+  StrictOuterWorkspace<T> outer_;
   void *persistent_storage_;
   size_t persistent_bytes_;
 
   void release_noexcept() noexcept {
     if (set_ != nullptr) {
+      outer_.release_noexcept(set_->stream);
       if (arena_.storage != nullptr) {
         (void)cudaFreeAsync(arena_.storage, set_->stream);
         arena_.storage = nullptr;
@@ -839,6 +1441,8 @@ template <typename T> class StrictCoarseHierarchy {
     arena_.r = arena_.v = arena_.tmp = nullptr;
     arena_.rhat = arena_.p = arena_.s = arena_.t = nullptr;
     arena_.correction_full = nullptr;
+    arena_.dot_storage = nullptr;
+    arena_.dot_elements = 0;
     arena_.bytes = 0;
     persistent_bytes_ = 0;
     delete[] levels_;
@@ -876,7 +1480,564 @@ template <typename T> class StrictCoarseHierarchy {
     if (status != CUBLAS_STATUS_SUCCESS)
       throw std::runtime_error("strict cublas dot failed");
     strict_check_cuda(cudaStreamSynchronize(set_->stream), "strict dot sync");
-    return result;
+    return strict_global_sum_complex(result);
+  }
+
+  void dot_pair(const void *left0, const void *right0,
+                const void *left1, const void *right1, size_t n,
+                LatticeComplex<T> &result0,
+                LatticeComplex<T> &result1) {
+    if (n == 0 || n > static_cast<size_t>(std::numeric_limits<int>::max()))
+      throw std::overflow_error("strict dot pair vector exceeds cublas int range");
+    LatticeComplex<T> *device_results =
+        static_cast<LatticeComplex<T> *>(set_->device_vals);
+    if (device_results == nullptr || arena_.dot_storage == nullptr)
+      throw std::runtime_error("strict dot pair device scratch is null");
+    const int reduction_count = strict_reduction_blocks(n);
+    if (2 * static_cast<size_t>(reduction_count) > arena_.dot_elements)
+      throw std::runtime_error("strict dot pair reduction scratch is too small");
+    strict_dot_pair_partial_kernel<T, 256>
+        <<<reduction_count, 256, 0, set_->stream>>>(
+            static_cast<const LatticeComplex<T> *>(left0),
+            static_cast<const LatticeComplex<T> *>(right0),
+            static_cast<const LatticeComplex<T> *>(left1),
+            static_cast<const LatticeComplex<T> *>(right1),
+            static_cast<int>(n),
+            static_cast<LatticeComplex<T> *>(arena_.dot_storage));
+    strict_check_cuda(cudaGetLastError(), "strict dot pair partial launch");
+    strict_dot_pair_reduce_kernel<T, 256>
+        <<<1, 256, 0, set_->stream>>>(
+            static_cast<const LatticeComplex<T> *>(arena_.dot_storage),
+            reduction_count, device_results);
+    strict_check_cuda(cudaGetLastError(), "strict dot pair reduce launch");
+    LatticeComplex<T> host_results[2];
+    strict_check_cuda(cudaMemcpyAsync(
+                          host_results, device_results,
+                          2 * sizeof(LatticeComplex<T>),
+                          cudaMemcpyDeviceToHost, set_->stream),
+                      "strict dot pair copy");
+    strict_check_cuda(cudaStreamSynchronize(set_->stream),
+                      "strict dot pair sync");
+    result0 = strict_global_sum_complex(host_results[0]);
+    result1 = strict_global_sum_complex(host_results[1]);
+  }
+
+  void dot_many(const void *basis, size_t basis_stride, const void *right,
+                int count, void *device_output) {
+    if (count <= 0 || count > static_cast<int>(outer_.dot_values.size()))
+      throw std::invalid_argument("strict dot-many count is outside workspace");
+    if (outer_.fine_n == 0 ||
+        outer_.fine_n > static_cast<size_t>(std::numeric_limits<int>::max()))
+      throw std::overflow_error("strict dot-many vector exceeds int range");
+    const int reduction_count = std::min(
+        strict_reduction_blocks(outer_.fine_n),
+        static_cast<int>(outer_.fine_n / static_cast<size_t>(count)));
+    if (reduction_count <= 0)
+      throw std::invalid_argument(
+          "strict dot-many requires at least one result slot per partial block");
+    strict_dot_many_partial_kernel<T, 256>
+        <<<dim3(static_cast<unsigned int>(count),
+                static_cast<unsigned int>(reduction_count), 1),
+            256, 0, set_->stream>>>(
+            static_cast<const LatticeComplex<T> *>(basis), basis_stride,
+            static_cast<const LatticeComplex<T> *>(right),
+            static_cast<int>(outer_.fine_n), count, reduction_count,
+            static_cast<LatticeComplex<T> *>(device_output));
+    strict_check_cuda(cudaGetLastError(), "strict dot-many partial launch");
+    strict_dot_many_reduce_kernel<T, 256>
+        <<<count, 256, 0, set_->stream>>>(
+            static_cast<const LatticeComplex<T> *>(device_output),
+            reduction_count, count,
+            static_cast<LatticeComplex<T> *>(device_output));
+    strict_check_cuda(cudaGetLastError(), "strict dot-many reduce launch");
+    strict_check_cuda(cudaMemcpyAsync(
+                          outer_.dot_values.data(), device_output,
+                          static_cast<size_t>(count) * sizeof(LatticeComplex<T>),
+                          cudaMemcpyDeviceToHost, set_->stream),
+                      "strict dot-many copy");
+    strict_check_cuda(cudaStreamSynchronize(set_->stream),
+                      "strict dot-many sync");
+  }
+
+  void cublas_check(cublasStatus_t status, const char *where) const {
+    if (status != CUBLAS_STATUS_SUCCESS) {
+      std::fprintf(stderr, "PYQCU::SOLVER::STRICT_MG::CUBLAS: %s (%d)\n",
+                   where, static_cast<int>(status));
+      throw std::runtime_error("strict FGMRES cuBLAS failure");
+    }
+  }
+
+  void copy_vector(void *out, const void *in, size_t n,
+                   const char *where) const {
+    strict_check_cuda(cudaMemcpyAsync(
+                          out, in, n * sizeof(LatticeComplex<T>),
+                          cudaMemcpyDeviceToDevice, set_->stream),
+                      where);
+  }
+
+  void zero_vector(void *out, size_t n, const char *where) const {
+    strict_check_cuda(
+        cudaMemsetAsync(out, 0, n * sizeof(LatticeComplex<T>), set_->stream),
+        where);
+  }
+
+  void axpy(void *out, const void *in, size_t n,
+            const std::complex<T> &alpha) const {
+    if (n > static_cast<size_t>(std::numeric_limits<int>::max()))
+      throw std::overflow_error("strict FGMRES axpy exceeds cublas int range");
+    const LatticeComplex<T> value(alpha.real(), alpha.imag());
+    cublas_check(_cublasAxpy<T>(set_->cublasH, static_cast<int>(n), &value,
+                                in, 1, out, 1),
+                 "strict FGMRES axpy");
+  }
+
+  void scale(void *vector, size_t n, T value) const {
+    if (n > static_cast<size_t>(std::numeric_limits<int>::max()))
+      throw std::overflow_error("strict FGMRES scale exceeds cublas int range");
+    const LatticeComplex<T> alpha(value, (T)0);
+    cublas_check(_cublasScal<T>(set_->cublasH, static_cast<int>(n), &alpha,
+                                vector, 1),
+                 "strict FGMRES scale");
+  }
+
+  T norm(const void *vector, size_t n) {
+    const LatticeComplex<T> value = dot(vector, vector, n);
+    const T norm2 = value.real();
+    if (!std::isfinite(static_cast<double>(norm2)))
+      throw std::runtime_error("strict FGMRES norm is non-finite");
+    return std::sqrt(std::max((T)0, norm2));
+  }
+
+  static bool finite_complex(const std::complex<T> &value) {
+    return std::isfinite(static_cast<double>(value.real())) &&
+           std::isfinite(static_cast<double>(value.imag()));
+  }
+
+  void validate_fgmres_descriptor(
+      const void *full_out, const void *full_rhs, const void *gauge,
+      const void *clover_ee, const void *clover_oo,
+      const void *clover_ee_inv, const void *clover_oo_inv,
+      const void *fine_null_vectors, int fine_E, int fine_X, int fine_Y,
+      int fine_Z, int fine_T, int coarse_E, int coarse_X, int coarse_Y,
+      int coarse_Z, int coarse_T, int restart, int max_iter, T tolerance,
+      int nu_pre, int nu_post, size_t max_workspace_bytes) const {
+    if (full_out == nullptr || full_rhs == nullptr || gauge == nullptr ||
+        clover_ee == nullptr || clover_oo == nullptr ||
+        clover_ee_inv == nullptr || clover_oo_inv == nullptr ||
+        fine_null_vectors == nullptr)
+      throw std::invalid_argument("strict FGMRES field pointer is null");
+    if (start_ != 1 || (parity_ != 0 && parity_ != 1))
+      throw std::invalid_argument(
+          "strict fine FGMRES requires start_level=1 and parity in {0,1}");
+    if (params_[_SET_PLAN_] != _SET_PLAN1_)
+      throw std::invalid_argument("strict fine FGMRES requires QCU plan 1");
+    if (params_[_MG_USE_INIT_GUESS_] != 0 &&
+        params_[_MG_USE_INIT_GUESS_] != 1)
+      throw std::invalid_argument("strict FGMRES warm-start flag must be 0/1");
+    strict_require_single_rank_backend(params_);
+    if (fine_E != _LAT_SC_)
+      throw std::invalid_argument("strict fine FGMRES requires 12 fine dof");
+    strict_validate_parity_geometry(
+        fine_X, fine_Y, fine_Z, fine_T);
+    if (fine_X != params_[_LAT_X_] || fine_Y != params_[_LAT_Y_] ||
+        fine_Z != params_[_LAT_Z_] || fine_T != params_[_LAT_T_] ||
+        fine_X != set_->host_params[_LAT_X_] ||
+        fine_Y != set_->host_params[_LAT_Y_] ||
+        fine_Z != set_->host_params[_LAT_Z_] ||
+        fine_T / 2 != set_->host_params[_LAT_T_])
+      throw std::invalid_argument("strict FGMRES fine geometry mismatch");
+    const StrictLevelGeometry &coarse = levels_[start_].geometry;
+    if (coarse_E != coarse.E || coarse_X != coarse.X ||
+        coarse_Y != coarse.Y || coarse_Z != coarse.Z ||
+        coarse_T != coarse.Lt)
+      throw std::invalid_argument("strict FGMRES coarse geometry mismatch");
+    strict_validate_transfer_geometry(
+        coarse_E, fine_E, fine_X, fine_Y, fine_Z, fine_T,
+        coarse_X, coarse_Y, coarse_Z, coarse_T, parity_);
+    const size_t fine_n = static_cast<size_t>(fine_E) * fine_X * fine_Y *
+                          fine_Z * (fine_T / 2);
+    if (fine_n != static_cast<size_t>(set_->lat_4dim_SC) ||
+        fine_n > static_cast<size_t>(std::numeric_limits<int>::max()))
+      throw std::invalid_argument("strict FGMRES compact shape mismatch");
+    if (coarse.full_n >
+            static_cast<size_t>(std::numeric_limits<int>::max()) ||
+        coarse.compact_n >
+            static_cast<size_t>(std::numeric_limits<int>::max()))
+      throw std::invalid_argument("strict FGMRES coarse field is too large");
+    if (restart <= 0 || max_iter <= 0 || restart > max_iter)
+      throw std::invalid_argument(
+          "strict FGMRES requires 1 <= restart <= max_iter");
+    if (!(tolerance > (T)0 && tolerance < (T)1) ||
+        !std::isfinite(static_cast<double>(tolerance)))
+      throw std::invalid_argument("strict FGMRES tolerance must be in (0,1)");
+    if (nu_pre < 0 || nu_post < 0)
+      throw std::invalid_argument("strict FGMRES MR counts must be non-negative");
+    const size_t elements = StrictOuterWorkspace<T>::checked_elements(
+        fine_n, coarse.full_n, restart);
+    if (elements > std::numeric_limits<size_t>::max() /
+                       sizeof(LatticeComplex<T>) ||
+        elements * sizeof(LatticeComplex<T>) > max_workspace_bytes)
+      throw std::invalid_argument("strict FGMRES workspace exceeds budget");
+  }
+
+  void fine_hopping(LatticeCloverBistabCg<T> &fine, void *out,
+                    const void *in, int source_parity) {
+    // LatticeWilsonDslash names the block by its destination/source pair:
+    // run_eo is odd -> even and run_oe is even -> odd.  Keeping this mapping
+    // in one helper prevents the target-parity branch from being silently
+    // reversed in prepare, action, or reconstruction.
+    if (source_parity == 0)
+      fine.wilson_dslash.run_oe(out, const_cast<void *>(in), fine.gauge);
+    else if (source_parity == 1)
+      fine.wilson_dslash.run_eo(out, const_cast<void *>(in), fine.gauge);
+    else
+      throw std::invalid_argument("strict fine hopping parity must be 0/1");
+  }
+
+  void fine_diagonal_inverse(LatticeCloverBistabCg<T> &fine, void *field,
+                             int parity) {
+    if (parity == 0)
+      fine.clover_dslash_ee_inv.give(field);
+    else if (parity == 1)
+      fine.clover_dslash_oo_inv.give(field);
+    else
+      throw std::invalid_argument(
+          "strict fine diagonal-inverse parity must be 0/1");
+  }
+
+  void fine_matpc(LatticeCloverBistabCg<T> &fine, void *out,
+                  const void *in) {
+    const size_t n = static_cast<size_t>(set_->lat_4dim_SC);
+    // M_p = A_p^{-1} (A_p - kappa^2 H_pq A_q^{-1} H_qp).
+    // The two shared lattice scratch buffers hold the hopping/inverse chain.
+    // Fuse the identity copy and final scaled subtraction: this is on the
+    // innermost FGMRES/MR path, so a separate D2D copy plus cuBLAS AXPY would
+    // add two launches for every fine MATPC application without changing the
+    // mathematical operation.
+    fine_hopping(fine, set_->device_vec0, in, parity_);
+    fine_diagonal_inverse(fine, set_->device_vec0, 1 - parity_);
+    fine_hopping(fine, set_->device_vec1, set_->device_vec0, 1 - parity_);
+    fine_diagonal_inverse(fine, set_->device_vec1, parity_);
+    const int thread_blocks = blocks(n);
+    strict_fine_matpc_update_kernel<T>
+        <<<thread_blocks, _BLOCK_SIZE_, 0, set_->stream>>>(
+            out, in, set_->device_vec1,
+            set_->kappa() * set_->kappa(), static_cast<int>(n));
+    strict_check_cuda(cudaGetLastError(),
+                      "strict fused fine MATPC update launch");
+  }
+
+  void fine_prepare_in_stream(LatticeCloverBistabCg<T> &fine,
+                              void *compact_rhs,
+                              const void *full_rhs) {
+    const size_t n = static_cast<size_t>(set_->lat_4dim_SC);
+    const LatticeComplex<T> *rhs =
+        static_cast<const LatticeComplex<T> *>(full_rhs);
+    const int other_parity = 1 - parity_;
+    const LatticeComplex<T> *target_rhs = rhs +
+        static_cast<size_t>(parity_) * n;
+    const LatticeComplex<T> *other_rhs = rhs +
+        static_cast<size_t>(other_parity) * n;
+
+    // b_p^pc = A_p^{-1}(b_p + kappa H_pq A_q^{-1} b_q).
+    // Build the parenthesized sum first.  Applying A_p^{-1} only to the
+    // target-parity RHS before the hopping update would instead produce
+    // A_p^{-1} b_p + kappa H_pq A_q^{-1} b_q, which is not the symmetric
+    // Clover MATPC RHS used by QUDA.
+    strict_check_cuda(cudaMemcpyAsync(
+                          compact_rhs, target_rhs,
+                          n * sizeof(LatticeComplex<T>),
+                          cudaMemcpyDeviceToDevice, set_->stream),
+                      "strict fine prepare target copy");
+    strict_check_cuda(cudaMemcpyAsync(
+                          set_->device_vec2, other_rhs,
+                          n * sizeof(LatticeComplex<T>),
+                          cudaMemcpyDeviceToDevice, set_->stream),
+                      "strict fine prepare other copy");
+    fine_diagonal_inverse(fine, set_->device_vec2, other_parity);
+    fine_hopping(fine, set_->device_vec0, set_->device_vec2, other_parity);
+    const LatticeComplex<T> kappa(set_->kappa(), (T)0);
+    cublas_check(_cublasAxpy<T>(
+                     set_->cublasH, static_cast<int>(n), &kappa,
+                     set_->device_vec0, 1, compact_rhs, 1),
+                 "strict fine prepare hopping update");
+    fine_diagonal_inverse(fine, compact_rhs, parity_);
+  }
+
+  void fine_reconstruct_in_stream(LatticeCloverBistabCg<T> &fine,
+                                  void *full_out, const void *full_rhs,
+                                  const void *target_solution) {
+    const size_t n = static_cast<size_t>(set_->lat_4dim_SC);
+    LatticeComplex<T> *out = static_cast<LatticeComplex<T> *>(full_out);
+    const LatticeComplex<T> *rhs =
+        static_cast<const LatticeComplex<T> *>(full_rhs);
+    const int other_parity = 1 - parity_;
+    const LatticeComplex<T> *other_rhs = rhs +
+        static_cast<size_t>(other_parity) * n;
+    copy_vector(out + static_cast<size_t>(parity_) * n, target_solution, n,
+                "strict fine reconstruct target copy");
+    copy_vector(set_->device_vec0, other_rhs, n,
+                "strict fine reconstruct other rhs copy");
+    fine_hopping(fine, set_->device_vec1, target_solution, parity_);
+    const LatticeComplex<T> kappa(set_->kappa(), (T)0);
+    cublas_check(_cublasAxpy<T>(
+                     set_->cublasH, static_cast<int>(n), &kappa,
+                     set_->device_vec1, 1, set_->device_vec0, 1),
+                 "strict fine reconstruct axpy");
+    fine_diagonal_inverse(fine, set_->device_vec0, other_parity);
+    copy_vector(out + static_cast<size_t>(other_parity) * n,
+                set_->device_vec0, n,
+                "strict fine reconstruct other copy");
+  }
+
+  void fine_smooth(LatticeCloverBistabCg<T> &fine, void *solution,
+                   void *residual, void *image, size_t n, int count) {
+    // Match the Python fine-MR guard exactly: it thresholds |<Ar,Ar>|,
+    // rather than its squared magnitude.
+    const T floor = (T)1e-20;
+    for (int iteration = 0; iteration < count; ++iteration) {
+      fine_matpc(fine, image, residual);
+      LatticeComplex<T> denominator;
+      LatticeComplex<T> numerator;
+      dot_pair(image, residual, image, image, n, numerator, denominator);
+      if (!finite(denominator) || !finite(numerator) ||
+          std::hypot(denominator.real(), denominator.imag()) <= floor)
+        break;
+      const LatticeComplex<T> alpha = numerator / denominator;
+      strict_mr_update_kernel<T>
+          <<<blocks(n), _BLOCK_SIZE_, 0, set_->stream>>>(
+              solution, residual, image, alpha, static_cast<int>(n));
+    }
+  }
+
+  void precondition_fine(LatticeCloverBistabCg<T> &fine, void *out,
+                         const void *source, const void *fine_null_vectors,
+                         int fine_E, int fine_X, int fine_Y, int fine_Z,
+                         int fine_T, int nu_pre, int nu_post) {
+    const size_t n = outer_.fine_n;
+    zero_vector(out, n, "strict fine preconditioner zero");
+    copy_vector(outer_.r, source, n,
+                "strict fine preconditioner residual copy");
+    fine_smooth(fine, out, outer_.r, outer_.w, n, nu_pre);
+
+    const StrictLevelGeometry &coarse = levels_[start_].geometry;
+    strict_restrict_parity_kernel<T>
+        <<<blocks(coarse.full_n), _BLOCK_SIZE_, 0, set_->stream>>>(
+            outer_.coarse_rhs, outer_.r, fine_null_vectors,
+            coarse.E, fine_E, fine_X, fine_Y, fine_Z, fine_T,
+            coarse.X, coarse.Y, coarse.Z, coarse.Lt, parity_);
+    // The recursive hierarchy and its arena are persistent.  Avoid the
+    // public V-cycle API's entry/exit synchronizations; all kernels remain on
+    // the same stream and coarse dot reductions retain their existing syncs.
+    solve_level(start_, outer_.coarse_rhs, outer_.coarse_out);
+    strict_prolong_parity_kernel<T>
+        <<<blocks(n), _BLOCK_SIZE_, 0, set_->stream>>>(
+            outer_.w, outer_.coarse_out, fine_null_vectors,
+            coarse.E, fine_E, fine_X, fine_Y, fine_Z, fine_T,
+            coarse.X, coarse.Y, coarse.Z, coarse.Lt, parity_);
+    strict_add_kernel<T><<<blocks(n), _BLOCK_SIZE_, 0, set_->stream>>>(
+        out, outer_.w, static_cast<int>(n));
+
+    fine_matpc(fine, outer_.w, out);
+    strict_subtract_kernel<T>
+        <<<blocks(n), _BLOCK_SIZE_, 0, set_->stream>>>(
+            outer_.r, source, outer_.w, static_cast<int>(n));
+    fine_smooth(fine, out, outer_.r, outer_.w, n, nu_post);
+  }
+
+  void reset_outer_scalars(int restart) {
+    std::fill(outer_.H.begin(), outer_.H.end(), std::complex<T>((T)0, (T)0));
+    std::fill(outer_.cs.begin(), outer_.cs.end(), std::complex<T>((T)0, (T)0));
+    std::fill(outer_.sn.begin(), outer_.sn.end(), std::complex<T>((T)0, (T)0));
+    std::fill(outer_.g.begin(), outer_.g.end(), std::complex<T>((T)0, (T)0));
+    std::fill(outer_.y.begin(), outer_.y.end(), std::complex<T>((T)0, (T)0));
+    if (static_cast<int>(outer_.cs.size()) != restart)
+      throw std::runtime_error("strict FGMRES host scalar size drift");
+  }
+
+  void apply_givens(int column, int restart) {
+    auto Hidx = [restart](int row, int col) {
+      return static_cast<size_t>(row) * restart + col;
+    };
+    for (int i = 0; i < column; ++i) {
+      const std::complex<T> upper = outer_.H[Hidx(i, column)];
+      const std::complex<T> lower = outer_.H[Hidx(i + 1, column)];
+      outer_.H[Hidx(i, column)] =
+          std::conj(outer_.cs[i]) * upper +
+          std::conj(outer_.sn[i]) * lower;
+      outer_.H[Hidx(i + 1, column)] =
+          -outer_.sn[i] * upper + outer_.cs[i] * lower;
+    }
+
+    const std::complex<T> diagonal = outer_.H[Hidx(column, column)];
+    const std::complex<T> next = outer_.H[Hidx(column + 1, column)];
+    // Complex Givens rotations must preserve the two-vector norm.  Using
+    // sqrt(abs(a*a+b*b)) is phase-sensitive and can spuriously vanish, e.g.
+    // for a=i and b=1.  Match QUDA FlexArnoldiProcedure's
+    // sqrt(norm(a)+norm(b)) exactly.
+    const T denominator = std::sqrt(
+        std::norm(diagonal) + std::norm(next));
+    if (!(denominator > (T)0) ||
+        !std::isfinite(static_cast<double>(denominator))) {
+      outer_.sn[column] = std::complex<T>((T)0, (T)0);
+      outer_.cs[column] = std::complex<T>((T)1, (T)0);
+      outer_.H[Hidx(column + 1, column)] =
+          std::complex<T>((T)0, (T)0);
+    } else {
+      outer_.sn[column] = next / denominator;
+      outer_.cs[column] = diagonal / denominator;
+      outer_.H[Hidx(column, column)] =
+          std::conj(outer_.cs[column]) * diagonal +
+          std::conj(outer_.sn[column]) * next;
+      outer_.H[Hidx(column + 1, column)] =
+          std::complex<T>((T)0, (T)0);
+    }
+    const std::complex<T> old_g = outer_.g[column];
+    outer_.g[column + 1] = -outer_.sn[column] * old_g;
+    outer_.g[column] = std::conj(outer_.cs[column]) * old_g;
+  }
+
+  void update_solution_from_hessenberg(int inner, int restart) {
+    auto Hidx = [restart](int row, int col) {
+      return static_cast<size_t>(row) * restart + col;
+    };
+    for (int i = inner - 1; i >= 0; --i) {
+      std::complex<T> value = outer_.g[i];
+      for (int j = i + 1; j < inner; ++j)
+        value -= outer_.H[Hidx(i, j)] * outer_.y[j];
+      const std::complex<T> diagonal = outer_.H[Hidx(i, i)];
+      if (!finite_complex(value) || !finite_complex(diagonal))
+        throw std::runtime_error("strict FGMRES triangular solve is non-finite");
+      // Preserve _solve_upper_triangular(): only an exact zero diagonal is
+      // suppressed; small finite pivots are allowed to update the iterate,
+      // after which the mandatory true-residual refresh judges the result.
+      outer_.y[i] = std::abs(diagonal) == (T)0
+                        ? std::complex<T>((T)0, (T)0)
+                        : value / diagonal;
+    }
+    for (int i = 0; i < inner; ++i)
+      axpy(outer_.x, outer_.Z[i], outer_.fine_n, outer_.y[i]);
+  }
+
+  void fgmres_impl(
+      LatticeCloverBistabCg<T> &fine, void *full_out, const void *full_rhs,
+      const void *fine_null_vectors, int fine_E, int fine_X, int fine_Y,
+      int fine_Z, int fine_T, int restart, int max_iter, T tolerance,
+      int nu_pre, int nu_post, int &iterations, bool &converged,
+      T &final_true_residual) {
+    const size_t n = outer_.fine_n;
+    fine_prepare_in_stream(fine, outer_.b, full_rhs);
+    if (params_[_MG_USE_INIT_GUESS_] != 0) {
+      const LatticeComplex<T> *initial =
+          static_cast<const LatticeComplex<T> *>(full_out) +
+          static_cast<size_t>(parity_) * n;
+      copy_vector(outer_.x, initial, n, "strict FGMRES warm x0 copy");
+    } else {
+      zero_vector(outer_.x, n, "strict FGMRES cold x0 zero");
+    }
+
+    const T b_norm = norm(outer_.b, n);
+    if (b_norm == (T)0) {
+      zero_vector(outer_.x, n, "strict FGMRES zero rhs solution");
+      zero_vector(outer_.r, n, "strict FGMRES zero rhs residual");
+      iterations = 0;
+      converged = true;
+      final_true_residual = (T)0;
+      fine_reconstruct_in_stream(fine, full_out, full_rhs, outer_.x);
+      return;
+    }
+
+    fine_matpc(fine, outer_.w, outer_.x);
+    strict_subtract_kernel<T><<<blocks(n), _BLOCK_SIZE_, 0, set_->stream>>>(
+        outer_.r, outer_.b, outer_.w, static_cast<int>(n));
+    T residual = norm(outer_.r, n);
+    const T threshold = tolerance * b_norm;
+    iterations = 0;
+    converged = residual <= threshold;
+    const T basis_floor =
+        std::is_same<T, float>::value ? (T)1e-20 : (T)1e-30;
+
+    while (iterations < max_iter && !converged) {
+      const T beta = residual;
+      if (!(beta > (T)0) || !std::isfinite(static_cast<double>(beta)))
+        throw std::runtime_error("strict FGMRES residual is non-finite");
+      copy_vector(outer_.V[0], outer_.r, n,
+                  "strict FGMRES basis seed copy");
+      scale(outer_.V[0], n, (T)1 / beta);
+      reset_outer_scalars(restart);
+      outer_.g[0] = std::complex<T>(beta, (T)0);
+      const int cycle = std::min(restart, max_iter - iterations);
+      int inner = 0;
+      auto Hidx = [restart](int row, int col) {
+        return static_cast<size_t>(row) * restart + col;
+      };
+
+      for (int column = 0; column < cycle; ++column) {
+        precondition_fine(
+            fine, outer_.Z[column], outer_.V[column], fine_null_vectors,
+            fine_E, fine_X, fine_Y, fine_Z, fine_T, nu_pre, nu_post);
+        fine_matpc(fine, outer_.w, outer_.Z[column]);
+
+        const int dot_count = column + 1;
+        // V[dot_count] is not a live basis vector until the next norm has
+        // been computed, so its first ``dot_count`` elements provide a tiny
+        // device result area without changing the advertised arena size.
+        dot_many(outer_.V[0], n, outer_.w, dot_count,
+                 outer_.V[dot_count]);
+        for (int row = 0; row < dot_count; ++row) {
+          const LatticeComplex<T> coefficient = outer_.dot_values[row];
+          const std::complex<T> h(coefficient.real(), coefficient.imag());
+          if (!finite_complex(h))
+            throw std::runtime_error("strict FGMRES Arnoldi dot is non-finite");
+          outer_.H[Hidx(row, column)] = h;
+        }
+        // dot_many() leaves the same coefficients on device in V[dot_count].
+        // Consume them directly, avoiding one host-scalar cuBLAS axpy launch
+        // for every previously computed Arnoldi vector.
+        strict_orthogonalize_kernel<T>
+            <<<blocks(n), _BLOCK_SIZE_, 0, set_->stream>>>(
+                static_cast<LatticeComplex<T> *>(outer_.w),
+                static_cast<const LatticeComplex<T> *>(outer_.V[0]), n,
+                static_cast<const LatticeComplex<T> *>(outer_.V[dot_count]),
+                dot_count, static_cast<int>(n));
+        strict_check_cuda(cudaGetLastError(),
+                          "strict FGMRES orthogonalization launch");
+        const T next_norm = norm(outer_.w, n);
+        outer_.H[Hidx(column + 1, column)] =
+            std::complex<T>(next_norm, (T)0);
+        if (next_norm > basis_floor) {
+          copy_vector(outer_.V[column + 1], outer_.w, n,
+                      "strict FGMRES next basis copy");
+          scale(outer_.V[column + 1], n, (T)1 / next_norm);
+        } else {
+          zero_vector(outer_.V[column + 1], n,
+                      "strict FGMRES collapsed basis zero");
+        }
+        apply_givens(column, restart);
+        ++iterations;
+        inner = column + 1;
+        const T estimate = std::abs(outer_.g[column + 1]);
+        if (!std::isfinite(static_cast<double>(estimate)))
+          throw std::runtime_error("strict FGMRES estimate is non-finite");
+        if (estimate <= threshold || next_norm <= basis_floor) break;
+      }
+
+      if (inner <= 0)
+        throw std::runtime_error("strict FGMRES produced an empty cycle");
+      update_solution_from_hessenberg(inner, restart);
+
+      // True residual refresh is mandatory at every restart boundary,
+      // including an estimated-convergence or happy-breakdown early exit.
+      fine_matpc(fine, outer_.w, outer_.x);
+      strict_subtract_kernel<T>
+          <<<blocks(n), _BLOCK_SIZE_, 0, set_->stream>>>(
+              outer_.r, outer_.b, outer_.w, static_cast<int>(n));
+      residual = norm(outer_.r, n);
+      converged = residual <= threshold;
+    }
+
+    final_true_residual = residual;
+    fine_reconstruct_in_stream(fine, full_out, full_rhs, outer_.x);
   }
 
   static T abs2(const LatticeComplex<T> &value) {
@@ -891,12 +2052,14 @@ template <typename T> class StrictCoarseHierarchy {
   void apply_matpc(int level, void *out, const void *in, void *scratch) {
     const StrictLevelGeometry &g = levels_[level].geometry;
     strict_hopping_parity_kernel<T>
-        <<<blocks(g.compact_n), _BLOCK_SIZE_, 0, set_->stream>>>(
+        <<<strict_hopping_blocks(g.compact_n), kStrictHoppingBlockSize,
+           0, set_->stream>>>(
             scratch, in,
             asset(level - 1, _SET_PTRS_STRICT_PRECONDITIONED_LINKS_),
             nullptr, g.E, g.X, g.Y, g.Z, g.Lt, 1 - parity_);
     strict_hopping_parity_kernel<T>
-        <<<blocks(g.compact_n), _BLOCK_SIZE_, 0, set_->stream>>>(
+        <<<strict_hopping_blocks(g.compact_n), kStrictHoppingBlockSize,
+           0, set_->stream>>>(
             out, scratch,
             asset(level - 1, _SET_PTRS_STRICT_PRECONDITIONED_LINKS_),
             in, g.E, g.X, g.Y, g.Z, g.Lt, parity_);
@@ -915,7 +2078,8 @@ template <typename T> class StrictCoarseHierarchy {
             scratch, full_rhs, onsite, g.E, g.X, g.Y, g.Z, g.Lt,
             1 - parity_, 1);
     strict_hopping_parity_kernel<T>
-        <<<blocks(g.compact_n), _BLOCK_SIZE_, 0, set_->stream>>>(
+        <<<strict_hopping_blocks(g.compact_n), kStrictHoppingBlockSize,
+           0, set_->stream>>>(
             out, scratch, links, out,
             g.E, g.X, g.Y, g.Z, g.Lt, parity_);
   }
@@ -931,7 +2095,8 @@ template <typename T> class StrictCoarseHierarchy {
             scratch, full_rhs, onsite, g.E, g.X, g.Y, g.Z, g.Lt,
             1 - parity_, 1);
     strict_hopping_parity_kernel<T>
-        <<<blocks(g.compact_n), _BLOCK_SIZE_, 0, set_->stream>>>(
+        <<<strict_hopping_blocks(g.compact_n), kStrictHoppingBlockSize,
+           0, set_->stream>>>(
             scratch, target_solution, links, scratch,
             g.E, g.X, g.Y, g.Z, g.Lt, 1 - parity_);
     strict_join_parities_kernel<T>
@@ -946,8 +2111,10 @@ template <typename T> class StrictCoarseHierarchy {
     const T floor = std::is_same<T, float>::value ? (T)1e-20 : (T)1e-40;
     for (int iteration = 0; iteration < count; ++iteration) {
       apply_matpc(level, arena_.v, arena_.r, arena_.tmp);
-      const LatticeComplex<T> numerator = dot(arena_.v, arena_.r, n);
-      const LatticeComplex<T> denominator = dot(arena_.v, arena_.v, n);
+      LatticeComplex<T> numerator;
+      LatticeComplex<T> denominator;
+      dot_pair(arena_.v, arena_.r, arena_.v, arena_.v, n,
+               numerator, denominator);
       if (!finite(numerator) || !finite(denominator) ||
           abs2(denominator) <= floor)
         break;
@@ -1020,9 +2187,11 @@ template <typename T> class StrictCoarseHierarchy {
         return true;
       }
       apply_matpc(level, t, s, tmp);
-      const LatticeComplex<T> tt = dot(t, t, n);
+      LatticeComplex<T> ts;
+      LatticeComplex<T> tt;
+      dot_pair(t, s, t, t, n, ts, tt);
       if (!finite(tt) || abs2(tt) <= floor) return false;
-      omega = dot(t, s, n) / tt;
+      omega = ts / tt;
       if (!finite(omega) || abs2(omega) <= floor) return false;
       strict_bicg_update_kernel<T>
           <<<blocks(n), _BLOCK_SIZE_, 0, set_->stream>>>(
@@ -1151,20 +2320,221 @@ void strict_end_hierarchy(void *set_ptrs) {
   delete hierarchy;
 }
 
+template <typename T>
+size_t strict_launch_fgmres(
+    void *full_out, const void *full_rhs, void *gauge, void *clover_ee,
+    void *clover_oo, void *clover_ee_inv, void *clover_oo_inv,
+    const void *fine_null_vectors, void *set_ptrs, int *params,
+    int fine_E, int fine_X, int fine_Y, int fine_Z, int fine_T,
+    int coarse_E, int coarse_X, int coarse_Y, int coarse_Z, int coarse_T,
+    int restart, int max_iter, T tolerance, int nu_pre, int nu_post,
+    size_t max_workspace_bytes, int &iterations, bool &converged,
+    T &final_true_residual) {
+  long long *table = static_cast<long long *>(set_ptrs);
+  if (table[_SET_PTRS_STRICT_HIERARCHY_] == 0)
+    throw std::invalid_argument(
+        "strict FGMRES requires an initialized slot-80 hierarchy");
+  StrictCoarseHierarchy<T> *hierarchy =
+      reinterpret_cast<StrictCoarseHierarchy<T> *>(
+          table[_SET_PTRS_STRICT_HIERARCHY_]);
+  return hierarchy->run_fgmres(
+      full_out, full_rhs, gauge, clover_ee, clover_oo, clover_ee_inv,
+      clover_oo_inv, fine_null_vectors, fine_E, fine_X, fine_Y, fine_Z,
+      fine_T, coarse_E, coarse_X, coarse_Y, coarse_Z, coarse_T, restart,
+      max_iter, tolerance, nu_pre, nu_post, max_workspace_bytes, iterations,
+      converged, final_true_residual);
+}
+
+template <typename T>
+bool strict_test_global_reduction_input_valid(
+    double local_real, double local_imag, double local_norm2,
+    double threshold) {
+  const T typed_real = static_cast<T>(local_real);
+  const T typed_imag = static_cast<T>(local_imag);
+  const T typed_norm2 = static_cast<T>(local_norm2);
+  const T typed_threshold = static_cast<T>(threshold);
+  return std::isfinite(static_cast<double>(typed_real)) &&
+         std::isfinite(static_cast<double>(typed_imag)) &&
+         std::isfinite(static_cast<double>(typed_norm2)) &&
+         typed_norm2 >= (T)0 &&
+         std::isfinite(static_cast<double>(typed_threshold)) &&
+         typed_threshold >= (T)0;
+}
+
+int strict_test_global_reduction_preflight(
+    int data_type, bool local_input_valid, double threshold,
+    int &collective_calls) {
+  constexpr unsigned int invalid_input = 1u << 0;
+  constexpr unsigned int c64_type = 1u << 1;
+  constexpr unsigned int c128_type = 1u << 2;
+  constexpr unsigned int invalid_type = 1u << 3;
+
+  unsigned int local_flags = local_input_valid ? 0u : invalid_input;
+  if (data_type == _LAT_C64_)
+    local_flags |= c64_type;
+  else if (data_type == _LAT_C128_)
+    local_flags |= c128_type;
+  else
+    local_flags |= invalid_type;
+
+  int mpi_initialized = 0;
+  if (MPI_Initialized(&mpi_initialized) != MPI_SUCCESS)
+    throw std::runtime_error(
+        "strict global reduction preflight cannot query MPI state");
+  int world_size = 1;
+  if (mpi_initialized) {
+    int mpi_finalized = 0;
+    if (MPI_Finalized(&mpi_finalized) != MPI_SUCCESS)
+      throw std::runtime_error(
+          "strict global reduction preflight cannot query MPI finalization");
+    if (mpi_finalized)
+      throw std::runtime_error(
+          "strict global reduction preflight cannot run after MPI finalization");
+    if (MPI_Comm_size(MPI_COMM_WORLD, &world_size) != MPI_SUCCESS ||
+        world_size < 1)
+      throw std::runtime_error(
+          "strict global reduction preflight cannot query MPI_COMM_WORLD");
+  }
+
+  unsigned int global_flags = local_flags;
+  if (world_size > 1) {
+    if (MPI_Allreduce(&local_flags, &global_flags, 1, MPI_UNSIGNED, MPI_BOR,
+                      MPI_COMM_WORLD) != MPI_SUCCESS)
+      throw std::runtime_error(
+          "strict global reduction preflight flag Allreduce failed");
+    ++collective_calls;
+  }
+
+  if ((global_flags & invalid_type) != 0u)
+    throw std::invalid_argument(
+        "strict global reduction test supports complex64/complex128");
+  const unsigned int type_flags = global_flags & (c64_type | c128_type);
+  if (type_flags != c64_type && type_flags != c128_type)
+    throw std::invalid_argument(
+        "strict global reduction test data_type differs between MPI ranks");
+  if ((global_flags & invalid_input) != 0u)
+    throw std::invalid_argument(
+        "strict global reduction test input is invalid on at least one rank");
+
+  if (world_size > 1) {
+    std::vector<double> thresholds(static_cast<size_t>(world_size));
+    if (MPI_Allgather(&threshold, 1, MPI_DOUBLE, thresholds.data(), 1,
+                      MPI_DOUBLE, MPI_COMM_WORLD) != MPI_SUCCESS)
+      throw std::runtime_error(
+          "strict global reduction preflight threshold Allgather failed");
+    ++collective_calls;
+    for (int rank = 1; rank < world_size; ++rank) {
+      if (thresholds[rank] != thresholds[0])
+        throw std::invalid_argument(
+            "strict global reduction test threshold differs between MPI ranks");
+    }
+  }
+  return type_flags == c64_type ? _LAT_C64_ : _LAT_C128_;
+}
+
+template <typename T>
+void strict_test_global_reduction(
+    double local_real, double local_imag, double local_norm2,
+    double threshold, double &global_real, double &global_imag,
+    double &global_norm, int &converged, int &collective_calls) {
+  const LatticeComplex<T> local_dot(
+      static_cast<T>(local_real), static_cast<T>(local_imag));
+  const T typed_norm2 = static_cast<T>(local_norm2);
+  const T typed_threshold = static_cast<T>(threshold);
+  const LatticeComplex<T> dot =
+      strict_global_sum_complex(local_dot, &collective_calls);
+  const LatticeComplex<T> norm2 = strict_global_sum_complex(
+      LatticeComplex<T>(typed_norm2, (T)0), &collective_calls);
+  if (!std::isfinite(static_cast<double>(dot.real())) ||
+      !std::isfinite(static_cast<double>(dot.imag())) ||
+      !std::isfinite(static_cast<double>(norm2.real())) ||
+      norm2.real() < (T)0)
+    throw std::runtime_error(
+        "strict global reduction test output is invalid");
+
+  const T norm = std::sqrt(norm2.real());
+  global_real = static_cast<double>(dot.real());
+  global_imag = static_cast<double>(dot.imag());
+  global_norm = static_cast<double>(norm);
+  converged = norm <= typed_threshold ? 1 : 0;
+}
+
 }  // namespace
 }  // namespace qcu
+
+extern "C" int testMultigridStrictGlobalReductionQcu(
+    int data_type, double local_real, double local_imag,
+    double local_norm2, double threshold, double *global_real,
+    double *global_imag, double *global_norm, int *converged,
+    int *collective_calls) {
+  int observed_collective_calls = 0;
+  const bool output_pointers_valid =
+      global_real != nullptr && global_imag != nullptr &&
+      global_norm != nullptr && converged != nullptr &&
+      collective_calls != nullptr;
+  if (global_real != nullptr)
+    *global_real = std::numeric_limits<double>::quiet_NaN();
+  if (global_imag != nullptr)
+    *global_imag = std::numeric_limits<double>::quiet_NaN();
+  if (global_norm != nullptr)
+    *global_norm = std::numeric_limits<double>::quiet_NaN();
+  if (converged != nullptr)
+    *converged = 0;
+  if (collective_calls != nullptr)
+    *collective_calls = 0;
+
+  try {
+    bool local_input_valid = output_pointers_valid;
+    if (data_type == _LAT_C64_)
+      local_input_valid = local_input_valid &&
+          qcu::strict_test_global_reduction_input_valid<float>(
+              local_real, local_imag, local_norm2, threshold);
+    else if (data_type == _LAT_C128_)
+      local_input_valid = local_input_valid &&
+          qcu::strict_test_global_reduction_input_valid<double>(
+              local_real, local_imag, local_norm2, threshold);
+    const int agreed_data_type =
+        qcu::strict_test_global_reduction_preflight(
+            data_type, local_input_valid, threshold,
+            observed_collective_calls);
+    if (!output_pointers_valid)
+      throw std::invalid_argument(
+          "strict global reduction test output pointer is null");
+
+    if (agreed_data_type == _LAT_C64_)
+      qcu::strict_test_global_reduction<float>(
+          local_real, local_imag, local_norm2, threshold, *global_real,
+          *global_imag, *global_norm, *converged,
+          observed_collective_calls);
+    else
+      qcu::strict_test_global_reduction<double>(
+          local_real, local_imag, local_norm2, threshold, *global_real,
+          *global_imag, *global_norm, *converged,
+          observed_collective_calls);
+    *collective_calls = observed_collective_calls;
+    return 0;
+  } catch (const std::exception &error) {
+    if (collective_calls != nullptr)
+      *collective_calls = observed_collective_calls;
+    std::fprintf(stderr,
+                 "PYQCU::SOLVER::STRICT_MG::GLOBAL_REDUCTION_TEST: %s\n",
+                 error.what());
+    return 1;
+  }
+}
 
 extern "C" int applyMultigridStrictVCycleQcu(
     long long full_out, long long full_rhs, long long set_ptrs,
     long long params, int start_level,
     unsigned long long *allocated_bytes) {
   try {
+    int *host_params = reinterpret_cast<int *>(params);
+    qcu::strict_require_single_rank_backend(host_params);
     if (allocated_bytes == nullptr)
       throw std::invalid_argument("strict V-cycle byte output is null");
     *allocated_bytes = 0;
     qcu::strict_check_cuda(
         cudaDeviceSynchronize(), "strict V-cycle input sync");
-    int *host_params = reinterpret_cast<int *>(params);
     size_t bytes = 0;
     if (host_params[_DATA_TYPE_] == _LAT_C64_)
       bytes = qcu::strict_launch_vcycle<float>(
@@ -1192,12 +2562,13 @@ extern "C" int applyMultigridStrictInitQcu(
     long long set_ptrs, long long params, int start_level,
     unsigned long long *allocated_bytes) {
   try {
+    int *host_params = reinterpret_cast<int *>(params);
+    qcu::strict_require_single_rank_backend(host_params);
     if (allocated_bytes == nullptr)
       throw std::invalid_argument("strict hierarchy byte output is null");
     *allocated_bytes = 0;
     qcu::strict_check_cuda(
         cudaDeviceSynchronize(), "strict hierarchy init input sync");
-    int *host_params = reinterpret_cast<int *>(params);
     size_t bytes = 0;
     if (host_params[_DATA_TYPE_] == _LAT_C64_)
       bytes = qcu::strict_init_hierarchy<float>(
@@ -1221,6 +2592,7 @@ extern "C" int applyMultigridStrictEndQcu(
     long long set_ptrs, long long params) {
   try {
     int *host_params = reinterpret_cast<int *>(params);
+    qcu::strict_require_single_rank_backend(host_params);
     if (host_params[_DATA_TYPE_] == _LAT_C64_)
       qcu::strict_end_hierarchy<float>(reinterpret_cast<void *>(set_ptrs));
     else if (host_params[_DATA_TYPE_] == _LAT_C128_)
@@ -1236,13 +2608,94 @@ extern "C" int applyMultigridStrictEndQcu(
   }
 }
 
+extern "C" int applyMultigridStrictFgmresQcu(
+    long long full_out, long long full_rhs, long long gauge,
+    long long clover_ee, long long clover_oo, long long clover_ee_inv,
+    long long clover_oo_inv, long long fine_null_vectors,
+    long long set_ptrs, long long params, int fine_E, int fine_X,
+    int fine_Y, int fine_Z, int fine_T, int coarse_E, int coarse_X,
+    int coarse_Y, int coarse_Z, int coarse_T, int element_bytes,
+    int restart, int max_iter, double tolerance, int nu_pre, int nu_post,
+    unsigned long long max_workspace_bytes, int *iterations,
+    int *converged, double *final_true_residual,
+    unsigned long long *allocated_bytes) {
+  try {
+    int *host_params = reinterpret_cast<int *>(params);
+    qcu::strict_require_single_rank_backend(host_params);
+    if (iterations == nullptr || converged == nullptr ||
+        final_true_residual == nullptr || allocated_bytes == nullptr)
+      throw std::invalid_argument("strict FGMRES result pointer is null");
+    *iterations = 0;
+    *converged = 0;
+    *final_true_residual = std::numeric_limits<double>::infinity();
+    *allocated_bytes = 0;
+    if (max_workspace_bytes > static_cast<unsigned long long>(
+                                  std::numeric_limits<size_t>::max()))
+      throw std::overflow_error("strict FGMRES budget exceeds size_t");
+    qcu::strict_check_cuda(
+        cudaDeviceSynchronize(), "strict FGMRES input sync");
+    size_t bytes = 0;
+    bool did_converge = false;
+    if (host_params[_DATA_TYPE_] == _LAT_C64_) {
+      if (element_bytes != static_cast<int>(sizeof(qcu::LatticeComplex<float>)))
+        throw std::invalid_argument("strict FGMRES complex64 dtype mismatch");
+      float residual = std::numeric_limits<float>::infinity();
+      bytes = qcu::strict_launch_fgmres<float>(
+          reinterpret_cast<void *>(full_out),
+          reinterpret_cast<const void *>(full_rhs),
+          reinterpret_cast<void *>(gauge), reinterpret_cast<void *>(clover_ee),
+          reinterpret_cast<void *>(clover_oo),
+          reinterpret_cast<void *>(clover_ee_inv),
+          reinterpret_cast<void *>(clover_oo_inv),
+          reinterpret_cast<const void *>(fine_null_vectors),
+          reinterpret_cast<void *>(set_ptrs), host_params,
+          fine_E, fine_X, fine_Y, fine_Z, fine_T,
+          coarse_E, coarse_X, coarse_Y, coarse_Z, coarse_T,
+          restart, max_iter, static_cast<float>(tolerance), nu_pre, nu_post,
+          static_cast<size_t>(max_workspace_bytes), *iterations,
+          did_converge, residual);
+      *final_true_residual = static_cast<double>(residual);
+    } else if (host_params[_DATA_TYPE_] == _LAT_C128_) {
+      if (element_bytes != static_cast<int>(sizeof(qcu::LatticeComplex<double>)))
+        throw std::invalid_argument("strict FGMRES complex128 dtype mismatch");
+      double residual = std::numeric_limits<double>::infinity();
+      bytes = qcu::strict_launch_fgmres<double>(
+          reinterpret_cast<void *>(full_out),
+          reinterpret_cast<const void *>(full_rhs),
+          reinterpret_cast<void *>(gauge), reinterpret_cast<void *>(clover_ee),
+          reinterpret_cast<void *>(clover_oo),
+          reinterpret_cast<void *>(clover_ee_inv),
+          reinterpret_cast<void *>(clover_oo_inv),
+          reinterpret_cast<const void *>(fine_null_vectors),
+          reinterpret_cast<void *>(set_ptrs), host_params,
+          fine_E, fine_X, fine_Y, fine_Z, fine_T,
+          coarse_E, coarse_X, coarse_Y, coarse_Z, coarse_T,
+          restart, max_iter, tolerance, nu_pre, nu_post,
+          static_cast<size_t>(max_workspace_bytes), *iterations,
+          did_converge, residual);
+      *final_true_residual = residual;
+    } else {
+      throw std::invalid_argument(
+          "strict FGMRES supports complex64/complex128");
+    }
+    *converged = did_converge ? 1 : 0;
+    *allocated_bytes = static_cast<unsigned long long>(bytes);
+    return 0;
+  } catch (const std::exception &error) {
+    std::fprintf(stderr, "PYQCU::SOLVER::STRICT_MG::FGMRES: %s\n",
+                 error.what());
+    return 1;
+  }
+}
+
 extern "C" int applyMultigridStrictCoarseQcu(
     long long out, long long in, long long links, long long onsite_pair,
     long long set_ptrs, long long params, int E, int X, int Y, int Z, int T,
     int onsite_index) {
   try {
-    qcu::strict_check_cuda(cudaDeviceSynchronize(), "coarse input sync");
     int *host_params = reinterpret_cast<int *>(params);
+    qcu::strict_require_single_rank_backend(host_params);
+    qcu::strict_check_cuda(cudaDeviceSynchronize(), "coarse input sync");
     if (host_params[_DATA_TYPE_] == _LAT_C64_)
       qcu::strict_launch_coarse<float>(
           reinterpret_cast<void *>(out), reinterpret_cast<void *>(in),
@@ -1269,8 +2722,9 @@ extern "C" int applyMultigridStrictMatPCQcu(
     long long set_ptrs, long long params, int E, int X, int Y, int Z, int T,
     int parity) {
   try {
-    qcu::strict_check_cuda(cudaDeviceSynchronize(), "MATPC input sync");
     int *host_params = reinterpret_cast<int *>(params);
+    qcu::strict_require_single_rank_backend(host_params);
+    qcu::strict_check_cuda(cudaDeviceSynchronize(), "MATPC input sync");
     if (host_params[_DATA_TYPE_] == _LAT_C64_)
       qcu::strict_launch_matpc<float>(
           reinterpret_cast<void *>(out), reinterpret_cast<void *>(in),
@@ -1292,13 +2746,50 @@ extern "C" int applyMultigridStrictMatPCQcu(
   }
 }
 
+extern "C" int applyMultigridStrictFineMatPCQcu(
+    long long out, long long in, long long gauge, long long clover_ee,
+    long long clover_oo, long long clover_ee_inv, long long clover_oo_inv,
+    long long set_ptrs, long long params, int parity) {
+  try {
+    int *host_params = reinterpret_cast<int *>(params);
+    qcu::strict_require_single_rank_backend(host_params);
+    qcu::strict_check_cuda(cudaDeviceSynchronize(),
+                           "fine MATPC input sync");
+    if (host_params[_DATA_TYPE_] == _LAT_C64_)
+      qcu::strict_launch_fine_matpc<float>(
+          reinterpret_cast<void *>(out), reinterpret_cast<const void *>(in),
+          reinterpret_cast<void *>(gauge), reinterpret_cast<void *>(clover_ee),
+          reinterpret_cast<void *>(clover_oo),
+          reinterpret_cast<void *>(clover_ee_inv),
+          reinterpret_cast<void *>(clover_oo_inv),
+          reinterpret_cast<void *>(set_ptrs), host_params, parity);
+    else if (host_params[_DATA_TYPE_] == _LAT_C128_)
+      qcu::strict_launch_fine_matpc<double>(
+          reinterpret_cast<void *>(out), reinterpret_cast<const void *>(in),
+          reinterpret_cast<void *>(gauge), reinterpret_cast<void *>(clover_ee),
+          reinterpret_cast<void *>(clover_oo),
+          reinterpret_cast<void *>(clover_ee_inv),
+          reinterpret_cast<void *>(clover_oo_inv),
+          reinterpret_cast<void *>(set_ptrs), host_params, parity);
+    else
+      throw std::invalid_argument(
+          "strict fine MATPC supports complex64/complex128");
+    return 0;
+  } catch (const std::exception &error) {
+    std::fprintf(stderr, "PYQCU::SOLVER::STRICT_MG::FINE_MATPC: %s\n",
+                 error.what());
+    return 1;
+  }
+}
+
 extern "C" int applyMultigridStrictPrepareQcu(
     long long out, long long full_rhs, long long links, long long onsite_pair,
     long long scratch, long long set_ptrs, long long params,
     int E, int X, int Y, int Z, int T, int parity) {
   try {
-    qcu::strict_check_cuda(cudaDeviceSynchronize(), "prepare input sync");
     int *host_params = reinterpret_cast<int *>(params);
+    qcu::strict_require_single_rank_backend(host_params);
+    qcu::strict_check_cuda(cudaDeviceSynchronize(), "prepare input sync");
     if (host_params[_DATA_TYPE_] == _LAT_C64_)
       qcu::strict_launch_prepare<float>(
           reinterpret_cast<void *>(out), reinterpret_cast<void *>(full_rhs),
@@ -1326,8 +2817,9 @@ extern "C" int applyMultigridStrictReconstructQcu(
     long long set_ptrs, long long params,
     int E, int X, int Y, int Z, int T, int parity) {
   try {
-    qcu::strict_check_cuda(cudaDeviceSynchronize(), "reconstruct input sync");
     int *host_params = reinterpret_cast<int *>(params);
+    qcu::strict_require_single_rank_backend(host_params);
+    qcu::strict_check_cuda(cudaDeviceSynchronize(), "reconstruct input sync");
     if (host_params[_DATA_TYPE_] == _LAT_C64_)
       qcu::strict_launch_reconstruct<float>(
           reinterpret_cast<void *>(full_out), reinterpret_cast<void *>(full_rhs),
@@ -1359,8 +2851,9 @@ extern "C" int applyMultigridStrictRestrictQcu(
     int Xf, int Yf, int Zf, int Tf, int Xc, int Yc, int Zc, int Tc,
     int parity) {
   try {
-    qcu::strict_check_cuda(cudaDeviceSynchronize(), "restrict input sync");
     int *host_params = reinterpret_cast<int *>(params);
+    qcu::strict_require_single_rank_backend(host_params);
+    qcu::strict_check_cuda(cudaDeviceSynchronize(), "restrict input sync");
     if (host_params[_DATA_TYPE_] == _LAT_C64_)
       qcu::strict_launch_restrict<float>(
           reinterpret_cast<void *>(coarse_out), reinterpret_cast<void *>(fine_in),
@@ -1386,8 +2879,9 @@ extern "C" int applyMultigridStrictProLongQcu(
     int Xf, int Yf, int Zf, int Tf, int Xc, int Yc, int Zc, int Tc,
     int parity) {
   try {
-    qcu::strict_check_cuda(cudaDeviceSynchronize(), "prolong input sync");
     int *host_params = reinterpret_cast<int *>(params);
+    qcu::strict_require_single_rank_backend(host_params);
+    qcu::strict_check_cuda(cudaDeviceSynchronize(), "prolong input sync");
     if (host_params[_DATA_TYPE_] == _LAT_C64_)
       qcu::strict_launch_prolong<float>(
           reinterpret_cast<void *>(fine_out), reinterpret_cast<void *>(coarse_in),

@@ -345,21 +345,21 @@ K-cycle 为 `5.97e-6`，对应配置 `atol=1e-5`；三条路径均无 NaN 或非
 
 ### 3. 结论与未完成项
 
-本轮已完成并真实运行闭环的核心范围是：Wilson/Clover 算子锚定、
+此前本节列出的闭环主要对应保留的 legacy 路径：Wilson/Clover 算子锚定、
 BiCGStab、V/W/F/K-cycle 递归（3L 为小格缓存验证）、GCR/FGMRES、CA-GCR、
-CG/MR/Chebyshev 平滑器、deflate、warm start、transfer、Galerkin、粗 dslash、
-full-op 真残差、缓存加载、逐层混合精度、真正分布式粗格及单 rank 多线程多卡
-一致性。固定 `L=2` 的 BiCGStabL、2L/3L 的 c64/c128 混合路径，以及阻塞
-host-staging MPI 粗格 halo 已在下一阶段补齐并通过冒烟/等价性验证。仍未实现或
-未完成同参数闭环的项目包括动态 thin gauge update、MMA/NVSHMEM，以及 C++ 版
-完整五项 `verify()` 接口；矩阵中均保留为 `[ ]` 或 `[~]`，没有静默跳过。
+CG/MR/Chebyshev 平滑器、deflate、warm start、旧 transfer/Galerkin/粗 dslash、
+full-op 真残差、缓存加载、逐层混合精度、分布式粗格及单 rank 多线程多卡
+一致性。它们不能自动作为 Strict 路径的证据；Strict 语义和当前验收见本报告
+末尾的独立章节。仍未实现或未完成同参数闭环的项目包括动态 thin gauge update、
+MMA/NVSHMEM，以及 C++ 版完整五项 `verify()` 接口；矩阵中均保留为 `[ ]` 或
+`[~]`，没有静默跳过。
 
 最新证据文件为 `out/qcu_mg_matrix_*.json`、`out/component_cuda.json`、
 `out/multigpu.json`、`out/quda_clover_{solve,mg}.json`。后续修改
 `lattice_clover_multigrid.h`、`lattice_clover_bistabcg.h` 或参数协议后，
 应至少重新运行语法检查、`test_mg_breakdown.py` 和 `run_all.py`。
 
-## 二十、BiCGStabL、逐层混合精度与真正分布式粗格（2026-08-28）
+## 二十、legacy BiCGStabL、逐层混合精度与分布式粗格（2026-08-28）
 
 ### 实现边界
 
@@ -387,5 +387,83 @@ host-staging MPI 粗格 halo 已在下一阶段补齐并通过冒烟/等价性�
   `5.60e-7`；`grid=[2,1,1,1]`、c128 为 `1.03e-15`。两项均将 rank-local
   输出重建为全局场后，与完整周期参考 stencil 比较。
 
-因此，“真正分布式粗格”在正确性意义上已经落地；当前限制是通信仍为阻塞
-host-staging，没有做 device-aware MPI、通信计算重叠或 NVSHMEM 性能声明。
+因此，上述“分布式粗格”结论只适用于 legacy 实现；Strict backend 当前对
+`MPI_COMM_WORLD` 非单 rank fail-closed。legacy 通信仍为阻塞 host-staging，
+没有做 device-aware MPI、通信计算重叠或 NVSHMEM 性能声明。
+
+## 二十一、Strict MultiGrid 语义复现与当前验收（2026-08-31）
+
+### 实现范围
+
+Strict 路径与 legacy 并存，核心定义为：
+
+\[
+ D_c = R\,(X_f^{-1}D_f)\,P,\qquad
+ \widehat D_c=X_c^{-1}D_c=I+X_c^{-1}Y_c .
+\]
+
+每一层保持 full-coarse 几何；`P` 只在调用时选定 fine parity，`R=P†` 只
+读取对应 fine parity，粗场本身不压成半格。细层和粗层都在完整算子上形成
+Schur `I-Ĥ_pq Ĥ_qp`，并提供 prepare/reconstruct。Clover/Gauge 只进入
+fine 物理算子；粗层使用逐层 Galerkin 的 `X/Y/Yhat`，不复制第二套物理
+Gauge/Clover。Strict 外层是右预处理 FGMRES：`z=M⁻¹v` 后再计算 `D z`。
+
+显存策略保留 packed transfer/coarse assets，默认不驻留 raw `Y`；融合 Krylov
+workspace 使用单一持久 arena，预算为
+`(2*m+5)*B_f + 2*B_c`。Strict 当前限制为单 MPI rank，且不接受逐层不同
+dtype；c64/c128 的同精度 dispatch 已覆盖。未知模式、奇数 coarse extent、
+不支持的 halo/多 rank 情形均 fail-closed。
+
+### 2026-08-31 实测
+
+快速 Strict tier1 闸门实际通过 32 项：CPU 19 项、CUDA Strict 10 项、融合
+FGMRES 3 项。CUDA recursive V-cycle
+已补充 parity 0/1 两侧，且非平凡 Clover MATPC 与 prepare/reconstruct 均有
+两种 parity 断言。测试命令为：
+
+```bash
+source ./env.sh
+python -B examples/qcu/dev87/run_strict_fast.py --tier 1 --fail-fast
+```
+
+本次环境为 WSL2，测试日志出现当前 PyTorch wheel 不支持 P100 `sm_60` 的
+警告，但 Strict Cython/CUDA 测试实际返回 `28 passed`；该警告和 GPU 型号
+必须随性能结果一并记录，不能外推到其他架构。
+
+### 正式大格 Strict benchmark
+
+正式 collector 已在同一张 V100（UUID=`be23deb4-29b1-7bb2-29ef-c4ab7b34f0a8`）
+上完成：`16×32×32×48`、c64、同一 gauge/source/null-vector bundle、
+odd-odd Schur、2 次不计时 warmup 加 5 次 steady solve。两侧均为 `5/5`
+收敛，`comparison.status=pass` 且 `fair=true`；steady 时间为中位数/MAD：
+
+| 侧 | median(s) | MAD(s) | 迭代数 | full-op 真残差 | 结果 |
+|---|---:|---:|---:|---:|---|
+| PyQCU Strict | 2.090647 | 0.011224 | 11 | 3.601e-7 | 通过 |
+| QUDA | 2.165289 | 0.021592 | 37 | 7.303e-7 | 通过 |
+
+因此本次固定协议下 `2.165289/2.090647=1.0357026`，PyQCU Strict 比
+QUDA 快约 `3.57%`。这是当前 V100、当前编译产物和上述协议下的实测结果，
+不是对所有 GPU、格点或参数的普遍保证；此前约 `1.94/1.05 s` 的数字属于
+旧/非严格且不公平口径，保留作历史记录，不再作为结论。
+
+正式运行同时证明 Strict runtime cache 为 schema v2 且命中。PyQCU Strict
+owned assets 为 `4,076,863,488 B`（约 `3.797 GiB`），融合 FGMRES arena
+为 `509,607,936 B`（约 `0.475 GiB`），首次求解的独立 device-wide 峰值为
+`11,722,362,880 B`（约 `10.917 GiB`）；QUDA 对应独立 device-wide 峰值为
+`24,530,000,000 B`（约 `22.845 GiB`）。后两者是设备级峰值，不把 allocator
+reservation 误记为库自有资产。Strict workspace 预算仍为
+`(2*m+5)·B_f+2·B_c`。
+
+### 剩余严格边界
+
+- 粗层 backward `Yhat` 的每个方向、storage site、dagger 和周期偏移，仍需用
+  非平凡 Gauge/Clover 与 QUDA kernel 做逐项数值锚定；当前 formal solve 通过不等于
+  已完成该粒度的 storage 证明；
+- Strict 当前对 `MPI_COMM_WORLD` 非单 rank 以及逐层不同 dtype fail-closed，
+  不能复用 legacy 的分布式/混合精度结果作 Strict 结论；
+- MMA/NVSHMEM、动态 thin update 和 C++ 完整五项 `verify()` 接口仍未纳入本轮；
+  它们在矩阵中继续标为 `[ ]` 或 `[~]`；
+- `strict_hopping_parity_kernel` 仍是主要运行时热点，后续若继续迭代应在保持
+  收敛协议不变的前提下评估 block size/发射合并，不能通过放宽残差或减少粗层迭代
+  制造性能收益。
