@@ -441,3 +441,9 @@ _minted*/
 # 参考程序的原始 RHS、配置数据和同类输入文件。
 *.rhs
 /refer/git-rep/**/conf/*
+.opencode
+.codex
+.claude
+.pdfcheck.*
+# ZhangXin
+*.VSCodeCounter
