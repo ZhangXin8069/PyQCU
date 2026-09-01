@@ -107,6 +107,47 @@ class hopping:
             dest += self.matvec_minus(ward=ward, src=src)
         return dest
 
+    def matvec_batch(self, src: torch.Tensor) -> torch.Tensor:
+        """Apply the full hopping term to ``[B,E,X,Y,Z,T]`` fields.
+
+        Galerkin probes are independent along ``B``.  On one MPI rank we can
+        therefore fuse them into the einsum batch dimension without changing
+        the periodic stencil.  The existing scalar path remains the correctness
+        fallback when any axis is partitioned because it already owns the halo
+        exchange protocol.
+        """
+        if src.ndim != 6:
+            raise ValueError(
+                "batch hopping source 应为 [B,E,X,Y,Z,T]，"
+                f"得到 {tuple(src.shape)}")
+        if any(int(size) != 1 for size in self.grid_size):
+            return _torch.stack([self.matvec(item) for item in src], dim=0)
+
+        dtype = src.dtype
+        device = src.device
+        matrix = self.M_plus_list[0]
+        work = src
+        if work.dtype != matrix.dtype or work.device != matrix.device:
+            work = work.to(dtype=matrix.dtype, device=matrix.device)
+        dest = _torch.zeros_like(work)
+        for ward in range(4):
+            # Spacetime is always the final xyzt quartet, hence x..t map to
+            # negative dimensions -4..-1 independently of the batch axis.
+            dim = ward - 4
+            shifted = _torch.roll(work, shifts=-1, dims=dim)
+            contribution = _torch.einsum(
+                "Eexyzt,bexyzt->bExyzt",
+                self.M_plus_list[ward], shifted)
+            dest += contribution
+            del shifted, contribution
+            shifted = _torch.roll(work, shifts=1, dims=dim)
+            contribution = _torch.einsum(
+                "Eexyzt,bexyzt->bExyzt",
+                self.M_minus_list[ward], shifted)
+            dest += contribution
+            del shifted, contribution
+        return dest.to(dtype=dtype, device=device)
+
 
 class sitting:
     def __init__(self, clover_term: Optional[torch.Tensor] = None, clover_ee_inv: Optional[torch.Tensor] = None, clover_oo_inv: Optional[torch.Tensor] = None, support_parity: bool = False):
@@ -145,6 +186,23 @@ class sitting:
             src = src.to(dtype=_dtype, device=_device)
         return _torch.einsum(
             "EeXYZT, eXYZT->EXYZT", self.M, src).to(dtype=dtype, device=device)
+
+    def matvec_batch(self, src: torch.Tensor) -> torch.Tensor:
+        """Apply the local Wilson/Clover block to ``[B,E,X,Y,Z,T]``."""
+        if src.ndim != 6:
+            raise ValueError(
+                "batch sitting source 应为 [B,E,X,Y,Z,T]，"
+                f"得到 {tuple(src.shape)}")
+        if self.clover_term is None:
+            return src
+        dtype = src.dtype
+        device = src.device
+        work = src
+        if work.dtype != self.M.dtype or work.device != self.M.device:
+            work = work.to(dtype=self.M.dtype, device=self.M.device)
+        return _torch.einsum(
+            "EeXYZT,beXYZT->bEXYZT", self.M, work
+        ).to(dtype=dtype, device=device)
 
 
 class operator:
@@ -234,6 +292,22 @@ class operator:
             return (self.hopping.matvec(src=src.reshape([12]+list(src.shape)[2:]))+self.sitting.matvec(src=src.reshape([12]+list(src.shape)[2:]))).reshape([4, 3]+list(src.shape)[2:])
         else:
             return self.hopping.matvec(src=src)+self.sitting.matvec(src=src)
+
+    def matvec_batch(self, src: torch.Tensor) -> torch.Tensor:
+        """Vectorized full operator for independent Galerkin probe fields."""
+        if src.ndim == 7 and src.shape[1] == 4 and src.shape[2] == 3:
+            flat = src.reshape([src.shape[0], 12] + list(src.shape)[3:])
+            dest = (self.hopping.matvec_batch(src=flat) +
+                    self.sitting.matvec_batch(src=flat))
+            return dest.reshape([src.shape[0], 4, 3] + list(src.shape)[3:])
+        if src.ndim != 6:
+            raise ValueError(
+                "batch dslash source 应为 [B,E,X,Y,Z,T] 或 "
+                f"[B,4,3,X,Y,Z,T]，得到 {tuple(src.shape)}")
+        return (self.hopping.matvec_batch(src=src) +
+                self.sitting.matvec_batch(src=src))
+
+    batch_apply = matvec_batch
 
     def matvec_eo(self, src_o: torch.Tensor) -> torch.Tensor:
         dest_e = torch.zeros_like(src_o)

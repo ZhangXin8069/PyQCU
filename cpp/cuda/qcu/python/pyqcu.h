@@ -83,6 +83,11 @@ int applyMultigridStrictMatPCQcu(
     long long _fermion_out, long long _fermion_in, long long _links,
     long long _scratch, long long _set_ptrs, long long _params,
     int E, int X, int Y, int Z, int T, int parity);
+int applyMultigridStrictFineMatPCQcu(
+    long long _fermion_out, long long _fermion_in, long long _gauge,
+    long long _clover_ee, long long _clover_oo,
+    long long _clover_ee_inv, long long _clover_oo_inv,
+    long long _set_ptrs, long long _params, int parity);
 int applyMultigridStrictPrepareQcu(
     long long _fermion_out, long long _full_rhs, long long _links,
     long long _onsite_pair, long long _scratch, long long _set_ptrs,
@@ -110,6 +115,17 @@ int applyMultigridStrictInitQcu(
     long long _set_ptrs, long long _params, int start_level,
     unsigned long long *_allocated_bytes);
 int applyMultigridStrictEndQcu(long long _set_ptrs, long long _params);
+int applyMultigridStrictFgmresQcu(
+    long long _full_out, long long _full_rhs, long long _gauge,
+    long long _clover_ee, long long _clover_oo,
+    long long _clover_ee_inv, long long _clover_oo_inv,
+    long long _fine_null_vectors, long long _set_ptrs, long long _params,
+    int fine_E, int fine_X, int fine_Y, int fine_Z, int fine_T,
+    int coarse_E, int coarse_X, int coarse_Y, int coarse_Z, int coarse_T,
+    int element_bytes, int restart, int max_iter, double tolerance,
+    int nu_pre, int nu_post, unsigned long long max_workspace_bytes,
+    int *_iterations, int *_converged, double *_final_true_residual,
+    unsigned long long *_allocated_bytes);
 void applyCloverMultigridQcu(long long _fermion_out, long long _fermion_in,
                               long long _gauge, long long _clover_ee,
                               long long _clover_oo,

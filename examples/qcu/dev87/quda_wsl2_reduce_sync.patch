@@ -1,0 +1,55 @@
+diff --git a/include/targets/cuda/reduce_helper.h b/include/targets/cuda/reduce_helper.h
+--- a/include/targets/cuda/reduce_helper.h
++++ b/include/targets/cuda/reduce_helper.h
+@@ -7,6 +7,8 @@
+ #include <target_device.h>
+ #include <block_reduce_helper.h>
+ #include <kernel_helper.h>
++#include <cstdlib>
++#include <cstring>
+
+ #include <cuda/std/climits>
+ #include <cuda/std/type_traits>
+@@ -17,6 +19,15 @@ using count_t = cuda::atomic<unsigned int, cuda::thread_scope_device>;
+ namespace quda
+ {
++
++  inline bool dev87_reduce_sync()
++  {
++    static const bool enabled = []() {
++      const char *value = std::getenv("DEV87_REDUCE_SYNC");
++      return value && std::strcmp(value, "0") != 0;
++    }();
++    return enabled;
++  }
+
+ // By default we use negative infinity as the sentinel for testing for
+ // reduction completion.  On some compilers we may need to use finite
+ // numbers, so the alternative approach uses negative zero (set with CMake
+@@ -158,8 +169,24 @@ namespace quda
+       if (launch_error == QUDA_ERROR_UNINITIALIZED) errorQuda("No reduction kernel appears to have been launched");
+       if (consumed) errorQuda("Cannot call complete more than once for each construction");
+
+-      for (int i = 0; i < n_reduce * n_item; i++) {
+-        while (!is_complete(result_h[i].load(cuda::std::memory_order_relaxed))) { }
++      bool sync_copy = dev87_reduce_sync();
++      if (!sync_copy) {
++        constexpr unsigned long long max_spin = 1ull << 20;
++        for (int i = 0; i < n_reduce * n_item; i++) {
++          unsigned long long spin = 0;
++          while (!is_complete(result_h[i].load(cuda::std::memory_order_relaxed))) {
++            if (++spin == max_spin) {
++              sync_copy = true;
++              break;
++            }
++          }
++          if (sync_copy) break;
++        }
++      }
++
++      if (sync_copy) {
++        qudaDeviceSynchronize();
++        qudaMemcpy(result_h, result_d, n_reduce * n_item * sizeof(system_atomic_t), qudaMemcpyDeviceToHost);
+       }
+
+       // copy back result element by element and convert if necessary to host reduce type
