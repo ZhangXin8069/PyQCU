@@ -1,8 +1,8 @@
 ---
 name: solver
-description: pyqcu.solver 目录的完整生成 skill：BiCGStab(l) 与自适应多重网格 V-cycle 求解器，含 CUDA 后端集成与粗网格校正后状态重置（R3 fix）。
+description: pyqcu.solver 目录的完整生成 skill：BiCGStab(l)、FGMRES 与 legacy/strict QUDA-style MultiGrid，含奇偶边界、Galerkin 层级和 CUDA 持久显存约束。
 ---
-# CLAUDE.md — pyqcu.solver
+# pyqcu.solver
 
 Iterative solvers for the Dirac equation D ψ = η.
 
@@ -19,7 +19,8 @@ Iterative solvers for the Dirac equation D ψ = η.
 |------|---------|
 | `_bistabcg.py` | BiCGStab(l) solver (Bi-stabilized Conjugate Gradient) |
 | `_multigrid.py` | Adaptive multigrid (AMG) V-cycle solver with CUDA acceleration at finest level |
-| `_gmres.py` | GMRES solver — **placeholder stub, not yet implemented** |
+| `_gmres.py` | Python restarted-FGMRES reference with right preconditioning, complex Givens rotations, warm start and restart true-residual checks; production strict CUDA solve uses the fused C++ entry |
+| `_quda_multigrid.py` | QUDA-style transfer, coarse operator, MATPC and recursive strict reference hierarchy; coexists with legacy `_multigrid.py` |
 
 ## Exported API
 
@@ -70,7 +71,7 @@ Adaptive multigrid V-cycle solver with configurable multi-level hierarchy.
 - `applyInitQcu`/`applyEndQcu` manage scratch buffer lifecycle
 - `applyCloverBistabCgQcu` performs the full BiCGStab solve
 - `applyCloverBistabCgDslashQcu` performs a single parity-preconditioned dslash
-- `_SET_INDEX_` must be incremented between successive calls
+- legacy `applyInitQcu`/`applyEndQcu` operation sequences must increment `_SET_INDEX_` between calls; Strict `CudaSchurOp` sequences use one fixed per-instance slot and follow the exception below
 
 **C++ backend integration (level 1):**
 - `applyMultigridRestrictQcu`/`applyMultigridProLongQcu` for inter-grid transfers
@@ -80,6 +81,35 @@ Adaptive multigrid V-cycle solver with configurable multi-level hierarchy.
 **BiCGStab state reset after coarse-grid correction (R3 fix):** After a coarse-grid correction `x = x + e_fine`, the residual `r` changes, so all BiCGStab state must be reinitialized: `r_tilde = r.clone()`, reset `p/v/s/t` to zero, reset `rho_prev/alpha/omega` to 1.0. Without this, `rho = vdot(r_tilde_old, r_new)` gives meaningless results.
 
 **Convergence tracking:** Records `r_norm` twice per iteration (before and after coarse-grid correction). Plot shows both.
+
+## Strict QUDA-style MultiGrid Invariants
+
+Keep the legacy implementation available for comparison. Select Strict with `hierarchy_mode="strict"` or `QudaStrictMultigrid`; `setup_operator="schur"` is the legacy compact odd-Schur/setup-vector option, not the hierarchy selector. Under Strict the coarse geometry remains full even when that setup option is supplied. The strict hierarchy instead uses
+
+\[
+D_l=X_l+H_l,\qquad \widehat D_l=X_l^{-1}D_l,\qquad
+D_{l+1}=R_l\widehat D_lP_l,
+\]
+
+with `R=P†`, full coarse lattices, and `coarse_spin=2` (`E=2*nvec`) at every Wilson/Clover coarse level. `P` is the blocked null-vector map from a full coarse field to the selected fine parity; `R` is its adjoint and returns a full coarse field. The parity boundary is narrow: R/P may consume or produce one compact fine parity while always mapping to/from a full coarse field; MATPC acts on the selected compact parity as `I-Hhat_pq Hhat_qp`. Never parity-crop coarse assets or substitute the legacy hopping-only coarse dslash.
+
+The formal QUDA comparison fixes the spin convention to `QUDA_DEGRAND_ROSSI_GAMMA_BASIS`; include this basis in hierarchy/cache identity checks instead of assuming an implicit basis transform.
+
+The current strict runtime accepts only all-level `matpc/direct_pc`; it rejects standard staggered/KD, odd or sub-two coarse extents, and unsupported non-nearest-neighbor stencil support instead of silently changing the operator. Coarse Galerkin setup applies the full left-preconditioned operator `X^-1 D` before forming `R(X^-1 D)P`; the fine odd-Clover Schur/MATPC path is used for smoothing and the solve, not as a reason to checkerboard coarse assets. User-facing canonical null vectors `[nvec,4,3,X,Y,Z,T]` must be converted before the C++ call to C-order blocked `[E,12,Xc,bx,Yc,by,Zc,bz,Tc,bt]`. The CUDA strict solver prepares the fine odd-Clover Schur system, applies fine MR → parity R → recursive coarse V-cycle → parity P → fine MR as a right preconditioner to restarted FGMRES, then reconstructs the full solution.
+
+At every coarse transition, `X` is the local coarse block, `Y` is the four-direction forward/backward link set, and `Yhat=X^-1Y` is the link set used by the preconditioned coarse action. Runtime onsite storage is the pair `(X,X^-1)`; raw `Y` may be kept for setup diagnostics but is not required by the ordinary Strict solve. The fine boundary carries the physical Gauge and Clover even/odd blocks plus their inverses; coarse levels carry Galerkin `X/Y/Yhat`, not a second physical Gauge/Clover field.
+
+The recursive hierarchy is allocated by strict init; the outer FGMRES workspace is allocated lazily by C++ on the first solve and reused. Its exact size is `(2*m+5)*B_f + 2*B_c`; Python keeps neither a duplicate Krylov arena nor duplicate coarse-I/O tensors. The current CUDA path fixes fine `target_parity=1` and coarse recursion `start_level=1`; coarse fields are full and only the fine-side MATPC/R/P views are compact. Bind packed `V/Yhat/onsite` assets first, then call `seal_cuda_runtime(runtime_assets_bound=True)` to detach the Python setup hierarchy; this seal is destructive, so copy `strict_setup_stats` first when they are needed. Packed raw `Y` is omitted by default and should be retained only for setup/diagnostics.
+
+`params[57]` is `_MG_USE_INIT_GUESS_`. Set it to `0` for a cold solve; when it is `1`, prefill `fermion_out` and the fused entry consumes its odd half as the initial guess before reconstructing the full result. This flag is part of the existing `int32[58]` ABI, not a new parameter array.
+
+Strict CUDA 的调用顺序必须是 `hierarchy.setup()` → 构造 `CudaSchurOp`（内部 `applyInitQcu`）→ 绑定运行期资产 → `applyMultigridStrictInitQcu` → 重复 V-cycle/FGMRES → `applyMultigridStrictEndQcu` → `CudaSchurOp.release()`（内部 `applyEndQcu`）。整个 Strict 生命周期保持该实例的 `_SET_INDEX_` 不变；不要套用 legacy 的递增或 coarse-grid reset 规则。
+
+Runtime-cache schema v2 protects every logical tensor with a streaming SHA256. A load verifies the entire tensor set before creating/transferring device tensors, uses about 8 MiB host chunks, and intentionally performs two logical reads on a hit (verification plus transfer). Digest failure is fail-closed and must leave the device hierarchy unbound. If a concurrent publisher wins the same-identity target, the loser may reuse it only after fully verifying the manifest, every dataset attr, and every tensor SHA256.
+
+`memory_report()` reports explicitly owned runtime assets, not all process/device memory. Memory regressions must track setup/export/bind/seal/init/first solve/steady solve/close, distinguish planned from first-solve resident fused bytes, deduplicate shared storages, include backend `LatticeSet` and allocator high-water overhead, and verify repeated solves have stable live bytes. Galerkin setup planning counts four simultaneous full-field arenas. The library default setup cap is `512 MiB`; the formal `16×32×32×48` profile instead uses colored `C=12` with `4 GiB` for c64 and `C=1` with `1 GiB` for c128. The outer fused `max_krylov_bytes` is independent: solver API default `512 MiB`, formal c64 `512 MiB`, formal c128 `1 GiB`. `strict_galerkin_mode="auto"` compares modeled site-batch and colored call/memory costs; record requested/effective mode, `C`, projection batch `K`, cap and stats, and let formal validation fail on silent shrink. Formal benchmark memory probing uses schema version 2 and an independent untimed device-wide `cudaMemGetInfo` measurement named `device_used_max_observed_bytes`; `setup_seconds` ends before sampler stop. A join timeout keeps the sampler handle live and invalidates the record rather than silently accepting incomplete evidence. A memory cap may reduce FGMRES restart but must not change the relative true-residual criterion.
+
+MPI stage 1 has c64/c128 global dot/norm reduction (`global_reduction=True`) and rank-symmetric preflight. Setup/full/compact halos and the distributed fused solve remain disabled (`setup_halo=False`, `full_halo=False`, `compact_halo=False`, `fused_fgmres=False`), so every production multi-rank strict solve must remain rejected. Do not describe this stage as distributed MultiGrid support.
 
 ## 口径与容差语义（2026-08-24）
 

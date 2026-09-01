@@ -3,6 +3,11 @@
 任务：~auto-all（2026-08-25）。对象=PyQCU MG 链路；目标a=quda 对照（高优）；目标b=PyQUDA 辅助。
 状态标记：`[ ] 待测 [x] 已测(结论见 dev87_report) [~] 部分/受阻 [-] 不适用(范围外)`。
 
+> 2026-08-31 说明：本表此前的 G8/G9/G10 实测记录主要对应保留的 legacy
+> `applyCloverMultigridQcu` 路径。Strict 路径的语义与验收状态以本文件末尾的
+> “Strict overlay”及 `strict_semantic_audit_20260831.md` 为准；两者不能混用作
+> 分布式、逐层混合精度或 Strict 真实 benchmark 的证据。
+
 ## 双方版本锚点
 
 | 侧 | 版本 | 说明 |
@@ -71,7 +76,7 @@
 |---|---|---|---|---|
 | 7.1 | 精确 Galerkin 粗化 Y,X | CoarseOp coarse_op.cuh calculateY:974(GPU/CPU 双路) | torch 探测 build_stencil(_mt) 33-tensor，经 set_ptrs 槽 30+ 传入 | [x] 重复回归约 7.5–9.5e-7（A_c≈PᵀSP）|
 | 7.2 | 二次粗化 | CoarseCoarseOp | build_stencil_mt lvl≥2（CudaCoarseSchurOp 续探） | [ ] |
-| 7.3 | 预条件粗算子 Ŷ,X⁻¹ | calculateYhat + DiracCoarsePC(eo) | 宽版粗 Schur 形式直接存奇子格算子（结构不同、作用等价性需验证 A_c≈RSP） | [ ] |
+| 7.3 | 预条件粗算子 Ŷ,X⁻¹ | calculateYhat + DiracCoarsePC(eo) | Strict 逐层保存 `Yhat=X⁻¹Y`、`(X,X⁻¹)`，MATPC 在此基础上形成 `I-Hhat_pq Hhat_qp` | [x] Python/CUDA primitive 与奇偶闭环已测；真实 QUDA 粗层 backward storage 仍需逐项数值锚定 |
 | 7.4 | 粗 dslash 核 | ApplyCoarse dslash_coarse.cuh(dagger/parity/clover 全组合) | multigrid_coarse_dslash[_wide].cu（窄/宽两版） | [x] 窄/宽核真实运行；相对误差 2.65e-7/5.01e-7 |
 | 7.5 | 粗核基准计时 | multigrid_benchmark_test | bench 脚本 coarse 计时（dev84 check_ms 剖析） | [x] 组件基准真实运行（窄约 0.775 ms，宽约 1.881 ms） |
 
@@ -93,10 +98,10 @@
 |---|---|---|---|---|
 | 9.1 | 建/销毁层次 | newMultigridQuda/destroyMultigridQuda | applyInitQcu→applyCloverMultigridQcu→applyEndQcu(set_ptrs 槽位生命周期) | [x] 双方真实建/销毁并重复运行 |
 | 9.2 | gauge 更新后薄/全刷新 | updateMultigridQuda(thin/full) :2946 | 无（重建全部） | [ ] |
-| 9.3 | 逐层混合精度 | 全字段 per-level precision/sloppy | `_MG_LEVELn_DATA_TYPE_` 逐层解析；c64/c128 擦除存储；restrict/prolong 显式 cast kernel | [x] 2L/3L 单 rank 与 2-rank `c64→c128` 真实运行 |
+| 9.3 | 逐层混合精度 | 全字段 per-level precision/sloppy | legacy 参数保留逐层 dtype；Strict 当前拒绝逐层不同 dtype，Strict 仅验证同精度 c64/c128 dispatch | [~] 混合精度证据属于 legacy；Strict 未开放该语义 |
 | 9.4 | 外部初值热启动 | use_init_guess | params[_MG_USE_INIT_GUESS_](57)：跳过 x_o 清零/随机化，r 真算；双求解器类支持 | [x] 大格 WARM 0.198s vs COLD 1.412s，解一致 3.7e-6 |
 | 9.5 | 多右端项 | invertMultiSrcQuda | 无 C++ 批量（tools/_bistabcg_batch 为 Python 层） | [ ] |
-| 9.6 | MPI 分布 | 分布式粗格+ghost 打包 | rank-local 粗格/粗算子；33 点 stencil 的 32 邻居 host-staging halo；粗层与 fine 层点积全局 Allreduce | [x] 2-rank 粗算子等价性与 MG/BiCGStabL 冒烟通过；阻塞通信，未声明 overlap/NVSHMEM 性能 |
+| 9.6 | MPI 分布 | 分布式粗格+ghost 打包 | legacy 支持 rank-local 粗格/host-staging halo；Strict backend 当前单 rank fail-closed | [~] MPI 证据属于 legacy；Strict 只验证单 rank，未宣称分布式 |
 | 9.7 | tensor-core MMA | *_use_mma[level] 全链路 | 无（平台 sm_70 SIMT mma 变体存在但未实现） | [ ] |
 | 9.8 | setup 位置可编程 | setup_location/location per-level CUDA/CPU | 固定 GPU | [ ] |
 
@@ -104,9 +109,31 @@
 
 | # | 功能 | quda/PyQUDA 侧 | PyQCU 侧 | 状态 |
 |---|---|---|---|---|
-| 10.1 | 同一 gauge 文件端到端 MG solve | pyquda.init+loadGauge+getClover(multigrid=..)+invert | run_qcu_mg(data/*.h5 缓存 stencil) | [x] 双方收敛 |
-| 10.2 | 输出数值一致性 | 解向量/残差历史 | 解向量/残差历史 | [x] 缩放(m+4)后 rel=8.63e-6（两侧容差不同） |
-| 10.3 | 性能对照 | quda 计时(V100) | PyQCU 计时(V100) | [x] 见报告§十九（含缓存/容差/精度口径注记） |
+| 10.1 | 同一 gauge 文件端到端 MG solve | pyquda.init+loadGauge+getClover(multigrid=..)+invert | legacy `run_qcu_mg(data/*.h5)`；Strict `bench_strict_vs_quda.py` | [x] legacy 双方收敛；Strict formal 双方 5/5 收敛 |
+| 10.2 | 输出数值一致性 | 解向量/残差历史 | legacy 解向量/残差历史；Strict full-op 真残差 | [x] legacy 缩放后 rel=8.63e-6；Strict 见 overlay |
+| 10.3 | 性能对照 | quda 计时(V100) | legacy 与 Strict 分开记录 | [x] legacy 数字仅作历史；Strict formal 公平结果见 overlay |
+
+## Strict overlay（2026-08-31）
+
+本节只描述新 Strict 路径；上表中旧的 G8/G9/G10 结果仍保留，用于 legacy
+对照，不与本节的严格结论混合。
+
+| 项 | QUDA 语义锚点 | PyQCU Strict 实现/证据 | 状态 |
+|---|---|---|---|
+| full-coarse 层级 | `Transfer::P/R`、完整 coarse geometry | 每层完整 coarse 场；fine parity 仅在 R/P 与 MATPC 边界裁剪 | [x] |
+| P/R | `R=P†` | blocked transfer，fine dof=12、coarse spin=2、`E=2*nvec` | [x] CPU/CUDA |
+| 粗化 | `D_c=R(X_f^{-1}D_f)P` | 逐层 `X/Y/Yhat`，保存 `(X,X^{-1})` 与 `Yhat=X^{-1}Y` | [x] primitive/递归 |
+| 奇偶预处理 | `DiracCloverPC` / `DiracCoarsePC` | fine 与 coarse 均形成 `I-Hhat_pq Hhat_qp`，提供 prepare/reconstruct | [x] 双 parity |
+| 外层求解 | 右预处理 GCR/FGMRES | fused right-FGMRES，持久 arena，warm x0，MATPC odd-odd | [x] |
+| 显存 | 资产与 solver workspace 分离 | 默认省略 raw `Y`；预算 `(2*m+5)B_f+2B_c`；runtime cache schema v2 | [x] |
+| 正式性能 | 同一输入、配置和残差口径 | V100 c64，5 次 steady：PyQCU `2.090647±0.011224 s`，QUDA `2.165289±0.021592 s` | [x] fair=true，快 3.57% |
+| 未覆盖边界 | 可编程 mixed precision/MPI 等 | Strict 非单 rank、逐层 mixed dtype fail-closed；backward `Yhat` 逐项 storage 锚定仍开放 | [~] |
+
+正式结果的两侧迭代数/真残差为 PyQCU `11/3.601e-7`、QUDA
+`37/7.303e-7`，均满足 `5e-6` 真残差门槛。PyQCU Strict owned assets 为
+`4,076,863,488 B`，首次求解 device-wide 峰值约 `11.722 GB`；QUDA 独立峰值
+约 `24.530 GB`。这些数字来自同一目标 V100 的正式 collector，不能外推为
+跨设备或跨参数的普遍倍率。
 
 ## 本轮真实运行证据（2026-08-27）
 
