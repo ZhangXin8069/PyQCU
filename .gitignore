@@ -447,3 +447,11 @@ _minted*/
 .pdfcheck.*
 # ZhangXin
 *.VSCodeCounter
+
+# dev87 报告明确引用的正式对照证据；仅放行这些文件，不放开整个 data/。
+!/data/
+!/data/strict_vs_quda_formal_20260902.json
+!/data/strict_trace_20260902_final.json
+!/data/strict_trace_20260902_final.svg
+!/data/strict_trace_20260902_pyqcu.tsv
+!/data/strict_trace_20260902_quda.log

@@ -2,25 +2,23 @@
 
 本文是 `dev87_report.md` 第 22 节的独立 Markdown 版本，目标是把 QUDA
 MultiGrid 中容易被“黑盒算子”掩盖的细节写成一条连续的数学与实现链：细层
-Clover/Gauge 算子、奇偶 Schur、null vector、$P/R$ 转移、粗层
-$X/Y/Yhat$、
-递归粗化以及 V-cycle 中的各种预处理。
+Clover/Gauge 算子、奇偶 Schur、null vector、$P/R$ 转移、粗层 $X/Y/Yhat$、递归粗化以及 V-cycle 中的各种预处理。
 
 ## 1. 统一记号与 QUDA 的对象层次
 
 对第 ℓ 层定义
 
-\[
+$$
 D_\ell = X_\ell - \kappa\,\bar Y_\ell,
 \qquad
 D_{\ell+1}=R_\ell D_\ell P_\ell .
-\]
+$$
 
 细层的特殊之处是
 
-\[
+$$
 D_0\equiv D_f=C_f-\kappa H_f,
-\]
+$$
 
 其中：
 
@@ -42,7 +40,7 @@ D_0\equiv D_f=C_f-\kappa H_f,
 
 忽略不同版本中的整体归一化约定，Wilson-Clover 算子可写成
 
-\[
+$$
 \begin{aligned}
 (D_f\psi)(x)= {}& C_f(x)\psi(x) \\
 &-\kappa\sum_{\mu=0}^{3}\left[
@@ -50,7 +48,7 @@ D_0\equiv D_f=C_f-\kappa H_f,
 +(1+\gamma_\mu)U_\mu^\dagger(x-\hat\mu)\psi(x-\hat\mu)
 \right].
 \end{aligned}
-\]
+$$
 
 这里 $\psi$ 同时带 spin/color，自由度为 $4\times3=12$。forward hopping
 使用 $U_\mu(x)$ 与 $1-\gamma_\mu$，backward hopping 使用相邻点的反向
@@ -59,14 +57,14 @@ spin，Gauge 矩阵只作用于 color，Clover 矩阵则在一个格点内混合
 
 定义格点奇偶
 
-\[
+$$
 p(x)=\left(\sum_{\mu}x_\mu\right)\bmod 2,
 \qquad p(x\pm\hat\mu)=1-p(x).
-\]
+$$
 
 于是 $H_f$ 只有 off-diagonal parity block，而 Clover 项是 parity-diagonal：
 
-\[
+$$
 D_f=
 \begin{pmatrix}
 D_{ee} & D_{eo}\\
@@ -74,13 +72,13 @@ D_{oe} & D_{oo}
 \end{pmatrix},
 \qquad
 D_{ee}=C_{ee},\quad D_{oo}=C_{oo}.
-\]
+$$
 
 对 odd Schur，QUDA 实际求解的对象是
 
-\[
+$$
 M_o=D_{oo}-D_{oe}D_{ee}^{-1}D_{eo},
-\]
+$$
 
 其中 $D_{ee}^{-1}$ 是逐格点 Clover inverse；even Schur 则交换 $e/o$。这也
 解释了为什么 `prepare` 与 `reconstruct` 不能省略：它们负责在全格点 RHS、
@@ -88,7 +86,7 @@ Schur RHS 和全格点解之间来回消去/恢复被消掉的 parity。
 
 ### 2.1 奇偶 Schur 的伪代码
 
-\[
+$$
 \begin{array}{l}
 \text{给定 }D_f=C_f-\kappa H_f,\ b=(b_e,b_o),\text{选择被保留 parity }p=o;\\
 \quad b_o^{\rm Schur}=b_o-D_{oe}D_{ee}^{-1}b_e;\\
@@ -97,7 +95,7 @@ Schur RHS 和全格点解之间来回消去/恢复被消掉的 parity。
 \quad x=(x_e,x_o);\\
 \text{若保留 }p=e,\text{则交换 }e\leftrightarrow o.\\
 \end{array}
-\]
+$$
 
 `prepare` 实现前两行，Schur MultiGrid 作用于 $x_p$，`reconstruct` 实现后
 两行。每次 hopping 读取的邻居仍然是 $q=1-p$，不能把 compact parity
@@ -109,36 +107,36 @@ storage 中的数组下标误当成物理 parity。
 aggregate 保留 $N_v$ 个 null vectors $v_a(x)$，再压缩 spin/color 为粗
 自由度 $\alpha$。更一般地写成
 
-\[
+$$
 V_{x\,s c,\,X\,\alpha},
 \qquad x\in B_X,
 \quad s=0,\ldots,3,
 \quad c=0,\ldots,2.
-\]
+$$
 
 aggregate 内 block Gram-Schmidt 要求
 
-\[
+$$
 \sum_{x\in B_X}
 V_{x,\alpha}^\dagger V_{x,\beta}
 =\delta_{\alpha\beta}.
-\]
+$$
 
 若 $I_X(x)$ 是 aggregate 指示函数，则 prolongator 的作用为
 
-\[
+$$
 (P\,\phi)(x,s,c)=
 \sum_{\alpha}I_X(x)V_{x,s c,\alpha}\phi(X,\alpha),
 \qquad x\in B_X.
-\]
+$$
 
 对应的 restrictor 为
 
-\[
+$$
 (R\,\psi)(X,\alpha)=
 \sum_{x\in B_X,s,c}V_{x,s c,\alpha}^\dagger\psi(x,s,c),
 \qquad R=P^\dagger.
-\]
+$$
 
 因此，$P$ 不是复制或平均，$R$ 也不是普通 pool；二者是由 null-vector
 子空间定义的带 spin/color 结构的局部基变换。奇偶 transfer 只对目标 parity
@@ -148,54 +146,54 @@ V_{x,\alpha}^\dagger V_{x,\beta}
 
 Galerkin 粗化为
 
-\[
+$$
 D_1=R D_f P=R(C_f-\kappa H_f)P.
-\]
+$$
 
 按照 aggregate 之间的关系拆分：
 
-\[
+$$
 D_1=X_1+Y_1^f+Y_1^b,
-\]
+$$
 
 其中 $X_1$ 不仅是 $RC_fP$，还包含同一 aggregate 内部的 hopping：
 
-\[
+$$
 X_1(X)=R_X C_f P_X
 -\kappa\,R_X H_{\rm internal}P_X.
-\]
+$$
 
 跨 aggregate 的 hopping 才存入有向矩阵 $Y^f,Y^b$：
 
-\[
+$$
 Y^f_\mu(X)= -\kappa\bar Y^f_\mu(X),
 \qquad
 Y^b_\mu(X)= -\kappa\bar Y^b_\mu(X).
-\]
+$$
 
 ### 4.1 直接 Clover coarsening
 
 若算子未作 Clover-PC，Clover onsite 直接出现在 Galerkin block：
 
-\[
+$$
 X_1\supset R C_f P.
-\]
+$$
 
 forward 方向的未缩放矩阵可按 QUDA kernel 的 storage 约定概括为
 
-\[
+$$
 \bar Y^f_\mu(X,Y)=
 \sum_{\substack{x\in B_X\\x+\hat\mu\in B_Y}}
 V(x)^\dagger(1-\gamma_\mu)U_\mu(x)V(x+\hat\mu),
-\]
+$$
 
 backward 方向为
 
-\[
+$$
 \bar Y^b_\mu(X,Y)=
 \sum_{\substack{x\in B_X\\x-\hat\mu\in B_Y}}
 V(x)^\dagger(1+\gamma_\mu)U_\mu^\dagger(x-\hat\mu)V(x-\hat\mu).
-\]
+$$
 
 实际代码还要处理 parity、周期边界、halo、矩阵布局和 dagger；公式只描述
 矩阵元素的来源。
@@ -204,21 +202,21 @@ V(x)^\dagger(1+\gamma_\mu)U_\mu^\dagger(x-\hat\mu)V(x-\hat\mu).
 
 在 Clover-preconditioned 路径中，细层 onsite inverse 已经进入算子定义。设
 
-\[
+$$
 A=C_f^{-1},
 \qquad
 AV=C_f^{-1}V.
-\]
+$$
 
 QUDA 的 direction-dependent construction 需要两侧不同的 $AV$ 放置：
 
-\[
+$$
 \bar Y^f_\mu
 \sim (AV)^\dagger(1-\gamma_\mu)UV,
 \qquad
 \bar Y^b_\mu
 \sim V^\dagger(1+\gamma_\mu)U(AV).
-\]
+$$
 
 这不是记号上的装饰：forward 与 backward 的左/右侧分别对应 Schur 消元后
 的矩阵乘法顺序，所以 PC 情形必须独立构造两个方向，不能用非 PC 的
@@ -227,11 +225,11 @@ QUDA 的 direction-dependent construction 需要两侧不同的 $AV$ 放置：
 对粗 onsite block 批量求逆，记为 $X^{-1}$ 或 `Xinv`。PC 粗 hopping 的存储
 对象是
 
-\[
+$$
 \widehat Y^f=X^{-1}Y^f,
 \qquad
 \widehat Y^b=Y^b X^{-\dagger}.
-\]
+$$
 
 可见 `Yhat` 不是对所有方向统一左乘 $X^{-1}$：backward 方向是右乘
 $X^{-\dagger}$。这正是 Clover-PC 粗算子与普通 Wilson-like 粗算子的关键
@@ -242,7 +240,7 @@ $X^{-\dagger}$。这正是 Clover-PC 粗算子与普通 Wilson-like 粗算子的
 对粗格点 $X$ 和 storage parity $p$，相邻粗格点 parity 为 $q=1-p$。
 粗层算子可写为
 
-\[
+$$
 \begin{aligned}
 (D_c z)(X,p)={}&X_c(X,p)z(X,p)\\
 &+\sum_\mu\left[
@@ -250,17 +248,17 @@ Y^f_\mu(X,p)z(X+\hat\mu,q)
 +Y^b_\mu(X,p)z(X-\hat\mu,q)
 \right].
 \end{aligned}
-\]
+$$
 
 在 QUDA coarse kernel 的等价读取语义中：
 
-\[
+$$
 \begin{array}{ll}
 \text{forward:}&\text{读取当前位置 }(X,p)\text{ 的 }Y(d+4,p,X)，\\
 \text{backward:}&\text{读取 }(X-\hat\mu,q)\text{ 的 }Y(d,q,X-\hat\mu)^\dagger，\\
 \text{neighbor parity:}&q=1-p\text{，对每个方向都成立。}
 \end{array}
-\]
+$$
 
 实现层面还必须同时保证：
 
@@ -276,28 +274,28 @@ Y^f_\mu(X,p)z(X+\hat\mu,q)
 第一层构造需要细层的 $C_f,U$，但第二层开始，上一层的有效算子就是新的
 “细层”：
 
-\[
+$$
 D_1=(X_1,Y_1^f,Y_1^b),
 \qquad
 D_2=R_1D_1P_1.
-\]
+$$
 
 因此后续递归只对 $X_1$、$Y_1$、必要时的 $Yhat_1$ 做 Galerkin projection。
 粗层的 link-like 矩阵不再是 SU(3) Gauge 场，通常是更大的复矩阵；它只是
 保留方向与邻居关系的有效 hopping。把粗矩阵误解释成原始 Gauge 会丢失：
 
-\[
+$$
 \text{aggregate 内部 hopping}\subset X,
 \qquad
 \text{Clover-PC 左右消元顺序}\subset Yhat.
-\]
+$$
 
 ## 7. V-cycle 与外层求解器的完整逻辑
 
 下面的伪代码把算子构造、奇偶处理、平滑、限制、粗解、提升和校正串成一个
 可执行的逻辑。`A_l` 可以是普通粗算子或经过 $X_l^{-1}$ 的 PC 算子。
 
-\[
+$$
 \begin{array}{l}
 \textbf{setup}(l=0):\\
 \quad \text{load Gauge }U\text{ and Clover }C_f;\\
@@ -339,7 +337,7 @@ cross-aggregate }Y_{l+1}^{f/b};\\
 \quad\quad r^{(k)}\leftarrow b-Ax^{(k)};\\
 \quad\quad \text{stop when the specified relative/full-op residual is small enough}.\\
 \end{array}
-\]
+$$
 
 外层 Krylov 迭代次数与单次迭代时间必须分开报告：MultiGrid 预条件器可能使
 迭代次数显著下降，但 coarse operator、transfer 或同步代价仍会影响每次迭代
