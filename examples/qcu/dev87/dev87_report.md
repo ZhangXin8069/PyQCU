@@ -467,3 +467,900 @@ reservation 误记为库自有资产。Strict workspace 预算仍为
 - `strict_hopping_parity_kernel` 仍是主要运行时热点，后续若继续迭代应在保持
   收敛协议不变的前提下评估 block size/发射合并，不能通过放宽残差或减少粗层迭代
   制造性能收益。
+
+## 二十二、Clover Dslash 实例：QUDA MultiGrid 各层算子的全链路解析（2026-09-02）
+
+本节专门补足原有 QUDA 文档中最简略的“算子”部分。先给出结论：QUDA 的
+MultiGrid 不是把一个黑盒 `A` 递归地缩小，而是把 Clover Wilson 算子的三个结构
+逐层保留下来：
+
+\[
+ D_f=C_f-\kappa H_f,
+ \qquad
+ D_{\ell+1}=R_\ell D_\ell P_\ell,
+ \qquad
+ D_\ell=X_\ell+\mathcal Y_\ell,
+ \quad \mathcal Y_\ell\equiv-\kappa\bar Y_\ell .
+\]
+
+这里 \(C_f\) 是细格点的 onsite Clover 矩阵，\(H_f\) 是只连接相反奇偶的
+Wilson hopping，\(P_\ell\) 把粗格向量提升到细格，\(R_\ell=P_\ell^\dagger\)
+把残差限制到粗格；\(X_\ell\) 收集 onsite 项以及聚合块内部的 hopping，
+\(\bar Y_\ell\) 收集跨聚合块的八个有向 hopping。为避免符号歧义，本节始终把
+“`coarse_op` kernel 先生成的未乘 \(-\kappa\) 矩阵”记为 \(\bar Y\)，把粗
+dslash 最后实际使用的带符号项记为 \(\mathcal Y=-\kappa\bar Y\)。源码在
+`coarse_op_kernel.cuh:1639-1642` 对块内项显式乘 `-kappa`，在
+`dslash_coarse.cuh:292-322` 对合并后的粗 hopping 执行同一语义。
+
+文中证据等级统一为：`[确证]` 表示可由当前 QUDA 源码逐行读出；`[推断]` 表示
+把源码的存储/索引翻译成数学矩阵后的等价解释；`[未验证]` 表示尚未做逐元素、
+逐方向、逐 storage site 的数值锚定。后续公式中的 \(p\) 是当前输出奇偶，
+\(q=1-p\) 是邻居/输入奇偶；若是 odd--odd Schur，则 \(p=o,q=e\)，若是
+even--even Schur，则交换两者。
+
+### 22.1 对象、维度与存储约定
+
+| 对象 | 数学对象 | QUDA 中的实际含义 | 关键证据 |
+|---|---|---|---|
+| 细格点 Clover | \(C_f(x)\) | 每个细格点两个 chiral \(6\times6\) block；`wilsonClover` 先将输入转到 chiral basis，分别乘两个 half-spin block | `include/kernels/dslash_wilson_clover.cuh:73-96` |
+| 细格点 hopping | \(H_f\) | 四个方向、forward/backward 两个 gather；输入奇偶为 `1-parity` | `include/kernels/dslash_wilson.cuh:124-201` |
+| 细格点算子 | \(D_f=C_f-\kappa H_f\) | `DiracClover::M` 以 `k=-kappa` 调 `ApplyWilsonClover` | `lib/dirac_clover.cpp:58-66` |
+| null vectors | \(B_i(x), i=0,\ldots,N_v-1\) | 生成/加载的近零向量；逐 aggregate、逐 chiral block 做 block Gram--Schmidt | `lib/transfer.cpp:117-162`；`include/kernels/block_orthogonalize.cuh:170-250` |
+| transfer basis | \(V_{s c;j}(x)\) | 每个细 spin/color 点有 \(N_v\) 个粗 color 分量；不是全局 eigenvector 矩阵，而是按 aggregate 存储的局部矩阵 | `lib/transfer.cpp:121-139` |
+| prolongator/restrictor | \(P,R\) | `P`: coarse \(\to\) fine；`R`: fine \(\to\) coarse；aggregate 模式下 `R=P^\dagger` | `include/transfer.h:19-28`；`lib/transfer.cpp:259-328` |
+| 粗 onsite | \(X\) | scalar geometry 的 onsite block；可能包含 \(R C P\)、块内 hopping 或单位阵 | `lib/dirac_coarse.cpp:158-169`；`include/kernels/coarse_op_kernel.cuh:1768-1837` |
+| 粗有向 link | \(\bar Y(d)\), \(d=0,1,2,3\) | backward storage；\(d+4\) 是 forward storage；每个矩阵作用在 coarse-spin\(\times\)coarse-color 空间 | `lib/dirac_coarse.cpp:121-145` |
+| Clover-PC link | \(\widehat Y\) | 由 \(X^{-1}\) 对 \(\bar Y\) 做方向相关的左/右乘；不是把 `Y` 原地改名 | `lib/coarse_op_preconditioned.in.cu:197-275` |
+| 粗算子 | \(D_c=X+\mathcal Y\) | `DiracCoarse::M` 调完整粗 operator；coarse dslash 的输出再并入 `X` | `lib/dirac_coarse.cpp:420-433` |
+| 粗 PC 算子 | \(D_c^{PC}\) | `DiracCoarsePC` 以 \(\widehat Y\) 作用于单一奇偶，再形成 symmetric/asymmetric Schur | `lib/dirac_coarse.cpp:506-560` |
+
+以本次正式测试的 \(N_v=12\)、Clover fine spin \(4\)、`spin_bs=2` 为例，
+粗 spin 为
+
+\[
+ N_s^{(c)}=4/2=2,
+ \qquad N_c^{(c)}=N_v=12,
+ \qquad N_s^{(c)}N_c^{(c)}=24.
+\]
+
+因此 coarse field 每个粗格点有 24 个复自由度，coarse link 是
+\(24\times24\) 的 block matrix；这就是 `DiracCoarse::createY` 中
+`nColor = Nc_c * Ns_c` 的含义，而不是一个仍然属于 SU(3) 的 gauge link。
+QUDA 把它放在 `QUDA_COARSE_GEOMETRY` 的 full-site、8-direction field 中，
+所以“粗规范场”只是线性算子存储格式，不能把它当作物理 SU(3) gauge field。
+
+### 22.2 细格点 Clover Dslash：先把输入问题定义准确
+
+#### 22.2.1 非奇偶压缩的物理算子
+
+在 DeGrand--Rossi gamma basis 中，忽略 distance-PC 与 twisted-mass 的额外
+系数后，QUDA 实现的非 dagger Clover 算子可写成
+
+\[
+ \begin{aligned}
+ (D_f\psi)(x)
+ &=C_f(x)\psi(x)-\kappa(H_f\psi)(x),\\
+ (H_f\psi)(x)
+ &=\sum_{\mu=0}^{3}\left[
+ (1-\gamma_\mu)U_\mu(x)\psi(x+\hat\mu)
+ +(1+\gamma_\mu)U_\mu^\dagger(x-\hat\mu)\psi(x-\hat\mu)
+ \right].
+ \end{aligned}
+\]
+
+这里的 \(1\mp\gamma_\mu\) 是源码中 `project/reconstruct` 的 Wilson spin
+ projector；常数因子、\(\kappa\) 和 diagonal addition 的归属必须以调用的
+ `DslashXpay`/`M` 路径为准，不能仅凭函数名 `Dslash` 猜。`applyWilson` 明确
+ 将输入 parity 设为 `1 - parity`，forward 使用 `U(d,x)` 和 forward neighbor，
+ backward 使用反向 link 的共轭矩阵和 backward neighbor；证据分别在
+ `include/kernels/dslash_wilson.cuh:124-164` 与 `:171-201`。[确证]
+
+`wilsonClover` 的内核顺序是：先计算 hopping，再把 onsite Clover 作用到
+ `xpay` 输入，最后以 `a=-\kappa` 合并。对 interior site，源码等价于
+
+\[
+ y(x)=C_f(x)\,x(x)+a\,H_f\psi(x),
+ \qquad a=-\kappa;
+\]
+
+对 exterior site，Clover 与 hopping 的 halo 路径分开执行，但数学对象仍是同一
+个 \(D_f\)。Clover block 在 chiral basis 中按
+
+\[
+ C_f(x)=C_+(x)\oplus C_-(x),
+ \qquad C_\chi(x)\in\mathbb C^{(2N_c)\times(2N_c)}
+ =\mathbb C^{6\times6}\quad(N_c=3)
+\]
+
+作用；源码的 `chiral_project`、`HMatrix`、`chiral_reconstruct` 以及再转回
+non-rel basis 的顺序见 `include/kernels/dslash_wilson_clover.cuh:76-96`。
+这一步是之后粗化中“为什么 Clover 只生成局部 block、为什么粗 spin 变成 2”
+的根源，而不是一个可省略的实现细节。
+
+#### 22.2.2 细格点奇偶 block
+
+将所有向量按 checkerboard 排列，细算子是
+
+\[
+ D_f=
+ \begin{pmatrix}
+ C_e & -\kappa H_{eo}\\
+ -\kappa H_{oe} & C_o
+ \end{pmatrix},
+ \quad
+ H_{eo}:\mathcal V_o\to\mathcal V_e,
+ \quad
+ H_{oe}:\mathcal V_e\to\mathcal V_o.
+\]
+
+以 odd--odd 为例，先消去 even 分量：
+
+\[
+ \begin{aligned}
+ C_e x_e-\kappa H_{eo}x_o&=b_e,\\
+ x_e&=C_e^{-1}(b_e+\kappa H_{eo}x_o),\\
+ S_o x_o&=b_o+\kappa H_{oe}C_e^{-1}b_e,\\
+ S_o&=C_o-\kappa^2H_{oe}C_e^{-1}H_{eo}.
+ \end{aligned}
+\]
+
+QUDA 的 `DiracCloverPC::Dslash` 不是普通 Wilson dslash 的 dagger：源码注释
+明确说它按“先 hopping、后 Clover inverse”的顺序实现
+\(C_p^{-1}H_{pq}\)，见 `lib/dirac_clover.cpp:141-155`。[确证]
+
+因此有两种必须分开的 MATPC 语义：
+
+| 路径 | 数学算子（以目标奇偶 \(p\) 为准） | 代码组合 | 适用含义 |
+|---|---|---|---|
+| asymmetric | \(S_p^{\rm asym}=C_p-\kappa^2H_{pq}C_q^{-1}H_{qp}\) | 先 `C_q^{-1}H_{qp}`，再用普通 Clover `DslashXpay` 加 \(-\kappa^2\) | 保留目标奇偶的 Clover block |
+| symmetric, non-dagger | \(S_p^{\rm sym}=I-\kappa^2C_p^{-1}H_{pq}C_q^{-1}H_{qp}\) | 两次 `C^{-1}H`，外层以输入向量作 identity xpay | 对称化后的 Schur，便于匹配 Hermitian 路径 |
+| symmetric, dagger | \((S_p^{\rm sym})^\dagger=I-\kappa^2H_{qp}^\dagger C_q^{-1}H_{pq}^\dagger C_p^{-1}\) | 先 `C_p^{-1}`，再 `C^{-1}H^\dagger`，最后普通 Wilson `DslashXpay` | 不能把 non-dagger 的调用顺序倒过来猜 |
+
+上述三条分别由 `lib/dirac_clover.cpp:173-209` 的 `Dslash`、
+`DslashXpay`、`CloverInv` 调用顺序实现。[确证]
+
+#### 22.2.3 `prepare`/`reconstruct` 不是接口装饰
+
+当外部要的是 full solution，而内部只解目标奇偶时，QUDA 必须对右端和解做
+一次与 Schur 完全一致的变换。令 \(p\) 为求解奇偶、\(q=1-p\)，可把代码写成
+以下伪代码；`symmetric` 分支中的两次 Clover inverse 不能省略。
+
+```latex
+\begin{table}[htbp]
+\centering
+\caption*{Clover MATPC 的 prepare/reconstruct（p 可以是 even 或 odd）}
+\small
+\begin{tabular}{@{}l@{}}
+\text{输入：full }b=(b_p,b_q),\;\text{目标：full }x=(x_p,x_q)\\
+\text{若 solution\_type=MATPC：}\quad src=b_p,\quad sol=x_p,\quad\text{return}\\
+\text{否则令 }t_q=C_q^{-1}b_q\\
+\text{若 asymmetric：}\quad src=b_p+\kappa H_{pq}t_q\\
+\text{若 symmetric：}\quad t_p=C_p^{-1}(b_p+\kappa H_{pq}t_q),\quad src=t_p\\
+\text{调用 inner solver：}\quad S_p x_p=src\\
+\text{重构另一奇偶：}\quad t_q'=b_q+\kappa H_{qp}x_p\\
+\text{输出：}\quad x_q=C_q^{-1}t_q'\\
+\text{odd--odd 时 }(p,q)=(o,e);\quad\text{even--even 时 }(p,q)=(e,o)\\
+\end{tabular}
+\end{table}
+```
+
+这正对应 `DiracCloverPC::prepare` 的 MATPC alias、symmetric/asymmetric
+右端变换（`lib/dirac_clover.cpp:223-249`）以及
+`reconstruct` 的 \(x_q=C_q^{-1}(b_q+\kappa H_{qp}x_p)\)
+（`:251-261`）。[确证] 一个只解 odd field 却用 full \(b\) 直接套
+\(C_o-\kappa^2H_{oe}C_e^{-1}H_{eo}\) 的实现，会在这一步漏掉 source-side
+的 Clover inverse，残差即使在 odd 子空间下降也不代表 full residual 正确。
+
+### 22.3 Aggregate、null vectors 与 \(P/R\)：粗自由度从哪里来
+
+#### 22.3.1 几何 map 与 spin map
+
+设 fine 坐标为 \(x=(x_0,x_1,x_2,x_3)\)，aggregation block 为
+\(b=(b_0,b_1,b_2,b_3)\)。QUDA 的 coarse 坐标不是通过插值求出，而是整数除法
+
+\[
+ X_\mu=\left\lfloor\frac{x_\mu}{b_\mu}\right\rfloor,
+ \qquad
+ \mathcal A_X=\{x\mid \lfloor x_\mu/b_\mu\rfloor=X_\mu,\;\forall\mu\}.
+\]
+
+`fine_to_coarse` 保存每个 fine site 的 coarse offset，`coarse_to_fine` 把
+同一 aggregate 的 fine site 排在一起；它们在 `lib/transfer.cpp:200-240`
+生成。Wilson/Clover 使用 `spin_bs=2`，所以
+
+\[
+ s_c(s_f)=\left\lfloor\frac{s_f}{2}\right\rfloor,
+ \qquad
+ s_f=0,1\mapsto s_c=0,
+ \qquad s_f=2,3\mapsto s_c=1.
+\]
+
+该 map 对 even/odd 都相同，由 `lib/transfer.cpp:243-255` 确认；奇偶不是被
+塞进 spin map，而是另一个独立索引。因此不能把“fine spin 4 降为 coarse spin 2”
+误读成“只保留一个 fine parity”。
+
+#### 22.3.2 block orthogonalization
+
+每个 aggregate、每个 chiral block 内，QUDA 对 null vectors 做局部而非全局的
+Gram--Schmidt。对向量编号 \(j\) 的理想化表达是
+
+\[
+ \begin{aligned}
+ v_j&\leftarrow v_j-\sum_{i<j}v_i\,\langle v_i,v_j\rangle_{\mathcal A_X,\chi},\\
+ v_j&\leftarrow v_j/\sqrt{\langle v_j,v_j\rangle_{\mathcal A_X,\chi}},\\
+ \langle u,v\rangle_{\mathcal A_X,\chi}
+ &=\sum_{x\in\mathcal A_X}\sum_{s\in\chi}\sum_c u_{s,c}(x)^*v_{s,c}(x).
+ \end{aligned}
+\]
+
+代码先加载原始 `B`，之后从已保存的 `V` 继续正交化；先减去前面向量的
+投影，再在 block diagonal 上重新正交化与归一化，见
+`include/kernels/block_orthogonalize.cuh:170-250`。[确证] 这只保证 aggregate
+内的局部基正交，不能推出不同 coarse sites 之间的全局正交。
+
+#### 22.3.3 \(P\) 与 \(R=P^\dagger\) 的逐点公式
+
+把 coarse field 写成 \(\phi_{s_c,j}(X)\)，其中 \(j\) 是 coarse color，
+则 QUDA aggregate prolongator 的数学形式为
+
+\[
+ (P\phi)_{s_f,c}(x)
+ =\sum_{j=0}^{N_v-1}
+ V_{s_f,c;j}(x)\,
+ \phi_{s_c(s_f),j}(X(x)).
+\]
+
+源码先按 `fine_to_coarse` 取 \(X(x)\)，再按 `spin_map` 取 coarse spin，
+见 `include/kernels/prolongator.cuh:65-79`；然后在 fine color 上执行矩阵乘法
+\(V\phi\)，见 `:85-131`。若 fine field 使用 non-rel basis，代码还会在
+输出处做 `toNonRel` 与 \(1/\sqrt2\) 的 basis normalization；这属于布局/基底
+转换，不应在物理 \(P\) 公式中再额外乘一次。[确证]
+
+在 \(V\) 已按上述 block 正交化的条件下，限制为
+
+\[
+ (R\psi)_{s_c,j}(X)
+ =\sum_{x\in\mathcal A_X}
+ \sum_{s_f:\,s_c(s_f)=s_c}\sum_c
+ V_{s_f,c;j}(x)^*\,\psi_{s_f,c}(x).
+\]
+
+`restrictor.cuh:87-124` 逐 fine site 做 \(V^\dagger\) color contraction，
+`:142-205` 以 `coarse_to_fine` 遍历同一 aggregate 后 block-reduce 累加。
+因此这里的 \(R=P^\dagger\) 是一个可以逐项写出来的局部共轭转置，而不是
+“把 P 的数组指针反过来”。
+
+#### 22.3.4 奇偶 subset 的真实语义
+
+`Transfer` 同时支持 full-site 与 parity-site。`MG::operator()` 根据
+`matpc_type` 算出目标 parity，并把 transfer 设置为该 parity；源码见
+`lib/multigrid.cpp:1135-1144`。[确证]
+
+| 求解场景 | `P/R` 读取什么 | hopping 仍然连接什么 |
+|---|---|---|
+| full solve | full fine field，aggregate map 可同时看到 fine even/odd | \(p\leftrightarrow1-p\) |
+| MATPC odd--odd | 只把目标 odd subset 的 coarse correction 提升/限制 | 细层 Schur 内部仍执行 odd \(\to\) even \(\to\) odd |
+| MATPC even--even | 同上，目标 parity 换为 even | 细层 Schur 内部仍执行 even \(\to\) odd \(\to\) even |
+| null vector 下传 | 若未在每层独立生成，\(B_{\ell+1}=R_\ell B_\ell\) | 下传本身不替代 Schur hopping |
+
+特别地，源码在 transfer apply 时还区分 `V.Nparity()`、输入输出 field
+的 `nParity` 以及当前 `parity`。所以“coarse field 只有一个 parity”与“fine
+neighbor 用 `1-parity`”是两件事，不能用一个整数把二者混用。
+
+### 22.4 由 Clover Dslash 构造第一层粗算子：\(RDP\) 的每一项如何落位
+
+#### 22.4.1 直接 Clover coarsening 与 Clover-PC coarsening
+
+一般 Galerkin 定义是
+
+\[
+ D_{\ell+1}=R_\ell D_\ell P_\ell.
+\]
+
+但 `D_l` 是否已经被 onsite inverse 预条件，决定了左侧投影基的形状。
+令
+
+\[
+ A_f(x)=
+ \begin{cases}
+ I,&\text{直接 Wilson/Clover coarsening},\\
+ C_f(x)^{-1},&\text{Clover-PC coarsening}.
+ \end{cases}
+\]
+
+对未预条件的细 Clover 算子，局部矩阵可概括为
+
+\[
+ \begin{aligned}
+ X_{c}(X)
+ &=\sum_{x\in\mathcal A_X}V(x)^\dagger C_f(x)V(x)
+   +\sum_{\substack{x\to y\\x,y\in\mathcal A_X}}
+     \mathcal Y_{x\to y}^{\rm projected},\\
+ \bar Y_{\mu}^{f}(X)
+ &=\sum_{\substack{x\in\mathcal A_X\\x+\hat\mu\in\mathcal A_{X+\hat\mu}}}
+ V(x)^\dagger(1-\gamma_\mu)U_\mu(x)V(x+\hat\mu),\\
+ \bar Y_{\mu}^{b}(X-\hat\mu)
+ &=\sum_{\substack{x\in\mathcal A_{X-\hat\mu}\\x+\hat\mu\in\mathcal A_X}}
+ V(x)^\dagger(1+\gamma_\mu)U_\mu(x)V(x+\hat\mu).
+ \end{aligned}
+\]
+
+最后一行的物理 backward hopping 在 coarse dslash 中以该存储矩阵的 dagger
+使用；因此存储公式里的 `U` 位置与应用公式里的 \(U^\dagger\) 不应重复
+共轭。更稳妥的读法是：`coarse_op` 生成“从某一 storage site 指向其正向
+邻居”的矩阵，`dslash_coarse` 对 backward storage 做共轭转置后再 gather。
+
+`coarse_op_kernel.cuh:1619-1647` 先判断相邻 fine site 是否仍在同一 aggregate：
+是则写 `X`，否则写 `Y`；这说明 \(X\) 不是纯粹的 \(R C P\)，还含 aggregate
+内部 hopping。对于 `QUDA_CLOVER_DIRAC`，Clover onsite 的独立投影由
+`compute_coarse_clover` 完成，代码逐 chiral block 累加
+
+\[
+ (R C_f P)_{s_c s_c'}(X)
+ =\sum_{x\in\mathcal A_X}
+ V_{s_f;c;s_c}(x)^\dagger C_f(x)V_{s_f';c';s_c'}(x),
+\]
+
+其具体的 fine spin/color 双重求和见 `coarse_op_kernel.cuh:1768-1837`。
+普通 Wilson 没有 Clover block 时，代码才在 `add_coarse_diagonal` 中另外加
+单位阵（`:1880-1898`）。[确证]
+
+对 `QUDA_CLOVERPC_DIRAC`，要粗化的是已经含 \(C^{-1}\) 的算子。QUDA 先构造
+
+\[
+ AV(x)=C_f(x)^{-1}V(x),
+\]
+
+对应 `coarse_op.cuh:1064-1083` 的 `COMPUTE_AV`。[确证] 对一个跨 aggregate
+的 Wilson projector，kernel 的两个方向分别是
+
+\[
+ \begin{aligned}
+ \bar Y_\mu^{f}(X)
+ &\sim (AV(x))^\dagger(1-\gamma_\mu)U_\mu(x)V(x+\hat\mu),\\
+ \bar Y_\mu^{b}(X-\hat\mu)
+ &\sim V(x)^\dagger(1+\gamma_\mu)U_\mu(x)AV(x+\hat\mu).
+ \end{aligned}
+\]
+
+第一式是 `multiplyVUV` 的 forward 分支：`AV` 作左侧 basis，gamma off-diagonal
+项带负号；第二式是 backward 分支：`V` 作左侧 basis，`UV` 实际使用
+`U*AV`，positive projector 不带该负号。源码中的 diagonal/off-diagonal
+拆分以及两种 gamma 符号见 `coarse_op_kernel.cuh:1074-1138`。[确证]
+
+这个差异是 Clover-PC 粗化的核心：\(C^{-1}\) 不能事后把一个直接 Clover 的
+`Y` 乘一下就得到正确结果，因为 forward 与 backward 的 inverse 分别落在
+左 basis 与邻居 basis，且应用 backward 时还要再做 storage dagger。
+
+#### 22.4.2 `UV`、`VUV`、atomic 累加与块内/块间分流
+
+源码的名字可以按下表翻译，不应把 `UV` 误认为最终 coarse link：
+
+| kernel 阶段 | 对应公式 | 结果去向 |
+|---|---|---|
+| `COMPUTE_AV` | \(AV=C^{-1}V\)（仅 Clover-PC） | 临时 spinor `AV` |
+| `COMPUTE_UV` | \(UV=U\,V_{\rm neighbor}\)；PC backward 时为 \(U\,AV_{\rm neighbor}\) | 临时 spinor `UV` |
+| `COMPUTE_VUV` | \(V^\dagger(1+\gamma)UV\) 或 \((AV)^\dagger(1-\gamma)UV\) | 局部 coarse-spin block `vuv` |
+| `storeCoarse` | fine neighbor 同 aggregate → `X`；跨 aggregate → `Y` | atomic coarse field |
+| `COMPUTE_COARSE_CLOVER` | \(V^\dagger C V\) | `X` |
+| `COMPUTE_DIAGONAL` | \(I\) | 无 Clover 的 `X` |
+| `COMPUTE_CONVERT` | fixed-point/half 的 scale 转换 | 最终 `X/Y` storage |
+
+`computeUV` 的 fine Wilson 实现明确做 fine-color 矩阵乘法并从正向邻居取
+null-vector，见 `coarse_op_kernel.cuh:241-315`；`calculateY` 对四个方向执行
+forward，再执行 backward，见 `coarse_op.cuh:1166-1191` 与 `:1269-1293`。
+在多 rank 时，先交换 `V` 的 ghost；Clover-PC backward 又交换 `AV` 的 ghost，
+见 `coarse_op.cuh:1056-1060`、`:1262-1267`。这就是 setup 阶段既需要 gauge
+halo，也需要 null-space-vector halo 的原因。[确证]
+
+最终的 coarse local block 不是简单的“把 fine Clover 采样到 coarse site”：
+
+\[
+ X_c(X)=
+ \underbrace{R C_f P}_{\text{直接 Clover 时}}
+ +\underbrace{R(-\kappa H_f)_{\rm intra\ aggregate}P}_{\text{块内 hopping}}
+\quad\text{或}
+\quad
+ I+\underbrace{R(-\kappa C_f^{-1}H_f)_{\rm intra}P}_{\text{Clover-PC 时}}.
+\]
+
+第二个等式中的 `I` 由 `COMPUTE_DIAGONAL` 路径加入；PC 情形的 fine Clover
+信息已经进入 `AV`，而不是再次把原始 `C_f` 投影进一个 coarse Clover。
+这一区分来自 `coarse_op.cuh:1383-1433`：直接 Clover 分支调用
+`COMPUTE_COARSE_CLOVER`，其他普通/PC 路径走 identity 或相应的 coarse
+operator diagonal。[确证]
+
+#### 22.4.3 单向与双向 link coarsening
+
+非预条件 Wilson/Clover 为减少 setup，默认可以只计算一个方向，再用
+`COMPUTE_REVERSE_Y` 生成另一个方向；`reverse` 对 coarse spin diagonal
+保持符号，对 off-diagonal spin 翻号：
+
+\[
+ \bar Y_{\mu}^{f}(X)_{s_r s_c}=
+ \begin{cases}
+ \bar Y_{\mu}^{b}(X)_{s_r s_c},&s_r=s_c,\\
+ -\bar Y_{\mu}^{b}(X)_{s_r s_c},&s_r\ne s_c.
+ \end{cases}
+\]
+
+这是 projector \((1+\gamma_\mu)\leftrightarrow(1-\gamma_\mu)\) 的 spin 结构
+转换，不是一般意义的矩阵共轭转置。证据为 `coarse_op.cuh:1375-1381` 与
+`coarse_op_kernel.cuh:1840-1875`。[确证]
+
+Clover-PC 必须 `bidirectional_links=true`：`coarse_op.cuh:1030-1037` 明确
+将 `CLOVERPC`、`COARSEPC` 或之前已经预条件过的层列入双向构造条件，
+因为
+
+\[
+ \bar Y^f\sim(AV)^\dagger P_-UV,
+ \qquad
+ \bar Y^b\sim V^\dagger P_+UAV
+\]
+
+不能通过一次 `reverse` 同时恢复。若在此处把 PC 当作直接 Clover 处理，
+粗层 solve 仍可能下降，但得到的是错误的 Galerkin operator。[推断，代数
+依据已由上述 kernel 乘法确证]
+
+### 22.5 粗层 dslash、`Yhat` 与 storage parity
+
+#### 22.5.1 非预条件 coarse dslash
+
+对粗格点 \(X\)、输出 parity \(p\)，粗 dslash 先取邻居 parity
+\(q=1-p\)：
+
+\[
+ \begin{aligned}
+ (\bar H_c\phi)_p(X)
+ =\sum_{\mu=0}^{3}\big[&
+ \bar Y_\mu^{f}(p,X)\phi_q(X+\hat\mu)\\
+ &+\bar Y_\mu^{b}(q,X-\hat\mu)^\dagger\phi_q(X-\hat\mu)\big],\\
+ (D_c\phi)_p(X)&=X_p(X)\phi_p(X)-\kappa(\bar H_c\phi)_p(X).
+ \end{aligned}
+\]
+
+对应实现中 forward 读取 `Y(d+4, parity, x_cb)`，backward 读取前一 coarse
+site 的 `Y(d, 1-parity, ...)` 并做 `conj`/转置；代码见
+`include/kernels/dslash_coarse.cuh:143-199`、`:203-250`。粗 kernel 把四个
+方向及 forward/backward 的结果在 shared cache 中合并，再由
+`dim_collapse` 乘 `-kappa`，见 `:292-322`。[确证]
+
+所以 storage 表必须写成“矩阵所在 site + 槽位”，不能只写“forward link
+从 x 到 x+mu”：
+
+| 物理项 | storage 位置 | 应用时的输入 | 是否做 dagger |
+|---|---|---|---|
+| forward \(\mu\) | `Y(d+4,p,X)` | \(\phi_q(X+\hat\mu)\) | 否 |
+| backward \(\mu\) | `Y(d,q,X-\hat\mu)` | \(\phi_q(X-\hat\mu)\) | 是，读成该 storage block 的 \(\dagger\) |
+| onsite | `X(0,p,X)` | \(\phi_p(X)\) | 仅 dagger operator 时按矩阵共轭转置 |
+
+当跨 MPI rank 时，forward boundary 从 spinor halo 取 \(X+\hat\mu\)，backward
+boundary 从 coarse-link ghost 与 spinor halo 取 \(X-\hat\mu\)；同一段 kernel
+同时支持 interior、exterior、full 三种路径。该实现的奇偶约束在
+`dslash_coarse.cuh:143-146` 明确体现为 `their_spinor_parity=1-parity`。
+
+#### 22.5.2 Clover-PC 的 \(X^{-1}\) 与 \(\widehat Y\)
+
+对 coarse operator 的 onsite block，QUDA 先做 batch inverse：
+
+\[
+ X^{-1}(X)=\operatorname{batch\_invert}\big(X(X)\big).
+\]
+
+随后不是对所有 link 做同一种乘法，而是按应用方向定义
+
+\[
+ \boxed{
+ \begin{aligned}
+ \widehat Y_\mu^{f}(p,X)&=X_p^{-1}(X)\,\bar Y_\mu^{f}(p,X),\\
+ \widehat Y_\mu^{b}(q,X-\hat\mu)&=
+ \bar Y_\mu^{b}(q,X-\hat\mu)\,X_p^{-\dagger}(X).
+ \end{aligned}}
+\]
+
+当 dslash backward 读取第二式并取 storage dagger 时，实际乘积变为
+
+\[
+ \widehat Y_\mu^{b}(q,X-\hat\mu)^\dagger
+ =X_p^{-1}(X)\bar Y_\mu^{b}(q,X-\hat\mu)^\dagger,
+\]
+
+于是 forward/backward 两项都确实带有“目标输出点的 \(X_p^{-1}\)”左乘，
+但实现上必须把它分散到两个 storage 方向。`calculateYhat` 的注释和代码
+逐字给出这两条公式（`lib/coarse_op_preconditioned.in.cu:156-203`），
+kernel 的具体槽位写入为 backward `d, 1-parity, back_idx` 与 forward
+`d+4, parity, x_cb`（`include/kernels/coarse_op_preconditioned.cuh:60-121`）。
+[确证]
+
+这也解释了为什么 `DiracCoarsePC::Dslash` 使用 `Yhat`，而
+`DiracCoarse::Dslash` 使用原始 `Y`；前者不能以“调用原始 coarse dslash 后
+再统一左乘 X inverse”替代，因为 backward 的 storage site 在前一格点，且
+需要先右乘 \(X^{-\dagger}\)。[推断]
+
+#### 22.5.3 coarse MATPC 的两种 Schur
+
+把
+
+\[
+ Q_{pq}=\widehat Y_{pq}
+ \quad\text{理解为已含目标端 }X_p^{-1}\text{ 的预条件 hopping，}
+\]
+
+则 symmetric coarse MATPC 是
+
+\[
+ S_{p,c}^{\rm sym}=I-Q_{pq}Q_{qp}.
+\]
+
+`DiracCoarsePC::M` 对 even-even/odd-odd symmetric 分支正是两次
+`DiracCoarsePC::Dslash`，再以输入向量作 `xpay(...,-1.0)`，见
+`lib/dirac_coarse.cpp:552-557`。[确证]
+
+asymmetric 分支则先用 `Yhat` 做一侧 \(X^{-1}Y\)，再用普通 `Y` 做另一侧，
+最后显式加 coarse `X`：
+
+\[
+ S_{p,c}^{\rm asym}
+ =X_p-\kappa^2H_{pq}X_q^{-1}H_{qp}.
+\]
+
+代码的 even/odd 两个分支及 `Clover`/`Dslash` 组合见
+`lib/dirac_coarse.cpp:538-551`。coarse `prepare/reconstruct` 也完全平行于
+细 Clover：symmetric 使用
+
+\[
+ src=X_p^{-1}b_p-(X_p^{-1}D_{pq})X_q^{-1}b_q,
+ \qquad
+ x_q=X_q^{-1}b_q-(X_q^{-1}D_{qp})x_p,
+\]
+
+asymmetric 则不在 source-side 先乘 \(X_p^{-1}\)，源码见
+`lib/dirac_coarse.cpp:570-625`。[确证]
+
+### 22.6 从第一层到后续层：Clover/Gauge 信息如何递归传递
+
+#### 22.6.1 三种层的物理含义
+
+对本次 Clover 例子，递归链可画成下表。注意后续层没有第二套物理 SU(3)
+gauge 或原始 fine Clover；它们的作用已经被投影进当前层的 `X/Y/Yhat`。
+
+| 层 | 输入算子 | setup 生成物 | 下一层看到的“Clover” |
+|---|---|---|---|
+| fine \(\ell=0\) | \(D_0=C_f-\kappa H_f\) | 物理 `GaugeField U`、fine `CloverField C`、\(V_0\) | 直接路径为 \(R_0 C_f P_0\) 加块内 hopping；PC 路径为 `AV=C_f^{-1}V_0` 加单位项/PC hopping |
+| first coarse \(\ell=1\) | \(D_1=X_1+\mathcal Y_1\) 或 \(D_1^{PC}\) | coarse `X_1/Y_1`，可选 `Xinv_1/Yhat_1` | 由当前 coarse 的 `X/Y` 再按同样的 `UV/VUV` 逻辑构造 |
+| lower coarse \(\ell>1\) | `DiracCoarse` 或 `DiracCoarsePC` | `X_{\ell}/Y_{\ell}`、必要时 `Xinv/Yhat` | 不再读取原始 `C_f/U`；PC 路径 coarsen `Yhat` |
+
+`DiracCoarsePC::createCoarseOp` 的注释明确说明：预条件 coarse operator 向下
+粗化的是 `Yhat` 而不是 `Y`，传入的 fine clover field 实际被忽略，见
+`lib/dirac_coarse.cpp:628-647`。[确证] 这正是“每层算子仍是 Galerkin
+递归，但物理 Clover 只在进入 coarse hierarchy 的第一处被吸收”的精确含义。
+
+#### 22.6.2 setup 选择 residual operator 还是 smoother operator
+
+QUDA 同时保存 `diracResidual`、`diracSmoother` 与 sloppy 版本。是否对已经
+预条件的 smoother operator 做 coarsening，由
+`coarse_grid_solution_type == MATPC` 且 `smoother_solve_type == DIRECT_PC_SOLVE`
+决定；源码见 `lib/multigrid.cpp:342-399`。[确证]
+
+因此一个层级可能有两套看似相近、实际不同的算子：
+
+\[
+ D_{\ell+1}^{\rm residual}=R_\ell D_{\ell}^{\rm residual}P_\ell,
+ \qquad
+ D_{\ell+1}^{\rm smooth}=R_\ell D_{\ell}^{\rm smooth}P_\ell,
+\]
+
+其中后者可以是 `DiracCoarsePC`，内部使用 `Yhat`；前者仍是 `DiracCoarse`，
+内部使用原始 `Y`。如果 smoother 的 solution type 与 coarse correction 的
+solution type 不一致，V-cycle 不能直接拿 smoother 返回的 residual 当 coarse
+right-hand side，而要重新调用 residual operator 计算 \(r=b-Ax\)。
+
+### 22.7 V-cycle：把所有算子调用串成一条可执行逻辑
+
+对非底层 \(\ell<L-1\)，令 fine-level solution 为 \(x_\ell)，right-hand
+side 为 \(b_\ell)，residual operator 为 \(A_\ell\)，coarse correction 为
+\(e_{\ell+1}\)。标准 V-cycle 的数学骨架是
+
+\[
+ \begin{aligned}
+ x_\ell&\xleftarrow{\nu_{pre}\;S_\ell}x_\ell,\\
+ r_\ell&=b_\ell-A_\ell x_\ell,\\
+ b_{\ell+1}&=R_\ell r_\ell,\\
+ A_{\ell+1}e_{\ell+1}&=b_{\ell+1},\\
+ x_\ell&\leftarrow x_\ell+P_\ell e_{\ell+1},\\
+ x_\ell&\xleftarrow{\nu_{post}\;S_\ell}x_\ell.
+ \end{aligned}
+\]
+
+若当前是 MATPC，所有 `P/R` correction 只落在目标 parity；但 `A_l` 的一次
+Schur application 仍包含两个 parity hopping。`MG::operator()` 在
+`lib/multigrid.cpp:1171-1221` 精确执行 prepare、pre-smooth、residual、
+restrict、recursive coarse solve、prolongate、post-smooth、reconstruct。[确证]
+
+下面的长伪代码把 fine Clover、coarse construction、PC storage 与 V-cycle
+放在同一段中，便于对照源代码。它是源码语义的结构化摘要，不是可直接编译的
+QUDA API 代码。
+
+```latex
+\begin{table}[htbp]
+\centering
+\caption*{Clover-Dslash 驱动的 QUDA MultiGrid：setup、奇偶 Schur、Galerkin 与 V-cycle 全链路伪代码}
+\small
+\begin{tabular}{@{}l@{}}
+\text{给定 fine lattice }\Lambda_0,\;U,\;C_f,\;\kappa,\;N_v,\;b_\mu,\;\text{目标 parity }p;\quad q=1-p\\
+\text{定义 }D_0=C_f-\kappa H_f\\
+\quad(H_f\psi)_p(x)=\sum_\mu[(1-\gamma_\mu)U_\mu(x)\psi_q(x+\hat\mu)+(1+\gamma_\mu)U_\mu^\dagger(x-\hat\mu)\psi_q(x-\hat\mu)]\\
+\text{若求 full solution，则选 }S_p=C_p-\kappa^2H_{pq}C_q^{-1}H_{qp}\text{ 或 }S_p^{sym}=I-\kappa^2C_p^{-1}H_{pq}C_q^{-1}H_{qp}\\
+\text{若 MATPC source：令 }src=b_p,\;sol=x_p;\quad\text{否则 }t_q=C_q^{-1}b_q\\
+\quad\text{asym: }src=b_p+\kappa H_{pq}t_q;\qquad\text{sym: }src=C_p^{-1}(b_p+\kappa H_{pq}t_q)\\
+\text{for }\ell=0,1,\ldots,L-2\text{ setup:}\\
+\quad\text{load/generate null vectors }B_i^{(\ell)};\quad X^{(\ell+1)}_\mu=\lfloor x^{(\ell)}_\mu/b^{(\ell)}_\mu\rfloor\\
+\quad\text{construct }fine\_to\_coarse,\;coarse\_to\_fine,\;s_c=\lfloor s_f/2\rfloor\\
+\quad\text{for every aggregate }\mathcal A_X\text{ and chiral block }\chi:\\
+\qquad v_j\leftarrow B_j;\quad v_j\leftarrow v_j-\sum_{i<j}v_i\langle v_i,v_j\rangle_{\mathcal A_X,\chi};\quad v_j\leftarrow v_j/\|v_j\|\\
+\quad\text{save }V_\ell(x)=[v_0(x),\ldots,v_{N_v-1}(x)];\quad P_\ell\phi(x)=V_\ell(x)\phi(X(x),s_c(s_f))\\
+\quad\text{define }R_\ell\psi(X)=\sum_{x\in\mathcal A_X}V_\ell(x)^\dagger\psi(x);\quad R_\ell=P_\ell^\dagger\\
+\quad\text{if generate\_all\_levels is false: }B_i^{(\ell+1)}\leftarrow R_\ell B_i^{(\ell)}\\
+\quad\text{select residual/smoother input operator according to preconditioned\_coarsen}\\
+\quad\text{if direct Wilson/Clover: }A_f=I;\quad\text{if Clover-PC: }A_f=C_\ell^{-1}\\
+\quad\text{if Clover-PC, compute }AV_\ell(x)=C_\ell(x)^{-1}V_\ell(x)\text{ and exchange }V,AV\text{ halos}\\
+\quad\text{for }\mu=0,1,2,3\text{ and every fine output site }x:\\
+\qquad\text{forward: }UV=U_\mu(x)V_\ell(x+\hat\mu);\quad vuv=(AV_\ell(x))^\dagger(1-\gamma_\mu)UV\\
+\qquad\text{backward: }UV=U_\mu(x)A_fV_\ell(x+\hat\mu);\quad vuv=V_\ell(x)^\dagger(1+\gamma_\mu)UV\\
+\qquad\text{if }x\text{ and }x+\hat\mu\text{ belong to the same aggregate: }X_{\ell+1}\mathrel{+}= -\kappa\,vuv\\
+\qquad\text{else: }\bar Y_{\ell+1,\mu}\mathrel{+}=vuv;\quad\mathcal Y_{\ell+1,\mu}=-\kappa\bar Y_{\ell+1,\mu}\\
+\quad\text{direct Clover only: }X_{\ell+1}\mathrel{+}=R_\ell C_\ell P_\ell;\quad\text{ordinary Wilson only: }X_{\ell+1}\mathrel{+}=I\\
+\quad\text{Clover-PC only: }X_{\ell+1}\text{ starts with }I\text{ plus intra-aggregate PC hopping}\\
+\quad\text{if no bidirectional setup: }Y(d+4)\leftarrow reverse(Y(d));\quad\text{off-diagonal spin blocks change sign}\\
+\quad\text{else: independently retain }Y(d)\text{ and }Y(d+4)\text{ because }AV\text{ is direction-dependent}\\
+\quad\text{build coarse operator }D_{\ell+1}=X_{\ell+1}+\mathcal Y_{\ell+1};\quad\text{coarse spin}=2,\;coarse color=N_v\\
+\quad\text{if a PC coarse smoother is requested: }X_{\ell+1}^{-1}=batch\_invert(X_{\ell+1})\\
+\qquad\widehat Y^f(d+4,p,X)=X_p^{-1}(X)Y^f(d+4,p,X)\\
+\qquad\widehat Y^b(d,q,X-\hat\mu)=Y^b(d,q,X-\hat\mu)X_p^{-\dagger}(X)\\
+\quad\text{create level }\ell+1\text{ smoother, sloppy operator, recursive coarse solver and optional deflation}\\
+\text{define coarse dslash on parity }p:\\
+\quad(\bar H_\ell\phi)_p(X)=\sum_\mu[Y^f_\mu(p,X)\phi_q(X+\hat\mu)+Y^b_\mu(q,X-\hat\mu)^\dagger\phi_q(X-\hat\mu)]\\
+\quad(D_\ell\phi)_p=X_p\phi_p-\kappa(\bar H_\ell\phi)_p;\quad\text{PC dslash uses }\widehat Y\\
+\text{V-cycle}(\ell,b,x):\\
+\quad\text{derive }p\text{ from MATPC type; set Transfer subset to full or parity }p\\
+\quad\text{prepare }(out,in)\text{ using the current operator's full/MATPC semantics}\\
+\quad\text{apply }\nu_{pre}\text{ smoother steps to }(out,in);\quad\text{obtain smoother residual if solution types match}\\
+\quad\text{otherwise reconstruct current }x\text{ and compute }r=b-A_\ell x\\
+\quad r_c\leftarrow R_\ell r;\quad e_c\leftarrow0;\quad\text{recursively solve }A_{\ell+1}e_c=r_c\\
+\quad\text{if no presmoother: }x\leftarrow P_\ell e_c;\quad\text{else }x\leftarrow x+P_\ell e_c\\
+\quad\text{prepare again if inner solution type differs; apply }\nu_{post}\text{ post-smoothing steps}\\
+\quad\text{reconstruct eliminated parity }x_q=C_q^{-1}(b_q+\kappa H_{qp}x_p)\text{ or coarse analogue}\\
+\text{outer solve: }r_0=b-Ax_0;\quad\text{GCR/FGMRES uses }z_i=M_{MG}^{-1}v_i\text{ then }w_i=Az_i\\
+\quad\text{repeat Arnoldi/GCR restart until outer residual and independently recomputed full-op residual pass}\\
+\end{tabular}
+\end{table}
+```
+
+### 22.8 平滑器、粗 solver 与预处理分支必须分别理解
+
+QUDA 的 solver factory 不是把所有算法当成同一个迭代器。`solver.cpp:47-163`
+逐项创建 CG、BiCGStab、GCR、CA-CG、CA-GCR、MR、PCG、BiCGStabL 等；能否套
+MG、能否使用 MATPC，还由 Hermitian 条件和 solution type 检查决定。[确证]
+
+| 路径 | 迭代对象与公式 | 在 MultiGrid 中的角色 | 代码证据/边界 |
+|---|---|---|---|
+| GCR（PyQCU 对照为 FGMRES）+ MG | 右预条件形式：\(z_i=M_{MG}^{-1}v_i\)，再算 \(w_i=A z_i\) 并做 GCR 正交 | QUDA 细层外迭代或中间层 coarse solver；非 Hermitian Clover 最自然 | `solver.cpp:67-76`；`multigrid.cpp:564-665` |
+| CG/PCG | 需要 Hermitian（通常对称 Schur 或 \(M^\dagger M\)） | 可作 coarse solver 或 MG 外层 | `solver.cpp:58-61,102-112`；factory 会拒绝不匹配 Hermitian |
+| BiCGStab/BiCGStabL | 非 Hermitian Krylov；残差方向与 shadow residual 成对更新 | 可作 coarse solver；不等价于 GCR 的 residual history | `solver.cpp:63-66,114-117` |
+| MR smoother | 每一步以 \(r=b-Ax\)、\(Ar\) 做一维 residual minimization，典型系数 \(\alpha=(Ar,r)/(Ar,Ar)\) | 低成本 pre/post smoother，允许非 Hermitian | `invert_quda.h:1172-1200`；不应把 MR 的步数当 outer iterations |
+| CA-GCR | 先构造长度为 \(n_{krylov}\) 的 operator polynomial，再对 basis 做 minimum-residual extrapolation | 减少 global synchronization 的 smoother | `invert_quda.h:1277-1330`；basis size 与 GCR restart 不是一回事 |
+| Schwarz | 在局部 subdomain 上做 smoother/preconditioner | 影响 halo、true-residual recompute 和 `commDim` | `multigrid.cpp:311-313`；配置不一致时不能复用 smoother residual |
+| coarse deflation | 在最粗或次粗层挂 eigensolver，对指定 coarse solver 启用 deflate | 消除 coarse near-null mode | `multigrid.cpp:582-598`，只支持源码列出的 solver 子集 |
+| sloppy/mixed precision | fine smoother 使用 sloppy/precondition precision，粗层按 level 参数建立 field | 控制 setup、smoother、halo 的精度边界 | `multigrid.cpp:273-313`；不是改变 Galerkin 数学定义 |
+
+MG 作为外层预条件器时，`multigrid.cpp:643-665` 把下一层 MG 绑定给 coarse
+solver；因此三层情形并非“细层调用一个固定 2L solver”，而是
+
+\[
+ M_0^{-1}\;\supset\;S_0^{-1}P_0
+ \left(M_1^{-1}\right)R_0S_0^{-1},
+ \qquad
+ M_1^{-1}\;\supset\;S_1^{-1}P_1M_2^{-1}R_1S_1^{-1}.
+\]
+
+V-cycle、W-cycle、F-cycle 或 recursive coarse solver 的差别，主要是这一
+\(M_{\ell+1}^{-1}\) 被调用的次数与方式；不会改变上面已经定义的
+\(P/R/X/Y/Yhat\) 存储语义。`MG::createCoarseSolver` 对 V-cycle 与 recursive
+path 的选择见 `lib/multigrid.cpp:564-573`。[确证]
+
+### 22.9 QUDA MultiGrid setup/solve 的总伪代码（算子版压缩图）
+
+下面再用一张以“调用顺序”为中心的表，标出每一个输入输出的奇偶；这张表用于
+审查实现时比只看 V-cycle 名称更可靠。
+
+```text
+\begin{table}[htbp]
+\centering
+\caption*{QUDA Clover MultiGrid 的 parity-aware operator call graph}
+\small
+\begin{tabular}{@{}l@{}}
+\text{fine full operator: }b\xrightarrow{\;prepare\;}src_p\xrightarrow{\;S_p^{-1}\;}x_p\xrightarrow{\;reconstruct\;}x_q\\
+\text{fine dslash: }\psi_q\xrightarrow{H_{pq}}\text{out}_p,\qquad q=1-p\\
+\text{fine Clover-PC dslash: }\psi_q\xrightarrow{H_{pq}}\xrightarrow{C_p^{-1}}\text{out}_p\\
+\text{transfer setup: }B_i^{(\ell)}\xrightarrow{\text{block ortho}}V_i^{(\ell)}\\
+\text{restriction: }r_p^{(\ell)}\xrightarrow{R_\ell=P_\ell^\dagger}r^{(\ell+1)};\quad\text{prolongation: }e^{(\ell+1)}\xrightarrow{P_\ell}e_p^{(\ell)}\\
+\text{direct coarse setup: }UV=U V,\quad VUV=V^\dagger P_\mu UV,\quad (X,Y)\leftarrow(RDP)_{\text{intra/cross}}\\
+\text{Clover-PC coarse setup: }AV=C^{-1}V,\quad Y^f\leftarrow(AV)^\dagger P_-UV,\quad Y^b\leftarrow V^\dagger P_+UAV\\
+\text{raw coarse storage: }Y(d+4,p,X)=Y^f(p,X),\quad Y(d,q,X-\hat\mu)=Y^b(q,X-\hat\mu)\\
+\text{preconditioned storage: }Yhat^f=X_p^{-1}Y^f,\quad Yhat^b=Y^bX_p^{-\dagger}\\
+\text{coarse dslash forward: }Y(d+4,p,X)\,\phi_q(X+\hat\mu)\\
+\text{coarse dslash backward: }Y(d,q,X-\hat\mu)^\dagger\,\phi_q(X-\hat\mu)\\
+\text{coarse full: }D_c\phi=X\phi-\kappa H_c\phi\\
+\text{coarse symmetric PC: }S_{p,c}=I-(X_p^{-1}D_{pq})(X_q^{-1}D_{qp})\\
+\text{V-cycle: }S_{pre}\to r=b-Ax\to Rr\to\text{coarse solve}\to P\delta x\to S_{post}\\
+\text{outer GCR: }v_i\to M_{MG}^{-1}v_i=z_i\to A z_i=w_i\to\text{orthogonalize/restart}\\
+\text{verification: }\text{check iterated residual, full }\|b-D_f x\|/\|b\|,\text{ and parity reconstruction independently}\\
+\end{tabular}
+\end{table}
+```
+
+### 22.10 2026-09-02 正式大格测试：外层迭代、平均单步时间与逐次残差
+
+#### 22.10.1 测试协议与计时边界
+
+本次新测试使用与 formal bundle 相同的输入；trace 仅打开迭代日志，性能数字
+仍取无 trace 的 steady benchmark。这样可以同时得到每步 residual 和不被日志
+污染的 wall time。
+
+| 项目 | 设置 |
+|---|---|
+| lattice / precision | `16×32×32×48`、c64（fine real=float32） |
+| physics | `mass=0.05`、`kappa=0.1234567901234568`、seed=42 |
+| transfer | \(N_v=12\)、coarse spin=2、block=`(2,2,2,2)`、coarse dof=24 |
+| parity | odd--odd Schur；邻居始终由 `q=1-p` 取值 |
+| outer solver | restarted right FGMRES/GCR；requested restart=16，受 workspace 约束 effective restart=4 |
+| repeated solves | 2 次 warmup（不计时）+ 5 次 steady（计时）；两侧 5/5 收敛 |
+| device | 同一张 Tesla V100-SXM2-32GB，UUID=`be23deb4-29b1-7bb2-29ef-c4ab7b34f0a8` |
+| trace 语义 | PyQCU 记录 Arnoldi estimate；QUDA 记录 GCR iterated residual；两者不是同一个内部标量 |
+
+原始证据：[formal JSON](../../../data/strict_vs_quda_formal_20260902.json)、
+[trace JSON](../../../data/strict_trace_20260902_final.json)、
+[PyQCU trace TSV](../../../data/strict_trace_20260902_pyqcu.tsv)、
+[QUDA trace log](../../../data/strict_trace_20260902_quda.log)。trace runner
+明确把日志时间排除出性能结论，见
+`examples/qcu/dev87/trace_strict_vs_quda.py:1-8,236-290,382-410`。[确证]
+
+#### 22.10.2 汇总结果
+
+“平均每次外层迭代”定义为 steady median wall time 除以该侧最终外层迭代数；
+它是平均成本，不是对每一个 Krylov step 的独立 CUDA event 计时。
+
+| 侧 | 外层迭代总数（5 次样本） | steady median(s) | MAD(s) | 平均/外层迭代(ms) | full-op 真相对残差 |
+|---|---:|---:|---:|---:|---:|
+| PyQCU Strict | 11, 11, 11, 11, 11 | 2.383584 | 0.015387 | 216.689 | \(3.6013\times10^{-7}\) |
+| QUDA | 37, 37, 37, 37, 37 | 2.411687 | 0.006730 | 65.181 | \(7.3030\times10^{-7}\) |
+
+因此当前 2026-09-02 无 trace formal benchmark 的 solve-only 比值为
+
+\[
+ \frac{t_{\rm QUDA}}{t_{\rm PyQCU}}
+ =\frac{2.4116868689998228}{2.3835836990001553}
+ =1.0117903,
+\]
+
+即 PyQCU Strict 在本机、本格点、本编译产物和本协议下快约 **1.18%**。
+这只是一项固定协议的实测，不外推到其他架构、格点、null-vector 生成策略或
+setup 是否计入的端到端场景。报告第 21 节的 `2.090647/2.165289 s` 是
+2026-08-31 的历史采样；本节使用更新的 2026-09-02 formal JSON，后者才是
+当前性能口径。[确证]
+
+#### 22.10.3 每次外层迭代的 residual trace
+
+下表中的 PyQCU 列为 Strict FGMRES 的 Arnoldi estimate，QUDA 列为 QUDA GCR
+日志中的 iterated \(|r|/|b|\)。第 0 行是初始相对残差，PyQCU 在 restart 点
+还会写入一次真 residual refresh；所以第 4、8、11 步的微小差异是停机/刷新
+语义，不是单调性破坏。最终 full-op residual 仍以外部重新应用 Clover
+Wilson 算子为准。
+
+| 外层迭代 \(k\) | PyQCU Strict | QUDA GCR |
+|---:|---:|---:|
+| 0 | 1.000000e+00 | 1.000000e+00 |
+| 1 | 9.365071e-02 | 2.625984e-01 |
+| 2 | 1.631340e-02 | 1.067167e-01 |
+| 3 | 2.812229e-03 | 5.669911e-02 |
+| 4 | 6.457341e-04 | 3.254715e-02 |
+| 5 | 2.102899e-04 | 2.190758e-02 |
+| 6 | 6.252614e-05 | 1.267097e-02 |
+| 7 | 2.197578e-05 | 8.452220e-03 |
+| 8 | 7.483037e-06 | 5.334316e-03 |
+| 9 | 3.243214e-06 | 3.873168e-03 |
+| 10 | 1.232243e-06 | 2.461819e-03 |
+| 11 | 4.065044e-07 | 1.777914e-03 |
+| 12 | — | 1.177729e-03 |
+| 13 | — | 8.780667e-04 |
+| 14 | — | 6.034993e-04 |
+| 15 | — | 4.336630e-04 |
+| 16 | — | 3.106508e-04 |
+| 17 | — | 2.376354e-04 |
+| 18 | — | 1.651258e-04 |
+| 19 | — | 1.245429e-04 |
+| 20 | — | 9.032679e-05 |
+| 21 | — | 6.863000e-05 |
+| 22 | — | 5.050729e-05 |
+| 23 | — | 3.787736e-05 |
+| 24 | — | 2.815701e-05 |
+| 25 | — | 2.227549e-05 |
+| 26 | — | 1.619515e-05 |
+| 27 | — | 1.246593e-05 |
+| 28 | — | 9.334165e-06 |
+| 29 | — | 7.446214e-06 |
+| 30 | — | 5.459565e-06 |
+| 31 | — | 4.265610e-06 |
+| 32 | — | 3.203091e-06 |
+| 33 | — | 2.585741e-06 |
+| 34 | — | 1.881693e-06 |
+| 35 | — | 1.517277e-06 |
+| 36 | — | 1.119980e-06 |
+| 37 | — | 9.118852e-07 |
+
+![PyQCU Strict 与 QUDA 的 residual trace 和 steady wall-time 对比](../../../data/strict_trace_20260902_final.svg)
+
+图中半透明曲线是 5 次 steady trace，底部柱状图使用同输入的无 trace formal
+median；因此图中的“每外层迭代平均时间”是说明性统计，不能把打开 trace 后的
+累计 elapsed time 当作正式性能数字。[确证]
+
+从数据可以得到三个有限结论：
+
+1. 两侧五次运行的外层迭代数完全稳定，且 trace 曲线单调下降，没有 breakdown
+   或 NaN；PyQCU 在第 11 步达到内部估计 \(4.07\times10^{-7}\)，QUDA 在第
+   37 步达到 iterated \(9.12\times10^{-7}\)。
+2. PyQCU 的单次 outer step 平均约为 QUDA 的
+   \(216.689/65.181\simeq3.32\) 倍，但只用了 `11/37` 的迭代数；两种效应
+   在总 solve time 上基本抵消。这是“每步更重、迭代更少”的实现差异，不应
+   只用外层迭代数或只用单步时间评价 MultiGrid。
+3. trace residual 的数值不能作为两个内部 operator 的逐点等价证明，因为一侧
+   是 Arnoldi estimate，另一侧是 GCR iterated residual；最终可比证据是同一
+   full Clover operator 上重算的真残差。逐 storage 的 coarse backward `Yhat`
+   数值锚定仍属于 `[未验证]`，formal solve 通过不替代这一项。
+
+#### 22.10.4 setup、solve 与正确性口径
+
+当前 JSON 还记录了 setup 与 cache 的边界：PyQCU 本次 setup 为 runtime-cache
+restore 路径，QUDA 本次 setup 在线构造 MultiGrid；steady 表只比较已经完成
+setup 后的 solve。因而：
+
+\[
+ t_{\rm end\text{-}to\text{-}end}
+ =t_{\rm input}+t_{\rm runtime}+t_{\rm setup}+t_{\rm solve}
+\]
+
+尚不能由本节的 2.38 s 与 2.41 s 推出包含 null-vector 生成、粗算子构造和
+HDF5/cache 生命周期的端到端倍率。当前可以确证的，是同一 V100、同一输入
+bundle、同一重复协议下两侧 steady solve 均通过 full-op 真残差 gate=\(5\times
+10^{-6}\)，且迭代轨迹可复现。[确证]
+
+### 22.11 与 PyQCU Strict 的对照结论及剩余边界
+
+PyQCU Strict 当前实现选择了与 QUDA 数学结构相同、但存储和发射策略不同的
+抽象：fine Clover/Gauge 只进入第一层算子构造，coarse hierarchy 使用
+Galerkin `X/Y/Yhat`；odd/even Schur 与 `prepare/reconstruct` 分开实现；外层
+采用右预条件 FGMRES。这个对照说明两侧的“层算子名称”可以一一对应，但不表示
+两侧 CUDA kernel、粗 link storage 或 residual scalar 完全相同。
+
+| 语义 | QUDA | PyQCU Strict 当前状态 |
+|---|---|---|
+| fine operator | `CloverField + GaugeField`，\(C-\kappa H\) | 已有 Clover/Gauge full-op 与 odd--odd Schur 闭环 |
+| transfer | aggregate `V`、`P`、`R=P^\dagger`，chiral spin map | packed transfer asset；parity subset 在调用点选择 |
+| coarse operator | full-site 8-slot `Y` + scalar `X` | packed `X/Y/Yhat` 语义；默认不驻留 raw `Y` |
+| coarse PC | `Xinv` batch inverse，\(Yhat^f=X^{-1}Y^f\)、\(Yhat^b=Y^bX^{-\dagger}\) | 使用严格路径的归一化粗 operator；逐项 QUDA storage 对齐仍待验证 |
+| V-cycle | pre-smooth → \(Rr\) → coarse solve → \(P\delta x\) → post-smooth | recursive V/W/F/K 路径已有测试；Strict 目前主验收是 V-cycle/FGMRES |
+| outer solve | QUDA GCR/FGMRES/MG wrapper | Strict right-preconditioned FGMRES |
+| MPI | fine/coarse halo + link ghost | Strict 对非单 rank fail-closed；legacy 分布式结果不能替作 Strict 证据 |
+
+本节新增的公式能够确证 QUDA 的算子构造与调用顺序，但以下三项仍明确保留
+为 `[未验证]`：
+
+- 用非平凡 Gauge/Clover 在两个库中逐个比较每个 coarse direction、storage site、
+  parity、periodic boundary 与 dagger 后的 `Yhat` block；
+- 对 `X` 中 aggregate 内部 hopping 与 Clover onsite 的每个矩阵元素做
+  `RDP` 独立重建，而非只比较最终 solve residual；
+- 在同一 healthy CUDA 平台上，把 setup、null-vector 生成、cache restore、
+  steady solve 和 full-op residual 全部纳入统一端到端预算。
+
+这些边界不影响本节已标为 `[确证]` 的源码结论，也不把当前 1.18% 的固定协议
+solve-only 差异包装成普适性能结论。
