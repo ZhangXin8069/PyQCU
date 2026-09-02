@@ -1367,3 +1367,80 @@ Galerkin `X/Y/Yhat`；odd/even Schur 与 `prepare/reconstruct` 分开实现；�
 
 这些边界不影响本节已标为 `[确证]` 的源码结论，也不把当前 1.18% 的固定协议
 solve-only 差异包装成普适性能结论。
+
+### 22.12 双 P100 重复测试：线程一致性通过，当前没有稳定双卡加速
+
+为响应双卡复测要求，新增运行器
+[bench_multigpu_repeat.py](./bench_multigpu_repeat.py)。它复用
+MultiGpuMultigrid 的真实 C++ 路径，分别测量单张 P100 与 P100 device 1、2
+并发。这里是“一线程一卡、每个线程求解一个完整复制问题”，不是把一个 lattice
+按空间域切成两块的 MPI strong-scaling 测试；因此结果只回答线程隔离和独立
+问题吞吐，不能解释为单问题双 GPU 加速。[确证]
+
+#### 22.12.1 协议与计时边界
+
+| 项目 | 设置 |
+|---|---|
+| lattice / physics | 16×32×32×48、mass=0.05、atol=1e-6、seed=42 |
+| hierarchy | 2 levels；dof=[12,12]；block=(2,2,2,2)；CG smoother；V-cycle |
+| GPU | 单卡 device 1；双卡 devices 1、2；均为 Tesla P100-PCIE-16GB |
+| 并行语义 | 一个 Python thread 绑定一张 GPU；每个 thread 解一个完整问题 |
+| repeats | 3；每次 _run_one 完整建立并求解，无额外 timing warmup |
+| 主计时 | mg_parallel_wall_s=max(thread.mg_time)；mg_time 是 C++ MG solve-only |
+| 正确性 | verify_consistency(tol=1e-5)，并与参考 BiStabCG 解比较 |
+
+原始数据：
+[multigpu_formal_20260902.json](../../../data/multigpu_formal_20260902.json)；
+无依赖对比图：
+[multigpu_formal_20260902.svg](../../../data/multigpu_formal_20260902.svg)。
+双卡效率按
+
+\[
+S_2=\frac{T_{\mathrm{single,median}}}{T_{\mathrm{dual,median}}},
+\qquad
+\eta_2=\frac{S_2}{2}
+\]
+
+定义，双卡 wall time 取较慢线程的 MG solve 时间。
+
+#### 22.12.2 三次样本和线程级明细
+
+| 配置 | repeat 1 (s) | repeat 2 (s) | repeat 3 (s) | median (s) | MAD (s) |
+|---|---:|---:|---:|---:|---:|
+| 单 P100（device 1） | 10.249874 | 10.460159 | 10.143614 | 10.249874 | 0.106260 |
+| 双 P100（device 1+2） | 10.739143 | 8.300990 | 10.254227 | 10.254227 | 0.484917 |
+
+双卡每个 thread 的 MG 时间为：
+
+| repeat | device 1 (s) | device 2 (s) | 双卡 wall (s) |
+|---:|---:|---:|---:|
+| 1 | 10.739143 | 1.515111 | 10.739143 |
+| 2 | 8.300990 | 1.517761 | 8.300990 |
+| 3 | 10.254227 | 1.529833 | 10.254227 |
+
+由此得到
+
+\[
+S_2=
+\frac{10.249873876997299}{10.254226506000123}
+=0.9995755283,
+\qquad
+\eta_2=0.4997877641.
+\]
+
+三次中单卡和双卡的全部 consistency checks 均通过；双卡两个线程的 MG 解相对
+参考 BiStabCG 解的最大相对误差为
+\(6.7986866\times10^{-6}<10^{-5}\)。所以本次能确证：
+
+1. 双卡线程隔离和数值一致性为 3/3 PASS；
+2. 双卡中位 wall time 与单卡几乎相同，吞吐比约 0.9996×，两卡效率约
+   49.98%；
+3. device 1 是 wall-time 瓶颈，device 2 的 1.515--1.530 s 不能抵消
+   device 1 的 8.301--10.739 s；
+4. 当前不能宣称“双卡加速成功”。不对称的唯一根因尚未由这三次样本确定，
+   后续应补充每线程 CUDA event、GPU utilization/clock、CPU affinity、
+   process placement 和 PCIe 观测。
+
+本次测试没有修改 MultiGrid 核心算法，也没有把 P100 与 V100 的异型号结果混作
+算法 speedup。该限制与完整算法比较见
+[quda_clover_multigrid_layers.md](./quda_clover_multigrid_layers.md) 第 10--13 节。
