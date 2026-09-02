@@ -1,0 +1,452 @@
+Tuned block=(480,1,1), grid=(820,2,1), shared_bytes=0, shared_carve_out=0, aux=(-1,-1,-1,-1) giving 0.00 Gflop/s, 776.77 GB/s for N4quda15CopyColorSpinorILi4ELi3ENS_11colorspinor11FloatNOrderIfLi4ELi3ELb0ELb0ELb0EEENS1_21SpaceSpinorColorOrderIdLi4ELi3EEESt5tupleIJRNS_16ColorSpinorFieldERKS7_19QudaFieldLocation_sPfPKdEEEE with GPU-offline,large_kernel_arg,vol=786432,parity=2,precision=8,Ns=4,Nc=3,order=1,vol=786432,parity=2,precision=4,Ns=4,Nc=3,order=0,N=4,to_ukqcd,from_degrand_rossi
+Tuned block=(256,1,1), grid=(130,1,1), shared_bytes=0, shared_carve_out=0, aux=(-1,-1,-1,-1) giving 119.59 Gflop/s, 239.18 GB/s for N4quda4blas5Norm2IdfEE with GPU-offline,large_kernel_arg,vol=786432,parity=2,precision=4,Ns=4,Nc=3,order=0,N=4,n_rhs=1,prefetch=thread,unroll=1
+Source: 9.43976e+06
+Tuned block=(160,1,1), grid=(14746,1,2), shared_bytes=0, shared_carve_out=0, aux=(-1,-1,-1,-1) giving 299.71 Gflop/s, 799.22 GB/s for N4quda4blas4axy_IfEE with GPU-offline,large_kernel_arg,vol=786432,parity=2,precision=4,Ns=4,Nc=3,order=0,N=4,n_rhs=1,prefetch=thread,unroll=1
+Tuned block=(32,1,1), grid=(12288,1,1), shared_bytes=10923, shared_carve_out=100, aux=(-1,-1,-1,-1) giving 1264.80 Gflop/s, 1065.09 GB/s for N4quda6WilsonINS_9WilsonArgIfLi3ELi4ENS_4DDNoEL21QudaReconstructType_s12ELb0EEEEE with policy_kernel=interior,GPU-offline,large_kernel_arg,vol=393216,parity=1,precision=4,Ns=4,Nc=3,order=0,N=4,carve_out,step=100,commDim=0000,xpay,n_rhs=1,n_rhs_tile=1,comm=0000
+Tuned block=(32,1,1), grid=(1,1,1), shared_bytes=0, shared_carve_out=0, aux=(0,0,0,-1) giving 1264.80 Gflop/s, 1065.09 GB/s for N4quda6WilsonINS_9WilsonArgIfLi3ELi4ENS_4DDNoEL21QudaReconstructType_s12ELb0EEEEE with policy,GPU-offline,large_kernel_arg,vol=393216,parity=1,precision=4,Ns=4,Nc=3,order=0,N=4,carve_out,step=100,commDim=0000,xpay,n_rhs=1,n_rhs_tile=1,topo=1111,p2p=0,gdr=0,nvshmem=0,pol=110000000000000000
+Tuned block=(1024,1,1), grid=(135,1,1), shared_bytes=0, shared_carve_out=0, aux=(-1,-1,-1,-1) giving 63.96 Gflop/s, 127.91 GB/s for N4quda4blas5Norm2IdfEE with GPU-offline,large_kernel_arg,vol=393216,parity=1,precision=4,Ns=4,Nc=3,order=0,N=4,n_rhs=1,prefetch=thread,unroll=1
+WARNING: Unexpected regression when tuning candidates for N4quda4blas5Norm2IdfEE: (0.000295117 > 1.1 * 0.00024832)
+Prepared: source = 358004, solution = 0
+Creating a GCR solver
+Tuned block=(352,1,1), grid=(1118,1,1), shared_bytes=0, shared_carve_out=0, aux=(-1,-1,-1,-1) giving 0.00 Gflop/s, 725.67 GB/s for N4quda15CopyColorSpinorILi4ELi3ENS_11colorspinor11FloatNOrderIfLi4ELi3ELb0ELb0ELb0EEES3_St5tupleIJRNS_16ColorSpinorFieldERKS5_19QudaFieldLocation_sPfPKfEEEE with GPU-offline,large_kernel_arg,vol=393216,parity=1,precision=4,Ns=4,Nc=3,order=0,N=4,vol=393216,parity=1,precision=4,Ns=4,Nc=3,order=0,N=4
+GCR:     0 iterations, <r,r> = 3.580042e+05, |r|/|b| = 1.000000e+00
+Tuned block=(1024,1,1), grid=(55,1,1), shared_bytes=0, shared_carve_out=0, aux=(-1,-1,-1,-1) giving 230.22 Gflop/s, 230.22 GB/s for N4quda4blas10CdotNormABIdfEE with GPU-offline,large_kernel_arg,vol=393216,parity=1,precision=4,Ns=4,Nc=3,order=0,N=4,n_rhs=1,prefetch=thread,unroll=1
+Tuned block=(512,1,1), grid=(160,1,1), shared_bytes=0, shared_carve_out=0, aux=(-1,-1,-1,-1) giving 221.72 Gflop/s, 354.75 GB/s for N4quda4blas13cabxpyzaxnormIdfEE with GPU-offline,large_kernel_arg,vol=393216,parity=1,precision=4,Ns=4,Nc=3,order=0,N=4,n_rhs=1,prefetch=thread,unroll=1
+GCR:     1 iterations, <r,r> = 2.468723e+04, |r|/|b| = 2.625984e-01
+Tuned block=(160,1,1), grid=(14746,1,1), shared_bytes=0, shared_carve_out=0, aux=(-1,-1,-1,-1) giving 261.98 Gflop/s, 785.93 GB/s for N4quda4blas6caxpy_IfEE with GPU-offline,large_kernel_arg,vol=393216,parity=1,precision=4,Ns=4,Nc=3,order=0,N=4,n_rhs=1,prefetch=thread,unroll=1
+GCR:     2 iterations, <r,r> = 4.077109e+03, |r|/|b| = 1.067166e-01
+GCR:     3 iterations, <r,r> = 1.150908e+03, |r|/|b| = 5.669911e-02
+GCR:     4 iterations, <r,r> = 3.792399e+02, |r|/|b| = 3.254715e-02
+Tuned block=(672,1,1), grid=(3511,1,1), shared_bytes=0, shared_carve_out=0, aux=(1,0,0,0) giving 495.65 Gflop/s, 743.48 GB/s for N4quda4blas11multicaxpy_IfEE with GPU-offline,large_kernel_arg,vol=393216,parity=1,precision=4,Ns=4,Nc=3,order=0,N=4,Nxz=4,Nyw=1,prefetch=thread,unroll=1
+Tuned block=(128,1,1), grid=(3072,1,1), shared_bytes=32769, shared_carve_out=100, aux=(-1,-1,-1,-1) giving 1495.52 Gflop/s, 1099.27 GB/s for N4quda26WilsonCloverPreconditionedINS_15WilsonCloverArgIfLi3ELi4ENS_4DDNoEL21QudaReconstructType_s12ELb0EEEEE with policy_kernel=interior,GPU-offline,large_kernel_arg,vol=393216,parity=1,precision=4,Ns=4,Nc=3,order=0,N=4,carve_out,step=100,commDim=0000,n_rhs=1,n_rhs_tile=1,comm=0000
+Tuned block=(32,1,1), grid=(1,1,1), shared_bytes=0, shared_carve_out=0, aux=(1,0,0,-1) giving 1490.36 Gflop/s, 1095.47 GB/s for N4quda26WilsonCloverPreconditionedINS_15WilsonCloverArgIfLi3ELi4ENS_4DDNoEL21QudaReconstructType_s12ELb0EEEEE with policy,GPU-offline,large_kernel_arg,vol=393216,parity=1,precision=4,Ns=4,Nc=3,order=0,N=4,carve_out,step=100,commDim=0000,n_rhs=1,n_rhs_tile=1,topo=1111,p2p=0,gdr=0,nvshmem=0,pol=110000000000000000
+Tuned block=(64,1,1), grid=(6144,1,1), shared_bytes=19661, shared_carve_out=100, aux=(-1,-1,-1,-1) giving 1372.11 Gflop/s, 983.35 GB/s for N4quda26WilsonCloverPreconditionedINS_15WilsonCloverArgIfLi3ELi4ENS_4DDNoEL21QudaReconstructType_s12ELb0EEEEE with policy_kernel=interior,GPU-offline,large_kernel_arg,vol=393216,parity=1,precision=4,Ns=4,Nc=3,order=0,N=4,carve_out,step=100,commDim=0000,xpay,n_rhs=1,n_rhs_tile=1,comm=0000
+Tuned block=(32,1,1), grid=(1,1,1), shared_bytes=0, shared_carve_out=0, aux=(0,0,0,-1) giving 1378.09 Gflop/s, 987.63 GB/s for N4quda26WilsonCloverPreconditionedINS_15WilsonCloverArgIfLi3ELi4ENS_4DDNoEL21QudaReconstructType_s12ELb0EEEEE with policy,GPU-offline,large_kernel_arg,vol=393216,parity=1,precision=4,Ns=4,Nc=3,order=0,N=4,carve_out,step=100,commDim=0000,xpay,n_rhs=1,n_rhs_tile=1,topo=1111,p2p=0,gdr=0,nvshmem=0,pol=110000000000000000
+Tuned block=(512,1,1), grid=(135,1,1), shared_bytes=0, shared_carve_out=0, aux=(-1,-1,-1,-1) giving 189.05 Gflop/s, 283.57 GB/s for N4quda4blas10caxpyNorm2IdfEE with GPU-offline,large_kernel_arg,vol=393216,parity=1,precision=4,Ns=4,Nc=3,order=0,N=4,n_rhs=1,prefetch=thread,unroll=1
+GCR (restart):     1 iterations, <r,r> = 3.792399e+02, |r|/|b| = 3.254715e-02
+GCR:     5 iterations, <r,r> = 1.718212e+02, |r|/|b| = 2.190758e-02
+GCR:     6 iterations, <r,r> = 5.747882e+01, |r|/|b| = 1.267097e-02
+GCR:     7 iterations, <r,r> = 2.557583e+01, |r|/|b| = 8.452220e-03
+GCR:     8 iterations, <r,r> = 1.018698e+01, |r|/|b| = 5.334316e-03
+GCR (restart):     2 iterations, <r,r> = 1.018699e+01, |r|/|b| = 5.334317e-03
+GCR:     9 iterations, <r,r> = 5.370575e+00, |r|/|b| = 3.873168e-03
+GCR:    10 iterations, <r,r> = 2.169703e+00, |r|/|b| = 2.461819e-03
+GCR:    11 iterations, <r,r> = 1.131642e+00, |r|/|b| = 1.777913e-03
+GCR:    12 iterations, <r,r> = 4.965683e-01, |r|/|b| = 1.177729e-03
+GCR (restart):     3 iterations, <r,r> = 4.965684e-01, |r|/|b| = 1.177729e-03
+GCR:    13 iterations, <r,r> = 2.760217e-01, |r|/|b| = 8.780667e-04
+GCR:    14 iterations, <r,r> = 1.303892e-01, |r|/|b| = 6.034993e-04
+GCR:    15 iterations, <r,r> = 6.732757e-02, |r|/|b| = 4.336630e-04
+GCR:    16 iterations, <r,r> = 3.454881e-02, |r|/|b| = 3.106508e-04
+GCR (restart):     4 iterations, <r,r> = 3.454882e-02, |r|/|b| = 3.106508e-04
+GCR:    17 iterations, <r,r> = 2.021671e-02, |r|/|b| = 2.376354e-04
+GCR:    18 iterations, <r,r> = 9.761533e-03, |r|/|b| = 1.651258e-04
+GCR:    19 iterations, <r,r> = 5.552980e-03, |r|/|b| = 1.245429e-04
+GCR:    20 iterations, <r,r> = 2.920931e-03, |r|/|b| = 9.032679e-05
+GCR (restart):     5 iterations, <r,r> = 2.920933e-03, |r|/|b| = 9.032682e-05
+GCR:    21 iterations, <r,r> = 1.686227e-03, |r|/|b| = 6.863000e-05
+GCR:    22 iterations, <r,r> = 9.132640e-04, |r|/|b| = 5.050729e-05
+GCR:    23 iterations, <r,r> = 5.136266e-04, |r|/|b| = 3.787736e-05
+GCR:    24 iterations, <r,r> = 2.838320e-04, |r|/|b| = 2.815701e-05
+GCR (restart):     6 iterations, <r,r> = 2.838345e-04, |r|/|b| = 2.815714e-05
+GCR:    25 iterations, <r,r> = 1.776407e-04, |r|/|b| = 2.227549e-05
+GCR:    26 iterations, <r,r> = 9.389836e-05, |r|/|b| = 1.619515e-05
+GCR:    27 iterations, <r,r> = 5.563367e-05, |r|/|b| = 1.246593e-05
+GCR:    28 iterations, <r,r> = 3.119170e-05, |r|/|b| = 9.334165e-06
+GCR (restart):     7 iterations, <r,r> = 3.119511e-05, |r|/|b| = 9.334674e-06
+GCR:    29 iterations, <r,r> = 1.984994e-05, |r|/|b| = 7.446214e-06
+GCR:    30 iterations, <r,r> = 1.067098e-05, |r|/|b| = 5.459565e-06
+GCR:    31 iterations, <r,r> = 6.514041e-06, |r|/|b| = 4.265610e-06
+GCR:    32 iterations, <r,r> = 3.673049e-06, |r|/|b| = 3.203091e-06
+GCR (restart):     8 iterations, <r,r> = 3.676387e-06, |r|/|b| = 3.204546e-06
+GCR:    33 iterations, <r,r> = 2.393636e-06, |r|/|b| = 2.585741e-06
+GCR:    34 iterations, <r,r> = 1.267610e-06, |r|/|b| = 1.881693e-06
+GCR:    35 iterations, <r,r> = 8.241721e-07, |r|/|b| = 1.517277e-06
+GCR:    36 iterations, <r,r> = 4.490648e-07, |r|/|b| = 1.119980e-06
+GCR (restart):     9 iterations, <r,r> = 4.524835e-07, |r|/|b| = 1.124236e-06
+GCR:    37 iterations, <r,r> = 2.976929e-07, |r|/|b| = 9.118852e-07
+GCR: number of restarts = 9
+Tuned block=(1024,1,1), grid=(140,1,1), shared_bytes=0, shared_carve_out=0, aux=(-1,-1,-1,-1) giving 120.67 Gflop/s, 241.34 GB/s for N4quda4blas23HeavyQuarkResidualNorm_IdfEE with GPU-offline,large_kernel_arg,vol=393216,parity=1,precision=4,Ns=4,Nc=3,order=0,N=4,n_rhs=1,prefetch=thread,unroll=1
+Tuned block=(32,1,1), grid=(1,1,1), shared_bytes=0, shared_carve_out=0, aux=(-1,-1,-1,-1) giving 0.00 Gflop/s, 0.00 GB/s for cudaMemcpyDeviceToHost with complete,reduce_helper.h,189
+GCR: Convergence at 37 iterations, L2 relative residual: iterated = 9.140117e-07, true = 9.140117e-07 (requested = 1.000000e-06)
+Solution = 390946
+Reconstructed Solution = 782064
+Tuned block=(640,1,1), grid=(615,2,1), shared_bytes=0, shared_carve_out=0, aux=(-1,-1,-1,-1) giving 0.00 Gflop/s, 729.98 GB/s for N4quda15CopyColorSpinorILi4ELi3ENS_11colorspinor21SpaceSpinorColorOrderIdLi4ELi3EEENS1_11FloatNOrderIfLi4ELi3ELb0ELb0ELb0EEESt5tupleIJRNS_16ColorSpinorFieldERKS7_19QudaFieldLocation_sPdPKfEEEE with GPU-offline,large_kernel_arg,vol=786432,parity=2,precision=4,Ns=4,Nc=3,order=0,N=4,vol=786432,parity=2,precision=8,Ns=4,Nc=3,order=1,to_degrand_rossi,from_ukqcd
+Source: 9.43976e+06
+Prepared: source = 358004, solution = 0
+Creating a GCR solver
+GCR:     0 iterations, <r,r> = 3.580042e+05, |r|/|b| = 1.000000e+00
+GCR:     1 iterations, <r,r> = 2.468723e+04, |r|/|b| = 2.625984e-01
+GCR:     2 iterations, <r,r> = 4.077109e+03, |r|/|b| = 1.067166e-01
+GCR:     3 iterations, <r,r> = 1.150908e+03, |r|/|b| = 5.669911e-02
+GCR:     4 iterations, <r,r> = 3.792399e+02, |r|/|b| = 3.254715e-02
+GCR (restart):     1 iterations, <r,r> = 3.792399e+02, |r|/|b| = 3.254715e-02
+GCR:     5 iterations, <r,r> = 1.718212e+02, |r|/|b| = 2.190758e-02
+GCR:     6 iterations, <r,r> = 5.747882e+01, |r|/|b| = 1.267097e-02
+GCR:     7 iterations, <r,r> = 2.557583e+01, |r|/|b| = 8.452220e-03
+GCR:     8 iterations, <r,r> = 1.018698e+01, |r|/|b| = 5.334316e-03
+GCR (restart):     2 iterations, <r,r> = 1.018699e+01, |r|/|b| = 5.334317e-03
+GCR:     9 iterations, <r,r> = 5.370575e+00, |r|/|b| = 3.873168e-03
+GCR:    10 iterations, <r,r> = 2.169703e+00, |r|/|b| = 2.461819e-03
+GCR:    11 iterations, <r,r> = 1.131642e+00, |r|/|b| = 1.777913e-03
+GCR:    12 iterations, <r,r> = 4.965683e-01, |r|/|b| = 1.177729e-03
+GCR (restart):     3 iterations, <r,r> = 4.965684e-01, |r|/|b| = 1.177729e-03
+GCR:    13 iterations, <r,r> = 2.760217e-01, |r|/|b| = 8.780667e-04
+GCR:    14 iterations, <r,r> = 1.303892e-01, |r|/|b| = 6.034993e-04
+GCR:    15 iterations, <r,r> = 6.732757e-02, |r|/|b| = 4.336630e-04
+GCR:    16 iterations, <r,r> = 3.454881e-02, |r|/|b| = 3.106508e-04
+GCR (restart):     4 iterations, <r,r> = 3.454882e-02, |r|/|b| = 3.106508e-04
+GCR:    17 iterations, <r,r> = 2.021671e-02, |r|/|b| = 2.376354e-04
+GCR:    18 iterations, <r,r> = 9.761533e-03, |r|/|b| = 1.651258e-04
+GCR:    19 iterations, <r,r> = 5.552980e-03, |r|/|b| = 1.245429e-04
+GCR:    20 iterations, <r,r> = 2.920931e-03, |r|/|b| = 9.032679e-05
+GCR (restart):     5 iterations, <r,r> = 2.920933e-03, |r|/|b| = 9.032682e-05
+GCR:    21 iterations, <r,r> = 1.686227e-03, |r|/|b| = 6.863000e-05
+GCR:    22 iterations, <r,r> = 9.132640e-04, |r|/|b| = 5.050729e-05
+GCR:    23 iterations, <r,r> = 5.136266e-04, |r|/|b| = 3.787736e-05
+GCR:    24 iterations, <r,r> = 2.838320e-04, |r|/|b| = 2.815701e-05
+GCR (restart):     6 iterations, <r,r> = 2.838345e-04, |r|/|b| = 2.815714e-05
+GCR:    25 iterations, <r,r> = 1.776407e-04, |r|/|b| = 2.227549e-05
+GCR:    26 iterations, <r,r> = 9.389836e-05, |r|/|b| = 1.619515e-05
+GCR:    27 iterations, <r,r> = 5.563367e-05, |r|/|b| = 1.246593e-05
+GCR:    28 iterations, <r,r> = 3.119170e-05, |r|/|b| = 9.334165e-06
+GCR (restart):     7 iterations, <r,r> = 3.119511e-05, |r|/|b| = 9.334674e-06
+GCR:    29 iterations, <r,r> = 1.984994e-05, |r|/|b| = 7.446214e-06
+GCR:    30 iterations, <r,r> = 1.067098e-05, |r|/|b| = 5.459565e-06
+GCR:    31 iterations, <r,r> = 6.514041e-06, |r|/|b| = 4.265610e-06
+GCR:    32 iterations, <r,r> = 3.673049e-06, |r|/|b| = 3.203091e-06
+GCR (restart):     8 iterations, <r,r> = 3.676387e-06, |r|/|b| = 3.204546e-06
+GCR:    33 iterations, <r,r> = 2.393636e-06, |r|/|b| = 2.585741e-06
+GCR:    34 iterations, <r,r> = 1.267610e-06, |r|/|b| = 1.881693e-06
+GCR:    35 iterations, <r,r> = 8.241721e-07, |r|/|b| = 1.517277e-06
+GCR:    36 iterations, <r,r> = 4.490648e-07, |r|/|b| = 1.119980e-06
+GCR (restart):     9 iterations, <r,r> = 4.524835e-07, |r|/|b| = 1.124236e-06
+GCR:    37 iterations, <r,r> = 2.976929e-07, |r|/|b| = 9.118852e-07
+GCR: number of restarts = 9
+GCR: Convergence at 37 iterations, L2 relative residual: iterated = 9.140117e-07, true = 9.140117e-07 (requested = 1.000000e-06)
+Solution = 390946
+Reconstructed Solution = 782064
+Source: 9.43976e+06
+Prepared: source = 358004, solution = 0
+Creating a GCR solver
+GCR:     0 iterations, <r,r> = 3.580042e+05, |r|/|b| = 1.000000e+00
+GCR:     1 iterations, <r,r> = 2.468723e+04, |r|/|b| = 2.625984e-01
+GCR:     2 iterations, <r,r> = 4.077109e+03, |r|/|b| = 1.067166e-01
+GCR:     3 iterations, <r,r> = 1.150908e+03, |r|/|b| = 5.669911e-02
+GCR:     4 iterations, <r,r> = 3.792399e+02, |r|/|b| = 3.254715e-02
+GCR (restart):     1 iterations, <r,r> = 3.792399e+02, |r|/|b| = 3.254715e-02
+GCR:     5 iterations, <r,r> = 1.718212e+02, |r|/|b| = 2.190758e-02
+GCR:     6 iterations, <r,r> = 5.747882e+01, |r|/|b| = 1.267097e-02
+GCR:     7 iterations, <r,r> = 2.557583e+01, |r|/|b| = 8.452220e-03
+GCR:     8 iterations, <r,r> = 1.018698e+01, |r|/|b| = 5.334316e-03
+GCR (restart):     2 iterations, <r,r> = 1.018699e+01, |r|/|b| = 5.334317e-03
+GCR:     9 iterations, <r,r> = 5.370575e+00, |r|/|b| = 3.873168e-03
+GCR:    10 iterations, <r,r> = 2.169703e+00, |r|/|b| = 2.461819e-03
+GCR:    11 iterations, <r,r> = 1.131642e+00, |r|/|b| = 1.777913e-03
+GCR:    12 iterations, <r,r> = 4.965683e-01, |r|/|b| = 1.177729e-03
+GCR (restart):     3 iterations, <r,r> = 4.965684e-01, |r|/|b| = 1.177729e-03
+GCR:    13 iterations, <r,r> = 2.760217e-01, |r|/|b| = 8.780667e-04
+GCR:    14 iterations, <r,r> = 1.303892e-01, |r|/|b| = 6.034993e-04
+GCR:    15 iterations, <r,r> = 6.732757e-02, |r|/|b| = 4.336630e-04
+GCR:    16 iterations, <r,r> = 3.454881e-02, |r|/|b| = 3.106508e-04
+GCR (restart):     4 iterations, <r,r> = 3.454882e-02, |r|/|b| = 3.106508e-04
+GCR:    17 iterations, <r,r> = 2.021671e-02, |r|/|b| = 2.376354e-04
+GCR:    18 iterations, <r,r> = 9.761533e-03, |r|/|b| = 1.651258e-04
+GCR:    19 iterations, <r,r> = 5.552980e-03, |r|/|b| = 1.245429e-04
+GCR:    20 iterations, <r,r> = 2.920931e-03, |r|/|b| = 9.032679e-05
+GCR (restart):     5 iterations, <r,r> = 2.920933e-03, |r|/|b| = 9.032682e-05
+GCR:    21 iterations, <r,r> = 1.686227e-03, |r|/|b| = 6.863000e-05
+GCR:    22 iterations, <r,r> = 9.132640e-04, |r|/|b| = 5.050729e-05
+GCR:    23 iterations, <r,r> = 5.136266e-04, |r|/|b| = 3.787736e-05
+GCR:    24 iterations, <r,r> = 2.838320e-04, |r|/|b| = 2.815701e-05
+GCR (restart):     6 iterations, <r,r> = 2.838345e-04, |r|/|b| = 2.815714e-05
+GCR:    25 iterations, <r,r> = 1.776407e-04, |r|/|b| = 2.227549e-05
+GCR:    26 iterations, <r,r> = 9.389836e-05, |r|/|b| = 1.619515e-05
+GCR:    27 iterations, <r,r> = 5.563367e-05, |r|/|b| = 1.246593e-05
+GCR:    28 iterations, <r,r> = 3.119170e-05, |r|/|b| = 9.334165e-06
+GCR (restart):     7 iterations, <r,r> = 3.119511e-05, |r|/|b| = 9.334674e-06
+GCR:    29 iterations, <r,r> = 1.984994e-05, |r|/|b| = 7.446214e-06
+GCR:    30 iterations, <r,r> = 1.067098e-05, |r|/|b| = 5.459565e-06
+GCR:    31 iterations, <r,r> = 6.514041e-06, |r|/|b| = 4.265610e-06
+GCR:    32 iterations, <r,r> = 3.673049e-06, |r|/|b| = 3.203091e-06
+GCR (restart):     8 iterations, <r,r> = 3.676387e-06, |r|/|b| = 3.204546e-06
+GCR:    33 iterations, <r,r> = 2.393636e-06, |r|/|b| = 2.585741e-06
+GCR:    34 iterations, <r,r> = 1.267610e-06, |r|/|b| = 1.881693e-06
+GCR:    35 iterations, <r,r> = 8.241721e-07, |r|/|b| = 1.517277e-06
+GCR:    36 iterations, <r,r> = 4.490648e-07, |r|/|b| = 1.119980e-06
+GCR (restart):     9 iterations, <r,r> = 4.524835e-07, |r|/|b| = 1.124236e-06
+GCR:    37 iterations, <r,r> = 2.976929e-07, |r|/|b| = 9.118852e-07
+GCR: number of restarts = 9
+GCR: Convergence at 37 iterations, L2 relative residual: iterated = 9.140117e-07, true = 9.140117e-07 (requested = 1.000000e-06)
+Solution = 390946
+Reconstructed Solution = 782064
+Source: 9.43976e+06
+Prepared: source = 358004, solution = 0
+Creating a GCR solver
+GCR:     0 iterations, <r,r> = 3.580042e+05, |r|/|b| = 1.000000e+00
+GCR:     1 iterations, <r,r> = 2.468723e+04, |r|/|b| = 2.625984e-01
+GCR:     2 iterations, <r,r> = 4.077109e+03, |r|/|b| = 1.067166e-01
+GCR:     3 iterations, <r,r> = 1.150908e+03, |r|/|b| = 5.669911e-02
+GCR:     4 iterations, <r,r> = 3.792399e+02, |r|/|b| = 3.254715e-02
+GCR (restart):     1 iterations, <r,r> = 3.792399e+02, |r|/|b| = 3.254715e-02
+GCR:     5 iterations, <r,r> = 1.718212e+02, |r|/|b| = 2.190758e-02
+GCR:     6 iterations, <r,r> = 5.747882e+01, |r|/|b| = 1.267097e-02
+GCR:     7 iterations, <r,r> = 2.557583e+01, |r|/|b| = 8.452220e-03
+GCR:     8 iterations, <r,r> = 1.018698e+01, |r|/|b| = 5.334316e-03
+GCR (restart):     2 iterations, <r,r> = 1.018699e+01, |r|/|b| = 5.334317e-03
+GCR:     9 iterations, <r,r> = 5.370575e+00, |r|/|b| = 3.873168e-03
+GCR:    10 iterations, <r,r> = 2.169703e+00, |r|/|b| = 2.461819e-03
+GCR:    11 iterations, <r,r> = 1.131642e+00, |r|/|b| = 1.777913e-03
+GCR:    12 iterations, <r,r> = 4.965683e-01, |r|/|b| = 1.177729e-03
+GCR (restart):     3 iterations, <r,r> = 4.965684e-01, |r|/|b| = 1.177729e-03
+GCR:    13 iterations, <r,r> = 2.760217e-01, |r|/|b| = 8.780667e-04
+GCR:    14 iterations, <r,r> = 1.303892e-01, |r|/|b| = 6.034993e-04
+GCR:    15 iterations, <r,r> = 6.732757e-02, |r|/|b| = 4.336630e-04
+GCR:    16 iterations, <r,r> = 3.454881e-02, |r|/|b| = 3.106508e-04
+GCR (restart):     4 iterations, <r,r> = 3.454882e-02, |r|/|b| = 3.106508e-04
+GCR:    17 iterations, <r,r> = 2.021671e-02, |r|/|b| = 2.376354e-04
+GCR:    18 iterations, <r,r> = 9.761533e-03, |r|/|b| = 1.651258e-04
+GCR:    19 iterations, <r,r> = 5.552980e-03, |r|/|b| = 1.245429e-04
+GCR:    20 iterations, <r,r> = 2.920931e-03, |r|/|b| = 9.032679e-05
+GCR (restart):     5 iterations, <r,r> = 2.920933e-03, |r|/|b| = 9.032682e-05
+GCR:    21 iterations, <r,r> = 1.686227e-03, |r|/|b| = 6.863000e-05
+GCR:    22 iterations, <r,r> = 9.132640e-04, |r|/|b| = 5.050729e-05
+GCR:    23 iterations, <r,r> = 5.136266e-04, |r|/|b| = 3.787736e-05
+GCR:    24 iterations, <r,r> = 2.838320e-04, |r|/|b| = 2.815701e-05
+GCR (restart):     6 iterations, <r,r> = 2.838345e-04, |r|/|b| = 2.815714e-05
+GCR:    25 iterations, <r,r> = 1.776407e-04, |r|/|b| = 2.227549e-05
+GCR:    26 iterations, <r,r> = 9.389836e-05, |r|/|b| = 1.619515e-05
+GCR:    27 iterations, <r,r> = 5.563367e-05, |r|/|b| = 1.246593e-05
+GCR:    28 iterations, <r,r> = 3.119170e-05, |r|/|b| = 9.334165e-06
+GCR (restart):     7 iterations, <r,r> = 3.119511e-05, |r|/|b| = 9.334674e-06
+GCR:    29 iterations, <r,r> = 1.984994e-05, |r|/|b| = 7.446214e-06
+GCR:    30 iterations, <r,r> = 1.067098e-05, |r|/|b| = 5.459565e-06
+GCR:    31 iterations, <r,r> = 6.514041e-06, |r|/|b| = 4.265610e-06
+GCR:    32 iterations, <r,r> = 3.673049e-06, |r|/|b| = 3.203091e-06
+GCR (restart):     8 iterations, <r,r> = 3.676387e-06, |r|/|b| = 3.204546e-06
+GCR:    33 iterations, <r,r> = 2.393636e-06, |r|/|b| = 2.585741e-06
+GCR:    34 iterations, <r,r> = 1.267610e-06, |r|/|b| = 1.881693e-06
+GCR:    35 iterations, <r,r> = 8.241721e-07, |r|/|b| = 1.517277e-06
+GCR:    36 iterations, <r,r> = 4.490648e-07, |r|/|b| = 1.119980e-06
+GCR (restart):     9 iterations, <r,r> = 4.524835e-07, |r|/|b| = 1.124236e-06
+GCR:    37 iterations, <r,r> = 2.976929e-07, |r|/|b| = 9.118852e-07
+GCR: number of restarts = 9
+GCR: Convergence at 37 iterations, L2 relative residual: iterated = 9.140117e-07, true = 9.140117e-07 (requested = 1.000000e-06)
+Solution = 390946
+Reconstructed Solution = 782064
+Source: 9.43976e+06
+Prepared: source = 358004, solution = 0
+Creating a GCR solver
+GCR:     0 iterations, <r,r> = 3.580042e+05, |r|/|b| = 1.000000e+00
+GCR:     1 iterations, <r,r> = 2.468723e+04, |r|/|b| = 2.625984e-01
+GCR:     2 iterations, <r,r> = 4.077109e+03, |r|/|b| = 1.067166e-01
+GCR:     3 iterations, <r,r> = 1.150908e+03, |r|/|b| = 5.669911e-02
+GCR:     4 iterations, <r,r> = 3.792399e+02, |r|/|b| = 3.254715e-02
+GCR (restart):     1 iterations, <r,r> = 3.792399e+02, |r|/|b| = 3.254715e-02
+GCR:     5 iterations, <r,r> = 1.718212e+02, |r|/|b| = 2.190758e-02
+GCR:     6 iterations, <r,r> = 5.747882e+01, |r|/|b| = 1.267097e-02
+GCR:     7 iterations, <r,r> = 2.557583e+01, |r|/|b| = 8.452220e-03
+GCR:     8 iterations, <r,r> = 1.018698e+01, |r|/|b| = 5.334316e-03
+GCR (restart):     2 iterations, <r,r> = 1.018699e+01, |r|/|b| = 5.334317e-03
+GCR:     9 iterations, <r,r> = 5.370575e+00, |r|/|b| = 3.873168e-03
+GCR:    10 iterations, <r,r> = 2.169703e+00, |r|/|b| = 2.461819e-03
+GCR:    11 iterations, <r,r> = 1.131642e+00, |r|/|b| = 1.777913e-03
+GCR:    12 iterations, <r,r> = 4.965683e-01, |r|/|b| = 1.177729e-03
+GCR (restart):     3 iterations, <r,r> = 4.965684e-01, |r|/|b| = 1.177729e-03
+GCR:    13 iterations, <r,r> = 2.760217e-01, |r|/|b| = 8.780667e-04
+GCR:    14 iterations, <r,r> = 1.303892e-01, |r|/|b| = 6.034993e-04
+GCR:    15 iterations, <r,r> = 6.732757e-02, |r|/|b| = 4.336630e-04
+GCR:    16 iterations, <r,r> = 3.454881e-02, |r|/|b| = 3.106508e-04
+GCR (restart):     4 iterations, <r,r> = 3.454882e-02, |r|/|b| = 3.106508e-04
+GCR:    17 iterations, <r,r> = 2.021671e-02, |r|/|b| = 2.376354e-04
+GCR:    18 iterations, <r,r> = 9.761533e-03, |r|/|b| = 1.651258e-04
+GCR:    19 iterations, <r,r> = 5.552980e-03, |r|/|b| = 1.245429e-04
+GCR:    20 iterations, <r,r> = 2.920931e-03, |r|/|b| = 9.032679e-05
+GCR (restart):     5 iterations, <r,r> = 2.920933e-03, |r|/|b| = 9.032682e-05
+GCR:    21 iterations, <r,r> = 1.686227e-03, |r|/|b| = 6.863000e-05
+GCR:    22 iterations, <r,r> = 9.132640e-04, |r|/|b| = 5.050729e-05
+GCR:    23 iterations, <r,r> = 5.136266e-04, |r|/|b| = 3.787736e-05
+GCR:    24 iterations, <r,r> = 2.838320e-04, |r|/|b| = 2.815701e-05
+GCR (restart):     6 iterations, <r,r> = 2.838345e-04, |r|/|b| = 2.815714e-05
+GCR:    25 iterations, <r,r> = 1.776407e-04, |r|/|b| = 2.227549e-05
+GCR:    26 iterations, <r,r> = 9.389836e-05, |r|/|b| = 1.619515e-05
+GCR:    27 iterations, <r,r> = 5.563367e-05, |r|/|b| = 1.246593e-05
+GCR:    28 iterations, <r,r> = 3.119170e-05, |r|/|b| = 9.334165e-06
+GCR (restart):     7 iterations, <r,r> = 3.119511e-05, |r|/|b| = 9.334674e-06
+GCR:    29 iterations, <r,r> = 1.984994e-05, |r|/|b| = 7.446214e-06
+GCR:    30 iterations, <r,r> = 1.067098e-05, |r|/|b| = 5.459565e-06
+GCR:    31 iterations, <r,r> = 6.514041e-06, |r|/|b| = 4.265610e-06
+GCR:    32 iterations, <r,r> = 3.673049e-06, |r|/|b| = 3.203091e-06
+GCR (restart):     8 iterations, <r,r> = 3.676387e-06, |r|/|b| = 3.204546e-06
+GCR:    33 iterations, <r,r> = 2.393636e-06, |r|/|b| = 2.585741e-06
+GCR:    34 iterations, <r,r> = 1.267610e-06, |r|/|b| = 1.881693e-06
+GCR:    35 iterations, <r,r> = 8.241721e-07, |r|/|b| = 1.517277e-06
+GCR:    36 iterations, <r,r> = 4.490648e-07, |r|/|b| = 1.119980e-06
+GCR (restart):     9 iterations, <r,r> = 4.524835e-07, |r|/|b| = 1.124236e-06
+GCR:    37 iterations, <r,r> = 2.976929e-07, |r|/|b| = 9.118852e-07
+GCR: number of restarts = 9
+GCR: Convergence at 37 iterations, L2 relative residual: iterated = 9.140117e-07, true = 9.140117e-07 (requested = 1.000000e-06)
+Solution = 390946
+Reconstructed Solution = 782064
+Source: 9.43976e+06
+Prepared: source = 358004, solution = 0
+Creating a GCR solver
+GCR:     0 iterations, <r,r> = 3.580042e+05, |r|/|b| = 1.000000e+00
+GCR:     1 iterations, <r,r> = 2.468723e+04, |r|/|b| = 2.625984e-01
+GCR:     2 iterations, <r,r> = 4.077109e+03, |r|/|b| = 1.067166e-01
+GCR:     3 iterations, <r,r> = 1.150908e+03, |r|/|b| = 5.669911e-02
+GCR:     4 iterations, <r,r> = 3.792399e+02, |r|/|b| = 3.254715e-02
+GCR (restart):     1 iterations, <r,r> = 3.792399e+02, |r|/|b| = 3.254715e-02
+GCR:     5 iterations, <r,r> = 1.718212e+02, |r|/|b| = 2.190758e-02
+GCR:     6 iterations, <r,r> = 5.747882e+01, |r|/|b| = 1.267097e-02
+GCR:     7 iterations, <r,r> = 2.557583e+01, |r|/|b| = 8.452220e-03
+GCR:     8 iterations, <r,r> = 1.018698e+01, |r|/|b| = 5.334316e-03
+GCR (restart):     2 iterations, <r,r> = 1.018699e+01, |r|/|b| = 5.334317e-03
+GCR:     9 iterations, <r,r> = 5.370575e+00, |r|/|b| = 3.873168e-03
+GCR:    10 iterations, <r,r> = 2.169703e+00, |r|/|b| = 2.461819e-03
+GCR:    11 iterations, <r,r> = 1.131642e+00, |r|/|b| = 1.777913e-03
+GCR:    12 iterations, <r,r> = 4.965683e-01, |r|/|b| = 1.177729e-03
+GCR (restart):     3 iterations, <r,r> = 4.965684e-01, |r|/|b| = 1.177729e-03
+GCR:    13 iterations, <r,r> = 2.760217e-01, |r|/|b| = 8.780667e-04
+GCR:    14 iterations, <r,r> = 1.303892e-01, |r|/|b| = 6.034993e-04
+GCR:    15 iterations, <r,r> = 6.732757e-02, |r|/|b| = 4.336630e-04
+GCR:    16 iterations, <r,r> = 3.454881e-02, |r|/|b| = 3.106508e-04
+GCR (restart):     4 iterations, <r,r> = 3.454882e-02, |r|/|b| = 3.106508e-04
+GCR:    17 iterations, <r,r> = 2.021671e-02, |r|/|b| = 2.376354e-04
+GCR:    18 iterations, <r,r> = 9.761533e-03, |r|/|b| = 1.651258e-04
+GCR:    19 iterations, <r,r> = 5.552980e-03, |r|/|b| = 1.245429e-04
+GCR:    20 iterations, <r,r> = 2.920931e-03, |r|/|b| = 9.032679e-05
+GCR (restart):     5 iterations, <r,r> = 2.920933e-03, |r|/|b| = 9.032682e-05
+GCR:    21 iterations, <r,r> = 1.686227e-03, |r|/|b| = 6.863000e-05
+GCR:    22 iterations, <r,r> = 9.132640e-04, |r|/|b| = 5.050729e-05
+GCR:    23 iterations, <r,r> = 5.136266e-04, |r|/|b| = 3.787736e-05
+GCR:    24 iterations, <r,r> = 2.838320e-04, |r|/|b| = 2.815701e-05
+GCR (restart):     6 iterations, <r,r> = 2.838345e-04, |r|/|b| = 2.815714e-05
+GCR:    25 iterations, <r,r> = 1.776407e-04, |r|/|b| = 2.227549e-05
+GCR:    26 iterations, <r,r> = 9.389836e-05, |r|/|b| = 1.619515e-05
+GCR:    27 iterations, <r,r> = 5.563367e-05, |r|/|b| = 1.246593e-05
+GCR:    28 iterations, <r,r> = 3.119170e-05, |r|/|b| = 9.334165e-06
+GCR (restart):     7 iterations, <r,r> = 3.119511e-05, |r|/|b| = 9.334674e-06
+GCR:    29 iterations, <r,r> = 1.984994e-05, |r|/|b| = 7.446214e-06
+GCR:    30 iterations, <r,r> = 1.067098e-05, |r|/|b| = 5.459565e-06
+GCR:    31 iterations, <r,r> = 6.514041e-06, |r|/|b| = 4.265610e-06
+GCR:    32 iterations, <r,r> = 3.673049e-06, |r|/|b| = 3.203091e-06
+GCR (restart):     8 iterations, <r,r> = 3.676387e-06, |r|/|b| = 3.204546e-06
+GCR:    33 iterations, <r,r> = 2.393636e-06, |r|/|b| = 2.585741e-06
+GCR:    34 iterations, <r,r> = 1.267610e-06, |r|/|b| = 1.881693e-06
+GCR:    35 iterations, <r,r> = 8.241721e-07, |r|/|b| = 1.517277e-06
+GCR:    36 iterations, <r,r> = 4.490648e-07, |r|/|b| = 1.119980e-06
+GCR (restart):     9 iterations, <r,r> = 4.524835e-07, |r|/|b| = 1.124236e-06
+GCR:    37 iterations, <r,r> = 2.976929e-07, |r|/|b| = 9.118852e-07
+GCR: number of restarts = 9
+GCR: Convergence at 37 iterations, L2 relative residual: iterated = 9.140117e-07, true = 9.140117e-07 (requested = 1.000000e-06)
+Solution = 390946
+Reconstructed Solution = 782064
+Source: 9.43976e+06
+Prepared: source = 358004, solution = 0
+Creating a GCR solver
+GCR:     0 iterations, <r,r> = 3.580042e+05, |r|/|b| = 1.000000e+00
+GCR:     1 iterations, <r,r> = 2.468723e+04, |r|/|b| = 2.625984e-01
+GCR:     2 iterations, <r,r> = 4.077109e+03, |r|/|b| = 1.067166e-01
+GCR:     3 iterations, <r,r> = 1.150908e+03, |r|/|b| = 5.669911e-02
+GCR:     4 iterations, <r,r> = 3.792399e+02, |r|/|b| = 3.254715e-02
+GCR (restart):     1 iterations, <r,r> = 3.792399e+02, |r|/|b| = 3.254715e-02
+GCR:     5 iterations, <r,r> = 1.718212e+02, |r|/|b| = 2.190758e-02
+GCR:     6 iterations, <r,r> = 5.747882e+01, |r|/|b| = 1.267097e-02
+GCR:     7 iterations, <r,r> = 2.557583e+01, |r|/|b| = 8.452220e-03
+GCR:     8 iterations, <r,r> = 1.018698e+01, |r|/|b| = 5.334316e-03
+GCR (restart):     2 iterations, <r,r> = 1.018699e+01, |r|/|b| = 5.334317e-03
+GCR:     9 iterations, <r,r> = 5.370575e+00, |r|/|b| = 3.873168e-03
+GCR:    10 iterations, <r,r> = 2.169703e+00, |r|/|b| = 2.461819e-03
+GCR:    11 iterations, <r,r> = 1.131642e+00, |r|/|b| = 1.777913e-03
+GCR:    12 iterations, <r,r> = 4.965683e-01, |r|/|b| = 1.177729e-03
+GCR (restart):     3 iterations, <r,r> = 4.965684e-01, |r|/|b| = 1.177729e-03
+GCR:    13 iterations, <r,r> = 2.760217e-01, |r|/|b| = 8.780667e-04
+GCR:    14 iterations, <r,r> = 1.303892e-01, |r|/|b| = 6.034993e-04
+GCR:    15 iterations, <r,r> = 6.732757e-02, |r|/|b| = 4.336630e-04
+GCR:    16 iterations, <r,r> = 3.454881e-02, |r|/|b| = 3.106508e-04
+GCR (restart):     4 iterations, <r,r> = 3.454882e-02, |r|/|b| = 3.106508e-04
+GCR:    17 iterations, <r,r> = 2.021671e-02, |r|/|b| = 2.376354e-04
+GCR:    18 iterations, <r,r> = 9.761533e-03, |r|/|b| = 1.651258e-04
+GCR:    19 iterations, <r,r> = 5.552980e-03, |r|/|b| = 1.245429e-04
+GCR:    20 iterations, <r,r> = 2.920931e-03, |r|/|b| = 9.032679e-05
+GCR (restart):     5 iterations, <r,r> = 2.920933e-03, |r|/|b| = 9.032682e-05
+GCR:    21 iterations, <r,r> = 1.686227e-03, |r|/|b| = 6.863000e-05
+GCR:    22 iterations, <r,r> = 9.132640e-04, |r|/|b| = 5.050729e-05
+GCR:    23 iterations, <r,r> = 5.136266e-04, |r|/|b| = 3.787736e-05
+GCR:    24 iterations, <r,r> = 2.838320e-04, |r|/|b| = 2.815701e-05
+GCR (restart):     6 iterations, <r,r> = 2.838345e-04, |r|/|b| = 2.815714e-05
+GCR:    25 iterations, <r,r> = 1.776407e-04, |r|/|b| = 2.227549e-05
+GCR:    26 iterations, <r,r> = 9.389836e-05, |r|/|b| = 1.619515e-05
+GCR:    27 iterations, <r,r> = 5.563367e-05, |r|/|b| = 1.246593e-05
+GCR:    28 iterations, <r,r> = 3.119170e-05, |r|/|b| = 9.334165e-06
+GCR (restart):     7 iterations, <r,r> = 3.119511e-05, |r|/|b| = 9.334674e-06
+GCR:    29 iterations, <r,r> = 1.984994e-05, |r|/|b| = 7.446214e-06
+GCR:    30 iterations, <r,r> = 1.067098e-05, |r|/|b| = 5.459565e-06
+GCR:    31 iterations, <r,r> = 6.514041e-06, |r|/|b| = 4.265610e-06
+GCR:    32 iterations, <r,r> = 3.673049e-06, |r|/|b| = 3.203091e-06
+GCR (restart):     8 iterations, <r,r> = 3.676387e-06, |r|/|b| = 3.204546e-06
+GCR:    33 iterations, <r,r> = 2.393636e-06, |r|/|b| = 2.585741e-06
+GCR:    34 iterations, <r,r> = 1.267610e-06, |r|/|b| = 1.881693e-06
+GCR:    35 iterations, <r,r> = 8.241721e-07, |r|/|b| = 1.517277e-06
+GCR:    36 iterations, <r,r> = 4.490648e-07, |r|/|b| = 1.119980e-06
+GCR (restart):     9 iterations, <r,r> = 4.524835e-07, |r|/|b| = 1.124236e-06
+GCR:    37 iterations, <r,r> = 2.976929e-07, |r|/|b| = 9.118852e-07
+GCR: number of restarts = 9
+GCR: Convergence at 37 iterations, L2 relative residual: iterated = 9.140117e-07, true = 9.140117e-07 (requested = 1.000000e-06)
+Solution = 390946
+Reconstructed Solution = 782064
+Source: 9.43976e+06
+Prepared: source = 358004, solution = 0
+Creating a GCR solver
+GCR:     0 iterations, <r,r> = 3.580042e+05, |r|/|b| = 1.000000e+00
+GCR:     1 iterations, <r,r> = 2.468723e+04, |r|/|b| = 2.625984e-01
+GCR:     2 iterations, <r,r> = 4.077109e+03, |r|/|b| = 1.067166e-01
+GCR:     3 iterations, <r,r> = 1.150908e+03, |r|/|b| = 5.669911e-02
+GCR:     4 iterations, <r,r> = 3.792399e+02, |r|/|b| = 3.254715e-02
+GCR (restart):     1 iterations, <r,r> = 3.792399e+02, |r|/|b| = 3.254715e-02
+GCR:     5 iterations, <r,r> = 1.718212e+02, |r|/|b| = 2.190758e-02
+GCR:     6 iterations, <r,r> = 5.747882e+01, |r|/|b| = 1.267097e-02
+GCR:     7 iterations, <r,r> = 2.557583e+01, |r|/|b| = 8.452220e-03
+GCR:     8 iterations, <r,r> = 1.018698e+01, |r|/|b| = 5.334316e-03
+GCR (restart):     2 iterations, <r,r> = 1.018699e+01, |r|/|b| = 5.334317e-03
+GCR:     9 iterations, <r,r> = 5.370575e+00, |r|/|b| = 3.873168e-03
+GCR:    10 iterations, <r,r> = 2.169703e+00, |r|/|b| = 2.461819e-03
+GCR:    11 iterations, <r,r> = 1.131642e+00, |r|/|b| = 1.777913e-03
+GCR:    12 iterations, <r,r> = 4.965683e-01, |r|/|b| = 1.177729e-03
+GCR (restart):     3 iterations, <r,r> = 4.965684e-01, |r|/|b| = 1.177729e-03
+GCR:    13 iterations, <r,r> = 2.760217e-01, |r|/|b| = 8.780667e-04
+GCR:    14 iterations, <r,r> = 1.303892e-01, |r|/|b| = 6.034993e-04
+GCR:    15 iterations, <r,r> = 6.732757e-02, |r|/|b| = 4.336630e-04
+GCR:    16 iterations, <r,r> = 3.454881e-02, |r|/|b| = 3.106508e-04
+GCR (restart):     4 iterations, <r,r> = 3.454882e-02, |r|/|b| = 3.106508e-04
+GCR:    17 iterations, <r,r> = 2.021671e-02, |r|/|b| = 2.376354e-04
+GCR:    18 iterations, <r,r> = 9.761533e-03, |r|/|b| = 1.651258e-04
+GCR:    19 iterations, <r,r> = 5.552980e-03, |r|/|b| = 1.245429e-04
+GCR:    20 iterations, <r,r> = 2.920931e-03, |r|/|b| = 9.032679e-05
+GCR (restart):     5 iterations, <r,r> = 2.920933e-03, |r|/|b| = 9.032682e-05
+GCR:    21 iterations, <r,r> = 1.686227e-03, |r|/|b| = 6.863000e-05
+GCR:    22 iterations, <r,r> = 9.132640e-04, |r|/|b| = 5.050729e-05
+GCR:    23 iterations, <r,r> = 5.136266e-04, |r|/|b| = 3.787736e-05
+GCR:    24 iterations, <r,r> = 2.838320e-04, |r|/|b| = 2.815701e-05
+GCR (restart):     6 iterations, <r,r> = 2.838345e-04, |r|/|b| = 2.815714e-05
+GCR:    25 iterations, <r,r> = 1.776407e-04, |r|/|b| = 2.227549e-05
+GCR:    26 iterations, <r,r> = 9.389836e-05, |r|/|b| = 1.619515e-05
+GCR:    27 iterations, <r,r> = 5.563367e-05, |r|/|b| = 1.246593e-05
+GCR:    28 iterations, <r,r> = 3.119170e-05, |r|/|b| = 9.334165e-06
+GCR (restart):     7 iterations, <r,r> = 3.119511e-05, |r|/|b| = 9.334674e-06
+GCR:    29 iterations, <r,r> = 1.984994e-05, |r|/|b| = 7.446214e-06
+GCR:    30 iterations, <r,r> = 1.067098e-05, |r|/|b| = 5.459565e-06
+GCR:    31 iterations, <r,r> = 6.514041e-06, |r|/|b| = 4.265610e-06
+GCR:    32 iterations, <r,r> = 3.673049e-06, |r|/|b| = 3.203091e-06
+GCR (restart):     8 iterations, <r,r> = 3.676387e-06, |r|/|b| = 3.204546e-06
+GCR:    33 iterations, <r,r> = 2.393636e-06, |r|/|b| = 2.585741e-06
+GCR:    34 iterations, <r,r> = 1.267610e-06, |r|/|b| = 1.881693e-06
+GCR:    35 iterations, <r,r> = 8.241721e-07, |r|/|b| = 1.517277e-06
+GCR:    36 iterations, <r,r> = 4.490648e-07, |r|/|b| = 1.119980e-06
+GCR (restart):     9 iterations, <r,r> = 4.524835e-07, |r|/|b| = 1.124236e-06
+GCR:    37 iterations, <r,r> = 2.976929e-07, |r|/|b| = 9.118852e-07
+GCR: number of restarts = 9
+GCR: Convergence at 37 iterations, L2 relative residual: iterated = 9.140117e-07, true = 9.140117e-07 (requested = 1.000000e-06)
+Solution = 390946
+Reconstructed Solution = 782064
