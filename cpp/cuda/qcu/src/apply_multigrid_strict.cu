@@ -1,7 +1,11 @@
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <complex>
 #include <cstdio>
+#include <cstdlib>
+#include <fstream>
+#include <iomanip>
 #include <limits>
 #include <stdexcept>
 #include <type_traits>
@@ -12,6 +16,81 @@
 
 namespace qcu {
 namespace {
+
+// Optional, diagnostic-only trace for the fused outer FGMRES.  The default
+// path never constructs this file and therefore keeps the production solver
+// free of per-iteration host I/O.  The trace deliberately distinguishes the
+// cheap Arnoldi/Givens residual estimate from the true residual recomputed at
+// every restart boundary.
+template <typename T> class StrictFgmresTrace {
+ public:
+  StrictFgmresTrace() {
+    const char *path = std::getenv("PYQCU_STRICT_TRACE_FILE");
+    if (path == nullptr || *path == '\0') return;
+    file_.open(path, std::ios::out | std::ios::app);
+    if (!file_) {
+      throw std::runtime_error(
+          "cannot open PYQCU_STRICT_TRACE_FILE for append");
+    }
+    enabled_ = true;
+    file_ << std::setprecision(17);
+    file_ << "trace_version\t1\n";
+  }
+
+  void begin(T rhs_norm) {
+    if (!enabled_) return;
+    rhs_norm_ = rhs_norm;
+    started_ = std::chrono::steady_clock::now();
+    file_ << "solve_begin\t" << static_cast<double>(rhs_norm_) << "\n";
+  }
+
+  void initial(T residual) {
+    if (!enabled_) return;
+    file_ << "initial_residual\t0\t" << static_cast<double>(residual)
+           << "\t" << relative(residual) << "\t" << elapsed() << "\n";
+  }
+
+  void iteration(int global_iteration, int cycle_iteration, T estimate,
+                 T next_norm) {
+    if (!enabled_) return;
+    file_ << "iteration\t" << global_iteration << "\t" << cycle_iteration
+           << "\t" << static_cast<double>(estimate) << "\t"
+           << relative(estimate) << "\t" << static_cast<double>(next_norm)
+           << "\t" << elapsed() << "\n";
+  }
+
+  void restart(int global_iteration, T residual) {
+    if (!enabled_) return;
+    file_ << "restart_residual\t" << global_iteration << "\t"
+           << static_cast<double>(residual) << "\t" << relative(residual)
+           << "\t" << elapsed() << "\n";
+  }
+
+  void end(int iterations, bool converged, T residual) {
+    if (!enabled_) return;
+    file_ << "solve_end\t" << iterations << "\t" << (converged ? 1 : 0)
+           << "\t" << static_cast<double>(residual) << "\t"
+           << relative(residual) << "\t" << elapsed() << "\n"
+           << std::flush;
+  }
+
+ private:
+  std::ofstream file_;
+  bool enabled_ = false;
+  T rhs_norm_ = (T)1;
+  std::chrono::steady_clock::time_point started_;
+
+  double elapsed() const {
+    if (!enabled_) return 0.0;
+    return std::chrono::duration<double>(
+               std::chrono::steady_clock::now() - started_)
+        .count();
+  }
+
+  double relative(T value) const {
+    return rhs_norm_ > (T)0 ? static_cast<double>(value / rhs_norm_) : 0.0;
+  }
+};
 
 template <typename T>
 __device__ inline size_t strict_null_index(
@@ -1925,6 +2004,7 @@ template <typename T> class StrictCoarseHierarchy {
       int fine_Z, int fine_T, int restart, int max_iter, T tolerance,
       int nu_pre, int nu_post, int &iterations, bool &converged,
       T &final_true_residual) {
+    StrictFgmresTrace<T> trace;
     const size_t n = outer_.fine_n;
     fine_prepare_in_stream(fine, outer_.b, full_rhs);
     if (params_[_MG_USE_INIT_GUESS_] != 0) {
@@ -1937,12 +2017,15 @@ template <typename T> class StrictCoarseHierarchy {
     }
 
     const T b_norm = norm(outer_.b, n);
+    trace.begin(b_norm);
     if (b_norm == (T)0) {
       zero_vector(outer_.x, n, "strict FGMRES zero rhs solution");
       zero_vector(outer_.r, n, "strict FGMRES zero rhs residual");
       iterations = 0;
       converged = true;
       final_true_residual = (T)0;
+      trace.initial((T)0);
+      trace.end(iterations, converged, final_true_residual);
       fine_reconstruct_in_stream(fine, full_out, full_rhs, outer_.x);
       return;
     }
@@ -1951,6 +2034,7 @@ template <typename T> class StrictCoarseHierarchy {
     strict_subtract_kernel<T><<<blocks(n), _BLOCK_SIZE_, 0, set_->stream>>>(
         outer_.r, outer_.b, outer_.w, static_cast<int>(n));
     T residual = norm(outer_.r, n);
+    trace.initial(residual);
     const T threshold = tolerance * b_norm;
     iterations = 0;
     converged = residual <= threshold;
@@ -2019,6 +2103,7 @@ template <typename T> class StrictCoarseHierarchy {
         const T estimate = std::abs(outer_.g[column + 1]);
         if (!std::isfinite(static_cast<double>(estimate)))
           throw std::runtime_error("strict FGMRES estimate is non-finite");
+        trace.iteration(iterations, column + 1, estimate, next_norm);
         if (estimate <= threshold || next_norm <= basis_floor) break;
       }
 
@@ -2033,10 +2118,12 @@ template <typename T> class StrictCoarseHierarchy {
           <<<blocks(n), _BLOCK_SIZE_, 0, set_->stream>>>(
               outer_.r, outer_.b, outer_.w, static_cast<int>(n));
       residual = norm(outer_.r, n);
+      trace.restart(iterations, residual);
       converged = residual <= threshold;
     }
 
     final_true_residual = residual;
+    trace.end(iterations, converged, final_true_residual);
     fine_reconstruct_in_stream(fine, full_out, full_rhs, outer_.x);
   }
 
