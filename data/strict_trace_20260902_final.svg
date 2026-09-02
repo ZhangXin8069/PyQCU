@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="760" viewBox="0 0 1100 760">
+<rect width="100%" height="100%" fill="white"/>
+<text x="550.0" y="30.0" font-size="20px" fill="#202124" text-anchor="middle">Strict Clover-MG / QUDA outer residual trace</text>
+<line x1="90" y1="480.0" x2="1065" y2="480.0" stroke="#e5e7eb"/>
+<text x="80.0" y="485.0" font-size="12px" fill="#202124" text-anchor="end">1e-8</text>
+<line x1="90" y1="428.8" x2="1065" y2="428.8" stroke="#e5e7eb"/>
+<text x="80.0" y="433.8" font-size="12px" fill="#202124" text-anchor="end">1e-7</text>
+<line x1="90" y1="377.5" x2="1065" y2="377.5" stroke="#e5e7eb"/>
+<text x="80.0" y="382.5" font-size="12px" fill="#202124" text-anchor="end">1e-6</text>
+<line x1="90" y1="326.3" x2="1065" y2="326.3" stroke="#e5e7eb"/>
+<text x="80.0" y="331.3" font-size="12px" fill="#202124" text-anchor="end">1e-5</text>
+<line x1="90" y1="275.1" x2="1065" y2="275.1" stroke="#e5e7eb"/>
+<text x="80.0" y="280.1" font-size="12px" fill="#202124" text-anchor="end">1e-4</text>
+<line x1="90" y1="223.8" x2="1065" y2="223.8" stroke="#e5e7eb"/>
+<text x="80.0" y="228.8" font-size="12px" fill="#202124" text-anchor="end">1e-3</text>
+<line x1="90" y1="172.6" x2="1065" y2="172.6" stroke="#e5e7eb"/>
+<text x="80.0" y="177.6" font-size="12px" fill="#202124" text-anchor="end">1e-2</text>
+<line x1="90" y1="121.4" x2="1065" y2="121.4" stroke="#e5e7eb"/>
+<text x="80.0" y="126.4" font-size="12px" fill="#202124" text-anchor="end">1e-1</text>
+<line x1="90" y1="70.1" x2="1065" y2="70.1" stroke="#e5e7eb"/>
+<text x="80.0" y="75.1" font-size="12px" fill="#202124" text-anchor="end">1e0</text>
+<line x1="90.0" y1="65" x2="90.0" y2="480" stroke="#f3f4f6"/>
+<text x="90.0" y="502.0" font-size="12px" fill="#202124" text-anchor="middle">0</text>
+<line x1="195.4" y1="65" x2="195.4" y2="480" stroke="#f3f4f6"/>
+<text x="195.4" y="502.0" font-size="12px" fill="#202124" text-anchor="middle">4</text>
+<line x1="300.8" y1="65" x2="300.8" y2="480" stroke="#f3f4f6"/>
+<text x="300.8" y="502.0" font-size="12px" fill="#202124" text-anchor="middle">8</text>
+<line x1="406.2" y1="65" x2="406.2" y2="480" stroke="#f3f4f6"/>
+<text x="406.2" y="502.0" font-size="12px" fill="#202124" text-anchor="middle">12</text>
+<line x1="511.6" y1="65" x2="511.6" y2="480" stroke="#f3f4f6"/>
+<text x="511.6" y="502.0" font-size="12px" fill="#202124" text-anchor="middle">16</text>
+<line x1="617.0" y1="65" x2="617.0" y2="480" stroke="#f3f4f6"/>
+<text x="617.0" y="502.0" font-size="12px" fill="#202124" text-anchor="middle">20</text>
+<line x1="722.4" y1="65" x2="722.4" y2="480" stroke="#f3f4f6"/>
+<text x="722.4" y="502.0" font-size="12px" fill="#202124" text-anchor="middle">24</text>
+<line x1="827.8" y1="65" x2="827.8" y2="480" stroke="#f3f4f6"/>
+<text x="827.8" y="502.0" font-size="12px" fill="#202124" text-anchor="middle">28</text>
+<line x1="933.2" y1="65" x2="933.2" y2="480" stroke="#f3f4f6"/>
+<text x="933.2" y="502.0" font-size="12px" fill="#202124" text-anchor="middle">32</text>
+<line x1="1038.6" y1="65" x2="1038.6" y2="480" stroke="#f3f4f6"/>
+<text x="1038.6" y="502.0" font-size="12px" fill="#202124" text-anchor="middle">36</text>
+<line x1="90" y1="65" x2="90" y2="480" stroke="#374151"/>
+<line x1="90" y1="480" x2="1065" y2="480" stroke="#374151"/>
+<text x="18.0" y="272.5" font-size="14px" fill="#202124" text-anchor="start">相对迭代残差</text>
+<text x="577.5" y="525.0" font-size="14px" fill="#202124" text-anchor="middle">外层迭代编号</text>
+<polyline points="90.0,70.1 116.4,122.8 142.7,161.7 169.1,200.8 195.4,233.6 221.8,258.5 248.1,285.5 274.5,308.8 300.8,332.7 327.2,351.4 353.5,372.9 379.9,397.6" fill="none" stroke="#1769aa" stroke-width="2" opacity="0.35"/>
+<polyline points="90.0,70.1 116.4,122.8 142.7,161.7 169.1,200.8 195.4,233.6 221.8,258.5 248.1,285.5 274.5,308.8 300.8,332.7 327.2,351.4 353.5,372.9 379.9,397.6" fill="none" stroke="#1769aa" stroke-width="2" opacity="0.35"/>
+<polyline points="90.0,70.1 116.4,122.8 142.7,161.7 169.1,200.8 195.4,233.6 221.8,258.5 248.1,285.5 274.5,308.8 300.8,332.7 327.2,351.4 353.5,372.9 379.9,397.6" fill="none" stroke="#1769aa" stroke-width="2" opacity="0.35"/>
+<polyline points="90.0,70.1 116.4,122.8 142.7,161.7 169.1,200.8 195.4,233.6 221.8,258.5 248.1,285.5 274.5,308.8 300.8,332.7 327.2,351.4 353.5,372.9 379.9,397.6" fill="none" stroke="#1769aa" stroke-width="2" opacity="0.35"/>
+<polyline points="90.0,70.1 116.4,122.8 142.7,161.7 169.1,200.8 195.4,233.6 221.8,258.5 248.1,285.5 274.5,308.8 300.8,332.7 327.2,351.4 353.5,372.9 379.9,397.6" fill="none" stroke="#1769aa" stroke-width="2" opacity="0.35"/>
+<line x1="795" y1="40" x2="825" y2="40" stroke="#1769aa" stroke-width="3"/>
+<text x="835.0" y="45.0" font-size="13px" fill="#202124" text-anchor="start">PyQCU Strict (Arnoldi estimate)</text>
+<polyline points="90.0,70.1 116.4,99.9 142.7,119.9 169.1,134.0 195.4,146.3 221.8,155.1 248.1,167.3 274.5,176.3 300.8,186.6 327.2,193.7 353.5,203.8 379.9,211.0 406.2,220.2 432.6,226.7 458.9,235.1 485.3,242.4 511.6,249.8 538.0,255.8 564.3,263.9 590.7,270.2 617.0,277.3 643.4,283.4 669.7,290.3 696.1,296.7 722.4,303.3 748.8,308.5 775.1,315.6 801.5,321.4 827.8,327.8 854.2,332.9 880.5,339.8 906.9,345.3 933.2,351.6 959.6,356.4 985.9,363.5 1012.3,368.3 1038.6,375.0 1065.0,379.6" fill="none" stroke="#c2410c" stroke-width="2" opacity="0.35"/>
+<polyline points="90.0,70.1 116.4,99.9 142.7,119.9 169.1,134.0 195.4,146.3 221.8,155.1 248.1,167.3 274.5,176.3 300.8,186.6 327.2,193.7 353.5,203.8 379.9,211.0 406.2,220.2 432.6,226.7 458.9,235.1 485.3,242.4 511.6,249.8 538.0,255.8 564.3,263.9 590.7,270.2 617.0,277.3 643.4,283.4 669.7,290.3 696.1,296.7 722.4,303.3 748.8,308.5 775.1,315.6 801.5,321.4 827.8,327.8 854.2,332.9 880.5,339.8 906.9,345.3 933.2,351.6 959.6,356.4 985.9,363.5 1012.3,368.3 1038.6,375.0 1065.0,379.6" fill="none" stroke="#c2410c" stroke-width="2" opacity="0.35"/>
+<polyline points="90.0,70.1 116.4,99.9 142.7,119.9 169.1,134.0 195.4,146.3 221.8,155.1 248.1,167.3 274.5,176.3 300.8,186.6 327.2,193.7 353.5,203.8 379.9,211.0 406.2,220.2 432.6,226.7 458.9,235.1 485.3,242.4 511.6,249.8 538.0,255.8 564.3,263.9 590.7,270.2 617.0,277.3 643.4,283.4 669.7,290.3 696.1,296.7 722.4,303.3 748.8,308.5 775.1,315.6 801.5,321.4 827.8,327.8 854.2,332.9 880.5,339.8 906.9,345.3 933.2,351.6 959.6,356.4 985.9,363.5 1012.3,368.3 1038.6,375.0 1065.0,379.6" fill="none" stroke="#c2410c" stroke-width="2" opacity="0.35"/>
+<polyline points="90.0,70.1 116.4,99.9 142.7,119.9 169.1,134.0 195.4,146.3 221.8,155.1 248.1,167.3 274.5,176.3 300.8,186.6 327.2,193.7 353.5,203.8 379.9,211.0 406.2,220.2 432.6,226.7 458.9,235.1 485.3,242.4 511.6,249.8 538.0,255.8 564.3,263.9 590.7,270.2 617.0,277.3 643.4,283.4 669.7,290.3 696.1,296.7 722.4,303.3 748.8,308.5 775.1,315.6 801.5,321.4 827.8,327.8 854.2,332.9 880.5,339.8 906.9,345.3 933.2,351.6 959.6,356.4 985.9,363.5 1012.3,368.3 1038.6,375.0 1065.0,379.6" fill="none" stroke="#c2410c" stroke-width="2" opacity="0.35"/>
+<polyline points="90.0,70.1 116.4,99.9 142.7,119.9 169.1,134.0 195.4,146.3 221.8,155.1 248.1,167.3 274.5,176.3 300.8,186.6 327.2,193.7 353.5,203.8 379.9,211.0 406.2,220.2 432.6,226.7 458.9,235.1 485.3,242.4 511.6,249.8 538.0,255.8 564.3,263.9 590.7,270.2 617.0,277.3 643.4,283.4 669.7,290.3 696.1,296.7 722.4,303.3 748.8,308.5 775.1,315.6 801.5,321.4 827.8,327.8 854.2,332.9 880.5,339.8 906.9,345.3 933.2,351.6 959.6,356.4 985.9,363.5 1012.3,368.3 1038.6,375.0 1065.0,379.6" fill="none" stroke="#c2410c" stroke-width="2" opacity="0.35"/>
+<line x1="795" y1="40" x2="825" y2="40" stroke="#c2410c" stroke-width="3"/>
+<text x="835.0" y="45.0" font-size="13px" fill="#202124" text-anchor="start">QUDA GCR (iterated residual)</text>
+<text x="90.0" y="562.0" font-size="15px" fill="#202124" text-anchor="start">无 trace 正式 steady median wall time（秒）</text>
+<rect x="190" y="606.2" width="230" height="98.8" fill="#1769aa" opacity="0.85"/>
+<text x="305.0" y="727.0" font-size="14px" fill="#202124" text-anchor="middle">PyQCU</text>
+<text x="305.0" y="598.2" font-size="14px" fill="#202124" text-anchor="middle">2.383584 s</text>
+<rect x="530" y="605.0" width="230" height="100.0" fill="#c2410c" opacity="0.85"/>
+<text x="645.0" y="727.0" font-size="14px" fill="#202124" text-anchor="middle">QUDA</text>
+<text x="645.0" y="597.0" font-size="14px" fill="#202124" text-anchor="middle">2.411687 s</text>
+<text x="780.0" y="605.0" font-size="13px" fill="#202124" text-anchor="start">每外层迭代平均：PyQCU 216.689 ms； QUDA 65.181 ms</text>
+<text x="780.0" y="630.0" font-size="13px" fill="#202124" text-anchor="start">曲线取 5 次 steady trace；性能柱取同输入无 trace 正式 benchmark</text>
+</svg>

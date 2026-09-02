@@ -1,0 +1,3479 @@
+{
+  "schema": {
+    "name": "pyqcu.strict-vs-quda.iteration-trace",
+    "version": 1
+  },
+  "created_at": "2026-09-02T13:03:16.602965+00:00",
+  "run": {
+    "benchmark_output": "/root/PyQCU/data/strict_trace_benchmark_20260902.json",
+    "reference_benchmark": "/root/PyQCU/data/strict_vs_quda_formal_20260902.json",
+    "trace_logging": "enabled; diagnostic wall times excluded from performance claims",
+    "repeats": 5,
+    "warmups": 2,
+    "pyqcu_trace": "/root/PyQCU/data/strict_trace_20260902_pyqcu.tsv",
+    "quda_trace": "/root/PyQCU/data/strict_trace_20260902_quda.log"
+  },
+  "protocol": {
+    "profile": "formal",
+    "lattice_xyzt": [
+      16,
+      32,
+      32,
+      48
+    ],
+    "mass": 0.05,
+    "kappa": 0.1234567901234568,
+    "seed": 42,
+    "precision": {
+      "name": "c64",
+      "complex_bytes": 8,
+      "real": "float32",
+      "default_tolerance": 1e-06,
+      "true_residual_gate": 5e-06
+    },
+    "levels": 2,
+    "block_xyzt": [
+      2,
+      2,
+      2,
+      2
+    ],
+    "nvec": 12,
+    "coarse_spin": 2,
+    "coarse_dof": 24,
+    "target_parity": 1,
+    "null_vector_contract": {
+      "source": "12 canonical full near-null vectors",
+      "full_reconstruction": "precomputed once by zero-rhs Clover block elimination",
+      "transfer": "full-field chiral aggregation with coarse_spin=2"
+    },
+    "outer_solver": "restarted-right-fgmres/gcr",
+    "restart_requested": 16,
+    "restart_effective": 4,
+    "max_krylov_bytes": 536870912,
+    "pyqcu_strict_setup": {
+      "probe_mode": "colored",
+      "column_batch_size": 12,
+      "projection_site_batch_size": 4,
+      "max_workspace_bytes": 4294967296,
+      "workspace_four_arena_lower_bound_bytes": 3623878656,
+      "require_exact_batch": true
+    },
+    "fused_workspace_formula": "(2m+5)B_f+2B_c",
+    "fused_workspace_terms": {
+      "B_f": "one compact fine-parity vector in bytes",
+      "B_c": "one full first-coarse-level vector in bytes"
+    },
+    "max_iter": 1000,
+    "tolerance": 1e-06,
+    "true_residual_gate": 5e-06,
+    "nu_pre": 1,
+    "nu_post": 1,
+    "coarse_max_iter": 200,
+    "coarse_tolerance": 0.003,
+    "initial_guess": "zero for every warmup and measured solve",
+    "warmups": 2,
+    "repeats": 5,
+    "statistic": {
+      "center": "median",
+      "spread": "median absolute deviation from median",
+      "warmups_included": false
+    },
+    "timing_contract": {
+      "input_io": "outside setup and solve",
+      "runtime_init": "CUDA/PyQUDA module initialization, outside setup",
+      "setup": "host inputs -> gauge/clover/runtime ready; includes cache lookup/restore, excludes cache persistence",
+      "cache_lookup_or_restore": "reported as a disjoint setup component",
+      "cache_persist": "reported separately and excluded from setup total",
+      "steady_solve": "zero-x0 solve call bracketed by CUDA synchronization",
+      "true_residual": "computed after each timed solve and excluded from solve time",
+      "first_solve_memory": "the first zero-x0 warmup is sampled for lazy solver/workspace allocation; excluded from warmup/repeat timing statistics",
+      "memory_probe": "one additional post-timing solve with 10 ms device-wide cudaMemGetInfo sampling; excluded from warmups/repeats/statistics"
+    },
+    "residual_contract": {
+      "definition": "||b-D_pyqcu*x_canonical||_2/||b||_2",
+      "operator": "full periodic Wilson+Clover, csw=1, PyQCU normalization",
+      "quda_solution_scale": 4.05
+    },
+    "config_hash": "654b72669843b5330dae22747b3a3b74164e676fcd961c843033929aca332478"
+  },
+  "input_fingerprints": {
+    "gauge": {
+      "algorithm": "sha256(logical-hdf5-dataset-v1)",
+      "sha256": "0a5b710d0fe1f69240e7fd373db0a163d992bd030b366a373e7300375b0d872c",
+      "path": "/root/PyQCU/data/gauge_16x32x32x48_m0.05_seed42_c64.h5",
+      "dataset": "g",
+      "shape": [
+        2,
+        3,
+        3,
+        4,
+        16,
+        32,
+        32,
+        24
+      ],
+      "dtype": "complex64",
+      "file_size_bytes": 301991936,
+      "file_mtime_ns": 1787207239570930936,
+      "elapsed_seconds": 0.9726673679997475
+    },
+    "source": {
+      "algorithm": "sha256(logical-hdf5-dataset-v1)",
+      "sha256": "ecf3c6a84720f4da80a59496a7ef5ebf279420a0501c9925cf6ecdc25c47c97a",
+      "path": "/root/PyQCU/data/gauge_16x32x32x48_m0.05_seed42_c64.h5",
+      "dataset": "fi",
+      "shape": [
+        2,
+        4,
+        3,
+        16,
+        32,
+        32,
+        24
+      ],
+      "dtype": "complex64",
+      "file_size_bytes": 301991936,
+      "file_mtime_ns": 1787207239570930936,
+      "elapsed_seconds": 0.32784074200026225
+    },
+    "null_vectors": {
+      "algorithm": "sha256(logical-hdf5-dataset-v1)",
+      "sha256": "8a69971e1b4c95d34ae9a18f200caae1479546f5a6a5bf10b58205da1d1b5163",
+      "path": "/root/PyQCU/data/L16x32x32x48_nvec12_full_c64.h5",
+      "dataset": "null",
+      "shape": [
+        12,
+        4,
+        3,
+        16,
+        32,
+        32,
+        48
+      ],
+      "dtype": "complex64",
+      "file_size_bytes": 906211760,
+      "file_mtime_ns": 1788102741385772486,
+      "elapsed_seconds": 4.833867231998738
+    },
+    "bundle_hash": "8c866bd093cf7c6b447b7c61e95704e7dac349386e4fbe28935455a0a6ca3d31"
+  },
+  "comparison": {
+    "status": "pass",
+    "profile": "formal",
+    "fair": true,
+    "reasons": [],
+    "speedup_pyqcu_over_quda": 1.0117903013061618,
+    "pyqcu_median_seconds": 2.3835836990001553,
+    "quda_median_seconds": 2.4116868689998228
+  },
+  "diagnostic_comparison": {
+    "status": "pass",
+    "profile": "formal",
+    "fair": true,
+    "reasons": [],
+    "speedup_pyqcu_over_quda": 1.0203876702667096,
+    "pyqcu_median_seconds": 2.398876053999629,
+    "quda_median_seconds": 2.447783547999279
+  },
+  "sides": {
+    "pyqcu": {
+      "side": "pyqcu",
+      "diagnostic_trace_sections": 8,
+      "warmups_excluded": 2,
+      "steady": [
+        {
+          "solve_index": 2,
+          "iterations": 11,
+          "residual_curve": [
+            {
+              "iteration": 0,
+              "relative": 1.0,
+              "kind": "initial_true_residual"
+            },
+            {
+              "iteration": 1,
+              "relative": 0.0936507061123848,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "iteration": 2,
+              "relative": 0.016313400119543076,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "iteration": 3,
+              "relative": 0.0028122286312282085,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "iteration": 4,
+              "relative": 0.0006457340787164867,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "iteration": 5,
+              "relative": 0.00021028987248428166,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "iteration": 6,
+              "relative": 6.252613820834085e-05,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "iteration": 7,
+              "relative": 2.197577487095259e-05,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "iteration": 8,
+              "relative": 7.483036824851297e-06,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "iteration": 9,
+              "relative": 3.2432135412818752e-06,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "iteration": 10,
+              "relative": 1.2322429938649293e-06,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "iteration": 11,
+              "relative": 4.0650434129929636e-07,
+              "kind": "arnoldi_estimate"
+            }
+          ],
+          "events": [
+            {
+              "kind": "initial_residual",
+              "iteration": 0,
+              "absolute": 2423.2548828125,
+              "relative": 1.0,
+              "elapsed_seconds": 0.004792966
+            },
+            {
+              "kind": "iteration",
+              "iteration": 1,
+              "cycle_iteration": 1,
+              "estimate_absolute": 226.9395294189453,
+              "estimate_relative": 0.0936507061123848,
+              "arnoldi_next_norm": 0.09652793407440186,
+              "elapsed_seconds": 0.225839628
+            },
+            {
+              "kind": "iteration",
+              "iteration": 2,
+              "cycle_iteration": 2,
+              "estimate_absolute": 39.53152847290039,
+              "estimate_relative": 0.016313400119543076,
+              "arnoldi_next_norm": 0.1914677768945694,
+              "elapsed_seconds": 0.418736043
+            },
+            {
+              "kind": "iteration",
+              "iteration": 3,
+              "cycle_iteration": 3,
+              "estimate_absolute": 6.814746856689453,
+              "estimate_relative": 0.0028122286312282085,
+              "arnoldi_next_norm": 0.19039766490459442,
+              "elapsed_seconds": 0.612752644
+            },
+            {
+              "kind": "iteration",
+              "iteration": 4,
+              "cycle_iteration": 4,
+              "estimate_absolute": 1.5647783279418945,
+              "estimate_relative": 0.0006457340787164867,
+              "arnoldi_next_norm": 0.2461315393447876,
+              "elapsed_seconds": 0.811098274
+            },
+            {
+              "kind": "restart_residual",
+              "iteration": 4,
+              "absolute": 1.5647794008255005,
+              "relative": 0.000645734544377774,
+              "elapsed_seconds": 0.815014673
+            },
+            {
+              "kind": "iteration",
+              "iteration": 5,
+              "cycle_iteration": 1,
+              "estimate_absolute": 0.509585976600647,
+              "estimate_relative": 0.00021028987248428166,
+              "arnoldi_next_norm": 0.33576637506484985,
+              "elapsed_seconds": 1.029731653
+            },
+            {
+              "kind": "iteration",
+              "iteration": 6,
+              "cycle_iteration": 2,
+              "estimate_absolute": 0.15151676535606384,
+              "estimate_relative": 6.252613820834085e-05,
+              "arnoldi_next_norm": 0.30120936036109924,
+              "elapsed_seconds": 1.243533563
+            },
+            {
+              "kind": "iteration",
+              "iteration": 7,
+              "cycle_iteration": 3,
+              "estimate_absolute": 0.05325290188193321,
+              "estimate_relative": 2.197577487095259e-05,
+              "arnoldi_next_norm": 0.34668755531311035,
+              "elapsed_seconds": 1.459473036
+            },
+            {
+              "kind": "iteration",
+              "iteration": 8,
+              "cycle_iteration": 4,
+              "estimate_absolute": 0.01813330501317978,
+              "estimate_relative": 7.483036824851297e-06,
+              "arnoldi_next_norm": 0.3336619436740875,
+              "elapsed_seconds": 1.671489409
+            },
+            {
+              "kind": "restart_residual",
+              "iteration": 8,
+              "absolute": 0.01813511736690998,
+              "relative": 7.483784429496154e-06,
+              "elapsed_seconds": 1.675162789
+            },
+            {
+              "kind": "iteration",
+              "iteration": 9,
+              "cycle_iteration": 1,
+              "estimate_absolute": 0.007859133183956146,
+              "estimate_relative": 3.2432135412818752e-06,
+              "arnoldi_next_norm": 0.4139387607574463,
+              "elapsed_seconds": 1.933918728
+            },
+            {
+              "kind": "iteration",
+              "iteration": 10,
+              "cycle_iteration": 2,
+              "estimate_absolute": 0.002986038802191615,
+              "estimate_relative": 1.2322429938649293e-06,
+              "arnoldi_next_norm": 0.3375259041786194,
+              "elapsed_seconds": 2.162276449
+            },
+            {
+              "kind": "iteration",
+              "iteration": 11,
+              "cycle_iteration": 3,
+              "estimate_absolute": 0.00098506361246109,
+              "estimate_relative": 4.0650434129929636e-07,
+              "arnoldi_next_norm": 0.3152531683444977,
+              "elapsed_seconds": 2.380913127
+            },
+            {
+              "kind": "restart_residual",
+              "iteration": 11,
+              "absolute": 0.0010121609084308147,
+              "relative": 4.1768652181417565e-07,
+              "elapsed_seconds": 2.384453997
+            }
+          ],
+          "trace_elapsed_seconds": 2.384456698,
+          "restart_residuals": [
+            {
+              "kind": "restart_residual",
+              "iteration": 4,
+              "absolute": 1.5647794008255005,
+              "relative": 0.000645734544377774,
+              "elapsed_seconds": 0.815014673
+            },
+            {
+              "kind": "restart_residual",
+              "iteration": 8,
+              "absolute": 0.01813511736690998,
+              "relative": 7.483784429496154e-06,
+              "elapsed_seconds": 1.675162789
+            },
+            {
+              "kind": "restart_residual",
+              "iteration": 11,
+              "absolute": 0.0010121609084308147,
+              "relative": 4.1768652181417565e-07,
+              "elapsed_seconds": 2.384453997
+            }
+          ]
+        },
+        {
+          "solve_index": 3,
+          "iterations": 11,
+          "residual_curve": [
+            {
+              "iteration": 0,
+              "relative": 1.0,
+              "kind": "initial_true_residual"
+            },
+            {
+              "iteration": 1,
+              "relative": 0.0936507061123848,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "iteration": 2,
+              "relative": 0.016313400119543076,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "iteration": 3,
+              "relative": 0.0028122286312282085,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "iteration": 4,
+              "relative": 0.0006457340787164867,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "iteration": 5,
+              "relative": 0.00021028987248428166,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "iteration": 6,
+              "relative": 6.252613820834085e-05,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "iteration": 7,
+              "relative": 2.197577487095259e-05,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "iteration": 8,
+              "relative": 7.483036824851297e-06,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "iteration": 9,
+              "relative": 3.2432135412818752e-06,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "iteration": 10,
+              "relative": 1.2322429938649293e-06,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "iteration": 11,
+              "relative": 4.0650434129929636e-07,
+              "kind": "arnoldi_estimate"
+            }
+          ],
+          "events": [
+            {
+              "kind": "initial_residual",
+              "iteration": 0,
+              "absolute": 2423.2548828125,
+              "relative": 1.0,
+              "elapsed_seconds": 0.004401283
+            },
+            {
+              "kind": "iteration",
+              "iteration": 1,
+              "cycle_iteration": 1,
+              "estimate_absolute": 226.9395294189453,
+              "estimate_relative": 0.0936507061123848,
+              "arnoldi_next_norm": 0.09652793407440186,
+              "elapsed_seconds": 0.211406474
+            },
+            {
+              "kind": "iteration",
+              "iteration": 2,
+              "cycle_iteration": 2,
+              "estimate_absolute": 39.53152847290039,
+              "estimate_relative": 0.016313400119543076,
+              "arnoldi_next_norm": 0.1914677768945694,
+              "elapsed_seconds": 0.411802892
+            },
+            {
+              "kind": "iteration",
+              "iteration": 3,
+              "cycle_iteration": 3,
+              "estimate_absolute": 6.814746856689453,
+              "estimate_relative": 0.0028122286312282085,
+              "arnoldi_next_norm": 0.19039766490459442,
+              "elapsed_seconds": 0.60047329
+            },
+            {
+              "kind": "iteration",
+              "iteration": 4,
+              "cycle_iteration": 4,
+              "estimate_absolute": 1.5647783279418945,
+              "estimate_relative": 0.0006457340787164867,
+              "arnoldi_next_norm": 0.2461315393447876,
+              "elapsed_seconds": 0.849295916
+            },
+            {
+              "kind": "restart_residual",
+              "iteration": 4,
+              "absolute": 1.5647794008255005,
+              "relative": 0.000645734544377774,
+              "elapsed_seconds": 0.854347055
+            },
+            {
+              "kind": "iteration",
+              "iteration": 5,
+              "cycle_iteration": 1,
+              "estimate_absolute": 0.509585976600647,
+              "estimate_relative": 0.00021028987248428166,
+              "arnoldi_next_norm": 0.33576637506484985,
+              "elapsed_seconds": 1.115623763
+            },
+            {
+              "kind": "iteration",
+              "iteration": 6,
+              "cycle_iteration": 2,
+              "estimate_absolute": 0.15151676535606384,
+              "estimate_relative": 6.252613820834085e-05,
+              "arnoldi_next_norm": 0.30120936036109924,
+              "elapsed_seconds": 1.344109722
+            },
+            {
+              "kind": "iteration",
+              "iteration": 7,
+              "cycle_iteration": 3,
+              "estimate_absolute": 0.05325290188193321,
+              "estimate_relative": 2.197577487095259e-05,
+              "arnoldi_next_norm": 0.34668755531311035,
+              "elapsed_seconds": 1.632024646
+            },
+            {
+              "kind": "iteration",
+              "iteration": 8,
+              "cycle_iteration": 4,
+              "estimate_absolute": 0.01813330501317978,
+              "estimate_relative": 7.483036824851297e-06,
+              "arnoldi_next_norm": 0.3336619436740875,
+              "elapsed_seconds": 1.852073571
+            },
+            {
+              "kind": "restart_residual",
+              "iteration": 8,
+              "absolute": 0.01813511736690998,
+              "relative": 7.483784429496154e-06,
+              "elapsed_seconds": 1.855841199
+            },
+            {
+              "kind": "iteration",
+              "iteration": 9,
+              "cycle_iteration": 1,
+              "estimate_absolute": 0.007859133183956146,
+              "estimate_relative": 3.2432135412818752e-06,
+              "arnoldi_next_norm": 0.4139387607574463,
+              "elapsed_seconds": 2.114287961
+            },
+            {
+              "kind": "iteration",
+              "iteration": 10,
+              "cycle_iteration": 2,
+              "estimate_absolute": 0.002986038802191615,
+              "estimate_relative": 1.2322429938649293e-06,
+              "arnoldi_next_norm": 0.3375259041786194,
+              "elapsed_seconds": 2.343111149
+            },
+            {
+              "kind": "iteration",
+              "iteration": 11,
+              "cycle_iteration": 3,
+              "estimate_absolute": 0.00098506361246109,
+              "estimate_relative": 4.0650434129929636e-07,
+              "arnoldi_next_norm": 0.3152531683444977,
+              "elapsed_seconds": 2.570779437
+            },
+            {
+              "kind": "restart_residual",
+              "iteration": 11,
+              "absolute": 0.0010121609084308147,
+              "relative": 4.1768652181417565e-07,
+              "elapsed_seconds": 2.57529583
+            }
+          ],
+          "trace_elapsed_seconds": 2.57529863,
+          "restart_residuals": [
+            {
+              "kind": "restart_residual",
+              "iteration": 4,
+              "absolute": 1.5647794008255005,
+              "relative": 0.000645734544377774,
+              "elapsed_seconds": 0.854347055
+            },
+            {
+              "kind": "restart_residual",
+              "iteration": 8,
+              "absolute": 0.01813511736690998,
+              "relative": 7.483784429496154e-06,
+              "elapsed_seconds": 1.855841199
+            },
+            {
+              "kind": "restart_residual",
+              "iteration": 11,
+              "absolute": 0.0010121609084308147,
+              "relative": 4.1768652181417565e-07,
+              "elapsed_seconds": 2.57529583
+            }
+          ]
+        },
+        {
+          "solve_index": 4,
+          "iterations": 11,
+          "residual_curve": [
+            {
+              "iteration": 0,
+              "relative": 1.0,
+              "kind": "initial_true_residual"
+            },
+            {
+              "iteration": 1,
+              "relative": 0.0936507061123848,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "iteration": 2,
+              "relative": 0.016313400119543076,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "iteration": 3,
+              "relative": 0.0028122286312282085,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "iteration": 4,
+              "relative": 0.0006457340787164867,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "iteration": 5,
+              "relative": 0.00021028987248428166,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "iteration": 6,
+              "relative": 6.252613820834085e-05,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "iteration": 7,
+              "relative": 2.197577487095259e-05,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "iteration": 8,
+              "relative": 7.483036824851297e-06,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "iteration": 9,
+              "relative": 3.2432135412818752e-06,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "iteration": 10,
+              "relative": 1.2322429938649293e-06,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "iteration": 11,
+              "relative": 4.0650434129929636e-07,
+              "kind": "arnoldi_estimate"
+            }
+          ],
+          "events": [
+            {
+              "kind": "initial_residual",
+              "iteration": 0,
+              "absolute": 2423.2548828125,
+              "relative": 1.0,
+              "elapsed_seconds": 0.002999561
+            },
+            {
+              "kind": "iteration",
+              "iteration": 1,
+              "cycle_iteration": 1,
+              "estimate_absolute": 226.9395294189453,
+              "estimate_relative": 0.0936507061123848,
+              "arnoldi_next_norm": 0.09652793407440186,
+              "elapsed_seconds": 0.219558583
+            },
+            {
+              "kind": "iteration",
+              "iteration": 2,
+              "cycle_iteration": 2,
+              "estimate_absolute": 39.53152847290039,
+              "estimate_relative": 0.016313400119543076,
+              "arnoldi_next_norm": 0.1914677768945694,
+              "elapsed_seconds": 0.415670628
+            },
+            {
+              "kind": "iteration",
+              "iteration": 3,
+              "cycle_iteration": 3,
+              "estimate_absolute": 6.814746856689453,
+              "estimate_relative": 0.0028122286312282085,
+              "arnoldi_next_norm": 0.19039766490459442,
+              "elapsed_seconds": 0.609040135
+            },
+            {
+              "kind": "iteration",
+              "iteration": 4,
+              "cycle_iteration": 4,
+              "estimate_absolute": 1.5647783279418945,
+              "estimate_relative": 0.0006457340787164867,
+              "arnoldi_next_norm": 0.2461315393447876,
+              "elapsed_seconds": 0.812579525
+            },
+            {
+              "kind": "restart_residual",
+              "iteration": 4,
+              "absolute": 1.5647794008255005,
+              "relative": 0.000645734544377774,
+              "elapsed_seconds": 0.816252944
+            },
+            {
+              "kind": "iteration",
+              "iteration": 5,
+              "cycle_iteration": 1,
+              "estimate_absolute": 0.509585976600647,
+              "estimate_relative": 0.00021028987248428166,
+              "arnoldi_next_norm": 0.33576637506484985,
+              "elapsed_seconds": 1.02606718
+            },
+            {
+              "kind": "iteration",
+              "iteration": 6,
+              "cycle_iteration": 2,
+              "estimate_absolute": 0.15151676535606384,
+              "estimate_relative": 6.252613820834085e-05,
+              "arnoldi_next_norm": 0.30120936036109924,
+              "elapsed_seconds": 1.246413031
+            },
+            {
+              "kind": "iteration",
+              "iteration": 7,
+              "cycle_iteration": 3,
+              "estimate_absolute": 0.05325290188193321,
+              "estimate_relative": 2.197577487095259e-05,
+              "arnoldi_next_norm": 0.34668755531311035,
+              "elapsed_seconds": 1.467515348
+            },
+            {
+              "kind": "iteration",
+              "iteration": 8,
+              "cycle_iteration": 4,
+              "estimate_absolute": 0.01813330501317978,
+              "estimate_relative": 7.483036824851297e-06,
+              "arnoldi_next_norm": 0.3336619436740875,
+              "elapsed_seconds": 1.677361187
+            },
+            {
+              "kind": "restart_residual",
+              "iteration": 8,
+              "absolute": 0.01813511736690998,
+              "relative": 7.483784429496154e-06,
+              "elapsed_seconds": 1.681040807
+            },
+            {
+              "kind": "iteration",
+              "iteration": 9,
+              "cycle_iteration": 1,
+              "estimate_absolute": 0.007859133183956146,
+              "estimate_relative": 3.2432135412818752e-06,
+              "arnoldi_next_norm": 0.4139387607574463,
+              "elapsed_seconds": 1.937187669
+            },
+            {
+              "kind": "iteration",
+              "iteration": 10,
+              "cycle_iteration": 2,
+              "estimate_absolute": 0.002986038802191615,
+              "estimate_relative": 1.2322429938649293e-06,
+              "arnoldi_next_norm": 0.3375259041786194,
+              "elapsed_seconds": 2.163113706
+            },
+            {
+              "kind": "iteration",
+              "iteration": 11,
+              "cycle_iteration": 3,
+              "estimate_absolute": 0.00098506361246109,
+              "estimate_relative": 4.0650434129929636e-07,
+              "arnoldi_next_norm": 0.3152531683444977,
+              "elapsed_seconds": 2.380587407
+            },
+            {
+              "kind": "restart_residual",
+              "iteration": 11,
+              "absolute": 0.0010121609084308147,
+              "relative": 4.1768652181417565e-07,
+              "elapsed_seconds": 2.385149604
+            }
+          ],
+          "trace_elapsed_seconds": 2.385152304,
+          "restart_residuals": [
+            {
+              "kind": "restart_residual",
+              "iteration": 4,
+              "absolute": 1.5647794008255005,
+              "relative": 0.000645734544377774,
+              "elapsed_seconds": 0.816252944
+            },
+            {
+              "kind": "restart_residual",
+              "iteration": 8,
+              "absolute": 0.01813511736690998,
+              "relative": 7.483784429496154e-06,
+              "elapsed_seconds": 1.681040807
+            },
+            {
+              "kind": "restart_residual",
+              "iteration": 11,
+              "absolute": 0.0010121609084308147,
+              "relative": 4.1768652181417565e-07,
+              "elapsed_seconds": 2.385149604
+            }
+          ]
+        },
+        {
+          "solve_index": 5,
+          "iterations": 11,
+          "residual_curve": [
+            {
+              "iteration": 0,
+              "relative": 1.0,
+              "kind": "initial_true_residual"
+            },
+            {
+              "iteration": 1,
+              "relative": 0.0936507061123848,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "iteration": 2,
+              "relative": 0.016313400119543076,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "iteration": 3,
+              "relative": 0.0028122286312282085,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "iteration": 4,
+              "relative": 0.0006457340787164867,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "iteration": 5,
+              "relative": 0.00021028987248428166,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "iteration": 6,
+              "relative": 6.252613820834085e-05,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "iteration": 7,
+              "relative": 2.197577487095259e-05,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "iteration": 8,
+              "relative": 7.483036824851297e-06,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "iteration": 9,
+              "relative": 3.2432135412818752e-06,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "iteration": 10,
+              "relative": 1.2322429938649293e-06,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "iteration": 11,
+              "relative": 4.0650434129929636e-07,
+              "kind": "arnoldi_estimate"
+            }
+          ],
+          "events": [
+            {
+              "kind": "initial_residual",
+              "iteration": 0,
+              "absolute": 2423.2548828125,
+              "relative": 1.0,
+              "elapsed_seconds": 0.003646117
+            },
+            {
+              "kind": "iteration",
+              "iteration": 1,
+              "cycle_iteration": 1,
+              "estimate_absolute": 226.9395294189453,
+              "estimate_relative": 0.0936507061123848,
+              "arnoldi_next_norm": 0.09652793407440186,
+              "elapsed_seconds": 0.210822724
+            },
+            {
+              "kind": "iteration",
+              "iteration": 2,
+              "cycle_iteration": 2,
+              "estimate_absolute": 39.53152847290039,
+              "estimate_relative": 0.016313400119543076,
+              "arnoldi_next_norm": 0.1914677768945694,
+              "elapsed_seconds": 0.401450692
+            },
+            {
+              "kind": "iteration",
+              "iteration": 3,
+              "cycle_iteration": 3,
+              "estimate_absolute": 6.814746856689453,
+              "estimate_relative": 0.0028122286312282085,
+              "arnoldi_next_norm": 0.19039766490459442,
+              "elapsed_seconds": 0.594934308
+            },
+            {
+              "kind": "iteration",
+              "iteration": 4,
+              "cycle_iteration": 4,
+              "estimate_absolute": 1.5647783279418945,
+              "estimate_relative": 0.0006457340787164867,
+              "arnoldi_next_norm": 0.2461315393447876,
+              "elapsed_seconds": 0.803105801
+            },
+            {
+              "kind": "restart_residual",
+              "iteration": 4,
+              "absolute": 1.5647794008255005,
+              "relative": 0.000645734544377774,
+              "elapsed_seconds": 0.807634195
+            },
+            {
+              "kind": "iteration",
+              "iteration": 5,
+              "cycle_iteration": 1,
+              "estimate_absolute": 0.509585976600647,
+              "estimate_relative": 0.00021028987248428166,
+              "arnoldi_next_norm": 0.33576637506484985,
+              "elapsed_seconds": 1.019912145
+            },
+            {
+              "kind": "iteration",
+              "iteration": 6,
+              "cycle_iteration": 2,
+              "estimate_absolute": 0.15151676535606384,
+              "estimate_relative": 6.252613820834085e-05,
+              "arnoldi_next_norm": 0.30120936036109924,
+              "elapsed_seconds": 1.252545064
+            },
+            {
+              "kind": "iteration",
+              "iteration": 7,
+              "cycle_iteration": 3,
+              "estimate_absolute": 0.05325290188193321,
+              "estimate_relative": 2.197577487095259e-05,
+              "arnoldi_next_norm": 0.34668755531311035,
+              "elapsed_seconds": 1.475751164
+            },
+            {
+              "kind": "iteration",
+              "iteration": 8,
+              "cycle_iteration": 4,
+              "estimate_absolute": 0.01813330501317978,
+              "estimate_relative": 7.483036824851297e-06,
+              "arnoldi_next_norm": 0.3336619436740875,
+              "elapsed_seconds": 1.691570922
+            },
+            {
+              "kind": "restart_residual",
+              "iteration": 8,
+              "absolute": 0.01813511736690998,
+              "relative": 7.483784429496154e-06,
+              "elapsed_seconds": 1.695263143
+            },
+            {
+              "kind": "iteration",
+              "iteration": 9,
+              "cycle_iteration": 1,
+              "estimate_absolute": 0.007859133183956146,
+              "estimate_relative": 3.2432135412818752e-06,
+              "arnoldi_next_norm": 0.4139387607574463,
+              "elapsed_seconds": 1.94778759
+            },
+            {
+              "kind": "iteration",
+              "iteration": 10,
+              "cycle_iteration": 2,
+              "estimate_absolute": 0.002986038802191615,
+              "estimate_relative": 1.2322429938649293e-06,
+              "arnoldi_next_norm": 0.3375259041786194,
+              "elapsed_seconds": 2.168937311
+            },
+            {
+              "kind": "iteration",
+              "iteration": 11,
+              "cycle_iteration": 3,
+              "estimate_absolute": 0.00098506361246109,
+              "estimate_relative": 4.0650434129929636e-07,
+              "arnoldi_next_norm": 0.3152531683444977,
+              "elapsed_seconds": 2.390114589
+            },
+            {
+              "kind": "restart_residual",
+              "iteration": 11,
+              "absolute": 0.0010121609084308147,
+              "relative": 4.1768652181417565e-07,
+              "elapsed_seconds": 2.393838615
+            }
+          ],
+          "trace_elapsed_seconds": 2.393841515,
+          "restart_residuals": [
+            {
+              "kind": "restart_residual",
+              "iteration": 4,
+              "absolute": 1.5647794008255005,
+              "relative": 0.000645734544377774,
+              "elapsed_seconds": 0.807634195
+            },
+            {
+              "kind": "restart_residual",
+              "iteration": 8,
+              "absolute": 0.01813511736690998,
+              "relative": 7.483784429496154e-06,
+              "elapsed_seconds": 1.695263143
+            },
+            {
+              "kind": "restart_residual",
+              "iteration": 11,
+              "absolute": 0.0010121609084308147,
+              "relative": 4.1768652181417565e-07,
+              "elapsed_seconds": 2.393838615
+            }
+          ]
+        },
+        {
+          "solve_index": 6,
+          "iterations": 11,
+          "residual_curve": [
+            {
+              "iteration": 0,
+              "relative": 1.0,
+              "kind": "initial_true_residual"
+            },
+            {
+              "iteration": 1,
+              "relative": 0.0936507061123848,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "iteration": 2,
+              "relative": 0.016313400119543076,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "iteration": 3,
+              "relative": 0.0028122286312282085,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "iteration": 4,
+              "relative": 0.0006457340787164867,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "iteration": 5,
+              "relative": 0.00021028987248428166,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "iteration": 6,
+              "relative": 6.252613820834085e-05,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "iteration": 7,
+              "relative": 2.197577487095259e-05,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "iteration": 8,
+              "relative": 7.483036824851297e-06,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "iteration": 9,
+              "relative": 3.2432135412818752e-06,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "iteration": 10,
+              "relative": 1.2322429938649293e-06,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "iteration": 11,
+              "relative": 4.0650434129929636e-07,
+              "kind": "arnoldi_estimate"
+            }
+          ],
+          "events": [
+            {
+              "kind": "initial_residual",
+              "iteration": 0,
+              "absolute": 2423.2548828125,
+              "relative": 1.0,
+              "elapsed_seconds": 0.003052567
+            },
+            {
+              "kind": "iteration",
+              "iteration": 1,
+              "cycle_iteration": 1,
+              "estimate_absolute": 226.9395294189453,
+              "estimate_relative": 0.0936507061123848,
+              "arnoldi_next_norm": 0.09652793407440186,
+              "elapsed_seconds": 0.203786648
+            },
+            {
+              "kind": "iteration",
+              "iteration": 2,
+              "cycle_iteration": 2,
+              "estimate_absolute": 39.53152847290039,
+              "estimate_relative": 0.016313400119543076,
+              "arnoldi_next_norm": 0.1914677768945694,
+              "elapsed_seconds": 0.407336875
+            },
+            {
+              "kind": "iteration",
+              "iteration": 3,
+              "cycle_iteration": 3,
+              "estimate_absolute": 6.814746856689453,
+              "estimate_relative": 0.0028122286312282085,
+              "arnoldi_next_norm": 0.19039766490459442,
+              "elapsed_seconds": 0.61142705
+            },
+            {
+              "kind": "iteration",
+              "iteration": 4,
+              "cycle_iteration": 4,
+              "estimate_absolute": 1.5647783279418945,
+              "estimate_relative": 0.0006457340787164867,
+              "arnoldi_next_norm": 0.2461315393447876,
+              "elapsed_seconds": 0.820194634
+            },
+            {
+              "kind": "restart_residual",
+              "iteration": 4,
+              "absolute": 1.5647794008255005,
+              "relative": 0.000645734544377774,
+              "elapsed_seconds": 0.824017569
+            },
+            {
+              "kind": "iteration",
+              "iteration": 5,
+              "cycle_iteration": 1,
+              "estimate_absolute": 0.509585976600647,
+              "estimate_relative": 0.00021028987248428166,
+              "arnoldi_next_norm": 0.33576637506484985,
+              "elapsed_seconds": 1.036545482
+            },
+            {
+              "kind": "iteration",
+              "iteration": 6,
+              "cycle_iteration": 2,
+              "estimate_absolute": 0.15151676535606384,
+              "estimate_relative": 6.252613820834085e-05,
+              "arnoldi_next_norm": 0.30120936036109924,
+              "elapsed_seconds": 1.254691388
+            },
+            {
+              "kind": "iteration",
+              "iteration": 7,
+              "cycle_iteration": 3,
+              "estimate_absolute": 0.05325290188193321,
+              "estimate_relative": 2.197577487095259e-05,
+              "arnoldi_next_norm": 0.34668755531311035,
+              "elapsed_seconds": 1.478683706
+            },
+            {
+              "kind": "iteration",
+              "iteration": 8,
+              "cycle_iteration": 4,
+              "estimate_absolute": 0.01813330501317978,
+              "estimate_relative": 7.483036824851297e-06,
+              "arnoldi_next_norm": 0.3336619436740875,
+              "elapsed_seconds": 1.690240535
+            },
+            {
+              "kind": "restart_residual",
+              "iteration": 8,
+              "absolute": 0.01813511736690998,
+              "relative": 7.483784429496154e-06,
+              "elapsed_seconds": 1.69418938
+            },
+            {
+              "kind": "iteration",
+              "iteration": 9,
+              "cycle_iteration": 1,
+              "estimate_absolute": 0.007859133183956146,
+              "estimate_relative": 3.2432135412818752e-06,
+              "arnoldi_next_norm": 0.4139387607574463,
+              "elapsed_seconds": 1.953126759
+            },
+            {
+              "kind": "iteration",
+              "iteration": 10,
+              "cycle_iteration": 2,
+              "estimate_absolute": 0.002986038802191615,
+              "estimate_relative": 1.2322429938649293e-06,
+              "arnoldi_next_norm": 0.3375259041786194,
+              "elapsed_seconds": 2.184829252
+            },
+            {
+              "kind": "iteration",
+              "iteration": 11,
+              "cycle_iteration": 3,
+              "estimate_absolute": 0.00098506361246109,
+              "estimate_relative": 4.0650434129929636e-07,
+              "arnoldi_next_norm": 0.3152531683444977,
+              "elapsed_seconds": 2.400086804
+            },
+            {
+              "kind": "restart_residual",
+              "iteration": 11,
+              "absolute": 0.0010121609084308147,
+              "relative": 4.1768652181417565e-07,
+              "elapsed_seconds": 2.404334276
+            }
+          ],
+          "trace_elapsed_seconds": 2.404336977,
+          "restart_residuals": [
+            {
+              "kind": "restart_residual",
+              "iteration": 4,
+              "absolute": 1.5647794008255005,
+              "relative": 0.000645734544377774,
+              "elapsed_seconds": 0.824017569
+            },
+            {
+              "kind": "restart_residual",
+              "iteration": 8,
+              "absolute": 0.01813511736690998,
+              "relative": 7.483784429496154e-06,
+              "elapsed_seconds": 1.69418938
+            },
+            {
+              "kind": "restart_residual",
+              "iteration": 11,
+              "absolute": 0.0010121609084308147,
+              "relative": 4.1768652181417565e-07,
+              "elapsed_seconds": 2.404334276
+            }
+          ]
+        }
+      ],
+      "timing_reference": {
+        "samples_seconds": [
+          2.3835836990001553,
+          2.363065538000228,
+          2.391369761999158,
+          2.437554468999224,
+          2.3681969469998876
+        ],
+        "median_seconds": 2.3835836990001553,
+        "mad_seconds": 0.015386752000267734,
+        "median_iterations": 11.0,
+        "average_seconds_per_outer_iteration": 0.2166894271818323,
+        "average_milliseconds_per_outer_iteration": 216.68942718183231,
+        "source": "un-instrumented formal benchmark document"
+      }
+    },
+    "quda": {
+      "side": "quda",
+      "diagnostic_trace_sections": 8,
+      "warmups_excluded": 2,
+      "steady": [
+        {
+          "solve_index": 2,
+          "iterations": 37,
+          "residual_curve": [
+            {
+              "iteration": 0,
+              "relative": 1.0,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 1,
+              "relative": 0.2625984,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 2,
+              "relative": 0.1067166,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 3,
+              "relative": 0.05669911,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 4,
+              "relative": 0.03254715,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 5,
+              "relative": 0.02190758,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 6,
+              "relative": 0.01267097,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 7,
+              "relative": 0.00845222,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 8,
+              "relative": 0.005334316,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 9,
+              "relative": 0.003873168,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 10,
+              "relative": 0.002461819,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 11,
+              "relative": 0.001777913,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 12,
+              "relative": 0.001177729,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 13,
+              "relative": 0.0008780667,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 14,
+              "relative": 0.0006034993,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 15,
+              "relative": 0.000433663,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 16,
+              "relative": 0.0003106508,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 17,
+              "relative": 0.0002376354,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 18,
+              "relative": 0.0001651258,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 19,
+              "relative": 0.0001245429,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 20,
+              "relative": 9.032679e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 21,
+              "relative": 6.863e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 22,
+              "relative": 5.050729e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 23,
+              "relative": 3.787736e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 24,
+              "relative": 2.815701e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 25,
+              "relative": 2.227549e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 26,
+              "relative": 1.619515e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 27,
+              "relative": 1.246593e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 28,
+              "relative": 9.334165e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 29,
+              "relative": 7.446214e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 30,
+              "relative": 5.459565e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 31,
+              "relative": 4.26561e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 32,
+              "relative": 3.203091e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 33,
+              "relative": 2.585741e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 34,
+              "relative": 1.881693e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 35,
+              "relative": 1.517277e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 36,
+              "relative": 1.11998e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 37,
+              "relative": 9.118852e-07,
+              "kind": "gcr_iterated_residual"
+            }
+          ],
+          "events": [
+            {
+              "kind": "iteration",
+              "iteration": 0,
+              "relative": 1.0,
+              "raw": "GCR:     0 iterations, <r,r> = 3.580042e+05, |r|/|b| = 1.000000e+00"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 1,
+              "relative": 0.2625984,
+              "raw": "GCR:     1 iterations, <r,r> = 2.468723e+04, |r|/|b| = 2.625984e-01"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 2,
+              "relative": 0.1067166,
+              "raw": "GCR:     2 iterations, <r,r> = 4.077109e+03, |r|/|b| = 1.067166e-01"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 3,
+              "relative": 0.05669911,
+              "raw": "GCR:     3 iterations, <r,r> = 1.150908e+03, |r|/|b| = 5.669911e-02"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 4,
+              "relative": 0.03254715,
+              "raw": "GCR:     4 iterations, <r,r> = 3.792399e+02, |r|/|b| = 3.254715e-02"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 5,
+              "relative": 0.02190758,
+              "raw": "GCR:     5 iterations, <r,r> = 1.718212e+02, |r|/|b| = 2.190758e-02"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 6,
+              "relative": 0.01267097,
+              "raw": "GCR:     6 iterations, <r,r> = 5.747882e+01, |r|/|b| = 1.267097e-02"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 7,
+              "relative": 0.00845222,
+              "raw": "GCR:     7 iterations, <r,r> = 2.557583e+01, |r|/|b| = 8.452220e-03"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 8,
+              "relative": 0.005334316,
+              "raw": "GCR:     8 iterations, <r,r> = 1.018698e+01, |r|/|b| = 5.334316e-03"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 9,
+              "relative": 0.003873168,
+              "raw": "GCR:     9 iterations, <r,r> = 5.370575e+00, |r|/|b| = 3.873168e-03"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 10,
+              "relative": 0.002461819,
+              "raw": "GCR:    10 iterations, <r,r> = 2.169703e+00, |r|/|b| = 2.461819e-03"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 11,
+              "relative": 0.001777913,
+              "raw": "GCR:    11 iterations, <r,r> = 1.131642e+00, |r|/|b| = 1.777913e-03"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 12,
+              "relative": 0.001177729,
+              "raw": "GCR:    12 iterations, <r,r> = 4.965683e-01, |r|/|b| = 1.177729e-03"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 13,
+              "relative": 0.0008780667,
+              "raw": "GCR:    13 iterations, <r,r> = 2.760217e-01, |r|/|b| = 8.780667e-04"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 14,
+              "relative": 0.0006034993,
+              "raw": "GCR:    14 iterations, <r,r> = 1.303892e-01, |r|/|b| = 6.034993e-04"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 15,
+              "relative": 0.000433663,
+              "raw": "GCR:    15 iterations, <r,r> = 6.732757e-02, |r|/|b| = 4.336630e-04"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 16,
+              "relative": 0.0003106508,
+              "raw": "GCR:    16 iterations, <r,r> = 3.454881e-02, |r|/|b| = 3.106508e-04"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 17,
+              "relative": 0.0002376354,
+              "raw": "GCR:    17 iterations, <r,r> = 2.021671e-02, |r|/|b| = 2.376354e-04"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 18,
+              "relative": 0.0001651258,
+              "raw": "GCR:    18 iterations, <r,r> = 9.761533e-03, |r|/|b| = 1.651258e-04"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 19,
+              "relative": 0.0001245429,
+              "raw": "GCR:    19 iterations, <r,r> = 5.552980e-03, |r|/|b| = 1.245429e-04"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 20,
+              "relative": 9.032679e-05,
+              "raw": "GCR:    20 iterations, <r,r> = 2.920931e-03, |r|/|b| = 9.032679e-05"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 21,
+              "relative": 6.863e-05,
+              "raw": "GCR:    21 iterations, <r,r> = 1.686227e-03, |r|/|b| = 6.863000e-05"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 22,
+              "relative": 5.050729e-05,
+              "raw": "GCR:    22 iterations, <r,r> = 9.132640e-04, |r|/|b| = 5.050729e-05"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 23,
+              "relative": 3.787736e-05,
+              "raw": "GCR:    23 iterations, <r,r> = 5.136266e-04, |r|/|b| = 3.787736e-05"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 24,
+              "relative": 2.815701e-05,
+              "raw": "GCR:    24 iterations, <r,r> = 2.838320e-04, |r|/|b| = 2.815701e-05"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 25,
+              "relative": 2.227549e-05,
+              "raw": "GCR:    25 iterations, <r,r> = 1.776407e-04, |r|/|b| = 2.227549e-05"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 26,
+              "relative": 1.619515e-05,
+              "raw": "GCR:    26 iterations, <r,r> = 9.389836e-05, |r|/|b| = 1.619515e-05"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 27,
+              "relative": 1.246593e-05,
+              "raw": "GCR:    27 iterations, <r,r> = 5.563367e-05, |r|/|b| = 1.246593e-05"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 28,
+              "relative": 9.334165e-06,
+              "raw": "GCR:    28 iterations, <r,r> = 3.119170e-05, |r|/|b| = 9.334165e-06"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 29,
+              "relative": 7.446214e-06,
+              "raw": "GCR:    29 iterations, <r,r> = 1.984994e-05, |r|/|b| = 7.446214e-06"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 30,
+              "relative": 5.459565e-06,
+              "raw": "GCR:    30 iterations, <r,r> = 1.067098e-05, |r|/|b| = 5.459565e-06"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 31,
+              "relative": 4.26561e-06,
+              "raw": "GCR:    31 iterations, <r,r> = 6.514041e-06, |r|/|b| = 4.265610e-06"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 32,
+              "relative": 3.203091e-06,
+              "raw": "GCR:    32 iterations, <r,r> = 3.673049e-06, |r|/|b| = 3.203091e-06"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 33,
+              "relative": 2.585741e-06,
+              "raw": "GCR:    33 iterations, <r,r> = 2.393636e-06, |r|/|b| = 2.585741e-06"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 34,
+              "relative": 1.881693e-06,
+              "raw": "GCR:    34 iterations, <r,r> = 1.267610e-06, |r|/|b| = 1.881693e-06"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 35,
+              "relative": 1.517277e-06,
+              "raw": "GCR:    35 iterations, <r,r> = 8.241721e-07, |r|/|b| = 1.517277e-06"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 36,
+              "relative": 1.11998e-06,
+              "raw": "GCR:    36 iterations, <r,r> = 4.490648e-07, |r|/|b| = 1.119980e-06"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 37,
+              "relative": 9.118852e-07,
+              "raw": "GCR:    37 iterations, <r,r> = 2.976929e-07, |r|/|b| = 9.118852e-07"
+            }
+          ]
+        },
+        {
+          "solve_index": 3,
+          "iterations": 37,
+          "residual_curve": [
+            {
+              "iteration": 0,
+              "relative": 1.0,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 1,
+              "relative": 0.2625984,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 2,
+              "relative": 0.1067166,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 3,
+              "relative": 0.05669911,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 4,
+              "relative": 0.03254715,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 5,
+              "relative": 0.02190758,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 6,
+              "relative": 0.01267097,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 7,
+              "relative": 0.00845222,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 8,
+              "relative": 0.005334316,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 9,
+              "relative": 0.003873168,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 10,
+              "relative": 0.002461819,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 11,
+              "relative": 0.001777913,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 12,
+              "relative": 0.001177729,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 13,
+              "relative": 0.0008780667,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 14,
+              "relative": 0.0006034993,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 15,
+              "relative": 0.000433663,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 16,
+              "relative": 0.0003106508,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 17,
+              "relative": 0.0002376354,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 18,
+              "relative": 0.0001651258,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 19,
+              "relative": 0.0001245429,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 20,
+              "relative": 9.032679e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 21,
+              "relative": 6.863e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 22,
+              "relative": 5.050729e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 23,
+              "relative": 3.787736e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 24,
+              "relative": 2.815701e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 25,
+              "relative": 2.227549e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 26,
+              "relative": 1.619515e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 27,
+              "relative": 1.246593e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 28,
+              "relative": 9.334165e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 29,
+              "relative": 7.446214e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 30,
+              "relative": 5.459565e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 31,
+              "relative": 4.26561e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 32,
+              "relative": 3.203091e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 33,
+              "relative": 2.585741e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 34,
+              "relative": 1.881693e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 35,
+              "relative": 1.517277e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 36,
+              "relative": 1.11998e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 37,
+              "relative": 9.118852e-07,
+              "kind": "gcr_iterated_residual"
+            }
+          ],
+          "events": [
+            {
+              "kind": "iteration",
+              "iteration": 0,
+              "relative": 1.0,
+              "raw": "GCR:     0 iterations, <r,r> = 3.580042e+05, |r|/|b| = 1.000000e+00"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 1,
+              "relative": 0.2625984,
+              "raw": "GCR:     1 iterations, <r,r> = 2.468723e+04, |r|/|b| = 2.625984e-01"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 2,
+              "relative": 0.1067166,
+              "raw": "GCR:     2 iterations, <r,r> = 4.077109e+03, |r|/|b| = 1.067166e-01"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 3,
+              "relative": 0.05669911,
+              "raw": "GCR:     3 iterations, <r,r> = 1.150908e+03, |r|/|b| = 5.669911e-02"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 4,
+              "relative": 0.03254715,
+              "raw": "GCR:     4 iterations, <r,r> = 3.792399e+02, |r|/|b| = 3.254715e-02"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 5,
+              "relative": 0.02190758,
+              "raw": "GCR:     5 iterations, <r,r> = 1.718212e+02, |r|/|b| = 2.190758e-02"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 6,
+              "relative": 0.01267097,
+              "raw": "GCR:     6 iterations, <r,r> = 5.747882e+01, |r|/|b| = 1.267097e-02"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 7,
+              "relative": 0.00845222,
+              "raw": "GCR:     7 iterations, <r,r> = 2.557583e+01, |r|/|b| = 8.452220e-03"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 8,
+              "relative": 0.005334316,
+              "raw": "GCR:     8 iterations, <r,r> = 1.018698e+01, |r|/|b| = 5.334316e-03"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 9,
+              "relative": 0.003873168,
+              "raw": "GCR:     9 iterations, <r,r> = 5.370575e+00, |r|/|b| = 3.873168e-03"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 10,
+              "relative": 0.002461819,
+              "raw": "GCR:    10 iterations, <r,r> = 2.169703e+00, |r|/|b| = 2.461819e-03"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 11,
+              "relative": 0.001777913,
+              "raw": "GCR:    11 iterations, <r,r> = 1.131642e+00, |r|/|b| = 1.777913e-03"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 12,
+              "relative": 0.001177729,
+              "raw": "GCR:    12 iterations, <r,r> = 4.965683e-01, |r|/|b| = 1.177729e-03"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 13,
+              "relative": 0.0008780667,
+              "raw": "GCR:    13 iterations, <r,r> = 2.760217e-01, |r|/|b| = 8.780667e-04"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 14,
+              "relative": 0.0006034993,
+              "raw": "GCR:    14 iterations, <r,r> = 1.303892e-01, |r|/|b| = 6.034993e-04"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 15,
+              "relative": 0.000433663,
+              "raw": "GCR:    15 iterations, <r,r> = 6.732757e-02, |r|/|b| = 4.336630e-04"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 16,
+              "relative": 0.0003106508,
+              "raw": "GCR:    16 iterations, <r,r> = 3.454881e-02, |r|/|b| = 3.106508e-04"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 17,
+              "relative": 0.0002376354,
+              "raw": "GCR:    17 iterations, <r,r> = 2.021671e-02, |r|/|b| = 2.376354e-04"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 18,
+              "relative": 0.0001651258,
+              "raw": "GCR:    18 iterations, <r,r> = 9.761533e-03, |r|/|b| = 1.651258e-04"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 19,
+              "relative": 0.0001245429,
+              "raw": "GCR:    19 iterations, <r,r> = 5.552980e-03, |r|/|b| = 1.245429e-04"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 20,
+              "relative": 9.032679e-05,
+              "raw": "GCR:    20 iterations, <r,r> = 2.920931e-03, |r|/|b| = 9.032679e-05"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 21,
+              "relative": 6.863e-05,
+              "raw": "GCR:    21 iterations, <r,r> = 1.686227e-03, |r|/|b| = 6.863000e-05"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 22,
+              "relative": 5.050729e-05,
+              "raw": "GCR:    22 iterations, <r,r> = 9.132640e-04, |r|/|b| = 5.050729e-05"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 23,
+              "relative": 3.787736e-05,
+              "raw": "GCR:    23 iterations, <r,r> = 5.136266e-04, |r|/|b| = 3.787736e-05"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 24,
+              "relative": 2.815701e-05,
+              "raw": "GCR:    24 iterations, <r,r> = 2.838320e-04, |r|/|b| = 2.815701e-05"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 25,
+              "relative": 2.227549e-05,
+              "raw": "GCR:    25 iterations, <r,r> = 1.776407e-04, |r|/|b| = 2.227549e-05"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 26,
+              "relative": 1.619515e-05,
+              "raw": "GCR:    26 iterations, <r,r> = 9.389836e-05, |r|/|b| = 1.619515e-05"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 27,
+              "relative": 1.246593e-05,
+              "raw": "GCR:    27 iterations, <r,r> = 5.563367e-05, |r|/|b| = 1.246593e-05"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 28,
+              "relative": 9.334165e-06,
+              "raw": "GCR:    28 iterations, <r,r> = 3.119170e-05, |r|/|b| = 9.334165e-06"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 29,
+              "relative": 7.446214e-06,
+              "raw": "GCR:    29 iterations, <r,r> = 1.984994e-05, |r|/|b| = 7.446214e-06"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 30,
+              "relative": 5.459565e-06,
+              "raw": "GCR:    30 iterations, <r,r> = 1.067098e-05, |r|/|b| = 5.459565e-06"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 31,
+              "relative": 4.26561e-06,
+              "raw": "GCR:    31 iterations, <r,r> = 6.514041e-06, |r|/|b| = 4.265610e-06"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 32,
+              "relative": 3.203091e-06,
+              "raw": "GCR:    32 iterations, <r,r> = 3.673049e-06, |r|/|b| = 3.203091e-06"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 33,
+              "relative": 2.585741e-06,
+              "raw": "GCR:    33 iterations, <r,r> = 2.393636e-06, |r|/|b| = 2.585741e-06"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 34,
+              "relative": 1.881693e-06,
+              "raw": "GCR:    34 iterations, <r,r> = 1.267610e-06, |r|/|b| = 1.881693e-06"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 35,
+              "relative": 1.517277e-06,
+              "raw": "GCR:    35 iterations, <r,r> = 8.241721e-07, |r|/|b| = 1.517277e-06"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 36,
+              "relative": 1.11998e-06,
+              "raw": "GCR:    36 iterations, <r,r> = 4.490648e-07, |r|/|b| = 1.119980e-06"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 37,
+              "relative": 9.118852e-07,
+              "raw": "GCR:    37 iterations, <r,r> = 2.976929e-07, |r|/|b| = 9.118852e-07"
+            }
+          ]
+        },
+        {
+          "solve_index": 4,
+          "iterations": 37,
+          "residual_curve": [
+            {
+              "iteration": 0,
+              "relative": 1.0,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 1,
+              "relative": 0.2625984,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 2,
+              "relative": 0.1067166,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 3,
+              "relative": 0.05669911,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 4,
+              "relative": 0.03254715,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 5,
+              "relative": 0.02190758,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 6,
+              "relative": 0.01267097,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 7,
+              "relative": 0.00845222,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 8,
+              "relative": 0.005334316,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 9,
+              "relative": 0.003873168,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 10,
+              "relative": 0.002461819,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 11,
+              "relative": 0.001777913,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 12,
+              "relative": 0.001177729,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 13,
+              "relative": 0.0008780667,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 14,
+              "relative": 0.0006034993,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 15,
+              "relative": 0.000433663,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 16,
+              "relative": 0.0003106508,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 17,
+              "relative": 0.0002376354,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 18,
+              "relative": 0.0001651258,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 19,
+              "relative": 0.0001245429,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 20,
+              "relative": 9.032679e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 21,
+              "relative": 6.863e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 22,
+              "relative": 5.050729e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 23,
+              "relative": 3.787736e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 24,
+              "relative": 2.815701e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 25,
+              "relative": 2.227549e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 26,
+              "relative": 1.619515e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 27,
+              "relative": 1.246593e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 28,
+              "relative": 9.334165e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 29,
+              "relative": 7.446214e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 30,
+              "relative": 5.459565e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 31,
+              "relative": 4.26561e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 32,
+              "relative": 3.203091e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 33,
+              "relative": 2.585741e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 34,
+              "relative": 1.881693e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 35,
+              "relative": 1.517277e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 36,
+              "relative": 1.11998e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 37,
+              "relative": 9.118852e-07,
+              "kind": "gcr_iterated_residual"
+            }
+          ],
+          "events": [
+            {
+              "kind": "iteration",
+              "iteration": 0,
+              "relative": 1.0,
+              "raw": "GCR:     0 iterations, <r,r> = 3.580042e+05, |r|/|b| = 1.000000e+00"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 1,
+              "relative": 0.2625984,
+              "raw": "GCR:     1 iterations, <r,r> = 2.468723e+04, |r|/|b| = 2.625984e-01"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 2,
+              "relative": 0.1067166,
+              "raw": "GCR:     2 iterations, <r,r> = 4.077109e+03, |r|/|b| = 1.067166e-01"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 3,
+              "relative": 0.05669911,
+              "raw": "GCR:     3 iterations, <r,r> = 1.150908e+03, |r|/|b| = 5.669911e-02"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 4,
+              "relative": 0.03254715,
+              "raw": "GCR:     4 iterations, <r,r> = 3.792399e+02, |r|/|b| = 3.254715e-02"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 5,
+              "relative": 0.02190758,
+              "raw": "GCR:     5 iterations, <r,r> = 1.718212e+02, |r|/|b| = 2.190758e-02"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 6,
+              "relative": 0.01267097,
+              "raw": "GCR:     6 iterations, <r,r> = 5.747882e+01, |r|/|b| = 1.267097e-02"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 7,
+              "relative": 0.00845222,
+              "raw": "GCR:     7 iterations, <r,r> = 2.557583e+01, |r|/|b| = 8.452220e-03"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 8,
+              "relative": 0.005334316,
+              "raw": "GCR:     8 iterations, <r,r> = 1.018698e+01, |r|/|b| = 5.334316e-03"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 9,
+              "relative": 0.003873168,
+              "raw": "GCR:     9 iterations, <r,r> = 5.370575e+00, |r|/|b| = 3.873168e-03"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 10,
+              "relative": 0.002461819,
+              "raw": "GCR:    10 iterations, <r,r> = 2.169703e+00, |r|/|b| = 2.461819e-03"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 11,
+              "relative": 0.001777913,
+              "raw": "GCR:    11 iterations, <r,r> = 1.131642e+00, |r|/|b| = 1.777913e-03"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 12,
+              "relative": 0.001177729,
+              "raw": "GCR:    12 iterations, <r,r> = 4.965683e-01, |r|/|b| = 1.177729e-03"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 13,
+              "relative": 0.0008780667,
+              "raw": "GCR:    13 iterations, <r,r> = 2.760217e-01, |r|/|b| = 8.780667e-04"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 14,
+              "relative": 0.0006034993,
+              "raw": "GCR:    14 iterations, <r,r> = 1.303892e-01, |r|/|b| = 6.034993e-04"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 15,
+              "relative": 0.000433663,
+              "raw": "GCR:    15 iterations, <r,r> = 6.732757e-02, |r|/|b| = 4.336630e-04"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 16,
+              "relative": 0.0003106508,
+              "raw": "GCR:    16 iterations, <r,r> = 3.454881e-02, |r|/|b| = 3.106508e-04"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 17,
+              "relative": 0.0002376354,
+              "raw": "GCR:    17 iterations, <r,r> = 2.021671e-02, |r|/|b| = 2.376354e-04"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 18,
+              "relative": 0.0001651258,
+              "raw": "GCR:    18 iterations, <r,r> = 9.761533e-03, |r|/|b| = 1.651258e-04"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 19,
+              "relative": 0.0001245429,
+              "raw": "GCR:    19 iterations, <r,r> = 5.552980e-03, |r|/|b| = 1.245429e-04"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 20,
+              "relative": 9.032679e-05,
+              "raw": "GCR:    20 iterations, <r,r> = 2.920931e-03, |r|/|b| = 9.032679e-05"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 21,
+              "relative": 6.863e-05,
+              "raw": "GCR:    21 iterations, <r,r> = 1.686227e-03, |r|/|b| = 6.863000e-05"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 22,
+              "relative": 5.050729e-05,
+              "raw": "GCR:    22 iterations, <r,r> = 9.132640e-04, |r|/|b| = 5.050729e-05"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 23,
+              "relative": 3.787736e-05,
+              "raw": "GCR:    23 iterations, <r,r> = 5.136266e-04, |r|/|b| = 3.787736e-05"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 24,
+              "relative": 2.815701e-05,
+              "raw": "GCR:    24 iterations, <r,r> = 2.838320e-04, |r|/|b| = 2.815701e-05"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 25,
+              "relative": 2.227549e-05,
+              "raw": "GCR:    25 iterations, <r,r> = 1.776407e-04, |r|/|b| = 2.227549e-05"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 26,
+              "relative": 1.619515e-05,
+              "raw": "GCR:    26 iterations, <r,r> = 9.389836e-05, |r|/|b| = 1.619515e-05"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 27,
+              "relative": 1.246593e-05,
+              "raw": "GCR:    27 iterations, <r,r> = 5.563367e-05, |r|/|b| = 1.246593e-05"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 28,
+              "relative": 9.334165e-06,
+              "raw": "GCR:    28 iterations, <r,r> = 3.119170e-05, |r|/|b| = 9.334165e-06"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 29,
+              "relative": 7.446214e-06,
+              "raw": "GCR:    29 iterations, <r,r> = 1.984994e-05, |r|/|b| = 7.446214e-06"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 30,
+              "relative": 5.459565e-06,
+              "raw": "GCR:    30 iterations, <r,r> = 1.067098e-05, |r|/|b| = 5.459565e-06"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 31,
+              "relative": 4.26561e-06,
+              "raw": "GCR:    31 iterations, <r,r> = 6.514041e-06, |r|/|b| = 4.265610e-06"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 32,
+              "relative": 3.203091e-06,
+              "raw": "GCR:    32 iterations, <r,r> = 3.673049e-06, |r|/|b| = 3.203091e-06"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 33,
+              "relative": 2.585741e-06,
+              "raw": "GCR:    33 iterations, <r,r> = 2.393636e-06, |r|/|b| = 2.585741e-06"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 34,
+              "relative": 1.881693e-06,
+              "raw": "GCR:    34 iterations, <r,r> = 1.267610e-06, |r|/|b| = 1.881693e-06"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 35,
+              "relative": 1.517277e-06,
+              "raw": "GCR:    35 iterations, <r,r> = 8.241721e-07, |r|/|b| = 1.517277e-06"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 36,
+              "relative": 1.11998e-06,
+              "raw": "GCR:    36 iterations, <r,r> = 4.490648e-07, |r|/|b| = 1.119980e-06"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 37,
+              "relative": 9.118852e-07,
+              "raw": "GCR:    37 iterations, <r,r> = 2.976929e-07, |r|/|b| = 9.118852e-07"
+            }
+          ]
+        },
+        {
+          "solve_index": 5,
+          "iterations": 37,
+          "residual_curve": [
+            {
+              "iteration": 0,
+              "relative": 1.0,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 1,
+              "relative": 0.2625984,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 2,
+              "relative": 0.1067166,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 3,
+              "relative": 0.05669911,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 4,
+              "relative": 0.03254715,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 5,
+              "relative": 0.02190758,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 6,
+              "relative": 0.01267097,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 7,
+              "relative": 0.00845222,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 8,
+              "relative": 0.005334316,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 9,
+              "relative": 0.003873168,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 10,
+              "relative": 0.002461819,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 11,
+              "relative": 0.001777913,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 12,
+              "relative": 0.001177729,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 13,
+              "relative": 0.0008780667,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 14,
+              "relative": 0.0006034993,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 15,
+              "relative": 0.000433663,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 16,
+              "relative": 0.0003106508,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 17,
+              "relative": 0.0002376354,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 18,
+              "relative": 0.0001651258,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 19,
+              "relative": 0.0001245429,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 20,
+              "relative": 9.032679e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 21,
+              "relative": 6.863e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 22,
+              "relative": 5.050729e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 23,
+              "relative": 3.787736e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 24,
+              "relative": 2.815701e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 25,
+              "relative": 2.227549e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 26,
+              "relative": 1.619515e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 27,
+              "relative": 1.246593e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 28,
+              "relative": 9.334165e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 29,
+              "relative": 7.446214e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 30,
+              "relative": 5.459565e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 31,
+              "relative": 4.26561e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 32,
+              "relative": 3.203091e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 33,
+              "relative": 2.585741e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 34,
+              "relative": 1.881693e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 35,
+              "relative": 1.517277e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 36,
+              "relative": 1.11998e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 37,
+              "relative": 9.118852e-07,
+              "kind": "gcr_iterated_residual"
+            }
+          ],
+          "events": [
+            {
+              "kind": "iteration",
+              "iteration": 0,
+              "relative": 1.0,
+              "raw": "GCR:     0 iterations, <r,r> = 3.580042e+05, |r|/|b| = 1.000000e+00"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 1,
+              "relative": 0.2625984,
+              "raw": "GCR:     1 iterations, <r,r> = 2.468723e+04, |r|/|b| = 2.625984e-01"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 2,
+              "relative": 0.1067166,
+              "raw": "GCR:     2 iterations, <r,r> = 4.077109e+03, |r|/|b| = 1.067166e-01"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 3,
+              "relative": 0.05669911,
+              "raw": "GCR:     3 iterations, <r,r> = 1.150908e+03, |r|/|b| = 5.669911e-02"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 4,
+              "relative": 0.03254715,
+              "raw": "GCR:     4 iterations, <r,r> = 3.792399e+02, |r|/|b| = 3.254715e-02"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 5,
+              "relative": 0.02190758,
+              "raw": "GCR:     5 iterations, <r,r> = 1.718212e+02, |r|/|b| = 2.190758e-02"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 6,
+              "relative": 0.01267097,
+              "raw": "GCR:     6 iterations, <r,r> = 5.747882e+01, |r|/|b| = 1.267097e-02"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 7,
+              "relative": 0.00845222,
+              "raw": "GCR:     7 iterations, <r,r> = 2.557583e+01, |r|/|b| = 8.452220e-03"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 8,
+              "relative": 0.005334316,
+              "raw": "GCR:     8 iterations, <r,r> = 1.018698e+01, |r|/|b| = 5.334316e-03"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 9,
+              "relative": 0.003873168,
+              "raw": "GCR:     9 iterations, <r,r> = 5.370575e+00, |r|/|b| = 3.873168e-03"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 10,
+              "relative": 0.002461819,
+              "raw": "GCR:    10 iterations, <r,r> = 2.169703e+00, |r|/|b| = 2.461819e-03"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 11,
+              "relative": 0.001777913,
+              "raw": "GCR:    11 iterations, <r,r> = 1.131642e+00, |r|/|b| = 1.777913e-03"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 12,
+              "relative": 0.001177729,
+              "raw": "GCR:    12 iterations, <r,r> = 4.965683e-01, |r|/|b| = 1.177729e-03"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 13,
+              "relative": 0.0008780667,
+              "raw": "GCR:    13 iterations, <r,r> = 2.760217e-01, |r|/|b| = 8.780667e-04"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 14,
+              "relative": 0.0006034993,
+              "raw": "GCR:    14 iterations, <r,r> = 1.303892e-01, |r|/|b| = 6.034993e-04"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 15,
+              "relative": 0.000433663,
+              "raw": "GCR:    15 iterations, <r,r> = 6.732757e-02, |r|/|b| = 4.336630e-04"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 16,
+              "relative": 0.0003106508,
+              "raw": "GCR:    16 iterations, <r,r> = 3.454881e-02, |r|/|b| = 3.106508e-04"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 17,
+              "relative": 0.0002376354,
+              "raw": "GCR:    17 iterations, <r,r> = 2.021671e-02, |r|/|b| = 2.376354e-04"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 18,
+              "relative": 0.0001651258,
+              "raw": "GCR:    18 iterations, <r,r> = 9.761533e-03, |r|/|b| = 1.651258e-04"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 19,
+              "relative": 0.0001245429,
+              "raw": "GCR:    19 iterations, <r,r> = 5.552980e-03, |r|/|b| = 1.245429e-04"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 20,
+              "relative": 9.032679e-05,
+              "raw": "GCR:    20 iterations, <r,r> = 2.920931e-03, |r|/|b| = 9.032679e-05"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 21,
+              "relative": 6.863e-05,
+              "raw": "GCR:    21 iterations, <r,r> = 1.686227e-03, |r|/|b| = 6.863000e-05"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 22,
+              "relative": 5.050729e-05,
+              "raw": "GCR:    22 iterations, <r,r> = 9.132640e-04, |r|/|b| = 5.050729e-05"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 23,
+              "relative": 3.787736e-05,
+              "raw": "GCR:    23 iterations, <r,r> = 5.136266e-04, |r|/|b| = 3.787736e-05"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 24,
+              "relative": 2.815701e-05,
+              "raw": "GCR:    24 iterations, <r,r> = 2.838320e-04, |r|/|b| = 2.815701e-05"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 25,
+              "relative": 2.227549e-05,
+              "raw": "GCR:    25 iterations, <r,r> = 1.776407e-04, |r|/|b| = 2.227549e-05"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 26,
+              "relative": 1.619515e-05,
+              "raw": "GCR:    26 iterations, <r,r> = 9.389836e-05, |r|/|b| = 1.619515e-05"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 27,
+              "relative": 1.246593e-05,
+              "raw": "GCR:    27 iterations, <r,r> = 5.563367e-05, |r|/|b| = 1.246593e-05"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 28,
+              "relative": 9.334165e-06,
+              "raw": "GCR:    28 iterations, <r,r> = 3.119170e-05, |r|/|b| = 9.334165e-06"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 29,
+              "relative": 7.446214e-06,
+              "raw": "GCR:    29 iterations, <r,r> = 1.984994e-05, |r|/|b| = 7.446214e-06"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 30,
+              "relative": 5.459565e-06,
+              "raw": "GCR:    30 iterations, <r,r> = 1.067098e-05, |r|/|b| = 5.459565e-06"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 31,
+              "relative": 4.26561e-06,
+              "raw": "GCR:    31 iterations, <r,r> = 6.514041e-06, |r|/|b| = 4.265610e-06"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 32,
+              "relative": 3.203091e-06,
+              "raw": "GCR:    32 iterations, <r,r> = 3.673049e-06, |r|/|b| = 3.203091e-06"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 33,
+              "relative": 2.585741e-06,
+              "raw": "GCR:    33 iterations, <r,r> = 2.393636e-06, |r|/|b| = 2.585741e-06"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 34,
+              "relative": 1.881693e-06,
+              "raw": "GCR:    34 iterations, <r,r> = 1.267610e-06, |r|/|b| = 1.881693e-06"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 35,
+              "relative": 1.517277e-06,
+              "raw": "GCR:    35 iterations, <r,r> = 8.241721e-07, |r|/|b| = 1.517277e-06"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 36,
+              "relative": 1.11998e-06,
+              "raw": "GCR:    36 iterations, <r,r> = 4.490648e-07, |r|/|b| = 1.119980e-06"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 37,
+              "relative": 9.118852e-07,
+              "raw": "GCR:    37 iterations, <r,r> = 2.976929e-07, |r|/|b| = 9.118852e-07"
+            }
+          ]
+        },
+        {
+          "solve_index": 6,
+          "iterations": 37,
+          "residual_curve": [
+            {
+              "iteration": 0,
+              "relative": 1.0,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 1,
+              "relative": 0.2625984,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 2,
+              "relative": 0.1067166,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 3,
+              "relative": 0.05669911,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 4,
+              "relative": 0.03254715,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 5,
+              "relative": 0.02190758,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 6,
+              "relative": 0.01267097,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 7,
+              "relative": 0.00845222,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 8,
+              "relative": 0.005334316,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 9,
+              "relative": 0.003873168,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 10,
+              "relative": 0.002461819,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 11,
+              "relative": 0.001777913,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 12,
+              "relative": 0.001177729,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 13,
+              "relative": 0.0008780667,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 14,
+              "relative": 0.0006034993,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 15,
+              "relative": 0.000433663,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 16,
+              "relative": 0.0003106508,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 17,
+              "relative": 0.0002376354,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 18,
+              "relative": 0.0001651258,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 19,
+              "relative": 0.0001245429,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 20,
+              "relative": 9.032679e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 21,
+              "relative": 6.863e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 22,
+              "relative": 5.050729e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 23,
+              "relative": 3.787736e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 24,
+              "relative": 2.815701e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 25,
+              "relative": 2.227549e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 26,
+              "relative": 1.619515e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 27,
+              "relative": 1.246593e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 28,
+              "relative": 9.334165e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 29,
+              "relative": 7.446214e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 30,
+              "relative": 5.459565e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 31,
+              "relative": 4.26561e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 32,
+              "relative": 3.203091e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 33,
+              "relative": 2.585741e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 34,
+              "relative": 1.881693e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 35,
+              "relative": 1.517277e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 36,
+              "relative": 1.11998e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "iteration": 37,
+              "relative": 9.118852e-07,
+              "kind": "gcr_iterated_residual"
+            }
+          ],
+          "events": [
+            {
+              "kind": "iteration",
+              "iteration": 0,
+              "relative": 1.0,
+              "raw": "GCR:     0 iterations, <r,r> = 3.580042e+05, |r|/|b| = 1.000000e+00"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 1,
+              "relative": 0.2625984,
+              "raw": "GCR:     1 iterations, <r,r> = 2.468723e+04, |r|/|b| = 2.625984e-01"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 2,
+              "relative": 0.1067166,
+              "raw": "GCR:     2 iterations, <r,r> = 4.077109e+03, |r|/|b| = 1.067166e-01"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 3,
+              "relative": 0.05669911,
+              "raw": "GCR:     3 iterations, <r,r> = 1.150908e+03, |r|/|b| = 5.669911e-02"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 4,
+              "relative": 0.03254715,
+              "raw": "GCR:     4 iterations, <r,r> = 3.792399e+02, |r|/|b| = 3.254715e-02"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 5,
+              "relative": 0.02190758,
+              "raw": "GCR:     5 iterations, <r,r> = 1.718212e+02, |r|/|b| = 2.190758e-02"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 6,
+              "relative": 0.01267097,
+              "raw": "GCR:     6 iterations, <r,r> = 5.747882e+01, |r|/|b| = 1.267097e-02"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 7,
+              "relative": 0.00845222,
+              "raw": "GCR:     7 iterations, <r,r> = 2.557583e+01, |r|/|b| = 8.452220e-03"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 8,
+              "relative": 0.005334316,
+              "raw": "GCR:     8 iterations, <r,r> = 1.018698e+01, |r|/|b| = 5.334316e-03"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 9,
+              "relative": 0.003873168,
+              "raw": "GCR:     9 iterations, <r,r> = 5.370575e+00, |r|/|b| = 3.873168e-03"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 10,
+              "relative": 0.002461819,
+              "raw": "GCR:    10 iterations, <r,r> = 2.169703e+00, |r|/|b| = 2.461819e-03"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 11,
+              "relative": 0.001777913,
+              "raw": "GCR:    11 iterations, <r,r> = 1.131642e+00, |r|/|b| = 1.777913e-03"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 12,
+              "relative": 0.001177729,
+              "raw": "GCR:    12 iterations, <r,r> = 4.965683e-01, |r|/|b| = 1.177729e-03"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 13,
+              "relative": 0.0008780667,
+              "raw": "GCR:    13 iterations, <r,r> = 2.760217e-01, |r|/|b| = 8.780667e-04"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 14,
+              "relative": 0.0006034993,
+              "raw": "GCR:    14 iterations, <r,r> = 1.303892e-01, |r|/|b| = 6.034993e-04"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 15,
+              "relative": 0.000433663,
+              "raw": "GCR:    15 iterations, <r,r> = 6.732757e-02, |r|/|b| = 4.336630e-04"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 16,
+              "relative": 0.0003106508,
+              "raw": "GCR:    16 iterations, <r,r> = 3.454881e-02, |r|/|b| = 3.106508e-04"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 17,
+              "relative": 0.0002376354,
+              "raw": "GCR:    17 iterations, <r,r> = 2.021671e-02, |r|/|b| = 2.376354e-04"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 18,
+              "relative": 0.0001651258,
+              "raw": "GCR:    18 iterations, <r,r> = 9.761533e-03, |r|/|b| = 1.651258e-04"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 19,
+              "relative": 0.0001245429,
+              "raw": "GCR:    19 iterations, <r,r> = 5.552980e-03, |r|/|b| = 1.245429e-04"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 20,
+              "relative": 9.032679e-05,
+              "raw": "GCR:    20 iterations, <r,r> = 2.920931e-03, |r|/|b| = 9.032679e-05"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 21,
+              "relative": 6.863e-05,
+              "raw": "GCR:    21 iterations, <r,r> = 1.686227e-03, |r|/|b| = 6.863000e-05"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 22,
+              "relative": 5.050729e-05,
+              "raw": "GCR:    22 iterations, <r,r> = 9.132640e-04, |r|/|b| = 5.050729e-05"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 23,
+              "relative": 3.787736e-05,
+              "raw": "GCR:    23 iterations, <r,r> = 5.136266e-04, |r|/|b| = 3.787736e-05"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 24,
+              "relative": 2.815701e-05,
+              "raw": "GCR:    24 iterations, <r,r> = 2.838320e-04, |r|/|b| = 2.815701e-05"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 25,
+              "relative": 2.227549e-05,
+              "raw": "GCR:    25 iterations, <r,r> = 1.776407e-04, |r|/|b| = 2.227549e-05"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 26,
+              "relative": 1.619515e-05,
+              "raw": "GCR:    26 iterations, <r,r> = 9.389836e-05, |r|/|b| = 1.619515e-05"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 27,
+              "relative": 1.246593e-05,
+              "raw": "GCR:    27 iterations, <r,r> = 5.563367e-05, |r|/|b| = 1.246593e-05"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 28,
+              "relative": 9.334165e-06,
+              "raw": "GCR:    28 iterations, <r,r> = 3.119170e-05, |r|/|b| = 9.334165e-06"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 29,
+              "relative": 7.446214e-06,
+              "raw": "GCR:    29 iterations, <r,r> = 1.984994e-05, |r|/|b| = 7.446214e-06"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 30,
+              "relative": 5.459565e-06,
+              "raw": "GCR:    30 iterations, <r,r> = 1.067098e-05, |r|/|b| = 5.459565e-06"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 31,
+              "relative": 4.26561e-06,
+              "raw": "GCR:    31 iterations, <r,r> = 6.514041e-06, |r|/|b| = 4.265610e-06"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 32,
+              "relative": 3.203091e-06,
+              "raw": "GCR:    32 iterations, <r,r> = 3.673049e-06, |r|/|b| = 3.203091e-06"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 33,
+              "relative": 2.585741e-06,
+              "raw": "GCR:    33 iterations, <r,r> = 2.393636e-06, |r|/|b| = 2.585741e-06"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 34,
+              "relative": 1.881693e-06,
+              "raw": "GCR:    34 iterations, <r,r> = 1.267610e-06, |r|/|b| = 1.881693e-06"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 35,
+              "relative": 1.517277e-06,
+              "raw": "GCR:    35 iterations, <r,r> = 8.241721e-07, |r|/|b| = 1.517277e-06"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 36,
+              "relative": 1.11998e-06,
+              "raw": "GCR:    36 iterations, <r,r> = 4.490648e-07, |r|/|b| = 1.119980e-06"
+            },
+            {
+              "kind": "iteration",
+              "iteration": 37,
+              "relative": 9.118852e-07,
+              "raw": "GCR:    37 iterations, <r,r> = 2.976929e-07, |r|/|b| = 9.118852e-07"
+            }
+          ]
+        }
+      ],
+      "timing_reference": {
+        "samples_seconds": [
+          2.4116868689998228,
+          2.5985081720009475,
+          2.417694988000221,
+          2.403580490001332,
+          2.40495719700084
+        ],
+        "median_seconds": 2.4116868689998228,
+        "mad_seconds": 0.006729671998982667,
+        "median_iterations": 37.0,
+        "average_seconds_per_outer_iteration": 0.0651807261891844,
+        "average_milliseconds_per_outer_iteration": 65.1807261891844,
+        "source": "un-instrumented formal benchmark document"
+      }
+    }
+  },
+  "provenance": {
+    "collector_commit": "b36da9ed02646d7ec3863ec8ca2ecb19d483d4b2",
+    "pyqcu_runtime": {
+      "torch": "2.10.0+cu128",
+      "torch_cuda": "12.8",
+      "device_index": 0,
+      "device_name": "Tesla V100-SXM2-32GB",
+      "device_uuid": "be23deb4-29b1-7bb2-29ef-c4ab7b34f0a8",
+      "total_memory_bytes": 34359345152,
+      "compute_capability": [
+        7,
+        0
+      ],
+      "device": "cuda:0"
+    },
+    "quda_runtime": {
+      "torch": "2.10.0+cu128",
+      "torch_cuda": "12.8",
+      "device_index": 0,
+      "device_name": "Tesla V100-SXM2-32GB",
+      "device_uuid": "be23deb4-29b1-7bb2-29ef-c4ab7b34f0a8",
+      "total_memory_bytes": 34359345152,
+      "compute_capability": [
+        7,
+        0
+      ],
+      "device": "cuda:0"
+    }
+  }
+}
