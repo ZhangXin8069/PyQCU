@@ -1,0 +1,331 @@
+{
+  "schema": {
+    "name": "pyqcu.multigpu.single-vs-dual",
+    "version": 1
+  },
+  "created_at": "2026-09-02T15:56:33.543238+00:00",
+  "protocol": {
+    "lat": [
+      16,
+      32,
+      32,
+      48
+    ],
+    "mass": 0.05,
+    "atol": 1e-06,
+    "num_levels": 2,
+    "dof_list": [
+      12,
+      12
+    ],
+    "mg_grid": [
+      2,
+      2,
+      2,
+      2
+    ],
+    "num_restart": 3,
+    "coarse_max_iter": 15,
+    "coarse_tol_factor": 1000.0,
+    "seed": 42,
+    "cache_dir": "/root/PyQCU/data",
+    "repeats": 3,
+    "warmup_policy": "each _run_one performs one complete setup and solve; no timing warmup",
+    "parallel_semantics": "one thread per GPU; each thread solves a complete copied problem"
+  },
+  "devices": {
+    "requested": [
+      1,
+      2
+    ],
+    "p100": [
+      1,
+      2
+    ],
+    "v100": [
+      0
+    ]
+  },
+  "samples": {
+    "single_p100": [
+      {
+        "label": "single_p100",
+        "device_ids": [
+          1
+        ],
+        "wall_s": 36.74678161200063,
+        "mg_parallel_wall_s": 10.249873876997299,
+        "ref_parallel_wall_s": 13.997596337001596,
+        "threads": [
+          {
+            "tid": 0,
+            "device": 1,
+            "device_name": "Tesla P100-PCIE-16GB",
+            "mg_s": 10.249873876997299,
+            "ref_s": 13.997596337001596,
+            "mg_vs_ref_max_abs": 3.169448609696701e-05,
+            "mg_vs_ref_rel_max": 6.798686591407494e-06
+          }
+        ],
+        "consistency": {
+          "tol": 1e-05,
+          "checks": [
+            {
+              "tid": 0,
+              "device": 1,
+              "rel_max_diff": 0.0,
+              "pass": true
+            }
+          ],
+          "all_pass": true
+        },
+        "repeat": 1
+      },
+      {
+        "label": "single_p100",
+        "device_ids": [
+          1
+        ],
+        "wall_s": 34.63166547199944,
+        "mg_parallel_wall_s": 10.46015896300014,
+        "ref_parallel_wall_s": 13.732057386998349,
+        "threads": [
+          {
+            "tid": 0,
+            "device": 1,
+            "device_name": "Tesla P100-PCIE-16GB",
+            "mg_s": 10.46015896300014,
+            "ref_s": 13.732057386998349,
+            "mg_vs_ref_max_abs": 3.169448609696701e-05,
+            "mg_vs_ref_rel_max": 6.798686591407494e-06
+          }
+        ],
+        "consistency": {
+          "tol": 1e-05,
+          "checks": [
+            {
+              "tid": 0,
+              "device": 1,
+              "rel_max_diff": 0.0,
+              "pass": true
+            }
+          ],
+          "all_pass": true
+        },
+        "repeat": 2
+      },
+      {
+        "label": "single_p100",
+        "device_ids": [
+          1
+        ],
+        "wall_s": 34.52137544300058,
+        "mg_parallel_wall_s": 10.143614100998093,
+        "ref_parallel_wall_s": 13.861130445002345,
+        "threads": [
+          {
+            "tid": 0,
+            "device": 1,
+            "device_name": "Tesla P100-PCIE-16GB",
+            "mg_s": 10.143614100998093,
+            "ref_s": 13.861130445002345,
+            "mg_vs_ref_max_abs": 3.169448609696701e-05,
+            "mg_vs_ref_rel_max": 6.798686591407494e-06
+          }
+        ],
+        "consistency": {
+          "tol": 1e-05,
+          "checks": [
+            {
+              "tid": 0,
+              "device": 1,
+              "rel_max_diff": 0.0,
+              "pass": true
+            }
+          ],
+          "all_pass": true
+        },
+        "repeat": 3
+      }
+    ],
+    "dual_p100": [
+      {
+        "label": "dual_p100",
+        "device_ids": [
+          1,
+          2
+        ],
+        "wall_s": 37.11734818200057,
+        "mg_parallel_wall_s": 10.739143200000399,
+        "ref_parallel_wall_s": 13.98258734999763,
+        "threads": [
+          {
+            "tid": 0,
+            "device": 1,
+            "device_name": "Tesla P100-PCIE-16GB",
+            "mg_s": 10.739143200000399,
+            "ref_s": 13.98258734999763,
+            "mg_vs_ref_max_abs": 3.169448609696701e-05,
+            "mg_vs_ref_rel_max": 6.798686591407494e-06
+          },
+          {
+            "tid": 1,
+            "device": 2,
+            "device_name": "Tesla P100-PCIE-16GB",
+            "mg_s": 1.5151109609978448,
+            "ref_s": 2.4478925130024436,
+            "mg_vs_ref_max_abs": 3.169448609696701e-05,
+            "mg_vs_ref_rel_max": 6.798686591407494e-06
+          }
+        ],
+        "consistency": {
+          "tol": 1e-05,
+          "checks": [
+            {
+              "tid": 0,
+              "device": 1,
+              "rel_max_diff": 0.0,
+              "pass": true
+            },
+            {
+              "tid": 1,
+              "device": 2,
+              "rel_max_diff": 0.0,
+              "pass": true
+            }
+          ],
+          "all_pass": true
+        },
+        "repeat": 1
+      },
+      {
+        "label": "dual_p100",
+        "device_ids": [
+          1,
+          2
+        ],
+        "wall_s": 32.43414634899818,
+        "mg_parallel_wall_s": 8.300990175997867,
+        "ref_parallel_wall_s": 12.468287559997407,
+        "threads": [
+          {
+            "tid": 0,
+            "device": 1,
+            "device_name": "Tesla P100-PCIE-16GB",
+            "mg_s": 8.300990175997867,
+            "ref_s": 12.468287559997407,
+            "mg_vs_ref_max_abs": 3.169448609696701e-05,
+            "mg_vs_ref_rel_max": 6.798686591407494e-06
+          },
+          {
+            "tid": 1,
+            "device": 2,
+            "device_name": "Tesla P100-PCIE-16GB",
+            "mg_s": 1.5177606979996199,
+            "ref_s": 2.206240051997156,
+            "mg_vs_ref_max_abs": 3.169448609696701e-05,
+            "mg_vs_ref_rel_max": 6.798686591407494e-06
+          }
+        ],
+        "consistency": {
+          "tol": 1e-05,
+          "checks": [
+            {
+              "tid": 0,
+              "device": 1,
+              "rel_max_diff": 0.0,
+              "pass": true
+            },
+            {
+              "tid": 1,
+              "device": 2,
+              "rel_max_diff": 0.0,
+              "pass": true
+            }
+          ],
+          "all_pass": true
+        },
+        "repeat": 2
+      },
+      {
+        "label": "dual_p100",
+        "device_ids": [
+          1,
+          2
+        ],
+        "wall_s": 35.719228173999,
+        "mg_parallel_wall_s": 10.254226506000123,
+        "ref_parallel_wall_s": 13.716441341999598,
+        "threads": [
+          {
+            "tid": 0,
+            "device": 1,
+            "device_name": "Tesla P100-PCIE-16GB",
+            "mg_s": 10.254226506000123,
+            "ref_s": 13.716441341999598,
+            "mg_vs_ref_max_abs": 3.169448609696701e-05,
+            "mg_vs_ref_rel_max": 6.798686591407494e-06
+          },
+          {
+            "tid": 1,
+            "device": 2,
+            "device_name": "Tesla P100-PCIE-16GB",
+            "mg_s": 1.5298334100007196,
+            "ref_s": 2.334062793001067,
+            "mg_vs_ref_max_abs": 3.169448609696701e-05,
+            "mg_vs_ref_rel_max": 6.798686591407494e-06
+          }
+        ],
+        "consistency": {
+          "tol": 1e-05,
+          "checks": [
+            {
+              "tid": 0,
+              "device": 1,
+              "rel_max_diff": 0.0,
+              "pass": true
+            },
+            {
+              "tid": 1,
+              "device": 2,
+              "rel_max_diff": 0.0,
+              "pass": true
+            }
+          ],
+          "all_pass": true
+        },
+        "repeat": 3
+      }
+    ]
+  },
+  "summary": {
+    "single_p100": {
+      "samples_seconds": [
+        10.249873876997299,
+        10.46015896300014,
+        10.143614100998093
+      ],
+      "median_seconds": 10.249873876997299,
+      "mad_seconds": 0.10625977599920589,
+      "min_seconds": 10.143614100998093,
+      "max_seconds": 10.46015896300014
+    },
+    "dual_p100": {
+      "samples_seconds": [
+        10.739143200000399,
+        8.300990175997867,
+        10.254226506000123
+      ],
+      "median_seconds": 10.254226506000123,
+      "mad_seconds": 0.48491669400027604,
+      "min_seconds": 8.300990175997867,
+      "max_seconds": 10.739143200000399
+    }
+  },
+  "comparison": {
+    "single_p100_over_dual_p100": 0.9995755282955494,
+    "dual_p100_efficiency_vs_two_single": 0.4997877641477747,
+    "all_consistency_pass": true,
+    "wall_time_definition": "max thread MG solve time"
+  }
+}

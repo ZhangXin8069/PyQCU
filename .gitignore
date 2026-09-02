@@ -455,3 +455,5 @@ _minted*/
 !/data/strict_trace_20260902_final.svg
 !/data/strict_trace_20260902_pyqcu.tsv
 !/data/strict_trace_20260902_quda.log
+!/data/multigpu_formal_20260902.json
+!/data/multigpu_formal_20260902.svg
