@@ -38,6 +38,7 @@ import atexit
 import base64
 import copy
 import ctypes
+from contextlib import contextmanager
 import hashlib
 import inspect
 import json
@@ -262,6 +263,36 @@ def _strict_runtime_expected_manifest(config: Mapping[str, Any]) -> Dict[str, An
 def _safe_tail(text: Optional[str], limit: int = 4000) -> str:
     value = "" if text is None else str(text)
     return value[-limit:]
+
+
+@contextmanager
+def _capture_native_stdout(path: Optional[os.PathLike[str] | str]):
+    """Capture C/C++ stdout for an optional diagnostic QUDA trace.
+
+    ``printfQuda`` writes through the process file descriptor rather than
+    Python's ``sys.stdout`` object, so ``contextlib.redirect_stdout`` is not
+    sufficient here.  The context is never entered by the default benchmark;
+    trace runs use it only around the caller-owned ``invertQuda`` call.
+    """
+    if path is None or str(path) == "":
+        yield
+        return
+    target = Path(path).resolve()
+    target.parent.mkdir(parents=True, exist_ok=True)
+    saved_fd = os.dup(1)
+    target_fd = os.open(
+        str(target), os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
+    try:
+        sys.stdout.flush()
+        ctypes.CDLL(None).fflush(None)
+        os.dup2(target_fd, 1)
+        yield
+    finally:
+        sys.stdout.flush()
+        ctypes.CDLL(None).fflush(None)
+        os.dup2(saved_fd, 1)
+        os.close(target_fd)
+        os.close(saved_fd)
 
 
 def _git_provenance(repository: Path = REPO) -> Dict[str, Any]:
@@ -2794,7 +2825,7 @@ def _run_quda_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
         from pyquda.enum_quda import (
             QudaBoolean, QudaInverterType, QudaPrecision, QudaMatPCType,
             QudaPreserveSource, QudaSolutionType, QudaSolveType,
-            QudaUseInitGuess, QudaComputeNullVector)
+            QudaUseInitGuess, QudaComputeNullVector, QudaVerbosity)
         sys.path.insert(0, str(HERE))
         from run_quda_py import field_to_scxyzt, reconstruct_full_b
         from common import full_gauge_numpy, full_to_qdp
@@ -2804,6 +2835,8 @@ def _run_quda_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
 
     device = _select_v100(torch)
     device_uuid = _torch_runtime_provenance(torch, device)["device_uuid"]
+    trace_path = os.environ.get("PYQCU_QUDA_TRACE_FILE")
+    trace_enabled = trace_path is not None and trace_path != ""
     precision = config["precision"]["name"]
     complex_dtype = torch.complex64 if precision == "c64" else torch.complex128
     # PyQUDA's QDP _NDArray bridge rejects complex64 host arrays.  This host
@@ -2874,6 +2907,12 @@ def _run_quda_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
         invert.gcrNkrylov = int(config["restart_effective"])
         invert.maxiter = int(config["max_iter"])
         invert.tol = float(config["tolerance"])
+        if trace_enabled:
+            # QUDA's outer Solver::PrintStats is the desired trace.  Keep the
+            # MG preconditioner quiet so nested coarse solves do not obscure
+            # the one outer GCR curve being compared with Strict FGMRES.
+            invert.verbosity = QudaVerbosity.QUDA_VERBOSE
+            invert.verbosity_precondition = QudaVerbosity.QUDA_SILENT
         if hasattr(invert, "use_init_guess"):
             invert.use_init_guess = QudaUseInitGuess.QUDA_USE_INIT_GUESS_NO
         else:
@@ -2911,6 +2950,10 @@ def _run_quda_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
             _set_indexed(
                 mg_param, "coarse_solver_tol", level,
                 float(config["coarse_tolerance"]))
+            if trace_enabled and hasattr(mg_param, "verbosity"):
+                _set_indexed(
+                    mg_param, "verbosity", level,
+                    QudaVerbosity.QUDA_SILENT)
         _configure_quda_shared_nullvec(mg_param, conversion)
         timing_boundary = _quda_invert_output_contract(invertQuda)
         enum_types = {
@@ -3032,13 +3075,15 @@ def _run_quda_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
                 solution_field.data.zero_()
                 torch.cuda.synchronize(device)
                 started = time.perf_counter()
-                invertQuda(
-                    solution_field.data_ptr, rhs_field.data_ptr, invert)
+                with _capture_native_stdout(trace_path):
+                    invertQuda(
+                        solution_field.data_ptr, rhs_field.data_ptr, invert)
                 solution = solution_field
             else:
                 # Smoke may still exercise the high-level API, but this path
                 # is explicitly marked non-formal by timing_boundary.
-                solution = dirac.invert(rhs_field)
+                with _capture_native_stdout(trace_path):
+                    solution = dirac.invert(rhs_field)
             torch.cuda.synchronize(device)
             elapsed = time.perf_counter() - started
         finally:
