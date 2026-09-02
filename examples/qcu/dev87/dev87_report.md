@@ -470,6 +470,9 @@ reservation 误记为库自有资产。Strict workspace 预算仍为
 
 ## 二十二、Clover Dslash 实例：QUDA MultiGrid 各层算子的全链路解析（2026-09-02）
 
+本节的独立 Markdown 版本见
+[quda_clover_multigrid_layers.md](./quda_clover_multigrid_layers.md)。
+
 本节专门补足原有 QUDA 文档中最简略的“算子”部分。先给出结论：QUDA 的
 MultiGrid 不是把一个黑盒 `A` 递归地缩小，而是把 Clover Wilson 算子的三个结构
 逐层保留下来：
