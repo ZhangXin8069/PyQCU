@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="560" viewBox="0 0 960 560" role="img" aria-labelledby="title desc">
+  <title id="title">PyQCU Strict 与 QUDA 正式求解对照</title>
+  <desc id="desc">2026-09-02 固定 V100 协议下的 solve-only 中位时间和外层迭代次数。</desc>
+  <rect width="960" height="560" fill="#ffffff"/>
+  <text x="480" y="34" text-anchor="middle" font-family="sans-serif" font-size="22" font-weight="700" fill="#172033">Strict 正式求解对照 — 2026-09-02</text>
+  <text x="480" y="58" text-anchor="middle" font-family="sans-serif" font-size="13" fill="#536176">V100-SXM2-32GB · 16×32×32×48 · c64 · odd-odd Schur · 5 次 steady solve 的中位数</text>
+
+  <text x="80" y="102" font-family="sans-serif" font-size="16" font-weight="700" fill="#172033">solve-only 中位时间（秒）</text>
+  <line x1="110" y1="320" x2="880" y2="320" stroke="#344054" stroke-width="1.5"/>
+  <line x1="110" y1="100" x2="110" y2="320" stroke="#344054" stroke-width="1.5"/>
+  <g font-family="sans-serif" font-size="12" fill="#536176">
+    <line x1="110" y1="320" x2="880" y2="320" stroke="#d9e0ea"/>
+    <line x1="110" y1="265" x2="880" y2="265" stroke="#e7ebf1"/>
+    <line x1="110" y1="210" x2="880" y2="210" stroke="#e7ebf1"/>
+    <line x1="110" y1="155" x2="880" y2="155" stroke="#e7ebf1"/>
+    <line x1="110" y1="100" x2="880" y2="100" stroke="#e7ebf1"/>
+    <text x="100" y="324" text-anchor="end">0.0</text>
+    <text x="100" y="269" text-anchor="end">0.7</text>
+    <text x="100" y="214" text-anchor="end">1.4</text>
+    <text x="100" y="159" text-anchor="end">2.1</text>
+    <text x="100" y="104" text-anchor="end">2.8</text>
+  </g>
+  <rect x="245" y="132.2" width="190" height="187.8" rx="4" fill="#3478c9"/>
+  <rect x="565" y="130.0" width="190" height="190.0" rx="4" fill="#e08b35"/>
+  <g font-family="sans-serif" font-size="16" font-weight="700" fill="#172033">
+    <text x="340" y="350" text-anchor="middle">PyQCU Strict</text>
+    <text x="660" y="350" text-anchor="middle">QUDA</text>
+  </g>
+  <g font-family="sans-serif" font-size="17" font-weight="700" fill="#172033">
+    <text x="340" y="122" text-anchor="middle">2.383584</text>
+    <text x="660" y="120" text-anchor="middle">2.411687</text>
+  </g>
+
+  <text x="80" y="398" font-family="sans-serif" font-size="16" font-weight="700" fill="#172033">外层迭代次数</text>
+  <line x1="110" y1="510" x2="880" y2="510" stroke="#344054" stroke-width="1.5"/>
+  <line x1="110" y1="390" x2="110" y2="510" stroke="#344054" stroke-width="1.5"/>
+  <g font-family="sans-serif" font-size="12" fill="#536176">
+    <line x1="110" y1="510" x2="880" y2="510" stroke="#d9e0ea"/>
+    <line x1="110" y1="480" x2="880" y2="480" stroke="#e7ebf1"/>
+    <line x1="110" y1="450" x2="880" y2="450" stroke="#e7ebf1"/>
+    <line x1="110" y1="420" x2="880" y2="420" stroke="#e7ebf1"/>
+    <line x1="110" y1="390" x2="880" y2="390" stroke="#e7ebf1"/>
+    <text x="100" y="514" text-anchor="end">0</text>
+    <text x="100" y="484" text-anchor="end">10</text>
+    <text x="100" y="454" text-anchor="end">20</text>
+    <text x="100" y="424" text-anchor="end">30</text>
+    <text x="100" y="394" text-anchor="end">40</text>
+  </g>
+  <rect x="245" y="477" width="190" height="33" rx="4" fill="#3478c9"/>
+  <rect x="565" y="399" width="190" height="111" rx="4" fill="#e08b35"/>
+  <g font-family="sans-serif" font-size="16" font-weight="700" fill="#172033">
+    <text x="340" y="540" text-anchor="middle">11</text>
+    <text x="660" y="540" text-anchor="middle">37</text>
+  </g>
+</svg>

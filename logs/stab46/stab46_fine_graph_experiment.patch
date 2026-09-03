@@ -1,0 +1,211 @@
+diff --git a/cpp/cuda/qcu/include/lattice_clover_multigrid.h b/cpp/cuda/qcu/include/lattice_clover_multigrid.h
+index 842a5d9..62e73f9 100644
+--- a/cpp/cuda/qcu/include/lattice_clover_multigrid.h
++++ b/cpp/cuda/qcu/include/lattice_clover_multigrid.h
+@@ -1131,7 +1131,8 @@ template <typename T> struct LatticeCloverMultigrid {
+   //
+   // This is only valid for single-rank runs (no MPI reduction needed).
+   // ==================================================================
+-  void bistabcg_iter_fine_fast(bool host_sync=true) {
++  // dev87: 细层单迭代体（无同步/无D2H/无分支 —— 可整段捕获）
++  void fine_iter_body() {
+     auto &st=levels[0]; cudaStream_t S=set_ptr->stream;
+     LatticeComplex<T>* dv=static_cast<LatticeComplex<T>*>(set_ptr->device_vals);
+     dim3 gv=set_ptr->gridDim, bv=set_ptr->blockDim;
+@@ -1175,10 +1176,104 @@ template <typename T> struct LatticeCloverMultigrid {
+           static_cast<LatticeComplex<T>*>(st.x),
+           static_cast<const LatticeComplex<T>*>(st.p), dv, n4);
+     }
+-    // 10. single sync so check_host[1] (mapped) is valid for the caller
+-    // dev87 SYNC-DIET: 非检查点迭代跳过末尾同步（调用方在检查点统一读）
++    // (dev87 SYNC-DIET: 同步移出迭代体，体保持无同步可捕获)
++  }
++
++  void bistabcg_iter_fine_fast(bool host_sync=true) {
++    fine_iter_body();
+     if(host_sync)
+-      checkCudaErrors(cudaStreamSynchronize(S));
++      checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
++  }
++
++  // ---- dev87 FINE-GRAPH: K 迭代单发射批量 ----
++  static const int FINE_GRAPH_SEG = 32;
++  bool fine_graph_ready=false;
++  bool fine_graph_broken=false;
++  cudaGraph_t fine_graph={};
++  cudaGraph_t g_fine_tmp={};
++  cudaGraphExec_t fine_graph_exec={};
++  void* fine_blas_ws=nullptr;
++
++  void fine_blas_workspace_bind() {
++    if (fine_blas_ws != nullptr) return;
++    size_t sz = (size_t)64 << 20; // 大 n 的 cublasLt 算法需要更大工作区，防 capture 内隐式分配
++    checkCudaErrors(cudaMalloc(&fine_blas_ws, sz));
++    cublasStatus_t stw = cublasSetWorkspace(set_ptr->cublasH, fine_blas_ws, sz);
++    if (stw != CUBLAS_STATUS_SUCCESS) { cudaFree(fine_blas_ws); fine_blas_ws=nullptr; }
++  }
++
++  void fine_graph_ensure() {
++    // dev87: 默认关闭（实验特性）。WSL2 上 capture 内大 n cublasLt 会触发
++    // 隐式分配导致失败；健康平台可 PYQCU_FINE_GRAPH=1 显式启用。
++    const char* fg = getenv("PYQCU_FINE_GRAPH");
++    if (!fg || fg[0]!='1') { fine_graph_broken=true; return; }
++    if (mg_multi || fine_graph_ready || fine_graph_broken) return;
++    fine_blas_workspace_bind();
++    if (fine_blas_ws == nullptr) { fine_graph_broken=true; return; }
++    cudaStream_t S = set_ptr->stream;
++    // ---- 金丝雀：最小 cublasDot 捕获/发射探针（本平台 capture 不支持则永久回退）----
++    {
++      void *ca=nullptr,*cb=nullptr;
++      size_t cbytes=16*sizeof(LatticeComplex<T>);
++      if(cudaMalloc(&ca,cbytes)!=cudaSuccess || cudaMalloc(&cb,cbytes)!=cudaSuccess){
++        if(ca)cudaFree(ca); fine_graph_broken=true; return;
++      }
++      cudaGraph_t cg=nullptr; bool ok=true; cudaGraphExec_t cex=nullptr;
++      bool began=false;
++      auto end_capture_guard=[&](){ if(began){ cudaGraph_t junk=nullptr;
++        if(cudaStreamEndCapture(S,&junk)!=cudaSuccess) cudaGetLastError();
++        if(junk) cudaGraphDestroy(junk); } };
++      cudaError_t cb_err=cudaStreamBeginCapture(S,cudaStreamCaptureModeThreadLocal);
++      began=(cb_err==cudaSuccess); ok &= began;
++      if(ok){ cublasStatus_t stc=_cublasDot<T>(set_ptr->cublasH,8,
++                  (T*)ca,1,(T*)cb,1,static_cast<LatticeComplex<T>*>(check_dev));
++              ok=(stc==CUBLAS_STATUS_SUCCESS); }
++      if(began){ // 无论成败都必须退出 capture 态
++        if(ok){ ok=(cudaStreamEndCapture(S,&cg)==cudaSuccess) && cg!=nullptr; }
++        else { cudaGraph_t junk=nullptr; cudaStreamEndCapture(S,&junk); if(junk)cudaGraphDestroy(junk); }
++        began=false;
++      }
++      if(ok){ ok=(cudaGraphInstantiate(&cex,cg,nullptr,nullptr,0)==cudaSuccess); }
++      if(ok){ ok=(cudaGraphLaunch(cex,S)==cudaSuccess); }
++      if(ok){ ok=(cudaDeviceSynchronize()==cudaSuccess); cudaGetLastError(); }
++      if(cex) cudaGraphExecDestroy(cex);
++      if(cg) cudaGraphDestroy(cg);
++      if(ca) cudaFree(ca);
++      if(cb) cudaFree(cb);
++      if(!ok){
++        cudaGetLastError(); cudaStreamSynchronize(S);
++        if(rank==0&&verbose)
++          log_write<T>("PYQCU::SOLVER::MULTIGRID::\n FINE-GRAPH canary failed -> legacy",rank,true);
++        fine_graph_broken=true; return;
++      }
++    }
++    checkCudaErrors(cudaStreamBeginCapture(S, cudaStreamCaptureModeThreadLocal));
++    bool cap_ok=true;
++    try { for (int i = 0; i < FINE_GRAPH_SEG; i++) fine_iter_body(); }
++    catch (...) { cap_ok=false; }
++    cudaError_t ec = cudaStreamEndCapture(S, &g_fine_tmp);
++    if(!cap_ok || g_fine_tmp==nullptr){
++      if(rank==0&&verbose)
++        log_write<T>("PYQCU::SOLVER::MULTIGRID::\n FINE-GRAPH capture threw -> legacy",rank,true);
++      cudaGetLastError(); cudaStreamSynchronize(S);
++      fine_graph_broken=true; return;
++    }
++    if (ec != cudaSuccess)
++    if (ec != cudaSuccess || g_fine_tmp == nullptr) {
++      if(rank==0&&verbose)
++        log_write<T>("PYQCU::SOLVER::MULTIGRID::\n FINE-GRAPH capture failed -> legacy",rank,true);
++      fine_graph_broken=true; return;
++    }
++    cudaError_t ei = cudaGraphInstantiate(&fine_graph_exec, g_fine_tmp, nullptr, nullptr, 0);
++    if (ei != cudaSuccess) {
++      if(rank==0&&verbose)
++        log_write<T>("PYQCU::SOLVER::MULTIGRID::\n FINE-GRAPH instantiate failed -> legacy",rank,true);
++      fine_graph_broken=true; return;
++    }
++    fine_graph = g_fine_tmp;
++    fine_graph_ready = true;
++    if(rank==0&&verbose)
++      log_write<T>("PYQCU::SOLVER::MULTIGRID::\n FINE-GRAPH: captured "+std::to_string(FINE_GRAPH_SEG)+" iters",rank,true);
+   }
+ 
+   // ==================================================================
+@@ -1289,6 +1384,18 @@ template <typename T> struct LatticeCloverMultigrid {
+     // r_full now has the full-site residual: even sites = 0, odd sites = r_o_full
+   }
+ 
++  void refresh_true_residual_and_state() {
++    compute_full_residual();
++    auto &stR=levels[0];
++    CUBLAS_CHECK(_cublasCopy<T>(set_ptr->cublasH,set_ptr->lat_4dim_SC*_REAL_IMAG_,
++        (T*)set_ptr->device_vec2,1,(T*)stR.r,1));
++    CUBLAS_CHECK(_cublasDot<T>(set_ptr->cublasH,(int)stR.vec_sz,
++        (T*)stR.r,1,(T*)stR.r,1,
++        static_cast<LatticeComplex<T>*>(check_dev)+1));
++    reset_bistabcg_state_l0();
++    checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
++  }
++
+   // ==================================================================
+   // Extract odd-site correction from full-site prolonged vector.
+   //
+@@ -2022,6 +2129,51 @@ template <typename T> struct LatticeCloverMultigrid {
+     bool mg_corr_off = false;
+ 
+     for(int it=0; it<max_iter; it++){
++      { // ---- dev87 FINE-GRAPH BATCH ----
++        int rem = total % 48;
++        bool refresh_ahead = (rem != 0) && (48 - rem) < FINE_GRAPH_SEG;
++        bool batch_ok = !mg_multi && !fine_graph_broken && total > 0 && !refresh_ahead
++            && (num_levels == 1 || mg_corr_off || num_restart == 0);
++        if(batch_ok){
++          try { fine_graph_ensure(); } catch (...) {
++            fine_graph_broken=true;
++            cudaGetLastError(); cudaStreamSynchronize(set_ptr->stream);
++          }
++          if(fine_graph_ready){
++           try {
++            auto tiB=std::chrono::high_resolution_clock::now();
++            checkCudaErrors(cudaGraphLaunch(fine_graph_exec,set_ptr->stream));
++            cudaError_t lb=cudaStreamSynchronize(set_ptr->stream);
++            if(lb!=cudaSuccess){ cudaGetLastError();
++              fine_graph_exec=nullptr; fine_graph_ready=false; fine_graph_broken=true;
++              throw std::runtime_error("fine graph launch failed"); }
++            prof_fine_iter_ms += std::chrono::duration<double,std::milli>(
++                std::chrono::high_resolution_clock::now()-tiB).count();
++            total += FINE_GRAPH_SEG; count_restart += FINE_GRAPH_SEG;
++            T rn2=check_host[1].real(); T rn=sqrt(rn2<0?0:rn2);
++            conv_history.push_back(rn);
++            if(rank==0&&verbose){
++              std::ostringstream bs;
++              bs<<"PYQCU::SOLVER::MULTIGRID::\n GRAPH-BATCH it="<<total
++                <<" residual="<<std::scientific<<rn;
++              log_write<T>(bs.str(),rank,true);
++            }
++            if(total % 48 == 0){
++              refresh_true_residual_and_state();
++              count_restart=0;
++              rn2=check_host[1].real(); rn=sqrt(rn2<0?0:rn2);
++              conv_history.back()=rn;
++            }
++            if(rn2 < atol2*bnorm2) break;
++            if(total >= max_iter) break;
++            continue;
++           } catch (...) { // dev87: 批量路径任何异常 -> 永久回退 legacy
++             fine_graph_broken=true;
++             cudaGetLastError(); cudaStreamSynchronize(set_ptr->stream);
++           }
++          } // end fine_graph_ready
++        }
++      }
+       auto ti0=std::chrono::high_resolution_clock::now();
+       // dev87 SYNC-DIET: 每 CHECK_STRIDE 次迭代才做一次主机同步+收敛检查；
+       // 非检查点迭代跳过末尾同步（算术不变，仅观测降频，至多多算 K-1 步）。
+@@ -2047,16 +2199,8 @@ template <typename T> struct LatticeCloverMultigrid {
+          set_ptr->host_params[_GRID_Z_] == 1 &&
+          set_ptr->host_params[_GRID_T_] == 1 &&
+          total > 0 && total % 48 == 0){  // 48 对齐 CHECK_STRIDE=4 检查网格
+-        compute_full_residual();
+-        auto &stR=levels[0];
+-        CUBLAS_CHECK(_cublasCopy<T>(set_ptr->cublasH,set_ptr->lat_4dim_SC*_REAL_IMAG_,
+-            (T*)set_ptr->device_vec2,1,(T*)stR.r,1));
+-        CUBLAS_CHECK(_cublasDot<T>(set_ptr->cublasH,(int)stR.vec_sz,
+-            (T*)stR.r,1,(T*)stR.r,1,
+-            static_cast<LatticeComplex<T>*>(check_dev)+1));
+-        reset_bistabcg_state_l0();
++        refresh_true_residual_and_state();
+         count_restart=0;
+-        checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
+         rn2=check_host[1].real(); rn=sqrt(rn2<0?0:rn2);
+         conv_history.back()=rn;
+       }
