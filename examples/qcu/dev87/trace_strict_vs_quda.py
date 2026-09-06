@@ -27,10 +27,10 @@ from typing import Any, Dict, Iterable, List, Mapping, Sequence
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[2]
 BENCHMARK = HERE / "bench_strict_vs_quda.py"
-DEFAULT_OUTPUT = REPO / "data" / "strict_trace_20260902.json"
-DEFAULT_PLOT = REPO / "data" / "strict_trace_20260902.svg"
-DEFAULT_BENCHMARK_OUTPUT = REPO / "data" / "strict_trace_benchmark_20260902.json"
-REFERENCE_BENCHMARK = REPO / "data" / "strict_vs_quda_formal_20260902.json"
+DEFAULT_OUTPUT = REPO / "data" / "strict_trace_stage_20260906.json"
+DEFAULT_PLOT = REPO / "data" / "strict_trace_stage_20260906.svg"
+DEFAULT_BENCHMARK_OUTPUT = REPO / "data" / "strict_trace_benchmark_20260906.json"
+REFERENCE_BENCHMARK = REPO / "data" / "strict_vs_quda_formal_20260906.json"
 WARMUPS = 2
 
 
@@ -136,6 +136,20 @@ def _parse_pyqcu_trace(path: Path) -> List[Dict[str, Any]]:
             }
             current.setdefault("restart_residuals", []).append(event)
             current["events"].append(event)
+        elif kind == "stage":
+            if current is None:
+                raise ValueError(f"stage before solve_begin in {path}")
+            event = {
+                "kind": kind,
+                "outer_iteration": int(fields[1]),
+                "level": int(fields[2]),
+                "name": fields[3],
+                "seconds": float(fields[4]),
+                "elapsed_seconds": float(fields[5]),
+            }
+            if event["seconds"] < 0.0 or not math.isfinite(event["seconds"]):
+                raise ValueError(f"invalid Strict stage duration in {path}")
+            current.setdefault("stages", []).append(event)
         elif kind == "solve_end":
             if current is None:
                 raise ValueError(f"solve_end before solve_begin in {path}")
@@ -262,6 +276,8 @@ def _side_trace(
             "iterations": observed_iterations,
             "residual_curve": curve,
             "events": section.get("events", []),
+            "stages": section.get("stages", []),
+            "stage_trace_available": bool(section.get("stages")),
         }
         if pyqcu:
             item["trace_elapsed_seconds"] = float(

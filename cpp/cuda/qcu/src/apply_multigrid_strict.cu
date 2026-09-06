@@ -74,6 +74,15 @@ template <typename T> class StrictFgmresTrace {
            << std::flush;
   }
 
+  bool enabled() const { return enabled_; }
+
+  void stage(int outer_iteration, int level, const char *name,
+             double seconds) {
+    if (!enabled_) return;
+    file_ << "stage\t" << outer_iteration << "\t" << level << "\t"
+           << name << "\t" << seconds << "\t" << elapsed() << "\n";
+  }
+
  private:
   std::ofstream file_;
   bool enabled_ = false;
@@ -1503,6 +1512,21 @@ template <typename T> class StrictCoarseHierarchy {
   StrictOuterWorkspace<T> outer_;
   void *persistent_storage_;
   size_t persistent_bytes_;
+  StrictFgmresTrace<T> *trace_ = nullptr;
+  int trace_iteration_ = -1;
+
+  class TraceBinding {
+   public:
+    TraceBinding(StrictCoarseHierarchy &owner, StrictFgmresTrace<T> &trace)
+        : owner_(owner) {
+      owner_.trace_ = &trace;
+    }
+
+    ~TraceBinding() { owner_.trace_ = nullptr; }
+
+   private:
+    StrictCoarseHierarchy &owner_;
+  };
 
   void release_noexcept() noexcept {
     if (set_ != nullptr) {
@@ -1548,6 +1572,38 @@ template <typename T> class StrictCoarseHierarchy {
 
   int blocks(size_t n) const {
     return static_cast<int>((n + _BLOCK_SIZE_ - 1) / _BLOCK_SIZE_);
+  }
+
+  using TraceClock = std::chrono::steady_clock;
+
+  TraceClock::time_point trace_stage_start() {
+    if (trace_ == nullptr || !trace_->enabled()) return TraceClock::time_point();
+    strict_check_cuda(cudaStreamSynchronize(set_->stream),
+                      "strict trace stage begin sync");
+    return TraceClock::now();
+  }
+
+  void trace_stage_end(int outer_iteration, int level, const char *name,
+                       TraceClock::time_point started) {
+    if (started == TraceClock::time_point()) return;
+    strict_check_cuda(cudaStreamSynchronize(set_->stream),
+                      "strict trace stage end sync");
+    const double seconds = std::chrono::duration<double>(
+                               TraceClock::now() - started)
+                               .count();
+    trace_->stage(outer_iteration, level, name, seconds);
+  }
+
+  template <typename Function>
+  void trace_stage(int outer_iteration, int level, const char *name,
+                   Function function) {
+    if (trace_ == nullptr || !trace_->enabled()) {
+      function();
+      return;
+    }
+    const TraceClock::time_point started = trace_stage_start();
+    function();
+    trace_stage_end(outer_iteration, level, name, started);
   }
 
   LatticeComplex<T> dot(const void *left, const void *right, size_t n) {
@@ -1894,34 +1950,47 @@ template <typename T> class StrictCoarseHierarchy {
                          int fine_E, int fine_X, int fine_Y, int fine_Z,
                          int fine_T, int nu_pre, int nu_post) {
     const size_t n = outer_.fine_n;
-    zero_vector(out, n, "strict fine preconditioner zero");
-    copy_vector(outer_.r, source, n,
-                "strict fine preconditioner residual copy");
-    fine_smooth(fine, out, outer_.r, outer_.w, n, nu_pre);
+    const int outer_iteration = trace_iteration_;
+    trace_stage(outer_iteration, 0, "fine_pre_smoother", [&] {
+      zero_vector(out, n, "strict fine preconditioner zero");
+      copy_vector(outer_.r, source, n,
+                  "strict fine preconditioner residual copy");
+      fine_smooth(fine, out, outer_.r, outer_.w, n, nu_pre);
+    });
 
     const StrictLevelGeometry &coarse = levels_[start_].geometry;
-    strict_restrict_parity_kernel<T>
-        <<<blocks(coarse.full_n), _BLOCK_SIZE_, 0, set_->stream>>>(
-            outer_.coarse_rhs, outer_.r, fine_null_vectors,
-            coarse.E, fine_E, fine_X, fine_Y, fine_Z, fine_T,
-            coarse.X, coarse.Y, coarse.Z, coarse.Lt, parity_);
-    // The recursive hierarchy and its arena are persistent.  Avoid the
-    // public V-cycle API's entry/exit synchronizations; all kernels remain on
-    // the same stream and coarse dot reductions retain their existing syncs.
-    solve_level(start_, outer_.coarse_rhs, outer_.coarse_out);
-    strict_prolong_parity_kernel<T>
-        <<<blocks(n), _BLOCK_SIZE_, 0, set_->stream>>>(
-            outer_.w, outer_.coarse_out, fine_null_vectors,
-            coarse.E, fine_E, fine_X, fine_Y, fine_Z, fine_T,
-            coarse.X, coarse.Y, coarse.Z, coarse.Lt, parity_);
-    strict_add_kernel<T><<<blocks(n), _BLOCK_SIZE_, 0, set_->stream>>>(
-        out, outer_.w, static_cast<int>(n));
+    trace_stage(outer_iteration, 0, "fine_restriction", [&] {
+      strict_restrict_parity_kernel<T>
+          <<<blocks(coarse.full_n), _BLOCK_SIZE_, 0, set_->stream>>>(
+              outer_.coarse_rhs, outer_.r, fine_null_vectors,
+              coarse.E, fine_E, fine_X, fine_Y, fine_Z, fine_T,
+              coarse.X, coarse.Y, coarse.Z, coarse.Lt, parity_);
+    });
+    trace_stage(outer_iteration, start_, "coarse_vcycle", [&] {
+      // The recursive hierarchy and its arena are persistent.  Avoid the
+      // public V-cycle API's entry/exit synchronizations; all kernels remain on
+      // the same stream and coarse dot reductions retain their existing syncs.
+      solve_level(start_, outer_.coarse_rhs, outer_.coarse_out);
+    });
+    trace_stage(outer_iteration, 0, "fine_prolongation", [&] {
+      strict_prolong_parity_kernel<T>
+          <<<blocks(n), _BLOCK_SIZE_, 0, set_->stream>>>(
+              outer_.w, outer_.coarse_out, fine_null_vectors,
+              coarse.E, fine_E, fine_X, fine_Y, fine_Z, fine_T,
+              coarse.X, coarse.Y, coarse.Z, coarse.Lt, parity_);
+      strict_add_kernel<T><<<blocks(n), _BLOCK_SIZE_, 0, set_->stream>>>(
+          out, outer_.w, static_cast<int>(n));
+    });
 
-    fine_matpc(fine, outer_.w, out);
-    strict_subtract_kernel<T>
-        <<<blocks(n), _BLOCK_SIZE_, 0, set_->stream>>>(
-            outer_.r, source, outer_.w, static_cast<int>(n));
-    fine_smooth(fine, out, outer_.r, outer_.w, n, nu_post);
+    trace_stage(outer_iteration, 0, "fine_correction_residual", [&] {
+      fine_matpc(fine, outer_.w, out);
+      strict_subtract_kernel<T>
+          <<<blocks(n), _BLOCK_SIZE_, 0, set_->stream>>>(
+              outer_.r, source, outer_.w, static_cast<int>(n));
+    });
+    trace_stage(outer_iteration, 0, "fine_post_smoother", [&] {
+      fine_smooth(fine, out, outer_.r, outer_.w, n, nu_post);
+    });
   }
 
   void reset_outer_scalars(int restart) {
@@ -2005,6 +2074,7 @@ template <typename T> class StrictCoarseHierarchy {
       int nu_pre, int nu_post, int &iterations, bool &converged,
       T &final_true_residual) {
     StrictFgmresTrace<T> trace;
+    TraceBinding trace_binding(*this, trace);
     const size_t n = outer_.fine_n;
     fine_prepare_in_stream(fine, outer_.b, full_rhs);
     if (params_[_MG_USE_INIT_GUESS_] != 0) {
@@ -2057,67 +2127,85 @@ template <typename T> class StrictCoarseHierarchy {
       };
 
       for (int column = 0; column < cycle; ++column) {
-        precondition_fine(
-            fine, outer_.Z[column], outer_.V[column], fine_null_vectors,
-            fine_E, fine_X, fine_Y, fine_Z, fine_T, nu_pre, nu_post);
-        fine_matpc(fine, outer_.w, outer_.Z[column]);
+        const int current_iteration = iterations + 1;
+        trace_iteration_ = current_iteration;
+        T estimate = (T)0;
+        T next_norm = (T)0;
+        bool stop_after_iteration = false;
+        trace_stage(current_iteration, 0, "outer_iteration", [&] {
+          precondition_fine(
+              fine, outer_.Z[column], outer_.V[column], fine_null_vectors,
+              fine_E, fine_X, fine_Y, fine_Z, fine_T, nu_pre, nu_post);
+          trace_stage(current_iteration, 0, "fine_matpc", [&] {
+            fine_matpc(fine, outer_.w, outer_.Z[column]);
+          });
 
-        const int dot_count = column + 1;
-        // V[dot_count] is not a live basis vector until the next norm has
-        // been computed, so its first ``dot_count`` elements provide a tiny
-        // device result area without changing the advertised arena size.
-        dot_many(outer_.V[0], n, outer_.w, dot_count,
-                 outer_.V[dot_count]);
-        for (int row = 0; row < dot_count; ++row) {
-          const LatticeComplex<T> coefficient = outer_.dot_values[row];
-          const std::complex<T> h(coefficient.real(), coefficient.imag());
-          if (!finite_complex(h))
-            throw std::runtime_error("strict FGMRES Arnoldi dot is non-finite");
-          outer_.H[Hidx(row, column)] = h;
-        }
-        // dot_many() leaves the same coefficients on device in V[dot_count].
-        // Consume them directly, avoiding one host-scalar cuBLAS axpy launch
-        // for every previously computed Arnoldi vector.
-        strict_orthogonalize_kernel<T>
-            <<<blocks(n), _BLOCK_SIZE_, 0, set_->stream>>>(
-                static_cast<LatticeComplex<T> *>(outer_.w),
-                static_cast<const LatticeComplex<T> *>(outer_.V[0]), n,
-                static_cast<const LatticeComplex<T> *>(outer_.V[dot_count]),
-                dot_count, static_cast<int>(n));
-        strict_check_cuda(cudaGetLastError(),
-                          "strict FGMRES orthogonalization launch");
-        const T next_norm = norm(outer_.w, n);
-        outer_.H[Hidx(column + 1, column)] =
-            std::complex<T>(next_norm, (T)0);
-        if (next_norm > basis_floor) {
-          copy_vector(outer_.V[column + 1], outer_.w, n,
-                      "strict FGMRES next basis copy");
-          scale(outer_.V[column + 1], n, (T)1 / next_norm);
-        } else {
-          zero_vector(outer_.V[column + 1], n,
-                      "strict FGMRES collapsed basis zero");
-        }
-        apply_givens(column, restart);
-        ++iterations;
-        inner = column + 1;
-        const T estimate = std::abs(outer_.g[column + 1]);
-        if (!std::isfinite(static_cast<double>(estimate)))
-          throw std::runtime_error("strict FGMRES estimate is non-finite");
+          trace_stage(current_iteration, 0, "arnoldi", [&] {
+            const int dot_count = column + 1;
+            // V[dot_count] is not a live basis vector until the next norm has
+            // been computed, so its first ``dot_count`` elements provide a tiny
+            // device result area without changing the advertised arena size.
+            dot_many(outer_.V[0], n, outer_.w, dot_count,
+                     outer_.V[dot_count]);
+            for (int row = 0; row < dot_count; ++row) {
+              const LatticeComplex<T> coefficient = outer_.dot_values[row];
+              const std::complex<T> h(coefficient.real(), coefficient.imag());
+              if (!finite_complex(h))
+                throw std::runtime_error(
+                    "strict FGMRES Arnoldi dot is non-finite");
+              outer_.H[Hidx(row, column)] = h;
+            }
+            // dot_many() leaves the same coefficients on device in
+            // V[dot_count].  Consume them directly, avoiding one host-scalar
+            // cuBLAS axpy launch for every previously computed Arnoldi vector.
+            strict_orthogonalize_kernel<T>
+                <<<blocks(n), _BLOCK_SIZE_, 0, set_->stream>>>(
+                    static_cast<LatticeComplex<T> *>(outer_.w),
+                    static_cast<const LatticeComplex<T> *>(outer_.V[0]), n,
+                    static_cast<const LatticeComplex<T> *>(outer_.V[dot_count]),
+                    dot_count, static_cast<int>(n));
+            strict_check_cuda(cudaGetLastError(),
+                              "strict FGMRES orthogonalization launch");
+            next_norm = norm(outer_.w, n);
+            outer_.H[Hidx(column + 1, column)] =
+                std::complex<T>(next_norm, (T)0);
+            if (next_norm > basis_floor) {
+              copy_vector(outer_.V[column + 1], outer_.w, n,
+                          "strict FGMRES next basis copy");
+              scale(outer_.V[column + 1], n, (T)1 / next_norm);
+            } else {
+              zero_vector(outer_.V[column + 1], n,
+                          "strict FGMRES collapsed basis zero");
+            }
+            apply_givens(column, restart);
+          });
+          ++iterations;
+          inner = column + 1;
+          estimate = std::abs(outer_.g[column + 1]);
+          if (!std::isfinite(static_cast<double>(estimate)))
+            throw std::runtime_error("strict FGMRES estimate is non-finite");
+          stop_after_iteration =
+              estimate <= threshold || next_norm <= basis_floor;
+        });
         trace.iteration(iterations, column + 1, estimate, next_norm);
-        if (estimate <= threshold || next_norm <= basis_floor) break;
+        if (stop_after_iteration) break;
       }
 
       if (inner <= 0)
         throw std::runtime_error("strict FGMRES produced an empty cycle");
-      update_solution_from_hessenberg(inner, restart);
+      trace_stage(iterations, 0, "fgmres_solution_update", [&] {
+        update_solution_from_hessenberg(inner, restart);
+      });
 
       // True residual refresh is mandatory at every restart boundary,
       // including an estimated-convergence or happy-breakdown early exit.
-      fine_matpc(fine, outer_.w, outer_.x);
-      strict_subtract_kernel<T>
-          <<<blocks(n), _BLOCK_SIZE_, 0, set_->stream>>>(
-              outer_.r, outer_.b, outer_.w, static_cast<int>(n));
-      residual = norm(outer_.r, n);
+      trace_stage(iterations, 0, "true_residual_refresh", [&] {
+        fine_matpc(fine, outer_.w, outer_.x);
+        strict_subtract_kernel<T>
+            <<<blocks(n), _BLOCK_SIZE_, 0, set_->stream>>>(
+                outer_.r, outer_.b, outer_.w, static_cast<int>(n));
+        residual = norm(outer_.r, n);
+      });
       trace.restart(iterations, residual);
       converged = residual <= threshold;
     }
@@ -2320,42 +2408,61 @@ template <typename T> class StrictCoarseHierarchy {
     StrictPersistentLevel<T> &state = levels_[level];
     const StrictLevelGeometry &g = state.geometry;
     const size_t compact_bytes = g.compact_n * sizeof(LatticeComplex<T>);
-    prepare(level, state.pc_rhs, full_rhs, arena_.tmp);
+    trace_stage(trace_iteration_, level, "level_prepare", [&] {
+      prepare(level, state.pc_rhs, full_rhs, arena_.tmp);
+    });
 
     if (level == num_levels_ - 1) {
-      const bool converged = coarsest_bicgstab(level);
+      bool converged = false;
+      trace_stage(trace_iteration_, level, "coarsest_bicgstab", [&] {
+        converged = coarsest_bicgstab(level);
+      });
       if (!converged && params_[_VERBOSE_] && params_[_NODE_RANK_] == 0)
         std::printf(
             "PYQCU::SOLVER::STRICT_MG::COARSE:\n "
             "BiCGStab reached breakdown/max_iter; returning finite iterate\n");
     } else {
-      strict_check_cuda(cudaMemsetAsync(
-                            state.x, 0, compact_bytes, set_->stream),
-                        "strict smoother x zero");
-      strict_check_cuda(cudaMemcpyAsync(
-                            arena_.r, state.pc_rhs, compact_bytes,
-                            cudaMemcpyDeviceToDevice, set_->stream),
-                        "strict smoother rhs copy");
-      mr_smooth(level, smoother_steps_);
+      trace_stage(trace_iteration_, level, "level_pre_smoother", [&] {
+        strict_check_cuda(cudaMemsetAsync(
+                              state.x, 0, compact_bytes, set_->stream),
+                          "strict smoother x zero");
+        strict_check_cuda(cudaMemcpyAsync(
+                              arena_.r, state.pc_rhs, compact_bytes,
+                              cudaMemcpyDeviceToDevice, set_->stream),
+                          "strict smoother rhs copy");
+        mr_smooth(level, smoother_steps_);
+      });
 
       StrictPersistentLevel<T> &child = levels_[level + 1];
-      restrict_to_child(level, arena_.r, child.full_rhs);
-      solve_level(level + 1, child.full_rhs, arena_.correction_full);
-      prolong_from_child(level, arena_.correction_full, arena_.tmp);
-      strict_add_kernel<T>
-          <<<blocks(g.compact_n), _BLOCK_SIZE_, 0, set_->stream>>>(
-              state.x, arena_.tmp, static_cast<int>(g.compact_n));
+      trace_stage(trace_iteration_, level, "level_restriction", [&] {
+        restrict_to_child(level, arena_.r, child.full_rhs);
+      });
+      trace_stage(trace_iteration_, level + 1, "level_recursive_solve", [&] {
+        solve_level(level + 1, child.full_rhs, arena_.correction_full);
+      });
+      trace_stage(trace_iteration_, level, "level_prolongation", [&] {
+        prolong_from_child(level, arena_.correction_full, arena_.tmp);
+        strict_add_kernel<T>
+            <<<blocks(g.compact_n), _BLOCK_SIZE_, 0, set_->stream>>>(
+                state.x, arena_.tmp, static_cast<int>(g.compact_n));
+      });
 
       // Child recursion intentionally reuses r/v/tmp.  Recompute the parent
       // residual instead of preserving three parent-sized vectors per level.
-      apply_matpc(level, arena_.v, state.x, arena_.tmp);
-      strict_subtract_kernel<T>
-          <<<blocks(g.compact_n), _BLOCK_SIZE_, 0, set_->stream>>>(
-              arena_.r, state.pc_rhs, arena_.v,
-              static_cast<int>(g.compact_n));
-      mr_smooth(level, smoother_steps_);
+      trace_stage(trace_iteration_, level, "level_residual_recompute", [&] {
+        apply_matpc(level, arena_.v, state.x, arena_.tmp);
+        strict_subtract_kernel<T>
+            <<<blocks(g.compact_n), _BLOCK_SIZE_, 0, set_->stream>>>(
+                arena_.r, state.pc_rhs, arena_.v,
+                static_cast<int>(g.compact_n));
+      });
+      trace_stage(trace_iteration_, level, "level_post_smoother", [&] {
+        mr_smooth(level, smoother_steps_);
+      });
     }
-    reconstruct(level, full_out, full_rhs, state.x, arena_.tmp);
+    trace_stage(trace_iteration_, level, "level_reconstruct", [&] {
+      reconstruct(level, full_out, full_rhs, state.x, arena_.tmp);
+    });
   }
 };
 
