@@ -22,12 +22,21 @@ from typing import Any, Dict, Iterable, List, Mapping, Sequence
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[2]
-DEFAULT_TRACE = REPO / "data" / "strict_trace_20260906.json"
+DEFAULT_TRACE = REPO / "data" / "strict_trace_stage_20260906.json"
 DEFAULT_BENCHMARK = REPO / "data" / "strict_vs_quda_formal_20260906.json"
-DEFAULT_OUTPUT = REPO / "data" / "strict_trace_detailed_20260906.json"
+DEFAULT_OUTPUT = REPO / "data" / "strict_trace_stage_detailed_20260906.json"
 DEFAULT_CSV = REPO / "data" / "strict_trace_detailed_20260906.csv"
+DEFAULT_STAGE_CSV = REPO / "data" / "strict_trace_stage_timing_20260906.csv"
+DEFAULT_PROFILE_CSV = REPO / "data" / "strict_trace_profile_20260906.csv"
 DEFAULT_PLOT = REPO / "data" / "strict_trace_detailed_20260906.svg"
 DEFAULT_SUMMARY = REPO / "data" / "strict_trace_detailed_20260906.md"
+
+_PLOT_STAGE_ORDER = (
+    "fine_pre_smoother", "fine_restriction", "coarse_vcycle",
+    "fine_prolongation", "fine_correction_residual", "fine_post_smoother",
+    "fine_matpc", "arnoldi", "fgmres_solution_update",
+    "true_residual_refresh",
+)
 
 
 def _load(path: Path) -> Dict[str, Any]:
@@ -85,6 +94,75 @@ def _trace_sections(trace: Mapping[str, Any], side: str) -> List[Mapping[str, An
     return steady
 
 
+def _stage_events(section: Mapping[str, Any], side: str, solve_index: int,
+                  outer_iterations: int) -> List[Dict[str, Any]]:
+    raw_stages = section.get("stages", [])
+    if not isinstance(raw_stages, list):
+        raise ValueError(f"{side} solve={solve_index} stages 不是 list")
+    result: List[Dict[str, Any]] = []
+    for raw in raw_stages:
+        if not isinstance(raw, Mapping):
+            raise ValueError(f"{side} solve={solve_index} stage 不是 object")
+        outer_iteration = int(raw["outer_iteration"])
+        level = int(raw["level"])
+        name = str(raw["name"])
+        seconds = _positive(raw["seconds"], "stage seconds")
+        if outer_iteration < 1 or outer_iteration > outer_iterations:
+            raise ValueError(
+                f"{side} solve={solve_index} stage 外层编号越界: {outer_iteration}")
+        if level < 0:
+            raise ValueError(f"{side} solve={solve_index} stage level 非法: {level}")
+        result.append({
+            "side": side,
+            "solve_index": solve_index,
+            "outer_iteration": outer_iteration,
+            "level": level,
+            "name": name,
+            "seconds": seconds,
+            "trace_elapsed_seconds": _positive(
+                raw.get("elapsed_seconds", 0.0), "stage trace elapsed"),
+        })
+    return result
+
+
+def _stage_summary(stage_rows: Sequence[Mapping[str, Any]],
+                   outer_rows: Sequence[Mapping[str, Any]]) -> List[Dict[str, Any]]:
+    totals = {
+        (row["side"], row["solve_index"], row["outer_iteration"]):
+        float(row["seconds"])
+        for row in stage_rows if row["name"] == "outer_iteration"
+    }
+    groups: Dict[tuple[str, int, str], List[float]] = {}
+    fractions: Dict[tuple[str, int, str], List[float]] = {}
+    for row in stage_rows:
+        key = (str(row["side"]), int(row["level"]), str(row["name"]))
+        groups.setdefault(key, []).append(float(row["seconds"]))
+        total = totals.get((row["side"], row["solve_index"],
+                           row["outer_iteration"]))
+        if total is not None and total > 0.0:
+            fractions.setdefault(key, []).append(
+                float(row["seconds"]) / total)
+    summary: List[Dict[str, Any]] = []
+    for (side, level, name), values in sorted(groups.items()):
+        fractions_for_key = fractions.get((side, level, name), [])
+        summary.append({
+            "side": side,
+            "level": level,
+            "name": name,
+            "count": len(values),
+            "median_seconds": _median(values),
+            "mad_seconds": _median(
+                [abs(value - _median(values)) for value in values]),
+            "mean_seconds": sum(values) / len(values),
+            "median_fraction_of_outer_iteration": (
+                _median(fractions_for_key) if fractions_for_key else None),
+            "timing_semantics": (
+                "serialized CUDA-stream diagnostic interval; nested stages are "
+                "not additive"),
+        })
+    return summary
+
+
 def _validate_identity(trace: Mapping[str, Any], benchmark: Mapping[str, Any]) -> None:
     trace_protocol = trace.get("protocol", {})
     bench_protocol = benchmark.get("protocol", {})
@@ -115,6 +193,7 @@ def _join(trace: Mapping[str, Any], benchmark: Mapping[str, Any]) -> Dict[str, A
     _validate_identity(trace, benchmark)
     sides: Dict[str, Any] = {}
     rows: List[Dict[str, Any]] = []
+    stage_rows: List[Dict[str, Any]] = []
     for side in ("pyqcu", "quda"):
         trace_steady = _trace_sections(trace, side)
         bench_side = benchmark.get("sides", {}).get(side)
@@ -157,6 +236,14 @@ def _join(trace: Mapping[str, Any], benchmark: Mapping[str, Any]) -> Dict[str, A
                 "diagnostic_trace_elapsed_seconds": section.get("trace_elapsed_seconds"),
                 "restart_residuals": section.get("restart_residuals", []),
             }
+            solve_stages = _stage_events(
+                section, side, solve_index, observed_iterations)
+            solve_record["stage_timings"] = solve_stages
+            solve_record["stage_totals_seconds"] = {
+                f"level{item['level']}:{item['name']}": item["seconds"]
+                for item in solve_stages
+            }
+            stage_rows.extend(solve_stages)
             solves.append(solve_record)
             for point in curve:
                 event = {
@@ -187,7 +274,7 @@ def _join(trace: Mapping[str, Any], benchmark: Mapping[str, Any]) -> Dict[str, A
         sides[side] = {
             "steady_solve_count": len(solves),
             "timing_source": "strict_vs_quda_formal_20260906.json (no trace)",
-            "residual_source": "strict_trace_20260906.json (trace logging enabled)",
+            "residual_source": "strict_trace_stage_20260906.json (trace logging enabled)",
             "median_wall_seconds": float(bench_timing["median_seconds"]),
             "mad_wall_seconds": float(bench_timing["mad_seconds"]),
             "median_iterations": _median(iteration_samples),
@@ -202,9 +289,12 @@ def _join(trace: Mapping[str, Any], benchmark: Mapping[str, Any]) -> Dict[str, A
                 "QUDA GCR iterated residual"),
             "residual_min": min(residual_values),
             "residual_max": max(residual_values),
+            "stage_event_count": sum(
+                len(item["stage_timings"]) for item in solves),
         }
+    profile_rows = _profile_rows(benchmark)
     return {
-        "schema": {"name": "pyqcu.strict-vs-quda.detailed-trace", "version": 1},
+        "schema": {"name": "pyqcu.strict-vs-quda.detailed-trace", "version": 2},
         "created_at": datetime.now(timezone.utc).isoformat(),
         "protocol": benchmark["protocol"],
         "input_fingerprints": benchmark["input_fingerprints"],
@@ -214,10 +304,63 @@ def _join(trace: Mapping[str, Any], benchmark: Mapping[str, Any]) -> Dict[str, A
             "benchmark": str(DEFAULT_BENCHMARK.resolve()),
             "timing_rule": "仅使用无 trace benchmark 的 steady samples",
             "residual_rule": "仅使用 trace 的逐外层迭代曲线；最终正确性使用 full-op true residual",
+            "stage_rule": (
+                "仅 PyQCU 记录阶段；通过 CUDA stream 同步测量，含同步开销；"
+                "QUDA 本次公开接口只提供 invertQuda 聚合 profile"),
         },
         "sides": sides,
         "rows": rows,
+        "stage_rows": stage_rows,
+        "stage_summary": _stage_summary(stage_rows, rows),
+        "profile_rows": profile_rows,
     }
+
+
+def _profile_rows(benchmark: Mapping[str, Any]) -> List[Dict[str, Any]]:
+    """Flatten only the aggregate wall-time profile exposed by the benchmark."""
+    rows: List[Dict[str, Any]] = []
+
+    def add(side: str, metric: str, sample: str, value: Any,
+            unit: str, source: str) -> None:
+        if isinstance(value, (int, float)) and math.isfinite(float(value)):
+            rows.append({
+                "side": side, "metric": metric, "sample": sample,
+                "value": float(value), "unit": unit, "source": source,
+            })
+
+    for side in ("pyqcu", "quda"):
+        record = benchmark.get("sides", {}).get(side, {})
+        timing = record.get("timing", {})
+        for metric, value in timing.items():
+            if isinstance(value, (int, float)):
+                add(side, metric, "aggregate", value, "s",
+                    "formal benchmark aggregate timing")
+            elif isinstance(value, list):
+                for index, item in enumerate(value):
+                    if not isinstance(item, Mapping):
+                        continue
+                    add(side, f"{metric}.seconds", str(index),
+                        item.get("seconds"), "s",
+                        "formal benchmark aggregate timing")
+                    add(side, f"{metric}.iterations", str(index),
+                        item.get("iterations"), "count",
+                        "formal benchmark aggregate iteration count")
+            elif isinstance(value, Mapping):
+                for submetric, subvalue in value.items():
+                    if isinstance(subvalue, (int, float)):
+                        unit = ("count" if submetric == "iterations" else "s")
+                        add(side, f"{metric}.{submetric}", "aggregate",
+                            subvalue, unit,
+                            "formal benchmark aggregate timing")
+                    elif isinstance(subvalue, list):
+                        for index, item in enumerate(subvalue):
+                            if isinstance(item, (int, float)):
+                                unit = ("count" if "iteration" in submetric
+                                        else "s")
+                                add(side, f"{metric}.{submetric}", str(index),
+                                    item, unit,
+                                    "formal benchmark aggregate timing")
+    return rows
 
 
 def _write_csv(document: Mapping[str, Any], path: Path) -> None:
@@ -228,9 +371,28 @@ def _write_csv(document: Mapping[str, Any], path: Path) -> None:
         "diagnostic_elapsed_seconds",
     ]
     with path.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=fields)
+        writer = csv.DictWriter(handle, fieldnames=fields, lineterminator="\n")
         writer.writeheader()
         writer.writerows(document["rows"])
+
+
+def _write_stage_csv(document: Mapping[str, Any], path: Path) -> None:
+    fields = [
+        "side", "solve_index", "outer_iteration", "level", "name",
+        "seconds", "trace_elapsed_seconds",
+    ]
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fields, lineterminator="\n")
+        writer.writeheader()
+        writer.writerows(document["stage_rows"])
+
+
+def _write_profile_csv(document: Mapping[str, Any], path: Path) -> None:
+    fields = ["side", "metric", "sample", "value", "unit", "source"]
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fields, lineterminator="\n")
+        writer.writeheader()
+        writer.writerows(document["profile_rows"])
 
 
 def _svg_text(x: float, y: float, value: str, *, size: int = 14,
@@ -240,8 +402,8 @@ def _svg_text(x: float, y: float, value: str, *, size: int = 14,
 
 
 def _plot(document: Mapping[str, Any], path: Path) -> None:
-    width, height = 1200, 820
-    left, right, top, bottom = 95, 40, 70, 505
+    width, height = 1400, 1180
+    left, right, top, bottom = 105, 45, 70, 465
     plot_right = width - right
     colors = {"pyqcu": "#1769aa", "quda": "#c2410c"}
     labels = {"pyqcu": "PyQCU Strict（Arnoldi estimate）",
@@ -302,7 +464,60 @@ def _plot(document: Mapping[str, Any], path: Path) -> None:
         pieces.append(_svg_text(plot_right - 290 if side == "pyqcu" else plot_right - 100,
                                 top - 20, labels[side], size=13))
 
-    bar_top, bar_bottom = 635, 770
+    # The stage panel intentionally reports only PyQCU: QUDA's public
+    # invertQuda/TimeProfile path in this experiment does not expose a
+    # per-GCR, per-V-cycle callback.  Its aggregate comparison remains below.
+    stage_top, stage_bottom = 555, 805
+    stage_summary = {
+        (item["level"], item["name"]): item
+        for item in document.get("stage_summary", [])
+        if item["side"] == "pyqcu"
+    }
+    stage_values = []
+    for name in _PLOT_STAGE_ORDER:
+        candidates = [item for (level, item_name), item in stage_summary.items()
+                      if item_name == name]
+        if not candidates:
+            continue
+        # The formal case has one active fine/coarse level for these names;
+        # retain the level in the label if a recursive case has several.
+        for item in sorted(candidates, key=lambda value: int(value["level"])):
+            stage_values.append((
+                f"L{item['level']} {name}",
+                1000.0 * float(item["median_seconds"]),
+                item.get("median_fraction_of_outer_iteration"),
+            ))
+    if stage_values:
+        max_stage = max(value for _, value, _ in stage_values) * 1.25
+        pieces.append(_svg_text(
+            left, stage_top - 24,
+            "PyQCU Strict 诊断阶段时间（每次外层迭代中位数，含同步开销；嵌套阶段不可相加）",
+            size=15))
+        bar_width = min(92, max(38, (plot_right - left - 30) // len(stage_values) - 10))
+        gap = (plot_right - left - len(stage_values) * bar_width) / max(1, len(stage_values) + 1)
+        for index, (label, value, fraction) in enumerate(stage_values):
+            x = left + gap + index * (bar_width + gap)
+            bar_height = (stage_bottom - stage_top) * value / max_stage
+            y = stage_bottom - bar_height
+            pieces.append(f'<rect x="{x:.1f}" y="{y:.1f}" width="{bar_width:.1f}" '
+                          f'height="{bar_height:.1f}" fill="#1769aa" opacity="0.82"/>')
+            short_label = label.replace("level", "L").replace("_", " ")
+            pieces.append(_svg_text(x + bar_width / 2, stage_bottom + 16,
+                                    short_label, size=10, anchor="middle"))
+            pieces.append(_svg_text(x + bar_width / 2, y - 7,
+                                    f"{value:.2f}", size=10, anchor="middle"))
+            if fraction is not None:
+                pieces.append(_svg_text(x + bar_width / 2, stage_bottom + 31,
+                                        f"{100.0 * float(fraction):.1f}%",
+                                        size=9, anchor="middle", fill="#4b5563"))
+        pieces.append(_svg_text(plot_right - 5, stage_top + 10,
+                                "QUDA：无逐阶段可观测值", size=12,
+                                anchor="end", fill="#6b7280"))
+        pieces.append(_svg_text(plot_right - 5, stage_top + 30,
+                                "见下方 aggregate profile", size=12,
+                                anchor="end", fill="#6b7280"))
+
+    bar_top, bar_bottom = 945, 1080
     values = [
         ("PyQCU", float(document["sides"]["pyqcu"]["median_average_milliseconds_per_outer_iteration"]), colors["pyqcu"]),
         ("QUDA", float(document["sides"]["quda"]["median_average_milliseconds_per_outer_iteration"]), colors["quda"]),
@@ -350,9 +565,33 @@ def _write_summary(document: Mapping[str, Any], path: Path) -> None:
             f"{item['median_average_milliseconds_per_outer_iteration']:.3f} | `{residuals}` |")
     lines.extend([
         "",
-        "逐外层迭代数据见同目录 CSV；图表见同目录 SVG。PyQCU 曲线是 Arnoldi estimate，",
+        "逐外层迭代数据、阶段事件和 aggregate profile 分别见同目录 CSV；图表见同目录 SVG。",
+        "PyQCU 曲线是 Arnoldi estimate，",
         "QUDA 曲线是 GCR iterated residual，不能把两条曲线的每个浮点值当成同一递推量；",
         "最终收敛判据由 full Wilson/Clover operator 的 true residual 给出。",
+        "",
+        "## PyQCU 阶段诊断（仅用于归因）",
+        "",
+        "阶段计时通过每个区间前后同步同一 CUDA stream 获得，包含同步开销；"
+        "外层总区间包住内部区间，因此百分比不能求和。QUDA 本次接口没有提供"
+        "逐 GCR 迭代或逐 V-cycle 层的回调，不能从聚合 profile 反推出同口径阶段时间。",
+        "",
+        "| level | 阶段 | count | median ms | MAD ms | median/outer |",
+        "|---:|---|---:|---:|---:|---:|",
+    ])
+    for item in document.get("stage_summary", []):
+        if item["side"] != "pyqcu":
+            continue
+        fraction = item.get("median_fraction_of_outer_iteration")
+        fraction_text = "—" if fraction is None else f"{100.0 * float(fraction):.2f}%"
+        lines.append(
+            f"| {item['level']} | `{item['name']}` | {item['count']} | "
+            f"{1000.0 * item['median_seconds']:.3f} | "
+            f"{1000.0 * item['mad_seconds']:.3f} | {fraction_text} |")
+    lines.extend([
+        "",
+        "QUDA 阶段时间状态：`unavailable via current public invertQuda/TimeProfile "
+        "interface`; QUDA 的总 solve/steady wall time仍用于正式对照。",
         "",
     ])
     path.write_text("\n".join(lines), encoding="utf-8")
@@ -364,6 +603,8 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--benchmark", type=Path, default=DEFAULT_BENCHMARK)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--csv", type=Path, default=DEFAULT_CSV)
+    parser.add_argument("--stage-csv", type=Path, default=DEFAULT_STAGE_CSV)
+    parser.add_argument("--profile-csv", type=Path, default=DEFAULT_PROFILE_CSV)
     parser.add_argument("--plot", type=Path, default=DEFAULT_PLOT)
     parser.add_argument("--summary", type=Path, default=DEFAULT_SUMMARY)
     return parser
@@ -378,15 +619,21 @@ def main(argv: Sequence[str] | None = None) -> int:
     document["sources"]["benchmark"] = str(args.benchmark.resolve())
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.csv.parent.mkdir(parents=True, exist_ok=True)
+    args.stage_csv.parent.mkdir(parents=True, exist_ok=True)
+    args.profile_csv.parent.mkdir(parents=True, exist_ok=True)
     args.plot.parent.mkdir(parents=True, exist_ok=True)
     args.summary.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(document, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     _write_csv(document, args.csv)
+    _write_stage_csv(document, args.stage_csv)
+    _write_profile_csv(document, args.profile_csv)
     _plot(document, args.plot)
     _write_summary(document, args.summary)
     print(json.dumps({
         "output": str(args.output.resolve()),
         "csv": str(args.csv.resolve()),
+        "stage_csv": str(args.stage_csv.resolve()),
+        "profile_csv": str(args.profile_csv.resolve()),
         "plot": str(args.plot.resolve()),
         "summary": str(args.summary.resolve()),
         "config_hash": document["protocol"]["config_hash"],

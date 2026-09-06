@@ -1,0 +1,33 @@
+side,metric,sample,value,unit,source
+pyqcu,input_io_seconds,aggregate,5.711990591997164,s,formal benchmark aggregate timing
+pyqcu,runtime_init_seconds,aggregate,3.170275832992047,s,formal benchmark aggregate timing
+pyqcu,setup_seconds,aggregate,14.7774233220116,s,formal benchmark aggregate timing
+pyqcu,setup_noncache_seconds,aggregate,1.7468471490137745,s,formal benchmark aggregate timing
+pyqcu,cache_restore_seconds,aggregate,13.030576172997826,s,formal benchmark aggregate timing
+pyqcu,cache_persist_seconds,aggregate,0.0,s,formal benchmark aggregate timing
+pyqcu,warmups.seconds,0,2.068689895007992,s,formal benchmark aggregate timing
+pyqcu,warmups.iterations,0,11.0,count,formal benchmark aggregate iteration count
+pyqcu,warmups.seconds,1,1.9686466679995647,s,formal benchmark aggregate timing
+pyqcu,warmups.iterations,1,11.0,count,formal benchmark aggregate iteration count
+pyqcu,steady.samples_seconds,0,2.0213655279949307,s,formal benchmark aggregate timing
+pyqcu,steady.samples_seconds,1,2.110346423985902,s,formal benchmark aggregate timing
+pyqcu,steady.samples_seconds,2,2.0151909020059975,s,formal benchmark aggregate timing
+pyqcu,steady.samples_seconds,3,2.041653319989564,s,formal benchmark aggregate timing
+pyqcu,steady.samples_seconds,4,2.068720169001608,s,formal benchmark aggregate timing
+pyqcu,steady.median_seconds,aggregate,2.041653319989564,s,formal benchmark aggregate timing
+pyqcu,steady.mad_seconds,aggregate,0.02646241798356641,s,formal benchmark aggregate timing
+quda,input_io_seconds,aggregate,1.071249198008445,s,formal benchmark aggregate timing
+quda,input_prepare_seconds,aggregate,3.485277247003978,s,formal benchmark aggregate timing
+quda,runtime_init_seconds,aggregate,0.025901716988300905,s,formal benchmark aggregate timing
+quda,setup_seconds,aggregate,364.36986925499514,s,formal benchmark aggregate timing
+quda,warmups.seconds,0,21.771464749006554,s,formal benchmark aggregate timing
+quda,warmups.iterations,0,37.0,count,formal benchmark aggregate iteration count
+quda,warmups.seconds,1,2.1351111559924902,s,formal benchmark aggregate timing
+quda,warmups.iterations,1,37.0,count,formal benchmark aggregate iteration count
+quda,steady.samples_seconds,0,2.0940757600037614,s,formal benchmark aggregate timing
+quda,steady.samples_seconds,1,2.0948406029929174,s,formal benchmark aggregate timing
+quda,steady.samples_seconds,2,2.0825576200004434,s,formal benchmark aggregate timing
+quda,steady.samples_seconds,3,2.1232754290103912,s,formal benchmark aggregate timing
+quda,steady.samples_seconds,4,2.1085438989975955,s,formal benchmark aggregate timing
+quda,steady.median_seconds,aggregate,2.0948406029929174,s,formal benchmark aggregate timing
+quda,steady.mad_seconds,aggregate,0.01228298299247399,s,formal benchmark aggregate timing
