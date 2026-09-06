@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "runner": "/root/PyQCU/examples/qcu/dev87/run_strict_fast.py",
+  "repo_root": "/root/PyQCU",
+  "environment_script": "/root/PyQCU/env.sh",
+  "tier_semantics": "cumulative",
+  "selection_mode": "only",
+  "requested_tier": 0,
+  "selected_tiers": [
+    0
+  ],
+  "selected_names": [
+    "cpu-smoke"
+  ],
+  "only": [
+    "cpu-smoke"
+  ],
+  "fail_fast": true,
+  "timeout_override_s": null,
+  "started_at_utc": "2026-09-06T09:05:51.572674+00:00",
+  "finished_at_utc": "2026-09-06T09:06:14.079444+00:00",
+  "total_s": 22.508,
+  "outcome": "passed",
+  "status_counts": {
+    "passed": 1,
+    "skipped": 0,
+    "failed": 0,
+    "timeout": 0,
+    "not_run": 0
+  },
+  "stop_reason": null,
+  "machine": {
+    "hostname": "68bb03cf529b",
+    "platform": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.35",
+    "python": "3.10.12",
+    "python_executable": "/usr/bin/python3"
+  },
+  "commands": [
+    {
+      "name": "cpu-smoke",
+      "tier": 0,
+      "description": "19 focused CPU checks for gamma basis, exports, FGMRES edge cases, strict mode/geometry guards, parity transfer/MATPC, strict assets/layouts, matrix-free mode and colored Galerkin batching",
+      "requirement": "CPU only; small synthetic fields",
+      "kind": "pytest",
+      "command": [
+        "/usr/bin/python3",
+        "-m",
+        "pytest",
+        "-x",
+        "-q",
+        "-rs",
+        "-p",
+        "no:cacheprovider",
+        "examples/pyqcu/test_quda_multigrid.py::test_pyqcu_gamma_basis_matches_quda_degrand_rossi_table",
+        "examples/pyqcu/test_quda_multigrid.py::test_new_and_legacy_multigrid_are_parallel_exports",
+        "examples/pyqcu/test_quda_multigrid.py::test_fgmres_zero_rhs_stops_without_nan",
+        "examples/pyqcu/test_quda_multigrid.py::test_fgmres_breakdown_keeps_singular_case_finite",
+        "examples/pyqcu/test_quda_multigrid.py::test_complex_givens_is_unitary_under_phase_cancellation",
+        "examples/pyqcu/test_quda_multigrid.py::test_strict_rejects_unimplemented_modes_and_odd_coarse_extent",
+        "examples/pyqcu/test_quda_multigrid.py::test_single_parity_transfer_is_adjoint_and_keeps_full_coarse_geometry",
+        "examples/pyqcu/test_quda_multigrid.py::test_quda_matpc_matches_left_preconditioned_block_elimination",
+        "examples/pyqcu/test_quda_multigrid.py::test_transfer_galerkin_and_quda_yhat_conventions",
+        "examples/pyqcu/test_quda_multigrid.py::test_strict_quda_hierarchy_coarsens_full_preconditioned_operator",
+        "examples/pyqcu/test_quda_multigrid.py::test_strict_qcu_assets_preserve_quda_y_yhat_storage_and_actions",
+        "examples/pyqcu/test_quda_multigrid.py::test_qcu_blocked_transfer_layout_matches_python_transfer",
+        "examples/pyqcu/test_quda_multigrid.py::test_qcu_stencil_pack_matches_all_33_periodic_slots",
+        "examples/pyqcu/test_quda_multigrid.py::test_qcu_stencil_degenerate_extent_and_strict_support_guard",
+        "examples/pyqcu/test_quda_multigrid.py::test_compact_parity_layout_roundtrip_matches_qcu_mapping",
+        "examples/pyqcu/test_quda_multigrid.py::test_matrix_free_mode_keeps_coarse_operator_lazy",
+        "examples/qcu/dev87/test_strict_galerkin_fast.py::test_strict_galerkin_fast_matches_columns_assets_and_matpc",
+        "examples/qcu/dev87/test_strict_galerkin_fast.py::test_colored_memory_model_bounds_large_e48_block4_geometry_workspace",
+        "examples/qcu/dev87/test_strict_galerkin_fast.py::test_e24_formal_geometry_workspace_tradeoff_is_exact"
+      ],
+      "timeout_s": 45.0,
+      "status": "passed",
+      "returncode": 0,
+      "elapsed_s": 22.507,
+      "timed_out": false,
+      "launch_error": null,
+      "pytest_counts": {
+        "passed": 19
+      },
+      "stdout": "###env.sh in /root/PyQCU is sourcing...:2026-09-06-17-05-51###\n###env.sh in /root/PyQCU is done......:2026-09-06-17-05-51###\n...................                                                      [100%]\n19 passed in 12.43s\n",
+      "stdout_truncated": false,
+      "stdout_chars": 225,
+      "stderr": "",
+      "stderr_truncated": false,
+      "stderr_chars": 0
+    }
+  ]
+}
