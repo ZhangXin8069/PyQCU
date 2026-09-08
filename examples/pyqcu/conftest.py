@@ -1,5 +1,7 @@
-from pyqcu.testing import *
-import torch
+def main():
+    import torch
+    from pyqcu.testing import test_dslash_clover
+
 # test_h5py_multithread(nthreads=4, dtype=torch.complex64, lat_size=[4, 4, 4, 8])
 # test_import()
 # test_lattice()
@@ -60,6 +62,10 @@ import torch
 # test_solver(method='bistabcg', dtype=torch.complex64,device=torch.device('cuda'),
 #                    lat_size=[8, 16, 16, 16], support_parity=True)
 # test_smear_stout(device=torch.device('cpu'), dtype=torch.complex64)
-test_dslash_clover(with_data=False, device=torch.device(
-    'cpu'), dtype=torch.complex64)
+    test_dslash_clover(with_data=False, device=torch.device(
+        'cpu'), dtype=torch.complex64)
 # test_smear_wuppertal(device=torch.device('cpu'))  # 三重不变量回归(test16)
+
+
+if __name__ == '__main__':
+    main()
