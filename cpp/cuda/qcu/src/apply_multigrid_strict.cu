@@ -4,6 +4,7 @@
 #include <complex>
 #include <cstdio>
 #include <cstdlib>
+#include <cooperative_groups.h>
 #include <fstream>
 #include <iomanip>
 #include <limits>
@@ -16,6 +17,8 @@
 
 namespace qcu {
 namespace {
+
+namespace cg = cooperative_groups;
 
 // Optional, diagnostic-only trace for the fused outer FGMRES.  The default
 // path never constructs this file and therefore keeps the production solver
@@ -283,6 +286,360 @@ __global__ void strict_hopping_parity_kernel(
 }
 
 template <typename T>
+__device__ inline bool strict_fused_scalar_bad(
+    const LatticeComplex<T> &value) {
+  return !((value.real() == value.real()) &&
+           (value.imag() == value.imag()) &&
+           fabs(value.real()) != INFINITY &&
+           fabs(value.imag()) != INFINITY);
+}
+
+template <typename T>
+__device__ inline T strict_fused_abs2(const LatticeComplex<T> &value) {
+  return value.real() * value.real() + value.imag() * value.imag();
+}
+
+template <typename T>
+__device__ inline bool strict_fused_abort(
+    cg::grid_group &grid, int block_thread, int block_index,
+    int *status, bool bad) {
+  if (bad && block_thread == 0)
+    atomicExch(status, 1);
+  grid.sync();
+  return *status != 0;
+}
+
+template <typename T, int NT>
+__device__ inline void strict_fused_hop(
+    LatticeComplex<T> *out, const LatticeComplex<T> *in,
+    const LatticeComplex<T> *links, const LatticeComplex<T> *base,
+    int E, int X, int Y, int Z, int Lt, int target_parity,
+    int nblocks, int block_index, int block_thread) {
+  const int half_volume = X * Y * Z * (Lt / 2);
+  const int total = E * half_volume;
+  const int volume = 2 * half_volume;
+  for (int index = block_index * NT + block_thread; index < total;
+       index += nblocks * NT) {
+    const int row = index / half_volume;
+    const int half_site = index - row * half_volume;
+    int x, y, z, t;
+    strict_decode_half_site(
+        half_site, target_parity, X, Y, Z, Lt, x, y, z, t);
+    const int target_site = strict_full_site(x, y, z, t, Y, Z, Lt);
+    const int coords[4] = {x, y, z, t};
+    const int extents[4] = {X, Y, Z, Lt};
+
+    LatticeComplex<T> sum((T)0, (T)0);
+    for (int dim = 0; dim < 4; ++dim) {
+      int forward[4] = {x, y, z, t};
+      int backward[4] = {x, y, z, t};
+      forward[dim] = (coords[dim] + 1) % extents[dim];
+      backward[dim] = (coords[dim] + extents[dim] - 1) % extents[dim];
+      const int backward_site = strict_full_site(
+          backward[0], backward[1], backward[2], backward[3], Y, Z, Lt);
+      const int forward_half = strict_half_site(
+          forward[0], forward[1], forward[2], forward[3], Y, Z, Lt);
+      const int backward_half = strict_half_site(
+          backward[0], backward[1], backward[2], backward[3], Y, Z, Lt);
+      for (int col = 0; col < E; ++col) {
+        const size_t forward_link =
+            ((((static_cast<size_t>(0) * 4 + dim) * E + row) * E + col) *
+                 static_cast<size_t>(volume) +
+             target_site);
+        const size_t backward_link =
+            ((((static_cast<size_t>(1) * 4 + dim) * E + col) * E + row) *
+                 static_cast<size_t>(volume) +
+             backward_site);
+        sum += links[forward_link] * in[col * half_volume + forward_half];
+        sum += links[backward_link].conj() *
+               in[col * half_volume + backward_half];
+      }
+    }
+    out[index] = base == nullptr ? sum : base[index] - sum;
+  }
+}
+
+template <typename T, int NT>
+__device__ inline LatticeComplex<T> strict_fused_dot(
+    const LatticeComplex<T> *left, const LatticeComplex<T> *right,
+    int n, LatticeComplex<T> *partials, int nblocks,
+    typename LatticeComplex<T>::_data_type *shared,
+    cg::grid_group &grid, int block_index, int block_thread) {
+  LatticeComplex<T> sum((T)0, (T)0);
+  for (int index = block_index * NT + block_thread; index < n;
+       index += nblocks * NT)
+    sum += left[index].conj() * right[index];
+  shared[block_thread].x = sum.real();
+  shared[block_thread].y = sum.imag();
+  __syncthreads();
+  for (int width = NT / 2; width > 0; width >>= 1) {
+    if (block_thread < width) {
+      shared[block_thread].x += shared[block_thread + width].x;
+      shared[block_thread].y += shared[block_thread + width].y;
+    }
+    __syncthreads();
+  }
+  if (block_thread == 0)
+    partials[block_index] =
+        LatticeComplex<T>(shared[0].x, shared[0].y);
+  grid.sync();
+  if (block_index == 0) {
+    LatticeComplex<T> total((T)0, (T)0);
+    for (int index = 0; index < nblocks; ++index)
+      total += partials[index];
+    partials[0] = total;
+  }
+  grid.sync();
+  return partials[0];
+}
+
+template <typename T, int NT>
+__device__ inline void strict_fused_dot_pair(
+    const LatticeComplex<T> *left0, const LatticeComplex<T> *right0,
+    const LatticeComplex<T> *left1, const LatticeComplex<T> *right1,
+    int n, LatticeComplex<T> *partials, int nblocks,
+    typename LatticeComplex<T>::_data_type *shared0,
+    typename LatticeComplex<T>::_data_type *shared1,
+    cg::grid_group &grid, int block_index, int block_thread,
+    LatticeComplex<T> &result0, LatticeComplex<T> &result1) {
+  LatticeComplex<T> sum0((T)0, (T)0);
+  LatticeComplex<T> sum1((T)0, (T)0);
+  for (int index = block_index * NT + block_thread; index < n;
+       index += nblocks * NT) {
+    sum0 += left0[index].conj() * right0[index];
+    sum1 += left1[index].conj() * right1[index];
+  }
+  shared0[block_thread].x = sum0.real();
+  shared0[block_thread].y = sum0.imag();
+  shared1[block_thread].x = sum1.real();
+  shared1[block_thread].y = sum1.imag();
+  __syncthreads();
+  for (int width = NT / 2; width > 0; width >>= 1) {
+    if (block_thread < width) {
+      shared0[block_thread].x += shared0[block_thread + width].x;
+      shared0[block_thread].y += shared0[block_thread + width].y;
+      shared1[block_thread].x += shared1[block_thread + width].x;
+      shared1[block_thread].y += shared1[block_thread + width].y;
+    }
+    __syncthreads();
+  }
+  if (block_thread == 0) {
+    partials[block_index] =
+        LatticeComplex<T>(shared0[0].x, shared0[0].y);
+    partials[nblocks + block_index] =
+        LatticeComplex<T>(shared1[0].x, shared1[0].y);
+  }
+  grid.sync();
+  if (block_index == 0) {
+    LatticeComplex<T> total0((T)0, (T)0);
+    LatticeComplex<T> total1((T)0, (T)0);
+    for (int index = 0; index < nblocks; ++index) {
+      total0 += partials[index];
+      total1 += partials[nblocks + index];
+    }
+    partials[0] = total0;
+    partials[nblocks] = total1;
+  }
+  grid.sync();
+  result0 = partials[0];
+  result1 = partials[nblocks];
+}
+
+template <typename T, int NT>
+__global__ void strict_coarse_bicgstab_fused_kernel(
+    void *x_ptr, const void *rhs_ptr, void *rhat_ptr, void *r_ptr,
+    void *p_ptr, void *v_ptr, void *s_ptr, void *t_ptr, void *tmp_ptr,
+    const void *links_ptr, int E, int X, int Y, int Z, int Lt,
+    int parity, int max_iter, T tolerance, void *partials_ptr,
+    int nblocks, int *status_ptr) {
+  cg::grid_group grid = cg::this_grid();
+  const int block_index = static_cast<int>(blockIdx.x);
+  const int block_thread = static_cast<int>(threadIdx.x);
+  using complex_data = typename LatticeComplex<T>::_data_type;
+  __shared__ complex_data shared0[NT];
+  __shared__ complex_data shared1[NT];
+
+  LatticeComplex<T> *x =
+      static_cast<LatticeComplex<T> *>(x_ptr);
+  const LatticeComplex<T> *rhs =
+      static_cast<const LatticeComplex<T> *>(rhs_ptr);
+  LatticeComplex<T> *rhat =
+      static_cast<LatticeComplex<T> *>(rhat_ptr);
+  LatticeComplex<T> *r =
+      static_cast<LatticeComplex<T> *>(r_ptr);
+  LatticeComplex<T> *p =
+      static_cast<LatticeComplex<T> *>(p_ptr);
+  LatticeComplex<T> *v =
+      static_cast<LatticeComplex<T> *>(v_ptr);
+  LatticeComplex<T> *s =
+      static_cast<LatticeComplex<T> *>(s_ptr);
+  LatticeComplex<T> *t =
+      static_cast<LatticeComplex<T> *>(t_ptr);
+  LatticeComplex<T> *tmp =
+      static_cast<LatticeComplex<T> *>(tmp_ptr);
+  const LatticeComplex<T> *links =
+      static_cast<const LatticeComplex<T> *>(links_ptr);
+  LatticeComplex<T> *partials =
+      static_cast<LatticeComplex<T> *>(partials_ptr);
+  const int n = E * X * Y * Z * (Lt / 2);
+  const T floor = std::is_same<T, float>::value ? (T)1e-20 : (T)1e-40;
+
+  for (int index = block_index * NT + block_thread; index < n;
+       index += nblocks * NT) {
+    x[index] = LatticeComplex<T>((T)0, (T)0);
+    r[index] = rhs[index];
+    rhat[index] = rhs[index];
+    p[index] = LatticeComplex<T>((T)0, (T)0);
+    v[index] = LatticeComplex<T>((T)0, (T)0);
+    s[index] = LatticeComplex<T>((T)0, (T)0);
+    t[index] = LatticeComplex<T>((T)0, (T)0);
+  }
+  grid.sync();
+
+  const LatticeComplex<T> rhs_norm = strict_fused_dot<T, NT>(
+      rhs, rhs, n, partials, nblocks, shared0, grid,
+      block_index, block_thread);
+  const bool bad_rhs = strict_fused_scalar_bad(rhs_norm) ||
+                       rhs_norm.real() < (T)0 ||
+                       !((tolerance == tolerance) &&
+                         fabs(tolerance) != INFINITY) ||
+                       tolerance <= (T)0;
+  if (strict_fused_abort<T>(
+          grid, block_thread, block_index, status_ptr, bad_rhs))
+    return;
+  const T rhs_norm2 = rhs_norm.real() > (T)0 ? rhs_norm.real() : (T)0;
+  const T target2 = tolerance * tolerance * rhs_norm2;
+  if (target2 == (T)0) {
+    if (block_index == 0 && block_thread == 0)
+      status_ptr[1] = 1;
+    grid.sync();
+    return;
+  }
+
+  LatticeComplex<T> rho_prev((T)1, (T)0);
+  LatticeComplex<T> alpha((T)1, (T)0);
+  LatticeComplex<T> omega((T)1, (T)0);
+  for (int iteration = 0; iteration < max_iter; ++iteration) {
+    const LatticeComplex<T> rho = strict_fused_dot<T, NT>(
+        rhat, r, n, partials, nblocks, shared0, grid,
+        block_index, block_thread);
+    if (strict_fused_abort<T>(
+            grid, block_thread, block_index, status_ptr,
+            strict_fused_scalar_bad(rho) ||
+                strict_fused_abs2(rho) <= floor ||
+                strict_fused_abs2(omega) <= floor))
+      return;
+
+    const LatticeComplex<T> beta =
+        (rho / rho_prev) * (alpha / omega);
+    if (strict_fused_abort<T>(
+            grid, block_thread, block_index, status_ptr,
+            strict_fused_scalar_bad(beta)))
+      return;
+    rho_prev = rho;
+    for (int index = block_index * NT + block_thread; index < n;
+         index += nblocks * NT)
+      p[index] = r[index] + beta * (p[index] - omega * v[index]);
+    grid.sync();
+
+    strict_fused_hop<T, NT>(
+        tmp, p, links, nullptr, E, X, Y, Z, Lt, 1 - parity,
+        nblocks, block_index, block_thread);
+    grid.sync();
+    strict_fused_hop<T, NT>(
+        v, tmp, links, p, E, X, Y, Z, Lt, parity,
+        nblocks, block_index, block_thread);
+    grid.sync();
+
+    const LatticeComplex<T> denominator = strict_fused_dot<T, NT>(
+        rhat, v, n, partials, nblocks, shared0, grid,
+        block_index, block_thread);
+    if (strict_fused_abort<T>(
+            grid, block_thread, block_index, status_ptr,
+            strict_fused_scalar_bad(denominator) ||
+                strict_fused_abs2(denominator) <= floor))
+      return;
+    alpha = rho / denominator;
+    if (strict_fused_abort<T>(
+            grid, block_thread, block_index, status_ptr,
+            strict_fused_scalar_bad(alpha)))
+      return;
+
+    for (int index = block_index * NT + block_thread; index < n;
+         index += nblocks * NT)
+      s[index] = r[index] - alpha * v[index];
+    grid.sync();
+
+    const LatticeComplex<T> s_norm = strict_fused_dot<T, NT>(
+        s, s, n, partials, nblocks, shared0, grid,
+        block_index, block_thread);
+    if (strict_fused_abort<T>(
+            grid, block_thread, block_index, status_ptr,
+            strict_fused_scalar_bad(s_norm) || s_norm.real() < (T)0))
+      return;
+    if (s_norm.real() <= target2) {
+      for (int index = block_index * NT + block_thread; index < n;
+           index += nblocks * NT)
+        x[index] += alpha * p[index];
+      grid.sync();
+      if (block_index == 0 && block_thread == 0)
+        status_ptr[1] = 1;
+      grid.sync();
+      return;
+    }
+
+    strict_fused_hop<T, NT>(
+        tmp, s, links, nullptr, E, X, Y, Z, Lt, 1 - parity,
+        nblocks, block_index, block_thread);
+    grid.sync();
+    strict_fused_hop<T, NT>(
+        t, tmp, links, s, E, X, Y, Z, Lt, parity,
+        nblocks, block_index, block_thread);
+    grid.sync();
+
+    LatticeComplex<T> ts;
+    LatticeComplex<T> tt;
+    strict_fused_dot_pair<T, NT>(
+        t, s, t, t, n, partials, nblocks, shared0, shared1,
+        grid, block_index, block_thread, ts, tt);
+    if (strict_fused_abort<T>(
+            grid, block_thread, block_index, status_ptr,
+            strict_fused_scalar_bad(ts) ||
+                strict_fused_scalar_bad(tt) ||
+                strict_fused_abs2(tt) <= floor))
+      return;
+    omega = ts / tt;
+    if (strict_fused_abort<T>(
+            grid, block_thread, block_index, status_ptr,
+            strict_fused_scalar_bad(omega) ||
+                strict_fused_abs2(omega) <= floor))
+      return;
+
+    for (int index = block_index * NT + block_thread; index < n;
+         index += nblocks * NT) {
+      x[index] += alpha * p[index] + omega * s[index];
+      r[index] = s[index] - omega * t[index];
+    }
+    grid.sync();
+
+    const LatticeComplex<T> residual = strict_fused_dot<T, NT>(
+        r, r, n, partials, nblocks, shared0, grid,
+        block_index, block_thread);
+    if (strict_fused_abort<T>(
+            grid, block_thread, block_index, status_ptr,
+            strict_fused_scalar_bad(residual) ||
+                residual.real() < (T)0))
+      return;
+    if (residual.real() <= target2) {
+      if (block_index == 0 && block_thread == 0)
+        status_ptr[1] = 1;
+      grid.sync();
+      return;
+    }
+  }
+}
+
+template <typename T>
 __global__ void strict_onsite_full_to_parity_kernel(
     void *compact_out_ptr, const void *full_in_ptr,
     const void *onsite_pair_ptr, int E, int X, int Y, int Z, int Lt,
@@ -546,6 +903,54 @@ __global__ void strict_dot_pair_reduce_kernel(
     out[0] = LatticeComplex<T>(partial0[0].x, partial0[0].y);
     out[1] = LatticeComplex<T>(partial1[0].x, partial1[0].y);
   }
+}
+
+template <typename T>
+__device__ inline bool strict_scalar_bad(T real, T imag) {
+  return !((real == real) && (imag == imag) &&
+           fabs(real) != INFINITY && fabs(imag) != INFINITY);
+}
+
+template <typename T>
+__global__ void strict_mr_give_alpha_kernel(
+    void *device_vals, T floor, bool squared_denominator_norm) {
+  if (threadIdx.x != 0 || blockIdx.x != 0) return;
+  LatticeComplex<T> *values =
+      static_cast<LatticeComplex<T> *>(device_vals);
+  const LatticeComplex<T> numerator = values[_tmp0_];
+  const LatticeComplex<T> denominator = values[_tmp1_];
+  const T denominator_abs2 =
+      denominator.real() * denominator.real() +
+      denominator.imag() * denominator.imag();
+  const T denominator_norm =
+      squared_denominator_norm ? denominator_abs2 : sqrt(denominator_abs2);
+  if (strict_scalar_bad<T>(numerator.real(), numerator.imag()) ||
+      strict_scalar_bad<T>(denominator.real(), denominator.imag()) ||
+      !(denominator_norm > floor)) {
+    values[_alpha_] = LatticeComplex<T>((T)0, (T)0);
+    return;
+  }
+  const LatticeComplex<T> alpha = numerator / denominator;
+  values[_alpha_] = strict_scalar_bad<T>(alpha.real(), alpha.imag())
+                        ? LatticeComplex<T>((T)0, (T)0)
+                        : alpha;
+}
+
+template <typename T>
+__global__ void strict_mr_update_device_kernel(
+    void *x_ptr, void *r_ptr, const void *Ar_ptr,
+    const void *device_vals, int n) {
+  const int index = blockIdx.x * blockDim.x + threadIdx.x;
+  if (index >= n) return;
+  const LatticeComplex<T> alpha =
+      static_cast<const LatticeComplex<T> *>(device_vals)[_alpha_];
+  LatticeComplex<T> *x = static_cast<LatticeComplex<T> *>(x_ptr);
+  LatticeComplex<T> *r = static_cast<LatticeComplex<T> *>(r_ptr);
+  const LatticeComplex<T> *Ar =
+      static_cast<const LatticeComplex<T> *>(Ar_ptr);
+  const LatticeComplex<T> old_r = r[index];
+  x[index] += alpha * old_r;
+  r[index] = old_r - alpha * Ar[index];
 }
 
 template <typename T, int NT>
@@ -1403,6 +1808,11 @@ template <typename T> class StrictCoarseHierarchy {
     arena_.allocate(
         max_compact, levels_[num_levels_ - 1].geometry.compact_n,
         max_child_full, max_reduction_n, set_->stream);
+    strict_check_cuda(
+        cudaMallocAsync(&coarse_fused_status_, 2 * sizeof(int),
+                        set_->stream),
+        "strict coarse fused status allocation");
+    coarse_fused_status_bytes_ = 2 * sizeof(int);
     if (params_[_VERBOSE_] && params_[_NODE_RANK_] == 0) {
       const double persistent_mib =
           static_cast<double>(persistent_bytes_) / (1024.0 * 1024.0);
@@ -1497,7 +1907,7 @@ template <typename T> class StrictCoarseHierarchy {
   }
 
   size_t allocated_bytes() const {
-    return persistent_bytes_ + arena_.bytes;
+    return persistent_bytes_ + arena_.bytes + coarse_fused_status_bytes_;
   }
 
   int start_level() const { return start_; }
@@ -1512,6 +1922,8 @@ template <typename T> class StrictCoarseHierarchy {
   StrictOuterWorkspace<T> outer_;
   void *persistent_storage_;
   size_t persistent_bytes_;
+  void *coarse_fused_status_ = nullptr;
+  size_t coarse_fused_status_bytes_ = 0;
   StrictFgmresTrace<T> *trace_ = nullptr;
   int trace_iteration_ = -1;
 
@@ -1539,6 +1951,10 @@ template <typename T> class StrictCoarseHierarchy {
         (void)cudaFreeAsync(persistent_storage_, set_->stream);
         persistent_storage_ = nullptr;
       }
+      if (coarse_fused_status_ != nullptr) {
+        (void)cudaFreeAsync(coarse_fused_status_, set_->stream);
+        coarse_fused_status_ = nullptr;
+      }
       (void)cudaStreamSynchronize(set_->stream);
     }
     arena_.r = arena_.v = arena_.tmp = nullptr;
@@ -1548,6 +1964,7 @@ template <typename T> class StrictCoarseHierarchy {
     arena_.dot_elements = 0;
     arena_.bytes = 0;
     persistent_bytes_ = 0;
+    coarse_fused_status_bytes_ = 0;
     delete[] levels_;
     levels_ = nullptr;
   }
@@ -1618,10 +2035,8 @@ template <typename T> class StrictCoarseHierarchy {
     return strict_global_sum_complex(result);
   }
 
-  void dot_pair(const void *left0, const void *right0,
-                const void *left1, const void *right1, size_t n,
-                LatticeComplex<T> &result0,
-                LatticeComplex<T> &result1) {
+  void dot_pair_device(const void *left0, const void *right0,
+                       const void *left1, const void *right1, size_t n) {
     if (n == 0 || n > static_cast<size_t>(std::numeric_limits<int>::max()))
       throw std::overflow_error("strict dot pair vector exceeds cublas int range");
     LatticeComplex<T> *device_results =
@@ -1645,6 +2060,15 @@ template <typename T> class StrictCoarseHierarchy {
             static_cast<const LatticeComplex<T> *>(arena_.dot_storage),
             reduction_count, device_results);
     strict_check_cuda(cudaGetLastError(), "strict dot pair reduce launch");
+  }
+
+  void dot_pair(const void *left0, const void *right0,
+                const void *left1, const void *right1, size_t n,
+                LatticeComplex<T> &result0,
+                LatticeComplex<T> &result1) {
+    dot_pair_device(left0, right0, left1, right1, n);
+    LatticeComplex<T> *device_results =
+        static_cast<LatticeComplex<T> *>(set_->device_vals);
     LatticeComplex<T> host_results[2];
     strict_check_cuda(cudaMemcpyAsync(
                           host_results, device_results,
@@ -1932,16 +2356,16 @@ template <typename T> class StrictCoarseHierarchy {
     const T floor = (T)1e-20;
     for (int iteration = 0; iteration < count; ++iteration) {
       fine_matpc(fine, image, residual);
-      LatticeComplex<T> denominator;
-      LatticeComplex<T> numerator;
-      dot_pair(image, residual, image, image, n, numerator, denominator);
-      if (!finite(denominator) || !finite(numerator) ||
-          std::hypot(denominator.real(), denominator.imag()) <= floor)
-        break;
-      const LatticeComplex<T> alpha = numerator / denominator;
-      strict_mr_update_kernel<T>
+      dot_pair_device(image, residual, image, image, n);
+      strict_mr_give_alpha_kernel<T>
+          <<<1, 1, 0, set_->stream>>>(
+              set_->device_vals, floor, false);
+      strict_check_cuda(cudaGetLastError(), "strict fine MR alpha launch");
+      strict_mr_update_device_kernel<T>
           <<<blocks(n), _BLOCK_SIZE_, 0, set_->stream>>>(
-              solution, residual, image, alpha, static_cast<int>(n));
+              solution, residual, image, set_->device_vals,
+              static_cast<int>(n));
+      strict_check_cuda(cudaGetLastError(), "strict fine MR update launch");
     }
   }
 
@@ -2286,21 +2710,130 @@ template <typename T> class StrictCoarseHierarchy {
     const T floor = std::is_same<T, float>::value ? (T)1e-20 : (T)1e-40;
     for (int iteration = 0; iteration < count; ++iteration) {
       apply_matpc(level, arena_.v, arena_.r, arena_.tmp);
-      LatticeComplex<T> numerator;
-      LatticeComplex<T> denominator;
-      dot_pair(arena_.v, arena_.r, arena_.v, arena_.v, n,
-               numerator, denominator);
-      if (!finite(numerator) || !finite(denominator) ||
-          abs2(denominator) <= floor)
-        break;
-      const LatticeComplex<T> alpha = numerator / denominator;
-      strict_mr_update_kernel<T>
+      dot_pair_device(arena_.v, arena_.r, arena_.v, arena_.v, n);
+      strict_mr_give_alpha_kernel<T>
+          <<<1, 1, 0, set_->stream>>>(
+              set_->device_vals, floor, true);
+      strict_check_cuda(cudaGetLastError(), "strict coarse MR alpha launch");
+      strict_mr_update_device_kernel<T>
           <<<blocks(n), _BLOCK_SIZE_, 0, set_->stream>>>(
-              state.x, arena_.r, arena_.v, alpha, static_cast<int>(n));
+              state.x, arena_.r, arena_.v, set_->device_vals,
+              static_cast<int>(n));
+      strict_check_cuda(cudaGetLastError(), "strict coarse MR update launch");
     }
   }
 
-  bool coarsest_bicgstab(int level) {
+  bool coarsest_bicgstab_fused(int level, bool &used) {
+    used = false;
+    const char *disable = std::getenv("PYQCU_STRICT_FUSED_COARSE");
+    if (disable != nullptr &&
+        (disable[0] == '0' || disable[0] == 'n' || disable[0] == 'N'))
+      return false;
+    if (coarse_fused_status_ == nullptr || arena_.dot_storage == nullptr)
+      return false;
+
+    int device = 0;
+    strict_check_cuda(cudaGetDevice(&device),
+                      "strict fused coarse get device");
+    int cooperative_launch = 0;
+    strict_check_cuda(cudaDeviceGetAttribute(
+                          &cooperative_launch,
+                          cudaDevAttrCooperativeLaunch, device),
+                      "strict fused coarse cooperative attribute");
+    if (cooperative_launch == 0) return false;
+
+    constexpr int kBlockSize = 256;
+    int active_blocks_per_sm = 0;
+    const cudaError_t occupancy_status =
+        cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+            &active_blocks_per_sm,
+            (const void *)strict_coarse_bicgstab_fused_kernel<T, kBlockSize>,
+            kBlockSize, 0);
+    if (occupancy_status != cudaSuccess || active_blocks_per_sm <= 0) {
+      (void)cudaGetLastError();
+      return false;
+    }
+
+    cudaDeviceProp properties;
+    strict_check_cuda(cudaGetDeviceProperties(&properties, device),
+                      "strict fused coarse device properties");
+    const StrictLevelGeometry &g = levels_[level].geometry;
+    const size_t n = g.compact_n;
+    if (n == 0 || n > static_cast<size_t>(std::numeric_limits<int>::max()))
+      return false;
+    const int reduction_capacity =
+        static_cast<int>(arena_.dot_elements / 2);
+    if (reduction_capacity <= 0) return false;
+    int grid_size = static_cast<int>(
+        (n + static_cast<size_t>(kBlockSize) - 1) /
+        static_cast<size_t>(kBlockSize));
+    const int resident_limit = std::min(
+        active_blocks_per_sm * properties.multiProcessorCount,
+        reduction_capacity);
+    if (resident_limit <= 0) return false;
+    grid_size = std::min(grid_size, resident_limit);
+    if (grid_size <= 0) return false;
+
+    StrictPersistentLevel<T> &state = levels_[level];
+    const void *links = asset(
+        level - 1, _SET_PTRS_STRICT_PRECONDITIONED_LINKS_);
+    const int E = g.E;
+    const int X = g.X;
+    const int Y = g.Y;
+    const int Z = g.Z;
+    const int Lt = g.Lt;
+    const int max_iter = g.max_iter > 0 ? g.max_iter : 100;
+    T tolerance = set_->host_argv[_MG_LEVEL1_ATOL_ + level - 1];
+    if (!(tolerance > (T)0 && tolerance < (T)1))
+      tolerance = std::is_same<T, float>::value ? (T)1e-6 : (T)1e-12;
+    void *rhat = arena_.rhat;
+    void *r = arena_.r;
+    void *p = arena_.p;
+    void *v = arena_.v;
+    void *s = arena_.s;
+    void *t = arena_.t;
+    void *tmp = arena_.tmp;
+    void *partials = arena_.dot_storage;
+    void *status = coarse_fused_status_;
+    void *args[] = {
+        (void *)&state.x, (void *)&state.pc_rhs, (void *)&rhat,
+        (void *)&r, (void *)&p, (void *)&v, (void *)&s, (void *)&t,
+        (void *)&tmp, (void *)&links, (void *)&E, (void *)&X, (void *)&Y,
+        (void *)&Z, (void *)&Lt, (void *)&parity_, (void *)&max_iter,
+        (void *)&tolerance, (void *)&partials, (void *)&grid_size,
+        (void *)&status};
+
+    strict_check_cuda(cudaMemsetAsync(
+                          coarse_fused_status_, 0, 2 * sizeof(int),
+                          set_->stream),
+                      "strict fused coarse status reset");
+    const cudaError_t launch_status = cudaLaunchCooperativeKernel(
+        (const void *)strict_coarse_bicgstab_fused_kernel<T, kBlockSize>,
+        dim3(static_cast<unsigned int>(grid_size)), dim3(kBlockSize), args,
+        0, set_->stream);
+    if (launch_status == cudaErrorNotSupported ||
+        launch_status == cudaErrorCooperativeLaunchTooLarge) {
+      (void)cudaGetLastError();
+      return false;
+    }
+    strict_check_cuda(launch_status, "strict fused coarse launch");
+    used = true;
+    strict_check_cuda(cudaStreamSynchronize(set_->stream),
+                      "strict fused coarse sync");
+    int host_status[2] = {0, 0};
+    strict_check_cuda(cudaMemcpy(
+                          host_status, coarse_fused_status_,
+                          sizeof(host_status), cudaMemcpyDeviceToHost),
+                      "strict fused coarse status copy");
+    if (host_status[0] != 0 && params_[_VERBOSE_] &&
+        params_[_NODE_RANK_] == 0)
+      std::printf(
+          "PYQCU::SOLVER::STRICT_MG::COARSE:\n "
+          "fused BiCGStab breakdown/max_iter guard activated\n");
+    return host_status[1] != 0;
+  }
+
+  bool coarsest_bicgstab_host(int level) {
     StrictPersistentLevel<T> &state = levels_[level];
     const StrictLevelGeometry &g = state.geometry;
     const size_t n = g.compact_n;
@@ -2376,6 +2909,13 @@ template <typename T> class StrictCoarseHierarchy {
       rho_old = rho;
     }
     return false;
+  }
+
+  bool coarsest_bicgstab(int level) {
+    bool fused = false;
+    const bool fused_result = coarsest_bicgstab_fused(level, fused);
+    if (fused) return fused_result;
+    return coarsest_bicgstab_host(level);
   }
 
   void restrict_to_child(int level, const void *fine_compact,

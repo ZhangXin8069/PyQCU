@@ -214,7 +214,10 @@ def _expected_strict_workspace_bytes(operators):
     reduction_n = max([full[0], *compact])
     reduction_blocks = max(1, min(1024, (reduction_n + 256 * 8 - 1) // (256 * 8)))
     arena += aligned(2 * reduction_blocks)
-    return (persistent + arena) * torch.empty((), dtype=DTYPE).element_size()
+    # The fused coarse BiCGStab keeps two int32 status words resident:
+    # one for breakdown/error and one for the converged flag.
+    status_bytes = 2 * torch.empty((), dtype=torch.int32).element_size()
+    return (persistent + arena) * torch.empty((), dtype=DTYPE).element_size() + status_bytes
 
 
 def _identity_fine_clover_fields(shape, device):
