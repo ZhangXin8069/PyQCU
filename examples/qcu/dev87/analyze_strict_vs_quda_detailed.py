@@ -273,8 +273,8 @@ def _join(trace: Mapping[str, Any], benchmark: Mapping[str, Any]) -> Dict[str, A
         ]
         sides[side] = {
             "steady_solve_count": len(solves),
-            "timing_source": "strict_vs_quda_formal_20260906.json (no trace)",
-            "residual_source": "strict_trace_stage_20260906.json (trace logging enabled)",
+            "timing_source": "formal benchmark JSON (no trace)",
+            "residual_source": "independent trace JSON (trace logging enabled)",
             "median_wall_seconds": float(bench_timing["median_seconds"]),
             "mad_wall_seconds": float(bench_timing["mad_seconds"]),
             "median_iterations": _median(iteration_samples),
@@ -544,7 +544,7 @@ def _plot(document: Mapping[str, Any], path: Path) -> None:
 def _write_summary(document: Mapping[str, Any], path: Path) -> None:
     protocol = document["protocol"]
     lines = [
-        "# 20260906 Strict MultiGrid 逐迭代对照摘要",
+        "# Strict MultiGrid 逐迭代对照摘要",
         "",
         "本文件由 `analyze_strict_vs_quda_detailed.py` 生成。性能时间来自无 trace 正式 benchmark；",
         "逐迭代残差来自开启日志的独立 trace。两者通过 `config_hash` 与 `bundle_hash` 校验。",
