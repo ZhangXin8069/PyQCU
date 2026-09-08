@@ -6,7 +6,8 @@ echo "There is init!"
 source ./env.sh
 # make (with error detection via && chaining)
 ln -sf CMakeLists-nv.txt CMakeLists.txt
-cmake . && make -j$(nproc)
+cmake .
+make -j$(nproc)
 # clean (tolerate missing files since cmake may have failed before creating them)
 rm -rf CMakeFiles
 rm -f cmake_install.cmake CMakeCache.txt Makefile
