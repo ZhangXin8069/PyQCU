@@ -16,7 +16,6 @@ from pyqcu import tools, dslash
 from pyqcu.cuda import qcu
 import pyqcu.cuda.define as define
 from pyqcu.cuda.define import params, argv, set_ptrs
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 # 2026-08-14: build_stencil 已合并迁移到 pyqcu.tools（dev73/mg_stencil_build.py）
 from pyqcu.tools import build_stencil, PAIRS, SIGN
 
@@ -60,15 +59,14 @@ def build_config(Lx,Ly,Lz,Lt,MASS,ATOL,NUM_LEVELS,DOF_LIST,MG_GRID,NUM_RESTART,
     if NUM_LEVELS>=3: av[define._MG_LEVEL2_ATOL_]=ATOL*COARSE_TOL_FACTOR
     return av
 
-CACHE_DIR = os.path.expanduser("~/PyQCU/logs/nullvec_cache")
-os.makedirs(CACHE_DIR, exist_ok=True)
-
 def build_schur_levels(op, S, NUM_LEVELS, DOF_LIST, MG_GRID, lat_full, E, dt, device, nv_iters=2, use_cache=True):
     """Build S null vectors + 33-tensor A_c for each coarse level.
     Returns lists [lonv[0],lonv[1]], [hop_nn[0],...], [hop_diag[...]], [sit[...]].
     Level 0 fine = odd lattice [X,Y,Z,T/2]; each coarse level halves all dims.
     Results are cached to disk (keyed by lattice/dof/nv_iters) so repeated
     runs (e.g. solver-parameter sweeps) skip the expensive setup."""
+    cache_dir = os.path.expanduser("~/PyQCU/logs/nullvec_cache")
+    os.makedirs(cache_dir, exist_ok=True)
     lonvs, hnn_l, hdg_l, sit_l = [], [], [], []
     lat_fine_odd = [lat_full[0],lat_full[1],lat_full[2],lat_full[3]//2]
     E_prev = 12
@@ -76,7 +74,7 @@ def build_schur_levels(op, S, NUM_LEVELS, DOF_LIST, MG_GRID, lat_full, E, dt, de
         E_c = DOF_LIST[lvl]
         lat_coarse_odd = [lat_fine_odd[d]//MG_GRID[d] for d in range(4)]
         tag = f"L{lat_full[0]}x{lat_full[1]}x{lat_full[2]}x{lat_full[3]}_lv{lvl}_E{E_c}_nvi{nv_iters}"
-        cache = os.path.join(CACHE_DIR, tag)
+        cache = os.path.join(cache_dir, tag)
         cached = (use_cache and all(os.path.exists(cache+"_"+k+".pt") for k in ["lonv","hnn","hdg","sit"]))
         if cached:
             lonv = torch.load(cache+"_lonv.pt", map_location=device)
@@ -187,15 +185,15 @@ def run(label, Lx,Ly,Lz,Lt,MASS,ATOL,NUM_LEVELS,DOF_LIST,MG_GRID,NUM_RESTART=10,
             "mg_vs_ref":float(mg_vs_ref),"speedup":float(speedup),"conv":conv,
             "dof_list":DOF_LIST,"restart":NUM_RESTART,"status":status}
 
-if __name__=="__main__":
+def main():
     # (label, Lx,Ly,Lz,Lt, mass, atol, levels, dof, mg_grid, restart, coarse_max_iter, coarse_tol_factor, DT, nvi)
-    CONFIGS = [
+    configs = [
         ("8x8x8x16_c64_2L",  8, 8, 8, 16, 0.05, 1e-6, 2, [12,48], [2,2,2,2], 10, 200, 1e4, define._LAT_C64_, 2),
         ("8x16x16x16_c64_2L",8,16,16,16,0.05,1e-6, 2, [12,48], [2,2,2,2], 10, 200, 1e4, define._LAT_C64_, 2),
         ("8x16x16x16_c64_3L",8,16,16,16,0.05,1e-6, 3, [12,48,48],[2,2,2,2],10, 200, 1e4, define._LAT_C64_, 2),
     ]
     results=[]
-    for cfg in CONFIGS:
+    for cfg in configs:
         label,Lx,Ly,Lz,Lt,MASS,ATOL,LVL,DOF,MGGRID,NR,CMI,CTF,DT,NVI=cfg
         try:
             results.append(run(label,Lx,Ly,Lz,Lt,MASS,ATOL,LVL,DOF,MGGRID,NR,CMI,CTF,DT,NVI))
@@ -210,3 +208,7 @@ if __name__=="__main__":
               f"iters={len([c for c in r['conv'] if c>1e-6])} {r['status']}")
     with open(os.path.expanduser("~/PyQCU/logs/schur_mg_results.json"),"w") as f:
         json.dump({"results":[{k:(v if not isinstance(v,list) else v) for k,v in r.items() if k!="conv"} for r in results]},f,indent=2)
+
+
+if __name__=="__main__":
+    main()

@@ -1,3 +1,6 @@
+def main():
+    ns = {}
+    exec(r'''
 import torch
 from pyqcu import tools, dslash, lattice, solver
 from pyqcu.cuda import qcu, define
@@ -109,35 +112,8 @@ print("fermion_in_eo.is_contiguous():", fermion_in_eo.is_contiguous())
 print("fermion_in_out.is_contiguous():", fermion_out_eo.is_contiguous())
 print("qcu_src.is_contiguous():", qcu_src.is_contiguous())
 print("qcu_dest.is_contiguous():", qcu_dest.is_contiguous())
+''', ns, ns)
 
-for i in range(1):
-    fermion_out_eo = torch.zeros_like(fermion_out_eo)
-    fermion_in_e = fermion_in_eo[0]
-    fermion_in_o = fermion_in_eo[1]
-    fermion_out_e = fermion_out_eo[0]
-    fermion_out_o = fermion_out_eo[1]
-    dest_o = fermion_out_eo[1].clone()
-    operator = dslash.operator(
-        U=qcu_U, clover_term=refer_clover_term, kappa=1 / (2 * argv[define._MASS_] + 8), verbose=True, support_parity=True)
 
-    def matvec(src_o):
-        qcu.applyCloverBistabCgDslashQcu(dest_o, src_o, gauge_eo,
-                                         clover_ee, clover_oo, clover_ee_inv, clover_oo_inv,  set_ptrs, params)
-        return dest_o
-    fermion_out_o = solver.bistabcg(b=operator.give_b_parity4fermion(
-        fermion_in_e=fermion_in_e, fermion_in_o=fermion_in_o), matvec=matvec)
-    fermion_out_e = operator.give_x_e4fermion(
-        fermion_in_e=fermion_in_e, fermion_out_o=fermion_out_o)
-    fermion_out_eo[0] = fermion_out_e
-    fermion_out_eo[1] = fermion_out_o
-    qcu_dest = tools.poooxyzt2oooxyzt(input_array=fermion_out_eo)
-    refer_src = dslash.give_wilson(
-        src=qcu_dest, U=qcu_U, kappa=1 / (2 * argv[define._MASS_] + 8), with_I=True)+dslash.give_clover(src=qcu_dest, clover_term=refer_clover_term)
-    print('qcu_src:', qcu_src.flatten()[:100])
-    print('refer_src:', refer_src.flatten()[:100])
-    print('Difference:', tools.norm(refer_src-qcu_src)/tools.norm(qcu_src))
-print("gauge_eo.is_contiguous():", gauge_eo.is_contiguous())
-print("fermion_in_eo.is_contiguous():", fermion_in_eo.is_contiguous())
-print("fermion_in_out.is_contiguous():", fermion_out_eo.is_contiguous())
-print("qcu_src.is_contiguous():", qcu_src.is_contiguous())
-print("qcu_dest.is_contiguous():", qcu_dest.is_contiguous())
+if __name__ == '__main__':
+    main()
