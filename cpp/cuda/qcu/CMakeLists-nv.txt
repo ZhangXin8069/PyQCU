@@ -4,10 +4,19 @@ set(CMAKE_CXX_STANDARD 11)
 option(QCU_ENABLE_NVSHMEM "Enable the optional NVSHMEM coarse-grid transport" OFF)
 message(STATUS "PATH is: $ENV{PATH}")
 message(STATUS "LD_LIBRARY_PATH is: $ENV{LD_LIBRARY_PATH}")
-# 统一低版本兼容：默认 sm60（P100），V100 通过 PTX JIT 运行（任务22.2）
-# 单一架构 cubin+PTX 兼容所有 sm>=60 设备，避免 fatbin 60/70 双发射在 P100 上 GaussGauge/BistabCg 缺 image
-set(CMAKE_CUDA_ARCHITECTURES "60")
-set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_60,code=sm_60 -gencode arch=compute_60,code=compute_60 -O3")
+# 统一低版本兼容：默认 sm60（P100），V100 通过 PTX JIT 运行（任务22.2）。
+# 生产基准可用 QCU_CUDA_ARCHITECTURES=70 选择目标 GPU 的 native cubin，
+# 避免把 V100 的求解热路径放在 sm60 PTX JIT 上；默认值保持旧行为，
+# 也避免在混合 P100/V100 节点上无意生成已知有缺 image 风险的 fatbin。
+set(QCU_CUDA_ARCHITECTURES "$ENV{QCU_CUDA_ARCHITECTURES}")
+if(QCU_CUDA_ARCHITECTURES STREQUAL "")
+  # CMake's plain "60" means real SASS only.  Keep the historical
+  # sm_60 + compute_60 compatibility image for V100 and newer devices.
+  set(QCU_CUDA_ARCHITECTURES "60-real;60-virtual")
+endif()
+set(CMAKE_CUDA_ARCHITECTURES "${QCU_CUDA_ARCHITECTURES}")
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -O3")
+message(STATUS "QCU CUDA architectures: ${QCU_CUDA_ARCHITECTURES}")
 set(MPI_INCLUDE_PATH $ENV{mpi_home}/include)
 set(MPI_CXX_LIBRARIES $ENV{mpi_home}/lib/libmpi.so)
 include(GNUInstallDirs)
