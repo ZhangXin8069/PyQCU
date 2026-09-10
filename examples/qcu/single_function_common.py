@@ -7,14 +7,25 @@ CUDA run executes exactly one QCU operation per lifecycle.
 from __future__ import annotations
 
 import argparse
+import json
 import os
+import sys
+import textwrap
+import time
 from dataclasses import dataclass
-from typing import Callable, Iterable, Sequence
+from typing import Any, Callable, Iterable, Sequence
 
 import torch
 
 from pyqcu import dslash, tools
 from pyqcu.cuda import define
+
+
+DEFAULT_LATTICE = (16, 16, 16, 16)
+_DISPLAY_ENV = (
+    "QCU_DEVICE", "QCU_SEED", "QCU_ATOL", "QCU_VERBOSE", "QCU_STRICT_NUMERIC",
+    "QCU_EXERCISE_DSLASH", "QCU_EXERCISE_SCHUR", "QCU_EXERCISE_LAPLACIAN",
+)
 
 
 @dataclass
@@ -26,6 +37,94 @@ class Context:
     dtype: torch.dtype
     lattice: tuple[int, int, int, int]
     mass: float
+    reporter: "RunReporter | None" = None
+
+
+class RunReporter:
+    """Small dependency-free progress/timing reporter for standalone checks."""
+
+    def __init__(self, *, enabled: bool = True, total: int | None = None) -> None:
+        self.enabled = bool(enabled)
+        self.total = total
+        self.current = 0
+        self.started = time.perf_counter()
+        self.timings: list[tuple[str, float]] = []
+        self.device: torch.device | None = None
+
+    def _synchronize(self) -> None:
+        if self.device is not None and self.device.type == "cuda":
+            torch.cuda.synchronize(self.device)
+
+    def run(self, label: str, fn: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
+        self.current += 1
+        suffix = f"/{self.total}" if self.total else ""
+        if self.enabled:
+            if self.total:
+                width = 20
+                filled = int(width * (self.current - 1) / self.total)
+                bar = "#" * filled + "-" * (width - filled)
+                print(f"[进度 |{bar}| {self.current}{suffix}] {label} ...", flush=True)
+            else:
+                print(f"[进度 {self.current}{suffix}] {label} ...", flush=True)
+        self._synchronize()
+        started = time.perf_counter()
+        try:
+            result = fn(*args, **kwargs)
+            self._synchronize()
+        except Exception:
+            elapsed = time.perf_counter() - started
+            self.timings.append((label, elapsed))
+            print(f"[失败] {label}: {elapsed:.3f} s", flush=True)
+            raise
+        elapsed = time.perf_counter() - started
+        self.timings.append((label, elapsed))
+        if self.enabled:
+            print(f"[完成] {label}: {elapsed:.3f} s", flush=True)
+        return result
+
+    def skip(self, reason: str) -> None:
+        print(f"[跳过] {reason}", flush=True)
+
+    def finish(self, status: str = "PASS") -> None:
+        total = time.perf_counter() - self.started
+        print(f"[总耗时] {total:.3f} s | status={status}", flush=True)
+        if self.timings:
+            details = ", ".join(f"{name}={elapsed:.3f}s" for name, elapsed in self.timings)
+            print(f"[分项耗时] {details}", flush=True)
+
+
+def _even_positive(value: str) -> int:
+    parsed = int(value)
+    if parsed <= 0 or parsed % 2:
+        raise argparse.ArgumentTypeError("格点维度必须为正偶数")
+    return parsed
+
+
+def _print_run_documentation(description: str, doc: str | None, args: argparse.Namespace) -> None:
+    script = sys.argv[0]
+    print(f"=== {script} 使用说明 ===")
+    if doc:
+        print(textwrap.dedent(doc).strip())
+    print(f"运行示例: python {script} --lat {' '.join(map(str, args.lat))}")
+    print(f"查看全部参数: python {script} --help")
+    print("=== 输入参数 ===")
+    env = {key: os.environ.get(key) for key in _DISPLAY_ENV if os.environ.get(key) is not None}
+    print(json.dumps({"description": description, **vars(args), "env": env}, ensure_ascii=False, sort_keys=True))
+
+
+def run_setup(description: str, doc: str | None = None, *, argv: Sequence[str] | None = None,
+              total: int | None = None) -> tuple[argparse.Namespace, RunReporter]:
+    """Parse CLI options and print the default quick-start documentation."""
+    p = parser(description)
+    args = p.parse_args(argv)
+    if not args.no_doc:
+        _print_run_documentation(description, doc, args)
+    else:
+        print("=== 输入参数 ===")
+        env = {key: os.environ.get(key) for key in _DISPLAY_ENV if os.environ.get(key) is not None}
+        print(json.dumps({"description": description, **vars(args), "env": env}, ensure_ascii=False, sort_keys=True))
+    reporter = RunReporter(enabled=not args.no_progress, total=total)
+    return args, reporter
 
 
 def qcu_or_none():
@@ -47,9 +146,9 @@ def require_qcu():
 
 
 def make_context(
-    lattice: Sequence[int] = (4, 4, 4, 8), mass: float = 0.05,
+    lattice: Sequence[int] = DEFAULT_LATTICE, mass: float = 0.05,
     *, plan: int = 0, parity: int = 0, max_iter: int = 200,
-    device: str | None = None,
+    device: str | None = None, reporter: RunReporter | None = None,
 ) -> Context:
     """Create private ABI tensors for one test (never mutate module globals)."""
     lat = tuple(int(v) for v in lattice)
@@ -61,6 +160,8 @@ def make_context(
     if dev.type != "cuda" or not torch.cuda.is_available():
         raise RuntimeError("CUDA device is unavailable")
     torch.cuda.set_device(dev)
+    if reporter is not None:
+        reporter.device = dev
     dtype = torch.complex64
     p = torch.zeros(define._PARAMS_SIZE_, dtype=torch.int32)
     p[define._LAT_X_], p[define._LAT_Y_], p[define._LAT_Z_], p[define._LAT_T_] = lat
@@ -82,7 +183,7 @@ def make_context(
     a[define._ATOL_] = float(os.environ.get("QCU_ATOL", "1e-7"))
     a[define._SIGMA_] = 0.1
     s = torch.zeros(define._SET_PTRS_SIZE_, dtype=torch.int64)
-    return Context(p, a, s, dev, dtype, lat, float(mass))
+    return Context(p, a, s, dev, dtype, lat, float(mass), reporter)
 
 
 def lat_shape(ctx: Context) -> list[int]:
@@ -114,16 +215,19 @@ def allocate_state(ctx: Context, *, clover: bool = False):
 
 def lifecycle_call(ctx: Context, name: str, *args):
     """Call one QCU symbol with the required init/index/end protocol."""
-    qcu = require_qcu()
-    fn = getattr(qcu, name)
-    qcu.applyInitQcu(ctx.set_ptrs, ctx.params, ctx.argv)
-    try:
-        result = fn(*args, ctx.set_ptrs, ctx.params)
-    finally:
-        # Every operation gets a fresh scratch slot before destruction.
-        ctx.params[define._SET_INDEX_] += 1
-        qcu.applyEndQcu(ctx.set_ptrs, ctx.params)
-    return result
+    def invoke():
+        qcu = require_qcu()
+        fn = getattr(qcu, name)
+        qcu.applyInitQcu(ctx.set_ptrs, ctx.params, ctx.argv)
+        try:
+            return fn(*args, ctx.set_ptrs, ctx.params)
+        finally:
+            # Every operation gets a fresh scratch slot before destruction.
+            ctx.params[define._SET_INDEX_] += 1
+            qcu.applyEndQcu(ctx.set_ptrs, ctx.params)
+    if ctx.reporter is None:
+        return invoke()
+    return ctx.reporter.run(name, invoke)
 
 
 def full_gauge(gauge_eo: torch.Tensor) -> torch.Tensor:
@@ -163,14 +267,17 @@ def assert_roundtrip_layout() -> None:
 
 def parser(description: str) -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description=description)
-    p.add_argument("--lat", nargs=4, type=int, default=(4, 4, 4, 8), metavar=("X", "Y", "Z", "T"))
+    p.add_argument("--lat", nargs=4, type=_even_positive, default=DEFAULT_LATTICE, metavar=("X", "Y", "Z", "T"),
+                   help="全局格点大小（默认: 16 16 16 16）")
     p.add_argument("--mass", type=float, default=0.05)
     p.add_argument("--device", default=None)
     p.add_argument("--pure-only", action="store_true", help="only run the PyTorch reference")
+    p.add_argument("--no-doc", action="store_true", help="不在开头打印本脚本使用说明")
+    p.add_argument("--no-progress", action="store_true", help="隐藏分步进度，只保留结果与耗时")
     return p
 
 
-def cpu_reference_smoke(kind: str) -> float:
+def cpu_reference_smoke(kind: str, mass: float = 0.05) -> float:
     """Exercise the pure-PyTorch path for a small deterministic field."""
     lat = (2, 2, 2, 4)
     shape = (lat[0], lat[1], lat[2], lat[3] // 2)
@@ -179,10 +286,10 @@ def cpu_reference_smoke(kind: str) -> float:
     g[...] = eye.view(1, 3, 3, 1, 1, 1, 1, 1)
     f = torch.arange(2 * 4 * 3 * int(torch.tensor(shape).prod()), dtype=torch.float32).reshape(2, 4, 3, *shape).to(torch.complex64)
     if kind == "wilson":
-        y = pure_wilson_reference(f, g, 0.05, with_I=True)
+        y = pure_wilson_reference(f, g, mass, with_I=True)
         return float(torch.linalg.vector_norm(y).item())
     if kind == "clover":
-        y = pure_clover_reference(f, g, 0.05)
+        y = pure_clover_reference(f, g, mass)
         return float(torch.linalg.vector_norm(y).item())
     if kind == "roundtrip":
         assert_roundtrip_layout()
