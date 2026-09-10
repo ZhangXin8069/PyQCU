@@ -1,0 +1,17 @@
+# Generated test products. Keep source scripts and tag-named archive trees.
+**/out/
+**/logs/
+**/*.log
+**/*.json
+**/*.npz
+**/*.npy
+**/*.h5
+**/*.hdf5
+**/.pytest_cache/
+**/__pycache__/
+*.ipynb_checkpoints/
+
+# Scratch launch files and local profiling traces.
+**/*.trace
+**/*.prof
+**/*.nsys-rep

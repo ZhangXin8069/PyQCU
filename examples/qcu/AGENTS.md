@@ -16,6 +16,28 @@ C++ CUDA 后端测试（经 Cython 桥）。从 Python 驱动 `libqcu.so`。
 | `conftest.clover.bistabcg.dslash.py` | Clover BiStabCG dslash |
 | `conftest.clover.multigrid.py` | Clover multigrid V-cycle 求解器 |
 
+## 单功能接口测试（当前维护入口）
+
+`single_qcu_*.py` 每个文件只调用一个功能族，并在 CUDA 可用时执行一次完整的
+`applyInitQcu → operation → params[_SET_INDEX_]+=1 → applyEndQcu` 生命周期；CUDA 不可用时仍运行
+纯 PyTorch 参考和布局契约，明确输出 `SKIP`。`single_qcu_api.py` 对照 `pyqcu.h`、`qcu_api.pxd`、
+`qcu.pyx` 的符号集合，Strict/MG 文件额外校验参数形状。设置 `QCU_STRICT_NUMERIC=1` 可把数值偏差
+升级为失败，默认模式只报告偏差以便在不同 CUDA 架构上做诊断。
+
+| 文件 | 目标接口 |
+|---|---|
+| `single_qcu_gauss_gauge.py` | `applyGaussGaugeQcu` |
+| `single_qcu_wilson_dslash.py` | `applyWilsonDslashQcu` |
+| `single_qcu_clover_dslash.py` | `applyCloverDslashQcu` |
+| `single_qcu_wilson_bistabcg.py` / `single_qcu_wilson_cg.py` | Wilson BiStabCG / CG |
+| `single_qcu_clover.py` | `applyCloverQcu` / `applyCloversQcu` |
+| `single_qcu_clover_bistabcg.py` | Clover BiStabCG、Schur prepare/reconstruct |
+| `single_qcu_laplacian.py` | `applyLaplacianQcu` |
+| `single_qcu_multigrid_transfer.py` / `single_qcu_multigrid_coarse.py` | legacy MG R/P、coarse dslash（含 wide） |
+| `single_qcu_multigrid_strict.py` | Strict coarse/MATPC/R/P/prepare/reconstruct/FGMRES 生命周期 |
+| `single_qcu_clover_multigrid.py` | Clover MG 与 `verifyCloverMultigridQcu` |
+| `single_qcu_api.py` | 全部 `pyqcu.h` 导出符号 ABI 集合 |
+
 ## 用法
 
 ```bash
