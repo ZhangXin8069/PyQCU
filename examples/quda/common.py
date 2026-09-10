@@ -1,15 +1,113 @@
 """QUDA single-function test helpers and explicit PyQCU↔QDP layout adapters."""
 from __future__ import annotations
+import argparse
+import json
 import os
 from pathlib import Path
+import sys
+import textwrap
+import time
+from typing import Any, Callable, Sequence
 import numpy as np
 import torch
 from pyqcu import dslash, tools
 
 ROOT = Path(__file__).resolve().parents[2]
 DATA = Path(os.environ.get("PYQCU_DATA_DIR", str(ROOT / "data"))).expanduser()
-LAT = (4, 4, 4, 8)
+LAT = (16, 16, 16, 16)
 MASS = 0.05
+_DISPLAY_ENV = ("RUN_QUDA_TESTS", "QUDA_UNSAFE_INPROCESS")
+
+
+class RunReporter:
+    """Dependency-free progress and timing output for QUDA reference checks."""
+
+    def __init__(self, *, enabled: bool = True, total: int | None = None) -> None:
+        self.enabled = bool(enabled)
+        self.total = total
+        self.current = 0
+        self.started = time.perf_counter()
+        self.timings: list[tuple[str, float]] = []
+        self.device: torch.device | None = None
+
+    def _synchronize(self) -> None:
+        if self.device is not None and self.device.type == "cuda":
+            torch.cuda.synchronize(self.device)
+
+    def run(self, label: str, fn: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
+        self.current += 1
+        suffix = f"/{self.total}" if self.total else ""
+        if self.enabled:
+            if self.total:
+                width = 20
+                filled = int(width * (self.current - 1) / self.total)
+                bar = "#" * filled + "-" * (width - filled)
+                print(f"[进度 |{bar}| {self.current}{suffix}] {label} ...", flush=True)
+            else:
+                print(f"[进度 {self.current}{suffix}] {label} ...", flush=True)
+        self._synchronize()
+        started = time.perf_counter()
+        try:
+            result = fn(*args, **kwargs)
+            self._synchronize()
+        except Exception:
+            elapsed = time.perf_counter() - started
+            self.timings.append((label, elapsed))
+            print(f"[失败] {label}: {elapsed:.3f} s", flush=True)
+            raise
+        elapsed = time.perf_counter() - started
+        self.timings.append((label, elapsed))
+        if self.enabled:
+            print(f"[完成] {label}: {elapsed:.3f} s", flush=True)
+        return result
+
+    def finish(self, status: str = "PASS") -> None:
+        total = time.perf_counter() - self.started
+        print(f"[总耗时] {total:.3f} s | status={status}", flush=True)
+        if self.timings:
+            details = ", ".join(f"{name}={elapsed:.3f}s" for name, elapsed in self.timings)
+            print(f"[分项耗时] {details}", flush=True)
+
+
+def _even_positive(value: str) -> int:
+    parsed = int(value)
+    if parsed <= 0 or parsed % 2:
+        raise argparse.ArgumentTypeError("格点维度必须为正偶数")
+    return parsed
+
+
+def parser(description: str) -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(description=description)
+    p.add_argument("--lat", nargs=4, type=_even_positive, default=LAT,
+                   metavar=("X", "Y", "Z", "T"), help="全局格点大小（默认: 16 16 16 16）")
+    p.add_argument("--mass", type=float, default=MASS)
+    p.add_argument("--no-doc", action="store_true", help="不在开头打印本脚本使用说明")
+    p.add_argument("--no-progress", action="store_true", help="隐藏分步进度，只保留结果与耗时")
+    return p
+
+
+def run_setup(description: str, doc: str | None = None, *, argv: Sequence[str] | None = None,
+              total: int | None = None) -> tuple[argparse.Namespace, RunReporter]:
+    # Pytest invokes main() with its own command-line flags; standalone calls
+    # still consume the process arguments as usual.
+    if argv is None and os.environ.get("PYTEST_CURRENT_TEST"):
+        argv = []
+    p = parser(description)
+    args = p.parse_args(argv)
+    if not args.no_doc:
+        print(f"=== {sys.argv[0]} 使用说明 ===")
+        if doc:
+            print(textwrap.dedent(doc).strip())
+        print(f"运行示例: python {sys.argv[0]} --lat {' '.join(map(str, args.lat))}")
+        print(f"查看全部参数: python {sys.argv[0]} --help")
+        print("=== 输入参数 ===")
+        env = {key: os.environ.get(key) for key in _DISPLAY_ENV if os.environ.get(key) is not None}
+        print(json.dumps({"description": description, **vars(args), "env": env}, ensure_ascii=False, sort_keys=True))
+    else:
+        print("=== 输入参数 ===")
+        env = {key: os.environ.get(key) for key in _DISPLAY_ENV if os.environ.get(key) is not None}
+        print(json.dumps({"description": description, **vars(args), "env": env}, ensure_ascii=False, sort_keys=True))
+    return args, RunReporter(enabled=not args.no_progress, total=total)
 
 
 def pyqcu_gauge_to_quda(u: np.ndarray | torch.Tensor) -> np.ndarray:
@@ -87,7 +185,7 @@ def require_quda():
     return pyquda
 
 
-def run_quda_mat(field: torch.Tensor, *, clover: bool = False) -> torch.Tensor:
+def run_quda_mat(field: torch.Tensor, *, clover: bool = False, mass: float = MASS) -> torch.Tensor:
     """Run one QUDA ``Dirac.mat`` call and return PyQCU ``[s,c,x,y,z,t]``.
 
     This path is opt-in because loading QUDA and its MPI runtime is process-wide;
@@ -110,9 +208,9 @@ def run_quda_mat(field: torch.Tensor, *, clover: bool = False) -> torch.Tensor:
         gauge = LatticeGauge(info, 4, qg)
         fermion = LatticeFermion(info, qf)
         if clover:
-            d = core.getClover(info, MASS, 1e-5, 100, clover_csw_t=1.0)
+            d = core.getClover(info, mass, 1e-5, 100, clover_csw_t=1.0)
         else:
-            d = core.getWilson(info, MASS, 1e-5, 100)
+            d = core.getWilson(info, mass, 1e-5, 100)
         d.loadGauge(gauge)
         result = d.mat(fermion)
         return torch.from_numpy(quda_fermion_to_pyqcu(result.data.detach().cpu().numpy()))
@@ -126,7 +224,7 @@ def run_quda_mat(field: torch.Tensor, *, clover: bool = False) -> torch.Tensor:
 
 
 def run_quda_solve(rhs: torch.Tensor, *, clover: bool = False,
-                   multigrid: bool = False) -> torch.Tensor:
+                   multigrid: bool = False, mass: float = MASS) -> torch.Tensor:
     """Run one QUDA BiCGStab solve and return the solution in PyQCU layout."""
     pyquda = require_quda()
     import pyquda_utils.core as core
@@ -144,7 +242,7 @@ def run_quda_solve(rhs: torch.Tensor, *, clover: bool = False,
         qrhs = torch.from_numpy(info.evenodd(full_tzyxsc, False)).to("cuda")
         b = LatticeFermion(info, qrhs)
         mg = [[2, 2, 2, 2]] if multigrid else None
-        d = core.getClover(info, MASS, 1e-5, 100, clover_csw_t=1.0, multigrid=mg) if clover else core.getWilson(info, MASS, 1e-5, 100, multigrid=mg)
+        d = core.getClover(info, mass, 1e-5, 100, clover_csw_t=1.0, multigrid=mg) if clover else core.getWilson(info, mass, 1e-5, 100, multigrid=mg)
         d.loadGauge(gauge)
         x = d.invert(b)
         return torch.from_numpy(quda_fermion_to_pyqcu(x.data.detach().cpu().numpy()))
