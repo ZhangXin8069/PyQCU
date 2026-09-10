@@ -16,7 +16,7 @@ PyQCU 项目专用技能库：每个技能一个子目录，内含 `SKILL.md`（
 - **TODO 管理**：会话执行第一步用 todowrite 生成详细 TODO 列表，逐步实时更新，收尾核对全完成。
 - **跨技能调用**：必要时调用其他技能；2+ 独立子任务（无共享状态/无顺序依赖/互不改同文件）
   优先并行派发。
-- **技能表同步约定（硬性）**：新增/更改技能必须同步下方技能表行与计数（当前 40/40），
+- **技能表同步约定（硬性）**：新增/更改技能必须同步下方技能表行与计数（当前 41/41），
   避免表格与实际脱节。
 
 ## 文档范式
@@ -25,7 +25,7 @@ frontmatter：name 与目录名一致 + description 写触发场景（何时使�
 （Files / Exported API / Key Anti-Patterns / Lessons）。项目知识条目须带实测数字与
 出处路径（logs/<tag>/...），不写未验证内容。
 
-## 技能表（40/40）
+## 技能表（41/41）
 
 | 技能 | 用途 |
 |---|---|
@@ -58,6 +58,7 @@ frontmatter：name 与目录名一致 + description 写触发场景（何时使�
 | `python` | cpp/cuda/qcu/python 的当前 C API 边界：pyqcu.h、qcu_api.pxd、qcu.pyx/qcu.pyi 与 Strict 入口同步。 |
 | `qcu.v2` | examples/qcu 目录的完整生成 skill：经 Cython 桥测 C++ CUDA 后端；含 dev73_5 多重网格性能基准套件（clean/bench/verify/collect/mktable/plots）。 |
 | `qcu` | cpp/cuda/qcu 主 C++ CUDA 后端：legacy/Strict MultiGrid、逐层 P/R/X/Y/Yhat、MATPC/DIRECT_PC、构建与显存不变量。 |
+| `qcu-single-tests` | examples/qcu 与 examples/quda 的 QCU/QUDA 单功能测试、PyTorch 参考校验和布局转换约定。 |
 | `results` | logs/results 目录的完整生成 skill：最终/剩余修复报告（权威记录）。 |
 | `session-2026-08-24` | logs/session-2026-08-24 的完整生成 skill：bug31–37 无人值守会话验证资产（8 脚本 + README，15/15 PASS；覆盖基线/求解器族/MPI/Wuppertal/stencil/Galerkin/等价性）与确定性参考数据再生器。 |
 | `smear` | pyqcu.smear 目录的完整生成 skill：stout smearing（Morningstar-Peardon SU(3) 投影）与 Wuppertal 高斯模糊，含数值稳定性处理与 MPI 支持。 |
