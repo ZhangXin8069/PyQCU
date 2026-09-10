@@ -34,6 +34,12 @@ PyQCU（纯 Python 后端）与 PyQuda-0.3.2（QUDA 1.1.0）的结果/性能对�
 
 ## 文件清单
 
+`examples/quda/test_gauss_gauge.py`、`test_wilson_dslash.py`、`test_clover_dslash.py`、
+`test_wilson_bistabcg.py`、`test_wilson_multigrid.py`、`test_clover_bistabcg.py`、
+`test_clover_multigrid.py` 是单功能回归入口；公共 `examples/quda/common.py` 提供 QDP 与 PyQCU
+的显式 gauge/fermion 往返转换和确定性纯 PyTorch 参考。无 pyquda/CUDA 时测试仍保留参考断言并
+报告可解释的 skip 状态。
+
 | 文件 | 职责 |
 |---|---|
 | `common.py` | 维度转换（numpy）、h5 I/O（save_h5/load_h5 独立句柄）、rel_diff/linreg_scale、CG 日志解析 |

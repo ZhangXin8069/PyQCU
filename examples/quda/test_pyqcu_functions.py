@@ -22,7 +22,7 @@ def header_functions() -> list[str]:
 @pytest.mark.parametrize("name", header_functions())
 def test_pyqcu_h_function_is_exported(name: str) -> None:
     """每个 pyqcu.h 函数都必须由 Cython 桥导出为可调用对象。"""
-    from pyqcu.cuda import qcu
+    qcu = pytest.importorskip("pyqcu.cuda.qcu")
     fn = getattr(qcu, name, None)
     assert callable(fn), f"{name} 未导出或不可调用"
 
@@ -30,7 +30,7 @@ def test_pyqcu_h_function_is_exported(name: str) -> None:
 def test_apply_init_end_lifecycle() -> None:
     if __import__("os").environ.get("QCU_FUNCTION_LIFECYCLE") != "1":
         pytest.skip("设置 QCU_FUNCTION_LIFECYCLE=1 才执行 CUDA 生命周期")
-    from pyqcu.cuda import qcu
+    qcu = pytest.importorskip("pyqcu.cuda.qcu")
     from pyqcu.cuda.define import params, argv, set_ptrs
     import pyqcu.cuda.define as define
     params[define._SET_INDEX_] = 0
