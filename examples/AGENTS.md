@@ -26,6 +26,8 @@ mpirun -np 4 python examples/pyqcu/conftest.py       # 单文件 MPI
 
 每个子目录有自己的 `conftest.py`，从 `pyqcu.testing` 导入测试函数并调用。Conftest 文件手动编辑取消注释所需测试。
 
+**强制约定：** 每个相对独立的项目测试完成后，以及本库任一接口发生变更后，必须重新整理本目录（含全部子目录，但不含以 git tag 命名的归档项目），修复过时或失效单测，删除无关文件，仅保留必要测试；临时产物必须通过 `.gitignore` 排除，并遵循统一命名规范。
+
 ## 参考数据
 
 `examples/data/` 存放预计算规范场、源与期望结果的 HDF5，用于 `with_data=True` 校验。
