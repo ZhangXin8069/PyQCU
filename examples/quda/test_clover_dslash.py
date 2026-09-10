@@ -14,7 +14,8 @@ def main(argv=None):
     assert torch.isfinite(ref.real).all() and torch.isfinite(ref.imag).all()
     result = None
     if os.environ.get("RUN_QUDA_TESTS") and os.environ.get("QUDA_UNSAFE_INPROCESS"):
-        try: result = report.run("QUDA Clover mat", run_quda_mat, b, clover=True, mass=args.mass)
+        try: result = report.run("QUDA Clover mat", run_quda_mat, b, clover=True, mass=args.mass,
+                                reporter=report, timing_label="QUDA Clover mat")
         except Exception as exc: print(f"SKIP: QUDA Clover 调用失败: {exc}")
     record = {"function":"clover-dslash", "reference_norm":float(torch.linalg.vector_norm(ref)), "quda":quda_status(), "status":"reference-layout", "lattice":list(args.lat)}
     if result is not None: record["quda_mat_rel"] = rel(result, ref)
