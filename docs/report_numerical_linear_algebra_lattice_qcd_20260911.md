@@ -1,1486 +1,1538 @@
-# PyQCU 数值线性代数、格点费米子作用量与多重网格粗算子总报告
+# PyQCU 数值线性代数、格点费米子作用量与多重网格粗算子报告
 
-**身份：物理+代码**　　**日期：2026-09-11**　　**状态：理解与文档化完成候选稿**
+> **身份**：物理 + 代码　**基线**：`stab52`　**日期**：2026-09-11　**文档版本**：重排与扩充版
+>
+> 本文采用 GitHub/MathJax 兼容的 LaTeX 数学语法：行内公式写作 `$...$`，独立公式写作 `$$...$$`。正文不再混用普通括号数学、完整 LaTeX 表格环境或依赖 LaTeX 编译器的表格；这样在 Markdown 预览、静态站点和本地 MathJax 中都能保持一致显示。
 
-本报告以公式、可执行伪代码和源码证据为主，统一说明下列三组对象：
+## 摘要
 
-1. 数值线性代数：`native/legacy/strict-MultiGrid`、Galerkin、full/asymmetric/symmetric-Schur、coarse-PC、MR、CG、Chebyshev、Schwarz、FGMRES、BiCG、BiCGStab、GCR、flexible-GCR、CA-GCR、Arnoldi、SAP、CGS、QR；
-2. 格点 QCD 费米子作用量：Wilson、Clover-improved-Wilson、Twisted-mass（含 non-degenerate pairs）、Twisted-mass with a clover term、Staggered、Improved-staggered（asqtad/HISQ）、Domain-wall（4-d/5-d preconditioned）、Möbius、Overlap；
-3. 粗层算子：QUDA `coarse_op`、PyQCU 旧/legacy/compact/33-tensor Schur 粗算子，以及 strict-QCU 的 full `X/Y/Yhat` Galerkin 粗算子。
+本报告把 PyQCU 当前涉及的三层对象放在同一套记号下讨论：
 
-“实现”表示在本库或随库保存的 QUDA 快照中找到源码入口；“参考”表示有理论或 QUDA 源码可对照，但 PyQCU 当前入口没有该功能；“未验证”表示本报告没有把它升级为运行事实。行号以本次工作区快照为准。
+1. **数值线性代数**：CG、CA-CG、多移位 CG、BiCG、CGS、BiCGStab、GMRES/FGMRES、GCR、CA-GCR、MR、Chebyshev、Schwarz、SAP、Arnoldi、Lanczos 和 QR/CGS 局部正交化；
+2. **格点费米子算子**：Wilson、Clover-improved Wilson，以及在 QUDA 快照中可对照的 twisted-mass、twisted-clover、staggered、asqtad/HISQ、domain-wall、Möbius 和 overlap；
+3. **多重网格与粗算子**：局部零模、限制/延拓、Galerkin 投影、奇偶 Schur、QUDA `coarse_op`、PyQCU 的 legacy/compact 33-tensor 路径，以及 strict full `X/Y/Yhat` 路径。
 
-## 跳转目录（按首字母）
+本文的核心目标不是把所有算法都声称为 PyQCU 的生产功能，而是给出可追溯的数学定义、物理约束、实现状态、验证门槛和选择依据。凡是只有理论或 QUDA 参考实现而没有 PyQCU 入口的内容，统一标记为“参考”；凡是只做了源码核对而没有本轮设备运行的内容，统一标记为“未验证”。
 
-- [0. 记号、证据与接口边界](#0-记号证据与接口边界)
-- [A. Arnoldi](#a-arnoldi)
-- [A. Asymmetric Schur](#a-asymmetric-schur)
-- [A. Asqtad/HISQ](#a-asqtadhisq)
-- [B. BiCG](#b-bicg)
-- [B. BiCGStab](#b-bicgstab)
-- [C. CA-GCR](#c-ca-gcr)
-- [C. CG](#c-cg)
-- [C. CGS](#c-cgs)
-- [C. Chebyshev](#c-chebyshev)
-- [C. Clover-improved-Wilson](#c-clover-improved-wilson)
-- [D. Domain-wall](#d-domain-wall)
-- [F. FGMRES](#f-fgmres)
-- [F. Full Schur 与 full coarse](#f-full-schur-与-full-coarse)
-- [G. Galerkin](#g-galerkin)
-- [G. GCR 与 flexible-GCR](#g-gcr-与-flexible-gcr)
-- [L. Lanczos 与多移位 CG](#l-lanczos-与多移位-cg)
-- [M. Möbius](#m-möbius)
-- [M. MR](#m-mr)
-- [M. MultiGrid：native、legacy/compact、strict](#m-multigridnativelegacycompactstrict)
-- [O. Overlap](#o-overlap)
-- [Q. QR、CGS 与局部基](#q-qrcgs-与局部基)
-- [Q. QUDA coarse-op](#q-quda-coarse-op)
-- [S. SAP](#s-sap)
-- [S. Schwarz](#s-schwarz)
-- [S. Staggered fermions](#s-staggered-fermions)
-- [S. Strict-QCU coarse-op](#s-strict-qcu-coarse-op)
-- [S. Symmetric Schur](#s-symmetric-schur)
-- [T. Twisted-mass（含 non-degenerate pairs）](#t-twisted-mass含-non-degenerate-pairs)
-- [T. Twisted-mass with a clover term](#t-twisted-mass-with-a-clover-term)
-- [W. Wilson](#w-wilson)
-- [X. 统一比较、验收与来源](#x-统一比较验收与来源)
+## 目录
 
-## 0. 记号、证据与接口边界
+- [1. 范围、证据与显示约定](#1-范围证据与显示约定)
+- [2. 格点 QCD 与 Wilson/Clover 基础](#2-格点-qcd-与-wilsonclover-基础)
+- [3. 奇偶分块、Schur 补与残差语义](#3-奇偶分块schur-补与残差语义)
+- [4. Krylov、投影与正交化算法](#4-krylov投影与正交化算法)
+- [5. 平滑器、局部预条件与多重网格](#5-平滑器局部预条件与多重网格)
+- [6. 粗空间、Galerkin 与 coarse operator](#6-粗空间galerkin-与-coarse-operator)
+- [7. 其他费米子作用量的对照](#7-其他费米子作用量的对照)
+- [8. PyQCU/QUDA 实现映射与 ABI 约束](#8-pyqcuquda-实现映射与-abi-约束)
+- [9. 误差、性能与精度预算](#9-误差性能与精度预算)
+- [10. 可复现验证矩阵](#10-可复现验证矩阵)
+- [11. 算法选择速查](#11-算法选择速查)
+- [12. 资料与源码索引](#12-资料与源码索引)
+- [附录 A：完整流程](#附录-a从规范场到一次可审计求解的完整流程)
+- [附录 B：审计公式](#附录-b残差误差与等价性的审计公式)
+- [附录 C：源码矩阵](#附录-c算法物理对象与源码矩阵)
+- [附录 D：基准报告模板](#附录-d基准报告模板)
+- [附录 E：谱分析与验收阈值](#附录-e谱分析通信模型与验收阈值)
 
-### 0.1 线性代数与格点记号
+---
 
-细格点坐标写作 (x=(x,y,z,t))，(\hat\mu) 是四个欧氏方向的单位向量，
-(p(x)=(x+y+z+t)\bmod2) 是偶奇性。内积统一为
+## 1. 范围、证据与显示约定
 
-$$
-\langle u,v\rangle=\sum_x u(x)^\dagger v(x),
-\qquad \|u\|_2=\sqrt{\langle u,u\rangle}.
-$$
+### 1.1 三种证据等级
 
-PyQCU 的规范场为 `[3,3,4,Lx,Ly,Lz,Lt]`，费米子场为 `[4,3,Lx,Ly,Lz,Lt]`，展平自由度
-(N_sN_c=12)；时空轴永远是最后四轴。QUDA 快照通常以 parity-ordered、tzyx 或 QDP
-布局保存数据，比较时必须先做维度和奇偶转换，不能直接比较裸指针。
-
-细层 Wilson/Clover 块矩阵写为
-
-$$
-D=\begin{pmatrix}A_e&B_{eo}\\B_{oe}&A_o\end{pmatrix},
-\qquad A_p=I+C_p,
-$$
-
-其中 (B_{pq}) 是含规范链接和 (1\pm\gamma_\mu) 投影的 hopping。粗层不再使用 SU(3)
-链接，而使用自由度为 (E=n_vN_s^{\rm coarse}) 的矩阵块 (X,Y^{\rm f},Y^{\rm b})。
-
-### 0.2 证据等级
-
-| 标记 | 含义 | 本报告的处理 |
+| 标记 | 判定标准 | 文中的写法 |
 |---|---|---|
-| **实现** | 本库源码或 `refer/git-rep/quda` 有直接入口 | 给出文件和函数/行号 |
-| **参考** | 理论或 QUDA 有实现，本库未暴露等价入口 | 明确写“参考”，不冒充 PyQCU 功能 |
-| **未验证** | 只完成源码/公式核对，没有本轮设备运行 | 不写成性能或正确性结论 |
+| **实现** | 在 PyQCU、QCU C++ 后端或仓库内 QUDA 快照中找到可定位的入口 | 给出文件、类、函数或接口名 |
+| **参考** | 有明确的理论定义或 QUDA 代码可对照，但 PyQCU 没有等价生产入口 | 明确说明不能直接调用 |
+| **未验证** | 只完成源码或公式检查，没有本轮 GPU/MPI 数值运行 | 不写成性能、收敛或正确性结论 |
 
-### 0.3 运行期 ABI 不变量
+`refer/git-rep/quda` 是本库内的参考快照；它不能证明 PyQCU 已经支持对应 action 或 solver。源码位置优先于历史日志，性能结论必须以相同格点、精度、边界、设备和残差定义下的实测为准。
 
-`params` 是 `int32[58]`，`argv` 是 `float[7]` 或相应实数精度，`set_ptrs` 是
-`int64[100]`。`applyInitQcu` 建立 `LatticeSet` 和 scratch，操作之间必须递增
-`params[define._SET_INDEX_]`，最后调用 `applyEndQcu`。Strict 资产按 transition 保存
-`Yhat`、`(X,X^{-1})`、blocked null vectors；raw (Y) 只在 setup/诊断需要时保留。
+### 1.2 记号和维度
 
-### 0.4 覆盖矩阵：本次任务列出的每个名字
+欧氏格点坐标记为
 
-| 名称 | 报告章节 | PyQCU/QCU 现状 |
+$$
+ x=(x_0,x_1,x_2,x_3)=(x,y,z,t),
+ \qquad \hat\mu \in \{\hat x,\hat y,\hat z,\hat t\}.
+$$
+
+偶奇性为
+
+$$
+ p(x)=(x+y+z+t)\bmod 2,
+ \qquad \Lambda=\Lambda_e\cup\Lambda_o.
+$$
+
+PyQCU 的主要张量约定如下：
+
+| 对象 | 形状 | 说明 |
 |---|---|---|
-| native-MG | [M.MultiGrid](#m-multigridnativelegacycompactstrict) | `pyqcu/solver/_multigrid.py` 的 Python V-cycle |
-| legacy/compact-MG | 同上 | `_quda_multigrid.py` 的 `hierarchy_mode="legacy"`，可用 compact odd Schur |
-| strict-MG | 同上 | `QudaStrictMultigrid` 与 `applyMultigridStrict*Qcu` |
-| Galerkin | [G.Galerkin](#g-galerkin) | `RDP`、strict batched Galerkin |
-| full/asymmetric/symmetric Schur | [F/S](#f-full-schur-与-full-coarse)、[A/S](#a-asymmetric-schur) | fine Clover 与 coarse-PC 路径分开实现 |
-| coarse-PC | [F.Full Schur](#f-full-schur-与-full-coarse) | (I-\widehat H_{pq}\widehat H_{qp}) |
-| MR | [M.MR](#m-mr) | Python `_mr.py`、QCU coarse smoother |
-| CG | [C.CG](#c-cg) | QCU Wilson CG、QUDA/纯 Python 参考 |
-| Chebyshev | [C.Chebyshev](#c-chebyshev) | QUDA CA basis/平滑器参考；QCU 非默认外层 |
-| Schwarz/SAP | [S.Schwarz](#s-schwarz)、[S.SAP](#s-sap) | QUDA 预条件概念；PyQCU 以 MR/FGMRES 组合为主 |
-| FGMRES | [F.FGMRES](#f-fgmres) | `pyqcu/solver/_gmres.py`、strict fused right-FGMRES |
-| BiCG/BiCGStab | [B](#b-bicg)、[B](#b-bicgstab) | Python BiCGStab、QCU/QUDA BiCGStab(l) |
-| GCR/flexible-GCR | [G.GCR](#g-gcr-与-flexible-gcr) | QUDA GCR，PyQCU FGMRES 等价右预条件框架 |
-| CA-GCR | [C.CA-GCR](#c-ca-gcr) | QUDA `inv_ca_gcr.cpp` 参考；PyQCU 有 CA-CG |
-| Arnoldi | [A.Arnoldi](#a-arnoldi) | FGMRES 与 strict FGMRES 的正交核心 |
-| CGS | [C.CGS](#c-cgs)、[Q.QR](#q-qrcgs-与局部基) | CGS solver 为参考；局部重复 CGS 用于 null basis |
-| QR | [Q.QR](#q-qrcgs-与局部基) | 局部正交化的批量 QR/CGS 等价实现 |
-| Wilson/Clover | [W](#w-wilson)/[C](#c-clover-improved-wilson) | PyQCU 原生实现，QCU/QUDA 对照 |
-| twisted mass/twisted clover | [T](#t-twisted-mass含-non-degenerate-pairs) | QUDA 参考；PyQCU 无完整生产入口 |
-| staggered/asqtad/HISQ | [S](#s-staggered-fermions)/[A](#a-asqtadhisq) | QUDA 参考；PyQCU 主路径为 Wilson/Clover |
-| domain-wall/Möbius | [D](#d-domain-wall)/[M](#m-möbius) | QUDA 参考；QCU 当前 ABI 未实现 5-d 动力学 |
-| overlap | [O.Overlap](#o-overlap) | 理论参考；当前快照未发现 `DiracOverlap` 生产实现 |
-| QUDA/QCU 粗算子 | [Q](#q-quda-coarse-op)/[S](#s-strict-qcu-coarse-op) | 分别覆盖 `coarse_op`、legacy 33-tensor、strict X/Y/Yhat |
-
-### 0.5 全链路超长伪代码：从作用量到一次严格 MG 外迭代
-
-下表把作用量、奇偶消元、局部基、Galerkin、平滑、粗解和外层 Krylov 放在同一条链上；
-所有实现变体都可以在对应行替换 (D_l)、(P_l)、(S_l) 或 coarse solver。
-
-\begin{table}[htbp]
-\centering
-\caption*{Table 0.1. 从规范场到 full solution 的统一伪代码}
-\small
-\begin{tabular}{@{}l@{}}
-输入：规范场 (U_\mu)，质量/\(\kappa\)，可选 Clover (C)，格点 (L_xL_yL_zL_t)，\(n_v\)，block，层数 (L\)。\\
-检查边界条件、gamma basis、dtype、奇偶定义和 `...xyzt`/QUDA 布局；建立 \(p(x)=(x+y+z+t)\bmod2\)。\\
-构造细层 (D_0=D_W(U,m))；若有 Clover，令 (A_p=I+C_p)，并把 (D_0=A-\kappa H\) 分成 even/odd block。\\
-若目标是 compact MATPC，选定目标 parity (p)，令 (q=1-p)，准备 (b_p^S=b_p+\kappa H_{pq}A_q^{-1}b_q)。\\
-若目标是 full coarse，保留两个 parity 的完整场；只在 solver 边界执行 `prepare/reconstruct`，不裁剪粗层资产。\\
-生成随机/test/inverse/CG/GCR/CA-CG setup 向量 (B_l)，使其覆盖 (D_l) 的低模和拓扑近零空间。\\
-按 aggregate 把 fine site 映射到 coarse site；对每个 coarse spin block 重复 CGS 或块 QR，得到局部正交 (V_l)。\\
-定义 (P_l\phi) 为按 (V_l) 的局部展开，定义 (R_l=P_l^\dagger)；先验证 (R_lP_l\approx I)。\\
-选择被投影算子：full Galerkin 用 (A_l=D_l)，strict direct-PC 用 (A_l=X_l^{-1}D_l)，legacy Schur 用 (A_l=S_l)。\\
-对每个 coarse source block 置单位向量，计算 (w=A_l(P_le_j))，再限制 (R_lw)，得到一列 (D_{l+1}=R_lA_lP_l)。\\
-按位移把 (D_{l+1}) 分成 onsite (X_{l+1})、forward (Y^f_{l+1})、backward (Y^b_{l+1})；若出现非最近邻项，strict 模式 fail-closed。\\
-批量求 (X_{l+1}^{-1})，构造 \(\widehat Y^f=X^{-1}Y^f\) 与 \(\widehat Y^b=Y^bX^{-\dagger}\)（backward 的左右次序不能交换）。\\
-缓存本层 (V_l)、(X_l)、(X_l^{-1})、(Y_l)、(Yhat_l)，然后把 (D_{l+1}) 当作下一层算子，递归直到粗层。\\
-一次 V-cycle 以 (x_l=0) 或热启动开始，执行 \(\nu_{pre}\) 次 MR/CG/SAP/Schwarz 平滑。\\
-形成真残差 (r_l=b_l-D_lx_l)；若当前是 fine MATPC，先用完整算子重建被消去 parity 再计算 (r_l)。\\
-限制粗右端 (b_{l+1}=R_lr_l)，并保持 coarse field 的 full geometry；只有 `restrict_parity` 视图携带 target parity。\\
-若 (l<L-1)，递归调用 child V/W/F/K-cycle；若 (l=L-1)，调用 coarse CG/BiCGStab/GCR/CA-GCR 或直接解。\\
-得到粗误差 (e_{l+1})，延拓 (e_l=P_le_{l+1})，执行 (x_l\leftarrow x_l+e_l)。\\
-执行 \(\nu_{post}\) 次平滑；如 solver 状态含 (p,v,s,t,\rho,\alpha,\omega)，粗校正后必须全部重置。\\
-外层若用右预条件 FGMRES/GCR，令 (r_0=b-Dx_0\)，(v_1=r_0/\|r_0\|)。\\
-第 (j) 轮取 (z_j=M_j^{-1}v_j)（MG 可随层、精度和 warm state 改变），再算 (w_j=Dz_j)。\\
-用 Arnoldi MGS/CGS/QR 得 (H_{ij}=\langle v_i,w_j\rangle)，对 Hessenberg 列做复 Givens，更新小三角系统。\\
-重启或达到估计容差后回代 (y)，更新 (x=x_0+\sum_j y_jz_j)，独立计算 full true residual。\\
-若可靠残差满足 (\|b-Dx\|\le\texttt{atol}\|b\|)，结束；否则回到平滑/限制/粗解或下一次外层 Krylov。\\
-释放 Strict hierarchy、C++ `LatticeSet` 和 scratch；保持每个实例独立的 `set_ptrs/params/argv`，不得跨线程复用。\\
-\end{tabular}
-\end{table}
-
-**源码锚点：** `pyqcu/solver/_multigrid.py:cycle/solve`；`pyqcu/solver/_quda_multigrid.py:2715-3060`；
-`pyqcu/tools/_strict_galerkin.py:310-538,594-800`；`cpp/cuda/qcu/src/apply_multigrid_strict.cu`；
-`refer/git-rep/quda/lib/multigrid.cpp:1131-1224`、`dirac_coarse.cpp:461-649`。
-
-## A. Arnoldi
-
-### 数学结构
-
-Arnoldi 在非 Hermitian (A) 上构造正交 Krylov 基
-(mathcal K_m(A,r_0)=\operatorname{span}\{r_0,Ar_0,\ldots,A^{m-1}r_0\})。令
-(\beta=\|r_0\|)、(v_1=r_0/\beta)，每一步为
-
-$$
- w_j=Av_j,
-\quad h_{ij}=\langle v_i,w_j\rangle,
-\quad w_j\leftarrow w_j-\sum_{i=1}^{j}h_{ij}v_i,
-\quad h_{j+1,j}=\|w_j\|,
-\quad v_{j+1}=w_j/h_{j+1,j}.
-$$
-
-于是 (AV_m=V_{m+1}\bar H_m)。(h_{j+1,j}=0) 是不变子空间或 breakdown；数值实现
-通常再做一次 MGS 或选择 CGS/QR 以抑制失正交。
-
-### 长表伪代码
-
-\begin{table}[htbp]
-\centering
-\caption*{Table A.1. Arnoldi 正交化与小系统更新}
-\small
-\begin{tabular}{@{}l@{}}
-输入 (r_0,A,m)；若 (|r_0|=0) 直接返回 (x_0)。\\
-设 (\beta=|r_0|)，(v_1=r_0/\beta)，令 (H=0)，(g=(\beta,0,\ldots)^T)。\\
-for (j=1,\ldots,m)：计算 (w=Av_j)。\\
-for (i=1,\ldots,j)：(h_{ij}=\langle v_i,w\rangle)，(w\leftarrow w-h_{ij}v_i)。\\
-可再做一次 (h_{ij}\leftarrow h_{ij}+\langle v_i,w\rangle)，(w\leftarrow w-\langle v_i,w\rangle v_i)。\\
-令 (h_{j+1,j}=|w|)；若不为零，(v_{j+1}=w/h_{j+1,j})，否则标记 happy breakdown。\\
-把已有 Givens 旋转作用到第 (j) 列，选择 (c_j,s_j) 使 (H_{j+1,j}=0)。\\
-更新 (g_{j+1}=-s_jg_j)、(g_j=\overline c_jg_j)，残差估计为 (|g_{j+1}|)。\\
-达到容差或 (j=m) 时回代 (H_{1:j,1:j}y=g_{1:j})，返回 (x=x_0+V_jy)。\\
-若为 FGMRES，不保存 (v_j) 作为修正，而保存 (z_j=M_j^{-1}v_j)，返回 (x=x_0+Z_jy)。\\
-\end{tabular}
-\end{table}
+| 规范场 | `[3, 3, 4, Lx, Ly, Lz, Lt]` | 色彩矩阵、四个方向、时空轴在最后 |
+| 费米子场 | `[4, 3, Lx, Ly, Lz, Lt]` | 旋量 × 色彩 × `xyzt` |
+| Clover 局部块 | `[4, 3, 4, 3, Lx, Ly, Lz, Lt]` | 行旋量、行色彩、列旋量、列色彩 |
+| 粗场 | 依实现而定 | full 粗场保留两种 parity；compact 路径可只保留目标 parity |
 
-**优点：** 适用于非 Hermitian 算子，残差最小化有清楚的投影解释；Givens 只维护小 Hessenberg。
-**缺点：** 需要 (O(m)) 向量和 (O(m^2)) 内积，重启过短会丢失谱信息；长基在 GPU 上受全局归约和内存带宽限制。
-**适用：** Wilson/Clover Schur、coarse-PC、MG 右预条件；本库 `_gmres.py` 用复 Givens，
-严格路径的 C++ `applyMultigridStrictFgmresQcu` 固定右预条件语义。
+内积和范数统一取复 Euclidean 内积：
 
-**实现来源：** `pyqcu/solver/_gmres.py:_givens_rotation,fgmres`；`refer/git-rep/DDalphaAMG-SM` 的
-`fgmres.cpp`；`cpp/cuda/qcu/src/apply_multigrid_strict.cu`。Arnoldi 不是独立的物理作用量，
-而是外层 Krylov 的骨架。
-
-## A. Asymmetric Schur
-
-### 从 block elimination 出发
-
-对 (D=\begin{psmallmatrix}A_p&B_{pq}\\B_{qp}&A_q\end{psmallmatrix})，消去 (q) parity 得到
-
-$$
-S_p^{\rm asym}=A_p-B_{pq}A_q^{-1}B_{qp}.
-$$
-
-对 Wilson/Clover，(B_{pq}=-\kappa H_{pq})，因此
-
-$$
-S_p^{\rm asym}=A_p-\kappa^2H_{pq}A_q^{-1}H_{qp}.
-$$
-
-右端和恢复公式为
-
-$$
- b_p^S=b_p-B_{pq}A_q^{-1}b_q,
-\qquad
- x_q=A_q^{-1}(b_q-B_{qp}x_p).
-$$
-
-由于 (A_p) 与 (A_q) 一般不同，(S_p^{\rm asym}) 不必 Hermitian；BiCGStab、GCR 或 FGMRES 比 CG 更稳妥。
-
-### 单列伪代码
-
-\begin{table}[htbp]
-\centering
-\caption*{Table A.2. Asymmetric Schur prepare/solve/reconstruct}
-\small
-\begin{tabular}{@{}l@{}}
-输入 full (b=(b_p,b_q))、局部块 (A_p,A_q)、hopping (B_{pq},B_{qp})。\\
-解局部系统 (u_q=A_q^{-1}b_q)，形成 (b_p^S=b_p-B_{pq}u_q)。\\
-以 (S_p^{\rm asym}=A_p-B_{pq}A_q^{-1}B_{qp}) 作为 Krylov matvec。\\
-用 BiCGStab/GCR/FGMRES 得 (S_p^{\rm asym}x_p=b_p^S)。\\
-计算 (v_q=b_q-B_{qp}x_p)，局部求解 (x_q=A_q^{-1}v_q)。\\
-将 (x_p,x_q) 按全场 parity map 合并，独立算 (|b-Dx|)。\\
-\end{tabular}
-\end{table}
-
-**优点：** 只对目标 parity 求解，Clover onsite inverse 可以局部批量求；是 QUDA `DiracCloverPC` 和 PyQCU
-`applyCloverBistabCgPrepareQcu/ReconstructQcu` 的直接数学来源。
-**缺点：** 算子非 Hermitian，不能无条件使用 CG；两次 hopping 加一次局部 inverse 使每次 matvec 成本高；
-局部 inverse 的条件数直接影响 Schur 谱。
-**适用：** Clover fine MATPC、QCU 的 `applyCloverBistabCgDslashQcu`，以及 legacy odd-Schur MG。
-
-**实现来源：** `pyqcu/dslash/_operator.py:matvec_parity,give_b_parity,give_x_e`；
-`cpp/cuda/qcu/src/apply_clover_bistabcg_dslash.cu`；`refer/git-rep/quda/lib/dirac_clover.cpp` 的
-`prepare/reconstruct`。
-
-## A. Asqtad/HISQ
-
-### 作用量与改进链
-
-一分量 staggered 核为
-
-$$
-(D_{\rm stag}\chi)(x)=m\chi(x)+\frac12\sum_\mu\eta_\mu(x)
-\left[V_\mu(x)\chi(x+\hat\mu)-V_\mu^\dagger(x-\hat\mu)\chi(x-\hat\mu)\right],
-$$
-
-其中 (eta_\mu(x)=(-1)^{\sum_{\nu<\mu}x_\nu})。Asqtad 以 Fat7、Lepage 和 Naik 三类路径改进
-(V_\mu)，HISQ 再进行一次 reunitarization/smearing，降低 taste breaking 和 (O(a^2)) 误差。
-Naik 长链连接 (x\to x+3\hat\mu)，因此 setup halo 需要更深的 `nFace`；QUDA coarse Wilson dslash 的
-一跳 `nFace=1` 不能混用为 HISQ setup 的通信深度。
-
-### 伪代码
-
-\begin{table}[htbp]
-\centering
-\caption*{Table A.3. Asqtad/HISQ 链接与算子}
-\small
-\begin{tabular}{@{}l@{}}
-输入 thin links (U_\mu)、质量 (m)、Fat7/Lepage/Naik 系数。\\
-构造所有允许的 3-, 5-, 7-link staples，按路径系数线性组合为 (V^{\rm Fat7})。\\
-减去 Lepage 修正，加入 (c_N[U_\mu(x)U_\mu(x+\hat\mu)U_\mu(x+2\hat\mu)])。\\
-HISQ 路径先对 (V^{\rm Fat7}) 做 reunitarize，再进行第二次 smearing，得到 (V^{\rm HISQ})。\\
-交换至少三层长链 ghost，应用 (eta_\mu) 相位和 forward/backward gather。\\
-若做 HMC，再按每条路径反向传播链式法则，累加 gauge force。\\
-\end{tabular}
-\end{table}
-
-**优点：** taste breaking 小、连续极限的 (a^2) 系统误差低；staggered 自由度少，适合大体积。
-**缺点：** 长路径通信和力项复杂；根号行列式/ROOT 分支需要 RHMC；粗化 stencil 可能超出 strict 的最近邻 X/Y ABI。
-**适用：** QUDA `dirac_improved_staggered_kd.cpp`、`coarse_op.cuh` 的 staggered 分支；当前 PyQCU Strict
-显式拒绝标准 staggered/KD 模式（`_quda_multigrid.py:2197-2202`），因此这里只能作为 QUDA 参考。
-
-**来源：** `refer/git-rep/quda/README.md:14-16`；`lib/dslash_improved_staggered.hpp`、
-`lib/dirac_improved_staggered_kd.cpp`、`include/kernels/hisq_paths_force.cuh`；QUDA `NEWS` 中
-HISQ long-link、force 与多移位 solver 条目。
-
-## B. BiCG
-
-### 算法
-
-BiCG 同时在 (A) 和 (A^\dagger) 的对偶 Krylov 空间推进。给定 shadow residual
-(\tilde r_0)，
-
 $$
-\rho_k=\langle\tilde r_0,r_k\rangle,
-\quad
-\alpha_k=\frac{\rho_k}{\langle\tilde p_k,Ap_k\rangle},
-\quad
-r_{k+1}=r_k-\alpha_kAp_k,
+ \langle u,v\rangle = \sum_{x,\,s,\,c} u(x,s,c)^\dagger v(x,s,c),
+ \qquad
+ \|u\|_2 = \sqrt{\langle u,u\rangle}.
 $$
 
-并在对偶空间用 (A^\dagger) 更新 (\tilde p)。理论上每步只需一次 (A) 与一次 (A^\dagger)，但
-(\rho_k) 或 pivot 过小会 breakdown。实际格点代码通常用 BiCGStab 的 residual smoothing 避免显式 transpose solve。
+若使用分布式格点，求和还包含 MPI rank 的局部贡献；因此局部 `dot` 与全局 `dot` 不能混用。HDF5 文件通常使用 `zyxt` 相关内部顺序，进入 PyQCU 计算前必须经过仓库已有的布局转换函数，不能把磁盘顺序当作计算顺序。
 
-### 伪代码、优缺点与适用范围
+### 1.3 Markdown 中的数学规范
 
-\begin{table}[htbp]
-\centering
-\caption*{Table B.1. BiCG 双 Krylov 伪代码}
-\small
-\begin{tabular}{@{}l@{}}
-(r_0=b-Ax_0,;\tilde r_0=r_0,;p_0=\tilde p_0=0,;\rho_{-1}=1)。\\
-for (k=0,1,\ldots)：(\rho_k=\langle\tilde r_0,r_k\rangle)，若 (\rho_k=0) 则 breakdown。\\
-(\beta_k=(\rho_k/\rho_{k-1})(\alpha_{k-1}/\cdots))，更新 (p_k,\tilde p_k)。\\
-(q_k=Ap_k,;\alpha_k=\rho_k/\langle\tilde r_0,q_k\rangle)。\\
-(x_{k+1}=x_k+\alpha_kp_k,;r_{k+1}=r_k-\alpha_kq_k)。\\
-同时以 (A^\dagger) 更新 shadow 侧；检查 true residual 和所有分母。\\
-\end{tabular}
-\end{table}
+- 行内公式使用 `$D=I-\kappa H$`，不要写成普通文本 `(D=I-\kappa H)`；
+- 多行推导使用独立 `$$...$$`，每个公式块前后留空行；
+- 伪代码使用 fenced code block，算法变量在代码中用 ASCII 名称，解释性公式放在代码块外；
+- 表格使用 Markdown 表格，不把 `tabular`、`caption` 等 LaTeX 环境直接放入 `.md`；
+- 文件路径、函数名、参数名使用反引号；LaTeX 的反斜杠只在数学块或代码块中出现。
 
-**优点：** 存储量小、适合非 Hermitian；**缺点：** breakdown 频繁、残差可能剧烈振荡，且需要 shadow 方向。
-**适用：** 理论基线和 BiCGStab 推导；本库没有单独导出的 `bicg` API，QCU/QUDA 生产路径以 BiCGStab、GCR 或 FGMRES 替代。
+---
 
-**来源：** `refer/git-rep/quda/README.md:19-20`；QUDA solver factory；本库
-`pyqcu/solver/_bistabcg.py` 的 shadow residual 初始化是 BiCGStab 继承来的稳定化形式。
+## 2. 格点 QCD 与 Wilson/Clover 基础
 
-## B. BiCGStab
+### 2.1 规范链接和协变差分
 
-### 标准递推
+规范场的基本变量是链接矩阵 $U_\mu(x)\in SU(3)$，它把 $x$ 与 $x+\hat\mu$ 连接起来。正向、反向平行移动分别为
 
-BiCGStab 在每个 BiCG 步后用一维 MR 方向平滑 residual。设 (\tilde r) 固定：
-
-$$
-\rho_{i-1}=\langle\tilde r,r_{i-1}\rangle,
-\quad
-\beta_{i-1}=\frac{\rho_{i-1}}{\rho_{i-2}}\frac{\alpha_{i-1}}{\omega_{i-1}},
-$$
-
-$$
- p_i=r_{i-1}+\beta_{i-1}(p_{i-1}-\omega_{i-1}v_{i-1}),
-\quad v_i=Ap_i,
-\quad \alpha_i=\frac{\rho_{i-1}}{\langle\tilde r,v_i\rangle},
-$$
-
-$$
- s_i=r_{i-1}-\alpha_iv_i,
-\quad t_i=As_i,
-\quad \omega_i=\frac{\langle t_i,s_i\rangle}{\langle t_i,t_i\rangle},
-$$
-
-$$
- x_i=x_{i-1}+\alpha_ip_i+\omega_is_i,
-\qquad r_i=s_i-\omega_it_i.
-$$
-
-右预条件时 (p_i,s_i) 先解 (M\hat p=p_i,M\hat s=s_i)，再以 (A\hat p,A\hat s) 计算。
-
-### 超长单列伪代码
-
-\begin{table}[htbp]
-\centering
-\caption*{Table B.2. Bi-CGStab with preconditioning matrix (M)}
-\small
-\begin{tabular}{@{}l@{}}
-(r^{(0)}=b-Ax^{(0)})，选择 (\tilde r=r^{(0)})，置 (p=v=s=t=0)，(\rho_{-1}=\alpha_0=\omega_0=1)。\\
-for (i=1,2,\ldots)：计算 (\rho_{i-1}=\tilde r^\dagger r^{(i-1)})，若相对尺度下接近零则执行 breakdown guard/重启。\\
-若 (i=1)，(p^{(1)}=r^{(0)})；否则计算 (\beta_{i-1}=\alpha_{i-1}\rho_{i-1}/(\omega_{i-1}\rho_{i-2}))。\\
-更新 (p^{(i)}=r^{(i-1)}+\beta_{i-1}(p^{(i-1)}-\omega_{i-1}v^{(i-1)}))。\\
-解 (M\hat p=p^{(i)})，计算 (v^{(i)}=A\hat p)。\\
-计算 (\alpha_i=\rho_{i-1}/(\tilde r^\dagger v^{(i)}))；令 (s=r^{(i-1)}-\alpha_iv^{(i)})。\\
-若 (|s|) 已满足可靠容差，令 (x^{(i)}=x^{(i-1)}+\alpha_i\hat p) 并停止。\\
-解 (M\hat s=s)，计算 (t=A\hat s)，再取 (\omega_i=(t^\dagger s)/(t^\dagger t))。\\
-更新 (r^{(i)}=s-\omega_it)，(x^{(i)}=x^{(i-1)}+\alpha_i\hat p+\omega_i\hat s)。\\
-若 (|r^{(i)}|) 达标则停止；否则保存 (\rho_i,\alpha_i,\omega_i) 进入下一轮。\\
-每次 MG 粗校正改变 (r) 后，必须把 (\tilde r,p,v,s,t,\rho,\alpha,\omega) 全部重置。\\
-\end{tabular}
-\end{table}
-
-**优点：** 非 Hermitian 友好、每轮只需少量向量、比 BiCG 平滑；适合 Clover Schur、粗层非对称矩阵和 QCU GPU。
-**缺点：** (\rho)、(omega)、(t^\dagger t) breakdown；递推 residual 可能与 full true residual 脱钩，c64 尤其明显；单次迭代有两次 operator apply。
-**适用：** `pyqcu/solver/_bistabcg.py`、`cpp/cuda/qcu/include/bistabcg.h`、QUDA `inv_bicgstabl_quda.cpp`；
-QUDA 的 BiCGStab(l) 用 (l)-维 GCR-like residual minimization，Wilson/Clover 上通常比 (l=1) 稳定。
-
-**来源：** `pyqcu/solver/_bistabcg.py:23-89`（rho/pivot/tts guard）；
-`cpp/cuda/qcu/include/lattice_clover_multigrid.h:302-510`（GPU scalar guard 与五 stream）；
-`refer/git-rep/quda/README.md:19-20`、`NEWS:202-205`。
-
-## C. CA-GCR
-
-### 通信规避思想
-
-CA-GCR 每个 block 用 (s) 次 (A) 作用生成
-(V_j=[r,Ar,\ldots,A^{s-1}r])，集中完成 Gram 矩阵和小规模最小残差问题，从而减少全局归约次数。
-若 (Z_j=M_j^{-1}V_j)，则求解
-
 $$
-G_j=(AZ_j)^\dagger(AZ_j),
-\qquad g_j=(AZ_j)^\dagger r,
-\qquad G_j\gamma_j=g_j,
-\qquad x\leftarrow x+Z_j\gamma_j.
+ T_{+\mu}\psi(x)=U_\mu(x)\psi(x+\hat\mu),
+ \qquad
+ T_{-\mu}\psi(x)=U_\mu^\dagger(x-\hat\mu)\psi(x-\hat\mu).
 $$
 
-### 伪代码与分析
+在 $U_\mu(x)=I$ 的自由场极限，Fourier 模式 $\psi(x)=e^{ip\cdot x}u$ 给出熟悉的动量因子。这个极限同时是最便宜、最重要的回归测试：链接恒等、周期边界和反周期时间边界都应能独立检查。
 
-\begin{table}[htbp]
-\centering
-\caption*{Table C.1. CA-GCR/s-step block}
-\small
-\begin{tabular}{@{}l@{}}
-输入 (r_j,x_j)、block 长度 (s)、右预条件 (M_j^{-1})。\\
-生成 (K=[r_j,Ar_j,\ldots,A^{s-1}r_j])，必要时对每列应用 (M_j^{-1})。\\
-得到 (W=AK)，使用 MGS/QR 对 (K,W) 同步正交化，避免 power basis 条件数爆炸。\\
-批量归约 (G=W^\dagger W,;g=W^\dagger r_j)，解 (G\gamma=g)。\\
-更新 (x_{j+1}=x_j+K\gamma)，可靠地重算 (r_{j+1}=b-Ax_{j+1})。\\
-若收敛则停；否则将 block image 与已有 GCR basis 正交化并继续。\\
-\end{tabular}
-\end{table}
+### 2.2 Wilson 算子
 
-**优点：** 全局同步由 (s) 次 matvec 共用，适合 GPU/MPI；可与 coarse GCR 和 mixed precision 组合。
-**缺点：** (G) 条件数可能快速恶化，workspace (O(s))，block 末小系统求解开销不可忽略；谱估计或 Chebyshev basis 错误会造成假收敛。
-**适用：** QUDA `lib/inv_ca_gcr.cpp`；QUDA MG coarse solver 可以设置 `QUDA_CA_GCR_INVERTER`。
-本库目前有 `pyqcu/solver/_cacg.py` 的 CA-CG（不是 CA-GCR），因此不能把两者名称互换。
-
-## C. CG
-
-### 递推与适用条件
-
-对 Hermitian positive definite (A)，
-
-$$
-\rho_k=\langle r_k,r_k\rangle,
-\quad
-\alpha_k=\rho_k/\langle p_k,Ap_k\rangle,
-\quad
-x_{k+1}=x_k+\alpha_kp_k,
-$$
+取 Wilson 参数 $r=1$，未归一化的 Wilson 算子可写成
 
 $$
- r_{k+1}=r_k-\alpha_kAp_k,
-\quad
-\beta_k=\rho_{k+1}/\rho_k,
-\quad
-p_{k+1}=r_{k+1}+\beta_kp_k.
+ (D_W\psi)(x)
+ = (m_0+4)\psi(x)
+ -\frac12\sum_{\mu=0}^3
+ \left[(1-\gamma_\mu)U_\mu(x)\psi(x+\hat\mu)
+ +(1+\gamma_\mu)U_\mu^\dagger(x-\hat\mu)\psi(x-\hat\mu)\right].
 $$
-
-Wilson (D) 通常只满足 (gamma_5)-Hermiticity，安全做法是解 (D^\dagger D)（CGNE/CGNR）或使用
-经过 Hermitian 变换的 Schur；Clover symmetric Schur 的名字本身不等于正定。
-
-### 伪代码与工程映射
-
-\begin{table}[htbp]
-\centering
-\caption*{Table C.2. CG}
-\small
-\begin{tabular}{@{}l@{}}
-(x_0) 给定，(r_0=b-Ax_0)，(p_0=r_0)。\\
-for (k=0,1,\ldots)：(Ap_k=Ap\)，(\alpha_k=\rho_k/(p_k^\dagger Ap_k))。\\
-(x_{k+1}=x_k+\alpha_kp_k)，(r_{k+1}=r_k-\alpha_kAp_k)。\\
-(\rho_{k+1}=r_{k+1}^\dagger r_{k+1})，(\beta_k=\rho_{k+1}/\rho_k)。\\
-(p_{k+1}=r_{k+1}+\beta_kp_k)，检查 true residual 和 denominator。\\
-若使用 reliable update，周期性以 (b-Ax) 替换递推 (r)，并重新设置 (p=r)。\\
-\end{tabular}
-\end{table}
-
-**优点：** 每轮一个 matvec，一个或两个全局归约；内存小，SPD 情形理论收敛界清楚。
-**缺点：** 对非 Hermitian/不定矩阵失效；有限精度破坏共轭，低精度需要 reliable update。
-**实现来源：** `cpp/cuda/qcu/include/cg.h`、`lattice_wilson_cg.h`；QUDA `inv_cg_quda.cpp`；
-`examples/qcu/conftest.wilson.cg.py`。PyQCU 纯 Python 主求解器默认以 BiCGStab/FGMRES 覆盖非 Hermitian。
-
-## C. CGS
-
-“CGS”有两种必须区分的语义：
-
-1. **Conjugate Gradient Squared solver**：把 BiCG 的二项式残差多项式平方，消除显式 shadow solve；
-2. **Classical Gram–Schmidt**：在局部 aggregate 内做基正交，本报告 [Q.QR](#q-qrcgs-与局部基) 另述。
-
-### CGS solver
 
-设 BiCG 的 residual polynomial 为 (P_k(A))，CGS 用 (P_k(A)^2r_0) 更新，典型形式为
+在代码中常用 hopping 归一化
 
 $$
-q_k=u_k-\alpha_kAu_k,
-\quad
-u_{k+1}=u_k+\beta_kq_k,
-\quad
-r_{k+1}=u_{k+1}-\alpha_kA(u_{k+1}+\beta_kq_k).
+ D_W = I-\kappa H,
 $$
 
-**优点：** 不需要显式 (A^\dagger)，理论上 matvec 次数与 BiCG 相当；**缺点：** residual 多项式平方造成极强振荡和数值不稳定，格点 QCD 生产中通常优先 BiCGStab(l)/GCR。当前 PyQCU/QCU API 未提供 CGS solver；仅将其作为算法对照。
+其中
 
-### Classical Gram–Schmidt 语义
-
-对局部向量 (b_j) 和已正交 (q_i)，
-
 $$
-q_j=b_j-\sum_{i<j}q_i(q_i^\dagger b_j),
-\qquad q_j\leftarrow q_j/\|q_j\|.
+ (H\psi)(x)=\sum_\mu
+ \left[(1-\gamma_\mu)U_\mu(x)\psi(x+\hat\mu)
+ +(1+\gamma_\mu)U_\mu^\dagger(x-\hat\mu)\psi(x-\hat\mu)\right],
+ \qquad
+ \kappa=\frac{1}{2m_0+8}
 $$
-
-单次 CGS 易有失正交；本库 `n_block_ortho=2` 和 QUDA block orthogonalize 都采用重复投影或 QR 等价增强。
-
-**来源：** `pyqcu/solver/_quda_multigrid.py` 的 `QudaTransfer`、`refer/git-rep/quda/lib/block_orthogonalize.in.cpp`；
-CGS solver 仅作通用线性代数参考。
 
-## C. Chebyshev
+（具体质量归一化仍需以调用入口为准）。由于 $1\pm\gamma_\mu$ 是秩为二的投影算子乘以常数，CUDA dslash 通常先做 spin projection，再做颜色矩阵乘法，以减少带宽和浮点操作。
 
-### 多项式平滑
+Wilson 算子的两个基本性质是：
 
-对 Hermitian 谱区间 ([\lambda_{\min},\lambda_{\max}])，把
-(A=cI+d\tilde A)，(c=(\lambda_{\max}+\lambda_{\min})/2)，
-(d=(\lambda_{\max}-\lambda_{\min})/2)，以 Chebyshev (T_k) 构造
+1. 它是最近邻 stencil，单次应用的通信只涉及各方向一层 halo；
+2. 在合适的 Euclidean gamma 约定下满足 $\gamma_5$-Hermiticity：
 
 $$
-T_{k+1}(\tilde A)=2\tilde A T_k(\tilde A)-T_{k-1}(\tilde A).
+ D_W^\dagger = \gamma_5 D_W \gamma_5.
 $$
 
-平滑器常取抑制低频/高频指定谱段的多项式 (p_k(A)r)，避免每步全局内积。
+第二条不是说 $D_W$ 本身 Hermitian，而是说明可构造 Hermitian 算子 $H_W=\gamma_5D_W$，也解释了为什么不同 solver 对 dagger、左右预条件和真残差的要求不同。
 
-\begin{table}[htbp]
-\centering
-\caption*{Table C.3. Chebyshev 平滑器}
-\small
-\begin{tabular}{@{}l@{}}
-输入 (r)、阶数 (k)、谱估计 ([\lambda_l,\lambda_h])，设置 (p_0=r)、(p_{-1}=0)。\\
-按三项递推系数计算 (p_{j+1}=a_jAp_j+b_jp_j+c_jp_{j-1})。\\
-累计 (x\leftarrow x+\omega_jp_j)，每步只需 operator apply 和 axpy。\\
-若谱估计越界，降低阶数或重新估计；若算子非 Hermitian，必须说明使用的是包络/正规算子谱。\\
-\end{tabular}
-\end{table}
+**仓库映射（实现）**：`pyqcu/dslash/_wilson.py`、`pyqcu/dslash/_operator.py`，以及 `cpp/cuda/qcu/include/wilson_dslash.h`、`lattice_wilson_dslash.h`。调用行为可由 `examples/qcu` 和 `examples/pyquda` 中的 Wilson dslash 测试对照。
 
-**优点：** 无 dot 或少 dot，适合 GPU smoother 和 CA basis；**缺点：** 对谱界敏感，非 Hermitian Schur 上不保证最小残差。
-QUDA CA-CG 使用 Chebyshev/power basis 选项；本库当前 QCU coarse 默认 MR/CG/BiCGStab，未将 Chebyshev 作为公开独立 API。
+### 2.3 Clover 改进
 
-## C. Clover-improved-Wilson
+Clover 项用局部的色彩-旋量矩阵近似离散场强张量：
 
-### 作用量
-
-Wilson 核加入 Sheikholeslami–Wohlert 局部项：
-
 $$
-D_{\rm SW}=D_W-\frac{\kappa c_{\rm SW}}{2}
-\sum_{\mu<\nu}\sigma_{\mu\nu}F_{\mu\nu}^{\rm clover},
-\qquad
-\sigma_{\mu\nu}=\frac12[\gamma_\mu,\gamma_\nu].
+ D_C = D_W + c_{\mathrm{SW}}\,\frac{i}{4}
+ \sum_{\mu<\nu}\sigma_{\mu\nu}F_{\mu\nu},
+ \qquad
+ \sigma_{\mu\nu}=\frac12[\gamma_\mu,\gamma_\nu].
 $$
-
-(F_{\mu\nu}^{\rm clover}) 是四个 plaquette 叶片的反厄米无迹组合。不同库把 (1/2)、
-(i)、(kappa) 或 (u_0) 吸入 (C) 的方式不同；PyQCU `_clover.py` 使用
-`_clover_factor=-0.125*kappa/u_0`，因此比较时必须同时看 `make_clover` 和 `give_clover`，不能只比裸矩阵。
-
-### 伪代码
 
-\begin{table}[htbp]
-\centering
-\caption*{Table C.4. Clover 构造与应用}
-\small
-\begin{tabular}{@{}l@{}}
-对每个 ((\mu,\nu)) 收集四个方向的 plaquette，计算 (Q_{\mu\nu}=P_{\mu\nu}-P_{\mu\nu}^\dagger)。\\
-按 (F_{\mu\nu}=(Q_{\mu\nu}-\operatorname{Tr}Q_{\mu\nu}/3)/8i)（系数随实现约定）嵌入 color block。\\
-组装 (C(x)=\sum_{\mu<\nu}\sigma_{\mu\nu}\otimes F_{\mu\nu}(x))，返回 (A=I+C)。\\
-按 parity 抽取 (A_e,A_o)，批量求 (A_e^{-1},A_o^{-1})，禁止逐点 Python inverse 循环。\\
-应用 full operator 时执行 (D_W\psi+C\psi)；应用 Schur 时用对应 parity inverse。\\
-\end{tabular}
-\end{table}
+把局部块记为 $A_p=I+C_p$ 后，完整算子具有
 
-**优点：** 消除 on-shell (O(a)) 离散误差，Clover inverse 是局部 (12\times12) 批量矩阵；
-**缺点：** 保留 γ₅-Hermiticity 但 onsite block 不再是单位阵，存储、局部 inverse 和 setup 成本上升；系数/边界条件不一致会造成百分比级偏差。
-**实现来源：** `pyqcu/dslash/_clover.py`；`cpp/cuda/qcu/include/lattice_clover_dslash.h`；
-`refer/git-rep/quda/lib/dirac_clover.cpp`、`clover_quda.cu`；`examples/qcu/dev87/comparison_matrix.md`。
-
-## D. Domain-wall
-
-### 5-d 作用量与 4-d reduction
-
-Domain-wall fermion 在第五维 (s=0,\ldots,L_s-1) 放置四维 Wilson kernel：
-
 $$
-D_{\rm DW}(x,s;y,s')=D_W^{4d}(x,y)\delta_{ss'}+D_5(s,s'),
+ D_C=
+ \begin{pmatrix}
+ A_e & B_{eo}\\
+ B_{oe} & A_o
+ \end{pmatrix}.
 $$
-
-$$
-D_5(s,s')=P_+\delta_{s+1,s'}+P_-\delta_{s-1,s'}
--m_f\left(P_-\delta_{s,0}\delta_{s',L_s-1}+P_+\delta_{s,L_s-1}\delta_{s',0}\right),
-$$
-
-其中 (P_\pm=(1\pm\gamma_5)/2)。有限 (L_s) 的残余质量来自两墙混合；(L_s\to\infty) 才逼近精确手征。
-
-QUDA 的 4-d preconditioned 形式把 (M_5) 的局部逆和四维 hopping 分开。以
-(kappa_5) 表示第五维系数，非对称形式为
 
-$$
-M_{\rm PC}=I-\kappa_5D_5-\kappa_5^2D_4M_5^{-1}D_4,
-$$
+$C_p$ 不改变最近邻 hopping 的支持，但会把每个站点的局部逆从标量/颜色块提升为旋量-颜色块。工程上应批量求解或分解所有站点的小矩阵，避免在 Python 循环里逐点调用通用矩阵逆。
 
-对称形式可写成
+**实现状态**：PyQCU 的 `_clover.py` 和 QCU 的 Clover 头文件覆盖主路径；twisted-clover 只在 QUDA 快照中作为参考。Clover 的验证必须同时覆盖局部块 Hermiticity、$\gamma_5$-Hermiticity、Schur 重建和完整 true residual。
 
-$$
-M_{\rm PC}^{\rm sym}=I-\kappa_5^2M_5^{-1}D_4M_5^{-1}D_4.
-$$
+### 2.4 规范、边界与量纲检查
 
-### 伪代码、优缺点与范围
+所有 action/solver 组合都应先做以下三个极限：
 
-\begin{table}[htbp]
-\centering
-\caption*{Table D.1. Domain-wall 5-d/4-d preconditioned solve}
-\small
-\begin{tabular}{@{}l@{}}
-输入 (U,m_f,m_5,L_s)，构造每个 (s) 层的 (D_W^{4d}) 和相邻墙投影。\\
-建立 (M_5) 的 block-tridiagonal 结构；若为 Shamir，系数由 (m_5) 和 (m_f) 固定。\\
-5-d 直接路径：应用 (D_4) 后沿 (s) 方向做 (P_\pm) gather，再用 CG/BiCGStab/GCR 求解。\\
-4-d 预条件路径：计算 (u=M_5^{-1}b_q)，形成 Schur RHS (b_p+\kappa_5D_4u)。\\
-在目标 parity 上求 (M_{\rm PC}x_p=b_p^{\rm PC})，再以 (M_5^{-1}(b_q+\kappa_5D_4x_p)) 恢复另一 parity。\\
-独立应用完整 5-d operator 检查残差，并报告 residual mass/墙间混合。\\
-\end{tabular}
-\end{table}
+- **自由场极限**：$U_\mu=I$，结果与动量空间或直接 stencil 计算一致；
+- **无 Clover 极限**：$c_{\mathrm{SW}}=0$，Clover 路径退化到 Wilson 路径；
+- **质量极限**：增大质量时谱隙扩大、迭代通常减少；趋近临界质量时条件数恶化，不能把迭代增加误判为实现错误。
 
-**优点：** 手征对称性可系统恢复；4-d preconditioning 显著减少求解自由度；**缺点：** 内存和通信随 (L_s) 线性增长，墙边界和 (M_5^{-1}) 系数易错。
-**适用：** QUDA `dirac_domain_wall_5d.cpp`、`dirac_domain_wall_4d.cpp`、`dslash_domain_wall_5d.hpp`；当前 PyQCU/QCU 的
-参数协议只描述四维 Wilson/Clover，不能把 `applyCloverMultigridQcu` 当成 DWF 实现。
+这些检查只使用无量纲格点量。若文档或日志同时出现物理质量和格点质量，必须明确 $am$、$a\mu$ 或 $\kappa$ 的归一化，不能在没有尺度因子的情况下直接比较。
 
-## F. FGMRES
 
-### Flexible 右预条件
+### 2.5 对称性、谱与条件数
 
-FGMRES 允许每个 Krylov 向量使用不同预条件器 (M_j^{-1})，这是 MG、SAP、混合精度和 warm-start
-组合的关键。对 (v_j) 先算
+局部规范变换 $G(x)in SU(3)$ 作用为
 
 $$
- z_j=M_j^{-1}v_j,
-\qquad w_j=Az_j,
+ U_mu(x)\mapsto G(x)U_mu(x)G(x+\hat\mu)^\dagger,
+ \qquad
+ \psi(x)\mapsto G(x)\psi(x).
 $$
-
-再对 (w_j) 做 Arnoldi；更新解必须保存 (Z=[z_1,\ldots,z_m])，不能误用 (V)。
-
-### 伪代码
-
-\begin{table}[htbp]
-\centering
-\caption*{Table F.1. FGMRES(m) 右预条件}
-\small
-\begin{tabular}{@{}l@{}}
-(x_0) 给定，(r=b-Ax_0)，(\beta=\|r\|)，(v_1=r/\beta)。\\
-for restart cycle：清空 (V,Z,H)，令 (g_1=\beta)。\\
-for (j=1,\ldots,m)：(z_j=M_j^{-1}v_j)，保存 (Z_j=z_j)。\\
-计算 (w=Az_j)，以 MGS/CGS/QR 得 (h_{ij}=\langle v_i,w\rangle)，(v_{j+1}=w/\|w\|)。\\
-用复 Givens 旋转消去 (H_{j+1,j})，更新 (g)，记录 (|g_{j+1}|)。\\
-内层结束或估计残差达标时回代 (Hy=g)，更新 (x\leftarrow x+\sum_jy_jZ_j)。\\
-重算 (r=b-Ax)；若 full true residual 达标则结束，否则重启。\\
-\end{tabular}
-\end{table}
-
-**优点：** 允许变化预条件器，适合 MG V-cycle、SAP 和自适应层级；**缺点：** 保存 (Z) 的内存大于 GMRES，
-重启会损失谱信息；估计残差必须以 true residual 复核。
-**实现来源：** `pyqcu/solver/_gmres.py:fgmres`（默认零初值、任意布局 reshape、内层估计+周期真实残差）；
-`cpp/cuda/qcu/src/apply_multigrid_strict.cu` 的 fused right-FGMRES；`refer/git-rep/DDalphaAMG-SM/include/fgmres.h`。
-
-## F. Full Schur 与 full coarse
 
-### 三种对象不能混名
+因此，正确的 dslash 必须满足协变性：先变换规范场和输入场再应用算子，与先应用算子再变换输出场相同。这个检查比单个随机输入的数值相等更强，因为它同时覆盖颜色矩阵左右乘法和邻居索引。
 
-1. **Full operator：** 在所有 parity 上应用 (D)，场形状保持 full lattice；
-2. **Fine Schur/MATPC：** 只在目标 parity 解 (S_p) 或 (I-\widehat H_{pq}\widehat H_{qp})，
-   prepare/reconstruct 负责与 full RHS/solution 互换；
-3. **Full coarse：** 粗层保存完整 coarse geometry 的 (X,Y,Yhat)，parity 只在 MATPC、R/P 的边界视图使用。
+在自由场中，Wilson 算子的动量空间形式可写为
 
-Strict 路径定义
-
 $$
-D_l=X_l+H_l,
-\qquad \widehat D_l=X_l^{-1}D_l,
-\qquad D_{l+1}=R_l\widehat D_lP_l,
+ D_W(p)=m_0+\sum_{\mu}(1-\cos p_\mu)
+ +i\sum_{\mu}\gamma_\mu\sin p_\mu.
 $$
-
-所以不能把“fine odd Schur 的 compact 场”直接当成“coarse full field”，也不能把 coarse `Y` 当 SU(3) Gauge。
-
-### full→MATPC 伪代码
-
-\begin{table}[htbp]
-\centering
-\caption*{Table F.2. Fine full/Schur 与 coarse full 的接口}
-\small
-\begin{tabular}{@{}l@{}}
-输入 full (b)、目标 parity (p)、fine (A_p,A_q,B_{pq},B_{qp})。\\
-`prepare`：按 asymmetric 或 symmetric 公式形成 compact (b_p^S)，不丢失被消去 parity 的信息。\\
-在 compact 空间应用 (S_p) 或 (M_p=I-\widehat H_{pq}\widehat H_{qp})。\\
-`restrict_parity` 只读取 target parity 的 fine residual，输出下一层 full coarse field。\\
-coarse V-cycle 使用完整 (X/Y/Yhat)，`prolong_parity` 只把修正放回 target parity。\\
-`reconstruct` 用被消去 parity 的 RHS 与 (x_p) 恢复 (x_q)，再用 full (D) 计算验收残差。\\
-\end{tabular}
-\end{table}
 
-**实现来源：** `pyqcu/solver/_quda_multigrid.py:1539-1610,2961-3060`；
-`cpp/cuda/qcu/python/pyqcu.h:55-63,78-118`；`refer/git-rep/quda/lib/dirac_coarse.cpp:530-626`。
+当 $p_\mu$ 接近零时，物理模的虚部近似线性；当多个 $p_\mu$ 接近 $\pi$ 时，Wilson 项抬高 doubler 模。这个表达式提供三个量纲和极限检查：$p=0$ 的质量项、$p\to-p$ 的 dagger 关系，以及大质量时谱隙增大。
 
-## G. Galerkin
+对任意可逆算子 $A$，条件数
 
-### 定义与局部化
-
-Galerkin 粗算子是
-
 $$
-D_c=RDP,
-\qquad R=P^\dagger \text{（正交基时）}.
+ \kappa_2(A)=\frac{\sigma_{\max}(A)}{\sigma_{\min}(A)}
 $$
 
-对严格 X/Y 表示，只需探测 coarse source aggregate 与其 (pm\hat\mu) 相邻 aggregate，
-把位移零项放入 (X)，六个轴向项放入 (Y^{\rm f/b})。若局部 (P) 正交且 fine (D) 是最近邻，
-粗算子也保持有限邻接；若 fine 是 HISQ/长链，strict 最近邻假设可能不成立。
+控制许多 Krylov 迭代的难度。对 $D^\dagger D$，其条件数是 $\kappa_2(D)^2$，所以 normal equation 虽然能使用 CG，却可能把条件数平方；这也是 MG、Schur 或 Hermitian 变换常比直接 CGNR 更有吸引力的原因。接近临界质量时 $\sigma_{\min}$ 变小，必须把物理的 critical slowing down 与代码错误分开诊断。
 
-### 逐列、site-batch、colored 三种实现
+### 2.6 源场与物理观测量的边界
 
-\begin{table}[htbp]
-\centering
-\caption*{Table G.1. Galerkin 组装的三种实现}
-\small
-\begin{tabular}{@{}l@{}}
-逐列：对每个 coarse basis (e_j) 计算 (R(D(Pe_j)))，内存小但 operator call 数为粗自由度倍数。\\
-site-batch：同一组 coarse source site 叠加成 batch，调用 `matvec_batch`，再以 einsum 做 (V^\dagger D V)。\\
-colored：按不相交 aggregate/color 分组并行探测，减少峰值工作区；必须验证不同 source 的支撑不重叠。\\
-完成后检查 (\|D_c^{\rm explicit}v-RDPv\|/\|RDPv\|)，并按 displacement 检查非零支撑。\\
-\end{tabular}
-\end{table}
+点源、墙源、体源、Z2 源和动量源只改变右端 $b$，不改变算子 $D$。比较 solver 时应固定源的归一化，否则迭代历史的绝对范数不可直接比较。对 propagator 或双线性观测量，还要记录源位置、flavor、边界条件和是否做了 gauge fixing；solver 收敛并不自动保证观测量已经完成统计或重整化。
 
-**优点：** 保持物理算子低模等价性，误差可由 (RDP) 直接验收；**缺点：** setup 需要大量 operator apply 和显存，
-局部 basis 质量决定粗层条件数；长程作用量会产生更多 stencil 项。
+---
 
-**实现来源：** `pyqcu/dslash/_operator.py:operator.__init__` 的显式 Galerkin；
-`pyqcu/tools/_strict_galerkin.py:594-800` 的 batched/colored；`refer/git-rep/quda/lib/coarse_op.cuh:1043-1457` 的
-UV/VUV/coarse block kernel；`docs/report_multigrid_quda_pyqcu_20260909.md:203-268`。
+## 3. 奇偶分块、Schur 补与残差语义
 
-## G. GCR 与 flexible-GCR
+### 3.1 Block elimination
 
-### GCR
+将 full 场按 parity 排列，写成
 
-GCR 不要求 (A) Hermitian，通过构造 (A)-共轭 image basis 使残差最小化：
-
 $$
-z_j=M^{-1}r_j,
-\quad w_j=Az_j,
-\quad
-\alpha_j=\frac{\langle w_j,r_j\rangle}{\langle w_j,w_j\rangle},
-\quad x_{j+1}=x_j+\alpha_jz_j,
-\quad r_{j+1}=r_j-\alpha_jw_j.
+ D=
+ \begin{pmatrix}
+ A_e & B_{eo}\\
+ B_{oe} & A_o
+ \end{pmatrix},
+ \qquad
+ b=\begin{pmatrix}b_e\\b_o\end{pmatrix},
+ \qquad
+ x=\begin{pmatrix}x_e\\x_o\end{pmatrix}.
 $$
-
-后续 (w_j) 对已有 image basis 正交化。GCR 与 GMRES 等价地维护 image 空间，但更新形式不同。
-
-### flexible-GCR
 
-若 (M_j) 改变，保存 (z_j=M_j^{-1}v_j) 而非固定 (M^{-1}v_j)，小系统由
-(W_j=Az_j) 形成。这与 FGMRES 的右预条件语义一致；比较 QUDA GCR 和 PyQCU FGMRES 时应比较 operator/preconditioner 顺序，不能只比较迭代名称。
+消去 odd 分量得到 even Schur：
 
-\begin{table}[htbp]
-\centering
-\caption*{Table G.1. GCR/flexible-GCR}
-\small
-\begin{tabular}{@{}l@{}}
-(r_0=b-Ax_0)。每轮计算 (z_j=M_j^{-1}r_j) 或 (M_j^{-1}v_j)，(w_j=Az_j)。\\
-对 (w_j) 与旧 image basis 做 MGS，修正 (z_j) 同步做同样线性组合。\\
-取 (\alpha_j=\langle w_j,r_j\rangle/\langle w_j,w_j\rangle)，更新 (x,r)。\\
-若使用 restart，保留最近 (m) 个 image；若使用 flexible 版本，禁止把不同 (M_j) 合并成单一固定算子。\\
-\end{tabular}
-\end{table}
-
-**优点：** 非 Hermitian、预条件器灵活；**缺点：** basis 存储和 (O(m^2)) 正交开销；GCR 的长期 basis 需要 restart/deflation。
-**来源：** `refer/git-rep/quda/lib/inv_gcr_quda.cpp`、`lib/inv_ca_gcr.cpp`、`lib/multigrid.cpp:620-666`；
-PyQCU 的等价外层为 `_gmres.py:fgmres` 和 strict fused FGMRES。
-
-## L. Lanczos 与多移位 CG
-
-### 厚重启 Lanczos
-
-对 Hermitian 算子 A，Lanczos 生成三对角投影矩阵 T：
-
 $$
-A v_j = β_{j-1}v_{j-1}+α_jv_j+β_jv_{j+1},
-\qquad V_m^†V_m≈I.
+ S_e=A_e-B_{eo}A_o^{-1}B_{oe},
+ \qquad
+ b_e^{\,S}=b_e-B_{eo}A_o^{-1}b_o.
 $$
-
-Rayleigh–Ritz 对 T 求本征对，厚重启保留低端 k 个 Ritz 向量和残差方向，再继续扩展。它把
-拓扑近零模变成 deflation basis，可供 eigCG/GMRES-DR/MG setup 使用。
-
-| 步骤 | 公式或动作 | PyQCU/QUDA 对照 |
-|---|---|---|
-| 扩展 | `w = A v_j`，对已有 V 全重正交 | `pyqcu/solver/_lanczos.py` |
-| 投影 | `T[i,j]=<v_i,w>`，对称双写 | 避免 `torch.linalg.eigh` 读到未写三角 |
-| Ritz | `T s_i=θ_i s_i`，`y_i=V s_i` | 低端 θ 与残差估计 |
-| 重启 | 保留 k 个 Ritz + β·s[last,i] 残差列 | thick restart / arrowhead |
-| 验收 | `||A y_i − θ_i y_i||` 再算一次 | c64 不接受只看估计残差 |
-
-**优点：** 对 Hermitian 低模和 deflation 直接；**缺点：** 全重正交成本 O(m²)、基存储 O(m)，非 Hermitian 场景需 Arnoldi。
-实现来源：`pyqcu/solver/_lanczos.py:tr_lanczos`；QUDA `lib/eig_trlm.cpp`、`lib/eig_block_trlm.cpp`。
 
-### Multi-shift CG
+求得 $x_e$ 后恢复
 
-当所有系统共享 Hermitian positive definite A 且只差标量 shift 时，
-
 $$
-(A+σ_i I)x_i=b
+ x_o=A_o^{-1}(b_o-B_{oe}x_e).
 $$
-
-可以共用一次 `A p`，用 ζ_i、α_i、β_i 递推全部移位。最小 shift 作为主链，必须把 σ₀ p
-折入主链 `Ap`，否则递推 residual 会漂移。适用 overlap rational sign、staggered RHMC 和多质量传播子；
-不适用于不同 gauge/hopping 的 Wilson 质量核。
 
-| 优点 | 缺点 | 本库状态 |
-|---|---|---|
-| 一次 matvec 解多个质量，内存 O(Nshift) | ζ 递推在 c64 可能爆炸；不同初值不能直接共用 | `pyqcu/solver/_multishift_cg.py`；QUDA `inv_multi_cg_quda.cpp` |
+若采用 $D=I-\kappa H$，则 $A_p$ 通常是 $I+C_p$，而 $B_{pq}=-\kappa H_{pq}$；因此 Schur 中的 hopping 符号和 $\kappa^2$ 因子必须由具体归一化推导，不能凭经验复制。
 
-## M. Möbius
+### 3.2 三种 Schur 语义
 
-### 5-d kernel
+| 名称 | 定义 | 主要用途 | 需要注意 |
+|---|---|---|---|
+| full | 直接作用于 $(x_e,x_o)$ 的完整 $D$ | full Galerkin、full residual、strict hierarchy | 粗层保留两种 parity |
+| asymmetric Schur | $A_e-B_{eo}A_o^{-1}B_{oe}$ | 直接 MATPC、BiCGStab、GCR、FGMRES | 一般非 Hermitian，左右乘法次序固定 |
+| symmetric Schur | 先用合适的 $A_p^{-1/2}$ 或等价对称缩放 | 希望保留 Hermitian 结构的场景 | 缩放、右端和重建必须成对出现 |
 
-Möbius domain-wall 把第五维系数推广为 (b_s,c_s)，常用关系为
+“coarse-PC”是对粗层算子做 onsite 预条件后的对象，不能与 fine-level Schur 补混为同一个矩阵。对粗层 full operator $D_c$，常见表示为
 
 $$
-D_{\rm Mobius}=\left[b_sD_W+1\right]\delta_{ss'}
-+\left[c_sD_W-1\right]D_5(s,s'),
+ \widehat D_c = X_c^{-1}D_c,
 $$
 
-或等价地以
+其中 $X_c$ 是 coarse onsite block。若把 backward link 写为右乘形式，还可能出现
 
 $$
-\kappa_b=\frac{1/2}{b_s(m_5+4)+1},
-\quad
-\kappa_c=\frac{1/2}{c_s(m_5+4)-1},
-\quad
-\kappa=\frac{\kappa_b}{\kappa_c}
+ \widehat Y^f=X^{-1}Y^f,
+ \qquad
+ \widehat Y^b=Y^bX^{-1}
 $$
-
-组织 (M_5^{-1}) 的闭式系数。具体负号和 (m_5) 归一化依 QUDA `dirac_mobius.cpp` 约定，必须与
-`dslash_domain_wall_m5.cuh` 一起看。
-
-**优点：** 在相同 (L_s) 下改善近似 sign function 的质量；**缺点：** 多一组系数和第五维通信，参数调优依赖谱。
-**适用：** QUDA `dirac_mobius.cpp`、`dslash5_mobius_eofa.cu`、`NEWS` 的 MSPCG/EOFA 条目；当前 PyQCU 四维 QCU ABI 未实现。
 
-### 伪代码
+或带 dagger 的变体；最终形式必须与内核读取顺序一致，不能仅凭符号相似性替换。
 
-\begin{table}[htbp]
-\centering
-\caption*{Table M.1. Möbius 5-d/4-d precondition}
-\small
-\begin{tabular}{@{}l@{}}
-输入 (b_s,c_s,m_5,m_f,L_s)，构造 (M_5(s,s')) 与 (D_4(U))。\\
-按闭式系数应用 (M_5^{-1})，避免逐 (s) 的通用矩阵求逆。\\
-以对称/非对称 4-d Schur 组合 (D_4M_5^{-1}D_4)，在 parity 子空间求解。\\
-恢复第五维字段，并用完整 Möbius operator 做 residual check。\\
-\end{tabular}
-\end{table}
+### 3.3 full residual 与 Schur residual
 
-## M. MR
+MATPC 解出的向量只是目标 parity 的压缩解。可靠停止条件应在 full 向量上计算
 
-### 最小残差平滑器
-
-PyQCU 的 MR 采用 QUDA `inv_mr` 风格。令 (p=A^\dagger r)，(Ap=A p)，则
-
 $$
-\alpha=\omega\frac{\langle p,p\rangle}{\langle Ap,Ap\rangle},
-\qquad
-x\leftarrow x+\alpha p,
-\qquad
-r\leftarrow r-\alpha Ap.
+ r_{\mathrm{true}}=b-Dx,
+ \qquad
+ \rho_{\mathrm{rel}}=\frac{\|r_{\mathrm{true}}\|_2}{\|b\|_2},
 $$
-
-若 (A) Hermitian 可令 `matvec_dag=None`；Wilson full operator 只有 (gamma_5)-Hermiticity 时应显式传
-(A^\dagger=\gamma_5A\gamma_5)。Strict MATPC 当前直接以当前 residual 做方向，相当于
-(p=r) 的非对称 MR 版本。
-
-\begin{table}[htbp]
-\centering
-\caption*{Table M.2. MR smoother}
-\small
-\begin{tabular}{@{}l@{}}
-(r=b-Ax)，选择 (p=A^\dagger r)（或非对称 coarse 路径的 (p=r)）。\\
-计算 (Ap)、(\alpha=\omega(p^\dagger p)/(Ap^\dagger Ap))，分母过小则停止并报告 breakdown。\\
-(x\leftarrow x+\alpha p,;r\leftarrow r-\alpha Ap)，重复固定步数或直到容差。\\
-作为 MG pre/post smoother 时通常不追求独立收敛，只需压低高频误差。\\
-\end{tabular}
-\end{table}
-
-**优点：** O(1) 向量状态，适合非 Hermitian coarse；**缺点：** 一步需要 (A) 与 (A^\dagger)，单方向收敛慢，
-(omega) 过大可能过冲；**实现来源：** `pyqcu/solver/_mr.py`、`_quda_multigrid.py:2991-3043`、
-`cpp/cuda/qcu/include/lattice_clover_multigrid.h:202-240`。
 
-## M. MultiGrid：native、legacy/compact、strict
+而不是只看 Schur 递推中的 $r_S$。若右端为零，应直接返回零解并避免计算 $\|b\|^{-1}$。
 
-### 三条实现的精确定义
+对单 rank strict C++ solver，主循环采用相对于右端的判据
 
-| 路径 | 细层对象 | 粗层对象 | parity 位置 | 入口 |
-|---|---|---|---|---|
-| native/Python | Wilson/Clover full 或 parity operator | matrix-free 或显式 33-tensor | 可选，旧 `multigrid` 层级由 `use_parity` 控制 | `pyqcu/solver/_multigrid.py` |
-| legacy/compact | 首层可为 (S_o)，后续 (R S_oP) | `[2,4,E,E,...]` hopping/diag/sitting，旧 33-tensor | 粗层常 compact，不能误当 full QUDA coarse | `QudaMultigrid(hierarchy_mode="legacy", setup_operator="schur")` |
-| strict-QCU | full (D_l=X_l+H_l)，fine 边界用 MATPC | full (X,Y,Yhat)，coarse spin=2 | 仅 MATPC/R/P 视图裁剪 | `QudaStrictMultigrid`、`applyMultigridStrict*Qcu` |
-
-native 的 `local_orthogonalize/restrict/prolong` 是 Python 参考；legacy 的 `build_stencil` 将
-odd-Schur 的 nearest/diagonal 项打包为 33 tensors；strict 则遵循 QUDA full coarse 语义，
-不减半 coarse geometry、不把粗算子替换成 hopping-only dslash。
-
-### Native/legacy 的 V-cycle
-
-设 (A_l) 为第 (l) 层算子，(S_l) 为平滑器，(C_{l+1}) 为粗求解：
-
 $$
-M_l^{V}=S_l^{post}\left[I+P_lC_{l+1}R_l\left(I-A_lS_l^{pre}\right)\right]S_l^{pre}.
+ \|r_n\|_2^2 < \mathrm{atol}^2\,\|b\|_2^2,
 $$
-
-legacy 33-tensor 的 odd-Schur 常见结构是
-
-$$
-S_o=D_{oo}-\kappa^2H_{oe}D_{ee}^{-1}H_{eo},
-\qquad
-A_c=R S_o P,
-$$
-
-并把 (pm\\hat\mu) nearest block 与“同 coarse site、不同 fine parity”的六类对角 block 分开存储。
 
-\begin{table}[htbp]
-\centering
-\caption*{Table M.3. Native/legacy 33-tensor V-cycle}
-\small
-\begin{tabular}{@{}l@{}}
-若 (l=0)，以 C++ Clover BiStabCG 或 Python operator 计算 fine residual；否则应用当前粗 dslash。\\
-执行 (
-u_{pre}) 次 MR/CG/BiCGStab 平滑，得到 (r=b-Ax)。\\
-`restrict`：(r_c=Rr)，若 legacy Schur 则只取 odd compact 视图。\\
-coarse solve：粗层应用 (A_c v)，可用 BiStabCG；最粗层按 `coarse_max_iter` 或 direct solve 结束。\\
-`prolong`：(e=P e_c)，更新 (x\leftarrow x+e)，再执行 (
-u_{post}) 次平滑。\\
-粗校正后若继续 BiCGStab，重置全部递推状态；记录校正前后 residual。\\
-\end{tabular}
-\end{table}
+并在可用路径周期性刷新 true residual；多 rank 路径是否刷新取决于具体实现，不能把单 rank 行为外推到 MPI 运行。
 
-### Strict full/X-Y-Yhat V-cycle
+### 3.4 Schur 伪代码
 
-Strict 层级的关键递归为
+```text
+输入 full b=(b_e,b_o)、局部块 A_e,A_o、hopping B_eo,B_oe
+1. 计算 y_o = A_o^{-1} b_o
+2. 构造 b_e^S = b_e - B_eo y_o
+3. 用目标 solver 解 S_e x_e = b_e^S
+4. 恢复 x_o = A_o^{-1}(b_o - B_oe x_e)
+5. 用 full D 重新计算 r_true=b-Dx
+6. 只有 r_true 同时满足绝对/相对停止条件才报告收敛
+```
 
-$$
-D_l=X_l+H_l,
-\quad \widehat H_l=X_l^{-1}H_l,
-\quad M_{l,p}=I-\widehat H_{l,pq}\widehat H_{l,qp},
-\quad D_{l+1}=R_lX_l^{-1}D_lP_l.
-$$
-
-粗层 (Yhat) 的 forward/backward 次序分别为
-
-$$
-\widehat Y^f=X^{-1}Y^f,
-\qquad
-\widehat Y^b=Y^bX^{-\dagger}_{\rm neighbor}.
-$$
+---
 
-Strict 运行期生命周期固定为
-
-$$
-\texttt{hierarchy.setup()}\to\texttt{CudaSchurOp}\to\text{bind assets}
-\to\texttt{applyMultigridStrictInitQcu}\to\text{V-cycle/FGMRES}
-\to\texttt{applyMultigridStrictEndQcu}\to\texttt{release()}.
-$$
+## 4. Krylov、投影与正交化算法
 
-\begin{table}[htbp]
-\centering
-\caption*{Table M.4. Strict full-coarse V-cycle}
-\small
-\begin{tabular}{@{}l@{}}
-输入 fine full RHS，`prepare` 在 target parity 上形成 (b_p^S)，但 transfer coarse field 保持 full。\\
-pre-smooth：在 (M_{l,p}=I-\widehat H_{pq}\widehat H_{qp}) 上做固定步 MR。\\
-计算 (r_p=b_p^S-M_{l,p}x_p)，以 `restrict_parity` 形成完整 coarse rhs。\\
-递归 child level；coarsest 用 direct-PC/FGMRES/BiCGStab，热启动由 `params[57]` 控制。\\
-`prolong_parity` 将 coarse correction 写回 target fine parity，post-smooth。\\
-若外层是 fused right-FGMRES，保存每轮 (z_j=M_j^{-1}v_j)，并在重启点用 full true residual 验收。\\
-释放 runtime assets 后再 `CudaSchurOp.release()`；同一实例的 `_SET_INDEX_` 不跨 strict 调用递增。\\
-\end{tabular}
-\end{table}
+### 4.1 CG：只在 SPD 条件成立时使用
 
-### Cycle、smoother 与 solver 选择
+对 Hermitian positive-definite（SPD）矩阵 $A$，CG 递推为
 
 $$
 \begin{aligned}
-C_l^V&=S_{post}P_lC_{l+1}^VR_lS_{pre},\\
-C_l^W&=S_{post}P_lC_{l+1}^WP_lC_{l+1}^WR_lS_{pre},\\
-C_l^F&=S_{post}P_lC_{l+1}^FP_lC_{l+1}^VR_lS_{pre}.
+ r_0&=b-Ax_0, & p_0&=r_0,\\
+ \alpha_k&=\frac{\langle r_k,r_k\rangle}{\langle p_k,Ap_k\rangle},\\
+ x_{k+1}&=x_k+\alpha_kp_k, & r_{k+1}&=r_k-\alpha_kAp_k,\\
+ \beta_k&=\frac{\langle r_{k+1},r_{k+1}\rangle}{\langle r_k,r_k\rangle}, &
+ p_{k+1}&=r_{k+1}+\beta_kp_k.
 \end{aligned}
 $$
 
-V-cycle 成本最低；W-cycle 对粗空间弱时更稳但粗解次数增加；F-cycle 常用于 setup/早期层；K-cycle
-在 child 内做短 Krylov，必须明确其预条件器是否变化。QUDA `MG::createSmoother/createCoarseSolver`
-在 `refer/git-rep/quda/lib/multigrid.cpp:273-666`，主递归在 `:1131-1224`；当前 PyQCU strict
-主路径是 MR + V-cycle + FGMRES。
+原始 Wilson/Clover $D$ 通常不是 SPD；可对 $D^\dagger D$ 或适当 Hermitian 变换使用 CG。把裸 CG 应用于非 Hermitian $D$ 会破坏共轭方向证明，出现负或复分母时应立即报告 breakdown，而不是继续迭代。
 
-### 优缺点与使用边界
+**实现**：QCU 的 CG 入口、`pyqcu/solver/_cacg.py` 的块变体和 QUDA CG 可作为不同层次的参考。每次比较都要注明求解的是 $D$、$D^\dagger D$ 还是 Schur operator。
 
-- **native：** 代码最简单、可在 CPU/CUDA/NPU 验证；但粗层自由度布局和 operator 选择较旧，性能与 QUDA 不可直接类比。
-- **legacy/compact：** odd-Schur 和 33-tensor 成熟、缓存小；但粗层不是完整 full dslash，不能用于验证 QUDA strict 的 full coarse 语义。
-- **strict：** (X/Y/Yhat)、full coarse、MATPC 和生命周期与 QUDA 对齐；当前 strict Galerkin 原型只证明单 MPI rank、Wilson/Clover nearest-neighbour，分布式 halo/fused solve 必须 fail-closed。
+### 4.2 多移位 CG
 
-**来源：** `pyqcu/solver/_multigrid.py`；`pyqcu/solver/_quda_multigrid.py:1985-2350,2687-3060`；
-`pyqcu/tools/_multigrid.py:738-900,1279-1340`；`cpp/cuda/qcu/src/apply_multigrid.cu`、
-`apply_multigrid_strict.cu`；`docs/report_multigrid_quda_pyqcu_20260909.md`。
-
-## O. Overlap
-
-### Neuberger 算子
-
-Overlap 费米子利用 Wilson kernel 的 sign function 实现精确有限格距手征：
+若需要同时求解
 
 $$
-D_{ov}(m)=\left(1-\frac{am}{2}\right)D_{ov}(0)+am,
-\qquad
-D_{ov}(0)=1+\gamma_5\,\operatorname{sign}\!\left(H_W(-m_0)\right),
+ (A+\sigma_j I)x^{(j)}=b,
 $$
 
-其中 (H_W=\gamma_5D_W(-m_0)) 为 Hermitian kernel。数值上用 rational/Zolotarev 或 Chebyshev
-近似 sign，并以内层多移位 CG 求 ((H_W^2+\sigma_i)^{-1})。
+多移位 CG 利用所有移位共享的 Krylov 子空间，仅保存与移位相关的标量递推。它要求基准矩阵保持 Hermitian positive-definite，且移位是标量单位阵；Clover 的非平凡局部块或一般 Schur 不能不加证明地套用该公式。
 
-### 伪代码与边界
+优点是多个质量/谱移位的矩阵应用近似共享；限制是所有系统共享同一个预条件器，且最小残差与可靠停止必须分别检查。PyQCU 的 `_multishift_cg.py` 是 Python 参考实现。
 
-\begin{table}[htbp]
-\centering
-\caption*{Table O.1. Overlap sign-function solve}
-\small
-\begin{tabular}{@{}l@{}}
-输入 (U,m,m_0)，构造 (H_W=\gamma_5D_W(-m_0))。\\
-估计 (H_W^2) 的谱区间，选择 Zolotarev/Chebyshev/rational coefficients。\\
-对每个 shift (sigma_i) 用 multi-shift CG 解 ((H_W^2+\sigma_i)x_i=b)。\\
-组合 (\operatorname{sign}(H_W)b\approx H_W\sum_i\omega_ix_i)。\\
-外层以 FGMRES/BiCGStab 解 (D_{ov}(m)x=b)，每次 matvec 调 sign approximation。\\
-以 Ginsparg–Wilson defect (|\gamma_5D+D\gamma_5-aD\gamma_5D\|) 和 true residual 验收。\\
-\end{tabular}
-\end{table}
+### 4.3 BiCG、CGS 与 BiCGStab
 
-**优点：** 手征对称精确、拓扑零模物理清楚；**缺点：** 每次外层 matvec 包含内层多移位 solve，计算和内存昂贵，
-谱下界误估会破坏 sign 精度。
-**仓库结论：** 当前 `refer/git-rep/quda` 快照 README 列出的主作用量没有 Overlap 入口，
-`rg` 未找到 `DiracOverlap`/`sign(H_W)` 生产实现；因此本节是理论参考，不把 Overlap 写入 PyQCU 已实现功能。
-
-## Q. QR、CGS 与局部基
-
-### 关系
-
-局部 aggregate 的 null vectors 需要 (V_X^\dagger V_X\approx I)。可用 Householder QR、MGS、重复 CGS 或
-批量 `torch.linalg.qr`。QR 的稳定性最好但需要更多 workspace；重复 CGS 更适合固定小 block 和 GPU einsum。
-
-\begin{table}[htbp]
-\centering
-\caption*{Table Q.1. 局部 QR/重复 CGS}
-\small
-\begin{tabular}{@{}l@{}}
-对 aggregate (X) 取候选列 (B_X=[b_1,\ldots,b_k])。\\
-QR 路径：(B_X=Q_XR_X)，保留 (Q_X) 作为 (V_X)，检查 (Q_X^\dagger Q_X-I)。\\
-MGS 路径：(q_j=b_j-\sum_{i<j}q_i(q_i^\dagger b_j))，归一化后再重复一次。\\
-若 (|q_j|) 低于阈值，注入随机/test vector 或减少 coarse dof，避免零列污染 Galerkin。\\
-按 fine spin 到 coarse spin 的 map（Wilson/Clover 为 (4\to2)）写入 blocked ABI。\\
-\end{tabular}
-\end{table}
-
-**实现来源：** `pyqcu/tools/_multigrid.py:69-110`；`pyqcu/solver/_quda_multigrid.py:441-500,538-610`；
-`refer/git-rep/quda/lib/block_orthogonalize.in.cpp`、`lib/transfer.cpp`。
-
-## Q. QUDA coarse-op
-
-### `RDP` 到 `X/Y`
-
-QUDA coarse-op 的核心不是把 SU(3) Gauge 直接降采样，而是对 transfer basis 做
+BiCG 同时构造 $A$ 和 $A^\dagger$ 的左右 Krylov 序列，基本标量为
 
 $$
-D_c=R D_f P,
-\qquad
-(UV)_\mu^{s,c'}(x)=\sum_c U_\mu^c(x)V_\mu^{s,c'}(x+\hat\mu),
+ \alpha_k=\frac{\langle \tilde r_k,r_k\rangle}
+ {\langle \tilde p_k,Ap_k\rangle}.
 $$
 
-再完成 (V^\dagger UV)、Clover/identity/mass/twist local terms 和 storage conversion。对 Wilson/Clover，
-coarse color 是 `nvec`，coarse spin 通常 (N_s^{coarse}=2)；粗 link 的 `Y` 是矩阵而不是 SU(3)。
+它的内存占用低，但需要 dagger matvec，并且容易因影子残差正交性丢失而 breakdown。CGS 通过平方 residual polynomial 去掉显式 shadow 系列，减少算子调用却放大非正规矩阵上的不稳定性。
 
-### QUDA preconditioned coarse operator
-
-`DiracCoarse::createCoarseOp` 生成 (Y,X)，`createYhat` 分配
-(Yhat,X^{-1})。`DiracCoarsePC::Dslash` 读取 Yhat，`M` 形成
+BiCGStab 用一阶最小残差平滑替代 CGS 的剧烈振荡。常用递推写成
 
 $$
-M_{even}=I-\widehat H_{eo}\widehat H_{oe},
-\qquad
-M_{odd}=I-\widehat H_{oe}\widehat H_{eo}.
+\begin{aligned}
+ \rho_k&=\langle \tilde r_0,r_k\rangle,\\
+ \beta_k&=\frac{\rho_k}{\rho_{k-1}}
+ \frac{\alpha_{k-1}}{\omega_{k-1}},\\
+ p_k&=r_k+\beta_k(p_{k-1}-\omega_{k-1}v_{k-1}),\\
+ v_k&=Ap_k,\qquad
+ \alpha_k=\rho_k/\langle\tilde r_0,v_k\rangle,\\
+ s_k&=r_k-\alpha_kv_k,\qquad t_k=As_k,\\
+ \omega_k&=\langle t_k,s_k\rangle/\langle t_k,t_k\rangle,\\
+ x_{k+1}&=x_k+\alpha_kp_k+\omega_ks_k,\\
+ r_{k+1}&=s_k-\omega_kt_k.
+\end{aligned}
 $$
 
-backward `Yhat` 必须右乘邻点 (X^{-\dagger})，forward 必须左乘本点 (X^{-1})。
+需要保护 $\rho_k$、$\omega_k$、各分母和 NaN/Inf；递推残差只是一种估计，必须周期性以 full operator 刷新。`pyqcu/solver/_bistabcg.py` 暴露 `bistabcg` 与历史记录接口，strict C++ 内核也实现了融合的 BiCGStab 更新。
 
-\begin{table}[htbp]
-\centering
-\caption*{Table Q.2. QUDA coarse-op setup/apply}
-\small
-\begin{tabular}{@{}l@{}}
-读取 fine Gauge/Clover、Transfer (V/R)、coarse geometry 和 action flags。\\
-交换 (V) ghost，计算每个 direction 的 UV 与 VUV；按 coarse displacement 累加 onsite (X) 和 links (Y^f,Y^b)。\\
-把 identity、mass、twisted-mass、Clover 局部项各加一次，避免 internal hopping 重复计入 (X)。\\
-生成 (X^{-1})，构造 forward (Yhat=X^{-1}Y^f)、backward (Yhat=Y^bX^{-\dagger}_{neighbor})。\\
-应用 full coarse dslash 时读取 (X,Y)；应用 coarse-PC/MATPC 时读取 (X^{-1},Yhat)。\\
-按 parity 做两次 hopping 得 (I-\widehat H_{pq}\widehat H_{qp})，prepare/reconstruct 采用同一 block elimination。\\
-\end{tabular}
-\end{table}
+### 4.4 Arnoldi、GMRES 与 FGMRES
 
-**优点：** action-specific local terms 和多层递归完整，多 GPU ghost/tuning 成熟；**缺点：** setup kernel 与 field order 复杂，
-不同 action 的 coarse support/自旋约定不可混用。
-**源码来源：** `refer/git-rep/quda/lib/coarse_op.cuh:1043-1457`、`include/kernels/coarse_op_kernel.cuh`、
-`lib/dirac_coarse.cpp:121-336,387-649`、`lib/multigrid.cpp:1131-1466`。
-
-## S. SAP
-
-### Schwarz alternating procedure
-
-SAP 把格点划分为重叠块 (Omega_i)，在每个块上近似解局部 Dirac 方程，再按固定顺序更新：
+Arnoldi 在一般非 Hermitian $A$ 上构造
 
 $$
-M_{\rm SAP}^{-1}r
-=\sum_{i=1}^{N_b}P_iA_i^{-1}R_ir
-\quad\text{（加性近似）},
+ \mathcal K_m(A,r_0)=\operatorname{span}\{r_0,Ar_0,\ldots,A^{m-1}r_0\},
+ \qquad
+ AV_m=V_{m+1}\bar H_m.
 $$
 
-乘性/alternating 版本则把第 (i) 块的修正立即作用到下一块的 residual。块内可以用 MR、CG、BiCGStab 或短 GCR；边界重叠宽度决定局部解对低频误差的覆盖。
-
-\begin{table}[htbp]
-\centering
-\caption*{Table S.1. SAP smoother}
-\small
-\begin{tabular}{@{}l@{}}
-选定块集合 (Omega_i)、重叠宽度和 local solver tolerance。\\
-计算 (r_i=R_i(b-Ax))，解 (A_idelta_i=r_i)（通常只做固定少量迭代）。\\
-乘性 SAP：(x\leftarrow x+P_idelta_i)，立即更新全局 residual；加性 SAP：并行求所有 (delta_i) 后累加。\\
-在 MPI 中交换 overlap halo，完成一轮后测量高频 residual 衰减。\\
-将 SAP 作为 FGMRES/MG 的可变右预条件器，不能在 flexible 外层假定每轮相同。\\
-\end{tabular}
-\end{table}
-
-**优点：** 局部性强、通信可与计算重叠、适合并行平滑；**缺点：** 块边界误差和顺序依赖，重叠增加内存；
-**仓库状态：** QUDA `NEWS`/`invert_param.overlap` 支持 domain-overlap 预条件，PyQCU 当前公开 solver 以 MR/MG 为主，未提供独立 `sap()` API。
-
-## S. Schwarz
-
-### Additive/Multiplicative Schwarz
-
-统一写成
+Modified Gram–Schmidt（MGS）的一步为
 
 $$
-M_{AS}^{-1}=\sum_iP_iA_i^{-1}R_i,
-\qquad
-M_{RAS}^{-1}=\sum_iP_iA_i^{-1}\widetilde R_i,
+ w=Av_j,
+ \quad h_{ij}=\langle v_i,w\rangle,
+ \quad w\leftarrow w-h_{ij}v_i,
+ \quad h_{j+1,j}=\|w\|_2,
+ \quad v_{j+1}=w/h_{j+1,j}.
 $$
 
-其中 (widetilde R_i) 只保留 non-overlap 归属。Multiplicative Schwarz 依赖块顺序，通常收敛强但并行度低；additive/RAS 可并行但需要外层 Krylov 消化块间耦合。
-
-**与 SAP 的边界：** SAP 是一种按序实现的 Schwarz smoother；Schwarz 是预条件器家族，SAP 是其中的调度策略。
-在 QUDA coarse solver 中 `preconditioner` 可以是递归 MG；在本库 strict 外层，MR V-cycle 作为变化的 Schwarz-like preconditioner，
-由 FGMRES 而非固定 CG 包装。
-
-**优缺点：** Schwarz 对局部强耦合和多 GPU 友好，但块太小无法消除低频误差，块太大又接近原问题。
-
-## S. Staggered fermions
-
-### 作用量
-
-Kogut–Susskind 一分量作用量为
+GMRES 在小型 Hessenberg 系统上最小化残差；FGMRES 允许每步预条件器变化：
 
 $$
-S_{\rm stag}=\sum_x\bar\chi(x)\left[m\chi(x)+\frac12\sum_\mu\eta_\mu(x)
-\big(U_\mu(x)\chi(x+\hat\mu)-U_\mu^\dagger(x-\hat\mu)\chi(x-\hat\mu)\big)\right].
+ z_j=M_j^{-1}v_j,
+ \qquad w_j=Az_j,
+ \qquad x_m=x_0+Z_my.
 $$
 
-四味 taste 在连续极限恢复；有限 (a) 有 taste breaking。它没有 Wilson 的显式 spin 维，粗化时
-coarse spin block 规则、Kähler-Dirac preconditioning 和 (X\) 的质量项都不同，不能直接套用 Wilson/Clover
-`coarse_spin=2` 的 strict ABI。
+当 MG hierarchy、warm start、SAP 或内层迭代次数在外层循环中变化时，$M_j$ 不再固定，应使用 FGMRES 或 flexible-GCR，不能假设普通 GMRES 的固定预条件语义仍然成立。
 
-### 伪代码与比较
+**实现**：`pyqcu/solver/_gmres.py` 包含复数 Givens 与 restart 逻辑；strict C++ 入口 `applyMultigridStrictFgmresQcu` 对应右预条件语义。应分别记录 Arnoldi 估计残差和 full true residual。
 
-\begin{table}[htbp]
-\centering
-\caption*{Table S.2. Staggered dslash}
-\small
-\begin{tabular}{@{}l@{}}
-输入一分量 color field (chi)、(U)、质量 (m)，预计算 (eta_\mu(x))。\\
-按 forward/backward gather 应用 (U_\mu) 和 (U_\mu^\dagger)，累加反对称 hopping。\\
-若使用 even-odd，质量项在 diagonal，hopping 连接相反 parity。\\
-求解可用 CG on (D^\dagger D)、multi-shift CG 或 staggered MG；恢复 taste observables 时保持相位约定。\\
-\end{tabular}
-\end{table}
+### 4.5 GCR、CA-GCR 与通信规避
 
-**优点：** 自由度少、CG 结构简洁；**缺点：** taste breaking、rooting/RHMC 解释复杂，改进长链通信昂贵。
-**来源：** `refer/git-rep/quda/lib/dirac_staggered_kd.cpp`、`dirac_improved_staggered_kd.cpp`、
-`staggered_coarse_op.in.cpp`；`refer/git-rep/quda/README.md:14-16`。PyQCU 主 `dslash` 包只提供 Wilson/Clover。
+GCR 直接对预条件后的方向做残差正交化，适合非 Hermitian 和变化的预条件器。CA-GCR/CA-CG 通过块 Krylov 或 power basis 减少全局归约次数，但会增加局部正交化和失正交风险。通信规避只减少同步，不能改变算子谱；若块长度过大，局部基条件数会成为主导误差源。
 
-## S. Strict-QCU coarse-op
+QUDA 的 `inv_gcr_quda.cpp`、`inv_ca_gcr.cpp` 是参考入口；PyQCU 当前生产路径更接近 FGMRES 和 CA-CG 的组合。比较时要报告 restart/block 长度、正交化方法和归约精度。
 
-### 语义与资产
+### 4.6 Lanczos、QR 与局部基
 
-Strict-QCU 对应 QUDA full-coarse 而不是旧 33-tensor odd-Schur：
+Hermitian $H$ 上的 Lanczos 递推为
 
 $$
-D_c=X+H_c,
-\quad
-H_c\phi(X)=\sum_\mu\left[Y_\mu^f(X)\phi(X+\hat\mu)+Y_\mu^b(X)\phi(X-\hat\mu)\right].
+ Hq_j=\beta_{j-1}q_{j-1}+\alpha_jq_j+\beta_jq_{j+1}.
 $$
 
-运行期保存
+有限精度会产生 ghost eigenvalues，因此 thick-restart 版本必须用 Ritz true residual 复核。`pyqcu/solver/_lanczos.py` 的定位是特征底座，而不是自动替代 MG setup。
+
+粗空间的局部基在每个 aggregate 内构造。对局部矩阵 $V$，理想条件是
 
 $$
-\{Yhat^f,Yhat^b,X,X^{-1},V_{l\to l+1}\},
+ V^\dagger V\approx I.
 $$
 
-raw (Y) 可丢弃。Strict `set_ptrs` 每个 transition 有四槽：preconditioned links、onsite pair、可选 raw links、blocked null。
+CGS 单次正交便宜但容易失正交；MGS 更稳定；块 QR 最稳健但需要更多局部工作区。实现可根据 block 大小选择方法，但必须以 $\|V^\dagger V-I\|$ 和 coarse true residual 验收，而非只看 setup 是否完成。
 
-### 构造与应用伪代码
+### 4.7 算法特性对比
 
-\begin{table}[htbp]
-\centering
-\caption*{Table S.3. Strict-QCU coarse-op}
-\small
-\begin{tabular}{@{}l@{}}
-校验 fine field 为 full lattice、coarse spin=2、gamma basis 与 QUDA DeGrand–Rossi 一致；若 support 非 nearest-neighbour，立即 fail-closed。\\
-把 canonical (V[n_v,4,3,X,Y,Z,T]) 转为 C-order blocked `[E,12,Xc,bx,Yc,by,Zc,bz,Tc,bt]`。\\
-按 site-batch/colored probes 计算 (R(X_l^{-1}D_l)P)，提取 (X,Y^f,Y^b)。\\
-批量 inverse (X)，按方向构造 (Yhat^f=X^{-1}Y^f)、(Yhat^b=Y^bX^{-\dagger}_{neighbor})。\\
-将 (Yhat,(X,X^{-1}),V) bind 到 `set_ptrs`；seal 后不再保留 native setup duplicate。\\
-`applyMultigridStrictCoarseQcu`：full (D_c)；`StrictMatPC`：两次 (Yhat) hopping 后输出 (I-Hhat_{pq}Hhat_{qp})。\\
-`StrictPrepare/Reconstruct`：只在 fine target parity 做 Schur 消元和恢复；coarse R/P 仍读 full geometry。\\
-`StrictVCycle/Fgmres`：递归 correction + MR/FGMRES；结束时 `StrictEnd` 释放 workspace，再释放 Schur op。\\
-\end{tabular}
-\end{table}
+| 算法 | 算子条件 | 主要成本 | 常见失败模式 | PyQCU 状态 |
+|---|---|---|---|---|
+| CG | SPD | 1 次 $A$、少量归约 | 非 SPD、负分母 | 实现/参考 |
+| 多移位 CG | SPD + 标量移位 | 共享 Krylov，多个标量更新 | 非标量局部项、停止不一致 | 实现（Python） |
+| BiCG | 一般非 Hermitian + $A^\dagger$ | 双 matvec/归约 | shadow breakdown | 参考 |
+| CGS | 一般非 Hermitian | 少 shadow 存储 | residual polynomial 放大误差 | 局部正交参考 |
+| BiCGStab | 一般非 Hermitian | 2 次 matvec/迭代 | $\rho$/$\omega$ breakdown | 实现 |
+| GMRES | 一般非 Hermitian | 长基和全局归约 | 内存增长、失正交 | 参考/部分实现 |
+| FGMRES | 变化预条件 | 保存 $Z$ 与 $V$ | 预条件器返回异常 | 实现 |
+| GCR | 一般非 Hermitian | 历史方向内积 | 历史向量多、失正交 | QUDA 参考 |
+| CA-CG/CA-GCR | 适合块 Krylov | 少同步、多局部算子 | 块条件数恶化 | CA-CG 实现 |
+| MR/Chebyshev | 平滑或谱区间已知 | 固定短递推 | 谱估计错误 | MR 实现，Chebyshev 参考 |
 
-### 与 legacy/compact 的差别
 
-| 项目 | legacy/compact | strict-QCU |
+### 4.8 两个可执行递推模板
+
+下面的模板刻意把“递推残差”和“可靠残差”分开。`true_residual()` 必须重新调用完整目标算子，而不是复用上一轮的局部变量。
+
+```text
+BiCGStab(b, A, x0):
+    x = x0
+    r = b - A(x)
+    r_shadow = copy(r)
+    p = 0; v = 0; rho_old = alpha = omega = 1
+    for k = 0, 1, ...:
+        rho = dot(r_shadow, r)
+        if nonfinite(rho) or abs(rho) <= breakdown_floor: return BREAKDOWN
+        beta = (rho / rho_old) * (alpha / omega)
+        p = r + beta * (p - omega * v)
+        v = A(p)
+        denom = dot(r_shadow, v)
+        if nonfinite(denom) or abs(denom) <= breakdown_floor: return BREAKDOWN
+        alpha = rho / denom
+        s = r - alpha * v
+        if norm(s) <= inner_tol: x = x + alpha * p; break
+        t = A(s)
+        tt = dot(t, t)
+        if nonfinite(tt) or real(tt) <= breakdown_floor: return BREAKDOWN
+        omega = dot(t, s) / tt
+        x = x + alpha * p + omega * s
+        r = s - omega * t
+        if k % reliable_period == 0: r = b - A(x)
+        if reliable_norm(r) <= atol * norm(b): return x
+        rho_old = rho
+```
+
+```text
+FGMRES(m, b, A, preconditioner_sequence):
+    r0 = b - A(x0); beta = norm(r0)
+    if beta == 0: return x0
+    v[0] = r0 / beta; g = (beta, 0, ...)
+    for j in 0, ..., m-1:
+        z[j] = preconditioner_sequence[j](v[j])
+        w = A(z[j])
+        for i in 0, ..., j:
+            H[i,j] = dot(v[i], w); w -= H[i,j] * v[i]
+        H[j+1,j] = norm(w)
+        if H[j+1,j] != 0: v[j+1] = w / H[j+1,j]
+        apply_previous_givens(H[:,j]); choose_new_givens(H[j,j], H[j+1,j])
+        update_small_rhs(g)
+        if abs(g[j+1]) <= restart_tol: break
+    y = back_substitute(H[0:j,0:j], g[0:j])
+    x = x0 + sum(y[i] * z[i] for i in range(j))
+    return x, true_residual(b, A, x)
+```
+
+`breakdown_floor` 应与数据类型、局部范数和全局归约精度相关，不能固定成与所有格点尺度无关的常数。对分布式计算，`dot` 的归约顺序会影响最后若干位；验收时应比较残差数量级和物理结果，而不是要求不同 MPI 排布逐 bit 相同。
+
+---
+
+## 5. 平滑器、局部预条件与多重网格
+
+### 5.1 Richardson、MR 与 Chebyshev
+
+最简单的 Richardson 更新为
+
+$$
+ x_{k+1}=x_k+\omega(b-Ax_k).
+$$
+
+MR 选择复标量使新残差在当前方向上最小：
+
+$$
+ \alpha_k=\frac{\langle Ar_k,r_k\rangle}{\langle Ar_k,Ar_k\rangle},
+ \qquad
+ x_{k+1}=x_k+\alpha_kr_k.
+$$
+
+实际代码可能使用 $A^\dagger r_k$ 或不同符号约定，必须检查 `matvec_dag` 的语义。`pyqcu/solver/_mr.py` 适合作为短迭代 smoother，不能仅凭函数名把它当作对任意非 Hermitian 算子的全局求解器。
+
+Chebyshev smoother 用谱区间 $[\lambda_{\min},\lambda_{\max}]$ 上的多项式压制高频误差。谱上下界若估计错误，过度放大会造成不稳定；因此实际流程应先用短 Lanczos/幂迭代估计区间，并在小规模上验证误差传播因子。
+
+### 5.2 Schwarz、SAP 与局部性
+
+把格点划分为重叠或不重叠子域，Schwarz 预条件器可写为
+
+$$
+ M^{-1}=\sum_i R_i^T A_i^{-1}R_i
+$$
+
+（additive）或按子域顺序复合（multiplicative）。SAP 在偶数子域与奇数子域之间交替更新，适合最近邻算子和 MPI halo。子域越小，局部求解便宜但跨子域耦合更强；重叠越大，迭代改善通常越好但通信和存储成本上升。
+
+PyQCU 当前主路径以 MR、FGMRES 和 MG 组合为主；SAP/Schwarz 在 QUDA 侧有成熟参考实现，属于对照而非 PyQCU 的统一生产 API。
+
+### 5.3 Galerkin 粗化
+
+令 $P$ 为延拓、$R$ 为限制，标准 Galerkin 粗算子为
+
+$$
+ A_c=R A_f P.
+$$
+
+若 $R=P^\dagger$，且细层算子有相应 Hermitian 结构，粗层可保留部分对称性。对非 Hermitian 或 asymmetric Schur 路径，$R$ 与 $P^\dagger$ 是否相同必须显式说明。
+
+一次 V-cycle 可以抽象为
+
+```text
+pre-smooth:   x <- S_pre(A_f, b, x)
+r_f = b - A_f x
+r_c = R r_f
+e_c = coarse_solve(A_c, r_c)
+x <- x + P e_c
+post-smooth:  x <- S_post(A_f, b, x)
+```
+
+平滑器压制局部高频误差，粗空间表示跨 aggregate 的低频误差。若 null vector 不包含 near-null space，coarse correction 可能对高频有效而对物理低模无效，外层迭代不会真正改善。
+
+### 5.4 Native、legacy/compact 与 strict
+
+| 路径 | 粗化对象 | parity 语义 | 典型用途 | 限制 |
+|---|---|---|---|---|
+| native Python MG | PyTorch 算子与 R/P | 由 Python hierarchy 决定 | 原型、CPU/CUDA 验证 | 性能和 ABI 不等同 QCU |
+| legacy/compact | odd/even Schur 或 33-tensor stencil | 可只保留目标 parity | 与旧 QCU/QUDA compact 接口对齐 | full operator 信息被压缩 |
+| strict full | full $D_f$ 的 Galerkin $R D_f P$ | coarse field 保留 full geometry | strict `X/Y/Yhat`、full MATPC | 当前原型有单 rank/最近邻等门槛 |
+
+`pyqcu/solver/_multigrid.py` 是 native 入口；`_quda_multigrid.py` 覆盖 legacy/compact 兼容逻辑；`pyqcu/tools/_strict_galerkin.py` 和 `cpp/cuda/qcu/src/apply_multigrid_strict.cu` 对应 strict 构造与应用。三者的 transfer、residual、资产布局不能互换。
+
+### 5.5 预条件外层的选择
+
+若 coarse solve 或 smoother 的精度、迭代数、warm state 会变化，记预条件器为 $M_k^{-1}$，外层选择 FGMRES/GCR：
+
+$$
+ z_k=M_k^{-1}v_k,
+ \qquad
+ w_k=A z_k.
+$$
+
+若预条件器固定且目标算子 SPD，CG 更节省存储；若是 Schur、Clover 或 strict full 非 Hermitian，则使用 BiCGStab、FGMRES 或 GCR，并独立检查 full residual。
+
+
+### 5.6 完整 V-cycle 的层间语义
+
+设第 $l$ 层算子为 $A_l$、延拓为 $P_l$、限制为 $R_l$。一次递归 V-cycle 可写成
+
+$$
+\begin{aligned}
+ x_l^{(1)}&=S_l^{\nu_{\mathrm{pre}}}(A_l,b_l,x_l^{(0)}),\\
+ r_l&=b_l-A_lx_l^{(1)},\\
+ b_{l+1}&=R_lr_l,\\
+ e_{l+1}&=\operatorname{Vcycle}(l+1,b_{l+1},0),\\
+ x_l^{(2)}&=x_l^{(1)}+P_le_{l+1},\\
+ x_l^{\mathrm{out}}&=S_l^{\nu_{\mathrm{post}}}(A_l,b_l,x_l^{(2)}).
+\end{aligned}
+$$
+
+最粗层不再递归，而调用指定的 coarse solver。若 outer solver 使用右预条件，V-cycle 返回的是 $e_l=M_l^{-1}r_l$；它不是直接把 $b_l$ 当作独立物理右端求解。这个区别决定 FGMRES 中保存 $z_j$ 而不是把 $v_j$ 直接累加。
+
+```text
+Vcycle(level, b, x):
+    if level == coarsest:
+        return coarse_solver(A[level], b, x)
+    x = smoother(A[level], b, x, nu_pre)
+    r = b - A[level](x)
+    b_c = restrict(level, r)       # full 或 compact 由 hierarchy 定义
+    e_c = Vcycle(level + 1, b_c, 0)
+    x = x + prolong(level, e_c)
+    x = smoother(A[level], b, x, nu_post)
+    return x
+```
+
+`restrict` 返回的 coarse geometry 必须和 hierarchy 的 parity 约定一致。对于 fine MATPC，只有在 prepare/reconstruct 边界才使用 compact parity 视图；将 compact rhs 直接传给 full coarse operator 会造成维度看似匹配但物理语义错误。
+
+### 5.7 Setup、solve 和 warm state 的生命周期
+
+MG setup 至少包含三类持久资产：
+
+1. **transfer**：每层的 null vectors、局部正交基、aggregate 映射；
+2. **operator**：$X$、raw $Y$、preconditioned $\widehat Y$ 或 33-tensor stencil；
+3. **solver state**：粗层分解、预分配 workspace、可选的 warm initial guess。
+
+setup 改变任一资产后，旧的 solver state 都不能静默复用。热启动只表示用上一次 `fermion_out` 作为 $x_0$；它不改变 $A$、$b$ 或 stopping criterion。若用户切换 gauge、质量、边界、precision 或 hierarchy，却保留旧 state，必须显式失效并重建。
+
+---
+
+## 6. 粗空间、Galerkin 与 coarse operator
+
+### 6.1 局部 null vector 与 transfer
+
+设每个 fine aggregate 内有 $n_v$ 个局部向量，拼成
+
+$$
+ V_l(x)=\big[v_1(x),v_2(x),\ldots,v_{n_v}(x)\big].
+$$
+
+对 coarse 向量 $\phi_c$，延拓为
+
+$$
+ (P\phi_c)(x)=V_l(x)\phi_c(\mathcal A(x)),
+$$
+
+若 $R=P^\dagger$，限制为
+
+$$
+ (R\psi_f)(\mathcal A)=\sum_{x\in\mathcal A}V_l(x)^\dagger\psi_f(x).
+$$
+
+在每个 aggregate 内进行 CGS、MGS 或块 QR，并检查
+
+$$
+ \epsilon_{RP}=\|R P-I\|,
+ \qquad
+ \epsilon_{\mathrm{orth}}=\max_{\mathcal A}\|V_l(\mathcal A)^\dagger V_l(\mathcal A)-I\|.
+$$
+
+这两个量比“生成了多少个向量”更能反映粗空间质量。
+
+### 6.2 Strict full `X/Y/Yhat`
+
+对 full fine operator $D_f$ 做 strict Galerkin：
+
+$$
+ D_c=R D_f P.
+$$
+
+如果 coarse stencil 只允许 onsite 与一个格点位移，则按位移提取
+
+$$
+ D_c = X_c + \sum_\mu
+ \left(Y_c^{+\mu}T_{+\mu}+Y_c^{-\mu}T_{-\mu}\right).
+$$
+
+其中 $X_c$ 是 onsite block，$Y_c^{\pm\mu}$ 是最近邻 block。若出现超出一跳的 support，strict 路径应 fail-closed，而不是静默丢弃项。
+
+对 coarse-PC，常用资产为
+
+$$
+ \widehat Y^{+\mu}=X^{-1}Y^{+\mu},
+ \qquad
+ \widehat Y^{-\mu}=Y^{-\mu}X^{-1}
+$$
+
+或与实现约定等价的 dagger 版本。文档和代码必须共同说明：$X^{-1}$ 在左边还是右边、是否需要 $X^{-\dagger}$、以及 kernel 读取哪个方向的 link。
+
+`build_strict_galerkin` 使用 batched source probes；colored 版本按不重叠颜色分批以降低峰值内存。当前输入检查明确限制 blocked-V、spin/parity 和设备范围；这些约束属于实现事实，不应在报告中泛化为所有 QUDA 粗算子。
+
+### 6.3 Legacy 33-tensor 与 full operator 的区别
+
+legacy 33-tensor stencil 可把一个 coarse site 的局部矩阵和方向耦合压缩为固定张量集合，适合旧 ABI 和 compact Schur。strict full 路径则首先保留 full geometry，再由位移提取 $X/Y$。因此：
+
+- compact odd operator 不能直接当作 full $D_c$；
+- full Galerkin 的 `R/P` 需包含两种 parity 的映射；
+- coarse residual 与 fine MATPC residual 的重建步骤不同；
+- legacy 资产若缺少 raw $Y$，不能反推出 strict 的 full nearest-neighbor support。
+
+### 6.4 粗层求解与平滑
+
+粗层不必使用与 fine 层相同的 solver。一个稳健组合是：
+
+1. fine 层：MR 或 Chebyshev 做 $ν_{\mathrm{pre}}$ 次预平滑；
+2. 限制 full residual 到 coarse；
+3. 中间层递归 V-cycle；
+4. 最粗层：CG（仅 SPD）或 BiCGStab/FGMRES/GCR；
+5. 延拓后做 $ν_{\mathrm{post}}$ 次后平滑；
+6. 用 full true residual 检查外层停止。
+
+平滑次数过少会留下高频误差，过多则把粗网格优势消耗在 fine matvec 上。应记录每个层的 operator 应用次数和 coarse correction 的残差下降，而不只记录外层总迭代数。
+
+
+### 6.5 粗算子资产和内存核对
+
+对每个 coarse site，若粗自由度为 $E$，一个 dense onsite block 使用 $E^2$ 个复数元素。实际资产还可能包括：
+
+| 资产 | 作用 | 释放时机 |
 |---|---|---|
-| 投影算子 | 常见 (R S_oP) | (R X^{-1}DP) |
-| 粗几何 | odd compact 或旧 33 tensor | full coarse |
-| 粗数据 | `hop_nn/hop_diag/sit` | (X,Y,Yhat,X^{-1}) |
-| parity | 粗层常已裁剪 | 只在 MATPC/R/P 边界裁剪 |
-| 适用 action | PyQCU Wilson/Clover Schur | 当前只证明 Wilson/Clover nearest-neighbour |
-| MPI | legacy halo 路径 | strict setup/fused solve 当前单 rank fail-closed |
+| `null_vectors` | 生成 $P/R$ | hierarchy 销毁或重新 setup |
+| `X` | onsite block | coarse apply 和 $X^{-1}$ 构造期间 |
+| `X_inv` | onsite inverse/factorization | coarse-PC 或 local solve 期间 |
+| `Y_raw` | 未预条件最近邻 block | 诊断、重新生成 `Yhat` |
+| `Yhat` | coarse-PC hopping | strict coarse kernel |
+| `stencil_33` | legacy compact 资产 | legacy coarse apply |
 
-**实现来源：** `pyqcu/tools/_strict_galerkin.py:310-538,553-800`；
-`pyqcu/solver/_quda_multigrid.py:1265-1320,2715-2905,3193-3286`；
-`cpp/cuda/qcu/src/apply_multigrid_strict.cu`；`skills/qcu/SKILL.md`。
+内存检查必须区分“仍被 hierarchy 引用的 live bytes”和 CUDA allocator 的缓存。`empty_cache()` 只能释放缓存，不能证明 `set_ptrs` 中的指针已失效；正确做法是 close hierarchy 后检查引用、workspace 和 live allocation 是否回到基线。
 
-## S. Symmetric Schur
+### 6.6 Full、MATPC 与 compact 的映射表
 
-### 定义
+| 操作 | 输入语义 | 输出语义 | 可与哪条路径互换 |
+|---|---|---|---|
+| full dslash | full spin-color field | full field | 仅 full operator |
+| prepare | full rhs + target parity | compact Schur rhs | fine MATPC |
+| compact MATPC | target parity field | target parity field | asymmetric Schur/compact hierarchy |
+| reconstruct | compact solution + eliminated rhs | full solution | fine MATPC 边界 |
+| strict restrict/prolong | full geometry + strict transfer | full coarse geometry | strict hierarchy |
+| legacy restrict/prolong | hierarchy-specific parity/33-tensor | legacy coarse geometry | legacy hierarchy |
 
-在 asymmetric Schur 基础上左右吸收局部块逆，可得到
+表中“可互换”只表示数据形状和数学语义同时兼容；不能因为两个张量都有 `E` 维就直接传递。迁移路径时至少要核对 parity、aggregate、spin order、方向次序、dagger 和 normalization。
 
-$$
-S_p^{\rm sym}=I-A_p^{-1}B_{pq}A_q^{-1}B_{qp}.
-$$
+---
 
-对 Wilson/Clover 的 (-\kappa H) 约定，
+## 7. 其他费米子作用量的对照
 
-$$
-S_p^{\rm sym}=I-\kappa^2A_p^{-1}H_{pq}A_q^{-1}H_{qp}.
-$$
+本节中的作用量用于理论和 QUDA 对照。除 Wilson/Clover 外，不应据此宣称 PyQCU 具有完整生产 API。
 
-它的优点是 diagonal 变为 identity，适合与 Hermitian transform 或 CG 家族组合；但只有当
-(A_p,A_q) 与 hopping 满足相应共轭关系时才可当作 Hermitian positive definite。
+### 7.1 Twisted-mass
 
-### 伪代码
-
-\begin{table}[htbp]
-\centering
-\caption*{Table S.4. Symmetric Schur}
-\small
-\begin{tabular}{@{}l@{}}
-对 full RHS 先算 (u_q=A_q^{-1}b_q)，(b_p^S=b_p-B_{pq}u_q)。\\
-再左乘 (A_p^{-1})：(\widehat b_p=A_p^{-1}b_p^S)。\\
-应用 (I-A_p^{-1}B_{pq}A_q^{-1}B_{qp})；每次 matvec 依次做 (B_{qp})、(A_q^{-1})、(B_{pq})、(A_p^{-1})。\\
-用 CG 仅在 Hermitian/SPD 证据充分时；否则使用 BiCGStab/GCR/FGMRES。\\
-解出 (x_p) 后按非对称恢复式恢复 (x_q)，以 full operator 检查。\\
-\end{tabular}
-\end{table}
-
-**来源：** `refer/git-rep/quda/lib/dirac_clover.cpp:174-251`；`dirac_coarse.cpp:530-626`；
-`pyqcu/solver/_quda_multigrid.py` 的 `QudaMatPCOperator`。对照 QUDA 时必须同时记录 `solve_type`、`solution_type` 和 `matpc_type`。
-
-## T. Twisted-mass（含 non-degenerate pairs）
-
-### 简并双重态
-
-twisted-mass 在 Wilson 核加入 flavor 非简并的手征旋转质量：
+简并双重态可写为
 
 $$
-D_{tm}=D_W(m_0)+i\mu\gamma_5\tau_3.
+ D_{\mathrm{tm}}=D_W(m_0)+i\mu\gamma_5\tau_3,
 $$
 
-在 maximal twist，物理质量由 (mu) 控制，自动消除部分 on-shell (O(a)) 误差；(\tau_3) 使两个 flavor 的 twist 符号相反。
-
-### non-degenerate doublet
-
-常用非简并双重态写作
+其中 $\tau_3$ 作用在 flavor 空间。非简并双重态常写为
 
 $$
-D_{nd}=D_W(m_0)+i\mu_\sigma\gamma_5\tau_1+\mu_\delta\tau_3,
+ D_{\mathrm{nd}}=D_W(m_0)+i\mu_\sigma\gamma_5\tau_1+\mu_\delta\tau_3.
 $$
 
-其中 (mu_\sigma) 控制平均质量，(mu_\delta) 控制质量分裂。不同文献可交换 flavor Pauli 矩阵，比较代码时以 QUDA flavor block 和 dagger 约定为准。
+局部 flavor-spin block 会改变 onsite inverse；even-odd 分块时必须把 flavor 结构包含在 $A_e,A_o$ 中。QUDA 参考入口包括 `refer/git-rep/quda/lib/dirac_twisted_mass.cpp` 和 `dslash_ndeg_twisted_mass.cpp`；PyQCU 当前没有公开的完整 twisted-mass dslash/params ABI。
 
-\begin{table}[htbp]
-\centering
-\caption*{Table T.1. Twisted-mass solver}
-\small
-\begin{tabular}{@{}l@{}}
-构造 Wilson hopping 和 Clover/identity diagonal block。\\
-在 flavor block 加 (+i\mu\gamma_5) 与 (-i\mu\gamma_5)，或加入 (i\mu_\sigma\gamma_5\tau_1+\mu_\delta\tau_3)。\\
-选择 direct twisted solve、Hermitian (gamma_5\tau) 变换或 normal equation；确认 even-odd block 的 flavor inverse。\\
-以 BiCGStab/GCR/CGNR 求解，粗化时把 flavor/twist local terms 一次性加入 coarse (X)。\\
-\end{tabular}
-\end{table}
+### 7.2 Twisted-clover
 
-**优点：** maximal twist 的 (O(a)) 改进，non-degenerate pair 可同时描述两种质量；**缺点：** flavor block 使局部 inverse 和 coarse (X) 更大，符号/dagger 错误会破坏物理质量。
-**实现状态：** QUDA `lib/dirac_twisted_mass.cpp`、`dslash_ndeg_twisted_mass.cpp`、README:12；PyQCU 当前没有对应的公开 dslash/params 入口，属于参考实现。
-
-## T. Twisted-mass with a clover term
-
-### 作用量
-
-把 Clover 改进和 twist 合并：
+将 Clover 与 twist 合并得到
 
 $$
-D_{tmC}=D_W(m_0)+C_{SW}+i\mu\gamma_5\tau_3,
+ D_{\mathrm{tmC}}=D_W+C_{\mathrm{SW}}+i\mu\gamma_5\tau_3,
 $$
 
-non-degenerate 时替换为 (i\mu_\sigma\gamma_5\tau_1+\mu_\delta\tau_3)。Clover 项仍为 spin-color local block，twist 是 flavor-spin local block，二者在 onsite (X) 中相加后再求逆。
+或在非简并情形采用上式的 flavor block。Clover 与 twist 都属于 onsite 项，应在粗化时共同进入 $X_c$，不能把 twist 再当作额外 hopping 重复加入。
 
-### 算法要点
+QUDA 对照文件为 `dirac_twisted_clover.cpp` 和 `dslash_twisted_clover_preconditioned.hpp`；PyQCU 仍标记为参考。
 
-\begin{table}[htbp]
-\centering
-\caption*{Table T.2. Twisted-clover}
-\small
-\begin{tabular}{@{}l@{}}
-构造 (A_p=I+C_p+i\mu\gamma_5\tau_3)（或 non-degenerate flavor block）。\\
-对 (A_e,A_o) 做批量 inverse，形成 asymmetric/symmetric Schur。\\
-Galerkin 时计算 (V^\dagger(A+H)V)，Clover 与 twist 只能进入 onsite (X)，不得重复加入 hopping。\\
-粗层 coarse (X) 保留 spin/flavor 结构；coarse-PC 的 (Yhat) 左右次序与 Clover-PC 相同。\\
-用 direct BiCGStab/GCR 或 FGMRES，full true residual 必须用同一 twist/clover convention 计算。\\
-\end{tabular}
-\end{table}
+### 7.3 Staggered 与 improved-staggered
 
-**优点：** 同时获得 twist 的质量/手征性质与 Clover 的 (O(a)) 改进；**缺点：** 局部矩阵更大且非 Hermitian，
-粗化/预条件复杂。**来源：** `refer/git-rep/quda/lib/dirac_twisted_clover.cpp`、`dslash_twisted_clover_preconditioned.hpp`、
-`README.md:12-13,28-29`；PyQCU 目前未实现生产入口。
-
-## W. Wilson
-
-### 作用量与 hopping
-
-Wilson 费米子消除 doublers 的离散作用量可写为
+Staggered 费米子保留一个分量场 $\chi$，用相位
 
 $$
-(D_W\psi)(x)=(m_0+4r)\psi(x)
--\frac12\sum_\mu\left[(r-\gamma_\mu)U_\mu(x)\psi(x+\hat\mu)
-+(r+\gamma_\mu)U_\mu^\dagger(x-\hat\mu)\psi(x-\hat\mu)\right].
+ \eta_\mu(x)=(-1)^{\sum_{\nu<\mu}x_\nu}
 $$
 
-以 (r=1)、(kappa=1/(2m_0+8)) 归一化后常写成
+表示 spin-taste 结构。典型无质量 staggered 算子为
 
 $$
-D_W=I-\kappa H,
+ (D_{\mathrm{stag}}\chi)(x)=\frac12\sum_\mu\eta_\mu(x)
+ \left[U_\mu(x)\chi(x+\hat\mu)-U_\mu^\dagger(x-\hat\mu)\chi(x-\hat\mu)\right].
+$$
+
+asqtad/HISQ 通过 Fat7、Lepage、Naik 等路径改进短程离散误差并抑制 taste breaking；它们产生更宽的 stencil，不能直接塞入只接受最近邻 `X/Y` 的 strict ABI。QUDA 参考文件包括 `dirac_staggered_kd.cpp` 和 `dirac_improved_staggered_kd.cpp`。
+
+### 7.4 Domain-wall 与 Möbius
+
+Domain-wall 把四维物理场扩展到第五维 $s=0,\ldots,L_s-1$。一个示意形式是
+
+$$
+ D_{5d}(s,s')=D_W^+(s)\delta_{s,s'}
+ -P_-\delta_{s+1,s'}-P_+\delta_{s-1,s'}
+ +m_f\left(P_-\delta_{s,0}\delta_{s',L_s-1}
+ +P_+\delta_{s,L_s-1}\delta_{s',0}\right),
+$$
+
+其中 $P_\pm=(1\pm\gamma_5)/2$。有限 $L_s$ 的墙间混合产生 residual mass；Möbius 通过第五维系数重新参数化核，改善逼近 sign function 的效率。
+
+第五维使每个站点的自由度和 halo/粗化结构改变。QUDA 的 `dirac_domain_wall_4d.cpp`、`dirac_mobius.cpp` 可作参考；QCU 当前 ABI 没有 5-d 动力学的完整入口。
+
+### 7.5 Overlap
+
+Overlap 算子基于 Wilson kernel 的 sign function，典型写法为
+
+$$
+ D_{\mathrm{ov}}(m)=\left(1-\frac{am}{2\rho}\right)D_{\mathrm{ov}}(0)+am,
 $$
 
 $$
-(H\psi)(x)=\sum_\mu\left[(1-\gamma_\mu)U_\mu(x)\psi(x+\hat\mu)
-+(1+\gamma_\mu)U_\mu^\dagger(x-\hat\mu)\psi(x-\hat\mu)\right].
+ D_{\mathrm{ov}}(0)=\rho\left[1+\gamma_5\,\operatorname{sign}(H_W)\right],
+ \qquad H_W=\gamma_5(D_W-\rho).
 $$
 
-(P_\pm^\mu=(1\pm\gamma_\mu)/2) 把四分量旋量投影到两分量，QUDA CUDA kernel 直接在投影后做 color matvec；
-PyQCU `_wilson.py` 以 `einsum` 和 `torch.roll`/MPI halo 实现同一结构。
+sign function 通常用 rational approximation 或多项式近似，内部还需要多次 kernel solve；它不属于当前 QCU Wilson/Clover 直接 dslash 的同一成本模型。本文只给出理论参考，未发现 `DiracOverlap` 的 PyQCU 生产实现。
 
-### 伪代码与实现
+### 7.6 Action 对照表
 
-\begin{table}[htbp]
-\centering
-\caption*{Table W.1. Wilson dslash 与求解}
-\small
-\begin{tabular}{@{}l@{}}
-输入 (U_\mu,psi,\kappa)，按最后四轴建立 periodic/anti-periodic neighbor。\\
-对每个 (mu)：取 (\psi(x+\hat\mu))，应用 ((1-\gamma_\mu)) 和 (U_\mu(x))；取 (\psi(x-\hat\mu))，应用 ((1+\gamma_\mu)) 和 (U_\mu^\dagger(x-\hat\mu))。\\
-累加 (H\psi)，输出 (D\psi=\psi-\kappa H\psi)（或仅输出 hopping，需显式注明符号）。\\
-偶奇路径只让 (D_{eo}) 或 (D_{oe}) 作用；完整 solve 选择 CG on (D^\dagger D) 或 BiCGStab/FGMRES。\\
-C++ QCU 生命周期：`applyInitQcu` → dslash/solver → 递增 `_SET_INDEX_` → `applyEndQcu`。\\
-\end{tabular}
-\end{table}
+| Action | 自由度/支撑 | 主要数值难点 | 本库状态 |
+|---|---|---|---|
+| Wilson | 四分量旋量、最近邻 | 轻质量条件数、加性质量重整化 | 实现 |
+| Clover | Wilson + onsite spin-color block | 局部 inverse、非平凡 Schur | 实现 |
+| Twisted-mass | flavor-spin onsite 项 | flavor block、dagger 约定 | QUDA 参考 |
+| Twisted-clover | Clover + flavor-spin onsite | 更大的 $X$、非 Hermitian | QUDA 参考 |
+| Staggered | 单分量、相位 stencil | taste、rooting 语义 | QUDA 参考 |
+| asqtad/HISQ | 宽 stencil | 多路径通信、宽 support | QUDA 参考 |
+| Domain-wall | 五维局部耦合 | $L_s$ 成本、残余质量 | QUDA 参考 |
+| Möbius | 五维重参数化 | 第五维谱逼近 | QUDA 参考 |
+| Overlap | sign function 非局部近似 | 多层嵌套求解 | 理论参考 |
 
-**优点：** stencil 最近邻、spin projection 高效、实现和验证简单；**缺点：** 显式破坏有限 (a) 手征，临界质量有加性重整化，
-condition number 在轻质量时恶化。**来源：** `pyqcu/dslash/_wilson.py`、`_operator.py`；
-`cpp/cuda/qcu/include/wilson_dslash.h`、`lattice_wilson_dslash.h`；`refer/git-rep/quda/include/kernels/dslash_wilson.cuh`；
-`examples/qcu/single_qcu_wilson_dslash.py`、`examples/pyquda/test_wilson_dslash.py`。
+---
 
-## X. 统一比较、验收与来源
+## 8. PyQCU/QUDA 实现映射与 ABI 约束
 
-### X.1 算法选择速查
+### 8.1 Python 求解器和工具
 
-| 问题性质 | 首选 | 不能直接替代的算法 |
+| 功能 | 入口 | 备注 |
 |---|---|---|
-| SPD (D^\dagger D) | CG/CA-CG/multi-shift CG | 非 Hermitian 原始 (D) 上裸 CG |
-| 一般非 Hermitian | BiCGStab/GCR/FGMRES | 把递推 residual 当 true residual |
-| 变化 MG/SAP 预条件 | FGMRES 或 flexible-GCR | 固定预条件 CG |
-| 粗层高频平滑 | MR/Chebyshev/SAP/Schwarz | 只用粗 solver 代替 smoother |
-| fine Clover parity | asymmetric/symmetric Schur + prepare/reconstruct | 只在一个 parity 上算 full residual |
-| QUDA 对齐 coarse | full (X/Y/Yhat)+MATPC | legacy odd compact 当 strict full |
-| 长链 staggered/HISQ | QUDA action-specific coarse op | strict 最近邻 X/Y ABI |
-| 拓扑近零模 | MG/deflation/TR-Lanczos | 只增加 Krylov restart 而不改低模 |
+| BiCGStab | `pyqcu/solver/_bistabcg.py` | 支持 history、零 RHS/残差短路和 breakdown guard |
+| FGMRES | `pyqcu/solver/_gmres.py` | 复数 Givens、restart、变化预条件 |
+| MR | `pyqcu/solver/_mr.py` | 更适合作为 smoother，需核对 dagger 语义 |
+| CA-CG | `pyqcu/solver/_cacg.py` | 块 least-residual，和 QUDA power-basis CA-CG 不同 |
+| Lanczos | `pyqcu/solver/_lanczos.py` | thick restart、Ritz true residual |
+| 多移位 CG | `pyqcu/solver/_multishift_cg.py` | 仅适用满足其假设的移位 SPD 系统 |
+| native MG | `pyqcu/solver/_multigrid.py` | Python V-cycle，可调用 CUDA restrict |
+| legacy MG | `pyqcu/solver/_quda_multigrid.py` | 旧/compact hierarchy 兼容层 |
+| strict Galerkin | `pyqcu/tools/_strict_galerkin.py` | batched/colored full coarse 构造 |
+| transfer/stencil | `pyqcu/tools/_multigrid.py` | null vector、R/P、33-tensor 等工具 |
 
-### X.2 本库当前可复现实证
+纯 Python 模块遵循仓库约定：通过 `pyqcu.cann as _torch` 访问兼容层，不直接在 NPU 兼容路径中硬编码 `import torch`。这条约束与本文的数学内容无关，但决定文档中的代码入口是否可以在不同设备后端复用。
 
-- `pyqcu/solver/_bistabcg.py`：breakdown guard、history、absolute/relative tolerance；c64 递推残差必须用 full true residual 复核。
-- `pyqcu/solver/_gmres.py`：FGMRES(m) 的 Arnoldi + 复 Givens + restart；零 RHS/zero residual 有显式短路。
-- `pyqcu/solver/_mr.py`：MR 需要 `matvec_dag` 语义，适合 smoother 而非无条件全局 solver。
-- `pyqcu/solver/_cacg.py`：MGS 基 + block least-residual 的 CA-CG，和 QUDA power-basis CA-CG 有意不同。
-- `pyqcu/solver/_lanczos.py`：thick-restart Lanczos，显式对称 (H)、Ritz true-residual 双闸门。
-- `pyqcu/tools/_multigrid.py`：null vector、局部正交、R/P、33-tensor stencil；`_strict_galerkin.py`：strict full (X/Y/Yhat)。
-- QCU/Cython：`cpp/cuda/qcu/python/pyqcu.h` 与 `pyqcu/cuda/qcu/qcu.pyx` 覆盖 Wilson/Clover dslash、CG/BiStabCG、legacy transfer/coarse dslash、strict coarse/MATPC/FGMRES。
+### 8.2 Cython/CUDA 接口
 
-### X.3 物理与工程验收清单
+C API 在 `cpp/cuda/qcu/python/pyqcu.h` 声明，Cython 桥在 `pyqcu/cuda/qcu/qcu.pyx` 暴露。strict 相关入口包括：
 
-\begin{table}[htbp]
-\centering
-\caption*{Table X.1. 任何新增 solver/action/coarse-op 的验收闸门}
-\small
-\begin{tabular}{@{}l@{}}
-先做量纲和极限检查：(U=I)、(C=0)、(mu=0)、(L_s\to1)、(P^\dagger P\to I)、平凡 parity。\\
-检查对称性：Wilson/Clover 的 \(\gamma_5\)-Hermiticity、Schur 的 dagger 顺序、twisted flavor 共轭、coarse (R=P^\dagger)。\\
-检查 support：最近邻只产生 (X/Y)，长链必须显式进入 stencil 或 fail-closed。\\
-检查 solver：估计 residual 与 (\|b-Ax\|) 分离记录；breakdown 不能吞掉 NaN；mixed precision 必须可靠刷新。\\
-检查布局：PyQCU `xyzt`、HDF5 `tzyx`、QUDA parity/order、blocked C++ ABI 完成 round-trip。\\
-检查资源：每线程独立 `params/argv/set_ptrs`；Strict close 后 live bytes 回到 baseline；不以 `empty_cache()` 代替泄漏证明。\\
-检查接口生命周期：每次普通 QCU 操作递增 `_SET_INDEX_`；Strict 同一 hierarchy 生命周期内保持实例索引语义。\\
-\end{tabular}
-\end{table}
+- `applyMultigridStrictInitQcu` / `applyMultigridStrictEndQcu`；
+- `applyMultigridStrictCoarseQcu`、`applyMultigridStrictMatPCQcu`；
+- `applyMultigridStrictPrepareQcu`、`applyMultigridStrictReconstructQcu`；
+- `applyMultigridStrictRestrictQcu`、`applyMultigridStrictProLongQcu`；
+- `applyMultigridStrictVCycleQcu`、`applyMultigridStrictFgmresQcu`。
 
-### X.4 参考源
+三个扁平桥接数组必须同步：
 
-**仓库源码与本库文档**
+| 数组 | 当前约定 | 用途 |
+|---|---|---|
+| `params` | `int32[58]` | 计划、维度、索引、MG 开关和热启动标志 |
+| `argv` | `float[7]` | 容差、质量或 solver 标量参数 |
+| `set_ptrs` | `int64[100]` | C++ `LatticeSet`、scratch 和 hierarchy 指针 |
 
-1. `pyqcu/solver/_bistabcg.py`、`_gmres.py`、`_mr.py`、`_cacg.py`、`_lanczos.py`、`_multishift_cg.py`；
-2. `pyqcu/dslash/_wilson.py`、`_clover.py`、`_operator.py`；
-3. `pyqcu/tools/_multigrid.py`、`_strict_galerkin.py`；
-4. `pyqcu/solver/_multigrid.py`、`_quda_multigrid.py`；
-5. `cpp/cuda/qcu/include/{bistabcg.h,cg.h,lattice_clover_multigrid.h}`、`src/apply_multigrid_strict.cu`、`python/pyqcu.h`；
-6. `refer/git-rep/quda/README.md`、`NEWS`、`lib/multigrid.cpp`、`lib/dirac_coarse.cpp`、`lib/coarse_op.cuh`、
-   `lib/dirac_clover.cpp`、`lib/dirac_twisted_mass.cpp`、`lib/dirac_twisted_clover.cpp`、
-   `lib/dirac_staggered_kd.cpp`、`lib/dirac_improved_staggered_kd.cpp`、`lib/dirac_domain_wall_4d.cpp`、
-   `lib/dirac_mobius.cpp`、`lib/inv_gcr_quda.cpp`、`lib/inv_ca_gcr.cpp`、`lib/inv_bicgstabl_quda.cpp`；
-7. `docs/report_multigrid_quda_pyqcu_20260909.md`、`docs/report_pyqcu_mg_operator_construction_20260830.tex`、
-   `examples/qcu/dev87/comparison_matrix.md`、`skills/qcu/SKILL.md`、`skills/pyquda/SKILL.md`；
-8. 补充日志：`logs/v20260825.txt`、`v20260826.txt`、`v20260827.txt`、`v20260829.txt`、`v20260902.txt`、
-   `v20260906.txt`、`v20260907.txt`、`v20260909.txt`、`v20260911.txt`、`v20260912.txt`。日志只作为任务/实测上下文，
-   公式和实现结论以源码为准。
+`pyqcu/cuda/define.py` 与 `cpp/cuda/qcu/include/define.h` 必须保持同一索引。dev84 起 `_MG_USE_DEFLATE_=55`、`_MG_MU_PRE_=56`；dev87 起 `_MG_USE_INIT_GUESS_=57`，热启动时由 `fermion_out` 提供初值。
 
-**理论参考**
+### 8.3 生命周期和 `_SET_INDEX_`
 
-- K. G. Wilson, *Confinement of quarks*, Phys. Rev. D 10 (1974) 2445（Wilson action）；
-- B. Sheikholeslami and R. Wohlert, Nucl. Phys. B259 (1985) 572（Clover improvement）；
-- L. H. Karsten and J. Smit, Nucl. Phys. B183 (1981) 103；Kogut–Susskind staggered fermions；
-- G. P. Lepage, Phys. Rev. D59 (1999) 074502；Follana et al., Phys. Rev. D75 (2007) 054502（Asqtad/HISQ）；
-- D. B. Kaplan, Phys. Lett. B288 (1992) 342；Y. Shamir, Nucl. Phys. B406 (1993) 90（Domain-wall）；
-- R. C. Brower, H. Neff and K. Orginos, Nucl. Phys. B (Proc. Suppl.) 153 (2006) 3（Möbius）；
-- H. Neuberger, Phys. Lett. B417 (1998) 141（Overlap）；
-- Y. Saad and M. H. Schultz, SIAM J. Sci. Stat. Comput. 7 (1986) 856（GMRES/Arnoldi）；
-- H. A. van der Vorst, SIAM J. Sci. Stat. Comput. 13 (1992) 631（BiCGStab）；
-- 格点 QCD 理论与实现映射：`/Users/zhangxin/MyQCD/docs/report_pyqcd_lattice_qcd_theory_20260906.tex`。
+普通 QCU 调用遵循
 
-### X.5 结论边界
+```text
+applyInitQcu
+  -> dslash / solver / restrict / coarse operation
+  -> params[define._SET_INDEX_] += 1
+  -> applyEndQcu
+```
 
-本报告已经把任务列出的算法、作用量和粗算子变体逐项分开，给出公式、优缺点、适用范围和源码锚点。
-其中 Wilson/Clover、Python/native MG、legacy/compact MG、strict full coarse、Galerkin、MATPC、MR、CG、
-BiCGStab、FGMRES、局部 CGS/QR 和 QCU 生命周期属于本仓库可直接追溯对象；Twisted-mass、staggered/HISQ、
-Domain-wall、Möbius、Overlap 主要由 QUDA 快照和理论文档提供参考，当前 PyQCU 没有对应的完整生产 API。
-性能结论仍应以 `examples/qcu/dev87` 的具体设备、精度、边界条件和 true residual 数据为准，不由公式推断加速比。
+每次操作都必须递增 `_SET_INDEX_`。不递增会使 scratch 缓冲和 `LatticeSet` 索引复用，产生难以由单次 kernel 检查发现的结果错误。多线程多卡时，每个线程必须持有独立的 `params`、`argv`、`set_ptrs` 副本；Cython 在取指针时持有 GIL，进入 C++ 后在 `with nogil` 中运行。
+
+### 8.4 MPI 与 strict gate
+
+strict C++ 路径在当前实现中对单 rank 有明确门槛；代码会检查 MPI 状态，并在不满足条件时 fail-closed。不要把单 rank 的全局 dot、周期 true-residual 刷新或内存测量结果外推到多 rank。普通 Wilson/Clover QCU 路径支持 MPI halo，但 layout、rank topology 和边界条件仍需逐项记录。
+
+### 8.5 HDF5、缓存和可复现性
+
+所有持久化应通过 `pyqcu/tools/_io.py` 的 h5py 封装；每次调用使用独立 File 句柄，多线程场景不要共享可变句柄。null-vector 或 coarse hierarchy 的缓存应在一次句柄生命周期内写完全部 dataset，避免逐 dataset 覆盖式重建。保存文件时同时记录：格点尺寸、边界、dtype、$\kappa$ 或质量、Clover 系数、block、$n_v$、parity、gamma basis 和生成代码版本。
+
+
+### 8.6 `_SET_PLAN_` 与参数索引速查
+
+`_SET_PLAN_` 用整数选择后端操作。当前约定为：
+
+| 值 | 计划 |
+|---:|---|
+| `-2` | Laplacian |
+| `-1` | Gauss gauge |
+| `0` | Wilson dslash |
+| `1` | BiStabCG/CG |
+| `2` | Clover dslash |
+
+计划值只是选择主分支，仍需配合 `params` 中的几何、precision、parity 和 MG 标志。新增字段时要同时更新 Python `define.py`、C++ `define.h`、Cython pxd/pyx 和文档；只修改一端会造成 ABI 静默错位。
+
+### 8.7 多 GPU 和线程隔离
+
+`pyqcu/cuda/_multi_gpu.py` 的 `MultiGpuMultigrid` 使用一线程一卡模型。每个线程必须拥有独立的：
+
+- CUDA device context；
+- `params`、`argv`、`set_ptrs` 副本；
+- hierarchy 和 scratch；
+- `_SET_INDEX_` 计数器（各自从零开始）。
+
+Cython 函数在 GIL 段只完成指针提取和参数检查，进入 C++ kernel 后使用 `with nogil`。pxd 的 cdef extern 声明必须标记 `nogil`，并用 `qcu_api.pxd` 别名避免与 pyx 的 Python `def` 同名。MPI 方面，MultiGpuMultigrid 要求单 MPI rank；C++ `LatticeSet` 会以 `COMM_WORLD` rank 覆盖后端的 `_NODE_RANK_`。
+
+---
+
+## 9. 误差、性能与精度预算
+
+### 9.1 误差分解
+
+一次求解的误差可按来源拆分为
+
+$$
+ e_{\mathrm{total}}
+ \lesssim e_{\mathrm{disc}}
+ +e_{\mathrm{setup}}
+ +e_{\mathrm{alg}}
+ +e_{\mathrm{round}}
+ +e_{\mathrm{comm}}.
+$$
+
+- $e_{\mathrm{disc}}$：格点离散误差，如 Wilson 的 $O(a)$ 项或 Clover 改进后的剩余项；
+- $e_{\mathrm{setup}}$：null vector 不充分、局部正交误差、Galerkin 截断误差；
+- $e_{\mathrm{alg}}$：solver 尚未达到目标容差；
+- $e_{\mathrm{round}}$：混合精度、归约和递推残差漂移；
+- $e_{\mathrm{comm}}$：halo、MPI reduction 或布局转换中的实现误差。
+
+solver 停止条件只直接控制 $e_{\mathrm{alg}}$ 的一部分；不能用更小的 `tol` 修复错误的 gamma 约定或错误的 parity 映射。
+
+### 9.2 混合精度与可靠更新
+
+在 fp32 kernel、fp64 累加或 c64/c128 混合路径中，递推残差可能与 true residual 脱钩。可靠更新的通用策略是：
+
+1. 用低精度迭代推进；
+2. 每隔固定迭代数或当递推残差下降到阈值时，重新计算 $r=b-Ax$；
+3. 用 true residual 重置递推状态或重新启动外层 Krylov；
+4. 记录刷新前后残差比，确认没有 NaN/Inf 或突然跃迁。
+
+strict 单 rank 路径在主循环中有周期性 true-residual 刷新逻辑；多 rank 是否启用需以当前后端代码为准。任何性能报告都应同时给出精度和 residual 语义。
+
+### 9.3 粗化的成本模型
+
+令 fine 站点数为 $V_f$，coarse 站点数为 $V_c$，每个 coarse site 的自由度为 $E=n_vN_s^{\mathrm{coarse}}$。粗算子一次应用的主要成本近似为
+
+$$
+ C_{\mathrm{coarse}}
+ \sim V_c\left(C_X E^2+8C_YE^2\right)
+ +C_{\mathrm{reduce}}N_{\mathrm{global\ dot}}.
+$$
+
+setup 还包含 null vector 的存储和 Galerkin probes：
+
+$$
+ M_{\mathrm{setup}}
+ \sim O\left(V_f n_vN_s\right)
+ +O\left(V_cE^2\right).
+$$
+
+这只是量级模型。GPU 实际瓶颈可能由内存带宽、非合并访问、MPI latency、全局归约或临时张量峰值决定；没有同一设备上的 profiler 和 true residual 数据，不能从公式推出加速比。
+
+### 9.4 可靠的性能对比
+
+对两个 solver 做公平比较时至少固定：
+
+- 同一 gauge、格点、边界和右端；
+- 同一 gamma/color/layout 约定；
+- 同一初值和容差定义；
+- 同一精度、预热和 MPI rank/GPU 绑定；
+- 以 full true residual 达标作为成功条件；
+- 分开报告 setup、solve、通信和峰值显存时间。
+
+只比较“外层迭代数”会掩盖每次迭代的 matvec 数、粗层成本和可靠刷新开销。
+
+---
+
+## 10. 可复现验证矩阵
+
+### 10.1 算子级测试
+
+| 编号 | 测试 | 通过条件 |
+|---|---|---|
+| O1 | $U_\mu=I$ 自由场 dslash | Python、QCU、参考实现逐元素一致 |
+| O2 | Wilson $\gamma_5$-Hermiticity | $\|D^\dagger-\gamma_5D\gamma_5\|/\|D\|$ 在精度容差内 |
+| O3 | Clover local block | $A_p$ 的布局、dagger 和批量 inverse 一致 |
+| O4 | parity round-trip | full → parity → full 不改变字段 |
+| O5 | Schur reconstruction | 重建后的 full residual 与直接 $D$ 应用一致 |
+| O6 | transfer | $\|R P-I\|$ 和 aggregate 内正交误差可记录 |
+| O7 | Galerkin | 逐列、batched、colored 构造在同一输入上等价 |
+| O8 | strict support | 出现超出最近邻 support 时显式失败 |
+
+### 10.2 Solver 级测试
+
+| 编号 | 测试 | 必须记录 |
+|---|---|---|
+| S1 | 零右端 | 返回零解，不出现除零或 NaN |
+| S2 | 已知解 | 设 $b=Ax_\star$，检查迭代解与 $x_\star$ 的误差 |
+| S3 | breakdown | 分母为零/非有限时返回明确状态 |
+| S4 | 递推 vs true residual | 定期重算并记录两者比值 |
+| S5 | FGMRES 变化预条件 | 改变内层步数仍保持正确右预条件语义 |
+| S6 | warm start | `x0=0` 与热启动分别报告迭代和最终残差 |
+| S7 | mixed precision | 低精度推进、高精度刷新后仍达到同一容差 |
+| S8 | MPI | rank 数变化时全局范数和解的一致性可解释 |
+
+### 10.3 MG 级测试
+
+```text
+1. 生成固定 gauge、固定随机种子和固定 null vectors
+2. 保存 layout、dtype、block、nvec、parity、边界和版本元数据
+3. 分别构造 native、legacy/compact、strict hierarchy
+4. 检查 R P、local orthogonality、X inverse 和 support
+5. 对同一个 full rhs 运行一次 V-cycle
+6. 用 full operator 计算 true residual 和误差传播因子
+7. 再运行外层 FGMRES/BiCGStab，报告 setup/solve/通信/显存
+```
+
+### 10.4 源码证据与运行证据分离
+
+源码检查可以证明公式、入口和边界判断存在；它不能证明特定设备上的性能或全部布局组合正确。报告、日志和论文中应把以下两类证据分开：
+
+- **静态证据**：文件、函数、参数索引、kernel 和异常分支；
+- **动态证据**：命令、设备、rank、耗时、迭代历史、true residual 和退出码。
+
+当前文档只对仓库内源码锚点做静态整理；没有在本轮启动完整 CUDA/MPI 回归，因此性能和跨设备结论仍标记为未验证。
+
+
+### 10.5 常见失败模式与定位顺序
+
+| 现象 | 首先检查 | 物理/工程含义 |
+|---|---|---|
+| 自由场 dslash 方向符号错误 | forward/backward link、反周期边界 | 邻居索引或 gauge transport 反了 |
+| $\gamma_5$-Hermiticity 失败 | gamma basis、Clover dagger、颜色矩阵次序 | 算子约定不一致，不能继续比较 solver |
+| Schur 能收敛但 full residual 大 | prepare/reconstruct、被消去 parity 的局部 inverse | 压缩解没有正确恢复 |
+| strict coarse 出现非最近邻 | transfer block、wide stencil action | strict ABI 不适用，应 fail-closed |
+| 递推 residual 很小、true residual 不降 | mixed precision、reliable update、全局归约 | 数值漂移或 residual 语义混用 |
+| 单线程正确，多线程错误 | `params/argv/set_ptrs` 是否共享 | scratch/索引发生跨线程复用 |
+| MPI rank 增加后结果漂移大 | local/global dot、halo 边界和 layout | 归约或通信语义错误 |
+| 显存持续增长 | hierarchy 引用、HDF5 句柄、workspace | allocator 缓存不等于真正泄漏 |
+
+推荐顺序是“算子 → parity → transfer → coarse apply → 单次 V-cycle → 外层 solver”。不要在 full dslash 尚未通过时直接调大 MG 层数或改变 smoother，这会把根因隐藏在多个误差源中。
+
+### 10.6 最小文档化运行记录
+
+每次可复现实验至少保存如下元数据：
+
+```text
+commit/tag:        stab52 或工作区提交
+lattice:           Lx x Ly x Lz x Lt
+boundary:          periodic / anti-periodic(t)
+action:            Wilson / Clover + 参数
+layout:            PyQCU xyzt / HDF5 zyxt / QUDA parity-order
+dtype:             complex64 / complex128
+solver:            outer + inner + restart/block
+mg:                levels, block, nvec, smoother, coarse solver
+rhs/x0:            source type, seed, zero or warm start
+stop:              atol, rtol, true-residual definition
+runtime:           GPU, MPI ranks, threads, setup/solve time
+result:            iterations, residual history, max memory, exit status
+```
+
+缺少这些字段时，报告可以描述算法，但不能声称两个结果具有严格的性能可比性。
+
+---
+
+## 11. 算法选择速查
+
+| 问题 | 优先选择 | 关键理由 |
+|---|---|---|
+| SPD 的 $D^\dagger D$ 或 Hermitian coarse operator | CG、CA-CG、多移位 CG | 有共轭方向和最小化理论 |
+| 原始 Wilson/Clover 或 asymmetric Schur | BiCGStab、FGMRES、GCR | 不要求算子 SPD |
+| MG/SAP 内层精度或步数变化 | FGMRES、flexible-GCR | 允许 $M_k$ 变化 |
+| 粗层高频误差 | MR、Chebyshev、Schwarz/SAP | 平滑局部高频 |
+| 轻质量近零模 | MG、deflation、thick-restart Lanczos | 直接改善低模分辨率 |
+| full Clover parity solve | asymmetric/symmetric Schur + prepare/reconstruct | 保证 full residual 语义 |
+| legacy 与 strict 对照 | 分别保留 hierarchy 和 layout | 两者的 parity/资产定义不同 |
+| 宽 stencil action | action-specific coarse operator | 最近邻 `X/Y` ABI 不足以表达全部 support |
+
+一个最低风险的决策顺序是：先判定 operator 是否 SPD，再判定预条件器是否固定，最后判定粗算子是 full、Schur 还是宽 stencil。只要其中一项不满足，不能直接套用 CG 或 strict 最近邻 coarse kernel。
+
+---
+
+
+## 12. 资料与源码索引
+
+### 12.1 PyQCU 与 QCU
+
+1. `pyqcu/dslash/_wilson.py`、`pyqcu/dslash/_clover.py`、`pyqcu/dslash/_operator.py`；
+2. `pyqcu/solver/_bistabcg.py`、`_gmres.py`、`_mr.py`、`_cacg.py`、`_lanczos.py`、`_multishift_cg.py`；
+3. `pyqcu/solver/_multigrid.py`、`_quda_multigrid.py`；
+4. `pyqcu/tools/_multigrid.py`、`_strict_galerkin.py`、`_io.py`；
+5. `cpp/cuda/qcu/python/pyqcu.h`、`cpp/cuda/qcu/src/apply_multigrid_strict.cu`；
+6. `pyqcu/cuda/qcu/qcu.pyx`、`pyqcu/cuda/define.py`、`cpp/cuda/qcu/include/define.h`。
+
+### 12.2 QUDA 快照
+
+1. `refer/git-rep/quda/lib/multigrid.cpp`、`dirac_coarse.cpp`、`coarse_op.cuh`；
+2. `dirac_clover.cpp`、`dirac_twisted_mass.cpp`、`dirac_twisted_clover.cpp`；
+3. `dirac_staggered_kd.cpp`、`dirac_improved_staggered_kd.cpp`；
+4. `dirac_domain_wall_4d.cpp`、`dirac_mobius.cpp`；
+5. `inv_gcr_quda.cpp`、`inv_ca_gcr.cpp`、`inv_bicgstabl_quda.cpp`。
+
+### 12.3 理论参考
+
+- K. G. Wilson, *Confinement of quarks*, Phys. Rev. D **10** (1974) 2445；
+- B. Sheikholeslami and R. Wohlert, Nucl. Phys. B **259** (1985) 572；
+- G. P. Lepage, Phys. Rev. D **59** (1999) 074502；Follana et al., Phys. Rev. D **75** (2007) 054502；
+- D. B. Kaplan, Phys. Lett. B **288** (1992) 342；Y. Shamir, Nucl. Phys. B **406** (1993) 90；
+- R. C. Brower, H. Neff and H. Orginos, Nucl. Phys. B Proc. Suppl. **153** (2006) 3；
+- H. Neuberger, Phys. Lett. B **417** (1998) 141；
+- Y. Saad and M. H. Schultz, SIAM J. Sci. Stat. Comput. **7** (1986) 856；
+- H. A. van der Vorst, SIAM J. Sci. Stat. Comput. **13** (1992) 631。
+
+### 12.4 结论边界
+
+Wilson/Clover dslash、Python/native MG、legacy/compact hierarchy、strict full coarse、Galerkin transfer、MATPC、MR、CG、BiCGStab、FGMRES、局部 CGS/QR 和 QCU 生命周期在本库中有可追溯实现或接口。Twisted-mass、staggered/HISQ、domain-wall、Möbius、overlap 在本文中主要承担理论和 QUDA 对照角色，不应被当作 PyQCU 已公开的完整生产功能。任何加速比、跨 MPI 规模扩展性和物理观测量结论，都需要独立的运行记录和误差分析。
+
+## 附录 A：从规范场到一次可审计求解的完整流程
+
+下面的流程把物理输入、算子构造、MG setup、外层 Krylov 和验收连接起来。它也是排查“结果看似收敛但物理约定不一致”的推荐顺序。
+
+### A.1 输入和不变量
+
+```text
+输入：U_mu(x), b, kappa 或 m0, lattice=(Lx,Ly,Lz,Lt)
+可选：Clover coefficient cSW, null-vector count nv, block, levels
+记录：gamma basis、边界条件、dtype、layout、MPI topology、随机种子
+断言：所有时空轴在计算张量的最后四轴，U 的颜色矩阵维度为 3x3
+```
+
+在进入 kernel 前，至少验证
+
+$$
+ U_\mu(x)\in SU(3),
+ \qquad
+ \max_x\left|\det U_\mu(x)-1\right|\ll 1,
+ \qquad
+ \|U_\mu^\dagger U_\mu-I\|\ll 1.
+$$
+
+生成的 gauge 若不是严格 SU(3)，应记录投影/重unitarization 步骤；否则不同后端的差异可能来自输入场本身。
+
+### A.2 算子和 parity 准备
+
+```text
+1. 按边界条件构造 forward/backward neighbor index
+2. 应用 Wilson hopping；若有 Clover，批量生成 onsite block A_p=I+C_p
+3. 按 p(x)=(x+y+z+t) mod 2 分离 e/o parity
+4. 选择 full、asymmetric Schur 或 symmetric Schur 语义
+5. 对 MATPC rhs 做 prepare，并保存被消去 parity 所需的中间量
+6. 用随机向量检查 D、D^dagger、gamma5-D-gamma5 关系
+```
+
+对随机测试向量 $v$，算子等价性可用相对误差
+
+$$
+ \epsilon_{\mathrm{op}}(v)=
+ \frac{\|A_1v-A_2v\|_2}
+ {\max(\|A_1v\|_2,\|A_2v\|_2,\epsilon_{\mathrm{floor}})}.
+$$
+
+这里 $A_1,A_2$ 可以是 Python dslash 与 QCU dslash，也可以是 full operator 与 Schur 重建后的等价作用。必须在多个随机向量、多个边界和至少两个数据类型上测试。
+
+### A.3 Null vector 和 coarse setup
+
+```text
+1. 选用随机、低模、CG/FGMRES 历史或 deflation 向量作为候选 B_l
+2. 按 aggregate 切分 B_l，逐 aggregate 做 CGS/MGS/QR
+3. 丢弃低于 rank threshold 的局部方向，记录实际 nvec
+4. 形成 P_l；若采用 adjoint restriction，令 R_l=P_l^dagger
+5. 验证 ||R_l P_l-I|| 与局部正交误差
+6. 用 batched 或 colored probes 计算 D_{l+1}=R_l A_l P_l
+7. 提取 X_l、Y_l^+、Y_l^-；发现宽 support 时停止 strict 构造
+8. 批量构造 X_l^{-1}，再生成 Yhat_l
+9. 持久化 hierarchy 元数据和所有必要资产
+```
+
+局部 rank threshold 必须与 dtype 和 aggregate 大小绑定。若阈值太小，近线性相关向量会放大 coarse inverse；若阈值太大，粗空间会丢失物理低模。建议同时报告保留奇异值、局部 condition estimate 和实际 coarse dof。
+
+### A.4 一次外层 FGMRES + MG 右预条件
+
+```text
+x = x0
+r = b - D(x)
+for restart_cycle = 0, 1, ...:
+    beta = norm(r)
+    v[0] = r / beta
+    for j = 0, ..., m-1:
+        z[j] = Vcycle(v[j])       # 右预条件，Vcycle 可变化
+        w = D(z[j])
+        Arnoldi-MGS(w, v[0:j+1], H)
+        apply Givens to H and small rhs g
+        if estimated residual small: break
+    y = solve_small_upper_hessenberg(H, g)
+    x = x + sum_j y[j] z[j]
+    r = b - D(x)                   # reliable full residual
+    record cycle, inner steps, ||r||, setup state
+    if ||r|| <= atol*||b||: return x
+```
+
+若目标是 fine MATPC，外层向量是 compact parity 还是 full vector 必须在流程头部固定；`Vcycle` 返回的 correction、`D` 的 matvec 和 true residual 不能跨两种语义混用。若 warm start 打开，第一轮应记录 $\|b-Dx_0\|$，不能默认它等于 $\|b\|$。
+
+### A.5 关闭和资源回收
+
+```text
+1. 完成最后一次 true residual 与 solver status 记录
+2. 停止新的 kernel 和 MPI collective
+3. 释放 coarse assets、null vectors、scratch 和 Cython set_ptrs
+4. 关闭每个线程的 CUDA stream/context
+5. 独立关闭 HDF5 File 句柄
+6. 检查 live allocation、文件句柄和 _SET_INDEX_ 状态
+```
+
+资源关闭顺序不能依赖 Python 的循环引用回收。特别是多线程场景，应在每个线程的 worker 内显式关闭 hierarchy，主线程只负责汇总结果。
+
+## 附录 B：残差、误差与等价性的审计公式
+
+### B.1 三种常用误差
+
+给定近似解 $x$、右端 $b$ 和算子 $A$，分别记录
+
+$$
+ r=b-Ax,
+ \qquad
+ \rho_{\mathrm{abs}}=\|r\|_2,
+ \qquad
+ \rho_{\mathrm{rel}}=\frac{\|r\|_2}{\|b\|_2}.
+$$
+
+若 $\|A\|$ 可估计，还可以记录 backward error
+
+$$
+ \eta(x)=\frac{\|b-Ax\|_2}
+ {\|A\|_2\|x\|_2+\|b\|_2}.
+$$
+
+`tol` 的具体含义必须在报告中绑定到上述某一个量；“残差达到 $10^{-8}$”如果没有说明 absolute/relative、递推/true 和 full/Schur，不能复现。
+
+### B.2 Full 与 compact 的等价性
+
+令 $E$ 为 prepare 映射、$J$ 为 reconstruct 映射，compact operator 为 $S$。理想情况下
+
+$$
+ S=E D J,
+ \qquad
+ D J y = \widetilde J S y
+$$
+
+其中 $\widetilde J$ 还包含被消去 parity 的恢复。数值测试可以使用
+
+$$
+ \epsilon_{\mathrm{Schur}}=
+ \frac{\|E(DJ y)-S y\|_2}{\max(\|S y\|_2,\epsilon_{\mathrm{floor}})}
+$$
+
+以及 reconstruct 后的 full residual。只测 $S y$ 而不测 $D x$ 不能证明 compact 路径正确。
+
+### B.3 Galerkin 一致性
+
+对 fine 向量 $v_c$，以 full coarse operator 和显式 fine 应用分别计算
+
+$$
+ y_1=(R A_f P)v_c,
+ \qquad
+ y_2=A_c v_c.
+$$
+
+定义
+
+$$
+ \epsilon_{\mathrm{Galerkin}}=
+ \frac{\|y_1-y_2\|_2}{\max(\|y_1\|_2,\|y_2\|_2,\epsilon_{\mathrm{floor}})}.
+$$
+
+若 $A_c$ 被截断为最近邻 `X/Y`，还要把截断误差单独记为
+
+$$
+ \epsilon_{\mathrm{support}}=
+ \frac{\|(R A_f P-A_c)v_c\|_2}{\max(\|R A_f P v_c\|_2,\epsilon_{\mathrm{floor}})}.
+$$
+
+strict 构造只有在 support 检查通过时才允许把 $\epsilon_{\mathrm{support}}$ 解释为数值误差；宽 stencil 被静默丢弃时，它其实是模型误差。
+
+### B.4 预条件器质量
+
+对 residual $r$ 和 correction $z=M^{-1}r$，可记录
+
+$$
+ q_M=\frac{\|r-Az\|_2}{\|r\|_2}.
+$$
+
+$q_M$ 越小通常表示单次预条件质量越高，但过度精确的 coarse solve 可能使单次代价超过其收益。外层 FGMRES 的实际评价应同时记录 $q_M$、每次 V-cycle 成本和 full residual 下降。
+
+## 附录 C：算法、物理对象与源码矩阵
+
+| 对象 | 数学角色 | 关键源码 | 状态 |
+|---|---|---|---|
+| Wilson dslash | 最近邻非 Hermitian operator | `pyqcu/dslash/_wilson.py`, `cpp/cuda/qcu/include/wilson_dslash.h` | 实现 |
+| Clover block | onsite spin-color matrix | `pyqcu/dslash/_clover.py` | 实现 |
+| Schur prepare/reconstruct | parity elimination | `cpp/cuda/qcu/src/apply_multigrid_strict.cu` 相关入口 | 实现 |
+| BiCGStab | 非 Hermitian Krylov | `pyqcu/solver/_bistabcg.py` | 实现 |
+| FGMRES | 变化右预条件 | `pyqcu/solver/_gmres.py` | 实现 |
+| MR | short smoother | `pyqcu/solver/_mr.py` | 实现 |
+| CA-CG | block Krylov | `pyqcu/solver/_cacg.py` | 实现 |
+| Lanczos | Hermitian eigenspace | `pyqcu/solver/_lanczos.py` | 实现 |
+| Multi-shift CG | shifted SPD systems | `pyqcu/solver/_multishift_cg.py` | Python 实现 |
+| Native MG | Python V-cycle | `pyqcu/solver/_multigrid.py` | 实现 |
+| Legacy MG | compact/33-tensor | `pyqcu/solver/_quda_multigrid.py` | 实现/兼容 |
+| Strict Galerkin | full $R A P$ | `pyqcu/tools/_strict_galerkin.py` | 原型/实现 |
+| Strict CUDA solver | coarse, MATPC, FGMRES | `cpp/cuda/qcu/src/apply_multigrid_strict.cu` | 实现 |
+| QUDA coarse op | reference coarse action | `refer/git-rep/quda/lib/coarse_op.cuh` | 参考 |
+| Twisted mass | flavor-spin onsite term | `refer/git-rep/quda/lib/dirac_twisted_mass.cpp` | 参考 |
+| Staggered/HISQ | one-component/wide stencil | `refer/git-rep/quda/lib/dirac_improved_staggered_kd.cpp` | 参考 |
+| Domain-wall/Möbius | five-dimensional operator | `refer/git-rep/quda/lib/dirac_domain_wall_4d.cpp`, `dirac_mobius.cpp` | 参考 |
+| Overlap | sign-function operator | 理论参考，当前未发现 PyQCU 生产入口 | 未验证 |
+
+该表只说明“在哪里能找到定义或入口”，不替代实际运行验证。新增代码后应把函数名、参数语义、支持的 dtype/device 和 failure gate 一并更新。
+
+## 附录 D：基准报告模板
+
+```markdown
+## Case: <short name>
+
+- commit/tag:
+- hardware / driver / CUDA:
+- MPI ranks / threads / GPU binding:
+- lattice and boundary:
+- action and parameters:
+- gamma basis / color convention:
+- input layout and dtype:
+- rhs source and seed:
+- hierarchy (levels, block, nvec, transfer, coarse operator):
+- outer / inner solver and restart:
+- atol / rtol / true-residual definition:
+
+### Static checks
+
+- [ ] operator layout and shape
+- [ ] gamma5-Hermiticity or declared non-Hermitian path
+- [ ] parity round-trip
+- [ ] R P and local orthogonality
+- [ ] strict support / coarse asset schema
+- [ ] params/argv/set_ptrs index agreement
+
+### Dynamic results
+
+| metric | value |
+|---|---:|
+| setup time | |
+| solve time | |
+| outer iterations | |
+| operator applications | |
+| final full true residual | |
+| max live memory | |
+| exit status | |
+
+结论只根据上表给出的 full true residual 和退出状态判断；没有运行数据的项目保留“未验证”。
+```
+
+## 附录 E：谱分析、通信模型与验收阈值
+
+### E.1 自由场谱的快速检查
+
+在 $U_\mu=I$、周期边界且 $c_{\mathrm{SW}}=0$ 时，Wilson 算子在动量 $p$ 上的矩阵可以写成
+
+$$
+ D_W(p)=M(p)I+i\sum_\mu\gamma_\mu\sin p_\mu,
+ \qquad
+ M(p)=m_0+\sum_\mu(1-\cos p_\mu).
+$$
+
+若 $\gamma_\mu$ 满足 $\{\gamma_\mu,\gamma_\nu\}=2\delta_{\mu\nu}$，则
+
+$$
+ D_W^\dagger(p)D_W(p)=
+ \left[M(p)^2+\sum_\mu\sin^2p_\mu\right]I.
+$$
+
+这个结果说明自由场 normal operator 的每个旋量分量有相同的特征值。数值实现可以选取所有 $p_\mu=0$、一个分量为 $\pi/2$、以及一个分量为 $\pi$ 的模式，分别检查质量项、动量项和 Wilson doubler 项。若这些模式的相对误差已超过数据类型允许的量级，应先修复 gamma、邻居或边界，不要继续调整 solver 容差。
+
+反周期时间边界可以视为时间方向在跨边界 halo 时附加负号。对 $L_t$ 为偶数的格点，最低时间动量从 $2\pi n/L_t$ 改为 $2\pi(n+1/2)/L_t$；因此同一个 gauge 和质量下，周期/反周期测试的谱并不相同，比较时不能混淆。
+
+### E.2 Krylov 收敛的多项式视角
+
+对固定预条件器 $M^{-1}$，Krylov 方法的误差可以抽象为
+
+$$
+ e_k=p_k(M^{-1}A)e_0,
+ \qquad p_k(0)=1.
+$$
+
+CG 在 SPD 情形选择对谱区间最有利的多项式，经典上界为
+
+$$
+ \frac{\|e_k\|_A}{\|e_0\|_A}
+ \leq
+ 2\left(\frac{\sqrt{\kappa(A)}-1}
+ {\sqrt{\kappa(A)}+1}\right)^k.
+$$
+
+这个上界不是任意格点算子的实测预测：非正规、非 Hermitian、有限精度和变化预条件都会破坏其直接适用性。它的用途是解释为什么改善低端谱、降低 coarse condition number 或使用 deflation 能减少迭代，而不是从迭代数反推出精确条件数。
+
+BiCGStab 的多项式包含双线性 shadow 约束和局部最小残差因子 $1-\omega_k z$，因此可能在某些谱分布上振荡。FGMRES 则在扩展空间上最小化实际残差，代价是保存 $V_m$、$Z_m$ 和 Hessenberg 系统。报告中应同时说明“每步用了几次 operator application”和“每个 restart 保存多少向量”，否则不同 solver 的迭代数没有直接可比性。
+
+### E.3 粗空间对低模的覆盖
+
+设 fine operator 的低模为 $\{u_i\}$，粗空间投影为 $\Pi=P(RP)^{-1}R$。可以用近似覆盖误差
+
+$$
+ \epsilon_{\mathrm{low}}=
+ \max_{i\in\mathcal I}
+ \frac{\|(I-\Pi)u_i\|_2}{\|u_i\|_2}
+$$
+
+衡量 null vectors 是否覆盖目标低模。实际计算中可以用 Lanczos 或短 FGMRES 产生的 Ritz vectors 近似 $u_i$。如果 $\epsilon_{\mathrm{low}}$ 很大，增加 smoother 次数通常只能暂时缓解，真正的修复是增加、更新或重新正交化 null vectors。
+
+局部 aggregate 的边界也会影响覆盖：过小 block 增加 coarse lattice 体积和通信，过大 block 则使局部基更难保持正交。选择 block 时应同时扫描
+
+$$
+ (n_v,\; \text{block volume},\; E=n_vN_s^{\mathrm{coarse}},\;
+ \epsilon_{\mathrm{orth}},\; \epsilon_{\mathrm{low}}).
+$$
+
+不能只用外层迭代数选 block，因为 setup 成本和粗层显存可能在求解阶段之外主导总时间。
+
+### E.4 通信和显存的量级模型
+
+对四维局部 lattice $L_x\times L_y\times L_z\times L_t$，最近邻 dslash 每个方向有两个面。若每个面传递的复元素数为 $n_{\mathrm{face}}$，一次 halo 交换的元素量级为
+
+$$
+ N_{\mathrm{halo}}
+ \approx 2n_{\mathrm{face}}
+ \left(L_yL_zL_t+L_xL_zL_t+L_xL_yL_t+L_xL_yL_z\right).
+$$
+
+spin projection 会把每个面的旋量分量从四个减少到两个，但 Clover onsite 仍需完整 spin-color block。粗层如果把每个方向的 $Y$ 存成 dense $E\times E$ block，则通信字节数与 $E^2$ 成正比；这解释了 coarse level 过大时带宽和 MPI latency 会迅速成为瓶颈。
+
+一个实用的峰值显存估算是
+
+$$
+ M_{\mathrm{peak}}
+ \simeq M_{\mathrm{fine\ fields}}
+ +M_{\mathrm{null}}
+ +M_{\mathrm{coarse\ assets}}
+ +M_{\mathrm{workspace}}
+ +M_{\mathrm{allocator\ cache}}.
+$$
+
+其中最后一项不能当作 live tensor。报告显存时应至少给出 `allocated`、`reserved` 或后端等价指标，并说明测量发生在 setup、solve 还是 close 之后。
+
+### E.5 action-specific support 检查
+
+| action | fine support | 允许直接映射到 strict 最近邻 `X/Y` 吗 | 需要的额外处理 |
+|---|---|---|---|
+| Wilson | $pm\hat\mu$ 最近邻 | 可以 | 检查 projector 和 link dagger |
+| Clover | Wilson + onsite | 可以 | 将 Clover 全部并入 $X$ |
+| Twisted mass | Wilson + onsite flavor block | 形式上可以 | coarse $X$ 扩展 flavor，自身尚无 PyQCU 生产入口 |
+| Staggered | $pm\hat\mu$，带 $\eta_\mu$ | 需单独 spin/taste 语义 | 不能复用 Wilson spin layout |
+| asqtad/HISQ | 多路径、Naik 等宽 stencil | 通常不可以 | 采用宽 stencil coarse operator |
+| Domain-wall | 四维最近邻 + 第五维邻居 | 仅在扩展几何后可行 | 把 $s$ 维纳入 layout 和 halo |
+| Möbius | 五维重参数化 | 同上 | 记录第五维系数和边界耦合 |
+| Overlap | sign function 的非局部近似 | 不可以直接套用 | 外层/内层嵌套求解或 rational coarse |
+
+“最近邻”是矩阵 support 的陈述，不是“每次 kernel 只访问一个邻居”的实现细节。只要 action-specific 路径经多次 hopping 形成了远端耦合，粗算子就必须保留或明确截断这些项。
+
+### E.6 推荐的验收阈值写法
+
+阈值应绑定数据类型、格点规模和测量量。可以采用以下模板，而不是给出脱离上下文的单一数字：
+
+| 检查量 | 建议记录 | 说明 |
+|---|---|---|
+| operator equivalence | `epsilon_op` + dtype | Python/QCU/参考路径逐向量比较 |
+| gamma5-Hermiticity | `epsilon_g5` | 对 Wilson/Clover 的结构性检查 |
+| parity round-trip | `epsilon_parity` | full 与 compact 互转 |
+| local orthogonality | `epsilon_orth` | 每 aggregate 的最大值 |
+| Galerkin | `epsilon_Galerkin` | batched/逐列或 full/coarse 一致性 |
+| reliable update | refresh 前后 residual ratio | 判断递推漂移 |
+| final solve | full `rho_abs` 和 `rho_rel` | 与停止条件同时保存 |
+| memory | setup/solve/close 三个时刻 | 区分 live 与 allocator cache |
+
+例如，在 complex64 运行中可以把“达到约 $10^{-6}$ 的相对算子误差”作为初步筛查，把更严格的阈值留给 complex128；具体数值仍需由格点体积、归约顺序和 kernel 实现校准。文档应写出“采用的阈值”和“阈值来源”，不能只写“误差足够小”。
+
+### E.7 从源码锚点到运行证据
+
+一份可审计的结论至少包含四段：
+
+1. **定义**：给出矩阵、残差或 support 的数学式；
+2. **入口**：指出对应 Python/Cython/C++/QUDA 文件和函数；
+3. **断言**：写出输入、输出、dtype、parity、边界和失败条件；
+4. **证据**：给出命令、退出码、数值和环境元数据。
+
+例如，“strict coarse 支持最近邻”只能由 `_strict_galerkin.py` 的 support 检查和 C++ kernel 的方向索引共同证明；要声称“strict coarse 在四卡上加速”，还必须补充设备、MPI、setup/solve 时间和 full true residual。静态源码证据和动态性能证据不能互相替代。
+
+### E.8 结果表中必须区分的时间和计数
+
+把一次运行压缩成一个总时间会丢失最重要的诊断信息。建议至少拆分以下计数：
+
+| 计数 | 含义 | 解释方式 |
+|---|---|---|
+| `setup_matvecs` | 生成 null vectors、Galerkin probes 和 coarse assets 所用的 fine operator 次数 | setup 重、solve 轻时应单独摊销 |
+| `fine_matvecs` | 外层和 fine smoother 的算子应用 | 与通信/带宽强相关 |
+| `coarse_matvecs` | 各层 coarse operator 应用 | 反映 hierarchy 是否真正被使用 |
+| `global_dots` | MPI 全局归约或等价同步次数 | 常是强缩放的限制因素 |
+| `reliable_refreshes` | full true residual 刷新次数 | 反映混合精度维护成本 |
+| `restarts` | GMRES/FGMRES restart 次数 | 不能与外层总迭代直接等同 |
+| `peak_live_bytes` | hierarchy 和 workspace 的 live 显存 | 应在 close 前后分别采样 |
+
+对变化的预条件器，外层每一轮可能有不同 coarse solve 精度；因此建议保存每个 outer cycle 的 `q_M`、内层迭代数和 true residual，而不是只保存最终一行。对 MPI 运行，还应保存每次 global reduction 的平均或最大耗时，以区分 kernel 变慢和同步变慢。
+
+### E.9 最小可接受结论
+
+一条“实现正确”的最小结论应同时满足：
+
+1. 算子级布局、边界和对称性检查通过；
+2. full/compact 或 full/coarse 的映射误差在声明的 dtype 阈值内；
+3. 求解器以 full true residual 达到明确的 absolute/relative criterion；
+4. 所有 failure gate（breakdown、非有限数、strict support、MPI rank）都有明确状态；
+5. 运行记录包含足够元数据，另一位开发者可以在同一仓库复现。
+
+如果只满足第 3 条而不满足前两条，可能是错误算子上的“假收敛”；如果只满足静态源码检查而没有第 3 条，只能称为“代码路径存在”。这两个结论在报告中必须分开。
