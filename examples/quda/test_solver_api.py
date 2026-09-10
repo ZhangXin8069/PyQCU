@@ -7,7 +7,8 @@ import pytest
 
 
 def _quda_available() -> bool:
-    return importlib.util.find_spec("pyquda") is not None and importlib.util.find_spec("cupy") is not None
+    return (importlib.util.find_spec("pyquda.core") is not None and
+            importlib.util.find_spec("cupy") is not None)
 
 
 @pytest.mark.skipif(not _quda_available(), reason="需要 pyquda 与 cupy")
@@ -33,4 +34,3 @@ def test_wilson_cg_solver_api() -> None:
         dslash.destroy()
     finally:
         pyquda.end()
-
