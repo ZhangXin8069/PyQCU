@@ -14,7 +14,9 @@ def main(argv=None):
     r=layout_roundtrip()
     record = {"function":"clover-multigrid", **r, "fine_reference_norm":float(torch.linalg.vector_norm(ref)), "quda":quda_status(), "status":"reference-transfer", "lattice":list(args.lat)}
     if os.environ.get("RUN_QUDA_TESTS") and os.environ.get("QUDA_UNSAFE_INPROCESS"):
-        try: record["quda_solution_norm"] = float(torch.linalg.vector_norm(report.run("QUDA Clover MG", run_quda_solve, b, clover=True, multigrid=True, mass=args.mass)))
+        try: record["quda_solution_norm"] = float(torch.linalg.vector_norm(report.run(
+            "QUDA Clover MG", run_quda_solve, b, clover=True, multigrid=True, mass=args.mass,
+            reporter=report, timing_label="QUDA Clover MG")))
         except Exception as exc: print(f"SKIP: QUDA Clover MG 失败: {exc}")
     print(record)
     report.finish("PASS")
