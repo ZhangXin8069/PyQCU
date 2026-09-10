@@ -1,0 +1,143 @@
+下面未提到的部分的补充参考为{${HOME}/PyQCU/logs/v2026***.txt};
+本次任务的工作目录为{${HOME}/PyQCU//examples/qcu/};
+本次任务的工作对象为{工作目录中的{PyQCU项目的qcu单功能单文件单独测试的代码}}(代表为{conftest.clover.multigrid.py})(这里的{单文件}是指单个python脚本文件);
+本次任务的对照目录为{${HOME}/PyQCU/examples/qcu/dev87};
+本次任务的对照对象为{对照目录中的{PyQCU项目的qcu多功能单文件对照测试的代码}}(代表为{bench_strict_vs_quda.py});
+本次任务的工作目标为[{充分理解{对照对象}的各个测试接口},{根据上述的理解,在{工作目录}中修改和增添各种{类似{工作目录}中{conftest.clover.multigrid.py}}的更纯粹的qcu单功能单文件单独测试的代码,其中测试对象包括qcu的{void applyInitQcu(long long _set_ptrs, long long _params, long long _argv);
+void applyEndQcu(long long _set_ptrs, long long _params);
+void testWilsonDslashQcu(long long _fermion_out, long long _fermion_in,
+                         long long _gauge, long long _set_ptrs,
+                         long long _params);
+void applyWilsonDslashQcu(long long _fermion_out, long long _fermion_in,
+                          long long _gauge, long long _set_ptrs,
+                          long long _params);
+void testCloverDslashQcu(long long _fermion_out, long long _fermion_in,
+                         long long _gauge, long long _set_ptrs,
+                         long long _params);
+void applyCloverDslashQcu(long long _fermion_out, long long _fermion_in,
+                          long long _gauge, long long _set_ptrs,
+                          long long _params);
+void applyWilsonBistabCgQcu(long long _fermion_out, long long _fermion_in,
+                            long long _gauge, long long _set_ptrs,
+                            long long _params);
+void applyWilsonBistabCgDslashQcu(long long _fermion_out, long long _fermion_in,
+                                  long long _gauge, long long _set_ptrs,
+                                  long long _params);
+void applyWilsonCgQcu(long long _fermion_out, long long _fermion_in,
+                      long long _gauge, long long _set_ptrs, long long _params);
+void applyWilsonCgDslashQcu(long long _fermion_out, long long _fermion_in,
+                            long long _gauge, long long _set_ptrs,
+                            long long _params);
+void applyLaplacianQcu(long long _laplacian_out, long long _laplacian_in,
+                       long long _gauge, long long _set_ptrs,
+                       long long _params);
+void applyCloverQcu(long long _clover, long long _gauge, long long _set_ptrs,
+                    long long _params);
+void applyCloversQcu(long long _clover, long long _clover_inv, long long _gauge,
+                     long long _set_ptrs, long long _params);
+void applyDslashQcu(long long _fermion_out, long long _fermion_in,
+                    long long _gauge, long long _clover, long long _set_ptrs,
+                    long long _params);
+void applyGaussGaugeQcu(long long _gauge, long long _set_ptrs,
+                        long long _params);
+void applyCloverBistabCgQcu(long long _fermion_out, long long _fermion_in,
+                            long long _gauge, long long _clover_ee,
+                            long long _clover_oo, long long _clover_ee_inv,
+                            long long _clover_oo_inv, long long _set_ptrs,
+                            long long _params);
+void applyCloverBistabCgDslashQcu(long long _fermion_out, long long _fermion_in,
+                                  long long _gauge, long long _clover_ee,
+                                  long long _clover_oo,
+                                  long long _clover_ee_inv,
+                                  long long _clover_oo_inv, long long _set_ptrs,
+                                  long long _params);
+int applyCloverBistabCgPrepareQcu(
+    long long _compact_rhs, long long _full_rhs, long long _gauge,
+    long long _clover_ee, long long _clover_oo, long long _clover_ee_inv,
+    long long _clover_oo_inv, long long _set_ptrs, long long _params);
+int applyCloverBistabCgReconstructQcu(
+    long long _full_out, long long _full_rhs, long long _target_odd,
+    long long _gauge, long long _clover_ee, long long _clover_oo,
+    long long _clover_ee_inv, long long _clover_oo_inv,
+    long long _set_ptrs, long long _params);
+void applyMultigridRestrictQcu(long long _coarse_out, long long _fine_in,
+                                long long _null_vecs, long long _set_ptrs,
+                                long long _params);
+void applyMultigridProLongQcu(long long _fine_out, long long _coarse_in,
+                               long long _null_vecs, long long _set_ptrs,
+                               long long _params);
+void applyMultigridCoarseDslashQcu(long long _fermion_out, long long _fermion_in,
+                                    long long _hopping, long long _sitting,
+                                    long long _set_ptrs, long long _params);
+void applyMultigridCoarseDslashWideQcu(long long _fermion_out,
+                                       long long _fermion_in,
+                                       long long _sitting, long long _hop_nn,
+                                       long long _hop_diag, long long _set_ptrs,
+                                       long long _params);
+int applyMultigridStrictCoarseQcu(
+    long long _fermion_out, long long _fermion_in, long long _links,
+    long long _onsite_pair, long long _set_ptrs, long long _params,
+    int E, int X, int Y, int Z, int T, int onsite_index);
+int applyMultigridStrictMatPCQcu(
+    long long _fermion_out, long long _fermion_in, long long _links,
+    long long _scratch, long long _set_ptrs, long long _params,
+    int E, int X, int Y, int Z, int T, int parity);
+int applyMultigridStrictFineMatPCQcu(
+    long long _fermion_out, long long _fermion_in, long long _gauge,
+    long long _clover_ee, long long _clover_oo,
+    long long _clover_ee_inv, long long _clover_oo_inv,
+    long long _set_ptrs, long long _params, int parity);
+int applyMultigridStrictPrepareQcu(
+    long long _fermion_out, long long _full_rhs, long long _links,
+    long long _onsite_pair, long long _scratch, long long _set_ptrs,
+    long long _params, int E, int X, int Y, int Z, int T, int parity);
+int applyMultigridStrictReconstructQcu(
+    long long _full_out, long long _full_rhs, long long _target_solution,
+    long long _links, long long _onsite_pair, long long _scratch,
+    long long _set_ptrs, long long _params,
+    int E, int X, int Y, int Z, int T, int parity);
+int applyMultigridStrictRestrictQcu(
+    long long _coarse_out, long long _fine_in, long long _null_vectors,
+    long long _set_ptrs, long long _params, int E, int e,
+    int Xf, int Yf, int Zf, int Tf, int Xc, int Yc, int Zc, int Tc,
+    int parity);
+int applyMultigridStrictProLongQcu(
+    long long _fine_out, long long _coarse_in, long long _null_vectors,
+    long long _set_ptrs, long long _params, int E, int e,
+    int Xf, int Yf, int Zf, int Tf, int Xc, int Yc, int Zc, int Tc,
+    int parity);
+int applyMultigridStrictVCycleQcu(
+    long long _full_out, long long _full_rhs, long long _set_ptrs,
+    long long _params, int start_level,
+    unsigned long long *_allocated_bytes);
+int applyMultigridStrictInitQcu(
+    long long _set_ptrs, long long _params, int start_level,
+    unsigned long long *_allocated_bytes);
+int applyMultigridStrictEndQcu(long long _set_ptrs, long long _params);
+int applyMultigridStrictFgmresQcu(
+    long long _full_out, long long _full_rhs, long long _gauge,
+    long long _clover_ee, long long _clover_oo,
+    long long _clover_ee_inv, long long _clover_oo_inv,
+    long long _fine_null_vectors, long long _set_ptrs, long long _params,
+    int fine_E, int fine_X, int fine_Y, int fine_Z, int fine_T,
+    int coarse_E, int coarse_X, int coarse_Y, int coarse_Z, int coarse_T,
+    int element_bytes, int restart, int max_iter, double tolerance,
+    int nu_pre, int nu_post, unsigned long long max_workspace_bytes,
+    int *_iterations, int *_converged, double *_final_true_residual,
+    unsigned long long *_allocated_bytes);
+void applyCloverMultigridQcu(long long _fermion_out, long long _fermion_in,
+                              long long _gauge, long long _clover_ee,
+                              long long _clover_oo,
+                              long long _clover_ee_inv,
+                              long long _clover_oo_inv,
+                              long long _set_ptrs,
+                              long long _params);
+int verifyCloverMultigridQcu(
+    long long _fermion_out, long long _fermion_in, long long _gauge,
+    long long _clover_ee, long long _clover_oo, long long _clover_ee_inv,
+    long long _clover_oo_inv, long long _set_ptrs, long long _params);}(即{${HOME}/PyQCU/cpp/cuda/qcu/python/pyqcu.h})}(本次总任务的核心,每个单测文件仅需额外附加{依据{{${HOME}/PyQCU/pyqcu}中的纯pytorch版本pyqcu}的正确性验证),{整理{${HOME}/PyQCU/examples}(含各个子目录,但是不含使用{git tag}命名的相对独立的项目目录)中的各个单测文件,修复已经过时的失效的部分,删去相对无用或无关的部分,最后仅保留必要的文件(使用.gitignore进行排除,注意命名规范)},{在{${HOME}/PyQCU//examples/AGENTS.md}中添加带有{强制要求意味的}的约定:在{各个相对独立的项目测试完成}和{本库各个接口发生更改}后,整理{${HOME}/PyQCU//examples}(含各个子目录,但是不含使用{git tag}命名的相对独立的项目目录)中的各个单测文件,修复已经过时的失效的部分,删去相对无用或无关的部分,最后仅保留必要的文件(使用.gitignore进行排除,注意命名规范)},{根据上述内容,自行更新${HOME}/PyQCU/skills}中的skill}];
+本次任务的默认数据读写目录为{${HOME}/PyQCU/data};
+本次任务的性质为[理解,修改和增添(核心),整理,约定,更新],非必要不改动无关文件;
+本次任务的权限较高,所有改动在git-commit后自动提交到git远程,包括最终的git-tag,并确保其中标注的{message}的信息详实且格式规范;
+如果在本次任务中发现{工作对象}中存在其他的必要的[debug项,优化项,补充项],可以自行改动本库代码;
+上述任务全部完成后~diff~init~tag(stab);
