@@ -1,7 +1,7 @@
 下面未提到的部分的补充参考为{${HOME}/PyQCU/logs/v2026***.txt};
 本次任务的工作目录为{${HOME}/PyQCU/docs};
 本次任务的工作对象为{{${HOME}/PyQCU/refer/git-rep/quda}中的quda-multigrid-「粗层 $X/Y/\Yhat$、Clover-like dslash」(对应「./docs/report_multigrid_quda_pyqcu_20260909.tex」中的「\section{粗层 $X/Y/\Yhat$、Clover-like dslash 与矩阵顺序}」)的详尽的构建文档};
-本次任务的工作目标为{充分理解{${HOME}/PyQCU/refer/git-rep/quda}中的quda-multigrid-「粗层 $X/Y/\Yhat$、Clover-like dslash」(对应「./docs/report_multigrid_quda_pyqcu_20260909.tex」中的「\section{粗层 $X/Y/\Yhat$、Clover-like dslash 与矩阵顺序}」)}(可以在网络中查阅,同时本库中的quda和qcu和pyqcu中有现成的实现可供参考,仔细查阅其中的所有相关代码,确保无遗漏,在{${HOME}/MyQCD/docs}中有一定的理论基础可供参考),然后详实地在{工作目录}~report上述的理解}(多使用类似{\begin{table}[htbp]
+本次任务的工作目标为{充分理解{{${HOME}/PyQCU/refer/git-rep/quda}中的quda-multigrid-「粗层 $X/Y/\Yhat$、Clover-like dslash」(对应「./docs/report_multigrid_quda_pyqcu_20260909.tex」中的「\section{粗层 $X/Y/\Yhat$、Clover-like dslash 与矩阵顺序}」)}(可以在网络中查阅,同时本库中的quda和qcu和pyqcu中有现成的实现可供参考,仔细查阅其中的所有相关代码,确保无遗漏),然后详实地在{工作目录}~report上述的所有理解}(多使用类似{\begin{table}[htbp]
 \centering
 \caption*{Table6.2.Pseudocode[5]fortheBi-CGStabalgorithmwith
 preconditioningmatrix$M$.Fornopreconditioningset$M=1$andsimplify
@@ -34,7 +34,7 @@ v^{(i-1)})$\\
 \quad$x^{(i)}=x^{(i-1)}+\alpha_i\,\hat{p}+\omega_i\,\hat{s}$\\
 repeatuntilconvergence\ldots
 \end{tabular}
-\end{table}}的格式)(公式为主,注意整体思路连贯)(使用一段使用上述格式的超长表述来讲明整条算法逻辑)(如果有多种不同的算法实现,则分别单独讲明)(注意标明参考源,注意格式规范)(要有详细的跳转目录,首字母摆列顺序)(要包括上述各算法的精辟的优缺点与适用范围的解析);
+\end{table}}的格式)(公式为主,注意整体思路连贯)(使用一段使用上述格式的超长表述来讲明整条算法逻辑)(注意标明参考源,注意格式规范)(本文档实际上为「./docs/report_multigrid_quda_pyqcu_20260909.tex」中的「\section{粗层 $X/Y/\Yhat$、Clover-like dslash}」的进一步完全解析,专注于此,内容要绝对详尽);
 本次任务的默认数据读写目录为{${HOME}/PyQCU/data};
 本次任务的任务量较大,但不允许省略任务内容;
 本次任务的性质为[理解,编写文档(核心)],非必要不改动无关文件;
