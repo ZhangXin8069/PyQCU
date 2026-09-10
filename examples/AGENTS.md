@@ -7,6 +7,7 @@ PyQCU 测试示例与基准，按后端目标组织。
 | 目录 | 目标 | 说明 |
 |---|---|---|
 | `pyqcu/` | CPU/CUDA/NPU | 纯 Python 算子/求解器测试（主测试套件） |
+| `quda/` | NVIDIA CUDA | QUDA 求解器单功能测试（可选 pyquda/CuPy） |
 | `qcu/` | NVIDIA CUDA | C++ CUDA 后端测试（经 Cython 桥） |
 | `cpu/` | CPU | 纯 CPU 测试（BiStabCG、MPI） |
 | `npu/` | 昇腾 NPU | NPU 专属测试 |
