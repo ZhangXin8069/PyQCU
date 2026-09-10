@@ -44,6 +44,8 @@ C++ CUDA 后端测试（经 Cython 桥）。从 Python 驱动 `libqcu.so`。
 mpirun -np 1 python examples/qcu/conftest.clover.multigrid.py
 ```
 
+`single_qcu_*.py` 独立入口默认使用 `16 16 16 16` 格点。启动时打印脚本文档和输入参数，运行中显示分步进度及耗时，结束时输出总耗时与分项耗时；可用 `--lat X Y Z T`、`--mass M` 调整输入，`--pure-only` 只运行纯 PyTorch 参考，`--no-doc`/`--no-progress` 分别隐藏文档/进度输出。
+
 输出：收敛日志 → `logs/clover_multigrid.log`，性能报告 → `logs/clover_multigrid_report.log`
 
 ### conftest.clover.multigrid.py 运行约定（2026-08-16 修复后）

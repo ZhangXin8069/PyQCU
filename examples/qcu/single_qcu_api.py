@@ -3,6 +3,7 @@
 from __future__ import annotations
 import re
 from pathlib import Path
+from single_function_common import run_setup
 
 def symbols(path: Path): return set(re.findall(r"\b(?:apply|test)[A-Za-z0-9]+Qcu\b", path.read_text()))
 FUNCTION_TO_TEST = {
@@ -25,10 +26,14 @@ FUNCTION_TO_TEST = {
     "applyMultigridStrictFgmresQcu": "single_qcu_multigrid_strict.py", "applyCloverMultigridQcu": "single_qcu_clover_multigrid.py",
     "verifyCloverMultigridQcu": "single_qcu_clover_multigrid.py",
 }
-def main() -> int:
+def main(argv=None) -> int:
+    args, report = run_setup(__doc__ or "QCU ABI 单测", __doc__, argv=argv, total=3)
     root = Path(__file__).resolve().parents[2]
-    h = symbols(root/"cpp/cuda/qcu/python/pyqcu.h"); p = symbols(root/"pyqcu/cuda/qcu/qcu_api.pxd"); x = symbols(root/"pyqcu/cuda/qcu/qcu.pyx")
+    h = report.run("读取 C API 头文件", symbols, root/"cpp/cuda/qcu/python/pyqcu.h")
+    p = report.run("读取 Cython pxd", symbols, root/"pyqcu/cuda/qcu/qcu_api.pxd")
+    x = report.run("读取 Cython pyx", symbols, root/"pyqcu/cuda/qcu/qcu.pyx")
     missing = {"header_to_pxd":sorted(h-p),"header_to_pyx":sorted(h-x),"pxd_extra":sorted(p-h)}
     print({"abi": missing, "coverage_missing": sorted(h - set(FUNCTION_TO_TEST))})
+    report.finish("PASS" if not any(missing.values()) and h <= set(FUNCTION_TO_TEST) else "FAIL")
     return 0 if not any(missing.values()) and h <= set(FUNCTION_TO_TEST) else 1
 if __name__ == "__main__": raise SystemExit(main())
