@@ -135,9 +135,10 @@ void applyCloverMultigridQcu(long long _fermion_out, long long _fermion_in,
 int verifyCloverMultigridQcu(
     long long _fermion_out, long long _fermion_in, long long _gauge,
     long long _clover_ee, long long _clover_oo, long long _clover_ee_inv,
-    long long _clover_oo_inv, long long _set_ptrs, long long _params);}(即{${HOME}/PyQCU/cpp/cuda/qcu/python/pyqcu.h})}(本次总任务的核心,每个单测文件仅需额外附加{依据{{${HOME}/PyQCU/pyqcu}中的纯pytorch版本pyqcu}的正确性验证),{整理{${HOME}/PyQCU/examples}(含各个子目录,但是不含使用{git tag}命名的相对独立的项目目录)中的各个单测文件,修复已经过时的失效的部分,删去相对无用或无关的部分,最后仅保留必要的文件(使用.gitignore进行排除,注意命名规范)},{在{${HOME}/PyQCU//examples/AGENTS.md}中添加带有{强制要求意味的}的约定:在{各个相对独立的项目测试完成}和{本库各个接口发生更改}后,整理{${HOME}/PyQCU//examples}(含各个子目录,但是不含使用{git tag}命名的相对独立的项目目录)中的各个单测文件,修复已经过时的失效的部分,删去相对无用或无关的部分,最后仅保留必要的文件(使用.gitignore进行排除,注意命名规范)},{根据上述内容,自行更新${HOME}/PyQCU/skills}中的skill}];
+    long long _clover_oo_inv, long long _set_ptrs, long long _params);}(即{${HOME}/PyQCU/cpp/cuda/qcu/python/pyqcu.h}中的各个qcu函数)}(本次总任务的核心,每个单测文件仅需额外附加{依据{{${HOME}/PyQCU/pyqcu}中的纯pytorch版本pyqcu}的正确性验证),{在{${HOME}/PyQCU//examples/quda}中修改和增添各种{类似{工作目录}中{conftest.clover.multigrid.py}}的更纯粹的quda单功能单文件单独测试的代码,其中测试对象包括quda的[gauss-gauge,wilson-dslash,clover-dslash,wilson-bistabcg,wilson-multigrid,clover-bistabcg,clover-multigrid]}(注意quda与qcu的数据维度排布的转换)(本次总任务的核心,每个单测文件仅需额外附加{依据{{${HOME}/PyQCU/pyqcu}中的纯pytorch版本pyqcu}的正确性验证),{整理{${HOME}/PyQCU/examples}(含各个子目录,但是不含使用{git:tag}命名的相对独立的项目目录)中的各个单测文件,修复已经过时的失效的部分,删去相对无用或无关的部分,最后仅保留必要的文件(使用.gitignore进行排除,注意命名规范)},{在{${HOME}/PyQCU//examples/AGENTS.md}中添加带有{强制要求意味的}的约定:在{各个相对独立的项目测试完成}和{本库各个接口发生更改}后,整理{${HOME}/PyQCU//examples}(含各个子目录,但是不含使用{git:tag}命名的相对独立的项目目录)中的各个单测文件,修复已经过时的失效的部分,删去相对无用或无关的部分,最后仅保留必要的文件(使用.gitignore进行排除,注意命名规范)},{根据上述内容,自行更新${HOME}/PyQCU/skills}中的skill}];
 本次任务的默认数据读写目录为{${HOME}/PyQCU/data};
-本次任务的性质为[理解,修改和增添(核心),整理,约定,更新],非必要不改动无关文件;
+本次任务的性质为[理解,修改和增添(核心),修改和增添(核心),整理,约定,更新],非必要不改动无关文件;
 本次任务的权限较高,所有改动在git-commit后自动提交到git远程,包括最终的git-tag,并确保其中标注的{message}的信息详实且格式规范;
 如果在本次任务中发现{工作对象}中存在其他的必要的[debug项,优化项,补充项],可以自行改动本库代码;
 上述任务全部完成后~diff~init~tag(stab);
+
