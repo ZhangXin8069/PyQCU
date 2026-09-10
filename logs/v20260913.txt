@@ -34,7 +34,7 @@ v^{(i-1)})$\\
 \quad$x^{(i)}=x^{(i-1)}+\alpha_i\,\hat{p}+\omega_i\,\hat{s}$\\
 repeatuntilconvergence\ldots
 \end{tabular}
-\end{table}}的格式)(公式为主,注意整体思路连贯)(使用一段使用上述格式的超长表述来讲明整条算法逻辑)(注意标明参考源,注意格式规范)(本文档实际上为「./docs/report_multigrid_quda_pyqcu_20260909.tex」中的「\section{粗层 $X/Y/\Yhat$、Clover-like dslash}」的进一步完全解析,专注于此,内容要绝对详尽);
+\end{table}}的格式)(公式为主,注意整体思路连贯)(使用一段使用上述格式的超长表述来讲明整条算法逻辑)(注意标明参考源,注意格式规范)(本文档实际上为「./docs/report_multigrid_quda_pyqcu_20260909.tex」中的「粗层 $X/Y/\Yhat$、Clover-like dslash」的构建方法的进一步完全解析,专注于此,内容要绝对详尽);
 本次任务的默认数据读写目录为{${HOME}/PyQCU/data};
 本次任务的任务量较大,但不允许省略任务内容;
 本次任务的性质为[理解,编写文档(核心)],非必要不改动无关文件;
