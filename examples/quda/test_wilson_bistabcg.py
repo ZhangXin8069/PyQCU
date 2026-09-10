@@ -15,7 +15,8 @@ def main(argv=None):
     record = {"function":"wilson-bistabcg", "true_residual":residual, "quda":quda_status(), "status":"reference-residual", "lattice":list(args.lat)}
     if os.environ.get("RUN_QUDA_TESTS") and os.environ.get("QUDA_UNSAFE_INPROCESS"):
         try:
-            qx = report.run("QUDA Wilson solve", run_quda_solve, b, clover=False, mass=args.mass)
+            qx = report.run("QUDA Wilson solve", run_quda_solve, b, clover=False, mass=args.mass,
+                            reporter=report, timing_label="QUDA Wilson solve")
             record["quda_solution_rel"] = rel(qx * (args.mass + 4.0), x)
         except Exception as exc: print(f"SKIP: QUDA Wilson 求解失败: {exc}")
     print(record)

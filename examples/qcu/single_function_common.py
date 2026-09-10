@@ -7,13 +7,15 @@ CUDA run executes exactly one QCU operation per lifecycle.
 from __future__ import annotations
 
 import argparse
+from collections.abc import Callable
+from contextlib import suppress
 import json
 import os
 import sys
 import textwrap
 import time
 from dataclasses import dataclass
-from typing import Any, Callable, Iterable, Sequence
+from typing import Any, Iterable, Sequence
 
 import torch
 
@@ -49,11 +51,43 @@ class RunReporter:
         self.current = 0
         self.started = time.perf_counter()
         self.timings: list[tuple[str, float]] = []
+        # ``timings`` measures the complete reported step (for example, a
+        # QCU lifecycle including init/end).  ``function_timings`` records the
+        # operation itself so the number can be compared with another backend.
+        self.function_timings: list[tuple[str, float]] = []
+        self._timing_details: list[tuple[str, float, tuple[tuple[str, float], ...]]] = []
         self.device: torch.device | None = None
 
     def _synchronize(self) -> None:
         if self.device is not None and self.device.type == "cuda":
             torch.cuda.synchronize(self.device)
+
+    def measure_function(self, label: str, fn: Callable[..., Any], *args: Any,
+                         **kwargs: Any) -> Any:
+        """Measure only the function under test, including asynchronous GPU work.
+
+        The surrounding ``run`` call still measures the complete test step.  A
+        separate measurement is needed for QCU/QUDA because setup, lifecycle
+        management, layout conversion and destruction are not part of the
+        operation being compared.
+        """
+        self._synchronize()
+        started = time.perf_counter()
+        try:
+            result = fn(*args, **kwargs)
+            self._synchronize()
+        except BaseException:
+            # Synchronize before recording an exceptional CUDA call too; this
+            # keeps the reported value meaningful when a kernel failed after
+            # being queued.  Do not swallow the original exception.
+            with suppress(Exception):
+                self._synchronize()
+            elapsed = time.perf_counter() - started
+            self.function_timings.append((label, elapsed))
+            raise
+        elapsed = time.perf_counter() - started
+        self.function_timings.append((label, elapsed))
+        return result
 
     def run(self, label: str, fn: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
         self.current += 1
@@ -67,6 +101,7 @@ class RunReporter:
             else:
                 print(f"[进度 {self.current}{suffix}] {label} ...", flush=True)
         self._synchronize()
+        function_count = len(self.function_timings)
         started = time.perf_counter()
         try:
             result = fn(*args, **kwargs)
@@ -74,13 +109,26 @@ class RunReporter:
         except Exception:
             elapsed = time.perf_counter() - started
             self.timings.append((label, elapsed))
-            print(f"[失败] {label}: {elapsed:.3f} s", flush=True)
+            function_timings = tuple(self.function_timings[function_count:])
+            self._timing_details.append((label, elapsed, function_timings))
+            detail = self._function_detail(function_timings)
+            print(f"[失败] {label}: {elapsed:.3f} s{detail}", flush=True)
             raise
         elapsed = time.perf_counter() - started
         self.timings.append((label, elapsed))
+        function_timings = tuple(self.function_timings[function_count:])
+        self._timing_details.append((label, elapsed, function_timings))
         if self.enabled:
-            print(f"[完成] {label}: {elapsed:.3f} s", flush=True)
+            detail = self._function_detail(function_timings)
+            print(f"[完成] {label}: {elapsed:.3f} s{detail}", flush=True)
         return result
+
+    @staticmethod
+    def _function_detail(function_timings: tuple[tuple[str, float], ...]) -> str:
+        if not function_timings:
+            return ""
+        details = ", ".join(f"{name}={elapsed:.6f} s" for name, elapsed in function_timings)
+        return f" | 被测函数: {details}"
 
     def skip(self, reason: str) -> None:
         print(f"[跳过] {reason}", flush=True)
@@ -89,8 +137,18 @@ class RunReporter:
         total = time.perf_counter() - self.started
         print(f"[总耗时] {total:.3f} s | status={status}", flush=True)
         if self.timings:
-            details = ", ".join(f"{name}={elapsed:.3f}s" for name, elapsed in self.timings)
-            print(f"[分项耗时] {details}", flush=True)
+            details = []
+            for label, elapsed, function_timings in self._timing_details:
+                suffix = self._function_detail(function_timings)
+                details.append(f"{label}={elapsed:.3f}s{suffix}")
+            # Keep a fallback for reporters created before a timing detail was
+            # recorded (and for callers that append to ``timings`` directly).
+            if not details:
+                details = [f"{name}={elapsed:.3f}s" for name, elapsed in self.timings]
+            print(f"[分项耗时] {', '.join(details)}", flush=True)
+        if self.function_timings:
+            details = ", ".join(f"{name}={elapsed:.6f}s" for name, elapsed in self.function_timings)
+            print(f"[被测函数耗时] {details}", flush=True)
 
 
 def _even_positive(value: str) -> int:
@@ -220,7 +278,9 @@ def lifecycle_call(ctx: Context, name: str, *args):
         fn = getattr(qcu, name)
         qcu.applyInitQcu(ctx.set_ptrs, ctx.params, ctx.argv)
         try:
-            return fn(*args, ctx.set_ptrs, ctx.params)
+            if ctx.reporter is None:
+                return fn(*args, ctx.set_ptrs, ctx.params)
+            return ctx.reporter.measure_function(name, fn, *args, ctx.set_ptrs, ctx.params)
         finally:
             # Every operation gets a fresh scratch slot before destruction.
             ctx.params[define._SET_INDEX_] += 1

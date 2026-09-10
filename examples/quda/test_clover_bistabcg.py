@@ -17,7 +17,8 @@ def main(argv=None):
     record = {"function":"clover-bistabcg", "true_residual":residual, "quda":quda_status(), "status":"reference-residual", "lattice":list(args.lat)}
     if os.environ.get("RUN_QUDA_TESTS") and os.environ.get("QUDA_UNSAFE_INPROCESS"):
         try:
-            qx = report.run("QUDA Clover solve", run_quda_solve, b, clover=True, mass=args.mass)
+            qx = report.run("QUDA Clover solve", run_quda_solve, b, clover=True, mass=args.mass,
+                            reporter=report, timing_label="QUDA Clover solve")
             record["quda_solution_rel"] = rel(qx * (args.mass + 4.0), x)
         except Exception as exc: print(f"SKIP: QUDA Clover 求解失败: {exc}")
     print(record)
