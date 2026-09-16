@@ -416,6 +416,7 @@ class QudaTransfer:
                  spin_block_size: Optional[int] = None,
                  n_block_ortho: int = 2,
                  normalize: bool = True,
+                 offload_basis: bool = False,
                  verbose: bool = False):
         self.fine_shape = _shape4(fine_shape)
         self.fine_spin = int(fine_spin)
@@ -483,6 +484,9 @@ class QudaTransfer:
 
         self.V = self._block_orthogonalise(
             passes=int(n_block_ortho), normalize=normalize)
+        self.basis_offloaded = bool(offload_basis)
+        if self.basis_offloaded:
+            self.B = self.B.cpu()
         self.n_block_ortho = int(n_block_ortho)
         self.verbose = bool(verbose)
         if self.verbose:
@@ -2132,6 +2136,8 @@ class QudaMultigrid:
                  strict_galerkin_column_batch: int = 4,
                  strict_galerkin_projection_batch: int = 4,
                  strict_galerkin_block_dtype: Optional[Any] = None,
+                 strict_galerkin_block_device: Optional[Any] = None,
+                 strict_offload_null_basis: bool = False,
                  strict_galerkin_max_workspace_bytes: Optional[int] = 512 << 20,
                  strict_galerkin_check_support: bool = True,
                  seed: int = 42, verbose: bool = False,
@@ -2232,6 +2238,8 @@ class QudaMultigrid:
         self.strict_galerkin_projection_batch = int(
             strict_galerkin_projection_batch)
         self.strict_galerkin_block_dtype = strict_galerkin_block_dtype
+        self.strict_galerkin_block_device = strict_galerkin_block_device
+        self.strict_offload_null_basis = bool(strict_offload_null_basis)
         if min(self.strict_galerkin_column_batch,
                self.strict_galerkin_projection_batch) <= 0:
             raise ValueError("strict Galerkin batch size 必须为正数")
@@ -2810,6 +2818,8 @@ class QudaMultigrid:
                 previous = self.transfers[level - 1]
                 restricted = []
                 for vector in previous.B:
+                    if vector.device != previous.V.device:
+                        vector = vector.to(device=previous.V.device)
                     fine = vector.reshape(
                         previous.fine_dof, *previous.fine_shape)
                     restricted.append(previous.restrict(fine))
@@ -2836,7 +2846,13 @@ class QudaMultigrid:
                 coarse_spin=1 if self._compact_parity else 2,
                 spin_block_size=1 if self._compact_parity else None,
                 block_size=self._block_sizes[level],
-                n_block_ortho=self.n_block_ortho, verbose=self.verbose)
+                n_block_ortho=self.n_block_ortho,
+                offload_basis=self.strict_offload_null_basis,
+                verbose=self.verbose)
+            if transfer.basis_offloaded:
+                if level < len(self._null_vectors):
+                    self._null_vectors[level] = None
+                del null
             coarsening_operator: Any = current
             if (self._strict_quda and
                     self.coarse_grid_solution_types[level] == "matpc" and
@@ -2912,6 +2928,7 @@ class QudaMultigrid:
                             self.strict_galerkin_max_workspace_bytes),
                         verbose=self.verbose,
                         block_dtype=self.strict_galerkin_block_dtype,
+                        block_device=self.strict_galerkin_block_device,
                     )
                 else:
                     setup_result = build_strict_galerkin(
@@ -2925,6 +2942,7 @@ class QudaMultigrid:
                             self.strict_galerkin_max_workspace_bytes),
                         verbose=self.verbose,
                         block_dtype=self.strict_galerkin_block_dtype,
+                        block_device=self.strict_galerkin_block_device,
                     )
                 setup_result.install(coarse)
                 setup_result.stats["requested_probe_mode"] = (
