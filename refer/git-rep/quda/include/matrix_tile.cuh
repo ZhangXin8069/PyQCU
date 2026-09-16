@@ -100,9 +100,26 @@ namespace quda {
 #pragma unroll
         for (int j=0; j<n; j++) {
           if (ghost) // ideally `if constexpr`, if we had this we could avoid this whole `supports_ghost_zone` thing.
-            tile[i*n+j] = a.Ghost(d, parity, x_cb, i0 + i, j0 + j);
+            {
+              using raw_t = typename std::remove_cv_t<
+                  std::remove_reference_t<decltype(
+                      a.Ghost(d, parity, x_cb, i0 + i, j0 + j))>>::value_type;
+              complex<raw_t> value =
+                  a.Ghost(d, parity, x_cb, i0 + i, j0 + j);
+              tile[i*n+j] = complex<typename RealType<T>::type>(
+                  static_cast<typename RealType<T>::type>(value.real()),
+                  static_cast<typename RealType<T>::type>(value.imag()));
+            }
           else
-            tile[i*n+j] = a(d, parity, x_cb, i0 + i, j0 + j);
+            {
+              using raw_t = typename std::remove_cv_t<
+                  std::remove_reference_t<decltype(
+                      a(d, parity, x_cb, i0 + i, j0 + j))>>::value_type;
+              complex<raw_t> value = a(d, parity, x_cb, i0 + i, j0 + j);
+              tile[i*n+j] = complex<typename RealType<T>::type>(
+                  static_cast<typename RealType<T>::type>(value.real()),
+                  static_cast<typename RealType<T>::type>(value.imag()));
+            }
         }
       }
     }

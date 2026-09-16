@@ -1145,6 +1145,10 @@ def test_quda_expected_parameters_propagate_only_fine_null_vectors():
     assert transitions["num_setup_iter"] == [1, 0]
     assert expected["multigrid"]["generate_all_levels"] == (
         "QUDA_BOOLEAN_FALSE")
+    levels = expected["multigrid"]["levels"]
+    assert levels["smoother"] == ["QUDA_MR_INVERTER"] * 3
+    assert levels["smoother_tol"] == [0.0] * 3
+    assert levels["coarse_solver_maxiter"] == [1, 1, 200]
 
 
 def test_native_quda_mg_trace_parser_preserves_level_residuals(tmp_path):

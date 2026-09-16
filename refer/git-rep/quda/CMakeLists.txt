@@ -265,6 +265,10 @@ option(QUDA_BACKWARDS "Enable stacktrace generation using backwards-cpp")
 
 option(QUDA_MULTIGRID "build multigrid solvers" OFF)
 option(QUDA_MULTIGRID_DSLASH_PROMOTE "Whether to promote the internal precision when computing the coarse dslash" OFF)
+option(QUDA_MULTIGRID_DOUBLE "enable double-precision multigrid" OFF)
+if(QUDA_MULTIGRID_DOUBLE)
+  add_compile_definitions(GPU_MULTIGRID_DOUBLE)
+endif()
 
 # features in development
 option(QUDA_SSTEP "build s-step linear solvers" OFF)

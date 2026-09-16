@@ -73,6 +73,7 @@ def _run_formal_benchmark(
     command = [
         sys.executable, "-B", str(BENCHMARK),
         "--profile", profile, "--side", "both",
+        "--allow-trace",
         "--cache-expect", cache_expect, "--repeats", str(repeats),
         "--quda-nullvec-prefix",
         str(REPO / "data" / "L16x32x32x48_nvec12_quda"),
