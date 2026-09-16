@@ -56,11 +56,15 @@ def _json(path: Path) -> Dict[str, Any]:
 
 def _run_formal_benchmark(
         benchmark_output: Path, pyqcu_trace: Path, quda_trace: Path,
-        repeats: int, timeout: float) -> Dict[str, Any]:
+        quda_mg_trace: Path,
+        repeats: int, timeout: float,
+        profile: str = "formal", cache_expect: str = "hit",
+        protocol_args: Sequence[str] = ()) -> Dict[str, Any]:
     benchmark_output.parent.mkdir(parents=True, exist_ok=True)
     env = os.environ.copy()
     env["PYQCU_STRICT_TRACE_FILE"] = str(pyqcu_trace.resolve())
     env["PYQCU_QUDA_TRACE_FILE"] = str(quda_trace.resolve())
+    env["QUDA_MG_TRACE_FILE"] = str(quda_mg_trace.resolve())
     env.setdefault("QUDA_INSTALL", str(REPO / "data" / "quda-qio-install"))
     env.setdefault("QUDA_PATH", env["QUDA_INSTALL"])
     quda_lib = str(Path(env["QUDA_INSTALL"]) / "lib")
@@ -68,13 +72,14 @@ def _run_formal_benchmark(
         "LD_LIBRARY_PATH", "")
     command = [
         sys.executable, "-B", str(BENCHMARK),
-        "--profile", "formal", "--side", "both",
-        "--cache-expect", "hit", "--repeats", str(repeats),
+        "--profile", profile, "--side", "both",
+        "--cache-expect", cache_expect, "--repeats", str(repeats),
         "--quda-nullvec-prefix",
         str(REPO / "data" / "L16x32x32x48_nvec12_quda"),
         "--quda-nullvec-manifest",
         str(REPO / "data" / "L16x32x32x48_nvec12_quda.conversion.json"),
         "--output", str(benchmark_output),
+        *protocol_args,
     ]
     completed = subprocess.run(
         command, cwd=str(REPO), env=env, text=True,
@@ -150,6 +155,19 @@ def _parse_pyqcu_trace(path: Path) -> List[Dict[str, Any]]:
             if event["seconds"] < 0.0 or not math.isfinite(event["seconds"]):
                 raise ValueError(f"invalid Strict stage duration in {path}")
             current.setdefault("stages", []).append(event)
+        elif kind == "residual":
+            if current is None:
+                raise ValueError(f"residual before solve_begin in {path}")
+            event = {
+                "kind": kind,
+                "outer_iteration": int(fields[1]),
+                "level": int(fields[2]),
+                "name": fields[3],
+                "absolute": float(fields[4]),
+                "relative": float(fields[5]),
+                "elapsed_seconds": float(fields[6]),
+            }
+            current.setdefault("residuals", []).append(event)
         elif kind == "solve_end":
             if current is None:
                 raise ValueError(f"solve_end before solve_begin in {path}")
@@ -199,6 +217,140 @@ def _parse_quda_trace(path: Path) -> List[Dict[str, Any]]:
         current["events"].append(event)
     if current is not None:
         sections.append(current)
+    return sections
+
+
+def _parse_quda_mg_trace(path: Path) -> List[Dict[str, Any]]:
+    """Parse QUDA's optional native MG stage/residual TSV."""
+    if not path.is_file():
+        return []
+    sections: List[Dict[str, Any]] = []
+    current: Dict[str, Any] | None = None
+    for raw in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        fields = raw.split("\t")
+        if not fields:
+            continue
+        kind = fields[0]
+        if kind == "trace_version":
+            continue
+        if kind == "python_solve_begin":
+            current = {
+                "solve_index": int(fields[1]),
+                "events": [],
+                "cycles": [],
+            }
+            sections.append(current)
+            continue
+        if kind == "python_solve_end":
+            if current is None:
+                raise ValueError(f"solve_end without begin in {path}")
+            current = None
+            continue
+        if current is None:
+            raise ValueError(f"MG trace event outside a solve in {path}: {raw!r}")
+        event: Dict[str, Any] = {"kind": kind}
+        try:
+            if kind == "cycle_begin":
+                event.update({
+                    "cycle": int(fields[1]),
+                    "level": int(fields[2]),
+                    "levels": int(fields[3]),
+                    "outer_iteration": int(fields[4]),
+                    "location": fields[5],
+                    "timestamp_seconds": float(fields[6]),
+                })
+                current["cycles"].append({"begin": event})
+            elif kind == "cycle_end":
+                event.update({
+                    "cycle": int(fields[1]),
+                    "level": int(fields[2]),
+                    "r2": float(fields[3]),
+                    "rn": float(fields[4]),
+                    "b2": float(fields[5]),
+                    "relative": float(fields[6]),
+                    "timestamp_seconds": float(fields[7]),
+                })
+                matches = [
+                    value for value in current["cycles"]
+                    if value["begin"]["cycle"] == event["cycle"] and
+                    value["begin"]["level"] == event["level"] and
+                    "end" not in value
+                ]
+                if not matches:
+                    raise ValueError(
+                        f"cycle_end has no matching begin in {path}")
+                matches[-1]["end"] = event
+            elif kind == "stage":
+                event.update({
+                    "cycle": int(fields[1]),
+                    "level": int(fields[2]),
+                    "phase": fields[3],
+                    "seconds": float(fields[4]),
+                    "pre_iterations": int(fields[5]),
+                    "post_iterations": int(fields[6]),
+                    "coarse_iterations": int(fields[7]),
+                    "outer_iteration": int(fields[8]),
+                    "timestamp_seconds": float(fields[9]),
+                })
+                matches = [
+                    value for value in reversed(current["cycles"])
+                    if value["begin"]["cycle"] == event["cycle"] and
+                    value["begin"]["level"] == event["level"] and
+                    "end" not in value
+                ]
+                if not matches:
+                    raise ValueError(f"stage has no matching cycle in {path}")
+                matches[0].setdefault("stages", []).append(event)
+            elif kind == "residual":
+                event.update({
+                    "cycle": int(fields[1]),
+                    "level": int(fields[2]),
+                    "phase": fields[3],
+                    "r2": float(fields[4]),
+                    "rn": float(fields[5]),
+                    "b2": float(fields[6]),
+                    "relative": float(fields[7]),
+                    "outer_iteration": int(fields[8]),
+                    "timestamp_seconds": float(fields[9]),
+                })
+                matches = [
+                    value for value in reversed(current["cycles"])
+                    if value["begin"]["cycle"] == event["cycle"] and
+                    value["begin"]["level"] == event["level"] and
+                    "end" not in value
+                ]
+                if not matches:
+                    raise ValueError(f"residual has no matching cycle in {path}")
+                matches[0].setdefault("residuals", []).append(event)
+            elif kind == "outer_begin":
+                event.update({
+                    "iteration": int(fields[1]),
+                    "r2": float(fields[2]),
+                    "rn": float(fields[3]),
+                    "b2": float(fields[4]),
+                    "relative": float(fields[5]),
+                    "timestamp_seconds": float(fields[6]),
+                })
+            elif kind == "outer_iteration":
+                event.update({
+                    "iteration": int(fields[1]),
+                    "cycle_iteration": int(fields[2]),
+                    "iterated_r2": float(fields[3]),
+                    "iterated_rn": float(fields[4]),
+                    "b2": float(fields[5]),
+                    "iterated_relative": float(fields[6]),
+                    "true_r2": float(fields[7]),
+                    "true_rn": float(fields[8]),
+                    "true_relative": float(fields[9]),
+                    "timestamp_seconds": float(fields[10]),
+                })
+            else:
+                raise ValueError(f"unknown QUDA MG trace record {kind!r} in {path}")
+        except (IndexError, ValueError) as exc:
+            raise ValueError(f"malformed QUDA MG trace line in {path}: {raw!r}") from exc
+        current["events"].append(event)
+    if current is not None:
+        raise ValueError(f"unterminated QUDA MG trace solve in {path}")
     return sections
 
 
@@ -277,6 +429,7 @@ def _side_trace(
             "residual_curve": curve,
             "events": section.get("events", []),
             "stages": section.get("stages", []),
+            "residuals": section.get("residuals", []),
             "stage_trace_available": bool(section.get("stages")),
         }
         if pyqcu:
@@ -442,6 +595,19 @@ def _parser() -> argparse.ArgumentParser:
                         help="parse existing trace files beside --benchmark-output")
     parser.add_argument("--pyqcu-trace", type=Path, default=None)
     parser.add_argument("--quda-trace", type=Path, default=None)
+    parser.add_argument("--quda-mg-trace", type=Path, default=None)
+    parser.add_argument("--lattice", type=int, nargs=4, default=None)
+    parser.add_argument("--levels", type=int, default=None)
+    parser.add_argument("--block", type=int, nargs=4, default=None)
+    parser.add_argument("--gauge-path", type=Path, default=None)
+    parser.add_argument("--nullvec-path", type=Path, default=None)
+    parser.add_argument("--quda-nullvec-prefix", type=Path, default=None)
+    parser.add_argument("--quda-nullvec-manifest", type=Path, default=None)
+    parser.add_argument("--precision", choices=("c64", "c128"), default="c64")
+    parser.add_argument(
+        "--profile", choices=("formal", "smoke"), default="formal")
+    parser.add_argument(
+        "--cache-expect", choices=("any", "miss", "hit"), default="hit")
     return parser
 
 
@@ -457,10 +623,29 @@ def main(argv: Sequence[str] | None = None) -> int:
         output.stem + "_pyqcu.tsv")).resolve()
     quda_trace = (args.quda_trace or output.with_name(
         output.stem + "_quda.log")).resolve()
+    quda_mg_trace = (args.quda_mg_trace or output.with_name(
+        output.stem + "_quda_mg.tsv")).resolve()
     if not args.no_run:
+        protocol_args: List[str] = [
+            "--precision", args.precision,
+        ]
+        for flag, value in (
+                ("--lattice", args.lattice),
+                ("--block", args.block)):
+            if value is not None:
+                protocol_args.extend([flag, *[str(item) for item in value]])
+        for flag, value in (
+                ("--levels", args.levels),
+                ("--gauge-path", args.gauge_path),
+                ("--nullvec-path", args.nullvec_path),
+                ("--quda-nullvec-prefix", args.quda_nullvec_prefix),
+                ("--quda-nullvec-manifest", args.quda_nullvec_manifest)):
+            if value is not None:
+                protocol_args.extend([flag, str(value)])
         benchmark = _run_formal_benchmark(
-            benchmark_output, pyqcu_trace, quda_trace,
-            args.repeats, args.timeout)
+            benchmark_output, pyqcu_trace, quda_trace, quda_mg_trace,
+            args.repeats, args.timeout, args.profile, args.cache_expect,
+            protocol_args)
     else:
         benchmark = _json(benchmark_output)
     if args.reference.is_file():
@@ -475,12 +660,21 @@ def main(argv: Sequence[str] | None = None) -> int:
         raise RuntimeError("reference and diagnostic benchmark input bundles differ")
     pyqcu_sections = _parse_pyqcu_trace(pyqcu_trace)
     quda_sections = _parse_quda_trace(quda_trace)
+    quda_mg_sections = _parse_quda_mg_trace(quda_mg_trace)
     sides = {
         "pyqcu": _side_trace(
             "pyqcu", reference, pyqcu_sections, args.repeats, pyqcu=True),
         "quda": _side_trace(
             "quda", reference, quda_sections, args.repeats, pyqcu=False),
     }
+    if quda_mg_sections:
+        steady_native = quda_mg_sections[
+            WARMUPS:WARMUPS + len(sides["quda"]["steady"])]
+        if len(steady_native) < len(sides["quda"]["steady"]):
+            raise RuntimeError(
+                "QUDA native MG trace has fewer solve sections than steady runs")
+        for solve, native in zip(sides["quda"]["steady"], steady_native):
+            solve["mg_trace"] = native
     document: Dict[str, Any] = {
         "schema": {"name": "pyqcu.strict-vs-quda.iteration-trace", "version": 1},
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -492,6 +686,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             "warmups": WARMUPS,
             "pyqcu_trace": str(pyqcu_trace),
             "quda_trace": str(quda_trace),
+            "quda_mg_trace": str(quda_mg_trace),
         },
         "protocol": benchmark.get("protocol"),
         "input_fingerprints": benchmark.get("input_fingerprints"),

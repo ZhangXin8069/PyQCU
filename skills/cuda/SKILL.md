@@ -191,3 +191,17 @@ Strict `CudaSchurOp` 使用固定的 per-instance `_SET_INDEX_` 槽位，严格�
 ## Synchronization
 
 `qcu_api.pxd` must exactly match the C declarations in `cpp/cuda/qcu/python/pyqcu.h`. Any mismatch can cause silent memory corruption.
+
+## Strict trace v2（2026-09-16）
+
+`apply_multigrid_strict.cu` keeps tracing disabled unless
+`PYQCU_STRICT_TRACE_FILE` is set.  Trace version 2 adds
+`residual <outer> <level> <phase> <absolute> <relative> <elapsed>` alongside
+the existing stage and outer-FGMRES records.  Residual probes use dedicated
+trace-only workspaces and the same fine/coarse MATPC operator as the solve;
+with no environment variable, no file and no trace workspace are created.
+
+`CudaStrictMultigridSolver.outer_iterations` is the authoritative count of
+outer right-preconditioned FGMRES columns.  `iterations` remains a
+compatibility alias and must not be described as the sum of smoother or
+coarse-solver iterations.

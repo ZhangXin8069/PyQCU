@@ -1,5 +1,6 @@
 #include <cstring>
 
+#include <mg_profile.h>
 #include <multigrid.h>
 #include <tune_quda.h>
 #include <random_quda.h>
@@ -1130,6 +1131,34 @@ namespace quda
 
   void MG::operator()(cvector_ref<ColorSpinorField> &x, cvector_ref<const ColorSpinorField> &b)
   {
+    const long long profile_cycle
+      = mg_profile::begin_cycle(param.level, param.Nlevel,
+                                param.level == 0 ? "fine" : "coarse");
+    auto profile_b2 = mg_profile::enabled() ? blas::norm2(b) : vector<double>();
+    auto profile_residual = [&](const char *phase,
+                                const cvector_ref<const ColorSpinorField> &residual) {
+      if (!mg_profile::enabled() || residual.empty() || profile_b2.empty())
+        return;
+      auto r2 = blas::norm2(residual);
+      mg_profile::residual(profile_cycle, param.level, phase, r2[0],
+                           profile_b2[0]);
+    };
+    auto profile_solver_residual = [&](const char *phase, Solver *solver) {
+      if (solver) profile_residual(phase, solver->get_residual());
+    };
+    auto profile_stage = [&](const char *phase, auto &&function) {
+      if (!mg_profile::enabled()) {
+        function();
+        return;
+      }
+      qudaDeviceSynchronize();
+      const double started = mg_profile::timestamp();
+      function();
+      qudaDeviceSynchronize();
+      mg_profile::stage(profile_cycle, param.level, phase,
+                        mg_profile::timestamp() - started);
+    };
+
     pushOutputPrefix(prefix);
 
     QudaMatPCType matpc_type = param.mg_global.invert_param->matpc_type;
@@ -1168,17 +1197,37 @@ namespace quda
     if (inner_solution_type == QUDA_MATPC_SOLUTION && param.smoother_solve_type != QUDA_DIRECT_PC_SOLVE)
       errorQuda("For this coarse grid solution type, a preconditioned smoother is required");
 
+    profile_residual("cycle_enter", b);
+
     if (param.level < param.Nlevel - 1) {
       std::vector<ColorSpinorField> out(b.size()), in(b.size());
-      diracSmoother->prepare(out, in, x, b, outer_solution_type);
+      profile_stage("prepare_outer", [&] {
+        diracSmoother->prepare(out, in, x, b, outer_solution_type);
+      });
 
-      if (presmoother) (*presmoother)(out, in);
+      int pre_iterations_before = param_presmooth ? param_presmooth->iter : -1;
+      profile_stage("pre_smoother", [&] {
+        if (presmoother) (*presmoother)(out, in);
+      });
+      int pre_iterations_after = param_presmooth ? param_presmooth->iter : -1;
+      if (use_solver_residual)
+        profile_solver_residual("after_pre_smoother", presmoother);
+      if (mg_profile::enabled())
+        mg_profile::stage(profile_cycle, param.level,
+                          "pre_smoother_iterations", 0.0,
+                          pre_iterations_after - pre_iterations_before, -1, -1);
 
-      if (!smoother_solver_uniform) diracSmoother->reconstruct(x, b, inner_solution_type);
+      if (!smoother_solver_uniform) {
+        profile_stage("reconstruct_inner", [&] {
+          diracSmoother->reconstruct(x, b, inner_solution_type);
+        });
+      }
 
       if (compute_residual) {
-        (*param.matResidual)(r, x);
-        axpby(1.0, b, -1.0, r);
+        profile_stage("compute_residual", [&] {
+          (*param.matResidual)(r, x);
+          axpby(1.0, b, -1.0, r);
+        });
       }
 
       // We need this to ensure that the coarse level has been created.
@@ -1190,34 +1239,83 @@ namespace quda
                                                      r;
 
         // restrict to the coarse grid
-        transfer->R(r_coarse, residual);
+        profile_stage("restrict", [&] { transfer->R(r_coarse, residual); });
 
         // recurse to the next lower level
-        (*coarse_solver)(x_coarse, r_coarse);
+        int coarse_iterations_before
+          = param_coarse_solver ? param_coarse_solver->iter : -1;
+        profile_stage("coarse_solver", [&] { (*coarse_solver)(x_coarse, r_coarse); });
+        int coarse_iterations_after
+          = param_coarse_solver ? param_coarse_solver->iter : -1;
+        if (mg_profile::enabled())
+          mg_profile::stage(profile_cycle, param.level,
+                            "coarse_solver_iterations", 0.0, -1, -1,
+                            coarse_iterations_after - coarse_iterations_before);
 
         // prolongate back to this grid
-        if (!presmoother) {
-          transfer->P(inner_solution_type == outer_solution_type ? x : x(parity), x_coarse);
-        } else { // we must sum to the presmoother solution
-          auto res = inner_solution_type == outer_solution_type ? cvector_ref<ColorSpinorField>(r) :
-                                                                  cvector_ref<ColorSpinorField>(r)(parity);
-          transfer->P(res, x_coarse);
-          xpy(res, inner_solution_type == outer_solution_type ? x : x(parity));
-        }
+        profile_stage("prolongate", [&] {
+          if (!presmoother) {
+            transfer->P(inner_solution_type == outer_solution_type ? x : x(parity), x_coarse);
+          } else { // we must sum to the presmoother solution
+            auto res = inner_solution_type == outer_solution_type ? cvector_ref<ColorSpinorField>(r) :
+                                                                    cvector_ref<ColorSpinorField>(r)(parity);
+            transfer->P(res, x_coarse);
+            xpy(res, inner_solution_type == outer_solution_type ? x : x(parity));
+          }
+        });
+        if (compute_residual) profile_residual("after_prolongation", r);
       }
 
-      if (!smoother_solver_uniform) diracSmoother->prepare(out, in, x, b, inner_solution_type);
+      if (!smoother_solver_uniform) {
+        profile_stage("prepare_inner", [&] {
+          diracSmoother->prepare(out, in, x, b, inner_solution_type);
+        });
+      }
 
-      if (postsmoother) (*postsmoother)(out, in);
+      int post_iterations_before = param_postsmooth ? param_postsmooth->iter : -1;
+      profile_stage("post_smoother", [&] {
+        if (postsmoother) (*postsmoother)(out, in);
+      });
+      int post_iterations_after = param_postsmooth ? param_postsmooth->iter : -1;
+      if (mg_profile::enabled())
+        mg_profile::stage(profile_cycle, param.level,
+                          "post_smoother_iterations", 0.0, -1,
+                          post_iterations_after - post_iterations_before, -1);
 
-      diracSmoother->reconstruct(x, b, outer_solution_type);
+      profile_stage("reconstruct_outer", [&] {
+        diracSmoother->reconstruct(x, b, outer_solution_type);
+      });
+      if (compute_residual) profile_residual("cycle_exit", r);
 
     } else { // do the coarse grid solve
 
       std::vector<ColorSpinorField> out(b.size()), in(b.size());
-      diracSmoother->prepare(out, in, x, b, outer_solution_type);
-      if (presmoother) (*presmoother)(out, in);
-      diracSmoother->reconstruct(x, b, outer_solution_type);
+      profile_stage("prepare_coarsest", [&] {
+        diracSmoother->prepare(out, in, x, b, outer_solution_type);
+      });
+      int pre_iterations_before = param_presmooth ? param_presmooth->iter : -1;
+      profile_stage("coarsest_solve", [&] {
+        if (presmoother) (*presmoother)(out, in);
+      });
+      int pre_iterations_after = param_presmooth ? param_presmooth->iter : -1;
+      profile_stage("reconstruct_coarsest", [&] {
+        diracSmoother->reconstruct(x, b, outer_solution_type);
+      });
+      if (mg_profile::enabled())
+        mg_profile::stage(profile_cycle, param.level, "coarsest_solve",
+                          0.0, pre_iterations_before, pre_iterations_after, -1);
+    }
+
+    if (mg_profile::enabled() && !profile_b2.empty()) {
+      double final_r2 = -1.0;
+      if (param.level < param.Nlevel - 1) {
+        if (compute_residual) {
+          auto r2 = blas::norm2(r);
+          final_r2 = r2[0];
+        }
+      }
+      mg_profile::end_cycle(profile_cycle, param.level, final_r2,
+                            profile_b2[0]);
     }
 
     popOutputPrefix();

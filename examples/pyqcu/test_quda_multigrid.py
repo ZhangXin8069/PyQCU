@@ -387,6 +387,39 @@ def test_strict_quda_hierarchy_coarsens_full_preconditioned_operator():
         mg.setup()
 
 
+def test_strict_propagate_null_vectors_matches_quda_restriction_order():
+    torch.manual_seed(20260916)
+    diagonal = _component_diagonal()
+    link = torch.randn(12, 12, *FINE_SHAPE, dtype=DTYPE) * 0.0005
+    backward = torch.randn(12, 12, *FINE_SHAPE, dtype=DTYPE) * 0.0005
+    matvec = _fine_matvec_with_hop(diagonal, link, backward)
+    first, _ = _random_nulls(20260917)
+    mg = QudaStrictMultigrid(
+        fine_matvec=matvec,
+        fine_diagonal=diagonal,
+        fine_adjoint=matvec,
+        lat_size=FINE_SHAPE,
+        null_vectors=[first],
+        dof_list=[12, 4, 4],
+        block_size=[BLOCK, (1, 1, 1, 1)],
+        max_level=3,
+        propagate_null_vectors=True,
+        materialize_coarse=True,
+        use_parity=True,
+        setup_iters=0,
+        target_parity=0,
+        verbose=False,
+    ).setup()
+    parent = mg.transfers[0]
+    expected = torch.stack([
+        parent.restrict(vector.reshape(parent.fine_dof, *parent.fine_shape))
+        for vector in parent.B
+    ]).reshape(
+        len(parent.B), mg.transfers[1].fine_spin,
+        mg.transfers[1].fine_color, *mg.transfers[1].fine_shape)
+    assert torch.allclose(mg.transfers[1].B, expected)
+
+
 def test_strict_qcu_assets_preserve_quda_y_yhat_storage_and_actions():
     """strict 四槽资产必须逐元素重现 raw D 与 ``X^-1 H``。"""
     null, _ = _random_nulls(20260850)

@@ -124,3 +124,18 @@ MPI stage 1 has c64/c128 global dot/norm reduction (`global_reduction=True`) and
 ## Debug helper
 
 `_verify_coarse_dslash(level, tol)` compares CUDA coarse dslash against Python einsum reference.
+
+## 多层粗基与迭代口径（2026-09-16）
+
+`QudaMultigrid(..., propagate_null_vectors=True)` propagates each later
+transition's basis as `R` applied to the preceding global `B`, matching
+QUDA's `generate_all_levels=false` path.  It is strict-only; the benchmark
+uses one canonical full fine basis and derives the next coarse basis
+deterministically.
+
+`CudaStrictMultigridSolver.outer_iterations` counts outer FGMRES columns;
+`iterations` is only a compatibility alias.  The formal
+$16\cdot32\cdot32\cdot48$ c64 three-level run measured 14 outer iterations
+in 0.653995 s versus QUDA's 37 outer GCR iterations in 2.865627 s
+(4.3817x).  The coarsest volume dropped from 49152 to 3072 (16x); both sides
+use odd--odd MATPC, so the iteration difference is not a parity inversion.

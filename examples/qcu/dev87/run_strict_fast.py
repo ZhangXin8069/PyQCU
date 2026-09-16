@@ -90,7 +90,7 @@ COMMANDS = (
         name="cpu-smoke",
         tier=0,
         description=(
-            "19 focused CPU checks for gamma basis, exports, FGMRES edge cases, strict "
+            "20 focused CPU checks for gamma basis, exports, FGMRES edge cases, strict "
             "mode/geometry guards, "
             "parity transfer/MATPC, strict assets/layouts, matrix-free mode and "
             "colored Galerkin batching"
@@ -123,6 +123,10 @@ COMMANDS = (
             _node(
                 CPU_TEST,
                 "test_strict_quda_hierarchy_coarsens_full_preconditioned_operator",
+            ),
+            _node(
+                CPU_TEST,
+                "test_strict_propagate_null_vectors_matches_quda_restriction_order",
             ),
             _node(
                 CPU_TEST,
