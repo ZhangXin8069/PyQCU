@@ -205,3 +205,35 @@ with no environment variable, no file and no trace workspace are created.
 outer right-preconditioned FGMRES columns.  `iterations` remains a
 compatibility alias and must not be described as the sum of smoother or
 coarse-solver iterations.
+
+## QUDA double MultiGrid 对照构建（2026-09-17）
+
+QUDA 1.1.0 上游默认关闭 double recursive MultiGrid；本项目已在
+`refer/git-rep/quda` 加入最小 opt-in 修复：
+
+1. CMake `QUDA_MULTIGRID_DOUBLE=ON` 定义 `GPU_MULTIGRID_DOUBLE`。
+2. `matrix_tile.cuh` 的 gauge accessor 对 mixed float/double 做显式
+   `complex<T>` 转换。
+3. double coarse-link 原子累加改用 double 存储。核心修改在
+   `include/kernels/coarse_op_kernel.cuh`：`CacheT` 和 `atomic_helper`
+   使用 `typename Arg::store_t`；`coarse_op.in.cu`、`coarsecoarse_op.hpp`、
+   `staggered_coarse_op.in.cu` 对 `Float=double` 选择 double atomic store，
+   float 路径继续使用确定性 int 固定点。
+4. `gauge_norm.cu` 禁止 double fixed-point 检查不再被 double MG 触发。
+
+推荐构建参数：`QUDA_PRECISION=12`、`QUDA_RECONSTRUCT=7`、
+`QUDA_INTERFACE_QDP=ON`、`QUDA_QIO=ON`、`QUDA_QMP=ON`、
+`QUDA_MULTIGRID_NVEC_LIST=12,24`、`QUDA_ENABLE_MMA=OFF`、
+`QUDA_GPU_ARCH=sm_70`。该组合同时覆盖 c64 和 c128，不再分别维护
+c64-only/double-only 两个安装。
+
+`examples/qcu/dev87/quda_env.sh` 默认指向该组合安装，并设置匹配的
+`QUDA_BUILD_DIR`。切换 `QUDA_INSTALL` 时必须同步构建目录，否则正式
+provenance 会把另一套 CMake precision/reconstruct/nvec 能力当成当前库。
+QUDA 侧调用 plain BiCGStab 参考前，必须同时清除
+`inv_type_precondition` 和 `invert_param.preconditioner`（后者置为
+`pyquda_comm.pointer.Pointer("void")`）。
+
+不要把 trace 诊断中的 `PYQCU_STRICT_TRACE_FILE`/`QUDA_MG_TRACE_FILE`
+带进正式 speedup；正式 profile 会对活动 trace 环境 fail closed，只有
+显式 `--allow-trace` 才能运行诊断。

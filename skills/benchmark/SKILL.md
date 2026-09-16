@@ -109,7 +109,69 @@ events.  `examples/qcu/dev87/summarize_mg_trace.py` aggregates both.
 Trace-enabled wall times are diagnostic only; the no-trace formal result is
 the speedup authority.
 
-The final 2026-09-16 formal c64 three-level result is 4.3817x
-(`0.653995` s vs. `2.865627` s) in
-`data/strict_vs_quda_formal_3l_20260916_final.json`; small and medium matrices are
-produced by `examples/qcu/dev87/bench_mg_matrix.py`.
+## 2026-09-17 重新校验与 QUDA double MultiGrid
+
+旧 c64 三层 `4.3817x` 结果撤回。它使用 QUDA 原生 CA-GCR/多内层预算，
+而 PyQCU 使用一次递归 V-cycle；复测后同格点主口径为 `1.9863x`
+(`0.654446` s vs. `1.299921` s)，见
+`data/mg_matrix_20260916_round2/formal-c64-l3/benchmark.json`。当前主口径
+`--quda-strategy aligned` 明确匹配一次递归预算：MR smoother、
+`smoother_tol=0`、非最粗层 `coarse_solver_maxiter=1`。`--quda-strategy
+library` 保留 PyQUDA/QUDA 原生 CA-GCR、`nu_post=8`、`coarse_solver_maxiter=16`
+并作为敏感性对照，不得把两种策略混进同一个加速比。
+
+QUDA upstream 1.1.0 的 double MG 需要以下源码级修复：
+
+1. 用 CMake `QUDA_MULTIGRID_DOUBLE=ON` 打开 `GPU_MULTIGRID_DOUBLE`。
+2. `matrix_tile.cuh` 在 fine/coarse 精度不同的 accessor 上显式构造目标
+   `complex<T>`，不能依赖隐式精度转换。
+3. double coarse-link 原子累加必须使用 double 存储；若访问器仍把 double
+   字段按 `int` 固定点解释，level-1 setup 会出现 NaN。
+   实现位于 `coarse_op.in.cu`、`coarsecoarse_op.hpp`、
+   `include/kernels/coarse_op_kernel.cuh` 和 `staggered_coarse_op.in.cu`。
+4. 建议同一构建使用 `QUDA_PRECISION=12`、`QUDA_RECONSTRUCT=7`、
+   `QUDA_INTERFACE_QDP=ON`、`QUDA_QIO=ON`、`QUDA_QMP=ON`、
+   `QUDA_MULTIGRID_NVEC_LIST=12,24`、`QUDA_ENABLE_MMA=OFF`。
+
+正式 PyQCU/QUDA 对照现在记录同侧 plain BiCGStab 参考时间与真残差。
+参考解不进入 MG-vs-MG 加速比，但必须用于判断某侧 MG 是否异常。QUDA
+侧切到 BiCGStab 时还需把 `invert_param.preconditioner` 显式置为
+`Pointer("void")`；只把 `inv_type_precondition` 设为 INVALID 不够，
+QUDA 的 solver factory 仍会因残留 MG 指针拒绝 BiCGStab。
+
+主口径 c64/c128 结果如下（五次 median；trace 环境变量全部未设置）：
+
+| 格点 / 层数 / 精度 | PyQCU | QUDA aligned | 加速比 | 外迭代 PyQCU/QUDA |
+|---|---:|---:|---:|---:|
+| `8^3·16` / 2 / c64 | 0.054184 s | 0.399675 s | 7.3763x | 9 / 32 |
+| `8^3·16` / 3 / c64 | 0.043200 s | 0.516422 s | 11.9542x | 10 / 33 |
+| `16^3·16` / 3 / c64 | 0.149240 s | 0.745390 s | 4.9946x | 31 / 59 |
+| `16·32·32·48` / 3 / c64 | 0.654446 s | 1.299921 s | 1.9863x | 14 / 39 |
+| `8^3·16` / 3 / c128 | 0.077162 s | 0.975873 s | 12.6471x | 14 / 46 |
+| `16^3·16` / 3 / c128 | 0.365517 s | 1.290496 s | 3.5306x | 44 / 87 |
+
+c128 三层大格点 `16·32·32·48` 在 32 GiB V100 上 setup 阶段双方均 OOM：
+PyQCU 在 block orthogonalization 请求额外 864 MiB 时失败，QUDA 在
+double coarse-link setup 请求 75 MiB 时失败。该失败证据保留在
+`data/mg_matrix_20260916_round2/formal-c128-l3/benchmark.json`，不得用
+裁剪后的 PyQCU 单侧结果伪造跨库加速比。最大可信 c128 点因此是
+`16^3·16` 三层；单/多层 c128 小格点用于验证 double MG 路径。
+
+`QUDA_RESOURCE_PATH` 应指向仓库内持久 tuning 目录；同一构建复跑若切换
+`QUDA_INSTALL`，还必须同步 `QUDA_BUILD_DIR`，否则 CMake provenance 会读取
+另一套 precision/reconstruct/nvec 能力并错误判定。
+
+正式 trace-off 与 trace-on 必须分开报告。小格 c64 三层诊断：
+
+| 模式 | PyQCU | QUDA |
+|---|---:|---:|
+| trace-off | 0.043971 s | 0.505706 s |
+| trace-on | 0.125649 s | 0.560432 s |
+| 开销因子 | 2.86x | 1.11x |
+
+trace-on 数值只用于分层归因，绝不能再用于正式 speedup。
+
+多卡方面，当前机器只有一张受这套 PyTorch `sm_70+` 支持的 V100；两张
+P100 为 `sm_60`，当前 PyTorch 构建明确不兼容，且 PyQCU/QUDA 本任务构建
+目标为 `sm_70`。因此本轮不能把多卡数字并入正式 MG 结论；应记录为环境
+能力缺口，而不是把单卡结果冒充多卡验证。

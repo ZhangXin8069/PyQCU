@@ -1,0 +1,342 @@
+{
+  "schema": {
+    "name": "pyqcu.strict-vs-quda.benchmark",
+    "version": 1
+  },
+  "run_id": "642000b04d8fb40b5b35",
+  "state": "complete-unavailable",
+  "profile": "formal",
+  "created_at": "2026-09-16T15:45:46Z",
+  "updated_at": "2026-09-16T15:56:31Z",
+  "selected_sides": [
+    "pyqcu",
+    "quda"
+  ],
+  "protocol": {
+    "profile": "formal",
+    "lattice_xyzt": [
+      16,
+      32,
+      32,
+      48
+    ],
+    "mass": 0.05,
+    "kappa": 0.1234567901234568,
+    "seed": 42,
+    "precision": {
+      "name": "c128",
+      "complex_bytes": 16,
+      "real": "float64",
+      "default_tolerance": 1e-08,
+      "true_residual_gate": 5e-08
+    },
+    "levels": 3,
+    "block_xyzt": [
+      2,
+      2,
+      2,
+      2
+    ],
+    "block_xyzt_per_level": [
+      [
+        2,
+        2,
+        2,
+        2
+      ],
+      [
+        2,
+        2,
+        2,
+        2
+      ]
+    ],
+    "nvec": 12,
+    "coarse_spin": 2,
+    "coarse_dof": 24,
+    "target_parity": 1,
+    "null_vector_contract": {
+      "source": "12 canonical full near-null vectors",
+      "full_reconstruction": "precomputed once by zero-rhs Clover block elimination",
+      "transfer": "full-field chiral aggregation with coarse_spin=2"
+    },
+    "outer_solver": "restarted-right-fgmres/gcr",
+    "reference_solver": {
+      "kind": "bicgstab",
+      "warmups": 1,
+      "timing_semantics": "same caller-owned input/output and true-residual gate; outside MultiGrid and excluded from speedup"
+    },
+    "restart_requested": 16,
+    "restart_effective": 4,
+    "max_krylov_bytes": 1073741824,
+    "pyqcu_strict_setup": {
+      "probe_mode": "colored",
+      "column_batch_size": 1,
+      "projection_site_batch_size": 4,
+      "max_workspace_bytes": 1073741824,
+      "workspace_four_arena_lower_bound_bytes": 603979776,
+      "require_exact_batch": true
+    },
+    "fused_workspace_formula": "(2m+5)B_f+2B_c",
+    "fused_workspace_terms": {
+      "B_f": "one compact fine-parity vector in bytes",
+      "B_c": "one full first-coarse-level vector in bytes"
+    },
+    "max_iter": 1000,
+    "tolerance": 1e-08,
+    "true_residual_gate": 5e-08,
+    "nu_pre": 1,
+    "nu_post": 1,
+    "coarse_max_iter": 200,
+    "coarse_tolerance": 3e-05,
+    "initial_guess": "zero for every warmup and measured solve",
+    "warmups": 2,
+    "repeats": 5,
+    "statistic": {
+      "center": "median",
+      "spread": "median absolute deviation from median",
+      "warmups_included": false
+    },
+    "timing_contract": {
+      "input_io": "outside setup and solve",
+      "runtime_init": "CUDA/PyQUDA module initialization, outside setup",
+      "setup": "host inputs -> gauge/clover/runtime ready; includes cache lookup/restore, excludes cache persistence",
+      "cache_lookup_or_restore": "reported as a disjoint setup component",
+      "cache_persist": "reported separately and excluded from setup total",
+      "steady_solve": "zero-x0 solve call bracketed by CUDA synchronization",
+      "true_residual": "computed after each timed solve and excluded from solve time",
+      "first_solve_memory": "the first zero-x0 warmup is sampled for lazy solver/workspace allocation; excluded from warmup/repeat timing statistics",
+      "memory_probe": "one additional post-timing solve with 10 ms device-wide cudaMemGetInfo sampling; excluded from warmups/repeats/statistics"
+    },
+    "residual_contract": {
+      "definition": "||b-D_pyqcu*x_canonical||_2/||b||_2",
+      "operator": "full periodic Wilson+Clover, csw=1, PyQCU normalization",
+      "quda_solution_scale": 4.05
+    },
+    "config_hash": "642000b04d8fb40b5b35da20ce241c16309d9d19e264f718f55fa18753fe3bf5"
+  },
+  "inputs": {
+    "gauge": {
+      "path": "/root/PyQCU/data/gauge_16x32x32x48_m0.05_seed42_c64.h5",
+      "dataset": "g",
+      "storage_precision": "c64",
+      "exists": true
+    },
+    "source": {
+      "path": "/root/PyQCU/data/gauge_16x32x32x48_m0.05_seed42_c64.h5",
+      "dataset": "fi",
+      "storage_precision": "c64",
+      "exists": true
+    },
+    "null_vectors": {
+      "path": "/root/PyQCU/data/L16x32x32x48_nvec12_full_c64.h5",
+      "dataset": "null",
+      "layout": "[nvec,spin,color,x,y,z,t]",
+      "parity": "full (even reconstructed once; odd copied verbatim)",
+      "storage_precision": "c64",
+      "exists": true
+    },
+    "quda_qio": {
+      "prefix": "data/L16x32x32x48_nvec12_quda",
+      "conversion_manifest": "data/L16x32x32x48_nvec12_quda.conversion.json",
+      "required_for_fair_quda_run": true
+    }
+  },
+  "execution": {
+    "strict_cache": {
+      "directory": "/root/PyQCU/data/strict_runtime_cache",
+      "expect": "hit"
+    }
+  },
+  "input_fingerprints": {
+    "gauge": {
+      "algorithm": "sha256(logical-hdf5-dataset-v1)",
+      "sha256": "0a5b710d0fe1f69240e7fd373db0a163d992bd030b366a373e7300375b0d872c",
+      "path": "/root/PyQCU/data/gauge_16x32x32x48_m0.05_seed42_c64.h5",
+      "dataset": "g",
+      "shape": [
+        2,
+        3,
+        3,
+        4,
+        16,
+        32,
+        32,
+        24
+      ],
+      "dtype": "complex64",
+      "file_size_bytes": 301991936,
+      "file_mtime_ns": 1787207239570930936,
+      "elapsed_seconds": 0.9816161310009193
+    },
+    "source": {
+      "algorithm": "sha256(logical-hdf5-dataset-v1)",
+      "sha256": "ecf3c6a84720f4da80a59496a7ef5ebf279420a0501c9925cf6ecdc25c47c97a",
+      "path": "/root/PyQCU/data/gauge_16x32x32x48_m0.05_seed42_c64.h5",
+      "dataset": "fi",
+      "shape": [
+        2,
+        4,
+        3,
+        16,
+        32,
+        32,
+        24
+      ],
+      "dtype": "complex64",
+      "file_size_bytes": 301991936,
+      "file_mtime_ns": 1787207239570930936,
+      "elapsed_seconds": 0.30208158800087404
+    },
+    "null_vectors": {
+      "algorithm": "sha256(logical-hdf5-dataset-v1)",
+      "sha256": "8a69971e1b4c95d34ae9a18f200caae1479546f5a6a5bf10b58205da1d1b5163",
+      "path": "/root/PyQCU/data/L16x32x32x48_nvec12_full_c64.h5",
+      "dataset": "null",
+      "shape": [
+        12,
+        4,
+        3,
+        16,
+        32,
+        32,
+        48
+      ],
+      "dtype": "complex64",
+      "file_size_bytes": 906211760,
+      "file_mtime_ns": 1788102741385772486,
+      "elapsed_seconds": 4.200680266003474
+    },
+    "bundle_hash": "8c866bd093cf7c6b447b7c61e95704e7dac349386e4fbe28935455a0a6ca3d31"
+  },
+  "collector": {
+    "path": "/root/PyQCU/examples/qcu/dev87/bench_strict_vs_quda.py",
+    "git": {
+      "commit": "3c1fd26a66185aa565a5e1182e9f17e1b7ef0fa8",
+      "dirty_tracked": true,
+      "repository": "/root/PyQCU"
+    },
+    "environment": {
+      "python": "3.10.12",
+      "executable": "/usr/bin/python",
+      "platform": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.35",
+      "hostname": "68bb03cf529b",
+      "env": {
+        "QUDA_INSTALL": "/root/PyQCU/data/quda-double-install",
+        "QUDA_PATH": "/root/PyQCU/data/quda-double-install",
+        "QUDA_BUILD_DIR": "/root/PyQCU/data/quda-qio-build/attempt2",
+        "DEV87_REDUCE_SYNC": "1"
+      }
+    },
+    "timeout_seconds_per_side": 3600.0,
+    "resume": false,
+    "diagnostic_trace_environment": []
+  },
+  "sides": {
+    "pyqcu": {
+      "side": "pyqcu",
+      "status": "failed",
+      "reason": {
+        "code": "strict_runtime_cache_expectation_failed",
+        "detail": "expected hit but target is absent: /root/PyQCU/data/strict_runtime_cache/strict_runtime_7c3c74daeb1333bf1db61d6d.h5"
+      },
+      "config_hash": "642000b04d8fb40b5b35da20ce241c16309d9d19e264f718f55fa18753fe3bf5",
+      "input_bundle_hash": "8c866bd093cf7c6b447b7c61e95704e7dac349386e4fbe28935455a0a6ca3d31",
+      "provenance": {
+        "pyqcu_git": {
+          "commit": "3c1fd26a66185aa565a5e1182e9f17e1b7ef0fa8",
+          "dirty_tracked": true,
+          "repository": "/root/PyQCU"
+        },
+        "quda_source_git": {
+          "commit": "3c1fd26a66185aa565a5e1182e9f17e1b7ef0fa8",
+          "dirty_tracked": true,
+          "repository": "/root/PyQCU/refer/git-rep/quda"
+        },
+        "quda_libraries": {
+          "libquda": {
+            "path": "/root/PyQCU/data/quda-double-install/lib/libquda.so",
+            "sha256": "4b288d0c94b7db677679cf316c603412f68210ba5ca62500c957216af4756c07",
+            "exists": true
+          },
+          "libqmp": {
+            "path": "/root/PyQCU/data/quda-double-install/lib/libqmp.so",
+            "sha256": "74964623d394834244770550d4fadb7fbb2e1d9315ec64cee165442bf6fcf146",
+            "exists": true
+          }
+        },
+        "pyquda_module": {
+          "path": null,
+          "version": null
+        },
+        "cmake_features": {
+          "cache_path": "/root/PyQCU/data/quda-qio-build/attempt2/CMakeCache.txt",
+          "cache_sha256": "434f9338540a95c47abd7b028ee60aec3ac88ea8eac744112d5c6d16156d46f5",
+          "features": {
+            "QUDA_INTERFACE_QDP": true,
+            "QUDA_MULTIGRID_DOUBLE": true,
+            "QUDA_MULTIGRID_NVEC_LIST": "12,24",
+            "QUDA_PRECISION": 12,
+            "QUDA_QIO": true,
+            "QUDA_QMP": true,
+            "QUDA_RECONSTRUCT": 7
+          },
+          "normalized": {
+            "qdp_interface": true,
+            "qio": true,
+            "qmp": true,
+            "reconstruct": 7,
+            "precision": 12,
+            "multigrid_nvec_list": [
+              12,
+              24
+            ],
+            "multigrid_double": true
+          }
+        },
+        "patch_variant": {
+          "name": "wsl2_unpatched_or_unverified",
+          "wsl2": true,
+          "environment_scoped": true,
+          "limitation": "仅限启用 DEV87_REDUCE_SYNC 的 WSL2 patched QUDA 构建；不得解释为可移植的 upstream QUDA 证据",
+          "marker_present": false
+        }
+      },
+      "worker_wall_seconds": 0.33216571299999487,
+      "completed_at": "2026-09-16T15:45:53Z",
+      "process": {
+        "returncode": 1,
+        "wall_seconds": 0.4589360969985137,
+        "stdout_tail": "",
+        "stderr_tail": ""
+      }
+    },
+    "quda": {
+      "side": "quda",
+      "status": "failed",
+      "reason": {
+        "code": "worker_protocol_missing",
+        "detail": "returncode=1; no result sentinel"
+      },
+      "config_hash": "642000b04d8fb40b5b35da20ce241c16309d9d19e264f718f55fa18753fe3bf5",
+      "input_bundle_hash": "8c866bd093cf7c6b447b7c61e95704e7dac349386e4fbe28935455a0a6ca3d31",
+      "process": {
+        "returncode": 1,
+        "wall_seconds": 638.014012840009,
+        "stdout_tail": "PyQUDA INFO: Using default grid mapping\nPyQUDA INFO: Using grid size [1, 1, 1, 1]\nPyQUDA INFO: Using torch with cuda as Array API\nPyQUDA INFO: Using device 0\nPyQUDA INFO: Using QUDA_ENABLE_NVSHMEM=0\nQUDA 1.1.0 (git 1.1.0-3c1fd26-dirty-sm_70)\nCUDA Driver version = 12040\nCUDA Runtime version = 12040\nGraphic driver version = 551.78\nFound device 0: Tesla V100-SXM2-32GB\nFound device 1: Tesla P100-PCIE-16GB\nFound device 2: Tesla P100-PCIE-16GB\nUsing device 0: Tesla V100-SXM2-32GB\nInitializing monitoring on device 0 with pciBusId 0000:06:00.0: Tesla V100-SXM2-32GB\nWARNING: Data reordering done on GPU (set with QUDA_REORDER_LOCATION=GPU/CPU)\nWARNING: Environment variable QUDA_RESOURCE_PATH is not set.\nWARNING: Caching of tuned parameters will be disabled\nWARNING: Cache file not found.  All kernels will be re-tuned (if tuning is enabled).\nWARNING: Using device memory pool allocator\nWARNING: Using pinned memory pool allocator\ncublasCreated successfully\nMG level 0 (GPU): set_layout layout set for 1 nodes\nMG level 0 (GPU): open_test_input: QIO_open_read done.\nMG level 0 (GPU): open_test_input: User file info is \"Dummy user file XML\"\nMG level 0 (GPU): read_spinor_field: reading 12 vector fields\nMG level 0 (GPU): read_field: QIO_read_record_data returns status 0\nMG level 0 (GPU): QIO string: <?xml version=\"1.0\" encoding=\"UTF-8\"?><qudaWilsonColorSpinorField><version>BETA</version><type>QUDA_FNs4Nc3_ColorSpinorField</type><info><subset>full</subset><parity>full</parity><nColor>3</nColor><nSpin>4</nSpin></info></qudaWilsonColorSpinorField>\nMG level 0 (GPU): read_field: QIO_read_record_data returns status 0\nMG level 0 (GPU): read_spinor_field: Closed file for reading\nMG level 0 (GPU): ERROR: Failed to allocate device memory of size 75497472 (/root/PyQCU/data/quda-qio-build/source-shadow/lib/quda_ptr.cpp:17 in quda_ptr())\n (rank 0, host 68bb03cf529b, malloc.cpp:236 in void* quda::device_malloc_(const char*, const char*, int, size_t)())\nMG level 0 (GPU):        last kernel called was (name=N4quda4blas4axy_IdEE,volume=8x32x32x48,aux=GPU-offline,large_kernel_arg,vol=393216,parity=1,precision=8,Ns=4,Nc=3,order=0,N=2,n_rhs=1,prefetch=thread,unroll=1)\nMG level 0 (GPU):        last tune param used was block=(512,1,1), grid=(9216,1,1), shared_bytes=0, shared_carve_out=0, aux=(-1,-1,-1,-1)\n",
+        "stderr_tail": "/usr/local/lib/python3.10/dist-packages/torch/cuda/__init__.py:435: UserWarning: \n    Found GPU1 Tesla P100-PCIE-16GB which is of cuda capability 6.0.\n    Minimum and Maximum cuda capability supported by this version of PyTorch is\n    (7.0) - (12.0)\n    \n  queued_call()\n/usr/local/lib/python3.10/dist-packages/torch/cuda/__init__.py:435: UserWarning: \n    Please install PyTorch with a following CUDA\n    configurations:  12.6 following instructions at\n    https://pytorch.org/get-started/locally/\n    \n  queued_call()\n/usr/local/lib/python3.10/dist-packages/torch/cuda/__init__.py:435: UserWarning: \n    Found GPU2 Tesla P100-PCIE-16GB which is of cuda capability 6.0.\n    Minimum and Maximum cuda capability supported by this version of PyTorch is\n    (7.0) - (12.0)\n    \n  queued_call()\n/usr/local/lib/python3.10/dist-packages/torch/cuda/__init__.py:435: UserWarning: \nTesla P100-PCIE-16GB with CUDA capability sm_60 is not compatible with the current PyTorch installation.\nThe current PyTorch install supports CUDA capabilities sm_70 sm_75 sm_80 sm_86 sm_90 sm_100 sm_120.\nIf you want to use the Tesla P100-PCIE-16GB GPU with PyTorch, please check the instructions at https://pytorch.org/get-started/locally/\n\n  queued_call()\nPyQUDA WARNING: Neither QUDA_RESOURCE_PATH nor init(resource_path) is set\nRuntimeWarning: Neither QUDA_RESOURCE_PATH nor init(resource_path) is set\nQMP m0,n1@68bb03cf529b error: abort: 1\n--------------------------------------------------------------------------\nMPI_ABORT was invoked on rank 0 in communicator MPI_COMM_WORLD\nwith errorcode 1.\n\nNOTE: invoking MPI_ABORT causes Open MPI to kill all MPI processes.\nYou may or may not see output from other processes, depending on\nexactly when Open MPI kills them.\n--------------------------------------------------------------------------\n"
+      },
+      "completed_at": "2026-09-16T15:56:31Z"
+    }
+  },
+  "comparison": {
+    "status": "unavailable",
+    "profile": "formal",
+    "fair": false,
+    "reasons": [
+      "pyqcu status=failed",
+      "quda status=failed"
+    ],
+    "speedup_pyqcu_over_quda": null
+  }
+}

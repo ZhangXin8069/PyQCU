@@ -51,3 +51,9 @@ def test_cli_list_contains_three_level_cases(capsys):
     assert matrix.main(["--list"]) == 0
     output = capsys.readouterr().out
     assert '"levels": 3' in output
+
+
+def test_c128_cases_are_not_downgraded_to_pyqcu_only():
+    c128 = [case for case in matrix.CASES if case["precision"] == "c128"]
+    assert c128
+    assert all("quda_mg_supported" not in case for case in c128)
