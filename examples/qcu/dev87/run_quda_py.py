@@ -28,6 +28,14 @@ def save_result(name, payload):
 
 
 def build_core(lat_xyzt):
+    # PyQUDA's QUDA library expects QMP to be initialized before its first
+    # communicator query.  Reuse the benchmark's audited FUNNELED bootstrap;
+    # importing PyQUDA first makes the QMP error irreversible.
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import bench_strict_vs_quda as bench
+    runtime = bench._prepare_quda_reduction_runtime()
+    bench._initialize_quda_qmp_runtime(runtime)
+
     import pyquda
     import pyquda_utils.core as core
     pyquda.init(grid_size=[1, 1, 1, 1], latt_size=list(lat_xyzt), backend="torch",
@@ -106,6 +114,15 @@ def _force_double(dirac):
                        eigensolver=P.QUDA_DOUBLE_PRECISION)
 
 
+def _force_single(dirac):
+    """Match the c64 PyQCU reference in the combined precision-12 build."""
+    from pyquda.enum_quda import QudaPrecision as P
+    dirac.setPrecision(cuda=P.QUDA_SINGLE_PRECISION, sloppy=P.QUDA_SINGLE_PRECISION,
+                       precondition=P.QUDA_SINGLE_PRECISION,
+                       refinement_sloppy=P.QUDA_SINGLE_PRECISION,
+                       eigensolver=P.QUDA_SINGLE_PRECISION)
+
+
 def case_solve(core, lat, mass, tol, maxiter):
     qdp = np.load(OUT / "gauge_qdp_c64.npy")
     npz = np.load(OUT / "qcu_clover_solve.npz")
@@ -120,6 +137,7 @@ def case_solve(core, lat, mass, tol, maxiter):
     from pyquda.field import LatticeFermion as _LF
     b_lf = _LF(info, torch.from_numpy(np.ascontiguousarray(x_np)).to("cuda"))
     dirac = core.getClover(info, mass, tol, maxiter, clover_csw_t=1.0)
+    _force_single(dirac)
     try:
         from pyquda.enum_quda import QudaInverterType
         dirac.invert_param.inv_type = QudaInverterType.QUDA_BICGSTAB_INVERTER
@@ -227,8 +245,7 @@ def case_mg(core, lat, mass, tol, maxiter, nvec=24, block=(2, 2, 2, 2)):
             mg_obj.param.transfer_use_mma = [0] * len(mg_obj.param.transfer_use_mma)
     except Exception as e:
         print("[mg] setParam(nvec) fallback to default:", e)
-    # 注意：MG 层精度保持 quda 默认（本快照未启用 GPU_MULTIGRID_DOUBLE，
-    # 强推 double 会触发 block_orthogonalize 编译期禁用分支）
+    _force_single(dirac)
     t_setup0 = time.perf_counter()
     dirac.loadGauge(to_gauge_field(core, info, qdp))
     setup_s = time.perf_counter() - t_setup0
