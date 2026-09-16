@@ -170,14 +170,19 @@ COMMANDS = (
         name="cuda-strict",
         tier=1,
         description=(
-            "CUDA P/R, 33-point stencil, strict X/Y/Yhat, MATPC, prepare and "
-            "reconstruct primitives, nontrivial Clover MATPC on both parities, "
-            "persistent recursive V-cycle and bounded complete solve"
+            "CUDA P/R, 33-point stencil, c128 CPU-staged Galerkin, strict "
+            "X/Y/Yhat, MATPC, prepare and reconstruct primitives, nontrivial "
+            "Clover MATPC on both parities, persistent recursive V-cycle and "
+            "bounded complete solve"
         ),
         argv=_pytest(
             _node(
                 CUDA_TEST,
                 "test_quda_transfer_and_stencil_match_qcu_kernels",
+            ),
+            _node(
+                CUDA_TEST,
+                "test_strict_galerkin_colored_cpu_block_staging_matches_reference",
             ),
             _node(
                 CUDA_TEST,

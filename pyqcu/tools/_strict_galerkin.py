@@ -24,6 +24,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from itertools import product
+from functools import lru_cache
 from math import prod
 from time import perf_counter
 from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional
@@ -70,7 +71,9 @@ def _displacement(source: Coord, target: Coord, shape: Shape4) -> BlockKey:
     )  # type: ignore[return-value]
 
 
-def _target_entries(source: Coord, shape: Shape4) -> List[Tuple[Coord, BlockKey]]:
+@lru_cache(maxsize=256)
+def _target_entries(source: Coord, shape: Shape4) -> Tuple[
+        Tuple[Coord, BlockKey], ...]:
     """Return unique target aggregates reached by a one-hop coarse stencil."""
     ordered: Dict[Coord, BlockKey] = {}
 
@@ -89,17 +92,20 @@ def _target_entries(source: Coord, shape: Shape4) -> List[Tuple[Coord, BlockKey]
             target = list(source)
             target[dim] = (target[dim] + step) % shape[dim]
             add(tuple(target))  # type: ignore[arg-type]
-    return list(ordered.items())
+    return tuple(ordered.items())
 
 
-def _source_color_groups(shape: Shape4) -> List[List[Coord]]:
-    """Greedily color sources whose one-hop target crosses do not overlap.
+@lru_cache(maxsize=32)
+def _source_color_groups(shape: Shape4) -> Tuple[Tuple[Coord, ...], ...]:
+    """Color sources whose one-hop target crosses do not overlap.
 
     Sources in one group can be superposed in the same probe field: strict
     nearest-neighbour support guarantees that every target aggregate then
-    receives an image from at most one source in that group.  Building the
-    groups from actual periodic coordinates also handles extents 1 and 2
-    without relying on a modulo-3 coloring that fails on short periodic axes.
+    receives an image from at most one source in that group.
+
+    The greedy order is deterministic and is built from the actual periodic
+    target sets; this keeps extents 1 and 2 correct when a naive modulo
+    coloring would collide across the boundary.
     """
     groups: List[List[Coord]] = []
     occupied_targets: List[set[Coord]] = []
@@ -111,9 +117,9 @@ def _source_color_groups(shape: Shape4) -> List[List[Coord]]:
                 occupied.update(targets)
                 break
         else:
-            groups.append([source])
             occupied_targets.append(set(targets))
-    return groups
+            groups.append([source])
+    return tuple(tuple(group) for group in groups)
 
 
 def _fine_slices(coord: Coord, block_size: Shape4) -> Tuple[slice, ...]:
@@ -190,6 +196,151 @@ def _action_links(
         forward.append(plus)
         backward.append(blocks.get(minus_key, zero))
     return forward, backward
+
+
+def _action_links_streamed(
+        blocks: Mapping[BlockKey, Tensor], shape: Shape4,
+        template: Tensor) -> Tuple[List[Tensor], List[Tensor]]:
+    """Materialize only the one-hop blocks needed for each action direction."""
+    zero = _torch.zeros_like(template)
+
+    def get_block(key: BlockKey) -> Tensor:
+        value = blocks.get(key)
+        if value is None:
+            return zero
+        if value.device != template.device or value.dtype != template.dtype:
+            value = value.to(device=template.device, dtype=template.dtype)
+        return value
+
+    forward: List[Tensor] = []
+    backward: List[Tensor] = []
+    origin: Coord = (0, 0, 0, 0)
+    for dim, extent in enumerate(shape):
+        if extent == 1:
+            forward.append(zero)
+            backward.append(zero)
+            continue
+        plus_target = list(origin)
+        plus_target[dim] = (plus_target[dim] - 1) % extent
+        plus_key = _displacement(
+            origin, tuple(plus_target), shape)  # type: ignore[arg-type]
+        plus = get_block(plus_key)
+        if extent == 2:
+            forward.append(0.5 * plus)
+            backward.append(0.5 * plus)
+            continue
+        minus_target = list(origin)
+        minus_target[dim] = (minus_target[dim] + 1) % extent
+        minus_key = _displacement(
+            origin, tuple(minus_target), shape)  # type: ignore[arg-type]
+        forward.append(plus)
+        backward.append(get_block(minus_key))
+    return forward, backward
+
+
+def _gather_blocked_sites(blocked: Tensor, coordinates: Tensor) -> Tensor:
+    """Gather ``[K,P,E,e,B]`` support blocks from the 10-D blocked basis."""
+    tx, ty, tz, tt = coordinates.unbind(dim=-1)
+    values = blocked[:, :, tx, :, ty, :, tz, :, tt, :]
+    # Advanced indices move to the front: [K,P,E,e,bx,by,bz,bt].
+    return values.reshape(
+        int(coordinates.shape[0]), int(coordinates.shape[1]),
+        int(blocked.shape[0]), int(blocked.shape[1]), -1)
+
+
+def _gather_fine_sites(
+        image: Tensor, coordinates: Tensor, block_size: Shape4) -> Tensor:
+    """Gather ``[K,P,C,e,B]`` fine support blocks from ``[C,e,X,Y,Z,T]``."""
+    columns, dof = int(image.shape[0]), int(image.shape[1])
+    coarse_shape = tuple(
+        int(image.shape[2 + dim]) // int(block_size[dim])
+        for dim in range(4))
+    split = image.reshape(
+        columns, dof,
+        coarse_shape[0], int(block_size[0]),
+        coarse_shape[1], int(block_size[1]),
+        coarse_shape[2], int(block_size[2]),
+        coarse_shape[3], int(block_size[3]))
+    tx, ty, tz, tt = coordinates.unbind(dim=-1)
+    values = split[:, :, tx, :, ty, :, tz, :, tt, :]
+    return values.reshape(
+        int(coordinates.shape[0]), int(coordinates.shape[1]),
+        columns, dof, -1)
+
+
+@dataclass
+class _ProjectedScatterPlan:
+    keys: List[BlockKey]
+    offsets: List[Tuple[int, int]]
+    rows: Tensor
+    sites: Tensor
+
+
+def _prepare_projected_sites(
+        entries: Sequence[Sequence[Tuple[Coord, BlockKey]]],
+        coarse_shape: Shape4) -> _ProjectedScatterPlan:
+    grouped: Dict[BlockKey, List[Tuple[int, Coord]]] = {}
+    points = len(entries[0]) if entries else 0
+    for source_index, source_entries in enumerate(entries):
+        for point_index, (target, key) in enumerate(source_entries):
+            grouped.setdefault(key, []).append(
+                (source_index * points + point_index, target))
+    keys: List[BlockKey] = []
+    offsets: List[Tuple[int, int]] = []
+    all_rows: List[int] = []
+    all_sites: List[int] = []
+    for key, items in grouped.items():
+        start = len(all_rows)
+        for row, target in items:
+            site = int(target[0])
+            for dim in range(1, 4):
+                site = site * int(coarse_shape[dim]) + int(target[dim])
+            all_rows.append(row)
+            all_sites.append(site)
+        keys.append(key)
+        offsets.append((start, len(all_rows)))
+    return _ProjectedScatterPlan(
+        keys=keys,
+        offsets=offsets,
+        rows=_torch.as_tensor(all_rows, dtype=_torch.long),
+        sites=_torch.as_tensor(all_sites, dtype=_torch.long))
+
+
+def _scatter_projected_sites(
+        blocks: Mapping[BlockKey, Tensor], projected: Tensor,
+        prepared: _ProjectedScatterPlan,
+        column_start: int) -> None:
+    """Scatter ``[K,P,C,E]`` projections with one vectorized write per key."""
+    extent = int(projected.shape[0])
+    points = int(projected.shape[1])
+    column_count = int(projected.shape[2])
+    flat_projected = projected.reshape(extent * points, column_count, -1)
+    column_offsets = (
+        _torch.as_tensor(
+            list(range(column_count)), dtype=_torch.long,
+            device=projected.device) + int(column_start))
+    staged_on_cpu = next(iter(blocks.values())).device != projected.device
+    if staged_on_cpu:
+        flat_projected = flat_projected.detach().cpu()
+        prepared.rows = prepared.rows.cpu()
+        prepared.sites = prepared.sites.cpu()
+        column_offsets = column_offsets.cpu()
+    elif prepared.rows.device != projected.device:
+        prepared.rows = prepared.rows.to(device=projected.device)
+        prepared.sites = prepared.sites.to(device=projected.device)
+    for key, (start, stop) in zip(prepared.keys, prepared.offsets):
+        rows = prepared.rows[start:stop]
+        sites = prepared.sites[start:stop]
+        selected = flat_projected[rows]
+        values = selected.permute(2, 1, 0).reshape(
+            int(blocks[key].shape[0]), -1)
+        column_index = column_offsets.repeat_interleave(int(rows.numel()))
+        sites = sites.repeat(column_count)
+        destination = blocks[key].reshape(
+            int(blocks[key].shape[0]), int(blocks[key].shape[1]), -1)
+        if values.dtype != destination.dtype:
+            values = values.to(dtype=destination.dtype)
+        destination[:, column_index, sites] = values
 
 
 def strict_galerkin_memory_model(
@@ -497,11 +648,22 @@ def _finish_strict_galerkin(
     zero_key: BlockKey = (0, 0, 0, 0)
     output_dtype = blocked.dtype if output_dtype is None else output_dtype
     X = blocks[zero_key]
+    streamed_blocks = str(X.device) != str(blocked.device)
+    if streamed_blocks and retain_blocks:
+        raise ValueError(
+            "block_device=cpu 要求 retain_blocks=False，避免把 CPU "
+            "canonical blocks 混入 CUDA runtime assets")
+    if streamed_blocks:
+        X = X.to(device=blocked.device)
     site_matrix = X.permute(2, 3, 4, 5, 0, 1).reshape(-1, E, E)
     inverse = _torch.linalg_inv(site_matrix)
     X_inv = inverse.reshape(
         *coarse_shape, E, E).permute(4, 5, 0, 1, 2, 3).contiguous()
-    forward, backward = _action_links(blocks, coarse_shape, X)
+    if streamed_blocks:
+        forward, backward = _action_links_streamed(
+            blocks, coarse_shape, X)
+    else:
+        forward, backward = _action_links(blocks, coarse_shape, X)
 
     raw_links: Optional[Tensor]
     if include_raw_links:
@@ -606,6 +768,7 @@ def build_strict_galerkin(
     max_workspace_bytes: Optional[int] = None,
     verbose: bool = False,
     block_dtype: Any = None,
+    block_device: Any = None,
 ) -> StrictGalerkinResult:
     """Build strict ``X/Y/Yhat`` without column-wise full-basis calls.
 
@@ -618,6 +781,7 @@ def build_strict_galerkin(
     (fine_shape, coarse_shape, block_size,
      blocked, E, e, nvec) = _strict_builder_inputs(transfer)
     block_dtype = blocked.dtype if block_dtype is None else block_dtype
+    block_device = blocked.device if block_device is None else block_device
 
     requested_batch = int(site_batch_size)
     if requested_batch <= 0:
@@ -645,7 +809,7 @@ def build_strict_galerkin(
     blocks: Dict[BlockKey, Tensor] = {
         key: _torch.zeros(
             size=[E, E, *coarse_shape], dtype=block_dtype,
-            device=blocked.device)
+            device=block_device)
         for key in keys
     }
     if zero_key not in blocks:
@@ -716,10 +880,15 @@ def build_strict_galerkin(
         image_local = _torch.stack(image_rows, dim=0)
         projected = _torch.einsum(
             "kpae...,kpbe...->kpab", v_local.conj(), image_local)
+        projected_cpu = (
+            projected.detach().cpu()
+            if str(block_device) != str(blocked.device)
+            else projected)
 
         for k, entries in enumerate(entries_by_source):
             for point, (target, key) in enumerate(entries):
-                blocks[key][(slice(None), slice(None), *target)] = projected[k, point]
+                blocks[key][(slice(None), slice(None), *target)] = (
+                    projected_cpu[k, point])
 
     memory = strict_galerkin_memory_model(
         coarse_dof=E, fine_dof=e, fine_shape=fine_shape,
@@ -774,6 +943,7 @@ def build_strict_galerkin_colored(
     max_workspace_bytes: Optional[int] = None,
     verbose: bool = False,
     block_dtype: Any = None,
+    block_device: Any = None,
 ) -> StrictGalerkinResult:
     """Build strict assets with non-overlapping colored source probes.
 
@@ -787,6 +957,7 @@ def build_strict_galerkin_colored(
     (fine_shape, coarse_shape, block_size,
      blocked, E, e, nvec) = _strict_builder_inputs(transfer)
     block_dtype = blocked.dtype if block_dtype is None else block_dtype
+    block_device = blocked.device if block_device is None else block_device
     requested_columns = min(E, int(column_batch_size))
     requested_projection = int(projection_site_batch_size)
     if requested_columns <= 0 or requested_projection <= 0:
@@ -843,7 +1014,7 @@ def build_strict_galerkin_colored(
     blocks: Dict[BlockKey, Tensor] = {
         key: _torch.zeros(
             size=[E, E, *coarse_shape], dtype=block_dtype,
-            device=blocked.device)
+            device=block_device)
         for key in keys
     }
     if zero_key not in blocks:
@@ -856,16 +1027,46 @@ def build_strict_galerkin_colored(
     for sources in groups:
         entries_by_source = [
             _target_entries(source, coarse_shape) for source in sources]
+        source_coordinates = _torch.as_tensor(
+            sources, dtype=_torch.long, device=blocked.device)
+        target_coordinates = _torch.as_tensor(
+            [[target for target, _ in entries] for entries in entries_by_source],
+            dtype=_torch.long, device=blocked.device)
+        chunk_specs = []
+        for source_start in range(0, len(sources), Kmax):
+            source_stop = min(len(sources), source_start + Kmax)
+            entries_chunk = entries_by_source[source_start:source_stop]
+            chunk_specs.append((
+                source_start,
+                source_stop,
+                _prepare_projected_sites(
+                    entries_chunk, coarse_shape),
+            ))
+        if check_fine_support:
+            coarse_mask = _torch.zeros(
+                size=list(coarse_shape), dtype=blocked.real.dtype,
+                device=blocked.device)
+            tx, ty, tz, tt = target_coordinates.reshape(-1, 4).unbind(dim=-1)
+            coarse_mask[tx, ty, tz, tt] = 1.0
+            fine_mask = coarse_mask
+            for dim, extent in enumerate(block_size):
+                fine_mask = fine_mask.repeat_interleave(extent, dim=dim)
         for column_start in range(0, E, Cmax):
             column_stop = min(E, column_start + Cmax)
             columns = column_stop - column_start
             fine = _torch.zeros(
                 size=[columns, e, *fine_shape], dtype=blocked.dtype,
                 device=blocked.device)
-            for source in sources:
-                fine[(slice(None), slice(None),
-                      *_fine_slices(source, block_size))] = _blocked_site(
-                          blocked, source)[column_start:column_stop]
+            sx, sy, sz, st = source_coordinates.unbind(dim=-1)
+            fine_split = fine.reshape(
+                columns, e,
+                coarse_shape[0], int(block_size[0]),
+                coarse_shape[1], int(block_size[1]),
+                coarse_shape[2], int(block_size[2]),
+                coarse_shape[3], int(block_size[3]))
+            fine_split[:, :, sx, :, sy, :, sz, :, st, :] = blocked[
+                column_start:column_stop, :,
+                sx, :, sy, :, sz, :, st, :]
 
             image = _call_batch(batch_matvec, fine)
             calls += 1
@@ -878,15 +1079,6 @@ def build_strict_galerkin_colored(
                 raise ValueError("batch_matvec 必须保持 blocked V 的 dtype/device")
 
             if check_fine_support:
-                coarse_mask = _torch.zeros(
-                    size=list(coarse_shape), dtype=blocked.real.dtype,
-                    device=blocked.device)
-                for entries in entries_by_source:
-                    for target, _ in entries:
-                        coarse_mask[target] = 1.0
-                fine_mask = coarse_mask
-                for dim, extent in enumerate(block_size):
-                    fine_mask = fine_mask.repeat_interleave(extent, dim=dim)
                 magnitude = _torch.abs(image)
                 scale = float(magnitude.max().item()) if image.numel() else 0.0
                 leakage = float(
@@ -900,32 +1092,16 @@ def build_strict_galerkin_colored(
                         f"outside={leakage:.3e} > {threshold:.3e}; "
                         "Schur/宽 stencil 不得作为 strict X/Y 输入")
 
-            for source_start in range(0, len(sources), Kmax):
-                source_stop = min(len(sources), source_start + Kmax)
-                entries_chunk = entries_by_source[source_start:source_stop]
-                v_local = _torch.stack([
-                    _torch.stack([
-                        _blocked_site(blocked, target)
-                        for target, _ in entries
-                    ], dim=0)
-                    for entries in entries_chunk
-                ], dim=0)
-                image_local = _torch.stack([
-                    _torch.stack([
-                        image[(slice(None), slice(None),
-                               *_fine_slices(target, block_size))]
-                        for target, _ in entries
-                    ], dim=0)
-                    for entries in entries_chunk
-                ], dim=0)
+            for source_start, source_stop, prepared in chunk_specs:
+                coordinates = target_coordinates[source_start:source_stop]
+                v_local = _gather_blocked_sites(blocked, coordinates)
+                image_local = _gather_fine_sites(
+                    image, coordinates, block_size)
                 projected = _torch.einsum(
-                    "kpae...,kpce...->kpac",
+                    "kpevb,kpcvb->kpce",
                     v_local.conj(), image_local)
-                for local_index, entries in enumerate(entries_chunk):
-                    for point, (target, key) in enumerate(entries):
-                        blocks[key][(
-                            slice(None), slice(column_start, column_stop),
-                            *target)] = projected[local_index, point]
+                _scatter_projected_sites(
+                    blocks, projected, prepared, column_start)
 
     stats: Dict[str, Any] = {
         "scalar_columns": prod(coarse_shape) * E,
