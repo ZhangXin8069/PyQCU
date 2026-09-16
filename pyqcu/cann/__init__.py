@@ -5,6 +5,13 @@ float32 = torch.float32
 float64 = torch.float64
 complex64 = torch.complex64
 complex128 = torch.complex128
+long = torch.long
+
+
+def as_tensor(data, dtype=None, device=None) -> torch.Tensor:
+    return torch.as_tensor(data, dtype=dtype, device=device)
+
+
 force_use_npu = False
 
 

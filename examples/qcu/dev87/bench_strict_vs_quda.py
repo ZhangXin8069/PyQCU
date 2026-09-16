@@ -821,6 +821,9 @@ def _canonical_config(args: argparse.Namespace) -> Dict[str, Any]:
                     precision["name"] == "c64")
                 else "double"),
         },
+        "pyqcu_strict_block_device": str(args.pyqcu_strict_block_device),
+        "pyqcu_strict_offload_null_basis": bool(
+            args.pyqcu_strict_offload_null_basis),
         "reference_solver": {
             "kind": str(args.reference_solver),
             "warmups": int(args.reference_warmups),
@@ -2158,6 +2161,12 @@ def _run_pyqcu_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
                     if (config["pyqcu_strict_block_precision"]["effective"] ==
                         "single" and complex_dtype == torch.complex128)
                     else None),
+                strict_galerkin_block_device=(
+                    torch.device("cpu")
+                    if config["pyqcu_strict_block_device"] == "cpu"
+                    else None),
+                strict_offload_null_basis=bool(
+                    config["pyqcu_strict_offload_null_basis"]),
                 strict_galerkin_max_workspace_bytes=int(
                     config["pyqcu_strict_setup"]["max_workspace_bytes"]),
                 verbose=False,
@@ -4857,6 +4866,13 @@ def _parser() -> argparse.ArgumentParser:
         "--pyqcu-strict-block-precision", choices=("auto", "single"),
         default="auto",
         help="PyQCU strict Galerkin block precision; single bounds c128 memory")
+    parser.add_argument(
+        "--pyqcu-strict-block-device", choices=("auto", "cpu"),
+        default="auto",
+        help="PyQCU strict Galerkin block staging device")
+    parser.add_argument(
+        "--pyqcu-strict-offload-null-basis", action="store_true",
+        help="offload the fine null basis between strict setup transitions")
     parser.add_argument(
         "--quda-strategy", choices=("aligned", "library"),
         default="aligned",

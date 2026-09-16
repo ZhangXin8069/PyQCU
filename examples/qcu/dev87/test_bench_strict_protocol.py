@@ -1203,6 +1203,24 @@ def test_c128_pyqcu_block_precision_fallback_is_explicit():
     assert protocol["quda_coarse_precision"]["effective"] == "double"
 
 
+def test_pyqcu_cpu_block_staging_is_explicit():
+    protocol = bench.build_document(
+        _args(
+            "--dry-run", "--precision", "c128",
+            "--pyqcu-strict-block-device", "cpu"),
+        dry_run=True)["protocol"]
+    assert protocol["pyqcu_strict_block_device"] == "cpu"
+
+
+def test_pyqcu_null_basis_offload_is_explicit():
+    protocol = bench.build_document(
+        _args(
+            "--dry-run", "--precision", "c128",
+            "--pyqcu-strict-offload-null-basis"),
+        dry_run=True)["protocol"]
+    assert protocol["pyqcu_strict_offload_null_basis"] is True
+
+
 def test_native_quda_mg_trace_parser_preserves_level_residuals(tmp_path):
     import trace_strict_vs_quda as trace
 
