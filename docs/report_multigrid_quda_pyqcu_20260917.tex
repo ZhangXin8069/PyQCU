@@ -150,6 +150,27 @@ QUDA_ENABLE_MMA=OFF
 QUDA_GPU_ARCH=sm_70
 \end{verbatim}
 
+\subsection{colored Galerkin setup 的批量 gather/scatter}
+
+PyQCU 的 strict colored Galerkin 原型原先在每个 column batch 内用
+Python 循环逐 source、逐 support 点组装 canonical blocks。该路径在
+c128 小格点上也占总 setup 的主要时间，并且放大临时对象数量。本轮保留
+每个 color 一次算子调用的账本，但将 blocked-basis gather、fine support
+gather 和 block scatter 改为预计算索引的批量张量操作；目标集合和 source
+分组分别缓存，仍在实际周期边界上执行冲突检查。
+
+真实 c128 冒烟点 \(8^3\cdot16\) 三层、CPU canonical-block staging、
+单精度 coarse blocks 的无缓存 setup 为：\(K=1\) 时 \(44.86\) s，
+\(K=4\) 时 \(16.67\) s，约 \(2.69\times\)；两次求解均收敛到
+\(1.84\times10^{-8}\) 的最大相对真残差，并保持 35 次外层 FGMRES
+迭代。该数字只证明 setup 路径优化，不进入 MG solve 加速比。
+
+另外，固定输入合成微基准（\(8\cdot16\cdot16\cdot32\)、c128 blocked
+basis、c64 blocks、\(K=256\)、44 次算子调用）中，旧 builder 为
+\(18.39\) s，新 builder 为 \(5.48\) s，约 \(3.36\times\)；峰值
+allocated 均为约 \(13.04\) GiB。该微基准用于隔离 builder 热路径，
+不替代真实 gauge 的跨库正式测量。
+
 \section{正式协议}
 
 \subsection{输入与计时}
