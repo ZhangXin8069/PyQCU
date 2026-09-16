@@ -618,35 +618,51 @@ class QudaTransfer:
             dtype=fine_sc.dtype, device=fine_sc.device)
         bx, by, bz, bt = self.block_size
         cx, cy, cz, ct = self.coarse_shape
-        for coarse_spin in range(self.coarse_spin):
-            if self.spin_block_size == 0:
-                spins = list(range(self.fine_spin))
-            else:
+        if self.spin_block_size != 0:
+            # Batch the vector axis: each spin/color pair contracts all Nvec
+            # components in one einsum-like broadcast instead of rebuilding the
+            # same aggregate blocks once per vector.  This matters for
+            # recursive strict setup, where R is applied to every coarse basis.
+            for coarse_spin in range(self.coarse_spin):
                 spins = [s for s in range(self.fine_spin)
                          if self.spin_map(s, 0) == coarse_spin]
-            for vector in range(self.nvec):
-                accum: Optional[Tensor] = None
                 for spin in spins:
                     for color in range(self.fine_color):
-                        product_field = self.V[spin, color, coarse_spin, vector].conj() * fine_sc[spin, color]
-                        if self.spin_block_size == 0:
-                            # A staggered coarse-spin component owns only one
-                            # checkerboard parity inside each aggregate.
-                            value = _torch.zeros(
-                                size=self.coarse_shape, dtype=product_field.dtype,
-                                device=product_field.device)
-                            for coarse_coord in _all_coords(self.coarse_shape):
-                                ranges = [
-                                    range(c * b, (c + 1) * b)
-                                    for c, b in zip(coarse_coord, self.block_size)
-                                ]
-                                for coord in product(*ranges):
-                                    if (sum(coord) & 1) == coarse_spin:
-                                        value[coarse_coord] = value[coarse_coord] + product_field[coord]
-                        else:
-                            blocked = product_field.reshape(
-                                cx, bx, cy, by, cz, bz, ct, bt)
-                            value = _sum_block_axes(blocked)
+                        product_field = (
+                            self.V[spin, color, coarse_spin].conj() *
+                            fine_sc[spin, color])
+                        blocked = product_field.reshape(
+                            self.nvec, cx, bx, cy, by, cz, bz, ct, bt)
+                        coarse[coarse_spin] = (
+                            coarse[coarse_spin] +
+                            blocked.sum(dim=(2, 4, 6, 8)))
+            return coarse.to(dtype=dtype, device=device)
+
+        # Staggered 1->2 slow path: a coarse-spin component owns only one
+        # checkerboard parity inside each aggregate.  Keep the explicit site
+        # loop because its parity map is not a pure block sum.
+        for coarse_spin in range(self.coarse_spin):
+            for vector in range(self.nvec):
+                accum: Optional[Tensor] = None
+                for spin in range(self.fine_spin):
+                    for color in range(self.fine_color):
+                        product_field = self.V[
+                            spin, color, coarse_spin, vector].conj() * fine_sc[
+                                spin, color]
+                        value = _torch.zeros(
+                            size=self.coarse_shape, dtype=product_field.dtype,
+                            device=product_field.device)
+                        for coarse_coord in _all_coords(self.coarse_shape):
+                            ranges = [
+                                range(c * b, (c + 1) * b)
+                                for c, b in zip(
+                                    coarse_coord, self.block_size)
+                            ]
+                            for coord in product(*ranges):
+                                if (sum(coord) & 1) == coarse_spin:
+                                    value[coarse_coord] = (
+                                        value[coarse_coord] +
+                                        product_field[coord])
                         accum = value if accum is None else accum + value
                 if accum is not None:
                     coarse[coarse_spin, vector] = accum
@@ -2020,6 +2036,7 @@ class QudaMultigrid:
                  restart: int = 20,
                  setup_method: str = "random",
                  setup_iters: Optional[int] = None,
+                 propagate_null_vectors: bool = False,
                  setup_tol: float = 5e-6,
                  setup_max_iter: int = 500,
                  setup_krylov: int = 4,
@@ -2075,6 +2092,7 @@ class QudaMultigrid:
             # 算法时默认执行一次 QUDA 风格 setup。
             setup_iters = 0 if self.setup_method == "random" else 1
         self.setup_iters = int(setup_iters)
+        self.propagate_null_vectors = bool(propagate_null_vectors)
         self.setup_tol = float(setup_tol)
         self.setup_max_iter = int(setup_max_iter)
         self.setup_krylov = int(setup_krylov)
@@ -2082,6 +2100,9 @@ class QudaMultigrid:
         self.setup_type = self._normalise_setup_type(setup_type)
         self.hierarchy_mode = self._normalise_hierarchy_mode(hierarchy_mode)
         self._strict_quda = self.hierarchy_mode == "strict"
+        if self.propagate_null_vectors and not self._strict_quda:
+            raise ValueError(
+                "propagate_null_vectors 当前只用于 strict full-coarse hierarchy")
         self.target_parity = int(target_parity)
         if self.target_parity not in (0, 1):
             raise ValueError(
@@ -2689,6 +2710,14 @@ class QudaMultigrid:
             nvec = self._nvec_list[level]
             if level < len(self._null_vectors):
                 null = self._null_vectors[level].clone()
+            elif self.propagate_null_vectors and level > 0 and solver_kind == "random":
+                previous = self.transfers[level - 1]
+                restricted = []
+                for vector in previous.B:
+                    fine = vector.reshape(
+                        previous.fine_dof, *previous.fine_shape)
+                    restricted.append(previous.restrict(fine))
+                null = _torch.stack(restricted, dim=0)
             else:
                 reference = self._reference_field(current)
                 null = self._random_null(current, nvec, reference.dtype, reference.device)

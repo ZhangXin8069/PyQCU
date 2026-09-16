@@ -10,6 +10,7 @@
 #include <invert_quda.h>
 #include <util_quda.h>
 #include <color_spinor_field.h>
+#include <mg_profile.h>
 
 #include <sys/time.h>
 
@@ -201,6 +202,7 @@ namespace quda {
     }
 
     create(x, b);
+    mg_profile::OuterScope profile_outer_scope;
 
     getProfile().TPSTART(QUDA_PROFILE_INIT);
     if (param.deflate) {
@@ -306,6 +308,11 @@ namespace quda {
     PrintStats("GCR", total_iter+k, r2, b2, heavy_quark_res);
     while (!convergence(r2, heavy_quark_res, stop, stop_hq) && total_iter < param.maxiter) {
 
+      if (mg_profile::enabled()) {
+        profile_outer_scope.set(total_iter + 1);
+        mg_profile::outer_begin(total_iter + 1, r2[0], b2[0]);
+      }
+
       if (K) {
 	pushVerbosity(param.verbosity_precondition);
 	(*K)(p[k], r_sloppy);
@@ -344,6 +351,8 @@ namespace quda {
       total_iter++;
 
       PrintStats("GCR", total_iter, r2, b2, heavy_quark_res);
+      if (mg_profile::enabled())
+        mg_profile::outer_iteration(total_iter, k, r2[0], b2[0]);
 
       // update since n_krylov or maxiter reached, converged or reliable update required
       // note that the heavy quark residual will by definition only be checked every n_krylov steps
@@ -354,8 +363,11 @@ namespace quda {
         for (auto i = 0u; i < b.size(); i++) updateSolution(x[i], alpha[i], beta[i], gamma[i], k, get_i(p, i));
 
         if ( (r2 < stop || total_iter==param.maxiter) && param.sloppy_converge) break;
+        const double iterated_r2 = r2[0];
         mat(r, x);
         r2 = blas::xmyNorm(b, r);
+        if (mg_profile::enabled())
+          mg_profile::outer_iteration(total_iter, k, iterated_r2, b2[0], r2[0]);
 
         if (param.deflate && sqrt(r2[0]) < maxr_deflate * param.tol_restart) {
           // Deflate: Hardcoded to SVD.

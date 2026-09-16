@@ -317,7 +317,10 @@ class CudaStrictMultigridSolver:
             raise RuntimeError(
                 "strict fused workspace 账本漂移："
                 f"expected={expected_workspace}, actual={allocated_bytes}")
-        self.iterations = int(result["iterations"])
+        self.outer_iterations = int(result["iterations"])
+        # Compatibility alias: this is the outer FGMRES iteration count, not
+        # the sum of smoother or coarse-solver iterations.
+        self.iterations = self.outer_iterations
         self.converged = bool(result["converged"])
         self.final_residual = float(result["final_true_residual"])
         self.convergence_history = [self.final_residual]

@@ -73,7 +73,8 @@ QIO_HOST_LAYOUT = (
 WORKER_PREFIX = "PYQCU_STRICT_BENCH_RESULT="
 WORKER_PAYLOAD_ENV = "PYQCU_STRICT_BENCH_PAYLOAD_B64"
 
-LATTICE = (16, 32, 32, 48)
+DEFAULT_LATTICE = (16, 32, 32, 48)
+LATTICE = DEFAULT_LATTICE
 MASS = 0.05
 SEED = 42
 SOURCE_DATASET = "fi"
@@ -106,7 +107,7 @@ PROFILE_NAMES = ("formal", "smoke")
 DEFAULT_PROFILE = "formal"
 STRICT_CACHE_IDENTITY_SCHEMA = "pyqcu.strict-runtime-cache-identity/v1"
 STRICT_CACHE_FORMAT_VERSION = 2
-STRICT_ASSET_SEMANTICS_VERSION = 2
+STRICT_ASSET_SEMANTICS_VERSION = 3
 STRICT_CACHE_DIR = REPO / "data" / "strict_runtime_cache"
 
 GAUGE_PATH = REPO / "data" / "gauge_16x32x32x48_m0.05_seed42_c64.h5"
@@ -123,6 +124,7 @@ ENV_ALLOWLIST = (
     "QUDA_BUILD_DIR",
     "QUDA_SOURCE_DIR",
     "DEV87_REDUCE_SYNC",
+    "QUDA_MG_TRACE_FILE",
     "PYQCU_MPI_DEVICE_AWARE",
     "OMP_NUM_THREADS",
 )
@@ -177,10 +179,12 @@ def _strict_runtime_cache_identity(payload: Mapping[str, Any]) -> Dict[str, Any]
             "dtype": value["dtype"],
         }
 
-    return {
+    identity = {
         "schema": STRICT_CACHE_IDENTITY_SCHEMA,
         "runtime_cache_format_version": STRICT_CACHE_FORMAT_VERSION,
-        "asset_semantics_version": STRICT_ASSET_SEMANTICS_VERSION,
+        "asset_semantics_version": (
+            2 if int(config["levels"]) == 2 else
+            STRICT_ASSET_SEMANTICS_VERSION),
         "gauge": input_identity("gauge"),
         "null_vectors": input_identity("null_vectors"),
         "lattice_xyzt": list(config["lattice_xyzt"]),
@@ -210,6 +214,7 @@ def _strict_runtime_cache_identity(payload: Mapping[str, Any]) -> Dict[str, Any]
         "coarsening_operator": "R(X^-1 D)P",
         "runtime_assets": "fine blocked V; per-transition Yhat/(X,X^-1)",
     }
+    return identity
 
 
 def _strict_runtime_cache_path(
@@ -218,19 +223,17 @@ def _strict_runtime_cache_path(
 
 
 def _strict_runtime_expected_manifest(config: Mapping[str, Any]) -> Dict[str, Any]:
-    """Exact one-transition asset contract for the formal benchmark."""
-    if int(config["levels"]) != 2:
-        raise ValueError("formal strict runtime cache currently requires exactly 2 levels")
+    """Exact recursive asset contract for the selected benchmark hierarchy."""
     lattice = tuple(int(x) for x in config["lattice_xyzt"])
-    block = tuple(int(x) for x in config["block_xyzt"])
-    coarse = tuple(n // b for n, b in zip(lattice, block))
-    fine_dof = 12
+    blocks = [
+        tuple(int(x) for x in value)
+        for value in config.get(
+            "block_xyzt_per_level",
+            [config["block_xyzt"]] * (int(config["levels"]) - 1))
+    ]
+    if len(blocks) != int(config["levels"]) - 1:
+        raise ValueError("block_xyzt_per_level length must equal levels-1")
     coarse_dof = int(config["coarse_dof"])
-    blocked_shape: List[int] = [coarse_dof, fine_dof]
-    for extent, width in zip(coarse, block):
-        blocked_shape.extend((extent, width))
-    links_shape = [2, 4, coarse_dof, coarse_dof, *coarse]
-    onsite_shape = [2, coarse_dof, coarse_dof, *coarse]
     dtype = {
         "c64": "complex64",
         "c128": "complex128",
@@ -245,14 +248,31 @@ def _strict_runtime_expected_manifest(config: Mapping[str, Any]) -> Dict[str, An
             "nbytes": math.prod(values) * itemsize,
         }
 
-    tensors = {
-        "assets/fine_blocked_v": spec(blocked_shape),
-        "assets/levels/0/preconditioned_links": spec(links_shape),
-        "assets/levels/0/onsite_pair": spec(onsite_shape),
-    }
+    tensors: Dict[str, Dict[str, Any]] = {}
+    fine_shape = lattice
+    for transition, block in enumerate(blocks):
+        coarse = tuple(
+            extent // width for extent, width in zip(fine_shape, block))
+        fine_dof = 12 if transition == 0 else coarse_dof
+        blocked_shape: List[int] = [coarse_dof, fine_dof]
+        for extent, width in zip(coarse, block):
+            blocked_shape.extend((extent, width))
+        if transition == 0:
+            tensors["assets/fine_blocked_v"] = spec(blocked_shape)
+        else:
+            tensors[
+                f"assets/levels/{transition}/null_vectors"] = spec(
+                    blocked_shape)
+        tensors[
+            f"assets/levels/{transition}/preconditioned_links"] = spec(
+                [2, 4, coarse_dof, coarse_dof, *coarse])
+        tensors[
+            f"assets/levels/{transition}/onsite_pair"] = spec(
+                [2, coarse_dof, coarse_dof, *coarse])
+        fine_shape = coarse
     return {
         "layout": "fine_blocked_v; per-transition Yhat/onsite; transition>=1 V",
-        "level_count": 1,
+        "level_count": len(blocks),
         "tensor_count": len(tensors),
         "dtype": dtype,
         "total_bytes": sum(value["nbytes"] for value in tensors.values()),
@@ -263,6 +283,16 @@ def _strict_runtime_expected_manifest(config: Mapping[str, Any]) -> Dict[str, An
 def _safe_tail(text: Optional[str], limit: int = 4000) -> str:
     value = "" if text is None else str(text)
     return value[-limit:]
+
+
+def _append_trace_marker(path: os.PathLike[str] | str,
+                         label: str, index: int) -> None:
+    """Append a flush-only solve boundary to a native trace."""
+    target = Path(path).resolve()
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with target.open("a", encoding="ascii") as handle:
+        handle.write(f"{label}\t{int(index)}\t{time.time():.17g}\n")
+        handle.flush()
 
 
 @contextmanager
@@ -557,8 +587,10 @@ def _precision_spec(name: str) -> Dict[str, Any]:
             "name": "c128",
             "complex_bytes": 16,
             "real": "float64",
-            "default_tolerance": 1.0e-10,
-            "true_residual_gate": 5.0e-10,
+            # The recursive MG solve reaches this gate on the benchmark
+            # geometry without turning the comparison into a fp64 floor test.
+            "default_tolerance": 1.0e-8,
+            "true_residual_gate": 5.0e-8,
         }
     raise ValueError("precision must be c64 or c128")
 
@@ -614,6 +646,29 @@ def _profile_name(args: argparse.Namespace) -> str:
 def _canonical_config(args: argparse.Namespace) -> Dict[str, Any]:
     profile = _profile_name(args)
     precision = _precision_spec(args.precision)
+    lattice = tuple(int(value) for value in args.lattice)
+    block = tuple(int(value) for value in args.block)
+    levels = int(args.levels)
+    if len(lattice) != 4 or any(value <= 0 or value % 2 for value in lattice):
+        raise ValueError("--lattice must contain four positive even extents")
+    if len(block) != 4 or any(value <= 0 for value in block):
+        raise ValueError("--block must contain four positive extents")
+    if not 2 <= levels <= 5:
+        raise ValueError("--levels must be in [2,5] for strict MultiGrid")
+    for axis, (extent, width) in enumerate(zip(lattice, block)):
+        if extent % width:
+            raise ValueError(
+                f"--lattice axis {axis} extent {extent} is not divisible "
+                f"by --block width {width}")
+    for transition in range(levels - 1):
+        coarse = tuple(
+            extent // (width ** (transition + 1))
+            for extent, width in zip(lattice, block))
+        if any(extent < 2 or extent % 2 for extent in coarse):
+            raise ValueError(
+                f"level {transition + 1} coarse shape {coarse} must have "
+                "even extents >= 2")
+    coarse_dof = COARSE_DOF
     tolerance = precision["default_tolerance"] if args.tol is None else float(args.tol)
     if tolerance <= 0.0 or not math.isfinite(tolerance):
         raise ValueError("--tol must be a finite positive number")
@@ -673,13 +728,13 @@ def _canonical_config(args: argparse.Namespace) -> Dict[str, Any]:
         if args.strict_galerkin_max_workspace_bytes is None else
         int(args.strict_galerkin_max_workspace_bytes))
     setup_workspace_lower_bound = int(
-        4 * setup_column_batch * 12 * math.prod(LATTICE)
+        4 * setup_column_batch * 12 * math.prod(lattice)
         * int(precision["complex_bytes"]))
     fine_vector_bytes = (
-        12 * math.prod(LATTICE) // 2 * int(precision["complex_bytes"]))
+        12 * math.prod(lattice) // 2 * int(precision["complex_bytes"]))
     coarse_vector_bytes = (
-        COARSE_DOF * math.prod(
-            extent // width for extent, width in zip(LATTICE, BLOCK))
+        coarse_dof * math.prod(
+            extent // width for extent, width in zip(lattice, block))
         * int(precision["complex_bytes"]))
     fixed_workspace = 5 * fine_vector_bytes + 2 * coarse_vector_bytes
     per_restart = 2 * fine_vector_bytes
@@ -688,16 +743,17 @@ def _canonical_config(args: argparse.Namespace) -> Dict[str, Any]:
         max(0, (max_krylov_bytes - fixed_workspace) // per_restart))
     config = {
         "profile": profile,
-        "lattice_xyzt": list(LATTICE),
+        "lattice_xyzt": list(lattice),
         "mass": MASS,
         "kappa": 1.0 / (2.0 * MASS + 8.0),
         "seed": SEED,
         "precision": precision,
-        "levels": LEVELS,
-        "block_xyzt": list(BLOCK),
+        "levels": levels,
+        "block_xyzt": list(block),
+        "block_xyzt_per_level": [list(block) for _ in range(levels - 1)],
         "nvec": NVECS,
         "coarse_spin": COARSE_SPIN,
-        "coarse_dof": COARSE_DOF,
+        "coarse_dof": coarse_dof,
         "target_parity": TARGET_PARITY,
         "null_vector_contract": {
             "source": "12 canonical full near-null vectors",
@@ -765,9 +821,9 @@ def _canonical_config(args: argparse.Namespace) -> Dict[str, Any]:
         raise ValueError("--restart must be positive")
     if config["max_krylov_bytes"] <= 0:
         raise ValueError("--max-krylov-bytes must be positive")
-    if not 1 <= setup_column_batch <= COARSE_DOF:
+    if not 1 <= setup_column_batch <= coarse_dof:
         raise ValueError(
-            f"--strict-galerkin-column-batch must be in [1,{COARSE_DOF}]")
+            f"--strict-galerkin-column-batch must be in [1,{coarse_dof}]")
     if setup_workspace_bytes <= 0:
         raise ValueError(
             "--strict-galerkin-max-workspace-bytes must be positive")
@@ -790,26 +846,37 @@ def _canonical_config(args: argparse.Namespace) -> Dict[str, Any]:
 
 
 def _input_plan(args: argparse.Namespace) -> Dict[str, Any]:
+    lattice = tuple(int(value) for value in args.lattice)
+    lattice_tag = "x".join(str(value) for value in lattice)
+    gauge_path = (
+        Path(args.gauge_path).expanduser().resolve()
+        if args.gauge_path else
+        REPO / "data" / f"gauge_{lattice_tag}_m{MASS:.2f}_seed{SEED}_c64.h5")
+    nullvec_path = (
+        Path(args.nullvec_path).expanduser().resolve()
+        if args.nullvec_path else
+        REPO / "data" /
+        f"L{lattice_tag}_nvec{NVECS}_full_c64.h5")
     return {
         "gauge": {
-            "path": str(GAUGE_PATH),
+            "path": str(gauge_path),
             "dataset": GAUGE_DATASET,
             "storage_precision": "c64",
-            "exists": GAUGE_PATH.is_file(),
+            "exists": gauge_path.is_file(),
         },
         "source": {
-            "path": str(GAUGE_PATH),
+            "path": str(gauge_path),
             "dataset": SOURCE_DATASET,
             "storage_precision": "c64",
-            "exists": GAUGE_PATH.is_file(),
+            "exists": gauge_path.is_file(),
         },
         "null_vectors": {
-            "path": str(NULLVEC_PATH),
+            "path": str(nullvec_path),
             "dataset": NULLVEC_DATASET,
             "layout": "[nvec,spin,color,x,y,z,t]",
             "parity": "full (even reconstructed once; odd copied verbatim)",
             "storage_precision": "c64",
-            "exists": NULLVEC_PATH.is_file(),
+            "exists": nullvec_path.is_file(),
         },
         "quda_qio": {
             "prefix": args.quda_nullvec_prefix,
@@ -817,6 +884,18 @@ def _input_plan(args: argparse.Namespace) -> Dict[str, Any]:
             "required_for_fair_quda_run": True,
         },
     }
+
+
+def _activate_runtime_globals(
+        config: Mapping[str, Any], inputs: Mapping[str, Any]) -> None:
+    """Bind process-local geometry to the worker's serialized protocol."""
+    global LATTICE, BLOCK, LEVELS, COARSE_DOF, GAUGE_PATH, NULLVEC_PATH
+    LATTICE = tuple(int(value) for value in config["lattice_xyzt"])
+    BLOCK = tuple(int(value) for value in config["block_xyzt"])
+    LEVELS = int(config["levels"])
+    COARSE_DOF = int(config["coarse_dof"])
+    GAUGE_PATH = Path(inputs["gauge"]["path"]).expanduser().resolve()
+    NULLVEC_PATH = Path(inputs["null_vectors"]["path"]).expanduser().resolve()
 
 
 def _execution_plan(args: argparse.Namespace) -> Dict[str, Any]:
@@ -1161,18 +1240,22 @@ def _initialize_quda_qmp_runtime(
 
 def _fingerprint_inputs(document: MutableMapping[str, Any]) -> Dict[str, Any]:
     plans = document["inputs"]
+    protocol = document.get("protocol", {})
+    lattice = tuple(int(value) for value in protocol.get(
+        "lattice_xyzt", LATTICE))
+    nvec = int(protocol.get("nvec", NVECS))
     gauge = _hash_hdf5_dataset(Path(plans["gauge"]["path"]), plans["gauge"]["dataset"])
     source = _hash_hdf5_dataset(Path(plans["source"]["path"]), plans["source"]["dataset"])
     nullvec = _hash_hdf5_dataset(
         Path(plans["null_vectors"]["path"]), plans["null_vectors"]["dataset"])
-    checkerboard_shape = [*LATTICE[:3], LATTICE[3] // 2]
+    checkerboard_shape = [*lattice[:3], lattice[3] // 2]
     expected_shapes = {
         "gauge": [2, 3, 3, 4, *checkerboard_shape],
         "source": [2, 4, 3, *checkerboard_shape],
         # The formal protocol consumes the canonical full vectors directly.
         # The old E12 odd-Schur packing is provenance only and must never be
         # mistaken for the runtime transfer field.
-        "null_vectors": [NVECS, 4, 3, *LATTICE],
+        "null_vectors": [nvec, 4, 3, *lattice],
     }
     for name, fingerprint in (("gauge", gauge), ("source", source),
                               ("null_vectors", nullvec)):
@@ -1806,6 +1889,7 @@ def _validate_strict_setup_contract(
 def _run_pyqcu_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
     config = payload["protocol"]
     inputs = payload["inputs"]
+    _activate_runtime_globals(config, inputs)
     cache_execution = payload["execution"]["strict_cache"]
     cache_expect = str(cache_execution["expect"])
     cache_identity = _strict_runtime_cache_identity(payload)
@@ -1907,12 +1991,21 @@ def _run_pyqcu_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
             "expectation": cache_expect,
             "evidence": copy.deepcopy(cache_result.evidence),
         }
-        level_specs = [{
-            "dof": COARSE_DOF,
-            "shape": [
-                extent // width for extent, width in zip(LATTICE, BLOCK)
-            ],
-        }]
+        level_specs = []
+        level_shape = list(LATTICE)
+        level_blocks = [
+            tuple(int(value) for value in block)
+            for block in config["block_xyzt_per_level"]
+        ]
+        for block in level_blocks:
+            level_shape = [
+                extent // width
+                for extent, width in zip(level_shape, block)
+            ]
+            level_specs.append({
+                "dof": int(config["coarse_dof"]),
+                "shape": list(level_shape),
+            })
 
         if cache_result.hit:
             if cache_expect == "miss":
@@ -1933,7 +2026,7 @@ def _run_pyqcu_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
                 coarse_max_iter=int(config["coarse_max_iter"]),
                 coarse_tol=float(config["coarse_tolerance"]),
                 restart=int(config["restart_requested"]),
-                target_parity=TARGET_PARITY)
+                target_parity=int(config["target_parity"]))
             setup_release = {
                 "sealed": True,
                 "source": "strict_runtime_cache",
@@ -1965,14 +2058,19 @@ def _run_pyqcu_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
                 U=full_gauge,
                 clover_term=clover_full,
                 kappa=kappa_tensor,
+                u_0=torch.ones(
+                    [1], dtype=real_dtype, device=device),
                 null_vectors=[null_vectors],
-                dof_list=[12, COARSE_DOF],
-                block_size=BLOCK,
+                dof_list=[12] + [COARSE_DOF] * max(0, LEVELS - 1),
+                block_size=[
+                    list(BLOCK) for _ in range(max(1, LEVELS - 1))
+                ],
                 max_level=LEVELS,
+                propagate_null_vectors=bool(LEVELS > 2),
                 n_block_ortho=2,
                 materialize_coarse=True,
                 use_parity=True,
-                target_parity=TARGET_PARITY,
+                target_parity=int(config["target_parity"]),
                 nu_pre=int(config["nu_pre"]),
                 nu_post=int(config["nu_post"]),
                 coarse_max_iter=int(config["coarse_max_iter"]),
@@ -2257,6 +2355,10 @@ def _run_pyqcu_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
                 "steady": _median_mad(timings),
             },
             "iterations": _iteration_summary(iterations),
+            "iteration_kind": "outer_right_preconditioned_fgmres",
+            "iteration_scope": (
+                "finest-level outer FGMRES columns; smoother and coarse "
+                "solver iterations are recorded separately in MG trace"),
             "converged_samples": converged,
             "converged": all_converged,
             "true_residual": {
@@ -2566,12 +2668,21 @@ def _configure_quda_shared_nullvec(mg_param: Any, conversion: Mapping[str, Any])
                 "quda_config_readback_mismatch",
                 "compute_null_vector did not read back as YES")
         prefix = str(conversion["prefix"])
+        # Only transition 0 is user supplied.  Deeper transitions are formed
+        # by R from that same basis, matching PyQCU's propagation contract.
+        _set_indexed(
+            mg_param, "vec_load", 0, QudaBoolean.QUDA_BOOLEAN_TRUE)
+        _set_indexed(mg_param, "vec_infile", 0, prefix)
         transition_count = max(0, int(getattr(mg_param, "n_level")) - 1)
-        for index in range(transition_count):
+        for index in range(1, transition_count):
             _set_indexed(
                 mg_param, "vec_load", index,
-                QudaBoolean.QUDA_BOOLEAN_TRUE)
-            _set_indexed(mg_param, "vec_infile", index, prefix)
+                QudaBoolean.QUDA_BOOLEAN_FALSE)
+            # With generate_all_levels=false QUDA expects the parent MG to
+            # restrict transition 0's vectors into this level.  Leaving the
+            # default ``num_setup_iter=1`` would still enter generateNullVectors
+            # and silently replace the shared coarse basis.
+            _set_indexed(mg_param, "num_setup_iter", index, 0)
     except BenchmarkFailure:
         raise
     except Exception as exc:
@@ -2640,11 +2751,17 @@ def _quda_parameter_snapshot(
             "compute_null_vector": enum(
                 "compute_null_vector", getattr(
                     mg_param, "compute_null_vector")),
+            "generate_all_levels": enum(
+                "boolean", getattr(mg_param, "generate_all_levels")),
+            "run_verify": enum(
+                "boolean", getattr(mg_param, "run_verify")),
             "transition": {
                 "n_vec": sequence("n_vec", transition_count),
                 "n_block_ortho": sequence("n_block_ortho", transition_count),
                 "vec_load": sequence("vec_load", transition_count, "boolean"),
                 "vec_infile": sequence("vec_infile", transition_count),
+                "num_setup_iter": sequence(
+                    "num_setup_iter", transition_count),
                 "setup_use_mma": sequence(
                     "setup_use_mma", transition_count, "boolean"),
                 "dslash_use_mma": sequence(
@@ -2678,9 +2795,15 @@ def _quda_expected_parameters(
         "transition": {
             "n_vec": [int(config["nvec"])] * transition_count,
             "n_block_ortho": [2] * transition_count,
-            "vec_load": ["QUDA_BOOLEAN_TRUE"] * transition_count,
-            "vec_infile": ([None if conversion_prefix is None else
-                             str(conversion_prefix)] * transition_count),
+            "vec_load": (
+                ["QUDA_BOOLEAN_TRUE"] +
+                ["QUDA_BOOLEAN_FALSE"] * max(0, transition_count - 1)),
+            "vec_infile": (
+                ([None if conversion_prefix is None else str(conversion_prefix)] +
+                 [""] * max(0, transition_count - 1))),
+            "num_setup_iter": (
+                [1] + [0] * max(0, transition_count - 1)
+                if transition_count > 1 else [1]),
             "setup_use_mma": ["QUDA_BOOLEAN_FALSE"] * transition_count,
             "dslash_use_mma": ["QUDA_BOOLEAN_FALSE"] * transition_count,
             "transfer_use_mma": ["QUDA_BOOLEAN_FALSE"] * transition_count,
@@ -2720,6 +2843,10 @@ def _quda_expected_parameters(
             "n_level": n_level,
             "coarsest_level_index": n_level - 1,
             "compute_null_vector": "QUDA_COMPUTE_NULL_VECTOR_YES",
+            "generate_all_levels": (
+                "QUDA_BOOLEAN_FALSE" if n_level > 2 else
+                "QUDA_BOOLEAN_TRUE"),
+            "run_verify": "QUDA_BOOLEAN_FALSE",
             **active,
         },
     }
@@ -2811,6 +2938,7 @@ def _close_quda_dirac(dirac: Any) -> List[str]:
 def _run_quda_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
     config = payload["protocol"]
     inputs = payload["inputs"]
+    _activate_runtime_globals(config, inputs)
     conversion = _verify_quda_nullvec_conversion(payload)
     reduction_runtime = _prepare_quda_reduction_runtime()
     reduction_runtime["qmp"] = _initialize_quda_qmp_runtime(
@@ -2837,6 +2965,13 @@ def _run_quda_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
     device_uuid = _torch_runtime_provenance(torch, device)["device_uuid"]
     trace_path = os.environ.get("PYQCU_QUDA_TRACE_FILE")
     trace_enabled = trace_path is not None and trace_path != ""
+    mg_trace_path = os.environ.get("QUDA_MG_TRACE_FILE")
+    mg_trace_enabled = mg_trace_path is not None and mg_trace_path != ""
+    if mg_trace_enabled:
+        trace_target = Path(mg_trace_path).resolve()
+        trace_target.parent.mkdir(parents=True, exist_ok=True)
+        if trace_target.exists():
+            trace_target.unlink()
     precision = config["precision"]["name"]
     complex_dtype = torch.complex64 if precision == "c64" else torch.complex128
     # PyQUDA's QDP _NDArray bridge rejects complex64 host arrays.  This host
@@ -2889,7 +3024,10 @@ def _run_quda_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
         rhs_field = LatticeFermion(info, torch.from_numpy(rhs_eo).to(device))
         dirac = core.getClover(
             info, MASS, float(config["tolerance"]), int(config["max_iter"]),
-            clover_csw_t=1.0, multigrid=[list(BLOCK)])
+            clover_csw_t=1.0,
+            multigrid=[
+                list(BLOCK) for _ in range(max(1, LEVELS - 1))
+            ])
         dirac.setPrecision(
             cuda=quda_precision, sloppy=quda_precision,
             precondition=quda_precision, refinement_sloppy=quda_precision,
@@ -2913,6 +3051,8 @@ def _run_quda_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
             # the one outer GCR curve being compared with Strict FGMRES.
             invert.verbosity = QudaVerbosity.QUDA_VERBOSE
             invert.verbosity_precondition = QudaVerbosity.QUDA_SILENT
+        if mg_trace_enabled and hasattr(invert, "verbosity"):
+            invert.verbosity = QudaVerbosity.QUDA_VERBOSE
         if hasattr(invert, "use_init_guess"):
             invert.use_init_guess = QudaUseInitGuess.QUDA_USE_INIT_GUESS_NO
         else:
@@ -2955,6 +3095,18 @@ def _run_quda_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
                     mg_param, "verbosity", level,
                     QudaVerbosity.QUDA_SILENT)
         _configure_quda_shared_nullvec(mg_param, conversion)
+        if LEVELS > 2:
+            if not hasattr(mg_param, "generate_all_levels"):
+                raise BenchmarkFailure(
+                    "quda_multigrid_param_missing", "generate_all_levels")
+            mg_param.generate_all_levels = QudaBoolean.QUDA_BOOLEAN_FALSE
+        if not hasattr(mg_param, "run_verify"):
+            raise BenchmarkFailure(
+                "quda_multigrid_param_missing", "run_verify")
+        # The independent full-operator true-residual gate is the correctness
+        # authority for this benchmark.  QUDA's expensive recursive setup
+        # verification remains available outside the timed comparison path.
+        mg_param.run_verify = QudaBoolean.QUDA_BOOLEAN_FALSE
         timing_boundary = _quda_invert_output_contract(invertQuda)
         enum_types = {
             "boolean": QudaBoolean,
@@ -3061,9 +3213,12 @@ def _run_quda_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
         _close_quda_dirac(dirac)
         raise
 
+    trace_solve_index = 0
+
     def solve_once(
             *, sample_device_memory: bool = False,
     ) -> Tuple[float, int, bool, float, Dict[str, Any]]:
+        nonlocal trace_solve_index
         torch.cuda.synchronize(device)
         torch.cuda.reset_peak_memory_stats(device)
         sampler = (
@@ -3075,15 +3230,26 @@ def _run_quda_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
                 solution_field.data.zero_()
                 torch.cuda.synchronize(device)
                 started = time.perf_counter()
+                if mg_trace_enabled:
+                    _append_trace_marker(
+                        mg_trace_path, "python_solve_begin", trace_solve_index)
                 with _capture_native_stdout(trace_path):
                     invertQuda(
                         solution_field.data_ptr, rhs_field.data_ptr, invert)
+                if mg_trace_enabled:
+                    _append_trace_marker(
+                        mg_trace_path, "python_solve_end", trace_solve_index)
+                trace_solve_index += 1
                 solution = solution_field
             else:
                 # Smoke may still exercise the high-level API, but this path
                 # is explicitly marked non-formal by timing_boundary.
                 with _capture_native_stdout(trace_path):
                     solution = dirac.invert(rhs_field)
+                if mg_trace_enabled:
+                    _append_trace_marker(
+                        mg_trace_path, "python_solve_end", trace_solve_index)
+                trace_solve_index += 1
             torch.cuda.synchronize(device)
             elapsed = time.perf_counter() - started
         finally:
@@ -3203,6 +3369,10 @@ def _run_quda_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
             "steady": _median_mad(timings),
         },
         "iterations": _iteration_summary(iterations_list),
+        "iteration_kind": "outer_gcr",
+        "iteration_scope": (
+            "outer GCR iterations; recursive MG and coarse solver "
+            "iterations are recorded separately in QUDA_MG_TRACE"),
         "converged_samples": converged_list,
         "converged": all_converged,
         "true_residual": {
@@ -3994,8 +4164,26 @@ def validate_document(document: Mapping[str, Any], *, allow_planned: bool = Fals
         errors.append("profile must be formal or smoke")
     if document.get("profile") != profile:
         errors.append("document/profile does not match protocol/profile")
-    if protocol.get("lattice_xyzt") != list(LATTICE):
-        errors.append("formal lattice must be 16x32x32x48")
+    protocol_lattice = protocol.get("lattice_xyzt")
+    protocol_block = protocol.get("block_xyzt")
+    if (not isinstance(protocol_lattice, list) or
+            len(protocol_lattice) != 4 or
+            any(isinstance(value, bool) or not isinstance(value, int) or
+                value <= 0 or value % 2 for value in protocol_lattice)):
+        errors.append("protocol.lattice_xyzt must contain four positive even integers")
+        protocol_lattice = list(DEFAULT_LATTICE)
+    if (not isinstance(protocol_block, list) or
+            len(protocol_block) != 4 or
+            any(isinstance(value, bool) or not isinstance(value, int) or
+                value <= 0 for value in protocol_block)):
+        errors.append("protocol.block_xyzt must contain four positive integers")
+        protocol_block = list(BLOCK)
+    protocol_levels = protocol.get("levels")
+    if (isinstance(protocol_levels, bool) or
+            not isinstance(protocol_levels, int) or
+            not 2 <= protocol_levels <= 5):
+        errors.append("protocol.levels must be in [2,5]")
+        protocol_levels = LEVELS
     if protocol.get("warmups") != WARMUPS:
         errors.append("warmups must be 2")
     repeats = protocol.get("repeats")
@@ -4021,11 +4209,12 @@ def validate_document(document: Mapping[str, Any], *, allow_planned: bool = Fals
                     errors.append(
                         f"formal profile requires {key}={expected!r}")
             fine_vector_bytes = (
-                12 * math.prod(LATTICE) // 2
+                12 * math.prod(protocol_lattice) // 2
                 * int(expected_precision["complex_bytes"]))
             coarse_vector_bytes = (
-                COARSE_DOF * math.prod(
-                    extent // width for extent, width in zip(LATTICE, BLOCK))
+                int(protocol.get("coarse_dof", COARSE_DOF)) * math.prod(
+                    extent // width for extent, width in
+                    zip(protocol_lattice, protocol_block))
                 * int(expected_precision["complex_bytes"]))
             expected_restart_effective = min(
                 formal_defaults["restart"], formal_defaults["max_iter"],
@@ -4052,7 +4241,7 @@ def validate_document(document: Mapping[str, Any], *, allow_planned: bool = Fals
                         formal_defaults["strict_galerkin_max_workspace_bytes"]),
                     "workspace_four_arena_lower_bound_bytes": int(
                         4 * formal_defaults["strict_galerkin_column_batch"] *
-                        12 * math.prod(LATTICE) *
+                        12 * math.prod(protocol_lattice) *
                         int(expected_precision["complex_bytes"])),
                     "require_exact_batch": True,
                 }
@@ -4377,7 +4566,8 @@ def _list_payload(args: argparse.Namespace) -> Dict[str, Any]:
     return {
         "schema": document["schema"],
         "profile": document["profile"],
-        "formal_lattice": list(LATTICE),
+        "formal_lattice": list(document["protocol"]["lattice_xyzt"]),
+        "formal_levels": int(document["protocol"]["levels"]),
         "sides": {
             "pyqcu": {
                 "worker": "internal strict fused FGMRES",
@@ -4414,6 +4604,15 @@ def _parser() -> argparse.ArgumentParser:
         "--profile", choices=PROFILE_NAMES, default=DEFAULT_PROFILE,
         help="formal fixes the reproducibility protocol; smoke permits exploration")
     parser.add_argument("--precision", choices=("c64", "c128"), default="c64")
+    parser.add_argument(
+        "--lattice", type=int, nargs=4, default=list(DEFAULT_LATTICE),
+        metavar=("LX", "LY", "LZ", "LT"))
+    parser.add_argument("--levels", type=int, default=LEVELS)
+    parser.add_argument(
+        "--block", type=int, nargs=4, default=list(BLOCK),
+        metavar=("BX", "BY", "BZ", "BT"))
+    parser.add_argument("--gauge-path", default=None)
+    parser.add_argument("--nullvec-path", default=None)
     parser.add_argument("--repeats", type=int, default=DEFAULT_REPEATS)
     parser.add_argument("--timeout", type=float, default=DEFAULT_TIMEOUT,
                         help="per-side child process timeout in seconds")
