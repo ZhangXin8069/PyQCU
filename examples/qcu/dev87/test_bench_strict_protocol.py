@@ -1167,6 +1167,42 @@ def test_quda_library_strategy_records_native_defaults():
     assert levels["coarse_solver_maxiter"] == [16, 16, 16]
 
 
+def test_c128_mixed_quda_coarse_precision_is_explicit():
+    protocol = bench.build_document(
+        _args(
+            "--dry-run", "--precision", "c128",
+            "--quda-coarse-precision", "single"),
+        dry_run=True)["protocol"]
+    assert protocol["quda_coarse_precision"] == {
+        "requested": "single",
+        "effective": "single",
+        "semantics": "fine c128/c64 solve with single coarse MG fields",
+    }
+    expected = bench._quda_expected_parameters(protocol, "/qio/fine")
+    assert expected["invert"]["precision"] == {
+        "cuda_prec": "QUDA_DOUBLE_PRECISION",
+        "cuda_prec_eigensolver": "QUDA_DOUBLE_PRECISION",
+        "cuda_prec_sloppy": "QUDA_SINGLE_PRECISION",
+        "cuda_prec_refinement_sloppy": "QUDA_SINGLE_PRECISION",
+        "cuda_prec_precondition": "QUDA_SINGLE_PRECISION",
+    }
+    assert expected["multigrid"]["precision_null"] == [
+        "QUDA_SINGLE_PRECISION"] * 2
+
+
+def test_c128_pyqcu_block_precision_fallback_is_explicit():
+    protocol = bench.build_document(
+        _args(
+            "--dry-run", "--precision", "c128",
+            "--pyqcu-strict-block-precision", "single"),
+        dry_run=True)["protocol"]
+    assert protocol["pyqcu_strict_block_precision"] == {
+        "requested": "single",
+        "effective": "single",
+    }
+    assert protocol["quda_coarse_precision"]["effective"] == "double"
+
+
 def test_native_quda_mg_trace_parser_preserves_level_residuals(tmp_path):
     import trace_strict_vs_quda as trace
 
