@@ -295,7 +295,12 @@ setup 请求 75 MiB 时失败。
 当前运行环境只有一张 V100 属于 PyTorch 构建支持的 \code{sm_70+} 架构。
 两张 P100 为 \code{sm_60}，当前 PyTorch 支持列表不含 \code{sm_60}，
 QUDA 本轮也按 \code{sm_70} 构建。因此不能把 P100 并发纳入本轮正式
-MultiGrid 结论；这属于硬件/工具链能力缺口，不是算法验证失败。
+MultiGrid 结论；这属于硬件/工具链能力缺口，不是算法验证失败。阶段 1
+MPI 能力门禁仍在可用范围内通过：单 rank preflight 为
+$18$ passed/$9$ skipped，\code{mpirun -np 2} 每个 rank 为
+$14$ passed/$13$ skipped；这些测试只确认 c64/c128 全局 dot/norm
+归约与 fail-closed preflight，不能解释为已实现分布式 halo 或
+distributed fused FGMRES。
 
 \section{复现命令与证据}
 
