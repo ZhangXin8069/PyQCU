@@ -82,7 +82,7 @@ python examples/qcu/dev87/run_strict_fast.py --list
 python examples/qcu/dev87/run_strict_fast.py --fail-fast --json strict-fast.json
 ```
 
-- **Tier 0 — CPU algebra smoke:** the focused synthetic suite covers 19 checks for exports, FGMRES edge cases (including complex-Givens phase cancellation), strict mode/geometry guards, `R=P†`, full-coarse parity transfer, MATPC, `X/Y/Yhat` assets/layouts, matrix-free guards and colored Galerkin batching/memory models. This is the edit-loop default.
+- **Tier 0 — CPU algebra smoke:** the focused synthetic suite covers 20 checks for exports, FGMRES edge cases (including complex-Givens phase cancellation), strict mode/geometry guards, `R=P†`, full-coarse parity transfer, MATPC, `X/Y/Yhat` assets/layouts, recursive null-vector propagation, matrix-free guards and colored Galerkin batching/memory models. This is the edit-loop default.
 - **Tier 1 — CUDA small lattice:** cumulatively adds strict primitive/V-cycle/complete-solve and fused-C++ FGMRES checks covering lazy persistent workspace reuse, warm x0, budget/descriptor guards and complex128 dispatch. Runtime depends on GPU, driver and build; do not encode a fixed seconds claim. Use it before handing off a CUDA change, and ensure Python does not regain a duplicate Krylov arena.
 - **Tier 2 — real gauge + QUDA formal gate:** only selected explicitly with `--tier 2`; runs the formal `bench_strict_vs_quda.py` collector with the canonical real-gauge/null-vector bundle, cache-hit and QIO contracts. It records correctness, true residual, setup/solve timing and schema-v2 memory evidence; a fair speedup is emitted only when both sides pass. It may write its documented dev87 artifacts.
 
@@ -127,3 +127,12 @@ All test output uses: `PYQCU::TESTING::<MODULE>::\n message`
 - Reference HDF5 data lives in `examples/data/`
 - The `path` variable in tests is computed from `pyqcu.__file__` to locate data files
 - **R3 fix:** Tests now include `assert` statements so pytest can detect failures
+
+## 分层 trace / matrix tests（2026-09-16）
+
+`test_bench_strict_protocol.py` covers variable `--lattice/--levels`,
+recursive cache manifests, default-off PyQCU/QUDA trace parsing, and QUDA
+outer-iteration scope.  `test_bench_mg_matrix.py` verifies two/three levels,
+c64/c128, and three lattice volumes.  `summarize_mg_trace.py` aggregates
+diagnostic stage/residual rows; never use its trace wall times as formal
+performance evidence.
