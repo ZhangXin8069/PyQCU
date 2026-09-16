@@ -62,10 +62,9 @@ $4.90135\times10^{-7}$ 与 $7.32826\times10^{-7}$。c128 三层在
 $16^3\cdot16$ 上得到 PyQCU $0.380444$ s、QUDA $1.230048$ s，
 加速比 $3.2332\times$，外迭代数 $44/87$。c128 小格三层复测为
 $12.3768\times$。c128 三层 $16\cdot32\cdot32\cdot48$ 的全 double
-探索配置在 32 GiB V100 上双侧已完成 smoke：MG steady 为
-PyQCU $2.06395$ s、QUDA $17.35793$ s，探索比值 $8.4100\times$；
-formal 仍锁定 $C=1$ 与 1 GiB setup cap，因此该大格点不进入正式
-speedup 表。
+formal cache-hit 点为 PyQCU $2.065148$ s、QUDA $17.245388$ s，
+加速比 $8.3507\times$，外迭代数 $20/60$。该点使用 extended
+$C=4$ 构建的 asset-identity 缓存，formal 冷 $C=1$ setup 仍未完成。
 \end{abstract}
 
 \tableofcontents
@@ -219,9 +218,17 @@ $16\cdot32\cdot32\cdot48$ / 2 / c64 & 1.944663 & 2.183002 & 1.1226 & 11 / 37 \\
 $16\cdot32\cdot32\cdot48$ / 3 / c64 & 0.662549 & 1.318356 & 1.9898 & 14 / 39 \\
 $8^3\cdot16$ / 3 / c128 & 0.077870 & 0.963774 & 12.3768 & 14 / 46 \\
 $16^3\cdot16$ / 3 / c128 & 0.380444 & 1.230048 & 3.2332 & 44 / 87 \\
+$16\cdot32\cdot32\cdot48$ / 3 / c128 & 2.065148 & 17.245388 & 8.3507 & 20 / 60 \\
 \bottomrule
 \end{tabular}
 \end{table}
+
+大格 c128 正式点采用 cache-hit：物理缓存由 extended $C=4$、$K=16$、
+CPU canonical-block staging 构建，随后按 cache identity 的资产几何与
+逐 tensor SHA 校验复用；formal 请求的 build batching 仅作为 provenance，
+不参与资产等价判定。该点真残差为 PyQCU $1.78798\times10^{-8}$、QUDA
+$1.79244\times10^{-8}$，两侧均通过独立门限。冷 formal $C=1$ setup
+尚未完成，因此该 cache-hit 比值不代表冷启动总时间。
 
 表中三层大格 c64、c128 小格和 c128 中格为 builder 优化后的复测值；
 与优化前独立运行的对应值相比，MG-vs-MG 加速比仍在约 2--12 倍区间，
@@ -278,6 +285,8 @@ QUDA & 1.318356 & 0.325375 \\
 PyQCU MG/BiCGStab $0.077870/0.304677$ s，QUDA
 $0.963774/0.103475$ s（小格）；PyQCU
 $0.380444/0.453031$ s，QUDA $1.230048/0.118572$ s（中格）。
+大格 c128 为 PyQCU MG/BiCGStab $2.065148/3.229977$ s，QUDA
+$17.245388/0.978754$ s。
 因此只有 MG-vs-MG 比值可以归因于 MultiGrid 路径：例如 c128 中格的
 $3.23\times$ MG 比值并不表示 PyQCU 的总体求解器快于 QUDA，因为 QUDA
 BiCGStab 仍比 PyQCU MG 快约 $3.2\times$，也比 PyQCU BiCGStab 快约
@@ -328,21 +337,22 @@ $1.83242\times10^{-8}$ 与 $1.83035\times10^{-8}$。
 
 \subsection{c128 大格点}
 
-c128 三层 $16\cdot32\cdot32\cdot48$ 的早期 $C=1$ 全 double 尝试曾
-在 32 GiB V100 上 OOM 或超过 30 分钟，QUDA 也在 double coarse-link
-setup 请求 75 MiB 时失败。当前 32 GiB 环境已经可以运行双侧全 double
-smoke：PyQCU 使用 $C=4$、$K=16$、CPU canonical-block staging、
-null-basis offload，并在 runtime seal 后调用 \code{empty\_cache()}；
-QUDA 使用同参数协议和 double coarse fields。PyQCU 两侧 setup 统计为
-$723.72$ s 与 $250.35$ s，QUDA setup 为 $630.74$ s。两者 solve 均为
-20/60 次外迭代，相对真残差分别为 $1.7880\times10^{-8}$ 与
-$1.7924\times10^{-8}$，因此两侧都通过独立真残差门。
+c128 三层 $16\cdot32\cdot32\cdot48$ 的早期 $C=1$ 冷 setup 在
+32 GiB V100 上 OOM 或超过 30 分钟；现在的 extended builder 使用
+$C=4$、$K=16$、CPU canonical-block staging、null-basis offload，
+完成后将同一物理缓存提供给 formal $C=1$ solve，并在 runtime seal 后
+调用 \code{empty\_cache()} 归还 setup 临时块。PyQCU 两侧缓存构建
+setup 统计为 $723.72$ s 与 $250.35$ s，QUDA double setup 为
+$630.74$ s。formal solve 的 MG steady 为 PyQCU $2.065148$ s、
+QUDA $17.245388$ s，正式比值 $8.3507\times$；相对真残差分别为
+$1.78798\times10^{-8}$ 与 $1.79244\times10^{-8}$，均通过独立门限。
+冷 formal $C=1$ setup 仍未完成，因此不能把 cache-hit solve 比值当作
+冷启动总时间比值。
 
-该探索点的 MG steady 为 PyQCU $2.06395$ s、QUDA $17.35793$ s，
-比值 $8.4100\times$；但 profile 标记为 \code{smoke-pass}，不是 formal，
-不能替换主表。同侧 plain BiCGStab 为 PyQCU $3.25918$ s、QUDA
-$0.97771$ s；QUDA BiCGStab 比 PyQCU MG 快约 $2.11\times$，再次说明
-该探索比值只能解释为 MG 路径差异。
+同侧 plain BiCGStab 为 PyQCU $3.22998$ s、QUDA $0.97875$ s；
+QUDA BiCGStab 比 PyQCU MG 快约 $2.11\times$，也比 PyQCU BiCGStab
+快约 $3.30\times$。因此该 $8.3507\times$ 只能解释为两条 MultiGrid
+路径的差异，不能外推为 PyQCU 一般求解器优势。
 
 \subsection{QUDA mixed-coarse 容量补充}
 
@@ -426,6 +436,9 @@ c128 中格三层 formal 复测，double coarse 主口径。\\
 \pathref{data/mg_matrix_20260916_round2/formal-c128-l3/combined-double-c4-k16-smoke.json} &
 c128 大格三层全 double 双侧 smoke；$C=4$、$K=16$、CPU staging，
 不进入 formal speedup。\\
+\pathref{data/mg_matrix_20260916_round2/formal-c128-l3/benchmark-formal.json} &
+c128 大格三层 formal cache-hit；缓存由 extended $C=4$ 构建并经资产
+identity 校验，主 MG 比值为 $8.3507\times$。\\
 \pathref{data/mg_matrix_20260916_round2/library-formal-c64-l3/benchmark.json} &
 QUDA library 策略敏感性。\\
 \pathref{data/mg_matrix_20260916_round2/trace-small-c64-l3.json} &
@@ -441,9 +454,9 @@ trace-on/off 小格诊断与残差阶段。\\
   \item 旧 c64 $4.3817\times$ 来自未对齐内层预算，已撤回；当前大格 c64
         三层 aligned 主结果为 $1.9898\times$，五次样本和真残差均通过。
   \item QUDA double MG 与 PyQCU double MG 均已推进到 c128 小/中格点
-        正式可运行；大格三层全 double 已得到双侧 smoke-pass，探索 MG
-        比值为 $8.4100\times$，但 formal $C=1$ 仍未完成，不能把 smoke
-        比值冒充正式结论。
+        以及大格三层；大格 formal cache-hit 的 MG 比值为
+        $8.3507\times$，但冷 $C=1$ setup 仍未完成，且 QUDA plain
+        BiCGStab 仍快于 PyQCU MG，故不能外推为一般求解器优势。
   \item trace 功能对 PyQCU 小格点有显著观测开销，正式加速比必须在
         trace-off 下采集；BiCGStab 参考和 aligned/library 双策略已作为
         后续防失真硬闸门写入技能库。

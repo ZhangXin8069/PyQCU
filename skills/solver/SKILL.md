@@ -157,19 +157,26 @@ from `1.1226x` to `1.9898x`, which isolates the third-level benefit from
 input, precision and strategy differences.
 
 `_cg_orthogonalise()` now keeps only a read-only source and one destination
-buffer per CGS pass instead of cloning both source and work.  This removes one
-full matrix allocation and the corresponding regression tests pass.  It is not
-sufficient to fit the c128 `16·32·32·48` three-level hierarchy on a 32 GiB
-V100.  `_block_orthogonalise()` now also allocates the C++ blocked layout as
-the primary storage and exposes the Python order as a permuted view, so
-`to_qcu_blocked()` is zero-copy for the matching dtype/device.  Setup then
-advances past both former failure points and still OOMs while allocating the
-Galerkin coarse blocks.  Treat that geometry as a joint-live-set memory limit,
-not a single temporary-allocation bug.
+buffer per CGS pass instead of cloning both source and work.  `_block_orthogonalise()`
+also allocates the C++ blocked layout as the primary storage and exposes the
+Python order as a permuted view, so `to_qcu_blocked()` is zero-copy for the
+matching dtype/device.
 
-An experimental `strict_galerkin_block_dtype=torch.float32` mode plus chunked
-fine diagonal inversion and projection batch 1 reduce intermediate peaks, but
-the c128 `16·32·32·48` strict hierarchy still OOMs in the fine dslash batch
-matvec, even after flattening the inverse chunks to the site axis and using a
-compact complex64 inverse cache.  Do not claim strict mixed-coarse support
-until a complete setup and residual-gated solve exist.
+The c128 `16·32·32·48` full-double hierarchy now completes with the extended
+setup protocol `strict_galerkin_column_batch=4`,
+`strict_galerkin_projection_batch=16`, CPU canonical-block staging, and
+null-basis offload.  The two PyQCU transition setup times are 723.72 s and
+250.35 s.  After `seal_cuda_runtime()` the benchmark must call
+`torch.cuda.empty_cache()` before allocating the steady workspace; without
+that allocator release the solve fails with workspace OOM.  The resulting
+formal cache-hit solve is 20 outer iterations, `2.065148 s`, true residual
+`1.78798e-8`; QUDA double gives 60 outer iterations, `17.245388 s`, and
+`1.79244e-8`.  The 8.3507x MG ratio is formal for solve; the cold C=1
+setup has not completed, so it must not be presented as a cold-start ratio.
+The cache identity binds physical assets, and a hit validates geometry plus
+every tensor SHA rather than replaying the historical construction batch.
+
+The experimental `strict_galerkin_block_dtype=torch.float32` path reduces
+setup cost but changes coarse-block precision; on c128 small it increases
+outer iterations from 14 to 35.  Treat it as a capacity/tuning experiment,
+not as a substitute for the double-coarse main protocol.
