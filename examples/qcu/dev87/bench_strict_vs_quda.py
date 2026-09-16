@@ -761,6 +761,13 @@ def _canonical_config(args: argparse.Namespace) -> Dict[str, Any]:
             "transfer": "full-field chiral aggregation with coarse_spin=2",
         },
         "outer_solver": "restarted-right-fgmres/gcr",
+        "reference_solver": {
+            "kind": str(args.reference_solver),
+            "warmups": int(args.reference_warmups),
+            "timing_semantics": (
+                "same caller-owned input/output and true-residual gate; "
+                "outside MultiGrid and excluded from speedup"),
+        },
         "restart_requested": int(args.restart),
         "restart_effective": int(effective_restart),
         "max_krylov_bytes": int(max_krylov_bytes),
@@ -2289,6 +2296,63 @@ def _run_pyqcu_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
             "true_residual_rel": probe_residual,
         })
         probe_pass = bool(probe_result["converged"]) and probe_residual <= gate
+        reference_report = None
+        if config["reference_solver"]["kind"] == "bicgstab":
+            from pyqcu.cuda._schur_op import CudaSchurOp
+            reference_op = None
+            try:
+                reference_argv = argv.clone().contiguous()
+                reference_argv[define._ATOL_] = float(config["tolerance"])
+                reference_op = CudaSchurOp(
+                    reference_argv, gauge, ce, coo, cei, coi,
+                    device=device, params=params)
+                reference_op.params[define._SET_PLAN_] = 1
+                reference_op.params[define._MAX_ITER_] = int(config["max_iter"])
+                reference_output = torch.empty_like(rhs)
+
+                def reference_once() -> Tuple[float, float]:
+                    reference_output.zero_()
+                    torch.cuda.synchronize(device)
+                    started = time.perf_counter()
+                    qcu.applyCloverBistabCgQcu(
+                        reference_output, rhs, gauge, ce, coo, cei, coi,
+                        reference_op.set_ptrs, reference_op.params)
+                    torch.cuda.synchronize(device)
+                    elapsed = time.perf_counter() - started
+                    residual = _canonical_true_residual(
+                        reference_output, rhs, gauge, MASS,
+                        full_gauge=full_gauge, clover=clover_full)
+                    return elapsed, residual
+
+                reference_warmups = []
+                for _ in range(int(config["reference_solver"]["warmups"])):
+                    seconds, residual = reference_once()
+                    reference_warmups.append({
+                        "seconds": seconds,
+                        "true_residual_rel": residual,
+                    })
+                reference_samples = []
+                for _ in range(int(config["repeats"])):
+                    seconds, residual = reference_once()
+                    reference_samples.append({
+                        "seconds": seconds,
+                        "true_residual_rel": residual,
+                    })
+                reference_report = {
+                    "kind": "bicgstab",
+                    "implementation": "pyqcu.cuda.qcu.applyCloverBistabCgQcu",
+                    "warmups": reference_warmups,
+                    "steady": _median_mad([
+                        item["seconds"] for item in reference_samples]),
+                    "samples": reference_samples,
+                    "true_residual_max_rel": max(
+                        item["true_residual_rel"]
+                        for item in reference_samples),
+                    "excluded_from_speedup": True,
+                }
+            finally:
+                if reference_op is not None:
+                    reference_op.release()
         all_converged = (
             all(converged) and all(value <= gate for value in residuals) and
             probe_pass)
@@ -2354,6 +2418,7 @@ def _run_pyqcu_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
                 "warmups": warmup_results,
                 "steady": _median_mad(timings),
             },
+            "reference_solver": reference_report,
             "iterations": _iteration_summary(iterations),
             "iteration_kind": "outer_right_preconditioned_fgmres",
             "iteration_scope": (
@@ -2772,6 +2837,8 @@ def _quda_parameter_snapshot(
             "levels": {
                 "nu_pre": sequence("nu_pre", level_count),
                 "nu_post": sequence("nu_post", level_count),
+                "smoother": sequence("smoother", level_count, "inv_type"),
+                "smoother_tol": sequence("smoother_tol", level_count),
                 "coarse_solver": sequence(
                     "coarse_solver", level_count, "inv_type"),
                 "coarse_solver_maxiter": sequence(
@@ -2811,11 +2878,14 @@ def _quda_expected_parameters(
         "levels": {
             "nu_pre": [int(config["nu_pre"])] * n_level,
             "nu_post": [int(config["nu_post"])] * n_level,
+            "smoother": ["QUDA_MR_INVERTER"] * n_level,
+            "smoother_tol": [0.0] * n_level,
             "coarse_solver": (
                 ["QUDA_GCR_INVERTER"] * max(0, n_level - 1) +
                 ["QUDA_CA_GCR_INVERTER"]),
-            "coarse_solver_maxiter": [
-                int(config["coarse_max_iter"])] * n_level,
+            "coarse_solver_maxiter": (
+                [1] * max(0, n_level - 1) +
+                [int(config["coarse_max_iter"])]),
             "coarse_solver_tol": [
                 float(config["coarse_tolerance"])] * n_level,
         },
@@ -3086,10 +3156,14 @@ def _run_quda_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
                  QudaInverterType.QUDA_CA_GCR_INVERTER))
             _set_indexed(
                 mg_param, "coarse_solver_maxiter", level,
-                int(config["coarse_max_iter"]))
+                1 if level < n_level - 1 else int(config["coarse_max_iter"]))
             _set_indexed(
                 mg_param, "coarse_solver_tol", level,
                 float(config["coarse_tolerance"]))
+            _set_indexed(
+                mg_param, "smoother", level,
+                QudaInverterType.QUDA_MR_INVERTER)
+            _set_indexed(mg_param, "smoother_tol", level, 0.0)
             if trace_enabled and hasattr(mg_param, "verbosity"):
                 _set_indexed(
                     mg_param, "verbosity", level,
@@ -3327,6 +3401,68 @@ def _run_quda_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
             "converged": probe_converged,
             "true_residual_rel": probe_residual,
         })
+        reference_report = None
+        if config["reference_solver"]["kind"] == "bicgstab":
+            invert.inv_type = QudaInverterType.QUDA_BICGSTAB_INVERTER
+            invert.tol = float(config["tolerance"])
+            invert.maxiter = int(config["max_iter"])
+            invert.use_init_guess = QudaUseInitGuess.QUDA_USE_INIT_GUESS_NO
+            if hasattr(invert, "inv_type_precondition"):
+                invert.inv_type_precondition = (
+                    QudaInverterType.QUDA_INVALID_INVERTER)
+
+            def reference_once() -> Tuple[float, int, float]:
+                solution_field.data.zero_()
+                torch.cuda.synchronize(device)
+                started = time.perf_counter()
+                with _capture_native_stdout(trace_path):
+                    invertQuda(
+                        solution_field.data_ptr, rhs_field.data_ptr, invert)
+                torch.cuda.synchronize(device)
+                elapsed = time.perf_counter() - started
+                solution_full = field_to_scxyzt(info, solution_field)
+                canonical = np.ascontiguousarray(
+                    solution_full * (MASS + 4.0))
+                canonical_tensor = torch.from_numpy(canonical).to(
+                    device=device, dtype=complex_dtype)
+                canonical_eo = tools.oooxyzt2poooxyzt(
+                    canonical_tensor).contiguous()
+                residual = _canonical_true_residual(
+                    canonical_eo, rhs_for_residual, gauge_for_residual, MASS,
+                    full_gauge=full_gauge, clover=clover)
+                return elapsed, int(invert.iter), residual
+
+            reference_warmups = []
+            for _ in range(int(config["reference_solver"]["warmups"])):
+                seconds, reference_iterations, residual = reference_once()
+                reference_warmups.append({
+                    "seconds": seconds,
+                    "iterations": reference_iterations,
+                    "true_residual_rel": residual,
+                })
+            reference_samples = []
+            for _ in range(int(config["repeats"])):
+                seconds, reference_iterations, residual = reference_once()
+                reference_samples.append({
+                    "seconds": seconds,
+                    "iterations": reference_iterations,
+                    "true_residual_rel": residual,
+                })
+            reference_report = {
+                "kind": "bicgstab",
+                "implementation": "pyquda.quda.invertQuda("
+                                   "QUDA_BICGSTAB_INVERTER)",
+                "warmups": reference_warmups,
+                "steady": _median_mad([
+                    item["seconds"] for item in reference_samples]),
+                "iterations": _iteration_summary([
+                    item["iterations"] for item in reference_samples]),
+                "samples": reference_samples,
+                "true_residual_max_rel": max(
+                    item["true_residual_rel"]
+                    for item in reference_samples),
+                "excluded_from_speedup": True,
+            }
     finally:
         cleanup_errors = _close_quda_dirac(dirac)
 
@@ -3368,6 +3504,7 @@ def _run_quda_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
             "warmups": warmup_results,
             "steady": _median_mad(timings),
         },
+        "reference_solver": reference_report,
         "iterations": _iteration_summary(iterations_list),
         "iteration_kind": "outer_gcr",
         "iteration_scope": (
@@ -4642,6 +4779,14 @@ def _parser() -> argparse.ArgumentParser:
                         help="reuse successful compatible side records from --output")
     parser.add_argument("--dry-run", action="store_true",
                         help="emit plan/schema without hashing inputs or starting workers")
+    parser.add_argument(
+        "--allow-trace", action="store_true",
+        help="allow diagnostic trace env vars in a formal-profile invocation")
+    parser.add_argument(
+        "--reference-solver", choices=("none", "bicgstab"),
+        default="bicgstab",
+        help="plain BiCGStab performance reference recorded beside MG")
+    parser.add_argument("--reference-warmups", type=int, default=1)
     parser.add_argument("--list", action="store_true",
                         help="list protocol, dependencies and commands; starts no worker")
     parser.add_argument("--merge", nargs="+", metavar="JSON",
@@ -4653,13 +4798,25 @@ def _parser() -> argparse.ArgumentParser:
 def _run_parent(args: argparse.Namespace) -> Tuple[Dict[str, Any], int]:
     if args.timeout <= 0.0 or not math.isfinite(args.timeout):
         raise ValueError("--timeout must be a finite positive number")
+    if args.reference_warmups < 0:
+        raise ValueError("--reference-warmups must be non-negative")
     profile = _profile_name(args)
+    active_trace_env = [
+        name for name in ("PYQCU_STRICT_TRACE_FILE", "QUDA_MG_TRACE_FILE")
+        if os.environ.get(name)
+    ]
+    if profile == "formal" and active_trace_env and not args.allow_trace:
+        raise ValueError(
+            "formal speedup requires tracing disabled; unset "
+            + ", ".join(active_trace_env)
+            + " or use --allow-trace for a diagnostic run")
     if (profile == "formal" and args.side in ("pyqcu", "both") and
             args.cache_expect != "hit"):
         raise ValueError(
             "formal profile requires --cache-expect hit when pyqcu is selected; "
             "use --profile smoke for exploratory cache policies")
     document = build_document(args, dry_run=False)
+    document["collector"]["diagnostic_trace_environment"] = active_trace_env
     selected = list(SIDE_NAMES if args.side == "both" else (args.side,))
     requested_qio = dict(document["inputs"]["quda_qio"])
     requested_execution = copy.deepcopy(document["execution"])
