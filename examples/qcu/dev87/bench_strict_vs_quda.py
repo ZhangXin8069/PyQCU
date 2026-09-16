@@ -2241,6 +2241,13 @@ def _run_pyqcu_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
                 "instrumented setup; sampler stop excluded from setup_seconds"),
         }
 
+        # The Python setup hierarchy has been sealed above; return its unused
+        # allocator blocks before allocating the steady-solve workspace.  This
+        # is outside both setup and solve timing and is especially important
+        # for the 32 GiB c128 hierarchy.
+        torch.cuda.empty_cache()
+        torch.cuda.synchronize(device)
+
         # Keep these protocol facts next to the completed setup.  They used to
         # be accidentally inserted into _strict_runtime_cache_identity(),
         # where the worker-local torch/device variables do not exist.
