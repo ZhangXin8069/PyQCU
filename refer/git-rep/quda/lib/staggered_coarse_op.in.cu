@@ -2,6 +2,7 @@
 
 #include <transfer.h>
 #include <gauge_field.h>
+#include <type_traits>
 #include <tunable_nd.h>
 #include <instantiate.h>
 
@@ -167,7 +168,9 @@ namespace quda {
       using F = typename colorspinor::FieldOrderCB<Float,uvSpin,fineColor,coarseColor,csOrder,vFloat>;
       using gFine = typename gauge::FieldOrder<Float,fineColor,1,gOrder>;
       using gCoarse = typename gauge::FieldOrder<Float,coarseColor*coarseSpin,coarseSpin,gOrder,true,vFloat>;
-      using gCoarseAtomic = typename gauge::FieldOrder<Float,coarseColor*coarseSpin,coarseSpin,gOrder,true,storeType>;
+      using gCoarseAtomic = typename gauge::FieldOrder<
+        Float, coarseColor*coarseSpin, coarseSpin, gOrder, true,
+        std::conditional_t<std::is_same_v<Float, double>, double, storeType>>;
 
       const ColorSpinorField &v = T.Vectors();
 
@@ -200,7 +203,9 @@ namespace quda {
       using F = typename colorspinor::FieldOrderCB<Float, uvSpin, fineColor, coarseColor, csOrder, vFloat, vFloat, false, false>;
       using gFine =  typename gauge::FieldOrder<Float,fineColor,1,gOrder,true,Float>;
       using gCoarse = typename gauge::FieldOrder<Float, coarseColor * coarseSpin, coarseSpin, gOrder, true, vFloat>;
-      using gCoarseAtomic = typename gauge::FieldOrder<Float, coarseColor * coarseSpin, coarseSpin, gOrder, true, storeType>;
+      using gCoarseAtomic = typename gauge::FieldOrder<
+        Float, coarseColor * coarseSpin, coarseSpin, gOrder, true,
+        std::conditional_t<std::is_same_v<Float, double>, double, storeType>>;
 
       const ColorSpinorField &v = T.Vectors();
 
