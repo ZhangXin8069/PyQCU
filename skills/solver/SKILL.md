@@ -169,6 +169,7 @@ not a single temporary-allocation bug.
 
 An experimental `strict_galerkin_block_dtype=torch.float32` mode plus chunked
 fine diagonal inversion and projection batch 1 reduce intermediate peaks, but
-the c128 `16·32·32·48` strict hierarchy still OOMs in the site-matrix
-contraction.  Do not claim strict mixed-coarse support until a complete
-setup and residual-gated solve exist.
+the c128 `16·32·32·48` strict hierarchy still OOMs in the fine dslash batch
+matvec, even after flattening the inverse chunks to the site axis and using a
+compact complex64 inverse cache.  Do not claim strict mixed-coarse support
+until a complete setup and residual-gated solve exist.

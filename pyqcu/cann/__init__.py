@@ -1,6 +1,10 @@
 import torch
 from argparse import Namespace
 Namespace.__module__ = "pyqcu.cann"
+float32 = torch.float32
+float64 = torch.float64
+complex64 = torch.complex64
+complex128 = torch.complex128
 force_use_npu = False
 
 
