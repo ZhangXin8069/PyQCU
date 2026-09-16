@@ -325,6 +325,23 @@ PyQCU 的 trace 需要在 C++ 内记录逐层残差与阶段，并执行额外�
 对微小格点的相对开销远高于 QUDA 的原生日志；这也验证了正式速度比必须
 在 trace-off 下产生。
 
+\subsection{大格 c128 的 PyQCU 分层诊断}
+
+在 formal cache-hit 的大格 c128 上再次开启 PyQCU trace，8 次 solve
+（2 warmup、5 measured、1 untimed memory probe）均保持 20 次外迭代，
+trace-on 墙钟约 $3.31$--$3.43$ s，而 trace-off steady 为
+$2.065148$ s；观测开销约 $1.6\times$。阶段计时中，单次 solve 的
+outer iteration 合计约 $3.374$ s，其中 coarse V-cycle 约 $2.146$ s
+（占 outer 约 $63.6\%$）；fine pre/post smoother 合计约 $0.248$ s，
+fine restriction/prolongation 合计约 $0.247$ s，fine correction
+residual 约 $0.112$ s。最粗层 BiCGStab 在单次 solve 中约 $0.297$ s。
+
+该 trace 说明 PyQCU 的 $8.3507\times$ MG 优势不能仅归因于某个单层
+kernel：每外层迭代的 coarsest recursion 和 coarse V-cycle 是主要成本，
+但外层迭代数明显少于 QUDA 的 60 次。由于本轮没有为大格 QUDA 重跑
+trace，且 trace 本身有约 $1.6\times$ 开销，这些数字只用于解释算法
+结构，不能替换 trace-off 正式结果。
+
 \section{正确性与残差}
 
 所有正式点均通过独立全 Wilson/Clover 真残差复算。大格 c64 三层的
@@ -439,6 +456,8 @@ c128 大格三层全 double 双侧 smoke；$C=4$、$K=16$、CPU staging，
 \pathref{data/mg_matrix_20260916_round2/formal-c128-l3/benchmark-formal.json} &
 c128 大格三层 formal cache-hit；缓存由 extended $C=4$ 构建并经资产
 identity 校验，主 MG 比值为 $8.3507\times$。\\
+\pathref{data/mg_matrix_20260916_round2/formal-c128-l3/pyqcu-formal-trace.tsv} &
+大格 c128 PyQCU trace-on 的逐层 stage/residual 诊断；不进入正式计时。\\
 \pathref{data/mg_matrix_20260916_round2/library-formal-c64-l3/benchmark.json} &
 QUDA library 策略敏感性。\\
 \pathref{data/mg_matrix_20260916_round2/trace-small-c64-l3.json} &
