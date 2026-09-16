@@ -161,9 +161,16 @@ python -B -m pytest -q -p no:cacheprovider \
   examples/qcu/dev87/test_bench_strict_protocol.py \
   examples/qcu/dev87/test_bench_mg_matrix.py
 python examples/qcu/dev87/run_strict_fast.py --tier 1
+python examples/qcu/dev87/run_all.py --with-quda
 ```
 
 正式 JSON 来源：
 `data/mg_matrix_20260916_round2/formal-*-l*/benchmark.json`；
 trace 开销证据：`trace-small-c64-l3.json`。trace-on 数字只用于说明
 trace 开销，不能进入 `speedup_pyqcu_over_quda`。
+
+`run_quda_py.py` 必须在首次导入 PyQUDA 前按 strict benchmark 的方式初始化
+QMP；先导入 PyQUDA 会直接触发 `QMP_comm_get_default` abort，进程内无法恢复。
+legacy solve/MG case 在 precision-12 组合构建中显式选择 single precision，
+以保持与 c64 PyQCU 参考一致；`case_opcmp` 仍保留其有意使用的 double
+precision 路径。当前 `run_all.py --with-quda` 的 5 项断言全绿。
