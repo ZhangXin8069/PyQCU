@@ -840,7 +840,15 @@ class _FineOperator:
         key = (matrix.device, matrix.dtype)
         if key not in self._diagonal_inv:
             site_matrix = matrix.permute(2, 3, 4, 5, 0, 1).reshape(-1, self.dof, self.dof)
-            inverse = _torch.linalg_inv(site_matrix)
+            # Chunk the batched inverse: a single full-lattice temporary is
+            # larger than the inverse itself and is the limiting allocation
+            # for c128 16x32x32x48 setup.
+            inverse = site_matrix.clone()
+            chunk = 4096
+            for start in range(0, int(site_matrix.shape[0]), chunk):
+                stop = min(int(site_matrix.shape[0]), start + chunk)
+                inverse[start:stop] = _torch.linalg_inv(
+                    site_matrix[start:stop])
             self._diagonal_inv[key] = inverse.reshape(
                 *self.shape, self.dof, self.dof).permute(4, 5, 0, 1, 2, 3).contiguous()
         return self._diagonal_inv[key]
