@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import json
+import math
 import os
 import subprocess
 import sys
@@ -747,6 +748,28 @@ def test_strict_setup_stats_must_match_requested_batch():
     with pytest.raises(bench.BenchmarkFailure) as error:
         bench._validate_strict_setup_contract(stats, config)
     assert error.value.code == "strict_setup_contract_mismatch"
+
+
+def test_cached_setup_stats_accept_different_construction_batching():
+    config = bench.build_document(_args("--dry-run"), dry_run=True)["protocol"]
+    shape = tuple(int(value) for value in config["lattice_xyzt"])
+    shape = tuple(
+        extent // width
+        for extent, width in zip(shape, config["block_xyzt_per_level"][0]))
+    stats = [{
+        "effective_probe_mode": "colored",
+        "column_batch_size": 8,
+        "projection_site_batch_size": 2,
+        "coarse_sites": math.prod(shape),
+        "coarse_dof": config["coarse_dof"],
+        "memory": {"workspace_upper_bytes": 1},
+    }]
+    bench._validate_cached_setup_stats(stats, config)
+
+    stats[0]["coarse_sites"] += 1
+    with pytest.raises(bench.BenchmarkFailure) as error:
+        bench._validate_cached_setup_stats(stats, config)
+    assert error.value.code == "strict_cache_setup_stats_invalid"
 
 
 def test_strict_runtime_expected_manifest_matches_formal_geometry():

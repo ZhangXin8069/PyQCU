@@ -1956,6 +1956,55 @@ def _validate_strict_setup_contract(
                 f"level {level}: " + "; ".join(mismatches))
 
 
+def _validate_cached_setup_stats(
+        stats: Any, config: Mapping[str, Any]) -> None:
+    """Validate reusable cache geometry without replaying build batching."""
+    if not isinstance(stats, list) or len(stats) != int(config["levels"]) - 1:
+        raise BenchmarkFailure(
+            "strict_cache_setup_stats_invalid",
+            f"expected {int(config['levels']) - 1} cached transition stats, "
+            f"got {stats!r}")
+    shape = tuple(int(value) for value in config["lattice_xyzt"])
+    blocks = [
+        tuple(int(value) for value in block)
+        for block in config["block_xyzt_per_level"]
+    ]
+    for level, entry in enumerate(stats):
+        if not isinstance(entry, Mapping):
+            raise BenchmarkFailure(
+                "strict_cache_setup_stats_invalid",
+                f"level {level}: expected mapping, got {entry!r}")
+        shape = tuple(
+            extent // width for extent, width in zip(shape, blocks[level]))
+        expected_sites = math.prod(shape)
+        values = {
+            "coarse_sites": expected_sites,
+            "coarse_dof": int(config["coarse_dof"]),
+        }
+        mismatches = [
+            f"{key}={entry.get(key)!r}, expected={expected!r}"
+            for key, expected in values.items()
+            if entry.get(key) != expected
+        ]
+        for key in ("column_batch_size", "projection_site_batch_size"):
+            value = entry.get(key)
+            if (isinstance(value, bool) or not isinstance(value, int) or
+                    value <= 0):
+                mismatches.append(f"{key}={value!r} must be a positive integer")
+        memory = entry.get("memory")
+        workspace = (
+            memory.get("workspace_upper_bytes")
+            if isinstance(memory, Mapping) else None)
+        if (isinstance(workspace, bool) or not isinstance(workspace, int) or
+                workspace <= 0):
+            mismatches.append(
+                f"workspace_upper_bytes={workspace!r} must be a positive integer")
+        if mismatches:
+            raise BenchmarkFailure(
+                "strict_cache_setup_stats_invalid",
+                f"level {level}: " + "; ".join(mismatches))
+
+
 def _run_pyqcu_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
     config = payload["protocol"]
     inputs = payload["inputs"]
@@ -2085,7 +2134,13 @@ def _run_pyqcu_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
             assert cache_result.assets is not None
             cached_assets = cache_result.assets
             strict_setup_stats = cache_result.stats
-            _validate_strict_setup_contract(strict_setup_stats, config)
+            _validate_cached_setup_stats(strict_setup_stats, config)
+            cache_report["build_contract"] = {
+                "validation": "cache assets must match requested geometry; "
+                              "construction batching is provenance only",
+                "requested_setup": copy.deepcopy(config["pyqcu_strict_setup"]),
+                "cached_setup_stats": copy.deepcopy(strict_setup_stats),
+            }
             runtime = _configured_strict_runtime_assets(
                 argv=argv, params=params, gauge=gauge,
                 clover_ee=ce, clover_oo=coo,
