@@ -154,6 +154,9 @@ primary and `--quda-strategy library` as a sensitivity point.
 buffer per CGS pass instead of cloning both source and work.  This removes one
 full matrix allocation and the corresponding regression tests pass.  It is not
 sufficient to fit the c128 `16·32·32·48` three-level hierarchy on a 32 GiB
-V100: setup proceeds past the former 864 MiB allocation and then OOMs in
-`to_qcu_blocked()` while materializing the blocked basis.  Treat that geometry
-as a whole-hierarchy memory limit, not a single temporary-allocation bug.
+V100.  `_block_orthogonalise()` now also allocates the C++ blocked layout as
+the primary storage and exposes the Python order as a permuted view, so
+`to_qcu_blocked()` is zero-copy for the matching dtype/device.  Setup then
+advances past both former failure points and still OOMs while allocating the
+Galerkin coarse blocks.  Treat that geometry as a joint-live-set memory limit,
+not a single temporary-allocation bug.
