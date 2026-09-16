@@ -187,3 +187,31 @@ trace-on 数值只用于分层归因，绝不能再用于正式 speedup。
 P100 为 `sm_60`，当前 PyTorch 构建明确不兼容，且 PyQCU/QUDA 本任务构建
 目标为 `sm_70`。因此本轮不能把多卡数字并入正式 MG 结论；应记录为环境
 能力缺口，而不是把单卡结果冒充多卡验证。
+
+### 2026-09-17 colored Galerkin 批处理与 CPU staging
+
+`build_strict_galerkin_colored()` 的 support gather、fine-block gather 和
+canonical-block scatter 已改为预计算索引与批量写入。`_target_entries()` 与
+`_source_color_groups()` 增加缓存，但保留按实际周期目标集合的贪心分组；
+不要用固定模数线性着色替代它，`8×16×16×24` 的周期轴上会产生更多色组。
+
+`--pyqcu-strict-block-device cpu` 与 `--pyqcu-strict-offload-null-basis`
+是低显存实验开关，默认关闭；CPU canonical blocks 要求
+`retain_blocks=False`，runtime `X/Xinv/Y/Yhat` 仍在目标设备组装。对应的
+CUDA 回归为
+`test_strict_galerkin_colored_cpu_block_staging_matches_reference`。
+
+真实 c128 smoke 证据（`8^3·16`、三层、`--pyqcu-strict-block-precision
+single`、CPU block staging）显示，`K=1` 的 setup 为 `44.86 s`，`K=4`
+为 `16.67 s`（约 `2.69x`），两者均通过 `1.84e-8` 真残差门并保持 35 次
+外迭代。该收益是 setup 收益，不是 MG solve 加速比；正式对照必须重新运行
+QUDA 侧并保持两侧 K 相同。
+
+同输入合成微基准（`8×16×16×32`、c128 blocked basis、c64 blocks、K=256、
+44 次算子调用）旧实现 `18.39 s`、新实现 `5.48 s`（约 `3.36x`），峰值
+allocated 均约 `13.04 GiB`。该结果只证明 builder 热路径收益，不替代真实
+gauge/QUDA 的公平计时。
+
+smoke/formal 的 `require_exact_batch` 会按每个 level 的实际最大色组检查
+请求值：小格 `8^3·16` 的 level 0/1 上界分别为 38/4，因此请求 256 或
+38 都会被拒绝；正式参数应选择不超过所有 level 上界的值。

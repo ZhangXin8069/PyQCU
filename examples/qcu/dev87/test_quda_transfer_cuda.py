@@ -31,6 +31,7 @@ try:
                               QudaCoarseOperator, QcuStrictAssetBinding,
                               QudaMatPCOperator, QudaStrictMultigrid,
                               QudaTransfer)
+    from pyqcu.tools._strict_galerkin import build_strict_galerkin_colored
 except (ImportError, OSError) as exc:  # pragma: no cover - 环境相关
     pytest.skip(f"QCU Cython/CUDA 后端不可用: {exc}", allow_module_level=True)
 
@@ -331,6 +332,61 @@ def test_quda_transfer_and_stencil_match_qcu_kernels():
         for params in reversed(initialized):
             qcu.applyEndQcu(set_ptrs, params)
         torch.cuda.synchronize()
+
+
+def test_strict_galerkin_colored_cpu_block_staging_matches_reference():
+    """c128 blocked basis + c64 CPU staging must reproduce CUDA assets."""
+    torch.manual_seed(20260883)
+    device = torch.device("cuda")
+    shape = (4, 4, 4, 4)
+    block = (1, 2, 2, 2)
+    dof = 4
+    dtype = torch.complex128
+    null = torch.randn(1, 4, 1, *shape, dtype=dtype).to(device)
+    transfer = QudaTransfer(
+        null, shape, fine_spin=4, fine_color=1,
+        coarse_spin=2, block_size=block)
+    identity = torch.eye(dof, dtype=dtype, device=device).reshape(
+        dof, dof, 1, 1, 1, 1)
+    diagonal = 2.0 * identity.expand(dof, dof, *shape).clone()
+    forward = [
+        (0.01 * torch.randn(dof, dof, *shape, dtype=dtype)).to(device)
+        for _ in range(4)]
+    backward = [
+        (0.01 * torch.randn(dof, dof, *shape, dtype=dtype)).to(device)
+        for _ in range(4)]
+
+    def single_matvec(value):
+        image = torch.einsum(
+            "ijxyzt,jxyzt->ixyzt", diagonal, value)
+        for dim in range(4):
+            image = image + torch.einsum(
+                "ijxyzt,jxyzt->ixyzt", forward[dim],
+                torch.roll(value, shifts=-1, dims=1 + dim))
+            image = image + torch.einsum(
+                "ijxyzt,jxyzt->ixyzt", backward[dim],
+                torch.roll(value, shifts=1, dims=1 + dim))
+        return image
+
+    def batch_matvec(value):
+        return torch.stack([single_matvec(item) for item in value], dim=0)
+
+    reference = QudaCoarseOperator(
+        transfer, single_matvec, materialize=True, verbose=False)
+    staged = build_strict_galerkin_colored(
+        transfer, batch_matvec,
+        column_batch_size=2, projection_site_batch_size=4,
+        check_fine_support=True, include_raw_links=False,
+        retain_blocks=False, block_dtype=torch.complex64,
+        block_device=torch.device("cpu"), verbose=False)
+    expected = reference.to_qcu_strict_assets()
+    assert staged.stats["worst_fine_support_leakage"] == 0.0
+    assert torch.allclose(
+        staged.onsite_pair, expected["onsite_pair"],
+        rtol=2e-5, atol=2e-6)
+    assert torch.allclose(
+        staged.preconditioned_links, expected["preconditioned_links"],
+        rtol=3e-5, atol=3e-6)
 
 
 def test_quda_strict_transfer_coarse_and_matpc_match_cuda_kernels():
