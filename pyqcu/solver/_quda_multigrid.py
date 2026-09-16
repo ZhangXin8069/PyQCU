@@ -324,13 +324,16 @@ def _cg_orthogonalise(matrix: Tensor, passes: int,
         raise ValueError(f"n_block_ortho 必须 >= 1，得到 {passes}")
     n_block, local_dim, nvec = (int(matrix.shape[0]), int(matrix.shape[1]),
                                 int(matrix.shape[2]))
-    current = matrix.clone()
+    # Reuse the caller's matrix as the first read-only source and keep only
+    # one destination buffer per CGS pass.  The previous implementation kept
+    # both a cloned source and a cloned work matrix, which doubled the peak
+    # allocation for the large c128 hierarchy setup.
+    source = matrix
     eps = 1e-30
-    for pass_index in range(passes):
-        work = matrix.clone() if pass_index == 0 else current.clone()
-        new = _torch.zeros_like(work)
+    for _ in range(passes):
+        new = _torch.zeros_like(source)
         for j in range(nvec):
-            vector = work[:, :, j].clone()
+            vector = source[:, :, j].clone()
             for i in range(j):
                 coefficient = _torch.einsum(
                     "nk,nk->n", new[:, :, i].conj(), vector)
@@ -342,8 +345,8 @@ def _cg_orthogonalise(matrix: Tensor, passes: int,
                 new[:, :, j] = vector / safe_norm.unsqueeze(1)
             else:
                 new[:, :, j] = vector
-        current = new
-    return current
+        source = new
+    return source
 
 
 class QudaTransfer:
