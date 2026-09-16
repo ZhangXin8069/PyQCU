@@ -161,9 +161,10 @@ performance evidence.
 - `--quda-coarse-precision single` 的 mixed-coarse smoke 必须检查
   `gauge_param`/`invert_param` precision readback；只修改
   `invert_param` 不足以让 coarse single 与 fine double 一致。
-- `--pyqcu-strict-block-precision single` 是 setup 低内存实验选项，
-  当前不能在 c128 大格点完整结束 setup，不得据此宣称 PyQCU
-  mixed-coarse 已支持。
+- `--pyqcu-strict-block-precision single` 与
+  `--strict-galerkin-projection-batch 1` 是 setup 低内存实验选项；
+  即使配合分块 diagonal inverse，当前仍不能在 c128 大格点完整结束
+  setup，不得据此宣称 PyQCU mixed-coarse 已支持。
 
 快速命令：
 
