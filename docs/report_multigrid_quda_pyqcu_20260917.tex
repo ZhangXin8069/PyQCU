@@ -56,11 +56,12 @@ setup 会产生 NaN 或 norm 检查中止。主口径采用
 \code{--quda-strategy library} 保留 QUDA 原生 CA-GCR、\code{nu\_post=8} 与
 coarse maxiter 16，作为敏感性对照。
 
-当前可信的大格 c64 三层主结果为 PyQCU $0.654446$ s、QUDA $1.299921$ s，
-加速比 $1.9863\times$，外迭代数 $14/39$，真残差分别为
+当前可信的大格 c64 三层主结果为 PyQCU $0.662549$ s、QUDA $1.318356$ s，
+加速比 $1.9898\times$，外迭代数 $14/39$，真残差分别为
 $4.90135\times10^{-7}$ 与 $7.32826\times10^{-7}$。c128 三层在
-$16^3\cdot16$ 上得到 PyQCU $0.365517$ s、QUDA $1.290496$ s，
-加速比 $3.5306\times$，外迭代数 $44/87$。c128 三层
+$16^3\cdot16$ 上得到 PyQCU $0.380444$ s、QUDA $1.230048$ s，
+加速比 $3.2332\times$，外迭代数 $44/87$。c128 小格三层复测为
+$12.3768\times$。c128 三层
 $16\cdot32\cdot32\cdot48$ 的全 double setup 在 32 GiB V100 上双侧 OOM，
 因此不报告跨库大格 c128 加速比。
 \end{abstract}
@@ -213,21 +214,27 @@ $8^3\cdot16$ / 2 / c64 & 0.054184 & 0.399675 & 7.3763 & 9 / 32 \\
 $8^3\cdot16$ / 3 / c64 & 0.043200 & 0.516422 & 11.9542 & 10 / 33 \\
 $16^3\cdot16$ / 3 / c64 & 0.149240 & 0.745390 & 4.9946 & 31 / 59 \\
 $16\cdot32\cdot32\cdot48$ / 2 / c64 & 1.944663 & 2.183002 & 1.1226 & 11 / 37 \\
-$16\cdot32\cdot32\cdot48$ / 3 / c64 & 0.654446 & 1.299921 & 1.9863 & 14 / 39 \\
-$8^3\cdot16$ / 3 / c128 & 0.077162 & 0.975873 & 12.6471 & 14 / 46 \\
-$16^3\cdot16$ / 3 / c128 & 0.365517 & 1.290496 & 3.5306 & 44 / 87 \\
+$16\cdot32\cdot32\cdot48$ / 3 / c64 & 0.662549 & 1.318356 & 1.9898 & 14 / 39 \\
+$8^3\cdot16$ / 3 / c128 & 0.077870 & 0.963774 & 12.3768 & 14 / 46 \\
+$16^3\cdot16$ / 3 / c128 & 0.380444 & 1.230048 & 3.2332 & 44 / 87 \\
 \bottomrule
 \end{tabular}
 \end{table}
+
+表中三层大格 c64、c128 小格和 c128 中格为 builder 优化后的复测值；
+与优化前独立运行的对应值相比，MG-vs-MG 加速比仍在约 2--12 倍区间，
+变化约在 2--9\% 以内。复测真残差分别为
+$4.90135\times10^{-7}$、$1.74532\times10^{-8}$ 和
+$1.83242\times10^{-8}$，全部通过正式门限。
 
 小格点加速比明显大于中型/大型格点，原因是固定 setup 之外的外层迭代数
 差异在小体积上占主导；大格点则同时受每层算符规模、缓存与固定 kernel
 开销影响。不能仅凭单一小格点外推正式部署性能。
 
 同一 $16\cdot32\cdot32\cdot48$ c64 格点上，二层为
-$1.1226\times$，三层为 $1.9863\times$。这不是单点偶然值，而是层数
-消融：增加第三层后 PyQCU 时间从 $1.944663$ s 降至 $0.654446$ s，
-QUDA 从 $2.183002$ s 降至 $1.299921$ s，两侧均从更深粗化中获益，
+$1.1226\times$，三层为 $1.9898\times$。这不是单点偶然值，而是层数
+消融：增加第三层后 PyQCU 时间从 $1.944663$ s 降至 $0.662549$ s，
+QUDA 从 $2.183002$ s 降至 $1.318356$ s，两侧均从更深粗化中获益，
 但 PyQCU 的降幅更大。
 
 \begin{table}[htbp]
@@ -253,23 +260,34 @@ $16^3\cdot16$ / 3 / c128 & 0.357061 & 0.961293 & 2.6922 \\
 \begin{table}[htbp]
 \centering
 \small
-\caption{大格 c64 三层：MG 与同侧 plain BiCGStab median。}
+\caption{三层复测：MG 与同侧 plain BiCGStab median。}
 \label{tab:bicg}
 \begin{tabular}{@{}L{0.23\textwidth}rr@{}}
 \toprule
 实现 & MG (s) & BiCGStab (s) \\
 \midrule
-PyQCU & 0.654446 & 1.709560 \\
-QUDA & 1.299921 & 0.329646 \\
+PyQCU & 0.662549 & 1.685399 \\
+QUDA & 1.318356 & 0.325375 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-表中 QUDA 的 MG 慢于其 plain BiCGStab，说明 aligned 的“一次递归”配置
-虽然数学上对齐，却不是 QUDA 在该格点上的绝对最快配置；library
-敏感性表则给出了另一侧证据。因此本文同时报告两套策略，但主结论仍使用
-aligned，因为它排除了“QUDA 多执行内层粗迭代而 PyQCU 只执行一次递归”的
-口径差。
+表 \ref{tab:bicg} 为大格 c64；同一协议的 c128 小格/中格复测为
+PyQCU MG/BiCGStab $0.077870/0.304677$ s，QUDA
+$0.963774/0.103475$ s（小格）；PyQCU
+$0.380444/0.453031$ s，QUDA $1.230048/0.118572$ s（中格）。
+因此只有 MG-vs-MG 比值可以归因于 MultiGrid 路径：例如 c128 中格的
+$3.23\times$ MG 比值并不表示 PyQCU 的总体求解器快于 QUDA，因为 QUDA
+BiCGStab 仍比 PyQCU MG 快约 $3.2\times$，也比 PyQCU BiCGStab 快约
+$3.8\times$。大格 c64 上 QUDA BiCGStab 比 PyQCU MG 快约 $2.0\times$。
+正式结论必须同时报告这组参考时间，不能把 MG 路径优势扩大解释为一般
+求解器优势。
+
+此外，c128 小格采用单精度 coarse blocks 并把 Galerkin batch 调到
+$K=4$ 时，PyQCU setup 从 $44.86$ s 降至 $16.67$ s，但外层迭代由
+double coarse blocks 的 14 次增加到 35 次，steady solve 为
+$0.177628$ s；该结果是显存/容量实验，不是与 double-coarse QUDA 的
+主口径等精度比较。
 
 \section{trace 开销}
 
@@ -386,18 +404,20 @@ python -B examples/qcu/dev87/trace_strict_vs_quda.py \
 \begin{longtable}{@{}L{0.34\textwidth}L{0.60\textwidth}@{}}
 \caption{主要证据文件}\label{tab:evidence}\\
 \toprule 文件 & 内容\\\midrule
-\pathref{data/mg_matrix_20260916_round2/formal-c64-l3/benchmark.json} &
-当前 c64 大格三层 aligned 五次正式记录。\\
+\pathref{data/mg_matrix_20260916_round2/formal-c64-l3/benchmark-main-recheck.json} &
+当前 c64 大格三层 aligned 五次正式复测记录。\\
 \pathref{data/mg_matrix_20260916_round2/formal-c64-l3-medium/benchmark.json} &
 c64 中格三层 formal。\\
 \pathref{data/mg_matrix_20260916_round2/formal-c64-l2-small/benchmark.json} &
 c64 小格二层 formal。\\
 \pathref{data/mg_matrix_20260916_round2/formal-c64-l3-small/benchmark.json} &
 c64 小格三层 formal。\\
-\pathref{data/mg_matrix_20260916_round2/formal-c128-l3-small/benchmark.json} &
-c128 小格三层 formal，double MG 路径。\\
-\pathref{data/mg_matrix_20260916_round2/formal-c128-l3-medium/benchmark.json} &
-c128 中格三层 formal，double MG 路径。\\
+\pathref{data/mg_matrix_20260916_round2/formal-c128-l3-small/benchmark-main-recheck.json} &
+c128 小格三层 formal 复测，double coarse 主口径。\\
+\pathref{data/mg_matrix_20260916_round2/formal-c128-l3-small/benchmark-k4.json} &
+c128 小格三层 single coarse blocks/CPU staging 容量实验；不进入主 speedup。\\
+\pathref{data/mg_matrix_20260916_round2/formal-c128-l3-medium/benchmark-main-recheck.json} &
+c128 中格三层 formal 复测，double coarse 主口径。\\
 \pathref{data/mg_matrix_20260916_round2/library-formal-c64-l3/benchmark.json} &
 QUDA library 策略敏感性。\\
 \pathref{data/mg_matrix_20260916_round2/trace-small-c64-l3.json} &
@@ -411,7 +431,7 @@ trace-on/off 小格诊断与残差阶段。\\
 
 \begin{enumerate}
   \item 旧 c64 $4.3817\times$ 来自未对齐内层预算，已撤回；当前大格 c64
-        三层 aligned 主结果为 $1.9863\times$，五次样本和真残差均通过。
+        三层 aligned 主结果为 $1.9898\times$，五次样本和真残差均通过。
   \item QUDA double MG 已从“不可用”推进到 c128 小/中格点真实可运行，
         但全 double 大格三层受 32 GiB V100 显存限制，不能伪造跨库比值。
   \item trace 功能对 PyQCU 小格点有显著观测开销，正式加速比必须在
