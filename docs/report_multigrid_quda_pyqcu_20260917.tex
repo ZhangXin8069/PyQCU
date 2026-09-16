@@ -1,0 +1,362 @@
+% !TEX program = xelatex
+\documentclass[UTF8,a4paper,11pt]{ctexart}
+
+\usepackage[a4paper,margin=2.05cm,headheight=14pt]{geometry}
+\usepackage{amsmath,amssymb,mathtools,bm}
+\usepackage{booktabs,longtable,array,tabularx,multirow}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{xurl}
+\usepackage{hyperref}
+\usepackage{seqsplit}
+\definecolor{pyblue}{RGB}{36,91,163}
+\definecolor{qudared}{RGB}{190,65,55}
+\hypersetup{
+  colorlinks=true,
+  linkcolor=pyblue,
+  urlcolor=pyblue,
+  pdftitle={PyQCU/QUDA MultiGrid 重新校验与 double MG 修复}
+}
+\urlstyle{tt}
+\Urlmuskip=0mu plus 3mu
+\newcommand{\pathref}[1]{\begingroup\Urlmuskip=0mu plus 3mu\path{#1}\endgroup}
+\newcommand{\code}[1]{%
+  \ifmmode
+    \mathtt{\detokenize{#1}}%
+  \else
+    \begingroup\ttfamily
+    \expandafter\seqsplit\expandafter{\detokenize{#1}}%
+    \endgroup
+  \fi}
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\newcommand{\norm}[1]{\left\lVert#1\right\rVert}
+\setlength{\parindent}{2em}
+\setlength{\parskip}{0.35em}
+\emergencystretch=3em
+
+\title{PyQCU 与 QUDA MultiGrid：旧加速比撤回、\texorpdfstring{double MG}{double MG} 修复与重新对照}
+\author{PyQCU 工程分析记录}
+\date{2026 年 9 月 17 日}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+本文撤回 2026-09-16 报告中未经对齐预算的 c64 三层 $4.3817\times$ 结论，
+在相同 gauge、右端项、canonical null vectors、odd--odd MATPC、
+停机容差、零初值和五次 median/MAD 口径下重新测量。正式 trace 环境变量
+全部关闭；同侧 plain BiCGStab 作为独立参考，不进入 MG 加速比。
+
+重新构建后，QUDA 以 \code{QUDA_PRECISION=12} 同时提供 c64/c128，并启用
+\code{QUDA_MULTIGRID_DOUBLE=ON}。为真正运行 double coarse MG，还需修复
+double coarse-link 原子累加仍按 \code{int} 固定点解释的问题；否则 level-1
+setup 会产生 NaN 或 norm 检查中止。主口径采用
+\code{--quda-strategy aligned}，即双侧都是一次递归 V-cycle；
+\code{--quda-strategy library} 保留 QUDA 原生 CA-GCR、\code{nu\_post=8} 与
+coarse maxiter 16，作为敏感性对照。
+
+当前可信的大格 c64 三层主结果为 PyQCU $0.654446$ s、QUDA $1.299921$ s，
+加速比 $1.9863\times$，外迭代数 $14/39$，真残差分别为
+$4.90135\times10^{-7}$ 与 $7.32826\times10^{-7}$。c128 三层在
+$16^3\cdot16$ 上得到 PyQCU $0.365517$ s、QUDA $1.290496$ s，
+加速比 $3.5306\times$，外迭代数 $44/87$。c128 三层
+$16\cdot32\cdot32\cdot48$ 的全 double setup 在 32 GiB V100 上双侧 OOM，
+因此不报告跨库大格 c128 加速比。
+\end{abstract}
+
+\tableofcontents
+
+\section{旧结果撤回与验收口径}
+
+旧 c64 $16\cdot32\cdot32\cdot48$ 三层结果
+$0.653995$ s 对 $2.865627$ s、$4.3817\times$ 不再作为正式结论。
+重新检查后确认旧 QUDA 记录使用了与 PyQCU 不同的 smoother 与中间层
+coarse solver 预算：PyQCU 每个外层迭代执行一次递归 V-cycle，而旧 QUDA
+配置在中间层执行多轮内层迭代。新旧差异不是浮点残差门限或计时边界造成的。
+
+本轮验收标准为：
+
+\begin{enumerate}
+  \item 新增性能测试功能默认关闭；正式速度比必须在 trace 环境变量为空时产生；
+  \item PyQCU 与 QUDA 使用同一 gauge、RHS、canonical full null vectors、
+        mass、block、coarse spin、odd--odd MATPC 和相对真残差门限；
+  \item 至少覆盖二、三层，至少覆盖 c64/c128，并扩展到三个格点体积；
+  \item 每侧记录 MG steady solve、独立真残差，以及同侧 plain
+        BiCGStab 参考时间与真残差；
+  \item 对小格点另测 trace-on，明确量化 trace 对性能的影响；
+  \item 对 c128 double MG 做真实 setup/solve 验证，不能只以编译成功作证据；
+  \item 在硬件能力范围内给出可追溯的正式 JSON，无法运行的条件明确标记。
+\end{enumerate}
+
+\section{实现与修复}
+
+\subsection{默认关闭的 trace 与正式闸门}
+
+PyQCU 使用 \code{PYQCU_STRICT_TRACE_FILE}，QUDA 使用
+\code{QUDA_MG_TRACE_FILE}。两者未设置时不创建 trace 文件，也不分配
+trace 专用 workspace。正式 profile 若检测到任一变量存在，会在启动 worker
+前失败；诊断运行必须显式传 \code{--allow-trace}。这样可避免把分层残差
+计算、同步和字符串 I/O 混入正式 speedup。
+
+\subsection{BiCGStab 参考与 QUDA 指针修复}
+
+PyQCU 参考调用 \code{applyCloverBistabCgQcu}；QUDA 参考将
+\code{inv\_type} 设为 \code{QUDA\_BICGSTAB\_INVERTER}。仅把
+\code{inv\_type\_precondition} 设为 INVALID 不够，因为 PyQUDA 的
+\code{getClover()} 仍保留 MG 实例指针。QUDA 的 solver factory 会把
+BiCGStab 判定为“不支持显式预条件器”并终止。修复后同时设置
+\code{inv\_type\_precondition = QUDA\_INVALID\_INVERTER} 与
+\code{invert.preconditioner = Pointer("void")}。
+
+参考解与 MG 使用相同 tolerance、maxiter、零初值、误差复算和真残差门限，
+但被明确标记为 \code{excluded_from_speedup=true}，不参与
+\code{speedup_pyqcu_over_quda}。
+
+\subsection{QUDA double MultiGrid}
+
+上游 QUDA 1.1.0 默认关闭 double recursive MultiGrid。为得到可运行的
+c128 coarse 路径，本轮做了以下最小修复：
+
+\begin{enumerate}
+  \item CMake 增加 \code{QUDA_MULTIGRID_DOUBLE}，开启时定义
+        \code{GPU\_MULTIGRID\_DOUBLE}；
+  \item \code{matrix\_tile.cuh} 对 mixed precision gauge accessor
+        显式构造目标 \code{complex<T>}；
+  \item double coarse-link 的 shared/global atomic accumulation 使用
+        \code{double} 存储，而不是把 double 字段按 \code{int} 固定点解释；
+  \item c64 仍保留确定性 \code{int} fixed-point 路径，避免回归性能与行为。
+\end{enumerate}
+
+关键实现位于：
+
+\begin{itemize}
+  \item \pathref{refer/git-rep/quda/include/kernels/coarse_op_kernel.cuh}
+  \item \pathref{refer/git-rep/quda/lib/coarse_op.in.cu}
+  \item \pathref{refer/git-rep/quda/lib/coarsecoarse_op.hpp}
+  \item \pathref{refer/git-rep/quda/lib/staggered_coarse_op.in.cu}
+\end{itemize}
+
+统一构建使用：
+
+\begin{verbatim}
+QUDA_PRECISION=12
+QUDA_RECONSTRUCT=7
+QUDA_INTERFACE_QDP=ON
+QUDA_QIO=ON / QUDA_QMP=ON
+QUDA_MULTIGRID_NVEC_LIST=12,24
+QUDA_MULTIGRID_DOUBLE=ON
+QUDA_ENABLE_MMA=OFF
+QUDA_GPU_ARCH=sm_70
+\end{verbatim}
+
+\section{正式协议}
+
+\subsection{输入与计时}
+
+两侧共享以下输入与边界：
+
+\begin{itemize}
+  \item fine Wilson/Clover、mass $0.05$、canonical 12 个 full near-null vectors；
+  \item odd--odd MATPC，\code{coarse\_spin=2}，block $[2,2,2,2]$；
+  \item c64 tolerance $10^{-6}$、真残差门限 $5\times10^{-6}$；
+  \item c128 tolerance $10^{-8}$、真残差门限 $5\times10^{-8}$；
+  \item 零初值、2 次 warmup、5 次 measured solve、median/MAD；
+  \item steady solve 由调用方自有输入输出计时，setup、输入 I/O、真残差复算分开；
+  \item 正式运行设置 \code{QUDA_RESOURCE_PATH} 复用调优参数。
+\end{itemize}
+
+\subsection{aligned 与 library 两种 QUDA 策略}
+
+\code{aligned} 将两侧统一到“一个外层迭代执行一次递归 V-cycle”：
+MR smoother、\code{smoother\_tol=0}、非最粗层
+\code{coarse\_solver\_maxiter=1}，最粗层仍使用 200。
+
+\code{library} 保留 QUDA/PyQUDA 默认：
+CA-GCR smoother、\code{smoother\_tol=0.25}、\code{nu\_pre=0}、
+\code{nu\_post=8}、\code{coarse\_solver\_maxiter=16}。
+该策略只用于判断结论是否依赖某套预算，不与 aligned 数字混合计算。
+
+\section{主结果}
+
+\begin{table}[htbp]
+\centering
+\small
+\caption{aligned 主口径的五次 median；所有正式运行均 trace-off。}
+\label{tab:aligned}
+\begin{tabular}{@{}L{0.22\textwidth}rrrr@{}}
+\toprule
+格点 / 层 / 精度 & PyQCU (s) & QUDA (s) & 加速比 & 外迭代 Py/QUDA \\
+\midrule
+$8^3\cdot16$ / 2 / c64 & 0.054184 & 0.399675 & 7.3763 & 9 / 32 \\
+$8^3\cdot16$ / 3 / c64 & 0.043200 & 0.516422 & 11.9542 & 10 / 33 \\
+$16^3\cdot16$ / 3 / c64 & 0.149240 & 0.745390 & 4.9946 & 31 / 59 \\
+$16\cdot32\cdot32\cdot48$ / 3 / c64 & 0.654446 & 1.299921 & 1.9863 & 14 / 39 \\
+$8^3\cdot16$ / 3 / c128 & 0.077162 & 0.975873 & 12.6471 & 14 / 46 \\
+$16^3\cdot16$ / 3 / c128 & 0.365517 & 1.290496 & 3.5306 & 44 / 87 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+小格点加速比明显大于中型/大型格点，原因是固定 setup 之外的外层迭代数
+差异在小体积上占主导；大格点则同时受每层算符规模、缓存与固定 kernel
+开销影响。不能仅凭单一小格点外推正式部署性能。
+
+\begin{table}[htbp]
+\centering
+\small
+\caption{QUDA 原生 library 策略敏感性；不替代表 \ref{tab:aligned} 主口径。}
+\label{tab:library}
+\begin{tabular}{@{}L{0.28\textwidth}rrr@{}}
+\toprule
+格点 / 层 / 精度 & PyQCU (s) & QUDA library (s) & 加速比 \\
+\midrule
+$16^3\cdot16$ / 3 / c64 & 0.170131 & 0.465514 & 2.7362 \\
+$16\cdot32\cdot32\cdot48$ / 3 / c64 & 0.654533 & 2.462287 & 3.7619 \\
+$16^3\cdot16$ / 3 / c128 & 0.357061 & 0.961293 & 2.6922 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{BiCGStab 参考与失真检查}
+
+同侧 BiCGStab 不进入 MG-vs-MG 加速比，但用于识别计时或配置失真。
+
+\begin{table}[htbp]
+\centering
+\small
+\caption{大格 c64 三层：MG 与同侧 plain BiCGStab median。}
+\label{tab:bicg}
+\begin{tabular}{@{}L{0.23\textwidth}rr@{}}
+\toprule
+实现 & MG (s) & BiCGStab (s) \\
+\midrule
+PyQCU & 0.654446 & 1.709560 \\
+QUDA & 1.299921 & 0.329646 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+表中 QUDA 的 MG 慢于其 plain BiCGStab，说明 aligned 的“一次递归”配置
+虽然数学上对齐，却不是 QUDA 在该格点上的绝对最快配置；library
+敏感性表则给出了另一侧证据。因此本文同时报告两套策略，但主结论仍使用
+aligned，因为它排除了“QUDA 多执行内层粗迭代而 PyQCU 只执行一次递归”的
+口径差。
+
+\section{trace 开销}
+
+小格 c64 三层同一参数下，trace-off 取正式文档的 median，trace-on 取
+诊断文档的 steady median。trace-on 数据只用于量化观测代价，不参与加速比。
+
+\begin{table}[htbp]
+\centering
+\small
+\caption{trace-off 与 trace-on 的 steady median。}
+\label{tab:trace}
+\begin{tabular}{@{}L{0.25\textwidth}rrr@{}}
+\toprule
+模式 & PyQCU (s) & QUDA (s) & 说明 \\
+\midrule
+trace-off & 0.043971 & 0.505706 & 正式主口径 \\
+trace-on & 0.125649 & 0.560432 & 诊断，excluded \\
+开销因子 & $2.86\times$ & $1.11\times$ & 比较同侧 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+PyQCU 的 trace 需要在 C++ 内记录逐层残差与阶段，并执行额外同步，因此
+对微小格点的相对开销远高于 QUDA 的原生日志；这也验证了正式速度比必须
+在 trace-off 下产生。
+
+\section{正确性与残差}
+
+所有正式点均通过独立全 Wilson/Clover 真残差复算。大格 c64 三层的
+最大相对真残差为 PyQCU $4.90135\times10^{-7}$、QUDA
+$7.32826\times10^{-7}$；中型 c128 三层分别为
+$1.83242\times10^{-8}$ 与 $1.83035\times10^{-8}$。
+两库输出均来自同一 RHS，且解在进入残差复算前按约定完成归一化转换。
+
+\section{显存与多卡边界}
+
+\subsection{c128 大格点}
+
+c128 三层 $16\cdot32\cdot32\cdot48$ 的全 double hierarchy setup 在
+32 GiB V100 上双侧 OOM：PyQCU 在 block orthogonalization 请求额外
+864 MiB 时失败，QUDA 在 double coarse-link setup 请求 75 MiB 时失败。
+失败文档保留在 \pathref{data/mg_matrix_20260916_round2/formal-c128-l3/benchmark.json}。
+因此 c128 最大可信跨库正式点是 $16^3\cdot16$ 三层；小格 c128 三层
+用于确认 double coarse MG 的真实 setup/solve，而不是用单侧结果伪造比值。
+
+\subsection{多卡}
+
+当前运行环境只有一张 V100 属于 PyTorch 构建支持的 \code{sm_70+} 架构。
+两张 P100 为 \code{sm_60}，当前 PyTorch 支持列表不含 \code{sm_60}，
+QUDA 本轮也按 \code{sm_70} 构建。因此不能把 P100 并发纳入本轮正式
+MultiGrid 结论；这属于硬件/工具链能力缺口，不是算法验证失败。
+
+\section{复现命令与证据}
+
+\begin{verbatim}
+source ./env.sh
+source examples/qcu/dev87/quda_env.sh
+export QUDA_RESOURCE_PATH=/root/PyQCU/data/quda-resource-cache
+export QUDA_ENABLE_TUNING=1
+unset PYQCU_STRICT_TRACE_FILE QUDA_MG_TRACE_FILE
+
+# 主口径：正式大格 c64 三层
+python -B examples/qcu/dev87/bench_strict_vs_quda.py \
+  --profile formal --side both --quda-strategy aligned \
+  --lattice 16 32 32 48 --levels 3 --precision c64 \
+  --repeats 5 --cache-expect hit \
+  --reference-solver bicgstab --reference-warmups 1 \
+  --gauge-path data/gauge_16x32x32x48_m0.05_seed42_c64.h5 \
+  --nullvec-path data/L16x32x32x48_nvec12_full_c64.h5 \
+  --quda-nullvec-prefix data/L16x32x32x48_nvec12_quda \
+  --quda-nullvec-manifest data/L16x32x32x48_nvec12_quda.conversion.json \
+  --output data/mg_matrix_20260916_round2/formal-c64-l3/benchmark.json
+
+# trace 诊断：正式加速比之外单独报告
+python -B examples/qcu/dev87/trace_strict_vs_quda.py \
+  --profile smoke --repeats 2 --lattice 8 8 8 16 --levels 3 \
+  --precision c64 --cache-expect any \
+  --reference data/mg_matrix_20260916_round2/trace-reference-small-c64-l3.json \
+  --output data/mg_matrix_20260916_round2/trace-small-c64-l3.json
+\end{verbatim}
+
+\begin{longtable}{@{}L{0.34\textwidth}L{0.60\textwidth}@{}}
+\caption{主要证据文件}\label{tab:evidence}\\
+\toprule 文件 & 内容\\\midrule
+\pathref{data/mg_matrix_20260916_round2/formal-c64-l3/benchmark.json} &
+当前 c64 大格三层 aligned 五次正式记录。\\
+\pathref{data/mg_matrix_20260916_round2/formal-c64-l3-medium/benchmark.json} &
+c64 中格三层 formal。\\
+\pathref{data/mg_matrix_20260916_round2/formal-c64-l2-small/benchmark.json} &
+c64 小格二层 formal。\\
+\pathref{data/mg_matrix_20260916_round2/formal-c64-l3-small/benchmark.json} &
+c64 小格三层 formal。\\
+\pathref{data/mg_matrix_20260916_round2/formal-c128-l3-small/benchmark.json} &
+c128 小格三层 formal，double MG 路径。\\
+\pathref{data/mg_matrix_20260916_round2/formal-c128-l3-medium/benchmark.json} &
+c128 中格三层 formal，double MG 路径。\\
+\pathref{data/mg_matrix_20260916_round2/library-formal-c64-l3/benchmark.json} &
+QUDA library 策略敏感性。\\
+\pathref{data/mg_matrix_20260916_round2/trace-small-c64-l3.json} &
+trace-on/off 小格诊断与残差阶段。\\
+\bottomrule
+\end{longtable}
+
+\section{结论}
+
+本轮得到三点可复核结论：
+
+\begin{enumerate}
+  \item 旧 c64 $4.3817\times$ 来自未对齐内层预算，已撤回；当前大格 c64
+        三层 aligned 主结果为 $1.9863\times$，五次样本和真残差均通过。
+  \item QUDA double MG 已从“不可用”推进到 c128 小/中格点真实可运行，
+        但全 double 大格三层受 32 GiB V100 显存限制，不能伪造跨库比值。
+  \item trace 功能对 PyQCU 小格点有显著观测开销，正式加速比必须在
+        trace-off 下采集；BiCGStab 参考和 aligned/library 双策略已作为
+        后续防失真硬闸门写入技能库。
+\end{enumerate}
+
+\end{document}

@@ -45,7 +45,6 @@ CASES: tuple[Dict[str, Any], ...] = (
         "lattice": [8, 8, 8, 16],
         "levels": 3,
         "precision": "c128",
-        "quda_mg_supported": False,
     },
     {
         "id": "medium-c64-l3",
@@ -58,7 +57,6 @@ CASES: tuple[Dict[str, Any], ...] = (
         "lattice": [16, 16, 16, 16],
         "levels": 3,
         "precision": "c128",
-        "quda_mg_supported": False,
     },
     {
         "id": "formal-c64-l2",
@@ -77,7 +75,6 @@ CASES: tuple[Dict[str, Any], ...] = (
         "lattice": [16, 32, 32, 48],
         "levels": 3,
         "precision": "c128",
-        "quda_mg_supported": False,
     },
 )
 
@@ -133,7 +130,6 @@ def _case_command(
 def _run_case(
         case: Mapping[str, Any], *, profile: str, repeats: int,
         timeout: float, output_dir: Path, trace: bool,
-        allow_c128_quda: bool = False,
 ) -> Dict[str, Any]:
     case_dir = output_dir / str(case["id"])
     case_dir.mkdir(parents=True, exist_ok=True)
@@ -153,16 +149,7 @@ def _run_case(
         }
 
     runs: List[Dict[str, Any]] = []
-    partial_reason = None
     side = "both"
-    if (str(case["precision"]) == "c128" and
-            case.get("quda_mg_supported", True) is False and
-            not allow_c128_quda):
-        side = "pyqcu"
-        partial_reason = (
-            "QUDA 1.1.0's upstream recursive MultiGrid is single-precision "
-            "only (GPU_MULTIGRID_DOUBLE disabled); this case records the "
-            "PyQCU c128 result and does not fabricate a cross-library speedup.")
     policies = (
         ("miss", "hit") if profile == "formal" else ("any",)
     )
@@ -209,16 +196,8 @@ def _run_case(
         "assets": {key: str(value) for key, value in assets.items()},
         "runs": runs,
         "status": (
-            "partial" if partial_reason and runs and
-            runs[-1]["returncode"] == 0 else
-            "ok" if runs and runs[-1]["returncode"] == 0 else "failed"
-        ),
+            "ok" if runs and runs[-1]["returncode"] == 0 else "failed"),
     }
-    if partial_reason is not None:
-        result["reason"] = {
-            "code": "quda_c128_mg_unavailable",
-            "detail": partial_reason,
-        }
     if trace and result["status"] == "ok":
         trace_output = case_dir / "trace.json"
         assets = _asset_paths(case["lattice"])
@@ -261,7 +240,6 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--only", action="append", default=[])
     parser.add_argument("--trace", action="store_true")
-    parser.add_argument("--allow-c128-quda", action="store_true")
     parser.add_argument("--list", action="store_true")
     return parser
 
@@ -288,8 +266,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         _run_case(
             case, profile=args.profile, repeats=args.repeats,
             timeout=args.timeout, output_dir=args.output_dir,
-            trace=bool(args.trace),
-            allow_c128_quda=bool(args.allow_c128_quda))
+            trace=bool(args.trace))
         for case in selected
     ]
     document = {
