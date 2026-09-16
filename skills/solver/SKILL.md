@@ -139,21 +139,21 @@ withdrawn: QUDA had been left on a different smoother/coarse-iteration budget.
 For a matched one-recursive-cycle comparison, rerun with QUDA MR smoother,
 `smoother_tol=0`, and `coarse_solver_maxiter=1` outside the coarsest level.
 The current c64 `16·32·32·48` three-level result is 14 outer iterations in
-`0.654446 s` versus QUDA's 39 outer GCR iterations in `1.299921 s`
-(`1.9863x`), both odd--odd MATPC.  Report the old value nowhere except as a
+`0.662549 s` versus QUDA's 39 outer GCR iterations in `1.318356 s`
+(`1.9898x`), both odd--odd MATPC.  Report the old value nowhere except as a
 retraction.
 
 The same run must include per-side plain BiCGStab reference records, excluded
 from the speedup.  In the current large c64 point PyQCU MG/BiCGStab are
-`0.654446/1.709560 s`, while QUDA MG/BiCGStab are
-`1.299921/0.329646 s`; this contrast is required context, not a substitute
+`0.662549/1.685399 s`, while QUDA MG/BiCGStab are
+`1.318356/0.325375 s`; this contrast is required context, not a substitute
 for the MG-vs-MG ratio.  Compare `--quda-strategy aligned` as the matched-cycle
 primary and `--quda-strategy library` as a sensitivity point.
 
 Keep the same-lattice two-level ablation in the report: on
 `16·32·32·48` c64, PyQCU/QUDA are `1.944663/2.183002 s` at two levels and
-`0.654446/1.299921 s` at three levels.  The corresponding PyQCU speedup grows
-from `1.1226x` to `1.9863x`, which isolates the third-level benefit from
+`0.662549/1.318356 s` at three levels.  The corresponding PyQCU speedup grows
+from `1.1226x` to `1.9898x`, which isolates the third-level benefit from
 input, precision and strategy differences.
 
 `_cg_orthogonalise()` now keeps only a read-only source and one destination

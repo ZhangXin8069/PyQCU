@@ -112,8 +112,8 @@ the speedup authority.
 ## 2026-09-17 重新校验与 QUDA double MultiGrid
 
 旧 c64 三层 `4.3817x` 结果撤回。它使用 QUDA 原生 CA-GCR/多内层预算，
-而 PyQCU 使用一次递归 V-cycle；复测后同格点主口径为 `1.9863x`
-(`0.654446` s vs. `1.299921` s)，见
+而 PyQCU 使用一次递归 V-cycle；复测后同格点主口径为 `1.9898x`
+(`0.662549` s vs. `1.318356` s)，见
 `data/mg_matrix_20260916_round2/formal-c64-l3/benchmark.json`。当前主口径
 `--quda-strategy aligned` 明确匹配一次递归预算：MR smoother、
 `smoother_tol=0`、非最粗层 `coarse_solver_maxiter=1`。`--quda-strategy
@@ -147,13 +147,21 @@ QUDA 的 solver factory 仍会因残留 MG 指针拒绝 BiCGStab。
 | `8^3·16` / 3 / c64 | 0.043200 s | 0.516422 s | 11.9542x | 10 / 33 |
 | `16^3·16` / 3 / c64 | 0.149240 s | 0.745390 s | 4.9946x | 31 / 59 |
 | `16·32·32·48` / 2 / c64 | 1.944663 s | 2.183002 s | 1.1226x | 11 / 37 |
-| `16·32·32·48` / 3 / c64 | 0.654446 s | 1.299921 s | 1.9863x | 14 / 39 |
-| `8^3·16` / 3 / c128 | 0.077162 s | 0.975873 s | 12.6471x | 14 / 46 |
-| `16^3·16` / 3 / c128 | 0.365517 s | 1.290496 s | 3.5306x | 44 / 87 |
+| `16·32·32·48` / 3 / c64 | 0.662549 s | 1.318356 s | 1.9898x | 14 / 39 |
+| `8^3·16` / 3 / c128 | 0.077870 s | 0.963774 s | 12.3768x | 14 / 46 |
+| `16^3·16` / 3 / c128 | 0.380444 s | 1.230048 s | 3.2332x | 44 / 87 |
 
 大格 c64 的二层/三层消融把层级收益单独隔离出来：二者同一输入、同一
 precision 和同一 QUDA aligned 策略，三层使 PyQCU 从 1.944663 s 降到
-0.654446 s，使 QUDA 从 2.183002 s 降到 1.299921 s。
+0.662549 s，使 QUDA 从 2.183002 s 降到 1.318356 s。
+
+三层复测的 BiCGStab 对照必须与 MG 比值一起解释：大格 c64 为
+PyQCU MG/BiCGStab `0.662549/1.685399 s`、QUDA
+`1.318356/0.325375 s`；c128 小格为 PyQCU `0.077870/0.304677 s`、
+QUDA `0.963774/0.103475 s`；c128 中格为 PyQCU
+`0.380444/0.453031 s`、QUDA `1.230048/0.118572 s`。其中 QUDA
+plain BiCGStab 在多点上快于 PyQCU MG，因此 MG-vs-MG 加速比只能归因于
+MultiGrid 路径，绝不能外推为 PyQCU 总体求解器优势。
 
 c128 三层大格点 `16·32·32·48` 在 32 GiB V100 上 setup 阶段双方均 OOM：
 PyQCU 在 block orthogonalization 请求额外 864 MiB 时失败，QUDA 在
@@ -206,6 +214,10 @@ single`、CPU block staging）显示，`K=1` 的 setup 为 `44.86 s`，`K=4`
 为 `16.67 s`（约 `2.69x`），两者均通过 `1.84e-8` 真残差门并保持 35 次
 外迭代。该收益是 setup 收益，不是 MG solve 加速比；正式对照必须重新运行
 QUDA 侧并保持两侧 K 相同。
+
+混合精度 coarse blocks 不能进入主 speedup：c128 小格把 block precision
+改为 single 后，MG 外迭代从 double coarse blocks 的 14 次增至 35 次，
+steady solve 约为 `0.177628 s`，即使 setup 更快也不是等精度比较。
 
 同输入合成微基准（`8×16×16×32`、c128 blocked basis、c64 blocks、K=256、
 44 次算子调用）旧实现 `18.39 s`、新实现 `5.48 s`（约 `3.36x`），峰值
