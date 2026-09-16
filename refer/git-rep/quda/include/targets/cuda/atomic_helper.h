@@ -107,6 +107,26 @@ namespace quda
       uint32_t *addr_ = reinterpret_cast<uint32_t *>(addr);
       atomicMax(addr_, val_);
     }
+
+    /**
+       @brief CAS implementation of absolute maximum for double
+       precision.  The value is positive-definite by contract, matching
+       the single-precision specialization above.
+    */
+    __device__ inline void operator()(double *addr, double val)
+    {
+      unsigned long long *addr_as_ull =
+          reinterpret_cast<unsigned long long *>(addr);
+      unsigned long long old = *addr_as_ull;
+      unsigned long long assumed;
+      do {
+        assumed = old;
+        const double current = __longlong_as_double(assumed);
+        const double maximum = current > val ? current : val;
+        old = atomicCAS(addr_as_ull, assumed,
+                        __double_as_longlong(maximum));
+      } while (assumed != old);
+    }
   };
 
   /**

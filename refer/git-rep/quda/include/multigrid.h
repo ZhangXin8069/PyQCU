@@ -7,7 +7,9 @@
 #include <memory>
 #include <instantiate.h>
 
-// at the moment double-precision multigrid is only enabled when debugging
+// Double-precision multigrid is opt-in; set QUDA_MULTIGRID_DOUBLE=ON.
+// The MMA coarse path must be disabled in that build because upstream MMA
+// does not define a double-precision atom.
 #ifdef HOST_DEBUG
 //#define GPU_MULTIGRID_DOUBLE
 #endif
