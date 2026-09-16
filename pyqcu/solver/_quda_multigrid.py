@@ -2065,6 +2065,7 @@ class QudaMultigrid:
                  strict_galerkin_mode: str = "column",
                  strict_galerkin_column_batch: int = 4,
                  strict_galerkin_projection_batch: int = 4,
+                 strict_galerkin_block_dtype: Optional[Any] = None,
                  strict_galerkin_max_workspace_bytes: Optional[int] = 512 << 20,
                  strict_galerkin_check_support: bool = True,
                  seed: int = 42, verbose: bool = False,
@@ -2164,6 +2165,7 @@ class QudaMultigrid:
         self.strict_galerkin_column_batch = int(strict_galerkin_column_batch)
         self.strict_galerkin_projection_batch = int(
             strict_galerkin_projection_batch)
+        self.strict_galerkin_block_dtype = strict_galerkin_block_dtype
         if min(self.strict_galerkin_column_batch,
                self.strict_galerkin_projection_batch) <= 0:
             raise ValueError("strict Galerkin batch size 必须为正数")
@@ -2725,7 +2727,13 @@ class QudaMultigrid:
         for level in range(self._transition_count):
             nvec = self._nvec_list[level]
             if level < len(self._null_vectors):
-                null = self._null_vectors[level].clone()
+                # Transfer construction only reads the supplied basis.  Avoid
+                # an extra full-field clone in the common random/zero-iteration
+                # setup path; iterative setup mutates its working vectors, so
+                # keep the defensive clone there.
+                null = self._null_vectors[level]
+                if solver_kind != "random":
+                    null = null.clone()
             elif self.propagate_null_vectors and level > 0 and solver_kind == "random":
                 previous = self.transfers[level - 1]
                 restricted = []
@@ -2831,6 +2839,7 @@ class QudaMultigrid:
                         max_workspace_bytes=(
                             self.strict_galerkin_max_workspace_bytes),
                         verbose=self.verbose,
+                        block_dtype=self.strict_galerkin_block_dtype,
                     )
                 else:
                     setup_result = build_strict_galerkin(
@@ -2843,6 +2852,7 @@ class QudaMultigrid:
                         max_workspace_bytes=(
                             self.strict_galerkin_max_workspace_bytes),
                         verbose=self.verbose,
+                        block_dtype=self.strict_galerkin_block_dtype,
                     )
                 setup_result.install(coarse)
                 setup_result.stats["requested_probe_mode"] = (

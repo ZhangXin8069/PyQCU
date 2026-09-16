@@ -491,10 +491,11 @@ def _finish_strict_galerkin(
     coarse_shape: Shape4, block_size: Shape4, blocked: Tensor,
     E: int, e: int, nvec: int, include_raw_links: bool,
     retain_blocks: bool, stats: Dict[str, Any], started_at: float,
-    verbose: bool,
+    verbose: bool, output_dtype: Any = None,
 ) -> StrictGalerkinResult:
     """Invert X and pack canonical blocks into QUDA runtime storage."""
     zero_key: BlockKey = (0, 0, 0, 0)
+    output_dtype = blocked.dtype if output_dtype is None else output_dtype
     X = blocks[zero_key]
     site_matrix = X.permute(2, 3, 4, 5, 0, 1).reshape(-1, E, E)
     inverse = _torch.linalg_inv(site_matrix)
@@ -505,12 +506,12 @@ def _finish_strict_galerkin(
     raw_links: Optional[Tensor]
     if include_raw_links:
         raw_links = _torch.zeros(
-            size=[2, 4, E, E, *coarse_shape], dtype=blocked.dtype,
+            size=[2, 4, E, E, *coarse_shape], dtype=output_dtype,
             device=blocked.device)
     else:
         raw_links = None
     preconditioned = _torch.zeros(
-        size=[2, 4, E, E, *coarse_shape], dtype=blocked.dtype,
+        size=[2, 4, E, E, *coarse_shape], dtype=output_dtype,
         device=blocked.device)
     for dim in range(4):
         shift = tuple(-1 if axis == dim else 0 for axis in range(4))
@@ -522,7 +523,8 @@ def _finish_strict_galerkin(
         preconditioned[0, dim] = _matmul_site(X_inv, forward[dim])
         preconditioned[1, dim] = _matmul_site(
             backward_storage, _adjoint_site(source_xinv))
-    onsite_pair = _torch.stack([X, X_inv], dim=0).contiguous()
+    onsite_pair = _torch.stack([X, X_inv], dim=0).to(
+        dtype=output_dtype).contiguous()
     if raw_links is not None:
         raw_links = raw_links.contiguous()
     preconditioned = preconditioned.contiguous()
@@ -603,6 +605,7 @@ def build_strict_galerkin(
     retain_blocks: bool = False,
     max_workspace_bytes: Optional[int] = None,
     verbose: bool = False,
+    block_dtype: Any = None,
 ) -> StrictGalerkinResult:
     """Build strict ``X/Y/Yhat`` without column-wise full-basis calls.
 
@@ -614,6 +617,7 @@ def build_strict_galerkin(
     """
     (fine_shape, coarse_shape, block_size,
      blocked, E, e, nvec) = _strict_builder_inputs(transfer)
+    block_dtype = blocked.dtype if block_dtype is None else block_dtype
 
     requested_batch = int(site_batch_size)
     if requested_batch <= 0:
@@ -640,7 +644,7 @@ def build_strict_galerkin(
     keys = {key for _, key in _target_entries((0, 0, 0, 0), coarse_shape)}
     blocks: Dict[BlockKey, Tensor] = {
         key: _torch.zeros(
-            size=[E, E, *coarse_shape], dtype=blocked.dtype,
+            size=[E, E, *coarse_shape], dtype=block_dtype,
             device=blocked.device)
         for key in keys
     }
@@ -735,6 +739,7 @@ def build_strict_galerkin(
         "support_checked": bool(check_fine_support),
         "worst_fine_support_leakage": worst_leakage,
         "worst_image_scale": worst_scale,
+        "block_dtype": str(blocks[zero_key].dtype),
         "memory": memory,
     }
     return _finish_strict_galerkin(
@@ -751,6 +756,7 @@ def build_strict_galerkin(
         stats=stats,
         started_at=t0,
         verbose=verbose,
+        output_dtype=blocked.dtype,
     )
 
 
@@ -767,6 +773,7 @@ def build_strict_galerkin_colored(
     retain_blocks: bool = False,
     max_workspace_bytes: Optional[int] = None,
     verbose: bool = False,
+    block_dtype: Any = None,
 ) -> StrictGalerkinResult:
     """Build strict assets with non-overlapping colored source probes.
 
@@ -779,6 +786,7 @@ def build_strict_galerkin_colored(
     """
     (fine_shape, coarse_shape, block_size,
      blocked, E, e, nvec) = _strict_builder_inputs(transfer)
+    block_dtype = blocked.dtype if block_dtype is None else block_dtype
     requested_columns = min(E, int(column_batch_size))
     requested_projection = int(projection_site_batch_size)
     if requested_columns <= 0 or requested_projection <= 0:
@@ -834,7 +842,7 @@ def build_strict_galerkin_colored(
         (0, 0, 0, 0), coarse_shape)}
     blocks: Dict[BlockKey, Tensor] = {
         key: _torch.zeros(
-            size=[E, E, *coarse_shape], dtype=blocked.dtype,
+            size=[E, E, *coarse_shape], dtype=block_dtype,
             device=blocked.device)
         for key in keys
     }
@@ -935,6 +943,7 @@ def build_strict_galerkin_colored(
             (0, 0, 0, 0), coarse_shape)),
         "worst_fine_support_leakage": worst_leakage,
         "worst_image_scale": worst_scale,
+        "block_dtype": str(blocks[zero_key].dtype),
         "memory": memory,
     }
     if calls != memory["operator_calls"]:
@@ -955,6 +964,7 @@ def build_strict_galerkin_colored(
         stats=stats,
         started_at=t0,
         verbose=verbose,
+        output_dtype=blocked.dtype,
     )
 
 

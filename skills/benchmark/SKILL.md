@@ -162,6 +162,13 @@ double coarse-link setup 请求 75 MiB 时失败。该失败证据保留在
 裁剪后的 PyQCU 单侧结果伪造跨库加速比。最大可信 c128 点因此是
 `16^3·16` 三层；单/多层 c128 小格点用于验证 double MG 路径。
 
+`--quda-coarse-precision single` 提供 QUDA mixed-coarse 容量补充：
+fine solve 保持 c128，coarse MG 用 single precision。该模式在
+`16·32·32·48` 三层真实完成，60 次外层迭代、真残差 `1.79e-8`、
+steady solve 约 2.265 s，设备峰值约 9.8 GiB。该记录是 QUDA 容量与
+正确性证据，不是 MG-vs-MG 加速比；PyQCU strict 尚未实现同等
+mixed-coarse runtime。
+
 `QUDA_RESOURCE_PATH` 应指向仓库内持久 tuning 目录；同一构建复跑若切换
 `QUDA_INSTALL`，还必须同步 `QUDA_BUILD_DIR`，否则 CMake provenance 会读取
 另一套 precision/reconstruct/nvec 能力并错误判定。

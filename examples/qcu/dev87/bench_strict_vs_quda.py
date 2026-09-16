@@ -214,6 +214,11 @@ def _strict_runtime_cache_identity(payload: Mapping[str, Any]) -> Dict[str, Any]
         "coarsening_operator": "R(X^-1 D)P",
         "runtime_assets": "fine blocked V; per-transition Yhat/(X,X^-1)",
     }
+    block_precision = config.get("pyqcu_strict_block_precision")
+    if (isinstance(block_precision, Mapping) and
+            block_precision.get("effective") == "single" and
+            config["precision"]["name"] == "c128"):
+        identity["coarse_block_setup_precision"] = "complex64"
     return identity
 
 
@@ -606,6 +611,31 @@ def _precision_spec(name: str) -> Dict[str, Any]:
     raise ValueError("precision must be c64 or c128")
 
 
+def _quda_coarse_precision(
+        precision: str, requested: str) -> Dict[str, Any]:
+    requested = str(requested).lower()
+    if requested not in ("auto", "double", "single"):
+        raise ValueError(
+            "QUDA coarse precision must be auto, double or single")
+    if str(precision) == "c64" and requested == "double":
+        raise ValueError(
+            "c64 cannot request double-precision QUDA coarse fields")
+    effective = (
+        "double" if (
+            str(precision) == "c128" and requested in ("auto", "double"))
+        else "single")
+    return {
+        "requested": requested,
+        "effective": effective,
+        "semantics": (
+            "fine c128 solve with double coarse MG fields"
+            if effective == "double" else
+            "fine c128/c64 solve with single coarse MG fields"
+            if str(precision) == "c128" else
+            "c64 solve with single coarse MG fields"),
+    }
+
+
 def _quda_qdp_host_dtype(precision: str) -> Any:
     """Return the host dtype accepted by PyQUDA's QDP ``_NDArray`` bridge.
 
@@ -657,6 +687,8 @@ def _profile_name(args: argparse.Namespace) -> str:
 def _canonical_config(args: argparse.Namespace) -> Dict[str, Any]:
     profile = _profile_name(args)
     precision = _precision_spec(args.precision)
+    quda_coarse_precision = _quda_coarse_precision(
+        precision["name"], args.quda_coarse_precision)
     lattice = tuple(int(value) for value in args.lattice)
     block = tuple(int(value) for value in args.block)
     levels = int(args.levels)
@@ -738,6 +770,13 @@ def _canonical_config(args: argparse.Namespace) -> Dict[str, Any]:
          DEFAULT_STRICT_GALERKIN_MAX_WORKSPACE_C128)
         if args.strict_galerkin_max_workspace_bytes is None else
         int(args.strict_galerkin_max_workspace_bytes))
+    setup_projection_batch = (
+        DEFAULT_STRICT_GALERKIN_PROJECTION_BATCH
+        if args.strict_galerkin_projection_batch is None else
+        int(args.strict_galerkin_projection_batch))
+    if setup_projection_batch <= 0:
+        raise ValueError(
+            "--strict-galerkin-projection-batch must be positive")
     setup_workspace_lower_bound = int(
         4 * setup_column_batch * 12 * math.prod(lattice)
         * int(precision["complex_bytes"]))
@@ -773,6 +812,15 @@ def _canonical_config(args: argparse.Namespace) -> Dict[str, Any]:
         },
         "outer_solver": "restarted-right-fgmres/gcr",
         "quda_strategy": str(args.quda_strategy),
+        "quda_coarse_precision": quda_coarse_precision,
+        "pyqcu_strict_block_precision": {
+            "requested": str(args.pyqcu_strict_block_precision),
+            "effective": (
+                "single" if (
+                    str(args.pyqcu_strict_block_precision) == "single" or
+                    precision["name"] == "c64")
+                else "double"),
+        },
         "reference_solver": {
             "kind": str(args.reference_solver),
             "warmups": int(args.reference_warmups),
@@ -787,7 +835,7 @@ def _canonical_config(args: argparse.Namespace) -> Dict[str, Any]:
             "probe_mode": "colored",
             "column_batch_size": int(setup_column_batch),
             "projection_site_batch_size": (
-                DEFAULT_STRICT_GALERKIN_PROJECTION_BATCH),
+                int(setup_projection_batch)),
             "max_workspace_bytes": int(setup_workspace_bytes),
             "workspace_four_arena_lower_bound_bytes": (
                 setup_workspace_lower_bound),
@@ -2105,6 +2153,11 @@ def _run_pyqcu_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
                     config["pyqcu_strict_setup"]["column_batch_size"]),
                 strict_galerkin_projection_batch=int(
                     config["pyqcu_strict_setup"]["projection_site_batch_size"]),
+                strict_galerkin_block_dtype=(
+                    torch.float32
+                    if (config["pyqcu_strict_block_precision"]["effective"] ==
+                        "single" and complex_dtype == torch.complex128)
+                    else None),
                 strict_galerkin_max_workspace_bytes=int(
                     config["pyqcu_strict_setup"]["max_workspace_bytes"]),
                 verbose=False,
@@ -2870,6 +2923,10 @@ def _quda_expected_parameters(
         "QUDA_SINGLE_PRECISION"
         if config["precision"]["name"] == "c64" else
         "QUDA_DOUBLE_PRECISION")
+    coarse_precision_name = (
+        "QUDA_DOUBLE_PRECISION"
+        if config["quda_coarse_precision"]["effective"] == "double" else
+        "QUDA_SINGLE_PRECISION")
     n_level = int(config["levels"])
     transition_count = max(0, n_level - 1)
     library_strategy = config.get("quda_strategy", "aligned") == "library"
@@ -2937,9 +2994,9 @@ def _quda_expected_parameters(
             "precision": {
                 "cuda_prec": precision_name,
                 "cuda_prec_eigensolver": precision_name,
-                "cuda_prec_sloppy": precision_name,
-                "cuda_prec_refinement_sloppy": precision_name,
-                "cuda_prec_precondition": precision_name,
+                "cuda_prec_sloppy": coarse_precision_name,
+                "cuda_prec_refinement_sloppy": coarse_precision_name,
+                "cuda_prec_precondition": coarse_precision_name,
             },
         },
         "multigrid": {
@@ -2950,7 +3007,7 @@ def _quda_expected_parameters(
                 "QUDA_BOOLEAN_FALSE" if n_level > 2 else
                 "QUDA_BOOLEAN_TRUE"),
             "run_verify": "QUDA_BOOLEAN_FALSE",
-            "precision_null": [precision_name] * n_level,
+            "precision_null": [coarse_precision_name] * n_level,
             **active,
         },
     }
@@ -3133,9 +3190,14 @@ def _run_quda_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
             multigrid=[
                 list(BLOCK) for _ in range(max(1, LEVELS - 1))
             ])
+        coarse_precision = (
+            QudaPrecision.QUDA_SINGLE_PRECISION
+            if config["quda_coarse_precision"]["effective"] == "single"
+            else quda_precision)
         dirac.setPrecision(
-            cuda=quda_precision, sloppy=quda_precision,
-            precondition=quda_precision, refinement_sloppy=quda_precision,
+            cuda=quda_precision, sloppy=coarse_precision,
+            precondition=coarse_precision,
+            refinement_sloppy=coarse_precision,
             eigensolver=quda_precision)
         invert = dirac.invert_param
         invert.inv_type = QudaInverterType.QUDA_GCR_INVERTER
@@ -4788,6 +4850,14 @@ def _parser() -> argparse.ArgumentParser:
         help="formal fixes the reproducibility protocol; smoke permits exploration")
     parser.add_argument("--precision", choices=("c64", "c128"), default="c64")
     parser.add_argument(
+        "--quda-coarse-precision", choices=("auto", "double", "single"),
+        default="auto",
+        help="QUDA MG coarse-field precision; use single to bound c128 memory")
+    parser.add_argument(
+        "--pyqcu-strict-block-precision", choices=("auto", "single"),
+        default="auto",
+        help="PyQCU strict Galerkin block precision; single bounds c128 memory")
+    parser.add_argument(
         "--quda-strategy", choices=("aligned", "library"),
         default="aligned",
         help="aligned one-cycle settings or QUDA/PyQUDA library defaults")
@@ -4812,6 +4882,9 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--strict-galerkin-column-batch", type=int, default=None,
         help="PyQCU cold-setup colored probe width; c64 default 12, c128 default 1")
+    parser.add_argument(
+        "--strict-galerkin-projection-batch", type=int, default=None,
+        help="PyQCU strict Galerkin projection-site batch size")
     parser.add_argument(
         "--strict-galerkin-max-workspace-bytes", type=int, default=None,
         help="PyQCU cold-setup workspace cap; independent of outer Krylov memory")
