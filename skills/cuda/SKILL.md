@@ -234,6 +234,13 @@ QUDA 侧调用 plain BiCGStab 参考前，必须同时清除
 `inv_type_precondition` 和 `invert_param.preconditioner`（后者置为
 `pyquda_comm.pointer.Pointer("void")`）。
 
+`bench_strict_vs_quda.py --quda-coarse-precision single` 必须通过
+`dirac.setPrecision(sloppy=..., precondition=..., refinement_sloppy=...)`
+同时更新 `gauge_param` 和 `invert_param`。只改 `invert_param` 会留下
+double sloppy gauge，coarse single 构建时触发 `Precisions 4 8 do not
+match`。正确设置后 QUDA c128 大格点三层可运行，outer fine precision
+仍是 double，`precision_null` 与 coarse fields 为 single。
+
 不要把 trace 诊断中的 `PYQCU_STRICT_TRACE_FILE`/`QUDA_MG_TRACE_FILE`
 带进正式 speedup；正式 profile 会对活动 trace 环境 fail closed，只有
 显式 `--allow-trace` 才能运行诊断。

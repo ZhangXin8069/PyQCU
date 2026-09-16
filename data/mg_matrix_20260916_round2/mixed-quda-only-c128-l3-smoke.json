@@ -1,0 +1,836 @@
+{
+  "schema": {
+    "name": "pyqcu.strict-vs-quda.benchmark",
+    "version": 1
+  },
+  "run_id": "d2a703291f2a88600635",
+  "state": "partial",
+  "profile": "smoke",
+  "created_at": "2026-09-16T17:15:36Z",
+  "updated_at": "2026-09-16T17:27:03Z",
+  "selected_sides": [
+    "quda"
+  ],
+  "protocol": {
+    "profile": "smoke",
+    "lattice_xyzt": [
+      16,
+      32,
+      32,
+      48
+    ],
+    "mass": 0.05,
+    "kappa": 0.1234567901234568,
+    "seed": 42,
+    "precision": {
+      "name": "c128",
+      "complex_bytes": 16,
+      "real": "float64",
+      "default_tolerance": 1e-08,
+      "true_residual_gate": 5e-08
+    },
+    "levels": 3,
+    "block_xyzt": [
+      2,
+      2,
+      2,
+      2
+    ],
+    "block_xyzt_per_level": [
+      [
+        2,
+        2,
+        2,
+        2
+      ],
+      [
+        2,
+        2,
+        2,
+        2
+      ]
+    ],
+    "nvec": 12,
+    "coarse_spin": 2,
+    "coarse_dof": 24,
+    "target_parity": 1,
+    "null_vector_contract": {
+      "source": "12 canonical full near-null vectors",
+      "full_reconstruction": "precomputed once by zero-rhs Clover block elimination",
+      "transfer": "full-field chiral aggregation with coarse_spin=2"
+    },
+    "outer_solver": "restarted-right-fgmres/gcr",
+    "quda_strategy": "aligned",
+    "quda_coarse_precision": {
+      "requested": "single",
+      "effective": "single",
+      "semantics": "fine c128/c64 solve with single coarse MG fields"
+    },
+    "reference_solver": {
+      "kind": "bicgstab",
+      "warmups": 1,
+      "timing_semantics": "same caller-owned input/output and true-residual gate; outside MultiGrid and excluded from speedup"
+    },
+    "restart_requested": 16,
+    "restart_effective": 4,
+    "max_krylov_bytes": 1073741824,
+    "pyqcu_strict_setup": {
+      "probe_mode": "colored",
+      "column_batch_size": 1,
+      "projection_site_batch_size": 4,
+      "max_workspace_bytes": 1073741824,
+      "workspace_four_arena_lower_bound_bytes": 603979776,
+      "require_exact_batch": true
+    },
+    "fused_workspace_formula": "(2m+5)B_f+2B_c",
+    "fused_workspace_terms": {
+      "B_f": "one compact fine-parity vector in bytes",
+      "B_c": "one full first-coarse-level vector in bytes"
+    },
+    "max_iter": 1000,
+    "tolerance": 1e-08,
+    "true_residual_gate": 5e-08,
+    "nu_pre": 1,
+    "nu_post": 1,
+    "coarse_max_iter": 200,
+    "coarse_tolerance": 3e-05,
+    "initial_guess": "zero for every warmup and measured solve",
+    "warmups": 2,
+    "repeats": 1,
+    "statistic": {
+      "center": "median",
+      "spread": "median absolute deviation from median",
+      "warmups_included": false
+    },
+    "timing_contract": {
+      "input_io": "outside setup and solve",
+      "runtime_init": "CUDA/PyQUDA module initialization, outside setup",
+      "setup": "host inputs -> gauge/clover/runtime ready; includes cache lookup/restore, excludes cache persistence",
+      "cache_lookup_or_restore": "reported as a disjoint setup component",
+      "cache_persist": "reported separately and excluded from setup total",
+      "steady_solve": "zero-x0 solve call bracketed by CUDA synchronization",
+      "true_residual": "computed after each timed solve and excluded from solve time",
+      "first_solve_memory": "the first zero-x0 warmup is sampled for lazy solver/workspace allocation; excluded from warmup/repeat timing statistics",
+      "memory_probe": "one additional post-timing solve with 10 ms device-wide cudaMemGetInfo sampling; excluded from warmups/repeats/statistics"
+    },
+    "residual_contract": {
+      "definition": "||b-D_pyqcu*x_canonical||_2/||b||_2",
+      "operator": "full periodic Wilson+Clover, csw=1, PyQCU normalization",
+      "quda_solution_scale": 4.05
+    },
+    "config_hash": "d2a703291f2a88600635b462b37177e6a72b731239f41e40b2df0b5841675766"
+  },
+  "inputs": {
+    "gauge": {
+      "path": "/root/PyQCU/data/gauge_16x32x32x48_m0.05_seed42_c64.h5",
+      "dataset": "g",
+      "storage_precision": "c64",
+      "exists": true
+    },
+    "source": {
+      "path": "/root/PyQCU/data/gauge_16x32x32x48_m0.05_seed42_c64.h5",
+      "dataset": "fi",
+      "storage_precision": "c64",
+      "exists": true
+    },
+    "null_vectors": {
+      "path": "/root/PyQCU/data/L16x32x32x48_nvec12_full_c64.h5",
+      "dataset": "null",
+      "layout": "[nvec,spin,color,x,y,z,t]",
+      "parity": "full (even reconstructed once; odd copied verbatim)",
+      "storage_precision": "c64",
+      "exists": true
+    },
+    "quda_qio": {
+      "prefix": "data/L16x32x32x48_nvec12_quda",
+      "conversion_manifest": "data/L16x32x32x48_nvec12_quda.conversion.json",
+      "required_for_fair_quda_run": true
+    }
+  },
+  "execution": {
+    "strict_cache": {
+      "directory": "/root/PyQCU/data/strict_runtime_cache",
+      "expect": "any"
+    }
+  },
+  "input_fingerprints": {
+    "gauge": {
+      "algorithm": "sha256(logical-hdf5-dataset-v1)",
+      "sha256": "0a5b710d0fe1f69240e7fd373db0a163d992bd030b366a373e7300375b0d872c",
+      "path": "/root/PyQCU/data/gauge_16x32x32x48_m0.05_seed42_c64.h5",
+      "dataset": "g",
+      "shape": [
+        2,
+        3,
+        3,
+        4,
+        16,
+        32,
+        32,
+        24
+      ],
+      "dtype": "complex64",
+      "file_size_bytes": 301991936,
+      "file_mtime_ns": 1787207239570930936,
+      "elapsed_seconds": 0.909894993994385
+    },
+    "source": {
+      "algorithm": "sha256(logical-hdf5-dataset-v1)",
+      "sha256": "ecf3c6a84720f4da80a59496a7ef5ebf279420a0501c9925cf6ecdc25c47c97a",
+      "path": "/root/PyQCU/data/gauge_16x32x32x48_m0.05_seed42_c64.h5",
+      "dataset": "fi",
+      "shape": [
+        2,
+        4,
+        3,
+        16,
+        32,
+        32,
+        24
+      ],
+      "dtype": "complex64",
+      "file_size_bytes": 301991936,
+      "file_mtime_ns": 1787207239570930936,
+      "elapsed_seconds": 0.3303281629923731
+    },
+    "null_vectors": {
+      "algorithm": "sha256(logical-hdf5-dataset-v1)",
+      "sha256": "8a69971e1b4c95d34ae9a18f200caae1479546f5a6a5bf10b58205da1d1b5163",
+      "path": "/root/PyQCU/data/L16x32x32x48_nvec12_full_c64.h5",
+      "dataset": "null",
+      "shape": [
+        12,
+        4,
+        3,
+        16,
+        32,
+        32,
+        48
+      ],
+      "dtype": "complex64",
+      "file_size_bytes": 906211760,
+      "file_mtime_ns": 1788102741385772486,
+      "elapsed_seconds": 4.078147177991923
+    },
+    "bundle_hash": "8c866bd093cf7c6b447b7c61e95704e7dac349386e4fbe28935455a0a6ca3d31"
+  },
+  "collector": {
+    "path": "/root/PyQCU/examples/qcu/dev87/bench_strict_vs_quda.py",
+    "git": {
+      "commit": "c5fac0fa662deca47444b49595a23fbfdd3bb4be",
+      "dirty_tracked": true,
+      "repository": "/root/PyQCU"
+    },
+    "environment": {
+      "python": "3.10.12",
+      "executable": "/usr/bin/python",
+      "platform": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.35",
+      "hostname": "68bb03cf529b",
+      "env": {
+        "QUDA_INSTALL": "/root/PyQCU/data/quda-double-install",
+        "QUDA_PATH": "/root/PyQCU/data/quda-double-install",
+        "QUDA_BUILD_DIR": "/root/PyQCU/data/quda-qio-build/attempt2",
+        "DEV87_REDUCE_SYNC": "1"
+      }
+    },
+    "timeout_seconds_per_side": 1800.0,
+    "resume": false,
+    "diagnostic_trace_environment": []
+  },
+  "sides": {
+    "pyqcu": {
+      "side": "pyqcu",
+      "status": "not_selected",
+      "dry_run": false,
+      "reason": null
+    },
+    "quda": {
+      "side": "quda",
+      "status": "ok",
+      "reason": null,
+      "config_hash": "d2a703291f2a88600635b462b37177e6a72b731239f41e40b2df0b5841675766",
+      "input_bundle_hash": "8c866bd093cf7c6b447b7c61e95704e7dac349386e4fbe28935455a0a6ca3d31",
+      "timing": {
+        "input_io_seconds": 1.107598937000148,
+        "input_prepare_seconds": 3.6681445599824656,
+        "runtime_init_seconds": 0.02579545200569555,
+        "setup_seconds": 616.687226959999,
+        "warmups": [
+          {
+            "seconds": 32.655360577016836,
+            "iterations": 60,
+            "converged": true,
+            "true_residual_rel": 1.7924450133978586e-08
+          },
+          {
+            "seconds": 2.2916253989969846,
+            "iterations": 60,
+            "converged": true,
+            "true_residual_rel": 1.7924450133978586e-08
+          }
+        ],
+        "steady": {
+          "samples_seconds": [
+            2.264957842999138
+          ],
+          "median_seconds": 2.264957842999138,
+          "mad_seconds": 0.0
+        }
+      },
+      "reference_solver": {
+        "kind": "bicgstab",
+        "implementation": "pyquda.quda.invertQuda(QUDA_BICGSTAB_INVERTER)",
+        "warmups": [
+          {
+            "seconds": 1.2200950300029945,
+            "iterations": 121,
+            "true_residual_rel": 1.8141856322162902e-08
+          }
+        ],
+        "steady": {
+          "samples_seconds": [
+            0.46316443500109017
+          ],
+          "median_seconds": 0.46316443500109017,
+          "mad_seconds": 0.0
+        },
+        "iterations": {
+          "samples": [
+            121
+          ],
+          "min": 121,
+          "max": 121,
+          "median": 121.0
+        },
+        "samples": [
+          {
+            "seconds": 0.46316443500109017,
+            "iterations": 121,
+            "true_residual_rel": 1.8141856322162902e-08
+          }
+        ],
+        "true_residual_max_rel": 1.8141856322162902e-08,
+        "excluded_from_speedup": true
+      },
+      "iterations": {
+        "samples": [
+          60
+        ],
+        "min": 60,
+        "max": 60,
+        "median": 60.0
+      },
+      "iteration_kind": "outer_gcr",
+      "iteration_scope": "outer GCR iterations; recursive MG and coarse solver iterations are recorded separately in QUDA_MG_TRACE",
+      "converged_samples": [
+        true
+      ],
+      "converged": true,
+      "true_residual": {
+        "samples_rel": [
+          1.7924450133978586e-08
+        ],
+        "max_rel": 1.7924450133978586e-08,
+        "gate": 5e-08,
+        "pass": true,
+        "untimed_probe_rel": 1.7924450133978586e-08
+      },
+      "krylov": {
+        "requested_restart": 16,
+        "effective_restart": 4,
+        "max_krylov_bytes": null,
+        "effective_workspace_bytes": null,
+        "note": "QUDA native workspace is not exposed by PyQUDA"
+      },
+      "timing_boundary": {
+        "requested": "caller_preallocated",
+        "supported": true,
+        "formal_eligible": true,
+        "api": "(h_x, h_b, param)",
+        "method": "pyquda.quda.invertQuda(h_x,h_b,param)",
+        "output_argument": "h_x",
+        "detail": "low-level invertQuda writes the caller-owned output",
+        "zero_initial_guess_before_timer": true,
+        "preserve_source": "QUDA_PRESERVE_SOURCE_YES",
+        "timed_operation": "pyquda.quda.invertQuda(h_x,h_b,param)",
+        "performance_call": "omitted; no high-level allocation/performance call in timer"
+      },
+      "quda_parameters": {
+        "requested": {
+          "invert": {
+            "inv_type": "QUDA_GCR_INVERTER",
+            "matpc_type": "QUDA_MATPC_ODD_ODD",
+            "solve_type": "QUDA_DIRECT_PC_SOLVE",
+            "solution_type": "QUDA_MAT_SOLUTION",
+            "use_init_guess": "QUDA_USE_INIT_GUESS_NO",
+            "preserve_source": "QUDA_PRESERVE_SOURCE_YES",
+            "gcrNkrylov": 4,
+            "maxiter": 1000,
+            "tol": 1e-08,
+            "precision": {
+              "cuda_prec": "QUDA_DOUBLE_PRECISION",
+              "cuda_prec_eigensolver": "QUDA_DOUBLE_PRECISION",
+              "cuda_prec_sloppy": "QUDA_SINGLE_PRECISION",
+              "cuda_prec_refinement_sloppy": "QUDA_SINGLE_PRECISION",
+              "cuda_prec_precondition": "QUDA_SINGLE_PRECISION"
+            }
+          },
+          "multigrid": {
+            "n_level": 3,
+            "coarsest_level_index": 2,
+            "compute_null_vector": "QUDA_COMPUTE_NULL_VECTOR_YES",
+            "generate_all_levels": "QUDA_BOOLEAN_FALSE",
+            "run_verify": "QUDA_BOOLEAN_FALSE",
+            "precision_null": [
+              "QUDA_SINGLE_PRECISION",
+              "QUDA_SINGLE_PRECISION",
+              "QUDA_SINGLE_PRECISION"
+            ],
+            "transition": {
+              "n_vec": [
+                12,
+                12
+              ],
+              "n_block_ortho": [
+                2,
+                2
+              ],
+              "vec_load": [
+                "QUDA_BOOLEAN_TRUE",
+                "QUDA_BOOLEAN_FALSE"
+              ],
+              "vec_infile": [
+                "/root/PyQCU/data/L16x32x32x48_nvec12_quda",
+                ""
+              ],
+              "num_setup_iter": [
+                1,
+                0
+              ],
+              "setup_use_mma": [
+                "QUDA_BOOLEAN_FALSE",
+                "QUDA_BOOLEAN_FALSE"
+              ],
+              "dslash_use_mma": [
+                "QUDA_BOOLEAN_FALSE",
+                "QUDA_BOOLEAN_FALSE"
+              ],
+              "transfer_use_mma": [
+                "QUDA_BOOLEAN_FALSE",
+                "QUDA_BOOLEAN_FALSE"
+              ]
+            },
+            "levels": {
+              "nu_pre": [
+                1,
+                1,
+                1
+              ],
+              "nu_post": [
+                1,
+                1,
+                1
+              ],
+              "smoother": [
+                "QUDA_MR_INVERTER",
+                "QUDA_MR_INVERTER",
+                "QUDA_MR_INVERTER"
+              ],
+              "smoother_tol": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "coarse_solver": [
+                "QUDA_GCR_INVERTER",
+                "QUDA_GCR_INVERTER",
+                "QUDA_CA_GCR_INVERTER"
+              ],
+              "coarse_solver_maxiter": [
+                1,
+                1,
+                200
+              ],
+              "coarse_solver_tol": [
+                3e-05,
+                3e-05,
+                3e-05
+              ]
+            }
+          }
+        },
+        "actual": {
+          "invert": {
+            "inv_type": "QUDA_GCR_INVERTER",
+            "matpc_type": "QUDA_MATPC_ODD_ODD",
+            "solve_type": "QUDA_DIRECT_PC_SOLVE",
+            "solution_type": "QUDA_MAT_SOLUTION",
+            "use_init_guess": "QUDA_USE_INIT_GUESS_NO",
+            "preserve_source": "QUDA_PRESERVE_SOURCE_YES",
+            "gcrNkrylov": 4,
+            "maxiter": 1000,
+            "tol": 1e-08,
+            "precision": {
+              "cuda_prec": "QUDA_DOUBLE_PRECISION",
+              "cuda_prec_sloppy": "QUDA_SINGLE_PRECISION",
+              "cuda_prec_refinement_sloppy": "QUDA_SINGLE_PRECISION",
+              "cuda_prec_precondition": "QUDA_SINGLE_PRECISION",
+              "cuda_prec_eigensolver": "QUDA_DOUBLE_PRECISION"
+            }
+          },
+          "multigrid": {
+            "n_level": 3,
+            "coarsest_level_index": 2,
+            "compute_null_vector": "QUDA_COMPUTE_NULL_VECTOR_YES",
+            "generate_all_levels": "QUDA_BOOLEAN_FALSE",
+            "run_verify": "QUDA_BOOLEAN_FALSE",
+            "transition": {
+              "n_vec": [
+                12,
+                12
+              ],
+              "n_block_ortho": [
+                2,
+                2
+              ],
+              "vec_load": [
+                "QUDA_BOOLEAN_TRUE",
+                "QUDA_BOOLEAN_FALSE"
+              ],
+              "vec_infile": [
+                "/root/PyQCU/data/L16x32x32x48_nvec12_quda",
+                ""
+              ],
+              "num_setup_iter": [
+                1,
+                0
+              ],
+              "setup_use_mma": [
+                "QUDA_BOOLEAN_FALSE",
+                "QUDA_BOOLEAN_FALSE"
+              ],
+              "dslash_use_mma": [
+                "QUDA_BOOLEAN_FALSE",
+                "QUDA_BOOLEAN_FALSE"
+              ],
+              "transfer_use_mma": [
+                "QUDA_BOOLEAN_FALSE",
+                "QUDA_BOOLEAN_FALSE"
+              ]
+            },
+            "levels": {
+              "nu_pre": [
+                1,
+                1,
+                1
+              ],
+              "nu_post": [
+                1,
+                1,
+                1
+              ],
+              "smoother": [
+                "QUDA_MR_INVERTER",
+                "QUDA_MR_INVERTER",
+                "QUDA_MR_INVERTER"
+              ],
+              "smoother_tol": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "coarse_solver": [
+                "QUDA_GCR_INVERTER",
+                "QUDA_GCR_INVERTER",
+                "QUDA_CA_GCR_INVERTER"
+              ],
+              "coarse_solver_maxiter": [
+                1,
+                1,
+                200
+              ],
+              "coarse_solver_tol": [
+                3e-05,
+                3e-05,
+                3e-05
+              ]
+            },
+            "precision_null": [
+              "QUDA_SINGLE_PRECISION",
+              "QUDA_SINGLE_PRECISION",
+              "QUDA_SINGLE_PRECISION"
+            ]
+          }
+        },
+        "mismatches": []
+      },
+      "quda_input_contract": {
+        "qdp_host_dtype": "complex128",
+        "device_precision": "QUDA_DOUBLE_PRECISION"
+      },
+      "memory": {
+        "schema_version": 2,
+        "setup": {
+          "baseline": {
+            "allocated_bytes": 0,
+            "reserved_bytes": 23068672,
+            "nvidia_smi": {
+              "available": true,
+              "device_uuid": "be23deb4-29b1-7bb2-29ef-c4ab7b34f0a8",
+              "process_used_bytes": null,
+              "gpu_used_bytes": null,
+              "error": "no numeric sample"
+            }
+          },
+          "cuda_peak_allocated_bytes": 1056964608,
+          "cuda_peak_reserved_bytes": 1071644672,
+          "nvidia_smi": {
+            "available": true,
+            "device_uuid": "be23deb4-29b1-7bb2-29ef-c4ab7b34f0a8",
+            "process_used_bytes": null,
+            "gpu_used_bytes": null,
+            "error": "no numeric sample"
+          },
+          "device_wide_sampler": {
+            "available": true,
+            "scope": "device-wide cudaMemGetInfo; may include other processes",
+            "device": "cuda:0",
+            "unit": "bytes",
+            "interval_seconds": 0.01,
+            "duration_seconds": 616.6878533909912,
+            "sample_count": 47,
+            "device_total_bytes": 34359345152,
+            "device_used_initial_bytes": 1639256064,
+            "device_used_max_observed_bytes": 15679688704,
+            "join_timed_out": false,
+            "errors": []
+          },
+          "timing_semantics": "instrumented setup; sampler stop excluded from setup_seconds",
+          "note": "PyTorch allocator excludes QUDA native allocations; the device-wide sampler captures transients but may include other processes"
+        },
+        "first_solve": {
+          "excluded_from_formal_timing": true,
+          "seconds": 32.655360577016836,
+          "iterations": 60,
+          "converged": true,
+          "true_residual_rel": 1.7924450133978586e-08,
+          "memory": {
+            "cuda_peak_allocated_bytes": 3632398336,
+            "cuda_peak_reserved_bytes": 7845445632,
+            "nvidia_smi": {
+              "available": true,
+              "device_uuid": "be23deb4-29b1-7bb2-29ef-c4ab7b34f0a8",
+              "process_used_bytes": null,
+              "gpu_used_bytes": null,
+              "error": "no numeric sample"
+            },
+            "device_wide_sampler": {
+              "available": true,
+              "scope": "device-wide cudaMemGetInfo; may include other processes",
+              "device": "cuda:0",
+              "unit": "bytes",
+              "interval_seconds": 0.01,
+              "duration_seconds": 32.65630252097617,
+              "sample_count": 2,
+              "device_total_bytes": 34359345152,
+              "device_used_initial_bytes": 22463975424,
+              "device_used_max_observed_bytes": 23718072320,
+              "join_timed_out": false,
+              "errors": []
+            }
+          }
+        },
+        "steady": {
+          "baseline": {
+            "allocated_bytes": 3632398336,
+            "reserved_bytes": 7845445632,
+            "nvidia_smi": {
+              "available": true,
+              "device_uuid": "be23deb4-29b1-7bb2-29ef-c4ab7b34f0a8",
+              "process_used_bytes": null,
+              "gpu_used_bytes": null,
+              "error": "no numeric sample"
+            }
+          },
+          "cuda_peak_allocated_bytes": 3632398336,
+          "cuda_peak_reserved_bytes": 7845445632,
+          "nvidia_smi_process_max_observed_bytes": null,
+          "nvidia_smi_gpu_max_observed_bytes": null,
+          "samples": [
+            {
+              "cuda_peak_allocated_bytes": 3632398336,
+              "cuda_peak_reserved_bytes": 7845445632,
+              "nvidia_smi": {
+                "available": true,
+                "device_uuid": "be23deb4-29b1-7bb2-29ef-c4ab7b34f0a8",
+                "process_used_bytes": null,
+                "gpu_used_bytes": null,
+                "error": "no numeric sample"
+              },
+              "device_wide_sampler": null
+            }
+          ],
+          "snapshot_semantics": "nvidia-smi values are post-solve observations, not peaks",
+          "untimed_device_memory_probe": {
+            "cuda_peak_allocated_bytes": 3632398336,
+            "cuda_peak_reserved_bytes": 7845445632,
+            "nvidia_smi": {
+              "available": true,
+              "device_uuid": "be23deb4-29b1-7bb2-29ef-c4ab7b34f0a8",
+              "process_used_bytes": null,
+              "gpu_used_bytes": null,
+              "error": "no numeric sample"
+            },
+            "device_wide_sampler": {
+              "available": true,
+              "scope": "device-wide cudaMemGetInfo; may include other processes",
+              "device": "cuda:0",
+              "unit": "bytes",
+              "interval_seconds": 0.01,
+              "duration_seconds": 2.2581538949743845,
+              "sample_count": 2,
+              "device_total_bytes": 34359345152,
+              "device_used_initial_bytes": 23831318528,
+              "device_used_max_observed_bytes": 23831318528,
+              "join_timed_out": false,
+              "errors": []
+            },
+            "excluded_from_formal_timing": true,
+            "iterations": 60,
+            "converged": true,
+            "true_residual_rel": 1.7924450133978586e-08
+          }
+        }
+      },
+      "provenance": {
+        "pyqcu_git": {
+          "commit": "c5fac0fa662deca47444b49595a23fbfdd3bb4be",
+          "dirty_tracked": true,
+          "repository": "/root/PyQCU"
+        },
+        "quda_source_git": {
+          "commit": "c5fac0fa662deca47444b49595a23fbfdd3bb4be",
+          "dirty_tracked": true,
+          "repository": "/root/PyQCU/refer/git-rep/quda"
+        },
+        "quda_libraries": {
+          "libquda": {
+            "path": "/root/PyQCU/data/quda-double-install/lib/libquda.so",
+            "sha256": "4b288d0c94b7db677679cf316c603412f68210ba5ca62500c957216af4756c07",
+            "exists": true
+          },
+          "libqmp": {
+            "path": "/root/PyQCU/data/quda-double-install/lib/libqmp.so",
+            "sha256": "74964623d394834244770550d4fadb7fbb2e1d9315ec64cee165442bf6fcf146",
+            "exists": true
+          }
+        },
+        "pyquda_module": {
+          "path": "/usr/local/lib/python3.10/dist-packages/pyquda/__init__.py",
+          "version": "0.10.54"
+        },
+        "cmake_features": {
+          "cache_path": "/root/PyQCU/data/quda-qio-build/attempt2/CMakeCache.txt",
+          "cache_sha256": "434f9338540a95c47abd7b028ee60aec3ac88ea8eac744112d5c6d16156d46f5",
+          "features": {
+            "QUDA_INTERFACE_QDP": true,
+            "QUDA_MULTIGRID_DOUBLE": true,
+            "QUDA_MULTIGRID_NVEC_LIST": "12,24",
+            "QUDA_PRECISION": 12,
+            "QUDA_QIO": true,
+            "QUDA_QMP": true,
+            "QUDA_RECONSTRUCT": 7
+          },
+          "normalized": {
+            "qdp_interface": true,
+            "qio": true,
+            "qmp": true,
+            "reconstruct": 7,
+            "precision": 12,
+            "multigrid_nvec_list": [
+              12,
+              24
+            ],
+            "multigrid_double": true
+          }
+        },
+        "patch_variant": {
+          "name": "dev87_wsl2_reduce_sync",
+          "wsl2": true,
+          "environment_scoped": true,
+          "limitation": "仅限启用 DEV87_REDUCE_SYNC 的 WSL2 patched QUDA 构建；不得解释为可移植的 upstream QUDA 证据",
+          "marker_present": true
+        },
+        "runtime": {
+          "torch": "2.10.0+cu128",
+          "torch_cuda": "12.8",
+          "device_index": 0,
+          "device_name": "Tesla V100-SXM2-32GB",
+          "device_uuid": "be23deb4-29b1-7bb2-29ef-c4ab7b34f0a8",
+          "total_memory_bytes": 34359345152,
+          "compute_capability": [
+            7,
+            0
+          ],
+          "device": "cuda:0"
+        },
+        "shared_nullvec_conversion": {
+          "prefix": "/root/PyQCU/data/L16x32x32x48_nvec12_quda",
+          "manifest": "/root/PyQCU/data/L16x32x32x48_nvec12_quda.conversion.json",
+          "source_sha256": "af3d070acd302d7a5a7567b1eb66b7d322fe81280abbf8bdc894ddf337c7238e",
+          "canonical_dataset_sha256": "8a69971e1b4c95d34ae9a18f200caae1479546f5a6a5bf10b58205da1d1b5163",
+          "conversion_tool_commit": "80c5fae67e0756646e730bb22b9d83125a00bd19",
+          "artifacts": [
+            {
+              "path": "/root/PyQCU/data/L16x32x32x48_nvec12_quda_level_0_nvec_12",
+              "size_bytes": 905971424,
+              "sha256": "4f59ef5f6e9d9c18b9f63c90817734b5bcfc4bbc5836e242cc59e95f0722c0af"
+            }
+          ],
+          "verification_seconds": 2.4555086489999667
+        },
+        "reduction_runtime": {
+          "required": true,
+          "platform_release": "6.18.33.2-microsoft-standard-WSL2",
+          "enabled": true,
+          "library": "/root/PyQCU/data/quda-double-install/lib/libquda.so",
+          "library_sha256": "4b288d0c94b7db677679cf316c603412f68210ba5ca62500c957216af4756c07",
+          "marker_present": true,
+          "qmp": {
+            "library": "/root/PyQCU/data/quda-double-install/lib/libqmp.so",
+            "library_sha256": "74964623d394834244770550d4fadb7fbb2e1d9315ec64cee165442bf6fcf146",
+            "initialized": true,
+            "initialized_here": true,
+            "thread_level_required": 1,
+            "thread_level_provided": 1,
+            "logical_topology_declared": true,
+            "logical_topology": [
+              1,
+              1,
+              1,
+              1
+            ]
+          }
+        },
+        "cleanup_errors": []
+      },
+      "worker_wall_seconds": 679.824175827991,
+      "completed_at": "2026-09-16T17:27:02Z",
+      "process": {
+        "returncode": 0,
+        "wall_seconds": 680.9620390490163,
+        "stdout_tail": "%)\n        total missing         =     0.000 secs (  0.025%)\n\n          loadGaugeQuda Total time =     0.950 secs\n                 download     =     0.686 secs ( 72.161%),\t with        2 calls at 3.428e+05 us per call\n                     init     =     0.005 secs (  0.561%),\t with       29 calls at 1.838e+02 us per call\n                  compute     =     0.240 secs ( 25.210%),\t with       12 calls at 1.996e+04 us per call\n                    comms     =     0.001 secs (  0.087%),\t with        1 calls at 8.280e+02 us per call\n                     free     =     0.000 secs (  0.001%),\t with       11 calls at 7.273e-01 us per call\n        total accounted       =     0.931 secs ( 98.020%)\n        total missing         =     0.019 secs (  1.980%)\n\n         loadCloverQuda Total time =     6.191 secs\n                     init     =     0.014 secs (  0.225%),\t with        6 calls at 2.319e+03 us per call\n                  compute     =     5.536 secs ( 89.412%),\t with        7 calls at 7.908e+05 us per call\n                    comms     =     0.001 secs (  0.013%),\t with        1 calls at 8.330e+02 us per call\n                     free     =     0.016 secs (  0.255%),\t with        3 calls at 5.271e+03 us per call\n        total accounted       =     5.566 secs ( 89.906%)\n        total missing         =     0.625 secs ( 10.094%)\n\n             invertQuda Total time =   650.191 secs\n                 download     =     0.363 secs (  0.056%),\t with       12 calls at 3.027e+04 us per call\n                     init     =     1.972 secs (  0.303%),\t with     3449 calls at 5.717e+02 us per call\n                 preamble     =     2.800 secs (  0.431%),\t with      513 calls at 5.458e+03 us per call\n                  compute     =    45.795 secs (  7.043%),\t with    12221 calls at 3.747e+03 us per call\n                 epilogue     =     0.437 secs (  0.067%),\t with      252 calls at 1.736e+03 us per call\n                     free     =     1.569 secs (  0.241%),\t with      229 calls at 6.852e+03 us per call\n                 file i/o     =     3.518 secs (  0.541%),\t with       61 calls at 5.767e+04 us per call\n                    eigen     =     0.006 secs (  0.001%),\t with     1312 calls at 4.197e+00 us per call\n        total accounted       =    56.460 secs (  8.684%)\n        total missing         =   593.731 secs ( 91.316%)\n\n                endQuda Total time =     0.254 secs\n                     free     =     0.000 secs (  0.008%),\t with        7 calls at 2.857e+00 us per call\n        total accounted       =     0.000 secs (  0.008%)\n        total missing         =     0.254 secs ( 99.992%)\n\n       initQuda-endQuda Total time =   672.514 secs\n\n                   QUDA Total time =   657.610 secs\n                 download     =     1.049 secs (  0.160%),\t with       14 calls at 7.492e+04 us per call\n                     init     =     2.015 secs (  0.306%),\t with     3486 calls at 5.780e+02 us per call\n                 preamble     =     2.800 secs (  0.426%),\t with      513 calls at 5.458e+03 us per call\n                  compute     =    51.571 secs (  7.842%),\t with    12240 calls at 4.213e+03 us per call\n                    comms     =     0.002 secs (  0.000%),\t with        2 calls at 8.300e+02 us per call\n                 epilogue     =     0.437 secs (  0.067%),\t with      252 calls at 1.736e+03 us per call\n                     free     =     1.585 secs (  0.241%),\t with      250 calls at 6.339e+03 us per call\n                 file i/o     =     3.518 secs (  0.535%),\t with       61 calls at 5.767e+04 us per call\n                    eigen     =     0.005 secs (  0.001%),\t with     1312 calls at 4.182e+00 us per call\n        total accounted       =    62.982 secs (  9.577%)\n        total missing         =   594.628 secs ( 90.423%)\n\nDevice memory used = 13619.6 MiB\nPinned device memory used = 0.0 MiB\nManaged memory used = 0.0 MiB\nShmem memory used = 0.0 MiB\nPage-locked host memory used = 259.1 MiB\nTotal host memory used >= 2424.3 MiB\n",
+        "stderr_tail": "/usr/local/lib/python3.10/dist-packages/torch/cuda/__init__.py:435: UserWarning: \n    Found GPU1 Tesla P100-PCIE-16GB which is of cuda capability 6.0.\n    Minimum and Maximum cuda capability supported by this version of PyTorch is\n    (7.0) - (12.0)\n    \n  queued_call()\n/usr/local/lib/python3.10/dist-packages/torch/cuda/__init__.py:435: UserWarning: \n    Please install PyTorch with a following CUDA\n    configurations:  12.6 following instructions at\n    https://pytorch.org/get-started/locally/\n    \n  queued_call()\n/usr/local/lib/python3.10/dist-packages/torch/cuda/__init__.py:435: UserWarning: \n    Found GPU2 Tesla P100-PCIE-16GB which is of cuda capability 6.0.\n    Minimum and Maximum cuda capability supported by this version of PyTorch is\n    (7.0) - (12.0)\n    \n  queued_call()\n/usr/local/lib/python3.10/dist-packages/torch/cuda/__init__.py:435: UserWarning: \nTesla P100-PCIE-16GB with CUDA capability sm_60 is not compatible with the current PyTorch installation.\nThe current PyTorch install supports CUDA capabilities sm_70 sm_75 sm_80 sm_86 sm_90 sm_100 sm_120.\nIf you want to use the Tesla P100-PCIE-16GB GPU with PyTorch, please check the instructions at https://pytorch.org/get-started/locally/\n\n  queued_call()\nPyQUDA WARNING: Neither QUDA_RESOURCE_PATH nor init(resource_path) is set\nRuntimeWarning: Neither QUDA_RESOURCE_PATH nor init(resource_path) is set\n"
+      }
+    }
+  },
+  "comparison": {
+    "status": "smoke-pending",
+    "profile": "smoke",
+    "fair": false,
+    "reasons": [
+      "pyqcu status=not_selected"
+    ],
+    "speedup_pyqcu_over_quda": null
+  }
+}
