@@ -227,6 +227,57 @@ def _matvec_block_batch(matrix: Tensor, vector: Tensor) -> Tensor:
     return _torch.einsum("ijxyzt,bjxyzt->bixyzt", matrix, vector)
 
 
+def _matvec_block_chunked(matrix: Tensor, vector: Tensor,
+                          extent: int, chunk: int = 4096) -> Tensor:
+    """Apply a site matrix in flattened-site chunks."""
+    matrix_flat = matrix.reshape(*(int(x) for x in matrix.shape[:2]), -1)
+    vector_flat = vector.reshape(int(vector.shape[0]), -1)
+    result = _torch.zeros_like(vector_flat)
+    for start in range(0, int(matrix_flat.shape[-1]), chunk):
+        stop = min(int(matrix_flat.shape[-1]), start + chunk)
+        local = matrix_flat[:, :, start:stop]
+        if local.dtype != vector_flat.dtype:
+            local = local.to(dtype=vector_flat.dtype)
+        result[:, start:stop] = _torch.einsum(
+            "ijn,jn->in", local, vector_flat[:, start:stop])
+    return result.reshape(vector.shape)
+
+
+def _matvec_block_batch_chunked(matrix: Tensor, vector: Tensor,
+                                extent: int, chunk: int = 4096) -> Tensor:
+    """Batched variant of :func:`_matvec_block_chunked`."""
+    matrix_flat = matrix.reshape(
+        *(int(x) for x in matrix.shape[:2]), -1)
+    vector_flat = vector.reshape(
+        int(vector.shape[0]), int(vector.shape[1]), -1)
+    result = _torch.zeros_like(vector_flat)
+    for start in range(0, int(matrix_flat.shape[-1]), chunk):
+        stop = min(int(matrix_flat.shape[-1]), start + chunk)
+        local = matrix_flat[:, :, start:stop]
+        if local.dtype != vector_flat.dtype:
+            local = local.to(dtype=vector_flat.dtype)
+        result[:, :, start:stop] = _torch.einsum(
+            "ijn,bjn->bin", local, vector_flat[:, :, start:stop])
+    return result.reshape(vector.shape)
+
+
+def _matvec_block_adjoint_chunked(matrix: Tensor, vector: Tensor,
+                                  extent: int, chunk: int = 4096) -> Tensor:
+    """Adjoint site-matrix action in last-axis chunks."""
+    matrix_flat = matrix.reshape(
+        *(int(x) for x in matrix.shape[:2]), -1)
+    vector_flat = vector.reshape(int(vector.shape[0]), -1)
+    result = _torch.zeros_like(vector_flat)
+    for start in range(0, int(matrix_flat.shape[-1]), chunk):
+        stop = min(int(matrix_flat.shape[-1]), start + chunk)
+        local = _adjoint_site(matrix_flat[:, :, start:stop])
+        if local.dtype != vector_flat.dtype:
+            local = local.to(dtype=vector_flat.dtype)
+        result[:, start:stop] = _torch.einsum(
+            "ijn,jn->in", local, vector_flat[:, start:stop])
+    return result.reshape(vector.shape)
+
+
 def _matmul_site(left: Tensor, right: Tensor) -> Tensor:
     """批量局部矩阵乘法，矩阵布局均为 ``[row, col, X, Y, Z, T]``。"""
     return _torch.einsum("ijxyzt,jkxyzt->ikxyzt", left, right)
@@ -780,7 +831,8 @@ class _FineOperator:
                  spin: int, color: int,
                  diagonal: Optional[Tensor] = None,
                  adjoint: Optional[Callable[[Tensor], Tensor]] = None,
-                 batch_matvec: Optional[Callable[[Tensor], Tensor]] = None):
+                 batch_matvec: Optional[Callable[[Tensor], Tensor]] = None,
+                 diagonal_inv_dtype: Optional[Any] = None):
         self._matvec = matvec
         self.shape = shape
         self.spin = int(spin)
@@ -789,6 +841,7 @@ class _FineOperator:
         self._diagonal = diagonal
         self._adjoint = adjoint
         self._batch_matvec = batch_matvec
+        self._diagonal_inv_dtype = diagonal_inv_dtype
         self._diagonal_inv: Dict[Tuple[Any, Any], Tensor] = {}
 
     def apply(self, value: Tensor) -> Tensor:
@@ -840,15 +893,20 @@ class _FineOperator:
         key = (matrix.device, matrix.dtype)
         if key not in self._diagonal_inv:
             site_matrix = matrix.permute(2, 3, 4, 5, 0, 1).reshape(-1, self.dof, self.dof)
+            target_dtype = (
+                matrix.dtype if self._diagonal_inv_dtype is None
+                else self._diagonal_inv_dtype)
             # Chunk the batched inverse: a single full-lattice temporary is
             # larger than the inverse itself and is the limiting allocation
-            # for c128 16x32x32x48 setup.
-            inverse = site_matrix.clone()
+            # for c128 16x32x32x48 setup.  The optional compact cache dtype
+            # avoids retaining a second full complex128 diagonal.
+            inverse = _torch.zeros(
+                site_matrix.shape, dtype=target_dtype, device=site_matrix.device)
             chunk = 4096
             for start in range(0, int(site_matrix.shape[0]), chunk):
                 stop = min(int(site_matrix.shape[0]), start + chunk)
                 inverse[start:stop] = _torch.linalg_inv(
-                    site_matrix[start:stop])
+                    site_matrix[start:stop]).to(dtype=target_dtype)
             self._diagonal_inv[key] = inverse.reshape(
                 *self.shape, self.dof, self.dof).permute(4, 5, 0, 1, 2, 3).contiguous()
         return self._diagonal_inv[key]
@@ -859,7 +917,8 @@ class _FineOperator:
         matrix = self.diagonal_inverse(value)
         work = value
         if work.dtype != matrix.dtype or work.device != matrix.device:
-            work = work.to(dtype=matrix.dtype, device=matrix.device)
+            return _matvec_block_chunked(
+                matrix, value, self.shape[3]).to(dtype=dtype, device=device)
         return _matvec_block(matrix, work).to(dtype=dtype, device=device)
 
     def diagonal_inv_apply_batch(self, value: Tensor) -> Tensor:
@@ -868,7 +927,8 @@ class _FineOperator:
         matrix = self.diagonal_inverse(value)
         work = value
         if work.dtype != matrix.dtype or work.device != matrix.device:
-            work = work.to(dtype=matrix.dtype, device=matrix.device)
+            return _matvec_block_batch_chunked(
+                matrix, value, self.shape[3]).to(dtype=dtype, device=device)
         return _matvec_block_batch(matrix, work).to(dtype=dtype, device=device)
 
     def diagonal_adjoint_apply(self, value: Tensor) -> Tensor:
@@ -885,11 +945,9 @@ class _FineOperator:
         """应用 ``(D_diag^{-1})^dagger``，用于 compact Schur 的伴随。"""
         dtype = value.dtype
         device = value.device
-        matrix = _adjoint_site(self.diagonal_inverse(value))
-        work = value
-        if work.dtype != matrix.dtype or work.device != matrix.device:
-            work = work.to(dtype=matrix.dtype, device=matrix.device)
-        return _matvec_block(matrix, work).to(dtype=dtype, device=device)
+        matrix = self.diagonal_inverse(value)
+        return _matvec_block_adjoint_chunked(
+            matrix, value, self.shape[3]).to(dtype=dtype, device=device)
 
 
 class _LeftPreconditionedOperator:
@@ -2227,7 +2285,13 @@ class QudaMultigrid:
         self._fine = _FineOperator(
             fine_matvec, self.fine_shape, self.fine_spin, self.fine_color,
             diagonal=diagonal, adjoint=fine_adjoint,
-            batch_matvec=fine_batch_matvec)
+            batch_matvec=fine_batch_matvec,
+            diagonal_inv_dtype=(
+                _torch.complex64
+                if (self.strict_galerkin_block_dtype is _torch.float32 and
+                    diagonal is not None and
+                    diagonal.dtype == _torch.complex128)
+                else None))
         self._null_vectors = self._normalise_null_list(null_vectors)
         self._fine_full = self._fine
         self._fine_compact: Optional[CompactParityOperator] = None
