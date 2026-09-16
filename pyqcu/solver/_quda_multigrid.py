@@ -450,15 +450,26 @@ class QudaTransfer:
         """按 QUDA 的 aggregate/chirality 组织 B 并做重复 CGS。"""
         dtype = self.B.dtype
         device = self.B.device
-        V = _torch.zeros(
-            size=[self.fine_spin, self.fine_color, self.coarse_spin,
-                  self.nvec, *self.fine_shape], dtype=dtype, device=device)
+        bx, by, bz, bt = self.block_size
+        cx, cy, cz, ct = self.coarse_shape
+        # Allocate the C++ blocked layout once and expose the Python
+        # [fine_spin, fine_color, coarse_spin, nvec, X, Y, Z, T] view over
+        # the same storage.  This removes the hierarchy-sized copy that
+        # to_qcu_blocked() previously made for every transfer.
+        blocked = _torch.zeros(
+            size=[self.coarse_dof, self.fine_dof,
+                  cx, bx, cy, by, cz, bz, ct, bt],
+            dtype=dtype, device=device)
+        self._qcu_blocked_storage = blocked
+        V = blocked.reshape(
+            self.coarse_spin, self.nvec, self.fine_spin, self.fine_color,
+            *self.coarse_shape, bx, by, bz, bt).reshape(
+                self.coarse_spin, self.nvec, self.fine_spin, self.fine_color,
+                *self.fine_shape).permute(2, 3, 0, 1, 4, 5, 6, 7)
 
         # Wilson/Clover fast path: 同一 coarse-spin block 内所有 fine spin
         # 属于相同的 aggregate，直接 reshape/permute 到批量矩阵。
         if self.spin_block_size != 0:
-            bx, by, bz, bt = self.block_size
-            cx, cy, cz, ct = self.coarse_shape
             for coarse_spin in range(self.coarse_spin):
                 s0 = coarse_spin * self.spin_block_size
                 s1 = s0 + self.spin_block_size
@@ -588,16 +599,18 @@ class QudaTransfer:
         ``qcu.applyMultigridProLongQcu`` 的 ``null_vecs`` 参数。默认保留
         正交化基的 dtype/device；显式传入时用于跨精度或跨设备导出。
         """
-        cx, cy, cz, ct = self.coarse_shape
-        bx, by, bz, bt = self.block_size
-        blocked = self.V.permute(2, 3, 0, 1, 4, 5, 6, 7).reshape(
-            self.coarse_dof, self.fine_dof,
-            cx, bx, cy, by, cz, bz, ct, bt)
+        blocked = getattr(self, "_qcu_blocked_storage", None)
+        if blocked is None:
+            cx, cy, cz, ct = self.coarse_shape
+            bx, by, bz, bt = self.block_size
+            blocked = self.V.permute(2, 3, 0, 1, 4, 5, 6, 7).reshape(
+                self.coarse_dof, self.fine_dof,
+                cx, bx, cy, by, cz, bz, ct, bt).contiguous()
         if dtype is not None or device is not None:
             blocked = blocked.to(
                 dtype=blocked.dtype if dtype is None else dtype,
                 device=blocked.device if device is None else device)
-        return blocked.contiguous()
+        return blocked
 
     @property
     def qcu_blocked_shape(self) -> Tuple[int, ...]:
@@ -2911,7 +2924,8 @@ class QudaMultigrid:
         detached: List[Any] = list(self._null_vectors)
         for transfer in self.transfers:
             detached.extend((getattr(transfer, "B", None),
-                             getattr(transfer, "V", None)))
+                             getattr(transfer, "V", None),
+                             getattr(transfer, "_qcu_blocked_storage", None)))
         detached.append(getattr(self._fine, "_diagonal", None))
         detached.extend(getattr(self._fine, "_diagonal_inv", {}).values())
         detached_bytes, detached_count = self._unique_tensor_storage_bytes(detached)
@@ -2919,6 +2933,7 @@ class QudaMultigrid:
         for transfer in self.transfers:
             transfer.B = None
             transfer.V = None
+            transfer._qcu_blocked_storage = None
         self._null_vectors = []
         self._fine._diagonal = None
         self._fine._diagonal_inv.clear()

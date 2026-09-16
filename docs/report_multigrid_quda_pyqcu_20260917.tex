@@ -283,9 +283,12 @@ $1.83242\times10^{-8}$ 与 $1.83035\times10^{-8}$。
 c128 三层 $16\cdot32\cdot32\cdot48$ 的全 double hierarchy setup 在
 32 GiB V100 上双侧 OOM。PyQCU 最初在 block orthogonalization 请求额外
 864 MiB 时失败；将 CGS 从三矩阵副本降为两缓冲后，该点可通过，但随后在
-\code{to\_qcu\_blocked()} 导出 blocked basis 时仍 OOM，说明限制来自整套
-double hierarchy，而不是单个临时数组。QUDA 则在 double coarse-link
-setup 请求 75 MiB 时失败。
+\code{to\_qcu\_blocked()} 导出 blocked basis 时仍 OOM。进一步把 blocked
+布局改为正交化时直接分配的主存储后，导出已成为零拷贝；setup 继续推进到
+Galerkin 粗块分配，最终仍因整套 double hierarchy 超出 32 GiB 而 OOM。
+这说明限制不是单个临时数组，而是 fine fields、blocked basis、粗块与
+coarse assets 的联合驻留。QUDA 则在 double coarse-link setup 请求
+75 MiB 时失败。
 失败文档保留在 \pathref{data/mg_matrix_20260916_round2/formal-c128-l3/benchmark.json}。
 因此 c128 最大可信跨库正式点是 $16^3\cdot16$ 三层；小格 c128 三层
 用于确认 double coarse MG 的真实 setup/solve，而不是用单侧结果伪造比值。
