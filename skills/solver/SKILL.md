@@ -150,6 +150,12 @@ from the speedup.  In the current large c64 point PyQCU MG/BiCGStab are
 for the MG-vs-MG ratio.  Compare `--quda-strategy aligned` as the matched-cycle
 primary and `--quda-strategy library` as a sensitivity point.
 
+Keep the same-lattice two-level ablation in the report: on
+`16·32·32·48` c64, PyQCU/QUDA are `1.944663/2.183002 s` at two levels and
+`0.654446/1.299921 s` at three levels.  The corresponding PyQCU speedup grows
+from `1.1226x` to `1.9863x`, which isolates the third-level benefit from
+input, precision and strategy differences.
+
 `_cg_orthogonalise()` now keeps only a read-only source and one destination
 buffer per CGS pass instead of cloning both source and work.  This removes one
 full matrix allocation and the corresponding regression tests pass.  It is not
