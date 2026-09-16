@@ -158,6 +158,12 @@ performance evidence.
   `--allow-trace` 才能产生诊断 JSON。
 - c128 `16·32·32·48` 三层 setup 在 32 GiB 设备上应明确报告 OOM
   能力缺口，不得静默改成单侧或伪造 speedup。
+- `--quda-coarse-precision single` 的 mixed-coarse smoke 必须检查
+  `gauge_param`/`invert_param` precision readback；只修改
+  `invert_param` 不足以让 coarse single 与 fine double 一致。
+- `--pyqcu-strict-block-precision single` 是 setup 低内存实验选项，
+  当前不能在 c128 大格点完整结束 setup，不得据此宣称 PyQCU
+  mixed-coarse 已支持。
 
 快速命令：
 
