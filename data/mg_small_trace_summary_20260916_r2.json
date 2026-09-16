@@ -1,0 +1,500 @@
+{
+  "schema": {
+    "name": "pyqcu.mg-trace-summary",
+    "version": 1
+  },
+  "protocol": {
+    "profile": "smoke",
+    "lattice_xyzt": [
+      8,
+      8,
+      8,
+      16
+    ],
+    "mass": 0.05,
+    "kappa": 0.1234567901234568,
+    "seed": 42,
+    "precision": {
+      "name": "c64",
+      "complex_bytes": 8,
+      "real": "float32",
+      "default_tolerance": 1e-06,
+      "true_residual_gate": 5e-06
+    },
+    "levels": 3,
+    "block_xyzt": [
+      2,
+      2,
+      2,
+      2
+    ],
+    "block_xyzt_per_level": [
+      [
+        2,
+        2,
+        2,
+        2
+      ],
+      [
+        2,
+        2,
+        2,
+        2
+      ]
+    ],
+    "nvec": 12,
+    "coarse_spin": 2,
+    "coarse_dof": 24,
+    "target_parity": 1,
+    "null_vector_contract": {
+      "source": "12 canonical full near-null vectors",
+      "full_reconstruction": "precomputed once by zero-rhs Clover block elimination",
+      "transfer": "full-field chiral aggregation with coarse_spin=2"
+    },
+    "outer_solver": "restarted-right-fgmres/gcr",
+    "restart_requested": 16,
+    "restart_effective": 16,
+    "max_krylov_bytes": 536870912,
+    "pyqcu_strict_setup": {
+      "probe_mode": "colored",
+      "column_batch_size": 12,
+      "projection_site_batch_size": 4,
+      "max_workspace_bytes": 4294967296,
+      "workspace_four_arena_lower_bound_bytes": 37748736,
+      "require_exact_batch": true
+    },
+    "fused_workspace_formula": "(2m+5)B_f+2B_c",
+    "fused_workspace_terms": {
+      "B_f": "one compact fine-parity vector in bytes",
+      "B_c": "one full first-coarse-level vector in bytes"
+    },
+    "max_iter": 1000,
+    "tolerance": 1e-06,
+    "true_residual_gate": 5e-06,
+    "nu_pre": 1,
+    "nu_post": 1,
+    "coarse_max_iter": 200,
+    "coarse_tolerance": 0.003,
+    "initial_guess": "zero for every warmup and measured solve",
+    "warmups": 2,
+    "repeats": 2,
+    "statistic": {
+      "center": "median",
+      "spread": "median absolute deviation from median",
+      "warmups_included": false
+    },
+    "timing_contract": {
+      "input_io": "outside setup and solve",
+      "runtime_init": "CUDA/PyQUDA module initialization, outside setup",
+      "setup": "host inputs -> gauge/clover/runtime ready; includes cache lookup/restore, excludes cache persistence",
+      "cache_lookup_or_restore": "reported as a disjoint setup component",
+      "cache_persist": "reported separately and excluded from setup total",
+      "steady_solve": "zero-x0 solve call bracketed by CUDA synchronization",
+      "true_residual": "computed after each timed solve and excluded from solve time",
+      "first_solve_memory": "the first zero-x0 warmup is sampled for lazy solver/workspace allocation; excluded from warmup/repeat timing statistics",
+      "memory_probe": "one additional post-timing solve with 10 ms device-wide cudaMemGetInfo sampling; excluded from warmups/repeats/statistics"
+    },
+    "residual_contract": {
+      "definition": "||b-D_pyqcu*x_canonical||_2/||b||_2",
+      "operator": "full periodic Wilson+Clover, csw=1, PyQCU normalization",
+      "quda_solution_scale": 4.05
+    },
+    "config_hash": "b7b4f912ef55f5881368230b044a28e032a3aceb78e733f2a4a82f5fb6cc13a7"
+  },
+  "sides": {
+    "pyqcu": {
+      "steady_solves": 2,
+      "iterations": [
+        10,
+        10
+      ],
+      "stage_rows": [
+        {
+          "level": 0,
+          "phase": "arnoldi",
+          "samples": 20,
+          "median_seconds": 0.000525341,
+          "mad_seconds": 5.8304000000000016e-05,
+          "total_seconds": 0.010976261
+        },
+        {
+          "level": 0,
+          "phase": "fgmres_solution_update",
+          "samples": 2,
+          "median_seconds": 0.0001457115,
+          "mad_seconds": 9.600499999999997e-06,
+          "total_seconds": 0.000291423
+        },
+        {
+          "level": 0,
+          "phase": "fine_correction_residual",
+          "samples": 20,
+          "median_seconds": 0.0001101085,
+          "mad_seconds": 5.7504999999999986e-06,
+          "total_seconds": 0.0026984099999999996
+        },
+        {
+          "level": 0,
+          "phase": "fine_matpc",
+          "samples": 20,
+          "median_seconds": 0.000104358,
+          "mad_seconds": 5.100499999999996e-06,
+          "total_seconds": 0.0022116759999999997
+        },
+        {
+          "level": 0,
+          "phase": "fine_post_smoother",
+          "samples": 20,
+          "median_seconds": 0.0001450615,
+          "mad_seconds": 8.450499999999996e-06,
+          "total_seconds": 0.002927331
+        },
+        {
+          "level": 0,
+          "phase": "fine_pre_smoother",
+          "samples": 20,
+          "median_seconds": 0.0001849145,
+          "mad_seconds": 1.86015e-05,
+          "total_seconds": 0.0038193980000000003
+        },
+        {
+          "level": 0,
+          "phase": "fine_prolongation",
+          "samples": 20,
+          "median_seconds": 7.3906e-05,
+          "mad_seconds": 2.1504999999999924e-06,
+          "total_seconds": 0.0016373299999999998
+        },
+        {
+          "level": 0,
+          "phase": "fine_restriction",
+          "samples": 20,
+          "median_seconds": 8.5557e-05,
+          "mad_seconds": 2.4004999999999917e-06,
+          "total_seconds": 0.001767936
+        },
+        {
+          "level": 0,
+          "phase": "outer_iteration",
+          "samples": 20,
+          "median_seconds": 0.012285813,
+          "mad_seconds": 0.0003803299999999999,
+          "total_seconds": 0.24621880799999996
+        },
+        {
+          "level": 0,
+          "phase": "true_residual_refresh",
+          "samples": 2,
+          "median_seconds": 0.0005653944999999999,
+          "mad_seconds": 7.80565e-05,
+          "total_seconds": 0.0011307889999999999
+        },
+        {
+          "level": 1,
+          "phase": "coarse_vcycle",
+          "samples": 20,
+          "median_seconds": 0.008098485,
+          "mad_seconds": 0.0002971230000000007,
+          "total_seconds": 0.16351482099999998
+        },
+        {
+          "level": 1,
+          "phase": "level_post_smoother",
+          "samples": 20,
+          "median_seconds": 0.00019776549999999998,
+          "mad_seconds": 3.1499999999999953e-06,
+          "total_seconds": 0.0040262150000000005
+        },
+        {
+          "level": 1,
+          "phase": "level_pre_smoother",
+          "samples": 20,
+          "median_seconds": 0.000222418,
+          "mad_seconds": 5.550999999999988e-06,
+          "total_seconds": 0.005108801999999999
+        },
+        {
+          "level": 1,
+          "phase": "level_prepare",
+          "samples": 20,
+          "median_seconds": 0.0001339605,
+          "mad_seconds": 4.450499999999994e-06,
+          "total_seconds": 0.0027805169999999993
+        },
+        {
+          "level": 1,
+          "phase": "level_prolongation",
+          "samples": 20,
+          "median_seconds": 5.77545e-05,
+          "mad_seconds": 2.550000000000001e-06,
+          "total_seconds": 0.0012032960000000002
+        },
+        {
+          "level": 1,
+          "phase": "level_reconstruct",
+          "samples": 20,
+          "median_seconds": 0.00012731,
+          "mad_seconds": 2.500500000000001e-06,
+          "total_seconds": 0.002614704
+        },
+        {
+          "level": 1,
+          "phase": "level_residual_recompute",
+          "samples": 20,
+          "median_seconds": 0.00017671400000000002,
+          "mad_seconds": 1.900000000000019e-06,
+          "total_seconds": 0.0037240909999999997
+        },
+        {
+          "level": 1,
+          "phase": "level_restriction",
+          "samples": 20,
+          "median_seconds": 8.765699999999999e-05,
+          "mad_seconds": 2.299999999999995e-06,
+          "total_seconds": 0.0018673460000000002
+        },
+        {
+          "level": 2,
+          "phase": "coarsest_bicgstab",
+          "samples": 20,
+          "median_seconds": 0.0021129155,
+          "mad_seconds": 6.625550000000004e-05,
+          "total_seconds": 0.04241132300000001
+        },
+        {
+          "level": 2,
+          "phase": "level_prepare",
+          "samples": 20,
+          "median_seconds": 0.00012481,
+          "mad_seconds": 4.000999999999991e-06,
+          "total_seconds": 0.0025616999999999997
+        },
+        {
+          "level": 2,
+          "phase": "level_reconstruct",
+          "samples": 20,
+          "median_seconds": 9.4208e-05,
+          "mad_seconds": 2.550500000000002e-06,
+          "total_seconds": 0.0019755550000000004
+        },
+        {
+          "level": 2,
+          "phase": "level_recursive_solve",
+          "samples": 20,
+          "median_seconds": 0.0033387115,
+          "mad_seconds": 0.00011080849999999995,
+          "total_seconds": 0.06723767
+        }
+      ],
+      "residual_rows": [
+        {
+          "level": 0,
+          "phase": "after_fine_post_smoother",
+          "samples": 20,
+          "median_absolute_r": 0.3810528963804245,
+          "median_relative_r": 0.3810529261827469
+        },
+        {
+          "level": 0,
+          "phase": "after_fine_pre_smoother",
+          "samples": 20,
+          "median_absolute_r": 0.7371309995651245,
+          "median_relative_r": 0.7371310591697693
+        },
+        {
+          "level": 0,
+          "phase": "after_fine_prolongation",
+          "samples": 20,
+          "median_absolute_r": 0.7263775169849396,
+          "median_relative_r": 0.726377546787262
+        },
+        {
+          "level": 1,
+          "phase": "after_level_post_smoother",
+          "samples": 20,
+          "median_absolute_r": 0.23716436326503754,
+          "median_relative_r": 0.21388953179121017
+        },
+        {
+          "level": 1,
+          "phase": "after_level_pre_smoother",
+          "samples": 20,
+          "median_absolute_r": 0.6580101847648621,
+          "median_relative_r": 0.5928983986377716
+        },
+        {
+          "level": 1,
+          "phase": "after_level_residual_recompute",
+          "samples": 20,
+          "median_absolute_r": 0.5198216140270233,
+          "median_relative_r": 0.47062821686267853
+        },
+        {
+          "level": 2,
+          "phase": "after_coarsest_bicgstab",
+          "samples": 20,
+          "median_absolute_r": 0.0011387905396986753,
+          "median_relative_r": 0.0017051500035449862
+        },
+        {
+          "level": 2,
+          "phase": "after_level_recursive_solve",
+          "samples": 20,
+          "median_absolute_r": 0.0011387905396986753,
+          "median_relative_r": 0.0017051500035449862
+        }
+      ]
+    },
+    "quda": {
+      "steady_solves": 2,
+      "iterations": [
+        32,
+        32
+      ],
+      "stage_rows": [
+        {
+          "level": 0,
+          "phase": "coarse_solver",
+          "samples": 64,
+          "median_seconds": 0.03086203750000127,
+          "mad_seconds": 0.0036676140000002633,
+          "total_seconds": 1.9594107310000046
+        },
+        {
+          "level": 0,
+          "phase": "post_smoother",
+          "samples": 64,
+          "median_seconds": 0.0005694599999985783,
+          "mad_seconds": 4.915099999891481e-05,
+          "total_seconds": 0.04080180699999669
+        },
+        {
+          "level": 0,
+          "phase": "pre_smoother",
+          "samples": 64,
+          "median_seconds": 0.0005330090000001952,
+          "mad_seconds": 4.060100000025102e-05,
+          "total_seconds": 0.03447930299999591
+        },
+        {
+          "level": 0,
+          "phase": "prepare_outer",
+          "samples": 64,
+          "median_seconds": 1.9600499999938847e-05,
+          "mad_seconds": 1.1500000001163357e-06,
+          "total_seconds": 0.0014183229999975566
+        },
+        {
+          "level": 0,
+          "phase": "prolongate",
+          "samples": 64,
+          "median_seconds": 8.290149999989893e-05,
+          "mad_seconds": 9.000499999523015e-06,
+          "total_seconds": 0.0059991060000008645
+        },
+        {
+          "level": 0,
+          "phase": "reconstruct_outer",
+          "samples": 64,
+          "median_seconds": 8.999999998593466e-07,
+          "mad_seconds": 1.0000000028043132e-07,
+          "total_seconds": 8.080100000373847e-05
+        },
+        {
+          "level": 0,
+          "phase": "restrict",
+          "samples": 64,
+          "median_seconds": 9.120199999923528e-05,
+          "mad_seconds": 9.000499999523015e-06,
+          "total_seconds": 0.006405906999998656
+        },
+        {
+          "level": 1,
+          "phase": "coarse_solver",
+          "samples": 236,
+          "median_seconds": 0.004588829999999433,
+          "mad_seconds": 0.0005122589999997373,
+          "total_seconds": 1.1359991830000036
+        },
+        {
+          "level": 1,
+          "phase": "post_smoother",
+          "samples": 236,
+          "median_seconds": 0.0005428600000003669,
+          "mad_seconds": 4.355050000093286e-05,
+          "total_seconds": 0.13508195899998832
+        },
+        {
+          "level": 1,
+          "phase": "pre_smoother",
+          "samples": 236,
+          "median_seconds": 0.0005251089999998015,
+          "mad_seconds": 4.780100000001397e-05,
+          "total_seconds": 0.1345941499999883
+        },
+        {
+          "level": 1,
+          "phase": "prepare_outer",
+          "samples": 236,
+          "median_seconds": 1.8999999999991246e-05,
+          "mad_seconds": 1.0005000006252374e-06,
+          "total_seconds": 0.004909988000017407
+        },
+        {
+          "level": 1,
+          "phase": "prolongate",
+          "samples": 236,
+          "median_seconds": 7.920100000013974e-05,
+          "mad_seconds": 7.550000000300372e-06,
+          "total_seconds": 0.021841382000007847
+        },
+        {
+          "level": 1,
+          "phase": "reconstruct_outer",
+          "samples": 236,
+          "median_seconds": 8.999999998593466e-07,
+          "mad_seconds": 9.99999993922529e-08,
+          "total_seconds": 0.00021340299999383916
+        },
+        {
+          "level": 1,
+          "phase": "restrict",
+          "samples": 236,
+          "median_seconds": 6.880150000077023e-05,
+          "mad_seconds": 6.000000000394579e-06,
+          "total_seconds": 0.018348118000002245
+        }
+      ],
+      "residual_rows": [
+        {
+          "level": 0,
+          "phase": "after_pre_smoother",
+          "samples": 64,
+          "median_absolute_r": 0.011631223223886867,
+          "median_relative_r": 0.4838329686997549
+        },
+        {
+          "level": 0,
+          "phase": "cycle_enter",
+          "samples": 64,
+          "median_absolute_r": 0.024196242907294413,
+          "median_relative_r": 1.0
+        },
+        {
+          "level": 1,
+          "phase": "after_pre_smoother",
+          "samples": 236,
+          "median_absolute_r": 0.0004000874705572906,
+          "median_relative_r": 0.4888316113071266
+        },
+        {
+          "level": 1,
+          "phase": "cycle_enter",
+          "samples": 236,
+          "median_absolute_r": 0.0008485366480261972,
+          "median_relative_r": 1.0
+        }
+      ]
+    }
+  }
+}

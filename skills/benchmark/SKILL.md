@@ -86,3 +86,30 @@ python examples/qcu/dev87/bench_strict_vs_quda.py --merge pyqcu.json quda.json -
 ```
 
 Only a merged document with matching config/input hashes, both side statuses `ok`, passing true residuals, and `comparison.fair=true` may report `speedup_pyqcu_over_quda = median(QUDA)/median(PyQCU)`. Do not claim PyQCU is faster until repeated fair runs show a stable value above one; distinguish patched or unhealthy QUDA environments from portable results.
+
+## 2026-09-16 三层与默认关闭 trace
+
+`bench_strict_vs_quda.py` now accepts `--lattice`, `--levels`, `--block`,
+`--gauge-path`, and `--nullvec-path`.  Two-level cache identity remains
+`asset_semantics_version=2`; recursive three-plus-level identity uses version
+3.  For `levels>2`, PyQCU propagates each transition's coarse `V` with `R`,
+while QUDA uses `generate_all_levels=false`, `vec_load[0]=true`, and
+`num_setup_iter[>0]=0`.  Do not let QUDA generate a second private coarse
+basis.
+
+Diagnostic tracing is default-off:
+
+```text
+PYQCU_STRICT_TRACE_FILE=/path/pyqcu.tsv
+QUDA_MG_TRACE_FILE=/path/quda.tsv
+```
+
+PyQCU trace version 2 adds residual events; QUDA emits cycle/stage/residual
+events.  `examples/qcu/dev87/summarize_mg_trace.py` aggregates both.
+Trace-enabled wall times are diagnostic only; the no-trace formal result is
+the speedup authority.
+
+The final 2026-09-16 formal c64 three-level result is 4.3817x
+(`0.653995` s vs. `2.865627` s) in
+`data/strict_vs_quda_formal_3l_20260916_final.json`; small and medium matrices are
+produced by `examples/qcu/dev87/bench_mg_matrix.py`.

@@ -1,0 +1,228 @@
+{
+  "schema": {
+    "name": "pyqcu.mg-matrix",
+    "version": 1
+  },
+  "created_at": "2026-09-16T13:29:58.503146+00:00",
+  "profile": "smoke",
+  "repeats": 2,
+  "cases": [
+    {
+      "id": "small-c64-l2",
+      "case": {
+        "id": "small-c64-l2",
+        "lattice": [
+          8,
+          8,
+          8,
+          16
+        ],
+        "levels": 2,
+        "precision": "c64"
+      },
+      "assets": {
+        "gauge": "/root/PyQCU/data/gauge_8x8x8x16_m0.05_seed42_c64.h5",
+        "null_vectors": "/root/PyQCU/data/L8x8x8x16_nvec12_full_c64.h5",
+        "qio_prefix": "/root/PyQCU/data/L8x8x8x16_nvec12_quda",
+        "qio_artifact": "/root/PyQCU/data/L8x8x8x16_nvec12_quda_level_0_nvec_12",
+        "qio_manifest": "/root/PyQCU/data/L8x8x8x16_nvec12_quda.conversion.json"
+      },
+      "runs": [
+        {
+          "cache_expect": "any",
+          "returncode": 0,
+          "elapsed_seconds": 29.572367635992123,
+          "command": [
+            "/usr/bin/python",
+            "-B",
+            "/root/PyQCU/examples/qcu/dev87/bench_strict_vs_quda.py",
+            "--profile",
+            "smoke",
+            "--side",
+            "both",
+            "--lattice",
+            "8",
+            "8",
+            "8",
+            "16",
+            "--levels",
+            "2",
+            "--precision",
+            "c64",
+            "--repeats",
+            "2",
+            "--timeout",
+            "300.0",
+            "--gauge-path",
+            "/root/PyQCU/data/gauge_8x8x8x16_m0.05_seed42_c64.h5",
+            "--nullvec-path",
+            "/root/PyQCU/data/L8x8x8x16_nvec12_full_c64.h5",
+            "--quda-nullvec-prefix",
+            "/root/PyQCU/data/L8x8x8x16_nvec12_quda",
+            "--quda-nullvec-manifest",
+            "/root/PyQCU/data/L8x8x8x16_nvec12_quda.conversion.json",
+            "--output",
+            "data/mg_matrix_20260916/small-c64-l2/benchmark.json",
+            "--cache-expect",
+            "any"
+          ],
+          "stdout_tail": "",
+          "stderr_tail": "[result] /root/PyQCU/data/mg_matrix_20260916/small-c64-l2/benchmark.json\n",
+          "output": "data/mg_matrix_20260916/small-c64-l2/benchmark.json",
+          "sha256": "ef07c14f93c3ffffee8cc55f9a1bbabbabf05c036c61f46d63c2b0b5006e4dce",
+          "status": null,
+          "speedup": null,
+          "fair": false
+        }
+      ],
+      "status": "ok"
+    },
+    {
+      "id": "small-c64-l3",
+      "case": {
+        "id": "small-c64-l3",
+        "lattice": [
+          8,
+          8,
+          8,
+          16
+        ],
+        "levels": 3,
+        "precision": "c64"
+      },
+      "assets": {
+        "gauge": "/root/PyQCU/data/gauge_8x8x8x16_m0.05_seed42_c64.h5",
+        "null_vectors": "/root/PyQCU/data/L8x8x8x16_nvec12_full_c64.h5",
+        "qio_prefix": "/root/PyQCU/data/L8x8x8x16_nvec12_quda",
+        "qio_artifact": "/root/PyQCU/data/L8x8x8x16_nvec12_quda_level_0_nvec_12",
+        "qio_manifest": "/root/PyQCU/data/L8x8x8x16_nvec12_quda.conversion.json"
+      },
+      "runs": [
+        {
+          "cache_expect": "any",
+          "returncode": 0,
+          "elapsed_seconds": 33.004868291987805,
+          "command": [
+            "/usr/bin/python",
+            "-B",
+            "/root/PyQCU/examples/qcu/dev87/bench_strict_vs_quda.py",
+            "--profile",
+            "smoke",
+            "--side",
+            "both",
+            "--lattice",
+            "8",
+            "8",
+            "8",
+            "16",
+            "--levels",
+            "3",
+            "--precision",
+            "c64",
+            "--repeats",
+            "2",
+            "--timeout",
+            "300.0",
+            "--gauge-path",
+            "/root/PyQCU/data/gauge_8x8x8x16_m0.05_seed42_c64.h5",
+            "--nullvec-path",
+            "/root/PyQCU/data/L8x8x8x16_nvec12_full_c64.h5",
+            "--quda-nullvec-prefix",
+            "/root/PyQCU/data/L8x8x8x16_nvec12_quda",
+            "--quda-nullvec-manifest",
+            "/root/PyQCU/data/L8x8x8x16_nvec12_quda.conversion.json",
+            "--output",
+            "data/mg_matrix_20260916/small-c64-l3/benchmark.json",
+            "--cache-expect",
+            "any"
+          ],
+          "stdout_tail": "",
+          "stderr_tail": "[result] /root/PyQCU/data/mg_matrix_20260916/small-c64-l3/benchmark.json\n",
+          "output": "data/mg_matrix_20260916/small-c64-l3/benchmark.json",
+          "sha256": "e888f4afd8e0534f58928fa6d293db803d7d7c00e4ba279c96ba0114f2ae6a08",
+          "status": null,
+          "speedup": null,
+          "fair": false
+        }
+      ],
+      "status": "ok"
+    },
+    {
+      "id": "medium-c64-l3",
+      "case": {
+        "id": "medium-c64-l3",
+        "lattice": [
+          16,
+          16,
+          16,
+          16
+        ],
+        "levels": 3,
+        "precision": "c64"
+      },
+      "assets": {
+        "gauge": "/root/PyQCU/data/gauge_16x16x16x16_m0.05_seed42_c64.h5",
+        "null_vectors": "/root/PyQCU/data/L16x16x16x16_nvec12_full_c64.h5",
+        "qio_prefix": "/root/PyQCU/data/L16x16x16x16_nvec12_quda",
+        "qio_artifact": "/root/PyQCU/data/L16x16x16x16_nvec12_quda_level_0_nvec_12",
+        "qio_manifest": "/root/PyQCU/data/L16x16x16x16_nvec12_quda.conversion.json"
+      },
+      "runs": [
+        {
+          "cache_expect": "any",
+          "returncode": 0,
+          "elapsed_seconds": 79.49247946900141,
+          "command": [
+            "/usr/bin/python",
+            "-B",
+            "/root/PyQCU/examples/qcu/dev87/bench_strict_vs_quda.py",
+            "--profile",
+            "smoke",
+            "--side",
+            "both",
+            "--lattice",
+            "16",
+            "16",
+            "16",
+            "16",
+            "--levels",
+            "3",
+            "--precision",
+            "c64",
+            "--repeats",
+            "2",
+            "--timeout",
+            "300.0",
+            "--gauge-path",
+            "/root/PyQCU/data/gauge_16x16x16x16_m0.05_seed42_c64.h5",
+            "--nullvec-path",
+            "/root/PyQCU/data/L16x16x16x16_nvec12_full_c64.h5",
+            "--quda-nullvec-prefix",
+            "/root/PyQCU/data/L16x16x16x16_nvec12_quda",
+            "--quda-nullvec-manifest",
+            "/root/PyQCU/data/L16x16x16x16_nvec12_quda.conversion.json",
+            "--output",
+            "data/mg_matrix_20260916/medium-c64-l3/benchmark.json",
+            "--cache-expect",
+            "any"
+          ],
+          "stdout_tail": "",
+          "stderr_tail": "[result] /root/PyQCU/data/mg_matrix_20260916/medium-c64-l3/benchmark.json\n",
+          "output": "data/mg_matrix_20260916/medium-c64-l3/benchmark.json",
+          "sha256": "de567fef61ea78861664f9db9a5b100618115092f2ba5b12a77394be42ce53ed",
+          "status": null,
+          "speedup": null,
+          "fair": false
+        }
+      ],
+      "status": "ok"
+    }
+  ],
+  "summary": {
+    "total": 3,
+    "ok": 3,
+    "partial": 0,
+    "skipped": 0,
+    "failed": 0
+  }
+}
