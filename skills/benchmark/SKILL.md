@@ -163,12 +163,21 @@ QUDA `0.963774/0.103475 s`；c128 中格为 PyQCU
 plain BiCGStab 在多点上快于 PyQCU MG，因此 MG-vs-MG 加速比只能归因于
 MultiGrid 路径，绝不能外推为 PyQCU 总体求解器优势。
 
-c128 三层大格点 `16·32·32·48` 在 32 GiB V100 上 setup 阶段双方均 OOM：
-PyQCU 在 block orthogonalization 请求额外 864 MiB 时失败，QUDA 在
-double coarse-link setup 请求 75 MiB 时失败。该失败证据保留在
-`data/mg_matrix_20260916_round2/formal-c128-l3/benchmark.json`，不得用
-裁剪后的 PyQCU 单侧结果伪造跨库加速比。最大可信 c128 点因此是
-`16^3·16` 三层；单/多层 c128 小格点用于验证 double MG 路径。
+c128 三层大格点 `16·32·32·48` 的早期 $C=1$ 尝试在 32 GiB V100
+上 OOM 或超时，但当前探索协议已能在双侧完成全 double smoke：
+PyQCU 使用 `--strict-galerkin-column-batch 4`、
+`--strict-galerkin-projection-batch 16`、CPU block staging、
+null-basis offload，并在 runtime seal 后归还 caching allocator；
+QUDA 使用同配置协议和 double coarse fields。两侧分别得到
+PyQCU `2.06395 s` / 20 iterations / `1.788e-8`，QUDA
+`17.35793 s` / 60 iterations / `1.792e-8`，探索 MG 比值
+`8.4100x`，但文档为 `smoke-pass`，不得进入 formal speedup 表。
+
+同一大格点的 BiCGStab 参考为 PyQCU `3.25918 s`、QUDA
+`0.97771 s`；QUDA plain BiCGStab 仍比 PyQCU MG 快约 `2.11x`，
+因此上述 MG 比值只能解释为 MultiGrid 路径差异。formal 仍锁定
+$C=1$ 与 1 GiB setup cap，formal 大格 c128 仍是待完成项；
+最大正式 c128 点仍是 `16^3·16` 三层。
 
 `--quda-coarse-precision single` 提供 QUDA mixed-coarse 容量补充：
 fine solve 保持 c128，coarse MG 用 single precision。该模式在
