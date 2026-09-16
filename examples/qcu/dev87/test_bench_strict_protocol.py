@@ -88,6 +88,7 @@ def _synthetic_provenance(document):
                 "reconstruct": 7,
                 "precision": precision_bit,
                 "multigrid_nvec_list": [12, 24],
+                "multigrid_double": precision_bit == 8,
             },
         },
         "patch_variant": {
@@ -1149,6 +1150,21 @@ def test_quda_expected_parameters_propagate_only_fine_null_vectors():
     assert levels["smoother"] == ["QUDA_MR_INVERTER"] * 3
     assert levels["smoother_tol"] == [0.0] * 3
     assert levels["coarse_solver_maxiter"] == [1, 1, 200]
+
+
+def test_quda_library_strategy_records_native_defaults():
+    protocol = bench.build_document(
+        _args(
+            "--dry-run", "--levels", "3", "--quda-strategy", "library"),
+        dry_run=True)["protocol"]
+    assert protocol["quda_strategy"] == "library"
+    levels = bench._quda_expected_parameters(
+        protocol, "/qio/fine")["multigrid"]["levels"]
+    assert levels["nu_pre"] == [0, 0, 0]
+    assert levels["nu_post"] == [8, 8, 8]
+    assert levels["smoother"] == ["QUDA_CA_GCR_INVERTER"] * 3
+    assert levels["smoother_tol"] == [0.25] * 3
+    assert levels["coarse_solver_maxiter"] == [16, 16, 16]
 
 
 def test_native_quda_mg_trace_parser_preserves_level_residuals(tmp_path):

@@ -134,8 +134,18 @@ uses one canonical full fine basis and derives the next coarse basis
 deterministically.
 
 `CudaStrictMultigridSolver.outer_iterations` counts outer FGMRES columns;
-`iterations` is only a compatibility alias.  The formal
-$16\cdot32\cdot32\cdot48$ c64 three-level run measured 14 outer iterations
-in 0.653995 s versus QUDA's 37 outer GCR iterations in 2.865627 s
-(4.3817x).  The coarsest volume dropped from 49152 to 3072 (16x); both sides
-use odd--odd MATPC, so the iteration difference is not a parity inversion.
+`iterations` is only a compatibility alias.  The earlier `4.3817x` value was
+withdrawn: QUDA had been left on a different smoother/coarse-iteration budget.
+For a matched one-recursive-cycle comparison, rerun with QUDA MR smoother,
+`smoother_tol=0`, and `coarse_solver_maxiter=1` outside the coarsest level.
+The current c64 `16·32·32·48` three-level result is 14 outer iterations in
+`0.654446 s` versus QUDA's 39 outer GCR iterations in `1.299921 s`
+(`1.9863x`), both odd--odd MATPC.  Report the old value nowhere except as a
+retraction.
+
+The same run must include per-side plain BiCGStab reference records, excluded
+from the speedup.  In the current large c64 point PyQCU MG/BiCGStab are
+`0.654446/1.709560 s`, while QUDA MG/BiCGStab are
+`1.299921/0.329646 s`; this contrast is required context, not a substitute
+for the MG-vs-MG ratio.  Compare `--quda-strategy aligned` as the matched-cycle
+primary and `--quda-strategy library` as a sensitivity point.

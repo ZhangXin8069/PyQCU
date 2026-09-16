@@ -51,6 +51,13 @@
 \maketitle
 
 \begin{abstract}
+\textbf{撤回说明（2026-09-17）：}本报告中的 c64 三层
+$4.3817\times$ 加速比是在 PyQCU 一次递归 V-cycle 与 QUDA
+多内层预算未对齐的条件下得到的，已由
+\pathref{docs/report_multigrid_quda_pyqcu_20260917.tex}
+替代。修正后的 c64 大格三层主结果为 $1.9863\times$，并以同侧
+BiCGStab 参考、aligned/library 双策略和 trace-off 闸门重新验证。
+
 本文在 PyQCU 与 QUDA 1.1.0 的 MultiGrid 求解路径中加入默认关闭、可显式开启的
 分层性能与残差 trace，并在统一 gauge、右端项、canonical null vectors、精度、
 block、odd--odd MATPC parity、停机容差和计时边界后完成对照。埋点不扩展公共
