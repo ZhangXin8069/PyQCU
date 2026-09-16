@@ -136,3 +136,34 @@ outer-iteration scope.  `test_bench_mg_matrix.py` verifies two/three levels,
 c64/c128, and three lattice volumes.  `summarize_mg_trace.py` aggregates
 diagnostic stage/residual rows; never use its trace wall times as formal
 performance evidence.
+
+### 2026-09-17 double MG / BiCGStab 回归
+
+新增回归必须覆盖：
+
+- `--quda-strategy aligned|library` 的预期参数：aligned 为 MR/一次递归；
+  library 为 PyQUDA 原生 CA-GCR、`nu_post=8`、coarse maxiter 16。
+- `QUDA_MULTIGRID_DOUBLE=ON` 与 `QUDA_PRECISION=12` 的 CMake provenance；
+  c128 正式记录必须含 double bit，且 `precision_null` 全为
+  `QUDA_DOUBLE_PRECISION`。
+- BiCGStab 参考解通过独立真残差门；QUDA 参考路径必须清除
+  `invert_param.preconditioner`，防止 MG 指针残留导致 solver factory
+  拒绝 BiCGStab。
+- 正式 profile 在 trace 环境变量存在时拒绝运行；只有
+  `--allow-trace` 才能产生诊断 JSON。
+- c128 `16·32·32·48` 三层 setup 在 32 GiB 设备上应明确报告 OOM
+  能力缺口，不得静默改成单侧或伪造 speedup。
+
+快速命令：
+
+```bash
+python -B -m pytest -q -p no:cacheprovider \
+  examples/qcu/dev87/test_bench_strict_protocol.py \
+  examples/qcu/dev87/test_bench_mg_matrix.py
+python examples/qcu/dev87/run_strict_fast.py --tier 1
+```
+
+正式 JSON 来源：
+`data/mg_matrix_20260916_round2/formal-*-l*/benchmark.json`；
+trace 开销证据：`trace-small-c64-l3.json`。trace-on 数字只用于说明
+trace 开销，不能进入 `speedup_pyqcu_over_quda`。

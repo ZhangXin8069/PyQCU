@@ -1,0 +1,465 @@
+{
+  "schema": "pyqcu.mg-round2-summary/v1",
+  "created_utc": "2026-09-17",
+  "primary_strategy": "aligned",
+  "trace_policy": "formal speedups are trace-off; trace-on is diagnostic only",
+  "samples": {
+    "c64_l2_small_aligned": {
+      "path": "data/mg_matrix_20260916_round2/formal-c64-l2-small/benchmark.json",
+      "sha256": "57a1a235d78e07d16412b3b17c15fe640baf3c4603d2d813359e756348734263",
+      "protocol": {
+        "lattice_xyzt": [
+          8,
+          8,
+          8,
+          16
+        ],
+        "levels": 2,
+        "precision": "c64",
+        "quda_strategy": "aligned"
+      },
+      "comparison": {
+        "status": "pass",
+        "profile": "formal",
+        "fair": true,
+        "reasons": [],
+        "speedup_pyqcu_over_quda": 7.37626016656879,
+        "pyqcu_median_seconds": 0.05418394700973295,
+        "quda_median_seconds": 0.39967488999536727
+      },
+      "sides": {
+        "pyqcu": {
+          "status": "ok",
+          "steady_median_seconds": 0.05418394700973295,
+          "steady_mad_seconds": 0.0014762770006200299,
+          "outer_iterations_median": 9.0,
+          "true_residual_max_rel": 7.282885031288916e-07,
+          "true_residual_pass": true,
+          "bicgstab_reference_median_seconds": 0.23001118800311815,
+          "bicgstab_reference_true_residual_max_rel": 6.88093633114058e-07
+        },
+        "quda": {
+          "status": "ok",
+          "steady_median_seconds": 0.39967488999536727,
+          "steady_mad_seconds": 0.0002719140029512346,
+          "outer_iterations_median": 32.0,
+          "true_residual_max_rel": 7.970870978984294e-07,
+          "true_residual_pass": true,
+          "bicgstab_reference_median_seconds": 0.07663168999715708,
+          "bicgstab_reference_true_residual_max_rel": 2.9542105050682294e-07
+        }
+      }
+    },
+    "c64_l3_small_aligned": {
+      "path": "data/mg_matrix_20260916_round2/formal-c64-l3-small/benchmark.json",
+      "sha256": "69f8012c96f65f12129860592d27855c1c395011b681e6c218a70f784cc18b93",
+      "protocol": {
+        "lattice_xyzt": [
+          8,
+          8,
+          8,
+          16
+        ],
+        "levels": 3,
+        "precision": "c64",
+        "quda_strategy": "aligned"
+      },
+      "comparison": {
+        "status": "pass",
+        "profile": "formal",
+        "fair": true,
+        "reasons": [],
+        "speedup_pyqcu_over_quda": 11.954198745035084,
+        "pyqcu_median_seconds": 0.043200057989452034,
+        "quda_median_seconds": 0.5164220790029503
+      },
+      "sides": {
+        "pyqcu": {
+          "status": "ok",
+          "steady_median_seconds": 0.043200057989452034,
+          "steady_mad_seconds": 0.0017851929878816009,
+          "outer_iterations_median": 10.0,
+          "true_residual_max_rel": 6.841114532410365e-07,
+          "true_residual_pass": true,
+          "bicgstab_reference_median_seconds": 0.23287539000739343,
+          "bicgstab_reference_true_residual_max_rel": 6.88093633114058e-07
+        },
+        "quda": {
+          "status": "ok",
+          "steady_median_seconds": 0.5164220790029503,
+          "steady_mad_seconds": 0.014051484991796315,
+          "outer_iterations_median": 33.0,
+          "true_residual_max_rel": 6.502862151778207e-07,
+          "true_residual_pass": true,
+          "bicgstab_reference_median_seconds": 0.08694053899671417,
+          "bicgstab_reference_true_residual_max_rel": 2.9542105050682294e-07
+        }
+      }
+    },
+    "c64_l3_medium_aligned": {
+      "path": "data/mg_matrix_20260916_round2/formal-c64-l3-medium/benchmark.json",
+      "sha256": "0658532cacbf89e0873077dcba72e261620cbe7adbbaba5cd96551a5d7c0a6ab",
+      "protocol": {
+        "lattice_xyzt": [
+          16,
+          16,
+          16,
+          16
+        ],
+        "levels": 3,
+        "precision": "c64",
+        "quda_strategy": "aligned"
+      },
+      "comparison": {
+        "status": "pass",
+        "profile": "formal",
+        "fair": true,
+        "reasons": [],
+        "speedup_pyqcu_over_quda": 4.9945681389785745,
+        "pyqcu_median_seconds": 0.14924019199679606,
+        "quda_median_seconds": 0.7453903080022428
+      },
+      "sides": {
+        "pyqcu": {
+          "status": "ok",
+          "steady_median_seconds": 0.14924019199679606,
+          "steady_mad_seconds": 0.0031702599953860044,
+          "outer_iterations_median": 31.0,
+          "true_residual_max_rel": 5.798981521393327e-07,
+          "true_residual_pass": true,
+          "bicgstab_reference_median_seconds": 0.2803394729999127,
+          "bicgstab_reference_true_residual_max_rel": 3.3935020227110806e-07
+        },
+        "quda": {
+          "status": "ok",
+          "steady_median_seconds": 0.7453903080022428,
+          "steady_mad_seconds": 0.021413991998997517,
+          "outer_iterations_median": 59.0,
+          "true_residual_max_rel": 7.034405994078551e-07,
+          "true_residual_pass": true,
+          "bicgstab_reference_median_seconds": 0.07948944400413893,
+          "bicgstab_reference_true_residual_max_rel": 6.907945887772199e-07
+        }
+      }
+    },
+    "c64_l3_large_aligned": {
+      "path": "data/mg_matrix_20260916_round2/formal-c64-l3/benchmark.json",
+      "sha256": "461fb248dc3373e6e7b1bfa91d7ae1312ed996955e6c1c5d3d4686c09b00dea5",
+      "protocol": {
+        "lattice_xyzt": [
+          16,
+          32,
+          32,
+          48
+        ],
+        "levels": 3,
+        "precision": "c64",
+        "quda_strategy": "aligned"
+      },
+      "comparison": {
+        "status": "pass",
+        "profile": "formal",
+        "fair": true,
+        "reasons": [],
+        "speedup_pyqcu_over_quda": 1.9862926768193558,
+        "pyqcu_median_seconds": 0.6544458649877924,
+        "quda_median_seconds": 1.299921028999961
+      },
+      "sides": {
+        "pyqcu": {
+          "status": "ok",
+          "steady_median_seconds": 0.6544458649877924,
+          "steady_mad_seconds": 0.0007901989883976057,
+          "outer_iterations_median": 14.0,
+          "true_residual_max_rel": 4.901350741394227e-07,
+          "true_residual_pass": true,
+          "bicgstab_reference_median_seconds": 1.70955979199789,
+          "bicgstab_reference_true_residual_max_rel": 3.792390328690136e-07
+        },
+        "quda": {
+          "status": "ok",
+          "steady_median_seconds": 1.299921028999961,
+          "steady_mad_seconds": 0.032993857996189035,
+          "outer_iterations_median": 39.0,
+          "true_residual_max_rel": 7.328260847815645e-07,
+          "true_residual_pass": true,
+          "bicgstab_reference_median_seconds": 0.32964614999946207,
+          "bicgstab_reference_true_residual_max_rel": 6.147449926210113e-07
+        }
+      }
+    },
+    "c128_l3_small_aligned": {
+      "path": "data/mg_matrix_20260916_round2/formal-c128-l3-small/benchmark.json",
+      "sha256": "4a296c694ca335378f4b078222c088e7897b40fa6c8782f4b2cf7bb11cf1f2b8",
+      "protocol": {
+        "lattice_xyzt": [
+          8,
+          8,
+          8,
+          16
+        ],
+        "levels": 3,
+        "precision": "c128",
+        "quda_strategy": "aligned"
+      },
+      "comparison": {
+        "status": "pass",
+        "profile": "formal",
+        "fair": true,
+        "reasons": [],
+        "speedup_pyqcu_over_quda": 12.647116778269796,
+        "pyqcu_median_seconds": 0.07716170500498265,
+        "quda_median_seconds": 0.9758730940084206
+      },
+      "sides": {
+        "pyqcu": {
+          "status": "ok",
+          "steady_median_seconds": 0.07716170500498265,
+          "steady_mad_seconds": 0.00037162500666454434,
+          "outer_iterations_median": 14.0,
+          "true_residual_max_rel": 1.745323985639471e-08,
+          "true_residual_pass": true,
+          "bicgstab_reference_median_seconds": 0.2837124009965919,
+          "bicgstab_reference_true_residual_max_rel": 1.7274750183626116e-08
+        },
+        "quda": {
+          "status": "ok",
+          "steady_median_seconds": 0.9758730940084206,
+          "steady_mad_seconds": 0.009847795008681715,
+          "outer_iterations_median": 46.0,
+          "true_residual_max_rel": 1.8327591802238168e-08,
+          "true_residual_pass": true,
+          "bicgstab_reference_median_seconds": 0.1297189119941322,
+          "bicgstab_reference_true_residual_max_rel": 1.803731793851153e-08
+        }
+      }
+    },
+    "c128_l3_medium_aligned": {
+      "path": "data/mg_matrix_20260916_round2/formal-c128-l3-medium/benchmark.json",
+      "sha256": "ad7c5a084afd3c9b0a9f67e022978f962869611e03962aef64f2e73ca149d5ec",
+      "protocol": {
+        "lattice_xyzt": [
+          16,
+          16,
+          16,
+          16
+        ],
+        "levels": 3,
+        "precision": "c128",
+        "quda_strategy": "aligned"
+      },
+      "comparison": {
+        "status": "pass",
+        "profile": "formal",
+        "fair": true,
+        "reasons": [],
+        "speedup_pyqcu_over_quda": 3.530606350701689,
+        "pyqcu_median_seconds": 0.36551683700236026,
+        "quda_median_seconds": 1.2904960660089273
+      },
+      "sides": {
+        "pyqcu": {
+          "status": "ok",
+          "steady_median_seconds": 0.36551683700236026,
+          "steady_mad_seconds": 0.0053244709997670725,
+          "outer_iterations_median": 44.0,
+          "true_residual_max_rel": 1.8324207587554832e-08,
+          "true_residual_pass": true,
+          "bicgstab_reference_median_seconds": 0.4654545200028224,
+          "bicgstab_reference_true_residual_max_rel": 1.6782179532707867e-08
+        },
+        "quda": {
+          "status": "ok",
+          "steady_median_seconds": 1.2904960660089273,
+          "steady_mad_seconds": 0.01853102799213957,
+          "outer_iterations_median": 87.0,
+          "true_residual_max_rel": 1.8303539260279922e-08,
+          "true_residual_pass": true,
+          "bicgstab_reference_median_seconds": 0.13108212299994193,
+          "bicgstab_reference_true_residual_max_rel": 1.8334761338830045e-08
+        }
+      }
+    },
+    "c64_l3_medium_library": {
+      "path": "data/mg_matrix_20260916_round2/library-formal-c64-l3-medium/benchmark.json",
+      "sha256": "006f3ec9fef3cecc49b6e6bb1611cc385d665481b6f5f7eeb76c6859c9eeeb63",
+      "protocol": {
+        "lattice_xyzt": [
+          16,
+          16,
+          16,
+          16
+        ],
+        "levels": 3,
+        "precision": "c64",
+        "quda_strategy": "library"
+      },
+      "comparison": {
+        "status": "pass",
+        "profile": "formal",
+        "fair": true,
+        "reasons": [],
+        "speedup_pyqcu_over_quda": 2.7362108266143257,
+        "pyqcu_median_seconds": 0.17013093599234708,
+        "quda_median_seconds": 0.4655141090042889
+      },
+      "sides": {
+        "pyqcu": {
+          "status": "ok",
+          "steady_median_seconds": 0.17013093599234708,
+          "steady_mad_seconds": 0.015456766006536782,
+          "outer_iterations_median": 31.0,
+          "true_residual_max_rel": 5.798981521393327e-07,
+          "true_residual_pass": true,
+          "bicgstab_reference_median_seconds": 0.26497233800182585,
+          "bicgstab_reference_true_residual_max_rel": 3.3935020227110806e-07
+        },
+        "quda": {
+          "status": "ok",
+          "steady_median_seconds": 0.4655141090042889,
+          "steady_mad_seconds": 0.017684308986645192,
+          "outer_iterations_median": 46.0,
+          "true_residual_max_rel": 7.685697621173639e-07,
+          "true_residual_pass": true,
+          "bicgstab_reference_median_seconds": 0.07821561400487553,
+          "bicgstab_reference_true_residual_max_rel": 6.907945887772199e-07
+        }
+      }
+    },
+    "c64_l3_large_library": {
+      "path": "data/mg_matrix_20260916_round2/library-formal-c64-l3/benchmark.json",
+      "sha256": "de619e19480f255b608f431a64ddad2ad4a5c4e9864302a69226c4ab8553f0eb",
+      "protocol": {
+        "lattice_xyzt": [
+          16,
+          32,
+          32,
+          48
+        ],
+        "levels": 3,
+        "precision": "c64",
+        "quda_strategy": "library"
+      },
+      "comparison": {
+        "status": "pass",
+        "profile": "formal",
+        "fair": true,
+        "reasons": [],
+        "speedup_pyqcu_over_quda": 3.761901064830681,
+        "pyqcu_median_seconds": 0.6545325449988013,
+        "quda_median_seconds": 2.4622866779973265
+      },
+      "sides": {
+        "pyqcu": {
+          "status": "ok",
+          "steady_median_seconds": 0.6545325449988013,
+          "steady_mad_seconds": 0.0005748300027335063,
+          "outer_iterations_median": 14.0,
+          "true_residual_max_rel": 4.901350741394227e-07,
+          "true_residual_pass": true,
+          "bicgstab_reference_median_seconds": 1.6666572190006264,
+          "bicgstab_reference_true_residual_max_rel": 3.792390328690136e-07
+        },
+        "quda": {
+          "status": "ok",
+          "steady_median_seconds": 2.4622866779973265,
+          "steady_mad_seconds": 0.025756324001122266,
+          "outer_iterations_median": 53.0,
+          "true_residual_max_rel": 7.280141501791885e-07,
+          "true_residual_pass": true,
+          "bicgstab_reference_median_seconds": 0.33173003200499807,
+          "bicgstab_reference_true_residual_max_rel": 6.147449926210113e-07
+        }
+      }
+    },
+    "c128_l3_medium_library": {
+      "path": "data/mg_matrix_20260916_round2/library-formal-c128-l3-medium/benchmark.json",
+      "sha256": "fea6574ea646e20e0b42e400de6f6e468bb1e8d76faf67c38cb2eefb2e1ecbad",
+      "protocol": {
+        "lattice_xyzt": [
+          16,
+          16,
+          16,
+          16
+        ],
+        "levels": 3,
+        "precision": "c128",
+        "quda_strategy": "library"
+      },
+      "comparison": {
+        "status": "pass",
+        "profile": "formal",
+        "fair": true,
+        "reasons": [],
+        "speedup_pyqcu_over_quda": 2.6922404116065635,
+        "pyqcu_median_seconds": 0.35706063799443655,
+        "quda_median_seconds": 0.9612930790026439
+      },
+      "sides": {
+        "pyqcu": {
+          "status": "ok",
+          "steady_median_seconds": 0.35706063799443655,
+          "steady_mad_seconds": 0.0037714889913331717,
+          "outer_iterations_median": 44.0,
+          "true_residual_max_rel": 1.8324207587554832e-08,
+          "true_residual_pass": true,
+          "bicgstab_reference_median_seconds": 0.48358169400307816,
+          "bicgstab_reference_true_residual_max_rel": 1.6782179532707867e-08
+        },
+        "quda": {
+          "status": "ok",
+          "steady_median_seconds": 0.9612930790026439,
+          "steady_mad_seconds": 0.008711945003597066,
+          "outer_iterations_median": 68.0,
+          "true_residual_max_rel": 1.82079324819074e-08,
+          "true_residual_pass": true,
+          "bicgstab_reference_median_seconds": 0.11813607999647502,
+          "bicgstab_reference_true_residual_max_rel": 1.8334761338830045e-08
+        }
+      }
+    },
+    "trace_c64_l3_small": {
+      "path": "data/mg_matrix_20260916_round2/trace-small-c64-l3.json",
+      "sha256": "c254b1f321918fe6fe5f2269c601a68cbdd9b1c849ac20761611565ebcd0d0fc",
+      "protocol": {
+        "lattice_xyzt": [
+          8,
+          8,
+          8,
+          16
+        ],
+        "levels": 3,
+        "precision": "c64",
+        "quda_strategy": "aligned"
+      },
+      "trace_off": {
+        "benchmark_output": "/root/PyQCU/data/strict_trace_benchmark_20260906_3.json",
+        "reference_benchmark": "/root/PyQCU/data/mg_matrix_20260916_round2/trace-reference-small-c64-l3.json",
+        "trace_logging": "enabled; diagnostic wall times excluded from performance claims",
+        "repeats": 2,
+        "warmups": 2,
+        "pyqcu_trace": "/root/PyQCU/data/mg_matrix_20260916_round2/trace-small-c64-l3_pyqcu.tsv",
+        "quda_trace": "/root/PyQCU/data/mg_matrix_20260916_round2/trace-small-c64-l3_quda.log",
+        "quda_mg_trace": "/root/PyQCU/data/mg_matrix_20260916_round2/trace-small-c64-l3_quda_mg.tsv"
+      },
+      "reference_comparison": {
+        "status": "smoke-pass",
+        "profile": "smoke",
+        "fair": false,
+        "reasons": [],
+        "speedup_pyqcu_over_quda": null,
+        "pyqcu_median_seconds": 0.04397085199889261,
+        "quda_median_seconds": 0.5057059885002673
+      },
+      "diagnostic_comparison": {
+        "status": "smoke-pass",
+        "profile": "smoke",
+        "fair": false,
+        "reasons": [],
+        "speedup_pyqcu_over_quda": null,
+        "pyqcu_median_seconds": 0.1256492309985333,
+        "quda_median_seconds": 0.5604322625003988
+      }
+    }
+  }
+}

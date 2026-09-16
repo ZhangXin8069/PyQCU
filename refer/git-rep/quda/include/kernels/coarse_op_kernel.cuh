@@ -1397,7 +1397,7 @@ namespace quda {
 
   template <> struct storeCoarseSharedAtomic_impl<true> {
     template <typename Arg>
-    using CacheT = complex<storeType>[Arg::max_color_height_per_block][Arg::max_color_width_per_block][4]
+    using CacheT = complex<typename Arg::store_t>[Arg::max_color_height_per_block][Arg::max_color_width_per_block][4]
                                      [Arg::coarseSpin][Arg::coarseSpin];
     template <typename Arg> using Cache = SharedMemoryCache<CacheT<Arg>, DimsStaticConditional<2, 1, 1>>;
     template <typename Arg> using Ops = KernelOps<Cache<Arg>>;
@@ -1447,8 +1447,8 @@ namespace quda {
             for (int s_row = 0; s_row < Arg::coarseSpin; s_row++) { // Chiral row block
 #pragma unroll
               for (int s_col = 0; s_col < Arg::coarseSpin; s_col++) { // Chiral column block
-                atomic_helper<real, storeType>(&X[i_block0+i][j_block0+j][x_][s_row][s_col],
-                                               arg.X_atomic, vuv[s_row*Arg::coarseSpin+s_col](i,j));
+                atomic_helper<real, typename Arg::store_t>(&X[i_block0+i][j_block0+j][x_][s_row][s_col],
+                                                           arg.X_atomic, vuv[s_row*Arg::coarseSpin+s_col](i,j));
               }
             }
           } else {
@@ -1456,8 +1456,8 @@ namespace quda {
             for (int s_row = 0; s_row < Arg::coarseSpin; s_row++) { // Chiral row block
 #pragma unroll
               for (int s_col = 0; s_col < Arg::coarseSpin; s_col++) { // Chiral column block
-                atomic_helper<real, storeType>(&Y[i_block0+i][j_block0+j][x_][s_row][s_col],
-                                               arg.Y_atomic, vuv[s_row*Arg::coarseSpin+s_col](i,j));
+                atomic_helper<real, typename Arg::store_t>(&Y[i_block0+i][j_block0+j][x_][s_row][s_col],
+                                                           arg.Y_atomic, vuv[s_row*Arg::coarseSpin+s_col](i,j));
               }
             }
           }

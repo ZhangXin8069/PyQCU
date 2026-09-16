@@ -2,6 +2,7 @@
 #include <color_spinor_field.h>
 #include <gauge_field.h>
 #include <clover_field.h>
+#include <type_traits>
 
 // This define controls which kernels get compiled in `coarse_op.cuh`.
 // This ensures only kernels relevant for coarsening Wilson-type
@@ -46,7 +47,9 @@ namespace quda {
       using F = typename colorspinor::FieldOrderCB<Float,fineSpin,fineColor,coarseColor,csOrder,vFloat>;
       using gFine = typename gauge::FieldOrder<Float,fineColor,1,gOrder>;
       using gCoarse = typename gauge::FieldOrder<Float,coarseColor*coarseSpin,coarseSpin,gOrder,true,vFloat>;
-      using gCoarseAtomic = typename gauge::FieldOrder<Float,coarseColor*coarseSpin,coarseSpin,gOrder,true,storeType>;
+      using gCoarseAtomic = typename gauge::FieldOrder<
+        Float, coarseColor*coarseSpin, coarseSpin, gOrder, true,
+        std::conditional_t<std::is_same_v<Float, double>, double, storeType>>;
       using cFine = typename clover::FieldOrder<Float,fineColor,fineSpin,clOrder>;
 
       const ColorSpinorField &v = T.Vectors();
@@ -81,7 +84,9 @@ namespace quda {
       using F = typename colorspinor::FieldOrderCB<Float,fineSpin,fineColor,coarseColor,csOrder,vFloat,vFloat,false,false>;
       using gFine = typename gauge::FieldOrder<Float,fineColor,1,gOrder,true,Float>;
       using gCoarse = typename gauge::FieldOrder<Float,coarseColor*coarseSpin,coarseSpin,gOrder,true,vFloat>;
-      using gCoarseAtomic = typename gauge::FieldOrder<Float,coarseColor*coarseSpin,coarseSpin,gOrder,true,storeType>;
+      using gCoarseAtomic = typename gauge::FieldOrder<
+        Float, coarseColor*coarseSpin, coarseSpin, gOrder, true,
+        std::conditional_t<std::is_same_v<Float, double>, double, storeType>>;
       using cFine = typename clover::FieldOrder<Float,fineColor,fineSpin,clOrder>;
 
       const ColorSpinorField &v = T.Vectors();

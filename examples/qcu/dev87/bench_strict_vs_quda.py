@@ -368,6 +368,7 @@ _QUDA_CMAKE_FEATURE_KEYS = (
     "QUDA_RECONSTRUCT",
     "QUDA_PRECISION",
     "QUDA_MULTIGRID_NVEC_LIST",
+    "QUDA_MULTIGRID_DOUBLE",
 )
 
 
@@ -412,6 +413,11 @@ def _normalise_quda_cmake_features(raw: Mapping[str, Any]) -> Dict[str, Any]:
 
     precision = first("QUDA_PRECISION")
     reconstruct = first("QUDA_RECONSTRUCT")
+    multigrid_double = first("QUDA_MULTIGRID_DOUBLE")
+    if multigrid_double is None:
+        # Compile-time double MG is also exposed by the generated config header
+        # when a cache predating the CMake option is being inspected.
+        multigrid_double = first("GPU_MULTIGRID_DOUBLE")
     return {
         "qdp_interface": first(
             "QUDA_INTERFACE_QDP", "BUILD_QDP_INTERFACE"),
@@ -421,6 +427,7 @@ def _normalise_quda_cmake_features(raw: Mapping[str, Any]) -> Dict[str, Any]:
         "precision": precision,
         "multigrid_nvec_list": _cmake_nvec_list(
             first("QUDA_MULTIGRID_NVEC_LIST")),
+        "multigrid_double": multigrid_double,
     }
 
 
@@ -493,6 +500,10 @@ def _quda_cmake_feature_mismatches(
     nvec = normalized.get("multigrid_nvec_list")
     if not isinstance(nvec, list) or 12 not in nvec or 24 not in nvec:
         errors.append(f"multigrid_nvec_list={nvec!r} must contain 12 and 24")
+    if str(precision) == "c128" and normalized.get("multigrid_double") is not True:
+        errors.append(
+            "multigrid_double="
+            f"{normalized.get('multigrid_double')!r}, expected=True")
     return errors
 
 
@@ -761,6 +772,7 @@ def _canonical_config(args: argparse.Namespace) -> Dict[str, Any]:
             "transfer": "full-field chiral aggregation with coarse_spin=2",
         },
         "outer_solver": "restarted-right-fgmres/gcr",
+        "quda_strategy": str(args.quda_strategy),
         "reference_solver": {
             "kind": str(args.reference_solver),
             "warmups": int(args.reference_warmups),
@@ -2846,6 +2858,8 @@ def _quda_parameter_snapshot(
                 "coarse_solver_tol": sequence(
                     "coarse_solver_tol", level_count),
             },
+            "precision_null": sequence(
+                "precision_null", level_count, "precision"),
         },
     }
 
@@ -2858,6 +2872,34 @@ def _quda_expected_parameters(
         "QUDA_DOUBLE_PRECISION")
     n_level = int(config["levels"])
     transition_count = max(0, n_level - 1)
+    library_strategy = config.get("quda_strategy", "aligned") == "library"
+    if library_strategy:
+        level_parameters = {
+            "nu_pre": [0] * n_level,
+            "nu_post": [8] * n_level,
+            "smoother": ["QUDA_CA_GCR_INVERTER"] * n_level,
+            "smoother_tol": [0.25] * n_level,
+            "coarse_solver": (
+                ["QUDA_GCR_INVERTER"] * max(0, n_level - 1) +
+                ["QUDA_CA_GCR_INVERTER"]),
+            "coarse_solver_maxiter": [16] * n_level,
+            "coarse_solver_tol": [0.25] * n_level,
+        }
+    else:
+        level_parameters = {
+            "nu_pre": [int(config["nu_pre"])] * n_level,
+            "nu_post": [int(config["nu_post"])] * n_level,
+            "smoother": ["QUDA_MR_INVERTER"] * n_level,
+            "smoother_tol": [0.0] * n_level,
+            "coarse_solver": (
+                ["QUDA_GCR_INVERTER"] * max(0, n_level - 1) +
+                ["QUDA_CA_GCR_INVERTER"]),
+            "coarse_solver_maxiter": (
+                [1] * max(0, n_level - 1) +
+                [int(config["coarse_max_iter"])]),
+            "coarse_solver_tol": [
+                float(config["coarse_tolerance"])] * n_level,
+        }
     active = {
         "transition": {
             "n_vec": [int(config["nvec"])] * transition_count,
@@ -2875,20 +2917,7 @@ def _quda_expected_parameters(
             "dslash_use_mma": ["QUDA_BOOLEAN_FALSE"] * transition_count,
             "transfer_use_mma": ["QUDA_BOOLEAN_FALSE"] * transition_count,
         },
-        "levels": {
-            "nu_pre": [int(config["nu_pre"])] * n_level,
-            "nu_post": [int(config["nu_post"])] * n_level,
-            "smoother": ["QUDA_MR_INVERTER"] * n_level,
-            "smoother_tol": [0.0] * n_level,
-            "coarse_solver": (
-                ["QUDA_GCR_INVERTER"] * max(0, n_level - 1) +
-                ["QUDA_CA_GCR_INVERTER"]),
-            "coarse_solver_maxiter": (
-                [1] * max(0, n_level - 1) +
-                [int(config["coarse_max_iter"])]),
-            "coarse_solver_tol": [
-                float(config["coarse_tolerance"])] * n_level,
-        },
+        "levels": level_parameters,
     }
     return {
         "invert": {
@@ -2905,9 +2934,13 @@ def _quda_expected_parameters(
             "gcrNkrylov": int(config["restart_effective"]),
             "maxiter": int(config["max_iter"]),
             "tol": float(config["tolerance"]),
-            "precision": {field: precision_name for field in (
-                "cuda_prec", "cuda_prec_sloppy", "cuda_prec_refinement_sloppy",
-                "cuda_prec_precondition", "cuda_prec_eigensolver")},
+            "precision": {
+                "cuda_prec": precision_name,
+                "cuda_prec_eigensolver": precision_name,
+                "cuda_prec_sloppy": precision_name,
+                "cuda_prec_refinement_sloppy": precision_name,
+                "cuda_prec_precondition": precision_name,
+            },
         },
         "multigrid": {
             "n_level": n_level,
@@ -2917,6 +2950,7 @@ def _quda_expected_parameters(
                 "QUDA_BOOLEAN_FALSE" if n_level > 2 else
                 "QUDA_BOOLEAN_TRUE"),
             "run_verify": "QUDA_BOOLEAN_FALSE",
+            "precision_null": [precision_name] * n_level,
             **active,
         },
     }
@@ -3018,6 +3052,7 @@ def _run_quda_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
         import torch
         import pyquda  # noqa: F401
         import pyquda_utils.core as core
+        from pyquda_comm.pointer import Pointer
         from pyquda.field import LatticeFermion, LatticeGauge
         from pyquda.quda import invertQuda
         from pyquda.enum_quda import (
@@ -3147,24 +3182,28 @@ def _run_quda_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
             for field in ("setup_use_mma", "dslash_use_mma", "transfer_use_mma"):
                 _set_indexed(mg_param, field, level,
                              QudaBoolean.QUDA_BOOLEAN_FALSE)
-        for level in range(max(1, n_level)):
-            _set_indexed(mg_param, "nu_pre", level, int(config["nu_pre"]))
-            _set_indexed(mg_param, "nu_post", level, int(config["nu_post"]))
-            _set_indexed(
-                mg_param, "coarse_solver", level,
-                (QudaInverterType.QUDA_GCR_INVERTER if level < n_level - 1 else
-                 QudaInverterType.QUDA_CA_GCR_INVERTER))
-            _set_indexed(
-                mg_param, "coarse_solver_maxiter", level,
-                1 if level < n_level - 1 else int(config["coarse_max_iter"]))
-            _set_indexed(
-                mg_param, "coarse_solver_tol", level,
-                float(config["coarse_tolerance"]))
-            _set_indexed(
-                mg_param, "smoother", level,
-                QudaInverterType.QUDA_MR_INVERTER)
-            _set_indexed(mg_param, "smoother_tol", level, 0.0)
-            if trace_enabled and hasattr(mg_param, "verbosity"):
+        if config.get("quda_strategy", "aligned") == "aligned":
+            for level in range(max(1, n_level)):
+                _set_indexed(mg_param, "nu_pre", level, int(config["nu_pre"]))
+                _set_indexed(mg_param, "nu_post", level, int(config["nu_post"]))
+                _set_indexed(
+                    mg_param, "coarse_solver", level,
+                    (QudaInverterType.QUDA_GCR_INVERTER
+                     if level < n_level - 1 else
+                     QudaInverterType.QUDA_CA_GCR_INVERTER))
+                _set_indexed(
+                    mg_param, "coarse_solver_maxiter", level,
+                    1 if level < n_level - 1 else
+                    int(config["coarse_max_iter"]))
+                _set_indexed(
+                    mg_param, "coarse_solver_tol", level,
+                    float(config["coarse_tolerance"]))
+                _set_indexed(
+                    mg_param, "smoother", level,
+                    QudaInverterType.QUDA_MR_INVERTER)
+                _set_indexed(mg_param, "smoother_tol", level, 0.0)
+        if trace_enabled and hasattr(mg_param, "verbosity"):
+            for level in range(max(1, n_level)):
                 _set_indexed(
                     mg_param, "verbosity", level,
                     QudaVerbosity.QUDA_SILENT)
@@ -3410,6 +3449,13 @@ def _run_quda_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
             if hasattr(invert, "inv_type_precondition"):
                 invert.inv_type_precondition = (
                     QudaInverterType.QUDA_INVALID_INVERTER)
+            if not hasattr(invert, "preconditioner"):
+                raise BenchmarkFailure(
+                    "quda_config_field_missing", "invert_param.preconditioner")
+            # getClover() attaches the MG instance directly.  Clearing only
+            # inv_type_precondition is insufficient: QUDA's solver factory
+            # rejects BiCGStab whenever this pointer remains non-null.
+            invert.preconditioner = Pointer("void")
 
             def reference_once() -> Tuple[float, int, float]:
                 solution_field.data.zero_()
@@ -4741,6 +4787,10 @@ def _parser() -> argparse.ArgumentParser:
         "--profile", choices=PROFILE_NAMES, default=DEFAULT_PROFILE,
         help="formal fixes the reproducibility protocol; smoke permits exploration")
     parser.add_argument("--precision", choices=("c64", "c128"), default="c64")
+    parser.add_argument(
+        "--quda-strategy", choices=("aligned", "library"),
+        default="aligned",
+        help="aligned one-cycle settings or QUDA/PyQUDA library defaults")
     parser.add_argument(
         "--lattice", type=int, nargs=4, default=list(DEFAULT_LATTICE),
         metavar=("LX", "LY", "LZ", "LT"))
