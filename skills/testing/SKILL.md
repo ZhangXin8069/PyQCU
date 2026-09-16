@@ -163,8 +163,9 @@ performance evidence.
   `invert_param` 不足以让 coarse single 与 fine double 一致。
 - `--pyqcu-strict-block-precision single` 与
   `--strict-galerkin-projection-batch 1` 是 setup 低内存实验选项；
-  即使配合分块 diagonal inverse，当前仍不能在 c128 大格点完整结束
-  setup，不得据此宣称 PyQCU mixed-coarse 已支持。
+  即使配合 flat-site diagonal inverse 分块和 compact inverse cache，
+  当前仍不能在 c128 大格点完整结束 setup，不得据此宣称 PyQCU
+  mixed-coarse 已支持。
 
 快速命令：
 
