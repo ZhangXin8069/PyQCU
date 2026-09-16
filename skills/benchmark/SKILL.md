@@ -208,6 +208,13 @@ mixed-coarse runtime。
 
 trace-on 数值只用于分层归因，绝不能再用于正式 speedup。
 
+大格 c128 formal cache-hit 的 PyQCU trace 为：8 次 solve 均为 20 个
+外层迭代，trace-on 约 3.31--3.43 s，对 trace-off 的 2.065148 s
+约有 1.6x 观测开销。首次 solve 的 coarse V-cycle 约 2.146 s（占
+outer 约 63.6%），最粗层 BiCGStab 约 0.297 s；该 trace 无同尺度
+QUDA 对照，不能单独归因优势来源。原始 TSV 为
+`data/mg_matrix_20260916_round2/formal-c128-l3/pyqcu-formal-trace.tsv`。
+
 多卡方面，当前机器只有一张受这套 PyTorch `sm_70+` 支持的 V100；两张
 P100 为 `sm_60`，当前 PyTorch 构建明确不兼容，且 PyQCU/QUDA 本任务构建
 目标为 `sm_70`。因此本轮不能把多卡数字并入正式 MG 结论；应记录为环境
