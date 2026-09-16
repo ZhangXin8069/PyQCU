@@ -149,3 +149,11 @@ from the speedup.  In the current large c64 point PyQCU MG/BiCGStab are
 `1.299921/0.329646 s`; this contrast is required context, not a substitute
 for the MG-vs-MG ratio.  Compare `--quda-strategy aligned` as the matched-cycle
 primary and `--quda-strategy library` as a sensitivity point.
+
+`_cg_orthogonalise()` now keeps only a read-only source and one destination
+buffer per CGS pass instead of cloning both source and work.  This removes one
+full matrix allocation and the corresponding regression tests pass.  It is not
+sufficient to fit the c128 `16·32·32·48` three-level hierarchy on a 32 GiB
+V100: setup proceeds past the former 864 MiB allocation and then OOMs in
+`to_qcu_blocked()` while materializing the blocked basis.  Treat that geometry
+as a whole-hierarchy memory limit, not a single temporary-allocation bug.
