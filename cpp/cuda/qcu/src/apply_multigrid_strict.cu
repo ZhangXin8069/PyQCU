@@ -37,7 +37,7 @@ template <typename T> class StrictFgmresTrace {
     }
     enabled_ = true;
     file_ << std::setprecision(17);
-    file_ << "trace_version\t1\n";
+    file_ << "trace_version\t2\n";
   }
 
   void begin(T rhs_norm) {
@@ -84,6 +84,17 @@ template <typename T> class StrictFgmresTrace {
     if (!enabled_) return;
     file_ << "stage\t" << outer_iteration << "\t" << level << "\t"
            << name << "\t" << seconds << "\t" << elapsed() << "\n";
+  }
+
+  void residual(int outer_iteration, int level, const char *name,
+                T value, T rhs_norm) {
+    if (!enabled_) return;
+    const double absolute = static_cast<double>(value);
+    const double relative =
+        rhs_norm > (T)0 ? static_cast<double>(value / rhs_norm) : 0.0;
+    file_ << "residual\t" << outer_iteration << "\t" << level << "\t"
+          << name << "\t" << absolute << "\t" << relative << "\t"
+          << elapsed() << "\n";
   }
 
  private:
@@ -1926,6 +1937,9 @@ template <typename T> class StrictCoarseHierarchy {
   size_t coarse_fused_status_bytes_ = 0;
   StrictFgmresTrace<T> *trace_ = nullptr;
   int trace_iteration_ = -1;
+  void *trace_work_ = nullptr;
+  void *trace_scratch_ = nullptr;
+  size_t trace_work_elements_ = 0;
 
   class TraceBinding {
    public:
@@ -1955,6 +1969,14 @@ template <typename T> class StrictCoarseHierarchy {
         (void)cudaFreeAsync(coarse_fused_status_, set_->stream);
         coarse_fused_status_ = nullptr;
       }
+      if (trace_work_ != nullptr) {
+        (void)cudaFreeAsync(trace_work_, set_->stream);
+        trace_work_ = nullptr;
+      }
+      if (trace_scratch_ != nullptr) {
+        (void)cudaFreeAsync(trace_scratch_, set_->stream);
+        trace_scratch_ = nullptr;
+      }
       (void)cudaStreamSynchronize(set_->stream);
     }
     arena_.r = arena_.v = arena_.tmp = nullptr;
@@ -1965,6 +1987,7 @@ template <typename T> class StrictCoarseHierarchy {
     arena_.bytes = 0;
     persistent_bytes_ = 0;
     coarse_fused_status_bytes_ = 0;
+    trace_work_elements_ = 0;
     delete[] levels_;
     levels_ = nullptr;
   }
@@ -2021,6 +2044,53 @@ template <typename T> class StrictCoarseHierarchy {
     const TraceClock::time_point started = trace_stage_start();
     function();
     trace_stage_end(outer_iteration, level, name, started);
+  }
+
+  void ensure_trace_workspace(size_t n) {
+    if (trace_ == nullptr || !trace_->enabled() || n == 0) return;
+    if (trace_work_ != nullptr && trace_work_elements_ >= n) return;
+    if (trace_work_ != nullptr) {
+      strict_check_cuda(cudaFreeAsync(trace_work_, set_->stream),
+                        "strict trace workspace release");
+      trace_work_ = nullptr;
+    }
+    if (trace_scratch_ != nullptr) {
+      strict_check_cuda(cudaFreeAsync(trace_scratch_, set_->stream),
+                        "strict trace scratch release");
+      trace_scratch_ = nullptr;
+    }
+    const size_t bytes = n * sizeof(LatticeComplex<T>);
+    strict_check_cuda(cudaMallocAsync(&trace_work_, bytes, set_->stream),
+                      "strict trace workspace allocation");
+    strict_check_cuda(cudaMallocAsync(&trace_scratch_, bytes, set_->stream),
+                      "strict trace scratch allocation");
+    trace_work_elements_ = n;
+  }
+
+  void trace_residual(int level, const char *name, const void *solution,
+                      const void *rhs, size_t n) {
+    if (trace_ == nullptr || !trace_->enabled()) return;
+    ensure_trace_workspace(n);
+    const T rhs_norm = norm(rhs, n);
+    apply_matpc(level, trace_work_, solution, trace_scratch_);
+    strict_subtract_kernel<T>
+        <<<blocks(n), _BLOCK_SIZE_, 0, set_->stream>>>(
+            trace_work_, rhs, trace_work_, static_cast<int>(n));
+    const T residual = norm(trace_work_, n);
+    trace_->residual(trace_iteration_, level, name, residual, rhs_norm);
+  }
+
+  void trace_fine_residual(LatticeCloverBistabCg<T> &fine,
+                           const char *name, const void *solution,
+                           const void *rhs, size_t n) {
+    if (trace_ == nullptr || !trace_->enabled()) return;
+    const T rhs_norm = norm(rhs, n);
+    fine_matpc(fine, outer_.w, solution);
+    strict_subtract_kernel<T>
+        <<<blocks(n), _BLOCK_SIZE_, 0, set_->stream>>>(
+            outer_.w, rhs, outer_.w, static_cast<int>(n));
+    const T residual = norm(outer_.w, n);
+    trace_->residual(trace_iteration_, 0, name, residual, rhs_norm);
   }
 
   LatticeComplex<T> dot(const void *left, const void *right, size_t n) {
@@ -2381,6 +2451,7 @@ template <typename T> class StrictCoarseHierarchy {
                   "strict fine preconditioner residual copy");
       fine_smooth(fine, out, outer_.r, outer_.w, n, nu_pre);
     });
+    trace_fine_residual(fine, "after_fine_pre_smoother", out, source, n);
 
     const StrictLevelGeometry &coarse = levels_[start_].geometry;
     trace_stage(outer_iteration, 0, "fine_restriction", [&] {
@@ -2405,6 +2476,7 @@ template <typename T> class StrictCoarseHierarchy {
       strict_add_kernel<T><<<blocks(n), _BLOCK_SIZE_, 0, set_->stream>>>(
           out, outer_.w, static_cast<int>(n));
     });
+    trace_fine_residual(fine, "after_fine_prolongation", out, source, n);
 
     trace_stage(outer_iteration, 0, "fine_correction_residual", [&] {
       fine_matpc(fine, outer_.w, out);
@@ -2415,6 +2487,7 @@ template <typename T> class StrictCoarseHierarchy {
     trace_stage(outer_iteration, 0, "fine_post_smoother", [&] {
       fine_smooth(fine, out, outer_.r, outer_.w, n, nu_post);
     });
+    trace_fine_residual(fine, "after_fine_post_smoother", out, source, n);
   }
 
   void reset_outer_scalars(int restart) {
@@ -2957,6 +3030,8 @@ template <typename T> class StrictCoarseHierarchy {
       trace_stage(trace_iteration_, level, "coarsest_bicgstab", [&] {
         converged = coarsest_bicgstab(level);
       });
+      trace_residual(level, "after_coarsest_bicgstab", state.x,
+                     state.pc_rhs, g.compact_n);
       if (!converged && params_[_VERBOSE_] && params_[_NODE_RANK_] == 0)
         std::printf(
             "PYQCU::SOLVER::STRICT_MG::COARSE:\n "
@@ -2972,6 +3047,8 @@ template <typename T> class StrictCoarseHierarchy {
                           "strict smoother rhs copy");
         mr_smooth(level, smoother_steps_);
       });
+      trace_residual(level, "after_level_pre_smoother", state.x,
+                     state.pc_rhs, g.compact_n);
 
       StrictPersistentLevel<T> &child = levels_[level + 1];
       trace_stage(trace_iteration_, level, "level_restriction", [&] {
@@ -2980,6 +3057,8 @@ template <typename T> class StrictCoarseHierarchy {
       trace_stage(trace_iteration_, level + 1, "level_recursive_solve", [&] {
         solve_level(level + 1, child.full_rhs, arena_.correction_full);
       });
+      trace_residual(level + 1, "after_level_recursive_solve", child.x,
+                     child.pc_rhs, child.geometry.compact_n);
       trace_stage(trace_iteration_, level, "level_prolongation", [&] {
         prolong_from_child(level, arena_.correction_full, arena_.tmp);
         strict_add_kernel<T>
@@ -2996,9 +3075,13 @@ template <typename T> class StrictCoarseHierarchy {
                 arena_.r, state.pc_rhs, arena_.v,
                 static_cast<int>(g.compact_n));
       });
+      trace_residual(level, "after_level_residual_recompute", state.x,
+                     state.pc_rhs, g.compact_n);
       trace_stage(trace_iteration_, level, "level_post_smoother", [&] {
         mr_smooth(level, smoother_steps_);
       });
+      trace_residual(level, "after_level_post_smoother", state.x,
+                     state.pc_rhs, g.compact_n);
     }
     trace_stage(trace_iteration_, level, "level_reconstruct", [&] {
       reconstruct(level, full_out, full_rhs, state.x, arena_.tmp);

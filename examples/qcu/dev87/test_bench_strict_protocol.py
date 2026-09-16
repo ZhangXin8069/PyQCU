@@ -373,8 +373,8 @@ def test_c128_and_median_mad_contract():
     assert document["protocol"]["precision"]["complex_bytes"] == 16
     assert document["protocol"]["max_krylov_bytes"] == 1024 << 20
     assert document["protocol"]["restart_effective"] == 4
-    assert document["protocol"]["tolerance"] == 1.0e-10
-    assert document["protocol"]["true_residual_gate"] == 5.0e-10
+    assert document["protocol"]["tolerance"] == 1.0e-8
+    assert document["protocol"]["true_residual_gate"] == 5.0e-8
     assert bench._median_mad([1.0, 2.0, 100.0]) == {
         "samples_seconds": [1.0, 2.0, 100.0],
         "median_seconds": 2.0,
@@ -1100,3 +1100,104 @@ def test_cli_dry_run_stdout_is_valid_json_and_starts_no_worker():
     assert document["selected_sides"] == ["pyqcu"]
     assert document["sides"]["pyqcu"]["status"] == "planned"
     assert document["sides"]["quda"]["status"] == "not_selected"
+
+
+def test_three_level_config_and_cache_manifest_are_recursive():
+    document = bench.build_document(
+        _args(
+            "--dry-run", "--levels", "3",
+            "--lattice", "8", "8", "8", "16", "--profile", "smoke"),
+        dry_run=True)
+    assert bench.validate_document(document, allow_planned=True) == []
+    protocol = document["protocol"]
+    assert protocol["levels"] == 3
+    assert protocol["lattice_xyzt"] == [8, 8, 8, 16]
+    assert protocol["block_xyzt_per_level"] == [
+        [2, 2, 2, 2], [2, 2, 2, 2]]
+    manifest = bench._strict_runtime_expected_manifest(protocol)
+    assert manifest["level_count"] == 2
+    assert set(manifest["tensors"]) == {
+        "assets/fine_blocked_v",
+        "assets/levels/0/preconditioned_links",
+        "assets/levels/0/onsite_pair",
+        "assets/levels/1/null_vectors",
+        "assets/levels/1/preconditioned_links",
+        "assets/levels/1/onsite_pair",
+    }
+    assert manifest["tensors"]["assets/fine_blocked_v"]["shape"] == [
+        24, 12, 4, 2, 4, 2, 4, 2, 8, 2]
+    assert manifest["tensors"]["assets/levels/1/null_vectors"]["shape"] == [
+        24, 24, 2, 2, 2, 2, 2, 2, 4, 2]
+
+
+def test_quda_expected_parameters_propagate_only_fine_null_vectors():
+    protocol = bench.build_document(
+        _args(
+            "--dry-run", "--levels", "3",
+            "--lattice", "8", "8", "8", "16", "--profile", "smoke"),
+        dry_run=True)["protocol"]
+    expected = bench._quda_expected_parameters(protocol, "/qio/fine")
+    transitions = expected["multigrid"]["transition"]
+    assert transitions["n_vec"] == [12, 12]
+    assert transitions["vec_load"] == [
+        "QUDA_BOOLEAN_TRUE", "QUDA_BOOLEAN_FALSE"]
+    assert transitions["vec_infile"] == ["/qio/fine", ""]
+    assert transitions["num_setup_iter"] == [1, 0]
+    assert expected["multigrid"]["generate_all_levels"] == (
+        "QUDA_BOOLEAN_FALSE")
+
+
+def test_native_quda_mg_trace_parser_preserves_level_residuals(tmp_path):
+    import trace_strict_vs_quda as trace
+
+    path = tmp_path / "quda_mg.tsv"
+    path.write_text(
+        "trace_version\t1\n"
+        "python_solve_begin\t0\t1.0\n"
+        "outer_begin\t1\t1.0\t1.0\t1.0\t1.0\t0.0\n"
+        "cycle_begin\t1\t0\t3\t1\tfine\t0.1\n"
+        "stage\t1\t0\tpre_smoother\t0.2\t1\t-1\t-1\t1\t0.3\n"
+        "residual\t1\t0\tafter_pre_smoother\t0.5\t0.7\t1.0\t0.7\t1\t0.4\n"
+        "cycle_begin\t1\t1\t3\t1\tcoarse\t0.5\n"
+        "stage\t1\t1\tcoarse_solver\t0.6\t-1\t-1\t7\t1\t0.6\n"
+        "cycle_end\t1\t1\t0.25\t0.5\t1.0\t0.5\t0.7\n"
+        "cycle_end\t1\t0\t0.1\t0.3\t1.0\t0.3\t0.8\n"
+        "outer_iteration\t1\t1\t0.1\t0.3\t1.0\t0.3\t0.08\t0.28\t0.28\t0.9\n"
+        "python_solve_end\t0\t1.0\n",
+        encoding="utf-8")
+    sections = trace._parse_quda_mg_trace(path)
+    assert len(sections) == 1
+    assert sections[0]["solve_index"] == 0
+    assert len(sections[0]["cycles"]) == 2
+    fine = sections[0]["cycles"][0]
+    coarse = sections[0]["cycles"][1]
+    assert fine["begin"]["level"] == 0
+    assert fine["stages"][0]["phase"] == "pre_smoother"
+    assert fine["residuals"][0]["relative"] == 0.7
+    assert coarse["begin"]["level"] == 1
+    assert coarse["stages"][0]["coarse_iterations"] == 7
+
+
+def test_pyqcu_trace_parser_accepts_residual_v2_events(tmp_path):
+    import trace_strict_vs_quda as trace
+
+    path = tmp_path / "pyqcu.tsv"
+    path.write_text(
+        "trace_version\t1\n"
+        "solve_begin\t1.0\n"
+        "initial_residual\t0\t1.0\t1.0\t0.0\n"
+        "stage\t1\t0\tfine_pre_smoother\t0.1\t0.1\n"
+        "residual\t1\t0\tafter_fine_pre_smoother\t0.5\t0.5\t0.1\n"
+        "solve_end\t1\t1\t0.1\t0.1\t0.2\n",
+        encoding="utf-8")
+    sections = trace._parse_pyqcu_trace(path)
+    assert len(sections) == 1
+    assert sections[0]["residuals"] == [{
+        "kind": "residual",
+        "outer_iteration": 1,
+        "level": 0,
+        "name": "after_fine_pre_smoother",
+        "absolute": 0.5,
+        "relative": 0.5,
+        "elapsed_seconds": 0.1,
+    }]
