@@ -379,9 +379,14 @@ def test_strict_quda_hierarchy_coarsens_full_preconditioned_operator():
     assert float(torch.linalg.norm(residual)) / float(
         torch.linalg.norm(source)) < 2e-4
 
-    seal_report = mg.seal_cuda_runtime(runtime_assets_bound=True)
-    assert seal_report["detached_setup_storage_bytes"] > 0
+    release_report = mg.release_python_setup_assets()
+    assert release_report["released"] is True
+    assert release_report["detached_setup_storage_bytes"] > 0
     assert mg.transfers == [] and mg.operators == []
+    seal_report = mg.seal_cuda_runtime(runtime_assets_bound=True)
+    assert seal_report["sealed"] is True
+    assert seal_report["detached_setup_storage_bytes"] == \
+        release_report["detached_setup_storage_bytes"]
     assert mg.seal_cuda_runtime(runtime_assets_bound=True) == seal_report
     with pytest.raises(RuntimeError, match="seal"):
         mg.setup()

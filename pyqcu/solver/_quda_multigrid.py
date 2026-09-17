@@ -2363,6 +2363,8 @@ class QudaMultigrid:
         self.strict_setup_stats: List[Dict[str, Any]] = []
         self._cuda_runtime_sealed = False
         self._cuda_runtime_seal_report: Dict[str, Any] = {}
+        self._python_setup_assets_released = False
+        self._python_setup_assets_release_report: Dict[str, Any] = {}
 
     @staticmethod
     def _normalise_hierarchy_mode(mode: str) -> str:
@@ -2780,9 +2782,10 @@ class QudaMultigrid:
         return current
 
     def setup(self) -> "QudaMultigrid":
-        if self._cuda_runtime_sealed:
+        if self._cuda_runtime_sealed or self._python_setup_assets_released:
             raise RuntimeError(
-                "hierarchy 已 seal 为 CUDA runtime；Python setup 资产已释放")
+                "hierarchy 已 seal 或移交 runtime ownership；"
+                "Python setup 资产已释放")
         if self._setup_done:
             return self
         # ``cann`` 负责屏蔽 NPU/复数差异；将种子也放在兼容层内，避免
@@ -3002,24 +3005,12 @@ class QudaMultigrid:
                 storages.get((device, pointer), 0), nbytes)
         return sum(storages.values()), len(storages)
 
-    def seal_cuda_runtime(self, *, runtime_assets_bound: bool = False
-                          ) -> Dict[str, Any]:
-        """Detach Python setup tensors after QCU has bound stable packed assets.
-
-        This is intentionally destructive: Python ``apply/solve/verify`` and a
-        second asset export are disabled.  The C++ binding must already own the
-        packed ``V/Yhat/(X,X^-1)`` tensors, hence the explicit acknowledgement.
-        The returned byte count describes detached storage references; actual
-        allocator reduction can be smaller when the caller retains aliases.
-        """
-        if self._cuda_runtime_sealed:
-            return dict(self._cuda_runtime_seal_report)
-        if not runtime_assets_bound:
-            raise RuntimeError(
-                "seal_cuda_runtime 要求 runtime_assets_bound=True，"
-                "避免释放仍未绑定的 QCU 资产")
+    def _detach_python_setup_assets(self) -> Dict[str, Any]:
+        """Drop Python hierarchy references while callers own exported assets."""
+        if self._python_setup_assets_released:
+            return dict(self._python_setup_assets_release_report)
         if not self._strict_quda or not self._setup_done:
-            raise RuntimeError("seal_cuda_runtime 要求已 setup 的 strict hierarchy")
+            raise RuntimeError("释放 Python setup assets 要求已 setup 的 strict hierarchy")
 
         detached: List[Any] = list(self._null_vectors)
         for transfer in self.transfers:
@@ -3058,12 +3049,47 @@ class QudaMultigrid:
         self.coarsening_operators = []
         self.parity_operators = []
         self.matpc_operators = []
-        self._cuda_runtime_sealed = True
-        self._cuda_runtime_seal_report = {
-            "sealed": True,
+        self._python_setup_assets_released = True
+        self._python_setup_assets_release_report = {
+            "released": True,
             "detached_setup_storage_bytes": int(detached_bytes),
             "detached_setup_storage_count": int(detached_count),
             "note": "allocator delta may be smaller when caller retains aliases",
+        }
+        return dict(self._python_setup_assets_release_report)
+
+    def release_python_setup_assets(self) -> Dict[str, Any]:
+        """Release duplicate hierarchy storage after exporting runtime assets.
+
+        The caller must retain the exported ``V/Yhat/(X,X^-1)`` tensors (for
+        example in a ``QcuStrictAssetBinding``) before calling this method.
+        This is the safe pre-runtime release used by the cold c128 path.
+        """
+        return self._detach_python_setup_assets()
+
+    def seal_cuda_runtime(self, *, runtime_assets_bound: bool = False
+                          ) -> Dict[str, Any]:
+        """Detach Python setup tensors after QCU has bound stable packed assets.
+
+        This is intentionally destructive: Python ``apply/solve/verify`` and a
+        second asset export are disabled.  The C++ binding must already own the
+        packed ``V/Yhat/(X,X^-1)`` tensors, hence the explicit acknowledgement.
+        The returned byte count describes detached storage references; actual
+        allocator reduction can be smaller when the caller retains aliases.
+        """
+        if self._cuda_runtime_sealed:
+            return dict(self._cuda_runtime_seal_report)
+        if not runtime_assets_bound:
+            raise RuntimeError(
+                "seal_cuda_runtime 要求 runtime_assets_bound=True，"
+                "避免释放仍未绑定的 QCU 资产")
+        if not self._strict_quda or not self._setup_done:
+            raise RuntimeError("seal_cuda_runtime 要求已 setup 的 strict hierarchy")
+        release_report = self._detach_python_setup_assets()
+        self._cuda_runtime_sealed = True
+        self._cuda_runtime_seal_report = {
+            **release_report,
+            "sealed": True,
         }
         return dict(self._cuda_runtime_seal_report)
 

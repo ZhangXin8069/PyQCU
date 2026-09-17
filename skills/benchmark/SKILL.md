@@ -171,14 +171,15 @@ QUDA `0.963774/0.103475 s`；c128 中格为 PyQCU
 plain BiCGStab 在多点上快于 PyQCU MG，因此 MG-vs-MG 加速比只能归因于
 MultiGrid 路径，绝不能外推为 PyQCU 总体求解器优势。
 
-c128 三层大格点 `16·32·32·48` 的冷 $C=1$ setup 在 32 GiB V100
-上运行约 36.5 分钟后真实返回 `cudaMallocAsync` error 0002；现在用
-extended `C=4`、`K=16`、CPU block
-staging、null-basis offload 构建同一物理缓存，再由 formal $C=1$
+c128 三层大格点 `16·32·32·48` 的冷 `C=1` setup 在
+`release_python_setup_assets()` 路径下成功完成：先导出 runtime assets，
+再释放重复 Python hierarchy，实测 setup `2709.45 s`、steady
+`2.067186 s`、20 iterations、残差 `1.78798e-8`。extended
+`C=4`、`K=16`、CPU block staging、null-basis offload 仍是更快的
+冷构建路径，并由同一 asset-identity cache 进入 formal `C=1` solve。
 cache-hit solve。两侧 formal 保守复测为 PyQCU `2.061594 s` / 20
 iterations / `1.78798e-8`，QUDA `16.166481 s` / 60 iterations /
-`1.79244e-8`，MG 比值 `7.8417x`；首次独立复测为 `8.3507x`。该点进入正式表，但必须同时声明
-冷 formal $C=1$ setup 尚未完成。
+`1.79244e-8`，MG 比值 `7.8417x`；首次独立复测为 `8.3507x`。
 该容量路径要求在 `seal_cuda_runtime()` 后、steady workspace 分配前调用
 `torch.cuda.empty_cache()`；否则 caching allocator 会保留 setup 临时块，
 在 32 GiB V100 上以 solve workspace OOM 失败。该释放位于 setup/solve

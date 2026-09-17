@@ -1894,8 +1894,11 @@ def _configured_strict_runtime_assets(
 def _configured_strict_runtime(
         hierarchy: Any, argv: Any, params: Any, gauge: Any,
         clover_ee: Any, clover_oo: Any, clover_ee_inv: Any,
-        clover_oo_inv: Any) -> Dict[str, Any]:
+        clover_oo_inv: Any, *,
+        release_setup_before_runtime: bool = False) -> Dict[str, Any]:
     """创建 fused strict 所需最小 runtime，避免额外 Python Krylov arena。"""
+    import torch
+
     fine_null = hierarchy.transfers[0].to_qcu_blocked(
         dtype=gauge.dtype, device=gauge.device).contiguous()
     assets = hierarchy.qcu_strict_transition_assets(
@@ -1905,6 +1908,14 @@ def _configured_strict_runtime(
         {"dof": int(operator.dof), "shape": list(operator.shape)}
         for operator in hierarchy.operators[1:]
     ]
+    setup_release = None
+    if release_setup_before_runtime:
+        # The exported assets and fine_null keep their storages alive.  Drop
+        # the duplicate hierarchy references before C++ applyInitQcu allocates
+        # its LatticeSet scratch; this is the cold c128 capacity path.
+        setup_release = hierarchy.release_python_setup_assets()
+        torch.cuda.empty_cache()
+        torch.cuda.synchronize(gauge.device)
     runtime = _configured_strict_runtime_assets(
         argv=argv, params=params, gauge=gauge,
         clover_ee=clover_ee, clover_oo=clover_oo,
@@ -1915,6 +1926,8 @@ def _configured_strict_runtime(
         target_parity=hierarchy.target_parity)
     runtime["transition_assets"] = assets
     runtime["level_specs"] = level_specs
+    if setup_release is not None:
+        runtime["python_setup_release"] = setup_release
     return runtime
 
 
@@ -2280,7 +2293,8 @@ def _run_pyqcu_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
             _validate_strict_setup_contract(
                 hierarchy.strict_setup_stats, config)
             runtime = _configured_strict_runtime(
-                hierarchy, argv, params, gauge, ce, coo, cei, coi)
+                hierarchy, argv, params, gauge, ce, coo, cei, coi,
+                release_setup_before_runtime=True)
             strict_setup_stats = copy.deepcopy(hierarchy.strict_setup_stats)
             transition_assets = runtime.pop("transition_assets")
             runtime.pop("level_specs")
