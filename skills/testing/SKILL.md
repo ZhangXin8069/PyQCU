@@ -138,7 +138,7 @@ parity 分组改动后复跑同一闸门，2026-09-17 再次 `PASS 5/5`，总耗
 `615.33/69.60 s`。该复跑确认新的 16-bucket source 顺序没有破坏
 dev87 的算子/求解器/QUDA 对照回归。
 
-随后使用 `QCU_CUDA_ARCHITECTURES=70-real,70-virtual` 重建 native V100
+随后使用 `QCU_CUDA_ARCHITECTURES='70-real;70-virtual'` 重建 native V100
 `libqcu.so`（`cuobjdump` 含 `sm_70.cubin`）并第三次运行同一闸门：
 `PASS 5/5`，总耗时 `751.2 s`；PyQCU wall 为 `1.17 s`、QUDA
 setup/solve 为 `609.79/69.73 s`。因此 CUDA 源码、Python strict
