@@ -214,6 +214,9 @@ trace-on 数值只用于分层归因，绝不能再用于正式 speedup。
 outer 约 63.6%），最粗层 BiCGStab 约 0.297 s；该 trace 无同尺度
 QUDA 对照，不能单独归因优势来源。原始 TSV 为
 `data/mg_matrix_20260916_round2/formal-c128-l3/pyqcu-formal-trace.tsv`。
+trace 的 `solve_end` 次数与正式 `iterations.median` 一致为 20，层号
+固定 fine 0/coarse 1/coarsest 2；若看到 20/60 差异，应归因于外层
+Krylov 策略，而不能解释成 parity 层计数错位。
 
 多卡方面，当前机器只有一张受这套 PyTorch `sm_70+` 支持的 V100；两张
 P100 为 `sm_60`，当前 PyTorch 构建明确不兼容，且 PyQCU/QUDA 本任务构建
