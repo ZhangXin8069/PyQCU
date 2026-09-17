@@ -230,6 +230,9 @@ canonical-block scatter 已改为预计算索引与批量写入。`_target_entri
 16，C=4 每层 operator calls 从 132 降到 96；小格 c128 `K=4` setup
 从 `16.67 s` 降到 `14.66 s`，大格全 double C=4/K=16 冷 setup
 从约 `974 s` 降到 `585.28 s`，低于同点 QUDA 的 `630.74 s`。
+若按 extended smoke 的冷 setup 加 steady solve 估算，PyQCU 约
+`587.34 s`、QUDA 约 `648.10 s`，冷启动总量约快 `1.10x`；该估算不含
+输入 I/O/warmup，不能替代 formal solve 的 `8.3507x`。
 
 `--pyqcu-strict-block-device cpu` 与 `--pyqcu-strict-offload-null-basis`
 是低显存实验开关，默认关闭；CPU canonical blocks 要求
