@@ -203,7 +203,9 @@ Tier 1（20 CPU + 11 CUDA strict + 3 fused FGMRES）全绿。
 \(2.062569\) s（默认 \(2.065148\) s），迭代数与真残差均不变。
 主表中的大格 c64/c128 已采用 sm70 独立正式复测；小/中格点仍来自
 默认 sm60 路径，因此按较保守的旧架构记录。不要把不同 CUDA 架构的
-数字混入同一 speedup；后续记录必须附带架构与 libqcu SHA256。
+数字混入同一 speedup；worker 的 \code{provenance.pyqcu\_library} 现在
+自动附带 libqcu 路径、SHA256、请求架构和 \code{cuobjdump} 实际
+\code{architectures} 列表。
 
 另外，固定输入合成微基准（\(8\cdot16\cdot16\cdot32\)、c128 blocked
 basis、c64 blocks、\(K=256\)、44 次算子调用）中，旧 builder 为

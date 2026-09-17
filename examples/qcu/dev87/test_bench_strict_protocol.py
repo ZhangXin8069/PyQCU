@@ -788,6 +788,27 @@ def test_strict_runtime_expected_manifest_matches_formal_geometry():
         value["nbytes"] for value in manifest["tensors"].values())
 
 
+def test_pyqcu_library_provenance_parses_cubin_architectures(
+        tmp_path, monkeypatch):
+    library = tmp_path / "libqcu.so"
+    library.write_bytes(b"fixture")
+
+    class Completed:
+        returncode = 0
+        stdout = (
+            "ELF file 1: libqcu.1.sm_70.cubin\n"
+            "ELF file 2: libqcu.2.sm_70.cubin\n")
+        stderr = ""
+
+    monkeypatch.setattr(
+        bench.subprocess, "run", lambda *args, **kwargs: Completed())
+    report = bench._pyqcu_library_provenance(library)
+    assert report["exists"] is True
+    assert report["sha256"] == bench._sha256_file(library)
+    assert report["architectures"] == ["sm_70"]
+    assert report["listing_error"] is None
+
+
 def test_formal_cache_contract_is_accepted_before_a_file_exists(tmp_path):
     from pyqcu.cuda._strict_cache import load_strict_runtime_cache
 
