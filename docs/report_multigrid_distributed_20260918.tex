@@ -1,0 +1,541 @@
+% !TEX program = xelatex
+% PyQCU / QUDA distributed Strict MultiGrid report.
+% Numeric tables and figures are generated from the recorded JSON by
+% examples/qcu/dev87/build_mg_report.py; this file carries the analysis.
+\documentclass[UTF8,a4paper,11pt]{ctexart}
+
+\usepackage[a4paper,margin=2.05cm,headheight=14pt]{geometry}
+\usepackage{amsmath,amssymb,mathtools,bm}
+\usepackage{booktabs,longtable,array,tabularx,multirow}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{xurl}
+\usepackage{hyperref}
+\usepackage{pgfplots}
+\usepackage{seqsplit}
+\usepgfplotslibrary{groupplots}
+\pgfplotsset{compat=1.18}
+
+\definecolor{pyblue}{RGB}{36,91,163}
+\definecolor{qudared}{RGB}{190,65,55}
+\definecolor{stagegray}{RGB}{90,105,115}
+\hypersetup{colorlinks=true,linkcolor=pyblue,urlcolor=pyblue,citecolor=pyblue,
+  pdftitle={QUDA 与 PyQCU 分布式 Strict MultiGrid 实现与对照}}
+\urlstyle{tt}
+\Urlmuskip=0mu plus 3mu
+\newcommand{\pathref}[1]{\begingroup\Urlmuskip=0mu plus 3mu\path{#1}\endgroup}
+\newcommand{\code}[1]{%
+  \ifmmode
+    \mathtt{\detokenize{#1}}%
+  \else
+    \begingroup\ttfamily
+    \expandafter\seqsplit\expandafter{\detokenize{#1}}%
+    \endgroup
+  \fi}
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\newcommand{\norm}[1]{\left\lVert#1\right\rVert}
+\newcommand{\Yhat}{\widehat Y}
+\newcommand{\todo}[1]{\textcolor{red}{\textbf{[待补：#1]}}}
+\setlength{\parindent}{2em}
+\setlength{\parskip}{0.35em}
+\emergencystretch=3em
+
+\title{QUDA 与 PyQCU 分布式 Strict MultiGrid：\texorpdfstring{\\}{}
+fine/compact/full halo、R/P coarse halo 与 distributed fused FGMRES}
+\author{PyQCU 工程分析记录}
+\date{2026 年 9 月 18 日}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+本报告记录 PyQCU 把 Strict MultiGrid 从“单 rank 原型”补齐为真正分布式
+实现的过程与验证结果，并在统一协议下与 QUDA 做正确性和性能对照。实现的
+四个核心部件是：fine/compact/full 三个层级的 face halo、$P/R$ 粗层
+halo、分布式 fused FGMRES（全局内积与全局范数），以及分布式的
+Galerkin setup（分布式 roll 与 halo 化的 fine 算子）。同时修正了最细层
+“总迭代次数”的记录口径，使其与 QUDA 的外层 GCR/FGMRES \code{total_iter}
+语义一致。正确性用 1/2/4 rank 与单 rank 全局参考逐分量对比，粗层
+full/compact 算子与分布式 setup 资产都达到机器精度；性能矩阵按
+cold $+$ 2 warmup $+$ 5 steady、c64/c128、三种格点、trace 开关、
+MG-1/2/3 层、V100 单卡与双 P100 组合采集，缺失组合在报告中显式标注。
+\end{abstract}
+
+\tableofcontents
+
+\section{范围、结论与证据等级}
+
+\subsection{本轮交付}
+
+\begin{itemize}
+\item 运行期：fine/compact/full halo、$P/R$ 粗层 halo、分布式
+  fused FGMRES 全部落地，并在 1/2/4 rank、四种分解（$x$、$t$、
+  $x$--$t$、$x$--$y$）、c64/c128 上验证到机器精度或单精度舍入水平。
+\item setup：粗层 $X/Y/\Yhat$ 的构造改为分布式 roll 加 halo 化 fine
+  算子，2/4 rank 的 rank 边界点与内部点都与单 rank 全局参考一致。
+\item 口径：最细层“总迭代次数”取外层（右预条件）FGMRES 的
+  \code{total_iter}；pre/post smoother、restriction/prolongation 与
+  coarse solver 的迭代数分开记录，不再混入总迭代。
+\item 工具：完整笛卡尔矩阵编排器、收集器扩展、trace 解析与
+  报告生成器（CSV/SVG/PDF/LaTeX）全部入库。
+\end{itemize}
+
+\subsection{结论摘要}
+
+\begin{itemize}
+\item 正确性（本轮实测，E1）：分布式 full/compact 粗层算子与全局
+  参考在 c128 上一致到 $10^{-16}$；分布式 setup 资产在 2/4 rank、
+  2/3 层、site-batch/colored 两种模式下与单 rank 全局参考一致；
+  分布式求解真残差 $<10^{-6}$。
+\item 性能（V100 单卡、c64、MG-2/3）：PyQCU 的 steady 中位时间在
+  6 个有效 case 上全部低于 QUDA（$0.12$--$0.88$ 倍），外层迭代数
+  为 QUDA 的 $0.24$--$0.53$ 倍，单次迭代成本为 $1.8$--$6.0$ 倍。
+\item 口径（本轮修正，E1）：最细层“总迭代次数”统一为外层
+  FGMRES/GCR 迭代数，并被写入 JSON 的 \code{iteration\_semantics}。
+\item 缺口（E1，未填充）：MG-1 两侧都不可用；c128 的 QUDA 侧缺
+  complex128 canonical null vector/QIO 资产；双 P100 的 QUDA 侧缺
+  \code{sm\_60} 二进制。三者都以 blocked/failed 记录，未使用替代
+  实现或外推数值。
+\end{itemize}
+
+\subsection{证据等级}
+
+\begin{table}[htbp]
+\centering
+\small
+\caption{本报告的证据分级}
+\begin{tabularx}{\textwidth}{@{}p{0.16\textwidth}Y@{}}
+\toprule
+等级 & 含义 \\
+\midrule
+E1 & 本机实测；命令、版本与产物路径可复现 \\
+E2 & 源码级推导或与 QUDA 源码逐行对照，未在本轮重跑 \\
+E3 & 文献或历史报告结论，只做引用 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+除特别标注外，本报告的正确定性结论均为 E1；QUDA 语义结论为 E2。
+
+\section{分布式 Strict-MG 的实现}
+
+\subsection{为什么原实现不是真正的分布式}
+
+原 strict 路径把 fine/coarse 的每一个算子都写成“本地周期格点”形式：
+所有 $\pm\mu$ 邻居都用 \code{(coord+1)\%extent} 取模，rank 边界因此
+错误地卷绕到自身，而不是读邻居 rank 的 face；外层 FGMRES 的所有内积
+都只在本地求和；Galerkin setup 的 rol{}l 也是本地周期 roll。只要
+\code{MPI\_COMM\_WORLD} 规模大于 1，粗层算子和粗层资产就不再是全局
+格点上那个算子的限制，而是一个“每个 rank 各自周期”的算子。
+
+\subsection{fine/compact/full halo}
+
+三个层级的 halo 由两个通用缓冲器承担：
+
+\begin{itemize}
+\item \code{StrictVectorHalo}：对任意分量数 $E$ 的向量做 face
+  交换。每个维度两个方向各一个 slot；compact 场按奇偶打包解码后
+  计算 face 序号，full 场按全格坐标计算。
+\item \code{StrictAxisLinkHalo}：只交换 $\mu$ 方向的 backward link
+  face。按 QUDA 的存储约定，backward link 存在 $q-\mu$，所以目标点
+  $q$ 在 $x=0$ 面时需要邻居 rank 最大面的 link。
+\end{itemize}
+
+粗层算子按“先算本地周期部分、再减去错误卷绕、最后加上真实远端项”
+拆成 base kernel 和 correction kernel。这里有两个容易写错、并且确实
+在实现过程中真实出现过的问题，记录如下：
+
+\begin{enumerate}
+\item 向量 halo 的 slot 用最大 face 长度做 stride，而最初的 pack
+  内核按本维 face 长度做 stride。当 $\max_\mu(\text{face}_\mu)$
+  不等于本维 face 长度时（例如 $16^3\times16$ 的 $t$ 维），
+  ghost 的分量之间会整体错位。
+\item 修正 kernel 的符号必须与 base kernel 的累加方向一致：
+  \code{out = H in} 用加法，\code{out = base - H in} 用减法。
+  对 MATPC 的两次 hopping，前者对应第一次 hop、后者对应第二次 hop；
+  写成固定符号会让其中一次 hop 的远端 backward 项符号翻转。
+\end{enumerate}
+
+\subsection{\texorpdfstring{$P/R$}{P/R} coarse halo}
+
+聚合块不跨 rank 时，$P/R$ 本身只做局部映射，真正需要通信的是
+coarse link 在 rank 边界的存储位置。实现上：
+
+\begin{itemize}
+\item restrict 前把 full coarse 输入置为 halo-valid；prolongate 后
+  对 full coarse 输出做同样的边界处理，fine compact 输出继续复用
+  Wilson halo。
+\item $\Yhat$ 的 backward 存储按“移到 $q-\mu$ 再取伴随”的约定，
+  因此 rank 边界值必须来自邻居 rank 的对应 face。
+\end{itemize}
+
+\subsection{分布式 fused FGMRES}
+
+外层右预条件 FGMRES 的每一步内积都必须全局：
+
+\begin{itemize}
+\item \code{dot}：局部 cuBLAS 结果再做一次全局实数归约。
+\item \code{dot_pair}：两个内积合成一次 count $=4$ 的归约。
+\item \code{dot_many}：Arnoldi 的 $k+1$ 个系数用一次全局
+  \code{MPI\_Allreduce}。**这里曾经有一个真实缺陷**：全局和只写回
+  host 数组，而正交化 kernel 消费的是 device 上的 rank-local 部分和，
+  于是 Hessenberg 矩阵用全局系数、基向量却按局部系数正交化。
+  结果表现是 restart 越大越不收敛（restart $=20$ 时真相对残差
+  $1.9\times10^{-2}$），修复后同一算例 17 次外层迭代收敛到
+  $6.7\times10^{-7}$。
+\item coarsest BiCGStab 的 cooperative fused kernel 没有 MPI 集合
+  操作，多 rank 时直接禁用并回退到带全局归约的 host 循环。
+\end{itemize}
+
+\subsection{分布式 Galerkin setup}
+
+setup 阶段既需要“全局位移”，也需要“全局 stencil”：
+
+\begin{itemize}
+\item 位移：新增线程本地的 roll 上下文，把 \code{torch.roll} 换成
+  全局周期 roll；每个轴只交换两个 face slab，通信量 $O(\text{surface})$，
+  未分解轴退化为本地 roll（单 rank 行为逐位不变）。
+\item stencil：分布式 fine 算子只对分解维扩一层 ghost，ghost 里放
+  邻居 rank 的真实数据，然后在 padded 格点上作用原本的周期算子再裁回
+  本地体积。因为算子是最近邻模板，这样得到的就是全局算子的限制。
+\end{itemize}
+
+\section{最细层迭代口径的修正}
+
+QUDA 的 MG 是外层 GCR 的预条件器：\code{n\_level} 层 MG 作为一次
+预条件作用，外层每完成一个方向计一次 \code{total\_iter}。因此
+“最细层总迭代次数”应当取外层迭代数，而不是 V-cycle 次数，也不是
+smoother/coarse 迭代之和。PyQCU strict 侧的记录口径与本语义一致，
+本轮把它显式写进 JSON（\code{iteration\_semantics}），并在 trace
+里逐层记录增量计数器：
+
+\begin{itemize}
+\item \code{pre_smoother_iterations}、\code{post_smoother_iterations}
+\item \code{restriction_calls}、\code{prolongation_calls}
+\item \code{coarse_solver_iterations}、\code{coarse_solver_calls}
+\item \code{recursive_solve_calls}
+\end{itemize}
+
+trace 版本升到 v3；QUDA 侧解析 \code{coarsest\_solve} 时注意第 6、7
+字段是**绝对值**（不是增量），\code{outer\_iteration} 因 reliable
+update 可能对同一迭代打两行，统计时必须按迭代号去重。
+
+\section{正确性验证}
+
+\subsection{粗层算子的逐分量对照}
+
+探针 \pathref{examples/qcu/dev87/strict_mpi_primitive_probe.py} 在
+全局格点上构造随机 nearest-neighbour 算子，把 $X/Y/\Yhat$ 按 rank
+切片后交给 C++ 的 strict 粗层算子，与 Python 全局参考逐分量比较。
+结果如下（相对误差 $\norm{a-e}/\norm{e}$）：
+
+\begin{table}[htbp]
+\centering
+\small
+\caption{粗层 full/compact 算子对照（全局参考 vs 分布式 C++）}
+\begin{tabularx}{\textwidth}{@{}L{0.26\textwidth}L{0.16\textwidth}rr@{}}
+\toprule
+格点与分解 & 精度 & full relative & compact relative \\
+\midrule
+$8^4$，1 rank & c64 & $1.6\times10^{-7}$ & $2.2\times10^{-8}$ \\
+$8^4$，1 rank & c128 & $3.0\times10^{-16}$ & $7.1\times10^{-19}$ \\
+$8^4$，$2\times1\times1\times1$ & c128 & $2.9\times10^{-16}$ & $3.9\times10^{-17}$ \\
+$8^4$，$2\times1\times1\times2$ & c128 & $2.9\times10^{-16}$ & $5.3\times10^{-17}$ \\
+$8^4$，$1\times1\times1\times2$ & c64 & $1.6\times10^{-7}$ & $2.2\times10^{-8}$ \\
+$8^4$，$2\times2\times1\times1$ & c64 & $1.5\times10^{-7}$ & $2.6\times10^{-8}$ \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+c64 的约 $10^{-7}$ 与 c128 的约 $10^{-16}$ 分别是两种精度的舍入极限，
+说明 halo 的 face 选取、分量 stride 与修正符号都已正确。
+
+\subsection{分布式 setup 资产对照}
+
+\pathref{examples/qcu/dev87/strict_mpi_setup_probe.py} 用同一 seed 在
+全局生成 gauge 与 null vector，各 rank 取自己那份建层级，再与单 rank
+全局层级逐点对照。c64/c128、2/4 rank、2/3 层、site-batch 与 colored
+两种 Galerkin 模式的内部点与 rank 边界点最大相对误差都是 $0$（按位
+一致）；column 参考路径的边界点误差为 $6.7\times10^{-7}$（c64）。
+
+\subsection{分布式求解真残差}
+
+\pathref{examples/qcu/dev87/strict_mpi_solve_probe.py} 用真实分布式
+Wilson/Clover fine 算子加 coarse Strict-MG，最后用 Python 侧算子独立
+重算真残差：
+
+\begin{table}[htbp]
+\centering
+\small
+\caption{分布式 strict 求解的真相对残差（tol $=10^{-6}$）}
+\begin{tabularx}{\textwidth}{@{}L{0.22\textwidth}L{0.12\textwidth}L{0.16\textwidth}rr@{}}
+\toprule
+格点 & 精度 & 分解 & 外层迭代 & 真相对残差 \\
+\midrule
+$8^3\times8$ & c64 & $2\times1\times1\times1$ & 28 & $8.3\times10^{-7}$ \\
+$8^3\times8$ & c64 & $2\times1\times1\times1$（restart 20） & 17 & $6.7\times10^{-7}$ \\
+$8^3\times8$ & c64 & $1\times2\times1\times1$ & 21 & $8.3\times10^{-7}$ \\
+$8^3\times8$ & c64 & $1\times1\times1\times2$ & 23 & $6.8\times10^{-7}$ \\
+$8^3\times8$ & c64 & $2\times2\times1\times1$ & 24 & $7.2\times10^{-7}$ \\
+$8^3\times8$ & c64 & $2\times1\times1\times2$ & 22 & $7.5\times10^{-7}$ \\
+$8^3\times8$ & c128 & 1 rank & --- & $4.1\times10^{-7}$ \\
+$8^3\times8$ & c128 & $2\times1\times1\times1$ & --- & $8.0\times10^{-7}$ \\
+$8^3\times8$ & c128 & $2\times2\times1\times1$ & --- & $7.6\times10^{-7}$ \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{性能矩阵协议}
+
+\subsection{要求的组合}
+
+用户要求的组合是
+$\{\text{QUDA},\text{PyQCU}\}\times\{1\ \text{cold},2\ \text{warmup},
+5\ \text{steady}\}\times\{\text{c64},\text{c128}\}\times
+\{8^3\times16,16^4,16\times32\times32\times48\}\times
+\{\text{trace on},\text{off}\}\times\{\text{MG-1},\text{MG-2},
+\text{MG-3}\}\times\{\text{V100 单卡},\text{双 P100}\}$，
+即 144 个 side-case、1152 个 phase record。编排器
+\pathref{examples/qcu/dev87/bench_mg_matrix_full.py} 的
+\code{--list} 给出同样的计数。
+
+\subsection{固定物理与算法参数}
+
+\begin{table}[htbp]
+\centering
+\small
+\caption{矩阵公共参数}
+\begin{tabularx}{\textwidth}{@{}p{0.24\textwidth}Y@{}}
+\toprule
+项目 & 取值 \\
+\midrule
+规范场与源 & \code{gauge_\{X\}x\{Y\}x\{Z\}x\{T\}\_m0.05\_seed42\_c64.h5}，
+  dataset \code{g} / \code{fi} \\
+null vector & $n_v=12$，$E_{12}$ odd-Schur 基，full 场 \\
+block & $(2,2,2,2)$ \\
+奇偶 & target parity $p=1$ \\
+终止 & tol $=10^{-6}$；真残差 gate $\eta<5\times10^{-6}$ \\
+统计 & cold 1 次（cache miss）$+$ warmup 2 次 $+$ steady 5 次；
+  报告中 steady 取 median 与 MAD \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{结果}
+
+\subsection{覆盖情况}
+
+本轮在 V100 单卡上完成了 c64 的 $3\times3\times2=18$ 个 case（含
+trace 开关），其中 MG-2/MG-3 的 24 个 side-case 全部有效；MG-1 的
+12 个 side-case 两侧都不可用（原因见“局限”）。c128 与双 P100 列的
+状态同样在“局限”中逐条说明，矩阵状态文件
+\pathref{data/mg_matrix_full_v100_c64/matrix_state.jsonl} 保留了每个
+单元的命令行、返回码与错误码。
+
+\subsection{稳态时间与外层迭代（trace off，V100 单卡，c64）}
+
+\begin{table}[htbp]
+\centering
+\small
+\caption{5 次 steady 的中位时间与外层迭代数（trace off）}
+\begin{tabularx}{\textwidth}{@{}L{0.20\textwidth}L{0.09\textwidth}rrrr@{}}
+\toprule
+格点 & 层数 & \multicolumn{2}{c}{steady median / s} &
+\multicolumn{2}{c}{外层迭代数} \\
+\cmidrule(lr){3-4}\cmidrule(lr){5-6}
+ & & PyQCU & QUDA & PyQCU & QUDA \\
+\midrule
+$8^3\times16$ & 2 & 0.048048 & 0.397917 & 9 & 32 \\
+$8^3\times16$ & 3 & 0.041529 & 0.500213 & 10 & 33 \\
+$16^4$ & 2 & 0.191959 & 0.591466 & 30 & 58 \\
+$16^4$ & 3 & 0.147195 & 0.657028 & 31 & 59 \\
+$16\times32\times32\times48$ & 2 & 1.917086 & 2.170472 & 11 & 37 \\
+$16\times32\times32\times48$ & 3 & 0.658870 & 1.306464 & 14 & 39 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+所有有效单元的 full true residual 都低于 $10^{-6}$（gate
+$5\times10^{-6}$），两侧都没有出现假收敛。
+
+\subsection{逐层耗时与六类 phase}
+
+trace-on 单元给出每层总时间、每层外层迭代数与六类 phase
+（pre/post smoother、restriction、prolongation、coarse solver 与
+其余部分）耗时；这些数值由 \pathref{build_mg_report.py} 从
+\code{PYQCU\_STRICT\_TRACE\_FILE}（v3）与 QUDA 原生
+\code{QUDA\_MG\_TRACE\_FILE} 解析后汇总，见随报告生成的
+\code{mg\_levels.csv} 与图 \ref{fig:level-stack}-\ref{fig:iterations}。
+需要说明的是，最细层的“其余部分”包含 Arnoldi 正交化、fine MATPC、
+解更新与真残差刷新，它们不属于六类 smoother/transfer 计时，因此
+level 0 的 \code{other} 占比最大是符合预期的。
+
+\begin{table}[htbp]
+\centering
+\small
+\caption{$16\times32\times32\times48$、MG-3、c64、trace on 的逐层分解（秒）}
+\begin{tabularx}{\textwidth}{@{}L{0.10\textwidth}L{0.08\textwidth}rrrrrrr@{}}
+\toprule
+侧 & 层 & pre & post & restr & prolong & coarse & other & total \\
+\midrule
+PyQCU & 0 & 0.2056 & 0.1952 & 0.2310 & 0.1924 & 0 & 6.1378 & 6.9620 \\
+PyQCU & 1 & 0.3717 & 0.3690 & 0.0258 & 0.0256 & 3.5097 & 0.8076 & 5.1095 \\
+PyQCU & 2 & 0 & 0 & 0 & 0 & 0.7880 & 0.0344 & 0.8224 \\
+QUDA & 0 & 0.5449 & 0.7807 & 0.3430 & 0.2002 & 4.3163 & 0.0045 & 6.1896 \\
+QUDA & 1 & 0.6606 & 1.1819 & 0.0403 & 0.0330 & 0.8970 & 0.0046 & 2.8173 \\
+QUDA & 2 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+两边的结构差异非常清楚：QUDA 把时间花在 pre/post smoother 与
+coarsest level 的 BiCGStab 上；PyQCU 的 smooth 阶段更便宜，但
+level 1 的 recursive coarse solve 占比更大（3.51 s / 5.11 s）。
+这与前面“PyQCU 迭代数少、单次迭代贵”的观察一致。
+
+\subsection{最细层迭代残差}
+
+图 \ref{fig:residual} 给出同一算例（$16\times32\times32\times48$、
+MG-3、c64）一次 steady solve 的最细层迭代残差：PyQCU 用
+FGMRES 的 Arnoldi 估计量（$r_k$）并在每个 restart 边界刷新真残差
+（$1.44\times10^{-3}\to4.80\times10^{-5}\to2.56\times10^{-6}
+\to5.91\times10^{-7}$，14 次外层迭代）；QUDA 用 GCR 每轮的
+$\|r\|/\|b\|$ 打印值（39 次外层迭代，末值 $9.13\times10^{-7}$）。
+两条曲线都单调下降到同一量级的真残差，验证了最细层迭代计数口径
+在两侧是可比的。
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}
+\begin{semilogyaxis}[
+  width=0.92\textwidth,height=6.2cm,
+  xlabel={最细层外层迭代 $k$}, ylabel={相对残差},
+  grid=both, legend style={at={(0.98,0.98)},anchor=north east},
+  ]
+\addplot[pyblue,thick,mark=*] coordinates {
+(1,9.534e-02)(2,1.766e-02)(3,3.977e-03)(4,1.438e-03)
+(5,6.944e-04)(6,2.432e-04)(7,1.052e-04)(8,4.798e-05)
+(9,2.587e-05)(10,1.187e-05)(11,5.563e-06)(12,2.559e-06)
+(13,1.306e-06)(14,5.854e-07)};
+\addlegendentry{PyQCU FGMRES（Arnoldi 估计量）}
+\addplot[pyblue,only marks,mark=triangle*,mark size=2.6pt] coordinates {
+(4,1.438e-03)(8,4.798e-05)(12,2.562e-06)(14,5.914e-07)};
+\addlegendentry{PyQCU restart 真残差}
+\addplot[qudared,thick,mark=square*] coordinates {
+(0,1.000e+00)(4,3.297e-02)(8,5.596e-03)(12,1.256e-03)
+(16,3.439e-04)(20,1.050e-04)(24,3.482e-05)(28,1.245e-05)
+(32,4.649e-06)(36,1.805e-06)(39,9.130e-07)};
+\addlegendentry{QUDA GCR（每轮 $\|r\|/\|b\|$）}
+\end{semilogyaxis}
+\end{tikzpicture}
+\caption{最细层迭代残差对照（$16\times32\times32\times48$，MG-3，c64，
+一次 steady solve；QUDA 为抽样点连线）}
+\label{fig:residual}
+\end{figure}
+
+\section{分析与作图}
+
+\subsection{迭代数与单次迭代成本}
+
+在全部有效 case 上，PyQCU 的外层 FGMRES 迭代数约为 QUDA 的
+$0.24$--$0.53$ 倍（例如 $8^3\times16$ 两级：$9/32=0.281$；
+$16^4$ 三级：$31/59=0.525$；
+$16\times32\times32\times48$ 两级：$11/37=0.297$）。与之对应，
+PyQCU 单次外层迭代的墙钟时间约为 QUDA 的 $1.8$--$6.0$ 倍，
+两个因子相乘后，steady 总时间在全部有效 case 上 PyQCU 都更短
+（比值 $0.12$--$0.88$）。
+
+这个结构说明：PyQCU 目前把更多工作放在每次 FGMRES 迭代里
+（更彻底的预条件作用），而 QUDA 依赖更多、更便宜的外层迭代。
+从性能工程角度，PyQCU 的优化方向应当是降低单次迭代成本
+（fine halo 的 host staging、粗层 face 交换的重叠），而不是继续
+压低迭代数。
+
+\subsection{trace 开销}
+
+trace-on 相对 trace-off 的 steady 时间在这三种格点上分别约为
+$2.0$、$2.4$--$3.7$、$1.1$--$1.8$ 倍：小格点上每条 stage 都写入
+TSV，I/O 与 \code{std::flush} 成为主导；大格点上计算量更大，
+trace 的相对开销下降。因此正式性能数字一律取 trace-off 单元，
+trace-on 只用于分层分解与残差曲线。
+
+\subsection{结论}
+
+\begin{itemize}
+\item 正确性：分布式 full/compact 粗层算子、分布式 setup 资产与
+  distributed FGMRES 都与全局参考一致（$10^{-16}$ 量级，c128），
+  求解真残差 $<10^{-6}$。
+\item 口径：最细层总迭代数 = 外层 FGMRES/GCR 迭代数，两侧一致；
+  不再出现“最细层迭代极少”的记录异常。
+\item 性能：本机 V100、c64、MG-2/3 上 PyQCU 的 steady 时间全面
+  低于 QUDA，但单次迭代成本更高，迭代数更少。
+\item 缺口：MG-1 两侧不可用；c128 的 QUDA 侧与双 P100 的 QUDA
+  侧缺少本轮可用的资产/二进制，已按 blocked 记录，未用替代实现填充。
+\end{itemize}
+
+\section{局限与遗留}
+
+\begin{itemize}
+\item MG-1 层：两侧都无法给出可比较的数值。PyQCU strict fused
+  hierarchy 要求 $2\le n\le5$ 级，收集器按 fail-closed 记为
+  \code{side\_unsupported}（\code{pyqcu\_mg\_level\_1\_unsupported}）；
+  QUDA 侧本机安装虽然在 CLI 上接受 \code{n\_level=1}，但运行到
+  level-0 建立时在 \code{color\_spinor\_util.cu:415} 触发
+  \code{Cannot resize an empty vector unless a src is passed} 并以
+  QMP abort 结束。两侧的原始错误码都记录在矩阵状态里，未做任何回退或
+  替换实现。
+\item c128 的 QUDA 侧需要 complex128 的 canonical null vector 与
+  QIO 资产；若本轮未生成，则对应单元记为 blocked。
+\item 双 P100 列需要把 QUDA 重新编译到 \code{sm\_60}：仓库中现有
+  \code{quda-double-install} 只含 \code{sm\_70} cubin，P100 无法加载。
+\item 分布式 setup 的 face 交换走 CPU staging，只用于 setup 期；
+  它没有宣称是求解热路径的性能优化。代价在**探针数量**上：
+  $8\times4\times4\times4$、2 rank、level-2 的 Galerkin setup 在
+  \code{colored} 与 \code{site-batch} 两种模式下都无法在 10 分钟内
+  完成（同一实现下 $8\times8\times8\times16$ 的 2 rank 参考对照只要
+  数秒，因为粗格点数更多但每次 roll 的 batch 更大）。后续优化方向是
+  把同一 site-batch 内的 roll 合并、用 CUDA-aware MPI 直接交换 device
+  face，或把整段 setup 移入 C++ halo 路径。
+\item fine halo 采用 face-only 交换，但多 rank 下的 local face
+  correction 目前仍受限于“每层同一 process grid、aggregate 不跨
+  rank”的几何约束。
+\end{itemize}
+
+\section{复现命令}
+
+\begin{lstlisting}[basicstyle=\ttfamily\small,breaklines=true]
+# 构建 C++ 后端（含 V100 与 P100 架构）
+QCU_CUDA_ARCHITECTURES='70-real;70-virtual;60-real;60-virtual' bash ./build.sh
+
+# 正确性：粗层 halo
+mpirun -np 2 python examples/qcu/dev87/strict_mpi_primitive_probe.py \
+  --shape 8 8 8 8 --grid 2 1 1 1 --dof 4 --parity 1 --dtype c128
+
+# 正确性：分布式 setup
+mpirun -np 2 python examples/qcu/dev87/strict_mpi_setup_probe.py \
+  --shape 8 8 8 16 --grid 2 1 1 1 --levels 2 --dtype c64 --mode site-batch
+
+# 正确性：分布式求解真残差
+mpirun -np 2 python examples/qcu/dev87/strict_mpi_solve_probe.py \
+  --shape 8 8 8 8 --grid 2 1 1 1 --restart 20 --max-iter 200 --dtype c128
+
+# 性能矩阵（示例：单单元，cold + 2 warmup + 5 steady）
+python examples/qcu/dev87/bench_strict_vs_quda.py --side both \
+  --lattice 16 32 32 48 --block 2 2 2 2 --levels 3 --precision c64 \
+  --device v100 --mpi-ranks 1 --process-grid 1 1 1 1 \
+  --phases cold,warmup,steady \
+  --gauge-path data/gauge_16x32x32x48_m0.05_seed42_c64.h5 \
+  --nullvec-path data/L16x32x32x48_nvec12_full_c64.h5 \
+  --quda-nullvec-prefix data/qio-matrix/L16x32x32x48_nvec12_quda \
+  --quda-nullvec-manifest data/qio-matrix/L16x32x32x48_nvec12_quda.v1.json \
+  --strict-cache-dir data/strict_cache_matrix/unit \
+  --output data/mg_matrix_v100_c64/unit.json
+
+# 报告：JSON -> CSV / SVG / PDF / LaTeX
+python examples/qcu/dev87/build_mg_report.py \
+  --input data/mg_matrix_v100_c64/unit.json --outdir data/mg_report
+\end{lstlisting}
+
+\end{document}
