@@ -15,6 +15,21 @@ bash ./make.sh        # symlinks CMakeLists-nv.txt → CMakeLists.txt, then cmak
 
 Output: `libqcu.so` — dynamically linked library loaded by the Cython bridge.
 
+CMake 的兼容默认是 `60-real;60-virtual`（P100 cubin + PTX），V100 生产
+基准应显式设置：
+
+```bash
+QCU_CUDA_ARCHITECTURES='70-real;70-virtual' bash ./build.sh
+cuobjdump --list-elf cpp/cuda/qcu/libqcu.so | head
+```
+
+`cuobjdump` 必须显示 `sm_70.cubin`，而不是仅显示 `sm_60.cubin`。不要把
+sm_60 JIT 与 sm_70 native 的 solve 数字混在同一速度比中；至少记录
+`QCU_CUDA_ARCHITECTURES`、libqcu SHA256 和实际 `cuobjdump` 架构。当前
+V100 复测中 sm_70 相对默认路径仅小幅改善（大 c64 solve
+`0.662549→0.657074 s`，大 c128 `2.065148→2.062569 s`），但必须保留
+架构 provenance。
+
 ## Source Organization
 
 ```
