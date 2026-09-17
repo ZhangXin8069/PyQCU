@@ -125,6 +125,14 @@ block staging 的正式契约是 `retain_blocks=False`；若测试或调用方�
 canonical blocks 留到安装阶段，必须 fail closed，而不是静默混入 CUDA
 asset。
 
+2026-09-17 全量闸门：`source ./env.sh && source
+examples/qcu/dev87/quda_env.sh && python examples/qcu/dev87/run_all.py
+--with-quda` 在 V100 上 `PASS 5/5`，总耗时 `757.4 s`；其中
+`quda_solve_scaled_agreement` 与 `quda_mg_scaled_agreement` 均通过，
+后者的 PyQCU wall 为 `1.22 s`、QUDA setup/solve 为 `613.78/70.05 s`。
+该结果只证明既有 dev87 回归集合未被本轮 cache/staging 改动破坏，不替代
+单独的速度比报告。
+
 Runtime-cache tests must enforce schema v2 per-tensor streaming SHA256, reject any tensor/metadata tamper before device transfer, bound host chunks to about 8 MiB, and account for two logical reads on a hit. A same-identity concurrent-publication test must fully validate the winning target's manifest, dataset attrs, and tensor SHA256 values before reuse. Fair-QIO protocol tests must fingerprint canonical full `[12,4,3,X,Y,Z,T]` data against `canonical_dataset_sha256`, require `QUDA_DEGRAND_ROSSI_GAMMA_BASIS`, and verify round-trip content with a two-file 8 MiB streaming scan; `source_sha256` is checked only as E12 provenance.
 
 Strict memory tests must distinguish live allocation from allocator reservation: before the first solve the C++ fused workspace is planned but not resident; after it, resident bytes must equal `(2*m+5)*B_f+2*B_c`. Galerkin tests use a separate four-full-field-arena budget: c64 production selects colored `C=12` under a `4 GiB` setup cap, while c128 stays at `C=1` under `1 GiB`; the c64 `512 MiB` value belongs only to outer Krylov. The formal benchmark's memory schema version 2 is a success-record hard gate: sampler start must not call `mem_get_info` on the main thread, stop must not add a final sample, and join timeout must retain the thread handle and fail closed. Require `device_used_max_observed_bytes`, keep the independent device-wide probe and sampler stop outside formal timing/`setup_seconds`, and filter `nvidia-smi` by target GPU UUID with fields named only `max_observed`. QUDA setup and warmup exception tests must release the sampler, multigrid, and Gauge while preserving the primary failure. Warm up, repeat solves, assert no new Torch allocation and stable owned/live bytes, then call `close()` while retaining the solver object and verify hierarchy slots/assets are released. Do not call `empty_cache()` before the leak assertion.
