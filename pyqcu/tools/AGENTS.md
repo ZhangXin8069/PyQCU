@@ -15,6 +15,9 @@ MPI 网格管理、HDF5 I/O、线性代数、张量操作、多重网格转移�
 | `_matul.py` | TileLang 矩阵乘内核 `matmul_gpu`/`matmul_cpu`（可选）。**含 tilelang 0.1.7.post3 上游 bug 热修**：import 时条件性补挂四处同名 TensorCoreIntrinEmitter 缺失的 `_legalize_to_buffer_region`（bug36）；fp16 默认配置已验证（4096³=cuBLAS 94%），fp32 sm70 与 64 小 block 为上游另案不可用 |
 | `_multigrid.py` | Null 向量生成（`give_null_vecs`）、局部正交化（`local_orthogonalize`）、restrict/prolong — 全部带 NPU 兼容回退 |
 | `_roll.py` | 张量滚动工具 |
+| `_mpi_roll.py` | 分布式周期 `roll`（2026-09-18）：线程本地上下文 `distributed_roll()`/`activate()`/`deactivate()`，按轴用带 rank 环绕的 `MPI_Sendrecv` 只交换 face slab；未激活或未分解退化为 `torch.roll`。用于 strict Galerkin setup，单 rank 行为逐位不变 |
+| `_distributed_setup.py` | 分布式 fine 算子包装（2026-09-18）：只对分解维扩一层 ghost，ghost 由真实邻居 rank 数据填充，在 padded 格点上作用周期算子后裁回本地体积；`process_grid` 多 rank 时由 `QudaMultigrid` 使用 |
+| `_strict_galerkin.py` | strict full-coarse Galerkin 构造（site-batch/colored/column）；多 rank 下经分布式 roll 与 halo 化 fine 算子构造 rank 边界资产，2/4 rank 与单 rank 全局参考一致 |
 
 ## 导出 API 要点
 

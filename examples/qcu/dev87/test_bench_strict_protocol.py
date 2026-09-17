@@ -141,6 +141,36 @@ def _successful_side(side: str, document, seconds: float):
     repeats = document["protocol"]["repeats"]
     samples = [seconds] * repeats
     summary = bench._median_mad(samples)
+    total_iterations = 4 * repeats
+    mg_levels = []
+    for level in range(document["protocol"]["levels"]):
+        item = {
+            "level": level,
+            "total_seconds": seconds * repeats,
+            "total_iterations": total_iterations,
+            "pre_smoother_seconds": 0.0,
+            "post_smoother_seconds": 0.0,
+            "restriction_seconds": 0.0,
+            "prolongation_seconds": 0.0,
+            "coarse_solver_seconds": 0.0,
+            "other_seconds": seconds * repeats,
+            "pre_smoother_iterations": 0,
+            "post_smoother_iterations": 0,
+            "smoother_iterations": 0,
+            "restriction_calls": 0,
+            "prolongation_calls": 0,
+            "recursive_solve_calls": 0,
+            "coarse_solver_iterations": 0,
+            "coarse_solver_calls": 0,
+        }
+        if level == 0:
+            item["finest_iterations"] = total_iterations
+            item["residual_sequence"] = [
+                {"solve_index": index, "iteration": 4,
+                 "relative": 1.0e-7, "kind": "case_true_residual"}
+                for index in range(repeats)]
+            item["final_residual"] = 1.0e-7
+        mg_levels.append(item)
     sampler = {
         "available": True,
         "scope": "device-wide cudaMemGetInfo; test fixture",
@@ -173,6 +203,8 @@ def _successful_side(side: str, document, seconds: float):
             "steady": summary,
         },
         "iterations": bench._iteration_summary([4] * repeats),
+        "mg_levels": mg_levels,
+        "iteration_semantics": "finest total_iterations is the outer solver total",
         "converged_samples": [True] * repeats,
         "converged": True,
         "true_residual": {
@@ -1331,3 +1363,429 @@ def test_pyqcu_trace_parser_accepts_residual_v2_events(tmp_path):
         "relative": 0.5,
         "elapsed_seconds": 0.1,
     }]
+
+
+def test_levels_one_is_legal_for_quda_and_pyqcu_fails_closed(monkeypatch):
+    document = bench.build_document(
+        _args("--dry-run", "--levels", "1", "--side", "quda"),
+        dry_run=True)
+    assert bench.validate_document(document, allow_planned=True) == []
+    protocol = document["protocol"]
+    assert protocol["levels"] == 1
+    assert protocol["block_xyzt_per_level"] == []
+    assert protocol["mg_level_semantics"]["pair_supported"] is False
+    expected = bench._quda_expected_parameters(protocol, None)
+    mg = expected["multigrid"]
+    assert mg["n_level"] == 1
+    assert mg["coarsest_level_index"] == 0
+    assert mg["compute_null_vector"] == "QUDA_COMPUTE_NULL_VECTOR_NO"
+    assert mg["generate_all_levels"] == "QUDA_BOOLEAN_FALSE"
+    assert mg["transition"]["n_vec"] == []
+    assert mg["transition"]["vec_load"] == []
+    assert mg["transition"]["vec_infile"] == []
+    assert mg["levels"]["coarse_solver"] == ["QUDA_CA_GCR_INVERTER"]
+
+    payload = {
+        "protocol": protocol,
+        "inputs": document["inputs"],
+        "execution": document["execution"],
+        "input_fingerprints": None,
+    }
+    record = bench._worker_record("pyqcu", payload)
+    assert record["status"] == "side_unsupported"
+    assert record["reason"]["code"] == "pyqcu_mg_level_1_unsupported"
+    with pytest.raises(ValueError, match="no strict runtime transition cache"):
+        bench._strict_runtime_expected_manifest(protocol)
+
+
+def test_levels_one_fingerprints_only_gauge_and_source(tmp_path):
+    import h5py
+    import numpy as np
+
+    lattice = (2, 2, 2, 4)
+    path = tmp_path / "inputs-l1.h5"
+    with h5py.File(path, "w") as handle:
+        handle.create_dataset(
+            "g", data=np.zeros((2, 3, 3, 4, 2, 2, 2, 2), np.complex64))
+        handle.create_dataset(
+            "fi", data=np.zeros((2, 4, 3, 2, 2, 2, 2), np.complex64))
+    document = bench.build_document(
+        _args(
+            "--dry-run", "--levels", "1", "--side", "quda",
+            "--profile", "smoke", "--lattice", *map(str, lattice),
+            "--gauge-path", str(path),
+            "--nullvec-path", str(tmp_path / "intentionally-missing.h5")),
+        dry_run=True)
+    document["inputs"]["gauge"]["dataset"] = "g"
+    document["inputs"]["source"]["dataset"] = "fi"
+    fingerprints = bench._fingerprint_inputs(document)
+    assert set(fingerprints) == {"gauge", "source", "bundle_hash"}
+    assert bench._validate_input_fingerprints(
+        fingerprints, required=True, levels=1) == []
+
+
+def test_p100_device_selection_is_mock_only(monkeypatch):
+    monkeypatch.delenv("QCU_DEVICE_ID", raising=False)
+    selected = []
+
+    class Properties:
+        major = 6
+        minor = 0
+        total_memory = 16 << 30
+        uuid = "GPU-p100"
+
+    class Cuda:
+        @staticmethod
+        def is_available():
+            return True
+
+        @staticmethod
+        def device_count():
+            return 2
+
+        @staticmethod
+        def get_device_name(index):
+            return ("Tesla V100", "Tesla P100")[index]
+
+        @staticmethod
+        def set_device(index):
+            selected.append(index)
+
+        @staticmethod
+        def get_device_properties(_index):
+            return Properties()
+
+    class Torch:
+        cuda = Cuda()
+
+        @staticmethod
+        def device(kind, index):
+            return f"{kind}:{index}"
+
+    device = bench._select_accelerator(Torch, "p100", 0)
+    assert str(device) == "cuda:1"
+    assert selected == [1]
+
+    monkeypatch.setenv("QCU_DEVICE_ID", "0,1")
+    selected.clear()
+    assert str(bench._select_accelerator(
+        Torch, "p100", 1, world_size=2)) == "cuda:1"
+    assert selected == [1]
+
+
+def test_phase_contract_combines_cold_warmup_and_steady():
+    document = bench.build_document(
+        _args(
+            "--dry-run", "--side", "pyqcu", "--profile", "smoke",
+            "--phases", "cold,warmup,steady", "--cache-expect", "any",
+            "--repeats", "5", "--tol", "1e-3", "--restart", "8",
+            "--max-iter", "20"),
+        dry_run=True)
+    assert document["execution"]["phases"]["selected"] == [
+        "cold", "warmup", "steady"]
+    assert document["execution"]["phases"]["counts"] == {
+        "cold": 1, "warmup": 2, "steady": 5}
+    document["input_fingerprints"] = _synthetic_fingerprints()
+    main = _successful_side("pyqcu", document, 2.0)
+    main["runtime_cache"]["expectation"] = "hit"
+    main["runtime_cache"]["hit"] = True
+    cold = copy.deepcopy(main)
+    cold["timing"]["cold_seconds"] = 0.75
+    cold["runtime_cache"] = copy.deepcopy(main["runtime_cache"])
+    cold["runtime_cache"]["expectation"] = "miss"
+    cold["runtime_cache"]["hit"] = False
+    combined = bench._combine_phase_records(cold, main)
+    document["sides"]["pyqcu"] = combined
+    assert "cold_seconds" in combined["timing"]
+    assert len(combined["timing"]["warmups"]) == 2
+    assert len(combined["timing"]["steady"]["samples_seconds"]) == 5
+    assert combined["runtime_cache"]["cold"]["expectation"] == "miss"
+    assert combined["runtime_cache"]["steady"]["expectation"] == "hit"
+    assert combined["runtime_cache"]["expectation"] == "hit"
+    assert bench.validate_document(document, allow_planned=True) == []
+
+
+def test_mpi_rank_trace_suffix_and_side_aggregation(tmp_path, monkeypatch):
+    path = tmp_path / "trace"
+    monkeypatch.setenv("PYQCU_STRICT_TRACE_FILE", str(path))
+    monkeypatch.setenv("QUDA_MG_TRACE_FILE", str(path.with_suffix(".quda")))
+    context = {
+        "rank": 1,
+        "size": 2,
+        "process_grid": [2, 1, 1, 1],
+        "rank_coordinate": [1, 0, 0, 0],
+    }
+    paths = bench._activate_rank_trace_paths(context)
+    assert paths["PYQCU_STRICT_TRACE_FILE"].endswith(".rank00001")
+    assert paths["QUDA_MG_TRACE_FILE"].endswith(".rank00001")
+
+    document = bench.build_document(
+        _args("--dry-run", "--side", "pyqcu", "--cache-expect", "hit"),
+        dry_run=True)
+    document["input_fingerprints"] = _synthetic_fingerprints()
+    records = []
+    for rank, seconds in enumerate((1.0, 2.0)):
+        record = _successful_side("pyqcu", document, seconds)
+        record["mpi"] = {
+            "rank": rank, "size": 2,
+            "process_grid": [2, 1, 1, 1],
+            "rank_coordinate": [rank, 0, 0, 0],
+        }
+        record["provenance"]["runtime"]["device_uuid"] = f"GPU-{rank}"
+        record["provenance"]["runtime"]["device_name"] = f"P100-{rank}"
+        record["trace_paths"] = {
+            "PYQCU_STRICT_TRACE_FILE": str(path) + f".rank{rank:05d}"}
+        records.append(record)
+    aggregated = bench._aggregate_side_records(
+        "pyqcu", records, {
+            "rank": 0, "size": 2, "process_grid": [2, 1, 1, 1],
+            "rank_coordinate": [0, 0, 0, 0],
+        })
+    assert aggregated["status"] == "ok"
+    assert aggregated["timing"]["steady"]["median_seconds"] == 2.0
+    assert len(aggregated["provenance"]["runtime_ranks"]) == 2
+    assert len(aggregated["runtime_cache"]["ranks"]) == 2
+    assert aggregated["rank_results"][1]["trace_paths"][
+        "PYQCU_STRICT_TRACE_FILE"].endswith(".rank00001")
+
+    cold_records = []
+    for record in records:
+        value = copy.deepcopy(record)
+        value["timing"]["steady"] = {
+            "samples_seconds": [], "median_seconds": None, "mad_seconds": None}
+        value["timing"]["cold_seconds"] = 0.5
+        value["iterations"] = bench._iteration_summary([3])
+        value["converged_samples"] = [True]
+        value["true_residual"]["samples_rel"] = [1.0e-7]
+        cold_records.append(value)
+    cold = bench._aggregate_side_records(
+        "pyqcu", cold_records, {
+            "rank": 0, "size": 2, "process_grid": [2, 1, 1, 1],
+            "rank_coordinate": [0, 0, 0, 0],
+        })
+    assert cold["timing"]["cold_seconds"] == 0.5
+    assert cold["timing"]["steady"]["samples_seconds"] == []
+
+
+def test_pyqcu_trace_v3_iteration_counters_are_accumulated(tmp_path):
+    path = tmp_path / "pyqcu_v3.tsv"
+    path.write_text(
+        "trace_version\t3\n"
+        "solve_begin\t1.0\n"
+        "stage\t1\t0\tfine_pre_smoother\t0.1\t0.1\n"
+        "iteration_count\t1\t0\tpre_smoother_iterations\t1\t0.1\n"
+        "iteration_count\t1\t0\tpost_smoother_iterations\t2\t0.1\n"
+        "iteration_count\t1\t0\trestriction_calls\t1\t0.1\n"
+        "iteration_count\t1\t0\tprolongation_calls\t1\t0.1\n"
+        "iteration_count\t1\t0\trecursive_solve_calls\t1\t0.1\n"
+        "iteration_count\t1\t0\tcoarse_solver_iterations\t3\t0.1\n"
+        "iteration_count\t1\t0\tcoarse_solver_calls\t1\t0.1\n"
+        "stage\t1\t1\tlevel_pre_smoother\t0.2\t0.2\n"
+        "iteration_count\t1\t1\tpre_smoother_iterations\t4\t0.2\n"
+        "solve_end\t3\t1\t0.1\t0.1\t0.2\n",
+        encoding="utf-8")
+    levels = bench._mg_levels_from_trace("pyqcu", path, [0], 2)
+    assert levels is not None
+    assert [item["total_iterations"] for item in levels] == [3, 3]
+    assert levels[0]["finest_iterations"] == 3
+    assert levels[0]["pre_smoother_iterations"] == 1
+    assert levels[0]["post_smoother_iterations"] == 2
+    assert levels[0]["smoother_iterations"] == 3
+    assert levels[0]["coarse_solver_iterations"] == 3
+    assert levels[0]["restriction_calls"] == 1
+    assert levels[0]["prolongation_calls"] == 1
+    assert levels[0]["recursive_solve_calls"] == 1
+    assert levels[0]["coarse_solver_calls"] == 1
+    assert levels[1]["pre_smoother_iterations"] == 4
+    assert levels[0]["total_seconds"] == pytest.approx(0.1)
+    assert levels[1]["total_seconds"] == pytest.approx(0.2)
+    for level in levels:
+        known = sum(level[key] for key in (
+            "pre_smoother_seconds", "post_smoother_seconds",
+            "restriction_seconds", "prolongation_seconds",
+            "coarse_solver_seconds"))
+        assert level["other_seconds"] == pytest.approx(
+            level["total_seconds"] - known)
+
+    path.write_text("trace_version\t4\n", encoding="utf-8")
+    with pytest.raises(bench.BenchmarkFailure, match="trace_version=4"):
+        bench._parse_pyqcu_trace(path)
+    for version in (1, 2, 3):
+        path.write_text(
+            f"trace_version\t{version}\n"
+            "solve_begin\t1.0\n"
+            "solve_end\t1\t1\t0.1\t0.1\t0.1\n",
+            encoding="utf-8")
+        assert len(bench._parse_pyqcu_trace(path)) == 1
+
+
+def test_quda_trace_absolute_coarsest_and_reliable_update_dedup(tmp_path):
+    path = tmp_path / "quda_mg.tsv"
+    path.write_text(
+        "trace_version\t1\n"
+        "python_solve_begin\t0\t1.0\n"
+        "stage\t1\t0\tpre_smoother\t1.0\t-1\t-1\t-1\t1\t0.1\n"
+        "stage\t1\t0\tpre_smoother_iterations\t0.0\t2\t-1\t-1\t1\t0.1\n"
+        "stage\t1\t0\tpost_smoother_iterations\t0.0\t-1\t3\t-1\t1\t0.1\n"
+        "stage\t1\t0\tcoarse_solver_iterations\t0.0\t-1\t-1\t4\t1\t0.1\n"
+        "stage\t1\t1\tcoarsest_solve\t2.0\t10\t13\t-1\t1\t0.2\n"
+        "outer_iteration\t1\t1\t0.1\t0.3\t1.0\t0.3\t-1\t-1\t-1\t0.2\n"
+        "outer_iteration\t1\t1\t0.1\t0.3\t1.0\t0.3\t0.01\t0.1\t0.1\t0.2\n"
+        "python_solve_end\t0\t1.0\n",
+        encoding="utf-8")
+    levels = bench._mg_levels_from_trace("quda", path, [0], 2)
+    assert levels is not None
+    assert [item["total_iterations"] for item in levels] == [1, 1]
+    assert levels[0]["pre_smoother_iterations"] == 2
+    assert levels[0]["post_smoother_iterations"] == 3
+    assert levels[0]["smoother_iterations"] == 5
+    assert levels[0]["coarse_solver_iterations"] == 4
+    assert levels[1]["pre_smoother_iterations"] == 3
+    assert levels[0]["finest_iterations"] == 1
+    assert len(levels[0]["residual_sequence"]) == 1
+    assert levels[0]["residual_sequence"][0]["kind"] == "gcr_true_residual"
+    assert levels[0]["residual_sequence"][0]["relative"] == pytest.approx(0.1)
+
+
+def test_mg_level_conservation_rejects_negative_other():
+    accumulator = bench._empty_level_accumulator(0)
+    accumulator["total_seconds"] = 1.0
+    accumulator["pre_smoother_seconds"] = 1.5
+    with pytest.raises(bench.BenchmarkFailure) as error:
+        bench._finalise_mg_levels([accumulator])
+    assert error.value.code == "mg_level_timing_negative_other"
+
+
+def test_process_grid_must_match_mpi_ranks():
+    with pytest.raises(ValueError, match="process grid"):
+        bench.build_document(
+            _args(
+                "--dry-run", "--mpi-ranks", "2",
+                "--process-grid", "4", "1", "1", "1"),
+            dry_run=True)
+
+
+def test_rank_local_cache_identity_has_distinct_paths(tmp_path):
+    document = bench.build_document(
+        _args(
+            "--dry-run", "--side", "pyqcu", "--mpi-ranks", "2",
+            "--process-grid", "2", "1", "1", "1"),
+        dry_run=True)
+    fingerprints = _synthetic_fingerprints()
+    identities = []
+    for rank in range(2):
+        identities.append(bench._strict_runtime_cache_identity({
+            "protocol": document["protocol"],
+            "input_fingerprints": fingerprints,
+            "mpi_context": {
+                "rank": rank,
+                "size": 2,
+                "process_grid": [2, 1, 1, 1],
+                "rank_coordinate": [rank, 0, 0, 0],
+            },
+        }))
+    assert identities[0]["mpi_shard"]["rank"] == 0
+    assert identities[1]["mpi_shard"]["rank"] == 1
+    assert bench._strict_runtime_cache_path(
+        identities[0], tmp_path) != bench._strict_runtime_cache_path(
+            identities[1], tmp_path)
+
+
+def test_mpi_ranks_launch_once_through_single_mpirun(monkeypatch):
+    document = bench.build_document(
+        _args(
+            "--dry-run", "--side", "pyqcu", "--mpi-ranks", "2",
+            "--process-grid", "2", "1", "1", "1"),
+        dry_run=True)
+    records = [
+        {
+            "side": "pyqcu",
+            "status": "side_unsupported",
+            "reason": {"code": "fixture", "detail": "rank-local"},
+            "config_hash": document["protocol"]["config_hash"],
+            "mpi": {
+                "rank": rank, "size": 2,
+                "process_grid": [2, 1, 1, 1],
+                "rank_coordinate": [rank, 0, 0, 0],
+            },
+        }
+        for rank in range(2)
+    ]
+    captured = {}
+
+    monkeypatch.setattr(
+        bench.shutil, "which",
+        lambda name: "/usr/bin/mpirun" if name == "mpirun" else None)
+
+    def run(command, timeout, *, env=None):
+        captured["command"] = list(command)
+        captured["timeout"] = timeout
+        result_dir = Path(env[bench.WORKER_RESULT_DIR_ENV])
+        for record in records:
+            (result_dir / f"rank{record['mpi']['rank']:05d}.json").write_text(
+                json.dumps(record, separators=(",", ":")), encoding="utf-8")
+        return {
+            "command": list(command),
+            "returncode": 0,
+            "timed_out": False,
+            "wall_seconds": 0.1,
+            "stdout": "",
+            "stderr": "",
+        }
+
+    monkeypatch.setattr(bench, "run_process_group", run)
+    result = bench._launch_side_once(
+        "pyqcu", document, 10.0,
+        {
+            "cold": False, "warmup": True, "steady": True,
+            "cache_expect": "any",
+        })
+    assert captured["command"][:3] == ["/usr/bin/mpirun", "-np", "2"]
+    assert result["status"] == "side_unsupported"
+    assert len(result["rank_results"]) == 2
+
+
+def test_full_phase_launch_forces_cold_miss_then_steady_hit(monkeypatch):
+    document = bench.build_document(
+        _args(
+            "--dry-run", "--side", "pyqcu", "--profile", "formal",
+            "--phases", "cold,warmup,steady", "--cache-expect", "any"),
+        dry_run=True)
+    document["input_fingerprints"] = _synthetic_fingerprints()
+    calls = []
+
+    def launch(side, doc, timeout, phase_request, phase_tag=None):
+        calls.append((side, dict(phase_request), phase_tag))
+        record = _successful_side(side, doc, 1.0)
+        if phase_request["cold"]:
+            record["timing"]["cold_seconds"] = 0.5
+            record["runtime_cache"]["expectation"] = "miss"
+            record["runtime_cache"]["hit"] = False
+        else:
+            record["runtime_cache"]["expectation"] = "hit"
+            record["runtime_cache"]["hit"] = True
+        return record
+
+    monkeypatch.setattr(bench, "_launch_side_once", launch)
+    result = bench._launch_side("pyqcu", document, 10.0)
+    assert calls[0][1]["cache_expect"] == "miss"
+    assert calls[0][2] == "cold"
+    assert calls[1][1]["cache_expect"] == "hit"
+    assert calls[1][2] == "warmup_steady"
+    assert result["timing"]["cold_seconds"] == 0.5
+    assert result["runtime_cache"]["steady"]["expectation"] == "hit"
+
+
+def test_legacy_success_json_without_mg_levels_remains_readable():
+    document = bench.build_document(
+        _args("--side", "pyqcu", "--cache-expect", "hit"), dry_run=False)
+    document["input_fingerprints"] = _synthetic_fingerprints()
+    record = _successful_side("pyqcu", document, 1.0)
+    record.pop("mg_levels")
+    record.pop("iteration_semantics")
+    document["sides"]["pyqcu"] = record
+    assert bench.validate_document(document, allow_planned=True) == []
+
+    record["iteration_semantics"] = "new contract"
+    errors = bench.validate_document(document, allow_planned=True)
+    assert "pyqcu mg_levels must contain 2 entries" in errors

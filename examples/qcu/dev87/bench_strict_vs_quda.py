@@ -51,6 +51,7 @@ import signal
 import statistics
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import traceback
@@ -73,6 +74,7 @@ QIO_HOST_LAYOUT = (
 )
 WORKER_PREFIX = "PYQCU_STRICT_BENCH_RESULT="
 WORKER_PAYLOAD_ENV = "PYQCU_STRICT_BENCH_PAYLOAD_B64"
+WORKER_RESULT_DIR_ENV = "PYQCU_STRICT_BENCH_RESULT_DIR"
 
 DEFAULT_LATTICE = (16, 32, 32, 48)
 LATTICE = DEFAULT_LATTICE
@@ -92,6 +94,12 @@ COARSE_SPIN = 2
 TARGET_PARITY = 1
 WARMUPS = 2
 DEFAULT_REPEATS = 5
+PHASE_ORDER = ("cold", "warmup", "steady")
+DEFAULT_PHASES = ("warmup", "steady")
+DEVICE_TARGETS = ("auto", "v100", "p100")
+MPI_RANK_ENV = "PYQCU_STRICT_BENCH_MPI_RANK"
+MPI_SIZE_ENV = "PYQCU_STRICT_BENCH_MPI_SIZE"
+MPI_GRID_ENV = "PYQCU_STRICT_BENCH_PROCESS_GRID"
 DEFAULT_TIMEOUT = 1800.0
 DEFAULT_RESTART = 16
 DEFAULT_MAX_KRYLOV_BYTES = 512 << 20
@@ -115,7 +123,9 @@ GAUGE_PATH = REPO / "data" / "gauge_16x32x32x48_m0.05_seed42_c64.h5"
 NULLVEC_PATH = REPO / "data" / "L16x32x32x48_nvec12_full_c64.h5"
 DEFAULT_OUTPUT = HERE / "out" / "strict_vs_quda_benchmark.json"
 
-TERMINAL_STATUSES = {"ok", "skipped", "failed", "timeout"}
+TERMINAL_STATUSES = {
+    "ok", "skipped", "failed", "timeout", "side_unsupported",
+}
 SIDE_NAMES = ("pyqcu", "quda")
 ENV_ALLOWLIST = (
     "CUDA_VISIBLE_DEVICES",
@@ -125,7 +135,13 @@ ENV_ALLOWLIST = (
     "QUDA_BUILD_DIR",
     "QUDA_SOURCE_DIR",
     "DEV87_REDUCE_SYNC",
+    "PYQCU_STRICT_TRACE_FILE",
+    "PYQCU_QUDA_TRACE_FILE",
     "QUDA_MG_TRACE_FILE",
+    "PYQCU_STRICT_BENCH_MPI_RANK",
+    "PYQCU_STRICT_BENCH_MPI_SIZE",
+    "PYQCU_STRICT_BENCH_PROCESS_GRID",
+    "PYQCU_STRICT_BENCH_RESULT_DIR",
     "PYQCU_MPI_DEVICE_AWARE",
     "OMP_NUM_THREADS",
 )
@@ -152,6 +168,14 @@ class BenchmarkFailure(RuntimeError):
         self.context = {} if context is None else copy.deepcopy(dict(context))
 
 
+class BenchmarkUnsupported(BenchmarkFailure):
+    """The requested side/protocol is valid but cannot be represented safely."""
+
+    def __init__(self, code: str, detail: str,
+                 context: Optional[Mapping[str, Any]] = None):
+        super().__init__(code, detail, context)
+
+
 def _utc_now() -> str:
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
@@ -166,10 +190,205 @@ def _sha256_json(value: Any) -> str:
     return hashlib.sha256(_json_bytes(value)).hexdigest()
 
 
+def _normalise_phases(value: Any) -> Tuple[str, ...]:
+    if isinstance(value, str):
+        items = [item.strip().lower() for item in value.split(",") if item.strip()]
+    else:
+        try:
+            items = [str(item).strip().lower() for item in value]
+        except TypeError as exc:
+            raise ValueError("phases must be a comma-separated string or sequence") from exc
+    if not items:
+        raise ValueError("phases must not be empty")
+    unknown = sorted(set(items) - set(PHASE_ORDER))
+    if unknown:
+        raise ValueError(f"unknown phases: {unknown}; expected {list(PHASE_ORDER)}")
+    if len(set(items)) != len(items):
+        raise ValueError("phases must not contain duplicates")
+    selected = set(items)
+    return tuple(phase for phase in PHASE_ORDER if phase in selected)
+
+
+def _phases_from_args(args: argparse.Namespace) -> Tuple[str, ...]:
+    return _normalise_phases(getattr(args, "phases", DEFAULT_PHASES))
+
+
+def _phase_counts(
+        phases: Sequence[str],
+        steady_repeats: int = DEFAULT_REPEATS) -> Dict[str, int]:
+    selected = set(_normalise_phases(phases))
+    return {
+        "cold": 1 if "cold" in selected else 0,
+        "warmup": WARMUPS if "warmup" in selected else 0,
+        "steady": int(steady_repeats) if "steady" in selected else 0,
+    }
+
+
+def _phase_request(payload: Mapping[str, Any]) -> Dict[str, Any]:
+    request = payload.get("phase_request")
+    if request is None:
+        execution = payload.get("execution") or {}
+        phases = execution.get("phases") or DEFAULT_PHASES
+        if isinstance(phases, Mapping):
+            phases = phases.get("selected") or DEFAULT_PHASES
+        selected = set(_normalise_phases(phases))
+        return {
+            "cold": "cold" in selected,
+            "warmup": "warmup" in selected,
+            "steady": "steady" in selected,
+            "cache_expect": (
+                (execution.get("strict_cache") or {}).get("expect", "any")),
+            "legacy": True,
+        }
+    if not isinstance(request, Mapping):
+        raise TypeError("phase_request must be a mapping")
+    return {
+        "cold": bool(request.get("cold", False)),
+        "warmup": bool(request.get("warmup", False)),
+        "steady": bool(request.get("steady", False)),
+        "cache_expect": str(request.get("cache_expect", "any")),
+        "legacy": False,
+    }
+
+
+def _default_process_grid(ranks: int) -> Tuple[int, int, int, int]:
+    return (1, 1, 1, 1) if int(ranks) == 1 else (int(ranks), 1, 1, 1)
+
+
+def _normalise_process_grid(
+        value: Optional[Sequence[int]], ranks: int) -> Tuple[int, int, int, int]:
+    if value is None:
+        grid = _default_process_grid(ranks)
+    else:
+        try:
+            grid = tuple(int(item) for item in value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("process grid must contain four positive integers") from exc
+        if len(grid) != 4 or any(item <= 0 for item in grid):
+            raise ValueError("process grid must contain four positive integers")
+    if math.prod(grid) != int(ranks):
+        raise ValueError(
+            f"process grid {grid} has {math.prod(grid)} ranks, "
+            f"expected --mpi-ranks={int(ranks)}")
+    return grid  # type: ignore[return-value]
+
+
+def _rank_coordinate(rank: int, grid: Sequence[int]) -> Tuple[int, int, int, int]:
+    coordinate = [0, 0, 0, 0]
+    remainder = int(rank)
+    for axis in range(4):
+        stride = math.prod(grid[axis + 1:])
+        coordinate[axis] = remainder // stride
+        remainder %= stride
+    return tuple(coordinate)  # type: ignore[return-value]
+
+
+def _worker_mpi_environment_context() -> Optional[Dict[str, int]]:
+    rank_names = ("OMPI_COMM_WORLD_RANK", "PMI_RANK", "PMIX_RANK")
+    size_names = ("OMPI_COMM_WORLD_SIZE", "PMI_SIZE", "PMIX_SIZE")
+    rank_value = next((os.environ[name] for name in rank_names
+                       if os.environ.get(name) is not None), None)
+    size_value = next((os.environ[name] for name in size_names
+                       if os.environ.get(name) is not None), None)
+    if rank_value is None and size_value is None:
+        return None
+    if rank_value is None or size_value is None:
+        raise BenchmarkFailure(
+            "mpi_environment_incomplete",
+            f"incomplete MPI environment: rank={rank_value!r}, size={size_value!r}")
+    result = {"rank": int(rank_value), "size": int(size_value)}
+    local_rank = os.environ.get("OMPI_COMM_WORLD_LOCAL_RANK")
+    local_size = os.environ.get("OMPI_COMM_WORLD_LOCAL_SIZE")
+    if local_rank is not None:
+        result["local_rank"] = int(local_rank)
+    if local_size is not None:
+        result["local_size"] = int(local_size)
+    return result
+
+
+def _worker_mpi_context(payload: Mapping[str, Any]) -> Dict[str, Any]:
+    env_context = _worker_mpi_environment_context()
+    explicit_rank = payload.get("mpi_rank")
+    explicit_size = payload.get("mpi_size")
+    if env_context is not None:
+        rank = int(env_context["rank"])
+        size = int(env_context["size"])
+    else:
+        rank = 0 if explicit_rank is None else int(explicit_rank)
+        size = 1 if explicit_size is None else int(explicit_size)
+    parallel = (payload.get("execution") or {}).get("parallel") or {}
+    grid = parallel.get("process_grid")
+    if grid is None:
+        grid = payload.get("mpi_process_grid")
+    grid = _normalise_process_grid(grid, size)
+    if rank < 0 or rank >= size:
+        raise BenchmarkFailure(
+            "mpi_rank_invalid", f"rank={rank}, size={size}")
+    coordinate = _rank_coordinate(rank, grid)
+    return {
+        "rank": rank,
+        "size": size,
+        "process_grid": list(grid),
+        "rank_coordinate": list(coordinate),
+        "local_rank": int(env_context.get(
+            "local_rank", rank)) if env_context is not None else rank,
+        "local_size": int(env_context.get(
+            "local_size", size)) if env_context is not None else size,
+    }
+
+
+def _rank_trace_path(path: str, rank: int) -> str:
+    suffix = f".rank{int(rank):05d}"
+    return path if path.endswith(suffix) else path + suffix
+
+
+def _activate_rank_trace_paths(context: Mapping[str, Any]) -> Dict[str, str]:
+    """Give every MPI rank a private native trace file."""
+    rank = int(context["rank"])
+    size = int(context["size"])
+    result: Dict[str, str] = {}
+    for name in (
+            "PYQCU_STRICT_TRACE_FILE", "QUDA_MG_TRACE_FILE",
+            "PYQCU_QUDA_TRACE_FILE"):
+        value = os.environ.get(name)
+        if not value:
+            continue
+        if size > 1:
+            value = _rank_trace_path(value, rank)
+            os.environ[name] = value
+        path = Path(value).resolve()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if path.exists():
+            path.unlink()
+        result[name] = str(path)
+    return result
+
+
+def _side_trace_path(side: str) -> Optional[Path]:
+    variable = (
+        "PYQCU_STRICT_TRACE_FILE" if side == "pyqcu" else
+        "QUDA_MG_TRACE_FILE")
+    value = os.environ.get(variable)
+    return Path(value).resolve() if value else None
+
+
 def _strict_runtime_cache_identity(payload: Mapping[str, Any]) -> Dict[str, Any]:
     """Return the immutable physical identity of reusable strict assets."""
     config = payload["protocol"]
     fingerprints = payload["input_fingerprints"]
+    mpi_context = payload.get("mpi_context")
+    if not isinstance(mpi_context, Mapping):
+        execution = payload.get("execution") or {}
+        parallel = execution.get("parallel") or {}
+        ranks = int(parallel.get("ranks", 1))
+        grid = _normalise_process_grid(parallel.get("process_grid"), ranks)
+        rank = int(payload.get("mpi_rank", 0))
+        mpi_context = {
+            "rank": rank,
+            "size": ranks,
+            "process_grid": list(grid),
+            "rank_coordinate": list(_rank_coordinate(rank, grid)),
+        }
 
     def input_identity(name: str) -> Dict[str, Any]:
         value = fingerprints[name]
@@ -202,7 +421,10 @@ def _strict_runtime_cache_identity(payload: Mapping[str, Any]) -> Dict[str, Any]
         # PyQCU's explicit gamma matrices match QUDA's DeGrand-Rossi table
         # (despite an older project note calling them Dirac-Pauli).
         "gamma_basis": "QUDA_DEGRAND_ROSSI_GAMMA_BASIS (pyqcu.lattice.gamma)",
-        "boundary_conditions": "periodic xyzt; single MPI rank",
+        "boundary_conditions": (
+            "periodic xyzt; single MPI rank"
+            if int(mpi_context["size"]) == 1 else
+            "periodic xyzt; distributed rank-local shard"),
         "clover_convention": {
             "python_builder": "pyqcu.dslash.make_clover",
             "cuda_sigma": 0.1,
@@ -215,6 +437,13 @@ def _strict_runtime_cache_identity(payload: Mapping[str, Any]) -> Dict[str, Any]
         "coarsening_operator": "R(X^-1 D)P",
         "runtime_assets": "fine blocked V; per-transition Yhat/(X,X^-1)",
     }
+    if int(mpi_context["size"]) > 1:
+        identity["mpi_shard"] = {
+            "ranks": int(mpi_context["size"]),
+            "process_grid": list(mpi_context["process_grid"]),
+            "rank": int(mpi_context["rank"]),
+            "rank_coordinate": list(mpi_context["rank_coordinate"]),
+        }
     block_precision = config.get("pyqcu_strict_block_precision")
     if (isinstance(block_precision, Mapping) and
             block_precision.get("effective") == "single" and
@@ -228,9 +457,18 @@ def _strict_runtime_cache_path(
     return Path(cache_dir) / f"strict_runtime_{_sha256_json(identity)[:24]}.h5"
 
 
-def _strict_runtime_expected_manifest(config: Mapping[str, Any]) -> Dict[str, Any]:
+def _strict_runtime_expected_manifest(
+        config: Mapping[str, Any],
+        mpi_context: Optional[Mapping[str, Any]] = None) -> Dict[str, Any]:
     """Exact recursive asset contract for the selected benchmark hierarchy."""
     lattice = tuple(int(x) for x in config["lattice_xyzt"])
+    if mpi_context is not None:
+        grid = tuple(int(x) for x in mpi_context["process_grid"])
+        if any(extent % width for extent, width in zip(lattice, grid)):
+            raise ValueError(
+                f"lattice={lattice} is not divisible by process_grid={grid}")
+        lattice = tuple(
+            extent // width for extent, width in zip(lattice, grid))
     blocks = [
         tuple(int(x) for x in value)
         for value in config.get(
@@ -239,6 +477,10 @@ def _strict_runtime_expected_manifest(config: Mapping[str, Any]) -> Dict[str, An
     ]
     if len(blocks) != int(config["levels"]) - 1:
         raise ValueError("block_xyzt_per_level length must equal levels-1")
+    if not blocks:
+        raise ValueError(
+            "levels=1 has no strict runtime transition cache; "
+            "PyQCU strict MG-1 is unsupported")
     coarse_dof = int(config["coarse_dof"])
     dtype = {
         "c64": "complex64",
@@ -329,6 +571,469 @@ def _capture_native_stdout(path: Optional[os.PathLike[str] | str]):
         os.dup2(saved_fd, 1)
         os.close(target_fd)
         os.close(saved_fd)
+
+
+def _float_field(fields: Sequence[str], index: int) -> float:
+    return float(fields[index])
+
+
+def _int_field(fields: Sequence[str], index: int) -> int:
+    return int(fields[index])
+
+
+def _parse_pyqcu_trace(path: Path) -> List[Dict[str, Any]]:
+    if not path.is_file():
+        return []
+    sections: List[Dict[str, Any]] = []
+    current: Optional[Dict[str, Any]] = None
+    for line_number, raw in enumerate(
+            path.read_text(encoding="utf-8", errors="replace").splitlines(), 1):
+        if not raw:
+            continue
+        fields = raw.split("\t")
+        kind = fields[0]
+        try:
+            if kind == "trace_version":
+                version = _int_field(fields, 1)
+                if version not in (1, 2, 3):
+                    raise BenchmarkFailure(
+                        "pyqcu_trace_version_unsupported",
+                        f"{path}: trace_version={version}")
+                continue
+            if kind == "solve_begin":
+                if current is not None:
+                    raise ValueError("nested solve_begin")
+                current = {
+                    "solve_index": len(sections),
+                    "rhs_norm": _float_field(fields, 1),
+                    "events": [],
+                }
+                continue
+            if kind == "solve_end":
+                if current is None:
+                    raise ValueError("solve_end without solve_begin")
+                current["end"] = {
+                    "iterations": _int_field(fields, 1),
+                    "converged": bool(_int_field(fields, 2)),
+                    "residual": _float_field(fields, 3),
+                    "relative": _float_field(fields, 4),
+                    "elapsed_seconds": _float_field(fields, 5),
+                }
+                sections.append(current)
+                current = None
+                continue
+            if current is None:
+                raise ValueError("event outside solve")
+            event: Dict[str, Any] = {"kind": kind}
+            if kind == "initial_residual":
+                event.update({
+                    "iteration": _int_field(fields, 1),
+                    "absolute": _float_field(fields, 2),
+                    "relative": _float_field(fields, 3),
+                    "elapsed_seconds": _float_field(fields, 4),
+                })
+            elif kind == "iteration":
+                event.update({
+                    "iteration": _int_field(fields, 1),
+                    "cycle_iteration": _int_field(fields, 2),
+                    "estimate": _float_field(fields, 3),
+                    "estimate_relative": _float_field(fields, 4),
+                    "next_norm": _float_field(fields, 5),
+                    "elapsed_seconds": _float_field(fields, 6),
+                })
+            elif kind == "restart_residual":
+                event.update({
+                    "iteration": _int_field(fields, 1),
+                    "absolute": _float_field(fields, 2),
+                    "relative": _float_field(fields, 3),
+                    "elapsed_seconds": _float_field(fields, 4),
+                })
+            elif kind == "stage":
+                event.update({
+                    "outer_iteration": _int_field(fields, 1),
+                    "level": _int_field(fields, 2),
+                    "name": fields[3],
+                    "seconds": _float_field(fields, 4),
+                    "elapsed_seconds": _float_field(fields, 5),
+                })
+            elif kind == "residual":
+                event.update({
+                    "outer_iteration": _int_field(fields, 1),
+                    "level": _int_field(fields, 2),
+                    "name": fields[3],
+                    "absolute": _float_field(fields, 4),
+                    "relative": _float_field(fields, 5),
+                    "elapsed_seconds": _float_field(fields, 6),
+                })
+            elif kind == "iteration_count":
+                event.update({
+                    "outer_iteration": _int_field(fields, 1),
+                    "level": _int_field(fields, 2),
+                    "name": fields[3],
+                    "value": _int_field(fields, 4),
+                    "elapsed_seconds": _float_field(fields, 5),
+                })
+            else:
+                raise ValueError(f"unknown record {kind!r}")
+            current["events"].append(event)
+        except (IndexError, ValueError) as exc:
+            raise BenchmarkFailure(
+                "pyqcu_trace_invalid",
+                f"{path}:{line_number}: {exc}; raw={raw!r}") from exc
+    if current is not None:
+        raise BenchmarkFailure(
+            "pyqcu_trace_unterminated", f"{path}: unterminated solve")
+    return sections
+
+
+def _parse_quda_mg_trace(path: Path) -> List[Dict[str, Any]]:
+    if not path.is_file():
+        return []
+    sections: List[Dict[str, Any]] = []
+    current: Optional[Dict[str, Any]] = None
+    for line_number, raw in enumerate(
+            path.read_text(encoding="utf-8", errors="replace").splitlines(), 1):
+        if not raw:
+            continue
+        fields = raw.split("\t")
+        kind = fields[0]
+        try:
+            if kind == "trace_version":
+                continue
+            if kind == "python_solve_begin":
+                if current is not None:
+                    raise ValueError("nested python_solve_begin")
+                current = {
+                    "solve_index": _int_field(fields, 1),
+                    "events": [],
+                }
+                continue
+            if kind == "python_solve_end":
+                if current is None:
+                    raise ValueError("python_solve_end without begin")
+                sections.append(current)
+                current = None
+                continue
+            if current is None:
+                raise ValueError("event outside solve")
+            event: Dict[str, Any] = {"kind": kind}
+            if kind in ("cycle_begin", "cycle_end"):
+                event["cycle"] = _int_field(fields, 1)
+                event["level"] = _int_field(fields, 2)
+                if kind == "cycle_begin":
+                    event["levels"] = _int_field(fields, 3)
+                    event["outer_iteration"] = _int_field(fields, 4)
+                else:
+                    event["relative"] = _float_field(fields, 6)
+            elif kind == "stage":
+                event.update({
+                    "cycle": _int_field(fields, 1),
+                    "level": _int_field(fields, 2),
+                    "phase": fields[3],
+                    "seconds": _float_field(fields, 4),
+                    "pre_iterations": _int_field(fields, 5),
+                    "post_iterations": _int_field(fields, 6),
+                    "coarse_iterations": _int_field(fields, 7),
+                    "outer_iteration": _int_field(fields, 8),
+                })
+            elif kind == "residual":
+                event.update({
+                    "cycle": _int_field(fields, 1),
+                    "level": _int_field(fields, 2),
+                    "phase": fields[3],
+                    "r2": _float_field(fields, 4),
+                    "rn": _float_field(fields, 5),
+                    "b2": _float_field(fields, 6),
+                    "relative": _float_field(fields, 7),
+                    "outer_iteration": _int_field(fields, 8),
+                })
+            elif kind == "outer_begin":
+                event.update({
+                    "iteration": _int_field(fields, 1),
+                    "r2": _float_field(fields, 2),
+                    "rn": _float_field(fields, 3),
+                    "b2": _float_field(fields, 4),
+                    "relative": _float_field(fields, 5),
+                })
+            elif kind == "outer_iteration":
+                event.update({
+                    "iteration": _int_field(fields, 1),
+                    "cycle_iteration": _int_field(fields, 2),
+                    "iterated_r2": _float_field(fields, 3),
+                    "iterated_rn": _float_field(fields, 4),
+                    "b2": _float_field(fields, 5),
+                    "iterated_relative": _float_field(fields, 6),
+                    "true_r2": _float_field(fields, 7),
+                    "true_rn": _float_field(fields, 8),
+                    "true_relative": _float_field(fields, 9),
+                })
+            else:
+                raise ValueError(f"unknown record {kind!r}")
+            current["events"].append(event)
+        except (IndexError, ValueError) as exc:
+            raise BenchmarkFailure(
+                "quda_mg_trace_invalid",
+                f"{path}:{line_number}: {exc}; raw={raw!r}") from exc
+    if current is not None:
+        raise BenchmarkFailure(
+            "quda_mg_trace_unterminated", f"{path}: unterminated solve")
+    return sections
+
+
+def _empty_level_accumulator(level: int) -> Dict[str, Any]:
+    return {
+        "level": int(level),
+        "total_seconds": 0.0,
+        "total_iterations": 0,
+        "pre_smoother_seconds": 0.0,
+        "post_smoother_seconds": 0.0,
+        "restriction_seconds": 0.0,
+        "prolongation_seconds": 0.0,
+        "coarse_solver_seconds": 0.0,
+        "pre_smoother_iterations": 0,
+        "post_smoother_iterations": 0,
+        "restriction_calls": 0,
+        "prolongation_calls": 0,
+        "recursive_solve_calls": 0,
+        "coarse_solver_iterations": 0,
+        "coarse_solver_calls": 0,
+        "residual_sequence": [],
+        "finest_iterations": None,
+        "_cycles": set(),
+    }
+
+
+def _pyqcu_stage_kind(name: str) -> Optional[str]:
+    if name in ("fine_pre_smoother", "level_pre_smoother"):
+        return "pre_smoother_seconds"
+    if name in ("fine_post_smoother", "level_post_smoother"):
+        return "post_smoother_seconds"
+    if name in ("fine_restriction", "level_restriction"):
+        return "restriction_seconds"
+    if name in ("fine_prolongation", "level_prolongation"):
+        return "prolongation_seconds"
+    if name in (
+            "coarse_vcycle", "level_recursive_solve", "coarsest_bicgstab"):
+        return "coarse_solver_seconds"
+    return None
+
+
+def _quda_stage_kind(name: str) -> Optional[str]:
+    if name == "pre_smoother":
+        return "pre_smoother_seconds"
+    if name == "post_smoother":
+        return "post_smoother_seconds"
+    if name == "restrict":
+        return "restriction_seconds"
+    if name == "prolongate":
+        return "prolongation_seconds"
+    if name in ("coarse_solver", "coarsest_solve"):
+        return "coarse_solver_seconds"
+    return None
+
+
+_PYQCU_ITERATION_COUNT_FIELDS = frozenset({
+    "pre_smoother_iterations",
+    "post_smoother_iterations",
+    "restriction_calls",
+    "prolongation_calls",
+    "recursive_solve_calls",
+    "coarse_solver_iterations",
+    "coarse_solver_calls",
+})
+
+
+def _finalise_mg_levels(
+        accumulators: Sequence[Mapping[str, Any]]) -> List[Dict[str, Any]]:
+    result: List[Dict[str, Any]] = []
+    for value in accumulators:
+        total = float(value["total_seconds"])
+        known = sum(float(value[key]) for key in (
+            "pre_smoother_seconds", "post_smoother_seconds",
+            "restriction_seconds", "prolongation_seconds",
+            "coarse_solver_seconds"))
+        other = total - known
+        if other < 0.0:
+            raise BenchmarkFailure(
+                "mg_level_timing_negative_other",
+                f"level={value['level']} total={total}, known={known}, "
+                f"other={other}")
+        item = {
+            "level": int(value["level"]),
+            "total_seconds": total,
+            "total_iterations": int(value["total_iterations"]),
+            "pre_smoother_seconds": float(value["pre_smoother_seconds"]),
+            "post_smoother_seconds": float(value["post_smoother_seconds"]),
+            "restriction_seconds": float(value["restriction_seconds"]),
+            "prolongation_seconds": float(value["prolongation_seconds"]),
+            "coarse_solver_seconds": float(value["coarse_solver_seconds"]),
+            "other_seconds": other,
+            "pre_smoother_iterations": int(
+                value["pre_smoother_iterations"]),
+            "post_smoother_iterations": int(
+                value["post_smoother_iterations"]),
+            "smoother_iterations": (
+                int(value["pre_smoother_iterations"]) +
+                int(value["post_smoother_iterations"])),
+            "restriction_calls": int(value["restriction_calls"]),
+            "prolongation_calls": int(value["prolongation_calls"]),
+            "recursive_solve_calls": int(value["recursive_solve_calls"]),
+            "coarse_solver_iterations": int(
+                value["coarse_solver_iterations"]),
+            "coarse_solver_calls": int(value["coarse_solver_calls"]),
+        }
+        if int(value["level"]) == 0:
+            item["finest_iterations"] = int(value["total_iterations"])
+            sequence = list(value["residual_sequence"])
+            item["residual_sequence"] = sequence
+            item["final_residual"] = (
+                float(sequence[-1]["relative"]) if sequence else None)
+        result.append(item)
+    return result
+
+
+def _mg_levels_from_trace(
+        side: str, path: Optional[Path], solve_indices: Sequence[int],
+        level_count: int) -> Optional[List[Dict[str, Any]]]:
+    if path is None or not path.is_file():
+        return None
+    sections = (
+        _parse_pyqcu_trace(path) if side == "pyqcu"
+        else _parse_quda_mg_trace(path))
+    selected: List[Mapping[str, Any]] = []
+    for index in solve_indices:
+        if index < 0 or index >= len(sections):
+            raise BenchmarkFailure(
+                f"{side}_trace_solve_missing",
+                f"{path}: requested solve={index}, available={len(sections)}")
+        selected.append(sections[index])
+    if not selected:
+        return None
+
+    accumulators = [_empty_level_accumulator(level)
+                    for level in range(int(level_count))]
+    for section in selected:
+        outer_iterations: Dict[int, Mapping[str, Any]] = {}
+        events = section.get("events", [])
+        if side == "pyqcu":
+            end = section.get("end")
+            if not isinstance(end, Mapping):
+                raise BenchmarkFailure(
+                    "pyqcu_trace_incomplete", f"{path}: solve has no end")
+            iterations = int(end["iterations"])
+            for acc in accumulators:
+                acc["total_iterations"] += iterations
+            for event in events:
+                if event["kind"] == "initial_residual":
+                    accumulators[0]["residual_sequence"].append({
+                        "solve_index": int(section["solve_index"]),
+                        "iteration": int(event["iteration"]),
+                        "relative": float(event["relative"]),
+                        "kind": "initial_true_residual",
+                    })
+                elif event["kind"] == "iteration":
+                    accumulators[0]["residual_sequence"].append({
+                        "solve_index": int(section["solve_index"]),
+                        "iteration": int(event["iteration"]),
+                        "relative": float(event["estimate_relative"]),
+                        "kind": "arnoldi_estimate",
+                    })
+                elif event["kind"] == "stage":
+                    level = int(event["level"])
+                    if level < 0 or level >= len(accumulators):
+                        raise BenchmarkFailure(
+                            "pyqcu_trace_level_invalid",
+                            f"{path}: level={level}")
+                    acc = accumulators[level]
+                    acc["total_seconds"] += float(event["seconds"])
+                    kind = _pyqcu_stage_kind(str(event["name"]))
+                    if kind is not None:
+                        acc[kind] += float(event["seconds"])
+                elif event["kind"] == "iteration_count":
+                    level = int(event["level"])
+                    if level < 0 or level >= len(accumulators):
+                        raise BenchmarkFailure(
+                            "pyqcu_trace_level_invalid",
+                            f"{path}: level={level}")
+                    name = str(event["name"])
+                    if name not in _PYQCU_ITERATION_COUNT_FIELDS:
+                        raise BenchmarkFailure(
+                            "pyqcu_trace_iteration_count_invalid",
+                            f"{path}: unknown counter {name!r}")
+                    accumulators[level][name] += int(event["value"])
+        else:
+            for event in events:
+                if event["kind"] == "outer_iteration":
+                    outer_iterations[int(event["iteration"])] = event
+                elif event["kind"] == "stage":
+                    level = int(event["level"])
+                    if level < 0 or level >= len(accumulators):
+                        raise BenchmarkFailure(
+                            "quda_mg_trace_level_invalid",
+                            f"{path}: level={level}")
+                    acc = accumulators[level]
+                    seconds = float(event["seconds"])
+                    acc["total_seconds"] += seconds
+                    kind = _quda_stage_kind(str(event["phase"]))
+                    if kind is not None:
+                        acc[kind] += seconds
+                    pre = int(event["pre_iterations"])
+                    post = int(event["post_iterations"])
+                    coarse = int(event["coarse_iterations"])
+                    if event["phase"] == "pre_smoother_iterations" and pre >= 0:
+                        acc["pre_smoother_iterations"] += pre
+                    elif event["phase"] == "post_smoother_iterations" and post >= 0:
+                        acc["post_smoother_iterations"] += post
+                    elif event["phase"] == "coarse_solver_iterations" and coarse >= 0:
+                        acc["coarse_solver_iterations"] += coarse
+                    elif event["phase"] == "coarsest_solve" and pre >= 0 and post >= 0:
+                        acc["pre_smoother_iterations"] += max(0, post - pre)
+            for acc in accumulators:
+                acc["total_iterations"] += len(outer_iterations)
+            for iteration in sorted(outer_iterations):
+                event = outer_iterations[iteration]
+                true_r2 = float(event["true_r2"])
+                relative = (
+                    float(event["true_relative"])
+                    if true_r2 >= 0.0 else
+                    float(event["iterated_relative"]))
+                accumulators[0]["residual_sequence"].append({
+                    "solve_index": int(section["solve_index"]),
+                    "iteration": int(iteration),
+                    "relative": relative,
+                    "kind": (
+                        "gcr_true_residual" if true_r2 >= 0.0 else
+                        "gcr_iterated_residual"),
+                })
+    for acc in accumulators:
+        acc.pop("_cycles", None)
+    return _finalise_mg_levels(accumulators)
+
+
+def _fallback_mg_levels(
+        config: Mapping[str, Any], timing: Mapping[str, Any],
+        iteration_samples: Sequence[int],
+        residual_samples: Sequence[float]) -> List[Dict[str, Any]]:
+    cold = timing.get("cold_seconds")
+    warmups = timing.get("warmups") or []
+    steady = timing.get("steady") or {}
+    steady_samples = steady.get("samples_seconds") or []
+    total_seconds = (
+        (0.0 if cold is None else float(cold)) +
+        sum(float(item.get("seconds", 0.0)) for item in warmups) +
+        sum(float(value) for value in steady_samples))
+    total_iterations = sum(int(value) for value in iteration_samples)
+    accumulators = [_empty_level_accumulator(level)
+                    for level in range(int(config["levels"]))]
+    accumulators[0]["total_seconds"] = total_seconds
+    for acc in accumulators:
+        acc["total_iterations"] = total_iterations
+    accumulators[0]["residual_sequence"] = [
+        {"solve_index": index, "iteration": None,
+         "relative": float(value), "kind": "case_true_residual"}
+        for index, value in enumerate(residual_samples)
+    ]
+    return _finalise_mg_levels(accumulators)
 
 
 def _git_provenance(repository: Path = REPO) -> Dict[str, Any]:
@@ -530,7 +1235,8 @@ def _quda_cmake_provenance() -> Dict[str, Any]:
 
 
 def _quda_cmake_feature_mismatches(
-        features: Mapping[str, Any], precision: str) -> List[str]:
+        features: Mapping[str, Any], precision: str,
+        n_level: int = 2) -> List[str]:
     normalized = features.get("normalized")
     if not isinstance(normalized, Mapping):
         return ["normalized CMake features missing"]
@@ -548,9 +1254,10 @@ def _quda_cmake_feature_mismatches(
             actual_precision & required_precision != required_precision):
         errors.append(
             f"precision={actual_precision!r} lacks bit {required_precision}")
-    nvec = normalized.get("multigrid_nvec_list")
-    if not isinstance(nvec, list) or 12 not in nvec or 24 not in nvec:
-        errors.append(f"multigrid_nvec_list={nvec!r} must contain 12 and 24")
+    if int(n_level) > 1:
+        nvec = normalized.get("multigrid_nvec_list")
+        if not isinstance(nvec, list) or 12 not in nvec or 24 not in nvec:
+            errors.append(f"multigrid_nvec_list={nvec!r} must contain 12 and 24")
     if str(precision) == "c128" and normalized.get("multigrid_double") is not True:
         errors.append(
             "multigrid_double="
@@ -743,8 +1450,8 @@ def _canonical_config(args: argparse.Namespace) -> Dict[str, Any]:
         raise ValueError("--lattice must contain four positive even extents")
     if len(block) != 4 or any(value <= 0 for value in block):
         raise ValueError("--block must contain four positive extents")
-    if not 2 <= levels <= 5:
-        raise ValueError("--levels must be in [2,5] for strict MultiGrid")
+    if not 1 <= levels <= 5:
+        raise ValueError("--levels must be in [1,5]")
     for axis, (extent, width) in enumerate(zip(lattice, block)):
         if extent % width:
             raise ValueError(
@@ -934,6 +1641,18 @@ def _canonical_config(args: argparse.Namespace) -> Dict[str, Any]:
             "quda_solution_scale": MASS + 4.0,
         },
     }
+    if levels == 1:
+        config["mg_level_semantics"] = {
+            "quda": (
+                "QUDA_MG_LEVEL=1: no transfer/coarse level; the MG "
+                "preconditioner executes the fine-level coarsest branch and "
+                "the outer GCR remains the total-iteration authority."),
+            "pyqcu": (
+                "unsupported by the current strict fused FGMRES C++ hierarchy, "
+                "which requires at least two levels"),
+            "pair_supported": False,
+            "fail_closed": True,
+        }
     if config["restart_requested"] <= 0:
         raise ValueError("--restart must be positive")
     if config["max_krylov_bytes"] <= 0:
@@ -998,7 +1717,7 @@ def _input_plan(args: argparse.Namespace) -> Dict[str, Any]:
         "quda_qio": {
             "prefix": args.quda_nullvec_prefix,
             "conversion_manifest": args.quda_nullvec_manifest,
-            "required_for_fair_quda_run": True,
+            "required_for_fair_quda_run": int(args.levels) > 1,
         },
     }
 
@@ -1022,10 +1741,36 @@ def _execution_plan(args: argparse.Namespace) -> Dict[str, Any]:
     except ValueError as exc:
         raise ValueError(
             f"--strict-cache-dir must stay inside {REPO.resolve()}: {cache_dir}") from exc
+    ranks = int(args.mpi_ranks)
+    if ranks <= 0:
+        raise ValueError("--mpi-ranks must be positive")
+    grid = _normalise_process_grid(args.process_grid, ranks)
+    lattice = tuple(int(value) for value in args.lattice)
+    if any(extent % width for extent, width in zip(lattice, grid)):
+        raise ValueError(
+            f"lattice={lattice} is not divisible by process_grid={grid}")
+    phases = _phases_from_args(args)
     return {
         "strict_cache": {
             "directory": str(cache_dir),
             "expect": str(args.cache_expect),
+        },
+        "phases": {
+            "selected": list(phases),
+            "counts": _phase_counts(phases, int(args.repeats)),
+            "cold_separate_process": (
+                "cold" in phases and
+                any(phase in phases for phase in ("warmup", "steady"))),
+        },
+        "device": {
+            "requested": str(args.device),
+        },
+        "parallel": {
+            "ranks": ranks,
+            "process_grid": list(grid),
+            "launcher": "mpirun" if ranks > 1 else "direct",
+            "rank_local_cache": ranks > 1,
+            "rank_suffixed_trace": ranks > 1,
         },
     }
 
@@ -1043,8 +1788,13 @@ def build_document(args: argparse.Namespace, *, dry_run: bool) -> Dict[str, Any]
     """构造不触发重型依赖的 v1 JSON 文档。供 CLI 与协议测试复用。"""
     config = _canonical_config(args)
     selected = set(SIDE_NAMES if args.side == "both" else (args.side,))
+    phases = _phases_from_args(args)
+    split_cold_steady = (
+        "cold" in phases and
+        any(phase in phases for phase in ("warmup", "steady")))
     if (not dry_run and config["profile"] == "formal" and
-            "pyqcu" in selected and args.cache_expect != "hit"):
+            "pyqcu" in selected and not split_cold_steady and
+            args.cache_expect != "hit"):
         raise ValueError(
             "formal profile requires --cache-expect hit when pyqcu is selected; "
             "dry-run may display cache-expect any")
@@ -1253,8 +2003,15 @@ def _prepare_quda_reduction_runtime() -> Dict[str, Any]:
 
 
 def _initialize_quda_qmp_runtime(
-        reduction_runtime: Mapping[str, Any]) -> Dict[str, Any]:
+        reduction_runtime: Mapping[str, Any],
+        topology: Optional[Sequence[int]] = None) -> Dict[str, Any]:
     """Initialize the QMP transport before PyQUDA calls initCommsGridQuda."""
+    expected_topology = tuple(
+        int(value) for value in (
+            topology if topology is not None else (1, 1, 1, 1)))
+    if len(expected_topology) != 4 or any(
+            value <= 0 for value in expected_topology):
+        raise ValueError("QMP topology must contain four positive extents")
     quda_library = reduction_runtime.get("library")
     if isinstance(quda_library, str):
         qmp_library = Path(quda_library).resolve().with_name("libqmp.so")
@@ -1324,12 +2081,12 @@ def _initialize_quda_qmp_runtime(
     topology_declared = bool(qmp.QMP_logical_topology_is_declared())
     topology = None
     if not topology_declared:
-        topology_dims = (ctypes.c_int * 4)(1, 1, 1, 1)
+        topology_dims = (ctypes.c_int * 4)(*expected_topology)
         status = int(qmp.QMP_declare_logical_topology(topology_dims, 4))
         if status != 0 or not qmp.QMP_logical_topology_is_declared():
             raise BenchmarkFailure(
                 "quda_qmp_topology_init_failed",
-                f"status={status}; unable to declare [1,1,1,1]")
+                f"status={status}; unable to declare {list(expected_topology)}")
         topology_declared = True
     if topology_declared:
         ndim = int(qmp.QMP_get_logical_number_of_dimensions())
@@ -1339,10 +2096,10 @@ def _initialize_quda_qmp_runtime(
                 "quda_qmp_topology_readback_failed",
                 f"ndim={ndim}")
         topology = [int(dims_ptr[index]) for index in range(ndim)]
-        if topology != [1, 1, 1, 1]:
+        if topology != list(expected_topology):
             raise BenchmarkFailure(
                 "quda_qmp_topology_mismatch",
-                f"expected [1,1,1,1], got {topology}")
+                f"expected {list(expected_topology)}, got {topology}")
     return {
         "library": str(qmp_library),
         "library_sha256": _sha256_file(qmp_library),
@@ -1358,29 +2115,32 @@ def _initialize_quda_qmp_runtime(
 def _fingerprint_inputs(document: MutableMapping[str, Any]) -> Dict[str, Any]:
     plans = document["inputs"]
     protocol = document.get("protocol", {})
+    levels = int(protocol.get("levels", LEVELS))
     lattice = tuple(int(value) for value in protocol.get(
         "lattice_xyzt", LATTICE))
     nvec = int(protocol.get("nvec", NVECS))
     gauge = _hash_hdf5_dataset(Path(plans["gauge"]["path"]), plans["gauge"]["dataset"])
     source = _hash_hdf5_dataset(Path(plans["source"]["path"]), plans["source"]["dataset"])
-    nullvec = _hash_hdf5_dataset(
-        Path(plans["null_vectors"]["path"]), plans["null_vectors"]["dataset"])
     checkerboard_shape = [*lattice[:3], lattice[3] // 2]
     expected_shapes = {
         "gauge": [2, 3, 3, 4, *checkerboard_shape],
         "source": [2, 4, 3, *checkerboard_shape],
+    }
+    result = {"gauge": gauge, "source": source}
+    if levels > 1:
+        nullvec = _hash_hdf5_dataset(
+            Path(plans["null_vectors"]["path"]),
+            plans["null_vectors"]["dataset"])
         # The formal protocol consumes the canonical full vectors directly.
         # The old E12 odd-Schur packing is provenance only and must never be
         # mistaken for the runtime transfer field.
-        "null_vectors": [nvec, 4, 3, *lattice],
-    }
-    for name, fingerprint in (("gauge", gauge), ("source", source),
-                              ("null_vectors", nullvec)):
+        expected_shapes["null_vectors"] = [nvec, 4, 3, *lattice]
+        result["null_vectors"] = nullvec
+    for name, fingerprint in result.items():
         if fingerprint["shape"] != expected_shapes[name]:
             raise BenchmarkFailure(
                 "input_shape_mismatch",
                 f"{name} shape={fingerprint['shape']} expected={expected_shapes[name]}")
-    result = {"gauge": gauge, "source": source, "null_vectors": nullvec}
     result["bundle_hash"] = _sha256_json({
         key: {"sha256": value["sha256"], "shape": value["shape"],
               "dtype": value["dtype"]}
@@ -1419,7 +2179,10 @@ def _input_fingerprint_mismatches(
             "bundle_hash changed: "
             f"previous={previous.get('bundle_hash')!r}, "
             f"current={current.get('bundle_hash')!r}")
-    for name in ("gauge", "source", "null_vectors"):
+    names = ["gauge", "source"]
+    if "null_vectors" in previous or "null_vectors" in current:
+        names.append("null_vectors")
+    for name in names:
         old_value = previous.get(name)
         new_value = current.get(name)
         if not isinstance(old_value, Mapping):
@@ -1432,7 +2195,9 @@ def _input_fingerprint_mismatches(
     return mismatches
 
 
-def _validate_input_fingerprints(value: Any, *, required: bool = False) -> List[str]:
+def _validate_input_fingerprints(
+        value: Any, *, required: bool = False,
+        levels: int = LEVELS) -> List[str]:
     if value is None:
         return ["input_fingerprints missing"] if required else []
     if not isinstance(value, Mapping):
@@ -1442,7 +2207,11 @@ def _validate_input_fingerprints(value: Any, *, required: bool = False) -> List[
         errors.append("input_fingerprints.bundle_hash is not sha256")
     entries: Dict[str, Any] = {}
     valid_entries: Dict[str, Any] = {}
-    for name in ("gauge", "source", "null_vectors"):
+    names = ["gauge", "source"]
+    if int(levels) > 1 or (
+            isinstance(value, Mapping) and "null_vectors" in value):
+        names.append("null_vectors")
+    for name in names:
         entry = value.get(name)
         if not isinstance(entry, Mapping):
             errors.append(f"input_fingerprints.{name} missing")
@@ -1477,7 +2246,7 @@ def _validate_input_fingerprints(value: Any, *, required: bool = False) -> List[
             entry_errors = True
         if not entry_errors:
             valid_entries[name] = entry
-    if len(entries) == 3 and len(valid_entries) == 3:
+    if len(entries) == len(names) and len(valid_entries) == len(names):
         expected_bundle = _sha256_json({
             key: {
                 "sha256": item["sha256"],
@@ -1723,24 +2492,78 @@ def _torch_runtime_provenance(torch: Any, device: Any) -> Dict[str, Any]:
     }
 
 
-def _select_v100(torch: Any) -> Any:
-    override = os.environ.get("QCU_DEVICE_ID")
+def _select_accelerator(
+        torch: Any, requested: str = "v100", rank: int = 0,
+        world_size: int = 1) -> Any:
+    requested = str(requested).lower()
+    if requested not in DEVICE_TARGETS:
+        raise ValueError(f"device target must be one of {DEVICE_TARGETS}")
     if not torch.cuda.is_available():
         raise BenchmarkSkip("cuda_unavailable", "torch.cuda.is_available() is false")
-    if override is not None:
-        index = int(override)
-        torch.cuda.set_device(index)
+
+    override = os.environ.get("QCU_DEVICE_ID")
+    if override is not None and override.strip():
+        indices = [int(value.strip()) for value in override.split(",")
+                   if value.strip()]
+        if not indices:
+            raise ValueError("QCU_DEVICE_ID must contain at least one device index")
+        if int(world_size) > len(indices):
+            raise BenchmarkSkip(
+                "insufficient_visible_devices",
+                f"world_size={world_size}, QCU_DEVICE_ID entries={indices}")
+        index = indices[int(rank)]
     else:
-        matches = [index for index in range(torch.cuda.device_count())
-                   if "V100" in torch.cuda.get_device_name(index)]
+        names = [torch.cuda.get_device_name(index)
+                 for index in range(torch.cuda.device_count())]
+        if requested == "auto":
+            family_matches = [
+                index for index, name in enumerate(names)
+                if "P100" in name or "V100" in name]
+            family_matches.sort(
+                key=lambda index: 0 if "P100" in names[index] else 1)
+        else:
+            marker = requested.upper()
+            family_matches = [
+                index for index, name in enumerate(names)
+                if marker in name]
+        matches = family_matches
         if not matches:
-            raise BenchmarkSkip("v100_unavailable", "formal protocol requires a V100")
-        index = matches[0]
-        torch.cuda.set_device(index)
+            raise BenchmarkSkip(
+                f"{requested}_unavailable",
+                f"no {requested} device found")
+        if int(world_size) > len(matches):
+            raise BenchmarkSkip(
+                "insufficient_target_devices",
+                f"world_size={world_size}, matching {requested} devices={matches}")
+        index = matches[int(rank)]
+    torch.cuda.set_device(index)
     name = torch.cuda.get_device_name(index)
-    if "V100" not in name:
-        raise BenchmarkSkip("wrong_gpu", f"formal protocol requires V100, selected {name!r}")
+    properties = torch.cuda.get_device_properties(index)
+    compute_capability = (int(properties.major), int(properties.minor))
+    if requested == "v100" and "V100" not in name:
+        raise BenchmarkSkip(
+            "wrong_gpu", f"requested V100, selected {name!r}")
+    if requested == "p100" and "P100" not in name:
+        raise BenchmarkSkip(
+            "wrong_gpu", f"requested P100, selected {name!r}")
+    if requested == "auto" and (
+            "V100" not in name and "P100" not in name):
+        raise BenchmarkSkip(
+            "unsupported_gpu", f"requested auto V100/P100, selected {name!r}")
+    if requested == "p100" and compute_capability != (6, 0):
+        raise BenchmarkSkip(
+            "wrong_compute_capability",
+            f"P100 requires sm_60, selected {compute_capability}")
+    if requested == "v100" and compute_capability != (7, 0):
+        raise BenchmarkSkip(
+            "wrong_compute_capability",
+            f"V100 requires sm_70, selected {compute_capability}")
     return torch.device("cuda", index)
+
+
+def _select_v100(torch: Any) -> Any:
+    """Backward-compatible wrapper for callers that require the old default."""
+    return _select_accelerator(torch, "v100", 0)
 
 
 def _canonical_true_residual(
@@ -1768,6 +2591,82 @@ def _canonical_true_residual(
     residual = residual + dslash.give_clover(full_solution, clover) - full_rhs
     denominator = max(float(tools.norm(full_rhs)), 1.0e-30)
     value = float(tools.norm(residual)) / denominator
+    if not math.isfinite(value):
+        raise BenchmarkFailure("nonfinite_true_residual", repr(value))
+    return value
+
+
+def _gather_local_blocks(
+        value: Any, process_grid: Sequence[int], root: int = 0) -> Any:
+    """Gather a rank-local ``...xyzt`` tensor into the global lattice."""
+    import numpy as np
+    from mpi4py import MPI
+
+    comm = MPI.COMM_WORLD
+    rank = comm.Get_rank()
+    array = np.ascontiguousarray(value.detach().cpu().numpy())
+    grid = tuple(int(item) for item in process_grid)
+    local = tuple(int(item) for item in array.shape[-4:])
+    global_shape = (
+        *array.shape[:-4],
+        *(local[axis] * grid[axis] for axis in range(4)),
+    )
+    blocks = comm.gather(array, root=root)
+    if rank != root:
+        return None
+    whole = np.empty(global_shape, dtype=array.dtype)
+    for block_rank, block in enumerate(blocks):
+        coordinate = _rank_coordinate(block_rank, grid)
+        selection = [slice(None)] * (array.ndim - 4)
+        selection.extend(
+            slice(coordinate[axis] * local[axis],
+                  (coordinate[axis] + 1) * local[axis])
+            for axis in range(4))
+        whole[tuple(selection)] = block
+    return torch.from_numpy(whole).to(device=value.device)
+
+
+def _canonical_true_residual_mpi(
+        solution_eo: Any, rhs_eo: Any, gauge_eo: Any, mass: float,
+        process_grid: Sequence[int]) -> float:
+    """Global true residual for rank-local parity fields."""
+    import torch
+    from mpi4py import MPI
+    from pyqcu import dslash, tools
+
+    comm = MPI.COMM_WORLD
+    rank = comm.Get_rank()
+    device = solution_eo.device
+    local_solution = tools.poooxyzt2oooxyzt(solution_eo)
+    local_rhs = tools.poooxyzt2oooxyzt(rhs_eo)
+    local_gauge = tools.poooxyzt2oooxyzt(gauge_eo)
+    global_solution = _gather_local_blocks(
+        local_solution, process_grid)
+    global_rhs = _gather_local_blocks(local_rhs, process_grid)
+    global_gauge = _gather_local_blocks(local_gauge, process_grid)
+    if rank == 0:
+        kappa = 1.0 / (2.0 * float(mass) + 8.0)
+        real_dtype = (
+            torch.float32 if gauge_eo.dtype == torch.complex64 else
+            torch.float64)
+        clover = dslash.make_clover(
+            global_gauge,
+            kappa=torch.tensor([kappa], dtype=real_dtype, device=device),
+            u_0=torch.ones([1], dtype=real_dtype, device=device))
+        residual = dslash.give_wilson(
+            global_solution, global_gauge, kappa, True)
+        residual = (
+            residual + dslash.give_clover(global_solution, clover) -
+            global_rhs)
+        numerator_local = residual
+        denominator_local = global_rhs
+    else:
+        numerator_local = torch.zeros(1, dtype=solution_eo.dtype, device=device)
+        denominator_local = torch.zeros(
+            1, dtype=solution_eo.dtype, device=device)
+    numerator = float(tools.norm(numerator_local))
+    denominator = max(float(tools.norm(denominator_local)), 1.0e-30)
+    value = numerator / denominator
     if not math.isfinite(value):
         raise BenchmarkFailure("nonfinite_true_residual", repr(value))
     return value
@@ -2066,11 +2965,35 @@ def _validate_cached_setup_stats(
 
 
 def _run_pyqcu_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
+    global LATTICE
     config = payload["protocol"]
     inputs = payload["inputs"]
+    phase_request = _phase_request(payload)
+    mpi_context = payload.get("mpi_context") or _worker_mpi_context(payload)
+    if int(config["levels"]) == 1:
+        raise BenchmarkUnsupported(
+            "pyqcu_mg_level_1_unsupported",
+            "QUDA n_level=1 uses a fine-level coarsest MG branch; the "
+            "current PyQCU strict fused C++ hierarchy requires >=2 levels. "
+            "The collector fails closed instead of comparing different solvers.")
+    if int(mpi_context["size"]) > 1:
+        try:
+            from pyqcu.cuda._strict_mpi import strict_mpi_capabilities
+            capabilities = strict_mpi_capabilities()
+        except Exception as exc:
+            raise BenchmarkUnsupported(
+                "pyqcu_distributed_strict_preflight_unavailable",
+                repr(exc)) from exc
+        if not all(capabilities.get(name, False) for name in (
+                "setup_halo", "fine_halo", "full_halo", "compact_halo",
+                "rp_coarse_halo", "global_reduction", "fused_fgmres")):
+            raise BenchmarkUnsupported(
+                "pyqcu_distributed_strict_unsupported",
+                f"strict MPI capabilities={capabilities}; the collector "
+                "will not fall back to serial or fake distributed results.")
     _activate_runtime_globals(config, inputs)
     cache_execution = payload["execution"]["strict_cache"]
-    cache_expect = str(cache_execution["expect"])
+    cache_expect = str(phase_request["cache_expect"])
     cache_identity = _strict_runtime_cache_identity(payload)
     cache_path = _strict_runtime_cache_path(
         cache_identity, Path(cache_execution["directory"]))
@@ -2095,11 +3018,17 @@ def _run_pyqcu_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
         )
         from pyqcu.solver import QudaStrictMultigrid
         sys.path.insert(0, str(HERE))
-        from common import make_clover_tensors
+        from common import (
+            _slice_last4, global_parity_to_local, local_geometry,
+            make_clover_tensors)
     except (ImportError, OSError) as exc:
         raise BenchmarkSkip("missing_pyqcu_dependency", repr(exc)) from exc
 
-    device = _select_v100(torch)
+    device = _select_accelerator(
+        torch,
+        str((payload["execution"].get("device") or {}).get("requested", "v100")),
+        int(mpi_context.get("local_rank", mpi_context["rank"])),
+        int(mpi_context.get("local_size", mpi_context["size"])))
     device_uuid = _torch_runtime_provenance(torch, device)["device_uuid"]
     torch.cuda.synchronize(device)
     runtime_init_s = time.perf_counter() - runtime_started
@@ -2108,6 +3037,7 @@ def _run_pyqcu_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
     data_code = define._LAT_C64_ if precision == "c64" else define._LAT_C128_
 
     io_started = time.perf_counter()
+    global_lattice = tuple(int(value) for value in LATTICE)
     gauge_np = _load_h5_array(inputs["gauge"]["path"], inputs["gauge"]["dataset"])
     source_np = _load_h5_array(inputs["source"]["path"], inputs["source"]["dataset"])
     null_np = _load_h5_array(
@@ -2116,6 +3046,13 @@ def _run_pyqcu_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
     _verify_loaded_input("gauge", gauge_np, fingerprints["gauge"])
     _verify_loaded_input("source", source_np, fingerprints["source"])
     _verify_loaded_input("null_vectors", null_np, fingerprints["null_vectors"])
+    local_lattice, local_starts, _ = local_geometry(
+        global_lattice, grid=mpi_context["process_grid"],
+        rank=mpi_context["rank"], require_even=True)
+    if int(mpi_context["size"]) > 1:
+        LATTICE = tuple(local_lattice)
+    else:
+        local_starts = [0, 0, 0, 0]
     input_io_s = time.perf_counter() - io_started
 
     runtime: Optional[Dict[str, Any]] = None
@@ -2133,10 +3070,27 @@ def _run_pyqcu_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
         }
         setup_sampler = _CudaDeviceMemorySampler(torch, device).start()
         setup_started = time.perf_counter()
-        gauge = torch.from_numpy(gauge_np).to(device=device, dtype=complex_dtype).contiguous()
-        rhs = torch.from_numpy(source_np).to(device=device, dtype=complex_dtype).contiguous()
+        if int(mpi_context["size"]) > 1:
+            gauge = global_parity_to_local(
+                torch.from_numpy(gauge_np), global_lattice,
+                grid=mpi_context["process_grid"], rank=mpi_context["rank"],
+                device=device, dtype=complex_dtype)
+            rhs = global_parity_to_local(
+                torch.from_numpy(source_np), global_lattice,
+                grid=mpi_context["process_grid"], rank=mpi_context["rank"],
+                device=device, dtype=complex_dtype)
+            local_null_np = _slice_last4(
+                null_np, local_starts, local_lattice)
+        else:
+            gauge = torch.from_numpy(gauge_np).to(
+                device=device, dtype=complex_dtype).contiguous()
+            rhs = torch.from_numpy(source_np).to(
+                device=device, dtype=complex_dtype).contiguous()
+            local_null_np = null_np
         ce, cei, coo, coi, _unused_s, params, argv = make_clover_tensors(
-            gauge, LATTICE, MASS, dtype=complex_dtype, data_type=data_code)
+            gauge, LATTICE, MASS, grid=mpi_context["process_grid"],
+            rank=mpi_context["rank"], dtype=complex_dtype,
+            data_type=data_code)
         params[define._MAX_ITER_] = int(config["max_iter"])
         argv[define._ATOL_] = float(config["tolerance"])
         full_gauge = tools.poooxyzt2oooxyzt(gauge).contiguous()
@@ -2148,7 +3102,8 @@ def _run_pyqcu_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
             kappa=kappa_tensor,
             u_0=torch.ones([1], dtype=real_dtype, device=device))
 
-        expected_manifest = _strict_runtime_expected_manifest(config)
+        expected_manifest = _strict_runtime_expected_manifest(
+            config, mpi_context)
         # Keep cache restore timing disjoint from preceding Gauge/Clover CUDA
         # work.  The wait belongs to setup, not to cache I/O.
         torch.cuda.synchronize(device)
@@ -2231,14 +3186,16 @@ def _run_pyqcu_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
                     f"expected hit but cache missed: {cache_path}")
             del cache_result
             expected_null_shape = (NVECS, 4, 3, *LATTICE)
-            if tuple(int(x) for x in null_np.shape) != expected_null_shape:
+            if tuple(int(x) for x in local_null_np.shape) != expected_null_shape:
                 raise BenchmarkFailure(
                     "canonical_nullvec_shape_mismatch",
-                    f"shape={tuple(null_np.shape)}, expected={expected_null_shape}")
-            null_vectors = torch.from_numpy(null_np).to(
+                    f"shape={tuple(local_null_np.shape)}, "
+                    f"expected={expected_null_shape}")
+            null_vectors = torch.from_numpy(local_null_np).to(
                 device=device, dtype=complex_dtype).contiguous()
             # hierarchy 持有 device null vectors；CPU HDF5 arrays 不跨入 setup。
             del gauge_np, source_np, null_np
+            from mpi4py import MPI
             hierarchy = QudaStrictMultigrid(
                 U=full_gauge,
                 clover_term=clover_full,
@@ -2284,6 +3241,8 @@ def _run_pyqcu_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
                     config["pyqcu_strict_offload_null_basis"]),
                 strict_galerkin_max_workspace_bytes=int(
                     config["pyqcu_strict_setup"]["max_workspace_bytes"]),
+                process_grid=mpi_context["process_grid"],
+                comm=MPI.COMM_WORLD,
                 verbose=False,
             )
             # hierarchy 已持有输入引用。删除局部别名后，runtime seal 才能真正
@@ -2430,33 +3389,62 @@ def _run_pyqcu_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
                 "nvidia_smi": _nvidia_smi_used(device_uuid=device_uuid),
                 "device_wide_sampler": device_memory,
             }
-            residual = _canonical_true_residual(
-                output, rhs, gauge, MASS, full_gauge=full_gauge, clover=clover_full)
+            residual = (
+                _canonical_true_residual_mpi(
+                    output, rhs, gauge, MASS,
+                    mpi_context["process_grid"])
+                if int(mpi_context["size"]) > 1 else
+                _canonical_true_residual(
+                    output, rhs, gauge, MASS,
+                    full_gauge=full_gauge, clover=clover_full))
             return elapsed, dict(result), residual, memory_sample
 
         first_solve_memory = None
-        warmup_results = []
-        for warmup_index in range(WARMUPS):
+        cold_seconds = None
+        cold_result_payload = None
+        if phase_request["cold"]:
             elapsed, result, residual, memory_sample = solve_once(
-                sample_device_memory=(warmup_index == 0))
-            if warmup_index == 0:
-                first_solve_memory = {
-                    "excluded_from_formal_timing": True,
-                    "seconds": elapsed,
-                    "iterations": int(result["iterations"]),
-                    "converged": bool(result["converged"]),
-                    "true_residual_rel": residual,
-                    "backend_final_true_residual": float(
-                        result["final_true_residual"]),
-                    "fused_workspace_bytes": int(result["allocated_bytes"]),
-                    "memory": memory_sample,
-                }
-            warmup_results.append({
+                sample_device_memory=True)
+            cold_seconds = elapsed
+            cold_result_payload = {
                 "seconds": elapsed,
                 "iterations": int(result["iterations"]),
                 "converged": bool(result["converged"]),
                 "true_residual_rel": residual,
-            })
+                "backend_final_true_residual": float(
+                    result["final_true_residual"]),
+                "fused_workspace_bytes": int(result["allocated_bytes"]),
+                "memory": memory_sample,
+            }
+            first_solve_memory = {
+                "excluded_from_formal_timing": True,
+                **copy.deepcopy(cold_result_payload),
+            }
+
+        warmup_results = []
+        if phase_request["warmup"]:
+            for warmup_index in range(WARMUPS):
+                elapsed, result, residual, memory_sample = solve_once(
+                    sample_device_memory=(
+                        warmup_index == 0 and cold_seconds is None))
+                if warmup_index == 0 and first_solve_memory is None:
+                    first_solve_memory = {
+                        "excluded_from_formal_timing": True,
+                        "seconds": elapsed,
+                        "iterations": int(result["iterations"]),
+                        "converged": bool(result["converged"]),
+                        "true_residual_rel": residual,
+                        "backend_final_true_residual": float(
+                            result["final_true_residual"]),
+                        "fused_workspace_bytes": int(result["allocated_bytes"]),
+                        "memory": memory_sample,
+                    }
+                warmup_results.append({
+                    "seconds": elapsed,
+                    "iterations": int(result["iterations"]),
+                    "converged": bool(result["converged"]),
+                    "true_residual_rel": residual,
+                })
 
         steady_baseline = {
             "allocated_bytes": int(torch.cuda.memory_allocated(device)),
@@ -2470,31 +3458,38 @@ def _run_pyqcu_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
         backend_residuals: List[float] = []
         solve_memory_samples: List[Dict[str, Any]] = []
         allocated_bytes: List[int] = []
-        for _ in range(int(config["repeats"])):
-            elapsed, result, residual, memory_sample = solve_once()
-            timings.append(elapsed)
-            iterations.append(int(result["iterations"]))
-            converged.append(bool(result["converged"]))
-            residuals.append(residual)
-            backend_residuals.append(float(result["final_true_residual"]))
-            allocated_bytes.append(int(result["allocated_bytes"]))
-            solve_memory_samples.append(memory_sample)
+        if phase_request["steady"]:
+            for _ in range(int(config["repeats"])):
+                elapsed, result, residual, memory_sample = solve_once()
+                timings.append(elapsed)
+                iterations.append(int(result["iterations"]))
+                converged.append(bool(result["converged"]))
+                residuals.append(residual)
+                backend_residuals.append(float(result["final_true_residual"]))
+                allocated_bytes.append(int(result["allocated_bytes"]))
+                solve_memory_samples.append(memory_sample)
 
         gate = float(config["true_residual_gate"])
         # A separate post-timing solve samples cudaMemGetInfo frequently enough
         # to observe native C++ transient allocations without perturbing the
         # formal 2+N timing samples.
-        _probe_elapsed, probe_result, probe_residual, memory_probe = solve_once(
-            sample_device_memory=True)
-        memory_probe.update({
-            "excluded_from_formal_timing": True,
-            "iterations": int(probe_result["iterations"]),
-            "converged": bool(probe_result["converged"]),
-            "true_residual_rel": probe_residual,
-        })
-        probe_pass = bool(probe_result["converged"]) and probe_residual <= gate
+        memory_probe: Dict[str, Any] = {}
+        probe_residual: Optional[float] = None
+        if phase_request["steady"]:
+            _probe_elapsed, probe_result, probe_residual, memory_probe = solve_once(
+                sample_device_memory=True)
+            memory_probe.update({
+                "excluded_from_formal_timing": True,
+                "iterations": int(probe_result["iterations"]),
+                "converged": bool(probe_result["converged"]),
+                "true_residual_rel": probe_residual,
+            })
+            probe_pass = bool(probe_result["converged"]) and probe_residual <= gate
+        else:
+            probe_pass = True
         reference_report = None
-        if config["reference_solver"]["kind"] == "bicgstab":
+        if (phase_request["steady"] and
+                config["reference_solver"]["kind"] == "bicgstab"):
             from pyqcu.cuda._schur_op import CudaSchurOp
             reference_op = None
             try:
@@ -2550,9 +3545,83 @@ def _run_pyqcu_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
             finally:
                 if reference_op is not None:
                     reference_op.release()
-        all_converged = (
-            all(converged) and all(value <= gate for value in residuals) and
-            probe_pass)
+        phase_checks = [probe_pass]
+        if cold_result_payload is not None:
+            phase_checks.extend((
+                bool(cold_result_payload["converged"]),
+                float(cold_result_payload["true_residual_rel"]) <= gate))
+        if warmup_results:
+            phase_checks.extend(
+                bool(item["converged"]) and
+                float(item["true_residual_rel"]) <= gate
+                for item in warmup_results)
+        if phase_request["steady"]:
+            phase_checks.extend((
+                all(converged),
+                all(value <= gate for value in residuals)))
+        all_converged = all(phase_checks)
+        measured_iterations = (
+            list(iterations) if phase_request["steady"] else
+            ([int(cold_result_payload["iterations"])]
+             if cold_result_payload is not None else []) +
+            [int(item["iterations"]) for item in warmup_results])
+        measured_residuals = (
+            list(residuals) if phase_request["steady"] else
+            ([float(cold_result_payload["true_residual_rel"])]
+             if cold_result_payload is not None else []) +
+            [float(item["true_residual_rel"]) for item in warmup_results])
+        timing_payload = {
+            "input_io_seconds": input_io_s,
+            "runtime_init_seconds": runtime_init_s,
+            "setup_seconds": setup_s,
+            "setup_mode": (
+                "runtime_cache_restore" if cache_report["hit"] else
+                "cold_hierarchy_build"),
+            "setup_noncache_seconds": setup_noncache_s,
+            "cache_restore_seconds": (
+                cache_load_s if cache_report["hit"] else None),
+            "cache_miss_probe_seconds": (
+                None if cache_report["hit"] else cache_load_s),
+            "cache_persist_seconds": cache_write_s,
+            "warmups": warmup_results,
+            "steady": (
+                _median_mad(timings) if timings else
+                {"samples_seconds": [], "median_seconds": None,
+                 "mad_seconds": None}),
+        }
+        if cold_seconds is not None:
+            timing_payload["cold_seconds"] = cold_seconds
+
+        trace_path = _side_trace_path("pyqcu")
+        by_phase: Dict[str, List[Dict[str, Any]]] = {}
+        if phase_request["cold"]:
+            levels = _mg_levels_from_trace(
+                "pyqcu", trace_path, [0], int(config["levels"]))
+            if levels is not None:
+                by_phase["cold"] = levels
+        offset = 1 if phase_request["cold"] else 0
+        if phase_request["warmup"]:
+            levels = _mg_levels_from_trace(
+                "pyqcu", trace_path,
+                list(range(offset, offset + WARMUPS)),
+                int(config["levels"]))
+            if levels is not None:
+                by_phase["warmup"] = levels
+            offset += WARMUPS
+        if phase_request["steady"]:
+            levels = _mg_levels_from_trace(
+                "pyqcu", trace_path,
+                list(range(offset, offset + int(config["repeats"]))),
+                int(config["levels"]))
+            if levels is not None:
+                by_phase["steady"] = levels
+        mg_levels = (
+            by_phase.get("steady") or by_phase.get("warmup") or
+            by_phase.get("cold"))
+        if mg_levels is None:
+            mg_levels = _fallback_mg_levels(
+                config, timing_payload, measured_iterations,
+                measured_residuals)
         binding_report = runtime["binding"].memory_report()
         fine_transfer_bytes = int(
             fine_null.numel() * fine_null.element_size())
@@ -2564,11 +3633,11 @@ def _run_pyqcu_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
             "steady": {
                 "baseline": steady_baseline,
                 "cuda_peak_allocated_bytes": max(
-                    sample["cuda_peak_allocated_bytes"]
-                    for sample in solve_memory_samples),
+                    (sample["cuda_peak_allocated_bytes"]
+                     for sample in solve_memory_samples), default=0),
                 "cuda_peak_reserved_bytes": max(
-                    sample["cuda_peak_reserved_bytes"]
-                    for sample in solve_memory_samples),
+                    (sample["cuda_peak_reserved_bytes"]
+                     for sample in solve_memory_samples), default=0),
                 "nvidia_smi_process_max_observed_bytes": _max_optional(
                     sample["nvidia_smi"].get("process_used_bytes")
                     for sample in solve_memory_samples),
@@ -2586,7 +3655,7 @@ def _run_pyqcu_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
                 "coarse_asset_resident_bytes": coarse_asset_bytes,
                 "asset_resident_bytes": fine_transfer_bytes + coarse_asset_bytes,
                 "omitted_raw_bytes": int(binding_report["omitted_raw_bytes"]),
-                "fused_workspace_bytes": max(allocated_bytes),
+                "fused_workspace_bytes": max(allocated_bytes, default=0),
                 "setup_release": setup_release,
             },
         }
@@ -2599,33 +3668,28 @@ def _run_pyqcu_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
             },
             "config_hash": config["config_hash"],
             "input_bundle_hash": payload["input_fingerprints"]["bundle_hash"],
-            "timing": {
-                "input_io_seconds": input_io_s,
-                "runtime_init_seconds": runtime_init_s,
-                "setup_seconds": setup_s,
-                "setup_mode": (
-                    "runtime_cache_restore" if cache_report["hit"] else
-                    "cold_hierarchy_build"),
-                "setup_noncache_seconds": setup_noncache_s,
-                "cache_restore_seconds": (
-                    cache_load_s if cache_report["hit"] else None),
-                "cache_miss_probe_seconds": (
-                    None if cache_report["hit"] else cache_load_s),
-                "cache_persist_seconds": cache_write_s,
-                "warmups": warmup_results,
-                "steady": _median_mad(timings),
-            },
+            "timing": timing_payload,
             "reference_solver": reference_report,
-            "iterations": _iteration_summary(iterations),
+            "iterations": _iteration_summary(measured_iterations),
+            "mg_levels": mg_levels,
+            "mg_levels_by_phase": by_phase,
+            "iteration_semantics": (
+                "finest total_iterations is the outer right-preconditioned "
+                "FGMRES total; smoother and coarse iterations are separate"),
             "iteration_kind": "outer_right_preconditioned_fgmres",
             "iteration_scope": (
                 "finest-level outer FGMRES columns; smoother and coarse "
                 "solver iterations are recorded separately in MG trace"),
-            "converged_samples": converged,
+            "converged_samples": (
+                converged if phase_request["steady"] else
+                [bool(cold_result_payload["converged"])]
+                if cold_result_payload is not None else
+                [bool(item["converged"]) for item in warmup_results]),
             "converged": all_converged,
             "true_residual": {
-                "samples_rel": residuals,
-                "max_rel": max(residuals),
+                "samples_rel": measured_residuals,
+                "max_rel": (
+                    max(measured_residuals) if measured_residuals else math.inf),
                 "gate": gate,
                 "pass": all_converged,
                 "untimed_probe_rel": probe_residual,
@@ -2635,7 +3699,10 @@ def _run_pyqcu_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
                 "requested_restart": requested_restart,
                 "effective_restart": effective_restart,
                 "max_krylov_bytes": int(config["max_krylov_bytes"]),
-                "effective_workspace_bytes": max(allocated_bytes),
+                # A cold-only worker (``--phases cold``) never records a
+                # solve workspace sample; the parent merges the steady worker
+                # record, so an empty list must not abort the cold process.
+                "effective_workspace_bytes": max(allocated_bytes, default=0),
                 "workspace_formula": "(2m+5)B_f+2B_c",
                 "fine_vector_bytes": int(fine_elements * rhs.element_size()),
                 "coarse_vector_bytes": int(coarse_elements * rhs.element_size()),
@@ -3094,14 +4161,17 @@ def _quda_expected_parameters(
             "n_vec": [int(config["nvec"])] * transition_count,
             "n_block_ortho": [2] * transition_count,
             "vec_load": (
-                ["QUDA_BOOLEAN_TRUE"] +
-                ["QUDA_BOOLEAN_FALSE"] * max(0, transition_count - 1)),
+                (["QUDA_BOOLEAN_TRUE"] +
+                 ["QUDA_BOOLEAN_FALSE"] * max(0, transition_count - 1))
+                if transition_count > 0 else []),
             "vec_infile": (
                 ([None if conversion_prefix is None else str(conversion_prefix)] +
-                 [""] * max(0, transition_count - 1))),
+                 [""] * max(0, transition_count - 1))
+                if transition_count > 0 else []),
             "num_setup_iter": (
                 [1] + [0] * max(0, transition_count - 1)
-                if transition_count > 1 else [1]),
+                if transition_count > 1 else
+                [1] if transition_count == 1 else []),
             "setup_use_mma": ["QUDA_BOOLEAN_FALSE"] * transition_count,
             "dslash_use_mma": ["QUDA_BOOLEAN_FALSE"] * transition_count,
             "transfer_use_mma": ["QUDA_BOOLEAN_FALSE"] * transition_count,
@@ -3134,9 +4204,11 @@ def _quda_expected_parameters(
         "multigrid": {
             "n_level": n_level,
             "coarsest_level_index": n_level - 1,
-            "compute_null_vector": "QUDA_COMPUTE_NULL_VECTOR_YES",
+            "compute_null_vector": (
+                "QUDA_COMPUTE_NULL_VECTOR_YES" if n_level > 1 else
+                "QUDA_COMPUTE_NULL_VECTOR_NO"),
             "generate_all_levels": (
-                "QUDA_BOOLEAN_FALSE" if n_level > 2 else
+                "QUDA_BOOLEAN_FALSE" if n_level != 2 else
                 "QUDA_BOOLEAN_TRUE"),
             "run_verify": "QUDA_BOOLEAN_FALSE",
             "precision_null": [coarse_precision_name] * n_level,
@@ -3231,11 +4303,28 @@ def _close_quda_dirac(dirac: Any) -> List[str]:
 def _run_quda_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
     config = payload["protocol"]
     inputs = payload["inputs"]
+    phase_request = _phase_request(payload)
+    mpi_context = payload.get("mpi_context") or _worker_mpi_context(payload)
     _activate_runtime_globals(config, inputs)
-    conversion = _verify_quda_nullvec_conversion(payload)
+    conversion = (
+        _verify_quda_nullvec_conversion(payload)
+        if int(config["levels"]) > 1 else
+        {
+            "required": False,
+            "prefix": None,
+            "reason": "QUDA MG-1 has no transfer level or null-vector basis",
+        })
     reduction_runtime = _prepare_quda_reduction_runtime()
-    reduction_runtime["qmp"] = _initialize_quda_qmp_runtime(
-        reduction_runtime)
+    try:
+        reduction_runtime["qmp"] = _initialize_quda_qmp_runtime(
+            reduction_runtime, mpi_context["process_grid"])
+    except Exception as exc:
+        if int(mpi_context["size"]) > 1:
+            raise BenchmarkUnsupported(
+                "quda_mpi_unsupported",
+                f"QMP/QUDA MPI initialization failed for grid "
+                f"{mpi_context['process_grid']}: {exc!r}") from exc
+        raise
     try:
         import numpy as np
         import torch
@@ -3247,15 +4336,23 @@ def _run_quda_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
         from pyquda.enum_quda import (
             QudaBoolean, QudaInverterType, QudaPrecision, QudaMatPCType,
             QudaPreserveSource, QudaSolutionType, QudaSolveType,
-            QudaUseInitGuess, QudaComputeNullVector, QudaVerbosity)
+            QudaUseInitGuess, QudaComputeNullVector, QudaVerbosity,
+            QudaDslashType)
+        from pyquda.dirac import general as dirac_general
         sys.path.insert(0, str(HERE))
         from run_quda_py import field_to_scxyzt, reconstruct_full_b
-        from common import full_gauge_numpy, full_to_qdp
+        from common import (
+            full_gauge_numpy, full_to_qdp, global_parity_to_local,
+            local_geometry)
         from pyqcu import tools
     except (ImportError, OSError) as exc:
         raise BenchmarkSkip("missing_quda_dependency", repr(exc)) from exc
 
-    device = _select_v100(torch)
+    device = _select_accelerator(
+        torch,
+        str((payload["execution"].get("device") or {}).get("requested", "v100")),
+        int(mpi_context.get("local_rank", mpi_context["rank"])),
+        int(mpi_context.get("local_size", mpi_context["size"])))
     device_uuid = _torch_runtime_provenance(torch, device)["device_uuid"]
     trace_path = os.environ.get("PYQCU_QUDA_TRACE_FILE")
     trace_enabled = trace_path is not None and trace_path != ""
@@ -3283,19 +4380,48 @@ def _run_quda_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
     input_io_s = time.perf_counter() - io_started
 
     runtime_started = time.perf_counter()
-    pyquda.init(grid_size=[1, 1, 1, 1], latt_size=list(LATTICE), backend="torch",
-                backend_target="cuda", enable_nvshmem=False)
+    try:
+        pyquda.init(
+            grid_size=list(mpi_context["process_grid"]),
+            latt_size=list(LATTICE), backend="torch",
+            backend_target="cuda", enable_nvshmem=False)
+    except Exception as exc:
+        if int(mpi_context["size"]) > 1:
+            raise BenchmarkUnsupported(
+                "quda_mpi_unsupported",
+                f"PyQUDA/QUDA could not initialize MPI grid "
+                f"{mpi_context['process_grid']}: {exc!r}") from exc
+        raise
     torch.cuda.synchronize(device)
     info = core.LatticeInfo(list(LATTICE), 1, 1.0)
     runtime_init_s = time.perf_counter() - runtime_started
 
     input_prepare_started = time.perf_counter()
-    gauge_cpu = torch.from_numpy(gauge_np).to(
-        dtype=_quda_qdp_torch_host_dtype(torch, precision))
-    qdp = full_to_qdp(full_gauge_numpy(gauge_cpu)).astype(
+    global_lattice = tuple(int(value) for value in LATTICE)
+    if int(mpi_context["size"]) > 1:
+        local_lattice, _, _ = local_geometry(
+            global_lattice, grid=mpi_context["process_grid"],
+            rank=mpi_context["rank"], require_even=True)
+        local_gauge_cpu = global_parity_to_local(
+            torch.from_numpy(gauge_np), global_lattice,
+            grid=mpi_context["process_grid"], rank=mpi_context["rank"],
+            device="cpu", dtype=_quda_qdp_torch_host_dtype(torch, precision))
+        local_source_cpu = global_parity_to_local(
+            torch.from_numpy(source_np), global_lattice,
+            grid=mpi_context["process_grid"], rank=mpi_context["rank"],
+            device="cpu", dtype=_quda_qdp_torch_host_dtype(torch, precision))
+    else:
+        local_gauge_cpu = torch.from_numpy(gauge_np).to(
+            dtype=_quda_qdp_torch_host_dtype(torch, precision))
+        local_source_cpu = None
+    qdp = full_to_qdp(full_gauge_numpy(local_gauge_cpu)).astype(
         quda_qdp_host_dtype, copy=False)
     gauge_eo = info.evenodd(np.ascontiguousarray(qdp), True)
-    source_full = reconstruct_full_b(source_np).reshape(12, *LATTICE)
+    if local_source_cpu is None:
+        source_full = reconstruct_full_b(source_np).reshape(12, *LATTICE)
+    else:
+        source_full = tools.poooxyzt2oooxyzt(local_source_cpu)
+        source_full = source_full.reshape(4, 3, *local_lattice)
     tzyxsc = np.ascontiguousarray(np.transpose(
         source_full.astype(quda_qdp_host_dtype, copy=False), (4, 3, 2, 1, 0)))
     rhs_eo = np.ascontiguousarray(info.evenodd(tzyxsc, False))
@@ -3316,12 +4442,30 @@ def _run_quda_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
         gauge_field = LatticeGauge(
             info, 4, torch.from_numpy(np.ascontiguousarray(gauge_eo)).to(device))
         rhs_field = LatticeFermion(info, torch.from_numpy(rhs_eo).to(device))
-        dirac = core.getClover(
-            info, MASS, float(config["tolerance"]), int(config["max_iter"]),
-            clover_csw_t=1.0,
-            multigrid=[
-                list(BLOCK) for _ in range(max(1, LEVELS - 1))
-            ])
+        if LEVELS == 1:
+            mg_param, mg_inv_param = dirac_general.newQudaMultigridParam(
+                QudaDslashType.QUDA_CLOVER_WILSON_DSLASH,
+                MASS, float(config["kappa"]), [])
+            # PyQUDA appends one terminal level to the requested block list.
+            # Override it to represent QUDA_MG_LEVEL=1 exactly: only level 0
+            # exists and no transfer/coarse operator is constructed.
+            mg_param.n_level = 1
+            mg_param.compute_null_vector = (
+                QudaComputeNullVector.QUDA_COMPUTE_NULL_VECTOR_NO)
+            mg_param.generate_all_levels = QudaBoolean.QUDA_BOOLEAN_FALSE
+            mg_instance = core.Multigrid(mg_param, mg_inv_param)
+            mg_instance.setParam()
+            dirac = core.getClover(
+                info, MASS, float(config["tolerance"]),
+                int(config["max_iter"]), clover_csw_t=1.0,
+                multigrid=mg_instance)
+        else:
+            dirac = core.getClover(
+                info, MASS, float(config["tolerance"]),
+                int(config["max_iter"]), clover_csw_t=1.0,
+                multigrid=[
+                    list(BLOCK) for _ in range(LEVELS - 1)
+                ])
         coarse_precision = (
             QudaPrecision.QUDA_SINGLE_PRECISION
             if config["quda_coarse_precision"]["effective"] == "single"
@@ -3401,7 +4545,8 @@ def _run_quda_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
                 _set_indexed(
                     mg_param, "verbosity", level,
                     QudaVerbosity.QUDA_SILENT)
-        _configure_quda_shared_nullvec(mg_param, conversion)
+        if LEVELS > 1:
+            _configure_quda_shared_nullvec(mg_param, conversion)
         if LEVELS > 2:
             if not hasattr(mg_param, "generate_all_levels"):
                 raise BenchmarkFailure(
@@ -3427,11 +4572,12 @@ def _run_quda_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
             "precision": QudaPrecision,
         }
         expected_parameters = _quda_expected_parameters(
-            config, str(conversion["prefix"]))
+            config,
+            None if conversion.get("prefix") is None else str(conversion["prefix"]))
         build_provenance = _benchmark_provenance(
             pyquda=pyquda, reduction_runtime=reduction_runtime)
         cmake_mismatches = _quda_cmake_feature_mismatches(
-            build_provenance["cmake_features"], precision)
+            build_provenance["cmake_features"], precision, int(config["levels"]))
         if config["profile"] == "formal" and cmake_mismatches:
             raise BenchmarkFailure(
                 "quda_build_feature_contract_mismatch",
@@ -3503,10 +4649,16 @@ def _run_quda_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
         # place and never allocates a new solution inside the timed region.
         solution_field = LatticeFermion(info)
         torch.cuda.synchronize(device)
-        gauge_for_residual = torch.from_numpy(gauge_np).to(
-            device=device, dtype=complex_dtype).contiguous()
-        rhs_for_residual = torch.from_numpy(source_np).to(
-            device=device, dtype=complex_dtype).contiguous()
+        if int(mpi_context["size"]) > 1:
+            gauge_for_residual = local_gauge_cpu.to(
+                device=device, dtype=complex_dtype).contiguous()
+            rhs_for_residual = local_source_cpu.to(
+                device=device, dtype=complex_dtype).contiguous()
+        else:
+            gauge_for_residual = torch.from_numpy(gauge_np).to(
+                device=device, dtype=complex_dtype).contiguous()
+            rhs_for_residual = torch.from_numpy(source_np).to(
+                device=device, dtype=complex_dtype).contiguous()
         from pyqcu import dslash
         full_gauge = tools.poooxyzt2oooxyzt(gauge_for_residual).contiguous()
         real_dtype = (
@@ -3575,33 +4727,58 @@ def _run_quda_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
         canonical_tensor = torch.from_numpy(canonical).to(
             device=device, dtype=complex_dtype)
         canonical_eo = tools.oooxyzt2poooxyzt(canonical_tensor).contiguous()
-        residual = _canonical_true_residual(
-            canonical_eo, rhs_for_residual, gauge_for_residual, MASS,
-            full_gauge=full_gauge, clover=clover)
+        residual = (
+            _canonical_true_residual_mpi(
+                canonical_eo, rhs_for_residual, gauge_for_residual, MASS,
+                mpi_context["process_grid"])
+            if int(mpi_context["size"]) > 1 else
+            _canonical_true_residual(
+                canonical_eo, rhs_for_residual, gauge_for_residual, MASS,
+                full_gauge=full_gauge, clover=clover))
         converged = bool(residual <= float(config["true_residual_gate"]))
         return elapsed, iterations, converged, residual, memory_sample
 
     first_solve_memory = None
+    cold_seconds = None
+    cold_result_payload = None
     warmup_results = []
     try:
-        for warmup_index in range(WARMUPS):
-            elapsed, iterations, converged, residual, memory_sample = solve_once(
-                sample_device_memory=(warmup_index == 0))
-            if warmup_index == 0:
-                first_solve_memory = {
-                    "excluded_from_formal_timing": True,
-                    "seconds": elapsed,
-                    "iterations": iterations,
-                    "converged": converged,
-                    "true_residual_rel": residual,
-                    "memory": memory_sample,
-                }
-            warmup_results.append({
+        if phase_request["cold"]:
+            (elapsed, iterations, converged, residual,
+             memory_sample) = solve_once(sample_device_memory=True)
+            cold_seconds = elapsed
+            cold_result_payload = {
                 "seconds": elapsed,
                 "iterations": iterations,
                 "converged": converged,
                 "true_residual_rel": residual,
-            })
+                "memory": memory_sample,
+            }
+            first_solve_memory = {
+                "excluded_from_formal_timing": True,
+                **copy.deepcopy(cold_result_payload),
+            }
+        if phase_request["warmup"]:
+            for warmup_index in range(WARMUPS):
+                (elapsed, iterations, converged, residual,
+                 memory_sample) = solve_once(
+                    sample_device_memory=(
+                        warmup_index == 0 and cold_seconds is None))
+                if warmup_index == 0 and first_solve_memory is None:
+                    first_solve_memory = {
+                        "excluded_from_formal_timing": True,
+                        "seconds": elapsed,
+                        "iterations": iterations,
+                        "converged": converged,
+                        "true_residual_rel": residual,
+                        "memory": memory_sample,
+                    }
+                warmup_results.append({
+                    "seconds": elapsed,
+                    "iterations": iterations,
+                    "converged": converged,
+                    "true_residual_rel": residual,
+                })
     except BaseException:
         _close_quda_dirac(dirac)
         raise
@@ -3619,23 +4796,27 @@ def _run_quda_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
     memory_probe: Dict[str, Any] = {}
     cleanup_errors: List[str] = []
     try:
-        for _ in range(int(config["repeats"])):
-            elapsed, iterations, converged, residual, memory_sample = solve_once()
-            timings.append(elapsed)
-            iterations_list.append(iterations)
-            converged_list.append(converged)
-            residuals.append(residual)
-            solve_memory_samples.append(memory_sample)
-        (_probe_elapsed, probe_iterations, probe_converged,
-         probe_residual, memory_probe) = solve_once(sample_device_memory=True)
-        memory_probe.update({
-            "excluded_from_formal_timing": True,
-            "iterations": probe_iterations,
-            "converged": probe_converged,
-            "true_residual_rel": probe_residual,
-        })
+        if phase_request["steady"]:
+            for _ in range(int(config["repeats"])):
+                (elapsed, iterations, converged, residual,
+                 memory_sample) = solve_once()
+                timings.append(elapsed)
+                iterations_list.append(iterations)
+                converged_list.append(converged)
+                residuals.append(residual)
+                solve_memory_samples.append(memory_sample)
+            (_probe_elapsed, probe_iterations, probe_converged,
+             probe_residual, memory_probe) = solve_once(
+                sample_device_memory=True)
+            memory_probe.update({
+                "excluded_from_formal_timing": True,
+                "iterations": probe_iterations,
+                "converged": probe_converged,
+                "true_residual_rel": probe_residual,
+            })
         reference_report = None
-        if config["reference_solver"]["kind"] == "bicgstab":
+        if (phase_request["steady"] and
+                config["reference_solver"]["kind"] == "bicgstab"):
             invert.inv_type = QudaInverterType.QUDA_BICGSTAB_INVERTER
             invert.tol = float(config["tolerance"])
             invert.maxiter = int(config["max_iter"])
@@ -3706,10 +4887,79 @@ def _run_quda_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
     finally:
         cleanup_errors = _close_quda_dirac(dirac)
 
-    all_converged = (
-        all(converged_list) and bool(memory_probe.get("converged")) and
-        float(memory_probe.get("true_residual_rel", math.inf)) <=
-        float(config["true_residual_gate"]))
+    phase_checks = []
+    if cold_result_payload is not None:
+        phase_checks.extend((
+            bool(cold_result_payload["converged"]),
+            float(cold_result_payload["true_residual_rel"]) <=
+            float(config["true_residual_gate"])))
+    if warmup_results:
+        phase_checks.extend(
+            bool(item["converged"]) and
+            float(item["true_residual_rel"]) <=
+            float(config["true_residual_gate"])
+            for item in warmup_results)
+    if phase_request["steady"]:
+        phase_checks.extend((
+            all(converged_list),
+            bool(memory_probe.get("converged")),
+            float(memory_probe.get("true_residual_rel", math.inf)) <=
+            float(config["true_residual_gate"])))
+    all_converged = all(phase_checks)
+    measured_iterations = (
+        list(iterations_list) if phase_request["steady"] else
+        ([int(cold_result_payload["iterations"])]
+         if cold_result_payload is not None else []) +
+        [int(item["iterations"]) for item in warmup_results])
+    measured_residuals = (
+        list(residuals) if phase_request["steady"] else
+        ([float(cold_result_payload["true_residual_rel"])]
+         if cold_result_payload is not None else []) +
+        [float(item["true_residual_rel"]) for item in warmup_results])
+    timing_payload = {
+        "input_io_seconds": input_io_s,
+        "input_prepare_seconds": input_prepare_s,
+        "runtime_init_seconds": runtime_init_s,
+        "setup_seconds": setup_s,
+        "warmups": warmup_results,
+        "steady": (
+            _median_mad(timings) if timings else
+            {"samples_seconds": [], "median_seconds": None,
+             "mad_seconds": None}),
+    }
+    if cold_seconds is not None:
+        timing_payload["cold_seconds"] = cold_seconds
+
+    trace_path_quda = _side_trace_path("quda")
+    by_phase: Dict[str, List[Dict[str, Any]]] = {}
+    if phase_request["cold"]:
+        levels = _mg_levels_from_trace(
+            "quda", trace_path_quda, [0], int(config["levels"]))
+        if levels is not None:
+            by_phase["cold"] = levels
+    offset = 1 if phase_request["cold"] else 0
+    if phase_request["warmup"]:
+        levels = _mg_levels_from_trace(
+            "quda", trace_path_quda,
+            list(range(offset, offset + WARMUPS)),
+            int(config["levels"]))
+        if levels is not None:
+            by_phase["warmup"] = levels
+        offset += WARMUPS
+    if phase_request["steady"]:
+        levels = _mg_levels_from_trace(
+            "quda", trace_path_quda,
+            list(range(offset, offset + int(config["repeats"]))),
+            int(config["levels"]))
+        if levels is not None:
+            by_phase["steady"] = levels
+    mg_levels = (
+        by_phase.get("steady") or by_phase.get("warmup") or
+        by_phase.get("cold"))
+    if mg_levels is None:
+        mg_levels = _fallback_mg_levels(
+            config, timing_payload, measured_iterations,
+            measured_residuals)
     timing_boundary = dict(timing_boundary)
     timing_boundary.update({
         "formal_eligible": bool(timing_boundary.get("formal_eligible")) and
@@ -3736,25 +4986,28 @@ def _run_quda_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
         },
         "config_hash": config["config_hash"],
         "input_bundle_hash": payload["input_fingerprints"]["bundle_hash"],
-        "timing": {
-            "input_io_seconds": input_io_s,
-            "input_prepare_seconds": input_prepare_s,
-            "runtime_init_seconds": runtime_init_s,
-            "setup_seconds": setup_s,
-            "warmups": warmup_results,
-            "steady": _median_mad(timings),
-        },
+        "timing": timing_payload,
         "reference_solver": reference_report,
-        "iterations": _iteration_summary(iterations_list),
+        "iterations": _iteration_summary(measured_iterations),
+        "mg_levels": mg_levels,
+        "mg_levels_by_phase": by_phase,
+        "iteration_semantics": (
+            "finest total_iterations is the outer GCR total; smoother and "
+            "coarse iterations are separate per-level counters"),
         "iteration_kind": "outer_gcr",
         "iteration_scope": (
             "outer GCR iterations; recursive MG and coarse solver "
             "iterations are recorded separately in QUDA_MG_TRACE"),
-        "converged_samples": converged_list,
+        "converged_samples": (
+            converged_list if phase_request["steady"] else
+            ([bool(cold_result_payload["converged"])]
+             if cold_result_payload is not None else []) +
+            [bool(item["converged"]) for item in warmup_results]),
         "converged": all_converged,
         "true_residual": {
-            "samples_rel": residuals,
-            "max_rel": max(residuals),
+            "samples_rel": measured_residuals,
+            "max_rel": (
+                max(measured_residuals) if measured_residuals else math.inf),
             "gate": float(config["true_residual_gate"]),
             "pass": all_converged,
             "untimed_probe_rel": memory_probe.get("true_residual_rel"),
@@ -3783,11 +5036,11 @@ def _run_quda_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
             "steady": {
                 "baseline": steady_baseline,
                 "cuda_peak_allocated_bytes": max(
-                    sample["cuda_peak_allocated_bytes"]
-                    for sample in solve_memory_samples),
+                    (sample["cuda_peak_allocated_bytes"]
+                     for sample in solve_memory_samples), default=0),
                 "cuda_peak_reserved_bytes": max(
-                    sample["cuda_peak_reserved_bytes"]
-                    for sample in solve_memory_samples),
+                    (sample["cuda_peak_reserved_bytes"]
+                     for sample in solve_memory_samples), default=0),
                 "nvidia_smi_process_max_observed_bytes": _max_optional(
                     sample["nvidia_smi"].get("process_used_bytes")
                     for sample in solve_memory_samples),
@@ -3806,6 +5059,15 @@ def _run_quda_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
 
 def _worker_record(side: str, payload: Mapping[str, Any]) -> Dict[str, Any]:
     started = time.perf_counter()
+    mpi_context = _worker_mpi_context(payload)
+    os.environ[MPI_RANK_ENV] = str(mpi_context["rank"])
+    os.environ[MPI_SIZE_ENV] = str(mpi_context["size"])
+    os.environ[MPI_GRID_ENV] = ",".join(
+        str(value) for value in mpi_context["process_grid"])
+    trace_paths = _activate_rank_trace_paths(mpi_context)
+    payload = copy.deepcopy(dict(payload))
+    payload["mpi_context"] = mpi_context
+    payload["trace_paths"] = trace_paths
     try:
         if side == "pyqcu":
             record = _run_pyqcu_worker(payload)
@@ -3823,6 +5085,18 @@ def _worker_record(side: str, payload: Mapping[str, Any]) -> Dict[str, Any]:
                 payload.get("input_fingerprints") or {}).get("bundle_hash"),
             "provenance": _benchmark_provenance(),
         }
+    except BenchmarkUnsupported as exc:
+        record = {
+            "side": side,
+            "status": "side_unsupported",
+            "reason": {"code": exc.code, "detail": exc.detail},
+            "config_hash": payload["protocol"]["config_hash"],
+            "input_bundle_hash": (
+                payload.get("input_fingerprints") or {}).get("bundle_hash"),
+            "provenance": _benchmark_provenance(),
+        }
+        if exc.context:
+            record.update(exc.context)
     except BenchmarkFailure as exc:
         record = {
             "side": side,
@@ -3851,6 +5125,13 @@ def _worker_record(side: str, payload: Mapping[str, Any]) -> Dict[str, Any]:
         }
     record["worker_wall_seconds"] = time.perf_counter() - started
     record["completed_at"] = _utc_now()
+    record["mpi"] = copy.deepcopy(mpi_context)
+    record["trace_paths"] = copy.deepcopy(trace_paths)
+    execution = payload.get("execution") or {}
+    record["parallel_contract"] = copy.deepcopy(execution.get("parallel"))
+    record["phase_contract"] = copy.deepcopy(execution.get("phases"))
+    record["device_contract"] = copy.deepcopy(execution.get("device"))
+    _write_rank_worker_record(record, mpi_context)
     return record
 
 
@@ -3923,7 +5204,7 @@ def run_process_group(
     }
 
 
-def _extract_worker_record(stdout: str) -> Optional[Dict[str, Any]]:
+def _extract_worker_records(stdout: str) -> List[Dict[str, Any]]:
     # Native CUDA backends may append diagnostics to the same pipe after the
     # Python sentinel (and a few drivers can split writes at arbitrary byte
     # boundaries).  Do not require the sentinel to occupy an entire line or
@@ -3939,15 +5220,54 @@ def _extract_worker_record(stdout: str) -> Optional[Dict[str, Any]]:
             break
         positions.append(position)
         start = position + len(WORKER_PREFIX)
-    for position in reversed(positions):
+    records: List[Dict[str, Any]] = []
+    for position in positions:
         payload = stdout[position + len(WORKER_PREFIX):].lstrip()
         try:
             value, _end = decoder.raw_decode(payload)
         except json.JSONDecodeError:
             continue
         if isinstance(value, dict):
-            return value
-    return None
+            records.append(value)
+    return records
+
+
+def _extract_worker_record(stdout: str) -> Optional[Dict[str, Any]]:
+    records = _extract_worker_records(stdout)
+    return records[-1] if records else None
+
+
+def _write_rank_worker_record(
+        record: Mapping[str, Any], mpi_context: Mapping[str, Any]) -> None:
+    directory = os.environ.get(WORKER_RESULT_DIR_ENV)
+    if not directory:
+        return
+    target = Path(directory).resolve() / (
+        f"rank{int(mpi_context['rank']):05d}.json")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    temporary = target.with_suffix(".tmp")
+    temporary.write_text(
+        json.dumps(record, ensure_ascii=False, separators=(",", ":"),
+                   allow_nan=False),
+        encoding="utf-8")
+    os.replace(temporary, target)
+
+
+def _read_rank_worker_records(directory: Path) -> List[Dict[str, Any]]:
+    records: List[Dict[str, Any]] = []
+    if not directory.is_dir():
+        return records
+    for path in sorted(directory.glob("rank*.json")):
+        try:
+            value = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise BenchmarkFailure(
+                "mpi_rank_result_invalid", f"{path}: {exc!r}") from exc
+        if not isinstance(value, dict):
+            raise BenchmarkFailure(
+                "mpi_rank_result_invalid", f"{path}: result is not an object")
+        records.append(value)
+    return records
 
 
 def _worker_log_tail(stdout: str) -> str:
@@ -4036,84 +5356,464 @@ def _inspect_formal_runtime_cache(
     cache = record.get("runtime_cache")
     if not isinstance(cache, Mapping):
         raise BenchmarkFailure("merge_cache_evidence_missing", "runtime_cache missing")
-    evidence = cache.get("evidence")
-    evidence_errors = _validate_cache_evidence(evidence, "runtime_cache.evidence")
-    if evidence_errors:
-        raise BenchmarkFailure(
-            "merge_cache_evidence_invalid", "; ".join(evidence_errors))
     fingerprints = document.get("input_fingerprints")
     if not isinstance(fingerprints, Mapping):
         raise BenchmarkFailure(
             "merge_input_fingerprint_missing", "formal merge has no input fingerprints")
     try:
-        identity = _strict_runtime_cache_identity({
-            "protocol": document["protocol"],
-            "input_fingerprints": fingerprints,
-        })
-        expected_manifest = _strict_runtime_expected_manifest(document["protocol"])
+        from pyqcu.cuda._strict_cache import inspect_strict_runtime_cache
         cache_directory = Path(
             document["execution"]["strict_cache"]["directory"]).resolve()
-        expected_path = _strict_runtime_cache_path(identity, cache_directory).resolve()
-        recorded_path = Path(str(cache["path"])).resolve()
-    except (KeyError, TypeError, ValueError, OSError) as exc:
-        raise BenchmarkFailure(
-            "merge_cache_contract_invalid", repr(exc)) from exc
-    if recorded_path != expected_path:
-        raise BenchmarkFailure(
-            "merge_cache_path_mismatch",
-            f"recorded={recorded_path}, expected={expected_path}")
-    if cache.get("identity_sha256") != _sha256_json(identity):
-        raise BenchmarkFailure(
-            "merge_cache_identity_mismatch",
-            f"worker identity_sha256={cache.get('identity_sha256')!r}, "
-            f"expected={_sha256_json(identity)!r}")
-    try:
-        from pyqcu.cuda._strict_cache import inspect_strict_runtime_cache
-        inspected = inspect_strict_runtime_cache(
-            recorded_path, identity=identity, expected_manifest=expected_manifest)
     except Exception as exc:
         raise BenchmarkFailure(
-            "merge_cache_inspection_unavailable", repr(exc)) from exc
-    if not inspected.hit:
-        raise BenchmarkFailure(
-            "merge_cache_inspection_failed",
-            f"{recorded_path}: {inspected.reason}: {inspected.detail}")
-    inspected_evidence = inspected.evidence
-    inspected_errors = _validate_cache_evidence(
-        inspected_evidence, "inspected cache evidence")
-    if inspected_errors:
-        raise BenchmarkFailure(
-            "merge_cache_inspection_invalid", "; ".join(inspected_errors))
-    manifest_errors = _manifest_contract_mismatches(
-        inspected.manifest, expected_manifest)
-    if manifest_errors:
-        raise BenchmarkFailure(
-            "merge_cache_manifest_mismatch", "; ".join(manifest_errors))
-    for key in (
-            "path", "identity_sha256", "metadata_sha256", "stats_sha256",
-            "manifest_sha256", "tensor_digests", "tensor_count",
-            "logical_bytes", "file_size_bytes"):
-        if evidence.get(key) != inspected_evidence.get(key):
+            "merge_cache_contract_invalid", repr(exc)) from exc
+
+    rank_entries = cache.get("ranks")
+    if not isinstance(rank_entries, list) or not rank_entries:
+        rank_entries = [cache]
+    inspected_rank_evidence: List[Dict[str, Any]] = []
+    for entry in rank_entries:
+        if not isinstance(entry, Mapping):
             raise BenchmarkFailure(
-                "merge_cache_evidence_mismatch",
-                f"{key}: worker={evidence.get(key)!r}, "
-                f"current={inspected_evidence.get(key)!r}")
-    return copy.deepcopy(dict(inspected_evidence))
+                "merge_cache_evidence_invalid", "rank cache entry is not a mapping")
+        evidence = entry.get("evidence")
+        evidence_errors = _validate_cache_evidence(
+            evidence, "runtime_cache.evidence")
+        if evidence_errors:
+            raise BenchmarkFailure(
+                "merge_cache_evidence_invalid", "; ".join(evidence_errors))
+        rank = int(entry.get("rank", 0))
+        context = {
+            "rank": rank,
+            "size": int(
+                ((document.get("execution") or {}).get("parallel") or {}).get(
+                    "ranks", 1)),
+            "process_grid": (
+                ((document.get("execution") or {}).get("parallel") or {}).get(
+                    "process_grid") or [1, 1, 1, 1]),
+        }
+        context["rank_coordinate"] = list(
+            _rank_coordinate(context["rank"], context["process_grid"]))
+        try:
+            identity = _strict_runtime_cache_identity({
+                "protocol": document["protocol"],
+                "input_fingerprints": fingerprints,
+                "mpi_context": context,
+            })
+            expected_manifest = _strict_runtime_expected_manifest(
+                document["protocol"], context)
+            expected_path = _strict_runtime_cache_path(
+                identity, cache_directory).resolve()
+            recorded_path = Path(str(entry.get("path"))).resolve()
+        except (KeyError, TypeError, ValueError, OSError) as exc:
+            raise BenchmarkFailure(
+                "merge_cache_contract_invalid", repr(exc)) from exc
+        if recorded_path != expected_path:
+            raise BenchmarkFailure(
+                "merge_cache_path_mismatch",
+                f"rank={rank} recorded={recorded_path}, expected={expected_path}")
+        if entry.get("identity_sha256") != _sha256_json(identity):
+            raise BenchmarkFailure(
+                "merge_cache_identity_mismatch",
+                f"rank={rank} worker identity_sha256="
+                f"{entry.get('identity_sha256')!r}, "
+                f"expected={_sha256_json(identity)!r}")
+        try:
+            inspected = inspect_strict_runtime_cache(
+                recorded_path, identity=identity,
+                expected_manifest=expected_manifest)
+        except Exception as exc:
+            raise BenchmarkFailure(
+                "merge_cache_inspection_unavailable", repr(exc)) from exc
+        if not inspected.hit:
+            raise BenchmarkFailure(
+                "merge_cache_inspection_failed",
+                f"rank={rank} {recorded_path}: "
+                f"{inspected.reason}: {inspected.detail}")
+        inspected_evidence = inspected.evidence
+        manifest_errors = _manifest_contract_mismatches(
+            inspected.manifest, expected_manifest)
+        if manifest_errors:
+            raise BenchmarkFailure(
+                "merge_cache_manifest_mismatch", "; ".join(manifest_errors))
+        for key in (
+                "path", "identity_sha256", "metadata_sha256", "stats_sha256",
+                "manifest_sha256", "tensor_digests", "tensor_count",
+                "logical_bytes", "file_size_bytes"):
+            if evidence.get(key) != inspected_evidence.get(key):
+                raise BenchmarkFailure(
+                    "merge_cache_evidence_mismatch",
+                    f"rank={rank} {key}: worker={evidence.get(key)!r}, "
+                    f"current={inspected_evidence.get(key)!r}")
+        inspected_rank_evidence.append(copy.deepcopy(dict(inspected_evidence)))
+    result = inspected_rank_evidence[0]
+    if len(inspected_rank_evidence) > 1:
+        result["rank_evidence"] = inspected_rank_evidence
+    return result
 
 
-def _launch_side(side: str, document: Mapping[str, Any], timeout: float) -> Dict[str, Any]:
+def _aggregate_mg_levels(
+        level_sets: Sequence[Sequence[Mapping[str, Any]]]) -> List[Dict[str, Any]]:
+    if not level_sets:
+        return []
+    counts = {len(levels) for levels in level_sets}
+    if len(counts) != 1:
+        raise BenchmarkFailure(
+            "rank_mg_level_count_mismatch", f"level counts={sorted(counts)}")
+    result: List[Dict[str, Any]] = []
+    for level_index in range(next(iter(counts))):
+        levels = [levels[level_index] for levels in level_sets]
+        total = max(float(item["total_seconds"]) for item in levels)
+        merged = {
+            "level": int(levels[0]["level"]),
+            "total_seconds": total,
+            "total_iterations": max(
+                int(item["total_iterations"]) for item in levels),
+            "pre_smoother_seconds": max(
+                float(item["pre_smoother_seconds"]) for item in levels),
+            "post_smoother_seconds": max(
+                float(item["post_smoother_seconds"]) for item in levels),
+            "restriction_seconds": max(
+                float(item["restriction_seconds"]) for item in levels),
+            "prolongation_seconds": max(
+                float(item["prolongation_seconds"]) for item in levels),
+            "coarse_solver_seconds": max(
+                float(item["coarse_solver_seconds"]) for item in levels),
+        }
+        known = sum(float(merged[key]) for key in (
+            "pre_smoother_seconds", "post_smoother_seconds",
+            "restriction_seconds", "prolongation_seconds",
+            "coarse_solver_seconds"))
+        merged["other_seconds"] = total - known
+        if merged["other_seconds"] < 0.0:
+            raise BenchmarkFailure(
+                "rank_mg_level_timing_negative_other",
+                f"level={merged['level']} total={total}, known={known}")
+        for key in (
+                "pre_smoother_iterations", "post_smoother_iterations",
+                "restriction_calls", "prolongation_calls",
+                "recursive_solve_calls", "coarse_solver_iterations",
+                "coarse_solver_calls"):
+            merged[key] = max(int(item.get(key, 0)) for item in levels)
+        merged["smoother_iterations"] = max(
+            int(item.get(
+                "smoother_iterations",
+                int(item.get("pre_smoother_iterations", 0)) +
+                int(item.get("post_smoother_iterations", 0))))
+            for item in levels)
+        if level_index == 0:
+            merged["finest_iterations"] = int(
+                levels[0].get("finest_iterations",
+                              merged["total_iterations"]))
+            merged["residual_sequence"] = copy.deepcopy(
+                levels[0].get("residual_sequence", []))
+            final_values = [
+                float(item["final_residual"]) for item in levels
+                if item.get("final_residual") is not None]
+            merged["final_residual"] = (
+                max(final_values) if final_values else None)
+            merged["rank_final_residuals"] = [
+                item.get("final_residual") for item in levels]
+        result.append(merged)
+    return result
+
+
+def _aggregate_side_records(
+        side: str, records: Sequence[Mapping[str, Any]],
+        mpi_context: Mapping[str, Any]) -> Dict[str, Any]:
+    expected_ranks = int(mpi_context["size"])
+    if len(records) != expected_ranks:
+        raise BenchmarkFailure(
+            "mpi_worker_record_count",
+            f"{side}: expected {expected_ranks} rank records, got {len(records)}")
+    ranked: List[Mapping[str, Any]] = []
+    seen = set()
+    for record in records:
+        mpi = record.get("mpi") or {}
+        rank = int(mpi.get("rank", len(ranked)))
+        if rank in seen:
+            raise BenchmarkFailure("mpi_duplicate_rank", f"{side}: rank={rank}")
+        seen.add(rank)
+        ranked.append(record)
+    ranked.sort(key=lambda item: int((item.get("mpi") or {}).get("rank", 0)))
+    if seen != set(range(expected_ranks)):
+        raise BenchmarkFailure(
+            "mpi_rank_set_mismatch",
+            f"{side}: ranks={sorted(seen)}, expected={list(range(expected_ranks))}")
+
+    statuses = [str(record.get("status")) for record in ranked]
+    summary_ranks = [{
+        "rank": int((record.get("mpi") or {}).get("rank", 0)),
+        "status": record.get("status"),
+        "reason": copy.deepcopy(record.get("reason")),
+        "trace_paths": copy.deepcopy(record.get("trace_paths") or {}),
+        "device": copy.deepcopy(
+            ((record.get("provenance") or {}).get("runtime") or {})),
+    } for record in ranked]
+    base = copy.deepcopy(dict(ranked[0]))
+    base["rank_results"] = summary_ranks
+    base["mpi"] = copy.deepcopy(dict(mpi_context))
+    base["rank_aggregation"] = {
+        "mode": "rank-wise maximum for wall times/bytes/iterations; "
+                "element-wise conjunction for convergence",
+        "ranks": expected_ranks,
+        "process_grid": list(mpi_context["process_grid"]),
+    }
+    if "side_unsupported" in statuses:
+        base["status"] = "side_unsupported"
+        base["reason"] = next(
+            (copy.deepcopy(record.get("reason")) for record in ranked
+             if record.get("status") == "side_unsupported"),
+            {"code": "side_unsupported", "detail": side})
+        return base
+    if "timeout" in statuses:
+        base["status"] = "timeout"
+        base["reason"] = next(
+            copy.deepcopy(record.get("reason")) for record in ranked
+            if record.get("status") == "timeout")
+        return base
+    if "failed" in statuses:
+        base["status"] = "failed"
+        base["reason"] = next(
+            copy.deepcopy(record.get("reason")) for record in ranked
+            if record.get("status") == "failed")
+        return base
+    if "skipped" in statuses:
+        base["status"] = "skipped"
+        base["reason"] = next(
+            copy.deepcopy(record.get("reason")) for record in ranked
+            if record.get("status") == "skipped")
+        return base
+
+    timing_sources = [record["timing"] for record in ranked]
+    merged_timing = copy.deepcopy(dict(timing_sources[0]))
+    for key in (
+            "input_io_seconds", "runtime_init_seconds", "setup_seconds",
+            "setup_noncache_seconds", "cache_restore_seconds",
+            "cache_miss_probe_seconds", "cache_persist_seconds",
+            "cold_seconds"):
+        values = [
+            float(source[key]) for source in timing_sources
+            if source.get(key) is not None]
+        if values:
+            merged_timing[key] = max(values)
+    warmup_sources = [source.get("warmups") or [] for source in timing_sources]
+    warmup_count = min((len(values) for values in warmup_sources), default=0)
+    merged_timing["warmups"] = []
+    for index in range(warmup_count):
+        items = [values[index] for values in warmup_sources]
+        merged_timing["warmups"].append({
+            "seconds": max(float(item["seconds"]) for item in items),
+            "iterations": max(int(item["iterations"]) for item in items),
+            "converged": all(bool(item["converged"]) for item in items),
+            "true_residual_rel": max(
+                float(item["true_residual_rel"]) for item in items),
+        })
+    steady_sources = [source.get("steady") or {} for source in timing_sources]
+    steady_samples = [
+        [float(value) for value in source.get("samples_seconds", [])]
+        for source in steady_sources]
+    steady_count = min((len(values) for values in steady_samples), default=0)
+    merged_timing["steady"] = (
+        _median_mad([
+            max(values[index] for values in steady_samples)
+            for index in range(steady_count)])
+        if steady_count else
+        {"samples_seconds": [], "median_seconds": None,
+         "mad_seconds": None})
+
+    iteration_sources = [
+        [int(value) for value in record["iterations"]["samples"]]
+        for record in ranked]
+    iteration_count = min(
+        (len(values) for values in iteration_sources), default=0)
+    base["iterations"] = _iteration_summary([
+        max(values[index] for values in iteration_sources)
+        for index in range(iteration_count)])
+    residual_sources = [
+        [float(value) for value in record["true_residual"]["samples_rel"]]
+        for record in ranked]
+    residual_count = min(
+        (len(values) for values in residual_sources), default=0)
+    residual_samples = [
+        max(values[index] for values in residual_sources)
+        for index in range(residual_count)]
+    base["converged_samples"] = [
+        all(bool(record["converged_samples"][index]) for record in ranked)
+        for index in range(iteration_count)]
+    base["converged"] = all(bool(record["converged"]) for record in ranked)
+    base["true_residual"].update({
+        "samples_rel": residual_samples,
+        "max_rel": max(residual_samples) if residual_samples else math.inf,
+        "pass": base["converged"],
+    })
+    base["timing"] = merged_timing
+
+    level_sets = [record.get("mg_levels") for record in ranked]
+    if all(isinstance(value, list) for value in level_sets):
+        base["mg_levels"] = _aggregate_mg_levels(level_sets)
+    phase_sets: Dict[str, List[List[Mapping[str, Any]]]] = {}
+    for record in ranked:
+        by_phase = record.get("mg_levels_by_phase") or {}
+        for phase, levels in by_phase.items():
+            if isinstance(levels, list):
+                phase_sets.setdefault(phase, []).append(levels)
+    if phase_sets:
+        base["mg_levels_by_phase"] = {
+            phase: _aggregate_mg_levels(level_sets)
+            for phase, level_sets in phase_sets.items()
+            if len(level_sets) == expected_ranks
+        }
+    if side == "pyqcu":
+        caches = [record.get("runtime_cache") for record in ranked]
+        if all(isinstance(value, Mapping) for value in caches):
+            base["runtime_cache"] = copy.deepcopy(dict(caches[0]))
+            base["runtime_cache"]["ranks"] = [
+                {
+                    "rank": int((record.get("mpi") or {}).get("rank", 0)),
+                    "path": cache.get("path"),
+                    "hit": cache.get("hit"),
+                    "expectation": cache.get("expectation"),
+                    "evidence": copy.deepcopy(cache.get("evidence")),
+                }
+                for record, cache in zip(ranked, caches)
+            ]
+            base["runtime_cache"]["hit"] = all(
+                bool(cache.get("hit")) for cache in caches)
+            expectations = {cache.get("expectation") for cache in caches}
+            base["runtime_cache"]["expectation"] = (
+                next(iter(expectations)) if len(expectations) == 1 else "mixed")
+    memories = [record.get("memory") for record in ranked]
+    if all(isinstance(value, Mapping) for value in memories):
+        base["memory_rank_summary"] = {
+            "setup_peak_allocated_bytes": _max_optional(
+                (value.get("setup") or {}).get("cuda_peak_allocated_bytes")
+                for value in memories),
+            "setup_peak_reserved_bytes": _max_optional(
+                (value.get("setup") or {}).get("cuda_peak_reserved_bytes")
+                for value in memories),
+            "steady_peak_allocated_bytes": _max_optional(
+                (value.get("steady") or {}).get("cuda_peak_allocated_bytes")
+                for value in memories),
+            "steady_peak_reserved_bytes": _max_optional(
+                (value.get("steady") or {}).get("cuda_peak_reserved_bytes")
+                for value in memories),
+            "per_rank": [
+                {
+                    "rank": int((record.get("mpi") or {}).get("rank", 0)),
+                    "setup_peak_allocated_bytes": (
+                        (record.get("memory") or {}).get("setup") or {}
+                    ).get("cuda_peak_allocated_bytes"),
+                    "steady_peak_allocated_bytes": (
+                        (record.get("memory") or {}).get("steady") or {}
+                    ).get("cuda_peak_allocated_bytes"),
+                }
+                for record in ranked
+            ],
+        }
+    provenance = copy.deepcopy(base.get("provenance") or {})
+    provenance["runtime_ranks"] = [
+        copy.deepcopy(((record.get("provenance") or {}).get("runtime") or {}))
+        for record in ranked]
+    base["provenance"] = provenance
+    return base
+
+
+def _phase_selection(document: Mapping[str, Any]) -> Tuple[str, ...]:
+    execution = document.get("execution") or {}
+    phases = (execution.get("phases") or {}).get("selected")
+    return _normalise_phases(phases or DEFAULT_PHASES)
+
+
+def _combine_phase_records(
+        cold: Mapping[str, Any], warm_steady: Mapping[str, Any]) -> Dict[str, Any]:
+    for record in (cold, warm_steady):
+        if record.get("status") != "ok":
+            return copy.deepcopy(dict(record))
+    record = copy.deepcopy(dict(warm_steady))
+    cold_timing = cold.get("timing") or {}
+    cold_seconds = float(cold_timing.get("cold_seconds", 0.0))
+    record["timing"]["cold_seconds"] = cold_seconds
+    record["timing"]["cold_setup_seconds"] = cold_timing.get("setup_seconds")
+    record["timing"]["cold_cache_persist_seconds"] = cold_timing.get(
+        "cache_persist_seconds")
+    record["iterations_cold"] = copy.deepcopy(cold.get("iterations"))
+    record["converged_cold"] = bool(cold.get("converged"))
+    record["true_residual_cold"] = copy.deepcopy(cold.get("true_residual"))
+    record["memory_cold"] = copy.deepcopy(cold.get("memory"))
+    record["phase_results"] = {
+        "cold": {
+            "seconds": cold_seconds,
+            "iterations": copy.deepcopy(cold.get("iterations")),
+            "converged": bool(cold.get("converged")),
+        },
+        "warmup_count": len(record.get("timing", {}).get("warmups") or []),
+        "steady_count": len(
+            (record.get("timing", {}).get("steady") or {}).get(
+                "samples_seconds", [])),
+    }
+    by_phase = copy.deepcopy(record.get("mg_levels_by_phase") or {})
+    by_phase["cold"] = copy.deepcopy(cold.get("mg_levels"))
+    record["mg_levels_by_phase"] = by_phase
+    if record.get("runtime_cache") is not None:
+        record["runtime_cache"]["cold"] = copy.deepcopy(
+            cold.get("runtime_cache"))
+        record["runtime_cache"]["steady"] = copy.deepcopy(
+            warm_steady.get("runtime_cache"))
+    return record
+
+
+def _launch_side_once(
+        side: str, document: Mapping[str, Any], timeout: float,
+        phase_request: Mapping[str, Any],
+        phase_tag: Optional[str] = None) -> Dict[str, Any]:
     payload = {
         "protocol": document["protocol"],
         "inputs": document["inputs"],
         "execution": document["execution"],
         "input_fingerprints": document["input_fingerprints"],
         "collector_git": document["collector"]["git"],
+        "phase_request": copy.deepcopy(dict(phase_request)),
     }
     encoded = base64.b64encode(_json_bytes(payload)).decode("ascii")
     env = os.environ.copy()
     env[WORKER_PAYLOAD_ENV] = encoded
-    command = [sys.executable, str(Path(__file__).resolve()), "--_worker", side]
-    process = run_process_group(command, timeout, env=env)
+    parallel = (document.get("execution") or {}).get("parallel") or {}
+    ranks = int(parallel.get("ranks", 1))
+    grid = _normalise_process_grid(parallel.get("process_grid"), ranks)
+    env[MPI_SIZE_ENV] = str(ranks)
+    env[MPI_GRID_ENV] = ",".join(str(value) for value in grid)
+    if phase_tag:
+        for name in (
+                "PYQCU_STRICT_TRACE_FILE", "QUDA_MG_TRACE_FILE",
+                "PYQCU_QUDA_TRACE_FILE"):
+            if env.get(name):
+                env[name] = f"{env[name]}.{phase_tag}"
+    rank_result_dir: Optional[tempfile.TemporaryDirectory[str]] = None
+    if ranks > 1:
+        launcher = shutil.which("mpirun") or shutil.which("mpiexec")
+        if launcher is None:
+            raise BenchmarkFailure(
+                "mpi_launcher_missing",
+                "mpirun/mpiexec is required when --mpi-ranks > 1")
+        command = [
+            launcher, "-np", str(ranks),
+            sys.executable, str(Path(__file__).resolve()),
+            "--_worker", side,
+        ]
+        rank_result_dir = tempfile.TemporaryDirectory(
+            prefix=f"pyqcu-strict-{side}-ranks-")
+        env[WORKER_RESULT_DIR_ENV] = rank_result_dir.name
+    else:
+        command = [sys.executable, str(Path(__file__).resolve()), "--_worker", side]
+    try:
+        process = run_process_group(command, timeout, env=env)
+        rank_records = (
+            _read_rank_worker_records(Path(rank_result_dir.name))
+            if rank_result_dir is not None else [])
+    finally:
+        if rank_result_dir is not None:
+            rank_result_dir.cleanup()
     if process["timed_out"]:
         return {
             "side": side,
@@ -4132,8 +5832,10 @@ def _launch_side(side: str, document: Mapping[str, Any], timeout: float) -> Dict
             },
             "completed_at": _utc_now(),
         }
-    record = _extract_worker_record(process["stdout"])
-    if record is None:
+    records = (
+        rank_records if len(rank_records) == ranks else
+        _extract_worker_records(process["stdout"]))
+    if not records:
         return {
             "side": side,
             "status": "failed",
@@ -4151,6 +5853,17 @@ def _launch_side(side: str, document: Mapping[str, Any], timeout: float) -> Dict
             },
             "completed_at": _utc_now(),
         }
+    if ranks > 1:
+        record = _aggregate_side_records(
+            side, records,
+            {
+                "rank": 0,
+                "size": ranks,
+                "process_grid": list(grid),
+                "rank_coordinate": [0, 0, 0, 0],
+            })
+    else:
+        record = copy.deepcopy(records[-1])
     record["process"] = {
         "returncode": process["returncode"],
         "wall_seconds": process["wall_seconds"],
@@ -4164,6 +5877,49 @@ def _launch_side(side: str, document: Mapping[str, Any], timeout: float) -> Dict
             "detail": f"returncode={process['returncode']}",
         }
     return record
+
+
+def _launch_side(side: str, document: Mapping[str, Any], timeout: float) -> Dict[str, Any]:
+    phases = _phase_selection(document)
+    split = (
+        "cold" in phases and
+        any(phase in phases for phase in ("warmup", "steady")))
+    cache_expect = (
+        (document.get("execution") or {}).get("strict_cache") or {}
+    ).get("expect", "any")
+    if split:
+        cold = _launch_side_once(
+            side, document, timeout,
+            {
+                "cold": True,
+                "warmup": False,
+                "steady": False,
+                "cache_expect": "miss",
+            },
+            phase_tag="cold",
+        )
+        main_cache_expect = (
+            "hit" if document["protocol"].get("profile") == "formal"
+            else ("any" if cache_expect == "miss" else cache_expect))
+        warm_steady = _launch_side_once(
+            side, document, timeout,
+            {
+                "cold": False,
+                "warmup": "warmup" in phases,
+                "steady": "steady" in phases,
+                "cache_expect": main_cache_expect,
+            },
+            phase_tag="warmup_steady",
+        )
+        return _combine_phase_records(cold, warm_steady)
+    return _launch_side_once(
+        side, document, timeout,
+        {
+            "cold": "cold" in phases,
+            "warmup": "warmup" in phases,
+            "steady": "steady" in phases,
+            "cache_expect": cache_expect,
+        })
 
 
 def _comparison(document: Mapping[str, Any]) -> Dict[str, Any]:
@@ -4239,13 +5995,26 @@ def _comparison(document: Mapping[str, Any]) -> Dict[str, Any]:
     if left.get("status") == "ok" and right.get("status") == "ok":
         runtime_left = ((left.get("provenance") or {}).get("runtime") or {})
         runtime_right = ((right.get("provenance") or {}).get("runtime") or {})
-        uuid_left = runtime_left.get("device_uuid")
-        uuid_right = runtime_right.get("device_uuid")
-        if not isinstance(uuid_left, str) or not isinstance(uuid_right, str):
+        ranks_left = (
+            (left.get("provenance") or {}).get("runtime_ranks") or
+            [runtime_left])
+        ranks_right = (
+            (right.get("provenance") or {}).get("runtime_ranks") or
+            [runtime_right])
+        uuid_left = [item.get("device_uuid") for item in ranks_left]
+        uuid_right = [item.get("device_uuid") for item in ranks_right]
+        if (not uuid_left or not uuid_right or
+                not all(isinstance(value, str) and value
+                        for value in uuid_left + uuid_right)):
             reasons.append("backend GPU UUID evidence missing")
+        elif len(uuid_left) != len(uuid_right):
+            reasons.append(
+                f"backend GPU rank count mismatch: "
+                f"pyqcu={len(uuid_left)}, quda={len(uuid_right)}")
         elif uuid_left != uuid_right:
             reasons.append(
-                f"backend GPU UUID mismatch: pyqcu={uuid_left}, quda={uuid_right}")
+                f"backend GPU UUID mismatch by rank: "
+                f"pyqcu={uuid_left}, quda={uuid_right}")
     for error in validate_document(document, allow_planned=True):
         reasons.append(f"document evidence invalid: {error}")
     reasons = list(dict.fromkeys(reasons))
@@ -4361,6 +6130,14 @@ def _resume_side_compatible(
     if (expected_input_bundle_hash is not None and
             record.get("input_bundle_hash") != expected_input_bundle_hash):
         return False
+    for key, record_key in (
+            ("parallel", "parallel_contract"),
+            ("phases", "phase_contract"),
+            ("device", "device_contract")):
+        recorded_contract = record.get(record_key)
+        requested_contract = requested_execution.get(key)
+        if recorded_contract is not None and recorded_contract != requested_contract:
+            return False
     if side != "pyqcu":
         return True
     policy = requested_execution.get("strict_cache")
@@ -4484,6 +6261,17 @@ def _validate_provenance_contract(
         errors.append(f"{label}.runtime missing")
     elif not isinstance(runtime.get("device_uuid"), str) or not runtime["device_uuid"]:
         errors.append(f"{label}.runtime.device_uuid missing")
+    runtime_ranks = value.get("runtime_ranks")
+    if runtime_ranks is not None:
+        if not isinstance(runtime_ranks, list) or not runtime_ranks:
+            errors.append(f"{label}.runtime_ranks invalid")
+        else:
+            for rank, item in enumerate(runtime_ranks):
+                if (not isinstance(item, Mapping) or
+                        not isinstance(item.get("device_uuid"), str) or
+                        not item["device_uuid"]):
+                    errors.append(
+                        f"{label}.runtime_ranks[{rank}].device_uuid missing")
     if isinstance(value.get("pyqcu_git"), Mapping):
         if not isinstance(value["pyqcu_git"].get("repository"), str):
             errors.append(f"{label}.pyqcu_git.repository missing")
@@ -4526,6 +6314,74 @@ def _validate_provenance_contract(
     return errors
 
 
+def _validate_mg_levels(value: Any, level_count: int, side: str) -> List[str]:
+    errors: List[str] = []
+    if not isinstance(value, list) or len(value) != int(level_count):
+        return [f"{side} mg_levels must contain {int(level_count)} entries"]
+    time_fields = (
+        "total_seconds", "pre_smoother_seconds", "post_smoother_seconds",
+        "restriction_seconds", "prolongation_seconds",
+        "coarse_solver_seconds", "other_seconds")
+    iteration_fields = (
+        "total_iterations", "pre_smoother_iterations",
+        "post_smoother_iterations", "smoother_iterations",
+        "restriction_calls",
+        "prolongation_calls", "recursive_solve_calls",
+        "coarse_solver_iterations", "coarse_solver_calls")
+    finest_total: Optional[int] = None
+    for index, raw in enumerate(value):
+        if not isinstance(raw, Mapping):
+            errors.append(f"{side} mg_levels[{index}] invalid")
+            continue
+        if raw.get("level") != index:
+            errors.append(f"{side} mg_levels[{index}].level invalid")
+        for key in time_fields:
+            number = raw.get(key)
+            if (isinstance(number, bool) or
+                    not isinstance(number, (int, float)) or
+                    not math.isfinite(float(number)) or float(number) < 0.0):
+                errors.append(f"{side} mg_levels[{index}].{key} invalid")
+        for key in iteration_fields:
+            number = raw.get(key)
+            if (isinstance(number, bool) or not isinstance(number, int) or
+                    number < 0):
+                errors.append(f"{side} mg_levels[{index}].{key} invalid")
+        if all(isinstance(raw.get(key), int) for key in (
+                "pre_smoother_iterations", "post_smoother_iterations",
+                "smoother_iterations")):
+            if raw["smoother_iterations"] != (
+                    raw["pre_smoother_iterations"] +
+                    raw["post_smoother_iterations"]):
+                errors.append(
+                    f"{side} mg_levels[{index}].smoother_iterations mismatch")
+        if all(isinstance(raw.get(key), (int, float))
+               for key in time_fields[:6]):
+            known = sum(float(raw[key]) for key in time_fields[1:6])
+            other = float(raw["total_seconds"]) - known
+            if other < 0.0 or not math.isclose(
+                    other, float(raw["other_seconds"]),
+                    rel_tol=1.0e-12, abs_tol=1.0e-12):
+                errors.append(
+                    f"{side} mg_levels[{index}] timing conservation failed")
+        total_iterations = raw.get("total_iterations")
+        if isinstance(total_iterations, int) and not isinstance(
+                total_iterations, bool):
+            if finest_total is None:
+                finest_total = total_iterations
+            elif total_iterations != finest_total:
+                errors.append(
+                    f"{side} mg_levels[{index}].total_iterations "
+                    "must equal the finest outer total")
+        if index == 0:
+            if raw.get("finest_iterations") != total_iterations:
+                errors.append(
+                    f"{side} mg_levels[0].finest_iterations invalid")
+            if not isinstance(raw.get("residual_sequence"), list):
+                errors.append(
+                    f"{side} mg_levels[0].residual_sequence missing")
+    return errors
+
+
 def validate_document(document: Mapping[str, Any], *, allow_planned: bool = False) -> List[str]:
     """轻量内建 schema 校验；不依赖 jsonschema，dry-run 也能执行。"""
     errors: List[str] = []
@@ -4558,8 +6414,8 @@ def validate_document(document: Mapping[str, Any], *, allow_planned: bool = Fals
     protocol_levels = protocol.get("levels")
     if (isinstance(protocol_levels, bool) or
             not isinstance(protocol_levels, int) or
-            not 2 <= protocol_levels <= 5):
-        errors.append("protocol.levels must be in [2,5]")
+            not 1 <= protocol_levels <= 5):
+        errors.append("protocol.levels must be in [1,5]")
         protocol_levels = LEVELS
     if protocol.get("warmups") != WARMUPS:
         errors.append("warmups must be 2")
@@ -4567,6 +6423,16 @@ def validate_document(document: Mapping[str, Any], *, allow_planned: bool = Fals
     if (isinstance(repeats, bool) or not isinstance(repeats, int) or
             repeats <= 0):
         errors.append("repeats must be a positive integer")
+    execution = document.get("execution")
+    selected_phases = DEFAULT_PHASES
+    if isinstance(execution, Mapping):
+        phase_contract = execution.get("phases")
+        if isinstance(phase_contract, Mapping):
+            try:
+                selected_phases = _normalise_phases(
+                    phase_contract.get("selected"))
+            except ValueError as exc:
+                errors.append(f"execution.phases invalid: {exc}")
     precision = protocol.get("precision")
     if not isinstance(precision, Mapping) or precision.get("name") not in ("c64", "c128"):
         errors.append("precision must be c64/c128")
@@ -4653,7 +6519,8 @@ def validate_document(document: Mapping[str, Any], *, allow_planned: bool = Fals
         sides[side].get("status") == "ok"
     ]
     errors.extend(_validate_input_fingerprints(
-        input_fingerprints, required=bool(successful_sides)))
+        input_fingerprints, required=bool(successful_sides),
+        levels=protocol_levels))
     expected_input_hash = (
         input_fingerprints.get("bundle_hash")
         if isinstance(input_fingerprints, Mapping) else None)
@@ -4671,17 +6538,48 @@ def validate_document(document: Mapping[str, Any], *, allow_planned: bool = Fals
         if status not in valid_statuses:
             errors.append(f"invalid {side} status={status!r}")
         if status == "ok":
+            parallel = (
+                execution.get("parallel") if isinstance(execution, Mapping)
+                else None)
+            expected_ranks = (
+                int(parallel.get("ranks", 1))
+                if isinstance(parallel, Mapping) else 1)
+            rank_results = record.get("rank_results")
+            if expected_ranks > 1 and (
+                    not isinstance(rank_results, list) or
+                    len(rank_results) != expected_ranks):
+                errors.append(
+                    f"{side} rank_results must contain {expected_ranks} entries")
             timing = record.get("timing")
             steady = timing.get("steady") if isinstance(timing, Mapping) else None
             samples = steady.get("samples_seconds") if isinstance(steady, Mapping) else None
-            if not isinstance(samples, list) or len(samples) != repeats:
-                errors.append(f"{side} steady samples must contain repeats entries")
-            elif isinstance(repeats, int) and not isinstance(repeats, bool):
+            expected_steady = repeats if "steady" in selected_phases else 0
+            expected_warmups = WARMUPS if "warmup" in selected_phases else 0
+            if (not isinstance(samples, list) or
+                    len(samples) != expected_steady):
+                errors.append(
+                    f"{side} steady samples must contain "
+                    f"{expected_steady} entries")
+            elif expected_steady and isinstance(repeats, int) and not isinstance(
+                    repeats, bool):
                 errors.extend(_validate_median_mad(
                     steady, repeats, f"{side} timing.steady"))
             warmups = timing.get("warmups") if isinstance(timing, Mapping) else None
-            if not isinstance(warmups, list) or len(warmups) != WARMUPS:
-                errors.append(f"{side} warmups must contain two entries")
+            if (not isinstance(warmups, list) or
+                    len(warmups) != expected_warmups):
+                errors.append(
+                    f"{side} warmups must contain {expected_warmups} entries")
+            if "cold" in selected_phases and not isinstance(
+                    timing.get("cold_seconds"), (int, float)):
+                errors.append(f"{side} timing.cold_seconds missing")
+            has_iteration_contract = (
+                record.get("iteration_semantics") is not None or
+                record.get("mg_levels") is not None)
+            if has_iteration_contract:
+                if not isinstance(record.get("iteration_semantics"), str):
+                    errors.append(f"{side} iteration_semantics missing")
+                errors.extend(_validate_mg_levels(
+                    record.get("mg_levels"), protocol_levels, side))
             true_residual = record.get("true_residual")
             if not isinstance(true_residual, Mapping) or not isinstance(
                     true_residual.get("samples_rel"), list):
@@ -4903,7 +6801,8 @@ def validate_document(document: Mapping[str, Any], *, allow_planned: bool = Fals
                     cmake = provenance.get("cmake_features")
                     if isinstance(cmake, Mapping):
                         errors.extend(_quda_cmake_feature_mismatches(
-                            cmake, str(precision.get("name"))))
+                            cmake, str(precision.get("name")),
+                            int(protocol_levels)))
                 if isinstance(parameters, Mapping):
                     requested = parameters.get("requested")
                     if isinstance(requested, Mapping):
@@ -4948,18 +6847,21 @@ def _list_payload(args: argparse.Namespace) -> Dict[str, Any]:
         "sides": {
             "pyqcu": {
                 "worker": "internal strict fused FGMRES",
-                "requires": ["CUDA V100", "PyTorch", "PyQCU Cython/CUDA", "h5py"],
+                "requires": [
+                    "CUDA V100/P100 as requested", "PyTorch",
+                    "PyQCU Cython/CUDA", "h5py"],
             },
             "quda": {
                 "worker": "internal PyQUDA MG/GCR",
                 "requires": [
-                    "CUDA V100", "PyQUDA/QUDA", "h5py",
+                    "CUDA V100/P100 as requested", "PyQUDA/QUDA", "h5py",
                     "QIO null-vector prefix converted from canonical full null vectors",
                     "v1 conversion manifest with matching source_sha256 and QIO artifact hashes",
                 ],
             },
         },
         "inputs": document["inputs"],
+        "execution": document["execution"],
         "statistics": {"warmups": WARMUPS, "default_repeats": DEFAULT_REPEATS,
                        "summary": "median/MAD"},
         "commands": {
@@ -4980,6 +6882,19 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--profile", choices=PROFILE_NAMES, default=DEFAULT_PROFILE,
         help="formal fixes the reproducibility protocol; smoke permits exploration")
+    parser.add_argument(
+        "--device", choices=DEVICE_TARGETS, default="v100",
+        help="accelerator family; QCU_DEVICE_ID remains an explicit override")
+    parser.add_argument(
+        "--mpi-ranks", type=int, default=1,
+        help="number of MPI ranks launched for each collector side")
+    parser.add_argument(
+        "--process-grid", type=int, nargs=4, default=None,
+        metavar=("PX", "PY", "PZ", "PT"),
+        help="4D process grid; defaults to [mpi-ranks,1,1,1]")
+    parser.add_argument(
+        "--phases", default="warmup,steady",
+        help="comma-separated phase subset from cold,warmup,steady")
     parser.add_argument("--precision", choices=("c64", "c128"), default="c64")
     parser.add_argument(
         "--quda-coarse-precision", choices=("auto", "double", "single"),
@@ -5064,7 +6979,9 @@ def _run_parent(args: argparse.Namespace) -> Tuple[Dict[str, Any], int]:
         raise ValueError("--reference-warmups must be non-negative")
     profile = _profile_name(args)
     active_trace_env = [
-        name for name in ("PYQCU_STRICT_TRACE_FILE", "QUDA_MG_TRACE_FILE")
+        name for name in (
+            "PYQCU_STRICT_TRACE_FILE", "PYQCU_QUDA_TRACE_FILE",
+            "QUDA_MG_TRACE_FILE")
         if os.environ.get(name)
     ]
     if profile == "formal" and active_trace_env and not args.allow_trace:
@@ -5073,7 +6990,10 @@ def _run_parent(args: argparse.Namespace) -> Tuple[Dict[str, Any], int]:
             + ", ".join(active_trace_env)
             + " or use --allow-trace for a diagnostic run")
     if (profile == "formal" and args.side in ("pyqcu", "both") and
-            args.cache_expect != "hit"):
+            args.cache_expect != "hit" and not (
+                "cold" in _phases_from_args(args) and
+                any(phase in _phases_from_args(args)
+                    for phase in ("warmup", "steady")))):
         raise ValueError(
             "formal profile requires --cache-expect hit when pyqcu is selected; "
             "use --profile smoke for exploratory cache policies")
@@ -5154,6 +7074,8 @@ def _run_parent(args: argparse.Namespace) -> Tuple[Dict[str, Any], int]:
     if any(status in ("failed", "timeout") for status in statuses):
         return document, 1
     if any(status == "skipped" for status in statuses):
+        return document, 2
+    if any(status == "side_unsupported" for status in statuses):
         return document, 2
     if set(selected) == set(SIDE_NAMES):
         comparison = document["comparison"]
