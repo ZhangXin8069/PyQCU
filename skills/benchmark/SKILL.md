@@ -226,6 +226,10 @@ P100 为 `sm_60`，当前 PyTorch 构建明确不兼容，且 PyQCU/QUDA 本任�
 canonical-block scatter 已改为预计算索引与批量写入。`_target_entries()` 与
 `_source_color_groups()` 增加缓存，但保留按实际周期目标集合的贪心分组；
 不要用固定模数线性着色替代它，`8×16×16×24` 的周期轴上会产生更多色组。
+实际采用 16 个坐标 parity 桶优先的确定性顺序：大格源色组从 22 降到
+16，C=4 每层 operator calls 从 132 降到 96；小格 c128 `K=4` setup
+从 `16.67 s` 降到 `14.66 s`，大格全 double C=4/K=16 冷 setup
+从约 `974 s` 降到 `585.28 s`，低于同点 QUDA 的 `630.74 s`。
 
 `--pyqcu-strict-block-device cpu` 与 `--pyqcu-strict-offload-null-basis`
 是低显存实验开关，默认关闭；CPU canonical blocks 要求
