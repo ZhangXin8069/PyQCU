@@ -29,6 +29,8 @@ sm_60 JIT 与 sm_70 native 的 solve 数字混在同一速度比中；至少记�
 V100 side-only 复测中 sm70 大 c64 为 `0.657074 s`、大 c128 为
 `2.062569 s`；随后 full formal 独立复测大 c64 为 `0.655570 s`。
 sm70 相对默认 sm60 JIT 改善有限，但必须保留架构 provenance。
+benchmark worker 已自动写入 `provenance.pyqcu_library`；不要依赖口头
+记录或只看 `LD_LIBRARY_PATH`。
 
 ## Source Organization
 
