@@ -174,8 +174,10 @@ that allocator release the solve fails with workspace OOM.  The resulting
 formal cache-hit solve is 20 outer iterations, `2.061594 s`, true residual
 `1.78798e-8`; QUDA double gives 60 outer iterations, `16.166481 s`, and
 `1.79244e-8`.  The conservative 7.8417x MG ratio is formal for solve
-(the first independent run was 8.3507x); the cold C=1
-setup has not completed, so it must not be presented as a cold-start ratio.
+(the first independent run was 8.3507x); the cold C=1 setup ran for about
+36.5 minutes after the error-macro fix and then returned real CUDA
+`error 0002 out of memory`, so the cache-hit ratio must not be presented
+as a cold-start ratio.
 The cache identity binds physical assets, and a hit validates geometry plus
 every tensor SHA rather than replaying the historical construction batch.
 

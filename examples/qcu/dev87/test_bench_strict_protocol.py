@@ -811,6 +811,16 @@ def test_pyqcu_library_provenance_parses_cubin_architectures(
     assert report["listing_error"] is None
 
 
+def test_cuda_and_mpi_error_macros_evaluate_once():
+    header = (
+        Path(__file__).resolve().parents[3] /
+        "cpp" / "cuda" / "qcu" / "include" / "define.h").read_text()
+    assert "cudaError_t err_ = (err);" in header
+    assert "int err_ = (err);" in header
+    assert "cudaGetErrorString(err)" not in header
+    assert "err, __FILE__, __LINE__" not in header
+
+
 def test_formal_cache_contract_is_accepted_before_a_file_exists(tmp_path):
     from pyqcu.cuda._strict_cache import load_strict_runtime_cache
 
