@@ -188,6 +188,21 @@ formal solve 比值。
 \code{stats\_sha256} 不同。这说明优化只改变 source 调度和资源峰值，
 没有改变任何 runtime tensor 的逐 tensor digest。
 
+\subsection{CUDA 架构与 JIT 检查}
+
+PyQCU C++ 后端的 CMake 默认兼容架构是 \code{60-real;60-virtual}；
+在 V100 上默认路径因此使用 sm60 PTX JIT。为排除架构混入，本轮另用
+\code{QCU\_CUDA\_ARCHITECTURES=70-real,70-virtual} 重建，并用
+\code{cuobjdump --list-elf} 确认产物含 \code{sm\_70.cubin}。重建后
+Tier 1（20 CPU + 11 CUDA strict + 3 fused FGMRES）全绿。
+
+同输入 cache-hit 的单侧复测为：大格 c64 steady solve
+\(0.657074\) s（默认 sm60 路径 \(0.662549\) s），大格 c128
+\(2.062569\) s（默认 \(2.065148\) s），迭代数与真残差均不变。
+主表中的 PyQCU 数字来自默认 sm60 路径，因此是保守值；不同 CUDA
+架构的结果不得混入同一 speedup，后续记录必须附带架构与 libqcu
+SHA256。
+
 另外，固定输入合成微基准（\(8\cdot16\cdot16\cdot32\)、c128 blocked
 basis、c64 blocks、\(K=256\)、44 次算子调用）中，旧 builder 为
 \(18.39\) s，新 builder 为 \(5.48\) s，约 \(3.36\times\)；峰值
