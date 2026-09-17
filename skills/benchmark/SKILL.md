@@ -222,6 +222,9 @@ Krylov 策略，而不能解释成 parity 层计数错位。
 P100 为 `sm_60`，当前 PyTorch 构建明确不兼容，且 PyQCU/QUDA 本任务构建
 目标为 `sm_70`。因此本轮不能把多卡数字并入正式 MG 结论；应记录为环境
 能力缺口，而不是把单卡结果冒充多卡验证。
+另实测把同一 V100 UUID 在 `CUDA_VISIBLE_DEVICES` 中重复两次会得到
+`device_count=0`，不能借此构造同卡的“双逻辑设备”多卡测试；不得把
+这种伪多卡输出写入结果。
 
 ### 2026-09-17 colored Galerkin 批处理与 CPU staging
 
