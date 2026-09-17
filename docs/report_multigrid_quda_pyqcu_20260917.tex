@@ -214,6 +214,8 @@ Tier 1（20 CPU + 11 CUDA strict + 3 fused FGMRES）全绿。
 被第二次成功调用覆盖成 \code{error 0000 "no error"}。本轮把 CUDA 和
 MPI 检查宏改为先把表达式存入局部变量，再测试和打印；静态回归测试
 \code{test\_cuda\_and\_mpi\_error\_macros\_evaluate\_once} 防止回退。
+修复后的 native sm70 全量回归再次 \code{PASS 5/5}，耗时
+$755.5$ s。
 
 另外，固定输入合成微基准（\(8\cdot16\cdot16\cdot32\)、c128 blocked
 basis、c64 blocks、\(K=256\)、44 次算子调用）中，旧 builder 为
