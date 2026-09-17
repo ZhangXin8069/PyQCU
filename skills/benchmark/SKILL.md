@@ -233,6 +233,10 @@ canonical-block scatter 已改为预计算索引与批量写入。`_target_entri
 若按 extended smoke 的冷 setup 加 steady solve 估算，PyQCU 约
 `587.34 s`、QUDA 约 `648.10 s`，冷启动总量约快 `1.10x`；该估算不含
 输入 I/O/warmup，不能替代 formal solve 的 `8.3507x`。
+两版 cache 已审计：22 色旧构建与 16 色 parity 构建的
+`identity_sha256`、`manifest_sha256`、`metadata_sha256` 相同，仅
+`stats_sha256` 因构造统计不同。需要用 manifest 相等而不是文件大小或
+残差相似来证明资产等价。
 
 `--pyqcu-strict-block-device cpu` 与 `--pyqcu-strict-offload-null-basis`
 是低显存实验开关，默认关闭；CPU canonical blocks 要求
