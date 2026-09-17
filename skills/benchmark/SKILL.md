@@ -150,7 +150,7 @@ QUDA 的 solver factory 仍会因残留 MG 指针拒绝 BiCGStab。
 | `16·32·32·48` / 3 / c64 | 0.662549 s | 1.318356 s | 1.9898x | 14 / 39 |
 | `8^3·16` / 3 / c128 | 0.077870 s | 0.963774 s | 12.3768x | 14 / 46 |
 | `16^3·16` / 3 / c128 | 0.380444 s | 1.230048 s | 3.2332x | 44 / 87 |
-| `16·32·32·48` / 3 / c128 | 2.065148 s | 17.245388 s | 8.3507x | 20 / 60 |
+| `16·32·32·48` / 3 / c128 | 2.061594 s | 16.166481 s | 7.8417x | 20 / 60 |
 
 大格 c128 使用 cache-hit formal：缓存由 extended `C=4`、`K=16`、
 CPU staging 构建，formal solve 仍按 `C=1` 协议执行。cache identity
@@ -174,17 +174,17 @@ MultiGrid 路径，绝不能外推为 PyQCU 总体求解器优势。
 c128 三层大格点 `16·32·32·48` 的早期冷 $C=1$ setup 在 32 GiB
 V100 上 OOM 或超时；现在用 extended `C=4`、`K=16`、CPU block
 staging、null-basis offload 构建同一物理缓存，再由 formal $C=1$
-cache-hit solve。两侧 formal 结果为 PyQCU `2.065148 s` / 20
-iterations / `1.78798e-8`，QUDA `17.245388 s` / 60 iterations /
-`1.79244e-8`，MG 比值 `8.3507x`。该点进入正式表，但必须同时声明
+cache-hit solve。两侧 formal 保守复测为 PyQCU `2.061594 s` / 20
+iterations / `1.78798e-8`，QUDA `16.166481 s` / 60 iterations /
+`1.79244e-8`，MG 比值 `7.8417x`；首次独立复测为 `8.3507x`。该点进入正式表，但必须同时声明
 冷 formal $C=1$ setup 尚未完成。
 该容量路径要求在 `seal_cuda_runtime()` 后、steady workspace 分配前调用
 `torch.cuda.empty_cache()`；否则 caching allocator 会保留 setup 临时块，
 在 32 GiB V100 上以 solve workspace OOM 失败。该释放位于 setup/solve
 计时之外，不能计入任何一侧速度比。
 
-同一大格点的 BiCGStab 参考为 PyQCU `3.22998 s`、QUDA
-`0.97875 s`；QUDA plain BiCGStab 仍比 PyQCU MG 快约 `2.11x`，
+同一大格点的保守复测 BiCGStab 参考为 PyQCU `3.251439 s`、QUDA
+`1.043206 s`；QUDA plain BiCGStab 仍比 PyQCU MG 快约 `1.98x`，
 因此上述 MG 比值只能解释为 MultiGrid 路径差异。
 
 `--quda-coarse-precision single` 提供 QUDA mixed-coarse 容量补充：
@@ -245,7 +245,7 @@ canonical-block scatter 已改为预计算索引与批量写入。`_target_entri
 从约 `974 s` 降到 `585.28 s`，低于同点 QUDA 的 `630.74 s`。
 若按 extended smoke 的冷 setup 加 steady solve 估算，PyQCU 约
 `587.34 s`、QUDA 约 `648.10 s`，冷启动总量约快 `1.10x`；该估算不含
-输入 I/O/warmup，不能替代 formal solve 的 `8.3507x`。
+输入 I/O/warmup，不能替代 formal solve 的保守 `7.8417x`。
 两版 cache 已审计：22 色旧构建与 16 色 parity 构建的
 `identity_sha256`、`manifest_sha256`、`metadata_sha256` 相同，仅
 `stats_sha256` 因构造统计不同。需要用 manifest 相等而不是文件大小或

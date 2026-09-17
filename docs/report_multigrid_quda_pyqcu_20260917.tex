@@ -62,8 +62,9 @@ $4.90135\times10^{-7}$ 与 $7.32826\times10^{-7}$。c128 三层在
 $16^3\cdot16$ 上得到 PyQCU $0.380444$ s、QUDA $1.230048$ s，
 加速比 $3.2332\times$，外迭代数 $44/87$。c128 小格三层复测为
 $12.3768\times$。c128 三层 $16\cdot32\cdot32\cdot48$ 的全 double
-formal cache-hit 点为 PyQCU $2.065148$ s、QUDA $17.245388$ s，
-加速比 $8.3507\times$，外迭代数 $20/60$。该点使用 extended
+formal cache-hit 复测为 PyQCU $2.061594$ s、QUDA $16.166481$ s，
+保守加速比 $7.8417\times$，外迭代数 $20/60$；首次独立复测为
+$8.3507\times$。该点使用 extended
 $C=4$ 构建的 asset-identity 缓存，formal 冷 $C=1$ setup 仍未完成。
 \end{abstract}
 
@@ -254,7 +255,7 @@ $16\cdot32\cdot32\cdot48$ / 2 / c64 & 1.944663 & 2.183002 & 1.1226 & 11 / 37 \\
 $16\cdot32\cdot32\cdot48$ / 3 / c64 & 0.662549 & 1.318356 & 1.9898 & 14 / 39 \\
 $8^3\cdot16$ / 3 / c128 & 0.077870 & 0.963774 & 12.3768 & 14 / 46 \\
 $16^3\cdot16$ / 3 / c128 & 0.380444 & 1.230048 & 3.2332 & 44 / 87 \\
-$16\cdot32\cdot32\cdot48$ / 3 / c128 & 2.065148 & 17.245388 & 8.3507 & 20 / 60 \\
+$16\cdot32\cdot32\cdot48$ / 3 / c128 & 2.061594 & 16.166481 & 7.8417 & 20 / 60 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -321,8 +322,9 @@ QUDA & 1.318356 & 0.325375 \\
 PyQCU MG/BiCGStab $0.077870/0.304677$ s，QUDA
 $0.963774/0.103475$ s（小格）；PyQCU
 $0.380444/0.453031$ s，QUDA $1.230048/0.118572$ s（中格）。
-大格 c128 为 PyQCU MG/BiCGStab $2.065148/3.229977$ s，QUDA
-$17.245388/0.978754$ s。
+大格 c128 保守复测为 PyQCU MG/BiCGStab $2.061594/3.251439$ s，
+QUDA $16.166481/1.043206$ s；首次复测对应的参考值为
+$2.065148/3.229977$ 与 $17.245388/0.978754$ s。
 因此只有 MG-vs-MG 比值可以归因于 MultiGrid 路径：例如 c128 中格的
 $3.23\times$ MG 比值并不表示 PyQCU 的总体求解器快于 QUDA，因为 QUDA
 BiCGStab 仍比 PyQCU MG 快约 $3.2\times$，也比 PyQCU BiCGStab 快约
@@ -372,7 +374,7 @@ outer iteration 合计约 $3.374$ s，其中 coarse V-cycle 约 $2.146$ s
 fine restriction/prolongation 合计约 $0.247$ s，fine correction
 residual 约 $0.112$ s。最粗层 BiCGStab 在单次 solve 中约 $0.297$ s。
 
-该 trace 说明 PyQCU 的 $8.3507\times$ MG 优势不能仅归因于某个单层
+该 trace 说明 PyQCU 的 $7.84$--$8.35\times$ MG 优势不能仅归因于某个单层
 kernel：每外层迭代的 coarsest recursion 和 coarse V-cycle 是主要成本，
 但外层迭代数明显少于 QUDA 的 60 次。由于本轮没有为大格 QUDA 重跑
 trace，且 trace 本身有约 $1.6\times$ 开销，这些数字只用于解释算法
@@ -403,15 +405,16 @@ $C=4$、$K=16$、CPU canonical-block staging、null-basis offload，
 调用 \code{empty\_cache()} 归还 setup 临时块。PyQCU 两侧缓存构建
 setup 统计为 $351.33$ s 与 $202.72$ s（总 setup $585.28$ s），
 QUDA double setup 为 $630.74$ s。formal solve 的 MG steady 为
-PyQCU $2.065148$ s、
-QUDA $17.245388$ s，正式比值 $8.3507\times$；相对真残差分别为
+PyQCU $2.061594$ s、
+QUDA $16.166481$ s，保守正式比值 $7.8417\times$（另一独立复测为
+$8.3507\times$）；相对真残差分别为
 $1.78798\times10^{-8}$ 与 $1.79244\times10^{-8}$，均通过独立门限。
 冷 formal $C=1$ setup 仍未完成，因此不能把 cache-hit solve 比值当作
 冷启动总时间比值。
 
-同侧 plain BiCGStab 为 PyQCU $3.22998$ s、QUDA $0.97875$ s；
-QUDA BiCGStab 比 PyQCU MG 快约 $2.11\times$，也比 PyQCU BiCGStab
-快约 $3.30\times$。因此该 $8.3507\times$ 只能解释为两条 MultiGrid
+同侧 plain BiCGStab 为 PyQCU $3.251439$ s、QUDA $1.043206$ s；
+QUDA BiCGStab 比 PyQCU MG 快约 $1.98\times$，也比 PyQCU BiCGStab
+快约 $3.12\times$。因此该保守 $7.8417\times$ 只能解释为两条 MultiGrid
 路径的差异，不能外推为 PyQCU 一般求解器优势。
 
 \subsection{QUDA mixed-coarse 容量补充}
@@ -500,8 +503,10 @@ c128 中格三层 formal 复测，double coarse 主口径。\\
 c128 大格三层全 double 双侧 smoke；$C=4$、$K=16$、CPU staging，
 不进入 formal speedup。\\
 \pathref{data/mg_matrix_20260916_round2/formal-c128-l3/benchmark-formal.json} &
-c128 大格三层 formal cache-hit；缓存由 extended $C=4$ 构建并经资产
-identity 校验，主 MG 比值为 $8.3507\times$。\\
+c128 大格三层首次 formal cache-hit；缓存由 extended $C=4$ 构建并经
+资产 identity 校验，MG 比值为 $8.3507\times$。\\
+\pathref{data/mg_matrix_20260916_round2/formal-c128-l3/benchmark-formal-sm70-recheck.json} &
+c128 大格三层 sm70 独立正式复测；保守 MG 比值为 $7.8417\times$。\\
 \pathref{data/mg_matrix_20260916_round2/formal-c128-l3/pyqcu-double-c4-k16-parity.json} &
 c128 大格 parity 分组后的冷 C=4 全 double setup；总 setup $585.28$ s，
 solve 真残差通过。\\
@@ -523,7 +528,8 @@ trace-on/off 小格诊断与残差阶段。\\
         三层 aligned 主结果为 $1.9898\times$，五次样本和真残差均通过。
   \item QUDA double MG 与 PyQCU double MG 均已推进到 c128 小/中格点
         以及大格三层；大格 formal cache-hit 的 MG 比值为
-        $8.3507\times$，但冷 $C=1$ setup 仍未完成，且 QUDA plain
+        $7.8417\times$（首次 $8.3507\times$），但冷 $C=1$ setup 仍未完成，
+        且 QUDA plain
         BiCGStab 仍快于 PyQCU MG，故不能外推为一般求解器优势。
   \item trace 功能对 PyQCU 小格点有显著观测开销，正式加速比必须在
         trace-off 下采集；BiCGStab 参考和 aligned/library 双策略已作为
