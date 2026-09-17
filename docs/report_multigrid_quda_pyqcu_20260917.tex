@@ -182,6 +182,12 @@ C=4/K=16 冷 setup 从约 \(974\) s 降至 \(585.28\) s（transition
 总量仍标记为 smoke 级证据，不含输入 I/O 和完整 warmup，不能替代
 formal solve 比值。
 
+对两版构建缓存做逐字段审计：22 色旧构建与 16 色 parity 构建的
+\code{identity\_sha256}、\code{manifest\_sha256} 和
+\code{metadata\_sha256} 完全相同，只有记录色组构造统计的
+\code{stats\_sha256} 不同。这说明优化只改变 source 调度和资源峰值，
+没有改变任何 runtime tensor 的逐 tensor digest。
+
 另外，固定输入合成微基准（\(8\cdot16\cdot16\cdot32\)、c128 blocked
 basis、c64 blocks、\(K=256\)、44 次算子调用）中，旧 builder 为
 \(18.39\) s，新 builder 为 \(5.48\) s，约 \(3.36\times\)；峰值
