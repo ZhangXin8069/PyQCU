@@ -231,7 +231,11 @@ PyQCU 的 C++ 默认 CMake 架构是 `60-real;60-virtual`，因此 V100 上需�
 `cuobjdump --list-elf` 显示 `sm_70.cubin`。sm_70 重建后 Tier1 仍全绿；
 大格 c64 solve 为 `0.657074 s`（默认 sm60 JIT 为 `0.662549 s`），大格
 c128 为 `2.062569 s`（默认 `2.065148 s`），残差和迭代数不变。此前主表
-使用 sm60 路径，因此是保守结果；不得把不同 CUDA 架构混成同一速度比。
+大格 c64/c128 已改采用 sm70 独立正式复测；小/中格仍保留 sm60 路径，
+因此按保守旧架构记录。不得把不同 CUDA 架构混成同一速度比。
+每次 worker 记录现在都写入 `provenance.pyqcu_library`，包含 libqcu
+路径、SHA256、`QCU_CUDA_ARCHITECTURES` 请求值和 `cuobjdump` 实际
+`architectures` 列表；正式比较前必须核对目标架构。
 
 ### 2026-09-17 colored Galerkin 批处理与 CPU staging
 
