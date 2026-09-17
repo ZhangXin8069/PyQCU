@@ -176,6 +176,12 @@ C=4/K=16 冷 setup 从约 \(974\) s 降至 \(585.28\) s（transition
 \(630.74\) s；小格 c128 的 setup 也从 \(16.67\) s 降至
 \(14.66\) s。
 
+把 extended C=4 冷 setup 与 solve 相加，PyQCU 约为
+\(585.28+2.06371=587.34\) s，QUDA 约为
+\(630.74+17.35793=648.10\) s，冷启动总量约快 \(1.10\times\)。该
+总量仍标记为 smoke 级证据，不含输入 I/O 和完整 warmup，不能替代
+formal solve 比值。
+
 另外，固定输入合成微基准（\(8\cdot16\cdot16\cdot32\)、c128 blocked
 basis、c64 blocks、\(K=256\)、44 次算子调用）中，旧 builder 为
 \(18.39\) s，新 builder 为 \(5.48\) s，约 \(3.36\times\)；峰值
