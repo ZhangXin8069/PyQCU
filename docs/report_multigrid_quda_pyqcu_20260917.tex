@@ -66,7 +66,8 @@ $12.3768\times$。c128 三层 $16\cdot32\cdot32\cdot48$ 的全 double
 formal cache-hit 复测为 PyQCU $2.061594$ s、QUDA $16.166481$ s，
 保守加速比 $7.8417\times$，外迭代数 $20/60$；首次独立复测为
 $8.3507\times$。该点使用 extended
-$C=4$ 构建的 asset-identity 缓存，formal 冷 $C=1$ setup 仍未完成。
+$C=4$ 构建的 asset-identity 缓存；formal 冷 $C=1$ setup 也已由
+release-before-runtime 路径完成，实测 $2709.45$ s。
 \end{abstract}
 
 \tableofcontents
@@ -278,7 +279,9 @@ CPU canonical-block staging 构建，随后按 cache identity 的资产几何与
 逐 tensor SHA 校验复用；formal 请求的 build batching 仅作为 provenance，
 不参与资产等价判定。该点真残差为 PyQCU $1.78798\times10^{-8}$、QUDA
 $1.79244\times10^{-8}$，两侧均通过独立门限。冷 formal $C=1$ setup
-尚未完成，因此该 cache-hit 比值不代表冷启动总时间。
+现已由 release-before-runtime 路径完成，因此 $C=1$ 冷启动不再受
+32 GiB 容量限制；cache-hit solve 比值仍与 $2709.45$ s 冷 setup
+时间分开报告。
 
 表中三层大格 c64、c128 小格和 c128 中格为 builder 优化后的复测值；
 与优化前独立运行的对应值相比，MG-vs-MG 加速比仍在约 2--12 倍区间，
@@ -414,11 +417,13 @@ $1.83242\times10^{-8}$ 与 $1.83035\times10^{-8}$。
 
 \subsection{c128 大格点}
 
-c128 三层 $16\cdot32\cdot32\cdot48$ 的 $C=1$ 冷 setup 在修正
-\code{checkCudaErrors} 双重求值错误后，运行约 $36.5$ 分钟后在
-\code{lattice\_set.h:414} 的 \code{cudaMallocAsync} 真实返回
-\code{CUDA error 0002 "out of memory"}；因此它在 32 GiB V100 上的
-容量边界是明确的，而不是旧日志中的伪 \code{error 0000}。现在的
+c128 三层 $16\cdot32\cdot32\cdot48$ 的 $C=1$ 冷 setup 在加入
+\code{release\_python\_setup\_assets()} 后完成：先导出 runtime assets，
+再释放 Python hierarchy 的重复引用，避免 C++ \code{applyInitQcu}
+scratch 与 Python V/X/Y/Yhat 同时驻留。实测总 setup 为
+$2709.45$ s（384 calls/level），steady solve 为 $2.067186$ s，
+20 次外迭代，真残差 $1.78798\times10^{-8}$，并发布
+$8.89$ GB runtime cache；因此 $C=1$ 冷路径不再 OOM。现在的
 extended builder 使用
 $C=4$、$K=16$、CPU canonical-block staging、null-basis offload，
 完成后将同一物理缓存提供给 formal $C=1$ solve，并在 runtime seal 后
@@ -429,8 +434,8 @@ PyQCU $2.061594$ s、
 QUDA $16.166481$ s，保守正式比值 $7.8417\times$（另一独立复测为
 $8.3507\times$）；相对真残差分别为
 $1.78798\times10^{-8}$ 与 $1.79244\times10^{-8}$，均通过独立门限。
-冷 formal $C=1$ setup 仍未完成，因此不能把 cache-hit solve 比值当作
-冷启动总时间比值。
+冷 formal $C=1$ setup 已由 release-before-runtime 路径完成，但
+$2709.45$ s 的冷启动时间仍与 cache-hit solve 比值分开报告。
 
 同侧 plain BiCGStab 为 PyQCU $3.251439$ s、QUDA $1.043206$ s；
 QUDA BiCGStab 比 PyQCU MG 快约 $1.98\times$，也比 PyQCU BiCGStab
@@ -532,9 +537,9 @@ c128 大格三层 sm70 独立正式复测；保守 MG 比值为 $7.8417\times$�
 \pathref{data/mg_matrix_20260916_round2/formal-c128-l3/pyqcu-double-c4-k16-parity.json} &
 c128 大格 parity 分组后的冷 C=4 全 double setup；总 setup $585.28$ s，
 solve 真残差通过。\\
-\pathref{data/mg_matrix_20260916_round2/formal-c128-l3/pyqcu-double-c1-parity-fixed.json} &
-c128 大格 $C=1$ 冷 setup 的真实容量失败：\code{cudaMallocAsync} 返回
-\code{error 0002 "out of memory"}，不是伪 \code{0000}。\\
+\pathref{data/mg_matrix_20260916_round2/formal-c128-l3/pyqcu-double-c1-release.json} &
+c128 大格 $C=1$ 冷 setup release-before-runtime 成功：总 setup
+$2709.45$ s，steady $2.067186$ s，真残差与 20 次外迭代均通过。\\
 \pathref{data/mg_matrix_20260916_round2/formal-c128-l3/pyqcu-formal-trace.tsv} &
 大格 c128 PyQCU trace-on 的逐层 stage/residual 诊断；不进入正式计时。\\
 \pathref{data/mg_matrix_20260916_round2/library-formal-c64-l3/benchmark.json} &
@@ -553,8 +558,8 @@ trace-on/off 小格诊断与残差阶段。\\
         三层 aligned 主结果为 $2.0052\times$，五次样本和真残差均通过。
   \item QUDA double MG 与 PyQCU double MG 均已推进到 c128 小/中格点
         以及大格三层；大格 formal cache-hit 的 MG 比值为
-        $7.8417\times$（首次 $8.3507\times$），但冷 $C=1$ setup 仍未完成，
-        且 QUDA plain
+        $7.8417\times$（首次 $8.3507\times$），冷 $C=1$ setup 已由
+        release-before-runtime 路径完成，且 QUDA plain
         BiCGStab 仍快于 PyQCU MG，故不能外推为一般求解器优势。
   \item trace 功能对 PyQCU 小格点有显著观测开销，正式加速比必须在
         trace-off 下采集；BiCGStab 参考和 aligned/library 双策略已作为
