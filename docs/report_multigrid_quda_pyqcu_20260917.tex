@@ -194,7 +194,7 @@ formal solve 比值。
 
 PyQCU C++ 后端的 CMake 默认兼容架构是 \code{60-real;60-virtual}；
 在 V100 上默认路径因此使用 sm60 PTX JIT。为排除架构混入，本轮另用
-\code{QCU\_CUDA\_ARCHITECTURES=70-real,70-virtual} 重建，并用
+\code{QCU\_CUDA\_ARCHITECTURES=70-real;70-virtual} 重建，并用
 \code{cuobjdump --list-elf} 确认产物含 \code{sm\_70.cubin}。重建后
 Tier 1（20 CPU + 11 CUDA strict + 3 fused FGMRES）全绿。
 
