@@ -176,16 +176,18 @@ performance evidence.
   拒绝 BiCGStab。
 - 正式 profile 在 trace 环境变量存在时拒绝运行；只有
   `--allow-trace` 才能产生诊断 JSON。
-- c128 `16·32·32·48` 三层 setup 在 32 GiB 设备上应明确报告 OOM
-  能力缺口，不得静默改成单侧或伪造 speedup。
+- c128 `16·32·32·48` 三层当前有两条路径：formal 冷 `C=1` 仍未完成；
+  extended `C=4`/`K=16` 全 double setup 已在 32 GiB V100 完成，并可
+  通过 asset-identity cache 进入 formal `C=1` solve。测试必须区分
+  cold-C1 能力缺口与 extended 全 double 成功，不得把 cache-hit solve
+  冒充冷启动总时间。
 - `--quda-coarse-precision single` 的 mixed-coarse smoke 必须检查
   `gauge_param`/`invert_param` precision readback；只修改
   `invert_param` 不足以让 coarse single 与 fine double 一致。
 - `--pyqcu-strict-block-precision single` 与
   `--strict-galerkin-projection-batch 1` 是 setup 低内存实验选项；
-  即使配合 flat-site diagonal inverse 分块和 compact inverse cache，
-  当前仍不能在 c128 大格点完整结束 setup，不得据此宣称 PyQCU
-  mixed-coarse 已支持。
+  它们仍不能替代当前已完成的 extended 全 double `C=4` setup；不得
+  据单精度路径宣称 PyQCU mixed-coarse 已支持。
 
 快速命令：
 
