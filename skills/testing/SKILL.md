@@ -182,11 +182,12 @@ performance evidence.
   拒绝 BiCGStab。
 - 正式 profile 在 trace 环境变量存在时拒绝运行；只有
   `--allow-trace` 才能产生诊断 JSON。
-- c128 `16·32·32·48` 三层当前有两条路径：formal 冷 `C=1` 仍未完成；
-  extended `C=4`/`K=16` 全 double setup 已在 32 GiB V100 完成，并可
-  通过 asset-identity cache 进入 formal `C=1` solve。测试必须区分
-  cold-C1 能力缺口与 extended 全 double 成功，不得把 cache-hit solve
-  冒充冷启动总时间。
+- c128 `16·32·32·48` 三层当前有两条路径：formal 冷 `C=1` 在修正
+  `checkCudaErrors` 双重求值后，约 36.5 分钟真实返回
+  `CUDA error 0002 "out of memory"`；extended `C=4`/`K=16` 全 double
+  setup 已在 32 GiB V100 完成，并可通过 asset-identity cache 进入
+  formal `C=1` solve。测试必须区分 cold-C1 容量失败与 extended 全
+  double 成功，不得把 cache-hit solve 冒充冷启动总时间。
 - `--quda-coarse-precision single` 的 mixed-coarse smoke 必须检查
   `gauge_param`/`invert_param` precision readback；只修改
   `invert_param` 不足以让 coarse single 与 fine double 一致。

@@ -107,6 +107,11 @@ _d_:           dot(r_tilde,v) → give_1alpha → dot(t,t) → give_1omega
 
 ## Critical Invariants (from bug fixes)
 
+0. **Error expressions execute once** — `checkCudaErrors(expr)` and
+   `checkMpiErrors(expr)` must store `(expr)` in a local temporary before
+   testing/printing it.  The former two-evaluation form retried
+   `cudaMallocAsync` inside the error path and could replace the real
+   allocation failure with a misleading `CUDA error 0000 "no error"`.
 1. **Scalars live only in `device_vals`** — no host→device scalar memcpy inside iteration loops
 2. **Full stream sync at bottom of each iteration** — sync ALL 5 streams before next iteration
 3. **`_send_tmp_` scratch for dot products** — cublasDot → scratch slot 7 → MPI_Allreduce → copy to target (never write cublasDot directly to target)
