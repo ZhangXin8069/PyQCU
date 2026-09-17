@@ -363,6 +363,12 @@ kernel：每外层迭代的 coarsest recursion 和 coarse V-cycle 是主要成�
 trace，且 trace 本身有约 $1.6\times$ 开销，这些数字只用于解释算法
 结构，不能替换 trace-off 正式结果。
 
+trace 的 \code{solve\_end} 计数与正式 \code{iterations.median}
+均为 20，层级事件固定标记为 fine 0、coarse 1、coarsest 2；没有把
+odd-Schur 的 compact parity 层误记成额外 MG 层，也没有出现奇偶层计数
+交换。QUDA 同点正式外迭代为 60，故两侧计数差异来自各自外层 Krylov
+策略，而不是层号映射错误。
+
 \section{正确性与残差}
 
 所有正式点均通过独立全 Wilson/Clover 真残差复算。大格 c64 三层的
