@@ -45,6 +45,7 @@ import json
 import math
 import os
 import platform
+import re
 import shutil
 import signal
 import statistics
@@ -363,6 +364,51 @@ def _library_provenance(path: Optional[os.PathLike[str] | str]) -> Dict[str, Any
     }
 
 
+def _pyqcu_library_provenance(
+        path: Optional[os.PathLike[str] | str] = None) -> Dict[str, Any]:
+    """Return PyQCU's loaded C++ library identity and cubin architectures."""
+    if path is None:
+        candidates: List[Path] = [
+            REPO / "cpp" / "cuda" / "qcu" / "libqcu.so"]
+        for entry in os.environ.get("LD_LIBRARY_PATH", "").split(os.pathsep):
+            if entry:
+                candidates.append(Path(entry).expanduser() / "libqcu.so")
+        selected = next(
+            (candidate for candidate in candidates if candidate.is_file()),
+            candidates[0])
+    else:
+        selected = Path(path).expanduser()
+    report = _library_provenance(selected)
+    report["requested_architectures"] = os.environ.get(
+        "QCU_CUDA_ARCHITECTURES")
+    report["architectures"] = []
+    report["listing_error"] = None
+    if not report["exists"]:
+        return report
+    tool = shutil.which("cuobjdump")
+    if tool is None:
+        report["listing_error"] = "cuobjdump not found"
+        return report
+    try:
+        completed = subprocess.run(
+            [tool, "--list-elf", report["path"]],
+            check=False, capture_output=True, text=True, timeout=10)
+    except (OSError, subprocess.SubprocessError) as exc:
+        report["listing_error"] = repr(exc)
+        return report
+    if completed.returncode != 0:
+        report["listing_error"] = (
+            f"cuobjdump exited {completed.returncode}: "
+            f"{completed.stderr.strip()[-500:]}")
+        return report
+    report["architectures"] = sorted(set(
+        f"sm_{match}" for match in
+        re.findall(r"\.sm_(\d+)\.cubin", completed.stdout)))
+    if not report["architectures"]:
+        report["listing_error"] = "cuobjdump reported no sm_* cubin"
+    return report
+
+
 _QUDA_CMAKE_FEATURE_KEYS = (
     "QUDA_INTERFACE_QDP",
     "QUDA_QIO",
@@ -562,6 +608,7 @@ def _benchmark_provenance(
     module_path = getattr(pyquda, "__file__", None)
     return {
         "pyqcu_git": _git_provenance(),
+        "pyqcu_library": _pyqcu_library_provenance(),
         "quda_source_git": _git_provenance(source_repository),
         "quda_libraries": {
             "libquda": _library_provenance(libquda_path),
