@@ -226,6 +226,13 @@ P100 为 `sm_60`，当前 PyTorch 构建明确不兼容，且 PyQCU/QUDA 本任�
 `device_count=0`，不能借此构造同卡的“双逻辑设备”多卡测试；不得把
 这种伪多卡输出写入结果。
 
+PyQCU 的 C++ 默认 CMake 架构是 `60-real;60-virtual`，因此 V100 上需显式
+用 `QCU_CUDA_ARCHITECTURES='70-real;70-virtual'` 重建并确认
+`cuobjdump --list-elf` 显示 `sm_70.cubin`。sm_70 重建后 Tier1 仍全绿；
+大格 c64 solve 为 `0.657074 s`（默认 sm60 JIT 为 `0.662549 s`），大格
+c128 为 `2.062569 s`（默认 `2.065148 s`），残差和迭代数不变。此前主表
+使用 sm60 路径，因此是保守结果；不得把不同 CUDA 架构混成同一速度比。
+
 ### 2026-09-17 colored Galerkin 批处理与 CPU staging
 
 `build_strict_galerkin_colored()` 的 support gather、fine-block gather 和
