@@ -279,29 +279,31 @@ namespace qcu {
     }                                                                          \
   } while (0)
 #define checkCudaErrors(err)                                                   \
-  {                                                                            \
+  do {                                                                         \
     if (_CHECK_ERROR_) {                                                       \
-      if (err != cudaSuccess) {                                                \
+      cudaError_t err_ = (err);                                                \
+      if (err_ != cudaSuccess) {                                               \
         fprintf(stderr,                                                        \
                 "Failed: CUDA error %04d \"%s\" from file <%s>, "              \
                 "line %i.\n",                                                  \
-                err, cudaGetErrorString(err), __FILE__, __LINE__);             \
+                err_, cudaGetErrorString(err_), __FILE__, __LINE__);           \
         exit(EXIT_FAILURE);                                                    \
       }                                                                        \
     }                                                                          \
-  }
+  } while (0)
 #define checkMpiErrors(err)                                                    \
-  {                                                                            \
+  do {                                                                         \
     if (_CHECK_ERROR_) {                                                       \
-      if (err != MPI_SUCCESS) {                                                \
+      int err_ = (err);                                                        \
+      if (err_ != MPI_SUCCESS) {                                               \
         fprintf(stderr,                                                        \
                 "Failed: MPI error %04d from file <%s>, "                      \
                 "line %i.\n",                                                  \
-                err, __FILE__, __LINE__);                                      \
+                err_, __FILE__, __LINE__);                                     \
         exit(EXIT_FAILURE);                                                    \
       }                                                                        \
     }                                                                          \
-  }
+  } while (0)
 #define move_backward(move, o, lat_o)                                          \
   {                                                                            \
     move = -1 + (o == 0) * lat_o;                                              \

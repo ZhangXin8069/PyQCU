@@ -171,8 +171,9 @@ QUDA `0.963774/0.103475 s`；c128 中格为 PyQCU
 plain BiCGStab 在多点上快于 PyQCU MG，因此 MG-vs-MG 加速比只能归因于
 MultiGrid 路径，绝不能外推为 PyQCU 总体求解器优势。
 
-c128 三层大格点 `16·32·32·48` 的早期冷 $C=1$ setup 在 32 GiB
-V100 上 OOM 或超时；现在用 extended `C=4`、`K=16`、CPU block
+c128 三层大格点 `16·32·32·48` 的冷 $C=1$ setup 在 32 GiB V100
+上运行约 36.5 分钟后真实返回 `cudaMallocAsync` error 0002；现在用
+extended `C=4`、`K=16`、CPU block
 staging、null-basis offload 构建同一物理缓存，再由 formal $C=1$
 cache-hit solve。两侧 formal 保守复测为 PyQCU `2.061594 s` / 20
 iterations / `1.78798e-8`，QUDA `16.166481 s` / 60 iterations /

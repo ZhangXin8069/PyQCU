@@ -207,6 +207,14 @@ Tier 1（20 CPU + 11 CUDA strict + 3 fused FGMRES）全绿。
 自动附带 libqcu 路径、SHA256、请求架构和 \code{cuobjdump} 实际
 \code{architectures} 列表。
 
+\subsection{CUDA/MPI 错误宏单次求值}
+
+原 \code{checkCudaErrors(err)} 在错误分支再次展开 \code{err}，因此
+\code{cudaMallocAsync} 失败时会被重试，真实的 \code{error 0002} 可能
+被第二次成功调用覆盖成 \code{error 0000 "no error"}。本轮把 CUDA 和
+MPI 检查宏改为先把表达式存入局部变量，再测试和打印；静态回归测试
+\code{test\_cuda\_and\_mpi\_error\_macros\_evaluate\_once} 防止回退。
+
 另外，固定输入合成微基准（\(8\cdot16\cdot16\cdot32\)、c128 blocked
 basis、c64 blocks、\(K=256\)、44 次算子调用）中，旧 builder 为
 \(18.39\) s，新 builder 为 \(5.48\) s，约 \(3.36\times\)；峰值
@@ -404,8 +412,12 @@ $1.83242\times10^{-8}$ 与 $1.83035\times10^{-8}$。
 
 \subsection{c128 大格点}
 
-c128 三层 $16\cdot32\cdot32\cdot48$ 的早期 $C=1$ 冷 setup 在
-32 GiB V100 上 OOM 或超过 30 分钟；现在的 extended builder 使用
+c128 三层 $16\cdot32\cdot32\cdot48$ 的 $C=1$ 冷 setup 在修正
+\code{checkCudaErrors} 双重求值错误后，运行约 $36.5$ 分钟后在
+\code{lattice\_set.h:414} 的 \code{cudaMallocAsync} 真实返回
+\code{CUDA error 0002 "out of memory"}；因此它在 32 GiB V100 上的
+容量边界是明确的，而不是旧日志中的伪 \code{error 0000}。现在的
+extended builder 使用
 $C=4$、$K=16$、CPU canonical-block staging、null-basis offload，
 完成后将同一物理缓存提供给 formal $C=1$ solve，并在 runtime seal 后
 调用 \code{empty\_cache()} 归还 setup 临时块。PyQCU 两侧缓存构建
@@ -518,6 +530,9 @@ c128 大格三层 sm70 独立正式复测；保守 MG 比值为 $7.8417\times$�
 \pathref{data/mg_matrix_20260916_round2/formal-c128-l3/pyqcu-double-c4-k16-parity.json} &
 c128 大格 parity 分组后的冷 C=4 全 double setup；总 setup $585.28$ s，
 solve 真残差通过。\\
+\pathref{data/mg_matrix_20260916_round2/formal-c128-l3/pyqcu-double-c1-parity-fixed.json} &
+c128 大格 $C=1$ 冷 setup 的真实容量失败：\code{cudaMallocAsync} 返回
+\code{error 0002 "out of memory"}，不是伪 \code{0000}。\\
 \pathref{data/mg_matrix_20260916_round2/formal-c128-l3/pyqcu-formal-trace.tsv} &
 大格 c128 PyQCU trace-on 的逐层 stage/residual 诊断；不进入正式计时。\\
 \pathref{data/mg_matrix_20260916_round2/library-formal-c64-l3/benchmark.json} &
