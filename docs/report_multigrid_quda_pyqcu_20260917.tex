@@ -167,6 +167,15 @@ gather 和 block scatter 改为预计算索引的批量张量操作；目标集�
 \(1.84\times10^{-8}\) 的最大相对真残差，并保持 35 次外层 FGMRES
 迭代。该数字只证明 setup 路径优化，不进入 MG solve 加速比。
 
+进一步的源点 parity 分桶把确定性贪心顺序从 row-major 改为
+16 个坐标奇偶类优先。实际周期目标集合仍在桶内做冲突检查，因此正确性
+不变，但大格 \(8\cdot16\cdot16\cdot24\) 的源色组由 22 降至 16，
+每层 colored operator calls 由 132 降至 96。大格 c128 全 double
+C=4/K=16 冷 setup 从约 \(974\) s 降至 \(585.28\) s（transition
+分别为 \(351.33\) s 和 \(202.72\) s），已低于同点 QUDA setup
+\(630.74\) s；小格 c128 的 setup 也从 \(16.67\) s 降至
+\(14.66\) s。
+
 另外，固定输入合成微基准（\(8\cdot16\cdot16\cdot32\)、c128 blocked
 basis、c64 blocks、\(K=256\)、44 次算子调用）中，旧 builder 为
 \(18.39\) s，新 builder 为 \(5.48\) s，约 \(3.36\times\)；峰值
@@ -359,8 +368,9 @@ c128 三层 $16\cdot32\cdot32\cdot48$ 的早期 $C=1$ 冷 setup 在
 $C=4$、$K=16$、CPU canonical-block staging、null-basis offload，
 完成后将同一物理缓存提供给 formal $C=1$ solve，并在 runtime seal 后
 调用 \code{empty\_cache()} 归还 setup 临时块。PyQCU 两侧缓存构建
-setup 统计为 $723.72$ s 与 $250.35$ s，QUDA double setup 为
-$630.74$ s。formal solve 的 MG steady 为 PyQCU $2.065148$ s、
+setup 统计为 $351.33$ s 与 $202.72$ s（总 setup $585.28$ s），
+QUDA double setup 为 $630.74$ s。formal solve 的 MG steady 为
+PyQCU $2.065148$ s、
 QUDA $17.245388$ s，正式比值 $8.3507\times$；相对真残差分别为
 $1.78798\times10^{-8}$ 与 $1.79244\times10^{-8}$，均通过独立门限。
 冷 formal $C=1$ setup 仍未完成，因此不能把 cache-hit solve 比值当作
@@ -456,6 +466,9 @@ c128 大格三层全 double 双侧 smoke；$C=4$、$K=16$、CPU staging，
 \pathref{data/mg_matrix_20260916_round2/formal-c128-l3/benchmark-formal.json} &
 c128 大格三层 formal cache-hit；缓存由 extended $C=4$ 构建并经资产
 identity 校验，主 MG 比值为 $8.3507\times$。\\
+\pathref{data/mg_matrix_20260916_round2/formal-c128-l3/pyqcu-double-c4-k16-parity.json} &
+c128 大格 parity 分组后的冷 C=4 全 double setup；总 setup $585.28$ s，
+solve 真残差通过。\\
 \pathref{data/mg_matrix_20260916_round2/formal-c128-l3/pyqcu-formal-trace.tsv} &
 大格 c128 PyQCU trace-on 的逐层 stage/residual 诊断；不进入正式计时。\\
 \pathref{data/mg_matrix_20260916_round2/library-formal-c64-l3/benchmark.json} &

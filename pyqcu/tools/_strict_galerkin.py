@@ -103,13 +103,20 @@ def _source_color_groups(shape: Shape4) -> Tuple[Tuple[Coord, ...], ...]:
     nearest-neighbour support guarantees that every target aggregate then
     receives an image from at most one source in that group.
 
-    The greedy order is deterministic and is built from the actual periodic
-    target sets; this keeps extents 1 and 2 correct when a naive modulo
-    coloring would collide across the boundary.
+    Sources are visited in 16 parity buckets before the greedy conflict
+    check.  This deterministic order reduces typical periodic color counts
+    substantially, while the actual target-set check still handles extents
+    1 and 2 and any other boundary collision.
     """
     groups: List[List[Coord]] = []
     occupied_targets: List[set[Coord]] = []
-    for source in _all_coords(shape):
+    ordered_sources = (
+        source
+        for parity in product((0, 1), repeat=4)
+        for source in product(*(
+            range(parity[dim], shape[dim], 2) for dim in range(4)))
+    )
+    for source in ordered_sources:
         targets = {target for target, _ in _target_entries(source, shape)}
         for color, occupied in enumerate(occupied_targets):
             if targets.isdisjoint(occupied):

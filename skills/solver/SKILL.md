@@ -165,8 +165,10 @@ matching dtype/device.
 The c128 `16·32·32·48` full-double hierarchy now completes with the extended
 setup protocol `strict_galerkin_column_batch=4`,
 `strict_galerkin_projection_batch=16`, CPU canonical-block staging, and
-null-basis offload.  The two PyQCU transition setup times are 723.72 s and
-250.35 s.  After `seal_cuda_runtime()` the benchmark must call
+null-basis offload.  With parity-bucket source ordering, the two PyQCU
+transition setup times are 351.33 s and 202.72 s, total 585.28 s; the
+source color count drops from 22 to 16 and C=4 calls from 132 to 96 per
+level.  After `seal_cuda_runtime()` the benchmark must call
 `torch.cuda.empty_cache()` before allocating the steady workspace; without
 that allocator release the solve fails with workspace OOM.  The resulting
 formal cache-hit solve is 20 outer iterations, `2.065148 s`, true residual

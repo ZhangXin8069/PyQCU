@@ -228,11 +228,11 @@ def test_e24_formal_geometry_workspace_tradeoff_is_exact():
         "projection_site_batch_size": 4,
     }
     expected = {
-        1: (306524928, 528),
-        4: (1212681216, 132),
-        8: (2420889600, 66),
-        12: (3629097984, 44),
-        24: (7253723136, 22),
+        1: (306524928, 384),
+        4: (1212681216, 96),
+        8: (2420889600, 48),
+        12: (3629097984, 32),
+        24: (7253723136, 16),
     }
     for columns, (workspace, calls) in expected.items():
         model = strict_galerkin_colored_memory_model(
