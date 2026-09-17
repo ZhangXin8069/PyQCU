@@ -45,6 +45,17 @@ _d_:           dot(r_tilde,v) → give_1alpha → dot(t,t) → give_1omega
 4. `mpi_real_type<T>()` 模板 — 按模板类型分发 `MPI_FLOAT`/`MPI_DOUBLE`
 5. `run_mpi` 用阻塞 `MPI_Sendrecv` — 无需 `MPI_Wait`（仅 `run_mpi_non_block` 需要）
 
+## 分布式 strict MultiGrid（2026-09-18）
+
+`src/apply_multigrid_strict.cu` 现为真正的多 rank 实现：
+
+1. fine 层默认走 `LatticeWilsonDslash::run_mpi` 的 face halo（`PYQCU_STRICT_GLOBAL_DSLASH=1` 可切回 allgather 诊断路径）。
+2. 粗层用 `StrictVectorHalo`（任意分量数的 face）与 `StrictAxisLinkHalo`（只交换 $\mu$ 方向 backward link face）。向量 slot 以 **最大 face** 为 stride；link 数组按全格坐标索引，packing 不得使用 compact 解码。
+3. backward 修正 kernel 的符号必须与 base kernel 一致：`out = H in` 用 `+correction`，`out = base - H in` 用 `-correction`（由 `base == nullptr` 判定）。
+4. 外层 FGMRES 的 `dot`/`dot_pair`/`dot_many` 全部做全局归约；`dot_many` 归约后必须把全局系数写回 device（正交化 kernel 消费 device 缓冲）。
+5. coarsest cooperative fused kernel 无 MPI 集合操作，多 rank 时必须禁用并回退到带全局归约的 host BiCGStab。
+6. 多 rank 下 `strict_validate_mpi_backend()` 检查 `params` 的 GRID/NODE 与 `MPI_COMM_WORLD` 一致；几何不满足（层间 grid 不一致、aggregate 跨 rank、local extent 非偶数）时 fail-closed。
+
 ## Block Size
 
 `_BLOCK_SIZE_`（define.h）：小格点测试用 8/16，NVIDIA 生产 128，AMD DCU 生产 256。

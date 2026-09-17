@@ -169,6 +169,22 @@ def _parse_pyqcu_trace(path: Path) -> List[Dict[str, Any]]:
                 "elapsed_seconds": float(fields[6]),
             }
             current.setdefault("residuals", []).append(event)
+        elif kind == "iteration_count":
+            # Trace v3: per outer iteration and level counters emitted by
+            # emit_cycle_counters().  They are deltas for that iteration, so
+            # per-level totals have to be accumulated by the consumer.
+            if current is None:
+                raise ValueError(
+                    f"iteration_count before solve_begin in {path}")
+            event = {
+                "kind": kind,
+                "outer_iteration": int(fields[1]),
+                "level": int(fields[2]),
+                "name": fields[3],
+                "value": int(fields[4]),
+                "elapsed_seconds": float(fields[5]),
+            }
+            current.setdefault("iteration_counts", []).append(event)
         elif kind == "solve_end":
             if current is None:
                 raise ValueError(f"solve_end before solve_begin in {path}")
