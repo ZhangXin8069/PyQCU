@@ -513,6 +513,12 @@ trace-on/off 小格诊断与残差阶段。\\
   \item trace 功能对 PyQCU 小格点有显著观测开销，正式加速比必须在
         trace-off 下采集；BiCGStab 参考和 aligned/library 双策略已作为
         后续防失真硬闸门写入技能库。
+  \item parity source 分桶把大格源色组从 22 降至 16，冷 C=4 全
+        double setup 从约 \(974\) s 降至 \(585.28\) s；旧/新 cache 的
+        identity、manifest、metadata 哈希一致，证明数值资产未变。
+  \item 多卡结论仍受硬件能力缺口限制：唯一受支持的 V100 无法与
+        \code{sm_60} P100 共同运行，重复 UUID 也会得到零可见设备；
+        本报告不伪造多卡速度比。
 \end{enumerate}
 
 \end{document}
