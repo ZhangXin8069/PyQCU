@@ -802,10 +802,12 @@ def test_pyqcu_library_provenance_parses_cubin_architectures(
 
     monkeypatch.setattr(
         bench.subprocess, "run", lambda *args, **kwargs: Completed())
+    monkeypatch.setenv("QCU_CUDA_ARCHITECTURES", "70-real;70-virtual")
     report = bench._pyqcu_library_provenance(library)
     assert report["exists"] is True
     assert report["sha256"] == bench._sha256_file(library)
     assert report["architectures"] == ["sm_70"]
+    assert report["requested_architectures"] == "70-real;70-virtual"
     assert report["listing_error"] is None
 
 
