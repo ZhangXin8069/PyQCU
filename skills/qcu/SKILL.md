@@ -26,9 +26,9 @@ cuobjdump --list-elf cpp/cuda/qcu/libqcu.so | head
 `cuobjdump` 必须显示 `sm_70.cubin`，而不是仅显示 `sm_60.cubin`。不要把
 sm_60 JIT 与 sm_70 native 的 solve 数字混在同一速度比中；至少记录
 `QCU_CUDA_ARCHITECTURES`、libqcu SHA256 和实际 `cuobjdump` 架构。当前
-V100 复测中 sm_70 相对默认路径仅小幅改善（大 c64 solve
-`0.662549→0.657074 s`，大 c128 `2.065148→2.062569 s`），但必须保留
-架构 provenance。
+V100 side-only 复测中 sm70 大 c64 为 `0.657074 s`、大 c128 为
+`2.062569 s`；随后 full formal 独立复测大 c64 为 `0.655570 s`。
+sm70 相对默认 sm60 JIT 改善有限，但必须保留架构 provenance。
 
 ## Source Organization
 
