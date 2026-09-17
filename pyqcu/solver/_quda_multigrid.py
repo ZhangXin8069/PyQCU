@@ -195,7 +195,9 @@ def _roll_field(field: Tensor, displacement: BlockKey) -> Tensor:
     result = field
     for dim, delta in enumerate(displacement):
         if delta:
-            result = _torch.roll(result, shifts=-delta, dims=1 + dim)
+            from pyqcu.tools import _mpi_roll
+            result = _mpi_roll.roll(
+                result, shifts=-delta, dims=1 + dim)
     return result
 
 
@@ -204,7 +206,9 @@ def _roll_field_batch(field: Tensor, displacement: BlockKey) -> Tensor:
     result = field
     for dim, delta in enumerate(displacement):
         if delta:
-            result = _torch.roll(result, shifts=-delta, dims=2 + dim)
+            from pyqcu.tools import _mpi_roll
+            result = _mpi_roll.roll(
+                result, shifts=-delta, dims=2 + dim)
     return result
 
 
@@ -213,8 +217,36 @@ def _roll_site_tensor(field: Tensor, shift: BlockKey) -> Tensor:
     result = field
     for dim, delta in enumerate(shift):
         if delta:
-            result = _torch.roll(result, shifts=delta, dims=2 + dim)
+            from pyqcu.tools import _mpi_roll
+            result = _mpi_roll.roll(
+                result, shifts=delta, dims=2 + dim)
     return result
+
+
+def _active_global_shape(shape: Shape4) -> Shape4:
+    """Return the global coarse shape when a distributed setup is active."""
+    from pyqcu.tools import _mpi_roll
+    return _mpi_roll.global_shape(shape)
+
+
+def _callable_is_distributed(value: Any) -> bool:
+    """Inspect a callable/object chain for a distributed halo marker."""
+    seen: set[int] = set()
+    candidates = [value]
+    for _ in range(4):
+        next_candidates: List[Any] = []
+        for candidate in candidates:
+            if candidate is None or id(candidate) in seen:
+                continue
+            seen.add(id(candidate))
+            if bool(getattr(candidate, "is_distributed", False)):
+                return True
+            owner = getattr(candidate, "__self__", None)
+            if owner is not None:
+                next_candidates.append(owner)
+            next_candidates.append(getattr(candidate, "operator", None))
+        candidates = next_candidates
+    return False
 
 
 def _matvec_block(matrix: Tensor, vector: Tensor) -> Tensor:
@@ -847,6 +879,9 @@ class _FineOperator:
         self._batch_matvec = batch_matvec
         self._diagonal_inv_dtype = diagonal_inv_dtype
         self._diagonal_inv: Dict[Tuple[Any, Any], Tensor] = {}
+        self.is_distributed = bool(
+            _callable_is_distributed(matvec) or
+            _callable_is_distributed(batch_matvec))
 
     def apply(self, value: Tensor) -> Tensor:
         return _call_matvec(self._matvec, value)
@@ -967,6 +1002,8 @@ class _LeftPreconditionedOperator:
         self.spin = int(operator.spin)
         self.color = int(operator.color)
         self.dof = int(operator.dof)
+        self.is_distributed = bool(
+            getattr(operator, "is_distributed", False))
 
     def apply(self, value: Tensor) -> Tensor:
         if hasattr(self.operator, "preconditioned_full_apply"):
@@ -1035,6 +1072,8 @@ class QudaCoarseOperator:
         if self.max_materialize_elements <= 0:
             raise ValueError("max_materialize_elements 必须为正数")
         self.verbose = bool(verbose)
+        self.is_distributed = bool(
+            getattr(fine_operator, "is_distributed", False))
         self.blocks: Optional[Dict[BlockKey, Tensor]] = None
         self.X: Optional[Tensor] = None
         self.X_inv: Optional[Tensor] = None
@@ -1044,8 +1083,35 @@ class QudaCoarseOperator:
         self.Yhat_forward: Optional[List[Tensor]] = None
         self.Yhat_backward: Optional[List[Tensor]] = None
         self._strict_packed_assets: Optional[Dict[str, Any]] = None
+        self._distributed_roll_context: Optional[Tuple[Any, Shape4]] = None
         self._dense: Optional[Tensor] = None
         if materialize:
+            self.build()
+        self._remember_distributed_roll_context()
+
+    def _remember_distributed_roll_context(self) -> None:
+        """Retain setup geometry so raw-link export can rebuild correctly."""
+        if not self.is_distributed:
+            return
+        from pyqcu.tools import _mpi_roll
+
+        context = _mpi_roll.current_context()
+        if context is not None and context.distributed:
+            self._distributed_roll_context = (
+                context.comm, tuple(context.process_grid))
+
+    def _ensure_materialized(self) -> None:
+        """Materialize blocks inside the original distributed roll context."""
+        if self.blocks is not None:
+            return
+        record = self._distributed_roll_context
+        if record is None:
+            self.build()
+            return
+        from pyqcu.tools import _mpi_roll
+
+        comm, grid = record
+        with _mpi_roll.distributed_roll(comm, grid, None):
             self.build()
 
     def apply(self, value: Tensor) -> Tensor:
@@ -1142,22 +1208,40 @@ class QudaCoarseOperator:
         blocks[zero] = _torch.zeros(
             size=[self.dof, self.dof, *self.shape], dtype=dtype, device=device)
         stored_elements = one_block_elements
-        nsite = prod(self.shape)
+        from pyqcu.tools import _mpi_roll
+
+        context = _mpi_roll.current_context()
+        global_shape = (
+            tuple(self.shape) if context is None
+            else context.global_shape(self.shape))
+        nsite = prod(global_shape)
+        local_targets = list(_all_coords(self.shape))
         probes = 0
-        for source_coord in _all_coords(self.shape):
-            source_index = _site_index(source_coord, self.shape)
+        for global_source in _all_coords(global_shape):
+            source_index = _site_index(global_source, global_shape)
+            local_source = (
+                tuple(global_source) if context is None
+                else context.local_coordinate(global_source, self.shape))
             for source_dof in range(self.dof):
                 probe = _torch.zeros(
                     size=[self.dof, *self.shape], dtype=dtype, device=device)
-                probe[(source_dof, *source_coord)] = 1.0
+                if local_source is not None:
+                    probe[(source_dof, *local_source)] = 1.0
                 image = self._apply_matrix_free(probe)
-                for target_coord in _all_coords(self.shape):
+                for target_coord in local_targets:
                     vector = image[(slice(None), *target_coord)]
                     if float(_torch.norm(vector).item()) <= self.support_tol:
                         continue
+                    global_target = tuple(
+                        int(target_coord[d]) + (
+                            int(context.rank_coordinate[d]) *
+                            int(self.shape[d])
+                            if context is not None else 0)
+                        for d in range(4))
                     displacement = tuple(
-                        _signed_displacement(source_coord[d] - target_coord[d],
-                                             self.shape[d])
+                        _signed_displacement(
+                            global_source[d] - global_target[d],
+                            global_shape[d])
                         for d in range(4))
                     key = displacement  # type: ignore[assignment]
                     if key not in blocks:
@@ -1174,7 +1258,8 @@ class QudaCoarseOperator:
                         stored_elements += one_block_elements
                     blocks[key][(slice(None), source_dof, *target_coord)] = vector
                 probes += 1
-            if self.verbose and (source_index + 1) % max(1, nsite // 8) == 0:
+            if (self.verbose and
+                    (source_index + 1) % max(1, nsite // 8) == 0):
                 print(
                     "PYQCU::SOLVER::QUDA_MG::COARSE:\n "
                     f"Galerkin probes {probes}/{nsite * self.dof}")
@@ -1222,6 +1307,7 @@ class QudaCoarseOperator:
         base_dtype = self.transfer.V.dtype if dtype is None else dtype
         base_device = self.transfer.V.device if device is None else device
         shape = self.shape
+        global_shape = _active_global_shape(shape)
         E = self.dof
         sit = _torch.zeros(
             size=[E, E, *shape], dtype=base_dtype, device=base_device)
@@ -1239,7 +1325,7 @@ class QudaCoarseOperator:
 
         for displacement, block in self.blocks.items():
             canonical = tuple(
-                _signed_displacement(value, shape[dim])
+                _signed_displacement(value, global_shape[dim])
                 for dim, value in enumerate(displacement))
             if not nonzero_block(block):
                 continue
@@ -1265,7 +1351,7 @@ class QudaCoarseOperator:
             # sign slots; for larger dimensions the sign is unique.
             sign_options = []
             for dim in axes:
-                if shape[dim] == 2:
+                if global_shape[dim] == 2:
                     sign_options.append((0, 1))
                 else:
                     sign_options.append((0 if canonical[dim] == 1 else 1,))
@@ -1290,8 +1376,9 @@ class QudaCoarseOperator:
     def _link(self, displacement: BlockKey) -> Tensor:
         if self.blocks is None:
             raise RuntimeError("coarse operator 尚未 materialize")
+        global_shape = _active_global_shape(self.shape)
         canonical = tuple(
-            _signed_displacement(value, self.shape[dim])
+            _signed_displacement(value, global_shape[dim])
             for dim, value in enumerate(displacement))
         if canonical in self.blocks:
             return self.blocks[canonical]  # type: ignore[index]
@@ -1303,11 +1390,12 @@ class QudaCoarseOperator:
         """Reject support that the strict QUDA X/Y ABI cannot represent."""
         if self.blocks is None:
             return
+        global_shape = _active_global_shape(self.shape)
         for displacement, block in self.blocks.items():
             if float(_torch.abs(block).max().item()) <= self.support_tol:
                 continue
             canonical = tuple(
-                _signed_displacement(value, self.shape[dim])
+                _signed_displacement(value, global_shape[dim])
                 for dim, value in enumerate(displacement))
             axes = [dim for dim, value in enumerate(canonical) if value != 0]
             if (len(axes) > 1 or
@@ -1334,7 +1422,9 @@ class QudaCoarseOperator:
             backward = self._link(minus_key)
             # coarse extent=2 时 +1/-1 是同一邻居；QUDA 的两个方向各
             # 持有一份 link，避免由 RDP 的合并 block 在 apply 时重复计数。
-            if self.shape[dim] == 2 and plus_key == tuple(-x for x in minus_key):
+            global_extent = _active_global_shape(self.shape)[dim]
+            if (global_extent == 2 and
+                    plus_key == tuple(-x for x in minus_key)):
                 forward = 0.5 * forward
                 backward = 0.5 * backward
             self.Y_forward.append(forward)
@@ -1403,7 +1493,7 @@ class QudaCoarseOperator:
         if (self.X is None or self.X_inv is None or
                 self.Y_forward is None or self.Y_backward_storage is None or
                 self.Yhat_forward is None or self.Yhat_backward is None):
-            self.build()
+            self._ensure_materialized()
         assert self.X is not None and self.X_inv is not None
         assert self.Y_forward is not None
         assert self.Y_backward_storage is not None
@@ -2140,11 +2230,14 @@ class QudaMultigrid:
                  strict_offload_null_basis: bool = False,
                  strict_galerkin_max_workspace_bytes: Optional[int] = 512 << 20,
                  strict_galerkin_check_support: bool = True,
+                 strict_galerkin_include_raw_links: bool = False,
                  seed: int = 42, verbose: bool = False,
                  hierarchy_mode: str = "legacy",
                  coarse_grid_solution_type: str | Sequence[str] = "matpc",
                  smoother_solve_type: str | Sequence[str] = "direct_pc",
-                 target_parity: int = 0):
+                 target_parity: int = 0,
+                 process_grid: Optional[Sequence[int]] = None,
+                 comm: Optional[Any] = None):
         if U is None and fine_matvec is None:
             raise ValueError("U 与 fine_matvec 至少提供一个")
         if U is not None:
@@ -2196,6 +2289,36 @@ class QudaMultigrid:
         if self.target_parity not in (0, 1):
             raise ValueError(
                 f"target_parity 必须是 0/1，得到 {self.target_parity}")
+        if process_grid is None:
+            if comm is not None and int(comm.Get_size()) != 1:
+                raise ValueError(
+                    "传入多 rank comm 时必须同时传入 process_grid")
+            self.comm = comm
+            self.process_grid = (1, 1, 1, 1)
+        else:
+            if comm is None:
+                try:
+                    from mpi4py import MPI
+                except ModuleNotFoundError as exc:
+                    raise RuntimeError(
+                        "process_grid 需要 mpi4py 或显式 comm") from exc
+                comm = MPI.COMM_WORLD
+            try:
+                grid = tuple(int(value) for value in process_grid)
+            except (TypeError, ValueError) as exc:
+                raise TypeError(
+                    "process_grid 必须是四个正整数") from exc
+            if len(grid) != 4 or any(value <= 0 for value in grid):
+                raise ValueError(
+                    f"process_grid 必须是四个正整数，得到 {grid}")
+            if int(prod(grid)) != int(comm.Get_size()):
+                raise ValueError(
+                    f"process_grid={grid} 的乘积 {prod(grid)} != "
+                    f"comm size {comm.Get_size()}")
+            self.comm = comm
+            self.process_grid = grid  # type: ignore[assignment]
+        self._distributed_process_grid = any(
+            value > 1 for value in self.process_grid)
         # ``setup_operator='schur'`` 是旧 compact RSP 层级的入口。严格
         # QUDA 模式将 setup 算子选择与层级几何分离，始终保留 full fields。
         self._compact_parity = (
@@ -2252,6 +2375,8 @@ class QudaMultigrid:
                 "strict_galerkin_max_workspace_bytes 必须为正数或 None")
         self.strict_galerkin_check_support = bool(
             strict_galerkin_check_support)
+        self.strict_galerkin_include_raw_links = bool(
+            strict_galerkin_include_raw_links)
         self.seed = int(seed)
         self._setup_done = False
         self.setup_history: List[Dict[str, Any]] = []
@@ -2259,19 +2384,48 @@ class QudaMultigrid:
 
         if fine_matvec is None:
             assert U is not None
-            dslash_kwargs: Dict[str, Any] = {"U": U, "verbose": verbose}
-            if clover_term is not None:
-                dslash_kwargs["clover_term"] = clover_term
-            if kappa is not None:
-                dslash_kwargs["kappa"] = kappa
-            if u_0 is not None:
-                dslash_kwargs["u_0"] = u_0
-            fine_dslash = dslash.operator(**dslash_kwargs)
+            if self._distributed_process_grid:
+                from pyqcu.tools._distributed_setup import (
+                    DistributedFineOperator,
+                )
+                # Do not construct the ordinary dslash first: its hopping
+                # constructor uses tools.give_grid_size(), which can select a
+                # different process-grid factorisation and would perform
+                # unrelated MPI exchanges.
+                fine_dslash = DistributedFineOperator(
+                    U=U,
+                    clover_term=clover_term,
+                    kappa=kappa,
+                    u_0=u_0,
+                    lat_size=self.fine_shape,
+                    process_grid=self.process_grid,
+                    comm=self.comm,
+                    verbose=verbose,
+                )
+                if clover_term is None:
+                    diagonal = _torch.eye(
+                        12, dtype=U.dtype, device=U.device).reshape(
+                            12, 12, 1, 1, 1, 1).expand(
+                                12, 12, *self.fine_shape).clone()
+                else:
+                    diagonal = dslash.sitting(
+                        clover_term=clover_term).M
+                fine_batch_matvec = fine_dslash.matvec_batch
+            else:
+                dslash_kwargs: Dict[str, Any] = {"U": U, "verbose": verbose}
+                if clover_term is not None:
+                    dslash_kwargs["clover_term"] = clover_term
+                if kappa is not None:
+                    dslash_kwargs["kappa"] = kappa
+                if u_0 is not None:
+                    dslash_kwargs["u_0"] = u_0
+                fine_dslash = dslash.operator(**dslash_kwargs)
+                diagonal = self._fine_diagonal_from_dslash(fine_dslash, U)
+                if fine_batch_matvec is None:
+                    fine_batch_matvec = getattr(
+                        fine_dslash, "matvec_batch", None)
             self.fine_dslash = fine_dslash
             fine_matvec = fine_dslash.matvec
-            if fine_batch_matvec is None:
-                fine_batch_matvec = getattr(fine_dslash, "matvec_batch", None)
-            diagonal = self._fine_diagonal_from_dslash(fine_dslash, U)
             if fine_adjoint is None and self.fine_spin == 4:
                 # Wilson/Clover 满足 gamma5-Hermiticity：D^dagger = gamma5 D
                 # gamma5。这样 CG/CA-CG setup 不需要用户重复写伴随算子。
@@ -2280,6 +2434,15 @@ class QudaMultigrid:
                     self.fine_shape)
                 self._fine_adjoint_kind = "gamma5"
         else:
+            if self._distributed_process_grid:
+                if not _callable_is_distributed(fine_matvec):
+                    raise ValueError(
+                        "process_grid 分布式模式要求 U 或带 "
+                        "is_distributed=True 标记的 fine_matvec")
+                if fine_batch_matvec is None:
+                    raise ValueError(
+                        "分布式自定义 fine_matvec 必须同时提供 "
+                        "fine_batch_matvec")
             diagonal = fine_diagonal
             if diagonal is not None:
                 expected = (self.fine_dof, self.fine_dof, *self.fine_shape)
@@ -2782,6 +2945,14 @@ class QudaMultigrid:
         return current
 
     def setup(self) -> "QudaMultigrid":
+        if not self._distributed_process_grid:
+            return self._setup_impl()
+        from pyqcu.tools import _mpi_roll
+        with _mpi_roll.distributed_roll(
+                self.comm, self.process_grid, self.fine_shape):
+            return self._setup_impl()
+
+    def _setup_impl(self) -> "QudaMultigrid":
         if self._cuda_runtime_sealed or self._python_setup_assets_released:
             raise RuntimeError(
                 "hierarchy 已 seal 或移交 runtime ownership；"
@@ -2808,6 +2979,9 @@ class QudaMultigrid:
         self.coarsening_operators = []
         self.strict_setup_stats = []
         for level in range(self._transition_count):
+            if self._distributed_process_grid:
+                from pyqcu.tools import _mpi_roll
+                _mpi_roll.set_local_extents(current.shape)
             nvec = self._nvec_list[level]
             if level < len(self._null_vectors):
                 # Transfer construction only reads the supplied basis.  Avoid
@@ -2925,7 +3099,8 @@ class QudaMultigrid:
                         projection_site_batch_size=(
                             self.strict_galerkin_projection_batch),
                         check_fine_support=self.strict_galerkin_check_support,
-                        include_raw_links=False,
+                        include_raw_links=(
+                            self.strict_galerkin_include_raw_links),
                         retain_blocks=False,
                         max_workspace_bytes=(
                             self.strict_galerkin_max_workspace_bytes),
@@ -2939,7 +3114,8 @@ class QudaMultigrid:
                         batch_apply,
                         site_batch_size=self.strict_galerkin_projection_batch,
                         check_fine_support=self.strict_galerkin_check_support,
-                        include_raw_links=False,
+                        include_raw_links=(
+                            self.strict_galerkin_include_raw_links),
                         retain_blocks=False,
                         max_workspace_bytes=(
                             self.strict_galerkin_max_workspace_bytes),

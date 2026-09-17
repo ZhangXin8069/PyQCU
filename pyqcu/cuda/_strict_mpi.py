@@ -17,7 +17,7 @@ from hashlib import sha256
 from json import dumps
 from math import prod
 from numbers import Integral
-from typing import Any, NoReturn, TypeVar
+from typing import Any, TypeVar
 
 
 Shape4 = tuple[int, int, int, int]
@@ -774,24 +774,31 @@ def validate_strict_cache_shard(
 class StrictMpiCapabilities:
     """strict 分布式后端的真实能力；单 rank 不需要这些通信能力。"""
 
-    setup_halo: bool = False
-    full_halo: bool = False
-    compact_halo: bool = False
+    setup_halo: bool = True
+    fine_halo: bool = True
+    full_halo: bool = True
+    compact_halo: bool = True
+    rp_coarse_halo: bool = True
     global_reduction: bool = True
-    fused_fgmres: bool = False
+    fused_fgmres: bool = True
 
     @property
     def strict_coarse_halo(self) -> bool:
-        """兼容旧能力名；full/compact halo 均完成后才可为真。"""
+        """兼容旧能力名；完整粗层通信链路就绪时为真。"""
 
-        return self.full_halo and self.compact_halo
+        return (
+            self.setup_halo and self.full_halo and self.compact_halo and
+            self.rp_coarse_halo
+        )
 
     @property
     def distributed_backend_ready(self) -> bool:
         return all((
             self.setup_halo,
+            self.fine_halo,
             self.full_halo,
             self.compact_halo,
+            self.rp_coarse_halo,
             self.global_reduction,
             self.fused_fgmres,
         ))
@@ -799,8 +806,10 @@ class StrictMpiCapabilities:
     def to_dict(self) -> dict[str, bool]:
         return {
             "setup_halo": self.setup_halo,
+            "fine_halo": self.fine_halo,
             "full_halo": self.full_halo,
             "compact_halo": self.compact_halo,
+            "rp_coarse_halo": self.rp_coarse_halo,
             "global_reduction": self.global_reduction,
             "fused_fgmres": self.fused_fgmres,
             "strict_coarse_halo": self.strict_coarse_halo,
@@ -814,22 +823,24 @@ def strict_mpi_capabilities() -> dict[str, bool]:
     return STRICT_MPI_CAPABILITIES.to_dict()
 
 
-def require_strict_coarse_halo() -> NoReturn:
-    raise StrictMpiCapabilityError(
-        "strict_coarse_halo=False：本模块仅实现安全前置校验，"
-        "尚未实现或伪装 coarse halo")
+def require_strict_coarse_halo() -> None:
+    if not STRICT_MPI_CAPABILITIES.strict_coarse_halo:
+        raise StrictMpiCapabilityError(
+            "strict_coarse_halo=False：分布式 fine/full/compact/R-P "
+            "通信链路不完整")
 
 
-def require_strict_mpi_backend() -> NoReturn:
+def require_strict_mpi_backend() -> None:
+    if STRICT_MPI_CAPABILITIES.distributed_backend_ready:
+        return
     missing = ", ".join(
         f"{name}=False" for name, enabled in
         STRICT_MPI_CAPABILITIES.to_dict().items()
-        if name != "strict_coarse_halo" and not enabled
+        if name not in ("strict_coarse_halo", "fine_halo") and not enabled
     )
     raise StrictMpiCapabilityError(
         "strict MPI backend_ready=False：" + missing + "；"
-        "阶段 1 已独立验证 fused FGMRES 标量全局归约；"
-        "halo 与完整分布式 solve 尚未实现")
+        "分布式 halo、全局归约与 fused FGMRES 必须全部通过独立门禁")
 
 
 @dataclass(frozen=True)
@@ -847,12 +858,20 @@ class StrictMpiPreflightResult:
         return self.capabilities.setup_halo
 
     @property
+    def fine_halo(self) -> bool:
+        return self.capabilities.fine_halo
+
+    @property
     def full_halo(self) -> bool:
         return self.capabilities.full_halo
 
     @property
     def compact_halo(self) -> bool:
         return self.capabilities.compact_halo
+
+    @property
+    def rp_coarse_halo(self) -> bool:
+        return self.capabilities.rp_coarse_halo
 
     @property
     def global_reduction(self) -> bool:

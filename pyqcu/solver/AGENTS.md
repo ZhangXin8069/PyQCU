@@ -154,3 +154,14 @@ thick-restart Lanczos 特征底座（quda eig_trlm 思想，Wu–Simon）：正�
   （1 次 matvec），否则谱被零特征值污染（实测返回 θ=0.0000）
 - 收敛双闸门：估计 |β·S[-1,i]|<tol·|θ| 通过后再做真残差核验 ‖Ay−θy‖≤100·tol·|θ|（防 c64 假收敛）
 - 实测：c128 分离谱 k=5 err~1e-14；c64 ~2.5e-6
+
+## 分布式 Strict-MG setup（2026-09-18）
+
+- `QudaMultigrid`/`QudaStrictMultigrid` 新增 `process_grid` 与 `comm`：任一维大于 1 时，
+  `setup()` 期间激活 `pyqcu.tools._mpi_roll` 的线程本地上下文，并把内部 fine 算子替换为
+  `pyqcu.tools._distributed_setup` 的 halo 包装（只对分解维扩一层 ghost）。
+- 多 rank 下 site-batch/colored 路径必须由分布式上下文驱动；未提供 `process_grid`
+  时 `_strict_galerkin` 直接 fail-closed，不做“各 rank 各自周期”的错误构造。
+- 单 rank 路径保持逐位不变（无上下文时所有 roll 退化为 `torch.roll`）。
+- 口径：最细层总迭代数仍是外层 FGMRES 的 `total_iter`；per-level smoother/coarse
+  迭代由 strict trace v3 的 `iteration_count` 记录。

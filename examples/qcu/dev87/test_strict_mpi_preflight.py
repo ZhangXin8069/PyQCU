@@ -14,7 +14,6 @@ from pyqcu.cuda._strict_mpi import (
     STRICT_MPI_CACHE_SCHEMA,
     STRICT_MPI_CACHE_SCHEMA_VERSION,
     StrictCacheShardMetadata,
-    StrictMpiCapabilityError,
     StrictMpiPreflightError,
     collective_validate_strict_mpi,
     collective_validate_strict_runtime,
@@ -108,17 +107,16 @@ def test_single_rank_valid_geometry_cache_key_assets_and_capability():
         require_backend_ready=True,
     )
     assert result.backend_ready
-    assert result.strict_coarse_halo is False
+    assert result.strict_coarse_halo is True
     capabilities = strict_mpi_capabilities()
     distributed = {
-        "setup_halo", "full_halo", "compact_halo",
+        "setup_halo", "fine_halo", "full_halo", "compact_halo",
+        "rp_coarse_halo",
         "global_reduction", "fused_fgmres",
     }
     assert distributed.issubset(capabilities)
-    assert capabilities["global_reduction"] is True
-    incomplete = distributed - {"global_reduction"}
-    assert all(capabilities[name] is False for name in incomplete)
-    assert capabilities["strict_coarse_halo"] is False
+    assert all(capabilities[name] is True for name in distributed)
+    assert capabilities["strict_coarse_halo"] is True
 
 
 @pytest.mark.skipif(WORLD.Get_size() != 1, reason="single-rank test")
@@ -315,22 +313,18 @@ def test_production_constructor_allows_serial_preflight_before_setup():
 
 @pytest.mark.skipif(WORLD.Get_size() != 2, reason="requires mpirun -np 2")
 @pytest.mark.parametrize("setup_mode", ("column", "site-batch"))
-def test_production_constructor_collectively_blocks_setup_modes(setup_mode):
+def test_production_constructor_accepts_distributed_setup_modes(setup_mode):
     from pyqcu.cuda._strict_multigrid import CudaStrictMultigridSolver
 
     grid = (2, 1, 1, 1)
     local_shape = tuple(FINE[axis] // grid[axis] for axis in range(4))
     hierarchy = _HierarchySetupProbe(local_shape, setup_mode)
     params = _constructor_params(local_shape, grid)
-    with pytest.raises(StrictMpiPreflightError) as caught:
+    with pytest.raises(_SetupEntered, match="setup was entered"):
         CudaStrictMultigridSolver(
             hierarchy, None, None, None, None, None, None, params)
-    messages = WORLD.allgather(str(caught.value))
     setup_calls = WORLD.allgather(hierarchy.setup_calls)
-    assert len(set(messages)) == 1
-    assert setup_calls == [0, 0]
-    assert "backend_ready=False" in messages[0]
-    assert "setup_halo=False" in messages[0]
+    assert setup_calls == [1, 1]
 
 
 @pytest.mark.skipif(WORLD.Get_size() != 2, reason="requires mpirun -np 2")
@@ -339,31 +333,20 @@ def test_production_constructor_collectively_blocks_setup_modes(setup_mode):
     ((2, 1, 1, 1), (1, 1, 1, 2)),
     ids=("x-topology", "t-topology"),
 )
-def test_two_rank_x_t_topologies_report_identical_collective_error(process_grid):
-    # 先证明该 x/t 分区本身合法；仅 global reduction 就绪仍不足以求解。
+def test_two_rank_x_t_topologies_validate_and_collectively_reject_mismatch(
+        process_grid):
+    # x/t 分区现在具备完整 capability，合法拓扑在 setup 前通过。
     valid = collective_validate_strict_mpi(
         WORLD,
         process_grid=process_grid,
         global_shapes=(FINE, COARSE),
         block_sizes=(BLOCK,),
+        require_backend_ready=True,
     )
     assert valid.geometry.local_shapes[0] in (
         (4, 8, 8, 8), (8, 8, 8, 4))
-    assert not valid.backend_ready
-    with pytest.raises(StrictMpiCapabilityError, match="backend_ready=False"):
-        valid.require_backend_ready()
-
-    with pytest.raises(StrictMpiPreflightError) as capability_gate:
-        collective_validate_strict_mpi(
-            WORLD,
-            process_grid=process_grid,
-            global_shapes=(FINE, COARSE),
-            block_sizes=(BLOCK,),
-            require_backend_ready=True,
-        )
-    capability_messages = WORLD.allgather(str(capability_gate.value))
-    assert len(set(capability_messages)) == 1
-    assert tuple(rank for rank, _, _ in capability_gate.value.failures) == (0, 1)
+    assert valid.backend_ready
+    valid.require_backend_ready()
 
     # 只让 rank 0 带入错误 parity convention。collective preflight 必须让
     # rank 1 也在同一 allgather 后抛出完全相同的错误，不能进入后端。
@@ -641,7 +624,8 @@ def test_strict_c_abi_gate_accepts_world_one_and_checks_params_first(capfd):
 
 
 @pytest.mark.skipif(WORLD.Get_size() != 2, reason="requires mpirun -np 2")
-def test_all_strict_c_abis_fail_before_null_algorithm_inputs(capfd):
+def test_all_strict_c_abis_accept_distributed_gate_and_fail_on_null_inputs(
+        capfd):
     library = _load_strict_backend_library()
     params = _abi_params((2, 1, 1, 1))
     statuses = _call_all_strict_abis(library, params)
@@ -652,7 +636,6 @@ def test_all_strict_c_abis_fail_before_null_algorithm_inputs(capfd):
         "prepare", "reconstruct", "restrict", "prolong",
     }
     assert all(status == 1 for status in statuses.values())
-    gate_count = errors.count("strict MPI fail-closed")
-    assert gate_count == len(statuses)
+    assert "strict MPI fail-closed" not in errors
     summaries = WORLD.allgather((tuple(statuses.items()), errors))
     assert len(set(summaries)) == 1

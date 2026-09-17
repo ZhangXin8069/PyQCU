@@ -111,7 +111,13 @@ def _slice_last4(array, starts, sizes):
         raise ValueError(f"expected at least four lattice axes, got shape={tuple(array.shape)}")
     slices = [slice(None)] * (array.ndim - 4)
     slices.extend(slice(int(starts[d]), int(starts[d] + sizes[d])) for d in range(4))
-    return array[tuple(slices)].contiguous()
+    sliced = array[tuple(slices)]
+    # The MPI launcher feeds this helper both torch tensors and numpy arrays
+    # (the latter come from h5py reads); ``.contiguous`` only exists on torch.
+    if hasattr(sliced, "contiguous"):
+        return sliced.contiguous()
+    import numpy as np
+    return np.ascontiguousarray(sliced)
 
 
 def global_parity_to_local(parity, global_lat, grid=None, rank=None,

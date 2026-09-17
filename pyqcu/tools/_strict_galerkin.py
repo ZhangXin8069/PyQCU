@@ -32,6 +32,7 @@ from typing import Sequence, Tuple
 
 import pyqcu.cann as _torch
 
+from . import _mpi_roll
 
 Tensor = Any
 Coord = Tuple[int, int, int, int]
@@ -157,7 +158,7 @@ def _roll_site(matrix: Tensor, shift: BlockKey) -> Tensor:
     result = matrix
     for dim, amount in enumerate(shift):
         if amount:
-            result = _torch.roll(result, shifts=amount, dims=2 + dim)
+            result = _mpi_roll.roll(result, shifts=amount, dims=2 + dim)
     return result
 
 
@@ -178,28 +179,20 @@ def _action_links(
     forward: List[Tensor] = []
     backward: List[Tensor] = []
     zero = _torch.zeros_like(template)
-    origin: Coord = (0, 0, 0, 0)
-    for dim, extent in enumerate(shape):
+    action_shape = _mpi_roll.global_shape(shape)
+    for dim, extent in enumerate(action_shape):
         if extent == 1:
-            # Wrapped hops have already collapsed into the canonical X block.
             forward.append(zero)
             backward.append(zero)
             continue
-        plus_target = list(origin)
-        plus_target[dim] = (plus_target[dim] - 1) % extent
-        plus_key = _displacement(
-            origin, tuple(plus_target), shape)  # type: ignore[arg-type]
+        plus_key = tuple(1 if axis == dim else 0 for axis in range(4))
+        minus_key = tuple(-1 if axis == dim else 0 for axis in range(4))
         plus = blocks.get(plus_key, zero)
         if extent == 2:
-            # q+mu and q-mu are the same physical source.  The strict kernel
-            # sums both slots, so each receives half of the combined block.
+            # Truly periodic extent two: q+mu and q-mu are one neighbour.
             forward.append(0.5 * plus)
             backward.append(0.5 * plus)
             continue
-        minus_target = list(origin)
-        minus_target[dim] = (minus_target[dim] + 1) % extent
-        minus_key = _displacement(
-            origin, tuple(minus_target), shape)  # type: ignore[arg-type]
         forward.append(plus)
         backward.append(blocks.get(minus_key, zero))
     return forward, backward
@@ -221,25 +214,19 @@ def _action_links_streamed(
 
     forward: List[Tensor] = []
     backward: List[Tensor] = []
-    origin: Coord = (0, 0, 0, 0)
-    for dim, extent in enumerate(shape):
+    action_shape = _mpi_roll.global_shape(shape)
+    for dim, extent in enumerate(action_shape):
         if extent == 1:
             forward.append(zero)
             backward.append(zero)
             continue
-        plus_target = list(origin)
-        plus_target[dim] = (plus_target[dim] - 1) % extent
-        plus_key = _displacement(
-            origin, tuple(plus_target), shape)  # type: ignore[arg-type]
+        plus_key = tuple(1 if axis == dim else 0 for axis in range(4))
+        minus_key = tuple(-1 if axis == dim else 0 for axis in range(4))
         plus = get_block(plus_key)
         if extent == 2:
             forward.append(0.5 * plus)
             backward.append(0.5 * plus)
             continue
-        minus_target = list(origin)
-        minus_target[dim] = (minus_target[dim] + 1) % extent
-        minus_key = _displacement(
-            origin, tuple(minus_target), shape)  # type: ignore[arg-type]
         forward.append(plus)
         backward.append(get_block(minus_key))
     return forward, backward
@@ -285,11 +272,15 @@ class _ProjectedScatterPlan:
 
 def _prepare_projected_sites(
         entries: Sequence[Sequence[Tuple[Coord, BlockKey]]],
-        coarse_shape: Shape4) -> _ProjectedScatterPlan:
+        coarse_shape: Shape4,
+        valid: Optional[Sequence[Sequence[bool]]] = None,
+) -> _ProjectedScatterPlan:
     grouped: Dict[BlockKey, List[Tuple[int, Coord]]] = {}
     points = len(entries[0]) if entries else 0
     for source_index, source_entries in enumerate(entries):
         for point_index, (target, key) in enumerate(source_entries):
+            if valid is not None and not bool(valid[source_index][point_index]):
+                continue
             grouped.setdefault(key, []).append(
                 (source_index * points + point_index, target))
     keys: List[BlockKey] = []
@@ -360,6 +351,7 @@ def strict_galerkin_memory_model(
     fine = _shape4(fine_shape, "fine_shape")
     coarse = _shape4(coarse_shape, "coarse_shape")
     block = _shape4(block_size, "block_size")
+    probe = _mpi_roll.global_shape(coarse)
     E = int(coarse_dof)
     e = int(fine_dof)
     K = int(site_batch_size)
@@ -367,8 +359,9 @@ def strict_galerkin_memory_model(
     if min(E, e, K, s) <= 0:
         raise ValueError("dof、site_batch_size、element_size 必须为正数")
     Vf, Vc, vb = prod(fine), prod(coarse), prod(block)
-    points = len(_target_entries((0, 0, 0, 0), coarse))
-    nblocks = len({key for _, key in _target_entries((0, 0, 0, 0), coarse)})
+    Vp = prod(probe)
+    points = len(_target_entries((0, 0, 0, 0), probe))
+    nblocks = len({key for _, key in _target_entries((0, 0, 0, 0), probe)})
 
     packed_units = 10 + (8 if include_raw_links else 0)
     packed_elements = packed_units * E * E * Vc
@@ -389,7 +382,7 @@ def strict_galerkin_memory_model(
         "support_points": points,
         "canonical_blocks": nblocks,
         "site_batch_size": K,
-        "operator_calls": (Vc + K - 1) // K,
+        "operator_calls": (Vp + K - 1) // K,
         "packed_asset_elements": packed_elements,
         "packed_asset_bytes": packed_elements * s,
         "retained_block_elements": retained_block_elements,
@@ -418,6 +411,7 @@ def strict_galerkin_colored_memory_model(
     fine = _shape4(fine_shape, "fine_shape")
     coarse = _shape4(coarse_shape, "coarse_shape")
     block = _shape4(block_size, "block_size")
+    probe = _mpi_roll.global_shape(coarse)
     E = int(coarse_dof)
     e = int(fine_dof)
     C = int(column_batch_size)
@@ -427,10 +421,10 @@ def strict_galerkin_colored_memory_model(
         raise ValueError("dof、batch size、element_size 必须为正数")
     C = min(C, E)
     Vf, Vc, vb = prod(fine), prod(coarse), prod(block)
-    points = len(_target_entries((0, 0, 0, 0), coarse))
+    points = len(_target_entries((0, 0, 0, 0), probe))
     nblocks = len({key for _, key in _target_entries(
-        (0, 0, 0, 0), coarse)})
-    colors = len(_source_color_groups(coarse))
+        (0, 0, 0, 0), probe)})
+    colors = len(_source_color_groups(probe))
 
     packed_units = 10 + (8 if include_raw_links else 0)
     packed_elements = packed_units * E * E * Vc
@@ -479,12 +473,12 @@ def apply_strict_links(links: Tensor, value: Tensor,
     for dim in range(4):
         result = result + _torch.einsum(
             "ijxyzt,jxyzt->ixyzt", links[0, dim],
-            _torch.roll(value, shifts=-1, dims=1 + dim))
-        stored_at_source = _torch.roll(
+            _mpi_roll.roll(value, shifts=-1, dims=1 + dim))
+        stored_at_source = _mpi_roll.roll(
             links[1, dim], shifts=1, dims=2 + dim)
         result = result + _torch.einsum(
             "ijxyzt,jxyzt->ixyzt", _adjoint_site(stored_at_source),
-            _torch.roll(value, shifts=1, dims=1 + dim))
+            _mpi_roll.roll(value, shifts=1, dims=1 + dim))
     return result
 
 
@@ -642,6 +636,8 @@ class StrictGalerkinResult:
             "onsite_pair": self.onsite_pair,
         }
         coarse_operator._dense = None
+        if hasattr(coarse_operator, "_remember_distributed_roll_context"):
+            coarse_operator._remember_distributed_roll_context()
 
 
 def _finish_strict_galerkin(
@@ -721,6 +717,56 @@ def _finish_strict_galerkin(
     )
 
 
+def _coarse_probe_geometry(
+        local_coarse_shape: Shape4
+) -> Tuple[Shape4, Optional[Any]]:
+    context = _mpi_roll.current_context()
+    if context is None:
+        return local_coarse_shape, None
+    return context.global_shape(local_coarse_shape), context
+
+
+def _local_coordinate(
+        coordinate: Coord, local_shape: Shape4, context: Optional[Any]
+) -> Optional[Coord]:
+    if context is None:
+        return coordinate
+    value = context.local_coordinate(coordinate, local_shape)
+    return None if value is None else tuple(value)  # type: ignore[return-value]
+
+
+def _batch_operator_is_distributed(batch_matvec: Any) -> bool:
+    """Inspect a callable/operator for the distributed-halo marker."""
+    seen: set[int] = set()
+    candidates = [batch_matvec]
+    for _ in range(4):
+        next_candidates: List[Any] = []
+        for candidate in candidates:
+            if candidate is None or id(candidate) in seen:
+                continue
+            seen.add(id(candidate))
+            if bool(getattr(candidate, "is_distributed", False)):
+                return True
+            owner = getattr(candidate, "__self__", None)
+            if owner is not None:
+                next_candidates.append(owner)
+            next_candidates.append(getattr(candidate, "operator", None))
+        candidates = next_candidates
+    return False
+
+
+def _require_distributed_batch_operator(batch_matvec: Any,
+                                        context: Optional[Any]) -> None:
+    if context is None or not context.distributed:
+        return
+    if not _batch_operator_is_distributed(batch_matvec):
+        raise RuntimeError(
+            "多 rank strict Galerkin 需要已提供分布式 fine 算子；"
+            "当前 batch_matvec 未标记 is_distributed，拒绝使用 rank-local "
+            "周期语义。请通过 _distributed_setup.DistributedFineOperator "
+            "或等价 halo 算子驱动 setup")
+
+
 def _strict_builder_inputs(
     transfer: Any,
 ) -> Tuple[Shape4, Shape4, Shape4, Tensor, int, int, int]:
@@ -729,10 +775,13 @@ def _strict_builder_inputs(
         from mpi4py import MPI
     except ImportError:
         MPI = None
+    context = _mpi_roll.current_context()
     if MPI is not None and int(MPI.COMM_WORLD.Get_size()) != 1:
-        raise RuntimeError(
-            "strict Galerkin batch 原型仅证明单 MPI rank；跨 rank source/R "
-            "汇聚尚未实现")
+        if context is None or not context.distributed:
+            raise RuntimeError(
+                "strict Galerkin 在多 MPI rank 下必须由分布式 roll 上下文驱动；"
+                "请通过 QudaMultigrid.process_grid 或 "
+                "_mpi_roll.distributed_roll 显式提供 process_grid")
 
     fine_shape = _shape4(transfer.fine_shape, "transfer.fine_shape")
     coarse_shape = _shape4(transfer.coarse_shape, "transfer.coarse_shape")
@@ -787,13 +836,16 @@ def build_strict_galerkin(
     """
     (fine_shape, coarse_shape, block_size,
      blocked, E, e, nvec) = _strict_builder_inputs(transfer)
+    global_coarse_shape, context = _coarse_probe_geometry(coarse_shape)
+    _require_distributed_batch_operator(batch_matvec, context)
     block_dtype = blocked.dtype if block_dtype is None else block_dtype
     block_device = blocked.device if block_device is None else block_device
 
     requested_batch = int(site_batch_size)
     if requested_batch <= 0:
         raise ValueError("site_batch_size 必须为正数")
-    support_points = len(_target_entries((0, 0, 0, 0), coarse_shape))
+    support_points = len(_target_entries(
+        (0, 0, 0, 0), global_coarse_shape))
     element_size = int(blocked.element_size())
     if max_workspace_bytes is not None:
         one_site = strict_galerkin_memory_model(
@@ -809,10 +861,13 @@ def build_strict_galerkin(
                 f"max_workspace_bytes={max_workspace_bytes} 小于单粗点估算 {one_site}")
         requested_batch = min(requested_batch, allowed)
 
-    coords = list(_all_coords(coarse_shape))
+    coords = list(_all_coords(global_coarse_shape))
     Kmax = min(requested_batch, len(coords))
     zero_key: BlockKey = (0, 0, 0, 0)
-    keys = {key for _, key in _target_entries((0, 0, 0, 0), coarse_shape)}
+    keys = {
+        key for _, key in _target_entries(
+            (0, 0, 0, 0), global_coarse_shape)
+    }
     blocks: Dict[BlockKey, Tensor] = {
         key: _torch.zeros(
             size=[E, E, *coarse_shape], dtype=block_dtype,
@@ -832,12 +887,23 @@ def build_strict_galerkin(
         fine = _torch.zeros(
             size=[K, E, e, *fine_shape], dtype=blocked.dtype,
             device=blocked.device)
-        entries_by_source: List[List[Tuple[Coord, BlockKey]]] = []
+        entries_by_source: List[
+            List[Tuple[Optional[Coord], BlockKey]]] = []
         for k, source in enumerate(sources):
-            source_slices = _fine_slices(source, block_size)
-            fine[(k, slice(None), slice(None), *source_slices)] = _blocked_site(
-                blocked, source)
-            entries_by_source.append(_target_entries(source, coarse_shape))
+            local_source = _local_coordinate(
+                source, coarse_shape, context)
+            if local_source is not None:
+                source_slices = _fine_slices(local_source, block_size)
+                fine[(k, slice(None), slice(None), *source_slices)] = (
+                    _blocked_site(blocked, local_source))
+            entries = []
+            for target, key in _target_entries(
+                    source, global_coarse_shape):
+                entries.append((
+                    _local_coordinate(target, coarse_shape, context),
+                    key,
+                ))
+            entries_by_source.append(entries)
 
         flat_fine = fine.reshape(K * E, e, *fine_shape)
         image = _call_batch(batch_matvec, flat_fine)
@@ -856,7 +922,8 @@ def build_strict_galerkin(
                 device=blocked.device)
             for k, entries in enumerate(entries_by_source):
                 for target, _ in entries:
-                    coarse_mask[(k, *target)] = 1.0
+                    if target is not None:
+                        coarse_mask[(k, *target)] = 1.0
             fine_mask = coarse_mask
             for dim, extent in enumerate(block_size):
                 fine_mask = fine_mask.repeat_interleave(extent, dim=1 + dim)
@@ -872,15 +939,21 @@ def build_strict_galerkin(
                     f"outside={leakage:.3e} > {threshold:.3e}; "
                     "Schur/宽 stencil 不得作为 strict X/Y 输入")
 
+        zero_support = _torch.zeros(
+            size=[E, e, *block_size], dtype=blocked.dtype,
+            device=blocked.device)
         v_rows: List[Tensor] = []
         image_rows: List[Tensor] = []
         for k, entries in enumerate(entries_by_source):
             v_rows.append(_torch.stack([
-                _blocked_site(blocked, target) for target, _ in entries
+                (zero_support if target is None else
+                 _blocked_site(blocked, target))
+                for target, _ in entries
             ], dim=0))
             image_rows.append(_torch.stack([
-                image[(k, slice(None), slice(None),
-                       *_fine_slices(target, block_size))]
+                (zero_support if target is None else
+                 image[(k, slice(None), slice(None),
+                        *_fine_slices(target, block_size))])
                 for target, _ in entries
             ], dim=0))
         v_local = _torch.stack(v_rows, dim=0)
@@ -894,6 +967,8 @@ def build_strict_galerkin(
 
         for k, entries in enumerate(entries_by_source):
             for point, (target, key) in enumerate(entries):
+                if target is None:
+                    continue
                 blocks[key][(slice(None), slice(None), *target)] = (
                     projected_cpu[k, point])
 
@@ -963,6 +1038,8 @@ def build_strict_galerkin_colored(
     """
     (fine_shape, coarse_shape, block_size,
      blocked, E, e, nvec) = _strict_builder_inputs(transfer)
+    global_coarse_shape, context = _coarse_probe_geometry(coarse_shape)
+    _require_distributed_batch_operator(batch_matvec, context)
     block_dtype = blocked.dtype if block_dtype is None else block_dtype
     block_device = blocked.device if block_device is None else block_device
     requested_columns = min(E, int(column_batch_size))
@@ -970,7 +1047,7 @@ def build_strict_galerkin_colored(
     if requested_columns <= 0 or requested_projection <= 0:
         raise ValueError("column/projection batch size 必须为正数")
 
-    groups = _source_color_groups(coarse_shape)
+    groups = _source_color_groups(global_coarse_shape)
     max_group_size = max(len(group) for group in groups)
     requested_projection = min(requested_projection, max_group_size)
     element_size = int(blocked.element_size())
@@ -1017,7 +1094,7 @@ def build_strict_galerkin_colored(
 
     zero_key: BlockKey = (0, 0, 0, 0)
     keys = {key for _, key in _target_entries(
-        (0, 0, 0, 0), coarse_shape)}
+        (0, 0, 0, 0), global_coarse_shape)}
     blocks: Dict[BlockKey, Tensor] = {
         key: _torch.zeros(
             size=[E, E, *coarse_shape], dtype=block_dtype,
@@ -1032,29 +1109,47 @@ def build_strict_galerkin_colored(
     worst_leakage = 0.0
     worst_scale = 0.0
     for sources in groups:
-        entries_by_source = [
-            _target_entries(source, coarse_shape) for source in sources]
-        source_coordinates = _torch.as_tensor(
-            sources, dtype=_torch.long, device=blocked.device)
+        entries_by_source: List[
+            List[Tuple[Optional[Coord], BlockKey]]] = []
+        valid_by_source: List[List[bool]] = []
+        for source in sources:
+            entries: List[Tuple[Optional[Coord], BlockKey]] = []
+            valid: List[bool] = []
+            for target, key in _target_entries(
+                    source, global_coarse_shape):
+                local_target = _local_coordinate(
+                    target, coarse_shape, context)
+                entries.append((local_target, key))
+                valid.append(local_target is not None)
+            entries_by_source.append(entries)
+            valid_by_source.append(valid)
         target_coordinates = _torch.as_tensor(
-            [[target for target, _ in entries] for entries in entries_by_source],
+            [[target if target is not None else (0, 0, 0, 0)
+              for target, _ in entries]
+             for entries in entries_by_source],
             dtype=_torch.long, device=blocked.device)
+        valid_mask = _torch.as_tensor(
+            valid_by_source, dtype=_torch.long, device=blocked.device).bool()
         chunk_specs = []
         for source_start in range(0, len(sources), Kmax):
             source_stop = min(len(sources), source_start + Kmax)
             entries_chunk = entries_by_source[source_start:source_stop]
+            valid_chunk = valid_by_source[source_start:source_stop]
             chunk_specs.append((
                 source_start,
                 source_stop,
                 _prepare_projected_sites(
-                    entries_chunk, coarse_shape),
+                    entries_chunk, coarse_shape, valid_chunk),
             ))
         if check_fine_support:
             coarse_mask = _torch.zeros(
                 size=list(coarse_shape), dtype=blocked.real.dtype,
                 device=blocked.device)
-            tx, ty, tz, tt = target_coordinates.reshape(-1, 4).unbind(dim=-1)
-            coarse_mask[tx, ty, tz, tt] = 1.0
+            valid_flat = valid_mask.reshape(-1)
+            valid_targets = target_coordinates.reshape(-1, 4)[valid_flat]
+            if int(valid_targets.shape[0]):
+                tx, ty, tz, tt = valid_targets.unbind(dim=-1)
+                coarse_mask[tx, ty, tz, tt] = 1.0
             fine_mask = coarse_mask
             for dim, extent in enumerate(block_size):
                 fine_mask = fine_mask.repeat_interleave(extent, dim=dim)
@@ -1064,16 +1159,21 @@ def build_strict_galerkin_colored(
             fine = _torch.zeros(
                 size=[columns, e, *fine_shape], dtype=blocked.dtype,
                 device=blocked.device)
-            sx, sy, sz, st = source_coordinates.unbind(dim=-1)
-            fine_split = fine.reshape(
-                columns, e,
-                coarse_shape[0], int(block_size[0]),
-                coarse_shape[1], int(block_size[1]),
-                coarse_shape[2], int(block_size[2]),
-                coarse_shape[3], int(block_size[3]))
-            fine_split[:, :, sx, :, sy, :, sz, :, st, :] = blocked[
-                column_start:column_stop, :,
-                sx, :, sy, :, sz, :, st, :]
+            for source_index, source in enumerate(sources):
+                local_source = _local_coordinate(
+                    source, coarse_shape, context)
+                if local_source is None:
+                    continue
+                source_slices = _fine_slices(
+                    local_source, block_size)
+                blocked_index: List[Any] = [
+                    slice(column_start, column_stop), slice(None)]
+                for dim in range(4):
+                    blocked_index.extend(
+                        [int(local_source[dim]), slice(None)])
+                fine[
+                    (slice(None), slice(None), *source_slices)
+                ] = blocked[tuple(blocked_index)]
 
             image = _call_batch(batch_matvec, fine)
             calls += 1
@@ -1101,9 +1201,14 @@ def build_strict_galerkin_colored(
 
             for source_start, source_stop, prepared in chunk_specs:
                 coordinates = target_coordinates[source_start:source_stop]
+                chunk_valid = valid_mask[source_start:source_stop]
                 v_local = _gather_blocked_sites(blocked, coordinates)
                 image_local = _gather_fine_sites(
                     image, coordinates, block_size)
+                valid_factor = chunk_valid[
+                    :, :, None, None, None].to(dtype=v_local.dtype)
+                v_local = v_local * valid_factor
+                image_local = image_local * valid_factor
                 projected = _torch.einsum(
                     "kpevb,kpcvb->kpce",
                     v_local.conj(), image_local)
@@ -1111,7 +1216,7 @@ def build_strict_galerkin_colored(
                     blocks, projected, prepared, column_start)
 
     stats: Dict[str, Any] = {
-        "scalar_columns": prod(coarse_shape) * E,
+        "scalar_columns": prod(global_coarse_shape) * E,
         "operator_calls": calls,
         "probe_mode": "colored",
         "support_checked": bool(check_fine_support),
@@ -1119,11 +1224,11 @@ def build_strict_galerkin_colored(
         "color_sizes": tuple(len(group) for group in groups),
         "column_batch_size": Cmax,
         "projection_site_batch_size": Kmax,
-        "coarse_sites": prod(coarse_shape),
+        "coarse_sites": prod(global_coarse_shape),
         "coarse_dof": E,
         "fine_dof": e,
         "support_points": len(_target_entries(
-            (0, 0, 0, 0), coarse_shape)),
+            (0, 0, 0, 0), global_coarse_shape)),
         "worst_fine_support_leakage": worst_leakage,
         "worst_image_scale": worst_scale,
         "block_dtype": str(blocks[zero_key].dtype),
