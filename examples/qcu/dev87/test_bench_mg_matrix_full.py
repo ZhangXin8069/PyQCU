@@ -172,8 +172,12 @@ def test_asset_paths_and_per_unit_cache_directories(tmp_path: Path) -> None:
 
     c128 = _unit(side="pyqcu", precision="c128")
     c128_assets = matrix.resolve_unit_assets(c128, roots, tmp_path)
-    assert Path(c128_assets["gauge_path"]).name.endswith("_c128.h5")
-    assert Path(c128_assets["nullvec_path"]).name.endswith("_c128.h5")
+    # Without a canonical c128 asset the resolver falls back to the canonical
+    # c64 input and records the mixed-input protocol.
+    assert Path(c128_assets["gauge_path"]).name.endswith("_c64.h5")
+    assert Path(c128_assets["nullvec_path"]).name.endswith("_c64.h5")
+    assert c128_assets["input_storage_precision"] == "c64"
+    assert c128_assets["notes"]
     assert c64_assets["strict_cache_dir"] != c128_assets["strict_cache_dir"]
     assert Path(c64_assets["strict_cache_dir"]).parent == tmp_path / "cache"
 
@@ -229,9 +233,21 @@ def test_c128_input_assets_block_without_calling_runner(tmp_path: Path) -> None:
     assert called == []
     assert records[-1]["status"] == "blocked"
     assert records[-1]["error_code"] == "input_asset_missing"
-    assert "gauge_8x8x8x16_m0.05_seed42_c128.h5" in records[-1]["error_reason"]
-    assert "L8x8x8x16_nvec12_full_c128.h5" in records[-1]["error_reason"]
-    assert "L8x8x8x16_nvec12_quda" in records[-1]["error_reason"]
+    # c128 falls back to the canonical c64 input; the missing-asset report
+    # must therefore name the fallback paths, not a non-existent c128 file.
+    assert "gauge_8x8x8x16_m0.05_seed42_c64.h5" in records[-1]["error_reason"]
+    assert "L8x8x8x16_nvec12_full_c64.h5" in records[-1]["error_reason"]
+
+    quda_unit = _unit(side="quda", precision="c128")
+    quda_records = matrix.run_matrix(
+        [quda_unit],
+        output_dir=tmp_path,
+        asset_roots=matrix.AssetRoots(asset_root=tmp_path / "missing"),
+        runner=runner,
+        source_version="test-revision",
+    )
+    assert quda_records[-1]["status"] == "blocked"
+    assert "L8x8x8x16_nvec12_quda" in quda_records[-1]["error_reason"]
 
     summary = matrix.summarize_matrix([unit], output_dir=tmp_path)
     assert summary["coverage"]["missing_unit_ids"] == [unit.unit_id]

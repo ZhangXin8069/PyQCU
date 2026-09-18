@@ -301,22 +301,45 @@ def resolve_unit_assets(
         unit: MatrixUnit, roots: AssetRoots, output_dir: Path,
 ) -> dict[str, Any]:
     tag = unit.lattice_tag
-    gauge = (
+    # The formal protocol stores canonical inputs in single precision and runs
+    # the c128 column with a double-precision solver (QUDA_MULTIGRID_DOUBLE
+    # mixed precision).  Prefer a genuine ``_c128`` asset when it exists, but
+    # fall back to the canonical ``_c64`` input and record that choice instead
+    # of silently declaring the whole c128 column unavailable.
+    gauge_native = (
         roots.gauge_directory
         / f"gauge_{tag}_m0.05_seed42_{unit.precision}.h5")
-    nullvec = (
+    nullvec_native = (
         roots.nullvec_directory
         / f"L{tag}_nvec12_full_{unit.precision}.h5")
+    gauge_fallback = (
+        roots.gauge_directory / f"gauge_{tag}_m0.05_seed42_c64.h5")
+    nullvec_fallback = (
+        roots.nullvec_directory / f"L{tag}_nvec12_full_c64.h5")
+    notes: list[str] = []
+    if unit.precision == "c128" and not (
+            gauge_native.is_file() and nullvec_native.is_file()):
+        gauge, nullvec = gauge_fallback, nullvec_fallback
+        input_storage_precision = "c64"
+        notes.append(
+            "c128 precedence uses the canonical c64 gauge/null vectors with "
+            "double-precision solver arithmetic (QUDA_MULTIGRID_DOUBLE mixed "
+            "protocol); no c128 canonical asset is required")
+    else:
+        gauge, nullvec = gauge_native, nullvec_native
+        input_storage_precision = unit.precision
     qio_prefix = roots.qio_directory / f"L{tag}_nvec12_quda"
     qio_manifest = roots.qio_directory / f"L{tag}_nvec12_quda.v1.json"
     cache_dir = roots.cache_directory(output_dir, unit)
     return {
         "gauge_path": str(gauge.resolve()),
         "nullvec_path": str(nullvec.resolve()),
+        "input_storage_precision": input_storage_precision,
         "quda_nullvec_prefix": str(qio_prefix.resolve()),
         "quda_nullvec_manifest": str(qio_manifest.resolve()),
         "strict_cache_dir": str(cache_dir.resolve()),
         "roots": roots.as_dict(),
+        "notes": notes,
     }
 
 
@@ -362,20 +385,12 @@ def validate_unit_assets(
     qio_prefix = Path(str(assets["quda_nullvec_prefix"]))
     qio_manifest = Path(str(assets["quda_nullvec_manifest"]))
     qio_artifacts: list[Path] = []
-    if unit.precision != "c64":
-        incompatible.extend([
-            {
-                "kind": "qio_prefix",
-                "path": str(qio_prefix),
-                "reason": "no c128 QIO asset is available",
-            },
-            {
-                "kind": "qio_manifest",
-                "path": str(qio_manifest),
-                "reason": "available QIO manifest is c64/single precision",
-            },
-        ])
-    elif unit.side == "quda":
+    notes: list[str] = list(assets.get("notes") or [])
+    if unit.precision != "c64" and unit.side == "quda":
+        notes.append(
+            "QUDA side consumes the single-precision QIO fine null vectors "
+            "while the coarse hierarchy is built in double precision")
+    if unit.side == "quda":
         qio_artifacts, manifest_errors = _qio_artifact_paths(
             qio_manifest, qio_prefix)
         for detail in manifest_errors:
@@ -396,6 +411,7 @@ def validate_unit_assets(
         "qio_artifacts": [str(path) for path in qio_artifacts],
         "missing": missing,
         "incompatible": incompatible,
+        "notes": notes,
     }
     return result
 
