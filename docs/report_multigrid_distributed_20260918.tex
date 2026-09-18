@@ -486,10 +486,19 @@ trace-on 只用于分层分解与残差曲线。
   \code{Cannot resize an empty vector unless a src is passed} 并以
   QMP abort 结束。两侧的原始错误码都记录在矩阵状态里，未做任何回退或
   替换实现。
-\item c128 的 QUDA 侧需要 complex128 的 canonical null vector 与
-  QIO 资产；若本轮未生成，则对应单元记为 blocked。
-\item 双 P100 列需要把 QUDA 重新编译到 \code{sm\_60}：仓库中现有
-  \code{quda-double-install} 只含 \code{sm\_70} cubin，P100 无法加载。
+\item c128 列遵循本项目既有协议：canonical gauge/null vector 仍用
+  c64 存储，求解在 double 精度下进行（QUDA 侧对应
+  \code{QUDA\_MULTIGRID\_DOUBLE=ON} 的 mixed 协议）。因此 c128 列测量
+  的是“双精度求解 + 单精度输入资产”，这一点写在每个单元的
+  \code{inputs}/\code{notes} 里，不能解读为“全链路 complex128 数据”。
+\item 双 P100 列的 PyQCU 侧在收集器流程中触发 CUDA illegal memory
+  access，位置在**旧版** clover-gauge MPI halo
+  （\code{lattice\_clover\_dslash.h} 的 \code{\_make\_mpi} /
+  \code{pick\_up\_u\_*}），不属于本轮实现的 strict 分布式路径；同一
+  二进制下的 strict 分布式路径本身在双 P100 上可解（见
+  \pathref{examples/qcu/dev87/P100_NOTES.md}）。QUDA 侧则完全不可用：
+  仓库现有 \code{quda-double-install} 只含 \code{sm\_70} cubin，
+  P100（\code{sm\_60}）无法加载。
 \item 分布式 setup 的 face 交换走 CPU staging，只用于 setup 期；
   它没有宣称是求解热路径的性能优化。代价在**探针数量**上：
   $8\times4\times4\times4$、2 rank、level-2 的 Galerkin setup 在
