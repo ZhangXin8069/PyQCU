@@ -507,8 +507,10 @@ def _collector_command_report(
         "--strict-cache-dir", str(resolved_assets["strict_cache_dir"]),
         "--cache-expect", "miss",
         "--output", str(output),
-        "--resume",
     ]
+    # Matrix-level resume already skips successful units.  Let the collector
+    # start fresh for failed units so a corrected execution configuration is
+    # not rejected against the failed record's old config hash.
     if unit.side == "quda":
         unit_argv.extend([
             "--quda-nullvec-prefix",
