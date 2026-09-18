@@ -378,7 +378,10 @@ def test_strict_galerkin_colored_cpu_block_staging_matches_reference():
         column_batch_size=2, projection_site_batch_size=4,
         check_fine_support=True, include_raw_links=False,
         retain_blocks=False, block_dtype=torch.complex64,
-        block_device=torch.device("cpu"), verbose=False)
+        block_device=torch.device("cpu"), offload_blocked=True,
+        verbose=False)
+    assert transfer.V.device.type == "cpu"
+    assert transfer.to_qcu_blocked().device.type == "cpu"
     expected = reference.to_qcu_strict_assets()
     assert staged.stats["worst_fine_support_leakage"] == 0.0
     assert torch.allclose(
