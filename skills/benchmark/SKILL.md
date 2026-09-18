@@ -263,6 +263,38 @@ canonical-block scatter 已改为预计算索引与批量写入。`_target_entri
 CUDA 回归为
 `test_strict_galerkin_colored_cpu_block_staging_matches_reference`。
 
+2026-09-18 的矩阵补跑把大格 c128 路径改成显式生命周期协议：
+probe 结束时先释放 `inverse/site_matrix` 和最后一轮 full-field
+workspace，再把 canonical blocked basis 下放 CPU；`_finish` 在目标
+CUDA 设备上逐方向 stream action blocks 并组装 coarse links。递归更新
+null vector 时允许在 CPU 计算 restriction，但上传前必须切回当前
+coarse operator 的 packed-asset dtype/device。coarse operator 的
+dtype/device 参考不得再读取可能已下放的 `transfer.V`。正式恢复命令为：
+
+```bash
+source ./env.sh
+source examples/qcu/dev87/quda_env.sh
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+python examples/qcu/dev87/bench_mg_matrix_full.py \
+  --execute --resume --timeout 7800 \
+  --output-dir data/mg_matrix_full_v100_c128 \
+  --cache-root data/strict_cache_matrix/matrix-v100-c128 \
+  --only-side pyqcu --only-precision c128 --only-device v100 \
+  --only-lattice 16x32x32x48 --only-levels 2 --only-levels 3 \
+  --extra-args "--pyqcu-strict-block-device cpu \
+  --pyqcu-strict-offload-null-basis --strict-galerkin-column-batch 1 \
+  --strict-galerkin-projection-batch 4 \
+  --strict-galerkin-max-workspace-bytes 1073741824"
+```
+
+矩阵编排器的 `--resume` 是成功单元的唯一复用判据；不要把 `--resume`
+继续传给 collector，否则修正执行参数后会与旧 failed JSON 的
+`config_hash` 冲突。`QcuStrictAssetBinding` 必须 fail closed 拒绝
+任何非 CUDA 资产。当前 V100 大格 c128 PyQCU 结果：L2 trace-off
+`10.486293 s` / 15 iterations，L3 trace-off `2.084975 s` /
+20 iterations，真残差均 `1.79e-8`；大格 QUDA double 的矩阵补跑在
+32 GiB 卡上仍会 OOM，不能把历史或单次慢速 replay 直接并入正式比值。
+
 真实 c128 smoke 证据（`8^3·16`、三层、`--pyqcu-strict-block-precision
 single`、CPU block staging）显示，`K=1` 的 setup 为 `44.86 s`，`K=4`
 为 `16.67 s`（约 `2.69x`），两者均通过 `1.84e-8` 真残差门并保持 35 次
