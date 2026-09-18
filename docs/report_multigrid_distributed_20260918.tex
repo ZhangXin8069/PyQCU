@@ -92,10 +92,15 @@ MG-1/2/3 层、V100 单卡与双 P100 组合采集，缺失组合在报告中显
 \item 性能（V100 单卡、c64、MG-2/3）：PyQCU 的 steady 中位时间在
   6 个有效 case 上全部低于 QUDA（$0.12$--$0.88$ 倍），外层迭代数
   为 QUDA 的 $0.24$--$0.53$ 倍，单次迭代成本为 $1.8$--$6.0$ 倍。
+\item 性能（V100 单卡、c128、MG-2/3、trace off）：在小格与中格的
+  4 个可比 case 上，PyQCU steady 中位时间为 QUDA 的
+  $0.091$--$0.512$ 倍，即 QUDA-over-PyQCU 比值为
+  $1.953$--$10.965$ 倍；大格 QUDA 本轮矩阵采集受容量限制，未并入
+  正式比值。
 \item 口径（本轮修正，E1）：最细层“总迭代次数”统一为外层
   FGMRES/GCR 迭代数，并被写入 JSON 的 \code{iteration\_semantics}。
-\item 缺口（E1，未填充）：MG-1 两侧都不可用；c128 的 QUDA 侧缺
-  complex128 canonical null vector/QIO 资产；双 P100 的 QUDA 侧缺
+\item 缺口（E1，未填充）：MG-1 两侧都不可用；QUDA c128 大格单元在
+  当前矩阵编排器下为 device OOM；双 P100 的 QUDA 侧缺
   \code{sm\_60} 二进制。三者都以 blocked/failed 记录，未使用替代
   实现或外推数值。
 \end{itemize}
@@ -329,10 +334,14 @@ block & $(2,2,2,2)$ \\
 
 本轮在 V100 单卡上完成了 c64 的 $3\times3\times2=18$ 个 case（含
 trace 开关），其中 MG-2/MG-3 的 24 个 side-case 全部有效；MG-1 的
-12 个 side-case 两侧都不可用（原因见“局限”）。c128 与双 P100 列的
-状态同样在“局限”中逐条说明，矩阵状态文件
-\pathref{data/mg_matrix_full_v100_c64/matrix_state.jsonl} 保留了每个
-单元的命令行、返回码与错误码。
+12 个 side-case 两侧都不可用（原因见“局限”）。c128/V100 子矩阵中，
+PyQCU 的 MG-2/MG-3、三种格点、trace on/off 共 12 个 side-case 全部
+有效；QUDA 的小格与中格共 8 个 side-case 有效，4 个大格 double 单元
+在矩阵编排器下以 device OOM 失败。双 P100 列仍见“局限”。
+矩阵状态文件
+\pathref{data/mg_matrix_full_v100_c64/matrix_state.jsonl} 与
+\pathref{data/mg_matrix_full_v100_c128/matrix_state.jsonl} 分别保留了
+每个单元的命令行、返回码与错误码。
 
 \subsection{稳态时间与外层迭代（trace off，V100 单卡，c64）}
 
@@ -357,8 +366,37 @@ $16\times32\times32\times48$ & 3 & 0.658870 & 1.306464 & 14 & 39 \\
 \end{tabularx}
 \end{table}
 
-所有有效单元的 full true residual 都低于 $10^{-6}$（gate
-$5\times10^{-6}$），两侧都没有出现假收敛。
+\subsection{稳态时间与外层迭代（trace off，V100 单卡，c128）}
+
+\begin{table}[htbp]
+\centering
+\small
+\caption{c128、trace off 的 5 次 steady 中位时间与外层迭代数}
+\begin{tabularx}{\textwidth}{@{}L{0.20\textwidth}L{0.09\textwidth}rrrrr@{}}
+\toprule
+格点 & 层数 & \multicolumn{2}{c}{steady median / s} &
+\multicolumn{2}{c}{外层迭代数} & QUDA/PyQCU \\
+\cmidrule(lr){3-4}\cmidrule(lr){5-6}\cmidrule(lr){7-7}
+ & & PyQCU & QUDA & PyQCU & QUDA & 时间比 \\
+\midrule
+$8^3\times16$ & 2 & 0.127397 & 0.910566 & 13 & 45 & 7.1475 \\
+$8^3\times16$ & 3 & 0.077737 & 0.852364 & 14 & 46 & 10.9647 \\
+$16^4$ & 2 & 0.586642 & 1.145755 & 40 & 85 & 1.9531 \\
+$16^4$ & 3 & 0.358402 & 1.214387 & 44 & 87 & 3.3883 \\
+$16\times32\times32\times48$ & 2 & 10.486293 & --- & 15 & --- & --- \\
+$16\times32\times32\times48$ & 3 & 2.084975 & --- & 20 & --- & --- \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+本表只合并两侧都由本轮矩阵收集器产出且设备均为 V100 的单元。
+c128 的外层迭代数仍显著高于 PyQCU，且 QUDA/PyQCU 的时间比随层数
+从 $1.95$ 增至 $10.96$。大格 PyQCU 数据证明 MG-3 相对 MG-2 的
+稳态收益为 $10.486\to2.085$ s；大格 QUDA 本轮没有获得可合并的
+矩阵记录，缺失值保持为空，不用历史数字填充。
+
+所有有效单元的 full true residual 都低于各自 gate：c64 为
+$5\times10^{-6}$，c128 为 $5\times10^{-8}$，两侧都没有出现假收敛。
 
 \subsection{逐层耗时与六类 phase}
 
@@ -491,6 +529,13 @@ trace-on 只用于分层分解与残差曲线。
   \code{QUDA\_MULTIGRID\_DOUBLE=ON} 的 mixed 协议）。因此 c128 列测量
   的是“双精度求解 + 单精度输入资产”，这一点写在每个单元的
   \code{inputs}/\code{notes} 里，不能解读为“全链路 complex128 数据”。
+\item c128 大格 QUDA 的矩阵补跑仍以 device OOM 结束：在
+  \code{qio-matrix} v1 QIO 资产下，QUDA 读取 null vector 后分配
+  $453$ MiB coarse gauge 失败。显式绑定唯一 V100 UUID、使用
+  \code{QUDA\_RESOURCE\_PATH=data/quda-resource-cache} 与历史
+  \code{conversion.json} 资产的直接复验能够完成，但本轮 steady 中位
+  时间为 $131.85$ s，明显偏离同一 \code{libquda.so} 历史记录的
+  $16.166$ s；因此不把该直接复验或历史数字并入 c128 大格正式加速比。
 \item 双 P100 列的 PyQCU 侧在收集器流程中触发 CUDA illegal memory
   access，位置在**旧版** clover-gauge MPI halo
   （\code{lattice\_clover\_dslash.h} 的 \code{\_make\_mpi} /
