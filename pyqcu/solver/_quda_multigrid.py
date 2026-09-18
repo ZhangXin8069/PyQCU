@@ -83,6 +83,10 @@ class QcuStrictAssetBinding:
         def bind(slot: int, tensor: Optional[Tensor], label: str) -> None:
             if tensor is None:
                 raise ValueError(f"strict QCU 资产 {label} 缺失")
+            if getattr(tensor.device, "type", str(tensor.device)) != "cuda":
+                raise ValueError(
+                    f"strict QCU 资产 {label} 必须在 CUDA 设备上，"
+                    f"得到 {tensor.device}")
             if not tensor.is_contiguous():
                 raise ValueError(f"strict QCU 资产 {label} 必须 contiguous")
             pointer = int(tensor.data_ptr())
@@ -710,6 +714,25 @@ class QudaTransfer:
     # 语义别名：调用方可按“导出 QCU null vector”或“转换布局”理解。
     as_qcu_null_vectors = to_qcu_blocked
 
+    def offload_qcu_blocked(self) -> None:
+        """Move the canonical blocked basis to CPU and rebuild ``V`` there."""
+        blocked = getattr(self, "_qcu_blocked_storage", None)
+        if blocked is None:
+            blocked = self.to_qcu_blocked()
+        if str(blocked.device) == "cpu":
+            return
+        blocked = blocked.cpu()
+        self._qcu_blocked_storage = blocked
+        cx, cy, cz, ct = self.coarse_shape
+        bx, by, bz, bt = self.block_size
+        self.V = blocked.reshape(
+            self.coarse_spin, self.nvec,
+            self.fine_spin, self.fine_color,
+            cx, bx, cy, by, cz, bz, ct, bt).reshape(
+                self.coarse_spin, self.nvec,
+                self.fine_spin, self.fine_color,
+                *self.fine_shape).permute(2, 3, 0, 1, 4, 5, 6, 7)
+
     def restrict_spin_color(self, fine: Tensor) -> Tensor:
         dtype = fine.dtype
         device = fine.device
@@ -1114,6 +1137,19 @@ class QudaCoarseOperator:
         with _mpi_roll.distributed_roll(comm, grid, None):
             self.build()
 
+    def _asset_reference(self) -> Tensor:
+        """Return a resident asset that defines the operator dtype/device."""
+        cached = self._strict_packed_assets
+        if cached is not None and cached.get("preconditioned_links") is not None:
+            return cached["preconditioned_links"]
+        if self.Yhat_forward:
+            return self.Yhat_forward[0]
+        if self.X is not None:
+            return self.X
+        if self.blocks:
+            return next(iter(self.blocks.values()))
+        return self.transfer.V
+
     def apply(self, value: Tensor) -> Tensor:
         if value.ndim != 5 or int(value.shape[0]) != self.dof:
             raise ValueError(
@@ -1143,10 +1179,9 @@ class QudaCoarseOperator:
         dtype = value.dtype
         device = value.device
         work = value
-        if (work.dtype != self.transfer.V.dtype or
-                work.device != self.transfer.V.device):
-            work = work.to(
-                dtype=self.transfer.V.dtype, device=self.transfer.V.device)
+        reference = self._asset_reference()
+        if work.dtype != reference.dtype or work.device != reference.device:
+            work = work.to(dtype=reference.dtype, device=reference.device)
         result = _torch.zeros_like(work)
         for displacement, block in self.blocks.items():
             result = result + _matvec_block_batch(
@@ -1161,8 +1196,9 @@ class QudaCoarseOperator:
         dtype = value.dtype
         device = value.device
         work = value
-        if work.dtype != self.transfer.V.dtype or work.device != self.transfer.V.device:
-            work = work.to(dtype=self.transfer.V.dtype, device=self.transfer.V.device)
+        reference = self._asset_reference()
+        if work.dtype != reference.dtype or work.device != reference.device:
+            work = work.to(dtype=reference.dtype, device=reference.device)
         result = _torch.zeros_like(work)
         for displacement, block in self.blocks.items():
             result = result + _matvec_block(block, _roll_field(work, displacement))
@@ -1178,8 +1214,9 @@ class QudaCoarseOperator:
         dtype = value.dtype
         device = value.device
         work = value
-        if work.dtype != self.transfer.V.dtype or work.device != self.transfer.V.device:
-            work = work.to(dtype=self.transfer.V.dtype, device=self.transfer.V.device)
+        reference = self._asset_reference()
+        if work.dtype != reference.dtype or work.device != reference.device:
+            work = work.to(dtype=reference.dtype, device=reference.device)
         result = _torch.zeros_like(work)
         for displacement, block in self.blocks.items():
             coefficient = _roll_site_tensor(_adjoint_site(block), displacement)
@@ -1304,8 +1341,9 @@ class QudaCoarseOperator:
             self.build()
         assert self.blocks is not None
 
-        base_dtype = self.transfer.V.dtype if dtype is None else dtype
-        base_device = self.transfer.V.device if device is None else device
+        reference = self._asset_reference()
+        base_dtype = reference.dtype if dtype is None else dtype
+        base_device = reference.device if device is None else device
         shape = self.shape
         global_shape = _active_global_shape(shape)
         E = self.dof
@@ -1382,9 +1420,10 @@ class QudaCoarseOperator:
             for dim, value in enumerate(displacement))
         if canonical in self.blocks:
             return self.blocks[canonical]  # type: ignore[index]
+        reference = self._asset_reference()
         return _torch.zeros(
-            size=[self.dof, self.dof, *self.shape], dtype=self.transfer.V.dtype,
-            device=self.transfer.V.device)
+            size=[self.dof, self.dof, *self.shape], dtype=reference.dtype,
+            device=reference.device)
 
     def _validate_strict_nearest_neighbor_support(self) -> None:
         """Reject support that the strict QUDA X/Y ABI cannot represent."""
@@ -1531,8 +1570,9 @@ class QudaCoarseOperator:
             return self._dense
         assert self.blocks is not None
         n = self.dof * prod(self.shape)
+        reference = self._asset_reference()
         dense = _torch.zeros(
-            size=[n, n], dtype=self.transfer.V.dtype, device=self.transfer.V.device)
+            size=[n, n], dtype=reference.dtype, device=reference.device)
         for displacement, block in self.blocks.items():
             for target in _all_coords(self.shape):
                 source = tuple((target[d] + displacement[d]) % self.shape[d]
@@ -1634,8 +1674,9 @@ class QudaCoarseOperator:
         dtype = value.dtype
         device = value.device
         work = value
-        if work.dtype != self.transfer.V.dtype or work.device != self.transfer.V.device:
-            work = work.to(dtype=self.transfer.V.dtype, device=self.transfer.V.device)
+        reference = self._asset_reference()
+        if work.dtype != reference.dtype or work.device != reference.device:
+            work = work.to(dtype=reference.dtype, device=reference.device)
         result = _torch.zeros_like(work)
         for dim in range(4):
             displacement = tuple(1 if i == dim else 0 for i in range(4))
@@ -1664,10 +1705,9 @@ class QudaCoarseOperator:
         dtype = value.dtype
         device = value.device
         work = value
-        if (work.dtype != self.transfer.V.dtype or
-                work.device != self.transfer.V.device):
-            work = work.to(
-                dtype=self.transfer.V.dtype, device=self.transfer.V.device)
+        reference = self._asset_reference()
+        if work.dtype != reference.dtype or work.device != reference.device:
+            work = work.to(dtype=reference.dtype, device=reference.device)
         result = _torch.zeros_like(work)
         for dim in range(4):
             displacement = tuple(1 if i == dim else 0 for i in range(4))
@@ -3001,6 +3041,11 @@ class QudaMultigrid:
                         previous.fine_dof, *previous.fine_shape)
                     restricted.append(previous.restrict(fine))
                 null = _torch.stack(restricted, dim=0)
+                reference = self._reference_field(current)
+                if (null.dtype != reference.dtype or
+                        null.device != reference.device):
+                    null = null.to(
+                        dtype=reference.dtype, device=reference.device)
             else:
                 reference = self._reference_field(current)
                 null = self._random_null(current, nvec, reference.dtype, reference.device)
@@ -3107,6 +3152,7 @@ class QudaMultigrid:
                         verbose=self.verbose,
                         block_dtype=self.strict_galerkin_block_dtype,
                         block_device=self.strict_galerkin_block_device,
+                        offload_blocked=self.strict_offload_null_basis,
                     )
                 else:
                     setup_result = build_strict_galerkin(
@@ -3279,8 +3325,9 @@ class QudaMultigrid:
         elif isinstance(operator, CompactParityOperator):
             return operator.reference_field()
         elif isinstance(operator, QudaCoarseOperator):
-            dtype = operator.transfer.V.dtype
-            device = operator.transfer.V.device
+            reference = operator._asset_reference()
+            dtype = reference.dtype
+            device = reference.device
         else:
             dtype = device = None
         if dtype is None:
