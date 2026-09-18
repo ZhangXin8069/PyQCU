@@ -198,40 +198,6 @@ def _action_links(
     return forward, backward
 
 
-def _action_links_streamed(
-        blocks: Mapping[BlockKey, Tensor], shape: Shape4,
-        template: Tensor) -> Tuple[List[Tensor], List[Tensor]]:
-    """Materialize only the one-hop blocks needed for each action direction."""
-    zero = _torch.zeros_like(template)
-
-    def get_block(key: BlockKey) -> Tensor:
-        value = blocks.get(key)
-        if value is None:
-            return zero
-        if value.device != template.device or value.dtype != template.dtype:
-            value = value.to(device=template.device, dtype=template.dtype)
-        return value
-
-    forward: List[Tensor] = []
-    backward: List[Tensor] = []
-    action_shape = _mpi_roll.global_shape(shape)
-    for dim, extent in enumerate(action_shape):
-        if extent == 1:
-            forward.append(zero)
-            backward.append(zero)
-            continue
-        plus_key = tuple(1 if axis == dim else 0 for axis in range(4))
-        minus_key = tuple(-1 if axis == dim else 0 for axis in range(4))
-        plus = get_block(plus_key)
-        if extent == 2:
-            forward.append(0.5 * plus)
-            backward.append(0.5 * plus)
-            continue
-        forward.append(plus)
-        backward.append(get_block(minus_key))
-    return forward, backward
-
-
 def _gather_blocked_sites(blocked: Tensor, coordinates: Tensor) -> Tensor:
     """Gather ``[K,P,E,e,B]`` support blocks from the 10-D blocked basis."""
     tx, ty, tz, tt = coordinates.unbind(dim=-1)
@@ -645,49 +611,85 @@ def _finish_strict_galerkin(
     coarse_shape: Shape4, block_size: Shape4, blocked: Tensor,
     E: int, e: int, nvec: int, include_raw_links: bool,
     retain_blocks: bool, stats: Dict[str, Any], started_at: float,
-    verbose: bool, output_dtype: Any = None,
+    verbose: bool, output_dtype: Any = None, output_device: Any = None,
 ) -> StrictGalerkinResult:
     """Invert X and pack canonical blocks into QUDA runtime storage."""
     zero_key: BlockKey = (0, 0, 0, 0)
     output_dtype = blocked.dtype if output_dtype is None else output_dtype
+    output_device = blocked.device if output_device is None else output_device
     X = blocks[zero_key]
-    streamed_blocks = str(X.device) != str(blocked.device)
+    streamed_blocks = str(X.device) != str(output_device)
     if streamed_blocks and retain_blocks:
         raise ValueError(
             "block_device=cpu 要求 retain_blocks=False，避免把 CPU "
             "canonical blocks 混入 CUDA runtime assets")
     if streamed_blocks:
-        X = X.to(device=blocked.device)
+        X = X.to(device=output_device)
     site_matrix = X.permute(2, 3, 4, 5, 0, 1).reshape(-1, E, E)
     inverse = _torch.linalg_inv(site_matrix)
     X_inv = inverse.reshape(
         *coarse_shape, E, E).permute(4, 5, 0, 1, 2, 3).contiguous()
+    del inverse, site_matrix
     if streamed_blocks:
-        forward, backward = _action_links_streamed(
-            blocks, coarse_shape, X)
+        forward_links: List[Tensor] = []
+        backward_links: List[Tensor] = []
     else:
-        forward, backward = _action_links(blocks, coarse_shape, X)
+        forward_links, backward_links = _action_links(blocks, coarse_shape, X)
 
     raw_links: Optional[Tensor]
     if include_raw_links:
         raw_links = _torch.zeros(
             size=[2, 4, E, E, *coarse_shape], dtype=output_dtype,
-            device=blocked.device)
+            device=output_device)
     else:
         raw_links = None
     preconditioned = _torch.zeros(
         size=[2, 4, E, E, *coarse_shape], dtype=output_dtype,
-        device=blocked.device)
+        device=output_device)
+    streamed_zero: Optional[Tensor] = None
+
+    def streamed_block(key: BlockKey) -> Tensor:
+        nonlocal streamed_zero
+        value = blocks.get(key)
+        if value is None:
+            if streamed_zero is None:
+                streamed_zero = _torch.zeros_like(X)
+            return streamed_zero
+        if value.device != X.device or value.dtype != X.dtype:
+            value = value.to(device=X.device, dtype=X.dtype)
+        return value
+
     for dim in range(4):
+        if streamed_blocks:
+            extent = _mpi_roll.global_shape(coarse_shape)[dim]
+            if extent == 1:
+                forward = backward = _torch.zeros_like(X)
+            else:
+                plus_key = tuple(
+                    1 if axis == dim else 0 for axis in range(4))
+                plus = streamed_block(plus_key)
+                if extent == 2:
+                    forward = backward = 0.5 * plus
+                else:
+                    minus_key = tuple(
+                        -1 if axis == dim else 0 for axis in range(4))
+                    forward = plus
+                    backward = streamed_block(minus_key)
+        else:
+            forward = forward_links[dim]
+            backward = backward_links[dim]
         shift = tuple(-1 if axis == dim else 0 for axis in range(4))
-        backward_storage = _roll_site(_adjoint_site(backward[dim]), shift)
+        backward_storage = _roll_site(_adjoint_site(backward), shift)
         source_xinv = _roll_site(X_inv, shift)
         if raw_links is not None:
-            raw_links[0, dim] = forward[dim]
+            raw_links[0, dim] = forward
             raw_links[1, dim] = backward_storage
-        preconditioned[0, dim] = _matmul_site(X_inv, forward[dim])
+        preconditioned[0, dim] = _matmul_site(X_inv, forward)
         preconditioned[1, dim] = _matmul_site(
             backward_storage, _adjoint_site(source_xinv))
+        del backward_storage, source_xinv
+        if streamed_blocks:
+            del forward, backward
     onsite_pair = _torch.stack([X, X_inv], dim=0).to(
         dtype=output_dtype).contiguous()
     if raw_links is not None:
@@ -1026,6 +1028,7 @@ def build_strict_galerkin_colored(
     verbose: bool = False,
     block_dtype: Any = None,
     block_device: Any = None,
+    offload_blocked: bool = False,
 ) -> StrictGalerkinResult:
     """Build strict assets with non-overlapping colored source probes.
 
@@ -1238,6 +1241,22 @@ def build_strict_galerkin_colored(
         raise RuntimeError(
             f"colored 调用账本不一致：actual={calls}, "
             f"planned={memory['operator_calls']}")
+    # The final packing allocates the full coarse link arena.  Release the
+    # last probe's full-field workspaces before that allocation; otherwise
+    # the 32 GiB c128 path retains an avoidable fine/image pair at peak.
+    del entries_by_source, valid_by_source, target_coordinates, valid_mask
+    del chunk_specs, fine, image, v_local, image_local, projected
+    if check_fine_support:
+        del coarse_mask, fine_mask, magnitude
+    output_device = blocked.device
+    if offload_blocked:
+        offload = getattr(transfer, "offload_qcu_blocked", None)
+        if offload is None:
+            raise TypeError(
+                "offload_blocked=True 要求 transfer 提供 "
+                "offload_qcu_blocked()")
+        offload()
+        blocked = transfer.to_qcu_blocked()
     return _finish_strict_galerkin(
         blocks=blocks,
         fine_shape=fine_shape,
@@ -1253,6 +1272,7 @@ def build_strict_galerkin_colored(
         started_at=t0,
         verbose=verbose,
         output_dtype=blocked.dtype,
+        output_device=output_device,
     )
 
 

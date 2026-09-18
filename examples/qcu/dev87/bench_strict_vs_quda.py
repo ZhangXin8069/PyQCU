@@ -2798,10 +2798,10 @@ def _configured_strict_runtime(
     """创建 fused strict 所需最小 runtime，避免额外 Python Krylov arena。"""
     import torch
 
-    fine_null = hierarchy.transfers[0].to_qcu_blocked(
-        dtype=gauge.dtype, device=gauge.device).contiguous()
+    fine_null_source = hierarchy.transfers[0].to_qcu_blocked()
     assets = hierarchy.qcu_strict_transition_assets(
-        dtype=gauge.dtype, device=gauge.device,
+        dtype=None if release_setup_before_runtime else gauge.dtype,
+        device=None if release_setup_before_runtime else gauge.device,
         include_raw_links=False, runtime_start_level=1)
     level_specs = [
         {"dof": int(operator.dof), "shape": list(operator.shape)}
@@ -2815,6 +2815,14 @@ def _configured_strict_runtime(
         setup_release = hierarchy.release_python_setup_assets()
         torch.cuda.empty_cache()
         torch.cuda.synchronize(gauge.device)
+    for asset in assets:
+        null_vectors = asset.get("null_vectors")
+        if null_vectors is not None:
+            asset["null_vectors"] = null_vectors.to(
+                dtype=gauge.dtype, device=gauge.device).contiguous()
+    fine_null = fine_null_source.to(
+        dtype=gauge.dtype, device=gauge.device).contiguous()
+    del fine_null_source
     runtime = _configured_strict_runtime_assets(
         argv=argv, params=params, gauge=gauge,
         clover_ee=clover_ee, clover_oo=clover_oo,
