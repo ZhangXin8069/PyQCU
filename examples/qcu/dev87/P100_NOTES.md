@@ -157,3 +157,27 @@ p100-dual:   physical devices 0 and 1, CUDA_VISIBLE_DEVICES=0,1,
 ```
 
 Machine-readable summary: `data/p100-logs/p100_summary.json`.
+
+## 2026-09-18 最终代码在双 P100 上的复验
+
+分布式 strict 全链路（分布式 Galerkin setup + fine/coarse halo +
+distributed FGMRES）在本轮实现定稿后重新在双 P100 上跑过，均使用
+`CUDA_VISIBLE_DEVICES=<rank>` 一 rank 一卡：
+
+| 探针 | 结果 |
+|---|---|
+| `strict_mpi_setup_probe.py --shape 8 8 8 16 --grid 2 1 1 1 --levels 2 --mode colored` | passed；内部点 `0.0`，rank 边界点最大相对误差 `5.52e-07`（c64） |
+| `strict_mpi_primitive_probe.py --shape 8 8 8 8 --grid 2 1 1 1 --dof 4 --parity 1` | full `1.54e-07`、compact `2.07e-08` |
+| `strict_mpi_solve_probe.py --shape 8 8 8 16 --grid 2 1 1 1 --restart 20 --max-iter 200 --galerkin-mode colored` | converged，28 次外层迭代，独立真相对残差 `6.59e-07` |
+
+仍然存在的 P100 阻塞（与 strict 实现无关）：
+
+1. 收集器 `bench_strict_vs_quda.py --device p100 --mpi-ranks 2` 在 PyQCU
+   侧触发 CUDA illegal memory access，位置是**旧版** clover-gauge MPI halo
+   （`cpp/cuda/qcu/include/lattice_clover_dslash.h` 的 `_make_mpi` /
+   `pick_up_u_*`），不是本轮实现的 strict halo 路径；
+2. QUDA 侧完全不可运行：`data/quda-double-install/lib/libquda.so` 只含
+   `sm_70` cubin，P100（`sm_60`）无法加载。
+
+因此矩阵里的 `p100-dual` 列只能用上面的独立探针结果支撑，收集器矩阵单元
+仍按 blocked 记录，不用替代实现填充。
