@@ -117,6 +117,7 @@ def test_collector_command_frozen_and_p100_mapping(tmp_path: Path) -> None:
     assert frozen.count("--process-grid") == 1
     assert "2,1,1,1" not in frozen
     assert frozen[frozen.index("--device") + 1] == "p100"
+    assert "--resume" not in frozen
     assert frozen.count("mpirun") == 0
 
     legacy = matrix._collector_command(
