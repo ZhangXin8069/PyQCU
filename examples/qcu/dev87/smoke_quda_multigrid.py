@@ -571,7 +571,7 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
     import numpy as np
     import torch
 
-    device = bench._select_v100(torch)
+    device = bench._select_accelerator(torch, args.device, 0, 1)
     device_report = bench._torch_runtime_provenance(torch, device)
     import pyquda
     import pyquda_utils.core as core
@@ -779,6 +779,9 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--cuda-visible-devices", default=None,
         help="在导入 CUDA/PyQUDA 前设置 CUDA_VISIBLE_DEVICES，例如 2")
+    parser.add_argument(
+        "--device", choices=("v100", "p100"), default="v100",
+        help="目标 GPU 型号（默认 v100；双 P100 环境使用 p100）")
     parser.add_argument(
         "--quda-install", default=None,
         help="QUDA 安装前缀；同时设置 QUDA_INSTALL/QUDA_PATH 并把其 lib 置于 LD_LIBRARY_PATH 首位")

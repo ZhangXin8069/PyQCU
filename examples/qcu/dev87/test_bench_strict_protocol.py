@@ -102,11 +102,14 @@ def _synthetic_provenance(document):
     }
 
 
-def _synthetic_cache(document):
-    identity = bench._strict_runtime_cache_identity({
+def _synthetic_cache(document, mpi_context=None):
+    payload = {
         "protocol": document["protocol"],
         "input_fingerprints": document["input_fingerprints"],
-    })
+    }
+    if mpi_context is not None:
+        payload["mpi_context"] = mpi_context
+    identity = bench._strict_runtime_cache_identity(payload)
     identity_sha256 = bench._sha256_json(identity)
     path = bench._strict_runtime_cache_path(
         identity, Path(document["execution"]["strict_cache"]["directory"]))
@@ -460,6 +463,26 @@ def test_strict_setup_cli_is_hashed_and_fails_closed_on_invalid_caps():
             dry_run=True)
 
 
+def test_local_input_slab_verification(tmp_path):
+    import numpy as np
+
+    path = tmp_path / "input.h5"
+    path.write_bytes(b"input")
+    fingerprint = {
+        "path": str(path),
+        "dtype": "complex64",
+        "file_size_bytes": path.stat().st_size,
+    }
+    value = np.zeros((2, 3, 3, 4, 4, 8, 8, 4), dtype=np.complex64)
+    bench._verify_local_input_slab(
+        "gauge", value, fingerprint, (4, 8, 8, 8), parity_compressed=True)
+    with pytest.raises(bench.BenchmarkFailure) as error:
+        bench._verify_local_input_slab(
+            "gauge", value[..., :-1], fingerprint, (4, 8, 8, 8),
+            parity_compressed=True)
+    assert error.value.code == "input_local_shape_mismatch"
+
+
 def test_torch_runtime_provenance_is_strict_json_serializable():
     class PrivateUuid:
         def __str__(self):
@@ -600,6 +623,8 @@ def test_quda_cleanup_attempts_all_resources_without_masking_error():
 
 def test_wsl2_quda_reduction_guard_requires_patched_first_library(
         tmp_path, monkeypatch):
+    import ctypes
+
     install = tmp_path / "quda-install"
     library_dir = install / "lib"
     library_dir.mkdir(parents=True)
@@ -610,6 +635,10 @@ def test_wsl2_quda_reduction_guard_requires_patched_first_library(
     monkeypatch.setenv("QUDA_INSTALL", str(install))
     monkeypatch.setenv("LD_LIBRARY_PATH", f"{library_dir}:/other")
     monkeypatch.delenv("DEV87_REDUCE_SYNC", raising=False)
+    preloaded = []
+    monkeypatch.setattr(
+        bench.ctypes, "CDLL",
+        lambda path, mode=None: preloaded.append((path, mode)))
 
     report = bench._prepare_quda_reduction_runtime()
     assert report["required"] is True
@@ -618,6 +647,7 @@ def test_wsl2_quda_reduction_guard_requires_patched_first_library(
     assert report["library_sha256"] == bench._sha256_file(library)
     assert report["marker_present"] is True
     assert os.environ["DEV87_REDUCE_SYNC"] == "1"
+    assert preloaded == [(str(library.resolve()), ctypes.RTLD_GLOBAL)]
 
     library.write_bytes(b"unpatched")
     try:
@@ -1656,6 +1686,42 @@ def test_mg_level_conservation_rejects_negative_other():
     assert error.value.code == "mg_level_timing_negative_other"
 
 
+def test_mg_level_conservation_clamps_trace_roundoff():
+    accumulator = bench._empty_level_accumulator(0)
+    accumulator["total_seconds"] = 1.0
+    accumulator["pre_smoother_seconds"] = 1.0005
+    levels = bench._finalise_mg_levels([accumulator])
+    assert levels[0]["other_seconds"] == 0.0
+
+
+def test_rank_timing_aggregation_uses_one_complete_rank_breakdown():
+    rank0 = bench._empty_level_accumulator(0)
+    rank0["total_seconds"] = 10.0
+    rank0["pre_smoother_seconds"] = 2.0
+    rank0["post_smoother_seconds"] = 3.0
+    rank0["restriction_seconds"] = 1.0
+    rank0["prolongation_seconds"] = 1.0
+    rank0["coarse_solver_seconds"] = 3.0
+
+    rank1 = bench._empty_level_accumulator(0)
+    rank1["total_seconds"] = 9.5
+    rank1["pre_smoother_seconds"] = 1.0
+    rank1["post_smoother_seconds"] = 3.5
+    rank1["restriction_seconds"] = 1.5
+    rank1["prolongation_seconds"] = 1.5
+    rank1["coarse_solver_seconds"] = 2.0
+    for rank in (rank0, rank1):
+        rank["total_iterations"] = 1
+        rank["finest_iterations"] = 1
+        rank["residual_sequence"] = []
+
+    levels = bench._aggregate_mg_levels([[rank0], [rank1]])
+    assert levels[0]["total_seconds"] == pytest.approx(10.0)
+    assert levels[0]["timing_rank_index"] == 0
+    assert levels[0]["other_seconds"] == pytest.approx(0.0)
+    assert levels[0]["post_smoother_seconds"] == pytest.approx(3.0)
+
+
 def test_process_grid_must_match_mpi_ranks():
     with pytest.raises(ValueError, match="process grid"):
         bench.build_document(
@@ -1689,6 +1755,29 @@ def test_rank_local_cache_identity_has_distinct_paths(tmp_path):
     assert bench._strict_runtime_cache_path(
         identities[0], tmp_path) != bench._strict_runtime_cache_path(
             identities[1], tmp_path)
+
+
+def test_validate_document_recomputes_distributed_cache_identity():
+    document = bench.build_document(
+        _args(
+            "--dry-run", "--side", "pyqcu", "--mpi-ranks", "2",
+            "--process-grid", "2", "1", "1", "1",
+            "--cache-expect", "hit"),
+        dry_run=True)
+    document["input_fingerprints"] = _synthetic_fingerprints()
+    mpi_context = {
+        "rank": 0,
+        "size": 2,
+        "process_grid": [2, 1, 1, 1],
+        "rank_coordinate": [0, 0, 0, 0],
+    }
+    record = _successful_side("pyqcu", document, 1.0)
+    record["mpi"] = copy.deepcopy(mpi_context)
+    record["runtime_cache"] = _synthetic_cache(document, mpi_context)
+    record["rank_results"] = [{"rank": 0}, {"rank": 1}]
+    document["sides"]["pyqcu"] = record
+
+    assert bench.validate_document(document, allow_planned=True) == []
 
 
 def test_mpi_ranks_launch_once_through_single_mpirun(monkeypatch):
@@ -1774,6 +1863,30 @@ def test_full_phase_launch_forces_cold_miss_then_steady_hit(monkeypatch):
     assert calls[1][2] == "warmup_steady"
     assert result["timing"]["cold_seconds"] == 0.5
     assert result["runtime_cache"]["steady"]["expectation"] == "hit"
+
+
+def test_full_phase_launch_reuses_hit_cache_for_cold_and_steady(monkeypatch):
+    document = bench.build_document(
+        _args(
+            "--dry-run", "--side", "pyqcu", "--profile", "formal",
+            "--phases", "cold,warmup,steady", "--cache-expect", "hit"),
+        dry_run=True)
+    document["input_fingerprints"] = _synthetic_fingerprints()
+    calls = []
+
+    def launch(side, doc, timeout, phase_request, phase_tag=None):
+        calls.append((side, dict(phase_request), phase_tag))
+        record = _successful_side(side, doc, 1.0)
+        if phase_request["cold"]:
+            record["timing"]["cold_seconds"] = 0.5
+        record["runtime_cache"]["expectation"] = "hit"
+        record["runtime_cache"]["hit"] = True
+        return record
+
+    monkeypatch.setattr(bench, "_launch_side_once", launch)
+    bench._launch_side("pyqcu", document, 10.0)
+    assert calls[0][1]["cache_expect"] == "hit"
+    assert calls[1][1]["cache_expect"] == "hit"
 
 
 def test_legacy_success_json_without_mg_levels_remains_readable():

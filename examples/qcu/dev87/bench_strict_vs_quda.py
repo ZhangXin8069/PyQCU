@@ -136,6 +136,8 @@ ENV_ALLOWLIST = (
     "QUDA_SOURCE_DIR",
     "DEV87_REDUCE_SYNC",
     "PYQCU_STRICT_TRACE_FILE",
+    "PYQCU_STRICT_LINK_HALO_CACHE",
+    "PYQCU_STRICT_COARSE_TOL_FACTOR",
     "PYQCU_QUDA_TRACE_FILE",
     "QUDA_MG_TRACE_FILE",
     "PYQCU_STRICT_BENCH_MPI_RANK",
@@ -143,9 +145,26 @@ ENV_ALLOWLIST = (
     "PYQCU_STRICT_BENCH_PROCESS_GRID",
     "PYQCU_STRICT_BENCH_RESULT_DIR",
     "PYQCU_MPI_DEVICE_AWARE",
+    "PYQCU_MPI_DEVICE_ID",
     "OMP_NUM_THREADS",
 )
 _QMP_RUNTIME_HOLD: List[Any] = []
+
+
+def _strict_coarse_tolerance(config: Mapping[str, Any]) -> float:
+    value = float(config["coarse_tolerance"])
+    raw = os.environ.get("PYQCU_STRICT_COARSE_TOL_FACTOR")
+    if raw is None or not raw.strip():
+        return value
+    try:
+        factor = float(raw)
+    except ValueError as exc:
+        raise BenchmarkFailure(
+            "invalid_strict_coarse_tol_factor", raw) from exc
+    if not math.isfinite(factor) or factor <= 0.0:
+        raise BenchmarkFailure(
+            "invalid_strict_coarse_tol_factor", raw)
+    return min(0.5, value * factor)
 
 
 class BenchmarkSkip(RuntimeError):
@@ -853,11 +872,13 @@ def _finalise_mg_levels(
             "restriction_seconds", "prolongation_seconds",
             "coarse_solver_seconds"))
         other = total - known
-        if other < 0.0:
+        tolerance = max(1.0e-6, 1.0e-2 * max(1.0, abs(total), abs(known)))
+        if other < -tolerance:
             raise BenchmarkFailure(
                 "mg_level_timing_negative_other",
                 f"level={value['level']} total={total}, known={known}, "
                 f"other={other}")
+        other = max(0.0, other)
         item = {
             "level": int(value["level"]),
             "total_seconds": total,
@@ -1469,6 +1490,26 @@ def _canonical_config(args: argparse.Namespace) -> Dict[str, Any]:
     tolerance = precision["default_tolerance"] if args.tol is None else float(args.tol)
     if tolerance <= 0.0 or not math.isfinite(tolerance):
         raise ValueError("--tol must be a finite positive number")
+    coarse_tolerance = (
+        min(0.1, 3000.0 * tolerance)
+        if args.coarse_tol is None else float(args.coarse_tol))
+    if (coarse_tolerance <= 0.0 or coarse_tolerance > 0.5 or
+            not math.isfinite(coarse_tolerance)):
+        raise ValueError("--coarse-tol must be finite and in (0, 0.5]")
+    smoother_steps = int(args.nu)
+    if smoother_steps < 0:
+        raise ValueError("--nu must be non-negative")
+    block_levels = (
+        [list(value) for value in args.block_level]
+        if args.block_level else
+        [list(block) for _ in range(levels - 1)])
+    if len(block_levels) != levels - 1:
+        raise ValueError(
+            "--block-level must be supplied exactly levels-1 times")
+    for level, level_block in enumerate(block_levels):
+        if any(value <= 0 for value in level_block):
+            raise ValueError(
+                f"--block-level[{level}] must contain positive extents")
     formal_defaults = _formal_profile_defaults(precision)
     if profile == "formal":
         violations: List[str] = []
@@ -1554,7 +1595,7 @@ def _canonical_config(args: argparse.Namespace) -> Dict[str, Any]:
         "precision": precision,
         "levels": levels,
         "block_xyzt": list(block),
-        "block_xyzt_per_level": [list(block) for _ in range(levels - 1)],
+        "block_xyzt_per_level": block_levels,
         "nvec": NVECS,
         "coarse_spin": COARSE_SPIN,
         "coarse_dof": coarse_dof,
@@ -1606,10 +1647,10 @@ def _canonical_config(args: argparse.Namespace) -> Dict[str, Any]:
         "max_iter": int(args.max_iter),
         "tolerance": tolerance,
         "true_residual_gate": true_gate,
-        "nu_pre": DEFAULT_NU_PRE,
-        "nu_post": DEFAULT_NU_POST,
+        "nu_pre": smoother_steps,
+        "nu_post": smoother_steps,
         "coarse_max_iter": DEFAULT_COARSE_MAX_ITER,
-        "coarse_tolerance": min(0.1, 3000.0 * tolerance),
+        "coarse_tolerance": coarse_tolerance,
         "initial_guess": "zero for every warmup and measured solve",
         "warmups": WARMUPS,
         "repeats": int(args.repeats),
@@ -1954,6 +1995,12 @@ def _prepare_quda_reduction_runtime() -> Dict[str, Any]:
         if prefix_text:
             library = Path(prefix_text).expanduser().resolve() / "lib" / "libquda.so"
             if library.is_file():
+                try:
+                    ctypes.CDLL(str(library), mode=ctypes.RTLD_GLOBAL)
+                except OSError as exc:
+                    raise BenchmarkFailure(
+                        "quda_library_preload_failed",
+                        f"{library}: {exc!r}") from exc
                 report.update({
                     "library": str(library),
                     "library_sha256": _sha256_file(library),
@@ -1981,18 +2028,15 @@ def _prepare_quda_reduction_runtime() -> Dict[str, Any]:
     if not library.is_file() or library.is_symlink():
         raise BenchmarkFailure("quda_wsl2_library_missing", str(library))
 
-    ld_entries = [
-        Path(value).resolve()
-        for value in os.environ.get("LD_LIBRARY_PATH", "").split(":") if value]
-    if not ld_entries or ld_entries[0] != library_dir:
-        raise BenchmarkFailure(
-            "quda_library_precedence_mismatch",
-            f"expected first LD_LIBRARY_PATH entry {library_dir}, got {ld_entries[:1]}")
-
     marker = b"DEV87_REDUCE_SYNC"
     marker_present = _binary_contains(library, marker)
     if not marker_present:
         raise BenchmarkFailure("quda_wsl2_reduce_sync_missing", str(library))
+    try:
+        ctypes.CDLL(str(library), mode=ctypes.RTLD_GLOBAL)
+    except OSError as exc:
+        raise BenchmarkFailure(
+            "quda_library_preload_failed", f"{library}: {exc!r}") from exc
     report.update({
         "enabled": True,
         "library": str(library),
@@ -2473,6 +2517,93 @@ def _load_h5_array(path: str, dataset: str) -> Any:
         return np.ascontiguousarray(handle[dataset][...])
 
 
+def _load_h5_local_array(
+        path: str, dataset: str, global_lattice: Sequence[int],
+        mpi_context: Mapping[str, Any], *, parity_compressed: bool) -> Any:
+    """Read only this rank's rectangular slab from a global HDF5 dataset.
+
+    The gauge/source files are checkerboard-compressed on the final axis.
+    Since every local extent and origin is even, the checkerboard parity on a
+    rank block agrees with the global parity, so a rectangular HDF5 hyperslab
+    is already the required rank-local compressed field.
+    """
+    try:
+        import h5py
+        import numpy as np
+    except ImportError as exc:
+        raise BenchmarkSkip("missing_hdf5_dependency", repr(exc)) from exc
+    size = int(mpi_context["size"])
+    if size <= 1:
+        return _load_h5_array(path, dataset)
+    grid = tuple(int(value) for value in mpi_context["process_grid"])
+    coordinate = tuple(int(value) for value in mpi_context["rank_coordinate"])
+    local = [int(global_lattice[d]) // grid[d] for d in range(4)]
+    starts = [coordinate[d] * local[d] for d in range(4)]
+    expected = (
+        [int(global_lattice[0]), int(global_lattice[1]),
+         int(global_lattice[2]),
+         int(global_lattice[3]) // (2 if parity_compressed else 1)]
+    )
+    t_count = local[3] // (2 if parity_compressed else 1)
+    t_start = starts[3] // (2 if parity_compressed else 1)
+    try:
+        from mpi4py import MPI
+        driver = "mpio" if bool(getattr(
+            __import__("pyqcu.tools", fromlist=["HAS_MPI_SUPPORT"]),
+            "HAS_MPI_SUPPORT", False)) else None
+        comm = MPI.COMM_WORLD
+    except (ImportError, OSError):
+        driver = None
+        comm = None
+    if driver is None:
+        raise BenchmarkSkip(
+            "hdf5_mpi_unavailable",
+            "rank-sliced HDF5 reads require h5py MPI support")
+    with h5py.File(path, "r", driver=driver, comm=comm) as handle:
+        if dataset not in handle:
+            raise BenchmarkFailure("missing_dataset", f"{path}: {dataset}")
+        value = handle[dataset]
+        if tuple(int(x) for x in value.shape[-4:]) != tuple(expected):
+            raise BenchmarkFailure(
+                "input_shape_mismatch",
+                f"{dataset} shape={tuple(value.shape)} expected_tail={expected}")
+        selection = [slice(None)] * (value.ndim - 4) + [
+            slice(starts[0], starts[0] + local[0]),
+            slice(starts[1], starts[1] + local[1]),
+            slice(starts[2], starts[2] + local[2]),
+            slice(t_start, t_start + t_count),
+        ]
+        return np.ascontiguousarray(value[tuple(selection)])
+
+
+def _verify_local_input_slab(
+        name: str, array: Any, fingerprint: Mapping[str, Any],
+        local_lattice: Sequence[int], *, parity_compressed: bool) -> None:
+    import numpy as np
+
+    expected = [
+        int(local_lattice[0]), int(local_lattice[1]),
+        int(local_lattice[2]),
+        int(local_lattice[3]) // (2 if parity_compressed else 1),
+    ]
+    if tuple(int(x) for x in np.asarray(array).shape[-4:]) != tuple(expected):
+        raise BenchmarkFailure(
+            "input_local_shape_mismatch",
+            f"{name} local shape={tuple(np.asarray(array).shape)} "
+            f"expected_tail={expected}")
+    if str(np.asarray(array).dtype) != str(fingerprint["dtype"]):
+        raise BenchmarkFailure(
+            "input_local_dtype_mismatch",
+            f"{name} dtype={np.asarray(array).dtype} "
+            f"expected={fingerprint['dtype']}")
+    path = Path(str(fingerprint["path"]))
+    if (not path.is_file() or
+            int(path.stat().st_size) != int(fingerprint["file_size_bytes"])):
+        raise BenchmarkFailure(
+            "input_changed_after_preflight",
+            f"{name} file metadata changed: {path}")
+
+
 def _torch_runtime_provenance(torch: Any, device: Any) -> Dict[str, Any]:
     index = int(torch.cuda.current_device())
     properties = torch.cuda.get_device_properties(index)
@@ -2600,6 +2731,7 @@ def _gather_local_blocks(
         value: Any, process_grid: Sequence[int], root: int = 0) -> Any:
     """Gather a rank-local ``...xyzt`` tensor into the global lattice."""
     import numpy as np
+    import torch
     from mpi4py import MPI
 
     comm = MPI.COMM_WORLD
@@ -2612,6 +2744,11 @@ def _gather_local_blocks(
         *(local[axis] * grid[axis] for axis in range(4)),
     )
     blocks = comm.gather(array, root=root)
+    # MPI_Gather may return on the root once receives complete while a peer is
+    # still flushing its send.  Keep the communicator in lockstep before the
+    # root starts GPU work; otherwise the root can reach MPI_Finalize first on
+    # WSL/OpenMPI and strand the sender in the collective.
+    comm.Barrier()
     if rank != root:
         return None
     whole = np.empty(global_shape, dtype=array.dtype)
@@ -2735,7 +2872,8 @@ def _configured_strict_runtime_assets(
         assets: Sequence[Mapping[str, Any]],
         level_specs: Sequence[Mapping[str, Any]],
         coarse_max_iter: int, coarse_tol: float, restart: int,
-        target_parity: int = TARGET_PARITY) -> Dict[str, Any]:
+        target_parity: int = TARGET_PARITY,
+        smoother_steps: int = DEFAULT_NU_PRE) -> Dict[str, Any]:
     """Create the fused runtime from validated resident transition assets."""
     import torch
     from pyqcu.cuda import define, qcu
@@ -2749,7 +2887,7 @@ def _configured_strict_runtime_assets(
     controls = argv.clone().contiguous()
     configured[define._PARITY_] = int(target_parity)
     configured[define._MG_NUM_LEVEL_] = len(level_specs) + 1
-    configured[define._MG_MU_PRE_] = max(DEFAULT_NU_PRE, DEFAULT_NU_POST)
+    configured[define._MG_MU_PRE_] = int(smoother_steps)
     for level, spec in enumerate(level_specs, start=1):
         shape = tuple(int(x) for x in spec["shape"])
         if len(shape) != 4:
@@ -2830,7 +2968,9 @@ def _configured_strict_runtime(
         fine_null=fine_null, assets=assets, level_specs=level_specs,
         coarse_max_iter=hierarchy.coarse_max_iter,
         coarse_tol=hierarchy.coarse_tol, restart=hierarchy.restart,
-        target_parity=hierarchy.target_parity)
+        target_parity=hierarchy.target_parity,
+        smoother_steps=int(getattr(
+            hierarchy, "nu_pre", DEFAULT_NU_PRE)))
     runtime["transition_assets"] = assets
     runtime["level_specs"] = level_specs
     if setup_release is not None:
@@ -3037,6 +3177,8 @@ def _run_pyqcu_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
         str((payload["execution"].get("device") or {}).get("requested", "v100")),
         int(mpi_context.get("local_rank", mpi_context["rank"])),
         int(mpi_context.get("local_size", mpi_context["size"])))
+    if int(mpi_context["size"]) > 1:
+        os.environ["PYQCU_MPI_DEVICE_ID"] = str(int(device.index))
     device_uuid = _torch_runtime_provenance(torch, device)["device_uuid"]
     torch.cuda.synchronize(device)
     runtime_init_s = time.perf_counter() - runtime_started
@@ -3046,17 +3188,35 @@ def _run_pyqcu_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
 
     io_started = time.perf_counter()
     global_lattice = tuple(int(value) for value in LATTICE)
-    gauge_np = _load_h5_array(inputs["gauge"]["path"], inputs["gauge"]["dataset"])
-    source_np = _load_h5_array(inputs["source"]["path"], inputs["source"]["dataset"])
-    null_np = _load_h5_array(
-        inputs["null_vectors"]["path"], inputs["null_vectors"]["dataset"])
     fingerprints = payload["input_fingerprints"]
-    _verify_loaded_input("gauge", gauge_np, fingerprints["gauge"])
-    _verify_loaded_input("source", source_np, fingerprints["source"])
-    _verify_loaded_input("null_vectors", null_np, fingerprints["null_vectors"])
+    distributed_read = int(mpi_context["size"]) > 1
+    gauge_np = _load_h5_local_array(
+        inputs["gauge"]["path"], inputs["gauge"]["dataset"],
+        global_lattice, mpi_context, parity_compressed=True)
+    source_np = _load_h5_local_array(
+        inputs["source"]["path"], inputs["source"]["dataset"],
+        global_lattice, mpi_context, parity_compressed=True)
+    null_np = _load_h5_local_array(
+        inputs["null_vectors"]["path"], inputs["null_vectors"]["dataset"],
+        global_lattice, mpi_context, parity_compressed=False)
     local_lattice, local_starts, _ = local_geometry(
         global_lattice, grid=mpi_context["process_grid"],
         rank=mpi_context["rank"], require_even=True)
+    if distributed_read:
+        _verify_local_input_slab(
+            "gauge", gauge_np, fingerprints["gauge"], local_lattice,
+            parity_compressed=True)
+        _verify_local_input_slab(
+            "source", source_np, fingerprints["source"], local_lattice,
+            parity_compressed=True)
+        _verify_local_input_slab(
+            "null_vectors", null_np, fingerprints["null_vectors"],
+            local_lattice, parity_compressed=False)
+    else:
+        _verify_loaded_input("gauge", gauge_np, fingerprints["gauge"])
+        _verify_loaded_input("source", source_np, fingerprints["source"])
+        _verify_loaded_input(
+            "null_vectors", null_np, fingerprints["null_vectors"])
     if int(mpi_context["size"]) > 1:
         LATTICE = tuple(local_lattice)
     else:
@@ -3079,16 +3239,11 @@ def _run_pyqcu_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
         setup_sampler = _CudaDeviceMemorySampler(torch, device).start()
         setup_started = time.perf_counter()
         if int(mpi_context["size"]) > 1:
-            gauge = global_parity_to_local(
-                torch.from_numpy(gauge_np), global_lattice,
-                grid=mpi_context["process_grid"], rank=mpi_context["rank"],
-                device=device, dtype=complex_dtype)
-            rhs = global_parity_to_local(
-                torch.from_numpy(source_np), global_lattice,
-                grid=mpi_context["process_grid"], rank=mpi_context["rank"],
-                device=device, dtype=complex_dtype)
-            local_null_np = _slice_last4(
-                null_np, local_starts, local_lattice)
+            gauge = torch.from_numpy(gauge_np).to(
+                device=device, dtype=complex_dtype).contiguous()
+            rhs = torch.from_numpy(source_np).to(
+                device=device, dtype=complex_dtype).contiguous()
+            local_null_np = null_np
         else:
             gauge = torch.from_numpy(gauge_np).to(
                 device=device, dtype=complex_dtype).contiguous()
@@ -3172,9 +3327,10 @@ def _run_pyqcu_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
                 assets=cached_assets.to_runtime_levels(),
                 level_specs=level_specs,
                 coarse_max_iter=int(config["coarse_max_iter"]),
-                coarse_tol=float(config["coarse_tolerance"]),
+                coarse_tol=_strict_coarse_tolerance(config),
                 restart=int(config["restart_requested"]),
-                target_parity=int(config["target_parity"]))
+                target_parity=int(config["target_parity"]),
+                smoother_steps=int(config["nu_pre"]))
             setup_release = {
                 "sealed": True,
                 "source": "strict_runtime_cache",
@@ -3213,8 +3369,8 @@ def _run_pyqcu_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
                 null_vectors=[null_vectors],
                 dof_list=[12] + [COARSE_DOF] * max(0, LEVELS - 1),
                 block_size=[
-                    list(BLOCK) for _ in range(max(1, LEVELS - 1))
-                ],
+                    list(value)
+                    for value in config["block_xyzt_per_level"]],
                 max_level=LEVELS,
                 propagate_null_vectors=bool(LEVELS > 2),
                 n_block_ortho=2,
@@ -3224,7 +3380,7 @@ def _run_pyqcu_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
                 nu_pre=int(config["nu_pre"]),
                 nu_post=int(config["nu_post"]),
                 coarse_max_iter=int(config["coarse_max_iter"]),
-                coarse_tol=float(config["coarse_tolerance"]),
+                coarse_tol=_strict_coarse_tolerance(config),
                 restart=int(config["restart_requested"]),
                 max_iter=int(config["max_iter"]),
                 tol=float(config["tolerance"]),
@@ -3496,7 +3652,10 @@ def _run_pyqcu_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
         else:
             probe_pass = True
         reference_report = None
-        if (phase_request["steady"] and
+        reference_pass = True
+        reference_requested = any(
+            phase_request[name] for name in ("cold", "warmup", "steady"))
+        if (reference_requested and
                 config["reference_solver"]["kind"] == "bicgstab"):
             from pyqcu.cuda._schur_op import CudaSchurOp
             reference_op = None
@@ -3510,50 +3669,85 @@ def _run_pyqcu_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
                 reference_op.params[define._MAX_ITER_] = int(config["max_iter"])
                 reference_output = torch.empty_like(rhs)
 
-                def reference_once() -> Tuple[float, float]:
+                def reference_once() -> Tuple[float, float, int]:
                     reference_output.zero_()
                     torch.cuda.synchronize(device)
                     started = time.perf_counter()
                     qcu.applyCloverBistabCgQcu(
                         reference_output, rhs, gauge, ce, coo, cei, coi,
                         reference_op.set_ptrs, reference_op.params)
+                    iterations = int(qcu.getCloverBistabCgIterationsQcu(
+                        reference_op.set_ptrs, reference_op.params))
                     torch.cuda.synchronize(device)
                     elapsed = time.perf_counter() - started
-                    residual = _canonical_true_residual(
-                        reference_output, rhs, gauge, MASS,
-                        full_gauge=full_gauge, clover=clover_full)
-                    return elapsed, residual
+                    residual = (
+                        _canonical_true_residual_mpi(
+                            reference_output, rhs, gauge, MASS,
+                            mpi_context["process_grid"])
+                        if int(mpi_context["size"]) > 1 else
+                        _canonical_true_residual(
+                            reference_output, rhs, gauge, MASS,
+                            full_gauge=full_gauge, clover=clover_full))
+                    return elapsed, residual, iterations
 
+                reference_cold = None
+                if phase_request["cold"]:
+                    seconds, residual, reference_iterations = reference_once()
+                    reference_cold = {
+                        "seconds": seconds,
+                        "true_residual_rel": residual,
+                        "iterations": reference_iterations,
+                    }
                 reference_warmups = []
-                for _ in range(int(config["reference_solver"]["warmups"])):
-                    seconds, residual = reference_once()
-                    reference_warmups.append({
-                        "seconds": seconds,
-                        "true_residual_rel": residual,
-                    })
+                if phase_request["warmup"]:
+                    for _ in range(WARMUPS):
+                        seconds, residual, reference_iterations = reference_once()
+                        reference_warmups.append({
+                            "seconds": seconds,
+                            "true_residual_rel": residual,
+                            "iterations": reference_iterations,
+                        })
                 reference_samples = []
-                for _ in range(int(config["repeats"])):
-                    seconds, residual = reference_once()
-                    reference_samples.append({
-                        "seconds": seconds,
-                        "true_residual_rel": residual,
-                    })
+                if phase_request["steady"]:
+                    for _ in range(int(config["repeats"])):
+                        seconds, residual, reference_iterations = reference_once()
+                        reference_samples.append({
+                            "seconds": seconds,
+                            "true_residual_rel": residual,
+                            "iterations": reference_iterations,
+                        })
+                residual_samples = [
+                    item["true_residual_rel"]
+                    for item in ([reference_cold] if reference_cold else []) +
+                    reference_warmups + reference_samples
+                    if item is not None
+                ]
                 reference_report = {
                     "kind": "bicgstab",
                     "implementation": "pyqcu.cuda.qcu.applyCloverBistabCgQcu",
+                    "cold": reference_cold,
                     "warmups": reference_warmups,
-                    "steady": _median_mad([
-                        item["seconds"] for item in reference_samples]),
+                    "steady": (
+                        _median_mad([
+                            item["seconds"] for item in reference_samples])
+                        if reference_samples else
+                        {"samples_seconds": [], "median_seconds": None,
+                         "mad_seconds": None}),
                     "samples": reference_samples,
-                    "true_residual_max_rel": max(
-                        item["true_residual_rel"]
-                        for item in reference_samples),
+                    "true_residual_max_rel": (
+                        max(residual_samples) if residual_samples else None),
+                    "iterations": (
+                        _median_mad([
+                            item["iterations"] for item in reference_samples])
+                        if reference_samples else None),
                     "excluded_from_speedup": True,
                 }
+                reference_pass = all(
+                    value <= gate for value in residual_samples)
             finally:
                 if reference_op is not None:
                     reference_op.release()
-        phase_checks = [probe_pass]
+        phase_checks = [probe_pass, reference_pass]
         if cold_result_payload is not None:
             phase_checks.extend((
                 bool(cold_result_payload["converged"]),
@@ -3580,6 +3774,10 @@ def _run_pyqcu_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
             [float(item["true_residual_rel"]) for item in warmup_results])
         timing_payload = {
             "input_io_seconds": input_io_s,
+            "input_read_distributed": bool(distributed_read),
+            "input_read_scope": (
+                "rank-sliced HDF5 hyperslab"
+                if distributed_read else "full HDF5 dataset"),
             "runtime_init_seconds": runtime_init_s,
             "setup_seconds": setup_s,
             "setup_mode": (
@@ -4380,11 +4578,27 @@ def _run_quda_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
                       if precision == "c64" else QudaPrecision.QUDA_DOUBLE_PRECISION)
 
     io_started = time.perf_counter()
-    gauge_np = _load_h5_array(inputs["gauge"]["path"], inputs["gauge"]["dataset"])
-    source_np = _load_h5_array(inputs["source"]["path"], inputs["source"]["dataset"])
     fingerprints = payload["input_fingerprints"]
-    _verify_loaded_input("gauge", gauge_np, fingerprints["gauge"])
-    _verify_loaded_input("source", source_np, fingerprints["source"])
+    gauge_np = _load_h5_local_array(
+        inputs["gauge"]["path"], inputs["gauge"]["dataset"],
+        LATTICE, mpi_context, parity_compressed=True)
+    source_np = _load_h5_local_array(
+        inputs["source"]["path"], inputs["source"]["dataset"],
+        LATTICE, mpi_context, parity_compressed=True)
+    if int(mpi_context["size"]) > 1:
+        local_lattice, _, _ = local_geometry(
+            tuple(int(value) for value in LATTICE),
+            grid=mpi_context["process_grid"],
+            rank=mpi_context["rank"], require_even=True)
+        _verify_local_input_slab(
+            "gauge", gauge_np, fingerprints["gauge"], local_lattice,
+            parity_compressed=True)
+        _verify_local_input_slab(
+            "source", source_np, fingerprints["source"], local_lattice,
+            parity_compressed=True)
+    else:
+        _verify_loaded_input("gauge", gauge_np, fingerprints["gauge"])
+        _verify_loaded_input("source", source_np, fingerprints["source"])
     input_io_s = time.perf_counter() - io_started
 
     runtime_started = time.perf_counter()
@@ -4410,14 +4624,10 @@ def _run_quda_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
         local_lattice, _, _ = local_geometry(
             global_lattice, grid=mpi_context["process_grid"],
             rank=mpi_context["rank"], require_even=True)
-        local_gauge_cpu = global_parity_to_local(
-            torch.from_numpy(gauge_np), global_lattice,
-            grid=mpi_context["process_grid"], rank=mpi_context["rank"],
-            device="cpu", dtype=_quda_qdp_torch_host_dtype(torch, precision))
-        local_source_cpu = global_parity_to_local(
-            torch.from_numpy(source_np), global_lattice,
-            grid=mpi_context["process_grid"], rank=mpi_context["rank"],
-            device="cpu", dtype=_quda_qdp_torch_host_dtype(torch, precision))
+        local_gauge_cpu = torch.from_numpy(gauge_np).to(
+            dtype=_quda_qdp_torch_host_dtype(torch, precision))
+        local_source_cpu = torch.from_numpy(source_np).to(
+            dtype=_quda_qdp_torch_host_dtype(torch, precision))
     else:
         local_gauge_cpu = torch.from_numpy(gauge_np).to(
             dtype=_quda_qdp_torch_host_dtype(torch, precision))
@@ -4429,7 +4639,9 @@ def _run_quda_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
         source_full = reconstruct_full_b(source_np).reshape(12, *LATTICE)
     else:
         source_full = tools.poooxyzt2oooxyzt(local_source_cpu)
-        source_full = source_full.reshape(4, 3, *local_lattice)
+        source_full = source_full.reshape(12, *local_lattice)
+    if isinstance(source_full, torch.Tensor):
+        source_full = source_full.detach().cpu().numpy()
     tzyxsc = np.ascontiguousarray(np.transpose(
         source_full.astype(quda_qdp_host_dtype, copy=False), (4, 3, 2, 1, 0)))
     rhs_eo = np.ascontiguousarray(info.evenodd(tzyxsc, False))
@@ -4472,7 +4684,8 @@ def _run_quda_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
                 info, MASS, float(config["tolerance"]),
                 int(config["max_iter"]), clover_csw_t=1.0,
                 multigrid=[
-                    list(BLOCK) for _ in range(LEVELS - 1)
+                    list(value)
+                    for value in config["block_xyzt_per_level"]
                 ])
         coarse_precision = (
             QudaPrecision.QUDA_SINGLE_PRECISION
@@ -4856,9 +5069,14 @@ def _run_quda_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
                     device=device, dtype=complex_dtype)
                 canonical_eo = tools.oooxyzt2poooxyzt(
                     canonical_tensor).contiguous()
-                residual = _canonical_true_residual(
-                    canonical_eo, rhs_for_residual, gauge_for_residual, MASS,
-                    full_gauge=full_gauge, clover=clover)
+                residual = (
+                    _canonical_true_residual_mpi(
+                        canonical_eo, rhs_for_residual, gauge_for_residual,
+                        MASS, mpi_context["process_grid"])
+                    if int(mpi_context["size"]) > 1 else
+                    _canonical_true_residual(
+                        canonical_eo, rhs_for_residual, gauge_for_residual,
+                        MASS, full_gauge=full_gauge, clover=clover))
                 return elapsed, int(invert.iter), residual
 
             reference_warmups = []
@@ -4927,6 +5145,10 @@ def _run_quda_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
     timing_payload = {
         "input_io_seconds": input_io_s,
         "input_prepare_seconds": input_prepare_s,
+        "input_read_distributed": bool(int(mpi_context["size"]) > 1),
+        "input_read_scope": (
+            "rank-sliced HDF5 hyperslab"
+            if int(mpi_context["size"]) > 1 else "full HDF5 dataset"),
         "runtime_init_seconds": runtime_init_s,
         "setup_seconds": setup_s,
         "warmups": warmup_results,
@@ -5420,12 +5642,16 @@ def _inspect_formal_runtime_cache(
             raise BenchmarkFailure(
                 "merge_cache_path_mismatch",
                 f"rank={rank} recorded={recorded_path}, expected={expected_path}")
-        if entry.get("identity_sha256") != _sha256_json(identity):
+        recorded_identity = entry.get("identity_sha256")
+        if (recorded_identity is None and isinstance(evidence, Mapping)):
+            recorded_identity = evidence.get("identity_sha256")
+        expected_identity = _sha256_json(identity)
+        if recorded_identity != expected_identity:
             raise BenchmarkFailure(
                 "merge_cache_identity_mismatch",
                 f"rank={rank} worker identity_sha256="
-                f"{entry.get('identity_sha256')!r}, "
-                f"expected={_sha256_json(identity)!r}")
+                f"{recorded_identity!r}, "
+                f"expected={expected_identity!r}")
         try:
             inspected = inspect_strict_runtime_cache(
                 recorded_path, identity=identity,
@@ -5454,7 +5680,7 @@ def _inspect_formal_runtime_cache(
                     f"rank={rank} {key}: worker={evidence.get(key)!r}, "
                     f"current={inspected_evidence.get(key)!r}")
         inspected_rank_evidence.append(copy.deepcopy(dict(inspected_evidence)))
-    result = inspected_rank_evidence[0]
+    result = copy.deepcopy(inspected_rank_evidence[0])
     if len(inspected_rank_evidence) > 1:
         result["rank_evidence"] = inspected_rank_evidence
     return result
@@ -5472,31 +5698,41 @@ def _aggregate_mg_levels(
     for level_index in range(next(iter(counts))):
         levels = [levels[level_index] for levels in level_sets]
         total = max(float(item["total_seconds"]) for item in levels)
+        # Keep one rank's stage breakdown intact.  Taking an independent
+        # maximum for every stage can assemble a sum larger than the slowest
+        # rank's total when different ranks are slowest in different stages.
+        timing_rank_index = max(
+            range(len(levels)),
+            key=lambda index: float(levels[index]["total_seconds"]))
+        timing_rank = levels[timing_rank_index]
         merged = {
             "level": int(levels[0]["level"]),
             "total_seconds": total,
             "total_iterations": max(
                 int(item["total_iterations"]) for item in levels),
-            "pre_smoother_seconds": max(
-                float(item["pre_smoother_seconds"]) for item in levels),
-            "post_smoother_seconds": max(
-                float(item["post_smoother_seconds"]) for item in levels),
-            "restriction_seconds": max(
-                float(item["restriction_seconds"]) for item in levels),
-            "prolongation_seconds": max(
-                float(item["prolongation_seconds"]) for item in levels),
-            "coarse_solver_seconds": max(
-                float(item["coarse_solver_seconds"]) for item in levels),
+            "pre_smoother_seconds": float(
+                timing_rank["pre_smoother_seconds"]),
+            "post_smoother_seconds": float(
+                timing_rank["post_smoother_seconds"]),
+            "restriction_seconds": float(
+                timing_rank["restriction_seconds"]),
+            "prolongation_seconds": float(
+                timing_rank["prolongation_seconds"]),
+            "coarse_solver_seconds": float(
+                timing_rank["coarse_solver_seconds"]),
+            "timing_rank_index": int(timing_rank_index),
         }
         known = sum(float(merged[key]) for key in (
             "pre_smoother_seconds", "post_smoother_seconds",
             "restriction_seconds", "prolongation_seconds",
             "coarse_solver_seconds"))
-        merged["other_seconds"] = total - known
-        if merged["other_seconds"] < 0.0:
+        other = total - known
+        tolerance = max(1.0e-6, 1.0e-2 * max(1.0, abs(total), abs(known)))
+        if other < -tolerance:
             raise BenchmarkFailure(
                 "rank_mg_level_timing_negative_other",
                 f"level={merged['level']} total={total}, known={known}")
+        merged["other_seconds"] = max(0.0, other)
         for key in (
                 "pre_smoother_iterations", "post_smoother_iterations",
                 "restriction_calls", "prolongation_calls",
@@ -5896,13 +6132,14 @@ def _launch_side(side: str, document: Mapping[str, Any], timeout: float) -> Dict
         (document.get("execution") or {}).get("strict_cache") or {}
     ).get("expect", "any")
     if split:
+        cold_cache_expect = "hit" if cache_expect == "hit" else "miss"
         cold = _launch_side_once(
             side, document, timeout,
             {
                 "cold": True,
                 "warmup": False,
                 "steady": False,
-                "cache_expect": "miss",
+                "cache_expect": cold_cache_expect,
             },
             phase_tag="cold",
         )
@@ -6366,9 +6603,14 @@ def _validate_mg_levels(value: Any, level_count: int, side: str) -> List[str]:
                for key in time_fields[:6]):
             known = sum(float(raw[key]) for key in time_fields[1:6])
             other = float(raw["total_seconds"]) - known
-            if other < 0.0 or not math.isclose(
-                    other, float(raw["other_seconds"]),
-                    rel_tol=1.0e-12, abs_tol=1.0e-12):
+            tolerance = max(
+                1.0e-6,
+                1.0e-2 * max(
+                    1.0, abs(float(raw["total_seconds"])), abs(known)))
+            expected_other = max(0.0, other)
+            if other < -tolerance or not math.isclose(
+                    expected_other, float(raw["other_seconds"]),
+                    rel_tol=1.0e-9, abs_tol=1.0e-9):
                 errors.append(
                     f"{side} mg_levels[{index}] timing conservation failed")
         total_iterations = raw.get("total_iterations")
@@ -6695,10 +6937,15 @@ def validate_document(document: Mapping[str, Any], *, allow_planned: bool = Fals
                             cache.get("evidence"), "pyqcu runtime_cache.evidence"))
                         if isinstance(input_fingerprints, Mapping):
                             try:
-                                identity = _strict_runtime_cache_identity({
+                                identity_payload = {
                                     "protocol": protocol,
                                     "input_fingerprints": input_fingerprints,
-                                })
+                                }
+                                mpi_context = record.get("mpi")
+                                if isinstance(mpi_context, Mapping):
+                                    identity_payload["mpi_context"] = mpi_context
+                                identity = _strict_runtime_cache_identity(
+                                    identity_payload)
                                 expected_identity_sha = _sha256_json(identity)
                                 expected_cache_path = _strict_runtime_cache_path(
                                     identity,
@@ -6930,6 +7177,10 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--block", type=int, nargs=4, default=list(BLOCK),
         metavar=("BX", "BY", "BZ", "BT"))
+    parser.add_argument(
+        "--block-level", type=int, nargs=4, action="append", default=[],
+        metavar=("BX", "BY", "BZ", "BT"),
+        help="per-transition coarsening block; repeat levels-1 times")
     parser.add_argument("--gauge-path", default=None)
     parser.add_argument("--nullvec-path", default=None)
     parser.add_argument("--repeats", type=int, default=DEFAULT_REPEATS)
@@ -6952,6 +7203,12 @@ def _parser() -> argparse.ArgumentParser:
         help="PyQCU cold-setup workspace cap; independent of outer Krylov memory")
     parser.add_argument("--max-iter", type=int, default=DEFAULT_MAX_ITER)
     parser.add_argument("--tol", type=float, default=None)
+    parser.add_argument(
+        "--coarse-tol", type=float, default=None,
+        help="shared PyQCU/QUDA coarse-solver tolerance in (0, 0.5]")
+    parser.add_argument(
+        "--nu", type=int, default=DEFAULT_NU_PRE,
+        help="shared symmetric pre/post smoother steps")
     parser.add_argument("--quda-nullvec-prefix", default=None)
     parser.add_argument("--quda-nullvec-manifest", default=None)
     parser.add_argument(

@@ -136,20 +136,23 @@ def _single_rank_report() -> dict[str, Any]:
     return {"grid_size": [1, 1, 1, 1], "environment_sizes": observed}
 
 
-def _select_visible_v100(torch: Any) -> tuple[Any, dict[str, Any]]:
+def _select_visible_device(
+        torch: Any, requested: str,
+) -> tuple[Any, dict[str, Any]]:
     if not torch.cuda.is_available():
         raise SmokeFailure("cuda_unavailable", "torch.cuda.is_available() is false")
     count = int(torch.cuda.device_count())
     names = [str(torch.cuda.get_device_name(i)) for i in range(count)]
-    matches = [i for i, name in enumerate(names) if "V100" in name]
+    marker = requested.upper()
+    matches = [i for i, name in enumerate(names) if marker in name]
     if not matches:
         raise SmokeFailure(
-            "v100_unavailable",
-            f"visible CUDA devices do not contain V100: {names!r}")
+            f"{requested}_unavailable",
+            f"visible CUDA devices do not contain {marker}: {names!r}")
     index = matches[0]
     torch.cuda.set_device(index)
     selected_name = str(torch.cuda.get_device_name(index))
-    if "V100" not in selected_name:
+    if marker not in selected_name:
         raise SmokeFailure("wrong_gpu", repr(selected_name))
     device = torch.device("cuda", index)
     return device, {
@@ -289,7 +292,7 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
     # 到这里才允许加载 CUDA/PyQUDA；CUDA_VISIBLE_DEVICES 已经生效。
     import numpy as np
     import torch
-    device, device_report = _select_visible_v100(torch)
+    device, device_report = _select_visible_device(torch, args.device)
 
     # 先确认 CUDA_VISIBLE_DEVICES 映射到的可见卡确实是 V100，再让
     # PyQUDA 读取 CUDA/MPI 运行时，避免错误设备的初始化副作用。
@@ -513,6 +516,9 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--cuda-visible-devices", default=None,
         help="在导入 CUDA/PyQUDA 前设置 CUDA_VISIBLE_DEVICES，例如 2")
+    parser.add_argument(
+        "--device", choices=("v100", "p100"), default="v100",
+        help="目标 GPU 型号（默认 v100；双 P100 环境使用 p100）")
     parser.add_argument(
         "--quda-install", default=None,
         help="QUDA 安装前缀；同时设置 QUDA_INSTALL/QUDA_PATH 并把其 lib 置于 LD_LIBRARY_PATH 首位")

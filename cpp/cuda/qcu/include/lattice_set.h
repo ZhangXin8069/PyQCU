@@ -28,6 +28,7 @@ template <typename T> struct LatticeSet {
   cudaStream_t stream_dims[_DIM_];
   cudaStream_t stream_memcpy[_WARDS_];
   float time;
+  int last_iterations = 0;
   cudaEvent_t start, stop;
   cudaError_t err;
   int move[_BF_];
@@ -279,8 +280,12 @@ template <typename T> struct LatticeSet {
             int _comm_size = 1;
             MPI_Comm_size(MPI_COMM_WORLD, &_comm_size);
             if (_comm_size > 1) {
-              checkCudaErrors(cudaSetDevice(
-                  _TEST_SINGLE_GPU_MULTI_RANK_ ? 0 : getLocalRank()));
+              int _visible_devices = 0;
+              checkCudaErrors(cudaGetDeviceCount(&_visible_devices));
+              int _device =
+                  _TEST_SINGLE_GPU_MULTI_RANK_ ? 0 : getRuntimeDevice();
+              if (_device < 0 || _device >= _visible_devices) _device = 0;
+              checkCudaErrors(cudaSetDevice(_device));
             }
           } // !!!!!!
         }

@@ -42,21 +42,25 @@ template <typename T> struct LatticeCloverDslash {
             gauge, set_ptr->device_params,
             set_ptr->device_u_1dim_send_vec[_B_X_],
             set_ptr->device_u_1dim_send_vec[_F_X_]);
+        checkCudaErrors(cudaGetLastError());
         pick_up_u_y<T><<<set_ptr->gridDim_3dim[_Y_], set_ptr->blockDim, 0,
                          set_ptr->stream_dims[_Y_]>>>(
             gauge, set_ptr->device_params,
             set_ptr->device_u_1dim_send_vec[_B_Y_],
             set_ptr->device_u_1dim_send_vec[_F_Y_]);
+        checkCudaErrors(cudaGetLastError());
         pick_up_u_z<T><<<set_ptr->gridDim_3dim[_Z_], set_ptr->blockDim, 0,
                          set_ptr->stream_dims[_Z_]>>>(
             gauge, set_ptr->device_params,
             set_ptr->device_u_1dim_send_vec[_B_Z_],
             set_ptr->device_u_1dim_send_vec[_F_Z_]);
+        checkCudaErrors(cudaGetLastError());
         pick_up_u_t<T><<<set_ptr->gridDim_3dim[_T_], set_ptr->blockDim, 0,
                          set_ptr->stream_dims[_T_]>>>(
             gauge, set_ptr->device_params,
             set_ptr->device_u_1dim_send_vec[_B_T_],
             set_ptr->device_u_1dim_send_vec[_F_T_]);
+        checkCudaErrors(cudaGetLastError());
       }
       {
         // u_2dim_send
@@ -67,6 +71,7 @@ template <typename T> struct LatticeCloverDslash {
                                   set_ptr->device_u_2dim_send_vec[_F_X_B_Y_],
                                   set_ptr->device_u_2dim_send_vec[_B_X_F_Y_],
                                   set_ptr->device_u_2dim_send_vec[_F_X_F_Y_]);
+        checkCudaErrors(cudaGetLastError());
         pick_up_u_xz<T>
             <<<set_ptr->gridDim_2dim[_2DIM_ - 1 - _XZ_], set_ptr->blockDim, 0,
                set_ptr->stream>>>(gauge, set_ptr->device_params,
@@ -74,6 +79,7 @@ template <typename T> struct LatticeCloverDslash {
                                   set_ptr->device_u_2dim_send_vec[_F_X_B_Z_],
                                   set_ptr->device_u_2dim_send_vec[_B_X_F_Z_],
                                   set_ptr->device_u_2dim_send_vec[_F_X_F_Z_]);
+        checkCudaErrors(cudaGetLastError());
         pick_up_u_xt<T>
             <<<set_ptr->gridDim_2dim[_2DIM_ - 1 - _XT_], set_ptr->blockDim, 0,
                set_ptr->stream>>>(gauge, set_ptr->device_params,
@@ -81,6 +87,7 @@ template <typename T> struct LatticeCloverDslash {
                                   set_ptr->device_u_2dim_send_vec[_F_X_B_T_],
                                   set_ptr->device_u_2dim_send_vec[_B_X_F_T_],
                                   set_ptr->device_u_2dim_send_vec[_F_X_F_T_]);
+        checkCudaErrors(cudaGetLastError());
         pick_up_u_yz<T>
             <<<set_ptr->gridDim_2dim[_2DIM_ - 1 - _YZ_], set_ptr->blockDim, 0,
                set_ptr->stream>>>(gauge, set_ptr->device_params,
@@ -88,6 +95,7 @@ template <typename T> struct LatticeCloverDslash {
                                   set_ptr->device_u_2dim_send_vec[_F_Y_B_Z_],
                                   set_ptr->device_u_2dim_send_vec[_B_Y_F_Z_],
                                   set_ptr->device_u_2dim_send_vec[_F_Y_F_Z_]);
+        checkCudaErrors(cudaGetLastError());
         pick_up_u_yt<T>
             <<<set_ptr->gridDim_2dim[_2DIM_ - 1 - _YT_], set_ptr->blockDim, 0,
                set_ptr->stream>>>(gauge, set_ptr->device_params,
@@ -95,6 +103,7 @@ template <typename T> struct LatticeCloverDslash {
                                   set_ptr->device_u_2dim_send_vec[_F_Y_B_T_],
                                   set_ptr->device_u_2dim_send_vec[_B_Y_F_T_],
                                   set_ptr->device_u_2dim_send_vec[_F_Y_F_T_]);
+        checkCudaErrors(cudaGetLastError());
         pick_up_u_zt<T>
             <<<set_ptr->gridDim_2dim[_2DIM_ - 1 - _ZT_], set_ptr->blockDim, 0,
                set_ptr->stream>>>(gauge, set_ptr->device_params,
@@ -102,6 +111,7 @@ template <typename T> struct LatticeCloverDslash {
                                   set_ptr->device_u_2dim_send_vec[_F_Z_B_T_],
                                   set_ptr->device_u_2dim_send_vec[_B_Z_F_T_],
                                   set_ptr->device_u_2dim_send_vec[_F_Z_F_T_]);
+        checkCudaErrors(cudaGetLastError());
       }
       checkCudaErrors(cudaStreamSynchronize(set_ptr->stream)); // needed
       checkCudaErrors(cudaStreamSynchronize(set_ptr->stream_dims[_X_]));
