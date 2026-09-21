@@ -1,0 +1,13 @@
+下面未提到的部分的补充参考为{${HOME}/PyQCU/logs/v2026***.txt};
+本次任务的工作目录为{${HOME}/PyQCU/docs};
+本次任务的工作对象为{工作目录中的{PyQCU项目}}(主要是MultiGrid部分)(其中CUDA-C++部分为核心);
+本次任务的对照目录为{${HOME}/PyQCU/refer/git-rep/quda};
+本次任务的对照对象为{对照目录中的{QUDA项目}}(主要是MultiGrid部分);
+本次任务的工作目标为[{针对{${HOME}/PyQCU/docs/report_multigrid_distributed_20260918.tex}的"局限与遗留",在{工作对象}中debug{双P100列的PyQCU侧在收集器流程中触发CUDA-illegal-memory-access，位置在**旧版**clover-gauge-MPI-halo（lattice\_clover\_dslash.h的\_make\_mpi/pick\_up\_u\_*）}并进行进一步的优化以实现{真正的高性能的分布式Strict-MG}},{充分分析{对照对象}的MultiGrid实现的优势(主要是并行计算部分)},{充分分析{工作对象}的MultiGrid实现的劣势(主要是并行计算部分)},{结合上述的分析,全面优化{工作对象},直到显著超越{对照对象}(主要是并行计算部分)},{对{对照对象}与最终版的{工作对象}进行全面的对比测试并作出报告,其中输出的报告格式参考{${HOME}/PyQCU/docs/report_multigrid_quda_pyqcu_20260909.tex}}];
+本次任务的默认数据读写目录为{${HOME}/PyQCU/data};
+本次任务的总任务量较大,但不允许省略任务内容;
+本次任务的工作性质为[debug并优化,分析,进一步优化,测试];
+本次任务的注意事项为[{本此任务要求真正的高性能的并行计算(要求[减少通信阻塞,优化计算瓶颈,提高并行度,GPU加速计算]),数据要求真正的分布式读写,避免超出储存或内存或显存},{测试报告必须有{[{对照对象},{工作对象}]*[1*cold,2*warmup,5*steady]*[complex64([8**3*16的格子,16**4的格子,16*32*32*48的格子]),complex128([8**3*16的格子,16**4的格子,16*16*32*32的格子])]*[trace:on,trace:off]*[BiCGstab,MG-2层,MG-3层]*[单卡V100-32GB(sm70版),双卡P100-16GB(新编译的sm60版)]}组合的对比测试组,同时必须记录上述对比测试组的[MG各层和BiCGstab的总迭代耗时,MG各层和BiCGstab的总迭代次数,MG各层的[pre-smoother,post-smoother,restrict,prolongate,coarse_solver,other]的耗时,MG最细层和BiCGstab的迭代残差],并包含[分析,作图,展示]}];
+本次任务的权限较高,所有改动在git-commit后自动提交到git远程,包括最终的git-tag,并确保其中标注的{message}的信息详实且格式规范;
+如果在本次任务中发现{工作对象}中存在其他的必要的[debug项,优化项,补充项],可以自行改动本库代码;
+上述任务全部完成后~diff~init~tag(stab);
