@@ -268,7 +268,7 @@ namespace qcu {
 // multi-rank (mpirun -np N) MPI tests on a single-GPU machine.  The full MPI
 // codepath (halo exchange, Allgather, Allreduce) runs for real — only the
 // device mapping is shared.  Default 0 (production: one rank per GPU).
-#define _TEST_SINGLE_GPU_MULTI_RANK_ 1
+#define _TEST_SINGLE_GPU_MULTI_RANK_ 0
 // cublas API error checking
 #define CUBLAS_CHECK(err)                                                      \
   do {                                                                         \
@@ -608,5 +608,16 @@ static inline int getLocalRank() {
   MPI_Comm_rank(localComm, &localRank);
   MPI_Comm_free(&localComm);
   return localRank;
+}
+static inline int getRuntimeDevice() {
+  const char *value = std::getenv("PYQCU_MPI_DEVICE_ID");
+  if (value != nullptr && value[0] != '\0') {
+    char *end = nullptr;
+    long parsed = std::strtol(value, &end, 10);
+    if (end != value && *end == '\0' && parsed >= 0) {
+      return static_cast<int>(parsed);
+    }
+  }
+  return getLocalRank();
 }
 #endif

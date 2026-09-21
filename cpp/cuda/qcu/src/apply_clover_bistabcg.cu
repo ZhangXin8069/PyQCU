@@ -70,3 +70,16 @@ void applyCloverBistabCgQcu(long long _fermion_out, long long _fermion_in,
   }
   cudaDeviceSynchronize();
 }
+
+int getCloverBistabCgIterationsQcu(long long _set_ptrs, long long _params) {
+  int set_index = static_cast<int *>((void *)_params)[_SET_INDEX_];
+  int data_type = static_cast<int *>((void *)_params)[_DATA_TYPE_];
+  long long *table = static_cast<long long *>((void *)_set_ptrs);
+  if (data_type == _LAT_C64_)
+    return static_cast<LatticeSet<float> *>((void *)table[set_index])
+        ->last_iterations;
+  if (data_type == _LAT_C128_)
+    return static_cast<LatticeSet<double> *>((void *)table[set_index])
+        ->last_iterations;
+  return -1;
+}

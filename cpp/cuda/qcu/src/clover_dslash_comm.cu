@@ -8,6 +8,7 @@ __global__ void pick_up_u_x(void *device_U, void *device_params,
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
   int tmp0 = idx;
   int *params = static_cast<int *>(device_params);
+  if (idx >= params[_LAT_Y_] * params[_LAT_Z_] * params[_LAT_T_]) return;
   int lat_x = 1;
   int lat_y = params[_LAT_Y_];
   int lat_z = params[_LAT_Z_];
@@ -49,6 +50,7 @@ __global__ void pick_up_u_y(void *device_U, void *device_params,
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
   int tmp0 = idx;
   int *params = static_cast<int *>(device_params);
+  if (idx >= params[_LAT_X_] * params[_LAT_Z_] * params[_LAT_T_]) return;
   // int lat_x = params[_LAT_X_];
   int lat_y = 1;
   int lat_z = params[_LAT_Z_];
@@ -90,6 +92,7 @@ __global__ void pick_up_u_z(void *device_U, void *device_params,
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
   int tmp0 = idx;
   int *params = static_cast<int *>(device_params);
+  if (idx >= params[_LAT_X_] * params[_LAT_Y_] * params[_LAT_T_]) return;
   // int lat_x = params[_LAT_X_];
   int lat_y = params[_LAT_Y_];
   int lat_z = 1;
@@ -131,6 +134,7 @@ __global__ void pick_up_u_t(void *device_U, void *device_params,
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
   int tmp0 = idx;
   int *params = static_cast<int *>(device_params);
+  if (idx >= params[_LAT_X_] * params[_LAT_Y_] * params[_LAT_Z_]) return;
   // int lat_x = params[_LAT_X_];
   int lat_y = params[_LAT_Y_];
   int lat_z = params[_LAT_Z_];
@@ -173,6 +177,7 @@ pick_up_u_xy(void *device_U, void *device_params,
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
   int tmp0 = idx;
   int *params = static_cast<int *>(device_params);
+  if (idx >= params[_LAT_Z_] * params[_LAT_T_]) return;
   int lat_x = 1;
   int lat_y = 1;
   int lat_z = params[_LAT_Z_];
@@ -231,6 +236,7 @@ pick_up_u_xz(void *device_U, void *device_params,
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
   int tmp0 = idx;
   int *params = static_cast<int *>(device_params);
+  if (idx >= params[_LAT_Y_] * params[_LAT_T_]) return;
   int lat_x = 1;
   int lat_y = params[_LAT_Y_];
   int lat_z = 1;
@@ -289,6 +295,7 @@ pick_up_u_xt(void *device_U, void *device_params,
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
   int tmp0 = idx;
   int *params = static_cast<int *>(device_params);
+  if (idx >= params[_LAT_Y_] * params[_LAT_Z_]) return;
   int lat_x = 1;
   int lat_y = params[_LAT_Y_];
   int lat_z = params[_LAT_Z_];
@@ -347,6 +354,7 @@ pick_up_u_yz(void *device_U, void *device_params,
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
   int tmp0 = idx;
   int *params = static_cast<int *>(device_params);
+  if (idx >= params[_LAT_X_] * params[_LAT_T_]) return;
   // int lat_x = params[_LAT_X_];
   int lat_y = 1;
   int lat_z = 1;
@@ -405,6 +413,7 @@ pick_up_u_yt(void *device_U, void *device_params,
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
   int tmp0 = idx;
   int *params = static_cast<int *>(device_params);
+  if (idx >= params[_LAT_X_] * params[_LAT_Z_]) return;
   // int lat_x = params[_LAT_X_];
   int lat_y = 1;
   int lat_z = params[_LAT_Z_];
@@ -463,6 +472,7 @@ pick_up_u_zt(void *device_U, void *device_params,
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
   int tmp0 = idx;
   int *params = static_cast<int *>(device_params);
+  if (idx >= params[_LAT_X_] * params[_LAT_Y_]) return;
   // int lat_x = params[_LAT_X_];
   int lat_y = params[_LAT_Y_];
   int lat_z = 1;

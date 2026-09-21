@@ -27,6 +27,7 @@ PyQCU：Lattice QCD 的 Python/Cython 库 —— CUDA 加速的 Wilson/Clover Di
 - **多线程多卡（一线程一卡）**：`pyqcu/cuda/_multi_gpu.py`（`MultiGpuMultigrid`）单进程内 N 线程 × 卡绑定并行；每线程独立 `params/argv/set_ptrs` 副本（`_SET_INDEX_` 各自从 0 计数）。Cython 桥（`qcu.pyx`）全部函数在 GIL 段取指针、`with nogil` 调 C++（真并行）；pxd 的 cdef extern 声明必须带 `nogil` 关键字，且 pxd 声明名不得与 pyx 内 def 同名（用 `qcu_api.pxd` 别名 cimport）。MultiGpuMultigrid 要求单 MPI rank（C++ LatticeSet 用 COMM_WORLD rank 覆盖 `_NODE_RANK_`）。
 - **求解器停机语义（dev87 起）**：`applyCloverMultigridQcu` 主循环停机为相对判据 rn²<atol²·‖b__o‖²，且单 rank 每 50 迭代做周期真残差刷新（reliable-update，防 fp32 递推漂移）；多 rank 刷新未启用。
 - **HDF5 持久化（h5py）**：所有保存/读取走 h5py；`pyqcu/tools/_io.py` 的 `save_tensor_h5`/`load_tensor_h5`（每调用独立 File 句柄，多线程安全）+ MPI mpio 路径（`gridoooxyzt2hdf5oooxyzt`）。null-vector/粗网格算子缓存 `.h5`（单句柄一次写全部 dataset，勿逐 dataset 覆盖重建）。
+- **分布式 benchmark 输入**：`examples/qcu/dev87/bench_strict_vs_quda.py::_load_h5_local_array` 在多 rank 下用 h5py mpio 读取 rank slab（gauge/source 为 checkerboard-compressed 尾部轴，null 为 full \(x,y,z,t\)）；不要退回每 rank 全量读取。trace-on 与 trace-off 的 Strict runtime cache identity 相同，formal 编排优先让 trace-on 复用 trace-off cache；显式 `--cache-expect hit` 时 cold 与 warm/steady phase 也应允许同一 cache。
 
 ## 目录结构
 
@@ -52,3 +53,5 @@ PyQCU：Lattice QCD 的 Python/Cython 库 —— CUDA 加速的 Wilson/Clover Di
 - 用对象（如 `self.sitting`）做 truthy 判断
 - `nstep>1` 循环内不更新 U（stout）
 - `python_requires` 低于 3.8
+- 未经 large-lattice（尤其双 P100 c64 \(16\times32\times32\times48\)）收敛回归就重排 coarsest BiCGStab 的全局归约顺序；triple-dot/pipelined 实验曾导致外层 FGMRES 停滞，已回退。
+- 在多个长 CUDA 任务并发时忽略 QUDA `cudaHostRegister` mapped ghost-buffer 的瞬时失败；该失败应以同配置有界重试处理，不得修改求解协议或伪造成功。

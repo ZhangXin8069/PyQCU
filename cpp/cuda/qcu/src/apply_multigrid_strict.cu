@@ -1489,7 +1489,7 @@ template <typename T>
 __global__ void strict_prolong_parity_kernel(
     void *fine_out_ptr, const void *coarse_in_ptr, const void *null_ptr,
     int E, int e, int Xf, int Yf, int Zf, int Tf,
-    int Xc, int Yc, int Zc, int Tc, int parity) {
+    int Xc, int Yc, int Zc, int Tc, int parity, int add) {
   const int index = blockIdx.x * blockDim.x + threadIdx.x;
   const int half_volume = Xf * Yf * Zf * (Tf / 2);
   if (index >= e * half_volume) return;
@@ -1525,7 +1525,10 @@ __global__ void strict_prolong_parity_kernel(
     sum += null_vectors[null_index] *
            coarse_in[coarse_component * coarse_volume + coarse_site];
   }
-  fine_out[index] = sum;
+  if (add)
+    fine_out[index] += sum;
+  else
+    fine_out[index] = sum;
 }
 
 inline void strict_validate_parity_geometry(int X, int Y, int Z, int T) {
@@ -1659,9 +1662,6 @@ template <typename T> class StrictVectorHalo {
     if (!distributed_) return;
     if (input == nullptr)
       throw std::invalid_argument("strict vector halo input is null");
-    strict_check_cuda(cudaStreamSynchronize(set_->stream),
-                      "strict vector halo input sync");
-    (void)cudaGetLastError();
     for (int dim = 0; dim < 4; ++dim) {
       if (strict_dim_extent(set_, dim) <= 1) continue;
       for (int side = 0; side < 2; ++side) {
@@ -1690,10 +1690,21 @@ template <typename T> class StrictVectorHalo {
     const bool use_device_mpi =
         qcu_mpi_can_use_buffer<T>(device_send_);
     if (!use_device_mpi) {
-      strict_check_cuda(
-          cudaMemcpyAsync(host_send_, device_send_, bytes_,
-                          cudaMemcpyDeviceToHost, set_->stream),
-          "strict vector halo send staging");
+      const size_t slot_bytes =
+          slot_elements_ * sizeof(LatticeComplex<T>);
+      for (int dim = 0; dim < 4; ++dim) {
+        if (strict_dim_extent(set_, dim) <= 1) continue;
+        for (int side = 0; side < 2; ++side) {
+          const size_t offset =
+              static_cast<size_t>(2 * dim + side) * slot_bytes;
+          strict_check_cuda(
+              cudaMemcpyAsync(
+                  static_cast<char *>(host_send_) + offset,
+                  static_cast<const char *>(device_send_) + offset,
+                  slot_bytes, cudaMemcpyDeviceToHost, set_->stream),
+              "strict vector halo active send staging");
+        }
+      }
     }
     strict_check_cuda(cudaStreamSynchronize(set_->stream),
                       "strict vector halo pack sync");
@@ -1730,10 +1741,21 @@ template <typename T> class StrictVectorHalo {
           MPI_COMM_WORLD, MPI_STATUS_IGNORE));
     }
     if (!use_device_mpi) {
-      strict_check_cuda(
-          cudaMemcpyAsync(device_recv_, host_recv_, bytes_,
-                          cudaMemcpyHostToDevice, set_->stream),
-          "strict vector halo receive staging");
+      const size_t slot_bytes =
+          slot_elements_ * sizeof(LatticeComplex<T>);
+      for (int dim = 0; dim < 4; ++dim) {
+        if (strict_dim_extent(set_, dim) <= 1) continue;
+        for (int side = 0; side < 2; ++side) {
+          const size_t offset =
+              static_cast<size_t>(2 * dim + side) * slot_bytes;
+          strict_check_cuda(
+              cudaMemcpyAsync(
+                  static_cast<char *>(device_recv_) + offset,
+                  static_cast<const char *>(host_recv_) + offset,
+                  slot_bytes, cudaMemcpyHostToDevice, set_->stream),
+              "strict vector halo active receive staging");
+        }
+      }
     }
     strict_check_cuda(cudaStreamSynchronize(set_->stream),
                       "strict vector halo exchange sync");
@@ -1780,22 +1802,34 @@ template <typename T> class StrictAxisLinkHalo {
       : set_(set), components_(components), X_(X), Y_(Y), Z_(Z), Lt_(Lt),
         compact_(compact), tag_base_(tag_base),
         max_face_(strict_max_face(X, Y, Z, Lt)),
-        elements_(static_cast<size_t>(components) * max_face_),
-        bytes_(elements_ * sizeof(LatticeComplex<T>)) {
+        slot_elements_(static_cast<size_t>(components) * max_face_),
+        slot_bytes_(slot_elements_ * sizeof(LatticeComplex<T>)),
+        cache_enabled_(qcu_parse_bool_env(
+            "PYQCU_STRICT_LINK_HALO_CACHE", true)) {
     if (set_ == nullptr || components_ <= 0)
       throw std::invalid_argument("strict link halo descriptor is invalid");
     distributed_ = false;
-    for (int dim = 0; dim < 4; ++dim)
-      distributed_ = distributed_ || strict_dim_extent(set_, dim) > 1;
+    for (int dim = 0; dim < 4; ++dim) {
+      const bool active = strict_dim_extent(set_, dim) > 1;
+      distributed_ = distributed_ || active;
+      for (int parity = 0; parity < 2; ++parity) {
+        const int key = link_key(parity, dim);
+        active_[key] = active;
+        if (active) ++active_slots_;
+      }
+    }
     if (!distributed_) return;
-    strict_check_cuda(cudaMalloc(&device_send_, bytes_),
+    strict_check_cuda(cudaMalloc(&device_send_, slot_bytes_),
                       "strict link halo send allocation");
-    strict_check_cuda(cudaMalloc(&device_recv_, bytes_),
-                      "strict link halo receive allocation");
-    strict_check_cuda(cudaMallocHost(&host_send_, bytes_),
+    strict_check_cuda(cudaMallocHost(&host_send_, slot_bytes_),
                       "strict link halo pinned send allocation");
-    strict_check_cuda(cudaMallocHost(&host_recv_, bytes_),
+    strict_check_cuda(cudaMallocHost(&host_recv_, slot_bytes_),
                       "strict link halo pinned receive allocation");
+    for (int key = 0; key < 8; ++key) {
+      if (!active_[key]) continue;
+      strict_check_cuda(cudaMalloc(&device_recv_[key], slot_bytes_),
+                        "strict link halo receive allocation");
+    }
   }
 
   ~StrictAxisLinkHalo() { release(); }
@@ -1803,23 +1837,36 @@ template <typename T> class StrictAxisLinkHalo {
   StrictAxisLinkHalo &operator=(const StrictAxisLinkHalo &) = delete;
 
   bool distributed() const { return distributed_; }
-  const void *device_ghost() const { return device_recv_; }
-  size_t bytes() const { return distributed_ ? 4 * bytes_ : 0; }
+  const void *device_ghost(int parity, int dim) const {
+    return device_recv_[link_key(parity, dim)];
+  }
+  size_t bytes() const {
+    return distributed_ ? (3 + active_slots_) * slot_bytes_ : 0;
+  }
 
   void exchange(const void *input, int parity, int dim) {
     if (!distributed_ || strict_dim_extent(set_, dim) <= 1) return;
     if (input == nullptr)
       throw std::invalid_argument("strict link halo input is null");
+    if (parity != 0 && parity != 1)
+      throw std::invalid_argument("strict link halo parity must be 0/1");
+    const int key = link_key(parity, dim);
+    if (cache_enabled_ && cache_valid_[key] && cached_input_[key] == input)
+      return;
+    void *device_recv = device_recv_[key];
+    if (device_recv == nullptr)
+      throw std::runtime_error("strict link halo receive slot is null");
     const size_t face_count = strict_face_count(X_, Y_, Z_, Lt_, dim);
     const size_t complex_count =
         static_cast<size_t>(components_) * face_count;
-    strict_check_cuda(cudaStreamSynchronize(set_->stream),
-                      "strict link halo input sync");
-    (void)cudaGetLastError();
+    const size_t message_bytes =
+        complex_count * sizeof(LatticeComplex<T>);
+    if (message_bytes > slot_bytes_)
+      throw std::overflow_error("strict link halo message exceeds slot");
     if (compact_) {
-      strict_check_cuda(
-          cudaMemsetAsync(device_send_, 0, bytes_, set_->stream),
-          "strict compact link halo zero");
+      strict_check_cuda(cudaMemsetAsync(
+                            device_send_, 0, slot_bytes_, set_->stream),
+                        "strict compact link halo zero");
       strict_launch_pack_compact_faces<T>(
           device_send_, input, components_, X_, Y_, Z_, Lt_,
           dim, 1, parity, set_->stream, static_cast<int>(face_count));
@@ -1833,7 +1880,7 @@ template <typename T> class StrictAxisLinkHalo {
         qcu_mpi_can_use_buffer<T>(device_send_);
     if (!use_device_mpi) {
       strict_check_cuda(
-          cudaMemcpyAsync(host_send_, device_send_, bytes_,
+          cudaMemcpyAsync(host_send_, device_send_, message_bytes,
                           cudaMemcpyDeviceToHost, set_->stream),
           "strict link halo send staging");
     }
@@ -1846,30 +1893,38 @@ template <typename T> class StrictAxisLinkHalo {
     const int backward = strict_peer(set_, dim, -1);
     const int forward = strict_peer(set_, dim, 1);
     void *send = use_device_mpi ? device_send_ : host_send_;
-    void *recv = use_device_mpi ? device_recv_ : host_recv_;
+    void *recv = use_device_mpi ? device_recv : host_recv_;
     checkMpiErrors(_MPI_Sendrecv<T>(
         send, count, forward, tag_base_ + dim,
         recv, count, backward, tag_base_ + dim,
         MPI_COMM_WORLD, MPI_STATUS_IGNORE));
     if (!use_device_mpi) {
       strict_check_cuda(
-          cudaMemcpyAsync(device_recv_, host_recv_, bytes_,
+          cudaMemcpyAsync(device_recv, host_recv_, message_bytes,
                           cudaMemcpyHostToDevice, set_->stream),
           "strict link halo receive staging");
     }
     strict_check_cuda(cudaStreamSynchronize(set_->stream),
                       "strict link halo exchange sync");
+    if (cache_enabled_) {
+      cached_input_[key] = input;
+      cache_valid_[key] = true;
+    }
   }
 
  private:
+  static int link_key(int parity, int dim) { return parity * 4 + dim; }
+
   void release() noexcept {
     if (device_send_ != nullptr) {
       (void)cudaFree(device_send_);
       device_send_ = nullptr;
     }
-    if (device_recv_ != nullptr) {
-      (void)cudaFree(device_recv_);
-      device_recv_ = nullptr;
+    for (int key = 0; key < 8; ++key) {
+      if (device_recv_[key] != nullptr) {
+        (void)cudaFree(device_recv_[key]);
+        device_recv_[key] = nullptr;
+      }
     }
     if (host_send_ != nullptr) {
       (void)cudaFreeHost(host_send_);
@@ -1886,10 +1941,15 @@ template <typename T> class StrictAxisLinkHalo {
   bool compact_ = false;
   bool distributed_ = false;
   size_t max_face_ = 1;
-  size_t elements_ = 0;
-  size_t bytes_ = 0;
+  size_t slot_elements_ = 0;
+  size_t slot_bytes_ = 0;
+  size_t active_slots_ = 0;
+  bool cache_enabled_ = true;
+  bool active_[8] = {};
+  const void *cached_input_[8] = {};
+  bool cache_valid_[8] = {};
   void *device_send_ = nullptr;
-  void *device_recv_ = nullptr;
+  void *device_recv_[8] = {};
   void *host_send_ = nullptr;
   void *host_recv_ = nullptr;
 };
@@ -2404,7 +2464,7 @@ void strict_launch_coarse_with_halos(
         static_cast<size_t>(2 * dim + 1) * E * ghost_slot_stride;
     strict_coarse_apply_backward_correction_kernel<T>
         <<<correction_blocks, _BLOCK_SIZE_, 0, set->stream>>>(
-            out, input_ghost, link_halo.device_ghost(),
+            out, input_ghost, link_halo.device_ghost(0, dim),
             E, X, Y, Z, Tdim, dim);
     strict_check_cuda(cudaGetLastError(),
                       "coarse apply backward correction launch");
@@ -2446,7 +2506,7 @@ void strict_launch_hopping_with_halos(
         (half_volume + _BLOCK_SIZE_ - 1) / _BLOCK_SIZE_;
     strict_hopping_parity_backward_correction_kernel<T>
         <<<correction_blocks, _BLOCK_SIZE_, 0, set->stream>>>(
-            out, input_ghost, link_halo.device_ghost(),
+            out, input_ghost, link_halo.device_ghost(input_parity, dim),
             E, X, Y, Z, Lt, target_parity, dim, base == nullptr ? 0 : 1);
     strict_check_cuda(cudaGetLastError(),
                       "hopping parity backward correction launch");
@@ -2671,7 +2731,7 @@ void strict_launch_prolong(
   const int blocks = (total + _BLOCK_SIZE_ - 1) / _BLOCK_SIZE_;
   strict_prolong_parity_kernel<T><<<blocks, _BLOCK_SIZE_, 0, set->stream>>>(
       fine_out, coarse_in, null_vectors, E, e, Xf, Yf, Zf, Tf,
-      Xc, Yc, Zc, Tc, parity);
+      Xc, Yc, Zc, Tc, parity, 0);
   strict_check_cuda(cudaGetLastError(), "parity prolong launch");
   strict_check_cuda(cudaStreamSynchronize(set->stream), "parity prolong sync");
 }
@@ -3398,8 +3458,18 @@ template <typename T> class StrictCoarseHierarchy {
                       "strict dot pair copy");
     strict_check_cuda(cudaStreamSynchronize(set_->stream),
                       "strict dot pair sync");
-    result0 = strict_global_sum_complex(host_results[0]);
-    result1 = strict_global_sum_complex(host_results[1]);
+    result0 = host_results[0];
+    result1 = host_results[1];
+    if (strict_world_size() > 1) {
+      T values[4] = {
+          result0.real(), result0.imag(), result1.real(), result1.imag()};
+      const MPI_Datatype scalar_type =
+          std::is_same<T, float>::value ? MPI_FLOAT : MPI_DOUBLE;
+      checkMpiErrors(MPI_Allreduce(
+          MPI_IN_PLACE, values, 4, scalar_type, MPI_SUM, MPI_COMM_WORLD));
+      result0 = LatticeComplex<T>(values[0], values[1]);
+      result1 = LatticeComplex<T>(values[2], values[3]);
+    }
   }
 
   void dot_pair_global_device(
@@ -3790,11 +3860,9 @@ template <typename T> class StrictCoarseHierarchy {
     trace_stage(outer_iteration, 0, "fine_prolongation", [&] {
       strict_prolong_parity_kernel<T>
           <<<blocks(n), _BLOCK_SIZE_, 0, set_->stream>>>(
-              outer_.w, outer_.coarse_out, fine_null_vectors,
+              out, outer_.coarse_out, fine_null_vectors,
               coarse.E, fine_E, fine_X, fine_Y, fine_Z, fine_T,
-              coarse.X, coarse.Y, coarse.Z, coarse.Lt, parity_);
-      strict_add_kernel<T><<<blocks(n), _BLOCK_SIZE_, 0, set_->stream>>>(
-          out, outer_.w, static_cast<int>(n));
+              coarse.X, coarse.Y, coarse.Z, coarse.Lt, parity_, 1);
     });
     trace_fine_residual(fine, "after_fine_prolongation", out, source, n);
 
@@ -4252,8 +4320,8 @@ template <typename T> class StrictCoarseHierarchy {
                           set_->stream),
                       "strict coarsest rhs copy");
     strict_check_cuda(cudaMemcpyAsync(
-                          rhat, state.pc_rhs, bytes, cudaMemcpyDeviceToDevice,
-                          set_->stream),
+                          rhat, state.pc_rhs, bytes,
+                          cudaMemcpyDeviceToDevice, set_->stream),
                       "strict coarsest shadow copy");
     strict_check_cuda(cudaMemsetAsync(p, 0, bytes, set_->stream),
                       "strict coarsest p zero");
@@ -4288,6 +4356,8 @@ template <typename T> class StrictCoarseHierarchy {
       strict_bicg_s_kernel<T>
           <<<blocks(n), _BLOCK_SIZE_, 0, set_->stream>>>(
               s, r, v, alpha, static_cast<int>(n));
+      LatticeComplex<T> ts;
+      LatticeComplex<T> tt;
       const T s_norm2 = std::max((T)0, dot(s, s, n).real());
       if (s_norm2 <= target) {
         strict_bicg_short_update_kernel<T>
@@ -4296,8 +4366,6 @@ template <typename T> class StrictCoarseHierarchy {
         return true;
       }
       apply_matpc(level, t, s, tmp);
-      LatticeComplex<T> ts;
-      LatticeComplex<T> tt;
       dot_pair(t, s, t, t, n, ts, tt);
       if (!finite(tt) || abs2(tt) <= floor) return false;
       omega = ts / tt;
@@ -4336,7 +4404,7 @@ template <typename T> class StrictCoarseHierarchy {
   }
 
   void prolong_from_child(int level, const void *child_full,
-                          void *fine_compact) {
+                          void *fine_compact, bool add) {
     ++cycle_counts_[static_cast<size_t>(level)].prolongations;
     const StrictLevelGeometry &fine = levels_[level].geometry;
     const StrictLevelGeometry &coarse = levels_[level + 1].geometry;
@@ -4346,7 +4414,7 @@ template <typename T> class StrictCoarseHierarchy {
             asset(level, _SET_PTRS_STRICT_NULL_),
             coarse.E, fine.E,
             fine.X, fine.Y, fine.Z, fine.Lt,
-            coarse.X, coarse.Y, coarse.Z, coarse.Lt, parity_);
+            coarse.X, coarse.Y, coarse.Z, coarse.Lt, parity_, add ? 1 : 0);
   }
 
   void solve_level(int level, const void *full_rhs, void *full_out) {
@@ -4399,10 +4467,8 @@ template <typename T> class StrictCoarseHierarchy {
       trace_residual(level + 1, "after_level_recursive_solve", child.x,
                      child.pc_rhs, child.geometry.compact_n);
       trace_stage(trace_iteration_, level, "level_prolongation", [&] {
-        prolong_from_child(level, arena_.correction_full, arena_.tmp);
-        strict_add_kernel<T>
-            <<<blocks(g.compact_n), _BLOCK_SIZE_, 0, set_->stream>>>(
-                state.x, arena_.tmp, static_cast<int>(g.compact_n));
+        prolong_from_child(
+            level, arena_.correction_full, state.x, true);
       });
 
       // Child recursion intentionally reuses r/v/tmp.  Recompute the parent

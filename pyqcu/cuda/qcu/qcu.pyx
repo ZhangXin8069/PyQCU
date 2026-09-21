@@ -1,4 +1,4 @@
-from qcu_api cimport applyInitQcu as _c_applyInitQcu, applyEndQcu as _c_applyEndQcu, testWilsonDslashQcu as _c_testWilsonDslashQcu, applyWilsonDslashQcu as _c_applyWilsonDslashQcu, testCloverDslashQcu as _c_testCloverDslashQcu, applyCloverDslashQcu as _c_applyCloverDslashQcu, applyWilsonBistabCgQcu as _c_applyWilsonBistabCgQcu, applyWilsonBistabCgDslashQcu as _c_applyWilsonBistabCgDslashQcu, applyWilsonCgQcu as _c_applyWilsonCgQcu, applyWilsonCgDslashQcu as _c_applyWilsonCgDslashQcu, applyLaplacianQcu as _c_applyLaplacianQcu, applyCloverQcu as _c_applyCloverQcu, applyCloversQcu as _c_applyCloversQcu, applyDslashQcu as _c_applyDslashQcu, applyGaussGaugeQcu as _c_applyGaussGaugeQcu, applyCloverBistabCgQcu as _c_applyCloverBistabCgQcu, applyCloverBistabCgDslashQcu as _c_applyCloverBistabCgDslashQcu, applyMultigridRestrictQcu as _c_applyMultigridRestrictQcu, applyMultigridProLongQcu as _c_applyMultigridProLongQcu, applyMultigridCoarseDslashQcu as _c_applyMultigridCoarseDslashQcu, applyMultigridCoarseDslashWideQcu as _c_applyMultigridCoarseDslashWideQcu, applyCloverMultigridQcu as _c_applyCloverMultigridQcu, verifyCloverMultigridQcu as _c_verifyCloverMultigridQcu
+from qcu_api cimport applyInitQcu as _c_applyInitQcu, applyEndQcu as _c_applyEndQcu, testWilsonDslashQcu as _c_testWilsonDslashQcu, applyWilsonDslashQcu as _c_applyWilsonDslashQcu, testCloverDslashQcu as _c_testCloverDslashQcu, applyCloverDslashQcu as _c_applyCloverDslashQcu, applyWilsonBistabCgQcu as _c_applyWilsonBistabCgQcu, applyWilsonBistabCgDslashQcu as _c_applyWilsonBistabCgDslashQcu, applyWilsonCgQcu as _c_applyWilsonCgQcu, applyWilsonCgDslashQcu as _c_applyWilsonCgDslashQcu, applyLaplacianQcu as _c_applyLaplacianQcu, applyCloverQcu as _c_applyCloverQcu, applyCloversQcu as _c_applyCloversQcu, applyDslashQcu as _c_applyDslashQcu, applyGaussGaugeQcu as _c_applyGaussGaugeQcu, applyCloverBistabCgQcu as _c_applyCloverBistabCgQcu, getCloverBistabCgIterationsQcu as _c_getCloverBistabCgIterationsQcu, applyCloverBistabCgDslashQcu as _c_applyCloverBistabCgDslashQcu, applyMultigridRestrictQcu as _c_applyMultigridRestrictQcu, applyMultigridProLongQcu as _c_applyMultigridProLongQcu, applyMultigridCoarseDslashQcu as _c_applyMultigridCoarseDslashQcu, applyMultigridCoarseDslashWideQcu as _c_applyMultigridCoarseDslashWideQcu, applyCloverMultigridQcu as _c_applyCloverMultigridQcu, verifyCloverMultigridQcu as _c_verifyCloverMultigridQcu
 from qcu_api cimport applyMultigridStrictCoarseQcu as _c_applyMultigridStrictCoarseQcu, applyMultigridStrictMatPCQcu as _c_applyMultigridStrictMatPCQcu, applyMultigridStrictFineMatPCQcu as _c_applyMultigridStrictFineMatPCQcu, applyMultigridStrictPrepareQcu as _c_applyMultigridStrictPrepareQcu, applyMultigridStrictReconstructQcu as _c_applyMultigridStrictReconstructQcu, applyMultigridStrictRestrictQcu as _c_applyMultigridStrictRestrictQcu, applyMultigridStrictProLongQcu as _c_applyMultigridStrictProLongQcu, applyMultigridStrictVCycleQcu as _c_applyMultigridStrictVCycleQcu, applyMultigridStrictInitQcu as _c_applyMultigridStrictInitQcu, applyMultigridStrictEndQcu as _c_applyMultigridStrictEndQcu, applyMultigridStrictFgmresQcu as _c_applyMultigridStrictFgmresQcu
 from qcu_api cimport applyCloverBistabCgPrepareQcu as _c_applyCloverBistabCgPrepareQcu, applyCloverBistabCgReconstructQcu as _c_applyCloverBistabCgReconstructQcu
 import torch
@@ -151,6 +151,16 @@ def applyCloverBistabCgQcu(_fermion_out, _fermion_in, _gauge, _clover_ee, _clove
     params = _params.contiguous().data_ptr()
     with nogil:
         _c_applyCloverBistabCgQcu(fermion_out, fermion_in, gauge, clover_ee, clover_oo, clover_ee_inv, clover_oo_inv, set_ptrs, params)
+
+def getCloverBistabCgIterationsQcu(_set_ptrs, _params):
+    cdef long long set_ptrs, params
+    cdef int iterations
+    set_ptrs = _set_ptrs.contiguous().data_ptr()
+    params = _params.contiguous().data_ptr()
+    with nogil:
+        iterations = _c_getCloverBistabCgIterationsQcu(set_ptrs, params)
+    return iterations
+
 def applyCloverBistabCgDslashQcu(_fermion_out, _fermion_in, _gauge, _clover_ee, _clover_oo, _clover_ee_inv, _clover_oo_inv, _set_ptrs, _params):
     cdef long long fermion_out, fermion_in, gauge, clover_ee, clover_oo, clover_ee_inv, clover_oo_inv, set_ptrs, params
     fermion_out = _fermion_out.contiguous().data_ptr()
