@@ -152,10 +152,10 @@ def give_eo_mask(oootzy_t_p: torch.Tensor, eo: Optional[int], verbose=False) -> 
         return _eo_mask_cache[cache_key]
     # Create coordinate grids for original shape
     coords = torch.meshgrid(
-        torch.arange(shape[-4]),
-        torch.arange(shape[-3]),
-        torch.arange(shape[-2]),
-        torch.arange(shape[-1]),
+        torch.arange(shape[-4], device=device),
+        torch.arange(shape[-3], device=device),
+        torch.arange(shape[-2], device=device),
+        torch.arange(shape[-1], device=device),
         indexing='ij'
     )
     # Sum coordinates to determine checkerboard pattern
@@ -394,10 +394,10 @@ def oooxyzt2poooxyzt(input_array: torch.Tensor, verbose: bool = False) -> torch.
     t, z, y, x = shape[-4:]
     # Create coordinate grids
     coords = torch.meshgrid(
-        torch.arange(t),
-        torch.arange(z),
-        torch.arange(y),
-        torch.arange(x),
+        torch.arange(t, device=device),
+        torch.arange(z, device=device),
+        torch.arange(y, device=device),
+        torch.arange(x, device=device),
         indexing='ij'
     )
     # Sum coordinates to determine checkerboard pattern
@@ -442,10 +442,10 @@ def poooxyzt2oooxyzt(input_array: torch.Tensor, verbose: bool = False) -> torch.
     x = x_half * 2  # Restore original x dimension
     # Create coordinate grids for original shape
     coords = torch.meshgrid(
-        torch.arange(t),
-        torch.arange(z),
-        torch.arange(y),
-        torch.arange(x),
+        torch.arange(t, device=device),
+        torch.arange(z, device=device),
+        torch.arange(y, device=device),
+        torch.arange(x, device=device),
         indexing='ij'
     )
     # Sum coordinates to determine checkerboard pattern

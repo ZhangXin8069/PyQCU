@@ -8,8 +8,10 @@ All collector compatibility decisions live in ``_collector_command``.
 from __future__ import annotations
 
 import argparse
+import copy
 from dataclasses import dataclass
 from datetime import datetime, timezone
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -29,13 +31,24 @@ DEFAULT_QIO_ROOT = DEFAULT_ASSET_ROOT / "qio-matrix"
 
 SIDES = ("pyqcu", "quda")
 PRECISIONS = ("c64", "c128")
-LATTICES = (
+C64_LATTICES = (
     (8, 8, 8, 16),
     (16, 16, 16, 16),
     (16, 32, 32, 48),
 )
+C128_LATTICES = (
+    (8, 8, 8, 16),
+    (16, 16, 16, 16),
+    (16, 16, 32, 32),
+)
+LATTICES = tuple(dict.fromkeys((*C64_LATTICES, *C128_LATTICES)))
+LATTICES_BY_PRECISION = {
+    "c64": C64_LATTICES,
+    "c128": C128_LATTICES,
+}
 TRACES = ("off", "on")
 LEVELS = (1, 2, 3)
+LEVEL_EXECUTION_ORDER = (2, 3, 1)
 DEVICES = ("v100", "p100")
 BLOCK = (2, 2, 2, 2)
 PHASE_SPECS = (("cold", 1), ("warmup", 2), ("steady", 5))
@@ -76,6 +89,19 @@ class MatrixUnit:
         return (1, 1, 1, 1) if self.mpi_ranks == 1 else (2, 1, 1, 1)
 
     @property
+    def block(self) -> tuple[int, int, int, int]:
+        return BLOCK
+
+    @property
+    def block_levels(self) -> tuple[tuple[int, int, int, int], ...]:
+        # Keep the first transition identical to the QIO contract.  The
+        # second transition leaves x uncoarsened on the smallest distributed
+        # lattice so that rank-local extents remain even and >= 2.
+        if self.levels >= 3 and self.lattice == (8, 8, 8, 16):
+            return (BLOCK, (1, 2, 2, 2))
+        return tuple(BLOCK for _ in range(max(0, self.levels - 1)))
+
+    @property
     def unit_id(self) -> str:
         return "__".join((
             self.side,
@@ -107,7 +133,9 @@ class MatrixUnit:
             "precision": self.precision,
             "lattice": list(self.lattice),
             "lattice_tag": self.lattice_tag,
-            "block": list(BLOCK),
+            "block": list(self.block),
+            "block_xyzt_per_level": [
+                list(value) for value in self.block_levels],
             "trace": self.trace,
             "levels": self.levels,
             "device": self.device,
@@ -195,14 +223,22 @@ def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(8 << 20), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 def build_units() -> tuple[MatrixUnit, ...]:
     """Return the deterministic full Cartesian product."""
     units: list[MatrixUnit] = []
     for side in SIDES:
         for precision in PRECISIONS:
-            for lattice in LATTICES:
+            for lattice in LATTICES_BY_PRECISION[precision]:
                 for trace in TRACES:
-                    for levels in LEVELS:
+                    for levels in LEVEL_EXECUTION_ORDER:
                         for device in DEVICES:
                             units.append(MatrixUnit(
                                 side=side,
@@ -330,7 +366,24 @@ def resolve_unit_assets(
         input_storage_precision = unit.precision
     qio_prefix = roots.qio_directory / f"L{tag}_nvec12_quda"
     qio_manifest = roots.qio_directory / f"L{tag}_nvec12_quda.v1.json"
-    cache_dir = roots.cache_directory(output_dir, unit)
+    cache_unit = unit
+    cache_expect = "miss"
+    if unit.side == "pyqcu":
+        cache_source = unit
+        if unit.trace == "on":
+            cache_source = MatrixUnit(
+                side=unit.side,
+                precision=unit.precision,
+                lattice=unit.lattice,
+                trace="off",
+                levels=unit.levels,
+                device=unit.device,
+            )
+        source_cache = roots.cache_directory(output_dir, cache_source)
+        if any(source_cache.glob("strict_runtime_*.h5")):
+            cache_unit = cache_source
+            cache_expect = "hit"
+    cache_dir = roots.cache_directory(output_dir, cache_unit)
     return {
         "gauge_path": str(gauge.resolve()),
         "nullvec_path": str(nullvec.resolve()),
@@ -338,6 +391,7 @@ def resolve_unit_assets(
         "quda_nullvec_prefix": str(qio_prefix.resolve()),
         "quda_nullvec_manifest": str(qio_manifest.resolve()),
         "strict_cache_dir": str(cache_dir.resolve()),
+        "strict_cache_expect": cache_expect,
         "roots": roots.as_dict(),
         "notes": notes,
     }
@@ -499,13 +553,14 @@ def _collector_command_report(
         str(collector),
         "--side", unit.side,
         "--lattice", *[str(value) for value in unit.lattice],
-        "--block", *[str(value) for value in BLOCK],
+        "--block", *[str(value) for value in unit.block],
         "--levels", str(unit.levels),
         "--precision", unit.precision,
         "--gauge-path", str(resolved_assets["gauge_path"]),
         "--nullvec-path", str(resolved_assets["nullvec_path"]),
         "--strict-cache-dir", str(resolved_assets["strict_cache_dir"]),
-        "--cache-expect", "miss",
+        "--cache-expect", str(
+            resolved_assets.get("strict_cache_expect", "miss")),
         "--output", str(output),
     ]
     # Matrix-level resume already skips successful units.  Let the collector
@@ -527,6 +582,10 @@ def _collector_command_report(
         ])
         if unit.trace == "on":
             unit_argv.append("--allow-trace")
+        for block in unit.block_levels:
+            unit_argv.extend([
+                "--block-level", *[str(value) for value in block],
+            ])
     elif collector_interface == "legacy":
         unit_argv.extend([
             "--profile", "smoke",
@@ -641,6 +700,28 @@ def _git_describe(repository: Path = REPO) -> str:
     return value if completed.returncode == 0 and value else "unknown"
 
 
+def _matrix_unit_signature(
+        unit: MatrixUnit, *,
+        collector: Path,
+        collector_interface: str,
+        extra_args: Sequence[str],
+        asset_roots: AssetRoots,
+) -> str:
+    payload = {
+        "unit": unit.as_dict(),
+        "collector": str(collector.resolve()),
+        "collector_sha256": (
+            _sha256_file(collector) if collector.is_file() else None),
+        "collector_interface": collector_interface,
+        "extra_args": list(extra_args),
+        "asset_roots": asset_roots.as_dict(),
+    }
+    return hashlib.sha256(
+        json.dumps(
+            payload, ensure_ascii=False, sort_keys=True,
+            separators=(",", ":")).encode("utf-8")).hexdigest()
+
+
 def _subprocess_runner(
         argv: Sequence[str], cwd: Path, env: Mapping[str, str], timeout: float,
 ) -> RunResult:
@@ -724,6 +805,107 @@ def _side_failure(document: Mapping[str, Any], side: str) -> tuple[str,
     return str(status), detail
 
 
+def _reference_source_unit(unit: MatrixUnit) -> MatrixUnit | None:
+    if unit.levels != 1:
+        return None
+    return MatrixUnit(
+        side=unit.side,
+        precision=unit.precision,
+        lattice=unit.lattice,
+        trace=unit.trace,
+        levels=2,
+        device=unit.device,
+    )
+
+
+def _derive_reference_record(
+        unit: MatrixUnit,
+        *,
+        output_dir: Path,
+        latest: Mapping[str, Mapping[str, Any]],
+) -> tuple[str, str | None, dict[str, Any] | None, str | None]:
+    source_unit = _reference_source_unit(unit)
+    if source_unit is None:
+        raise ValueError("reference derivation requires levels=1")
+    source_entry = latest.get(source_unit.unit_id)
+    if not isinstance(source_entry, Mapping):
+        return "blocked", "reference source MG-2 unit has no state", None, None
+    source_status = str(source_entry.get("status"))
+    source_path_value = source_entry.get("output_path")
+    source_path = (
+        Path(str(source_path_value)) if source_path_value else
+        unit_output_path(output_dir, source_unit))
+    document = _read_collector_output(source_path)
+    if source_status != "ok" or document is None:
+        reason = (
+            str(source_entry.get("error_reason") or
+                f"reference source status={source_status}")
+        )
+        status = "blocked" if source_status == "blocked" else "failed"
+        return status, reason, document, str(source_path)
+    side_record = _side_record(document, unit.side)
+    if side_record is None:
+        return "failed", "reference source has no requested side", document, str(source_path)
+    if side_record.get("status") != "ok":
+        failure = _side_failure(document, unit.side)
+        detail = failure[1] if failure is not None else str(
+            side_record.get("status"))
+        return "blocked", detail, document, str(source_path)
+    reference = side_record.get("reference_solver")
+    if not isinstance(reference, Mapping):
+        return "failed", "reference solver record is missing", document, str(source_path)
+    derived_side = copy.deepcopy(dict(side_record))
+    timing = copy.deepcopy(dict(derived_side.get("timing") or {}))
+    steady = copy.deepcopy(dict(reference.get("steady") or {}))
+    if not isinstance(steady.get("median_seconds"), (int, float)):
+        return "failed", "reference solver steady timing is missing", document, str(source_path)
+    timing["steady"] = steady
+    reference_iterations = reference.get("iterations")
+    if isinstance(reference_iterations, Mapping):
+        values = (
+            reference_iterations.get("samples") or
+            reference_iterations.get("samples_seconds") or [])
+        values = [int(value) for value in values]
+        if values:
+            derived_side["iterations"] = {
+                "samples": values,
+                "min": min(values),
+                "max": max(values),
+                "median": float(reference_iterations.get(
+                    "median", reference_iterations.get("median_seconds"))),
+            }
+    sample_residuals = []
+    for sample in reference.get("samples") or []:
+        if (isinstance(sample, Mapping) and
+                isinstance(sample.get("true_residual_rel"), (int, float))):
+            sample_residuals.append(float(sample["true_residual_rel"]))
+    max_residual = reference.get("true_residual_max_rel")
+    if not sample_residuals and isinstance(max_residual, (int, float)):
+        sample_residuals = [float(max_residual)] * len(values or [1])
+    gate = float((document.get("protocol") or {}).get(
+        "true_residual_gate", max_residual if isinstance(
+            max_residual, (int, float)) else 0.0))
+    if isinstance(max_residual, (int, float)):
+        derived_side["true_residual"] = {
+            "samples_rel": sample_residuals,
+            "max_rel": float(max_residual),
+            "gate": gate,
+            "pass": float(max_residual) <= gate,
+        }
+    derived_side["timing"] = timing
+    derived_side["iteration_semantics"] = (
+        "BiCGStab reference solver; iterations are Krylov iterations")
+    derived = copy.deepcopy(document)
+    derived["state"] = "partial"
+    derived["derived_from"] = str(source_path.resolve())
+    derived["derived_kind"] = "bicgstab-reference"
+    derived["selected_sides"] = [unit.side]
+    derived_sides = copy.deepcopy(dict(derived.get("sides") or {}))
+    derived_sides[unit.side] = derived_side
+    derived["sides"] = derived_sides
+    return "ok", None, derived, str(source_path)
+
+
 def _classify_result(
         unit: MatrixUnit,
         result: RunResult,
@@ -779,8 +961,17 @@ def run_matrix(
     results: list[dict[str, Any]] = []
 
     for unit in units:
+        unit_signature = _matrix_unit_signature(
+            unit,
+            collector=collector,
+            collector_interface=collector_interface,
+            extra_args=extra_args,
+            asset_roots=roots,
+        )
         previous = latest.get(unit.unit_id)
-        if resume and previous is not None and previous.get("status") == "ok":
+        if (resume and previous is not None and
+                previous.get("status") == "ok" and
+                previous.get("unit_signature") == unit_signature):
             skipped = dict(previous)
             skipped["git_describe"] = (
                 skipped.get("git_describe") or source_version)
@@ -807,16 +998,49 @@ def run_matrix(
         common = {
             "unit_id": unit.unit_id,
             "unit": unit.as_dict(),
-            "argv": argv,
+            "argv": [] if unit.levels == 1 else argv,
             "started_at": started_at,
             "output_path": str(output_path),
             "trace_files": paths,
             "git_describe": source_version,
             "collector_interface": collector_interface,
+            "unit_signature": unit_signature,
             "assets": resolved_assets,
             "asset_resolution": asset_resolution,
             "argument_conflicts": command_report["argument_conflicts"],
         }
+        if unit.levels == 1:
+            status, error_reason, derived, source_path = (
+                _derive_reference_record(
+                    unit,
+                    output_dir=output_dir,
+                    latest=latest,
+                )
+            )
+            if status == "ok" and derived is not None:
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                output_path.write_text(
+                    json.dumps(derived, ensure_ascii=False, indent=2) + "\n",
+                    encoding="utf-8")
+            record = {
+                **common,
+                "ended_at": _utc_now(),
+                "status": status,
+                "error_code": (
+                    None if status == "ok" else "reference_source_unavailable"),
+                "error_reason": error_reason,
+                "returncode": 0 if status == "ok" else None,
+                "stdout_tail": "",
+                "stderr_tail": "",
+                "derived_from": source_path,
+                "derived_kind": "bicgstab-reference",
+            }
+            _append_state(state_path, record)
+            latest[unit.unit_id] = record
+            results.append(record)
+            if fail_fast and status != "ok":
+                break
+            continue
         _append_state(state_path, {
             **common,
             "ended_at": None,
@@ -1060,6 +1284,71 @@ def _extract_unit_metrics(
         *,
         trace_files: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
+    if unit.levels == 1:
+        record = _side_record(document, unit.side) or {}
+        reference = record.get("reference_solver")
+        warnings: list[str] = []
+        if not isinstance(reference, Mapping):
+            warnings.append("reference solver record missing")
+            reference = {}
+        steady = reference.get("steady")
+        median = (
+            steady.get("median_seconds")
+            if isinstance(steady, Mapping) else None)
+        iteration_summary = reference.get("iterations")
+        iteration_median = (
+            iteration_summary.get("median")
+            if isinstance(iteration_summary, Mapping) else None)
+        residual_value = reference.get("true_residual_max_rel")
+        layer = _empty_layer()
+        if isinstance(median, (int, float)):
+            seconds = float(median)
+            layer["total_seconds"] = seconds
+            layer["outer_iteration_seconds"] = seconds
+            layer["phases"]["coarse_solver"]["seconds"] = seconds
+            layer["phases"]["coarse_solver"]["events"] = 1
+        else:
+            warnings.append("reference solver steady median missing")
+        if isinstance(iteration_median, (int, float)):
+            iterations = int(iteration_median)
+            layer["iterations"] = iterations
+            layer["phases"]["coarse_solver"]["iterations"] = iterations
+        else:
+            warnings.append("reference solver iterations missing")
+        residual = None
+        if isinstance(residual_value, (int, float)):
+            residual = {
+                "level": 0,
+                "value": float(residual_value),
+                "kind": "bicgstab_true_residual",
+                "source": (
+                    f"sides.{unit.side}.reference_solver."
+                    "true_residual_max_rel"),
+            }
+        else:
+            warnings.append("reference solver residual missing")
+        timing = record.get("timing")
+        setup_seconds = None
+        if isinstance(timing, Mapping) and isinstance(
+                timing.get("setup_seconds"), (int, float)):
+            setup_seconds = float(timing["setup_seconds"])
+        return {
+            "setup_seconds": setup_seconds,
+            "outer_iterations": {
+                "samples": (
+                    iteration_summary.get("samples")
+                    if isinstance(iteration_summary, Mapping) else None),
+                "median": iteration_median,
+                "semantics": "BiCGStab outer iterations (reference solver)",
+            },
+            "layers": {"0": layer},
+            "phase_categories": list(PHASE_CATEGORIES),
+            "finest_level_residual": residual,
+            "timing_semantics": (
+                "BiCGStab steady median; no recursive MG stage breakdown"),
+            "warnings": warnings,
+        }
+
     stages = [
         dict(item) for item in _walk_stage_events(document)
         if isinstance(item.get("seconds"), (int, float))
@@ -1243,6 +1532,93 @@ def _count_payload(units: Sequence[MatrixUnit]) -> dict[str, Any]:
     }
 
 
+def merge_matrix_sides(
+        units: Sequence[MatrixUnit],
+        *,
+        output_dir: Path,
+        collector: Path = DEFAULT_COLLECTOR,
+        runner: Runner = _subprocess_runner,
+        timeout: float = 300.0,
+) -> list[dict[str, Any]]:
+    groups: dict[
+        tuple[str, str, tuple[int, int, int, int], str, int],
+        dict[str, MatrixUnit],
+    ] = {}
+    for unit in units:
+        key = (
+            unit.device,
+            unit.precision,
+            unit.lattice,
+            unit.trace,
+            unit.levels,
+        )
+        groups.setdefault(key, {})[unit.side] = unit
+
+    records: list[dict[str, Any]] = []
+    combined_dir = output_dir / "combined"
+    combined_dir.mkdir(parents=True, exist_ok=True)
+    for key, sides in sorted(groups.items(), key=lambda item: item[0]):
+        if set(sides) != set(SIDES):
+            continue
+        device, precision, lattice, trace, levels = key
+        lattice_tag = "x".join(str(value) for value in lattice)
+        name = (
+            f"{device}__{lattice_tag}__{precision}__l{levels}__trace-{trace}")
+        output = combined_dir / f"{name}.json"
+        input_paths = [
+            unit_output_path(output_dir, sides[side]) for side in SIDES
+        ]
+        record: dict[str, Any] = {
+            "unit_id": name,
+            "sides": {side: str(path) for side, path in zip(SIDES, input_paths)},
+            "output_path": str(output),
+            "argv": [],
+            "status": "missing",
+            "error_reason": None,
+            "speedup_pyqcu_over_quda": None,
+            "fair": None,
+        }
+        missing = [str(path) for path in input_paths if not path.is_file()]
+        if missing:
+            record["error_reason"] = f"missing side output(s): {missing}"
+            records.append(record)
+            continue
+        command = [
+            sys.executable,
+            "-B",
+            str(collector),
+            "--merge",
+            *[str(path) for path in input_paths],
+            "--output",
+            str(output),
+        ]
+        record["argv"] = command
+        result = runner(command, REPO, os.environ, timeout)
+        document = _read_collector_output(output) if output.is_file() else None
+        record["returncode"] = int(result.returncode)
+        record["stdout_tail"] = result.stdout[-4000:]
+        record["stderr_tail"] = result.stderr[-4000:]
+        if document is None:
+            record["status"] = "failed"
+            record["error_reason"] = "merged output JSON missing"
+            records.append(record)
+            continue
+        comparison = document.get("comparison")
+        if isinstance(comparison, Mapping):
+            record["fair"] = comparison.get("fair")
+            record["speedup_pyqcu_over_quda"] = comparison.get(
+                "speedup_pyqcu_over_quda")
+        if result.returncode != 0 or record["fair"] is not True:
+            record["status"] = "failed"
+            record["error_reason"] = (
+                f"merge returncode={result.returncode}, "
+                f"fair={record['fair']!r}")
+        else:
+            record["status"] = "ok"
+        records.append(record)
+    return records
+
+
 def _list_payload(
         units: Sequence[MatrixUnit], selection: Selection,
 ) -> dict[str, Any]:
@@ -1330,6 +1706,9 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--fail-fast", action="store_true")
     parser.add_argument("--execute", action="store_true")
+    parser.add_argument(
+        "--merge-sides", action="store_true",
+        help="merge completed side pairs into combined fair documents")
     parser.add_argument("--list", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--summarize", action="store_true")
@@ -1401,8 +1780,30 @@ def main(argv: Sequence[str] | None = None) -> int:
         fail_fast=args.fail_fast,
         asset_roots=asset_roots,
     )
+    merged = []
+    if args.merge_sides:
+        merged = merge_matrix_sides(
+            units,
+            output_dir=args.output_dir,
+            collector=args.collector,
+            timeout=min(float(args.timeout), 300.0),
+        )
+        merge_path = args.output_dir / "merged_units.json"
+        merge_path.write_text(
+            json.dumps({
+                "schema": {
+                    "name": "pyqcu.mg-matrix-full.merged-units",
+                    "version": 1,
+                },
+                "created_at": _utc_now(),
+                "units": merged,
+            }, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8")
     statuses = [record["status"] for record in results]
+    merge_statuses = [record["status"] for record in merged]
     if "failed" in statuses:
+        return 1
+    if "failed" in merge_statuses:
         return 1
     if any(status != "ok" for status in statuses):
         return 2

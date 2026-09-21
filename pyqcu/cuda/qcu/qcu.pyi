@@ -98,6 +98,10 @@ def applyCloverBistabCgQcu(
     set_ptrs: torch.Tensor, params: torch.Tensor,
 ) -> None: ...
 
+def getCloverBistabCgIterationsQcu(
+    set_ptrs: torch.Tensor, params: torch.Tensor,
+) -> int: ...
+
 def applyCloverBistabCgDslashQcu(
     fermion_out: torch.Tensor, fermion_in: torch.Tensor, gauge: torch.Tensor,
     clover_ee: torch.Tensor, clover_oo: torch.Tensor,

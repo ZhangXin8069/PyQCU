@@ -183,6 +183,34 @@ def test_asset_paths_and_per_unit_cache_directories(tmp_path: Path) -> None:
     assert Path(c64_assets["strict_cache_dir"]).parent == tmp_path / "cache"
 
 
+def test_trace_on_pyqcu_reuses_trace_off_runtime_cache(tmp_path: Path) -> None:
+    roots = matrix.AssetRoots(cache_root=tmp_path / "cache")
+    trace_off = _unit(trace="off", levels=2)
+    trace_on = _unit(trace="on", levels=2)
+    off_cache = roots.cache_directory(tmp_path, trace_off)
+    off_cache.mkdir(parents=True)
+    (off_cache / "strict_runtime_abc.h5").write_bytes(b"cache")
+
+    assets = matrix.resolve_unit_assets(trace_on, roots, tmp_path)
+    assert assets["strict_cache_expect"] == "hit"
+    assert Path(assets["strict_cache_dir"]) == off_cache.resolve()
+    off_assets = matrix.resolve_unit_assets(trace_off, roots, tmp_path)
+    assert off_assets["strict_cache_expect"] == "hit"
+    assert Path(off_assets["strict_cache_dir"]) == off_cache.resolve()
+    command = matrix._collector_command(
+        trace_on,
+        collector=matrix.DEFAULT_COLLECTOR,
+        output_dir=tmp_path,
+        collector_interface="frozen",
+    )
+    assert command[command.index("--cache-expect") + 1] == "hit"
+
+    (off_cache / "strict_runtime_abc.h5").unlink()
+    fallback = matrix.resolve_unit_assets(trace_on, roots, tmp_path)
+    assert fallback["strict_cache_expect"] == "miss"
+    assert Path(fallback["strict_cache_dir"]) != off_cache.resolve()
+
+
 def test_quda_asset_validation_uses_manifest_artifacts(tmp_path: Path) -> None:
     roots = matrix.AssetRoots(
         asset_root=tmp_path / "assets",
@@ -217,7 +245,7 @@ def test_quda_asset_validation_uses_manifest_artifacts(tmp_path: Path) -> None:
 
 
 def test_c128_input_assets_block_without_calling_runner(tmp_path: Path) -> None:
-    unit = _unit(side="pyqcu", precision="c128")
+    unit = _unit(side="pyqcu", precision="c128", levels=2)
     called: list[list[str]] = []
 
     def runner(command, _cwd, _env, _timeout):
@@ -239,7 +267,7 @@ def test_c128_input_assets_block_without_calling_runner(tmp_path: Path) -> None:
     assert "gauge_8x8x8x16_m0.05_seed42_c64.h5" in records[-1]["error_reason"]
     assert "L8x8x8x16_nvec12_full_c64.h5" in records[-1]["error_reason"]
 
-    quda_unit = _unit(side="quda", precision="c128")
+    quda_unit = _unit(side="quda", precision="c128", levels=2)
     quda_records = matrix.run_matrix(
         [quda_unit],
         output_dir=tmp_path,
@@ -279,8 +307,8 @@ def test_extra_args_merge_order_and_conflicts(tmp_path: Path) -> None:
 
 
 def test_state_records_conflicts_and_isolated_cache_dirs(tmp_path: Path) -> None:
-    first = _unit(trace="off")
-    second = _unit(trace="on")
+    first = _unit(trace="off", levels=2)
+    second = _unit(trace="on", levels=2)
 
     def runner(command, _cwd, _env, _timeout):
         output = Path(command[command.index("--output") + 1])
@@ -314,13 +342,20 @@ def test_state_records_conflicts_and_isolated_cache_dirs(tmp_path: Path) -> None
 
 
 def test_resume_skips_completed_unit(tmp_path: Path) -> None:
-    first = _unit(trace="off")
-    second = _unit(trace="on")
+    first = _unit(trace="off", levels=2)
+    second = _unit(trace="on", levels=2)
     state_path = matrix._state_path(tmp_path)
     matrix._append_state(state_path, {
         "unit_id": first.unit_id,
         "status": "ok",
         "output_path": str(matrix.unit_output_path(tmp_path, first)),
+        "unit_signature": matrix._matrix_unit_signature(
+            first,
+            collector=matrix.DEFAULT_COLLECTOR,
+            collector_interface="frozen",
+            extra_args=(),
+            asset_roots=matrix.AssetRoots(),
+        ),
     })
     called: list[list[str]] = []
 
@@ -346,8 +381,70 @@ def test_resume_skips_completed_unit(tmp_path: Path) -> None:
     assert records[0]["git_describe"] == "test-revision"
 
 
+def test_bicgstab_level_is_derived_from_mg2_reference(tmp_path: Path) -> None:
+    source = _unit(trace="off", levels=2)
+    derived = _unit(trace="off", levels=1)
+    called: list[list[str]] = []
+
+    def runner(command, _cwd, _env, _timeout):
+        called.append(list(command))
+        output = matrix.unit_output_path(tmp_path, source)
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(json.dumps({
+            "protocol": {"profile": "formal"},
+            "inputs": {},
+            "execution": {},
+            "input_fingerprints": {},
+            "collector": {},
+            "state": "complete",
+            "profile": "formal",
+            "sides": {
+                source.side: {
+                    "status": "ok",
+                    "timing": {"setup_seconds": 0.5},
+                    "reference_solver": {
+                        "kind": "bicgstab",
+                        "steady": {
+                            "samples_seconds": [0.2, 0.3],
+                            "median_seconds": 0.25,
+                            "mad_seconds": 0.05,
+                        },
+                        "iterations": {
+                            "samples": [7, 7],
+                            "median": 7.0,
+                        },
+                        "true_residual_max_rel": 2.0e-7,
+                        "excluded_from_speedup": True,
+                    },
+                },
+            },
+        }), encoding="utf-8")
+        return matrix.RunResult(returncode=0)
+
+    records = matrix.run_matrix(
+        [source, derived],
+        output_dir=tmp_path,
+        runner=runner,
+        source_version="test-revision",
+    )
+    assert len(called) == 1
+    assert [record["status"] for record in records] == ["ok", "ok"]
+    assert records[1]["derived_kind"] == "bicgstab-reference"
+    document = json.loads(
+        matrix.unit_output_path(tmp_path, derived).read_text(encoding="utf-8"))
+    assert document["derived_kind"] == "bicgstab-reference"
+    assert document["protocol"] == {"profile": "formal"}
+    summary = matrix.summarize_matrix([derived], output_dir=tmp_path)
+    row = summary["units"][0]
+    assert row["status"] == "ok"
+    assert row["outer_iterations"]["median"] == 7.0
+    assert row["finest_level_residual"]["value"] == pytest.approx(2.0e-7)
+    assert row["layers"]["0"]["phases"]["coarse_solver"][
+        "seconds"] == pytest.approx(0.25)
+
+
 def test_blocked_propagation_is_not_success(tmp_path: Path) -> None:
-    unit = _unit(device="p100")
+    unit = _unit(device="p100", levels=2)
 
     def runner(_command, _cwd, _env, _timeout):
         return matrix.RunResult(
@@ -370,7 +467,7 @@ def test_blocked_propagation_is_not_success(tmp_path: Path) -> None:
 
 
 def test_side_unsupported_is_blocked_and_missing(tmp_path: Path) -> None:
-    unit = _unit(side="pyqcu", levels=1)
+    unit = _unit(side="pyqcu", levels=2)
 
     def runner(command, _cwd, _env, _timeout):
         output_value = command[command.index("--output") + 1]
@@ -381,8 +478,8 @@ def test_side_unsupported_is_blocked_and_missing(tmp_path: Path) -> None:
                 "pyqcu": {
                     "status": "side_unsupported",
                     "reason": {
-                        "code": "levels_1_unsupported",
-                        "detail": "PyQCU strict fused FGMRES requires levels >= 2",
+                    "code": "strict_backend_unsupported",
+                    "detail": "PyQCU strict backend rejected this geometry",
                     },
                 },
             },
@@ -396,7 +493,7 @@ def test_side_unsupported_is_blocked_and_missing(tmp_path: Path) -> None:
         source_version="test-revision",
     )
     assert records[-1]["status"] == "blocked"
-    assert "requires levels >= 2" in records[-1]["error_reason"]
+    assert "rejected this geometry" in records[-1]["error_reason"]
 
     summary = matrix.summarize_matrix([unit], output_dir=tmp_path)
     assert summary["coverage"]["completed_units"] == 0
@@ -405,7 +502,7 @@ def test_side_unsupported_is_blocked_and_missing(tmp_path: Path) -> None:
 
 
 def test_summary_reports_metrics_and_missing_units(tmp_path: Path) -> None:
-    complete = _unit(trace="on")
+    complete = _unit(trace="on", levels=2)
     missing = _unit(side="quda", trace="off")
     output = matrix.unit_output_path(tmp_path, complete)
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -509,3 +606,32 @@ def test_summary_can_be_written_to_default_name(tmp_path: Path) -> None:
     value = json.loads(path.read_text(encoding="utf-8"))
     assert value["coverage"]["expected_units"] == 1
     assert value["coverage"]["missing_unit_ids"] == [units[0].unit_id]
+
+
+def test_merge_matrix_sides_pairs_completed_units(tmp_path: Path) -> None:
+    left = _unit(side="pyqcu", levels=2)
+    right = _unit(side="quda", levels=2)
+    for unit in (left, right):
+        output = matrix.unit_output_path(tmp_path, unit)
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text("{}", encoding="utf-8")
+    called: list[list[str]] = []
+
+    def runner(command, _cwd, _env, _timeout):
+        called.append(list(command))
+        output = Path(command[command.index("--output") + 1])
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(json.dumps({
+            "comparison": {
+                "fair": True,
+                "speedup_pyqcu_over_quda": 1.5,
+            },
+        }), encoding="utf-8")
+        return matrix.RunResult(returncode=0)
+
+    records = matrix.merge_matrix_sides(
+        [left, right], output_dir=tmp_path, runner=runner)
+    assert len(called) == 1
+    assert records[0]["status"] == "ok"
+    assert records[0]["fair"] is True
+    assert records[0]["speedup_pyqcu_over_quda"] == pytest.approx(1.5)
