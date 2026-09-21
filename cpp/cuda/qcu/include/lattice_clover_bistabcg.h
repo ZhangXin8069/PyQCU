@@ -324,7 +324,9 @@ template <typename T> struct LatticeCloverBistabCg {
     checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_b_]));
     checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_c_]));
     checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_d_]));
+    int completed_iterations = 0;
     for (int loop = 0; loop < set_ptr->max_iter(); loop++) {
+      completed_iterations = loop + 1;
       _dot(r_tilde, r, _rho_, _a_);
       checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_b_]));
       {
@@ -409,6 +411,7 @@ template <typename T> struct LatticeCloverBistabCg {
         }
       }
     }
+    set_ptr->last_iterations = completed_iterations;
     checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
     checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_a_]));
     checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_b_]));

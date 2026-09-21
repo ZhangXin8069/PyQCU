@@ -15,6 +15,7 @@ cdef extern from "pyqcu.h":
     void applyDslashQcu(long long _fermion_out, long long _fermion_in, long long _gauge, long long _clover, long long _set_ptrs, long long _params) nogil
     void applyGaussGaugeQcu(long long _gauge, long long _set_ptrs, long long _params) nogil
     void applyCloverBistabCgQcu(long long _fermion_out, long long _fermion_in, long long _gauge, long long _clover_ee, long long _clover_oo, long long _clover_ee_inv, long long _clover_oo_inv, long long _set_ptrs, long long _params) nogil
+    int getCloverBistabCgIterationsQcu(long long _set_ptrs, long long _params) nogil
     void applyCloverBistabCgDslashQcu(long long _fermion_out, long long _fermion_in, long long _gauge, long long _clover_ee, long long _clover_oo, long long _clover_ee_inv, long long _clover_oo_inv, long long _set_ptrs, long long _params) nogil
     int applyCloverBistabCgPrepareQcu(long long _compact_rhs, long long _full_rhs, long long _gauge, long long _clover_ee, long long _clover_oo, long long _clover_ee_inv, long long _clover_oo_inv, long long _set_ptrs, long long _params) nogil
     int applyCloverBistabCgReconstructQcu(long long _full_out, long long _full_rhs, long long _target_odd, long long _gauge, long long _clover_ee, long long _clover_oo, long long _clover_ee_inv, long long _clover_oo_inv, long long _set_ptrs, long long _params) nogil
