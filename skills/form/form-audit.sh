@@ -25,10 +25,16 @@ while IFS=$'\t' read -r severity rule path message; do
     [[ -n "${severity:-}" ]] || continue
 
     case "${severity}:${rule}:${path}" in
-        ERROR:TRACKED_DATA_CONTENT:data/*)
-            allowed=$((allowed + 1))
-            ;;
-        WARNING:LOG_EXTENSION:logs/*)
+        ERROR:TRACKED_DATA_CONTENT:data/quda-*|\
+        ERROR:TRACKED_DATA_CONTENT:data/report_multigrid_optimized_20260927/*|\
+        ERROR:TRACKED_DATA_CONTENT:data/mg_matrix_20260916_round2/*|\
+        ERROR:TRACKED_DATA_CONTENT:data/strict_trace_stage_timing_20260906.csv|\
+        ERROR:TRACKED_DATA_CONTENT:data/strict_trace_profile_20260906.csv|\
+        ERROR:TRACKED_DATA_CONTENT:data/strict_trace_detailed_20260906.svg|\
+        ERROR:TRACKED_DATA_CONTENT:data/strict_trace_detailed_20260906.csv|\
+        ERROR:TRACKED_DATA_CONTENT:data/strict_trace_20260902_final.svg|\
+        ERROR:TRACKED_DATA_CONTENT:data/multigpu_formal_20260902.svg|\
+        ERROR:TRACKED_DATA_CONTENT:data/mg_small_trace_20260916_r2.svg)
             allowed=$((allowed + 1))
             ;;
         WARNING:DOC_EXTENSION:docs/.gitignore)
@@ -41,8 +47,20 @@ while IFS=$'\t' read -r severity rule path message; do
             allowed=$((allowed + 1))
             ;;
         *)
-            printf '%s\t%s\t%s\t%s\n' "$severity" "$rule" "$path" "$message"
-            residual=$((residual + 1))
+            if [[ "${severity}:${rule}:${path}" == WARNING:LOG_EXTENSION:logs/* ]]; then
+                case "${path##*.}" in
+                    png|PNG|jpg|jpeg|gif|webp|svg|pdf|tex|md|stdout|jsonl|gz)
+                        allowed=$((allowed + 1))
+                        ;;
+                    *)
+                        printf '%s\t%s\t%s\t%s\n' "$severity" "$rule" "$path" "$message"
+                        residual=$((residual + 1))
+                        ;;
+                esac
+            else
+                printf '%s\t%s\t%s\t%s\n' "$severity" "$rule" "$path" "$message"
+                residual=$((residual + 1))
+            fi
             ;;
     esac
 done <<<"$findings"
