@@ -1,8 +1,8 @@
 ---
 name: qcu
-description: examples/qcu 目录的完整生成 skill：经 Cython 桥测 C++ CUDA 后端；含 dev73_5 多重网格性能基准套件（clean/bench/verify/collect/mktable/plots）。
+description: pyqcu/testing/qcu 目录的完整生成 skill：经 Cython 桥测 C++ CUDA 后端；含按职责分类的多重网格性能基准套件（clean/bench/verify/collect/mktable/plots）。
 ---
-# CLAUDE.md — examples/qcu
+# CLAUDE.md — pyqcu/testing/qcu
 
 C++ CUDA backend tests via the Cython bridge. These exercise `libqcu.so` from Python.
 
@@ -23,31 +23,31 @@ C++ CUDA backend tests via the Cython bridge. These exercise `libqcu.so` from Py
 ## Usage
 
 ```bash
-mpirun -np 1 python examples/qcu/conftest.clover.multigrid.py
+mpirun -np 1 python pyqcu/testing/qcu/conftest.clover.multigrid.py
 ```
 
 Output: convergence log → `logs/clover_multigrid.log`, performance report → `logs/clover_multigrid_report.log`
 
-## Dev73_5 Multigrid Benchmark Suite
+## Legacy Multigrid Benchmark Suite
 
-Development scripts for the dev73_5 multigrid performance milestone. They benchmark `applyCloverMultigridQcu` against the Clover BiStabCG reference (`applyCloverBistabCgQcu`) across precision / lattice / solver-parameter sweeps, and feed `logs/dev73_5.*` (report, LaTeX tables, PNG figures).
+Development scripts for the early multigrid performance milestone. They benchmark `applyCloverMultigridQcu` against the Clover BiStabCG reference (`applyCloverBistabCgQcu`) across precision / lattice / solver-parameter sweeps, and feed the archived `logs/dev73_5.*` evidence (report, LaTeX tables, PNG figures).
 
-Scripts are archived under `examples/qcu/dev73/` (outputs → `logs/dev73/`):
+Scripts are archived under `pyqcu/testing/qcu/multigrid/legacy/` (outputs → `logs/dev73/`):
 
 | File | Purpose |
 |------|---------|
-| `dev73/mg_dev73_5_clean.py` | Clean, isolated-process timing of a single config (ref/mg interleaved, min+median speedup) |
-| `dev73/mg_dev73_5_bench.py` | Extended performance benchmark — precision / lattice / solver-parameter sweeps vs BiStabCG |
-| `dev73/mg_dev73_5_verify.py` | Correctness checks — SU(3) gauge, solution error, null-vector zero-mode/orthogonality, C++ vs Python coarse dslash |
-| `dev73/mg_dev73_5_collect.py` | Aggregate clean/bench/verify JSON into `logs/dev73_5_results.json` |
-| `dev73/mg_dev73_5_mktable.py` | Emit LaTeX table snippets (`logs/dev73_5_tbl_*.tex`) for `dev73_5.tex` |
-| `dev73/mg_dev73_5_plots.py` | Generate convergence / hotspot / speedup / time PNG figures into `logs/` |
+| `legacy/cleanup_runner.py` | Clean, isolated-process timing of a single config (ref/mg interleaved, min+median speedup) |
+| `legacy/reference_benchmark.py` | Extended performance benchmark — precision / lattice / solver-parameter sweeps vs BiStabCG |
+| `legacy/verify_results.py` | Correctness checks — SU(3) gauge, solution error, null-vector zero-mode/orthogonality, C++ vs Python coarse dslash |
+| `legacy/collect_results.py` | Aggregate clean/bench/verify JSON into `logs/dev73_5_results.json` |
+| `legacy/make_tables.py` | Emit LaTeX table snippets (`logs/dev73_5_tbl_*.tex`) for `dev73_5.tex` |
+| `legacy/make_plots.py` | Generate convergence / hotspot / speedup / time PNG figures into `logs/` |
 
-Newer dev74 / dev74_1 suites live in `examples/qcu/dev74/` (outputs → `logs/dev74/`); the test11/test12 integration suites live in `logs/test11/`, `logs/test12/` (see the `test12` skill).
+The resource-scaling and server-validation suites live in `pyqcu/testing/qcu/multigrid/scaling/` (outputs → `logs/dev74/`); integrated benchmark snapshots are under `pyqcu/testing/qcu/multigrid/legacy/` and archived outputs remain in `logs/`.
 
-## Dev84 Multigrid 攻坚套件（当前版）
+## Large-Volume Multigrid 攻坚套件（当前版）
 
-`examples/qcu/dev84/main.py` — 子命令 run / multi / run_gcr / hotspot（带 `--only` 门控），产物镜像 `out/*.json` 与 `logs/dev84/`；报告 `examples/qcu/dev84/dev84_report.md`。
+`pyqcu/testing/qcu/multigrid/benchmarks/large_volume/main.py` — 子命令 run / multi / run_gcr / hotspot（带 `--only` 门控），产物镜像 `out/*.json` 与 `logs/dev84/`；报告 `pyqcu/testing/qcu/multigrid/benchmarks/large_volume/report.md`。
 
 结论（16×32×32×48 统一格子）：粗空间 ρ_V=0.9759（连续谱无孤立低模簇），MG>2 目标不可达；
 体积标度 1.5× 体量仅 0.421×，「大格子有利」证伪。但净优化使 V100 上 MG 首次稳定超 BiStabCG
@@ -57,7 +57,7 @@ Newer dev74 / dev74_1 suites live in `examples/qcu/dev74/` (outputs → `logs/de
 
 ## 单功能 QCU 回归（当前维护入口）
 
-`examples/qcu/single_qcu_*.py` 将 C API 拆成可独立运行的最小测试：每个入口固定小格点、私有
+`pyqcu/testing/qcu/single_qcu_*.py` 将 C API 拆成可独立运行的最小测试：每个入口固定小格点、私有
 `params/argv/set_ptrs`，严格递增 `_SET_INDEX_`，并把输出还原后交给纯 PyTorch Wilson/Clover
 参考。`single_qcu_api.py` 在不启动 CUDA 的情况下闭合检查 `pyqcu.h`、`qcu_api.pxd`、`qcu.pyx`
 的导出集合；Strict 与 Clover-MG 入口在缺少缓存/近零向量时只做形状契约检查并明确 skip。

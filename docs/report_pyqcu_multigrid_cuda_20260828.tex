@@ -125,7 +125,7 @@
     \colorbox{good}{\parbox{0.92\textwidth}{\textbf{阶段判断：}\quad
       代码层面已经覆盖本轮指定的算法与通信接口；验收重点从“有没有实现”转为“健康 CUDA/MPI 平台上的性能、任意 $L$ 与更大层次的系统性复测”。}}
   \end{tabular}
-  \source{实现：\code{cpp/cuda/qcu/include/lattice_clover_multigrid.h}、\code{lattice_multigrid.h}、\code{lattice_mpi.h}；结果：\code{examples/qcu/dev87/out/qcu_mg_verify_*.json}；C++ verify 实测记录：\code{logs/codex-session-01a044db-06cb-7961-9db6-1938455f04cb.md}。}
+  \source{实现：\code{cpp/cuda/qcu/include/lattice_clover_multigrid.h}、\code{lattice_multigrid.h}、\code{lattice_mpi.h}；结果：\code{pyqcu/testing/qcu/strict/quda_comparison/out/qcu_mg_verify_*.json}；一次性 agent 会话记录已清理。}
 \end{frame}
 
 \begin{frame}[t]{问题与验收口径：粗网格必须同时保持物理算子和全局数值语义}
@@ -484,7 +484,7 @@
       \bottomrule
     \end{tabular}
   \end{center}
-  \source{halo：\code{cpp/cuda/qcu/include/lattice_multigrid.h:11-329} 与 \code{src/multigrid.cu:334-765}；测试：\code{examples/qcu/dev87/coarse_mpi_smoke.py}。}
+  \source{halo：\code{cpp/cuda/qcu/include/lattice_multigrid.h:11-329} 与 \code{src/multigrid.cu:334-765}；测试：\code{pyqcu/testing/qcu/strict/quda_comparison/coarse_mpi_smoke.py}。}
 \end{frame}
 
 \begin{frame}[t]{通信计算重叠与 transport 选择（1/2）：正确性优先的三层回退}
@@ -640,7 +640,7 @@
       \bottomrule
     \end{tabular}
   \end{center}
-  \source{回归：\code{examples/qcu/dev87/out/regression.json}；构建命令来自仓库 \code{AGENTS.md}。}
+  \source{回归：\code{pyqcu/testing/qcu/strict/quda_comparison/out/regression.json}；构建命令来自仓库 \code{AGENTS.md}。}
 \end{frame}
 
 \begin{frame}[t]{回归闸门与边界测试（2/2）：MPI、递归 cycle 与资源边界均有记录}
@@ -772,22 +772,17 @@
     \end{tabular}
   \end{center}
   \vspace{0.15em}
-  \begin{table}[htbp]
-    \centering
-    \caption*{Pseudocode — reproducible invocation contract}
-    \footnotesize
-    \renewcommand{\arraystretch}{0.80}
-    \begin{tabular}{@{}l@{}}
-      $\text{Prepare: }\texttt{source ./env.sh}$ \\
-      $\text{Build: }\texttt{bash ./build.sh}\ ;\ \texttt{bash ./install.sh}$ \\
-      $\text{Run solver: }\texttt{python examples/qcu/dev87/run\_qcu\_mg.py --levels 2 --E 12}$ \\
-      $\text{Run 3L cycle: }\texttt{... --levels 3 --E 24 --coarse-E 24 --cycle w|f|k}$ \\
-      $\text{Run mixed: }\texttt{... --fine-dtype c64 --coarse-dtypes c128}$ \\
-      $\text{Run MPI smoke: }\texttt{mpirun -np 2 python examples/qcu/dev87/coarse\_mpi\_smoke.py}$ \\
-      $\text{Check: }\texttt{python examples/qcu/dev87/run\_all.py}\ ;\ \texttt{git diff --check}$
-    \end{tabular}
-  \end{table}
-  \source{CLI：\code{examples/qcu/dev87/run_qcu_mg.py}、\code{run_qcu_mg_mpi.py}；mode 定义：\code{pyqcu/cuda/define.py:88-98}。}
+  \begin{block}{Pseudocode — reproducible invocation contract}
+    \scriptsize\ttfamily
+    Prepare: source ./env.sh\par
+    Build: bash ./build.sh; bash ./install.sh\par
+    Run solver: python pyqcu/testing/qcu/strict/quda\_comparison/run\_qcu\_mg.py --levels 2 --E 12\par
+    Run 3L: --levels 3 --E 24 --coarse-E 24 --cycle w\textbar{}f\textbar{}k\par
+    Run mixed: --fine-dtype c64 --coarse-dtypes c128\par
+    Run MPI: mpirun -np 2 python pyqcu/testing/qcu/strict/quda\_comparison/coarse\_mpi\_smoke.py\par
+    Check: python pyqcu/testing/qcu/strict/quda\_comparison/run\_all.py; git diff --check
+  \end{block}
+  \source{CLI：\code{pyqcu/testing/qcu/strict/quda_comparison/run_qcu_mg.py}、\code{run_qcu_mg_mpi.py}；mode 定义：\code{pyqcu/cuda/define.py:88-98}。}
 \end{frame}
 
 \begin{frame}[t]{附录：证据索引与最终状态}
@@ -800,7 +795,7 @@
       \midrule
       求解器族与 cycle & \code{out/qcu_mg_verify_{chebyshev,ca_gcr,bicgstab_l}.json}；\code{out/qcu_mg_verify_3l_{w,f,k}_cycle.json} \\
       混合精度 & \code{out/qcu_mg_verify_mixed_c64_c128.json}；\code{out/qcu_mg_mixed_c128_c64.json} \\
-      分布式粗格 & \code{examples/qcu/dev87/coarse_mpi_smoke.py}；MPI 运行输出 \\
+      分布式粗格 & \code{pyqcu/testing/qcu/strict/quda_comparison/coarse_mpi_smoke.py}；MPI 运行输出 \\
       C++ verify & \code{apply_clover_multigrid_verify.cu}；\code{lattice_clover_multigrid.h:2908-3147} \\
       回归闸门 & \code{out/regression.json}，GREEN (3/3) \\
       构建/桥接 & \code{build.sh}、\code{install.sh}；导出符号 \code{verifyCloverMultigridQcu} \\

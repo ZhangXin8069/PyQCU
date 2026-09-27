@@ -2,12 +2,22 @@
 
 PyQCU：Lattice QCD 的 Python/Cython 库 —— CUDA 加速的 Wilson/Clover Dirac 算子、BiStabCG 与多重网格求解器、stout smearing、规范场生成，全部 MPI 分布于 4D 进程网格。
 
+> 2026-09-27 测试迁移：顶层 `examples/` 已整体删除，原内容按 backend 分类迁入
+> `pyqcu/testing/`（`pyqcu`、`qcu`、`quda`、`pyquda` 等）。新代码、文档和命令
+> 必须使用新路径；历史 `logs/` 中的旧路径仅作为当时记录保留。
+>
+> 2026-09-27 文件分类：独立文档的规范位置是 `docs/**`，日志及 tag
+> 报告位于 `logs/**`，JSON/LOG/TSV/TXT 等运行记录同属 `logs/**`，
+> HDF5/SO/DAT/CSV/SVG 及构建安装树留在 `data/**`，测试及其他代码统一进入
+> `pyqcu/testing/**`；历史重复代码、缓存和一次性会话垃圾直接删除。
+> 完整规则见 `docs/ORGANIZATION.md`。
+
 ## 概要命令
 
 - 环境：`source ./env.sh`（LD_LIBRARY_PATH、PYTHONPATH、MPI root 运行权限）
 - 构建 C++ CUDA 后端：`bash ./build.sh`（→ `libqcu.so`，cd cpp/cuda/qcu && make.sh）
 - 构建 Cython 扩展：`bash ./install.sh`（setup.py build_ext --inplace）
-- 测试：`cd examples && pytest .`；MPI 单文件：`mpirun -np 4 python examples/pyqcu/conftest.py`
+- 测试：`cd pyqcu/testing && pytest .`；MPI 单文件：`mpirun -np 4 python pyqcu/testing/python/conftest.py`
 - Git 标签：`stab<N>`/`dev<N>`/`bug<N>` 独立编号 + 子版本（如 `stab15_1`），见 tag 技能
 - Python ≥ 3.10，依赖 PyTorch、Cython、mpi4py、h5py、numpy、CUDA toolkit；TileLang 可选
 
@@ -23,12 +33,12 @@ PyQCU：Lattice QCD 的 Python/Cython 库 —— CUDA 加速的 Wilson/Clover Di
 - **调用生命周期**：`applyInitQcu` → 操作 → **`params[define._SET_INDEX_] += 1`（每次调用间必须递增！）** → `applyEndQcu`。不递增导致 scratch 缓冲复用冲突、结果错误。
 - **张量布局**：规范场 `[3,3,4,Lx,Ly,Lz,Lt]`、费米子场 `[4,3,Lx,Ly,Lz,Lt]`、Clover 项 `[4,3,4,3,Lx,Ly,Lz,Lt]`；时空维永远是最后 4 轴（`...xyzt`），ward 索引用负整数（`wards['x']=-4`）。HDF5 内部用 `zyxt` 序，经 `ccdxyzt2ccdptzyx`/`scxyzt2psctzyx` 转换。
 - **日志约定**：`PYQCU::MODULE::SUBMODULE:\n message`，由 verbose 标志控制。
-- **测试**：测试函数在 `pyqcu/testing/__init__.py`，`examples/*/conftest.py` 手动取消注释要运行的测试。
+- **测试**：测试函数在 `pyqcu/testing/__init__.py`，`pyqcu/testing/*/conftest.py` 手动取消注释要运行的测试。
 - **多线程多卡（一线程一卡）**：`pyqcu/cuda/_multi_gpu.py`（`MultiGpuMultigrid`）单进程内 N 线程 × 卡绑定并行；每线程独立 `params/argv/set_ptrs` 副本（`_SET_INDEX_` 各自从 0 计数）。Cython 桥（`qcu.pyx`）全部函数在 GIL 段取指针、`with nogil` 调 C++（真并行）；pxd 的 cdef extern 声明必须带 `nogil` 关键字，且 pxd 声明名不得与 pyx 内 def 同名（用 `qcu_api.pxd` 别名 cimport）。MultiGpuMultigrid 要求单 MPI rank（C++ LatticeSet 用 COMM_WORLD rank 覆盖 `_NODE_RANK_`）。
 - **求解器停机语义（dev87 起）**：`applyCloverMultigridQcu` 主循环停机为相对判据 rn²<atol²·‖b__o‖²，且单 rank 每 50 迭代做周期真残差刷新（reliable-update，防 fp32 递推漂移）；多 rank 刷新未启用。
 - **Strict Hopper overlap（2026-09-27）**：分布式 complex64 Strict-MG 默认用非阻塞 vector halo 与 local/remote 分区计算；`PYQCU_MPI_OVERLAP=0` 回退原路径。该路径改变 remote-forward 浮点累加顺序，complex128 默认关闭；仅显式 `PYQCU_STRICT_OVERLAP_C128=1` 才启用，且必须以大格真残差/迭代回归为门槛。
 - **HDF5 持久化（h5py）**：所有保存/读取走 h5py；`pyqcu/tools/_io.py` 的 `save_tensor_h5`/`load_tensor_h5`（每调用独立 File 句柄，多线程安全）+ MPI mpio 路径（`gridoooxyzt2hdf5oooxyzt`）。null-vector/粗网格算子缓存 `.h5`（单句柄一次写全部 dataset，勿逐 dataset 覆盖重建）。
-- **分布式 benchmark 输入**：`examples/qcu/dev87/bench_strict_vs_quda.py::_load_h5_local_array` 在多 rank 下用 h5py mpio 读取 rank slab（gauge/source 为 checkerboard-compressed 尾部轴，null 为 full \(x,y,z,t\)）；不要退回每 rank 全量读取。trace-on 与 trace-off 的 Strict runtime cache identity 相同，formal 编排优先让 trace-on 复用 trace-off cache；显式 `--cache-expect hit` 时 cold 与 warm/steady phase 也应允许同一 cache。
+- **分布式 benchmark 输入**：`pyqcu/testing/qcu/strict/quda_comparison/bench_strict_vs_quda.py::_load_h5_local_array` 在多 rank 下用 h5py mpio 读取 rank slab（gauge/source 为 checkerboard-compressed 尾部轴，null 为 full \(x,y,z,t\)）；不要退回每 rank 全量读取。trace-on 与 trace-off 的 Strict runtime cache identity 相同，formal 编排优先让 trace-on 复用 trace-off cache；显式 `--cache-expect hit` 时 cold 与 warm/steady phase 也应允许同一 cache。
 
 ## 目录结构
 
@@ -37,11 +47,12 @@ PyQCU：Lattice QCD 的 Python/Cython 库 —— CUDA 加速的 Wilson/Clover Di
 | `pyqcu/` | 纯 Python 实现：`lattice/`（gamma/Gell-Mann 矩阵、SU(3)、源场构造 point/wall/volume/Z2/momentum `_source.py`）、`dslash/`（Wilson/Clover 算子）、`solver/`（BiStabCG + `bistabcg_history` 残差历史、FGMRES `_gmres.py`（DDalphaAMG-SM 移植，右预条件）、MR `_mr.py`（quda 思想平滑器）、多质量 CG `_multishift_cg.py`、CA-CG `_cacg.py`、thick-restart Lanczos `_lanczos.py` 特征底座、multigrid）、`smear/`（stout + Wuppertal 高斯 `_wuppertal.py`）、`tools/`（MPI 网格、HDF5 I/O 含 dict 级 `save_dict_h5`/`load_dict_h5`、env 快照 `_env.py`、预算模型 `_budget.py`、linalg、multigrid 工具含 33-tensor stencil build、批量 BiCGStab `_bistabcg_batch`、TileLang JIT）、`testing/`（集成测试含 `verify_nullvecs` null 向量质量诊断）、`cuda/`（Cython 桥 + `_schur_op.py` 多线程 Schur 算子 + `_multi_gpu.py` 多线程多卡 MG 驱动 + `_logs.py` 后端日志解析，`build_schur_levels` 批量构建 `batch_build`）、`cann/dtk/maca`（NPU 兼容层与占位） |
 | `cpp/cuda/qcu/` | C++ CUDA 后端：`src/`（.cu 内核）、`include/`（26 个模板头）、`python/pyqcu.h`（C API，须与 qcu.pxd 同步）、`logs/` |
 | `cpp/{cann,dtk,maca}/qcu/` | 占位 PASS，无实现 |
-| `examples/` | 测试入口：`pyqcu/`（主套件）、`qcu/`（C++ 后端；dev 套件归档于 `qcu/dev73/`、`qcu/dev74/`，产物写 `logs/dev73/`、`logs/dev74/`）、`cpu/npu/dcu/gpu/tilelang/profiler/benchmark/`、`data/`（参考 HDF5） |
-| `skills/` | 项目技能库（39 个技能目录：SKILL.md + 简短 AGENTS.md，目录级领域知识文档；索引与技能表见 `skills/AGENTS.md`；2026-08-25 自 `.opencode/skills` 迁出，源目录已删除，需 opencode 加载时从本库同步） |
-| `docs/` | dims.md、env.md、install.md、examples.md、profiler.md |
+| `pyqcu/testing/` | 统一测试入口：`pyqcu/`（纯 Python 主套件）、`qcu/`（C++ 后端，按 multigrid legacy/scaling/benchmark 与 strict 分类）、`quda/`（QUDA 对照）、`pyquda/`（PyQUDA 对照）、`cpu/npu/dcu/gpu/tilelang/profiler/benchmark/`、`data/`（参考 HDF5） |
+| `skills/` | 项目技能库（35 个技能目录：SKILL.md + 简短 AGENTS.md，目录级领域知识文档；索引与技能表见 `skills/AGENTS.md`；2026-08-25 自 `.opencode/skills` 迁出，源目录已删除，需 opencode 加载时从本库同步） |
+| `docs/` | 正式独立文档与指南（`.pdf`/`.tex`/`.md`）：`dims.md`、`env.md`、`install.md`、`examples.md`、`profiler.md`、`ORGANIZATION.md`；从 `data/**` 提升的文档位于 `docs/data/` |
 | `refer/` | 开发历史报告（dev71.*） |
-| `logs/` | 按 tag 归档：`dev<N>/`、`stab<N>/`、`bug<N>/` 子目录（如 `dev73/`、`dev73/stab24/`、`dev74/`、`bug30/`、`dev76/`、`dev78/`、`dev78_1/`、`dev78_2/`、`dev84/`；`logs/<tag>/**` 在 .gitignore 全豁免入库），根目录留 `fix-report-*.md`、`debug/`、`results/` 与共享缓存 `nullvec_cache/`；测试套件 `test11/`（历史版）、`test12/`（单线程版）、`test13/`（多线程版）、`test14/`（多线程版+粗算子构建加速）、`dev78_2/`（多线程 MultiGrid 残差图）、`session-2026-08-24/`（bug31–37 无人值守会话验证资产：8 脚本+README，覆盖基线/求解器族/MPI/Wuppertal/stencil/Galerkin/等价性）与 `examples/qcu/dev84/`（16×32×32×48 MultiGrid 加速比攻坚，报告 dev84_report.md）、`dev87/`（与 quda/PyQUDA 对照单测工作区：对照矩阵 G1-G10、双侧运行器、算子约定锚定——两库 Wilson/Clover 仅差归一化 m+4=1/(2κ)，报告 dev87_report.md；一键回归闸门 run_all.py --with-quda） |
+| `logs/` | 运行记录（JSON/LOG/TSV/TXT）和按 tag 组织的日志包：`dev<N>/`、`stab<N>/`、`bug<N>/` 等；`logs/data/` 汇总从 `data/**` 提升出的运行摘要；报告实体在 `logs/`，张量/cache 实体在 `data/logs/`。历史重复代码与一次性构建垃圾直接删除 |
+| `data/` | 数据、安装与构建产物（`.h5`、`.so`、`.dat`、`.csv`、`.svg` 等）；`data/docs/` 保存非文档 Office 文件，`data/logs/` 保存从 `logs/**` 提升的张量/cache；`quda-*`、`venv-*`、`p100-*` 作为自包含构建/安装树整体保留 |
 
 ## 已知反模式（勿重复）
 

@@ -105,7 +105,7 @@ recursive MultiGrid 未启用 double precision，因此 c128 只报告 PyQCU 侧
 三层显著快于 QUDA &
 $0.653995$ s vs. $2.865627$ s，$4.3817\times$ &
 确证 &
-\pathref{data/strict_vs_quda_formal_3l_20260916_final.json} \\
+\pathref{logs/data/strict_vs_quda_formal_3l_20260916_final.json} \\
 最细层迭代口径已澄清 &
 PyQCU 为 FGMRES 外层 $14$；QUDA 为 GCR 外层 $37$ &
 确证 &
@@ -117,7 +117,7 @@ PyQCU 为 FGMRES 外层 $14$；QUDA 为 GCR 外层 $37$ &
 c128 QUDA 对照 &
 QUDA 1.1.0 未启用 double MG，故只报告 PyQCU 侧 &
 未验证（跨库） &
-\pathref{data/mg_matrix_20260916/small-c128-l3/benchmark.json} \\
+\pathref{logs/data/mg_matrix_20260916/small-c128-l3/benchmark.json} \\
 \bottomrule
 \end{tabularx}
 \end{table}
@@ -439,15 +439,15 @@ $0.6545$ s。这符合多重网格的基本量纲：增加正确粗层会降低�
         \code{propagate\_null\_vectors}：后续 transition 的 $V$ 由上一层
         $R$ 作用到同一组 canonical basis，匹配 QUDA
         \code{generate\_all\_levels=false} 的粗基传播策略；专门测试见
-        \pathref{examples/pyqcu/test_quda_multigrid.py}。
-  \item \pathref{examples/qcu/dev87/bench_strict_vs_quda.py} 扩展
+        \pathref{pyqcu/testing/python/test_quda_multigrid.py}。
+  \item \pathref{pyqcu/testing/qcu/strict/quda_comparison/bench_strict_vs_quda.py} 扩展
         \code{--lattice/--levels/--block/--gauge-path/--nullvec-path}，
         并支持三层 runtime cache。
   \item QUDA worker 仅为 transition 0 注入 QIO；后续层设置
         \code{num\_setup\_iter=0} 与 \code{generate\_all\_levels=false}，
         防止 QUDA 暗自生成另一套粗向量。
-  \item \pathref{examples/qcu/dev87/bench_mg_matrix.py} 提供可复现矩阵；
-        \pathref{examples/qcu/dev87/summarize_mg_trace.py} 聚合分层阶段与残差。
+  \item \pathref{pyqcu/testing/qcu/strict/quda_comparison/bench_mg_matrix.py} 提供可复现矩阵；
+        \pathref{pyqcu/testing/qcu/strict/quda_comparison/summarize_mg_trace.py} 聚合分层阶段与残差。
 \end{itemize}
 
 \section{多卡、精度与边界}
@@ -502,36 +502,36 @@ double MG 时，MMA double 模板不完整，故最终恢复为可复现的单�
 
 \begin{verbatim}
 source ./env.sh
-source examples/qcu/dev87/quda_env.sh
+source pyqcu/testing/qcu/strict/quda_comparison/quda_env.sh
 
-python -B examples/qcu/dev87/bench_strict_vs_quda.py \
+python -B pyqcu/testing/qcu/strict/quda_comparison/bench_strict_vs_quda.py \
   --profile formal --levels 3 --repeats 5 --cache-expect hit \
   --side both --lattice 16 32 32 48 --precision c64 \
   --gauge-path data/gauge_16x32x32x48_m0.05_seed42_c64.h5 \
   --nullvec-path data/L16x32x32x48_nvec12_full_c64.h5 \
   --quda-nullvec-prefix data/L16x32x32x48_nvec12_quda \
-  --quda-nullvec-manifest data/L16x32x32x48_nvec12_quda.conversion.json \
-  --output data/strict_vs_quda_formal_3l_20260916_final.json
+  --quda-nullvec-manifest logs/data/L16x32x32x48_nvec12_quda.conversion.json \
+  --output logs/data/strict_vs_quda_formal_3l_20260916_final.json
 
 QUDA_MG_TRACE_FILE=/tmp/quda_mg.tsv \
 PYQCU_STRICT_TRACE_FILE=/tmp/pyqcu_mg.tsv \
-python examples/qcu/dev87/bench_strict_vs_quda.py ...
+python pyqcu/testing/qcu/strict/quda_comparison/bench_strict_vs_quda.py ...
 \end{verbatim}
 
 \begin{longtable}{@{}L{0.28\textwidth}L{0.66\textwidth}@{}}
 \caption{报告证据文件}\label{tab:evidence}\\
 \toprule 文件 & 内容\\\midrule
-\pathref{data/strict_vs_quda_formal_3l_20260916_final.json} &
+\pathref{logs/data/strict_vs_quda_formal_3l_20260916_final.json} &
 正式三层 PyQCU/QUDA 五次 steady、真残差、内存和 provenance。\\
-\pathref{data/mg_small_trace_20260916_r2.json.gz} &
+\pathref{logs/data/mg_small_trace_20260916_r2.json.gz} &
 小型三层逐外层、逐层 stage 与 residual trace。\\
-\pathref{data/mg_small_trace_summary_20260916_r2.json} &
+\pathref{logs/data/mg_small_trace_summary_20260916_r2.json} &
 trace 聚合稳定值与 CSV 来源。\\
-\pathref{data/mg_matrix_20260916/matrix_smoke.json} &
+\pathref{logs/data/mg_matrix_20260916/matrix_smoke.json} &
 小/中型 c64 二、三层快速矩阵。\\
-\pathref{data/mg_matrix_20260916/small-c128-l3/benchmark.json} &
+\pathref{logs/data/mg_matrix_20260916/small-c128-l3/benchmark.json} &
 PyQCU c128 收敛与 QUDA 不可用限制。\\
-\pathref{data/multigpu_20260916.json} &
+\pathref{logs/data/multigpu_20260916.json} &
 单 P100/双 P100 独立问题吞吐与一致性。\\
 \bottomrule
 \end{longtable}

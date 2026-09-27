@@ -199,7 +199,7 @@ def load_tensor_h5(file_name: str, dataset: str = 'data', device: torch.device =
 # ----------------------------------------------------------------------
 # dict ↔ HDF5（嵌套结果字典持久化）
 # 整合自 logs/dev78_2/main.py::save_dict_h5/load_dict_h5
-# （examples/qcu/test15_5/main.py::_save_dict_h5 等 9 份拷贝的收敛实现）。
+# （pyqcu/testing/qcu/multigrid/volume24/final/main.py::_save_dict_h5 等 9 份拷贝的收敛实现）。
 # 单句柄一次写全部内容（tmp + os.replace 原子替换），多线程安全。
 # ----------------------------------------------------------------------
 

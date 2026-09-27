@@ -148,7 +148,7 @@ $$
 
 第二条不是说 $D_W$ 本身 Hermitian，而是说明可构造 Hermitian 算子 $H_W=\gamma_5D_W$，也解释了为什么不同 solver 对 dagger、左右预条件和真残差的要求不同。
 
-**仓库映射（实现）**：`pyqcu/dslash/_wilson.py`、`pyqcu/dslash/_operator.py`，以及 `cpp/cuda/qcu/include/wilson_dslash.h`、`lattice_wilson_dslash.h`。调用行为可由 `examples/qcu` 和 `examples/pyquda` 中的 Wilson dslash 测试对照。
+**仓库映射（实现）**：`pyqcu/dslash/_wilson.py`、`pyqcu/dslash/_operator.py`，以及 `cpp/cuda/qcu/include/wilson_dslash.h`、`lattice_wilson_dslash.h`。调用行为可由 `pyqcu/testing/qcu` 和 `pyqcu/testing/pyquda` 中的 Wilson dslash 测试对照。
 
 ### 2.3 Clover 改进
 
