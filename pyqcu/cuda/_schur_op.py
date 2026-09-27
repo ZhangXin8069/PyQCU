@@ -5,7 +5,7 @@ Schur 奇偶算子  S = A_oo - k^2 * D_oe * A_ee^-1 * D_eo，
 与 Python 端 dslash.operator.matvec_parity 等价
 （实测 8x8x8x16 c64 相对误差 ~1e-7，单次调用快 ~10x）。
 
-接口约定（经 mg_dev74_layout_test 实测确定）：
+接口约定（经 pyqcu/testing/qcu/multigrid/scaling/layout_test.py 实测确定）：
   * 输入/输出均为 [12, X, Y, Z, T/2]（spin×color 展平、奇子格）连续张量
   * 依赖 applyInitQcu(plan=1) 初始化的 LatticeSet（scratch: device_vec0/1/2 等）
 

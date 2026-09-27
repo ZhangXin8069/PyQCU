@@ -1,12 +1,12 @@
 ---
 name: pyquda
-description: examples/pyquda 目录的完整生成 skill：PyQCU 与 PyQuda-0.3.2（QUDA 1.1.0）双进程隔离对比套件——Wilson/Clover dslash、BiCGStab/CG 求解的结果与性能对比（残差/逐迭代残差/耗时/作图），含维度排布转换（pyqcu 切 t vs pyquda 切 x）与归一化锚定（m+4=1/(2κ)）。
+description: pyqcu/testing/pyquda 目录的完整生成 skill：PyQCU 与 PyQuda-0.3.2（QUDA 1.1.0）双进程隔离对比套件——Wilson/Clover dslash、BiCGStab/CG 求解的结果与性能对比（残差/逐迭代残差/耗时/作图），含维度排布转换（pyqcu 切 t vs pyquda 切 x）与归一化锚定（m+4=1/(2κ)）。
 ---
-# CLAUDE.md — examples/pyquda
+# CLAUDE.md — pyqcu/testing/pyquda
 
 PyQCU（纯 Python 后端）与 PyQuda-0.3.2（QUDA 1.1.0）的结果/性能对比套件。
 双进程隔离（dev87 F2：libqcu.so 与 libquda.so 同进程加载会 cudart 上下文冲突），
-经 h5 交换数据（数据优先 `examples/data/pyquda_cmp/<lat>/`，h5py 读写）。
+经 h5 交换数据（数据优先 `pyqcu/testing/data/pyquda_cmp/<lat>/`，h5py 读写）。
 
 ## 数据维度排布（2026-08-28 以实际代码实测核对）
 
@@ -34,9 +34,9 @@ PyQCU（纯 Python 后端）与 PyQuda-0.3.2（QUDA 1.1.0）的结果/性能对�
 
 ## 文件清单
 
-`examples/quda/test_gauss_gauge.py`、`test_wilson_dslash.py`、`test_clover_dslash.py`、
+`pyqcu/testing/quda/test_gauss_gauge.py`、`test_wilson_dslash.py`、`test_clover_dslash.py`、
 `test_wilson_bistabcg.py`、`test_wilson_multigrid.py`、`test_clover_bistabcg.py`、
-`test_clover_multigrid.py` 是单功能回归入口；公共 `examples/quda/common.py` 提供 QDP 与 PyQCU
+`test_clover_multigrid.py` 是单功能回归入口；公共 `pyqcu/testing/quda/common.py` 提供 QDP 与 PyQCU
 的显式 gauge/fermion 往返转换和确定性纯 PyTorch 参考。无 pyquda/CUDA 时测试仍保留参考断言并
 报告可解释的 skip 状态。
 

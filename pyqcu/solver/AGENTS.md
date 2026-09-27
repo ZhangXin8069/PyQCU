@@ -28,7 +28,7 @@ Dirac 方程 D ψ = η 的迭代求解器。
 ### `bistabcg_history(b, matvec, tol=1e-6, max_iter=2000, if_rtol=False) -> List[float]`
 
 零初始解复现 BiCGStab 逐迭代残差历史 `[||r0||, ||r1||, ...]`（整合自 logs/dev78_2 与
-examples/qcu/dev73 的同名函数）。用途：C++ 求解路径只输出收敛点，用同一 matvec 在
+pyqcu/testing/qcu/multigrid/legacy 的同名函数）。用途：C++ 求解路径只输出收敛点，用同一 matvec 在
 torch 上数学等价复现参考收敛曲线（零 C++ 改动）。breakdown 时返回已收集部分并打印
 提示（不抛异常，画图友好）。
 

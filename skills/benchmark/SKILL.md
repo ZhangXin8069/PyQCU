@@ -1,8 +1,8 @@
 ---
 name: benchmark
-description: PyQCU 性能基准 skill：覆盖 examples/benchmark 的通用基准，以及 dev87 strict MultiGrid 对 QUDA 的可复现公平计时与显存口径。
+description: PyQCU 性能基准 skill：覆盖 pyqcu/testing/benchmark 的通用基准，以及 dev87 strict MultiGrid 对 QUDA 的可复现公平计时与显存口径。
 ---
-# examples/benchmark
+# pyqcu/testing/benchmark
 
 Performance benchmarks comparing PyTorch, TileLang, and C++ CUDA backend implementations.
 
@@ -16,7 +16,7 @@ Performance benchmarks comparing PyTorch, TileLang, and C++ CUDA backend impleme
 ## Usage
 
 ```bash
-python examples/benchmark/conftest.py
+python pyqcu/testing/benchmark/conftest.py
 ```
 
 2026-08-24：conftest.py 收集期笔误已修（bug37，pytest 正常收集 exit=0，见
@@ -41,7 +41,7 @@ allocate a large gauge before the cheap gate passes.
 
 ## Strict MultiGrid vs QUDA
 
-Use `examples/qcu/dev87/bench_strict_vs_quda.py` directly, or through
+Use `pyqcu/testing/qcu/strict/quda_comparison/bench_strict_vs_quda.py` directly, or through
 `run_strict_fast.py --tier 2`, for formal timing. The direct collector is the
 authoritative protocol implementation; tier 2 is the same formal gate with
 runner-level timeout/JSON handling, not a cheap substitute. The PyQCU side must
@@ -59,7 +59,7 @@ full Wilson/Clover relative true-residual gate before a speedup is emitted.
 
 The QUDA side requires QIO null vectors converted from that same canonical full dataset plus a manifest whose QIO artifact hashes match. The formal gamma basis is `QUDA_DEGRAND_ROSSI_GAMMA_BASIS`. The fairness gate hashes the canonical full dataset and compares it with `canonical_dataset_sha256`; `source_sha256` records only the original E12 odd-Schur provenance and must never be compared with the full dataset digest. QIO round-trip verification compares the staging and read-back files with a bounded two-file 8 MiB streaming scan, rather than mapping both complete assets. Missing QIO evidence must produce an explicit skip; native random QUDA null vectors are not a fair substitute. Keep Gauge/Clover normalization, mass/κ, RHS, precision, topology, level/block geometry, `coarse_spin=2`, smoother/coarse budgets and stopping criterion aligned, and retain config/input hashes in every side record.
 
-Before formal timing, persist two cheap single-rank gates: the `4^4` reduction smoke (`examples/qcu/dev87/smoke_quda_reduction.py`) and an `8^4` Nc24 setup-only probe with `n_vec=12` and `coarse_spin=2`. Formal collection is blocked until both pass. A smoke is `PASS` only when post-setup resolved/read-back parameters and observed capabilities satisfy the gate; requested CLI values are metadata, not evidence. Record each gate's status and requested-versus-resolved values, without embedding transient build digests in this skill.
+Before formal timing, persist two cheap single-rank gates: the `4^4` reduction smoke (`pyqcu/testing/qcu/strict/quda_comparison/smoke_quda_reduction.py`) and an `8^4` Nc24 setup-only probe with `n_vec=12` and `coarse_spin=2`. Formal collection is blocked until both pass. A smoke is `PASS` only when post-setup resolved/read-back parameters and observed capabilities satisfy the gate; requested CLI values are metadata, not evidence. Record each gate's status and requested-versus-resolved values, without embedding transient build digests in this skill.
 
 `QUDA_MULTIGRID_NVEC_LIST` is a comma-separated compile-time instantiation set. For the formal `n_vec=12`, `coarse_spin=2` path, configure `12,24`: `12` is needed by `BlockOrthogonalize` (`B.size`), while `24 = n_vec × coarse_spin` is the coarse color/coarse-operator instance. A list containing only `12` or only `24` ends in `MPI_ABORT`. After setup, read back and record the effective `n_vec`, `coarse_spin`, coarse color, and build-instance configuration; fail closed on missing or mismatched values.
 
@@ -75,14 +75,14 @@ Runtime-cache records use schema v2 with a streaming SHA256 for every logical te
 
 PyQCU cache experiments must set both `--strict-cache-dir` and `--cache-expect {miss,hit}` explicitly, with the cache directory kept inside the repository. Use the smoke profile plus `miss` for cold-cache generation and the formal profile plus `hit` for a measured cache-hit run; a mismatch must fail before heavy imports or device allocation. Reserve `any`, reduced repeats and relaxed tolerances for smoke runs. A smoke document must never emit a formal speedup.
 
-On WSL2, patch only an independent QUDA source shadow with `examples/qcu/dev87/quda_wsl2_reduce_sync.patch`; do not modify `refer/git-rep/quda`. Set `DEV87_REDUCE_SYNC=1` and put the patched install's `lib` first in `LD_LIBRARY_PATH`. Qualify the selected install dynamically on every production smoke: record the actual `libquda.so` and `libqmp.so` paths and SHA256 values, verify the WSL2 marker/path precedence, and require `BUILD_QDP_INTERFACE`, `HAVE_QIO`, `QMP_COMMS`, `QUDA_RECONSTRUCT=7`, plus a `QUDA_PRECISION` bitmask containing the requested precision. For 12 fine near-null vectors with `coarse_spin=2`, `QUDA_MULTIGRID_NVEC_LIST` must contain both `12` and `24`; compiling only either value aborts in the multigrid setup path. Do not hard-code a production digest in this skill or a synthetic fixture; every changed build needs a fresh reduction smoke. Patched WSL2 timing is environment-scoped evidence, not a portable upstream-QUDA claim.
+On WSL2, patch only an independent QUDA source shadow with `pyqcu/testing/qcu/strict/quda_comparison/quda_wsl2_reduce_sync.patch`; do not modify `refer/git-rep/quda`. Set `DEV87_REDUCE_SYNC=1` and put the patched install's `lib` first in `LD_LIBRARY_PATH`. Qualify the selected install dynamically on every production smoke: record the actual `libquda.so` and `libqmp.so` paths and SHA256 values, verify the WSL2 marker/path precedence, and require `BUILD_QDP_INTERFACE`, `HAVE_QIO`, `QMP_COMMS`, `QUDA_RECONSTRUCT=7`, plus a `QUDA_PRECISION` bitmask containing the requested precision. For 12 fine near-null vectors with `coarse_spin=2`, `QUDA_MULTIGRID_NVEC_LIST` must contain both `12` and `24`; compiling only either value aborts in the multigrid setup path. Do not hard-code a production digest in this skill or a synthetic fixture; every changed build needs a fresh reduction smoke. Patched WSL2 timing is environment-scoped evidence, not a portable upstream-QUDA claim.
 
 Run and merge sides without rerunning a successful compatible record:
 
 ```bash
-python examples/qcu/dev87/bench_strict_vs_quda.py --profile formal --side pyqcu --strict-cache-dir /root/PyQCU/data/strict_runtime_cache --cache-expect hit --output pyqcu.json
-python examples/qcu/dev87/bench_strict_vs_quda.py --profile formal --side quda --quda-nullvec-prefix PREFIX --quda-nullvec-manifest MANIFEST --output quda.json
-python examples/qcu/dev87/bench_strict_vs_quda.py --merge pyqcu.json quda.json --output combined.json
+python pyqcu/testing/qcu/strict/quda_comparison/bench_strict_vs_quda.py --profile formal --side pyqcu --strict-cache-dir /root/PyQCU/data/strict_runtime_cache --cache-expect hit --output pyqcu.json
+python pyqcu/testing/qcu/strict/quda_comparison/bench_strict_vs_quda.py --profile formal --side quda --quda-nullvec-prefix PREFIX --quda-nullvec-manifest MANIFEST --output quda.json
+python pyqcu/testing/qcu/strict/quda_comparison/bench_strict_vs_quda.py --merge pyqcu.json quda.json --output combined.json
 ```
 
 Only a merged document with matching config/input hashes, both side statuses `ok`, passing true residuals, and `comparison.fair=true` may report `speedup_pyqcu_over_quda = median(QUDA)/median(PyQCU)`. Do not claim PyQCU is faster until repeated fair runs show a stable value above one; distinguish patched or unhealthy QUDA environments from portable results.
@@ -105,7 +105,7 @@ QUDA_MG_TRACE_FILE=/path/quda.tsv
 ```
 
 PyQCU trace version 2 adds residual events; QUDA emits cycle/stage/residual
-events.  `examples/qcu/dev87/summarize_mg_trace.py` aggregates both.
+events.  `pyqcu/testing/qcu/strict/quda_comparison/summarize_mg_trace.py` aggregates both.
 Trace-enabled wall times are diagnostic only; the no-trace formal result is
 the speedup authority.
 
@@ -114,7 +114,7 @@ the speedup authority.
 旧 c64 三层 `4.3817x` 结果撤回。它使用 QUDA 原生 CA-GCR/多内层预算，
 而 PyQCU 使用一次递归 V-cycle；sm70 native 复测后同格点主口径为
 `2.0052x` (`0.655570` s vs. `1.314577` s)，前一次为 `1.9898x`，见
-`data/mg_matrix_20260916_round2/formal-c64-l3/benchmark.json`。当前主口径
+`logs/data/mg_matrix_20260916_round2/formal-c64-l3/benchmark.json`。当前主口径
 `--quda-strategy aligned` 明确匹配一次递归预算：MR smoother、
 `smoother_tol=0`、非最粗层 `coarse_solver_maxiter=1`。`--quda-strategy
 library` 保留 PyQUDA/QUDA 原生 CA-GCR、`nu_post=8`、`coarse_solver_maxiter=16`
@@ -215,7 +215,7 @@ trace-on 数值只用于分层归因，绝不能再用于正式 speedup。
 约有 1.6x 观测开销。首次 solve 的 coarse V-cycle 约 2.146 s（占
 outer 约 63.6%），最粗层 BiCGStab 约 0.297 s；该 trace 无同尺度
 QUDA 对照，不能单独归因优势来源。原始 TSV 为
-`data/mg_matrix_20260916_round2/formal-c128-l3/pyqcu-formal-trace.tsv`。
+`logs/data/mg_matrix_20260916_round2/formal-c128-l3/pyqcu-formal-trace.tsv`。
 trace 的 `solve_end` 次数与正式 `iterations.median` 一致为 20，层号
 固定 fine 0/coarse 1/coarsest 2；若看到 20/60 差异，应归因于外层
 Krylov 策略，而不能解释成 parity 层计数错位。
@@ -273,9 +273,9 @@ dtype/device 参考不得再读取可能已下放的 `transfer.V`。正式恢复
 
 ```bash
 source ./env.sh
-source examples/qcu/dev87/quda_env.sh
+source pyqcu/testing/qcu/strict/quda_comparison/quda_env.sh
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
-python examples/qcu/dev87/bench_mg_matrix_full.py \
+python pyqcu/testing/qcu/strict/quda_comparison/bench_mg_matrix_full.py \
   --execute --resume --timeout 7800 \
   --output-dir data/mg_matrix_full_v100_c128 \
   --cache-root data/strict_cache_matrix/matrix-v100-c128 \
@@ -327,15 +327,15 @@ complex128 需要 `PYQCU_STRICT_OVERLAP_C128=1` 才显式启用。大格 c128
 快速回归：
 
 ```bash
-source examples/qcu/dev87/p100_env.sh
+source pyqcu/testing/qcu/strict/quda_comparison/p100_env.sh
 PYQCU_MPI_OVERLAP=0 mpirun --allow-run-as-root --oversubscribe -np 2 \
-  python -B examples/qcu/dev87/strict_mpi_solve_probe.py \
+  python -B pyqcu/testing/qcu/strict/quda_comparison/strict_mpi_solve_probe.py \
   --shape 8 8 8 16 --grid 2 1 1 1 --restart 20 --max-iter 200 \
   --dtype c64 --galerkin-mode colored
 PYQCU_MPI_OVERLAP=1 mpirun --allow-run-as-root --oversubscribe -np 2 \
-  python -B examples/qcu/dev87/strict_mpi_solve_probe.py \
+  python -B pyqcu/testing/qcu/strict/quda_comparison/strict_mpi_solve_probe.py \
   --shape 8 8 8 16 --grid 2 1 1 1 --restart 20 --max-iter 200 \
   --dtype c64 --galerkin-mode colored
-python -B examples/qcu/dev87/validate_matrix_trace_evidence.py \
+python -B pyqcu/testing/qcu/strict/quda_comparison/validate_matrix_trace_evidence.py \
   data/mg_matrix_overlap_20260927_p100/units/*.json
 ```

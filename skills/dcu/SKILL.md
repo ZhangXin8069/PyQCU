@@ -1,8 +1,8 @@
 ---
 name: dcu
-description: examples/dcu 目录的完整生成 skill：AMD DCU / ROCm (HIP) 测试。
+description: pyqcu/testing/dcu 目录的完整生成 skill：AMD DCU / ROCm (HIP) 测试。
 ---
-# CLAUDE.md — examples/dcu
+# CLAUDE.md — pyqcu/testing/dcu
 
 AMD DCU / ROCm (HIP) tests.
 
@@ -17,5 +17,5 @@ AMD DCU / ROCm (HIP) tests.
 ## Usage
 
 ```bash
-python examples/dcu/conftest.py
+python pyqcu/testing/dcu/conftest.py
 ```

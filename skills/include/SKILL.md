@@ -50,7 +50,7 @@ Headers correspond to `.cu` source files in `../src/` that `#include` them and i
 - `define.h` 同步项：`_MG_USE_DEFLATE_` / `_MG_MU_PRE_` /
   `_MG_USE_INIT_GUESS_` / `_PARAMS_SIZE_=58`
 
-实测收益（V100，`examples/qcu/dev84/dev84_report.md`）：粗解向量开销 3246→4ms（~800×）、
+实测收益（V100，`pyqcu/testing/qcu/multigrid/benchmarks/large_volume/report.md`）：粗解向量开销 3246→4ms（~800×）、
 V-cycle 156→60ms（2.6×）。
 
 Strict 专用 CUDA kernel 位于 `../src/apply_multigrid_strict.cu`，不是一个额外

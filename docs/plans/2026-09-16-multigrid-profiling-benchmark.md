@@ -23,7 +23,7 @@
 - 修改: `refer/git-rep/quda/lib/inv_gcr_quda.cpp`
 - 同步构建源: `data/quda-qio-build/source-shadow/lib/multigrid.cpp`
 - 同步构建源: `data/quda-qio-build/source-shadow/lib/inv_gcr_quda.cpp`
-- 测试: `examples/qcu/dev87/test_bench_strict_protocol.py`
+- 测试: `pyqcu/testing/qcu/strict/quda_comparison/test_bench_strict_protocol.py`
 
 **接口:**
 - 消费: `QUDA_MG_TRACE_FILE` 环境变量；未设置时全部埋点关闭。
@@ -32,7 +32,7 @@
 - [ ] **Step 1: 写协议失败测试**
       在 `test_bench_strict_protocol.py` 增加 QUDA MG trace 解析器夹具，覆盖 0/1/2 层号、stage、residual 与外层 iteration 重排。
 - [ ] **Step 2: 运行确认失败**
-      运行: `python -B -m pytest -q -p no:cacheprovider examples/qcu/dev87/test_bench_strict_protocol.py`
+      运行: `python -B -m pytest -q -p no:cacheprovider pyqcu/testing/qcu/strict/quda_comparison/test_bench_strict_protocol.py`
       预期: 新增测试因解析器不存在而 FAIL。
 - [ ] **Step 3: 最小实现**
       在 `multigrid.cpp` 的 `MG::operator()` 内加入仅 trace 开启时执行的真实残差和阶段计时；在 `inv_gcr_quda.cpp` 记录 outer iteration、iterated residual、true residual。
@@ -45,8 +45,8 @@
 
 **文件:**
 - 修改: `cpp/cuda/qcu/src/apply_multigrid_strict.cu`
-- 修改: `examples/qcu/dev87/trace_strict_vs_quda.py`
-- 修改: `examples/qcu/dev87/analyze_strict_vs_quda_detailed.py`
+- 修改: `pyqcu/testing/qcu/strict/quda_comparison/trace_strict_vs_quda.py`
+- 修改: `pyqcu/testing/qcu/strict/quda_comparison/analyze_strict_vs_quda_detailed.py`
 
 **接口:**
 - 消费: `PYQCU_STRICT_TRACE_FILE`。
@@ -55,7 +55,7 @@
 - [ ] **Step 1: 扩展解析器测试**
       构造含残差事件的临时 trace，断言解析后每层每次外层调用的阶段顺序与残差数量。
 - [ ] **Step 2: 运行确认失败**
-      运行: `python -B -m pytest -q -p no:cacheprovider examples/qcu/dev87/test_bench_strict_protocol.py`
+      运行: `python -B -m pytest -q -p no:cacheprovider pyqcu/testing/qcu/strict/quda_comparison/test_bench_strict_protocol.py`
       预期: 旧解析器不识别 `residual`，测试 FAIL。
 - [ ] **Step 3: C++ 最小实现**
       在 `StrictFgmresTrace` 增加 `residual`；仅在 `trace.enabled()` 时用现有 scratch 计算 compact/fine residual。
@@ -65,10 +65,10 @@
 ## Task 3: 公平收集器扩展
 
 **文件:**
-- 修改: `examples/qcu/dev87/bench_strict_vs_quda.py`
-- 修改: `examples/qcu/dev87/trace_strict_vs_quda.py`
+- 修改: `pyqcu/testing/qcu/strict/quda_comparison/bench_strict_vs_quda.py`
+- 修改: `pyqcu/testing/qcu/strict/quda_comparison/trace_strict_vs_quda.py`
 - 修改: `pyqcu/solver/_quda_multigrid.py`
-- 修改: `examples/qcu/dev87/test_bench_strict_protocol.py`
+- 修改: `pyqcu/testing/qcu/strict/quda_comparison/test_bench_strict_protocol.py`
 
 **接口:**
 - 消费: `--lattice XYZT`、`--levels N`、`--precision c64|c128`。
@@ -77,7 +77,7 @@
 - [ ] **Step 1: 写失败测试**
       测试 2/3 层配置、`generate_all_levels=false`、coarse V 逐层 restriction 和 trace marker 组合。
 - [ ] **Step 2: 运行确认失败**
-      运行: `python -B -m pytest -q -p no:cacheprovider examples/qcu/dev87/test_bench_strict_protocol.py`
+      运行: `python -B -m pytest -q -p no:cacheprovider pyqcu/testing/qcu/strict/quda_comparison/test_bench_strict_protocol.py`
       预期: 当前固定 `LEVELS=2` 与 cache manifest FAIL。
 - [ ] **Step 3: 最小实现**
       泛化 config/cache manifest/worker geometry；PyQCU 以 `R` 传播上层 V，QUDA 关闭逐层独立 setup；加入 QUDA trace marker。
@@ -87,8 +87,8 @@
 ## Task 4: 多层与多精度矩阵
 
 **文件:**
-- 新建: `examples/qcu/dev87/bench_mg_matrix.py`
-- 新建: `examples/qcu/dev87/test_bench_mg_matrix.py`
+- 新建: `pyqcu/testing/qcu/strict/quda_comparison/bench_mg_matrix.py`
+- 新建: `pyqcu/testing/qcu/strict/quda_comparison/test_bench_mg_matrix.py`
 - 数据: `data/` 下的 canonical null-vector、QIO、cache 和矩阵结果
 
 **接口:**

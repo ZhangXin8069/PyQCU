@@ -72,7 +72,7 @@ git 元信息：HEAD = \texttt{148da33}，标签体系 \texttt{stab<N>/dev<N>/bu
 工作目录结构（关键层级）：
 
 \begin{itemize}
-  \item 入口层：\texttt{pyqcu/}（库）、\texttt{examples/}（测试入口）、\texttt{docs/}（文档）、\texttt{logs/}（产物归档）
+  \item 入口层：\texttt{pyqcu/}（库）、\texttt{pyqcu/testing/}（测试入口）、\texttt{docs/}（文档）、\texttt{logs/}（产物归档）
   \item 核心层：\texttt{pyqcu/dslash/}、\texttt{pyqcu/solver/}、\texttt{pyqcu/smear/}、\texttt{pyqcu/tools/}
   \item 桥接层：\texttt{pyqcu/cuda/}（Cython 桥 \texttt{qcu.pyx} + 参数常量 \texttt{define.py}）
   \item 后端层：\texttt{cpp/cuda/qcu/}（26 个模板头 + 30 个 .cu + C API \texttt{pyqcu.h}）

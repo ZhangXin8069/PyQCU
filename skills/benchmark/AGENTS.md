@@ -1,6 +1,6 @@
 # benchmark
 
-PyQCU 性能基准 skill：覆盖 examples/benchmark，并规定 dev87 Strict MultiGrid
+PyQCU 性能基准 skill：覆盖 pyqcu/testing/benchmark，并规定 dev87 Strict MultiGrid
 对 QUDA 的公平输入、正确性、计时与显存证据口径。
 
 - 规范全文：`SKILL.md`（frontmatter description 为触发依据）

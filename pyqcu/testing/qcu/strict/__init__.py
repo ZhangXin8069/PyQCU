@@ -1,0 +1,1 @@
+"""Strict multigrid validation suites."""

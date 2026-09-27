@@ -84,7 +84,7 @@ qcu.applyEndQcu(set_ptrs, params)                  # 释放
 - 每线程独立 params/argv/set_ptrs 副本 + `torch.cuda.set_device(dev_id)`（CUDA current device 线程局部）。
 - 多线程多卡驱动见 `_multi_gpu.py`（`MultiGpuMultigrid`，单 MPI rank）；单算子见 `_schur_op.py`（`CudaSchurOp`）。
 
-## dev84 平台与算法结论（2026-08-22，详见 examples/qcu/dev84/dev84_report.md）
+## 大体积平台与算法结论（2026-08-22，详见 pyqcu/testing/qcu/multigrid/benchmarks/large_volume/report.md）
 
 - **WSL2 内核执行税 ~300µs/内核**（GPU 侧派发，与工作量无关）：细粒度多内核路径
   （逐迭代点积/标量更新）在本箱不可扩展。落地模式：CUDA Graph 段回放
@@ -99,7 +99,7 @@ qcu.applyEndQcu(set_ptrs, params)                  # 释放
 - **16×32×32×48 m=0.05 Schur 谱为连续中等谱**（无孤立低模簇；收敛 ~0.77/iter
   几何式）——聚合粗空间/谱收缩/块 Jacobi 均无法在该格子给出 >2 真实加速比；
   历史小格子高加速比系测量口径问题（指令 9 复证）。
-- **大体量 nullvec/stencil 构建**：`examples/qcu/dev84/main.py setup_staged`
+- **大体量 nullvec/stencil 构建**：`pyqcu/testing/qcu/multigrid/benchmarks/large_volume/main.py setup_staged`
   三阶段分进程流水线（nulls→ortho→stencil，阶段间经硬盘，指令 23 端到端实现）；
   `_probe_point_batch_local` 已加设备守卫（lonv 可驻留 CPU）。体积标度实测：
   speedup_vs_L1 随体量平坦转降（0.62@0.09× → 0.42@1.5×），大格子假设证伪。
