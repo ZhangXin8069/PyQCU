@@ -15,6 +15,9 @@ __global__ void laplacian_inside(void *device_U, void *device_src,
   int lat_z = params[_LAT_Z_];
   int lat_t = params[_LAT_T_]; // in laplacian, lat_t = 1
   int lat_xyzt = params[_LAT_XYZT_];
+  if (idx >= lat_xyzt) {
+    return;
+  }
   int move;
   move = lat_y * lat_z * lat_t;
   int x = parity / move;
@@ -167,6 +170,10 @@ __global__ void laplacian_x_send(void *device_U, void *device_src,
   int lat_z = params[_LAT_Z_];
   int lat_t = params[_LAT_T_]; // in laplacian, lat_t = 1
   int lat_xyzt = params[_LAT_XYZT_];
+  const int face_volume = lat_y * lat_z * lat_t;
+  if (parity >= face_volume) {
+    return;
+  }
   int move;
   move = lat_y * lat_z * lat_t;
   int x = parity / move;
@@ -253,6 +260,10 @@ __global__ void laplacian_x_recv(void *device_U, void *device_dest,
   int lat_z = params[_LAT_Z_];
   int lat_t = params[_LAT_T_]; // in laplacian, lat_t = 1
   int lat_xyzt = params[_LAT_XYZT_];
+  const int face_volume = lat_y * lat_z * lat_t;
+  if (parity >= face_volume) {
+    return;
+  }
   int move;
   move = lat_y * lat_z * lat_t;
   int x = parity / move;
@@ -340,6 +351,10 @@ __global__ void laplacian_y_send(void *device_U, void *device_src,
   int lat_z = params[_LAT_Z_];
   int lat_t = params[_LAT_T_]; // in laplacian, lat_t = 1
   int lat_xyzt = params[_LAT_XYZT_];
+  const int face_volume = params[_LAT_X_] * lat_z * lat_t;
+  if (parity >= face_volume) {
+    return;
+  }
   int move;
   move = lat_y * lat_z * lat_t;
   int x = parity / move;
@@ -427,6 +442,10 @@ __global__ void laplacian_y_recv(void *device_U, void *device_dest,
   int lat_z = params[_LAT_Z_];
   int lat_t = params[_LAT_T_]; // in laplacian, lat_t = 1
   int lat_xyzt = params[_LAT_XYZT_];
+  const int face_volume = params[_LAT_X_] * lat_z * lat_t;
+  if (parity >= face_volume) {
+    return;
+  }
   int move;
   move = lat_y * lat_z * lat_t;
   int x = parity / move;
@@ -515,6 +534,10 @@ __global__ void laplacian_z_send(void *device_U, void *device_src,
   int lat_z = 1;               // so let z=0 first, then z = lat_z -1
   int lat_t = params[_LAT_T_]; // in laplacian, lat_t = 1
   int lat_xyzt = params[_LAT_XYZT_];
+  const int face_volume = params[_LAT_X_] * lat_y * lat_t;
+  if (parity >= face_volume) {
+    return;
+  }
   int move;
   move = lat_y * lat_z * lat_t;
   int x = parity / move;
@@ -602,6 +625,10 @@ __global__ void laplacian_z_recv(void *device_U, void *device_dest,
   int lat_z = 1;               // so let z=0 first, then z = lat_z -1
   int lat_t = params[_LAT_T_]; // in laplacian, lat_t = 1
   int lat_xyzt = params[_LAT_XYZT_];
+  const int face_volume = params[_LAT_X_] * lat_y * lat_t;
+  if (parity >= face_volume) {
+    return;
+  }
   int move;
   move = lat_y * lat_z * lat_t;
   int x = parity / move;
@@ -681,11 +708,14 @@ template <typename T>
 __global__ void laplacian_give_complete(void *device_dest, void *device_src,
                                         void *device_params) {
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
+  int volume = static_cast<int *>(device_params)[_LAT_XYZT_];
+  if (idx >= volume) {
+    return;
+  }
   LatticeComplex<T> *dest =
       (static_cast<LatticeComplex<T> *>(device_dest) + idx);
   LatticeComplex<T> *src = (static_cast<LatticeComplex<T> *>(device_src) + idx);
-  int _ = static_cast<int *>(device_params)[_LAT_XYZT_];
-  for (int i = 0; i < _LAT_C_ * _; i += _) {
+  for (int i = 0; i < _LAT_C_ * volume; i += volume) {
     dest[i] = src[i] * 6.0 - dest[i];
   }
 }

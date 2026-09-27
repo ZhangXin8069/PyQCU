@@ -1,6 +1,6 @@
 """显存/内存/磁盘预算模型（大格子可运行性预测）。
 
-整合自 examples/qcu/dev74/mg_dev74_budget.py（主本，含物理依据）与
+整合自 pyqcu/testing/qcu/multigrid/scaling/budget.py（主本，含物理依据）与
 logs/test11/main.py::vram_model/rss_model/disk_cache_bytes/budget_table/fit_from_bench
 （16/32GB 档位分数并入 vram_gb 参数；E 已参数化，最新套件 DOF_LIST 用 E=24 时显式传入）。
 

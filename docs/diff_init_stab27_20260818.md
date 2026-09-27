@@ -12,7 +12,7 @@
     提交:   区间内 1120 个提交
     统计:   2138 个文件, +1,163,982 / -2 行
     分组:   新增(全量) / 外部镜像 refer/ 1559 文件 / 测试与产物 examples+logs 384 文件
-    主导:   refer/git-rep/(外部库镜像) 与 examples/pyqcu/*.txt(运行日志) 占增行绝大部分
+    主导:   refer/git-rep/(外部库镜像) 与 pyqcu/testing/python/*.txt(运行日志) 占增行绝大部分
     自有库: pyqcu/ 47 文件 +6847 行；cpp/ 78 文件 +16234 行（真·库代码演进）
     关注:   冲突标记 0；二进制 170；未检测重命名
 ```
@@ -75,9 +75,9 @@
 ## 边界检查（易漏项）
 
 - **冲突标记**：`git diff | grep '^<<<<<<<|^=======|^>>>>>>'` → **0**（无合并冲突残留）。
-- **调试残留**：主导增量文件为 `examples/pyqcu/log-v*.txt`（运行日志，非源码），无 `print/echo` 调试行混入库代码的确证。
+- **调试残留**：主导增量文件为 `pyqcu/testing/python/log-v*.txt`（运行日志，非源码），无 `print/echo` 调试行混入库代码的确证。
 - **未跟踪文件**：本视图为版本间 diff，不含未跟踪内容；运行日志类属已跟踪历史产物。
-- **二进制/大文件**：`git diff --numstat` 首字段为 `-` 的共 **170** 个，主要为 `refer/git-rep/` 内外部库二进制与 `examples/` 数据/`.ipynb`，非 PyQCU 可读源码。
+- **二进制/大文件**：`git diff --numstat` 首字段为 `-` 的共 **170** 个，主要为 `refer/git-rep/` 内外部库二进制与 `pyqcu/testing/` 数据/`.ipynb`，非 PyQCU 可读源码。
 - **权限位变化**：`--summary` 未报告 mode 变化。
 - **意外删除**：全量仅 **2 行删除**（`-2`），无结构性删除，属历史清理。
 - **重命名**：`git diff -M` 未将任何"删+增"合并为重命名，结构演进以新增为主。
@@ -85,9 +85,9 @@
 ## 结论与后续
 
 - 从 init 到 `stab27`，PyQCU 完成了从空仓库到完整 Lattice QCD 库的建设：**核心增量在 `cpp/`（CUDA 后端）与 `pyqcu/`（Python 实现 + Cython 桥 + 多线程多卡 MG）**，主导文件直接对应 Wilson/Clover dslash、多重网格与测试体系。
-- `refer/`（外部库镜像，1559 文件）与 `examples/*.txt`、`logs/` 属于参考/产物，不应计入"库自有代码"规模评估。
+- `refer/`（外部库镜像，1559 文件）与 `pyqcu/testing/*.txt`、`logs/` 属于参考/产物，不应计入"库自有代码"规模评估。
 - 后续建议：
-  1. 将 `logs/`、`examples/pyqcu/log-*.txt` 等运行产物移出版本跟踪（已在 `.gitignore` 豁免但历史已提交，可考虑 `git rm --cached` 清理历史包袱）；
+  1. 将 `logs/`、`pyqcu/testing/python/log-*.txt` 等运行产物移出版本跟踪（已在 `.gitignore` 豁免但历史已提交，可考虑 `git rm --cached` 清理历史包袱）；
   2. `refer/git-rep/` 体积庞大，建议以 submodule 或外部引用替代整库镜像；
   3. 版本对比如需聚焦"库代码"，可用 `git diff 0204fa5 stab27 -- pyqcu/ cpp/` 排除噪声。
 

@@ -1,7 +1,7 @@
 """C++ CUDA 后端收敛日志解析（clover_multigrid.log）。
 
 整合自 logs/dev78_2/main.py::parse_mg_log/_parse_conv_histories 与
-examples/qcu/dev73/mg_dev73_5_bench.py::parse_mg_log（4 处内联重复的库级收敛）。
+pyqcu/testing/qcu/multigrid/legacy/reference_benchmark.py::parse_mg_log（4 处内联重复的库级收敛）。
 
 C++ 端（lattice_clover_multigrid.h）无条件写入：
   - CONVERGENCE_HISTORY: [r0,r1,...]   逐迭代残差（一次求解一行）

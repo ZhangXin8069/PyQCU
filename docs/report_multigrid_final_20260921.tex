@@ -88,8 +88,8 @@ BiCGstab reference & \(0/24\) 胜，中位数 \(0.243\times\)，单独列为短�
 
 最终机器可读产物为
 \pathref{data/mg_matrix_final_combined/units/}、
-\pathref{data/mg_matrix_final_analysis_full.json}、
-\pathref{data/mg_matrix_final_validation_full.json}、
+\pathref{logs/data/mg_matrix_final_analysis_full.json}、
+\pathref{logs/data/mg_matrix_final_validation_full.json}、
 \pathref{data/mg_matrix_final_report/mg_matrix.csv} 与
 \pathref{data/mg_matrix_final_report/mg_levels.csv}。
 
@@ -107,7 +107,7 @@ CUDA illegal memory access。修复分两处：
   \code{_TEST_SINGLE_GPU_MULTI_RANK_} 设为 0；
 \item \pathref{cpp/cuda/qcu/include/lattice_set.h:272--288} 在多 rank
   路径读取 \code{PYQCU_MPI_DEVICE_ID}，回退 local rank；
-  \pathref{examples/qcu/dev87/bench_strict_vs_quda.py:3181} 把 Torch
+  \pathref{pyqcu/testing/qcu/strict/quda_comparison/bench_strict_vs_quda.py:3181} 把 Torch
   实际设备索引写入该环境变量。
 \end{itemize}
 
@@ -126,7 +126,7 @@ CUDA illegal memory access。修复分两处：
 
 旧 worker 每个 MPI rank 读取完整 gauge/source/null HDF5，因此双 rank
 重复占用数 GiB host memory。新实现
-\pathref{examples/qcu/dev87/bench_strict_vs_quda.py:2520} 的
+\pathref{pyqcu/testing/qcu/strict/quda_comparison/bench_strict_vs_quda.py:2520} 的
 \code{_load_h5_local_array} 使用 h5py MPI-IO hyperslab：
 \begin{itemize}
 \item gauge/source 的 checkerboard-compressed 数据集按
@@ -155,11 +155,11 @@ CUDA illegal memory access。修复分两处：
   用 \code{add} 参数在同一 kernel 中完成 prolongation 加 corrected
   coarse contribution；
 \item \textbf{trace-on cache 复用.}
-  \pathref{examples/qcu/dev87/bench_strict_vs_quda.py:6135} 允许显式
+  \pathref{pyqcu/testing/qcu/strict/quda_comparison/bench_strict_vs_quda.py:6135} 允许显式
   \code{cache-expect=hit} 时 cold/main 两个 phase 复用同一个
   hierarchy cache；
 \item \textbf{矩阵编排.}
-  \pathref{examples/qcu/dev87/bench_mg_matrix_full.py:394} 记录
+  \pathref{pyqcu/testing/qcu/strict/quda_comparison/bench_mg_matrix_full.py:394} 记录
   \code{strict_cache_expect}，trace-on 优先复用对应 trace-off cache。
 \end{enumerate}
 
@@ -295,7 +295,7 @@ P100 MG-2/3 & 24 & 1.063 & 13 & 11 & 0.640--1.777 \\
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=0.92\textwidth]{../data/mg_matrix_final_report/mg_speedup_units.pdf}
+\includegraphics[width=0.92\textwidth]{data/mg_matrix_final_report/mg_speedup_units.pdf}
 \caption{按设备与精度统计的 QUDA/PyQCU steady 中位数比值。}
 \end{figure}
 
@@ -310,13 +310,13 @@ QUDA 的同 phase coarse solver 约 \(28.59\,\mathrm{s}\)。这说明后续
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=0.95\textwidth]{../data/mg_matrix_final_report/mg_stage_breakdown.pdf}
+\includegraphics[width=0.95\textwidth]{data/mg_matrix_final_report/mg_stage_breakdown.pdf}
 \caption{逐层阶段时间分解（由最终 combined JSON 生成）。}
 \end{figure}
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=0.95\textwidth]{../data/mg_matrix_final_report/mg_level_iterations.pdf}
+\includegraphics[width=0.95\textwidth]{data/mg_matrix_final_report/mg_level_iterations.pdf}
 \caption{逐层迭代计数；最细层为 outer FGMRES/GCR，粗层计数独立记录。}
 \end{figure}
 
@@ -329,14 +329,14 @@ lattice、MG-2/3 的 trace-on 残差曲线。
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=0.98\textwidth,height=0.78\textheight,keepaspectratio]{../data/mg_matrix_final_report/mg_residual_curves.pdf}
+\includegraphics[width=0.98\textwidth,height=0.78\textheight,keepaspectratio]{data/mg_matrix_final_report/mg_residual_curves.pdf}
 \caption{最细层 outer residual 的迭代曲线；MG-2/3、trace-on。}
 \label{fig:residual}
 \end{figure}
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=0.92\textwidth]{../data/mg_matrix_final_report/mg_finest_residual.pdf}
+\includegraphics[width=0.92\textwidth]{data/mg_matrix_final_report/mg_finest_residual.pdf}
 \caption{各单元最细层最终真残差与 gate 的对照。}
 \end{figure}
 
@@ -356,8 +356,8 @@ input bundle hash & \(72/72\) 完全一致 \\
 MG level timing conservation & 全部通过，允许的 trace 归约钳零未掩盖失败 \\
 分布式 HDF5 round-trip & gauge/source/null \(max\_abs=0\) \\
 CUDA/MPI 长期测试 & P100 与 V100 全矩阵均完成，QUDA ghost mapped-memory 失败以重试记录，不改算法协议 \\
-测试套件 & \pathref{examples/qcu/dev87/test_bench_strict_protocol.py} 与
-  \pathref{examples/qcu/dev87/test_bench_mg_matrix_full.py} 全部通过（最终回归 89 passed） \\
+测试套件 & \pathref{pyqcu/testing/qcu/strict/quda_comparison/test_bench_strict_protocol.py} 与
+  \pathref{pyqcu/testing/qcu/strict/quda_comparison/test_bench_mg_matrix_full.py} 全部通过（最终回归 89 passed） \\
 \bottomrule
 \end{tabularx}
 \end{table}
@@ -390,40 +390,40 @@ QCU_CUDA_ARCHITECTURES='70-real;70-virtual;60-real;60-virtual' \
   bash ./build.sh
 
 # P100 final PyQCU side (example: c64 large)
-source examples/qcu/dev87/p100_env.sh
-python -B examples/qcu/dev87/bench_mg_matrix_full.py \
+source pyqcu/testing/qcu/strict/quda_comparison/p100_env.sh
+python -B pyqcu/testing/qcu/strict/quda_comparison/bench_mg_matrix_full.py \
   --output-dir data/mg_matrix_final_p100 \
   --cache-root data/mg_matrix_full_20260921_aligned/cache \
   --only-side pyqcu --only-device p100 --execute
 
 # V100 final PyQCU side (c128 uses nu=2; c64 uses nu=1)
 CUDA_VISIBLE_DEVICES=0 python -B \
-  examples/qcu/dev87/bench_mg_matrix_full.py \
+  pyqcu/testing/qcu/strict/quda_comparison/bench_mg_matrix_full.py \
   --output-dir data/mg_matrix_final_v100 \
   --cache-root data/mg_matrix_full_20260921_aligned/cache \
   --only-side pyqcu --only-device v100 --extra-args '--nu 2' \
   --execute
 
 # Full report tables/figures
-python -B examples/qcu/dev87/build_mg_report.py \
+python -B pyqcu/testing/qcu/strict/quda_comparison/build_mg_report.py \
   --input data/mg_matrix_final_combined/units/*.json \
   --outdir data/mg_matrix_final_report \
   --tex docs/report_multigrid_final_20260921.tex
-python -B examples/qcu/dev87/plot_mg_residual_curves.py
+python -B pyqcu/testing/qcu/strict/quda_comparison/plot_mg_residual_curves.py
 \end{lstlisting}
 
 关键产物：
 \begin{itemize}
 \item 最终 combined：\pathref{data/mg_matrix_final_combined/units/}；
-\item 性能统计：\pathref{data/mg_matrix_final_analysis_full.json}；
-\item 独立校验：\pathref{data/mg_matrix_final_validation_full.json}；
+\item 性能统计：\pathref{logs/data/mg_matrix_final_analysis_full.json}；
+\item 独立校验：\pathref{logs/data/mg_matrix_final_validation_full.json}；
 \item 逐单元 CSV：\pathref{data/mg_matrix_final_report/mg_matrix.csv}；
 \item 逐层 CSV：\pathref{data/mg_matrix_final_report/mg_levels.csv}；
-\item 图：\pathref{data/mg_matrix_final_report/mg_speedup_units.pdf}、
-  \pathref{data/mg_matrix_final_report/mg_stage_breakdown.pdf}、
-  \pathref{data/mg_matrix_final_report/mg_level_iterations.pdf}、
-  \pathref{data/mg_matrix_final_report/mg_finest_residual.pdf}、
-  \pathref{data/mg_matrix_final_report/mg_residual_curves.pdf}。
+\item 图：\pathref{docs/data/mg_matrix_final_report/mg_speedup_units.pdf}、
+  \pathref{docs/data/mg_matrix_final_report/mg_stage_breakdown.pdf}、
+  \pathref{docs/data/mg_matrix_final_report/mg_level_iterations.pdf}、
+  \pathref{docs/data/mg_matrix_final_report/mg_finest_residual.pdf}、
+  \pathref{docs/data/mg_matrix_final_report/mg_residual_curves.pdf}。
 \end{itemize}
 
 \section{结论}

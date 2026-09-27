@@ -4,11 +4,11 @@ description: pyqcu.testing 目录的完整生成 skill：全组件集成测试�
 ---
 # pyqcu.testing
 
-Integration tests for all PyQCU components. Tests are Python functions imported by `examples/*/conftest.py` entry points.
+Integration tests for all PyQCU components. Tests are Python functions imported by `pyqcu/testing/*/conftest.py` entry points.
 
 ## Architecture
 
-All test functions live in `pyqcu/testing/__init__.py`. They import from all PyQCU subpackages (`lattice`, `solver`, `dslash`, `tools`, `smear`). Each `examples/*/conftest.py` acts as a pytest entry point that imports specific test functions and calls them. The conftest files are manually edited to uncomment the test(s) to run.
+All test functions live in `pyqcu/testing/__init__.py`. They import from all PyQCU subpackages (`lattice`, `solver`, `dslash`, `tools`, `smear`). Each `pyqcu/testing/*/conftest.py` acts as a pytest entry point that imports specific test functions and calls them. The conftest files are manually edited to uncomment the test(s) to run.
 
 The module imports `tilelang` at module level (with try/except fallback) for `test_matmul`.
 
@@ -69,24 +69,24 @@ Null-vector quality diagnostic requires the explicit 10-dim block structure argu
 ## Running Tests
 
 ```bash
-cd examples && pytest .                              # all conftest.py files
-mpirun -np 4 python examples/pyqcu/conftest.py       # single file with MPI
+cd pyqcu/testing && pytest .                              # all conftest.py files
+mpirun -np 4 python pyqcu/testing/python/conftest.py       # single file with MPI
 ```
 
 ## Strict MultiGrid Fast Gates
 
-Use `python examples/qcu/dev87/run_strict_fast.py`; tiers are cumulative and the default is tier 0. For the shortest edit loop, first run `--list` (no environment sourcing or setup), then run the default tier with `--fail-fast --json <path>` when a machine-readable result is useful:
+Use `python pyqcu/testing/qcu/strict/quda_comparison/run_strict_fast.py`; tiers are cumulative and the default is tier 0. For the shortest edit loop, first run `--list` (no environment sourcing or setup), then run the default tier with `--fail-fast --json <path>` when a machine-readable result is useful:
 
 ```bash
-python examples/qcu/dev87/run_strict_fast.py --list
-python examples/qcu/dev87/run_strict_fast.py --fail-fast --json strict-fast.json
+python pyqcu/testing/qcu/strict/quda_comparison/run_strict_fast.py --list
+python pyqcu/testing/qcu/strict/quda_comparison/run_strict_fast.py --fail-fast --json strict-fast.json
 ```
 
 - **Tier 0 — CPU algebra smoke:** the focused synthetic suite covers 20 checks for exports, FGMRES edge cases (including complex-Givens phase cancellation), strict mode/geometry guards, `R=P†`, full-coarse parity transfer, MATPC, `X/Y/Yhat` assets/layouts, recursive null-vector propagation, matrix-free guards and colored Galerkin batching/memory models. This is the edit-loop default.
 - **Tier 1 — CUDA small lattice:** cumulatively adds strict primitive/V-cycle/complete-solve and fused-C++ FGMRES checks covering lazy persistent workspace reuse, warm x0, budget/descriptor guards and complex128 dispatch. Runtime depends on GPU, driver and build; do not encode a fixed seconds claim. Use it before handing off a CUDA change, and ensure Python does not regain a duplicate Krylov arena.
 - **Tier 2 — real gauge + QUDA formal gate:** only selected explicitly with `--tier 2`; runs the formal `bench_strict_vs_quda.py` collector with the canonical real-gauge/null-vector bundle, cache-hit and QIO contracts. It records correctness, true residual, setup/solve timing and schema-v2 memory evidence; a fair speedup is emitted only when both sides pass. It may write its documented dev87 artifacts.
 
-Before any formal QUDA comparison, run and persist two fast, single-rank gates: the `4^4` reduction smoke (`examples/qcu/dev87/smoke_quda_reduction.py`) and an `8^4` Nc24 setup-only probe using `n_vec=12`, `coarse_spin=2`, and no timed solve. Both must be green before formal collection. Judge smoke success from resolved/read-back parameters after setup, never from requested arguments alone; missing resolved evidence is a failure. The formal path must build `QUDA_MULTIGRID_NVEC_LIST=12,24` (comma-separated): `12` serves `BlockOrthogonalize`'s `B.size`, and `24 = n_vec × coarse_spin` serves the coarse color/operator. A build containing only `12` or only `24` ends in `MPI_ABORT`.
+Before any formal QUDA comparison, run and persist two fast, single-rank gates: the `4^4` reduction smoke (`pyqcu/testing/qcu/strict/quda_comparison/smoke_quda_reduction.py`) and an `8^4` Nc24 setup-only probe using `n_vec=12`, `coarse_spin=2`, and no timed solve. Both must be green before formal collection. Judge smoke success from resolved/read-back parameters after setup, never from requested arguments alone; missing resolved evidence is a failure. The formal path must build `QUDA_MULTIGRID_NVEC_LIST=12,24` (comma-separated): `12` serves `BlockOrthogonalize`'s `B.size`, and `24 = n_vec × coarse_spin` serves the coarse color/operator. A build containing only `12` or only `24` ends in `MPI_ABORT`.
 
 Strict CUDA tests must use `hierarchy_mode="strict"`/`QudaStrictMultigrid`, fixed fine `target_parity=1` and coarse `start_level=1`; `setup_operator="schur"` is not a substitute for Strict. Keep the per-instance `_SET_INDEX_` fixed from `CudaSchurOp` construction through Strict init, V-cycle/FGMRES and Strict end; the legacy increment rule is tested separately. For ABI edits, also assert CPU `int32[58]`/`int64[100]` controls and the `params[57]` cold/warm behavior; do not use a fast gate that only checks requested CLI metadata.
 
@@ -96,10 +96,10 @@ The runner supports `--list`, `--only <gate>` (repeatable), per-command `--timeo
 
 ```bash
 python -B -m pytest -q -p no:cacheprovider \
-  examples/qcu/dev87/test_prepare_fair_nullvec.py \
-  examples/qcu/dev87/test_convert_full_nullvec_to_quda_qio.py \
-  examples/qcu/dev87/test_bench_strict_protocol.py \
-  examples/qcu/dev87/test_strict_runtime_cache.py
+  pyqcu/testing/qcu/strict/quda_comparison/test_prepare_fair_nullvec.py \
+  pyqcu/testing/qcu/strict/quda_comparison/test_convert_full_nullvec_to_quda_qio.py \
+  pyqcu/testing/qcu/strict/quda_comparison/test_bench_strict_protocol.py \
+  pyqcu/testing/qcu/strict/quda_comparison/test_strict_runtime_cache.py
 ```
 
 The default tier 0 embeds the three pure-CPU Galerkin fast checks; `--only cpu-smoke` runs them in the same pytest startup, while `--only <other-gate>` isolates a single edit target. Benchmark protocol tests require repository-contained cache directories, persist cache `directory/expect` in the execution record, and prove that a hit/miss mismatch fails before heavy imports or device allocation. They also cover QMP FUNNELED initialization and atexit lifetime without importing PyQUDA. WSL2 guard fixtures must fail closed when forced synchronization is disabled or the selected `libquda.so` is missing, not first in `LD_LIBRARY_PATH`, or lacks the patch marker; synthetic fixtures must assert `report["library_sha256"] == sha256(fixture_binary)`. Qualify the selected production library dynamically in the real reduction smoke rather than hard-coding its digest.
@@ -107,8 +107,8 @@ The default tier 0 embeds the three pure-CPU Galerkin fast checks; `--only cpu-s
 MPI coverage is deliberately separate from the tiered runner:
 
 ```bash
-python -m pytest -q -p no:cacheprovider examples/qcu/dev87/test_strict_mpi_preflight.py
-mpirun -np 2 python -m pytest -q -p no:cacheprovider examples/qcu/dev87/test_strict_mpi_preflight.py
+python -m pytest -q -p no:cacheprovider pyqcu/testing/qcu/strict/quda_comparison/test_strict_mpi_preflight.py
+mpirun -np 2 python -m pytest -q -p no:cacheprovider pyqcu/testing/qcu/strict/quda_comparison/test_strict_mpi_preflight.py
 ```
 
 These MPI tests cover rank-symmetric preflight plus c64/c128 global dot/norm reduction. The expected capabilities are `global_reduction=True` but `setup_halo=False`, `full_halo=False`, `compact_halo=False`, and distributed `fused_fgmres=False`; production multi-rank solves must still be rejected, and passing these tests must not be reported as a distributed strict solve.
@@ -126,7 +126,7 @@ canonical blocks 留到安装阶段，必须 fail closed，而不是静默混入
 asset。
 
 2026-09-17 全量闸门：`source ./env.sh && source
-examples/qcu/dev87/quda_env.sh && python examples/qcu/dev87/run_all.py
+pyqcu/testing/qcu/strict/quda_comparison/quda_env.sh && python pyqcu/testing/qcu/strict/quda_comparison/run_all.py
 --with-quda` 在 V100 上 `PASS 5/5`，总耗时 `757.4 s`；其中
 `quda_solve_scaled_agreement` 与 `quda_mg_scaled_agreement` 均通过，
 后者的 PyQCU wall 为 `1.22 s`、QUDA setup/solve 为 `613.78/70.05 s`。
@@ -160,7 +160,7 @@ All test output uses: `PYQCU::TESTING::<MODULE>::\n message`
 ## Important Notes
 
 - Tests use `tools.local_xyzt2whole_xyzt` / `tools.whole_xyzt2local_xyzt` for MPI reference comparison
-- Reference HDF5 data lives in `examples/data/`
+- Reference HDF5 data lives in `pyqcu/testing/data/`
 - The `path` variable in tests is computed from `pyqcu.__file__` to locate data files
 - **R3 fix:** Tests now include `assert` statements so pytest can detect failures
 
@@ -204,10 +204,10 @@ performance evidence.
 
 ```bash
 python -B -m pytest -q -p no:cacheprovider \
-  examples/qcu/dev87/test_bench_strict_protocol.py \
-  examples/qcu/dev87/test_bench_mg_matrix.py
-python examples/qcu/dev87/run_strict_fast.py --tier 1
-python examples/qcu/dev87/run_all.py --with-quda
+  pyqcu/testing/qcu/strict/quda_comparison/test_bench_strict_protocol.py \
+  pyqcu/testing/qcu/strict/quda_comparison/test_bench_mg_matrix.py
+python pyqcu/testing/qcu/strict/quda_comparison/run_strict_fast.py --tier 1
+python pyqcu/testing/qcu/strict/quda_comparison/run_all.py --with-quda
 ```
 
 正式 JSON 来源：
@@ -237,8 +237,8 @@ precision 路径。当前 `run_all.py --with-quda` 的 5 项断言全绿。
 
 ```bash
 python -B -m pytest -q -p no:cacheprovider \
-  examples/qcu/dev87/test_bench_strict_protocol.py \
-  examples/qcu/dev87/test_bench_mg_matrix_full.py \
-  examples/qcu/dev87/test_build_mg_report.py \
-  examples/qcu/dev87/test_validate_matrix_trace_evidence.py
+  pyqcu/testing/qcu/strict/quda_comparison/test_bench_strict_protocol.py \
+  pyqcu/testing/qcu/strict/quda_comparison/test_bench_mg_matrix_full.py \
+  pyqcu/testing/qcu/strict/quda_comparison/test_build_mg_report.py \
+  pyqcu/testing/qcu/strict/quda_comparison/test_validate_matrix_trace_evidence.py
 ```

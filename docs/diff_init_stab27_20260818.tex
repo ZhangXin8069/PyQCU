@@ -67,7 +67,7 @@
 \maketitle
 
 \begin{abstract}
-本报告对 PyQCU 从初始提交 \texttt{0204fa5} 到最新标签 \texttt{stab27} 的全部改动做只读结构化概览。全量 2138 文件、+1,163,982/−2 行、区间内 1120 提交；其中外部库镜像 \texttt{refer/}（1559 文件）与测试/产物 \texttt{examples/}、\texttt{logs/} 占增行绝大部分，真正自有库代码集中在 \texttt{pyqcu/}（+6847）与 \texttt{cpp/}（+16234）。边界检查：冲突标记 0、二进制 170、未检测重命名。
+本报告对 PyQCU 从初始提交 \texttt{0204fa5} 到最新标签 \texttt{stab27} 的全部改动做只读结构化概览。全量 2138 文件、+1,163,982/−2 行、区间内 1120 提交；其中外部库镜像 \texttt{refer/}（1559 文件）与测试/产物 \texttt{pyqcu/testing/}、\texttt{logs/} 占增行绝大部分，真正自有库代码集中在 \texttt{pyqcu/}（+6847）与 \texttt{cpp/}（+16234）。边界检查：冲突标记 0、二进制 170、未检测重命名。
 \end{abstract}
 
 \tableofcontents
@@ -79,7 +79,7 @@
 \textbf{提交}: 区间内 1120 个提交\\
 \textbf{统计}: 2138 个文件, +1,163,982 / -2 行\\
 \textbf{分组}: 新增(全量) / 外部镜像 \texttt{refer/} 1559 文件 / 测试与产物 \texttt{examples}+\texttt{logs} 384 文件\\
-\textbf{主导}: \texttt{refer/git-rep/}（外部库镜像）与 \texttt{examples/pyqcu/*.txt}（运行日志）占增行绝大部分\\
+\textbf{主导}: \texttt{refer/git-rep/}（外部库镜像）与 \texttt{pyqcu/testing/python/*.txt}（运行日志）占增行绝大部分\\
 \textbf{自有库}: \texttt{pyqcu/} 47 文件 +6847 行；\texttt{cpp/} 78 文件 +16234 行\\
 \textbf{关注}: 冲突标记 0；二进制 170；未检测重命名
 \end{keybox}
@@ -150,10 +150,10 @@
 \section{边界检查（易漏项）}
 
 \begin{itemize}
-  \item \textbf{冲突标记}：\texttt{git diff | grep '^<<<<<<<|^=======|^>>>>>>>'} → \textcolor{evidence}{0}（无合并冲突残留）。
-  \item \textbf{调试残留}：主导增量文件为 \texttt{examples/pyqcu/log-v*.txt}（运行日志），无库代码内 \texttt{print/echo} 调试行确证。
+  \item \textbf{冲突标记}：\texttt{git diff \textbar{} grep '\^{}<<<<<<<\textbar{}\^{}=======\textbar{}\^{}>>>>>>>'} → \textcolor{evidence}{0}（无合并冲突残留）。
+  \item \textbf{调试残留}：主导增量文件为 \texttt{pyqcu/testing/python/log-v*.txt}（运行日志），无库代码内 \texttt{print/echo} 调试行确证。
   \item \textbf{未跟踪文件}：本视图为版本间 diff，不含未跟踪内容。
-  \item \textbf{二进制/大文件}：\texttt{git diff --numstat} 首字段为 \texttt{-} 的共 \textcolor{evidence}{170} 个，主要为 \texttt{refer/git-rep/} 外部库二进制与 \texttt{examples/} 数据/\texttt{.ipynb}。
+  \item \textbf{二进制/大文件}：\texttt{git diff --numstat} 首字段为 \texttt{-} 的共 \textcolor{evidence}{170} 个，主要为 \texttt{refer/git-rep/} 外部库二进制与 \texttt{pyqcu/testing/} 数据/\texttt{.ipynb}。
   \item \textbf{权限位变化}：\texttt{--summary} 未报告 mode 变化。
   \item \textbf{意外删除}：全量仅 \textcolor{evidence}{2} 行删除，无结构性删除。
   \item \textbf{重命名}：\texttt{git diff -M} 未将任何「删+增」合并为重命名，以新增为主。
@@ -166,11 +166,11 @@
 \end{conclbox}
 
 \begin{refbox}
-\texttt{refer/}（外部库镜像，1559 文件）与 \texttt{examples/*.txt}、\texttt{logs/} 属参考/产物，不应计入「库自有代码」规模评估。
+\texttt{refer/}（外部库镜像，1559 文件）与 \texttt{pyqcu/testing/*.txt}、\texttt{logs/} 属参考/产物，不应计入「库自有代码」规模评估。
 \end{refbox}
 
 \begin{warnbox}
-后续建议：①将 \texttt{logs/}、\texttt{examples/pyqcu/log-*.txt} 等运行产物移出版本跟踪（\texttt{git rm --cached}）；②\texttt{refer/git-rep/} 体积庞大，建议以 submodule 或外部引用替代整库镜像；③聚焦「库代码」可用 \texttt{git diff 0204fa5 stab27 -- pyqcu/ cpp/} 排除噪声。
+后续建议：①将 \texttt{logs/}、\texttt{pyqcu/testing/python/log-*.txt} 等运行产物移出版本跟踪（\texttt{git rm --cached}）；②\texttt{refer/git-rep/} 体积庞大，建议以 submodule 或外部引用替代整库镜像；③聚焦「库代码」可用 \texttt{git diff 0204fa5 stab27 -- pyqcu/ cpp/} 排除噪声。
 \end{warnbox}
 
 \end{document}

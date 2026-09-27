@@ -79,7 +79,7 @@ PyQCU 是 Lattice QCD 的 Python/Cython 库：CUDA 加速的 Wilson/Clover Dirac
 
 \subsection{规模统计与覆盖}
 
-下表为排除 \texttt{.git/}、\texttt{.opencode/}、外部镜像 \texttt{refer/git-rep/}、\texttt{logs/} 历史产物与 \texttt{examples/} 日志后的实测统计（子代理 find 实测）。
+下表为排除 \texttt{.git/}、\texttt{.opencode/}、外部镜像 \texttt{refer/git-rep/}、\texttt{logs/} 历史产物与 \texttt{pyqcu/testing/} 日志后的实测统计（子代理 find 实测）。
 
 \begin{table}[htbp]\centering
 \begin{tabular}{ll}
@@ -109,7 +109,7 @@ C++ 头（\texttt{.h}） & 24 \\
 \texttt{cpp/cuda/qcu/include/} & 23 \texttt{.h} & 精读：模板化内核头（含 \texttt{define.h}） \\
 \texttt{cpp/cuda/qcu/python/} & 1 \texttt{.h} & 精读：C API \texttt{pyqcu.h}（须与 pxd 同步） \\
 \texttt{cpp/\{cann,dtk,maca\}/} & 占位 & 仅索引：PASS stub，无实现 \\
-\texttt{examples/} & 95 \texttt{.py} + 11 \texttt{.md} & 浏览：33 个 \texttt{conftest} 入口 + 后端测试脚本 \\
+\texttt{pyqcu/testing/} & 95 \texttt{.py} + 11 \texttt{.md} & 浏览：33 个 \texttt{conftest} 入口 + 后端测试脚本 \\
 \texttt{docs/} & 7 \texttt{.md} & 浏览：维度/环境/安装/示例/剖析说明 \\
 \bottomrule
 \caption{饱和覆盖登记表（数据来源: 全库索引实测）}
@@ -125,7 +125,7 @@ PyQCU 呈清晰的三层分层：纯 Python 参考实现层、Cython 桥接层�
 \textcolor{struct}{层次} & 目录 & \textcolor{struct}{职责} \\
 \midrule
 \endhead
-入口层 & \texttt{pyqcu/}、\texttt{examples/}、\texttt{docs/}、\texttt{logs/} & 库入口、测试入口、文档、产物归档 \\
+入口层 & \texttt{pyqcu/}、\texttt{pyqcu/testing/}、\texttt{docs/}、\texttt{logs/} & 库入口、测试入口、文档、产物归档 \\
 核心层 & \texttt{pyqcu/dslash/}、\texttt{pyqcu/solver/}、\texttt{pyqcu/smear/} & 纯 Python 算子/求解器/smear（PyTorch） \\
 桥接层 & \texttt{pyqcu/cuda/} & Cython 桥 \texttt{qcu.pyx} + 参数常量 \texttt{define.py} + 多线程多卡 \\
 后端层 & \texttt{cpp/cuda/qcu/} & 26 个模板头 + 30 个 \texttt{.cu} + C API \texttt{pyqcu.h} \\
@@ -163,7 +163,7 @@ PyQCU 呈清晰的三层分层：纯 Python 参考实现层、Cython 桥接层�
 从初始提交 \texttt{0204fa5} 到 \texttt{stab27} 共 1120 提交；自有库代码主导文件为 \nolinkurl{cpp/cuda/qcu/include/lattice_clover_multigrid.h}（+1833）、\nolinkurl{cpp/cuda/qcu/src/clover_dslash_multi.cu}（+1610）、\nolinkurl{cpp/cuda/qcu/src/wilson_dslash.cu}（+1442）与 \nolinkurl{pyqcu/tools/_multigrid.py}（+819）、\nolinkurl{pyqcu/cuda/_multi_gpu.py}（+568），显示项目从 Wilson dslash 演进到 Clover + 多重网格 + 多线程多卡（diff init→stab27 实测）。
 
 \subsection{典型工作流}
-一次典型任务：\texttt{source ./env.sh} → 构建 \texttt{libqcu.so}（\texttt{build.sh}）→ 构建 Cython 扩展（\texttt{install.sh}）→ 在 \texttt{examples/pyqcu/conftest.py} 解锁测试 → 运行。生产调用生命周期：\texttt{applyInitQcu} → 操作 → \texttt{params[\_SET\_INDEX\_] += 1} → \texttt{applyEndQcu}（\texttt{AGENTS.md:23}）。
+一次典型任务：\texttt{source ./env.sh} → 构建 \texttt{libqcu.so}（\texttt{build.sh}）→ 构建 Cython 扩展（\texttt{install.sh}）→ 在 \texttt{pyqcu/testing/python/conftest.py} 解锁测试 → 运行。生产调用生命周期：\texttt{applyInitQcu} → 操作 → \texttt{params[\_SET\_INDEX\_] += 1} → \texttt{applyEndQcu}（\texttt{AGENTS.md:23}）。
 
 \begin{ideabox}
 这个仓库之所以长成「纯 Python 参考 + C++ 生产 + Cython 薄桥 + 多线程多卡」的形态，是为了在保持物理实现可验证的同时，用 GPU 内核与一线程一卡并行逼近生产级格点 QCD 求解性能。
@@ -197,7 +197,7 @@ PyQCU 呈清晰的三层分层：纯 Python 参考实现层、Cython 桥接层�
 \texttt{pyqcu/tools/\_io.py} 的 \texttt{save\_tensor\_h5/load\_tensor\_h5} 每调用独立 File 句柄、多线程安全（子代理核实 \texttt{\_io.py:165-194}）；粗算子缓存 \texttt{\_multi\_gpu.py:139-143} 单句柄一次写全部 dataset，勿逐 dataset 覆盖重建（\texttt{AGENTS.md:28}）。
 
 \subsection{测试体系}
-测试函数集中在 \nolinkurl{pyqcu/testing/__init__.py}（\nolinkurl{test_dslash_wilson:38}、\nolinkurl{test_dslash_clover:202}、\nolinkurl{test_solver:292}、\nolinkurl{test_multigrid_multithread:576}、\nolinkurl{test_multi_gpu_multigrid:620} 等），各 \nolinkurl{examples/*/conftest.py} 为 pytest 入口（\texttt{AGENTS.md:26}）。
+测试函数集中在 \nolinkurl{pyqcu/testing/__init__.py}（\nolinkurl{test_dslash_wilson:38}、\nolinkurl{test_dslash_clover:202}、\nolinkurl{test_solver:292}、\nolinkurl{test_multigrid_multithread:576}、\nolinkurl{test_multi_gpu_multigrid:620} 等），各 \nolinkurl{pyqcu/testing/*/conftest.py} 为 pytest 入口（\texttt{AGENTS.md:26}）。
 
 % ================= 6 关键代码/文档片段 =================
 \section{关键代码/文档片段}
@@ -250,7 +250,7 @@ Cython 桥 \texttt{with nogil} 真并行入口：
 \end{refbox}
 
 \begin{warnbox}
-未覆盖/局限：\textcolor{warn}{未验证} \texttt{cpp/cuda/qcu/src/} 全部 30 个内核的执行细节（仅抽样精读代表文件）；\texttt{examples/} 95 个测试脚本为浏览态，未逐文件解析；多线程多卡的实际性能数据未在本次静态分析中实测（见 diff 报告与 pure 报告）。
+未覆盖/局限：\textcolor{warn}{未验证} \texttt{cpp/cuda/qcu/src/} 全部 30 个内核的执行细节（仅抽样精读代表文件）；\texttt{pyqcu/testing/} 95 个测试脚本为浏览态，未逐文件解析；多线程多卡的实际性能数据未在本次静态分析中实测（见 diff 报告与 pure 报告）。
 \end{warnbox}
 
 \end{document}

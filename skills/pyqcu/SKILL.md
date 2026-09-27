@@ -1,8 +1,8 @@
 ---
 name: pyqcu
-description: examples/pyqcu 目录的完整生成 skill：纯 Python 算子/求解器主测试套件（conftest 入口 + 各 conftest.*.py 变体）。
+description: pyqcu/testing/python 目录的完整生成 skill：纯 Python 算子/求解器主测试套件（conftest 入口 + 各 conftest.*.py 变体）。
 ---
-# CLAUDE.md — examples/pyqcu
+# CLAUDE.md — pyqcu/testing/python
 
 Main test suite: pure-Python operator and solver tests. These run on CPU, CUDA GPU, or Ascend NPU (via `pyqcu.cann`).
 
@@ -21,5 +21,5 @@ Main test suite: pure-Python operator and solver tests. These run on CPU, CUDA G
 Edit the conftest file to uncomment the desired test(s), then run:
 
 ```bash
-mpirun -np 4 python examples/pyqcu/conftest.py
+mpirun -np 4 python pyqcu/testing/python/conftest.py
 ```
