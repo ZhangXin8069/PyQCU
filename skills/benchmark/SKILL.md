@@ -313,3 +313,29 @@ gauge/QUDA 的公平计时。
 smoke/formal 的 `require_exact_batch` 会按每个 level 的实际最大色组检查
 请求值：小格 `8^3·16` 的 level 0/1 上界分别为 38/4，因此请求 256 或
 38 都会被拒绝；正式参数应选择不超过所有 level 上界的值。
+
+## 2026-09-27 Strict Hopper overlap
+
+`StrictVectorHalo` 现在可把 active face pack、pinned-host staging 和
+`MPI_Isend/Irecv` 放在独立交换流上，并在 coarse local-kernel 之后
+才等待接收；`PYQCU_MPI_OVERLAP=0` 可回退到原始顺序路径。该优化改变
+remote-forward 项的浮点累加顺序，因此只默认用于 complex64 分布路径；
+complex128 需要 `PYQCU_STRICT_OVERLAP_C128=1` 才显式启用。大格 c128
+三层已在 P100 上复现：默认禁用时 32 个外层迭代、steady `5.10 s`；
+错误启用时 451 个外层迭代、`46.28 s`，两者最终真残差都低于 gate。
+
+快速回归：
+
+```bash
+source examples/qcu/dev87/p100_env.sh
+PYQCU_MPI_OVERLAP=0 mpirun --allow-run-as-root --oversubscribe -np 2 \
+  python -B examples/qcu/dev87/strict_mpi_solve_probe.py \
+  --shape 8 8 8 16 --grid 2 1 1 1 --restart 20 --max-iter 200 \
+  --dtype c64 --galerkin-mode colored
+PYQCU_MPI_OVERLAP=1 mpirun --allow-run-as-root --oversubscribe -np 2 \
+  python -B examples/qcu/dev87/strict_mpi_solve_probe.py \
+  --shape 8 8 8 16 --grid 2 1 1 1 --restart 20 --max-iter 200 \
+  --dtype c64 --galerkin-mode colored
+python -B examples/qcu/dev87/validate_matrix_trace_evidence.py \
+  data/mg_matrix_overlap_20260927_p100/units/*.json
+```

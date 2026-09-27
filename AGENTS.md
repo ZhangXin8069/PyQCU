@@ -26,6 +26,7 @@ PyQCU：Lattice QCD 的 Python/Cython 库 —— CUDA 加速的 Wilson/Clover Di
 - **测试**：测试函数在 `pyqcu/testing/__init__.py`，`examples/*/conftest.py` 手动取消注释要运行的测试。
 - **多线程多卡（一线程一卡）**：`pyqcu/cuda/_multi_gpu.py`（`MultiGpuMultigrid`）单进程内 N 线程 × 卡绑定并行；每线程独立 `params/argv/set_ptrs` 副本（`_SET_INDEX_` 各自从 0 计数）。Cython 桥（`qcu.pyx`）全部函数在 GIL 段取指针、`with nogil` 调 C++（真并行）；pxd 的 cdef extern 声明必须带 `nogil` 关键字，且 pxd 声明名不得与 pyx 内 def 同名（用 `qcu_api.pxd` 别名 cimport）。MultiGpuMultigrid 要求单 MPI rank（C++ LatticeSet 用 COMM_WORLD rank 覆盖 `_NODE_RANK_`）。
 - **求解器停机语义（dev87 起）**：`applyCloverMultigridQcu` 主循环停机为相对判据 rn²<atol²·‖b__o‖²，且单 rank 每 50 迭代做周期真残差刷新（reliable-update，防 fp32 递推漂移）；多 rank 刷新未启用。
+- **Strict Hopper overlap（2026-09-27）**：分布式 complex64 Strict-MG 默认用非阻塞 vector halo 与 local/remote 分区计算；`PYQCU_MPI_OVERLAP=0` 回退原路径。该路径改变 remote-forward 浮点累加顺序，complex128 默认关闭；仅显式 `PYQCU_STRICT_OVERLAP_C128=1` 才启用，且必须以大格真残差/迭代回归为门槛。
 - **HDF5 持久化（h5py）**：所有保存/读取走 h5py；`pyqcu/tools/_io.py` 的 `save_tensor_h5`/`load_tensor_h5`（每调用独立 File 句柄，多线程安全）+ MPI mpio 路径（`gridoooxyzt2hdf5oooxyzt`）。null-vector/粗网格算子缓存 `.h5`（单句柄一次写全部 dataset，勿逐 dataset 覆盖重建）。
 - **分布式 benchmark 输入**：`examples/qcu/dev87/bench_strict_vs_quda.py::_load_h5_local_array` 在多 rank 下用 h5py mpio 读取 rank slab（gauge/source 为 checkerboard-compressed 尾部轴，null 为 full \(x,y,z,t\)）；不要退回每 rank 全量读取。trace-on 与 trace-off 的 Strict runtime cache identity 相同，formal 编排优先让 trace-on 复用 trace-off cache；显式 `--cache-expect hit` 时 cold 与 warm/steady phase 也应允许同一 cache。
 
