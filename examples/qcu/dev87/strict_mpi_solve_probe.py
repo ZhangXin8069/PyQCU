@@ -11,6 +11,7 @@ reported residual.
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -112,8 +113,17 @@ def main() -> int:
 
     if not torch.cuda.is_available():
         raise RuntimeError("CUDA is required for strict MPI solve probe")
-    device = torch.device("cuda", 0)
+    local_comm = comm.Split_type(MPI.COMM_TYPE_SHARED, 0)
+    local_rank = local_comm.Get_rank()
+    local_comm.Free()
+    visible_devices = torch.cuda.device_count()
+    if visible_devices <= 0 or local_rank >= visible_devices:
+        raise RuntimeError(
+            f"local rank {local_rank} has no matching CUDA device "
+            f"(visible={visible_devices})")
+    device = torch.device("cuda", local_rank)
     torch.cuda.set_device(device)
+    os.environ["PYQCU_MPI_DEVICE_ID"] = str(local_rank)
     if args.dtype == "c128":
         dtype = torch.complex128
         data_type = define._LAT_C128_
@@ -426,6 +436,7 @@ def main() -> int:
         payload = {
             "rank": rank,
             "coordinate": coordinate,
+            "mpi_overlap": os.environ.get("PYQCU_MPI_OVERLAP", "on"),
             "converged": bool(solver.converged),
             "outer_iterations": int(solver.iterations),
             "reported_residual": float(solver.final_residual),

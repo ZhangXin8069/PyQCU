@@ -1517,10 +1517,39 @@ def test_phase_contract_combines_cold_warmup_and_steady():
         "cold": 1, "warmup": 2, "steady": 5}
     document["input_fingerprints"] = _synthetic_fingerprints()
     main = _successful_side("pyqcu", document, 2.0)
+    main["reference_solver"] = {
+        "kind": "bicgstab",
+        "cold": None,
+        "warmups": [
+            {"seconds": 0.30, "iterations": 8, "true_residual_rel": 2.0e-7},
+            {"seconds": 0.29, "iterations": 8, "true_residual_rel": 2.1e-7},
+        ],
+        "steady": {
+            "samples_seconds": [0.28, 0.27, 0.27, 0.28, 0.27],
+            "median_seconds": 0.27,
+            "mad_seconds": 0.005,
+        },
+        "samples": [
+            {"seconds": 0.28, "iterations": 8, "true_residual_rel": 2.0e-7},
+            {"seconds": 0.27, "iterations": 8, "true_residual_rel": 2.0e-7},
+            {"seconds": 0.27, "iterations": 8, "true_residual_rel": 2.0e-7},
+            {"seconds": 0.28, "iterations": 8, "true_residual_rel": 2.0e-7},
+            {"seconds": 0.27, "iterations": 8, "true_residual_rel": 2.0e-7},
+        ],
+    }
     main["runtime_cache"]["expectation"] = "hit"
     main["runtime_cache"]["hit"] = True
     cold = copy.deepcopy(main)
     cold["timing"]["cold_seconds"] = 0.75
+    cold["reference_solver"]["cold"] = {
+        "seconds": 0.80,
+        "iterations": 9,
+        "true_residual_rel": 3.0e-7,
+    }
+    cold["reference_solver"]["warmups"] = []
+    cold["reference_solver"]["steady"] = {
+        "samples_seconds": [], "median_seconds": None, "mad_seconds": None}
+    cold["reference_solver"]["samples"] = []
     cold["runtime_cache"] = copy.deepcopy(main["runtime_cache"])
     cold["runtime_cache"]["expectation"] = "miss"
     cold["runtime_cache"]["hit"] = False
@@ -1532,6 +1561,12 @@ def test_phase_contract_combines_cold_warmup_and_steady():
     assert combined["runtime_cache"]["cold"]["expectation"] == "miss"
     assert combined["runtime_cache"]["steady"]["expectation"] == "hit"
     assert combined["runtime_cache"]["expectation"] == "hit"
+    assert combined["reference_solver"]["cold"]["iterations"] == 9
+    assert len(combined["reference_solver"]["warmups"]) == 2
+    assert combined["reference_solver"]["phase_iterations"] == {
+        "cold": 9, "warmups": [8, 8], "steady": [8, 8, 8, 8, 8]}
+    assert combined["reference_solver"][
+        "true_residual_max_rel"] == pytest.approx(3.0e-7)
     assert bench.validate_document(document, allow_planned=True) == []
 
 

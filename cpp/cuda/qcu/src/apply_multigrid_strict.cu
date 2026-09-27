@@ -496,7 +496,7 @@ __global__ void strict_coarse_apply_backward_correction_kernel(
   out[index] += correction;
 }
 
-template <typename T>
+template <typename T, bool INCLUDE_REMOTE>
 __global__ void strict_hopping_parity_base_kernel(
     void *out_ptr, const void *in_ptr, const void *links_ptr,
     const void *base_ptr, const void *input_ghost_ptr,
@@ -531,6 +531,8 @@ __global__ void strict_hopping_parity_base_kernel(
     const int process_extent =
         dim == 0 ? grid_x : dim == 1 ? grid_y :
         dim == 2 ? grid_z : grid_t;
+    const bool forward_remote = strict_neighbor_is_remote(
+        coords[dim], extents[dim], process_extent, true);
     const bool backward_remote = strict_neighbor_is_remote(
         coords[dim], extents[dim], process_extent, false);
     int backward[4] = {x, y, z, t};
@@ -542,16 +544,18 @@ __global__ void strict_hopping_parity_base_kernel(
           ((((static_cast<size_t>(0) * 4 + dim) * E + row) * E + col) *
                static_cast<size_t>(volume) +
            target_site);
-      const LatticeComplex<T> forward_value =
-          strict_load_neighbor<T, true>(
-              in, input_ghost, input_ghost_slot_stride, E,
-              X, Y, Z, Lt, grid_x, grid_y, grid_z, grid_t,
-              col, x, y, z, t, dim, true);
+      if (INCLUDE_REMOTE || !forward_remote) {
+        const LatticeComplex<T> forward_value =
+            strict_load_neighbor<T, true>(
+                in, input_ghost, input_ghost_slot_stride, E,
+                X, Y, Z, Lt, grid_x, grid_y, grid_z, grid_t,
+                col, x, y, z, t, dim, true);
+        sum += links[forward_link] * forward_value;
+      }
       const size_t backward_link =
           ((((static_cast<size_t>(1) * 4 + dim) * E + col) * E + row) *
                static_cast<size_t>(volume) +
            backward_site);
-      sum += links[forward_link] * forward_value;
       if (!backward_remote) {
         const LatticeComplex<T> backward_value =
             strict_load_neighbor<T, true>(
@@ -609,6 +613,67 @@ __global__ void strict_hopping_parity_backward_correction_kernel(
   // sign depends on the base kernel's own accumulation: hop(out=H in) adds it,
   // while hop(out=base-H in) subtracts it.
   out[index] += base_present ? -correction : correction;
+}
+
+template <typename T>
+__global__ void strict_hopping_parity_remote_correction_kernel(
+    void *out_ptr, const void *backward_input_ghost_ptr,
+    const void *forward_input_ghost_ptr, const void *link_ghost_ptr,
+    const void *links_ptr, int E, int X, int Y, int Z, int Lt,
+    int target_parity, int dim, int base_present) {
+  const int face_count = static_cast<int>(
+      strict_face_count(X, Y, Z, Lt, dim));
+  const int total = 2 * E * face_count;
+  const int index = blockIdx.x * blockDim.x + threadIdx.x;
+  if (index >= total) return;
+
+  const int side = index / (E * face_count);
+  const int component = (index / face_count) % E;
+  const int face = index % face_count;
+  const int extents[4] = {X, Y, Z, Lt};
+  int coords[4] = {0, 0, 0, 0};
+  int remaining = face;
+  for (int axis = 3; axis >= 0; --axis) {
+    if (axis == dim) continue;
+    coords[axis] = remaining % extents[axis];
+    remaining /= extents[axis];
+  }
+  coords[dim] = side == 0 ? 0 : extents[dim] - 1;
+  const int target_site =
+      strict_full_site(coords[0], coords[1], coords[2], coords[3], Y, Z, Lt);
+  if (((coords[0] + coords[1] + coords[2] + coords[3]) & 1) !=
+      target_parity)
+    return;
+
+  LatticeComplex<T> *out = static_cast<LatticeComplex<T> *>(out_ptr);
+  const LatticeComplex<T> *input_ghost =
+      static_cast<const LatticeComplex<T> *>(
+          side == 0 ? backward_input_ghost_ptr : forward_input_ghost_ptr);
+  const LatticeComplex<T> *link_ghost =
+      static_cast<const LatticeComplex<T> *>(link_ghost_ptr);
+  const LatticeComplex<T> *links =
+      static_cast<const LatticeComplex<T> *>(links_ptr);
+  const int half_volume = X * Y * Z * (Lt / 2);
+  const int volume = 2 * half_volume;
+  const int half_site =
+      strict_half_site(coords[0], coords[1], coords[2], coords[3], Y, Z, Lt);
+  LatticeComplex<T> correction((T)0, (T)0);
+  for (int col = 0; col < E; ++col) {
+    const LatticeComplex<T> link =
+        side == 0
+            ? link_ghost[(static_cast<size_t>(col) * E + component) *
+                             face_count +
+                         face]
+            : links[((((static_cast<size_t>(0) * 4 + dim) * E + component) * E +
+                       col) *
+                          static_cast<size_t>(volume) +
+                      target_site)];
+    correction +=
+        (side == 0 ? link.conj() : link) *
+        input_ghost[static_cast<size_t>(col) * face_count + face];
+  }
+  out[component * half_volume + half_site] +=
+      base_present ? -correction : correction;
 }
 
 template <typename T>
@@ -1647,6 +1712,19 @@ template <typename T> class StrictVectorHalo {
                       "strict vector halo pinned send allocation");
     strict_check_cuda(cudaMallocHost(&host_recv_, bytes_),
                       "strict vector halo pinned receive allocation");
+    strict_check_cuda(
+        cudaStreamCreateWithFlags(&exchange_stream_, cudaStreamNonBlocking),
+        "strict vector halo exchange stream");
+    strict_check_cuda(
+        cudaEventCreateWithFlags(&input_ready_, cudaEventDisableTiming),
+        "strict vector halo input event");
+    strict_check_cuda(
+        cudaEventCreateWithFlags(&recv_ready_, cudaEventDisableTiming),
+        "strict vector halo receive event");
+    for (int index = 0; index < 8; ++index) {
+      recv_requests_[index] = MPI_REQUEST_NULL;
+      send_requests_[index] = MPI_REQUEST_NULL;
+    }
   }
 
   ~StrictVectorHalo() { release(); }
@@ -1658,10 +1736,18 @@ template <typename T> class StrictVectorHalo {
   size_t slot_stride() const { return max_face_; }
   size_t bytes() const { return distributed_ ? 4 * bytes_ : 0; }
 
-  void exchange(const void *input, int parity) {
+  void begin(const void *input, int parity) {
     if (!distributed_) return;
     if (input == nullptr)
       throw std::invalid_argument("strict vector halo input is null");
+    if (request_active_)
+      throw std::logic_error("strict vector halo exchange is already active");
+    use_device_mpi_ = qcu_mpi_can_use_buffer<T>(device_send_);
+    strict_check_cuda(cudaEventRecord(input_ready_, set_->stream),
+                      "strict vector halo input event record");
+    strict_check_cuda(
+        cudaStreamWaitEvent(exchange_stream_, input_ready_, 0),
+        "strict vector halo input event wait");
     for (int dim = 0; dim < 4; ++dim) {
       if (strict_dim_extent(set_, dim) <= 1) continue;
       for (int side = 0; side < 2; ++side) {
@@ -1672,24 +1758,22 @@ template <typename T> class StrictVectorHalo {
           strict_check_cuda(
               cudaMemsetAsync(
                   slot, 0, slot_elements_ * sizeof(LatticeComplex<T>),
-                  set_->stream),
+                  exchange_stream_),
               "strict compact vector halo slot zero");
-            strict_launch_pack_compact_faces<T>(
+              strict_launch_pack_compact_faces<T>(
                 slot, input, components_, X_, Y_, Z_, Lt_,
-                dim, side, parity, set_->stream,
+                dim, side, parity, exchange_stream_,
                 static_cast<int>(slot_stride()));
         } else {
           strict_launch_pack_face<T>(
               false, slot, input, components_, X_, Y_, Z_, Lt_,
-              dim, side, parity, set_->stream,
+              dim, side, parity, exchange_stream_,
               static_cast<int>(slot_stride()));
         }
       }
     }
     strict_check_cuda(cudaGetLastError(), "strict vector halo pack launch");
-    const bool use_device_mpi =
-        qcu_mpi_can_use_buffer<T>(device_send_);
-    if (!use_device_mpi) {
+    if (!use_device_mpi_) {
       const size_t slot_bytes =
           slot_elements_ * sizeof(LatticeComplex<T>);
       for (int dim = 0; dim < 4; ++dim) {
@@ -1701,14 +1785,18 @@ template <typename T> class StrictVectorHalo {
               cudaMemcpyAsync(
                   static_cast<char *>(host_send_) + offset,
                   static_cast<const char *>(device_send_) + offset,
-                  slot_bytes, cudaMemcpyDeviceToHost, set_->stream),
+                  slot_bytes, cudaMemcpyDeviceToHost, exchange_stream_),
               "strict vector halo active send staging");
         }
       }
     }
-    strict_check_cuda(cudaStreamSynchronize(set_->stream),
+    strict_check_cuda(cudaStreamSynchronize(exchange_stream_),
                       "strict vector halo pack sync");
+  }
 
+  void post_requests() {
+    if (!distributed_ || request_active_) return;
+    request_active_ = true;
     for (int dim = 0; dim < 4; ++dim) {
       if (strict_dim_extent(set_, dim) <= 1) continue;
       // Slots are padded to the largest face so that a single ghost layout
@@ -1721,26 +1809,38 @@ template <typename T> class StrictVectorHalo {
                                     "strict vector halo message is too large"));
       const int backward = strict_peer(set_, dim, -1);
       const int forward = strict_peer(set_, dim, 1);
-      void *send = use_device_mpi ? device_send_ : host_send_;
-      void *recv = use_device_mpi ? device_recv_ : host_recv_;
+      void *send = use_device_mpi_ ? device_send_ : host_send_;
+      void *recv = use_device_mpi_ ? device_recv_ : host_recv_;
       const size_t min_offset =
           static_cast<size_t>(2 * dim) * slot_elements_;
       const size_t max_offset =
           static_cast<size_t>(2 * dim + 1) * slot_elements_;
-      checkMpiErrors(_MPI_Sendrecv<T>(
-          static_cast<const LatticeComplex<T> *>(send) + max_offset, count,
-          forward, tag_base_ + 2 * dim,
+      checkMpiErrors(_MPI_Irecv<T>(
           static_cast<LatticeComplex<T> *>(recv) + max_offset, count,
-          backward, tag_base_ + 2 * dim,
-          MPI_COMM_WORLD, MPI_STATUS_IGNORE));
-      checkMpiErrors(_MPI_Sendrecv<T>(
-          static_cast<const LatticeComplex<T> *>(send) + min_offset, count,
-          backward, tag_base_ + 2 * dim + 1,
+          backward, tag_base_ + 2 * dim, MPI_COMM_WORLD,
+          &recv_requests_[2 * dim + 1]));
+      checkMpiErrors(_MPI_Irecv<T>(
           static_cast<LatticeComplex<T> *>(recv) + min_offset, count,
-          forward, tag_base_ + 2 * dim + 1,
-          MPI_COMM_WORLD, MPI_STATUS_IGNORE));
+          forward, tag_base_ + 2 * dim + 1, MPI_COMM_WORLD,
+          &recv_requests_[2 * dim]));
+      checkMpiErrors(_MPI_Isend<T>(
+          static_cast<const LatticeComplex<T> *>(send) + max_offset, count,
+          forward, tag_base_ + 2 * dim, MPI_COMM_WORLD,
+          &send_requests_[2 * dim + 1]));
+      checkMpiErrors(_MPI_Isend<T>(
+          static_cast<const LatticeComplex<T> *>(send) + min_offset, count,
+          backward, tag_base_ + 2 * dim + 1, MPI_COMM_WORLD,
+          &send_requests_[2 * dim]));
     }
-    if (!use_device_mpi) {
+  }
+
+  void finish() {
+    if (!distributed_ || !request_active_) return;
+    checkMpiErrors(
+        MPI_Waitall(8, recv_requests_, MPI_STATUSES_IGNORE));
+    checkMpiErrors(
+        MPI_Waitall(8, send_requests_, MPI_STATUSES_IGNORE));
+    if (!use_device_mpi_) {
       const size_t slot_bytes =
           slot_elements_ * sizeof(LatticeComplex<T>);
       for (int dim = 0; dim < 4; ++dim) {
@@ -1752,17 +1852,45 @@ template <typename T> class StrictVectorHalo {
               cudaMemcpyAsync(
                   static_cast<char *>(device_recv_) + offset,
                   static_cast<const char *>(host_recv_) + offset,
-                  slot_bytes, cudaMemcpyHostToDevice, set_->stream),
+                  slot_bytes, cudaMemcpyHostToDevice, exchange_stream_),
               "strict vector halo active receive staging");
         }
       }
     }
-    strict_check_cuda(cudaStreamSynchronize(set_->stream),
-                      "strict vector halo exchange sync");
+    strict_check_cuda(cudaEventRecord(recv_ready_, exchange_stream_),
+                      "strict vector halo receive event record");
+    strict_check_cuda(
+        cudaStreamWaitEvent(set_->stream, recv_ready_, 0),
+        "strict vector halo receive event wait");
+    request_active_ = false;
+  }
+
+  void exchange(const void *input, int parity) {
+    begin(input, parity);
+    post_requests();
+    finish();
   }
 
  private:
   void release() noexcept {
+    if (request_active_) {
+      (void)MPI_Waitall(8, recv_requests_, MPI_STATUSES_IGNORE);
+      (void)MPI_Waitall(8, send_requests_, MPI_STATUSES_IGNORE);
+      request_active_ = false;
+    }
+    if (exchange_stream_ != nullptr) {
+      (void)cudaStreamSynchronize(exchange_stream_);
+      (void)cudaStreamDestroy(exchange_stream_);
+      exchange_stream_ = nullptr;
+    }
+    if (input_ready_ != nullptr) {
+      (void)cudaEventDestroy(input_ready_);
+      input_ready_ = nullptr;
+    }
+    if (recv_ready_ != nullptr) {
+      (void)cudaEventDestroy(recv_ready_);
+      recv_ready_ = nullptr;
+    }
     if (device_send_ != nullptr) {
       (void)cudaFree(device_send_);
       device_send_ = nullptr;
@@ -1792,6 +1920,13 @@ template <typename T> class StrictVectorHalo {
   void *device_recv_ = nullptr;
   void *host_send_ = nullptr;
   void *host_recv_ = nullptr;
+  cudaStream_t exchange_stream_ = nullptr;
+  cudaEvent_t input_ready_ = nullptr;
+  cudaEvent_t recv_ready_ = nullptr;
+  MPI_Request recv_requests_[8] = {};
+  MPI_Request send_requests_[8] = {};
+  bool request_active_ = false;
+  bool use_device_mpi_ = false;
 };
 
 template <typename T> class StrictAxisLinkHalo {
@@ -1904,8 +2039,6 @@ template <typename T> class StrictAxisLinkHalo {
                           cudaMemcpyHostToDevice, set_->stream),
           "strict link halo receive staging");
     }
-    strict_check_cuda(cudaStreamSynchronize(set_->stream),
-                      "strict link halo exchange sync");
     if (cache_enabled_) {
       cached_input_[key] = input;
       cache_valid_[key] = true;
@@ -2478,36 +2611,90 @@ void strict_launch_hopping_with_halos(
     LatticeSet<T> *set, int E, int X, int Y, int Z, int Lt,
     int target_parity) {
   const int input_parity = 1 - target_parity;
-  vector_halo.exchange(in, input_parity);
   const int half_volume = E * X * Y * Z * (Lt / 2);
   const int blocks = strict_hopping_blocks(half_volume);
-  strict_hopping_parity_base_kernel<T>
+  const size_t volume =
+      static_cast<size_t>(X) * Y * Z * Lt;
+  const int correction_blocks =
+      (half_volume + _BLOCK_SIZE_ - 1) / _BLOCK_SIZE_;
+  const int base_present = base == nullptr ? 0 : 1;
+  const size_t ghost_slot_stride = vector_halo.slot_stride();
+  // The overlapped path evaluates remote forward terms after the local sum.
+  // Keep double precision on the original ordering unless explicitly opted in:
+  // large c128 hierarchies have shown severe BiCGStab trajectory sensitivity.
+  const bool overlap_supported =
+      std::is_same<T, float>::value ||
+      qcu_parse_bool_env("PYQCU_STRICT_OVERLAP_C128", false);
+  const bool overlap =
+      overlap_supported && qcu_mpi_overlap_enabled() &&
+      vector_halo.distributed();
+  if (overlap) {
+    vector_halo.begin(in, input_parity);
+    // Backward-link ghosts are static across a hierarchy.  Refreshing them
+    // before the local kernel overlaps any cache miss with vector traffic.
+    for (int dim = 0; dim < 4; ++dim) {
+      if (strict_dim_extent(set, dim) <= 1) continue;
+      const LatticeComplex<T> *backward_links =
+          static_cast<const LatticeComplex<T> *>(links) +
+          (static_cast<size_t>(1 * 4 + dim) * E * E) * volume;
+      link_halo.exchange(backward_links, input_parity, dim);
+    }
+    strict_hopping_parity_base_kernel<T, false>
+        <<<blocks, kStrictHoppingBlockSize, 0, set->stream>>>(
+            out, in, links, base, vector_halo.device_ghost(),
+            ghost_slot_stride, E, X, Y, Z, Lt,
+            strict_dim_extent(set, 0), strict_dim_extent(set, 1),
+            strict_dim_extent(set, 2), strict_dim_extent(set, 3),
+            target_parity);
+    strict_check_cuda(cudaGetLastError(),
+                      "hopping parity local overlap launch");
+    vector_halo.post_requests();
+    vector_halo.finish();
+    for (int dim = 0; dim < 4; ++dim) {
+      if (strict_dim_extent(set, dim) <= 1) continue;
+      const LatticeComplex<T> *ghost =
+          static_cast<const LatticeComplex<T> *>(vector_halo.device_ghost());
+      const LatticeComplex<T> *backward_input =
+          ghost + static_cast<size_t>(2 * dim + 1) * E * ghost_slot_stride;
+      const LatticeComplex<T> *forward_input =
+          ghost + static_cast<size_t>(2 * dim) * E * ghost_slot_stride;
+      const int face_count = static_cast<int>(
+          strict_face_count(X, Y, Z, Lt, dim));
+      const int remote_blocks =
+          (2 * E * face_count + _BLOCK_SIZE_ - 1) / _BLOCK_SIZE_;
+      strict_hopping_parity_remote_correction_kernel<T>
+          <<<remote_blocks, _BLOCK_SIZE_, 0, set->stream>>>(
+              out, backward_input, forward_input,
+              link_halo.device_ghost(input_parity, dim), links,
+              E, X, Y, Z, Lt, target_parity, dim, base_present);
+      strict_check_cuda(cudaGetLastError(),
+                        "hopping parity overlapped remote correction");
+    }
+    return;
+  }
+
+  vector_halo.exchange(in, input_parity);
+  strict_hopping_parity_base_kernel<T, true>
       <<<blocks, kStrictHoppingBlockSize, 0, set->stream>>>(
           out, in, links, base, vector_halo.device_ghost(),
-          vector_halo.slot_stride(), E, X, Y, Z, Lt,
+          ghost_slot_stride, E, X, Y, Z, Lt,
           strict_dim_extent(set, 0), strict_dim_extent(set, 1),
           strict_dim_extent(set, 2), strict_dim_extent(set, 3),
           target_parity);
   strict_check_cuda(cudaGetLastError(), "hopping parity base launch");
-  const size_t volume =
-      static_cast<size_t>(X) * Y * Z * Lt;
   for (int dim = 0; dim < 4; ++dim) {
     if (strict_dim_extent(set, dim) <= 1) continue;
     const LatticeComplex<T> *backward_links =
         static_cast<const LatticeComplex<T> *>(links) +
         (static_cast<size_t>(1 * 4 + dim) * E * E) * volume;
     link_halo.exchange(backward_links, input_parity, dim);
-    const size_t ghost_slot_stride =
-        vector_halo.slot_stride();
     const LatticeComplex<T> *input_ghost =
         static_cast<const LatticeComplex<T> *>(vector_halo.device_ghost()) +
         static_cast<size_t>(2 * dim + 1) * E * ghost_slot_stride;
-    const int correction_blocks =
-        (half_volume + _BLOCK_SIZE_ - 1) / _BLOCK_SIZE_;
     strict_hopping_parity_backward_correction_kernel<T>
         <<<correction_blocks, _BLOCK_SIZE_, 0, set->stream>>>(
             out, input_ghost, link_halo.device_ghost(input_parity, dim),
-            E, X, Y, Z, Lt, target_parity, dim, base == nullptr ? 0 : 1);
+            E, X, Y, Z, Lt, target_parity, dim, base_present);
     strict_check_cuda(cudaGetLastError(),
                       "hopping parity backward correction launch");
   }

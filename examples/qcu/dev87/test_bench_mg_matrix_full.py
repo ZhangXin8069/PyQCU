@@ -381,6 +381,52 @@ def test_resume_skips_completed_unit(tmp_path: Path) -> None:
     assert records[0]["git_describe"] == "test-revision"
 
 
+def test_subprocess_runner_replaces_non_utf8_log_bytes(tmp_path: Path) -> None:
+    result = matrix._subprocess_runner(
+        [
+            sys.executable,
+            "-c",
+            "import os; os.write(2, b'prefix\\xfftail')",
+        ],
+        cwd=tmp_path,
+        env={},
+        timeout=5,
+    )
+    assert result.returncode == 0
+    assert result.stderr == "prefix\ufffdtail"
+
+
+def test_quda_mapped_memory_failure_retries_same_unit(tmp_path: Path) -> None:
+    unit = _unit(side="quda", levels=2)
+    calls: list[int] = []
+
+    def runner(command, _cwd, _env, _timeout):
+        calls.append(1)
+        if len(calls) < 3:
+            return matrix.RunResult(
+                returncode=1,
+                stderr=(
+                    "QUDA: Failed to register host-mapped memory of size 56623104"),
+            )
+        output = Path(command[command.index("--output") + 1])
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(json.dumps({
+            "sides": {"quda": {"status": "ok"}},
+        }), encoding="utf-8")
+        return matrix.RunResult(returncode=0)
+
+    records = matrix.run_matrix(
+        [unit],
+        output_dir=tmp_path,
+        runner=runner,
+        source_version="test-revision",
+    )
+    assert len(calls) == 3
+    assert records[-1]["status"] == "ok"
+    assert records[-1]["retry_count"] == 2
+    assert len(records[-1]["retry_reasons"]) == 2
+
+
 def test_bicgstab_level_is_derived_from_mg2_reference(tmp_path: Path) -> None:
     source = _unit(trace="off", levels=2)
     derived = _unit(trace="off", levels=1)
@@ -404,8 +450,25 @@ def test_bicgstab_level_is_derived_from_mg2_reference(tmp_path: Path) -> None:
                     "timing": {"setup_seconds": 0.5},
                     "reference_solver": {
                         "kind": "bicgstab",
+                        "cold": {
+                            "seconds": 0.4,
+                            "true_residual_rel": 2.0e-7,
+                            "iterations": 8,
+                        },
+                        "warmups": [
+                            {
+                                "seconds": 0.3,
+                                "true_residual_rel": 2.0e-7,
+                                "iterations": 7,
+                            },
+                            {
+                                "seconds": 0.31,
+                                "true_residual_rel": 2.0e-7,
+                                "iterations": 7,
+                            },
+                        ],
                         "steady": {
-                            "samples_seconds": [0.2, 0.3],
+                            "samples_seconds": [0.2, 0.3, 0.25, 0.24, 0.26],
                             "median_seconds": 0.25,
                             "mad_seconds": 0.05,
                         },
@@ -413,6 +476,33 @@ def test_bicgstab_level_is_derived_from_mg2_reference(tmp_path: Path) -> None:
                             "samples": [7, 7],
                             "median": 7.0,
                         },
+                        "samples": [
+                            {
+                                "seconds": 0.2,
+                                "true_residual_rel": 2.0e-7,
+                                "iterations": 7,
+                            },
+                            {
+                                "seconds": 0.3,
+                                "true_residual_rel": 2.0e-7,
+                                "iterations": 7,
+                            },
+                            {
+                                "seconds": 0.25,
+                                "true_residual_rel": 2.0e-7,
+                                "iterations": 7,
+                            },
+                            {
+                                "seconds": 0.24,
+                                "true_residual_rel": 2.0e-7,
+                                "iterations": 7,
+                            },
+                            {
+                                "seconds": 0.26,
+                                "true_residual_rel": 2.0e-7,
+                                "iterations": 7,
+                            },
+                        ],
                         "true_residual_max_rel": 2.0e-7,
                         "excluded_from_speedup": True,
                     },
@@ -433,7 +523,15 @@ def test_bicgstab_level_is_derived_from_mg2_reference(tmp_path: Path) -> None:
     document = json.loads(
         matrix.unit_output_path(tmp_path, derived).read_text(encoding="utf-8"))
     assert document["derived_kind"] == "bicgstab-reference"
+    assert document["unit_levels"] == 1
     assert document["protocol"] == {"profile": "formal"}
+    assert "mg_levels" not in document["sides"][derived.side]
+    assert document["sides"][derived.side][
+        "reference_solver"]["cold"]["iterations"] == 8
+    assert len(document["sides"][derived.side][
+        "reference_solver"]["warmups"]) == 2
+    assert len(document["sides"][derived.side][
+        "reference_solver"]["samples"]) == 5
     summary = matrix.summarize_matrix([derived], output_dir=tmp_path)
     row = summary["units"][0]
     assert row["status"] == "ok"
