@@ -19,6 +19,7 @@ PyQCU 参考文档。
 | `report_multigrid_distributed_20260918.tex/.pdf` | 分布式 Strict-MG：fine/compact/full halo、R/P coarse halo、distributed fused FGMRES、分布式 Galerkin setup 的实现、正确性与 V100 c64 性能矩阵；MG-1/c128/P100 的缺口逐条记录 |
 | `plans/2026-09-16-multigrid-profiling-benchmark.md` | 本轮任务的实现与验证计划 |
 | `ORGANIZATION.md` | `docs/`、`data/`、`logs/`、`pyqcu/testing/` 的统一分类规则、垃圾清理与构建树例外 |
+| `form-audit-20260928.md` | 2026-09-28 全库 form 审计：冲突表、本地例外、验证证据和恢复方法 |
 
 ## 目录分类
 

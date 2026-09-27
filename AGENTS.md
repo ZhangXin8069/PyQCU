@@ -48,11 +48,25 @@ PyQCU：Lattice QCD 的 Python/Cython 库 —— CUDA 加速的 Wilson/Clover Di
 | `cpp/cuda/qcu/` | C++ CUDA 后端：`src/`（.cu 内核）、`include/`（26 个模板头）、`python/pyqcu.h`（C API，须与 qcu.pxd 同步）、`logs/` |
 | `cpp/{cann,dtk,maca}/qcu/` | 占位 PASS，无实现 |
 | `pyqcu/testing/` | 统一测试入口：`pyqcu/`（纯 Python 主套件）、`qcu/`（C++ 后端，按 multigrid legacy/scaling/benchmark 与 strict 分类）、`quda/`（QUDA 对照）、`pyquda/`（PyQUDA 对照）、`cpu/npu/dcu/gpu/tilelang/profiler/benchmark/`、`data/`（参考 HDF5） |
-| `skills/` | 项目技能库（35 个技能目录：SKILL.md + 简短 AGENTS.md，目录级领域知识文档；索引与技能表见 `skills/AGENTS.md`；2026-08-25 自 `.opencode/skills` 迁出，源目录已删除，需 opencode 加载时从本库同步） |
+| `skills/` | 项目技能库（36 个技能目录：SKILL.md + 简短 AGENTS.md，目录级领域知识文档；索引与技能表见 `skills/AGENTS.md`；2026-08-25 自 `.opencode/skills` 迁出，源目录已删除，需 opencode 加载时从本库同步） |
 | `docs/` | 正式独立文档与指南（`.pdf`/`.tex`/`.md`）：`dims.md`、`env.md`、`install.md`、`examples.md`、`profiler.md`、`ORGANIZATION.md`；从 `data/**` 提升的文档位于 `docs/data/` |
 | `refer/` | 开发历史报告（dev71.*） |
 | `logs/` | 运行记录（JSON/LOG/TSV/TXT）和按 tag 组织的日志包：`dev<N>/`、`stab<N>/`、`bug<N>/` 等；`logs/data/` 汇总从 `data/**` 提升出的运行摘要；报告实体在 `logs/`，张量/cache 实体在 `data/logs/`。历史重复代码与一次性构建垃圾直接删除 |
 | `data/` | 数据、安装与构建产物（`.h5`、`.so`、`.dat`、`.csv`、`.svg` 等）；`data/docs/` 保存非文档 Office 文件，`data/logs/` 保存从 `logs/**` 提升的张量/cache；`quda-*`、`venv-*`、`p100-*` 作为自包含构建/安装树整体保留 |
+
+## form 格式约定
+
+- 库类型：复杂库。主导语言：C++/CUDA（`cpp/**`）、Python/Cython（`pyqcu/**`、`setup.py`）、Bash（根构建入口和 `skills/**/*.sh`）。
+- 文件命名：C++ 头文件、`.cu` 源文件、Python 模块和 Bash 脚本使用小写下划线或既有点划分；语言生态固定名称和上游 vendored 文件保留原名。
+- 函数命名：C++ 对外 C API 使用小驼峰（如 `applyInitQcu`），内部 kernel/helper 使用小写下划线；Python 公共函数和私有函数分别使用 `snake_case`、`_snake_case`。
+- 变量命名：宏和编译期常量使用全大写下划线，C++ 宏保留 `_NAME_` 锚点；普通变量使用小写下划线，Python 模块级常量使用全大写下划线。
+- 对象命名：C++/Python 类型使用大驼峰，领域缩写作为完整词保留；绑定的 C API 名称必须与 `qcu.pyx`、`qcu.pxd` 和 `pyqcu.h` 同步。
+- 顶层目录白名单：`cpp/`、`data/`、`docs/`、`logs/`、`pyqcu/`、`refer/`、`skills/`。根入口文件仅允许 `AGENTS.md`、`.gitignore`、`LICENSE`、`README.md`、`build.sh`、`env.sh`、`install.sh`、`setup.py`。
+- 测试入口：主套件为 `cd pyqcu/testing && pytest .`；MPI 入口为 `mpirun -np 4 python pyqcu/testing/python/conftest.py`；技能自带 shell 回归保留在对应技能目录，如 `bash skills/tag/tag-chain.test.sh`。
+- 功能复现：构建使用 `bash ./build.sh`，Cython 扩展使用 `bash ./install.sh`；纯格式/文档改动至少执行 `bash -n`、相关回归、`git diff --check` 和 `bash skills/form/form-audit.sh`。
+- 文档/日志/数据：正式文档在 `docs/**`；报告、运行摘要及 `log/json/tsv/csv/txt/stdout/jsonl` 在 `logs/**`；数据、SVG、构建/安装树和缓存实体在 `data/**`。目录元数据 `AGENTS.md`、`.gitignore`、`README.md` 留在所属目录。
+- Git 交付：form 批次按逻辑分组提交，只暂存本任务文件，禁止 `git add -A`/`git add .` 和 force push；推送与开发标签按 tag 技能的 follow 链执行。
+- 本地例外：`data/**` 可跟踪正式证据、构建树和自包含安装树；`logs/**` 可保存第一方报告 `.md/.tex/.pdf` 与图表；`docs/张鑫 508应用测试报告-PyQCU/` 是文档资产保留的解包 Office 资源；`skills/tag/tag-chain.test.sh` 与该技能实现同目录；`refer/**` 与已存在的上游 vendored/generated 树保留来源名称。
 
 ## 已知反模式（勿重复）
 
