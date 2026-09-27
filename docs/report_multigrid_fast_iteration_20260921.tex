@@ -326,14 +326,22 @@ steady \(20.493\,\mathrm{s}\)、95 iterations、真残差
 
 \section{2026-09-27 后续状态}
 
-本报告的“当前缺口”已在后续迭代中继续闭环：完整 Cartesian 数据、
-reference 阶段语义和 trace evidence 校验已整理至
-\pathref{docs/report_multigrid_optimized_20260927.tex}。该后续报告确认
-complex64 Strict Hopper 的非阻塞 overlap 在双 P100 大格 MG-2 上给出
-\(4.654\rightarrow4.337\,\mathrm{s}\) 的两组反向顺序稳态中位数改善，
-并记录 complex128
-在大格三层上的安全回退要求。因此本节旧缺口只保留为 2026-09-21 时点
-快照，不再代表最终代码状态。
+本报告的“当前缺口”已在后续迭代中闭环：最终 Cartesian 矩阵完成
+\(72/72\) 个 exact-config comparison unit 和 \(144/144\) 个 side case，
+config hash、input bundle hash、fair 门均为 \(72/72\)，trace/reference
+证据检查错误数为 0。最终 formal 协议使用 c64 coarse-tol \(0.003\)、
+c128 coarse-tol \(3\times10^{-5}\) 和
+\(1\) cold \(+2\) warmup \(+5\) steady；本报告旧表中的 \(0.3\)
+只保留为小时级 A/B 诊断，不再代表最终矩阵。
+
+双 P100 大格 c64 MG-2 的 overlap A/B 为
+\(4.654\rightarrow4.337\,\mathrm{s}\)；最终严格 coarse 协议下该格
+MG-2 与 QUDA 接近持平，而 MG-3 为 \(3.899\) 对
+\(7.364\,\mathrm{s}\)。最终 MG 矩阵共 48 组，PyQCU 胜 38 组，中位比值
+\(\mathrm{QUDA}/\mathrm{PyQCU}=1.346\)。完整结果、阶段 CSV 和
+complex128 安全回退记录见
+\pathref{docs/report_multigrid_optimized_20260927.tex}。本节旧缺口只保留
+为 2026-09-21 时点快照，不再代表最终代码状态。
 
 \section{复现命令}
 

@@ -156,7 +156,8 @@ def main() -> int:
     ]
     with (args.outdir / "overlap_matrix.csv").open(
             "w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer = csv.DictWriter(
+            handle, fieldnames=fieldnames, lineterminator="\n")
         writer.writeheader()
         writer.writerows(rows)
     if rows:
