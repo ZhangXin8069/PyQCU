@@ -1,8 +1,8 @@
 ---
 name: tilelang
-description: examples/tilelang 目录的完整生成 skill：TileLang JIT 内核测试（CUDA）。
+description: pyqcu/testing/tilelang 目录的完整生成 skill：TileLang JIT 内核测试（CUDA）。
 ---
-# CLAUDE.md — examples/tilelang
+# CLAUDE.md — pyqcu/testing/tilelang
 
 TileLang JIT-compiled kernel tests for CUDA. Exercises the TileLang integration in `pyqcu/tools/_einsum.py` and `pyqcu/tools/_matul.py`.
 
@@ -15,7 +15,7 @@ TileLang JIT-compiled kernel tests for CUDA. Exercises the TileLang integration 
 ## Usage
 
 ```bash
-python examples/tilelang/conftest.py
+python pyqcu/testing/tilelang/conftest.py
 ```
 
 Requires TileLang to be installed (optional dependency, silently degrades if unavailable).

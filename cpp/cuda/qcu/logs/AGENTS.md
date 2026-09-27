@@ -5,7 +5,7 @@ C++ CUDA 后端（`cpp/cuda/qcu`）的本地运行输出目录。存放构建、
 ## 内容
 
 - `bash ./make.sh` 构建输出（编译器/链接信息）
-- C++ 后端测试输出（如 `examples/qcu/conftest.clover.multigrid.py`）
+- C++ 后端测试输出（如 `pyqcu/testing/qcu/conftest.clover.multigrid.py`）
 - 性能/收敛报告
 
 ## 注意

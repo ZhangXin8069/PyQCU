@@ -36,7 +36,7 @@ def give_null_vecs(
             # dev84 修复: nv_tol/tol 此前为绝对容差语义 —— 大格子上 ‖Av‖~O(10²-10³)
             # 时 5e-5 绝对值近似精确解, v-A⁻¹(Av)≈舍入噪声, 归一化后得到的是
             # 随机向量而非近零模 (实测 ‖Sv‖/‖v‖≈0.4≈谱 RMS, ρ_V≈0.976,
-            # 见 examples/qcu/dev84/dev84_report.md §3.2)。改相对容差。
+            # 见 pyqcu/testing/qcu/multigrid/benchmarks/large_volume/report.md §3.2)。改相对容差。
             null_vecs[i] -= solver.bistabcg(b=matvec(null_vecs[i]),
                                             matvec=matvec, tol=5e-5,
                                             if_rtol=True, verbose=verbose)
@@ -275,7 +275,7 @@ def prolong_npu(local_ortho_null_vecs: torch.Tensor, coarse_vec: torch.Tensor) -
 
 
 # ===================== Schur 33-tensor stencil build（Galerkin 粗网格算子） =====================
-# 由 dev73/mg_stencil_build.py 与 test12/main.py::build_stencil_mt 合并迁移。
+# 由 pyqcu/testing/qcu/multigrid/legacy/mg_stencil_build.py 与 test12/main.py::build_stencil_mt 合并迁移。
 
 PAIRS = [(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]  # (d1,d2) with d1<d2
 SIGN = [1, -1]

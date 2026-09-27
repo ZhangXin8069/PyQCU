@@ -48,8 +48,8 @@ bash ./build.sh                # 构建 libqcu.so（C++ CUDA 后端）
 bash ./install.sh              # 就地构建 Cython 扩展
 
 # 测试
-cd examples && pytest .
-mpirun -np 4 python examples/pyqcu/conftest.py
+cd pyqcu/testing && pytest .
+mpirun -np 4 python pyqcu/testing/python/conftest.py
 ```
 
 ## 日志约定

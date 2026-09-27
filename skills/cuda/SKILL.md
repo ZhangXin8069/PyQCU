@@ -227,7 +227,7 @@ QUDA 1.1.0 上游默认关闭 double recursive MultiGrid；本项目已在
 `QUDA_GPU_ARCH=sm_70`。该组合同时覆盖 c64 和 c128，不再分别维护
 c64-only/double-only 两个安装。
 
-`examples/qcu/dev87/quda_env.sh` 默认指向该组合安装，并设置匹配的
+`pyqcu/testing/qcu/strict/quda_comparison/quda_env.sh` 默认指向该组合安装，并设置匹配的
 `QUDA_BUILD_DIR`。切换 `QUDA_INSTALL` 时必须同步构建目录，否则正式
 provenance 会把另一套 CMake precision/reconstruct/nvec 能力当成当前库。
 QUDA 侧调用 plain BiCGStab 参考前，必须同时清除

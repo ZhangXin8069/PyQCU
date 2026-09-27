@@ -9,7 +9,6 @@ from pyqcu import lattice, solver, dslash, tools, smear
 import pyqcu.cann as _torch
 import mpi4py.MPI as MPI
 from typing import Optional, List
-import pyqcu
 Namespace.__module__ = "pyqcu.testing"
 
 
@@ -62,7 +61,7 @@ def test_dslash_wilson(kappa: Optional[torch.Tensor] = torch.Tensor([0.1]), lat_
         kappa = torch.Tensor([0.125])
         dtype = torch.complex64
         lat_size = [16, 16, 16, 16]
-        path = pyqcu.__file__.replace('pyqcu/__init__.py', 'examples/data/')
+        path = __file__.replace('__init__.py', 'data/')
         refer_U = tools.hdf5oooxyzt2gridoooxyzt(
             file_name=path+'refer.wilson.U.L16K0_125.ccdxyzt.c64.h5', lat_size=lat_size, device=device, verbose=True)
         refer_src = tools.hdf5oooxyzt2gridoooxyzt(
@@ -203,7 +202,7 @@ def test_dslash_clover(device: torch.device = torch.device('cpu'), with_data: bo
     if with_data:
         kappa = torch.Tensor([1.0])
         lat_size = [8, 8, 8, 8]
-        path = pyqcu.__file__.replace('pyqcu/__init__.py', 'examples/data/')
+        path = __file__.replace('__init__.py', 'data/')
         refer_U = tools.hdf5oooxyzt2gridoooxyzt(
             file_name=path+'refer.clover.U.L8K1.ccdxyzt.c64.h5', lat_size=lat_size, device=device, verbose=True)
         refer_clover_term = tools.hdf5oooxyzt2gridoooxyzt(
@@ -327,7 +326,7 @@ def test_solver(kind: str = 'clover', method: str = 'bistabcg', kappa: Optional[
     else:
         kappa = torch.Tensor([0.125])
         lat_size = [16, 16, 16, 16]
-        path = pyqcu.__file__.replace('pyqcu/__init__.py', 'examples/data/')
+        path = __file__.replace('__init__.py', 'data/')
         refer_U = tools.hdf5oooxyzt2gridoooxyzt(
             file_name=path+'refer.wilson.U.L16K0_125.ccdxyzt.c64.h5', lat_size=lat_size, device=device, verbose=True)
         refer_x = tools.hdf5oooxyzt2gridoooxyzt(
@@ -755,8 +754,8 @@ def verify_nullvecs(S, lonv, lat_fine: List[int], lat_coarse: List[int],
                     n_sample: int = 4, stencil=None, verbose: bool = False):
     """null 向量质量四重诊断。
 
-    整合自 logs/test11/main.py::verify_nullvecs 与
-    examples/qcu/dev73/mg_dev73_5_verify.py::verify_nullvecs：
+    整合自 pyqcu/testing/qcu/multigrid/legacy/integrated_single_thread/main.py::verify_nullvecs 与
+    pyqcu/testing/qcu/multigrid/legacy/verify_results.py::verify_nullvecs：
     粗算子构建（tools.build_stencil*/give_null_vecs*）后的标准验收工具。
 
     Args:

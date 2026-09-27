@@ -149,7 +149,7 @@
     分布式 33 点 halo 与混合精度运行不破坏真残差；当前主要瓶颈从正确性转为 setup 成本。}}
   \source{实现：\codepath{pyqcu/solver/_quda_multigrid.py:1094-1292,1691-2331}；
     优化：\codepath{pyqcu/tools/_multigrid.py:938-1334}；
-    测试：\codepath{examples/qcu/dev87/}。}
+    测试：\codepath{pyqcu/testing/qcu/strict/quda_comparison/}。}
 \end{frame}
 
 \begin{frame}[t]{QUDA 的递归控制流：reset 建层，operator 做一次完整 V-cycle}
@@ -352,7 +352,7 @@
     \end{column}
   \end{columns}
   \source{新实现与旧实现的完整源码索引见附录；对照矩阵为
-    \texttt{examples/qcu/dev87/comparison\_matrix.md}。}
+    \codepath{pyqcu/testing/qcu/strict/quda_comparison/comparison_matrix.md}。}
 \end{frame}
 \begin{frame}[t]{局部 33 点 stencil setup：用有限传播半径替代全格 Schur 探测}
   \scriptsize
@@ -427,7 +427,7 @@
     \end{column}
   \end{columns}
   \source{实现：\codepath{pyqcu/tools/_multigrid.py:938-987,1026-1067,1166-1240,1279-1334}；
-    测量命令：\codepath{examples/qcu/dev87/test_stencil_batch_local.py} 与本轮 CPU benchmark。}
+    测量命令：\codepath{pyqcu/testing/qcu/strict/quda_comparison/test_stencil_batch_local.py} 与本轮 CPU benchmark。}
 \end{frame}
 
 \begin{frame}[t]{当前实测：批量局部探测保持逐点结果，并降低 setup 调度成本}
@@ -441,14 +441,14 @@
       流式 Schur vs 物化公式 & 随机非对角矩阵、$K=4$ & shape 一致 & max abs $=0$ & contraction 顺序与 parity mask 保持 \\
       局部 stencil K=1 vs K=4 & fine $8^4$、coarse $4^4$、$E=3$ & 逐点/批量 & max diff $=0$ & 周期边界和内部粗点均覆盖 \\
       CPU batch benchmark & $E=2,W=6$、4 个粗点 & $0.155\to0.122$ s & $1.266\times$ & 仅计 setup 探测，非 GPU 吞吐声明 \\
-      Python 主回归 & \texttt{pytest -q examples/pyqcu} & 26 passed & exit 0 & 既有代数/solver 行为未回归 \\
+      Python 主回归 & \texttt{pytest -q pyqcu/testing/python} & 26 passed & exit 0 & 既有代数/solver 行为未回归 \\
       breakdown guard & zero coarse operator & 2 passed & finite output & 粗求解 breakdown 不污染细解 \\
       \bottomrule
     \end{tabularx}
   \end{center}
   \vspace{0.04em}
-  \source{测试：\codepath{examples/qcu/dev87/test_stencil_batch_local.py}、
-    \codepath{examples/qcu/dev87/test_mg_breakdown.py}；流式与批量等价，
+  \source{测试：\codepath{pyqcu/testing/qcu/strict/quda_comparison/test_stencil_batch_local.py}、
+    \codepath{pyqcu/testing/qcu/strict/quda_comparison/test_mg_breakdown.py}；流式与批量等价，
     CPU 数字仅代表 setup 调度收益，不外推 GPU/MPI 吞吐。}
 \end{frame}
 
@@ -475,9 +475,9 @@
     parity 页不能直接按压缩轴切块；先恢复物理格点、切 rank block、再压缩。
     粗层不做 checkerboard，但保留本 rank 的 33 点 stencil，并对跨 rank 的 32 个邻居做 halo。
   \end{block}
-  \source{回环：\codepath{examples/qcu/dev87/parity_mpi_roundtrip.py:48-118}；
-    粗算子：\codepath{examples/qcu/dev87/coarse_mpi_equiv.py:46-122}；
-    MG：\codepath{examples/qcu/dev87/run_qcu_mg_mpi.py:209-222}；命令证据：本轮 MPI 运行输出。}
+  \source{回环：\codepath{pyqcu/testing/qcu/strict/quda_comparison/parity_mpi_roundtrip.py:48-118}；
+    粗算子：\codepath{pyqcu/testing/qcu/strict/quda_comparison/coarse_mpi_equiv.py:46-122}；
+    MG：\codepath{pyqcu/testing/qcu/strict/quda_comparison/run_qcu_mg_mpi.py:209-222}；命令证据：本轮 MPI 运行输出。}
 \end{frame}
 
 \begin{frame}[t]{当前限制与风险：正确性已闭环，生产性能仍受资产与通信口径约束}
@@ -551,7 +551,7 @@
       \draw[arrow] (a)--(b)--(c)--(d);
     \end{tikzpicture}
   \end{center}
-  \source{本轮证据：\codepath{examples/qcu/dev87/}；
+  \source{本轮证据：\codepath{pyqcu/testing/qcu/strict/quda_comparison/}；
     代码：\codepath{pyqcu/tools/_multigrid.py:938-1334}；
     数据读写目录：\codepath{/root/PyQCU/data}。}
 \end{frame}
@@ -589,9 +589,10 @@
 \begin{frame}[t]{附录：本轮验证命令与交付闸门}
   \scriptsize
   \begin{tabularx}{0.96\textwidth}{@{}Y r@{}}
-    \texttt{pytest -q examples/pyqcu} & \textbf{26 passed}\\
-    \texttt{pytest -q examples/qcu/dev87/test\_stencil\_batch\_local.py
-      examples/qcu/dev87/test\_mg\_breakdown.py}
+    \texttt{pytest -q pyqcu/testing/python} & \textbf{26 passed}\\
+    \parbox[t]{0.9\textwidth}{\raggedright
+      \codepath{pytest -q pyqcu/testing/qcu/strict/quda_comparison/test_stencil_batch_local.py}\par
+      \codepath{pytest -q pyqcu/testing/qcu/strict/quda_comparison/test_mg_breakdown.py}}
       & \textbf{2 passed}\\
     \texttt{python -m py\_compile}（核心工具与 dev87 脚本） & \textbf{通过}\\
     环境与 CUDA 后端构建（env + build） & \textbf{CUDA backend SUCCESS}\\

@@ -1,7 +1,7 @@
 """环境与资源快照工具。
 
 整合自 logs/dev78_2/main.py::_git_snapshot/_gpu_snapshot/_gpu_used_mb/
-rss_kb/cache_disk_mb/dump_env_h5 与 examples/qcu/dev74/mg_dev74_bench.py。
+rss_kb/cache_disk_mb/dump_env_h5 与 pyqcu/testing/qcu/multigrid/scaling/benchmark.py。
 用途：基准测试环境快照（env.h5，跨环境比对）与运行期资源统计。
 """
 import os
@@ -58,7 +58,7 @@ def rss_kb() -> int:
 def nullvec_cache_dir() -> str:
     """null 向量/粗算子共享缓存目录（PYQCU_NULLVEC_CACHE 可覆盖）。"""
     return os.environ.get("PYQCU_NULLVEC_CACHE",
-                          os.path.join(_REPO, "logs", "nullvec_cache"))
+                          os.path.join(_REPO, "data", "logs", "nullvec_cache"))
 
 
 def cache_disk_mb(directory: Optional[str] = None) -> float:
