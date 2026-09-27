@@ -16,7 +16,7 @@ PyQCU 项目专用技能库：每个技能一个子目录，内含 `SKILL.md`（
 - **TODO 管理**：会话执行第一步用 todowrite 生成详细 TODO 列表，逐步实时更新，收尾核对全完成。
 - **跨技能调用**：必要时调用其他技能；2+ 独立子任务（无共享状态/无顺序依赖/互不改同文件）
   优先并行派发。
-- **技能表同步约定（硬性）**：新增/更改技能必须同步下方技能表行与计数（当前 42/42），
+- **技能表同步约定（硬性）**：新增/更改技能必须同步下方技能表行与计数（当前 36/36），
   避免表格与实际脱节。
 
 ## 文档范式
@@ -25,7 +25,7 @@ frontmatter：name 与目录名一致 + description 写触发场景（何时使�
 （Files / Exported API / Key Anti-Patterns / Lessons）。项目知识条目须带实测数字与
 出处路径（logs/<tag>/...），不写未验证内容。
 
-## 技能表（42/42）
+## 技能表（36/36）
 
 | 技能 | 用途 |
 |---|---|
@@ -42,6 +42,7 @@ frontmatter：name 与目录名一致 + description 写触发场景（何时使�
 | `dev84` | pyqcu/testing/qcu/multigrid/benchmarks/large_volume 目录的完整生成 skill：16×32×32×48 MultiGrid 真实加速比攻坚套件（CUDA Graph 段回放/零拷贝标量/守卫标量内核/粗空间诊断 ρ_V），报告 report.md。 |
 | `dslash` | pyqcu.dslash 目录的完整生成 skill：Wilson/Clover 狄拉克算子（hoping/sitting/operator 三类），含 MPI halo 交换、奇偶预处理、Galerkin 粗网格投影与反模式清单。 |
 | `dtk` | cpp/dtk 目录的完整生成 skill：DCU/ROCm (HIP) C++ 后端容器目录（占位）。 |
+| `form` | PyQCU 命名、目录、文档/日志/数据/测试布局与 Git 交付格式治理；含本地例外审计。 |
 | `gpu` | pyqcu/testing/gpu 目录的完整生成 skill：通用 GPU 测试占位（当前为空）。 |
 | `include` | cpp/cuda/qcu/include 目录的 26 个模板化 CUDA 头文件；define.h 镜像 params[58]、Strict 槽位和 pyqcu/cuda/define.py。 |
 | `lattice` | pyqcu.lattice 目录的完整生成 skill：gamma/Gell-Mann 矩阵、SU(3) 检查、规范场生成与 Ward 负索引约定。 |
