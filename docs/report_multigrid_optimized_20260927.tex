@@ -37,9 +37,15 @@ backward/forward correction 合并到单次 kernel。独立双向 MPI 真残差
 同一缓存、同一协议下，大格 c64 MG-2（双 P100，\(\nu=1\)，
 coarse-tol \(=0.3\)）采用两组反向顺序、各 5-solve 的配对测量；运行中位数
 的中位数由 \(4.654\,\mathrm{s}\) 降至 \(4.337\,\mathrm{s}\)，改善
-\(6.81\%\)；同点重新执行的 QUDA sm60 为
-\(5.760\,\mathrm{s}\)，当前 PyQCU/QUDA \(=1.328\)；MG-3
-\(2.296/6.312\,\mathrm{s}\)，比值 \(2.749\)。overlap 仅默认用于
+\(6.81\%\)。该 A/B 只隔离 overlap 效应，不作为最终协议性能结论。
+
+最终 formal Cartesian 矩阵重新使用 c64 coarse-tol \(=0.003\)、
+c128 coarse-tol \(=3\times10^{-5}\)、reference
+\(1\) cold \(+2\) warmup \(+5\) steady，完成 72/72 个 exact-config
+comparison unit 和 144/144 个 side case。MG-2/3 共 48 组中 PyQCU
+胜 38 组，中位比值 \(\mathrm{QUDA}/\mathrm{PyQCU}=1.346\)；P100 为
+1.158，V100 为 2.115。最大真残差分别低于
+\(7.99\times10^{-7}\) 和 \(7.97\times10^{-7}\)。overlap 仅默认用于
 complex64；大格 c128 三层显式开启时会从 32 个外层迭代退化到 451 个，
 因此 complex128 默认保留原浮点累加顺序，并提供 fail-safe 环境开关。
 \end{abstract}
@@ -57,9 +63,10 @@ Strict-MG coarse hopping 的通信阻塞。验收条件为：
 \end{enumerate}
 
 本文不把 trace 同步时间当作正式 solve-only 性能；正式 MG 加速比使用
-trace-off steady median。QUDA 大格在 600 秒预算内存在环境性
-\code{cudaHostRegister}/mapped-memory 失败和超时，相关单元以历史 c03
-证据补足并在下文中单独标注。
+每个 trace 模式各自记录的 steady median，并要求两侧 config hash 和输入
+bundle hash 完全一致。最终数据集不再用历史记录补位：所有大格单元都在
+600 秒单单元预算内完成，并保留 cold、两次 warmup、五次 steady 和每次
+求解的真残差记录。
 
 \section{实现}
 
@@ -137,10 +144,12 @@ local-rank 设备绑定，在双 P100、\(8^3\times16\)、complex64、
 \end{tabular}
 \end{center}
 
-日志位于
-\pathref{data/report_multigrid_optimized_20260927/strict_mpi_overlap_off.log}
-和
-\pathref{data/report_multigrid_optimized_20260927/strict_mpi_overlap_on.log}。
+日志分别位于：
+\begin{center}
+\small
+\pathref{data/report_multigrid_optimized_20260927/strict_mpi_overlap_off.log}\\
+\pathref{data/report_multigrid_optimized_20260927/strict_mpi_overlap_on.log}
+\end{center}
 
 \subsection{快速门禁}
 
@@ -149,10 +158,10 @@ local-rank 设备绑定，在双 P100、\(8^3\times16\)、complex64、
 \item Tier 0：20 passed；
 \item Strict CUDA：11 passed；
 \item fused FGMRES：3 passed；
-\item dev87 CPU/protocol/report/evidence：100 passed。
+\item dev87 CPU/protocol/report/evidence：149 passed。
 \end{itemize}
-报告中的 74 个 PyQCU side document 和 52 个已完成 QUDA side document
-均通过 trace/reference fail-closed 检查；BiCGStab reference 明确记录
+报告中的 72 个 combined document、144 个 side record 均通过
+trace/reference fail-closed 检查；BiCGStab reference 明确记录
 1 cold、2 warmup、5 steady，并与 MG phase 解耦。
 
 \section{性能结果}
@@ -185,28 +194,17 @@ overlap on & 4.3374 & 0.1838 & 16 & \(7.91\times10^{-7}\) \\
 中位数，再对两组运行中位数取中位数。该处理保留原始 MAD 变化，不把
 单次低时钟样本当成 30\% 以上的算法收益。
 
-\begin{center}
-\small
-\begin{tabular}{lrrrr}
-\toprule
-大格 c64 同点 & PyQCU (s) & QUDA sm60 (s) & QUDA/PyQCU & 最大真残差 \\
-\midrule
-MG-2 & 4.3374 & 5.7596 & 1.328 & \(7.91/7.89\times10^{-7}\) \\
-MG-3 & 2.2961 & 6.3118 & 2.749 & \(5.99/7.31\times10^{-7}\) \\
-\bottomrule
-\end{tabular}
-\end{center}
+该 A/B 使用 coarse-tol \(=0.3\) 仅隔离 overlap 对通信路径的影响；
+其 QUDA 数字不进入最终矩阵。最终协议下的大格比值见
+\ref{sec:final-matrix} 节。MG-2 和 MG-3 的 off/on 均通过同一真残差门和
+独立残差刷新。
 
-同一大格、MG-3 的当前结果为 PyQCU \(2.296\,\mathrm{s}\)，
-同点重新执行的 QUDA sm60 \(6.312\,\mathrm{s}\)，比值 \(2.749\)。MG-2 和
-MG-3 的改善均来自 coarse V-cycle 中远端通信与 local compute 的重叠，
-而不是放宽容差；off/on 都通过同一真残差门和独立残差刷新。
+\subsection{最终矩阵对照}
+\label{sec:final-matrix}
 
-\subsection{矩阵对照}
-
-全笛卡尔最终 PyQCU 侧共 72 个 comparison side case。
-QUDA 侧已完成并与当前配置哈希一致的 48 个 comparison unit 覆盖
-P100/V100 的小格和中格；结果如下。比值为
+最终矩阵覆盖 72 个 comparison unit；每单元包含 PyQCU/QUDA 两个
+side case，共 144 个正式结果。两侧 config hash 与 input bundle hash
+均为 72/72 一致，combined 文档 72/72 为 \code{fair=true}。下表比值为
 \(\mathrm{QUDA}/\mathrm{PyQCU}\)，大于 1 表示 PyQCU 更快。
 
 \begin{table}[htbp]
@@ -217,22 +215,22 @@ P100/V100 的小格和中格；结果如下。比值为
 \toprule
 device & 精度 & trace & 层数 & median & PyQCU 胜 & 样本 \\
 \midrule
-P100 & c64 & off & 2 & 1.315 & 2 & 2 \\
-P100 & c64 & off & 3 & 1.474 & 2 & 2 \\
-P100 & c64 & on  & 2 & 0.796 & 0 & 2 \\
-P100 & c64 & on  & 3 & 0.890 & 1 & 2 \\
-P100 & c128 & off & 2 & 1.774 & 2 & 2 \\
-P100 & c128 & off & 3 & 2.123 & 2 & 2 \\
-P100 & c128 & on & 2 & 1.203 & 2 & 2 \\
-P100 & c128 & on & 3 & 1.274 & 1 & 2 \\
-V100 & c64 & off & 2 & 5.472 & 2 & 2 \\
-V100 & c64 & off & 3 & 8.405 & 2 & 2 \\
-V100 & c64 & on  & 2 & 3.062 & 2 & 2 \\
-V100 & c64 & on  & 3 & 2.858 & 2 & 2 \\
-V100 & c128 & off & 2 & 8.622 & 2 & 2 \\
-V100 & c128 & off & 3 & 12.031 & 2 & 2 \\
-V100 & c128 & on & 2 & 4.156 & 2 & 2 \\
-V100 & c128 & on & 3 & 3.944 & 2 & 2 \\
+P100 & c64 & off & 2 & 1.087 & 2 & 3 \\
+P100 & c64 & off & 3 & 1.565 & 3 & 3 \\
+P100 & c64 & on  & 2 & 0.930 & 1 & 3 \\
+P100 & c64 & on  & 3 & 1.184 & 2 & 3 \\
+P100 & c128 & off & 2 & 1.228 & 3 & 3 \\
+P100 & c128 & off & 3 & 1.428 & 3 & 3 \\
+P100 & c128 & on & 2 & 1.007 & 2 & 3 \\
+P100 & c128 & on & 3 & 0.859 & 1 & 3 \\
+V100 & c64 & off & 2 & 2.254 & 2 & 3 \\
+V100 & c64 & off & 3 & 3.695 & 3 & 3 \\
+V100 & c64 & on  & 2 & 1.630 & 3 & 3 \\
+V100 & c64 & on  & 3 & 1.990 & 2 & 3 \\
+V100 & c128 & off & 2 & 2.177 & 3 & 3 \\
+V100 & c128 & off & 3 & 3.799 & 3 & 3 \\
+V100 & c128 & on & 2 & 1.772 & 2 & 3 \\
+V100 & c128 & on & 3 & 2.053 & 3 & 3 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -240,23 +238,34 @@ V100 & c128 & on & 3 & 3.944 & 2 & 2 \\
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=0.98\textwidth]%
-  {../data/report_multigrid_optimized_20260927/overlap_matrix.pdf}
-  \caption{48 个同配置 comparison unit 的分组和逐单元比值。}
+  {../data/report_multigrid_optimized_20260927/final_protocol/overlap_matrix.pdf}
+  \caption{72 个同配置 comparison unit 的分组和逐单元比值。}
 \end{figure}
 
 所有纳入比较的 side case 最大真残差为
-\(7.84\times10^{-7}\)（PyQCU）和 \(7.91\times10^{-7}\)（QUDA），
-均低于 \(5\times10^{-6}\)。P100 的 MG 比值中位数为 1.31，V100
-为 4.68；V100 32/32 个已匹配 MG 单元获胜，P100 12/16 获胜。
+\(7.99\times10^{-7}\)（PyQCU）和 \(7.97\times10^{-7}\)（QUDA），
+均低于 \(5\times10^{-6}\)。48 个 MG 单元中 PyQCU 胜 38、负 10；
+P100 为 17/24，V100 为 21/24。P100 大格 c64 MG-2 在严格 coarse
+容差下接近持平：trace-off 为 PyQCU \(10.879\,\mathrm{s}\)、QUDA
+\(10.766\,\mathrm{s}\)，比值 0.990；同一格的 MG-3 trace-off 为
+\(3.899/7.364\,\mathrm{s}\)，比值 1.889。
 
 \subsection{各阶段时间与限制}
 
-full-stage trace 可用于归因，但会引入同步开销。大格 c64 MG-2 /
-MG-3 的 trace-off 中位数分别为 PyQCU \(4.337/2.296\,\mathrm{s}\)
-和 QUDA \(5.760/6.312\,\mathrm{s}\)；trace-on 中 PyQCU 的 pre/post smoother、
-restrict、prolongation 和 coarse solver 仍按各层独立记录，不能把嵌套
-阶段直接相加。BiCGStab reference 的 24 个对照仍是 PyQCU 短板，
-中位比值约 \(0.24\)，本报告不把 MG 优势外推为 plain solver 优势。
+逐单元总时间、迭代数和真残差位于
+\pathref{data/report_multigrid_optimized_20260927/final_protocol/units.csv}。
+每个 MG 单元的 pre-smoother、post-smoother、restriction、prolongation、
+coarse solver、other 六类阶段时间和迭代计数位于
+\pathref{data/report_multigrid_optimized_20260927/final_protocol/stages.csv}；
+BiCGStab 的 cold/2 warmup/5 steady 原始样本位于
+\pathref{data/report_multigrid_optimized_20260927/final_protocol/references.csv}。
+trace-off 保留准确的总时间和迭代数，完整六类分解使用 trace-on 记录。
+两侧层归属语义不同：QUDA 主要把 coarse solve 记在 level 0，PyQCU
+把它记在递归 coarse level，因此不能把同名列跨层直接求和。
+
+BiCGStab reference 的 24 个对照全部落后于 QUDA，中位比值为 0.261；
+本报告不把 MG 优势外推为 plain solver 优势。最终 trace/reference
+evidence 检查覆盖 144 个 side document，错误数为 0。
 
 \section{对照分析与结论}
 
@@ -270,10 +279,13 @@ operator/transfer kernel 和成熟的层间调度。本轮 PyQCU 已经补上最
 \item c128 保留原浮点累加顺序，避免大格多层求解轨迹失稳。
 \end{itemize}
 
-最终结论为：在 complex64 的 DistStrict-MG 上，PyQCU 对小/中格和
-P100 大格均取得可复现优势；在 V100 上 MG 比值中位数为 4.68。对于
-complex128，默认安全路径保持与 QUDA 同量级或更快，未把实验性
-overlap 的数值风险放入生产默认。
+最终结论按范围表述：在多 rank P100 DistStrict-MG 上，PyQCU
+中位比值 1.158，MG-3 大格 trace-off 达到 1.889，但 MG-2 大格在
+严格 coarse 容差下接近持平；在单 V100 上中位比值 2.115，优势最明显。
+因此当前证据支持“分布式 Multicard 路径总体优于 QUDA，并在 V100 上
+显著领先”，不支持“任意格子、任意层数都显著领先”。complex128
+默认安全路径保持与 QUDA 同量级或更快，未把实验性 overlap 的数值风险
+放入生产默认。
 
 \section{复现}
 
@@ -292,31 +304,41 @@ PYQCU_MPI_OVERLAP=1 mpirun --allow-run-as-root --oversubscribe -np 2 \
   --dtype c64 --galerkin-mode colored
 
 python -B examples/qcu/dev87/summarize_overlap_matrix.py \
-  --pyqcu-root data/mg_matrix_overlap_20260927_p100/units \
-  --pyqcu-root data/mg_matrix_overlap_20260927_p100_c128_large_guard/units \
-  --pyqcu-root data/mg_matrix_overlap_20260927_v100_c64/units \
-  --pyqcu-root data/mg_matrix_overlap_20260927_v100_c128/units \
-  --quda-root data/mg_matrix_overlap_20260927_quda_p100_c64_sm60/units \
-  --quda-root data/mg_matrix_overlap_20260927_quda_p100_c128_small_medium/units \
-  --quda-root data/mg_matrix_overlap_20260927_quda_v100_c64/units \
-  --quda-root data/mg_matrix_overlap_20260927_quda_v100_c128/units \
-  --outdir data/report_multigrid_optimized_20260927
+  --pyqcu-root data/mg_matrix_final_protocol_20260927_pyqcu_p100/units \
+  --pyqcu-root data/mg_matrix_final_protocol_20260927_pyqcu_v100_c64/units \
+  --pyqcu-root data/mg_matrix_final_protocol_20260927_pyqcu_v100_c128/units \
+  --quda-root data/mg_matrix_final_protocol_20260927_quda_p100_c64/units \
+  --quda-root data/mg_matrix_final_protocol_20260927_quda_p100_c128/units \
+  --quda-root data/mg_matrix_final_protocol_20260927_quda_v100_c64/units \
+  --quda-root data/mg_matrix_final_protocol_20260927_quda_v100_c128/units \
+  --outdir data/report_multigrid_optimized_20260927/final_protocol
+
+python -B examples/qcu/dev87/assemble_final_matrix.py \
+  --pyqcu-root data/mg_matrix_final_protocol_20260927_pyqcu_p100/units \
+  --pyqcu-root data/mg_matrix_final_protocol_20260927_pyqcu_v100_c64/units \
+  --pyqcu-root data/mg_matrix_final_protocol_20260927_pyqcu_v100_c128/units \
+  --quda-root data/mg_matrix_final_protocol_20260927_quda_p100_c64/units \
+  --quda-root data/mg_matrix_final_protocol_20260927_quda_p100_c128/units \
+  --quda-root data/mg_matrix_final_protocol_20260927_quda_v100_c64/units \
+  --quda-root data/mg_matrix_final_protocol_20260927_quda_v100_c128/units \
+  --outdir data/report_multigrid_optimized_20260927/final_protocol
 \end{lstlisting}
 
 \section{遗留与适用边界}
 
 \begin{enumerate}
-\item QUDA 大格 c64 MG-2/MG-3 已在持久 tuning 后完成新的 c03 单点对照；
-大格 c128 及其他超出 600 秒预算的 QUDA 单元仍只使用明确标注的历史
-同协议记录。
+\item 所有 72 个正式单元均已完成；P100 大格 c64 MG-2 在当前严格
+coarse 容差下与 QUDA 持平或略慢，不能宣称全层数支配。后续优化应聚焦
+PyQCU coarse solve 的同步与算子合并，而不是继续放宽容差。
 \item c128 输入 canonical gauge/null 资产是 complex64 存储、求解器
 按 complex128 运行；这不改变数值精度要求，但不是 complex128 HDF5
 输入存储测试。
 \item overlap 的默认适用条件是 complex64 且分布式 MPI。c128 默认
 禁用；如需实验，必须显式设置
 \code{PYQCU_STRICT_OVERLAP_C128=1} 并重跑大格真残差与迭代门。
-\item 当前正式对照的 QUDA 侧仍有大格 c128 历史记录；后续应在
-\code{QUDA_RESOURCE_PATH} tuning cache 和更长预算下补齐该长尾单元。
+\item 运行稳定性依赖持久 \code{QUDA_RESOURCE_PATH} tuning cache；
+冷 cache 会显著拉长 setup。分布数据只交付可重放命令、聚合 CSV 和
+报告产物，不把 36 GB 级私有 cache 内容提交到 Git。
 \end{enumerate}
 
 \end{document}

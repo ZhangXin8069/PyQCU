@@ -1,0 +1,117 @@
+{
+  "schema_version": 1,
+  "runner": "/root/PyQCU/examples/qcu/dev87/run_strict_fast.py",
+  "repo_root": "/root/PyQCU",
+  "environment_script": "/root/PyQCU/env.sh",
+  "tier_semantics": "cumulative",
+  "selection_mode": "only",
+  "requested_tier": 0,
+  "selected_tiers": [
+    1
+  ],
+  "selected_names": [
+    "cuda-strict",
+    "cuda-fused-fgmres"
+  ],
+  "only": [
+    "cuda-strict",
+    "cuda-fused-fgmres"
+  ],
+  "fail_fast": true,
+  "timeout_override_s": null,
+  "started_at_utc": "2026-09-27T10:25:02.691490+00:00",
+  "finished_at_utc": "2026-09-27T10:25:24.104247+00:00",
+  "total_s": 21.415,
+  "outcome": "passed",
+  "status_counts": {
+    "passed": 2,
+    "skipped": 0,
+    "failed": 0,
+    "timeout": 0,
+    "not_run": 0
+  },
+  "stop_reason": null,
+  "machine": {
+    "hostname": "68bb03cf529b",
+    "platform": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.35",
+    "python": "3.10.12",
+    "python_executable": "/usr/bin/python"
+  },
+  "commands": [
+    {
+      "name": "cuda-strict",
+      "tier": 1,
+      "description": "CUDA P/R, 33-point stencil, c128 CPU-staged Galerkin, strict X/Y/Yhat, MATPC, prepare and reconstruct primitives, nontrivial Clover MATPC on both parities, persistent recursive V-cycle and bounded complete solve",
+      "requirement": "CUDA device and importable libqcu/Cython backend",
+      "kind": "pytest",
+      "command": [
+        "/usr/bin/python",
+        "-m",
+        "pytest",
+        "-x",
+        "-q",
+        "-rs",
+        "-p",
+        "no:cacheprovider",
+        "examples/qcu/dev87/test_quda_transfer_cuda.py::test_quda_transfer_and_stencil_match_qcu_kernels",
+        "examples/qcu/dev87/test_quda_transfer_cuda.py::test_strict_galerkin_colored_cpu_block_staging_matches_reference",
+        "examples/qcu/dev87/test_quda_transfer_cuda.py::test_quda_strict_transfer_coarse_and_matpc_match_cuda_kernels",
+        "examples/qcu/dev87/test_quda_transfer_cuda.py::test_quda_strict_recursive_vcycle_matches_reference_and_arena",
+        "examples/qcu/dev87/test_quda_transfer_cuda.py::test_fine_clover_prepare_and_reconstruct_match_existing_solver",
+        "examples/qcu/dev87/test_quda_transfer_cuda.py::test_strict_fine_matpc_nontrivial_clover_matches_python_both_parities",
+        "examples/qcu/dev87/test_quda_transfer_cuda.py::test_strict_fused_nontrivial_clover_matches_python_matpc_both_parities",
+        "examples/qcu/dev87/test_quda_transfer_cuda.py::test_cuda_strict_solver_converges_with_bounded_krylov_arena"
+      ],
+      "timeout_s": 120.0,
+      "status": "passed",
+      "returncode": 0,
+      "elapsed_s": 16.274,
+      "timed_out": false,
+      "launch_error": null,
+      "pytest_counts": {
+        "passed": 11
+      },
+      "stdout": "###env.sh in /root/PyQCU is sourcing...:2026-09-27-18-25-02###\n###env.sh in /root/PyQCU is done......:2026-09-27-18-25-02###\n...........                                                              [100%]\n11 passed in 15.36s\n",
+      "stdout_truncated": false,
+      "stdout_chars": 225,
+      "stderr": "",
+      "stderr_truncated": false,
+      "stderr_chars": 0
+    },
+    {
+      "name": "cuda-fused-fgmres",
+      "tier": 1,
+      "description": "Fused C++ right-FGMRES integration, persistent workspace reuse, warm x0, budget/descriptor guards and complex128 dispatch",
+      "requirement": "CUDA device and rebuilt libqcu/Cython fused-FGMRES ABI",
+      "kind": "pytest",
+      "command": [
+        "/usr/bin/python",
+        "-m",
+        "pytest",
+        "-x",
+        "-q",
+        "-rs",
+        "-p",
+        "no:cacheprovider",
+        "examples/qcu/dev87/test_strict_fused_cuda.py::test_strict_fused_solver_api_reuses_arena_and_warm_x0",
+        "examples/qcu/dev87/test_strict_fused_cuda.py::test_strict_fused_fgmres_rejects_budget_restart_shape_and_dtype",
+        "examples/qcu/dev87/test_strict_fused_cuda.py::test_strict_fused_fgmres_complex128_dispatch_and_residual"
+      ],
+      "timeout_s": 120.0,
+      "status": "passed",
+      "returncode": 0,
+      "elapsed_s": 5.14,
+      "timed_out": false,
+      "launch_error": null,
+      "pytest_counts": {
+        "passed": 3
+      },
+      "stdout": "###env.sh in /root/PyQCU is sourcing...:2026-09-27-18-25-18###\n###env.sh in /root/PyQCU is done......:2026-09-27-18-25-18###\n...                                                                      [100%]\n3 passed in 4.20s\n",
+      "stdout_truncated": false,
+      "stdout_chars": 223,
+      "stderr": "",
+      "stderr_truncated": false,
+      "stderr_chars": 0
+    }
+  ]
+}
