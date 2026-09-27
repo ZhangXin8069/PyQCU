@@ -1,16 +1,16 @@
 ---
 name: dev84
-description: examples/qcu/dev84 目录的完整生成 skill：16×32×32×48 MultiGrid 真实加速比攻坚套件（CUDA Graph 段回放/零拷贝标量/守卫标量内核/粗空间诊断 ρ_V），报告 dev84_report.md。
+description: pyqcu/testing/qcu/multigrid/benchmarks/large_volume 目录的完整生成 skill：16×32×32×48 MultiGrid 真实加速比攻坚套件（CUDA Graph 段回放/零拷贝标量/守卫标量内核/粗空间诊断 ρ_V），报告 report.md。
 ---
-# CLAUDE.md — examples/qcu/dev84
+# CLAUDE.md — pyqcu/testing/qcu/multigrid/benchmarks/large_volume
 
 Current multigrid real-speedup campaign on the unified lattice 16×32×32×48.
-Report: `examples/qcu/dev84/dev84_report.md`; outputs mirror `out/*.json` and `logs/dev84/`.
+Report: `pyqcu/testing/qcu/multigrid/benchmarks/large_volume/report.md`; outputs mirror `out/*.json` and `logs/dev84/`.
 
 ## Entry Point
 
 ```bash
-python examples/qcu/dev84/main.py {run|multi|run_gcr|hotspot} [--only ...]
+python pyqcu/testing/qcu/multigrid/benchmarks/large_volume/main.py {run|multi|run_gcr|hotspot} [--only ...]
 ```
 
 ## Key Results (V100)

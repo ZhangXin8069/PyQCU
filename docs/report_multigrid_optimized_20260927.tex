@@ -126,7 +126,7 @@ overlap 实验开启 & 451 & 46.28 & \(7.61\times10^{-7}\) \\
 
 \subsection{独立真残差}
 
-使用 \pathref{examples/qcu/dev87/strict_mpi_solve_probe.py} 修复后的
+使用 \pathref{pyqcu/testing/qcu/strict/quda_comparison/strict_mpi_solve_probe.py} 修复后的
 local-rank 设备绑定，在双 P100、\(8^3\times16\)、complex64、
 \code{grid=2x1x1x1} 上分别运行：
 
@@ -147,8 +147,8 @@ local-rank 设备绑定，在双 P100、\(8^3\times16\)、complex64、
 日志分别位于：
 \begin{center}
 \small
-\pathref{data/report_multigrid_optimized_20260927/strict_mpi_overlap_off.log}\\
-\pathref{data/report_multigrid_optimized_20260927/strict_mpi_overlap_on.log}
+\pathref{logs/data/report_multigrid_optimized_20260927/strict_mpi_overlap_off.log}\\
+\pathref{logs/data/report_multigrid_optimized_20260927/strict_mpi_overlap_on.log}
 \end{center}
 
 \subsection{快速门禁}
@@ -186,7 +186,7 @@ overlap on & 4.3374 & 0.1838 & 16 & \(7.91\times10^{-7}\) \\
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=0.94\textwidth]%
-  {../data/report_multigrid_optimized_20260927/overlap_ab.pdf}
+  {data/report_multigrid_optimized_20260927/overlap_ab.pdf}
   \caption{大格 c64 MG-2 的 overlap A/B 与真残差门。}
 \end{figure}
 
@@ -238,7 +238,7 @@ V100 & c128 & on & 3 & 2.053 & 3 & 3 \\
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=0.98\textwidth]%
-  {../data/report_multigrid_optimized_20260927/final_protocol/overlap_matrix.pdf}
+  {data/report_multigrid_optimized_20260927/final_protocol/overlap_matrix.pdf}
   \caption{72 个同配置 comparison unit 的分组和逐单元比值。}
 \end{figure}
 
@@ -293,17 +293,17 @@ operator/transfer kernel 和成熟的层间调度。本轮 PyQCU 已经补上最
 QCU_CUDA_ARCHITECTURES='70-real;70-virtual;60-real;60-virtual' \
   bash ./build.sh
 
-source examples/qcu/dev87/p100_env.sh
+source pyqcu/testing/qcu/strict/quda_comparison/p100_env.sh
 PYQCU_MPI_OVERLAP=0 mpirun --allow-run-as-root --oversubscribe -np 2 \
-  python -B examples/qcu/dev87/strict_mpi_solve_probe.py \
+  python -B pyqcu/testing/qcu/strict/quda_comparison/strict_mpi_solve_probe.py \
   --shape 8 8 8 16 --grid 2 1 1 1 --restart 20 --max-iter 200 \
   --dtype c64 --galerkin-mode colored
 PYQCU_MPI_OVERLAP=1 mpirun --allow-run-as-root --oversubscribe -np 2 \
-  python -B examples/qcu/dev87/strict_mpi_solve_probe.py \
+  python -B pyqcu/testing/qcu/strict/quda_comparison/strict_mpi_solve_probe.py \
   --shape 8 8 8 16 --grid 2 1 1 1 --restart 20 --max-iter 200 \
   --dtype c64 --galerkin-mode colored
 
-python -B examples/qcu/dev87/summarize_overlap_matrix.py \
+python -B pyqcu/testing/qcu/strict/quda_comparison/summarize_overlap_matrix.py \
   --pyqcu-root data/mg_matrix_final_protocol_20260927_pyqcu_p100/units \
   --pyqcu-root data/mg_matrix_final_protocol_20260927_pyqcu_v100_c64/units \
   --pyqcu-root data/mg_matrix_final_protocol_20260927_pyqcu_v100_c128/units \
@@ -313,7 +313,7 @@ python -B examples/qcu/dev87/summarize_overlap_matrix.py \
   --quda-root data/mg_matrix_final_protocol_20260927_quda_v100_c128/units \
   --outdir data/report_multigrid_optimized_20260927/final_protocol
 
-python -B examples/qcu/dev87/assemble_final_matrix.py \
+python -B pyqcu/testing/qcu/strict/quda_comparison/assemble_final_matrix.py \
   --pyqcu-root data/mg_matrix_final_protocol_20260927_pyqcu_p100/units \
   --pyqcu-root data/mg_matrix_final_protocol_20260927_pyqcu_v100_c64/units \
   --pyqcu-root data/mg_matrix_final_protocol_20260927_pyqcu_v100_c128/units \

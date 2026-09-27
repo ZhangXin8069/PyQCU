@@ -459,7 +459,7 @@ diagonal inverse 阶段 OOM；进一步改用分块 site inverse 并将 projecti
 batch 降到 1 后，可越过该点；随后又把分块展平到 site 轴并使用 compact
 complex64 inverse cache，最终仍在 fine dslash batch matvec 处 OOM。这
 作为后续 strict mixed-precision 实现的入口，而不是已完成结论。
-失败文档保留在 \pathref{data/mg_matrix_20260916_round2/formal-c128-l3/benchmark.json}。
+失败文档保留在 \pathref{logs/data/mg_matrix_20260916_round2/formal-c128-l3/benchmark.json}。
 该 mixed-single 路径是容量实验；当前大格点的可用路线是
 extended $C=4$ 全 double 构建加 formal $C=1$ cache-hit solve，因此
 c128 正式结果同时包含 $16^3\cdot16$ 三层和
@@ -482,13 +482,13 @@ distributed fused FGMRES。
 
 \begin{verbatim}
 source ./env.sh
-source examples/qcu/dev87/quda_env.sh
+source pyqcu/testing/qcu/strict/quda_comparison/quda_env.sh
 export QUDA_RESOURCE_PATH=/root/PyQCU/data/quda-resource-cache
 export QUDA_ENABLE_TUNING=1
 unset PYQCU_STRICT_TRACE_FILE QUDA_MG_TRACE_FILE
 
 # 主口径：正式大格 c64 三层
-python -B examples/qcu/dev87/bench_strict_vs_quda.py \
+python -B pyqcu/testing/qcu/strict/quda_comparison/bench_strict_vs_quda.py \
   --profile formal --side both --quda-strategy aligned \
   --lattice 16 32 32 48 --levels 3 --precision c64 \
   --repeats 5 --cache-expect hit \
@@ -496,55 +496,55 @@ python -B examples/qcu/dev87/bench_strict_vs_quda.py \
   --gauge-path data/gauge_16x32x32x48_m0.05_seed42_c64.h5 \
   --nullvec-path data/L16x32x32x48_nvec12_full_c64.h5 \
   --quda-nullvec-prefix data/L16x32x32x48_nvec12_quda \
-  --quda-nullvec-manifest data/L16x32x32x48_nvec12_quda.conversion.json \
-  --output data/mg_matrix_20260916_round2/formal-c64-l3/benchmark.json
+  --quda-nullvec-manifest logs/data/L16x32x32x48_nvec12_quda.conversion.json \
+  --output logs/data/mg_matrix_20260916_round2/formal-c64-l3/benchmark.json
 
 # trace 诊断：正式加速比之外单独报告
-python -B examples/qcu/dev87/trace_strict_vs_quda.py \
+python -B pyqcu/testing/qcu/strict/quda_comparison/trace_strict_vs_quda.py \
   --profile smoke --repeats 2 --lattice 8 8 8 16 --levels 3 \
   --precision c64 --cache-expect any \
-  --reference data/mg_matrix_20260916_round2/trace-reference-small-c64-l3.json \
-  --output data/mg_matrix_20260916_round2/trace-small-c64-l3.json
+  --reference logs/data/mg_matrix_20260916_round2/trace-reference-small-c64-l3.json \
+  --output logs/data/mg_matrix_20260916_round2/trace-small-c64-l3.json
 \end{verbatim}
 
 \begin{longtable}{@{}L{0.34\textwidth}L{0.60\textwidth}@{}}
 \caption{主要证据文件}\label{tab:evidence}\\
 \toprule 文件 & 内容\\\midrule
-\pathref{data/mg_matrix_20260916_round2/formal-c64-l3/benchmark-main-recheck.json} &
+\pathref{logs/data/mg_matrix_20260916_round2/formal-c64-l3/benchmark-main-recheck.json} &
 当前 c64 大格三层 aligned 五次正式复测记录。\\
-\pathref{data/mg_matrix_20260916_round2/formal-c64-l3/benchmark-formal-sm70-recheck.json} &
+\pathref{logs/data/mg_matrix_20260916_round2/formal-c64-l3/benchmark-formal-sm70-recheck.json} &
 c64 大格三层 sm70 native 独立正式复测，MG 比值 $2.0052\times$。\\
-\pathref{data/mg_matrix_20260916_round2/formal-c64-l3-medium/benchmark.json} &
+\pathref{logs/data/mg_matrix_20260916_round2/formal-c64-l3-medium/benchmark.json} &
 c64 中格三层 formal。\\
-\pathref{data/mg_matrix_20260916_round2/formal-c64-l2-small/benchmark.json} &
+\pathref{logs/data/mg_matrix_20260916_round2/formal-c64-l2-small/benchmark.json} &
 c64 小格二层 formal。\\
-\pathref{data/mg_matrix_20260916_round2/formal-c64-l3-small/benchmark.json} &
+\pathref{logs/data/mg_matrix_20260916_round2/formal-c64-l3-small/benchmark.json} &
 c64 小格三层 formal。\\
-\pathref{data/mg_matrix_20260916_round2/formal-c128-l3-small/benchmark-main-recheck.json} &
+\pathref{logs/data/mg_matrix_20260916_round2/formal-c128-l3-small/benchmark-main-recheck.json} &
 c128 小格三层 formal 复测，double coarse 主口径。\\
-\pathref{data/mg_matrix_20260916_round2/formal-c128-l3-small/benchmark-k4.json} &
+\pathref{logs/data/mg_matrix_20260916_round2/formal-c128-l3-small/benchmark-k4.json} &
 c128 小格三层 single coarse blocks/CPU staging 容量实验；不进入主 speedup。\\
-\pathref{data/mg_matrix_20260916_round2/formal-c128-l3-medium/benchmark-main-recheck.json} &
+\pathref{logs/data/mg_matrix_20260916_round2/formal-c128-l3-medium/benchmark-main-recheck.json} &
 c128 中格三层 formal 复测，double coarse 主口径。\\
-\pathref{data/mg_matrix_20260916_round2/formal-c128-l3/combined-double-c4-k16-smoke.json} &
+\pathref{logs/data/mg_matrix_20260916_round2/formal-c128-l3/combined-double-c4-k16-smoke.json} &
 c128 大格三层全 double 双侧 smoke；$C=4$、$K=16$、CPU staging，
 不进入 formal speedup。\\
-\pathref{data/mg_matrix_20260916_round2/formal-c128-l3/benchmark-formal.json} &
+\pathref{logs/data/mg_matrix_20260916_round2/formal-c128-l3/benchmark-formal.json} &
 c128 大格三层首次 formal cache-hit；缓存由 extended $C=4$ 构建并经
 资产 identity 校验，MG 比值为 $8.3507\times$。\\
-\pathref{data/mg_matrix_20260916_round2/formal-c128-l3/benchmark-formal-sm70-recheck.json} &
+\pathref{logs/data/mg_matrix_20260916_round2/formal-c128-l3/benchmark-formal-sm70-recheck.json} &
 c128 大格三层 sm70 独立正式复测；保守 MG 比值为 $7.8417\times$。\\
-\pathref{data/mg_matrix_20260916_round2/formal-c128-l3/pyqcu-double-c4-k16-parity.json} &
+\pathref{logs/data/mg_matrix_20260916_round2/formal-c128-l3/pyqcu-double-c4-k16-parity.json} &
 c128 大格 parity 分组后的冷 C=4 全 double setup；总 setup $585.28$ s，
 solve 真残差通过。\\
-\pathref{data/mg_matrix_20260916_round2/formal-c128-l3/pyqcu-double-c1-release.json} &
+\pathref{logs/data/mg_matrix_20260916_round2/formal-c128-l3/pyqcu-double-c1-release.json} &
 c128 大格 $C=1$ 冷 setup release-before-runtime 成功：总 setup
 $2709.45$ s，steady $2.067186$ s，真残差与 20 次外迭代均通过。\\
-\pathref{data/mg_matrix_20260916_round2/formal-c128-l3/pyqcu-formal-trace.tsv} &
+\pathref{logs/data/mg_matrix_20260916_round2/formal-c128-l3/pyqcu-formal-trace.tsv} &
 大格 c128 PyQCU trace-on 的逐层 stage/residual 诊断；不进入正式计时。\\
-\pathref{data/mg_matrix_20260916_round2/library-formal-c64-l3/benchmark.json} &
+\pathref{logs/data/mg_matrix_20260916_round2/library-formal-c64-l3/benchmark.json} &
 QUDA library 策略敏感性。\\
-\pathref{data/mg_matrix_20260916_round2/trace-small-c64-l3.json} &
+\pathref{logs/data/mg_matrix_20260916_round2/trace-small-c64-l3.json} &
 trace-on/off 小格诊断与残差阶段。\\
 \bottomrule
 \end{longtable}

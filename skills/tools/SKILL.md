@@ -21,7 +21,7 @@ Utility modules for MPI grid management, HDF5 I/O, linear algebra, tensor operat
 - **重构可静默丢一行赋值致 stencil 全零**：e46a4cf 重构遗失 `f_local[...]=_blk`，
   无任何报错（bug35）；定位靠资产 mtime × 提交时间交叉验证 + worktree 时间线二分。
 - **等价性铁证口径**：C9 双实现对比（build_stencil_local vs 全格参考）rel≤1e-06 即等价；
-  Galerkin 投影闭环 5.6e-07（见 logs/session-2026-08-24）。
+  Galerkin 投影闭环 5.6e-07（见 pyqcu/testing/regression/session-2026-08-24）。
 
 ## Files
 

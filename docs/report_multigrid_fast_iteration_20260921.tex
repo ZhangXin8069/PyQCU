@@ -111,7 +111,7 @@ kernel 假设线程数恰好等于 face 元素数；当 face 体积不是 128 �
 阶段 & 观察 & 证据 \\
 \midrule
 修复前 & rank 1 在 \code{lattice_clover_dslash.h:106} 报 CUDA 0700 &
-\pathref{data/mg_matrix_p100/unit-p100-dual-8x8x8x16-L2-c64.json} \\
+\pathref{logs/data/mg_matrix_p100/unit-p100-dual-8x8x8x16-L2-c64.json} \\
 设备审计 & rank 1 Torch 在 GPU1，C++ 被强制切到 GPU0 &
 compute-sanitizer 定位到 \code{pick_up_u_x} 跨设备读 \\
 修复后 & clover halo 与 Strict-MPI probe 均通过 & 见下节快速门禁 \\
@@ -157,9 +157,9 @@ PyQCU/QUDA \(=0.4690/0.5181\,\mathrm{s}\)，加速 \(1.105\times\)。
 \(7.03\times10^{-7}\) 与 \(7.52\times10^{-7}\)；QUDA 相应真残差分别为
 \(6.68\times10^{-7}\) 与 \(7.75\times10^{-7}\)。
 正式小格原始记录为
-\pathref{data/mg_matrix_p100_quick/formal-small-nu2-coarse03.json}；
+\pathref{logs/data/mg_matrix_p100_quick/formal-small-nu2-coarse03.json}；
 中格 smoke 原始记录为
-\pathref{data/mg_matrix_p100_quick/final-lib-medium-nu2-coarse03.json}。
+\pathref{logs/data/mg_matrix_p100_quick/final-lib-medium-nu2-coarse03.json}。
 
 \begin{figure}[htbp]
 \centering
@@ -280,11 +280,11 @@ pre/post smoother 合计约 \(0.76\,\mathrm{s}\)；下一阶段仍应继续优�
 
 P100 c64 的当前 side-case 覆盖为 \(28/36\)；未完成的 8 个 side case 全部
 属于大格 trace-on 或大格 MG-3。最新汇总写入
-\pathref{data/mg_matrix_full_20260921_aligned/matrix_summary.json}。
+\pathref{logs/data/mg_matrix_full_20260921_aligned/matrix_summary.json}。
 
 c128 大格资产已补齐：\pathref{data/gauge_16x16x32x32_m0.05_seed42_c64.h5}、
 \pathref{data/L16x16x32x32_nvec12_full_c64.h5} 及 QUDA QIO
-\pathref{data/qio-matrix/L16x16x32x32_nvec12_quda.v1.json}。canonical
+\pathref{logs/data/qio-matrix/L16x16x32x32_nvec12_quda.v1.json}。canonical
 null-vector identity 为 \code{42109d86...052368}，QIO round-trip 为
 byte-exact。V100 c128 大格 QUDA double-MG smoke 已通过：
 steady \(20.493\,\mathrm{s}\)、95 iterations、真残差
@@ -350,16 +350,16 @@ complex128 安全回退记录见
 QCU_CUDA_ARCHITECTURES='70-real;70-virtual;60-real;60-virtual' bash ./build.sh
 
 # P100 Strict correctness
-mpirun -np 2 python examples/qcu/dev87/strict_mpi_solve_probe.py \
+mpirun -np 2 python pyqcu/testing/qcu/strict/quda_comparison/strict_mpi_solve_probe.py \
   --shape 8 8 8 16 --grid 2 1 1 1 --restart 20 --max-iter 200 \
   --dtype c64 --galerkin-mode colored
 
 # Fast P100 comparison
-source examples/qcu/dev87/p100_env.sh
+source pyqcu/testing/qcu/strict/quda_comparison/p100_env.sh
 export QUDA_INSTALL=$PWD/data/quda-sm60-install
 export LD_LIBRARY_PATH=$QUDA_INSTALL/lib:$LD_LIBRARY_PATH
 export PYQCU_STRICT_LINK_HALO_CACHE=1
-python examples/qcu/dev87/bench_strict_vs_quda.py --side both \
+python pyqcu/testing/qcu/strict/quda_comparison/bench_strict_vs_quda.py --side both \
   --device p100 --mpi-ranks 2 --process-grid 2 1 1 1 \
   --phases warmup,steady --lattice 8 8 8 16 --levels 2 \
   --precision c64 --coarse-tol 0.3 --nu 2

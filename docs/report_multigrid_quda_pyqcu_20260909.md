@@ -69,7 +69,7 @@ $$
 | V100 native `sm_70` smoke | `1.964751 s` | 未优于旧 `sm_60+PTX` 样本，不计为算法收益 |
 | barrier-elision 实验 | `1.964744 s` | 无实质收益，已回退，不作为最终优化 |
 
-源码改动位于 `cpp/cuda/qcu/src/apply_multigrid_strict.cu`；架构开关位于 `cpp/cuda/qcu/CMakeLists-nv.txt`；资源账本回归位于 `examples/qcu/dev87/test_quda_transfer_cuda.py`。
+源码改动位于 `cpp/cuda/qcu/src/apply_multigrid_strict.cu`；架构开关位于 `cpp/cuda/qcu/CMakeLists-nv.txt`；资源账本回归位于 `pyqcu/testing/qcu/strict/quda_comparison/test_quda_transfer_cuda.py`。
 
 ## 主问题与验收标准
 
@@ -95,12 +95,12 @@ $$
 
 | 验收项 | 标准 | 本次证据 |
 |---|---|---|
-| 正式协议 | 格点、mass、$n_v$、block、coarse spin、target parity、层数与 formal profile 完全一致 | `data/strict_vs_quda_formal_20260909_final_current.json` 的 `config_hash=654b...2478` |
+| 正式协议 | 格点、mass、$n_v$、block、coarse spin、target parity、层数与 formal profile 完全一致 | `logs/data/strict_vs_quda_formal_20260909_final_current.json` 的 `config_hash=654b...2478` |
 | 输入一致 | trace 与无 trace benchmark 的 `bundle_hash` 相同 | `bundle_hash=8c866bd0...a6ca3d31` |
 | 迭代详情 | 每侧 2 warmup + 5 steady；逐外层迭代有残差记录 | `data/strict_trace_detailed_20260909.csv`，250 行 |
 | 正确性 | 5 次 steady 的 full-op true residual 均小于 $5\times10^{-6}$ | PyQCU `3.6013e-7`，QUDA `7.3030e-7` |
 | CPU/CUDA smoke | CPU `19`、CUDA Strict `10`、融合 FGMRES `3` 个断言全部通过 | 当前 P100 兼容构建共 `37 passed`；V100 PTX 构建另有 `13 passed` |
-| 性能 | 只用无 trace benchmark 的 steady 样本 | `data/strict_vs_quda_formal_20260909_final_current.json` |
+| 性能 | 只用无 trace benchmark 的 steady 样本 | `logs/data/strict_vs_quda_formal_20260909_final_current.json` |
 | 图表 | 生成 residual 对数图和每次外层迭代时间柱状图 | `data/strict_trace_detailed_20260909.svg` |
 
 ## 方法、设置与证据
@@ -132,7 +132,7 @@ A_e&-\kappa H_{eo}\\
 \end{pmatrix}.
 $$
 
-QUDA 的 `DiracClover::M` 通过 `ApplyWilsonClover(...,-kappa,...)` 同时应用 hopping 与 Clover；`DiracClover::Clover` 单独应用 Clover，证据为 `refer/git-rep/quda/lib/dirac_clover.cpp:36`、`:51`、`:58`。PyQCU 的正式 full-op true residual 由 `give_wilson + give_clover - rhs` 计算，benchmark 入口为 `examples/qcu/dev87/bench_strict_vs_quda.py:1546`。
+QUDA 的 `DiracClover::M` 通过 `ApplyWilsonClover(...,-kappa,...)` 同时应用 hopping 与 Clover；`DiracClover::Clover` 单独应用 Clover，证据为 `refer/git-rep/quda/lib/dirac_clover.cpp:36`、`:51`、`:58`。PyQCU 的正式 full-op true residual 由 `give_wilson + give_clover - rhs` 计算，benchmark 入口为 `pyqcu/testing/qcu/strict/quda_comparison/bench_strict_vs_quda.py:1546`。
 
 ### 2. Fine odd/even Schur 与 prepare/reconstruct
 
@@ -570,38 +570,38 @@ cache 的逻辑资产大小约 3.797 GiB，PyQCU 的 `strict_setup_stats` 显示
 
 ### 本次产物
 
-- [正式无 trace benchmark](../data/strict_vs_quda_formal_20260909_final_current.json)
-- [trace benchmark 原始结果](../data/strict_trace_benchmark_20260909.json)
-- [逐迭代详细 JSON](../data/strict_trace_stage_detailed_20260909.json)
+- [正式无 trace benchmark](../logs/data/strict_vs_quda_formal_20260909_final_current.json)
+- [trace benchmark 原始结果](../logs/data/strict_trace_benchmark_20260909.json)
+- [逐迭代详细 JSON](../logs/data/strict_trace_stage_detailed_20260909.json)
 - [逐迭代 CSV](../data/strict_trace_detailed_20260909.csv)
 - [残差与时间对比 SVG](../data/strict_trace_detailed_20260909.svg)
-- [自动生成摘要](../data/strict_trace_detailed_20260909.md)
-- [CPU/CUDA smoke 结果](../data/strict_fast_20260909_final.json)
-- [详细分析器](../examples/qcu/dev87/analyze_strict_vs_quda_detailed.py)
+- [自动生成摘要](data/strict_trace_detailed_20260909.md)
+- [CPU/CUDA smoke 结果](../logs/data/strict_fast_20260909_final.json)
+- [详细分析器](../pyqcu/testing/qcu/strict/quda_comparison/analyze_strict_vs_quda_detailed.py)
 
 ### 复现实验命令
 
 ```bash
 source ./env.sh
-source examples/qcu/dev87/quda_env.sh
+source pyqcu/testing/qcu/strict/quda_comparison/quda_env.sh
 
 # 诊断 trace：开启日志，仅用于逐迭代残差和事件顺序
-python3 -B examples/qcu/dev87/trace_strict_vs_quda.py \
-  --output data/strict_trace_stage_20260909.json \
+python3 -B pyqcu/testing/qcu/strict/quda_comparison/trace_strict_vs_quda.py \
+  --output logs/data/strict_trace_stage_20260909.json \
   --plot data/strict_trace_stage_20260909.svg \
-  --benchmark-output data/strict_trace_benchmark_20260909.json \
-  --reference data/strict_vs_quda_formal_20260909_final_current.json \
+  --benchmark-output logs/data/strict_trace_benchmark_20260909.json \
+  --reference logs/data/strict_vs_quda_formal_20260909_final_current.json \
   --repeats 5 --timeout 1800
 
 # 正式 timing：无 trace 日志，作为性能真值
-python3 -B examples/qcu/dev87/bench_strict_vs_quda.py \
+python3 -B pyqcu/testing/qcu/strict/quda_comparison/bench_strict_vs_quda.py \
   --profile formal --side both --cache-expect hit \
   --quda-nullvec-prefix data/L16x32x32x48_nvec12_quda \
-  --quda-nullvec-manifest data/L16x32x32x48_nvec12_quda.conversion.json \
-  --output data/strict_vs_quda_formal_20260909_final_current.json
+  --quda-nullvec-manifest logs/data/L16x32x32x48_nvec12_quda.conversion.json \
+  --output logs/data/strict_vs_quda_formal_20260909_final_current.json
 
 # 校验哈希、逐轮迭代数、残差曲线并生成 CSV/JSON/SVG/Markdown
-python3 -B examples/qcu/dev87/analyze_strict_vs_quda_detailed.py
+python3 -B pyqcu/testing/qcu/strict/quda_comparison/analyze_strict_vs_quda_detailed.py
 ```
 
 ### 关键源码索引

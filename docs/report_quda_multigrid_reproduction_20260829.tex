@@ -130,7 +130,7 @@
   \begin{tabular}{@{}p{0.94\textwidth}@{}}
     \colorbox{good}{\parbox{0.905\textwidth}{\textbf{阶段判断：}\quad 已复现 QUDA 核心代数与奇偶路径；QCU 已通过 33 点 coarse halo 和两 rank Clover MG 小格闭环；下一步建立大格 setup/性能对照。}}
   \end{tabular}
-  \source{实现：\codepath{pyqcu/solver/_quda_multigrid.py:188-1407}；测试：\codepath{examples/pyqcu/test_quda_multigrid.py:56-264}；本次命令：\codepath{pytest -q examples/pyqcu/test_quda_multigrid.py}。}
+  \source{实现：\codepath{pyqcu/solver/_quda_multigrid.py:188-1407}；测试：\codepath{pyqcu/testing/python/test_quda_multigrid.py:56-264}；本次命令：\codepath{pytest -q pyqcu/testing/python/test_quda_multigrid.py}。}
 \end{frame}
 
 \begin{frame}[t]{第一性原理：smoother 消高频，粗空间承接长程误差}
@@ -529,7 +529,7 @@
   \begin{alertblock}{证据等级}
     以上数值是本次 CPU 小格命令的直接输出；它们证明参考实现的代数约定，不外推 CUDA kernel 的吞吐、MPI scaling 或大格迭代数。
   \end{alertblock}
-  \source{命令（在 \codepath{examples/pyqcu}）：\codepath{pytest -q test_quda_multigrid.py}；复核：\codepath{QudaMultigrid.diagnostics()}；测试：\codepath{test_quda_multigrid.py:76-264}。}
+  \source{命令（在 \codepath{pyqcu/testing/python}）：\codepath{pytest -q test_quda_multigrid.py}；复核：\codepath{QudaMultigrid.diagnostics()}；测试：\codepath{test_quda_multigrid.py:76-264}。}
 \end{frame}
 
 \begin{frame}[t]{关键坑点已变成可回归的不变量，而不是隐含约定}
@@ -646,7 +646,7 @@ x = mg.solve(b)
   \begin{alertblock}{规模边界}
     \scriptsize matrix-free transition 默认不触发逐列 materialize；大格应调用已有 \codepath{tools.build_stencil_mt} / \codepath{build_stencil_local}，再按上述槽位交给 CUDA。MPI 证据来自确定性 33 点周期参考与一组两 rank Clover MG 小格；它证明通信/局部重建闭环，不宣称 QUDA kernel 的 setup 性能等价。
   \end{alertblock}
-  \source{实现：\codepath{_quda_multigrid.py}、\codepath{cpp/cuda/qcu/include/lattice_multigrid.h}；测试：\codepath{test_quda_multigrid.py}、\codepath{test_quda_transfer_cuda.py}、\codepath{examples/qcu/dev87/coarse_mpi_equiv.py}、\codepath{coarse_mpi_smoke.py}、\codepath{run_qcu_mg_mpi.py}；kernel：\codepath{cpp/cuda/qcu/src/multigrid.cu}。}
+  \source{实现：\codepath{_quda_multigrid.py}、\codepath{cpp/cuda/qcu/include/lattice_multigrid.h}；测试：\codepath{test_quda_multigrid.py}、\codepath{test_quda_transfer_cuda.py}、\codepath{pyqcu/testing/qcu/strict/quda_comparison/coarse_mpi_equiv.py}、\codepath{coarse_mpi_smoke.py}、\codepath{run_qcu_mg_mpi.py}；kernel：\codepath{cpp/cuda/qcu/src/multigrid.cu}。}
 \end{frame}
 
 \begin{frame}[t,shrink=5]{阶段结论：代数与 QCU 两 rank 小格系统验证已闭环，生产复现仍需三步}
@@ -687,7 +687,7 @@ x = mg.solve(b)
       \end{alertblock}
     \end{column}
   \end{columns}
-  \source{源码：QUDA 四个核心文件；实现/测试：\codepath{_quda_multigrid.py}、\codepath{cpp/cuda/qcu/include/lattice_multigrid.h}、\codepath{examples/qcu/dev87/run_qcu_mg_mpi.py}。}
+  \source{源码：QUDA 四个核心文件；实现/测试：\codepath{_quda_multigrid.py}、\codepath{cpp/cuda/qcu/include/lattice_multigrid.h}、\codepath{pyqcu/testing/qcu/strict/quda_comparison/run_qcu_mg_mpi.py}。}
 \end{frame}
 
 \appendix
@@ -717,10 +717,10 @@ x = mg.solve(b)
   \footnotesize
   \begin{tabular}{@{}l@{}}
     \textbf{实现：}\quad \codepath{pyqcu/solver/_quda_multigrid.py}（新 QUDA 风格参考路径）\\
-    \textbf{测试：}\quad \codepath{examples/pyqcu/test_quda_multigrid.py}（13 项 CPU 代数/求解器回归）\\
-    \textbf{QCU/MPI：}\quad \codepath{examples/qcu/dev87/test_quda_transfer_cuda.py}\\
-    \hspace{4.8em}\codepath{examples/qcu/dev87/coarse_mpi_equiv.py}、\codepath{examples/qcu/dev87/coarse_mpi_smoke.py}\\
-    \hspace{4.8em}\codepath{examples/qcu/dev87/run_qcu_mg_mpi.py}\\
+    \textbf{测试：}\quad \codepath{pyqcu/testing/python/test_quda_multigrid.py}（13 项 CPU 代数/求解器回归）\\
+    \textbf{QCU/MPI：}\quad \codepath{pyqcu/testing/qcu/strict/quda_comparison/test_quda_transfer_cuda.py}\\
+    \hspace{4.8em}\codepath{pyqcu/testing/qcu/strict/quda_comparison/coarse_mpi_equiv.py}、\codepath{pyqcu/testing/qcu/strict/quda_comparison/coarse_mpi_smoke.py}\\
+    \hspace{4.8em}\codepath{pyqcu/testing/qcu/strict/quda_comparison/run_qcu_mg_mpi.py}\\
     \textbf{兼容：}\quad \codepath{pyqcu/solver/__init__.py}、\codepath{pyqcu/cann/__init__.py}\\
     \textbf{稳健性：}\quad \codepath{pyqcu/solver/_gmres.py}（zero RHS 与 breakdown）\\
     \textbf{报告：}\quad \codepath{docs/report_quda_multigrid_reproduction_20260829.tex/.pdf}\\

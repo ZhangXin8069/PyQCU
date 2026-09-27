@@ -611,7 +611,7 @@ class MultiGpuMultigrid(object):
 
 
 def verify_multi_gpu_mg(**kwargs):
-    """一行式验证入口（供 pyqcu.testing / examples 使用）。
+    """一行式验证入口（供 pyqcu.testing 使用）。
 
     kwargs 透传 MultiGpuMultigrid（lat_size/mass/atol/nthreads/...）。
     返回 (results, consistency)。

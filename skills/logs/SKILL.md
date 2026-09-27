@@ -11,7 +11,7 @@ Runtime output directory for the C++ CUDA backend (`cpp/cuda/qcu`). Holds genera
 Currently empty. Logs written here may include:
 
 - Build output from `bash ./make.sh` (compiler messages, linker output)
-- Test output from running the C++ backend tests (e.g., `examples/qcu/conftest.clover.multigrid.py`)
+- Test output from running the C++ backend tests (e.g., `pyqcu/testing/qcu/conftest.clover.multigrid.py`)
 - Performance / convergence reports
 
 ## Notes

@@ -1,5 +1,5 @@
 % ============================================================
-% analy 报告 — test15_1 24x24x24x72 MG 真实加速比 (规范模板 v2)
+% analy 报告 — volume24_sweep_single_gpu 24x24x24x72 MG 真实加速比 (规范模板 v2)
 % ============================================================
 \documentclass[UTF8]{ctexart}
 \usepackage[margin=2.5cm]{geometry}
@@ -58,7 +58,7 @@
   numbers=left,numberstyle=\tiny\color{struct!60!black},
 }
 
-\title{PyQCU test15\_1 --- 24×24×24×72 大格子 Clover MultiGrid 真实加速比分析}
+\title{PyQCU volume24\_sweep\_single\_gpu\_1 --- 24×24×24×72 大格子 Clover MultiGrid 真实加速比分析}
 \author{opencode analy}
 \date{\today}
 
@@ -66,7 +66,7 @@
 \maketitle
 
 \begin{abstract}
-本报告针对 PyQCU \texttt{\nolinkurl{examples/qcu/test15_1}} 在统一格子 $24\times24\times24\times72$ 上对 CUDA C++ 多层 Clover MultiGrid 的真实加速比进行只读分析。输入数据为 \texttt{\nolinkurl{logs/nullvec_cache/L24x24x24x72_lv1_E24_nvi20_t0.01.h5}}、\texttt{\nolinkurl{examples/qcu/test15_1/bench_24x24x24x72.h5}}（gate=1.0, 18 配置全收敛, best 1.107）与 \texttt{\nolinkurl{examples/qcu/test15_1/gauge_24x24x24x72.h5}} 统一规范场。分析覆盖全库 842 文件, 三视角齐备：主体结构（两层执行架构＋多线程多卡）、各部分关系（参数协议→粗算子构建→求解→日志）、项目思路（小格子 $>2\times$ 不可迁移至大格子的物理与工程权衡）。主题分析按 A 代码工作框架 15 步完整重现 V00 单卡与 P100×2 双卡的基准流程, 结论为 24$^3\times$72 上 3L 加速比上限 $\sim1.17$, gate=1.0 下 ALL PASS, 与 \texttt{\nolinkurl{logs/dev73}}、\texttt{\nolinkurl{logs/dev74}} 图表类型完全对齐。
+本报告针对 PyQCU \texttt{\nolinkurl{pyqcu/testing/qcu/multigrid/volume24/sweep_single_gpu}} 在统一格子 $24\times24\times24\times72$ 上对 CUDA C++ 多层 Clover MultiGrid 的真实加速比进行只读分析。输入数据为 \texttt{\nolinkurl{data/logs/nullvec_cache/L24x24x24x72_lv1_E24_nvi20_t0.01.h5}}、\texttt{\nolinkurl{pyqcu/testing/qcu/multigrid/volume24/sweep_single_gpu/bench_24x24x24x72.h5}}（gate=1.0, 18 配置全收敛, best 1.107）与 \texttt{\nolinkurl{pyqcu/testing/qcu/multigrid/volume24/sweep_single_gpu/gauge_24x24x24x72.h5}} 统一规范场。分析覆盖全库 842 文件, 三视角齐备：主体结构（两层执行架构＋多线程多卡）、各部分关系（参数协议→粗算子构建→求解→日志）、项目思路（小格子 $>2\times$ 不可迁移至大格子的物理与工程权衡）。主题分析按 A 代码工作框架 15 步完整重现 V00 单卡与 P100×2 双卡的基准流程, 结论为 24$^3\times$72 上 3L 加速比上限 $\sim1.17$, gate=1.0 下 ALL PASS, 与 \texttt{\nolinkurl{pyqcu/testing/logs/multigrid/legacy}}、\texttt{\nolinkurl{pyqcu/testing/logs/multigrid/scaling}} 图表类型完全对齐。
 \end{abstract}
 
 \tableofcontents
@@ -78,9 +78,9 @@
 PyQCU/
 ├── pyqcu/ (纯 Python: dslash/solver/tools/cuda)
 ├── cpp/cuda/qcu/ (C++ CUDA 后端 26 头 + src)
-├── examples/qcu/test15_1/ (本任务工作目录, main.py 535 行)
+├── pyqcu/testing/qcu/multigrid/volume24/sweep_single_gpu/ (本任务工作目录, main.py 535 行)
 ├── logs/test15_1/ (本任务产物, 23 PNG+7 TEX+4 TXT+2 H5)
-├── logs/nullvec_cache/ (共享粗算子 5.5GB+0.4GB)
+├── data/logs/nullvec_cache/ (共享粗算子 5.5GB+0.4GB)
 └── docs/ (本报告)
 \end{lstlisting}
 
@@ -101,7 +101,7 @@ Shell 脚本数 (*.sh) & 19 \\
 \caption{仓库实测统计（数据来源: find/wc/git 实测）}
 \end{table}
 
-\noindent 本任务基线 \texttt{\nolinkurl{dev79}}: \texttt{\nolinkurl{git show dev79 --stat}} 显示 \texttt{\nolinkurl{examples/qcu/test15_1/main.py}} 535 行 + \texttt{\nolinkurl{pyqcu/tools/_multigrid.py}} 280 行, 消息 ``局部化 stencil 构建 BatchedLocalSchur $W=10$''。
+\noindent 本任务基线 \texttt{\nolinkurl{dev79}}: \texttt{\nolinkurl{git show dev79 --stat}} 显示 \texttt{\nolinkurl{pyqcu/testing/qcu/multigrid/volume24/sweep_single_gpu/main.py}} 535 行 + \texttt{\nolinkurl{pyqcu/tools/_multigrid.py}} 280 行, 消息 ``局部化 stencil 构建 BatchedLocalSchur $W=10$''。
 
 % ================= 2 主体结构 =================
 \section{主体结构}
@@ -110,7 +110,7 @@ Shell 脚本数 (*.sh) & 19 \\
 \textcolor{struct}{层次} & 目录 & \textcolor{struct}{职责} \\
 \midrule
 \endhead
-入口层 & \texttt{\nolinkurl{examples/qcu/test15_1/main.py:22-35}} & 子命令 build/bench/check/multi/report + \texttt{\nolinkurl{define.py}} 参数 \\
+入口层 & \texttt{\nolinkurl{pyqcu/testing/qcu/multigrid/volume24/sweep_single_gpu/main.py:22-35}} & 子命令 build/bench/check/multi/report + \texttt{\nolinkurl{define.py}} 参数 \\
 核心层 & \texttt{\nolinkurl{pyqcu/cuda/_multi_gpu.py:210-400}} & MultiGpuMultigrid 一线程一卡, params/argv/set\_ptrs 隔离 \\
 核心层 & \texttt{\nolinkurl{cpp/cuda/qcu/include/lattice_clover_multigrid.h}} & C++ V-cycle, fused 粗求解, PROF\_SECTIONS \\
 工具层 & \texttt{\nolinkurl{pyqcu/tools/_multigrid.py:517-650}} & BatchedLocalSchur $W=10$, \_schur\_matvec\_batch, build\_stencil\_local \\
@@ -133,11 +133,11 @@ Shell 脚本数 (*.sh) & 19 \\
 关系 & 链 & 说明 \\
 \midrule
 \endhead
-生成 & \texttt{\nolinkurl{main.py:224-345}} $\to$ \texttt{\nolinkurl{logs/nullvec_cache/L24*.h5}} & build 子命令, 窗口 $W=10$, 中心 $c\pm1$, diff=0 \\
+生成 & \texttt{\nolinkurl{main.py:224-345}} $\to$ \texttt{\nolinkurl{data/logs/nullvec_cache/L24*.h5}} & build 子命令, 窗口 $W=10$, 中心 $c\pm1$, diff=0 \\
 引用 & \texttt{\nolinkurl{main.py:137-160}} $\to$ \texttt{\nolinkurl{_multi_gpu.py:269-350}} & 粗算子 H5 被主线程加载后拷至各卡 set\_ptrs[30+4fl] \\
 包含 & \texttt{\nolinkurl{define.py}} $\leftrightarrow$ \texttt{\nolinkurl{cpp/include/define.h}} & params 索引必须同步, 否则越界读 \\
-配置配对 & \texttt{\nolinkurl{main.py:48-63}} $\leftrightarrow$ \texttt{\nolinkurl{examples/qcu/AGENTS.md:15-30}} & LAT=24$^3\times$72, MASS 0.05, ATOL 1e-6, DOF\_LIST [12,24] \\
-版本演进 & \texttt{\nolinkurl{dev73}} $\to$ \texttt{\nolinkurl{dev74}} $\to$ \texttt{\nolinkurl{dev79}} $\to$ \texttt{\nolinkurl{test15_1}} & 粗层 $E=48\to24$, 局部化 $W=10$, gate 分级 2.0$\to$1.0 \\
+配置配对 & \texttt{\nolinkurl{main.py:48-63}} $\leftrightarrow$ \texttt{\nolinkurl{pyqcu/testing/qcu/AGENTS.md:15-30}} & LAT=24$^3\times$72, MASS 0.05, ATOL 1e-6, DOF\_LIST [12,24] \\
+版本演进 & \texttt{\nolinkurl{dev73}} $\to$ \texttt{\nolinkurl{dev74}} $\to$ \texttt{\nolinkurl{dev79}} $\to$ \texttt{\nolinkurl{volume24_sweep_single_gpu}} & 粗层 $E=48\to24$, 局部化 $W=10$, gate 分级 2.0$\to$1.0 \\
 \bottomrule
 \caption{各部分依赖与演进关系（数据来源: grep/read 实测）}
 \end{xltabular}
@@ -151,10 +151,10 @@ Shell 脚本数 (*.sh) & 19 \\
 \textcolor{idea}{局部化 $W=10$ 的权衡:} 全格 torch 批量 $\sim22$h / C++ 逐场 $\sim178$min 均不可行 \textcolor{evidence}{\texttt{\nolinkurl{logs/test15_1/test15_1_report.md:15-25}}}; 窗口 $W=10$ 使 $c$ 块 $[2c,2c+2)$ 居中, 仅探中心 $c\pm1$ 块, 与全格 diff=0 且每点 54ms, 31104 点 $\sim28$min, 连续切片比高级索引快 86$\times$。
 
 \subsection{典型工作流}
-\texttt{\nolinkurl{source ./env.sh}} $\to$ \texttt{\nolinkurl{bash ./build.sh}} $\to$ \texttt{\nolinkurl{python examples/qcu/test15_1/main.py build}} (31min) $\to$ \texttt{\nolinkurl{bench --pairs 3 --restarts 15 20 30 --cts 100 1e3 1e5}} (3min) $\to$ \texttt{\nolinkurl{check --file bench_24x24x24x72.h5}} (gate 1.0) $\to$ \texttt{\nolinkurl{generate_assets.py}} $\to$ \texttt{\nolinkurl{docs/analy_test15_1_*.tex}}。
+\texttt{\nolinkurl{source ./env.sh}} $\to$ \texttt{\nolinkurl{bash ./build.sh}} $\to$ \texttt{\nolinkurl{python pyqcu/testing/qcu/multigrid/volume24/sweep_single_gpu/main.py build}} (31min) $\to$ \texttt{\nolinkurl{bench --pairs 3 --restarts 15 20 30 --cts 100 1e3 1e5}} (3min) $\to$ \texttt{\nolinkurl{check --file bench_24x24x24x72.h5}} (gate 1.0) $\to$ \texttt{\nolinkurl{generate_assets.py}} $\to$ \texttt{\nolinkurl{docs/analy_volume24_sweep_single_gpu_*.tex}}。
 
 \begin{ideabox}
-\textbf{核心总结:} 小格子 $>2\times$ 源于粗层小且 $L1$ 弱, 大格子 $12^3\times18$ 时粗层大且 $L1$ 强, MG 收益被 V-cycle 开销抵消, 故 \texttt{\nolinkurl{test15_1}} 以正确性与不劣化为通过标准, 产物对齐 dev73/dev74 形成闭环。
+\textbf{核心总结:} 小格子 $>2\times$ 源于粗层小且 $L1$ 弱, 大格子 $12^3\times18$ 时粗层大且 $L1$ 强, MG 收益被 V-cycle 开销抵消, 故 \texttt{\nolinkurl{volume24_sweep_single_gpu}} 以正确性与不劣化为通过标准, 产物对齐 dev73/dev74 形成闭环。
 \end{ideabox}
 
 % ================= 5 主题分析 =================
@@ -162,7 +162,7 @@ Shell 脚本数 (*.sh) & 19 \\
 \subsection{工作全流程重现（A 代码工作框架）}
 
 \subsubsection{A1 目的与前期准备}
-本工作目标为 \textcolor{struct}{稳定复现 dev79 在 24$^3\times$72 上的单卡 V100 与双卡 P100$\times$2 基准, 并补充与 dev73/dev74 同类型全部图表日志}。前置条件: \texttt{\nolinkurl{pyqcu/cuda/define.py:19-35}} 参数协议同步, \texttt{\nolinkurl{cpp/cuda/qcu/libqcu.so}} 已构建, \texttt{\nolinkurl{logs/nullvec_cache}} 存在 4 缓存, 3 GPU (torch 0=V100,1/2=P100) 可见 \textcolor{evidence}{\texttt{\nolinkurl{examples/qcu/AGENTS.md:22-35}}}。
+本工作目标为 \textcolor{struct}{稳定复现 dev79 在 24$^3\times$72 上的单卡 V100 与双卡 P100$\times$2 基准, 并补充与 dev73/dev74 同类型全部图表日志}。前置条件: \texttt{\nolinkurl{pyqcu/cuda/define.py:19-35}} 参数协议同步, \texttt{\nolinkurl{cpp/cuda/qcu/libqcu.so}} 已构建, \texttt{\nolinkurl{data/logs/nullvec_cache}} 存在 4 缓存, 3 GPU (torch 0=V100,1/2=P100) 可见 \textcolor{evidence}{\texttt{\nolinkurl{pyqcu/testing/qcu/AGENTS.md:22-35}}}。
 
 \subsubsection{A2 输入是什么}
 \begin{xltabular}{\textwidth}{lXl}
@@ -170,20 +170,20 @@ Shell 脚本数 (*.sh) & 19 \\
 输入 & 路径 & 含义 \\
 \midrule
 \endhead
-粗算子 & \texttt{\nolinkurl{logs/nullvec_cache/L24x24x24x72_lv1_E24_nvi20_t0.01.h5}} & lonv,hnn,hdg,sit 5.5GB \\
-粗算子 & \texttt{\nolinkurl{logs/nullvec_cache/L24x24x24x72_lv2_E24_nvi20_t0.01.h5}} & lv2 0.4GB 6$^3\times$9 \\
-基准 & \texttt{\nolinkurl{examples/qcu/test15_1/bench_24x24x24x72.h5}} & gate1.0 18MG+$L1$+ref 19配置 \\
-规范场 & \texttt{\nolinkurl{examples/qcu/test15_1/gauge_24x24x24x72.h5}} & U\_full clover kappa0.123 \\
+粗算子 & \texttt{\nolinkurl{data/logs/nullvec_cache/L24x24x24x72_lv1_E24_nvi20_t0.01.h5}} & lonv,hnn,hdg,sit 5.5GB \\
+粗算子 & \texttt{\nolinkurl{data/logs/nullvec_cache/L24x24x24x72_lv2_E24_nvi20_t0.01.h5}} & lv2 0.4GB 6$^3\times$9 \\
+基准 & \texttt{\nolinkurl{pyqcu/testing/qcu/multigrid/volume24/sweep_single_gpu/bench_24x24x24x72.h5}} & gate1.0 18MG+$L1$+ref 19配置 \\
+规范场 & \texttt{\nolinkurl{pyqcu/testing/qcu/multigrid/volume24/sweep_single_gpu/gauge_24x24x24x72.h5}} & U\_full clover kappa0.123 \\
 参数 & \texttt{\nolinkurl{main.py:49-63}} & LAT24$^3\times$72 DOF[12,24] \\
 \bottomrule
 \caption{输入清单（数据来源: h5py 实测 + main.py:49-63）}
 \end{xltabular}
 
 \subsubsection{A3 输出应该是什么}
-预期产物: \texttt{\nolinkurl{logs/test15_1/test15_1_conv_*.png}} 等 13 PNG, \texttt{\nolinkurl{logs/test15_1/test15_1_tbl_*.tex}} 5 TEX, \texttt{\nolinkurl{logs/test15_1/mg_bench_out.txt}} 等 4 TXT, \texttt{\nolinkurl{logs/test15_1/test15_1_bench.json}} 总结, \texttt{\nolinkurl{docs/analy_test15_1_*.pdf}} 本报告, 最终 \texttt{\nolinkurl{test15_1}} 标签。
+预期产物: \texttt{\nolinkurl{logs/test15_1/test15_1_conv_*.png}} 等 13 PNG, \texttt{\nolinkurl{logs/test15_1/test15_1_tbl_*.tex}} 5 TEX, \texttt{\nolinkurl{logs/test15_1/mg_bench_out.txt}} 等 4 TXT, \texttt{\nolinkurl{logs/test15_1/test15_1_bench.json}} 总结, \texttt{\nolinkurl{docs/analy_volume24_sweep_single_gpu_*.pdf}} 本报告, 最终 \texttt{\nolinkurl{volume24_sweep_single_gpu}} 标签。
 
 \subsubsection{A4 整体框架}
-\texttt{\nolinkurl{main.py:22-35}} 5 子命令: build(局部化) $\to$ bench(V100 3$\times$中位) $\to$ check(gate) $\to$ multi(P100$\times$2) $\to$ report; \texttt{\nolinkurl{generate_assets.py}} 复用 dev73 亮色调色板与 \texttt{\nolinkurl{define.py}} 常量, 输出落 \texttt{\nolinkurl{logs/test15_1}} 以对齐 dev73/dev74。
+\texttt{\nolinkurl{main.py:22-35}} 5 子命令: build(局部化) $\to$ bench(V100 3$\times$中位) $\to$ check(gate) $\to$ multi(P100$\times$2) $\to$ report; \texttt{\nolinkurl{generate_assets.py}} 复用 dev73 亮色调色板与 \texttt{\nolinkurl{define.py}} 常量, 输出落 \texttt{\nolinkurl{pyqcu/testing/logs/volume24/sweep_single_gpu}} 以对齐 dev73/dev74。
 
 \subsubsection{A5 关键细节}
 关键函数: \texttt{\nolinkurl{pyqcu/tools/_multigrid.py:517}} \_schur\_matvec\_batch 分块 0.5GB, \texttt{\nolinkurl{pyqcu/cuda/_multi_gpu.py:483-525}} fast-path 避OOM。易错点: \texttt{\nolinkurl{main.py:336}} tuple 误传已修复。
@@ -192,10 +192,10 @@ Shell 脚本数 (*.sh) & 19 \\
 \subsubsection{A6 任务如何正确执行}
 \begin{lstlisting}[language=bash]
 source ./env.sh
-python examples/qcu/test15_1/main.py bench --pairs 3 --restarts 15 20 30 --cts 100 1000 100000 --cmi 3  # V00 单卡
-python examples/qcu/test15_1/main.py check --file bench_24x24x24x72.h5  # gate 1.0
-python examples/qcu/test15_1/main.py multi --levels 2 --restart 10 --ct 1e5 --cmi 15  # P100x2
-python examples/qcu/test15_1/generate_assets.py  # 补充 dev73/dev74 同类型图表日志
+python pyqcu/testing/qcu/multigrid/volume24/sweep_single_gpu/main.py bench --pairs 3 --restarts 15 20 30 --cts 100 1000 100000 --cmi 3  # V00 单卡
+python pyqcu/testing/qcu/multigrid/volume24/sweep_single_gpu/main.py check --file bench_24x24x24x72.h5  # gate 1.0
+python pyqcu/testing/qcu/multigrid/volume24/sweep_single_gpu/main.py multi --levels 2 --restart 10 --ct 1e5 --cmi 15  # P100x2
+python pyqcu/testing/qcu/multigrid/volume24/sweep_single_gpu/generate_assets.py  # 补充 dev73/dev74 同类型图表日志
 \end{lstlisting}
 
 \subsubsection{A7 实际执行情况}
@@ -207,8 +207,8 @@ python examples/qcu/test15_1/generate_assets.py  # 补充 dev73/dev74 同类型�
 产物 & 路径 & 实测值 \\
 \midrule
 \endhead
-bench H5 & \texttt{\nolinkurl{examples/qcu/test15_1/bench_24x24x24x72.h5}} & 18MG+$L1$+ref=19 gate1.0 best1.107 \\
-multi H5 & \texttt{\nolinkurl{examples/qcu/test15_1/multi_24x24x24x72.h5}} & nt1 2.61s V100 nt2 3.45s P100x2 \\
+bench H5 & \texttt{\nolinkurl{pyqcu/testing/qcu/multigrid/volume24/sweep_single_gpu/bench_24x24x24x72.h5}} & 18MG+$L1$+ref=19 gate1.0 best1.107 \\
+multi H5 & \texttt{\nolinkurl{pyqcu/testing/qcu/multigrid/volume24/sweep_single_gpu/multi_24x24x24x72.h5}} & nt1 2.61s V100 nt2 3.45s P100x2 \\
 PNG & \texttt{\nolinkurl{logs/test15_1/test15_1_*.png}} & 13张 51-118KB \\
 TEX & \texttt{\nolinkurl{logs/test15_1/test15_1_tbl_*.tex}} & 5张 对齐dev73 \\
 TXT & \texttt{\nolinkurl{logs/test15_1/mg_bench_out.txt}} & best1.107 ALL PASS \\
@@ -264,12 +264,12 @@ TXT & \texttt{\nolinkurl{logs/test15_1/mg_bench_out.txt}} & best1.107 ALL PASS \
 见第9节清单, 共 28 条, 其中 5 条参考背景。
 
 \subsubsection{A15 附录与附件}
-\lstinputlisting[firstline=401,lastline=415]{/root/PyQCU/examples/qcu/test15_1/main.py}
+\lstinputlisting[firstline=401,lastline=415]{/root/PyQCU/pyqcu/testing/qcu/multigrid/volume24/sweep_single_gpu/main.py}
 \lstinputlisting[firstline=500,lastline=520]{/root/PyQCU/pyqcu/cuda/_multi_gpu.py}
 
 % ================= 6 关键代码/文档片段 =================
 \section{关键代码/文档片段}
-\lstinputlisting[firstline=107,lastline=135]{/root/PyQCU/examples/qcu/test15_1/main.py}
+\lstinputlisting[firstline=107,lastline=135]{/root/PyQCU/pyqcu/testing/qcu/multigrid/volume24/sweep_single_gpu/main.py}
 \lstinputlisting[firstline=517,lastline=560]{/root/PyQCU/pyqcu/tools/_multigrid.py}
 \lstinputlisting[firstline=1,lastline=30]{/root/PyQCU/logs/test15_1/test15_1_bench_out.txt}
 
@@ -331,13 +331,13 @@ L8 & \texttt{\nolinkurl{logs/test15_1/build_24x24x24x72_nvi20c.log}} & 用途: �
 \textcolor{evidence}{参考源} & 类型 & 内容/作用 \\
 \midrule
 \endhead
-\texttt{\nolinkurl{examples/qcu/test15_1/main.py:48-63}} & 仓库 & 参数定义 LAT/DOF\_LIST/gate 分级 \\
-\texttt{\nolinkurl{examples/qcu/test15_1/main.py:137-160}} & 仓库 & 粗算子加载与 set\_ptrs 槽位 \\
-\texttt{\nolinkurl{examples/qcu/test15_1/main.py:401-404}} & 仓库 & gate 分级逻辑 \\
-\texttt{\nolinkurl{examples/qcu/test15_1/bench_24x24x24x72.h5}} & 仓库 & 基准 H5, 19 配置, best 1.107 \\
-\texttt{\nolinkurl{examples/qcu/test15_1/gauge_24x24x24x72.h5}} & 仓库 & 统一规范场 U\_full \\
-\texttt{\nolinkurl{logs/nullvec_cache/L24x24x24x72_lv1_E24_nvi20_t0.01.h5}} & 仓库 & lv1 粗算子 5.5GB \\
-\texttt{\nolinkurl{logs/nullvec_cache/L24x24x24x72_lv2_E24_nvi20_t0.01.h5}} & 仓库 & lv2 粗算子 0.4GB \\
+\texttt{\nolinkurl{pyqcu/testing/qcu/multigrid/volume24/sweep_single_gpu/main.py:48-63}} & 仓库 & 参数定义 LAT/DOF\_LIST/gate 分级 \\
+\texttt{\nolinkurl{pyqcu/testing/qcu/multigrid/volume24/sweep_single_gpu/main.py:137-160}} & 仓库 & 粗算子加载与 set\_ptrs 槽位 \\
+\texttt{\nolinkurl{pyqcu/testing/qcu/multigrid/volume24/sweep_single_gpu/main.py:401-404}} & 仓库 & gate 分级逻辑 \\
+\texttt{\nolinkurl{pyqcu/testing/qcu/multigrid/volume24/sweep_single_gpu/bench_24x24x24x72.h5}} & 仓库 & 基准 H5, 19 配置, best 1.107 \\
+\texttt{\nolinkurl{pyqcu/testing/qcu/multigrid/volume24/sweep_single_gpu/gauge_24x24x24x72.h5}} & 仓库 & 统一规范场 U\_full \\
+\texttt{\nolinkurl{data/logs/nullvec_cache/L24x24x24x72_lv1_E24_nvi20_t0.01.h5}} & 仓库 & lv1 粗算子 5.5GB \\
+\texttt{\nolinkurl{data/logs/nullvec_cache/L24x24x24x72_lv2_E24_nvi20_t0.01.h5}} & 仓库 & lv2 粗算子 0.4GB \\
 \texttt{\nolinkurl{pyqcu/cuda/_multi_gpu.py:483-525}} & 仓库 & cache\_hit fast-path 修复 OOM \\
 \texttt{\nolinkurl{pyqcu/tools/_multigrid.py:517-560}} & 仓库 & 分块 batch, W=10 \\
 \texttt{\nolinkurl{pyqcu/cuda/qcu/qcu.pyx:19}} & 仓库 & 指针提取与 nogil \\
@@ -352,7 +352,7 @@ L8 & \texttt{\nolinkurl{logs/test15_1/build_24x24x24x72_nvi20c.log}} & 用途: �
 \texttt{\nolinkurl{logs/clover_multigrid.log:64022}} & 仓库 & C++ 日志 Lt\_full=72 \\
 \texttt{\nolinkurl{logs/dev73/dev73_5.md:18-25}} & 仓库 & dev73 基准 2.43$\times$ \\
 \texttt{\nolinkurl{logs/dev74/dev74_1_guide.md:18-30}} & 仓库 & dev74 gate 1.5 \\
-\texttt{\nolinkurl{examples/qcu/AGENTS.md:15-30}} & 仓库 & 设备与 QCU\_LOG\_DIR 约定 \\
+\texttt{\nolinkurl{pyqcu/testing/qcu/AGENTS.md:15-30}} & 仓库 & 设备与 QCU\_LOG\_DIR 约定 \\
 \texttt{\nolinkurl{refer/git-rep/DDalphaAMG/docs}} & 参考 & MG 宽版粗算子理论 \\
 \texttt{\nolinkurl{refer/git-rep/quda/docs}} & 参考 & QUDA 多重网格 \\
 \texttt{\nolinkurl{refer/git-rep/PyQUDA/docs}} & 参考 & Python 接口范例 \\
@@ -365,7 +365,7 @@ L8 & \texttt{\nolinkurl{logs/test15_1/build_24x24x24x72_nvi20c.log}} & 用途: �
 % ================= 10 结论与局限 =================
 \section{结论与局限}
 \begin{conclbox}
-主体结构: 两层执行架构下 \texttt{\nolinkurl{test15_1}} 通过 params/argv/set\_ptrs 桥接与一线程一卡隔离实现大格子 MG; 各部分关系: gauge$\to$Clover$\to$S$\to$BatchedLocalSchur$\to$粗算子H5$\to$MG$\to$日志$\to$H5$\to$PNG/TEX 闭环; 项目思路: 以 gate 分级与局部化 $W=10$ 在 V100 32GB 上实现正确性与不劣化; 主题结论: 24$^3\times$72 上 3L best 1.107, gate=1.0 ALL PASS, 2$\times$ 不可达。
+主体结构: 两层执行架构下 \texttt{\nolinkurl{volume24_sweep_single_gpu}} 通过 params/argv/set\_ptrs 桥接与一线程一卡隔离实现大格子 MG; 各部分关系: gauge$\to$Clover$\to$S$\to$BatchedLocalSchur$\to$粗算子H5$\to$MG$\to$日志$\to$H5$\to$PNG/TEX 闭环; 项目思路: 以 gate 分级与局部化 $W=10$ 在 V100 32GB 上实现正确性与不劣化; 主题结论: 24$^3\times$72 上 3L best 1.107, gate=1.0 ALL PASS, 2$\times$ 不可达。
 \end{conclbox}
 \begin{refbox}
 DDalphaAMG/quda 的 GCR-FD 与聚合式粗算子表明大粗层需更强平滑与自适应聚合, 与本报告 ``粗层大导致质量差'' 推断一致 \textcolor{evidence}{\texttt{\nolinkurl{refer/git-rep/DDalphaAMG/docs:1-20}}}。

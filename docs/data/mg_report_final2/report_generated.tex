@@ -1,0 +1,29 @@
+% Generated include fragment; the source report is never modified.
+\section*{Automated MultiGrid performance report}
+\input{\detokenize{tables.tex}}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\linewidth]{\detokenize{mg_level_time_stack.pdf}}
+\caption{Per-level MG time decomposition.}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\linewidth]{\detokenize{mg_level_iterations.pdf}}
+\caption{Per-level iteration counts.}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\linewidth]{\detokenize{mg_finest_residual.pdf}}
+\caption{Finest-level residual convergence.}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\linewidth]{\detokenize{mg_speedup_device.pdf}}
+\caption{PyQCU/QUDA steady time ratio and devices.}
+\end{figure}
+
+% Analysis JSON: summary_analysis.json

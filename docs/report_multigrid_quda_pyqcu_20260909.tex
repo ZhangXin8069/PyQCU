@@ -951,7 +951,7 @@ Strict setup 的主要步骤是：
 形式上，严格 builder 的 workspace 由一个粗点批次和 $E$ 个 colored probe
 共同决定；正式数据记录了 coarse sites $=49{,}152$、coarse dof $=24$、
 colored column batch $=12$、projection site batch $=4$、operator calls $=44$。
-这些统计在 \pathref{data/strict_vs_quda_formal_20260909_final_current.json}，不是从旧
+这些统计在 \pathref{logs/data/strict_vs_quda_formal_20260909_final_current.json}，不是从旧
 Markdown 复制的估计值。
 
 \subsection{Strict C++ 的一次外层迭代}
@@ -1316,7 +1316,7 @@ CUDA Strict & 10 & PASS & full coarse、$X/Y/\Yhat$、parity kernel、生命周�
 \bottomrule
 \end{tabular}
 \end{table}
-结果摘要为 \pathref{data/strict_fast_20260909_final.json}；同一源码在按 UUID
+结果摘要为 \pathref{logs/data/strict_fast_20260909_final.json}；同一源码在按 UUID
 隔离的 V100 上另通过 CUDA Strict `10` 与融合 FGMRES `3` 个测试。默认构建
 采用 60 real + 60 virtual，显式 70 native 架构构建也均成功。
 测试不等价于证明 QUDA 与 PyQCU 的每一个
@@ -1327,9 +1327,9 @@ native storage element 相同，但证明了当前 Strict 的闭环可以运行�
 
 本轮另外执行了：
 \begin{lstlisting}[basicstyle=\small\ttfamily,breaklines=true,frame=single]
-python -B examples/qcu/dev87/smoke_quda_reduction.py \
+python -B pyqcu/testing/qcu/strict/quda_comparison/smoke_quda_reduction.py \
   --quda-install data/quda-qio-install
-python -B examples/qcu/dev87/smoke_quda_multigrid.py \
+python -B pyqcu/testing/qcu/strict/quda_comparison/smoke_quda_multigrid.py \
   --quda-install data/quda-qio-install
 \end{lstlisting}
 两条命令都在 QUDA 第一个 \code{CopyGauge} kernel 处报
@@ -1377,39 +1377,39 @@ setup miss 比较；设备级 memory peak 可能包含 QUDA native allocation �
 
 \begin{lstlisting}[basicstyle=\small\ttfamily,breaklines=true,frame=single]
 source ./env.sh
-source examples/qcu/dev87/quda_env.sh
+source pyqcu/testing/qcu/strict/quda_comparison/quda_env.sh
 
 # formal solve-only timing（无 trace，2 warmup + 5 steady）
-python -B examples/qcu/dev87/bench_strict_vs_quda.py \
+python -B pyqcu/testing/qcu/strict/quda_comparison/bench_strict_vs_quda.py \
   --profile formal --side both --cache-expect hit \
   --quda-nullvec-prefix data/L16x32x32x48_nvec12_quda \
-  --quda-nullvec-manifest data/L16x32x32x48_nvec12_quda.conversion.json \
-  --output data/strict_vs_quda_formal_20260909_final_current.json
+  --quda-nullvec-manifest logs/data/L16x32x32x48_nvec12_quda.conversion.json \
+  --output logs/data/strict_vs_quda_formal_20260909_final_current.json
 
 # diagnostic trace（逐外层 residual 和 PyQCU stage）
-python -B examples/qcu/dev87/trace_strict_vs_quda.py \
-  --output data/strict_trace_stage_20260909.json \
+python -B pyqcu/testing/qcu/strict/quda_comparison/trace_strict_vs_quda.py \
+  --output logs/data/strict_trace_stage_20260909.json \
   --plot data/strict_trace_stage_20260909.svg \
-  --benchmark-output data/strict_trace_benchmark_20260909.json \
-  --reference data/strict_vs_quda_formal_20260909_final_current.json \
+  --benchmark-output logs/data/strict_trace_benchmark_20260909.json \
+  --reference logs/data/strict_vs_quda_formal_20260909_final_current.json \
   --repeats 5 --timeout 1800
 
 # 展开 JSON，生成逐迭代/阶段 CSV、SVG 和摘要
-python -B examples/qcu/dev87/analyze_strict_vs_quda_detailed.py
+python -B pyqcu/testing/qcu/strict/quda_comparison/analyze_strict_vs_quda_detailed.py
 \end{lstlisting}
 
 \subsection{本报告直接引用的产物}
 
 \begin{itemize}
-  \item formal：\pathref{data/strict_vs_quda_formal_20260909_final_current.json}；
-  \item trace：\pathref{data/strict_trace_stage_20260909.json}；
-  \item detailed：\pathref{data/strict_trace_stage_detailed_20260909.json}、
+  \item formal：\pathref{logs/data/strict_vs_quda_formal_20260909_final_current.json}；
+  \item trace：\pathref{logs/data/strict_trace_stage_20260909.json}；
+  \item detailed：\pathref{logs/data/strict_trace_stage_detailed_20260909.json}、
         \pathref{data/strict_trace_detailed_20260909.csv}；
-  \item stage：\pathref{data/strict_trace_stage_detailed_20260909.json}、
+  \item stage：\pathref{logs/data/strict_trace_stage_detailed_20260909.json}、
         \pathref{data/strict_trace_stage_timing_20260909.csv}；
   \item 自动图：\pathref{data/strict_trace_detailed_20260909.svg}；
-  \item 快速回归：\pathref{data/strict_fast_20260909_final.json}；
-  \item 分析器：\pathref{examples/qcu/dev87/analyze_strict_vs_quda_detailed.py}。
+  \item 快速回归：\pathref{logs/data/strict_fast_20260909_final.json}；
+  \item 分析器：\pathref{pyqcu/testing/qcu/strict/quda_comparison/analyze_strict_vs_quda_detailed.py}。
 \end{itemize}
 
 \subsection{关键源码索引}

@@ -435,8 +435,8 @@ _minted*/
 *.pdf
 # 报告构建与逐页渲染的临时目录不入库。
 /docs/.report-*
-# examples 中按日期生成的长运行日志。
-/examples/**/log-v*.txt
+# pyqcu/testing 中按日期生成的长运行日志。
+/pyqcu/testing/**/log-v*.txt
 # agent 会话日志可能没有稳定扩展名，按命名族统一排除。
 /logs/codex-session-*
 /logs/**/codex-session-*

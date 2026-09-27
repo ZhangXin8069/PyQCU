@@ -65,7 +65,7 @@ git 提交（主分支） & 1085+ & 本会话新增 7 个 \texttt{[opencode]} �
 \end{tabular}
 \end{center}
 
-架构层级：入口层（\texttt{pyqcu/}、\texttt{examples/}）→ 核心层（dslash/solver/smear/tools）
+架构层级：入口层（\texttt{pyqcu/}、\texttt{pyqcu/testing/}）→ 核心层（dslash/solver/smear/tools）
 → 桥接层（\texttt{pyqcu/cuda/} Cython 桥）→ 后端层（\texttt{cpp/cuda/qcu/}）→ 兼容层（cann 占位）。
 参数协议：\texttt{params}(int32[54]) / \texttt{argv}(float[7]) / \texttt{set\_ptrs}(int64[100])
 三张扁平张量桥接（\texttt{pyqcu/cuda/define.py:11-90}），与 \texttt{define.h} 同步；

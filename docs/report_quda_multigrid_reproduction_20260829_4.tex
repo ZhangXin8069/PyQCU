@@ -104,7 +104,7 @@
     \end{column}
     \begin{column}{0.30\textwidth}
       \begin{block}{本轮证据}
-        定向命令与 \codepath{examples/pyqcu} 均为
+        定向命令与 \codepath{pyqcu/testing/python} 均为
         \textbf{26 passed}；compact 多层 full residual
         $1.02\times10^{-7}$，独立 Schur 解为 $1.12\times10^{-7}$。
       \end{block}
@@ -132,8 +132,8 @@
     QUDA MATPC 的核心约束已落成可测不变量：奇偶布局、局部块逆、
     $S_o$ 严格伴随、$R S_o P$ 层级和 full 解重构均有回归证据。}}
   \source{实现：\codepath{pyqcu/solver/_quda_multigrid.py:1094-1292,1373-2331}；
-    测试：\codepath{examples/pyqcu/test_quda_multigrid.py:434-725}；
-    命令：\codepath{pytest -q examples/pyqcu}。}
+    测试：\codepath{pyqcu/testing/python/test_quda_multigrid.py:434-725}；
+    命令：\codepath{pytest -q pyqcu/testing/python}。}
 \end{frame}
 
 \begin{frame}[t]{研究问题与验收标准：先对齐代数，再谈加速}
@@ -698,7 +698,7 @@
     这些数字证明 Python 参考实现的代数和布局约定；它们不等价于 GPU
     kernel 吞吐、MPI scaling 或 QUDA 原生数值路径的性能结论。
   \end{alertblock}
-  \source{命令：定向测试与 \codepath{examples/pyqcu} 均 26 passed；
+  \source{命令：定向测试与 \codepath{pyqcu/testing/python} 均 26 passed；
     数值：compact 直测。}
 \end{frame}
 
@@ -766,7 +766,7 @@
     所有未运行项目保持“未验证”标签；先以 compact layout、Schur、
     $RDP$ 和真残差作为迁移的 golden contract，再进入 CUDA/MPI 性能实验。}}
   \source{实现边界：\codepath{_quda_multigrid.py:748-910,2145-2163}；
-    QCU 既有证据与历史结果见 \codepath{examples/qcu/dev87/}。}
+    QCU 既有证据与历史结果见 \codepath{pyqcu/testing/qcu/strict/quda_comparison/}。}
 \end{frame}
 
 \begin{frame}[t]{阶段结论与后续：先完成 QCU compact 接线，再量化收益}
@@ -896,9 +896,9 @@ assets = mg.qcu_transition_assets()
 \begin{frame}[t]{附录：本轮验证命令与交付闸门}
   \small
   \begin{tabular}{@{}l@{}}
-    \texttt{\$ pytest -q examples/pyqcu/test\_quda\_multigrid.py}
+    \texttt{\$ pytest -q pyqcu/testing/python/test\_quda\_multigrid.py}
       \quad\textbf{26 passed in 8.22s}\\
-    \texttt{\$ pytest -q examples/pyqcu}
+    \texttt{\$ pytest -q pyqcu/testing/python}
       \quad\textbf{26 passed in 8.99s}\\
     \texttt{\$ python -m py\_compile ...}
       \quad\textbf{通过}\\

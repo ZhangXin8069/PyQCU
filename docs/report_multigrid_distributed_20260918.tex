@@ -1,7 +1,7 @@
 % !TEX program = xelatex
 % PyQCU / QUDA distributed Strict MultiGrid report.
 % Numeric tables and figures are generated from the recorded JSON by
-% examples/qcu/dev87/build_mg_report.py; this file carries the analysis.
+% pyqcu/testing/qcu/strict/quda_comparison/build_mg_report.py; this file carries the analysis.
 \documentclass[UTF8,a4paper,11pt]{ctexart}
 
 \usepackage[a4paper,margin=2.05cm,headheight=14pt]{geometry}
@@ -231,7 +231,7 @@ update 可能对同一迭代打两行，统计时必须按迭代号去重。
 
 \subsection{粗层算子的逐分量对照}
 
-探针 \pathref{examples/qcu/dev87/strict_mpi_primitive_probe.py} 在
+探针 \pathref{pyqcu/testing/qcu/strict/quda_comparison/strict_mpi_primitive_probe.py} 在
 全局格点上构造随机 nearest-neighbour 算子，把 $X/Y/\Yhat$ 按 rank
 切片后交给 C++ 的 strict 粗层算子，与 Python 全局参考逐分量比较。
 结果如下（相对误差 $\norm{a-e}/\norm{e}$）：
@@ -259,7 +259,7 @@ c64 的约 $10^{-7}$ 与 c128 的约 $10^{-16}$ 分别是两种精度的舍入�
 
 \subsection{分布式 setup 资产对照}
 
-\pathref{examples/qcu/dev87/strict_mpi_setup_probe.py} 用同一 seed 在
+\pathref{pyqcu/testing/qcu/strict/quda_comparison/strict_mpi_setup_probe.py} 用同一 seed 在
 全局生成 gauge 与 null vector，各 rank 取自己那份建层级，再与单 rank
 全局层级逐点对照。c64/c128、2/4 rank、2/3 层、site-batch 与 colored
 两种 Galerkin 模式的内部点与 rank 边界点最大相对误差都是 $0$（按位
@@ -267,7 +267,7 @@ c64 的约 $10^{-7}$ 与 c128 的约 $10^{-16}$ 分别是两种精度的舍入�
 
 \subsection{分布式求解真残差}
 
-\pathref{examples/qcu/dev87/strict_mpi_solve_probe.py} 用真实分布式
+\pathref{pyqcu/testing/qcu/strict/quda_comparison/strict_mpi_solve_probe.py} 用真实分布式
 Wilson/Clover fine 算子加 coarse Strict-MG，最后用 Python 侧算子独立
 重算真残差：
 
@@ -303,7 +303,7 @@ $\{\text{QUDA},\text{PyQCU}\}\times\{1\ \text{cold},2\ \text{warmup},
 \{\text{trace on},\text{off}\}\times\{\text{MG-1},\text{MG-2},
 \text{MG-3}\}\times\{\text{V100 单卡},\text{双 P100}\}$，
 即 144 个 side-case、1152 个 phase record。编排器
-\pathref{examples/qcu/dev87/bench_mg_matrix_full.py} 的
+\pathref{pyqcu/testing/qcu/strict/quda_comparison/bench_mg_matrix_full.py} 的
 \code{--list} 给出同样的计数。
 
 \subsection{固定物理与算法参数}
@@ -541,7 +541,7 @@ trace-on 只用于分层分解与残差曲线。
   （\code{lattice\_clover\_dslash.h} 的 \code{\_make\_mpi} /
   \code{pick\_up\_u\_*}），不属于本轮实现的 strict 分布式路径；同一
   二进制下的 strict 分布式路径本身在双 P100 上可解（见
-  \pathref{examples/qcu/dev87/P100_NOTES.md}）。QUDA 侧则完全不可用：
+  \pathref{pyqcu/testing/qcu/strict/quda_comparison/P100_NOTES.md}）。QUDA 侧则完全不可用：
   仓库现有 \code{quda-double-install} 只含 \code{sm\_70} cubin，
   P100（\code{sm\_60}）无法加载。
 \item 分布式 setup 的 face 交换走 CPU staging，只用于 setup 期；
@@ -564,31 +564,31 @@ trace-on 只用于分层分解与残差曲线。
 QCU_CUDA_ARCHITECTURES='70-real;70-virtual;60-real;60-virtual' bash ./build.sh
 
 # 正确性：粗层 halo
-mpirun -np 2 python examples/qcu/dev87/strict_mpi_primitive_probe.py \
+mpirun -np 2 python pyqcu/testing/qcu/strict/quda_comparison/strict_mpi_primitive_probe.py \
   --shape 8 8 8 8 --grid 2 1 1 1 --dof 4 --parity 1 --dtype c128
 
 # 正确性：分布式 setup
-mpirun -np 2 python examples/qcu/dev87/strict_mpi_setup_probe.py \
+mpirun -np 2 python pyqcu/testing/qcu/strict/quda_comparison/strict_mpi_setup_probe.py \
   --shape 8 8 8 16 --grid 2 1 1 1 --levels 2 --dtype c64 --mode site-batch
 
 # 正确性：分布式求解真残差
-mpirun -np 2 python examples/qcu/dev87/strict_mpi_solve_probe.py \
+mpirun -np 2 python pyqcu/testing/qcu/strict/quda_comparison/strict_mpi_solve_probe.py \
   --shape 8 8 8 8 --grid 2 1 1 1 --restart 20 --max-iter 200 --dtype c128
 
 # 性能矩阵（示例：单单元，cold + 2 warmup + 5 steady）
-python examples/qcu/dev87/bench_strict_vs_quda.py --side both \
+python pyqcu/testing/qcu/strict/quda_comparison/bench_strict_vs_quda.py --side both \
   --lattice 16 32 32 48 --block 2 2 2 2 --levels 3 --precision c64 \
   --device v100 --mpi-ranks 1 --process-grid 1 1 1 1 \
   --phases cold,warmup,steady \
   --gauge-path data/gauge_16x32x32x48_m0.05_seed42_c64.h5 \
   --nullvec-path data/L16x32x32x48_nvec12_full_c64.h5 \
   --quda-nullvec-prefix data/qio-matrix/L16x32x32x48_nvec12_quda \
-  --quda-nullvec-manifest data/qio-matrix/L16x32x32x48_nvec12_quda.v1.json \
+  --quda-nullvec-manifest logs/data/qio-matrix/L16x32x32x48_nvec12_quda.v1.json \
   --strict-cache-dir data/strict_cache_matrix/unit \
   --output data/mg_matrix_v100_c64/unit.json
 
 # 报告：JSON -> CSV / SVG / PDF / LaTeX
-python examples/qcu/dev87/build_mg_report.py \
+python pyqcu/testing/qcu/strict/quda_comparison/build_mg_report.py \
   --input data/mg_matrix_v100_c64/unit.json --outdir data/mg_report
 \end{lstlisting}
 

@@ -100,7 +100,7 @@ def bistabcg_history(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Ten
     """零初始解复现 BiCGStab 逐迭代残差历史（返回 [||r0||, ||r1||, ...]）。
 
     整合自 logs/dev78_2/main.py::_bistabcg_history 与
-    examples/qcu/dev73/mg_dev73_5_bench.py::bistabcg_history：
+    pyqcu/testing/qcu/multigrid/legacy/reference_benchmark.py::bistabcg_history：
     用于给只输出收敛点的 C++ 求解路径补参考收敛曲线（同一 matvec、
     同一 BiCGStab 算法在 torch 上数学等价复现，零 C++ 改动）。
     breakdown 时打印提示并返回已收集的部分历史（不抛异常，画图友好）。

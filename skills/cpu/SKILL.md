@@ -1,8 +1,8 @@
 ---
 name: cpu
-description: examples/cpu 目录的完整生成 skill：纯 Python 后端的 CPU 专用测试。
+description: pyqcu/testing/cpu 目录的完整生成 skill：纯 Python 后端的 CPU 专用测试。
 ---
-# CLAUDE.md — examples/cpu
+# CLAUDE.md — pyqcu/testing/cpu
 
 CPU-only tests for the pure-Python backend.
 
@@ -17,5 +17,5 @@ CPU-only tests for the pure-Python backend.
 ## Usage
 
 ```bash
-mpirun -np 4 python examples/cpu/conftest.py
+mpirun -np 4 python pyqcu/testing/cpu/conftest.py
 ```
