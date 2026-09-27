@@ -16,6 +16,7 @@ import json
 import os
 from pathlib import Path
 import shlex
+import signal
 import statistics
 import subprocess
 import sys
@@ -731,22 +732,61 @@ def _subprocess_runner(
             return value.decode("utf-8", errors="replace")
         return "" if value is None else str(value)
 
+    def process_tree_groups(root_pid: int) -> set[int]:
+        parents: dict[int, int] = {}
+        groups: dict[int, int] = {}
+        proc_root = Path("/proc")
+        for entry in proc_root.iterdir():
+            if not entry.name.isdigit():
+                continue
+            try:
+                fields = (entry / "stat").read_text(
+                    encoding="utf-8").rsplit(")", 1)[1].split()
+                pid = int(entry.name)
+                parents[pid] = int(fields[1])
+                groups[pid] = int(fields[2])
+            except (OSError, ValueError, IndexError):
+                continue
+        descendants = {root_pid}
+        changed = True
+        while changed:
+            changed = False
+            for pid, parent in parents.items():
+                if parent in descendants and pid not in descendants:
+                    descendants.add(pid)
+                    changed = True
+        result = {groups.get(pid, pid) for pid in descendants}
+        result.add(root_pid)
+        return result
+
+    def signal_groups(groups: Iterable[int], sig: signal.Signals) -> None:
+        current_group = os.getpgrp()
+        for group in groups:
+            if group <= 0 or group == current_group:
+                continue
+            try:
+                os.killpg(group, sig)
+            except ProcessLookupError:
+                continue
+
+    def terminate_group(process: subprocess.Popen[bytes]) -> None:
+        groups = process_tree_groups(process.pid)
+        signal_groups(groups, signal.SIGTERM)
+        try:
+            process.wait(timeout=1.0)
+        except subprocess.TimeoutExpired:
+            pass
+        signal_groups(groups, signal.SIGKILL)
+        process.wait()
+
     try:
-        completed = subprocess.run(
+        process = subprocess.Popen(
             list(argv),
             cwd=cwd,
             env=dict(env),
-            capture_output=True,
-            timeout=timeout,
-            check=False,
-        )
-    except subprocess.TimeoutExpired as exc:
-        return RunResult(
-            returncode=124,
-            stdout=decode(exc.stdout),
-            stderr=decode(exc.stderr),
-            timed_out=True,
-            reason=f"timeout after {timeout:g}s",
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            start_new_session=True,
         )
     except OSError as exc:
         return RunResult(
@@ -755,10 +795,22 @@ def _subprocess_runner(
             blocked=True,
             reason=f"runner unavailable: {exc}",
         )
+    try:
+        stdout, stderr = process.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        terminate_group(process)
+        stdout, stderr = process.communicate()
+        return RunResult(
+            returncode=124,
+            stdout=decode(stdout),
+            stderr=decode(stderr),
+            timed_out=True,
+            reason=f"timeout after {timeout:g}s",
+        )
     return RunResult(
-        returncode=int(completed.returncode),
-        stdout=decode(completed.stdout),
-        stderr=decode(completed.stderr),
+        returncode=int(process.returncode),
+        stdout=decode(stdout),
+        stderr=decode(stderr),
     )
 
 

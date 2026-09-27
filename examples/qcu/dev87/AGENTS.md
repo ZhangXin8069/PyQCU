@@ -19,6 +19,7 @@ QUDA/PyQCU Strict-MultiGrid 对照工作区：算子约定锚定、分布式正�
 |---|---|
 | `bench_strict_vs_quda.py` | 单单元收集器：`--device {auto,v100,p100}`、`--mpi-ranks`、`--process-grid`、`--phases cold,warmup,steady`、`--levels 1..5`；输出含 `mg_levels`（六类 phase 耗时/迭代数）与 `iteration_semantics` |
 | `bench_mg_matrix_full.py` | 完整笛卡尔矩阵编排（144 side-case / 1152 phase record）：`--list/--dry-run/--execute/--resume/--summarize`，逐单元解析 gauge/nullvec/QIO 资产并隔离 strict cache |
+| `assemble_final_matrix.py` | 合并最终 PyQCU/QUDA side 文档并 fail-closed 审计 config/input/warmup/fair；导出 `units.csv`、`stages.csv`、`references.csv` 与 72 个 combined JSON |
 | `build_mg_report.py` | JSON/trace → `mg_matrix.csv`、`mg_levels.csv`、SVG/PDF 图、`tables.tex`、`summary_analysis.json` |
 | `convert_full_nullvec_to_quda_qio.py` | canonical full null vector → QUDA QIO + v1 manifest（含 byte-exact round-trip 校验） |
 | `p100_env.sh` | P100 运行环境（torch cu118 site-packages、`CUDA_VISIBLE_DEVICES=0,1`）；详见 `P100_NOTES.md` |
