@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 import sys
+import time
 
 import pytest
 
@@ -394,6 +396,38 @@ def test_subprocess_runner_replaces_non_utf8_log_bytes(tmp_path: Path) -> None:
     )
     assert result.returncode == 0
     assert result.stderr == "prefix\ufffdtail"
+
+
+def test_subprocess_runner_timeout_kills_descendant_processes(
+        tmp_path: Path) -> None:
+    child_pid_file = tmp_path / "child.pid"
+    command = [
+        sys.executable,
+        "-c",
+        (
+            "import pathlib, signal, subprocess, sys, time; "
+            "child = subprocess.Popen([sys.executable, '-c', "
+            "'import signal, time; "
+            "signal.signal(signal.SIGTERM, signal.SIG_IGN); time.sleep(60)'], "
+            "start_new_session=True); "
+            f"pathlib.Path({str(child_pid_file)!r}).write_text(str(child.pid)); "
+            "time.sleep(60)"
+        ),
+    ]
+    result = matrix._subprocess_runner(
+        command, cwd=tmp_path, env={}, timeout=0.5)
+    assert result.returncode == 124
+    assert result.timed_out is True
+    child_pid = int(child_pid_file.read_text(encoding="utf-8"))
+    deadline = time.monotonic() + 3.0
+    while time.monotonic() < deadline:
+        try:
+            os.kill(child_pid, 0)
+        except ProcessLookupError:
+            break
+        time.sleep(0.05)
+    else:
+        pytest.fail(f"descendant process {child_pid} survived timeout cleanup")
 
 
 def test_quda_mapped_memory_failure_retries_same_unit(tmp_path: Path) -> None:
