@@ -37,3 +37,6 @@ LaTeX `.aux/.log/.out/.toc/.nav/.snm/.vrb`、`.report-build-*`、逐页
 - 解包 Office 资源：正式文档附带的原始资产。
 
 `AGENTS.md` 和 `.gitignore` 是目录元数据，始终留在其所属目录，不参与内容类型迁移。
+
+格式治理规则与本地例外见根 `AGENTS.md` 的“form 格式约定”，可执行审计入口为
+`bash skills/form/form-audit.sh`。
