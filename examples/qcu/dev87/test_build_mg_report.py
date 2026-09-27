@@ -323,6 +323,34 @@ def test_full_matrix_units_schema_is_consumed(tmp_path):
     assert summary["coverage"]["level_cells_observed"] == 4
 
 
+def test_trace_paths_and_reference_unit_level_override_protocol() -> None:
+    case = report.CaseInput(
+        case_id="reference-l1-trace-on",
+        metadata={"trace": "on"},
+        benchmark={
+            "protocol": {"levels": 2},
+            "unit_levels": 1,
+            "unit": {"side": "pyqcu", "trace": "on"},
+        },
+        trace={},
+        source="synthetic",
+        missing=[],
+    )
+    side_doc = {
+        "side": "pyqcu",
+        "trace": "on",
+        "trace_paths": {"PYQCU_STRICT_TRACE_FILE": "/tmp/trace.tsv"},
+        "mg_levels": [{"level": 0}, {"level": 1}],
+    }
+    dimensions = report._case_dimensions(case, side_doc)
+    assert dimensions["levels"] == 1
+    assert report._side_has_trace(side_doc)
+
+    side_doc["trace_paths"] = {}
+    side_doc["trace"] = "off"
+    assert not report._side_has_trace(side_doc)
+
+
 def test_missing_fields_degrade_without_invention(tmp_path):
     matrix = _fixture(tmp_path, missing=True)
     outdir = tmp_path / "report-missing"

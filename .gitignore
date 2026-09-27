@@ -459,3 +459,13 @@ _minted*/
 !/data/strict_trace_20260902_quda.log
 !/data/multigpu_formal_20260902.json
 !/data/multigpu_formal_20260902.svg
+# 2026-09-27 optimized MultiGrid report evidence.
+!/data/report_multigrid_optimized_20260927/
+!/data/report_multigrid_optimized_20260927/**
+/data/report_multigrid_optimized_20260927/combined/
+/data/report_multigrid_optimized_20260927/strict_mpi_overlap_off.log
+/data/report_multigrid_optimized_20260927/strict_mpi_overlap_on.log
+!/data/dev87_quda_large_c64_g2_c03_sm60.json
+!/data/dev87_quda_large_c64_g3_c03_sm60.json
+!/docs/report_multigrid_optimized_20260927.tex
+!/docs/report_multigrid_optimized_20260927.pdf

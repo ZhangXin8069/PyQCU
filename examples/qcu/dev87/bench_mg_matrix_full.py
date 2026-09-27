@@ -16,6 +16,7 @@ import json
 import os
 from pathlib import Path
 import shlex
+import statistics
 import subprocess
 import sys
 import time
@@ -725,12 +726,16 @@ def _matrix_unit_signature(
 def _subprocess_runner(
         argv: Sequence[str], cwd: Path, env: Mapping[str, str], timeout: float,
 ) -> RunResult:
+    def decode(value: Any) -> str:
+        if isinstance(value, bytes):
+            return value.decode("utf-8", errors="replace")
+        return "" if value is None else str(value)
+
     try:
         completed = subprocess.run(
             list(argv),
             cwd=cwd,
             env=dict(env),
-            text=True,
             capture_output=True,
             timeout=timeout,
             check=False,
@@ -738,8 +743,8 @@ def _subprocess_runner(
     except subprocess.TimeoutExpired as exc:
         return RunResult(
             returncode=124,
-            stdout=exc.stdout or "",
-            stderr=exc.stderr or "",
+            stdout=decode(exc.stdout),
+            stderr=decode(exc.stderr),
             timed_out=True,
             reason=f"timeout after {timeout:g}s",
         )
@@ -752,8 +757,8 @@ def _subprocess_runner(
         )
     return RunResult(
         returncode=int(completed.returncode),
-        stdout=completed.stdout,
-        stderr=completed.stderr,
+        stdout=decode(completed.stdout),
+        stderr=decode(completed.stderr),
     )
 
 
@@ -776,6 +781,18 @@ def _blocked_pattern(text: str) -> str | None:
         if needle in lowered:
             return reason
     return None
+
+
+def _retryable_runtime_failure(text: str) -> bool:
+    lowered = text.lower()
+    return any(
+        marker in lowered
+        for marker in (
+            "failed to register host-mapped memory",
+            "cudahostregister",
+            "host memory is already registered",
+        )
+    )
 
 
 def _read_collector_output(path: Path) -> dict[str, Any] | None:
@@ -854,51 +871,96 @@ def _derive_reference_record(
     reference = side_record.get("reference_solver")
     if not isinstance(reference, Mapping):
         return "failed", "reference solver record is missing", document, str(source_path)
+    reference_cold = reference.get("cold")
+    reference_warmups = reference.get("warmups")
+    reference_samples = reference.get("samples")
+    if not isinstance(reference_cold, Mapping):
+        return "failed", "reference solver cold phase is missing", document, str(source_path)
+    if (not isinstance(reference_warmups, list) or
+            len(reference_warmups) != 2):
+        return "failed", "reference solver requires two warmups", document, str(source_path)
+    if (not isinstance(reference_samples, list) or
+            len(reference_samples) != 5):
+        return "failed", "reference solver requires five steady samples", document, str(source_path)
+    for label, values in (
+            ("cold", [reference_cold]),
+            ("warmup", reference_warmups),
+            ("steady", reference_samples)):
+        if any(not isinstance(item.get("iterations"), int) for item in values):
+            return (
+                "failed",
+                f"reference solver {label} iterations are incomplete",
+                document,
+                str(source_path),
+            )
     derived_side = copy.deepcopy(dict(side_record))
     timing = copy.deepcopy(dict(derived_side.get("timing") or {}))
     steady = copy.deepcopy(dict(reference.get("steady") or {}))
     if not isinstance(steady.get("median_seconds"), (int, float)):
         return "failed", "reference solver steady timing is missing", document, str(source_path)
+    if not isinstance(reference_cold.get("seconds"), (int, float)):
+        return "failed", "reference solver cold timing is missing", document, str(source_path)
+    timing["cold_seconds"] = float(reference_cold["seconds"])
+    timing["warmups"] = copy.deepcopy(reference_warmups)
     timing["steady"] = steady
-    reference_iterations = reference.get("iterations")
-    if isinstance(reference_iterations, Mapping):
-        values = (
-            reference_iterations.get("samples") or
-            reference_iterations.get("samples_seconds") or [])
-        values = [int(value) for value in values]
-        if values:
-            derived_side["iterations"] = {
-                "samples": values,
-                "min": min(values),
-                "max": max(values),
-                "median": float(reference_iterations.get(
-                    "median", reference_iterations.get("median_seconds"))),
-            }
-    sample_residuals = []
-    for sample in reference.get("samples") or []:
-        if (isinstance(sample, Mapping) and
-                isinstance(sample.get("true_residual_rel"), (int, float))):
-            sample_residuals.append(float(sample["true_residual_rel"]))
+    phase_iterations = {
+        "cold": int(reference_cold["iterations"]),
+        "warmups": [int(item["iterations"]) for item in reference_warmups],
+        "steady": [int(item["iterations"]) for item in reference_samples],
+    }
+    sample_iterations = phase_iterations["steady"]
+    derived_side["iterations"] = {
+        "samples": sample_iterations,
+        "min": min(sample_iterations),
+        "max": max(sample_iterations),
+        "median": float(statistics.median(sample_iterations)),
+    }
+    sample_residuals = [
+        float(item["true_residual_rel"])
+        for item in [reference_cold, *reference_warmups, *reference_samples]
+        if isinstance(item.get("true_residual_rel"), (int, float))]
     max_residual = reference.get("true_residual_max_rel")
     if not sample_residuals and isinstance(max_residual, (int, float)):
-        sample_residuals = [float(max_residual)] * len(values or [1])
+        sample_residuals = [float(max_residual)] * len(sample_iterations)
     gate = float((document.get("protocol") or {}).get(
         "true_residual_gate", max_residual if isinstance(
             max_residual, (int, float)) else 0.0))
     if isinstance(max_residual, (int, float)):
         derived_side["true_residual"] = {
             "samples_rel": sample_residuals,
-            "max_rel": float(max_residual),
+            "max_rel": max(sample_residuals) if sample_residuals else float(
+                max_residual),
             "gate": gate,
-            "pass": float(max_residual) <= gate,
+            "pass": bool(sample_residuals) and max(sample_residuals) <= gate,
         }
+    converged = bool(sample_residuals) and max(sample_residuals) <= gate
+    derived_side["converged"] = converged
+    derived_side["converged_samples"] = [
+        converged for _ in sample_residuals]
     derived_side["timing"] = timing
     derived_side["iteration_semantics"] = (
         "BiCGStab reference solver; iterations are Krylov iterations")
+    derived_side["phase_results"] = {
+        "cold": {
+            "seconds": float(reference_cold["seconds"]),
+            "iterations": phase_iterations["cold"],
+            "converged": bool(reference_cold.get("converged", True)),
+            "true_residual_rel": reference_cold.get("true_residual_rel"),
+        },
+        "warmups": copy.deepcopy(reference_warmups),
+        "steady": copy.deepcopy(reference_samples),
+        "warmup_count": len(reference_warmups),
+        "steady_count": len(reference_samples),
+    }
+    derived_side["reference_solver"] = copy.deepcopy(dict(reference))
+    derived_side["reference_solver"]["phase_iterations"] = phase_iterations
+    derived_side.pop("mg_levels", None)
+    derived_side.pop("mg_levels_by_phase", None)
     derived = copy.deepcopy(document)
     derived["state"] = "partial"
     derived["derived_from"] = str(source_path.resolve())
     derived["derived_kind"] = "bicgstab-reference"
+    derived["unit_levels"] = 1
     derived["selected_sides"] = [unit.side]
     derived_sides = copy.deepcopy(dict(derived.get("sides") or {}))
     derived_sides[unit.side] = derived_side
@@ -994,7 +1056,6 @@ def run_matrix(
         env = collector_environment(unit, output_dir)
         paths = trace_paths(output_dir, unit)
         started_at = _utc_now()
-        started_ns = time.time_ns()
         common = {
             "unit_id": unit.unit_id,
             "unit": unit.as_dict(),
@@ -1068,19 +1129,31 @@ def run_matrix(
                 break
             continue
 
-        try:
-            result = runner(argv, REPO, env, timeout)
-        except Exception as exc:  # The state must retain unexpected runner errors.
-            result = RunResult(
-                returncode=1,
-                stderr=repr(exc),
-                reason=f"runner exception: {exc}",
-            )
+        retry_reasons: list[str] = []
+        for attempt in range(3):
+            attempt_started_ns = time.time_ns()
+            try:
+                result = runner(argv, REPO, env, timeout)
+            except Exception as exc:  # The state must retain unexpected errors.
+                result = RunResult(
+                    returncode=1,
+                    stderr=repr(exc),
+                    reason=f"runner exception: {exc}",
+                )
+            combined = "\n".join((result.stdout, result.stderr))
+            if (attempt < 2 and result.returncode != 0 and
+                    _retryable_runtime_failure(combined)):
+                retry_reasons.append(
+                    f"attempt {attempt + 1}: QUDA mapped-memory registration")
+                time.sleep(float(attempt + 1))
+                continue
+            break
 
         try:
             output_updated = (
                 output_path.is_file()
-                and output_path.stat().st_mtime_ns >= started_ns - 1_000_000
+                and output_path.stat().st_mtime_ns >=
+                attempt_started_ns - 1_000_000
             )
         except OSError:
             output_updated = False
@@ -1099,6 +1172,8 @@ def run_matrix(
             "returncode": int(result.returncode),
             "stdout_tail": result.stdout[-4000:],
             "stderr_tail": result.stderr[-4000:],
+            "retry_count": len(retry_reasons),
+            "retry_reasons": retry_reasons,
         }
         _append_state(state_path, record)
         latest[unit.unit_id] = record

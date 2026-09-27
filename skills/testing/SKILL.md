@@ -220,3 +220,25 @@ QMP；先导入 PyQUDA 会直接触发 `QMP_comm_get_default` abort，进程内�
 legacy solve/MG case 在 precision-12 组合构建中显式选择 single precision，
 以保持与 c64 PyQCU 参考一致；`case_opcmp` 仍保留其有意使用的 double
 precision 路径。当前 `run_all.py --with-quda` 的 5 项断言全绿。
+
+## 2026-09-27 MPI overlap 回归
+
+`strict_mpi_solve_probe.py` 现在按 `MPI.COMM_TYPE_SHARED` 的 local rank
+设置 Torch 逻辑卡和 `PYQCU_MPI_DEVICE_ID`，双 rank P100 不再误把 rank 1
+张量放到 GPU 0。复杂场路径按相同参数分别跑
+`PYQCU_MPI_OVERLAP=0/1`，两侧必须收敛到独立 Python 真残差门；当前
+`8^3x16`、c64、`grid=2x1x1x1` 的 off/on 分别为 27/26 个外层迭代，
+真残差 `6.43e-7/7.52e-7`。
+
+矩阵产物必须用 `validate_matrix_trace_evidence.py` 做 fail-closed
+检查：trace-on 只校验当前 side 真正产生的 trace 文件；BiCGStab reference
+必须含 1 cold、2 warmup、5 steady，并带 `unit_levels=1`。不要再用
+`levels=2` 的 MG phase 冒充 BiCGStab reference。
+
+```bash
+python -B -m pytest -q -p no:cacheprovider \
+  examples/qcu/dev87/test_bench_strict_protocol.py \
+  examples/qcu/dev87/test_bench_mg_matrix_full.py \
+  examples/qcu/dev87/test_build_mg_report.py \
+  examples/qcu/dev87/test_validate_matrix_trace_evidence.py
+```
