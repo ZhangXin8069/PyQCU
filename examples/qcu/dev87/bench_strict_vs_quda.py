@@ -138,6 +138,8 @@ ENV_ALLOWLIST = (
     "PYQCU_STRICT_TRACE_FILE",
     "PYQCU_STRICT_LINK_HALO_CACHE",
     "PYQCU_STRICT_COARSE_TOL_FACTOR",
+    "PYQCU_MPI_OVERLAP",
+    "PYQCU_STRICT_OVERLAP_C128",
     "PYQCU_QUDA_TRACE_FILE",
     "QUDA_MG_TRACE_FILE",
     "PYQCU_STRICT_BENCH_MPI_RANK",
@@ -146,6 +148,8 @@ ENV_ALLOWLIST = (
     "PYQCU_STRICT_BENCH_RESULT_DIR",
     "PYQCU_MPI_DEVICE_AWARE",
     "PYQCU_MPI_DEVICE_ID",
+    "QCU_CUDA_ARCHITECTURES",
+    "QUDA_RESOURCE_PATH",
     "OMP_NUM_THREADS",
 )
 _QMP_RUNTIME_HOLD: List[Any] = []
@@ -5036,7 +5040,9 @@ def _run_quda_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
                 "true_residual_rel": probe_residual,
             })
         reference_report = None
-        if (phase_request["steady"] and
+        reference_requested = any(
+            phase_request[name] for name in ("cold", "warmup", "steady"))
+        if (reference_requested and
                 config["reference_solver"]["kind"] == "bicgstab"):
             invert.inv_type = QudaInverterType.QUDA_BICGSTAB_INVERTER
             invert.tol = float(config["tolerance"])
@@ -5079,35 +5085,56 @@ def _run_quda_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
                         MASS, full_gauge=full_gauge, clover=clover))
                 return elapsed, int(invert.iter), residual
 
+            reference_cold = None
+            if phase_request["cold"]:
+                seconds, reference_iterations, residual = reference_once()
+                reference_cold = {
+                    "seconds": seconds,
+                    "iterations": reference_iterations,
+                    "true_residual_rel": residual,
+                }
             reference_warmups = []
-            for _ in range(int(config["reference_solver"]["warmups"])):
-                seconds, reference_iterations, residual = reference_once()
-                reference_warmups.append({
-                    "seconds": seconds,
-                    "iterations": reference_iterations,
-                    "true_residual_rel": residual,
-                })
+            if phase_request["warmup"]:
+                for _ in range(int(config["reference_solver"]["warmups"])):
+                    seconds, reference_iterations, residual = reference_once()
+                    reference_warmups.append({
+                        "seconds": seconds,
+                        "iterations": reference_iterations,
+                        "true_residual_rel": residual,
+                    })
             reference_samples = []
-            for _ in range(int(config["repeats"])):
-                seconds, reference_iterations, residual = reference_once()
-                reference_samples.append({
-                    "seconds": seconds,
-                    "iterations": reference_iterations,
-                    "true_residual_rel": residual,
-                })
+            if phase_request["steady"]:
+                for _ in range(int(config["repeats"])):
+                    seconds, reference_iterations, residual = reference_once()
+                    reference_samples.append({
+                        "seconds": seconds,
+                        "iterations": reference_iterations,
+                        "true_residual_rel": residual,
+                    })
+            residual_samples = [
+                item["true_residual_rel"]
+                for item in ([reference_cold] if reference_cold else []) +
+                reference_warmups + reference_samples
+            ]
             reference_report = {
                 "kind": "bicgstab",
                 "implementation": "pyquda.quda.invertQuda("
                                    "QUDA_BICGSTAB_INVERTER)",
+                "cold": reference_cold,
                 "warmups": reference_warmups,
-                "steady": _median_mad([
-                    item["seconds"] for item in reference_samples]),
-                "iterations": _iteration_summary([
-                    item["iterations"] for item in reference_samples]),
+                "steady": (
+                    _median_mad([
+                        item["seconds"] for item in reference_samples])
+                    if reference_samples else
+                    {"samples_seconds": [], "median_seconds": None,
+                     "mad_seconds": None}),
+                "iterations": (
+                    _iteration_summary([
+                        item["iterations"] for item in reference_samples])
+                    if reference_samples else None),
                 "samples": reference_samples,
-                "true_residual_max_rel": max(
-                    item["true_residual_rel"]
-                    for item in reference_samples),
+                "true_residual_max_rel": (
+                    max(residual_samples) if residual_samples else None),
                 "excluded_from_speedup": True,
             }
     finally:
@@ -5131,6 +5158,11 @@ def _run_quda_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
             bool(memory_probe.get("converged")),
             float(memory_probe.get("true_residual_rel", math.inf)) <=
             float(config["true_residual_gate"])))
+    if reference_report is not None:
+        reference_residual = reference_report.get("true_residual_max_rel")
+        phase_checks.append(
+            isinstance(reference_residual, (int, float)) and
+            float(reference_residual) <= float(config["true_residual_gate"]))
     all_converged = all(phase_checks)
     measured_iterations = (
         list(iterations_list) if phase_request["steady"] else
@@ -6004,6 +6036,41 @@ def _combine_phase_records(
             cold.get("runtime_cache"))
         record["runtime_cache"]["steady"] = copy.deepcopy(
             warm_steady.get("runtime_cache"))
+    cold_reference = cold.get("reference_solver")
+    warm_reference = record.get("reference_solver")
+    if isinstance(cold_reference, Mapping) and isinstance(
+            warm_reference, Mapping):
+        merged_reference = copy.deepcopy(dict(warm_reference))
+        merged_reference["cold"] = copy.deepcopy(cold_reference.get("cold"))
+        phase_samples = []
+        if isinstance(merged_reference["cold"], Mapping):
+            phase_samples.append(merged_reference["cold"])
+        phase_samples.extend(
+            item for item in (merged_reference.get("warmups") or [])
+            if isinstance(item, Mapping))
+        phase_samples.extend(
+            item for item in (merged_reference.get("samples") or [])
+            if isinstance(item, Mapping))
+        residual_values = [
+            float(item["true_residual_rel"])
+            for item in phase_samples
+            if isinstance(item.get("true_residual_rel"), (int, float))]
+        if residual_values:
+            merged_reference["true_residual_max_rel"] = max(residual_values)
+        merged_reference["phase_iterations"] = {
+            "cold": (
+                int(merged_reference["cold"]["iterations"])
+                if isinstance(merged_reference["cold"], Mapping) else None),
+            "warmups": [
+                int(item["iterations"]) for item in
+                (merged_reference.get("warmups") or [])
+                if isinstance(item.get("iterations"), int)],
+            "steady": [
+                int(item["iterations"]) for item in
+                (merged_reference.get("samples") or [])
+                if isinstance(item.get("iterations"), int)],
+        }
+        record["reference_solver"] = merged_reference
     return record
 
 
@@ -6828,8 +6895,30 @@ def validate_document(document: Mapping[str, Any], *, allow_planned: bool = Fals
             if has_iteration_contract:
                 if not isinstance(record.get("iteration_semantics"), str):
                     errors.append(f"{side} iteration_semantics missing")
-                errors.extend(_validate_mg_levels(
-                    record.get("mg_levels"), protocol_levels, side))
+                if document.get("derived_kind") == "bicgstab-reference":
+                    if document.get("unit_levels") != 1:
+                        errors.append(
+                            "derived unit_levels must be 1 for BiCGStab")
+                    reference = record.get("reference_solver")
+                    if not isinstance(reference, Mapping):
+                        errors.append(
+                            f"{side} derived reference_solver missing")
+                    else:
+                        cold = reference.get("cold")
+                        warmups = reference.get("warmups")
+                        samples = reference.get("samples")
+                        if not isinstance(cold, Mapping):
+                            errors.append(
+                                f"{side} reference cold phase missing")
+                        if not isinstance(warmups, list) or len(warmups) != 2:
+                            errors.append(
+                                f"{side} reference warmups must contain 2 entries")
+                        if not isinstance(samples, list) or len(samples) != 5:
+                            errors.append(
+                                f"{side} reference steady samples must contain 5 entries")
+                else:
+                    errors.extend(_validate_mg_levels(
+                        record.get("mg_levels"), protocol_levels, side))
             true_residual = record.get("true_residual")
             if not isinstance(true_residual, Mapping) or not isinstance(
                     true_residual.get("samples_rel"), list):

@@ -1,0 +1,8 @@
+libqcu.so sha256
+cdca905e68b921c526f78ce8c72c7c577f2bd77828cdcae576c52bc8ba2b7eff
+
+Requested CUDA architectures
+70-real;70-virtual;60-real;60-virtual
+
+Verified SASS
+sm_60 and sm_70 cubins

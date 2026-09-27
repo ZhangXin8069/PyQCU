@@ -226,7 +226,7 @@ levels & BiCGstab reference、MG-2、MG-3（执行顺序 2,3,1） \\
 phases & cold \(1\)、warmup \(2\)、steady \(5\) \\
 solver gate & c64 \(5\times10^{-6}\)、c128 \(5\times10^{-8}\) true residual \\
 device & V100-SXM2-32GB 单卡；P100-PCIE-16GB \(\times2\)，process grid \([2,1,1,1]\) \\
-shared parameters & coarse-tol \(0.3\)；P100 全组 nu=1；V100 c64 nu=1；V100 c128 nu=2 \\
+shared parameters & coarse-tol \(0.003\)；P100 全组 nu=1；V100 c64 nu=1；V100 c128 nu=2 \\
 \bottomrule
 \end{tabularx}
 \end{table}
@@ -439,5 +439,15 @@ slot/cache 优化，以及 144 side case 的完整测试。最终事实可以概
 \item 两个“降同步”粗层实验在 large c64 数值失稳后已回退，最终
   版本不包含未经稳定性验证的性能路径。
 \end{itemize}
+
+\section{2026-09-27 后续状态}
+
+本最终矩阵的正式 Cartesian 协议实际使用 \code{coarse-tol=0.003}；此前
+快速迭代中的 \(0.3\) 仅用于小时级 A/B，不与本表混用。后续 Strict
+Hopper 非阻塞 overlap、complex128 安全回退、reference 1 cold/2
+warmup/5 steady 修复及最终 c03 对照见
+\pathref{docs/report_multigrid_optimized_20260927.tex}。因此本文的
+性能表保留为 2026-09-21 严格容差矩阵快照，后续报告给出新的优化版本，
+不覆盖原始结果。
 
 \end{document}
