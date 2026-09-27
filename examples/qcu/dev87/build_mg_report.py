@@ -18,6 +18,7 @@ import argparse
 import csv
 import json
 import math
+import re
 import statistics
 import sys
 from collections import Counter, defaultdict
@@ -678,8 +679,15 @@ def _case_dimensions(case: CaseInput, side_doc: Mapping[str, Any]
     lattice = _normalise_lattice(_first(
         metadata, "lattice_xyzt", "lattice", default=_first(
             side_doc, "lattice_xyzt", "lattice")))
+    unit_levels = _int(case.benchmark.get("unit_levels"))
+    if unit_levels is None:
+        match = re.search(r"(?:^|__)l([1-5])(?:__|$)", case.case_id)
+        if match is not None:
+            unit_levels = int(match.group(1))
     levels = _int(_first(metadata, "levels", "n_level", default=_first(
         side_doc, "levels", "n_level")))
+    if unit_levels is not None:
+        levels = unit_levels
     device = _first(
         side_doc, "device.name", "device_name", "device",
         "provenance.runtime.device_name",
@@ -1138,6 +1146,10 @@ def _aggregate_levels(case: CaseInput, side_doc: Mapping[str, Any],
 
 def _side_has_trace(side_doc: Mapping[str, Any]) -> bool:
     if str(side_doc.get("trace", "")).lower() == "on":
+        return True
+    trace_paths = side_doc.get("trace_paths")
+    if isinstance(trace_paths, Mapping) and any(
+            isinstance(value, str) and value for value in trace_paths.values()):
         return True
     if side_doc.get("stage_trace_available") is True:
         return True
