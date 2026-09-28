@@ -56,7 +56,7 @@ Multigrid Solver for Lattice QCD\\[0.4em]
 \thispagestyle{empty}
 
 \begin{abstract}
-本讲稿对应 18 页横版汇报稿。每页包含三部分：可直接朗读的主口播稿、
+本讲稿对应 21 页横版汇报稿。每页包含三部分：可直接朗读的主口播稿、
 用于加深理解的公式或数据说明，以及时间允许或回答提问时使用的补充参考。
 主稿控制在约 10 分钟；补充内容不属于必须逐字朗读的部分，主要用于保证
 论证完整、上下文清楚和问答可控。所有数值以 \code{git tag test27}
@@ -72,28 +72,31 @@ Multigrid Solver for Lattice QCD\\[0.4em]
 页码 & 主题 & 主稿时长 & 时间不足时保留\\
 \midrule
 1 & 标题与范围 & 15 s & 题目、汇报人、test27 基线\\
-2 & Wilson 与 Clover & 35 s & \(D_W\)、Clover onsite block\\
-3 & 原始 Dslash & 30 s & 裸核 \(H\)、八个邻居、带宽瓶颈\\
-4 & 奇偶 Schur & 35 s & Schur 补、求解、重建\\
-5 & MultiGrid 构造 & 35 s & null vector、P/R、Galerkin\\
-6 & 预条件 Bi-CGStab & 40 s & \(\hat p\)、\(v\)、\(s\)、\(\omega\) 更新\\
-7 & Strict 特化 & 30 s & \(D=X+H\) 与运行资产\\
-8 & 粗层 \(X/Y\) & 35 s & \(X/Y\) 定义、\(\widehat Y\) 顺序\\
-9 & V-cycle 与 FGMRES & 40 s & 内外层关系、真残差刷新\\
-10 & CUDA--C++ 优化 & 40 s & 带宽、延迟、setup、通信\\
-11 & QUDA 对照口径 & 30 s & 66/132、1+2+5、trace-off\\
-12 & 总体结果 & 35 s & 35/44、21/22、0/22\\
-13 & 设备与精度 & 35 s & V100/P100 分组中位数\\
-14 & 阶段与显存 & 40 s & coarse+other、容量替代\\
-15 & 残差与下一步 & 35 s & \(5\times10^{-6}\) 门限、优化方向\\
-16 & 复现与文献 & 20 s & 最小闸门、参考实现\\
-17 & 508 大规模成果 & 25 s & TEST8 c64 64--1024 进程、3.12/7.19\\
-18 & 致谢 & 10 s & 一个结论、一个行动项\\
+2 & Wilson 与 Clover & 30 s & \(D_W\)、Clover onsite block\\
+3 & 原始 Dslash & 25 s & 裸核 \(H\)、八个邻居、带宽瓶颈\\
+4 & 奇偶 Schur & 30 s & Schur 补、求解、重建\\
+5 & MultiGrid 构造 & 25 s & null space、P/R、Galerkin\\
+6 & Null-vector 构造 & 30 s & 逆校正、QR/CGS、aggregate\\
+7 & 预条件 Bi-CGStab & 30 s & \(\hat p\)、\(v\)、\(s\)、\(\omega\) 更新\\
+8 & Strict 特化 & 25 s & \(D=X+H\) 与运行资产\\
+9 & 粗层 \(X/Y\) & 30 s & \(X/Y\) 定义、\(\widehat Y\) 顺序\\
+10 & V-cycle 与 FGMRES & 30 s & 内外层关系、真残差刷新\\
+11 & CUDA 调度路径 & 25 s & fine、coarse、halo、cache\\
+12 & CUDA 实现细节 & 25 s & device scalar、Graph、overlap、setup\\
+13 & QUDA 对照口径 & 25 s & 66/132、1+2+5、trace-off\\
+14 & 总体结果 & 25 s & 35/44、21/22、0/22\\
+15 & 设备与精度 & 25 s & V100/P100 分组中位数\\
+16 & 阶段归因 & 20 s & coarse+other、trace-on 边界\\
+17 & 显存与正确性 & 25 s & memory、true residual\\
+18 & 局限与路线图 & 25 s & 瓶颈、下一步、验收门\\
+19 & 复现与文献 & 20 s & 最小闸门、参考实现\\
+20 & 508 大规模成果 & 20 s & TEST8 c64 / TEST9 c128\\
+21 & 致谢 & 10 s & 一个结论、一个行动项\\
 \bottomrule
 \end{tabular}
 \end{center}
 
-建议口播总量约 520--560 秒，留出约 60--80 秒用于翻页、强调和停顿。
+建议口播总量约 500--515 秒，留出约 75--90 秒用于翻页、强调和停顿。
 补充参考部分逐页紧随主稿，不需要全部朗读。
 
 \section{逐页主稿与补充参考}
@@ -209,7 +212,35 @@ Galerkin 投影 \(A_{l+1}=R_lA_lP_l\) 构造。
 限制过程不需要全局 Gram 逆；同时 Galerkin 后的算子仍保持有限支撑，
 可以继续递归粗化。
 
-\subsection{第 6 页｜预条件 Bi-CGStab（主稿约 40 秒）}
+\subsection{第 6 页｜Null-vector 构造（主稿约 35 秒）}
+
+\paragraph{主口播稿}
+这一页说明粗空间从哪里来。CUDA--C++ 的 33-tensor Legacy 构建路径从随机
+向量开始，用相对容差的 BiCGStab 求 \(x_j\approx A_l^{-1}(A_lv_j)\)，
+再更新 \(v_j\leftarrow v_j-x_j\)。精确求逆时这个差为零，实际计算中保留的
+是舍入和近似逆的误差；低模会被 \(A^{-1}\) 放大，因此能代表近零空间。
+随后每个向量归一化，并按 aggregate 重排做 batched reduced QR，得到
+局部正交 \(P_l\)，最后令 \(R_l=P_l^\dagger\)，用 Galerkin 投影构造
+\(A_{l+1}=R_lA_lP_l\)。
+
+\paragraph{补充参考}
+\begin{align}
+ v_j^{(0)}&\sim\mathcal N(0,I),\\
+ x_j^{(m)}&\simeq A_l^{-1}(A_lv_j^{(m)};\varepsilon_{\rm rtol}),\\
+ v_j^{(m+1)}&=v_j^{(m)}-x_j^{(m)},\qquad
+ \widehat v_j=\frac{v_j}{\lVert v_j\rVert_2},\\
+ V_c&=Q_cR_c,\qquad Q_c^\dagger Q_c=I_E,\\
+ P_l|_c&=Q_c,\qquad R_l=P_l^\dagger,\qquad
+ A_{l+1}=R_lA_lP_l.
+\end{align}
+当前 CUDA--C++ 默认参数为 \(n_{\rm iter}=2\)、相对容差 \(10^{-2}\)、
+seed 42。多线程路径在 breakdown 或 NaN 时重采样，最后可回退归一化随机
+向量；batch path 当前只做安全归一化，并没有等价的逐向量重试。必须区分
+两条路径：\code{local_orthogonalize} 使用 batched reduced QR；
+Strict/reference 的 aggregate CGS 是另一套实现。把 QR、CGS、默认 random
+setup 和 inverse setup 混为一谈，会得到错误的算法保证。
+
+\subsection{第 7 页｜预条件 Bi-CGStab（主稿约 35 秒）}
 
 \paragraph{主口播稿}
 这一页给出粗层 Bi-CGStab 的完整算法。初始化残差后，每轮先计算
@@ -237,7 +268,7 @@ x^{(i)}=x^{(i-1)}+\alpha_i\hat p+\omega_i\hat s.
 实现中保留粗层热启动，但检测到 breakdown 或坏系数时回退冷启动。
 标量保留在设备端，减少 D2H/H2D 和同步。
 
-\subsection{第 7 页｜PyQCU Strict 特化（主稿约 30 秒）}
+\subsection{第 8 页｜PyQCU Strict 特化（主稿约 25 秒）}
 
 \paragraph{主口播稿}
 Strict 路径把粗层算子写成 \(D_l=X_l+H_l\)，再做左预条件
@@ -259,7 +290,7 @@ MATPC 与 full operator、Clover-PC 和 coarse-PC 必须使用一致语义。
 原始 \(Y\) 默认只用于 setup/诊断；正式求解优先驻留 \(\widehat Y\)、
 \(X\) 与 \(X^{-1}\)。
 
-\subsection{第 8 页｜粗层 \texorpdfstring{\(X/Y\)}{X/Y} 公式（主稿约 35 秒）}
+\subsection{第 9 页｜粗层 \texorpdfstring{\(X/Y\)}{X/Y} 公式（主稿约 35 秒）}
 
 \paragraph{主口播稿}
 这一页专门说明粗层 \(X\) 与 \(Y\)。\(X\) 是 coarse onsite 的
@@ -294,8 +325,12 @@ M_p^c&=I-\widehat H_{pq}\widehat H_{qp}.
 PC dslash 只应用 \(\widehat Y\) hopping，不能再乘一次 onsite \(X\)。
 若把 \((X-\hat\mu)^{-1}\) 放到错误位置，非对易 dense block 会立即暴露
 错误，因此验证必须覆盖方向、site、dagger 和左右顺序。
+这里是 Strict full-coarse MATPC 路径。Legacy compact-Schur 路径是另一套：
+它先构造 \(S_o\)，再显式探测
+\(1+8+24=33\) 点粗 stencil。不能把 33 点 stencil 与 Strict 的一跳
+\(X/Y/\widehat Y\) 写成同一个粗算子。
 
-\subsection{第 9 页｜V-cycle 与 FGMRES（主稿约 40 秒）}
+\subsection{第 10 页｜V-cycle 与 FGMRES（主稿约 35 秒）}
 
 \paragraph{主口播稿}
 一次 MG 预条件器内部执行 pre-smoothing、restriction、递归粗层求解、
@@ -321,7 +356,7 @@ z_j=M^{-1}v_j,\qquad w_j=A z_j,
 \((2m+5)B_f+2B_c\)，其中 \(B_f\) 是一个 compact fine 向量，
 \(B_c\) 是一个 full first-coarse 向量。
 
-\subsection{第 10 页｜CUDA--C++ 优化（主稿约 40 秒）}
+\subsection{第 11 页｜CUDA--C++ 调度路径（主稿约 30 秒）}
 
 \paragraph{主口播稿}
 CUDA--C++ 的优化分为四层。细层 kernel 处理 spin projection、
@@ -344,7 +379,34 @@ halo、非阻塞向量 halo 和远端 correction 融合。
 关键判断是：细层是带宽瓶颈，粗层是延迟瓶颈，通信和 setup 又属于另一类
 瓶颈，不能用同一优化方法处理。
 
-\subsection{第 11 页｜QUDA 对照口径（主稿约 30 秒）}
+\subsection{第 12 页｜CUDA--C++ 内部实现（主稿约 30 秒）}
+
+\paragraph{主口播稿}
+这一页给出源码级执行顺序。fine 层先把 full RHS 变成 compact target
+parity，再用两次 \(\widehat H\) hopping 实现 MATPC。内层 V-cycle 依次
+执行 MR pre-smooth、restriction、递归粗层求解、prolongation、重新计算
+父层残差和 MR post-smooth。外层 right-FGMRES 的每一列先求
+\(z_j=\mathcal M^{-1}v_j\)，再应用 fine MATPC 得到 \(w_j=M_pz_j\)，
+完成 Arnoldi 后在 restart 边界重算 full true residual。
+
+\paragraph{补充参考}
+当前源码的两个能力边界必须说清：
+\begin{itemize}
+  \item c64 vector halo 使用非阻塞请求；c128 overlap 默认关闭，只有显式
+        开启并重新通过大格真残差门后才允许启用；
+  \item link halo 仍保留阻塞式 \code{Sendrecv}，因此不能宣称 MPI
+        已完全异步；
+  \item Legacy CUDA Graph 和 cooperative coarsest solve 受 rank 数与
+        向量规模限制；Strict 多 rank 路径会安全回退 host loop；
+  \item Strict 常规运行驻留 \(X,X^{-1},\widehat Y\)，raw \(Y\) 是可选
+        诊断资产。
+\end{itemize}
+缓存侧保存 blocked \(P/V/X/Y\)，读取时校验 shape、dtype 和 hash；setup
+使用 colored/batched Galerkin 和 workspace cap 控制峰值。这里的关键不是
+“某个 kernel 更快”，而是把 fine 计算、coarse recurrence、halo 和 setup
+分别放在正确的时间尺度上优化。
+
+\subsection{第 13 页｜QUDA 对照口径（主稿约 25 秒）}
 
 \paragraph{主口播稿}
 性能对照严格采用 test27。请求矩阵是 72 个 combined，精确完成 66 个
@@ -364,7 +426,7 @@ combined、132 条 side record；其余 6 个双 P100 c64 大格请求项因显�
 trace-on 包含额外同步和记录，只用于阶段归因。容量替代项只能与替代格点
 比较，不能进入原大格的加速比。
 
-\subsection{第 12 页｜总体结果（主稿约 35 秒）}
+\subsection{第 14 页｜总体结果（主稿约 30 秒）}
 
 \paragraph{主口播稿}
 定义 \(R=t_{\rm QUDA}/t_{\rm PyQCU}\)，\(R>1\) 表示 PyQCU 更快。
@@ -378,7 +440,7 @@ MG-2 为 19/22 个单元有利，MG-3 为 16/22。
 不是置信区间；V100 c128 MG-2 也存在 0.54 慢点。
 最可信的正式口径是 trace-off，而不能用 trace-on 的同步开销替代。
 
-\subsection{第 13 页｜设备与精度趋势（主稿约 35 秒）}
+\subsection{第 15 页｜设备与精度趋势（主稿约 30 秒）}
 
 \paragraph{主口播稿}
 V100 上 MG-3 优势最大：c64 和 c128 的 trace-off 分组中位比分别为
@@ -401,38 +463,72 @@ P100\(\times2\)/c128 & 1.25 & 1.15 & 0.23\\
 解释时要注意：P100/c64 每组只有 \(n=2\)，统计稳健性弱于其他组；
 极值对格点体积和残差轨迹敏感。
 
-\subsection{第 14 页｜阶段、显存与容量（主稿约 40 秒）}
+\subsection{第 16 页｜阶段归因（主稿约 25 秒）}
 
 \paragraph{主口播稿}
-trace-on 阶段分解表明，PyQCU 的 coarse solve 和 other 合计约占 95\%，
-说明优化重点已经转向粗层同步和 setup，而不是细层算术。容量方面，
-双 P100 c64 大格三条路径约为 15.9、14.8 和 12.4 GB；CPU staging
-虽然降低显存，但 setup 仍超过 570 秒，因此 6 个请求项被替代。
+trace-on 只用于阶段归因，不作为正式速度比。按 unit 和 side 分别求阶段
+份额中位数后，PyQCU 的 coarse 与 other 合计约 94.9\%，QUDA 的具名
+coarse 约 69.3\%。这说明优化重点已经转向粗层同步、归约和 setup，
+而不是细层算术。这个数不是 wall-clock 总时间求和份额，也不能把两侧
+同名 phase 直接相加比较。
 
 \paragraph{补充参考}
-最大 device-wide 观测显存为：
+阶段归因的最主要用途是决定下一轮优化方向：
 \begin{itemize}
-  \item PyQCU：11907.3 MiB；
-  \item QUDA：23063.3 MiB。
+  \item PyQCU 的具名 fine smoother、R/P 合计很小，继续只调 fine kernel
+        不会改变端到端主导项；
+  \item 粗层 BiCGStab、FGMRES 标量更新和同步被记入 coarse 或 other；
+  \item QUDA 的层级映射与 PyQCU 不同，不能把两个 coarse 数值直接解释为
+        相同 kernel 的耗时；
+  \item trace-on 本身增加同步和记录，所有正式结论仍以 trace-off 为准。
 \end{itemize}
-该数值可能包括同设备上的其他进程，用于门限检查，不声明为占进程峰值。
-两层/三层和不同格点的内存必须按设备、精度、层数和 trace 模式分组。
 
-\subsection{第 15 页｜残差、边界与下一步（主稿约 35 秒）}
+\subsection{第 17 页｜显存与正确性（主稿约 30 秒）}
 
 \paragraph{主口播稿}
-正确性方面，PyQCU 和 QUDA 最大真残差分别为
-\(7.40\times10^{-7}\) 和 \(7.97\times10^{-7}\)，均低于
-\(5\times10^{-6}\) 门限。下一步优先降低 coarse solve 与同步成本，
-同时改进 setup 显存、device-aware 通信和更多平台的端到端验证。
+显存图的纵轴是 steady-phase untimed post-solve probe 观测到的
+device-wide 最大占用。PyQCU 为 11907.3 MiB，QUDA 为
+23063.3 MiB。它可能包含同一设备上的其他进程，不能解释为进程独占峰值。
+正确性图来自 66 个 combined unit 的 full-operator true residual，
+PyQCU 和 QUDA 最大值分别为 \(7.4016\times10^{-7}\) 和
+\(7.9721\times10^{-7}\)，均明显低于 \(5\times10^{-6}\) 门限。
 
 \paragraph{补充参考}
-当前可证实的优势是 MG 专项性能、V100 表现、较低最大显存和自主可控；
-当前不足是总体中位优势有限、BiCGStab 较慢、trace-on 开销明显、
+P100 c64 大格三条容量路径约为 15.9、14.8 和 12.4 GB；CPU staging
+虽然降低显存，但 setup 仍超过 570 秒，因此 6 个请求项被显式替代。
+内存和残差必须按设备、精度、层数和 trace 模式分组。递推残差只用于
+趋势，不能替代 full-operator gate。当前可证实的优势是 MG 专项性能、
+V100 表现、较低最大显存和自主可控；当前不足是总体中位优势有限、
+BiCGStab 较慢、trace-on 开销明显、
 P100 大格容量受限以及拓扑覆盖有限。不能宣称任意格点、任意层数或
 所有求解器普遍领先。
 
-\subsection{第 16 页｜参考实现与复现（主稿约 20 秒）}
+\subsection{第 18 页｜局限与优化路线图（主稿约 30 秒）}
+
+\paragraph{主口播稿}
+这张表把“观察到的问题”与“下一动作”一一对应。coarse latency 来自
+约 94.9\% 的 coarse 加 other 份额；setup cost 来自 6 个大格替代项；
+BiCGStab 是 0/22 的 reference 路径；通信侧当前仍要先做 local base，
+再 post vector requests，link halo 仍为阻塞式；P100 c64 大格受到容量
+限制；DCU/CANN 还没有完整端到端门禁。下一步将资源集中到 coarse
+solve/归约融合、setup 流式化、通信重叠和国产平台复验。
+
+\paragraph{补充参考}
+优化目标可写为
+\[
+T_{\rm total}=T_{\rm fine}+T_{\rm coarse}+T_{\rm comm}+T_{\rm setup}.
+\]
+每一项都不能只看微基准，必须同时通过四项验收：
+\begin{enumerate}
+  \item full-operator true residual；
+  \item outer iteration count；
+  \item trace-off steady median time；
+  \item device-wide memory。
+\end{enumerate}
+如果某项优化降低 kernel 时间但改变浮点累加顺序，导致外层迭代显著增加，
+它就不是端到端收益。当前 c128 overlap 默认关闭，正是这一原则的直接体现。
+
+\subsection{第 19 页｜参考实现与复现（主稿约 20 秒）}
 
 \paragraph{主口播稿}
 参考实现包括 quantum-mg、QUDA 和 DD-\(\alpha\)AMG。复现顺序是构建、
@@ -450,23 +546,23 @@ P100 大格容量受限以及拓扑覆盖有限。不能宣称任意格点、任
 正式运行必须记录库 SHA、CUDA architecture、config hash、input bundle
 和 cache expect/miss/hit。
 
-\subsection{第 17 页｜508 报告的大规模先前成果（主稿约 25 秒）}
+\subsection{第 20 页｜508 报告的大规模先前成果（主稿约 25 秒）}
 
 \paragraph{主口播稿}
-这一页补充先前成果。508 报告在 4 卡 DCU 环境中记录了从 64 到 1024
-进程的 TEST8 c64 大格测试；1024 进程时报告累计加速比为 Wilson 3.12、
-Clover 7.19。
-右下图给出 Clover 与 Wilson 单次迭代耗时差随等效体积增长的数据。
+这一页补充先前成果。508 报告在 4 卡 Pre-Wukong DCU 环境中记录了从 64
+到 1024 进程的 TEST8 complex64 大格测试；1024 进程时报告累计加速比为
+Wilson 3.119、Clover 7.193。TEST9 complex128 在同一规模下的对应值为
+Wilson 2.211、Clover 4.258。两者必须分开绘制和解释。
 
 \paragraph{补充参考}
 这是早期 DCU/CUDA 传播子求解成果，证明当时的正确性和大规模扩展趋势。
-1024 是进程/线程规模，报告中 64 卡池容量估算约为 2048 GiB，不能写成
-1024 张 GPU 的已知聚合性能。
+1024 是 MPI rank/thread 规模；TEST8 报告中 64 卡池容量估算约为
+2048 GiB，不能写成 1024 张 GPU 的已知聚合性能。
 报告中的 MG 仍属于前期验证版本，因此不能把 508 数据与 test27 的
 Strict-MG 正式比值混合。当前公开强证据仍包括 V100 单卡、双 P100、
 1/2/4 rank preflight；更大规模 STRICT-MG 仍需独立端到端复验。
 
-\subsection{第 18 页｜致谢（主稿约 10 秒）}
+\subsection{第 21 页｜致谢（主稿约 10 秒）}
 
 \paragraph{主口播稿}
 我的汇报到这里。核心结论是 MultiGrid 专项性能已经进入国际先进实现
@@ -489,6 +585,12 @@ Clover onsite &
 \(S_o=A_o-\kappa^2H_{oe}A_e^{-1}H_{eo}\)。\\
 Galerkin &
 \(R=P^\dagger,\;A_{l+1}=R_lA_lP_l\)。\\
+Null-vector &
+\(v_j\leftarrow v_j-A_l^{-1}(A_lv_j)\)，随后
+\(V_c=Q_cR_c,\;P_l|_c=Q_c\)。\\
+路径区分 &
+Legacy Schur 使用 \(S_o\) 与 33 点 stencil；Strict MATPC 使用
+full D、\(X/Y/\widehat Y\) 和逐层 \(X^{-1}D\)。\\
 Strict 分解 &
 \(D_l=X_l+H_l,\;\widehat D_l=X_l^{-1}D_l,\;
 D_{l+1}=R_l\widehat D_lP_l\)。\\
@@ -505,15 +607,17 @@ MATPC &
 FGMRES workspace &
 \((2m+5)B_f+2B_c\)。\\
 正式性能 &
-66 精确单元；MG \(35/44\)；trace-off MG \(21/22\)；
-BiCGStab \(0/22\)。\\
+\(R=t_{\rm QUDA,steady}/t_{\rm PyQCU,steady}\)；66 精确
+combined units 的 median \(R=1.02498\)；MG \(35/44\)；
+trace-off MG \(21/22\)；BiCGStab \(0/22\)。\\
 残差 &
 PyQCU \(7.40\times10^{-7}\)；QUDA \(7.97\times10^{-7}\)；
 门限 \(5\times10^{-6}\)。\\
 显存 &
 PyQCU 最大 11907.3 MiB；QUDA 最大 23063.3 MiB。\\
 508 报告 &
-TEST8 c64，64--1024 进程；报告加速比 Wilson 3.12、Clover 7.19。\\
+TEST8 c64，64--1024 ranks；1024 ranks 时 Wilson 3.119、
+Clover 7.193；TEST9 c128 对应值 2.211、4.258，不得混用。\\
 \bottomrule
 \end{longtable}
 
@@ -547,6 +651,27 @@ TEST8 c64，64--1024 进程；报告加速比 Wilson 3.12、Clover 7.19。\\
   trace-on 引入额外同步与记录，用于阶段归因，不是生产路径。
 \item \textbf{为什么 complex128 overlap 默认关闭？}
   改变浮点累加顺序后，大格三层曾有 32 次外迭代退化到 451 次的记录。
+\item \textbf{null-vector 为何不能只写成“做 QR”？}\par
+  当前有两套实现：CUDA--C++ Legacy 的
+  \code{local_orthogonalize} 使用 aggregate batched reduced QR；
+  Strict/reference 的 \code{QudaTransfer} 使用重复 CGS。二者误差控制、
+  收敛保证和调用路径不同，必须显式区分。
+\item \textbf{test27 对应哪条实现路径？}
+  test27 对应 Strict full-coarse MATPC 与 fused right-FGMRES，不是
+  legacy 33 点 compact-Schur 路径。性能图中的层级和资产必须按 Strict
+  协议解释。
+\item \textbf{为什么不能说 MPI 已完全重叠？}
+  c64 vector halo 使用非阻塞请求，但当前源码先做 local base kernel，
+  再 post 请求；link halo 仍使用阻塞式 \code{Sendrecv}。因此只能陈述
+  “已经具备 overlap 机制并持续扩大重叠范围”，不能声称完全异步。
+\item \textbf{显存图的 11907.3 MiB 是否是 PyQCU 独占峰值？}
+  不是。它是 steady-phase untimed probe 的 device-wide
+  \code{cudaMemGetInfo} 观测值，可能包含同卡其他进程；只能作为设备级
+  观测上界，不能替代 allocator、resident asset 或 workspace 明细。
+\item \textbf{508 报告中 c64 与 c128 为什么不能混用？}
+  TEST8 是 complex64，1024 ranks 时 Wilson/Clover 为 3.119/7.193；
+  TEST9 是 complex128，对应值为 2.211/4.258。二者精度、工作量和
+  flop/byte 均不同，只能分栏展示。
 \item \textbf{508 报告是否证明当前 Strict-MG 的大规模扩展？}
   不直接证明。它证明早期 DCU 上 64--1024 进程的 Wilson/Clover
   BiCGStab 大规模传播子求解能力；当前 Strict-MG 公开强证据是 V100、
