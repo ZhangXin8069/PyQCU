@@ -122,7 +122,7 @@ def test_collector_command_legacy_mapping(tmp_path: Path) -> None:
     assert command[command.index("--levels") + 1] == "3"
     assert command[command.index("--precision") + 1] == "c128"
     assert command[command.index("--profile") + 1] == "smoke"
-    assert command[command.index("--cache-expect") + 1] == "miss"
+    assert command[command.index("--cache-expect") + 1] == "any"
     assert command[command.index("--repeats") + 1] == "5"
     assert "--allow-trace" in command
     assert "--phases" not in command
@@ -146,6 +146,7 @@ def test_collector_command_frozen_and_p100_mapping(tmp_path: Path) -> None:
     assert frozen.count("--process-grid") == 1
     assert "2,1,1,1" not in frozen
     assert frozen[frozen.index("--device") + 1] == "p100"
+    assert frozen[frozen.index("--reference-warmups") + 1] == "2"
     assert "--resume" not in frozen
     assert frozen.count("mpirun") == 0
 
@@ -221,10 +222,10 @@ def test_trace_on_pyqcu_reuses_trace_off_runtime_cache(tmp_path: Path) -> None:
     (off_cache / "strict_runtime_abc.h5").write_bytes(b"cache")
 
     assets = matrix.resolve_unit_assets(trace_on, roots, tmp_path)
-    assert assets["strict_cache_expect"] == "hit"
+    assert assets["strict_cache_expect"] == "any"
     assert Path(assets["strict_cache_dir"]) == off_cache.resolve()
     off_assets = matrix.resolve_unit_assets(trace_off, roots, tmp_path)
-    assert off_assets["strict_cache_expect"] == "hit"
+    assert off_assets["strict_cache_expect"] == "any"
     assert Path(off_assets["strict_cache_dir"]) == off_cache.resolve()
     command = matrix._collector_command(
         trace_on,
@@ -232,11 +233,11 @@ def test_trace_on_pyqcu_reuses_trace_off_runtime_cache(tmp_path: Path) -> None:
         output_dir=tmp_path,
         collector_interface="frozen",
     )
-    assert command[command.index("--cache-expect") + 1] == "hit"
+    assert command[command.index("--cache-expect") + 1] == "any"
 
     (off_cache / "strict_runtime_abc.h5").unlink()
     fallback = matrix.resolve_unit_assets(trace_on, roots, tmp_path)
-    assert fallback["strict_cache_expect"] == "miss"
+    assert fallback["strict_cache_expect"] == "any"
     assert Path(fallback["strict_cache_dir"]) != off_cache.resolve()
 
 

@@ -80,6 +80,7 @@ def test_parse_unit_id_and_stage_rows() -> None:
 def test_reference_rows_records_cold_warmups_and_steady() -> None:
     suffix = "v100__8x8x8x16__c128__l1__trace-off.json"
     rows = assembler.reference_rows(suffix, "quda", {
+        "true_residual": {"gate": 5.0e-6},
         "reference_solver": {
             "cold": {
                 "seconds": 1.0,
@@ -103,6 +104,48 @@ def test_reference_rows_records_cold_warmups_and_steady() -> None:
         "cold", "warmup", "warmup", "steady", "steady", "steady",
         "steady", "steady"]
     assert len(rows) == 8
+    assert all(row["converged"] is True for row in rows)
+
+
+def test_memory_fields_extracts_all_peak_scopes() -> None:
+    fields = assembler.memory_fields({
+        "memory": {
+            "setup": {
+                "device_wide_sampler": {
+                    "device_used_max_observed_bytes": 100,
+                },
+            },
+            "first_solve": {
+                "memory": {
+                    "device_wide_sampler": {
+                        "device_used_max_observed_bytes": 200,
+                    },
+                },
+            },
+            "steady": {
+                "cuda_peak_allocated_bytes": 300,
+                "cuda_peak_reserved_bytes": 400,
+                "untimed_device_memory_probe": {
+                    "device_wide_sampler": {
+                        "device_used_max_observed_bytes": 500,
+                    },
+                },
+            },
+            "strict_owned": {
+                "asset_resident_bytes": 600,
+                "fused_workspace_bytes": 700,
+            },
+        },
+    })
+    assert fields == {
+        "setup_sampler_peak_bytes": 100.0,
+        "first_solve_sampler_peak_bytes": 200.0,
+        "steady_sampler_peak_bytes": 500.0,
+        "allocator_peak_bytes": 300.0,
+        "reserved_peak_bytes": 400.0,
+        "asset_resident_bytes": 600.0,
+        "fused_workspace_bytes": 700.0,
+    }
 
 
 def test_write_csv_uses_lf_line_endings(tmp_path: Path) -> None:

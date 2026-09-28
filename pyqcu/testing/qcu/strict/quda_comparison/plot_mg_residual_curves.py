@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 
 
 UNIT_RE = re.compile(
-    r"pyqcu__(?P<device>p100|v100)__(?P<lattice>[^_]+)__"
+    r"(?:pyqcu__)?(?P<device>p100|v100)__(?P<lattice>[^_]+)__"
     r"(?P<precision>c64|c128)__l(?P<levels>[123])__trace-(?P<trace>on|off)")
 
 

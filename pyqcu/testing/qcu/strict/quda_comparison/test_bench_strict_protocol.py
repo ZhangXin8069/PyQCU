@@ -795,6 +795,16 @@ def test_strict_runtime_cache_identity_is_physical_and_rhs_independent():
         document["protocol"]["config_hash"]
     assert bench._strict_runtime_cache_identity(custom_payload) == first
 
+    custom_blocks = bench.build_document(_args(
+        "--dry-run", "--block-level", "1", "2", "2", "2"),
+        dry_run=True)
+    custom_blocks_payload = {
+        "protocol": custom_blocks["protocol"],
+        "input_fingerprints": copy.deepcopy(fingerprints),
+    }
+    assert bench._strict_runtime_cache_identity(
+        custom_blocks_payload) != first
+
 
 def test_strict_setup_stats_must_match_requested_batch():
     config = bench.build_document(_args("--dry-run"), dry_run=True)["protocol"]
@@ -871,6 +881,23 @@ def test_pyqcu_library_provenance_parses_cubin_architectures(
     assert report["architectures"] == ["sm_70"]
     assert report["requested_architectures"] == "70-real;70-virtual"
     assert report["listing_error"] is None
+
+
+def test_pyqcu_library_provenance_prefers_loaded_mapping(
+        tmp_path, monkeypatch):
+    library = tmp_path / "loaded" / "libqcu.so"
+    library.parent.mkdir()
+    library.write_bytes(b"loaded")
+    monkeypatch.setattr(
+        bench, "_loaded_shared_library_path",
+        lambda name: library if name == "libqcu.so" else None)
+    monkeypatch.setattr(bench, "_library_provenance", lambda path: {
+        "path": str(Path(path)),
+        "sha256": "test",
+        "exists": True,
+    })
+    report = bench._pyqcu_library_provenance()
+    assert report["path"] == str(library)
 
 
 def test_cuda_and_mpi_error_macros_evaluate_once():
