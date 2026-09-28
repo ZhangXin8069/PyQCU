@@ -309,6 +309,18 @@ def _points_from_solve(solve: Mapping[str, Any]) -> List[Dict[str, Any]]:
 
 def _curves_from_side(side_doc: Mapping[str, Any]) -> List[List[Dict[str, Any]]]:
     curves: List[List[Dict[str, Any]]] = []
+    levels = side_doc.get("mg_levels")
+    if isinstance(levels, Sequence) and not isinstance(levels, (str, bytes)):
+        for level in levels:
+            if not isinstance(level, Mapping) or _int(level.get("level")) != 0:
+                continue
+            sequence = level.get("residual_sequence")
+            if isinstance(sequence, Sequence) and not isinstance(
+                    sequence, (str, bytes)):
+                points = _deduplicate_points(
+                    item for item in sequence if isinstance(item, Mapping))
+                if points:
+                    curves.append(points)
     steady = side_doc.get("steady")
     if isinstance(steady, Sequence) and not isinstance(steady, (str, bytes)):
         for solve in steady:
@@ -320,6 +332,37 @@ def _curves_from_side(side_doc: Mapping[str, Any]) -> List[List[Dict[str, Any]]]
     if points:
         curves.append(points)
     return curves
+
+
+def _memory_from_side(side_doc: Mapping[str, Any]) -> Dict[str, Any]:
+    """Extract peak-memory evidence without conflating its scopes."""
+
+    def sampler_bytes(value: Mapping[str, Any]) -> Optional[int]:
+        return _int(_first(
+            value,
+            "untimed_device_memory_probe.device_wide_sampler."
+            "device_used_max_observed_bytes",
+            "memory.device_wide_sampler.device_used_max_observed_bytes",
+            "device_wide_sampler.device_used_max_observed_bytes",
+            "device_used_max_observed_bytes"))
+
+    memory = _mapping(side_doc.get("memory"))
+    setup = _mapping(memory.get("setup"))
+    first_solve = _mapping(memory.get("first_solve"))
+    steady = _mapping(memory.get("steady"))
+    strict_owned = _mapping(memory.get("strict_owned"))
+    return {
+        "allocator_peak_bytes": _int(steady.get(
+            "cuda_peak_allocated_bytes")),
+        "reserved_peak_bytes": _int(steady.get("cuda_peak_reserved_bytes")),
+        "setup_sampler_peak_bytes": sampler_bytes(setup),
+        "first_solve_sampler_peak_bytes": sampler_bytes(first_solve),
+        "steady_sampler_peak_bytes": sampler_bytes(steady),
+        "asset_resident_bytes": _int(strict_owned.get(
+            "asset_resident_bytes")),
+        "fused_workspace_bytes": _int(strict_owned.get(
+            "fused_workspace_bytes")),
+    }
 
 
 def _parse_quda_mg_tsv(path: Path) -> List[Dict[str, Any]]:
@@ -1171,6 +1214,7 @@ def _collect_records(cases: Sequence[CaseInput]) -> Tuple[
             finest_iterations = _iterations_from_side(side_doc)
             finest_residual = _residual_from_side(side_doc)
             trace_on = _side_has_trace(side_doc)
+            memory = _memory_from_side(side_doc)
             phases = _phase_records(case, side_doc)
             for phase, phase_data in phases.items():
                 missing = list(case.missing)
@@ -1200,17 +1244,23 @@ def _collect_records(cases: Sequence[CaseInput]) -> Tuple[
                     "trace": "on" if trace_on else "off",
                     "levels": dimensions.get("levels"),
                     "device": dimensions.get("device"),
+                    "solver": (
+                        "bicgstab"
+                        if dimensions.get("levels") == 1 else
+                        f"mg-{dimensions.get('levels')}"),
                     "phase": phase,
                     "total_seconds": total_seconds,
                     "finest_iterations": iterations,
                     "finest_residual": residual,
                     "samples": phase_data.get("samples"),
                     "missing_fields": sorted(set(missing)),
+                    **memory,
                 })
 
             level_rows.extend(
                 _aggregate_levels(
-                    case, side_doc, dimensions, finest_iterations))
+                    case, side_doc, dimensions, finest_iterations)
+                if dimensions.get("levels") != 1 else [])
             side_curves = _curves_from_side(side_doc)
             if side_curves:
                 curves[f"{case.case_id}|{side}"] = side_curves[-1]
@@ -1245,8 +1295,17 @@ def _coverage(records: Sequence[Mapping[str, Any]],
         key = (str(record["case_id"]), str(record["side"]))
         case_side_levels[key] = max(levels, case_side_levels.get(key, 0))
     expected_level_cells = (
-        sum(case_side_levels.values()) if case_side_levels else None)
-    expected_curves = 2 * len(case_ids)
+        sum(
+            levels for key, levels in case_side_levels.items()
+            if levels > 1)
+        if case_side_levels else None)
+    curve_cells = {
+        (str(record["case_id"]), str(record["side"]))
+        for record in records
+        if _int(record.get("levels")) not in (None, 1)
+        and str(record.get("trace")) == "on"
+    }
+    expected_curves = len(curve_cells)
 
     missing_cells: List[Dict[str, Any]] = []
     for case_id in case_ids:
@@ -1255,11 +1314,13 @@ def _coverage(records: Sequence[Mapping[str, Any]],
             if side not in sides:
                 missing_cells.append({
                     "kind": "side", "case_id": case_id, "side": side})
-        if f"{case_id}|pyqcu" not in curves:
+        if ((case_id, "pyqcu") in curve_cells
+                and f"{case_id}|pyqcu" not in curves):
             missing_cells.append({
                 "kind": "finest_residual_curve",
                 "case_id": case_id, "side": "pyqcu"})
-        if f"{case_id}|quda" not in curves:
+        if ((case_id, "quda") in curve_cells
+                and f"{case_id}|quda" not in curves):
             missing_cells.append({
                 "kind": "finest_residual_curve",
                 "case_id": case_id, "side": "quda"})
@@ -1463,6 +1524,7 @@ def _csv_rows(records: Sequence[Mapping[str, Any]]) -> List[Dict[str, Any]]:
             "lattice": record.get("lattice") or "",
             "trace": record.get("trace") or "",
             "levels": "" if record.get("levels") is None else record["levels"],
+            "solver": record.get("solver") or "",
             "device": record.get("device") or "",
             "phase": record.get("phase") or "",
             "total_seconds": _format_number(record.get("total_seconds")),
@@ -1474,6 +1536,27 @@ def _csv_rows(records: Sequence[Mapping[str, Any]]) -> List[Dict[str, Any]]:
             "missing_fields": ";".join(record.get("missing_fields", [])),
             "samples": "" if record.get("samples") is None else record["samples"],
             "case_id": record["case_id"],
+            "allocator_peak_bytes": (
+                "" if record.get("allocator_peak_bytes") is None
+                else record["allocator_peak_bytes"]),
+            "reserved_peak_bytes": (
+                "" if record.get("reserved_peak_bytes") is None
+                else record["reserved_peak_bytes"]),
+            "setup_sampler_peak_bytes": (
+                "" if record.get("setup_sampler_peak_bytes") is None
+                else record["setup_sampler_peak_bytes"]),
+            "first_solve_sampler_peak_bytes": (
+                "" if record.get("first_solve_sampler_peak_bytes") is None
+                else record["first_solve_sampler_peak_bytes"]),
+            "steady_sampler_peak_bytes": (
+                "" if record.get("steady_sampler_peak_bytes") is None
+                else record["steady_sampler_peak_bytes"]),
+            "asset_resident_bytes": (
+                "" if record.get("asset_resident_bytes") is None
+                else record["asset_resident_bytes"]),
+            "fused_workspace_bytes": (
+                "" if record.get("fused_workspace_bytes") is None
+                else record["fused_workspace_bytes"]),
         }
         rows.append(row)
     return rows
@@ -1486,11 +1569,12 @@ def _level_csv_rows(level_rows: Sequence[Mapping[str, Any]]
         output: Dict[str, Any] = {}
         for key in (
                 "case_id", "side", "precision", "lattice", "trace", "levels",
-                "device", "level", "total_seconds", "total_iterations",
+                "solver", "device", "level", "total_seconds",
+                "total_iterations",
                 *PHASES, "other"):
             value = row.get(key)
             if key in {"case_id", "side", "precision", "lattice", "trace",
-                       "device", "level"}:
+                       "solver", "device", "level"}:
                 output[key] = "" if value is None else value
             elif key == "levels":
                 output[key] = "" if value is None else value
@@ -1724,7 +1808,9 @@ def _plot_residuals(curves: Mapping[str, Sequence[Mapping[str, Any]]],
     ax.legend(fontsize=7)
     expected = sorted({
         f"{record['case_id']}|{record['side']}"
-        for record in _steady_records(records)})
+        for record in _steady_records(records)
+        if _int(record.get("levels")) not in (None, 1)
+        and str(record.get("trace")) == "on"})
     missing = [label for label in expected if label not in curves]
     if missing:
         shown = ", ".join(missing[:6])
@@ -1850,6 +1936,124 @@ def _plot_speedup(records: Sequence[Mapping[str, Any]],
     plt.close(fig)
 
 
+def _memory_csv_rows(records: Sequence[Mapping[str, Any]]
+                     ) -> List[Dict[str, Any]]:
+    rows: List[Dict[str, Any]] = []
+    seen = set()
+    for record in _steady_records(records):
+        key = (str(record["case_id"]), str(record["side"]))
+        if key in seen:
+            continue
+        seen.add(key)
+        rows.append({
+            "case_id": record["case_id"],
+            "side": record["side"],
+            "device": record.get("device") or "",
+            "precision": record.get("precision") or "",
+            "lattice": record.get("lattice") or "",
+            "levels": (
+                "" if record.get("levels") is None else record["levels"]),
+            "trace": record.get("trace") or "",
+            "solver": record.get("solver") or "",
+            "allocator_peak_bytes": (
+                "" if record.get("allocator_peak_bytes") is None
+                else record["allocator_peak_bytes"]),
+            "reserved_peak_bytes": (
+                "" if record.get("reserved_peak_bytes") is None
+                else record["reserved_peak_bytes"]),
+            "setup_sampler_peak_bytes": (
+                "" if record.get("setup_sampler_peak_bytes") is None
+                else record["setup_sampler_peak_bytes"]),
+            "first_solve_sampler_peak_bytes": (
+                "" if record.get("first_solve_sampler_peak_bytes") is None
+                else record["first_solve_sampler_peak_bytes"]),
+            "steady_sampler_peak_bytes": (
+                "" if record.get("steady_sampler_peak_bytes") is None
+                else record["steady_sampler_peak_bytes"]),
+            "asset_resident_bytes": (
+                "" if record.get("asset_resident_bytes") is None
+                else record["asset_resident_bytes"]),
+            "fused_workspace_bytes": (
+                "" if record.get("fused_workspace_bytes") is None
+                else record["fused_workspace_bytes"]),
+        })
+    return rows
+
+
+def _plot_peak_memory(records: Sequence[Mapping[str, Any]],
+                      svg: Path, pdf: Path) -> None:
+    import matplotlib.pyplot as plt
+
+    groups: Dict[Tuple[str, str, int, str, str], List[Mapping[str, Any]]] = (
+        defaultdict(list))
+    for record in _steady_records(records):
+        device = str(record.get("device") or "")
+        precision = str(record.get("precision") or "")
+        levels = _int(record.get("levels"))
+        trace = str(record.get("trace") or "")
+        side = str(record.get("side") or "")
+        if not device or not precision or levels is None:
+            continue
+        groups[(device, precision, levels, trace, side)].append(record)
+
+    keys = sorted({
+        key[:4] for key in groups
+        if any(
+            _float(record.get("steady_sampler_peak_bytes")) is not None
+            for record in groups[key])
+    })
+    fig, axis = plt.subplots(figsize=(max(12.0, 0.46 * len(keys)), 7.0))
+    if not keys:
+        axis.text(
+            0.5, 0.5, "No device-wide peak-memory records",
+            ha="center", va="center")
+        axis.set_axis_off()
+        _save_figure(fig, svg, pdf)
+        plt.close(fig)
+        return
+
+    x_base = list(range(len(keys)))
+    width = 0.36
+    for side, offset, color in (
+            ("pyqcu", -width / 2, "#245ba3"),
+            ("quda", width / 2, "#be4137")):
+        values: List[float] = []
+        x_values: List[float] = []
+        labels: List[str] = []
+        for x_value, key in zip(x_base, keys):
+            samples = groups.get((*key, side), [])
+            peak = _median(
+                _float(record.get("steady_sampler_peak_bytes"))
+                for record in samples)
+            if peak is None:
+                continue
+            mib = peak / (1 << 20)
+            x_values.append(x_value + offset)
+            values.append(mib)
+            labels.append(f"{mib:.0f}")
+        axis.bar(
+            x_values, values, width=width * 0.9, color=color,
+            label="PyQCU" if side == "pyqcu" else "QUDA")
+        for x_value, value, label in zip(x_values, values, labels):
+            axis.text(
+                x_value, value, label, ha="center", va="bottom",
+                fontsize=6, rotation=90)
+
+    axis.set_yscale("log")
+    axis.set_ylabel("median device-wide peak (MiB, log scale)")
+    axis.set_title(
+        "Peak device memory by device, precision, MG level and trace mode")
+    axis.set_xticks(x_base)
+    axis.set_xticklabels(
+        [f"{device}\n{precision} L{levels} {trace}" for
+         device, precision, levels, trace in keys],
+        rotation=45, ha="right", fontsize=7)
+    axis.grid(axis="y", alpha=0.22)
+    axis.legend(fontsize=8)
+    _save_figure(fig, svg, pdf)
+    plt.close(fig)
+
+
 def _latex_escape(value: Any) -> str:
     text = "" if value is None else str(value)
     replacements = (
@@ -1956,12 +2160,31 @@ def _write_tables(path: Path, records: Sequence[Mapping[str, Any]],
         ("Quantity", "Observed", "Expected", "Coverage"),
         coverage_rows, "lrrr")
 
+    memory_rows = []
+    for row in _memory_csv_rows(records):
+        memory_rows.append([
+            row["case_id"], row["side"], row["device"], row["precision"],
+            row["lattice"], row["levels"], row["trace"],
+            row["setup_sampler_peak_bytes"],
+            row["first_solve_sampler_peak_bytes"],
+            row["steady_sampler_peak_bytes"],
+            row["allocator_peak_bytes"],
+            row["reserved_peak_bytes"],
+        ])
+    memory_table = _latex_table(
+        "Peak memory evidence (bytes; device-wide sampler and PyTorch allocator)",
+        ("Case", "Side", "Device", "Prec", "Lattice", "L", "Trace",
+         "Setup peak", "First solve peak", "Steady peak",
+         "Allocator peak", "Reserved peak"),
+        memory_rows, "lllllrrrrrrr")
+
     content = "\n\n".join((
         "% Generated by pyqcu/testing/qcu/strict/quda_comparison/build_mg_report.py",
         timing,
         iterations,
         residuals,
         coverage_table,
+        memory_table,
     )) + "\n"
     path.write_text(content, encoding="utf-8")
 
@@ -2096,6 +2319,11 @@ def build_report(inputs: Sequence[Path], outdir: Path,
         records,
         outdir / "mg_speedup_device.svg",
         outdir / "mg_speedup_device.pdf")
+    _write_csv(outdir / "mg_memory.csv", _memory_csv_rows(records))
+    _plot_peak_memory(
+        records,
+        outdir / "mg_peak_memory.svg",
+        outdir / "mg_peak_memory.pdf")
 
     _write_tables(outdir / "tables.tex", records, level_rows, analysis)
     validate_latex_tables((outdir / "tables.tex").read_text(encoding="utf-8"))

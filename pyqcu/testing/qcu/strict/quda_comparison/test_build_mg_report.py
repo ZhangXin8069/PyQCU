@@ -62,6 +62,34 @@ def _fixture(tmp_path: Path, *, missing: bool = False) -> Path:
                 "samples_rel": [1.0e-6, 1.0e-6],
                 "max_rel": 1.0e-6,
             },
+            "memory": {
+                "schema_version": 2,
+                "setup": {
+                    "device_wide_sampler": {
+                        "device_used_max_observed_bytes": 300,
+                    },
+                },
+                "first_solve": {
+                    "memory": {
+                        "device_wide_sampler": {
+                            "device_used_max_observed_bytes": 400,
+                        },
+                    },
+                },
+                "steady": {
+                    "cuda_peak_allocated_bytes": 100,
+                    "cuda_peak_reserved_bytes": 200,
+                    "untimed_device_memory_probe": {
+                        "device_wide_sampler": {
+                            "device_used_max_observed_bytes": 500,
+                        },
+                    },
+                },
+                "strict_owned": {
+                    "asset_resident_bytes": 60,
+                    "fused_workspace_bytes": 40,
+                },
+            },
         }
         if not missing:
             side_doc["device"] = "cuda:0 Tesla V100-SXM2-32GB"
@@ -214,6 +242,17 @@ def test_report_csv_row_counts_and_finest_iteration_semantics(tmp_path):
     assert missing_level2["total_seconds"] == ""
     assert "level.2.total_seconds" in missing_level2["missing_fields"]
     assert summary["coverage"]["side_coverage"] == 1.0
+    assert summary["trace_curve_count"] == 2
+
+    memory_rows = _csv_rows(outdir / "mg_memory.csv")
+    assert len(memory_rows) == 2
+    pyqcu_memory = next(
+        row for row in memory_rows if row["side"] == "pyqcu")
+    assert pyqcu_memory["setup_sampler_peak_bytes"] == "300"
+    assert pyqcu_memory["first_solve_sampler_peak_bytes"] == "400"
+    assert pyqcu_memory["steady_sampler_peak_bytes"] == "500"
+    assert pyqcu_memory["allocator_peak_bytes"] == "100"
+    assert pyqcu_memory["reserved_peak_bytes"] == "200"
 
 
 def test_reliable_update_trace_rows_are_deduplicated(tmp_path):
@@ -371,7 +410,7 @@ def test_negative_other_is_rejected(tmp_path):
             "case_id": "negative-other",
             "precision": {"name": "c64"},
             "lattice_xyzt": [8, 8, 8, 16],
-            "levels": 1,
+            "levels": 2,
         },
         "sides": {
             "pyqcu": {

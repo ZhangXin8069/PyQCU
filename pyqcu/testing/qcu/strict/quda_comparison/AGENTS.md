@@ -30,3 +30,19 @@ QUDA/PyQCU Strict-MultiGrid 对照工作区：算子约定锚定、分布式正�
 - trace v3 在 `stage/residual` 之外新增 `iteration_count`（逐外层迭代、逐层增量）；解析需接受 v1/v2/v3。
 - 多 rank 运行要求每层同一 process grid、aggregate 不跨 rank、local shape 各维为偶数；不满足时 fail-closed。
 - 分布式 setup 的 face 交换目前经 CPU staging，只用于 setup 期；小格点探针会受往返延迟限制。
+
+## 2026-09-28 全矩阵复测
+
+- `bench_mg_matrix_full.py --pyqcu-cache-expect {any,miss,hit}` 显式控制
+  PyQCU runtime cache 期望：cold-miss 批次用 `miss`，trace-on 复用
+  trace-off 资产用 `hit`，初始生成/探索可用 `any`。
+- 冻结矩阵器固定传 `--reference-warmups 2`，保证 MG-1 BiCGStab 参考记录
+  始终满足正式的 1 cold / 2 warmup / 5 steady 契约。
+- `build_mg_report.py` 现在导出 device-wide peak memory、未计时 sampler、
+  workspace 与 allocator 峰值，并只把 trace-on MG-2/3 计入 residual curve
+  覆盖分母；BiCGStab MG-1 继续单独记录。
+- 2026-09-28 复测的精确结果、容量替代和报告位于
+  `data/report_multigrid_comprehensive_20260928/` 与
+  `docs/report_multigrid_quda_pyqcu_20260928.{tex,pdf}`。
+  双 P100 c64 `16x32x32x48` 因显存/时限门限替代为 `16^4`；替代不得混入
+  原格点公平加速比。
