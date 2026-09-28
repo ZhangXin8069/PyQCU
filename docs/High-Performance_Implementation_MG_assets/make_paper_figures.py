@@ -26,6 +26,11 @@ plt.rcParams.update(
         "font.family": "serif",
         "font.serif": ["DejaVu Serif"],
         "mathtext.fontset": "dejavuserif",
+        "font.size": 10,
+        "axes.labelsize": 10.5,
+        "xtick.labelsize": 9.5,
+        "ytick.labelsize": 9.5,
+        "legend.fontsize": 9,
         "axes.linewidth": 0.75,
         "axes.edgecolor": "black",
         "xtick.direction": "out",
@@ -37,6 +42,23 @@ plt.rcParams.update(
         "savefig.facecolor": "white",
     }
 )
+
+COLORS = {
+    "mg2": "#2E6DB4",
+    "mg3": "#D9772A",
+    "bicg": "#168C8C",
+    "pyqcu": "#2E6DB4",
+    "quda": "#D35B5B",
+    "stage": ["#92C5DE", "#4393C3", "#E38C52", "#D35B5B", "#4A4A4A", "#B9B9B9"],
+}
+
+
+def solver_color(solver: str) -> str:
+    return {
+        "mg-2": COLORS["mg2"],
+        "mg-3": COLORS["mg3"],
+        "bicgstab-reference": COLORS["bicg"],
+    }[solver]
 
 
 def load_units() -> list[dict[str, object]]:
@@ -117,7 +139,8 @@ def fig_ratio_distribution(rows: list[dict[str, object]]) -> None:
         for row in selected:
             solver = str(row["solver"])
             trace = str(row["trace"])
-            fill = "black" if trace == "off" else "white"
+            fill = solver_color(solver) if trace == "off" else "white"
+            edge = solver_color(solver)
             size = 28 if trace == "off" else 24
             offset = -0.12 if str(row["levels"]) == "2" else 0.12
             if solver == "bicgstab-reference":
@@ -128,7 +151,7 @@ def fig_ratio_distribution(rows: list[dict[str, object]]) -> None:
                 marker=marker_for[solver],
                 s=size,
                 facecolors=fill,
-                edgecolors="black",
+                edgecolors=edge,
                 linewidths=0.65,
                 zorder=3,
             )
@@ -140,7 +163,7 @@ def fig_ratio_distribution(rows: list[dict[str, object]]) -> None:
         ax.plot(
             [index - 0.27, index + 0.27],
             [median, median],
-            color="black",
+            color="0.15",
             linewidth=1.4,
             zorder=4,
         )
@@ -151,9 +174,9 @@ def fig_ratio_distribution(rows: list[dict[str, object]]) -> None:
     ax.set_ylabel(r"$R=t_{\rm QUDA}/t_{\rm PyQCU}$")
     ax.grid(axis="y", color="0.86", linewidth=0.6)
     handles = [
-        plt.Line2D([], [], marker="o", linestyle="none", color="black", label="MG-2"),
-        plt.Line2D([], [], marker="^", linestyle="none", color="black", label="MG-3"),
-        plt.Line2D([], [], marker="s", linestyle="none", color="black", label="BiCGStab"),
+        plt.Line2D([], [], marker="o", linestyle="none", color=COLORS["mg2"], label="MG-2"),
+        plt.Line2D([], [], marker="^", linestyle="none", color=COLORS["mg3"], label="MG-3"),
+        plt.Line2D([], [], marker="s", linestyle="none", color=COLORS["bicg"], label="BiCGStab"),
         plt.Line2D([], [], marker="o", linestyle="none", markerfacecolor="white", markeredgecolor="black", label="open: trace-on"),
     ]
     ax.legend(handles=handles, ncol=2, fontsize=8, loc="upper left")
@@ -183,9 +206,9 @@ def fig_group_medians(rows: list[dict[str, object]]) -> None:
         ("P100x2, c128", "p100", "c128"),
     ]
     solvers = [
-        ("MG-2", "mg-2", "white", "o"),
-        ("MG-3", "mg-3", "0.55", "^"),
-        ("BiCGStab", "bicgstab-reference", "0.15", "s"),
+        ("MG-2", "mg-2", COLORS["mg2"], "o"),
+        ("MG-3", "mg-3", COLORS["mg3"], "^"),
+        ("BiCGStab", "bicgstab-reference", COLORS["bicg"], "s"),
     ]
     width = 0.22
     x = list(range(len(configs)))
@@ -238,19 +261,19 @@ def fig_stage_shares(shares: dict[str, dict[str, float]]) -> None:
         py,
         width,
         label="PyQCU",
-        facecolor="white",
+        color=COLORS["stage"],
         edgecolor="black",
-        linewidth=0.75,
-        hatch="//",
+        linewidth=0.65,
     )
     ax.bar(
         [value + width / 2 for value in x],
         qu,
         width,
         label="QUDA",
-        facecolor="0.72",
+        facecolor="white",
         edgecolor="black",
-        linewidth=0.75,
+        linewidth=0.65,
+        hatch="//",
     )
     ax.set_xticks(x, labels)
     ax.set_ylabel("share of recorded stage time (%)")
@@ -274,7 +297,7 @@ def fig_residual_memory(rows: list[dict[str, object]]) -> None:
     axes[0].bar(
         sides,
         residual,
-        color=["white", "0.65"],
+        color=[COLORS["pyqcu"], COLORS["quda"]],
         edgecolor="black",
         linewidth=0.75,
         hatch=["//", ""],
@@ -294,7 +317,7 @@ def fig_residual_memory(rows: list[dict[str, object]]) -> None:
     axes[1].bar(
         sides,
         memory,
-        color=["0.25", "0.75"],
+        color=[COLORS["pyqcu"], COLORS["quda"]],
         edgecolor="black",
         linewidth=0.75,
     )
@@ -306,7 +329,7 @@ def fig_residual_memory(rows: list[dict[str, object]]) -> None:
 
 
 def fig_508_scaling() -> None:
-    fig, axes = plt.subplots(1, 2, figsize=(7.4, 2.7))
+    fig, axes = plt.subplots(1, 2, figsize=(8.0, 2.9))
     processes = [64, 128, 256, 512, 1024]
     wilson = [1.000, 1.451, 2.001, 4.739, 3.119]
     clover = [1.000, 1.657, 2.687, 4.670, 7.193]
@@ -314,7 +337,7 @@ def fig_508_scaling() -> None:
         processes,
         wilson,
         marker="o",
-        color="black",
+        color=COLORS["pyqcu"],
         linewidth=1.3,
         label="Wilson",
     )
@@ -322,7 +345,7 @@ def fig_508_scaling() -> None:
         processes,
         clover,
         marker="^",
-        color="0.55",
+        color=COLORS["mg3"],
         linewidth=1.3,
         label="Clover",
     )
@@ -334,22 +357,40 @@ def fig_508_scaling() -> None:
     axes[0].grid(axis="y", color="0.88", linewidth=0.55)
     axes[0].legend(ncol=2, fontsize=8)
 
-    volume = [524288, 1048576, 2097152, 4194304, 8388608]
-    delta = [14.166, 26.247, 58.044, 99.751, 112.188]
-    axes[1].plot(
-        volume,
-        delta,
-        marker="s",
-        color="black",
-        linewidth=1.3,
+    x = [0.0, 1.0]
+    width = 0.34
+    axes[1].bar(
+        [value - width / 2 for value in x],
+        [3.119, 2.211],
+        width,
+        color=COLORS["pyqcu"],
+        edgecolor="black",
+        linewidth=0.65,
+        label="Wilson",
     )
-    axes[1].fill_between(volume, 0, delta, color="0.90", zorder=0)
-    axes[1].set_xscale("log", base=2)
-    axes[1].set_xticks(volume, ["0.5M", "1M", "2M", "4M", "8M"])
-    axes[1].set_ylim(0, 125)
-    axes[1].set_xlabel("equivalent single-process volume")
-    axes[1].set_ylabel("Clover-Wilson iteration (ms)")
+    axes[1].bar(
+        [value + width / 2 for value in x],
+        [7.193, 4.258],
+        width,
+        color=COLORS["mg3"],
+        edgecolor="black",
+        linewidth=0.65,
+        label="Clover",
+    )
+    for position, value in zip(
+        [x[0] - width / 2, x[0] + width / 2,
+         x[1] - width / 2, x[1] + width / 2],
+        [3.119, 7.193, 2.211, 4.258],
+    ):
+        axes[1].text(
+            position, value + 0.13, f"{value:.3f}",
+            ha="center", va="bottom", fontsize=8,
+        )
+    axes[1].set_xticks(x, ["TEST8 c64", "TEST9 c128"])
+    axes[1].set_ylim(0, 8.4)
+    axes[1].set_ylabel("reported speedup at 1024 ranks")
     axes[1].grid(axis="y", color="0.88", linewidth=0.55)
+    axes[1].legend(ncol=2, fontsize=8, loc="upper right")
     fig.tight_layout()
     save(fig, "fig_508_scaling.pdf")
 
