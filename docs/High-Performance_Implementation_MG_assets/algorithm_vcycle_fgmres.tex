@@ -1,0 +1,72 @@
+\documentclass[border=7pt,12pt]{standalone}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{array}
+
+\begin{document}
+\begin{minipage}{30cm}
+\renewcommand{\arraystretch}{1.25}
+\begin{minipage}[t]{14.2cm}
+\textbf{Algorithm 2}\quad Recursive MG preconditioner
+\(z_l=\mathcal M_l^{-1}r_l\)
+
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.96\linewidth}@{}}
+\toprule
+\(\mathbf{Input:}\; A_l,\;r_l;\;
+ \{S_{\rm pre},S_{\rm post},P_l,R_l\}_{\ell=0}^{L-1}\)\\
+\(\mathbf{if}\; l=L-1\;\mathbf{then}\)\\
+\(\quad z_l\gets A_l^{-1}r_l\quad(\text{Bi-CGStab})\)\\
+\(\mathbf{else}\)\\
+\(\quad y_l\gets S_{\rm pre}^{\nu_1}(r_l)\)\\
+\(\quad r_{l+1}\gets R_l\left(r_l-A_l y_l\right)\)\\
+\(\quad e_{l+1}\gets\mathcal M_{l+1}^{-1}r_{l+1}\)\\
+\(\quad z_l\gets y_l+P_l e_{l+1}\)\\
+\(\quad z_l\gets S_{\rm post}^{\nu_2}(z_l)\)\\
+\(\mathbf{end\,if}\)\\
+\(\mathbf{Output:}\;z_l\)\\
+\bottomrule
+\end{tabular}
+
+\vspace{0.75em}
+\textbf{Update used by the outer solver}
+\[
+x^{(k+1)}=x^{(k)}+z^{(k)},\qquad
+r^{(k+1)}=b-Ax^{(k+1)}.
+\]
+\end{minipage}
+\hfill
+\begin{minipage}[t]{14.2cm}
+\textbf{Algorithm 3}\quad Flexible right-preconditioned GMRES
+
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.96\linewidth}@{}}
+\toprule
+\(\mathbf{Input:}\; A,\;b,\;x^{(0)},\;\mathcal M,\;m,\;\varepsilon\)\\
+\(r_0=b-Ax^{(0)},\quad \beta=\|r_0\|,\quad
+ v_1=r_0/\beta\)\\
+\(\mathbf{for}\;j=1,\ldots,m\)\\
+\(\quad z_j=\mathcal M^{-1}v_j\)\\
+\(\quad w=A z_j\)\\
+\(\quad \mathbf{for}\;i=1,\ldots,j\)\\
+\(\quad\quad h_{ij}=v_i^\dagger w\)\\
+\(\quad\quad w\leftarrow w-h_{ij}v_i\)\\
+\(\quad \mathbf{end\,for}\)\\
+\(\quad h_{j+1,j}=\|w\|,\quad
+ v_{j+1}=w/h_{j+1,j}\)\\
+\(\quad \text{apply Givens rotations to }H_j\)\\
+\(\quad \mathbf{if}\;\text{least-squares residual}
+ \le\varepsilon\;\mathbf{then\;break}\)\\
+\(\mathbf{end\,for}\)\\
+\(y=\arg\min_y\|\beta e_1-\overline H_jy\|_2\)\\
+\(x^{(k+1)}=x^{(k)}+Z_jy\)\\
+\(\text{recompute full true residual; restart if needed}\)\\
+\bottomrule
+\end{tabular}
+
+\vspace{0.75em}
+\[
+Z_j=[z_1,\ldots,z_j],\qquad
+B_{\rm work}=(2m+5)B_f+2B_c.
+\]
+\end{minipage}
+\end{minipage}
+\end{document}

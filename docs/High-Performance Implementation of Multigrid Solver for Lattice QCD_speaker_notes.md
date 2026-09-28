@@ -15,14 +15,14 @@
 ## 5. 通用 MG（35 秒）
 null vector 近似低模，局部 QR 建 P/R，Galerkin 生成粗算子，V-cycle 作预条件器。
 
-## 6. QCD 特化困难（35 秒）
-完整粗矩阵约 TB 级不可存；setup 是多次 full-field matvec；粗层受 halo、点积和同步支配。
+## 6. 预条件 Bi-CGStab（35 秒）
+按表逐行说明 rho、p、v、alpha、s、omega 和 x 更新。强调预条件器 M 与热启动路径。
 
 ## 7. PyQCU Strict（35 秒）
 D=X+H、Dhat=X^-1 D、D_c=R Dhat P。细层 compact target parity，粗层 full X/Y/Yhat。
 
-## 8. 一次预条件（35 秒）
-MR → R → 递归 V-cycle → P → MR，外部右预条件 FGMRES。说明迭代不跨层相加。
+## 8. V-cycle 与 FGMRES（35 秒）
+左侧是递归 MG 预条件器，右侧是 flexible right-preconditioned GMRES。说明迭代不跨层相加。
 
 ## 9. CUDA-C++ 优化（40 秒）
 从寄存器、流融合、device scalar、CUDA Graph、setup/cache 讲到 MPI overlap；c128 默认回退。
@@ -43,10 +43,11 @@ PyQCU 记录中 coarse+other 主导；双 P100 大格 6 项容量替代，不能
 优势是 MG 专项、自主可控、显存；不足是总能力和通信成熟度；下一步聚焦粗层同步、通信和 setup。
 
 ## 15. 参考文献与复现（25 秒）
-列出 quantum-mg、QUDA、DDalphaAMG；快速闸门先于完整矩阵。
+列出 quantum-mg、QUDA、DDalphaAMG；快速闸门先于完整矩阵，并简述平台适配状态。
 
-## 16. 适配与规模化（25 秒）
-当前最强证据是 CUDA；DCU/CANN、真机 NPU、千卡级必须明确标为未验证或未来工作。
+## 16. 508 报告大规模测试（30 秒）
+展示 508 报告的 64→1024 进程强扩展曲线、弱扩展差异曲线和 TEST9 原始表。
+说明这是早期 DCU 路径成果，MG 当时仍属前期验证，不能与 test27 的 Strict-MG 速度比混合。
 
 ## 17. 致谢（10 秒）
 一句总结和一个明确行动项，然后进入问答。
