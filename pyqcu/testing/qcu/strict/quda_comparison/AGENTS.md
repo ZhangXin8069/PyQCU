@@ -22,6 +22,7 @@ QUDA/PyQCU Strict-MultiGrid 对照工作区：算子约定锚定、分布式正�
 | `assemble_final_matrix.py` | 合并最终 PyQCU/QUDA side 文档并 fail-closed 审计 config/input/warmup/fair；导出 `units.csv`、`stages.csv`、`references.csv` 与 72 个 combined JSON |
 | `build_mg_report.py` | JSON/trace → `mg_matrix.csv`、`mg_levels.csv`、SVG/PDF 图、`tables.tex`、`summary_analysis.json` |
 | `plot_mg_absolute_times.py` | combined JSON → 绝对耗时散点/分组图、逐层阶段分页图、最粗层表与图例置底残差图；保留原始数据只读 |
+| `plot_mg_linear_report.py` | test27 combined JSON → 时间/显存线性轴图、测试元数据入图题、四页残差小面板与 BiCGStab 对照图 |
 | `convert_full_nullvec_to_quda_qio.py` | canonical full null vector → QUDA QIO + v1 manifest（含 byte-exact round-trip 校验） |
 | `p100_env.sh` | P100 运行环境（torch cu118 site-packages、`CUDA_VISIBLE_DEVICES=0,1`）；详见 `P100_NOTES.md` |
 
@@ -57,3 +58,12 @@ QUDA/PyQCU Strict-MultiGrid 对照工作区：算子约定锚定、分布式正�
   `/coarsest`，最粗层 `coarse_solver_seconds` 同时进入独立汇总表。
 - 正式修订报告为
   `docs/report_multigrid_quda_pyqcu_20260929.{tex,pdf}`。
+
+## 2026-09-30 线性轴修订
+
+- `plot_mg_linear_report.py` 仅读取 test27 原始 combined JSON；时间比、
+  时间、阶段和显存全部使用线性轴，只有残差范数纵轴使用对数轴。
+- 测试组图题和标签补充 mass、kappa、格点、block、nvec 与 trace；
+  MG/BiCGStab 绝对耗时图的比值放入左侧标签，消除图 3/8 轴内元素重叠。
+- 残差小面板按 V100/P100 与 MG-2/3 拆成四页；正式报告为
+  `docs/report_multigrid_quda_pyqcu_20260930.{tex,pdf}`。
