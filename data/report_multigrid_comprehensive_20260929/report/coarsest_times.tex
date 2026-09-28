@@ -1,0 +1,19 @@
+\begin{table}[htbp]
+\centering
+\caption{最粗层 solve 的绝对中位耗时；QUDA 的最后有效层已显式取回}\label{tab:coarsest-times}
+\small
+\begin{tabular}{@{}llrrrr@{}}
+\toprule
+设备 & 精度/层数 & $n$ & PyQCU s & QUDA s & $R=Q/P$ \\
+\midrule
+P100 & c128 / MG-2 & 3 & 41.416 & 23.296 & 0.5625 \\
+P100 & c128 / MG-3 & 3 & 14.781 & 9.799 & 0.6629 \\
+P100 & c64 / MG-2 & 2 & 8.519 & 5.758 & 0.6758 \\
+P100 & c64 / MG-3 & 2 & 5.148 & 2.201 & 0.4275 \\
+V100 & c128 / MG-2 & 3 & 5.603 & 4.137 & 0.7384 \\
+V100 & c128 / MG-3 & 3 & 0.867 & 1.607 & 1.8538 \\
+V100 & c64 / MG-2 & 3 & 1.420 & 1.124 & 0.7917 \\
+V100 & c64 / MG-3 & 3 & 0.438 & 0.977 & 2.2279 \\
+\bottomrule
+\end{tabular}
+\end{table}

@@ -26,6 +26,9 @@ while IFS=$'\t' read -r severity rule path message; do
 
     case "${severity}:${rule}:${path}" in
         ERROR:TRACKED_DATA_CONTENT:data/quda-*|\
+        ERROR:TRACKED_DATA_CONTENT:data/mg_matrix_comprehensive_final_20260928/*|\
+        ERROR:TRACKED_DATA_CONTENT:data/report_multigrid_comprehensive_20260928/*|\
+        ERROR:TRACKED_DATA_CONTENT:data/report_multigrid_comprehensive_20260929/*|\
         ERROR:TRACKED_DATA_CONTENT:data/report_multigrid_optimized_20260927/*|\
         ERROR:TRACKED_DATA_CONTENT:data/mg_matrix_20260916_round2/*|\
         ERROR:TRACKED_DATA_CONTENT:data/strict_trace_stage_timing_20260906.csv|\
@@ -41,6 +44,10 @@ while IFS=$'\t' read -r severity rule path message; do
             allowed=$((allowed + 1))
             ;;
         WARNING:DOC_EXTENSION:docs/张鑫*)
+            allowed=$((allowed + 1))
+            ;;
+        WARNING:DOC_EXTENSION:docs/High-Performance*|\
+        WARNING:FILE_WHITESPACE:docs/High-Performance*)
             allowed=$((allowed + 1))
             ;;
         WARNING:TEST_LOCATION:skills/tag/tag-chain.test.sh)
