@@ -1,12 +1,30 @@
 % !TEX program = xelatex
-\documentclass[UTF8,a4paper,11pt]{ctexart}
+\documentclass[UTF8,a4paper,11pt,fontset=none]{ctexart}
 
 \usepackage[a4paper,margin=2.45cm,headheight=15pt]{geometry}
+\usepackage{fontspec}
 \usepackage{amsmath,amssymb}
 \usepackage{booktabs,tabularx,array}
 \usepackage{enumitem}
 \usepackage{fancyhdr}
 \usepackage[hidelinks]{hyperref}
+
+\setmainfont{TeX Gyre Termes}
+\setsansfont{TeX Gyre Heros}
+\setmonofont{TeX Gyre Cursor}
+\setCJKmainfont{FandolSong-Regular.otf}[
+  BoldFont=FandolSong-Bold.otf,
+  ItalicFont=FandolKai-Regular.otf
+]
+\setCJKsansfont{FandolHei-Regular.otf}[
+  BoldFont=FandolHei-Bold.otf
+]
+\setCJKmonofont{FandolSong-Regular.otf}
+\ctexset{
+  section/format=\Large\sffamily\bfseries,
+  subsection/format=\large\sffamily\bfseries,
+  subsubsection/format=\normalsize\sffamily\bfseries
+}
 
 \newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
 \newcommand{\code}[1]{\texttt{\detokenize{#1}}}
