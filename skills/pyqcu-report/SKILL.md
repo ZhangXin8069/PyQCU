@@ -46,6 +46,14 @@ metadata:
 8. **PPTX 与 PDF 同源**
    横版 PDF 作为视觉权威；若交付 PPTX，应从同一版 Beamer PDF 逐页渲染后封装，
    避免 PDF 和 PPTX 出现不同内容或样式。
+9. **Strict 与 Legacy 分栏**
+   - `test27` 性能链对应 Strict full-coarse MATPC + fused right-FGMRES。
+   - 33 点 coarse stencil 属于 Legacy compact-Schur，不能与 Strict 的
+     \(X/Y/\widehat Y\) 写成同一个粗算子。
+   - Legacy CUDA 的 `local_orthogonalize` 使用 batched reduced QR；
+     Strict/reference 的 aggregate CGS 是另一套实现。
+   - 不应把 CUDA Graph、cooperative coarsest solve 或完全异步 MPI
+     外推到所有 Strict 配置。
 
 ## 推荐字体
 
