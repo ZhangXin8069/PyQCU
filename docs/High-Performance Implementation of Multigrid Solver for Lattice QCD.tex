@@ -1,7 +1,8 @@
 % !TEX program = xelatex
-\documentclass[UTF8,a4paper,11pt]{ctexart}
+\documentclass[UTF8,a4paper,11pt,fontset=none]{ctexart}
 
 \usepackage[a4paper,margin=2.45cm,headheight=15pt]{geometry}
+\usepackage{fontspec}
 \usepackage{amsmath,amssymb,bm}
 \usepackage{booktabs,longtable,tabularx,array}
 \usepackage{graphicx}
@@ -14,7 +15,27 @@
 \usepackage{xurl}
 \usepackage[hidelinks]{hyperref}
 
+\setmainfont{TeX Gyre Termes}
+\setsansfont{TeX Gyre Heros}
+\setmonofont{TeX Gyre Cursor}
+\setCJKmainfont{FandolSong-Regular.otf}[
+  BoldFont=FandolSong-Bold.otf,
+  ItalicFont=FandolKai-Regular.otf
+]
+\setCJKsansfont{FandolHei-Regular.otf}[
+  BoldFont=FandolHei-Bold.otf
+]
+\setCJKmonofont{FandolSong-Regular.otf}
+\ctexset{
+  section/format=\Large\sffamily\bfseries,
+  subsection/format=\large\sffamily\bfseries,
+  subsubsection/format=\normalsize\sffamily\bfseries
+}
+
 \captionsetup{font=small,labelfont=bf,skip=6pt}
+\numberwithin{equation}{section}
+\numberwithin{figure}{section}
+\numberwithin{table}{section}
 \setlist[itemize]{topsep=3pt,itemsep=2pt,parsep=0pt}
 \setlist[enumerate]{topsep=3pt,itemsep=2pt,parsep=0pt}
 \setlength{\parindent}{2em}
@@ -765,22 +786,25 @@ QUDA 的一半。该比较必须结合设备和格点分组理解，不能单独
 
 \section{复现接口}
 
+\small
 \begin{verbatim}
+RUNNER=pyqcu/testing/qcu/strict/quda_comparison
 source ./env.sh
 bash ./build.sh
 bash ./install.sh
 
-python -B pyqcu/testing/qcu/strict/quda_comparison/run_strict_fast.py \
+python -B "${RUNNER}/run_strict_fast.py" \
   --fail-fast --json strict-fast.json
 
 mpirun -np 2 python -B \
-  pyqcu/testing/qcu/strict/quda_comparison/strict_mpi_solve_probe.py \
+  "${RUNNER}/strict_mpi_solve_probe.py" \
   --shape 8 8 8 16 --grid 2 1 1 1 --dtype c64 \
   --galerkin-mode colored
 
-python -B pyqcu/testing/qcu/strict/quda_comparison/bench_mg_matrix_full.py \
+python -B "${RUNNER}/bench_mg_matrix_full.py" \
   --list
 \end{verbatim}
+\normalsize
 
 正式矩阵、侧记录、聚合和报告生成入口分别为
 \pathref{bench_mg_matrix_full.py}、
