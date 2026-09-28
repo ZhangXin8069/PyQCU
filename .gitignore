@@ -467,6 +467,9 @@ _minted*/
 /data/report_multigrid_optimized_20260927/final_protocol/report/
 /data/report_multigrid_optimized_20260927/strict_mpi_overlap_off.log
 /data/report_multigrid_optimized_20260927/strict_mpi_overlap_on.log
+!/data/report_multigrid_comprehensive_20260929/
+!/data/report_multigrid_comprehensive_20260929/report/
+!/data/report_multigrid_comprehensive_20260929/report/**
 !/data/dev87_quda_large_c64_g2_c03_sm60.json
 !/data/dev87_quda_large_c64_g3_c03_sm60.json
 !/docs/report_multigrid_optimized_20260927.tex
