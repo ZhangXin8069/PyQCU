@@ -1,0 +1,3513 @@
+{
+  "schema": {
+    "name": "pyqcu.strict-vs-quda.benchmark",
+    "version": 1
+  },
+  "run_id": "f50ef113541248b8392b",
+  "state": "complete",
+  "profile": "formal",
+  "created_at": "2026-09-27T23:05:10Z",
+  "updated_at": "2026-09-27T23:51:58Z",
+  "selected_sides": [
+    "pyqcu",
+    "quda"
+  ],
+  "protocol": {
+    "profile": "formal",
+    "lattice_xyzt": [
+      16,
+      16,
+      32,
+      32
+    ],
+    "mass": 0.05,
+    "kappa": 0.1234567901234568,
+    "seed": 42,
+    "precision": {
+      "name": "c128",
+      "complex_bytes": 16,
+      "real": "float64",
+      "default_tolerance": 1e-08,
+      "true_residual_gate": 5e-08
+    },
+    "levels": 3,
+    "block_xyzt": [
+      2,
+      2,
+      2,
+      2
+    ],
+    "block_xyzt_per_level": [
+      [
+        2,
+        2,
+        2,
+        2
+      ],
+      [
+        2,
+        2,
+        2,
+        2
+      ]
+    ],
+    "nvec": 12,
+    "coarse_spin": 2,
+    "coarse_dof": 24,
+    "target_parity": 1,
+    "null_vector_contract": {
+      "source": "12 canonical full near-null vectors",
+      "full_reconstruction": "precomputed once by zero-rhs Clover block elimination",
+      "transfer": "full-field chiral aggregation with coarse_spin=2"
+    },
+    "outer_solver": "restarted-right-fgmres/gcr",
+    "quda_strategy": "aligned",
+    "quda_coarse_precision": {
+      "requested": "auto",
+      "effective": "double",
+      "semantics": "fine c128 solve with double coarse MG fields"
+    },
+    "pyqcu_strict_block_precision": {
+      "requested": "auto",
+      "effective": "double"
+    },
+    "pyqcu_strict_block_device": "auto",
+    "pyqcu_strict_offload_null_basis": false,
+    "reference_solver": {
+      "kind": "bicgstab",
+      "warmups": 2,
+      "timing_semantics": "same caller-owned input/output and true-residual gate; outside MultiGrid and excluded from speedup"
+    },
+    "restart_requested": 16,
+    "restart_effective": 16,
+    "max_krylov_bytes": 1073741824,
+    "pyqcu_strict_setup": {
+      "probe_mode": "colored",
+      "column_batch_size": 1,
+      "projection_site_batch_size": 4,
+      "max_workspace_bytes": 1073741824,
+      "workspace_four_arena_lower_bound_bytes": 201326592,
+      "require_exact_batch": true
+    },
+    "fused_workspace_formula": "(2m+5)B_f+2B_c",
+    "fused_workspace_terms": {
+      "B_f": "one compact fine-parity vector in bytes",
+      "B_c": "one full first-coarse-level vector in bytes"
+    },
+    "max_iter": 1000,
+    "tolerance": 1e-08,
+    "true_residual_gate": 5e-08,
+    "nu_pre": 1,
+    "nu_post": 1,
+    "coarse_max_iter": 200,
+    "coarse_tolerance": 3e-05,
+    "initial_guess": "zero for every warmup and measured solve",
+    "warmups": 2,
+    "repeats": 5,
+    "statistic": {
+      "center": "median",
+      "spread": "median absolute deviation from median",
+      "warmups_included": false
+    },
+    "timing_contract": {
+      "input_io": "outside setup and solve",
+      "runtime_init": "CUDA/PyQUDA module initialization, outside setup",
+      "setup": "host inputs -> gauge/clover/runtime ready; includes cache lookup/restore, excludes cache persistence",
+      "cache_lookup_or_restore": "reported as a disjoint setup component",
+      "cache_persist": "reported separately and excluded from setup total",
+      "steady_solve": "zero-x0 solve call bracketed by CUDA synchronization",
+      "true_residual": "computed after each timed solve and excluded from solve time",
+      "first_solve_memory": "the first zero-x0 warmup is sampled for lazy solver/workspace allocation; excluded from warmup/repeat timing statistics",
+      "memory_probe": "one additional post-timing solve with 10 ms device-wide cudaMemGetInfo sampling; excluded from warmups/repeats/statistics"
+    },
+    "residual_contract": {
+      "definition": "||b-D_pyqcu*x_canonical||_2/||b||_2",
+      "operator": "full periodic Wilson+Clover, csw=1, PyQCU normalization",
+      "quda_solution_scale": 4.05
+    },
+    "config_hash": "f50ef113541248b8392b5d175fff885b1031191fb1152e6dae3a066d56faa525"
+  },
+  "inputs": {
+    "gauge": {
+      "path": "/root/PyQCU/data/gauge_16x16x32x32_m0.05_seed42_c64.h5",
+      "dataset": "g",
+      "storage_precision": "c64",
+      "exists": true
+    },
+    "source": {
+      "path": "/root/PyQCU/data/gauge_16x16x32x32_m0.05_seed42_c64.h5",
+      "dataset": "fi",
+      "storage_precision": "c64",
+      "exists": true
+    },
+    "null_vectors": {
+      "path": "/root/PyQCU/data/L16x16x32x32_nvec12_full_c64.h5",
+      "dataset": "null",
+      "layout": "[nvec,spin,color,x,y,z,t]",
+      "parity": "full (even reconstructed once; odd copied verbatim)",
+      "storage_precision": "c64",
+      "exists": true
+    },
+    "quda_qio": {
+      "prefix": "/root/PyQCU/data/qio-matrix/L16x16x32x32_nvec12_quda",
+      "conversion_manifest": "/root/PyQCU/data/qio-matrix/L16x16x32x32_nvec12_quda.v1.json",
+      "required_for_fair_quda_run": true
+    }
+  },
+  "execution": {
+    "strict_cache": {
+      "directory": "/root/PyQCU/data/strict_cache_comprehensive_20260928/p100-c128-ext/pyqcu__p100__16x16x32x32__c128__l3__trace-off",
+      "expect": "hit"
+    },
+    "phases": {
+      "selected": [
+        "cold",
+        "warmup",
+        "steady"
+      ],
+      "counts": {
+        "cold": 1,
+        "warmup": 2,
+        "steady": 5
+      },
+      "cold_separate_process": true
+    },
+    "device": {
+      "requested": "p100"
+    },
+    "parallel": {
+      "ranks": 2,
+      "process_grid": [
+        2,
+        1,
+        1,
+        1
+      ],
+      "launcher": "mpirun",
+      "rank_local_cache": true,
+      "rank_suffixed_trace": true
+    }
+  },
+  "input_fingerprints": {
+    "gauge": {
+      "algorithm": "sha256(logical-hdf5-dataset-v1)",
+      "sha256": "8aa33aaa9fb795c89e5a4318f38f0978cde76cc63641cd73de7af954e4c4d4b9",
+      "path": "/root/PyQCU/data/gauge_16x16x32x32_m0.05_seed42_c64.h5",
+      "dataset": "g",
+      "shape": [
+        2,
+        3,
+        3,
+        4,
+        16,
+        16,
+        32,
+        16
+      ],
+      "dtype": "complex64",
+      "file_size_bytes": 100665344,
+      "file_mtime_ns": 1789975565994643037,
+      "elapsed_seconds": 0.3036572949931724
+    },
+    "source": {
+      "algorithm": "sha256(logical-hdf5-dataset-v1)",
+      "sha256": "fb39bfb323c3e0a9732cdc9ac2deb31df7608b3bd489e43a8c659a20d3e1274b",
+      "path": "/root/PyQCU/data/gauge_16x16x32x32_m0.05_seed42_c64.h5",
+      "dataset": "fi",
+      "shape": [
+        2,
+        4,
+        3,
+        16,
+        16,
+        32,
+        16
+      ],
+      "dtype": "complex64",
+      "file_size_bytes": 100665344,
+      "file_mtime_ns": 1789975565994643037,
+      "elapsed_seconds": 0.10051282600034028
+    },
+    "null_vectors": {
+      "algorithm": "sha256(logical-hdf5-dataset-v1)",
+      "sha256": "ce153e84d5f87caeab08c4e52df70ec5f9a22eb7cf7f545c5ba0a33dddd93176",
+      "path": "/root/PyQCU/data/L16x16x32x32_nvec12_full_c64.h5",
+      "dataset": "null",
+      "shape": [
+        12,
+        4,
+        3,
+        16,
+        16,
+        32,
+        32
+      ],
+      "dtype": "complex64",
+      "file_size_bytes": 302078864,
+      "file_mtime_ns": 1789978154266474409,
+      "elapsed_seconds": 1.2432718540076166
+    },
+    "bundle_hash": "b209cb0ba8fa798d561dc96698c9b3048aa26ffe62893ac4f72e59b3657d6370"
+  },
+  "collector": {
+    "path": "/root/PyQCU/pyqcu/testing/qcu/strict/quda_comparison/bench_strict_vs_quda.py",
+    "git": {
+      "commit": "33fe4f0935e5662351c4a190f7f913f391d498a9",
+      "dirty_tracked": true,
+      "repository": "/root/PyQCU"
+    },
+    "environment": {
+      "python": "3.10.12",
+      "executable": "/usr/bin/python",
+      "platform": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.35",
+      "hostname": "68bb03cf529b",
+      "env": {
+        "CUDA_VISIBLE_DEVICES": "0,1",
+        "QUDA_INSTALL": "/root/PyQCU/data/quda-sm60-install",
+        "QUDA_PATH": "/root/PyQCU/data/quda-sm60-install",
+        "QUDA_BUILD_DIR": "/root/PyQCU/data/quda-sm60-build-offline2",
+        "DEV87_REDUCE_SYNC": "1",
+        "QUDA_RESOURCE_PATH": "/root/PyQCU/data/quda-resource-sm60-20260927"
+      }
+    },
+    "timeout_seconds_per_side": 1800.0,
+    "resume": false,
+    "diagnostic_trace_environment": []
+  },
+  "sides": {
+    "pyqcu": {
+      "side": "pyqcu",
+      "status": "ok",
+      "reason": null,
+      "config_hash": "f50ef113541248b8392b5d175fff885b1031191fb1152e6dae3a066d56faa525",
+      "input_bundle_hash": "b209cb0ba8fa798d561dc96698c9b3048aa26ffe62893ac4f72e59b3657d6370",
+      "timing": {
+        "input_io_seconds": 0.2998159209964797,
+        "input_read_distributed": true,
+        "input_read_scope": "rank-sliced HDF5 hyperslab",
+        "runtime_init_seconds": 3.439105527999345,
+        "setup_seconds": 9.801196419997723,
+        "setup_mode": "runtime_cache_restore",
+        "setup_noncache_seconds": 2.2479254209902138,
+        "cache_restore_seconds": 7.553270999007509,
+        "cache_miss_probe_seconds": null,
+        "cache_persist_seconds": 0.0,
+        "warmups": [
+          {
+            "seconds": 13.100895636001951,
+            "iterations": 46,
+            "converged": true,
+            "true_residual_rel": 1.846556912305409e-08
+          },
+          {
+            "seconds": 10.373022764993948,
+            "iterations": 46,
+            "converged": true,
+            "true_residual_rel": 1.8148507866539118e-08
+          }
+        ],
+        "steady": {
+          "samples_seconds": [
+            10.249591300991597,
+            10.326357375000953,
+            10.402860205998877,
+            10.41086938099761,
+            10.190029119010433
+          ],
+          "median_seconds": 10.326357375000953,
+          "mad_seconds": 0.07676607400935609
+        },
+        "cold_seconds": 13.169838835005066,
+        "cold_setup_seconds": 9.859525036008563,
+        "cold_cache_persist_seconds": 0.0
+      },
+      "reference_solver": {
+        "kind": "bicgstab",
+        "implementation": "pyqcu.cuda.qcu.applyCloverBistabCgQcu",
+        "cold": {
+          "seconds": 7.512436540011549,
+          "true_residual_rel": 1.676727436827923e-08,
+          "iterations": 143
+        },
+        "warmups": [
+          {
+            "seconds": 7.539596520000487,
+            "true_residual_rel": 1.676727436827923e-08,
+            "iterations": 143
+          },
+          {
+            "seconds": 7.667014723003376,
+            "true_residual_rel": 1.676727436827923e-08,
+            "iterations": 143
+          }
+        ],
+        "steady": {
+          "samples_seconds": [
+            7.692860836003092,
+            7.721259104000637,
+            7.6113060810021125,
+            7.586078605003422,
+            7.630246465996606
+          ],
+          "median_seconds": 7.630246465996606,
+          "mad_seconds": 0.04416786099318415
+        },
+        "samples": [
+          {
+            "seconds": 7.692860836003092,
+            "true_residual_rel": 1.676727436827923e-08,
+            "iterations": 143
+          },
+          {
+            "seconds": 7.721259104000637,
+            "true_residual_rel": 1.676727436827923e-08,
+            "iterations": 143
+          },
+          {
+            "seconds": 7.6113060810021125,
+            "true_residual_rel": 1.676727436827923e-08,
+            "iterations": 143
+          },
+          {
+            "seconds": 7.586078605003422,
+            "true_residual_rel": 1.676727436827923e-08,
+            "iterations": 143
+          },
+          {
+            "seconds": 7.630246465996606,
+            "true_residual_rel": 1.676727436827923e-08,
+            "iterations": 143
+          }
+        ],
+        "true_residual_max_rel": 1.676727436827923e-08,
+        "iterations": {
+          "samples_seconds": [
+            143.0,
+            143.0,
+            143.0,
+            143.0,
+            143.0
+          ],
+          "median_seconds": 143.0,
+          "mad_seconds": 0.0
+        },
+        "excluded_from_speedup": true,
+        "phase_iterations": {
+          "cold": 143,
+          "warmups": [
+            143,
+            143
+          ],
+          "steady": [
+            143,
+            143,
+            143,
+            143,
+            143
+          ]
+        }
+      },
+      "iterations": {
+        "samples": [
+          46,
+          46,
+          46,
+          46,
+          46
+        ],
+        "min": 46,
+        "max": 46,
+        "median": 46.0
+      },
+      "mg_levels": [
+        {
+          "level": 0,
+          "total_seconds": 75.0062265139859,
+          "total_iterations": 230,
+          "pre_smoother_seconds": 0.0,
+          "post_smoother_seconds": 0.0,
+          "restriction_seconds": 0.0,
+          "prolongation_seconds": 0.0,
+          "coarse_solver_seconds": 0.0,
+          "timing_rank_index": 1,
+          "other_seconds": 75.0062265139859,
+          "pre_smoother_iterations": 0,
+          "post_smoother_iterations": 0,
+          "restriction_calls": 0,
+          "prolongation_calls": 0,
+          "recursive_solve_calls": 0,
+          "coarse_solver_iterations": 0,
+          "coarse_solver_calls": 0,
+          "smoother_iterations": 0,
+          "finest_iterations": 230,
+          "residual_sequence": [
+            {
+              "solve_index": 0,
+              "iteration": null,
+              "relative": 1.812975545923427e-08,
+              "kind": "case_true_residual"
+            },
+            {
+              "solve_index": 1,
+              "iteration": null,
+              "relative": 1.8214088964500934e-08,
+              "kind": "case_true_residual"
+            },
+            {
+              "solve_index": 2,
+              "iteration": null,
+              "relative": 1.7990462639212516e-08,
+              "kind": "case_true_residual"
+            },
+            {
+              "solve_index": 3,
+              "iteration": null,
+              "relative": 1.8002607243048662e-08,
+              "kind": "case_true_residual"
+            },
+            {
+              "solve_index": 4,
+              "iteration": null,
+              "relative": 1.833408214108695e-08,
+              "kind": "case_true_residual"
+            }
+          ],
+          "final_residual": 1.833408214108695e-08,
+          "rank_final_residuals": [
+            1.833408214108695e-08,
+            1.833408214108695e-08
+          ]
+        },
+        {
+          "level": 1,
+          "total_seconds": 0.0,
+          "total_iterations": 230,
+          "pre_smoother_seconds": 0.0,
+          "post_smoother_seconds": 0.0,
+          "restriction_seconds": 0.0,
+          "prolongation_seconds": 0.0,
+          "coarse_solver_seconds": 0.0,
+          "timing_rank_index": 0,
+          "other_seconds": 0.0,
+          "pre_smoother_iterations": 0,
+          "post_smoother_iterations": 0,
+          "restriction_calls": 0,
+          "prolongation_calls": 0,
+          "recursive_solve_calls": 0,
+          "coarse_solver_iterations": 0,
+          "coarse_solver_calls": 0,
+          "smoother_iterations": 0
+        },
+        {
+          "level": 2,
+          "total_seconds": 0.0,
+          "total_iterations": 230,
+          "pre_smoother_seconds": 0.0,
+          "post_smoother_seconds": 0.0,
+          "restriction_seconds": 0.0,
+          "prolongation_seconds": 0.0,
+          "coarse_solver_seconds": 0.0,
+          "timing_rank_index": 0,
+          "other_seconds": 0.0,
+          "pre_smoother_iterations": 0,
+          "post_smoother_iterations": 0,
+          "restriction_calls": 0,
+          "prolongation_calls": 0,
+          "recursive_solve_calls": 0,
+          "coarse_solver_iterations": 0,
+          "coarse_solver_calls": 0,
+          "smoother_iterations": 0
+        }
+      ],
+      "mg_levels_by_phase": {
+        "cold": [
+          {
+            "level": 0,
+            "total_seconds": 13.169838835005066,
+            "total_iterations": 47,
+            "pre_smoother_seconds": 0.0,
+            "post_smoother_seconds": 0.0,
+            "restriction_seconds": 0.0,
+            "prolongation_seconds": 0.0,
+            "coarse_solver_seconds": 0.0,
+            "timing_rank_index": 1,
+            "other_seconds": 13.169838835005066,
+            "pre_smoother_iterations": 0,
+            "post_smoother_iterations": 0,
+            "restriction_calls": 0,
+            "prolongation_calls": 0,
+            "recursive_solve_calls": 0,
+            "coarse_solver_iterations": 0,
+            "coarse_solver_calls": 0,
+            "smoother_iterations": 0,
+            "finest_iterations": 47,
+            "residual_sequence": [
+              {
+                "solve_index": 0,
+                "iteration": null,
+                "relative": 1.7972336158636633e-08,
+                "kind": "case_true_residual"
+              }
+            ],
+            "final_residual": 1.7972336158636633e-08,
+            "rank_final_residuals": [
+              1.7972336158636633e-08,
+              1.7972336158636633e-08
+            ]
+          },
+          {
+            "level": 1,
+            "total_seconds": 0.0,
+            "total_iterations": 47,
+            "pre_smoother_seconds": 0.0,
+            "post_smoother_seconds": 0.0,
+            "restriction_seconds": 0.0,
+            "prolongation_seconds": 0.0,
+            "coarse_solver_seconds": 0.0,
+            "timing_rank_index": 0,
+            "other_seconds": 0.0,
+            "pre_smoother_iterations": 0,
+            "post_smoother_iterations": 0,
+            "restriction_calls": 0,
+            "prolongation_calls": 0,
+            "recursive_solve_calls": 0,
+            "coarse_solver_iterations": 0,
+            "coarse_solver_calls": 0,
+            "smoother_iterations": 0
+          },
+          {
+            "level": 2,
+            "total_seconds": 0.0,
+            "total_iterations": 47,
+            "pre_smoother_seconds": 0.0,
+            "post_smoother_seconds": 0.0,
+            "restriction_seconds": 0.0,
+            "prolongation_seconds": 0.0,
+            "coarse_solver_seconds": 0.0,
+            "timing_rank_index": 0,
+            "other_seconds": 0.0,
+            "pre_smoother_iterations": 0,
+            "post_smoother_iterations": 0,
+            "restriction_calls": 0,
+            "prolongation_calls": 0,
+            "recursive_solve_calls": 0,
+            "coarse_solver_iterations": 0,
+            "coarse_solver_calls": 0,
+            "smoother_iterations": 0
+          }
+        ]
+      },
+      "iteration_semantics": "finest total_iterations is the outer right-preconditioned FGMRES total; smoother and coarse iterations are separate",
+      "iteration_kind": "outer_right_preconditioned_fgmres",
+      "iteration_scope": "finest-level outer FGMRES columns; smoother and coarse solver iterations are recorded separately in MG trace",
+      "converged_samples": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "converged": true,
+      "true_residual": {
+        "samples_rel": [
+          1.812975545923427e-08,
+          1.8214088964500934e-08,
+          1.7990462639212516e-08,
+          1.8002607243048662e-08,
+          1.833408214108695e-08
+        ],
+        "max_rel": 1.833408214108695e-08,
+        "gate": 5e-08,
+        "pass": true,
+        "untimed_probe_rel": 1.8228328705013628e-08,
+        "backend_schur_absolute_samples": [
+          1.2216487017727343e-05,
+          1.2611366046917509e-05,
+          1.1556158577973478e-05,
+          1.161586629561852e-05,
+          1.3146999052942026e-05
+        ]
+      },
+      "krylov": {
+        "requested_restart": 16,
+        "effective_restart": 16,
+        "max_krylov_bytes": 1073741824,
+        "effective_workspace_bytes": 471859200,
+        "workspace_formula": "(2m+5)B_f+2B_c",
+        "fine_vector_bytes": 12582912,
+        "coarse_vector_bytes": 3145728
+      },
+      "memory": {
+        "schema_version": 2,
+        "setup": {
+          "baseline": {
+            "allocated_bytes": 0,
+            "reserved_bytes": 0,
+            "nvidia_smi": {
+              "available": true,
+              "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+              "process_used_bytes": null,
+              "gpu_used_bytes": null,
+              "error": "no numeric sample"
+            }
+          },
+          "cuda_peak_allocated_bytes": 2572288512,
+          "cuda_peak_reserved_bytes": 3072327680,
+          "nvidia_smi": {
+            "available": true,
+            "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+            "process_used_bytes": null,
+            "gpu_used_bytes": null,
+            "error": "no numeric sample"
+          },
+          "device_wide_sampler": {
+            "available": true,
+            "scope": "device-wide cudaMemGetInfo; may include other processes",
+            "device": "cuda:0",
+            "unit": "bytes",
+            "interval_seconds": 0.01,
+            "duration_seconds": 9.801709047998884,
+            "sample_count": 908,
+            "device_total_bytes": 17179738112,
+            "device_used_initial_bytes": 1255014400,
+            "device_used_max_observed_bytes": 5136842752,
+            "join_timed_out": false,
+            "errors": []
+          },
+          "timing_semantics": "instrumented setup; sampler stop excluded from setup_seconds"
+        },
+        "first_solve": {
+          "excluded_from_formal_timing": true,
+          "seconds": 10.553244757000357,
+          "iterations": 46,
+          "converged": true,
+          "true_residual_rel": 1.846556912305409e-08,
+          "backend_final_true_residual": 1.3716262348465626e-05,
+          "fused_workspace_bytes": 471859200,
+          "memory": {
+            "cuda_peak_allocated_bytes": 2597454336,
+            "cuda_peak_reserved_bytes": 2615148544,
+            "nvidia_smi": {
+              "available": true,
+              "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+              "process_used_bytes": null,
+              "gpu_used_bytes": null,
+              "error": "no numeric sample"
+            },
+            "device_wide_sampler": {
+              "available": true,
+              "scope": "device-wide cudaMemGetInfo; may include other processes",
+              "device": "cuda:0",
+              "unit": "bytes",
+              "interval_seconds": 0.01,
+              "duration_seconds": 10.553573676006636,
+              "sample_count": 999,
+              "device_total_bytes": 17179738112,
+              "device_used_initial_bytes": 4698537984,
+              "device_used_max_observed_bytes": 5170397184,
+              "join_timed_out": false,
+              "errors": []
+            }
+          }
+        },
+        "steady": {
+          "baseline": {
+            "allocated_bytes": 2597454336,
+            "reserved_bytes": 5108662272,
+            "nvidia_smi": {
+              "available": true,
+              "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+              "process_used_bytes": null,
+              "gpu_used_bytes": null,
+              "error": "no numeric sample"
+            }
+          },
+          "cuda_peak_allocated_bytes": 2597454336,
+          "cuda_peak_reserved_bytes": 5108662272,
+          "nvidia_smi_process_max_observed_bytes": null,
+          "nvidia_smi_gpu_max_observed_bytes": null,
+          "samples": [
+            {
+              "cuda_peak_allocated_bytes": 2597454336,
+              "cuda_peak_reserved_bytes": 5108662272,
+              "nvidia_smi": {
+                "available": true,
+                "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+                "process_used_bytes": null,
+                "gpu_used_bytes": null,
+                "error": "no numeric sample"
+              },
+              "device_wide_sampler": null
+            },
+            {
+              "cuda_peak_allocated_bytes": 2597454336,
+              "cuda_peak_reserved_bytes": 5108662272,
+              "nvidia_smi": {
+                "available": true,
+                "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+                "process_used_bytes": null,
+                "gpu_used_bytes": null,
+                "error": "no numeric sample"
+              },
+              "device_wide_sampler": null
+            },
+            {
+              "cuda_peak_allocated_bytes": 2597454336,
+              "cuda_peak_reserved_bytes": 5108662272,
+              "nvidia_smi": {
+                "available": true,
+                "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+                "process_used_bytes": null,
+                "gpu_used_bytes": null,
+                "error": "no numeric sample"
+              },
+              "device_wide_sampler": null
+            },
+            {
+              "cuda_peak_allocated_bytes": 2597454336,
+              "cuda_peak_reserved_bytes": 5108662272,
+              "nvidia_smi": {
+                "available": true,
+                "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+                "process_used_bytes": null,
+                "gpu_used_bytes": null,
+                "error": "no numeric sample"
+              },
+              "device_wide_sampler": null
+            },
+            {
+              "cuda_peak_allocated_bytes": 2597454336,
+              "cuda_peak_reserved_bytes": 5108662272,
+              "nvidia_smi": {
+                "available": true,
+                "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+                "process_used_bytes": null,
+                "gpu_used_bytes": null,
+                "error": "no numeric sample"
+              },
+              "device_wide_sampler": null
+            }
+          ],
+          "snapshot_semantics": "nvidia-smi values are post-solve observations, not peaks",
+          "untimed_device_memory_probe": {
+            "cuda_peak_allocated_bytes": 2597454336,
+            "cuda_peak_reserved_bytes": 5108662272,
+            "nvidia_smi": {
+              "available": true,
+              "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+              "process_used_bytes": null,
+              "gpu_used_bytes": null,
+              "error": "no numeric sample"
+            },
+            "device_wide_sampler": {
+              "available": true,
+              "scope": "device-wide cudaMemGetInfo; may include other processes",
+              "device": "cuda:0",
+              "unit": "bytes",
+              "interval_seconds": 0.01,
+              "duration_seconds": 10.318044612009544,
+              "sample_count": 975,
+              "device_total_bytes": 17179738112,
+              "device_used_initial_bytes": 7663910912,
+              "device_used_max_observed_bytes": 7663910912,
+              "join_timed_out": false,
+              "errors": []
+            },
+            "excluded_from_formal_timing": true,
+            "iterations": 46,
+            "converged": true,
+            "true_residual_rel": 1.8228328705013628e-08
+          }
+        },
+        "strict_owned": {
+          "coarse_workspace_bytes": 277819404,
+          "fine_transfer_bytes": 603979776,
+          "coarse_asset_resident_bytes": 877658112,
+          "asset_resident_bytes": 1481637888,
+          "omitted_raw_bytes": 641728512,
+          "fused_workspace_bytes": 471859200,
+          "setup_release": {
+            "sealed": true,
+            "source": "strict_runtime_cache",
+            "allocator_released_bytes": 0,
+            "loaded_logical_bytes": 1481637888
+          }
+        }
+      },
+      "runtime_cache": {
+        "path": "/root/PyQCU/data/strict_cache_comprehensive_20260928/p100-c128-ext/pyqcu__p100__16x16x32x32__c128__l3__trace-off/strict_runtime_43aa15c0e96ea0df3c092c77.h5",
+        "identity_sha256": "43aa15c0e96ea0df3c092c7709f334408fa43e79c1c67290626bbd11a46eb689",
+        "hit": true,
+        "load_reason": "hit",
+        "load_detail": "schema/version/identity/shape/dtype/content digest 全部验证通过",
+        "load_seconds": 7.553270999007509,
+        "write": null,
+        "expectation": "hit",
+        "evidence": {
+          "schema": "pyqcu.strict-runtime-cache",
+          "schema_version": 2,
+          "path": "/root/PyQCU/data/strict_cache_comprehensive_20260928/p100-c128-ext/pyqcu__p100__16x16x32x32__c128__l3__trace-off/strict_runtime_43aa15c0e96ea0df3c092c77.h5",
+          "file_size_bytes": 1481657920,
+          "identity_sha256": "43aa15c0e96ea0df3c092c7709f334408fa43e79c1c67290626bbd11a46eb689",
+          "metadata_sha256": "a6fbce8b1b7b9310d421f5a8c36ff1625849a52f7ad7dc7adf87931eb773ceff",
+          "stats_sha256": "487b7ca5fb8780462806a5d2aaf0316b386f7716429d9318fa92c6f089cf4020",
+          "manifest_sha256": "7dcedddbf8246e9c8acb297f9b0a357384dd8e97697614eb5cbbcc4f70070873",
+          "tensor_count": 6,
+          "logical_bytes": 1481637888,
+          "tensor_digests": {
+            "assets/fine_blocked_v": {
+              "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+              "sha256": "2fc2732fe33a6f3c4281aef2ff1f1a7dc111a0e6a0f0856cc40e1517aa523f33",
+              "nbytes": 603979776
+            },
+            "assets/levels/0/onsite_pair": {
+              "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+              "sha256": "fd3bae40d31d7076e81dc46396a28c96be12f09d29efbe9ab55fbfff90dd7378",
+              "nbytes": 150994944
+            },
+            "assets/levels/0/preconditioned_links": {
+              "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+              "sha256": "bdcdcf74d293038dc90350368fa80791937f7d6092e4c98485d6cf3f9791fe3c",
+              "nbytes": 603979776
+            },
+            "assets/levels/1/null_vectors": {
+              "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+              "sha256": "649efa875aa076313b83cc9d68115f9528f33e02ef1688e7728c71fcd4ec13c6",
+              "nbytes": 75497472
+            },
+            "assets/levels/1/onsite_pair": {
+              "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+              "sha256": "b87d380b180c3cd92c1cb13cca56cf2bfd89ef01e4e9ca0010c3a527a0c7c2dc",
+              "nbytes": 9437184
+            },
+            "assets/levels/1/preconditioned_links": {
+              "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+              "sha256": "5ec4dacb79c97fe9bda921057497df6ca2348bed58fcdbb02fa442b682032c25",
+              "nbytes": 37748736
+            }
+          }
+        },
+        "build_contract": {
+          "validation": "cache assets must match requested geometry; construction batching is provenance only",
+          "requested_setup": {
+            "column_batch_size": 1,
+            "max_workspace_bytes": 1073741824,
+            "probe_mode": "colored",
+            "projection_site_batch_size": 4,
+            "require_exact_batch": true,
+            "workspace_four_arena_lower_bound_bytes": 201326592
+          },
+          "cached_setup_stats": [
+            {
+              "block_dtype": "torch.complex128",
+              "coarse_dof": 24,
+              "coarse_sites": 16384,
+              "color_sizes": [
+                1024,
+                1024,
+                1024,
+                1024,
+                1024,
+                1024,
+                1024,
+                1024,
+                1024,
+                1024,
+                1024,
+                1024,
+                1024,
+                1024,
+                1024,
+                1024
+              ],
+              "column_batch_size": 4,
+              "effective_probe_mode": "colored",
+              "elapsed_seconds": 77.2740322430036,
+              "fine_dof": 12,
+              "max_workspace_bytes": 1073741824,
+              "memory": {
+                "aggregate_volume": 16,
+                "cache_bytes": 1358954496,
+                "canonical_blocks": 9,
+                "coarse_volume": 8192,
+                "column_batch_size": 4,
+                "fine_volume": 131072,
+                "operator_calls": 96,
+                "packed_asset_bytes": 754974720,
+                "packed_asset_elements": 47185920,
+                "projection_site_batch_size": 16,
+                "retained_block_bytes": 0,
+                "retained_block_elements": 0,
+                "source_colors": 16,
+                "support_points": 9,
+                "transfer_bytes": 603979776,
+                "transfer_elements": 37748736,
+                "workspace_upper_bytes": 416309248
+              },
+              "operator_calls": 96,
+              "probe_mode": "colored",
+              "projection_site_batch_size": 16,
+              "requested_column_batch_size": 4,
+              "requested_probe_mode": "colored",
+              "requested_projection_site_batch_size": 16,
+              "scalar_columns": 393216,
+              "source_colors": 16,
+              "support_checked": true,
+              "support_points": 9,
+              "worst_fine_support_leakage": 0.0,
+              "worst_image_scale": 0.42919640894331934
+            },
+            {
+              "block_dtype": "torch.complex128",
+              "coarse_dof": 24,
+              "coarse_sites": 1024,
+              "color_sizes": [
+                64,
+                64,
+                64,
+                64,
+                64,
+                64,
+                64,
+                64,
+                64,
+                64,
+                64,
+                64,
+                64,
+                64,
+                64,
+                64
+              ],
+              "column_batch_size": 4,
+              "effective_probe_mode": "colored",
+              "elapsed_seconds": 23.701654838994727,
+              "fine_dof": 24,
+              "max_workspace_bytes": 1073741824,
+              "memory": {
+                "aggregate_volume": 16,
+                "cache_bytes": 122683392,
+                "canonical_blocks": 9,
+                "coarse_volume": 512,
+                "column_batch_size": 4,
+                "fine_volume": 8192,
+                "operator_calls": 96,
+                "packed_asset_bytes": 47185920,
+                "packed_asset_elements": 2949120,
+                "projection_site_batch_size": 16,
+                "retained_block_bytes": 0,
+                "retained_block_elements": 0,
+                "source_colors": 16,
+                "support_points": 9,
+                "transfer_bytes": 75497472,
+                "transfer_elements": 4718592,
+                "workspace_upper_bytes": 75390976
+              },
+              "operator_calls": 96,
+              "probe_mode": "colored",
+              "projection_site_batch_size": 16,
+              "requested_column_batch_size": 4,
+              "requested_probe_mode": "colored",
+              "requested_projection_site_batch_size": 16,
+              "scalar_columns": 24576,
+              "source_colors": 16,
+              "support_checked": true,
+              "support_points": 9,
+              "worst_fine_support_leakage": 0.0,
+              "worst_image_scale": 0.34789489360297127
+            }
+          ]
+        },
+        "ranks": [
+          {
+            "rank": 0,
+            "path": "/root/PyQCU/data/strict_cache_comprehensive_20260928/p100-c128-ext/pyqcu__p100__16x16x32x32__c128__l3__trace-off/strict_runtime_43aa15c0e96ea0df3c092c77.h5",
+            "hit": true,
+            "expectation": "hit",
+            "evidence": {
+              "schema": "pyqcu.strict-runtime-cache",
+              "schema_version": 2,
+              "path": "/root/PyQCU/data/strict_cache_comprehensive_20260928/p100-c128-ext/pyqcu__p100__16x16x32x32__c128__l3__trace-off/strict_runtime_43aa15c0e96ea0df3c092c77.h5",
+              "file_size_bytes": 1481657920,
+              "identity_sha256": "43aa15c0e96ea0df3c092c7709f334408fa43e79c1c67290626bbd11a46eb689",
+              "metadata_sha256": "a6fbce8b1b7b9310d421f5a8c36ff1625849a52f7ad7dc7adf87931eb773ceff",
+              "stats_sha256": "487b7ca5fb8780462806a5d2aaf0316b386f7716429d9318fa92c6f089cf4020",
+              "manifest_sha256": "7dcedddbf8246e9c8acb297f9b0a357384dd8e97697614eb5cbbcc4f70070873",
+              "tensor_count": 6,
+              "logical_bytes": 1481637888,
+              "tensor_digests": {
+                "assets/fine_blocked_v": {
+                  "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                  "sha256": "2fc2732fe33a6f3c4281aef2ff1f1a7dc111a0e6a0f0856cc40e1517aa523f33",
+                  "nbytes": 603979776
+                },
+                "assets/levels/0/onsite_pair": {
+                  "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                  "sha256": "fd3bae40d31d7076e81dc46396a28c96be12f09d29efbe9ab55fbfff90dd7378",
+                  "nbytes": 150994944
+                },
+                "assets/levels/0/preconditioned_links": {
+                  "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                  "sha256": "bdcdcf74d293038dc90350368fa80791937f7d6092e4c98485d6cf3f9791fe3c",
+                  "nbytes": 603979776
+                },
+                "assets/levels/1/null_vectors": {
+                  "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                  "sha256": "649efa875aa076313b83cc9d68115f9528f33e02ef1688e7728c71fcd4ec13c6",
+                  "nbytes": 75497472
+                },
+                "assets/levels/1/onsite_pair": {
+                  "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                  "sha256": "b87d380b180c3cd92c1cb13cca56cf2bfd89ef01e4e9ca0010c3a527a0c7c2dc",
+                  "nbytes": 9437184
+                },
+                "assets/levels/1/preconditioned_links": {
+                  "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                  "sha256": "5ec4dacb79c97fe9bda921057497df6ca2348bed58fcdbb02fa442b682032c25",
+                  "nbytes": 37748736
+                }
+              }
+            }
+          },
+          {
+            "rank": 1,
+            "path": "/root/PyQCU/data/strict_cache_comprehensive_20260928/p100-c128-ext/pyqcu__p100__16x16x32x32__c128__l3__trace-off/strict_runtime_0b5d0c7e90b1082f25603eea.h5",
+            "hit": true,
+            "expectation": "hit",
+            "evidence": {
+              "schema": "pyqcu.strict-runtime-cache",
+              "schema_version": 2,
+              "path": "/root/PyQCU/data/strict_cache_comprehensive_20260928/p100-c128-ext/pyqcu__p100__16x16x32x32__c128__l3__trace-off/strict_runtime_0b5d0c7e90b1082f25603eea.h5",
+              "file_size_bytes": 1481657920,
+              "identity_sha256": "0b5d0c7e90b1082f25603eea39d3c9343ae6f035ec8ab0df52b80d5903a4c009",
+              "metadata_sha256": "a6fbce8b1b7b9310d421f5a8c36ff1625849a52f7ad7dc7adf87931eb773ceff",
+              "stats_sha256": "bc972ca662112489e1cf0ddc31d03504c2795f043011579e230ca55c7c46bb53",
+              "manifest_sha256": "15b727b7859d8c059d9ded1f371573903c6b1917fa65ebe6e37569760272dc20",
+              "tensor_count": 6,
+              "logical_bytes": 1481637888,
+              "tensor_digests": {
+                "assets/fine_blocked_v": {
+                  "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                  "sha256": "daa521b116ee520ccbd4d42c8f06e8c69bd9eefed36fd8ab91cdad724685d877",
+                  "nbytes": 603979776
+                },
+                "assets/levels/0/onsite_pair": {
+                  "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                  "sha256": "05739d9aa66a685a6c316d88488798964e9f78aade3f611d5721a99293db84e1",
+                  "nbytes": 150994944
+                },
+                "assets/levels/0/preconditioned_links": {
+                  "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                  "sha256": "db755101be76d08a8ed8f2b1d47ca4488a0f2d424be8edef704db0850cb088df",
+                  "nbytes": 603979776
+                },
+                "assets/levels/1/null_vectors": {
+                  "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                  "sha256": "00a7ed39b2db3a26ae0ec26c25a5ba8599900020f67123ef7959a4db9d6f48d8",
+                  "nbytes": 75497472
+                },
+                "assets/levels/1/onsite_pair": {
+                  "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                  "sha256": "71919274824bfc95f8a106ec0eee1b1c4db34aaf0a2751e360c2d3563ef2ce1c",
+                  "nbytes": 9437184
+                },
+                "assets/levels/1/preconditioned_links": {
+                  "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                  "sha256": "8609528508d172279cc6c987b4a6b1e4457e11f779034b3d420eaf3a91e51aeb",
+                  "nbytes": 37748736
+                }
+              }
+            }
+          }
+        ],
+        "cold": {
+          "path": "/root/PyQCU/data/strict_cache_comprehensive_20260928/p100-c128-ext/pyqcu__p100__16x16x32x32__c128__l3__trace-off/strict_runtime_43aa15c0e96ea0df3c092c77.h5",
+          "identity_sha256": "43aa15c0e96ea0df3c092c7709f334408fa43e79c1c67290626bbd11a46eb689",
+          "hit": true,
+          "load_reason": "hit",
+          "load_detail": "schema/version/identity/shape/dtype/content digest 全部验证通过",
+          "load_seconds": 7.584100773994578,
+          "write": null,
+          "expectation": "hit",
+          "evidence": {
+            "schema": "pyqcu.strict-runtime-cache",
+            "schema_version": 2,
+            "path": "/root/PyQCU/data/strict_cache_comprehensive_20260928/p100-c128-ext/pyqcu__p100__16x16x32x32__c128__l3__trace-off/strict_runtime_43aa15c0e96ea0df3c092c77.h5",
+            "file_size_bytes": 1481657920,
+            "identity_sha256": "43aa15c0e96ea0df3c092c7709f334408fa43e79c1c67290626bbd11a46eb689",
+            "metadata_sha256": "a6fbce8b1b7b9310d421f5a8c36ff1625849a52f7ad7dc7adf87931eb773ceff",
+            "stats_sha256": "487b7ca5fb8780462806a5d2aaf0316b386f7716429d9318fa92c6f089cf4020",
+            "manifest_sha256": "7dcedddbf8246e9c8acb297f9b0a357384dd8e97697614eb5cbbcc4f70070873",
+            "tensor_count": 6,
+            "logical_bytes": 1481637888,
+            "tensor_digests": {
+              "assets/fine_blocked_v": {
+                "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                "sha256": "2fc2732fe33a6f3c4281aef2ff1f1a7dc111a0e6a0f0856cc40e1517aa523f33",
+                "nbytes": 603979776
+              },
+              "assets/levels/0/onsite_pair": {
+                "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                "sha256": "fd3bae40d31d7076e81dc46396a28c96be12f09d29efbe9ab55fbfff90dd7378",
+                "nbytes": 150994944
+              },
+              "assets/levels/0/preconditioned_links": {
+                "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                "sha256": "bdcdcf74d293038dc90350368fa80791937f7d6092e4c98485d6cf3f9791fe3c",
+                "nbytes": 603979776
+              },
+              "assets/levels/1/null_vectors": {
+                "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                "sha256": "649efa875aa076313b83cc9d68115f9528f33e02ef1688e7728c71fcd4ec13c6",
+                "nbytes": 75497472
+              },
+              "assets/levels/1/onsite_pair": {
+                "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                "sha256": "b87d380b180c3cd92c1cb13cca56cf2bfd89ef01e4e9ca0010c3a527a0c7c2dc",
+                "nbytes": 9437184
+              },
+              "assets/levels/1/preconditioned_links": {
+                "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                "sha256": "5ec4dacb79c97fe9bda921057497df6ca2348bed58fcdbb02fa442b682032c25",
+                "nbytes": 37748736
+              }
+            }
+          },
+          "build_contract": {
+            "validation": "cache assets must match requested geometry; construction batching is provenance only",
+            "requested_setup": {
+              "column_batch_size": 1,
+              "max_workspace_bytes": 1073741824,
+              "probe_mode": "colored",
+              "projection_site_batch_size": 4,
+              "require_exact_batch": true,
+              "workspace_four_arena_lower_bound_bytes": 201326592
+            },
+            "cached_setup_stats": [
+              {
+                "block_dtype": "torch.complex128",
+                "coarse_dof": 24,
+                "coarse_sites": 16384,
+                "color_sizes": [
+                  1024,
+                  1024,
+                  1024,
+                  1024,
+                  1024,
+                  1024,
+                  1024,
+                  1024,
+                  1024,
+                  1024,
+                  1024,
+                  1024,
+                  1024,
+                  1024,
+                  1024,
+                  1024
+                ],
+                "column_batch_size": 4,
+                "effective_probe_mode": "colored",
+                "elapsed_seconds": 77.2740322430036,
+                "fine_dof": 12,
+                "max_workspace_bytes": 1073741824,
+                "memory": {
+                  "aggregate_volume": 16,
+                  "cache_bytes": 1358954496,
+                  "canonical_blocks": 9,
+                  "coarse_volume": 8192,
+                  "column_batch_size": 4,
+                  "fine_volume": 131072,
+                  "operator_calls": 96,
+                  "packed_asset_bytes": 754974720,
+                  "packed_asset_elements": 47185920,
+                  "projection_site_batch_size": 16,
+                  "retained_block_bytes": 0,
+                  "retained_block_elements": 0,
+                  "source_colors": 16,
+                  "support_points": 9,
+                  "transfer_bytes": 603979776,
+                  "transfer_elements": 37748736,
+                  "workspace_upper_bytes": 416309248
+                },
+                "operator_calls": 96,
+                "probe_mode": "colored",
+                "projection_site_batch_size": 16,
+                "requested_column_batch_size": 4,
+                "requested_probe_mode": "colored",
+                "requested_projection_site_batch_size": 16,
+                "scalar_columns": 393216,
+                "source_colors": 16,
+                "support_checked": true,
+                "support_points": 9,
+                "worst_fine_support_leakage": 0.0,
+                "worst_image_scale": 0.42919640894331934
+              },
+              {
+                "block_dtype": "torch.complex128",
+                "coarse_dof": 24,
+                "coarse_sites": 1024,
+                "color_sizes": [
+                  64,
+                  64,
+                  64,
+                  64,
+                  64,
+                  64,
+                  64,
+                  64,
+                  64,
+                  64,
+                  64,
+                  64,
+                  64,
+                  64,
+                  64,
+                  64
+                ],
+                "column_batch_size": 4,
+                "effective_probe_mode": "colored",
+                "elapsed_seconds": 23.701654838994727,
+                "fine_dof": 24,
+                "max_workspace_bytes": 1073741824,
+                "memory": {
+                  "aggregate_volume": 16,
+                  "cache_bytes": 122683392,
+                  "canonical_blocks": 9,
+                  "coarse_volume": 512,
+                  "column_batch_size": 4,
+                  "fine_volume": 8192,
+                  "operator_calls": 96,
+                  "packed_asset_bytes": 47185920,
+                  "packed_asset_elements": 2949120,
+                  "projection_site_batch_size": 16,
+                  "retained_block_bytes": 0,
+                  "retained_block_elements": 0,
+                  "source_colors": 16,
+                  "support_points": 9,
+                  "transfer_bytes": 75497472,
+                  "transfer_elements": 4718592,
+                  "workspace_upper_bytes": 75390976
+                },
+                "operator_calls": 96,
+                "probe_mode": "colored",
+                "projection_site_batch_size": 16,
+                "requested_column_batch_size": 4,
+                "requested_probe_mode": "colored",
+                "requested_projection_site_batch_size": 16,
+                "scalar_columns": 24576,
+                "source_colors": 16,
+                "support_checked": true,
+                "support_points": 9,
+                "worst_fine_support_leakage": 0.0,
+                "worst_image_scale": 0.34789489360297127
+              }
+            ]
+          },
+          "ranks": [
+            {
+              "rank": 0,
+              "path": "/root/PyQCU/data/strict_cache_comprehensive_20260928/p100-c128-ext/pyqcu__p100__16x16x32x32__c128__l3__trace-off/strict_runtime_43aa15c0e96ea0df3c092c77.h5",
+              "hit": true,
+              "expectation": "hit",
+              "evidence": {
+                "schema": "pyqcu.strict-runtime-cache",
+                "schema_version": 2,
+                "path": "/root/PyQCU/data/strict_cache_comprehensive_20260928/p100-c128-ext/pyqcu__p100__16x16x32x32__c128__l3__trace-off/strict_runtime_43aa15c0e96ea0df3c092c77.h5",
+                "file_size_bytes": 1481657920,
+                "identity_sha256": "43aa15c0e96ea0df3c092c7709f334408fa43e79c1c67290626bbd11a46eb689",
+                "metadata_sha256": "a6fbce8b1b7b9310d421f5a8c36ff1625849a52f7ad7dc7adf87931eb773ceff",
+                "stats_sha256": "487b7ca5fb8780462806a5d2aaf0316b386f7716429d9318fa92c6f089cf4020",
+                "manifest_sha256": "7dcedddbf8246e9c8acb297f9b0a357384dd8e97697614eb5cbbcc4f70070873",
+                "tensor_count": 6,
+                "logical_bytes": 1481637888,
+                "tensor_digests": {
+                  "assets/fine_blocked_v": {
+                    "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                    "sha256": "2fc2732fe33a6f3c4281aef2ff1f1a7dc111a0e6a0f0856cc40e1517aa523f33",
+                    "nbytes": 603979776
+                  },
+                  "assets/levels/0/onsite_pair": {
+                    "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                    "sha256": "fd3bae40d31d7076e81dc46396a28c96be12f09d29efbe9ab55fbfff90dd7378",
+                    "nbytes": 150994944
+                  },
+                  "assets/levels/0/preconditioned_links": {
+                    "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                    "sha256": "bdcdcf74d293038dc90350368fa80791937f7d6092e4c98485d6cf3f9791fe3c",
+                    "nbytes": 603979776
+                  },
+                  "assets/levels/1/null_vectors": {
+                    "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                    "sha256": "649efa875aa076313b83cc9d68115f9528f33e02ef1688e7728c71fcd4ec13c6",
+                    "nbytes": 75497472
+                  },
+                  "assets/levels/1/onsite_pair": {
+                    "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                    "sha256": "b87d380b180c3cd92c1cb13cca56cf2bfd89ef01e4e9ca0010c3a527a0c7c2dc",
+                    "nbytes": 9437184
+                  },
+                  "assets/levels/1/preconditioned_links": {
+                    "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                    "sha256": "5ec4dacb79c97fe9bda921057497df6ca2348bed58fcdbb02fa442b682032c25",
+                    "nbytes": 37748736
+                  }
+                }
+              }
+            },
+            {
+              "rank": 1,
+              "path": "/root/PyQCU/data/strict_cache_comprehensive_20260928/p100-c128-ext/pyqcu__p100__16x16x32x32__c128__l3__trace-off/strict_runtime_0b5d0c7e90b1082f25603eea.h5",
+              "hit": true,
+              "expectation": "hit",
+              "evidence": {
+                "schema": "pyqcu.strict-runtime-cache",
+                "schema_version": 2,
+                "path": "/root/PyQCU/data/strict_cache_comprehensive_20260928/p100-c128-ext/pyqcu__p100__16x16x32x32__c128__l3__trace-off/strict_runtime_0b5d0c7e90b1082f25603eea.h5",
+                "file_size_bytes": 1481657920,
+                "identity_sha256": "0b5d0c7e90b1082f25603eea39d3c9343ae6f035ec8ab0df52b80d5903a4c009",
+                "metadata_sha256": "a6fbce8b1b7b9310d421f5a8c36ff1625849a52f7ad7dc7adf87931eb773ceff",
+                "stats_sha256": "bc972ca662112489e1cf0ddc31d03504c2795f043011579e230ca55c7c46bb53",
+                "manifest_sha256": "15b727b7859d8c059d9ded1f371573903c6b1917fa65ebe6e37569760272dc20",
+                "tensor_count": 6,
+                "logical_bytes": 1481637888,
+                "tensor_digests": {
+                  "assets/fine_blocked_v": {
+                    "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                    "sha256": "daa521b116ee520ccbd4d42c8f06e8c69bd9eefed36fd8ab91cdad724685d877",
+                    "nbytes": 603979776
+                  },
+                  "assets/levels/0/onsite_pair": {
+                    "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                    "sha256": "05739d9aa66a685a6c316d88488798964e9f78aade3f611d5721a99293db84e1",
+                    "nbytes": 150994944
+                  },
+                  "assets/levels/0/preconditioned_links": {
+                    "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                    "sha256": "db755101be76d08a8ed8f2b1d47ca4488a0f2d424be8edef704db0850cb088df",
+                    "nbytes": 603979776
+                  },
+                  "assets/levels/1/null_vectors": {
+                    "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                    "sha256": "00a7ed39b2db3a26ae0ec26c25a5ba8599900020f67123ef7959a4db9d6f48d8",
+                    "nbytes": 75497472
+                  },
+                  "assets/levels/1/onsite_pair": {
+                    "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                    "sha256": "71919274824bfc95f8a106ec0eee1b1c4db34aaf0a2751e360c2d3563ef2ce1c",
+                    "nbytes": 9437184
+                  },
+                  "assets/levels/1/preconditioned_links": {
+                    "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                    "sha256": "8609528508d172279cc6c987b4a6b1e4457e11f779034b3d420eaf3a91e51aeb",
+                    "nbytes": 37748736
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "steady": {
+          "path": "/root/PyQCU/data/strict_cache_comprehensive_20260928/p100-c128-ext/pyqcu__p100__16x16x32x32__c128__l3__trace-off/strict_runtime_43aa15c0e96ea0df3c092c77.h5",
+          "identity_sha256": "43aa15c0e96ea0df3c092c7709f334408fa43e79c1c67290626bbd11a46eb689",
+          "hit": true,
+          "load_reason": "hit",
+          "load_detail": "schema/version/identity/shape/dtype/content digest 全部验证通过",
+          "load_seconds": 7.553270999007509,
+          "write": null,
+          "expectation": "hit",
+          "evidence": {
+            "schema": "pyqcu.strict-runtime-cache",
+            "schema_version": 2,
+            "path": "/root/PyQCU/data/strict_cache_comprehensive_20260928/p100-c128-ext/pyqcu__p100__16x16x32x32__c128__l3__trace-off/strict_runtime_43aa15c0e96ea0df3c092c77.h5",
+            "file_size_bytes": 1481657920,
+            "identity_sha256": "43aa15c0e96ea0df3c092c7709f334408fa43e79c1c67290626bbd11a46eb689",
+            "metadata_sha256": "a6fbce8b1b7b9310d421f5a8c36ff1625849a52f7ad7dc7adf87931eb773ceff",
+            "stats_sha256": "487b7ca5fb8780462806a5d2aaf0316b386f7716429d9318fa92c6f089cf4020",
+            "manifest_sha256": "7dcedddbf8246e9c8acb297f9b0a357384dd8e97697614eb5cbbcc4f70070873",
+            "tensor_count": 6,
+            "logical_bytes": 1481637888,
+            "tensor_digests": {
+              "assets/fine_blocked_v": {
+                "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                "sha256": "2fc2732fe33a6f3c4281aef2ff1f1a7dc111a0e6a0f0856cc40e1517aa523f33",
+                "nbytes": 603979776
+              },
+              "assets/levels/0/onsite_pair": {
+                "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                "sha256": "fd3bae40d31d7076e81dc46396a28c96be12f09d29efbe9ab55fbfff90dd7378",
+                "nbytes": 150994944
+              },
+              "assets/levels/0/preconditioned_links": {
+                "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                "sha256": "bdcdcf74d293038dc90350368fa80791937f7d6092e4c98485d6cf3f9791fe3c",
+                "nbytes": 603979776
+              },
+              "assets/levels/1/null_vectors": {
+                "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                "sha256": "649efa875aa076313b83cc9d68115f9528f33e02ef1688e7728c71fcd4ec13c6",
+                "nbytes": 75497472
+              },
+              "assets/levels/1/onsite_pair": {
+                "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                "sha256": "b87d380b180c3cd92c1cb13cca56cf2bfd89ef01e4e9ca0010c3a527a0c7c2dc",
+                "nbytes": 9437184
+              },
+              "assets/levels/1/preconditioned_links": {
+                "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                "sha256": "5ec4dacb79c97fe9bda921057497df6ca2348bed58fcdbb02fa442b682032c25",
+                "nbytes": 37748736
+              }
+            }
+          },
+          "build_contract": {
+            "validation": "cache assets must match requested geometry; construction batching is provenance only",
+            "requested_setup": {
+              "column_batch_size": 1,
+              "max_workspace_bytes": 1073741824,
+              "probe_mode": "colored",
+              "projection_site_batch_size": 4,
+              "require_exact_batch": true,
+              "workspace_four_arena_lower_bound_bytes": 201326592
+            },
+            "cached_setup_stats": [
+              {
+                "block_dtype": "torch.complex128",
+                "coarse_dof": 24,
+                "coarse_sites": 16384,
+                "color_sizes": [
+                  1024,
+                  1024,
+                  1024,
+                  1024,
+                  1024,
+                  1024,
+                  1024,
+                  1024,
+                  1024,
+                  1024,
+                  1024,
+                  1024,
+                  1024,
+                  1024,
+                  1024,
+                  1024
+                ],
+                "column_batch_size": 4,
+                "effective_probe_mode": "colored",
+                "elapsed_seconds": 77.2740322430036,
+                "fine_dof": 12,
+                "max_workspace_bytes": 1073741824,
+                "memory": {
+                  "aggregate_volume": 16,
+                  "cache_bytes": 1358954496,
+                  "canonical_blocks": 9,
+                  "coarse_volume": 8192,
+                  "column_batch_size": 4,
+                  "fine_volume": 131072,
+                  "operator_calls": 96,
+                  "packed_asset_bytes": 754974720,
+                  "packed_asset_elements": 47185920,
+                  "projection_site_batch_size": 16,
+                  "retained_block_bytes": 0,
+                  "retained_block_elements": 0,
+                  "source_colors": 16,
+                  "support_points": 9,
+                  "transfer_bytes": 603979776,
+                  "transfer_elements": 37748736,
+                  "workspace_upper_bytes": 416309248
+                },
+                "operator_calls": 96,
+                "probe_mode": "colored",
+                "projection_site_batch_size": 16,
+                "requested_column_batch_size": 4,
+                "requested_probe_mode": "colored",
+                "requested_projection_site_batch_size": 16,
+                "scalar_columns": 393216,
+                "source_colors": 16,
+                "support_checked": true,
+                "support_points": 9,
+                "worst_fine_support_leakage": 0.0,
+                "worst_image_scale": 0.42919640894331934
+              },
+              {
+                "block_dtype": "torch.complex128",
+                "coarse_dof": 24,
+                "coarse_sites": 1024,
+                "color_sizes": [
+                  64,
+                  64,
+                  64,
+                  64,
+                  64,
+                  64,
+                  64,
+                  64,
+                  64,
+                  64,
+                  64,
+                  64,
+                  64,
+                  64,
+                  64,
+                  64
+                ],
+                "column_batch_size": 4,
+                "effective_probe_mode": "colored",
+                "elapsed_seconds": 23.701654838994727,
+                "fine_dof": 24,
+                "max_workspace_bytes": 1073741824,
+                "memory": {
+                  "aggregate_volume": 16,
+                  "cache_bytes": 122683392,
+                  "canonical_blocks": 9,
+                  "coarse_volume": 512,
+                  "column_batch_size": 4,
+                  "fine_volume": 8192,
+                  "operator_calls": 96,
+                  "packed_asset_bytes": 47185920,
+                  "packed_asset_elements": 2949120,
+                  "projection_site_batch_size": 16,
+                  "retained_block_bytes": 0,
+                  "retained_block_elements": 0,
+                  "source_colors": 16,
+                  "support_points": 9,
+                  "transfer_bytes": 75497472,
+                  "transfer_elements": 4718592,
+                  "workspace_upper_bytes": 75390976
+                },
+                "operator_calls": 96,
+                "probe_mode": "colored",
+                "projection_site_batch_size": 16,
+                "requested_column_batch_size": 4,
+                "requested_probe_mode": "colored",
+                "requested_projection_site_batch_size": 16,
+                "scalar_columns": 24576,
+                "source_colors": 16,
+                "support_checked": true,
+                "support_points": 9,
+                "worst_fine_support_leakage": 0.0,
+                "worst_image_scale": 0.34789489360297127
+              }
+            ]
+          },
+          "ranks": [
+            {
+              "rank": 0,
+              "path": "/root/PyQCU/data/strict_cache_comprehensive_20260928/p100-c128-ext/pyqcu__p100__16x16x32x32__c128__l3__trace-off/strict_runtime_43aa15c0e96ea0df3c092c77.h5",
+              "hit": true,
+              "expectation": "hit",
+              "evidence": {
+                "schema": "pyqcu.strict-runtime-cache",
+                "schema_version": 2,
+                "path": "/root/PyQCU/data/strict_cache_comprehensive_20260928/p100-c128-ext/pyqcu__p100__16x16x32x32__c128__l3__trace-off/strict_runtime_43aa15c0e96ea0df3c092c77.h5",
+                "file_size_bytes": 1481657920,
+                "identity_sha256": "43aa15c0e96ea0df3c092c7709f334408fa43e79c1c67290626bbd11a46eb689",
+                "metadata_sha256": "a6fbce8b1b7b9310d421f5a8c36ff1625849a52f7ad7dc7adf87931eb773ceff",
+                "stats_sha256": "487b7ca5fb8780462806a5d2aaf0316b386f7716429d9318fa92c6f089cf4020",
+                "manifest_sha256": "7dcedddbf8246e9c8acb297f9b0a357384dd8e97697614eb5cbbcc4f70070873",
+                "tensor_count": 6,
+                "logical_bytes": 1481637888,
+                "tensor_digests": {
+                  "assets/fine_blocked_v": {
+                    "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                    "sha256": "2fc2732fe33a6f3c4281aef2ff1f1a7dc111a0e6a0f0856cc40e1517aa523f33",
+                    "nbytes": 603979776
+                  },
+                  "assets/levels/0/onsite_pair": {
+                    "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                    "sha256": "fd3bae40d31d7076e81dc46396a28c96be12f09d29efbe9ab55fbfff90dd7378",
+                    "nbytes": 150994944
+                  },
+                  "assets/levels/0/preconditioned_links": {
+                    "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                    "sha256": "bdcdcf74d293038dc90350368fa80791937f7d6092e4c98485d6cf3f9791fe3c",
+                    "nbytes": 603979776
+                  },
+                  "assets/levels/1/null_vectors": {
+                    "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                    "sha256": "649efa875aa076313b83cc9d68115f9528f33e02ef1688e7728c71fcd4ec13c6",
+                    "nbytes": 75497472
+                  },
+                  "assets/levels/1/onsite_pair": {
+                    "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                    "sha256": "b87d380b180c3cd92c1cb13cca56cf2bfd89ef01e4e9ca0010c3a527a0c7c2dc",
+                    "nbytes": 9437184
+                  },
+                  "assets/levels/1/preconditioned_links": {
+                    "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                    "sha256": "5ec4dacb79c97fe9bda921057497df6ca2348bed58fcdbb02fa442b682032c25",
+                    "nbytes": 37748736
+                  }
+                }
+              }
+            },
+            {
+              "rank": 1,
+              "path": "/root/PyQCU/data/strict_cache_comprehensive_20260928/p100-c128-ext/pyqcu__p100__16x16x32x32__c128__l3__trace-off/strict_runtime_0b5d0c7e90b1082f25603eea.h5",
+              "hit": true,
+              "expectation": "hit",
+              "evidence": {
+                "schema": "pyqcu.strict-runtime-cache",
+                "schema_version": 2,
+                "path": "/root/PyQCU/data/strict_cache_comprehensive_20260928/p100-c128-ext/pyqcu__p100__16x16x32x32__c128__l3__trace-off/strict_runtime_0b5d0c7e90b1082f25603eea.h5",
+                "file_size_bytes": 1481657920,
+                "identity_sha256": "0b5d0c7e90b1082f25603eea39d3c9343ae6f035ec8ab0df52b80d5903a4c009",
+                "metadata_sha256": "a6fbce8b1b7b9310d421f5a8c36ff1625849a52f7ad7dc7adf87931eb773ceff",
+                "stats_sha256": "bc972ca662112489e1cf0ddc31d03504c2795f043011579e230ca55c7c46bb53",
+                "manifest_sha256": "15b727b7859d8c059d9ded1f371573903c6b1917fa65ebe6e37569760272dc20",
+                "tensor_count": 6,
+                "logical_bytes": 1481637888,
+                "tensor_digests": {
+                  "assets/fine_blocked_v": {
+                    "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                    "sha256": "daa521b116ee520ccbd4d42c8f06e8c69bd9eefed36fd8ab91cdad724685d877",
+                    "nbytes": 603979776
+                  },
+                  "assets/levels/0/onsite_pair": {
+                    "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                    "sha256": "05739d9aa66a685a6c316d88488798964e9f78aade3f611d5721a99293db84e1",
+                    "nbytes": 150994944
+                  },
+                  "assets/levels/0/preconditioned_links": {
+                    "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                    "sha256": "db755101be76d08a8ed8f2b1d47ca4488a0f2d424be8edef704db0850cb088df",
+                    "nbytes": 603979776
+                  },
+                  "assets/levels/1/null_vectors": {
+                    "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                    "sha256": "00a7ed39b2db3a26ae0ec26c25a5ba8599900020f67123ef7959a4db9d6f48d8",
+                    "nbytes": 75497472
+                  },
+                  "assets/levels/1/onsite_pair": {
+                    "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                    "sha256": "71919274824bfc95f8a106ec0eee1b1c4db34aaf0a2751e360c2d3563ef2ce1c",
+                    "nbytes": 9437184
+                  },
+                  "assets/levels/1/preconditioned_links": {
+                    "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                    "sha256": "8609528508d172279cc6c987b4a6b1e4457e11f779034b3d420eaf3a91e51aeb",
+                    "nbytes": 37748736
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "merge_inspection": {
+          "method": "inspect_strict_runtime_cache",
+          "device_transfer": false,
+          "verified": true,
+          "evidence": {
+            "schema": "pyqcu.strict-runtime-cache",
+            "schema_version": 2,
+            "path": "/root/PyQCU/data/strict_cache_comprehensive_20260928/p100-c128-ext/pyqcu__p100__16x16x32x32__c128__l3__trace-off/strict_runtime_43aa15c0e96ea0df3c092c77.h5",
+            "file_size_bytes": 1481657920,
+            "identity_sha256": "43aa15c0e96ea0df3c092c7709f334408fa43e79c1c67290626bbd11a46eb689",
+            "metadata_sha256": "a6fbce8b1b7b9310d421f5a8c36ff1625849a52f7ad7dc7adf87931eb773ceff",
+            "stats_sha256": "487b7ca5fb8780462806a5d2aaf0316b386f7716429d9318fa92c6f089cf4020",
+            "manifest_sha256": "7dcedddbf8246e9c8acb297f9b0a357384dd8e97697614eb5cbbcc4f70070873",
+            "tensor_count": 6,
+            "logical_bytes": 1481637888,
+            "tensor_digests": {
+              "assets/fine_blocked_v": {
+                "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                "sha256": "2fc2732fe33a6f3c4281aef2ff1f1a7dc111a0e6a0f0856cc40e1517aa523f33",
+                "nbytes": 603979776
+              },
+              "assets/levels/0/onsite_pair": {
+                "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                "sha256": "fd3bae40d31d7076e81dc46396a28c96be12f09d29efbe9ab55fbfff90dd7378",
+                "nbytes": 150994944
+              },
+              "assets/levels/0/preconditioned_links": {
+                "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                "sha256": "bdcdcf74d293038dc90350368fa80791937f7d6092e4c98485d6cf3f9791fe3c",
+                "nbytes": 603979776
+              },
+              "assets/levels/1/null_vectors": {
+                "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                "sha256": "649efa875aa076313b83cc9d68115f9528f33e02ef1688e7728c71fcd4ec13c6",
+                "nbytes": 75497472
+              },
+              "assets/levels/1/onsite_pair": {
+                "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                "sha256": "b87d380b180c3cd92c1cb13cca56cf2bfd89ef01e4e9ca0010c3a527a0c7c2dc",
+                "nbytes": 9437184
+              },
+              "assets/levels/1/preconditioned_links": {
+                "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                "sha256": "5ec4dacb79c97fe9bda921057497df6ca2348bed58fcdbb02fa442b682032c25",
+                "nbytes": 37748736
+              }
+            },
+            "rank_evidence": [
+              {
+                "schema": "pyqcu.strict-runtime-cache",
+                "schema_version": 2,
+                "path": "/root/PyQCU/data/strict_cache_comprehensive_20260928/p100-c128-ext/pyqcu__p100__16x16x32x32__c128__l3__trace-off/strict_runtime_43aa15c0e96ea0df3c092c77.h5",
+                "file_size_bytes": 1481657920,
+                "identity_sha256": "43aa15c0e96ea0df3c092c7709f334408fa43e79c1c67290626bbd11a46eb689",
+                "metadata_sha256": "a6fbce8b1b7b9310d421f5a8c36ff1625849a52f7ad7dc7adf87931eb773ceff",
+                "stats_sha256": "487b7ca5fb8780462806a5d2aaf0316b386f7716429d9318fa92c6f089cf4020",
+                "manifest_sha256": "7dcedddbf8246e9c8acb297f9b0a357384dd8e97697614eb5cbbcc4f70070873",
+                "tensor_count": 6,
+                "logical_bytes": 1481637888,
+                "tensor_digests": {
+                  "assets/fine_blocked_v": {
+                    "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                    "sha256": "2fc2732fe33a6f3c4281aef2ff1f1a7dc111a0e6a0f0856cc40e1517aa523f33",
+                    "nbytes": 603979776
+                  },
+                  "assets/levels/0/onsite_pair": {
+                    "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                    "sha256": "fd3bae40d31d7076e81dc46396a28c96be12f09d29efbe9ab55fbfff90dd7378",
+                    "nbytes": 150994944
+                  },
+                  "assets/levels/0/preconditioned_links": {
+                    "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                    "sha256": "bdcdcf74d293038dc90350368fa80791937f7d6092e4c98485d6cf3f9791fe3c",
+                    "nbytes": 603979776
+                  },
+                  "assets/levels/1/null_vectors": {
+                    "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                    "sha256": "649efa875aa076313b83cc9d68115f9528f33e02ef1688e7728c71fcd4ec13c6",
+                    "nbytes": 75497472
+                  },
+                  "assets/levels/1/onsite_pair": {
+                    "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                    "sha256": "b87d380b180c3cd92c1cb13cca56cf2bfd89ef01e4e9ca0010c3a527a0c7c2dc",
+                    "nbytes": 9437184
+                  },
+                  "assets/levels/1/preconditioned_links": {
+                    "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                    "sha256": "5ec4dacb79c97fe9bda921057497df6ca2348bed58fcdbb02fa442b682032c25",
+                    "nbytes": 37748736
+                  }
+                }
+              },
+              {
+                "schema": "pyqcu.strict-runtime-cache",
+                "schema_version": 2,
+                "path": "/root/PyQCU/data/strict_cache_comprehensive_20260928/p100-c128-ext/pyqcu__p100__16x16x32x32__c128__l3__trace-off/strict_runtime_0b5d0c7e90b1082f25603eea.h5",
+                "file_size_bytes": 1481657920,
+                "identity_sha256": "0b5d0c7e90b1082f25603eea39d3c9343ae6f035ec8ab0df52b80d5903a4c009",
+                "metadata_sha256": "a6fbce8b1b7b9310d421f5a8c36ff1625849a52f7ad7dc7adf87931eb773ceff",
+                "stats_sha256": "bc972ca662112489e1cf0ddc31d03504c2795f043011579e230ca55c7c46bb53",
+                "manifest_sha256": "15b727b7859d8c059d9ded1f371573903c6b1917fa65ebe6e37569760272dc20",
+                "tensor_count": 6,
+                "logical_bytes": 1481637888,
+                "tensor_digests": {
+                  "assets/fine_blocked_v": {
+                    "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                    "sha256": "daa521b116ee520ccbd4d42c8f06e8c69bd9eefed36fd8ab91cdad724685d877",
+                    "nbytes": 603979776
+                  },
+                  "assets/levels/0/onsite_pair": {
+                    "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                    "sha256": "05739d9aa66a685a6c316d88488798964e9f78aade3f611d5721a99293db84e1",
+                    "nbytes": 150994944
+                  },
+                  "assets/levels/0/preconditioned_links": {
+                    "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                    "sha256": "db755101be76d08a8ed8f2b1d47ca4488a0f2d424be8edef704db0850cb088df",
+                    "nbytes": 603979776
+                  },
+                  "assets/levels/1/null_vectors": {
+                    "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                    "sha256": "00a7ed39b2db3a26ae0ec26c25a5ba8599900020f67123ef7959a4db9d6f48d8",
+                    "nbytes": 75497472
+                  },
+                  "assets/levels/1/onsite_pair": {
+                    "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                    "sha256": "71919274824bfc95f8a106ec0eee1b1c4db34aaf0a2751e360c2d3563ef2ce1c",
+                    "nbytes": 9437184
+                  },
+                  "assets/levels/1/preconditioned_links": {
+                    "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                    "sha256": "8609528508d172279cc6c987b4a6b1e4457e11f779034b3d420eaf3a91e51aeb",
+                    "nbytes": 37748736
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "timing_boundary": {
+        "requested": "caller_preallocated",
+        "supported": true,
+        "formal_eligible": true,
+        "zero_initial_guess_before_timer": true,
+        "preserve_source": "not_applicable; PyQCU rhs is not mutated",
+        "timed_operation": "pyqcu.cuda.qcu.applyMultigridStrictFgmresQcu(output,rhs,...)",
+        "performance_call": "not applicable"
+      },
+      "provenance": {
+        "pyqcu_git": {
+          "commit": "33fe4f0935e5662351c4a190f7f913f391d498a9",
+          "dirty_tracked": true,
+          "repository": "/root/PyQCU"
+        },
+        "pyqcu_library": {
+          "path": "/root/PyQCU/data/build/libqcu_arch/sm60/libqcu.so",
+          "sha256": "e29c1cf04a57ec3b8af3208063456cab4db08c51abe0c04cece816e54d0c20e1",
+          "exists": true,
+          "requested_architectures": null,
+          "architectures": [
+            "sm_60"
+          ],
+          "listing_error": null
+        },
+        "quda_source_git": {
+          "commit": "33fe4f0935e5662351c4a190f7f913f391d498a9",
+          "dirty_tracked": true,
+          "repository": "/root/PyQCU/refer/git-rep/quda"
+        },
+        "quda_libraries": {
+          "libquda": {
+            "path": "/root/PyQCU/data/quda-sm60-install/lib/libquda.so",
+            "sha256": "dd1c8bac922c0d09099fd581e06b383001b17152f8fbc01baa305274ec0affab",
+            "exists": true
+          },
+          "libqmp": {
+            "path": "/root/PyQCU/data/quda-sm60-install/lib/libqmp.so",
+            "sha256": "7ee438b8dc053943198a53f66554bb55fd02e5c29065e2191747daacc337ae99",
+            "exists": true
+          }
+        },
+        "pyquda_module": {
+          "path": null,
+          "version": null
+        },
+        "cmake_features": {
+          "cache_path": "/root/PyQCU/data/quda-sm60-build-offline2/CMakeCache.txt",
+          "cache_sha256": "5ed5525f09e01770638409b72681e6cfba2f16663364312f9c82fb5340a64003",
+          "features": {
+            "QUDA_INTERFACE_QDP": true,
+            "QUDA_MULTIGRID_DOUBLE": true,
+            "QUDA_MULTIGRID_NVEC_LIST": "12,24",
+            "QUDA_PRECISION": 12,
+            "QUDA_QIO": true,
+            "QUDA_QMP": true,
+            "QUDA_RECONSTRUCT": 7
+          },
+          "normalized": {
+            "qdp_interface": true,
+            "qio": true,
+            "qmp": true,
+            "reconstruct": 7,
+            "precision": 12,
+            "multigrid_nvec_list": [
+              12,
+              24
+            ],
+            "multigrid_double": true
+          }
+        },
+        "patch_variant": {
+          "name": "wsl2_unpatched_or_unverified",
+          "wsl2": true,
+          "environment_scoped": true,
+          "limitation": "仅限启用 DEV87_REDUCE_SYNC 的 WSL2 patched QUDA 构建；不得解释为可移植的 upstream QUDA 证据",
+          "marker_present": false
+        },
+        "runtime": {
+          "torch": "2.7.1+cu118",
+          "torch_cuda": "11.8",
+          "device_index": 0,
+          "device_name": "Tesla P100-PCIE-16GB",
+          "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+          "total_memory_bytes": 17179738112,
+          "compute_capability": [
+            6,
+            0
+          ],
+          "device": "cuda:0"
+        },
+        "strict_setup_stats": [
+          {
+            "block_dtype": "torch.complex128",
+            "coarse_dof": 24,
+            "coarse_sites": 16384,
+            "color_sizes": [
+              1024,
+              1024,
+              1024,
+              1024,
+              1024,
+              1024,
+              1024,
+              1024,
+              1024,
+              1024,
+              1024,
+              1024,
+              1024,
+              1024,
+              1024,
+              1024
+            ],
+            "column_batch_size": 4,
+            "effective_probe_mode": "colored",
+            "elapsed_seconds": 77.2740322430036,
+            "fine_dof": 12,
+            "max_workspace_bytes": 1073741824,
+            "memory": {
+              "aggregate_volume": 16,
+              "cache_bytes": 1358954496,
+              "canonical_blocks": 9,
+              "coarse_volume": 8192,
+              "column_batch_size": 4,
+              "fine_volume": 131072,
+              "operator_calls": 96,
+              "packed_asset_bytes": 754974720,
+              "packed_asset_elements": 47185920,
+              "projection_site_batch_size": 16,
+              "retained_block_bytes": 0,
+              "retained_block_elements": 0,
+              "source_colors": 16,
+              "support_points": 9,
+              "transfer_bytes": 603979776,
+              "transfer_elements": 37748736,
+              "workspace_upper_bytes": 416309248
+            },
+            "operator_calls": 96,
+            "probe_mode": "colored",
+            "projection_site_batch_size": 16,
+            "requested_column_batch_size": 4,
+            "requested_probe_mode": "colored",
+            "requested_projection_site_batch_size": 16,
+            "scalar_columns": 393216,
+            "source_colors": 16,
+            "support_checked": true,
+            "support_points": 9,
+            "worst_fine_support_leakage": 0.0,
+            "worst_image_scale": 0.42919640894331934
+          },
+          {
+            "block_dtype": "torch.complex128",
+            "coarse_dof": 24,
+            "coarse_sites": 1024,
+            "color_sizes": [
+              64,
+              64,
+              64,
+              64,
+              64,
+              64,
+              64,
+              64,
+              64,
+              64,
+              64,
+              64,
+              64,
+              64,
+              64,
+              64
+            ],
+            "column_batch_size": 4,
+            "effective_probe_mode": "colored",
+            "elapsed_seconds": 23.701654838994727,
+            "fine_dof": 24,
+            "max_workspace_bytes": 1073741824,
+            "memory": {
+              "aggregate_volume": 16,
+              "cache_bytes": 122683392,
+              "canonical_blocks": 9,
+              "coarse_volume": 512,
+              "column_batch_size": 4,
+              "fine_volume": 8192,
+              "operator_calls": 96,
+              "packed_asset_bytes": 47185920,
+              "packed_asset_elements": 2949120,
+              "projection_site_batch_size": 16,
+              "retained_block_bytes": 0,
+              "retained_block_elements": 0,
+              "source_colors": 16,
+              "support_points": 9,
+              "transfer_bytes": 75497472,
+              "transfer_elements": 4718592,
+              "workspace_upper_bytes": 75390976
+            },
+            "operator_calls": 96,
+            "probe_mode": "colored",
+            "projection_site_batch_size": 16,
+            "requested_column_batch_size": 4,
+            "requested_probe_mode": "colored",
+            "requested_projection_site_batch_size": 16,
+            "scalar_columns": 24576,
+            "source_colors": 16,
+            "support_checked": true,
+            "support_points": 9,
+            "worst_fine_support_leakage": 0.0,
+            "worst_image_scale": 0.34789489360297127
+          }
+        ],
+        "runtime_ranks": [
+          {
+            "torch": "2.7.1+cu118",
+            "torch_cuda": "11.8",
+            "device_index": 0,
+            "device_name": "Tesla P100-PCIE-16GB",
+            "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+            "total_memory_bytes": 17179738112,
+            "compute_capability": [
+              6,
+              0
+            ],
+            "device": "cuda:0"
+          },
+          {
+            "torch": "2.7.1+cu118",
+            "torch_cuda": "11.8",
+            "device_index": 1,
+            "device_name": "Tesla P100-PCIE-16GB",
+            "device_uuid": "627bf0ee-9926-a311-57d8-5a7923985b78",
+            "total_memory_bytes": 17179738112,
+            "compute_capability": [
+              6,
+              0
+            ],
+            "device": "cuda:1"
+          }
+        ]
+      },
+      "worker_wall_seconds": 182.17602621899277,
+      "completed_at": "2026-09-27T23:08:52Z",
+      "mpi": {
+        "rank": 0,
+        "size": 2,
+        "process_grid": [
+          2,
+          1,
+          1,
+          1
+        ],
+        "rank_coordinate": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "trace_paths": {},
+      "parallel_contract": {
+        "launcher": "mpirun",
+        "process_grid": [
+          2,
+          1,
+          1,
+          1
+        ],
+        "rank_local_cache": true,
+        "rank_suffixed_trace": true,
+        "ranks": 2
+      },
+      "phase_contract": {
+        "cold_separate_process": true,
+        "counts": {
+          "cold": 1,
+          "steady": 5,
+          "warmup": 2
+        },
+        "selected": [
+          "cold",
+          "warmup",
+          "steady"
+        ]
+      },
+      "device_contract": {
+        "requested": "p100"
+      },
+      "rank_results": [
+        {
+          "rank": 0,
+          "status": "ok",
+          "reason": null,
+          "trace_paths": {},
+          "device": {
+            "torch": "2.7.1+cu118",
+            "torch_cuda": "11.8",
+            "device_index": 0,
+            "device_name": "Tesla P100-PCIE-16GB",
+            "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+            "total_memory_bytes": 17179738112,
+            "compute_capability": [
+              6,
+              0
+            ],
+            "device": "cuda:0"
+          }
+        },
+        {
+          "rank": 1,
+          "status": "ok",
+          "reason": null,
+          "trace_paths": {},
+          "device": {
+            "torch": "2.7.1+cu118",
+            "torch_cuda": "11.8",
+            "device_index": 1,
+            "device_name": "Tesla P100-PCIE-16GB",
+            "device_uuid": "627bf0ee-9926-a311-57d8-5a7923985b78",
+            "total_memory_bytes": 17179738112,
+            "compute_capability": [
+              6,
+              0
+            ],
+            "device": "cuda:1"
+          }
+        }
+      ],
+      "rank_aggregation": {
+        "mode": "rank-wise maximum for wall times/bytes/iterations; element-wise conjunction for convergence",
+        "ranks": 2,
+        "process_grid": [
+          2,
+          1,
+          1,
+          1
+        ]
+      },
+      "memory_rank_summary": {
+        "setup_peak_allocated_bytes": 2572288512,
+        "setup_peak_reserved_bytes": 3072327680,
+        "steady_peak_allocated_bytes": 2597454336,
+        "steady_peak_reserved_bytes": 5108662272,
+        "per_rank": [
+          {
+            "rank": 0,
+            "setup_peak_allocated_bytes": 2572288512,
+            "steady_peak_allocated_bytes": 2597454336
+          },
+          {
+            "rank": 1,
+            "setup_peak_allocated_bytes": 2572288512,
+            "steady_peak_allocated_bytes": 2597454336
+          }
+        ]
+      },
+      "process": {
+        "returncode": 0,
+        "wall_seconds": 183.45045625699277,
+        "stdout_tail": "              :256\nlat_2dim[_XT_]                               :128\nlat_2dim[_YZ_]                               :512\nlat_2dim[_YT_]                               :256\nlat_2dim[_ZT_]                               :512\nlat_3dim[_YZT_]                              :8192\nlat_3dim[_XZT_]                              :4096\nlat_3dim[_XYT_]                              :2048\nlat_3dim[_XYZ_]                              :4096\nlat_4dim                                     :65536\ngrid_1dim[_X_]                               :2\ngrid_1dim[_Y_]                               :1\ngrid_1dim[_Z_]                               :1\ngrid_1dim[_T_]                               :1\ngrid_2dim[_XY_]                              :2\ngrid_2dim[_XZ_]                              :2\ngrid_2dim[_XT_]                              :2\ngrid_2dim[_YZ_]                              :1\ngrid_2dim[_YT_]                              :1\ngrid_2dim[_ZT_]                              :1\ngrid_3dim[_YZT_]                             :1\ngrid_3dim[_XZT_]                             :2\ngrid_3dim[_XYT_]                             :2\ngrid_3dim[_XYZ_]                             :2\ngrid_index_1dim[_X_]                         :0\ngrid_index_1dim[_Y_]                         :0\ngrid_index_1dim[_Z_]                         :0\ngrid_index_1dim[_T_]                         :0\nmove_wards[_B_X_]                            :1\nmove_wards[_B_Y_]                            :0\nmove_wards[_B_Z_]                            :0\nmove_wards[_B_T_]                            :0\nmove_wards[_F_X_]                            :1\nmove_wards[_F_Y_]                            :0\nmove_wards[_F_Z_]                            :0\nmove_wards[_F_T_]                            :0\nmove_wards[_BX_BY_]                          :1\nmove_wards[_BX_BZ_]                          :1\nmove_wards[_BX_BT_]                          :1\nmove_wards[_BY_BZ_]                          :0\nmove_wards[_BY_BT_]                          :0\nmove_wards[_BZ_BT_]                          :0\nmove_wards[_FX_BY_]                          :1\nmove_wards[_FX_BZ_]                          :1\nmove_wards[_FX_BT_]                          :1\nmove_wards[_FY_BZ_]                          :0\nmove_wards[_FY_BT_]                          :0\nmove_wards[_FZ_BT_]                          :0\nmove_wards[_BX_FY_]                          :1\nmove_wards[_BX_FZ_]                          :1\nmove_wards[_BX_FT_]                          :1\nmove_wards[_BY_FZ_]                          :0\nmove_wards[_BY_FT_]                          :0\nmove_wards[_BZ_FT_]                          :0\nmove_wards[_FX_FY_]                          :1\nmove_wards[_FX_FZ_]                          :1\nmove_wards[_FX_FT_]                          :1\nmove_wards[_FY_FZ_]                          :0\nmove_wards[_FY_FT_]                          :0\nmove_wards[_FZ_FT_]                          :0\nlattice set whole time:0.565746277 sec\nlattice set end total time:0.013330139 sec\n##RANK:0##LOOP:142##Residual(norm2):(8.22366e-17,2.14323e-37i)\n##RANK:1##LOOP:142##Residual(norm2):(8.22366e-17,2.14323e-37i)\n##RANK:0##LOOP:142##Residual(norm2):(8.22366e-17,2.14323e-37i)\n##RANK:1##LOOP:142##Residual(norm2):(8.22366e-17,2.14323e-37i)\n##RANK:1##LOOP:142##Residual(norm2):(8.22366e-17,2.14323e-37i)\n##RANK:0##LOOP:142##Residual(norm2):(8.22366e-17,2.14323e-37i)\n##RANK:1##LOOP:142##Residual(norm2):(8.22366e-17,2.14323e-37i)\n##RANK:0##LOOP:142##Residual(norm2):(8.22366e-17,2.14323e-37i)\n##RANK:1##LOOP:142##Residual(norm2):(8.22366e-17,2.14323e-37i)\n##RANK:0##LOOP:142##Residual(norm2):(8.22366e-17,2.14323e-37i)\n##RANK:0##LOOP:142##Residual(norm2):(8.22366e-17,2.14323e-37i)\n##RANK:1##LOOP:142##Residual(norm2):(8.22366e-17,2.14323e-37i)\n##RANK:0##LOOP:142##Residual(norm2):(8.22366e-17,2.14323e-37i)\n##RANK:1##LOOP:142##Residual(norm2):(8.22366e-17,2.14323e-37i)\nlattice set whole time:67.549617188 sec\nlattice set whole time:67.554085938 sec\nlattice set whole time:171.172390625 sec\nlattice set whole time:168.622187500 sec",
+        "stderr_tail": ""
+      },
+      "iterations_cold": {
+        "samples": [
+          47
+        ],
+        "min": 47,
+        "max": 47,
+        "median": 47.0
+      },
+      "converged_cold": true,
+      "true_residual_cold": {
+        "samples_rel": [
+          1.7972336158636633e-08
+        ],
+        "max_rel": 1.7972336158636633e-08,
+        "gate": 5e-08,
+        "pass": true,
+        "untimed_probe_rel": null,
+        "backend_schur_absolute_samples": []
+      },
+      "memory_cold": {
+        "schema_version": 2,
+        "setup": {
+          "baseline": {
+            "allocated_bytes": 0,
+            "reserved_bytes": 0,
+            "nvidia_smi": {
+              "available": true,
+              "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+              "process_used_bytes": null,
+              "gpu_used_bytes": null,
+              "error": "no numeric sample"
+            }
+          },
+          "cuda_peak_allocated_bytes": 2572288512,
+          "cuda_peak_reserved_bytes": 3072327680,
+          "nvidia_smi": {
+            "available": true,
+            "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+            "process_used_bytes": null,
+            "gpu_used_bytes": null,
+            "error": "no numeric sample"
+          },
+          "device_wide_sampler": {
+            "available": true,
+            "scope": "device-wide cudaMemGetInfo; may include other processes",
+            "device": "cuda:0",
+            "unit": "bytes",
+            "interval_seconds": 0.01,
+            "duration_seconds": 9.860026862996165,
+            "sample_count": 914,
+            "device_total_bytes": 17179738112,
+            "device_used_initial_bytes": 1255014400,
+            "device_used_max_observed_bytes": 5132648448,
+            "join_timed_out": false,
+            "errors": []
+          },
+          "timing_semantics": "instrumented setup; sampler stop excluded from setup_seconds"
+        },
+        "first_solve": {
+          "excluded_from_formal_timing": true,
+          "seconds": 10.581094305001898,
+          "iterations": 47,
+          "converged": true,
+          "true_residual_rel": 1.7972336158636633e-08,
+          "backend_final_true_residual": 1.147129912614777e-05,
+          "fused_workspace_bytes": 471859200,
+          "memory": {
+            "cuda_peak_allocated_bytes": 2597454336,
+            "cuda_peak_reserved_bytes": 2615148544,
+            "nvidia_smi": {
+              "available": true,
+              "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+              "process_used_bytes": null,
+              "gpu_used_bytes": null,
+              "error": "no numeric sample"
+            },
+            "device_wide_sampler": {
+              "available": true,
+              "scope": "device-wide cudaMemGetInfo; may include other processes",
+              "device": "cuda:0",
+              "unit": "bytes",
+              "interval_seconds": 0.01,
+              "duration_seconds": 10.581424522999441,
+              "sample_count": 1005,
+              "device_total_bytes": 17179738112,
+              "device_used_initial_bytes": 4698537984,
+              "device_used_max_observed_bytes": 5170397184,
+              "join_timed_out": false,
+              "errors": []
+            }
+          }
+        },
+        "steady": {
+          "baseline": {
+            "allocated_bytes": 2597454336,
+            "reserved_bytes": 5108662272,
+            "nvidia_smi": {
+              "available": true,
+              "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+              "process_used_bytes": null,
+              "gpu_used_bytes": null,
+              "error": "no numeric sample"
+            }
+          },
+          "cuda_peak_allocated_bytes": 0,
+          "cuda_peak_reserved_bytes": 0,
+          "nvidia_smi_process_max_observed_bytes": null,
+          "nvidia_smi_gpu_max_observed_bytes": null,
+          "samples": [],
+          "snapshot_semantics": "nvidia-smi values are post-solve observations, not peaks",
+          "untimed_device_memory_probe": {}
+        },
+        "strict_owned": {
+          "coarse_workspace_bytes": 277819404,
+          "fine_transfer_bytes": 603979776,
+          "coarse_asset_resident_bytes": 877658112,
+          "asset_resident_bytes": 1481637888,
+          "omitted_raw_bytes": 641728512,
+          "fused_workspace_bytes": 0,
+          "setup_release": {
+            "sealed": true,
+            "source": "strict_runtime_cache",
+            "allocator_released_bytes": 0,
+            "loaded_logical_bytes": 1481637888
+          }
+        }
+      },
+      "phase_results": {
+        "cold": {
+          "seconds": 13.169838835005066,
+          "iterations": {
+            "samples": [
+              47
+            ],
+            "min": 47,
+            "max": 47,
+            "median": 47.0
+          },
+          "converged": true
+        },
+        "warmup_count": 2,
+        "steady_count": 5
+      }
+    },
+    "quda": {
+      "side": "quda",
+      "status": "ok",
+      "reason": null,
+      "config_hash": "f50ef113541248b8392b5d175fff885b1031191fb1152e6dae3a066d56faa525",
+      "input_bundle_hash": "b209cb0ba8fa798d561dc96698c9b3048aa26ffe62893ac4f72e59b3657d6370",
+      "timing": {
+        "input_io_seconds": 0.04515193999395706,
+        "input_prepare_seconds": 0.6682344930013642,
+        "input_read_distributed": true,
+        "input_read_scope": "rank-sliced HDF5 hyperslab",
+        "runtime_init_seconds": 0.2545097190013621,
+        "setup_seconds": 4.321773887000745,
+        "warmups": [
+          {
+            "seconds": 15.074207425990608,
+            "iterations": 89,
+            "converged": true,
+            "true_residual_rel": 1.830996989290418e-08
+          },
+          {
+            "seconds": 14.858479030997842,
+            "iterations": 89,
+            "converged": true,
+            "true_residual_rel": 1.830996989290418e-08
+          }
+        ],
+        "steady": {
+          "samples_seconds": [
+            14.788544552007806,
+            14.912381724992883,
+            14.934877177001908,
+            14.87016369200137,
+            14.907144477998372
+          ],
+          "median_seconds": 14.907144477998372,
+          "mad_seconds": 0.027732699003536254
+        },
+        "cold_seconds": 15.299168234007084,
+        "cold_setup_seconds": 4.472030807999545,
+        "cold_cache_persist_seconds": null
+      },
+      "reference_solver": {
+        "kind": "bicgstab",
+        "implementation": "pyquda.quda.invertQuda(QUDA_BICGSTAB_INVERTER)",
+        "cold": {
+          "seconds": 3.3117764810012886,
+          "iterations": 102,
+          "true_residual_rel": 1.7794279593179502e-08
+        },
+        "warmups": [
+          {
+            "seconds": 3.330197347997455,
+            "iterations": 102,
+            "true_residual_rel": 1.7794279593179502e-08
+          },
+          {
+            "seconds": 3.2850217619998148,
+            "iterations": 102,
+            "true_residual_rel": 1.7794279593179502e-08
+          }
+        ],
+        "steady": {
+          "samples_seconds": [
+            3.2293961300019873,
+            3.338914362990181,
+            3.28532860300038,
+            3.335659094998846,
+            3.295878228993388
+          ],
+          "median_seconds": 3.295878228993388,
+          "mad_seconds": 0.03978086600545794
+        },
+        "iterations": {
+          "samples": [
+            102,
+            102,
+            102,
+            102,
+            102
+          ],
+          "min": 102,
+          "max": 102,
+          "median": 102.0
+        },
+        "samples": [
+          {
+            "seconds": 3.2293961300019873,
+            "iterations": 102,
+            "true_residual_rel": 1.7794279593179502e-08
+          },
+          {
+            "seconds": 3.338914362990181,
+            "iterations": 102,
+            "true_residual_rel": 1.7794279593179502e-08
+          },
+          {
+            "seconds": 3.28532860300038,
+            "iterations": 102,
+            "true_residual_rel": 1.7794279593179502e-08
+          },
+          {
+            "seconds": 3.335659094998846,
+            "iterations": 102,
+            "true_residual_rel": 1.7794279593179502e-08
+          },
+          {
+            "seconds": 3.295878228993388,
+            "iterations": 102,
+            "true_residual_rel": 1.7794279593179502e-08
+          }
+        ],
+        "true_residual_max_rel": 1.7794279593179502e-08,
+        "excluded_from_speedup": true,
+        "phase_iterations": {
+          "cold": 102,
+          "warmups": [
+            102,
+            102
+          ],
+          "steady": [
+            102,
+            102,
+            102,
+            102,
+            102
+          ]
+        }
+      },
+      "iterations": {
+        "samples": [
+          89,
+          89,
+          89,
+          89,
+          89
+        ],
+        "min": 89,
+        "max": 89,
+        "median": 89.0
+      },
+      "mg_levels": [
+        {
+          "level": 0,
+          "total_seconds": 104.31992683498538,
+          "total_iterations": 445,
+          "pre_smoother_seconds": 0.0,
+          "post_smoother_seconds": 0.0,
+          "restriction_seconds": 0.0,
+          "prolongation_seconds": 0.0,
+          "coarse_solver_seconds": 0.0,
+          "timing_rank_index": 1,
+          "other_seconds": 104.31992683498538,
+          "pre_smoother_iterations": 0,
+          "post_smoother_iterations": 0,
+          "restriction_calls": 0,
+          "prolongation_calls": 0,
+          "recursive_solve_calls": 0,
+          "coarse_solver_iterations": 0,
+          "coarse_solver_calls": 0,
+          "smoother_iterations": 0,
+          "finest_iterations": 445,
+          "residual_sequence": [
+            {
+              "solve_index": 0,
+              "iteration": null,
+              "relative": 1.830996989290418e-08,
+              "kind": "case_true_residual"
+            },
+            {
+              "solve_index": 1,
+              "iteration": null,
+              "relative": 1.830996989290418e-08,
+              "kind": "case_true_residual"
+            },
+            {
+              "solve_index": 2,
+              "iteration": null,
+              "relative": 1.830996989290418e-08,
+              "kind": "case_true_residual"
+            },
+            {
+              "solve_index": 3,
+              "iteration": null,
+              "relative": 1.830996989290418e-08,
+              "kind": "case_true_residual"
+            },
+            {
+              "solve_index": 4,
+              "iteration": null,
+              "relative": 1.830996989290418e-08,
+              "kind": "case_true_residual"
+            }
+          ],
+          "final_residual": 1.830996989290418e-08,
+          "rank_final_residuals": [
+            1.830996989290418e-08,
+            1.830996989290418e-08
+          ]
+        },
+        {
+          "level": 1,
+          "total_seconds": 0.0,
+          "total_iterations": 445,
+          "pre_smoother_seconds": 0.0,
+          "post_smoother_seconds": 0.0,
+          "restriction_seconds": 0.0,
+          "prolongation_seconds": 0.0,
+          "coarse_solver_seconds": 0.0,
+          "timing_rank_index": 0,
+          "other_seconds": 0.0,
+          "pre_smoother_iterations": 0,
+          "post_smoother_iterations": 0,
+          "restriction_calls": 0,
+          "prolongation_calls": 0,
+          "recursive_solve_calls": 0,
+          "coarse_solver_iterations": 0,
+          "coarse_solver_calls": 0,
+          "smoother_iterations": 0
+        },
+        {
+          "level": 2,
+          "total_seconds": 0.0,
+          "total_iterations": 445,
+          "pre_smoother_seconds": 0.0,
+          "post_smoother_seconds": 0.0,
+          "restriction_seconds": 0.0,
+          "prolongation_seconds": 0.0,
+          "coarse_solver_seconds": 0.0,
+          "timing_rank_index": 0,
+          "other_seconds": 0.0,
+          "pre_smoother_iterations": 0,
+          "post_smoother_iterations": 0,
+          "restriction_calls": 0,
+          "prolongation_calls": 0,
+          "recursive_solve_calls": 0,
+          "coarse_solver_iterations": 0,
+          "coarse_solver_calls": 0,
+          "smoother_iterations": 0
+        }
+      ],
+      "mg_levels_by_phase": {
+        "cold": [
+          {
+            "level": 0,
+            "total_seconds": 15.299168234007084,
+            "total_iterations": 89,
+            "pre_smoother_seconds": 0.0,
+            "post_smoother_seconds": 0.0,
+            "restriction_seconds": 0.0,
+            "prolongation_seconds": 0.0,
+            "coarse_solver_seconds": 0.0,
+            "timing_rank_index": 1,
+            "other_seconds": 15.299168234007084,
+            "pre_smoother_iterations": 0,
+            "post_smoother_iterations": 0,
+            "restriction_calls": 0,
+            "prolongation_calls": 0,
+            "recursive_solve_calls": 0,
+            "coarse_solver_iterations": 0,
+            "coarse_solver_calls": 0,
+            "smoother_iterations": 0,
+            "finest_iterations": 89,
+            "residual_sequence": [
+              {
+                "solve_index": 0,
+                "iteration": null,
+                "relative": 1.8309969892767062e-08,
+                "kind": "case_true_residual"
+              }
+            ],
+            "final_residual": 1.8309969892767062e-08,
+            "rank_final_residuals": [
+              1.8309969892767062e-08,
+              1.8309969892767062e-08
+            ]
+          },
+          {
+            "level": 1,
+            "total_seconds": 0.0,
+            "total_iterations": 89,
+            "pre_smoother_seconds": 0.0,
+            "post_smoother_seconds": 0.0,
+            "restriction_seconds": 0.0,
+            "prolongation_seconds": 0.0,
+            "coarse_solver_seconds": 0.0,
+            "timing_rank_index": 0,
+            "other_seconds": 0.0,
+            "pre_smoother_iterations": 0,
+            "post_smoother_iterations": 0,
+            "restriction_calls": 0,
+            "prolongation_calls": 0,
+            "recursive_solve_calls": 0,
+            "coarse_solver_iterations": 0,
+            "coarse_solver_calls": 0,
+            "smoother_iterations": 0
+          },
+          {
+            "level": 2,
+            "total_seconds": 0.0,
+            "total_iterations": 89,
+            "pre_smoother_seconds": 0.0,
+            "post_smoother_seconds": 0.0,
+            "restriction_seconds": 0.0,
+            "prolongation_seconds": 0.0,
+            "coarse_solver_seconds": 0.0,
+            "timing_rank_index": 0,
+            "other_seconds": 0.0,
+            "pre_smoother_iterations": 0,
+            "post_smoother_iterations": 0,
+            "restriction_calls": 0,
+            "prolongation_calls": 0,
+            "recursive_solve_calls": 0,
+            "coarse_solver_iterations": 0,
+            "coarse_solver_calls": 0,
+            "smoother_iterations": 0
+          }
+        ]
+      },
+      "iteration_semantics": "finest total_iterations is the outer GCR total; smoother and coarse iterations are separate per-level counters",
+      "iteration_kind": "outer_gcr",
+      "iteration_scope": "outer GCR iterations; recursive MG and coarse solver iterations are recorded separately in QUDA_MG_TRACE",
+      "converged_samples": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "converged": true,
+      "true_residual": {
+        "samples_rel": [
+          1.830996989290418e-08,
+          1.830996989290418e-08,
+          1.830996989290418e-08,
+          1.830996989290418e-08,
+          1.830996989290418e-08
+        ],
+        "max_rel": 1.830996989290418e-08,
+        "gate": 5e-08,
+        "pass": true,
+        "untimed_probe_rel": 1.830996989290418e-08
+      },
+      "krylov": {
+        "requested_restart": 16,
+        "effective_restart": 16,
+        "max_krylov_bytes": null,
+        "effective_workspace_bytes": null,
+        "note": "QUDA native workspace is not exposed by PyQUDA"
+      },
+      "timing_boundary": {
+        "requested": "caller_preallocated",
+        "supported": true,
+        "formal_eligible": true,
+        "api": "(h_x, h_b, param)",
+        "method": "pyquda.quda.invertQuda(h_x,h_b,param)",
+        "output_argument": "h_x",
+        "detail": "low-level invertQuda writes the caller-owned output",
+        "zero_initial_guess_before_timer": true,
+        "preserve_source": "QUDA_PRESERVE_SOURCE_YES",
+        "timed_operation": "pyquda.quda.invertQuda(h_x,h_b,param)",
+        "performance_call": "omitted; no high-level allocation/performance call in timer"
+      },
+      "quda_parameters": {
+        "requested": {
+          "invert": {
+            "inv_type": "QUDA_GCR_INVERTER",
+            "matpc_type": "QUDA_MATPC_ODD_ODD",
+            "solve_type": "QUDA_DIRECT_PC_SOLVE",
+            "solution_type": "QUDA_MAT_SOLUTION",
+            "use_init_guess": "QUDA_USE_INIT_GUESS_NO",
+            "preserve_source": "QUDA_PRESERVE_SOURCE_YES",
+            "gcrNkrylov": 16,
+            "maxiter": 1000,
+            "tol": 1e-08,
+            "precision": {
+              "cuda_prec": "QUDA_DOUBLE_PRECISION",
+              "cuda_prec_eigensolver": "QUDA_DOUBLE_PRECISION",
+              "cuda_prec_sloppy": "QUDA_DOUBLE_PRECISION",
+              "cuda_prec_refinement_sloppy": "QUDA_DOUBLE_PRECISION",
+              "cuda_prec_precondition": "QUDA_DOUBLE_PRECISION"
+            }
+          },
+          "multigrid": {
+            "n_level": 3,
+            "coarsest_level_index": 2,
+            "compute_null_vector": "QUDA_COMPUTE_NULL_VECTOR_YES",
+            "generate_all_levels": "QUDA_BOOLEAN_FALSE",
+            "run_verify": "QUDA_BOOLEAN_FALSE",
+            "precision_null": [
+              "QUDA_DOUBLE_PRECISION",
+              "QUDA_DOUBLE_PRECISION",
+              "QUDA_DOUBLE_PRECISION"
+            ],
+            "transition": {
+              "n_vec": [
+                12,
+                12
+              ],
+              "n_block_ortho": [
+                2,
+                2
+              ],
+              "vec_load": [
+                "QUDA_BOOLEAN_TRUE",
+                "QUDA_BOOLEAN_FALSE"
+              ],
+              "vec_infile": [
+                "/root/PyQCU/data/qio-matrix/L16x16x32x32_nvec12_quda",
+                ""
+              ],
+              "num_setup_iter": [
+                1,
+                0
+              ],
+              "setup_use_mma": [
+                "QUDA_BOOLEAN_FALSE",
+                "QUDA_BOOLEAN_FALSE"
+              ],
+              "dslash_use_mma": [
+                "QUDA_BOOLEAN_FALSE",
+                "QUDA_BOOLEAN_FALSE"
+              ],
+              "transfer_use_mma": [
+                "QUDA_BOOLEAN_FALSE",
+                "QUDA_BOOLEAN_FALSE"
+              ]
+            },
+            "levels": {
+              "nu_pre": [
+                1,
+                1,
+                1
+              ],
+              "nu_post": [
+                1,
+                1,
+                1
+              ],
+              "smoother": [
+                "QUDA_MR_INVERTER",
+                "QUDA_MR_INVERTER",
+                "QUDA_MR_INVERTER"
+              ],
+              "smoother_tol": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "coarse_solver": [
+                "QUDA_GCR_INVERTER",
+                "QUDA_GCR_INVERTER",
+                "QUDA_CA_GCR_INVERTER"
+              ],
+              "coarse_solver_maxiter": [
+                1,
+                1,
+                200
+              ],
+              "coarse_solver_tol": [
+                3e-05,
+                3e-05,
+                3e-05
+              ]
+            }
+          }
+        },
+        "actual": {
+          "invert": {
+            "inv_type": "QUDA_GCR_INVERTER",
+            "matpc_type": "QUDA_MATPC_ODD_ODD",
+            "solve_type": "QUDA_DIRECT_PC_SOLVE",
+            "solution_type": "QUDA_MAT_SOLUTION",
+            "use_init_guess": "QUDA_USE_INIT_GUESS_NO",
+            "preserve_source": "QUDA_PRESERVE_SOURCE_YES",
+            "gcrNkrylov": 16,
+            "maxiter": 1000,
+            "tol": 1e-08,
+            "precision": {
+              "cuda_prec": "QUDA_DOUBLE_PRECISION",
+              "cuda_prec_sloppy": "QUDA_DOUBLE_PRECISION",
+              "cuda_prec_refinement_sloppy": "QUDA_DOUBLE_PRECISION",
+              "cuda_prec_precondition": "QUDA_DOUBLE_PRECISION",
+              "cuda_prec_eigensolver": "QUDA_DOUBLE_PRECISION"
+            }
+          },
+          "multigrid": {
+            "n_level": 3,
+            "coarsest_level_index": 2,
+            "compute_null_vector": "QUDA_COMPUTE_NULL_VECTOR_YES",
+            "generate_all_levels": "QUDA_BOOLEAN_FALSE",
+            "run_verify": "QUDA_BOOLEAN_FALSE",
+            "transition": {
+              "n_vec": [
+                12,
+                12
+              ],
+              "n_block_ortho": [
+                2,
+                2
+              ],
+              "vec_load": [
+                "QUDA_BOOLEAN_TRUE",
+                "QUDA_BOOLEAN_FALSE"
+              ],
+              "vec_infile": [
+                "/root/PyQCU/data/qio-matrix/L16x16x32x32_nvec12_quda",
+                ""
+              ],
+              "num_setup_iter": [
+                1,
+                0
+              ],
+              "setup_use_mma": [
+                "QUDA_BOOLEAN_FALSE",
+                "QUDA_BOOLEAN_FALSE"
+              ],
+              "dslash_use_mma": [
+                "QUDA_BOOLEAN_FALSE",
+                "QUDA_BOOLEAN_FALSE"
+              ],
+              "transfer_use_mma": [
+                "QUDA_BOOLEAN_FALSE",
+                "QUDA_BOOLEAN_FALSE"
+              ]
+            },
+            "levels": {
+              "nu_pre": [
+                1,
+                1,
+                1
+              ],
+              "nu_post": [
+                1,
+                1,
+                1
+              ],
+              "smoother": [
+                "QUDA_MR_INVERTER",
+                "QUDA_MR_INVERTER",
+                "QUDA_MR_INVERTER"
+              ],
+              "smoother_tol": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "coarse_solver": [
+                "QUDA_GCR_INVERTER",
+                "QUDA_GCR_INVERTER",
+                "QUDA_CA_GCR_INVERTER"
+              ],
+              "coarse_solver_maxiter": [
+                1,
+                1,
+                200
+              ],
+              "coarse_solver_tol": [
+                3e-05,
+                3e-05,
+                3e-05
+              ]
+            },
+            "precision_null": [
+              "QUDA_DOUBLE_PRECISION",
+              "QUDA_DOUBLE_PRECISION",
+              "QUDA_DOUBLE_PRECISION"
+            ]
+          }
+        },
+        "mismatches": []
+      },
+      "quda_input_contract": {
+        "qdp_host_dtype": "complex128",
+        "device_precision": "QUDA_DOUBLE_PRECISION"
+      },
+      "memory": {
+        "schema_version": 2,
+        "setup": {
+          "baseline": {
+            "allocated_bytes": 0,
+            "reserved_bytes": 0,
+            "nvidia_smi": {
+              "available": true,
+              "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+              "process_used_bytes": null,
+              "gpu_used_bytes": null,
+              "error": "no numeric sample"
+            }
+          },
+          "cuda_peak_allocated_bytes": 176160768,
+          "cuda_peak_reserved_bytes": 176160768,
+          "nvidia_smi": {
+            "available": true,
+            "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+            "process_used_bytes": null,
+            "gpu_used_bytes": null,
+            "error": "no numeric sample"
+          },
+          "device_wide_sampler": {
+            "available": true,
+            "scope": "device-wide cudaMemGetInfo; may include other processes",
+            "device": "cuda:0",
+            "unit": "bytes",
+            "interval_seconds": 0.01,
+            "duration_seconds": 4.322273815996596,
+            "sample_count": 68,
+            "device_total_bytes": 17179738112,
+            "device_used_initial_bytes": 1267597312,
+            "device_used_max_observed_bytes": 1934491648,
+            "join_timed_out": false,
+            "errors": []
+          },
+          "timing_semantics": "instrumented setup; sampler stop excluded from setup_seconds",
+          "note": "PyTorch allocator excludes QUDA native allocations; the device-wide sampler captures transients but may include other processes"
+        },
+        "first_solve": {
+          "excluded_from_formal_timing": true,
+          "seconds": 14.669596776002436,
+          "iterations": 89,
+          "converged": true,
+          "true_residual_rel": 1.830996989290418e-08,
+          "memory": {
+            "cuda_peak_allocated_bytes": 612499456,
+            "cuda_peak_reserved_bytes": 1390411776,
+            "nvidia_smi": {
+              "available": true,
+              "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+              "process_used_bytes": null,
+              "gpu_used_bytes": null,
+              "error": "no numeric sample"
+            },
+            "device_wide_sampler": {
+              "available": true,
+              "scope": "device-wide cudaMemGetInfo; may include other processes",
+              "device": "cuda:0",
+              "unit": "bytes",
+              "interval_seconds": 0.01,
+              "duration_seconds": 14.670340918004513,
+              "sample_count": 3,
+              "device_total_bytes": 17179738112,
+              "device_used_initial_bytes": 7349338112,
+              "device_used_max_observed_bytes": 7953317888,
+              "join_timed_out": false,
+              "errors": []
+            }
+          }
+        },
+        "steady": {
+          "baseline": {
+            "allocated_bytes": 612499456,
+            "reserved_bytes": 3315597312,
+            "nvidia_smi": {
+              "available": true,
+              "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+              "process_used_bytes": null,
+              "gpu_used_bytes": null,
+              "error": "no numeric sample"
+            }
+          },
+          "cuda_peak_allocated_bytes": 612499456,
+          "cuda_peak_reserved_bytes": 3315597312,
+          "nvidia_smi_process_max_observed_bytes": null,
+          "nvidia_smi_gpu_max_observed_bytes": null,
+          "samples": [
+            {
+              "cuda_peak_allocated_bytes": 612499456,
+              "cuda_peak_reserved_bytes": 3315597312,
+              "nvidia_smi": {
+                "available": true,
+                "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+                "process_used_bytes": null,
+                "gpu_used_bytes": null,
+                "error": "no numeric sample"
+              },
+              "device_wide_sampler": null
+            },
+            {
+              "cuda_peak_allocated_bytes": 612499456,
+              "cuda_peak_reserved_bytes": 3315597312,
+              "nvidia_smi": {
+                "available": true,
+                "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+                "process_used_bytes": null,
+                "gpu_used_bytes": null,
+                "error": "no numeric sample"
+              },
+              "device_wide_sampler": null
+            },
+            {
+              "cuda_peak_allocated_bytes": 612499456,
+              "cuda_peak_reserved_bytes": 3315597312,
+              "nvidia_smi": {
+                "available": true,
+                "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+                "process_used_bytes": null,
+                "gpu_used_bytes": null,
+                "error": "no numeric sample"
+              },
+              "device_wide_sampler": null
+            },
+            {
+              "cuda_peak_allocated_bytes": 612499456,
+              "cuda_peak_reserved_bytes": 3315597312,
+              "nvidia_smi": {
+                "available": true,
+                "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+                "process_used_bytes": null,
+                "gpu_used_bytes": null,
+                "error": "no numeric sample"
+              },
+              "device_wide_sampler": null
+            },
+            {
+              "cuda_peak_allocated_bytes": 612499456,
+              "cuda_peak_reserved_bytes": 3315597312,
+              "nvidia_smi": {
+                "available": true,
+                "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+                "process_used_bytes": null,
+                "gpu_used_bytes": null,
+                "error": "no numeric sample"
+              },
+              "device_wide_sampler": null
+            }
+          ],
+          "snapshot_semantics": "nvidia-smi values are post-solve observations, not peaks",
+          "untimed_device_memory_probe": {
+            "cuda_peak_allocated_bytes": 612499456,
+            "cuda_peak_reserved_bytes": 3315597312,
+            "nvidia_smi": {
+              "available": true,
+              "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+              "process_used_bytes": null,
+              "gpu_used_bytes": null,
+              "error": "no numeric sample"
+            },
+            "device_wide_sampler": {
+              "available": true,
+              "scope": "device-wide cudaMemGetInfo; may include other processes",
+              "device": "cuda:0",
+              "unit": "bytes",
+              "interval_seconds": 0.01,
+              "duration_seconds": 14.864094832999399,
+              "sample_count": 1,
+              "device_total_bytes": 17179738112,
+              "device_used_initial_bytes": 9891086336,
+              "device_used_max_observed_bytes": 9891086336,
+              "join_timed_out": false,
+              "errors": []
+            },
+            "excluded_from_formal_timing": true,
+            "iterations": 89,
+            "converged": true,
+            "true_residual_rel": 1.830996989290418e-08
+          }
+        }
+      },
+      "provenance": {
+        "pyqcu_git": {
+          "commit": "33fe4f0935e5662351c4a190f7f913f391d498a9",
+          "dirty_tracked": true,
+          "repository": "/root/PyQCU"
+        },
+        "pyqcu_library": {
+          "path": "/root/PyQCU/data/build/libqcu_arch/sm60/libqcu.so",
+          "sha256": "e29c1cf04a57ec3b8af3208063456cab4db08c51abe0c04cece816e54d0c20e1",
+          "exists": true,
+          "requested_architectures": null,
+          "architectures": [
+            "sm_60"
+          ],
+          "listing_error": null
+        },
+        "quda_source_git": {
+          "commit": "33fe4f0935e5662351c4a190f7f913f391d498a9",
+          "dirty_tracked": true,
+          "repository": "/root/PyQCU/refer/git-rep/quda"
+        },
+        "quda_libraries": {
+          "libquda": {
+            "path": "/root/PyQCU/data/quda-sm60-install/lib/libquda.so",
+            "sha256": "dd1c8bac922c0d09099fd581e06b383001b17152f8fbc01baa305274ec0affab",
+            "exists": true
+          },
+          "libqmp": {
+            "path": "/root/PyQCU/data/quda-sm60-install/lib/libqmp.so",
+            "sha256": "7ee438b8dc053943198a53f66554bb55fd02e5c29065e2191747daacc337ae99",
+            "exists": true
+          }
+        },
+        "pyquda_module": {
+          "path": "/usr/local/lib/python3.10/dist-packages/pyquda/__init__.py",
+          "version": "0.10.54"
+        },
+        "cmake_features": {
+          "cache_path": "/root/PyQCU/data/quda-sm60-build-offline2/CMakeCache.txt",
+          "cache_sha256": "5ed5525f09e01770638409b72681e6cfba2f16663364312f9c82fb5340a64003",
+          "features": {
+            "QUDA_INTERFACE_QDP": true,
+            "QUDA_MULTIGRID_DOUBLE": true,
+            "QUDA_MULTIGRID_NVEC_LIST": "12,24",
+            "QUDA_PRECISION": 12,
+            "QUDA_QIO": true,
+            "QUDA_QMP": true,
+            "QUDA_RECONSTRUCT": 7
+          },
+          "normalized": {
+            "qdp_interface": true,
+            "qio": true,
+            "qmp": true,
+            "reconstruct": 7,
+            "precision": 12,
+            "multigrid_nvec_list": [
+              12,
+              24
+            ],
+            "multigrid_double": true
+          }
+        },
+        "patch_variant": {
+          "name": "quda_comparison_wsl2_reduce_sync",
+          "wsl2": true,
+          "environment_scoped": true,
+          "limitation": "仅限启用 DEV87_REDUCE_SYNC 的 WSL2 patched QUDA 构建；不得解释为可移植的 upstream QUDA 证据",
+          "marker_present": true
+        },
+        "runtime": {
+          "torch": "2.7.1+cu118",
+          "torch_cuda": "11.8",
+          "device_index": 0,
+          "device_name": "Tesla P100-PCIE-16GB",
+          "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+          "total_memory_bytes": 17179738112,
+          "compute_capability": [
+            6,
+            0
+          ],
+          "device": "cuda:0"
+        },
+        "shared_nullvec_conversion": {
+          "prefix": "/root/PyQCU/data/qio-matrix/L16x16x32x32_nvec12_quda",
+          "manifest": "/root/PyQCU/data/qio-matrix/L16x16x32x32_nvec12_quda.v1.json",
+          "source_sha256": "a8cb78ffcf087609215a193d501ed4d97a7e2d828b55f1a706cf906f51ae3d5b",
+          "canonical_dataset_sha256": "ce153e84d5f87caeab08c4e52df70ec5f9a22eb7cf7f545c5ba0a33dddd93176",
+          "conversion_tool_commit": "3e3d7465a807b067850ffbbfc6663fd396707046",
+          "artifacts": [
+            {
+              "path": "/root/PyQCU/data/qio-matrix/L16x16x32x32_nvec12_quda_level_0_nvec_12",
+              "size_bytes": 301991648,
+              "sha256": "53d81d17e5103af1da8bff7bfe94f8a1f8ae25ce3c7995fc8aaf8d072decab1e"
+            }
+          ],
+          "verification_seconds": 0.898265635012649
+        },
+        "reduction_runtime": {
+          "required": true,
+          "platform_release": "6.18.33.2-microsoft-standard-WSL2",
+          "enabled": true,
+          "library": "/root/PyQCU/data/quda-sm60-install/lib/libquda.so",
+          "library_sha256": "dd1c8bac922c0d09099fd581e06b383001b17152f8fbc01baa305274ec0affab",
+          "marker_present": true,
+          "qmp": {
+            "library": "/root/PyQCU/data/quda-sm60-install/lib/libqmp.so",
+            "library_sha256": "7ee438b8dc053943198a53f66554bb55fd02e5c29065e2191747daacc337ae99",
+            "initialized": true,
+            "initialized_here": true,
+            "thread_level_required": 1,
+            "thread_level_provided": 1,
+            "logical_topology_declared": true,
+            "logical_topology": [
+              2,
+              1,
+              1,
+              1
+            ]
+          }
+        },
+        "cleanup_errors": [],
+        "runtime_ranks": [
+          {
+            "torch": "2.7.1+cu118",
+            "torch_cuda": "11.8",
+            "device_index": 0,
+            "device_name": "Tesla P100-PCIE-16GB",
+            "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+            "total_memory_bytes": 17179738112,
+            "compute_capability": [
+              6,
+              0
+            ],
+            "device": "cuda:0"
+          },
+          {
+            "torch": "2.7.1+cu118",
+            "torch_cuda": "11.8",
+            "device_index": 1,
+            "device_name": "Tesla P100-PCIE-16GB",
+            "device_uuid": "627bf0ee-9926-a311-57d8-5a7923985b78",
+            "total_memory_bytes": 17179738112,
+            "compute_capability": [
+              6,
+              0
+            ],
+            "device": "cuda:1"
+          }
+        ]
+      },
+      "worker_wall_seconds": 189.230760439008,
+      "completed_at": "2026-09-27T23:17:45Z",
+      "mpi": {
+        "rank": 0,
+        "size": 2,
+        "process_grid": [
+          2,
+          1,
+          1,
+          1
+        ],
+        "rank_coordinate": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "trace_paths": {},
+      "parallel_contract": {
+        "launcher": "mpirun",
+        "process_grid": [
+          2,
+          1,
+          1,
+          1
+        ],
+        "rank_local_cache": true,
+        "rank_suffixed_trace": true,
+        "ranks": 2
+      },
+      "phase_contract": {
+        "cold_separate_process": true,
+        "counts": {
+          "cold": 1,
+          "steady": 5,
+          "warmup": 2
+        },
+        "selected": [
+          "cold",
+          "warmup",
+          "steady"
+        ]
+      },
+      "device_contract": {
+        "requested": "p100"
+      },
+      "rank_results": [
+        {
+          "rank": 0,
+          "status": "ok",
+          "reason": null,
+          "trace_paths": {},
+          "device": {
+            "torch": "2.7.1+cu118",
+            "torch_cuda": "11.8",
+            "device_index": 0,
+            "device_name": "Tesla P100-PCIE-16GB",
+            "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+            "total_memory_bytes": 17179738112,
+            "compute_capability": [
+              6,
+              0
+            ],
+            "device": "cuda:0"
+          }
+        },
+        {
+          "rank": 1,
+          "status": "ok",
+          "reason": null,
+          "trace_paths": {},
+          "device": {
+            "torch": "2.7.1+cu118",
+            "torch_cuda": "11.8",
+            "device_index": 1,
+            "device_name": "Tesla P100-PCIE-16GB",
+            "device_uuid": "627bf0ee-9926-a311-57d8-5a7923985b78",
+            "total_memory_bytes": 17179738112,
+            "compute_capability": [
+              6,
+              0
+            ],
+            "device": "cuda:1"
+          }
+        }
+      ],
+      "rank_aggregation": {
+        "mode": "rank-wise maximum for wall times/bytes/iterations; element-wise conjunction for convergence",
+        "ranks": 2,
+        "process_grid": [
+          2,
+          1,
+          1,
+          1
+        ]
+      },
+      "memory_rank_summary": {
+        "setup_peak_allocated_bytes": 176160768,
+        "setup_peak_reserved_bytes": 176160768,
+        "steady_peak_allocated_bytes": 612499456,
+        "steady_peak_reserved_bytes": 3315597312,
+        "per_rank": [
+          {
+            "rank": 0,
+            "setup_peak_allocated_bytes": 176160768,
+            "steady_peak_allocated_bytes": 612499456
+          },
+          {
+            "rank": 1,
+            "setup_peak_allocated_bytes": 176160768,
+            "steady_peak_allocated_bytes": 612499456
+          }
+        ]
+      },
+      "process": {
+        "returncode": 0,
+        "wall_seconds": 190.6953989390022,
+        "stdout_tail": "97%)\n        total missing         =     0.000 secs (  0.003%)\n\n          loadGaugeQuda Total time =     0.151 secs\n                 download     =     0.045 secs ( 29.610%),\t with        2 calls at 2.232e+04 us per call\n                     init     =     0.003 secs (  1.682%),\t with       29 calls at 8.745e+01 us per call\n                  compute     =     0.001 secs (  0.383%),\t with       12 calls at 4.808e+01 us per call\n                    comms     =     0.102 secs ( 67.786%),\t with        1 calls at 1.022e+05 us per call\n                     free     =     0.000 secs (  0.004%),\t with       11 calls at 5.455e-01 us per call\n        total accounted       =     0.150 secs ( 99.465%)\n        total missing         =     0.001 secs (  0.535%)\n\n         loadCloverQuda Total time =     0.228 secs\n                     init     =     0.004 secs (  1.704%),\t with        3 calls at 1.296e+03 us per call\n                  compute     =     0.026 secs ( 11.271%),\t with        3 calls at 8.571e+03 us per call\n                    comms     =     0.192 secs ( 84.156%),\t with        1 calls at 1.920e+05 us per call\n                     free     =     0.000 secs (  0.002%),\t with        1 calls at 4.000e+00 us per call\n        total accounted       =     0.222 secs ( 97.132%)\n        total missing         =     0.007 secs (  2.868%)\n\n             invertQuda Total time =   145.076 secs\n                 download     =     0.556 secs (  0.383%),\t with       12 calls at 4.636e+04 us per call\n                     init     =     4.226 secs (  2.913%),\t with     9967 calls at 4.240e+02 us per call\n                 preamble     =     0.637 secs (  0.439%),\t with     1485 calls at 4.288e+02 us per call\n                  compute     =   136.883 secs ( 94.353%),\t with    28517 calls at 4.800e+03 us per call\n                 epilogue     =     0.195 secs (  0.134%),\t with      742 calls at 2.626e+02 us per call\n                     free     =     0.024 secs (  0.017%),\t with      662 calls at 3.641e+01 us per call\n                 file i/o     =     0.769 secs (  0.530%),\t with       61 calls at 1.261e+04 us per call\n                    eigen     =     0.017 secs (  0.012%),\t with     1416 calls at 1.209e+01 us per call\n        total accounted       =   143.307 secs ( 98.781%)\n        total missing         =     1.768 secs (  1.219%)\n\n                endQuda Total time =     0.232 secs\n                     free     =     0.000 secs (  0.009%),\t with        6 calls at 3.333e+00 us per call\n        total accounted       =     0.000 secs (  0.009%)\n        total missing         =     0.232 secs ( 99.991%)\n\n       initQuda-endQuda Total time =   184.606 secs\n\n                   QUDA Total time =   145.917 secs\n                 download     =     0.601 secs (  0.412%),\t with       14 calls at 4.293e+04 us per call\n                     init     =     4.463 secs (  3.059%),\t with    10001 calls at 4.463e+02 us per call\n                 preamble     =     0.637 secs (  0.437%),\t with     1485 calls at 4.289e+02 us per call\n                  compute     =   136.914 secs ( 93.830%),\t with    28532 calls at 4.799e+03 us per call\n                    comms     =     0.294 secs (  0.202%),\t with        2 calls at 1.471e+05 us per call\n                 epilogue     =     0.195 secs (  0.134%),\t with      742 calls at 2.626e+02 us per call\n                     free     =     0.024 secs (  0.017%),\t with      680 calls at 3.545e+01 us per call\n                 file i/o     =     0.769 secs (  0.527%),\t with       61 calls at 1.261e+04 us per call\n                    eigen     =     0.017 secs (  0.012%),\t with     1416 calls at 1.207e+01 us per call\n        total accounted       =   143.915 secs ( 98.628%)\n        total missing         =     2.002 secs (  1.372%)\n\nDevice memory used = 4967.7 MiB\nPinned device memory used = 0.0 MiB\nManaged memory used = 0.0 MiB\nShmem memory used = 0.0 MiB\nPage-locked host memory used = 289.2 MiB\nTotal host memory used >= 384.2 MiB\n",
+        "stderr_tail": ""
+      },
+      "iterations_cold": {
+        "samples": [
+          89
+        ],
+        "min": 89,
+        "max": 89,
+        "median": 89.0
+      },
+      "converged_cold": true,
+      "true_residual_cold": {
+        "samples_rel": [
+          1.8309969892767062e-08
+        ],
+        "max_rel": 1.8309969892767062e-08,
+        "gate": 5e-08,
+        "pass": true,
+        "untimed_probe_rel": null
+      },
+      "memory_cold": {
+        "schema_version": 2,
+        "setup": {
+          "baseline": {
+            "allocated_bytes": 0,
+            "reserved_bytes": 0,
+            "nvidia_smi": {
+              "available": true,
+              "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+              "process_used_bytes": null,
+              "gpu_used_bytes": null,
+              "error": "no numeric sample"
+            }
+          },
+          "cuda_peak_allocated_bytes": 176160768,
+          "cuda_peak_reserved_bytes": 176160768,
+          "nvidia_smi": {
+            "available": true,
+            "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+            "process_used_bytes": null,
+            "gpu_used_bytes": null,
+            "error": "no numeric sample"
+          },
+          "device_wide_sampler": {
+            "available": true,
+            "scope": "device-wide cudaMemGetInfo; may include other processes",
+            "device": "cuda:0",
+            "unit": "bytes",
+            "interval_seconds": 0.01,
+            "duration_seconds": 4.472597239000606,
+            "sample_count": 69,
+            "device_total_bytes": 17179738112,
+            "device_used_initial_bytes": 1267597312,
+            "device_used_max_observed_bytes": 1934491648,
+            "join_timed_out": false,
+            "errors": []
+          },
+          "timing_semantics": "instrumented setup; sampler stop excluded from setup_seconds",
+          "note": "PyTorch allocator excludes QUDA native allocations; the device-wide sampler captures transients but may include other processes"
+        },
+        "first_solve": {
+          "excluded_from_formal_timing": true,
+          "seconds": 14.881340051011648,
+          "iterations": 89,
+          "converged": true,
+          "true_residual_rel": 1.8309969892767062e-08,
+          "memory": {
+            "cuda_peak_allocated_bytes": 612499456,
+            "cuda_peak_reserved_bytes": 1390411776,
+            "nvidia_smi": {
+              "available": true,
+              "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+              "process_used_bytes": null,
+              "gpu_used_bytes": null,
+              "error": "no numeric sample"
+            },
+            "device_wide_sampler": {
+              "available": true,
+              "scope": "device-wide cudaMemGetInfo; may include other processes",
+              "device": "cuda:0",
+              "unit": "bytes",
+              "interval_seconds": 0.01,
+              "duration_seconds": 14.882159993998357,
+              "sample_count": 2,
+              "device_total_bytes": 17179738112,
+              "device_used_initial_bytes": 7349338112,
+              "device_used_max_observed_bytes": 7953317888,
+              "join_timed_out": false,
+              "errors": []
+            }
+          }
+        },
+        "steady": {
+          "baseline": {
+            "allocated_bytes": 612499456,
+            "reserved_bytes": 3315597312,
+            "nvidia_smi": {
+              "available": true,
+              "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+              "process_used_bytes": null,
+              "gpu_used_bytes": null,
+              "error": "no numeric sample"
+            }
+          },
+          "cuda_peak_allocated_bytes": 0,
+          "cuda_peak_reserved_bytes": 0,
+          "nvidia_smi_process_max_observed_bytes": null,
+          "nvidia_smi_gpu_max_observed_bytes": null,
+          "samples": [],
+          "snapshot_semantics": "nvidia-smi values are post-solve observations, not peaks",
+          "untimed_device_memory_probe": {}
+        }
+      },
+      "phase_results": {
+        "cold": {
+          "seconds": 15.299168234007084,
+          "iterations": {
+            "samples": [
+              89
+            ],
+            "min": 89,
+            "max": 89,
+            "median": 89.0
+          },
+          "converged": true
+        },
+        "warmup_count": 2,
+        "steady_count": 5
+      }
+    }
+  },
+  "comparison": {
+    "status": "pass",
+    "profile": "formal",
+    "fair": true,
+    "reasons": [],
+    "speedup_pyqcu_over_quda": 1.4436014498284782,
+    "pyqcu_median_seconds": 10.326357375000953,
+    "quda_median_seconds": 14.907144477998372
+  },
+  "merged_from": [
+    "/root/PyQCU/data/mg_matrix_comprehensive_final_20260928/units/pyqcu__p100__16x16x32x32__c128__l3__trace-off.json",
+    "/root/PyQCU/data/mg_matrix_comprehensive_final_20260928/units/quda__p100__16x16x32x32__c128__l3__trace-off.json"
+  ]
+}

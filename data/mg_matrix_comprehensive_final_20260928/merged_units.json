@@ -1,0 +1,84 @@
+{
+  "schema": {
+    "name": "pyqcu.mg-matrix-full.merged-units",
+    "version": 1
+  },
+  "created_at": "2026-09-27T23:38:21.525958+00:00",
+  "units": [
+    {
+      "unit_id": "p100__16x16x32x32__c128__l1__trace-on",
+      "sides": {
+        "pyqcu": "data/mg_matrix_comprehensive_final_20260928/units/pyqcu__p100__16x16x32x32__c128__l1__trace-on.json",
+        "quda": "data/mg_matrix_comprehensive_final_20260928/units/quda__p100__16x16x32x32__c128__l1__trace-on.json"
+      },
+      "output_path": "data/mg_matrix_comprehensive_final_20260928/combined/p100__16x16x32x32__c128__l1__trace-on.json",
+      "argv": [
+        "/usr/bin/python",
+        "-B",
+        "/root/PyQCU/pyqcu/testing/qcu/strict/quda_comparison/bench_strict_vs_quda.py",
+        "--merge",
+        "data/mg_matrix_comprehensive_final_20260928/units/pyqcu__p100__16x16x32x32__c128__l1__trace-on.json",
+        "data/mg_matrix_comprehensive_final_20260928/units/quda__p100__16x16x32x32__c128__l1__trace-on.json",
+        "--output",
+        "data/mg_matrix_comprehensive_final_20260928/combined/p100__16x16x32x32__c128__l1__trace-on.json"
+      ],
+      "status": "ok",
+      "error_reason": null,
+      "speedup_pyqcu_over_quda": 0.43831262743917787,
+      "fair": true,
+      "returncode": 0,
+      "stdout_tail": "",
+      "stderr_tail": "[result] /root/PyQCU/data/mg_matrix_comprehensive_final_20260928/combined/p100__16x16x32x32__c128__l1__trace-on.json\n"
+    },
+    {
+      "unit_id": "p100__16x16x32x32__c128__l2__trace-on",
+      "sides": {
+        "pyqcu": "data/mg_matrix_comprehensive_final_20260928/units/pyqcu__p100__16x16x32x32__c128__l2__trace-on.json",
+        "quda": "data/mg_matrix_comprehensive_final_20260928/units/quda__p100__16x16x32x32__c128__l2__trace-on.json"
+      },
+      "output_path": "data/mg_matrix_comprehensive_final_20260928/combined/p100__16x16x32x32__c128__l2__trace-on.json",
+      "argv": [
+        "/usr/bin/python",
+        "-B",
+        "/root/PyQCU/pyqcu/testing/qcu/strict/quda_comparison/bench_strict_vs_quda.py",
+        "--merge",
+        "data/mg_matrix_comprehensive_final_20260928/units/pyqcu__p100__16x16x32x32__c128__l2__trace-on.json",
+        "data/mg_matrix_comprehensive_final_20260928/units/quda__p100__16x16x32x32__c128__l2__trace-on.json",
+        "--output",
+        "data/mg_matrix_comprehensive_final_20260928/combined/p100__16x16x32x32__c128__l2__trace-on.json"
+      ],
+      "status": "ok",
+      "error_reason": null,
+      "speedup_pyqcu_over_quda": 1.0420202940423955,
+      "fair": true,
+      "returncode": 0,
+      "stdout_tail": "",
+      "stderr_tail": "[result] /root/PyQCU/data/mg_matrix_comprehensive_final_20260928/combined/p100__16x16x32x32__c128__l2__trace-on.json\n"
+    },
+    {
+      "unit_id": "p100__16x16x32x32__c128__l3__trace-on",
+      "sides": {
+        "pyqcu": "data/mg_matrix_comprehensive_final_20260928/units/pyqcu__p100__16x16x32x32__c128__l3__trace-on.json",
+        "quda": "data/mg_matrix_comprehensive_final_20260928/units/quda__p100__16x16x32x32__c128__l3__trace-on.json"
+      },
+      "output_path": "data/mg_matrix_comprehensive_final_20260928/combined/p100__16x16x32x32__c128__l3__trace-on.json",
+      "argv": [
+        "/usr/bin/python",
+        "-B",
+        "/root/PyQCU/pyqcu/testing/qcu/strict/quda_comparison/bench_strict_vs_quda.py",
+        "--merge",
+        "data/mg_matrix_comprehensive_final_20260928/units/pyqcu__p100__16x16x32x32__c128__l3__trace-on.json",
+        "data/mg_matrix_comprehensive_final_20260928/units/quda__p100__16x16x32x32__c128__l3__trace-on.json",
+        "--output",
+        "data/mg_matrix_comprehensive_final_20260928/combined/p100__16x16x32x32__c128__l3__trace-on.json"
+      ],
+      "status": "ok",
+      "error_reason": null,
+      "speedup_pyqcu_over_quda": 0.884284504668704,
+      "fair": true,
+      "returncode": 0,
+      "stdout_tail": "",
+      "stderr_tail": "[result] /root/PyQCU/data/mg_matrix_comprehensive_final_20260928/combined/p100__16x16x32x32__c128__l3__trace-on.json\n"
+    }
+  ]
+}

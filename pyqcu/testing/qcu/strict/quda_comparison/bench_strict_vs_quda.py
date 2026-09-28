@@ -436,6 +436,12 @@ def _strict_runtime_cache_identity(payload: Mapping[str, Any]) -> Dict[str, Any]
         "precision": config["precision"]["name"],
         "levels": int(config["levels"]),
         "block_xyzt": list(config["block_xyzt"]),
+        "block_xyzt_per_level": [
+            list(value)
+            for value in config.get(
+                "block_xyzt_per_level",
+                [config["block_xyzt"]] * (int(config["levels"]) - 1))
+        ],
         "nvec": int(config["nvec"]),
         "coarse_spin": int(config["coarse_spin"]),
         "coarse_dof": int(config["coarse_dof"]),
@@ -1094,15 +1100,39 @@ def _library_provenance(path: Optional[os.PathLike[str] | str]) -> Dict[str, Any
     }
 
 
+def _loaded_shared_library_path(name: str) -> Optional[Path]:
+    """Return the resolved path of an already-loaded shared library."""
+    maps = Path("/proc/self/maps")
+    try:
+        lines = maps.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return None
+    for line in reversed(lines):
+        fields = line.rsplit(maxsplit=1)
+        if len(fields) != 2:
+            continue
+        candidate = Path(fields[1])
+        if candidate.name != name or not candidate.is_file():
+            continue
+        try:
+            return candidate.resolve()
+        except OSError:
+            return candidate
+    return None
+
+
 def _pyqcu_library_provenance(
         path: Optional[os.PathLike[str] | str] = None) -> Dict[str, Any]:
     """Return PyQCU's loaded C++ library identity and cubin architectures."""
     if path is None:
-        candidates: List[Path] = [
-            REPO / "cpp" / "cuda" / "qcu" / "libqcu.so"]
+        candidates: List[Path] = []
+        loaded = _loaded_shared_library_path("libqcu.so")
+        if loaded is not None:
+            candidates.append(loaded)
         for entry in os.environ.get("LD_LIBRARY_PATH", "").split(os.pathsep):
             if entry:
                 candidates.append(Path(entry).expanduser() / "libqcu.so")
+        candidates.append(REPO / "cpp" / "cuda" / "qcu" / "libqcu.so")
         selected = next(
             (candidate for candidate in candidates if candidate.is_file()),
             candidates[0])

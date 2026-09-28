@@ -1,0 +1,1450 @@
+{
+  "schema": {
+    "name": "pyqcu.strict-vs-quda.benchmark",
+    "version": 1
+  },
+  "run_id": "3ed1dd06c9c2ecaf0ca4",
+  "state": "partial",
+  "profile": "formal",
+  "created_at": "2026-09-27T22:24:43Z",
+  "updated_at": "2026-09-27T22:26:06Z",
+  "selected_sides": [
+    "quda"
+  ],
+  "protocol": {
+    "profile": "formal",
+    "lattice_xyzt": [
+      16,
+      16,
+      16,
+      16
+    ],
+    "mass": 0.05,
+    "kappa": 0.1234567901234568,
+    "seed": 42,
+    "precision": {
+      "name": "c128",
+      "complex_bytes": 16,
+      "real": "float64",
+      "default_tolerance": 1e-08,
+      "true_residual_gate": 5e-08
+    },
+    "levels": 3,
+    "block_xyzt": [
+      2,
+      2,
+      2,
+      2
+    ],
+    "block_xyzt_per_level": [
+      [
+        2,
+        2,
+        2,
+        2
+      ],
+      [
+        2,
+        2,
+        2,
+        2
+      ]
+    ],
+    "nvec": 12,
+    "coarse_spin": 2,
+    "coarse_dof": 24,
+    "target_parity": 1,
+    "null_vector_contract": {
+      "source": "12 canonical full near-null vectors",
+      "full_reconstruction": "precomputed once by zero-rhs Clover block elimination",
+      "transfer": "full-field chiral aggregation with coarse_spin=2"
+    },
+    "outer_solver": "restarted-right-fgmres/gcr",
+    "quda_strategy": "aligned",
+    "quda_coarse_precision": {
+      "requested": "auto",
+      "effective": "double",
+      "semantics": "fine c128 solve with double coarse MG fields"
+    },
+    "pyqcu_strict_block_precision": {
+      "requested": "auto",
+      "effective": "double"
+    },
+    "pyqcu_strict_block_device": "auto",
+    "pyqcu_strict_offload_null_basis": false,
+    "reference_solver": {
+      "kind": "bicgstab",
+      "warmups": 2,
+      "timing_semantics": "same caller-owned input/output and true-residual gate; outside MultiGrid and excluded from speedup"
+    },
+    "restart_requested": 16,
+    "restart_effective": 16,
+    "max_krylov_bytes": 1073741824,
+    "pyqcu_strict_setup": {
+      "probe_mode": "colored",
+      "column_batch_size": 1,
+      "projection_site_batch_size": 4,
+      "max_workspace_bytes": 1073741824,
+      "workspace_four_arena_lower_bound_bytes": 50331648,
+      "require_exact_batch": true
+    },
+    "fused_workspace_formula": "(2m+5)B_f+2B_c",
+    "fused_workspace_terms": {
+      "B_f": "one compact fine-parity vector in bytes",
+      "B_c": "one full first-coarse-level vector in bytes"
+    },
+    "max_iter": 1000,
+    "tolerance": 1e-08,
+    "true_residual_gate": 5e-08,
+    "nu_pre": 1,
+    "nu_post": 1,
+    "coarse_max_iter": 200,
+    "coarse_tolerance": 3e-05,
+    "initial_guess": "zero for every warmup and measured solve",
+    "warmups": 2,
+    "repeats": 5,
+    "statistic": {
+      "center": "median",
+      "spread": "median absolute deviation from median",
+      "warmups_included": false
+    },
+    "timing_contract": {
+      "input_io": "outside setup and solve",
+      "runtime_init": "CUDA/PyQUDA module initialization, outside setup",
+      "setup": "host inputs -> gauge/clover/runtime ready; includes cache lookup/restore, excludes cache persistence",
+      "cache_lookup_or_restore": "reported as a disjoint setup component",
+      "cache_persist": "reported separately and excluded from setup total",
+      "steady_solve": "zero-x0 solve call bracketed by CUDA synchronization",
+      "true_residual": "computed after each timed solve and excluded from solve time",
+      "first_solve_memory": "the first zero-x0 warmup is sampled for lazy solver/workspace allocation; excluded from warmup/repeat timing statistics",
+      "memory_probe": "one additional post-timing solve with 10 ms device-wide cudaMemGetInfo sampling; excluded from warmups/repeats/statistics"
+    },
+    "residual_contract": {
+      "definition": "||b-D_pyqcu*x_canonical||_2/||b||_2",
+      "operator": "full periodic Wilson+Clover, csw=1, PyQCU normalization",
+      "quda_solution_scale": 4.05
+    },
+    "config_hash": "3ed1dd06c9c2ecaf0ca4327dd9147d201491553719d21bb02a018a658747a181"
+  },
+  "inputs": {
+    "gauge": {
+      "path": "/root/PyQCU/data/gauge_16x16x16x16_m0.05_seed42_c64.h5",
+      "dataset": "g",
+      "storage_precision": "c64",
+      "exists": true
+    },
+    "source": {
+      "path": "/root/PyQCU/data/gauge_16x16x16x16_m0.05_seed42_c64.h5",
+      "dataset": "fi",
+      "storage_precision": "c64",
+      "exists": true
+    },
+    "null_vectors": {
+      "path": "/root/PyQCU/data/L16x16x16x16_nvec12_full_c64.h5",
+      "dataset": "null",
+      "layout": "[nvec,spin,color,x,y,z,t]",
+      "parity": "full (even reconstructed once; odd copied verbatim)",
+      "storage_precision": "c64",
+      "exists": true
+    },
+    "quda_qio": {
+      "prefix": "/root/PyQCU/data/qio-matrix/L16x16x16x16_nvec12_quda",
+      "conversion_manifest": "/root/PyQCU/data/qio-matrix/L16x16x16x16_nvec12_quda.v1.json",
+      "required_for_fair_quda_run": true
+    }
+  },
+  "execution": {
+    "strict_cache": {
+      "directory": "/root/PyQCU/data/strict_cache_comprehensive_20260928/p100-c128/quda__p100__16x16x16x16__c128__l3__trace-off",
+      "expect": "miss"
+    },
+    "phases": {
+      "selected": [
+        "cold",
+        "warmup",
+        "steady"
+      ],
+      "counts": {
+        "cold": 1,
+        "warmup": 2,
+        "steady": 5
+      },
+      "cold_separate_process": true
+    },
+    "device": {
+      "requested": "p100"
+    },
+    "parallel": {
+      "ranks": 2,
+      "process_grid": [
+        2,
+        1,
+        1,
+        1
+      ],
+      "launcher": "mpirun",
+      "rank_local_cache": true,
+      "rank_suffixed_trace": true
+    }
+  },
+  "input_fingerprints": {
+    "gauge": {
+      "algorithm": "sha256(logical-hdf5-dataset-v1)",
+      "sha256": "a10c07cc3bc34d195794875bf20b39ffe84c64af86967fd9312a957f3a0f1f39",
+      "path": "/root/PyQCU/data/gauge_16x16x16x16_m0.05_seed42_c64.h5",
+      "dataset": "g",
+      "shape": [
+        2,
+        3,
+        3,
+        4,
+        16,
+        16,
+        16,
+        8
+      ],
+      "dtype": "complex64",
+      "file_size_bytes": 25167872,
+      "file_mtime_ns": 1787202539370978343,
+      "elapsed_seconds": 0.07690015999833122
+    },
+    "source": {
+      "algorithm": "sha256(logical-hdf5-dataset-v1)",
+      "sha256": "eedb3a8adfdd47721e66382850ac15a9fca2eeb44719a9bcbe0ae11ae9c6ca9f",
+      "path": "/root/PyQCU/data/gauge_16x16x16x16_m0.05_seed42_c64.h5",
+      "dataset": "fi",
+      "shape": [
+        2,
+        4,
+        3,
+        16,
+        16,
+        16,
+        8
+      ],
+      "dtype": "complex64",
+      "file_size_bytes": 25167872,
+      "file_mtime_ns": 1787202539370978343,
+      "elapsed_seconds": 0.02081465300580021
+    },
+    "null_vectors": {
+      "algorithm": "sha256(logical-hdf5-dataset-v1)",
+      "sha256": "fd999e6c75c6419b94ab3ce84cd63cb4b805c6565e0781fd8a7f21f4e98e3f21",
+      "path": "/root/PyQCU/data/L16x16x16x16_nvec12_full_c64.h5",
+      "dataset": "null",
+      "shape": [
+        12,
+        4,
+        3,
+        16,
+        16,
+        16,
+        16
+      ],
+      "dtype": "complex64",
+      "file_size_bytes": 75531984,
+      "file_mtime_ns": 1789562524508442078,
+      "elapsed_seconds": 0.2776615810143994
+    },
+    "bundle_hash": "e67aa41fa951a9cc125ecf6a56338b8e050c04595607f9807a3e9b387d445ff2"
+  },
+  "collector": {
+    "path": "/root/PyQCU/pyqcu/testing/qcu/strict/quda_comparison/bench_strict_vs_quda.py",
+    "git": {
+      "commit": "33fe4f0935e5662351c4a190f7f913f391d498a9",
+      "dirty_tracked": true,
+      "repository": "/root/PyQCU"
+    },
+    "environment": {
+      "python": "3.10.12",
+      "executable": "/usr/bin/python",
+      "platform": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.35",
+      "hostname": "68bb03cf529b",
+      "env": {
+        "CUDA_VISIBLE_DEVICES": "0,1",
+        "QUDA_INSTALL": "/root/PyQCU/data/quda-sm60-install",
+        "QUDA_PATH": "/root/PyQCU/data/quda-sm60-install",
+        "QUDA_BUILD_DIR": "/root/PyQCU/data/quda-sm60-build-offline2",
+        "DEV87_REDUCE_SYNC": "1",
+        "QUDA_RESOURCE_PATH": "/root/PyQCU/data/quda-resource-sm60-20260927"
+      }
+    },
+    "timeout_seconds_per_side": 1800.0,
+    "resume": false,
+    "diagnostic_trace_environment": []
+  },
+  "sides": {
+    "pyqcu": {
+      "side": "pyqcu",
+      "status": "not_selected",
+      "dry_run": false,
+      "reason": null
+    },
+    "quda": {
+      "side": "quda",
+      "status": "ok",
+      "reason": null,
+      "config_hash": "3ed1dd06c9c2ecaf0ca4327dd9147d201491553719d21bb02a018a658747a181",
+      "input_bundle_hash": "e67aa41fa951a9cc125ecf6a56338b8e050c04595607f9807a3e9b387d445ff2",
+      "timing": {
+        "input_io_seconds": 0.02973318700969685,
+        "input_prepare_seconds": 0.08748166399891488,
+        "input_read_distributed": true,
+        "input_read_scope": "rank-sliced HDF5 hyperslab",
+        "runtime_init_seconds": 0.2544266369950492,
+        "setup_seconds": 1.738280832010787,
+        "warmups": [
+          {
+            "seconds": 5.504874857986579,
+            "iterations": 87,
+            "converged": true,
+            "true_residual_rel": 1.8303539259850377e-08
+          },
+          {
+            "seconds": 5.195614643991576,
+            "iterations": 87,
+            "converged": true,
+            "true_residual_rel": 1.8303539259850377e-08
+          }
+        ],
+        "steady": {
+          "samples_seconds": [
+            5.162895943009062,
+            5.184887531999266,
+            5.155516283994075,
+            5.207728091001627,
+            5.184916747006355
+          ],
+          "median_seconds": 5.184887531999266,
+          "mad_seconds": 0.021991588990204036
+        },
+        "cold_seconds": 5.474877954009571,
+        "cold_setup_seconds": 1.696575201000087,
+        "cold_cache_persist_seconds": null
+      },
+      "reference_solver": {
+        "kind": "bicgstab",
+        "implementation": "pyquda.quda.invertQuda(QUDA_BICGSTAB_INVERTER)",
+        "cold": {
+          "seconds": 0.8555027310067089,
+          "iterations": 81,
+          "true_residual_rel": 1.8334761338720516e-08
+        },
+        "warmups": [
+          {
+            "seconds": 0.8759343209967483,
+            "iterations": 81,
+            "true_residual_rel": 1.8334761338720516e-08
+          },
+          {
+            "seconds": 0.9005505960085429,
+            "iterations": 81,
+            "true_residual_rel": 1.8334761338720516e-08
+          }
+        ],
+        "steady": {
+          "samples_seconds": [
+            0.889399865991436,
+            0.8791168850002578,
+            0.8714848530071322,
+            0.9038799840054708,
+            0.8854869450005936
+          ],
+          "median_seconds": 0.8854869450005936,
+          "mad_seconds": 0.006370060000335798
+        },
+        "iterations": {
+          "samples": [
+            81,
+            81,
+            81,
+            81,
+            81
+          ],
+          "min": 81,
+          "max": 81,
+          "median": 81.0
+        },
+        "samples": [
+          {
+            "seconds": 0.889399865991436,
+            "iterations": 81,
+            "true_residual_rel": 1.8334761338720516e-08
+          },
+          {
+            "seconds": 0.8791168850002578,
+            "iterations": 81,
+            "true_residual_rel": 1.8334761338720516e-08
+          },
+          {
+            "seconds": 0.8714848530071322,
+            "iterations": 81,
+            "true_residual_rel": 1.8334761338720516e-08
+          },
+          {
+            "seconds": 0.9038799840054708,
+            "iterations": 81,
+            "true_residual_rel": 1.8334761338720516e-08
+          },
+          {
+            "seconds": 0.8854869450005936,
+            "iterations": 81,
+            "true_residual_rel": 1.8334761338720516e-08
+          }
+        ],
+        "true_residual_max_rel": 1.8334761338720516e-08,
+        "excluded_from_speedup": true,
+        "phase_iterations": {
+          "cold": 81,
+          "warmups": [
+            81,
+            81
+          ],
+          "steady": [
+            81,
+            81,
+            81,
+            81,
+            81
+          ]
+        }
+      },
+      "iterations": {
+        "samples": [
+          87,
+          87,
+          87,
+          87,
+          87
+        ],
+        "min": 87,
+        "max": 87,
+        "median": 87.0
+      },
+      "mg_levels": [
+        {
+          "level": 0,
+          "total_seconds": 36.5742870009708,
+          "total_iterations": 435,
+          "pre_smoother_seconds": 0.0,
+          "post_smoother_seconds": 0.0,
+          "restriction_seconds": 0.0,
+          "prolongation_seconds": 0.0,
+          "coarse_solver_seconds": 0.0,
+          "timing_rank_index": 1,
+          "other_seconds": 36.5742870009708,
+          "pre_smoother_iterations": 0,
+          "post_smoother_iterations": 0,
+          "restriction_calls": 0,
+          "prolongation_calls": 0,
+          "recursive_solve_calls": 0,
+          "coarse_solver_iterations": 0,
+          "coarse_solver_calls": 0,
+          "smoother_iterations": 0,
+          "finest_iterations": 435,
+          "residual_sequence": [
+            {
+              "solve_index": 0,
+              "iteration": null,
+              "relative": 1.8303539259850377e-08,
+              "kind": "case_true_residual"
+            },
+            {
+              "solve_index": 1,
+              "iteration": null,
+              "relative": 1.8303539259850377e-08,
+              "kind": "case_true_residual"
+            },
+            {
+              "solve_index": 2,
+              "iteration": null,
+              "relative": 1.8303539259850377e-08,
+              "kind": "case_true_residual"
+            },
+            {
+              "solve_index": 3,
+              "iteration": null,
+              "relative": 1.8303539259850377e-08,
+              "kind": "case_true_residual"
+            },
+            {
+              "solve_index": 4,
+              "iteration": null,
+              "relative": 1.8303539259850377e-08,
+              "kind": "case_true_residual"
+            }
+          ],
+          "final_residual": 1.8303539259850377e-08,
+          "rank_final_residuals": [
+            1.8303539259850377e-08,
+            1.8303539259850377e-08
+          ]
+        },
+        {
+          "level": 1,
+          "total_seconds": 0.0,
+          "total_iterations": 435,
+          "pre_smoother_seconds": 0.0,
+          "post_smoother_seconds": 0.0,
+          "restriction_seconds": 0.0,
+          "prolongation_seconds": 0.0,
+          "coarse_solver_seconds": 0.0,
+          "timing_rank_index": 0,
+          "other_seconds": 0.0,
+          "pre_smoother_iterations": 0,
+          "post_smoother_iterations": 0,
+          "restriction_calls": 0,
+          "prolongation_calls": 0,
+          "recursive_solve_calls": 0,
+          "coarse_solver_iterations": 0,
+          "coarse_solver_calls": 0,
+          "smoother_iterations": 0
+        },
+        {
+          "level": 2,
+          "total_seconds": 0.0,
+          "total_iterations": 435,
+          "pre_smoother_seconds": 0.0,
+          "post_smoother_seconds": 0.0,
+          "restriction_seconds": 0.0,
+          "prolongation_seconds": 0.0,
+          "coarse_solver_seconds": 0.0,
+          "timing_rank_index": 0,
+          "other_seconds": 0.0,
+          "pre_smoother_iterations": 0,
+          "post_smoother_iterations": 0,
+          "restriction_calls": 0,
+          "prolongation_calls": 0,
+          "recursive_solve_calls": 0,
+          "coarse_solver_iterations": 0,
+          "coarse_solver_calls": 0,
+          "smoother_iterations": 0
+        }
+      ],
+      "mg_levels_by_phase": {
+        "cold": [
+          {
+            "level": 0,
+            "total_seconds": 5.474877954009571,
+            "total_iterations": 87,
+            "pre_smoother_seconds": 0.0,
+            "post_smoother_seconds": 0.0,
+            "restriction_seconds": 0.0,
+            "prolongation_seconds": 0.0,
+            "coarse_solver_seconds": 0.0,
+            "timing_rank_index": 1,
+            "other_seconds": 5.474877954009571,
+            "pre_smoother_iterations": 0,
+            "post_smoother_iterations": 0,
+            "restriction_calls": 0,
+            "prolongation_calls": 0,
+            "recursive_solve_calls": 0,
+            "coarse_solver_iterations": 0,
+            "coarse_solver_calls": 0,
+            "smoother_iterations": 0,
+            "finest_iterations": 87,
+            "residual_sequence": [
+              {
+                "solve_index": 0,
+                "iteration": null,
+                "relative": 1.830353926018887e-08,
+                "kind": "case_true_residual"
+              }
+            ],
+            "final_residual": 1.830353926018887e-08,
+            "rank_final_residuals": [
+              1.830353926018887e-08,
+              1.830353926018887e-08
+            ]
+          },
+          {
+            "level": 1,
+            "total_seconds": 0.0,
+            "total_iterations": 87,
+            "pre_smoother_seconds": 0.0,
+            "post_smoother_seconds": 0.0,
+            "restriction_seconds": 0.0,
+            "prolongation_seconds": 0.0,
+            "coarse_solver_seconds": 0.0,
+            "timing_rank_index": 0,
+            "other_seconds": 0.0,
+            "pre_smoother_iterations": 0,
+            "post_smoother_iterations": 0,
+            "restriction_calls": 0,
+            "prolongation_calls": 0,
+            "recursive_solve_calls": 0,
+            "coarse_solver_iterations": 0,
+            "coarse_solver_calls": 0,
+            "smoother_iterations": 0
+          },
+          {
+            "level": 2,
+            "total_seconds": 0.0,
+            "total_iterations": 87,
+            "pre_smoother_seconds": 0.0,
+            "post_smoother_seconds": 0.0,
+            "restriction_seconds": 0.0,
+            "prolongation_seconds": 0.0,
+            "coarse_solver_seconds": 0.0,
+            "timing_rank_index": 0,
+            "other_seconds": 0.0,
+            "pre_smoother_iterations": 0,
+            "post_smoother_iterations": 0,
+            "restriction_calls": 0,
+            "prolongation_calls": 0,
+            "recursive_solve_calls": 0,
+            "coarse_solver_iterations": 0,
+            "coarse_solver_calls": 0,
+            "smoother_iterations": 0
+          }
+        ]
+      },
+      "iteration_semantics": "finest total_iterations is the outer GCR total; smoother and coarse iterations are separate per-level counters",
+      "iteration_kind": "outer_gcr",
+      "iteration_scope": "outer GCR iterations; recursive MG and coarse solver iterations are recorded separately in QUDA_MG_TRACE",
+      "converged_samples": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "converged": true,
+      "true_residual": {
+        "samples_rel": [
+          1.8303539259850377e-08,
+          1.8303539259850377e-08,
+          1.8303539259850377e-08,
+          1.8303539259850377e-08,
+          1.8303539259850377e-08
+        ],
+        "max_rel": 1.8303539259850377e-08,
+        "gate": 5e-08,
+        "pass": true,
+        "untimed_probe_rel": 1.8303539259850377e-08
+      },
+      "krylov": {
+        "requested_restart": 16,
+        "effective_restart": 16,
+        "max_krylov_bytes": null,
+        "effective_workspace_bytes": null,
+        "note": "QUDA native workspace is not exposed by PyQUDA"
+      },
+      "timing_boundary": {
+        "requested": "caller_preallocated",
+        "supported": true,
+        "formal_eligible": true,
+        "api": "(h_x, h_b, param)",
+        "method": "pyquda.quda.invertQuda(h_x,h_b,param)",
+        "output_argument": "h_x",
+        "detail": "low-level invertQuda writes the caller-owned output",
+        "zero_initial_guess_before_timer": true,
+        "preserve_source": "QUDA_PRESERVE_SOURCE_YES",
+        "timed_operation": "pyquda.quda.invertQuda(h_x,h_b,param)",
+        "performance_call": "omitted; no high-level allocation/performance call in timer"
+      },
+      "quda_parameters": {
+        "requested": {
+          "invert": {
+            "inv_type": "QUDA_GCR_INVERTER",
+            "matpc_type": "QUDA_MATPC_ODD_ODD",
+            "solve_type": "QUDA_DIRECT_PC_SOLVE",
+            "solution_type": "QUDA_MAT_SOLUTION",
+            "use_init_guess": "QUDA_USE_INIT_GUESS_NO",
+            "preserve_source": "QUDA_PRESERVE_SOURCE_YES",
+            "gcrNkrylov": 16,
+            "maxiter": 1000,
+            "tol": 1e-08,
+            "precision": {
+              "cuda_prec": "QUDA_DOUBLE_PRECISION",
+              "cuda_prec_eigensolver": "QUDA_DOUBLE_PRECISION",
+              "cuda_prec_sloppy": "QUDA_DOUBLE_PRECISION",
+              "cuda_prec_refinement_sloppy": "QUDA_DOUBLE_PRECISION",
+              "cuda_prec_precondition": "QUDA_DOUBLE_PRECISION"
+            }
+          },
+          "multigrid": {
+            "n_level": 3,
+            "coarsest_level_index": 2,
+            "compute_null_vector": "QUDA_COMPUTE_NULL_VECTOR_YES",
+            "generate_all_levels": "QUDA_BOOLEAN_FALSE",
+            "run_verify": "QUDA_BOOLEAN_FALSE",
+            "precision_null": [
+              "QUDA_DOUBLE_PRECISION",
+              "QUDA_DOUBLE_PRECISION",
+              "QUDA_DOUBLE_PRECISION"
+            ],
+            "transition": {
+              "n_vec": [
+                12,
+                12
+              ],
+              "n_block_ortho": [
+                2,
+                2
+              ],
+              "vec_load": [
+                "QUDA_BOOLEAN_TRUE",
+                "QUDA_BOOLEAN_FALSE"
+              ],
+              "vec_infile": [
+                "/root/PyQCU/data/qio-matrix/L16x16x16x16_nvec12_quda",
+                ""
+              ],
+              "num_setup_iter": [
+                1,
+                0
+              ],
+              "setup_use_mma": [
+                "QUDA_BOOLEAN_FALSE",
+                "QUDA_BOOLEAN_FALSE"
+              ],
+              "dslash_use_mma": [
+                "QUDA_BOOLEAN_FALSE",
+                "QUDA_BOOLEAN_FALSE"
+              ],
+              "transfer_use_mma": [
+                "QUDA_BOOLEAN_FALSE",
+                "QUDA_BOOLEAN_FALSE"
+              ]
+            },
+            "levels": {
+              "nu_pre": [
+                1,
+                1,
+                1
+              ],
+              "nu_post": [
+                1,
+                1,
+                1
+              ],
+              "smoother": [
+                "QUDA_MR_INVERTER",
+                "QUDA_MR_INVERTER",
+                "QUDA_MR_INVERTER"
+              ],
+              "smoother_tol": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "coarse_solver": [
+                "QUDA_GCR_INVERTER",
+                "QUDA_GCR_INVERTER",
+                "QUDA_CA_GCR_INVERTER"
+              ],
+              "coarse_solver_maxiter": [
+                1,
+                1,
+                200
+              ],
+              "coarse_solver_tol": [
+                3e-05,
+                3e-05,
+                3e-05
+              ]
+            }
+          }
+        },
+        "actual": {
+          "invert": {
+            "inv_type": "QUDA_GCR_INVERTER",
+            "matpc_type": "QUDA_MATPC_ODD_ODD",
+            "solve_type": "QUDA_DIRECT_PC_SOLVE",
+            "solution_type": "QUDA_MAT_SOLUTION",
+            "use_init_guess": "QUDA_USE_INIT_GUESS_NO",
+            "preserve_source": "QUDA_PRESERVE_SOURCE_YES",
+            "gcrNkrylov": 16,
+            "maxiter": 1000,
+            "tol": 1e-08,
+            "precision": {
+              "cuda_prec": "QUDA_DOUBLE_PRECISION",
+              "cuda_prec_sloppy": "QUDA_DOUBLE_PRECISION",
+              "cuda_prec_refinement_sloppy": "QUDA_DOUBLE_PRECISION",
+              "cuda_prec_precondition": "QUDA_DOUBLE_PRECISION",
+              "cuda_prec_eigensolver": "QUDA_DOUBLE_PRECISION"
+            }
+          },
+          "multigrid": {
+            "n_level": 3,
+            "coarsest_level_index": 2,
+            "compute_null_vector": "QUDA_COMPUTE_NULL_VECTOR_YES",
+            "generate_all_levels": "QUDA_BOOLEAN_FALSE",
+            "run_verify": "QUDA_BOOLEAN_FALSE",
+            "transition": {
+              "n_vec": [
+                12,
+                12
+              ],
+              "n_block_ortho": [
+                2,
+                2
+              ],
+              "vec_load": [
+                "QUDA_BOOLEAN_TRUE",
+                "QUDA_BOOLEAN_FALSE"
+              ],
+              "vec_infile": [
+                "/root/PyQCU/data/qio-matrix/L16x16x16x16_nvec12_quda",
+                ""
+              ],
+              "num_setup_iter": [
+                1,
+                0
+              ],
+              "setup_use_mma": [
+                "QUDA_BOOLEAN_FALSE",
+                "QUDA_BOOLEAN_FALSE"
+              ],
+              "dslash_use_mma": [
+                "QUDA_BOOLEAN_FALSE",
+                "QUDA_BOOLEAN_FALSE"
+              ],
+              "transfer_use_mma": [
+                "QUDA_BOOLEAN_FALSE",
+                "QUDA_BOOLEAN_FALSE"
+              ]
+            },
+            "levels": {
+              "nu_pre": [
+                1,
+                1,
+                1
+              ],
+              "nu_post": [
+                1,
+                1,
+                1
+              ],
+              "smoother": [
+                "QUDA_MR_INVERTER",
+                "QUDA_MR_INVERTER",
+                "QUDA_MR_INVERTER"
+              ],
+              "smoother_tol": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "coarse_solver": [
+                "QUDA_GCR_INVERTER",
+                "QUDA_GCR_INVERTER",
+                "QUDA_CA_GCR_INVERTER"
+              ],
+              "coarse_solver_maxiter": [
+                1,
+                1,
+                200
+              ],
+              "coarse_solver_tol": [
+                3e-05,
+                3e-05,
+                3e-05
+              ]
+            },
+            "precision_null": [
+              "QUDA_DOUBLE_PRECISION",
+              "QUDA_DOUBLE_PRECISION",
+              "QUDA_DOUBLE_PRECISION"
+            ]
+          }
+        },
+        "mismatches": []
+      },
+      "quda_input_contract": {
+        "qdp_host_dtype": "complex128",
+        "device_precision": "QUDA_DOUBLE_PRECISION"
+      },
+      "memory": {
+        "schema_version": 2,
+        "setup": {
+          "baseline": {
+            "allocated_bytes": 0,
+            "reserved_bytes": 0,
+            "nvidia_smi": {
+              "available": true,
+              "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+              "process_used_bytes": null,
+              "gpu_used_bytes": null,
+              "error": "no numeric sample"
+            }
+          },
+          "cuda_peak_allocated_bytes": 44040192,
+          "cuda_peak_reserved_bytes": 58720256,
+          "nvidia_smi": {
+            "available": true,
+            "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+            "process_used_bytes": null,
+            "gpu_used_bytes": null,
+            "error": "no numeric sample"
+          },
+          "device_wide_sampler": {
+            "available": true,
+            "scope": "device-wide cudaMemGetInfo; may include other processes",
+            "device": "cuda:0",
+            "unit": "bytes",
+            "interval_seconds": 0.01,
+            "duration_seconds": 1.7387735609954689,
+            "sample_count": 55,
+            "device_total_bytes": 17179738112,
+            "device_used_initial_bytes": 1267597312,
+            "device_used_max_observed_bytes": 1456340992,
+            "join_timed_out": false,
+            "errors": []
+          },
+          "timing_semantics": "instrumented setup; sampler stop excluded from setup_seconds",
+          "note": "PyTorch allocator excludes QUDA native allocations; the device-wide sampler captures transients but may include other processes"
+        },
+        "first_solve": {
+          "excluded_from_formal_timing": true,
+          "seconds": 5.3251117580075515,
+          "iterations": 87,
+          "converged": true,
+          "true_residual_rel": 1.8303539259850377e-08,
+          "memory": {
+            "cuda_peak_allocated_bytes": 159514624,
+            "cuda_peak_reserved_bytes": 369098752,
+            "nvidia_smi": {
+              "available": true,
+              "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+              "process_used_bytes": null,
+              "gpu_used_bytes": null,
+              "error": "no numeric sample"
+            },
+            "device_wide_sampler": {
+              "available": true,
+              "scope": "device-wide cudaMemGetInfo; may include other processes",
+              "device": "cuda:0",
+              "unit": "bytes",
+              "interval_seconds": 0.01,
+              "duration_seconds": 5.325713892001659,
+              "sample_count": 1,
+              "device_total_bytes": 17179738112,
+              "device_used_initial_bytes": 2869821440,
+              "device_used_max_observed_bytes": 2869821440,
+              "join_timed_out": false,
+              "errors": []
+            }
+          }
+        },
+        "steady": {
+          "baseline": {
+            "allocated_bytes": 159514624,
+            "reserved_bytes": 822083584,
+            "nvidia_smi": {
+              "available": true,
+              "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+              "process_used_bytes": null,
+              "gpu_used_bytes": null,
+              "error": "no numeric sample"
+            }
+          },
+          "cuda_peak_allocated_bytes": 159514624,
+          "cuda_peak_reserved_bytes": 822083584,
+          "nvidia_smi_process_max_observed_bytes": null,
+          "nvidia_smi_gpu_max_observed_bytes": null,
+          "samples": [
+            {
+              "cuda_peak_allocated_bytes": 159514624,
+              "cuda_peak_reserved_bytes": 822083584,
+              "nvidia_smi": {
+                "available": true,
+                "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+                "process_used_bytes": null,
+                "gpu_used_bytes": null,
+                "error": "no numeric sample"
+              },
+              "device_wide_sampler": null
+            },
+            {
+              "cuda_peak_allocated_bytes": 159514624,
+              "cuda_peak_reserved_bytes": 822083584,
+              "nvidia_smi": {
+                "available": true,
+                "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+                "process_used_bytes": null,
+                "gpu_used_bytes": null,
+                "error": "no numeric sample"
+              },
+              "device_wide_sampler": null
+            },
+            {
+              "cuda_peak_allocated_bytes": 159514624,
+              "cuda_peak_reserved_bytes": 822083584,
+              "nvidia_smi": {
+                "available": true,
+                "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+                "process_used_bytes": null,
+                "gpu_used_bytes": null,
+                "error": "no numeric sample"
+              },
+              "device_wide_sampler": null
+            },
+            {
+              "cuda_peak_allocated_bytes": 159514624,
+              "cuda_peak_reserved_bytes": 822083584,
+              "nvidia_smi": {
+                "available": true,
+                "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+                "process_used_bytes": null,
+                "gpu_used_bytes": null,
+                "error": "no numeric sample"
+              },
+              "device_wide_sampler": null
+            },
+            {
+              "cuda_peak_allocated_bytes": 159514624,
+              "cuda_peak_reserved_bytes": 822083584,
+              "nvidia_smi": {
+                "available": true,
+                "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+                "process_used_bytes": null,
+                "gpu_used_bytes": null,
+                "error": "no numeric sample"
+              },
+              "device_wide_sampler": null
+            }
+          ],
+          "snapshot_semantics": "nvidia-smi values are post-solve observations, not peaks",
+          "untimed_device_memory_probe": {
+            "cuda_peak_allocated_bytes": 159514624,
+            "cuda_peak_reserved_bytes": 822083584,
+            "nvidia_smi": {
+              "available": true,
+              "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+              "process_used_bytes": null,
+              "gpu_used_bytes": null,
+              "error": "no numeric sample"
+            },
+            "device_wide_sampler": {
+              "available": true,
+              "scope": "device-wide cudaMemGetInfo; may include other processes",
+              "device": "cuda:0",
+              "unit": "bytes",
+              "interval_seconds": 0.01,
+              "duration_seconds": 5.389063973998418,
+              "sample_count": 1,
+              "device_total_bytes": 17179738112,
+              "device_used_initial_bytes": 3515744256,
+              "device_used_max_observed_bytes": 3515744256,
+              "join_timed_out": false,
+              "errors": []
+            },
+            "excluded_from_formal_timing": true,
+            "iterations": 87,
+            "converged": true,
+            "true_residual_rel": 1.8303539259850377e-08
+          }
+        }
+      },
+      "provenance": {
+        "pyqcu_git": {
+          "commit": "33fe4f0935e5662351c4a190f7f913f391d498a9",
+          "dirty_tracked": true,
+          "repository": "/root/PyQCU"
+        },
+        "pyqcu_library": {
+          "path": "/root/PyQCU/data/build/libqcu_arch/sm60/libqcu.so",
+          "sha256": "e29c1cf04a57ec3b8af3208063456cab4db08c51abe0c04cece816e54d0c20e1",
+          "exists": true,
+          "requested_architectures": null,
+          "architectures": [
+            "sm_60"
+          ],
+          "listing_error": null
+        },
+        "quda_source_git": {
+          "commit": "33fe4f0935e5662351c4a190f7f913f391d498a9",
+          "dirty_tracked": true,
+          "repository": "/root/PyQCU/refer/git-rep/quda"
+        },
+        "quda_libraries": {
+          "libquda": {
+            "path": "/root/PyQCU/data/quda-sm60-install/lib/libquda.so",
+            "sha256": "dd1c8bac922c0d09099fd581e06b383001b17152f8fbc01baa305274ec0affab",
+            "exists": true
+          },
+          "libqmp": {
+            "path": "/root/PyQCU/data/quda-sm60-install/lib/libqmp.so",
+            "sha256": "7ee438b8dc053943198a53f66554bb55fd02e5c29065e2191747daacc337ae99",
+            "exists": true
+          }
+        },
+        "pyquda_module": {
+          "path": "/usr/local/lib/python3.10/dist-packages/pyquda/__init__.py",
+          "version": "0.10.54"
+        },
+        "cmake_features": {
+          "cache_path": "/root/PyQCU/data/quda-sm60-build-offline2/CMakeCache.txt",
+          "cache_sha256": "5ed5525f09e01770638409b72681e6cfba2f16663364312f9c82fb5340a64003",
+          "features": {
+            "QUDA_INTERFACE_QDP": true,
+            "QUDA_MULTIGRID_DOUBLE": true,
+            "QUDA_MULTIGRID_NVEC_LIST": "12,24",
+            "QUDA_PRECISION": 12,
+            "QUDA_QIO": true,
+            "QUDA_QMP": true,
+            "QUDA_RECONSTRUCT": 7
+          },
+          "normalized": {
+            "qdp_interface": true,
+            "qio": true,
+            "qmp": true,
+            "reconstruct": 7,
+            "precision": 12,
+            "multigrid_nvec_list": [
+              12,
+              24
+            ],
+            "multigrid_double": true
+          }
+        },
+        "patch_variant": {
+          "name": "quda_comparison_wsl2_reduce_sync",
+          "wsl2": true,
+          "environment_scoped": true,
+          "limitation": "仅限启用 DEV87_REDUCE_SYNC 的 WSL2 patched QUDA 构建；不得解释为可移植的 upstream QUDA 证据",
+          "marker_present": true
+        },
+        "runtime": {
+          "torch": "2.7.1+cu118",
+          "torch_cuda": "11.8",
+          "device_index": 0,
+          "device_name": "Tesla P100-PCIE-16GB",
+          "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+          "total_memory_bytes": 17179738112,
+          "compute_capability": [
+            6,
+            0
+          ],
+          "device": "cuda:0"
+        },
+        "shared_nullvec_conversion": {
+          "prefix": "/root/PyQCU/data/qio-matrix/L16x16x16x16_nvec12_quda",
+          "manifest": "/root/PyQCU/data/qio-matrix/L16x16x16x16_nvec12_quda.v1.json",
+          "source_sha256": "dc7ee66ad6704605c3e7147e2985b7283b66f41f6f04a6a298efc43516c4e60c",
+          "canonical_dataset_sha256": "fd999e6c75c6419b94ab3ce84cd63cb4b805c6565e0781fd8a7f21f4e98e3f21",
+          "conversion_tool_commit": "4a7d9a4353d75c9a751ec0609240d0ef8d2cdb00",
+          "artifacts": [
+            {
+              "path": "/root/PyQCU/data/qio-matrix/L16x16x16x16_nvec12_quda_level_0_nvec_12",
+              "size_bytes": 75499232,
+              "sha256": "56a416955b1c10a201ae43ee15e107d6beb837c2a8de4529d38952d4000a2aae"
+            }
+          ],
+          "verification_seconds": 0.23699241600115784
+        },
+        "reduction_runtime": {
+          "required": true,
+          "platform_release": "6.18.33.2-microsoft-standard-WSL2",
+          "enabled": true,
+          "library": "/root/PyQCU/data/quda-sm60-install/lib/libquda.so",
+          "library_sha256": "dd1c8bac922c0d09099fd581e06b383001b17152f8fbc01baa305274ec0affab",
+          "marker_present": true,
+          "qmp": {
+            "library": "/root/PyQCU/data/quda-sm60-install/lib/libqmp.so",
+            "library_sha256": "7ee438b8dc053943198a53f66554bb55fd02e5c29065e2191747daacc337ae99",
+            "initialized": true,
+            "initialized_here": true,
+            "thread_level_required": 1,
+            "thread_level_provided": 1,
+            "logical_topology_declared": true,
+            "logical_topology": [
+              2,
+              1,
+              1,
+              1
+            ]
+          }
+        },
+        "cleanup_errors": [],
+        "runtime_ranks": [
+          {
+            "torch": "2.7.1+cu118",
+            "torch_cuda": "11.8",
+            "device_index": 0,
+            "device_name": "Tesla P100-PCIE-16GB",
+            "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+            "total_memory_bytes": 17179738112,
+            "compute_capability": [
+              6,
+              0
+            ],
+            "device": "cuda:0"
+          },
+          {
+            "torch": "2.7.1+cu118",
+            "torch_cuda": "11.8",
+            "device_index": 1,
+            "device_name": "Tesla P100-PCIE-16GB",
+            "device_uuid": "627bf0ee-9926-a311-57d8-5a7923985b78",
+            "total_memory_bytes": 17179738112,
+            "compute_capability": [
+              6,
+              0
+            ],
+            "device": "cuda:1"
+          }
+        ]
+      },
+      "worker_wall_seconds": 65.07871060600155,
+      "completed_at": "2026-09-27T22:26:05Z",
+      "mpi": {
+        "rank": 0,
+        "size": 2,
+        "process_grid": [
+          2,
+          1,
+          1,
+          1
+        ],
+        "rank_coordinate": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "trace_paths": {},
+      "parallel_contract": {
+        "launcher": "mpirun",
+        "process_grid": [
+          2,
+          1,
+          1,
+          1
+        ],
+        "rank_local_cache": true,
+        "rank_suffixed_trace": true,
+        "ranks": 2
+      },
+      "phase_contract": {
+        "cold_separate_process": true,
+        "counts": {
+          "cold": 1,
+          "steady": 5,
+          "warmup": 2
+        },
+        "selected": [
+          "cold",
+          "warmup",
+          "steady"
+        ]
+      },
+      "device_contract": {
+        "requested": "p100"
+      },
+      "rank_results": [
+        {
+          "rank": 0,
+          "status": "ok",
+          "reason": null,
+          "trace_paths": {},
+          "device": {
+            "torch": "2.7.1+cu118",
+            "torch_cuda": "11.8",
+            "device_index": 0,
+            "device_name": "Tesla P100-PCIE-16GB",
+            "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+            "total_memory_bytes": 17179738112,
+            "compute_capability": [
+              6,
+              0
+            ],
+            "device": "cuda:0"
+          }
+        },
+        {
+          "rank": 1,
+          "status": "ok",
+          "reason": null,
+          "trace_paths": {},
+          "device": {
+            "torch": "2.7.1+cu118",
+            "torch_cuda": "11.8",
+            "device_index": 1,
+            "device_name": "Tesla P100-PCIE-16GB",
+            "device_uuid": "627bf0ee-9926-a311-57d8-5a7923985b78",
+            "total_memory_bytes": 17179738112,
+            "compute_capability": [
+              6,
+              0
+            ],
+            "device": "cuda:1"
+          }
+        }
+      ],
+      "rank_aggregation": {
+        "mode": "rank-wise maximum for wall times/bytes/iterations; element-wise conjunction for convergence",
+        "ranks": 2,
+        "process_grid": [
+          2,
+          1,
+          1,
+          1
+        ]
+      },
+      "memory_rank_summary": {
+        "setup_peak_allocated_bytes": 44040192,
+        "setup_peak_reserved_bytes": 58720256,
+        "steady_peak_allocated_bytes": 159514624,
+        "steady_peak_reserved_bytes": 822083584,
+        "per_rank": [
+          {
+            "rank": 0,
+            "setup_peak_allocated_bytes": 44040192,
+            "steady_peak_allocated_bytes": 159514624
+          },
+          {
+            "rank": 1,
+            "setup_peak_allocated_bytes": 44040192,
+            "steady_peak_allocated_bytes": 159514624
+          }
+        ]
+      },
+      "process": {
+        "returncode": 0,
+        "wall_seconds": 66.39741744099592,
+        "stdout_tail": ".997%)\n        total missing         =     0.000 secs (  0.003%)\n\n          loadGaugeQuda Total time =     0.065 secs\n                 download     =     0.036 secs ( 54.883%),\t with        2 calls at 1.789e+04 us per call\n                     init     =     0.001 secs (  2.218%),\t with       29 calls at 4.986e+01 us per call\n                  compute     =     0.001 secs (  0.997%),\t with       12 calls at 5.417e+01 us per call\n                    comms     =     0.020 secs ( 30.364%),\t with        1 calls at 1.979e+04 us per call\n                     free     =     0.000 secs (  0.009%),\t with       11 calls at 5.455e-01 us per call\n        total accounted       =     0.058 secs ( 88.471%)\n        total missing         =     0.008 secs ( 11.529%)\n\n         loadCloverQuda Total time =     0.075 secs\n                     init     =     0.004 secs (  5.797%),\t with        3 calls at 1.458e+03 us per call\n                  compute     =     0.006 secs (  7.334%),\t with        3 calls at 1.845e+03 us per call\n                    comms     =     0.059 secs ( 78.683%),\t with        1 calls at 5.939e+04 us per call\n                     free     =     0.000 secs (  0.004%),\t with        1 calls at 3.000e+00 us per call\n        total accounted       =     0.069 secs ( 91.817%)\n        total missing         =     0.006 secs (  8.183%)\n\n             invertQuda Total time =    49.014 secs\n                 download     =     0.152 secs (  0.311%),\t with       12 calls at 1.269e+04 us per call\n                     init     =     0.781 secs (  1.594%),\t with     9791 calls at 7.981e+01 us per call\n                 preamble     =     0.573 secs (  1.168%),\t with     1453 calls at 3.941e+02 us per call\n                  compute     =    46.605 secs ( 95.086%),\t with    25813 calls at 1.806e+03 us per call\n                 epilogue     =     0.066 secs (  0.135%),\t with      726 calls at 9.087e+01 us per call\n                     free     =     0.001 secs (  0.001%),\t with      662 calls at 8.474e-01 us per call\n                 file i/o     =     0.225 secs (  0.458%),\t with       61 calls at 3.684e+03 us per call\n                    eigen     =     0.009 secs (  0.018%),\t with      696 calls at 1.271e+01 us per call\n        total accounted       =    48.412 secs ( 98.771%)\n        total missing         =     0.602 secs (  1.229%)\n\n                endQuda Total time =     0.159 secs\n                     free     =     0.000 secs (  0.012%),\t with        6 calls at 3.167e+00 us per call\n        total accounted       =     0.000 secs (  0.012%)\n        total missing         =     0.159 secs ( 99.988%)\n\n       initQuda-endQuda Total time =    60.881 secs\n\n                   QUDA Total time =    49.548 secs\n                 download     =     0.188 secs (  0.380%),\t with       14 calls at 1.343e+04 us per call\n                     init     =     1.022 secs (  2.062%),\t with     9825 calls at 1.040e+02 us per call\n                 preamble     =     0.573 secs (  1.156%),\t with     1453 calls at 3.942e+02 us per call\n                  compute     =    46.614 secs ( 94.079%),\t with    25828 calls at 1.805e+03 us per call\n                    comms     =     0.079 secs (  0.160%),\t with        2 calls at 3.959e+04 us per call\n                 epilogue     =     0.066 secs (  0.133%),\t with      726 calls at 9.078e+01 us per call\n                     free     =     0.001 secs (  0.001%),\t with      680 calls at 9.015e-01 us per call\n                 file i/o     =     0.225 secs (  0.454%),\t with       61 calls at 3.684e+03 us per call\n                    eigen     =     0.009 secs (  0.018%),\t with      696 calls at 1.269e+01 us per call\n        total accounted       =    48.776 secs ( 98.443%)\n        total missing         =     0.772 secs (  1.557%)\n\nDevice memory used = 1253.4 MiB\nPinned device memory used = 0.0 MiB\nManaged memory used = 0.0 MiB\nShmem memory used = 0.0 MiB\nPage-locked host memory used = 72.4 MiB\nTotal host memory used >= 96.2 MiB\n",
+        "stderr_tail": ""
+      },
+      "iterations_cold": {
+        "samples": [
+          87
+        ],
+        "min": 87,
+        "max": 87,
+        "median": 87.0
+      },
+      "converged_cold": true,
+      "true_residual_cold": {
+        "samples_rel": [
+          1.830353926018887e-08
+        ],
+        "max_rel": 1.830353926018887e-08,
+        "gate": 5e-08,
+        "pass": true,
+        "untimed_probe_rel": null
+      },
+      "memory_cold": {
+        "schema_version": 2,
+        "setup": {
+          "baseline": {
+            "allocated_bytes": 0,
+            "reserved_bytes": 0,
+            "nvidia_smi": {
+              "available": true,
+              "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+              "process_used_bytes": null,
+              "gpu_used_bytes": null,
+              "error": "no numeric sample"
+            }
+          },
+          "cuda_peak_allocated_bytes": 44040192,
+          "cuda_peak_reserved_bytes": 58720256,
+          "nvidia_smi": {
+            "available": true,
+            "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+            "process_used_bytes": null,
+            "gpu_used_bytes": null,
+            "error": "no numeric sample"
+          },
+          "device_wide_sampler": {
+            "available": true,
+            "scope": "device-wide cudaMemGetInfo; may include other processes",
+            "device": "cuda:0",
+            "unit": "bytes",
+            "interval_seconds": 0.01,
+            "duration_seconds": 1.6907091720058816,
+            "sample_count": 56,
+            "device_total_bytes": 17179738112,
+            "device_used_initial_bytes": 1267597312,
+            "device_used_max_observed_bytes": 2548957184,
+            "join_timed_out": false,
+            "errors": []
+          },
+          "timing_semantics": "instrumented setup; sampler stop excluded from setup_seconds",
+          "note": "PyTorch allocator excludes QUDA native allocations; the device-wide sampler captures transients but may include other processes"
+        },
+        "first_solve": {
+          "excluded_from_formal_timing": true,
+          "seconds": 5.275336767997942,
+          "iterations": 87,
+          "converged": true,
+          "true_residual_rel": 1.830353926018887e-08,
+          "memory": {
+            "cuda_peak_allocated_bytes": 159514624,
+            "cuda_peak_reserved_bytes": 369098752,
+            "nvidia_smi": {
+              "available": true,
+              "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+              "process_used_bytes": null,
+              "gpu_used_bytes": null,
+              "error": "no numeric sample"
+            },
+            "device_wide_sampler": {
+              "available": true,
+              "scope": "device-wide cudaMemGetInfo; may include other processes",
+              "device": "cuda:0",
+              "unit": "bytes",
+              "interval_seconds": 0.01,
+              "duration_seconds": 5.275913401012076,
+              "sample_count": 1,
+              "device_total_bytes": 17179738112,
+              "device_used_initial_bytes": 2869821440,
+              "device_used_max_observed_bytes": 2869821440,
+              "join_timed_out": false,
+              "errors": []
+            }
+          }
+        },
+        "steady": {
+          "baseline": {
+            "allocated_bytes": 159514624,
+            "reserved_bytes": 822083584,
+            "nvidia_smi": {
+              "available": true,
+              "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+              "process_used_bytes": null,
+              "gpu_used_bytes": null,
+              "error": "no numeric sample"
+            }
+          },
+          "cuda_peak_allocated_bytes": 0,
+          "cuda_peak_reserved_bytes": 0,
+          "nvidia_smi_process_max_observed_bytes": null,
+          "nvidia_smi_gpu_max_observed_bytes": null,
+          "samples": [],
+          "snapshot_semantics": "nvidia-smi values are post-solve observations, not peaks",
+          "untimed_device_memory_probe": {}
+        }
+      },
+      "phase_results": {
+        "cold": {
+          "seconds": 5.474877954009571,
+          "iterations": {
+            "samples": [
+              87
+            ],
+            "min": 87,
+            "max": 87,
+            "median": 87.0
+          },
+          "converged": true
+        },
+        "warmup_count": 2,
+        "steady_count": 5
+      }
+    }
+  },
+  "comparison": {
+    "status": "pending",
+    "profile": "formal",
+    "fair": null,
+    "reasons": [
+      "pyqcu status=not_selected"
+    ],
+    "speedup_pyqcu_over_quda": null
+  }
+}

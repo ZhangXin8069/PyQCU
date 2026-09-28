@@ -184,6 +184,7 @@ class AssetRoots:
     nullvec_root: Path | None = None
     qio_root: Path | None = None
     cache_root: Path | None = None
+    cache_expect: str = "any"
 
     @property
     def gauge_directory(self) -> Path:
@@ -212,6 +213,7 @@ class AssetRoots:
             "qio_root": str(self.qio_directory),
             "cache_root": (
                 None if self.cache_root is None else str(self.cache_root)),
+            "cache_expect": self.cache_expect,
         }
 
 
@@ -369,7 +371,7 @@ def resolve_unit_assets(
     qio_prefix = roots.qio_directory / f"L{tag}_nvec12_quda"
     qio_manifest = roots.qio_directory / f"L{tag}_nvec12_quda.v1.json"
     cache_unit = unit
-    cache_expect = "miss"
+    cache_expect = roots.cache_expect
     if unit.side == "pyqcu":
         cache_source = unit
         if unit.trace == "on":
@@ -384,7 +386,6 @@ def resolve_unit_assets(
         source_cache = roots.cache_directory(output_dir, cache_source)
         if any(source_cache.glob("strict_runtime_*.h5")):
             cache_unit = cache_source
-            cache_expect = "hit"
     cache_dir = roots.cache_directory(output_dir, cache_unit)
     return {
         "gauge_path": str(gauge.resolve()),
@@ -565,6 +566,7 @@ def _collector_command_report(
             resolved_assets.get("strict_cache_expect", "miss")),
         "--output", str(output),
     ]
+    unit_argv.extend(["--reference-warmups", "2"])
     # Matrix-level resume already skips successful units.  Let the collector
     # start fresh for failed units so a corrected execution configuration is
     # not rejected against the failed record's old config hash.
@@ -1826,6 +1828,8 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--qio-root", type=Path, default=None)
     parser.add_argument("--cache-root", type=Path, default=None)
     parser.add_argument(
+        "--pyqcu-cache-expect", choices=("any", "miss", "hit"), default="any")
+    parser.add_argument(
         "--collector-interface", choices=("legacy", "frozen"), default="frozen")
     parser.add_argument("--extra-args", action="append", default=[],
                         help="extra collector arguments; repeat or quote a shell string")
@@ -1860,6 +1864,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         nullvec_root=args.nullvec_root,
         qio_root=args.qio_root,
         cache_root=args.cache_root,
+        cache_expect=args.pyqcu_cache_expect,
     )
     extra_args: list[str] = []
     for value in args.extra_args:

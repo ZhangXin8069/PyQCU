@@ -109,6 +109,7 @@ def reference_rows(
     if not isinstance(reference, Mapping):
         return []
     rows: list[dict[str, Any]] = []
+    gate = _number((record.get("true_residual") or {}).get("gate"))
     for phase, samples in (
             ("cold", [reference.get("cold")]),
             ("warmup", list(reference.get("warmups") or [])),
@@ -116,6 +117,10 @@ def reference_rows(
         for index, sample in enumerate(samples):
             if not isinstance(sample, Mapping):
                 continue
+            residual = _number(sample.get("true_residual_rel"))
+            converged = sample.get("converged")
+            if converged is None and residual is not None and gate is not None:
+                converged = residual <= gate
             rows.append({
                 **metadata,
                 "side": side,
@@ -123,10 +128,58 @@ def reference_rows(
                 "sample": index,
                 "seconds": _number(sample.get("seconds")),
                 "iterations": _number(sample.get("iterations")),
-                "true_residual": _number(sample.get("true_residual_rel")),
-                "converged": sample.get("converged"),
+                "true_residual": residual,
+                "converged": converged,
             })
     return rows
+
+
+def memory_fields(record: Mapping[str, Any]) -> dict[str, Any]:
+    memory = record.get("memory") or {}
+    if not isinstance(memory, Mapping):
+        return {}
+    setup = memory.get("setup") or {}
+    first_solve = memory.get("first_solve") or {}
+    steady = memory.get("steady") or {}
+    strict_owned = memory.get("strict_owned") or {}
+
+    def sampler(value: Any) -> float | None:
+        if not isinstance(value, Mapping):
+            return None
+        sampler_value = value.get("device_wide_sampler")
+        if not isinstance(sampler_value, Mapping):
+            sampler_value = (
+                (value.get("untimed_device_memory_probe") or {}).get(
+                    "device_wide_sampler")
+                if isinstance(value.get("untimed_device_memory_probe"), Mapping)
+                else None)
+        if not isinstance(sampler_value, Mapping):
+            return None
+        return _number(sampler_value.get("device_used_max_observed_bytes"))
+
+    first_solve_memory = first_solve.get("memory")
+    if not isinstance(first_solve_memory, Mapping):
+        first_solve_memory = {}
+    steady_sampler = sampler(steady)
+    if steady_sampler is None:
+        steady_sampler = sampler((steady or {}))
+    return {
+        "setup_sampler_peak_bytes": sampler(setup),
+        "first_solve_sampler_peak_bytes": sampler(first_solve_memory),
+        "steady_sampler_peak_bytes": steady_sampler,
+        "allocator_peak_bytes": _number(
+            steady.get("cuda_peak_allocated_bytes")
+            if isinstance(steady, Mapping) else None),
+        "reserved_peak_bytes": _number(
+            steady.get("cuda_peak_reserved_bytes")
+            if isinstance(steady, Mapping) else None),
+        "asset_resident_bytes": _number(
+            strict_owned.get("asset_resident_bytes")
+            if isinstance(strict_owned, Mapping) else None),
+        "fused_workspace_bytes": _number(
+            strict_owned.get("fused_workspace_bytes")
+            if isinstance(strict_owned, Mapping) else None),
+    }
 
 
 def _write_csv(path: Path, rows: Sequence[Mapping[str, Any]]) -> None:
@@ -224,6 +277,8 @@ def assemble(
             (py_record.get("iterations") or {}).get("median"))
         qu_iterations = _number(
             (qu_record.get("iterations") or {}).get("median"))
+        py_memory = memory_fields(py_record)
+        qu_memory = memory_fields(qu_record)
         unit_rows.append({
             **metadata,
             "solver": (
@@ -250,6 +305,14 @@ def assemble(
             "residual_pass": checks["residual_pass"],
             "reference_warmups_two": checks["reference_warmups_two"],
             "combined_path": str(combined_path.resolve()),
+            **{
+                f"pyqcu_{key}": value
+                for key, value in py_memory.items()
+            },
+            **{
+                f"quda_{key}": value
+                for key, value in qu_memory.items()
+            },
         })
         stages.extend(stage_rows(suffix, "pyqcu", py_record))
         stages.extend(stage_rows(suffix, "quda", qu_record))

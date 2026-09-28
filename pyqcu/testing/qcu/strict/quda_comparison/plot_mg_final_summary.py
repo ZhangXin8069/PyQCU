@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 
 
 UNIT_RE = re.compile(
-    r"pyqcu__(?P<device>p100|v100)__(?P<lattice>[^_]+)__"
+    r"(?:pyqcu__)?(?P<device>p100|v100)__(?P<lattice>[^_]+)__"
     r"(?P<precision>c64|c128)__l(?P<levels>[123])__trace-(?P<trace>on|off)")
 PHASES = (
     ("pre_smoother_seconds", "pre"),
@@ -73,25 +73,22 @@ def path_name(unit: Mapping[str, Any]) -> str:
 
 
 def _stage_breakdown(units: list[dict[str, Any]], outdir: Path) -> None:
-    wanted = (
-        ("p100", "c64", "16x32x32x48", "2", "on"),
-        ("p100", "c64", "16x32x32x48", "3", "on"),
-        ("v100", "c128", "16x16x32x32", "2", "on"),
-        ("v100", "c128", "16x16x32x32", "3", "on"),
-    )
-    selected = []
-    for key in wanted:
-        for unit in units:
-            if tuple(unit[name] for name in (
-                    "device", "precision", "lattice", "levels", "trace")) == key:
-                selected.append(unit)
-                break
-    fig, axes = plt.subplots(2, 2, figsize=(11.5, 7.5), squeeze=False)
+    selected = [
+        unit for unit in units
+        if unit["trace"] == "on" and unit["levels"] in {"2", "3"}
+    ]
+    selected.sort(key=lambda unit: (
+        unit["device"], unit["precision"], unit["levels"], unit["lattice"]))
+    if not selected:
+        raise SystemExit("no trace-on MG-2/3 stage records found")
+    columns = 4
+    rows = (len(selected) + columns - 1) // columns
+    fig, axes = plt.subplots(
+        rows, columns, figsize=(15.0, 2.7 * rows), squeeze=False)
     for axis, unit in zip(axes.flat, selected):
         document = unit["document"]
         labels = []
-        bottoms = [0.0] * len(PHASES)
-        for side, color_offset in (("pyqcu", 0), ("quda", 0)):
+        for side in ("pyqcu", "quda"):
             levels = document["sides"][side].get("mg_levels") or []
             for level in levels:
                 label = f"{side} L{level['level']}"
@@ -108,6 +105,8 @@ def _stage_breakdown(units: list[dict[str, Any]], outdir: Path) -> None:
         axis.set_xlabel("nested stage seconds")
         axis.set_title(path_name(unit), fontsize=9)
         axis.grid(True, axis="x", alpha=0.2, linewidth=0.5)
+    for axis in axes.flat[len(selected):]:
+        axis.axis("off")
     handles = [
         plt.Rectangle((0, 0), 1, 1, color=COLORS[index])
         for index in range(len(PHASES))]

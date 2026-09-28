@@ -1,0 +1,4839 @@
+{
+  "schema": {
+    "name": "pyqcu.strict-vs-quda.benchmark",
+    "version": 1
+  },
+  "run_id": "9e8f1d50ebc04fa32e3c",
+  "state": "partial",
+  "profile": "formal",
+  "created_at": "2026-09-27T22:17:50Z",
+  "updated_at": "2026-09-27T22:18:19Z",
+  "selected_sides": [
+    "quda"
+  ],
+  "protocol": {
+    "profile": "formal",
+    "lattice_xyzt": [
+      8,
+      8,
+      8,
+      16
+    ],
+    "mass": 0.05,
+    "kappa": 0.1234567901234568,
+    "seed": 42,
+    "precision": {
+      "name": "c128",
+      "complex_bytes": 16,
+      "real": "float64",
+      "default_tolerance": 1e-08,
+      "true_residual_gate": 5e-08
+    },
+    "levels": 2,
+    "block_xyzt": [
+      2,
+      2,
+      2,
+      2
+    ],
+    "block_xyzt_per_level": [
+      [
+        2,
+        2,
+        2,
+        2
+      ]
+    ],
+    "nvec": 12,
+    "coarse_spin": 2,
+    "coarse_dof": 24,
+    "target_parity": 1,
+    "null_vector_contract": {
+      "source": "12 canonical full near-null vectors",
+      "full_reconstruction": "precomputed once by zero-rhs Clover block elimination",
+      "transfer": "full-field chiral aggregation with coarse_spin=2"
+    },
+    "outer_solver": "restarted-right-fgmres/gcr",
+    "quda_strategy": "aligned",
+    "quda_coarse_precision": {
+      "requested": "auto",
+      "effective": "double",
+      "semantics": "fine c128 solve with double coarse MG fields"
+    },
+    "pyqcu_strict_block_precision": {
+      "requested": "auto",
+      "effective": "double"
+    },
+    "pyqcu_strict_block_device": "auto",
+    "pyqcu_strict_offload_null_basis": false,
+    "reference_solver": {
+      "kind": "bicgstab",
+      "warmups": 2,
+      "timing_semantics": "same caller-owned input/output and true-residual gate; outside MultiGrid and excluded from speedup"
+    },
+    "restart_requested": 16,
+    "restart_effective": 16,
+    "max_krylov_bytes": 1073741824,
+    "pyqcu_strict_setup": {
+      "probe_mode": "colored",
+      "column_batch_size": 1,
+      "projection_site_batch_size": 4,
+      "max_workspace_bytes": 1073741824,
+      "workspace_four_arena_lower_bound_bytes": 6291456,
+      "require_exact_batch": true
+    },
+    "fused_workspace_formula": "(2m+5)B_f+2B_c",
+    "fused_workspace_terms": {
+      "B_f": "one compact fine-parity vector in bytes",
+      "B_c": "one full first-coarse-level vector in bytes"
+    },
+    "max_iter": 1000,
+    "tolerance": 1e-08,
+    "true_residual_gate": 5e-08,
+    "nu_pre": 1,
+    "nu_post": 1,
+    "coarse_max_iter": 200,
+    "coarse_tolerance": 3e-05,
+    "initial_guess": "zero for every warmup and measured solve",
+    "warmups": 2,
+    "repeats": 5,
+    "statistic": {
+      "center": "median",
+      "spread": "median absolute deviation from median",
+      "warmups_included": false
+    },
+    "timing_contract": {
+      "input_io": "outside setup and solve",
+      "runtime_init": "CUDA/PyQUDA module initialization, outside setup",
+      "setup": "host inputs -> gauge/clover/runtime ready; includes cache lookup/restore, excludes cache persistence",
+      "cache_lookup_or_restore": "reported as a disjoint setup component",
+      "cache_persist": "reported separately and excluded from setup total",
+      "steady_solve": "zero-x0 solve call bracketed by CUDA synchronization",
+      "true_residual": "computed after each timed solve and excluded from solve time",
+      "first_solve_memory": "the first zero-x0 warmup is sampled for lazy solver/workspace allocation; excluded from warmup/repeat timing statistics",
+      "memory_probe": "one additional post-timing solve with 10 ms device-wide cudaMemGetInfo sampling; excluded from warmups/repeats/statistics"
+    },
+    "residual_contract": {
+      "definition": "||b-D_pyqcu*x_canonical||_2/||b||_2",
+      "operator": "full periodic Wilson+Clover, csw=1, PyQCU normalization",
+      "quda_solution_scale": 4.05
+    },
+    "config_hash": "9e8f1d50ebc04fa32e3c25efa07c380d038c0349eb6cc4bb5b7915b8e1d77ac1"
+  },
+  "inputs": {
+    "gauge": {
+      "path": "/root/PyQCU/data/gauge_8x8x8x16_m0.05_seed42_c64.h5",
+      "dataset": "g",
+      "storage_precision": "c64",
+      "exists": true
+    },
+    "source": {
+      "path": "/root/PyQCU/data/gauge_8x8x8x16_m0.05_seed42_c64.h5",
+      "dataset": "fi",
+      "storage_precision": "c64",
+      "exists": true
+    },
+    "null_vectors": {
+      "path": "/root/PyQCU/data/L8x8x8x16_nvec12_full_c64.h5",
+      "dataset": "null",
+      "layout": "[nvec,spin,color,x,y,z,t]",
+      "parity": "full (even reconstructed once; odd copied verbatim)",
+      "storage_precision": "c64",
+      "exists": true
+    },
+    "quda_qio": {
+      "prefix": "/root/PyQCU/data/qio-matrix/L8x8x8x16_nvec12_quda",
+      "conversion_manifest": "/root/PyQCU/data/qio-matrix/L8x8x8x16_nvec12_quda.v1.json",
+      "required_for_fair_quda_run": true
+    }
+  },
+  "execution": {
+    "strict_cache": {
+      "directory": "/root/PyQCU/data/strict_cache_comprehensive_20260928/v100-c128/quda__v100__8x8x8x16__c128__l2__trace-on",
+      "expect": "hit"
+    },
+    "phases": {
+      "selected": [
+        "cold",
+        "warmup",
+        "steady"
+      ],
+      "counts": {
+        "cold": 1,
+        "warmup": 2,
+        "steady": 5
+      },
+      "cold_separate_process": true
+    },
+    "device": {
+      "requested": "v100"
+    },
+    "parallel": {
+      "ranks": 1,
+      "process_grid": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "launcher": "direct",
+      "rank_local_cache": false,
+      "rank_suffixed_trace": false
+    }
+  },
+  "input_fingerprints": {
+    "gauge": {
+      "algorithm": "sha256(logical-hdf5-dataset-v1)",
+      "sha256": "d008dbb1bb54f04241f1d37a776b3ecf67d4f489dfb70e15519b9fadef0fa104",
+      "path": "/root/PyQCU/data/gauge_8x8x8x16_m0.05_seed42_c64.h5",
+      "dataset": "g",
+      "shape": [
+        2,
+        3,
+        3,
+        4,
+        8,
+        8,
+        8,
+        8
+      ],
+      "dtype": "complex64",
+      "file_size_bytes": 3147776,
+      "file_mtime_ns": 1787195892204915348,
+      "elapsed_seconds": 0.01133684700471349
+    },
+    "source": {
+      "algorithm": "sha256(logical-hdf5-dataset-v1)",
+      "sha256": "2b60fedb77a9bcb71ae6d2e17b9e74309636d4408528bf8683becbc2c02a8850",
+      "path": "/root/PyQCU/data/gauge_8x8x8x16_m0.05_seed42_c64.h5",
+      "dataset": "fi",
+      "shape": [
+        2,
+        4,
+        3,
+        8,
+        8,
+        8,
+        8
+      ],
+      "dtype": "complex64",
+      "file_size_bytes": 3147776,
+      "file_mtime_ns": 1787195892204915348,
+      "elapsed_seconds": 0.0040844329923857
+    },
+    "null_vectors": {
+      "algorithm": "sha256(logical-hdf5-dataset-v1)",
+      "sha256": "ee41689c94101a299bdf398a02f4dac306393abb6731180090516024d5ed33db",
+      "path": "/root/PyQCU/data/L8x8x8x16_nvec12_full_c64.h5",
+      "dataset": "null",
+      "shape": [
+        12,
+        4,
+        3,
+        8,
+        8,
+        8,
+        16
+      ],
+      "dtype": "complex64",
+      "file_size_bytes": 9460880,
+      "file_mtime_ns": 1789562477666395715,
+      "elapsed_seconds": 0.03604505700059235
+    },
+    "bundle_hash": "2909621216aa97ee41dfef9b103687d78c7059f6fc472c744bcaa34e8e63252f"
+  },
+  "collector": {
+    "path": "/root/PyQCU/pyqcu/testing/qcu/strict/quda_comparison/bench_strict_vs_quda.py",
+    "git": {
+      "commit": "33fe4f0935e5662351c4a190f7f913f391d498a9",
+      "dirty_tracked": true,
+      "repository": "/root/PyQCU"
+    },
+    "environment": {
+      "python": "3.10.12",
+      "executable": "/usr/bin/python",
+      "platform": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.35",
+      "hostname": "68bb03cf529b",
+      "env": {
+        "CUDA_VISIBLE_DEVICES": "2",
+        "QUDA_INSTALL": "/root/PyQCU/data/quda-double-install",
+        "QUDA_PATH": "/root/PyQCU/data/quda-double-install",
+        "QUDA_BUILD_DIR": "/root/PyQCU/data/quda-qio-build/attempt2",
+        "DEV87_REDUCE_SYNC": "1",
+        "PYQCU_STRICT_TRACE_FILE": "data/mg_matrix_comprehensive_final_20260928/traces/quda__v100__8x8x8x16__c128__l2__trace-on/pyqcu.tsv",
+        "PYQCU_QUDA_TRACE_FILE": "data/mg_matrix_comprehensive_final_20260928/traces/quda__v100__8x8x8x16__c128__l2__trace-on/quda.log",
+        "QUDA_MG_TRACE_FILE": "data/mg_matrix_comprehensive_final_20260928/traces/quda__v100__8x8x8x16__c128__l2__trace-on/quda.tsv",
+        "QUDA_RESOURCE_PATH": "/root/PyQCU/data/quda-resource-sm70-20260927"
+      }
+    },
+    "timeout_seconds_per_side": 1800.0,
+    "resume": false,
+    "diagnostic_trace_environment": [
+      "PYQCU_STRICT_TRACE_FILE",
+      "PYQCU_QUDA_TRACE_FILE",
+      "QUDA_MG_TRACE_FILE"
+    ]
+  },
+  "sides": {
+    "pyqcu": {
+      "side": "pyqcu",
+      "status": "not_selected",
+      "dry_run": false,
+      "reason": null
+    },
+    "quda": {
+      "side": "quda",
+      "status": "ok",
+      "reason": null,
+      "config_hash": "9e8f1d50ebc04fa32e3c25efa07c380d038c0349eb6cc4bb5b7915b8e1d77ac1",
+      "input_bundle_hash": "2909621216aa97ee41dfef9b103687d78c7059f6fc472c744bcaa34e8e63252f",
+      "timing": {
+        "input_io_seconds": 0.014056908010388725,
+        "input_prepare_seconds": 0.025804182994761504,
+        "input_read_distributed": false,
+        "input_read_scope": "full HDF5 dataset",
+        "runtime_init_seconds": 0.034668691994738765,
+        "setup_seconds": 0.6933854359958787,
+        "warmups": [
+          {
+            "seconds": 1.2311194299982162,
+            "iterations": 45,
+            "converged": true,
+            "true_residual_rel": 1.8930485013741615e-08
+          },
+          {
+            "seconds": 1.33361451800738,
+            "iterations": 45,
+            "converged": true,
+            "true_residual_rel": 1.8930485013741615e-08
+          }
+        ],
+        "steady": {
+          "samples_seconds": [
+            1.214219557994511,
+            1.193536070000846,
+            1.1435577989905141,
+            1.1868312470032834,
+            1.198549845998059
+          ],
+          "median_seconds": 1.193536070000846,
+          "mad_seconds": 0.006704822997562587
+        },
+        "cold_seconds": 1.3100960260053398,
+        "cold_setup_seconds": 0.6935881819954375,
+        "cold_cache_persist_seconds": null
+      },
+      "reference_solver": {
+        "kind": "bicgstab",
+        "implementation": "pyquda.quda.invertQuda(QUDA_BICGSTAB_INVERTER)",
+        "cold": {
+          "seconds": 0.12878289999207482,
+          "iterations": 93,
+          "true_residual_rel": 1.8037317946544846e-08
+        },
+        "warmups": [
+          {
+            "seconds": 0.13023960500140674,
+            "iterations": 93,
+            "true_residual_rel": 1.8037317946544846e-08
+          },
+          {
+            "seconds": 0.12944636000611354,
+            "iterations": 93,
+            "true_residual_rel": 1.8037317946544846e-08
+          }
+        ],
+        "steady": {
+          "samples_seconds": [
+            0.1226806760096224,
+            0.14878856000723317,
+            0.17728447999979835,
+            0.12193363301048521,
+            0.12135410000337288
+          ],
+          "median_seconds": 0.1226806760096224,
+          "mad_seconds": 0.0013265760062495247
+        },
+        "iterations": {
+          "samples": [
+            93,
+            93,
+            93,
+            93,
+            93
+          ],
+          "min": 93,
+          "max": 93,
+          "median": 93.0
+        },
+        "samples": [
+          {
+            "seconds": 0.1226806760096224,
+            "iterations": 93,
+            "true_residual_rel": 1.8037317946544846e-08
+          },
+          {
+            "seconds": 0.14878856000723317,
+            "iterations": 93,
+            "true_residual_rel": 1.8037317946544846e-08
+          },
+          {
+            "seconds": 0.17728447999979835,
+            "iterations": 93,
+            "true_residual_rel": 1.8037317946544846e-08
+          },
+          {
+            "seconds": 0.12193363301048521,
+            "iterations": 93,
+            "true_residual_rel": 1.8037317946544846e-08
+          },
+          {
+            "seconds": 0.12135410000337288,
+            "iterations": 93,
+            "true_residual_rel": 1.8037317946544846e-08
+          }
+        ],
+        "true_residual_max_rel": 1.8037317946544846e-08,
+        "excluded_from_speedup": true,
+        "phase_iterations": {
+          "cold": 93,
+          "warmups": [
+            93,
+            93
+          ],
+          "steady": [
+            93,
+            93,
+            93,
+            93,
+            93
+          ]
+        }
+      },
+      "iterations": {
+        "samples": [
+          45,
+          45,
+          45,
+          45,
+          45
+        ],
+        "min": 45,
+        "max": 45,
+        "median": 45.0
+      },
+      "mg_levels": [
+        {
+          "level": 0,
+          "total_seconds": 4.909427557000002,
+          "total_iterations": 225,
+          "pre_smoother_seconds": 0.3002534800000065,
+          "post_smoother_seconds": 0.4004435249999956,
+          "restriction_seconds": 0.0387342150000034,
+          "prolongation_seconds": 0.02747887499999324,
+          "coarse_solver_seconds": 4.137389768999999,
+          "other_seconds": 0.005127693000003042,
+          "pre_smoother_iterations": 225,
+          "post_smoother_iterations": 225,
+          "smoother_iterations": 450,
+          "restriction_calls": 0,
+          "prolongation_calls": 0,
+          "recursive_solve_calls": 0,
+          "coarse_solver_iterations": 13860,
+          "coarse_solver_calls": 0,
+          "finest_iterations": 225,
+          "residual_sequence": [
+            {
+              "solve_index": 2,
+              "iteration": 1,
+              "relative": 0.2629761512671907,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 2,
+              "relative": 0.10871072341460507,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 3,
+              "relative": 0.05882189521474358,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 4,
+              "relative": 0.03559696188788765,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 5,
+              "relative": 0.021977157211921745,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 6,
+              "relative": 0.014399042902661268,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 7,
+              "relative": 0.009745966620085032,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 8,
+              "relative": 0.006270531060754359,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 9,
+              "relative": 0.0043225166249271476,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 10,
+              "relative": 0.002896730519168421,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 11,
+              "relative": 0.0019714127836992948,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 12,
+              "relative": 0.0013702251872414546,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 13,
+              "relative": 0.0009567635976625918,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 14,
+              "relative": 0.0006655712486950199,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 15,
+              "relative": 0.0004672033267214637,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 16,
+              "relative": 0.0003261347341489152,
+              "kind": "gcr_true_residual"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 17,
+              "relative": 0.0002536915511584212,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 18,
+              "relative": 0.00017160069029418243,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 19,
+              "relative": 0.0001260925935090138,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 20,
+              "relative": 9.051097395249843e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 21,
+              "relative": 6.411196979717827e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 22,
+              "relative": 4.690423068470806e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 23,
+              "relative": 3.394328861144039e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 24,
+              "relative": 2.208170709773485e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 25,
+              "relative": 1.6102971201157886e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 26,
+              "relative": 1.0677555369446062e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 27,
+              "relative": 7.422616634229546e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 28,
+              "relative": 4.838898834549137e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 29,
+              "relative": 3.1527056722023457e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 30,
+              "relative": 2.0889990480646263e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 31,
+              "relative": 1.4228923084699557e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 32,
+              "relative": 9.850271810428066e-07,
+              "kind": "gcr_true_residual"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 33,
+              "relative": 7.265022038452568e-07,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 34,
+              "relative": 4.876169729613196e-07,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 35,
+              "relative": 3.467265496283416e-07,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 36,
+              "relative": 2.4110843028662186e-07,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 37,
+              "relative": 1.7061529107138142e-07,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 38,
+              "relative": 1.1941622514273467e-07,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 39,
+              "relative": 8.982306724796755e-08,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 40,
+              "relative": 6.03620970808211e-08,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 41,
+              "relative": 4.515378277372922e-08,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 42,
+              "relative": 3.137667013523373e-08,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 43,
+              "relative": 2.2292572733743577e-08,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 44,
+              "relative": 1.4911890125289996e-08,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 45,
+              "relative": 9.847665636766708e-09,
+              "kind": "gcr_true_residual"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 1,
+              "relative": 0.2629761512671907,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 2,
+              "relative": 0.10871072341460507,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 3,
+              "relative": 0.05882189521474358,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 4,
+              "relative": 0.03559696188788765,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 5,
+              "relative": 0.021977157211921745,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 6,
+              "relative": 0.014399042902661268,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 7,
+              "relative": 0.009745966620085032,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 8,
+              "relative": 0.006270531060754359,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 9,
+              "relative": 0.0043225166249271476,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 10,
+              "relative": 0.002896730519168421,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 11,
+              "relative": 0.0019714127836992948,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 12,
+              "relative": 0.0013702251872414546,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 13,
+              "relative": 0.0009567635976625918,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 14,
+              "relative": 0.0006655712486950199,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 15,
+              "relative": 0.0004672033267214637,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 16,
+              "relative": 0.0003261347341489152,
+              "kind": "gcr_true_residual"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 17,
+              "relative": 0.0002536915511584212,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 18,
+              "relative": 0.00017160069029418243,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 19,
+              "relative": 0.0001260925935090138,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 20,
+              "relative": 9.051097395249843e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 21,
+              "relative": 6.411196979717827e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 22,
+              "relative": 4.690423068470806e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 23,
+              "relative": 3.394328861144039e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 24,
+              "relative": 2.208170709773485e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 25,
+              "relative": 1.6102971201157886e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 26,
+              "relative": 1.0677555369446062e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 27,
+              "relative": 7.422616634229546e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 28,
+              "relative": 4.838898834549137e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 29,
+              "relative": 3.1527056722023457e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 30,
+              "relative": 2.0889990480646263e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 31,
+              "relative": 1.4228923084699557e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 32,
+              "relative": 9.850271810428066e-07,
+              "kind": "gcr_true_residual"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 33,
+              "relative": 7.265022038452568e-07,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 34,
+              "relative": 4.876169729613196e-07,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 35,
+              "relative": 3.467265496283416e-07,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 36,
+              "relative": 2.4110843028662186e-07,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 37,
+              "relative": 1.7061529107138142e-07,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 38,
+              "relative": 1.1941622514273467e-07,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 39,
+              "relative": 8.982306724796755e-08,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 40,
+              "relative": 6.03620970808211e-08,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 41,
+              "relative": 4.515378277372922e-08,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 42,
+              "relative": 3.137667013523373e-08,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 43,
+              "relative": 2.2292572733743577e-08,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 44,
+              "relative": 1.4911890125289996e-08,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 45,
+              "relative": 9.847665636766708e-09,
+              "kind": "gcr_true_residual"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 1,
+              "relative": 0.2629761512671907,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 2,
+              "relative": 0.10871072341460507,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 3,
+              "relative": 0.05882189521474358,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 4,
+              "relative": 0.03559696188788765,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 5,
+              "relative": 0.021977157211921745,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 6,
+              "relative": 0.014399042902661268,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 7,
+              "relative": 0.009745966620085032,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 8,
+              "relative": 0.006270531060754359,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 9,
+              "relative": 0.0043225166249271476,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 10,
+              "relative": 0.002896730519168421,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 11,
+              "relative": 0.0019714127836992948,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 12,
+              "relative": 0.0013702251872414546,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 13,
+              "relative": 0.0009567635976625918,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 14,
+              "relative": 0.0006655712486950199,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 15,
+              "relative": 0.0004672033267214637,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 16,
+              "relative": 0.0003261347341489152,
+              "kind": "gcr_true_residual"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 17,
+              "relative": 0.0002536915511584212,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 18,
+              "relative": 0.00017160069029418243,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 19,
+              "relative": 0.0001260925935090138,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 20,
+              "relative": 9.051097395249843e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 21,
+              "relative": 6.411196979717827e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 22,
+              "relative": 4.690423068470806e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 23,
+              "relative": 3.394328861144039e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 24,
+              "relative": 2.208170709773485e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 25,
+              "relative": 1.6102971201157886e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 26,
+              "relative": 1.0677555369446062e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 27,
+              "relative": 7.422616634229546e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 28,
+              "relative": 4.838898834549137e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 29,
+              "relative": 3.1527056722023457e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 30,
+              "relative": 2.0889990480646263e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 31,
+              "relative": 1.4228923084699557e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 32,
+              "relative": 9.850271810428066e-07,
+              "kind": "gcr_true_residual"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 33,
+              "relative": 7.265022038452568e-07,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 34,
+              "relative": 4.876169729613196e-07,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 35,
+              "relative": 3.467265496283416e-07,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 36,
+              "relative": 2.4110843028662186e-07,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 37,
+              "relative": 1.7061529107138142e-07,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 38,
+              "relative": 1.1941622514273467e-07,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 39,
+              "relative": 8.982306724796755e-08,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 40,
+              "relative": 6.03620970808211e-08,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 41,
+              "relative": 4.515378277372922e-08,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 42,
+              "relative": 3.137667013523373e-08,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 43,
+              "relative": 2.2292572733743577e-08,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 44,
+              "relative": 1.4911890125289996e-08,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 45,
+              "relative": 9.847665636766708e-09,
+              "kind": "gcr_true_residual"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 1,
+              "relative": 0.2629761512671907,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 2,
+              "relative": 0.10871072341460507,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 3,
+              "relative": 0.05882189521474358,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 4,
+              "relative": 0.03559696188788765,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 5,
+              "relative": 0.021977157211921745,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 6,
+              "relative": 0.014399042902661268,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 7,
+              "relative": 0.009745966620085032,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 8,
+              "relative": 0.006270531060754359,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 9,
+              "relative": 0.0043225166249271476,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 10,
+              "relative": 0.002896730519168421,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 11,
+              "relative": 0.0019714127836992948,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 12,
+              "relative": 0.0013702251872414546,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 13,
+              "relative": 0.0009567635976625918,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 14,
+              "relative": 0.0006655712486950199,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 15,
+              "relative": 0.0004672033267214637,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 16,
+              "relative": 0.0003261347341489152,
+              "kind": "gcr_true_residual"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 17,
+              "relative": 0.0002536915511584212,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 18,
+              "relative": 0.00017160069029418243,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 19,
+              "relative": 0.0001260925935090138,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 20,
+              "relative": 9.051097395249843e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 21,
+              "relative": 6.411196979717827e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 22,
+              "relative": 4.690423068470806e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 23,
+              "relative": 3.394328861144039e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 24,
+              "relative": 2.208170709773485e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 25,
+              "relative": 1.6102971201157886e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 26,
+              "relative": 1.0677555369446062e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 27,
+              "relative": 7.422616634229546e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 28,
+              "relative": 4.838898834549137e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 29,
+              "relative": 3.1527056722023457e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 30,
+              "relative": 2.0889990480646263e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 31,
+              "relative": 1.4228923084699557e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 32,
+              "relative": 9.850271810428066e-07,
+              "kind": "gcr_true_residual"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 33,
+              "relative": 7.265022038452568e-07,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 34,
+              "relative": 4.876169729613196e-07,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 35,
+              "relative": 3.467265496283416e-07,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 36,
+              "relative": 2.4110843028662186e-07,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 37,
+              "relative": 1.7061529107138142e-07,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 38,
+              "relative": 1.1941622514273467e-07,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 39,
+              "relative": 8.982306724796755e-08,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 40,
+              "relative": 6.03620970808211e-08,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 41,
+              "relative": 4.515378277372922e-08,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 42,
+              "relative": 3.137667013523373e-08,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 43,
+              "relative": 2.2292572733743577e-08,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 44,
+              "relative": 1.4911890125289996e-08,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 45,
+              "relative": 9.847665636766708e-09,
+              "kind": "gcr_true_residual"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 1,
+              "relative": 0.2629761512671907,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 2,
+              "relative": 0.10871072341460507,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 3,
+              "relative": 0.05882189521474358,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 4,
+              "relative": 0.03559696188788765,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 5,
+              "relative": 0.021977157211921745,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 6,
+              "relative": 0.014399042902661268,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 7,
+              "relative": 0.009745966620085032,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 8,
+              "relative": 0.006270531060754359,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 9,
+              "relative": 0.0043225166249271476,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 10,
+              "relative": 0.002896730519168421,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 11,
+              "relative": 0.0019714127836992948,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 12,
+              "relative": 0.0013702251872414546,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 13,
+              "relative": 0.0009567635976625918,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 14,
+              "relative": 0.0006655712486950199,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 15,
+              "relative": 0.0004672033267214637,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 16,
+              "relative": 0.0003261347341489152,
+              "kind": "gcr_true_residual"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 17,
+              "relative": 0.0002536915511584212,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 18,
+              "relative": 0.00017160069029418243,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 19,
+              "relative": 0.0001260925935090138,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 20,
+              "relative": 9.051097395249843e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 21,
+              "relative": 6.411196979717827e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 22,
+              "relative": 4.690423068470806e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 23,
+              "relative": 3.394328861144039e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 24,
+              "relative": 2.208170709773485e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 25,
+              "relative": 1.6102971201157886e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 26,
+              "relative": 1.0677555369446062e-05,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 27,
+              "relative": 7.422616634229546e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 28,
+              "relative": 4.838898834549137e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 29,
+              "relative": 3.1527056722023457e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 30,
+              "relative": 2.0889990480646263e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 31,
+              "relative": 1.4228923084699557e-06,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 32,
+              "relative": 9.850271810428066e-07,
+              "kind": "gcr_true_residual"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 33,
+              "relative": 7.265022038452568e-07,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 34,
+              "relative": 4.876169729613196e-07,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 35,
+              "relative": 3.467265496283416e-07,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 36,
+              "relative": 2.4110843028662186e-07,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 37,
+              "relative": 1.7061529107138142e-07,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 38,
+              "relative": 1.1941622514273467e-07,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 39,
+              "relative": 8.982306724796755e-08,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 40,
+              "relative": 6.03620970808211e-08,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 41,
+              "relative": 4.515378277372922e-08,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 42,
+              "relative": 3.137667013523373e-08,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 43,
+              "relative": 2.2292572733743577e-08,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 44,
+              "relative": 1.4911890125289996e-08,
+              "kind": "gcr_iterated_residual"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 45,
+              "relative": 9.847665636766708e-09,
+              "kind": "gcr_true_residual"
+            }
+          ],
+          "final_residual": 9.847665636766708e-09
+        },
+        {
+          "level": 1,
+          "total_seconds": 0.0,
+          "total_iterations": 225,
+          "pre_smoother_seconds": 0.0,
+          "post_smoother_seconds": 0.0,
+          "restriction_seconds": 0.0,
+          "prolongation_seconds": 0.0,
+          "coarse_solver_seconds": 0.0,
+          "other_seconds": 0.0,
+          "pre_smoother_iterations": 0,
+          "post_smoother_iterations": 0,
+          "smoother_iterations": 0,
+          "restriction_calls": 0,
+          "prolongation_calls": 0,
+          "recursive_solve_calls": 0,
+          "coarse_solver_iterations": 0,
+          "coarse_solver_calls": 0
+        }
+      ],
+      "mg_levels_by_phase": {
+        "warmup": [
+          {
+            "level": 0,
+            "total_seconds": 2.1280268570000005,
+            "total_iterations": 90,
+            "pre_smoother_seconds": 0.13271631899999892,
+            "post_smoother_seconds": 0.17471644199999964,
+            "restriction_seconds": 0.0161556309999993,
+            "prolongation_seconds": 0.012051990000000165,
+            "coarse_solver_seconds": 1.7904035570000008,
+            "other_seconds": 0.001982918000001721,
+            "pre_smoother_iterations": 90,
+            "post_smoother_iterations": 90,
+            "smoother_iterations": 180,
+            "restriction_calls": 0,
+            "prolongation_calls": 0,
+            "recursive_solve_calls": 0,
+            "coarse_solver_iterations": 5544,
+            "coarse_solver_calls": 0,
+            "finest_iterations": 90,
+            "residual_sequence": [
+              {
+                "solve_index": 0,
+                "iteration": 1,
+                "relative": 0.2629761512671907,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 2,
+                "relative": 0.10871072341460507,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 3,
+                "relative": 0.05882189521474358,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 4,
+                "relative": 0.03559696188788765,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 5,
+                "relative": 0.021977157211921745,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 6,
+                "relative": 0.014399042902661268,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 7,
+                "relative": 0.009745966620085032,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 8,
+                "relative": 0.006270531060754359,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 9,
+                "relative": 0.0043225166249271476,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 10,
+                "relative": 0.002896730519168421,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 11,
+                "relative": 0.0019714127836992948,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 12,
+                "relative": 0.0013702251872414546,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 13,
+                "relative": 0.0009567635976625918,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 14,
+                "relative": 0.0006655712486950199,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 15,
+                "relative": 0.0004672033267214637,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 16,
+                "relative": 0.0003261347341489152,
+                "kind": "gcr_true_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 17,
+                "relative": 0.0002536915511584212,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 18,
+                "relative": 0.00017160069029418243,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 19,
+                "relative": 0.0001260925935090138,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 20,
+                "relative": 9.051097395249843e-05,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 21,
+                "relative": 6.411196979717827e-05,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 22,
+                "relative": 4.690423068470806e-05,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 23,
+                "relative": 3.394328861144039e-05,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 24,
+                "relative": 2.208170709773485e-05,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 25,
+                "relative": 1.6102971201157886e-05,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 26,
+                "relative": 1.0677555369446062e-05,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 27,
+                "relative": 7.422616634229546e-06,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 28,
+                "relative": 4.838898834549137e-06,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 29,
+                "relative": 3.1527056722023457e-06,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 30,
+                "relative": 2.0889990480646263e-06,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 31,
+                "relative": 1.4228923084699557e-06,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 32,
+                "relative": 9.850271810428066e-07,
+                "kind": "gcr_true_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 33,
+                "relative": 7.265022038452568e-07,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 34,
+                "relative": 4.876169729613196e-07,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 35,
+                "relative": 3.467265496283416e-07,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 36,
+                "relative": 2.4110843028662186e-07,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 37,
+                "relative": 1.7061529107138142e-07,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 38,
+                "relative": 1.1941622514273467e-07,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 39,
+                "relative": 8.982306724796755e-08,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 40,
+                "relative": 6.03620970808211e-08,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 41,
+                "relative": 4.515378277372922e-08,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 42,
+                "relative": 3.137667013523373e-08,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 43,
+                "relative": 2.2292572733743577e-08,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 44,
+                "relative": 1.4911890125289996e-08,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 45,
+                "relative": 9.847665636766708e-09,
+                "kind": "gcr_true_residual"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 1,
+                "relative": 0.2629761512671907,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 2,
+                "relative": 0.10871072341460507,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 3,
+                "relative": 0.05882189521474358,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 4,
+                "relative": 0.03559696188788765,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 5,
+                "relative": 0.021977157211921745,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 6,
+                "relative": 0.014399042902661268,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 7,
+                "relative": 0.009745966620085032,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 8,
+                "relative": 0.006270531060754359,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 9,
+                "relative": 0.0043225166249271476,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 10,
+                "relative": 0.002896730519168421,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 11,
+                "relative": 0.0019714127836992948,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 12,
+                "relative": 0.0013702251872414546,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 13,
+                "relative": 0.0009567635976625918,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 14,
+                "relative": 0.0006655712486950199,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 15,
+                "relative": 0.0004672033267214637,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 16,
+                "relative": 0.0003261347341489152,
+                "kind": "gcr_true_residual"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 17,
+                "relative": 0.0002536915511584212,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 18,
+                "relative": 0.00017160069029418243,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 19,
+                "relative": 0.0001260925935090138,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 20,
+                "relative": 9.051097395249843e-05,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 21,
+                "relative": 6.411196979717827e-05,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 22,
+                "relative": 4.690423068470806e-05,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 23,
+                "relative": 3.394328861144039e-05,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 24,
+                "relative": 2.208170709773485e-05,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 25,
+                "relative": 1.6102971201157886e-05,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 26,
+                "relative": 1.0677555369446062e-05,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 27,
+                "relative": 7.422616634229546e-06,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 28,
+                "relative": 4.838898834549137e-06,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 29,
+                "relative": 3.1527056722023457e-06,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 30,
+                "relative": 2.0889990480646263e-06,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 31,
+                "relative": 1.4228923084699557e-06,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 32,
+                "relative": 9.850271810428066e-07,
+                "kind": "gcr_true_residual"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 33,
+                "relative": 7.265022038452568e-07,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 34,
+                "relative": 4.876169729613196e-07,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 35,
+                "relative": 3.467265496283416e-07,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 36,
+                "relative": 2.4110843028662186e-07,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 37,
+                "relative": 1.7061529107138142e-07,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 38,
+                "relative": 1.1941622514273467e-07,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 39,
+                "relative": 8.982306724796755e-08,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 40,
+                "relative": 6.03620970808211e-08,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 41,
+                "relative": 4.515378277372922e-08,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 42,
+                "relative": 3.137667013523373e-08,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 43,
+                "relative": 2.2292572733743577e-08,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 44,
+                "relative": 1.4911890125289996e-08,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 45,
+                "relative": 9.847665636766708e-09,
+                "kind": "gcr_true_residual"
+              }
+            ],
+            "final_residual": 9.847665636766708e-09
+          },
+          {
+            "level": 1,
+            "total_seconds": 0.0,
+            "total_iterations": 90,
+            "pre_smoother_seconds": 0.0,
+            "post_smoother_seconds": 0.0,
+            "restriction_seconds": 0.0,
+            "prolongation_seconds": 0.0,
+            "coarse_solver_seconds": 0.0,
+            "other_seconds": 0.0,
+            "pre_smoother_iterations": 0,
+            "post_smoother_iterations": 0,
+            "smoother_iterations": 0,
+            "restriction_calls": 0,
+            "prolongation_calls": 0,
+            "recursive_solve_calls": 0,
+            "coarse_solver_iterations": 0,
+            "coarse_solver_calls": 0
+          }
+        ],
+        "steady": [
+          {
+            "level": 0,
+            "total_seconds": 4.909427557000002,
+            "total_iterations": 225,
+            "pre_smoother_seconds": 0.3002534800000065,
+            "post_smoother_seconds": 0.4004435249999956,
+            "restriction_seconds": 0.0387342150000034,
+            "prolongation_seconds": 0.02747887499999324,
+            "coarse_solver_seconds": 4.137389768999999,
+            "other_seconds": 0.005127693000003042,
+            "pre_smoother_iterations": 225,
+            "post_smoother_iterations": 225,
+            "smoother_iterations": 450,
+            "restriction_calls": 0,
+            "prolongation_calls": 0,
+            "recursive_solve_calls": 0,
+            "coarse_solver_iterations": 13860,
+            "coarse_solver_calls": 0,
+            "finest_iterations": 225,
+            "residual_sequence": [
+              {
+                "solve_index": 2,
+                "iteration": 1,
+                "relative": 0.2629761512671907,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 2,
+                "relative": 0.10871072341460507,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 3,
+                "relative": 0.05882189521474358,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 4,
+                "relative": 0.03559696188788765,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 5,
+                "relative": 0.021977157211921745,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 6,
+                "relative": 0.014399042902661268,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 7,
+                "relative": 0.009745966620085032,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 8,
+                "relative": 0.006270531060754359,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 9,
+                "relative": 0.0043225166249271476,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 10,
+                "relative": 0.002896730519168421,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 11,
+                "relative": 0.0019714127836992948,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 12,
+                "relative": 0.0013702251872414546,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 13,
+                "relative": 0.0009567635976625918,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 14,
+                "relative": 0.0006655712486950199,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 15,
+                "relative": 0.0004672033267214637,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 16,
+                "relative": 0.0003261347341489152,
+                "kind": "gcr_true_residual"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 17,
+                "relative": 0.0002536915511584212,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 18,
+                "relative": 0.00017160069029418243,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 19,
+                "relative": 0.0001260925935090138,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 20,
+                "relative": 9.051097395249843e-05,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 21,
+                "relative": 6.411196979717827e-05,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 22,
+                "relative": 4.690423068470806e-05,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 23,
+                "relative": 3.394328861144039e-05,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 24,
+                "relative": 2.208170709773485e-05,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 25,
+                "relative": 1.6102971201157886e-05,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 26,
+                "relative": 1.0677555369446062e-05,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 27,
+                "relative": 7.422616634229546e-06,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 28,
+                "relative": 4.838898834549137e-06,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 29,
+                "relative": 3.1527056722023457e-06,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 30,
+                "relative": 2.0889990480646263e-06,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 31,
+                "relative": 1.4228923084699557e-06,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 32,
+                "relative": 9.850271810428066e-07,
+                "kind": "gcr_true_residual"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 33,
+                "relative": 7.265022038452568e-07,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 34,
+                "relative": 4.876169729613196e-07,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 35,
+                "relative": 3.467265496283416e-07,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 36,
+                "relative": 2.4110843028662186e-07,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 37,
+                "relative": 1.7061529107138142e-07,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 38,
+                "relative": 1.1941622514273467e-07,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 39,
+                "relative": 8.982306724796755e-08,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 40,
+                "relative": 6.03620970808211e-08,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 41,
+                "relative": 4.515378277372922e-08,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 42,
+                "relative": 3.137667013523373e-08,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 43,
+                "relative": 2.2292572733743577e-08,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 44,
+                "relative": 1.4911890125289996e-08,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 45,
+                "relative": 9.847665636766708e-09,
+                "kind": "gcr_true_residual"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 1,
+                "relative": 0.2629761512671907,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 2,
+                "relative": 0.10871072341460507,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 3,
+                "relative": 0.05882189521474358,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 4,
+                "relative": 0.03559696188788765,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 5,
+                "relative": 0.021977157211921745,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 6,
+                "relative": 0.014399042902661268,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 7,
+                "relative": 0.009745966620085032,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 8,
+                "relative": 0.006270531060754359,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 9,
+                "relative": 0.0043225166249271476,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 10,
+                "relative": 0.002896730519168421,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 11,
+                "relative": 0.0019714127836992948,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 12,
+                "relative": 0.0013702251872414546,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 13,
+                "relative": 0.0009567635976625918,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 14,
+                "relative": 0.0006655712486950199,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 15,
+                "relative": 0.0004672033267214637,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 16,
+                "relative": 0.0003261347341489152,
+                "kind": "gcr_true_residual"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 17,
+                "relative": 0.0002536915511584212,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 18,
+                "relative": 0.00017160069029418243,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 19,
+                "relative": 0.0001260925935090138,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 20,
+                "relative": 9.051097395249843e-05,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 21,
+                "relative": 6.411196979717827e-05,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 22,
+                "relative": 4.690423068470806e-05,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 23,
+                "relative": 3.394328861144039e-05,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 24,
+                "relative": 2.208170709773485e-05,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 25,
+                "relative": 1.6102971201157886e-05,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 26,
+                "relative": 1.0677555369446062e-05,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 27,
+                "relative": 7.422616634229546e-06,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 28,
+                "relative": 4.838898834549137e-06,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 29,
+                "relative": 3.1527056722023457e-06,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 30,
+                "relative": 2.0889990480646263e-06,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 31,
+                "relative": 1.4228923084699557e-06,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 32,
+                "relative": 9.850271810428066e-07,
+                "kind": "gcr_true_residual"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 33,
+                "relative": 7.265022038452568e-07,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 34,
+                "relative": 4.876169729613196e-07,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 35,
+                "relative": 3.467265496283416e-07,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 36,
+                "relative": 2.4110843028662186e-07,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 37,
+                "relative": 1.7061529107138142e-07,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 38,
+                "relative": 1.1941622514273467e-07,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 39,
+                "relative": 8.982306724796755e-08,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 40,
+                "relative": 6.03620970808211e-08,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 41,
+                "relative": 4.515378277372922e-08,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 42,
+                "relative": 3.137667013523373e-08,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 43,
+                "relative": 2.2292572733743577e-08,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 44,
+                "relative": 1.4911890125289996e-08,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 45,
+                "relative": 9.847665636766708e-09,
+                "kind": "gcr_true_residual"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 1,
+                "relative": 0.2629761512671907,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 2,
+                "relative": 0.10871072341460507,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 3,
+                "relative": 0.05882189521474358,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 4,
+                "relative": 0.03559696188788765,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 5,
+                "relative": 0.021977157211921745,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 6,
+                "relative": 0.014399042902661268,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 7,
+                "relative": 0.009745966620085032,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 8,
+                "relative": 0.006270531060754359,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 9,
+                "relative": 0.0043225166249271476,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 10,
+                "relative": 0.002896730519168421,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 11,
+                "relative": 0.0019714127836992948,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 12,
+                "relative": 0.0013702251872414546,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 13,
+                "relative": 0.0009567635976625918,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 14,
+                "relative": 0.0006655712486950199,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 15,
+                "relative": 0.0004672033267214637,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 16,
+                "relative": 0.0003261347341489152,
+                "kind": "gcr_true_residual"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 17,
+                "relative": 0.0002536915511584212,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 18,
+                "relative": 0.00017160069029418243,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 19,
+                "relative": 0.0001260925935090138,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 20,
+                "relative": 9.051097395249843e-05,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 21,
+                "relative": 6.411196979717827e-05,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 22,
+                "relative": 4.690423068470806e-05,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 23,
+                "relative": 3.394328861144039e-05,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 24,
+                "relative": 2.208170709773485e-05,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 25,
+                "relative": 1.6102971201157886e-05,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 26,
+                "relative": 1.0677555369446062e-05,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 27,
+                "relative": 7.422616634229546e-06,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 28,
+                "relative": 4.838898834549137e-06,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 29,
+                "relative": 3.1527056722023457e-06,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 30,
+                "relative": 2.0889990480646263e-06,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 31,
+                "relative": 1.4228923084699557e-06,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 32,
+                "relative": 9.850271810428066e-07,
+                "kind": "gcr_true_residual"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 33,
+                "relative": 7.265022038452568e-07,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 34,
+                "relative": 4.876169729613196e-07,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 35,
+                "relative": 3.467265496283416e-07,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 36,
+                "relative": 2.4110843028662186e-07,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 37,
+                "relative": 1.7061529107138142e-07,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 38,
+                "relative": 1.1941622514273467e-07,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 39,
+                "relative": 8.982306724796755e-08,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 40,
+                "relative": 6.03620970808211e-08,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 41,
+                "relative": 4.515378277372922e-08,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 42,
+                "relative": 3.137667013523373e-08,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 43,
+                "relative": 2.2292572733743577e-08,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 44,
+                "relative": 1.4911890125289996e-08,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 45,
+                "relative": 9.847665636766708e-09,
+                "kind": "gcr_true_residual"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 1,
+                "relative": 0.2629761512671907,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 2,
+                "relative": 0.10871072341460507,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 3,
+                "relative": 0.05882189521474358,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 4,
+                "relative": 0.03559696188788765,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 5,
+                "relative": 0.021977157211921745,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 6,
+                "relative": 0.014399042902661268,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 7,
+                "relative": 0.009745966620085032,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 8,
+                "relative": 0.006270531060754359,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 9,
+                "relative": 0.0043225166249271476,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 10,
+                "relative": 0.002896730519168421,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 11,
+                "relative": 0.0019714127836992948,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 12,
+                "relative": 0.0013702251872414546,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 13,
+                "relative": 0.0009567635976625918,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 14,
+                "relative": 0.0006655712486950199,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 15,
+                "relative": 0.0004672033267214637,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 16,
+                "relative": 0.0003261347341489152,
+                "kind": "gcr_true_residual"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 17,
+                "relative": 0.0002536915511584212,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 18,
+                "relative": 0.00017160069029418243,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 19,
+                "relative": 0.0001260925935090138,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 20,
+                "relative": 9.051097395249843e-05,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 21,
+                "relative": 6.411196979717827e-05,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 22,
+                "relative": 4.690423068470806e-05,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 23,
+                "relative": 3.394328861144039e-05,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 24,
+                "relative": 2.208170709773485e-05,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 25,
+                "relative": 1.6102971201157886e-05,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 26,
+                "relative": 1.0677555369446062e-05,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 27,
+                "relative": 7.422616634229546e-06,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 28,
+                "relative": 4.838898834549137e-06,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 29,
+                "relative": 3.1527056722023457e-06,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 30,
+                "relative": 2.0889990480646263e-06,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 31,
+                "relative": 1.4228923084699557e-06,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 32,
+                "relative": 9.850271810428066e-07,
+                "kind": "gcr_true_residual"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 33,
+                "relative": 7.265022038452568e-07,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 34,
+                "relative": 4.876169729613196e-07,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 35,
+                "relative": 3.467265496283416e-07,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 36,
+                "relative": 2.4110843028662186e-07,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 37,
+                "relative": 1.7061529107138142e-07,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 38,
+                "relative": 1.1941622514273467e-07,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 39,
+                "relative": 8.982306724796755e-08,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 40,
+                "relative": 6.03620970808211e-08,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 41,
+                "relative": 4.515378277372922e-08,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 42,
+                "relative": 3.137667013523373e-08,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 43,
+                "relative": 2.2292572733743577e-08,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 44,
+                "relative": 1.4911890125289996e-08,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 45,
+                "relative": 9.847665636766708e-09,
+                "kind": "gcr_true_residual"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 1,
+                "relative": 0.2629761512671907,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 2,
+                "relative": 0.10871072341460507,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 3,
+                "relative": 0.05882189521474358,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 4,
+                "relative": 0.03559696188788765,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 5,
+                "relative": 0.021977157211921745,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 6,
+                "relative": 0.014399042902661268,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 7,
+                "relative": 0.009745966620085032,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 8,
+                "relative": 0.006270531060754359,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 9,
+                "relative": 0.0043225166249271476,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 10,
+                "relative": 0.002896730519168421,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 11,
+                "relative": 0.0019714127836992948,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 12,
+                "relative": 0.0013702251872414546,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 13,
+                "relative": 0.0009567635976625918,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 14,
+                "relative": 0.0006655712486950199,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 15,
+                "relative": 0.0004672033267214637,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 16,
+                "relative": 0.0003261347341489152,
+                "kind": "gcr_true_residual"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 17,
+                "relative": 0.0002536915511584212,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 18,
+                "relative": 0.00017160069029418243,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 19,
+                "relative": 0.0001260925935090138,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 20,
+                "relative": 9.051097395249843e-05,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 21,
+                "relative": 6.411196979717827e-05,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 22,
+                "relative": 4.690423068470806e-05,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 23,
+                "relative": 3.394328861144039e-05,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 24,
+                "relative": 2.208170709773485e-05,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 25,
+                "relative": 1.6102971201157886e-05,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 26,
+                "relative": 1.0677555369446062e-05,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 27,
+                "relative": 7.422616634229546e-06,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 28,
+                "relative": 4.838898834549137e-06,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 29,
+                "relative": 3.1527056722023457e-06,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 30,
+                "relative": 2.0889990480646263e-06,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 31,
+                "relative": 1.4228923084699557e-06,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 32,
+                "relative": 9.850271810428066e-07,
+                "kind": "gcr_true_residual"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 33,
+                "relative": 7.265022038452568e-07,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 34,
+                "relative": 4.876169729613196e-07,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 35,
+                "relative": 3.467265496283416e-07,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 36,
+                "relative": 2.4110843028662186e-07,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 37,
+                "relative": 1.7061529107138142e-07,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 38,
+                "relative": 1.1941622514273467e-07,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 39,
+                "relative": 8.982306724796755e-08,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 40,
+                "relative": 6.03620970808211e-08,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 41,
+                "relative": 4.515378277372922e-08,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 42,
+                "relative": 3.137667013523373e-08,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 43,
+                "relative": 2.2292572733743577e-08,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 44,
+                "relative": 1.4911890125289996e-08,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 45,
+                "relative": 9.847665636766708e-09,
+                "kind": "gcr_true_residual"
+              }
+            ],
+            "final_residual": 9.847665636766708e-09
+          },
+          {
+            "level": 1,
+            "total_seconds": 0.0,
+            "total_iterations": 225,
+            "pre_smoother_seconds": 0.0,
+            "post_smoother_seconds": 0.0,
+            "restriction_seconds": 0.0,
+            "prolongation_seconds": 0.0,
+            "coarse_solver_seconds": 0.0,
+            "other_seconds": 0.0,
+            "pre_smoother_iterations": 0,
+            "post_smoother_iterations": 0,
+            "smoother_iterations": 0,
+            "restriction_calls": 0,
+            "prolongation_calls": 0,
+            "recursive_solve_calls": 0,
+            "coarse_solver_iterations": 0,
+            "coarse_solver_calls": 0
+          }
+        ],
+        "cold": [
+          {
+            "level": 0,
+            "total_seconds": 1.0844298789999993,
+            "total_iterations": 45,
+            "pre_smoother_seconds": 0.062135465,
+            "post_smoother_seconds": 0.07559594700000047,
+            "restriction_seconds": 0.009547949000000014,
+            "prolongation_seconds": 0.0061253589999994,
+            "coarse_solver_seconds": 0.9299843989999993,
+            "other_seconds": 0.001040760000000196,
+            "pre_smoother_iterations": 45,
+            "post_smoother_iterations": 45,
+            "smoother_iterations": 90,
+            "restriction_calls": 0,
+            "prolongation_calls": 0,
+            "recursive_solve_calls": 0,
+            "coarse_solver_iterations": 2772,
+            "coarse_solver_calls": 0,
+            "finest_iterations": 45,
+            "residual_sequence": [
+              {
+                "solve_index": 0,
+                "iteration": 1,
+                "relative": 0.2629761512671907,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 2,
+                "relative": 0.10871072341460507,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 3,
+                "relative": 0.058821895214743576,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 4,
+                "relative": 0.03559696188788765,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 5,
+                "relative": 0.021977157211921745,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 6,
+                "relative": 0.01439904290266127,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 7,
+                "relative": 0.009745966620085034,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 8,
+                "relative": 0.006270531060754359,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 9,
+                "relative": 0.004322516624927148,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 10,
+                "relative": 0.002896730519168422,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 11,
+                "relative": 0.001971412783699295,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 12,
+                "relative": 0.0013702251872414553,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 13,
+                "relative": 0.0009567635976625926,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 14,
+                "relative": 0.0006655712486950206,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 15,
+                "relative": 0.00046720332672146446,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 16,
+                "relative": 0.000326134734148917,
+                "kind": "gcr_true_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 17,
+                "relative": 0.0002536915511584228,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 18,
+                "relative": 0.00017160069029417807,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 19,
+                "relative": 0.00012609259350901205,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 20,
+                "relative": 9.051097395249507e-05,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 21,
+                "relative": 6.4111969797178e-05,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 22,
+                "relative": 4.690423068470611e-05,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 23,
+                "relative": 3.3943288611440116e-05,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 24,
+                "relative": 2.2081707097733726e-05,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 25,
+                "relative": 1.610297120115764e-05,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 26,
+                "relative": 1.0677555369445444e-05,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 27,
+                "relative": 7.422616634229503e-06,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 28,
+                "relative": 4.838898834548897e-06,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 29,
+                "relative": 3.152705672202526e-06,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 30,
+                "relative": 2.0889990480645996e-06,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 31,
+                "relative": 1.422892308469998e-06,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 32,
+                "relative": 9.85027181043152e-07,
+                "kind": "gcr_true_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 33,
+                "relative": 7.265022038446536e-07,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 34,
+                "relative": 4.87616972961701e-07,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 35,
+                "relative": 3.46726549628289e-07,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 36,
+                "relative": 2.4110843028667257e-07,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 37,
+                "relative": 1.70615291071387e-07,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 38,
+                "relative": 1.1941622514274965e-07,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 39,
+                "relative": 8.982306724799644e-08,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 40,
+                "relative": 6.03620970808041e-08,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 41,
+                "relative": 4.5153782773739906e-08,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 42,
+                "relative": 3.137667013522157e-08,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 43,
+                "relative": 2.2292572733747984e-08,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 44,
+                "relative": 1.4911890125289904e-08,
+                "kind": "gcr_iterated_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 45,
+                "relative": 9.847665638530171e-09,
+                "kind": "gcr_true_residual"
+              }
+            ],
+            "final_residual": 9.847665638530171e-09
+          },
+          {
+            "level": 1,
+            "total_seconds": 0.0,
+            "total_iterations": 45,
+            "pre_smoother_seconds": 0.0,
+            "post_smoother_seconds": 0.0,
+            "restriction_seconds": 0.0,
+            "prolongation_seconds": 0.0,
+            "coarse_solver_seconds": 0.0,
+            "other_seconds": 0.0,
+            "pre_smoother_iterations": 0,
+            "post_smoother_iterations": 0,
+            "smoother_iterations": 0,
+            "restriction_calls": 0,
+            "prolongation_calls": 0,
+            "recursive_solve_calls": 0,
+            "coarse_solver_iterations": 0,
+            "coarse_solver_calls": 0
+          }
+        ]
+      },
+      "iteration_semantics": "finest total_iterations is the outer GCR total; smoother and coarse iterations are separate per-level counters",
+      "iteration_kind": "outer_gcr",
+      "iteration_scope": "outer GCR iterations; recursive MG and coarse solver iterations are recorded separately in QUDA_MG_TRACE",
+      "converged_samples": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "converged": true,
+      "true_residual": {
+        "samples_rel": [
+          1.8930485013741615e-08,
+          1.8930485013741615e-08,
+          1.8930485013741615e-08,
+          1.8930485013741615e-08,
+          1.8930485013741615e-08
+        ],
+        "max_rel": 1.8930485013741615e-08,
+        "gate": 5e-08,
+        "pass": true,
+        "untimed_probe_rel": 1.8930485013741615e-08
+      },
+      "krylov": {
+        "requested_restart": 16,
+        "effective_restart": 16,
+        "max_krylov_bytes": null,
+        "effective_workspace_bytes": null,
+        "note": "QUDA native workspace is not exposed by PyQUDA"
+      },
+      "timing_boundary": {
+        "requested": "caller_preallocated",
+        "supported": true,
+        "formal_eligible": true,
+        "api": "(h_x, h_b, param)",
+        "method": "pyquda.quda.invertQuda(h_x,h_b,param)",
+        "output_argument": "h_x",
+        "detail": "low-level invertQuda writes the caller-owned output",
+        "zero_initial_guess_before_timer": true,
+        "preserve_source": "QUDA_PRESERVE_SOURCE_YES",
+        "timed_operation": "pyquda.quda.invertQuda(h_x,h_b,param)",
+        "performance_call": "omitted; no high-level allocation/performance call in timer"
+      },
+      "quda_parameters": {
+        "requested": {
+          "invert": {
+            "inv_type": "QUDA_GCR_INVERTER",
+            "matpc_type": "QUDA_MATPC_ODD_ODD",
+            "solve_type": "QUDA_DIRECT_PC_SOLVE",
+            "solution_type": "QUDA_MAT_SOLUTION",
+            "use_init_guess": "QUDA_USE_INIT_GUESS_NO",
+            "preserve_source": "QUDA_PRESERVE_SOURCE_YES",
+            "gcrNkrylov": 16,
+            "maxiter": 1000,
+            "tol": 1e-08,
+            "precision": {
+              "cuda_prec": "QUDA_DOUBLE_PRECISION",
+              "cuda_prec_eigensolver": "QUDA_DOUBLE_PRECISION",
+              "cuda_prec_sloppy": "QUDA_DOUBLE_PRECISION",
+              "cuda_prec_refinement_sloppy": "QUDA_DOUBLE_PRECISION",
+              "cuda_prec_precondition": "QUDA_DOUBLE_PRECISION"
+            }
+          },
+          "multigrid": {
+            "n_level": 2,
+            "coarsest_level_index": 1,
+            "compute_null_vector": "QUDA_COMPUTE_NULL_VECTOR_YES",
+            "generate_all_levels": "QUDA_BOOLEAN_TRUE",
+            "run_verify": "QUDA_BOOLEAN_FALSE",
+            "precision_null": [
+              "QUDA_DOUBLE_PRECISION",
+              "QUDA_DOUBLE_PRECISION"
+            ],
+            "transition": {
+              "n_vec": [
+                12
+              ],
+              "n_block_ortho": [
+                2
+              ],
+              "vec_load": [
+                "QUDA_BOOLEAN_TRUE"
+              ],
+              "vec_infile": [
+                "/root/PyQCU/data/qio-matrix/L8x8x8x16_nvec12_quda"
+              ],
+              "num_setup_iter": [
+                1
+              ],
+              "setup_use_mma": [
+                "QUDA_BOOLEAN_FALSE"
+              ],
+              "dslash_use_mma": [
+                "QUDA_BOOLEAN_FALSE"
+              ],
+              "transfer_use_mma": [
+                "QUDA_BOOLEAN_FALSE"
+              ]
+            },
+            "levels": {
+              "nu_pre": [
+                1,
+                1
+              ],
+              "nu_post": [
+                1,
+                1
+              ],
+              "smoother": [
+                "QUDA_MR_INVERTER",
+                "QUDA_MR_INVERTER"
+              ],
+              "smoother_tol": [
+                0.0,
+                0.0
+              ],
+              "coarse_solver": [
+                "QUDA_GCR_INVERTER",
+                "QUDA_CA_GCR_INVERTER"
+              ],
+              "coarse_solver_maxiter": [
+                1,
+                200
+              ],
+              "coarse_solver_tol": [
+                3e-05,
+                3e-05
+              ]
+            }
+          }
+        },
+        "actual": {
+          "invert": {
+            "inv_type": "QUDA_GCR_INVERTER",
+            "matpc_type": "QUDA_MATPC_ODD_ODD",
+            "solve_type": "QUDA_DIRECT_PC_SOLVE",
+            "solution_type": "QUDA_MAT_SOLUTION",
+            "use_init_guess": "QUDA_USE_INIT_GUESS_NO",
+            "preserve_source": "QUDA_PRESERVE_SOURCE_YES",
+            "gcrNkrylov": 16,
+            "maxiter": 1000,
+            "tol": 1e-08,
+            "precision": {
+              "cuda_prec": "QUDA_DOUBLE_PRECISION",
+              "cuda_prec_sloppy": "QUDA_DOUBLE_PRECISION",
+              "cuda_prec_refinement_sloppy": "QUDA_DOUBLE_PRECISION",
+              "cuda_prec_precondition": "QUDA_DOUBLE_PRECISION",
+              "cuda_prec_eigensolver": "QUDA_DOUBLE_PRECISION"
+            }
+          },
+          "multigrid": {
+            "n_level": 2,
+            "coarsest_level_index": 1,
+            "compute_null_vector": "QUDA_COMPUTE_NULL_VECTOR_YES",
+            "generate_all_levels": "QUDA_BOOLEAN_TRUE",
+            "run_verify": "QUDA_BOOLEAN_FALSE",
+            "transition": {
+              "n_vec": [
+                12
+              ],
+              "n_block_ortho": [
+                2
+              ],
+              "vec_load": [
+                "QUDA_BOOLEAN_TRUE"
+              ],
+              "vec_infile": [
+                "/root/PyQCU/data/qio-matrix/L8x8x8x16_nvec12_quda"
+              ],
+              "num_setup_iter": [
+                1
+              ],
+              "setup_use_mma": [
+                "QUDA_BOOLEAN_FALSE"
+              ],
+              "dslash_use_mma": [
+                "QUDA_BOOLEAN_FALSE"
+              ],
+              "transfer_use_mma": [
+                "QUDA_BOOLEAN_FALSE"
+              ]
+            },
+            "levels": {
+              "nu_pre": [
+                1,
+                1
+              ],
+              "nu_post": [
+                1,
+                1
+              ],
+              "smoother": [
+                "QUDA_MR_INVERTER",
+                "QUDA_MR_INVERTER"
+              ],
+              "smoother_tol": [
+                0.0,
+                0.0
+              ],
+              "coarse_solver": [
+                "QUDA_GCR_INVERTER",
+                "QUDA_CA_GCR_INVERTER"
+              ],
+              "coarse_solver_maxiter": [
+                1,
+                200
+              ],
+              "coarse_solver_tol": [
+                3e-05,
+                3e-05
+              ]
+            },
+            "precision_null": [
+              "QUDA_DOUBLE_PRECISION",
+              "QUDA_DOUBLE_PRECISION"
+            ]
+          }
+        },
+        "mismatches": []
+      },
+      "quda_input_contract": {
+        "qdp_host_dtype": "complex128",
+        "device_precision": "QUDA_DOUBLE_PRECISION"
+      },
+      "memory": {
+        "schema_version": 2,
+        "setup": {
+          "baseline": {
+            "allocated_bytes": 0,
+            "reserved_bytes": 0,
+            "nvidia_smi": {
+              "available": true,
+              "device_uuid": "be23deb4-29b1-7bb2-29ef-c4ab7b34f0a8",
+              "process_used_bytes": null,
+              "gpu_used_bytes": null,
+              "error": "no numeric sample"
+            }
+          },
+          "cuda_peak_allocated_bytes": 11010048,
+          "cuda_peak_reserved_bytes": 20971520,
+          "nvidia_smi": {
+            "available": true,
+            "device_uuid": "be23deb4-29b1-7bb2-29ef-c4ab7b34f0a8",
+            "process_used_bytes": null,
+            "gpu_used_bytes": null,
+            "error": "no numeric sample"
+          },
+          "device_wide_sampler": {
+            "available": true,
+            "scope": "device-wide cudaMemGetInfo; may include other processes",
+            "device": "cuda:0",
+            "unit": "bytes",
+            "interval_seconds": 0.01,
+            "duration_seconds": 0.6940681759879226,
+            "sample_count": 49,
+            "device_total_bytes": 34359345152,
+            "device_used_initial_bytes": 1557467136,
+            "device_used_max_observed_bytes": 2075463680,
+            "join_timed_out": false,
+            "errors": []
+          },
+          "timing_semantics": "instrumented setup; sampler stop excluded from setup_seconds",
+          "note": "PyTorch allocator excludes QUDA native allocations; the device-wide sampler captures transients but may include other processes"
+        },
+        "first_solve": {
+          "excluded_from_formal_timing": true,
+          "seconds": 1.2311194299982162,
+          "iterations": 45,
+          "converged": true,
+          "true_residual_rel": 1.8930485013741615e-08,
+          "memory": {
+            "cuda_peak_allocated_bytes": 46268416,
+            "cuda_peak_reserved_bytes": 100663296,
+            "nvidia_smi": {
+              "available": true,
+              "device_uuid": "be23deb4-29b1-7bb2-29ef-c4ab7b34f0a8",
+              "process_used_bytes": null,
+              "gpu_used_bytes": null,
+              "error": "no numeric sample"
+            },
+            "device_wide_sampler": {
+              "available": true,
+              "scope": "device-wide cudaMemGetInfo; may include other processes",
+              "device": "cuda:0",
+              "unit": "bytes",
+              "interval_seconds": 0.01,
+              "duration_seconds": 1.231872373013175,
+              "sample_count": 2,
+              "device_total_bytes": 34359345152,
+              "device_used_initial_bytes": 2163544064,
+              "device_used_max_observed_bytes": 2197098496,
+              "join_timed_out": false,
+              "errors": []
+            }
+          }
+        },
+        "steady": {
+          "baseline": {
+            "allocated_bytes": 46268416,
+            "reserved_bytes": 100663296,
+            "nvidia_smi": {
+              "available": true,
+              "device_uuid": "be23deb4-29b1-7bb2-29ef-c4ab7b34f0a8",
+              "process_used_bytes": null,
+              "gpu_used_bytes": null,
+              "error": "no numeric sample"
+            }
+          },
+          "cuda_peak_allocated_bytes": 46268416,
+          "cuda_peak_reserved_bytes": 100663296,
+          "nvidia_smi_process_max_observed_bytes": null,
+          "nvidia_smi_gpu_max_observed_bytes": null,
+          "samples": [
+            {
+              "cuda_peak_allocated_bytes": 46268416,
+              "cuda_peak_reserved_bytes": 100663296,
+              "nvidia_smi": {
+                "available": true,
+                "device_uuid": "be23deb4-29b1-7bb2-29ef-c4ab7b34f0a8",
+                "process_used_bytes": null,
+                "gpu_used_bytes": null,
+                "error": "no numeric sample"
+              },
+              "device_wide_sampler": null
+            },
+            {
+              "cuda_peak_allocated_bytes": 46268416,
+              "cuda_peak_reserved_bytes": 100663296,
+              "nvidia_smi": {
+                "available": true,
+                "device_uuid": "be23deb4-29b1-7bb2-29ef-c4ab7b34f0a8",
+                "process_used_bytes": null,
+                "gpu_used_bytes": null,
+                "error": "no numeric sample"
+              },
+              "device_wide_sampler": null
+            },
+            {
+              "cuda_peak_allocated_bytes": 46268416,
+              "cuda_peak_reserved_bytes": 100663296,
+              "nvidia_smi": {
+                "available": true,
+                "device_uuid": "be23deb4-29b1-7bb2-29ef-c4ab7b34f0a8",
+                "process_used_bytes": null,
+                "gpu_used_bytes": null,
+                "error": "no numeric sample"
+              },
+              "device_wide_sampler": null
+            },
+            {
+              "cuda_peak_allocated_bytes": 46268416,
+              "cuda_peak_reserved_bytes": 100663296,
+              "nvidia_smi": {
+                "available": true,
+                "device_uuid": "be23deb4-29b1-7bb2-29ef-c4ab7b34f0a8",
+                "process_used_bytes": null,
+                "gpu_used_bytes": null,
+                "error": "no numeric sample"
+              },
+              "device_wide_sampler": null
+            },
+            {
+              "cuda_peak_allocated_bytes": 46268416,
+              "cuda_peak_reserved_bytes": 100663296,
+              "nvidia_smi": {
+                "available": true,
+                "device_uuid": "be23deb4-29b1-7bb2-29ef-c4ab7b34f0a8",
+                "process_used_bytes": null,
+                "gpu_used_bytes": null,
+                "error": "no numeric sample"
+              },
+              "device_wide_sampler": null
+            }
+          ],
+          "snapshot_semantics": "nvidia-smi values are post-solve observations, not peaks",
+          "untimed_device_memory_probe": {
+            "cuda_peak_allocated_bytes": 46268416,
+            "cuda_peak_reserved_bytes": 100663296,
+            "nvidia_smi": {
+              "available": true,
+              "device_uuid": "be23deb4-29b1-7bb2-29ef-c4ab7b34f0a8",
+              "process_used_bytes": null,
+              "gpu_used_bytes": null,
+              "error": "no numeric sample"
+            },
+            "device_wide_sampler": {
+              "available": true,
+              "scope": "device-wide cudaMemGetInfo; may include other processes",
+              "device": "cuda:0",
+              "unit": "bytes",
+              "interval_seconds": 0.01,
+              "duration_seconds": 1.1788253240083577,
+              "sample_count": 2,
+              "device_total_bytes": 34359345152,
+              "device_used_initial_bytes": 2199195648,
+              "device_used_max_observed_bytes": 2199195648,
+              "join_timed_out": false,
+              "errors": []
+            },
+            "excluded_from_formal_timing": true,
+            "iterations": 45,
+            "converged": true,
+            "true_residual_rel": 1.8930485013741615e-08
+          }
+        }
+      },
+      "provenance": {
+        "pyqcu_git": {
+          "commit": "33fe4f0935e5662351c4a190f7f913f391d498a9",
+          "dirty_tracked": true,
+          "repository": "/root/PyQCU"
+        },
+        "pyqcu_library": {
+          "path": "/root/PyQCU/cpp/cuda/qcu/libqcu.so",
+          "sha256": "81ec614211a50954f53a8e21227de9efc5746d5424c4767251bc8a2b3a670889",
+          "exists": true,
+          "requested_architectures": null,
+          "architectures": [
+            "sm_70"
+          ],
+          "listing_error": null
+        },
+        "quda_source_git": {
+          "commit": "33fe4f0935e5662351c4a190f7f913f391d498a9",
+          "dirty_tracked": true,
+          "repository": "/root/PyQCU/refer/git-rep/quda"
+        },
+        "quda_libraries": {
+          "libquda": {
+            "path": "/root/PyQCU/data/quda-double-install/lib/libquda.so",
+            "sha256": "4b288d0c94b7db677679cf316c603412f68210ba5ca62500c957216af4756c07",
+            "exists": true
+          },
+          "libqmp": {
+            "path": "/root/PyQCU/data/quda-double-install/lib/libqmp.so",
+            "sha256": "74964623d394834244770550d4fadb7fbb2e1d9315ec64cee165442bf6fcf146",
+            "exists": true
+          }
+        },
+        "pyquda_module": {
+          "path": "/usr/local/lib/python3.10/dist-packages/pyquda/__init__.py",
+          "version": "0.10.54"
+        },
+        "cmake_features": {
+          "cache_path": "/root/PyQCU/data/quda-qio-build/attempt2/CMakeCache.txt",
+          "cache_sha256": "434f9338540a95c47abd7b028ee60aec3ac88ea8eac744112d5c6d16156d46f5",
+          "features": {
+            "QUDA_INTERFACE_QDP": true,
+            "QUDA_MULTIGRID_DOUBLE": true,
+            "QUDA_MULTIGRID_NVEC_LIST": "12,24",
+            "QUDA_PRECISION": 12,
+            "QUDA_QIO": true,
+            "QUDA_QMP": true,
+            "QUDA_RECONSTRUCT": 7
+          },
+          "normalized": {
+            "qdp_interface": true,
+            "qio": true,
+            "qmp": true,
+            "reconstruct": 7,
+            "precision": 12,
+            "multigrid_nvec_list": [
+              12,
+              24
+            ],
+            "multigrid_double": true
+          }
+        },
+        "patch_variant": {
+          "name": "quda_comparison_wsl2_reduce_sync",
+          "wsl2": true,
+          "environment_scoped": true,
+          "limitation": "仅限启用 DEV87_REDUCE_SYNC 的 WSL2 patched QUDA 构建；不得解释为可移植的 upstream QUDA 证据",
+          "marker_present": true
+        },
+        "runtime": {
+          "torch": "2.10.0+cu128",
+          "torch_cuda": "12.8",
+          "device_index": 0,
+          "device_name": "Tesla V100-SXM2-32GB",
+          "device_uuid": "be23deb4-29b1-7bb2-29ef-c4ab7b34f0a8",
+          "total_memory_bytes": 34359345152,
+          "compute_capability": [
+            7,
+            0
+          ],
+          "device": "cuda:0"
+        },
+        "shared_nullvec_conversion": {
+          "prefix": "/root/PyQCU/data/qio-matrix/L8x8x8x16_nvec12_quda",
+          "manifest": "/root/PyQCU/data/qio-matrix/L8x8x8x16_nvec12_quda.v1.json",
+          "source_sha256": "496dcd8fd78f28de60056db26d2baa72b49d71395a026cb429cf727b3f71b204",
+          "canonical_dataset_sha256": "ee41689c94101a299bdf398a02f4dac306393abb6731180090516024d5ed33db",
+          "conversion_tool_commit": "4a7d9a4353d75c9a751ec0609240d0ef8d2cdb00",
+          "artifacts": [
+            {
+              "path": "/root/PyQCU/data/qio-matrix/L8x8x8x16_nvec12_quda_level_0_nvec_12",
+              "size_bytes": 9438936,
+              "sha256": "a981b135df4928cc1e732f38c460ac06852c3f4827365433af8ad2e5627ae3a3"
+            }
+          ],
+          "verification_seconds": 0.03303389799839351
+        },
+        "reduction_runtime": {
+          "required": true,
+          "platform_release": "6.18.33.2-microsoft-standard-WSL2",
+          "enabled": true,
+          "library": "/root/PyQCU/data/quda-double-install/lib/libquda.so",
+          "library_sha256": "4b288d0c94b7db677679cf316c603412f68210ba5ca62500c957216af4756c07",
+          "marker_present": true,
+          "qmp": {
+            "library": "/root/PyQCU/data/quda-double-install/lib/libqmp.so",
+            "library_sha256": "74964623d394834244770550d4fadb7fbb2e1d9315ec64cee165442bf6fcf146",
+            "initialized": true,
+            "initialized_here": true,
+            "thread_level_required": 1,
+            "thread_level_provided": 1,
+            "logical_topology_declared": true,
+            "logical_topology": [
+              1,
+              1,
+              1,
+              1
+            ]
+          }
+        },
+        "cleanup_errors": []
+      },
+      "worker_wall_seconds": 18.581197835999774,
+      "completed_at": "2026-09-27T22:18:18Z",
+      "mpi": {
+        "rank": 0,
+        "size": 1,
+        "process_grid": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "rank_coordinate": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "local_rank": 0,
+        "local_size": 1
+      },
+      "trace_paths": {
+        "PYQCU_STRICT_TRACE_FILE": "/root/PyQCU/data/mg_matrix_comprehensive_final_20260928/traces/quda__v100__8x8x8x16__c128__l2__trace-on/pyqcu.tsv.warmup_steady",
+        "QUDA_MG_TRACE_FILE": "/root/PyQCU/data/mg_matrix_comprehensive_final_20260928/traces/quda__v100__8x8x8x16__c128__l2__trace-on/quda.tsv.warmup_steady",
+        "PYQCU_QUDA_TRACE_FILE": "/root/PyQCU/data/mg_matrix_comprehensive_final_20260928/traces/quda__v100__8x8x8x16__c128__l2__trace-on/quda.log.warmup_steady"
+      },
+      "parallel_contract": {
+        "launcher": "direct",
+        "process_grid": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "rank_local_cache": false,
+        "rank_suffixed_trace": false,
+        "ranks": 1
+      },
+      "phase_contract": {
+        "cold_separate_process": true,
+        "counts": {
+          "cold": 1,
+          "steady": 5,
+          "warmup": 2
+        },
+        "selected": [
+          "cold",
+          "warmup",
+          "steady"
+        ]
+      },
+      "device_contract": {
+        "requested": "v100"
+      },
+      "process": {
+        "returncode": 0,
+        "wall_seconds": 19.5976080190012,
+        "stdout_tail": "9.965%)\n        total missing         =     0.000 secs (  0.035%)\n\n          loadGaugeQuda Total time =     0.021 secs\n                 download     =     0.013 secs ( 65.195%),\t with        2 calls at 6.728e+03 us per call\n                     init     =     0.006 secs ( 29.877%),\t with       29 calls at 2.126e+02 us per call\n                  compute     =     0.001 secs (  2.612%),\t with       12 calls at 4.492e+01 us per call\n                    comms     =     0.000 secs (  0.174%),\t with        1 calls at 3.600e+01 us per call\n                     free     =     0.000 secs (  0.039%),\t with       11 calls at 7.273e-01 us per call\n        total accounted       =     0.020 secs ( 97.897%)\n        total missing         =     0.000 secs (  2.103%)\n\n         loadCloverQuda Total time =     0.013 secs\n                     init     =     0.002 secs ( 16.513%),\t with        3 calls at 7.320e+02 us per call\n                  compute     =     0.005 secs ( 39.244%),\t with        3 calls at 1.740e+03 us per call\n                    comms     =     0.000 secs (  0.436%),\t with        1 calls at 5.800e+01 us per call\n                     free     =     0.000 secs (  0.023%),\t with        1 calls at 3.000e+00 us per call\n        total accounted       =     0.007 secs ( 56.215%)\n        total missing         =     0.006 secs ( 43.785%)\n\n             invertQuda Total time =    10.783 secs\n                 download     =     0.014 secs (  0.130%),\t with       12 calls at 1.166e+03 us per call\n                     init     =     0.047 secs (  0.437%),\t with     3829 calls at 1.229e+01 us per call\n                 preamble     =     0.168 secs (  1.555%),\t with      421 calls at 3.982e+02 us per call\n                  compute     =    10.371 secs ( 96.173%),\t with    22418 calls at 4.626e+02 us per call\n                 epilogue     =     0.020 secs (  0.186%),\t with       30 calls at 6.696e+02 us per call\n                     free     =     0.000 secs (  0.005%),\t with      654 calls at 7.615e-01 us per call\n                 file i/o     =     0.049 secs (  0.458%),\t with       61 calls at 8.099e+02 us per call\n                    eigen     =     0.019 secs (  0.176%),\t with     5544 calls at 3.432e+00 us per call\n        total accounted       =    10.688 secs ( 99.120%)\n        total missing         =     0.095 secs (  0.880%)\n\n                endQuda Total time =     0.042 secs\n                     free     =     0.000 secs (  0.043%),\t with        4 calls at 4.500e+00 us per call\n        total accounted       =     0.000 secs (  0.043%)\n        total missing         =     0.042 secs ( 99.957%)\n\n       initQuda-endQuda Total time =    14.198 secs\n\n                   QUDA Total time =    10.891 secs\n                 download     =     0.027 secs (  0.252%),\t with       14 calls at 1.961e+03 us per call\n                     init     =     0.087 secs (  0.798%),\t with     3863 calls at 2.250e+01 us per call\n                 preamble     =     0.168 secs (  1.540%),\t with      421 calls at 3.983e+02 us per call\n                  compute     =    10.378 secs ( 95.291%),\t with    22433 calls at 4.626e+02 us per call\n                    comms     =     0.000 secs (  0.001%),\t with        2 calls at 4.650e+01 us per call\n                 epilogue     =     0.020 secs (  0.184%),\t with       30 calls at 6.695e+02 us per call\n                     free     =     0.001 secs (  0.005%),\t with      670 calls at 8.000e-01 us per call\n                 file i/o     =     0.049 secs (  0.454%),\t with       61 calls at 8.099e+02 us per call\n                    eigen     =     0.019 secs (  0.174%),\t with     5544 calls at 3.426e+00 us per call\n        total accounted       =    10.749 secs ( 98.699%)\n        total missing         =     0.142 secs (  1.301%)\n\nDevice memory used = 422.8 MiB\nPinned device memory used = 0.0 MiB\nManaged memory used = 0.0 MiB\nShmem memory used = 0.0 MiB\nPage-locked host memory used = 15.9 MiB\nTotal host memory used >= 19.5 MiB\n",
+        "stderr_tail": ""
+      },
+      "iterations_cold": {
+        "samples": [
+          45
+        ],
+        "min": 45,
+        "max": 45,
+        "median": 45.0
+      },
+      "converged_cold": true,
+      "true_residual_cold": {
+        "samples_rel": [
+          1.8930485013620333e-08
+        ],
+        "max_rel": 1.8930485013620333e-08,
+        "gate": 5e-08,
+        "pass": true,
+        "untimed_probe_rel": null
+      },
+      "memory_cold": {
+        "schema_version": 2,
+        "setup": {
+          "baseline": {
+            "allocated_bytes": 0,
+            "reserved_bytes": 0,
+            "nvidia_smi": {
+              "available": true,
+              "device_uuid": "be23deb4-29b1-7bb2-29ef-c4ab7b34f0a8",
+              "process_used_bytes": null,
+              "gpu_used_bytes": null,
+              "error": "no numeric sample"
+            }
+          },
+          "cuda_peak_allocated_bytes": 11010048,
+          "cuda_peak_reserved_bytes": 20971520,
+          "nvidia_smi": {
+            "available": true,
+            "device_uuid": "be23deb4-29b1-7bb2-29ef-c4ab7b34f0a8",
+            "process_used_bytes": null,
+            "gpu_used_bytes": null,
+            "error": "no numeric sample"
+          },
+          "device_wide_sampler": {
+            "available": true,
+            "scope": "device-wide cudaMemGetInfo; may include other processes",
+            "device": "cuda:0",
+            "unit": "bytes",
+            "interval_seconds": 0.01,
+            "duration_seconds": 0.6942309179867152,
+            "sample_count": 50,
+            "device_total_bytes": 34359345152,
+            "device_used_initial_bytes": 1557467136,
+            "device_used_max_observed_bytes": 2075463680,
+            "join_timed_out": false,
+            "errors": []
+          },
+          "timing_semantics": "instrumented setup; sampler stop excluded from setup_seconds",
+          "note": "PyTorch allocator excludes QUDA native allocations; the device-wide sampler captures transients but may include other processes"
+        },
+        "first_solve": {
+          "excluded_from_formal_timing": true,
+          "seconds": 1.3100960260053398,
+          "iterations": 45,
+          "converged": true,
+          "true_residual_rel": 1.8930485013620333e-08,
+          "memory": {
+            "cuda_peak_allocated_bytes": 46268416,
+            "cuda_peak_reserved_bytes": 100663296,
+            "nvidia_smi": {
+              "available": true,
+              "device_uuid": "be23deb4-29b1-7bb2-29ef-c4ab7b34f0a8",
+              "process_used_bytes": null,
+              "gpu_used_bytes": null,
+              "error": "no numeric sample"
+            },
+            "device_wide_sampler": {
+              "available": true,
+              "scope": "device-wide cudaMemGetInfo; may include other processes",
+              "device": "cuda:0",
+              "unit": "bytes",
+              "interval_seconds": 0.01,
+              "duration_seconds": 1.3113660989911295,
+              "sample_count": 2,
+              "device_total_bytes": 34359345152,
+              "device_used_initial_bytes": 2163544064,
+              "device_used_max_observed_bytes": 2197098496,
+              "join_timed_out": false,
+              "errors": []
+            }
+          }
+        },
+        "steady": {
+          "baseline": {
+            "allocated_bytes": 46268416,
+            "reserved_bytes": 100663296,
+            "nvidia_smi": {
+              "available": true,
+              "device_uuid": "be23deb4-29b1-7bb2-29ef-c4ab7b34f0a8",
+              "process_used_bytes": null,
+              "gpu_used_bytes": null,
+              "error": "no numeric sample"
+            }
+          },
+          "cuda_peak_allocated_bytes": 0,
+          "cuda_peak_reserved_bytes": 0,
+          "nvidia_smi_process_max_observed_bytes": null,
+          "nvidia_smi_gpu_max_observed_bytes": null,
+          "samples": [],
+          "snapshot_semantics": "nvidia-smi values are post-solve observations, not peaks",
+          "untimed_device_memory_probe": {}
+        }
+      },
+      "phase_results": {
+        "cold": {
+          "seconds": 1.3100960260053398,
+          "iterations": {
+            "samples": [
+              45
+            ],
+            "min": 45,
+            "max": 45,
+            "median": 45.0
+          },
+          "converged": true
+        },
+        "warmup_count": 2,
+        "steady_count": 5
+      }
+    }
+  },
+  "comparison": {
+    "status": "pending",
+    "profile": "formal",
+    "fair": null,
+    "reasons": [
+      "pyqcu status=not_selected"
+    ],
+    "speedup_pyqcu_over_quda": null
+  }
+}

@@ -1,0 +1,1104 @@
+Source: 9.43976e+06
+Prepared: source = 358004, solution = 0
+Creating a GCR solver
+GCR:     0 iterations, <r,r> = 3.580042e+05, |r|/|b| = 1.000000e+00
+GCR:     1 iterations, <r,r> = 2.468723e+04, |r|/|b| = 2.625984e-01
+GCR:     2 iterations, <r,r> = 4.077109e+03, |r|/|b| = 1.067166e-01
+GCR:     3 iterations, <r,r> = 1.150908e+03, |r|/|b| = 5.669911e-02
+GCR:     4 iterations, <r,r> = 3.792399e+02, |r|/|b| = 3.254715e-02
+GCR (restart):     1 iterations, <r,r> = 3.792399e+02, |r|/|b| = 3.254715e-02
+GCR:     5 iterations, <r,r> = 1.718212e+02, |r|/|b| = 2.190757e-02
+GCR:     6 iterations, <r,r> = 5.747882e+01, |r|/|b| = 1.267097e-02
+GCR:     7 iterations, <r,r> = 2.557582e+01, |r|/|b| = 8.452218e-03
+GCR:     8 iterations, <r,r> = 1.018699e+01, |r|/|b| = 5.334316e-03
+GCR (restart):     2 iterations, <r,r> = 1.018699e+01, |r|/|b| = 5.334317e-03
+GCR:     9 iterations, <r,r> = 5.370576e+00, |r|/|b| = 3.873168e-03
+GCR:    10 iterations, <r,r> = 2.169703e+00, |r|/|b| = 2.461819e-03
+GCR:    11 iterations, <r,r> = 1.131642e+00, |r|/|b| = 1.777913e-03
+GCR:    12 iterations, <r,r> = 4.965684e-01, |r|/|b| = 1.177729e-03
+GCR (restart):     3 iterations, <r,r> = 4.965685e-01, |r|/|b| = 1.177729e-03
+GCR:    13 iterations, <r,r> = 2.760217e-01, |r|/|b| = 8.780668e-04
+GCR:    14 iterations, <r,r> = 1.303892e-01, |r|/|b| = 6.034994e-04
+GCR:    15 iterations, <r,r> = 6.732758e-02, |r|/|b| = 4.336631e-04
+GCR:    16 iterations, <r,r> = 3.454881e-02, |r|/|b| = 3.106508e-04
+GCR (restart):     4 iterations, <r,r> = 3.454882e-02, |r|/|b| = 3.106509e-04
+GCR:    17 iterations, <r,r> = 2.021671e-02, |r|/|b| = 2.376354e-04
+GCR:    18 iterations, <r,r> = 9.761535e-03, |r|/|b| = 1.651258e-04
+GCR:    19 iterations, <r,r> = 5.552980e-03, |r|/|b| = 1.245429e-04
+GCR:    20 iterations, <r,r> = 2.920931e-03, |r|/|b| = 9.032680e-05
+GCR (restart):     5 iterations, <r,r> = 2.920936e-03, |r|/|b| = 9.032687e-05
+GCR:    21 iterations, <r,r> = 1.686229e-03, |r|/|b| = 6.863004e-05
+GCR:    22 iterations, <r,r> = 9.132647e-04, |r|/|b| = 5.050731e-05
+GCR:    23 iterations, <r,r> = 5.136269e-04, |r|/|b| = 3.787737e-05
+GCR:    24 iterations, <r,r> = 2.838321e-04, |r|/|b| = 2.815702e-05
+GCR (restart):     6 iterations, <r,r> = 2.838350e-04, |r|/|b| = 2.815717e-05
+GCR:    25 iterations, <r,r> = 1.776410e-04, |r|/|b| = 2.227551e-05
+GCR:    26 iterations, <r,r> = 9.389855e-05, |r|/|b| = 1.619517e-05
+GCR:    27 iterations, <r,r> = 5.563381e-05, |r|/|b| = 1.246595e-05
+GCR:    28 iterations, <r,r> = 3.119175e-05, |r|/|b| = 9.334173e-06
+GCR (restart):     7 iterations, <r,r> = 3.119526e-05, |r|/|b| = 9.334697e-06
+GCR:    29 iterations, <r,r> = 1.984995e-05, |r|/|b| = 7.446216e-06
+GCR:    30 iterations, <r,r> = 1.067107e-05, |r|/|b| = 5.459589e-06
+GCR:    31 iterations, <r,r> = 6.514026e-06, |r|/|b| = 4.265606e-06
+GCR:    32 iterations, <r,r> = 3.673064e-06, |r|/|b| = 3.203098e-06
+GCR (restart):     8 iterations, <r,r> = 3.676387e-06, |r|/|b| = 3.204546e-06
+GCR:    33 iterations, <r,r> = 2.393612e-06, |r|/|b| = 2.585728e-06
+GCR:    34 iterations, <r,r> = 1.267612e-06, |r|/|b| = 1.881695e-06
+GCR:    35 iterations, <r,r> = 8.241697e-07, |r|/|b| = 1.517275e-06
+GCR:    36 iterations, <r,r> = 4.490697e-07, |r|/|b| = 1.119987e-06
+GCR (restart):     9 iterations, <r,r> = 4.525118e-07, |r|/|b| = 1.124271e-06
+GCR:    37 iterations, <r,r> = 2.977159e-07, |r|/|b| = 9.119205e-07
+GCR: number of restarts = 9
+GCR: Convergence at 37 iterations, L2 relative residual: iterated = 9.139987e-07, true = 9.139987e-07 (requested = 1.000000e-06)
+Solution = 390946
+Reconstructed Solution = 782064
+Source: 9.43976e+06
+Prepared: source = 358004, solution = 0
+Creating a GCR solver
+GCR:     0 iterations, <r,r> = 3.580042e+05, |r|/|b| = 1.000000e+00
+GCR:     1 iterations, <r,r> = 2.468723e+04, |r|/|b| = 2.625984e-01
+GCR:     2 iterations, <r,r> = 4.077109e+03, |r|/|b| = 1.067166e-01
+GCR:     3 iterations, <r,r> = 1.150908e+03, |r|/|b| = 5.669911e-02
+GCR:     4 iterations, <r,r> = 3.792399e+02, |r|/|b| = 3.254715e-02
+GCR (restart):     1 iterations, <r,r> = 3.792399e+02, |r|/|b| = 3.254715e-02
+GCR:     5 iterations, <r,r> = 1.718212e+02, |r|/|b| = 2.190757e-02
+GCR:     6 iterations, <r,r> = 5.747882e+01, |r|/|b| = 1.267097e-02
+GCR:     7 iterations, <r,r> = 2.557582e+01, |r|/|b| = 8.452218e-03
+GCR:     8 iterations, <r,r> = 1.018699e+01, |r|/|b| = 5.334316e-03
+GCR (restart):     2 iterations, <r,r> = 1.018699e+01, |r|/|b| = 5.334317e-03
+GCR:     9 iterations, <r,r> = 5.370576e+00, |r|/|b| = 3.873168e-03
+GCR:    10 iterations, <r,r> = 2.169703e+00, |r|/|b| = 2.461819e-03
+GCR:    11 iterations, <r,r> = 1.131642e+00, |r|/|b| = 1.777913e-03
+GCR:    12 iterations, <r,r> = 4.965684e-01, |r|/|b| = 1.177729e-03
+GCR (restart):     3 iterations, <r,r> = 4.965685e-01, |r|/|b| = 1.177729e-03
+GCR:    13 iterations, <r,r> = 2.760217e-01, |r|/|b| = 8.780668e-04
+GCR:    14 iterations, <r,r> = 1.303892e-01, |r|/|b| = 6.034994e-04
+GCR:    15 iterations, <r,r> = 6.732758e-02, |r|/|b| = 4.336631e-04
+GCR:    16 iterations, <r,r> = 3.454881e-02, |r|/|b| = 3.106508e-04
+GCR (restart):     4 iterations, <r,r> = 3.454882e-02, |r|/|b| = 3.106509e-04
+GCR:    17 iterations, <r,r> = 2.021671e-02, |r|/|b| = 2.376354e-04
+GCR:    18 iterations, <r,r> = 9.761535e-03, |r|/|b| = 1.651258e-04
+GCR:    19 iterations, <r,r> = 5.552980e-03, |r|/|b| = 1.245429e-04
+GCR:    20 iterations, <r,r> = 2.920931e-03, |r|/|b| = 9.032680e-05
+GCR (restart):     5 iterations, <r,r> = 2.920936e-03, |r|/|b| = 9.032687e-05
+GCR:    21 iterations, <r,r> = 1.686229e-03, |r|/|b| = 6.863004e-05
+GCR:    22 iterations, <r,r> = 9.132647e-04, |r|/|b| = 5.050731e-05
+GCR:    23 iterations, <r,r> = 5.136269e-04, |r|/|b| = 3.787737e-05
+GCR:    24 iterations, <r,r> = 2.838321e-04, |r|/|b| = 2.815702e-05
+GCR (restart):     6 iterations, <r,r> = 2.838350e-04, |r|/|b| = 2.815717e-05
+GCR:    25 iterations, <r,r> = 1.776410e-04, |r|/|b| = 2.227551e-05
+GCR:    26 iterations, <r,r> = 9.389855e-05, |r|/|b| = 1.619517e-05
+GCR:    27 iterations, <r,r> = 5.563381e-05, |r|/|b| = 1.246595e-05
+GCR:    28 iterations, <r,r> = 3.119175e-05, |r|/|b| = 9.334173e-06
+GCR (restart):     7 iterations, <r,r> = 3.119526e-05, |r|/|b| = 9.334697e-06
+GCR:    29 iterations, <r,r> = 1.984995e-05, |r|/|b| = 7.446216e-06
+GCR:    30 iterations, <r,r> = 1.067107e-05, |r|/|b| = 5.459589e-06
+GCR:    31 iterations, <r,r> = 6.514026e-06, |r|/|b| = 4.265606e-06
+GCR:    32 iterations, <r,r> = 3.673064e-06, |r|/|b| = 3.203098e-06
+GCR (restart):     8 iterations, <r,r> = 3.676387e-06, |r|/|b| = 3.204546e-06
+GCR:    33 iterations, <r,r> = 2.393612e-06, |r|/|b| = 2.585728e-06
+GCR:    34 iterations, <r,r> = 1.267612e-06, |r|/|b| = 1.881695e-06
+GCR:    35 iterations, <r,r> = 8.241697e-07, |r|/|b| = 1.517275e-06
+GCR:    36 iterations, <r,r> = 4.490697e-07, |r|/|b| = 1.119987e-06
+GCR (restart):     9 iterations, <r,r> = 4.525118e-07, |r|/|b| = 1.124271e-06
+GCR:    37 iterations, <r,r> = 2.977159e-07, |r|/|b| = 9.119205e-07
+GCR: number of restarts = 9
+GCR: Convergence at 37 iterations, L2 relative residual: iterated = 9.139987e-07, true = 9.139987e-07 (requested = 1.000000e-06)
+Solution = 390946
+Reconstructed Solution = 782064
+Source: 9.43976e+06
+Prepared: source = 358004, solution = 0
+Creating a GCR solver
+GCR:     0 iterations, <r,r> = 3.580042e+05, |r|/|b| = 1.000000e+00
+GCR:     1 iterations, <r,r> = 2.468723e+04, |r|/|b| = 2.625984e-01
+GCR:     2 iterations, <r,r> = 4.077109e+03, |r|/|b| = 1.067166e-01
+GCR:     3 iterations, <r,r> = 1.150908e+03, |r|/|b| = 5.669911e-02
+GCR:     4 iterations, <r,r> = 3.792399e+02, |r|/|b| = 3.254715e-02
+GCR (restart):     1 iterations, <r,r> = 3.792399e+02, |r|/|b| = 3.254715e-02
+GCR:     5 iterations, <r,r> = 1.718212e+02, |r|/|b| = 2.190757e-02
+GCR:     6 iterations, <r,r> = 5.747882e+01, |r|/|b| = 1.267097e-02
+GCR:     7 iterations, <r,r> = 2.557582e+01, |r|/|b| = 8.452218e-03
+GCR:     8 iterations, <r,r> = 1.018699e+01, |r|/|b| = 5.334316e-03
+GCR (restart):     2 iterations, <r,r> = 1.018699e+01, |r|/|b| = 5.334317e-03
+GCR:     9 iterations, <r,r> = 5.370576e+00, |r|/|b| = 3.873168e-03
+GCR:    10 iterations, <r,r> = 2.169703e+00, |r|/|b| = 2.461819e-03
+GCR:    11 iterations, <r,r> = 1.131642e+00, |r|/|b| = 1.777913e-03
+GCR:    12 iterations, <r,r> = 4.965684e-01, |r|/|b| = 1.177729e-03
+GCR (restart):     3 iterations, <r,r> = 4.965685e-01, |r|/|b| = 1.177729e-03
+GCR:    13 iterations, <r,r> = 2.760217e-01, |r|/|b| = 8.780668e-04
+GCR:    14 iterations, <r,r> = 1.303892e-01, |r|/|b| = 6.034994e-04
+GCR:    15 iterations, <r,r> = 6.732758e-02, |r|/|b| = 4.336631e-04
+GCR:    16 iterations, <r,r> = 3.454881e-02, |r|/|b| = 3.106508e-04
+GCR (restart):     4 iterations, <r,r> = 3.454882e-02, |r|/|b| = 3.106509e-04
+GCR:    17 iterations, <r,r> = 2.021671e-02, |r|/|b| = 2.376354e-04
+GCR:    18 iterations, <r,r> = 9.761535e-03, |r|/|b| = 1.651258e-04
+GCR:    19 iterations, <r,r> = 5.552980e-03, |r|/|b| = 1.245429e-04
+GCR:    20 iterations, <r,r> = 2.920931e-03, |r|/|b| = 9.032680e-05
+GCR (restart):     5 iterations, <r,r> = 2.920936e-03, |r|/|b| = 9.032687e-05
+GCR:    21 iterations, <r,r> = 1.686229e-03, |r|/|b| = 6.863004e-05
+GCR:    22 iterations, <r,r> = 9.132647e-04, |r|/|b| = 5.050731e-05
+GCR:    23 iterations, <r,r> = 5.136269e-04, |r|/|b| = 3.787737e-05
+GCR:    24 iterations, <r,r> = 2.838321e-04, |r|/|b| = 2.815702e-05
+GCR (restart):     6 iterations, <r,r> = 2.838350e-04, |r|/|b| = 2.815717e-05
+GCR:    25 iterations, <r,r> = 1.776410e-04, |r|/|b| = 2.227551e-05
+GCR:    26 iterations, <r,r> = 9.389855e-05, |r|/|b| = 1.619517e-05
+GCR:    27 iterations, <r,r> = 5.563381e-05, |r|/|b| = 1.246595e-05
+GCR:    28 iterations, <r,r> = 3.119175e-05, |r|/|b| = 9.334173e-06
+GCR (restart):     7 iterations, <r,r> = 3.119526e-05, |r|/|b| = 9.334697e-06
+GCR:    29 iterations, <r,r> = 1.984995e-05, |r|/|b| = 7.446216e-06
+GCR:    30 iterations, <r,r> = 1.067107e-05, |r|/|b| = 5.459589e-06
+GCR:    31 iterations, <r,r> = 6.514026e-06, |r|/|b| = 4.265606e-06
+GCR:    32 iterations, <r,r> = 3.673064e-06, |r|/|b| = 3.203098e-06
+GCR (restart):     8 iterations, <r,r> = 3.676387e-06, |r|/|b| = 3.204546e-06
+GCR:    33 iterations, <r,r> = 2.393612e-06, |r|/|b| = 2.585728e-06
+GCR:    34 iterations, <r,r> = 1.267612e-06, |r|/|b| = 1.881695e-06
+GCR:    35 iterations, <r,r> = 8.241697e-07, |r|/|b| = 1.517275e-06
+GCR:    36 iterations, <r,r> = 4.490697e-07, |r|/|b| = 1.119987e-06
+GCR (restart):     9 iterations, <r,r> = 4.525118e-07, |r|/|b| = 1.124271e-06
+GCR:    37 iterations, <r,r> = 2.977159e-07, |r|/|b| = 9.119205e-07
+GCR: number of restarts = 9
+GCR: Convergence at 37 iterations, L2 relative residual: iterated = 9.139987e-07, true = 9.139987e-07 (requested = 1.000000e-06)
+Solution = 390946
+Reconstructed Solution = 782064
+Source: 9.43976e+06
+Prepared: source = 358004, solution = 0
+Creating a GCR solver
+GCR:     0 iterations, <r,r> = 3.580042e+05, |r|/|b| = 1.000000e+00
+GCR:     1 iterations, <r,r> = 2.468723e+04, |r|/|b| = 2.625984e-01
+GCR:     2 iterations, <r,r> = 4.077109e+03, |r|/|b| = 1.067166e-01
+GCR:     3 iterations, <r,r> = 1.150908e+03, |r|/|b| = 5.669911e-02
+GCR:     4 iterations, <r,r> = 3.792399e+02, |r|/|b| = 3.254715e-02
+GCR (restart):     1 iterations, <r,r> = 3.792399e+02, |r|/|b| = 3.254715e-02
+GCR:     5 iterations, <r,r> = 1.718212e+02, |r|/|b| = 2.190757e-02
+GCR:     6 iterations, <r,r> = 5.747882e+01, |r|/|b| = 1.267097e-02
+GCR:     7 iterations, <r,r> = 2.557582e+01, |r|/|b| = 8.452218e-03
+GCR:     8 iterations, <r,r> = 1.018699e+01, |r|/|b| = 5.334316e-03
+GCR (restart):     2 iterations, <r,r> = 1.018699e+01, |r|/|b| = 5.334317e-03
+GCR:     9 iterations, <r,r> = 5.370576e+00, |r|/|b| = 3.873168e-03
+GCR:    10 iterations, <r,r> = 2.169703e+00, |r|/|b| = 2.461819e-03
+GCR:    11 iterations, <r,r> = 1.131642e+00, |r|/|b| = 1.777913e-03
+GCR:    12 iterations, <r,r> = 4.965684e-01, |r|/|b| = 1.177729e-03
+GCR (restart):     3 iterations, <r,r> = 4.965685e-01, |r|/|b| = 1.177729e-03
+GCR:    13 iterations, <r,r> = 2.760217e-01, |r|/|b| = 8.780668e-04
+GCR:    14 iterations, <r,r> = 1.303892e-01, |r|/|b| = 6.034994e-04
+GCR:    15 iterations, <r,r> = 6.732758e-02, |r|/|b| = 4.336631e-04
+GCR:    16 iterations, <r,r> = 3.454881e-02, |r|/|b| = 3.106508e-04
+GCR (restart):     4 iterations, <r,r> = 3.454882e-02, |r|/|b| = 3.106509e-04
+GCR:    17 iterations, <r,r> = 2.021671e-02, |r|/|b| = 2.376354e-04
+GCR:    18 iterations, <r,r> = 9.761535e-03, |r|/|b| = 1.651258e-04
+GCR:    19 iterations, <r,r> = 5.552980e-03, |r|/|b| = 1.245429e-04
+GCR:    20 iterations, <r,r> = 2.920931e-03, |r|/|b| = 9.032680e-05
+GCR (restart):     5 iterations, <r,r> = 2.920936e-03, |r|/|b| = 9.032687e-05
+GCR:    21 iterations, <r,r> = 1.686229e-03, |r|/|b| = 6.863004e-05
+GCR:    22 iterations, <r,r> = 9.132647e-04, |r|/|b| = 5.050731e-05
+GCR:    23 iterations, <r,r> = 5.136269e-04, |r|/|b| = 3.787737e-05
+GCR:    24 iterations, <r,r> = 2.838321e-04, |r|/|b| = 2.815702e-05
+GCR (restart):     6 iterations, <r,r> = 2.838350e-04, |r|/|b| = 2.815717e-05
+GCR:    25 iterations, <r,r> = 1.776410e-04, |r|/|b| = 2.227551e-05
+GCR:    26 iterations, <r,r> = 9.389855e-05, |r|/|b| = 1.619517e-05
+GCR:    27 iterations, <r,r> = 5.563381e-05, |r|/|b| = 1.246595e-05
+GCR:    28 iterations, <r,r> = 3.119175e-05, |r|/|b| = 9.334173e-06
+GCR (restart):     7 iterations, <r,r> = 3.119526e-05, |r|/|b| = 9.334697e-06
+GCR:    29 iterations, <r,r> = 1.984995e-05, |r|/|b| = 7.446216e-06
+GCR:    30 iterations, <r,r> = 1.067107e-05, |r|/|b| = 5.459589e-06
+GCR:    31 iterations, <r,r> = 6.514026e-06, |r|/|b| = 4.265606e-06
+GCR:    32 iterations, <r,r> = 3.673064e-06, |r|/|b| = 3.203098e-06
+GCR (restart):     8 iterations, <r,r> = 3.676387e-06, |r|/|b| = 3.204546e-06
+GCR:    33 iterations, <r,r> = 2.393612e-06, |r|/|b| = 2.585728e-06
+GCR:    34 iterations, <r,r> = 1.267612e-06, |r|/|b| = 1.881695e-06
+GCR:    35 iterations, <r,r> = 8.241697e-07, |r|/|b| = 1.517275e-06
+GCR:    36 iterations, <r,r> = 4.490697e-07, |r|/|b| = 1.119987e-06
+GCR (restart):     9 iterations, <r,r> = 4.525118e-07, |r|/|b| = 1.124271e-06
+GCR:    37 iterations, <r,r> = 2.977159e-07, |r|/|b| = 9.119205e-07
+GCR: number of restarts = 9
+GCR: Convergence at 37 iterations, L2 relative residual: iterated = 9.139987e-07, true = 9.139987e-07 (requested = 1.000000e-06)
+Solution = 390946
+Reconstructed Solution = 782064
+Source: 9.43976e+06
+Prepared: source = 358004, solution = 0
+Creating a GCR solver
+GCR:     0 iterations, <r,r> = 3.580042e+05, |r|/|b| = 1.000000e+00
+GCR:     1 iterations, <r,r> = 2.468723e+04, |r|/|b| = 2.625984e-01
+GCR:     2 iterations, <r,r> = 4.077109e+03, |r|/|b| = 1.067166e-01
+GCR:     3 iterations, <r,r> = 1.150908e+03, |r|/|b| = 5.669911e-02
+GCR:     4 iterations, <r,r> = 3.792399e+02, |r|/|b| = 3.254715e-02
+GCR (restart):     1 iterations, <r,r> = 3.792399e+02, |r|/|b| = 3.254715e-02
+GCR:     5 iterations, <r,r> = 1.718212e+02, |r|/|b| = 2.190757e-02
+GCR:     6 iterations, <r,r> = 5.747882e+01, |r|/|b| = 1.267097e-02
+GCR:     7 iterations, <r,r> = 2.557582e+01, |r|/|b| = 8.452218e-03
+GCR:     8 iterations, <r,r> = 1.018699e+01, |r|/|b| = 5.334316e-03
+GCR (restart):     2 iterations, <r,r> = 1.018699e+01, |r|/|b| = 5.334317e-03
+GCR:     9 iterations, <r,r> = 5.370576e+00, |r|/|b| = 3.873168e-03
+GCR:    10 iterations, <r,r> = 2.169703e+00, |r|/|b| = 2.461819e-03
+GCR:    11 iterations, <r,r> = 1.131642e+00, |r|/|b| = 1.777913e-03
+GCR:    12 iterations, <r,r> = 4.965684e-01, |r|/|b| = 1.177729e-03
+GCR (restart):     3 iterations, <r,r> = 4.965685e-01, |r|/|b| = 1.177729e-03
+GCR:    13 iterations, <r,r> = 2.760217e-01, |r|/|b| = 8.780668e-04
+GCR:    14 iterations, <r,r> = 1.303892e-01, |r|/|b| = 6.034994e-04
+GCR:    15 iterations, <r,r> = 6.732758e-02, |r|/|b| = 4.336631e-04
+GCR:    16 iterations, <r,r> = 3.454881e-02, |r|/|b| = 3.106508e-04
+GCR (restart):     4 iterations, <r,r> = 3.454882e-02, |r|/|b| = 3.106509e-04
+GCR:    17 iterations, <r,r> = 2.021671e-02, |r|/|b| = 2.376354e-04
+GCR:    18 iterations, <r,r> = 9.761535e-03, |r|/|b| = 1.651258e-04
+GCR:    19 iterations, <r,r> = 5.552980e-03, |r|/|b| = 1.245429e-04
+GCR:    20 iterations, <r,r> = 2.920931e-03, |r|/|b| = 9.032680e-05
+GCR (restart):     5 iterations, <r,r> = 2.920936e-03, |r|/|b| = 9.032687e-05
+GCR:    21 iterations, <r,r> = 1.686229e-03, |r|/|b| = 6.863004e-05
+GCR:    22 iterations, <r,r> = 9.132647e-04, |r|/|b| = 5.050731e-05
+GCR:    23 iterations, <r,r> = 5.136269e-04, |r|/|b| = 3.787737e-05
+GCR:    24 iterations, <r,r> = 2.838321e-04, |r|/|b| = 2.815702e-05
+GCR (restart):     6 iterations, <r,r> = 2.838350e-04, |r|/|b| = 2.815717e-05
+GCR:    25 iterations, <r,r> = 1.776410e-04, |r|/|b| = 2.227551e-05
+GCR:    26 iterations, <r,r> = 9.389855e-05, |r|/|b| = 1.619517e-05
+GCR:    27 iterations, <r,r> = 5.563381e-05, |r|/|b| = 1.246595e-05
+GCR:    28 iterations, <r,r> = 3.119175e-05, |r|/|b| = 9.334173e-06
+GCR (restart):     7 iterations, <r,r> = 3.119526e-05, |r|/|b| = 9.334697e-06
+GCR:    29 iterations, <r,r> = 1.984995e-05, |r|/|b| = 7.446216e-06
+GCR:    30 iterations, <r,r> = 1.067107e-05, |r|/|b| = 5.459589e-06
+GCR:    31 iterations, <r,r> = 6.514026e-06, |r|/|b| = 4.265606e-06
+GCR:    32 iterations, <r,r> = 3.673064e-06, |r|/|b| = 3.203098e-06
+GCR (restart):     8 iterations, <r,r> = 3.676387e-06, |r|/|b| = 3.204546e-06
+GCR:    33 iterations, <r,r> = 2.393612e-06, |r|/|b| = 2.585728e-06
+GCR:    34 iterations, <r,r> = 1.267612e-06, |r|/|b| = 1.881695e-06
+GCR:    35 iterations, <r,r> = 8.241697e-07, |r|/|b| = 1.517275e-06
+GCR:    36 iterations, <r,r> = 4.490697e-07, |r|/|b| = 1.119987e-06
+GCR (restart):     9 iterations, <r,r> = 4.525118e-07, |r|/|b| = 1.124271e-06
+GCR:    37 iterations, <r,r> = 2.977159e-07, |r|/|b| = 9.119205e-07
+GCR: number of restarts = 9
+GCR: Convergence at 37 iterations, L2 relative residual: iterated = 9.139987e-07, true = 9.139987e-07 (requested = 1.000000e-06)
+Solution = 390946
+Reconstructed Solution = 782064
+Source: 9.43976e+06
+Prepared: source = 358004, solution = 0
+Creating a GCR solver
+GCR:     0 iterations, <r,r> = 3.580042e+05, |r|/|b| = 1.000000e+00
+GCR:     1 iterations, <r,r> = 2.468723e+04, |r|/|b| = 2.625984e-01
+GCR:     2 iterations, <r,r> = 4.077109e+03, |r|/|b| = 1.067166e-01
+GCR:     3 iterations, <r,r> = 1.150908e+03, |r|/|b| = 5.669911e-02
+GCR:     4 iterations, <r,r> = 3.792399e+02, |r|/|b| = 3.254715e-02
+GCR (restart):     1 iterations, <r,r> = 3.792399e+02, |r|/|b| = 3.254715e-02
+GCR:     5 iterations, <r,r> = 1.718212e+02, |r|/|b| = 2.190757e-02
+GCR:     6 iterations, <r,r> = 5.747882e+01, |r|/|b| = 1.267097e-02
+GCR:     7 iterations, <r,r> = 2.557582e+01, |r|/|b| = 8.452218e-03
+GCR:     8 iterations, <r,r> = 1.018699e+01, |r|/|b| = 5.334316e-03
+GCR (restart):     2 iterations, <r,r> = 1.018699e+01, |r|/|b| = 5.334317e-03
+GCR:     9 iterations, <r,r> = 5.370576e+00, |r|/|b| = 3.873168e-03
+GCR:    10 iterations, <r,r> = 2.169703e+00, |r|/|b| = 2.461819e-03
+GCR:    11 iterations, <r,r> = 1.131642e+00, |r|/|b| = 1.777913e-03
+GCR:    12 iterations, <r,r> = 4.965684e-01, |r|/|b| = 1.177729e-03
+GCR (restart):     3 iterations, <r,r> = 4.965685e-01, |r|/|b| = 1.177729e-03
+GCR:    13 iterations, <r,r> = 2.760217e-01, |r|/|b| = 8.780668e-04
+GCR:    14 iterations, <r,r> = 1.303892e-01, |r|/|b| = 6.034994e-04
+GCR:    15 iterations, <r,r> = 6.732758e-02, |r|/|b| = 4.336631e-04
+GCR:    16 iterations, <r,r> = 3.454881e-02, |r|/|b| = 3.106508e-04
+GCR (restart):     4 iterations, <r,r> = 3.454882e-02, |r|/|b| = 3.106509e-04
+GCR:    17 iterations, <r,r> = 2.021671e-02, |r|/|b| = 2.376354e-04
+GCR:    18 iterations, <r,r> = 9.761535e-03, |r|/|b| = 1.651258e-04
+GCR:    19 iterations, <r,r> = 5.552980e-03, |r|/|b| = 1.245429e-04
+GCR:    20 iterations, <r,r> = 2.920931e-03, |r|/|b| = 9.032680e-05
+GCR (restart):     5 iterations, <r,r> = 2.920936e-03, |r|/|b| = 9.032687e-05
+GCR:    21 iterations, <r,r> = 1.686229e-03, |r|/|b| = 6.863004e-05
+GCR:    22 iterations, <r,r> = 9.132647e-04, |r|/|b| = 5.050731e-05
+GCR:    23 iterations, <r,r> = 5.136269e-04, |r|/|b| = 3.787737e-05
+GCR:    24 iterations, <r,r> = 2.838321e-04, |r|/|b| = 2.815702e-05
+GCR (restart):     6 iterations, <r,r> = 2.838350e-04, |r|/|b| = 2.815717e-05
+GCR:    25 iterations, <r,r> = 1.776410e-04, |r|/|b| = 2.227551e-05
+GCR:    26 iterations, <r,r> = 9.389855e-05, |r|/|b| = 1.619517e-05
+GCR:    27 iterations, <r,r> = 5.563381e-05, |r|/|b| = 1.246595e-05
+GCR:    28 iterations, <r,r> = 3.119175e-05, |r|/|b| = 9.334173e-06
+GCR (restart):     7 iterations, <r,r> = 3.119526e-05, |r|/|b| = 9.334697e-06
+GCR:    29 iterations, <r,r> = 1.984995e-05, |r|/|b| = 7.446216e-06
+GCR:    30 iterations, <r,r> = 1.067107e-05, |r|/|b| = 5.459589e-06
+GCR:    31 iterations, <r,r> = 6.514026e-06, |r|/|b| = 4.265606e-06
+GCR:    32 iterations, <r,r> = 3.673064e-06, |r|/|b| = 3.203098e-06
+GCR (restart):     8 iterations, <r,r> = 3.676387e-06, |r|/|b| = 3.204546e-06
+GCR:    33 iterations, <r,r> = 2.393612e-06, |r|/|b| = 2.585728e-06
+GCR:    34 iterations, <r,r> = 1.267612e-06, |r|/|b| = 1.881695e-06
+GCR:    35 iterations, <r,r> = 8.241697e-07, |r|/|b| = 1.517275e-06
+GCR:    36 iterations, <r,r> = 4.490697e-07, |r|/|b| = 1.119987e-06
+GCR (restart):     9 iterations, <r,r> = 4.525118e-07, |r|/|b| = 1.124271e-06
+GCR:    37 iterations, <r,r> = 2.977159e-07, |r|/|b| = 9.119205e-07
+GCR: number of restarts = 9
+GCR: Convergence at 37 iterations, L2 relative residual: iterated = 9.139987e-07, true = 9.139987e-07 (requested = 1.000000e-06)
+Solution = 390946
+Reconstructed Solution = 782064
+Source: 9.43976e+06
+Prepared: source = 358004, solution = 0
+Creating a GCR solver
+GCR:     0 iterations, <r,r> = 3.580042e+05, |r|/|b| = 1.000000e+00
+GCR:     1 iterations, <r,r> = 2.468723e+04, |r|/|b| = 2.625984e-01
+GCR:     2 iterations, <r,r> = 4.077109e+03, |r|/|b| = 1.067166e-01
+GCR:     3 iterations, <r,r> = 1.150908e+03, |r|/|b| = 5.669911e-02
+GCR:     4 iterations, <r,r> = 3.792399e+02, |r|/|b| = 3.254715e-02
+GCR (restart):     1 iterations, <r,r> = 3.792399e+02, |r|/|b| = 3.254715e-02
+GCR:     5 iterations, <r,r> = 1.718212e+02, |r|/|b| = 2.190757e-02
+GCR:     6 iterations, <r,r> = 5.747882e+01, |r|/|b| = 1.267097e-02
+GCR:     7 iterations, <r,r> = 2.557582e+01, |r|/|b| = 8.452218e-03
+GCR:     8 iterations, <r,r> = 1.018699e+01, |r|/|b| = 5.334316e-03
+GCR (restart):     2 iterations, <r,r> = 1.018699e+01, |r|/|b| = 5.334317e-03
+GCR:     9 iterations, <r,r> = 5.370576e+00, |r|/|b| = 3.873168e-03
+GCR:    10 iterations, <r,r> = 2.169703e+00, |r|/|b| = 2.461819e-03
+GCR:    11 iterations, <r,r> = 1.131642e+00, |r|/|b| = 1.777913e-03
+GCR:    12 iterations, <r,r> = 4.965684e-01, |r|/|b| = 1.177729e-03
+GCR (restart):     3 iterations, <r,r> = 4.965685e-01, |r|/|b| = 1.177729e-03
+GCR:    13 iterations, <r,r> = 2.760217e-01, |r|/|b| = 8.780668e-04
+GCR:    14 iterations, <r,r> = 1.303892e-01, |r|/|b| = 6.034994e-04
+GCR:    15 iterations, <r,r> = 6.732758e-02, |r|/|b| = 4.336631e-04
+GCR:    16 iterations, <r,r> = 3.454881e-02, |r|/|b| = 3.106508e-04
+GCR (restart):     4 iterations, <r,r> = 3.454882e-02, |r|/|b| = 3.106509e-04
+GCR:    17 iterations, <r,r> = 2.021671e-02, |r|/|b| = 2.376354e-04
+GCR:    18 iterations, <r,r> = 9.761535e-03, |r|/|b| = 1.651258e-04
+GCR:    19 iterations, <r,r> = 5.552980e-03, |r|/|b| = 1.245429e-04
+GCR:    20 iterations, <r,r> = 2.920931e-03, |r|/|b| = 9.032680e-05
+GCR (restart):     5 iterations, <r,r> = 2.920936e-03, |r|/|b| = 9.032687e-05
+GCR:    21 iterations, <r,r> = 1.686229e-03, |r|/|b| = 6.863004e-05
+GCR:    22 iterations, <r,r> = 9.132647e-04, |r|/|b| = 5.050731e-05
+GCR:    23 iterations, <r,r> = 5.136269e-04, |r|/|b| = 3.787737e-05
+GCR:    24 iterations, <r,r> = 2.838321e-04, |r|/|b| = 2.815702e-05
+GCR (restart):     6 iterations, <r,r> = 2.838350e-04, |r|/|b| = 2.815717e-05
+GCR:    25 iterations, <r,r> = 1.776410e-04, |r|/|b| = 2.227551e-05
+GCR:    26 iterations, <r,r> = 9.389855e-05, |r|/|b| = 1.619517e-05
+GCR:    27 iterations, <r,r> = 5.563381e-05, |r|/|b| = 1.246595e-05
+GCR:    28 iterations, <r,r> = 3.119175e-05, |r|/|b| = 9.334173e-06
+GCR (restart):     7 iterations, <r,r> = 3.119526e-05, |r|/|b| = 9.334697e-06
+GCR:    29 iterations, <r,r> = 1.984995e-05, |r|/|b| = 7.446216e-06
+GCR:    30 iterations, <r,r> = 1.067107e-05, |r|/|b| = 5.459589e-06
+GCR:    31 iterations, <r,r> = 6.514026e-06, |r|/|b| = 4.265606e-06
+GCR:    32 iterations, <r,r> = 3.673064e-06, |r|/|b| = 3.203098e-06
+GCR (restart):     8 iterations, <r,r> = 3.676387e-06, |r|/|b| = 3.204546e-06
+GCR:    33 iterations, <r,r> = 2.393612e-06, |r|/|b| = 2.585728e-06
+GCR:    34 iterations, <r,r> = 1.267612e-06, |r|/|b| = 1.881695e-06
+GCR:    35 iterations, <r,r> = 8.241697e-07, |r|/|b| = 1.517275e-06
+GCR:    36 iterations, <r,r> = 4.490697e-07, |r|/|b| = 1.119987e-06
+GCR (restart):     9 iterations, <r,r> = 4.525118e-07, |r|/|b| = 1.124271e-06
+GCR:    37 iterations, <r,r> = 2.977159e-07, |r|/|b| = 9.119205e-07
+GCR: number of restarts = 9
+GCR: Convergence at 37 iterations, L2 relative residual: iterated = 9.139987e-07, true = 9.139987e-07 (requested = 1.000000e-06)
+Solution = 390946
+Reconstructed Solution = 782064
+Source: 9.43976e+06
+Prepared: source = 358004, solution = 0
+Creating a GCR solver
+GCR:     0 iterations, <r,r> = 3.580042e+05, |r|/|b| = 1.000000e+00
+GCR:     1 iterations, <r,r> = 2.468723e+04, |r|/|b| = 2.625984e-01
+GCR:     2 iterations, <r,r> = 4.077109e+03, |r|/|b| = 1.067166e-01
+GCR:     3 iterations, <r,r> = 1.150908e+03, |r|/|b| = 5.669911e-02
+GCR:     4 iterations, <r,r> = 3.792399e+02, |r|/|b| = 3.254715e-02
+GCR (restart):     1 iterations, <r,r> = 3.792399e+02, |r|/|b| = 3.254715e-02
+GCR:     5 iterations, <r,r> = 1.718212e+02, |r|/|b| = 2.190757e-02
+GCR:     6 iterations, <r,r> = 5.747882e+01, |r|/|b| = 1.267097e-02
+GCR:     7 iterations, <r,r> = 2.557582e+01, |r|/|b| = 8.452218e-03
+GCR:     8 iterations, <r,r> = 1.018699e+01, |r|/|b| = 5.334316e-03
+GCR (restart):     2 iterations, <r,r> = 1.018699e+01, |r|/|b| = 5.334317e-03
+GCR:     9 iterations, <r,r> = 5.370576e+00, |r|/|b| = 3.873168e-03
+GCR:    10 iterations, <r,r> = 2.169703e+00, |r|/|b| = 2.461819e-03
+GCR:    11 iterations, <r,r> = 1.131642e+00, |r|/|b| = 1.777913e-03
+GCR:    12 iterations, <r,r> = 4.965684e-01, |r|/|b| = 1.177729e-03
+GCR (restart):     3 iterations, <r,r> = 4.965685e-01, |r|/|b| = 1.177729e-03
+GCR:    13 iterations, <r,r> = 2.760217e-01, |r|/|b| = 8.780668e-04
+GCR:    14 iterations, <r,r> = 1.303892e-01, |r|/|b| = 6.034994e-04
+GCR:    15 iterations, <r,r> = 6.732758e-02, |r|/|b| = 4.336631e-04
+GCR:    16 iterations, <r,r> = 3.454881e-02, |r|/|b| = 3.106508e-04
+GCR (restart):     4 iterations, <r,r> = 3.454882e-02, |r|/|b| = 3.106509e-04
+GCR:    17 iterations, <r,r> = 2.021671e-02, |r|/|b| = 2.376354e-04
+GCR:    18 iterations, <r,r> = 9.761535e-03, |r|/|b| = 1.651258e-04
+GCR:    19 iterations, <r,r> = 5.552980e-03, |r|/|b| = 1.245429e-04
+GCR:    20 iterations, <r,r> = 2.920931e-03, |r|/|b| = 9.032680e-05
+GCR (restart):     5 iterations, <r,r> = 2.920936e-03, |r|/|b| = 9.032687e-05
+GCR:    21 iterations, <r,r> = 1.686229e-03, |r|/|b| = 6.863004e-05
+GCR:    22 iterations, <r,r> = 9.132647e-04, |r|/|b| = 5.050731e-05
+GCR:    23 iterations, <r,r> = 5.136269e-04, |r|/|b| = 3.787737e-05
+GCR:    24 iterations, <r,r> = 2.838321e-04, |r|/|b| = 2.815702e-05
+GCR (restart):     6 iterations, <r,r> = 2.838350e-04, |r|/|b| = 2.815717e-05
+GCR:    25 iterations, <r,r> = 1.776410e-04, |r|/|b| = 2.227551e-05
+GCR:    26 iterations, <r,r> = 9.389855e-05, |r|/|b| = 1.619517e-05
+GCR:    27 iterations, <r,r> = 5.563381e-05, |r|/|b| = 1.246595e-05
+GCR:    28 iterations, <r,r> = 3.119175e-05, |r|/|b| = 9.334173e-06
+GCR (restart):     7 iterations, <r,r> = 3.119526e-05, |r|/|b| = 9.334697e-06
+GCR:    29 iterations, <r,r> = 1.984995e-05, |r|/|b| = 7.446216e-06
+GCR:    30 iterations, <r,r> = 1.067107e-05, |r|/|b| = 5.459589e-06
+GCR:    31 iterations, <r,r> = 6.514026e-06, |r|/|b| = 4.265606e-06
+GCR:    32 iterations, <r,r> = 3.673064e-06, |r|/|b| = 3.203098e-06
+GCR (restart):     8 iterations, <r,r> = 3.676387e-06, |r|/|b| = 3.204546e-06
+GCR:    33 iterations, <r,r> = 2.393612e-06, |r|/|b| = 2.585728e-06
+GCR:    34 iterations, <r,r> = 1.267612e-06, |r|/|b| = 1.881695e-06
+GCR:    35 iterations, <r,r> = 8.241697e-07, |r|/|b| = 1.517275e-06
+GCR:    36 iterations, <r,r> = 4.490697e-07, |r|/|b| = 1.119987e-06
+GCR (restart):     9 iterations, <r,r> = 4.525118e-07, |r|/|b| = 1.124271e-06
+GCR:    37 iterations, <r,r> = 2.977159e-07, |r|/|b| = 9.119205e-07
+GCR: number of restarts = 9
+GCR: Convergence at 37 iterations, L2 relative residual: iterated = 9.139987e-07, true = 9.139987e-07 (requested = 1.000000e-06)
+Solution = 390946
+Reconstructed Solution = 782064
+Source: 9.43976e+06
+Prepared: source = 358004, solution = 0
+Creating a BiCGstab solver
+BiCGstab:     0 iterations, <r,r> = 3.580042e+05, |r|/|b| = 1.000000e+00
+BiCGstab:     1 iterations, <r,r> = 9.128348e+03, |r|/|b| = 1.596806e-01
+BiCGstab:     2 iterations, <r,r> = 1.305837e+04, |r|/|b| = 1.909855e-01
+BiCGstab:     3 iterations, <r,r> = 1.382618e+03, |r|/|b| = 6.214513e-02
+BiCGstab:     4 iterations, <r,r> = 8.307261e+02, |r|/|b| = 4.817091e-02
+BiCGstab:     5 iterations, <r,r> = 1.028480e+03, |r|/|b| = 5.359865e-02
+BiCGstab:     6 iterations, <r,r> = 2.145104e+02, |r|/|b| = 2.447823e-02
+BiCGstab:     7 iterations, <r,r> = 1.354278e+02, |r|/|b| = 1.944957e-02
+BiCGstab:     8 iterations, <r,r> = 9.479323e+01, |r|/|b| = 1.627214e-02
+BiCGstab:     9 iterations, <r,r> = 4.200160e+01, |r|/|b| = 1.083151e-02
+BiCGstab:    10 iterations, <r,r> = 3.475896e+01, |r|/|b| = 9.853473e-03
+BiCGstab:    11 iterations, <r,r> = 4.109981e+01, |r|/|b| = 1.071460e-02
+BiCGstab:    12 iterations, <r,r> = 4.001112e+01, |r|/|b| = 1.057174e-02
+BiCGstab:    13 iterations, <r,r> = 1.065529e+01, |r|/|b| = 5.455552e-03
+BiCGstab:    14 iterations, <r,r> = 1.158126e+01, |r|/|b| = 5.687663e-03
+BiCGstab:    15 iterations, <r,r> = 2.823621e+00, |r|/|b| = 2.808401e-03
+BiCGstab:    16 iterations, <r,r> = 1.979718e+00, |r|/|b| = 2.351568e-03
+BiCGstab:    17 iterations, <r,r> = 1.424931e+00, |r|/|b| = 1.995046e-03
+BiCGstab:    18 iterations, <r,r> = 1.091333e+00, |r|/|b| = 1.745962e-03
+BiCGstab:    19 iterations, <r,r> = 8.514144e-01, |r|/|b| = 1.542149e-03
+BiCGstab:    20 iterations, <r,r> = 7.514411e-01, |r|/|b| = 1.448783e-03
+BiCGstab:    21 iterations, <r,r> = 1.147439e+00, |r|/|b| = 1.790279e-03
+BiCGstab:    22 iterations, <r,r> = 1.372408e+00, |r|/|b| = 1.957932e-03
+BiCGstab:    23 iterations, <r,r> = 1.330411e+00, |r|/|b| = 1.927742e-03
+BiCGstab:    24 iterations, <r,r> = 2.165952e-01, |r|/|b| = 7.778221e-04
+BiCGstab:    25 iterations, <r,r> = 1.392839e-01, |r|/|b| = 6.237439e-04
+BiCGstab:    26 iterations, <r,r> = 8.772685e-02, |r|/|b| = 4.950194e-04
+BiCGstab:    27 iterations, <r,r> = 9.182206e-02, |r|/|b| = 5.064417e-04
+BiCGstab:    28 iterations, <r,r> = 5.732892e-02, |r|/|b| = 4.001684e-04
+BiCGstab:    29 iterations, <r,r> = 7.091008e-02, |r|/|b| = 4.450512e-04
+BiCGstab:    30 iterations, <r,r> = 3.773388e-02, |r|/|b| = 3.246547e-04
+BiCGstab:    31 iterations, <r,r> = 9.431944e-02, |r|/|b| = 5.132826e-04
+BiCGstab:    32 iterations, <r,r> = 4.554838e-02, |r|/|b| = 3.566912e-04
+BiCGstab:    33 iterations, <r,r> = 1.799522e-02, |r|/|b| = 2.241994e-04
+BiCGstab:    34 iterations, <r,r> = 1.538843e-02, |r|/|b| = 2.073257e-04
+BiCGstab:    35 iterations, <r,r> = 1.293000e-02, |r|/|b| = 1.900445e-04
+BiCGstab:    36 iterations, <r,r> = 1.294444e-02, |r|/|b| = 1.901506e-04
+BiCGstab:    37 iterations, <r,r> = 1.080040e-02, |r|/|b| = 1.736904e-04
+BiCGstab:    38 iterations, <r,r> = 9.781302e-03, |r|/|b| = 1.652929e-04
+BiCGstab:    39 iterations, <r,r> = 1.216862e-02, |r|/|b| = 1.843642e-04
+BiCGstab:    40 iterations, <r,r> = 1.501969e+00, |r|/|b| = 2.048266e-03
+BiCGstab:    41 iterations, <r,r> = 1.530536e-03, |r|/|b| = 6.538493e-05
+BiCGstab:    42 iterations, <r,r> = 1.367637e-03, |r|/|b| = 6.180753e-05
+BiCGstab:    43 iterations, <r,r> = 1.354817e-03, |r|/|b| = 6.151716e-05
+BiCGstab:    44 iterations, <r,r> = 1.618533e-03, |r|/|b| = 6.723830e-05
+BiCGstab:    45 iterations, <r,r> = 1.054720e-03, |r|/|b| = 5.427810e-05
+BiCGstab:    46 iterations, <r,r> = 8.982176e-04, |r|/|b| = 5.008950e-05
+BiCGstab:    47 iterations, <r,r> = 7.313441e-04, |r|/|b| = 4.519775e-05
+BiCGstab:    48 iterations, <r,r> = 5.467585e-04, |r|/|b| = 3.907992e-05
+BiCGstab:    49 iterations, <r,r> = 4.776895e-04, |r|/|b| = 3.652824e-05
+BiCGstab:    50 iterations, <r,r> = 4.917783e-04, |r|/|b| = 3.706300e-05
+BiCGstab:    51 iterations, <r,r> = 4.555093e-04, |r|/|b| = 3.567012e-05
+BiCGstab:    52 iterations, <r,r> = 3.297276e-04, |r|/|b| = 3.034825e-05
+BiCGstab:    53 iterations, <r,r> = 8.849174e-04, |r|/|b| = 4.971727e-05
+BiCGstab:    54 iterations, <r,r> = 1.050694e-03, |r|/|b| = 5.417439e-05
+BiCGstab:    55 iterations, <r,r> = 5.646627e-05, |r|/|b| = 1.255887e-05
+BiCGstab:    56 iterations, <r,r> = 4.733078e-05, |r|/|b| = 1.149814e-05
+BiCGstab:    57 iterations, <r,r> = 5.418117e-05, |r|/|b| = 1.230212e-05
+BiCGstab:    58 iterations, <r,r> = 5.354978e-05, |r|/|b| = 1.223023e-05
+BiCGstab:    59 iterations, <r,r> = 3.667559e-05, |r|/|b| = 1.012149e-05
+BiCGstab:    60 iterations, <r,r> = 2.826750e-04, |r|/|b| = 2.809957e-05
+BiCGstab:    61 iterations, <r,r> = 2.283627e-05, |r|/|b| = 7.986721e-06
+BiCGstab:    62 iterations, <r,r> = 1.910462e-05, |r|/|b| = 7.305082e-06
+BiCGstab:    63 iterations, <r,r> = 1.459688e-05, |r|/|b| = 6.385369e-06
+BiCGstab:    64 iterations, <r,r> = 1.590872e-05, |r|/|b| = 6.666126e-06
+BiCGstab:    65 iterations, <r,r> = 1.144487e-05, |r|/|b| = 5.654072e-06
+BiCGstab:    66 iterations, <r,r> = 8.993651e-06, |r|/|b| = 5.012149e-06
+BiCGstab:    67 iterations, <r,r> = 7.964597e-06, |r|/|b| = 4.716696e-06
+BiCGstab:    68 iterations, <r,r> = 6.542947e-06, |r|/|b| = 4.275064e-06
+BiCGstab:    69 iterations, <r,r> = 6.567235e-06, |r|/|b| = 4.282992e-06
+BiCGstab:    70 iterations, <r,r> = 5.037706e-06, |r|/|b| = 3.751218e-06
+BiCGstab:    71 iterations, <r,r> = 4.787018e-06, |r|/|b| = 3.656693e-06
+BiCGstab:    72 iterations, <r,r> = 5.179753e-06, |r|/|b| = 3.803737e-06
+BiCGstab:    73 iterations, <r,r> = 7.433968e-06, |r|/|b| = 4.556866e-06
+BiCGstab:    74 iterations, <r,r> = 6.027293e-06, |r|/|b| = 4.103147e-06
+BiCGstab:    75 iterations, <r,r> = 4.793379e-06, |r|/|b| = 3.659121e-06
+BiCGstab:    76 iterations, <r,r> = 4.129369e-06, |r|/|b| = 3.396235e-06
+BiCGstab:    77 iterations, <r,r> = 3.000176e-06, |r|/|b| = 2.894871e-06
+BiCGstab:    78 iterations, <r,r> = 2.160943e-06, |r|/|b| = 2.456844e-06
+BiCGstab:    79 iterations, <r,r> = 1.198485e-05, |r|/|b| = 5.785916e-06
+BiCGstab:    80 iterations, <r,r> = 1.159275e-06, |r|/|b| = 1.799489e-06
+BiCGstab:    81 iterations, <r,r> = 9.537261e-07, |r|/|b| = 1.632179e-06
+BiCGstab:    82 iterations, <r,r> = 2.298300e-06, |r|/|b| = 2.533724e-06
+BiCGstab:    83 iterations, <r,r> = 1.361525e-06, |r|/|b| = 1.950153e-06
+BiCGstab:    84 iterations, <r,r> = 1.129121e-06, |r|/|b| = 1.775932e-06
+BiCGstab:    85 iterations, <r,r> = 8.218289e-07, |r|/|b| = 1.515119e-06
+BiCGstab:    86 iterations, <r,r> = 6.633625e-07, |r|/|b| = 1.361230e-06
+BiCGstab:    87 iterations, <r,r> = 1.967496e-06, |r|/|b| = 2.344298e-06
+BiCGstab:    88 iterations, <r,r> = 2.077356e-07, |r|/|b| = 7.617481e-07
+BiCGstab: Reliable updates = 2
+BiCGstab: Convergence at 88 iterations, L2 relative residual: iterated = 7.652875e-07, true = 7.652875e-07 (requested = 1.000000e-06)
+Solution = 390946
+Reconstructed Solution = 782064
+Source: 9.43976e+06
+Prepared: source = 358004, solution = 0
+Creating a BiCGstab solver
+BiCGstab:     0 iterations, <r,r> = 3.580042e+05, |r|/|b| = 1.000000e+00
+BiCGstab:     1 iterations, <r,r> = 9.128348e+03, |r|/|b| = 1.596806e-01
+BiCGstab:     2 iterations, <r,r> = 1.305837e+04, |r|/|b| = 1.909855e-01
+BiCGstab:     3 iterations, <r,r> = 1.382618e+03, |r|/|b| = 6.214513e-02
+BiCGstab:     4 iterations, <r,r> = 8.307261e+02, |r|/|b| = 4.817091e-02
+BiCGstab:     5 iterations, <r,r> = 1.028480e+03, |r|/|b| = 5.359865e-02
+BiCGstab:     6 iterations, <r,r> = 2.145104e+02, |r|/|b| = 2.447823e-02
+BiCGstab:     7 iterations, <r,r> = 1.354278e+02, |r|/|b| = 1.944957e-02
+BiCGstab:     8 iterations, <r,r> = 9.479323e+01, |r|/|b| = 1.627214e-02
+BiCGstab:     9 iterations, <r,r> = 4.200160e+01, |r|/|b| = 1.083151e-02
+BiCGstab:    10 iterations, <r,r> = 3.475896e+01, |r|/|b| = 9.853473e-03
+BiCGstab:    11 iterations, <r,r> = 4.109981e+01, |r|/|b| = 1.071460e-02
+BiCGstab:    12 iterations, <r,r> = 4.001112e+01, |r|/|b| = 1.057174e-02
+BiCGstab:    13 iterations, <r,r> = 1.065529e+01, |r|/|b| = 5.455552e-03
+BiCGstab:    14 iterations, <r,r> = 1.158126e+01, |r|/|b| = 5.687663e-03
+BiCGstab:    15 iterations, <r,r> = 2.823621e+00, |r|/|b| = 2.808401e-03
+BiCGstab:    16 iterations, <r,r> = 1.979718e+00, |r|/|b| = 2.351568e-03
+BiCGstab:    17 iterations, <r,r> = 1.424931e+00, |r|/|b| = 1.995046e-03
+BiCGstab:    18 iterations, <r,r> = 1.091333e+00, |r|/|b| = 1.745962e-03
+BiCGstab:    19 iterations, <r,r> = 8.514144e-01, |r|/|b| = 1.542149e-03
+BiCGstab:    20 iterations, <r,r> = 7.514411e-01, |r|/|b| = 1.448783e-03
+BiCGstab:    21 iterations, <r,r> = 1.147439e+00, |r|/|b| = 1.790279e-03
+BiCGstab:    22 iterations, <r,r> = 1.372408e+00, |r|/|b| = 1.957932e-03
+BiCGstab:    23 iterations, <r,r> = 1.330411e+00, |r|/|b| = 1.927742e-03
+BiCGstab:    24 iterations, <r,r> = 2.165952e-01, |r|/|b| = 7.778221e-04
+BiCGstab:    25 iterations, <r,r> = 1.392839e-01, |r|/|b| = 6.237439e-04
+BiCGstab:    26 iterations, <r,r> = 8.772685e-02, |r|/|b| = 4.950194e-04
+BiCGstab:    27 iterations, <r,r> = 9.182206e-02, |r|/|b| = 5.064417e-04
+BiCGstab:    28 iterations, <r,r> = 5.732892e-02, |r|/|b| = 4.001684e-04
+BiCGstab:    29 iterations, <r,r> = 7.091008e-02, |r|/|b| = 4.450512e-04
+BiCGstab:    30 iterations, <r,r> = 3.773388e-02, |r|/|b| = 3.246547e-04
+BiCGstab:    31 iterations, <r,r> = 9.431944e-02, |r|/|b| = 5.132826e-04
+BiCGstab:    32 iterations, <r,r> = 4.554838e-02, |r|/|b| = 3.566912e-04
+BiCGstab:    33 iterations, <r,r> = 1.799522e-02, |r|/|b| = 2.241994e-04
+BiCGstab:    34 iterations, <r,r> = 1.538843e-02, |r|/|b| = 2.073257e-04
+BiCGstab:    35 iterations, <r,r> = 1.293000e-02, |r|/|b| = 1.900445e-04
+BiCGstab:    36 iterations, <r,r> = 1.294444e-02, |r|/|b| = 1.901506e-04
+BiCGstab:    37 iterations, <r,r> = 1.080040e-02, |r|/|b| = 1.736904e-04
+BiCGstab:    38 iterations, <r,r> = 9.781302e-03, |r|/|b| = 1.652929e-04
+BiCGstab:    39 iterations, <r,r> = 1.216862e-02, |r|/|b| = 1.843642e-04
+BiCGstab:    40 iterations, <r,r> = 1.501969e+00, |r|/|b| = 2.048266e-03
+BiCGstab:    41 iterations, <r,r> = 1.530536e-03, |r|/|b| = 6.538493e-05
+BiCGstab:    42 iterations, <r,r> = 1.367637e-03, |r|/|b| = 6.180753e-05
+BiCGstab:    43 iterations, <r,r> = 1.354817e-03, |r|/|b| = 6.151716e-05
+BiCGstab:    44 iterations, <r,r> = 1.618533e-03, |r|/|b| = 6.723830e-05
+BiCGstab:    45 iterations, <r,r> = 1.054720e-03, |r|/|b| = 5.427810e-05
+BiCGstab:    46 iterations, <r,r> = 8.982176e-04, |r|/|b| = 5.008950e-05
+BiCGstab:    47 iterations, <r,r> = 7.313441e-04, |r|/|b| = 4.519775e-05
+BiCGstab:    48 iterations, <r,r> = 5.467585e-04, |r|/|b| = 3.907992e-05
+BiCGstab:    49 iterations, <r,r> = 4.776895e-04, |r|/|b| = 3.652824e-05
+BiCGstab:    50 iterations, <r,r> = 4.917783e-04, |r|/|b| = 3.706300e-05
+BiCGstab:    51 iterations, <r,r> = 4.555093e-04, |r|/|b| = 3.567012e-05
+BiCGstab:    52 iterations, <r,r> = 3.297276e-04, |r|/|b| = 3.034825e-05
+BiCGstab:    53 iterations, <r,r> = 8.849174e-04, |r|/|b| = 4.971727e-05
+BiCGstab:    54 iterations, <r,r> = 1.050694e-03, |r|/|b| = 5.417439e-05
+BiCGstab:    55 iterations, <r,r> = 5.646627e-05, |r|/|b| = 1.255887e-05
+BiCGstab:    56 iterations, <r,r> = 4.733078e-05, |r|/|b| = 1.149814e-05
+BiCGstab:    57 iterations, <r,r> = 5.418117e-05, |r|/|b| = 1.230212e-05
+BiCGstab:    58 iterations, <r,r> = 5.354978e-05, |r|/|b| = 1.223023e-05
+BiCGstab:    59 iterations, <r,r> = 3.667559e-05, |r|/|b| = 1.012149e-05
+BiCGstab:    60 iterations, <r,r> = 2.826750e-04, |r|/|b| = 2.809957e-05
+BiCGstab:    61 iterations, <r,r> = 2.283627e-05, |r|/|b| = 7.986721e-06
+BiCGstab:    62 iterations, <r,r> = 1.910462e-05, |r|/|b| = 7.305082e-06
+BiCGstab:    63 iterations, <r,r> = 1.459688e-05, |r|/|b| = 6.385369e-06
+BiCGstab:    64 iterations, <r,r> = 1.590872e-05, |r|/|b| = 6.666126e-06
+BiCGstab:    65 iterations, <r,r> = 1.144487e-05, |r|/|b| = 5.654072e-06
+BiCGstab:    66 iterations, <r,r> = 8.993651e-06, |r|/|b| = 5.012149e-06
+BiCGstab:    67 iterations, <r,r> = 7.964597e-06, |r|/|b| = 4.716696e-06
+BiCGstab:    68 iterations, <r,r> = 6.542947e-06, |r|/|b| = 4.275064e-06
+BiCGstab:    69 iterations, <r,r> = 6.567235e-06, |r|/|b| = 4.282992e-06
+BiCGstab:    70 iterations, <r,r> = 5.037706e-06, |r|/|b| = 3.751218e-06
+BiCGstab:    71 iterations, <r,r> = 4.787018e-06, |r|/|b| = 3.656693e-06
+BiCGstab:    72 iterations, <r,r> = 5.179753e-06, |r|/|b| = 3.803737e-06
+BiCGstab:    73 iterations, <r,r> = 7.433968e-06, |r|/|b| = 4.556866e-06
+BiCGstab:    74 iterations, <r,r> = 6.027293e-06, |r|/|b| = 4.103147e-06
+BiCGstab:    75 iterations, <r,r> = 4.793379e-06, |r|/|b| = 3.659121e-06
+BiCGstab:    76 iterations, <r,r> = 4.129369e-06, |r|/|b| = 3.396235e-06
+BiCGstab:    77 iterations, <r,r> = 3.000176e-06, |r|/|b| = 2.894871e-06
+BiCGstab:    78 iterations, <r,r> = 2.160943e-06, |r|/|b| = 2.456844e-06
+BiCGstab:    79 iterations, <r,r> = 1.198485e-05, |r|/|b| = 5.785916e-06
+BiCGstab:    80 iterations, <r,r> = 1.159275e-06, |r|/|b| = 1.799489e-06
+BiCGstab:    81 iterations, <r,r> = 9.537261e-07, |r|/|b| = 1.632179e-06
+BiCGstab:    82 iterations, <r,r> = 2.298300e-06, |r|/|b| = 2.533724e-06
+BiCGstab:    83 iterations, <r,r> = 1.361525e-06, |r|/|b| = 1.950153e-06
+BiCGstab:    84 iterations, <r,r> = 1.129121e-06, |r|/|b| = 1.775932e-06
+BiCGstab:    85 iterations, <r,r> = 8.218289e-07, |r|/|b| = 1.515119e-06
+BiCGstab:    86 iterations, <r,r> = 6.633625e-07, |r|/|b| = 1.361230e-06
+BiCGstab:    87 iterations, <r,r> = 1.967496e-06, |r|/|b| = 2.344298e-06
+BiCGstab:    88 iterations, <r,r> = 2.077356e-07, |r|/|b| = 7.617481e-07
+BiCGstab: Reliable updates = 2
+BiCGstab: Convergence at 88 iterations, L2 relative residual: iterated = 7.652875e-07, true = 7.652875e-07 (requested = 1.000000e-06)
+Solution = 390946
+Reconstructed Solution = 782064
+Source: 9.43976e+06
+Prepared: source = 358004, solution = 0
+Creating a BiCGstab solver
+BiCGstab:     0 iterations, <r,r> = 3.580042e+05, |r|/|b| = 1.000000e+00
+BiCGstab:     1 iterations, <r,r> = 9.128348e+03, |r|/|b| = 1.596806e-01
+BiCGstab:     2 iterations, <r,r> = 1.305837e+04, |r|/|b| = 1.909855e-01
+BiCGstab:     3 iterations, <r,r> = 1.382618e+03, |r|/|b| = 6.214513e-02
+BiCGstab:     4 iterations, <r,r> = 8.307261e+02, |r|/|b| = 4.817091e-02
+BiCGstab:     5 iterations, <r,r> = 1.028480e+03, |r|/|b| = 5.359865e-02
+BiCGstab:     6 iterations, <r,r> = 2.145104e+02, |r|/|b| = 2.447823e-02
+BiCGstab:     7 iterations, <r,r> = 1.354278e+02, |r|/|b| = 1.944957e-02
+BiCGstab:     8 iterations, <r,r> = 9.479323e+01, |r|/|b| = 1.627214e-02
+BiCGstab:     9 iterations, <r,r> = 4.200160e+01, |r|/|b| = 1.083151e-02
+BiCGstab:    10 iterations, <r,r> = 3.475896e+01, |r|/|b| = 9.853473e-03
+BiCGstab:    11 iterations, <r,r> = 4.109981e+01, |r|/|b| = 1.071460e-02
+BiCGstab:    12 iterations, <r,r> = 4.001112e+01, |r|/|b| = 1.057174e-02
+BiCGstab:    13 iterations, <r,r> = 1.065529e+01, |r|/|b| = 5.455552e-03
+BiCGstab:    14 iterations, <r,r> = 1.158126e+01, |r|/|b| = 5.687663e-03
+BiCGstab:    15 iterations, <r,r> = 2.823621e+00, |r|/|b| = 2.808401e-03
+BiCGstab:    16 iterations, <r,r> = 1.979718e+00, |r|/|b| = 2.351568e-03
+BiCGstab:    17 iterations, <r,r> = 1.424931e+00, |r|/|b| = 1.995046e-03
+BiCGstab:    18 iterations, <r,r> = 1.091333e+00, |r|/|b| = 1.745962e-03
+BiCGstab:    19 iterations, <r,r> = 8.514144e-01, |r|/|b| = 1.542149e-03
+BiCGstab:    20 iterations, <r,r> = 7.514411e-01, |r|/|b| = 1.448783e-03
+BiCGstab:    21 iterations, <r,r> = 1.147439e+00, |r|/|b| = 1.790279e-03
+BiCGstab:    22 iterations, <r,r> = 1.372408e+00, |r|/|b| = 1.957932e-03
+BiCGstab:    23 iterations, <r,r> = 1.330411e+00, |r|/|b| = 1.927742e-03
+BiCGstab:    24 iterations, <r,r> = 2.165952e-01, |r|/|b| = 7.778221e-04
+BiCGstab:    25 iterations, <r,r> = 1.392839e-01, |r|/|b| = 6.237439e-04
+BiCGstab:    26 iterations, <r,r> = 8.772685e-02, |r|/|b| = 4.950194e-04
+BiCGstab:    27 iterations, <r,r> = 9.182206e-02, |r|/|b| = 5.064417e-04
+BiCGstab:    28 iterations, <r,r> = 5.732892e-02, |r|/|b| = 4.001684e-04
+BiCGstab:    29 iterations, <r,r> = 7.091008e-02, |r|/|b| = 4.450512e-04
+BiCGstab:    30 iterations, <r,r> = 3.773388e-02, |r|/|b| = 3.246547e-04
+BiCGstab:    31 iterations, <r,r> = 9.431944e-02, |r|/|b| = 5.132826e-04
+BiCGstab:    32 iterations, <r,r> = 4.554838e-02, |r|/|b| = 3.566912e-04
+BiCGstab:    33 iterations, <r,r> = 1.799522e-02, |r|/|b| = 2.241994e-04
+BiCGstab:    34 iterations, <r,r> = 1.538843e-02, |r|/|b| = 2.073257e-04
+BiCGstab:    35 iterations, <r,r> = 1.293000e-02, |r|/|b| = 1.900445e-04
+BiCGstab:    36 iterations, <r,r> = 1.294444e-02, |r|/|b| = 1.901506e-04
+BiCGstab:    37 iterations, <r,r> = 1.080040e-02, |r|/|b| = 1.736904e-04
+BiCGstab:    38 iterations, <r,r> = 9.781302e-03, |r|/|b| = 1.652929e-04
+BiCGstab:    39 iterations, <r,r> = 1.216862e-02, |r|/|b| = 1.843642e-04
+BiCGstab:    40 iterations, <r,r> = 1.501969e+00, |r|/|b| = 2.048266e-03
+BiCGstab:    41 iterations, <r,r> = 1.530536e-03, |r|/|b| = 6.538493e-05
+BiCGstab:    42 iterations, <r,r> = 1.367637e-03, |r|/|b| = 6.180753e-05
+BiCGstab:    43 iterations, <r,r> = 1.354817e-03, |r|/|b| = 6.151716e-05
+BiCGstab:    44 iterations, <r,r> = 1.618533e-03, |r|/|b| = 6.723830e-05
+BiCGstab:    45 iterations, <r,r> = 1.054720e-03, |r|/|b| = 5.427810e-05
+BiCGstab:    46 iterations, <r,r> = 8.982176e-04, |r|/|b| = 5.008950e-05
+BiCGstab:    47 iterations, <r,r> = 7.313441e-04, |r|/|b| = 4.519775e-05
+BiCGstab:    48 iterations, <r,r> = 5.467585e-04, |r|/|b| = 3.907992e-05
+BiCGstab:    49 iterations, <r,r> = 4.776895e-04, |r|/|b| = 3.652824e-05
+BiCGstab:    50 iterations, <r,r> = 4.917783e-04, |r|/|b| = 3.706300e-05
+BiCGstab:    51 iterations, <r,r> = 4.555093e-04, |r|/|b| = 3.567012e-05
+BiCGstab:    52 iterations, <r,r> = 3.297276e-04, |r|/|b| = 3.034825e-05
+BiCGstab:    53 iterations, <r,r> = 8.849174e-04, |r|/|b| = 4.971727e-05
+BiCGstab:    54 iterations, <r,r> = 1.050694e-03, |r|/|b| = 5.417439e-05
+BiCGstab:    55 iterations, <r,r> = 5.646627e-05, |r|/|b| = 1.255887e-05
+BiCGstab:    56 iterations, <r,r> = 4.733078e-05, |r|/|b| = 1.149814e-05
+BiCGstab:    57 iterations, <r,r> = 5.418117e-05, |r|/|b| = 1.230212e-05
+BiCGstab:    58 iterations, <r,r> = 5.354978e-05, |r|/|b| = 1.223023e-05
+BiCGstab:    59 iterations, <r,r> = 3.667559e-05, |r|/|b| = 1.012149e-05
+BiCGstab:    60 iterations, <r,r> = 2.826750e-04, |r|/|b| = 2.809957e-05
+BiCGstab:    61 iterations, <r,r> = 2.283627e-05, |r|/|b| = 7.986721e-06
+BiCGstab:    62 iterations, <r,r> = 1.910462e-05, |r|/|b| = 7.305082e-06
+BiCGstab:    63 iterations, <r,r> = 1.459688e-05, |r|/|b| = 6.385369e-06
+BiCGstab:    64 iterations, <r,r> = 1.590872e-05, |r|/|b| = 6.666126e-06
+BiCGstab:    65 iterations, <r,r> = 1.144487e-05, |r|/|b| = 5.654072e-06
+BiCGstab:    66 iterations, <r,r> = 8.993651e-06, |r|/|b| = 5.012149e-06
+BiCGstab:    67 iterations, <r,r> = 7.964597e-06, |r|/|b| = 4.716696e-06
+BiCGstab:    68 iterations, <r,r> = 6.542947e-06, |r|/|b| = 4.275064e-06
+BiCGstab:    69 iterations, <r,r> = 6.567235e-06, |r|/|b| = 4.282992e-06
+BiCGstab:    70 iterations, <r,r> = 5.037706e-06, |r|/|b| = 3.751218e-06
+BiCGstab:    71 iterations, <r,r> = 4.787018e-06, |r|/|b| = 3.656693e-06
+BiCGstab:    72 iterations, <r,r> = 5.179753e-06, |r|/|b| = 3.803737e-06
+BiCGstab:    73 iterations, <r,r> = 7.433968e-06, |r|/|b| = 4.556866e-06
+BiCGstab:    74 iterations, <r,r> = 6.027293e-06, |r|/|b| = 4.103147e-06
+BiCGstab:    75 iterations, <r,r> = 4.793379e-06, |r|/|b| = 3.659121e-06
+BiCGstab:    76 iterations, <r,r> = 4.129369e-06, |r|/|b| = 3.396235e-06
+BiCGstab:    77 iterations, <r,r> = 3.000176e-06, |r|/|b| = 2.894871e-06
+BiCGstab:    78 iterations, <r,r> = 2.160943e-06, |r|/|b| = 2.456844e-06
+BiCGstab:    79 iterations, <r,r> = 1.198485e-05, |r|/|b| = 5.785916e-06
+BiCGstab:    80 iterations, <r,r> = 1.159275e-06, |r|/|b| = 1.799489e-06
+BiCGstab:    81 iterations, <r,r> = 9.537261e-07, |r|/|b| = 1.632179e-06
+BiCGstab:    82 iterations, <r,r> = 2.298300e-06, |r|/|b| = 2.533724e-06
+BiCGstab:    83 iterations, <r,r> = 1.361525e-06, |r|/|b| = 1.950153e-06
+BiCGstab:    84 iterations, <r,r> = 1.129121e-06, |r|/|b| = 1.775932e-06
+BiCGstab:    85 iterations, <r,r> = 8.218289e-07, |r|/|b| = 1.515119e-06
+BiCGstab:    86 iterations, <r,r> = 6.633625e-07, |r|/|b| = 1.361230e-06
+BiCGstab:    87 iterations, <r,r> = 1.967496e-06, |r|/|b| = 2.344298e-06
+BiCGstab:    88 iterations, <r,r> = 2.077356e-07, |r|/|b| = 7.617481e-07
+BiCGstab: Reliable updates = 2
+BiCGstab: Convergence at 88 iterations, L2 relative residual: iterated = 7.652875e-07, true = 7.652875e-07 (requested = 1.000000e-06)
+Solution = 390946
+Reconstructed Solution = 782064
+Source: 9.43976e+06
+Prepared: source = 358004, solution = 0
+Creating a BiCGstab solver
+BiCGstab:     0 iterations, <r,r> = 3.580042e+05, |r|/|b| = 1.000000e+00
+BiCGstab:     1 iterations, <r,r> = 9.128348e+03, |r|/|b| = 1.596806e-01
+BiCGstab:     2 iterations, <r,r> = 1.305837e+04, |r|/|b| = 1.909855e-01
+BiCGstab:     3 iterations, <r,r> = 1.382618e+03, |r|/|b| = 6.214513e-02
+BiCGstab:     4 iterations, <r,r> = 8.307261e+02, |r|/|b| = 4.817091e-02
+BiCGstab:     5 iterations, <r,r> = 1.028480e+03, |r|/|b| = 5.359865e-02
+BiCGstab:     6 iterations, <r,r> = 2.145104e+02, |r|/|b| = 2.447823e-02
+BiCGstab:     7 iterations, <r,r> = 1.354278e+02, |r|/|b| = 1.944957e-02
+BiCGstab:     8 iterations, <r,r> = 9.479323e+01, |r|/|b| = 1.627214e-02
+BiCGstab:     9 iterations, <r,r> = 4.200160e+01, |r|/|b| = 1.083151e-02
+BiCGstab:    10 iterations, <r,r> = 3.475896e+01, |r|/|b| = 9.853473e-03
+BiCGstab:    11 iterations, <r,r> = 4.109981e+01, |r|/|b| = 1.071460e-02
+BiCGstab:    12 iterations, <r,r> = 4.001112e+01, |r|/|b| = 1.057174e-02
+BiCGstab:    13 iterations, <r,r> = 1.065529e+01, |r|/|b| = 5.455552e-03
+BiCGstab:    14 iterations, <r,r> = 1.158126e+01, |r|/|b| = 5.687663e-03
+BiCGstab:    15 iterations, <r,r> = 2.823621e+00, |r|/|b| = 2.808401e-03
+BiCGstab:    16 iterations, <r,r> = 1.979718e+00, |r|/|b| = 2.351568e-03
+BiCGstab:    17 iterations, <r,r> = 1.424931e+00, |r|/|b| = 1.995046e-03
+BiCGstab:    18 iterations, <r,r> = 1.091333e+00, |r|/|b| = 1.745962e-03
+BiCGstab:    19 iterations, <r,r> = 8.514144e-01, |r|/|b| = 1.542149e-03
+BiCGstab:    20 iterations, <r,r> = 7.514411e-01, |r|/|b| = 1.448783e-03
+BiCGstab:    21 iterations, <r,r> = 1.147439e+00, |r|/|b| = 1.790279e-03
+BiCGstab:    22 iterations, <r,r> = 1.372408e+00, |r|/|b| = 1.957932e-03
+BiCGstab:    23 iterations, <r,r> = 1.330411e+00, |r|/|b| = 1.927742e-03
+BiCGstab:    24 iterations, <r,r> = 2.165952e-01, |r|/|b| = 7.778221e-04
+BiCGstab:    25 iterations, <r,r> = 1.392839e-01, |r|/|b| = 6.237439e-04
+BiCGstab:    26 iterations, <r,r> = 8.772685e-02, |r|/|b| = 4.950194e-04
+BiCGstab:    27 iterations, <r,r> = 9.182206e-02, |r|/|b| = 5.064417e-04
+BiCGstab:    28 iterations, <r,r> = 5.732892e-02, |r|/|b| = 4.001684e-04
+BiCGstab:    29 iterations, <r,r> = 7.091008e-02, |r|/|b| = 4.450512e-04
+BiCGstab:    30 iterations, <r,r> = 3.773388e-02, |r|/|b| = 3.246547e-04
+BiCGstab:    31 iterations, <r,r> = 9.431944e-02, |r|/|b| = 5.132826e-04
+BiCGstab:    32 iterations, <r,r> = 4.554838e-02, |r|/|b| = 3.566912e-04
+BiCGstab:    33 iterations, <r,r> = 1.799522e-02, |r|/|b| = 2.241994e-04
+BiCGstab:    34 iterations, <r,r> = 1.538843e-02, |r|/|b| = 2.073257e-04
+BiCGstab:    35 iterations, <r,r> = 1.293000e-02, |r|/|b| = 1.900445e-04
+BiCGstab:    36 iterations, <r,r> = 1.294444e-02, |r|/|b| = 1.901506e-04
+BiCGstab:    37 iterations, <r,r> = 1.080040e-02, |r|/|b| = 1.736904e-04
+BiCGstab:    38 iterations, <r,r> = 9.781302e-03, |r|/|b| = 1.652929e-04
+BiCGstab:    39 iterations, <r,r> = 1.216862e-02, |r|/|b| = 1.843642e-04
+BiCGstab:    40 iterations, <r,r> = 1.501969e+00, |r|/|b| = 2.048266e-03
+BiCGstab:    41 iterations, <r,r> = 1.530536e-03, |r|/|b| = 6.538493e-05
+BiCGstab:    42 iterations, <r,r> = 1.367637e-03, |r|/|b| = 6.180753e-05
+BiCGstab:    43 iterations, <r,r> = 1.354817e-03, |r|/|b| = 6.151716e-05
+BiCGstab:    44 iterations, <r,r> = 1.618533e-03, |r|/|b| = 6.723830e-05
+BiCGstab:    45 iterations, <r,r> = 1.054720e-03, |r|/|b| = 5.427810e-05
+BiCGstab:    46 iterations, <r,r> = 8.982176e-04, |r|/|b| = 5.008950e-05
+BiCGstab:    47 iterations, <r,r> = 7.313441e-04, |r|/|b| = 4.519775e-05
+BiCGstab:    48 iterations, <r,r> = 5.467585e-04, |r|/|b| = 3.907992e-05
+BiCGstab:    49 iterations, <r,r> = 4.776895e-04, |r|/|b| = 3.652824e-05
+BiCGstab:    50 iterations, <r,r> = 4.917783e-04, |r|/|b| = 3.706300e-05
+BiCGstab:    51 iterations, <r,r> = 4.555093e-04, |r|/|b| = 3.567012e-05
+BiCGstab:    52 iterations, <r,r> = 3.297276e-04, |r|/|b| = 3.034825e-05
+BiCGstab:    53 iterations, <r,r> = 8.849174e-04, |r|/|b| = 4.971727e-05
+BiCGstab:    54 iterations, <r,r> = 1.050694e-03, |r|/|b| = 5.417439e-05
+BiCGstab:    55 iterations, <r,r> = 5.646627e-05, |r|/|b| = 1.255887e-05
+BiCGstab:    56 iterations, <r,r> = 4.733078e-05, |r|/|b| = 1.149814e-05
+BiCGstab:    57 iterations, <r,r> = 5.418117e-05, |r|/|b| = 1.230212e-05
+BiCGstab:    58 iterations, <r,r> = 5.354978e-05, |r|/|b| = 1.223023e-05
+BiCGstab:    59 iterations, <r,r> = 3.667559e-05, |r|/|b| = 1.012149e-05
+BiCGstab:    60 iterations, <r,r> = 2.826750e-04, |r|/|b| = 2.809957e-05
+BiCGstab:    61 iterations, <r,r> = 2.283627e-05, |r|/|b| = 7.986721e-06
+BiCGstab:    62 iterations, <r,r> = 1.910462e-05, |r|/|b| = 7.305082e-06
+BiCGstab:    63 iterations, <r,r> = 1.459688e-05, |r|/|b| = 6.385369e-06
+BiCGstab:    64 iterations, <r,r> = 1.590872e-05, |r|/|b| = 6.666126e-06
+BiCGstab:    65 iterations, <r,r> = 1.144487e-05, |r|/|b| = 5.654072e-06
+BiCGstab:    66 iterations, <r,r> = 8.993651e-06, |r|/|b| = 5.012149e-06
+BiCGstab:    67 iterations, <r,r> = 7.964597e-06, |r|/|b| = 4.716696e-06
+BiCGstab:    68 iterations, <r,r> = 6.542947e-06, |r|/|b| = 4.275064e-06
+BiCGstab:    69 iterations, <r,r> = 6.567235e-06, |r|/|b| = 4.282992e-06
+BiCGstab:    70 iterations, <r,r> = 5.037706e-06, |r|/|b| = 3.751218e-06
+BiCGstab:    71 iterations, <r,r> = 4.787018e-06, |r|/|b| = 3.656693e-06
+BiCGstab:    72 iterations, <r,r> = 5.179753e-06, |r|/|b| = 3.803737e-06
+BiCGstab:    73 iterations, <r,r> = 7.433968e-06, |r|/|b| = 4.556866e-06
+BiCGstab:    74 iterations, <r,r> = 6.027293e-06, |r|/|b| = 4.103147e-06
+BiCGstab:    75 iterations, <r,r> = 4.793379e-06, |r|/|b| = 3.659121e-06
+BiCGstab:    76 iterations, <r,r> = 4.129369e-06, |r|/|b| = 3.396235e-06
+BiCGstab:    77 iterations, <r,r> = 3.000176e-06, |r|/|b| = 2.894871e-06
+BiCGstab:    78 iterations, <r,r> = 2.160943e-06, |r|/|b| = 2.456844e-06
+BiCGstab:    79 iterations, <r,r> = 1.198485e-05, |r|/|b| = 5.785916e-06
+BiCGstab:    80 iterations, <r,r> = 1.159275e-06, |r|/|b| = 1.799489e-06
+BiCGstab:    81 iterations, <r,r> = 9.537261e-07, |r|/|b| = 1.632179e-06
+BiCGstab:    82 iterations, <r,r> = 2.298300e-06, |r|/|b| = 2.533724e-06
+BiCGstab:    83 iterations, <r,r> = 1.361525e-06, |r|/|b| = 1.950153e-06
+BiCGstab:    84 iterations, <r,r> = 1.129121e-06, |r|/|b| = 1.775932e-06
+BiCGstab:    85 iterations, <r,r> = 8.218289e-07, |r|/|b| = 1.515119e-06
+BiCGstab:    86 iterations, <r,r> = 6.633625e-07, |r|/|b| = 1.361230e-06
+BiCGstab:    87 iterations, <r,r> = 1.967496e-06, |r|/|b| = 2.344298e-06
+BiCGstab:    88 iterations, <r,r> = 2.077356e-07, |r|/|b| = 7.617481e-07
+BiCGstab: Reliable updates = 2
+BiCGstab: Convergence at 88 iterations, L2 relative residual: iterated = 7.652875e-07, true = 7.652875e-07 (requested = 1.000000e-06)
+Solution = 390946
+Reconstructed Solution = 782064
+Source: 9.43976e+06
+Prepared: source = 358004, solution = 0
+Creating a BiCGstab solver
+BiCGstab:     0 iterations, <r,r> = 3.580042e+05, |r|/|b| = 1.000000e+00
+BiCGstab:     1 iterations, <r,r> = 9.128348e+03, |r|/|b| = 1.596806e-01
+BiCGstab:     2 iterations, <r,r> = 1.305837e+04, |r|/|b| = 1.909855e-01
+BiCGstab:     3 iterations, <r,r> = 1.382618e+03, |r|/|b| = 6.214513e-02
+BiCGstab:     4 iterations, <r,r> = 8.307261e+02, |r|/|b| = 4.817091e-02
+BiCGstab:     5 iterations, <r,r> = 1.028480e+03, |r|/|b| = 5.359865e-02
+BiCGstab:     6 iterations, <r,r> = 2.145104e+02, |r|/|b| = 2.447823e-02
+BiCGstab:     7 iterations, <r,r> = 1.354278e+02, |r|/|b| = 1.944957e-02
+BiCGstab:     8 iterations, <r,r> = 9.479323e+01, |r|/|b| = 1.627214e-02
+BiCGstab:     9 iterations, <r,r> = 4.200160e+01, |r|/|b| = 1.083151e-02
+BiCGstab:    10 iterations, <r,r> = 3.475896e+01, |r|/|b| = 9.853473e-03
+BiCGstab:    11 iterations, <r,r> = 4.109981e+01, |r|/|b| = 1.071460e-02
+BiCGstab:    12 iterations, <r,r> = 4.001112e+01, |r|/|b| = 1.057174e-02
+BiCGstab:    13 iterations, <r,r> = 1.065529e+01, |r|/|b| = 5.455552e-03
+BiCGstab:    14 iterations, <r,r> = 1.158126e+01, |r|/|b| = 5.687663e-03
+BiCGstab:    15 iterations, <r,r> = 2.823621e+00, |r|/|b| = 2.808401e-03
+BiCGstab:    16 iterations, <r,r> = 1.979718e+00, |r|/|b| = 2.351568e-03
+BiCGstab:    17 iterations, <r,r> = 1.424931e+00, |r|/|b| = 1.995046e-03
+BiCGstab:    18 iterations, <r,r> = 1.091333e+00, |r|/|b| = 1.745962e-03
+BiCGstab:    19 iterations, <r,r> = 8.514144e-01, |r|/|b| = 1.542149e-03
+BiCGstab:    20 iterations, <r,r> = 7.514411e-01, |r|/|b| = 1.448783e-03
+BiCGstab:    21 iterations, <r,r> = 1.147439e+00, |r|/|b| = 1.790279e-03
+BiCGstab:    22 iterations, <r,r> = 1.372408e+00, |r|/|b| = 1.957932e-03
+BiCGstab:    23 iterations, <r,r> = 1.330411e+00, |r|/|b| = 1.927742e-03
+BiCGstab:    24 iterations, <r,r> = 2.165952e-01, |r|/|b| = 7.778221e-04
+BiCGstab:    25 iterations, <r,r> = 1.392839e-01, |r|/|b| = 6.237439e-04
+BiCGstab:    26 iterations, <r,r> = 8.772685e-02, |r|/|b| = 4.950194e-04
+BiCGstab:    27 iterations, <r,r> = 9.182206e-02, |r|/|b| = 5.064417e-04
+BiCGstab:    28 iterations, <r,r> = 5.732892e-02, |r|/|b| = 4.001684e-04
+BiCGstab:    29 iterations, <r,r> = 7.091008e-02, |r|/|b| = 4.450512e-04
+BiCGstab:    30 iterations, <r,r> = 3.773388e-02, |r|/|b| = 3.246547e-04
+BiCGstab:    31 iterations, <r,r> = 9.431944e-02, |r|/|b| = 5.132826e-04
+BiCGstab:    32 iterations, <r,r> = 4.554838e-02, |r|/|b| = 3.566912e-04
+BiCGstab:    33 iterations, <r,r> = 1.799522e-02, |r|/|b| = 2.241994e-04
+BiCGstab:    34 iterations, <r,r> = 1.538843e-02, |r|/|b| = 2.073257e-04
+BiCGstab:    35 iterations, <r,r> = 1.293000e-02, |r|/|b| = 1.900445e-04
+BiCGstab:    36 iterations, <r,r> = 1.294444e-02, |r|/|b| = 1.901506e-04
+BiCGstab:    37 iterations, <r,r> = 1.080040e-02, |r|/|b| = 1.736904e-04
+BiCGstab:    38 iterations, <r,r> = 9.781302e-03, |r|/|b| = 1.652929e-04
+BiCGstab:    39 iterations, <r,r> = 1.216862e-02, |r|/|b| = 1.843642e-04
+BiCGstab:    40 iterations, <r,r> = 1.501969e+00, |r|/|b| = 2.048266e-03
+BiCGstab:    41 iterations, <r,r> = 1.530536e-03, |r|/|b| = 6.538493e-05
+BiCGstab:    42 iterations, <r,r> = 1.367637e-03, |r|/|b| = 6.180753e-05
+BiCGstab:    43 iterations, <r,r> = 1.354817e-03, |r|/|b| = 6.151716e-05
+BiCGstab:    44 iterations, <r,r> = 1.618533e-03, |r|/|b| = 6.723830e-05
+BiCGstab:    45 iterations, <r,r> = 1.054720e-03, |r|/|b| = 5.427810e-05
+BiCGstab:    46 iterations, <r,r> = 8.982176e-04, |r|/|b| = 5.008950e-05
+BiCGstab:    47 iterations, <r,r> = 7.313441e-04, |r|/|b| = 4.519775e-05
+BiCGstab:    48 iterations, <r,r> = 5.467585e-04, |r|/|b| = 3.907992e-05
+BiCGstab:    49 iterations, <r,r> = 4.776895e-04, |r|/|b| = 3.652824e-05
+BiCGstab:    50 iterations, <r,r> = 4.917783e-04, |r|/|b| = 3.706300e-05
+BiCGstab:    51 iterations, <r,r> = 4.555093e-04, |r|/|b| = 3.567012e-05
+BiCGstab:    52 iterations, <r,r> = 3.297276e-04, |r|/|b| = 3.034825e-05
+BiCGstab:    53 iterations, <r,r> = 8.849174e-04, |r|/|b| = 4.971727e-05
+BiCGstab:    54 iterations, <r,r> = 1.050694e-03, |r|/|b| = 5.417439e-05
+BiCGstab:    55 iterations, <r,r> = 5.646627e-05, |r|/|b| = 1.255887e-05
+BiCGstab:    56 iterations, <r,r> = 4.733078e-05, |r|/|b| = 1.149814e-05
+BiCGstab:    57 iterations, <r,r> = 5.418117e-05, |r|/|b| = 1.230212e-05
+BiCGstab:    58 iterations, <r,r> = 5.354978e-05, |r|/|b| = 1.223023e-05
+BiCGstab:    59 iterations, <r,r> = 3.667559e-05, |r|/|b| = 1.012149e-05
+BiCGstab:    60 iterations, <r,r> = 2.826750e-04, |r|/|b| = 2.809957e-05
+BiCGstab:    61 iterations, <r,r> = 2.283627e-05, |r|/|b| = 7.986721e-06
+BiCGstab:    62 iterations, <r,r> = 1.910462e-05, |r|/|b| = 7.305082e-06
+BiCGstab:    63 iterations, <r,r> = 1.459688e-05, |r|/|b| = 6.385369e-06
+BiCGstab:    64 iterations, <r,r> = 1.590872e-05, |r|/|b| = 6.666126e-06
+BiCGstab:    65 iterations, <r,r> = 1.144487e-05, |r|/|b| = 5.654072e-06
+BiCGstab:    66 iterations, <r,r> = 8.993651e-06, |r|/|b| = 5.012149e-06
+BiCGstab:    67 iterations, <r,r> = 7.964597e-06, |r|/|b| = 4.716696e-06
+BiCGstab:    68 iterations, <r,r> = 6.542947e-06, |r|/|b| = 4.275064e-06
+BiCGstab:    69 iterations, <r,r> = 6.567235e-06, |r|/|b| = 4.282992e-06
+BiCGstab:    70 iterations, <r,r> = 5.037706e-06, |r|/|b| = 3.751218e-06
+BiCGstab:    71 iterations, <r,r> = 4.787018e-06, |r|/|b| = 3.656693e-06
+BiCGstab:    72 iterations, <r,r> = 5.179753e-06, |r|/|b| = 3.803737e-06
+BiCGstab:    73 iterations, <r,r> = 7.433968e-06, |r|/|b| = 4.556866e-06
+BiCGstab:    74 iterations, <r,r> = 6.027293e-06, |r|/|b| = 4.103147e-06
+BiCGstab:    75 iterations, <r,r> = 4.793379e-06, |r|/|b| = 3.659121e-06
+BiCGstab:    76 iterations, <r,r> = 4.129369e-06, |r|/|b| = 3.396235e-06
+BiCGstab:    77 iterations, <r,r> = 3.000176e-06, |r|/|b| = 2.894871e-06
+BiCGstab:    78 iterations, <r,r> = 2.160943e-06, |r|/|b| = 2.456844e-06
+BiCGstab:    79 iterations, <r,r> = 1.198485e-05, |r|/|b| = 5.785916e-06
+BiCGstab:    80 iterations, <r,r> = 1.159275e-06, |r|/|b| = 1.799489e-06
+BiCGstab:    81 iterations, <r,r> = 9.537261e-07, |r|/|b| = 1.632179e-06
+BiCGstab:    82 iterations, <r,r> = 2.298300e-06, |r|/|b| = 2.533724e-06
+BiCGstab:    83 iterations, <r,r> = 1.361525e-06, |r|/|b| = 1.950153e-06
+BiCGstab:    84 iterations, <r,r> = 1.129121e-06, |r|/|b| = 1.775932e-06
+BiCGstab:    85 iterations, <r,r> = 8.218289e-07, |r|/|b| = 1.515119e-06
+BiCGstab:    86 iterations, <r,r> = 6.633625e-07, |r|/|b| = 1.361230e-06
+BiCGstab:    87 iterations, <r,r> = 1.967496e-06, |r|/|b| = 2.344298e-06
+BiCGstab:    88 iterations, <r,r> = 2.077356e-07, |r|/|b| = 7.617481e-07
+BiCGstab: Reliable updates = 2
+BiCGstab: Convergence at 88 iterations, L2 relative residual: iterated = 7.652875e-07, true = 7.652875e-07 (requested = 1.000000e-06)
+Solution = 390946
+Reconstructed Solution = 782064
+Source: 9.43976e+06
+Prepared: source = 358004, solution = 0
+Creating a BiCGstab solver
+BiCGstab:     0 iterations, <r,r> = 3.580042e+05, |r|/|b| = 1.000000e+00
+BiCGstab:     1 iterations, <r,r> = 9.128348e+03, |r|/|b| = 1.596806e-01
+BiCGstab:     2 iterations, <r,r> = 1.305837e+04, |r|/|b| = 1.909855e-01
+BiCGstab:     3 iterations, <r,r> = 1.382618e+03, |r|/|b| = 6.214513e-02
+BiCGstab:     4 iterations, <r,r> = 8.307261e+02, |r|/|b| = 4.817091e-02
+BiCGstab:     5 iterations, <r,r> = 1.028480e+03, |r|/|b| = 5.359865e-02
+BiCGstab:     6 iterations, <r,r> = 2.145104e+02, |r|/|b| = 2.447823e-02
+BiCGstab:     7 iterations, <r,r> = 1.354278e+02, |r|/|b| = 1.944957e-02
+BiCGstab:     8 iterations, <r,r> = 9.479323e+01, |r|/|b| = 1.627214e-02
+BiCGstab:     9 iterations, <r,r> = 4.200160e+01, |r|/|b| = 1.083151e-02
+BiCGstab:    10 iterations, <r,r> = 3.475896e+01, |r|/|b| = 9.853473e-03
+BiCGstab:    11 iterations, <r,r> = 4.109981e+01, |r|/|b| = 1.071460e-02
+BiCGstab:    12 iterations, <r,r> = 4.001112e+01, |r|/|b| = 1.057174e-02
+BiCGstab:    13 iterations, <r,r> = 1.065529e+01, |r|/|b| = 5.455552e-03
+BiCGstab:    14 iterations, <r,r> = 1.158126e+01, |r|/|b| = 5.687663e-03
+BiCGstab:    15 iterations, <r,r> = 2.823621e+00, |r|/|b| = 2.808401e-03
+BiCGstab:    16 iterations, <r,r> = 1.979718e+00, |r|/|b| = 2.351568e-03
+BiCGstab:    17 iterations, <r,r> = 1.424931e+00, |r|/|b| = 1.995046e-03
+BiCGstab:    18 iterations, <r,r> = 1.091333e+00, |r|/|b| = 1.745962e-03
+BiCGstab:    19 iterations, <r,r> = 8.514144e-01, |r|/|b| = 1.542149e-03
+BiCGstab:    20 iterations, <r,r> = 7.514411e-01, |r|/|b| = 1.448783e-03
+BiCGstab:    21 iterations, <r,r> = 1.147439e+00, |r|/|b| = 1.790279e-03
+BiCGstab:    22 iterations, <r,r> = 1.372408e+00, |r|/|b| = 1.957932e-03
+BiCGstab:    23 iterations, <r,r> = 1.330411e+00, |r|/|b| = 1.927742e-03
+BiCGstab:    24 iterations, <r,r> = 2.165952e-01, |r|/|b| = 7.778221e-04
+BiCGstab:    25 iterations, <r,r> = 1.392839e-01, |r|/|b| = 6.237439e-04
+BiCGstab:    26 iterations, <r,r> = 8.772685e-02, |r|/|b| = 4.950194e-04
+BiCGstab:    27 iterations, <r,r> = 9.182206e-02, |r|/|b| = 5.064417e-04
+BiCGstab:    28 iterations, <r,r> = 5.732892e-02, |r|/|b| = 4.001684e-04
+BiCGstab:    29 iterations, <r,r> = 7.091008e-02, |r|/|b| = 4.450512e-04
+BiCGstab:    30 iterations, <r,r> = 3.773388e-02, |r|/|b| = 3.246547e-04
+BiCGstab:    31 iterations, <r,r> = 9.431944e-02, |r|/|b| = 5.132826e-04
+BiCGstab:    32 iterations, <r,r> = 4.554838e-02, |r|/|b| = 3.566912e-04
+BiCGstab:    33 iterations, <r,r> = 1.799522e-02, |r|/|b| = 2.241994e-04
+BiCGstab:    34 iterations, <r,r> = 1.538843e-02, |r|/|b| = 2.073257e-04
+BiCGstab:    35 iterations, <r,r> = 1.293000e-02, |r|/|b| = 1.900445e-04
+BiCGstab:    36 iterations, <r,r> = 1.294444e-02, |r|/|b| = 1.901506e-04
+BiCGstab:    37 iterations, <r,r> = 1.080040e-02, |r|/|b| = 1.736904e-04
+BiCGstab:    38 iterations, <r,r> = 9.781302e-03, |r|/|b| = 1.652929e-04
+BiCGstab:    39 iterations, <r,r> = 1.216862e-02, |r|/|b| = 1.843642e-04
+BiCGstab:    40 iterations, <r,r> = 1.501969e+00, |r|/|b| = 2.048266e-03
+BiCGstab:    41 iterations, <r,r> = 1.530536e-03, |r|/|b| = 6.538493e-05
+BiCGstab:    42 iterations, <r,r> = 1.367637e-03, |r|/|b| = 6.180753e-05
+BiCGstab:    43 iterations, <r,r> = 1.354817e-03, |r|/|b| = 6.151716e-05
+BiCGstab:    44 iterations, <r,r> = 1.618533e-03, |r|/|b| = 6.723830e-05
+BiCGstab:    45 iterations, <r,r> = 1.054720e-03, |r|/|b| = 5.427810e-05
+BiCGstab:    46 iterations, <r,r> = 8.982176e-04, |r|/|b| = 5.008950e-05
+BiCGstab:    47 iterations, <r,r> = 7.313441e-04, |r|/|b| = 4.519775e-05
+BiCGstab:    48 iterations, <r,r> = 5.467585e-04, |r|/|b| = 3.907992e-05
+BiCGstab:    49 iterations, <r,r> = 4.776895e-04, |r|/|b| = 3.652824e-05
+BiCGstab:    50 iterations, <r,r> = 4.917783e-04, |r|/|b| = 3.706300e-05
+BiCGstab:    51 iterations, <r,r> = 4.555093e-04, |r|/|b| = 3.567012e-05
+BiCGstab:    52 iterations, <r,r> = 3.297276e-04, |r|/|b| = 3.034825e-05
+BiCGstab:    53 iterations, <r,r> = 8.849174e-04, |r|/|b| = 4.971727e-05
+BiCGstab:    54 iterations, <r,r> = 1.050694e-03, |r|/|b| = 5.417439e-05
+BiCGstab:    55 iterations, <r,r> = 5.646627e-05, |r|/|b| = 1.255887e-05
+BiCGstab:    56 iterations, <r,r> = 4.733078e-05, |r|/|b| = 1.149814e-05
+BiCGstab:    57 iterations, <r,r> = 5.418117e-05, |r|/|b| = 1.230212e-05
+BiCGstab:    58 iterations, <r,r> = 5.354978e-05, |r|/|b| = 1.223023e-05
+BiCGstab:    59 iterations, <r,r> = 3.667559e-05, |r|/|b| = 1.012149e-05
+BiCGstab:    60 iterations, <r,r> = 2.826750e-04, |r|/|b| = 2.809957e-05
+BiCGstab:    61 iterations, <r,r> = 2.283627e-05, |r|/|b| = 7.986721e-06
+BiCGstab:    62 iterations, <r,r> = 1.910462e-05, |r|/|b| = 7.305082e-06
+BiCGstab:    63 iterations, <r,r> = 1.459688e-05, |r|/|b| = 6.385369e-06
+BiCGstab:    64 iterations, <r,r> = 1.590872e-05, |r|/|b| = 6.666126e-06
+BiCGstab:    65 iterations, <r,r> = 1.144487e-05, |r|/|b| = 5.654072e-06
+BiCGstab:    66 iterations, <r,r> = 8.993651e-06, |r|/|b| = 5.012149e-06
+BiCGstab:    67 iterations, <r,r> = 7.964597e-06, |r|/|b| = 4.716696e-06
+BiCGstab:    68 iterations, <r,r> = 6.542947e-06, |r|/|b| = 4.275064e-06
+BiCGstab:    69 iterations, <r,r> = 6.567235e-06, |r|/|b| = 4.282992e-06
+BiCGstab:    70 iterations, <r,r> = 5.037706e-06, |r|/|b| = 3.751218e-06
+BiCGstab:    71 iterations, <r,r> = 4.787018e-06, |r|/|b| = 3.656693e-06
+BiCGstab:    72 iterations, <r,r> = 5.179753e-06, |r|/|b| = 3.803737e-06
+BiCGstab:    73 iterations, <r,r> = 7.433968e-06, |r|/|b| = 4.556866e-06
+BiCGstab:    74 iterations, <r,r> = 6.027293e-06, |r|/|b| = 4.103147e-06
+BiCGstab:    75 iterations, <r,r> = 4.793379e-06, |r|/|b| = 3.659121e-06
+BiCGstab:    76 iterations, <r,r> = 4.129369e-06, |r|/|b| = 3.396235e-06
+BiCGstab:    77 iterations, <r,r> = 3.000176e-06, |r|/|b| = 2.894871e-06
+BiCGstab:    78 iterations, <r,r> = 2.160943e-06, |r|/|b| = 2.456844e-06
+BiCGstab:    79 iterations, <r,r> = 1.198485e-05, |r|/|b| = 5.785916e-06
+BiCGstab:    80 iterations, <r,r> = 1.159275e-06, |r|/|b| = 1.799489e-06
+BiCGstab:    81 iterations, <r,r> = 9.537261e-07, |r|/|b| = 1.632179e-06
+BiCGstab:    82 iterations, <r,r> = 2.298300e-06, |r|/|b| = 2.533724e-06
+BiCGstab:    83 iterations, <r,r> = 1.361525e-06, |r|/|b| = 1.950153e-06
+BiCGstab:    84 iterations, <r,r> = 1.129121e-06, |r|/|b| = 1.775932e-06
+BiCGstab:    85 iterations, <r,r> = 8.218289e-07, |r|/|b| = 1.515119e-06
+BiCGstab:    86 iterations, <r,r> = 6.633625e-07, |r|/|b| = 1.361230e-06
+BiCGstab:    87 iterations, <r,r> = 1.967496e-06, |r|/|b| = 2.344298e-06
+BiCGstab:    88 iterations, <r,r> = 2.077356e-07, |r|/|b| = 7.617481e-07
+BiCGstab: Reliable updates = 2
+BiCGstab: Convergence at 88 iterations, L2 relative residual: iterated = 7.652875e-07, true = 7.652875e-07 (requested = 1.000000e-06)
+Solution = 390946
+Reconstructed Solution = 782064
+Source: 9.43976e+06
+Prepared: source = 358004, solution = 0
+Creating a BiCGstab solver
+BiCGstab:     0 iterations, <r,r> = 3.580042e+05, |r|/|b| = 1.000000e+00
+BiCGstab:     1 iterations, <r,r> = 9.128348e+03, |r|/|b| = 1.596806e-01
+BiCGstab:     2 iterations, <r,r> = 1.305837e+04, |r|/|b| = 1.909855e-01
+BiCGstab:     3 iterations, <r,r> = 1.382618e+03, |r|/|b| = 6.214513e-02
+BiCGstab:     4 iterations, <r,r> = 8.307261e+02, |r|/|b| = 4.817091e-02
+BiCGstab:     5 iterations, <r,r> = 1.028480e+03, |r|/|b| = 5.359865e-02
+BiCGstab:     6 iterations, <r,r> = 2.145104e+02, |r|/|b| = 2.447823e-02
+BiCGstab:     7 iterations, <r,r> = 1.354278e+02, |r|/|b| = 1.944957e-02
+BiCGstab:     8 iterations, <r,r> = 9.479323e+01, |r|/|b| = 1.627214e-02
+BiCGstab:     9 iterations, <r,r> = 4.200160e+01, |r|/|b| = 1.083151e-02
+BiCGstab:    10 iterations, <r,r> = 3.475896e+01, |r|/|b| = 9.853473e-03
+BiCGstab:    11 iterations, <r,r> = 4.109981e+01, |r|/|b| = 1.071460e-02
+BiCGstab:    12 iterations, <r,r> = 4.001112e+01, |r|/|b| = 1.057174e-02
+BiCGstab:    13 iterations, <r,r> = 1.065529e+01, |r|/|b| = 5.455552e-03
+BiCGstab:    14 iterations, <r,r> = 1.158126e+01, |r|/|b| = 5.687663e-03
+BiCGstab:    15 iterations, <r,r> = 2.823621e+00, |r|/|b| = 2.808401e-03
+BiCGstab:    16 iterations, <r,r> = 1.979718e+00, |r|/|b| = 2.351568e-03
+BiCGstab:    17 iterations, <r,r> = 1.424931e+00, |r|/|b| = 1.995046e-03
+BiCGstab:    18 iterations, <r,r> = 1.091333e+00, |r|/|b| = 1.745962e-03
+BiCGstab:    19 iterations, <r,r> = 8.514144e-01, |r|/|b| = 1.542149e-03
+BiCGstab:    20 iterations, <r,r> = 7.514411e-01, |r|/|b| = 1.448783e-03
+BiCGstab:    21 iterations, <r,r> = 1.147439e+00, |r|/|b| = 1.790279e-03
+BiCGstab:    22 iterations, <r,r> = 1.372408e+00, |r|/|b| = 1.957932e-03
+BiCGstab:    23 iterations, <r,r> = 1.330411e+00, |r|/|b| = 1.927742e-03
+BiCGstab:    24 iterations, <r,r> = 2.165952e-01, |r|/|b| = 7.778221e-04
+BiCGstab:    25 iterations, <r,r> = 1.392839e-01, |r|/|b| = 6.237439e-04
+BiCGstab:    26 iterations, <r,r> = 8.772685e-02, |r|/|b| = 4.950194e-04
+BiCGstab:    27 iterations, <r,r> = 9.182206e-02, |r|/|b| = 5.064417e-04
+BiCGstab:    28 iterations, <r,r> = 5.732892e-02, |r|/|b| = 4.001684e-04
+BiCGstab:    29 iterations, <r,r> = 7.091008e-02, |r|/|b| = 4.450512e-04
+BiCGstab:    30 iterations, <r,r> = 3.773388e-02, |r|/|b| = 3.246547e-04
+BiCGstab:    31 iterations, <r,r> = 9.431944e-02, |r|/|b| = 5.132826e-04
+BiCGstab:    32 iterations, <r,r> = 4.554838e-02, |r|/|b| = 3.566912e-04
+BiCGstab:    33 iterations, <r,r> = 1.799522e-02, |r|/|b| = 2.241994e-04
+BiCGstab:    34 iterations, <r,r> = 1.538843e-02, |r|/|b| = 2.073257e-04
+BiCGstab:    35 iterations, <r,r> = 1.293000e-02, |r|/|b| = 1.900445e-04
+BiCGstab:    36 iterations, <r,r> = 1.294444e-02, |r|/|b| = 1.901506e-04
+BiCGstab:    37 iterations, <r,r> = 1.080040e-02, |r|/|b| = 1.736904e-04
+BiCGstab:    38 iterations, <r,r> = 9.781302e-03, |r|/|b| = 1.652929e-04
+BiCGstab:    39 iterations, <r,r> = 1.216862e-02, |r|/|b| = 1.843642e-04
+BiCGstab:    40 iterations, <r,r> = 1.501969e+00, |r|/|b| = 2.048266e-03
+BiCGstab:    41 iterations, <r,r> = 1.530536e-03, |r|/|b| = 6.538493e-05
+BiCGstab:    42 iterations, <r,r> = 1.367637e-03, |r|/|b| = 6.180753e-05
+BiCGstab:    43 iterations, <r,r> = 1.354817e-03, |r|/|b| = 6.151716e-05
+BiCGstab:    44 iterations, <r,r> = 1.618533e-03, |r|/|b| = 6.723830e-05
+BiCGstab:    45 iterations, <r,r> = 1.054720e-03, |r|/|b| = 5.427810e-05
+BiCGstab:    46 iterations, <r,r> = 8.982176e-04, |r|/|b| = 5.008950e-05
+BiCGstab:    47 iterations, <r,r> = 7.313441e-04, |r|/|b| = 4.519775e-05
+BiCGstab:    48 iterations, <r,r> = 5.467585e-04, |r|/|b| = 3.907992e-05
+BiCGstab:    49 iterations, <r,r> = 4.776895e-04, |r|/|b| = 3.652824e-05
+BiCGstab:    50 iterations, <r,r> = 4.917783e-04, |r|/|b| = 3.706300e-05
+BiCGstab:    51 iterations, <r,r> = 4.555093e-04, |r|/|b| = 3.567012e-05
+BiCGstab:    52 iterations, <r,r> = 3.297276e-04, |r|/|b| = 3.034825e-05
+BiCGstab:    53 iterations, <r,r> = 8.849174e-04, |r|/|b| = 4.971727e-05
+BiCGstab:    54 iterations, <r,r> = 1.050694e-03, |r|/|b| = 5.417439e-05
+BiCGstab:    55 iterations, <r,r> = 5.646627e-05, |r|/|b| = 1.255887e-05
+BiCGstab:    56 iterations, <r,r> = 4.733078e-05, |r|/|b| = 1.149814e-05
+BiCGstab:    57 iterations, <r,r> = 5.418117e-05, |r|/|b| = 1.230212e-05
+BiCGstab:    58 iterations, <r,r> = 5.354978e-05, |r|/|b| = 1.223023e-05
+BiCGstab:    59 iterations, <r,r> = 3.667559e-05, |r|/|b| = 1.012149e-05
+BiCGstab:    60 iterations, <r,r> = 2.826750e-04, |r|/|b| = 2.809957e-05
+BiCGstab:    61 iterations, <r,r> = 2.283627e-05, |r|/|b| = 7.986721e-06
+BiCGstab:    62 iterations, <r,r> = 1.910462e-05, |r|/|b| = 7.305082e-06
+BiCGstab:    63 iterations, <r,r> = 1.459688e-05, |r|/|b| = 6.385369e-06
+BiCGstab:    64 iterations, <r,r> = 1.590872e-05, |r|/|b| = 6.666126e-06
+BiCGstab:    65 iterations, <r,r> = 1.144487e-05, |r|/|b| = 5.654072e-06
+BiCGstab:    66 iterations, <r,r> = 8.993651e-06, |r|/|b| = 5.012149e-06
+BiCGstab:    67 iterations, <r,r> = 7.964597e-06, |r|/|b| = 4.716696e-06
+BiCGstab:    68 iterations, <r,r> = 6.542947e-06, |r|/|b| = 4.275064e-06
+BiCGstab:    69 iterations, <r,r> = 6.567235e-06, |r|/|b| = 4.282992e-06
+BiCGstab:    70 iterations, <r,r> = 5.037706e-06, |r|/|b| = 3.751218e-06
+BiCGstab:    71 iterations, <r,r> = 4.787018e-06, |r|/|b| = 3.656693e-06
+BiCGstab:    72 iterations, <r,r> = 5.179753e-06, |r|/|b| = 3.803737e-06
+BiCGstab:    73 iterations, <r,r> = 7.433968e-06, |r|/|b| = 4.556866e-06
+BiCGstab:    74 iterations, <r,r> = 6.027293e-06, |r|/|b| = 4.103147e-06
+BiCGstab:    75 iterations, <r,r> = 4.793379e-06, |r|/|b| = 3.659121e-06
+BiCGstab:    76 iterations, <r,r> = 4.129369e-06, |r|/|b| = 3.396235e-06
+BiCGstab:    77 iterations, <r,r> = 3.000176e-06, |r|/|b| = 2.894871e-06
+BiCGstab:    78 iterations, <r,r> = 2.160943e-06, |r|/|b| = 2.456844e-06
+BiCGstab:    79 iterations, <r,r> = 1.198485e-05, |r|/|b| = 5.785916e-06
+BiCGstab:    80 iterations, <r,r> = 1.159275e-06, |r|/|b| = 1.799489e-06
+BiCGstab:    81 iterations, <r,r> = 9.537261e-07, |r|/|b| = 1.632179e-06
+BiCGstab:    82 iterations, <r,r> = 2.298300e-06, |r|/|b| = 2.533724e-06
+BiCGstab:    83 iterations, <r,r> = 1.361525e-06, |r|/|b| = 1.950153e-06
+BiCGstab:    84 iterations, <r,r> = 1.129121e-06, |r|/|b| = 1.775932e-06
+BiCGstab:    85 iterations, <r,r> = 8.218289e-07, |r|/|b| = 1.515119e-06
+BiCGstab:    86 iterations, <r,r> = 6.633625e-07, |r|/|b| = 1.361230e-06
+BiCGstab:    87 iterations, <r,r> = 1.967496e-06, |r|/|b| = 2.344298e-06
+BiCGstab:    88 iterations, <r,r> = 2.077356e-07, |r|/|b| = 7.617481e-07
+BiCGstab: Reliable updates = 2
+BiCGstab: Convergence at 88 iterations, L2 relative residual: iterated = 7.652875e-07, true = 7.652875e-07 (requested = 1.000000e-06)
+Solution = 390946
+Reconstructed Solution = 782064
