@@ -36,6 +36,11 @@ SLIDE_DIR = ASSET_DIR / "slides"
 PPTX_PATH = DOCS / "High-Performance Implementation of Multigrid Solver for Lattice QCD.pptx"
 PDF_PATH = DOCS / "High-Performance Implementation of Multigrid Solver for Lattice QCD_presentation.pdf"
 NOTES_PATH = DOCS / "High-Performance Implementation of Multigrid Solver for Lattice QCD_speaker_notes.md"
+ALG_BICGSTAB = ASSET_DIR / "algorithm_build" / "algorithm_bicgstab.png"
+ALG_VFGMRES = ASSET_DIR / "algorithm_build" / "algorithm_vcycle_fgmres.png"
+REPORT_508_IMAGE25 = (
+    DOCS / "张鑫 508应用测试报告-PyQCU" / "word" / "media" / "image25.png"
+)
 PERF_DIR = ROOT / "data" / "report_multigrid_comprehensive_20260928" / "final_protocol"
 UNITS_CSV = PERF_DIR / "units.csv"
 STAGES_CSV = PERF_DIR / "stages.csv"
@@ -329,6 +334,16 @@ class Slide:
         )
         self.ax.add_patch(patch)
 
+    def image(self, path: Path, x: float, y: float, w: float, h: float) -> None:
+        image = plt.imread(path)
+        self.ax.imshow(
+            image,
+            extent=[x, x + w, y, y + h],
+            aspect="auto",
+            interpolation="lanczos",
+            zorder=3,
+        )
+
     def footer(self, source: str, page: int | None = None) -> None:
         page = self.number if page is None else page
         self.ax.plot([0.045, 0.955], [0.052, 0.052], color=GRID, linewidth=0.8, zorder=1)
@@ -357,6 +372,57 @@ def add_kpi(
     slide.box(x, y, w, h, face=LIGHT, edge=WHITE)
     slide.text(x + 0.018, y + h - 0.042, value, size=value_size, color=accent, weight="bold")
     slide.text(x + 0.018, y + 0.026, label, size=11.2, color=MUTED)
+
+
+def draw_508_strong_scaling(slide: Slide, x: float, y: float, w: float, h: float) -> None:
+    axis = slide.ax.inset_axes([x, y, w, h])
+    processes = [64, 128, 256, 512, 1024]
+    wilson = [1.000, 1.451, 2.001, 4.739, 3.119]
+    clover = [1.000, 1.657, 2.687, 4.670, 7.193]
+    axis.plot(processes, wilson, marker="o", color=BLUE, linewidth=2.0, label="Wilson")
+    axis.plot(processes, clover, marker="^", color=CORAL, linewidth=2.0, label="Clover")
+    axis.fill_between(processes, wilson, clover, color=PALE_BLUE, alpha=0.45, zorder=0)
+    axis.scatter([1024], [7.193], s=70, facecolors="white", edgecolors=CORAL, linewidths=1.5, zorder=4)
+    axis.annotate(
+        "7.19×",
+        (1024, 7.193),
+        xytext=(850, 7.6),
+        fontsize=10,
+        color=CORAL,
+        arrowprops={"arrowstyle": "-", "color": CORAL, "lw": 0.8},
+    )
+    axis.set_xscale("log", base=2)
+    axis.set_xticks(processes, [str(value) for value in processes])
+    axis.set_ylim(0.5, 8.2)
+    axis.set_xlabel("processes / threads", fontsize=9)
+    axis.set_ylabel("reported speedup", fontsize=9)
+    axis.grid(color=GRID, linewidth=0.6, alpha=0.7)
+    axis.tick_params(labelsize=9)
+    axis.legend(fontsize=9, ncol=2, loc="upper left", frameon=False)
+
+
+def draw_508_weak_scaling(slide: Slide, x: float, y: float, w: float, h: float) -> None:
+    axis = slide.ax.inset_axes([x, y, w, h])
+    volume = [524288, 1048576, 2097152, 4194304, 8388608]
+    delta = [14.166, 26.247, 58.044, 99.751, 112.188]
+    axis.plot(volume, delta, marker="s", color=TEAL, linewidth=2.1)
+    axis.fill_between(volume, 0, delta, color=PALE_TEAL, alpha=0.75, zorder=0)
+    axis.scatter(volume, delta, s=34, facecolors="white", edgecolors=TEAL, linewidths=1.3, zorder=4)
+    axis.set_xscale("log", base=2)
+    axis.set_xticks(volume, ["0.5M", "1M", "2M", "4M", "8M"])
+    axis.set_ylim(0, 125)
+    axis.set_xlabel("equivalent single-process volume", fontsize=9)
+    axis.set_ylabel("Clover-Wilson iteration (ms)", fontsize=9)
+    axis.grid(color=GRID, linewidth=0.6, alpha=0.7)
+    axis.tick_params(labelsize=9)
+    axis.annotate(
+        "112.2 ms",
+        (8388608, 112.188),
+        xytext=(1.1e6, 106),
+        fontsize=10,
+        color=TEAL,
+        arrowprops={"arrowstyle": "-", "color": TEAL, "lw": 0.8},
+    )
 
 
 def draw_flow(
@@ -685,82 +751,20 @@ def slide_05() -> Path:
 def slide_06() -> Path:
     s = Slide(
         6,
-        "格点 QCD 把 MG 变成“显存、setup、通信”共同约束的问题",
-        "物理上只有 12 个 onsite 自由度；数值上却必须覆盖超大规模的隐式稀疏复矩阵。",
-        "MultiGrid · difficulty",
+        "预条件 Bi-CGStab：粗层小系统与热启动的核心迭代",
+        "以 M 为预条件器；下表给出可直接核对的完整伪代码。",
+        "MultiGrid · algorithm 1",
     )
-    s.box(0.055, 0.57, 0.89, 0.22, face=PALE_CORAL, edge=WHITE)
-    s.text(0.08, 0.745, "完整粗矩阵不可存", size=18, color=CORAL, weight="bold")
-    s.formula(
-        0.08,
-        0.677,
-        r"$N_c\approx49{,}152,\quad E=24,\quad EN_c\approx1{,}179{,}648$",
-        size=22,
-        color=NAVY,
-    )
-    s.text(0.08, 0.596, "稠密矩阵 c64 ≈ 11.1 TB；c128 ≈ 22.3 TB。运行期只能存 block/stencil。", size=14, color=INK)
-    s.text(0.84, 0.745, r"$O((EN)^2)$", size=25, color=CORAL, weight="bold", ha="right")
-
-    s.card(
-        0.055,
-        0.33,
-        0.275,
-        0.20,
-        "算子是隐式的",
-        "D 只通过 matvec 出现。细层为最近邻，粗层为有限支撑 block；任何稠密化都不可行。",
-        accent=BLUE,
-        heading_size=15.5,
-        body_size=12,
-        wrap=27,
-    )
-    s.card(
-        0.362,
-        0.33,
-        0.275,
-        0.20,
-        "setup 是三次积链",
-        "null-vector -> local QR/P,R -> Galerkin -> X^-1/Yhat；还包含 probe、投影、缓存和显存峰值。",
-        accent=TEAL,
-        heading_size=15.5,
-        body_size=12,
-        wrap=27,
-    )
-    s.card(
-        0.67,
-        0.33,
-        0.275,
-        0.20,
-        "粗层是延迟问题",
-        "E 不大，但向量 halo、E² link halo、全局点积和 host/device 同步会主导单次 V-cycle。",
-        accent=AMBER,
-        heading_size=15.5,
-        body_size=12,
-        wrap=27,
-    )
-    s.box(0.055, 0.15, 0.89, 0.135, face=LIGHT, edge=WHITE)
-    s.text(
-        0.08,
-        0.247,
-        "为什么不能直接套用简易 quantum-mg：",
-        size=15,
-        color=NAVY,
-        weight="bold",
-    )
-    s.text(
-        0.08,
-        0.207,
-        wrap_text(
-            "Clover 非正规算子、检查板/MATPC、spin-color 粗变量、33 点或 full-coarse 资产语义、"
-            "多 rank halo，以及 GPU tiny-kernel 延迟，必须原生特化；否则“算法正确”仍可能没有端到端加速。",
-            72,
-        ),
-        size=12.2,
-        color=INK,
-        linespacing=1.24,
-    )
+    s.box(0.055, 0.705, 0.29, 0.09, face=PALE_BLUE, edge=WHITE)
+    s.formula(0.075, 0.75, r"$M^{-1}Ax=M^{-1}b$", size=18, color=BLUE)
+    s.box(0.355, 0.705, 0.29, 0.09, face=PALE_TEAL, edge=WHITE)
+    s.formula(0.375, 0.75, r"$M\hat p=p^{(i)},\quad M\hat s=s$", size=16.5, color=TEAL)
+    s.box(0.655, 0.705, 0.29, 0.09, face=PALE_AMBER, edge=WHITE)
+    s.formula(0.675, 0.75, r"$\omega_i=\frac{t^\dagger s}{t^\dagger t}$", size=18, color=AMBER)
+    s.image(ALG_BICGSTAB, 0.14, 0.12, 0.72, 0.57)
     s.footer(
-        "来源：docs/report_multigrid_optimized_20260927.tex:327-342；"
-        "docs/report_multigrid_quda_pyqcu_20260928.tex:305-344；当前 Strict 源码与测试。"
+        "算法语义：report_multigrid_quda_pyqcu_20260928.tex；实现："
+        "cpp/cuda/qcu/include/lattice_{wilson,clover}_bistabcg.h；当前粗层 BiCGStab 与 MR 回退路径。"
     )
     return s.save()
 
@@ -817,62 +821,54 @@ def slide_07() -> Path:
 def slide_08() -> Path:
     s = Slide(
         8,
-        "一次 MG 预条件由 MR、R、递归 V-cycle、P、MR 串联",
-        "外层是可容纳可变预条件器的右预条件 FGMRES；restart 边界刷新真残差。",
-        "PyQCU · execution",
+        "V-cycle 在里、FGMRES 在外：MG 预条件的算法闭环",
+        "左表给出递归预条件器，右表给出 flexible right-preconditioned GMRES。",
+        "PyQCU · algorithm 2",
     )
-    nodes = [
-        (0.06, 0.66, 0.10, 0.11, "Outer\nFGMRES"),
-        (0.20, 0.66, 0.10, 0.11, "Fine\nMR-pre"),
-        (0.34, 0.66, 0.10, 0.11, "Restrict\nR"),
-        (0.48, 0.66, 0.10, 0.11, "Recursive\nV-cycle"),
-        (0.62, 0.66, 0.10, 0.11, "Prolong\nP"),
-        (0.76, 0.66, 0.10, 0.11, "Fine\nMR-post"),
-        (0.90, 0.66, 0.07, 0.11, "True\nrefresh"),
-    ]
-    draw_flow(s, nodes, [(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (5, 6)], face=PALE_BLUE, edge=BLUE, size=11)
-    s.arrow((0.935, 0.655), (0.11, 0.655), color=AMBER, connectionstyle="arc3,rad=-0.30")
-    s.text(0.50, 0.805, "restart：刷新 full-operator 真残差", size=11.5, color=AMBER, weight="bold", ha="center")
-
-    s.box(0.055, 0.42, 0.43, 0.20, face=PALE_TEAL, edge=WHITE)
-    s.text(0.078, 0.58, "V-cycle 内部", size=17, color=TEAL, weight="bold")
-    s.text(0.08, 0.533, "pre-MR ν_1 -> restrict -> child solve -> prolong -> post-MR ν_2", size=13.2, color=INK)
-    s.formula(0.08, 0.473, r"$\alpha=\langle v,r\rangle/\langle v,v\rangle,\quad x\leftarrow x+\alpha r$", size=17)
-    s.text(0.08, 0.435, "最粗层使用 BiCGStab；中间层递归。", size=11.8, color=MUTED)
-
-    s.box(0.515, 0.42, 0.43, 0.20, face=PALE_AMBER, edge=WHITE)
-    s.text(0.538, 0.58, "右预条件 FGMRES", size=17, color=AMBER, weight="bold")
-    s.formula(0.54, 0.525, r"$z_j=M_j^{-1}v_j,\quad w_j=M_pz_j$", size=17.5)
-    s.formula(0.54, 0.472, r"$x\leftarrow x+\sum_jz_jy_j$", size=18)
-    s.text(0.54, 0.435, "每次 Arnoldi 列允许使用不同预条件器。", size=11.8, color=MUTED)
-
+    s.box(0.055, 0.70, 0.43, 0.095, face=PALE_BLUE, edge=WHITE)
+    s.formula(
+        0.075,
+        0.745,
+        r"$z_l=S_{\rm post}^{\nu_2}(S_{\rm pre}^{\nu_1}(r_l)+P_l M_{l+1}^{-1}R_l r_{l+1})$",
+        size=14.5,
+        color=BLUE,
+    )
+    s.box(0.515, 0.70, 0.43, 0.095, face=PALE_TEAL, edge=WHITE)
+    s.formula(
+        0.535,
+        0.745,
+        r"$z_j=M^{-1}v_j,\qquad x\leftarrow x+\sum_jz_jy_j$",
+        size=15.5,
+        color=TEAL,
+    )
+    s.image(ALG_VFGMRES, 0.055, 0.285, 0.89, 0.40)
     s.card(
         0.055,
-        0.17,
+        0.13,
         0.43,
-        0.21,
-        "计数口径",
-        "最细层迭代是外层 FGMRES 迭代；smoother 与 coarse solver 不相加为外层迭代。",
-        accent=BLUE,
-        heading_size=15,
-        body_size=12.4,
-        wrap=42,
+        0.12,
+        "迭代口径",
+        "最细层迭代只记外层 FGMRES；smoother 与 coarse solver 不相加。",
+        accent=AMBER,
+        heading_size=13.2,
+        body_size=10.8,
+        wrap=43,
     )
     s.card(
         0.515,
-        0.17,
+        0.13,
         0.43,
-        0.21,
-        "显存工作区",
-        "(2m+5)B_f+2B_c，B_f 为一个 compact fine 向量，B_c 为一个 full first-coarse 向量；首次调用后复用。",
-        accent=TEAL,
-        heading_size=15,
-        body_size=12.4,
-        wrap=42,
+        0.12,
+        "工作区",
+        "(2m+5)B_f+2B_c；相同几何与 restart 下跨 solve 复用。",
+        accent=CORAL,
+        heading_size=13.2,
+        body_size=10.8,
+        wrap=43,
     )
     s.footer(
         "来源：cpp/cuda/qcu/src/apply_multigrid_strict.cu:2926-3430,4579-4683；"
-        "skills/qcu/SKILL.md 的 fused FGMRES workspace 契约。"
+        "report_multigrid_quda_pyqcu_20260928.tex；skills/qcu/SKILL.md 的工作区契约。"
     )
     return s.save()
 
@@ -1332,8 +1328,8 @@ def slide_15() -> Path:
         0.17,
         0.43,
         0.18,
-        "证据目录",
-        "data/report_multigrid_comprehensive_20260928/final_protocol/{units,stages,references}.csv 与 report/*.svg/pdf",
+        "平台状态",
+        "CUDA C++ 已实测；Torch CPU 部分；DCU/CANN 历史或仿真；TileLang smoke；大规模数据见下一页。",
         accent=GREEN,
         heading_size=15.2,
         body_size=11.2,
@@ -1349,54 +1345,50 @@ def slide_15() -> Path:
 def slide_16() -> Path:
     s = Slide(
         16,
-        "适配与规模化：CUDA 路径证据最完整，其余平台需明确边界",
-        "历史适配、当前实测和未来扩展分开陈述，不把占位目录计入能力。",
-        "Supplement · platform",
+        "先前成果：508 报告完成 1024 进程规模的大格扩展测试",
+        "图表数据取自《张鑫 508应用测试报告-PyQCU》；用于展示早期 DCU 大规模成果，不与 test27 的 MG 速度比混合。",
+        "Prior results · 508 report",
     )
-    status = [
-        ["平台", "状态", "当前证据"],
-        ["CUDA-C++ / Torch CUDA", "已实测", "V100；双 P100；Strict MG"],
-        ["Torch CPU", "部分实测", "BiCGStab 与 CPU 代数回归"],
-        ["DCU / DTK", "历史/部分", "508 报告；C++ 当前未回归"],
-        ["CANN / NPU", "仿真/占位", "CPU force_use_npu；真机未验证"],
-        ["TileLang GPU / DCU", "smoke", "非 MG 主路径"],
-        ["千卡级 MPI", "未验证", "现证据止于 2/4 rank probe"],
-    ]
-    draw_box_grid(s, status, 0.055, 0.45, 0.56, 0.34)
-    s.box(0.65, 0.45, 0.295, 0.34, face=PALE_AMBER, edge=WHITE)
-    s.text(0.675, 0.75, "大规模测试口径", size=16.5, color=AMBER, weight="bold")
-    s.bullets(
-        0.675,
-        0.69,
-        [
-            "Strict 正式矩阵：V100 单卡、双 P100。",
-            "MPI preflight：1/2/4 rank，粗算子一致性 <1e-6 真残差。",
-            "508 报告：4×DCU 应用测试，MG 当时仍属前期验证。",
-            "当前仓库无可回指的千卡 Strict-MG 性能记录。",
-        ],
-        width=29,
-        size=11.5,
-        accent=AMBER,
-        gap=0.067,
-    )
-    s.box(0.055, 0.18, 0.89, 0.20, face=PALE_BLUE, edge=WHITE)
-    s.text(0.08, 0.33, "国产计算资源扩展的正确落点", size=15.5, color=BLUE, weight="bold")
+    add_kpi(s, 0.055, 0.705, 0.19, 0.115, "1024", "进程/线程规模", CORAL, 22)
+    add_kpi(s, 0.26, 0.705, 0.19, 0.115, "3.12×", "Wilson 报告加速比", BLUE, 22)
+    add_kpi(s, 0.465, 0.705, 0.19, 0.115, "7.19×", "Clover 报告加速比", TEAL, 22)
+    add_kpi(s, 0.67, 0.705, 0.275, 0.115, "≈2048 GiB", "64 卡池峰值估算", AMBER, 19)
+
+    draw_508_strong_scaling(s, 0.065, 0.40, 0.39, 0.255)
+    draw_508_weak_scaling(s, 0.505, 0.40, 0.44, 0.255)
     s.text(
         0.08,
-        0.282,
-        wrap_text(
-            "先复用 Python 算子与 ABI 回归，再逐层移植 CUDA-C++ kernel、halo 与 cuBLAS/MPI 依赖；"
-            "DCU/CANN 后端必须通过真残差、生命周期和性能 provenance，不以“可编译”替代“可生产”。",
-            69,
-        ),
-        size=11.8,
-        color=INK,
-        linespacing=1.24,
+        0.345,
+        "强扩展：64→1024；数据来自 TEST8/TEST9 汇总。",
+        size=10.7,
+        color=NAVY,
     )
-    s.text(0.08, 0.218, "现实优先级：NVIDIA CUDA 性能继续优化 > DCU/CANN 真机端到端 > TileLang 内核化 > 千卡级扩展验证。", size=11.7, color=CORAL, weight="bold")
+    s.text(
+        0.52,
+        0.345,
+        "弱扩展差异：Clover-Wilson 单次迭代耗时随等效体积增长。",
+        size=10.7,
+        color=NAVY,
+    )
+
+    s.image(REPORT_508_IMAGE25, 0.055, 0.185, 0.42, 0.125)
+    s.text(0.055, 0.32, "508 报告原始表：TEST9 强扩展数据", size=10.2, color=MUTED)
+    s.card(
+        0.505,
+        0.15,
+        0.44,
+        0.18,
+        "如何解读",
+        "该成果证明早期 DCU/CUDA 路径在多进程大格测试中具备正确性与扩展趋势；"
+        "但 MG 当时仍属前期验证，不能替代 test27 的 Strict-MG 正式对照。",
+        accent=AMBER,
+        heading_size=14.2,
+        body_size=10.9,
+        wrap=45,
+    )
     s.footer(
-        "来源：508 报告 word/document.xml §1.2,1.6；cpp/cann|dtk|maca/qcu/AGENTS.md；"
-        "pyqcu/testing/{dcu,npu,tilelang}；docs/report_multigrid_distributed_20260918.tex:563-580。"
+        "来源：docs/张鑫 508应用测试报告-PyQCU/word/document.xml §1.5-1.6 与原始表 image25.png；"
+        "环境：4×Pre-Wukong DCU、200Gb 网络、complex64/c128、Mass=0.05、tol(x_o)=1e-12。"
     )
     return s.save()
 
@@ -1464,14 +1456,14 @@ def build_notes() -> None:
 ## 5. 通用 MG（35 秒）
 null vector 近似低模，局部 QR 建 P/R，Galerkin 生成粗算子，V-cycle 作预条件器。
 
-## 6. QCD 特化困难（35 秒）
-完整粗矩阵约 TB 级不可存；setup 是多次 full-field matvec；粗层受 halo、点积和同步支配。
+## 6. 预条件 Bi-CGStab（35 秒）
+按表逐行说明 rho、p、v、alpha、s、omega 和 x 更新。强调预条件器 M 与热启动路径。
 
 ## 7. PyQCU Strict（35 秒）
 D=X+H、Dhat=X^-1 D、D_c=R Dhat P。细层 compact target parity，粗层 full X/Y/Yhat。
 
-## 8. 一次预条件（35 秒）
-MR → R → 递归 V-cycle → P → MR，外部右预条件 FGMRES。说明迭代不跨层相加。
+## 8. V-cycle 与 FGMRES（35 秒）
+左侧是递归 MG 预条件器，右侧是 flexible right-preconditioned GMRES。说明迭代不跨层相加。
 
 ## 9. CUDA-C++ 优化（40 秒）
 从寄存器、流融合、device scalar、CUDA Graph、setup/cache 讲到 MPI overlap；c128 默认回退。
@@ -1492,10 +1484,11 @@ PyQCU 记录中 coarse+other 主导；双 P100 大格 6 项容量替代，不能
 优势是 MG 专项、自主可控、显存；不足是总能力和通信成熟度；下一步聚焦粗层同步、通信和 setup。
 
 ## 15. 参考文献与复现（25 秒）
-列出 quantum-mg、QUDA、DDalphaAMG；快速闸门先于完整矩阵。
+列出 quantum-mg、QUDA、DDalphaAMG；快速闸门先于完整矩阵，并简述平台适配状态。
 
-## 16. 适配与规模化（25 秒）
-当前最强证据是 CUDA；DCU/CANN、真机 NPU、千卡级必须明确标为未验证或未来工作。
+## 16. 508 报告大规模测试（30 秒）
+展示 508 报告的 64→1024 进程强扩展曲线、弱扩展差异曲线和 TEST9 原始表。
+说明这是早期 DCU 路径成果，MG 当时仍属前期验证，不能与 test27 的 Strict-MG 速度比混合。
 
 ## 17. 致谢（10 秒）
 一句总结和一个明确行动项，然后进入问答。

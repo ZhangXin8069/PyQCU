@@ -1,0 +1,48 @@
+\documentclass[border=7pt,12pt]{standalone}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{array}
+
+\begin{document}
+\begin{minipage}{20cm}
+\renewcommand{\arraystretch}{1.28}
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.965\linewidth}@{}}
+\multicolumn{1}{@{}l}{\textbf{Algorithm 1}\quad Preconditioned Bi-CGStab:
+\(\text{solve }M^{-1}Ax=M^{-1}b\)}\\
+\toprule
+\(\mathbf{Input:}\; A,\;b,\;x^{(0)},\;M,\;\varepsilon\)\\
+\(r^{(0)}=b-Ax^{(0)}\)\\
+\(\tilde r=r^{(0)}\quad(\text{for example})\)\\
+\(\mathbf{for}\; i=1,2,\ldots\)\\
+\(\quad \rho_{i-1}=\tilde r^\dagger r^{(i-1)}\)\\
+\(\quad \mathbf{if}\;\rho_{i-1}=0\;\mathbf{then\;fail}\)\\
+\(\quad \mathbf{if}\;i=1\;\mathbf{then}\)\\
+\(\quad\quad p^{(1)}=r^{(0)}\)\\
+\(\quad \mathbf{else}\)\\
+\(\quad\quad \beta_{i-1}=
+ \dfrac{\alpha_{i-1}\rho_{i-1}}
+ {\omega_{i-1}\rho_{i-2}}\)\\
+\(\quad\quad p^{(i)}=r^{(i-1)}
+ +\beta_{i-1}\left(p^{(i-1)}-\omega_{i-1}v^{(i-1)}\right)\)\\
+\(\quad \mathbf{end\,if}\)\\
+\(\quad \text{solve }M\hat p=p^{(i)}\)\\
+\(\quad v^{(i)}=A\hat p\)\\
+\(\quad \alpha_i=
+ \dfrac{\rho_{i-1}}{\tilde r^\dagger v^{(i)}}\)\\
+\(\quad s=r^{(i-1)}-\alpha_i v^{(i)}\)\\
+\(\quad \mathbf{if}\;\|s\|/\|b\|\le\varepsilon\;\mathbf{then}\)\\
+\(\quad\quad x^{(i)}=x^{(i-1)}+\alpha_i\hat p;\;
+ \mathbf{stop}\)\\
+\(\quad \mathbf{end\,if}\)\\
+\(\quad \text{solve }M\hat s=s\)\\
+\(\quad t=A\hat s\)\\
+\(\quad \omega_i=
+ \dfrac{t^\dagger s}{t^\dagger t}\)\\
+\(\quad r^{(i)}=s-\omega_i t\)\\
+\(\quad x^{(i)}=x^{(i-1)}
+ +\alpha_i\hat p+\omega_i\hat s\)\\
+\(\mathbf{end\,for}\)\\
+\bottomrule
+\end{tabular}
+\end{minipage}
+\end{document}
