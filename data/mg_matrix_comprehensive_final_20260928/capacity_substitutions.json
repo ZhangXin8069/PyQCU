@@ -1,0 +1,68 @@
+{
+  "schema": "pyqcu.mg-capacity-substitution/v1",
+  "created_at": "2026-09-28",
+  "requested_device": "p100",
+  "requested_precision": "c64",
+  "requested_lattice": [
+    16,
+    32,
+    32,
+    48
+  ],
+  "effective_lattice": [
+    16,
+    16,
+    16,
+    16
+  ],
+  "reason": "The requested dual-P100 c64 case exceeded the 85% device-memory guard without extended staging (15.9 GiB of 16.0 GiB), remained above it with PYQCU_MPI_OVERLAP=0 (14.8 GiB), and the extended CPU-staging setup reduced the peak to about 12.4 GiB but still exceeded the 570 s per-unit timeout.",
+  "evidence": [
+    {
+      "attempt": "default overlap",
+      "observed_peak_bytes_per_gpu": 15987000000,
+      "device_total_bytes": 17179869184,
+      "status": "aborted_resource_guard"
+    },
+    {
+      "attempt": "PYQCU_MPI_OVERLAP=0",
+      "observed_peak_bytes_per_gpu": 14802000000,
+      "device_total_bytes": 17179869184,
+      "status": "aborted_resource_guard"
+    },
+    {
+      "attempt": "smoke extended cache build",
+      "workspace_budget_bytes": 2147483648,
+      "observed_peak_bytes_per_gpu": 12436000000,
+      "device_total_bytes": 17179869184,
+      "status": "timeout",
+      "timeout_seconds": 570
+    }
+  ],
+  "substitutions": [
+    {
+      "requested_unit_id": "p100__16x32x32x48__c64__l1__trace-off",
+      "effective_unit_id": "p100__16x16x16x16__c64__l1__trace-off"
+    },
+    {
+      "requested_unit_id": "p100__16x32x32x48__c64__l1__trace-on",
+      "effective_unit_id": "p100__16x16x16x16__c64__l1__trace-on"
+    },
+    {
+      "requested_unit_id": "p100__16x32x32x48__c64__l2__trace-off",
+      "effective_unit_id": "p100__16x16x16x16__c64__l2__trace-off"
+    },
+    {
+      "requested_unit_id": "p100__16x32x32x48__c64__l2__trace-on",
+      "effective_unit_id": "p100__16x16x16x16__c64__l2__trace-on"
+    },
+    {
+      "requested_unit_id": "p100__16x32x32x48__c64__l3__trace-off",
+      "effective_unit_id": "p100__16x16x16x16__c64__l3__trace-off"
+    },
+    {
+      "requested_unit_id": "p100__16x32x32x48__c64__l3__trace-on",
+      "effective_unit_id": "p100__16x16x16x16__c64__l3__trace-on"
+    }
+  ],
+  "fairness_note": "The substituted records are capacity and trend evidence only. They must not be presented as exact 16x32x32x48 speedup values."
+}

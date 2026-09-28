@@ -1,0 +1,15 @@
+{
+  "status": "pass",
+  "expected_units": 66,
+  "combined_units": 66,
+  "fair_units": 66,
+  "config_hash_matches": 66,
+  "input_bundle_matches": 66,
+  "residual_passes": 66,
+  "reference_warmup_contract_matches": 66,
+  "mg_units": 44,
+  "mg_wins": 35,
+  "mg_losses": 9,
+  "mg_ratio_median": 1.391044254808712,
+  "errors": []
+}

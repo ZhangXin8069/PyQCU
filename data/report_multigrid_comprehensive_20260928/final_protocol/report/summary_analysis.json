@@ -1,0 +1,1080 @@
+{
+  "schema": {
+    "name": "pyqcu.mg-report-analysis",
+    "version": 1
+  },
+  "inputs": [
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/p100__16x16x16x16__c128__l1__trace-off.json",
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/p100__16x16x16x16__c128__l1__trace-on.json",
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/p100__16x16x16x16__c128__l2__trace-off.json",
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/p100__16x16x16x16__c128__l2__trace-on.json",
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/p100__16x16x16x16__c128__l3__trace-off.json",
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/p100__16x16x16x16__c128__l3__trace-on.json",
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/p100__16x16x16x16__c64__l1__trace-off.json",
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/p100__16x16x16x16__c64__l1__trace-on.json",
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/p100__16x16x16x16__c64__l2__trace-off.json",
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/p100__16x16x16x16__c64__l2__trace-on.json",
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/p100__16x16x16x16__c64__l3__trace-off.json",
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/p100__16x16x16x16__c64__l3__trace-on.json",
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/p100__16x16x32x32__c128__l1__trace-off.json",
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/p100__16x16x32x32__c128__l1__trace-on.json",
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/p100__16x16x32x32__c128__l2__trace-off.json",
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/p100__16x16x32x32__c128__l2__trace-on.json",
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/p100__16x16x32x32__c128__l3__trace-off.json",
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/p100__16x16x32x32__c128__l3__trace-on.json",
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/p100__8x8x8x16__c128__l1__trace-off.json",
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/p100__8x8x8x16__c128__l1__trace-on.json",
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/p100__8x8x8x16__c128__l2__trace-off.json",
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/p100__8x8x8x16__c128__l2__trace-on.json",
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/p100__8x8x8x16__c128__l3__trace-off.json",
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/p100__8x8x8x16__c128__l3__trace-on.json",
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/p100__8x8x8x16__c64__l1__trace-off.json",
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/p100__8x8x8x16__c64__l1__trace-on.json",
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/p100__8x8x8x16__c64__l2__trace-off.json",
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/p100__8x8x8x16__c64__l2__trace-on.json",
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/p100__8x8x8x16__c64__l3__trace-off.json",
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/p100__8x8x8x16__c64__l3__trace-on.json",
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/v100__16x16x16x16__c128__l1__trace-off.json",
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/v100__16x16x16x16__c128__l1__trace-on.json",
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/v100__16x16x16x16__c128__l2__trace-off.json",
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/v100__16x16x16x16__c128__l2__trace-on.json",
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/v100__16x16x16x16__c128__l3__trace-off.json",
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/v100__16x16x16x16__c128__l3__trace-on.json",
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/v100__16x16x16x16__c64__l1__trace-off.json",
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/v100__16x16x16x16__c64__l1__trace-on.json",
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/v100__16x16x16x16__c64__l2__trace-off.json",
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/v100__16x16x16x16__c64__l2__trace-on.json",
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/v100__16x16x16x16__c64__l3__trace-off.json",
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/v100__16x16x16x16__c64__l3__trace-on.json",
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/v100__16x16x32x32__c128__l1__trace-off.json",
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/v100__16x16x32x32__c128__l1__trace-on.json",
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/v100__16x16x32x32__c128__l2__trace-off.json",
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/v100__16x16x32x32__c128__l2__trace-on.json",
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/v100__16x16x32x32__c128__l3__trace-off.json",
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/v100__16x16x32x32__c128__l3__trace-on.json",
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/v100__16x32x32x48__c64__l1__trace-off.json",
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/v100__16x32x32x48__c64__l1__trace-on.json",
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/v100__16x32x32x48__c64__l2__trace-off.json",
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/v100__16x32x32x48__c64__l2__trace-on.json",
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/v100__16x32x32x48__c64__l3__trace-off.json",
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/v100__16x32x32x48__c64__l3__trace-on.json",
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/v100__8x8x8x16__c128__l1__trace-off.json",
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/v100__8x8x8x16__c128__l1__trace-on.json",
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/v100__8x8x8x16__c128__l2__trace-off.json",
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/v100__8x8x8x16__c128__l2__trace-on.json",
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/v100__8x8x8x16__c128__l3__trace-off.json",
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/v100__8x8x8x16__c128__l3__trace-on.json",
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/v100__8x8x8x16__c64__l1__trace-off.json",
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/v100__8x8x8x16__c64__l1__trace-on.json",
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/v100__8x8x8x16__c64__l2__trace-off.json",
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/v100__8x8x8x16__c64__l2__trace-on.json",
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/v100__8x8x8x16__c64__l3__trace-off.json",
+    "/root/PyQCU/data/report_multigrid_comprehensive_20260928/final_protocol/combined/v100__8x8x8x16__c64__l3__trace-on.json"
+  ],
+  "records": 396,
+  "level_rows": 220,
+  "coverage": {
+    "cases": 66,
+    "case_ids": [
+      "p100__16x16x16x16__c128__l1__trace-off",
+      "p100__16x16x16x16__c128__l1__trace-on",
+      "p100__16x16x16x16__c128__l2__trace-off",
+      "p100__16x16x16x16__c128__l2__trace-on",
+      "p100__16x16x16x16__c128__l3__trace-off",
+      "p100__16x16x16x16__c128__l3__trace-on",
+      "p100__16x16x16x16__c64__l1__trace-off",
+      "p100__16x16x16x16__c64__l1__trace-on",
+      "p100__16x16x16x16__c64__l2__trace-off",
+      "p100__16x16x16x16__c64__l2__trace-on",
+      "p100__16x16x16x16__c64__l3__trace-off",
+      "p100__16x16x16x16__c64__l3__trace-on",
+      "p100__16x16x32x32__c128__l1__trace-off",
+      "p100__16x16x32x32__c128__l1__trace-on",
+      "p100__16x16x32x32__c128__l2__trace-off",
+      "p100__16x16x32x32__c128__l2__trace-on",
+      "p100__16x16x32x32__c128__l3__trace-off",
+      "p100__16x16x32x32__c128__l3__trace-on",
+      "p100__8x8x8x16__c128__l1__trace-off",
+      "p100__8x8x8x16__c128__l1__trace-on",
+      "p100__8x8x8x16__c128__l2__trace-off",
+      "p100__8x8x8x16__c128__l2__trace-on",
+      "p100__8x8x8x16__c128__l3__trace-off",
+      "p100__8x8x8x16__c128__l3__trace-on",
+      "p100__8x8x8x16__c64__l1__trace-off",
+      "p100__8x8x8x16__c64__l1__trace-on",
+      "p100__8x8x8x16__c64__l2__trace-off",
+      "p100__8x8x8x16__c64__l2__trace-on",
+      "p100__8x8x8x16__c64__l3__trace-off",
+      "p100__8x8x8x16__c64__l3__trace-on",
+      "v100__16x16x16x16__c128__l1__trace-off",
+      "v100__16x16x16x16__c128__l1__trace-on",
+      "v100__16x16x16x16__c128__l2__trace-off",
+      "v100__16x16x16x16__c128__l2__trace-on",
+      "v100__16x16x16x16__c128__l3__trace-off",
+      "v100__16x16x16x16__c128__l3__trace-on",
+      "v100__16x16x16x16__c64__l1__trace-off",
+      "v100__16x16x16x16__c64__l1__trace-on",
+      "v100__16x16x16x16__c64__l2__trace-off",
+      "v100__16x16x16x16__c64__l2__trace-on",
+      "v100__16x16x16x16__c64__l3__trace-off",
+      "v100__16x16x16x16__c64__l3__trace-on",
+      "v100__16x16x32x32__c128__l1__trace-off",
+      "v100__16x16x32x32__c128__l1__trace-on",
+      "v100__16x16x32x32__c128__l2__trace-off",
+      "v100__16x16x32x32__c128__l2__trace-on",
+      "v100__16x16x32x32__c128__l3__trace-off",
+      "v100__16x16x32x32__c128__l3__trace-on",
+      "v100__16x32x32x48__c64__l1__trace-off",
+      "v100__16x32x32x48__c64__l1__trace-on",
+      "v100__16x32x32x48__c64__l2__trace-off",
+      "v100__16x32x32x48__c64__l2__trace-on",
+      "v100__16x32x32x48__c64__l3__trace-off",
+      "v100__16x32x32x48__c64__l3__trace-on",
+      "v100__8x8x8x16__c128__l1__trace-off",
+      "v100__8x8x8x16__c128__l1__trace-on",
+      "v100__8x8x8x16__c128__l2__trace-off",
+      "v100__8x8x8x16__c128__l2__trace-on",
+      "v100__8x8x8x16__c128__l3__trace-off",
+      "v100__8x8x8x16__c128__l3__trace-on",
+      "v100__8x8x8x16__c64__l1__trace-off",
+      "v100__8x8x8x16__c64__l1__trace-on",
+      "v100__8x8x8x16__c64__l2__trace-off",
+      "v100__8x8x8x16__c64__l2__trace-on",
+      "v100__8x8x8x16__c64__l3__trace-off",
+      "v100__8x8x8x16__c64__l3__trace-on"
+    ],
+    "side_cells_observed": 132,
+    "side_cells_expected_from_observed_cases": 132,
+    "side_coverage": 1.0,
+    "phase_cells_observed": 396,
+    "phase_cells_expected_from_observed_cases": 396,
+    "phase_coverage": 1.0,
+    "level_cells_observed": 220,
+    "level_cells_expected_from_declared_levels": 220,
+    "level_coverage": 1.0,
+    "trace_curves": [
+      "p100__16x16x16x16__c128__l2__trace-on|pyqcu",
+      "p100__16x16x16x16__c128__l2__trace-on|quda",
+      "p100__16x16x16x16__c128__l3__trace-on|pyqcu",
+      "p100__16x16x16x16__c128__l3__trace-on|quda",
+      "p100__16x16x16x16__c64__l2__trace-on|pyqcu",
+      "p100__16x16x16x16__c64__l2__trace-on|quda",
+      "p100__16x16x16x16__c64__l3__trace-on|pyqcu",
+      "p100__16x16x16x16__c64__l3__trace-on|quda",
+      "p100__16x16x32x32__c128__l2__trace-on|pyqcu",
+      "p100__16x16x32x32__c128__l2__trace-on|quda",
+      "p100__16x16x32x32__c128__l3__trace-on|pyqcu",
+      "p100__16x16x32x32__c128__l3__trace-on|quda",
+      "p100__8x8x8x16__c128__l2__trace-on|pyqcu",
+      "p100__8x8x8x16__c128__l2__trace-on|quda",
+      "p100__8x8x8x16__c128__l3__trace-on|pyqcu",
+      "p100__8x8x8x16__c128__l3__trace-on|quda",
+      "p100__8x8x8x16__c64__l2__trace-on|pyqcu",
+      "p100__8x8x8x16__c64__l2__trace-on|quda",
+      "p100__8x8x8x16__c64__l3__trace-on|pyqcu",
+      "p100__8x8x8x16__c64__l3__trace-on|quda",
+      "v100__16x16x16x16__c128__l2__trace-on|pyqcu",
+      "v100__16x16x16x16__c128__l2__trace-on|quda",
+      "v100__16x16x16x16__c128__l3__trace-on|pyqcu",
+      "v100__16x16x16x16__c128__l3__trace-on|quda",
+      "v100__16x16x16x16__c64__l2__trace-on|pyqcu",
+      "v100__16x16x16x16__c64__l2__trace-on|quda",
+      "v100__16x16x16x16__c64__l3__trace-on|pyqcu",
+      "v100__16x16x16x16__c64__l3__trace-on|quda",
+      "v100__16x16x32x32__c128__l2__trace-on|pyqcu",
+      "v100__16x16x32x32__c128__l2__trace-on|quda",
+      "v100__16x16x32x32__c128__l3__trace-on|pyqcu",
+      "v100__16x16x32x32__c128__l3__trace-on|quda",
+      "v100__16x32x32x48__c64__l2__trace-on|pyqcu",
+      "v100__16x32x32x48__c64__l2__trace-on|quda",
+      "v100__16x32x32x48__c64__l3__trace-on|pyqcu",
+      "v100__16x32x32x48__c64__l3__trace-on|quda",
+      "v100__8x8x8x16__c128__l2__trace-on|pyqcu",
+      "v100__8x8x8x16__c128__l2__trace-on|quda",
+      "v100__8x8x8x16__c128__l3__trace-on|pyqcu",
+      "v100__8x8x8x16__c128__l3__trace-on|quda",
+      "v100__8x8x8x16__c64__l2__trace-on|pyqcu",
+      "v100__8x8x8x16__c64__l2__trace-on|quda",
+      "v100__8x8x8x16__c64__l3__trace-on|pyqcu",
+      "v100__8x8x8x16__c64__l3__trace-on|quda"
+    ],
+    "trace_curves_expected": 44,
+    "trace_curve_coverage": 1.0,
+    "missing_cells": [],
+    "missing_field_counts": {}
+  },
+  "fastest_steady_case_by_side": {
+    "pyqcu": {
+      "case_id": "v100__8x8x8x16__c64__l2__trace-off",
+      "total_seconds": 0.046208414001739584,
+      "precision": "c64",
+      "lattice": "8x8x8x16",
+      "levels": 2,
+      "device": "Tesla V100-SXM2-32GB"
+    },
+    "quda": {
+      "case_id": "v100__8x8x8x16__c64__l1__trace-off",
+      "total_seconds": 0.06732985000417102,
+      "precision": "c64",
+      "lattice": "8x8x8x16",
+      "levels": 1,
+      "device": "Tesla V100-SXM2-32GB"
+    }
+  },
+  "best_steady_case_by_dimension": {
+    "precision": {
+      "pyqcu": {
+        "case_id": "v100__8x8x8x16__c64__l2__trace-off",
+        "value": "c64",
+        "total_seconds": 0.046208414001739584
+      },
+      "quda": {
+        "case_id": "v100__8x8x8x16__c64__l1__trace-off",
+        "value": "c64",
+        "total_seconds": 0.06732985000417102
+      }
+    },
+    "lattice": {
+      "pyqcu": {
+        "case_id": "v100__8x8x8x16__c64__l2__trace-off",
+        "value": "8x8x8x16",
+        "total_seconds": 0.046208414001739584
+      },
+      "quda": {
+        "case_id": "v100__8x8x8x16__c64__l1__trace-off",
+        "value": "8x8x8x16",
+        "total_seconds": 0.06732985000417102
+      }
+    },
+    "levels": {
+      "pyqcu": {
+        "case_id": "v100__8x8x8x16__c64__l2__trace-off",
+        "value": 2,
+        "total_seconds": 0.046208414001739584
+      },
+      "quda": {
+        "case_id": "v100__8x8x8x16__c64__l1__trace-off",
+        "value": 1,
+        "total_seconds": 0.06732985000417102
+      }
+    },
+    "device": {
+      "pyqcu": {
+        "case_id": "v100__8x8x8x16__c64__l2__trace-off",
+        "value": "Tesla V100-SXM2-32GB",
+        "total_seconds": 0.046208414001739584
+      },
+      "quda": {
+        "case_id": "v100__8x8x8x16__c64__l1__trace-off",
+        "value": "Tesla V100-SXM2-32GB",
+        "total_seconds": 0.06732985000417102
+      }
+    }
+  },
+  "comparisons": [
+    {
+      "case_id": "p100__16x16x16x16__c128__l1__trace-off",
+      "pyqcu_seconds": 3.8956328940112144,
+      "quda_seconds": 0.8741149239940569,
+      "pyqcu_over_quda": 4.456659859107612,
+      "speedup_quda_over_pyqcu": 0.22438328964154716,
+      "device_match": true,
+      "status": "ok"
+    },
+    {
+      "case_id": "p100__16x16x16x16__c128__l1__trace-on",
+      "pyqcu_seconds": 3.766847835999215,
+      "quda_seconds": 0.8988279010081897,
+      "pyqcu_over_quda": 4.190844356048637,
+      "speedup_quda_over_pyqcu": 0.23861539943775342,
+      "device_match": true,
+      "status": "ok"
+    },
+    {
+      "case_id": "p100__16x16x16x16__c128__l2__trace-off",
+      "pyqcu_seconds": 6.410288466999191,
+      "quda_seconds": 6.634040685996297,
+      "pyqcu_over_quda": 0.9662721063092933,
+      "speedup_quda_over_pyqcu": 1.0349051716079558,
+      "device_match": true,
+      "status": "ok"
+    },
+    {
+      "case_id": "p100__16x16x16x16__c128__l2__trace-on",
+      "pyqcu_seconds": 8.68550662099733,
+      "quda_seconds": 7.052352561004227,
+      "pyqcu_over_quda": 1.231575782104766,
+      "speedup_quda_over_pyqcu": 0.8119678987930387,
+      "device_match": true,
+      "status": "ok"
+    },
+    {
+      "case_id": "p100__16x16x16x16__c128__l3__trace-off",
+      "pyqcu_seconds": 4.687589163004304,
+      "quda_seconds": 5.184887531999266,
+      "pyqcu_over_quda": 0.9040869515634015,
+      "speedup_quda_over_pyqcu": 1.10608830076658,
+      "device_match": true,
+      "status": "ok"
+    },
+    {
+      "case_id": "p100__16x16x16x16__c128__l3__trace-on",
+      "pyqcu_seconds": 8.364123612991534,
+      "quda_seconds": 5.713481619008235,
+      "pyqcu_over_quda": 1.463927631300126,
+      "speedup_quda_over_pyqcu": 0.683093876103624,
+      "device_match": true,
+      "status": "ok"
+    },
+    {
+      "case_id": "p100__16x16x16x16__c64__l1__trace-off",
+      "pyqcu_seconds": 1.2018943350121845,
+      "quda_seconds": 0.5322758670081384,
+      "pyqcu_over_quda": 2.258028983669492,
+      "speedup_quda_over_pyqcu": 0.4428641116797862,
+      "device_match": true,
+      "status": "ok"
+    },
+    {
+      "case_id": "p100__16x16x16x16__c64__l1__trace-on",
+      "pyqcu_seconds": 2.2117050060041947,
+      "quda_seconds": 0.5317124060093192,
+      "pyqcu_over_quda": 4.159588869862537,
+      "speedup_quda_over_pyqcu": 0.24040837479042665,
+      "device_match": true,
+      "status": "ok"
+    },
+    {
+      "case_id": "p100__16x16x16x16__c64__l2__trace-off",
+      "pyqcu_seconds": 1.4015297909936635,
+      "quda_seconds": 2.977000410988694,
+      "pyqcu_over_quda": 0.47078589099965906,
+      "speedup_quda_over_pyqcu": 2.1241078356800718,
+      "device_match": true,
+      "status": "ok"
+    },
+    {
+      "case_id": "p100__16x16x16x16__c64__l2__trace-on",
+      "pyqcu_seconds": 3.9562323529971763,
+      "quda_seconds": 3.375061455008108,
+      "pyqcu_over_quda": 1.1721956490974983,
+      "speedup_quda_over_pyqcu": 0.8530999076561359,
+      "device_match": true,
+      "status": "ok"
+    },
+    {
+      "case_id": "p100__16x16x16x16__c64__l3__trace-off",
+      "pyqcu_seconds": 1.326634576995275,
+      "quda_seconds": 3.0685614590038313,
+      "pyqcu_over_quda": 0.43233110847515815,
+      "speedup_quda_over_pyqcu": 2.313041972683907,
+      "device_match": true,
+      "status": "ok"
+    },
+    {
+      "case_id": "p100__16x16x16x16__c64__l3__trace-on",
+      "pyqcu_seconds": 4.50593510500039,
+      "quda_seconds": 3.3596171509998385,
+      "pyqcu_over_quda": 1.3412049357050704,
+      "speedup_quda_over_pyqcu": 0.745598210518291,
+      "device_match": true,
+      "status": "ok"
+    },
+    {
+      "case_id": "p100__16x16x32x32__c128__l1__trace-off",
+      "pyqcu_seconds": 7.605618834000779,
+      "quda_seconds": 3.2965158199949656,
+      "pyqcu_over_quda": 2.307168916911915,
+      "speedup_quda_over_pyqcu": 0.4334316367864706,
+      "device_match": true,
+      "status": "ok"
+    },
+    {
+      "case_id": "p100__16x16x32x32__c128__l1__trace-on",
+      "pyqcu_seconds": 7.60609400300018,
+      "quda_seconds": 3.333847047004383,
+      "pyqcu_over_quda": 2.281476593185224,
+      "speedup_quda_over_pyqcu": 0.4383126274391779,
+      "device_match": true,
+      "status": "ok"
+    },
+    {
+      "case_id": "p100__16x16x32x32__c128__l2__trace-off",
+      "pyqcu_seconds": 18.00723694100452,
+      "quda_seconds": 22.914579693999258,
+      "pyqcu_over_quda": 0.785841904214379,
+      "speedup_quda_over_pyqcu": 1.2725205854219734,
+      "device_match": true,
+      "status": "ok"
+    },
+    {
+      "case_id": "p100__16x16x32x32__c128__l2__trace-on",
+      "pyqcu_seconds": 22.311795178000466,
+      "quda_seconds": 23.249343371993746,
+      "pyqcu_over_quda": 0.9596742076112715,
+      "speedup_quda_over_pyqcu": 1.0420202940423955,
+      "device_match": true,
+      "status": "ok"
+    },
+    {
+      "case_id": "p100__16x16x32x32__c128__l3__trace-off",
+      "pyqcu_seconds": 10.326357375000953,
+      "quda_seconds": 14.907144477998372,
+      "pyqcu_over_quda": 0.6927119670867713,
+      "speedup_quda_over_pyqcu": 1.443601449828478,
+      "device_match": true,
+      "status": "ok"
+    },
+    {
+      "case_id": "p100__16x16x32x32__c128__l3__trace-on",
+      "pyqcu_seconds": 17.502462372998707,
+      "quda_seconds": 15.477156269989791,
+      "pyqcu_over_quda": 1.130857766612849,
+      "speedup_quda_over_pyqcu": 0.884284504668704,
+      "device_match": true,
+      "status": "ok"
+    },
+    {
+      "case_id": "p100__8x8x8x16__c128__l1__trace-off",
+      "pyqcu_seconds": 2.919802485004766,
+      "quda_seconds": 0.6668553729978157,
+      "pyqcu_over_quda": 4.378464361588535,
+      "speedup_quda_over_pyqcu": 0.2283905765621428,
+      "device_match": true,
+      "status": "ok"
+    },
+    {
+      "case_id": "p100__8x8x8x16__c128__l1__trace-on",
+      "pyqcu_seconds": 2.9199315320001915,
+      "quda_seconds": 0.7006825470016338,
+      "pyqcu_over_quda": 4.167267394478691,
+      "speedup_quda_over_pyqcu": 0.2399654030660291,
+      "device_match": true,
+      "status": "ok"
+    },
+    {
+      "case_id": "p100__8x8x8x16__c128__l2__trace-off",
+      "pyqcu_seconds": 4.502645058993949,
+      "quda_seconds": 5.629175002002739,
+      "pyqcu_over_quda": 0.7998765462775637,
+      "speedup_quda_over_pyqcu": 1.2501929262131308,
+      "device_match": true,
+      "status": "ok"
+    },
+    {
+      "case_id": "p100__8x8x8x16__c128__l2__trace-on",
+      "pyqcu_seconds": 4.915377983998042,
+      "quda_seconds": 5.758641510998132,
+      "pyqcu_over_quda": 0.8535655457299114,
+      "speedup_quda_over_pyqcu": 1.1715561915574602,
+      "device_match": true,
+      "status": "ok"
+    },
+    {
+      "case_id": "p100__8x8x8x16__c128__l3__trace-off",
+      "pyqcu_seconds": 3.599976787008927,
+      "quda_seconds": 4.146049655988463,
+      "pyqcu_over_quda": 0.8682908034661861,
+      "speedup_quda_over_pyqcu": 1.151687886141412,
+      "device_match": true,
+      "status": "ok"
+    },
+    {
+      "case_id": "p100__8x8x8x16__c128__l3__trace-on",
+      "pyqcu_seconds": 4.847516487992834,
+      "quda_seconds": 4.450671094004065,
+      "pyqcu_over_quda": 1.089165293414604,
+      "speedup_quda_over_pyqcu": 0.9181342869133617,
+      "device_match": true,
+      "status": "ok"
+    },
+    {
+      "case_id": "p100__8x8x8x16__c64__l1__trace-off",
+      "pyqcu_seconds": 1.153902995007229,
+      "quda_seconds": 0.27724846900673583,
+      "pyqcu_over_quda": 4.161981485925517,
+      "speedup_quda_over_pyqcu": 0.24027017020178454,
+      "device_match": true,
+      "status": "ok"
+    },
+    {
+      "case_id": "p100__8x8x8x16__c64__l1__trace-on",
+      "pyqcu_seconds": 1.1764173109986586,
+      "quda_seconds": 0.274422588001471,
+      "pyqcu_over_quda": 4.286882211723594,
+      "speedup_quda_over_pyqcu": 0.23326976357438514,
+      "device_match": true,
+      "status": "ok"
+    },
+    {
+      "case_id": "p100__8x8x8x16__c64__l2__trace-off",
+      "pyqcu_seconds": 0.7081076699978439,
+      "quda_seconds": 1.0129242580005666,
+      "pyqcu_over_quda": 0.6990726743928447,
+      "speedup_quda_over_pyqcu": 1.4304664402288578,
+      "device_match": true,
+      "status": "ok"
+    },
+    {
+      "case_id": "p100__8x8x8x16__c64__l2__trace-on",
+      "pyqcu_seconds": 0.9435896749928361,
+      "quda_seconds": 0.9577879890130134,
+      "pyqcu_over_quda": 0.9851759322699291,
+      "speedup_quda_over_pyqcu": 1.0150471273652768,
+      "device_match": true,
+      "status": "ok"
+    },
+    {
+      "case_id": "p100__8x8x8x16__c64__l3__trace-off",
+      "pyqcu_seconds": 0.8194490550085902,
+      "quda_seconds": 1.0454725650051842,
+      "pyqcu_over_quda": 0.7838073254505027,
+      "speedup_quda_over_pyqcu": 1.275823748425977,
+      "device_match": true,
+      "status": "ok"
+    },
+    {
+      "case_id": "p100__8x8x8x16__c64__l3__trace-on",
+      "pyqcu_seconds": 1.281186323001748,
+      "quda_seconds": 1.1668367899983423,
+      "pyqcu_over_quda": 1.0979995951306678,
+      "speedup_quda_over_pyqcu": 0.9107471482090981,
+      "device_match": true,
+      "status": "ok"
+    },
+    {
+      "case_id": "v100__16x16x16x16__c128__l1__trace-off",
+      "pyqcu_seconds": 0.55208183999639,
+      "quda_seconds": 0.14242748300603125,
+      "pyqcu_over_quda": 3.876231106134281,
+      "speedup_quda_over_pyqcu": 0.25798255383108154,
+      "device_match": true,
+      "status": "ok"
+    },
+    {
+      "case_id": "v100__16x16x16x16__c128__l1__trace-on",
+      "pyqcu_seconds": 0.6500300810002955,
+      "quda_seconds": 0.14575721899745986,
+      "pyqcu_over_quda": 4.459676752007897,
+      "speedup_quda_over_pyqcu": 0.22423149829183614,
+      "device_match": true,
+      "status": "ok"
+    },
+    {
+      "case_id": "v100__16x16x16x16__c128__l2__trace-off",
+      "pyqcu_seconds": 0.7209439430007478,
+      "quda_seconds": 1.4612541999958921,
+      "pyqcu_over_quda": 0.493373393214387,
+      "speedup_quda_over_pyqcu": 2.0268624408075184,
+      "device_match": true,
+      "status": "ok"
+    },
+    {
+      "case_id": "v100__16x16x16x16__c128__l2__trace-on",
+      "pyqcu_seconds": 1.0853517560026376,
+      "quda_seconds": 1.5753522849990986,
+      "pyqcu_over_quda": 0.6889581246922548,
+      "speedup_quda_over_pyqcu": 1.451467025585455,
+      "device_match": true,
+      "status": "ok"
+    },
+    {
+      "case_id": "v100__16x16x16x16__c128__l3__trace-off",
+      "pyqcu_seconds": 0.43638855700555723,
+      "quda_seconds": 1.4040361210063566,
+      "pyqcu_over_quda": 0.3108100642686967,
+      "speedup_quda_over_pyqcu": 3.217399032276817,
+      "device_match": true,
+      "status": "ok"
+    },
+    {
+      "case_id": "v100__16x16x16x16__c128__l3__trace-on",
+      "pyqcu_seconds": 1.1726829919934971,
+      "quda_seconds": 1.6208639410033356,
+      "pyqcu_over_quda": 0.723492553772028,
+      "speedup_quda_over_pyqcu": 1.382184232285961,
+      "device_match": true,
+      "status": "ok"
+    },
+    {
+      "case_id": "v100__16x16x16x16__c64__l1__trace-off",
+      "pyqcu_seconds": 0.2416149479977321,
+      "quda_seconds": 0.06808479300525505,
+      "pyqcu_over_quda": 3.5487358826086655,
+      "speedup_quda_over_pyqcu": 0.28179048345094165,
+      "device_match": true,
+      "status": "ok"
+    },
+    {
+      "case_id": "v100__16x16x16x16__c64__l1__trace-on",
+      "pyqcu_seconds": 0.25000403200101573,
+      "quda_seconds": 0.08033280300151091,
+      "pyqcu_over_quda": 3.112103930897489,
+      "speedup_quda_over_pyqcu": 0.3213260296585318,
+      "device_match": true,
+      "status": "ok"
+    },
+    {
+      "case_id": "v100__16x16x16x16__c64__l2__trace-off",
+      "pyqcu_seconds": 0.20383330799813848,
+      "quda_seconds": 0.5242044280021219,
+      "pyqcu_over_quda": 0.3888431632960441,
+      "speedup_quda_over_pyqcu": 2.5717309558009487,
+      "device_match": true,
+      "status": "ok"
+    },
+    {
+      "case_id": "v100__16x16x16x16__c64__l2__trace-on",
+      "pyqcu_seconds": 0.38347481400705874,
+      "quda_seconds": 0.6436757869960275,
+      "pyqcu_over_quda": 0.5957577118081426,
+      "speedup_quda_over_pyqcu": 1.6785347133232567,
+      "device_match": true,
+      "status": "ok"
+    },
+    {
+      "case_id": "v100__16x16x16x16__c64__l3__trace-off",
+      "pyqcu_seconds": 0.1509476729988819,
+      "quda_seconds": 0.714977704003104,
+      "pyqcu_over_quda": 0.2111222100405897,
+      "speedup_quda_over_pyqcu": 4.736593084203425,
+      "device_match": true,
+      "status": "ok"
+    },
+    {
+      "case_id": "v100__16x16x16x16__c64__l3__trace-on",
+      "pyqcu_seconds": 0.5281142110034125,
+      "quda_seconds": 0.9212616160075413,
+      "pyqcu_over_quda": 0.5732510742085334,
+      "speedup_quda_over_pyqcu": 1.7444363298937784,
+      "device_match": true,
+      "status": "ok"
+    },
+    {
+      "case_id": "v100__16x16x32x32__c128__l1__trace-off",
+      "pyqcu_seconds": 1.4212093649985036,
+      "quda_seconds": 0.3501097450061934,
+      "pyqcu_over_quda": 4.059325355177881,
+      "speedup_quda_over_pyqcu": 0.24634635376650652,
+      "device_match": true,
+      "status": "ok"
+    },
+    {
+      "case_id": "v100__16x16x32x32__c128__l1__trace-on",
+      "pyqcu_seconds": 1.473002151993569,
+      "quda_seconds": 0.3530088639963651,
+      "pyqcu_over_quda": 4.172705850266515,
+      "speedup_quda_over_pyqcu": 0.23965264648025192,
+      "device_match": true,
+      "status": "ok"
+    },
+    {
+      "case_id": "v100__16x16x32x32__c128__l2__trace-off",
+      "pyqcu_seconds": 7.482400972992764,
+      "quda_seconds": 4.041431845005718,
+      "pyqcu_over_quda": 1.8514232727292663,
+      "speedup_quda_over_pyqcu": 0.5401250026018388,
+      "device_match": true,
+      "status": "ok"
+    },
+    {
+      "case_id": "v100__16x16x32x32__c128__l2__trace-on",
+      "pyqcu_seconds": 4.1120948850002605,
+      "quda_seconds": 4.162918693997199,
+      "pyqcu_over_quda": 0.9877913039545488,
+      "speedup_quda_over_pyqcu": 1.0123595905294718,
+      "device_match": true,
+      "status": "ok"
+    },
+    {
+      "case_id": "v100__16x16x32x32__c128__l3__trace-off",
+      "pyqcu_seconds": 1.642416697999579,
+      "quda_seconds": 3.029770348002785,
+      "pyqcu_over_quda": 0.5420928022093341,
+      "speedup_quda_over_pyqcu": 1.8447025969067208,
+      "device_match": true,
+      "status": "ok"
+    },
+    {
+      "case_id": "v100__16x16x32x32__c128__l3__trace-on",
+      "pyqcu_seconds": 3.0947952099959366,
+      "quda_seconds": 3.084280804003356,
+      "pyqcu_over_quda": 1.0034090300659178,
+      "speedup_quda_over_pyqcu": 0.9966025519366775,
+      "device_match": true,
+      "status": "ok"
+    },
+    {
+      "case_id": "v100__16x32x32x48__c64__l1__trace-off",
+      "pyqcu_seconds": 1.6846361369971419,
+      "quda_seconds": 0.3966479420050746,
+      "pyqcu_over_quda": 4.247182346342766,
+      "speedup_quda_over_pyqcu": 0.23545021580274195,
+      "device_match": true,
+      "status": "ok"
+    },
+    {
+      "case_id": "v100__16x32x32x48__c64__l1__trace-on",
+      "pyqcu_seconds": 2.2068764430005103,
+      "quda_seconds": 0.38967448800394777,
+      "pyqcu_over_quda": 5.66338446816193,
+      "speedup_quda_over_pyqcu": 0.17657286126727562,
+      "device_match": true,
+      "status": "ok"
+    },
+    {
+      "case_id": "v100__16x32x32x48__c64__l2__trace-off",
+      "pyqcu_seconds": 1.9401633190136636,
+      "quda_seconds": 2.716042929008836,
+      "pyqcu_over_quda": 0.7143345557213583,
+      "speedup_quda_over_pyqcu": 1.3999042773314634,
+      "device_match": true,
+      "status": "ok"
+    },
+    {
+      "case_id": "v100__16x32x32x48__c64__l2__trace-on",
+      "pyqcu_seconds": 2.679416898987256,
+      "quda_seconds": 2.7831245850102277,
+      "pyqcu_over_quda": 0.9627369588190423,
+      "speedup_quda_over_pyqcu": 1.0387053190797484,
+      "device_match": true,
+      "status": "ok"
+    },
+    {
+      "case_id": "v100__16x32x32x48__c64__l3__trace-off",
+      "pyqcu_seconds": 0.8088928850047523,
+      "quda_seconds": 1.6407691740023438,
+      "pyqcu_over_quda": 0.49299614950201204,
+      "speedup_quda_over_pyqcu": 2.028413408522816,
+      "device_match": true,
+      "status": "ok"
+    },
+    {
+      "case_id": "v100__16x32x32x48__c64__l3__trace-on",
+      "pyqcu_seconds": 1.4422514170000795,
+      "quda_seconds": 1.8174902759928955,
+      "pyqcu_over_quda": 0.7935401009021504,
+      "speedup_quda_over_pyqcu": 1.2601757603215413,
+      "device_match": true,
+      "status": "ok"
+    },
+    {
+      "case_id": "v100__8x8x8x16__c128__l1__trace-off",
+      "pyqcu_seconds": 0.4094425809889799,
+      "quda_seconds": 0.1462736679968657,
+      "pyqcu_over_quda": 2.799154397343432,
+      "speedup_quda_over_pyqcu": 0.35725074720746414,
+      "device_match": true,
+      "status": "ok"
+    },
+    {
+      "case_id": "v100__8x8x8x16__c128__l1__trace-on",
+      "pyqcu_seconds": 0.40923672200005967,
+      "quda_seconds": 0.1226806760096224,
+      "pyqcu_over_quda": 3.335787960346431,
+      "speedup_quda_over_pyqcu": 0.2997792461293454,
+      "device_match": true,
+      "status": "ok"
+    },
+    {
+      "case_id": "v100__8x8x8x16__c128__l2__trace-off",
+      "pyqcu_seconds": 0.1590511200047331,
+      "quda_seconds": 1.2022057879948989,
+      "pyqcu_over_quda": 0.1322994129565844,
+      "speedup_quda_over_pyqcu": 7.558612526331933,
+      "device_match": true,
+      "status": "ok"
+    },
+    {
+      "case_id": "v100__8x8x8x16__c128__l2__trace-on",
+      "pyqcu_seconds": 0.24005468099494465,
+      "quda_seconds": 1.193536070000846,
+      "pyqcu_over_quda": 0.20112897048412998,
+      "speedup_quda_over_pyqcu": 4.97193416539118,
+      "device_match": true,
+      "status": "ok"
+    },
+    {
+      "case_id": "v100__8x8x8x16__c128__l3__trace-off",
+      "pyqcu_seconds": 0.10422196300351061,
+      "quda_seconds": 1.5251878840063,
+      "pyqcu_over_quda": 0.06833385191189999,
+      "speedup_quda_over_pyqcu": 14.63403528443353,
+      "device_match": true,
+      "status": "ok"
+    },
+    {
+      "case_id": "v100__8x8x8x16__c128__l3__trace-on",
+      "pyqcu_seconds": 0.2953278450004291,
+      "quda_seconds": 1.2696577750029974,
+      "pyqcu_over_quda": 0.2326042897659819,
+      "speedup_quda_over_pyqcu": 4.299146851530891,
+      "device_match": true,
+      "status": "ok"
+    },
+    {
+      "case_id": "v100__8x8x8x16__c64__l1__trace-off",
+      "pyqcu_seconds": 0.2047480839974014,
+      "quda_seconds": 0.06732985000417102,
+      "pyqcu_over_quda": 3.040970446016402,
+      "speedup_quda_over_pyqcu": 0.3288423934898729,
+      "device_match": true,
+      "status": "ok"
+    },
+    {
+      "case_id": "v100__8x8x8x16__c64__l1__trace-on",
+      "pyqcu_seconds": 0.20380517099692952,
+      "quda_seconds": 0.08359112701145932,
+      "pyqcu_over_quda": 2.4381196699141325,
+      "speedup_quda_over_pyqcu": 0.4101521399215071,
+      "device_match": true,
+      "status": "ok"
+    },
+    {
+      "case_id": "v100__8x8x8x16__c64__l2__trace-off",
+      "pyqcu_seconds": 0.046208414001739584,
+      "quda_seconds": 0.32882179200532846,
+      "pyqcu_over_quda": 0.14052722515723895,
+      "speedup_quda_over_pyqcu": 7.116058819784411,
+      "device_match": true,
+      "status": "ok"
+    },
+    {
+      "case_id": "v100__8x8x8x16__c64__l2__trace-on",
+      "pyqcu_seconds": 0.11353527299070265,
+      "quda_seconds": 0.41330115900200326,
+      "pyqcu_over_quda": 0.27470349530317273,
+      "speedup_quda_over_pyqcu": 3.6402885915097793,
+      "device_match": true,
+      "status": "ok"
+    },
+    {
+      "case_id": "v100__8x8x8x16__c64__l3__trace-off",
+      "pyqcu_seconds": 0.060078854992752895,
+      "quda_seconds": 0.4889887070021359,
+      "pyqcu_over_quda": 0.12286348157420836,
+      "speedup_quda_over_pyqcu": 8.13911495252566,
+      "device_match": true,
+      "status": "ok"
+    },
+    {
+      "case_id": "v100__8x8x8x16__c64__l3__trace-on",
+      "pyqcu_seconds": 0.13731018399994355,
+      "quda_seconds": 0.5750263280060608,
+      "pyqcu_over_quda": 0.23878938635049124,
+      "speedup_quda_over_pyqcu": 4.187790819698393,
+      "device_match": true,
+      "status": "ok"
+    }
+  ],
+  "relative_time": {
+    "definition": "PyQCU steady seconds divided by QUDA steady seconds",
+    "median_pyqcu_over_quda": 0.9757240192896112,
+    "median_speedup_quda_over_pyqcu": 1.0248799662921728,
+    "fastest_speedup_case": {
+      "case_id": "v100__8x8x8x16__c128__l3__trace-off",
+      "pyqcu_seconds": 0.10422196300351061,
+      "quda_seconds": 1.5251878840063,
+      "pyqcu_over_quda": 0.06833385191189999,
+      "speedup_quda_over_pyqcu": 14.63403528443353,
+      "device_match": true,
+      "status": "ok"
+    },
+    "comparable_cases": 66
+  },
+  "trace_curve_count": 44,
+  "anomalies": [
+    {
+      "kind": "large_time_ratio",
+      "case_id": "p100__16x16x16x16__c128__l1__trace-off",
+      "value": 4.456659859107612
+    },
+    {
+      "kind": "large_time_ratio",
+      "case_id": "p100__16x16x16x16__c128__l1__trace-on",
+      "value": 4.190844356048637
+    },
+    {
+      "kind": "large_time_ratio",
+      "case_id": "p100__16x16x16x16__c64__l1__trace-off",
+      "value": 2.258028983669492
+    },
+    {
+      "kind": "large_time_ratio",
+      "case_id": "p100__16x16x16x16__c64__l1__trace-on",
+      "value": 4.159588869862537
+    },
+    {
+      "kind": "large_time_ratio",
+      "case_id": "p100__16x16x16x16__c64__l2__trace-off",
+      "value": 0.47078589099965906
+    },
+    {
+      "kind": "large_time_ratio",
+      "case_id": "p100__16x16x16x16__c64__l3__trace-off",
+      "value": 0.43233110847515815
+    },
+    {
+      "kind": "large_time_ratio",
+      "case_id": "p100__16x16x32x32__c128__l1__trace-off",
+      "value": 2.307168916911915
+    },
+    {
+      "kind": "large_time_ratio",
+      "case_id": "p100__16x16x32x32__c128__l1__trace-on",
+      "value": 2.281476593185224
+    },
+    {
+      "kind": "large_time_ratio",
+      "case_id": "p100__8x8x8x16__c128__l1__trace-off",
+      "value": 4.378464361588535
+    },
+    {
+      "kind": "large_time_ratio",
+      "case_id": "p100__8x8x8x16__c128__l1__trace-on",
+      "value": 4.167267394478691
+    },
+    {
+      "kind": "large_time_ratio",
+      "case_id": "p100__8x8x8x16__c64__l1__trace-off",
+      "value": 4.161981485925517
+    },
+    {
+      "kind": "large_time_ratio",
+      "case_id": "p100__8x8x8x16__c64__l1__trace-on",
+      "value": 4.286882211723594
+    },
+    {
+      "kind": "large_time_ratio",
+      "case_id": "v100__16x16x16x16__c128__l1__trace-off",
+      "value": 3.876231106134281
+    },
+    {
+      "kind": "large_time_ratio",
+      "case_id": "v100__16x16x16x16__c128__l1__trace-on",
+      "value": 4.459676752007897
+    },
+    {
+      "kind": "large_time_ratio",
+      "case_id": "v100__16x16x16x16__c128__l2__trace-off",
+      "value": 0.493373393214387
+    },
+    {
+      "kind": "large_time_ratio",
+      "case_id": "v100__16x16x16x16__c128__l3__trace-off",
+      "value": 0.3108100642686967
+    },
+    {
+      "kind": "large_time_ratio",
+      "case_id": "v100__16x16x16x16__c64__l1__trace-off",
+      "value": 3.5487358826086655
+    },
+    {
+      "kind": "large_time_ratio",
+      "case_id": "v100__16x16x16x16__c64__l1__trace-on",
+      "value": 3.112103930897489
+    },
+    {
+      "kind": "large_time_ratio",
+      "case_id": "v100__16x16x16x16__c64__l2__trace-off",
+      "value": 0.3888431632960441
+    },
+    {
+      "kind": "large_time_ratio",
+      "case_id": "v100__16x16x16x16__c64__l3__trace-off",
+      "value": 0.2111222100405897
+    },
+    {
+      "kind": "large_time_ratio",
+      "case_id": "v100__16x16x32x32__c128__l1__trace-off",
+      "value": 4.059325355177881
+    },
+    {
+      "kind": "large_time_ratio",
+      "case_id": "v100__16x16x32x32__c128__l1__trace-on",
+      "value": 4.172705850266515
+    },
+    {
+      "kind": "large_time_ratio",
+      "case_id": "v100__16x32x32x48__c64__l1__trace-off",
+      "value": 4.247182346342766
+    },
+    {
+      "kind": "large_time_ratio",
+      "case_id": "v100__16x32x32x48__c64__l1__trace-on",
+      "value": 5.66338446816193
+    },
+    {
+      "kind": "large_time_ratio",
+      "case_id": "v100__16x32x32x48__c64__l3__trace-off",
+      "value": 0.49299614950201204
+    },
+    {
+      "kind": "large_time_ratio",
+      "case_id": "v100__8x8x8x16__c128__l1__trace-off",
+      "value": 2.799154397343432
+    },
+    {
+      "kind": "large_time_ratio",
+      "case_id": "v100__8x8x8x16__c128__l1__trace-on",
+      "value": 3.335787960346431
+    },
+    {
+      "kind": "large_time_ratio",
+      "case_id": "v100__8x8x8x16__c128__l2__trace-off",
+      "value": 0.1322994129565844
+    },
+    {
+      "kind": "large_time_ratio",
+      "case_id": "v100__8x8x8x16__c128__l2__trace-on",
+      "value": 0.20112897048412998
+    },
+    {
+      "kind": "large_time_ratio",
+      "case_id": "v100__8x8x8x16__c128__l3__trace-off",
+      "value": 0.06833385191189999
+    },
+    {
+      "kind": "large_time_ratio",
+      "case_id": "v100__8x8x8x16__c128__l3__trace-on",
+      "value": 0.2326042897659819
+    },
+    {
+      "kind": "large_time_ratio",
+      "case_id": "v100__8x8x8x16__c64__l1__trace-off",
+      "value": 3.040970446016402
+    },
+    {
+      "kind": "large_time_ratio",
+      "case_id": "v100__8x8x8x16__c64__l1__trace-on",
+      "value": 2.4381196699141325
+    },
+    {
+      "kind": "large_time_ratio",
+      "case_id": "v100__8x8x8x16__c64__l2__trace-off",
+      "value": 0.14052722515723895
+    },
+    {
+      "kind": "large_time_ratio",
+      "case_id": "v100__8x8x8x16__c64__l2__trace-on",
+      "value": 0.27470349530317273
+    },
+    {
+      "kind": "large_time_ratio",
+      "case_id": "v100__8x8x8x16__c64__l3__trace-off",
+      "value": 0.12286348157420836
+    },
+    {
+      "kind": "large_time_ratio",
+      "case_id": "v100__8x8x8x16__c64__l3__trace-on",
+      "value": 0.23878938635049124
+    }
+  ],
+  "schema_assumptions": [
+    "Inputs may be matrix_summary JSON, collector benchmark JSON, iteration trace JSON, or QUDA MG trace TSV.",
+    "The finest-level total iteration count is outer FGMRES/GCR iterations, never the sum of smoother or coarse solver iterations.",
+    "Missing measurements remain blank and are listed in missing_fields or coverage.missing_cells.",
+    "QUDA coarsest_solve pre_iterations/post_iterations are absolute before/after counts; the effective delta is post-minus-pre.",
+    "Reliable-update residual rows are deduplicated by outer iteration with true_r2 preferred over the iterated estimate."
+  ]
+}

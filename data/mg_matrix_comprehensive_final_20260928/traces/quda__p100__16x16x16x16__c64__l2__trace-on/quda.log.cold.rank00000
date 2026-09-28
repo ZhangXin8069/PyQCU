@@ -1,0 +1,194 @@
+Tuned block=(320,1,1), grid=(52,2,1), shared_bytes=0, shared_carve_out=0, aux=(-1,-1,-1,-1) giving 0.00 Gflop/s, 347.31 GB/s for N4quda15CopyColorSpinorILi4ELi3ENS_11colorspinor11FloatNOrderIfLi4ELi3ELb0ELb0ELb0EEENS1_21SpaceSpinorColorOrderIdLi4ELi3EEESt5tupleIJRNS_16ColorSpinorFieldERKS7_19QudaFieldLocation_sPfPKdEEEE with GPU-offline,kernel_arg_threshold=4096,vol=32768,parity=2,precision=8,Ns=4,Nc=3,order=1,vol=32768,parity=2,precision=4,Ns=4,Nc=3,order=0,N=4,to_ukqcd,from_degrand_rossi
+Tuned block=(32,1,1), grid=(1,1,1), shared_bytes=0, shared_carve_out=0, aux=(-1,-1,-1,-1) giving 0.00 Gflop/s, 228.93 GB/s for cudaMemsetAsync with zero,color_spinor_field.cpp,396
+WARNING: Unexpected regression when tuning candidates for cudaMemsetAsync: (1.37409e-05 > 1.1 * 1.0944e-05)
+Tuned block=(256,1,1), grid=(108,1,1), shared_bytes=0, shared_carve_out=0, aux=(-1,-1,-1,-1) giving 8.46 Gflop/s, 16.91 GB/s for N4quda4blas5Norm2IdfEE with GPU-offline,kernel_arg_threshold=4096,vol=32768,parity=2,precision=4,Ns=4,Nc=3,order=0,N=4,n_rhs=1,prefetch=thread,unroll=1
+Tuned block=(32,1,1), grid=(1,1,1), shared_bytes=0, shared_carve_out=0, aux=(-1,-1,-1,-1) giving 0.00 Gflop/s, 0.00 GB/s for cudaMemcpyDeviceToHost with complete,reduce_helper.h,189
+Source: 786950
+Tuned block=(256,1,1), grid=(384,1,2), shared_bytes=0, shared_carve_out=0, aux=(-1,-1,-1,-1) giving 151.95 Gflop/s, 405.20 GB/s for N4quda4blas4axy_IfEE with GPU-offline,kernel_arg_threshold=4096,vol=32768,parity=2,precision=4,Ns=4,Nc=3,order=0,N=4,n_rhs=1,prefetch=thread,unroll=1
+Tuned block=(32,1,1), grid=(1,1,1), shared_bytes=0, shared_carve_out=0, aux=(-1,-1,-1,-1) giving 0.00 Gflop/s, 35.06 GB/s for cudaMemsetAsync with zero,color_spinor_field.cpp,396
+Tuned block=(64,1,1), grid=(256,1,1), shared_bytes=8193, shared_carve_out=0, aux=(-1,-1,-1,-1) giving 187.17 Gflop/s, 154.49 GB/s for N4quda6CloverIfLi3EEE with GPU-offline,kernel_arg_threshold=4096,vol=16384,parity=1,precision=4,Ns=4,Nc=3,order=0,N=4,n_rhs=1
+WARNING: Unexpected regression when tuning candidates for N4quda6CloverIfLi3EEE: (4.41184e-05 > 1.1 * 2.5072e-05)
+Tuned block=(32,1,1), grid=(1,1,1), shared_bytes=0, shared_carve_out=0, aux=(-1,-1,-1,-1) giving 0.00 Gflop/s, 0.27 GB/s for cudaMemcpyDefault with backup,color_spinor_field.cpp,1488
+WARNING: Unexpected regression when tuning candidates for cudaMemcpyDefault: (0.00590291 > 1.1 * 0.00235454)
+Tuned block=(320,1,1), grid=(29,1,1), shared_bytes=0, shared_carve_out=0, aux=(-1,-1,-1,-1) giving 3.74 Gflop/s, 44.90 GB/s for N4quda4PackIfLi3ELb1EEE with policy_kernel,vol=16384,parity=1,precision=4,Ns=4,Nc=3,order=0,N=4,n_rhs=1,n_rhs_tile=1,comm=1000,topo=2111,order=01,nFace=1,device-device,striped
+WARNING: Unexpected regression when tuning candidates for N4quda4PackIfLi3ELb1EEE: (1.31371e-05 > 1.1 * 9.792e-06)
+Tuned block=(32,1,1), grid=(512,1,1), shared_bytes=2341, shared_carve_out=100, aux=(-1,-1,-1,-1) giving 716.90 Gflop/s, 582.59 GB/s for N4quda6WilsonINS_9WilsonArgIfLi3ELi4ENS_4DDNoEL21QudaReconstructType_s12ELb0EEEEE with policy_kernel=interior,GPU-offline,kernel_arg_threshold=4096,vol=16384,parity=1,precision=4,Ns=4,Nc=3,order=0,N=4,carve_out,step=100,commDim=1000,xpay,n_rhs=1,n_rhs_tile=1,comm=1000
+Tuned block=(16,1,1), grid=(256,1,1), shared_bytes=4469, shared_carve_out=100, aux=(-1,-1,-1,-1) giving 56.34 Gflop/s, 79.53 GB/s for N4quda6WilsonINS_9WilsonArgIfLi3ELi4ENS_4DDNoEL21QudaReconstructType_s12ELb0EEEEE with policy_kernel=exterior_x,GPU-offline,kernel_arg_threshold=4096,vol=16384,parity=1,precision=4,Ns=4,Nc=3,order=0,N=4,carve_out,step=100,commDim=1000,xpay,n_rhs=1,n_rhs_tile=1
+WARNING: Unexpected regression when tuning candidates for N4quda6WilsonINS_9WilsonArgIfLi3ELi4ENS_4DDNoEL21QudaReconstructType_s12ELb0EEEEE: (1.48318e-05 > 1.1 * 1.1904e-05)
+Tuned block=(80,1,1), grid=(52,1,1), shared_bytes=8193, shared_carve_out=100, aux=(-1,-1,-1,-1) giving 50.69 Gflop/s, 71.56 GB/s for N4quda6WilsonINS_9WilsonArgIfLi3ELi4ENS_4DDNoEL21QudaReconstructType_s12ELb0EEEEE with policy_kernel=exterior_all,GPU-offline,kernel_arg_threshold=4096,vol=16384,parity=1,precision=4,Ns=4,Nc=3,order=0,N=4,carve_out,step=100,commDim=1000,xpay,n_rhs=1,n_rhs_tile=1
+WARNING: Unexpected regression when tuning candidates for N4quda6WilsonINS_9WilsonArgIfLi3ELi4ENS_4DDNoEL21QudaReconstructType_s12ELb0EEEEE: (1.64846e-05 > 1.1 * 1.3328e-05)
+Tuned block=(32,1,1), grid=(1,1,1), shared_bytes=0, shared_carve_out=0, aux=(-1,-1,-1,-1) giving 0.00 Gflop/s, 0.44 GB/s for cudaMemcpyDefault with restore,color_spinor_field.cpp,1499
+WARNING: Unexpected regression when tuning candidates for cudaMemcpyDefault: (0.00355391 > 1.1 * 0.00236677)
+Tuned block=(32,1,1), grid=(1,1,1), shared_bytes=0, shared_carve_out=0, aux=(1,0,0,-1) giving 26.61 Gflop/s, 22.41 GB/s for N4quda6WilsonINS_9WilsonArgIfLi3ELi4ENS_4DDNoEL21QudaReconstructType_s12ELb0EEEEE with policy,GPU-offline,kernel_arg_threshold=4096,vol=16384,parity=1,precision=4,Ns=4,Nc=3,order=0,N=4,carve_out,step=100,commDim=1000,xpay,n_rhs=1,n_rhs_tile=1,topo=2111,order=01,p2p=0,gdr=0,nvshmem=0,pol=110000000000000000
+WARNING: Unexpected regression when tuning candidates for N4quda6WilsonINS_9WilsonArgIfLi3ELi4ENS_4DDNoEL21QudaReconstructType_s12ELb0EEEEE: (0.000842133 > 1.1 * 0.000745184)
+Tuned block=(512,1,1), grid=(84,1,1), shared_bytes=0, shared_carve_out=0, aux=(-1,-1,-1,-1) giving 4.27 Gflop/s, 8.54 GB/s for N4quda4blas5Norm2IdfEE with GPU-offline,kernel_arg_threshold=4096,vol=16384,parity=1,precision=4,Ns=4,Nc=3,order=0,N=4,n_rhs=1,prefetch=thread,unroll=1
+Prepared: source = 29839.2, solution = 0
+Creating a GCR solver
+Tuned block=(64,1,1), grid=(256,1,1), shared_bytes=0, shared_carve_out=0, aux=(-1,-1,-1,-1) giving 0.00 Gflop/s, 250.11 GB/s for N4quda15CopyColorSpinorILi4ELi3ENS_11colorspinor11FloatNOrderIfLi4ELi3ELb0ELb0ELb0EEES3_St5tupleIJRNS_16ColorSpinorFieldERKS5_19QudaFieldLocation_sPfPKfEEEE with GPU-offline,kernel_arg_threshold=4096,vol=16384,parity=1,precision=4,Ns=4,Nc=3,order=0,N=4,vol=16384,parity=1,precision=4,Ns=4,Nc=3,order=0,N=4
+WARNING: Unexpected regression when tuning candidates for N4quda15CopyColorSpinorILi4ELi3ENS_11colorspinor11FloatNOrderIfLi4ELi3ELb0ELb0ELb0EEES3_St5tupleIJRNS_16ColorSpinorFieldERKS5_19QudaFieldLocation_sPfPKfEEEE: (1.25776e-05 > 1.1 * 9.744e-06)
+GCR:     0 iterations, <r,r> = 2.983915e+04, |r|/|b| = 1.000000e+00
+Tuned block=(1024,1,1), grid=(36,1,1), shared_bytes=0, shared_carve_out=0, aux=(-1,-1,-1,-1) giving 19.18 Gflop/s, 30.69 GB/s for N4quda4blas13cabxpyzaxnormIdfEE with GPU-offline,kernel_arg_threshold=4096,vol=16384,parity=1,precision=4,Ns=4,Nc=3,order=0,N=4,n_rhs=1,prefetch=thread,unroll=1
+WARNING: Unexpected regression when tuning candidates for N4quda4blas13cabxpyzaxnormIdfEE: (0.000204981 > 1.1 * 0.000182992)
+GCR:     1 iterations, <r,r> = 2.098162e+03, |r|/|b| = 2.651711e-01
+Tuned block=(256,1,1), grid=(87,1,1), shared_bytes=0, shared_carve_out=0, aux=(-1,-1,-1,-1) giving 8.07 Gflop/s, 16.14 GB/s for N4quda4blas4CdotIdfEE with GPU-offline,kernel_arg_threshold=4096,vol=16384,parity=1,precision=4,Ns=4,Nc=3,order=0,N=4,n_rhs=1,prefetch=thread,unroll=1
+WARNING: Unexpected regression when tuning candidates for N4quda4blas4CdotIdfEE: (0.000194848 > 1.1 * 0.000175504)
+Tuned block=(1024,1,1), grid=(96,1,1), shared_bytes=0, shared_carve_out=0, aux=(-1,-1,-1,-1) giving 122.65 Gflop/s, 367.94 GB/s for N4quda4blas6caxpy_IfEE with GPU-offline,kernel_arg_threshold=4096,vol=16384,parity=1,precision=4,Ns=4,Nc=3,order=0,N=4,n_rhs=1,prefetch=thread,unroll=1
+WARNING: Unexpected regression when tuning candidates for N4quda4blas6caxpy_IfEE: (1.28243e-05 > 1.1 * 1.096e-05)
+GCR:     2 iterations, <r,r> = 3.558228e+02, |r|/|b| = 1.092003e-01
+GCR:     3 iterations, <r,r> = 1.000155e+02, |r|/|b| = 5.789491e-02
+GCR:     4 iterations, <r,r> = 3.237309e+01, |r|/|b| = 3.293812e-02
+GCR:     5 iterations, <r,r> = 1.213555e+01, |r|/|b| = 2.016678e-02
+GCR:     6 iterations, <r,r> = 4.855138e+00, |r|/|b| = 1.275580e-02
+GCR:     7 iterations, <r,r> = 2.113721e+00, |r|/|b| = 8.416482e-03
+GCR:     8 iterations, <r,r> = 9.828880e-01, |r|/|b| = 5.739298e-03
+GCR:     9 iterations, <r,r> = 4.817004e-01, |r|/|b| = 4.017864e-03
+GCR:    10 iterations, <r,r> = 2.574648e-01, |r|/|b| = 2.937418e-03
+GCR:    11 iterations, <r,r> = 1.438490e-01, |r|/|b| = 2.195635e-03
+GCR:    12 iterations, <r,r> = 8.828271e-02, |r|/|b| = 1.720064e-03
+GCR:    13 iterations, <r,r> = 5.767775e-02, |r|/|b| = 1.390308e-03
+GCR:    14 iterations, <r,r> = 4.021388e-02, |r|/|b| = 1.160900e-03
+GCR:    15 iterations, <r,r> = 2.922561e-02, |r|/|b| = 9.896657e-04
+GCR:    16 iterations, <r,r> = 2.176563e-02, |r|/|b| = 8.540679e-04
+Tuned block=(896,1,1), grid=(110,1,1), shared_bytes=0, shared_carve_out=0, aux=(1,0,0,0) giving 286.50 Gflop/s, 322.31 GB/s for N4quda4blas11multicaxpy_IfEE with GPU-offline,kernel_arg_threshold=4096,vol=16384,parity=1,precision=4,Ns=4,Nc=3,order=0,N=4,Nxz=16,Nyw=1,prefetch=thread,unroll=1
+WARNING: Unexpected regression when tuning candidates for N4quda4blas11multicaxpy_IfEE: (8.784e-05 > 1.1 * 7.8336e-05)
+Tuned block=(304,1,1), grid=(54,1,1), shared_bytes=0, shared_carve_out=100, aux=(-1,-1,-1,-1) giving 737.66 Gflop/s, 543.12 GB/s for N4quda26WilsonCloverPreconditionedINS_15WilsonCloverArgIfLi3ELi4ENS_4DDNoEL21QudaReconstructType_s12ELb0EEEEE with policy_kernel=interior,GPU-offline,kernel_arg_threshold=4096,vol=16384,parity=1,precision=4,Ns=4,Nc=3,order=0,N=4,carve_out,step=100,commDim=1000,n_rhs=1,n_rhs_tile=1,comm=1000
+Tuned block=(80,1,1), grid=(52,1,1), shared_bytes=9831, shared_carve_out=100, aux=(-1,-1,-1,-1) giving 150.07 Gflop/s, 104.97 GB/s for N4quda26WilsonCloverPreconditionedINS_15WilsonCloverArgIfLi3ELi4ENS_4DDNoEL21QudaReconstructType_s12ELb0EEEEE with policy_kernel=exterior_x,GPU-offline,kernel_arg_threshold=4096,vol=16384,parity=1,precision=4,Ns=4,Nc=3,order=0,N=4,carve_out,step=100,commDim=1000,n_rhs=1,n_rhs_tile=1
+Tuned block=(32,1,1), grid=(128,1,1), shared_bytes=9831, shared_carve_out=0, aux=(-1,-1,-1,-1) giving 144.78 Gflop/s, 101.26 GB/s for N4quda26WilsonCloverPreconditionedINS_15WilsonCloverArgIfLi3ELi4ENS_4DDNoEL21QudaReconstructType_s12ELb0EEEEE with policy_kernel=exterior_all,GPU-offline,kernel_arg_threshold=4096,vol=16384,parity=1,precision=4,Ns=4,Nc=3,order=0,N=4,carve_out,step=100,commDim=1000,n_rhs=1,n_rhs_tile=1
+Tuned block=(32,1,1), grid=(1,1,1), shared_bytes=0, shared_carve_out=0, aux=(0,0,0,-1) giving 35.54 Gflop/s, 26.12 GB/s for N4quda26WilsonCloverPreconditionedINS_15WilsonCloverArgIfLi3ELi4ENS_4DDNoEL21QudaReconstructType_s12ELb0EEEEE with policy,GPU-offline,kernel_arg_threshold=4096,vol=16384,parity=1,precision=4,Ns=4,Nc=3,order=0,N=4,carve_out,step=100,commDim=1000,n_rhs=1,n_rhs_tile=1,topo=2111,order=01,p2p=0,gdr=0,nvshmem=0,pol=110000000000000000
+WARNING: Unexpected regression when tuning candidates for N4quda26WilsonCloverPreconditionedINS_15WilsonCloverArgIfLi3ELi4ENS_4DDNoEL21QudaReconstructType_s12ELb0EEEEE: (0.000863029 > 1.1 * 0.00068832)
+Tuned block=(304,1,1), grid=(54,1,1), shared_bytes=0, shared_carve_out=100, aux=(-1,-1,-1,-1) giving 731.31 Gflop/s, 523.63 GB/s for N4quda26WilsonCloverPreconditionedINS_15WilsonCloverArgIfLi3ELi4ENS_4DDNoEL21QudaReconstructType_s12ELb0EEEEE with policy_kernel=interior,GPU-offline,kernel_arg_threshold=4096,vol=16384,parity=1,precision=4,Ns=4,Nc=3,order=0,N=4,carve_out,step=100,commDim=1000,xpay,n_rhs=1,n_rhs_tile=1,comm=1000
+Tuned block=(32,1,1), grid=(128,1,1), shared_bytes=3073, shared_carve_out=0, aux=(-1,-1,-1,-1) giving 135.17 Gflop/s, 91.54 GB/s for N4quda26WilsonCloverPreconditionedINS_15WilsonCloverArgIfLi3ELi4ENS_4DDNoEL21QudaReconstructType_s12ELb0EEEEE with policy_kernel=exterior_x,GPU-offline,kernel_arg_threshold=4096,vol=16384,parity=1,precision=4,Ns=4,Nc=3,order=0,N=4,carve_out,step=100,commDim=1000,xpay,n_rhs=1,n_rhs_tile=1
+WARNING: Unexpected regression when tuning candidates for N4quda26WilsonCloverPreconditionedINS_15WilsonCloverArgIfLi3ELi4ENS_4DDNoEL21QudaReconstructType_s12ELb0EEEEE: (2.29088e-05 > 1.1 * 2.0176e-05)
+Tuned block=(16,1,1), grid=(256,1,1), shared_bytes=3511, shared_carve_out=0, aux=(-1,-1,-1,-1) giving 134.86 Gflop/s, 91.34 GB/s for N4quda26WilsonCloverPreconditionedINS_15WilsonCloverArgIfLi3ELi4ENS_4DDNoEL21QudaReconstructType_s12ELb0EEEEE with policy_kernel=exterior_all,GPU-offline,kernel_arg_threshold=4096,vol=16384,parity=1,precision=4,Ns=4,Nc=3,order=0,N=4,carve_out,step=100,commDim=1000,xpay,n_rhs=1,n_rhs_tile=1
+Tuned block=(32,1,1), grid=(1,1,1), shared_bytes=0, shared_carve_out=0, aux=(1,0,0,-1) giving 39.56 Gflop/s, 28.35 GB/s for N4quda26WilsonCloverPreconditionedINS_15WilsonCloverArgIfLi3ELi4ENS_4DDNoEL21QudaReconstructType_s12ELb0EEEEE with policy,GPU-offline,kernel_arg_threshold=4096,vol=16384,parity=1,precision=4,Ns=4,Nc=3,order=0,N=4,carve_out,step=100,commDim=1000,xpay,n_rhs=1,n_rhs_tile=1,topo=2111,order=01,p2p=0,gdr=0,nvshmem=0,pol=110000000000000000
+GCR (restart):     1 iterations, <r,r> = 2.176574e-02, |r|/|b| = 8.540701e-04
+GCR:    17 iterations, <r,r> = 1.660340e-02, |r|/|b| = 7.459424e-04
+GCR:    18 iterations, <r,r> = 1.259469e-02, |r|/|b| = 6.496815e-04
+GCR:    19 iterations, <r,r> = 9.450523e-03, |r|/|b| = 5.627749e-04
+GCR:    20 iterations, <r,r> = 7.239920e-03, |r|/|b| = 4.925765e-04
+GCR:    21 iterations, <r,r> = 5.424829e-03, |r|/|b| = 4.263829e-04
+GCR:    22 iterations, <r,r> = 4.149990e-03, |r|/|b| = 3.729325e-04
+GCR:    23 iterations, <r,r> = 3.156903e-03, |r|/|b| = 3.252651e-04
+GCR:    24 iterations, <r,r> = 2.355222e-03, |r|/|b| = 2.809459e-04
+GCR:    25 iterations, <r,r> = 1.791219e-03, |r|/|b| = 2.450085e-04
+GCR:    26 iterations, <r,r> = 1.260525e-03, |r|/|b| = 2.055335e-04
+GCR:    27 iterations, <r,r> = 8.812315e-04, |r|/|b| = 1.718509e-04
+GCR:    28 iterations, <r,r> = 5.823646e-04, |r|/|b| = 1.397025e-04
+GCR:    29 iterations, <r,r> = 3.942542e-04, |r|/|b| = 1.149463e-04
+GCR:    30 iterations, <r,r> = 2.309136e-04, |r|/|b| = 8.796939e-05
+GCR:    31 iterations, <r,r> = 1.462275e-04, |r|/|b| = 7.000375e-05
+GCR:    32 iterations, <r,r> = 8.296714e-05, |r|/|b| = 5.273025e-05
+GCR (restart):     2 iterations, <r,r> = 8.296907e-05, |r|/|b| = 5.273086e-05
+GCR:    33 iterations, <r,r> = 5.644280e-05, |r|/|b| = 4.349217e-05
+GCR:    34 iterations, <r,r> = 3.278808e-05, |r|/|b| = 3.314857e-05
+GCR:    35 iterations, <r,r> = 2.142029e-05, |r|/|b| = 2.679289e-05
+GCR:    36 iterations, <r,r> = 1.356633e-05, |r|/|b| = 2.132249e-05
+GCR:    37 iterations, <r,r> = 9.268313e-06, |r|/|b| = 1.762411e-05
+GCR:    38 iterations, <r,r> = 6.278653e-06, |r|/|b| = 1.450574e-05
+GCR:    39 iterations, <r,r> = 4.486645e-06, |r|/|b| = 1.226218e-05
+GCR:    40 iterations, <r,r> = 3.220405e-06, |r|/|b| = 1.038872e-05
+GCR:    41 iterations, <r,r> = 2.427216e-06, |r|/|b| = 9.019054e-06
+GCR:    42 iterations, <r,r> = 1.828914e-06, |r|/|b| = 7.828947e-06
+GCR:    43 iterations, <r,r> = 1.386701e-06, |r|/|b| = 6.817076e-06
+GCR:    44 iterations, <r,r> = 1.053868e-06, |r|/|b| = 5.942920e-06
+GCR:    45 iterations, <r,r> = 7.989826e-07, |r|/|b| = 5.174584e-06
+GCR:    46 iterations, <r,r> = 6.051307e-07, |r|/|b| = 4.503305e-06
+GCR:    47 iterations, <r,r> = 4.597995e-07, |r|/|b| = 3.925464e-06
+GCR:    48 iterations, <r,r> = 3.508300e-07, |r|/|b| = 3.428903e-06
+GCR (restart):     3 iterations, <r,r> = 3.517058e-07, |r|/|b| = 3.433180e-06
+GCR:    49 iterations, <r,r> = 2.693931e-07, |r|/|b| = 3.004692e-06
+GCR:    50 iterations, <r,r> = 2.070422e-07, |r|/|b| = 2.634124e-06
+GCR:    51 iterations, <r,r> = 1.560841e-07, |r|/|b| = 2.287105e-06
+GCR:    52 iterations, <r,r> = 1.199625e-07, |r|/|b| = 2.005070e-06
+GCR:    53 iterations, <r,r> = 9.034618e-08, |r|/|b| = 1.740050e-06
+GCR:    54 iterations, <r,r> = 6.907013e-08, |r|/|b| = 1.521430e-06
+GCR:    55 iterations, <r,r> = 5.318385e-08, |r|/|b| = 1.335047e-06
+GCR:    56 iterations, <r,r> = 3.974991e-08, |r|/|b| = 1.154184e-06
+GCR:    57 iterations, <r,r> = 3.037148e-08, |r|/|b| = 1.008881e-06
+GCR:    58 iterations, <r,r> = 2.172752e-08, |r|/|b| = 8.533199e-07
+Tuned block=(480,1,1), grid=(205,1,1), shared_bytes=0, shared_carve_out=0, aux=(1,0,0,0) giving 66.78 Gflop/s, 133.56 GB/s for N4quda4blas11multicaxpy_IfEE with GPU-offline,kernel_arg_threshold=4096,vol=16384,parity=1,precision=4,Ns=4,Nc=3,order=0,N=4,Nxz=2,Nyw=1,prefetch=thread,unroll=1
+WARNING: Unexpected regression when tuning candidates for N4quda4blas11multicaxpy_IfEE: (4.71051e-05 > 1.1 * 3.3936e-05)
+Tuned block=(160,1,1), grid=(615,1,1), shared_bytes=0, shared_carve_out=0, aux=(1,0,0,0) giving 90.02 Gflop/s, 150.04 GB/s for N4quda4blas11multicaxpy_IfEE with GPU-offline,kernel_arg_threshold=4096,vol=16384,parity=1,precision=4,Ns=4,Nc=3,order=0,N=4,Nxz=3,Nyw=1,prefetch=thread,unroll=1
+WARNING: Unexpected regression when tuning candidates for N4quda4blas11multicaxpy_IfEE: (5.2416e-05 > 1.1 * 4.0032e-05)
+GCR: number of restarts = 3
+Tuned block=(1024,1,1), grid=(42,1,1), shared_bytes=0, shared_carve_out=0, aux=(-1,-1,-1,-1) giving 8.26 Gflop/s, 16.52 GB/s for N4quda4blas23HeavyQuarkResidualNorm_IdfEE with GPU-offline,kernel_arg_threshold=4096,vol=16384,parity=1,precision=4,Ns=4,Nc=3,order=0,N=4,n_rhs=1,prefetch=thread,unroll=1
+WARNING: Unexpected regression when tuning candidates for N4quda4blas23HeavyQuarkResidualNorm_IdfEE: (0.000190377 > 1.1 * 0.000166224)
+Tuned block=(32,1,1), grid=(1,1,1), shared_bytes=0, shared_carve_out=0, aux=(-1,-1,-1,-1) giving 0.00 Gflop/s, 0.00 GB/s for cudaMemcpyDeviceToHost with complete,reduce_helper.h,189
+GCR: Convergence at 58 iterations, L2 relative residual: iterated = 8.639004e-07, true = 8.639004e-07 (requested = 1.000000e-06)
+Solution = 32694.1
+Reconstructed Solution = 65458.6
+Tuned block=(640,1,1), grid=(26,2,1), shared_bytes=0, shared_carve_out=0, aux=(-1,-1,-1,-1) giving 0.00 Gflop/s, 396.10 GB/s for N4quda15CopyColorSpinorILi4ELi3ENS_11colorspinor21SpaceSpinorColorOrderIdLi4ELi3EEENS1_11FloatNOrderIfLi4ELi3ELb0ELb0ELb0EEESt5tupleIJRNS_16ColorSpinorFieldERKS7_19QudaFieldLocation_sPdPKfEEEE with GPU-offline,kernel_arg_threshold=4096,vol=32768,parity=2,precision=4,Ns=4,Nc=3,order=0,N=4,vol=32768,parity=2,precision=8,Ns=4,Nc=3,order=1,to_degrand_rossi,from_ukqcd
+Source: 786950
+Prepared: source = 29839.2, solution = 0
+Creating a BiCGstab solver
+BiCGstab:     0 iterations, <r,r> = 2.983915e+04, |r|/|b| = 1.000000e+00
+Tuned block=(1024,1,1), grid=(54,1,1), shared_bytes=0, shared_carve_out=0, aux=(-1,-1,-1,-1) giving 31.71 Gflop/s, 49.33 GB/s for N4quda4blas31caxpbypzYmbwcDotProductUYNormY_IdfEE with GPU-offline,kernel_arg_threshold=4096,vol=16384,parity=1,precision=4,Ns=4,Nc=3,order=0,N=4,n_rhs=1,prefetch=thread,unroll=1
+WARNING: Unexpected regression when tuning candidates for N4quda4blas31caxpbypzYmbwcDotProductUYNormY_IdfEE: (0.000223195 > 1.1 * 0.000192352)
+BiCGstab:     1 iterations, <r,r> = 7.636634e+02, |r|/|b| = 1.599771e-01
+Tuned block=(64,1,1), grid=(1536,1,1), shared_bytes=0, shared_carve_out=0, aux=(-1,-1,-1,-1) giving 229.56 Gflop/s, 408.11 GB/s for N4quda4blas9cxpaypbz_IfEE with GPU-offline,kernel_arg_threshold=4096,vol=16384,parity=1,precision=4,Ns=4,Nc=3,order=0,N=4,n_rhs=1,prefetch=thread,unroll=1
+BiCGstab:     2 iterations, <r,r> = 1.063662e+03, |r|/|b| = 1.888029e-01
+BiCGstab:     3 iterations, <r,r> = 1.149280e+02, |r|/|b| = 6.206114e-02
+BiCGstab:     4 iterations, <r,r> = 6.334531e+01, |r|/|b| = 4.607486e-02
+BiCGstab:     5 iterations, <r,r> = 3.308564e+01, |r|/|b| = 3.329864e-02
+BiCGstab:     6 iterations, <r,r> = 7.100227e+00, |r|/|b| = 1.542563e-02
+BiCGstab:     7 iterations, <r,r> = 3.673558e+01, |r|/|b| = 3.508732e-02
+BiCGstab:     8 iterations, <r,r> = 3.956649e+00, |r|/|b| = 1.151518e-02
+BiCGstab:     9 iterations, <r,r> = 1.754244e+00, |r|/|b| = 7.667464e-03
+BiCGstab:    10 iterations, <r,r> = 1.482143e+00, |r|/|b| = 7.047771e-03
+BiCGstab:    11 iterations, <r,r> = 1.569416e+01, |r|/|b| = 2.293379e-02
+BiCGstab:    12 iterations, <r,r> = 8.523888e+00, |r|/|b| = 1.690151e-02
+BiCGstab:    13 iterations, <r,r> = 5.866624e+00, |r|/|b| = 1.402171e-02
+BiCGstab:    14 iterations, <r,r> = 5.340583e+00, |r|/|b| = 1.337830e-02
+BiCGstab:    15 iterations, <r,r> = 4.658239e+00, |r|/|b| = 1.249447e-02
+BiCGstab:    16 iterations, <r,r> = 7.929847e-01, |r|/|b| = 5.155125e-03
+BiCGstab:    17 iterations, <r,r> = 1.167224e-01, |r|/|b| = 1.977807e-03
+BiCGstab:    18 iterations, <r,r> = 5.992752e-02, |r|/|b| = 1.417163e-03
+BiCGstab:    19 iterations, <r,r> = 7.833884e-02, |r|/|b| = 1.620300e-03
+BiCGstab:    20 iterations, <r,r> = 2.615337e-02, |r|/|b| = 9.362043e-04
+BiCGstab:    21 iterations, <r,r> = 1.891506e-02, |r|/|b| = 7.961789e-04
+BiCGstab:    22 iterations, <r,r> = 1.451273e-02, |r|/|b| = 6.973989e-04
+BiCGstab:    23 iterations, <r,r> = 1.109416e-02, |r|/|b| = 6.097530e-04
+BiCGstab:    24 iterations, <r,r> = 9.024031e-03, |r|/|b| = 5.499295e-04
+BiCGstab:    25 iterations, <r,r> = 7.904531e-03, |r|/|b| = 5.146889e-04
+BiCGstab:    26 iterations, <r,r> = 9.432501e-03, |r|/|b| = 5.622380e-04
+BiCGstab:    27 iterations, <r,r> = 1.309292e-02, |r|/|b| = 6.624072e-04
+BiCGstab:    28 iterations, <r,r> = 1.603982e-02, |r|/|b| = 7.331732e-04
+BiCGstab:    29 iterations, <r,r> = 9.783841e-03, |r|/|b| = 5.726134e-04
+BiCGstab:    30 iterations, <r,r> = 8.609664e-03, |r|/|b| = 5.371553e-04
+BiCGstab:    31 iterations, <r,r> = 8.754522e-03, |r|/|b| = 5.416553e-04
+BiCGstab:    32 iterations, <r,r> = 6.855854e-03, |r|/|b| = 4.793333e-04
+BiCGstab:    33 iterations, <r,r> = 4.275102e-02, |r|/|b| = 1.196961e-03
+BiCGstab:    34 iterations, <r,r> = 7.376689e-03, |r|/|b| = 4.972073e-04
+BiCGstab:    35 iterations, <r,r> = 5.899337e-02, |r|/|b| = 1.406075e-03
+BiCGstab:    36 iterations, <r,r> = 4.449695e-03, |r|/|b| = 3.861641e-04
+BiCGstab:    37 iterations, <r,r> = 7.254404e-03, |r|/|b| = 4.930689e-04
+BiCGstab:    38 iterations, <r,r> = 1.126128e-03, |r|/|b| = 1.942677e-04
+BiCGstab:    39 iterations, <r,r> = 8.484465e-04, |r|/|b| = 1.686239e-04
+BiCGstab:    40 iterations, <r,r> = 8.192191e-04, |r|/|b| = 1.656940e-04
+BiCGstab:    41 iterations, <r,r> = 7.065866e-04, |r|/|b| = 1.538826e-04
+BiCGstab:    42 iterations, <r,r> = 7.930937e-04, |r|/|b| = 1.630306e-04
+BiCGstab:    43 iterations, <r,r> = 4.542281e-04, |r|/|b| = 1.233797e-04
+BiCGstab:    44 iterations, <r,r> = 6.685575e-04, |r|/|b| = 1.496843e-04
+BiCGstab:    45 iterations, <r,r> = 2.007967e-04, |r|/|b| = 8.203234e-05
+BiCGstab:    46 iterations, <r,r> = 1.421102e-04, |r|/|b| = 6.901118e-05
+BiCGstab:    47 iterations, <r,r> = 1.141351e-04, |r|/|b| = 6.184669e-05
+BiCGstab:    48 iterations, <r,r> = 1.022580e-04, |r|/|b| = 5.854035e-05
+BiCGstab:    49 iterations, <r,r> = 1.430698e-04, |r|/|b| = 6.924377e-05
+BiCGstab:    50 iterations, <r,r> = 8.001722e-05, |r|/|b| = 5.178435e-05
+BiCGstab:    51 iterations, <r,r> = 2.643370e-03, |r|/|b| = 2.976362e-04
+BiCGstab:    52 iterations, <r,r> = 1.101462e-04, |r|/|b| = 6.075634e-05
+BiCGstab:    53 iterations, <r,r> = 3.284650e-05, |r|/|b| = 3.317808e-05
+BiCGstab:    54 iterations, <r,r> = 2.604124e-05, |r|/|b| = 2.954185e-05
+BiCGstab:    55 iterations, <r,r> = 1.730943e-05, |r|/|b| = 2.408509e-05
+BiCGstab:    56 iterations, <r,r> = 1.297513e-05, |r|/|b| = 2.085272e-05
+BiCGstab:    57 iterations, <r,r> = 2.289742e-06, |r|/|b| = 8.759917e-06
+BiCGstab:    58 iterations, <r,r> = 9.365131e-07, |r|/|b| = 5.602266e-06
+BiCGstab:    59 iterations, <r,r> = 1.348878e-06, |r|/|b| = 6.723464e-06
+BiCGstab:    60 iterations, <r,r> = 4.078263e-07, |r|/|b| = 3.696957e-06
+BiCGstab:    61 iterations, <r,r> = 1.434445e-06, |r|/|b| = 6.933439e-06
+BiCGstab:    62 iterations, <r,r> = 2.943025e-07, |r|/|b| = 3.140536e-06
+BiCGstab:    63 iterations, <r,r> = 2.249791e-08, |r|/|b| = 8.683162e-07
+BiCGstab: Reliable updates = 2
+BiCGstab: Convergence at 63 iterations, L2 relative residual: iterated = 8.715439e-07, true = 8.715439e-07 (requested = 1.000000e-06)
+Solution = 32694.2
+Reconstructed Solution = 65458.8

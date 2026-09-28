@@ -1,0 +1,5070 @@
+{
+  "schema": {
+    "name": "pyqcu.strict-vs-quda.benchmark",
+    "version": 1
+  },
+  "run_id": "77a2fc449cf164cf097f",
+  "state": "partial",
+  "profile": "formal",
+  "created_at": "2026-09-27T22:26:36Z",
+  "updated_at": "2026-09-27T22:28:51Z",
+  "selected_sides": [
+    "pyqcu"
+  ],
+  "protocol": {
+    "profile": "formal",
+    "lattice_xyzt": [
+      16,
+      16,
+      16,
+      16
+    ],
+    "mass": 0.05,
+    "kappa": 0.1234567901234568,
+    "seed": 42,
+    "precision": {
+      "name": "c128",
+      "complex_bytes": 16,
+      "real": "float64",
+      "default_tolerance": 1e-08,
+      "true_residual_gate": 5e-08
+    },
+    "levels": 2,
+    "block_xyzt": [
+      2,
+      2,
+      2,
+      2
+    ],
+    "block_xyzt_per_level": [
+      [
+        2,
+        2,
+        2,
+        2
+      ]
+    ],
+    "nvec": 12,
+    "coarse_spin": 2,
+    "coarse_dof": 24,
+    "target_parity": 1,
+    "null_vector_contract": {
+      "source": "12 canonical full near-null vectors",
+      "full_reconstruction": "precomputed once by zero-rhs Clover block elimination",
+      "transfer": "full-field chiral aggregation with coarse_spin=2"
+    },
+    "outer_solver": "restarted-right-fgmres/gcr",
+    "quda_strategy": "aligned",
+    "quda_coarse_precision": {
+      "requested": "auto",
+      "effective": "double",
+      "semantics": "fine c128 solve with double coarse MG fields"
+    },
+    "pyqcu_strict_block_precision": {
+      "requested": "auto",
+      "effective": "double"
+    },
+    "pyqcu_strict_block_device": "auto",
+    "pyqcu_strict_offload_null_basis": false,
+    "reference_solver": {
+      "kind": "bicgstab",
+      "warmups": 2,
+      "timing_semantics": "same caller-owned input/output and true-residual gate; outside MultiGrid and excluded from speedup"
+    },
+    "restart_requested": 16,
+    "restart_effective": 16,
+    "max_krylov_bytes": 1073741824,
+    "pyqcu_strict_setup": {
+      "probe_mode": "colored",
+      "column_batch_size": 1,
+      "projection_site_batch_size": 4,
+      "max_workspace_bytes": 1073741824,
+      "workspace_four_arena_lower_bound_bytes": 50331648,
+      "require_exact_batch": true
+    },
+    "fused_workspace_formula": "(2m+5)B_f+2B_c",
+    "fused_workspace_terms": {
+      "B_f": "one compact fine-parity vector in bytes",
+      "B_c": "one full first-coarse-level vector in bytes"
+    },
+    "max_iter": 1000,
+    "tolerance": 1e-08,
+    "true_residual_gate": 5e-08,
+    "nu_pre": 1,
+    "nu_post": 1,
+    "coarse_max_iter": 200,
+    "coarse_tolerance": 3e-05,
+    "initial_guess": "zero for every warmup and measured solve",
+    "warmups": 2,
+    "repeats": 5,
+    "statistic": {
+      "center": "median",
+      "spread": "median absolute deviation from median",
+      "warmups_included": false
+    },
+    "timing_contract": {
+      "input_io": "outside setup and solve",
+      "runtime_init": "CUDA/PyQUDA module initialization, outside setup",
+      "setup": "host inputs -> gauge/clover/runtime ready; includes cache lookup/restore, excludes cache persistence",
+      "cache_lookup_or_restore": "reported as a disjoint setup component",
+      "cache_persist": "reported separately and excluded from setup total",
+      "steady_solve": "zero-x0 solve call bracketed by CUDA synchronization",
+      "true_residual": "computed after each timed solve and excluded from solve time",
+      "first_solve_memory": "the first zero-x0 warmup is sampled for lazy solver/workspace allocation; excluded from warmup/repeat timing statistics",
+      "memory_probe": "one additional post-timing solve with 10 ms device-wide cudaMemGetInfo sampling; excluded from warmups/repeats/statistics"
+    },
+    "residual_contract": {
+      "definition": "||b-D_pyqcu*x_canonical||_2/||b||_2",
+      "operator": "full periodic Wilson+Clover, csw=1, PyQCU normalization",
+      "quda_solution_scale": 4.05
+    },
+    "config_hash": "77a2fc449cf164cf097f1ae6dba811b8de15f70780c933459d275609520163fd"
+  },
+  "inputs": {
+    "gauge": {
+      "path": "/root/PyQCU/data/gauge_16x16x16x16_m0.05_seed42_c64.h5",
+      "dataset": "g",
+      "storage_precision": "c64",
+      "exists": true
+    },
+    "source": {
+      "path": "/root/PyQCU/data/gauge_16x16x16x16_m0.05_seed42_c64.h5",
+      "dataset": "fi",
+      "storage_precision": "c64",
+      "exists": true
+    },
+    "null_vectors": {
+      "path": "/root/PyQCU/data/L16x16x16x16_nvec12_full_c64.h5",
+      "dataset": "null",
+      "layout": "[nvec,spin,color,x,y,z,t]",
+      "parity": "full (even reconstructed once; odd copied verbatim)",
+      "storage_precision": "c64",
+      "exists": true
+    },
+    "quda_qio": {
+      "prefix": null,
+      "conversion_manifest": null,
+      "required_for_fair_quda_run": true
+    }
+  },
+  "execution": {
+    "strict_cache": {
+      "directory": "/root/PyQCU/data/strict_cache_comprehensive_20260928/p100-c128/pyqcu__p100__16x16x16x16__c128__l2__trace-off",
+      "expect": "hit"
+    },
+    "phases": {
+      "selected": [
+        "cold",
+        "warmup",
+        "steady"
+      ],
+      "counts": {
+        "cold": 1,
+        "warmup": 2,
+        "steady": 5
+      },
+      "cold_separate_process": true
+    },
+    "device": {
+      "requested": "p100"
+    },
+    "parallel": {
+      "ranks": 2,
+      "process_grid": [
+        2,
+        1,
+        1,
+        1
+      ],
+      "launcher": "mpirun",
+      "rank_local_cache": true,
+      "rank_suffixed_trace": true
+    }
+  },
+  "input_fingerprints": {
+    "gauge": {
+      "algorithm": "sha256(logical-hdf5-dataset-v1)",
+      "sha256": "a10c07cc3bc34d195794875bf20b39ffe84c64af86967fd9312a957f3a0f1f39",
+      "path": "/root/PyQCU/data/gauge_16x16x16x16_m0.05_seed42_c64.h5",
+      "dataset": "g",
+      "shape": [
+        2,
+        3,
+        3,
+        4,
+        16,
+        16,
+        16,
+        8
+      ],
+      "dtype": "complex64",
+      "file_size_bytes": 25167872,
+      "file_mtime_ns": 1787202539370978343,
+      "elapsed_seconds": 0.07890575799683575
+    },
+    "source": {
+      "algorithm": "sha256(logical-hdf5-dataset-v1)",
+      "sha256": "eedb3a8adfdd47721e66382850ac15a9fca2eeb44719a9bcbe0ae11ae9c6ca9f",
+      "path": "/root/PyQCU/data/gauge_16x16x16x16_m0.05_seed42_c64.h5",
+      "dataset": "fi",
+      "shape": [
+        2,
+        4,
+        3,
+        16,
+        16,
+        16,
+        8
+      ],
+      "dtype": "complex64",
+      "file_size_bytes": 25167872,
+      "file_mtime_ns": 1787202539370978343,
+      "elapsed_seconds": 0.02000112998939585
+    },
+    "null_vectors": {
+      "algorithm": "sha256(logical-hdf5-dataset-v1)",
+      "sha256": "fd999e6c75c6419b94ab3ce84cd63cb4b805c6565e0781fd8a7f21f4e98e3f21",
+      "path": "/root/PyQCU/data/L16x16x16x16_nvec12_full_c64.h5",
+      "dataset": "null",
+      "shape": [
+        12,
+        4,
+        3,
+        16,
+        16,
+        16,
+        16
+      ],
+      "dtype": "complex64",
+      "file_size_bytes": 75531984,
+      "file_mtime_ns": 1789562524508442078,
+      "elapsed_seconds": 0.2697327390051214
+    },
+    "bundle_hash": "e67aa41fa951a9cc125ecf6a56338b8e050c04595607f9807a3e9b387d445ff2"
+  },
+  "collector": {
+    "path": "/root/PyQCU/pyqcu/testing/qcu/strict/quda_comparison/bench_strict_vs_quda.py",
+    "git": {
+      "commit": "33fe4f0935e5662351c4a190f7f913f391d498a9",
+      "dirty_tracked": true,
+      "repository": "/root/PyQCU"
+    },
+    "environment": {
+      "python": "3.10.12",
+      "executable": "/usr/bin/python",
+      "platform": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.35",
+      "hostname": "68bb03cf529b",
+      "env": {
+        "CUDA_VISIBLE_DEVICES": "0,1",
+        "QUDA_INSTALL": "/root/PyQCU/data/quda-sm60-install",
+        "QUDA_PATH": "/root/PyQCU/data/quda-sm60-install",
+        "QUDA_BUILD_DIR": "/root/PyQCU/data/quda-sm60-build-offline2",
+        "DEV87_REDUCE_SYNC": "1",
+        "PYQCU_STRICT_TRACE_FILE": "data/mg_matrix_comprehensive_final_20260928/traces/pyqcu__p100__16x16x16x16__c128__l2__trace-on/pyqcu.tsv",
+        "PYQCU_QUDA_TRACE_FILE": "data/mg_matrix_comprehensive_final_20260928/traces/pyqcu__p100__16x16x16x16__c128__l2__trace-on/quda.log",
+        "QUDA_MG_TRACE_FILE": "data/mg_matrix_comprehensive_final_20260928/traces/pyqcu__p100__16x16x16x16__c128__l2__trace-on/quda.tsv",
+        "QUDA_RESOURCE_PATH": "/root/PyQCU/data/quda-resource-sm60-20260927"
+      }
+    },
+    "timeout_seconds_per_side": 1800.0,
+    "resume": false,
+    "diagnostic_trace_environment": [
+      "PYQCU_STRICT_TRACE_FILE",
+      "PYQCU_QUDA_TRACE_FILE",
+      "QUDA_MG_TRACE_FILE"
+    ]
+  },
+  "sides": {
+    "pyqcu": {
+      "side": "pyqcu",
+      "status": "ok",
+      "reason": null,
+      "config_hash": "77a2fc449cf164cf097f1ae6dba811b8de15f70780c933459d275609520163fd",
+      "input_bundle_hash": "e67aa41fa951a9cc125ecf6a56338b8e050c04595607f9807a3e9b387d445ff2",
+      "timing": {
+        "input_io_seconds": 0.09372057100699749,
+        "input_read_distributed": true,
+        "input_read_scope": "rank-sliced HDF5 hyperslab",
+        "runtime_init_seconds": 3.5813345599890454,
+        "setup_seconds": 3.007970361999469,
+        "setup_mode": "runtime_cache_restore",
+        "setup_noncache_seconds": 1.2185888300009537,
+        "cache_restore_seconds": 1.7893815319985151,
+        "cache_miss_probe_seconds": null,
+        "cache_persist_seconds": 0.0,
+        "warmups": [
+          {
+            "seconds": 9.095419331002631,
+            "iterations": 39,
+            "converged": true,
+            "true_residual_rel": 1.8488518822319705e-08
+          },
+          {
+            "seconds": 8.148788481004885,
+            "iterations": 39,
+            "converged": true,
+            "true_residual_rel": 1.8227140264876404e-08
+          }
+        ],
+        "steady": {
+          "samples_seconds": [
+            8.416566419997253,
+            8.582728541005054,
+            8.68550662099733,
+            8.696521265999763,
+            8.928478368994547
+          ],
+          "median_seconds": 8.68550662099733,
+          "mad_seconds": 0.10277807999227662
+        },
+        "cold_seconds": 9.539377551001962,
+        "cold_setup_seconds": 3.051919274003012,
+        "cold_cache_persist_seconds": 0.0
+      },
+      "reference_solver": {
+        "kind": "bicgstab",
+        "implementation": "pyqcu.cuda.qcu.applyCloverBistabCgQcu",
+        "cold": {
+          "seconds": 3.7109753679978894,
+          "true_residual_rel": 1.6782189572295156e-08,
+          "iterations": 129
+        },
+        "warmups": [
+          {
+            "seconds": 3.7754976419964805,
+            "true_residual_rel": 1.6782189572295156e-08,
+            "iterations": 129
+          },
+          {
+            "seconds": 3.6674428100086516,
+            "true_residual_rel": 1.6782189572295156e-08,
+            "iterations": 129
+          }
+        ],
+        "steady": {
+          "samples_seconds": [
+            3.7236657189932885,
+            3.817755133000901,
+            3.766847835999215,
+            3.830924726004014,
+            3.7373879319929983
+          ],
+          "median_seconds": 3.766847835999215,
+          "mad_seconds": 0.04318211700592656
+        },
+        "samples": [
+          {
+            "seconds": 3.7236657189932885,
+            "true_residual_rel": 1.6782189572295156e-08,
+            "iterations": 129
+          },
+          {
+            "seconds": 3.817755133000901,
+            "true_residual_rel": 1.6782189572295156e-08,
+            "iterations": 129
+          },
+          {
+            "seconds": 3.766847835999215,
+            "true_residual_rel": 1.6782189572295156e-08,
+            "iterations": 129
+          },
+          {
+            "seconds": 3.830924726004014,
+            "true_residual_rel": 1.6782189572295156e-08,
+            "iterations": 129
+          },
+          {
+            "seconds": 3.7373879319929983,
+            "true_residual_rel": 1.6782189572295156e-08,
+            "iterations": 129
+          }
+        ],
+        "true_residual_max_rel": 1.6782189572295156e-08,
+        "iterations": {
+          "samples_seconds": [
+            129.0,
+            129.0,
+            129.0,
+            129.0,
+            129.0
+          ],
+          "median_seconds": 129.0,
+          "mad_seconds": 0.0
+        },
+        "excluded_from_speedup": true,
+        "phase_iterations": {
+          "cold": 129,
+          "warmups": [
+            129,
+            129
+          ],
+          "steady": [
+            129,
+            129,
+            129,
+            129,
+            129
+          ]
+        }
+      },
+      "iterations": {
+        "samples": [
+          40,
+          40,
+          40,
+          40,
+          40
+        ],
+        "min": 40,
+        "max": 40,
+        "median": 40.0
+      },
+      "mg_levels": [
+        {
+          "level": 0,
+          "total_seconds": 54.61242769099995,
+          "total_iterations": 200,
+          "pre_smoother_seconds": 2.648521791000001,
+          "post_smoother_seconds": 2.725325498000001,
+          "restriction_seconds": 0.208010768,
+          "prolongation_seconds": 0.226855825,
+          "coarse_solver_seconds": 0.0,
+          "timing_rank_index": 0,
+          "other_seconds": 48.803713808999944,
+          "pre_smoother_iterations": 200,
+          "post_smoother_iterations": 200,
+          "restriction_calls": 0,
+          "prolongation_calls": 0,
+          "recursive_solve_calls": 0,
+          "coarse_solver_iterations": 0,
+          "coarse_solver_calls": 0,
+          "smoother_iterations": 400,
+          "finest_iterations": 200,
+          "residual_sequence": [
+            {
+              "solve_index": 2,
+              "iteration": 0,
+              "relative": 1.0,
+              "kind": "initial_true_residual"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 1,
+              "relative": 0.1563145076800654,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 2,
+              "relative": 0.03603933056526643,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 3,
+              "relative": 0.014525020879765331,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 4,
+              "relative": 0.0075524191535580034,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 5,
+              "relative": 0.0037717127449854717,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 6,
+              "relative": 0.002391781414711863,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 7,
+              "relative": 0.001691532013790245,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 8,
+              "relative": 0.0012579873843179437,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 9,
+              "relative": 0.0009659797419938422,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 10,
+              "relative": 0.0007640611727611086,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 11,
+              "relative": 0.0005914331662339134,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 12,
+              "relative": 0.00047654486705275037,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 13,
+              "relative": 0.0003524257507166602,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 14,
+              "relative": 0.00025108904226072684,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 15,
+              "relative": 0.00018427453563042348,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 16,
+              "relative": 0.00010974646574033741,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 17,
+              "relative": 7.335165460747483e-05,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 18,
+              "relative": 5.149054859144724e-05,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 19,
+              "relative": 3.454107090897631e-05,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 20,
+              "relative": 2.5644886495318814e-05,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 21,
+              "relative": 1.9700565734728667e-05,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 22,
+              "relative": 1.5542545723264465e-05,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 23,
+              "relative": 1.2106905828143392e-05,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 24,
+              "relative": 9.766522351810073e-06,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 25,
+              "relative": 7.695500762177374e-06,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 26,
+              "relative": 5.5638161124387995e-06,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 27,
+              "relative": 3.913029173820442e-06,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 28,
+              "relative": 2.117530202623517e-06,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 29,
+              "relative": 1.0770599472655803e-06,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 30,
+              "relative": 5.430049114788867e-07,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 31,
+              "relative": 2.418348993355303e-07,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 32,
+              "relative": 1.373471517098316e-07,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 33,
+              "relative": 8.490349098618931e-08,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 34,
+              "relative": 5.2597461178011646e-08,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 35,
+              "relative": 3.388052846455439e-08,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 36,
+              "relative": 2.3463256784946314e-08,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 37,
+              "relative": 1.814658879407917e-08,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 38,
+              "relative": 1.3937520509664755e-08,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 39,
+              "relative": 1.117289976085935e-08,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 2,
+              "iteration": 40,
+              "relative": 8.510582670469373e-09,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 0,
+              "relative": 1.0,
+              "kind": "initial_true_residual"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 1,
+              "relative": 0.15525795664459166,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 2,
+              "relative": 0.03155816984474285,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 3,
+              "relative": 0.014482028062651872,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 4,
+              "relative": 0.006545228543734217,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 5,
+              "relative": 0.0037710241712291433,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 6,
+              "relative": 0.002232470321027698,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 7,
+              "relative": 0.0016115911573883186,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 8,
+              "relative": 0.001205864279609955,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 9,
+              "relative": 0.0009798574220079128,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 10,
+              "relative": 0.0007494725149835904,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 11,
+              "relative": 0.0005971723070537601,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 12,
+              "relative": 0.00047076549316772063,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 13,
+              "relative": 0.00034903942183063866,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 14,
+              "relative": 0.0002510500076828346,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 15,
+              "relative": 0.00016707213218199543,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 16,
+              "relative": 0.00010366452762663408,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 17,
+              "relative": 7.40509022315299e-05,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 18,
+              "relative": 4.9572756339347264e-05,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 19,
+              "relative": 3.2427877338006836e-05,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 20,
+              "relative": 2.3975085750016137e-05,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 21,
+              "relative": 1.8291367622797524e-05,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 22,
+              "relative": 1.4448268511521589e-05,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 23,
+              "relative": 1.1308466615480183e-05,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 24,
+              "relative": 8.922924361963743e-06,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 25,
+              "relative": 7.204698271208818e-06,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 26,
+              "relative": 5.343915827470992e-06,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 27,
+              "relative": 3.6760683373606858e-06,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 28,
+              "relative": 2.353089422200113e-06,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 29,
+              "relative": 1.1597148155776616e-06,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 30,
+              "relative": 5.668509876395638e-07,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 31,
+              "relative": 2.579893992838713e-07,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 32,
+              "relative": 1.3329620661777992e-07,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 33,
+              "relative": 8.852336986983934e-08,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 34,
+              "relative": 5.265818092773136e-08,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 35,
+              "relative": 3.341990789062211e-08,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 36,
+              "relative": 2.3557947402188847e-08,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 37,
+              "relative": 1.8037194231443478e-08,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 38,
+              "relative": 1.3985662357695714e-08,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 39,
+              "relative": 1.1079197734535176e-08,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 3,
+              "iteration": 40,
+              "relative": 8.557931734967164e-09,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 0,
+              "relative": 1.0,
+              "kind": "initial_true_residual"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 1,
+              "relative": 0.15497757263509285,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 2,
+              "relative": 0.04489695126914012,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 3,
+              "relative": 0.015141111122722765,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 4,
+              "relative": 0.007399926667568572,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 5,
+              "relative": 0.004049187878232805,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 6,
+              "relative": 0.0023296909907172887,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 7,
+              "relative": 0.0016355740017920128,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 8,
+              "relative": 0.0012404558028281617,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 9,
+              "relative": 0.000962218235099014,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 10,
+              "relative": 0.0007547496663475626,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 11,
+              "relative": 0.0005849411670781789,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 12,
+              "relative": 0.0004573030303323084,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 13,
+              "relative": 0.0003496054020708895,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 14,
+              "relative": 0.00024607148160176557,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 15,
+              "relative": 0.00016503971699468256,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 16,
+              "relative": 0.00010665547570554127,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 17,
+              "relative": 7.235954341129494e-05,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 18,
+              "relative": 5.3252400744535014e-05,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 19,
+              "relative": 3.5257141023254826e-05,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 20,
+              "relative": 2.568155276995957e-05,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 21,
+              "relative": 2.0161333738049846e-05,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 22,
+              "relative": 1.5679347098690952e-05,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 23,
+              "relative": 1.2296095418958014e-05,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 24,
+              "relative": 9.759110334615988e-06,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 25,
+              "relative": 7.798099990597825e-06,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 26,
+              "relative": 5.661209173231058e-06,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 27,
+              "relative": 3.7893351122141737e-06,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 28,
+              "relative": 2.1894394633928194e-06,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 29,
+              "relative": 1.213218526159337e-06,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 30,
+              "relative": 5.363140547113058e-07,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 31,
+              "relative": 2.6213727467790657e-07,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 32,
+              "relative": 1.5008275029046573e-07,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 33,
+              "relative": 9.617226272025245e-08,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 34,
+              "relative": 5.571028519557885e-08,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 35,
+              "relative": 3.689800221391493e-08,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 36,
+              "relative": 2.4484092137969523e-08,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 37,
+              "relative": 1.8942764662608927e-08,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 38,
+              "relative": 1.4689701237908354e-08,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 39,
+              "relative": 1.1553517870648704e-08,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 4,
+              "iteration": 40,
+              "relative": 8.899289676899185e-09,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 0,
+              "relative": 1.0,
+              "kind": "initial_true_residual"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 1,
+              "relative": 0.18663288927192456,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 2,
+              "relative": 0.054580973163391416,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 3,
+              "relative": 0.01469794704715254,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 4,
+              "relative": 0.007651221757251749,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 5,
+              "relative": 0.0039193812839728205,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 6,
+              "relative": 0.0023823675417487026,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 7,
+              "relative": 0.0016674910394848838,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 8,
+              "relative": 0.0012603707816472558,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 9,
+              "relative": 0.0009699945191365453,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 10,
+              "relative": 0.0007679819711761778,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 11,
+              "relative": 0.0005972278743802513,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 12,
+              "relative": 0.00047308666561347276,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 13,
+              "relative": 0.00036038748786220955,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 14,
+              "relative": 0.0002573811558768643,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 15,
+              "relative": 0.00017308316535911554,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 16,
+              "relative": 0.00011174138678826407,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 17,
+              "relative": 7.4328283925577e-05,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 18,
+              "relative": 5.5130059060966745e-05,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 19,
+              "relative": 3.544152973664064e-05,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 20,
+              "relative": 2.72203696667678e-05,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 21,
+              "relative": 2.076598468234994e-05,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 22,
+              "relative": 1.651330433100731e-05,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 23,
+              "relative": 1.2890713175775161e-05,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 24,
+              "relative": 1.0224905387287761e-05,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 25,
+              "relative": 8.070188922258809e-06,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 26,
+              "relative": 5.881579741598356e-06,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 27,
+              "relative": 4.062702904787713e-06,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 28,
+              "relative": 2.4890119106724756e-06,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 29,
+              "relative": 1.1749203749563391e-06,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 30,
+              "relative": 5.753436717991921e-07,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 31,
+              "relative": 3.164249873115137e-07,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 32,
+              "relative": 1.5903877479286943e-07,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 33,
+              "relative": 9.439614101306529e-08,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 34,
+              "relative": 5.7706558609637366e-08,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 35,
+              "relative": 3.6810586822852795e-08,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 36,
+              "relative": 2.6518629694090612e-08,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 37,
+              "relative": 1.9438252294964642e-08,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 38,
+              "relative": 1.5423488457185433e-08,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 39,
+              "relative": 1.186337813947804e-08,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 5,
+              "iteration": 40,
+              "relative": 9.325281532705753e-09,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 0,
+              "relative": 1.0,
+              "kind": "initial_true_residual"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 1,
+              "relative": 0.1559130717955575,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 2,
+              "relative": 0.03408648473902411,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 3,
+              "relative": 0.014361714376821105,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 4,
+              "relative": 0.007041975996477387,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 5,
+              "relative": 0.003698018038312471,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 6,
+              "relative": 0.0023388507040139903,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 7,
+              "relative": 0.0016594102087312073,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 8,
+              "relative": 0.0012041658071315774,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 9,
+              "relative": 0.0009955221841359352,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 10,
+              "relative": 0.0007532888561860807,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 11,
+              "relative": 0.0005999835548482112,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 12,
+              "relative": 0.00046354749064890234,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 13,
+              "relative": 0.0003545884115872388,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 14,
+              "relative": 0.00024941581092548096,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 15,
+              "relative": 0.00016860705140844508,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 16,
+              "relative": 0.00010737929013556893,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 17,
+              "relative": 7.444399487492655e-05,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 18,
+              "relative": 5.18735952913652e-05,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 19,
+              "relative": 3.5180726691242566e-05,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 20,
+              "relative": 2.542571694456235e-05,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 21,
+              "relative": 1.987834655437953e-05,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 22,
+              "relative": 1.5470821992424142e-05,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 23,
+              "relative": 1.2342940690551606e-05,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 24,
+              "relative": 9.4685878330184e-06,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 25,
+              "relative": 7.53334680370757e-06,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 26,
+              "relative": 5.606628571623998e-06,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 27,
+              "relative": 3.6986724525882337e-06,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 28,
+              "relative": 2.227192673512575e-06,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 29,
+              "relative": 1.1802367957605925e-06,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 30,
+              "relative": 5.249465077512719e-07,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 31,
+              "relative": 2.5096464746137354e-07,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 32,
+              "relative": 1.3620783344540383e-07,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 33,
+              "relative": 8.674059890677368e-08,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 34,
+              "relative": 5.5164845527552976e-08,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 35,
+              "relative": 3.3774263283352105e-08,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 36,
+              "relative": 2.4493641071576477e-08,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 37,
+              "relative": 1.8869966288562644e-08,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 38,
+              "relative": 1.4701772473290295e-08,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 39,
+              "relative": 1.1418176562244547e-08,
+              "kind": "arnoldi_estimate"
+            },
+            {
+              "solve_index": 6,
+              "iteration": 40,
+              "relative": 9.182230856480633e-09,
+              "kind": "arnoldi_estimate"
+            }
+          ],
+          "final_residual": 9.182230856480633e-09,
+          "rank_final_residuals": [
+            9.182230856480633e-09,
+            9.182230856480633e-09
+          ]
+        },
+        {
+          "level": 1,
+          "total_seconds": 42.930781380999974,
+          "total_iterations": 200,
+          "pre_smoother_seconds": 0.0,
+          "post_smoother_seconds": 0.0,
+          "restriction_seconds": 0.0,
+          "prolongation_seconds": 0.0,
+          "coarse_solver_seconds": 41.41566547200001,
+          "timing_rank_index": 0,
+          "other_seconds": 1.5151159089999666,
+          "pre_smoother_iterations": 0,
+          "post_smoother_iterations": 0,
+          "restriction_calls": 0,
+          "prolongation_calls": 0,
+          "recursive_solve_calls": 0,
+          "coarse_solver_iterations": 1216,
+          "coarse_solver_calls": 200,
+          "smoother_iterations": 0
+        }
+      ],
+      "mg_levels_by_phase": {
+        "warmup": [
+          {
+            "level": 0,
+            "total_seconds": 20.80603681900001,
+            "total_iterations": 78,
+            "pre_smoother_seconds": 1.069681304,
+            "post_smoother_seconds": 0.9793943890000002,
+            "restriction_seconds": 0.05352490500000003,
+            "prolongation_seconds": 0.08271812,
+            "coarse_solver_seconds": 0.0,
+            "timing_rank_index": 0,
+            "other_seconds": 18.62071810100001,
+            "pre_smoother_iterations": 78,
+            "post_smoother_iterations": 78,
+            "restriction_calls": 0,
+            "prolongation_calls": 0,
+            "recursive_solve_calls": 0,
+            "coarse_solver_iterations": 0,
+            "coarse_solver_calls": 0,
+            "smoother_iterations": 156,
+            "finest_iterations": 78,
+            "residual_sequence": [
+              {
+                "solve_index": 0,
+                "iteration": 0,
+                "relative": 1.0,
+                "kind": "initial_true_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 1,
+                "relative": 0.13382206511985317,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 2,
+                "relative": 0.03112296137618871,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 3,
+                "relative": 0.013598429943689264,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 4,
+                "relative": 0.0068375656056438175,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 5,
+                "relative": 0.003648270769964356,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 6,
+                "relative": 0.0022936013623485376,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 7,
+                "relative": 0.0016217749988915026,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 8,
+                "relative": 0.0012079307181549167,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 9,
+                "relative": 0.0009855758474702108,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 10,
+                "relative": 0.0007430699685243366,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 11,
+                "relative": 0.0005972720071996126,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 12,
+                "relative": 0.0004581955675651503,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 13,
+                "relative": 0.0003504608416737558,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 14,
+                "relative": 0.00025798571680808144,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 15,
+                "relative": 0.00017869109552776067,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 16,
+                "relative": 0.00010201220693746486,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 17,
+                "relative": 7.374166028963453e-05,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 18,
+                "relative": 4.945735455882147e-05,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 19,
+                "relative": 3.44247703663627e-05,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 20,
+                "relative": 2.3588405957212743e-05,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 21,
+                "relative": 1.8578028034841962e-05,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 22,
+                "relative": 1.4310101535491419e-05,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 23,
+                "relative": 1.1311477697025566e-05,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 24,
+                "relative": 8.94131625033591e-06,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 25,
+                "relative": 7.200155448474493e-06,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 26,
+                "relative": 5.358035570106979e-06,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 27,
+                "relative": 3.6151897017002607e-06,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 28,
+                "relative": 2.1560042770464622e-06,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 29,
+                "relative": 1.1459781280889948e-06,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 30,
+                "relative": 5.783859965352947e-07,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 31,
+                "relative": 2.4244783424197024e-07,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 32,
+                "relative": 1.289945069179736e-07,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 33,
+                "relative": 8.221506708569918e-08,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 34,
+                "relative": 4.906220367412592e-08,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 35,
+                "relative": 2.9796027085811624e-08,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 36,
+                "relative": 2.1994394482163402e-08,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 37,
+                "relative": 1.626976453720678e-08,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 38,
+                "relative": 1.2845885893951326e-08,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 39,
+                "relative": 9.869099101037024e-09,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 0,
+                "relative": 1.0,
+                "kind": "initial_true_residual"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 1,
+                "relative": 0.10629601978892517,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 2,
+                "relative": 0.0323473030883789,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 3,
+                "relative": 0.01351643222003739,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 4,
+                "relative": 0.0067388587716979,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 5,
+                "relative": 0.003707814604405386,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 6,
+                "relative": 0.0022765427728973736,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 7,
+                "relative": 0.0016306695194130173,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 8,
+                "relative": 0.0012448879109119724,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 9,
+                "relative": 0.0009935159379379067,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 10,
+                "relative": 0.0007680073953693583,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 11,
+                "relative": 0.0005961279608758169,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 12,
+                "relative": 0.00045561156250147284,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 13,
+                "relative": 0.0003513546695103221,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 14,
+                "relative": 0.00023627360518212013,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 15,
+                "relative": 0.00015997154673260116,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 16,
+                "relative": 9.384109572699035e-05,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 17,
+                "relative": 6.597882399733904e-05,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 18,
+                "relative": 4.427488993130788e-05,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 19,
+                "relative": 3.074186082583082e-05,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 20,
+                "relative": 2.1411374279107207e-05,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 21,
+                "relative": 1.666556825416952e-05,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 22,
+                "relative": 1.2990886341959211e-05,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 23,
+                "relative": 1.0206787801167861e-05,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 24,
+                "relative": 8.038324471179239e-06,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 25,
+                "relative": 6.424198190455914e-06,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 26,
+                "relative": 4.823407312640114e-06,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 27,
+                "relative": 3.3700788240135457e-06,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 28,
+                "relative": 2.00180268814403e-06,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 29,
+                "relative": 1.0901775483016804e-06,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 30,
+                "relative": 4.855801097296035e-07,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 31,
+                "relative": 2.3246340524432278e-07,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 32,
+                "relative": 1.221619089378801e-07,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 33,
+                "relative": 7.86250486232663e-08,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 34,
+                "relative": 4.700078556387486e-08,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 35,
+                "relative": 2.8506322294487502e-08,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 36,
+                "relative": 2.0256957563336437e-08,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 37,
+                "relative": 1.497411284510529e-08,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 38,
+                "relative": 1.1585323070203182e-08,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 1,
+                "iteration": 39,
+                "relative": 9.04975128663606e-09,
+                "kind": "arnoldi_estimate"
+              }
+            ],
+            "final_residual": 9.04975128663606e-09,
+            "rank_final_residuals": [
+              9.04975128663606e-09,
+              9.04975128663606e-09
+            ]
+          },
+          {
+            "level": 1,
+            "total_seconds": 16.206638991000005,
+            "total_iterations": 78,
+            "pre_smoother_seconds": 0.0,
+            "post_smoother_seconds": 0.0,
+            "restriction_seconds": 0.0,
+            "prolongation_seconds": 0.0,
+            "coarse_solver_seconds": 15.669255377999999,
+            "timing_rank_index": 0,
+            "other_seconds": 0.5373836130000065,
+            "pre_smoother_iterations": 0,
+            "post_smoother_iterations": 0,
+            "restriction_calls": 0,
+            "prolongation_calls": 0,
+            "recursive_solve_calls": 0,
+            "coarse_solver_iterations": 472,
+            "coarse_solver_calls": 78,
+            "smoother_iterations": 0
+          }
+        ],
+        "steady": [
+          {
+            "level": 0,
+            "total_seconds": 54.61242769099995,
+            "total_iterations": 200,
+            "pre_smoother_seconds": 2.648521791000001,
+            "post_smoother_seconds": 2.725325498000001,
+            "restriction_seconds": 0.208010768,
+            "prolongation_seconds": 0.226855825,
+            "coarse_solver_seconds": 0.0,
+            "timing_rank_index": 0,
+            "other_seconds": 48.803713808999944,
+            "pre_smoother_iterations": 200,
+            "post_smoother_iterations": 200,
+            "restriction_calls": 0,
+            "prolongation_calls": 0,
+            "recursive_solve_calls": 0,
+            "coarse_solver_iterations": 0,
+            "coarse_solver_calls": 0,
+            "smoother_iterations": 400,
+            "finest_iterations": 200,
+            "residual_sequence": [
+              {
+                "solve_index": 2,
+                "iteration": 0,
+                "relative": 1.0,
+                "kind": "initial_true_residual"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 1,
+                "relative": 0.1563145076800654,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 2,
+                "relative": 0.03603933056526643,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 3,
+                "relative": 0.014525020879765331,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 4,
+                "relative": 0.0075524191535580034,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 5,
+                "relative": 0.0037717127449854717,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 6,
+                "relative": 0.002391781414711863,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 7,
+                "relative": 0.001691532013790245,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 8,
+                "relative": 0.0012579873843179437,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 9,
+                "relative": 0.0009659797419938422,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 10,
+                "relative": 0.0007640611727611086,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 11,
+                "relative": 0.0005914331662339134,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 12,
+                "relative": 0.00047654486705275037,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 13,
+                "relative": 0.0003524257507166602,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 14,
+                "relative": 0.00025108904226072684,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 15,
+                "relative": 0.00018427453563042348,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 16,
+                "relative": 0.00010974646574033741,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 17,
+                "relative": 7.335165460747483e-05,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 18,
+                "relative": 5.149054859144724e-05,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 19,
+                "relative": 3.454107090897631e-05,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 20,
+                "relative": 2.5644886495318814e-05,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 21,
+                "relative": 1.9700565734728667e-05,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 22,
+                "relative": 1.5542545723264465e-05,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 23,
+                "relative": 1.2106905828143392e-05,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 24,
+                "relative": 9.766522351810073e-06,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 25,
+                "relative": 7.695500762177374e-06,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 26,
+                "relative": 5.5638161124387995e-06,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 27,
+                "relative": 3.913029173820442e-06,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 28,
+                "relative": 2.117530202623517e-06,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 29,
+                "relative": 1.0770599472655803e-06,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 30,
+                "relative": 5.430049114788867e-07,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 31,
+                "relative": 2.418348993355303e-07,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 32,
+                "relative": 1.373471517098316e-07,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 33,
+                "relative": 8.490349098618931e-08,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 34,
+                "relative": 5.2597461178011646e-08,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 35,
+                "relative": 3.388052846455439e-08,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 36,
+                "relative": 2.3463256784946314e-08,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 37,
+                "relative": 1.814658879407917e-08,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 38,
+                "relative": 1.3937520509664755e-08,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 39,
+                "relative": 1.117289976085935e-08,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 2,
+                "iteration": 40,
+                "relative": 8.510582670469373e-09,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 0,
+                "relative": 1.0,
+                "kind": "initial_true_residual"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 1,
+                "relative": 0.15525795664459166,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 2,
+                "relative": 0.03155816984474285,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 3,
+                "relative": 0.014482028062651872,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 4,
+                "relative": 0.006545228543734217,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 5,
+                "relative": 0.0037710241712291433,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 6,
+                "relative": 0.002232470321027698,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 7,
+                "relative": 0.0016115911573883186,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 8,
+                "relative": 0.001205864279609955,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 9,
+                "relative": 0.0009798574220079128,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 10,
+                "relative": 0.0007494725149835904,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 11,
+                "relative": 0.0005971723070537601,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 12,
+                "relative": 0.00047076549316772063,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 13,
+                "relative": 0.00034903942183063866,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 14,
+                "relative": 0.0002510500076828346,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 15,
+                "relative": 0.00016707213218199543,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 16,
+                "relative": 0.00010366452762663408,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 17,
+                "relative": 7.40509022315299e-05,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 18,
+                "relative": 4.9572756339347264e-05,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 19,
+                "relative": 3.2427877338006836e-05,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 20,
+                "relative": 2.3975085750016137e-05,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 21,
+                "relative": 1.8291367622797524e-05,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 22,
+                "relative": 1.4448268511521589e-05,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 23,
+                "relative": 1.1308466615480183e-05,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 24,
+                "relative": 8.922924361963743e-06,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 25,
+                "relative": 7.204698271208818e-06,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 26,
+                "relative": 5.343915827470992e-06,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 27,
+                "relative": 3.6760683373606858e-06,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 28,
+                "relative": 2.353089422200113e-06,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 29,
+                "relative": 1.1597148155776616e-06,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 30,
+                "relative": 5.668509876395638e-07,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 31,
+                "relative": 2.579893992838713e-07,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 32,
+                "relative": 1.3329620661777992e-07,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 33,
+                "relative": 8.852336986983934e-08,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 34,
+                "relative": 5.265818092773136e-08,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 35,
+                "relative": 3.341990789062211e-08,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 36,
+                "relative": 2.3557947402188847e-08,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 37,
+                "relative": 1.8037194231443478e-08,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 38,
+                "relative": 1.3985662357695714e-08,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 39,
+                "relative": 1.1079197734535176e-08,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 3,
+                "iteration": 40,
+                "relative": 8.557931734967164e-09,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 0,
+                "relative": 1.0,
+                "kind": "initial_true_residual"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 1,
+                "relative": 0.15497757263509285,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 2,
+                "relative": 0.04489695126914012,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 3,
+                "relative": 0.015141111122722765,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 4,
+                "relative": 0.007399926667568572,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 5,
+                "relative": 0.004049187878232805,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 6,
+                "relative": 0.0023296909907172887,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 7,
+                "relative": 0.0016355740017920128,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 8,
+                "relative": 0.0012404558028281617,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 9,
+                "relative": 0.000962218235099014,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 10,
+                "relative": 0.0007547496663475626,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 11,
+                "relative": 0.0005849411670781789,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 12,
+                "relative": 0.0004573030303323084,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 13,
+                "relative": 0.0003496054020708895,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 14,
+                "relative": 0.00024607148160176557,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 15,
+                "relative": 0.00016503971699468256,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 16,
+                "relative": 0.00010665547570554127,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 17,
+                "relative": 7.235954341129494e-05,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 18,
+                "relative": 5.3252400744535014e-05,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 19,
+                "relative": 3.5257141023254826e-05,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 20,
+                "relative": 2.568155276995957e-05,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 21,
+                "relative": 2.0161333738049846e-05,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 22,
+                "relative": 1.5679347098690952e-05,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 23,
+                "relative": 1.2296095418958014e-05,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 24,
+                "relative": 9.759110334615988e-06,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 25,
+                "relative": 7.798099990597825e-06,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 26,
+                "relative": 5.661209173231058e-06,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 27,
+                "relative": 3.7893351122141737e-06,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 28,
+                "relative": 2.1894394633928194e-06,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 29,
+                "relative": 1.213218526159337e-06,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 30,
+                "relative": 5.363140547113058e-07,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 31,
+                "relative": 2.6213727467790657e-07,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 32,
+                "relative": 1.5008275029046573e-07,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 33,
+                "relative": 9.617226272025245e-08,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 34,
+                "relative": 5.571028519557885e-08,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 35,
+                "relative": 3.689800221391493e-08,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 36,
+                "relative": 2.4484092137969523e-08,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 37,
+                "relative": 1.8942764662608927e-08,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 38,
+                "relative": 1.4689701237908354e-08,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 39,
+                "relative": 1.1553517870648704e-08,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 4,
+                "iteration": 40,
+                "relative": 8.899289676899185e-09,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 0,
+                "relative": 1.0,
+                "kind": "initial_true_residual"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 1,
+                "relative": 0.18663288927192456,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 2,
+                "relative": 0.054580973163391416,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 3,
+                "relative": 0.01469794704715254,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 4,
+                "relative": 0.007651221757251749,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 5,
+                "relative": 0.0039193812839728205,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 6,
+                "relative": 0.0023823675417487026,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 7,
+                "relative": 0.0016674910394848838,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 8,
+                "relative": 0.0012603707816472558,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 9,
+                "relative": 0.0009699945191365453,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 10,
+                "relative": 0.0007679819711761778,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 11,
+                "relative": 0.0005972278743802513,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 12,
+                "relative": 0.00047308666561347276,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 13,
+                "relative": 0.00036038748786220955,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 14,
+                "relative": 0.0002573811558768643,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 15,
+                "relative": 0.00017308316535911554,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 16,
+                "relative": 0.00011174138678826407,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 17,
+                "relative": 7.4328283925577e-05,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 18,
+                "relative": 5.5130059060966745e-05,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 19,
+                "relative": 3.544152973664064e-05,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 20,
+                "relative": 2.72203696667678e-05,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 21,
+                "relative": 2.076598468234994e-05,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 22,
+                "relative": 1.651330433100731e-05,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 23,
+                "relative": 1.2890713175775161e-05,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 24,
+                "relative": 1.0224905387287761e-05,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 25,
+                "relative": 8.070188922258809e-06,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 26,
+                "relative": 5.881579741598356e-06,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 27,
+                "relative": 4.062702904787713e-06,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 28,
+                "relative": 2.4890119106724756e-06,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 29,
+                "relative": 1.1749203749563391e-06,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 30,
+                "relative": 5.753436717991921e-07,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 31,
+                "relative": 3.164249873115137e-07,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 32,
+                "relative": 1.5903877479286943e-07,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 33,
+                "relative": 9.439614101306529e-08,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 34,
+                "relative": 5.7706558609637366e-08,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 35,
+                "relative": 3.6810586822852795e-08,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 36,
+                "relative": 2.6518629694090612e-08,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 37,
+                "relative": 1.9438252294964642e-08,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 38,
+                "relative": 1.5423488457185433e-08,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 39,
+                "relative": 1.186337813947804e-08,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 5,
+                "iteration": 40,
+                "relative": 9.325281532705753e-09,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 0,
+                "relative": 1.0,
+                "kind": "initial_true_residual"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 1,
+                "relative": 0.1559130717955575,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 2,
+                "relative": 0.03408648473902411,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 3,
+                "relative": 0.014361714376821105,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 4,
+                "relative": 0.007041975996477387,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 5,
+                "relative": 0.003698018038312471,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 6,
+                "relative": 0.0023388507040139903,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 7,
+                "relative": 0.0016594102087312073,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 8,
+                "relative": 0.0012041658071315774,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 9,
+                "relative": 0.0009955221841359352,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 10,
+                "relative": 0.0007532888561860807,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 11,
+                "relative": 0.0005999835548482112,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 12,
+                "relative": 0.00046354749064890234,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 13,
+                "relative": 0.0003545884115872388,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 14,
+                "relative": 0.00024941581092548096,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 15,
+                "relative": 0.00016860705140844508,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 16,
+                "relative": 0.00010737929013556893,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 17,
+                "relative": 7.444399487492655e-05,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 18,
+                "relative": 5.18735952913652e-05,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 19,
+                "relative": 3.5180726691242566e-05,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 20,
+                "relative": 2.542571694456235e-05,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 21,
+                "relative": 1.987834655437953e-05,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 22,
+                "relative": 1.5470821992424142e-05,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 23,
+                "relative": 1.2342940690551606e-05,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 24,
+                "relative": 9.4685878330184e-06,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 25,
+                "relative": 7.53334680370757e-06,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 26,
+                "relative": 5.606628571623998e-06,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 27,
+                "relative": 3.6986724525882337e-06,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 28,
+                "relative": 2.227192673512575e-06,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 29,
+                "relative": 1.1802367957605925e-06,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 30,
+                "relative": 5.249465077512719e-07,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 31,
+                "relative": 2.5096464746137354e-07,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 32,
+                "relative": 1.3620783344540383e-07,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 33,
+                "relative": 8.674059890677368e-08,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 34,
+                "relative": 5.5164845527552976e-08,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 35,
+                "relative": 3.3774263283352105e-08,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 36,
+                "relative": 2.4493641071576477e-08,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 37,
+                "relative": 1.8869966288562644e-08,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 38,
+                "relative": 1.4701772473290295e-08,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 39,
+                "relative": 1.1418176562244547e-08,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 6,
+                "iteration": 40,
+                "relative": 9.182230856480633e-09,
+                "kind": "arnoldi_estimate"
+              }
+            ],
+            "final_residual": 9.182230856480633e-09,
+            "rank_final_residuals": [
+              9.182230856480633e-09,
+              9.182230856480633e-09
+            ]
+          },
+          {
+            "level": 1,
+            "total_seconds": 42.930781380999974,
+            "total_iterations": 200,
+            "pre_smoother_seconds": 0.0,
+            "post_smoother_seconds": 0.0,
+            "restriction_seconds": 0.0,
+            "prolongation_seconds": 0.0,
+            "coarse_solver_seconds": 41.41566547200001,
+            "timing_rank_index": 0,
+            "other_seconds": 1.5151159089999666,
+            "pre_smoother_iterations": 0,
+            "post_smoother_iterations": 0,
+            "restriction_calls": 0,
+            "prolongation_calls": 0,
+            "recursive_solve_calls": 0,
+            "coarse_solver_iterations": 1216,
+            "coarse_solver_calls": 200,
+            "smoother_iterations": 0
+          }
+        ],
+        "cold": [
+          {
+            "level": 0,
+            "total_seconds": 11.07104629700001,
+            "total_iterations": 40,
+            "pre_smoother_seconds": 0.5653930709999999,
+            "post_smoother_seconds": 0.5881503860000001,
+            "restriction_seconds": 0.03745180099999999,
+            "prolongation_seconds": 0.06377281600000001,
+            "coarse_solver_seconds": 0.0,
+            "timing_rank_index": 0,
+            "other_seconds": 9.81627822300001,
+            "pre_smoother_iterations": 40,
+            "post_smoother_iterations": 40,
+            "restriction_calls": 0,
+            "prolongation_calls": 0,
+            "recursive_solve_calls": 0,
+            "coarse_solver_iterations": 0,
+            "coarse_solver_calls": 0,
+            "smoother_iterations": 80,
+            "finest_iterations": 40,
+            "residual_sequence": [
+              {
+                "solve_index": 0,
+                "iteration": 0,
+                "relative": 1.0,
+                "kind": "initial_true_residual"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 1,
+                "relative": 0.13382206511985317,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 2,
+                "relative": 0.037561413105542195,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 3,
+                "relative": 0.014267752714468568,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 4,
+                "relative": 0.00719814699365998,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 5,
+                "relative": 0.004062886599187765,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 6,
+                "relative": 0.0023488287440778075,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 7,
+                "relative": 0.0016406781874284287,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 8,
+                "relative": 0.001247938584579835,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 9,
+                "relative": 0.0009797224785476047,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 10,
+                "relative": 0.0007710798006617642,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 11,
+                "relative": 0.0005881520657457618,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 12,
+                "relative": 0.00046714546015593503,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 13,
+                "relative": 0.00033917827361858155,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 14,
+                "relative": 0.0002459913341781595,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 15,
+                "relative": 0.0001638201376505087,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 16,
+                "relative": 0.00010691686853298177,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 17,
+                "relative": 7.32599195955501e-05,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 18,
+                "relative": 5.2824255382821086e-05,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 19,
+                "relative": 3.410814905209287e-05,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 20,
+                "relative": 2.5700499380156176e-05,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 21,
+                "relative": 1.9334579959807766e-05,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 22,
+                "relative": 1.5725831735136686e-05,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 23,
+                "relative": 1.217659692637881e-05,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 24,
+                "relative": 9.401740376801376e-06,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 25,
+                "relative": 7.503378336022679e-06,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 26,
+                "relative": 5.324368508110338e-06,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 27,
+                "relative": 3.7213682394760466e-06,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 28,
+                "relative": 2.2058039534847624e-06,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 29,
+                "relative": 1.100857462738968e-06,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 30,
+                "relative": 5.194046027942768e-07,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 31,
+                "relative": 2.588359645403008e-07,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 32,
+                "relative": 1.3277138179214333e-07,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 33,
+                "relative": 8.373859874440202e-08,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 34,
+                "relative": 5.280383570742072e-08,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 35,
+                "relative": 3.3195929994723004e-08,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 36,
+                "relative": 2.4125437678392323e-08,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 37,
+                "relative": 1.830106960285359e-08,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 38,
+                "relative": 1.4362020044676317e-08,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 39,
+                "relative": 1.112524010326863e-08,
+                "kind": "arnoldi_estimate"
+              },
+              {
+                "solve_index": 0,
+                "iteration": 40,
+                "relative": 8.824100441685526e-09,
+                "kind": "arnoldi_estimate"
+              }
+            ],
+            "final_residual": 8.824100441685526e-09,
+            "rank_final_residuals": [
+              8.824100441685526e-09,
+              8.824100441685526e-09
+            ]
+          },
+          {
+            "level": 1,
+            "total_seconds": 8.446085565,
+            "total_iterations": 40,
+            "pre_smoother_seconds": 0.0,
+            "post_smoother_seconds": 0.0,
+            "restriction_seconds": 0.0,
+            "prolongation_seconds": 0.0,
+            "coarse_solver_seconds": 8.108707306999996,
+            "timing_rank_index": 0,
+            "other_seconds": 0.33737825800000465,
+            "pre_smoother_iterations": 0,
+            "post_smoother_iterations": 0,
+            "restriction_calls": 0,
+            "prolongation_calls": 0,
+            "recursive_solve_calls": 0,
+            "coarse_solver_iterations": 244,
+            "coarse_solver_calls": 40,
+            "smoother_iterations": 0
+          }
+        ]
+      },
+      "iteration_semantics": "finest total_iterations is the outer right-preconditioned FGMRES total; smoother and coarse iterations are separate",
+      "iteration_kind": "outer_right_preconditioned_fgmres",
+      "iteration_scope": "finest-level outer FGMRES columns; smoother and coarse solver iterations are recorded separately in MG trace",
+      "converged_samples": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "converged": true,
+      "true_residual": {
+        "samples_rel": [
+          1.805868400563363e-08,
+          1.80749262254261e-08,
+          1.817706691559014e-08,
+          1.8306777357451694e-08,
+          1.8265296131913854e-08
+        ],
+        "max_rel": 1.8306777357451694e-08,
+        "gate": 5e-08,
+        "pass": true,
+        "untimed_probe_rel": 1.811538885566907e-08,
+        "backend_schur_absolute_samples": [
+          5.953982458654382e-06,
+          5.987107746621535e-06,
+          6.2259209135935235e-06,
+          6.523943755322612e-06,
+          6.423865858738117e-06
+        ]
+      },
+      "krylov": {
+        "requested_restart": 16,
+        "effective_restart": 16,
+        "max_krylov_bytes": 1073741824,
+        "effective_workspace_bytes": 117964800,
+        "workspace_formula": "(2m+5)B_f+2B_c",
+        "fine_vector_bytes": 3145728,
+        "coarse_vector_bytes": 786432
+      },
+      "memory": {
+        "schema_version": 2,
+        "setup": {
+          "baseline": {
+            "allocated_bytes": 0,
+            "reserved_bytes": 0,
+            "nvidia_smi": {
+              "available": true,
+              "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+              "process_used_bytes": null,
+              "gpu_used_bytes": null,
+              "error": "no numeric sample"
+            }
+          },
+          "cuda_peak_allocated_bytes": 618791424,
+          "cuda_peak_reserved_bytes": 782237696,
+          "nvidia_smi": {
+            "available": true,
+            "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+            "process_used_bytes": null,
+            "gpu_used_bytes": null,
+            "error": "no numeric sample"
+          },
+          "device_wide_sampler": {
+            "available": true,
+            "scope": "device-wide cudaMemGetInfo; may include other processes",
+            "device": "cuda:0",
+            "unit": "bytes",
+            "interval_seconds": 0.01,
+            "duration_seconds": 3.0084465889958665,
+            "sample_count": 262,
+            "device_total_bytes": 17179738112,
+            "device_used_initial_bytes": 1255014400,
+            "device_used_max_observed_bytes": 2697854976,
+            "join_timed_out": false,
+            "errors": []
+          },
+          "timing_semantics": "instrumented setup; sampler stop excluded from setup_seconds"
+        },
+        "first_solve": {
+          "excluded_from_formal_timing": true,
+          "seconds": 8.362369105001562,
+          "iterations": 39,
+          "converged": true,
+          "true_residual_rel": 1.8488518822319705e-08,
+          "backend_final_true_residual": 6.904397173134315e-06,
+          "fused_workspace_bytes": 117964800,
+          "memory": {
+            "cuda_peak_allocated_bytes": 625082880,
+            "cuda_peak_reserved_bytes": 685768704,
+            "nvidia_smi": {
+              "available": true,
+              "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+              "process_used_bytes": null,
+              "gpu_used_bytes": null,
+              "error": "no numeric sample"
+            },
+            "device_wide_sampler": {
+              "available": true,
+              "scope": "device-wide cudaMemGetInfo; may include other processes",
+              "device": "cuda:0",
+              "unit": "bytes",
+              "interval_seconds": 0.01,
+              "duration_seconds": 8.36273852600425,
+              "sample_count": 775,
+              "device_total_bytes": 17179738112,
+              "device_used_initial_bytes": 2613968896,
+              "device_used_max_observed_bytes": 2716729344,
+              "join_timed_out": false,
+              "errors": []
+            }
+          }
+        },
+        "steady": {
+          "baseline": {
+            "allocated_bytes": 625082880,
+            "reserved_bytes": 1272971264,
+            "nvidia_smi": {
+              "available": true,
+              "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+              "process_used_bytes": null,
+              "gpu_used_bytes": null,
+              "error": "no numeric sample"
+            }
+          },
+          "cuda_peak_allocated_bytes": 625082880,
+          "cuda_peak_reserved_bytes": 1272971264,
+          "nvidia_smi_process_max_observed_bytes": null,
+          "nvidia_smi_gpu_max_observed_bytes": null,
+          "samples": [
+            {
+              "cuda_peak_allocated_bytes": 625082880,
+              "cuda_peak_reserved_bytes": 1272971264,
+              "nvidia_smi": {
+                "available": true,
+                "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+                "process_used_bytes": null,
+                "gpu_used_bytes": null,
+                "error": "no numeric sample"
+              },
+              "device_wide_sampler": null
+            },
+            {
+              "cuda_peak_allocated_bytes": 625082880,
+              "cuda_peak_reserved_bytes": 1272971264,
+              "nvidia_smi": {
+                "available": true,
+                "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+                "process_used_bytes": null,
+                "gpu_used_bytes": null,
+                "error": "no numeric sample"
+              },
+              "device_wide_sampler": null
+            },
+            {
+              "cuda_peak_allocated_bytes": 625082880,
+              "cuda_peak_reserved_bytes": 1272971264,
+              "nvidia_smi": {
+                "available": true,
+                "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+                "process_used_bytes": null,
+                "gpu_used_bytes": null,
+                "error": "no numeric sample"
+              },
+              "device_wide_sampler": null
+            },
+            {
+              "cuda_peak_allocated_bytes": 625082880,
+              "cuda_peak_reserved_bytes": 1272971264,
+              "nvidia_smi": {
+                "available": true,
+                "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+                "process_used_bytes": null,
+                "gpu_used_bytes": null,
+                "error": "no numeric sample"
+              },
+              "device_wide_sampler": null
+            },
+            {
+              "cuda_peak_allocated_bytes": 625082880,
+              "cuda_peak_reserved_bytes": 1272971264,
+              "nvidia_smi": {
+                "available": true,
+                "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+                "process_used_bytes": null,
+                "gpu_used_bytes": null,
+                "error": "no numeric sample"
+              },
+              "device_wide_sampler": null
+            }
+          ],
+          "snapshot_semantics": "nvidia-smi values are post-solve observations, not peaks",
+          "untimed_device_memory_probe": {
+            "cuda_peak_allocated_bytes": 625082880,
+            "cuda_peak_reserved_bytes": 1272971264,
+            "nvidia_smi": {
+              "available": true,
+              "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+              "process_used_bytes": null,
+              "gpu_used_bytes": null,
+              "error": "no numeric sample"
+            },
+            "device_wide_sampler": {
+              "available": true,
+              "scope": "device-wide cudaMemGetInfo; may include other processes",
+              "device": "cuda:0",
+              "unit": "bytes",
+              "interval_seconds": 0.01,
+              "duration_seconds": 8.799286845009192,
+              "sample_count": 816,
+              "device_total_bytes": 17179738112,
+              "device_used_initial_bytes": 3303931904,
+              "device_used_max_observed_bytes": 3303931904,
+              "join_timed_out": false,
+              "errors": []
+            },
+            "excluded_from_formal_timing": true,
+            "iterations": 40,
+            "converged": true,
+            "true_residual_rel": 1.811538885566907e-08
+          }
+        },
+        "strict_owned": {
+          "coarse_workspace_bytes": 63310860,
+          "fine_transfer_bytes": 150994944,
+          "coarse_asset_resident_bytes": 188743680,
+          "asset_resident_bytes": 339738624,
+          "omitted_raw_bytes": 150994944,
+          "fused_workspace_bytes": 117964800,
+          "setup_release": {
+            "sealed": true,
+            "source": "strict_runtime_cache",
+            "allocator_released_bytes": 0,
+            "loaded_logical_bytes": 339738624
+          }
+        }
+      },
+      "runtime_cache": {
+        "path": "/root/PyQCU/data/strict_cache_comprehensive_20260928/p100-c128/pyqcu__p100__16x16x16x16__c128__l2__trace-off/strict_runtime_df0f6fd6c07185608da1e781.h5",
+        "identity_sha256": "df0f6fd6c07185608da1e7815819d7cb24b82986d1275a8c669f082c16ca312e",
+        "hit": true,
+        "load_reason": "hit",
+        "load_detail": "schema/version/identity/shape/dtype/content digest 全部验证通过",
+        "load_seconds": 1.7893815319985151,
+        "write": null,
+        "expectation": "hit",
+        "evidence": {
+          "schema": "pyqcu.strict-runtime-cache",
+          "schema_version": 2,
+          "path": "/root/PyQCU/data/strict_cache_comprehensive_20260928/p100-c128/pyqcu__p100__16x16x16x16__c128__l2__trace-off/strict_runtime_df0f6fd6c07185608da1e781.h5",
+          "file_size_bytes": 339755904,
+          "identity_sha256": "df0f6fd6c07185608da1e7815819d7cb24b82986d1275a8c669f082c16ca312e",
+          "metadata_sha256": "e7da0007ea75b641ab8849c380306eaa455ce3deac85c22181338cca21f41f44",
+          "stats_sha256": "7d3c41b7d51a2c9fb8863a840b100835ba43428a8531ad8c09bdd145e558b469",
+          "manifest_sha256": "cb564f02645d198ad28efd3a4669d9432c85491452a8cb7ebdfdaeee3b3bc64d",
+          "tensor_count": 3,
+          "logical_bytes": 339738624,
+          "tensor_digests": {
+            "assets/fine_blocked_v": {
+              "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+              "sha256": "4053e3fafd29ae0915fee4ffd74fc0d7505d2332c1ac9e8eeeccfcaf985884a1",
+              "nbytes": 150994944
+            },
+            "assets/levels/0/onsite_pair": {
+              "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+              "sha256": "68bd1ae5267a480a48b7296df66b71c388b051a65ba08f3ed922bdd0f07db0aa",
+              "nbytes": 37748736
+            },
+            "assets/levels/0/preconditioned_links": {
+              "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+              "sha256": "f2f71347c8e5c86340abf3dfa4c27dfb5b0ea71fc3397be187bb8ff7c408c921",
+              "nbytes": 150994944
+            }
+          }
+        },
+        "build_contract": {
+          "validation": "cache assets must match requested geometry; construction batching is provenance only",
+          "requested_setup": {
+            "column_batch_size": 1,
+            "max_workspace_bytes": 1073741824,
+            "probe_mode": "colored",
+            "projection_site_batch_size": 4,
+            "require_exact_batch": true,
+            "workspace_four_arena_lower_bound_bytes": 50331648
+          },
+          "cached_setup_stats": [
+            {
+              "block_dtype": "torch.complex128",
+              "coarse_dof": 24,
+              "coarse_sites": 4096,
+              "color_sizes": [
+                256,
+                256,
+                256,
+                256,
+                256,
+                256,
+                256,
+                256,
+                256,
+                256,
+                256,
+                256,
+                256,
+                256,
+                256,
+                256
+              ],
+              "column_batch_size": 1,
+              "effective_probe_mode": "colored",
+              "elapsed_seconds": 139.91046111899777,
+              "fine_dof": 12,
+              "max_workspace_bytes": 1073741824,
+              "memory": {
+                "aggregate_volume": 16,
+                "cache_bytes": 339738624,
+                "canonical_blocks": 9,
+                "coarse_volume": 2048,
+                "column_batch_size": 1,
+                "fine_volume": 32768,
+                "operator_calls": 384,
+                "packed_asset_bytes": 188743680,
+                "packed_asset_elements": 11796480,
+                "projection_site_batch_size": 4,
+                "retained_block_bytes": 0,
+                "retained_block_elements": 0,
+                "source_colors": 16,
+                "support_points": 9,
+                "transfer_bytes": 150994944,
+                "transfer_elements": 9437184,
+                "workspace_upper_bytes": 28206592
+              },
+              "operator_calls": 384,
+              "probe_mode": "colored",
+              "projection_site_batch_size": 4,
+              "requested_column_batch_size": 1,
+              "requested_probe_mode": "colored",
+              "requested_projection_site_batch_size": 4,
+              "scalar_columns": 98304,
+              "source_colors": 16,
+              "support_checked": true,
+              "support_points": 9,
+              "worst_fine_support_leakage": 0.0,
+              "worst_image_scale": 0.41592344894304845
+            }
+          ]
+        },
+        "ranks": [
+          {
+            "rank": 0,
+            "path": "/root/PyQCU/data/strict_cache_comprehensive_20260928/p100-c128/pyqcu__p100__16x16x16x16__c128__l2__trace-off/strict_runtime_df0f6fd6c07185608da1e781.h5",
+            "hit": true,
+            "expectation": "hit",
+            "evidence": {
+              "schema": "pyqcu.strict-runtime-cache",
+              "schema_version": 2,
+              "path": "/root/PyQCU/data/strict_cache_comprehensive_20260928/p100-c128/pyqcu__p100__16x16x16x16__c128__l2__trace-off/strict_runtime_df0f6fd6c07185608da1e781.h5",
+              "file_size_bytes": 339755904,
+              "identity_sha256": "df0f6fd6c07185608da1e7815819d7cb24b82986d1275a8c669f082c16ca312e",
+              "metadata_sha256": "e7da0007ea75b641ab8849c380306eaa455ce3deac85c22181338cca21f41f44",
+              "stats_sha256": "7d3c41b7d51a2c9fb8863a840b100835ba43428a8531ad8c09bdd145e558b469",
+              "manifest_sha256": "cb564f02645d198ad28efd3a4669d9432c85491452a8cb7ebdfdaeee3b3bc64d",
+              "tensor_count": 3,
+              "logical_bytes": 339738624,
+              "tensor_digests": {
+                "assets/fine_blocked_v": {
+                  "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                  "sha256": "4053e3fafd29ae0915fee4ffd74fc0d7505d2332c1ac9e8eeeccfcaf985884a1",
+                  "nbytes": 150994944
+                },
+                "assets/levels/0/onsite_pair": {
+                  "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                  "sha256": "68bd1ae5267a480a48b7296df66b71c388b051a65ba08f3ed922bdd0f07db0aa",
+                  "nbytes": 37748736
+                },
+                "assets/levels/0/preconditioned_links": {
+                  "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                  "sha256": "f2f71347c8e5c86340abf3dfa4c27dfb5b0ea71fc3397be187bb8ff7c408c921",
+                  "nbytes": 150994944
+                }
+              }
+            }
+          },
+          {
+            "rank": 1,
+            "path": "/root/PyQCU/data/strict_cache_comprehensive_20260928/p100-c128/pyqcu__p100__16x16x16x16__c128__l2__trace-off/strict_runtime_610f9c42a52ed12ffef41a9b.h5",
+            "hit": true,
+            "expectation": "hit",
+            "evidence": {
+              "schema": "pyqcu.strict-runtime-cache",
+              "schema_version": 2,
+              "path": "/root/PyQCU/data/strict_cache_comprehensive_20260928/p100-c128/pyqcu__p100__16x16x16x16__c128__l2__trace-off/strict_runtime_610f9c42a52ed12ffef41a9b.h5",
+              "file_size_bytes": 339755904,
+              "identity_sha256": "610f9c42a52ed12ffef41a9b94094d05ed379807411b7163f92eeb8665c0111b",
+              "metadata_sha256": "e7da0007ea75b641ab8849c380306eaa455ce3deac85c22181338cca21f41f44",
+              "stats_sha256": "a745db3733baf27b1c56f10197828172c2028362d288b07bf7182711561b9059",
+              "manifest_sha256": "fce91ac6d59d431ae44ab87a135c92d3af7051ab74bcfa1f647e8869b21ccf15",
+              "tensor_count": 3,
+              "logical_bytes": 339738624,
+              "tensor_digests": {
+                "assets/fine_blocked_v": {
+                  "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                  "sha256": "db44e88d54db98eefbd07a6c789217f0b184aedb75a4de775fcddf75d1b29a24",
+                  "nbytes": 150994944
+                },
+                "assets/levels/0/onsite_pair": {
+                  "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                  "sha256": "1b485a1c29b7cfda365971c779ca9d8534c2810505ab591e925221ef15a57eb9",
+                  "nbytes": 37748736
+                },
+                "assets/levels/0/preconditioned_links": {
+                  "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                  "sha256": "b4328548589e6ff3063ed405daceb2940bcc9e9b78d2e5ac5d661a2523a8fc8d",
+                  "nbytes": 150994944
+                }
+              }
+            }
+          }
+        ],
+        "cold": {
+          "path": "/root/PyQCU/data/strict_cache_comprehensive_20260928/p100-c128/pyqcu__p100__16x16x16x16__c128__l2__trace-off/strict_runtime_df0f6fd6c07185608da1e781.h5",
+          "identity_sha256": "df0f6fd6c07185608da1e7815819d7cb24b82986d1275a8c669f082c16ca312e",
+          "hit": true,
+          "load_reason": "hit",
+          "load_detail": "schema/version/identity/shape/dtype/content digest 全部验证通过",
+          "load_seconds": 1.8227554939949187,
+          "write": null,
+          "expectation": "hit",
+          "evidence": {
+            "schema": "pyqcu.strict-runtime-cache",
+            "schema_version": 2,
+            "path": "/root/PyQCU/data/strict_cache_comprehensive_20260928/p100-c128/pyqcu__p100__16x16x16x16__c128__l2__trace-off/strict_runtime_df0f6fd6c07185608da1e781.h5",
+            "file_size_bytes": 339755904,
+            "identity_sha256": "df0f6fd6c07185608da1e7815819d7cb24b82986d1275a8c669f082c16ca312e",
+            "metadata_sha256": "e7da0007ea75b641ab8849c380306eaa455ce3deac85c22181338cca21f41f44",
+            "stats_sha256": "7d3c41b7d51a2c9fb8863a840b100835ba43428a8531ad8c09bdd145e558b469",
+            "manifest_sha256": "cb564f02645d198ad28efd3a4669d9432c85491452a8cb7ebdfdaeee3b3bc64d",
+            "tensor_count": 3,
+            "logical_bytes": 339738624,
+            "tensor_digests": {
+              "assets/fine_blocked_v": {
+                "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                "sha256": "4053e3fafd29ae0915fee4ffd74fc0d7505d2332c1ac9e8eeeccfcaf985884a1",
+                "nbytes": 150994944
+              },
+              "assets/levels/0/onsite_pair": {
+                "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                "sha256": "68bd1ae5267a480a48b7296df66b71c388b051a65ba08f3ed922bdd0f07db0aa",
+                "nbytes": 37748736
+              },
+              "assets/levels/0/preconditioned_links": {
+                "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                "sha256": "f2f71347c8e5c86340abf3dfa4c27dfb5b0ea71fc3397be187bb8ff7c408c921",
+                "nbytes": 150994944
+              }
+            }
+          },
+          "build_contract": {
+            "validation": "cache assets must match requested geometry; construction batching is provenance only",
+            "requested_setup": {
+              "column_batch_size": 1,
+              "max_workspace_bytes": 1073741824,
+              "probe_mode": "colored",
+              "projection_site_batch_size": 4,
+              "require_exact_batch": true,
+              "workspace_four_arena_lower_bound_bytes": 50331648
+            },
+            "cached_setup_stats": [
+              {
+                "block_dtype": "torch.complex128",
+                "coarse_dof": 24,
+                "coarse_sites": 4096,
+                "color_sizes": [
+                  256,
+                  256,
+                  256,
+                  256,
+                  256,
+                  256,
+                  256,
+                  256,
+                  256,
+                  256,
+                  256,
+                  256,
+                  256,
+                  256,
+                  256,
+                  256
+                ],
+                "column_batch_size": 1,
+                "effective_probe_mode": "colored",
+                "elapsed_seconds": 139.91046111899777,
+                "fine_dof": 12,
+                "max_workspace_bytes": 1073741824,
+                "memory": {
+                  "aggregate_volume": 16,
+                  "cache_bytes": 339738624,
+                  "canonical_blocks": 9,
+                  "coarse_volume": 2048,
+                  "column_batch_size": 1,
+                  "fine_volume": 32768,
+                  "operator_calls": 384,
+                  "packed_asset_bytes": 188743680,
+                  "packed_asset_elements": 11796480,
+                  "projection_site_batch_size": 4,
+                  "retained_block_bytes": 0,
+                  "retained_block_elements": 0,
+                  "source_colors": 16,
+                  "support_points": 9,
+                  "transfer_bytes": 150994944,
+                  "transfer_elements": 9437184,
+                  "workspace_upper_bytes": 28206592
+                },
+                "operator_calls": 384,
+                "probe_mode": "colored",
+                "projection_site_batch_size": 4,
+                "requested_column_batch_size": 1,
+                "requested_probe_mode": "colored",
+                "requested_projection_site_batch_size": 4,
+                "scalar_columns": 98304,
+                "source_colors": 16,
+                "support_checked": true,
+                "support_points": 9,
+                "worst_fine_support_leakage": 0.0,
+                "worst_image_scale": 0.41592344894304845
+              }
+            ]
+          },
+          "ranks": [
+            {
+              "rank": 0,
+              "path": "/root/PyQCU/data/strict_cache_comprehensive_20260928/p100-c128/pyqcu__p100__16x16x16x16__c128__l2__trace-off/strict_runtime_df0f6fd6c07185608da1e781.h5",
+              "hit": true,
+              "expectation": "hit",
+              "evidence": {
+                "schema": "pyqcu.strict-runtime-cache",
+                "schema_version": 2,
+                "path": "/root/PyQCU/data/strict_cache_comprehensive_20260928/p100-c128/pyqcu__p100__16x16x16x16__c128__l2__trace-off/strict_runtime_df0f6fd6c07185608da1e781.h5",
+                "file_size_bytes": 339755904,
+                "identity_sha256": "df0f6fd6c07185608da1e7815819d7cb24b82986d1275a8c669f082c16ca312e",
+                "metadata_sha256": "e7da0007ea75b641ab8849c380306eaa455ce3deac85c22181338cca21f41f44",
+                "stats_sha256": "7d3c41b7d51a2c9fb8863a840b100835ba43428a8531ad8c09bdd145e558b469",
+                "manifest_sha256": "cb564f02645d198ad28efd3a4669d9432c85491452a8cb7ebdfdaeee3b3bc64d",
+                "tensor_count": 3,
+                "logical_bytes": 339738624,
+                "tensor_digests": {
+                  "assets/fine_blocked_v": {
+                    "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                    "sha256": "4053e3fafd29ae0915fee4ffd74fc0d7505d2332c1ac9e8eeeccfcaf985884a1",
+                    "nbytes": 150994944
+                  },
+                  "assets/levels/0/onsite_pair": {
+                    "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                    "sha256": "68bd1ae5267a480a48b7296df66b71c388b051a65ba08f3ed922bdd0f07db0aa",
+                    "nbytes": 37748736
+                  },
+                  "assets/levels/0/preconditioned_links": {
+                    "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                    "sha256": "f2f71347c8e5c86340abf3dfa4c27dfb5b0ea71fc3397be187bb8ff7c408c921",
+                    "nbytes": 150994944
+                  }
+                }
+              }
+            },
+            {
+              "rank": 1,
+              "path": "/root/PyQCU/data/strict_cache_comprehensive_20260928/p100-c128/pyqcu__p100__16x16x16x16__c128__l2__trace-off/strict_runtime_610f9c42a52ed12ffef41a9b.h5",
+              "hit": true,
+              "expectation": "hit",
+              "evidence": {
+                "schema": "pyqcu.strict-runtime-cache",
+                "schema_version": 2,
+                "path": "/root/PyQCU/data/strict_cache_comprehensive_20260928/p100-c128/pyqcu__p100__16x16x16x16__c128__l2__trace-off/strict_runtime_610f9c42a52ed12ffef41a9b.h5",
+                "file_size_bytes": 339755904,
+                "identity_sha256": "610f9c42a52ed12ffef41a9b94094d05ed379807411b7163f92eeb8665c0111b",
+                "metadata_sha256": "e7da0007ea75b641ab8849c380306eaa455ce3deac85c22181338cca21f41f44",
+                "stats_sha256": "a745db3733baf27b1c56f10197828172c2028362d288b07bf7182711561b9059",
+                "manifest_sha256": "fce91ac6d59d431ae44ab87a135c92d3af7051ab74bcfa1f647e8869b21ccf15",
+                "tensor_count": 3,
+                "logical_bytes": 339738624,
+                "tensor_digests": {
+                  "assets/fine_blocked_v": {
+                    "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                    "sha256": "db44e88d54db98eefbd07a6c789217f0b184aedb75a4de775fcddf75d1b29a24",
+                    "nbytes": 150994944
+                  },
+                  "assets/levels/0/onsite_pair": {
+                    "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                    "sha256": "1b485a1c29b7cfda365971c779ca9d8534c2810505ab591e925221ef15a57eb9",
+                    "nbytes": 37748736
+                  },
+                  "assets/levels/0/preconditioned_links": {
+                    "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                    "sha256": "b4328548589e6ff3063ed405daceb2940bcc9e9b78d2e5ac5d661a2523a8fc8d",
+                    "nbytes": 150994944
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "steady": {
+          "path": "/root/PyQCU/data/strict_cache_comprehensive_20260928/p100-c128/pyqcu__p100__16x16x16x16__c128__l2__trace-off/strict_runtime_df0f6fd6c07185608da1e781.h5",
+          "identity_sha256": "df0f6fd6c07185608da1e7815819d7cb24b82986d1275a8c669f082c16ca312e",
+          "hit": true,
+          "load_reason": "hit",
+          "load_detail": "schema/version/identity/shape/dtype/content digest 全部验证通过",
+          "load_seconds": 1.7893815319985151,
+          "write": null,
+          "expectation": "hit",
+          "evidence": {
+            "schema": "pyqcu.strict-runtime-cache",
+            "schema_version": 2,
+            "path": "/root/PyQCU/data/strict_cache_comprehensive_20260928/p100-c128/pyqcu__p100__16x16x16x16__c128__l2__trace-off/strict_runtime_df0f6fd6c07185608da1e781.h5",
+            "file_size_bytes": 339755904,
+            "identity_sha256": "df0f6fd6c07185608da1e7815819d7cb24b82986d1275a8c669f082c16ca312e",
+            "metadata_sha256": "e7da0007ea75b641ab8849c380306eaa455ce3deac85c22181338cca21f41f44",
+            "stats_sha256": "7d3c41b7d51a2c9fb8863a840b100835ba43428a8531ad8c09bdd145e558b469",
+            "manifest_sha256": "cb564f02645d198ad28efd3a4669d9432c85491452a8cb7ebdfdaeee3b3bc64d",
+            "tensor_count": 3,
+            "logical_bytes": 339738624,
+            "tensor_digests": {
+              "assets/fine_blocked_v": {
+                "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                "sha256": "4053e3fafd29ae0915fee4ffd74fc0d7505d2332c1ac9e8eeeccfcaf985884a1",
+                "nbytes": 150994944
+              },
+              "assets/levels/0/onsite_pair": {
+                "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                "sha256": "68bd1ae5267a480a48b7296df66b71c388b051a65ba08f3ed922bdd0f07db0aa",
+                "nbytes": 37748736
+              },
+              "assets/levels/0/preconditioned_links": {
+                "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                "sha256": "f2f71347c8e5c86340abf3dfa4c27dfb5b0ea71fc3397be187bb8ff7c408c921",
+                "nbytes": 150994944
+              }
+            }
+          },
+          "build_contract": {
+            "validation": "cache assets must match requested geometry; construction batching is provenance only",
+            "requested_setup": {
+              "column_batch_size": 1,
+              "max_workspace_bytes": 1073741824,
+              "probe_mode": "colored",
+              "projection_site_batch_size": 4,
+              "require_exact_batch": true,
+              "workspace_four_arena_lower_bound_bytes": 50331648
+            },
+            "cached_setup_stats": [
+              {
+                "block_dtype": "torch.complex128",
+                "coarse_dof": 24,
+                "coarse_sites": 4096,
+                "color_sizes": [
+                  256,
+                  256,
+                  256,
+                  256,
+                  256,
+                  256,
+                  256,
+                  256,
+                  256,
+                  256,
+                  256,
+                  256,
+                  256,
+                  256,
+                  256,
+                  256
+                ],
+                "column_batch_size": 1,
+                "effective_probe_mode": "colored",
+                "elapsed_seconds": 139.91046111899777,
+                "fine_dof": 12,
+                "max_workspace_bytes": 1073741824,
+                "memory": {
+                  "aggregate_volume": 16,
+                  "cache_bytes": 339738624,
+                  "canonical_blocks": 9,
+                  "coarse_volume": 2048,
+                  "column_batch_size": 1,
+                  "fine_volume": 32768,
+                  "operator_calls": 384,
+                  "packed_asset_bytes": 188743680,
+                  "packed_asset_elements": 11796480,
+                  "projection_site_batch_size": 4,
+                  "retained_block_bytes": 0,
+                  "retained_block_elements": 0,
+                  "source_colors": 16,
+                  "support_points": 9,
+                  "transfer_bytes": 150994944,
+                  "transfer_elements": 9437184,
+                  "workspace_upper_bytes": 28206592
+                },
+                "operator_calls": 384,
+                "probe_mode": "colored",
+                "projection_site_batch_size": 4,
+                "requested_column_batch_size": 1,
+                "requested_probe_mode": "colored",
+                "requested_projection_site_batch_size": 4,
+                "scalar_columns": 98304,
+                "source_colors": 16,
+                "support_checked": true,
+                "support_points": 9,
+                "worst_fine_support_leakage": 0.0,
+                "worst_image_scale": 0.41592344894304845
+              }
+            ]
+          },
+          "ranks": [
+            {
+              "rank": 0,
+              "path": "/root/PyQCU/data/strict_cache_comprehensive_20260928/p100-c128/pyqcu__p100__16x16x16x16__c128__l2__trace-off/strict_runtime_df0f6fd6c07185608da1e781.h5",
+              "hit": true,
+              "expectation": "hit",
+              "evidence": {
+                "schema": "pyqcu.strict-runtime-cache",
+                "schema_version": 2,
+                "path": "/root/PyQCU/data/strict_cache_comprehensive_20260928/p100-c128/pyqcu__p100__16x16x16x16__c128__l2__trace-off/strict_runtime_df0f6fd6c07185608da1e781.h5",
+                "file_size_bytes": 339755904,
+                "identity_sha256": "df0f6fd6c07185608da1e7815819d7cb24b82986d1275a8c669f082c16ca312e",
+                "metadata_sha256": "e7da0007ea75b641ab8849c380306eaa455ce3deac85c22181338cca21f41f44",
+                "stats_sha256": "7d3c41b7d51a2c9fb8863a840b100835ba43428a8531ad8c09bdd145e558b469",
+                "manifest_sha256": "cb564f02645d198ad28efd3a4669d9432c85491452a8cb7ebdfdaeee3b3bc64d",
+                "tensor_count": 3,
+                "logical_bytes": 339738624,
+                "tensor_digests": {
+                  "assets/fine_blocked_v": {
+                    "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                    "sha256": "4053e3fafd29ae0915fee4ffd74fc0d7505d2332c1ac9e8eeeccfcaf985884a1",
+                    "nbytes": 150994944
+                  },
+                  "assets/levels/0/onsite_pair": {
+                    "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                    "sha256": "68bd1ae5267a480a48b7296df66b71c388b051a65ba08f3ed922bdd0f07db0aa",
+                    "nbytes": 37748736
+                  },
+                  "assets/levels/0/preconditioned_links": {
+                    "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                    "sha256": "f2f71347c8e5c86340abf3dfa4c27dfb5b0ea71fc3397be187bb8ff7c408c921",
+                    "nbytes": 150994944
+                  }
+                }
+              }
+            },
+            {
+              "rank": 1,
+              "path": "/root/PyQCU/data/strict_cache_comprehensive_20260928/p100-c128/pyqcu__p100__16x16x16x16__c128__l2__trace-off/strict_runtime_610f9c42a52ed12ffef41a9b.h5",
+              "hit": true,
+              "expectation": "hit",
+              "evidence": {
+                "schema": "pyqcu.strict-runtime-cache",
+                "schema_version": 2,
+                "path": "/root/PyQCU/data/strict_cache_comprehensive_20260928/p100-c128/pyqcu__p100__16x16x16x16__c128__l2__trace-off/strict_runtime_610f9c42a52ed12ffef41a9b.h5",
+                "file_size_bytes": 339755904,
+                "identity_sha256": "610f9c42a52ed12ffef41a9b94094d05ed379807411b7163f92eeb8665c0111b",
+                "metadata_sha256": "e7da0007ea75b641ab8849c380306eaa455ce3deac85c22181338cca21f41f44",
+                "stats_sha256": "a745db3733baf27b1c56f10197828172c2028362d288b07bf7182711561b9059",
+                "manifest_sha256": "fce91ac6d59d431ae44ab87a135c92d3af7051ab74bcfa1f647e8869b21ccf15",
+                "tensor_count": 3,
+                "logical_bytes": 339738624,
+                "tensor_digests": {
+                  "assets/fine_blocked_v": {
+                    "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                    "sha256": "db44e88d54db98eefbd07a6c789217f0b184aedb75a4de775fcddf75d1b29a24",
+                    "nbytes": 150994944
+                  },
+                  "assets/levels/0/onsite_pair": {
+                    "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                    "sha256": "1b485a1c29b7cfda365971c779ca9d8534c2810505ab591e925221ef15a57eb9",
+                    "nbytes": 37748736
+                  },
+                  "assets/levels/0/preconditioned_links": {
+                    "digest_algorithm": "sha256(pyqcu-logical-tensor-v1)",
+                    "sha256": "b4328548589e6ff3063ed405daceb2940bcc9e9b78d2e5ac5d661a2523a8fc8d",
+                    "nbytes": 150994944
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "timing_boundary": {
+        "requested": "caller_preallocated",
+        "supported": true,
+        "formal_eligible": true,
+        "zero_initial_guess_before_timer": true,
+        "preserve_source": "not_applicable; PyQCU rhs is not mutated",
+        "timed_operation": "pyqcu.cuda.qcu.applyMultigridStrictFgmresQcu(output,rhs,...)",
+        "performance_call": "not applicable"
+      },
+      "provenance": {
+        "pyqcu_git": {
+          "commit": "33fe4f0935e5662351c4a190f7f913f391d498a9",
+          "dirty_tracked": true,
+          "repository": "/root/PyQCU"
+        },
+        "pyqcu_library": {
+          "path": "/root/PyQCU/data/build/libqcu_arch/sm60/libqcu.so",
+          "sha256": "e29c1cf04a57ec3b8af3208063456cab4db08c51abe0c04cece816e54d0c20e1",
+          "exists": true,
+          "requested_architectures": null,
+          "architectures": [
+            "sm_60"
+          ],
+          "listing_error": null
+        },
+        "quda_source_git": {
+          "commit": "33fe4f0935e5662351c4a190f7f913f391d498a9",
+          "dirty_tracked": true,
+          "repository": "/root/PyQCU/refer/git-rep/quda"
+        },
+        "quda_libraries": {
+          "libquda": {
+            "path": "/root/PyQCU/data/quda-sm60-install/lib/libquda.so",
+            "sha256": "dd1c8bac922c0d09099fd581e06b383001b17152f8fbc01baa305274ec0affab",
+            "exists": true
+          },
+          "libqmp": {
+            "path": "/root/PyQCU/data/quda-sm60-install/lib/libqmp.so",
+            "sha256": "7ee438b8dc053943198a53f66554bb55fd02e5c29065e2191747daacc337ae99",
+            "exists": true
+          }
+        },
+        "pyquda_module": {
+          "path": null,
+          "version": null
+        },
+        "cmake_features": {
+          "cache_path": "/root/PyQCU/data/quda-sm60-build-offline2/CMakeCache.txt",
+          "cache_sha256": "5ed5525f09e01770638409b72681e6cfba2f16663364312f9c82fb5340a64003",
+          "features": {
+            "QUDA_INTERFACE_QDP": true,
+            "QUDA_MULTIGRID_DOUBLE": true,
+            "QUDA_MULTIGRID_NVEC_LIST": "12,24",
+            "QUDA_PRECISION": 12,
+            "QUDA_QIO": true,
+            "QUDA_QMP": true,
+            "QUDA_RECONSTRUCT": 7
+          },
+          "normalized": {
+            "qdp_interface": true,
+            "qio": true,
+            "qmp": true,
+            "reconstruct": 7,
+            "precision": 12,
+            "multigrid_nvec_list": [
+              12,
+              24
+            ],
+            "multigrid_double": true
+          }
+        },
+        "patch_variant": {
+          "name": "wsl2_unpatched_or_unverified",
+          "wsl2": true,
+          "environment_scoped": true,
+          "limitation": "仅限启用 DEV87_REDUCE_SYNC 的 WSL2 patched QUDA 构建；不得解释为可移植的 upstream QUDA 证据",
+          "marker_present": false
+        },
+        "runtime": {
+          "torch": "2.7.1+cu118",
+          "torch_cuda": "11.8",
+          "device_index": 0,
+          "device_name": "Tesla P100-PCIE-16GB",
+          "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+          "total_memory_bytes": 17179738112,
+          "compute_capability": [
+            6,
+            0
+          ],
+          "device": "cuda:0"
+        },
+        "strict_setup_stats": [
+          {
+            "block_dtype": "torch.complex128",
+            "coarse_dof": 24,
+            "coarse_sites": 4096,
+            "color_sizes": [
+              256,
+              256,
+              256,
+              256,
+              256,
+              256,
+              256,
+              256,
+              256,
+              256,
+              256,
+              256,
+              256,
+              256,
+              256,
+              256
+            ],
+            "column_batch_size": 1,
+            "effective_probe_mode": "colored",
+            "elapsed_seconds": 139.91046111899777,
+            "fine_dof": 12,
+            "max_workspace_bytes": 1073741824,
+            "memory": {
+              "aggregate_volume": 16,
+              "cache_bytes": 339738624,
+              "canonical_blocks": 9,
+              "coarse_volume": 2048,
+              "column_batch_size": 1,
+              "fine_volume": 32768,
+              "operator_calls": 384,
+              "packed_asset_bytes": 188743680,
+              "packed_asset_elements": 11796480,
+              "projection_site_batch_size": 4,
+              "retained_block_bytes": 0,
+              "retained_block_elements": 0,
+              "source_colors": 16,
+              "support_points": 9,
+              "transfer_bytes": 150994944,
+              "transfer_elements": 9437184,
+              "workspace_upper_bytes": 28206592
+            },
+            "operator_calls": 384,
+            "probe_mode": "colored",
+            "projection_site_batch_size": 4,
+            "requested_column_batch_size": 1,
+            "requested_probe_mode": "colored",
+            "requested_projection_site_batch_size": 4,
+            "scalar_columns": 98304,
+            "source_colors": 16,
+            "support_checked": true,
+            "support_points": 9,
+            "worst_fine_support_leakage": 0.0,
+            "worst_image_scale": 0.41592344894304845
+          }
+        ],
+        "runtime_ranks": [
+          {
+            "torch": "2.7.1+cu118",
+            "torch_cuda": "11.8",
+            "device_index": 0,
+            "device_name": "Tesla P100-PCIE-16GB",
+            "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+            "total_memory_bytes": 17179738112,
+            "compute_capability": [
+              6,
+              0
+            ],
+            "device": "cuda:0"
+          },
+          {
+            "torch": "2.7.1+cu118",
+            "torch_cuda": "11.8",
+            "device_index": 1,
+            "device_name": "Tesla P100-PCIE-16GB",
+            "device_uuid": "627bf0ee-9926-a311-57d8-5a7923985b78",
+            "total_memory_bytes": 17179738112,
+            "compute_capability": [
+              6,
+              0
+            ],
+            "device": "cuda:1"
+          }
+        ]
+      },
+      "worker_wall_seconds": 111.36894811899401,
+      "completed_at": "2026-09-27T22:28:50Z",
+      "mpi": {
+        "rank": 0,
+        "size": 2,
+        "process_grid": [
+          2,
+          1,
+          1,
+          1
+        ],
+        "rank_coordinate": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "trace_paths": {
+        "PYQCU_STRICT_TRACE_FILE": "/root/PyQCU/data/mg_matrix_comprehensive_final_20260928/traces/pyqcu__p100__16x16x16x16__c128__l2__trace-on/pyqcu.tsv.warmup_steady.rank00000",
+        "QUDA_MG_TRACE_FILE": "/root/PyQCU/data/mg_matrix_comprehensive_final_20260928/traces/pyqcu__p100__16x16x16x16__c128__l2__trace-on/quda.tsv.warmup_steady.rank00000",
+        "PYQCU_QUDA_TRACE_FILE": "/root/PyQCU/data/mg_matrix_comprehensive_final_20260928/traces/pyqcu__p100__16x16x16x16__c128__l2__trace-on/quda.log.warmup_steady.rank00000"
+      },
+      "parallel_contract": {
+        "launcher": "mpirun",
+        "process_grid": [
+          2,
+          1,
+          1,
+          1
+        ],
+        "rank_local_cache": true,
+        "rank_suffixed_trace": true,
+        "ranks": 2
+      },
+      "phase_contract": {
+        "cold_separate_process": true,
+        "counts": {
+          "cold": 1,
+          "steady": 5,
+          "warmup": 2
+        },
+        "selected": [
+          "cold",
+          "warmup",
+          "steady"
+        ]
+      },
+      "device_contract": {
+        "requested": "p100"
+      },
+      "rank_results": [
+        {
+          "rank": 0,
+          "status": "ok",
+          "reason": null,
+          "trace_paths": {
+            "PYQCU_STRICT_TRACE_FILE": "/root/PyQCU/data/mg_matrix_comprehensive_final_20260928/traces/pyqcu__p100__16x16x16x16__c128__l2__trace-on/pyqcu.tsv.warmup_steady.rank00000",
+            "QUDA_MG_TRACE_FILE": "/root/PyQCU/data/mg_matrix_comprehensive_final_20260928/traces/pyqcu__p100__16x16x16x16__c128__l2__trace-on/quda.tsv.warmup_steady.rank00000",
+            "PYQCU_QUDA_TRACE_FILE": "/root/PyQCU/data/mg_matrix_comprehensive_final_20260928/traces/pyqcu__p100__16x16x16x16__c128__l2__trace-on/quda.log.warmup_steady.rank00000"
+          },
+          "device": {
+            "torch": "2.7.1+cu118",
+            "torch_cuda": "11.8",
+            "device_index": 0,
+            "device_name": "Tesla P100-PCIE-16GB",
+            "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+            "total_memory_bytes": 17179738112,
+            "compute_capability": [
+              6,
+              0
+            ],
+            "device": "cuda:0"
+          }
+        },
+        {
+          "rank": 1,
+          "status": "ok",
+          "reason": null,
+          "trace_paths": {
+            "PYQCU_STRICT_TRACE_FILE": "/root/PyQCU/data/mg_matrix_comprehensive_final_20260928/traces/pyqcu__p100__16x16x16x16__c128__l2__trace-on/pyqcu.tsv.warmup_steady.rank00001",
+            "QUDA_MG_TRACE_FILE": "/root/PyQCU/data/mg_matrix_comprehensive_final_20260928/traces/pyqcu__p100__16x16x16x16__c128__l2__trace-on/quda.tsv.warmup_steady.rank00001",
+            "PYQCU_QUDA_TRACE_FILE": "/root/PyQCU/data/mg_matrix_comprehensive_final_20260928/traces/pyqcu__p100__16x16x16x16__c128__l2__trace-on/quda.log.warmup_steady.rank00001"
+          },
+          "device": {
+            "torch": "2.7.1+cu118",
+            "torch_cuda": "11.8",
+            "device_index": 1,
+            "device_name": "Tesla P100-PCIE-16GB",
+            "device_uuid": "627bf0ee-9926-a311-57d8-5a7923985b78",
+            "total_memory_bytes": 17179738112,
+            "compute_capability": [
+              6,
+              0
+            ],
+            "device": "cuda:1"
+          }
+        }
+      ],
+      "rank_aggregation": {
+        "mode": "rank-wise maximum for wall times/bytes/iterations; element-wise conjunction for convergence",
+        "ranks": 2,
+        "process_grid": [
+          2,
+          1,
+          1,
+          1
+        ]
+      },
+      "memory_rank_summary": {
+        "setup_peak_allocated_bytes": 618791424,
+        "setup_peak_reserved_bytes": 782237696,
+        "steady_peak_allocated_bytes": 625082880,
+        "steady_peak_reserved_bytes": 1272971264,
+        "per_rank": [
+          {
+            "rank": 0,
+            "setup_peak_allocated_bytes": 618791424,
+            "steady_peak_allocated_bytes": 625082880
+          },
+          {
+            "rank": 1,
+            "setup_peak_allocated_bytes": 618791424,
+            "steady_peak_allocated_bytes": 625082880
+          }
+        ]
+      },
+      "process": {
+        "returncode": 0,
+        "wall_seconds": 112.53703683101048,
+        "stdout_tail": " :128\nlat_2dim[_XT_]                               :64\nlat_2dim[_YZ_]                               :256\nlat_2dim[_YT_]                               :128\nlat_2dim[_ZT_]                               :128\nlat_3dim[_YZT_]                              :2048\nlat_3dim[_XZT_]                              :1024\nlat_3dim[_XYT_]                              :1024\nlat_3dim[_XYZ_]                              :2048\nlat_4dim                                     :16384\ngrid_1dim[_X_]                               :2\ngrid_1dim[_Y_]                               :1\ngrid_1dim[_Z_]                               :1\ngrid_1dim[_T_]                               :1\ngrid_2dim[_XY_]                              :2\ngrid_2dim[_XZ_]                              :2\ngrid_2dim[_XT_]                              :2\ngrid_2dim[_YZ_]                              :1\ngrid_2dim[_YT_]                              :1\ngrid_2dim[_ZT_]                              :1\ngrid_3dim[_YZT_]                             :1\ngrid_3dim[_XZT_]                             :2\ngrid_3dim[_XYT_]                             :2\ngrid_3dim[_XYZ_]                             :2\ngrid_index_1dim[_X_]                         :0\ngrid_index_1dim[_Y_]                         :0\ngrid_index_1dim[_Z_]                         :0\ngrid_index_1dim[_T_]                         :0\nmove_wards[_B_X_]                            :1\nmove_wards[_B_Y_]                            :0\nmove_wards[_B_Z_]                            :0\nmove_wards[_B_T_]                            :0\nmove_wards[_F_X_]                            :1\nmove_wards[_F_Y_]                            :0\nmove_wards[_F_Z_]                            :0\nmove_wards[_F_T_]                            :0\nmove_wards[_BX_BY_]                          :1\nmove_wards[_BX_BZ_]                          :1\nmove_wards[_BX_BT_]                          :1\nmove_wards[_BY_BZ_]                          :0\nmove_wards[_BY_BT_]                          :0\nmove_wards[_BZ_BT_]                          :0\nmove_wards[_FX_BY_]                          :1\nmove_wards[_FX_BZ_]                          :1\nmove_wards[_FX_BT_]                          :1\nmove_wards[_FY_BZ_]                          :0\nmove_wards[_FY_BT_]                          :0\nmove_wards[_FZ_BT_]                          :0\nmove_wards[_BX_FY_]                          :1\nmove_wards[_BX_FZ_]                          :1\nmove_wards[_BX_FT_]                          :1\nmove_wards[_BY_FZ_]                          :0\nmove_wards[_BY_FT_]                          :0\nmove_wards[_BZ_FT_]                          :0\nmove_wards[_FX_FY_]                          :1\nmove_wards[_FX_FZ_]                          :1\nmove_wards[_FX_FT_]                          :1\nmove_wards[_FY_FZ_]                          :0\nmove_wards[_FY_FT_]                          :0\nmove_wards[_FZ_FT_]                          :0\nlattice set whole time:0.227155167 sec\nlattice set end total time:0.009671543 sec\n##RANK:1##LOOP:128##Residual(norm2):(6.03363e-17,-1.04961e-36i)\n##RANK:0##LOOP:128##Residual(norm2):(6.03363e-17,-1.04961e-36i)\n##RANK:0##LOOP:128##Residual(norm2):(6.03363e-17,-1.04961e-36i)\n##RANK:1##LOOP:128##Residual(norm2):(6.03363e-17,-1.04961e-36i)\n##RANK:0##LOOP:128##Residual(norm2):(6.03363e-17,-1.04961e-36i)\n##RANK:1##LOOP:128##Residual(norm2):(6.03363e-17,-1.04961e-36i)\n##RANK:0##LOOP:128##Residual(norm2):(6.03363e-17,-1.04961e-36i)\n##RANK:1##LOOP:128##Residual(norm2):(6.03363e-17,-1.04961e-36i)\n##RANK:1##LOOP:128##Residual(norm2):(6.03363e-17,-1.04961e-36i)\n##RANK:0##LOOP:128##Residual(norm2):(6.03363e-17,-1.04961e-36i)\n##RANK:1##LOOP:128##Residual(norm2):(6.03363e-17,-1.04961e-36i)\n##RANK:0##LOOP:128##Residual(norm2):(6.03363e-17,-1.04961e-36i)\n##RANK:1##LOOP:128##Residual(norm2):(6.03363e-17,-1.04961e-36i)\n##RANK:0##LOOP:128##Residual(norm2):(6.03363e-17,-1.04961e-36i)\nlattice set whole time:29.761541016 sec\nlattice set whole time:29.766234375 sec\nlattice set whole time:105.294312500 sec\nlattice set whole time:104.555523437 sec",
+        "stderr_tail": ""
+      },
+      "iterations_cold": {
+        "samples": [
+          40
+        ],
+        "min": 40,
+        "max": 40,
+        "median": 40.0
+      },
+      "converged_cold": true,
+      "true_residual_cold": {
+        "samples_rel": [
+          1.8152161995146784e-08
+        ],
+        "max_rel": 1.8152161995146784e-08,
+        "gate": 5e-08,
+        "pass": true,
+        "untimed_probe_rel": null,
+        "backend_schur_absolute_samples": []
+      },
+      "memory_cold": {
+        "schema_version": 2,
+        "setup": {
+          "baseline": {
+            "allocated_bytes": 0,
+            "reserved_bytes": 0,
+            "nvidia_smi": {
+              "available": true,
+              "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+              "process_used_bytes": null,
+              "gpu_used_bytes": null,
+              "error": "no numeric sample"
+            }
+          },
+          "cuda_peak_allocated_bytes": 618791424,
+          "cuda_peak_reserved_bytes": 782237696,
+          "nvidia_smi": {
+            "available": true,
+            "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+            "process_used_bytes": null,
+            "gpu_used_bytes": null,
+            "error": "no numeric sample"
+          },
+          "device_wide_sampler": {
+            "available": true,
+            "scope": "device-wide cudaMemGetInfo; may include other processes",
+            "device": "cuda:0",
+            "unit": "bytes",
+            "interval_seconds": 0.01,
+            "duration_seconds": 3.0524556029995438,
+            "sample_count": 265,
+            "device_total_bytes": 17179738112,
+            "device_used_initial_bytes": 1255014400,
+            "device_used_max_observed_bytes": 2697854976,
+            "join_timed_out": false,
+            "errors": []
+          },
+          "timing_semantics": "instrumented setup; sampler stop excluded from setup_seconds"
+        },
+        "first_solve": {
+          "excluded_from_formal_timing": true,
+          "seconds": 8.711650087003363,
+          "iterations": 40,
+          "converged": true,
+          "true_residual_rel": 1.8152161995146784e-08,
+          "backend_final_true_residual": 6.173318711451719e-06,
+          "fused_workspace_bytes": 117964800,
+          "memory": {
+            "cuda_peak_allocated_bytes": 625082880,
+            "cuda_peak_reserved_bytes": 685768704,
+            "nvidia_smi": {
+              "available": true,
+              "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+              "process_used_bytes": null,
+              "gpu_used_bytes": null,
+              "error": "no numeric sample"
+            },
+            "device_wide_sampler": {
+              "available": true,
+              "scope": "device-wide cudaMemGetInfo; may include other processes",
+              "device": "cuda:0",
+              "unit": "bytes",
+              "interval_seconds": 0.01,
+              "duration_seconds": 8.712052407994634,
+              "sample_count": 813,
+              "device_total_bytes": 17179738112,
+              "device_used_initial_bytes": 2613968896,
+              "device_used_max_observed_bytes": 2716729344,
+              "join_timed_out": false,
+              "errors": []
+            }
+          }
+        },
+        "steady": {
+          "baseline": {
+            "allocated_bytes": 625082880,
+            "reserved_bytes": 1272971264,
+            "nvidia_smi": {
+              "available": true,
+              "device_uuid": "4eeff39c-0cb4-e9ce-4254-5cb1221a8474",
+              "process_used_bytes": null,
+              "gpu_used_bytes": null,
+              "error": "no numeric sample"
+            }
+          },
+          "cuda_peak_allocated_bytes": 0,
+          "cuda_peak_reserved_bytes": 0,
+          "nvidia_smi_process_max_observed_bytes": null,
+          "nvidia_smi_gpu_max_observed_bytes": null,
+          "samples": [],
+          "snapshot_semantics": "nvidia-smi values are post-solve observations, not peaks",
+          "untimed_device_memory_probe": {}
+        },
+        "strict_owned": {
+          "coarse_workspace_bytes": 63310860,
+          "fine_transfer_bytes": 150994944,
+          "coarse_asset_resident_bytes": 188743680,
+          "asset_resident_bytes": 339738624,
+          "omitted_raw_bytes": 150994944,
+          "fused_workspace_bytes": 0,
+          "setup_release": {
+            "sealed": true,
+            "source": "strict_runtime_cache",
+            "allocator_released_bytes": 0,
+            "loaded_logical_bytes": 339738624
+          }
+        }
+      },
+      "phase_results": {
+        "cold": {
+          "seconds": 9.539377551001962,
+          "iterations": {
+            "samples": [
+              40
+            ],
+            "min": 40,
+            "max": 40,
+            "median": 40.0
+          },
+          "converged": true
+        },
+        "warmup_count": 2,
+        "steady_count": 5
+      }
+    },
+    "quda": {
+      "side": "quda",
+      "status": "not_selected",
+      "dry_run": false,
+      "reason": null
+    }
+  },
+  "comparison": {
+    "status": "pending",
+    "profile": "formal",
+    "fair": null,
+    "reasons": [
+      "quda status=not_selected"
+    ],
+    "speedup_pyqcu_over_quda": null
+  }
+}
