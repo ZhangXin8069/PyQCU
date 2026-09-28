@@ -16,7 +16,7 @@ PyQCU 项目专用技能库：每个技能一个子目录，内含 `SKILL.md`（
 - **TODO 管理**：会话执行第一步用 todowrite 生成详细 TODO 列表，逐步实时更新，收尾核对全完成。
 - **跨技能调用**：必要时调用其他技能；2+ 独立子任务（无共享状态/无顺序依赖/互不改同文件）
   优先并行派发。
-- **技能表同步约定（硬性）**：新增/更改技能必须同步下方技能表行与计数（当前 36/36），
+- **技能表同步约定（硬性）**：新增/更改技能必须同步下方技能表行与计数（当前 37/37），
   避免表格与实际脱节。
 
 ## 文档范式
@@ -25,7 +25,7 @@ frontmatter：name 与目录名一致 + description 写触发场景（何时使�
 （Files / Exported API / Key Anti-Patterns / Lessons）。项目知识条目须带实测数字与
 出处路径（logs/<tag>/...），不写未验证内容。
 
-## 技能表（36/36）
+## 技能表（37/37）
 
 | 技能 | 用途 |
 |---|---|
@@ -53,6 +53,7 @@ frontmatter：name 与目录名一致 + description 写触发场景（何时使�
 | `pyquda` | pyqcu/testing/pyquda 目录的完整生成 skill：PyQCU 与 PyQuda-0.3.2（QUDA 1.1.0）双进程隔离对比套件——Wilson/Clover dslash、BiCGStab/CG 求解的结果与性能对比（残差/逐迭代残差/耗时/作图），含维度排布转换（pyqcu 切 t vs pyquda 切 x）与归一化锚定（m+4=1/(2κ)）。 |
 | `pyqcu` | pyqcu/testing/python 目录的完整生成 skill：纯 Python 算子/求解器主测试套件（conftest 入口 + 各 conftest.*.py 变体）。 |
 | `python` | cpp/cuda/qcu/python 的当前 C API 边界：pyqcu.h、qcu_api.pxd、qcu.pyx/qcu.pyi 与 Strict 入口同步。 |
+| `pyqcu-report` | PyQCU 中文科研汇报：横版 16:9 Beamer、竖版完整讲稿、PPTX、报告原图提取、公式/算法/图表编号与全页版式验收。 |
 | `qcu.v2` | pyqcu/testing/qcu 目录的完整生成 skill：经 Cython 桥测 C++ CUDA 后端；含按职责分类的多重网格性能基准套件（clean/bench/verify/collect/mktable/plots）。 |
 | `qcu` | cpp/cuda/qcu 主 C++ CUDA 后端：legacy/Strict MultiGrid、逐层 P/R/X/Y/Yhat、MATPC/DIRECT_PC、构建与显存不变量。 |
 | `qcu-single-tests` | pyqcu/testing/qcu 与 pyqcu/testing/quda 的 QCU/QUDA 单功能测试、PyTorch 参考校验和布局转换约定。 |
