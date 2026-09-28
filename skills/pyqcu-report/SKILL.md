@@ -27,7 +27,9 @@ metadata:
    - 性能数字优先读取当前 tag 对应的 CSV、JSON、combined 记录和生成脚本。
    - `git tag test27` 的精确口径与旧 tag 的实验结果不可混合。
    - 508 报告数据只用于“先前成果/大规模历史测试”页：测试环境为 4 张
-     Pre-Wukong DCU、64--1024 MPI 进程，记录 Wilson `3.12x`、Clover `7.19x`；
+     Pre-Wukong DCU、64--1024 MPI ranks。TEST8 c64 在 1024 ranks 记录
+     Wilson `3.119x`、Clover `7.193x`；TEST9 c128 为
+     `2.211x`、`4.258x`，两组不得混用；
      它不证明当前 Strict-MG 已完成千卡扩展，也不与 test27 速度比混算。
 4. **公式和算法是主体**
    复杂算法使用编号公式和单列表格式伪代码；不要把伪代码压成普通段落。
@@ -100,16 +102,18 @@ metadata:
 3. 原始 Dslash；
 4. 奇偶 Schur Dslash；
 5. MultiGrid 构造；
-6. 预条件 Bi-CGStab；
-7. Strict `D=X+H` 与 full coarse 资产；
-8. 粗层 `X/Y/Yhat` 公式与矩阵顺序；
-9. V-cycle + flexible FGMRES；
-10. CUDA--C++ 优化；
-11. QUDA 对照协议与原图；
-12--15. 性能分布、分组中位数、阶段/显存、正确性与下一步；
-16. 参考实现和复现接口；
-17. 508 报告的大规模先前成果；
-18. 致谢。
+6. Null-vector 逆校正、QR/CGS 与 aggregate；
+7. 预条件 Bi-CGStab；
+8. Strict `D=X+H` 与 full coarse 资产；
+9. 粗层 `X/Y/Yhat` 公式与矩阵顺序；
+10. V-cycle + flexible FGMRES；
+11--12. CUDA--C++ 调度路径与源码级实现细节；
+13. QUDA 对照协议与原图；
+14--17. 性能分布、分组中位数、阶段、显存与正确性；
+18. 局限与优化路线图；
+19. 参考实现和复现接口；
+20. 508 报告的大规模先前成果；
+21. 致谢。
 
 如用户要求“内容尽量全”，宁可增加算法或公式页，也不能把两页内容强塞成一页。
 
@@ -146,7 +150,8 @@ docs/<Title>_presentation.pdf
 要求：
 
 1. 使用 `ctexbeamer` 和 `aspectratio=169`。
-2. 页面使用统一的 `frame title`、页脚和色彩角色；不要每页换主题。
+2. 页面使用统一的 `frame title`、页脚和无边框黑灰结构；不要每页换主题，
+   也不要用彩色标题线、卡片或 bullet。
 3. 公式密集页使用 `block` 或普通公式区；算法使用单列表格，保留缩进、分支和停止条件。
 4. 图不需要 `figure` 浮动；直接在 `frame` 内 `\includegraphics` 并控制宽高。
 5. 每张页只保留一个主结论。横版不写长篇论文段落。
