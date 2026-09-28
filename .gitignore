@@ -471,3 +471,9 @@ _minted*/
 !/data/dev87_quda_large_c64_g3_c03_sm60.json
 !/docs/report_multigrid_optimized_20260927.tex
 !/docs/report_multigrid_optimized_20260927.pdf
+
+# 2026-09-28 MultiGrid presentation deliverables.
+!/docs/High-Performance Implementation of Multigrid Solver for Lattice QCD_presentation.pdf
+!/docs/High-Performance Implementation of Multigrid Solver for Lattice QCD_speaker_script.pdf
+!/docs/High-Performance Implementation of Multigrid Solver for Lattice QCD.pptx
+!/docs/High-Performance_Implementation_MG_assets/paper_assets/*.pdf

@@ -24,55 +24,73 @@
   subsection/format=\large\sffamily\bfseries
 }
 
-\definecolor{navy}{HTML}{17365D}
-\definecolor{blue}{HTML}{2E6DB4}
-\definecolor{teal}{HTML}{168C8C}
-\definecolor{coral}{HTML}{D35B5B}
-\definecolor{amber}{HTML}{C58A1A}
-\definecolor{ink}{HTML}{1B2430}
-\definecolor{muted}{HTML}{687483}
-\definecolor{paleblue}{HTML}{EEF4FA}
-\definecolor{paleteal}{HTML}{ECF7F6}
-\definecolor{paleamber}{HTML}{FBF3DF}
-\definecolor{palecoral}{HTML}{FAECEC}
-\definecolor{linegray}{HTML}{C9D3DD}
+% Structural colors are grayscale on purpose. Saturated colors are reserved
+% for the measured data figures.
+\definecolor{navy}{HTML}{202020}
+\definecolor{blue}{HTML}{4A4A4A}
+\definecolor{teal}{HTML}{5F5F5F}
+\definecolor{coral}{HTML}{5F5F5F}
+\definecolor{amber}{HTML}{5F5F5F}
+\definecolor{ink}{HTML}{151515}
+\definecolor{muted}{HTML}{666666}
+\definecolor{paleblue}{HTML}{F4F4F4}
+\definecolor{paleteal}{HTML}{F4F4F4}
+\definecolor{paleamber}{HTML}{F4F4F4}
+\definecolor{palecoral}{HTML}{F4F4F4}
+\definecolor{linegray}{HTML}{B9B9B9}
 
 \setbeamertemplate{navigation symbols}{}
 \setbeamercolor{normal text}{fg=ink,bg=white}
-\setbeamercolor{structure}{fg=navy}
-\setbeamercolor{frametitle}{fg=navy,bg=white}
-\setbeamercolor{block title}{fg=navy,bg=paleblue}
-\setbeamercolor{block body}{fg=ink,bg=paleblue}
-\setbeamerfont{frametitle}{size=\LARGE,series=\bfseries}
+\setbeamercolor{structure}{fg=ink}
+\setbeamercolor{frametitle}{fg=ink,bg=white}
+\setbeamercolor{block title}{fg=ink,bg=white}
+\setbeamercolor{block body}{fg=ink,bg=white}
+\setbeamerfont{frametitle}{size=\large,series=\bfseries}
 \setbeamerfont{normal text}{size=\normalsize}
-\setbeamertemplate{itemize item}{\color{blue}\small$\blacksquare$}
-\setbeamertemplate{itemize subitem}{\color{teal}\scriptsize$\blacktriangleright$}
+\setbeamertemplate{itemize item}{\textcolor{black!70}{\small\textbullet}}
+\setbeamertemplate{itemize subitem}{\textcolor{black!55}{\scriptsize--}}
 \setbeamertemplate{caption}[numbered]
 
 \setbeamertemplate{frametitle}{%
   \vskip0.08cm
   \hspace{0.02cm}\insertframetitle
-  \par\vskip0.04cm
-  \hspace{0.02cm}\textcolor{blue}{\rule{0.965\paperwidth}{0.7pt}}
+  \par\vskip0.12cm
 }
 \setbeamertemplate{footline}{%
   \hbox{%
-    \begin{beamercolorbox}[wd=\paperwidth,ht=2.0ex,dp=0.6ex,
+    \begin{beamercolorbox}[wd=\paperwidth,ht=1.7ex,dp=0.5ex,
       leftskip=0.25cm,rightskip=0.25cm]{author in head/foot}%
-      \scriptsize\textcolor{muted}{PyQCU MultiGrid}\hfill
-      \textcolor{muted}{test27 · 2026-09-28}\hfill
-      \textcolor{navy}{\insertframenumber/\inserttotalframenumber}
+      \hfill\textcolor{navy}{\scriptsize\insertframenumber/\inserttotalframenumber}\hfill
     \end{beamercolorbox}%
   }%
 }
-\setbeamersize{text margin left=0.25cm,text margin right=0.25cm}
+\setbeamersize{text margin left=0.20cm,text margin right=0.20cm}
+
+\setbeamertemplate{block begin}{%
+  \par\vskip0.30em%
+  {\usebeamerfont*{block title}\bfseries\insertblocktitle}\par
+  \vskip0.12em%
+}
+\setbeamertemplate{block end}{\vskip0.35em}
+\setbeamertemplate{block alerted begin}{%
+  \par\vskip0.30em%
+  {\usebeamerfont*{block title}\bfseries\insertblocktitle}\par
+  \vskip0.12em%
+}
+\setbeamertemplate{block alerted end}{\vskip0.35em}
+\setbeamertemplate{block example begin}{%
+  \par\vskip0.30em%
+  {\usebeamerfont*{block title}\bfseries\insertblocktitle}\par
+  \vskip0.12em%
+}
+\setbeamertemplate{block example end}{\vskip0.35em}
 
 \newcommand{\code}[1]{\nolinkurl{#1}}
-\newcommand{\source}[1]{\vspace{-0.15em}{\raggedright\scriptsize\textcolor{muted}{来源：#1}\par}}
 \newcommand{\metric}[2]{%
-  \begin{beamercolorbox}[rounded=true,sep=0.16em,wd=0.98\linewidth,center]{block title}%
-    \Large\bfseries #1\\[-0.05em]\scriptsize #2
-  \end{beamercolorbox}%
+  \begin{minipage}[t]{0.98\linewidth}\centering
+    {\Large\bfseries #1}\par\vspace{0.02em}
+    {\small #2}
+  \end{minipage}%
 }
 \newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
 
@@ -106,14 +124,13 @@ Multigrid Solver for Lattice QCD}
     \end{column}
   \end{columns}
   \vfill
-  \begin{beamercolorbox}[rounded=true,sep=0.22em,wd=0.91\textwidth,center]{block title}
-    \small 性能结论统一采用 \texttt{git tag test27}：66 个精确单元、132 条 side record
-  \end{beamercolorbox}
+  \centering
+  \small 性能结论统一采用 \texttt{git tag test27}：66 个精确单元、132 条 side record
 \end{frame}
 
 \section{传播子与 Dirac 算子}
 
-\begin{frame}[t]{Wilson 与 Clover：先固定可持续求解的细网格算子}
+\begin{frame}[t]{Wilson \& Clover: fine-level Dirac operator conventions}
 \begin{columns}[T,totalwidth=\textwidth]
 \begin{column}{0.48\textwidth}
   \begin{block}{Wilson Dslash}
@@ -152,19 +169,17 @@ Multigrid Solver for Lattice QCD}
 \end{column}
 \end{columns}
 \vspace{-0.45cm}
-\source{\code{docs/report_numerical_linear_algebra_lattice_qcd_20260911.md}；
-\code{pyqcu/dslash/_wilson.py}；\code{pyqcu/dslash/_clover.py}}
 \end{frame}
 
-\begin{frame}[t]{原始 Dslash：八个邻居上的矩阵自由稀疏作用}
+\begin{frame}[t]{Raw Dslash: eight-neighbor matrix-free stencil}
 \begin{columns}[T,totalwidth=\textwidth]
 \begin{column}{0.47\textwidth}
-  \begin{block}{数据流与入口语义}
+  \begin{block}{Kernel flow / entry semantics}
   \small
   \begin{itemize}
-    \item 每格点读取四个正向和四个反向 neighbors；
-    \item \(1\pm\gamma_\mu\) 将四分量 spinor 投影为两个分量；
-    \item 执行 \(SU(3)\) 平移并累加八个方向贡献。
+    \item Per site: four forward and four backward neighbors；
+    \item \(1\pm\gamma_\mu\): four-spinor \(\to\) two components；
+    \item \(SU(3)\) transport and eight-direction accumulation。
   \end{itemize}
   \end{block}
   \small
@@ -175,9 +190,9 @@ Multigrid Solver for Lattice QCD}
   \begin{center}
   \begin{tikzpicture}[
     node distance=2.5mm,
-    box/.style={draw=blue,fill=paleblue,rounded corners=1.5pt,
+    box/.style={draw=none,fill=none,
       align=center,minimum width=2.8cm,minimum height=0.66cm,font=\small},
-    arrow/.style={-{Latex[length=2mm]},draw=navy,line width=0.7pt}
+    arrow/.style={-{Latex[length=2mm]},draw=black,line width=0.7pt}
   ]
     \node[box] (n) {邻居旋量读取};
     \node[box,below=of n] (p) {\(1\pm\gamma_\mu\) 投影};
@@ -186,21 +201,19 @@ Multigrid Solver for Lattice QCD}
     \draw[arrow] (n)--(p);\draw[arrow] (p)--(u);\draw[arrow] (u)--(a);
   \end{tikzpicture}
   \end{center}
-  \begin{beamercolorbox}[rounded=true,sep=0.18em,wd=0.96\linewidth]{block title}
+  \begin{minipage}{0.96\linewidth}
   \small
   \textbf{性能本质：}最近邻模板天然 bandwidth-bound；
   \(4\to2\) spin projection、\(SU(3)\) 重用和尾置时空维决定有效带宽。
-  \end{beamercolorbox}
+  \end{minipage}
 \end{column}
 \end{columns}
-\source{\code{cpp/cuda/qcu/src/wilson_dslash.cu:55-218}；
-\code{pyqcu/testing/qcu/single_function_common.py:325}；508 报告优化 1--4}
 \end{frame}
 
-\begin{frame}[t,shrink=5]{奇偶消元：外层 Krylov 维度减半，解仍可精确重建}
+\begin{frame}[t,shrink=5]{Even--odd Schur: half-size outer Krylov problem}
 \begin{columns}[T,totalwidth=\textwidth]
 \begin{column}{0.46\textwidth}
-  \begin{block}{块矩阵与 Schur 补}
+  \begin{block}{Block matrix and Schur complement}
   \small
   \begin{equation}\tag{3}
   D_{\rm pc}=
@@ -213,7 +226,7 @@ Multigrid Solver for Lattice QCD}
   S_o=A_o-\kappa^2H_{oe}A_e^{-1}H_{eo}
   \end{equation}
   \end{block}
-  \begin{block}{求解与重建}
+  \begin{block}{Solve and reconstruct}
   \small
   \begin{equation}\tag{5}
   b_o^{\rm pc}=b_o+\kappa H_{oe}A_e^{-1}b_e
@@ -230,9 +243,9 @@ Multigrid Solver for Lattice QCD}
   \begin{center}
   \begin{tikzpicture}[
     node distance=5mm and 8mm,
-    box/.style={draw=teal,fill=paleteal,rounded corners=1.5pt,
+    box/.style={draw=none,fill=none,
       align=center,minimum width=3.0cm,minimum height=0.85cm,font=\small},
-    arrow/.style={-{Latex[length=2mm]},draw=navy,line width=0.7pt}
+    arrow/.style={-{Latex[length=2mm]},draw=black,line width=0.7pt}
   ]
     \node[box] (full) {Full field \((b_e,b_o)\)};
     \node[box,right=of full] (prep) {Prepare \(b_o^{\rm pc}\)};
@@ -247,17 +260,15 @@ Multigrid Solver for Lattice QCD}
   \end{center}
 \end{column}
 \end{columns}
-\source{\code{pyqcu/dslash/_operator.py:406}；
-\code{lattice_wilson_bistabcg.h:98}；\code{bistabcg.cu:68-90}}
 \end{frame}
 
 \section{MultiGrid 算法}
 
-\begin{frame}[t,shrink=3]{MultiGrid：低模粗空间与高频平滑器互补}
+\begin{frame}[t,shrink=5]{MultiGrid: null-space coarse space + smoother}
 \begin{columns}[T,totalwidth=\textwidth]
 \begin{column}{0.48\textwidth}
-  \begin{block}{四个核心对象}
-  \small
+  \begin{block}{Four core objects}
+  \normalsize
   \begin{itemize}
     \item 近零模：\(A_lB_l\approx0\)
     \item 局部正交：\(P_l^\dagger P_l=I\)
@@ -266,7 +277,8 @@ Multigrid Solver for Lattice QCD}
       \(A_{l+1}=R_lA_lP_l\)
   \end{itemize}
   \end{block}
-  \small
+  \normalsize
+  \vspace{0.35cm}
   \begin{equation}\tag{8}
   e=e_{\rm high}+e_{\rm low},\qquad
   A_lB_l\approx0
@@ -275,10 +287,10 @@ Multigrid Solver for Lattice QCD}
 \begin{column}{0.49\textwidth}
   \begin{center}
   \begin{tikzpicture}[
-    node distance=4mm,
-    box/.style={draw=blue,fill=paleblue,rounded corners=1.5pt,
-      align=center,minimum width=3.3cm,minimum height=0.82cm,font=\small},
-    arrow/.style={-{Latex[length=2mm]},draw=navy,line width=0.7pt}
+    node distance=7mm,
+    box/.style={draw=none,fill=none,
+      align=center,minimum width=2.95cm,minimum height=0.92cm,font=\normalsize},
+    arrow/.style={-{Latex[length=2mm]},draw=black,line width=0.7pt}
   ]
     \node[box] (pre) {Pre-smooth \(\nu_1\)};
     \node[box,right=of pre] (r) {Restrict \(R_l\)};
@@ -293,17 +305,77 @@ Multigrid Solver for Lattice QCD}
   \end{center}
 \end{column}
 \end{columns}
-\source{\code{report_pyqcu_mg_operator_construction_20260830.tex:80-148}\\
-\code{lattice_multigrid.h:11-25}}
 \end{frame}
 
-\begin{frame}[t]{预条件 Bi-CGStab：粗层求解的核心算法}
+\begin{frame}[t,shrink=5]{Null-vector construction: inexact inverse correction + local QR}
+\begin{columns}[T,totalwidth=\textwidth]
+\begin{column}{0.56\textwidth}
+  \begin{center}
+  \textbf{Algorithm 1}\quad Null-vector construction
+  \end{center}
+  \fontsize{9}{11}\selectfont
+  \begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.96\linewidth}@{}}
+  \toprule
+  \(\mathbf{Input:}\;A_l,e_l,n_v,b,n_{\rm iter}{=}2,
+    \varepsilon_{\rm rtol}{=}10^{-2},\mathrm{seed}{=}42\)\\
+  \(\mathbf{for}\;j=1,\ldots,n_v\)\\
+  \(\quad v_j\sim\mathcal N(0,I)\)\\
+  \(\quad\mathbf{repeat}\;n_{\rm iter}\)\\
+  \(\quad\quad x_j\approx
+    \operatorname{solve}_{\rm rel}(A_lx=A_lv_j;\varepsilon_{\rm rtol})\)\\
+  \(\quad\quad v_j\leftarrow v_j-x_j\)\\
+  \(\quad v_j\leftarrow v_j/\|v_j\|_2\)\\
+  \(\mathbf{for\;aggregate}\;c\)\\
+  \(\quad V_c=[v_j]_{j\in c};\quad
+    Q_cR_c=\operatorname{reducedQR}(V_c)\)\\
+  \(\quad P_l|_c\leftarrow Q_c;\quad
+    \operatorname{cache\;blocked}\;P_l,V_l\)\\
+  \(R_l\leftarrow P_l^\dagger;\quad
+    D_{l+1}\leftarrow R_lD_lP_l\)\\
+  \bottomrule
+  \end{tabular}
+\end{column}
+\begin{column}{0.42\textwidth}
+  \small
+  \begin{equation}\tag{9}
+  \begin{aligned}
+  x_j&\approx A_l^{-1}(A_lv_j),\\
+  v_j&\leftarrow v_j-x_j,\qquad
+  v_j\leftarrow v_j/\|v_j\|_2
+  \end{aligned}
+  \end{equation}
+  \begin{equation}\tag{10}
+  \begin{aligned}
+  V_c&=P_cR_c,\qquad E=2n_v\\
+  P_c^\dagger P_c&=I_E
+  \end{aligned}
+  \end{equation}
+  \begin{equation}\tag{11}
+  \begin{aligned}
+  (R_lv)_X&=\sum_{x\in\mathcal A_X}V_X^\dagger v(x)\\
+  (P_lz)(x)&=V_Xz(X)
+  \end{aligned}
+  \end{equation}
+  \begin{equation}\tag{12}
+  A_{l+1}=R_lA_lP_l,\qquad R_l=P_l^\dagger
+  \end{equation}
+  \small
+  \textbf{关键实现：}相对容差、独立 RNG seed、分块 batched solve；
+  threaded path 支持 breakdown/NaN 重采样，batch path 当前没有逐向量重试。
+  \par\vspace{0.15em}
+  \textbf{路径区分：}\code{local\_orthogonalize} 使用 batched reduced QR；
+  Strict/reference 的 aggregate CGS 是另一条实现，不能混写。
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}[t]{Preconditioned Bi-CGStab for coarse solves}
 \begin{columns}[T,totalwidth=\textwidth]
 \begin{column}{0.49\textwidth}
   \begin{center}
-  \textbf{Algorithm 1}\quad Preconditioned Bi-CGStab
+  \textbf{Algorithm 2}\quad Preconditioned Bi-CGStab
   \end{center}
-  \fontsize{10}{12}\selectfont
+  \fontsize{11}{13}\selectfont
   \begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.96\linewidth}@{}}
   \toprule
   \(r^{(0)}=b-Ax^{(0)}\)\\
@@ -344,38 +416,41 @@ Multigrid Solver for Lattice QCD}
   \end{tabular}
 \end{column}
 \end{columns}
-\source{算法语义：\code{report_multigrid_quda_pyqcu_20260928.tex}；
-实现：\code{lattice_{wilson,clover}_bistabcg.h}}
 \end{frame}
 
 \section{PyQCU Strict 实现}
 
-\begin{frame}[t,shrink=7]{Strict 特化：\(D=X+H\) 与 full coarse 资产}
+\begin{frame}[t,shrink=7]{Strict path: \(D=X+H\) and full-coarse assets}
 \begin{columns}[T,totalwidth=\textwidth]
 \begin{column}{0.49\textwidth}
-  \begin{block}{层级分解}
-  \small
-  \begin{equation}\tag{9}
+  \begin{block}{Level decomposition}
+  \normalsize
+  \begin{equation}\tag{13}
   \begin{aligned}
     D_l&=X_l+H_l\\
     \widehat D_l&=X_l^{-1}D_l\\
     D_{l+1}&=R_l\widehat D_lP_l
   \end{aligned}
   \end{equation}
+  \begin{equation}\tag{14}
+  \mathcal G_l=\{
+  V_l,X_{l+1},X_{l+1}^{-1},
+  Y_{l+1}^{\rm f/b},\widehat Y_{l+1}^{\rm f/b}\}
+  \end{equation}
   \end{block}
-  \begin{beamercolorbox}[rounded=true,sep=0.16em,wd=0.96\linewidth]{block body}
-  \small
-  运行资产：\(X,X^{-1},Y^{\rm f/b},\widehat Y^{\rm f/b},V\)。
-  粗层保留 full geometry；细层使用 compact target parity。
-  \end{beamercolorbox}
+  \begin{minipage}{0.96\linewidth}
+  \normalsize
+  Runtime assets: \(X,X^{-1},Y^{\rm f/b},\widehat Y^{\rm f/b},V\)。
+  Coarse levels keep full geometry; fine level uses compact target parity.
+  \end{minipage}
 \end{column}
 \begin{column}{0.49\textwidth}
   \begin{center}
   \begin{tikzpicture}[
     node distance=4mm,
-    box/.style={draw=amber,fill=paleamber,rounded corners=1.5pt,
-      align=center,text width=2.9cm,minimum height=0.80cm,font=\small},
-    arrow/.style={-{Latex[length=2mm]},draw=navy,line width=0.7pt}
+    box/.style={draw=none,fill=none,
+      align=center,text width=3.0cm,minimum height=0.92cm,font=\normalsize},
+    arrow/.style={-{Latex[length=2mm]},draw=black,line width=0.7pt}
   ]
     \node[box] (fine) {Compact fine target parity};
     \node[box,right=of fine] (p) {\(P_l\): blocked full coarse};
@@ -390,27 +465,25 @@ Multigrid Solver for Lattice QCD}
   \end{center}
 \end{column}
 \end{columns}
-\source{\code{apply_multigrid_strict.cu:1499-1615,2926-3430}\\
-\code{_strict_galerkin.py:428-719}}
 \end{frame}
 
-\begin{frame}[t,shrink=5]{粗层 \(X/Y\)：onsite block、方向链接与 \(\widehat Y\) 顺序}
+\begin{frame}[t,shrink=6]{Coarse \(X/Y\): onsite, directional links and \(\widehat Y\)}
 \begin{columns}[T,totalwidth=\textwidth]
 \begin{column}{0.49\textwidth}
-  \begin{block}{\(X\) 与 \(Y\) 的构造}
-  \footnotesize
-  \begin{equation}\tag{10}
+  \begin{block}{Construction of \(X\) and \(Y\)}
+  \small
+  \begin{equation}\tag{15}
   E=2n_v,\qquad X_\ell,Y^{\rm f/b}_{\ell,\mu}
   \in\mathbb C^{E\times E}
   \end{equation}
-  \begin{equation}\tag{11}
+  \begin{equation}\tag{16}
   X_C(X)=\sum_{x\in\mathcal A_X}V_X^\dagger C V_X
   \end{equation}
-  \begin{equation}\tag{12}
+  \begin{equation}\tag{17}
   Y^{\rm f}_{\mu}(X)=-\kappa\sum_{x\in\mathcal A_X}
   (AV_X)^\dagger U_\mu V_{X+\hat\mu}
   \end{equation}
-  \begin{equation}\tag{13}
+  \begin{equation}\tag{18}
   Y^{\rm b}_{\mu}(X-\hat\mu)=-\kappa\sum_{x\in\mathcal A_X}
   V_X^\dagger U^\dagger_\mu AV_{X-\hat\mu}
   \end{equation}
@@ -418,42 +491,46 @@ Multigrid Solver for Lattice QCD}
   \end{block}
 \end{column}
 \begin{column}{0.49\textwidth}
-  \begin{block}{raw action 与预条件链接}
-  \footnotesize
-  \begin{equation}\tag{14}
+  \begin{block}{Raw action and preconditioned links}
+  \small
+  \begin{equation}\tag{19}
   \begin{aligned}
   D_cz(X)&=X(X)z(X)\\
   &+\sum_\mu\left[Y_\mu^{\rm f}(X)z(X+\hat\mu)
   +Y_\mu^{\rm b}(X-\hat\mu)^\dagger z(X-\hat\mu)\right]
   \end{aligned}
   \end{equation}
-  \begin{equation}\tag{15}
+  \begin{equation}\tag{20}
   \widehat Y^{\rm f}_{\mu}(X)=X^{-1}(X)Y^{\rm f}_{\mu}(X)
   \end{equation}
-  \begin{equation}\tag{16}
+  \begin{equation}\tag{21}
   \widehat Y^{\rm b}_{\mu}(X-\hat\mu)
   =Y^{\rm b}_{\mu}(X-\hat\mu)X^{-\dagger}(X)
   \end{equation}
-  \begin{equation}\tag{17}
+  \begin{equation}\tag{22}
   M_p^cx_p=x_p-\widehat H_{pq}\widehat H_{qp}x_p
+  \end{equation}
+  \begin{equation}\tag{23}
+  \widehat Hz=\sum_\mu\left[
+  \widehat Y_\mu^{\rm f}(X)z(X+\hat\mu)
+  +\widehat Y_\mu^{\rm b}(X-\hat\mu)^\dagger z(X-\hat\mu)
+  \right]
   \end{equation}
   \end{block}
 \end{column}
 \end{columns}
 \vspace{-0.15cm}
-\begin{beamercolorbox}[rounded=true,sep=0.16em,wd=0.96\textwidth]{block title}
+\begin{minipage}{0.96\textwidth}
 \small
 PC dslash 只应用 \(\widehat Y\) hopping；backward 使用
 \(X-\hat\mu\) 的 storage block，左右矩阵顺序不可交换。
-\end{beamercolorbox}
-\source{\code{report_multigrid_quda_pyqcu_20260913.tex:116-168,190-204}；
-交叉实现：\code{apply_multigrid_strict.cu}；\code{_strict_galerkin.py}}
+\end{minipage}
 \end{frame}
 
-\begin{frame}[t,shrink=10]{V-cycle 在里、FGMRES 在外：MG 预条件的算法闭环}
+\begin{frame}[t,shrink=10]{V-cycle inside, flexible FGMRES outside}
 \begin{columns}[T,totalwidth=\textwidth]
 \begin{column}{0.49\textwidth}
-  \begin{center}\textbf{Algorithm 2}\quad Recursive MG preconditioner\end{center}
+  \begin{center}\textbf{Algorithm 3}\quad Recursive MG preconditioner\end{center}
   \begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.96\linewidth}@{}}
   \toprule
   \(\mathbf{Input:}\;A_l,r_l,
@@ -470,12 +547,19 @@ PC dslash 只应用 \(\widehat Y\) hopping；backward 使用
   \bottomrule
   \end{tabular}
   \vspace{0.3cm}
-  \begin{equation}\tag{18}
+  \begin{equation}\tag{24}
   x^{(k+1)}=x^{(k)}+z^{(k)}
+  \end{equation}
+  \begin{equation}\tag{25}
+  z_l=S_{\rm post}^{\nu_2}\left[
+  S_{\rm pre}^{\nu_1}r_l+
+  P_lM_{l+1}^{-1}R_l
+  (r_l-A_lS_{\rm pre}^{\nu_1}r_l)
+  \right]
   \end{equation}
 \end{column}
 \begin{column}{0.49\textwidth}
-  \begin{center}\textbf{Algorithm 3}\quad Flexible FGMRES\end{center}
+  \begin{center}\textbf{Algorithm 4}\quad Flexible FGMRES\end{center}
   \begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.96\linewidth}@{}}
   \toprule
   \(r_0=b-Ax^{(0)},\;v_1=r_0/\|r_0\|\)\\
@@ -494,195 +578,203 @@ PC dslash 只应用 \(\widehat Y\) hopping；backward 使用
   \end{tabular}
 \end{column}
 \end{columns}
-\source{\code{apply_multigrid_strict.cu:2926-3430,4579-4683}；
-\code{report_multigrid_quda_pyqcu_20260928.tex}}
 \end{frame}
 
-\begin{frame}[t]{CUDA--C++ 优化：从寄存器、流、显存延伸到 MPI}
+\begin{frame}[t,shrink=4]{CUDA--C++ execution path: fine kernel, coarse latency, MPI overlap}
 \begin{columns}[T,totalwidth=\textwidth]
-\begin{column}{0.24\textwidth}
-  \begin{block}{细层 kernel}
-  \small
-  \(1\pm\gamma\) 四到二投影；\(SU(3)\) 重用；尾置 \(xyzt\) 合并访存。
-  \end{block}
+\begin{column}{0.55\textwidth}
+\begin{center}\textbf{Algorithm 5}\quad Distributed PyQCU MG call path\end{center}
+\small
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.96\linewidth}@{}}
+\toprule
+\(\mathbf{Input:}\;b_p,A_l,\{V_l,X_l,Y_l,\widehat Y_l\},p\)\\
+\textbf{1.} partition: rank-local / send / inside / receive\\
+\textbf{2.} fine Dslash: \(1\pm\gamma_\mu\) projection \(\to\) \(SU(3)\) transport\\
+\textbf{3.} coarse hop: \(X\) onsite + \(\widehat Y\) forward/backward links\\
+\textbf{4.} V-cycle: pre-smooth, restrict, recurse, prolong, post-smooth\\
+\textbf{5.} outer FGMRES: Arnoldi + frozen/updated coarse hierarchy\\
+\textbf{6.} correction: receive halo, add remote correction, true residual\\
+\bottomrule
+\end{tabular}
 \end{column}
-\begin{column}{0.24\textwidth}
-  \begin{block}{粗层延迟}
-  \small
-  device scalar；融合标量/向量更新；CUDA Graph；fused coarse solve。
-  \end{block}
-\end{column}
-\begin{column}{0.24\textwidth}
-  \begin{block}{Setup / 显存}
-  \small
-  colored/batched Galerkin；workspace cap；persistent hierarchy；SHA256 cache。
-  \end{block}
-\end{column}
-\begin{column}{0.24\textwidth}
-  \begin{block}{通信}
-  \small
-  rank-local halo；nonblocking vector halo；remote correction 融合。
-  \end{block}
+\begin{column}{0.43\textwidth}
+\small
+\begin{tabular}{@{}p{0.25\linewidth}p{0.66\linewidth}@{}}
+\toprule
+hot path & optimization\\
+\midrule
+fine kernel & 4\(\to\)2 spin projection; \(SU(3)\) reuse; \(xyzt\) coalescing\\
+coarse apply & 33-point stencil; device scalar; fused \(X\)-\(\widehat Y\) update\\
+Krylov & fused dot/vector update; CUDA Graph; smallest-level solve\\
+setup & batched reduced QR; colored Galerkin; workspace cap\\
+MPI & 32-slot coarse halo; nonblocking vector halo; cached link halo; remote correction\\
+cache & persistent hierarchy; HDF5 P/V/\(X/Y\); schema/hash validation\\
+\bottomrule
+\end{tabular}
 \end{column}
 \end{columns}
-\vspace{0.3cm}
-\begin{beamercolorbox}[rounded=true,sep=0.25em,wd=0.94\textwidth]{block body}
-\centering\small
-\textbf{关键判断：}细层是 bandwidth-bound，粗层是 latency-bound；
-两类瓶颈必须分别优化，单点 kernel 调优不足以获得端到端收益。
-\end{beamercolorbox}
-\source{\code{lattice_clover_multigrid.h:24-30,755-789,3584-3806}；
-\code{_strict_cache.py:32-1074}；\code{report_multigrid_optimized_20260927.tex}}
+\end{frame}
+
+\begin{frame}[t,shrink=3]{CUDA--C++ internals: persistent state, fused recurrences, overlap boundary}
+\begin{columns}[T,totalwidth=\textwidth]
+\begin{column}{0.52\textwidth}
+\begin{center}\textbf{Algorithm 6}\quad Strict fused execution schedule\end{center}
+\small
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.96\linewidth}@{}}
+\toprule
+\textbf{1.} compact fine parity: \(b_p\mapsto b_p^{\rm pc}\)\\
+\textbf{2.} MATPC: \(x_p\leftarrow x_p-\widehat H_{pq}\widehat H_{qp}x_p\)\\
+\textbf{3.} V-cycle: MR pre \(\to R_l\to\) coarse solve
+\(\to P_l\to A_lr_l\to\) MR post\\
+\textbf{4.} right FGMRES: \(z_j=\mathcal M^{-1}v_j,\;w=M_pz_j\);
+Arnoldi; restart true residual\\
+\textbf{5.} halo: local base \(\to\) post Irecv/Isend \(\to\) wait
+\(\to\) unpack \(\to\) remote correction\\
+\textbf{6.} cache: blocked \(P/V/X/Y\); HDF5 shape/dtype/hash validation\\
+\bottomrule
+\end{tabular}
+\end{column}
+\begin{column}{0.46\textwidth}
+\footnotesize
+\begin{tabular}{@{}p{0.24\linewidth}p{0.69\linewidth}@{}}
+\toprule
+mechanism & implementation detail\\
+\midrule
+fine Dslash & \(1\pm\gamma_\mu\): 4\(\to\)2 projection; \(SU(3)\) reuse; \(xyzt\) coalescing\\
+coarse latency & device scalar; fused \(\beta/\rho\) and \(r/x\); adaptive dot reduction\\
+graphs & segment replay for legacy kernels; cooperative coarsest solve; safe fallback\\
+persistent state & preallocated streams/workspaces; hierarchy arena; FGMRES workspace\\
+strict overlap & c64 nonblocking vector halo; c128 default off; link halo remains Sendrecv\\
+setup/cache & colored/batched Galerkin; workspace cap; SHA256; atomic HDF5 publish\\
+\bottomrule
+\end{tabular}
+\end{column}
+\end{columns}
 \end{frame}
 
 \section{性能对照}
 
-\begin{frame}[t]{对比口径：66 个精确单元覆盖设备、精度、层级和 trace}
-\begin{columns}[T,totalwidth=\textwidth]
-\begin{column}{0.35\textwidth}
-  \begin{block}{矩阵协议}
-  \small
-  V100 单卡；双 P100 \(2\times1\times1\times1\)\\
-  c64 / c128；BiCGStab / MG-2 / MG-3\\
-  trace on/off\\
-  1 cold + 2 warmup + 5 steady
-  \end{block}
-  \begin{beamercolorbox}[rounded=true,sep=0.18em,wd=0.96\linewidth]{block title}
-  \small
-  请求 72 combined；精确 66 combined、132 side；\\
-  6 个双 P100 c64 大格显式替代。
-  \end{beamercolorbox}
-\end{column}
-\begin{column}{0.63\textwidth}
+\begin{frame}[t,shrink=6]{QUDA comparison protocol: 66 exact units, 132 side records}
   \centering
-  \includegraphics[width=\linewidth,height=0.72\textheight,keepaspectratio]
-  {High-Performance_Implementation_MG_assets/report_chart_assets/overlap_matrix.png}
-  \par{\scriptsize 图 1：\(R=t_{\rm QUDA}/t_{\rm PyQCU}\)，\(R>1\) 表示 PyQCU 更快；
-  正式性能使用 trace-off。}
-\end{column}
-\end{columns}
-\source{配置/输入哈希 66/66；真残差 66/66；trace-on MG 曲线 44/44}
-\end{frame}
-
-\begin{frame}[t,shrink=6]{总体结果：MG 专项优势明确，但整体中位仅为 1.025}
-\begin{columns}[T,totalwidth=\textwidth]
-\begin{column}{0.23\textwidth}
-  \metric{1.025}{66 个精确单元总中位}
-\end{column}
-\begin{column}{0.23\textwidth}
-  \metric{35/44}{MG-2/3 有利}
-\end{column}
-\begin{column}{0.23\textwidth}
-  \metric{21/22}{MG trace-off 有利}
-\end{column}
-\begin{column}{0.23\textwidth}
-  \metric{0/22}{BiCGStab reference}
-\end{column}
-\end{columns}
-\vspace{0.15cm}
-\begin{center}
-  \includegraphics[width=0.88\textwidth,height=0.54\textheight,keepaspectratio]
-  {High-Performance_Implementation_MG_assets/report_chart_assets/mg_speedup_units.png}
-\end{center}
-{\centering\scriptsize 图 2：66 个精确单元逐点比值。\par}
-\vspace{-0.15cm}
-\source{\code{report_multigrid_quda_pyqcu_20260928.tex}；
-\code{test27/units.csv}}
-\end{frame}
-
-\begin{frame}[t]{设备与精度趋势：V100 明显领先，P100 在 trace-off 有利}
-\begin{columns}[T,totalwidth=\textwidth]
-\begin{column}{0.58\textwidth}
-  \centering
-  \includegraphics[width=\linewidth,height=0.76\textheight,keepaspectratio]
-  {High-Performance_Implementation_MG_assets/paper_assets/fig_group_medians.pdf}
-  \par{\scriptsize 图 3：trace-off 分组中位比值。}
-\end{column}
-\begin{column}{0.40\textwidth}
-  \begin{block}{trace-off 分组中位}
   \small
-  \begin{tabular}{@{}lrrr@{}}
+  \begin{tabular}{@{}lllll@{}}
   \toprule
-  设备/精度 & MG-2 & MG-3 & BiCG\\
+  device & precision & solvers & tracing & timing protocol\\
   \midrule
-  V100/c64 & 2.57 & 4.74 & 0.28\\
-  V100/c128 & 2.03 & 3.22 & 0.26\\
-  P100/c64 & 1.78 & 1.79 & 0.34\\
-  P100/c128 & 1.25 & 1.15 & 0.23\\
+  V100 / P100\(\times2\) & c64 / c128 & BiCGStab / MG-2 / MG-3
+  & on / off & 1 cold + 2 warmup + 5 steady\\
   \bottomrule
   \end{tabular}
-  \end{block}
-  \begin{beamercolorbox}[rounded=true,sep=0.18em,wd=0.98\linewidth]{block body}
-  \small
-  V100 c128 MG-3 最大单点 14.63；也存在 0.54 慢点，
-  因此不能只看极值。
-  \end{beamercolorbox}
-\end{column}
-\end{columns}
-\source{\code{test27/overlap_matrix.csv}；\code{report_multigrid_quda_pyqcu_20260928.tex}}
+  \par\vspace{0.14cm}
+  66 distinct exact/effective combined units \(\cdot\) 132 side records
+  \(\cdot\) 6 extra capacity substitutions
+  \par\vspace{0.04cm}
+  \(R=t_{\rm QUDA,steady}/t_{\rm PyQCU,steady}\) \(\cdot\) trace-off is formal
+  \(\cdot\) test27 follows Strict MATPC + fused right-FGMRES
+  \par\vspace{0.18cm}
+  \includegraphics[width=0.99\textwidth,height=0.58\textheight,keepaspectratio]
+  {High-Performance_Implementation_MG_assets/report_chart_assets/overlap_matrix.png}
+  \par{\small 图 1：协议与 \(R\) 分布；替代项只作为容量与趋势证据，不进入原请求比值。}
 \end{frame}
 
-\begin{frame}[t,shrink=6]{trace-on 阶段与显存：coarse solve 是主要记录成本}
-\begin{columns}[T,totalwidth=\textwidth]
-\begin{column}{0.48\textwidth}
+\begin{frame}[t,shrink=6]{Overall result: MG-specific gain, total median \(1.025\)}
   \centering
-  \includegraphics[width=\linewidth,height=0.74\textheight,keepaspectratio]
-  {High-Performance_Implementation_MG_assets/report_chart_assets/mg_stage_breakdown.png}
-  \par{\scriptsize 图 4：trace-on 逐层阶段分解。}
-\end{column}
-\begin{column}{0.50\textwidth}
-  \centering
-  \includegraphics[width=\linewidth,height=0.44\textheight,keepaspectratio]
-  {High-Performance_Implementation_MG_assets/report_chart_assets/mg_peak_memory.png}
-  \par{\scriptsize 图 5：device-wide 峰值显存，非进程独占。}
-  \vspace{0.12cm}
-  \begin{beamercolorbox}[rounded=true,sep=0.2em,wd=0.98\linewidth]{block title}
-  \small
-  PyQCU 最大 device-wide 观测显存 11907.3 MiB；QUDA 为 23063.3 MiB；\\
-  双 P100 c64 大格 6 项显式替代为 \(16^4\)。
-  \end{beamercolorbox}
-\end{column}
-\end{columns}
-\source{\code{test27/stages.csv}；\code{report/mg_memory.csv}；
-\code{capacity_substitutions.csv}}
+  \normalsize
+  \(1.025=\operatorname{median}_{66}R\) \(\cdot\)
+  \(35/44\) MG-2/3 with \(R>1\) (on/off) \(\cdot\)
+  \(21/22\) trace-off MG \(\cdot\) \(0/22\) BiCGStab
+  \(\cdot\) \(0.1766\)--\(14.63\) all-unit range
+  \par\vspace{0.18cm}
+  \includegraphics[width=0.98\textwidth,height=0.72\textheight,keepaspectratio]
+  {High-Performance_Implementation_MG_assets/paper_assets/fig_ratio_distribution.pdf}
+  \par{\small 图 2：每个点是一个精确 unit，水平线为对应 trace-off 分组中位数。}
 \end{frame}
 
-\begin{frame}[t,shrink=5]{正确性与下一步：真残差过门，粗层同步仍是主战场}
-\begin{columns}[T,totalwidth=\textwidth]
-\begin{column}{0.54\textwidth}
+\begin{frame}[t,shrink=5]{Device and precision trends: V100 strong, P100 moderate}
   \centering
-  \includegraphics[width=\linewidth,height=0.72\textheight,keepaspectratio]
-  {High-Performance_Implementation_MG_assets/report_chart_assets/mg_finest_residual.png}
-  \par{\scriptsize 图 6：递推残差仅用于趋势；最终门限为 full-operator true residual。}
+  \includegraphics[width=0.99\textwidth,height=0.76\textheight,keepaspectratio]
+  {High-Performance_Implementation_MG_assets/paper_assets/fig_group_medians.pdf}
+  \par{\small 图 3：V100 c64/c128 MG-3 trace-off group medians
+  \(4.74\times/3.22\times\)；P100\(\times2\) c64/c128 MG-2
+  \(1.78\times/1.25\times\)。P100 c64 每组仅 \(n=2\)。}
+\end{frame}
+
+\begin{frame}[t,shrink=5]{trace-on stage attribution: coarse + other dominate}
+  \centering
+  \includegraphics[width=0.99\textwidth,height=0.75\textheight,keepaspectratio]
+  {High-Performance_Implementation_MG_assets/paper_assets/fig_stage_shares.pdf}
+  \par{\small 图 4：逐 unit、逐侧阶段份额的中位数；PyQCU
+  coarse \(+\) other \(\approx94.9\%\)，QUDA 具名 coarse \(\approx69.3\%\)。
+  该量不是 wall-clock 总时间求和份额。}
+\end{frame}
+
+\begin{frame}[t,shrink=8]{device-wide memory and correctness gate}
+  \begin{columns}[T,totalwidth=\textwidth]
+  \begin{column}{0.58\textwidth}
+    \centering
+    \includegraphics[width=\linewidth,height=0.61\textheight,keepaspectratio]
+    {High-Performance_Implementation_MG_assets/report_chart_assets/mg_peak_memory.png}
+    \par{\small 图 5：device-wide 观测峰值，不等同于单进程独占。}
+  \end{column}
+  \begin{column}{0.40\textwidth}
+    \centering
+    \includegraphics[width=\linewidth,height=0.40\textheight,keepaspectratio]
+    {High-Performance_Implementation_MG_assets/report_chart_assets/mg_finest_residual.png}
+    \par{\small 图 6：full-operator true residual；递推残差只用于趋势。}
+    \par\vspace{0.18cm}
+    \small 66 combined units:\\
+    PyQCU full-operator true residual max \(7.4016\times10^{-7}\)\\
+    QUDA max \(7.9721\times10^{-7}\)\\
+    gate \(5\times10^{-6}\)\par
+    \par\vspace{0.12cm}
+    \footnotesize steady-phase device-wide max:\\
+    PyQCU 11907.3 MiB, QUDA 23063.3 MiB.\\
+    \scriptsize device-wide sampling may include other processes.
+  \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}[t,shrink=3]{Limitations and optimization roadmap}
+\begin{columns}[T,totalwidth=\textwidth]
+\begin{column}{0.57\textwidth}
+  \footnotesize
+  \begin{tabular}{@{}p{0.24\linewidth}p{0.30\linewidth}p{0.34\linewidth}@{}}
+  \toprule
+  limitation & evidence & next action\\
+  \midrule
+  coarse latency & PyQCU coarse \(+\) other \(\approx94.9\%\) & fuse coarse solve, reduction and synchronization\\
+  setup cost & 6 P100 c64 large requests substituted & colored/batched Galerkin; workspace streaming\\
+  BiCGStab & \(0/22\) favorable & keep as reference; focus MG path\\
+  communication overlap & vector requests posted after local base kernel; link halo blocking & post requests earlier; overlap remote correction\\
+  device capacity & P100 c64 large requests exceed limits & staged halo; compressed assets; cache reuse\\
+  portability & CUDA verified; DCU/CANN not end-to-end & device-aware MPI and domestic-platform gates\\
+  \bottomrule
+  \end{tabular}
 \end{column}
-\begin{column}{0.44\textwidth}
-  \begin{block}{正确性}
+\begin{column}{0.41\textwidth}
+  \begin{equation}\tag{26}
+  T_{\rm total}
+  =T_{\rm fine}+T_{\rm coarse}+T_{\rm comm}+T_{\rm setup}
+  \end{equation}
   \small
-  PyQCU 最大真残差 \(7.40\times10^{-7}\)；\\
-  QUDA 最大真残差 \(7.97\times10^{-7}\)；\\
-  均低于 \(5\times10^{-6}\)。
-  \end{block}
-  \begin{block}{下一步}
-  \small
-  \begin{itemize}
-    \item coarse solve 与同步融合
-    \item device-aware MPI / 持久 request
-    \item setup 流式化与显存压缩
-    \item 国产平台端到端验证
-  \end{itemize}
-  \end{block}
+  \textbf{当前可证实的优势：}MG 专项性能、V100、较低最大显存、
+  扁平代码结构和自主动手能力。
+  \par\vspace{0.35em}
+  \textbf{当前不可宣称：}任意格点、任意层数、所有 solver 或大规模
+  multi-rank 普遍领先。
+  \par\vspace{0.35em}
+  \textbf{下一步验收：}每个优化都必须同时通过 true residual、
+  iteration count、steady time 和 device-wide memory 四项门限。
 \end{column}
 \end{columns}
-\source{\code{report_multigrid_quda_pyqcu_20260928.tex}；
-\code{report_multigrid_optimized_20260927.tex:327-342}}
 \end{frame}
 
 \section{补充与先前成果}
 
-\begin{frame}[t]{参考实现与最短复现接口}
+\begin{frame}[t]{Reference implementations and minimal reproduction}
 \begin{columns}[T,totalwidth=\textwidth]
 \begin{column}{0.42\textwidth}
-  \begin{block}{参考实现}
+  \begin{block}{Reference implementations}
   \small
   \begin{itemize}
     \item quantum-mg：Evan Weinberg / NVIDIA
@@ -693,7 +785,7 @@ PC dslash 只应用 \(\widehat Y\) hopping；backward 使用
   \end{block}
 \end{column}
 \begin{column}{0.56\textwidth}
-  \begin{block}{复现顺序}
+  \begin{block}{Reproduction order}
   \small
   \begin{enumerate}
     \item \texttt{source ./env.sh}
@@ -703,41 +795,38 @@ PC dslash 只应用 \(\widehat Y\) hopping；backward 使用
     \item \texttt{bench\_mg\_matrix\_full.py --list}
   \end{enumerate}
   \end{block}
-  \begin{beamercolorbox}[rounded=true,sep=0.18em,wd=0.98\linewidth]{block title}
+  \begin{minipage}{0.98\linewidth}
   \small
-  平台状态：CUDA 已实测；CPU 部分；DCU/CANN 历史或仿真；
+  Platform status：CUDA verified；CPU partial；DCU/CANN historical/simulated；
   TileLang 为 smoke；历史大规模测试见下一页。
-  \end{beamercolorbox}
+  \end{minipage}
+  \begin{minipage}{0.98\linewidth}
+  \scriptsize
+  Provenance：QUDA 1.1.0；PyQUDA 0.10.54；test27 commit
+  \texttt{04382801}；V100 \texttt{sm70}；P100 \texttt{sm60}。
+  \end{minipage}
 \end{column}
 \end{columns}
-\source{正式运行应以 \code{main} 最新入口和 provenance 为准}
 \end{frame}
 
-\begin{frame}[t]{先前成果：508 报告完成 64--1024 进程大格测试}
-\begin{columns}[T,totalwidth=\textwidth]
-\begin{column}{0.23\textwidth}
-  \metric{1024}{进程/线程规模}
-\end{column}
-\begin{column}{0.23\textwidth}
-  \metric{3.12\(\times\)}{Wilson 报告加速}
-\end{column}
-\begin{column}{0.23\textwidth}
-  \metric{7.19\(\times\)}{Clover 报告加速}
-\end{column}
-\begin{column}{0.23\textwidth}
-  \metric{\(\approx\)2048 GiB}{64 卡池峰值估算}
-\end{column}
-\end{columns}
-\vspace{0.10cm}
-\begin{center}
-  \includegraphics[width=0.84\textwidth,height=0.40\textheight,keepaspectratio]
+\begin{frame}[t]{Prior results: 508 report (TEST8 c64 / TEST9 c128)}
+  \centering
+  \small
+  \begin{tabular}{@{}llrrrr@{}}
+  \toprule
+  case & precision & lattice & ranks & Wilson & Clover\\
+  \midrule
+  TEST8 & complex64 & \(128^3\times256\) & 1024 & \(3.119\times\) & \(7.193\times\)\\
+  TEST9 & complex128 & \(128^3\times256\) & 1024 & \(2.211\times\) & \(4.258\times\)\\
+  \bottomrule
+  \end{tabular}
+  \par\vspace{0.10cm}
+  \includegraphics[width=0.94\textwidth,height=0.55\textheight,keepaspectratio]
   {High-Performance_Implementation_MG_assets/paper_assets/fig_508_scaling.pdf}
-  \par{\scriptsize 图 7：左为 TEST8 c64 强扩展；右为报告弱扩展差异汇总。}
-  \vspace{0.06cm}
-  \par{\scriptsize 数据来源：508 报告 TEST8 c64 与 TEST9/汇总表；
-  1024 为进程/线程规模，不是千卡 GPU 实测。}
-\end{center}
-\source{508 报告 §1.5--1.6；早期 DCU 路径成果，不与 test27 Strict-MG 速度比混合}
+  \par{\small 图 7：TEST8 c64 强扩展与 1024-rank 双精度对照。}
+  \par\vspace{0.04cm}
+  {\scriptsize 64 卡池容量估算 \(\approx2048\) GiB 来自 TEST8 原始表；
+  1024 是 MPI rank/thread 规模，不是 1024 张 GPU 的实测聚合性能。\par}
 \end{frame}
 
 \begin{frame}[plain]
