@@ -1,0 +1,49 @@
+下面未提到的部分的补充参考为{${HOME}/PyQCU/logs/v2026***.txt};
+本次任务的工作目录为{${HOME}/PyQCU/docs};
+本次任务的工作目标为{在{工作目录}中按照如下信息与要求编写名为{High-Performance Implementation of Multigrid Solver for Lattice QCD}的汇报PPT}(主要是MultiGrid部分)(其中CUDA-C++部分为核心);
+''''''
+'''汇报内容摘要
+Call for Abstracts
+High-Performance Implementation of Multigrid Solver for Lattice QCD #43
+We have independently implemented a multigrid solver for propagator calculation for Lattice QCD. Compared to existing implementations from abroad, this project features a flatter structure and lower complexity, while offering greater autonomy and control. At the current stage, performance in common application scenarios is approaching the level of advanced international implementations, with the potential for further performance enhancements and the addition of unique features. The project is hosted at "https://github.com/ZhangXin8069/PyQCU".
+Author:
+张鑫 (中国科学院近代物理研究所)
+Speaker:
+张鑫 (中国科学院近代物理研究所)
+Date:
+20261011:15:05-15:20
+'''
+'''汇报PPT框架
+# 开始页 --- 1页 (标题,日期,汇报人信息,项目地址:[https://gitee.com/zhangxin8069/PyQCU,https://github.com/zhangxin8069/PyQCU],项目文档:[https://gitee.com/zhangxin8069/PyQCU/tree/main/docs],项目日志:[https://gitee.com/zhangxin8069/PyQCU/tags])
+# 求解传播子  --- 3页 (参考{docs/张鑫 508应用测试报告-PyQCU}和{docs/report_**.tex},较新的文档参考优先度较高,公式展示为主)
+## Wilson作用量 (参考资料中有可直接或间接引用的内容,注意验证并整改以保持整体连贯性)
+## Clover作用量 (参考资料中有可直接或间接引用的内容,注意验证并整改以保持整体连贯性)
+## 原始Dslash (参考资料中有可直接或间接引用的内容,注意验证并整改以保持整体连贯性)
+## 奇偶处理的Dslash (参考资料中有可直接或间接引用的内容,注意验证并整改以保持整体连贯性)
+# MultiGrid算法 --- 2页 (参考{docs/report_**.tex}和{cpp/cuda/qcu}和{pyqcu/testing/qcu},当前最新的源码参考优先度最高,较新的文档参考优先度较高,算法流程展示为主)
+## 算法流程及其原理 (参考资料中有可直接或间接引用的内容,注意验证并整改以保持整体连贯性,主要展示如何构造null-vec和P/R矩阵和平滑器和V循环)
+## MultiGrid算法在格点QCD中的困难与特化 (参考资料中有可直接或间接引用的内容,注意验证并整改以保持整体连贯性,主要是超大规模的不可完整存储的隐式稀疏复数矩阵,且需要高强度的优化才有实用价值,例如直接或间接套用{quantum-mg}的简易mg算法无法获得真正的加速效果,详情参考历史git-tag-message)
+# MultiGrid在PyQCU中的实现 --- 3页 (参考{docs/report_**.tex}和{cpp/cuda/qcu}和{pyqcu/testing/qcu},当前最新的源码参考优先度最高,较新的文档参考优先度较高,公式展示和算法流程展示为主)
+## 特化的算法流程 (参考资料中有可直接或间接引用的内容,注意验证并整改以保持整体连贯性,主要展示如何构造特化的粗化X和Y以及'粗层Dslash算子')
+## 并行优化及其其他优化 (参考资料中有可直接或间接引用的内容,注意验证并整改以保持整体连贯性,主要展示PyQCU的cuda-c++中的各种优化,在{docs/张鑫 508应用测试报告-PyQCU}中提到了部分,其余部分继续自行扩展)
+# PyQCU的性能展示与分析 --- 5页 (本次汇报核心,参考{docs/report_**.tex}和{cpp/cuda/qcu}和{pyqcu/testing/qcu},当前最新的源码参考优先度最高,较新的文档参考优先度较高,数据图表展示为主)
+## 与QUDA(特定版本与特定限制)对比 (参考资料中有可直接或间接引用的内容,注意验证并整改以保持整体连贯性,客观公正地展示关键的清晰的数据图表,核心部分,注重分配)
+## PyQCU的性能优势与不足 (参考资料中有可直接或间接引用的内容,注意验证并整改以保持整体连贯性,部分优势为代码结构相对扁平且当前专注于特定作用量(Clover-Wilson),自主可控,增改功能便捷,目前还取得了较好的性能,部分不足为功能单一,优化层度还比较初期,其余部分继续自行扩展)
+## 当下优化方向与未来扩展 (参考资料中有可直接或间接引用的内容,注意验证并整改以保持整体连贯性,优化方向主要为并行通信部分,未来扩展主要是更好地适配国产计算资源,其余部分继续自行扩展)
+# 补充 --- 2页 (参考{docs/张鑫 508应用测试报告-PyQCU}和{docs/report_**.tex}和{cpp/cuda/qcu}和{pyqcu/testing/qcu},当前最新的源码参考优先度最高,较新的文档参考优先度较高,简要陈述和数据图表展示为主)
+## 参考的文献与代码 ([https://github.com/weinbe2/quantum-mg,https://github.com/lattice/quda]:Evan Weinberg (NVIDIA),[https://github.com/mrottmann/DDalphaAMG]:Matthias Rottmann (Osnabrück University),即/refer/git-rep/**)
+## PyQCU的复现接口 (参考资料中有可直接或间接引用的内容,注意验证并整改以保持整体连贯性,注意目前本项目迭代较快,推荐使用最新版)
+## PyQCU的已有的适配(cuda-c++[gpu,dcu]和torch[cpu,gpu,dcu,npu]和tilelang[gpu,npu])与大规模测试(docs/张鑫 508应用测试报告-PyQCU:千卡测试)
+# 结束页 --- 1页 (致谢)
+'''
+'''汇报PPT要求
+1.汇报时长为10分钟
+2.PPT白底为背景,长宽比为16:9,仅保留{必要的文字说明}和{简要的陈述},整体以{公式}和{算法流程}和{数据图表}为主,占比比例大概为1:1:2:2:4
+3.汇报内容必须完全可信,所有论述必须有理有据
+4.注意分析本库所有的git-tag-message,必要时查询过去的git-tag中的文档与代码,防止错过任何有价值的信息
+5.上述的{汇报PPT框架}只是大纲,其中的不适合的表述可以自行整改
+6.内容保持富余,排版偏紧凑但协调
+7.汇报中的性能测试数据直接套用{git-tag-test27}的结果
+
+'''
+''''''
