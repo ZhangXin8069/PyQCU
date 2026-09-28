@@ -305,6 +305,55 @@ def fig_residual_memory(rows: list[dict[str, object]]) -> None:
     save(fig, "fig_residual_memory.pdf")
 
 
+def fig_508_scaling() -> None:
+    fig, axes = plt.subplots(1, 2, figsize=(7.4, 2.7))
+    processes = [64, 128, 256, 512, 1024]
+    wilson = [1.000, 1.451, 2.001, 4.739, 3.119]
+    clover = [1.000, 1.657, 2.687, 4.670, 7.193]
+    axes[0].plot(
+        processes,
+        wilson,
+        marker="o",
+        color="black",
+        linewidth=1.3,
+        label="Wilson",
+    )
+    axes[0].plot(
+        processes,
+        clover,
+        marker="^",
+        color="0.55",
+        linewidth=1.3,
+        label="Clover",
+    )
+    axes[0].set_xscale("log", base=2)
+    axes[0].set_xticks(processes, [str(value) for value in processes])
+    axes[0].set_ylim(0.5, 8.0)
+    axes[0].set_xlabel("processes / threads")
+    axes[0].set_ylabel("reported speedup")
+    axes[0].grid(axis="y", color="0.88", linewidth=0.55)
+    axes[0].legend(ncol=2, fontsize=8)
+
+    volume = [524288, 1048576, 2097152, 4194304, 8388608]
+    delta = [14.166, 26.247, 58.044, 99.751, 112.188]
+    axes[1].plot(
+        volume,
+        delta,
+        marker="s",
+        color="black",
+        linewidth=1.3,
+    )
+    axes[1].fill_between(volume, 0, delta, color="0.90", zorder=0)
+    axes[1].set_xscale("log", base=2)
+    axes[1].set_xticks(volume, ["0.5M", "1M", "2M", "4M", "8M"])
+    axes[1].set_ylim(0, 125)
+    axes[1].set_xlabel("equivalent single-process volume")
+    axes[1].set_ylabel("Clover-Wilson iteration (ms)")
+    axes[1].grid(axis="y", color="0.88", linewidth=0.55)
+    fig.tight_layout()
+    save(fig, "fig_508_scaling.pdf")
+
+
 def main() -> None:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     rows = load_units()
@@ -313,6 +362,7 @@ def main() -> None:
     fig_group_medians(rows)
     fig_stage_shares(stages)
     fig_residual_memory(rows)
+    fig_508_scaling()
 
 
 if __name__ == "__main__":
