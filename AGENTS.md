@@ -48,7 +48,7 @@ PyQCU：Lattice QCD 的 Python/Cython 库 —— CUDA 加速的 Wilson/Clover Di
 | `cpp/cuda/qcu/` | C++ CUDA 后端：`src/`（.cu 内核）、`include/`（26 个模板头）、`python/pyqcu.h`（C API，须与 qcu.pxd 同步）、`logs/` |
 | `cpp/{cann,dtk,maca}/qcu/` | 占位 PASS，无实现 |
 | `pyqcu/testing/` | 统一测试入口：`pyqcu/`（纯 Python 主套件）、`qcu/`（C++ 后端，按 multigrid legacy/scaling/benchmark 与 strict 分类）、`quda/`（QUDA 对照）、`pyquda/`（PyQUDA 对照）、`cpu/npu/dcu/gpu/tilelang/profiler/benchmark/`、`data/`（参考 HDF5） |
-| `skills/` | 项目技能库（36 个技能目录：SKILL.md + 简短 AGENTS.md，目录级领域知识文档；索引与技能表见 `skills/AGENTS.md`；2026-08-25 自 `.opencode/skills` 迁出，源目录已删除，需 opencode 加载时从本库同步） |
+| `skills/` | 项目技能库（38 个技能目录：SKILL.md + 简短 AGENTS.md，目录级领域知识文档；索引与技能表见 `skills/AGENTS.md`；2026-08-25 自 `.opencode/skills` 迁出，源目录已删除，需 opencode 加载时从本库同步） |
 | `docs/` | 正式独立文档与指南（`.pdf`/`.tex`/`.md`）：`dims.md`、`env.md`、`install.md`、`examples.md`、`profiler.md`、`ORGANIZATION.md`；从 `data/**` 提升的文档位于 `docs/data/` |
 | `refer/` | 开发历史报告（dev71.*） |
 | `logs/` | 运行记录（JSON/LOG/TSV/TXT）和按 tag 组织的日志包：`dev<N>/`、`stab<N>/`、`bug<N>/` 等；`logs/data/` 汇总从 `data/**` 提升出的运行摘要；报告实体在 `logs/`，张量/cache 实体在 `data/logs/`。历史重复代码与一次性构建垃圾直接删除 |
