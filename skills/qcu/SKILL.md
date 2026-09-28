@@ -83,6 +83,47 @@ D_l=X_l+H_l,\qquad \widehat D_l=X_l^{-1}D_l,\qquad
 D_{l+1}=R_l\widehat D_lP_l.
 \]
 
+The full/raw coarse onsite block and directional links are dense
+\(E\times E\) matrices, not \(SU(3)\) links:
+\[
+X_C(X)=\sum_{x\in\mathcal A_X}V_X^\dagger C V_X,
+\]
+\[
+Y^{\rm f}_{\mu}(X)=-\kappa\sum_{x\in\mathcal A_X}
+(AV_X)^\dagger U_\mu V_{X+\hat\mu},
+\]
+\[
+Y^{\rm b}_{\mu}(X-\hat\mu)=-\kappa\sum_{x\in\mathcal A_X}
+V_X^\dagger U^\dagger_\mu AV_{X-\hat\mu},
+\]
+where \(AV=C^{-1}V\) for Clover-PC and \(AV=V\) for the raw path.
+For a Wilson-like operator the onsite contribution also includes the
+identity \(I_E\); a coarse-to-coarse construction projects the current
+\(X_\ell\), not the fine Clover tensor. In the current Strict left-
+preconditioned path, \(AV\) is constructed first and the coarse local
+operator is based on \(X_f^{-1}D_f\); therefore \(V^\dagger CV\) describes
+the full/raw Clover construction and must not be stated as an unconditional
+formula for the Strict PC path.
+The raw coarse action is
+\[
+(D_cz)(X)=X(X)z(X)+\sum_\mu\left[
+Y_\mu^{\rm f}(X)z(X+\hat\mu)
++Y_\mu^{\rm b}(X-\hat\mu)^\dagger z(X-\hat\mu)\right],
+\]
+and the preconditioned links are
+\[
+\widehat Y_\mu^{\rm f}(X)=X^{-1}(X)Y_\mu^{\rm f}(X),\qquad
+\widehat Y_\mu^{\rm b}(X-\hat\mu)
+=Y_\mu^{\rm b}(X-\hat\mu)X^{-\dagger}(X).
+\]
+The backward site and left/right multiplication order are part of the ABI:
+PC dslash applies only \(\widehat Y\) hopping, while MATPC is
+\(M_p^c=I-\widehat H_{pq}\widehat H_{qp}\). See
+`docs/report_multigrid_quda_pyqcu_20260913.tex:116-168,171-204`.
+The `-kappa` coefficient may either be absorbed into stored \(Y\) or
+applied later by the dslash; record the convention before comparing
+buffers. Current PyQCU CUDA uses links with the coefficient already applied.
+
 For Wilson/Clover aggregation, every coarse level has `coarse_spin=2` (`E=2*nvec`) and stores full-lattice `X`, forward/backward `Y`, and preconditioned `Yhat=X^{-1}Y`. The coarse operator is `D=X+H`; Strict Galerkin setup applies `R(X^{-1}D)P`, while runtime `Yhat` links represent `X^{-1}H`. `P` uses the blocked full-lattice null vectors to map a full coarse field to the selected fine parity, while `R=P†` maps that compact fine field back to a full coarse field; their coarse side is never checkerboarded. MATPC alone acts on a compact target parity as `I-Hhat_pq Hhat_qp`. Do not halve coarse geometry or replace the coarse operator with hopping-only dslash.
 
 Formal QUDA null-vector interoperability fixes the spin convention to `QUDA_DEGRAND_ROSSI_GAMMA_BASIS`; treat the gamma basis as part of the input identity, not an implicit adapter assumption.
