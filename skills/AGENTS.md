@@ -16,7 +16,7 @@ PyQCU 项目专用技能库：每个技能一个子目录，内含 `SKILL.md`（
 - **TODO 管理**：会话执行第一步用 todowrite 生成详细 TODO 列表，逐步实时更新，收尾核对全完成。
 - **跨技能调用**：必要时调用其他技能；2+ 独立子任务（无共享状态/无顺序依赖/互不改同文件）
   优先并行派发。
-- **技能表同步约定（硬性）**：新增/更改技能必须同步下方技能表行与计数（当前 37/37），
+- **技能表同步约定（硬性）**：新增/更改技能必须同步下方技能表行与计数（当前 38/38），
   避免表格与实际脱节。
 
 ## 文档范式
@@ -25,7 +25,7 @@ frontmatter：name 与目录名一致 + description 写触发场景（何时使�
 （Files / Exported API / Key Anti-Patterns / Lessons）。项目知识条目须带实测数字与
 出处路径（logs/<tag>/...），不写未验证内容。
 
-## 技能表（37/37）
+## 技能表（38/38）
 
 | 技能 | 用途 |
 |---|---|
@@ -47,6 +47,7 @@ frontmatter：name 与目录名一致 + description 写触发场景（何时使�
 | `include` | cpp/cuda/qcu/include 目录的 26 个模板化 CUDA 头文件；define.h 镜像 params[58]、Strict 槽位和 pyqcu/cuda/define.py。 |
 | `lattice` | pyqcu.lattice 目录的完整生成 skill：gamma/Gell-Mann 矩阵、SU(3) 检查、规范场生成与 Ward 负索引约定。 |
 | `logs` | cpp/cuda/qcu/logs 目录的完整生成 skill：CUDA 后端本地运行日志目录（gitignored），正式报告存放于仓库根 logs/。 |
+| `md-tex-sync` | Markdown 唯一源、LaTeX 派生源与 XeLaTeX PDF 的同源生成；全文源快照、全附件 SHA256 清册、公式/算法显示整改、幂等哈希同步与全页渲染闸门。 |
 | `maca` | cpp/maca 目录的完整生成 skill：Maca C++ 后端容器目录（占位）。 |
 | `npu` | pyqcu/testing/npu 目录的完整生成 skill：昇腾 NPU 测试（可用 force_use_npu 在 CPU 上测 NPU 路径）。 |
 | `profiler` | pyqcu/testing/profiler 目录的完整生成 skill：torch.profiler 性能剖析，导出 Chrome trace 供 Perfetto 可视化。 |
