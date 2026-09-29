@@ -1,0 +1,428 @@
+% !TEX program = xelatex
+\documentclass[UTF8,a4paper,11pt]{ctexart}
+
+\usepackage[a4paper,margin=2.0cm,headheight=14pt]{geometry}
+\usepackage{amsmath,amssymb,booktabs,longtable,array,tabularx}
+\usepackage{caption}
+\usepackage{graphicx}
+\usepackage{pdflscape}
+\usepackage{xcolor}
+\usepackage{xurl}
+\usepackage{hyperref}
+
+\definecolor{pyblue}{RGB}{36,91,163}
+\definecolor{qudared}{RGB}{190,65,55}
+\hypersetup{
+  colorlinks=true,
+  linkcolor=pyblue,
+  urlcolor=pyblue,
+  pdftitle={PyQCU 与 QUDA MultiGrid 对比测试报告（test27 数据复核版）}
+}
+\graphicspath{
+  {../data/report_multigrid_comprehensive_20261001/report/}
+}
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\newcommand{\code}[1]{\texttt{\detokenize{#1}}}
+\setlength{\parindent}{2em}
+\setlength{\parskip}{0.35em}
+\emergencystretch=3em
+
+\title{PyQCU 与 QUDA MultiGrid 对比测试报告\\
+  \large test27 数据复核版}
+\author{PyQCU 测试记录}
+\date{2026 年 10 月 1 日}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+本报告使用 \code{git tag test27}（commit
+\code{04382801c003353ecd1bc6b9bc10f6db750bf74d}）保存的原始
+combined JSON、CSV 和 trace。66 个 combined 精确单元与 132 条 side
+record 均未重新采样、未替换配置、未改动原始数据；派生表中所有数值与
+2026-09-30 版逐字节一致。
+
+2026-10-01 版只优化图表信息层级：图内标题不再显示 \code{kappa}，
+面板标签不再重复显示 \code{mass}，轴标签不再附加线性轴说明；残差总览
+标题也不再重复声明“仅残差使用对数轴”。测试元数据仍保留在固定协议表、
+图内必要标题和正文口径中，确保图表既简洁又可追溯。
+
+正式覆盖包括 1 cold / 2 warmup / 5 steady、配置哈希、输入 bundle、
+公平性和独立 full-operator 真残差门。双 P100 的
+$16\times32\times32\times48$ c64 请求仍按原记录使用 $16^4$ 容量替代。
+\end{abstract}
+
+\tableofcontents
+
+\section{数据口径与绘图规范}
+
+所有绝对耗时直接来自 test27 的 \path{combined/*.json}。MG-2/3 取
+\path{sides.<side>.timing.steady.median_seconds}，BiCGStab 参考取
+\path{sides.<side>.reference_solver.steady.median_seconds}。显存图使用
+2026-09-28 报告中由原始 memory sampler 生成的
+\path{mg_memory.csv}。逐层耗时取 \path{sides.<side>.mg_levels}。
+
+\begin{table}[htbp]
+\centering
+\caption{图表轴与图内元数据规范}
+\small
+\begin{tabularx}{\textwidth}{@{}L{0.22\textwidth}L{0.24\textwidth}Y@{}}
+\toprule
+图表类别 & 轴定义 & 图内保留的必要信息 \\
+\midrule
+时间比 & 线性 & mass、block、nvec、设备/精度/求解器/trace \\
+绝对耗时 & 线性 & mass、block、nvec、格点/精度/trace、$R$ \\
+逐层耗时 & 线性 & mass、block、nvec、格点/精度、\code{/coarsest} \\
+显存 & 线性 MiB & mass、block、nvec、设备和 lattice set \\
+残差范数 & 纵轴对数，横轴线性 & mass、block、nvec、格点/精度 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{table}[htbp]
+\centering
+\caption{固定测试协议}
+\small
+\begin{tabularx}{\textwidth}{@{}L{0.25\textwidth}Y@{}}
+\toprule
+维度 & 取值 \\
+\midrule
+实现 & QUDA 1.1.0，PyQCU Strict CUDA/C++ \\
+设备 & 单卡 Tesla V100-SXM2-32GB；双 Tesla P100-PCIE-16GB \\
+格点 & $8^3\times16$，$16^4$，$16\times32\times32\times48$，
+$16\times16\times32\times32$ \\
+精度 & c64，c128 \\
+trace & on，off \\
+求解 & BiCGStab 参考，MG-2，MG-3 \\
+phase & 1 cold，2 warmup，5 steady \\
+统计 & steady median；warmup 不进入性能统计 \\
+测试元数据 & mass 0.050，kappa 0.1234567901234568，
+block $2\times2\times2\times2$，nvec 12 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{table}[htbp]
+\centering
+\caption{覆盖与公平性硬门禁}
+\small
+\begin{tabular}{@{}lrr@{}}
+\toprule
+项目 & 观察值 & 要求 \\
+\midrule
+combined 精确单元 & 66 & 66/66 通过 \\
+side record & 132 & 132/132 通过 \\
+1 cold / 2 warmup / 5 steady & 132/132 & 全部完整 \\
+config hash 一致 & 66/66 & 全部一致 \\
+input bundle 一致 & 66/66 & 全部一致 \\
+full true residual 通过 & 66/66 & 全部 $<5\times10^{-6}$ \\
+trace-on MG residual curve & 44/44 & 全部存在 \\
+MG level row & 220/220 & 无缺失字段 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.95\linewidth,height=0.73\textheight,keepaspectratio]{mg_group_ratio_linear.pdf}
+\caption{分组中位时间比与组内 min-max 范围。横轴为
+$R=t_{\mathrm{QUDA,steady}}/t_{\mathrm{PyQCU,steady}}$，
+虚线为 $R=1$；图内保留 mass、block 和 nvec，不在标题重复 kappa。}
+\label{fig:group-ratio}
+\end{figure}
+
+\section{构建与运行 provenance}
+
+\begin{table}[htbp]
+\centering
+\caption{设备和二进制身份}
+\small
+\begin{tabularx}{\textwidth}{@{}L{0.17\textwidth}L{0.35\textwidth}Y@{}}
+\toprule
+设备 & 运行栈 & 二进制与架构 \\
+\midrule
+V100 & PyTorch 2.10.0+cu128；CUDA 12.8；PyQUDA 0.10.54 &
+\path{cpp/cuda/qcu/libqcu.so}，SHA256
+\code{81ec614211a50954...a670889}，\code{sm_70} cubin；
+QUDA \code{quda-double-install}，\code{sm_70}，
+QIO/QMP/MG-double/reconstruct 7 \\
+P100 & PyTorch 2.7.1+cu118；CUDA 11.8；PyQUDA 0.10.54 &
+\path{data/build/libqcu_arch/sm60/libqcu.so}，SHA256
+\code{e29c1cf04a57ec3b...d0c20e1}，\code{sm_60} cubin；
+QUDA \code{quda-sm60-install}，\code{sm_60}，
+QIO/QMP/MG-double/reconstruct 7 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+派生器记录 test27 commit、66 个 combined 输入路径及源 CSV 哈希，见
+\path{source_manifest.json}。\path{units.csv} 的 SHA256 为
+\code{8ab3e1e6...779177e4e}，\path{stages.csv} 的 SHA256 为
+\code{61a7263b...1e928e36}。
+
+\section{绝对耗时与时间比}
+
+时间比定义为
+\begin{equation}
+  R = \frac{t_{\mathrm{QUDA,steady}}}
+           {t_{\mathrm{PyQCU,steady}}}, \qquad R>1\text{ 有利于 PyQCU}.
+\end{equation}
+分组表同时列出两侧绝对中位秒数和组内比值中位数。表内
+\code{median} 不是两个组中位秒数之商，因此时间比与绝对耗时可以独立核验。
+
+\input{../data/report_multigrid_comprehensive_20261001/report/group_times.tex}
+
+\begin{figure}[p]
+\centering
+\includegraphics[width=0.98\linewidth,height=0.84\textheight,keepaspectratio]{mg_absolute_times_v100.pdf}
+\caption{V100 的 BiCGStab、MG-2、MG-3 绝对 steady 耗时。每个面板
+标题保留 mass、block 和 nvec；条带标签只保留格点、精度、trace 与 $R$。}
+\label{fig:absolute-times}
+\end{figure}
+
+\begin{figure}[p]
+\ContinuedFloat
+\centering
+\includegraphics[width=0.98\linewidth,height=0.84\textheight,keepaspectratio]{mg_absolute_times_p100.pdf}
+\caption{（续）P100 的 BiCGStab、MG-2、MG-3 绝对 steady 耗时。
+面板标题和条带标签采用与 V100 相同的字段口径。}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.98\linewidth,height=0.84\textheight,keepaspectratio]{mg_runtime_traceoff_linear.pdf}
+\caption{trace-off MultiGrid 的绝对 steady 耗时。四个面板分别对应
+V100/P100 与 MG-2/MG-3；比值放在左侧标签，不进入绘图区。}
+\label{fig:runtime-traceoff}
+\end{figure}
+
+所有精确单元的全局中位时间比为 1.0250。MG-2 为 19/22 个单元优于
+QUDA，MG-3 为 16/22，MG-2/3 合计 35/44；BiCGStab 参考为 0/22。
+
+\section{逐层绝对耗时}
+
+逐层图保留 pre-smoother、post-smoother、restriction、prolongation、
+coarse solver 和 other 六类原始阶段。图中的 level total 是嵌套记录，
+不得跨层直接相加。QUDA 的全零尾层已删除，最后有效层显式标为
+\code{/coarsest}，其 coarse solve 不会显示为零占位层。
+
+\begin{figure}[p]
+\centering
+\includegraphics[width=0.98\linewidth,height=0.84\textheight,keepaspectratio]{mg_stage_linear_v100_mg2.pdf}
+\caption{逐层绝对阶段耗时：V100 MG-2。P/Q 分别表示
+PyQCU/QUDA，\code{/coarsest} 表示最后有效层；图内保留 mass、
+block 和 nvec。}
+\label{fig:stage-times}
+\end{figure}
+
+\begin{figure}[p]
+\ContinuedFloat
+\centering
+\includegraphics[width=0.98\linewidth,height=0.84\textheight,keepaspectratio]{mg_stage_linear_v100_mg3.pdf}
+\caption{（续）V100 MG-3 逐层绝对阶段耗时。}
+\end{figure}
+
+\begin{figure}[p]
+\ContinuedFloat
+\centering
+\includegraphics[width=0.98\linewidth,height=0.84\textheight,keepaspectratio]{mg_stage_linear_p100_mg2.pdf}
+\caption{（续）P100 MG-2 逐层绝对阶段耗时。}
+\end{figure}
+
+\begin{figure}[p]
+\ContinuedFloat
+\centering
+\includegraphics[width=0.98\linewidth,height=0.84\textheight,keepaspectratio]{mg_stage_linear_p100_mg3.pdf}
+\caption{（续）P100 MG-3 逐层绝对阶段耗时。}
+\end{figure}
+
+\input{../data/report_multigrid_comprehensive_20261001/report/coarsest_times.tex}
+
+最粗层表中 PyQCU 与 QUDA 都取各自最后有效层的
+\code{coarse_solver_seconds}。例如 P100 c128 MG-3 的 PyQCU 与 QUDA
+中位最粗层 solve 分别为 14.781 s 和 9.799 s；V100 c64 MG-3 分别为
+0.438 s 和 0.977 s。
+
+完整逐 side、逐 level 六项耗时保存在
+\path{stage_times.csv}。下表给出按设备、精度、MG 层数、侧和 level
+聚合的中位值，全部为线性时间量。
+
+\begin{landscape}
+\input{../data/report_multigrid_comprehensive_20261001/report/stage_components.tex}
+\end{landscape}
+
+\section{峰值显存}
+
+下表和图表使用每个 side-case 的不计时 device-wide sampler
+\path{device_used_max_observed_bytes}，单位为 MiB。该值可能包含测试
+进程之外的同设备分配，因此用于门限检查，不声明为进程独占峰值。
+
+\begin{table}[htbp]
+\centering
+\caption{峰值 device-wide 显存（MiB）}
+\small
+\begin{tabular}{@{}llrrr@{}}
+\toprule
+侧 & 设备/精度 & 样本 & median & max \\
+\midrule
+PyQCU & P100/c64 & 12 & 1852.9 & 2134.9 \\
+PyQCU & P100/c128 & 18 & 3150.9 & 7308.9 \\
+PyQCU & V100/c64 & 18 & 2677.3 & 11907.3 \\
+PyQCU & V100/c128 & 18 & 4005.3 & 9575.3 \\
+QUDA & P100/c64 & 12 & 1934.9 & 2628.9 \\
+QUDA & P100/c128 & 18 & 3800.9 & 11082.9 \\
+QUDA & V100/c64 & 18 & 3587.3 & 23063.3 \\
+QUDA & V100/c128 & 18 & 5227.3 & 15739.3 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.99\linewidth,height=0.82\textheight,keepaspectratio]{mg_peak_memory_linear.pdf}
+\caption{设备级峰值显存按设备、精度、MG 层数和 trace 模式的中位数。
+图内保留 mass、block、nvec 和 lattice set，不在标题重复 kappa。}
+\label{fig:peak-memory}
+\end{figure}
+
+精确单元中最大的 PyQCU 观测峰值约 11.9 GiB，占 V100 容量 36.3\%；
+最大 QUDA 观测峰值约 23.1 GiB，占 V100 容量 70.4\%。保留结果均低于
+85\% 门限。逐 side、setup、first solve、steady、allocator 与 workspace
+原值见 \path{mg_memory.csv}。
+
+\section{残差收敛}
+
+\begin{table}[htbp]
+\centering
+\caption{稳态最细层 full true residual}
+\small
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+侧 & 样本 & median & max \\
+\midrule
+PyQCU & 66 & $1.85\times10^{-8}$ & $7.40\times10^{-7}$ \\
+QUDA & 66 & $1.89\times10^{-8}$ & $7.97\times10^{-7}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[p]
+\centering
+\includegraphics[width=0.98\linewidth,height=0.84\textheight,keepaspectratio]{mg_residual_linear_v100_mg2.pdf}
+\caption{最细层残差小面板（V100 MG-2）。纵轴为相对残差对数轴，
+横轴为线性 outer iteration；图内保留 mass、block 和 nvec。该图从原图 6
+拆成四页，避免 12 个以上子图挤在一页。}
+\label{fig:residual-panels}
+\end{figure}
+
+\begin{figure}[p]
+\ContinuedFloat
+\centering
+\includegraphics[width=0.98\linewidth,height=0.84\textheight,keepaspectratio]{mg_residual_linear_v100_mg3.pdf}
+\caption{（续）V100 MG-3 残差小面板。}
+\end{figure}
+
+\begin{figure}[p]
+\ContinuedFloat
+\centering
+\includegraphics[width=0.98\linewidth,height=0.84\textheight,keepaspectratio]{mg_residual_linear_p100_mg2.pdf}
+\caption{（续）P100 MG-2 残差小面板。}
+\end{figure}
+
+\begin{figure}[p]
+\ContinuedFloat
+\centering
+\includegraphics[width=0.98\linewidth,height=0.84\textheight,keepaspectratio]{mg_residual_linear_p100_mg3.pdf}
+\caption{（续）P100 MG-3 残差小面板。}
+\end{figure}
+
+\begin{figure}[p]
+\centering
+\includegraphics[width=0.94\linewidth,height=0.82\textheight,keepaspectratio]{mg_finest_residual_linear.pdf}
+\caption{最细层残差总览。44 条 side/case 曲线保留为细线，
+PyQCU/QUDA 与 MG-2/MG-3 使用四个分组标签；纵轴为对数相对残差，
+图例位于绘图区正下方。}
+\label{fig:finest-residual}
+\end{figure}
+
+两次递推标量的定义不同：PyQCU 主要记录 Arnoldi least-squares
+estimate，QUDA 记录 GCR iterated residual。因此曲线用于观察下降趋势，
+最终通过与否只由独立 full-operator true residual 判定。
+
+\section{容量替代记录}
+
+双 P100 的 $16\times32\times32\times48$ c64 请求项三次尝试均未同时
+满足资源与时间门限：默认路径峰值约 15.9 GiB；
+\code{PYQCU_MPI_OVERLAP=0} 约 14.8 GiB；extended CPU-staging
+路径约 12.4 GiB，但 MG-2 setup 仍超过 570 s。该 6 个 combined 项
+因此映射到已完整实测的 $16^4$ c64 对应项，并在
+\path{capacity_substitutions.csv} 中显式标识。替代项只作为容量趋势证据，
+不与原大格公平加速比混合。
+
+\section{结论}
+
+\begin{enumerate}
+  \item 本版不改变 test27 的数值结论。66 个精确单元的全矩阵中位
+        时间比为 1.0250，MG-2/3 合计 35/44 个单元优于 QUDA，
+        BiCGStab 参考为 0/22。
+  \item 图表标题已移除 kappa，面板标签已移除重复的 mass，轴标题不再
+        附加线性轴说明；残差总览不再重复“仅残差使用对数轴”的提示。
+  \item 66 个 combined 单元、132 条 side record 和全部派生表保持
+        2026-09-30 版数值一致，源数据仍锁定在 test27 commit
+        \code{0438280}。
+  \item QUDA 最粗层残余项已显式取回。P100 c128 MG-3 的最粗层中位
+        耗时为 PyQCU 14.781 s、QUDA 9.799 s；V100 c64 MG-3 为
+        0.438 s 与 0.977 s。
+  \item PyQCU/QUDA 最大真残差分别为 $7.40\times10^{-7}$ 与
+        $7.97\times10^{-7}$，均通过 $5\times10^{-6}$ 门限；
+        所有保留样本均低于 85\% 显存门限。
+\end{enumerate}
+
+\section{补充对照与复现}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.98\linewidth,height=0.54\textheight,keepaspectratio]{mg_reference_runtime_linear.pdf}
+\caption{BiCGStab 参考的绝对 steady 耗时。每个条带标签保留格点、
+trace 与 $R$；mass 只在面板标题中给出一次。}
+\label{fig:reference-runtime}
+\end{figure}
+
+本报告派生图与表格由
+\path{pyqcu/testing/qcu/strict/quda_comparison/plot_mg_linear_report.py}
+从 test27 combined JSON 重建。输出目录为
+\path{data/report_multigrid_comprehensive_20261001/report/}。
+
+\begin{verbatim}
+data/report_multigrid_comprehensive_20260928/final_protocol/
+  combined/*.json
+  units.csv
+  stages.csv
+  report/mg_memory.csv
+
+data/report_multigrid_comprehensive_20261001/report/
+  unit_times.csv
+  group_times.csv
+  stage_times.csv
+  stage_component_medians.csv
+  coarsest_times.csv
+  source_manifest.json
+  mg_group_ratio_linear.{pdf,svg}
+  mg_absolute_times_v100.{pdf,svg}
+  mg_absolute_times_p100.{pdf,svg}
+  mg_runtime_traceoff_linear.{pdf,svg}
+  mg_stage_linear_v100_mg2.{pdf,svg}
+  mg_stage_linear_v100_mg3.{pdf,svg}
+  mg_stage_linear_p100_mg2.{pdf,svg}
+  mg_stage_linear_p100_mg3.{pdf,svg}
+  mg_peak_memory_linear.{pdf,svg}
+  mg_residual_linear_v100_mg2.{pdf,svg}
+  mg_residual_linear_v100_mg3.{pdf,svg}
+  mg_residual_linear_p100_mg2.{pdf,svg}
+  mg_residual_linear_p100_mg3.{pdf,svg}
+  mg_finest_residual_linear.{pdf,svg}
+  mg_reference_runtime_linear.{pdf,svg}
+\end{verbatim}
+
+\end{document}
