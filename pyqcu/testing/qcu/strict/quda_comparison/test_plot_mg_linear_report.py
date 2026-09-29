@@ -40,18 +40,24 @@ def _unit(device: str = "v100") -> dict[str, object]:
 def test_metadata_label_contains_test_contract():
     label = MODULE._metadata_label([_unit()])
     assert "mass=0.050" in label
-    assert "kappa=0.123457" in label
     assert "block=2x2x2x2" in label
     assert "nvec=12" in label
+    assert "kappa=" not in label
 
 
-def test_case_label_contains_lattice_and_mass():
+def test_case_label_contains_lattice_without_mass():
     label = MODULE._unit_case_label(_unit())
     assert "8x8x8x16" in label
-    assert "mass=0.050" in label
+    assert "mass=" not in label
 
 
 def test_linear_limits_do_not_introduce_log_scale():
     lower, upper = MODULE._linear_limits([0.1, 1.0])
     assert lower == 0.0
     assert upper > 1.0
+
+
+def test_plot_source_avoids_redundant_scale_suffixes():
+    source = MODULE_PATH.read_text(encoding="utf-8")
+    assert ", linear scale" not in source
+    assert "only the residual norm uses a log axis" not in source
