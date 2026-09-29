@@ -56,21 +56,17 @@ def _metadata_label(units: Sequence[Mapping[str, Any]]) -> str:
         return ""
     reference = units[0]
     mass = _mass(reference)
-    kappa = _kappa(reference)
     block = _block(reference)
     nvec = _nvec(reference)
     block_text = "x".join(str(value) for value in block)
-    return (
-        f"mass={mass:.3f}, kappa={kappa:.6f}, "
-        f"block={block_text}, nvec={nvec}"
-    )
+    return f"mass={mass:.3f}, block={block_text}, nvec={nvec}"
 
 
 def _unit_case_label(unit: Mapping[str, Any]) -> str:
     lattice = "x".join(str(value) for value in _lattice(unit))
     return (
         f"{unit['precision']} {lattice} {unit['solver'].upper()} "
-        f"{unit['trace']} | mass={_mass(unit):.3f}"
+        f"{unit['trace']}"
     )
 
 
@@ -111,8 +107,6 @@ def _linear_limits(values: Sequence[float]) -> tuple[float, float]:
 def _paired_runtime_axis(
     axis: plt.Axes,
     units: Sequence[Mapping[str, Any]],
-    *,
-    show_case_metadata: bool,
 ) -> None:
     ordered = sorted(
         units,
@@ -134,8 +128,6 @@ def _paired_runtime_axis(
             f"{unit['precision']} {lattice} {unit['trace']}\n"
             f"R={quda / pyqcu:.3f}x"
         )
-        if show_case_metadata:
-            label += f"; mass={_mass(unit):.3f}"
         labels.append(label)
         pyqcu_values.append(pyqcu)
         quda_values.append(quda)
@@ -178,7 +170,7 @@ def _paired_runtime_axis(
     axis.set_yticks(positions)
     axis.set_yticklabels(labels, fontsize=6.8)
     axis.invert_yaxis()
-    axis.set_xlabel("steady solve time (s, linear scale)", fontsize=8.5)
+    axis.set_xlabel("steady solve time (s)", fontsize=8.5)
     axis.grid(True, axis="x", alpha=0.20, linewidth=0.5)
 
 
@@ -217,7 +209,7 @@ def plot_group_ratio_linear(
     axis.set_yticks(positions)
     axis.set_yticklabels(labels, fontsize=7.5)
     axis.invert_yaxis()
-    axis.set_xlabel("R = QUDA / PyQCU steady median (linear scale)")
+    axis.set_xlabel("R = QUDA / PyQCU steady median")
     axis.set_title(
         "Group median time ratio with min-max range\n"
         f"{_metadata_label(units)}",
@@ -234,7 +226,7 @@ def plot_group_ratio_linear(
             fontsize=6.8,
         )
     fig.tight_layout()
-    _save(fig, outdir, "mg_group_ratio_linear", "Linear group time ratio")
+    _save(fig, outdir, "mg_group_ratio_linear", "Group median time ratio")
 
 
 def plot_absolute_time_matrix_page(
@@ -247,11 +239,7 @@ def plot_absolute_time_matrix_page(
     solvers = (("bicgstab", "BiCGStab"), ("mg-2", "MG-2"), ("mg-3", "MG-3"))
     for axis, (solver, label) in zip(axes, solvers):
         panel_units = [unit for unit in selected if unit["solver"] == solver]
-        _paired_runtime_axis(
-            axis,
-            panel_units,
-            show_case_metadata=True,
-        )
+        _paired_runtime_axis(axis, panel_units)
         axis.set_title(
             _panel_title(
                 panel_units,
@@ -296,11 +284,7 @@ def plot_runtime_traceoff_linear(
             for unit in selected
             if unit["device"] == device and int(unit["levels"]) == levels
         ]
-        _paired_runtime_axis(
-            axis,
-            panel_units,
-            show_case_metadata=True,
-        )
+        _paired_runtime_axis(axis, panel_units)
         axis.set_title(
             _panel_title(
                 panel_units,
@@ -321,7 +305,7 @@ def plot_runtime_traceoff_linear(
         fig,
         outdir,
         "mg_runtime_traceoff_linear",
-        "Linear trace-off MG runtimes",
+        "Trace-off MG runtimes",
     )
 
 
@@ -336,11 +320,7 @@ def plot_reference_runtime_linear(
     fig, axes = plt.subplots(1, 2, figsize=(15.0, 7.0))
     for axis, device in zip(axes, ("v100", "p100")):
         panel_units = [unit for unit in selected if unit["device"] == device]
-        _paired_runtime_axis(
-            axis,
-            panel_units,
-            show_case_metadata=True,
-        )
+        _paired_runtime_axis(axis, panel_units)
         axis.set_title(
             _panel_title(
                 panel_units,
@@ -360,7 +340,7 @@ def plot_reference_runtime_linear(
         fig,
         outdir,
         "mg_reference_runtime_linear",
-        "Linear BiCGStab runtimes",
+        "BiCGStab runtimes",
     )
 
 
@@ -417,11 +397,11 @@ def _stage_page_linear(
             fontsize=7,
         )
         axis.invert_yaxis()
-        axis.set_xlabel("nested stage time (s, linear scale)", fontsize=8)
+        axis.set_xlabel("nested stage time (s)", fontsize=8)
         axis.set_title(
             f"{unit['device'].upper()} {unit['precision']} "
             f"{unit['lattice']} MG-{unit['levels']} trace-on\n"
-            f"mass={_mass(unit):.3f}, kappa={_kappa(unit):.6f}, "
+            f"mass={_mass(unit):.3f}, "
             f"block={'x'.join(str(v) for v in _block(unit))}, "
             f"nvec={_nvec(unit)}",
             fontsize=9.2,
@@ -443,7 +423,7 @@ def _stage_page_linear(
         fontsize=9,
     )
     fig.suptitle(
-        "Per-level absolute stage times, linear axes; /coarsest is the last "
+        "Per-level absolute stage times; /coarsest is the last "
         "active level and level totals are nested.",
         fontsize=12,
         y=0.995,
@@ -460,7 +440,7 @@ def _stage_page_linear(
         fig,
         outdir,
         f"mg_stage_linear_{device}_mg{levels}",
-        f"Linear stage times {device} MG-{levels}",
+        f"Stage times {device} MG-{levels}",
     )
 
 
@@ -550,9 +530,9 @@ def plot_peak_memory_linear(
             ha="right",
             fontsize=7.5,
         )
-        axis.set_ylabel("median device-wide peak (MiB, linear scale)")
+        axis.set_ylabel("median device-wide peak (MiB)")
         axis.set_title(
-            f"{device.upper()} peak memory; mass=0.050, kappa=0.123457, "
+            f"{device.upper()} peak memory; mass=0.050, "
             "block=2x2x2x2, nvec=12\n"
             "lattice set: P100={8x8x8x16,16x16x16x16,16x16x32x32(c128)}, "
             "V100={8x8x8x16,16x16x16x16,16x16x32x32,16x32x32x48(c64)}",
@@ -567,7 +547,7 @@ def plot_peak_memory_linear(
         right=0.99,
         hspace=0.52,
     )
-    _save(fig, outdir, "mg_peak_memory_linear", "Linear peak memory")
+    _save(fig, outdir, "mg_peak_memory_linear", "Peak memory")
 
 
 def _residual_panel(
@@ -616,8 +596,7 @@ def _residual_page(
     for axis in axes.flat[len(selected):]:
         axis.axis("off")
     fig.suptitle(
-        f"Finest residual curves with logarithmic residual norm only: "
-        f"{device.upper()} MG-{levels}",
+        f"Steady finest-level residual curves: {device.upper()} MG-{levels}",
         fontsize=12,
         y=0.995,
     )
@@ -676,7 +655,7 @@ def plot_residual_overlay_linear(
     axis.set_ylabel("relative residual")
     axis.set_title(
         "Steady finest-level residual curves\n"
-        f"{_metadata_label(units)}; only the residual norm uses a log axis",
+        f"{_metadata_label(units)}",
         fontsize=11,
     )
     axis.grid(True, which="both", alpha=0.18, linewidth=0.5)
@@ -703,7 +682,7 @@ def plot_residual_overlay_linear(
         fig,
         outdir,
         "mg_finest_residual_linear",
-        "Residual overlay with log residual norm",
+        "Steady finest-level residual curves",
     )
 
 
