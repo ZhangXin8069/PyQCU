@@ -476,6 +476,9 @@ _minted*/
 !/data/report_multigrid_comprehensive_20261001/
 !/data/report_multigrid_comprehensive_20261001/report/
 !/data/report_multigrid_comprehensive_20261001/report/**
+!/data/report_multigrid_comprehensive_20261002/
+!/data/report_multigrid_comprehensive_20261002/report/
+!/data/report_multigrid_comprehensive_20261002/report/**
 !/data/dev87_quda_large_c64_g2_c03_sm60.json
 !/data/dev87_quda_large_c64_g3_c03_sm60.json
 !/docs/report_multigrid_optimized_20260927.tex
