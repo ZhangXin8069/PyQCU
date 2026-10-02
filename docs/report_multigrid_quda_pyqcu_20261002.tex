@@ -123,15 +123,18 @@
 数据结构、并行通信、内存生命周期和用户接口差异在哪里；在
 \code{git tag test27}（commit
 \code{04382801c003353ecd1bc6b9bc10f6db750bf74d}）的原始数据中，
-PyQCU Strict-MG 为什么能够在多数 MultiGrid 精确单元上超过 QUDA 1.1.0。
+PyQCU trace-off Wilson--Clover Strict-MG 为什么能够在 22 个正式对照
+单元中的 21 个超过 QUDA 1.1.0。
 
-本版保持 66 个 combined、132 条 side record、1 cold / 2 warmup / 5 steady、
-配置哈希、输入 bundle 和 full-operator 真残差门不变。所有新性能表与图均由
-test27 \code{combined/*.json} 重算，并与 20261001 派生表逐单元核对。
+本版保持 66 个 combined 记录、132 条 side record、1 cold / 2 warmup /
+5 steady、配置哈希、输入 bundle 和 full-operator 真残差门不变。66 个
+combined 记录来自 33 个 trace-independent 配置乘以 trace on/off，
+不是 66 个独立配置。所有新性能表与图均由 test27
+\code{combined/*.json} 重算，并与 20261001 派生表逐单元核对。
 
-需要先限定结论。66 个精确单元的逐 case 中位时间比仅为
-$R=t_{\mathrm{QUDA}}/t_{\mathrm{PyQCU}}=1.0250$，其中 22 个 BiCGStab
-参考点全部由 QUDA 领先。真正对应 Strict-MG 的 trace-off 子集为
+需要先限定结论。66 条精确记录的逐 case 中位时间比仅为
+$R=t_{\mathrm{QUDA}}/t_{\mathrm{PyQCU}}=1.0250$，其中 22 条 BiCGStab
+参考记录全部由 QUDA 领先。真正对应 Strict-MG 的 trace-off 子集为
 21/22 胜、中位 $R=1.9358$。因此“PyQCU 超越 QUDA”只限定为 test27
 协议下的 Wilson--Clover Strict-MG，不推广为 PyQCU 全部求解器或全部
 硬件平台均更快。
@@ -171,8 +174,9 @@ Git 标签 & \code{test27} $\rightarrow$
 \code{33fe4f0935e5662351c4a190f7f913f391d498a9}；
 tag commit 是其后代，两者在 \code{cpp/cuda/qcu}、\code{pyqcu/cuda}、
 \code{pyqcu/solver} 等核心路径无 diff，tag commit 主要补齐矩阵装配与报告脚本 \\
-精确矩阵 & 66 个 combined；132 条 side record；22 个 BiCGStab 参考、
-22 个 MG-2、22 个 MG-3 \\
+精确矩阵 & 66 条 combined 记录 = 33 个 trace-independent 配置
+$\times$ trace on/off；132 条 side record；BiCGStab/MG-2/MG-3
+各 22 条记录 \\
 phase & 每侧 1 cold、2 warmup、5 steady；warmup 不进入性能统计 \\
 设备 & 单卡 V100 32GB；双 P100 16GB，P100 使用 2 rank 进程网格
 $[2,1,1,1]$ \\
@@ -181,9 +185,11 @@ coarse fields \\
 格点 & $8^3\times16$、$16^4$、$16\times16\times32\times32$、
 $16\times32\times32\times48$（P100 c64 大格按容量替代记录） \\
 QUDA & 1.1.0；QIO/QMP/MG-double/reconstruct 7；
-WSL2 \code{DEV87_REDUCE_SYNC} patched build \\
+V100 与 P100 均使用带 WSL2 \code{DEV87_REDUCE_SYNC} 属性的
+patched build \\
 固定参数 & mass 0.050；block $2\times2\times2\times2$；nvec 12；
-coarse spin 2；coarse dof 24；target parity 1；restart 16 \\
+coarse spin 2；coarse dof 24；target parity 1；requested restart 16；
+effective restart 16，除 V100 $16\times32\times32\times48$ c64 为 4 \\
 真残差门 & full periodic Wilson--Clover 独立复算，
 $\lVert b-Dx\rVert_2/\lVert b\rVert_2<5\times10^{-6}$ \\
 \bottomrule
@@ -219,7 +225,7 @@ pyqcu/testing/qcu/strict/quda_comparison/plot_mg_architecture_report.py}
 \toprule
 范围 & 单元数 & 逐 case 中位 $R$ & PyQCU 胜 & QUDA 胜 \\
 \midrule
-全部精确单元 & 66 & 1.024976 & 35 & 31 \\
+全部精确记录 & 66 & 1.024976 & 35 & 31 \\
 全部 MG & 44 & 1.391044 & 35 & 9 \\
 trace-off MG & 22 & 1.935783 & 21 & 1 \\
 BiCGStab 参考 & 22 & 0.243377 & 0 & 22 \\
@@ -227,11 +233,19 @@ BiCGStab 参考 & 22 & 0.243377 & 0 & 22 \\
 \end{tabular}
 \end{table}
 
+对单元 $c$ 和侧 $s$，先取该侧 5 个 steady 样本的中位时间
+$t_{s,c}$，再定义 $R_c=t_{Q,c}/t_{P,c}$。除非另有说明，
+“中位 $R$”指 $\operatorname{median}_c R_c$；最粗层表的
+$R=Q/P$ 是两侧组中位数之比，不是逐单元 $R_c$ 的中位数。
+
+胜负计数采用逐 case 的 $R>1$ 与 $R<1$，不进行显著性检验；
+报告不把一次精确点胜负解释成总体分布上的统计显著性。
+
 该表说明：
 
 \begin{enumerate}[leftmargin=2em]
   \item 全局中位 $R=1.0250$ 只表示“全部测试项的典型比值略大于 1”，
-        不是因为所有求解器都领先；BiCGStab 参考在 22/22 个精确点上
+        不是因为所有求解器都领先；BiCGStab 参考在 22/22 条精确记录上
         由 QUDA 更快。
   \item MG 的正式性能应看 trace-off。trace-on 会同步 CUDA stream 写诊断
         trace，属于只用于归因的观测路径；trace-off MG 为 21/22 胜，
@@ -242,16 +256,16 @@ BiCGStab 参考 & 22 & 0.243377 & 0 & 22 \\
 \end{enumerate}
 
 \begin{conclusionbox}
-\textbf{核心判断。} test27 支持“PyQCU Strict-MG 在 66 个精确单元中的
-MultiGrid 子集占优”，不支持“PyQCU 全部求解器优于 QUDA”，也不支持
+\textbf{核心判断。} test27 支持“PyQCU trace-off Strict-MG 在 22 个
+正式对照记录中的 21 个更快”，不支持“PyQCU 全部求解器优于 QUDA”，也不支持
 “当前优势已跨硬件、跨网络或跨 MPI scaling 普遍成立”。
 \end{conclusionbox}
 
 \begin{figure}[p]
 \centering
 \includegraphics[width=0.98\linewidth,height=0.82\textheight,keepaspectratio]{mg_group_ratio_linear.pdf}
-\caption{分组中位时间比与组内 min--max。正式性能只看 trace-off；
-BiCGStab 组用于限定结论边界。}
+\caption{分组中位时间比与组内 min--max。每组 n=2--3，每点先算逐单元
+$R_c$，组内取中位；正式性能只看 trace-off，BiCGStab 组用于限定结论边界。}
 \label{fig:group-ratio}
 \end{figure}
 
@@ -267,11 +281,11 @@ PyQCU test27 生产路径不是“CUDA dslash 加速的 Python MG”这一笼统
 \begin{tikzpicture}[node distance=5mm and 5mm,scale=0.92,transform shape]
 \node[pybox,text width=2.85cm] (rhs) {full RHS\\$[2,4,3,X,Y,Z,$\\$T/2]$};
 \node[pybox,right=of rhs,text width=2.55cm] (prepare) {fine prepare\\归一化 odd MATPC};
-\node[pybox,right=of prepare,text width=2.7cm] (outer) {right-FGMRES\\restart 16};
+\node[pybox,right=of prepare,text width=2.7cm] (outer) {right-FGMRES\\restart requested 16};
 \node[pybox,right=of outer,text width=2.55cm] (mr1) {fine MR\\$\nu_{\rm pre}=1$};
 \node[pybox,right=of mr1,text width=2.7cm] (restrict) {parity restriction\\$\to$ full coarse};
 \node[pybox,below=of restrict,text width=2.7cm] (vcycle) {recursive V-cycle\\每层 MR};
-\node[pybox,left=of vcycle,text width=2.55cm] (coarse) {coarsest fused\\cooperative BiCGStab};
+\node[pybox,left=of vcycle,text width=2.8cm] (coarse) {coarsest BiCGStab\\single-rank fused\\/ multi-rank distributed};
 \node[pybox,left=of coarse,text width=2.7cm] (prolong) {parity prolongation\\$\to$ fine correction};
 \node[pybox,left=of prolong,text width=2.55cm] (mr2) {fine MR\\$\nu_{\rm post}=1$};
 \node[pybox,left=of mr2,text width=2.55cm] (refresh) {true-residual\\refresh};
@@ -287,7 +301,9 @@ PyQCU test27 生产路径不是“CUDA dslash 加速的 Python MG”这一笼统
 \draw[dataflow] (refresh)--(outer);
 \end{tikzpicture}
 \caption{PyQCU test27 Strict-MG 的算法流水。蓝色框是实现路径，箭头表示
-数据依赖；每个 restart 均回到同一个持久 hierarchy。}
+数据依赖；最粗层为双分支：单 rank 可走 fused cooperative kernel，
+多 rank 走 host-driven distributed fallback。每个 restart 均回到同一个
+持久 hierarchy。}
 \label{fig:pyqcu-flow}
 \end{figure}
 
@@ -295,19 +311,25 @@ PyQCU test27 生产路径不是“CUDA dslash 加速的 Python MG”这一笼统
   \item \confirmed{} 外层是 restarted right-preconditioned FGMRES。
         Cython 入口明确接收 \path{restart/max_iter/tolerance/nu_pre/nu_post}
         和固定 workspace 预算，C++ 保存 flexible preconditioned basis
-        $Z$，再对 $AZ$ 做 Arnoldi。
+        $Z$，再对 $AZ$ 做 Arnoldi；每个 restart 都重算 fine MATPC
+        true residual，避免只依赖递推 estimate。最终 full periodic
+        Wilson--Clover 真残差由 benchmark 在计时区外独立复算。
   \item \confirmed{} 预条件器为 fine MR、parity restriction、递归 coarse
         V-cycle、parity prolongation、fine MR。非最粗层重复该结构；最粗层
         不递归，直接求 compact MATPC 系统。
   \item \confirmed{} 最粗层在单 rank 且 cooperative launch 可用时使用
         单个 fused cooperative BiCGStab kernel；多 rank 回退 host-scalar
-        BiCGStab，因为 fused kernel 不包含 MPI collective。
+        BiCGStab，因为 fused kernel 不包含 MPI collective。回退路径
+        仍在每个 rank 的 local coarse slab 上执行 coarse dslash，
+        通过 halo exchange 和 \code{MPI_Allreduce} 完成分布式
+        BiCGStab，不是单 rank 串行求解。
   \item \confirmed{} coarse Galerkin 对象是
         $D_{c}=R(X_f^{-1}D_f)P$。运行时保存 $X$、$X^{-1}$、
         forward/backward $\widehat Y$ 和 transfer $V$，默认释放 raw $Y$。
   \item \confirmed{} test27 的 block 为 $(2,2,2,2)$，coarse spin 2，
         coarse dof 24，$\nu_{\rm pre}=\nu_{\rm post}=1$，coarse maxiter 200，
-        restart 16。
+        requested restart 16；effective restart 通常为 16，
+        V100 大 c64 样本缩为 4。
 \end{itemize}
 
 \source{pyqcu/cuda/qcu/qcu.pyx:528-675;
@@ -362,6 +384,9 @@ grid；local extent 必须偶数、与 block 对齐，aggregate 不跨 rank \\
 设备映射 & 每个 rank 一张 GPU；V100 为 1 rank，P100 为 2 rank
 $[2,1,1,1]$。同进程 N 线程 × N 卡的 \code{MultiGpuMultigrid}
 不是 test27 的生产求解路径 \\
+Cython/GIL & 所有 QCU 桥函数在取指针后以 \code{nogil} 调用 C++；
+但 test27 使用 rank-per-GPU，而不是同进程 thread-per-GPU，
+因此 GIL 释放不是本轮 1/2 rank 性能的直接来源 \\
 线程分配 & 核心 kernel 以 256 线程块为主；粗层 hopping 使用 256 线程
 固定块；grid size 按 local/coarse volume 向上取整 \\
 CUDA 流 & 每个 \code{LatticeSet} 有私有非阻塞 stream；粗层 halo 使用
@@ -378,7 +403,8 @@ c128 限制 & 分布式 c128 默认关闭 overlap，只有显式
 \end{tabularx}
 \end{table}
 
-\source{pyqcu/cuda/_strict_mpi.py:226-370,774-895;
+\source{pyqcu/cuda/qcu/qcu.pyx:5-19;
+pyqcu/cuda/_strict_mpi.py:226-370,774-895;
 cpp/cuda/qcu/src/apply_multigrid_strict.cu:1690-1929,2485-2545,
 2607-2701,2953-3247,3617-3650}
 
@@ -391,7 +417,8 @@ cpp/cuda/qcu/src/apply_multigrid_strict.cu:1690-1929,2485-2545,
         \end{equation}
         其中 $m$ 是 restart，$B_f$ 是一个 compact fine vector 字节数，
         $B_c$ 是一个 full first-coarse vector 字节数。Python 侧在 512 MiB
-        默认预算内缩短 restart，并核对 C++ 返回的
+        默认预算内缩短 restart；test27 的 c64 使用 512 MiB，c128 使用
+        1 GiB。Python 侧同时核对 C++ 返回的
         \code{allocated_bytes}，防止账本漂移。
   \item \confirmed{} 非最粗层持久保存 compact rhs/x、子层 full rhs、
         halo buffer 和 reduction scratch；同一 geometry/restart 下复用，
@@ -421,12 +448,12 @@ test27 的 QUDA 侧是 native PyQUDA + QUDA 1.1.0 组合，不是 PyQCU 自己
 \begin{figure}[htbp]
 \centering
 \begin{tikzpicture}[node distance=5mm and 5mm,scale=0.92,transform shape]
-\node[qbox,text width=2.7cm] (outer) {outer GCR\\restart 16};
+\node[qbox,text width=2.7cm] (outer) {outer GCR\\effective restart 16/4};
 \node[qbox,right=of outer,text width=2.7cm] (clover) {DiracCloverPC\\odd--odd MATPC};
 \node[qbox,right=of clover,text width=2.7cm] (transfer) {Transfer\\aggregate $P/R$};
 \node[qbox,right=of transfer,text width=2.7cm] (coarse) {DiracCoarse/PC\\$X/Y/\widehat Y$};
 \node[qbox,below=of coarse,text width=2.7cm] (smooth) {MR smoother\\$\nu_{\rm pre},\nu_{\rm post}$};
-\node[qbox,left=of smooth,text width=2.7cm] (mid) {intermediate GCR\\maxiter 1};
+\node[qbox,left=of smooth,text width=2.7cm] (mid) {lower-level wrapper\\cycle type 未记录};
 \node[qbox,left=of mid,text width=2.7cm] (bottom) {coarsest CA-GCR\\maxiter 200};
 \node[qbox,left=of bottom,text width=2.7cm] (recon) {prepare /\\reconstruct\\full solution};
 \draw[dataflow] (outer)--(clover);
@@ -438,26 +465,36 @@ test27 的 QUDA 侧是 native PyQUDA + QUDA 1.1.0 组合，不是 PyQCU 自己
 \draw[dataflow] (bottom)--(recon);
 \draw[dataflow] (recon)--(outer);
 \end{tikzpicture}
-\caption{QUDA test27 的算法流水。红色框是 native QUDA 对象；
-中间层 coarse solver 的 maxiter 为 1，最粗层为 CA-GCR。}
+\caption{QUDA test27 的算法流水。红色框是 native QUDA 对象。JSON
+记录了 lower-level GCR(maxiter=1) 与 coarsest CA-GCR(200) 参数，
+但未序列化 \code{cycle_type}，因此不能断言 lower-level wrapper
+在 V-cycle 中实际被调用。}
 \label{fig:quda-flow}
 \end{figure}
 
 \begin{itemize}[leftmargin=2em]
   \item \confirmed{} 外层为 \code{QUDA_GCR_INVERTER}，
-        \code{gcrNkrylov=16}，target 为
+        \code{gcrNkrylov} 等于逐 case 的 effective restart（通常 16，
+        V100 大 c64 为 4），target 为
         \code{QUDA_MATPC_ODD_ODD}，实际求解路径是
         \code{QUDA_DIRECT_PC_SOLVE}。
   \item \confirmed{} smoother 各层均为 \code{QUDA_MR_INVERTER}，
         tolerance 0，$\nu_{\rm pre}=\nu_{\rm post}=1$。
-  \item \confirmed{} 非最粗层 coarse solver 为 QUDA GCR 且 maxiter 1；
-        最粗层为 QUDA CA-GCR，maxiter 200，tol 与 shared
-        coarse tolerance 一致。
+  \item \confirmed{} transition 记录
+        \code{n_vec=[12,12]}、\code{n_block_ortho=[2,2]}；
+        \code{vec_load=[YES,NO]}，且三层配置使用
+        \code{generate_all_levels=false}。因此第一层 null basis
+        从 QIO 读入，后续 basis 不作为独立的 QIO level load 执行。
+  \item \confirmed{} 参数回读记录 lower-level GCR(maxiter 1) 和
+        coarsest CA-GCR(maxiter 200)，tol 与 shared coarse tolerance
+        一致。test27 JSON 没有保存 \code{cycle_type}；按 QUDA factory
+        源码，非最粗 wrapper 是直接调用 child MG 还是 GCR 包装取决于
+        cycle type，故“lower-level GCR 实际执行”标为未验证。
   \item \confirmed{} test27 显式将 setup、dslash、transfer 的
         \code{*_use_mma} 全部设为 false。因此该结果不是 QUDA
         Tensor-Core/MMA coarse path 的性能上限。
-  \item \confirmed{} V100 运行使用 WSL2 patched QUDA 构建；
-        provenance 明确记录 \code{DEV87_REDUCE_SYNC} 平台限制。
+  \item \confirmed{} V100 与 P100 运行都带 WSL2 patched QUDA 构建；
+        provenance 记录了 reduce-sync patch 的平台限制。
 \end{itemize}
 
 \source{pyqcu/testing/qcu/strict/quda_comparison/bench_strict_vs_quda.py:1623-1688,
@@ -482,8 +519,9 @@ QUDA 以通用 field 类而不是 PyQCU 的固定显式 ABI 为中心：
 transfer；ghost zone 与字段一起管理 \\
 \code{Transfer} & \code{B}、\code{V}、fine/coarse map、spin map &
 null vectors、aggregate 映射、block orthogonalization 与 $P/R$ \\
-\code{DiracCoarse} & coarse $X/Y$、\code{QUDA_COARSE_LINKS}、
-bi-directional ghost & Galerkin 粗算子与 nearest-neighbour coarse dslash \\
+\code{DiracCoarse} & coarse $X/Y$、\code{QUDA_COARSE_LINKS}；
+$Y$ 为双向 ghost，$X$ 为无 ghost 的 scalar geometry &
+Galerkin 粗算子与 nearest-neighbour coarse dslash \\
 \code{DiracCoarsePC} & $X^{-1}$、$\widehat Y$、MATPC prepare/reconstruct &
 预条件粗算子；最粗层和 coarse smoother 可直接使用 \\
 \code{QudaMultigridParam} & \code{geo_block_size}、\code{n_vec}、
@@ -506,14 +544,17 @@ refer/git-rep/quda/include/quda.h:629-836}
   \item \confirmed{} \code{ColorSpinorField::exchange} 会按 partitioned
         dimensions 声明 forward/backward send/receive，先
         \code{comm_start} 再 \code{comm_wait}，GPU field 默认经过聚合的
-        pinned host staging，减少零散 D2H/H2D copy。
+        pinned host staging，减少零散 D2H/H2D copy。实际 policy 可能
+        切换到 zero-copy/P2P；test27 JSON 未保存最终 P2P 位图，故本报告
+        不把某一条 transport 分支写成全样本事实。
   \item \confirmed{} test27 的 QUDA 构建关闭 NVSHMEM，coarse dslash 因此
         不经过 SHMEM overlap 分支；运行时创建 9 条 CUDART stream，
         coarse halo 使用按方向编号的高优先级 stream，compute 走默认
         stream。
-  \item \confirmed{} coarse fields 使用 native gauge order 和双向 ghost；
-        \code{Y/X/Yhat/Xinv} 都存在 ghost padding，分配时按最大 face
-        预留空间。
+  \item \confirmed{} link-like coarse fields \code{Y} 和 \code{Yhat}
+        使用 native gauge order、双向 ghost 与最大 face padding；
+        scalar-geometry \code{X} 和 \code{Xinv} 明确设为
+        \code{ghostExchange=NO}、\code{nFace=0}、\code{pad=0}。
   \item \confirmed{} QUDA 的 MG solver factory 能配置不同精度、不同
         location、smoother/coarse solver 和 cycle type；这是宽度优势，
         但 test27 只实例化了 odd--odd MATPC、MR、GCR/CA-GCR 的固定组合。
@@ -523,7 +564,7 @@ refer/git-rep/quda/include/quda.h:629-836}
 refer/git-rep/quda/lib/color_spinor_field.cpp:540-667;
 refer/git-rep/quda/lib/targets/cuda/device.cpp:281-330;
 refer/git-rep/quda/lib/dslash_coarse.hpp:468-525;
-data/quda-qio-build/attempt2/CMakeCache.txt:1127;
+data/quda-qio-build/attempt2/CMakeCache.txt:1181;
 refer/git-rep/quda/lib/dirac_coarse.cpp:121-223;
 refer/git-rep/quda/lib/multigrid.cpp:274-430,565-668}
 
@@ -566,18 +607,22 @@ refer/git-rep/quda/include/quda.h:1230-1289}
 \midrule
 \endhead
 算法组合 &
-right-FGMRES + fine/coarse MR + recursive V-cycle + coarsest fused
-BiCGStab；只实现 Wilson--Clover strict 路径 &
-可变 solver factory；test27 实际为 outer GCR + MR + intermediate GCR(1)
-+ coarsest CA-GCR(200) &
-\textbf{PyQCU 优势：} test27 的外层迭代普遍更少，算法与本问题更贴合。
+right-FGMRES + fine/coarse MR + recursive V-cycle + coarsest
+BiCGStab（单 rank fused；多 rank host-driven distributed）；只实现
+Wilson--Clover strict 路径 &
+可变 solver factory；test27 记录 outer GCR + MR，以及
+lower-level GCR(1) / coarsest CA-GCR(200) 参数；中间 wrapper
+的实际选择依赖未序列化的 \code{cycle_type} &
+\textbf{PyQCU 优势：} test27 中 PyQCU 的外层迭代数更少；这不能单独
+证明算法更适配，也不能替代同算法消融。
 \textbf{QUDA 优势：} 可选择 solver、精度、location 和 cycle，覆盖面更广。\\
 \midrule
 粗算子 &
 $D_c=R(X_f^{-1}D_f)P$；runtime 只保留 $X,X^{-1},\widehat Y,V$；
 nearest-neighbour stencil 是强约束 &
 aggregate transfer + native \code{DiracCoarse/PC}; $X/Y/\widehat Y$
-存储为带 ghost 的 GaugeField；支持逐层 location/精度 &
+存储为 native GaugeField，其中 link-like $Y/\widehat Y$ 带双向
+ghost，$X/X^{-1}$ 无 ghost；支持逐层 location/精度 &
 \textbf{PyQCU 优势：} 省去 raw $Y$，资产更小、ABI 更直接。
 \textbf{QUDA 优势：} 通用粗算子、ghost、CPU/GPU lazy copy 与 MMA 路径成熟。\\
 \midrule
@@ -636,7 +681,7 @@ PyQUDA/PyTorch 传 field；有 update/dump 接口 &
 
 \subsection{迭代数与单迭代成本的乘积分解}
 
-对每个精确 MG 单元定义
+对每条精确 MG 记录定义
 \begin{equation}
   R=\frac{t_Q}{t_P}
     =\underbrace{\frac{N_Q}{N_P}}_{\text{迭代比}}
@@ -644,8 +689,9 @@ PyQUDA/PyTorch 传 field；有 update/dump 接口 &
        \frac{t_Q/N_Q}{t_P/N_P}
      }_{\text{单外层迭代成本比}},
 \end{equation}
-其中 $P=\mathrm{PyQCU}$，$Q=\mathrm{QUDA}$。该分解不改变任何原始时间，
-只是把公开的 steady time 与 outer iteration 两个字段相乘重排。
+其中 $P=\mathrm{PyQCU}$，$Q=\mathrm{QUDA}$。该分解不改变所采用的
+5 次 steady 中位数统计，只把公开的 median time 与 outer iteration
+两个字段代数重排。
 
 \begin{table}[htbp]
 \centering
@@ -658,7 +704,7 @@ PyQUDA/PyTorch 传 field；有 update/dump 接口 &
 V100 c64 $16^4$ MG-3 & 1.903 & 2.489 & 4.737 &
 PyQCU 少约 47\% 外层迭代，且 QUDA 单迭代更贵 \\
 V100 c128 $8^3\times16$ MG-3 & 3.214 & 4.553 & 14.634 &
-小格上 setup/launch 与轨迹差异被放大 \\
+小格上 launch/sync 与 Krylov 轨迹差异被放大；setup 不计入此 solve-only 比值 \\
 V100 c64 $16\times32\times32\times48$ MG-2 & 3.364 & 0.416 &
 1.400 & PyQCU 外层更少，但单迭代更贵，仍净胜 \\
 V100 c128 $16\times16\times32\times32$ MG-2 & 2.073 & 0.261 &
@@ -670,15 +716,15 @@ V100 c128 $16\times16\times32\times32$ MG-2 & 2.073 & 0.261 &
 \begin{figure}[htbp]
 \centering
 \includegraphics[width=0.96\linewidth,height=0.73\textheight,keepaspectratio]{mg_ratio_decomposition_20261002.pdf}
-\caption{22 个 trace-off MG 单元的迭代/单迭代成本分解。点越靠右表示
+\caption{22 条 trace-off MG 记录的迭代/单迭代成本分解。点越靠右表示
 PyQCU 外层迭代越少；点越靠上表示 QUDA 单迭代越贵；等 $R$ 线为双曲线。
-点大小随 $R$ 增加。}
+横纵轴均为对数坐标，点大小随 $R$ 增加。}
 \label{fig:ratio-decomposition}
 \end{figure}
 
 \begin{conclusionbox}
-\textbf{定量主因。} trace-off MG 的迭代比中位数为 2.125，而单迭代成本比
-中位数为 0.8498。44 个 MG 单元全部由 PyQCU 使用更少外层迭代。这个结果是
+\textbf{定量证据。} trace-off MG 的迭代比中位数为 2.125，而单迭代成本比
+中位数为 0.8498。44 条 MG 记录全部由 PyQCU 使用更少外层迭代。这个结果是
 “算法轨迹 + 调度实现”的联合结果，不能单独归因成某个 CUDA kernel。
 \end{conclusionbox}
 
@@ -688,7 +734,8 @@ PyQCU 外层迭代越少；点越靠上表示 QUDA 单迭代越贵；等 $R$ 线
 \centering
 \includegraphics[width=0.96\linewidth,height=0.68\textheight,keepaspectratio]{mg_win_matrix_20261002.pdf}
 \caption{trace-off MG 的格点矩阵。单元格上行为 MG-2/MG-3 的中位 $R$，
-下行为 PyQCU 胜点数；空白表示该设备/精度没有对应格点。}
+下行为 PyQCU 胜出数/2；每格汇总同一格点下的 MG-2 与 MG-3。
+空白表示该设备/精度没有对应格点。}
 \label{fig:win-matrix}
 \end{figure}
 
@@ -696,7 +743,8 @@ PyQCU 外层迭代越少；点越靠上表示 QUDA 单迭代越贵；等 $R$ 线
 \centering
 \includegraphics[width=0.96\linewidth,height=0.82\textheight,keepaspectratio]{mg_outer_iterations_20261002.pdf}
 \caption{trace-off MG 的外层迭代逐单元对照。两面板分别对应 MG-2 和 MG-3；
-这是“为什么更快”的最强单变量证据之一。}
+这是与 solve time 同向的关键观测；由于两侧算法、容差和实现不同，
+它不能作为单变量因果证据。}
 \label{fig:outer-iterations}
 \end{figure}
 
@@ -706,35 +754,42 @@ PyQCU 外层迭代越少；点越靠上表示 QUDA 单迭代越贵；等 $R$ 线
 \small
 \begin{tabular}{@{}llrrrr@{}}
 \toprule
-设备 & 精度 & 单元数 & 中位 $R$ & PyQCU 胜 & QUDA 胜 \\
+设备 & 精度 & 记录数 & 中位 $R$ & PyQCU 胜 & QUDA 胜 \\
 \midrule
-V100 & c64 & 10 & 2.2186 & 10 & 0 \\
-V100 & c128 & 12 & 1.3581 & 11 & 1 \\
-P100 & c64 & 10 & 1.2742 & 10 & 0 \\
-P100 & c128 & 12 & 1.1084 & 11 & 1 \\
+V100 & c64 & 6 & 3.6542 & 6 & 0 \\
+V100 & c128 & 6 & 2.6221 & 5 & 1 \\
+P100 & c64 & 4 & 1.7773 & 4 & 0 \\
+P100 & c128 & 6 & 1.2009 & 6 & 0 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-上述数据只使用 trace-off。trace-on 的中位 $R$ 从 1.9358 降到 1.0404，
-说明诊断同步会显著扰动性能；所有正式倍率均不读取 trace-on。
+四行合计 22 条 trace-off 记录，对应 21 胜、1 负。trace-on 的中位
+$R$ 为 1.0404，说明诊断同步会显著扰动性能；所有正式倍率均不读取
+trace-on。
 
 \subsection{setup、阶段与最粗层}
 
 setup 不计入 solve-only 时间比。下表只说明运行准备成本，
 \code{runtime cache restore} 与 QUDA native setup 不是同一种计算。
+combined JSON 中 \code{strict_cache.expect=miss} 指 cold 进程需要
+建立 cache；steady 工作者的计时 setup 则记录
+\code{setup_mode=runtime_cache_restore}。两者描述不同阶段，不矛盾。
 
 \begin{figure}[htbp]
 \centering
 \includegraphics[width=0.88\linewidth,height=0.62\textheight,keepaspectratio]{mg_setup_context_20261002.pdf}
-\caption{trace-off MG 的 setup 上下文。点在对角线上方表示 QUDA setup
-更贵；由于 PyQCU 使用 cache restore，图中差异不得混入 solve speedup。}
+\caption{trace-off MG 的 setup 上下文。点在对角线上方只表示记录到的
+QUDA native setup 时间大于 PyQCU cache-restore 时间；两者工作量不同，
+不构成 setup speedup 或成本优劣。横纵轴均为对数坐标。}
 \label{fig:setup-context}
 \end{figure}
 
 \begin{table}[htbp]
 \centering
-\caption{最粗层 solve 的绝对中位耗时；QUDA 的最后有效层已显式取回}
+\caption{最粗层阶段耗时的 trace-on 诊断中位值；QUDA 的最后有效层已
+显式取回。表中 $R=Q/P$ 是两个组中位数之比，不是逐单元 $R_c$ 的中位数；
+此表不是 trace-off formal solve-only 倍率。}
 \small
 \begin{tabular}{@{}llrrrr@{}}
 \toprule
@@ -760,10 +815,12 @@ data/report_multigrid_comprehensive_20261001/report/stage_component_medians.csv}
 \toprule
 现象 & 解释边界 \\
 \midrule
-V100/c64 MG-3 最粗层 PyQCU 约快 2.23$\times$ &
-单 rank fused cooperative BiCGStab 与 QUDA CA-GCR 的直接差异 \\
-P100/c128 MG-2/3 最粗层 PyQCU 慢 1.5--1.8$\times$ &
-多 rank 时 PyQCU fused kernel 被禁用，host-scalar fallback 的成本更高 \\
+V100/c64 MG-3 的 trace-on 最粗层阶段 PyQCU 约快 2.23$\times$ &
+\inferred{} 单 rank fused cooperative BiCGStab 是候选解释；
+尚无“仅替换 coarsest solver”的独立消融 \\
+P100/c128 MG-2/3 的 trace-on 最粗层阶段 PyQCU 慢 1.5--1.8$\times$ &
+\inferred{} 多 rank 时 PyQCU fused kernel 被禁用，host-driven
+分布式 BiCGStab fallback 的同步成本更高；仍缺同 solver 消融 \\
 PyQCU 阶段 tracing 的 \code{other} 占比较高 &
 两侧阶段边界并非完全同构；只能解释粗层量级，不能把每个 percentage
 当作同分母物理成本 \\
@@ -779,7 +836,8 @@ device-wide \code{cudaMemGetInfo} 采样，可能包含测试进程之外的同�
 
 \begin{table}[htbp]
 \centering
-\caption{steady device-wide 显存汇总（GiB）}
+\caption{steady device-wide 显存汇总（GiB）。每侧 66 条 side-level
+记录来自 33 个配置乘 trace on/off；trace 记录不是独立配置重复。}
 \small
 \begin{tabular}{@{}lrrrr@{}}
 \toprule
@@ -791,11 +849,14 @@ QUDA & 66 & 3.274 & 21.522 & 22.523 \\
 \end{tabular}
 \end{table}
 
+P95 为小样本下的 nearest-rank 尾部分位数，不做正态或插值假设。
+
 \begin{figure}[htbp]
 \centering
 \includegraphics[width=0.96\linewidth,height=0.65\textheight,keepaspectratio]{mg_memory_distribution_20261002.pdf}
 \caption{按设备/精度/侧分组的 steady memory 分布。箱线图显示中位与四分位，
-散点为原始 side samples；纵轴为对数坐标。}
+散点为包含 trace on/off 的 side samples，不是独立配置数；纵轴为
+对数坐标。}
 \label{fig:memory-distribution}
 \end{figure}
 
@@ -804,29 +865,35 @@ QUDA & 66 & 3.274 & 21.522 & 22.523 \\
 固定迭代数、仅改变分配器”实验，因此不能把显存下降直接等价为 solve
 时间下降。
 
-\section{客观分析：为什么 PyQCU 在 test27 超过 QUDA}
+\section{客观分析：为何 PyQCU 在 test27 的 trace-off Strict-MG 子集更快}
 
-\subsection{可以确认的原因}
+\subsection{可确认的实现事实与候选机制}
 
 \begin{enumerate}[leftmargin=2em]
   \item \textbf{外层迭代数更少。}
-        \confirmed{} 44 个 MG 单元全部为 PyQCU outer iterations 更少；
+        \confirmed{} 44 条 MG 记录全部为 PyQCU outer iterations 更少；
         trace-off MG 的迭代比中位数为 2.125，部分大格达到 3.2--3.5。
-        在相同 restart=16、相同 MATPC、相同零初值下，这是最直接的
-        performance mechanism。
+        在记录到的外层协议中 effective restart、零初值和 odd-Schur
+        target 逐 case 一致。\inferred{} 这是与 solve time 同向的关键观测；由于没有
+        “固定算法与容差后只改变迭代数”的实验，不能把它写成单变量因果证据。
   \item \textbf{单 rank 粗层递推融合。}
         \confirmed{} PyQCU 在单 rank 把最粗层 BiCGStab 的 hopping、dot、
         recurrence 和 breakdown guard 合并到一个 cooperative kernel，
         避免每迭代的多次 kernel launch 与 host scalar round-trip。
-        V100/c64 MG-3 最粗层中位时间 0.438 s，QUDA 为 0.977 s。
-  \item \textbf{统一 FGMRES arena 减少了工作区碎片和管理开销。}
+        trace-on 诊断中 V100/c64 MG-3 最粗层阶段中位时间为 0.438 s，
+        QUDA 为 0.977 s。
+        \inferred{} 这解释了该样本的候选来源，但两侧 coarsest solver
+        并非同一个实现，需单独消融才能量化融合贡献。
+  \item \textbf{统一 FGMRES arena（候选机制）。}
         \confirmed{} PyQCU 的 V/Z/b/r/w/x 与 coarse R/P field 在一个
         $(2m+5)B_f+2B_c$ arena 内，restart 和预算在 Python 边界即确定，
-        C++ 不按 krylov vector 逐次扩张。
-  \item \textbf{cu64 coarse path 的通信重叠。}
+        C++ 不按 krylov vector 逐次扩张。\inferred{} 这可减少工作区
+        碎片与管理开销，但尚未做只切换 allocator 的消融。
+  \item \textbf{c64 coarse path 的通信重叠（候选机制）。}
         \confirmed{} 分布式 c64 默认开启 vector halo overlap，local kernel
         只算本地和 remote-forward 基础项，远邻项在非阻塞交换后补算；
-        这降低 P100 双 rank 的通信暴露。
+        \inferred{} 该实现可降低 P100 双 rank 的通信暴露，但现有数据
+        未隔离其独立收益。
   \item \textbf{runtime asset 更窄。}
         \confirmed{} PyQCU 只保留 $X,X^{-1},\widehat Y,V$，默认释放 raw
         $Y$；在 test27 的大多数样本中，device-wide peak 低于 QUDA。
@@ -836,13 +903,16 @@ QUDA & 66 & 3.274 & 21.522 & 22.523 \\
 
 \begin{enumerate}[leftmargin=2em]
   \item \inferred{} 外层算法不是同一个数学迭代：PyQCU 使用 FGMRES，
-        QUDA 使用 GCR；QUDA 中间层 coarse solver maxiter 为 1，最粗层
-        CA-GCR 为 200。少迭代可能同时来自 Krylov 轨迹、preconditioner、
+        QUDA 使用 GCR；QUDA 记录了 lower-level GCR(maxiter 1) 和最粗层
+        CA-GCR(200) 参数，但 \code{cycle_type} 未序列化。少迭代可能同时
+        来自 Krylov 轨迹、preconditioner、
         coarse tolerance 和 smoother 组合，无法仅凭现有数据拆成单一
         kernel 贡献。
-  \item \inferred{} V100/c64 的 2.2--4.7$\times$ 优势比 P100/c128
-        更稳定，可能来自单 rank fused coarsest kernel、较少 MPI staging
-        和更好 cache locality；但这些因素与设备、精度和 rank 数共同变化。
+  \item \inferred{} trace-off V100/c64 为 6/6 胜，逐单元 $R$ 约为
+        1.40--8.14，中位 3.65；P100/c128 为 6/6 胜，$R$ 约为
+        1.03--1.44，中位 1.20。V100/c64 的较高中位优势可能来自
+        单 rank fused coarsest kernel、较少 MPI staging 和更好 cache
+        locality；但这些因素与设备、精度和 rank 数共同变化。
   \item \inferred{} memory peak 较低可能改善 L2/allocator 行为，
         但现有数据不足以证明它独立解释了 solve-time ratio。
 \end{enumerate}
@@ -850,12 +920,14 @@ QUDA & 66 & 3.274 & 21.522 & 22.523 \\
 \subsection{不能确认或不能推广的部分}
 
 \begin{enumerate}[leftmargin=2em]
-  \item \unverified{} QUDA 在 test27 禁用 MMA；不能把本次结果写成
-        PyQCU 对 QUDA 最强调优路径的普遍胜利。
-  \item \unverified{} V100 QUDA 运行带 WSL2 \code{DEV87_REDUCE_SYNC}
-        构建属性；该先验差异没有被本轮 on/off 消融隔离。
-  \item \unverified{} BiCGStab 参考的计时边界、算法族和迭代数与 MG
-        不同；22/22 QUDA 胜只能说明参考求解器更强，不能反推 coarse
+  \item \confirmed{} QUDA 在 test27 禁用 MMA。\unverified{} 当前数据
+        不能把结果写成 PyQCU 对 QUDA 最强调优路径的普遍胜利。
+  \item \confirmed{} V100 与 P100 的 QUDA 运行都带 WSL2
+        \code{DEV87_REDUCE_SYNC} 构建属性。\unverified{} 该先验差异
+        没有被本轮 on/off 消融隔离。
+  \item \confirmed{} BiCGStab 参考与 MG 使用不同算法族和计时边界；
+        \unverified{} 22/22 QUDA 胜只能说明 QUDA 的 BiCGStab 参考在
+        该协议下更快，不能外推为求解器普遍更强，也不能反推 coarse
         operator 的正确性或优劣。
   \item \unverified{} 当前精确样本主要是 1 rank V100 与 2 rank P100；
         多节点、高 rank、网络拓扑和 c128 overlap 的 scaling 不在本数据
@@ -912,8 +984,8 @@ BiCGStab 参考显著领先 \\
   \item 建立 restart、smoother step、coarse tolerance 的三维自动搜索，
         但不能改变 test27 的正式协议后再宣称同一倍率。
   \item 研究 adaptive restart 和 spectrum-aware coarse tolerance；
-        当前优势首先来自更少外层迭代，优化目标应明确为
-        “减少总 V-cycle 数”而不是只压低单 kernel 时间。
+        当前观测到的优势与更少外层迭代同向，优化目标应同时追踪
+        “减少总 V-cycle 数”和单次 V-cycle 成本，而不是只压低单 kernel 时间。
   \item 对 c128 保留保守 overlap 默认；任何开启实验都必须同时记录
         BiCGStab trajectory、真残差和相同输入下的迭代分布。
 \end{enumerate}
@@ -974,7 +1046,7 @@ test_plot_mg_architecture_report.py
   \item 原始矩阵 66/66 combined、132/132 side、22/22/22 levels；
   \item 每个 side 的 1 cold / 2 warmup / 5 steady、config hash、
         input bundle 和真残差门；
-  \item 新算出的 66 个 steady seconds 与 20261001 的 66 行派生表
+  \item 新算出的 66 条 steady 记录与 20261001 的 66 行派生表
         逐单元一致。
 \end{enumerate}
 
@@ -1009,6 +1081,24 @@ data/report_multigrid_comprehensive_20261002/report/
         \path{QudaMultigridParam::invert_param} 所指向的内部对象没有被
         独立序列化。未来重建应把该指针的目标字段也写入 provenance，
         消除内部 MATPC parity/solution type 仅靠构造关系的残余不确定性。
+  \item test27 JSON 未保存 \code{QudaMultigridParam::cycle_type}。因此
+        三层 MG 的 lower-level wrapper 不能仅凭
+        \code{coarse_solver} 数组断言实际执行；coarsest CA-GCR(200)
+        由 level index 与源码选择关系确证。
+  \item test27 JSON 也未记录 PyQCU 每次最粗层调用究竟选中 fused
+        cooperative kernel 还是 host-driven fallback。源码条件表明
+        V100 单 rank 具备 fused 资格，但“实际选中”仍属于运行时
+        provenance 缺口，故相关性能解释保持为推断。
+  \item test27 JSON 未保存 QUDA 最终 peer-to-peer/zero-copy policy。
+        因此报告只比较源码支持的通信路径与已记录的 QMP staging，
+        不宣称 P2P 在所有样本中启用或未启用。
+  \item JSON 的 \code{quda_source_git} 记录会解析到外层 PyQCU 仓库；
+        该 vendored QUDA 目录不是独立 Git 根，不能把它当作准确的
+        QUDA commit provenance。可确认的是源码树声明版本 1.1.0，
+        以及 V100/P100 实际加载的安装库路径和 SHA256。
+  \item PyQCU 的 \code{strict_cache.expect=miss} 与
+        \code{setup_mode=runtime_cache_restore} 分别对应 cold
+        构建与 steady 恢复，不应被解释为同一阶段的自相矛盾记录。
 \end{itemize}
 
 \section{源码证据索引}
@@ -1077,6 +1167,14 @@ test27 协议见
 \appendix
 \section{直接源码片段}
 
+\subsection{代码来源与许可}
+
+PyQCU 代码片段来自本仓库，版权与许可条件见仓库根目录
+\path{LICENSE}。QUDA 代码片段来自 \path{refer/git-rep/quda} 的
+vendored QUDA 1.1.0 源码，其版权与许可条件见
+\path{refer/git-rep/quda/LICENSE}。本报告只做技术对照与有限引用，
+不改变原项目的许可归属。
+
 \subsection{PyQCU：fine MR -- restriction -- fused coarse V-cycle}
 
 \lstinputlisting[
@@ -1144,7 +1242,8 @@ test27 协议见
 \centering
 \includegraphics[width=0.98\linewidth,height=0.84\textheight,keepaspectratio]{mg_stage_linear_v100_mg3.pdf}
 \caption{V100 MG-3 的逐层阶段耗时，用于观察最粗层量级；两侧阶段边界
-不完全同构，不能把同名阶段逐个等同。}
+不完全同构，且该图为 trace-on 诊断，不能把同名阶段逐个等同或替代
+trace-off formal solve-only 倍率。}
 \end{figure}
 
 \begin{figure}[p]

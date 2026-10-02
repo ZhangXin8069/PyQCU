@@ -19,7 +19,14 @@
   "counts": {
     "mg_units": 44,
     "reference_units": 22,
+    "trace_independent_configs": 33,
     "units": 66
+  },
+  "provenance_gaps": {
+    "pyqcu_fused_coarsest_selection_serialized": false,
+    "quda_cycle_type_serialized": false,
+    "quda_effective_peer2peer_policy_serialized": false,
+    "quda_internal_mg_invert_param_serialized": false
   },
   "ratios": {
     "all_66_median": 1.024976149486616,
