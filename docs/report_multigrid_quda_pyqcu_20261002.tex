@@ -278,27 +278,73 @@ PyQCU test27 生产路径不是“CUDA dslash 加速的 Python MG”这一笼统
 
 \begin{figure}[htbp]
 \centering
-\begin{tikzpicture}[node distance=5mm and 5mm,scale=0.92,transform shape]
-\node[pybox,text width=2.85cm] (rhs) {full RHS\\$[2,4,3,X,Y,Z,$\\$T/2]$};
-\node[pybox,right=of rhs,text width=2.55cm] (prepare) {fine prepare\\归一化 odd MATPC};
-\node[pybox,right=of prepare,text width=2.7cm] (outer) {right-FGMRES\\restart requested 16};
-\node[pybox,right=of outer,text width=2.55cm] (mr1) {fine MR\\$\nu_{\rm pre}=1$};
-\node[pybox,right=of mr1,text width=2.7cm] (restrict) {parity restriction\\$\to$ full coarse};
-\node[pybox,below=of restrict,text width=2.7cm] (vcycle) {recursive V-cycle\\每层 MR};
-\node[pybox,left=of vcycle,text width=2.8cm] (coarse) {coarsest BiCGStab\\single-rank fused\\/ multi-rank distributed};
-\node[pybox,left=of coarse,text width=2.7cm] (prolong) {parity prolongation\\$\to$ fine correction};
-\node[pybox,left=of prolong,text width=2.55cm] (mr2) {fine MR\\$\nu_{\rm post}=1$};
-\node[pybox,left=of mr2,text width=2.55cm] (refresh) {true-residual\\refresh};
-\draw[dataflow] (rhs)--(prepare);
-\draw[dataflow] (prepare)--(outer);
-\draw[dataflow] (outer)--(mr1);
-\draw[dataflow] (mr1)--(restrict);
-\draw[dataflow] (restrict)--(vcycle);
-\draw[dataflow] (vcycle)--(coarse);
-\draw[dataflow] (coarse)--(prolong);
-\draw[dataflow] (prolong)--(mr2);
-\draw[dataflow] (mr2)--(refresh);
-\draw[dataflow] (refresh)--(outer);
+\begin{tikzpicture}[x=1cm,y=1cm]
+  \tikzset{
+    innerbox/.style={
+      draw=pyblue!60,
+      fill=pyblue!4,
+      text=black,
+      align=center,
+      font=\scriptsize,
+      inner sep=1.6mm,
+      minimum height=8mm,
+      text width=1.75cm
+    },
+    branchbox/.style={
+      innerbox,
+      text width=2.55cm
+    }
+  }
+
+  % Outer right-preconditioned FGMRES.
+  \node[pybox,text width=2.8cm] (rhs) at (1.5,2.0)
+    {full RHS\\$[2,4,3,X,Y,Z,$\\$T/2]$};
+  \node[pybox,text width=2.7cm] (prepare) at (4.6,2.0)
+    {fine prepare\\归一化 odd MATPC};
+  \node[pybox,text width=2.9cm] (outer) at (7.8,2.0)
+    {restarted right-FGMRES\\requested restart 16};
+  \node[pybox,text width=2.5cm] (solution) at (11.6,2.0)
+    {full solution};
+  \draw[dataflow] (rhs)--(prepare);
+  \draw[dataflow] (prepare)--(outer);
+  \draw[dataflow] (outer)--(solution);
+
+  % One preconditioner application.  The nodes are spaced explicitly so
+  % wrapped text cannot collide with a neighbouring row.
+  \node[innerbox] (mrpre) at (1.0,-1.35)
+    {fine MR\\pre\\$\nu_{\rm pre}=1$};
+  \node[innerbox] (restrict) at (3.3,-1.35)
+    {restriction\\$R$\\to full coarse};
+  \node[innerbox] (vcycle) at (5.6,-1.35)
+    {recursive\\V-cycle\\per-level MR};
+  \node[branchbox] (coarse) at (8.0,-1.35)
+    {coarsest\\BiCGStab\\[-1mm]
+     {\scriptsize single-rank fused\\multi-rank distributed}};
+  \node[innerbox] (prolong) at (10.5,-1.35)
+    {prolongation\\$P$\\to fine correction};
+  \node[innerbox] (mrpost) at (12.8,-1.35)
+    {fine MR\\post\\$\nu_{\rm post}=1$};
+  \node[innerbox] (refresh) at (15.1,-1.35)
+    {true MATPC\\residual\\refresh};
+  \draw[dataflow] (mrpre)--(restrict);
+  \draw[dataflow] (restrict)--(vcycle);
+  \draw[dataflow] (vcycle)--(coarse);
+  \draw[dataflow] (coarse)--(prolong);
+  \draw[dataflow] (prolong)--(mrpost);
+  \draw[dataflow] (mrpost)--(refresh);
+
+  \begin{scope}[on background layer]
+    \node[
+      draw=pyblue!45,
+      fill=pyblue!2,
+      fit=(mrpre)(restrict)(vcycle)(coarse)(prolong)(mrpost)(refresh),
+      inner sep=3.5mm
+    ] (precond) {};
+  \end{scope}
+  \node[anchor=south west,text=pyblue,font=\small]
+    at (precond.north west)
+    {preconditioner $M^{-1}$: each outer FGMRES iteration};
+  \draw[dataflow,<->] (outer.south)--(precond.north);
 \end{tikzpicture}
 \caption{PyQCU test27 Strict-MG 的算法流水。蓝色框是实现路径，箭头表示
 数据依赖；最粗层为双分支：单 rank 可走 fused cooperative kernel，
