@@ -68,6 +68,8 @@
     "v100__8x8x8x16__c64__l3__trace-on": "929b06af7876713969c089543ee1eaa7a06028d6e045cdd4e6f0cb5b3c5ab505"
   },
   "memory_csv": "610cebbd2c162c0c5c07e9ed0d840bf07cf487ccf6f120a484e52f0b1a3b67ca",
+  "reference_coarsest_times_csv": "6d17587238c4c00c617d363e07882cc8b88c93589d2514ac6aa975a3c915cde0",
+  "reference_stage_component_medians_csv": "ca71863b0fc8c8c67f354a3032620dc193108904c45bd2a23fc47faf61e0a680",
   "reference_unit_times_csv": "dd9a637e51c6817f6160a2c31644937bc266b4093455e949f196ae13e79efd1c",
   "source_commit": "04382801c003353ecd1bc6b9bc10f6db750bf74d"
 }
