@@ -115,7 +115,11 @@ def _write_csv(path: Path, rows: Sequence[Mapping[str, Any]]) -> None:
             if key not in fieldnames:
                 fieldnames.append(key)
     with path.open("w", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer = csv.DictWriter(
+            handle,
+            fieldnames=fieldnames,
+            lineterminator="\n",
+        )
         writer.writeheader()
         writer.writerows(rows)
 
@@ -423,6 +427,16 @@ def _algorithm_rows(units: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
         multigrid = actual.get("multigrid") or {}
         levels = multigrid.get("levels") or {}
         transition = multigrid.get("transition") or {}
+        cycle_type = multigrid.get("cycle_type")
+        pyqcu_ranks = _int(
+            (pyqcu.get("mpi") or {}).get("size"),
+            _int(unit["document"]["execution"]["parallel"].get("ranks")),
+        )
+        pyqcu_coarse_solver = (
+            "host-driven distributed BiCGStab"
+            if pyqcu_ranks > 1
+            else "fused cooperative BiCGStab (candidate)"
+        )
         rows.append(
             {
                 "case_id": unit["case_id"],
@@ -441,9 +455,11 @@ def _algorithm_rows(units: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
                 "outer_restart": int(protocol["restart_effective"]),
                 "outer_tolerance": _float(protocol["tolerance"]),
                 "coarse_tolerance": _float(protocol["coarse_tolerance"]),
+                "pyqcu_ranks": pyqcu_ranks,
                 "pyqcu_iteration_kind": pyqcu.get("iteration_kind", ""),
                 "pyqcu_smoother": "MR",
-                "pyqcu_coarse_solver": "fused cooperative BiCGStab",
+                "pyqcu_coarse_solver": pyqcu_coarse_solver,
+                "pyqcu_fused_selection_serialized": False,
                 "quda_outer_solver": invert.get("inv_type", ""),
                 "quda_smoother": ",".join(
                     str(value) for value in levels.get("smoother", [])
@@ -451,6 +467,11 @@ def _algorithm_rows(units: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
                 "quda_coarse_solver": ",".join(
                     str(value) for value in levels.get("coarse_solver", [])
                 ),
+                "quda_cycle_type_recorded": cycle_type is not None,
+                "quda_cycle_type": (
+                    "" if cycle_type is None else str(cycle_type)
+                ),
+                "quda_intermediate_solver_verified": cycle_type is not None,
                 "quda_coarse_precision": protocol["quda_coarse_precision"][
                     "effective"
                 ],
@@ -554,6 +575,17 @@ def _summary(
         },
         "counts": {
             "units": len(unit_rows),
+            "trace_independent_configs": len(
+                {
+                    (
+                        str(row["device"]),
+                        str(row["precision"]),
+                        str(row["lattice"]),
+                        int(row["levels"]),
+                    )
+                    for row in unit_rows
+                }
+            ),
             "mg_units": sum(int(row["levels"]) in (2, 3) for row in unit_rows),
             "reference_units": sum(int(row["levels"]) == 1 for row in unit_rows),
         },
@@ -630,7 +662,16 @@ def _style() -> None:
 
 def _save(fig: plt.Figure, outdir: Path, stem: str) -> None:
     fig.savefig(outdir / f"{stem}.pdf", metadata={"Creator": "PyQCU"})
-    fig.savefig(outdir / f"{stem}.svg", metadata={"Creator": "PyQCU"})
+    svg_path = outdir / f"{stem}.svg"
+    fig.savefig(svg_path, metadata={"Creator": "PyQCU"})
+    svg_path.write_text(
+        "\n".join(
+            line.rstrip()
+            for line in svg_path.read_text(encoding="utf-8").splitlines()
+        )
+        + "\n",
+        encoding="utf-8",
+    )
     fig.savefig(outdir / f"{stem}.png", dpi=160, metadata={"Creator": "PyQCU"})
     plt.close(fig)
 
@@ -976,6 +1017,15 @@ def build_data(
     summary = _summary(units, unit_rows, audit)
     summary["audit"]["reference_comparison_cells"] = reference_count
     summary["ratios"]["memory"] = _memory_summary(memory)
+    summary["provenance_gaps"] = {
+        "pyqcu_fused_coarsest_selection_serialized": False,
+        "quda_cycle_type_serialized": any(
+            bool(row["quda_cycle_type_recorded"])
+            for row in algorithm_rows
+        ),
+        "quda_internal_mg_invert_param_serialized": False,
+        "quda_effective_peer2peer_policy_serialized": False,
+    }
 
     outdir.mkdir(parents=True, exist_ok=True)
     _write_csv(outdir / "unit_analysis.csv", unit_rows)
@@ -991,6 +1041,12 @@ def build_data(
             },
             "memory_csv": _sha256(memory_csv),
             "reference_unit_times_csv": _sha256(reference_dir / "unit_times.csv"),
+            "reference_coarsest_times_csv": _sha256(
+                reference_dir / "coarsest_times.csv"
+            ),
+            "reference_stage_component_medians_csv": _sha256(
+                reference_dir / "stage_component_medians.csv"
+            ),
         },
     )
     return summary

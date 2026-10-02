@@ -40,6 +40,32 @@ def test_test27_matrix_contract_and_20261001_reference():
     assert audit["level_counts"] == {1: 22, 2: 22, 3: 22}
     unit_rows = MODULE._unit_rows(units, memory)
     assert MODULE.validate_reference(unit_rows, MODULE.DEFAULT_REFERENCE_DIR) == 66
+    assert len(
+        {
+            (
+                row["device"],
+                row["precision"],
+                row["lattice"],
+                row["levels"],
+            )
+            for row in unit_rows
+        }
+    ) == 33
+    algorithm_rows = MODULE._algorithm_rows(units)
+    assert not any(
+        row["quda_cycle_type_recorded"] for row in algorithm_rows
+    )
+    assert all(
+        row["pyqcu_coarse_solver"] == "host-driven distributed BiCGStab"
+        for row in algorithm_rows
+        if row["device"] == "p100"
+    )
+    assert all(
+        row["pyqcu_coarse_solver"]
+        == "fused cooperative BiCGStab (candidate)"
+        for row in algorithm_rows
+        if row["device"] == "v100"
+    )
 
 
 def test_data_build_writes_complete_derived_matrix(tmp_path: Path):
@@ -58,6 +84,8 @@ def test_data_build_writes_complete_derived_matrix(tmp_path: Path):
             )
         ]
     )
+    assert summary["counts"]["trace_independent_configs"] == 33
+    assert summary["provenance_gaps"]["quda_cycle_type_serialized"] is False
     for name in (
         "unit_analysis.csv",
         "group_analysis.csv",
@@ -68,3 +96,23 @@ def test_data_build_writes_complete_derived_matrix(tmp_path: Path):
         path = tmp_path / name
         assert path.is_file()
         assert path.stat().st_size > 0
+
+
+def test_report_keeps_provenance_qualifications():
+    report = (
+        MODULE.REPO
+        / "docs"
+        / "report_multigrid_quda_pyqcu_20261002.tex"
+    ).read_text(encoding="utf-8")
+    assert "halo exchange" in report
+    assert "MPI_Allreduce" in report
+    assert "QudaMultigridParam::cycle_type" in report
+    assert "scalar-geometry" in report
+    assert "ghostExchange=NO" in report
+    assert "trace-on 诊断" in report
+    assert "QUDA 在 test27 禁用 MMA" in report
+    assert "effective restart 16，除 V100" in report
+    assert "V100 & c64 & 6 & 3.6542 & 6 & 0" in report
+    assert "V100 & c128 & 6 & 2.6221 & 5 & 1" in report
+    assert "P100 & c64 & 4 & 1.7773 & 4 & 0" in report
+    assert "P100 & c128 & 6 & 1.2009 & 6 & 0" in report
