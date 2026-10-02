@@ -1,0 +1,119 @@
+{
+  "audit": {
+    "cold_warmup_steady": {
+      "cold": 1,
+      "steady": 5,
+      "units": 132,
+      "warmup": 2
+    },
+    "combined_units": 66,
+    "level_counts": {
+      "1": 22,
+      "2": 22,
+      "3": 22
+    },
+    "memory_records": 132,
+    "reference_comparison_cells": 66,
+    "side_records": 132
+  },
+  "counts": {
+    "mg_units": 44,
+    "reference_units": 22,
+    "units": 66
+  },
+  "ratios": {
+    "all_66_median": 1.024976149486616,
+    "memory": [
+      {
+        "device": "p100",
+        "max_bytes": 7663910912.0,
+        "median_bytes": 3303931904.0,
+        "p95_bytes": 7663910912.0,
+        "precision": "c128",
+        "samples": 18,
+        "side": "pyqcu"
+      },
+      {
+        "device": "p100",
+        "max_bytes": 2238578688.0,
+        "median_bytes": 1942880256.0,
+        "p95_bytes": 2238578688.0,
+        "precision": "c64",
+        "samples": 12,
+        "side": "pyqcu"
+      },
+      {
+        "device": "v100",
+        "max_bytes": 10040446976.0,
+        "median_bytes": 4199878656.0,
+        "p95_bytes": 10040446976.0,
+        "precision": "c128",
+        "samples": 18,
+        "side": "pyqcu"
+      },
+      {
+        "device": "v100",
+        "max_bytes": 12485726208.0,
+        "median_bytes": 2807369728.0,
+        "p95_bytes": 12485726208.0,
+        "precision": "c64",
+        "samples": 18,
+        "side": "pyqcu"
+      },
+      {
+        "device": "p100",
+        "max_bytes": 11621236736.0,
+        "median_bytes": 3985506304.0,
+        "p95_bytes": 11621236736.0,
+        "precision": "c128",
+        "samples": 18,
+        "side": "quda"
+      },
+      {
+        "device": "p100",
+        "max_bytes": 2756575232.0,
+        "median_bytes": 2028863488.0,
+        "p95_bytes": 2756575232.0,
+        "precision": "c64",
+        "samples": 12,
+        "side": "quda"
+      },
+      {
+        "device": "v100",
+        "max_bytes": 16503869440.0,
+        "median_bytes": 5481238528.0,
+        "p95_bytes": 16503869440.0,
+        "precision": "c128",
+        "samples": 18,
+        "side": "quda"
+      },
+      {
+        "device": "v100",
+        "max_bytes": 24183640064.0,
+        "median_bytes": 3761573888.0,
+        "p95_bytes": 24183640064.0,
+        "precision": "c64",
+        "samples": 18,
+        "side": "quda"
+      },
+      {
+        "device": "all",
+        "max_bytes": 24183640064.0,
+        "median_bytes": 3076622336.0,
+        "p95_bytes": 16503869440.0,
+        "precision": "all",
+        "samples": 132,
+        "side": "all"
+      }
+    ],
+    "mg_44_median": 1.391044254808712,
+    "mg_trace_off_22_median": 1.9357825188571196,
+    "mg_trace_off_iteration_ratio_median": 2.125,
+    "mg_trace_off_losses": 1,
+    "mg_trace_off_per_iteration_cost_ratio_median": 0.8497864390439278,
+    "mg_trace_off_wins": 21,
+    "reference_22_median": 0.24337736427846657,
+    "reference_22_wins": 0
+  },
+  "source_commit": "04382801c003353ecd1bc6b9bc10f6db750bf74d"
+}
