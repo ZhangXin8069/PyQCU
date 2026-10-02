@@ -30,6 +30,8 @@ while IFS=$'\t' read -r severity rule path message; do
         ERROR:TRACKED_DATA_CONTENT:data/report_multigrid_comprehensive_20260928/*|\
         ERROR:TRACKED_DATA_CONTENT:data/report_multigrid_comprehensive_20260929/*|\
         ERROR:TRACKED_DATA_CONTENT:data/report_multigrid_comprehensive_20260930/*|\
+        ERROR:TRACKED_DATA_CONTENT:data/report_multigrid_comprehensive_20261001/*|\
+        ERROR:TRACKED_DATA_CONTENT:data/report_multigrid_comprehensive_20261002/*|\
         ERROR:TRACKED_DATA_CONTENT:data/report_multigrid_optimized_20260927/*|\
         ERROR:TRACKED_DATA_CONTENT:data/mg_matrix_20260916_round2/*|\
         ERROR:TRACKED_DATA_CONTENT:data/strict_trace_stage_timing_20260906.csv|\
