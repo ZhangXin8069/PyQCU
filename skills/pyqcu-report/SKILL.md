@@ -134,7 +134,8 @@ pdftoppm -png -singlefile -scale-to-x 1800 -scale-to-y -1 \
 - `mg_stage_breakdown.pdf`：逐层阶段成本；
 - `mg_peak_memory.pdf`：设备级显存；
 - `mg_finest_residual.pdf`：最细层真残差；
-- 508 报告 `media/image25.png`：TEST9 64--1024 进程扩展原始表。
+- 508 报告 `docs/张鑫 508应用测试报告-PyQCU/word/media/image25.png`：TEST9 64--1024
+  进程扩展原始表（注意在 `word/media/` 下，不是 `media/`）。
 
 当原图超宽或超高时，裁切某个 panel 或从对应 CSV 重绘；不要整页缩放导致标签不可读。
 

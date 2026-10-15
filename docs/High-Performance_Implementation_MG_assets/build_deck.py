@@ -2,8 +2,11 @@
 """Build the 17-slide PyQCU MultiGrid presentation.
 
 The deck is rendered as 16:9 PNG slides, then packaged as a standards-compliant
-PPTX with one full-slide image per page.  A PDF and speaker notes are generated
-from the same immutable slide images so visual review and delivery stay aligned.
+PPTX with one full-slide image per page.  A render PDF and a machine-generated
+notes markdown are written from the same immutable slide images so visual review
+and delivery stay aligned.  The curated ``..._speaker_notes.md`` is a
+hand-maintained pointer to the LaTeX speaker script and is deliberately *not*
+written by this script.
 """
 
 from __future__ import annotations
@@ -35,7 +38,10 @@ ASSET_DIR = Path(__file__).resolve().parent
 SLIDE_DIR = ASSET_DIR / "slides"
 PPTX_PATH = DOCS / "High-Performance Implementation of Multigrid Solver for Lattice QCD.pptx"
 PDF_PATH = DOCS / "High-Performance Implementation of Multigrid Solver for Lattice QCD_ppt_render.pdf"
-NOTES_PATH = DOCS / "High-Performance Implementation of Multigrid Solver for Lattice QCD_speaker_notes.md"
+# 本脚本生成的逐页讲稿备注（build_notes 的产物），与 PPTX 内嵌备注同源。
+# 切勿改回 ``..._speaker_notes.md``：那份文件是 2026-09-28 人工收敛的指针存根，
+# 只指向 LaTeX 讲稿 ``..._speaker_script.tex/.pdf``，由构建脚本覆写会直接毁掉它。
+NOTES_PATH = DOCS / "High-Performance Implementation of Multigrid Solver for Lattice QCD_ppt_notes.md"
 ALG_BICGSTAB = ASSET_DIR / "algorithm_build" / "algorithm_bicgstab.png"
 ALG_VFGMRES = ASSET_DIR / "algorithm_build" / "algorithm_vcycle_fgmres.png"
 REPORT_508_IMAGE25 = (
@@ -813,7 +819,7 @@ def slide_07() -> Path:
     )
     s.footer(
         "来源：cpp/cuda/qcu/src/apply_multigrid_strict.cu:1499-1615,2926-3430；"
-        "pyqcu/tools/_strict_galerkin.py:428-719；skills/qcu/SKILL.md。"
+        "pyqcu/tools/_strict_galerkin.py:428-719；skills/pyqcu-cpp-qcu/SKILL.md。"
     )
     return s.save()
 
@@ -868,7 +874,7 @@ def slide_08() -> Path:
     )
     s.footer(
         "来源：cpp/cuda/qcu/src/apply_multigrid_strict.cu:2926-3430,4579-4683；"
-        "report_multigrid_quda_pyqcu_20260928.tex；skills/qcu/SKILL.md 的工作区契约。"
+        "report_multigrid_quda_pyqcu_20260928.tex；skills/pyqcu-cpp-qcu/SKILL.md 的工作区契约。"
     )
     return s.save()
 

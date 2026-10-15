@@ -489,3 +489,10 @@ _minted*/
 !/docs/High-Performance Implementation of Multigrid Solver for Lattice QCD_speaker_script.pdf
 !/docs/High-Performance Implementation of Multigrid Solver for Lattice QCD.pptx
 !/docs/High-Performance_Implementation_MG_assets/paper_assets/*.pdf
+# build_deck.py 的两张算法图输入。目录名以 build 结尾，被上方 *build 命中而整目录忽略，
+# 导致新克隆无法重建演示件（生成它们的栅格化步骤无脚本入库）；故按「仅放行所需产物、
+# 不放行 .tex 编译中间件」的同一口径显式放行目录与两张 PNG。
+!/docs/High-Performance_Implementation_MG_assets/algorithm_build/
+!/docs/High-Performance_Implementation_MG_assets/algorithm_build/*.png
+# build_deck.py 写出的逐页讲稿备注是构建产物（与 …_ppt_render.pdf 同类），不入库。
+/docs/High-Performance Implementation of Multigrid Solver for Lattice QCD_ppt_notes.md
