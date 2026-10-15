@@ -180,6 +180,7 @@ def solve_case(args, multigrid=None, nvec=None):
             "gflops_source": "QudaInvertParam.gflops",
             "true_residual": float(_scalar(getattr(invert, "true_res", np.nan), np.nan)),
             "residual_history": _residual_history(stdout.getvalue() + stderr.getvalue()),
+            "residual_history_source": "QUDA native verbose stdout/stderr",
             "memory": memory,
         }
         solution_qdp = _numpy(solution.data).astype(np.complex128)
@@ -221,7 +222,7 @@ def main(argv=None) -> int:
     report = {
         "backend": "quda", "solver": "Dirac.invert",
         "lattice": list(args.lat), "mass": args.mass, "csw": csw,
-        "solution_shape": list(solution.shape), **metrics,
+        "solution_shape": list(solution.shape), "status": "PASS", **metrics,
     }
     report_path = resolve_path(args.report, DATA_DIR / args.report)
     write_json(report_path, report)

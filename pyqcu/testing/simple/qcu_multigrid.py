@@ -50,21 +50,39 @@ def configure_mg(params, argv, define, lat, levels, dof_list, mg_grid,
         argv[define._MG_LEVEL2_ATOL_] = float(atol * coarse_tol_factor * 3.0)
 
 
-def parse_native_mg_log(text: str) -> tuple[list[float], list[float], int | None]:
+def parse_native_mg_log(
+        text: str) -> tuple[list[float], list[dict[str, float]], list[float],
+                            int | None, dict[str, float]]:
     history: list[float] = []
+    outer_iterations: list[dict[str, float]] = []
     vcycles: list[float] = []
     iterations = None
+    profile: dict[str, float] = {}
+    number = r"([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)"
     for line in text.splitlines():
         match = re.search(r"CONVERGENCE_HISTORY:\s*\[([^\]]*)\]", line)
         if match:
             history = [float(value) for value in match.group(1).split(",") if value.strip()]
+        match = re.search(r"\bB-\d+-[^:]+-Iteration\s+(\d+):\s*Residual\s*=\s*" + number, line)
+        if match:
+            outer_iterations.append({"iteration": int(match.group(1)),
+                                     "residual_norm": float(match.group(2))})
         match = re.search(r"Residual\(norm2\):\(([^,]+),", line)
         if match:
             vcycles.append(float(match.group(1)))
         match = re.search(r"Total iterations:\s*(\d+)", line)
         if match:
             iterations = int(match.group(1))
-    return history, vcycles, iterations
+        match = re.search(r"PROF_SECTIONS:\s*(.*)", line)
+        if match:
+            for token in match.group(1).split():
+                if "=" in token:
+                    key, value = token.split("=", 1)
+                    try:
+                        profile[key] = float(value.rstrip("ms"))
+                    except ValueError:
+                        continue
+    return history, outer_iterations, vcycles, iterations, profile
 
 
 def main(argv=None) -> int:
@@ -117,9 +135,12 @@ def main(argv=None) -> int:
     if levels >= 2:
         u_full = tools.poooxyzt2oooxyzt(g)
         clover_full = dslash.make_clover(
-            u_full, kappa=torch.tensor([kappa_value], device=u_full.device))
+            u_full, kappa=torch.tensor([kappa_value], dtype=torch.float32,
+                                      device=u_full.device),
+            u_0=torch.ones(1, dtype=torch.float32, device=u_full.device))
         fine = dslash.operator(U=u_full, clover_term=clover_full,
                               kappa=torch.tensor([kappa_value], device=u_full.device),
+                              u_0=torch.ones(1, dtype=torch.float32, device=u_full.device),
                               support_parity=True, verbose=False)
         schur = getattr(fine, "matvec_parity", fine.matvec)
         lonvs, hop_nn, hop_diag, sitting = build_schur_levels(
@@ -156,7 +177,8 @@ def main(argv=None) -> int:
             log_text = handle.read()
     else:
         log_text = ""
-    residual_history, vcycle_history, native_iterations = parse_native_mg_log(log_text)
+    residual_history, outer_iteration_history, vcycle_history, native_iterations, profile = \
+        parse_native_mg_log(log_text)
     iterations = native_iterations if native_iterations is not None else len(residual_history)
     if args.output:
         output = resolve_path(args.output, resolve_path(None, args.output))
@@ -174,7 +196,9 @@ def main(argv=None) -> int:
         "seconds_per_iteration": wall_seconds / iterations if iterations > 0 else None,
         "final_true_residual": residual,
         "residual_history": residual_history,
+        "outer_iteration_residual_history": outer_iteration_history,
         "vcycle_residual_history": vcycle_history,
+        "profile_ms": profile,
         "residual_history_source": str(log_path),
         "gflops": estimated_clover_gflops(tuple(args.lat), iterations, wall_seconds),
         "gflops_estimate_note": "lower bound; coarse-grid applications are excluded",
