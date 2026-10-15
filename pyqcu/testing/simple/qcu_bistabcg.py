@@ -5,18 +5,19 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 from pathlib import Path
 
 try:
     from ._common import (DATA_DIR, DEFAULT_ATOL, DEFAULT_MASS,
                           cuda_memory_snapshot, estimated_clover_gflops,
-                          qdp_gauge_to_qcu, read_h5, read_qdp_gauge,
+                          lime_metadata, qdp_gauge_to_qcu, read_h5, read_qdp_gauge,
                           resolve_path, write_h5, write_json)
 except ImportError:
     from _common import (DATA_DIR, DEFAULT_ATOL, DEFAULT_MASS,
                          cuda_memory_snapshot, estimated_clover_gflops,
-                         qdp_gauge_to_qcu, read_h5, read_qdp_gauge,
+                         lime_metadata, qdp_gauge_to_qcu, read_h5, read_qdp_gauge,
                          resolve_path, write_h5, write_json)
 
 if str(Path(__file__).resolve().parents[3]) not in sys.path:
@@ -60,6 +61,10 @@ def prepare_case(lat, mass, atol, max_iter, device, gauge_path=None, source_path
             qcu_gauge = qdp_gauge_to_qcu(read_qdp_gauge(path))
         else:
             qcu_gauge = read_h5(path)
+        if tuple(qcu_gauge.shape[-4:]) != tuple(ctx.lattice):
+            raise ValueError(
+                f"gauge lattice {tuple(qcu_gauge.shape[-4:])} does not match "
+                f"--lat {tuple(ctx.lattice)}")
         g.copy_(torch.from_numpy(qcu_gauge).to(device=ctx.device, dtype=ctx.dtype))
 
     if source_path is None:
@@ -102,8 +107,9 @@ def true_residual(fields, operator, tools, kappa_value: float) -> float:
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--lat", nargs=4, type=int, default=(8, 8, 8, 16))
-    parser.add_argument("--mass", type=float, default=DEFAULT_MASS)
+    parser.add_argument("--lat", nargs=4, type=int, default=(8, 8, 16, 16))
+    parser.add_argument("--mass", type=float, default=None,
+                        help="QCU mass; default 0.05 for the generated example")
     parser.add_argument("--atol", type=float, default=DEFAULT_ATOL)
     parser.add_argument("--max-iter", type=int, default=1000)
     parser.add_argument("--device", default="cuda:0")
@@ -117,8 +123,30 @@ def main(argv=None) -> int:
     if not qcu_available():
         print(json.dumps({"status": "SKIP", "reason": "QCU extension/CUDA unavailable"}))
         return 0
+    mass = float(args.mass) if args.mass is not None else DEFAULT_MASS
+    mass_source = "cli" if args.mass is not None else "safe-default"
+    gauge_csw = None
+    reference_mass = None
+    comparison_valid = True
+    warnings = []
+    if mass < 0.0 and args.gauge is None:
+        comparison_valid = False
+        warnings.append(
+            "negative mass with the generated csw=1 gauge is not a supported "
+            "QCU reference case; use mass >= 0 or a matching backend configuration")
+    if args.gauge is not None:
+        gauge_path = resolve_path(args.gauge, resolve_path(None, args.gauge))
+        if gauge_path.suffix == ".lime":
+            meta = lime_metadata(gauge_path)
+            gauge_csw = meta.get("csw")
+            reference_mass = meta.get("reference_mass")
+            if gauge_csw is not None and abs(float(gauge_csw) - 1.0) > 1e-12:
+                comparison_valid = False
+                warnings.append(
+                    f"QCU uses csw=1 but input .lime requests csw={gauge_csw}; "
+                    "the solve is gauge-only, not a Chroma-config equivalent")
     ctx, fields, operator, tools, kappa_value = prepare_case(
-        tuple(args.lat), args.mass, args.atol, args.max_iter, args.device,
+        tuple(args.lat), mass, args.atol, args.max_iter, args.device,
         args.gauge, args.source, args.seed)
     import torch
     from pyqcu.cuda import define, qcu
@@ -144,25 +172,31 @@ def main(argv=None) -> int:
     if args.output:
         output = resolve_path(args.output, resolve_path(None, args.output))
         write_h5(output, tools.poooxyzt2oooxyzt(out).detach().cpu().numpy(), metadata={
-            "solver": "applyCloverBistabCgQcu", "mass": args.mass,
+            "solver": "applyCloverBistabCgQcu", "mass": mass,
             "kappa": kappa_value, "csw": 1.0, "atol": args.atol,
         })
     report = {
         "backend": "qcu", "solver": "applyCloverBistabCgQcu",
-        "lattice": list(args.lat), "mass": args.mass, "kappa": kappa_value,
-        "csw": 1.0, "iterations": iterations, "wall_seconds": wall_seconds,
+        "lattice": list(args.lat), "mass": mass, "mass_source": mass_source,
+        "kappa": kappa_value, "csw": 1.0, "gauge_csw": gauge_csw,
+        "reference_mass": reference_mass, "comparison_valid": comparison_valid,
+        "warnings": warnings, "iterations": iterations, "wall_seconds": wall_seconds,
         "seconds_per_iteration": wall_seconds / iterations if iterations > 0 else None,
         "final_true_residual": residual,
         "residual_history": [],
         "residual_history_source": "not exposed by QCU BiStabCG native interface",
         "gflops": estimated_clover_gflops(tuple(args.lat), iterations, wall_seconds),
         "memory": memory,
-        "status": "PASS" if residual < 1e-2 else "WARN",
+        "converged": bool(math.isfinite(residual) and iterations < args.max_iter),
+        "status": ("PASS" if math.isfinite(residual) and residual < 1e-2
+                   and iterations < args.max_iter and comparison_valid
+                   else "FAIL" if not math.isfinite(residual) or iterations >= args.max_iter
+                   else "WARN"),
     }
     report_path = resolve_path(args.report, DATA_DIR / args.report)
     write_json(report_path, report)
     print(json.dumps(report, ensure_ascii=False))
-    return 0
+    return 0 if report["status"] != "FAIL" else 1
 
 
 if __name__ == "__main__":

@@ -31,7 +31,7 @@ REPO = Path(__file__).resolve().parents[3]
 DATA_DIR = Path(os.environ.get("PYQCU_DATA_DIR", str(REPO / "data"))).expanduser()
 
 DEFAULT_LIME = DATA_DIR / "beta6.20_mu-0.2770_ms-0.2310_L24x64_cfg_9950.lime"
-DEFAULT_MASS = -0.2770
+DEFAULT_MASS = 0.05
 DEFAULT_CSW = 1.160920226
 DEFAULT_ATOL = 1.0e-6
 DEFAULT_MAX_ITER = 1000
@@ -221,6 +221,9 @@ def lime_metadata(path: str | os.PathLike[str]) -> dict[str, Any]:
         coefficient = record_xml.find(".//clovCoeff")
         if coefficient is not None and coefficient.text:
             meta["csw"] = float(coefficient.text)
+        mass = record_xml.find(".//Mass")
+        if mass is not None and mass.text:
+            meta["reference_mass"] = float(mass.text)
     return meta
 
 
