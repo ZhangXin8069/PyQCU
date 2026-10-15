@@ -3,6 +3,7 @@
 整合自 pyqcu/testing/qcu/multigrid/scaling/budget.py（主本，含物理依据）与
 logs/test11/main.py::vram_model/rss_model/disk_cache_bytes/budget_table/fit_from_bench
 （16/32GB 档位分数并入 vram_gb 参数；E 已参数化，最新套件 DOF_LIST 用 E=24 时显式传入）。
+scaling 套件已于 2026-10-15 删除，本模块为其预算模型的规范位置。
 
 物理依据（c64 = 每复元素 8B，V = Lx·Ly·Lz·Lt 全格点数，奇偶分割后每子格 V/2）：
 

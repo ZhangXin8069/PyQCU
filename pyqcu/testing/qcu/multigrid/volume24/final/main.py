@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""volume24_final —— CUDA C++ 多线程版 MultiGrid 真实加速比测试套件（pyqcu/testing/qcu/multigrid/volume24/baseline）。
+"""volume24_final —— CUDA C++ 多线程版 MultiGrid 真实加速比测试套件（pyqcu/testing/qcu/multigrid/volume24/final）。
 
 任务定义（~auto-all）：
   目标     : 令 CUDA_C++ 多线程版 MultiGrid 在统一格子 24x24x24x72 上
@@ -13,7 +13,7 @@
   硬件     : 单卡 V100-32GB（device 0）、多卡 P100-16GB x2（device 1,2）。
 
 数据持久化：h5py（save_dict_h5/load_dict_h5 约定，独立 File 句柄）；
-统一 gauge 与 nullvec 缓存复用（data/logs/nullvec_cache + pyqcu/testing/qcu/multigrid/volume24/sweep_single_gpu/gauge）。
+统一 gauge 与 nullvec 缓存复用（data/logs/nullvec_cache + 本目录 `GAUGE_DIR`）。
 
 子命令：
   build    构建并缓存统一 gauge + 24x24x24x72 粗算子（nullvec/stencil）
@@ -30,7 +30,7 @@ import glob
 import json
 import h5py
 
-_HERE = os.path.dirname(os.path.abspath(__file__))           # pyqcu/testing/qcu/multigrid/volume24/sweep_single_gpu
+_HERE = os.path.dirname(os.path.abspath(__file__))           # pyqcu/testing/qcu/multigrid/volume24/final
 BENCHMARK_ID = "volume24_final"
 REPO = os.path.abspath(os.path.join(_HERE, '..', '..', '..', '..', '..', '..'))
 sys.path.insert(0, REPO)

@@ -1,6 +1,9 @@
 # AGENTS.md — pyqcu/testing/pyquda
 
-PyQCU vs PyQUDA 0.10.54（QUDA 1.1.0）双进程对比套件（结果 + 性能，含作图）。
+PyQCU vs PyQUDA 0.3.2（QUDA 1.1.0）双进程对比套件（结果 + 性能，含作图）。
+版本口径：以实际 import 的安装包为准（`pip show PyQuda` → 0.3.2，egg 位于
+`/usr/local/lib/python3.10/dist-packages/`）；`refer/git-rep/PyQUDA/` 另存 0.10.54
+上游源码快照，属 refer 侧参照物，不是本套件依赖。原文本写 0.10.54 系两者混淆，2026-10-15 订正。
 
 - 一键运行：`bash run_all.sh 8x8x8x16 [tol]`（三阶段：run_pyqcu → run_pyquda → compare）。
   脚本会先加载 `qcu/strict/quda_comparison/quda_env.sh`，确保 `libqmp.so` 与 QUDA 架构匹配。
@@ -10,4 +13,4 @@ PyQCU vs PyQUDA 0.10.54（QUDA 1.1.0）双进程对比套件（结果 + 性能�
   pyquda `[d,q,tzyx,c,c]`/`[q,tzyx,s,c]`（奇偶切 **x**）；棋盘格约定一致。
 - 归一化锚定：κ=1/(2m+8)；quda 侧 mass 归一化 + 直调 invertQuda（绕 ×2κ'）；
   解满足 x_pyqcu = (m+4)·x_quda。
-- 详细文档见 skills/pyquda/SKILL.md（维度表 / API / 反模式 / 实测基线）。
+- 详细文档见 skills/pyqcu-testing-pyquda/SKILL.md（维度表 / API / 反模式 / 实测基线）。

@@ -19,7 +19,7 @@
 \maketitle
 
 \begin{abstract}
-本报告记录 \path{pyqcu/testing/quda/test_pion_C2.py} 在 NVIDIA P100（\code{sm_60}）上的单卡与双卡阶梯对照结果，
+本报告记录 \path{pyqcu/testing/quda/test_pion_c2.py} 在 NVIDIA P100（\code{sm_60}）上的单卡与双卡阶梯对照结果，
 编排与产物格式沿用 \code{git tag test27}（commit \code{04382801c003353ecd1bc6b9bc10f6db750bf74d}）确立的口径：逐档保存求解总迭代数与纯求解耗时、
 独立真残差、统一转为 QUDA/QDP 排布后的传播子差异，并记录峰值显存与容量/时限边界。
 本次对照关闭 QUDA autotuning，两侧 MultiGrid 配置按粗层 color 对齐（QCU \code{dof_list=[12,48]}，
@@ -159,14 +159,14 @@ export LD_LIBRARY_PATH=/root/PyQCU/data/build/libqcu_arch/sm60:$LD_LIBRARY_PATH
 export CUDA_DEVICE_ORDER=PCI_BUS_ID
 
 # 单卡（16^3x32，P100#0）
-python pyqcu/testing/quda/test_pion_C2.py --lat 16 16 16 32 --tsrc 0 --components 1 \
+python pyqcu/testing/quda/test_pion_c2.py --lat 16 16 16 32 --tsrc 0 --components 1 \
   --qcu-devices 0 --qcu-threads 1 --quda-device 0 --skip-c2 --residual-rows 1 \
   --mg-nv-iters 1 --quda-warmup 0 \
   --mg-cache-dir data/testing/pion_c2/L16x16x16x32_dual/qcu/nullvec_cache --reuse-coarse \
   --run-id p100_single --run-dir data/testing/pion_c2/L16x16x16x32
 
 # 双卡（16^3x32，两 worker + QCU 两线程）
-python pyqcu/testing/quda/test_pion_C2.py --lat 16 16 16 32 --tsrc 0,1 --components 1 \
+python pyqcu/testing/quda/test_pion_c2.py --lat 16 16 16 32 --tsrc 0,1 --components 1 \
   --qcu-devices 0 1 --qcu-threads 2 --skip-c2 --residual-rows 1 --mg-nv-iters 1 --quda-warmup 0 \
   --multi-gpu --quda-workers 2 --quda-device 0 \
   --mg-cache-dir data/testing/pion_c2/L16x16x16x32_dual/qcu/nullvec_cache --reuse-coarse \

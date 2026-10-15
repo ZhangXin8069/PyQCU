@@ -275,7 +275,8 @@ def prolong_npu(local_ortho_null_vecs: torch.Tensor, coarse_vec: torch.Tensor) -
 
 
 # ===================== Schur 33-tensor stencil build（Galerkin 粗网格算子） =====================
-# 由 pyqcu/testing/qcu/multigrid/legacy/mg_stencil_build.py 与 test12/main.py::build_stencil_mt 合并迁移。
+# 由 pyqcu/testing/qcu/multigrid/legacy/mg_stencil_build.py 与 test12/main.py::build_stencil_mt 合并迁移
+# （legacy 套件已于 2026-10-15 删除，代码可由 git 历史恢复）。
 
 PAIRS = [(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]  # (d1,d2) with d1<d2
 SIGN = [1, -1]

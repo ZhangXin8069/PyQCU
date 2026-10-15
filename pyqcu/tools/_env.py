@@ -1,7 +1,8 @@
 """环境与资源快照工具。
 
 整合自 logs/dev78_2/main.py::_git_snapshot/_gpu_snapshot/_gpu_used_mb/
-rss_kb/cache_disk_mb/dump_env_h5 与 pyqcu/testing/qcu/multigrid/scaling/benchmark.py。
+rss_kb/cache_disk_mb/dump_env_h5 与 pyqcu/testing/qcu/multigrid/scaling/benchmark.py
+（scaling 套件已于 2026-10-15 删除）。
 用途：基准测试环境快照（env.h5，跨环境比对）与运行期资源统计。
 """
 import os

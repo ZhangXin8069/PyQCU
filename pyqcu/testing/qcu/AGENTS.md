@@ -76,47 +76,37 @@ mpirun -np 1 python pyqcu/testing/qcu/conftest.clover.multigrid.py
 
 ## MultiGrid 历史套件
 
-按里程碑归档于子目录，产物统一落到 `logs/<tag>/` 对应子目录：
+按里程碑归档于子目录，产物统一落到 `logs/<tag>/` 对应子目录。2026-10-15 整理：
+`multigrid/legacy/`（dev73）与 `multigrid/scaling/`（dev74）两代套件已整体删除
+（代码可由 git 历史恢复），其可复用算法已全部收入库内；现存套件为
+`volume24/final/`（24³×72 规范套件）与 `benchmarks/{large_volume,multi_gpu}`。
 
-| 子目录 | 内容 | 产物 |
-|---|---|---|
-| `multigrid/legacy/` | 早期 MultiGrid 基准、诊断与粗算子构建研究 | `pyqcu/testing/logs/multigrid/legacy/`（报告、LaTeX 表、PNG 图） |
-| `multigrid/scaling/` | 大格子、资源统计、多线程构建与服务器加速比验证 | `pyqcu/testing/logs/multigrid/scaling/` |
+已删除套件中可复用部分的库内去向：
 
-所有脚本保留其历史输出目录以备结果溯源；新脚本应通过参数或环境变量选择输出目录。
+| 已删除来源 | 库内规范位置 |
+|---|---|
+| `legacy/integrated_single_thread/main.py`、`legacy/verify_results.py` | `verify_nullvecs` → `pyqcu/testing/__init__.py` |
+| `legacy/mg_stencil_build.py`、`test12/main.py::build_stencil_mt` | `pyqcu/tools/_multigrid.py`：`build_stencil` / `build_stencil_mt` / `apply_stencil` |
+| `legacy/quick_test.py`、`legacy/mg_nullvec_cache.py` | 缓存路径与 h5 存取 → `pyqcu/cuda/_multi_gpu.py` + `pyqcu/tools/_io.py` |
+| `legacy/mg_schur_build.py` | `pyqcu/tools/_strict_galerkin.py`：`build_strict_galerkin` |
+| `legacy/mg_pyref_expt.py` | `pyqcu/solver/_quda_multigrid.py` |
+| `legacy/reference_benchmark.py`（`parse_mg_log` / `bistabcg_history`） | `pyqcu/cuda/_logs.py` / `pyqcu/solver/_bistabcg.py` |
+| `scaling/dslash_adapter.py` | `CudaSchurOp` → `pyqcu/cuda/_schur_op.py` |
+| `scaling/budget.py` | 预算模型 → `pyqcu/tools/_budget.py` |
+| `scaling/benchmark.py`（环境/资源统计） | `pyqcu/tools/_env.py` |
+| 5 处绘图副本（`legacy/make_plots.py`、`scaling/{make_plots,validation_plots}.py`、`volume24/*/generate_assets.py`） | 图表共用层 → `pyqcu/tools/_bench_plots.py` |
+
 `data/logs/nullvec_cache` 为共享缓存，勿改动。
 
-### 大体积与资源扩展套件
+### 已归档结论（dev73/dev74，代码已删除，结论保留）
 
-`multigrid/scaling/` 在早期协议上扩展：
+- 本地小卡 MG 恒慢（speedup < 1，硬件特性）；服务器 V100-32G `8x8x8x16` 实测 2.43x 达标。
+- 参数相对行为（3L>2L、r20>r10）在两块 GPU 上一致，可迁移。
+- 多线程 stencil 构建在单卡无收益（GPU 瓶颈），面向多卡/多节点集群。
+- `CudaSchurOp` 依赖 C++ 端 `applyCloverBistabCgDslashQcu`（已移除首尾全局
+  `cudaDeviceSynchronize`，见 `cpp/cuda/qcu/src/apply_clover_bistabcg_dslash.cu`）。
 
-| 脚本 | 功能 |
-|---|---|
-| `dslash_adapter.py` | `CudaSchurOp`：封装 `applyCloverBistabCgDslashQcu`（C++ Schur 奇偶算子，输入/输出 `[12,X,Y,Z,T/2]`），每实例独立 params 副本 + set_index 槽位，多线程安全 |
-| `layout_test.py` | C++ dslash 输入布局对照实验（vs Python `matvec_parity`） |
-| `stencil_multithread.py` | 多线程 stencil build（探测点写集不相交，线程安全）+ 对照验证 |
-| `budget.py` | 显存/内存/磁盘预算模型（cold 53KB/V、warm 27KB/V 实测校准；`--fit`） |
-| `benchmark.py` | 本地（默认）/集群（`--cluster`）bench + 资源统计（cold/warm 显存、RSS、磁盘） |
-| `clean_benchmark.py` | 干净测量（独立进程交叉计时）+ 资源统计 |
-| `verify.py` | 正确性验证（gauge/解/null_vecs + CudaSchurOp 对照） |
-| `collect.py` | 汇总 → `pyqcu/testing/logs/multigrid/scaling/scaling_results.json` |
-| `make_tables.py` / `make_plots.py` | LaTeX 表 / PNG 图 |
-| `cluster.sh` | 集群大格子运行（dry-run 默认，`RUN=1` 执行；16x32x32x32 单卡可行，16x32x32x64 需分阶段构建，24x32x32x64 需多卡） |
-
-注意：`CudaSchurOp` 依赖 C++ 端 `applyCloverBistabCgDslashQcu`（已移除首尾全局 `cudaDeviceSynchronize`，见 `cpp/cuda/qcu/src/apply_clover_bistabcg_dslash.cu`）；多线程构建在单卡无收益（GPU 瓶颈），面向多卡/多节点集群。
-
-### 服务器加速比验证套件
-
-| 脚本 | 功能 |
-|---|---|
-| `validation_sweep.py` | 本地/服务器参数扫描（r/ct/cmi/levels，独立进程干净测量）→ `pyqcu/testing/logs/multigrid/scaling/server_validation_sweep.json` |
-| `validation_check.py` | 加速比断言（默认 gate=1.5；`--file` 显式指定 json，exit 0/1/2） |
-| `validation_plots.py` | 作图（范围与 dev73_5 一致：收敛历史/热点/加速比/耗时/参数扫描）→ `pyqcu/testing/logs/multigrid/scaling/server_validation_*.png` |
-| `validation_server.sh` | 服务器一键流程（Step 0 自检 → Step 1 强制闸门 8x8x8x16 → Step 2 扫描 → Step 3/4 大格子 → Step 5 断言；`RUN=1` 执行） |
-
-运行指南：`pyqcu/testing/logs/multigrid/scaling/server_validation_guide.md` / `.tex` / `.pdf`。关键结论：本地小卡 MG 恒慢
-（speedup<1，硬件特性），服务器 V100-32G 8x8x8x16 实测 2.43x 达标；参数相对行为
-（3L>2L、r20>r10）两 GPU 一致可迁移；16x32x32x32 单卡 cold 可行，16x32x32x64 需
-分阶段构建，24x32x32x64 需多卡。
+产出与运行指南保留为当时记录：`pyqcu/testing/logs/multigrid/{legacy,scaling}/`
+（`server_validation_guide.md`/`.tex`/`.pdf`、报告、LaTeX 表、PNG 图）。
 
 | `conftest.multi_gpu.py` | 多线程多卡 C++ Clover MG 一致性验证（`test_multi_gpu_multigrid`；单卡环境 N 线程共享一卡验证线程隔离） |
