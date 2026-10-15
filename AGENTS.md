@@ -45,10 +45,10 @@ PyQCU：Lattice QCD 的 Python/Cython 库 —— CUDA 加速的 Wilson/Clover Di
 | 路径 | 内容 |
 |---|---|
 | `pyqcu/` | 纯 Python 实现：`lattice/`（gamma/Gell-Mann 矩阵、SU(3)、源场构造 point/wall/volume/Z2/momentum `_source.py`）、`dslash/`（Wilson/Clover 算子）、`solver/`（BiStabCG + `bistabcg_history` 残差历史、FGMRES `_gmres.py`（DDalphaAMG-SM 移植，右预条件）、MR `_mr.py`（quda 思想平滑器）、多质量 CG `_multishift_cg.py`、CA-CG `_cacg.py`、thick-restart Lanczos `_lanczos.py` 特征底座、multigrid）、`smear/`（stout + Wuppertal 高斯 `_wuppertal.py`）、`tools/`（MPI 网格、HDF5 I/O 含 dict 级 `save_dict_h5`/`load_dict_h5`、env 快照 `_env.py`、预算模型 `_budget.py`、linalg、multigrid 工具含 33-tensor stencil build、批量 BiCGStab `_bistabcg_batch`、TileLang JIT）、`testing/`（集成测试含 `verify_nullvecs` null 向量质量诊断）、`cuda/`（Cython 桥 + `_schur_op.py` 多线程 Schur 算子 + `_multi_gpu.py` 多线程多卡 MG 驱动 + `_logs.py` 后端日志解析，`build_schur_levels` 批量构建 `batch_build`）、`cann/dtk/maca`（NPU 兼容层与占位） |
-| `cpp/cuda/qcu/` | C++ CUDA 后端：`src/`（.cu 内核）、`include/`（26 个模板头）、`python/pyqcu.h`（C API，须与 qcu.pxd 同步）、`logs/` |
+| `cpp/cuda/qcu/` | C++ CUDA 后端：`src/`（32 个 .cu 内核）、`include/`（24 个模板头）、`python/pyqcu.h`（C API 37 个入口，须与 `qcu_api.pxd` 同步） |
 | `cpp/{cann,dtk,maca}/qcu/` | 占位 PASS，无实现 |
-| `pyqcu/testing/` | 统一测试入口：`pyqcu/`（纯 Python 主套件）、`qcu/`（C++ 后端，按 multigrid legacy/scaling/benchmark 与 strict 分类）、`quda/`（QUDA 对照）、`pyquda/`（PyQUDA 对照）、`cpu/npu/dcu/gpu/tilelang/profiler/benchmark/`、`data/`（参考 HDF5） |
-| `skills/` | 项目技能库（38 个技能目录：SKILL.md + 简短 AGENTS.md，目录级领域知识文档；索引与技能表见 `skills/AGENTS.md`；2026-08-25 自 `.opencode/skills` 迁出，源目录已删除，需 opencode 加载时从本库同步） |
+| `pyqcu/testing/` | 统一测试入口：`pyqcu/`（纯 Python 主套件）、`qcu/`（C++ 后端：`multigrid/benchmarks/large_volume/` 现役攻坚套件、`multigrid/volume24/`、`strict/quda_comparison/` 严格 MG 与 QUDA 对照、`single_qcu_*.py` 单功能回归）、`quda/`（QUDA 对照）、`pyquda/`（PyQUDA 对照）、`cpu/npu/dcu/gpu/tilelang/profiler/benchmark/`、`regression/session-2026-08-24/`、`data/`（参考 HDF5） |
+| `skills/` | 项目技能库（35 个技能目录：SKILL.md + 简短 AGENTS.md，目录级领域知识文档；目录名一律 `pyqcu-` 前缀；索引与技能表见 `skills/AGENTS.md`；2026-08-25 自 `.opencode/skills` 迁出，源目录已删除，需 opencode 加载时从本库同步） |
 | `docs/` | 正式独立文档与指南（`.pdf`/`.tex`/`.md`）：`dims.md`、`env.md`、`install.md`、`examples.md`、`profiler.md`、`ORGANIZATION.md`；从 `data/**` 提升的文档位于 `docs/data/` |
 | `refer/` | 开发历史报告（dev71.*） |
 | `logs/` | 运行记录（JSON/LOG/TSV/TXT）和按 tag 组织的日志包：`dev<N>/`、`stab<N>/`、`bug<N>/` 等；`logs/data/` 汇总从 `data/**` 提升出的运行摘要；报告实体在 `logs/`，张量/cache 实体在 `data/logs/`。历史重复代码与一次性构建垃圾直接删除 |
@@ -62,11 +62,11 @@ PyQCU：Lattice QCD 的 Python/Cython 库 —— CUDA 加速的 Wilson/Clover Di
 - 变量命名：宏和编译期常量使用全大写下划线，C++ 宏保留 `_NAME_` 锚点；普通变量使用小写下划线，Python 模块级常量使用全大写下划线。
 - 对象命名：C++/Python 类型使用大驼峰，领域缩写作为完整词保留；绑定的 C API 名称必须与 `qcu.pyx`、`qcu.pxd` 和 `pyqcu.h` 同步。
 - 顶层目录白名单：`cpp/`、`data/`、`docs/`、`logs/`、`pyqcu/`、`refer/`、`skills/`。根入口文件仅允许 `AGENTS.md`、`.gitignore`、`LICENSE`、`README.md`、`build.sh`、`env.sh`、`install.sh`、`setup.py`。
-- 测试入口：主套件为 `cd pyqcu/testing && pytest .`；MPI 入口为 `mpirun -np 4 python pyqcu/testing/python/conftest.py`；技能自带 shell 回归保留在对应技能目录，如 `bash skills/tag/tag-chain.test.sh`。
-- 功能复现：构建使用 `bash ./build.sh`，Cython 扩展使用 `bash ./install.sh`；纯格式/文档改动至少执行 `bash -n`、相关回归、`git diff --check` 和 `bash skills/form/form-audit.sh`。
+- 测试入口：主套件为 `cd pyqcu/testing && pytest .`；MPI 入口为 `mpirun -np 4 python pyqcu/testing/python/conftest.py`；技能自带 shell 回归保留在对应技能目录，如 `bash skills/pyqcu-tag/tag-chain.test.sh`。
+- 功能复现：构建使用 `bash ./build.sh`，Cython 扩展使用 `bash ./install.sh`；纯格式/文档改动至少执行 `bash -n`、相关回归、`git diff --check` 和 `bash skills/pyqcu-form/form-audit.sh`。
 - 文档/日志/数据：正式文档在 `docs/**`；报告、运行摘要及 `log/json/tsv/csv/txt/stdout/jsonl` 在 `logs/**`；数据、SVG、构建/安装树和缓存实体在 `data/**`。目录元数据 `AGENTS.md`、`.gitignore`、`README.md` 留在所属目录。
 - Git 交付：form 批次按逻辑分组提交，只暂存本任务文件，禁止 `git add -A`/`git add .` 和 force push；推送与开发标签按 tag 技能的 follow 链执行。
-- 本地例外：`data/**` 可跟踪正式证据、构建树和自包含安装树；`logs/**` 可保存第一方报告 `.md/.tex/.pdf` 与图表；`docs/张鑫 508应用测试报告-PyQCU/` 是文档资产保留的解包 Office 资源；`skills/tag/tag-chain.test.sh` 与该技能实现同目录；`refer/**` 与已存在的上游 vendored/generated 树保留来源名称。
+- 本地例外：`data/**` 可跟踪正式证据、构建树和自包含安装树；`logs/**` 可保存第一方报告 `.md/.tex/.pdf` 与图表；`docs/张鑫 508应用测试报告-PyQCU/` 是文档资产保留的解包 Office 资源；`skills/pyqcu-tag/tag-chain.test.sh` 与该技能实现同目录；`refer/**` 与已存在的上游 vendored/generated 树保留来源名称。
 
 ## 已知反模式（勿重复）
 

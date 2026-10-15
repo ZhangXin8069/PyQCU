@@ -1,0 +1,19 @@
+---
+name: pyqcu-testing-data
+description: pyqcu/testing/data 目录的完整生成 skill：测试验证参考 HDF5 文件（with_data=True 时使用）。
+---
+# pyqcu/testing/data
+
+Reference HDF5 files for test validation. Used when tests are run with `with_data=True` to validate against precomputed expected results.
+
+Contains gauge fields, fermion sources, and expected operator/solver outputs for various lattice sizes.
+
+Reference HDF5 files are gitignored (not committed)。**注意：这些 HDF5 缺失时
+`with_data=True` 的用例会在 OSError 层失败，属于已知且预期的情况**（例如 `logs/session-2026-08-24/README.md`
+里 `r1_baseline.py` 记的 8/10 PASS、2 FAIL 就是这一层），不要当成代码回归。
+
+Regenerate deterministically via `pyqcu/testing/regression/session-2026-08-24/gen_clover_ref.py`
+and `gen_wilson_ref.py` — bit-level reproducible across architectures；solver dual-backend
+cross-check rel=8.6e-07。Agent 技能见
+`skills/pyqcu-testing-regression-session-2026-08-24/SKILL.md`（生成器的逐项说明与 README 位置在该
+文档，此处不重复）。

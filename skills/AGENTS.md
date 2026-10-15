@@ -16,8 +16,10 @@ PyQCU 项目专用技能库：每个技能一个子目录，内含 `SKILL.md`（
 - **TODO 管理**：会话执行第一步用 todowrite 生成详细 TODO 列表，逐步实时更新，收尾核对全完成。
 - **跨技能调用**：必要时调用其他技能；2+ 独立子任务（无共享状态/无顺序依赖/互不改同文件）
   优先并行派发。
-- **技能表同步约定（硬性）**：新增/更改技能必须同步下方技能表行与计数（当前 38/38），
+- **技能表同步约定（硬性）**：新增/更改技能必须同步下方技能表行与计数（当前 35/35），
   避免表格与实际脱节。
+- **命名约定（硬性）**：自用技能目录一律 `pyqcu-` 前缀（2026-10-15 全量改名完成），
+  frontmatter `name` 必须与目录名逐字符一致。
 
 ## 文档范式
 
@@ -25,45 +27,67 @@ frontmatter：name 与目录名一致 + description 写触发场景（何时使�
 （Files / Exported API / Key Anti-Patterns / Lessons）。项目知识条目须带实测数字与
 出处路径（logs/<tag>/...），不写未验证内容。
 
-## 技能表（38/38）
+## 技能表（35/35）
+
+按域分组；每行用途即该技能 frontmatter description 的摘要。2026-10-15 全量加 `pyqcu-`
+前缀，`cann.v2`/`cuda.v2`/`dtk`/`maca` 四个占位技能合并为 `pyqcu-cpp-containers`。
+
+### 库内 Python 包
 
 | 技能 | 用途 |
 |---|---|
-| `benchmark` | PyQCU 性能基准与 dev87 Strict MultiGrid/QUDA 公平计时、显存证据协议。 |
-| `cann.v2` | cpp/cann 目录的完整生成 skill：昇腾 CANN C++ 后端容器目录（占位）。 |
-| `cann` | pyqcu.cann 目录的完整生成 skill：Ascend NPU 的 torch 兼容层，将复数算子分解为实/虚部；含 force_use_npu 全局标志与 einsum 组合分解算法。 |
-| `cpu` | pyqcu/testing/cpu 目录的完整生成 skill：纯 Python 后端的 CPU 专用测试。 |
-| `cuda.v2` | cpp/cuda 目录的完整生成 skill：CUDA 后端容器目录，真实现位于 qcu/。 |
-| `cuda` | pyqcu.cuda 目录的 Cython/libqcu.so 桥接：Strict MultiGrid、params[58]/argv[7]/set_ptrs[100] 与显存生命周期。 |
-| `data` | pyqcu/testing/data 目录的完整生成 skill：测试验证参考 HDF5 文件（with_data=True 时使用）。 |
-| `dcu` | pyqcu/testing/dcu 目录的完整生成 skill：AMD DCU / ROCm (HIP) 测试。 |
-| `debug` | logs/debug 目录的完整生成 skill：逐轮调试/修复日志（fix-log*.md），完成后升级为 logs/fix-report-*.md。 |
-| `dev80` | logs/dev80、dev80_2、dev80_3 系列的完整生成 skill：大格子 MultiGrid 攻坚三代——sm_60+sm_70 fat-binary、HierarchicalCache VRAM→RAM→DISK offload（22.97GB 大格子可跑）、BatchedLocalSchur W=10 stencil 提速 12×。 |
-| `dev84` | pyqcu/testing/qcu/multigrid/benchmarks/large_volume 目录的完整生成 skill：16×32×32×48 MultiGrid 真实加速比攻坚套件（CUDA Graph 段回放/零拷贝标量/守卫标量内核/粗空间诊断 ρ_V），报告 report.md。 |
-| `dslash` | pyqcu.dslash 目录的完整生成 skill：Wilson/Clover 狄拉克算子（hoping/sitting/operator 三类），含 MPI halo 交换、奇偶预处理、Galerkin 粗网格投影与反模式清单。 |
-| `dtk` | cpp/dtk 目录的完整生成 skill：DCU/ROCm (HIP) C++ 后端容器目录（占位）。 |
-| `form` | PyQCU 命名、目录、文档/日志/数据/测试布局与 Git 交付格式治理；含本地例外审计。 |
-| `gpu` | pyqcu/testing/gpu 目录的完整生成 skill：通用 GPU 测试占位（当前为空）。 |
-| `include` | cpp/cuda/qcu/include 目录的 26 个模板化 CUDA 头文件；define.h 镜像 params[58]、Strict 槽位和 pyqcu/cuda/define.py。 |
-| `lattice` | pyqcu.lattice 目录的完整生成 skill：gamma/Gell-Mann 矩阵、SU(3) 检查、规范场生成与 Ward 负索引约定。 |
-| `logs` | cpp/cuda/qcu/logs 目录的完整生成 skill：CUDA 后端本地运行日志目录（gitignored），正式报告存放于仓库根 logs/。 |
-| `md-tex-sync` | Markdown 唯一源、LaTeX 派生源与 XeLaTeX PDF 的同源生成；全文源快照、全附件 SHA256 清册、公式/算法显示整改、幂等哈希同步与全页渲染闸门。 |
-| `maca` | cpp/maca 目录的完整生成 skill：Maca C++ 后端容器目录（占位）。 |
-| `npu` | pyqcu/testing/npu 目录的完整生成 skill：昇腾 NPU 测试（可用 force_use_npu 在 CPU 上测 NPU 路径）。 |
-| `profiler` | pyqcu/testing/profiler 目录的完整生成 skill：torch.profiler 性能剖析，导出 Chrome trace 供 Perfetto 可视化。 |
-| `pyquda` | pyqcu/testing/pyquda 目录的完整生成 skill：PyQCU 与 PyQuda-0.3.2（QUDA 1.1.0）双进程隔离对比套件——Wilson/Clover dslash、BiCGStab/CG 求解的结果与性能对比（残差/逐迭代残差/耗时/作图），含维度排布转换（pyqcu 切 t vs pyquda 切 x）与归一化锚定（m+4=1/(2κ)）。 |
-| `pyqcu` | pyqcu/testing/python 目录的完整生成 skill：纯 Python 算子/求解器主测试套件（conftest 入口 + 各 conftest.*.py 变体）。 |
-| `python` | cpp/cuda/qcu/python 的当前 C API 边界：pyqcu.h、qcu_api.pxd、qcu.pyx/qcu.pyi 与 Strict 入口同步。 |
+| `pyqcu-lattice` | pyqcu.lattice：gamma/Gell-Mann 矩阵、SU(3) 检查、规范场生成与 Ward 负索引约定。 |
+| `pyqcu-dslash` | pyqcu.dslash：Wilson/Clover 狄拉克算子（hoping/sitting/operator 三类），含 MPI halo 交换、奇偶预处理、Galerkin 粗网格投影与反模式清单。 |
+| `pyqcu-solver` | pyqcu.solver：BiCGStab(l)/FGMRES 与 legacy/Strict QUDA-style MultiGrid，含奇偶、Galerkin 与持久显存语义。 |
+| `pyqcu-smear` | pyqcu.smear：stout smearing（Morningstar-Peardon SU(3) 投影）与 Wuppertal 高斯模糊，含数值稳定性处理与 MPI 支持。 |
+| `pyqcu-cann` | pyqcu.cann：Ascend NPU 的 torch 兼容层，将复数算子分解为实/虚部；含 force_use_npu 全局标志与 einsum 组合分解算法。 |
+| `pyqcu-cuda` | pyqcu.cuda：Cython/libqcu.so 桥接、Strict MultiGrid、params[58]/argv[7]/set_ptrs[100] 与显存生命周期。 |
+| `pyqcu-tools` | pyqcu.tools：MPI 网格/奇偶分割/维度重排/HDF5 I/O/线性代数/多重网格转移/TileLang JIT/基准图表工具集。 |
+
+### C++ 后端（cpp/）
+
+| 技能 | 用途 |
+|---|---|
+| `pyqcu-cpp-containers` | cpp/ 四个后端容器目录（cuda 真实现 + cann/dtk/maca 占位）的镜像结构与构建入口索引。 |
+| `pyqcu-cpp-qcu` | cpp/cuda/qcu 主 C++ CUDA 后端：legacy/Strict MultiGrid、逐层 P/R/X/Y/Yhat、MATPC/DIRECT_PC、构建与显存不变量。 |
+| `pyqcu-cpp-qcu-include` | cpp/cuda/qcu/include 的 24 个模板化 CUDA 头文件；define.h 镜像 params[58]、Strict 槽位和 pyqcu/cuda/define.py。 |
+| `pyqcu-cpp-qcu-src` | cpp/cuda/qcu/src 的 32 个 .cu 启动/模板源，含 apply_multigrid_strict.cu 的 full-coarse/MATPC/R/P/fused FGMRES。 |
+| `pyqcu-cpp-qcu-python` | cpp/cuda/qcu/python 的 C API 边界：pyqcu.h（37 入口）与 pyqcu/cuda/qcu 下 qcu_api.pxd、qcu.pyx/qcu.pyi 的同步。 |
+| `pyqcu-cpp-qcu-logs` | cpp/cuda/qcu/logs **已于 2026-10-15 删除**（删除前仅 2 个已跟踪文件）；保留内容清单、删除依据与后端产物落点约定。 |
+
+### 测试（pyqcu/testing/）
+
+| 技能 | 用途 |
+|---|---|
+| `pyqcu-testing` | pyqcu.testing 集成测试与 Strict MultiGrid tier 0/1/2 快速闸门、MPI/缓存/QIO/显存验证协议。 |
+| `pyqcu-testing-python` | pyqcu/testing/python：纯 Python 算子/求解器主测试套件（conftest 入口 + 各 conftest.*.py 变体）。 |
+| `pyqcu-testing-cpu` | pyqcu/testing/cpu：纯 Python 后端的 CPU 专用测试。 |
+| `pyqcu-testing-gpu` | pyqcu/testing/gpu：通用 GPU 测试占位。 |
+| `pyqcu-testing-npu` | pyqcu/testing/npu：昇腾 NPU 测试（可用 force_use_npu 在 CPU 上测 NPU 路径）。 |
+| `pyqcu-testing-dcu` | pyqcu/testing/dcu：AMD DCU / ROCm (HIP) 测试。 |
+| `pyqcu-testing-profiler` | pyqcu/testing/profiler：torch.profiler 性能剖析，导出 Chrome trace 供 Perfetto 可视化。 |
+| `pyqcu-testing-tilelang` | pyqcu/testing/tilelang：TileLang JIT 内核测试（CUDA）。 |
+| `pyqcu-testing-data` | pyqcu/testing/data：测试验证参考 HDF5 文件（with_data=True 时使用）。 |
+| `pyqcu-testing-qcu` | pyqcu/testing/qcu：经 Cython 桥测 C++ CUDA 后端；含按职责分类的多重网格性能基准套件与 Strict 对照。 |
+| `pyqcu-qcu-single-tests` | pyqcu/testing/qcu 与 pyqcu/testing/quda 的 QCU/QUDA 单功能测试、PyTorch 参考校验和布局转换约定。 |
+| `pyqcu-testing-pyquda` | pyqcu/testing/pyquda：PyQCU 与 PyQuda 双进程隔离对比套件——Wilson/Clover dslash、BiCGStab/CG 的结果与性能对比，含维度排布转换与归一化锚定。 |
+| `pyqcu-testing-regression-session-2026-08-24` | pyqcu/testing/regression/session-2026-08-24 的回归资产：bug31–37 无人值守会话验证与确定性参考数据再生器。 |
+
+### 历史攻坚与日志
+
+| 技能 | 用途 |
+|---|---|
+| `pyqcu-benchmark` | PyQCU 性能基准与 dev87 Strict MultiGrid/QUDA 公平计时、显存证据协议。 |
+| `pyqcu-dev80` | logs/dev80、dev80_2、dev80_3 系列：大格子 MultiGrid 攻坚三代——sm_60+sm_70 fat-binary、HierarchicalCache VRAM→RAM→DISK offload（22.97GB 大格子可跑）、BatchedLocalSchur W=10 stencil 提速 12×。 |
+| `pyqcu-dev84` | pyqcu/testing/qcu/multigrid/benchmarks/large_volume：16×32×32×48 MultiGrid 真实加速比攻坚套件（CUDA Graph 段回放/零拷贝标量/守卫标量内核/粗空间诊断 ρ_V），报告 report.md。 |
+| `pyqcu-logs-debug` | logs/debug：逐轮调试/修复日志（fix-log*.md），完成后升级为 logs/fix-report-*.md。 |
+| `pyqcu-logs-results` | logs/results：最终/剩余修复报告（权威记录）。 |
+
+### 交付与治理
+
+| 技能 | 用途 |
+|---|---|
+| `pyqcu-form` | PyQCU 命名、目录、文档/日志/数据/测试布局与 Git 交付格式治理；含本地例外审计。 |
+| `pyqcu-tag` | Git stab/dev/bug/test 标签管理、历史 follow 链校验与合法并行分支识别。 |
+| `pyqcu-md-tex-sync` | Markdown 唯一源、LaTeX 派生源与 XeLaTeX PDF 的同源生成；全文源快照、全附件 SHA256 清册、幂等哈希同步与全页渲染闸门。 |
 | `pyqcu-report` | PyQCU 中文科研汇报：横版 16:9 Beamer、竖版完整讲稿、PPTX、报告原图提取、公式/算法/图表编号与全页版式验收。 |
-| `qcu.v2` | pyqcu/testing/qcu 目录的完整生成 skill：经 Cython 桥测 C++ CUDA 后端；含按职责分类的多重网格性能基准套件（clean/bench/verify/collect/mktable/plots）。 |
-| `qcu` | cpp/cuda/qcu 主 C++ CUDA 后端：legacy/Strict MultiGrid、逐层 P/R/X/Y/Yhat、MATPC/DIRECT_PC、构建与显存不变量。 |
-| `qcu-single-tests` | pyqcu/testing/qcu 与 pyqcu/testing/quda 的 QCU/QUDA 单功能测试、PyTorch 参考校验和布局转换约定。 |
-| `results` | logs/results 目录的完整生成 skill：最终/剩余修复报告（权威记录）。 |
-| `session-2026-08-24` | pyqcu/testing/regression/session-2026-08-24 的回归资产：bug31–37 无人值守会话验证与确定性参考数据再生器。 |
-| `smear` | pyqcu.smear 目录的完整生成 skill：stout smearing（Morningstar-Peardon SU(3) 投影）与 Wuppertal 高斯模糊，含数值稳定性处理与 MPI 支持。 |
-| `solver` | pyqcu.solver 的 BiCGStab(l)/FGMRES 与 legacy/Strict QUDA-style MultiGrid，含奇偶、Galerkin 与持久显存语义。 |
-| `tag` | Git stab/dev/bug/test 标签管理、历史 follow 链校验与合法并行分支识别。 |
-| `src` | cpp/cuda/qcu/src 的 .cu 启动/模板源，含 apply_multigrid_strict.cu 的 full-coarse/MATPC/R/P/fused FGMRES。 |
-| `testing` | pyqcu.testing 集成测试与 Strict MultiGrid tier 0/1/2 快速闸门、MPI/缓存/QIO/显存验证协议。 |
-| `tilelang` | pyqcu/testing/tilelang 目录的完整生成 skill：TileLang JIT 内核测试（CUDA）。 |
-| `tools` | pyqcu.tools 目录的完整生成 skill：MPI 网格/奇偶分割/维度重排/HDF5 I/O/线性代数/多重网格转移/TileLang JIT 工具集。 |
