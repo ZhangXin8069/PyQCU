@@ -90,8 +90,12 @@ def true_residual(fields, operator, tools, kappa_value: float) -> float:
     u = tools.poooxyzt2oooxyzt(g)
     x = tools.poooxyzt2oooxyzt(out)
     b = tools.poooxyzt2oooxyzt(src)
-    clover = operator.make_clover(u, kappa=torch.tensor([kappa_value], device=u.device))
-    residual = (operator.give_wilson(x, u, torch.tensor([kappa_value], device=u.device), with_I=True) +
+    u0 = torch.ones(1, dtype=torch.float32, device=u.device)
+    clover = operator.make_clover(
+        u, kappa=torch.tensor([kappa_value], dtype=torch.float32, device=u.device),
+        u_0=u0)
+    residual = (operator.give_wilson(x, u, torch.tensor([kappa_value], device=u.device),
+                                     u_0=u0, with_I=True) +
                 operator.give_clover(x, clover) - b)
     return float(torch.linalg.vector_norm(residual) / torch.linalg.vector_norm(b))
 

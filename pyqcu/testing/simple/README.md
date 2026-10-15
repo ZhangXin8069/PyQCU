@@ -49,8 +49,9 @@ checksum）；它不实现 MPI part-file，也不替代带 QIO 的 QUDA 生产�
 - QUDA：`QudaInvertParam.iter/secs/gflops/true_res`；开启 native verbose
   输出后解析外层迭代残差，缺失时保留空历史而不是补值。
 - QCU：BiStabCG 使用 `getCloverBistabCgIterationsQcu`；Multigrid 解析
-  `QCU_LOG_DIR` 下的 `CONVERGENCE_HISTORY`、`Residual(norm2)` 和
-  `Total iterations`。
+  `QCU_LOG_DIR` 下的 `Iteration N: Residual`、`CONVERGENCE_HISTORY`、
+  `Residual(norm2)` 和 `Total iterations`，分别输出逐外层、采样历史、
+  V-cycle 与总迭代数；`PROF_SECTIONS` 记录为 `profile_ms`。
 - 两者都记录 CUDA event 墙钟、每迭代耗时、显存分配/保留/峰值和设备剩余量。
   QCU 没有 native GFLOPS 时记录明确标注的 Clover-Wilson 算子估算；QUDA
   优先记录 `QudaInvertParam.gflops`。
