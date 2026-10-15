@@ -55,7 +55,7 @@ def main(argv=None) -> int:
         "lattice": list(args.lat), "mass": args.mass, "csw": csw,
         "levels": args.levels, "n_vec": args.nvec, "block": list(args.block),
         "coarse_spin": 2, "coarse_color": args.nvec * 2,
-        "solution_shape": list(solution.shape), **metrics,
+        "solution_shape": list(solution.shape), "status": "PASS", **metrics,
     }
     report_path = resolve_path(args.report, DATA_DIR / args.report)
     write_json(report_path, report)

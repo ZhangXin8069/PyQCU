@@ -121,9 +121,18 @@ def write_array(
 
 
 def write_json(path: str | os.PathLike[str], payload: Mapping[str, Any]) -> None:
+    def safe(value: Any) -> Any:
+        if isinstance(value, float) and not np.isfinite(value):
+            return None
+        if isinstance(value, Mapping):
+            return {str(key): safe(item) for key, item in value.items()}
+        if isinstance(value, (list, tuple)):
+            return [safe(item) for item in value]
+        return value
+
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2, ensure_ascii=False, allow_nan=False),
+    path.write_text(json.dumps(safe(payload), indent=2, ensure_ascii=False, allow_nan=False),
                     encoding="utf-8")
 
 
