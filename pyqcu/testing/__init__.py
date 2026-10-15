@@ -755,7 +755,8 @@ def verify_nullvecs(S, lonv, lat_fine: List[int], lat_coarse: List[int],
     """null 向量质量四重诊断。
 
     整合自 pyqcu/testing/qcu/multigrid/legacy/integrated_single_thread/main.py::verify_nullvecs 与
-    pyqcu/testing/qcu/multigrid/legacy/verify_results.py::verify_nullvecs：
+    pyqcu/testing/qcu/multigrid/legacy/verify_results.py::verify_nullvecs
+    （legacy 套件已于 2026-10-15 删除，本函数为其规范位置）：
     粗算子构建（tools.build_stencil*/give_null_vecs*）后的标准验收工具。
 
     Args:

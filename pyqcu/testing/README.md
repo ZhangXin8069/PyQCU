@@ -37,14 +37,14 @@ pytest 中会自动忽略 pytest 自身的命令行参数。
 
 | 当前路径 | 内容 |
 |---|---|
-| `qcu/multigrid/legacy/` | 早期 MultiGrid 记录与诊断 |
-| `qcu/multigrid/scaling/` | 大格点资源与扩展性研究 |
-| `qcu/multigrid/benchmarks/volume32/` | 单卡 32^4 基准 |
-| `qcu/multigrid/benchmarks/multi_gpu/` | 多 GPU 基准 |
-| `qcu/multigrid/benchmarks/volume1632/` | 16x32x32x48 基准 |
-| `qcu/multigrid/benchmarks/large_volume/` | 大体积加速比研究 |
-| `qcu/multigrid/volume24/` | 24^3x72 基准快照 |
+| `qcu/multigrid/volume24/final/` | 24³×72 规范基准套件（图表/LaTeX 表/日志生成） |
+| `qcu/multigrid/benchmarks/large_volume/` | 16×32×32×48 大体积加速比研究（dev84，报告 `report.md`） |
+| `qcu/multigrid/benchmarks/multi_gpu/` | 多线程多卡基准 |
 | `qcu/strict/quda_comparison/` | Strict MultiGrid 与 QUDA/PyQUDA 对照 |
+
+dev73（`multigrid/legacy/`）、dev74（`multigrid/scaling/`）与 `benchmarks/{volume32,volume1632}`
+等已被现行实现取代的套件已于 2026-10-15 删除，其可复用算法全部收入库内
+（映射表见 `pyqcu/testing/qcu/AGENTS.md`；代码可由 git 历史恢复）。
 
 上述目录保留历史入口和数据 provenance，但新代码和新文档必须使用职责命名。
 测试产生的日志、缓存和数据由 `pyqcu/testing/.gitignore` 排除；新增或接口变更后
