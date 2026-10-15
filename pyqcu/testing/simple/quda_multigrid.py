@@ -23,8 +23,8 @@ if str(Path(__file__).resolve().parents[3]) not in sys.path:
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--lat", nargs=4, type=int, default=(8, 8, 8, 16))
-    parser.add_argument("--mass", type=float, default=DEFAULT_MASS)
+    parser.add_argument("--lat", nargs=4, type=int, default=(8, 8, 16, 16))
+    parser.add_argument("--mass", type=float, default=None)
     parser.add_argument("--tol", type=float, default=DEFAULT_ATOL)
     parser.add_argument("--max-iter", type=int, default=1000)
     parser.add_argument("--csw", type=float, default=None)
@@ -46,15 +46,18 @@ def main(argv=None) -> int:
     # PyQUDA appends the terminal level itself: pass one block per transition.
     transitions = [list(args.block) for _ in range(args.levels - 1)]
     solution, csw, _, metrics = solve_case(args, multigrid=transitions, nvec=args.nvec)
+    nvec_applied = bool(metrics.get("nvec_applied", True))
 
     # n_vec and other QudaMultigridParam array getters return copies; the
     # worker above receives the geometry, while this snapshot records the
     # requested QUDA-side parameter convention.
     report = {
         "backend": "quda", "function": "getClover+invert",
-        "lattice": list(args.lat), "mass": args.mass, "csw": csw,
-        "levels": args.levels, "n_vec": args.nvec, "block": list(args.block),
-        "coarse_spin": 2, "coarse_color": args.nvec * 2,
+        "lattice": list(args.lat), "csw": csw,
+        "levels": args.levels, "n_vec": args.nvec if nvec_applied else None,
+        "n_vec_requested": args.nvec, "block": list(args.block),
+        "coarse_spin": 2,
+        "coarse_color": args.nvec * 2 if nvec_applied else None,
         "solution_shape": list(solution.shape), "status": "PASS", **metrics,
     }
     report_path = resolve_path(args.report, DATA_DIR / args.report)
