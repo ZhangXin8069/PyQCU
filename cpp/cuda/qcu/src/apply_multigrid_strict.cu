@@ -2192,7 +2192,6 @@ __global__ void strict_gauge_block_to_global_kernel(
   const int origin_z = block_z * local_Z;
   const int origin_t = block_t * local_T;
   const int parity = component / 36;
-  int x, y, z, t;
   if (data_type == _LAT_C64_) {
     float *global = static_cast<float *>(global_ptr);
     const float *blocks = static_cast<const float *>(blocks_ptr);
