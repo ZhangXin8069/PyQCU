@@ -19,7 +19,10 @@ QUDA 的 fermion 奇偶轴沿 `x` 压缩，`q=(x+y+z+t)%2`；QCU 的 parity 张�
 时间轴压缩。两者必须走本目录的转换函数，不能直接 `reshape`。QCU 的
 `argv[_MASS_]` 用于计算 `kappa=1/(2*m+8)`，QUDA/PyQUDA 接口接收 `mass`；
 QUDA 的 clover 还要显式传 `csw`，QCU 的 `applyCloversQcu` 固定使用其内置
-约定。上表 `.lime` 文件中的 `csw=1.160920226` 应先提取并在 QUDA 侧设置。
+约定。示例默认 `mass=0.05, csw=1.0`；上表 `.lime` 文件中的参考
+`mass=-0.277, csw=1.160920226` 会被 QUDA 侧自动读取，但 QCU 不能匹配该
+`csw`，因此 QCU 读取该 `.lime` 时只做 gauge 示例并把 `comparison_valid`
+标为 `False`，不会把结果伪装成 Chroma 配置等价解。
 
 ## 常用命令
 
@@ -28,7 +31,7 @@ python quda_gauge2qcu_gauge.py --dry-run
 python quda_gauge2qcu_gauge.py --output qcu_gauge_24x24x24x64_c64.h5
 python qcu_gauge2quda_gauge.py --input qcu_gauge_24x24x24x64_c64.h5
 python check_gauge.py --input qcu_gauge_24x24x24x64_c64.h5
-python give_gauss_gauge.py --backend torch --lat 8 8 8 16
+python give_gauss_gauge.py --backend torch --lat 8 8 16 16
 ```
 
 `qcu_gauge2quda_gauge.py` 可直接写单文件 SciDAC/QIO `.lime`（带真实 CRC
@@ -40,6 +43,12 @@ checksum）；它不实现 MPI part-file，也不替代带 QIO 的 QUDA 生产�
 求解脚本在缺少 CUDA、`libqcu.so` 或 `pyquda` 时会明确输出 `SKIP`，不会把
 纯 Python 参考伪装成后端求解。`qcu_*` 与 `quda_*` 也应在不同进程中运行，
 避免同时加载 `libqcu.so` 与 `libquda.so`。
+
+QUDA 入口自动兼容 `pyquda_utils` 和当前机器上的旧 `PyQuda-0.3.2`
+（`pyquda.core` + `cupy`）两套原生 API。旧 API 的 BiStabCG 使用
+`QudaInvertParam.iter/secs/gflops/true_res`；Multigrid 默认 `n_vec=24`
+并把请求值整列写回 `QudaMultigridParam`。旧 API 不提供可捕获的逐迭代
+日志接口时，`residual_history` 保持为空并注明来源。
 
 ## 性能记录
 
@@ -55,3 +64,5 @@ checksum）；它不实现 MPI part-file，也不替代带 QIO 的 QUDA 生产�
 - 两者都记录 CUDA event 墙钟、每迭代耗时、显存分配/保留/峰值和设备剩余量。
   QCU 没有 native GFLOPS 时记录明确标注的 Clover-Wilson 算子估算；QUDA
   优先记录 `QudaInvertParam.gflops`。
+- 非有限残差或达到 `max_iter` 仍未收敛时报告 `FAIL` 并返回非零退出码；
+  csw 或配置不可比时报告 `WARN` 和 `comparison_valid=false`。

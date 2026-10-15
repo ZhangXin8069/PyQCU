@@ -44,7 +44,7 @@ def _qcu_generate(lat, seed: int, sigma: float, device: str, mass: float):
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--lat", nargs=4, type=int, default=(8, 8, 8, 16))
+    parser.add_argument("--lat", nargs=4, type=int, default=(8, 8, 16, 16))
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--sigma", type=float, default=0.1)
     parser.add_argument("--mass", type=float, default=0.05)

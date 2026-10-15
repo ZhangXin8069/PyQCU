@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import re
 import sys
@@ -13,12 +14,12 @@ from pathlib import Path
 try:
     from ._common import (DATA_DIR, DEFAULT_ATOL, DEFAULT_MASS,
                           cuda_memory_snapshot, estimated_clover_gflops,
-                          resolve_path, write_h5, write_json)
+                          lime_metadata, resolve_path, write_h5, write_json)
     from .qcu_bistabcg import prepare_case, qcu_available, true_residual
 except ImportError:
     from _common import (DATA_DIR, DEFAULT_ATOL, DEFAULT_MASS,
                          cuda_memory_snapshot, estimated_clover_gflops,
-                         resolve_path, write_h5, write_json)
+                         lime_metadata, resolve_path, write_h5, write_json)
     from qcu_bistabcg import prepare_case, qcu_available, true_residual
 
 if str(Path(__file__).resolve().parents[3]) not in sys.path:
@@ -87,8 +88,8 @@ def parse_native_mg_log(
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--lat", nargs=4, type=int, default=(8, 8, 8, 16))
-    parser.add_argument("--mass", type=float, default=DEFAULT_MASS)
+    parser.add_argument("--lat", nargs=4, type=int, default=(8, 8, 16, 16))
+    parser.add_argument("--mass", type=float, default=None)
     parser.add_argument("--atol", type=float, default=DEFAULT_ATOL)
     parser.add_argument("--max-iter", type=int, default=1000)
     parser.add_argument("--levels", type=int, default=2)
@@ -112,6 +113,28 @@ def main(argv=None) -> int:
     levels = int(args.levels)
     if levels < 1 or len(args.dof) < levels:
         parser.error("--dof must contain one value per requested level")
+    mass = float(args.mass) if args.mass is not None else DEFAULT_MASS
+    mass_source = "cli" if args.mass is not None else "safe-default"
+    gauge_csw = None
+    reference_mass = None
+    comparison_valid = True
+    warnings = []
+    if mass < 0.0 and args.gauge is None:
+        comparison_valid = False
+        warnings.append(
+            "negative mass with the generated csw=1 gauge is not a supported "
+            "QCU reference case; use mass >= 0 or a matching backend configuration")
+    if args.gauge is not None:
+        gauge_path = resolve_path(args.gauge, resolve_path(None, args.gauge))
+        if gauge_path.suffix == ".lime":
+            meta = lime_metadata(gauge_path)
+            gauge_csw = meta.get("csw")
+            reference_mass = meta.get("reference_mass")
+            if gauge_csw is not None and abs(float(gauge_csw) - 1.0) > 1e-12:
+                comparison_valid = False
+                warnings.append(
+                    f"QCU uses csw=1 but input .lime requests csw={gauge_csw}; "
+                    "the solve is gauge-only, not a Chroma-config equivalent")
 
     log_dir = DATA_DIR / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
@@ -120,7 +143,7 @@ def main(argv=None) -> int:
     log_offset = log_path.stat().st_size if log_path.exists() else 0
 
     ctx, fields, operator, tools, kappa_value = prepare_case(
-        tuple(args.lat), args.mass, args.atol, args.max_iter, args.device,
+        tuple(args.lat), mass, args.atol, args.max_iter, args.device,
         args.gauge, args.source)
     import torch
     from pyqcu import dslash
@@ -183,13 +206,16 @@ def main(argv=None) -> int:
     if args.output:
         output = resolve_path(args.output, resolve_path(None, args.output))
         write_h5(output, tools.poooxyzt2oooxyzt(out).detach().cpu().numpy(),
-                 metadata={"solver": "applyCloverMultigridQcu", "mass": args.mass,
+                 metadata={"solver": "applyCloverMultigridQcu", "mass": mass,
                            "atol": args.atol, "levels": levels,
                            "dof": list(args.dof[:levels]),
                            "mg_grid": list(args.mg_grid)})
     report = {
         "backend": "qcu", "solver": "applyCloverMultigridQcu",
-        "lattice": list(args.lat), "mass": args.mass, "kappa": kappa_value,
+        "lattice": list(args.lat), "mass": mass, "mass_source": mass_source,
+        "kappa": kappa_value, "gauge_csw": gauge_csw,
+        "reference_mass": reference_mass, "comparison_valid": comparison_valid,
+        "warnings": warnings,
         "levels": levels, "dof": list(args.dof[:levels]),
         "mg_grid": list(args.mg_grid), "iterations": iterations,
         "wall_seconds": wall_seconds,
@@ -203,12 +229,16 @@ def main(argv=None) -> int:
         "gflops": estimated_clover_gflops(tuple(args.lat), iterations, wall_seconds),
         "gflops_estimate_note": "lower bound; coarse-grid applications are excluded",
         "memory": memory,
-        "status": "PASS" if residual < 1e-2 else "WARN",
+        "converged": bool(math.isfinite(residual) and iterations < args.max_iter),
+        "status": ("PASS" if math.isfinite(residual) and residual < 1e-2
+                   and iterations < args.max_iter and comparison_valid
+                   else "FAIL" if not math.isfinite(residual) or iterations >= args.max_iter
+                   else "WARN"),
     }
     report_path = resolve_path(args.report, DATA_DIR / args.report)
     write_json(report_path, report)
     print(json.dumps(report, ensure_ascii=False))
-    return 0
+    return 0 if report["status"] != "FAIL" else 1
 
 
 if __name__ == "__main__":
