@@ -35,8 +35,9 @@ description: cpp/ 四个后端容器目录（cuda 真实现 + cann/dtk/maca 占�
 
 - **构建**：`source ./env.sh && bash ./make.sh`（`make.sh` 把 `CMakeLists-nv.txt`
   软链为 `CMakeLists.txt` 后 cmake+make）；仓库根 `bash ./build.sh` 是同一流程的包装。
-  默认 `CMAKE_CUDA_ARCHITECTURES=60-real;60-virtual`，生产基准用
-  `QCU_CUDA_ARCHITECTURES` 覆盖，并把架构写进 provenance。
+  `env.sh` 自动探测当前 NVIDIA GPU 的 compute capability，CMake 生成对应
+  cubin + PTX；需要复现或跨机型构建时用 `QCU_CUDA_ARCHITECTURES` 显式覆盖，
+  并把架构写进 provenance。
 - **三数组 ABI**：`params`(int32[58]) / `argv`(real[7]，c64 为 float32、c128 为
   float64) / `set_ptrs`(int64[100])；`_SET_PLAN_`(params[16]) 选内核路径。
 - **`_SET_INDEX_` 生命周期**：普通 `applyInitQcu`/`applyEndQcu` 序列每次调用递增；
