@@ -4,21 +4,57 @@ set(CMAKE_CXX_STANDARD 11)
 option(QCU_ENABLE_NVSHMEM "Enable the optional NVSHMEM coarse-grid transport" OFF)
 message(STATUS "PATH is: $ENV{PATH}")
 message(STATUS "LD_LIBRARY_PATH is: $ENV{LD_LIBRARY_PATH}")
-# Architecture precedence: explicit QCU_CUDA_ARCHITECTURES, then the
-# sm_arch detected by env.sh, then the historical sm60 compatibility image.
-# make.sh sources env.sh before invoking CMake, so normal builds automatically
-# target the installed GPU instead of being locked to sm60.
-set(QCU_CUDA_ARCHITECTURES "$ENV{QCU_CUDA_ARCHITECTURES}")
-if(QCU_CUDA_ARCHITECTURES STREQUAL "")
-  if(DEFINED ENV{sm_arch} AND NOT "$ENV{sm_arch}" STREQUAL "")
-    set(QCU_CUDA_ARCHITECTURES "$ENV{sm_arch}")
-    message(STATUS "QCU CUDA architecture auto-detected from env.sh: sm_${QCU_CUDA_ARCHITECTURES}")
-  else()
-    set(QCU_CUDA_ARCHITECTURES "60-real;60-virtual")
-    message(STATUS "QCU CUDA architecture fallback: ${QCU_CUDA_ARCHITECTURES}")
+# Architecture precedence: explicit CMake/environment override, env.sh's
+# detected sm_arch, then the compute capability of the active GPU.  Auto
+# detected values are emitted as cubin + PTX so they remain portable across a
+# minor driver/toolkit mismatch; an explicit override is passed through
+# unchanged.
+set(_QCU_AUTO_CUDA_ARCHITECTURES "")
+if(DEFINED QCU_CUDA_ARCHITECTURES AND NOT "${QCU_CUDA_ARCHITECTURES}" STREQUAL "")
+  set(_QCU_CUDA_ARCHITECTURES "${QCU_CUDA_ARCHITECTURES}")
+elseif(DEFINED CMAKE_CUDA_ARCHITECTURES AND NOT "${CMAKE_CUDA_ARCHITECTURES}" STREQUAL "")
+  set(_QCU_CUDA_ARCHITECTURES "${CMAKE_CUDA_ARCHITECTURES}")
+elseif(DEFINED ENV{QCU_CUDA_ARCHITECTURES} AND NOT "$ENV{QCU_CUDA_ARCHITECTURES}" STREQUAL "")
+  set(_QCU_CUDA_ARCHITECTURES "$ENV{QCU_CUDA_ARCHITECTURES}")
+elseif(DEFINED ENV{sm_arch} AND NOT "$ENV{sm_arch}" STREQUAL "")
+  set(_QCU_AUTO_CUDA_ARCHITECTURES "$ENV{sm_arch}")
+  message(STATUS "QCU CUDA architecture auto-detected from env.sh: sm_${_QCU_AUTO_CUDA_ARCHITECTURES}")
+else()
+  find_program(_QCU_NVIDIA_SMI NAMES nvidia-smi)
+  if(_QCU_NVIDIA_SMI)
+    execute_process(
+      COMMAND "${_QCU_NVIDIA_SMI}" --query-gpu=compute_cap --format=csv,noheader
+      RESULT_VARIABLE _QCU_NVIDIA_SMI_RESULT
+      OUTPUT_VARIABLE _QCU_NVIDIA_SMI_OUTPUT
+      ERROR_QUIET
+      OUTPUT_STRIP_TRAILING_WHITESPACE)
+    if(_QCU_NVIDIA_SMI_RESULT EQUAL 0 AND NOT "${_QCU_NVIDIA_SMI_OUTPUT}" STREQUAL "")
+      string(REPLACE "\n" ";" _QCU_GPU_CAPS "${_QCU_NVIDIA_SMI_OUTPUT}")
+      list(GET _QCU_GPU_CAPS 0 _QCU_GPU_CAP)
+      string(STRIP "${_QCU_GPU_CAP}" _QCU_GPU_CAP)
+      string(REGEX MATCH "^([0-9]+)\\.([0-9]+)$" _QCU_GPU_CAP_MATCH "${_QCU_GPU_CAP}")
+      if(_QCU_GPU_CAP_MATCH)
+        set(_QCU_AUTO_CUDA_ARCHITECTURES "${CMAKE_MATCH_1}${CMAKE_MATCH_2}")
+        message(STATUS "QCU CUDA architecture auto-detected from nvidia-smi: sm_${_QCU_AUTO_CUDA_ARCHITECTURES}")
+      endif()
+    endif()
   endif()
 endif()
-set(CMAKE_CUDA_ARCHITECTURES "${QCU_CUDA_ARCHITECTURES}")
+
+if(_QCU_AUTO_CUDA_ARCHITECTURES)
+  set(_QCU_CUDA_ARCHITECTURES
+      "${_QCU_AUTO_CUDA_ARCHITECTURES}-real;${_QCU_AUTO_CUDA_ARCHITECTURES}-virtual")
+endif()
+
+if(NOT DEFINED _QCU_CUDA_ARCHITECTURES OR "${_QCU_CUDA_ARCHITECTURES}" STREQUAL "")
+  message(FATAL_ERROR
+    "Unable to determine CUDA architecture. Set QCU_CUDA_ARCHITECTURES "
+    "(for example 70-real;70-virtual), pass -DCMAKE_CUDA_ARCHITECTURES, "
+    "or source env.sh on a machine with nvidia-smi.")
+endif()
+
+set(QCU_CUDA_ARCHITECTURES "${_QCU_CUDA_ARCHITECTURES}")
+set(CMAKE_CUDA_ARCHITECTURES "${_QCU_CUDA_ARCHITECTURES}")
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -O3")
 message(STATUS "QCU CUDA architectures: ${QCU_CUDA_ARCHITECTURES}")
 set(MPI_INCLUDE_PATH $ENV{mpi_home}/include)
