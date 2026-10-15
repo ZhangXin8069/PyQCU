@@ -47,7 +47,7 @@ setup(
     cmdclass={'build_ext': CMakeBuild},
     # BUGFIX 2026-07-28 R3: PyTorch 2.x requires Python >= 3.8.
     python_requires=">=3.8",
-    install_requires=["mpi4py", "cython", "h5py", "torch"],
+    install_requires=["mpi4py", "cython", "h5py", "torch", "psutil", "scipy", "matplotlib", "opt_einsum"],
     url="https://github.com/zhangxin8069/PyQCU",
     keywords=['c++', 'cuda', 'python',
               'quantum chromodynamics(QCD)', 'lattice QCD', 'high performance computing', 'made in China'],
