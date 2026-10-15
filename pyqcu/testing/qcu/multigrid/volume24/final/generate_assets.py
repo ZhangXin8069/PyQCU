@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """volume24_final —— 补充 dev73/dev74 同类型图表与日志生成器。
 
-输入: pyqcu/testing/qcu/multigrid/volume24/baseline/bench_24x24x24x72.h5 (gate=1.0, 18 configs) + gauge
+输入: 本目录 volume24_final_bench_24x24x24x72.h5 (gate=1.0, 18 configs, 由 main.py bench 生成) + gauge
 输出: logs/volume24_final/*.png, *.tex, *.txt, *.json
       覆盖 dev73/dev74 全部图表类型：conv/hotspot/speedup/time/sweep/budget/vram + tbl_*/verify/bench logs
 """
@@ -14,14 +14,11 @@ sys.path.insert(0, REPO)
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import matplotlib.font_manager as fm
 
-# 字体
-for _f in ["/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf","/usr/share/fonts/truetype/arphic/uming.ttc"]:
-    try: fm.fontManager.addfont(_f)
-    except: pass
-plt.rcParams["font.family"] = ["DejaVu Sans","Droid Sans Fallback","AR PL UMing CN","Noto Sans CJK SC"]
-plt.rcParams["axes.unicode_minus"] = False
+from pyqcu import tools
+
+# CJK 字体注册与 rcParams 由库统一提供（原内联注册块 2026-10-15 收敛到 pyqcu/tools/_bench_plots.py）
+tools.mpl_cjk_setup()
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE,'..','..','..','..','..','..'))
@@ -31,19 +28,12 @@ MULTI = os.path.join(HERE, f"{BENCHMARK_ID}_multi_24x24x24x72.h5")
 LOG_DIR = os.path.join(REPO, "logs", BENCHMARK_ID)
 os.makedirs(LOG_DIR, exist_ok=True)
 
-# Palette from legacy_plots.py (validated light mode)
-C = {"blue":"#2a78d6","green":"#008300","magenta":"#e87ba4","yellow":"#eda100","aqua":"#1baf7a","orange":"#eb6834","violet":"#4a3aa7","red":"#e34948"}
-INK="#0b0b0b"; INK2="#52514e"; MUTED="#898781"; GRID="#e1e0d9"; SURF="#fcfcfb"
-SEQ_BLUE = ["#cde2fb","#b7d3f6","#9ec5f4","#86b6ef","#6da7ec","#5598e7","#3987e5","#2a78d6","#256abf","#1c5cab","#184f95","#104281"]
-
-def _style(ax):
-    ax.set_facecolor(SURF)
-    for s in ax.spines.values():
-        s.set_color(MUTED); s.set_linewidth(0.8)
-    ax.tick_params(colors=INK2, labelsize=9)
-    ax.grid(True, axis="y", color=GRID, linewidth=0.6, alpha=0.9)
-    ax.grid(False, axis="x")
-    ax.tick_params(grid_color=GRID)
+# 调色板与坐标轴样式统一来自 pyqcu/tools/_bench_plots.py（原内联副本 2026-10-15 收敛）
+C = tools.BENCH_PALETTE
+SEQ_BLUE = tools.BENCH_SEQ_BLUE
+INK, INK2, MUTED = tools.BENCH_INK, tools.BENCH_INK2, tools.BENCH_MUTED
+GRID, SURF = tools.BENCH_GRID, tools.BENCH_SURF
+_style = tools.style_axes
 
 def load_bench():
     f=h5py.File(BENCH,'r')
