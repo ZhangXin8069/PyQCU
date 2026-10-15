@@ -53,7 +53,7 @@ if ! printf '%s\n' "${sm_arch:-}" | grep -Eq '^[0-9]+$'; then
         # Fermi (legacy)
         *"GeForce GTX 460"*|*"GeForce GTX 550 Ti"*|*"GeForce GTX 560"*|*"GeForce GTS 450"*|*"GeForce GT 430"*|*"GeForce GT 440"*|*"GeForce GT 520"*|*"GeForce GT 530"*|*"GeForce GT 540M"*|*"GeForce GT 550M"*|*"GeForce GT 555M"*|*"GeForce GT 630M"*|*"GeForce GT 635M"*|*"Quadro 600"*|*"Quadro 700"*|*"Quadro 2000"*) export sm_arch="21" ;;
         *"Tesla M20"*|*"Tesla C20"*|*"Tesla S2050"*|*"GeForce GTX 470"*|*"GeForce GTX 480"*|*"GeForce GTX 570"*|*"GeForce GTX 580"*|*"GeForce GTX 590"*|*"Quadro 4000"*|*"Quadro 5000"*|*"Quadro 6000"*|*"Quadro 7000"*) export sm_arch="20" ;;
-        *"GeForce GTX 4"*|*"GeForce GTX 5"*|*"GeForce 8"*|*"GeForce 9"*|*"GeForce 3"*") export sm_arch="20" ;;
+        *"GeForce GTX 4"*|*"GeForce GTX 5"*|*"GeForce 8"*|*"GeForce 9"*|*"GeForce 3"*) export sm_arch="20" ;;
 
         # Pre-Fermi (kept for recognition; old toolkits only)
         *"Tesla C1060"*|*"Tesla S1070"*|*"GTX 200"*|*"GTX 300"*|*"GT 2"*|*"Quadro FX 4800"*|*"Quadro FX 5800"*) export sm_arch="13" ;;
