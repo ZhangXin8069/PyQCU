@@ -208,7 +208,8 @@ sha256sum report.md report.tex report.pdf
 
 1. 交付 Markdown、TeX、PDF 和确定性构建脚本四个实体。
 2. 在 Markdown 的“同源交付物”表写明四者职责和统一重建命令。
-3. 将可复用经验写入项目 `skills/` 与 `/root/configure/skills/`，两份技能内容
+3. 将可复用经验写入项目 `skills/` 与
+   `${CONFIGURE_ROOT:-$HOME/configure}/skills/`，两份技能内容
    保持一致。
 4. 更新两套 `skills/AGENTS.md` 的技能表、计数和必要的互鉴表。
 5. 最终执行 Markdown 链接检查、公式分隔符检查、TeX 编译、全页渲染、SHA256
@@ -219,7 +220,7 @@ sha256sum report.md report.tex report.pdf
 当前实现位于：
 
 ```text
-/root/PyQCU/docs/High-Performance_Implementation_MG_assets/build_full_documentation.py
+docs/High-Performance_Implementation_MG_assets/build_full_documentation.py
 ```
 
 它完成：
@@ -234,7 +235,7 @@ sha256sum report.md report.tex report.pdf
 统一重建命令：
 
 ```bash
-cd /root/PyQCU/docs
+cd docs
 python High-Performance_Implementation_MG_assets/build_full_documentation.py
 ```
 
