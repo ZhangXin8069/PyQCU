@@ -26,7 +26,8 @@ PyQCU 项目专用技能库：每个技能一个子目录，内含 `SKILL.md`（
 
 frontmatter：name 与目录名一致 + description 写触发场景（何时使用）；正文为目录技能文档
 （Files / Exported API / Key Anti-Patterns / Lessons）。项目知识条目须带实测数字与
-出处路径（logs/<tag>/...），不写未验证内容。
+可复现出处；tag 报告用 `git show <tag>:<path>` 引用，不写工作区 `logs/<tag>/...`
+持久路径，不写未验证内容。
 
 ## 技能表（32/32）
 
