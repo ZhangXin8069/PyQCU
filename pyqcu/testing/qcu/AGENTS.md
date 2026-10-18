@@ -76,7 +76,8 @@ mpirun -np 1 python pyqcu/testing/qcu/conftest.clover.multigrid.py
 
 ## MultiGrid 历史套件
 
-按里程碑归档于子目录，产物统一落到 `logs/<tag>/` 对应子目录。2026-10-15 整理：
+按里程碑先提交报告和产物并打 tag，随后在后续清理提交中删除工作区副本；历史读取使用
+`git show <tag>:<path>`，不保留 `logs/<tag>/` 报告目录。2026-10-15 整理：
 `multigrid/legacy/`（dev73）与 `multigrid/scaling/`（dev74）两代套件已整体删除
 （代码可由 git 历史恢复），其可复用算法已全部收入库内；现存套件为
 `volume24/final/`（24³×72 规范套件）与 `benchmarks/{large_volume,multi_gpu}`。

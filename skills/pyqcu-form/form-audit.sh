@@ -66,12 +66,6 @@ while IFS=$'\t' read -r severity rule path message; do
         WARNING:TEST_LOCATION:skills/pyqcu-tag/tag-chain.test.sh)
             allowed=$((allowed + 1))
             ;;
-        WARNING:TAG_NAME_IN_PATH:logs/stab*|\
-        WARNING:TAG_NAME_IN_PATH:logs/dev*|\
-        WARNING:TAG_NAME_IN_PATH:logs/bug*|\
-        WARNING:TAG_NAME_IN_PATH:logs/test*)
-            allowed=$((allowed + 1))
-            ;;
         *)
             if [[ "${severity}:${rule}:${path}" == WARNING:LOG_EXTENSION:logs/* ]]; then
                 case "${path##*.}" in

@@ -22,9 +22,9 @@ C++ CUDA 后端（`cpp/cuda/qcu`）的本地运行产物目录。**该目录连�
 该文件不构成可复现记录；`AGENTS.md` 随目录一并失去意义。二者均无引用方（删除前全库
 grep 无其他引用）。用户于 2026-10-15 明确确认删除。
 
-**不要把它当作「后端证据已丢失」**：同日的失败与修复过程记录在仓库根
-`logs/fix-report-2026-08-24.md` 与 `logs/dev73/review-2026-07-28*.md` 体系里，本目录
-两个文件不是其中的一环。
+**不要把它当作「后端证据已丢失」**：同日的失败与修复过程记录可分别用
+`git show <tag>:logs/fix-report-2026-08-24.md` 与
+`git show dev73:logs/dev73/review-2026-07-28*.md` 读取，本目录两个文件不是其中的一环。
 
 ## 现行约定（后端运行产物的落点）
 
@@ -33,7 +33,8 @@ grep 无其他引用）。用户于 2026-10-15 明确确认删除。
 - C++ 后端测试输出走现役入口 `pyqcu/testing/qcu/`（各 `conftest.*.py` 与
   `single_qcu_*.py`），收敛日志的规范路径是仓库根 `logs/clover_multigrid.log`
   （解析函数 `pyqcu/cuda/_logs.py::parse_mg_log` / `parse_convergence_histories`）。
-- 报告、运行摘要与 tag 记录一律在仓库根 `logs/**`（按分类约定，见
+- 当前任务报告与运行摘要暂存在仓库根 `logs/**`。先提交报告并打 tag，再在后续清理
+  提交中删除工作区副本；历史读取使用 `git show <tag>:<path>`（见
   `docs/ORGANIZATION.md` 与根 `AGENTS.md` 的「文档/日志/数据」条）。
 - 若将来确有需要落在 `cpp/cuda/qcu/` 下的产物，**先确认是否要入版本库**，并在
   根 `AGENTS.md` 与该目录的 `AGENTS.md` 中登记；这里曾是 ABI/构建证据的落点，
