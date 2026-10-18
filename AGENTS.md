@@ -48,7 +48,7 @@ PyQCU：Lattice QCD 的 Python/Cython 库 —— CUDA 加速的 Wilson/Clover Di
 | `cpp/cuda/qcu/` | C++ CUDA 后端：`src/`（32 个 .cu 内核）、`include/`（24 个模板头）、`python/pyqcu.h`（C API 37 个入口，须与 `qcu_api.pxd` 同步） |
 | `cpp/{cann,dtk,maca}/qcu/` | 占位 PASS，无实现 |
 | `pyqcu/testing/` | 统一测试入口：`pyqcu/`（纯 Python 主套件）、`qcu/`（C++ 后端：`multigrid/benchmarks/large_volume/` 现役攻坚套件、`multigrid/volume24/`、`strict/quda_comparison/` 严格 MG 与 QUDA 对照、`single_qcu_*.py` 单功能回归）、`quda/`（QUDA 对照）、`pyquda/`（PyQUDA 对照）、`cpu/npu/dcu/gpu/tilelang/profiler/benchmark/`、`regression/session-2026-08-24/`、`data/`（参考 HDF5） |
-| `skills/` | 项目技能库（35 个技能目录：SKILL.md + 简短 AGENTS.md，目录级领域知识文档；目录名一律 `pyqcu-` 前缀；索引与技能表见 `skills/AGENTS.md`；2026-08-25 自 `.opencode/skills` 迁出，源目录已删除，需 opencode 加载时从本库同步） |
+| `skills/` | 项目技能库（32 个技能目录：SKILL.md + 简短 AGENTS.md，目录级领域知识文档；目录名一律 `pyqcu-` 前缀；索引与技能表见 `skills/AGENTS.md`；2026-08-25 自 `.opencode/skills` 迁出，源目录已删除，需 opencode 加载时从本库同步） |
 | `docs/` | 正式独立文档与指南（`.pdf`/`.tex`/`.md`）：`dims.md`、`env.md`、`install.md`、`examples.md`、`profiler.md`、`ORGANIZATION.md`；从 `data/**` 提升的文档位于 `docs/data/` |
 | `refer/` | 开发历史报告（dev71.*） |
 | `logs/` | 运行记录（JSON/LOG/TSV/TXT）和按 tag 组织的日志包：`dev<N>/`、`stab<N>/`、`bug<N>/` 等；`logs/data/` 汇总从 `data/**` 提升出的运行摘要；报告实体在 `logs/`，张量/cache 实体在 `data/logs/`。历史重复代码与一次性构建垃圾直接删除 |

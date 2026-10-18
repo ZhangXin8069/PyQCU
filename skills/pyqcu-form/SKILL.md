@@ -13,8 +13,8 @@ metadata:
 ## 执行前置
 
 遵循根 `AGENTS.md` 的“form 格式约定”和 `docs/ORGANIZATION.md`。通用命名矩阵读取
-`/root/configure/skills/form/references/naming-and-layout.md`；本库的目录白名单、
-已知例外、验证入口和交付边界以根规则为准。
+`${CONFIGURE_ROOT:-$HOME/configure}/skills/form/references/naming-and-layout.md`；
+本库的目录白名单、已知例外、验证入口和交付边界以根规则为准。
 
 PyQCU 是复杂库，主导语言为 C++/CUDA、Python/Cython 和 Bash。先只读审计，再按依赖顺序
 分批整改；不得把历史报告、正式证据、自包含构建树或上游 vendored 内容机械迁出。

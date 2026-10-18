@@ -25,6 +25,7 @@ PyQCU 参考文档。
 | `plans/2026-10-02-multigrid-quda-comparison-report.md` | 20261002 报告的审计、派生图表、编译和全页验证计划 |
 | `ORGANIZATION.md` | `docs/`、`data/`、`logs/`、`pyqcu/testing/` 的统一分类规则、垃圾清理与构建树例外 |
 | `form-audit-20260928.md` | 2026-09-28 全库 form 审计：冲突表、本地例外、验证证据和恢复方法 |
+| `form-audit-20261019.md` | 2026-10-19 form 复审：技能索引同步、审计器可移植性、日志报告归位与验证证据 |
 
 ## 目录分类
 

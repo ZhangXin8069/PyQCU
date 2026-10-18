@@ -8,9 +8,19 @@ repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || {
     exit 2
 }
 
-global_audit=${FORM_AUDIT_BIN:-/root/configure/skills/form/scripts/form-audit.sh}
+if [[ -n "${FORM_AUDIT_BIN:-}" ]]; then
+    global_audit=$FORM_AUDIT_BIN
+else
+    configure_root=${CONFIGURE_ROOT:-${HOME:-}/configure}
+    global_audit=$configure_root/skills/form/scripts/form-audit.sh
+    if [[ ! -x "$global_audit" && -x /root/configure/skills/form/scripts/form-audit.sh ]]; then
+        global_audit=/root/configure/skills/form/scripts/form-audit.sh
+    fi
+fi
+
 if [[ ! -x "$global_audit" ]]; then
     printf 'form-audit: 通用审计器不可执行: %s\n' "$global_audit" >&2
+    printf 'form-audit: 请设置 FORM_AUDIT_BIN，或设置 CONFIGURE_ROOT 指向 configure 仓库根目录。\n' >&2
     exit 2
 fi
 
@@ -56,6 +66,12 @@ while IFS=$'\t' read -r severity rule path message; do
         WARNING:TEST_LOCATION:skills/pyqcu-tag/tag-chain.test.sh)
             allowed=$((allowed + 1))
             ;;
+        WARNING:TAG_NAME_IN_PATH:logs/stab*|\
+        WARNING:TAG_NAME_IN_PATH:logs/dev*|\
+        WARNING:TAG_NAME_IN_PATH:logs/bug*|\
+        WARNING:TAG_NAME_IN_PATH:logs/test*)
+            allowed=$((allowed + 1))
+            ;;
         *)
             if [[ "${severity}:${rule}:${path}" == WARNING:LOG_EXTENSION:logs/* ]]; then
                 case "${path##*.}" in
@@ -75,9 +91,88 @@ while IFS=$'\t' read -r severity rule path message; do
     esac
 done <<<"$findings"
 
+skills_dir=$repo_root/skills
+skills_index=$skills_dir/AGENTS.md
+skill_count=0
+
+if [[ -d "$skills_dir" ]]; then
+    skill_count=$(find "$skills_dir" -mindepth 1 -maxdepth 1 -type d -name 'pyqcu-*' | awk 'END {print NR + 0}')
+
+    while IFS= read -r skill_dir; do
+        skill_name=${skill_dir##*/}
+        skill_file=$skill_dir/SKILL.md
+        skill_agents=$skill_dir/AGENTS.md
+
+        if [[ ! -f "$skill_file" ]]; then
+            printf 'ERROR\tSKILL_STRUCTURE\tskills/%s\t缺少 SKILL.md\n' "$skill_name"
+            residual=$((residual + 1))
+        else
+            declared_name=$(sed -n 's/^name:[[:space:]]*//p' "$skill_file" | head -n 1)
+            if [[ "$declared_name" != "$skill_name" ]]; then
+                printf 'ERROR\tSKILL_FRONTMATTER\tskills/%s/SKILL.md\tname=%s 与目录名不一致\n' \
+                    "$skill_name" "${declared_name:-<missing>}"
+                residual=$((residual + 1))
+            fi
+        fi
+
+        if [[ ! -f "$skill_agents" ]]; then
+            printf 'ERROR\tSKILL_STRUCTURE\tskills/%s\t缺少 AGENTS.md\n' "$skill_name"
+            residual=$((residual + 1))
+        fi
+    done < <(find "$skills_dir" -mindepth 1 -maxdepth 1 -type d -name 'pyqcu-*' | sort)
+else
+    printf 'ERROR\tSKILL_STRUCTURE\tskills\t缺少技能目录\n'
+    residual=$((residual + 1))
+fi
+
+if [[ -f "$skills_index" ]]; then
+    index_count=$(sed -n 's/^| `\(pyqcu-[^`]*\)`.*/\1/p' "$skills_index" | awk 'END {print NR + 0}')
+    if [[ "$index_count" -ne "$skill_count" ]]; then
+        printf 'ERROR\tSKILL_INDEX_COUNT\tskills/AGENTS.md\t索引 %d 行，实际 %d 个目录\n' \
+            "$index_count" "$skill_count"
+        residual=$((residual + 1))
+    fi
+
+    while IFS= read -r skill_name; do
+        [[ -n "$skill_name" ]] || continue
+        printf 'ERROR\tSKILL_INDEX_MISSING\tskills/AGENTS.md\t缺少目录 %s 的索引行\n' "$skill_name"
+        residual=$((residual + 1))
+    done < <(
+        comm -23 \
+            <(find "$skills_dir" -mindepth 1 -maxdepth 1 -type d -name 'pyqcu-*' -exec basename {} \; | sort) \
+            <(sed -n 's/^| `\(pyqcu-[^`]*\)`.*/\1/p' "$skills_index" | sort)
+    )
+
+    while IFS= read -r skill_name; do
+        [[ -n "$skill_name" ]] || continue
+        printf 'ERROR\tSKILL_INDEX_EXTRA\tskills/AGENTS.md\t索引项 %s 无对应目录\n' "$skill_name"
+        residual=$((residual + 1))
+    done < <(
+        comm -13 \
+            <(find "$skills_dir" -mindepth 1 -maxdepth 1 -type d -name 'pyqcu-*' -exec basename {} \; | sort) \
+            <(sed -n 's/^| `\(pyqcu-[^`]*\)`.*/\1/p' "$skills_index" | sort)
+    )
+
+    if ! grep -Fq "当前 ${skill_count}/${skill_count}" "$skills_index"; then
+        printf 'ERROR\tSKILL_INDEX_HEADER\tskills/AGENTS.md\t缺少当前 %d/%d 计数\n' \
+            "$skill_count" "$skill_count"
+        residual=$((residual + 1))
+    fi
+
+    if ! grep -Fq "## 技能表（${skill_count}/${skill_count}）" "$skills_index"; then
+        printf 'ERROR\tSKILL_INDEX_HEADER\tskills/AGENTS.md\t缺少技能表 %d/%d 标头\n' \
+            "$skill_count" "$skill_count"
+        residual=$((residual + 1))
+    fi
+else
+    printf 'ERROR\tSKILL_INDEX_MISSING\tskills/AGENTS.md\t缺少技能索引\n'
+    residual=$((residual + 1))
+fi
+
 if ((residual > 0)); then
     printf 'FAIL: form 审计仍有 %d 个未登记 finding。\n' "$residual" >&2
     exit 1
 fi
 
-printf 'PASS: form 审计通过；已按本地规则豁免 %d 个既有资产 finding。\n' "$allowed"
+printf 'PASS: form 审计通过；%d 个技能目录与索引一致，豁免 %d 个既有资产 finding。\n' \
+    "$skill_count" "$allowed"

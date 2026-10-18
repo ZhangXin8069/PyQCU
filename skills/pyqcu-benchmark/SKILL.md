@@ -80,7 +80,7 @@ On WSL2, patch only an independent QUDA source shadow with `pyqcu/testing/qcu/st
 Run and merge sides without rerunning a successful compatible record:
 
 ```bash
-python pyqcu/testing/qcu/strict/quda_comparison/bench_strict_vs_quda.py --profile formal --side pyqcu --strict-cache-dir /root/PyQCU/data/strict_runtime_cache --cache-expect hit --output pyqcu.json
+python pyqcu/testing/qcu/strict/quda_comparison/bench_strict_vs_quda.py --profile formal --side pyqcu --strict-cache-dir data/strict_runtime_cache --cache-expect hit --output pyqcu.json
 python pyqcu/testing/qcu/strict/quda_comparison/bench_strict_vs_quda.py --profile formal --side quda --quda-nullvec-prefix PREFIX --quda-nullvec-manifest MANIFEST --output quda.json
 python pyqcu/testing/qcu/strict/quda_comparison/bench_strict_vs_quda.py --merge pyqcu.json quda.json --output combined.json
 ```

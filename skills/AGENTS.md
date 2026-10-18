@@ -1,7 +1,8 @@
 # AGENTS.md — PyQCU skills 项目技能目录
 
 PyQCU 项目专用技能库：每个技能一个子目录，内含 `SKILL.md`（frontmatter + 正文）与本目录
-简短说明。与通用工作流技能库 `/root/configure/skills`（all/debug/optim/tag/up/auto 等）互补——
+简短说明。与通用工作流技能库 `${CONFIGURE_ROOT:-$HOME/configure}/skills`
+（all/debug/optim/tag/up/auto 等）互补——
 本库存放 PyQCU 代码库各目录的领域知识文档（2026-08-25 自 `.opencode/skills` 迁出并更新至
 当前仓库状态，源目录已按计划删除；如需 opencode 加载，从本库同步到 `.opencode/skills`）。
 
@@ -16,7 +17,7 @@ PyQCU 项目专用技能库：每个技能一个子目录，内含 `SKILL.md`（
 - **TODO 管理**：会话执行第一步用 todowrite 生成详细 TODO 列表，逐步实时更新，收尾核对全完成。
 - **跨技能调用**：必要时调用其他技能；2+ 独立子任务（无共享状态/无顺序依赖/互不改同文件）
   优先并行派发。
-- **技能表同步约定（硬性）**：新增/更改技能必须同步下方技能表行与计数（当前 35/35），
+- **技能表同步约定（硬性）**：新增/更改技能必须同步下方技能表行与计数（当前 32/32），
   避免表格与实际脱节。
 - **命名约定（硬性）**：自用技能目录一律 `pyqcu-` 前缀（2026-10-15 全量改名完成），
   frontmatter `name` 必须与目录名逐字符一致。
@@ -27,7 +28,7 @@ frontmatter：name 与目录名一致 + description 写触发场景（何时使�
 （Files / Exported API / Key Anti-Patterns / Lessons）。项目知识条目须带实测数字与
 出处路径（logs/<tag>/...），不写未验证内容。
 
-## 技能表（35/35）
+## 技能表（32/32）
 
 按域分组；每行用途即该技能 frontmatter description 的摘要。2026-10-15 全量加 `pyqcu-`
 前缀，`cann.v2`/`cuda.v2`/`dtk`/`maca` 四个占位技能合并为 `pyqcu-cpp-containers`。
@@ -71,15 +72,12 @@ frontmatter：name 与目录名一致 + description 写触发场景（何时使�
 | `pyqcu-testing-qcu` | pyqcu/testing/qcu：经 Cython 桥测 C++ CUDA 后端；含按职责分类的多重网格性能基准套件与 Strict 对照。 |
 | `pyqcu-qcu-single-tests` | pyqcu/testing/qcu 与 pyqcu/testing/quda 的 QCU/QUDA 单功能测试、PyTorch 参考校验和布局转换约定。 |
 | `pyqcu-testing-pyquda` | pyqcu/testing/pyquda：PyQCU 与 PyQuda 双进程隔离对比套件——Wilson/Clover dslash、BiCGStab/CG 的结果与性能对比，含维度排布转换与归一化锚定。 |
-| `pyqcu-testing-regression-session-2026-08-24` | pyqcu/testing/regression/session-2026-08-24 的回归资产：bug31–37 无人值守会话验证与确定性参考数据再生器。 |
 
 ### 历史攻坚与日志
 
 | 技能 | 用途 |
 |---|---|
 | `pyqcu-benchmark` | PyQCU 性能基准与 dev87 Strict MultiGrid/QUDA 公平计时、显存证据协议。 |
-| `pyqcu-dev80` | logs/dev80、dev80_2、dev80_3 系列：大格子 MultiGrid 攻坚三代——sm_60+sm_70 fat-binary、HierarchicalCache VRAM→RAM→DISK offload（22.97GB 大格子可跑）、BatchedLocalSchur W=10 stencil 提速 12×。 |
-| `pyqcu-dev84` | pyqcu/testing/qcu/multigrid/benchmarks/large_volume：16×32×32×48 MultiGrid 真实加速比攻坚套件（CUDA Graph 段回放/零拷贝标量/守卫标量内核/粗空间诊断 ρ_V），报告 report.md。 |
 | `pyqcu-logs-debug` | logs/debug：逐轮调试/修复日志（fix-log*.md），完成后升级为 logs/fix-report-*.md。 |
 | `pyqcu-logs-results` | logs/results：最终/剩余修复报告（权威记录）。 |
 
