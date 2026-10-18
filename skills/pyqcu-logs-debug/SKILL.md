@@ -17,12 +17,12 @@ These are temporary/working files — final summaries are promoted to `logs/fix-
 
 | 文件 | 对应审查轮次 |
 |---|---|
-| `fix-log.md` | `logs/dev73/review-2026-07-28.md`（首轮） |
-| `fix-log-r2.md` | `logs/dev73/review-2026-07-28-r2.md` |
-| `fix-log-r3.md` | `logs/dev73/review-2026-07-28-r3.md` |
+| `fix-log.md` | `git show dev73:logs/dev73/review-2026-07-28.md`（首轮） |
+| `fix-log-r2.md` | `git show dev73:logs/dev73/review-2026-07-28-r2.md` |
+| `fix-log-r3.md` | `git show dev73:logs/dev73/review-2026-07-28-r3.md` |
 
-**审查报告不在本目录**——三份 `review-2026-07-28*.md` 都在 `logs/dev73/`；本目录只有
-对应的 `fix-log*` 逐轮记录，不要在这里找 review。
+**审查报告不在工作区保留**——三份 `review-2026-07-28*.md` 已随 dev73 tag 归档并从
+当前工作树清理；本目录只记录对应轮次，不要恢复 `logs/dev73/` 永久副本。
 
 Methodology notes: worktree timeline bisection and asset-mtime × commit-time
 cross-checking (key to locating silent regressions such as bug35).

@@ -30,14 +30,17 @@ PyQCU 是复杂库，主导语言为 C++/CUDA、Python/Cython 和 Bash。先只�
   科学接口保留既有领域惯用名称时必须在根 `AGENTS.md` 登记。
 - 主测试位于 `pyqcu/testing/**`。技能本身的 shell 回归与实现同目录，并由该技能
   `AGENTS.md` 固定调用入口。
-- `docs/**` 保存正式文档和解包 Office 文档资产；`logs/**` 保存报告、运行记录和图表；
-  `data/**` 保存数据、SVG、构建/安装树和缓存实体；目录元数据保留在所属目录。
+- `docs/**` 保存正式文档和解包 Office 文档资产；`logs/**` 只暂存当前任务尚未归档的
+  运行记录、阶段报告和图表。阶段结果先提交并打 tag，随后在后续清理提交中删除工作区
+  报告副本，tag 对象是历史报告的唯一规范归档。
+- `data/**` 保存数据、SVG、构建/安装树和缓存实体；目录元数据保留在所属目录。
 
 ## 本地例外
 
 - `data/**` 的已跟踪内容属于正式证据、自包含构建/安装树或数据资产，不按通用
   “仅元数据”规则迁移。
-- `logs/**` 允许第一方 `.md`、`.tex`、`.pdf`、图片、`.stdout`、`.jsonl` 和压缩运行摘要。
+- `logs/**` 可在打 tag 前暂存第一方 `.md`、`.tex`、`.pdf`、图片、`.stdout`、
+  `.jsonl` 和压缩运行摘要；打 tag 后不得保留 `logs/<tag>/**` 报告副本。
 - `docs/张鑫 508应用测试报告-PyQCU/` 是按 `docs/AGENTS.md` 保留的解包 Office 资源。
 - `skills/pyqcu-tag/tag-chain.test.sh` 是该技能的定点回归，不迁入 `pyqcu/testing/`。
 - `refer/**`、`data/quda-*`、`data/venv-*`、`data/p100-*` 和上游 vendored/generated
@@ -48,12 +51,13 @@ PyQCU 是复杂库，主导语言为 C++/CUDA、Python/Cython 和 Bash。先只�
 1. 锁定 Git 根目录、分类复杂库、检查工作树和最近标签，输出任务边界。
 2. 运行 `bash skills/pyqcu-form/form-audit.sh`，同时检查未跟踪非忽略文件、忽略状态、
    引用、重复产物、冲突标记和文档计数。
-3. 建立冲突表，将每项归为 rename/move/update/keep/exception；删除项必须可经 Git
-   恢复或由用户明确授权，并先列出候选与恢复点。
+3. 建立冲突表，将每项归为 rename/move/update/keep/delete/exception；删除项必须可经
+   Git 或 tag 恢复，或由用户明确授权，并先列出候选与恢复点。
 4. 先运行可用基线测试，再按目录、文件、符号、文档、技能和清理顺序分批改动。
 5. 每批执行最小验证；文档/技能改动至少验证旧引用清零、shell 语法和 Markdown/表格一致。
 6. 最终执行 `git diff --check`、本地审计、定向回归和 `git status --short`。
-7. 按 form 交付顺序复查 diff、同步文档与技能索引，并调用 tag 技能创建开发快照。
+7. 按 form 交付顺序复查 diff、同步文档与技能索引；tag 前确保阶段报告已提交，
+   tag 后在独立清理提交中删除工作区报告副本。
 
 ## 验证入口
 
@@ -61,6 +65,8 @@ PyQCU 是复杂库，主导语言为 C++/CUDA、Python/Cython 和 Bash。先只�
 bash skills/pyqcu-form/form-audit.sh
 bash -n build.sh env.sh install.sh skills/pyqcu-tag/tag-chain.sh skills/pyqcu-tag/tag-chain.test.sh
 bash skills/pyqcu-tag/tag-chain.test.sh
+git cat-file -e <tag>:<archived-report-path>
+git show <tag>:<archived-report-path> >/dev/null
 cd pyqcu/testing && pytest .
 git diff --check
 ```
@@ -73,6 +79,7 @@ git diff --check
 - 工作树已有改动：区分本任务与用户改动，无法安全分离时停止写操作。
 - 文件被引用：移动与引用更新必须在同一批完成，旧路径搜索清零后再继续。
 - 审计器命中已登记例外：更新 `skills/pyqcu-form/form-audit.sh` 的精确例外规则并测试，不整体禁用规则。
+- 工作区仍存在 `logs/<tag>/**` 报告：先确认对应 tag 已包含原件，再在独立清理提交中删除。
 - 参考快照校验失败：停止用该快照推导命名，使用明文规则继续。
 - 功能回归失败：转 debug 定位根因；不得删除测试或修改期望值绕过。
 - 远端漂移或禁止 fast-forward：保留本地改动并报告，禁止 force push。
@@ -82,4 +89,6 @@ git diff --check
 - 不把名称机械转换为小写、下划线或驼峰；先判断语言、构件类型和公开边界。
 - `.gitignore`、`AGENTS.md`、`README.md` 是目录元数据，可保留在受限内容目录。
 - 历史资产的删除以 Git 可恢复为前提；不可恢复的未跟踪日志和缓存不得默认删除。
+- tag 报告归档与删除必须分成两个提交：先提交报告并打 tag，再删除报告；同一提交中
+  删除会使 tag 无法保存报告。
 - 标签只用于版本定位，提交和标签消息不得从 `devN`、`stabN` 等名称反推业务语义。

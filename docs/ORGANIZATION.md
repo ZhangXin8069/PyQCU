@@ -9,14 +9,16 @@
 | 类型 | 规范位置 | 示例 |
 |---|---|---|
 | 正式独立文档 | `docs/**` | 指南、规范、跨项目报告 |
-| 日志、运行摘要与 tag 报告 | `logs/**` | `.json`、`.log`、`.tsv`、`.txt`、报告 `.md`/`.tex`/`.pdf` |
+| 当前任务未归档日志与阶段报告 | `logs/**` | `.json`、`.log`、`.tsv`、`.txt`、`.stdout`、阶段报告 `.md`/`.tex`/`.pdf` |
+| 已归档 tag 报告 | Git tag 对象 | 通过 `git show <tag>:<path>` 读取，工作区不保留副本 |
 | 数据、安装与构建产物 | `data/**` | `.h5`、`.so`、`.dat`、`.csv`、`.svg`、venv/build/install 树 |
 | 测试及其他代码 | `pyqcu/testing/**` | `.py`、`.sh`、`.patch`、测试入口与历史回归套件 |
 
 跨目录提升时保留来源语义：
 
 - `data/**` 内的 `.md`、`.pdf`、`.tex` 进入 `docs/data/`；
-- `logs/<tag>/**` 内的报告继续保留在原 tag 目录，不迁入 `docs/`；
+- `logs/<tag>/**` 阶段报告先提交并打 tag，归档完成后在后续清理提交中删除；
+  `logs/<tag>/**` 报告副本不得继续留在工作区；
 - `data/**` 内的 JSON、日志、TSV、TXT 等进入 `logs/data/`；
 - `logs/**` 内的 `.h5`、`.npz`、`.npy`、`.pt` 进入 `data/logs/`；
 - Office 文件及非文档资源进入 `data/docs/`。
@@ -25,6 +27,15 @@
 
 仍需保留的跨目录资产迁移时保留来源根和相对路径。整理后的旧路径不再建立软链接，
 代码和文档统一引用实体新路径。
+
+tag 报告采用固定生命周期：
+
+1. 在当前任务中写入 `logs/**` 并完成验证；
+2. 将报告纳入待归档提交并创建对应 tag；
+3. 在后续清理提交中删除工作区报告副本；
+4. 后续引用使用 `git show <tag>:<path>` 或临时 worktree，不恢复永久副本。
+
+删除不能与 tag 指向的归档提交合并，否则 tag 中不会包含报告。
 
 LaTeX `.aux/.log/.out/.toc/.nav/.snm/.vrb`、`.report-build-*`、逐页
 `report-render-*`、agent/codex 会话、临时文件和生成缓存均直接删除。
