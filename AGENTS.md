@@ -6,10 +6,11 @@ PyQCU：Lattice QCD 的 Python/Cython 库 —— CUDA 加速的 Wilson/Clover Di
 > `pyqcu/testing/`（`pyqcu`、`qcu`、`quda`、`pyquda` 等）。新代码、文档和命令
 > 必须使用新路径；历史 `logs/` 中的旧路径仅作为当时记录保留。
 >
-> 2026-09-27 文件分类：独立文档的规范位置是 `docs/**`，日志及 tag
-> 报告位于 `logs/**`，JSON/LOG/TSV/TXT 等运行记录同属 `logs/**`，
-> HDF5/SO/DAT/CSV/SVG 及构建安装树留在 `data/**`，测试及其他代码统一进入
-> `pyqcu/testing/**`；历史重复代码、缓存和一次性会话垃圾直接删除。
+> 2026-09-27 文件分类：独立文档的规范位置是 `docs/**`，当前任务尚未归档的
+> 日志与阶段报告位于 `logs/**`。阶段结果先提交并打 tag 归档，随后在后续清理
+> 提交中删除工作区报告副本；标签是历史报告的唯一规范归档，通过
+> `git show <tag>:<path>` 读取。HDF5/SO/DAT/CSV/SVG 及构建安装树留在
+> `data/**`，测试及其他代码统一进入 `pyqcu/testing/**`。
 > 完整规则见 `docs/ORGANIZATION.md`。
 
 ## 概要命令
@@ -51,7 +52,7 @@ PyQCU：Lattice QCD 的 Python/Cython 库 —— CUDA 加速的 Wilson/Clover Di
 | `skills/` | 项目技能库（32 个技能目录：SKILL.md + 简短 AGENTS.md，目录级领域知识文档；目录名一律 `pyqcu-` 前缀；索引与技能表见 `skills/AGENTS.md`；2026-08-25 自 `.opencode/skills` 迁出，源目录已删除，需 opencode 加载时从本库同步） |
 | `docs/` | 正式独立文档与指南（`.pdf`/`.tex`/`.md`）：`dims.md`、`env.md`、`install.md`、`examples.md`、`profiler.md`、`ORGANIZATION.md`；从 `data/**` 提升的文档位于 `docs/data/` |
 | `refer/` | 开发历史报告（dev71.*） |
-| `logs/` | 运行记录（JSON/LOG/TSV/TXT）和按 tag 组织的日志包：`dev<N>/`、`stab<N>/`、`bug<N>/` 等；`logs/data/` 汇总从 `data/**` 提升出的运行摘要；报告实体在 `logs/`，张量/cache 实体在 `data/logs/`。历史重复代码与一次性构建垃圾直接删除 |
+| `logs/` | 当前任务尚未归档的运行记录（JSON/LOG/TSV/TXT/STDOUT 和阶段报告/图表）；`logs/data/` 汇总从 `data/**` 提升出的运行摘要。阶段报告先进入待 tag 提交，打 tag 后在后续清理提交中删除；张量/cache 实体在 `data/logs/`。 |
 | `data/` | 数据、安装与构建产物（`.h5`、`.so`、`.dat`、`.csv`、`.svg` 等）；`data/docs/` 保存非文档 Office 文件，`data/logs/` 保存从 `logs/**` 提升的张量/cache；`quda-*`、`venv-*`、`p100-*` 作为自包含构建/安装树整体保留 |
 
 ## form 格式约定
@@ -64,9 +65,9 @@ PyQCU：Lattice QCD 的 Python/Cython 库 —— CUDA 加速的 Wilson/Clover Di
 - 顶层目录白名单：`cpp/`、`data/`、`docs/`、`logs/`、`pyqcu/`、`refer/`、`skills/`。根入口文件仅允许 `AGENTS.md`、`.gitignore`、`LICENSE`、`README.md`、`build.sh`、`env.sh`、`install.sh`、`setup.py`。
 - 测试入口：主套件为 `cd pyqcu/testing && pytest .`；MPI 入口为 `mpirun -np 4 python pyqcu/testing/python/conftest.py`；技能自带 shell 回归保留在对应技能目录，如 `bash skills/pyqcu-tag/tag-chain.test.sh`。
 - 功能复现：构建使用 `bash ./build.sh`，Cython 扩展使用 `bash ./install.sh`；纯格式/文档改动至少执行 `bash -n`、相关回归、`git diff --check` 和 `bash skills/pyqcu-form/form-audit.sh`。
-- 文档/日志/数据：正式文档在 `docs/**`；报告、运行摘要及 `log/json/tsv/csv/txt/stdout/jsonl` 在 `logs/**`；数据、SVG、构建/安装树和缓存实体在 `data/**`。目录元数据 `AGENTS.md`、`.gitignore`、`README.md` 留在所属目录。
+- 文档/日志/数据：正式文档在 `docs/**`；当前任务未归档的运行摘要及 `log/json/tsv/csv/txt/stdout/jsonl` 在 `logs/**`。阶段结果先提交并打 tag，随后删除工作区报告副本；历史读取使用 `git show <tag>:<path>`。数据、SVG、构建/安装树和缓存实体在 `data/**`。
 - Git 交付：form 批次按逻辑分组提交，只暂存本任务文件，禁止 `git add -A`/`git add .` 和 force push；推送与开发标签按 tag 技能的 follow 链执行。
-- 本地例外：`data/**` 可跟踪正式证据、构建树和自包含安装树；`logs/**` 可保存第一方报告 `.md/.tex/.pdf` 与图表；`docs/张鑫 508应用测试报告-PyQCU/` 是文档资产保留的解包 Office 资源；`skills/pyqcu-tag/tag-chain.test.sh` 与该技能实现同目录；`refer/**` 与已存在的上游 vendored/generated 树保留来源名称。
+- 本地例外：`data/**` 可跟踪正式证据、构建树和自包含安装树；`logs/**` 可在打 tag 前暂存第一方报告 `.md/.tex/.pdf` 与图表，打 tag 后不得保留 `logs/<tag>/**` 报告副本；`docs/张鑫 508应用测试报告-PyQCU/` 是文档资产保留的解包 Office 资源；`skills/pyqcu-tag/tag-chain.test.sh` 与该技能实现同目录；`refer/**` 与已存在的上游 vendored/generated 树保留来源名称。
 
 ## 已知反模式（勿重复）
 

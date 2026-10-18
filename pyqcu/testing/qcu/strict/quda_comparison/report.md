@@ -238,7 +238,8 @@ MG 端到端在本机当前驱动状态下间歇失败（init memset InvalidArgu
   ⇒ 排除异步竞态，定性为 **上下文级损伤**（capture 实验硬中止遗留）。
 - 恢复手段：宿主侧 `wsl --shutdown` 后重开终端，运行
   `python pyqcu/testing/qcu/strict/quda_comparison/run_all.py --with-quda` 复验（预期全 GREEN）。
-- 战役资产已归档 `logs/stab31/`：总报告、对照矩阵、回归/对照 JSON。
+- 战役资产已随 `stab31` tag 归档：总报告、对照矩阵、回归/对照 JSON 通过
+  `git show stab31:<path>` 读取，工作区不保留 `logs/stab31/` 副本。
 - 当时版本的 run_all.py 的 mg_vs_ref 失败信息曾附平台态提示（不掩盖失败本身）。
 
 ## 十七、诊断更正（重要）
@@ -267,7 +268,8 @@ cos=1.000000/scale=4.05。三者相互矛盾 ⇒ 存在未被识别的实验耦�
 处置：不下结论。下一会话以隔离矩阵重验：
   {单位/热规范} × {单精度/双精度} × {新进程对} 的算子级全组合，
   并先复跑 cmp_operator.py 与 cmp_clover_vec.py 确认旧锚定可复现性。
-在此之前，G4.1/G10 的已交付数字以 logs/stab31/ 归档件为准。
+在此之前，G4.1/G10 的已交付数字以 `stab31` tag 中
+`logs/stab31/` 历史路径的归档件为准。
 
 ## 十九、最终复验补充（2026-08-27）
 

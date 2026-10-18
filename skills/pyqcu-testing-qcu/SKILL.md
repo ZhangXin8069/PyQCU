@@ -36,8 +36,9 @@ dev73 的 `multigrid/legacy/` 与 dev74 的 `multigrid/scaling/`（含
 `legacy/verify_nullvecs.py`、`legacy/mg_stencil_build.py`、`legacy/cache.py`、`legacy/mg_schur_build.py`、
 `legacy/mg_pyref_expt.py`、`legacy/reference_benchmark.py`、`legacy/dslash_adapter.py`、
 `legacy/budget.py`、`legacy/benchmark.py` 与 5 处绘图副本）已于 **2026-10-15 删除**，可复用算法全部
-收入库内。**归档证据不随代码删除**：`logs/dev73_5.*`（报告/LaTeX 表/PNG）、`logs/dev74/` 仍是
-这些结论的权威出处，引用时直接用 logs 路径。
+收入库内。**归档证据由 tag 保存**：dev73/dev74 对应的报告、LaTeX 表和 PNG 已随 tag
+归档并从当前工作区清理；引用时使用
+`git show <tag>:<path>`，不要恢复 `logs/<tag>/` 永久副本。
 
 | 已删除来源 | 库内规范位置 |
 |---|---|
@@ -58,7 +59,7 @@ dev73 的 `multigrid/legacy/` 与 dev74 的 `multigrid/scaling/`（含
 
 ## Large-Volume Multigrid 攻坚套件（当前版）
 
-`pyqcu/testing/qcu/multigrid/benchmarks/large_volume/main.py` — 子命令 run / multi / run_gcr / hotspot（带 `--only` 门控），产物镜像 `out/*.json` 与 `logs/dev84/`；报告 `pyqcu/testing/qcu/multigrid/benchmarks/large_volume/report.md`。
+`pyqcu/testing/qcu/multigrid/benchmarks/large_volume/main.py` — 子命令 run / multi / run_gcr / hotspot（带 `--only` 门控），运行期间产物写入 `out/*.json` 与 `logs/`；阶段报告提交并打 tag 后，从工作区删除对应报告和日志副本。
 
 结论（16×32×32×48 统一格子）：粗空间 ρ_V=0.9759（连续谱无孤立低模簇），MG>2 目标不可达；
 体积标度 1.5× 体量仅 0.421×，「大格子有利」证伪。但净优化使 V100 上 MG 首次稳定超 BiStabCG
