@@ -38,6 +38,7 @@
 
 | 目录 | 用途 |
 |---|---|
+| `stab33/` | 2026-08-28 纯 Python MultiGrid 审计报告（`.tex/.pdf`） |
 | `dev73/` | dev73/dev73_5 运行日志与图件；报告实体在 `logs/dev73/` |
 | `dev74/` | dev74/dev74_1 运行日志与图件；报告实体在 `logs/dev74/` |
 | `bug30/` | bug30 运行归档；报告实体在 `logs/bug30/` |
