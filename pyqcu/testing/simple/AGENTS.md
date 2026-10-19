@@ -1,4 +1,4 @@
-# AGENT.md — pyqcu/testing/simple
+# AGENTS.md — pyqcu/testing/simple
 
 本目录是 QUDA/QCU 的最小对照示例，不是生产测试套件。修改时遵循：
 
