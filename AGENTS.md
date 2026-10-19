@@ -55,20 +55,6 @@ PyQCU：Lattice QCD 的 Python/Cython 库 —— CUDA 加速的 Wilson/Clover Di
 | `logs/` | 当前任务尚未归档的运行记录（JSON/LOG/TSV/TXT/STDOUT 和阶段报告/图表）；`logs/data/` 汇总从 `data/**` 提升出的运行摘要。阶段报告先进入待 tag 提交，打 tag 后在后续清理提交中删除；张量/cache 实体在 `data/logs/`。 |
 | `data/` | 数据、安装与构建产物（`.h5`、`.so`、`.dat`、`.csv`、`.svg` 等）；`data/docs/` 保存非文档 Office 文件，`data/logs/` 保存从 `logs/**` 提升的张量/cache；`quda-*`、`venv-*`、`p100-*` 作为自包含构建/安装树整体保留 |
 
-## form 格式约定
-
-- 库类型：复杂库。主导语言：C++/CUDA（`cpp/**`）、Python/Cython（`pyqcu/**`、`setup.py`）、Bash（根构建入口和 `skills/**/*.sh`）。
-- 文件命名：C++ 头文件、`.cu` 源文件、Python 模块和 Bash 脚本使用小写下划线或既有点划分；语言生态固定名称和上游 vendored 文件保留原名。
-- 函数命名：C++ 对外 C API 使用小驼峰（如 `applyInitQcu`），内部 kernel/helper 使用小写下划线；Python 公共函数和私有函数分别使用 `snake_case`、`_snake_case`。
-- 变量命名：宏和编译期常量使用全大写下划线，C++ 宏保留 `_NAME_` 锚点；普通变量使用小写下划线，Python 模块级常量使用全大写下划线。
-- 对象命名：C++/Python 类型使用大驼峰，领域缩写作为完整词保留；绑定的 C API 名称必须与 `qcu.pyx`、`qcu.pxd` 和 `pyqcu.h` 同步。
-- 顶层目录白名单：`cpp/`、`data/`、`docs/`、`logs/`、`pyqcu/`、`refer/`、`skills/`。根入口文件仅允许 `AGENTS.md`、`.gitignore`、`LICENSE`、`README.md`、`build.sh`、`env.sh`、`install.sh`、`setup.py`。
-- 测试入口：主套件为 `cd pyqcu/testing && pytest .`；MPI 入口为 `mpirun -np 4 python pyqcu/testing/python/conftest.py`；技能自带 shell 回归保留在对应技能目录，如 `bash skills/pyqcu-tag/tag-chain.test.sh`。
-- 功能复现：构建使用 `bash ./build.sh`，Cython 扩展使用 `bash ./install.sh`；纯格式/文档改动至少执行 `bash -n`、相关回归、`git diff --check` 和 `bash skills/pyqcu-form/form-audit.sh`。
-- 文档/日志/数据：正式文档在 `docs/**`；当前任务未归档的运行摘要及 `log/json/tsv/csv/txt/stdout/jsonl` 在 `logs/**`。阶段结果先提交并打 tag，随后删除工作区报告副本；历史读取使用 `git show <tag>:<path>`。数据、SVG、构建/安装树和缓存实体在 `data/**`。
-- Git 交付：form 批次按逻辑分组提交，只暂存本任务文件，禁止 `git add -A`/`git add .` 和 force push；推送与开发标签按 tag 技能的 follow 链执行。
-- 本地例外：`data/**` 可跟踪正式证据、构建树和自包含安装树；`logs/**` 可在打 tag 前暂存第一方报告 `.md/.tex/.pdf` 与图表，打 tag 后不得保留 `logs/<tag>/**` 报告副本；`docs/张鑫 508应用测试报告-PyQCU/` 是文档资产保留的解包 Office 资源；`skills/pyqcu-tag/tag-chain.test.sh` 与该技能实现同目录；`refer/**` 与已存在的上游 vendored/generated 树保留来源名称。
-
 ## 已知反模式（勿重复）
 
 - `torch.Tensor(<标量>)` 已被新版 PyTorch 移除（TypeError: data must be a sequence）——一律用列表包装 `torch.Tensor([x])`（bug31）
@@ -82,3 +68,22 @@ PyQCU：Lattice QCD 的 Python/Cython 库 —— CUDA 加速的 Wilson/Clover Di
 - `python_requires` 低于 3.8
 - 未经 large-lattice（尤其双 P100 c64 \(16\times32\times32\times48\)）收敛回归就重排 coarsest BiCGStab 的全局归约顺序；triple-dot/pipelined 实验曾导致外层 FGMRES 停滞，已回退。
 - 在多个长 CUDA 任务并发时忽略 QUDA `cudaHostRegister` mapped ghost-buffer 的瞬时失败；该失败应以同配置有界重试处理，不得修改求解协议或伪造成功。
+
+<!-- form-skill:start -->
+## form 格式约定
+
+- 库类型：复杂库。主导语言：C++/CUDA（`cpp/**`）、Python/Cython（`pyqcu/**`、`setup.py`）、Bash（根构建入口和 `skills/**/*.sh`）。
+- 文件命名：C++ 头文件、`.cu` 源文件、Python 模块和 Bash 脚本使用小写下划线或既有点划分；语言生态固定名称和上游 vendored 文件保留原名。
+- 函数命名：C++ 对外 C API 使用小驼峰（如 `applyInitQcu`），内部 kernel/helper 使用小写下划线；Python 公共函数和私有函数分别使用 `snake_case`、`_snake_case`。
+- 变量命名：宏和编译期常量使用全大写下划线，C++ 宏保留 `_NAME_` 锚点；普通变量使用小写下划线，Python 模块级常量使用全大写下划线。
+- 对象命名：C++/Python 类型使用大驼峰，领域缩写作为完整词保留；绑定的 C API 名称必须与 `qcu.pyx`、`qcu.pxd` 和 `pyqcu.h` 同步。
+- 顶层目录白名单：`cpp/`、`data/`、`docs/`、`logs/`、`pyqcu/`、`refer/`、`skills/`。根入口文件仅允许 `AGENTS.md`、`.gitignore`、`LICENSE`、`README.md`、`build.sh`、`env.sh`、`install.sh`、`setup.py`。
+- 测试入口：主套件为 `cd pyqcu/testing && pytest .`；MPI 入口为 `mpirun -np 4 python pyqcu/testing/python/conftest.py`；技能自带 shell 回归保留在对应技能目录，如 `bash skills/pyqcu-tag/tag-chain.test.sh`。
+- 功能复现：构建使用 `bash ./build.sh`，Cython 扩展使用 `bash ./install.sh`；纯格式/文档改动至少执行 `bash -n`、相关回归、`git diff --check` 和 `bash skills/pyqcu-form/form-audit.sh`。
+- 文档/日志/数据：正式文档在 `docs/**`；当前任务未归档的运行摘要及 `log/json/tsv/csv/txt/stdout/jsonl` 在 `logs/**`。阶段结果先提交并打 tag，随后删除工作区报告副本；历史读取使用 `git show <tag>:<path>`。数据、SVG、构建/安装树和缓存实体在 `data/**`。
+- Git 交付：form 批次按逻辑分组提交，只暂存本任务文件，禁止 `git add -A`/`git add .` 和 force push；推送与开发标签按 tag 技能的 follow 链执行。
+- 大文件闸门：任何提交前运行 `${CONFIGURE_ROOT:-$HOME/configure}/skills/form/scripts/form-large-files-check.sh --root "$(git rev-parse --show-toplevel)"`；默认阻止单个新增、修改、复制或重命名文件超过 `10,000,000` 字节，命中时不得提交或推送。
+- 本地例外：`data/**` 可跟踪正式证据、构建树和自包含安装树；`logs/**` 可在打 tag 前暂存第一方报告 `.md/.tex/.pdf` 与图表，打 tag 后不得保留 `logs/<tag>/**` 报告副本；`docs/张鑫 508应用测试报告-PyQCU/` 是文档资产保留的解包 Office 资源；`skills/pyqcu-tag/tag-chain.test.sh` 与该技能实现同目录；`refer/**` 与已存在的上游 vendored/generated 树保留来源名称。
+- 历史例外边界：当前本地包装器登记并豁免 `1044` 项既有资产/合法布局 finding（以 `bash skills/pyqcu-form/form-audit.sh` 输出为准）；不得删除、迁移、整体禁用检查或改写排除项来绕过这些历史资产。新增例外必须精确匹配、保留证据并执行审计回归。
+- 规则维护：本节是根规则文件中唯一的 `form-skill` 起止标记托管块，由 `/root/configure/skills/form/scripts/form-agents-sync.sh` 更新并执行 `--check`；不得手工制造重复、未闭合标记或绕过同步检查。目标库原有明确约定优先于 form 通用规则。
+<!-- form-skill:end -->

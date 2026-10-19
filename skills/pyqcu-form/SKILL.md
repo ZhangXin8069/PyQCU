@@ -45,6 +45,9 @@ PyQCU 是复杂库，主导语言为 C++/CUDA、Python/Cython 和 Bash。先只�
 - `skills/pyqcu-tag/tag-chain.test.sh` 是该技能的定点回归，不迁入 `pyqcu/testing/`。
 - `refer/**`、`data/quda-*`、`data/venv-*`、`data/p100-*` 和上游 vendored/generated
   内容保留来源结构、名称和内容。
+- 根 `AGENTS.md` 的 form 标记块由 `form-agents-sync.sh` 唯一维护，必须通过 `--check`；
+  不得删除或重复标记、整体禁用审计，或改写排除项来绕过已登记历史例外。新增例外必须
+  精确匹配、保留证据并执行审计回归。
 
 ## 工作流程
 
