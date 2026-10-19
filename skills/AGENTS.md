@@ -10,7 +10,7 @@ PyQCU 项目专用技能库：每个技能一个子目录，内含 `SKILL.md`（
 
 - **日志预读策略**：会话第一步只读最新 1 份 `.X.<时间戳>.log` 尾部汇总区（tail -20 上限），
   只取上次任务/结论/遗留项，秒级速览；无历史日志正常跳过。
-- **前置上下文预读**：说明文件按 AGENTS.md > README.md > AGENT.md > CODEX.md
+- **前置上下文预读**：说明文件按 AGENTS.md > README.md > CODEX.md
   取第一个存在者 head -40；agent 文件夹按 .opencode > .claude > .codex 取第一个存在者 ls 限行。
 - **AGENTS.md 同步**：任意技能会话发现工作目录 AGENTS.md 缺失确凿有益内容时最小改动补充
   （先读后写、不重复条目、不代提交）。
