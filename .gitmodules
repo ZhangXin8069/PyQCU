@@ -1,0 +1,3 @@
+[submodule "refer/git-rep/kuqcd"]
+	path = refer/git-rep/kuqcd
+	url = https://atomgit.com/kunpengcompute/kuqcd
