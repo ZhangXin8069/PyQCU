@@ -1,0 +1,105 @@
+[日志元数据]
+日志类型: final
+生成时间: 2026-10-20 01:16:53 +0800
+批次: 2026-10-20-form-agents-final
+主任务: PyQCU 2026-10-20 form 根规则托管块同步与本地技能补强
+触发原因: 任务完成
+摘要: 完成 AGENTS form 唯一标记块同步、本地技能例外边界说明、任务文档与全部指定验证，终态未提交。
+Git 根目录: /root/PyQCU
+
+## 关键日志
+
+### S1 — 规则读取、工作树与基线
+- 目标: 完整读取 form/log 技能、根 AGENTS、本地 pyqcu-form 技能和审计脚本后执行最小整理。
+- 命令/操作: 读取 `/root/configure/skills/form/SKILL.md`、`/root/configure/skills/log/SKILL.md`、`AGENTS.md`、`skills/pyqcu-form/SKILL.md`、`skills/pyqcu-form/form-audit.sh`；检查 Git 状态、标记和日志索引。
+- 关键输出: 初始工作树干净，分支为 `main...origin/main`；根规则无既有 form 托管标记；基线 form 审计 PASS，32 个技能目录与索引一致，豁免 1044 个既有资产 finding。
+- 退出码: 0。
+- 证据与判断: 现有 `data/**`、tag 前 `logs/**`、Office 资源、技能定点回归和 vendored/generated 树属于已登记本地例外，保持不动。
+
+### S2 — 根 AGENTS 与本地技能同步
+- 目标: 把原 `form 格式约定` 迁入唯一托管块并保留全部本地规则和例外。
+- 命令/操作: 通过 `form-agents-sync.sh --content` 同步；随后执行 `--check`；在 `skills/pyqcu-form/SKILL.md` 补充托管块和历史例外不可绕过说明。
+- 关键输出: 首次同步被脚本安全拒绝，原因是托管正文包含标记字面量；改为语义等价的“`form-skill` 起止标记”表述后同步成功，`--check` 返回“已是最新”。最终标记起止各 1 个。
+- 退出码: 首次内容校验 2；修正后的同步与检查 0。
+- 证据与判断: 托管块保留原命名、目录、测试、文档/日志/数据、Git 和本地例外，并新增 10,000,000 字节大文件闸门、1044 项历史例外边界和规则维护要求。
+
+### S3 — 文档与最终验证
+- 目标: 记录任务边界和验证证据，并复跑全部指定门禁。
+- 命令/操作: 创建 `docs/form_pyqcu_20261020.md`；运行同步器 `--check`、`bash skills/pyqcu-form/form-audit.sh`、指定入口 `bash -n`、`bash skills/pyqcu-tag/tag-chain.test.sh`、`form-snapshot-verify.sh --quiet` 和 `git diff --check`。
+- 关键输出: 审计 PASS（32/32，1044 项既有 finding 豁免）；tag-chain 自检、dry-run、本地修正和远端 lease 重写测试通过；其余检查退出码均为 0 且无错误输出。
+- 退出码: 全部 0。
+- 证据与判断: 仅文档/规则改动，不需要运行依赖 GPU、MPI 或大数据的全量 pytest；指定格式门禁覆盖本轮风险。
+
+### S4 — 最终状态
+- 目标: 明确交付边界。
+- 命令/操作: 未执行 git add、commit、push、tag、force push；未删除或迁移历史资产；未修改代码。
+- 关键输出: 改动仅为根规则、本地 form 技能、任务文档及本日志/索引。
+- 退出码: 不适用。
+- 证据与判断: 任务完成，无阻塞；所有改动保留在工作树。
+
+## 验证与证据
+- 测试/检查: `form-agents-sync.sh --check`
+- 结果: PASS，`AGENTS.md` 已是最新，唯一标记块起止各 1 个。
+- 测试/检查: `bash skills/pyqcu-form/form-audit.sh`
+- 结果: PASS；32 个技能目录与索引一致，豁免 1044 个既有资产 finding。
+- 测试/检查: `bash -n build.sh env.sh install.sh skills/pyqcu-tag/tag-chain.sh skills/pyqcu-tag/tag-chain.test.sh`
+- 结果: PASS，退出码 0。
+- 测试/检查: `bash skills/pyqcu-tag/tag-chain.test.sh`
+- 结果: PASS；自检、dry-run、本地修正和远端 lease 重写测试通过。
+- 测试/检查: `/root/configure/skills/form/scripts/form-snapshot-verify.sh --quiet`
+- 结果: PASS，退出码 0。
+- 测试/检查: `git diff --check`
+- 结果: PASS，无空白错误。
+- 未验证项: 未运行全量 pytest，因为本轮无代码改动且该套件可能依赖 CUDA、MPI、QUDA 或大体积数据。
+
+## 变更与产物
+- 文件: `AGENTS.md`
+- 文件: `skills/pyqcu-form/SKILL.md`
+- 文件: `docs/form_pyqcu_20261020.md`
+- 文件: 本 final 日志和 `logs/AGENT.md`
+- 产物: 根规则唯一 form 托管块、更新后的本地 form 技能说明、任务验证文档、最终任务日志。
+- 未改动范围: 未修改代码；未删除、迁移或改写 `data/**` 等历史资产；未改变审计例外集合。
+
+## 风险、限制与下一步
+- 风险: 当前改动尚未提交，后续若需交付应由获授权的任务逐文件暂存并在提交前运行大文件闸门。
+- 阻塞: 无。
+- 下一步: 本任务无需继续操作；保持当前未暂存状态。
+
+## 用户输入指令
+你是 configure agent 系列的子 agent。只处理下面给出的任务，不扩大范围；先理解再行动，采用最小可靠改动，执行可用的验证，最终简洁返回结果、证据与阻塞。除非任务明确要求，不要继续派发子 agent；确需派发但失败时，复用启动本 agent 的同一 provider/model/auth/settings 链重试，仍失败则自行串行完成。
+
+【派发任务】
+以 {代码} 身份执行 PyQCU 仓库的本轮 ~form 整理。先完整读取 /root/configure/skills/form/SKILL.md、/root/configure/skills/log/SKILL.md、/root/PyQCU/AGENTS.md、/root/PyQCU/skills/pyqcu-form/SKILL.md，并阅读 skills/pyqcu-form/form-audit.sh。当前本地包装器已 PASS，data/** 等 1044 项为已登记例外，不得删除或迁移历史资产，不得改代码。请：1) 用 /root/configure/skills/form/scripts/form-agents-sync.sh 把现有根 AGENTS.md 的 form 格式约定同步为唯一标记块，内容必须完整保留现有本地规则和例外，并说明大文件闸门、测试入口、Git 流程；同步后用 --check 验证；2) 检查本地 skills/pyqcu-form/SKILL.md 是否需要补充“标记块及历史例外不得绕过”的准确说明，只做必要更新；3) 复跑 bash skills/pyqcu-form/form-audit.sh、bash -n 指定入口、tag-chain.test.sh、snapshot-verify、git diff --check；4) 在 docs/ 创建 form_pyqcu_20261020.md；5) 按 log 技能 final 模式写任务日志，终态必须明确。严禁提交、推送、打标签、强推、删除历史数据或访问 /root/PyQCU 之外的无关项目。完成后返回 JSON 结果和改动文件清单。
+
+## Agent 全文报告
+--- report begin ---
+```json
+{
+  "status": "complete",
+  "task": "PyQCU 2026-10-20 form 整理",
+  "outcome": {
+    "agents_marker_block": "唯一 form-skill 托管块已同步，--check PASS",
+    "local_skill": "已补充标记块与历史例外不得绕过说明",
+    "historical_exceptions": "1044 项既有资产 finding 保持登记，未删除或迁移",
+    "code_changes": false,
+    "git_delivery": "未提交、未推送、未打标签"
+  },
+  "verification": [
+    "form-agents-sync --check: PASS",
+    "form-audit: PASS, 32/32 skills, 1044 existing findings exempted",
+    "bash -n designated entries: PASS",
+    "tag-chain.test.sh: PASS",
+    "form-snapshot-verify.sh --quiet: PASS",
+    "git diff --check: PASS"
+  ],
+  "changed_files": [
+    "AGENTS.md",
+    "skills/pyqcu-form/SKILL.md",
+    "docs/form_pyqcu_20261020.md",
+    "logs/v2026102001-2.txt",
+    "logs/AGENT.md"
+  ],
+  "blockers": []
+}
+```
+--- report end ---
