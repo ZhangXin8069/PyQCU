@@ -27,3 +27,12 @@
 - 验证: path, size, required sections, conflict markers
 - 批次状态: complete
 
+## tag-dev97-20261020 - final - 2026-10-20 01:32:20 +0800
+- 主任务: 创建 PyQCU dev97 本地附注标签
+- 日志文件: logs/v2026102001-3.txt
+- 文件大小: 3261 bytes
+- 触发原因: 任务完成
+- 关键内容: PyQCU dev97 已创建并与 HEAD 对齐；历史链旧问题保留，标签未推送
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete
+
