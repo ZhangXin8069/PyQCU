@@ -1,0 +1,66 @@
+[日志元数据]
+日志类型: final
+生成时间: 2026-10-20 01:01:47 +0800
+批次: 2026-10-20-tag-dev96
+主任务: 创建本地 dev96 附注标签
+触发原因: 任务完成
+摘要: 基于 dev95 创建本地 dev96，记录 Git 历史瘦身；peeled commit 与 HEAD 一致，标签链自检通过，未推送远程。
+Git 根目录: /root/PyQCU
+
+## 关键日志
+### S1 — 类型、基线与标签链自检
+- 目标: 创建下一枚 dev 标签。
+- 命令/操作: `git tag -l 'dev[0-9]*' --sort=-v:refname`; `git tag --points-at HEAD`; `bash skills/pyqcu-tag/tag-chain.sh --check --remote origin`。
+- 关键输出: 最新 dev 标签为 `dev95`，peeled commit 为 `e966d4454340997645b79e19a7304db134e79e43`，与当前 HEAD 相同；历史链 PASS，275 个既有标签远端一致。
+- 退出码: 0。
+- 证据与判断: 下一主版本号为 96；用户明确请求 dev 标签，因此允许在同一提交创建历史瘦身快照。
+
+### S2 — 创建并验证本地附注标签
+- 目标: 创建 `dev96`，引用 `dev95` 并记录本次 Git 历史瘦身。
+- 命令/操作: `git tag -a dev96 -m '...'`; `git cat-file -t refs/tags/dev96`; `git rev-parse refs/tags/dev96 refs/tags/dev96^{} HEAD`; `bash skills/pyqcu-tag/tag-chain.sh --check`。
+- 关键输出: 标签对象 `baba43738d5a7cfeee4c6e15bd311c189ab72134`；peeled commit 与 HEAD 均为 `e966d4454340997645b79e19a7304db134e79e43`；276 个本地标签链 PASS。
+- 退出码: 0。
+- 证据与判断: 标签类型、目标提交、follow 链和消息格式均正确。
+
+## 验证与证据
+- 测试/检查: `git cat-file -t`、peeled SHA 比较、完整标签消息复查、`tag-chain.sh --check`、`git diff --check`。
+- 结果: `dev96` 为附注标签；本地标签 276 个，远端标签 275 个，符合本地创建且未推送的授权范围。
+- 未验证项: 未执行远程推送，`dev96` 当前只存在于本地。
+
+## 变更与产物
+- 文件: 新增本地标签 `refs/tags/dev96`。
+- 产物: 附注标签对象 `baba43738d5a7cfeee4c6e15bd311c189ab72134`。
+- 未改动范围: 未修改提交树、远程分支或远程标签；既有 5 个 stash 未改动。
+
+## 风险、限制与下一步
+- 风险: 其他克隆暂时看不到 `dev96`。
+- 阻塞: 无。
+- 下一步: 若需远程共享，明确授权后执行 `git push origin dev96`。
+
+## 用户输入指令
+~tag:dev
+
+## Agent 全文报告
+--- report begin ---
+状态: finished
+
+改动内容:
+- 创建本地附注标签 `dev96`，目标提交为当前 `main` 的 `e966d4454340997645b79e19a7304db134e79e43`。
+- 标签消息以 `follow dev95` 起始，记录历史重写、大文件删除、本地对象清理、远程同步和验证结果。
+- 标签对象 SHA 为 `baba43738d5a7cfeee4c6e15bd311c189ab72134`。
+
+推理依据:
+- `dev95` 是 tagger 时间最新的标签，且 peeled commit 与当前 `HEAD` 相同。
+- 用户显式请求 dev 标签，因此在同一提交建立历史瘦身快照，不会误标记代码树变更。
+- 用户未授权远程同步，因此只创建本地标签。
+
+验证结果:
+- `git cat-file -t refs/tags/dev96` 返回 `tag`。
+- `dev96^{}` 与 `HEAD` 均为 `e966d4454340997645b79e19a7304db134e79e43`。
+- `tag-chain.sh --check` 对 276 个本地标签检查通过。
+- `git diff --check` 通过。
+- 本地标签数为 276，远端标签数仍为 275，确认 `dev96` 未推送。
+
+后续步骤:
+- 如需远程共享，明确授权后推送 `dev96`。
+--- report end ---

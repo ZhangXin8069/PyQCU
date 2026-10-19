@@ -1,0 +1,84 @@
+[日志元数据]
+日志类型: final
+生成时间: 2026-10-20 00:55:24 +0800
+批次: 2026-10-20-big-file-purge
+主任务: Git 历史大文件永久删除与仓库瘦身
+触发原因: 任务完成
+摘要: 删除 8 个远程历史大文件路径、重写并强制同步 2 个分支和 275 个标签，完成本地与远端可达历史验证。
+Git 根目录: /root/PyQCU
+
+## 关键日志
+### S1 — 远程可达历史盘点
+- 目标: 枚举远程 2 个分支、275 个标签和全部可达历史中大于 10,000,000 bytes 的 Git blob。
+- 命令/操作: `git ls-remote --heads --tags origin`; `git rev-list --objects --remotes --tags | git cat-file --batch-check=...`。
+- 关键输出: 8 个唯一路径、13 个大版本、57 个路径历史版本；大版本未压缩合计 228,475,343 bytes。
+- 退出码: 0。
+- 证据与判断: `main` 当前树无大文件；`codex/audit-strict-multigrid-skills-20260831` 当前含两个 14 MiB 文件；其余大文件位于历史。
+
+### S2 — 本地历史重写
+- 目标: 完整删除 8 个路径的全部历史版本。
+- 命令/操作: `git filter-repo --invert-paths --prune-empty=never --path ... --force`。
+- 关键输出: 重写完成，并明确输出 `Rewrote the stash`。
+- 退出码: 0。
+- 证据与判断: 5 个 stash 保留且改动统计不变；275 个标签保留；`main` 树哈希保持 `15cc011724d55827e554b192a734e3eb40ce29bd`。
+
+### S3 — 远程原子强制推送
+- 目标: 将两个重写分支和全部标签永久切换至新历史。
+- 命令/操作: `git push --atomic --force --progress --tags -u origin main codex/audit-strict-multigrid-skills-20260831`。
+- 关键输出: 上传 15,762 个对象、约 247.8 MiB；远端解析 8,780 个 delta；两个分支和多标签 forced update；原子推送成功。
+- 退出码: 0。
+- 证据与判断: `main` 新 SHA `e966d4454340997645b79e19a7304db134e79e43`；审计分支新 SHA `49cb794b70da1f46a65e9f037cdf6b31a0538fcc`。
+
+### S4 — 端到端验证
+- 目标: 验证本地与远端均不再通过任何引用暴露目标路径或大文件。
+- 命令/操作: `git fsck --full --strict`; `git rev-list --objects --remotes --tags`; 本地/远端标签集合 diff；旧 blob OID 存在性检查；stash 统计复验。
+- 关键输出: 无目标路径、无 `>10 MB` blob、13 个旧 OID 全部不存在、远端标签 275 个且与本地完全一致、旧分支 tip 数为 0、fsck 无错误。
+- 退出码: 0。
+- 证据与判断: 本地对象库从约 472.62 MiB 降至 248.51 MiB；该差值包含重写删除、stash/引用转换、单一 pack 重打包及其他不可达对象清理。
+
+## 验证与证据
+- 测试/检查: `git fsck --full --strict`、`git diff --check`、本地/远端标签逐项 diff、远程 SHA 检查、目标路径历史查询、旧 blob OID 检查。
+- 结果: 全部通过；工作区无代码改动。
+- 未验证项: Gitee 后台不可达 pack 的实际物理 GC 时点无法从 Git 协议验证，需由平台后续回收。
+
+## 变更与产物
+- 文件: 完整删除了 8 个路径的全部 57 个历史版本。
+- 产物: 重写后的 2 个远程分支和 275 个标签。
+- 未改动范围: 两个 7.8 MiB / 8.6 MiB 的 LFS 跟踪文件及所有非目标源码、文档和当前 `main` 树内容。
+
+## 风险、限制与下一步
+- 风险: 历史 SHA 已改变，其他克隆需要重新同步；旧提交引用不可再解析。
+- 阻塞: 无。
+- 下一步: Gitee 侧如需立即释放服务端物理存储，需确认其后台 GC 策略或联系平台管理员。
+
+## 用户输入指令
+给出本git库已经提交到远程的所有大于10MB的文件,给用户审核并经过用户确认后将这些文件从本地和远程git永久删除以此给本git库瘦身
+确认
+
+## Agent 全文报告
+--- report begin ---
+✓ Git 大文件历史清理完成
+状态: finished
+
+改动内容:
+- 永久删除 8 个路径的全部 57 个历史版本，其中包括 13 个大于 10 MB 的 blob。
+- 完整删除路径: `refer/git-rep/DDalphaAMG-SM/2D_U1_Ns512_Nt512_b40000_m-01023_0.ctxt`、`refer/git-rep/DDalphaAMG-SM/rhs_conf0_512x512.rhs`、`refer/wilson-mg/wilson_mg`、`test/test-dev43-AMG_SETUP.ipynb`、`test/test-dev45-DEMO.ipynb`、`test/test-dev45-EIGEN.ipynb`、`test/test-dev53-ASCEND-MG.ipynb`、`test/test.eigen.ipynb`。
+- 重写并强制推送 `main` 与 `codex/audit-strict-multigrid-skills-20260831`，同时更新 275 个标签中的受影响引用。
+- 新 SHA: `main=e966d4454340997645b79e19a7304db134e79e43`；审计分支 `49cb794b70da1f46a65e9f037cdf6b31a0538fcc`。
+
+推理依据:
+- 采用完整路径删除而非仅删除 13 个大 blob，避免残留 44 个旧版本和文件路径。
+- 阈值采用十进制 10,000,000 bytes；因此 `test/test-dev53-ASCEND-MG.ipynb` 虽为 9.93 MiB，也因超过 10 MB 被纳入。
+
+验证结果:
+- 本地与远程可达历史均无目标路径、无大于 10 MB 的 blob。
+- 13 个旧目标 blob OID 已全部从本地 Git 对象库消失。
+- 5 个 stash 均保留，数量、顺序和改动统计一致。
+- 275 个远程标签与本地逐项一致；两个远程分支指向重写后 SHA。
+- `git fsck --full --strict` 与 `git diff --check` 均通过。
+- 本地 Git 对象存储从约 472.62 MiB 降至 248.51 MiB。
+
+后续步骤:
+- 其他克隆必须重新同步或重新克隆，不能继续使用旧历史。
+- Gitee 后台不可达对象的物理 GC 时点由平台控制；若要求立即释放服务端物理存储，需要平台管理员执行或确认 GC。
+--- report end ---
