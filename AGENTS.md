@@ -74,6 +74,7 @@ PyQCU：Lattice QCD 的 Python/Cython 库 —— CUDA 加速的 Wilson/Clover Di
 
 - 库类型：复杂库。主导语言：C++/CUDA（`cpp/**`）、Python/Cython（`pyqcu/**`、`setup.py`）、Bash（根构建入口和 `skills/**/*.sh`）。
 - 文件命名：C++ 头文件、`.cu` 源文件、Python 模块和 Bash 脚本使用小写下划线或既有点划分；语言生态固定名称和上游 vendored 文件保留原名。
+- **Agent 规则文件名称（硬性）**：所有目录的 agent 指令文件统一使用 `AGENTS.md`；`AGENTS.md` 是唯一名称，`AGENT.md` 是历史输入错误，不是兼容别名。只存在单数文件时直接重命名为 `AGENTS.md`；同目录双文件并存时，以 `AGENTS.md` 为主文件，完整合并并去重 `AGENT.md` 的有效内容后删除 `AGENT.md`，并同步现行脚本、配置、文档和本地规则中的全部引用。历史日志正文可保留旧路径作为既往证据。
 - 函数命名：C++ 对外 C API 使用小驼峰（如 `applyInitQcu`），内部 kernel/helper 使用小写下划线；Python 公共函数和私有函数分别使用 `snake_case`、`_snake_case`。
 - 变量命名：宏和编译期常量使用全大写下划线，C++ 宏保留 `_NAME_` 锚点；普通变量使用小写下划线，Python 模块级常量使用全大写下划线。
 - 对象命名：C++/Python 类型使用大驼峰，领域缩写作为完整词保留；绑定的 C API 名称必须与 `qcu.pyx`、`qcu.pxd` 和 `pyqcu.h` 同步。
