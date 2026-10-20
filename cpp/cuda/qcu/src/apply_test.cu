@@ -83,7 +83,8 @@ void testCloverDslashQcu(long long _fermion_out, long long _fermion_in,
       auto start = std::chrono::high_resolution_clock::now();
       make_clover<float>
           <<<set_ptr->gridDim, set_ptr->blockDim, 0, set_ptr->stream>>>(
-              gauge, clover, set_ptr->device_params, set_ptr->kappa());
+              gauge, clover, set_ptr->device_params,
+              set_ptr->clover_coefficient());
       checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
       auto end = std::chrono::high_resolution_clock::now();
       auto duration =
@@ -156,7 +157,8 @@ void testCloverDslashQcu(long long _fermion_out, long long _fermion_in,
       auto start = std::chrono::high_resolution_clock::now();
       make_clover<double>
           <<<set_ptr->gridDim, set_ptr->blockDim, 0, set_ptr->stream>>>(
-              gauge, clover, set_ptr->device_params, set_ptr->kappa());
+              gauge, clover, set_ptr->device_params,
+              set_ptr->clover_coefficient());
       checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
       auto end = std::chrono::high_resolution_clock::now();
       auto duration =

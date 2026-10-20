@@ -13,9 +13,9 @@ description: cpp/cuda/qcu/python 的 C API 维护 skill：pyqcu.h（37 个 exter
 | File | 位置 | Purpose |
 |------|------|---------|
 | `pyqcu.h` | `cpp/cuda/qcu/python/` | C 侧 `extern "C"` 声明——37 个入口，字段指针统一以 `long long` 传递，包含 legacy 与 Strict 全部入口；由 `qcu.pyx` 用 `cdef extern from "pyqcu.h"` 引入 |
-| `qcu_api.pxd` | `pyqcu/cuda/qcu/` | **权威** Cython 声明（38 行）；每个 C 调用必须带 `nogil`，与 `pyqcu.h` 逐项同步 |
+| `qcu_api.pxd` | `pyqcu/cuda/qcu/` | **权威** Cython 声明（38 行）；每个 C 调用必须带 `nogil`，`applyInitQcu` 另用 `except +` 转译 C++ 初始化异常，与 `pyqcu.h` 逐项同步 |
 | `qcu.pxd` | `pyqcu/cuda/qcu/` | `qcu_api.pxd` 的逐字节副本（同 md5），供按模块名 `qcu` 引用时使用 |
-| `qcu.pyx` | `pyqcu/cuda/qcu/` | 713 行 Python 包装：`from qcu_api cimport ...` 全部 37 个入口，负责连续性/形状门禁与结果转换 |
+| `qcu.pyx` | `pyqcu/cuda/qcu/` | Python 包装：`from qcu_api cimport ...` 全部 37 个入口；扩展以 C++ 编译，负责控制数组长度/dtype/device/contiguous 门禁与结果转换 |
 | `qcu.pyi` | `pyqcu/cuda/qcu/` | 390 行类型存根（IDE 支持）；`pyqcu/cuda/qcu.pyi` 是指向它的符号链接 |
 
 `pyqcu.h` 必须与 `pyqcu/cuda/qcu/qcu_api.pxd` 完全同步；声明、参数顺序或返回类型
@@ -37,8 +37,9 @@ description: cpp/cuda/qcu/python 的 C API 维护 skill：pyqcu.h（37 个 exter
   `_MG_USE_GCR_`、`_MG_USE_DEFLATE_`、`_MG_MU_PRE_`、`_MG_USE_INIT_GUESS_`。
   `params[57]` 只能为 0/1：0 表示冷启动，1 表示从调用方预填的 `fermion_out`
   奇半场读取 x0，不改变数组长度。
-- `argv`: 7 元实数张量：mass、atol、sigma、四个 MG 容差；c64 使用
-  `float32`，c128 使用 `float64`。
+- `argv`: 8 元实数张量：mass、atol、sigma、四个 MG 容差、csw；c64 使用
+  `float32`，c128 使用 `float64`。csw 位于槽 7，Clover 系数为
+  `-kappa*csw/8`，且 0 是合法值。
 
 数据张量必须在取 `data_ptr()` 前满足所需 dtype、device、shape 和 contiguous
 约束；Cython 在 `with nogil` 段调用 C API。
@@ -55,4 +56,6 @@ Strict 入口分为：
 Strict primitive 返回 `int` 状态；init/V-cycle/fused FGMRES 另通过
 `unsigned long long*` 返回其自有 arena 的精确字节数，fused 入口还返回迭代次数、
 收敛标志和最终 true residual。Cython 声明必须保持 `nogil`，且 Strict 生命周期
-内复用同一 `params[_SET_INDEX_]` 槽位；legacy 连续操作才执行 `_SET_INDEX_ += 1`。
+内复用同一 `params[_SET_INDEX_]` 槽位。普通事务顺序为
+`applyInitQcu → operation → applyEndQcu → _SET_INDEX_ += 1`；不要在 end
+前递增，否则会释放空槽并泄漏当前 `LatticeSet`。

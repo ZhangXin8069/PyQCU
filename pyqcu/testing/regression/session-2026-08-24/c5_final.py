@@ -75,7 +75,10 @@ def t_gauss_conftest_protocol():
     import pyqcu.cuda.qcu as qcu_mod
     params = torch.zeros(54, dtype=torch.int32)
     set_ptrs = torch.zeros(100, dtype=torch.int64)
-    argv = torch.zeros(7, dtype=torch.float32)
+    argv = torch.zeros(define._ARGV_SIZE_, dtype=torch.float32)
+    argv[define._MASS_] = -3.5
+    argv[define._ATOL_] = 1e-9
+    argv[define._CSW_] = 1.0
     params[define._LAT_X_] = LAT[0]; params[define._LAT_Y_] = LAT[1]
     params[define._LAT_Z_] = LAT[2]; params[define._LAT_T_] = LAT[3]
     params[define._GRID_X_] = params[define._GRID_Y_] = 1

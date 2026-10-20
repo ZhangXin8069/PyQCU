@@ -36,7 +36,8 @@ volume24_final —— 24×24×24×72 大格子 Clover MultiGrid 真实加速比�
 ## 参数协议
 
 - `LAT=[24,24,24,72]` `DOF_LIST=[12,24]` `MG_GRID=[2,2,2,2]` `NV_ITERS=20` `GAUGE_SEED=42` `DT=complex64`
-- `params[54]`/`argv[7]`/`set_ptrs[100]` 三扁平张量，`define.py` ↔ `define.h` 同步，`_SET_INDEX_` 每次 `applyInitQcu` 间 `+=1`
+- `params[58]`/`argv[8]`（槽 7 为 `csw`）/`set_ptrs[100]` 三扁平张量，
+  `define.py` ↔ `define.h` 同步，`_SET_INDEX_` 每次 `applyInitQcu` 间 `+=1`
 - `gate=1.0`（24³×72）否则 `2.0`，`main.py:404` 分级
 
 ## 子命令

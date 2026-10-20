@@ -11,7 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import numpy as np
 
 from common import (
-    DATA_DIR, KAPPA_PYQCU, LAT_DEFAULT, MASS, OUT_DIR,
+    DATA_DIR, LAT_DEFAULT, MASS, OUT_DIR,
     linreg_scale, quda_fermion_to_pyqcu, rel_diff, save_json,
 )
 
@@ -34,6 +34,7 @@ def main():
     tag = "x".join(map(str, lat))
     data_dir = DATA_DIR / tag
     scale = args.mass + 4.0  # D_mass = (m+4)*D_kappa（dev87 G2 锚定）
+    kappa_value = 1.0 / (2.0 * args.mass + 8.0)
 
     # ---------------- 数据
     import h5py
@@ -68,7 +69,8 @@ def main():
     print(f"[compare] rel_res: pyqcu(D x_p-b)/|b|={rp:.3e}  quda true_res={rq:.3e}")
 
     res = {
-        "lat": lat, "mass": args.mass, "kappa_pyqcu": KAPPA_PYQCU,
+        "lat": lat, "mass": args.mass, "csw": args.csw,
+        "kappa_pyqcu": kappa_value,
         "scale_m_plus_4": scale,
         "rel_diff_raw": rd_raw, "regress_c": c, "regress_rel": rd_scale,
         "rel_diff_scaled": rd_mass,

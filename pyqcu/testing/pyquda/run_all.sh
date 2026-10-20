@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # pyquda 对比套件一键运行（双进程隔离，dev87 F2）。
-# 用法: bash pyqcu/testing/pyquda/run_all.sh [lat串 如 8x8x8x16] [tol]
+# 用法: bash pyqcu/testing/pyquda/run_all.sh [lat串 如 8x8x8x16] [tol] [csw]
 set -e
 LAT=${1:-8x8x8x16}
 TOL=${2:-1e-8}
+CSW=${3:-1.0}
 IFS=x read -ra L <<< "$LAT"
 DIR=$(cd "$(dirname "$0")" && pwd)
 cd "$DIR"
@@ -11,9 +12,9 @@ source ../../../env.sh >/dev/null 2>&1
 source ../qcu/strict/quda_comparison/quda_env.sh >/dev/null 2>&1
 
 echo "=== 1/3 pyqcu 阶段（进程 A）==="
-python run_pyqcu.py --lat "${L[@]}" --tol "$TOL" || exit 1
+python run_pyqcu.py --lat "${L[@]}" --tol "$TOL" --csw "$CSW" || exit 1
 echo "=== 2/3 pyquda 阶段（进程 B，隔离）==="
-python run_pyquda.py --lat "${L[@]}" --tol "$TOL" || exit 1
+python run_pyquda.py --lat "${L[@]}" --tol "$TOL" --csw "$CSW" || exit 1
 echo "=== 3/3 聚合对比 + 作图 ==="
-python compare.py --lat "${L[@]}" || exit 1
+python compare.py --lat "${L[@]}" --csw "$CSW" || exit 1
 echo "DONE: pyqcu/testing/pyquda/out/compare_${LAT}.md + .png"

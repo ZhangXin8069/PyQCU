@@ -288,7 +288,7 @@ def full_to_qdp(u_full):
 
 
 def make_clover_tensors(g_dev, lat, mass=MASS_DEFAULT, grid=None, rank=None,
-                        dtype=None, data_type=None):
+                        dtype=None, data_type=None, csw=1.0):
     """经 C++ applyCloversQcu 构建 (ce,cei,coo,coi)。调用方负责生命周期。"""
     if data_type is None:
         if dtype is None:
@@ -323,6 +323,7 @@ def make_clover_tensors(g_dev, lat, mass=MASS_DEFAULT, grid=None, rank=None,
     p[define._DATA_TYPE_] = dt
     av = a.to(dtype=_real_dtype_for_code(dt))
     av[define._MASS_] = mass; av[define._SIGMA_] = SIGMA_DEFAULT
+    av[define._CSW_] = float(csw)
     ls = define.lat_shape(p)
     ce = torch.empty([4, 3, 4, 3] + ls, dtype=dtype, device=g_dev.device)
     cei = torch.empty_like(ce); coo = torch.empty_like(ce); coi = torch.empty_like(ce)

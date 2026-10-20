@@ -9,9 +9,11 @@ import json
 import numpy as np
 
 try:
-    from ._common import qcu_gauge_to_qdp, read_h5, resolve_path, write_qdp_gauge
+    from ._common import (qcu_gauge_to_qdp, read_h5, read_h5_metadata,
+                          resolve_path, write_qdp_gauge)
 except ImportError:
-    from _common import qcu_gauge_to_qdp, read_h5, resolve_path, write_qdp_gauge
+    from _common import (qcu_gauge_to_qdp, read_h5, read_h5_metadata,
+                         resolve_path, write_qdp_gauge)
 
 
 def main(argv=None) -> int:
@@ -23,12 +25,16 @@ def main(argv=None) -> int:
 
     source = resolve_path(args.input, resolve_path(None, args.input))
     qcu = read_h5(source)
+    source_metadata = read_h5_metadata(source)
     qdp = qcu_gauge_to_qdp(qcu)
     output = resolve_path(args.output, source.parent / args.output)
     if not args.dry_run:
         write_qdp_gauge(output, qdp, metadata={
             "layout": "[dir,t,z,y,x,3,3]",
             "source": str(source),
+            "csw": source_metadata.get("csw"),
+            "reference_mass": source_metadata.get(
+                "reference_mass", source_metadata.get("mass")),
         })
     print(json.dumps({
         "input": str(source),
@@ -36,6 +42,9 @@ def main(argv=None) -> int:
         "qcu_shape": list(qcu.shape),
         "quda_shape": list(qdp.shape),
         "dtype": str(qdp.dtype),
+        "csw": source_metadata.get("csw"),
+        "reference_mass": source_metadata.get(
+            "reference_mass", source_metadata.get("mass")),
         "norm": float(np.linalg.norm(qdp.ravel())),
         "dry_run": bool(args.dry_run),
     }, ensure_ascii=False))

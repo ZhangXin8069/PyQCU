@@ -24,13 +24,16 @@ eo/oe 变体用 `ward_p_keys`（x, y, z, t_p）— `t_p` 方向处理奇偶拆�
 
 ### Clover（`_clover.py`）
 
-- `make_clover(U, kappa, u_0, support_parallel, verbose)` — 四plaquette F_{μν} 构造（每 μν 对 12 个平移 link），返回 `[4,3,4,3,Lx,Ly,Lz,Lt]`
+- `make_clover(U, kappa, u_0, support_parallel, verbose, csw)` — 四plaquette
+  F_{μν} 构造（每 μν 对 12 个平移 link），返回 `[4,3,4,3,Lx,Ly,Lz,Lt]`
 - `add_I(clover_term, ...)` / `cut_I(...)` — M = I + clover_term / M = clover_term − I
 - `inverse(clover_term, ...)` — 批量 12×12 矩阵求逆（`torch.linalg.inv`，**禁止**逐点 for 循环！）
 - `give_clover(src, clover_term, ...)` — einsum("SCscxyzt,scxyzt→SCxyzt")
 - `give_clover_ee` / `give_clover_oo` — 偶偶/奇奇 clover 应用（委托 `give_clover`）
 
-**Clover 系数注意：** 用 `_clover_factor = −0.125 · κ/u_0`。标准约定 c_sw=1 给出 −κ/(16·u_0)。因子 2 可能来自反厄米部分约定。改动前需与 QUDA/Chroma 交叉验证。
+**Clover 系数：** `_clover_factor = −0.125 · κ · csw/u_0`，与 CUDA
+`-kappa*csw/8` 和 PyQUDA 的 `clover_csw_t` 对齐。`csw=0` 必须得到精确零
+Clover 项；默认 `csw=1` 保持历史调用兼容。
 
 `support_parallel=True` 时 `make_clover` 对所有 μν plaquette 的 4 角 4 边做 MPI halo 交换。
 

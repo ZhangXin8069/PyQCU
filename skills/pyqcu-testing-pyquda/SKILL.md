@@ -33,7 +33,8 @@ PyQCU（纯 Python 后端）与 PyQuda-0.3.2（QUDA 1.1.0）的结果/性能对�
 - 结果：pyqcu 解 x_p = (m+4) · x_quda（实测回归 c = 4.050000，rel 1.5e-6，8³×16）。
 - dslash 单步（跳跃部分）：QUDA `dslashQuda` 输出 = +H_hop·b（不含 κ、无负号），
   pyqcu `give_wilson(with_I=False)` = −κ·H_hop·b ⇒ 回归 c = −κ_pyqcu（实测 −0.123457，rel 1.5e-8）。
-- Clover（csw=1）：pyqcu 侧 `D_cl ψ = give_wilson(ψ,U,κ) + give_clover(ψ, make_clover(U,κ))`；
+- Clover：PyQCU/PyQUDA 两侧显式使用同一 `csw`，pyqcu 侧
+  `D_cl ψ = give_wilson(ψ,U,κ) + give_clover(ψ, make_clover(U,κ,csw=csw))`；
   quda 侧 `getDslash(..., clover_coeff_t=1.0)`，解同样满足 x_p = (m+4)·x_q（实测 rel 1.6e-6）。
 
 ## 文件清单
@@ -47,7 +48,7 @@ PyQCU（纯 Python 后端）与 PyQuda-0.3.2（QUDA 1.1.0）的结果/性能对�
 | `run_pyqcu.py` | 进程 A：生成 U/b（seed42/σ0.1/randn）→ input.h5；give_wilson、BiCGStab（Wilson/Clover）→ pyqcu*.h5/json |
 | `run_pyquda.py` | 进程 B：读 h5 → `pyquda.init(grid_size=[1,1,1,1])` → CG（mass 归一化，VERBOSE 捕获逐迭代残差）→ pyquda*.h5/json；干净计时二次运行 |
 | `compare.py` | 聚合：解互比（回归+rel_diff）、hop 中间量、残差表、逐迭代残差图+耗时柱状图 → out/compare_*.{json,md,png} |
-| `run_all.sh` | 一键三阶段：`bash run_all.sh 8x8x8x16 [tol]` |
+| `run_all.sh` | 一键三阶段：`bash run_all.sh 8x8x8x16 [tol] [csw]` |
 
 ## 关键 API（PyQuda-0.3.2）
 
