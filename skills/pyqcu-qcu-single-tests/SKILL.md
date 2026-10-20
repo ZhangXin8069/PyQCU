@@ -13,13 +13,14 @@ description: pyqcu/testing/qcu 与 pyqcu/testing/quda 的 QCU/QUDA 单功能测�
 
 ## QCU 生命周期
 
-控制张量固定为 `params=int32[58]`、`argv=real[7]`、`set_ptrs=int64[100]`。每次调用严格执行：
+控制张量固定为 `params=int32[58]`、`argv=real[8]`（槽 7 为 `csw`）、
+`set_ptrs=int64[100]`。每次普通单操作事务严格执行：
 
 ```text
 applyInitQcu(set_ptrs, params, argv)
 operation(..., set_ptrs, params)
-params[_SET_INDEX_] += 1
 applyEndQcu(set_ptrs, params)
+params[_SET_INDEX_] += 1
 ```
 
 `params[_SET_PLAN_]` 使用 -2 Laplacian、-1 Gauss、0 Wilson dslash、1 求解器、2 Clover；QCU

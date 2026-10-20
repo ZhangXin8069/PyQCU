@@ -19,7 +19,7 @@ def main(argv=None) -> int:
         report.finish("SKIP")
         return 0
     ctx = report.run("创建上下文", make_context, lattice=args.lat, mass=args.mass,
-                     plan=2, device=args.device, reporter=report)
+                     csw=args.csw, plan=2, device=args.device, reporter=report)
     gauge, src, out = report.run("分配测试场", allocate_state, ctx)
     parity = int(ctx.params[define._PARITY_])
     compact_src = src[1 - parity]
@@ -33,7 +33,8 @@ def main(argv=None) -> int:
         clover = eye12.reshape(4, 3, 4, 3, 1, 1, 1, 1).expand(
             4, 3, 4, 3, *lat_shape(ctx)).contiguous()
         lifecycle_call(ctx, "applyDslashQcu", test_out, compact_src, gauge, clover)
-    expected = qcu_clover_dslash_reference(compact_src, gauge, ctx.mass, parity)
+    expected = qcu_clover_dslash_reference(
+        compact_src, gauge, ctx.mass, parity, csw=ctx.csw)
     err = relative_error(compact_out, expected)
     test_err = relative_error(test_out, expected)
     print(json.dumps({"function":"applyCloverDslashQcu", "relative_error":err,

@@ -19,8 +19,9 @@ def applyInitQcu(
         set_ptrs: int64 tensor, shape [100]. Scratch pointer table.
         params: int32 tensor, shape [58]. Lattice dimensions,
                 grid sizes, data types, iteration counts, plan selection, MG config.
-        argv: real-valued tensor, shape [7]. Physical params:
-              mass (idx 0), atol (idx 1), sigma (idx 2), MG level tolerances (3-6).
+        argv: real-valued tensor, shape [8]. Physical params:
+              mass (idx 0), atol (idx 1), sigma (idx 2), MG level tolerances
+              (3-6), csw (idx 7).
     """
     ...
 

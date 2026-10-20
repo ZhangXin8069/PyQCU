@@ -29,15 +29,15 @@ def _torch_generate(lat, seed: int, sigma: float, device: str):
 def _qcu_generate(lat, seed: int, sigma: float, device: str, mass: float):
     import torch
     from pyqcu import tools
-    from pyqcu.cuda import define
-    from pyqcu.testing.qcu.single_function_common import (allocate_state,
-                                                          lifecycle_call, make_context)
+    from pyqcu.cuda import QcuRuntime, define
 
-    ctx = make_context(lat, mass=mass, plan=-1, device=device)
-    ctx.params[define._SEED_] = int(seed)
-    ctx.argv[define._SIGMA_] = float(sigma)
-    gauge_eo, _, _ = allocate_state(ctx)
-    lifecycle_call(ctx, "applyGaussGaugeQcu", gauge_eo)
+    runtime = QcuRuntime.from_lattice(
+        lat, mass=mass, csw=1.0, sigma=sigma, device=device, plan=-1,
+        seed=seed)
+    compact = define.lat_shape(runtime.params)
+    shape = (2, 3, 3, 4, *compact)
+    gauge_eo = torch.empty(shape, dtype=torch.complex64, device=runtime.device)
+    runtime.call("applyGaussGaugeQcu", gauge_eo)
     gauge = tools.poooxyzt2oooxyzt(gauge_eo).detach().cpu().numpy()
     return gauge, "qcu"
 

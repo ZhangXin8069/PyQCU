@@ -12,6 +12,7 @@ PyQCU 的集成测试、后端单功能测试、性能基准与历史回归资�
 |---|---|
 | `pyqcu/` | 纯 Python 算子/求解器主测试与对应运行入口 |
 | `qcu/` | C++ CUDA/Cython 后端测试；`multigrid/` 现存 `volume24/final/` 与 `benchmarks/{large_volume,multi_gpu}`，Strict 对照在 `strict/quda_comparison/` |
+| `kupl/` | 独立 MPI+OpenMP CPU 后端的 Python ctypes ABI、canonical layout、PyQCU 参考差分与 Clover BiStabCG 真残差测试 |
 | `quda/` | QUDA 单功能对照测试；公共适配在 `common.py` |
 | `pyquda/` | 与 PyQUDA 的隔离进程对比套件 |
 | `cpu/`、`npu/`、`dcu/`、`gpu/` | 后端专项或占位测试 |

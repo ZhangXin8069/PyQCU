@@ -19,7 +19,7 @@ C++ CUDA 后端测试（经 Cython 桥）。从 Python 驱动 `libqcu.so`。
 ## 单功能接口测试（当前维护入口）
 
 `single_qcu_*.py` 每个文件只调用一个功能族，并在 CUDA 可用时执行一次完整的
-`applyInitQcu → operation → params[_SET_INDEX_]+=1 → applyEndQcu` 生命周期；CUDA 不可用时仍运行
+`applyInitQcu → operation → applyEndQcu → params[_SET_INDEX_]+=1` 生命周期；CUDA 不可用时仍运行
 纯 PyTorch 参考和布局契约，明确输出 `SKIP`。`single_qcu_api.py` 对照 `pyqcu.h`、`qcu_api.pxd`、
 `qcu.pyx` 的符号集合，Strict/MG 文件额外校验参数形状。设置 `QCU_STRICT_NUMERIC=1` 可把数值偏差
 升级为失败，默认模式只报告偏差以便在不同 CUDA 架构上做诊断。

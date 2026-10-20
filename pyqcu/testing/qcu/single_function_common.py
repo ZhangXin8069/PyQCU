@@ -39,6 +39,7 @@ class Context:
     dtype: torch.dtype
     lattice: tuple[int, int, int, int]
     mass: float
+    csw: float = 1.0
     reporter: "RunReporter | None" = None
 
 
@@ -205,7 +206,7 @@ def require_qcu():
 
 def make_context(
     lattice: Sequence[int] = DEFAULT_LATTICE, mass: float = 0.05,
-    *, plan: int = 0, parity: int = 0, max_iter: int = 200,
+    *, csw: float = 1.0, plan: int = 0, parity: int = 0, max_iter: int = 200,
     device: str | None = None, reporter: RunReporter | None = None,
 ) -> Context:
     """Create private ABI tensors for one test (never mutate module globals)."""
@@ -236,12 +237,11 @@ def make_context(
     p[define._VERBOSE_] = int(os.environ.get("QCU_VERBOSE", "0"))
     p[define._SEED_] = int(os.environ.get("QCU_SEED", "42"))
     p[define._TEST_IN_CPU_] = 0
-    a = torch.zeros(define._ARGV_SIZE_, dtype=torch.float32)
-    a[define._MASS_] = float(mass)
-    a[define._ATOL_] = float(os.environ.get("QCU_ATOL", "1e-7"))
-    a[define._SIGMA_] = 0.1
+    a = define.make_argv(
+        float(mass), csw=float(csw),
+        atol=float(os.environ.get("QCU_ATOL", "1e-7")))
     s = torch.zeros(define._SET_PTRS_SIZE_, dtype=torch.int64)
-    return Context(p, a, s, dev, dtype, lat, float(mass), reporter)
+    return Context(p, a, s, dev, dtype, lat, float(mass), float(csw), reporter)
 
 
 def lat_shape(ctx: Context) -> list[int]:
@@ -282,9 +282,10 @@ def lifecycle_call(ctx: Context, name: str, *args):
                 return fn(*args, ctx.set_ptrs, ctx.params)
             return ctx.reporter.measure_function(name, fn, *args, ctx.set_ptrs, ctx.params)
         finally:
-            # Every operation gets a fresh scratch slot before destruction.
-            ctx.params[define._SET_INDEX_] += 1
+            # Free the LatticeSet created at the current slot, then advance so
+            # the next operation gets a fresh scratch index.
             qcu.applyEndQcu(ctx.set_ptrs, ctx.params)
+            ctx.params[define._SET_INDEX_] += 1
     if ctx.reporter is None:
         return invoke()
     return ctx.reporter.run(name, invoke)
@@ -313,10 +314,10 @@ def pure_wilson_reference(field_eo: torch.Tensor, gauge_eo: torch.Tensor,
 
 
 def pure_clover_reference(field_eo: torch.Tensor, gauge_eo: torch.Tensor,
-                          mass: float) -> torch.Tensor:
+                          mass: float, csw: float = 1.0) -> torch.Tensor:
     kappa = 1.0 / (2.0 * mass + 8.0)
     u = full_gauge(gauge_eo)
-    cl = dslash.make_clover(u, kappa=torch.tensor([kappa]))
+    cl = dslash.make_clover(u, kappa=torch.tensor([kappa]), csw=csw)
     return pure_wilson_reference(field_eo, gauge_eo, mass, with_I=True) + dslash.give_clover(full_fermion(field_eo), cl)
 
 
@@ -341,7 +342,8 @@ def qcu_wilson_dslash_reference(field_compact: torch.Tensor, gauge_eo: torch.Ten
 
 
 def qcu_clover_dslash_reference(field_compact: torch.Tensor, gauge_eo: torch.Tensor,
-                                mass: float, parity: int) -> torch.Tensor:
+                                mass: float, parity: int,
+                                csw: float = 1.0) -> torch.Tensor:
     """Reference for ``applyCloverDslashQcu``'s compact-parity output.
 
     The C++ path applies the bare Wilson hopping and then multiplies by the
@@ -353,7 +355,7 @@ def qcu_clover_dslash_reference(field_compact: torch.Tensor, gauge_eo: torch.Ten
     hopping = qcu_wilson_dslash_reference(field_compact, gauge_eo, parity)
     kappa = 1.0 / (2.0 * mass + 8.0)
     clover_full = dslash.make_clover(
-        full_gauge(gauge_eo), kappa=torch.tensor([kappa]))
+        full_gauge(gauge_eo), kappa=torch.tensor([kappa]), csw=csw)
     clover_parity = tools.oooxyzt2poooxyzt(clover_full)[parity]
     onsite_inverse = dslash.inverse(dslash.add_I(clover_parity))
     return dslash.give_clover(hopping, onsite_inverse)
@@ -369,6 +371,8 @@ def parser(description: str) -> argparse.ArgumentParser:
     p.add_argument("--lat", nargs=4, type=_even_positive, default=DEFAULT_LATTICE, metavar=("X", "Y", "Z", "T"),
                    help="全局格点大小（默认: 16 16 16 16）")
     p.add_argument("--mass", type=float, default=0.05)
+    p.add_argument("--csw", type=float, default=1.0,
+                   help="Clover coefficient (default: 1.0)")
     p.add_argument("--device", default=None)
     p.add_argument("--pure-only", action="store_true", help="only run the PyTorch reference")
     p.add_argument("--no-doc", action="store_true", help="不在开头打印本脚本使用说明")

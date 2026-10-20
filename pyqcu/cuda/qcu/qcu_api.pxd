@@ -1,5 +1,5 @@
 cdef extern from "pyqcu.h":
-    void applyInitQcu(long long _set_ptrs, long long _params, long long _argv) nogil
+    void applyInitQcu(long long _set_ptrs, long long _params, long long _argv) except + nogil
     void applyEndQcu(long long _set_ptrs, long long _params) nogil
     void testWilsonDslashQcu(long long _fermion_out, long long _fermion_in, long long _gauge, long long _set_ptrs, long long _params) nogil
     void applyWilsonDslashQcu(long long _fermion_out, long long _fermion_in, long long _gauge, long long _set_ptrs, long long _params) nogil

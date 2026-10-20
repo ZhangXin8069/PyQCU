@@ -30,13 +30,36 @@ import numpy as np
 REPO = Path(__file__).resolve().parents[3]
 DATA_DIR = Path(os.environ.get("PYQCU_DATA_DIR", str(REPO / "data"))).expanduser()
 
-DEFAULT_LIME = DATA_DIR / "beta6.20_mu-0.2770_ms-0.2310_L24x64_cfg_9950.lime"
+DEFAULT_LIME = Path(os.environ.get(
+    "PYQCU_REFERENCE_LIME",
+    str(DATA_DIR / "beta6.20_mu-0.2770_ms-0.2310_L24x64_cfg_9950.lime"))).expanduser()
 DEFAULT_MASS = 0.05
 DEFAULT_CSW = 1.160920226
 DEFAULT_ATOL = 1.0e-6
 DEFAULT_MAX_ITER = 1000
 DEFAULT_NVEC = 24
 DEFAULT_BLOCK = (2, 2, 2, 2)
+
+
+def resolve_csw(explicit: float | None,
+                metadata: Mapping[str, Any] | None = None) -> float:
+    """Resolve PyQUDA's ``csw`` precedence: CLI, file metadata, default."""
+    if explicit is not None:
+        value = float(explicit)
+    elif metadata is not None and metadata.get("csw") is not None:
+        value = float(metadata["csw"])
+    else:
+        value = float(DEFAULT_CSW)
+    if not np.isfinite(value):
+        raise ValueError("csw must be finite")
+    return value
+
+
+def csw_matches(left: float, right: float | None, *,
+                rtol: float = 2.0e-7) -> bool:
+    """Compare clover coefficients with a tolerance suitable for LIME XML."""
+    return right is None or bool(np.isclose(float(left), float(right), rtol=rtol,
+                                            atol=0.0))
 
 
 def resolve_path(value: str | os.PathLike[str] | None, default: Path) -> Path:
@@ -46,6 +69,8 @@ def resolve_path(value: str | os.PathLike[str] | None, default: Path) -> Path:
         return path
     # Accept both ``--input data/foo`` from the repository root and the
     # documented ``--input foo`` shorthand rooted at ``data/``.
+    if path.parts and path.parts[0] == "data":
+        return (REPO / path).resolve()
     if path.exists():
         return path.resolve()
     return DATA_DIR / path
@@ -180,7 +205,28 @@ def estimated_clover_gflops(lattice: tuple[int, int, int, int], iterations: int,
     }
 
 
-def _lime_records(path: Path) -> dict[str, tuple[int, int]]:
+def solver_acceptance(
+        atol: float, *, dtype: np.dtype = np.dtype(np.complex64)) -> float:
+    """Return the relative residual acceptance used by the simple examples."""
+    real_dtype = np.empty((), dtype=dtype).real.dtype
+    multiplier = 2048 if real_dtype.itemsize <= 4 else 128
+    return max(float(atol), float(np.finfo(real_dtype).eps) * multiplier)
+
+
+def convergence_status(
+        residual: float, atol: float, *, comparison_valid: bool = True,
+        dtype: np.dtype = np.dtype(np.complex64)) -> tuple[bool, str, float]:
+    """Classify a relative true residual without hard-coded 1e-2 success."""
+    acceptance = solver_acceptance(atol, dtype=dtype)
+    converged = bool(np.isfinite(residual) and residual <= acceptance)
+    if not converged:
+        return False, "FAIL", acceptance
+    return True, "PASS" if comparison_valid else "WARN", acceptance
+
+
+def _lime_records(path: Path,
+                  wanted: set[str] | None = None,
+                  any_of: set[str] | None = None) -> dict[str, tuple[int, int]]:
     """Read the LIME record directory without loading the binary payload."""
     records: dict[str, tuple[int, int]] = {}
     with path.open("rb") as handle:
@@ -195,6 +241,14 @@ def _lime_records(path: Path) -> dict[str, tuple[int, int]]:
             name = handle.read(128).split(b"\0", 1)[0].decode("utf-8")
             offset = handle.tell()
             records[name] = (offset, length)
+            if wanted is not None and not wanted.issubset(records):
+                handle.seek(offset + ((length + 7) // 8) * 8)
+                continue
+            if any_of is not None and records.keys().isdisjoint(any_of):
+                handle.seek(offset + ((length + 7) // 8) * 8)
+                continue
+            if wanted is not None or any_of is not None:
+                break
             handle.seek(offset + ((length + 7) // 8) * 8)
     return records
 
@@ -210,14 +264,22 @@ def _lime_xml(path: Path, records: Mapping[str, tuple[int, int]], name: str) -> 
 def lime_metadata(path: str | os.PathLike[str]) -> dict[str, Any]:
     """Return gauge dimensions and the Chroma clover coefficient if present."""
     path = Path(path).expanduser()
-    records = _lime_records(path)
+    records = _lime_records(
+        path, {"scidac-private-file-xml", "scidac-record-xml"})
     file_xml = _lime_xml(path, records, "scidac-private-file-xml")
     dims = tuple(int(value) for value in file_xml.findtext("dims", "").split())
     if len(dims) != 4:
         raise ValueError(f"invalid LIME lattice dimensions in {path}: {dims}")
     meta: dict[str, Any] = {"lattice_xyzt": dims, "file": str(path)}
-    if "scidac-record-xml" in records:
-        record_xml = _lime_xml(path, records, "scidac-record-xml")
+    if "scidac-record-xml" not in records:
+        records.update(_lime_records(
+            path, any_of={"scidac-private-record-xml"}))
+    record_name = (
+        "scidac-record-xml" if "scidac-record-xml" in records
+        else "scidac-private-record-xml"
+        if "scidac-private-record-xml" in records else None)
+    if record_name is not None:
+        record_xml = _lime_xml(path, records, record_name)
         coefficient = record_xml.find(".//clovCoeff")
         if coefficient is not None and coefficient.text:
             meta["csw"] = float(coefficient.text)
@@ -310,12 +372,18 @@ def write_lime_gauge(path: str | os.PathLike[str], gauge: np.ndarray,
         '<scidacFile><version>1.1</version><spacetime>4</spacetime>'
         f'<dims>{x} {y} {z} {t} </dims><volfmt>0</volfmt></scidacFile>'
     ).encode("utf-8")
+    metadata = metadata or {}
+    clover_xml = ""
+    if metadata.get("csw") is not None:
+        clover_xml += f"<clovCoeff>{float(metadata['csw']):.12g}</clovCoeff>"
+    if metadata.get("reference_mass") is not None:
+        clover_xml += f"<Mass>{float(metadata['reference_mass']):.12g}</Mass>"
     private_record = (
         '<?xml version="1.0" encoding="UTF-8"?>'
         '<scidacRecord><version>1.1</version><recordtype>0</recordtype>'
         '<datatype>QDP_D3_ColorMatrix</datatype><precision>D</precision>'
         '<colors>3</colors><spins>4</spins><typesize>144</typesize>'
-        '<datacount>4</datacount></scidacRecord>'
+        f'<datacount>4</datacount>{clover_xml}</scidacRecord>'
     ).encode("utf-8")
     checksum = (
         '<scidacChecksum><version>1.0</version>'

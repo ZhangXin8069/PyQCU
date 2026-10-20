@@ -17,7 +17,6 @@ using namespace qcu;
  *
  * where _SET_PTRS_COARSE_BASE_ = 30 (well past the LatticeSet slots; _SET_INDEX_ grows with each applyInitQcu, so the coarse-op slots must not collide with it) in set_ptrs after scratch ptrs).
  */
-#define _SET_PTRS_COARSE_BASE_ 30
 
 void applyCloverMultigridQcu(long long _fermion_out, long long _fermion_in,
                               long long _gauge, long long _clover_ee,

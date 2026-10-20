@@ -1,4 +1,5 @@
 import mpi4py.MPI as MPI
+import math
 from pyqcu import tools
 import torch
 from typing import List, Optional
@@ -83,6 +84,7 @@ _MG_USE_GCR_ = 54
 _MG_USE_DEFLATE_ = 55
 _MG_MU_PRE_ = 56
 _MG_USE_INIT_GUESS_ = 57
+_SET_PTRS_COARSE_BASE_ = 30
 _SET_PTRS_STRICT_COARSE_BASE_ = 60
 _SET_PTRS_STRICT_STRIDE_ = 4
 _SET_PTRS_STRICT_NULL_ = 0
@@ -111,7 +113,8 @@ _MG_LEVEL1_ATOL_ = 3
 _MG_LEVEL2_ATOL_ = 4
 _MG_LEVEL3_ATOL_ = 5
 _MG_LEVEL4_ATOL_ = 6
-_ARGV_SIZE_ = 7
+_CSW_ = 7
+_ARGV_SIZE_ = 8
 _LAT_C64_IN_TENSOR_ = torch.Tensor([_LAT_C64_], device=torch.device('cpu'))
 
 
@@ -160,6 +163,32 @@ def lat_shape(params: torch.Tensor) -> List[int]:
     return [int(params[_LAT_X_]), int(params[_LAT_Y_]), int(params[_LAT_Z_]), int(params[_LAT_T_]//_LAT_P_)]
 
 
+def make_argv(mass: float, *, atol: float = 1.0e-6, sigma: float = 0.1,
+              csw: float = 1.0, mg_atol: Optional[List[float]] = None,
+              data_type: int = _LAT_C64_) -> torch.Tensor:
+    """Build the canonical eight-slot QCU ``argv`` tensor.
+
+    The first seven slots are unchanged from the legacy ABI.  Slot 7 is the
+    additive ``csw`` extension and must remain explicit so that ``csw=0`` is a
+    valid request rather than being interpreted as a missing value.
+    """
+    if not math.isfinite(float(mass)):
+        raise ValueError("mass must be finite")
+    if not math.isfinite(float(atol)) or float(atol) <= 0.0:
+        raise ValueError("atol must be finite and positive")
+    if not math.isfinite(float(sigma)):
+        raise ValueError("sigma must be finite")
+    if not math.isfinite(float(csw)):
+        raise ValueError("csw must be finite")
+    values = [float(mass), float(atol), float(sigma), 0.0, 0.0, 0.0, 0.0,
+              float(csw)]
+    if mg_atol is not None:
+        for index, value in enumerate(mg_atol[:4]):
+            values[_MG_LEVEL1_ATOL_ + index] = float(value)
+    real_dtype = dtype(torch.tensor([data_type], dtype=torch.int32)).to_real()
+    return torch.tensor(values, dtype=real_dtype, device=torch.device("cpu"))
+
+
 params = torch.Tensor(
     [0]*_PARAMS_SIZE_).to(dtype=torch.int32, device=torch.device('cpu'))
 params[_LAT_X_] = 32
@@ -186,5 +215,6 @@ argv = torch.Tensor([0.0]*_ARGV_SIZE_).to(dtype=dtype(params[_DATA_TYPE_]).to_re
 argv[_MASS_] = -3.5  # make kappa=1.0
 argv[_ATOL_] = 1e-9
 argv[_SIGMA_] = 0.1
+argv[_CSW_] = 1.0
 set_ptrs = torch.Tensor([0]*_SET_PTRS_SIZE_).to(dtype=torch.int64,
                                                 device=torch.device('cpu'))  # maybe more than 10?

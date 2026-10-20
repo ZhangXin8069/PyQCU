@@ -12,52 +12,62 @@ void applyInitQcu(long long _set_ptrs, long long _params, long long _argv) {
   if (data_type == _LAT_C64_) {
     // init for lattice_set
     LatticeSet<float> *set_ptr = new LatticeSet<float>();
-    set_ptr->give(params, argv);
-    if (set_ptr->host_params[_VERBOSE_]) {
-      printf("set_ptr:%p\n", set_ptr);
-      printf("set_ptrs:%p\n", set_ptrs);
-      printf("long long set_ptr:%lld\n", (long long)set_ptr);
-      auto start = std::chrono::high_resolution_clock::now();
-      set_ptr->init();
-      set_ptr->_print();
-      static_cast<long long *>(set_ptrs)[set_index] = (long long)set_ptr;
-      auto end = std::chrono::high_resolution_clock::now();
-      auto duration =
-          std::chrono::duration_cast<std::chrono::nanoseconds>(end - start)
-              .count();
-      cudaError_t err = cudaGetLastError();
-      checkCudaErrors(err);
-      printf("lattice set init total time:%.9lf "
-             "sec\n",
-             double(duration) / 1e9);
-    } else {
-      set_ptr->init();
-      static_cast<long long *>(set_ptrs)[set_index] = (long long)set_ptr;
+    static_cast<long long *>(set_ptrs)[set_index] = (long long)set_ptr;
+    try {
+      set_ptr->give(params, argv);
+      if (set_ptr->host_params[_VERBOSE_]) {
+        printf("set_ptr:%p\n", set_ptr);
+        printf("set_ptrs:%p\n", set_ptrs);
+        printf("long long set_ptr:%lld\n", (long long)set_ptr);
+        auto start = std::chrono::high_resolution_clock::now();
+        set_ptr->init();
+        set_ptr->_print();
+        auto end = std::chrono::high_resolution_clock::now();
+        auto duration =
+            std::chrono::duration_cast<std::chrono::nanoseconds>(end - start)
+                .count();
+        cudaError_t err = cudaGetLastError();
+        checkCudaErrors(err);
+        printf("lattice set init total time:%.9lf "
+               "sec\n",
+               double(duration) / 1e9);
+      } else {
+        set_ptr->init();
+      }
+    } catch (...) {
+      static_cast<long long *>(set_ptrs)[set_index] = 0;
+      delete set_ptr;
+      throw;
     }
   } else if (data_type == _LAT_C128_) {
     // init for lattice_set
     LatticeSet<double> *set_ptr = new LatticeSet<double>();
-    set_ptr->give(params, argv);
-    if (set_ptr->host_params[_VERBOSE_]) {
-      printf("set_ptr:%p\n", set_ptr);
-      printf("set_ptrs:%p\n", set_ptrs);
-      printf("long long set_ptr:%lld\n", (long long)set_ptr);
-      auto start = std::chrono::high_resolution_clock::now();
-      set_ptr->init();
-      set_ptr->_print();
-      static_cast<long long *>(set_ptrs)[set_index] = (long long)set_ptr;
-      auto end = std::chrono::high_resolution_clock::now();
-      auto duration =
-          std::chrono::duration_cast<std::chrono::nanoseconds>(end - start)
-              .count();
-      cudaError_t err = cudaGetLastError();
-      checkCudaErrors(err);
-      printf("lattice set init total time:%.9lf "
-             "sec\n",
-             double(duration) / 1e9);
-    } else {
-      set_ptr->init();
-      static_cast<long long *>(set_ptrs)[set_index] = (long long)set_ptr;
+    static_cast<long long *>(set_ptrs)[set_index] = (long long)set_ptr;
+    try {
+      set_ptr->give(params, argv);
+      if (set_ptr->host_params[_VERBOSE_]) {
+        printf("set_ptr:%p\n", set_ptr);
+        printf("set_ptrs:%p\n", set_ptrs);
+        printf("long long set_ptr:%lld\n", (long long)set_ptr);
+        auto start = std::chrono::high_resolution_clock::now();
+        set_ptr->init();
+        set_ptr->_print();
+        auto end = std::chrono::high_resolution_clock::now();
+        auto duration =
+            std::chrono::duration_cast<std::chrono::nanoseconds>(end - start)
+                .count();
+        cudaError_t err = cudaGetLastError();
+        checkCudaErrors(err);
+        printf("lattice set init total time:%.9lf "
+               "sec\n",
+               double(duration) / 1e9);
+      } else {
+        set_ptr->init();
+      }
+    } catch (...) {
+      static_cast<long long *>(set_ptrs)[set_index] = 0;
+      delete set_ptr;
+      throw;
     }
   } else {
     printf("data_type error\n");

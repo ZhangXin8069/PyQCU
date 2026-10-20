@@ -6,7 +6,7 @@
   → 完整 Clover Multigrid V-cycle（applyCloverMultigridQcu）。
 
 线程隔离约定：
-  * 每线程持独立 params/argv/set_ptrs 副本（int32[54]/float[7]/int64[100]），
+  * 每线程持独立 params/argv/set_ptrs 副本（int32[58]/float[8]/int64[100]），
     _SET_INDEX_ 在各自副本中从 0 起独立计数 —— 无共享写竞争。
   * 每线程独立 CUDA 上下文：worker 内先 torch.cuda.set_device(dev_id)
     （CUDA 运行时 API 的 current device 是线程局部的）。
@@ -20,6 +20,8 @@ solve() 返回各线程解，verify_consistency() 校验线程间一致性
 （与主线程单线程参考解相对误差 < tol）—— 多卡正确性的等价判据。
 """
 
+import hashlib
+import math
 import os
 import time
 from typing import List, Optional
@@ -34,10 +36,11 @@ from pyqcu.cuda.define import argv as _module_argv
 from pyqcu.cuda.define import set_ptrs as _module_set_ptrs
 from pyqcu.cuda._schur_op import CudaSchurOp
 
-_SET_PTRS_COARSE_BASE_ = 30
+_SET_PTRS_COARSE_BASE_ = define._SET_PTRS_COARSE_BASE_
 
 
-def _coarse_cache_paths(cache_dir, lat_full, level, E, nv_iters, nv_tol):
+def _coarse_cache_paths(cache_dir, lat_full, level, E, nv_iters, nv_tol,
+                        mass=None, csw=None, seed=None, cache_tag=None):
     """Return equivalent cache names, preferring the repository spelling.
 
     Older runs formatted ``1e-2`` as ``t0.01`` while the shared ``data/``
@@ -45,7 +48,15 @@ def _coarse_cache_paths(cache_dir, lat_full, level, E, nv_iters, nv_tol):
     never silently turns into a multi-minute stencil rebuild.  New writes use
     the first (canonical) name.
     """
+    mass_label = "unknown" if mass is None else f"{float(mass):.12g}"
+    csw_label = "unknown" if csw is None else f"{float(csw):.12g}"
+    seed_label = "unknown" if seed is None else str(int(seed))
+    tag_label = ""
+    if cache_tag:
+        digest = hashlib.sha256(str(cache_tag).encode("utf-8")).hexdigest()[:12]
+        tag_label = f"_k{digest}"
     base = (f"L{lat_full[0]}x{lat_full[1]}x{lat_full[2]}x{lat_full[3]}"
+            f"_m{mass_label}_c{csw_label}_s{seed_label}{tag_label}"
             f"_lv{level}_E{E}_nvi{nv_iters}_t")
     value = float(nv_tol)
     if abs(value - 1e-2) <= 1e-12:
@@ -63,7 +74,8 @@ def _clone_state():
 def build_schur_levels(op, S, num_levels, dof_list, mg_grid, lat_full, E, dt, device,
                        nv_iters=2, use_cache=True, cache_dir=None, verbose=True,
                        matvec_ops=None, nthreads=None, av=None, params_template=None,
-                       nv_tol=1e-2, batch_build=True):
+                       nv_tol=1e-2, batch_build=True, mass=None, csw=None,
+                       seed=None, cache_tag=None):
     """构建 S 的 null 向量 + 33-tensor Galerkin 粗算子 A_c = P^T S P。
 
     返回 (lonvs, hnn_l, hdg_l, sit_l) 列表（每粗层一项）。
@@ -112,7 +124,8 @@ def build_schur_levels(op, S, num_levels, dof_list, mg_grid, lat_full, E, dt, de
         E_c = dof_list[lvl]
         lat_coarse_odd = [lat_fine_odd[d] // mg_grid[d] for d in range(4)]
         cache_paths = _coarse_cache_paths(
-            cache_dir, lat_full, lvl, E_c, nv_iters, nv_tol)
+            cache_dir, lat_full, lvl, E_c, nv_iters, nv_tol,
+            mass=mass, csw=csw, seed=seed, cache_tag=cache_tag)
         cache_file = next((p for p in cache_paths if use_cache and os.path.exists(p)),
                           cache_paths[0])
         if use_cache and os.path.exists(cache_file):
@@ -188,8 +201,8 @@ def build_schur_levels(op, S, num_levels, dof_list, mg_grid, lat_full, E, dt, de
     return lonvs, hnn_l, hdg_l, sit_l
 
 
-def _setup_gpu_tensors(params_t, argv_t, set_ptrs_t, device, mass, atol, dt, seed=42,
-                       verbose=False):
+def _setup_gpu_tensors(params_t, argv_t, set_ptrs_t, device, mass, atol, csw,
+                       dt, seed=42, verbose=False):
     """在指定设备上生成规范场/Clover 项/源（C++ 后端）。
 
     返回 (g, fi, ce, cei, coo, coi, U_full, b_full, clover_full, kappa)。
@@ -206,6 +219,7 @@ def _setup_gpu_tensors(params_t, argv_t, set_ptrs_t, device, mass, atol, dt, see
     av[define._MASS_] = mass
     av[define._ATOL_] = atol
     av[define._SIGMA_] = 0.1
+    av[define._CSW_] = csw
     ls = define.lat_shape(params_t)
     # P100(sm_60) 兼容：torch 2.10 无 sm_60 kernel image，zeros/randn 填充内核
     # 在 P100 上失败并污染 CUDA 错误状态；empty（纯 cudaMalloc）与 CPU 生成 +
@@ -227,7 +241,7 @@ def _setup_gpu_tensors(params_t, argv_t, set_ptrs_t, device, mass, atol, dt, see
     U_full = tools.poooxyzt2oooxyzt(g)
     b_full = tools.poooxyzt2oooxyzt(fi)
     kappa = 1.0 / (2 * mass + 8)
-    clover_full = dslash.make_clover(U_full, kappa=kappa)
+    clover_full = dslash.make_clover(U_full, kappa=kappa, csw=csw)
     return g, fi, ce, cei, coo, coi, U_full, b_full, clover_full, kappa, av
 
 
@@ -250,11 +264,12 @@ class MultiGpuMultigrid(object):
         verify_consistency(tol): 线程间解与主线程参考解的一致性校验
     """
 
-    def __init__(self, lat_size=None, mass=0.05, atol=1e-6, num_levels=2,
+    def __init__(self, lat_size=None, mass=0.05, atol=1e-6,
+                 num_levels=2,
                  dof_list=None, mg_grid=None, num_restart=5, coarse_max_iter=15,
                  coarse_tol_factor=1e5, nv_iters=2, nthreads=None, device_ids=None,
                  use_cache=True, cache_dir=None, verbose=True,
-                 independent_problems=False, seed=42):
+                 independent_problems=False, seed=42, csw=1.0):
         from mpi4py import MPI
         # C++ LatticeSet::init 用 MPI_COMM_WORLD 真实 rank 覆盖 _NODE_RANK_，
         # 多线程独立实例语义要求单 rank（多进程分布走每进程单线程实例路径）。
@@ -268,9 +283,16 @@ class MultiGpuMultigrid(object):
             lat_size = [8, 8, 8, 16]
         if mg_grid is None:
             mg_grid = [2, 2, 2, 2]
+        if not math.isfinite(float(mass)) or 2.0 * float(mass) + 8.0 == 0.0:
+            raise ValueError("mass must be finite and must not make kappa infinite")
+        if not math.isfinite(float(atol)) or float(atol) <= 0.0:
+            raise ValueError("atol must be finite and positive")
+        if not math.isfinite(float(csw)):
+            raise ValueError("csw must be finite")
         self.lat_size = list(lat_size)
         self.mass = mass
         self.atol = atol
+        self.csw = float(csw)
         self.num_levels = num_levels
         if dof_list is None:
             dof_list = [12, 48, 48, 48, 48]
@@ -303,7 +325,9 @@ class MultiGpuMultigrid(object):
             op=None, S=S, num_levels=self.num_levels, dof_list=self.dof_list,
             mg_grid=self.mg_grid, lat_full=self.lat_size, E=E, dt=self.dt,
             device=device, nv_iters=self.nv_iters, use_cache=self.use_cache,
-            cache_dir=self.cache_dir, verbose=self.verbose)
+            cache_dir=self.cache_dir, verbose=self.verbose,
+            mass=self.mass, csw=self.csw, seed=self.seed,
+            cache_tag=f"generated:{self.seed}")
 
     def _config_params(self, params_t, argv_t, set_ptrs_t, av):
         Lx, Ly, Lz, Lt = self.lat_size
@@ -321,6 +345,7 @@ class MultiGpuMultigrid(object):
         av[define._MASS_] = self.mass
         av[define._ATOL_] = self.atol
         av[define._SIGMA_] = 0.1
+        av[define._CSW_] = self.csw
         params_t[define._MG_NUM_LEVEL_] = self.num_levels
         if self.num_levels >= 2:
             params_t[define._MG_LEVEL1_E_] = self.dof_list[1]
@@ -456,8 +481,8 @@ class MultiGpuMultigrid(object):
                 pt, at, st = _clone_state()
                 self._config_params(pt, at, st, at)
                 g, fi, ce, cei, coo, coi, _, _, _, _, av = _setup_gpu_tensors(
-                    pt, at, st, main_dev, self.mass, self.atol, self.dt,
-                    seed=self.seed + tid, verbose=False)
+                    pt, at, st, main_dev, self.mass, self.atol, self.csw,
+                    self.dt, seed=self.seed + tid, verbose=False)
                 cache_t = (os.path.join(self.cache_dir, f"tid{tid}")
                            if self.cache_dir else None)
                 ops_t = [CudaSchurOp(av, g, ce, coo, cei, coi, params=pt)]
@@ -466,7 +491,9 @@ class MultiGpuMultigrid(object):
                     self.lat_size, self.dof_list[1], self.dt, main_dev,
                     nv_iters=self.nv_iters, use_cache=self.use_cache,
                     cache_dir=cache_t, verbose=False,
-                    matvec_ops=ops_t, nthreads=1, av=av, params_template=pt)))
+                    matvec_ops=ops_t, nthreads=1, av=av, params_template=pt,
+                    mass=self.mass, csw=self.csw, seed=self.seed + tid,
+                    cache_tag=f"generated:{self.seed + tid}")))
                 for o in ops_t:
                     o.release()
                 for _idx in (0, 1, 2):
@@ -481,7 +508,7 @@ class MultiGpuMultigrid(object):
                                 range(self.nthreads)):
                     threads.append(r)
             results = {'threads': threads, 'lat_size': self.lat_size,
-                       'mass': self.mass, 'atol': self.atol,
+                       'mass': self.mass, 'atol': self.atol, 'csw': self.csw,
                        'nthreads': self.nthreads, 'device_ids': self.device_ids,
                        'num_levels': self.num_levels, 'dof_list': self.dof_list,
                        'independent_problems': True}
@@ -492,7 +519,7 @@ class MultiGpuMultigrid(object):
         self._config_params(params_t, argv_t, set_ptrs_t, argv_t)
         g, fi, ce, cei, coo, coi, U_full, b_full, clover_full, kappa, av = \
             _setup_gpu_tensors(params_t, argv_t, set_ptrs_t, main_dev, self.mass,
-                               self.atol, self.dt, seed=self.seed,
+                               self.atol, self.csw, self.dt, seed=self.seed,
                                verbose=self.verbose)
         op = dslash.operator(U=U_full, clover_term=clover_full,
                              kappa=torch.Tensor([kappa]), support_parity=True,
@@ -515,7 +542,8 @@ class MultiGpuMultigrid(object):
                     lat_coarse_odd = [lat_fine_odd[d] // self.mg_grid[d] for d in range(4)]
                     paths = _coarse_cache_paths(
                         self.cache_dir, self.lat_size, lvl, E_c,
-                        self.nv_iters, 1e-2)
+                        self.nv_iters, 1e-2, mass=self.mass, csw=self.csw,
+                        seed=self.seed, cache_tag=f"generated:{self.seed}")
                     if not any(os.path.exists(cf) for cf in paths):
                         all_hit = False
                         break
@@ -534,7 +562,8 @@ class MultiGpuMultigrid(object):
                 self.dof_list[1], self.dt, main_dev, nv_iters=self.nv_iters,
                 use_cache=self.use_cache, cache_dir=self.cache_dir, verbose=False,
                 matvec_ops=None, nthreads=1,
-                av=None, params_template=None)
+                av=None, params_template=None, mass=self.mass, csw=self.csw,
+                seed=self.seed, cache_tag=f"generated:{self.seed}")
         else:
             # 未命中：走 C++ matvec 加速路径（原逻辑，避免 Python 大格子 50min 瓶颈）
             ops_build = [CudaSchurOp(av, g, ce, coo, cei, coi, params=params_t)
@@ -544,7 +573,8 @@ class MultiGpuMultigrid(object):
                 self.dof_list[1], self.dt, main_dev, nv_iters=self.nv_iters,
                 use_cache=self.use_cache, cache_dir=self.cache_dir, verbose=False,
                 matvec_ops=ops_build, nthreads=len(ops_build),
-                av=av, params_template=params_t)
+                av=av, params_template=params_t, mass=self.mass, csw=self.csw,
+                seed=self.seed, cache_tag=f"generated:{self.seed}")
             for o in ops_build:
                 o.release()
         shared = {'g': g, 'fi': fi, 'ce': ce, 'cei': cei, 'coo': coo, 'coi': coi,
@@ -565,7 +595,7 @@ class MultiGpuMultigrid(object):
         # 锁定 V100，连续多实例安全（否则下一实例主线程 C++ 在 P100 上写
         # V100 张量 → illegal memory access）。
         results = {'threads': threads, 'lat_size': self.lat_size,
-                   'mass': self.mass, 'atol': self.atol,
+                   'mass': self.mass, 'atol': self.atol, 'csw': self.csw,
                    'nthreads': self.nthreads, 'device_ids': self.device_ids,
                    'num_levels': self.num_levels, 'dof_list': self.dof_list}
         self._results = results

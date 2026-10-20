@@ -73,7 +73,7 @@ class CudaSchurOp(object):
     构造即分配独立 LatticeSet（scratch 缓冲）；release() 释放。
 
     参数：
-        av: argv 张量（float，real dtype，长度 7）
+        av: argv 张量（float，real dtype，长度 8；槽 7 为 csw）
         g:  gauge 场 [2,3,3,4,X,Y,Z,T/2]（奇偶拆分）
         ce/coo: Clover 偶偶/奇奇项
         cei/coi: Clover 偶偶/奇奇逆
@@ -192,7 +192,7 @@ class CudaCoarseSchurOp(object):
       * 构造即分配独立 LatticeSet；release() 释放。
 
     参数：
-        av: argv 张量（float，real dtype，长度 7）
+        av: argv 张量（float，real dtype，长度 8；槽 7 为 csw）
         E: 粗层自由度
         geo: [Xc, Yc, Zc, Tc] 粗层奇子格几何
         stencil: (sit, hop_nn, hop_diag) 33-tensor 三件套（绑定设备上）

@@ -22,10 +22,14 @@ bash ./make.sh        # symlink CMakeLists-nv.txt → CMakeLists.txt, 然后 cma
 - `params` (int32[58])：格点维度、网格大小、数据类型、迭代次数、计划选择、MG 层级配置、`_MG_USE_INIT_GUESS_`(57, x0 热启动)
 - `_MG_USE_GCR_`(54) 保持 0/1 兼容，同时按位支持 `_MG_MODE_GCR_`(1) 与
   `_MG_MODE_MR_SMOOTHER_`(2)；后者启用 QUDA 风格 MR 粗层平滑，不扩展协议长度。
-- `argv` (float[7])：mass、atol、sigma、MG 容差
+- `argv` (float[8])：mass、atol、sigma、四级 MG 容差、csw
 - `set_ptrs` (int64[100])：scratch 缓冲指针
 
 `_SET_PLAN_` (params[16])：-2 Laplacian、-1 Gauss gauge、0 Wilson dslash、1 BiStabCG/CG、2 Clover dslash。
+
+Clover onsite 系数为 `-kappa*csw/8`，其中 `kappa=1/(2*mass+8)`；
+`_CSW_` 固定为 argv 槽 7。默认 `csw=1` 保持旧数值，但 `csw=0` 必须被保留为
+合法的纯 Wilson 配置，不能用 0 表示“未设置”。
 
 ## Clover Multigrid 5-stream 架构
 
