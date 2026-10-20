@@ -29,9 +29,11 @@ metadata:
 | `cpp/kupl/qcu/tests/test_kupl.cpp` | c64/c128、1/2/4-rank、canonical layout 与真残差 |
 | `cpp/kupl/qcu/tests/test_new_abi.py` | 独立 NumPy/ctypes 差分，覆盖新增 Wilson/Laplacian 入口 |
 | `cpp/kupl/qcu/tests/test_multigrid.py` | 1/2-rank Gaussian、restrict/prolong、窄/宽 coarse halo 差分 |
+| `pyqcu/testing/kupl/test_strict.py` | strict coarse/fine MATPC、R-P、持久 V-cycle、FGMRES，1/2/4-rank 与 c64/c128 |
+| `pyqcu/testing/kupl/test_legacy_mg.py` | 1/2/4-rank 递归 Clover-MG、deflate 开关、warm/cold 路径与 verify |
 | `cpp/kupl/qcu/tests/test_failure_modes.py` | 非收敛与 fail-closed 入口的显式失败门 |
 | `cpp/kupl/qcu/tests/benchmark_kupl.cpp` | Wilson/Clover Dslash 吞吐与 rank affinity 证据 |
-| `cpp/kupl/qcu/tests/check_abi.py` | C 头文件声明与动态库 37 项导出符号一致性门 |
+| `pyqcu/testing/kupl/check_abi.py` | KUPL/CUDA C 声明与动态库 37 项导出符号一致性门 |
 | `pyqcu/kupl/qcu.py` | `ctypes.CDLL(..., RTLD_LOCAL)` Python 绑定；37 个 ABI 名称均有 Python 包装 |
 | `pyqcu/testing/kupl/test_kupl_python.py` | PyQCU 参考、Clover、dslash、solver 跨语言门 |
 
@@ -112,10 +114,10 @@ Clover 再加 onsite `12*12*8` flop/site/application 模型，不是硬件计数
 
 已实现 Wilson/Clover dslash、Wilson BiStabCG/CG、Clover 构造/逆、
 supplied Clover dslash、Clover Schur prepare/reconstruct、Clover BiStabCG、
-3D Laplacian、Gaussian gauge、multigrid restrict/prolong 与 MPI coarse
-33-stencil dslash。完整递归 Clover-MG、verify、LIME/HDF5 I/O 和 Strict-MG
-尚未实现；对应 C ABI 符号必须 fail closed：int 入口返回非零，void 入口
-明确报错。不得以同名占位或伪结果宣称支持。
+3D Laplacian、Gaussian gauge、legacy 递归 Clover-MG/verify、strict
+coarse/MATPC/R-P、持久 V-cycle 与右预条件 FGMRES。当前限制为同精度
+c64/c128；CUDA 专用 mixed-precision、GCR/CA-GCR/BiCGStabL 模式必须显式
+拒绝，不得静默降级。LIME/HDF5 I/O 与 GPU 执行仍不属于 KUPL。
 
 ## 反模式
 

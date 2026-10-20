@@ -129,9 +129,8 @@ for the complex phase structure used by the Clover matrix.
 
 ## Implemented operations
 
-The header exports all 37 CUDA QCU ABI entry names. Twenty-four entries below
-are implemented; the remaining Clover-MG, verify and strict-MG entries are
-explicit fail-closed stubs rather than silent gaps.
+The header exports all 37 CUDA QCU ABI entry names, and all 37 now have real
+CPU implementations.
 
 - `applyInitQcu`, `applyEndQcu`
 - `applyWilsonDslashQcu` and `testWilsonDslashQcu`
@@ -145,6 +144,11 @@ explicit fail-closed stubs rather than silent gaps.
 - 3D color Laplacian with MPI and OpenMP
 - Gaussian SU(3) gauge generation with deterministic Box-Muller coefficients
 - Multigrid restrict/prolong and narrow/wide coarse 33-stencil dslash with MPI
+- Recursive full-site Clover multigrid with V-cycle, deflation and true
+  residual checks
+- Strict coarse raw/Yhat, MATPC, prepare/reconstruct, parity R/P, persistent
+  hierarchy, recursive V-cycle and right-preconditioned FGMRES
+- `verifyCloverMultigridQcu` R/P projection and Galerkin diagnostics
 
 The Clover BiStabCG solver iterates on the selected-parity Schur complement
 `A_p - kappa^2 D_pq A_q^-1 D_qp`, then reconstructs the opposite parity.
@@ -154,29 +158,11 @@ Convergence uses a relative criterion with the numerical floor
 `max(atol, 2048*epsilon)` for c64 and `max(atol, 128*epsilon)` for c128;
 this prevents an impossible fp32 target from being reported as converged.
 
-Full recursive Clover-MG orchestration, verify and strict-MG are not
-implemented in this CPU backend. LIME/HDF5 I/O and GPU execution remain
-outside this library. No placeholder symbol returns a fabricated result.
-
-The following CUDA QCU entry points are present as fail-closed ABI symbols:
-integer-status calls return nonzero and void calls terminate with an explicit
-`not implemented` backend error.
-
-```text
-applyMultigridStrictCoarseQcu
-applyMultigridStrictMatPCQcu
-applyMultigridStrictFineMatPCQcu
-applyMultigridStrictPrepareQcu
-applyMultigridStrictReconstructQcu
-applyMultigridStrictRestrictQcu
-applyMultigridStrictProLongQcu
-applyMultigridStrictVCycleQcu
-applyMultigridStrictInitQcu
-applyMultigridStrictEndQcu
-applyMultigridStrictFgmresQcu
-applyCloverMultigridQcu
-verifyCloverMultigridQcu
-```
+The CPU MG paths currently require homogeneous c64 or c128 assets. Legacy
+Clover-MG supports the V-cycle and optional one-time deflation; CUDA-only
+mixed-precision, GCR, CA-GCR and BiCGStabL mode bits are rejected rather than
+silently downgraded. LIME/HDF5 I/O and GPU execution remain outside this
+library.
 
 ## Build and test
 
@@ -186,10 +172,11 @@ cmake --build build -j
 ctest --test-dir build --output-on-failure
 ```
 
-The 17 C++/Python differential tests check c64/c128, one/two/four MPI ranks,
+The 23 C++/Python differential tests check c64/c128, one/two/four MPI ranks,
 Wilson/Clover hopping, Clover construction/inversion, Wilson and Clover Schur
 operators, Wilson BiStabCG/CG true residuals, Clover prepare/reconstruct,
 Gaussian SU(3) generation, multigrid transfer/coarse stencil MPI halos,
+strict primitives/V-cycle/FGMRES, recursive legacy Clover-MG and verify,
 slot-isolated lifecycles, non-contiguous binding rejection, the 3D Laplacian,
 the exact 37-symbol dynamic ABI surface, and explicit
 non-convergence/fail-closed behavior.

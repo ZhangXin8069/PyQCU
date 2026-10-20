@@ -547,6 +547,27 @@ void LatticeSet<Real>::solve_clover(
   }
 }
 
+template <typename Real>
+void LatticeSet<Real>::clover_full_apply(
+    void *out, const void *in, const void *gauge, const void *clover_even,
+    const void *clover_odd, const void *clover_even_inv,
+    const void *clover_odd_inv) {
+  (void)clover_even_inv;
+  (void)clover_odd_inv;
+  if (out == nullptr || in == nullptr || gauge == nullptr ||
+      clover_even == nullptr || clover_odd == nullptr) {
+    throw std::runtime_error("full Clover apply received a null pointer");
+  }
+  require_solver_mode();
+  ensure_gauge_halo(static_cast<const Complex<Real> *>(gauge));
+  const std::array<const Complex<Real> *, 2> clover = {
+      static_cast<const Complex<Real> *>(clover_even),
+      static_cast<const Complex<Real> *>(clover_odd)};
+  apply_full_operator(static_cast<const Complex<Real> *>(in),
+                      static_cast<Complex<Real> *>(out), clover,
+                      tmp_a_.data());
+}
+
 template class LatticeSet<float>;
 template class LatticeSet<double>;
 

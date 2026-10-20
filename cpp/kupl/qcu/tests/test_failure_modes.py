@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check KUPL non-convergence and unimplemented-entry failure behavior."""
+"""Check KUPL non-convergence, invalid controls and unsupported-mode gates."""
 
 from __future__ import annotations
 
@@ -75,11 +75,23 @@ def child_clover_nonconvergence(library: ctypes.CDLL) -> None:
         pointer(set_ptrs), pointer(params))
 
 
-def child_void_stub(library: ctypes.CDLL) -> None:
+def child_multigrid_null(library: ctypes.CDLL) -> None:
     params, argv, set_ptrs, _ = make_state()
     library.applyInitQcu(pointer(set_ptrs), pointer(params), pointer(argv))
     library.applyCloverMultigridQcu(
         0, 0, 0, 0, 0, 0, 0, pointer(set_ptrs), pointer(params))
+
+
+def child_multigrid_unsupported_mode(library: ctypes.CDLL) -> None:
+    params, argv, set_ptrs, _ = make_state()
+    params[17] = 1
+    params[54] = 1
+    dummy = np.zeros(1, dtype=np.complex64)
+    library.applyInitQcu(pointer(set_ptrs), pointer(params), pointer(argv))
+    library.applyCloverMultigridQcu(
+        pointer(dummy), pointer(dummy), pointer(dummy), pointer(dummy),
+        pointer(dummy), pointer(dummy), pointer(dummy), pointer(set_ptrs),
+        pointer(params))
 
 
 def run_child(library_path: Path, mode: str) -> subprocess.CompletedProcess[str]:
@@ -100,31 +112,50 @@ def run_child(library_path: Path, mode: str) -> subprocess.CompletedProcess[str]
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--library", type=Path, required=True)
-    parser.add_argument("--child", choices=("clover", "void-stub"))
+    parser.add_argument(
+        "--child",
+        choices=("clover", "multigrid-null", "multigrid-mode"))
     args = parser.parse_args()
     library = bind_library(args.library)
     if args.child == "clover":
         child_clover_nonconvergence(library)
         return 0
-    if args.child == "void-stub":
-        child_void_stub(library)
+    if args.child == "multigrid-null":
+        child_multigrid_null(library)
+        return 0
+    if args.child == "multigrid-mode":
+        child_multigrid_unsupported_mode(library)
         return 0
 
     status = library.applyMultigridStrictInitQcu(0, 0, 0, None)
     if status == 0:
-        raise AssertionError("strict-MG integer stub unexpectedly succeeded")
+        raise AssertionError("strict-MG null result pointer unexpectedly succeeded")
+    allocated = ctypes.c_ulonglong(0)
+    status = library.applyMultigridStrictInitQcu(
+        0, 0, 0, ctypes.byref(allocated))
+    if status == 0 or allocated.value != 0:
+        raise AssertionError("strict-MG null controls did not fail closed")
 
     clover = run_child(args.library, "clover")
     if clover.returncode == 0 or "true residual" not in clover.stderr:
         raise AssertionError(
             "Clover non-convergence did not fail closed: "
             f"returncode={clover.returncode} stderr={clover.stderr[-2000:]}")
-    stub = run_child(args.library, "void-stub")
-    if stub.returncode == 0 or "not implemented" not in stub.stderr:
+    null_mg = run_child(args.library, "multigrid-null")
+    if null_mg.returncode == 0 or "null pointer" not in null_mg.stderr:
         raise AssertionError(
-            "Void stub did not fail explicitly: "
-            f"returncode={stub.returncode} stderr={stub.stderr[-2000:]}")
-    print("status=PASS clover_nonconvergence=abort void_stub=abort status_stub=1")
+            "Clover-MG null input did not fail explicitly: "
+            f"returncode={null_mg.returncode} "
+            f"stderr={null_mg.stderr[-2000:]}")
+    mode_mg = run_child(args.library, "multigrid-mode")
+    if mode_mg.returncode == 0 or "CUDA-only" not in mode_mg.stderr:
+        raise AssertionError(
+            "Clover-MG unsupported CUDA mode did not fail explicitly: "
+            f"returncode={mode_mg.returncode} "
+            f"stderr={mode_mg.stderr[-2000:]}")
+    print(
+        "status=PASS clover_nonconvergence=abort "
+        "multigrid_null=abort multigrid_mode=abort status_error=1")
     return 0
 
 
