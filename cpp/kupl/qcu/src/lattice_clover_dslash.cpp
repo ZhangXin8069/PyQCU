@@ -451,9 +451,12 @@ void LatticeSet<Real>::compute_clover(Complex<Real> *output, int parity) {
               }
               for (int color_in = 0; color_in < kColor; ++color_in) {
                 const int column = spin_in * kColor + color_in;
+                const C product = multiply_complex(
+                    spin_factor,
+                    anti_hermitian[color_out * kColor + color_in]);
                 matrix[row * kVector + column] +=
-                    coefficient * spin_factor *
-                    anti_hermitian[color_out * kColor + color_in];
+                    C(coefficient * product.real(),
+                      coefficient * product.imag());
               }
             }
           }
@@ -514,19 +517,24 @@ void LatticeSet<Real>::invert_clover(const Complex<Real> *term,
         }
       }
       const Complex<Real> diagonal = augmented[column][column];
+      const Real denominator = std::norm(diagonal);
+      const Complex<Real> inverse_diagonal(
+          diagonal.real() / denominator, -diagonal.imag() / denominator);
       for (int entry = 0; entry < 2 * kVector; ++entry) {
-        augmented[column][entry] /= diagonal;
+        augmented[column][entry] = multiply_complex(
+            augmented[column][entry], inverse_diagonal);
       }
       for (int row = 0; row < kVector; ++row) {
         if (row == column) {
           continue;
         }
         const Complex<Real> factor = augmented[row][column];
-        if (std::abs(factor) == Real(0)) {
+        if (factor.real() == Real(0) && factor.imag() == Real(0)) {
           continue;
         }
-        for (int entry = 0; entry < 2 * kVector; ++entry) {
-          augmented[row][entry] -= factor * augmented[column][entry];
+        for (int entry = column; entry < 2 * kVector; ++entry) {
+          augmented[row][entry] -=
+              multiply_complex(factor, augmented[column][entry]);
         }
       }
     }
