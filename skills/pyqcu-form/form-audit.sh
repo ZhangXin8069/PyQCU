@@ -77,6 +77,12 @@ while IFS=$'\t' read -r severity rule path message; do
             # backend can be built and audited without importing PyQCU.
             allowed=$((allowed + 1))
             ;;
+        WARNING:LOG_EXTENSION:logs/slurm-*.out_perf)
+            # The cluster scheduler emits a tracked *_perf summary next to
+            # each Slurm stdout file.  Preserve it as first-party resource
+            # evidence rather than renaming the job's canonical output.
+            allowed=$((allowed + 1))
+            ;;
         *)
             if [[ "${severity}:${rule}:${path}" == WARNING:LOG_EXTENSION:logs/* ]]; then
                 case "${path##*.}" in

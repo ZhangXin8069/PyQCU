@@ -75,7 +75,8 @@ def build_schur_levels(op, S, num_levels, dof_list, mg_grid, lat_full, E, dt, de
                        nv_iters=2, use_cache=True, cache_dir=None, verbose=True,
                        matvec_ops=None, nthreads=None, av=None, params_template=None,
                        nv_tol=1e-2, batch_build=True, mass=None, csw=None,
-                       seed=None, cache_tag=None):
+                       seed=None, cache_tag=None, local_stencil=None,
+                       local_stencil_batch_size=4):
     """构建 S 的 null 向量 + 33-tensor Galerkin 粗算子 A_c = P^T S P。
 
     返回 (lonvs, hnn_l, hdg_l, sit_l) 列表（每粗层一项）。
@@ -104,8 +105,17 @@ def build_schur_levels(op, S, num_levels, dof_list, mg_grid, lat_full, E, dt, de
                 135s → ~15s（10 倍），16x16x16x32 lv1（196608 probes）~36min → ~3min。
     """
     from pyqcu.tools import build_stencil, apply_stencil, build_stencil_mt, give_null_vecs_mt
-    from pyqcu.tools._multigrid import _schur_matvec_batch, _stencil_matvec_batch
+    from pyqcu.tools._multigrid import (
+        BatchedLocalSchur, _schur_matvec_batch, _stencil_matvec_batch,
+        build_stencil_local,
+    )
     from pyqcu.cuda._schur_op import CudaCoarseSchurOp
+    progress = os.environ.get("PYQCU_MG_BUILD_PROGRESS") == "1"
+
+    def report(message):
+        if progress:
+            print(f"PYQCU::CUDA::MG_BUILD:\n {message}", flush=True)
+
     if cache_dir is None:
         cache_dir = os.path.join(os.path.expanduser("~/PyQCU/logs"), "nullvec_cache")
     os.makedirs(cache_dir, exist_ok=True)
@@ -129,6 +139,7 @@ def build_schur_levels(op, S, num_levels, dof_list, mg_grid, lat_full, E, dt, de
         cache_file = next((p for p in cache_paths if use_cache and os.path.exists(p)),
                           cache_paths[0])
         if use_cache and os.path.exists(cache_file):
+            report(f"level {lvl} cache hit {cache_file}")
             lonv = tools.load_tensor_h5(cache_file, dataset="lonv", device=device)
             hnn = tools.load_tensor_h5(cache_file, dataset="hnn", device=device)
             hdg = tools.load_tensor_h5(cache_file, dataset="hdg", device=device)
@@ -137,6 +148,18 @@ def build_schur_levels(op, S, num_levels, dof_list, mg_grid, lat_full, E, dt, de
                 print(f"  [level {lvl}] E={E_c} CACHED coarse={lat_coarse_odd}")
         else:
             t0 = time.perf_counter()
+            if local_stencil is None:
+                requested_local = os.environ.get("PYQCU_MG_LOCAL_STENCIL")
+                if requested_local is None:
+                    use_local_stencil = (
+                        lvl == 1 and op is not None and
+                        E_c * math.prod(lat_coarse_odd) >= 200000)
+                else:
+                    use_local_stencil = (
+                        requested_local == "1" and lvl == 1 and op is not None)
+            else:
+                use_local_stencil = bool(local_stencil) and lvl == 1 and op is not None
+            report(f"level {lvl} null-space start E={E_c} shape={lat_fine_odd}")
             if batch_build and batch_mv is not None:
                 # 批量 null 向量生成（torch 批量 BiCGStab）+ 批量探测
                 _null = give_null_vecs_mt(
@@ -156,7 +179,16 @@ def build_schur_levels(op, S, num_levels, dof_list, mg_grid, lat_full, E, dt, de
                                                  verbose=False)
             lonv = tools.local_orthogonalize(null_vecs=_null, coarse_lat_size=lat_coarse_odd,
                                              verbose=False)
-            if batch_build and batch_mv is not None:
+            report(
+                f"level {lvl} null-space done {time.perf_counter() - t0:.3f}s; "
+                "stencil start")
+            if use_local_stencil:
+                lsch = BatchedLocalSchur(op, *lat_fine_odd, W=10)
+                hnn, hdg, sit = build_stencil_local(
+                    lsch, lonv, E_c, lat_fine_odd, lat_coarse_odd, dt,
+                    device, verbose=verbose,
+                    batch_size=local_stencil_batch_size)
+            elif batch_build and batch_mv is not None:
                 # 批量探测（torch einsum，主线程 V100）
                 hnn, hdg, sit = build_stencil_mt(
                     [batch_mv], lonv, E_c, E_prev, lat_fine_odd, lat_coarse_odd,
@@ -177,6 +209,7 @@ def build_schur_levels(op, S, num_levels, dof_list, mg_grid, lat_full, E, dt, de
             if verbose:
                 print(f"  [level {lvl}] E={E_c} nv_time={time.perf_counter()-t0:.1f}s "
                       f"coarse={lat_coarse_odd}")
+            report(f"level {lvl} stencil done {time.perf_counter() - t0:.3f}s")
         lonvs.append(lonv); hnn_l.append(hnn); hdg_l.append(hdg); sit_l.append(sit)
         S = lambda v, _hnn=hnn, _hdg=hdg, _sit=sit: apply_stencil(_hnn, _hdg, _sit, v)
         # 下一层批量 matvec：本层 stencil 的批量版（任意 E）
@@ -202,7 +235,7 @@ def build_schur_levels(op, S, num_levels, dof_list, mg_grid, lat_full, E, dt, de
 
 
 def _setup_gpu_tensors(params_t, argv_t, set_ptrs_t, device, mass, atol, csw,
-                       dt, seed=42, verbose=False):
+                       dt, seed=42, verbose=False, gauge=None, source=None):
     """在指定设备上生成规范场/Clover 项/源（C++ 后端）。
 
     返回 (g, fi, ce, cei, coo, coi, U_full, b_full, clover_full, kappa)。
@@ -227,13 +260,30 @@ def _setup_gpu_tensors(params_t, argv_t, set_ptrs_t, device, mass, atol, csw,
     g = torch.empty([2, 3, 3, 4] + ls, dtype=dt, device=device)
     # 与规范场 seed 一样固定源场的随机流；这样单卡/多卡性能和数值对照
     # 使用完全相同的输入，而不是被全局 RNG 的调用顺序悄悄改变。
-    fi_gen = torch.Generator(device='cpu').manual_seed(int(seed) + 1)
-    fi = torch.randn([2, 4, 3] + ls, dtype=dt, device='cpu',
-                     generator=fi_gen).to(device)
+    if source is None:
+        fi_gen = torch.Generator(device='cpu').manual_seed(int(seed) + 1)
+        fi = torch.randn([2, 4, 3] + ls, dtype=dt, device='cpu',
+                         generator=fi_gen).to(device)
+    else:
+        fi = torch.empty([2, 4, 3] + ls, dtype=dt, device=device)
     ce = torch.empty([4, 3, 4, 3] + ls, dtype=dt, device=device)
     cei = torch.empty_like(ce); coo = torch.empty_like(ce); coi = torch.empty_like(ce)
+    if gauge is not None:
+        gauge_t = gauge.to(device=device, dtype=dt).contiguous()
+        if tuple(gauge_t.shape) != tuple(g.shape):
+            raise ValueError(
+                f"external gauge shape {tuple(gauge_t.shape)} does not match {tuple(g.shape)}")
+        g.copy_(gauge_t)
+    if source is not None:
+        source_t = source.to(device=device, dtype=dt).contiguous()
+        if tuple(source_t.shape) != tuple(fi.shape):
+            raise ValueError(
+                f"external source shape {tuple(source_t.shape)} does not match {tuple(fi.shape)}")
+        fi.copy_(source_t)
     params_t[define._SET_INDEX_] = 0; params_t[define._SET_PLAN_] = -1
-    qcu.applyInitQcu(set_ptrs_t, params_t, av); qcu.applyGaussGaugeQcu(g, set_ptrs_t, params_t)
+    qcu.applyInitQcu(set_ptrs_t, params_t, av)
+    if gauge is None:
+        qcu.applyGaussGaugeQcu(g, set_ptrs_t, params_t)
     params_t[define._SET_INDEX_] += 1; params_t[define._SET_PLAN_] = 2; params_t[define._PARITY_] = 0
     qcu.applyInitQcu(set_ptrs_t, params_t, av); qcu.applyCloversQcu(ce, cei, g, set_ptrs_t, params_t)
     params_t[define._SET_INDEX_] += 1; params_t[define._SET_PLAN_] = 2; params_t[define._PARITY_] = 1
@@ -272,7 +322,8 @@ class MultiGpuMultigrid(object):
                  coarse_tol_factor=1e5, nv_iters=2, nthreads=None, device_ids=None,
                  use_cache=True, cache_dir=None, verbose=True,
                  independent_problems=False, seed=42, csw=1.0,
-                 run_reference=True):
+                 run_reference=True, gauge=None, source=None,
+                 input_tag=None, verify_residual=False):
         from mpi4py import MPI
         # C++ LatticeSet::init 用 MPI_COMM_WORLD 真实 rank 覆盖 _NODE_RANK_，
         # 多线程独立实例语义要求单 rank（多进程分布走每进程单线程实例路径）。
@@ -321,7 +372,15 @@ class MultiGpuMultigrid(object):
         self.independent_problems = independent_problems
         self.run_reference = bool(run_reference)
         self.seed = int(seed)
+        if independent_problems and (gauge is not None or source is not None):
+            raise ValueError(
+                "external gauge/source are supported only for a shared problem")
+        self.gauge = gauge
+        self.source = source
+        self.input_tag = input_tag
+        self.verify_residual = bool(verify_residual)
         self._results = None
+        self.last_timings = None
 
     def _build_coarse_ops(self, S, E, device):
         """主线程构建 Schur 粗网格算子（h5py 缓存）。"""
@@ -331,7 +390,7 @@ class MultiGpuMultigrid(object):
             device=device, nv_iters=self.nv_iters, use_cache=self.use_cache,
             cache_dir=self.cache_dir, verbose=self.verbose,
             mass=self.mass, csw=self.csw, seed=self.seed,
-            cache_tag=f"generated:{self.seed}")
+            cache_tag=self.input_tag or f"generated:{self.seed}")
 
     def _config_params(self, params_t, argv_t, set_ptrs_t, av):
         Lx, Ly, Lz, Lt = self.lat_size
@@ -454,17 +513,41 @@ class MultiGpuMultigrid(object):
                 fo_mg, fi, g, ce, coo, cei, coi, set_ptrs_t, params_t)
             torch.cuda.synchronize()
             mg_time = time.perf_counter() - t0
+            mg_residual = None
+            if self.verify_residual:
+                full_g = tools.poooxyzt2oooxyzt(g)
+                full_x = tools.poooxyzt2oooxyzt(fo_mg)
+                full_b = tools.poooxyzt2oooxyzt(fi)
+                full_clover = tools.poooxyzt2oooxyzt(
+                    torch.stack((ce, coo), dim=0))
+                # applyClovers returns A=I+T while the independent full
+                # operator expects the additive clover term T because
+                # give_wilson already supplies the identity.
+                full_clover = dslash.cut_I(full_clover)
+                kappa_t = torch.tensor(
+                    [1.0 / (2.0 * self.mass + 8.0)], dtype=full_g.real.dtype,
+                    device=dev)
+                u0 = torch.ones([1], dtype=full_g.real.dtype, device=dev)
+                residual = (
+                    dslash.give_wilson(
+                        full_x, full_g, kappa_t, u0, with_I=True) +
+                    dslash.give_clover(full_x, full_clover) - full_b)
+                mg_residual = float(
+                    torch.linalg.vector_norm(residual).item() /
+                    torch.linalg.vector_norm(full_b).item())
         finally:
             for slot in reversed(initialized_slots):
                 params_t[define._SET_INDEX_] = slot
                 qcu.applyEndQcu(set_ptrs_t, params_t)
         return {'tid': tid, 'device': dev_id, 'mg': fo_mg.cpu(),
                 'ref': None if fo_ref is None else fo_ref.cpu(),
-                'ref_time': ref_time, 'mg_time': mg_time}
+                'ref_time': ref_time, 'mg_time': mg_time,
+                'mg_residual': mg_residual}
 
     def solve(self):
         """并行求解：每线程一个完整 C++ MG 流程。返回 {'threads': [...], 'results': ...}。"""
         from concurrent.futures import ThreadPoolExecutor
+        solve_started = time.perf_counter()
         # 主线程 Python 层运算（粗算子构建、poooxyzt2oooxyzt、make_clover 等）
         # 统一在 cuda:0（V100, sm_70+）：P100(sm_60) 无 torch kernel image，
         # 任何 torch 内核在 P100 上都会报 cudaErrorNoKernelImageForDevice；
@@ -520,6 +603,7 @@ class MultiGpuMultigrid(object):
                                  'coo': coo, 'coi': coi, 'coarse': coarse}
             threads = []
             from concurrent.futures import ThreadPoolExecutor as _TPE
+            setup_seconds = time.perf_counter() - solve_started
             with _TPE(max_workers=self.nthreads) as ex:
                 for r in ex.map(lambda tid: self._worker(tid, {'t': shared_t}),
                                 range(self.nthreads)):
@@ -531,6 +615,10 @@ class MultiGpuMultigrid(object):
                        'independent_problems': True,
                        'run_reference': self.run_reference}
             self._results = results
+            self.last_timings = {
+                'setup_seconds': setup_seconds,
+                'wall_seconds': time.perf_counter() - solve_started,
+            }
             return results
         # 主线程生成共享输入（规范场/Clover/源）与粗网格算子
         params_t, argv_t, set_ptrs_t = _clone_state()
@@ -538,7 +626,8 @@ class MultiGpuMultigrid(object):
         g, fi, ce, cei, coo, coi, U_full, b_full, clover_full, kappa, av = \
             _setup_gpu_tensors(params_t, argv_t, set_ptrs_t, main_dev, self.mass,
                                self.atol, self.csw, self.dt, seed=self.seed,
-                               verbose=self.verbose)
+                               verbose=self.verbose, gauge=self.gauge,
+                               source=self.source)
         op = dslash.operator(U=U_full, clover_term=clover_full,
                              kappa=torch.Tensor([kappa]), support_parity=True,
                              verbose=False)
@@ -561,7 +650,8 @@ class MultiGpuMultigrid(object):
                     paths = _coarse_cache_paths(
                         self.cache_dir, self.lat_size, lvl, E_c,
                         self.nv_iters, 1e-2, mass=self.mass, csw=self.csw,
-                        seed=self.seed, cache_tag=f"generated:{self.seed}")
+                        seed=self.seed,
+                        cache_tag=self.input_tag or f"generated:{self.seed}")
                     if not any(os.path.exists(cf) for cf in paths):
                         all_hit = False
                         break
@@ -581,7 +671,8 @@ class MultiGpuMultigrid(object):
                 use_cache=self.use_cache, cache_dir=self.cache_dir, verbose=False,
                 matvec_ops=None, nthreads=1,
                 av=None, params_template=None, mass=self.mass, csw=self.csw,
-                seed=self.seed, cache_tag=f"generated:{self.seed}")
+                seed=self.seed,
+                cache_tag=self.input_tag or f"generated:{self.seed}")
         else:
             # 未命中：走 C++ matvec 加速路径（原逻辑，避免 Python 大格子 50min 瓶颈）
             ops_build = [CudaSchurOp(av, g, ce, coo, cei, coi, params=params_t)
@@ -592,7 +683,8 @@ class MultiGpuMultigrid(object):
                 use_cache=self.use_cache, cache_dir=self.cache_dir, verbose=False,
                 matvec_ops=ops_build, nthreads=len(ops_build),
                 av=av, params_template=params_t, mass=self.mass, csw=self.csw,
-                seed=self.seed, cache_tag=f"generated:{self.seed}")
+                seed=self.seed,
+                cache_tag=self.input_tag or f"generated:{self.seed}")
             for o in ops_build:
                 o.release()
         shared = {'g': g, 'fi': fi, 'ce': ce, 'cei': cei, 'coo': coo, 'coi': coi,
@@ -605,6 +697,7 @@ class MultiGpuMultigrid(object):
         params_t[define._SET_INDEX_] = 2
         qcu.applyEndQcu(set_ptrs_t, params_t)
         threads = []
+        setup_seconds = time.perf_counter() - solve_started
         with ThreadPoolExecutor(max_workers=self.nthreads) as ex:
             for r in ex.map(lambda tid: self._worker(tid, shared), range(self.nthreads)):
                 threads.append(r)
@@ -616,8 +709,14 @@ class MultiGpuMultigrid(object):
                    'mass': self.mass, 'atol': self.atol, 'csw': self.csw,
                    'nthreads': self.nthreads, 'device_ids': self.device_ids,
                    'num_levels': self.num_levels, 'dof_list': self.dof_list,
-                   'run_reference': self.run_reference}
+                   'run_reference': self.run_reference,
+                   'verify_residual': self.verify_residual,
+                   'input_tag': self.input_tag}
         self._results = results
+        self.last_timings = {
+            'setup_seconds': setup_seconds,
+            'wall_seconds': time.perf_counter() - solve_started,
+        }
         return results
 
     def save_report(self, path: str):

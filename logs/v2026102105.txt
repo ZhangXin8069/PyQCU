@@ -1,0 +1,85 @@
+[日志元数据]
+日志类型: final
+生成时间: 2026-10-21 05:10:19 +0800
+批次: refer-git-rep
+主任务: 整理 refer/git-rep 参考库结构
+触发原因: 任务完成
+摘要: 参考库改为上游 submodule，34 份自产报告集中归档，form 审计通过
+Git 根目录: /home/bingxing2/home/scx8080/PyQCU
+
+## 关键日志
+
+### S1 — 审计 refer/git-rep
+- 目标: 区分上游源码、PyQCU 自产分析报告和历史本地改写。
+- 命令/操作: 检查 `git ls-files -s -- refer/git-rep`、`.gitmodules`、`git submodule status`、form 审计与提交历史。
+- 关键输出: 原目录包含 4 个 vendored 普通目录、1 个已登记但未初始化的 `kuqcd` submodule，以及 34 份散落在各库 `docs/` 的自产报告。
+- 退出码: 0
+- 证据与判断: form 审计最初报告 34 个 `REFERENCE_DOC_MISPLACED` finding；用户明确要求“以上游为准”。
+
+### S2 — 集中报告并替换为上游 submodule
+- 目标: 将 PyQCU 报告移出上游工作树，并让 5 个参考库固定到上游提交。
+- 命令/操作: 迁移 34 份报告到 `refer/git-rep/docs/`；移除 4 个 vendored 目录；使用 `git submodule add` 重建；初始化 `kuqcd` 和 PyQUDA 嵌套的 `pycparser`。
+- 关键输出: 固定 `DDalphaAMG@ddbdf0f2aa6586e6a8d357d6f89ff92a7ad071d0`、`DDalphaAMG-SM@abbccf125bddbedb2f84a2c1bc06eead6003a887`、`PyQUDA@138d8ad6e4d6e0805ecc7ec0a59a45febe0482ce`、`quda@e75ee8835f7c93683c6c96975eddc2e476c13154`、`kuqcd@0d86e74a103180c507907b6cf6722758c6aac4ab`。
+- 退出码: 0
+- 证据与判断: 5 个顶层参考库均为索引模式 `160000`，所有上游工作树干净。
+
+### S3 — 同步索引与引用
+- 目标: 删除失效路径并明确上游只读边界。
+- 命令/操作: 更新 `refer/git-rep/README.md`、`refer/AGENTS.md`、3 份迁移报告的交叉引用，以及 QUDA/PyQUDA 测试技能说明。
+- 关键输出: 旧 `refer/git-rep/<repo>/docs/` 引用清零；`refer/git-rep/PyQUDA/_version.py` 旧路径清零。
+- 退出码: 0
+- 证据与判断: 自产报告与上游内容职责已分离，后续实验补丁明确要求放入 `data/quda-*` shadow。
+
+## 验证与证据
+- 测试/检查: `bash skills/pyqcu-form/form-audit.sh`
+- 结果: PASS，33 个技能目录与索引一致，豁免 1060 个既有资产 finding。
+- 测试/检查: `git diff --check`
+- 结果: PASS，无空白错误。
+- 测试/检查: `git submodule update --init --recursive -- refer/git-rep`
+- 结果: PASS，无待初始化项。
+- 测试/检查: 自定义结构断言
+- 结果: `top_level_gitlinks=5 reports=34 report_pairs=complete upstream_worktrees=clean`。
+- 测试/检查: `git grep` 旧报告路径和旧 PyQUDA 版本文件路径
+- 结果: 当前非历史目录无命中。
+- 未验证项: 环境未安装 `xelatex/latexmk`，因此 3 份仅修改交叉引用路径的 TeX 未重新生成 PDF；其 PDF 正文和既有构建产物均保留。
+
+## 变更与产物
+- 文件: `.gitmodules`、`refer/AGENTS.md`、`refer/git-rep/README.md`、`refer/git-rep/docs/**`、`skills/pyqcu-testing-qcu/SKILL.md`、`skills/pyqcu-testing-pyquda/SKILL.md`。
+- 产物: 5 个只读上游 submodule、34 份集中归档的 PyQCU 自产报告。
+- 未改动范围: 未提交、未推送、未打标签；工作区中原有的其他修改保持不动。
+
+## 风险、限制与下一步
+- 风险: 原 `quda` 工作树内的历史本地补丁已按“上游为准”移除，只能从既有 Git 历史恢复；依赖 double recursive MultiGrid 本地补丁的构建必须改用独立 `data/quda-*` shadow。
+- 阻塞: 无。
+- 下一步: 如需提交，逐个暂存本任务文件，运行大文件闸门后再提交；如需恢复历史本地 QUDA 补丁，应在固定上游提交上重新验证并维护独立 patch。
+
+## 用户输入指令
+整理refer/git-rep
+以上游为准
+
+## Agent 全文报告
+--- report begin ---
+状态：finished
+
+改动内容
+- 将 `DDalphaAMG`、`DDalphaAMG-SM`、`PyQUDA`、`quda` 从 vendored 普通目录改为固定上游提交的 submodule，并初始化原有 `kuqcd` 及 PyQUDA 的嵌套 `pycparser`。
+- 将 34 份 PyQCU 自产报告从各上游 `docs/` 统一迁移到 `refer/git-rep/docs/`，保留 TeX/PDF 配对。
+- 重写 `refer/git-rep/README.md`，记录 5 个上游 URL、固定提交、用途、致谢、初始化命令和报告索引；同步更新 `refer/AGENTS.md`。
+- 修正迁移报告的 3 处旧交叉引用，并更新 QUDA/PyQUDA 技能中关于源码位置、只读边界和 shadow 补丁流程的说明。
+
+推理依据
+- 用户明确要求“以上游为准”，因此参考工作树不再保留 vendored 快照内的结构差异和本地源码补丁。
+- form 规则要求参考库以 submodule 固定、来源写入 README、PyQCU 分析文档集中到 `refer/git-rep/docs/`。
+
+验证结果
+- `bash skills/pyqcu-form/form-audit.sh`：PASS。
+- `git diff --check`：PASS。
+- 结构断言：`top_level_gitlinks=5 reports=34 report_pairs=complete upstream_worktrees=clean`。
+- 5 个顶层参考库索引模式均为 `160000`，所有 submodule 工作树干净。
+- 当前非历史目录中旧报告路径和 `refer/git-rep/PyQUDA/_version.py` 路径均已清零。
+- 未验证：环境无 `xelatex/latexmk`，未重新生成仅改动交叉引用的 3 份 PDF。
+
+后续步骤
+- 本次未提交、未推送、未打标签。
+- 原 QUDA 本地补丁如仍被实验依赖，应复制固定上游到独立 `data/quda-*` shadow，重新验证后以 patch 维护，不得修改参考 submodule。
+--- report end ---

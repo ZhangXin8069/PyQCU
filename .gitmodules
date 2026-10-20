@@ -1,3 +1,15 @@
 [submodule "refer/git-rep/kuqcd"]
 	path = refer/git-rep/kuqcd
 	url = https://atomgit.com/kunpengcompute/kuqcd
+[submodule "refer/git-rep/DDalphaAMG"]
+	path = refer/git-rep/DDalphaAMG
+	url = https://github.com/mrottmann/DDalphaAMG.git
+[submodule "refer/git-rep/DDalphaAMG-SM"]
+	path = refer/git-rep/DDalphaAMG-SM
+	url = https://github.com/JFNCastellanos/DDalphaAMG-SM.git
+[submodule "refer/git-rep/PyQUDA"]
+	path = refer/git-rep/PyQUDA
+	url = https://github.com/CLQCD/PyQUDA.git
+[submodule "refer/git-rep/quda"]
+	path = refer/git-rep/quda
+	url = https://github.com/lattice/quda.git

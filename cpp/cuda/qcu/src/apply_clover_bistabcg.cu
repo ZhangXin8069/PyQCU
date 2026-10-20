@@ -1,5 +1,6 @@
 #include "../include/qcu.h"
 #include "../python/pyqcu.h"
+#include <cstdlib>
 #pragma optimize(5)
 using namespace qcu;
 void applyCloverBistabCgQcu(long long _fermion_out, long long _fermion_in,
@@ -7,6 +8,11 @@ void applyCloverBistabCgQcu(long long _fermion_out, long long _fermion_in,
                             long long _clover_oo, long long _clover_ee_inv,
                             long long _clover_oo_inv, long long _set_ptrs,
                             long long _params) {
+  if (std::getenv("QCU_DEBUG_BISTABCG") != nullptr) {
+    printf("QCU_BISTABCG rank=%d stage=wrapper_start\n",
+           static_cast<int *>((void *)_params)[_NODE_RANK_]);
+    fflush(stdout);
+  }
   cudaDeviceSynchronize();
   void *fermion_out = (void *)_fermion_out;
   void *fermion_in = (void *)_fermion_in;

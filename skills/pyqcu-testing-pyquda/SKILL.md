@@ -6,9 +6,10 @@ description: pyqcu/testing/pyquda 目录的完整生成 skill：PyQCU 与 PyQuda
 
 PyQCU（纯 Python 后端）与 PyQuda-0.3.2（QUDA 1.1.0）的结果/性能对比套件。
 **版本以 `pip show PyQuda` 为准 = 0.3.2**（`/usr/local/lib/python3.10/dist-packages/PyQuda-0.3.2-py3.10-linux-x86_64.egg`，
-本套件实际 import 的就是它）。`refer/git-rep/PyQUDA/_version.py` 另存一份 **0.10.54** 的上游
-源码快照——那是 refer 侧的 vendored 参照物，**不是**本套件运行时依赖；见到「0.10.54」字样
-不要据此改写本文档。
+本套件实际 import 的就是它）。`refer/git-rep/PyQUDA` 是固定到
+`138d8ad6e4d6e0805ecc7ec0a59a45febe0482ce`（`v0.10.54-1-g138d8ad`）的上游只读
+submodule，其版本文件位于 `pyquda_core/pyquda/_version.py`，**不是**本套件运行时依赖；
+见到「0.10.54」字样不要据此改写本文档。
 双进程隔离（dev87 F2：libqcu.so 与 libquda.so 同进程加载会 cudart 上下文冲突），
 经 h5 交换数据（数据优先 `pyqcu/testing/data/pyquda_cmp/<lat>/`，h5py 读写）。
 

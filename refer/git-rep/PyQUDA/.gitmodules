@@ -1,3 +1,0 @@
-[submodule "pyquda_core/pycparser"]
-	path = pyquda_core/pycparser
-	url = https://github.com/eliben/pycparser.git

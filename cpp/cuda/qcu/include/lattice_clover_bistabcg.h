@@ -1,5 +1,6 @@
 #ifndef _LATTICE_CLOVER_BISTABCG_H
 #define _LATTICE_CLOVER_BISTABCG_H
+#include <cstdlib>
 #include "./bistabcg.h"
 #include "./define.h"
 #include "./lattice_clover_dslash.h"
@@ -36,6 +37,12 @@ template <typename T> struct LatticeCloverBistabCg {
     clover_dslash_oo_inv.give(set_ptr);
   }
   void _init() {
+    const bool debug = std::getenv("QCU_DEBUG_BISTABCG") != nullptr;
+    if (debug) {
+      printf("QCU_BISTABCG rank=%d stage=alloc_start\n",
+             set_ptr->host_params[_NODE_RANK_]);
+      fflush(stdout);
+    }
     checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
     checkCudaErrors(
         cudaMallocAsync(&b__o, set_ptr->lat_4dim_SC * sizeof(LatticeComplex<T>),
@@ -54,8 +61,19 @@ template <typename T> struct LatticeCloverBistabCg {
     checkCudaErrors(cudaMallocAsync(
         &t, set_ptr->lat_4dim_SC * sizeof(LatticeComplex<T>), set_ptr->stream));
     checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
+    if (debug) {
+      printf("QCU_BISTABCG rank=%d stage=alloc_end\n",
+             set_ptr->host_params[_NODE_RANK_]);
+      fflush(stdout);
+    }
   }
   void __init() {
+    const bool debug = std::getenv("QCU_DEBUG_BISTABCG") != nullptr;
+    if (debug) {
+      printf("QCU_BISTABCG rank=%d stage=prepare_start if_input=%d\n",
+             set_ptr->host_params[_NODE_RANK_], if_input);
+      fflush(stdout);
+    }
     checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
     if (if_input == 0) {
       checkCudaErrors(cudaMallocAsync(
@@ -100,7 +118,17 @@ template <typename T> struct LatticeCloverBistabCg {
           <<<set_ptr->gridDim, set_ptr->blockDim, 0, set_ptr->stream>>>(
               set_ptr->device_vec2, b_e);
       clover_dslash_ee_inv.give(set_ptr->device_vec2);
+      if (debug) {
+        printf("QCU_BISTABCG rank=%d stage=prepare_oe_start\n",
+               set_ptr->host_params[_NODE_RANK_]);
+        fflush(stdout);
+      }
       wilson_dslash.run_oe(set_ptr->device_vec0, set_ptr->device_vec2, gauge);
+      if (debug) {
+        printf("QCU_BISTABCG rank=%d stage=prepare_oe_end\n",
+               set_ptr->host_params[_NODE_RANK_]);
+        fflush(stdout);
+      }
       bistabcg_give_b__o<T>
           <<<set_ptr->gridDim, set_ptr->blockDim, 0, set_ptr->stream>>>(
               b__o, b_o, set_ptr->device_vec0, set_ptr->kappa(),
@@ -112,8 +140,19 @@ template <typename T> struct LatticeCloverBistabCg {
       checkCudaErrors(cudaFreeAsync(b_o, set_ptr->stream));
     }
     checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
+    if (debug) {
+      printf("QCU_BISTABCG rank=%d stage=prepare_end\n",
+             set_ptr->host_params[_NODE_RANK_]);
+      fflush(stdout);
+    }
   }
   void dslash(void *fermion_out, void *fermion_in) {
+    const bool debug = std::getenv("QCU_DEBUG_BISTABCG") != nullptr;
+    if (debug) {
+      printf("QCU_BISTABCG rank=%d stage=dslash_start\n",
+             set_ptr->host_params[_NODE_RANK_]);
+      fflush(stdout);
+    }
     // A_oo*src_o-set_ptr->kappa()**2*dslash_oe*A_ee^-1*(dslash_eo(src_o))
     wilson_dslash.run_eo(set_ptr->device_vec0, fermion_in, gauge);
     give_copy_vals<T>
@@ -129,6 +168,11 @@ template <typename T> struct LatticeCloverBistabCg {
         <<<set_ptr->gridDim, set_ptr->blockDim, 0, set_ptr->stream>>>(
             fermion_out, set_ptr->device_vec2, set_ptr->device_vec1,
             set_ptr->kappa(), set_ptr->device_vals);
+    if (debug) {
+      printf("QCU_BISTABCG rank=%d stage=dslash_end\n",
+             set_ptr->host_params[_NODE_RANK_]);
+      fflush(stdout);
+    }
   }
   void prepare(void *compact_rhs, const void *full_rhs) {
     const size_t n = static_cast<size_t>(set_ptr->lat_4dim_SC);
@@ -174,6 +218,12 @@ template <typename T> struct LatticeCloverBistabCg {
     checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
   }
   void _run_init() {
+    const bool debug = std::getenv("QCU_DEBUG_BISTABCG") != nullptr;
+    if (debug) {
+      printf("QCU_BISTABCG rank=%d stage=run_init_start\n",
+             set_ptr->host_params[_NODE_RANK_]);
+      fflush(stdout);
+    }
     checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
     give_1zero<T><<<1, 1, 0, set_ptr->stream>>>(set_ptr->device_vals, _tmp0_);
     give_1zero<T><<<1, 1, 0, set_ptr->stream>>>(set_ptr->device_vals, _tmp1_);
@@ -203,10 +253,20 @@ template <typename T> struct LatticeCloverBistabCg {
                                                                         23333);
     }
     dslash(r, x_o);
+    if (debug) {
+      printf("QCU_BISTABCG rank=%d stage=run_init_after_dslash\n",
+             set_ptr->host_params[_NODE_RANK_]);
+      fflush(stdout);
+    }
     bistabcg_give_rr<T>
         <<<set_ptr->gridDim, set_ptr->blockDim, 0, set_ptr->stream>>>(
             r, b__o, r_tilde, set_ptr->device_vals);
     checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
+    if (debug) {
+      printf("QCU_BISTABCG rank=%d stage=run_init_end\n",
+             set_ptr->host_params[_NODE_RANK_]);
+      fflush(stdout);
+    }
   }
   void init(void *_x, void *_b, void *_gauge, void *_clover_ee,
             void *_clover_oo, void *_clover_ee_inv, void *_clover_oo_inv) {
@@ -242,6 +302,12 @@ template <typename T> struct LatticeCloverBistabCg {
   }
   void _dot_mpi(void *vec0, void *vec1, const int vals_index,
                 const int stream_index) {
+    const bool debug = std::getenv("QCU_DEBUG_BISTABCG") != nullptr;
+    if (debug) {
+      printf("QCU_BISTABCG rank=%d stage=dot_start vals=%d stream=%d\n",
+             set_ptr->host_params[_NODE_RANK_], vals_index, stream_index);
+      fflush(stdout);
+    }
     // dest(val) = _dot(A,B)
     CUBLAS_CHECK(_cublasDot<T>(
         set_ptr->cublasHs[stream_index], set_ptr->lat_4dim_SC, vec0, 1, vec1, 1,
@@ -278,6 +344,11 @@ template <typename T> struct LatticeCloverBistabCg {
         sizeof(LatticeComplex<T>), cudaMemcpyDeviceToHost,
         stream));
     checkCudaErrors(cudaStreamSynchronize(stream));
+    if (debug) {
+      printf("QCU_BISTABCG rank=%d stage=dot_allreduce vals=%d\n",
+             set_ptr->host_params[_NODE_RANK_], vals_index);
+      fflush(stdout);
+    }
     _MPI_Allreduce<T>(
         ((static_cast<LatticeComplex<T> *>(host_vals)) + _send_tmp_),
         ((static_cast<LatticeComplex<T> *>(host_vals)) + vals_index), 2,
@@ -287,6 +358,11 @@ template <typename T> struct LatticeCloverBistabCg {
         ((static_cast<LatticeComplex<T> *>(host_vals)) + vals_index),
         sizeof(LatticeComplex<T>), cudaMemcpyHostToDevice,
         stream));
+    if (debug) {
+      printf("QCU_BISTABCG rank=%d stage=dot_end vals=%d\n",
+             set_ptr->host_params[_NODE_RANK_], vals_index);
+      fflush(stdout);
+    }
   }
   void _dot(void *vec0, void *vec1, const int vals_index,
             const int stream_index) {
@@ -342,6 +418,12 @@ template <typename T> struct LatticeCloverBistabCg {
     // exit(1);
   }
   void _run() {
+    const bool debug = std::getenv("QCU_DEBUG_BISTABCG") != nullptr;
+    if (debug) {
+      printf("QCU_BISTABCG rank=%d stage=run_start\n",
+             set_ptr->host_params[_NODE_RANK_]);
+      fflush(stdout);
+    }
     checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
     checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_a_]));
     checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_b_]));
@@ -349,6 +431,11 @@ template <typename T> struct LatticeCloverBistabCg {
     checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_d_]));
     int completed_iterations = 0;
     for (int loop = 0; loop < set_ptr->max_iter(); loop++) {
+      if (debug && loop < 2) {
+        printf("QCU_BISTABCG rank=%d stage=loop_start loop=%d\n",
+               set_ptr->host_params[_NODE_RANK_], loop);
+        fflush(stdout);
+      }
       completed_iterations = loop + 1;
       _dot(r_tilde, r, _rho_, _a_);
       checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_b_]));
@@ -417,6 +504,11 @@ template <typename T> struct LatticeCloverBistabCg {
             <<<set_ptr->gridDim, set_ptr->blockDim, 0, set_ptr->streams[_b_]>>>(
                 x_o, p, s, set_ptr->device_vals);
       }
+      if (debug && loop < 2) {
+        printf("QCU_BISTABCG rank=%d stage=loop_end loop=%d\n",
+               set_ptr->host_params[_NODE_RANK_], loop);
+        fflush(stdout);
+      }
       {
 #ifdef PRINT_MULTI_GPU_CLOVER_BISTABCG
         std::cout << "##RANK:" << set_ptr->host_params[_NODE_RANK_]
@@ -440,6 +532,11 @@ template <typename T> struct LatticeCloverBistabCg {
     checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_b_]));
     checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_c_]));
     checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_d_]));
+    if (debug) {
+      printf("QCU_BISTABCG rank=%d stage=run_end\n",
+             set_ptr->host_params[_NODE_RANK_]);
+      fflush(stdout);
+    }
   }
   void run() {
     _run();
