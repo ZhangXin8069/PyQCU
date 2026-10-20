@@ -47,7 +47,6 @@
 - 关键内容: 完成 AGENTS form 唯一标记块同步、本地技能例外边界说明、任务文档与全部指定验证，终态未提交。
 - 验证: path, size, required sections, conflict markers
 - 批次状态: complete
-
 ### tag-dev97-20261020 - final - 2026-10-20 01:32:20 +0800
 - 主任务: 创建 PyQCU dev97 本地附注标签
 - 日志文件: logs/v2026102001-3.txt
@@ -56,7 +55,6 @@
 - 关键内容: PyQCU dev97 已创建并与 HEAD 对齐；历史链旧问题保留，标签未推送
 - 验证: path, size, required sections, conflict markers
 - 批次状态: complete
-
 历史读取示例：
 
 ```bash
@@ -117,5 +115,21 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 文件大小: 5523 bytes
 - 触发原因: 任务完成
 - 关键内容: 参考库改为上游 submodule，34 份自产报告集中归档，form 审计通过
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete
+## docs-progress-dev99-1640349d - final - 2026-10-21 06:31:38 +0800
+- 主任务: archive-dev99-to-1640349d-summary
+- 日志文件: logs/v2026102106.txt
+- 文件大小: 2509 bytes
+- 触发原因: 任务完成
+- 关键内容: 完整进度总结已保存到 docs，并完成文档格式审计
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete
+## tag-dev100 - final - 2026-10-21 06:36:52 +0800
+- 主任务: create-dev100-local-tag
+- 日志文件: logs/v2026102106-2.txt
+- 文件大小: 3494 bytes
+- 触发原因: 任务完成
+- 关键内容: 创建并验证本地附注标签 dev100，未推送远程
 - 验证: path, size, required sections, conflict markers
 - 批次状态: complete
