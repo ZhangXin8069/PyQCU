@@ -19,7 +19,8 @@ def main(argv=None) -> int:
         report.finish("SKIP")
         return 0
     ctx = report.run("创建上下文", make_context, lattice=args.lat, mass=args.mass,
-                     plan=1, max_iter=200, device=args.device, reporter=report)
+                     csw=args.csw, plan=1, max_iter=200, device=args.device,
+                     reporter=report)
     gauge, src, out, ce, co, cei, coi = report.run("分配测试场", allocate_state, ctx, clover=True)
     # Build both parity Clover blocks first; each operation has its own index.
     ctx.params[define._SET_PLAN_] = 2
@@ -36,9 +37,10 @@ def main(argv=None) -> int:
         lifecycle_call(ctx, "applyCloverBistabCgReconstructQcu", reconstructed, src, out[1], gauge, ce, co, cei, coi)
     x, b = full_fermion(out), full_fermion(src)
     u = full_gauge(gauge); k = 1.0 / (2.0 * ctx.mass + 8.0)
-    cl = dslash.make_clover(u, kappa=torch.tensor([k]))
+    cl = dslash.make_clover(u, kappa=torch.tensor([k]), csw=ctx.csw)
     rel = float(torch.linalg.vector_norm(dslash.give_wilson(x,u,torch.tensor([k]),with_I=True)+dslash.give_clover(x,cl)-b) / torch.linalg.vector_norm(b))
     print(json.dumps({"function":"applyCloverBistabCgQcu", "true_residual":rel,
+                      "csw":ctx.csw,
                       "lattice":list(ctx.lattice)}))
     report.finish("PASS" if rel < 1e-2 or not os.environ.get("QCU_STRICT_NUMERIC") else "FAIL")
     return 0 if (rel < 1e-2 or not os.environ.get("QCU_STRICT_NUMERIC")) else 1

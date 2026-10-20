@@ -25,7 +25,7 @@ extensions = [
         include_dirs=[f"{HOME}/pyqcu/cuda/qcu", f"{HOME}/cpp/cuda/qcu/python", numpy.get_include()],
         library_dirs=[f"{HOME}/cpp/cuda/qcu"],
         libraries=["qcu"],
-        language="c",
+        language="c++",
     )
 ]
 ext_modules = cythonize(

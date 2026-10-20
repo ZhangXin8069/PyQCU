@@ -1,18 +1,27 @@
 import torch
 import numpy as np
+import math
 import mpi4py.MPI as MPI
 from pyqcu import lattice, tools
 from typing import Optional
 import pyqcu.cann as _torch
 
 
-def make_clover(U: torch.Tensor, kappa: Optional[torch.Tensor] = torch.Tensor([0.1]),
-                u_0: Optional[torch.Tensor] = torch.Tensor([1.0]), support_parallel: bool = False, verbose: bool = False) -> torch.Tensor:
+def make_clover(U: torch.Tensor,
+                kappa: Optional[torch.Tensor] = torch.Tensor([0.1]),
+                u_0: Optional[torch.Tensor] = torch.Tensor([1.0]),
+                support_parallel: bool = False, verbose: bool = False,
+                csw: float = 1.0) -> torch.Tensor:
     """
-    Give Clover term:
+    Give the Clover term:
     $$
-    \frac{a^2\kappa}{u_0^4}\sum_{\mu<\nu}\sigma_{\mu \nu}F_{\mu \nu}\delta_{x,y}
+    \frac{a^2 c_{sw}\kappa}{u_0^4}
+    \sum_{\mu<\nu}\sigma_{\mu \nu}F_{\mu \nu}\delta_{x,y}
     $$
+
+    ``csw`` follows the PyQUDA/QUDA convention and is independent of
+    ``kappa = 1 / (2 * mass + 8)``.  The historical default ``csw=1`` keeps
+    existing callers bit-compatible.
     """
     if verbose:
         print("PYQCU::DSLASH::CLOVER:\n Applying Dirac operator...")
@@ -107,14 +116,16 @@ def make_clover(U: torch.Tensor, kappa: Optional[torch.Tensor] = torch.Tensor([0
     _dtype = U.dtype
     _sigma = {wk: lattice.gamma_gamma[lattice.ward_wards[wk]['ward']].to(_device).type(_dtype)
               for wk in ward_ward_keys}
-    # NOTE (2026-07-28 R3): The clover coefficient convention used here is
-    # _clover_factor = -0.125 * kappa/u_0 = -kappa/(8*u_0).
-    # Standard derivation with c_sw=1 gives -kappa/(16*u_0) when sigma = gamma_mu*gamma_nu
-    # and F = Q - Q^dag. The factor of 2 difference may be offset by:
-    #   1. Missing division by 2 in the anti-hermitian part (line: F -= F.dag)
-    #   2. Different c_sw convention
-    # Cross-validation against QUDA/Chroma is recommended to confirm effective c_sw.
-    _coeff = float(kappa/u_0) if (u_0 is not None and kappa is not None) else 1.0
+    # The Python reference and C++ backend both use -kappa*csw/8 after their
+    # shared anti-Hermitian F convention.  Keep csw explicit so csw=0 is not
+    # mistaken for an omitted parameter.
+    if kappa is None or u_0 is None:
+        raise ValueError("kappa and u_0 are required for a Clover term")
+    if float(u_0) == 0.0:
+        raise ValueError("u_0 must be nonzero")
+    if not math.isfinite(float(csw)):
+        raise ValueError("csw must be finite")
+    _coeff = float(kappa / u_0) * float(csw)
     _clover_factor = -0.125 * _coeff
     # Give clover term for each direction
     for ward_ward_key in ward_ward_keys:

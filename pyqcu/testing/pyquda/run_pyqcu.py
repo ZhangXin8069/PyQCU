@@ -1,7 +1,7 @@
 """阶段 1（pyqcu 进程）：生成规范场/源 -> h5；pyqcu 侧 dslash/solver 计算 -> h5/json。
 
 独立进程运行（dev87 F2：pyqcu 与 pyquda 不得同进程加载 libqcu.so/libquda.so）。
-用法：python pyqcu/testing/pyquda/run_pyqcu.py [--lat 8 8 8 16] [--mass 0.05] [--tol 1e-8]
+用法：python pyqcu/testing/pyquda/run_pyqcu.py [--lat 8 8 8 16] [--mass 0.05] [--csw 1.0] [--tol 1e-8]
       [--max-iter 2000] [--device cuda] [--dslash-only]
 """
 import argparse
@@ -16,7 +16,7 @@ import torch
 import numpy as np
 
 from common import (
-    DATA_DIR, KAPPA_PYQCU, LAT_DEFAULT, MASS,
+    DATA_DIR, LAT_DEFAULT, MASS,
     pyqcu_gauge_to_quda, pyqcu_fermion_to_quda,
     save_h5, save_json,
 )
@@ -30,6 +30,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--lat", type=int, nargs=4, default=LAT_DEFAULT)
     ap.add_argument("--mass", type=float, default=MASS)
+    ap.add_argument("--csw", type=float, default=1.0)
     ap.add_argument("--tol", type=float, default=1e-8)
     ap.add_argument("--max-iter", type=int, default=2000)
     ap.add_argument("--device", default="cuda")
@@ -37,7 +38,8 @@ def main():
     args = ap.parse_args()
 
     lat = list(args.lat)
-    kappa = torch.Tensor([KAPPA_PYQCU])
+    kappa_value = 1.0 / (2.0 * args.mass + 8.0)
+    kappa = torch.Tensor([kappa_value])
     device = torch.device(args.device)
     dtype = torch.complex64
     tag = "x".join(map(str, lat))
@@ -55,9 +57,10 @@ def main():
         b_p=b.detach().cpu().numpy(),
         U_q=pyqcu_gauge_to_quda(U.detach().cpu().numpy(), lat),
         b_q=pyqcu_fermion_to_quda(b.detach().cpu().numpy(), lat),
-        lat=np.array(lat), mass=np.array([args.mass]),
+        lat=np.array(lat), mass=np.array([args.mass]), csw=np.array([args.csw]),
     )
-    print(f"[pyqcu] kappa = {KAPPA_PYQCU:.8f} (1/(2m+8), m={args.mass})")
+    print(f"[pyqcu] kappa = {kappa_value:.8f} (1/(2m+8), m={args.mass}), "
+          f"csw={args.csw}")
 
     _mv_time = [0.0]
     _mv_count = [0]
@@ -100,7 +103,8 @@ def main():
                 y_p=y_p.detach().cpu().numpy(),
                 y_hop=y_hop.detach().cpu().numpy())
         save_json(f"pyqcu_{tag}", {
-            "lat": lat, "mass": args.mass, "kappa": KAPPA_PYQCU,
+            "lat": lat, "mass": args.mass, "kappa": kappa_value,
+            "csw": args.csw,
             "tol": args.tol, "iters": len(hist), "wall_s": wall_s,
             "rel_res_full": rel_res,
             "hist": hist,
@@ -111,7 +115,7 @@ def main():
         print(f"[pyqcu] rel_res(D x_p - b) = {rel_res:.3e}")
 
         # ---- Clover solver（D_cl = give_wilson + give_clover，csw=1）
-        cl = dslash.make_clover(U, kappa, verbose=False)
+        cl = dslash.make_clover(U, kappa, csw=args.csw, verbose=False)
         matvec_cl = lambda psi: (  # noqa: E731
             dslash.give_wilson(psi, U, kappa, verbose=False)
             + dslash.give_clover(psi, cl, verbose=False)
@@ -125,7 +129,8 @@ def main():
         rel_res_cl = _torch.norm(r_cl).item() / _torch.norm(b).item()
         save_h5(data_dir / "pyqcu_clover.h5", x_cl_p=x_cl.detach().cpu().numpy())
         save_json(f"pyqcu_clover_{tag}", {
-            "lat": lat, "mass": args.mass, "kappa": KAPPA_PYQCU,
+            "lat": lat, "mass": args.mass, "kappa": kappa_value,
+            "csw": args.csw,
             "tol": args.tol, "iters": len(hist_cl),
             "rel_res_full": rel_res_cl, "hist": hist_cl,
         })
@@ -134,7 +139,8 @@ def main():
     else:
         save_h5(data_dir / "pyqcu.h5", y_p=y_p.detach().cpu().numpy())
         save_json(f"pyqcu_{tag}", {
-            "lat": lat, "mass": args.mass, "kappa": KAPPA_PYQCU,
+            "lat": lat, "mass": args.mass, "kappa": kappa_value,
+            "csw": args.csw,
             "y_p_norm": float(_torch.norm(y_p).item()),
         })
 

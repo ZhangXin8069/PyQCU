@@ -3,7 +3,7 @@
 namespace qcu {
 template <typename T>
 __global__ void make_clover(void *device_U, void *device_clover,
-                            void *device_params, T kappa) {
+                            void *device_params, T clover_coefficient) {
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
   int parity = idx;
   int *params = static_cast<int *>(device_params);
@@ -843,10 +843,10 @@ __global__ void make_clover(void *device_U, void *device_clover,
     }
   }
   {
-    // A=1+T(or A=1-kappa*T)
+    // A = 1 + T, with T proportional to kappa * csw.
     LatticeComplex<T> one(1.0, 0);
     for (int i = 0; i < _LAT_SCSC_; i++) {
-      clover[i] *= -kappa * 0.125; //-kappa*(1/8)
+      clover[i] *= -clover_coefficient * 0.125;
     }
     for (int i = 0; i < _LAT_SC_; i++) {
       clover[i * 13] += one;

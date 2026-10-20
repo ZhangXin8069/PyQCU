@@ -1,6 +1,8 @@
 # AGENTS.md — PyQCU
 
-PyQCU：Lattice QCD 的 Python/Cython 库 —— CUDA 加速的 Wilson/Clover Dirac 算子、BiStabCG 与多重网格求解器、stout smearing、规范场生成，全部 MPI 分布于 4D 进程网格。
+PyQCU：Lattice QCD 的 Python/Cython 库 —— CUDA 与鲲鹏/NUMA CPU 加速的
+Wilson/Clover Dirac 算子、BiStabCG 与多重网格求解器、stout smearing、
+规范场生成，MPI 分布于 4D 进程网格。
 
 > 2026-09-27 测试迁移：顶层 `examples/` 已整体删除，原内容按 backend 分类迁入
 > `pyqcu/testing/`（`pyqcu`、`qcu`、`quda`、`pyquda` 等）。新代码、文档和命令
@@ -17,21 +19,29 @@ PyQCU：Lattice QCD 的 Python/Cython 库 —— CUDA 加速的 Wilson/Clover Di
 
 - 环境：`source ./env.sh`（LD_LIBRARY_PATH、PYTHONPATH、MPI root 运行权限）
 - 构建 C++ CUDA 后端：`bash ./build.sh`（→ `libqcu.so`，cd cpp/cuda/qcu && make.sh）
+- 构建独立 KUPL CPU 后端：`cmake -S cpp/kupl/qcu -B cpp/kupl/qcu/build -DCMAKE_BUILD_TYPE=Release && cmake --build cpp/kupl/qcu/build -j`
 - 构建 Cython 扩展：`bash ./install.sh`（setup.py build_ext --inplace）
 - 测试：`cd pyqcu/testing && pytest .`；MPI 单文件：`mpirun -np 4 python pyqcu/testing/python/conftest.py`
 - Git 标签：`stab<N>`/`dev<N>`/`bug<N>` 独立编号 + 子版本（如 `stab15_1`），见 tag 技能
 - Python ≥ 3.10，依赖 PyTorch、Cython、mpi4py、h5py、numpy、CUDA toolkit；TileLang 可选
 
-## 架构：两个执行层级
+## 架构：三个执行层级
 
 1. **纯 Python**（`pyqcu/dslash/`、`pyqcu/solver/`、`pyqcu/smear/`）— PyTorch 实现，跑 CPU/CUDA/昇腾 NPU（经 `pyqcu.cann` 兼容层）。所有 Python 代码 `import pyqcu.cann as _torch`，不得直接 `import torch`（NPU 不支持复数张量，cann 层自动分解实虚部）。
 2. **C++ CUDA 后端**（`cpp/cuda/qcu/`）— 手写 CUDA 内核 + MPI halo 交换，经 Cython 桥 `pyqcu/cuda/qcu/qcu.pyx` 暴露，生产路径。
+3. **C++ KUPL CPU 后端**（`cpp/kupl/qcu/`）— 独立 C++17 MPI+OpenMP 实现，
+   不引用 CUDA 源码；经 `pyqcu/kupl/qcu.py` 的 `ctypes` 绑定使用相同
+   `params/argv/set_ptrs` 与控制生命周期。
 
 ## 关键惯例
 
-- **参数协议**：`params`（int32[58]，dev84 起 `_MG_USE_DEFLATE_=55`/`_MG_MU_PRE_=56`，dev87 起 `_MG_USE_INIT_GUESS_=57`=x0 热启动开关，warm 时以 fermion_out 预填解为初值）、`argv`（float[7]）、`set_ptrs`（int64[100]）三个扁平张量桥接 Python↔C++；`pyqcu/cuda/define.py` 与 `cpp/cuda/qcu/include/define.h` 必须同步。
+- **参数协议**：`params`（int32[58]，dev84 起 `_MG_USE_DEFLATE_=55`/`_MG_MU_PRE_=56`，dev87 起 `_MG_USE_INIT_GUESS_=57`=x0 热启动开关，warm 时以 fermion_out 预填解为初值）、`argv`（float[8]，槽 7 为 `_CSW_`）、`set_ptrs`（int64[100]）三个扁平张量桥接 Python↔C++；`pyqcu/cuda/define.py` 与 `cpp/cuda/qcu/include/define.h` 必须同步。
 - **`_SET_PLAN_` 计划选择**：-2 Laplacian、-1 Gauss gauge、0 Wilson dslash、1 BiStabCG/CG、2 Clover dslash。
-- **调用生命周期**：`applyInitQcu` → 操作 → **`params[define._SET_INDEX_] += 1`（每次调用间必须递增！）** → `applyEndQcu`。不递增导致 scratch 缓冲复用冲突、结果错误。
+- **调用生命周期**：普通单操作事务使用 `applyInitQcu` → 操作 → `applyEndQcu` →
+  `params[define._SET_INDEX_] += 1`。`applyEndQcu` 按**当前**索引释放对象，
+  不能先递增再 end。普通 scratch 只使用 `set_ptrs[0:30]`；
+  `_SET_PTRS_COARSE_BASE_=30` 之后保留给 coarse/strict 指针。新代码优先使用
+  `QcuRuntime.call/operation()`；Strict 多调用生命周期在同一私有槽位内保持索引不变。
 - **张量布局**：规范场 `[3,3,4,Lx,Ly,Lz,Lt]`、费米子场 `[4,3,Lx,Ly,Lz,Lt]`、Clover 项 `[4,3,4,3,Lx,Ly,Lz,Lt]`；时空维永远是最后 4 轴（`...xyzt`），ward 索引用负整数（`wards['x']=-4`）。HDF5 内部用 `zyxt` 序，经 `ccdxyzt2ccdptzyx`/`scxyzt2psctzyx` 转换。
 - **日志约定**：`PYQCU::MODULE::SUBMODULE:\n message`，由 verbose 标志控制。
 - **测试**：测试函数在 `pyqcu/testing/__init__.py`，`pyqcu/testing/*/conftest.py` 手动取消注释要运行的测试。
@@ -47,9 +57,10 @@ PyQCU：Lattice QCD 的 Python/Cython 库 —— CUDA 加速的 Wilson/Clover Di
 |---|---|
 | `pyqcu/` | 纯 Python 实现：`lattice/`（gamma/Gell-Mann 矩阵、SU(3)、源场构造 point/wall/volume/Z2/momentum `_source.py`）、`dslash/`（Wilson/Clover 算子）、`solver/`（BiStabCG + `bistabcg_history` 残差历史、FGMRES `_gmres.py`（DDalphaAMG-SM 移植，右预条件）、MR `_mr.py`（quda 思想平滑器）、多质量 CG `_multishift_cg.py`、CA-CG `_cacg.py`、thick-restart Lanczos `_lanczos.py` 特征底座、multigrid）、`smear/`（stout + Wuppertal 高斯 `_wuppertal.py`）、`tools/`（MPI 网格、HDF5 I/O 含 dict 级 `save_dict_h5`/`load_dict_h5`、env 快照 `_env.py`、预算模型 `_budget.py`、linalg、multigrid 工具含 33-tensor stencil build、批量 BiCGStab `_bistabcg_batch`、TileLang JIT）、`testing/`（集成测试含 `verify_nullvecs` null 向量质量诊断）、`cuda/`（Cython 桥 + `_schur_op.py` 多线程 Schur 算子 + `_multi_gpu.py` 多线程多卡 MG 驱动 + `_logs.py` 后端日志解析，`build_schur_levels` 批量构建 `batch_build`）、`cann/dtk/maca`（NPU 兼容层与占位） |
 | `cpp/cuda/qcu/` | C++ CUDA 后端：`src/`（32 个 .cu 内核）、`include/`（24 个模板头）、`python/pyqcu.h`（C API 37 个入口，须与 `qcu_api.pxd` 同步） |
+| `cpp/kupl/qcu/` | 独立 C++17 MPI+OpenMP CPU 后端：4D rank halo、NUMA/OpenMP 绑定、canonical c64/c128 Wilson/Clover dslash、Wilson/Clover 求解器、3D Laplacian、正确性与吞吐测试 |
 | `cpp/{cann,dtk,maca}/qcu/` | 占位 PASS，无实现 |
-| `pyqcu/testing/` | 统一测试入口：`pyqcu/`（纯 Python 主套件）、`qcu/`（C++ 后端：`multigrid/benchmarks/large_volume/` 现役攻坚套件、`multigrid/volume24/`、`strict/quda_comparison/` 严格 MG 与 QUDA 对照、`single_qcu_*.py` 单功能回归）、`quda/`（QUDA 对照）、`pyquda/`（PyQUDA 对照）、`cpu/npu/dcu/gpu/tilelang/profiler/benchmark/`、`regression/session-2026-08-24/`、`data/`（参考 HDF5） |
-| `skills/` | 项目技能库（32 个技能目录：SKILL.md + 简短 AGENTS.md，目录级领域知识文档；目录名一律 `pyqcu-` 前缀；索引与技能表见 `skills/AGENTS.md`；2026-08-25 自 `.opencode/skills` 迁出，源目录已删除，需 opencode 加载时从本库同步） |
+| `pyqcu/testing/` | 统一测试入口：`pyqcu/`（纯 Python 主套件）、`qcu/`（C++ CUDA 后端）、`kupl/`（CPU 后端 Python ABI/参考差分）、`quda/`、`pyquda/`、`cpu/npu/dcu/gpu/tilelang/profiler/benchmark/`、`regression/session-2026-08-24/`、`data/`（参考 HDF5） |
+| `skills/` | 项目技能库（33 个技能目录：SKILL.md + 简短 AGENTS.md，目录级领域知识文档；目录名一律 `pyqcu-` 前缀；索引与技能表见 `skills/AGENTS.md`） |
 | `docs/` | 正式独立文档与指南（`.pdf`/`.tex`/`.md`）：`dims.md`、`env.md`、`install.md`、`examples.md`、`profiler.md`、`ORGANIZATION.md`；从 `data/**` 提升的文档位于 `docs/data/` |
 | `refer/` | 开发历史报告（dev71.*） |
 | `logs/` | 当前任务尚未归档的运行记录（JSON/LOG/TSV/TXT/STDOUT 和阶段报告/图表）；`logs/data/` 汇总从 `data/**` 提升出的运行摘要。阶段报告先进入待 tag 提交，打 tag 后在后续清理提交中删除；张量/cache 实体在 `data/logs/`。 |

@@ -1,15 +1,16 @@
 ---
 name: pyqcu-cpp-containers
-description: cpp/ 四个后端容器目录（cuda 真实现 + cann/dtk/maca 占位）的生成 skill：多后端镜像结构、各容器职责、以及 cpp/cuda/qcu 的构建入口与不变量索引。
+description: cpp/ 后端容器目录（CUDA、KUPL CPU 真实现 + cann/dtk/maca 占位）的生成 skill：多后端镜像结构、各容器职责、以及 qcu 构建入口与不变量索引。
 ---
 # cpp/ — 多后端容器目录
 
-`cpp/` 下的四个目录镜像同一结构：容器层只做后端分组，真实现（或 stub）在各自的
+`cpp/` 下的目录镜像同一结构：容器层只做后端分组，真实现（或 stub）在各自的
 `qcu/` 子目录。新增后端时按同一形状建 `cpp/<backend>/{AGENTS.md,qcu/}`。
 
 | 容器 | 状态 | 内容 |
 |---|---|---|
 | `cpp/cuda/` | **真实现** | `qcu/` 是 PyQCU 主 C++ CUDA 后端，构建产物 `libqcu.so` |
+| `cpp/kupl/` | **真实现** | `qcu/` 是独立 MPI+OpenMP CPU 后端；Python 经 `pyqcu.kupl` 使用 |
 | `cpp/cann/` | 占位 | `qcu/PASS` 空文件，无活跃昇腾 CANN C++ 后端 |
 | `cpp/dtk/` | 占位 | `qcu/PASS` 空文件，无活跃 DCU/ROCm(HIP) C++ 后端 |
 | `cpp/maca/` | 占位 | `qcu/PASS` 空文件，无活跃 Maca C++ 后端 |
@@ -29,6 +30,7 @@ description: cpp/ 四个后端容器目录（cuda 真实现 + cann/dtk/maca 占�
 | `cpp/cuda/qcu/include/` | `skills/pyqcu-cpp-qcu-include/SKILL.md` |
 | `cpp/cuda/qcu/src/` | `skills/pyqcu-cpp-qcu-src/SKILL.md` |
 | `cpp/cuda/qcu/python/` | `skills/pyqcu-cpp-qcu-python/SKILL.md` |
+| `cpp/kupl/qcu/` | `skills/pyqcu-kupl/SKILL.md` |
 | ~~`cpp/cuda/qcu/logs/`~~（2026-10-15 已删除） | `skills/pyqcu-cpp-qcu-logs/SKILL.md`（归档说明） |
 
 ## cpp/cuda/qcu 速查（详规见 `pyqcu-cpp-qcu`）
@@ -38,9 +40,10 @@ description: cpp/ 四个后端容器目录（cuda 真实现 + cann/dtk/maca 占�
   `env.sh` 自动探测当前 NVIDIA GPU 的 compute capability，CMake 生成对应
   cubin + PTX；需要复现或跨机型构建时用 `QCU_CUDA_ARCHITECTURES` 显式覆盖，
   并把架构写进 provenance。
-- **三数组 ABI**：`params`(int32[58]) / `argv`(real[7]，c64 为 float32、c128 为
+- **三数组 ABI**：`params`(int32[58]) / `argv`(real[8]，c64 为 float32、c128 为
   float64) / `set_ptrs`(int64[100])；`_SET_PLAN_`(params[16]) 选内核路径。
-- **`_SET_INDEX_` 生命周期**：普通 `applyInitQcu`/`applyEndQcu` 序列每次调用递增；
+- **`_SET_INDEX_` 生命周期**：普通事务为
+  `applyInitQcu → operation → applyEndQcu → _SET_INDEX_ += 1`；
   Strict 生命周期内复用同一槽位、不递增。
 - **Clover MultiGrid 5 stream 架构**与 **Critical Invariants**（标量只住
   `device_vals`、每轮全流同步、点积走 `_send_tmp_` 槽 7、`mpi_real_type<T>()` 分派、

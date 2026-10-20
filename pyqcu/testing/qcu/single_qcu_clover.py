@@ -17,7 +17,7 @@ def main(argv=None) -> int:
         report.finish("SKIP")
         return 0
     ctx = report.run("创建上下文", make_context, lattice=args.lat, mass=args.mass,
-                     plan=2, device=args.device, reporter=report)
+                     csw=args.csw, plan=2, device=args.device, reporter=report)
     gauge, _, _, ce, co, cei, coi = report.run("分配测试场", allocate_state, ctx, clover=True)
     # Single-parity Clover construction and the paired convenience wrapper.
     lifecycle_call(ctx, "applyCloverQcu", ce, gauge)

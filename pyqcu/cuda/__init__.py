@@ -13,6 +13,11 @@ _LAZY_EXPORTS = {}
 
 
 def __getattr__(name):
+    if name == "QcuRuntime":
+        if name not in _LAZY_EXPORTS:
+            from ._runtime import QcuRuntime
+            _LAZY_EXPORTS[name] = QcuRuntime
+        return _LAZY_EXPORTS[name]
     if name == "CudaStrictMultigridSolver":
         if name not in _LAZY_EXPORTS:
             from ._strict_multigrid import CudaStrictMultigridSolver

@@ -79,7 +79,8 @@ Adaptive multigrid V-cycle solver with configurable multi-level hierarchy.
 - `applyInitQcu`/`applyEndQcu` manage scratch buffer lifecycle
 - `applyCloverBistabCgQcu` performs the full BiCGStab solve
 - `applyCloverBistabCgDslashQcu` performs a single parity-preconditioned dslash
-- legacy `applyInitQcu`/`applyEndQcu` operation sequences must increment `_SET_INDEX_` between calls; Strict `CudaSchurOp` sequences use one fixed per-instance slot and follow the exception below
+- legacy 普通事务按 `applyInitQcu → operation → applyEndQcu → _SET_INDEX_ += 1`
+  执行；不能在 end 前递增。Strict `CudaSchurOp` 序列使用固定私有槽位，见下文例外
 
 **C++ backend integration (level 1):**
 - `applyMultigridRestrictQcu`/`applyMultigridProLongQcu` for inter-grid transfers

@@ -25,6 +25,7 @@ lib/*
 .vscode
 *.log.txt
 *.c
+/pyqcu/cuda/qcu/qcu.cpp
 *.bin
 *dist
 *.pt*

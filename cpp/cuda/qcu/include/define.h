@@ -118,6 +118,7 @@ namespace qcu {
 // Strict QUDA-style full-coarse hierarchy assets.  This region is disjoint
 // from LatticeSet handles (low slots) and the legacy 33-point MG region
 // [30,46).  Per transition: V, raw Y, Yhat, (X,X^-1).
+#define _SET_PTRS_COARSE_BASE_ 30
 #define _SET_PTRS_STRICT_COARSE_BASE_ 60
 #define _SET_PTRS_STRICT_STRIDE_ 4
 #define _SET_PTRS_STRICT_NULL_ 0
@@ -148,7 +149,8 @@ namespace qcu {
 #define _MG_LEVEL2_ATOL_ 4
 #define _MG_LEVEL3_ATOL_ 5
 #define _MG_LEVEL4_ATOL_ 6
-#define _ARGV_SIZE_ 7
+#define _CSW_ 7
+#define _ARGV_SIZE_ 8
 #define _DIM_ 4
 #define _1DIM_ 4
 #define _2DIM_ 6

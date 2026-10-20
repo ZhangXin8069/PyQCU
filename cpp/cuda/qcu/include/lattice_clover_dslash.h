@@ -26,7 +26,8 @@ template <typename T> struct LatticeCloverDslash {
       checkCudaErrors(cudaStreamSynchronize(set_ptr->stream)); // needed
       make_clover<T>
           <<<set_ptr->gridDim, set_ptr->blockDim, 0, set_ptr->stream>>>(
-              gauge, clover, set_ptr->device_params, set_ptr->kappa());
+              gauge, clover, set_ptr->device_params,
+              set_ptr->clover_coefficient());
       checkCudaErrors(cudaStreamSynchronize(set_ptr->stream)); // needed
     } else {
       checkCudaErrors(cudaStreamSynchronize(set_ptr->stream)); // needed
@@ -559,7 +560,8 @@ template <typename T> struct LatticeCloverDslash {
       // edge recv part
       make_clover_all<T>
           <<<set_ptr->gridDim, set_ptr->blockDim, 0, set_ptr->stream>>>(
-              gauge, clover, set_ptr->device_params, set_ptr->kappa(),
+              gauge, clover, set_ptr->device_params,
+              set_ptr->clover_coefficient(),
               set_ptr->device_u_1dim_recv_vec[_B_X_],
               set_ptr->device_u_1dim_recv_vec[_F_X_],
               set_ptr->device_u_1dim_recv_vec[_B_Y_],
