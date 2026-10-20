@@ -244,6 +244,54 @@ if(KUPL_BUILD_TESTS)
         --grid 2 1 1 1
         --threads ${KUPL_TEST_OMP_THREADS}
       )
+      add_test(NAME kupl_qcu_python_new_abi_rectangular COMMAND
+        ${MPIEXEC_EXECUTABLE}
+        ${MPIEXEC_NUMPROC_FLAG} 1
+        ${Python3_EXECUTABLE}
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_new_abi.py
+        --library $<TARGET_FILE:kupl_qcu>
+        --lattice 4 4 8 8
+        --grid 1 1 1 1
+        --threads ${KUPL_TEST_OMP_THREADS}
+      )
+      add_test(NAME kupl_qcu_python_new_abi_block_rectangular COMMAND
+        ${CMAKE_COMMAND} -E env
+        KUPL_BLOCK_DSLASH_MIN_HALF_SITES=1
+        ${MPIEXEC_EXECUTABLE}
+        ${MPIEXEC_NUMPROC_FLAG} 1
+        ${Python3_EXECUTABLE}
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_new_abi.py
+        --library $<TARGET_FILE:kupl_qcu>
+        --lattice 4 4 8 8
+        --grid 1 1 1 1
+        --threads ${KUPL_TEST_OMP_THREADS}
+      )
+      add_test(NAME kupl_qcu_python_new_abi_block_2rank COMMAND
+        ${CMAKE_COMMAND} -E env
+        KUPL_BLOCK_DSLASH_MIN_HALF_SITES=1
+        ${MPIEXEC_EXECUTABLE}
+        ${MPIEXEC_NUMPROC_FLAG} 2
+        ${Python3_EXECUTABLE}
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_new_abi.py
+        --library $<TARGET_FILE:kupl_qcu>
+        --lattice 4 4 8 8
+        --grid 2 1 1 1
+        --threads ${KUPL_TEST_OMP_THREADS}
+      )
+      add_test(NAME kupl_qcu_python_dslash_block_2rank_c128 COMMAND
+        ${CMAKE_COMMAND} -E env
+        KUPL_BLOCK_DSLASH_MIN_HALF_SITES=1
+        ${MPIEXEC_EXECUTABLE}
+        ${MPIEXEC_NUMPROC_FLAG} 2
+        ${Python3_EXECUTABLE}
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_dslash_block_mpi.py
+        --library $<TARGET_FILE:kupl_qcu>
+        --lattice 4 4 8 8
+        --grid 2 1 1 1
+        --threads ${KUPL_TEST_OMP_THREADS}
+        --precision c128
+        --solve
+      )
       add_test(NAME kupl_qcu_python_multigrid_1rank COMMAND
         ${MPIEXEC_EXECUTABLE}
         ${MPIEXEC_NUMPROC_FLAG} 1
@@ -309,6 +357,10 @@ if(KUPL_BUILD_TESTS)
         kupl_qcu_python_layout
         kupl_qcu_python_new_abi_1rank
         kupl_qcu_python_new_abi_2rank
+        kupl_qcu_python_new_abi_rectangular
+        kupl_qcu_python_new_abi_block_rectangular
+        kupl_qcu_python_new_abi_block_2rank
+        kupl_qcu_python_dslash_block_2rank_c128
         kupl_qcu_python_multigrid_1rank
         kupl_qcu_python_multigrid_2rank
         kupl_qcu_python_strict_1rank

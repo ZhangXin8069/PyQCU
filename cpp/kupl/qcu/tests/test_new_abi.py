@@ -79,6 +79,7 @@ def bind_library(path: str) -> ctypes.CDLL:
     library.applyInitQcu.argtypes = [ll, ll, ll]
     library.applyEndQcu.argtypes = [ll, ll]
     for name in (
+        "applyWilsonDslashQcu",
         "applyWilsonBistabCgQcu",
         "applyWilsonBistabCgDslashQcu",
         "applyWilsonCgQcu",
@@ -389,6 +390,38 @@ def run_wilson_precision(
     )
     library.applyInitQcu(pointer(set_ptrs), pointer(params), pointer(argv))
 
+    dslash_input = np.ascontiguousarray(source[1 - target_parity])
+    dslash_output = np.zeros_like(dslash_input)
+    params[16] = 0
+    library.applyWilsonDslashQcu(
+        pointer(dslash_output),
+        pointer(dslash_input),
+        pointer(gauge),
+        pointer(set_ptrs),
+        pointer(params),
+    )
+    dslash_global = local_compact_to_global(
+        dslash_output, grid, target_parity
+    )
+    dslash_expected = bare_wilson(
+        global_source, global_gauge, target_parity
+    ).reshape((-1, 12)).astype(dtype)
+    parity_mask = (
+        np.indices(grid.global_shape).sum(axis=0) & 1
+    ).reshape(-1) == target_parity
+    dslash_expected[~parity_mask] = 0
+    dslash_difference = (
+        dslash_global.reshape((-1, 12)).astype(dtype) - dslash_expected
+    )
+    dslash_num = MPI.COMM_WORLD.allreduce(
+        float(np.vdot(dslash_difference, dslash_difference).real), op=MPI.SUM
+    )
+    dslash_den = MPI.COMM_WORLD.allreduce(
+        float(np.vdot(dslash_expected, dslash_expected).real), op=MPI.SUM
+    )
+    dslash_error = math.sqrt(dslash_num / max(dslash_den, 1.0e-30))
+    params[16] = 1
+
     schur_input = np.ascontiguousarray(source[target_parity])
     schur_output = np.zeros_like(schur_input)
     library.applyWilsonBistabCgDslashQcu(
@@ -526,6 +559,7 @@ def run_wilson_precision(
     if prepare_status != 0 or reconstruct_status != 0:
         reconstruct_error = float("inf")
     return {
+        "dslash": dslash_error,
         "schur": schur_error,
         "normal": normal_error,
         "bistab_residual": residuals["bistab"],
@@ -667,7 +701,8 @@ def main() -> int:
             data_type,
         )
         precision_pass = (
-            metrics["schur"] < tolerance
+            metrics["dslash"] < tolerance
+            and metrics["schur"] < tolerance
             and metrics["normal"] < tolerance
             and metrics["bistab_residual"] < tolerance
             and metrics["cg_residual"] < tolerance

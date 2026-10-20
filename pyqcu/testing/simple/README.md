@@ -88,6 +88,38 @@ QUDA 入口自动兼容 `pyquda_utils` 和当前机器上的旧 `PyQuda-0.3.2`
 并把请求值整列写回 `QudaMultigridParam`。旧 API 不提供可捕获的逐迭代
 日志接口时，`residual_history` 保持为空并注明来源。
 
+## KUPL CPU 简易验证
+
+`kupl_bistabcg.py` 和 `kupl_multigrid.py` 通过真实 KUPL `ctypes` ABI 运行。
+输入仍为 full QCU `[spin,color,x,y,z,t]`，脚本内部显式转换为 KUPL 的
+parity-compressed canonical 布局。求解后使用独立 NumPy Wilson-Clover
+重构计算相对真残差，不依赖后端自报值。两个对照脚本分别以 QUDA
+BiStabCG 为独立参考：
+
+```bash
+PYTHONPATH=. KUPL_OMP_THREADS=16 \
+  python pyqcu/testing/simple/compare_kupl_bistabcg.py \
+  --lat 8 8 16 16 --mass 0.17 --csw 0.8 --kupl-threads 16
+
+PYTHONPATH=. KUPL_OMP_THREADS=2 \
+  python pyqcu/testing/simple/compare_kupl_multigrid.py \
+  --lat 4 4 4 4 --mass 0.17 --csw 0.8 --levels 2 \
+  --dof 12 2 --mg-grid 2 2 2 2 --kupl-threads 2
+```
+
+两级 MG 脚本先用 full-site matvec 构建真正的 33-stencil Galerkin 粗算子，
+调用 `verifyCloverMultigridQcu` 校验 R/P 与 Galerkin 关系，再与 QUDA 解比较。
+`benchmark_kupl.py` 重复运行 C++ benchmark 并输出中位数/MAD；它分别记录
+Clover 两 parity setup、Wilson dslash、Clover dslash 和 Clover Schur dslash：
+
+```bash
+PYTHONPATH=. python pyqcu/testing/simple/benchmark_kupl.py \
+  --lat 16 16 16 32 --iterations 10 --repeats 5 --threads 16
+```
+
+大格 `KUPL_DISABLE_BLOCK_DSLASH=1` 可回退到原 scalar site kernel，用于 A/B
+回归；默认仅在 local `half_sites >= 65536` 时启用批量 SIMD 内点/周期面内核。
+
 ## 性能记录
 
 求解器默认在 `data/` 写 `performance_<backend>_<solver>.json`，字段只来自

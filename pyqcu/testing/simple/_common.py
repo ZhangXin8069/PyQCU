@@ -226,19 +226,32 @@ def cuda_memory_snapshot(device: str | int = 0) -> dict[str, Any]:
 
 def estimated_clover_gflops(lattice: tuple[int, int, int, int], iterations: int,
                              wall_seconds: float,
-                             applications_per_iteration: int = 2) -> dict[str, Any]:
+                             applications_per_iteration: int = 2,
+                             operator: str = "schur") -> dict[str, Any]:
     """Estimate operator throughput from native iteration count and wall time.
 
-    The model counts one Clover-Wilson matvec as 4 directions x 12 x 12
-    complex multiply-add plus one onsite 12 x 12 complex multiply-add.
-    It is an order-of-magnitude estimate, not a hardware counter.
+    ``schur`` counts the two bare hops and two onsite 12x12 products on the
+    two parity halves used by each preconditioned Clover application.  A
+    direct parity dslash counts one bare hop and one onsite product on half
+    the lattice.  Both are converted to a full-lattice equivalent.  This is a
+    documented FLOP model, not a hardware counter.
     """
     sites = int(np.prod(lattice))
-    flops_per_matvec = sites * (4 * 12 * 12 * 8 + 12 * 12 * 8)
+    if operator == "schur":
+        flops_per_site = (288 + 144) * 8
+    elif operator == "dslash":
+        flops_per_site = (288 + 144) * 8 // 2
+    else:
+        raise ValueError(f"unsupported Clover operator model: {operator}")
+    flops_per_matvec = sites * flops_per_site
     applications = max(0, int(iterations)) * int(applications_per_iteration)
     flops = applications * flops_per_matvec
     return {
-        "model": "4-direction Wilson hopping + onsite Clover, complex MAC=8 flop",
+        "model": ("parity Schur Wilson-Clover, complex MAC=8 flop"
+                  if operator == "schur" else
+                  "parity Wilson-Clover dslash, complex MAC=8 flop"),
+        "operator": operator,
+        "flops_per_full_site": int(flops_per_site),
         "applications_per_iteration": int(applications_per_iteration),
         "operator_applications": applications,
         "estimated_flops": int(flops),
@@ -516,6 +529,72 @@ def qdp_fermion_to_qcu(fermion: np.ndarray) -> np.ndarray:
                 ((q - (tt + zz + yy)) & 1) + 2 * np.arange(xh)[None, None, None, :])
         output.reshape(-1, spin * color)[rows] = array[q].reshape(t, z, y, xh, spin * color)
     return np.ascontiguousarray(output.transpose(4, 5, 3, 2, 1, 0))
+
+
+def qcu_gauge_to_kupl(gauge: np.ndarray) -> np.ndarray:
+    """Convert full QCU gauge data to KUPL's parity-compressed layout."""
+    array = np.asarray(gauge)
+    if array.ndim != 7 or array.shape[:3] != (3, 3, 4):
+        raise ValueError("QCU gauge must be [color,color,dir,x,y,z,t]")
+    x, y, z, t = array.shape[-4:]
+    if t % 2:
+        raise ValueError("KUPL gauge requires an even time extent")
+    xs, ys, zs, t2s = np.indices((x, y, z, t // 2))
+    output = np.empty((2, 3, 3, 4, x, y, z, t // 2), dtype=array.dtype)
+    for parity in range(2):
+        times = 2 * t2s + (((xs + ys + zs) & 1) ^ parity)
+        output[parity] = array[..., xs, ys, zs, times]
+    return np.ascontiguousarray(output)
+
+
+def kupl_gauge_to_qcu(gauge: np.ndarray) -> np.ndarray:
+    """Convert KUPL parity-compressed gauge data to full QCU layout."""
+    array = np.asarray(gauge)
+    if array.ndim != 8 or array.shape[:4] != (2, 3, 3, 4):
+        raise ValueError("KUPL gauge must be [parity,color,color,dir,x,y,z,t/2]")
+    _, _, _, _, x, y, z, ht = array.shape
+    output = np.empty((3, 3, 4, x, y, z, 2 * ht), dtype=array.dtype)
+    xs, ys, zs, t2s = np.indices((x, y, z, ht))
+    for parity in range(2):
+        times = 2 * t2s + (((xs + ys + zs) & 1) ^ parity)
+        output[..., xs, ys, zs, times] = array[parity]
+    return np.ascontiguousarray(output)
+
+
+def qcu_fermion_to_kupl(fermion: np.ndarray) -> np.ndarray:
+    """Convert full ``[spin,color,x,y,z,t]`` fermions to KUPL parity blocks."""
+    array = np.asarray(fermion)
+    if array.ndim != 6 or array.shape[:2] != (4, 3):
+        raise ValueError("QCU fermion must be [spin,color,x,y,z,t]")
+    x, y, z, t = array.shape[-4:]
+    if t % 2:
+        raise ValueError("KUPL fermion requires an even time extent")
+    xs, ys, zs, t2s = np.indices((x, y, z, t // 2))
+    output = np.empty((2, 12, x, y, z, t // 2), dtype=array.dtype)
+    for parity in range(2):
+        times = 2 * t2s + (((xs + ys + zs) & 1) ^ parity)
+        selected = array[:, :, xs, ys, zs, times]
+        selected = np.moveaxis(selected, (0, 1), (-2, -1))
+        output[parity] = selected.reshape(x, y, z, t // 2, 12).transpose(
+            4, 0, 1, 2, 3)
+    return np.ascontiguousarray(output)
+
+
+def kupl_fermion_to_qcu(fermion: np.ndarray) -> np.ndarray:
+    """Convert KUPL parity blocks to full ``[spin,color,x,y,z,t]`` fermions."""
+    array = np.asarray(fermion)
+    if array.ndim != 6 or array.shape[0] != 2 or array.shape[1] != 12:
+        raise ValueError("KUPL fermion must be [parity,12,x,y,z,t/2]")
+    _, _, x, y, z, ht = array.shape
+    output = np.empty((4, 3, x, y, z, 2 * ht), dtype=array.dtype)
+    xs, ys, zs, t2s = np.indices((x, y, z, ht))
+    for parity in range(2):
+        times = 2 * t2s + (((xs + ys + zs) & 1) ^ parity)
+        selected = array[parity].reshape(12, x, y, z, ht).transpose(
+            1, 2, 3, 4, 0).reshape(x, y, z, ht, 4, 3)
+        selected = np.moveaxis(selected, (-2, -1), (0, 1))
+        output[:, :, xs, ys, zs, times] = selected
+    return np.ascontiguousarray(output)
 
 
 def _clover_chiral_spins(chi: int) -> tuple[int, int]:

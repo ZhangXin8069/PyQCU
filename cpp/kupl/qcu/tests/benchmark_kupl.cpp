@@ -22,6 +22,8 @@
 namespace {
 
 constexpr int kDim = 4;
+constexpr int kSpin = 4;
+constexpr int kColor = 3;
 constexpr int kVector = 12;
 constexpr int kGauge = 9;
 
@@ -88,6 +90,12 @@ void runBenchmark(const std::array<int, kDim> &local,
   std::vector<C> input(
       static_cast<std::size_t>(2 * kVector * half_sites));
   std::vector<C> output(input.size());
+  const std::size_t clover_size =
+      static_cast<std::size_t>(kVector * kVector * half_sites);
+  std::vector<C> clover_even(clover_size);
+  std::vector<C> clover_odd(clover_size);
+  std::vector<C> clover_even_inv(clover_size);
+  std::vector<C> clover_odd_inv(clover_size);
 
   for (int64_t site = 0; site < half_sites; ++site) {
     for (int parity = 0; parity < 2; ++parity) {
@@ -205,7 +213,52 @@ void runBenchmark(const std::array<int, kDim> &local,
           estimated_flops / seconds / 1.0e9);
     }
   };
-  const double wilson_flops_per_site = 4.0 * kVector * kVector * 8.0;
+  auto measure_setup = [&](const char *operator_name,
+                           const std::function<void()> &operation) {
+    MPI_Barrier(MPI_COMM_WORLD);
+    const double start = omp_get_wtime();
+    operation();
+    MPI_Barrier(MPI_COMM_WORLD);
+    const double seconds = omp_get_wtime() - start;
+    if (rank == 0) {
+      std::printf(
+          "precision=%s operator=%s ranks=%d grid=%d,%d,%d,%d "
+          "local=%d,%d,%d,%d threads_per_rank=%d seconds=%.9f\n",
+          precision, operator_name, size, grid[0], grid[1], grid[2], grid[3],
+          local[0], local[1], local[2], local[3], threads, seconds);
+    }
+  };
+  params[kupl::qcu::kSetPlan] = kupl::qcu::kSetPlanClover;
+  params[kupl::qcu::kParity] = 0;
+  measure_setup("clover_setup_even", [&] {
+    applyCloversQcu(
+        reinterpret_cast<long long>(clover_even.data()),
+        reinterpret_cast<long long>(clover_even_inv.data()),
+        reinterpret_cast<long long>(gauge.data()),
+        reinterpret_cast<long long>(set_ptrs.data()),
+        reinterpret_cast<long long>(params.data()));
+  });
+  params[kupl::qcu::kParity] = 1;
+  measure_setup("clover_setup_odd", [&] {
+    applyCloversQcu(
+        reinterpret_cast<long long>(clover_odd.data()),
+        reinterpret_cast<long long>(clover_odd_inv.data()),
+        reinterpret_cast<long long>(gauge.data()),
+        reinterpret_cast<long long>(set_ptrs.data()),
+        reinterpret_cast<long long>(params.data()));
+  });
+
+  // The dslash entries write one parity half.  Report the equivalent work per
+  // full lattice site: 8 directed SU(3) hops, plus an onsite product when the
+  // entry includes Clover, with a complex multiply-add counted as 8 FLOPs.
+  const double wilson_half_site_flops = 8.0 * kSpin * kColor * kColor * 8.0;
+  const double onsite_half_site_flops = kVector * kVector * 8.0;
+  const double wilson_flops_per_site = wilson_half_site_flops * 0.5;
+  const double clover_flops_per_site =
+      (wilson_half_site_flops + onsite_half_site_flops) * 0.5;
+  const double schur_flops_per_site =
+      2.0 * (wilson_half_site_flops + onsite_half_site_flops) * 0.5;
+  params[kupl::qcu::kSetPlan] = kupl::qcu::kSetPlanWilson;
   measure(
       "wilson",
       [&] {
@@ -227,7 +280,23 @@ void runBenchmark(const std::array<int, kDim> &local,
             reinterpret_cast<long long>(set_ptrs.data()),
             reinterpret_cast<long long>(params.data()));
       },
-      wilson_flops_per_site + kVector * kVector * 8.0);
+      clover_flops_per_site);
+  params[kupl::qcu::kSetPlan] = kupl::qcu::kSetPlanSolver;
+  measure(
+      "clover_schur",
+      [&] {
+        applyCloverBistabCgDslashQcu(
+            reinterpret_cast<long long>(output.data()),
+            reinterpret_cast<long long>(input.data()),
+            reinterpret_cast<long long>(gauge.data()),
+            reinterpret_cast<long long>(clover_even.data()),
+            reinterpret_cast<long long>(clover_odd.data()),
+            reinterpret_cast<long long>(clover_even_inv.data()),
+            reinterpret_cast<long long>(clover_odd_inv.data()),
+            reinterpret_cast<long long>(set_ptrs.data()),
+            reinterpret_cast<long long>(params.data()));
+      },
+      schur_flops_per_site);
   applyEndQcu(reinterpret_cast<long long>(set_ptrs.data()),
               reinterpret_cast<long long>(params.data()));
 }

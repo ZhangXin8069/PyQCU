@@ -29,6 +29,7 @@ metadata:
 | `cpp/kupl/qcu/tests/test_kupl.cpp` | c64/c128、1/2/4-rank、canonical layout 与真残差 |
 | `cpp/kupl/qcu/tests/test_new_abi.py` | 独立 NumPy/ctypes 差分，覆盖新增 Wilson/Laplacian 入口 |
 | `cpp/kupl/qcu/tests/test_multigrid.py` | 1/2-rank Gaussian、restrict/prolong、窄/宽 coarse halo 差分 |
+| `cpp/kupl/qcu/tests/test_dslash_block_mpi.py` | block dslash/Schur/adjoint 的 2-rank 直接全局参考门 |
 | `pyqcu/testing/kupl/test_strict.py` | strict coarse/fine MATPC、R-P、持久 V-cycle、FGMRES，1/2/4-rank 与 c64/c128 |
 | `pyqcu/testing/kupl/test_legacy_mg.py` | 1/2/4-rank 递归 Clover-MG、deflate 开关、warm/cold 路径与 verify |
 | `cpp/kupl/qcu/tests/test_failure_modes.py` | 非收敛与 fail-closed 入口的显式失败门 |
@@ -36,6 +37,10 @@ metadata:
 | `pyqcu/testing/kupl/check_abi.py` | KUPL/CUDA C 声明与动态库 37 项导出符号一致性门 |
 | `pyqcu/kupl/qcu.py` | `ctypes.CDLL(..., RTLD_LOCAL)` Python 绑定；37 个 ABI 名称均有 Python 包装 |
 | `pyqcu/testing/kupl/test_kupl_python.py` | PyQCU 参考、Clover、dslash、solver 跨语言门 |
+| `pyqcu/testing/simple/kupl_bistabcg.py` | 独立 NumPy 布局转换、KUPL ctypes 求解与真残差 |
+| `pyqcu/testing/simple/kupl_multigrid.py` | full-site Galerkin、MG verify、独立真残差 |
+| `pyqcu/testing/simple/compare_kupl_*.py` | 同 gauge/RHS 的 KUPL↔QUDA 解对照 |
+| `pyqcu/testing/simple/benchmark_kupl.py` | 多次运行 C++ 算子 benchmark 并汇总中位数/MAD |
 
 ## ABI 与布局
 
@@ -61,10 +66,16 @@ metadata:
 - 调度器已提供 NUMA-local cpuset 时保持 `KUPL_NUMA_BIND=0`，只设置
   `KUPL_OMP_THREADS`/`OMP_NUM_THREADS`。
 - 全局点积/范数使用 `MPI_Allreduce`，所有 rank 必须走对称集合操作。
+- 大 local-volume dslash 默认启用跨 site SIMD 内点/周期面内核；local
+  `half_sites < 65536` 自动回退 scalar。`KUPL_DISABLE_BLOCK_DSLASH=1`
+  可做 A/B，`KUPL_BLOCK_DSLASH_MIN_HALF_SITES` 仅用于矩形/阈值回归。
 - Wilson 求解使用 `S_W=I-kappa^2 D_pq D_qp`；BiStabCG 解 `S_W`，
   CG 解 `S_W^dagger S_W`，二者迭代轨迹不同。
 - 3D Laplacian 使用独立 `gauge[3,3,3,X,Y,Z]`/`field[3,X,Y,Z]` 布局与
   三方向 MPI halo，不走 parity-compressed 四维 Wilson 几何。
+- legacy Clover-MG 内部 full-site 向量在进入 `clover_full_apply` 前必须转换为
+  parity-canonical，返回后再转回；direct full-site 指针会造成非平凡 κ 的静默
+  错误解，近单位测试无法发现。
 
 ## 构建与验证
 

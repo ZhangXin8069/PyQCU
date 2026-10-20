@@ -263,7 +263,9 @@ private:
   void invert_clover(const Complex<Real> *term, Complex<Real> *inverse);
   void ensure_cached_clover(const Complex<Real> *gauge);
   void apply_onsite(const Complex<Real> *input, const Complex<Real> *matrix,
-                    Complex<Real> *output) const;
+                    Complex<Real> *output,
+                    const Complex<Real> *subtract = nullptr,
+                    Real subtract_scale = Real(0)) const;
 
   void pack_fermion_face(const Complex<Real> *source, int parity, int dim,
                          int boundary, Complex<Real> *buffer);

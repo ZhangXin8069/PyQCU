@@ -228,5 +228,19 @@ mpirun --bind-to none -np 2 ./build/kupl_qcu_bench \
   --lattice 8 8 8 16 --grid 2 1 1 1 --iterations 20
 ```
 
-The benchmark reports documented Wilson and Clover operator FLOP models, not
-hardware performance counters.
+The benchmark also measures both parity Clover setup calls and the parity Schur
+operator. FLOP rates use full-lattice-equivalent models: `1152` FLOP/site for
+one-parity Wilson hopping, `1728` for Clover dslash, and `3456` for the Schur
+operator. These are documented models, not hardware counters.
+
+Large local volumes use a cross-site SIMD kernel for the periodic interior and
+spatial faces; local `half_sites < 65536` automatically retain the scalar site
+kernel. For A/B diagnostics, set `KUPL_DISABLE_BLOCK_DSLASH=1`; rectangular
+threshold regression can override `KUPL_BLOCK_DSLASH_MIN_HALF_SITES`.
+
+For repeatable median/MAD evidence and the same operator suite:
+
+```bash
+PYTHONPATH=. python pyqcu/testing/simple/benchmark_kupl.py \
+  --lat 16 16 16 32 --iterations 10 --repeats 5 --threads 16
+```

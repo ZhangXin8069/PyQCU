@@ -1,4 +1,5 @@
 #include "kupl/lattice_multigrid.h"
+#include "kupl/lattice_linalg.h"
 #include "kupl/lattice_set.h"
 
 #include <algorithm>
@@ -370,8 +371,13 @@ void LatticeSet<Real>::apply_multigrid_restrict(
               const std::size_t null_index = multigrid_null_index(
                   E_idx, e_idx, x, y, z, t, e, Xf, Yf, Zf, Tf, Xc, Yc, Zc,
                   Tc);
-              sum += std::conj(null_vectors[null_index]) *
-                     fine_in[fine_index];
+              const Complex<Real> &projector = null_vectors[null_index];
+              const Complex<Real> &vector = fine_in[fine_index];
+              sum += Complex<Real>(
+                  projector.real() * vector.real() +
+                      projector.imag() * vector.imag(),
+                  projector.real() * vector.imag() -
+                      projector.imag() * vector.real());
             }
           }
         }
@@ -397,6 +403,7 @@ void LatticeSet<Real>::apply_multigrid_prolong(
   const int bt = Tf / Tc;
   const int64_t fine_volume =
       static_cast<int64_t>(Xf) * Yf * Zf * Tf;
+  const int64_t null_count = static_cast<int64_t>(E) * e * fine_volume;
   const int64_t coarse_volume =
       static_cast<int64_t>(Xc) * Yc * Zc * Tc;
   const int64_t output_count = static_cast<int64_t>(e) * fine_volume;
@@ -420,9 +427,12 @@ void LatticeSet<Real>::apply_multigrid_prolong(
     for (int E_idx = 0; E_idx < E; ++E_idx) {
       const std::size_t null_index = multigrid_null_index(
           E_idx, e_idx, x, y, z, t, e, Xf, Yf, Zf, Tf, Xc, Yc, Zc, Tc);
-      sum +=
-          null_vectors[null_index] *
-          coarse_in[static_cast<int64_t>(E_idx) * coarse_volume + coarse_site];
+      if (null_index >= static_cast<std::size_t>(null_count)) {
+        throw std::runtime_error("multigrid prolong null-vector index overflow");
+      }
+      sum += multiply_complex(
+          null_vectors[null_index],
+          coarse_in[static_cast<int64_t>(E_idx) * coarse_volume + coarse_site]);
     }
     fine_out[output] = sum;
   }
@@ -465,7 +475,8 @@ void LatticeSet<Real>::apply_multigrid_coarse_dslash(
     for (int e = 0; e < E; ++e) {
       const int64_t on_site =
           (static_cast<int64_t>(E_out) * E + e) * volume + site;
-      sum += sitting[on_site] * in[static_cast<int64_t>(e) * volume + site];
+      sum += multiply_complex(
+          sitting[on_site], in[static_cast<int64_t>(e) * volume + site]);
     }
     for (int dim = 0; dim < kDim; ++dim) {
       for (int sign_index = 0; sign_index < 2; ++sign_index) {
@@ -478,8 +489,9 @@ void LatticeSet<Real>::apply_multigrid_coarse_dslash(
                E_out * E + e) *
                   volume +
               site;
-          sum += hopping[hop] *
-                 coarse_neighbor(in, E, dims, coordinate, shift, e);
+          sum += multiply_complex(
+              hopping[hop],
+              coarse_neighbor(in, E, dims, coordinate, shift, e));
         }
       }
     }
@@ -512,7 +524,8 @@ void LatticeSet<Real>::apply_multigrid_coarse_dslash_wide(
     for (int e = 0; e < E; ++e) {
       const int64_t on_site =
           (static_cast<int64_t>(E_out) * E + e) * volume + site;
-      sum += sitting[on_site] * in[static_cast<int64_t>(e) * volume + site];
+      sum += multiply_complex(
+          sitting[on_site], in[static_cast<int64_t>(e) * volume + site]);
     }
     for (int dim = 0; dim < kDim; ++dim) {
       for (int sign_index = 0; sign_index < 2; ++sign_index) {
@@ -525,8 +538,9 @@ void LatticeSet<Real>::apply_multigrid_coarse_dslash_wide(
                E_out * E + e) *
                   volume +
               site;
-          sum += hop_nn[hop] *
-                 coarse_neighbor(in, E, dims, coordinate, shift, e);
+          sum += multiply_complex(
+              hop_nn[hop],
+              coarse_neighbor(in, E, dims, coordinate, shift, e));
         }
       }
     }
@@ -552,8 +566,9 @@ void LatticeSet<Real>::apply_multigrid_coarse_dslash_wide(
                  E_out * E + e) *
                     volume +
                 site;
-            sum += hop_diag[diagonal] *
-                   coarse_neighbor(in, E, dims, coordinate, shift, e);
+            sum += multiply_complex(
+                hop_diag[diagonal],
+                coarse_neighbor(in, E, dims, coordinate, shift, e));
           }
         }
       }
