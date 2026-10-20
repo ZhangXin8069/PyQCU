@@ -39,6 +39,9 @@ int status_guarded(const char *submodule, Function &&function) {
 }
 
 inline const int32_t *params_pointer(long long pointer) {
+  if (pointer == 0) {
+    throw std::runtime_error("params pointer is null");
+  }
   return reinterpret_cast<const int32_t *>(pointer);
 }
 
@@ -79,15 +82,6 @@ inline std::shared_ptr<LatticeSetBase> lattice_set(long long set_ptrs,
   auto value = find_lattice_set(slot_key(set_ptrs, host_params));
   value->update_params(host_params);
   return value;
-}
-
-[[noreturn]] inline void unavailable(const char *submodule) {
-  throw std::runtime_error(
-      std::string("KUPL QCU entry point is not implemented: ") + submodule);
-}
-
-[[noreturn]] inline int unavailable_status(const char *submodule) {
-  unavailable(submodule);
 }
 
 } // namespace kupl::qcu::api

@@ -89,13 +89,9 @@ void LatticeSet<Real>::ensure_gauge_halo(const Complex<Real> *gauge) {
   gauge_halo_.source = gauge;
   gauge_halo_.ready = false;
 
-  std::vector<MPI_Request> requests;
-  requests.reserve(64);
-  auto post = [&requests](MPI_Request request) {
-    if (request != MPI_REQUEST_NULL) {
-      requests.push_back(request);
-    }
-  };
+  std::array<MPI_Request, 4 * kDim> requests;
+  requests.fill(MPI_REQUEST_NULL);
+  int request_count = 0;
 
   for (int dim = 0; dim < kDim; ++dim) {
     if (geometry_.grid[dim] == 1) {
@@ -110,47 +106,33 @@ void LatticeSet<Real>::ensure_gauge_halo(const Complex<Real> *gauge) {
     // The lower face is sent to rank-minus and receives rank-plus' lower
     // face in return. The upper face is sent to rank-plus and receives
     // rank-minus' upper face.
-    std::vector<Complex<Real>> recv_minus_storage(send_lower.size());
-    std::vector<Complex<Real>> recv_plus_storage(send_upper.size());
-    MPI_Request request = MPI_REQUEST_NULL;
-    MPI_Irecv(recv_plus_storage.data(),
-              static_cast<int>(recv_plus_storage.size() *
-                               sizeof(Complex<Real>)),
+    auto &recv_plus = gauge_halo_.recv_faces[face_offset(dim, 1)];
+    auto &recv_minus = gauge_halo_.recv_faces[face_offset(dim, -1)];
+    MPI_Irecv(recv_plus.data(),
+              static_cast<int>(recv_plus.size() * sizeof(Complex<Real>)),
               MPI_BYTE, geometry_.neighbor_plus[dim],
-              gauge_face_tag(dim, -1), geometry_.comm, &request);
-    post(request);
-    MPI_Irecv(recv_minus_storage.data(),
-              static_cast<int>(recv_minus_storage.size() *
-                               sizeof(Complex<Real>)),
+              gauge_face_tag(dim, -1), geometry_.comm,
+              &requests[request_count++]);
+    MPI_Irecv(recv_minus.data(),
+              static_cast<int>(recv_minus.size() * sizeof(Complex<Real>)),
               MPI_BYTE, geometry_.neighbor_minus[dim],
-              gauge_face_tag(dim, 1), geometry_.comm, &request);
-    post(request);
+              gauge_face_tag(dim, 1), geometry_.comm,
+              &requests[request_count++]);
     MPI_Isend(send_upper.data(),
               static_cast<int>(send_upper.size() * sizeof(Complex<Real>)),
               MPI_BYTE, geometry_.neighbor_plus[dim],
-              gauge_face_tag(dim, 1), geometry_.comm, &request);
-    post(request);
+              gauge_face_tag(dim, 1), geometry_.comm,
+              &requests[request_count++]);
     MPI_Isend(send_lower.data(),
               static_cast<int>(send_lower.size() * sizeof(Complex<Real>)),
               MPI_BYTE, geometry_.neighbor_minus[dim],
-              gauge_face_tag(dim, -1), geometry_.comm, &request);
-    post(request);
-
-    // Wait immediately so the two temporary receive buffers can be moved
-    // into the persistent face cache without increasing peak memory.
-    if (!requests.empty()) {
-      MPI_Waitall(static_cast<int>(requests.size()), requests.data(),
-                  MPI_STATUSES_IGNORE);
-      requests.clear();
-    }
-    gauge_halo_.faces[face_offset(dim, 1)] = std::move(recv_plus_storage);
-    gauge_halo_.faces[face_offset(dim, -1)] = std::move(recv_minus_storage);
+              gauge_face_tag(dim, -1), geometry_.comm,
+              &requests[request_count++]);
   }
 
-  std::array<std::array<std::vector<Complex<Real>>, 4>, 6>
-      corner_recv_storage;
-  std::vector<MPI_Request> corner_requests;
-  corner_requests.reserve(48);
+  std::array<MPI_Request, 48> corner_requests;
+  corner_requests.fill(MPI_REQUEST_NULL);
+  int corner_request_count = 0;
   for (int dim0 = 0; dim0 < kDim; ++dim0) {
     for (int dim1 = dim0 + 1; dim1 < kDim; ++dim1) {
       if (geometry_.grid[dim0] == 1 || geometry_.grid[dim1] == 1) {
@@ -181,29 +163,35 @@ void LatticeSet<Real>::ensure_gauge_halo(const Complex<Real> *gauge) {
           pack_gauge_corner(dim0, dim1, boundary0, boundary1, send.data());
           const int plane = plane_index(dim0, dim1);
           const int slot = sign_index(sign0) * 2 + sign_index(sign1);
-          auto &recv = corner_recv_storage[static_cast<std::size_t>(plane)]
-                                          [static_cast<std::size_t>(slot)];
-          recv.resize(send.size());
-          MPI_Request request = MPI_REQUEST_NULL;
+          auto &recv =
+              gauge_halo_.recv_corners[static_cast<std::size_t>(plane)]
+                                      [static_cast<std::size_t>(slot)];
           MPI_Irecv(recv.data(),
                     static_cast<int>(recv.size() * sizeof(Complex<Real>)),
                     MPI_BYTE, diagonal,
                     corner_tag(dim0, dim1, -sign0, -sign1), geometry_.comm,
-                    &request);
-          corner_requests.push_back(request);
+                    &corner_requests[corner_request_count++]);
           MPI_Isend(send.data(),
                     static_cast<int>(send.size() * sizeof(Complex<Real>)),
                     MPI_BYTE, diagonal,
                     corner_tag(dim0, dim1, sign0, sign1), geometry_.comm,
-                    &request);
-          corner_requests.push_back(request);
+                    &corner_requests[corner_request_count++]);
         }
       }
     }
   }
-  if (!corner_requests.empty()) {
-    MPI_Waitall(static_cast<int>(corner_requests.size()),
-                corner_requests.data(), MPI_STATUSES_IGNORE);
+  if (request_count > 0) {
+    MPI_Waitall(request_count, requests.data(), MPI_STATUSES_IGNORE);
+  }
+  for (int dim = 0; dim < kDim; ++dim) {
+    gauge_halo_.faces[face_offset(dim, 1)].swap(
+        gauge_halo_.recv_faces[face_offset(dim, 1)]);
+    gauge_halo_.faces[face_offset(dim, -1)].swap(
+        gauge_halo_.recv_faces[face_offset(dim, -1)]);
+  }
+  if (corner_request_count > 0) {
+    MPI_Waitall(corner_request_count, corner_requests.data(),
+                MPI_STATUSES_IGNORE);
   }
   for (int dim0 = 0; dim0 < kDim; ++dim0) {
     for (int dim1 = dim0 + 1; dim1 < kDim; ++dim1) {
@@ -213,10 +201,9 @@ void LatticeSet<Real>::ensure_gauge_halo(const Complex<Real> *gauge) {
       const int plane = plane_index(dim0, dim1);
       for (int slot = 0; slot < 4; ++slot) {
         gauge_halo_.corners[static_cast<std::size_t>(plane)]
-                           [static_cast<std::size_t>(slot)] =
-            std::move(
-                corner_recv_storage[static_cast<std::size_t>(plane)]
-                                   [static_cast<std::size_t>(slot)]);
+                           [static_cast<std::size_t>(slot)]
+            .swap(gauge_halo_.recv_corners[static_cast<std::size_t>(plane)]
+                                         [static_cast<std::size_t>(slot)]);
       }
     }
   }
@@ -403,6 +390,23 @@ template <typename Real>
 void LatticeSet<Real>::compute_clover(Complex<Real> *output, int parity) {
   using C = Complex<Real>;
   const Real coefficient = -Real(0.125) * kappa() * csw();
+  C sigma[6][kSpin * kSpin];
+  int sigma_plane = 0;
+  for (int mu = 0; mu < kDim; ++mu) {
+    for (int nu = mu + 1; nu < kDim; ++nu) {
+      for (int spin_out = 0; spin_out < kSpin; ++spin_out) {
+        for (int spin_in = 0; spin_in < kSpin; ++spin_in) {
+          C value(0);
+          for (int inner = 0; inner < kSpin; ++inner) {
+            value += gamma_entry<Real>(mu, spin_out, inner) *
+                     gamma_entry<Real>(nu, inner, spin_in);
+          }
+          sigma[sigma_plane][spin_out * kSpin + spin_in] = value;
+        }
+      }
+      ++sigma_plane;
+    }
+  }
   const int64_t count = geometry_.half_sites;
   const int64_t chunk = omp_chunk<Real>(count);
 #pragma omp parallel for schedule(static, chunk)
@@ -417,34 +421,31 @@ void LatticeSet<Real>::compute_clover(Complex<Real> *output, int parity) {
     for (int component = 0; component < kVector; ++component) {
       matrix[component * kVector + component] = C(1);
     }
+    int plane = 0;
     for (int mu = 0; mu < kDim; ++mu) {
       for (int nu = mu + 1; nu < kDim; ++nu) {
         C plaquette[9];
         compute_plaquette_sum(x, y, z, t2, mu, nu, parity, plaquette);
         C anti_hermitian[9];
         for (int row = 0; row < kColor; ++row) {
-          for (int column = 0; column < kColor; ++column) {
-            anti_hermitian[row * kColor + column] =
+          anti_hermitian[row * kColor + row] =
+              C(0, Real(2) * plaquette[row * kColor + row].imag());
+        }
+        for (int row = 0; row < kColor; ++row) {
+          for (int column = row + 1; column < kColor; ++column) {
+            const C upper =
                 plaquette[row * kColor + column] -
                 std::conj(plaquette[column * kColor + row]);
-          }
-        }
-        C sigma[kSpin * kSpin];
-        for (int spin_out = 0; spin_out < kSpin; ++spin_out) {
-          for (int spin_in = 0; spin_in < kSpin; ++spin_in) {
-            C value(0);
-            for (int inner = 0; inner < kSpin; ++inner) {
-              value += gamma_entry<Real>(mu, spin_out, inner) *
-                       gamma_entry<Real>(nu, inner, spin_in);
-            }
-            sigma[spin_out * kSpin + spin_in] = value;
+            anti_hermitian[row * kColor + column] = upper;
+            anti_hermitian[column * kColor + row] = -std::conj(upper);
           }
         }
         for (int spin_out = 0; spin_out < kSpin; ++spin_out) {
           for (int color_out = 0; color_out < kColor; ++color_out) {
             const int row = spin_out * kColor + color_out;
             for (int spin_in = 0; spin_in < kSpin; ++spin_in) {
-              const C spin_factor = sigma[spin_out * kSpin + spin_in];
+              const C spin_factor =
+                  sigma[plane][spin_out * kSpin + spin_in];
               if (std::abs(spin_factor) == Real(0)) {
                 continue;
               }
@@ -457,6 +458,7 @@ void LatticeSet<Real>::compute_clover(Complex<Real> *output, int parity) {
             }
           }
         }
+        ++plane;
       }
     }
     for (int component = 0; component < kOnsite; ++component) {
