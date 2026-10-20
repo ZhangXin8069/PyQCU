@@ -1,0 +1,35 @@
+============ Job 1582751 Performance Details ============
+JobID: 1582751
+User: scx8080
+Nodes、GPU: paraai-n32-h-01-agent-1: 3
+Time Range: 2026-10-21 05:15:15 - 2026-10-21 05:20:43
+Running time: 0d0H5M28S
+GPU Util: 37.36 %
+GMem Util: 43.33 %
+GMemBW Util: 22.18 %
+Tensor Core Util: 0.39 %
+Tensor IMMA Util: N/A
+Tensor HMMA Util: N/A
+Tensor DFMA Util: N/A
+FP64 Util: 0.01 %
+FP32 Util: 1.28 %
+FP16 Util: 0 %
+GPCIE RX: 46.00 MB/s
+GPCIE TX: 10.08 MB/s
+GNVLINK: N/A
+GPU Power: 145.43 W
+GPU Temperature: 36.77 °C
+
+Additional Performance Data:
+--- flops performance(avg to single card) ---
+|- fp64: 0 TFlops
+|- fp32: 0 TFlops
+|- fp16: 0 TFlops
+|- tensor: 1 TFlops
+> |- GMEMBW/F: 292,811 B/MF
+> |- NVLINK/F: No Data
+> |- IB_TX/F: 0 B/MF
+> |- IB_RX/F: 4 B/MF
+> |- PCIE_TX/F: 8 B/MF
+> |- PCIE_RX/F: 37 B/MF
+=========================================================
