@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 import sys
 import types
@@ -10,8 +11,8 @@ import torch
 
 from pyqcu import tools
 from pyqcu.testing.simple._common import (
-    REPO, convergence_status, lime_metadata, qdp_gauge_to_qcu, read_qdp_gauge,
-    resolve_path, write_lime_gauge)
+    REPO, configure_quda_runtime, convergence_status, lime_metadata,
+    qdp_gauge_to_qcu, read_qdp_gauge, resolve_path, write_lime_gauge)
 from pyqcu.testing.simple.compare_bistabcg import (
     _relative_solution_difference)
 from pyqcu.testing.simple import compare_bistabcg
@@ -45,6 +46,19 @@ def test_lime_gauge_is_split_into_canonical_parity_layout(tmp_path) -> None:
 def test_data_prefixed_output_path_stays_under_repository() -> None:
     assert resolve_path("data/new-output.json", REPO / "unused") == (
         REPO / "data/new-output.json").resolve()
+
+
+def test_repository_quda_install_is_selected(monkeypatch) -> None:
+    expected = REPO / "data/quda-sm70-install"
+    if not (expected / "lib/libquda.so").is_file():
+        import pytest
+        pytest.skip("repository-local sm70 QUDA install is not present")
+    monkeypatch.delenv("QUDA_INSTALL", raising=False)
+    monkeypatch.delenv("QUDA_PATH", raising=False)
+    selected = configure_quda_runtime(preload=False)
+    assert selected == expected.resolve()
+    assert os.environ["QUDA_INSTALL"] == str(expected.resolve())
+    assert os.environ["QUDA_PATH"] == str(expected.resolve())
 
 
 def test_solver_status_uses_requested_tolerance() -> None:

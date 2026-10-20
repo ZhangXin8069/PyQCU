@@ -11,8 +11,36 @@ find_package(MPI REQUIRED COMPONENTS CXX)
 find_package(OpenMP REQUIRED COMPONENTS CXX)
 
 add_library(kupl_qcu SHARED
-  src/api.cpp
+  src/apply_clover.cpp
+  src/apply_clover_bistabcg.cpp
+  src/apply_clover_bistabcg_dslash.cpp
+  src/apply_clover_dslash.cpp
+  src/apply_clover_multigrid.cpp
+  src/apply_clover_multigrid_verify.cpp
+  src/apply_clovers.cpp
+  src/apply_dslash.cpp
+  src/apply_end.cpp
+  src/apply_gauss_gauge.cpp
+  src/apply_init.cpp
+  src/apply_laplacian.cpp
+  src/apply_multigrid.cpp
+  src/apply_multigrid_strict.cpp
+  src/apply_test.cpp
+  src/apply_wilson_bistabcg.cpp
+  src/apply_wilson_bistabcg_dslash.cpp
+  src/apply_wilson_cg.cpp
+  src/apply_wilson_cg_dslash.cpp
+  src/apply_wilson_dslash.cpp
   src/backend.cpp
+  src/lattice_clover_dslash.cpp
+  src/lattice_cpu.cpp
+  src/lattice_gauss_gauge.cpp
+  src/lattice_geometry.cpp
+  src/lattice_laplacian.cpp
+  src/lattice_linalg.cpp
+  src/lattice_multigrid.cpp
+  src/lattice_solver.cpp
+  src/lattice_wilson_dslash.cpp
 )
 add_library(kupl::qcu ALIAS kupl_qcu)
 
@@ -48,7 +76,16 @@ set_target_properties(kupl_qcu PROPERTIES
   OUTPUT_NAME qcu
   VERSION 0.1.0
   SOVERSION 0
+  CXX_VISIBILITY_PRESET hidden
+  VISIBILITY_INLINES_HIDDEN YES
 )
+
+if(UNIX AND NOT APPLE)
+  target_link_options(kupl_qcu PRIVATE
+    -Wl,--exclude-libs,ALL
+    -Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/qcu.map
+  )
+endif()
 
 if(KUPL_BUILD_TESTS)
   enable_testing()
@@ -159,6 +196,14 @@ if(KUPL_BUILD_TESTS)
     kupl_qcu_laplacian_2rank_z
   )
   if(Python3_Interpreter_FOUND)
+    add_test(NAME kupl_qcu_abi_surface COMMAND
+      ${Python3_EXECUTABLE}
+      ${CMAKE_CURRENT_SOURCE_DIR}/tests/check_abi.py
+      --library $<TARGET_FILE:kupl_qcu>
+      --header ${CMAKE_CURRENT_SOURCE_DIR}/include/kupl/qcu.h
+    )
+    list(APPEND KUPL_CTEST_NAMES kupl_qcu_abi_surface)
+
     execute_process(
       COMMAND ${Python3_EXECUTABLE} -c "import numpy, mpi4py"
       RESULT_VARIABLE KUPL_PYTHON_ABI_DEPS

@@ -39,7 +39,6 @@
 - 关键内容: 基于 dev95 创建本地 dev96，记录 Git 历史瘦身；peeled commit 与 HEAD 一致，标签链自检通过，未推送远程。
 - 验证: path, size, required sections, conflict markers
 - 批次状态: complete
-
 ### 2026-10-20-form-agents-final - final - 2026-10-20 01:16:53 +0800
 - 主任务: PyQCU 2026-10-20 form 根规则托管块同步与本地技能补强
 - 日志文件: logs/v2026102001-2.txt
@@ -70,5 +69,21 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 文件大小: 8205 bytes
 - 触发原因: 任务完成
 - 关键内容: Csw/接口/简单示例完成；KUPL 24/37 实现，高级入口 fail closed；验证与外部 QUDA 阻塞如实记录
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete
+## quda-sm70-runtime-align - final - 2026-10-20 09:04:09 +0800
+- 主任务: 修复 PyQUDA 加载 sm60 QUDA 导致 V100 no kernel image，并对齐 QCU/QUDA mass normalization
+- 日志文件: logs/v2026-10-20-09.txt
+- 文件大小: 5477 bytes
+- 触发原因: 任务完成
+- 关键内容: sm70 预载、env 选择、kappa normalization 与同源数值比较均修复并验证
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete
+## kupl-qcu-structure - final - 2026-10-20 09:18:07 +0800
+- 主任务: KUPL QCU 与 CUDA QCU 结构对齐重构及回归
+- 日志文件: logs/v2026102009.txt
+- 文件大小: 6743 bytes
+- 触发原因: 任务完成
+- 关键内容: KUPL QCU 分层重构、LatticeSet 门面、37 项 ABI 门禁与 Release/UBSAN 回归
 - 验证: path, size, required sections, conflict markers
 - 批次状态: complete

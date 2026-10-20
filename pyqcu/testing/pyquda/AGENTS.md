@@ -8,7 +8,8 @@ PyQCU vs PyQUDA 0.3.2（QUDA 1.1.0）双进程对比套件（结果 + 性能，�
 - 一键运行：`bash run_all.sh 8x8x8x16 [tol] [csw]`（三阶段：
   run_pyqcu → run_pyquda → compare）。两侧都显式使用同一 `csw`，
   Clover onsite 系数为 `-kappa*csw/8`。
-  脚本会先加载 `qcu/strict/quda_comparison/quda_env.sh`，确保 `libqmp.so` 与 QUDA 架构匹配。
+  脚本会先加载 `qcu/strict/quda_comparison/quda_env.sh`，优先选择仓库
+  `data/quda-sm70-install`，确保 QUDA 的 CUDA 架构与 GPU 匹配。
 - 双进程隔离（dev87 F2）：pyqcu 与 pyquda 不得同进程；数据经 h5 交换，
   存放于 `pyqcu/testing/data/pyquda_cmp/<lat>/`（`.gitignore *.h5` 不入库，可再生）。
 - 维度排布以实际代码为准：pyqcu `[c,c,d,xyzt]`/`[s,c,xyzt]`（奇偶切 **t**）；

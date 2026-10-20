@@ -15,6 +15,7 @@ either solver library.
 
 from __future__ import annotations
 
+import ctypes
 import os
 import struct
 import xml.etree.ElementTree as ET
@@ -39,6 +40,46 @@ DEFAULT_ATOL = 1.0e-6
 DEFAULT_MAX_ITER = 1000
 DEFAULT_NVEC = 24
 DEFAULT_BLOCK = (2, 2, 2, 2)
+
+_QUDA_LIBRARY_HANDLE = None
+
+
+def configure_quda_runtime(*, preload: bool = True) -> Path | None:
+    """Select a repository or explicitly configured QUDA installation.
+
+    PyQUDA's extension has a stale RUNPATH, while some hosts expose an old
+    QUDA build through LD_LIBRARY_PATH. Loading the selected library by its
+    absolute path before importing PyQUDA pins the intended ABI and GPU
+    architecture.
+    """
+    global _QUDA_LIBRARY_HANDLE
+    candidates = []
+    if os.environ.get("QUDA_INSTALL"):
+        candidates.append(Path(os.environ["QUDA_INSTALL"]).expanduser())
+    candidates.extend((
+        REPO / "data/quda-sm70-install",
+        REPO / "data/quda-double-install",
+    ))
+    selected = None
+    for candidate in candidates:
+        library = candidate / "lib" / "libquda.so"
+        if library.is_file():
+            selected = candidate.resolve()
+            break
+    if selected is None:
+        return None
+
+    os.environ["QUDA_INSTALL"] = str(selected)
+    os.environ["QUDA_PATH"] = str(selected)
+    search_path = os.environ.get("LD_LIBRARY_PATH", "")
+    entries = [entry for entry in search_path.split(":") if entry]
+    library_dir = str(selected / "lib")
+    if library_dir not in entries:
+        os.environ["LD_LIBRARY_PATH"] = ":".join([library_dir, *entries])
+    if preload and _QUDA_LIBRARY_HANDLE is None:
+        _QUDA_LIBRARY_HANDLE = ctypes.CDLL(
+            str(selected / "lib" / "libquda.so"), mode=ctypes.RTLD_GLOBAL)
+    return selected
 
 
 def resolve_csw(explicit: float | None,
