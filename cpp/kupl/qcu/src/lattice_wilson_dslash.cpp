@@ -811,12 +811,13 @@ void LatticeSet<Real>::apply_schur(
     Complex<Real> *scratch_a, Complex<Real> *scratch_b) {
   const int other = 1 - parity;
   bare_dslash(scratch_a, input, other);
-  apply_onsite(scratch_a, inverse[static_cast<std::size_t>(other)],
-               scratch_b);
+  apply_clover_onsite(
+      scratch_a, inverse[static_cast<std::size_t>(other)], scratch_b);
   bare_dslash(scratch_a, scratch_b, parity);
   const Real k = kappa();
-  apply_onsite(input, clover[static_cast<std::size_t>(parity)], output,
-               scratch_a, k * k);
+  apply_clover_onsite(
+      input, clover[static_cast<std::size_t>(parity)], output, scratch_a,
+      k * k);
 }
 
 template <typename Real>

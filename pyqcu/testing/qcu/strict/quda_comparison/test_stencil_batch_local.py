@@ -11,9 +11,12 @@ import torch
 
 from pyqcu.tools._multigrid import (
     BatchedLocalSchur,
+    BatchedLocalWilsonClover,
+    _probe_point_batch,
     _probe_point_batch_local,
     _probe_points_batch_local,
 )
+from pyqcu import dslash
 
 
 def _matrix(scale, fine):
@@ -122,3 +125,39 @@ def test_batched_local_probe_matches_single_point():
     expected = _materialized_schur(lsch, x_local, idx, starts)
     actual = lsch(x_local, idx, starts)
     assert torch.equal(actual, expected)
+
+
+def test_local_full_wilson_clover_probe_matches_global_operator():
+    lattice = (8, 8, 8, 8)
+    coarse = (4, 4, 4, 4)
+    E = 2
+    W = 6
+    gauge = torch.broadcast_to(
+        torch.eye(3, dtype=torch.complex64)[:, :, None, None, None, None, None],
+        (3, 3, 4, *lattice),
+    ).clone()
+    kappa = torch.tensor([1.0 / 8.1])
+    u0 = torch.ones([1])
+    clover = dslash.make_clover(gauge, kappa=kappa, u_0=u0, csw=1.0)
+    full_operator = dslash.operator(
+        U=gauge, clover_term=clover, kappa=kappa, u_0=u0,
+        support_parity=False, verbose=False)
+    local_operator = BatchedLocalWilsonClover(
+        full_operator, *lattice, W=W)
+    lonv = torch.randn(
+        (E, 12, 4, 2, 4, 2, 4, 2, 4, 2),
+        dtype=torch.complex64, generator=torch.Generator().manual_seed(9))
+    shapes = (
+        (E, E, *coarse),
+        (2, 4, E, E, *coarse),
+        (2, 2, 6, E, E, *coarse),
+    )
+    reference = [torch.zeros(shape, dtype=torch.complex64) for shape in shapes]
+    local = [torch.zeros_like(value) for value in reference]
+    _probe_point_batch(
+        full_operator.matvec_batch, lonv, E, 1, *reference,
+        list(coarse), 64)
+    _probe_point_batch_local(
+        local_operator, lonv, E, 1, *local, list(coarse), 64, W)
+    for actual, expected in zip(local, reference, strict=True):
+        torch.testing.assert_close(actual, expected, rtol=2.0e-5, atol=2.0e-6)

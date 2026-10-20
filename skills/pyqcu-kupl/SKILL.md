@@ -142,3 +142,28 @@ c64/c128；CUDA 专用 mixed-precision、GCR/CA-GCR/BiCGStabL 模式必须显式
 - 不要用进程当前 cpuset 覆盖显式 `KUPL_OMP_THREADS`；OpenMP runtime 可能已把
   master thread 临时绑定到单核。
 - 不要让 MPI 集合调用依赖 rank 的提前返回。
+
+## 2026-10-21 Clover 6×6 块与 MG 几何
+
+KUPL 的 Clover onsite 矩阵及逆矩阵在当前 gamma 基下按自旋 `(0,1)` 与
+`(2,3)` 分成两个稠密 `6×6` 块，不是 `(0,3)/(1,2)`。求解热路径使用
+`apply_clover_onsite`，逆矩阵也按两个 `6×6` 块计算，但外部 ABI 仍写回完整
+`12×12` 矩阵并显式清零另外两块。28 项 CTest 必须全绿后才能保留该优化。
+
+真实 `24³×64`、24 线程/rank、5 次稳态中位数：
+
+| 精度 | MPI | solve 基线 | solve 优化后 | 真残差 |
+|---|---:|---:|---:|---:|
+| c64 | 1 | 9.858 s | 7.770 s | `4.12e-7` |
+| c64 | 2 | 7.961 s | 6.352 s | `4.13e-7` |
+| c128 | 1 | 20.196 s | 15.593 s | `6.96e-8` |
+| c128 | 2 | 14.450 s | 11.473 s | `6.96e-8` |
+
+双 MPI 相对单 MPI 仅约 `1.22x/1.36x`，该 workload 已受 NUMA/内存带宽和集合
+归约限制，不能把增加 rank 数等同于线性加速。两 rank 分域优先切最长时间轴
+`(1,1,1,2)`；x 轴二分实测慢约 9%。
+
+`simple/kupl_multigrid.py` 的旧 builder 曾把 `mg_grid` 误作粗格尺寸，导致
+`prolong` reshape 失败；正确值恒为 `lat[i] // mg_grid[i]`。非退化回归见
+`pyqcu/testing/kupl/test_simple_mg_geometry.py`，不可只用 `4⁴/mg_grid=2`
+这种粗格与 block 恰好相等的退化工况验证。

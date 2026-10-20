@@ -195,3 +195,16 @@ The experimental `strict_galerkin_block_dtype=torch.float32` path reduces
 setup cost but changes coarse-block precision; on c128 small it increases
 outer iterations from 14 to 35.  Treat it as a capacity/tuning experiment,
 not as a substitute for the double-coarse main protocol.
+
+## 2026-10-21 真残差与局部 stencil 构建
+
+不要把 `applyDslashQcu(inverse_clover) + onsite` 的临时推导直接当作通用 true
+residual 公式；在真实 `24³×64` c64 上该公式即使对单 rank 正确解也报约
+`0.746`。可信 QCU 主口径是先保留 even/odd Clover 项，root-gather 后由独立
+PyQCU `give_wilson + give_clover` 计算；计时与残差计算必须分离。
+
+large-volume legacy MG 的第一层 stencil 在 `E_c*Nc` 较大时默认采用
+`BatchedLocalSchur(W=10) + build_stencil_local(batch_size=4)`。其局部窗口在
+中心 `c±1` 块必须与全格 `P†DP` 等价；K=1/K>1 回归见
+`test_stencil_batch_local.py`。缓存命中后正式 solve 只报告 worker MG 时间，
+setup/load、首次 workspace 分配和残差探针必须另列。

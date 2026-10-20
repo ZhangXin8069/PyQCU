@@ -12,14 +12,17 @@
 
 历史参考文档，记录开发进展与设计决策。
 
-## git-rep/ 源码快照
+## git-rep/ 参考 Git 库
 
 | 目录 | 说明 |
 |---|---|
-| `git-rep/DDalphaAMG` | Wilson-Clover AMG 求解器（C/CUDA）源码快照，非独立 git 仓库 |
-| `git-rep/DDalphaAMG-SM` | 2D Schwinger 模型版 AMG（C++/MPI）源码快照 |
-| `git-rep/PyQUDA` | QUDA 的 Python/Cython 包装库源码快照 |
-| `git-rep/quda` | QUDA 1.1.0（NVIDIA GPU 格点 QCD 库）源码快照 |
+| `git-rep/DDalphaAMG` | Wilson-Clover AMG 求解器，Git submodule |
+| `git-rep/DDalphaAMG-SM` | 2D Schwinger 模型版 AMG，Git submodule |
+| `git-rep/PyQUDA` | QUDA 的 Python/Cython 包装库，Git submodule |
+| `git-rep/quda` | NVIDIA GPU 格点 QCD 库，Git submodule |
+| `git-rep/kuqcd` | 鲲鹏 CPU 格点 QCD 参考实现，Git submodule |
+| `git-rep/docs/` | PyQCU 对上述参考库的分析、纯化剖析和技术报告 |
 
-四库均为参考用源码快照（共享仓库 `/root/PyQCU/.git`，无独立 `.git`）；各库 `docs/` 下存放
-分析报告（`analy_*`/`pure_*`，YYYYMMDD 日期命名），由 opencode analy/pure 技能生成。
+参考源码以上游仓库为准，submodule 工作树只读。来源 URL、固定提交、用途和致谢见
+`git-rep/README.md`。PyQCU 自产报告不得写回上游工作树，统一放入 `git-rep/docs/`；
+实验补丁和裁剪构建应使用 `data/**` 下的独立工作树。
