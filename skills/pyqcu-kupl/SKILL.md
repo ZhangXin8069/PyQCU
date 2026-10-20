@@ -21,14 +21,17 @@ metadata:
 
 | 路径 | 用途 |
 |---|---|
-| `cpp/kupl/qcu/include/kupl/` | 扁平 ABI 常量与 C API 声明 |
-| `cpp/kupl/qcu/src/backend.cpp` | 四维 MPI 几何、Wilson/Clover/Laplacian 内核、Schur、BiStabCG/CG |
-| `cpp/kupl/qcu/src/api.cpp` | C ABI 状态分派与异常边界 |
+| `cpp/kupl/qcu/include/kupl/` | 扁平 ABI、`LatticeSet`、几何、CPU 运行时与算子声明 |
+| `cpp/kupl/qcu/src/apply_*.cpp` | 与 CUDA QCU 对应的单入口族 C ABI 薄封装 |
+| `cpp/kupl/qcu/src/backend.cpp` | `LatticeSet<Real>` 门面、参数校验与 scratch 所有权 |
+| `cpp/kupl/qcu/src/lattice_*.cpp` | geometry、halo、Wilson/Clover、solver、Laplacian、Gauss、MG 分域实现 |
+| `cpp/kupl/qcu/qcu.map` | 仅导出 37 个 CUDA 兼容 `*Qcu` 符号 |
 | `cpp/kupl/qcu/tests/test_kupl.cpp` | c64/c128、1/2/4-rank、canonical layout 与真残差 |
 | `cpp/kupl/qcu/tests/test_new_abi.py` | 独立 NumPy/ctypes 差分，覆盖新增 Wilson/Laplacian 入口 |
 | `cpp/kupl/qcu/tests/test_multigrid.py` | 1/2-rank Gaussian、restrict/prolong、窄/宽 coarse halo 差分 |
 | `cpp/kupl/qcu/tests/test_failure_modes.py` | 非收敛与 fail-closed 入口的显式失败门 |
 | `cpp/kupl/qcu/tests/benchmark_kupl.cpp` | Wilson/Clover Dslash 吞吐与 rank affinity 证据 |
+| `cpp/kupl/qcu/tests/check_abi.py` | C 头文件声明与动态库 37 项导出符号一致性门 |
 | `pyqcu/kupl/qcu.py` | `ctypes.CDLL(..., RTLD_LOCAL)` Python 绑定；37 个 ABI 名称均有 Python 包装 |
 | `pyqcu/testing/kupl/test_kupl_python.py` | PyQCU 参考、Clover、dslash、solver 跨语言门 |
 

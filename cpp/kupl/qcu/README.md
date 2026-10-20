@@ -5,6 +5,23 @@ uses a four-dimensional MPI process grid, rank-local OpenMP parallelism,
 non-blocking fermion halos, cached gauge halos, and fused 12x12 onsite
 operations.
 
+## Source organization
+
+The backend follows the CUDA QCU layering while retaining CPU/OpenMP
+specializations:
+
+```text
+include/kupl/       public ABI, geometry, CPU runtime, and operator declarations
+src/apply_*.cpp     thin C ABI adapters, one file per CUDA-compatible entry family
+src/lattice_*.cpp   geometry, halo, Wilson/Clover, solver, Laplacian, Gauss, MG
+src/backend.cpp     LatticeSet facade, validation, and scratch ownership
+qcu.map             ELF export allow-list for the 37 QCU C symbols
+```
+
+`src/backend.cpp` no longer contains the numerical implementation. Internal
+identity is `LatticeSet<Real>`, and each implementation translation unit
+instantiates both `float` and `double`.
+
 ## ABI
 
 - `params`: `int32[58]`
@@ -169,12 +186,13 @@ cmake --build build -j
 ctest --test-dir build --output-on-failure
 ```
 
-The 16 C++/Python differential tests check c64/c128, one/two/four MPI ranks,
+The 17 C++/Python differential tests check c64/c128, one/two/four MPI ranks,
 Wilson/Clover hopping, Clover construction/inversion, Wilson and Clover Schur
 operators, Wilson BiStabCG/CG true residuals, Clover prepare/reconstruct,
 Gaussian SU(3) generation, multigrid transfer/coarse stencil MPI halos,
 slot-isolated lifecycles, non-contiguous binding rejection, the 3D Laplacian,
-and explicit non-convergence/fail-closed behavior.
+the exact 37-symbol dynamic ABI surface, and explicit
+non-convergence/fail-closed behavior.
 
 ## Runtime controls
 

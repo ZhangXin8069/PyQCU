@@ -20,3 +20,5 @@
    必须明确标注模型，不得冒充硬件计数器。
 9. 改动后至少运行 `python -m compileall`、相关脚本的 `--help` 和
    `git diff --check`。
+10. PyQUDA 求解前必须选择匹配 GPU 架构的 `libquda.so`；simple 对照统一使用
+    `QUDA_KAPPA_NORMALIZATION`，与 PyQCU 的 `I-kappa D` 保持同一方程。

@@ -141,10 +141,12 @@ def main(argv=None) -> int:
     solution_difference = None
     numerical_match = False
     if qcu_data is not None and quda_data is not None:
-        for key in ("lattice", "mass", "csw"):
+        for key in ("lattice", "mass", "csw", "mass_normalization"):
             left, right = qcu_data.get(key), quda_data.get(key)
             if key == "lattice":
                 same = list(left or []) == list(right or [])
+            elif key == "mass_normalization":
+                same = left == right
             elif left is None or right is None:
                 same = False
             else:

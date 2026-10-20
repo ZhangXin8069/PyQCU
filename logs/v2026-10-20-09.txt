@@ -1,0 +1,92 @@
+[日志元数据]
+日志类型: final
+生成时间: 2026-10-20 09:04:09 +0800
+批次: quda-sm70-runtime-align
+主任务: 修复 PyQUDA 加载 sm60 QUDA 导致 V100 no kernel image，并对齐 QCU/QUDA mass normalization
+触发原因: 任务完成
+摘要: sm70 预载、env 选择、kappa normalization 与同源数值比较均修复并验证
+Git 根目录: /root/PyQCU
+
+## 关键日志
+### S1 — 定位实际加载的 QUDA
+- 用户命令: `quda_bistabcg.py --gauge ~/windows/beta6.20_mu-0.2770_ms-0.2310_L24x64_cfg_9950.lime --lat 24 24 24 64 --mass -0.277`
+- 现象: QUDA 1.1.0 `sm_60` 在 V100 上报 `no kernel image is available`。
+- 证据: PyQUDA 扩展 RUNPATH 指向已失效的 `/tmp/opencode/quda-install/lib`；运行时从 `/root/slib/libquda.so` 加载 sm60 库。
+- 可修复资产: `/tmp/opencode/quda-install/lib/libquda.so` 是 QUDA 1.1.0/CUDA 12.4 的 sm70 构建，`cuobjdump` 含 `sm_70` cubin。
+
+### S2 — 固化并预载匹配库
+- 将 sm70 安装复制到仓库 `data/quda-sm70-install`（233 MiB，data 忽略）。
+- `env.sh` 与 `quda_env.sh` 优先选择该安装；显式 `QUDA_INSTALL` 仍可覆盖。
+- `_common.configure_quda_runtime()` 在导入 PyQUDA 前按绝对路径 `RTLD_GLOBAL` 预载 `libquda.so`，避免 RUNPATH/旧 LD_LIBRARY_PATH 抢占。
+- 修复后用户命令即使不 source env.sh，也输出 `QUDA 1.1.0 (git 1.1.0--sm_70)`。
+
+### S3 — 修复同源解的归一化差异
+- 首次 QCU/QUDA 同源比较发现解范数比 `4.049997`，恰好为 `m+4=1/(2*kappa)`。
+- 根因: PyQUDA 默认 `QUDA_ASYMMETRIC_MASS_NORMALIZATION`，PyQCU 使用 `M=I-kappa D`。
+- simple 路径显式设置 `QUDA_KAPPA_NORMALIZATION`，同步 multigrid inverse param，并在报告中记录 `mass_normalization=kappa`。
+- 非退化 4^4 随机 LIME 双进程比较: 相对解差 `3.75e-6`，PASS。
+
+### S4 — 退化输入边界
+- 全单位 gauge 的 Clover 项严格为零，固定精度 QUDA 开启 reconstruct 时会报 `max_element(0) appears unset`。
+- 用户参考 LIME 非退化，不受影响；文档已注明 Clover 数值门必须使用非退化规范场。
+
+## 验证与证据
+- 用户原命令、不 source env.sh: `sm_70`，19 iterations，true residual `4.207079e-7`，status PASS。
+- 用户原命令、source env.sh: 19 iterations，true residual `4.249947e-7`，status PASS。
+- QCU/QUDA 随机 4^4 同源比较: status PASS，solution relative difference `3.754641e-6`。
+- `pytest test_simple_lime_io.py test_csw_reference.py`: 18 passed。
+- 综合目标回归: 38 passed。
+- `bash -n env.sh quda_env.sh run_all.sh`: PASS。
+- `compileall`: PASS。
+- `git diff --check`: PASS。
+- PyQCU form audit: PASS，豁免 1049 项已登记 finding。
+- 10 MB 大文件检查: PASS（忽略的 data 构建树不计入 Git 大文件门）。
+
+## 变更与产物
+- `env.sh`
+- `pyqcu/testing/qcu/strict/quda_comparison/quda_env.sh`
+- `pyqcu/testing/simple/_common.py`
+- `pyqcu/testing/simple/quda_bistabcg.py`
+- `pyqcu/testing/simple/compare_bistabcg.py`
+- `pyqcu/testing/simple/qcu_bistabcg.py`
+- `pyqcu/testing/qcu/test_simple_lime_io.py`
+- `docs/install.md`、simple/PyQUDA AGENTS 与技能文档
+- `data/quda-sm70-install/**`：本地忽略的可执行安装树，不入 Git
+
+## 风险、限制与下一步
+- 仓库默认选择 sm70，适合当前 V100；若改用 P100 或其他架构，必须设置匹配的 `QUDA_INSTALL`。
+- sm70 资产位于忽略的 `data/**`，不会随 Git 提交；新环境需重建或复制匹配安装。
+- 未提交、未推送、未打 tag。
+- 下一步可在远端交付时明确选择是否把 QUDA 构建流程固化到独立安装脚本，而不是提交 233 MiB 二进制。
+
+## 用户输入指令
+用户报告运行：
+`python quda_bistabcg.py --gauge "$HOME/windows/beta6.20_mu-0.2770_ms-0.2310_L24x64_cfg_9950.lime" --lat 24 24 24 64 --mass -0.277`
+并附完整输出：QUDA 1.1.0--sm_60 在 V100 上触发 `qudaFuncSetAttribute_ returned no kernel image is available for execution on the device`，随后 MPI_ABORT。
+
+## Agent 全文报告
+--- report begin ---
+状态: finished
+
+根因:
+1. PyQUDA 扩展 RUNPATH 指向已删除的 QUDA 安装，动态加载实际命中 `/root/slib/libquda.so` 的 sm60 旧构建。
+2. 修复架构后，QCU/QUDA 同源比较暴露 PyQUDA 默认 asymmetric mass normalization，解相差 `m+4=4.049997`。
+3. 全单位 gauge 的零 Clover 项会触发固定精度 QUDA reconstruct 的 `max_element unset`，属于退化输入边界。
+
+改动:
+- 仓库 `data/` 固化 sm70 QUDA 1.1.0 安装，脚本在导入 PyQUDA 前按绝对路径预载。
+- env.sh、quda_env.sh 优先选择仓库 sm70 库，支持显式 QUDA_INSTALL 覆盖。
+- simple 对照统一 QUDA_KAPPA_NORMALIZATION，并记录 mass_normalization。
+- form 审计登记 6 个 KUPL 自包含 C++ 测试的精确目录例外。
+
+验证:
+- 用户原命令即使不 source env.sh 也加载 sm70，19 次迭代收敛，true residual 4.207e-7，PASS。
+- 非退化 4^4 随机 LIME 的 QCU/QUDA 双进程解差 3.75e-6，聚合 PASS。
+- 相关回归 38 passed；18 项 simple/Csw 子集 passed；形式审计和大文件门 passed。
+- 未提交、未推送、未打 tag。
+
+后续:
+1. 当前默认 sm70 仅适配本机 V100；换 GPU 时设置匹配的 QUDA_INSTALL。
+2. 新环境若没有 data/quda-sm70-install，需重建对应 QUDA 或恢复该安装树。
+3. 若需要长期交付，建议新增独立 QUDA 构建/安装脚本，而不是跟踪 233 MiB 二进制。
+--- report end ---

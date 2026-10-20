@@ -66,6 +66,16 @@ while IFS=$'\t' read -r severity rule path message; do
         WARNING:TEST_LOCATION:skills/pyqcu-tag/tag-chain.test.sh)
             allowed=$((allowed + 1))
             ;;
+        WARNING:TEST_LOCATION:cpp/kupl/qcu/tests/benchmark_kupl.cpp|\
+        WARNING:TEST_LOCATION:cpp/kupl/qcu/tests/test_canonical_layout.py|\
+        WARNING:TEST_LOCATION:cpp/kupl/qcu/tests/test_failure_modes.py|\
+        WARNING:TEST_LOCATION:cpp/kupl/qcu/tests/test_kupl.cpp|\
+        WARNING:TEST_LOCATION:cpp/kupl/qcu/tests/test_multigrid.py|\
+        WARNING:TEST_LOCATION:cpp/kupl/qcu/tests/test_new_abi.py)
+            # KUPL tests remain inside the standalone CMake project so the
+            # backend can be built and audited without importing PyQCU.
+            allowed=$((allowed + 1))
+            ;;
         *)
             if [[ "${severity}:${rule}:${path}" == WARNING:LOG_EXTENSION:logs/* ]]; then
                 case "${path##*.}" in
