@@ -103,3 +103,11 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 关键内容: KUPL simple/QUDA correctness plus adaptive SIMD and solver/MG optimization
 - 验证: path, size, required sections, conflict markers
 - 批次状态: complete
+## 20261021-kupl-cuda-multigpu - final - 2026-10-21 00:54:57 +0800
+- 主任务: KUPL Kunpeng NUMA 与 CUDA A100 多卡 debug/优化
+- 日志文件: logs/v2026102100.txt
+- 文件大小: 10499 bytes
+- 触发原因: 任务完成
+- 关键内容: 修复 KUPL 24 核线程契约、验证双 NUMA，优化 CUDA 纯 MG 路径并完成双 A100 与真实 LIME 回归
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete

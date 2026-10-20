@@ -19,6 +19,8 @@ C++ CUDA backend tests via the Cython bridge. These exercise `libqcu.so` from Py
 | `conftest.clover.bistabcg.py` | Clover BiStabCG solver |
 | `conftest.clover.bistabcg.dslash.py` | Clover BiStabCG dslash |
 | `conftest.clover.multigrid.py` | Clover multigrid V-cycle solver |
+| `bench_multi_gpu.py` | Multi-thread multi-GPU Clover-MG steady-state benchmark with `--no-reference` |
+| `slurm_multi_gpu_smoke.sh` | Slurm 2-GPU build, numeric gates, consistency and real-LIME regression |
 
 ## Usage
 
@@ -27,6 +29,23 @@ mpirun -np 1 python pyqcu/testing/qcu/conftest.clover.multigrid.py
 ```
 
 Output: convergence log → `logs/clover_multigrid.log`, performance report → `logs/clover_multigrid_report.log`
+
+### Slurm multi-GPU regression
+
+Submit from the repository root:
+
+```bash
+sbatch --gpus=2 --cpus-per-task=64 --time=01:00:00 \
+  --output=logs/slurm-%j-multi-gpu.out \
+  --error=logs/slurm-%j-multi-gpu.err \
+  pyqcu/testing/qcu/slurm_multi_gpu_smoke.sh
+```
+
+The script detects the active `sm_*`, builds the C++ backend, runs `install.sh`,
+then executes ABI, Wilson/Clover, two-GPU consistency, steady-state benchmark,
+and real-LIME gates. Use `--no-reference` only for production MG throughput;
+`total_solve_median` is the steady end-to-end timing, while `mg_time` covers
+only the C++ solver call.
 
 ## 早期 MG 性能基准套件（代码已删除，证据保留）
 

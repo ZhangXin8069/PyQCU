@@ -247,23 +247,46 @@ template <typename T> struct LatticeCloverBistabCg {
         set_ptr->cublasHs[stream_index], set_ptr->lat_4dim_SC, vec0, 1, vec1, 1,
         ((static_cast<LatticeComplex<T> *>(set_ptr->device_vals)) +
          _send_tmp_)));
+    int comm_size = 1;
+    MPI_Comm_size(MPI_COMM_WORLD, &comm_size);
+    if (comm_size == 1) {
+      // A local reduction is not an MPI collective.  Keep the scalar on the
+      // device for subsequent kernels and only mirror the values consumed by
+      // the host-side stopping check (or verbose diagnostics).
+      cudaStream_t stream = set_ptr->streams[stream_index];
+      checkCudaErrors(cudaMemcpyAsync(
+          ((static_cast<LatticeComplex<T> *>(set_ptr->device_vals)) +
+           vals_index),
+          ((static_cast<LatticeComplex<T> *>(set_ptr->device_vals)) +
+           _send_tmp_),
+          sizeof(LatticeComplex<T>), cudaMemcpyDeviceToDevice, stream));
+      if (vals_index == _norm2_tmp_ || vals_index == _diff2_tmp_ ||
+          set_ptr->host_params[_VERBOSE_]) {
+        checkCudaErrors(cudaMemcpyAsync(
+            ((static_cast<LatticeComplex<T> *>(host_vals)) + vals_index),
+            ((static_cast<LatticeComplex<T> *>(set_ptr->device_vals)) +
+             vals_index),
+            sizeof(LatticeComplex<T>), cudaMemcpyDeviceToHost, stream));
+        checkCudaErrors(cudaStreamSynchronize(stream));
+      }
+      return;
+    }
+    cudaStream_t stream = set_ptr->streams[stream_index];
     checkCudaErrors(cudaMemcpyAsync(
         ((static_cast<LatticeComplex<T> *>(host_vals)) + _send_tmp_),
         ((static_cast<LatticeComplex<T> *>(set_ptr->device_vals)) + _send_tmp_),
         sizeof(LatticeComplex<T>), cudaMemcpyDeviceToHost,
-        set_ptr->streams[stream_index]));
-    MPI_Barrier(MPI_COMM_WORLD);
-    checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[stream_index]));
+        stream));
+    checkCudaErrors(cudaStreamSynchronize(stream));
     _MPI_Allreduce<T>(
         ((static_cast<LatticeComplex<T> *>(host_vals)) + _send_tmp_),
         ((static_cast<LatticeComplex<T> *>(host_vals)) + vals_index), 2,
         MPI_SUM, MPI_COMM_WORLD);
-    MPI_Barrier(MPI_COMM_WORLD);
     checkCudaErrors(cudaMemcpyAsync(
         ((static_cast<LatticeComplex<T> *>(set_ptr->device_vals)) + vals_index),
         ((static_cast<LatticeComplex<T> *>(host_vals)) + vals_index),
         sizeof(LatticeComplex<T>), cudaMemcpyHostToDevice,
-        set_ptr->streams[stream_index]));
+        stream));
   }
   void _dot(void *vec0, void *vec1, const int vals_index,
             const int stream_index) {

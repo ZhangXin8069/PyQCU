@@ -374,6 +374,20 @@ if(KUPL_BUILD_TESTS)
     endif()
   endif()
 
+  add_test(NAME kupl_qcu_explicit_threads COMMAND
+    ${CMAKE_COMMAND} -E env
+    KUPL_OMP_THREADS=3
+    OMP_NUM_THREADS=3
+    $<TARGET_FILE:kupl_qcu_bench>
+    --lattice 2 2 2 4
+    --iterations 1
+  )
+  set_tests_properties(kupl_qcu_explicit_threads PROPERTIES
+    PASS_REGULAR_EXPRESSION "threads_per_rank=3"
+    TIMEOUT 60
+  )
+  list(APPEND KUPL_CTEST_NAMES kupl_qcu_explicit_threads)
+
   set_tests_properties(
     ${KUPL_CTEST_NAMES}
     PROPERTIES
