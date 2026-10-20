@@ -36,6 +36,9 @@ PyQCU（纯 Python 后端）与 PyQuda-0.3.2（QUDA 1.1.0）的结果/性能对�
 - Clover：PyQCU/PyQUDA 两侧显式使用同一 `csw`，pyqcu 侧
   `D_cl ψ = give_wilson(ψ,U,κ) + give_clover(ψ, make_clover(U,κ,csw=csw))`；
   quda 侧 `getDslash(..., clover_coeff_t=1.0)`，解同样满足 x_p = (m+4)·x_q（实测 rel 1.6e-6）。
+- simple 新接口对照路径统一设 `QUDA_KAPPA_NORMALIZATION`，直接与 PyQCU 的
+  `I-kappa D` 比较；只有历史完整套件继续使用 asymmetric normalization 后的
+  `(m+4)` 缩放。
 
 ## 文件清单
 
@@ -92,3 +95,8 @@ PyQCU（纯 Python 后端）与 PyQuda-0.3.2（QUDA 1.1.0）的结果/性能对�
   （hop）；MG nullvec 对比不可行（0.3.2 未暴露），需上游支持。
 - 性能对比中 pyqcu 侧为纯 Python einsum 实现（非公平基线），且 QUDA 侧含 tuning 首轮开销；
   报告以迭代数与 QUDA 内部 secs 为准。
+- PyQUDA 扩展的 RUNPATH 可能指向已删除构建，且 `LD_LIBRARY_PATH` 可能先命中
+  旧 sm60 库。simple 示例通过绝对路径预载 `data/quda-sm70-install`；
+  `QUDA_INSTALL` 可显式覆盖，库的 GPU 架构必须与当前设备匹配。
+- 固定精度 QUDA 开启 Clover reconstruct 时，严格零 Clover 项（如全单位 gauge）
+  会触发 `max_element appears unset`；Clover 数值门必须使用非退化规范场。

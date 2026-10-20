@@ -26,6 +26,13 @@ Clover 系数。PyQCU/QCU 与 PyQUDA/QUDA 都使用 `-kappa*csw/8` 的 onsite
 参考组态解析为 `mass=-0.277, csw=1.160920226`。若显式覆盖 `csw` 为不同值，
 报告会保留 `gauge_csw` 并把 `comparison_valid` 标为 `False`。
 
+QUDA/PyQUDA 求解脚本会在导入 PyQUDA 前选择并预载
+`data/quda-sm70-install/lib/libquda.so`（若存在）；显式 `QUDA_INSTALL` 优先。
+这避免旧 RUNPATH 或 `LD_LIBRARY_PATH` 中的 sm60 库在 V100 上被误加载。
+simple 对照把 QUDA 设为 `QUDA_KAPPA_NORMALIZATION`，与 PyQCU 的
+`M=I-kappa D` 使用同一方程归一化；PyQUDA 默认 asymmetric normalization
+会让解额外相差 `1/(2*kappa)=m+4`。
+
 新示例优先使用 `pyqcu.cuda.QcuRuntime`：
 
 ```python
@@ -72,6 +79,8 @@ checksum）；它不实现 MPI part-file，也不替代带 QIO 的 QUDA 生产�
 合法 `csw=0` 在 QUDA 侧切换到 Wilson Dirac，而不是调用会断言失败的 Clover API。
 任一后端崩溃、缺失、返回 `SKIP` 或非零时，聚合结果固定为 `FAIL`；安装的
 QUDA kernel 架构与当前 GPU 不匹配时也必须修复 QUDA 构建，不能降级为跳过。
+固定精度 QUDA 若开启 Clover reconstruct，遇到严格零 Clover 项（例如单位 gauge）
+会报 `max_element appears unset`；验证 Clover 路径应使用非退化规范场。
 
 QUDA 入口自动兼容 `pyquda_utils` 和当前机器上的旧 `PyQuda-0.3.2`
 （`pyquda.core` + `cupy`）两套原生 API。旧 API 的 BiStabCG 使用

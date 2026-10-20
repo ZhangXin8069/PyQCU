@@ -1,0 +1,96 @@
+[日志元数据]
+日志类型: final
+生成时间: 2026-10-20 09:18:07 +0800
+批次: kupl-qcu-structure
+主任务: KUPL QCU 与 CUDA QCU 结构对齐重构及回归
+触发原因: 任务完成
+摘要: KUPL QCU 分层重构、LatticeSet 门面、37 项 ABI 门禁与 Release/UBSAN 回归
+Git 根目录: /root/PyQCU
+
+## 关键日志
+### S1 — 基线与结构审计
+- 目标: 在保持 KUPL C ABI、MPI/OpenMP 数值语义和 Python 调用兼容的前提下，将单体后端重构为与 CUDA QCU 高度类似的 include/src/apply_* 分层。
+- 命令/操作: 只读检查 CUDA/KUPL 文件结构、3659 行 backend.cpp、454 行 api.cpp、CMake 和测试；并行派发 3 个只读分析子代理。
+- 关键输出: 根因是 backend.cpp 同时承载几何、halo、Wilson/Clover、solver、Laplacian、Gauss 和 MG；CUDA 对应职责分布在 include、src/apply_*、src/算法域和 python ABI。
+- 退出码: 0
+- 证据与判断: 重构前 Release CTest 16/16 通过；KUPL 相关文件无预先存在的未提交改动。
+
+### S2 — 分层实现
+- 目标: 让 KUPL 文件结构、代码结构和命名与 CUDA QCU 对齐，同时保留 CPU 特化。
+- 命令/操作: 新增 include/kupl/lattice_{complex,cpu,geometry,halo,linalg,multigrid,set}.h；将 C ABI 拆为与 CUDA 对应的 apply_*.cpp；将数值实现拆为 9 个 lattice_*.cpp；backend.cpp 收缩为 LatticeSet 门面。
+- 关键输出: backend.cpp 3659 -> 417 行；共 30 个 .cpp 编译单元；最大数值域 571 行；内部身份改为 LatticeSet<Real>。
+- 退出码: 0
+- 证据与判断: Release 构建成功，无新增编译警告。
+
+### S3 — 符号面优化与 ABI 门禁
+- 目标: 避免内部模板和 STL 符号暴露，并防止 37 个 QCU ABI 名称漂移。
+- 命令/操作: 设置 hidden visibility、--exclude-libs,ALL、qcu.map 版本脚本；新增 tests/check_abi.py 并纳入 CTest；在 define.h 增加 ABI 尺寸 static_assert。
+- 关键输出: 动态导出项 629 -> 38，其中 37 个 QCU 函数和 1 个 ELF version node。
+- 退出码: 0
+- 证据与判断: Python ctypes、C++ 测试和 ABI 门禁均能正常解析版本化符号。
+
+### S4 — 回归
+- 目标: 验证重构未改变 c64/c128、1/2/4 rank、Wilson/Clover、solver、Laplacian、Gauss 和 MG 行为。
+- 命令/操作: Release CTest；pyqcu/testing/kupl pytest；UBSAN Debug CTest；form 审计；git diff --check。
+- 关键输出: Release CTest 17/17；pytest 10/10；UBSAN CTest 17/17；form 审计 PASS；diff 检查无输出。
+- 退出码: 0
+- 证据与判断: 无失败、无未定义行为报告、无格式审计 finding。
+
+## 验证与证据
+- 测试/检查: cmake --build cpp/kupl/qcu/build -j
+- 结果: 成功构建共享库、C++ 测试和 benchmark。
+- 测试/检查: ctest --test-dir cpp/kupl/qcu/build --output-on-failure
+- 结果: 17/17 passed，包含新增 kupl_qcu_abi_surface。
+- 测试/检查: PYQCU_KUPL_LIB=... python -m pytest -q -ra pyqcu/testing/kupl
+- 结果: 10 passed。
+- 测试/检查: UBSAN Debug 构建 + ctest
+- 结果: 17/17 passed，UBSAN_OPTIONS=halt_on_error=1。
+- 测试/检查: bash skills/pyqcu-form/form-audit.sh
+- 结果: PASS，33 个技能目录与索引一致。
+- 测试/检查: git diff --check
+- 结果: 无输出。
+- 未验证项: 未做重构前后算子吞吐/FLOPS 基准对比；本轮优化目标是结构、增量编译隔离和动态符号面，不声明运行时 FLOPS 提升。未运行 ASAN。
+
+## 变更与产物
+- 文件: cpp/kupl/qcu/include/kupl/lattice_*.h；cpp/kupl/qcu/src/apply_*.cpp；cpp/kupl/qcu/src/lattice_*.cpp；cpp/kupl/qcu/src/backend.cpp；cpp/kupl/qcu/CMakeLists.txt；cpp/kupl/qcu/qcu.map；cpp/kupl/qcu/tests/check_abi.py；相关 AGENTS/README/SKILL 文档。
+- 产物: cpp/kupl/qcu/build/libqcu.so。
+- 未改动范围: 现有 CUDA 实现、Python KUPL ctypes ABI、用户工作树中的无关修改。
+
+## 风险、限制与下一步
+- 风险: 隐式模板实例化依赖每个域文件中的 float/double 显式实例化，新增算法域时必须保持该约定。
+- 阻塞: 无。
+- 下一步: 如需性能结论，可在固定鲲鹏/NUMA 配置下对重构前后 Wilson/Clover dslash 和 solver 做独立吞吐基线；提交、tag、push 均未执行，等待用户明确要求。
+
+## 用户输入指令
+kupl版qcu的[文件结构,代码结构,整体框架,各种命名,等等]应与cuda版qcu保持高度类似(可以有特化区分),由此重构并优化再测试kupl版qcu
+
+## Agent 全文报告
+--- report begin ---
+已完成 KUPL QCU 的结构对齐重构与回归验证。
+
+**改动内容**
+- 将 3659 行 `backend.cpp` 收敛为 417 行的 `LatticeSet<Real>` 门面，仅保留构造、参数校验、公开分派和 scratch 所有权。
+- 新增 `include/kupl/lattice_{complex,cpu,geometry,halo,linalg,multigrid,set}.h` 声明层，与 CUDA QCU 的 include/src 分层保持一致。
+- 将单体 `api.cpp` 拆为 20 个与 CUDA 对应的 `apply_*.cpp` 薄 ABI 文件。
+- 将数值实现拆为 `lattice_{cpu,geometry,linalg,clover_dslash,wilson_dslash,solver,laplacian,gauss_gauge,multigrid}.cpp`，共 30 个编译单元。
+- 内部类型由 `Backend` 统一为 `LatticeSet<Real>`，内部函数和变量改为小写下划线命名。
+- 删除未使用的 `ph_`、`sh_`、`applyBlockInverse`、`forEachGaugeBoundary` 和冗余粗 halo 字段。
+- 新增 hidden visibility、`--exclude-libs,ALL` 和 `qcu.map`，动态导出项由 629 降至 38，即 37 个 QCU ABI 函数加 1 个 ELF version node。
+- 新增 `tests/check_abi.py` 和 ABI 尺寸 `static_assert`，将 37 项符号表面纳入 CTest。
+- 更新 KUPL README、目录 AGENTS 和 `pyqcu-kupl` 技能文档。
+
+**推理依据**
+CUDA 后端的可复用核心是“C ABI 薄封装 -> Lattice* 算法编排 -> 基础算子/MPI 运行时”，不是 CUDA kernel 本身。KUPL 因而保留相同入口和文件语义，仅特化 MPI host halo、OpenMP、NUMA、scratch 和 host 归约。数值公式、canonical 布局、collective 顺序、c64/c128 实例化及 C ABI 均保持不变。
+
+**验证结果**
+- Release CTest: 17/17 passed，新增 `kupl_qcu_abi_surface`。
+- KUPL Python pytest: 10/10 passed。
+- UBSAN Debug CTest: 17/17 passed，`UBSAN_OPTIONS=halt_on_error=1`。
+- ABI 门禁: 37 个声明与动态导出完全一致。
+- `bash skills/pyqcu-form/form-audit.sh`: PASS。
+- `git diff --check`: 通过。
+- 未做重构前后算子吞吐对比，因此不声称运行时 FLOPS 提升；本轮实际收益是职责隔离、增量编译粒度、可维护性和导出符号面收紧。
+
+**后续步骤**
+如需要性能收益结论，下一步应在固定鲲鹏/NUMA 配置下建立重构前后 Wilson/Clover dslash 与 solver 的吞吐基线。本次未提交、打 tag 或推送。
+--- report end ---

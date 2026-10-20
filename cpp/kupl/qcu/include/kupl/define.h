@@ -54,6 +54,12 @@ inline constexpr int kMgLevel4Atol = 6;
 inline constexpr int kCsw = 7;
 inline constexpr int kVectorSize = 12;
 
+static_assert(sizeof(int32_t) == 4, "QCU params require 32-bit integers");
+static_assert(kParamsSize == 58, "QCU params ABI must remain 58 entries");
+static_assert(kArgvSize == 8, "QCU argv ABI must remain 8 entries");
+static_assert(kSetPtrsSize == 100, "QCU set_ptrs ABI must remain 100 entries");
+static_assert(kVectorSize == 12, "Wilson spin-color vectors have 12 entries");
+
 } // namespace kupl::qcu
 
 #endif

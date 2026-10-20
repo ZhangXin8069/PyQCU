@@ -1,0 +1,9 @@
+KUPL_QCU_0.1 {
+  global:
+    apply*Qcu;
+    test*Qcu;
+    get*Qcu;
+    verify*Qcu;
+  local:
+    *;
+};

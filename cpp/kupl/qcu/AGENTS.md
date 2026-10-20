@@ -2,6 +2,9 @@
 
 - Independent C++17 MPI+OpenMP implementation. Never include or link
   `cpp/cuda/qcu`.
+- Keep the same backend layering as CUDA QCU: `include/kupl/` declarations,
+  `src/apply_*.cpp` thin C ABI adapters, `src/lattice_*.cpp` numerical
+  domains, and `backend.cpp` as the `LatticeSet` facade.
 - Public ABI: `params int32[58]`, real `argv[8]`, `set_ptrs int64[100]`.
   `argv[7]` is `csw`; keep indices synchronized with `include/kupl/define.h`.
 - Canonical storage is C-order with parity-compressed time:
@@ -40,6 +43,8 @@
   ctest --test-dir build --output-on-failure
   ```
 
+- `qcu.map` exposes only the 37 CUDA-compatible `*Qcu` symbols. Keep
+  `tests/check_abi.py` in the CTest suite when adding ABI entries.
 - `KUPL_NUMA_BIND=1` owns CPU placement; launch MPI with binding disabled
   (`--bind-to none` for OpenMPI). If the scheduler already provides a
   NUMA-local cpuset per rank, keep `KUPL_NUMA_BIND=0`.
