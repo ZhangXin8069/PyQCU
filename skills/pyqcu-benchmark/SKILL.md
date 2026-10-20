@@ -339,3 +339,19 @@ PYQCU_MPI_OVERLAP=1 mpirun --allow-run-as-root --oversubscribe -np 2 \
 python -B pyqcu/testing/qcu/strict/quda_comparison/validate_matrix_trace_evidence.py \
   data/mg_matrix_overlap_20260927_p100/units/*.json
 ```
+
+## 2026-10-21 真实组态统一计时与资源守卫
+
+QCU、KUPL、QUDA 的 c64/c128 RHS 必须从同一个 PCG64 float64 流生成后再 cast；
+不能因 backend dtype 改变随机数采样精度。正式 solve 前应比较全局 RHS SHA256。
+
+QUDA tune-off 必须同时具备：进程启动前 `QUDA_ENABLE_TUNING=0`、运行时回读
+`invert.tune=QUDA_TUNE_NO`，以及日志中的 `Autotuning disabled`。PyQUDA 当前
+封装可能不暴露 `QudaGaugeParam.tune`；该字段缺失应记为 `not_exposed`，不能
+伪造为已验证。QUDA `secs` 是内部 solver 时间，不能与包含 upload/download/
+preamble 的完整 `Dirac.invert` 墙钟混在同一比值中。
+
+每次 GPU benchmark 开始后第 10 分钟必须检查：Slurm 状态、进程 CPU/RSS、
+GPU util/显存/功耗、阶段日志、缓存文件、stderr。若 GPU 长期 0% 且无阶段进展，
+应立即停止并改测试路径；总 GPU 预算按 `sum(ElapsedRaw * gres/gpu)` 从
+`sacct` 记账，默认硬上限 20 卡时。

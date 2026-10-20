@@ -17,6 +17,10 @@ export QUDA_INSTALL=${QUDA_INSTALL:-${HOME}/lib/quda-develop/build}
 export QUDA_BUILD_DIR=${QUDA_BUILD_DIR:-${QUDA_INSTALL}}
 export QUDA_RESOURCE_PATH=${QUDA_RESOURCE_PATH:-${repo_root}/logs/quda_resource_lime_20261021}
 export QUDA_ENABLE_TUNING=0
+# CUDA-aware MPI deadlocks in the first distributed Wilson halo on this
+# cluster's OpenMPI/CUDA combination.  Pinned-host staging is the safe default;
+# keep the override for transport A/B experiments on other installations.
+export PYQCU_MPI_DEVICE_AWARE=${PYQCU_MPI_DEVICE_AWARE:-0}
 export LD_LIBRARY_PATH=${QUDA_INSTALL}/lib:${LD_LIBRARY_PATH:-}
 export OMPI_MCA_opal_warn_on_missing_libcuda=0
 export OMPI_MCA_btl_openib_warn_no_device_params_found=0
@@ -26,6 +30,7 @@ result_root=${PYQCU_LIME_RESULT_ROOT:-${repo_root}/logs/data/lime_backend_formal
 scope=${PYQCU_LIME_SCOPE:-formal}
 warmups=${PYQCU_LIME_WARMUPS:-1}
 repeats=${PYQCU_LIME_REPEATS:-5}
+max_iter=${PYQCU_LIME_MAX_ITER:-1000}
 timeout_seconds=${PYQCU_LIME_TIMEOUT:-1800}
 
 if [[ ! -f ${lime} ]]; then
@@ -44,11 +49,13 @@ else
 fi
 
 if [[ ${scope} == smoke ]]; then
+  backends=(qcu quda)
   precisions=(c64)
   ranks=(1 2)
   warmups=0
   repeats=1
 else
+  backends=(${PYQCU_LIME_BACKENDS:-qcu quda})
   precisions=(${PYQCU_LIME_PRECISIONS:-c64 c128})
   ranks=(${PYQCU_LIME_RANKS:-1 2 4})
 fi
@@ -88,13 +95,15 @@ run_rank_case() {
     -np "${rank_count}" python -B "${runner}" \
     --gauge "${lime}" --lat 24 24 24 64 --grid ${grid} \
     --dtype "${precision}" --warmups "${warmups}" --repeats "${repeats}" \
+    --max-iter "${max_iter}" \
     --report "${report}"
 }
 
-for precision in "${precisions[@]}"; do
-  for rank_count in "${ranks[@]}"; do
-    run_rank_case qcu "${rank_count}" "${precision}"
-    run_rank_case quda "${rank_count}" "${precision}"
+for backend in "${backends[@]}"; do
+  for precision in "${precisions[@]}"; do
+    for rank_count in "${ranks[@]}"; do
+      run_rank_case "${backend}" "${rank_count}" "${precision}"
+    done
   done
 done
 

@@ -115,6 +115,22 @@ def build_parser() -> argparse.ArgumentParser:
         "--dtype", choices=("c64", "c128"), default="c64",
         help="QUDA device precision; host QDP staging remains complex128",
     )
+    parser.add_argument(
+        "--solver", choices=("bicgstab", "mg"), default="bicgstab",
+        help="plain BiCGStab reference or recursive multigrid",
+    )
+    parser.add_argument(
+        "--levels", type=_positive_int, default=2,
+        help="MG levels including the fine level",
+    )
+    parser.add_argument(
+        "--nvec", type=_positive_int, default=6,
+        help="MG near-null vectors; installed build supports 6,24,32",
+    )
+    parser.add_argument(
+        "--mg-block", nargs=4, type=_positive_int, default=(2, 2, 2, 2),
+        metavar=("BX", "BY", "BZ", "BT"), help="MG block size",
+    )
     parser.add_argument("--tol", type=_positive_float, default=DEFAULT_TOL)
     parser.add_argument("--max-iter", type=_positive_int, default=DEFAULT_MAX_ITER)
     parser.add_argument("--warmups", type=_nonnegative_int, default=DEFAULT_WARMUPS)
@@ -835,6 +851,10 @@ def _build_dirac(
     tol: float,
     max_iter: int,
     dtype: str,
+    solver: str,
+    levels: int,
+    nvec: int,
+    mg_block: Sequence[int],
 ) -> tuple[Any, dict[str, Any]]:
     if not hasattr(core, "getDslash"):
         raise BenchmarkFailure("PyQuda API mismatch: pyquda.core.getDslash is unavailable")
@@ -852,6 +872,12 @@ def _build_dirac(
         "cuda_prec_eigensolver",
     ):
         setattr(dirac_general, name, device_precision)
+    multigrid = None
+    if solver == "mg":
+        if levels < 2:
+            raise BenchmarkFailure("MG requires at least two levels")
+        multigrid = [list(int(item) for item in mg_block)
+                     for _ in range(levels - 1)]
     dirac = core.getDslash(
         list(int(item) for item in local_lattice),
         float(mass),
@@ -859,11 +885,12 @@ def _build_dirac(
         int(max_iter),
         clover_coeff_t=float(csw),
         anti_periodic_t=False,
-        multigrid=False,
+        multigrid=False if multigrid is None else multigrid,
     )
     invert = dirac.invert_param
     invert.mass_normalization = enum_quda["QudaMassNormalization"].QUDA_KAPPA_NORMALIZATION
-    invert.inv_type = enum_quda["QudaInverterType"].QUDA_BICGSTAB_INVERTER
+    if solver == "bicgstab":
+        invert.inv_type = enum_quda["QudaInverterType"].QUDA_BICGSTAB_INVERTER
     invert.solve_type = enum_quda["QudaSolveType"].QUDA_DIRECT_PC_SOLVE
     invert.use_init_guess = enum_quda["QudaUseInitGuess"].QUDA_USE_INIT_GUESS_NO
     invert.compute_true_res = 1
@@ -874,12 +901,31 @@ def _build_dirac(
     if gauge_tune_exposed:
         dirac.gauge_param.tune = enum_quda["QudaTune"].QUDA_TUNE_NO
 
+    mg_param = getattr(dirac, "mg_param", None)
+    if mg_param is None:
+        mg_param = getattr(getattr(dirac, "multigrid", None), "param", None)
+    if mg_param is None:
+        mg_param = getattr(getattr(dirac, "mg", None), "param", None)
+    nvec_applied = False
+    nvec_resolved: list[int] | None = None
+    if solver == "mg":
+        if mg_param is None:
+            raise BenchmarkFailure("MG Dirac has no QudaMultigridParam")
+        current_nvec = list(getattr(mg_param, "n_vec"))
+        if not current_nvec:
+            raise BenchmarkFailure("QudaMultigridParam.n_vec is empty")
+        mg_param.n_vec = [int(nvec)] * len(current_nvec)
+        nvec_resolved = [int(value) for value in mg_param.n_vec]
+        nvec_applied = all(value == int(nvec) for value in nvec_resolved)
+        if not nvec_applied:
+            raise BenchmarkFailure(
+                f"QUDA n_vec assignment did not stick: {nvec_resolved}")
+
     expected_kappa = kappa_from_mass(mass)
     expected_clover_coeff = expected_kappa * float(csw)
     tune_disabled = enum_quda["QudaTune"].QUDA_TUNE_NO
     checks = {
         "dslash_is_clover": invert.dslash_type == enum_quda["QudaDslashType"].QUDA_CLOVER_WILSON_DSLASH,
-        "inverter_is_bicgstab": invert.inv_type == enum_quda["QudaInverterType"].QUDA_BICGSTAB_INVERTER,
         "solve_type_is_direct_pc": invert.solve_type == enum_quda["QudaSolveType"].QUDA_DIRECT_PC_SOLVE,
         "mass_normalization_is_kappa": (
             invert.mass_normalization
@@ -900,6 +946,13 @@ def _build_dirac(
     if gauge_tune_exposed:
         checks["gauge_tuning_disabled"] = (
             dirac.gauge_param.tune == tune_disabled)
+    if solver == "bicgstab":
+        checks["inverter_is_bicgstab"] = (
+            invert.inv_type ==
+            enum_quda["QudaInverterType"].QUDA_BICGSTAB_INVERTER)
+    else:
+        checks["multigrid_attached"] = mg_param is not None
+        checks["nvec_applied"] = nvec_applied
     if not all(checks.values()):
         raise BenchmarkFailure(f"PyQuda/QUDA parameter contract failed: {checks}")
     config = {
@@ -924,6 +977,11 @@ def _build_dirac(
         "gauge_tune_field_exposed": gauge_tune_exposed,
         "quda_enable_tuning_environment": os.environ.get(
             "QUDA_ENABLE_TUNING"),
+        "solver": solver,
+        "levels": int(levels),
+        "nvec_requested": int(nvec),
+        "nvec_resolved": nvec_resolved,
+        "mg_block": [int(item) for item in mg_block],
         "tol": float(invert.tol),
         "maxiter": int(invert.maxiter),
         "requested_dtype": dtype,
@@ -1277,7 +1335,8 @@ def _run_benchmark(
         "construct_clover_bicgstab",
         lambda: _build_dirac(
             core, enum_quda, _local_lattice(lattice, grid),
-            mass, csw, args.tol, args.max_iter, args.dtype,
+            mass, csw, args.tol, args.max_iter, args.dtype, args.solver,
+            args.levels, args.nvec, args.mg_block,
         ),
     )
 

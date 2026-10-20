@@ -92,3 +92,14 @@ def test_lime_slab_and_global_rhs_layout(tmp_path) -> None:
     mad = BENCH.median_and_mad([1.0, 2.0, 10.0])
     assert mad["median_seconds"] == 2.0
     assert mad["mad_seconds"] == 1.0
+
+
+def test_mg_cli_contract() -> None:
+    args = BENCH.build_parser().parse_args([
+        "--gauge", "gauge.lime", "--solver", "mg", "--levels", "2",
+        "--nvec", "6", "--mg-block", "2", "2", "2", "2",
+    ])
+    assert args.solver == "mg"
+    assert args.levels == 2
+    assert args.nvec == 6
+    assert args.mg_block == [2, 2, 2, 2]

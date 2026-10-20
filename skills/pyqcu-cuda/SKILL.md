@@ -184,3 +184,20 @@ with no environment variable, no file and no trace workspace are created.
 outer right-preconditioned FGMRES columns.  `iterations` remains a
 compatibility alias and must not be described as the sum of smoother or
 coarse-solver iterations.
+
+## 2026-10-21 真实 LIME、MG 输入与多卡通信
+
+`MultiGpuMultigrid` 现支持注入外部 `gauge/source`、`input_tag`、真实 MG 残差
+校验和 setup/solve 分段计时。真实输入应传入 QCU parity 布局；粗算子缓存 key
+必须绑定 gauge/source SHA，不能继续使用 `generated:<seed>`。
+
+本集群 A100 + OpenMPI 的 CUDA-aware 路径会在分布式 `wilson_dslash.run_oe`
+首个 halo 阻塞；`PYQCU_MPI_DEVICE_AWARE=0` 的 pinned-host staging 可正常完成。
+真实 LIME 矩阵脚本默认必须使用 host staging；只有在新 MPI/驱动组合上通过
+单步 halo 门禁后才能恢复 device-aware 并报告吞吐。
+
+大格 legacy MG setup 默认在 `E_c * Nc >= 200000` 时走
+`BatchedLocalSchur + build_stencil_local`；`PYQCU_MG_LOCAL_STENCIL=0/1` 可
+强制 A/B，`PYQCU_MG_BUILD_PROGRESS=1` 输出 level、null-space、stencil 阶段。
+长任务必须至少记录 `setup_seconds`、worker `mg_time` 和全算子残差，禁止只报
+含缓存构建的总墙钟。

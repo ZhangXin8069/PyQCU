@@ -77,7 +77,9 @@ def configure_mg(params: np.ndarray, argv: np.ndarray, set_ptrs: np.ndarray,
 def build_coarse_assets(gauge: np.ndarray, lattice: tuple[int, int, int, int],
                         mass: float, kappa: float, csw: float,
                         dtype: np.dtype, levels: int, dof: list[int],
-                        mg_grid: list[int], nv_iters: int, seed: int):
+                        mg_grid: list[int], nv_iters: int, seed: int,
+                        verbose: bool = False, local_stencil: bool = False,
+                        local_stencil_batch_size: int = 4):
     try:
         import torch
         from pyqcu import dslash, solver, tools
@@ -93,33 +95,69 @@ def build_coarse_assets(gauge: np.ndarray, lattice: tuple[int, int, int, int],
     gauge_tensor = torch.from_numpy(np.ascontiguousarray(gauge))
     kappa_tensor = torch.tensor([kappa], dtype=real_dtype, device=device)
     clover = dslash.make_clover(gauge_tensor, kappa=kappa_tensor, csw=csw)
+    fine_operator = dslash.operator(
+        U=gauge_tensor, clover_term=clover, kappa=kappa_tensor,
+        u_0=torch.ones(1, dtype=real_dtype, device=device),
+        support_parity=False, verbose=False)
 
     def matvec(vector):
-        shaped = vector.reshape(4, 3, *lattice)
-        result = dslash.give_wilson(
-            shaped, gauge_tensor, kappa_tensor, with_I=True)
-        result = result + dslash.give_clover(shaped, clover)
-        return result.reshape(12, *lattice)
+        return fine_operator.matvec(vector)
 
-    generator = torch.Generator(device="cpu").manual_seed(seed + 9001)
-    null_vectors = torch.randn(
-        (dof[1], 12, *lattice), dtype=torch_dtype, device=device,
-        generator=generator)
-    for _ in range(max(1, nv_iters)):
-        for component in range(dof[1]):
-            correction = solver.bistabcg(
-                b=matvec(null_vectors[component]), matvec=matvec,
-                tol=1.0e-2, if_rtol=True, verbose=False)
-            null_vectors[component] -= correction
+    if verbose:
+        print("KUPL::MG_BUILD: null-space start", flush=True)
+    torch.manual_seed(seed + 9001)
+    from pyqcu.tools._multigrid import give_null_vecs_mt
+
+    null_vectors = give_null_vecs_mt(
+        None, dof[1], 12, list(lattice), torch_dtype, device,
+        nv_iters=max(1, nv_iters), nthreads=1, seed=seed + 9001,
+        verbose=False, nv_tol=1.0e-2,
+        batch_matvec=fine_operator.matvec_batch, batch_chunk=4)
+    coarse_lattice = [
+        lattice[index] // mg_grid[index] for index in range(4)]
+    if verbose:
+        print("KUPL::MG_BUILD: orthogonalize start", flush=True)
     null_vectors = tools.local_orthogonalize(
-        null_vectors, coarse_lat_size=list(mg_grid), verbose=False)
-    hop_nn, hop_diag, sitting = tools.build_stencil(
-        matvec, null_vectors, dof[1], 12, list(lattice),
-        [lattice[index] // mg_grid[index] for index in range(4)],
-        torch_dtype, device, verbose=False)
+        null_vectors, coarse_lat_size=coarse_lattice, verbose=False)
+    if verbose:
+        print(
+            f"KUPL::MG_BUILD: stencil start coarse={coarse_lattice}", flush=True)
+    if local_stencil:
+        from pyqcu.tools._multigrid import (
+            BatchedLocalWilsonClover, build_stencil_local,
+        )
+
+        local_operator = BatchedLocalWilsonClover(
+            fine_operator, *lattice, W=6)
+        hop_nn, hop_diag, sitting = build_stencil_local(
+            local_operator, null_vectors, dof[1], list(lattice),
+            coarse_lattice, torch_dtype, device, verbose=verbose,
+            batch_size=local_stencil_batch_size)
+    else:
+        hop_nn, hop_diag, sitting = tools.build_stencil(
+            matvec, null_vectors, dof[1], 12, list(lattice),
+            coarse_lattice, torch_dtype, device, verbose=verbose)
+    if verbose:
+        print("KUPL::MG_BUILD: stencil done", flush=True)
     return tuple(
         [tensor.detach().cpu().contiguous().numpy()]
         for tensor in (null_vectors, hop_nn, hop_diag, sitting))
+
+
+def load_coarse_assets(path: Path, dtype: np.dtype):
+    """Load the backend-neutral ``lonv/hnn/hdg/sit`` 33-tensor cache."""
+    import h5py
+
+    with h5py.File(path, "r") as handle:
+        required = {"lonv", "hnn", "hdg", "sit"}
+        missing = sorted(required.difference(handle.keys()))
+        if missing:
+            raise ValueError(f"coarse cache {path} is missing datasets {missing}")
+        values = {
+            name: np.ascontiguousarray(handle[name][...], dtype=dtype)
+            for name in ("lonv", "hnn", "hdg", "sit")
+        }
+    return values["lonv"], values["hnn"], values["hdg"], values["sit"]
 
 
 def main(argv=None) -> int:
@@ -137,8 +175,13 @@ def main(argv=None) -> int:
     parser.add_argument("--coarse-max-iter", type=int, default=200)
     parser.add_argument("--coarse-tol-factor", type=float, default=1.0e4)
     parser.add_argument("--nv-iters", type=int, default=2)
+    parser.add_argument("--coarse-cache", type=Path, default=None,
+                        help="load lonv/hnn/hdg/sit instead of rebuilding setup")
     parser.add_argument("--no-deflate", action="store_true")
     parser.add_argument("--verbose", action="store_true")
+    parser.add_argument("--verbose-build", action="store_true")
+    parser.add_argument("--local-stencil", action="store_true")
+    parser.add_argument("--local-stencil-batch", type=int, default=4)
     parser.add_argument("--gauge", default=None)
     parser.add_argument("--source", default=None)
     parser.add_argument("--seed", type=int, default=42)
@@ -187,12 +230,28 @@ def main(argv=None) -> int:
 
     null_vectors, hop_nn, hop_diag, sitting = ((), (), (), ())
     builder_seconds = 0.0
+    coarse_source = "built"
     if args.levels > 1:
         started = time.perf_counter()
-        null_vectors, hop_nn, hop_diag, sitting = build_coarse_assets(
-            gauge_full, lattice, mass, kappa, csw, dtype, args.levels,
-            list(args.dof), list(args.mg_grid), args.nv_iters,
-            args.seed)
+        if args.coarse_cache is not None:
+            cache_path = resolve_path(
+                args.coarse_cache, Path(args.coarse_cache).expanduser())
+            if not cache_path.is_file():
+                raise FileNotFoundError(cache_path)
+            null_vectors, hop_nn, hop_diag, sitting = load_coarse_assets(
+                cache_path, dtype)
+            coarse_source = str(cache_path)
+        else:
+            null_vectors, hop_nn, hop_diag, sitting = build_coarse_assets(
+                gauge_full, lattice, mass, kappa, csw, dtype, args.levels,
+                list(args.dof), list(args.mg_grid), args.nv_iters,
+                args.seed, verbose=args.verbose or args.verbose_build,
+                local_stencil=args.local_stencil,
+                local_stencil_batch_size=args.local_stencil_batch)
+        if int(null_vectors[0].shape[0]) != int(args.dof[1]):
+            raise ValueError(
+                f"coarse cache E={null_vectors[0].shape[0]} does not match "
+                f"--dof[1]={args.dof[1]}")
         configure_mg(params, argv, set_ptrs, args.levels, args.atol,
                      args.restart, args.coarse_max_iter,
                      args.coarse_tol_factor,
@@ -251,6 +310,7 @@ def main(argv=None) -> int:
         "restart": args.restart, "coarse_max_iter": args.coarse_max_iter,
         "coarse_tol_factor": args.coarse_tol_factor,
         "deflate": not args.no_deflate, "builder_seconds": builder_seconds,
+        "coarse_source": coarse_source,
         "wall_seconds": wall_seconds,
         "verify_status": verify_status,
         "final_true_residual": residual, "residual_acceptance": acceptance,

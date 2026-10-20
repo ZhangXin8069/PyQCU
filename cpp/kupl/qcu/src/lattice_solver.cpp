@@ -64,8 +64,8 @@ void LatticeSet<Real>::apply_full_operator(
     bare_dslash(scratch, source, parity);
     const Complex<Real> *onsite =
         input + static_cast<std::size_t>(parity) * vectors;
-    apply_onsite(onsite, clover[static_cast<std::size_t>(parity)],
-                 destination, scratch, kappa());
+    apply_clover_onsite(onsite, clover[static_cast<std::size_t>(parity)],
+                        destination, scratch, kappa());
     if (parity == 0 && std::getenv("KUPL_DEBUG_OPERATOR") != nullptr) {
       log("OPERATOR", "source=(%g,%g) dslash=(%g,%g) result=(%g,%g)",
           static_cast<double>(source[0].real()),
@@ -330,8 +330,9 @@ void LatticeSet<Real>::prepare_clover_schur(
   for (int64_t index = 0; index < vectors; ++index) {
     work_a_[static_cast<std::size_t>(index)] = rhs_other[index];
   }
-  apply_onsite(work_a_.data(), inverse[static_cast<std::size_t>(other)],
-               work_b_.data());
+  apply_clover_onsite(
+      work_a_.data(), inverse[static_cast<std::size_t>(other)],
+      work_b_.data());
   bare_dslash(work_c_.data(), work_b_.data(), parity);
 #pragma omp parallel for schedule(static, chunk)
   for (int64_t index = 0; index < vectors; ++index) {
@@ -364,8 +365,8 @@ void LatticeSet<Real>::reconstruct_clover_schur(
     work_b_[static_cast<std::size_t>(index)] =
         rhs_other[index] + kappa() * work_a_[static_cast<std::size_t>(index)];
   }
-  apply_onsite(work_b_.data(), inverse[static_cast<std::size_t>(other)],
-               out_other);
+  apply_clover_onsite(
+      work_b_.data(), inverse[static_cast<std::size_t>(other)], out_other);
 }
 
 template <typename Real>
