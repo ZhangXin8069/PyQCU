@@ -15,6 +15,7 @@ Cython bridge package for the C++ CUDA backend (`libqcu.so`).
 | `qcu/qcu_api.pxd` | Cython declarations — aliases C symbols, marks calls `nogil`, and must match `pyqcu.h` |
 | `qcu/qcu.pyi` | Type stub (390 lines) — full type annotations, docstrings, and default values for IDE support。注意 `pyqcu/cuda/qcu.pyi` 是指向 `qcu/qcu.pyi` 的符号链接，不是第二份拷贝 |
 | `define.py` | Parameter constants (`_LAT_X_`, `_SET_PLAN_`, etc.) and dtype conversion helpers (`dtype()`, `epytd()`) |
+| `_runtime.py` | `QcuRuntime` — lifecycle-safe flat-ABI wrapper with private control arrays, free-slot selection, `mass`/`csw` configuration, and `operation()` contexts for getters |
 | `_schur_op.py` | `CudaSchurOp` — C++ Schur odd-site operator wrapper (per-instance independent params/set_ptrs, thread-safe slot allocator; matvec uses preallocated buffer + device sync + clone to avoid deep pool/stream races) |
 | `_multi_gpu.py` | `MultiGpuMultigrid` — multi-thread multi-GPU C++ Clover MG driver (one-thread-one-GPU; consistency + independent-problem modes; `save_report` JSON; single-MPI-rank constraint) |
 | `_strict_multigrid.py` | `CudaStrictMultigridSolver` — fine odd-Clover Schur + persistent strict coarse V-cycle + C++ fused right-FGMRES |
@@ -27,6 +28,7 @@ Cython bridge package for the C++ CUDA backend (`libqcu.so`).
 ```python
 from pyqcu.cuda import qcu      # Cython bridge to libqcu.so
 from pyqcu.cuda import define   # Parameter constants, dtype helpers, pre-built params/argv/set_ptrs tensors
+from pyqcu.cuda import QcuRuntime  # lifecycle-safe flat-ABI calls
 ```
 
 ## Cython Extension — C Functions Exposed
@@ -59,7 +61,7 @@ All functions take raw pointers cast to `long long` from `tensor.contiguous().da
 Three flat tensors bridge Python ↔ C++:
 
 - **`params`** (CPU int32[58]) — lattice dims (`_LAT_X_`…`_LAT_XYZT_`), grid sizes (`_GRID_X_`…), data types (`_DATA_TYPE_`), iteration counts (`_MAX_ITER_`), plan selection (`_SET_PLAN_`), verbosity (`_VERBOSE_`), parity (`_PARITY_`), multigrid level configs and controls. The tail is `_MG_USE_GCR_` (54), `_MG_USE_DEFLATE_` (55), `_MG_MU_PRE_` (56), and `_MG_USE_INIT_GUESS_` (57); slot 57 is a 0/1 warm-start flag and does not extend the ABI.
-- **`argv`** (real dtype, size 7) — physical parameters: `_MASS_` (idx 0), `_ATOL_` (1), `_SIGMA_` (2), per-level MG tolerances (3–6); c64 使用 float32，c128 使用 float64
+- **`argv`** (real dtype, size 8) — physical parameters: `_MASS_` (0), `_ATOL_` (1), `_SIGMA_` (2), per-level MG tolerances (3–6), `_CSW_` (7); c64 使用 float32，c128 使用 float64。Clover 项使用 `-kappa*csw/8` 且 `csw=0` 合法
 - **`set_ptrs`** (CPU int64[100]) — LatticeSet/scratch pointers managed by the C++ runtime. Strict transition `t` uses slots `60+4*t+0..3` for blocked `V`, optional raw `Y`, `Yhat`, and onsite pair `(X,X^-1)`; slot `80` stores the persistent hierarchy handle.
 
 Index constants in `define.py` MUST stay in sync with `cpp/cuda/qcu/include/define.h`.
@@ -90,7 +92,10 @@ must not replace the device-wide probe or the ownership ledger above.
 
 ## Critical: `_SET_INDEX_` Increment
 
-Between successive C++ calls within the same `applyInitQcu`/`applyEndQcu` lifecycle, you MUST increment `params[define._SET_INDEX_]` by 1. Failing to do so causes scratch buffer reuse conflicts that produce wrong results.
+For an ordinary transaction, call `applyEndQcu` at the index used by
+`applyInitQcu`, then increment `params[define._SET_INDEX_]`. Incrementing before
+`applyEndQcu` leaves the allocated object behind. `QcuRuntime` implements this
+ordering and selects a reusable free slot.
 
 Legacy exception: coarse-grid dslash may reset `_SET_INDEX_` to 0 because it uses a different legacy MG level. Strict exception: `CudaSchurOp` allocates one private LatticeSet slot and all strict primitives, strict init/VCycle/fused-FGMRES and strict end must keep the same `_SET_INDEX_` for that instance; do **not** increment it between Strict calls, or the backend will look up a different/null `set_ptrs` entry. The strict asset area (`set_ptrs[60..79]`) and persistent hierarchy handle (`set_ptrs[80]`) do not replace this LatticeSet slot.
 
@@ -113,10 +118,16 @@ Legacy exception: coarse-grid dslash may reset `_SET_INDEX_` to 0 because it use
 ## Call Lifecycle
 
 ```python
-qcu.applyInitQcu(set_ptrs, params, argv)          # allocate
-# ... operations with _SET_INDEX_ += 1 between calls ...
-qcu.applyEndQcu(set_ptrs, params)                  # free
+qcu.applyInitQcu(set_ptrs, params, argv)  # allocate at current slot
+# ... one operation ...
+qcu.applyEndQcu(set_ptrs, params)          # free the current slot
+params[_SET_INDEX_] += 1                   # advance for the next transaction
 ```
+
+Prefer `QcuRuntime.call()` / `QcuRuntime.operation()`: they select a free slot,
+perform this sequence exception-safely, and support >100 sequential operations.
+Do not increment before `applyEndQcu`; it frees by the current index. Strict
+multi-call lifecycles keep one private index unchanged throughout.
 
 Strict calls use the fixed per-instance slot instead:
 

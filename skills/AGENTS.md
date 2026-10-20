@@ -17,7 +17,7 @@ PyQCU 项目专用技能库：每个技能一个子目录，内含 `SKILL.md`（
 - **TODO 管理**：会话执行第一步用 todowrite 生成详细 TODO 列表，逐步实时更新，收尾核对全完成。
 - **跨技能调用**：必要时调用其他技能；2+ 独立子任务（无共享状态/无顺序依赖/互不改同文件）
   优先并行派发。
-- **技能表同步约定（硬性）**：新增/更改技能必须同步下方技能表行与计数（当前 32/32），
+- **技能表同步约定（硬性）**：新增/更改技能必须同步下方技能表行与计数（当前 33/33），
   避免表格与实际脱节。
 - **命名约定（硬性）**：自用技能目录一律 `pyqcu-` 前缀（2026-10-15 全量改名完成），
   frontmatter `name` 必须与目录名逐字符一致。
@@ -29,7 +29,7 @@ frontmatter：name 与目录名一致 + description 写触发场景（何时使�
 可复现出处；tag 报告用 `git show <tag>:<path>` 引用，不写工作区 `logs/<tag>/...`
 持久路径，不写未验证内容。
 
-## 技能表（32/32）
+## 技能表（33/33）
 
 按域分组；每行用途即该技能 frontmatter description 的摘要。2026-10-15 全量加 `pyqcu-`
 前缀，`cann.v2`/`cuda.v2`/`dtk`/`maca` 四个占位技能合并为 `pyqcu-cpp-containers`。
@@ -43,7 +43,8 @@ frontmatter：name 与目录名一致 + description 写触发场景（何时使�
 | `pyqcu-solver` | pyqcu.solver：BiCGStab(l)/FGMRES 与 legacy/Strict QUDA-style MultiGrid，含奇偶、Galerkin 与持久显存语义。 |
 | `pyqcu-smear` | pyqcu.smear：stout smearing（Morningstar-Peardon SU(3) 投影）与 Wuppertal 高斯模糊，含数值稳定性处理与 MPI 支持。 |
 | `pyqcu-cann` | pyqcu.cann：Ascend NPU 的 torch 兼容层，将复数算子分解为实/虚部；含 force_use_npu 全局标志与 einsum 组合分解算法。 |
-| `pyqcu-cuda` | pyqcu.cuda：Cython/libqcu.so 桥接、Strict MultiGrid、params[58]/argv[7]/set_ptrs[100] 与显存生命周期。 |
+| `pyqcu-cuda` | pyqcu.cuda：Cython/libqcu.so 桥接、Strict MultiGrid、params[58]/argv[8]/set_ptrs[100] 与显存生命周期。 |
+| `pyqcu-kupl` | cpp/kupl/qcu 与 pyqcu.kupl：鲲鹏/NUMA CPU 版 MPI+OpenMP dslash、Clover BiStabCG、canonical ABI、绑定与性能基准。 |
 | `pyqcu-tools` | pyqcu.tools：MPI 网格/奇偶分割/维度重排/HDF5 I/O/线性代数/多重网格转移/TileLang JIT/基准图表工具集。 |
 
 ### C++ 后端（cpp/）

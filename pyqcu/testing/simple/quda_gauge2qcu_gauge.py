@@ -9,9 +9,13 @@ import json
 import numpy as np
 
 try:
-    from ._common import DEFAULT_LIME, qdp_gauge_to_qcu, read_qdp_gauge, resolve_path, write_h5
+    from ._common import (DEFAULT_LIME, lime_metadata, qdp_gauge_to_qcu,
+                          read_h5_metadata, read_qdp_gauge, resolve_path,
+                          write_h5)
 except ImportError:
-    from _common import DEFAULT_LIME, qdp_gauge_to_qcu, read_qdp_gauge, resolve_path, write_h5
+    from _common import (DEFAULT_LIME, lime_metadata, qdp_gauge_to_qcu,
+                         read_h5_metadata, read_qdp_gauge, resolve_path,
+                         write_h5)
 
 
 def main(argv=None) -> int:
@@ -22,6 +26,11 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
 
     source = resolve_path(args.input, DEFAULT_LIME)
+    source_metadata = {}
+    if source.suffix == ".lime":
+        source_metadata = lime_metadata(source)
+    elif source.suffix in (".h5", ".hdf5"):
+        source_metadata = read_h5_metadata(source)
     qdp = read_qdp_gauge(source)
     qcu = qdp_gauge_to_qcu(qdp)
     output = resolve_path(args.output, source.parent / args.output)
@@ -30,6 +39,9 @@ def main(argv=None) -> int:
             "layout": "[3,3,4,x,y,z,t]",
             "quda_layout": "[dir,t,z,y,x,3,3]",
             "source": str(source),
+            "csw": source_metadata.get("csw"),
+            "reference_mass": source_metadata.get(
+                "reference_mass", source_metadata.get("mass")),
         })
     print(json.dumps({
         "input": str(source),
@@ -37,6 +49,9 @@ def main(argv=None) -> int:
         "quda_shape": list(qdp.shape),
         "qcu_shape": list(qcu.shape),
         "dtype": str(qcu.dtype),
+        "csw": source_metadata.get("csw"),
+        "reference_mass": source_metadata.get(
+            "reference_mass", source_metadata.get("mass")),
         "norm": float(np.linalg.norm(qcu.ravel())),
         "dry_run": bool(args.dry_run),
     }, ensure_ascii=False))

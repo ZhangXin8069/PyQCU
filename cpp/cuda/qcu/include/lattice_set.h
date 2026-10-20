@@ -520,6 +520,8 @@ template <typename T> struct LatticeSet {
   }
   int max_iter() { return host_params[_MAX_ITER_]; }
   T kappa() { return 1 / (2 * host_argv[_MASS_] + 8); }
+  T csw() { return host_argv[_CSW_]; }
+  T clover_coefficient() { return kappa() * csw(); }
   T atol() { return host_argv[_ATOL_]; }
   T atol2() { return host_argv[_ATOL_] * host_argv[_ATOL_]; }
   T sigma() { return host_argv[_SIGMA_]; }
@@ -698,6 +700,7 @@ template <typename T> struct LatticeSet {
     printf("host_argv[_MASS_]                            :%e\n", host_argv[_MASS_]);
     printf("host_argv[_ATOL_]                            :%e\n", host_argv[_ATOL_]);
     printf("host_argv[_SIGMA_]                           :%e\n", host_argv[_SIGMA_]);
+    printf("host_argv[_CSW_]                             :%e\n", host_argv[_CSW_]);
     printf("host_argv[_MG_LEVEL1_ATOL_]                  :%e\n", host_argv[_MG_LEVEL1_ATOL_]);
     printf("host_argv[_MG_LEVEL2_ATOL_]                  :%e\n", host_argv[_MG_LEVEL2_ATOL_]);
     printf("host_argv[_MG_LEVEL3_ATOL_]                  :%e\n", host_argv[_MG_LEVEL3_ATOL_]);

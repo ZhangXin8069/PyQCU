@@ -70,7 +70,8 @@ python/
 Parameters are passed from Python as flat arrays. Index constants in `include/define.h` must stay in sync with `pyqcu/cuda/define.py`:
 
 - **`params`** (CPU int32[58]): lattice dims, grid sizes, data types, iteration counts, plan selection, MG level configs and controls. Slots 54–57 are `_MG_USE_GCR_`, `_MG_USE_DEFLATE_`, `_MG_MU_PRE_`, and `_MG_USE_INIT_GUESS_`; slot 57 is the 0/1 warm-start flag and the ABI remains length 58.
-- **`argv`** (real[7]): mass, atol, sigma, MG tolerances；c64 为 float32，c128 为 float64
+- **`argv`** (real[8]): mass, atol, sigma, MG tolerances, csw；c64 为 float32，
+  c128 为 float64。csw 位于槽 7，Clover 系数为 `-kappa*csw/8`。
 - **`set_ptrs`** (CPU int64[100]): LatticeSet/scratch pointers. Per strict transition `t`, slots `60+4*t+0..3` are blocked `V`, optional raw `Y`, `Yhat`, and onsite pair `(X,X^-1)`; slot `80` is the persistent hierarchy handle.
 
 `_SET_PLAN_` (params[16]) selects the kernel plan:
@@ -136,7 +137,7 @@ MPI stage 1 provides c64/c128 global complex dot/norm reduction (`global_reducti
 
 For memory work, distinguish requested live bytes from allocator reservation. Account separately for the persistent recursive hierarchy/V-cycle arena, packed assets, blocked transfers, and the exact fused C++ workspace above; Python outer-Krylov and coarse-I/O resident bytes are zero. Galerkin setup batching uses a conservative four-full-field peak model. The library default setup cap is `512 MiB`; the formal `16×32×32×48` profile is independent of that default and selects colored `C=12` under `4 GiB` for c64, or `C=1` under `1 GiB` for c128. The outer fused cap is a separate `max_krylov_bytes`: solver API default `512 MiB`, formal c64 `512 MiB`, formal c128 `1 GiB`. With `strict_galerkin_mode="auto"`, select site-batch only when its modeled workspace fits and its operator-call count is no greater than colored; record requested/effective mode, `C`, projection batch `K`, cap and setup stats, and let formal validation reject any silent batch shrink. Bind packed assets before calling `seal_cuda_runtime(runtime_assets_bound=True)` to detach native setup duplicates, then add `LatticeSet` scratch/device halo, pinned host halo, Gauge/Clover inputs and CUDA/cuBLAS high-water state. Formal records require memory schema version 2 and the device-wide field `device_used_max_observed_bytes`; the independent `cudaMemGetInfo` probe is untimed, while `setup_seconds` excludes sampler stop. Query `nvidia-smi` by the target GPU UUID and report only `max_observed`, not a guaranteed peak. Verify no live growth over repeated warm solves and that close returns owned live storage to baseline; `empty_cache()` is not evidence of leak freedom.
 
-Strict lifecycle is fixed: `hierarchy.setup()` → construct `CudaSchurOp` (its constructor calls `applyInitQcu`) → bind runtime assets → `applyMultigridStrictInitQcu` → repeated strict V-cycle/FGMRES → `applyMultigridStrictEndQcu` → `CudaSchurOp.release()` (its `applyEndQcu`). Keep the per-instance `_SET_INDEX_` unchanged across all Strict calls; the legacy increment rule applies only to the ordinary `applyInitQcu`/`applyEndQcu` operation sequence.
+Strict lifecycle is fixed: `hierarchy.setup()` → construct `CudaSchurOp` (its constructor calls `applyInitQcu`) → bind runtime assets → `applyMultigridStrictInitQcu` → repeated strict V-cycle/FGMRES → `applyMultigridStrictEndQcu` → `CudaSchurOp.release()` (its `applyEndQcu`). Keep the per-instance `_SET_INDEX_` unchanged across all Strict calls. Ordinary transactions use `applyInitQcu → operation → applyEndQcu → _SET_INDEX_ += 1`.
 
 ## Clover Multigrid Stream Architecture (5 streams)
 

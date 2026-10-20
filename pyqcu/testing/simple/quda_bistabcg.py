@@ -7,6 +7,7 @@ import argparse
 import contextlib
 import io
 import json
+import math
 import re
 import sys
 import time
@@ -16,17 +17,19 @@ from typing import Any
 import numpy as np
 
 try:
-    from ._common import (DEFAULT_ATOL, DEFAULT_CSW, DEFAULT_MASS,
-                          DATA_DIR, cuda_memory_snapshot, lime_metadata, qcu_gauge_to_qdp,
-                          qcu_fermion_to_qdp, qdp_fermion_to_qcu, read_h5,
-                          read_qdp_gauge, resolve_path,
-                          write_h5, write_json)
+    from ._common import (DEFAULT_ATOL, DEFAULT_MASS,
+                          DATA_DIR, convergence_status, cuda_memory_snapshot,
+                          lime_metadata, qcu_gauge_to_qdp, qcu_fermion_to_qdp,
+                          qdp_fermion_to_qcu, read_h5, read_h5_metadata,
+                          read_qdp_gauge, resolve_csw, resolve_path, write_h5,
+                          write_json)
 except ImportError:
-    from _common import (DATA_DIR, DEFAULT_ATOL, DEFAULT_CSW, DEFAULT_MASS,
-                         cuda_memory_snapshot, lime_metadata, qcu_gauge_to_qdp,
-                         qcu_fermion_to_qdp, qdp_fermion_to_qcu, read_h5,
-                         read_qdp_gauge, resolve_path,
-                         write_h5, write_json)
+    from _common import (DATA_DIR, DEFAULT_ATOL, DEFAULT_MASS,
+                         convergence_status, cuda_memory_snapshot, lime_metadata,
+                         qcu_gauge_to_qdp, qcu_fermion_to_qdp,
+                         qdp_fermion_to_qcu, read_h5, read_h5_metadata,
+                         read_qdp_gauge, resolve_csw, resolve_path, write_h5,
+                         write_json)
 
 if str(Path(__file__).resolve().parents[3]) not in sys.path:
     sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
@@ -118,20 +121,21 @@ def _identity_qdp(lat):
 
 def _load_gauge(args):
     if args.gauge is None:
-        return _identity_qdp(tuple(args.lat)), DEFAULT_CSW, {}
+        return _identity_qdp(tuple(args.lat)), resolve_csw(args.csw), {}
     path = resolve_path(args.gauge, resolve_path(None, args.gauge))
     if path.suffix == ".lime":
         meta = lime_metadata(path)
         return (read_qdp_gauge(path),
-                args.csw if args.csw is not None else meta.get("csw", DEFAULT_CSW),
+                resolve_csw(args.csw, meta),
                 meta)
     if path.suffix in (".h5", ".hdf5"):
         canonical = read_h5(path)
+        meta = read_h5_metadata(path)
         return (qcu_gauge_to_qdp(canonical),
-                args.csw if args.csw is not None else DEFAULT_CSW, {})
+                resolve_csw(args.csw, meta), meta)
     array = np.load(path, allow_pickle=False)
     if array.ndim == 7 and array.shape[0] == 4 and array.shape[-2:] == (3, 3):
-        return array, (args.csw if args.csw is not None else DEFAULT_CSW), {}
+        return array, resolve_csw(args.csw), {}
     raise ValueError("--gauge must be .lime, QDP .npy, or QCU .h5")
 
 
@@ -148,6 +152,8 @@ def _load_source(args, lat):
 def make_dirac(info, mass, tol, max_iter, csw, multigrid=None):
     from pyquda_utils import core
 
+    if math.isclose(float(csw), 0.0, rel_tol=0.0, abs_tol=1.0e-15):
+        return core.getWilson(info, mass, tol, max_iter, multigrid=multigrid)
     kwargs = {"clover_csw_t": csw}
     if multigrid is not None:
         kwargs["multigrid"] = multigrid
@@ -173,7 +179,8 @@ def _solve_case_old(args, multigrid=None, nvec=None):
     qdp_gauge, csw, gauge_meta = _load_gauge(args)
     canonical_source, _ = _load_source(args, lat)
     mass = (float(args.mass) if args.mass is not None
-            else float(gauge_meta.get("reference_mass", DEFAULT_MASS)))
+            else float(gauge_meta.get(
+                "reference_mass", gauge_meta.get("mass", DEFAULT_MASS))))
     gauge_data = cb2(qdp_gauge.astype(np.complex128), [1, 2, 3, 4])
     gauge = LatticeGauge(list(lat), cp.asarray(gauge_data))
     source = LatticeFermion(list(lat), cp.asarray(qcu_fermion_to_qdp(canonical_source)))
@@ -181,9 +188,13 @@ def _solve_case_old(args, multigrid=None, nvec=None):
     if multigrid is not None:
         old_multigrid = [list(block) for block in multigrid]
         old_multigrid.append([2 * value for value in old_multigrid[-1]])
-    dirac = core.getDslash(list(lat), mass, args.tol, args.max_iter,
-                           clover_coeff_t=csw, anti_periodic_t=False,
-                           multigrid=old_multigrid)
+    if math.isclose(float(csw), 0.0, rel_tol=0.0, abs_tol=1.0e-15):
+        dirac = core.getWilson(
+            list(lat), mass, args.tol, args.max_iter, multigrid=old_multigrid)
+    else:
+        dirac = core.getDslash(
+            list(lat), mass, args.tol, args.max_iter, clover_coeff_t=csw,
+            anti_periodic_t=False, multigrid=old_multigrid)
     if multigrid is None:
         dirac.invert_param.inv_type = QudaInverterType.QUDA_BICGSTAB_INVERTER
     nvec_applied = False
@@ -256,7 +267,8 @@ def solve_case(args, multigrid=None, nvec=None):
         info = core.LatticeInfo(list(lat))
     qdp_gauge, csw, gauge_meta = _load_gauge(args)
     mass = (float(args.mass) if args.mass is not None
-            else float(gauge_meta.get("reference_mass", DEFAULT_MASS)))
+            else float(gauge_meta.get(
+                "reference_mass", gauge_meta.get("mass", DEFAULT_MASS))))
     canonical_source, qdp_source_full = _load_source(args, lat)
     gauge = LatticeGauge(
         info, 4,
@@ -311,7 +323,7 @@ def solve_case(args, multigrid=None, nvec=None):
         if args.output:
             output = resolve_path(args.output, resolve_path(None, args.output))
             write_h5(output, solution_qcu, metadata={
-                "backend": "quda", "mass": args.mass, "csw": csw,
+                "backend": "quda", "mass": mass, "csw": csw,
                 "layout": "[spin,color,x,y,z,t]",
             })
         return solution_qcu, csw, canonical_source, metrics
@@ -328,7 +340,8 @@ def solve_case(args, multigrid=None, nvec=None):
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--lat", nargs=4, type=int, default=(8, 8, 16, 16))
-    parser.add_argument("--mass", type=float, default=None)
+    parser.add_argument("--mass", type=float, default=None,
+                        help="quark mass; defaults to LIME Mass or 0.05")
     parser.add_argument("--tol", type=float, default=DEFAULT_ATOL)
     parser.add_argument("--max-iter", type=int, default=1000)
     parser.add_argument("--csw", type=float, default=None)
@@ -342,15 +355,20 @@ def main(argv=None) -> int:
         print(json.dumps({"status": "SKIP", "reason": "PyQUDA/CUDA unavailable"}))
         return 0
     solution, csw, _, metrics = solve_case(args)
+    converged, status, residual_acceptance = convergence_status(
+        float(metrics.get("true_residual", math.nan)), args.tol,
+        dtype=np.complex128)
     report = {
         "backend": "quda", "solver": "Dirac.invert",
         "lattice": list(args.lat), "csw": csw,
-        "solution_shape": list(solution.shape), "status": "PASS", **metrics,
+        "solution_shape": list(solution.shape),
+        "residual_acceptance": residual_acceptance,
+        "converged": converged, "status": status, **metrics,
     }
     report_path = resolve_path(args.report, DATA_DIR / args.report)
     write_json(report_path, report)
     print(json.dumps(report, ensure_ascii=False))
-    return 0
+    return 0 if status == "PASS" else 1
 
 
 if __name__ == "__main__":

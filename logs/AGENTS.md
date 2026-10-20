@@ -31,7 +31,6 @@
 - 关键内容: 删除 8 个远程历史大文件路径、重写并强制同步 2 个分支和 275 个标签，完成本地与远端可达历史验证。
 - 验证: path, size, required sections, conflict markers
 - 批次状态: complete
-
 ### 2026-10-20-tag-dev96 - final - 2026-10-20 01:01:47 +0800
 - 主任务: 创建本地 dev96 附注标签
 - 日志文件: logs/v2026102001.txt
@@ -65,3 +64,11 @@
 git show dev73:logs/dev73/review-2026-07-28.md
 git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 ```
+## dev98-csw-kupl-final - final - 2026-10-20 05:22:40 +0800
+- 主任务: PyQCU Csw、QcuRuntime/simple 与独立 KUPL MPI+OpenMP 后端
+- 日志文件: logs/v2026-10-20-05.txt
+- 文件大小: 8205 bytes
+- 触发原因: 任务完成
+- 关键内容: Csw/接口/简单示例完成；KUPL 24/37 实现，高级入口 fail closed；验证与外部 QUDA 阻塞如实记录
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete

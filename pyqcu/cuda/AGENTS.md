@@ -12,6 +12,7 @@ C++ CUDA 后端（`libqcu.so`）的 Cython 桥包。
 | `qcu/qcu_api.pxd` | pxd 别名声明（`from qcu_api cimport X as _c_X`）— pxd 声明名不得与 pyx 内 def 同名，否则被覆盖为 Python 函数 |
 | `qcu/qcu.pyi` | 类型 stub（155 行）— 完整类型注解、docstring、默认值 |
 | `define.py` | 参数常量（`_LAT_X_`、`_SET_PLAN_` 等）与 dtype 转换工具（`dtype()`、`epytd()`） |
+| `_runtime.py` | `QcuRuntime` — 私有控制数组、空闲槽位选择、异常安全 init/end 与 getter 保留上下文 |
 | `_schur_op.py` | `CudaSchurOp` — C++ Schur 奇偶算子封装（每实例独立 params/set_ptrs 副本 + 槽位分配器，多线程安全） |
 | `_multi_gpu.py` | `MultiGpuMultigrid` — 多线程多卡 C++ Clover MG 驱动（一线程一卡，单 MPI rank），`build_schur_levels`（33-tensor 粗算子 + h5py 缓存） |
 | `_logs.py` | C++ 后端收敛日志解析（2026-08-22 整合）：`parse_mg_log(path)` → (残差列表, PROF_SECTIONS ms 字典, 总迭代数)；`parse_convergence_histories(path, offset)` → (histories, 新偏移) 增量收集逐次求解的 CONVERGENCE_HISTORY；默认路径 `<repo>/logs/clover_multigrid.log` |
@@ -21,6 +22,7 @@ C++ CUDA 后端（`libqcu.so`）的 Cython 桥包。
 ```python
 from pyqcu.cuda import qcu      # Cython 桥到 libqcu.so
 from pyqcu.cuda import define   # 参数常量、dtype 工具、预构建 params/argv/set_ptrs
+from pyqcu.cuda import QcuRuntime  # 简化后的生命周期安全调用入口
 ```
 
 ## Cython 扩展暴露的 C 函数
@@ -46,18 +48,25 @@ from pyqcu.cuda import define   # 参数常量、dtype 工具、预构建 params
 ## 参数协议
 
 - **`params`**（int32, 54）— 格点维度（`_LAT_X_`…`_LAT_XYZT_`）、网格大小（`_GRID_X_`…）、数据类型（`_DATA_TYPE_`）、迭代次数（`_MAX_ITER_`）、计划选择（`_SET_PLAN_`）、verbosity（`_VERBOSE_`）、奇偶（`_PARITY_`）、MG 层级配置（`_MG_LEVEL1_X_`…、`_MG_NUM_LEVEL_`）
-- **`argv`**（float, 7）— `_MASS_`(0)、`_ATOL_`(1)、`_SIGMA_`(2)、各层 MG 容差(3–6)
+- **`argv`**（float, 8）— `_MASS_`(0)、`_ATOL_`(1)、`_SIGMA_`(2)、各层 MG 容差(3–6)、
+  `_CSW_`(7)。Clover onsite 项使用 `-kappa*csw/8`；`csw=0` 是合法的纯 Wilson 请求。
 - **`set_ptrs`**（int64, 100）— C++ 运行时管理的 scratch 指针
 
 `define.py` 索引常量**必须**与 `cpp/cuda/qcu/include/define.h` 同步。
 
 `define.py` 还提供预构建张量 `params`、`argv`、`set_ptrs`，由求解器代码就地修改。
+新代码优先使用 `define.make_argv(...)` 与 `QcuRuntime`，避免漏写 `_CSW_` 或泄漏
+`applyInitQcu/applyEndQcu` 生命周期。
 
 ## 关键：`_SET_INDEX_` 递增
 
-同一 `applyInitQcu`/`applyEndQcu` 生命周期内，连续 C++ 调用之间**必须** `params[define._SET_INDEX_] += 1`。否则 scratch 缓冲复用冲突导致结果错误。
+普通单操作事务必须为 `applyInitQcu → 操作 → applyEndQcu → params[_SET_INDEX_] += 1`。
+`applyEndQcu` 按当前索引释放，不能先递增再 end；否则会释放空槽并泄漏刚创建的
+`LatticeSet`。新代码使用 `QcuRuntime.call/operation()` 自动处理。Strict 多调用
+生命周期使用固定私有槽位并在期间保持索引不变。
 
-例外：粗网格 dslash 将 `_SET_INDEX_` 重置为 0（不同 MG 层，与细层操作无重叠）。
+`set_ptrs[0:30]` 是普通 scratch，`30+` 保留给 coarse stencil；`QcuRuntime`
+只在前 30 槽循环，不能把 coarse 指针误当空闲槽覆盖。
 
 ## dtype 映射
 
@@ -73,8 +82,9 @@ from pyqcu.cuda import define   # 参数常量、dtype 工具、预构建 params
 
 ```python
 qcu.applyInitQcu(set_ptrs, params, argv)          # 分配
-# ... 操作，调用间 _SET_INDEX_ += 1 ...
+# ... 在同一当前槽位上执行操作/getter ...
 qcu.applyEndQcu(set_ptrs, params)                  # 释放
+params[_SET_INDEX_] += 1                           # end 之后再换槽
 ```
 
 ## 多线程（一线程一卡）约定

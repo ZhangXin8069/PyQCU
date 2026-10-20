@@ -6,6 +6,7 @@
 |---|---|---|
 | `examples/pyqcu/` | `pyqcu/testing/python/` | 纯 Python 主测试 |
 | `examples/qcu/` | `pyqcu/testing/qcu/` | CUDA/C++/Cython 后端 |
+| CPU KUPL backend | `pyqcu/testing/kupl/` | 独立 MPI+OpenMP CPU 后端 ABI/参考差分 |
 | `examples/quda/` | `pyqcu/testing/quda/` | QUDA 单功能对照 |
 | `examples/pyquda/` | `pyqcu/testing/pyquda/` | PyQUDA 对照 |
 | `examples/{cpu,npu,dcu,gpu}/` | `pyqcu/testing/{cpu,npu,dcu,gpu}/` | 后端专项 |
@@ -17,6 +18,7 @@
 ```bash
 source ./env.sh
 python pyqcu/testing/qcu/single_qcu_api.py
+python -m pytest -q pyqcu/testing/kupl/test_kupl_python.py
 python pyqcu/testing/qcu/single_qcu_wilson_dslash.py
 pytest pyqcu/testing/quda
 cd pyqcu/testing && pytest .

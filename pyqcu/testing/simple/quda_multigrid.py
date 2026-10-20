@@ -5,16 +5,21 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 from pathlib import Path
 
+import numpy as np
+
 try:
     from ._common import (DATA_DIR, DEFAULT_ATOL, DEFAULT_BLOCK, DEFAULT_MASS,
-                          DEFAULT_NVEC, resolve_path, write_json)
+                          DEFAULT_NVEC, convergence_status, resolve_path,
+                          write_json)
     from .quda_bistabcg import pyquda_available, solve_case
 except ImportError:
     from _common import (DATA_DIR, DEFAULT_ATOL, DEFAULT_BLOCK, DEFAULT_MASS,
-                         DEFAULT_NVEC, resolve_path, write_json)
+                         DEFAULT_NVEC, convergence_status, resolve_path,
+                         write_json)
     from quda_bistabcg import pyquda_available, solve_case
 
 if str(Path(__file__).resolve().parents[3]) not in sys.path:
@@ -47,6 +52,9 @@ def main(argv=None) -> int:
     transitions = [list(args.block) for _ in range(args.levels - 1)]
     solution, csw, _, metrics = solve_case(args, multigrid=transitions, nvec=args.nvec)
     nvec_applied = bool(metrics.get("nvec_applied", True))
+    converged, status, residual_acceptance = convergence_status(
+        float(metrics.get("true_residual", math.nan)), args.tol,
+        dtype=np.complex128)
 
     # n_vec and other QudaMultigridParam array getters return copies; the
     # worker above receives the geometry, while this snapshot records the
@@ -58,12 +66,14 @@ def main(argv=None) -> int:
         "n_vec_requested": args.nvec, "block": list(args.block),
         "coarse_spin": 2,
         "coarse_color": args.nvec * 2 if nvec_applied else None,
-        "solution_shape": list(solution.shape), "status": "PASS", **metrics,
+        "solution_shape": list(solution.shape),
+        "residual_acceptance": residual_acceptance,
+        "converged": converged, "status": status, **metrics,
     }
     report_path = resolve_path(args.report, DATA_DIR / args.report)
     write_json(report_path, report)
     print(json.dumps(report, ensure_ascii=False))
-    return 0
+    return 0 if status == "PASS" else 1
 
 
 if __name__ == "__main__":

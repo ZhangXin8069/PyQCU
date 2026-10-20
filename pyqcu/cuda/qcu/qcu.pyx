@@ -1,7 +1,9 @@
 from qcu_api cimport applyInitQcu as _c_applyInitQcu, applyEndQcu as _c_applyEndQcu, testWilsonDslashQcu as _c_testWilsonDslashQcu, applyWilsonDslashQcu as _c_applyWilsonDslashQcu, testCloverDslashQcu as _c_testCloverDslashQcu, applyCloverDslashQcu as _c_applyCloverDslashQcu, applyWilsonBistabCgQcu as _c_applyWilsonBistabCgQcu, applyWilsonBistabCgDslashQcu as _c_applyWilsonBistabCgDslashQcu, applyWilsonCgQcu as _c_applyWilsonCgQcu, applyWilsonCgDslashQcu as _c_applyWilsonCgDslashQcu, applyLaplacianQcu as _c_applyLaplacianQcu, applyCloverQcu as _c_applyCloverQcu, applyCloversQcu as _c_applyCloversQcu, applyDslashQcu as _c_applyDslashQcu, applyGaussGaugeQcu as _c_applyGaussGaugeQcu, applyCloverBistabCgQcu as _c_applyCloverBistabCgQcu, getCloverBistabCgIterationsQcu as _c_getCloverBistabCgIterationsQcu, applyCloverBistabCgDslashQcu as _c_applyCloverBistabCgDslashQcu, applyMultigridRestrictQcu as _c_applyMultigridRestrictQcu, applyMultigridProLongQcu as _c_applyMultigridProLongQcu, applyMultigridCoarseDslashQcu as _c_applyMultigridCoarseDslashQcu, applyMultigridCoarseDslashWideQcu as _c_applyMultigridCoarseDslashWideQcu, applyCloverMultigridQcu as _c_applyCloverMultigridQcu, verifyCloverMultigridQcu as _c_verifyCloverMultigridQcu
 from qcu_api cimport applyMultigridStrictCoarseQcu as _c_applyMultigridStrictCoarseQcu, applyMultigridStrictMatPCQcu as _c_applyMultigridStrictMatPCQcu, applyMultigridStrictFineMatPCQcu as _c_applyMultigridStrictFineMatPCQcu, applyMultigridStrictPrepareQcu as _c_applyMultigridStrictPrepareQcu, applyMultigridStrictReconstructQcu as _c_applyMultigridStrictReconstructQcu, applyMultigridStrictRestrictQcu as _c_applyMultigridStrictRestrictQcu, applyMultigridStrictProLongQcu as _c_applyMultigridStrictProLongQcu, applyMultigridStrictVCycleQcu as _c_applyMultigridStrictVCycleQcu, applyMultigridStrictInitQcu as _c_applyMultigridStrictInitQcu, applyMultigridStrictEndQcu as _c_applyMultigridStrictEndQcu, applyMultigridStrictFgmresQcu as _c_applyMultigridStrictFgmresQcu
 from qcu_api cimport applyCloverBistabCgPrepareQcu as _c_applyCloverBistabCgPrepareQcu, applyCloverBistabCgReconstructQcu as _c_applyCloverBistabCgReconstructQcu
+import math
 import torch
+import pyqcu.cuda.define as define
 # 多线程多卡（一线程一卡）约定：
 #   * 所有桥函数在 GIL 段提取张量指针（.contiguous().data_ptr()），
 #     随后 with nogil 释放 GIL 调用 C++ 后端 —— 多线程可真正并行进入
@@ -12,9 +14,43 @@ import torch
 #     （见 pyqcu/cuda/_multi_gpu.py、pyqcu/cuda/_schur_op.py）。
 def applyInitQcu(_set_ptrs, _params, _argv):
     cdef long long set_ptrs, params, argv
-    set_ptrs = _set_ptrs.contiguous().data_ptr()
-    params = _params.contiguous().data_ptr()
-    argv = _argv.contiguous().data_ptr()
+    if _set_ptrs.numel() != define._SET_PTRS_SIZE_:
+        raise ValueError(f"set_ptrs must have {define._SET_PTRS_SIZE_} elements")
+    if _params.numel() != define._PARAMS_SIZE_:
+        raise ValueError(f"params must have {define._PARAMS_SIZE_} elements")
+    if _argv.numel() != define._ARGV_SIZE_:
+        raise ValueError(f"argv must have {define._ARGV_SIZE_} elements")
+    if _set_ptrs.dtype != torch.int64 or _params.dtype != torch.int32:
+        raise TypeError("set_ptrs must be int64 and params must be int32")
+    if (_set_ptrs.device.type != "cpu" or _params.device.type != "cpu"
+            or _argv.device.type != "cpu"):
+        raise ValueError("QCU set_ptrs, params and argv must be CPU tensors")
+    if not (_set_ptrs.is_contiguous() and _params.is_contiguous()
+            and _argv.is_contiguous()):
+        raise ValueError("QCU set_ptrs, params and argv must be contiguous")
+    cdef int data_type = int(_params[define._DATA_TYPE_].item())
+    cdef object expected_dtype
+    if data_type == define._LAT_C64_:
+        expected_dtype = torch.float32
+    elif data_type == define._LAT_C128_:
+        expected_dtype = torch.float64
+    else:
+        raise ValueError(f"unsupported QCU data type: {data_type}")
+    if _argv.dtype != expected_dtype:
+        raise TypeError(
+            f"argv dtype {_argv.dtype} does not match QCU data type {data_type}")
+    cdef double mass = float(_argv[define._MASS_].item())
+    cdef double atol = float(_argv[define._ATOL_].item())
+    cdef double csw = float(_argv[define._CSW_].item())
+    if not math.isfinite(mass) or 2.0 * mass + 8.0 == 0.0:
+        raise ValueError("mass must be finite and must not make kappa infinite")
+    if not math.isfinite(atol) or atol <= 0.0:
+        raise ValueError("atol must be finite and positive")
+    if not math.isfinite(csw):
+        raise ValueError("csw must be finite")
+    set_ptrs = _set_ptrs.data_ptr()
+    params = _params.data_ptr()
+    argv = _argv.data_ptr()
     with nogil:
         _c_applyInitQcu(set_ptrs, params, argv)
 def applyEndQcu(_set_ptrs, _params):

@@ -2737,7 +2737,7 @@ template <typename T> struct LatticeCloverMultigrid {
 
       // Per-level tolerance from argv
       int tol_idx = _MG_LEVEL1_ATOL_ + (i-1);
-      if(tol_idx < _ARGV_SIZE_) levels[i].tol = set_ptr->host_argv[tol_idx];
+      if(tol_idx <= _MG_LEVEL4_ATOL_) levels[i].tol = set_ptr->host_argv[tol_idx];
       else levels[i].tol = atol * (T)0.1; // default: 0.1 × fine tolerance
       if (!std::isfinite(levels[i].tol)) {
         throw std::invalid_argument(

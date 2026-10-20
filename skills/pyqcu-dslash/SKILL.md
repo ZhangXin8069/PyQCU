@@ -34,7 +34,7 @@ The eo/oe variants use `ward_p_keys` (x, y, z, t_p) — the `t_p` direction hand
 
 | Function | Purpose |
 |----------|---------|
-| `make_clover(U, kappa, u_0, support_parallel, verbose)` | Build clover term from four-plaquette F_{μν} construction with 12 shifted gauge links per μν pair. Returns `[4,3,4,3,Lx,Ly,Lz,Lt]`. |
+| `make_clover(U, kappa, u_0, support_parallel, verbose, csw=1.0)` | Build clover term from four-plaquette F_{μν} construction with 12 shifted gauge links per μν pair. Returns `[4,3,4,3,Lx,Ly,Lz,Lt]`; `csw` follows the PyQUDA/QUDA convention. |
 | `add_I(clover_term, verbose)` | Add identity: M = I + clover_term. Reshapes to `[12,12,N]`, adds I, reshapes back. |
 | `cut_I(clover_term, verbose)` | Remove identity: M = clover_term − I |
 | `inverse(clover_term, verbose)` | Batched 12×12 matrix inversion via `torch.linalg.inv` (NOT per-site loop!) |
@@ -42,7 +42,9 @@ The eo/oe variants use `ward_p_keys` (x, y, z, t_p) — the `t_p` direction hand
 | `give_clover_ee(src_e, clover_e)` | Even-even clover application (delegates to `give_clover`) |
 | `give_clover_oo(src_o, clover_o)` | Odd-odd clover application (delegates to `give_clover`) |
 
-**Clover coefficient note:** Uses `_clover_factor = −0.125 · κ/u_0`. Standard convention with c_sw=1 gives −κ/(16·u_0). The factor of 2 may be due to the anti-hermitian part convention. Cross-validate against QUDA/Chroma before changing.
+**Clover coefficient:** Uses `_clover_factor = −0.125 · c_sw · κ/u_0`.
+The default `c_sw=1` matches the existing QUDA differential anchor; `c_sw=0`
+is a valid pure-Wilson request and must not be used as a sentinel.
 
 When `support_parallel=True`, `make_clover` performs MPI halo exchange for all 4 corners and edges of each μν plaquette (head, tail, head-tail, head-head, tail-tail).
 

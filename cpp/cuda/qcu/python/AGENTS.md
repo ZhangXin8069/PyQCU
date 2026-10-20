@@ -12,7 +12,7 @@ Python 面向的 C API 声明。C++ CUDA 后端与 Python Cython 桥的接口边
 
 所有函数接收三个参数数组：
 - `set_ptrs` (int64[100])：C++ 运行时管理的 scratch 缓冲指针
-- `params` (int32[54])：格点维度、网格大小、数据类型、迭代次数、计划选择
-- `argv` (float64[7])：mass、atol、sigma、MG 容差
+- `params` (int32[58])：格点维度、网格大小、数据类型、迭代次数、计划选择
+- `argv` (float64[8])：mass、atol、sigma、MG 容差、csw
 
 C++→Python 数据指针从 `tensor.contiguous().data_ptr()` 转为 `long long`。
