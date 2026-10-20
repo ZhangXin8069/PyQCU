@@ -79,7 +79,8 @@ def build_coarse_assets(gauge: np.ndarray, lattice: tuple[int, int, int, int],
                         dtype: np.dtype, levels: int, dof: list[int],
                         mg_grid: list[int], nv_iters: int, seed: int,
                         verbose: bool = False, local_stencil: bool = False,
-                        local_stencil_batch_size: int = 4):
+                        local_stencil_batch_size: int = 4,
+                        device_name: str = "cpu"):
     try:
         import torch
         from pyqcu import dslash, solver, tools
@@ -91,13 +92,15 @@ def build_coarse_assets(gauge: np.ndarray, lattice: tuple[int, int, int, int],
         torch.complex128
     real_dtype = torch.float32 if dtype == np.dtype(np.complex64) else \
         torch.float64
-    device = torch.device("cpu")
-    gauge_tensor = torch.from_numpy(np.ascontiguousarray(gauge))
+    device = torch.device(device_name)
+    gauge_tensor = torch.from_numpy(np.ascontiguousarray(gauge)).to(device)
     kappa_tensor = torch.tensor([kappa], dtype=real_dtype, device=device)
-    clover = dslash.make_clover(gauge_tensor, kappa=kappa_tensor, csw=csw)
+    u0 = torch.ones(1, dtype=real_dtype, device=device)
+    clover = dslash.make_clover(
+        gauge_tensor, kappa=kappa_tensor, u_0=u0, csw=csw)
     fine_operator = dslash.operator(
         U=gauge_tensor, clover_term=clover, kappa=kappa_tensor,
-        u_0=torch.ones(1, dtype=real_dtype, device=device),
+        u_0=u0,
         support_parity=False, verbose=False)
 
     def matvec(vector):
@@ -160,6 +163,17 @@ def load_coarse_assets(path: Path, dtype: np.dtype):
     return values["lonv"], values["hnn"], values["hdg"], values["sit"]
 
 
+def write_coarse_assets(path: Path, null_vectors, hop_nn, hop_diag, sitting):
+    import h5py
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with h5py.File(path, "w") as handle:
+        for name, value in (
+                ("lonv", null_vectors), ("hnn", hop_nn),
+                ("hdg", hop_diag), ("sit", sitting)):
+            handle.create_dataset(name, data=np.asarray(value))
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--lat", nargs=4, type=int, default=(4, 4, 4, 4))
@@ -177,6 +191,8 @@ def main(argv=None) -> int:
     parser.add_argument("--nv-iters", type=int, default=2)
     parser.add_argument("--coarse-cache", type=Path, default=None,
                         help="load lonv/hnn/hdg/sit instead of rebuilding setup")
+    parser.add_argument("--write-coarse-cache", type=Path, default=None)
+    parser.add_argument("--build-device", choices=("cpu", "cuda"), default="cpu")
     parser.add_argument("--no-deflate", action="store_true")
     parser.add_argument("--verbose", action="store_true")
     parser.add_argument("--verbose-build", action="store_true")
@@ -247,7 +263,8 @@ def main(argv=None) -> int:
                 list(args.dof), list(args.mg_grid), args.nv_iters,
                 args.seed, verbose=args.verbose or args.verbose_build,
                 local_stencil=args.local_stencil,
-                local_stencil_batch_size=args.local_stencil_batch)
+                local_stencil_batch_size=args.local_stencil_batch,
+                device_name=args.build_device)
         if int(null_vectors[0].shape[0]) != int(args.dof[1]):
             raise ValueError(
                 f"coarse cache E={null_vectors[0].shape[0]} does not match "
@@ -258,6 +275,13 @@ def main(argv=None) -> int:
                      not args.no_deflate, list(null_vectors), list(hop_nn),
                      list(hop_diag), list(sitting))
         builder_seconds = time.perf_counter() - started
+        if args.write_coarse_cache is not None:
+            cache_output = resolve_path(
+                args.write_coarse_cache,
+                Path(args.write_coarse_cache).expanduser())
+            write_coarse_assets(
+                cache_output, null_vectors[0], hop_nn[0], hop_diag[0],
+                sitting[0])
 
     verify_status = None
     qcu.applyInitQcu(wrapped["set_ptrs"], wrapped["params"], wrapped["argv"])
