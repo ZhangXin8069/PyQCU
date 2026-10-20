@@ -193,7 +193,8 @@ def main(argv=None) -> int:
     report = {
         "backend": "qcu", "solver": "applyCloverBistabCgQcu",
         "lattice": list(args.lat), "mass": mass, "mass_source": mass_source,
-        "kappa": kappa_value, "csw": csw, "gauge_csw": gauge_csw,
+        "kappa": kappa_value, "mass_normalization": "kappa",
+        "csw": csw, "gauge_csw": gauge_csw,
         "reference_mass": reference_mass, "comparison_valid": comparison_valid,
         "warnings": warnings, "iterations": iterations, "wall_seconds": wall_seconds,
         "seconds_per_iteration": wall_seconds / iterations if iterations > 0 else None,

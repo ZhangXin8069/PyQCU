@@ -18,18 +18,18 @@ import numpy as np
 
 try:
     from ._common import (DEFAULT_ATOL, DEFAULT_MASS,
-                          DATA_DIR, convergence_status, cuda_memory_snapshot,
-                          lime_metadata, qcu_gauge_to_qdp, qcu_fermion_to_qdp,
-                          qdp_fermion_to_qcu, read_h5, read_h5_metadata,
-                          read_qdp_gauge, resolve_csw, resolve_path, write_h5,
-                          write_json)
+                          DATA_DIR, configure_quda_runtime, convergence_status,
+                          cuda_memory_snapshot, lime_metadata, qcu_gauge_to_qdp,
+                          qcu_fermion_to_qdp, qdp_fermion_to_qcu, read_h5,
+                          read_h5_metadata, read_qdp_gauge, resolve_csw,
+                          resolve_path, write_h5, write_json)
 except ImportError:
     from _common import (DATA_DIR, DEFAULT_ATOL, DEFAULT_MASS,
-                         convergence_status, cuda_memory_snapshot, lime_metadata,
-                         qcu_gauge_to_qdp, qcu_fermion_to_qdp,
-                         qdp_fermion_to_qcu, read_h5, read_h5_metadata,
-                         read_qdp_gauge, resolve_csw, resolve_path, write_h5,
-                         write_json)
+                         configure_quda_runtime, convergence_status,
+                         cuda_memory_snapshot, lime_metadata, qcu_gauge_to_qdp,
+                         qcu_fermion_to_qdp, qdp_fermion_to_qcu, read_h5,
+                         read_h5_metadata, read_qdp_gauge, resolve_csw,
+                         resolve_path, write_h5, write_json)
 
 if str(Path(__file__).resolve().parents[3]) not in sys.path:
     sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
@@ -40,6 +40,7 @@ def pyquda_available() -> bool:
 
 
 def _pyquda_api() -> str | None:
+    configure_quda_runtime(preload=True)
     try:
         import torch
         with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
@@ -168,10 +169,11 @@ def make_dirac(info, mass, tol, max_iter, csw, multigrid=None):
 def _solve_case_old(args, multigrid=None, nvec=None):
     """PyQuda 0.3.x compatibility path (cupy + pyquda.core)."""
     import cupy as cp
+    configure_quda_runtime(preload=True)
     with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
         import pyquda
         import pyquda.core as core
-        from pyquda.enum_quda import QudaInverterType
+        from pyquda.enum_quda import QudaInverterType, QudaMassNormalization
         from pyquda.field import LatticeFermion, LatticeGauge, cb2
 
     lat = tuple(args.lat)
@@ -195,6 +197,8 @@ def _solve_case_old(args, multigrid=None, nvec=None):
         dirac = core.getDslash(
             list(lat), mass, args.tol, args.max_iter, clover_coeff_t=csw,
             anti_periodic_t=False, multigrid=old_multigrid)
+    dirac.invert_param.mass_normalization = (
+        QudaMassNormalization.QUDA_KAPPA_NORMALIZATION)
     if multigrid is None:
         dirac.invert_param.inv_type = QudaInverterType.QUDA_BICGSTAB_INVERTER
     nvec_applied = False
@@ -222,6 +226,7 @@ def _solve_case_old(args, multigrid=None, nvec=None):
             "nvec_note": ("old PyQuda API uses its library multigrid defaults"
                           if multigrid is not None and not nvec_applied else None),
             "mass": mass,
+            "mass_normalization": "kappa",
             "iterations": iterations,
             "wall_seconds": wall_seconds,
             "solver_seconds": float(_scalar(getattr(invert, "secs", 0.0), 0.0)),
@@ -252,9 +257,11 @@ def _solve_case_old(args, multigrid=None, nvec=None):
 def solve_case(args, multigrid=None, nvec=None):
     if _pyquda_api() == "pyquda":
         return _solve_case_old(args, multigrid=multigrid, nvec=nvec)
+    configure_quda_runtime(preload=True)
     import torch
     import pyquda
     import pyquda_utils.core as core
+    from pyquda.enum_quda import QudaMassNormalization
     from pyquda.field import LatticeFermion, LatticeGauge
 
     lat = tuple(args.lat)
@@ -278,6 +285,13 @@ def solve_case(args, multigrid=None, nvec=None):
         torch.from_numpy(info.evenodd(qdp_source_full.astype(np.complex128), False)).to("cuda"))
     dirac = make_dirac(info, mass, args.tol, args.max_iter, csw, multigrid)
     try:
+        dirac.invert_param.mass_normalization = (
+            QudaMassNormalization.QUDA_KAPPA_NORMALIZATION)
+        mg_inv_param = getattr(
+            getattr(dirac, "multigrid", None), "inv_param", None)
+        if mg_inv_param is not None:
+            mg_inv_param.mass_normalization = (
+                QudaMassNormalization.QUDA_KAPPA_NORMALIZATION)
         nvec_applied = False
         if nvec is not None:
             mg_obj = getattr(dirac, "multigrid", None)
@@ -307,6 +321,7 @@ def solve_case(args, multigrid=None, nvec=None):
             "api": "pyquda_utils",
             "nvec_applied": nvec_applied if multigrid is not None else None,
             "mass": mass,
+            "mass_normalization": "kappa",
             "iterations": iterations,
             "wall_seconds": wall_seconds,
             "solver_seconds": solver_seconds,
