@@ -15,6 +15,8 @@ C++ CUDA 后端测试（经 Cython 桥）。从 Python 驱动 `libqcu.so`。
 | `conftest.clover.bistabcg.py` | Clover BiStabCG 求解器 |
 | `conftest.clover.bistabcg.dslash.py` | Clover BiStabCG dslash |
 | `conftest.clover.multigrid.py` | Clover multigrid V-cycle 求解器 |
+| `bench_multi_gpu.py` | 双/多卡 Clover-MG 稳态基准；可关闭参考 BiStabCG，输出逐次调用与 median |
+| `slurm_multi_gpu_smoke.sh` | Slurm 2-GPU 构建、单功能数值门、双卡一致性与真实 LIME 回归 |
 
 ## 单功能接口测试（当前维护入口）
 
@@ -55,6 +57,19 @@ C++ CUDA 后端测试（经 Cython 桥）。从 Python 驱动 `libqcu.so`。
 ```bash
 mpirun -np 1 python pyqcu/testing/qcu/conftest.clover.multigrid.py
 ```
+
+双卡 Slurm 冒烟（从仓库根目录提交）：
+
+```bash
+sbatch --gpus=2 --cpus-per-task=64 --time=01:00:00 \
+  --output=logs/slurm-%j-multi-gpu.out \
+  --error=logs/slurm-%j-multi-gpu.err \
+  pyqcu/testing/qcu/slurm_multi_gpu_smoke.sh
+```
+
+纯 MG 吞吐基准应传 `--no-reference`；一致性测试则必须保留默认的
+`run_reference=True`。缓存命中后的稳态总耗时应使用 `total_solve_median`，冷启动
+总耗时和逐线程 `mg_time` 必须分开报告。
 
 `single_qcu_*.py` 独立入口默认使用 `16 16 16 16` 格点。启动时打印脚本文档和输入参数，运行中显示分步进度及耗时，结束时输出总耗时与分项耗时；可用 `--lat X Y Z T`、`--mass M` 调整输入，`--pure-only` 只运行纯 PyTorch 参考，`--no-doc`/`--no-progress` 分别隐藏文档/进度输出。
 

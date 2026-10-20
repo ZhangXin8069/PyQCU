@@ -258,6 +258,8 @@ class MultiGpuMultigrid(object):
             线程 tid 绑定 device_ids[tid % len(device_ids)]）
         use_cache / cache_dir: 粗网格算子 h5py 缓存
         verbose: 详细输出；seed: 规范场与源场的可复现实验种子
+        run_reference: 是否在线计算 BiStabCG 参考解；一致性验证需要开启，
+            纯 MG 吞吐模式可关闭以省去一次完整求解和独立 LatticeSet 初始化
 
     方法：
         solve(): 并行求解（每线程一个完整 MG 流程），返回结果字典
@@ -269,7 +271,8 @@ class MultiGpuMultigrid(object):
                  dof_list=None, mg_grid=None, num_restart=5, coarse_max_iter=15,
                  coarse_tol_factor=1e5, nv_iters=2, nthreads=None, device_ids=None,
                  use_cache=True, cache_dir=None, verbose=True,
-                 independent_problems=False, seed=42, csw=1.0):
+                 independent_problems=False, seed=42, csw=1.0,
+                 run_reference=True):
         from mpi4py import MPI
         # C++ LatticeSet::init 用 MPI_COMM_WORLD 真实 rank 覆盖 _NODE_RANK_，
         # 多线程独立实例语义要求单 rank（多进程分布走每进程单线程实例路径）。
@@ -316,6 +319,7 @@ class MultiGpuMultigrid(object):
         self.nthreads = nthreads
         self.dt = torch.complex64
         self.independent_problems = independent_problems
+        self.run_reference = bool(run_reference)
         self.seed = int(seed)
         self._results = None
 
@@ -419,30 +423,43 @@ class MultiGpuMultigrid(object):
             set_ptrs_t[base + 1] = hnn_d.data_ptr()
             set_ptrs_t[base + 2] = hdg_d.data_ptr()
             set_ptrs_t[base + 3] = sit_d.data_ptr()
-        # 参考 BiStabCG（worker 仅需 plan1 的 2 个 LatticeSet，gauge/clover 已由主线程预生成并 D2D 拷贝）
-        params_t[define._SET_INDEX_] = 0; params_t[define._SET_PLAN_] = 1
-        params_t[define._VERBOSE_] = 0
-        qcu.applyInitQcu(set_ptrs_t, params_t, argv_t)
-        fo_ref = torch.empty_like(fi)
-        torch.cuda.synchronize(); t0 = time.perf_counter()
-        qcu.applyCloverBistabCgQcu(fo_ref, fi, g, ce, coo, cei, coi, set_ptrs_t, params_t)
-        torch.cuda.synchronize(); ref_time = time.perf_counter() - t0
-        # C++ Clover Multigrid
-        fo_mg = torch.empty_like(fi)
-        params_t[define._SET_INDEX_] = 1; params_t[define._SET_PLAN_] = 1
-        params_t[define._VERBOSE_] = 0
-        qcu.applyInitQcu(set_ptrs_t, params_t, argv_t)
-        torch.cuda.synchronize(); t0 = time.perf_counter()
-        qcu.applyCloverMultigridQcu(fo_mg, fi, g, ce, coo, cei, coi, set_ptrs_t, params_t)
-        torch.cuda.synchronize(); mg_time = time.perf_counter() - t0
-        # 释放本线程 LatticeSet（仅 0/BiStabCG 和 1/MG 两个槽位）
-        for _idx in (0, 1):
-            params_t[define._SET_INDEX_] = _idx
-            try:
+        initialized_slots = []
+        try:
+            fo_ref = None
+            ref_time = None
+            if self.run_reference:
+                params_t[define._SET_INDEX_] = 0
+                params_t[define._SET_PLAN_] = 1
+                params_t[define._VERBOSE_] = 0
+                qcu.applyInitQcu(set_ptrs_t, params_t, argv_t)
+                initialized_slots.append(0)
+                fo_ref = torch.empty_like(fi)
+                torch.cuda.synchronize()
+                t0 = time.perf_counter()
+                qcu.applyCloverBistabCgQcu(
+                    fo_ref, fi, g, ce, coo, cei, coi, set_ptrs_t, params_t)
+                torch.cuda.synchronize()
+                ref_time = time.perf_counter() - t0
+
+            mg_slot = 1 if self.run_reference else 0
+            fo_mg = torch.empty_like(fi)
+            params_t[define._SET_INDEX_] = mg_slot
+            params_t[define._SET_PLAN_] = 1
+            params_t[define._VERBOSE_] = 0
+            qcu.applyInitQcu(set_ptrs_t, params_t, argv_t)
+            initialized_slots.append(mg_slot)
+            torch.cuda.synchronize()
+            t0 = time.perf_counter()
+            qcu.applyCloverMultigridQcu(
+                fo_mg, fi, g, ce, coo, cei, coi, set_ptrs_t, params_t)
+            torch.cuda.synchronize()
+            mg_time = time.perf_counter() - t0
+        finally:
+            for slot in reversed(initialized_slots):
+                params_t[define._SET_INDEX_] = slot
                 qcu.applyEndQcu(set_ptrs_t, params_t)
-            except Exception:
-                pass
-        return {'tid': tid, 'device': dev_id, 'mg': fo_mg.cpu(), 'ref': fo_ref.cpu(),
+        return {'tid': tid, 'device': dev_id, 'mg': fo_mg.cpu(),
+                'ref': None if fo_ref is None else fo_ref.cpu(),
                 'ref_time': ref_time, 'mg_time': mg_time}
 
     def solve(self):
@@ -511,7 +528,8 @@ class MultiGpuMultigrid(object):
                        'mass': self.mass, 'atol': self.atol, 'csw': self.csw,
                        'nthreads': self.nthreads, 'device_ids': self.device_ids,
                        'num_levels': self.num_levels, 'dof_list': self.dof_list,
-                       'independent_problems': True}
+                       'independent_problems': True,
+                       'run_reference': self.run_reference}
             self._results = results
             return results
         # 主线程生成共享输入（规范场/Clover/源）与粗网格算子
@@ -597,7 +615,8 @@ class MultiGpuMultigrid(object):
         results = {'threads': threads, 'lat_size': self.lat_size,
                    'mass': self.mass, 'atol': self.atol, 'csw': self.csw,
                    'nthreads': self.nthreads, 'device_ids': self.device_ids,
-                   'num_levels': self.num_levels, 'dof_list': self.dof_list}
+                   'num_levels': self.num_levels, 'dof_list': self.dof_list,
+                   'run_reference': self.run_reference}
         self._results = results
         return results
 
