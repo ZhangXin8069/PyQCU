@@ -16,25 +16,55 @@ void LatticeSet<Real>::load_gauge_matrix(const GaugeView<Real> &source,
 template <typename Real>
 void LatticeSet<Real>::apply_onsite(const Complex<Real> *input,
                                     const Complex<Real> *matrix,
-                                    Complex<Real> *output) const {
+                                    Complex<Real> *output,
+                                    const Complex<Real> *subtract,
+                                    Real subtract_scale) const {
+  using C = Complex<Real>;
   const int64_t count = geometry_.half_sites;
-  const int64_t chunk = omp_chunk<Real>(count);
-#pragma omp parallel for schedule(static, chunk)
-  for (int64_t site = 0; site < count; ++site) {
-    Complex<Real> source[kVector];
-    Complex<Real> local[kVector];
-    gather_vector(compact_view(input, site), source);
-    for (int row = 0; row < kVector; ++row) {
-      Complex<Real> value(0);
-      for (int column = 0; column < kVector; ++column) {
-        value += matrix[static_cast<int64_t>(row * kVector + column) *
-                            geometry_.half_sites +
-                        site] *
-                 source[column];
+  constexpr int kSiteLanes = 32 / sizeof(Real);
+  const int64_t blocks = (count + kSiteLanes - 1) / kSiteLanes;
+#pragma omp parallel for schedule(static)
+  for (int64_t block = 0; block < blocks; ++block) {
+    const int64_t site = block * kSiteLanes;
+    const int lanes = static_cast<int>(
+        std::min<int64_t>(kSiteLanes, count - site));
+    C source[kVector][kSiteLanes];
+
+    // Copy the whole site block first so input and output may alias.
+    for (int column = 0; column < kVector; ++column) {
+      const int64_t base = static_cast<int64_t>(column) * count + site;
+#pragma omp simd
+      for (int lane = 0; lane < lanes; ++lane) {
+        source[column][lane] = input[base + lane];
       }
-      local[row] = value;
     }
-    scatter_vector(local, output, site);
+
+    for (int row = 0; row < kVector; ++row) {
+      Real real[kSiteLanes] = {};
+      Real imag[kSiteLanes] = {};
+      for (int column = 0; column < kVector; ++column) {
+        const int64_t base =
+            static_cast<int64_t>(row * kVector + column) * count + site;
+#pragma omp simd
+        for (int lane = 0; lane < lanes; ++lane) {
+          const C &entry = matrix[base + lane];
+          const C &vector = source[column][lane];
+          real[lane] += entry.real() * vector.real() -
+                        entry.imag() * vector.imag();
+          imag[lane] += entry.real() * vector.imag() +
+                        entry.imag() * vector.real();
+        }
+      }
+      const int64_t base = static_cast<int64_t>(row) * count + site;
+#pragma omp simd
+      for (int lane = 0; lane < lanes; ++lane) {
+        C value(real[lane], imag[lane]);
+        if (subtract != nullptr) {
+          value -= subtract_scale * subtract[base + lane];
+        }
+        output[base + lane] = value;
+      }
+    }
   }
 }
 

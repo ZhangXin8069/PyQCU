@@ -59,7 +59,7 @@ def make_identity_state(
     params[13] = 400
     params[26] = restart
     params[55] = int(deflate)
-    argv[0] = 1.0e6
+    argv[0] = 1.0e12
     argv[1] = 1.0e-6 if dtype == np.dtype(np.complex64) else 1.0e-11
     argv[3] = argv[1]
     set_ptrs = np.zeros(100, dtype=np.int64)
