@@ -5,15 +5,15 @@ from __future__ import annotations
 
 import argparse
 import math
+import sys
 from pathlib import Path
 
 import numpy as np
 from mpi4py import MPI
 
-if __package__:
-    from . import test_new_abi as reference
-else:
-    import test_new_abi as reference
+ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(ROOT / "cpp/kupl/qcu/tests"))
+import test_new_abi as reference  # noqa: E402
 
 
 def main() -> int:

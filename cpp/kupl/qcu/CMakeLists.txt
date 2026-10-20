@@ -284,7 +284,7 @@ if(KUPL_BUILD_TESTS)
         ${MPIEXEC_EXECUTABLE}
         ${MPIEXEC_NUMPROC_FLAG} 2
         ${Python3_EXECUTABLE}
-        ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_dslash_block_mpi.py
+        ${KUPL_PYTHON_TEST_DIR}/test_dslash_block_mpi.py
         --library $<TARGET_FILE:kupl_qcu>
         --lattice 4 4 8 8
         --grid 2 1 1 1
