@@ -1,4 +1,5 @@
 #include "kupl/lattice_set.h"
+#include "kupl/lattice_linalg.h"
 
 #include <array>
 #include <cmath>
@@ -19,9 +20,10 @@ Complex<Real> LatticeSet<Real>::global_dot(const Complex<Real> *left,
   const int64_t chunk = omp_chunk<Real>(count);
 #pragma omp parallel for schedule(static, chunk) reduction(+ : real_sum, imag_sum)
   for (int64_t index = 0; index < count; ++index) {
-    const Complex<Real> value = std::conj(left[index]) * right[index];
-    real_sum += value.real();
-    imag_sum += value.imag();
+    const Complex<Real> &a = left[index];
+    const Complex<Real> &b = right[index];
+    real_sum += a.real() * b.real() + a.imag() * b.imag();
+    imag_sum += a.real() * b.imag() - a.imag() * b.real();
   }
   const Real local[2] = {real_sum, imag_sum};
   Real global[2] = {0, 0};
@@ -63,13 +65,7 @@ void LatticeSet<Real>::apply_full_operator(
     const Complex<Real> *onsite =
         input + static_cast<std::size_t>(parity) * vectors;
     apply_onsite(onsite, clover[static_cast<std::size_t>(parity)],
-                 destination);
-    const Real k = kappa();
-    const int64_t chunk = omp_chunk<Real>(vectors);
-#pragma omp parallel for schedule(static, chunk)
-    for (int64_t index = 0; index < vectors; ++index) {
-      destination[index] -= k * scratch[index];
-    }
+                 destination, scratch, kappa());
     if (parity == 0 && std::getenv("KUPL_DEBUG_OPERATOR") != nullptr) {
       log("OPERATOR", "source=(%g,%g) dslash=(%g,%g) result=(%g,%g)",
           static_cast<double>(source[0].real()),
@@ -145,8 +141,10 @@ void LatticeSet<Real>::solve_compact_bistabcg(
     for (int64_t index = 0; index < count; ++index) {
       p_[static_cast<std::size_t>(index)] =
           r_[static_cast<std::size_t>(index)] +
-          beta * (p_[static_cast<std::size_t>(index)] -
-                  omega * v_[static_cast<std::size_t>(index)]);
+          multiply_complex(
+              beta, p_[static_cast<std::size_t>(index)] -
+                        multiply_complex(
+                            omega, v_[static_cast<std::size_t>(index)]));
     }
 
     apply_operator(p_.data(), v_.data());
@@ -160,13 +158,15 @@ void LatticeSet<Real>::solve_compact_bistabcg(
     for (int64_t index = 0; index < count; ++index) {
       s_[static_cast<std::size_t>(index)] =
           r_[static_cast<std::size_t>(index)] -
-          alpha * v_[static_cast<std::size_t>(index)];
+          multiply_complex(alpha,
+                           v_[static_cast<std::size_t>(index)]);
     }
     if (std::sqrt(global_norm2(s_.data(), count)) <=
         recurrence_tolerance) {
 #pragma omp parallel for schedule(static, chunk)
       for (int64_t index = 0; index < count; ++index) {
-        solution[index] += alpha * p_[static_cast<std::size_t>(index)];
+        solution[index] += multiply_complex(
+            alpha, p_[static_cast<std::size_t>(index)]);
         r_[static_cast<std::size_t>(index)] =
             s_[static_cast<std::size_t>(index)];
       }
@@ -184,11 +184,14 @@ void LatticeSet<Real>::solve_compact_bistabcg(
 #pragma omp parallel for schedule(static, chunk)
     for (int64_t index = 0; index < count; ++index) {
       solution[index] +=
-          alpha * p_[static_cast<std::size_t>(index)] +
-          omega * s_[static_cast<std::size_t>(index)];
+          multiply_complex(alpha,
+                           p_[static_cast<std::size_t>(index)]) +
+          multiply_complex(omega,
+                           s_[static_cast<std::size_t>(index)]);
       r_[static_cast<std::size_t>(index)] =
           s_[static_cast<std::size_t>(index)] -
-          omega * t_[static_cast<std::size_t>(index)];
+          multiply_complex(omega,
+                           t_[static_cast<std::size_t>(index)]);
     }
     rho_old = rho;
     last_iterations_ = iteration + 1;
@@ -268,9 +271,11 @@ void LatticeSet<Real>::solve_compact_cg(
     const C alpha = C(rho, 0) / denominator;
 #pragma omp parallel for schedule(static, chunk)
     for (int64_t index = 0; index < count; ++index) {
-      solution[index] += alpha * p_[static_cast<std::size_t>(index)];
+      solution[index] += multiply_complex(
+          alpha, p_[static_cast<std::size_t>(index)]);
       r_[static_cast<std::size_t>(index)] -=
-          alpha * v_[static_cast<std::size_t>(index)];
+          multiply_complex(alpha,
+                           v_[static_cast<std::size_t>(index)]);
     }
     const Real rho_next = global_norm2(r_.data(), count);
     if (rho <= std::numeric_limits<Real>::min()) {
@@ -446,7 +451,7 @@ void LatticeSet<Real>::solve_wilson_bistabcg(
         apply_wilson_schur(input, output, parity, work_b_.data(),
                            work_c_.data());
       },
-      "WILSON_BISTABCG");
+      "WILSON_BISTABCG", Real(0.1) * atol());
   reconstruct_wilson(full_output, full_input, parity);
   (void)check_wilson_full_residual(full_output, full_input,
                                    "WILSON_BISTABCG");

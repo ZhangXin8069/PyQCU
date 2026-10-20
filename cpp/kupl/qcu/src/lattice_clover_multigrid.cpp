@@ -1,4 +1,5 @@
 #include "kupl/lattice_clover_multigrid.h"
+#include "kupl/lattice_linalg.h"
 #include "kupl/lattice_set.h"
 
 #include <algorithm>
@@ -27,11 +28,10 @@ Complex<Real> mg_dot(const std::vector<Complex<Real>> &left,
   const int64_t chunk = omp_chunk<Real>(count);
 #pragma omp parallel for schedule(static, chunk) reduction(+ : real_sum, imag_sum)
   for (int64_t index = 0; index < count; ++index) {
-    const Complex<Real> value =
-        std::conj(left[static_cast<std::size_t>(index)]) *
-        right[static_cast<std::size_t>(index)];
-    real_sum += value.real();
-    imag_sum += value.imag();
+    const Complex<Real> &a = left[static_cast<std::size_t>(index)];
+    const Complex<Real> &b = right[static_cast<std::size_t>(index)];
+    real_sum += a.real() * b.real() + a.imag() * b.imag();
+    imag_sum += a.real() * b.imag() - a.imag() * b.real();
   }
   const Real local[2] = {real_sum, imag_sum};
   Real global[2] = {0, 0};
@@ -384,11 +384,13 @@ private:
   void apply_level(int level, std::vector<Complex<Real>> &out,
                    const std::vector<Complex<Real>> &in) {
     if (level == 0) {
-      canonical_to_full(canonical_input_, in.data());
+      // Legacy MG stores full-site vectors; the QCU full operator consumes
+      // parity-compressed canonical vectors.
+      full_to_canonical(canonical_input_.data(), in);
       set_.clover_full_apply(
           canonical_output_.data(), canonical_input_.data(), gauge_, clover_even_,
           clover_odd_, clover_even_inv_, clover_odd_inv_);
-      full_to_canonical(out.data(), canonical_output_);
+      canonical_to_full(out, canonical_output_.data());
       return;
     }
     LegacyMgLevel<Real> &state = levels_[level];
@@ -436,30 +438,50 @@ private:
       const C rho = mg_dot(rhat, state.r);
       if (std::abs(rho) <= std::numeric_limits<Real>::min() ||
           std::abs(omega) <= std::numeric_limits<Real>::min()) {
+        if (params_[kVerbose] != 0) {
+          std::fprintf(stderr,
+                       "PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:\n "
+                       "level=%d iteration=%d rho-breakdown rho=(%g,%g) "
+                       "omega=(%g,%g)\n",
+                       level, iteration,
+                       static_cast<double>(rho.real()),
+                       static_cast<double>(rho.imag()),
+                       static_cast<double>(omega.real()),
+                       static_cast<double>(omega.imag()));
+        }
         return false;
       }
       const C beta = (rho / rho_old) * (alpha / omega);
       for (int64_t i = 0; i < count; ++i) {
         p[static_cast<std::size_t>(i)] =
             state.r[static_cast<std::size_t>(i)] +
-            beta * (p[static_cast<std::size_t>(i)] -
-                    omega * state.v[static_cast<std::size_t>(i)]);
+            multiply_complex(
+                beta, p[static_cast<std::size_t>(i)] -
+                          multiply_complex(
+                              omega, state.v[static_cast<std::size_t>(i)]));
       }
       apply_level(level, state.v, p);
       const C denominator = mg_dot(rhat, state.v);
       if (std::abs(denominator) <= std::numeric_limits<Real>::min()) {
+        if (params_[kVerbose] != 0) {
+          std::fprintf(stderr,
+                       "PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:\n "
+                       "level=%d iteration=%d alpha-breakdown\n",
+                       level, iteration);
+        }
         return false;
       }
       alpha = rho / denominator;
       for (int64_t i = 0; i < count; ++i) {
         state.s[static_cast<std::size_t>(i)] =
             state.r[static_cast<std::size_t>(i)] -
-            alpha * state.v[static_cast<std::size_t>(i)];
+            multiply_complex(
+                alpha, state.v[static_cast<std::size_t>(i)]);
       }
       if (std::sqrt(mg_norm2(state.s)) <= target) {
         for (int64_t i = 0; i < count; ++i) {
           state.x[static_cast<std::size_t>(i)] +=
-              alpha * p[static_cast<std::size_t>(i)];
+              multiply_complex(alpha, p[static_cast<std::size_t>(i)]);
           state.r[static_cast<std::size_t>(i)] =
               state.s[static_cast<std::size_t>(i)];
         }
@@ -468,19 +490,33 @@ private:
       apply_level(level, state.v, state.s);
       const C tt = mg_dot(state.v, state.v);
       if (std::abs(tt) <= std::numeric_limits<Real>::min()) {
+        if (params_[kVerbose] != 0) {
+          std::fprintf(stderr,
+                       "PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:\n "
+                       "level=%d iteration=%d tt-breakdown\n",
+                       level, iteration);
+        }
         return false;
       }
       omega = mg_dot(state.v, state.s) / tt;
       if (std::abs(omega) <= std::numeric_limits<Real>::min()) {
+        if (params_[kVerbose] != 0) {
+          std::fprintf(stderr,
+                       "PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:\n "
+                       "level=%d iteration=%d omega-breakdown\n",
+                       level, iteration);
+        }
         return false;
       }
       for (int64_t i = 0; i < count; ++i) {
         state.x[static_cast<std::size_t>(i)] +=
-            alpha * p[static_cast<std::size_t>(i)] +
-            omega * state.s[static_cast<std::size_t>(i)];
+            multiply_complex(alpha, p[static_cast<std::size_t>(i)]) +
+            multiply_complex(omega,
+                             state.s[static_cast<std::size_t>(i)]);
         state.r[static_cast<std::size_t>(i)] =
             state.s[static_cast<std::size_t>(i)] -
-            omega * state.v[static_cast<std::size_t>(i)];
+            multiply_complex(omega,
+                             state.v[static_cast<std::size_t>(i)]);
       }
       rho_old = rho;
     }

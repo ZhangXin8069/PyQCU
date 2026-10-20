@@ -1,0 +1,83 @@
+[日志元数据]
+日志类型: final
+生成时间: 2026-10-20 14:12:06 +0800
+批次: 01a1574f-context
+主任务: KUPL independent simple tests and performance optimization
+触发原因: 任务完成
+摘要: KUPL simple/QUDA correctness plus adaptive SIMD and solver/MG optimization
+Git 根目录: /root/PyQCU
+
+## 关键日志
+
+### S1 — 基线与热点定位
+- 目标: 构建 KUPL Release，建立 Wilson/Clover 吞吐基线并定位热点。
+- 命令/操作: `cmake -S cpp/kupl/qcu -B cpp/kupl/qcu/build -DCMAKE_BUILD_TYPE=Release && cmake --build ...`; 运行 `kupl_qcu_bench` 与二进制符号审计。
+- 关键输出: 初始 16-thread c64 Wilson/Clover 为 0.694422339/0.967670996 s；c128 为 0.878754280/1.122250645 s。动态库中检测到 636 处 `__mulsc3/__muldc3/__divsc3/__divdc3` 调用引用。
+- 退出码: 0。
+- 证据与判断: 主要损失来自 std::complex libgcc 热路径、逐 site 标量 12x12 运算和重复全数组往返。
+
+### S2 — 算子与 setup 优化
+- 目标: 优化 Wilson/Clover/Schur、Clover setup 与 coarse MG 热路径。
+- 命令/操作: 手工复乘、γ 展开、site-block SIMD onsite、大格自适应 dslash block kernel、删除冗余清零、fused onsite-subtract、Clover Gauss-Jordan 优化、solver/MG/strict 复乘替换。
+- 关键输出: libgcc complex 调用引用由 636 降到 158；新增 block/scalar A/B 控制。
+- 退出码: 0（各次增量构建和定向回归）。
+- 证据与判断: c64/c128 Wilson、Clover、Schur 均取得实测收益；小格自动保留 scalar 路径，避免回归。
+
+### S3 — 独立 simple 与 QUDA 正确性
+- 目标: 在 `pyqcu/testing/simple` 增加 KUPL BiStabCG 与两级 MG 独立简易测试。
+- 命令/操作: 新增 `kupl_bistabcg.py`、`kupl_multigrid.py`、两个 `compare_kupl_*`、`benchmark_kupl.py`；使用真实 ctypes ABI、独立 NumPy 真残差和 QUDA 同 RHS 对照。
+- 关键输出: BiStabCG PASS，KUPL/QUDA 解相对差 6.869436744858198e-07；两级 MG PASS，`verifyCloverMultigridQcu=0`，解差 1.2979929875158109e-06；c128 simple 残差 3.086789636557618e-12。
+- 退出码: 0。
+- 证据与判断: canonical 转换、Clover onsite、质量归一化、BiStabCG 与 MG 方程均由独立 QUDA 解和 NumPy 残差双重验证。
+
+### S4 — legacy MG 布局缺陷与回归
+- 目标: 修复非平凡 κ 下 legacy Clover-MG 静默错误解。
+- 命令/操作: 在 `LegacyCloverMultigrid::apply_level(0)` 前后显式执行 full-site ↔ parity-canonical 转换；新增矩形、block 1-rank、block 2-rank、c128 2-rank 直接门。
+- 关键输出: 非平凡 κ level-1/level-2 simple 均 PASS；旧近单位资产测试质量提高到 1e12 以保持其生命周期测试语义。
+- 退出码: 0。
+- 证据与判断: 原实现把 full-site 分量布局直接传给 parity-compressed 后端；近单位测试可偶然通过，非平凡 κ 会得到错误方程。
+
+### S5 — final benchmark
+- 目标: 以重复中位数/MAD 形成最终性能证据。
+- 命令/操作: `benchmark_kupl.py --lat 16 16 16 32 --iterations 10 --repeats 5 --threads 16`，分别运行默认 block 和 `KUPL_DISABLE_BLOCK_DSLASH=1` scalar A/B。
+- 关键输出: c64 Wilson/Clover/Schur median 0.131772589/0.175333670/0.373727284 s；c128 0.185084887/0.337863271/0.676949418 s。相对 scalar 加速分别为 c64 1.5168x/1.6230x/1.3965x，c128 1.7885x/1.4494x/1.2777x。
+- 退出码: 0。
+- 证据与判断: 性能波动用 5 次 median/MAD 表达；block 与 scalar 同轮比较是保守可控口径。
+
+## 验证与证据
+- 测试/检查: `ctest --test-dir cpp/kupl/qcu/build --output-on-failure`。
+- 结果: 27/27 PASS，包含 1/2/4-rank、c64/c128、raw/Schur/normal、block矩形、block 2-rank、strict、legacy MG 与 fail-closed。
+- 测试/检查: `compare_kupl_bistabcg.py`、`compare_kupl_multigrid.py`。
+- 结果: 均 PASS；见上述解差、真残差和 verify 证据。
+- 测试/检查: `python -m compileall`、五个新增脚本 `--help`、`git diff --check`、`bash skills/pyqcu-form/form-audit.sh`。
+- 结果: 全部通过；form 审计 PASS，1049 个既有 finding 保持豁免。
+- 未验证项: 本轮仅在当前 x86 单节点、最多 4 MPI ranks 上测试；未执行多节点/真实 Kunpeng NUMA 硬件回归，未提交、打标签或推送。
+
+## 变更与产物
+- 文件: `cpp/kupl/qcu/{include,src,tests}`、`cpp/kupl/qcu/CMakeLists.txt`、`cpp/kupl/qcu/README.md`、`pyqcu/testing/simple/*`、`skills/pyqcu-kupl/SKILL.md`。
+- 产物: `data/final_benchmark_kupl_block_simd.json`、`data/final_benchmark_kupl_scalar_fallback.json`、`data/final_compare_kupl_quda_bistabcg_8x8x16x16.json`、`data/final_compare_kupl_quda_multigrid_4cubed.json`、`data/final_simple_kupl_bistabcg_c128.json`。
+- 未改动范围: 未修改 37 项公开 C ABI 名称/签名，未引入 CUDA/KUPL 交叉依赖。
+
+## 风险、限制与下一步
+- 风险: 当前主机频率/负载波动较大，绝对吞吐应按 JSON 的 median/MAD 解释；跨架构结论需在目标鲲鹏平台复测。
+- 阻塞: 无。
+- 下一步: 在目标 Kunpeng/NUMA 多节点环境运行同一 simple 对照和 benchmark，并按 MPI rank/NUMA 拓扑调优线程与/halo 参数。
+
+## 用户输入指令
+继续"01a1574f-6c90-78d1-a356-2a504923b852"的工作,并参考{/root/PyQCU/pyqcu/testing/simple},在{/root/PyQCU/pyqcu/testing/simple}同样进行独立的简易测试,并同时对kupl版qcu进行进一步的全面优化直至性能最佳,注意与quda进行正确性验证
+
+## Agent 全文报告
+--- report begin ---
+已完成 KUPL 独立简易测试与性能优化。
+
+主要结果：
+- 新增 KUPL BiStabCG、两级 MG、QUDA 对照及 median/MAD benchmark 脚本。
+- 27/27 CTest PASS。
+- KUPL/QUDA BiStabCG 解差 6.87e-7；两级 MG verify=0，解差 1.30e-6。
+- 修复 legacy MG full-site/parity-canonical 布局缺陷；新增矩形 block、2-rank block、c128 2-rank 真残差门。
+- 最终 16-thread 5-run 中位数：c64 Wilson/Clover/Schur 0.1318/0.1753/0.3737 s；c128 0.1851/0.3379/0.6769 s。
+- 相对 scalar 回退：c64 1.52x/1.62x/1.40x；c128 1.79x/1.45x/1.28x。
+- compileall、脚本 --help、git diff --check、form audit 全部通过。
+
+限制：未在真实 Kunpeng 多节点/NUMA 硬件上复测；未提交、打标签或推送。
+--- report end ---

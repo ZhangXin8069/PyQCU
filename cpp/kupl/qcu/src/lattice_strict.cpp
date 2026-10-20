@@ -1,4 +1,5 @@
 #include "kupl/lattice_set.h"
+#include "kupl/lattice_linalg.h"
 #include "kupl/lattice_strict.h"
 
 #include <algorithm>
@@ -558,8 +559,11 @@ void strict_hopping_full(
                           face_sites +
                       face)]
                 : links[backward_link];
-        sum += links[forward_link] * forward_value;
-        sum += std::conj(backward_link_value) * backward_value;
+        sum += multiply_complex(links[forward_link], forward_value);
+        sum += multiply_complex(
+            Complex<Real>(backward_link_value.real(),
+                          -backward_link_value.imag()),
+            backward_value);
       }
       if (base == nullptr) {
         out[index] += sum;
@@ -661,8 +665,11 @@ void strict_hopping_compact(
                           face_sites +
                       face)]
                 : links[backward_link];
-        sum += links[forward_link] * forward_value;
-        sum += std::conj(backward_link_value) * backward_value;
+        sum += multiply_complex(links[forward_link], forward_value);
+        sum += multiply_complex(
+            Complex<Real>(backward_link_value.real(),
+                          -backward_link_value.imag()),
+            backward_value);
       }
       if (base == nullptr) {
         out[index] += sum;
@@ -778,9 +785,10 @@ Complex<Real> strict_global_dot(const Complex<Real> *left,
   const int64_t chunk = omp_chunk<Real>(count);
 #pragma omp parallel for schedule(static, chunk) reduction(+ : real_sum, imag_sum)
   for (int64_t index = 0; index < count; ++index) {
-    const Complex<Real> value = std::conj(left[index]) * right[index];
-    real_sum += value.real();
-    imag_sum += value.imag();
+    const Complex<Real> &a = left[index];
+    const Complex<Real> &b = right[index];
+    real_sum += a.real() * b.real() + a.imag() * b.imag();
+    imag_sum += a.real() * b.imag() - a.imag() * b.real();
   }
   const Real local[2] = {real_sum, imag_sum};
   Real global[2] = {0, 0};
@@ -1581,10 +1589,13 @@ int strict_restrict(void *coarse_out, const void *fine_in,
               const std::size_t null_index = strict_null_index(
                   coarse_component, fine_component, x, y, z, t, e, Xf, Yf,
                   Zf, Tf, Xc, Yc, Zc, Tc);
-              sum += std::conj(null_vectors_data[null_index]) *
-                     input[static_cast<int64_t>(fine_component) *
-                               (fine_volume / 2) +
-                           fine_half];
+              const Complex<Real> &projector =
+                  null_vectors_data[null_index];
+              sum += multiply_complex(
+                  Complex<Real>(projector.real(), -projector.imag()),
+                  input[static_cast<int64_t>(fine_component) *
+                            (fine_volume / 2) +
+                        fine_half]);
             }
           }
         }
@@ -1648,9 +1659,10 @@ int strict_prolong(void *fine_out, const void *coarse_in,
       const std::size_t null_index = strict_null_index(
           coarse_component, fine_component, x, y, z, t, e, Xf, Yf, Zf, Tf,
           Xc, Yc, Zc, Tc);
-      sum += null_vectors_data[null_index] *
-             input[static_cast<int64_t>(coarse_component) * coarse_volume +
-                   coarse_site];
+      sum += multiply_complex(
+          null_vectors_data[null_index],
+          input[static_cast<int64_t>(coarse_component) * coarse_volume +
+                coarse_site]);
     }
     output[index] = sum;
   }
