@@ -59,12 +59,16 @@ metadata:
 ## 并行与绑定
 
 - MPI 负责四维 rank 分解与 face/corner halo；rank 内只使用 OpenMP。
-- OpenMP 线程数向下取 2 的幂，`KUPL_OMP_THREADS` 显式指定时优先。
+- `KUPL_OMP_THREADS` 显式指定正数时精确采用，不再向 2 的幂取整；未指定时
+  将 OpenMP 最大值裁剪到进程初始 CPU affinity 大小。
 - `KUPL_NUMA_BIND=1` 由库分配连续 CPU 子集；此时 OpenMPI 必须使用
   `--bind-to none` 且不得设置 `OMP_PROC_BIND`，否则运行时会在库绑定前压缩
   可见 cpuset。
 - 调度器已提供 NUMA-local cpuset 时保持 `KUPL_NUMA_BIND=0`，只设置
   `KUPL_OMP_THREADS`/`OMP_NUM_THREADS`。
+- 同节点多 rank 应在 Python/NumPy 输入分配前完成 MPI 或调度器绑定；库内
+  `KUPL_NUMA_BIND=1` 发生在 `applyInitQcu`，不能迁移调用方已前触到错误 NUMA
+  节点的页。OpenMPI 可用 `--bind-to numa --map-by ppr:1:numa`。
 - 全局点积/范数使用 `MPI_Allreduce`，所有 rank 必须走对称集合操作。
 - 大 local-volume dslash 默认启用跨 site SIMD 内点/周期面内核；local
   `half_sites < 65536` 自动回退 scalar。`KUPL_DISABLE_BLOCK_DSLASH=1`
