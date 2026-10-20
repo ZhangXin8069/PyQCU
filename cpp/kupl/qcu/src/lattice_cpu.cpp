@@ -25,19 +25,6 @@ std::unordered_map<const void *, std::shared_ptr<LatticeSetBase>> &registry() {
   return value;
 }
 
-int largest_power_of_two(int value) {
-  if (value <= 1) {
-    return 1;
-  }
-  unsigned int result = static_cast<unsigned int>(value);
-  result |= result >> 1U;
-  result |= result >> 2U;
-  result |= result >> 4U;
-  result |= result >> 8U;
-  result |= result >> 16U;
-  return static_cast<int>(result - (result >> 1U));
-}
-
 #if defined(__linux__)
 const std::vector<int> &initial_affinity_cpus() {
   static const std::vector<int> cpus = [] {
@@ -76,11 +63,9 @@ int configured_threads() {
   if (explicit_request) {
     requested = std::max(1, std::atoi(text));
   }
-  requested = largest_power_of_two(requested);
 #if defined(__linux__)
   if (!explicit_request && !affinity.empty()) {
-    requested = std::min(
-        requested, largest_power_of_two(static_cast<int>(affinity.size())));
+    requested = std::min(requested, static_cast<int>(affinity.size()));
   }
 #endif
   omp_set_dynamic(0);
@@ -122,7 +107,6 @@ void bind_logical_numa() {
   }
   int per_rank = std::max(1, static_cast<int>(cpus.size()) / local_size);
   per_rank = std::min(per_rank, configured_threads());
-  per_rank = largest_power_of_two(per_rank);
   const int begin =
       std::min(static_cast<int>(cpus.size()), local_rank * per_rank);
   const int end = std::min(static_cast<int>(cpus.size()), begin + per_rank);

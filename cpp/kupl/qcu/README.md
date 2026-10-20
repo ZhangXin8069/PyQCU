@@ -183,14 +183,14 @@ non-convergence/fail-closed behavior.
 
 ## Runtime controls
 
-- `KUPL_OMP_THREADS`: requested rank-local thread count. The effective value
-  is rounded down to a power of two. An explicit request is honored even when
-  the OpenMP runtime has already pinned the master thread; without it, the
-  value is clipped to the initial process affinity set.
+- `KUPL_OMP_THREADS`: requested rank-local thread count. A positive explicit
+  request is honored exactly, including non-power-of-two values such as the
+  24 cores in one Kunpeng NUMA node. Without it, the OpenMP maximum is clipped
+  to the initial process affinity set.
 - `OMP_PROC_BIND=close` and `OMP_PLACES=cores` are recommended only when
   `KUPL_NUMA_BIND=0`.
-- `KUPL_NUMA_BIND=1`: bind each local MPI rank to a contiguous, power-of-two
-  subset of its process CPU affinity set. It rejects `OMP_PROC_BIND` because
+- `KUPL_NUMA_BIND=1`: bind each local MPI rank to a contiguous subset of its
+  process CPU affinity set. It rejects `OMP_PROC_BIND` because
   the OpenMP runtime can collapse the process affinity before the library
   assigns its rank-local subset. This provides deterministic NUMA emulation on
   x86 hosts.
@@ -212,9 +212,14 @@ process binding to be disabled (`--bind-to none` for OpenMPI) and
 `OMP_PROC_BIND` to be unset. If the scheduler
 already binds each MPI process to its NUMA-local CPU set, leave
 `KUPL_NUMA_BIND=0` and set `KUPL_OMP_THREADS`/`OMP_NUM_THREADS` to that set's
-power-of-two size. CPU subsets are assigned by `MPI_COMM_TYPE_SHARED` local
+size. CPU subsets are assigned by `MPI_COMM_TYPE_SHARED` local
 rank; halo peers continue to use the global four-dimensional Cartesian rank,
 so the local NUMA numbering does not leak into cross-node topology.
+
+For same-node multi-rank runs, prefer scheduler or MPI binding before Python,
+NumPy, or application tensors are allocated. `KUPL_NUMA_BIND=1` runs during
+`applyInitQcu`, so it can place library scratch and later allocations but does
+not migrate pages that callers already faulted in on another NUMA node.
 
 For a Dslash throughput measurement:
 

@@ -1,0 +1,118 @@
+[日志元数据]
+日志类型: final
+生成时间: 2026-10-21 00:54:57 +0800
+批次: 20261021-kupl-cuda-multigpu
+主任务: KUPL Kunpeng NUMA 与 CUDA A100 多卡 debug/优化
+触发原因: 任务完成
+摘要: 修复 KUPL 24 核线程契约、验证双 NUMA，优化 CUDA 纯 MG 路径并完成双 A100 与真实 LIME 回归
+Git 根目录: /home/bingxing2/home/scx8080/PyQCU
+
+## 关键日志
+
+### S1 — KUPL 构建与基线
+- 目标: 在鲲鹏双 NUMA 登录节点建立 KUPL QCU 正确性和性能基线。
+- 命令/操作: `cmake -S cpp/kupl/qcu -B cpp/kupl/qcu/build -DCMAKE_BUILD_TYPE=Release -DKUPL_TEST_OMP_THREADS=4`、`cmake --build ... -j16`、`ctest --test-dir cpp/kupl/qcu/build --output-on-failure`。
+- 关键输出: Release 构建成功；最终 `28/28` CTest 通过，0 失败。
+- 退出码: 0。
+- 证据与判断: 当前 c64/c128、1/2/4 rank、block/scalar、strict/legacy MG 与 ABI 基线无正确性破损。
+
+### S2 — KUPL 24 核线程契约缺陷
+- 目标: 定位 Kunpeng 单 NUMA 24 核无法被充分利用的原因。
+- 命令/操作: 请求 `KUPL_OMP_THREADS=24` 后检查 benchmark 的 `threads_per_rank`；新增 `kupl_qcu_explicit_threads` CTest 并先运行确认失败。
+- 关键输出: 修复前请求 24 实际只启动 16；新增回归最初请求 3 实际得到 2。根因是 `largest_power_of_two()` 对所有线程数强制向下取 2 的幂。
+- 退出码: 修复前回归失败；修复后通过。
+- 证据与判断: 删除线程数和 rank 子集上的 2 次幂取整；显式正值现在精确采用，未显式指定时仅裁剪到初始 CPU affinity 大小。
+
+### S3 — KUPL Kunpeng 性能复测
+- 目标: 量化 24 线程修复及双 NUMA 绑定收益。
+- 命令/操作: 运行 `benchmark_kupl.py` 的 16/24 线程 A/B；运行 `mpirun` 的 2×24 线程晚期绑定与 MPI 预绑定 A/B。
+- 关键输出: `16×16×16×32` c64 Wilson/Clover/Schur 从 `137.3/260.5/554.3 ms` 降至 `101.2/183.1/360.4 ms`；c128 从 `228.2/430.0/903.0 ms` 降至 `170.8/310.7/645.7 ms`。
+- 关键输出: `32×32×32×64` c64 Wilson 从 `12.72` 提升到 `16.21 GFLOP/s`（+27.4%），c128 从 `7.24` 提升到 `9.49 GFLOP/s`（+31.0%）；Clover/Schur 提升约 24%–34%。
+- 关键输出: 2×24 线程用 MPI `--bind-to numa --map-by ppr:1:numa` 预绑定后，c64 Wilson/Clover/Schur 为 `17.6/18.2/16.5 GFLOP/s`，优于库内晚期绑定。
+- 退出码: 0。
+- 证据与判断: 24 核精确采用是主收益；同节点多 rank 必须在调用方分配和前触页之前完成绑定，库内 `KUPL_NUMA_BIND=1` 无法迁移已前触页。
+
+### S4 — KUPL 真实 LIME 组态
+- 目标: 使用用户新增的真实组态验证 c64/c128 KUPL 解和真残差。
+- 命令/操作: 对 `/home/bingxing2/home/scx8080/data/beta6.20_mu-0.2770_ms-0.2310_L24x64_cfg_9950.lime` 运行独立 NumPy 全 Wilson-Clover 残差检查；SHA256 `a49773fa3742d310f4ea162a932cf559253aeab708bac08a8dd1f6847df4294b`。
+- 关键输出: c64 `19` 次迭代、solve `9.563105 s`、真残差 `4.026764e-7`、约 `12.15 GFLOP/s`；c128 `34` 次迭代、solve `28.794828 s`、真残差 `7.380414e-12`、约 `7.22 GFLOP/s`。
+- 退出码: 0；两项 status 均为 PASS。
+- 证据与判断: 组态元数据解析为 `24×24×24×64`、`mass=-0.277`、`csw=1.160920226`，求解链与独立残差一致。
+
+### S5 — CUDA Slurm 多卡链
+- 目标: 通过 Slurm 在 NVIDIA 节点构建并验证 A100 双卡路径。
+- 命令/操作: 反复提交 `slurm_multi_gpu_smoke.sh`，每次申请 1 节点、2 GPU、64 CPU、01:00:00；构建阶段按 GPU 自动选择 `sm_80`，随后执行 `build.sh` 与 `install.sh`。
+- 关键输出: 早期失败依次定位为批处理脚本 `BASH_SOURCE` 路径错误、漏执行 `install.sh`、LIME 调用传入不存在的 `--dtype`；修复后完整作业成功。
+- 关键输出: 作业 `1582511` COMPLETED；A100 双卡 Wilson dslash 相对误差 `6.125111e-8`，Clover BiStabCG 真残差 `2.624341e-7`，双卡 MG 一致性 `all_pass=true`、最大差 `0`。
+- 退出码: 最终 0。
+- 证据与判断: Slurm 与资源边界正确；登录节点未执行 CUDA 计算。
+
+### S6 — CUDA 真实 LIME
+- 目标: 验证 A100 单卡处理真实组态。
+- 命令/操作: `qcu_bistabcg.py --lat 24 24 24 64 --gauge <LIME> --atol 1e-6 --device cuda:0`。
+- 关键输出: `31` 次迭代、`0.171282 s`、独立真残差 `2.428980e-7`、模型吞吐约 `1106.80 GFLOP/s`；PyTorch allocated `2.466250752e9` bytes、reserved `2.722103296e9` bytes。
+- 退出码: 0，status PASS。
+- 证据与判断: 内存数字是 PyTorch allocator 口径，不是全设备峰值。
+
+### S7 — CUDA 纯 MG 路径优化
+- 目标: 去掉生产吞吐模式下无人消费的 BiStabCG 参考求解和第二个 `LatticeSet` 初始化。
+- 命令/操作: 给 `MultiGpuMultigrid` 增加 `run_reference`，默认 `True` 保持一致性测试语义；`False` 时仅初始化并运行 MG，worker 清理移入 `finally`。基准增加 warmup/repeat、median、`--no-reference`。
+- 关键输出: 三次同节点双 A100 配对稳态总耗时分别为 `0.267100→0.209200 s`（-21.7%）、`0.255085→0.232044 s`（-9.0%）、`0.258240→0.219773 s`（-14.9%）。
+- 退出码: 0；最终作业 `1582546` COMPLETED。
+- 证据与判断: 三组降幅中位数 `14.9%`；逐线程 `mg_time` 基本不变，收益来自消除冗余参考求解、初始化和结果路径开销，不是单次 MG kernel 提速。
+
+## 验证与证据
+- KUPL CTest: `28/28 PASS`，0 failed，`26.42 s`。
+- KUPL 显式线程回归: 请求 3，修复前得到 2（FAIL），修复后得到 3（PASS）。
+- KUPL benchmark: JSON 位于 `data/logs/kupl_kunpeng_*_20261021.json`。
+- KUPL 真实 LIME: `data/logs/kupl_lime24x64_c64_bistabcg_20261021.json`、`data/logs/kupl_lime24x64_c128_bistabcg_20261021.json`。
+- CUDA Slurm: `logs/slurm-1582511-multi-gpu.out/.err` 全链成功；`sacct` 为 COMPLETED/0:0/MaxRSS 5639040K。
+- CUDA 优化配对: `logs/cuda_multi_gpu_*.json`、`logs/cuda_multi_gpu_noref_*.json`；最终 `1582546` 为 COMPLETED/0:0。
+- CUDA 真实 LIME: `logs/cuda_lime24x64_c64_1582511.json`。
+- 静态检查: `python -m py_compile` PASS，`bash -n pyqcu/testing/qcu/slurm_multi_gpu_smoke.sh` PASS，`git diff --check` PASS。
+- 格式审计: `bash skills/pyqcu-form/form-audit.sh` PASS；33 个技能目录与索引一致，1049 个既有资产 finding 保持豁免。
+- 未验证项: CUDA 真实 LIME 只跑 c64；当前多卡性能测试是单进程一线程一卡的共享输入吞吐模式；未运行多节点或 MPI 分域 CUDA 大格正式基准。
+
+## 变更与产物
+- KUPL: `cpp/kupl/qcu/src/lattice_cpu.cpp` 改为精确线程数；`cpp/kupl/qcu/CMakeLists.txt` 增加显式线程回归；README/skill 更新精确线程与预绑定边界。
+- CUDA: `pyqcu/cuda/_multi_gpu.py` 增加 `run_reference` 和异常安全槽位清理；`pyqcu/testing/qcu/bench_multi_gpu.py` 增加 CLI、warmup/repeat、median 和 no-reference；新增 `pyqcu/testing/qcu/slurm_multi_gpu_smoke.sh`。
+- 文档: 同步 `pyqcu/cuda/AGENTS.md`、`pyqcu/testing/qcu/AGENTS.md`、`skills/pyqcu-cuda/SKILL.md`、`skills/pyqcu-kupl/SKILL.md`、`skills/pyqcu-testing-qcu/SKILL.md`。
+- 数据与日志: 上述 JSON、Slurm stdout/stderr 和 `_perf` 文件保留在当前 `logs/`、`data/logs/`；未提交、未打 tag、未推送。
+
+## 风险、限制与下一步
+- 风险: 不同 A100/Slurm 节点的频率、共享总线和调度状态导致配对收益有 `9.0%–21.7%` 波动，必须使用同节点、缓存命中、warmup/repeat 的 median/MAD 口径。
+- 风险: `run_reference=False` 不再在线产生 BiStabCG 参考解；一致性验证必须保持默认 `True`。
+- 风险: `KUPL_NUMA_BIND=1` 不能迁移调用方已分配的跨 NUMA 页；生产多 rank 应先由 Slurm/MPI 绑定。
+- 下一步: 在目标生产格点 `16×32×32×48` 运行缓存命中的双 A100 正式吞吐和真残差基准，并补充分域 MPI CUDA 与多节点扩展测试。
+
+## 用户输入指令
+1. 本登入节点为鲲鹏环境（两个NUMA），在此节点进一步debug并优化kupl版qcu；2. 通过slurm系统可以连接nv-gpu计算节点（参考~/sleep.sh），在此节点进一步debug并优化cuda版qcu（主要是多卡并行）；3. 注意服务器资源使用规则。
+新增测试组态：「~/data/beta6.20_mu-0.2770_ms-0.2310_L24x64_cfg_9950.lime」
+继续
+
+## Agent 全文报告
+--- report begin ---
+已完成本轮 KUPL 与 CUDA 的 debug、优化和真实组态验证。
+
+改动内容：
+- KUPL 删除 OpenMP 线程数向 2 的幂取整的限制，24 核 NUMA 现在可精确使用；新增显式线程数 CTest。同步明确：同节点多 rank 应在分配输入前由 MPI/Slurm 完成 NUMA 绑定。
+- CUDA `MultiGpuMultigrid` 新增 `run_reference=False` 纯 MG 吞吐模式，跳过冗余 BiStabCG 参考求解和第二个 LatticeSet 初始化；worker 的 `applyEndQcu` 改入 `finally`，避免失败泄漏。
+- `bench_multi_gpu.py` 增加稳定 CLI、warmup/repeat、median 与 `--no-reference`；新增可复用 Slurm 双卡冒烟脚本。
+
+推理依据：
+- 鲲鹏每个 NUMA 正好 24 核，旧逻辑把 24 强制降为 16，直接损失三分之一可用核心。
+- CUDA 一致性测试需要 BiStabCG 参考解，但生产吞吐路径不需要；在线计算它会额外完成一整次求解和一次 LatticeSet 初始化。
+- 多 rank NUMA 性能取决于数据页首次触达位置，库内绑定发生在输入分配之后，因此生产路径必须先由 MPI/Slurm 绑定。
+
+验证结果：
+- KUPL CTest 28/28 PASS；请求 3 线程回归从实际 2 线程的失败状态修复为精确 3 线程通过。
+- KUPL 24 线程使 `16×16×16×32` 的 c64 Wilson/Clover/Schur 加速约 26%–35%，c128 加速约 25%–29%；`32×32×32×64` c64/c128 Wilson 吞吐分别提升 27.4%/31.0%。
+- 真实 LIME `24³×64`：KUPL c64 真残差 `4.03e-7`，c128 `7.38e-12`；CUDA A100 c64 真残差 `2.43e-7`，31 次迭代、`0.1713 s`。
+- A100 双卡一致性 PASS，最大差 0；Wilson dslash 相对误差 `6.13e-8`，Clover BiStabCG 真残差 `2.62e-7`。
+- 三组双 A100 配对稳态基准显示纯 MG 模式总耗时下降 21.7%、9.0%、14.9%，中位收益 14.9%。
+
+后续步骤：
+- 在正式生产格点 `16×32×32×48` 上运行缓存命中的双 A100 稳态基准和真残差门。
+- 补充分域 MPI CUDA 双卡/多节点测试，与当前一线程一卡吞吐模式分开报告。
+- 当前所有改动未提交、未打 tag、未推送。
+--- report end ---

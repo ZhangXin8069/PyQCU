@@ -17,7 +17,7 @@ Cython bridge package for the C++ CUDA backend (`libqcu.so`).
 | `define.py` | Parameter constants (`_LAT_X_`, `_SET_PLAN_`, etc.) and dtype conversion helpers (`dtype()`, `epytd()`) |
 | `_runtime.py` | `QcuRuntime` — lifecycle-safe flat-ABI wrapper with private control arrays, free-slot selection, `mass`/`csw` configuration, and `operation()` contexts for getters |
 | `_schur_op.py` | `CudaSchurOp` — C++ Schur odd-site operator wrapper (per-instance independent params/set_ptrs, thread-safe slot allocator; matvec uses preallocated buffer + device sync + clone to avoid deep pool/stream races) |
-| `_multi_gpu.py` | `MultiGpuMultigrid` — multi-thread multi-GPU C++ Clover MG driver (one-thread-one-GPU; consistency + independent-problem modes; `save_report` JSON; single-MPI-rank constraint) |
+| `_multi_gpu.py` | `MultiGpuMultigrid` — multi-thread multi-GPU C++ Clover MG driver (one-thread-one-GPU; consistency + independent-problem modes; `run_reference=False` for pure-MG throughput; `save_report` JSON; single-MPI-rank constraint) |
 | `_strict_multigrid.py` | `CudaStrictMultigridSolver` — fine odd-Clover Schur + persistent strict coarse V-cycle + C++ fused right-FGMRES |
 | `_strict_cache.py` | strict runtime cache schema v2；逐 tensor 流式摘要、完整验签后再传入 device |
 | `_strict_mpi.py` | strict MPI rank 对称 preflight 与能力门禁；阶段 1 仅启用 c64/c128 全局标量归约 |
@@ -96,6 +96,12 @@ For an ordinary transaction, call `applyEndQcu` at the index used by
 `applyInitQcu`, then increment `params[define._SET_INDEX_]`. Incrementing before
 `applyEndQcu` leaves the allocated object behind. `QcuRuntime` implements this
 ordering and selects a reusable free slot.
+
+`MultiGpuMultigrid` defaults to `run_reference=True` so consistency tests can
+compare MG against BiStabCG. Production throughput runs should use
+`run_reference=False`: it skips the redundant per-device reference solve and
+the second ordinary `LatticeSet` initialization. Worker cleanup must keep
+`applyEndQcu` in `finally`, at the same slot index used for initialization.
 
 Legacy exception: coarse-grid dslash may reset `_SET_INDEX_` to 0 because it uses a different legacy MG level. Strict exception: `CudaSchurOp` allocates one private LatticeSet slot and all strict primitives, strict init/VCycle/fused-FGMRES and strict end must keep the same `_SET_INDEX_` for that instance; do **not** increment it between Strict calls, or the backend will look up a different/null `set_ptrs` entry. The strict asset area (`set_ptrs[60..79]`) and persistent hierarchy handle (`set_ptrs[80]`) do not replace this LatticeSet slot.
 

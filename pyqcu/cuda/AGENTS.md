@@ -14,7 +14,7 @@ C++ CUDA 后端（`libqcu.so`）的 Cython 桥包。
 | `define.py` | 参数常量（`_LAT_X_`、`_SET_PLAN_` 等）与 dtype 转换工具（`dtype()`、`epytd()`） |
 | `_runtime.py` | `QcuRuntime` — 私有控制数组、空闲槽位选择、异常安全 init/end 与 getter 保留上下文 |
 | `_schur_op.py` | `CudaSchurOp` — C++ Schur 奇偶算子封装（每实例独立 params/set_ptrs 副本 + 槽位分配器，多线程安全） |
-| `_multi_gpu.py` | `MultiGpuMultigrid` — 多线程多卡 C++ Clover MG 驱动（一线程一卡，单 MPI rank），`build_schur_levels`（33-tensor 粗算子 + h5py 缓存） |
+| `_multi_gpu.py` | `MultiGpuMultigrid` — 多线程多卡 C++ Clover MG 驱动（一线程一卡，单 MPI rank），`build_schur_levels`（33-tensor 粗算子 + h5py 缓存）；`run_reference=False` 可关闭纯吞吐模式下冗余的 BiStabCG 参考解 |
 | `_logs.py` | C++ 后端收敛日志解析（2026-08-22 整合）：`parse_mg_log(path)` → (残差列表, PROF_SECTIONS ms 字典, 总迭代数)；`parse_convergence_histories(path, offset)` → (histories, 新偏移) 增量收集逐次求解的 CONVERGENCE_HISTORY；默认路径 `<repo>/logs/clover_multigrid.log` |
 
 ## 公共 API
@@ -93,6 +93,9 @@ params[_SET_INDEX_] += 1                           # end 之后再换槽
 - pxd 的 cdef extern 声明必须带 `nogil` 关键字；pxd 声明名不得与 pyx 内 def 同名（用 `qcu_api.pxd` 别名 `cimport X as _c_X`，同名会被覆盖为 Python 函数导致 nogil 调用失败）。
 - 每线程独立 params/argv/set_ptrs 副本 + `torch.cuda.set_device(dev_id)`（CUDA current device 线程局部）。
 - 多线程多卡驱动见 `_multi_gpu.py`（`MultiGpuMultigrid`，单 MPI rank）；单算子见 `_schur_op.py`（`CudaSchurOp`）。
+- 一致性验证保持 `run_reference=True`；生产吞吐模式可设 `run_reference=False`，
+  省去每线程 BiStabCG 参考求解和第二个普通 `LatticeSet` 初始化。worker 的
+  `applyEndQcu` 必须放在 `finally` 中，失败路径不得泄漏槽位。
 
 ## 大体积平台与算法结论（2026-08-22，详见 pyqcu/testing/qcu/multigrid/benchmarks/large_volume/report.md）
 
