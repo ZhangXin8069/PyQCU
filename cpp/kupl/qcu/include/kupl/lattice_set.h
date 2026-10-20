@@ -67,6 +67,25 @@ public:
       void *out, const void *in, const void *sitting, const void *hop_nn,
       const void *hop_diag, int E, int X, int Y, int Z, int T) = 0;
   virtual void laplacian(void *out, const void *in, const void *gauge) = 0;
+  virtual int strict_fine_matpc(
+      void *out, const void *in, const void *gauge, const void *clover_even,
+      const void *clover_odd, const void *clover_even_inv,
+      const void *clover_odd_inv, int parity) = 0;
+  virtual int strict_fine_prepare(
+      void *compact_rhs, const void *full_rhs, const void *gauge,
+      const void *clover_even, const void *clover_odd,
+      const void *clover_even_inv, const void *clover_odd_inv,
+      int parity) = 0;
+  virtual int strict_fine_reconstruct(
+      void *full_out, const void *full_rhs, const void *target_solution,
+      const void *gauge, const void *clover_even, const void *clover_odd,
+      const void *clover_even_inv, const void *clover_odd_inv,
+      int parity) = 0;
+  virtual void clover_full_apply(
+      void *out, const void *in, const void *gauge, const void *clover_even,
+      const void *clover_odd, const void *clover_even_inv,
+      const void *clover_odd_inv) = 0;
+  virtual double real_parameter(int index) const = 0;
   virtual int iterations() const = 0;
 };
 
@@ -122,6 +141,27 @@ public:
       void *out, const void *in, const void *sitting, const void *hop_nn,
       const void *hop_diag, int E, int X, int Y, int Z, int T) override;
   void laplacian(void *out, const void *in, const void *gauge) override;
+  int strict_fine_matpc(
+      void *out, const void *in, const void *gauge, const void *clover_even,
+      const void *clover_odd, const void *clover_even_inv,
+      const void *clover_odd_inv, int parity) override;
+  int strict_fine_prepare(
+      void *compact_rhs, const void *full_rhs, const void *gauge,
+      const void *clover_even, const void *clover_odd,
+      const void *clover_even_inv, const void *clover_odd_inv,
+      int parity) override;
+  int strict_fine_reconstruct(
+      void *full_out, const void *full_rhs, const void *target_solution,
+      const void *gauge, const void *clover_even, const void *clover_odd,
+      const void *clover_even_inv, const void *clover_odd_inv,
+      int parity) override;
+  void clover_full_apply(
+      void *out, const void *in, const void *gauge, const void *clover_even,
+      const void *clover_odd, const void *clover_even_inv,
+      const void *clover_odd_inv) override;
+  double real_parameter(int index) const override {
+    return static_cast<double>(parameters_.reals[index]);
+  }
   int iterations() const override { return last_iterations_; }
 
 private:

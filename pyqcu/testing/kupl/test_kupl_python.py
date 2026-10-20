@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import re
+import ctypes
 from pathlib import Path
 
 import pytest
@@ -10,6 +10,18 @@ from pyqcu import dslash, lattice, tools
 from pyqcu.cuda import QcuRuntime, define
 from pyqcu.testing.qcu.single_function_common import (
     qcu_clover_dslash_reference, qcu_wilson_dslash_reference)
+from pyqcu.testing.kupl.check_abi import _declarations
+
+
+_HEADER_CTYPES = {
+    "double": ctypes.c_double,
+    "double*": ctypes.POINTER(ctypes.c_double),
+    "int": ctypes.c_int,
+    "int*": ctypes.POINTER(ctypes.c_int),
+    "long long": ctypes.c_longlong,
+    "unsigned long long": ctypes.c_ulonglong,
+    "unsigned long long*": ctypes.POINTER(ctypes.c_ulonglong),
+}
 
 
 def _kupl_qcu():
@@ -23,17 +35,25 @@ def _kupl_qcu():
 def test_kupl_exports_the_complete_qcu_symbol_set() -> None:
     qcu = _kupl_qcu()
     root = Path(__file__).resolve().parents[3]
-    pattern = re.compile(r"\b(?:apply|test|get|verify)[A-Za-z0-9]+Qcu\b")
-    cuda_names = set(pattern.findall(
-        (root / "cpp/cuda/qcu/python/pyqcu.h").read_text(encoding="utf-8")))
-    kupl_names = set(pattern.findall(
-        (root / "cpp/kupl/qcu/include/kupl/qcu.h").read_text(encoding="utf-8")))
+    cuda_header = root / "cpp/cuda/qcu/python/pyqcu.h"
+    kupl_header = root / "cpp/kupl/qcu/include/kupl/qcu.h"
+    cuda_declarations = _declarations(cuda_header)
+    kupl_declarations = _declarations(kupl_header)
+    cuda_names = set(cuda_declarations)
+    kupl_names = set(kupl_declarations)
     assert len(kupl_names) == 37
     assert len(qcu._SIGNATURES) == 37
     assert kupl_names == cuda_names
+    assert kupl_declarations == cuda_declarations
     for name in sorted(cuda_names):
         assert getattr(qcu._LIBRARY, name)
         assert callable(getattr(qcu, name))
+        return_type, arguments = kupl_declarations[name]
+        expected_argtypes = tuple(_HEADER_CTYPES[value] for value in arguments)
+        assert qcu._SIGNATURES[name] == expected_argtypes
+        assert getattr(qcu._LIBRARY, name).argtypes == expected_argtypes
+        expected_restype = ctypes.c_int if return_type == "int" else None
+        assert getattr(qcu._LIBRARY, name).restype is expected_restype
 
 
 def test_kupl_binding_rejects_noncontiguous_tensors() -> None:

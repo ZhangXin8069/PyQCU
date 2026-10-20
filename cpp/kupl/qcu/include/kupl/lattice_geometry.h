@@ -161,6 +161,8 @@ template <typename Real> struct GaugeHaloBuffer {
   const Complex<Real> *source = nullptr;
   std::array<std::vector<Complex<Real>>, 8> faces;
   std::array<std::array<std::vector<Complex<Real>>, 4>, 6> corners;
+  std::array<std::vector<Complex<Real>>, 8> recv_faces;
+  std::array<std::array<std::vector<Complex<Real>>, 4>, 6> recv_corners;
   bool ready = false;
 };
 

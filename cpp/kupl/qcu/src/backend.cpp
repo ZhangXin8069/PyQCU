@@ -300,6 +300,8 @@ template <typename Real> void LatticeSet<Real>::allocate_scratch() {
         geometry_.face_sites[dim] * 2 * kGauge * kDim);
     gauge_halo_.faces[face_offset(dim, -1)].resize(gauge_face);
     gauge_halo_.faces[face_offset(dim, 1)].resize(gauge_face);
+    gauge_halo_.recv_faces[face_offset(dim, -1)].resize(gauge_face);
+    gauge_halo_.recv_faces[face_offset(dim, 1)].resize(gauge_face);
   }
   for (int dim0 = 0; dim0 < kDim; ++dim0) {
     for (int dim1 = dim0 + 1; dim1 < kDim; ++dim1) {
@@ -311,8 +313,16 @@ template <typename Real> void LatticeSet<Real>::allocate_scratch() {
                       plane_index(dim0, dim1))]
                   [static_cast<std::size_t>(sign_index(sign0) * 2 +
                                             sign_index(sign1))];
-          buffer.resize(static_cast<std::size_t>(
-              geometry_.corner_sites[dim0][dim1] * 2 * kGauge * kDim));
+          auto &recv_buffer =
+              gauge_halo_
+                  .recv_corners[static_cast<std::size_t>(
+                      plane_index(dim0, dim1))]
+                  [static_cast<std::size_t>(sign_index(sign0) * 2 +
+                                            sign_index(sign1))];
+          const std::size_t size = static_cast<std::size_t>(
+              geometry_.corner_sites[dim0][dim1] * 2 * kGauge * kDim);
+          buffer.resize(size);
+          recv_buffer.resize(size);
         }
       }
     }
