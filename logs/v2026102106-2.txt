@@ -1,0 +1,69 @@
+[日志元数据]
+日志类型: final
+生成时间: 2026-10-21 06:36:52 +0800
+批次: tag-dev100
+主任务: create-dev100-local-tag
+触发原因: 任务完成
+摘要: 创建并验证本地附注标签 dev100，未推送远程
+Git 根目录: /home/bingxing2/home/scx8080/PyQCU
+
+## 关键日志
+
+### S1 - 确定 dev 标签口径
+- 目标: 为当前开发快照创建下一个 dev 主版本标签。
+- 命令/操作: 检查 HEAD、分支、远程、dev 标签序列、时间顺序最近标签和 dev99..HEAD 变更；执行 init 盘点。
+- 关键输出: HEAD=1640349d，branch=main，最近 dev 标签=dev99，下一主版本=dev100；init 未发现需归档的额外 agent 初始化文件。
+- 退出码: 0。
+- 证据与判断: 标签类型明确为 dev；采用时间顺序最近的 dev99 作为前驱，而不是版本排序误排出的旧标签 test28。
+
+### S2 - 标签链与工作树门禁
+- 目标: 确认历史标签链、远程对象和待打标目标安全。
+- 命令/操作: 执行 skills/pyqcu-tag/tag-chain.sh --check --remote origin、git diff --check 和 dev100 占用检查。
+- 关键输出: 280 个受管标签链检查 PASS；local_dev100=absent；remote_dev100=absent；git diff --check PASS。
+- 退出码: 0。
+- 证据与判断: 可安全创建本地附注标签；工作树中的进度总结和日志产物不属于 HEAD 提交，不会被标签自动包含。
+
+### S3 - 创建并验证 dev100
+- 目标: 保存当前开发快照并验证标签对象。
+- 命令/操作: 执行 git tag -a dev100，并复验附注类型、消息、peeled target、历史链和远程状态。
+- 关键输出: dev100 指向 1640349dd4b7a34420f43408c454fb0e5d3a91f2；follow dev99；tag-chain --check PASS；远程不存在 dev100。
+- 退出码: 0。
+- 证据与判断: 本地 dev100 创建成功，本地与 origin/main 当前提交一致；未执行 push。
+
+## 验证与证据
+- 测试/检查: git for-each-ref refs/tags/dev100
+- 结果: objecttype=tag，target=1640349d，target_match=PASS。
+- 测试/检查: bash skills/pyqcu-tag/tag-chain.sh --check
+- 结果: PASS，follow 链和提交祖先关系正常。
+- 测试/检查: git diff --check
+- 结果: PASS。
+- 未验证项: 未推送远程，因此没有远程标签同步验收。
+
+## 变更与产物
+- 文件: Git tag dev100。
+- 产物: 本地附注标签 dev100，follow dev99。
+- 未改动范围: 未提交、未推送、未改写既有标签；原有工作区 docs/log 改动保持不变。
+
+## 风险、限制与下一步
+- 风险: dev100 只记录 HEAD 1640349d，当前工作树中的 docs/progress_dev99_to_1640349d_20261021.md、logs/v2026102106.txt 和 logs/AGENTS.md 未包含在标签中。
+- 阻塞: 无。
+- 下一步: 如需让标签包含进度文档和日志，需先显式授权提交这些文件并创建后续标签；如需远程同步，需显式授权 push。
+
+## 用户输入指令
+~tag:dev
+
+## Agent 全文报告
+--- report begin ---
+状态：finished
+
+已创建本地附注标签 dev100，指向 1640349dd4b7a34420f43408c454fb0e5d3a91f2，消息 follow dev99，并记录本轮 KUPL/CUDA 多卡、MG cache、QCU 残差、QUDA MG 与参考库整理进展。
+
+验证：
+- dev100 objecttype=tag。
+- peeled target 与 HEAD 完全一致。
+- 全历史 tag-chain 检查 PASS。
+- git diff --check PASS。
+- 远程 origin 尚无 dev100；按未授权范围未 push。
+
+当前工作区中的进度总结和日志文件未包含在 dev100 中，因为它们在 HEAD 之后且尚未提交。
+--- report end ---
