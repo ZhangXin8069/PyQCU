@@ -379,43 +379,38 @@ def _gather_local_blocks(value: Any, process_grid: Sequence[int],
 
 
 def _independent_true_residual(
-    solution_eo: Any, rhs_eo: Any, gauge_eo: Any, mass: float, csw: float,
+    *, torch: Any, solution_eo: Any, rhs_eo: Any, gauge_eo: Any,
+    clover_even: Any, clover_odd: Any, mass: float,
     process_grid: Sequence[int],
 ) -> float:
-    """Global full Wilson-Clover residual from an independent PyQCU path."""
-    import torch
-    from mpi4py import MPI
+    """Independent PyQCU full residual from globally gathered rank fields."""
     from pyqcu import dslash, tools
 
-    comm = MPI.COMM_WORLD
-    rank = int(comm.Get_rank())
-    device = solution_eo.device
     local_solution = tools.poooxyzt2oooxyzt(solution_eo)
     local_rhs = tools.poooxyzt2oooxyzt(rhs_eo)
     local_gauge = tools.poooxyzt2oooxyzt(gauge_eo)
+    local_clover = tools.poooxyzt2oooxyzt(
+        torch.stack((clover_even, clover_odd), dim=0))
     global_solution = _gather_local_blocks(local_solution, process_grid)
     global_rhs = _gather_local_blocks(local_rhs, process_grid)
     global_gauge = _gather_local_blocks(local_gauge, process_grid)
-    if rank == 0:
-        kappa = 1.0 / (2.0 * float(mass) + 8.0)
-        real_dtype = (
-            torch.float32 if gauge_eo.dtype == torch.complex64
-            else torch.float64)
-        kappa_tensor = torch.tensor([kappa], dtype=real_dtype, device=device)
-        u0 = torch.ones([1], dtype=real_dtype, device=device)
-        clover = dslash.make_clover(
-            global_gauge, kappa=kappa_tensor, u_0=u0, csw=float(csw))
+    global_clover = _gather_local_blocks(local_clover, process_grid)
+    if global_solution is not None:
+        kappa = torch.tensor(
+            [1.0 / (2.0 * float(mass) + 8.0)], dtype=gauge_eo.real.dtype,
+            device=gauge_eo.device)
+        u0 = torch.ones([1], dtype=gauge_eo.real.dtype, device=gauge_eo.device)
         residual = (
             dslash.give_wilson(
-                global_solution, global_gauge, kappa_tensor, u0, True) +
-            dslash.give_clover(global_solution, clover) - global_rhs)
+                global_solution, global_gauge, kappa, u0, True) +
+            dslash.give_clover(global_solution, global_clover) - global_rhs)
         numerator_local = residual
         denominator_local = global_rhs
     else:
-        numerator_local = torch.zeros(1, dtype=solution_eo.dtype, device=device)
-        denominator_local = torch.zeros(
-            1, dtype=solution_eo.dtype, device=device)
-    # tools.norm is a global MPI reduction, so every rank must participate.
+        numerator_local = torch.zeros(1, dtype=solution_eo.dtype,
+                                      device=solution_eo.device)
+        denominator_local = torch.zeros(1, dtype=solution_eo.dtype,
+                                        device=solution_eo.device)
     numerator = float(tools.norm(numerator_local))
     denominator = max(float(tools.norm(denominator_local)), 1.0e-30)
     value = numerator / denominator
@@ -821,6 +816,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     del local_gauge, local_rhs
 
     timings: dict[str, Any] = {}
+    print(json.dumps({"rank": rank, "stage": "clover_setup_even"}),
+          flush=True)
     timings["clover_setup_even"] = _measure_stage(
         comm=comm, torch=torch, qcu=qcu, define=define, params=params,
         argv=argv, set_ptrs=set_ptrs, device=device,
@@ -828,6 +825,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         operation=lambda: qcu.applyCloversQcu(ce, cei, g, set_ptrs, params),
         getter=None, max_iter=args.max_iter, warmups=args.warmups,
         repeats=args.repeats)
+    print(json.dumps({"rank": rank, "stage": "clover_setup_odd"}),
+          flush=True)
     timings["clover_setup_odd"] = _measure_stage(
         comm=comm, torch=torch, qcu=qcu, define=define, params=params,
         argv=argv, set_ptrs=set_ptrs, device=device,
@@ -835,6 +834,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         operation=lambda: qcu.applyCloversQcu(co, coi, g, set_ptrs, params),
         getter=None, max_iter=args.max_iter, warmups=args.warmups,
         repeats=args.repeats)
+    print(json.dumps({"rank": rank, "stage": "clover_bistabcg"}),
+          flush=True)
     timings["clover_schur_bistabcg_solve"] = _measure_stage(
         comm=comm, torch=torch, qcu=qcu, define=define, params=params,
         argv=argv, set_ptrs=set_ptrs, device=device,
@@ -845,8 +846,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         max_iter=args.max_iter, warmups=args.warmups, repeats=args.repeats)
 
     torch.cuda.synchronize(device)
+    print(json.dumps({"rank": rank, "stage": "true_residual_start"}),
+          flush=True)
     true_residual = _independent_true_residual(
-        out, rhs, g, mass, csw, grid)
+        torch=torch, solution_eo=out, rhs_eo=rhs, gauge_eo=g,
+        clover_even=ce, clover_odd=co, mass=mass, process_grid=grid)
+    print(json.dumps({"rank": rank, "stage": "true_residual_done",
+                      "value": true_residual}), flush=True)
     residual_floor = common.solver_acceptance(args.atol, dtype=dtype)
     independent_pass = bool(
         math.isfinite(true_residual) and true_residual <= residual_floor)
@@ -880,8 +886,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             "acceptance": float(residual_floor),
             "pass": independent_pass,
             "source": (
-                "independent PyQCU full Wilson-Clover operator after "
-                "root gathering of rank-local fields"),
+                "root-gathered independent PyQCU Wilson-Clover operator "
+                "using the existing even/odd Clover terms"),
             "phase": "after final steady solve; excluded from timing",
         },
         "status": "PASS" if rank_pass else "FAIL",
@@ -971,6 +977,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "warmups": int(args.warmups),
                 "repeats": int(args.repeats),
                 "device_policy": "PYQCU_MPI_DEVICE_ID=<MPI shared-memory local rank>",
+                "mpi_device_aware": os.environ.get(
+                    "PYQCU_MPI_DEVICE_AWARE", "auto"),
                 "libqcu": libqcu_record,
             },
             "strong_scaling": {

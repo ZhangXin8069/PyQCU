@@ -46,19 +46,57 @@ def test_independent_true_residual_accepts_manufactured_solution() -> None:
     kappa = torch.tensor([1.0 / 8.1], dtype=torch.float32)
     u0 = torch.ones([1], dtype=torch.float32)
     clover = dslash.make_clover(gauge, kappa=kappa, u_0=u0, csw=1.0)
-    rhs = (
-        dslash.give_wilson(solution, gauge, kappa, u0, True)
-        + dslash.give_clover(solution, clover)
+    gauge_eo = tools.oooxyzt2poooxyzt(gauge)
+    solution_eo = tools.oooxyzt2poooxyzt(solution)
+    clover_term_eo = tools.oooxyzt2poooxyzt(clover)
+    eye = torch.eye(12, dtype=torch.complex64).reshape(
+        4, 3, 4, 3, 1, 1, 1, 1)
+    clover_eo = (clover_term_eo[0] + eye, clover_term_eo[1] + eye)
+    inverse_eo = tuple(dslash.inverse(item) for item in clover_eo)
+    hopping_eo = (
+        -dslash.give_wilson_eo(
+            solution_eo[1], gauge_eo, torch.tensor([1.0]), u0),
+        -dslash.give_wilson_oe(
+            solution_eo[0], gauge_eo, torch.tensor([1.0]), u0),
     )
+    transported_eo = tuple(
+        benchmark._apply_onsite_matrix(hopping, inverse)
+        for hopping, inverse in zip(hopping_eo, inverse_eo, strict=True))
+    rhs_eo = tuple(
+        benchmark._apply_onsite_matrix(solution_eo[parity], clover_eo[parity])
+        - float(kappa.item()) * hopping_eo[parity]
+        for parity in range(2))
+
+    class FakeQcu:
+        @staticmethod
+        def applyInitQcu(set_ptrs, params, argv):
+            set_ptrs[int(params[15])] = 1
+
+        @staticmethod
+        def applyEndQcu(set_ptrs, params):
+            set_ptrs[int(params[15])] = 0
+
+        @staticmethod
+        def applyDslashQcu(out, src, gauge, inverse, set_ptrs, params):
+            del src, gauge, inverse, set_ptrs
+            out.copy_(transported_eo[int(params[9])])
+
+    define = SimpleNamespace(
+        _SET_PTRS_COARSE_BASE_=30, _SET_INDEX_=15, _SET_PLAN_=16,
+        _SET_PLAN0_=0, _PARITY_=9)
+    params = torch.zeros(58, dtype=torch.int32)
+    set_ptrs = torch.zeros(100, dtype=torch.int64)
+    comm = SimpleNamespace(allreduce=lambda value, op=None: value)
     residual = benchmark._independent_true_residual(
-        tools.oooxyzt2poooxyzt(solution),
-        tools.oooxyzt2poooxyzt(rhs),
-        tools.oooxyzt2poooxyzt(gauge),
-        0.05,
-        1.0,
-        (1, 1, 1, 1),
+        comm=comm, torch=torch, qcu=FakeQcu, define=define, params=params,
+        argv=torch.zeros(8), set_ptrs=set_ptrs, device=torch.device("cpu"),
+        solution_eo=solution_eo, rhs_eo=rhs_eo, gauge_eo=gauge_eo,
+        clover_even=clover_eo[0], clover_odd=clover_eo[1],
+        clover_even_inv=inverse_eo[0], clover_odd_inv=inverse_eo[1],
+        mass=0.05,
     )
     assert residual < 2.0e-6
+    assert int(params[define._SET_INDEX_]) == 1
 
 
 def test_qdp_rank_slab_matches_canonical_slice() -> None:

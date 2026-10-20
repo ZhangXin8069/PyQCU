@@ -96,6 +96,6 @@ Wilson/Clover Dirac 算子、BiStabCG 与多重网格求解器、stout smearing�
 - Git 交付：form 批次按逻辑分组提交，只暂存本任务文件，禁止 `git add -A`/`git add .` 和 force push；推送与开发标签按 tag 技能的 follow 链执行。
 - 大文件闸门：任何提交前运行 `${CONFIGURE_ROOT:-$HOME/configure}/skills/form/scripts/form-large-files-check.sh --root "$(git rev-parse --show-toplevel)"`；默认阻止单个新增、修改、复制或重命名文件超过 `10,000,000` 字节，命中时不得提交或推送。
 - 本地例外：`data/**` 可跟踪正式证据、构建树和自包含安装树；`logs/**` 可在打 tag 前暂存第一方报告 `.md/.tex/.pdf` 与图表，打 tag 后不得保留 `logs/<tag>/**` 报告副本；`docs/张鑫 508应用测试报告-PyQCU/` 是文档资产保留的解包 Office 资源；`skills/pyqcu-tag/tag-chain.test.sh` 与该技能实现同目录；`refer/**` 与已存在的上游 vendored/generated 树保留来源名称。
-- 历史例外边界：当前本地包装器登记并豁免 `1049` 项既有资产/合法布局 finding（以 `bash skills/pyqcu-form/form-audit.sh` 输出为准）；不得删除、迁移、整体禁用检查或改写排除项来绕过这些历史资产。新增例外必须精确匹配、保留证据并执行审计回归。
+- 历史例外边界：当前本地包装器登记并豁免 `1060` 项既有资产/合法布局 finding（以 `bash skills/pyqcu-form/form-audit.sh` 输出为准）；不得删除、迁移、整体禁用检查或改写排除项来绕过这些历史资产。新增例外必须精确匹配、保留证据并执行审计回归。
 - 规则维护：本节是根规则文件中唯一的 `form-skill` 起止标记托管块，由 `/root/configure/skills/form/scripts/form-agents-sync.sh` 更新并执行 `--check`；不得手工制造重复、未闭合标记或绕过同步检查。目标库原有明确约定优先于 form 通用规则。
 <!-- form-skill:end -->

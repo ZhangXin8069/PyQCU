@@ -100,8 +100,10 @@ dev73 的 `multigrid/legacy/` 与 dev74 的 `multigrid/scaling/`（含
 
 ## QUDA double MultiGrid 对照构建（2026-09-17）
 
-QUDA 1.1.0 上游默认关闭 double recursive MultiGrid；本项目已在
-`refer/git-rep/quda` 加入最小 opt-in 修复：
+`refer/git-rep/quda` 现在是只读上游 submodule，固定到
+`e75ee8835f7c93683c6c96975eddc2e476c13154`，不得在其工作树中加入本地修复。
+上游仍默认关闭 double recursive MultiGrid；下列条目是本项目历史上的 opt-in
+修补记录，不属于当前 submodule 状态：
 
 1. CMake `QUDA_MULTIGRID_DOUBLE=ON` 定义 `GPU_MULTIGRID_DOUBLE`。
 2. `matrix_tile.cuh` 的 gauge accessor 对 mixed float/double 做显式
@@ -113,7 +115,11 @@ QUDA 1.1.0 上游默认关闭 double recursive MultiGrid；本项目已在
    float 路径继续使用确定性 int 固定点。
 4. `gauge_norm.cu` 禁止 double fixed-point 检查不再被 double MG 触发。
 
-推荐构建参数：`QUDA_PRECISION=12`、`QUDA_RECONSTRUCT=7`、
+如需重新启用 double recursive MultiGrid，必须复制上游固定提交到独立的
+`data/quda-*` 工作树，在 shadow 中维护补丁并完成真残差回归；不得修改
+`refer/git-rep/quda`。上述历史补丁是否适用于当前上游提交也必须重新验证。
+
+以下推荐构建参数仅适用于已应用上述 shadow 补丁的构建：`QUDA_PRECISION=12`、`QUDA_RECONSTRUCT=7`、
 `QUDA_INTERFACE_QDP=ON`、`QUDA_QIO=ON`、`QUDA_QMP=ON`、
 `QUDA_MULTIGRID_NVEC_LIST=12,24`、`QUDA_ENABLE_MMA=OFF`、
 `QUDA_GPU_ARCH=sm_70`。该组合同时覆盖 c64 和 c128，不再分别维护
@@ -136,3 +142,23 @@ match`。正确设置后 QUDA c128 大格点三层可运行，outer fine precisi
 不要把 trace 诊断中的 `PYQCU_STRICT_TRACE_FILE`/`QUDA_MG_TRACE_FILE`
 带进正式 speedup；正式 profile 会对活动 trace 环境 fail closed，只有
 显式 `--allow-trace` 才能运行诊断。
+
+## 2026-10-21 LIME 分布式对照补充
+
+`benchmark_qcu_lime_mpi.py` 与 `benchmark_quda_lime_mpi.py` 使用同一真实 LIME、
+同一 PCG64 全局 RHS 和逐步 loading/setup/warmup/steady 计时。QCU 真残差必须
+在求解器返回后单独计算；不能仅凭 `iterations < max_iter` 宣称数值正确。
+
+本集群 CUDA-aware MPI 在首个 distributed Wilson halo 会阻塞，真实 LIME
+multi-rank QCU 默认设 `PYQCU_MPI_DEVICE_AWARE=0`。强制 host staging 后可完成
+2-rank 收敛；恢复 device-aware 前必须通过 2-rank halo、全算子残差和 10 分钟
+阶段审计。
+
+QUDA MG 的 `n_vec` 必须在运行时按实际 `libquda.so` 回读。当前
+`/home/bingxing2/home/scx8080/lib/quda-develop/build` 编译实例支持
+`6,24,32`，请求 `12` 会明确报 `Unsupported nVec 12`；不要仅依据历史构建文档
+假定支持 `12,24`。正式 MG 比较应先解析实际 CMake capability，再选择两侧相同的
+coarse spin/nvec 语义。
+
+任何 GPU 作业超过 10 分钟仍在运行时，必须留下一次运行中审计记录；仅有
+`RUNNING` 状态不足以证明任务健康。

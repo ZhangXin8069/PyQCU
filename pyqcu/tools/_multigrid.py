@@ -988,6 +988,44 @@ class BatchedLocalSchur:
         return out
 
 
+class BatchedLocalWilsonClover(BatchedLocalSchur):
+    """Window-local full Wilson--Clover operator for Galerkin probes.
+
+    This is the one-hop counterpart of ``BatchedLocalSchur``.  It is used by
+    legacy MG builders whose level-0 operator is the full Dirac matrix rather
+    than the odd-parity Schur complement.
+    """
+
+    def __init__(self, op, Xf, Yf, Zf, Tf, W=6):
+        self.op = op
+        self.W = int(W)
+        self.dims = (int(Xf), int(Yf), int(Zf), int(Tf))
+        self.Mep = [op.hopping.M_plus_list[d] for d in range(4)]
+        self.Mem = [op.hopping.M_minus_list[d] for d in range(4)]
+        self.Mo = op.sitting.M
+        self.ar = torch.arange(self.W, device=self.Mep[0].device)
+        self.sp = (self.ar + 1) % self.W
+        self.sm = (self.ar - 1) % self.W
+
+    def __call__(self, x_local, idx, starts=None):
+        onsite = self._slicem(self.Mo, idx, starts)
+        out = torch.einsum(
+            "kEexyzt,kBexyzt->kBExyzt", onsite, x_local)
+        del onsite
+        for dimension in range(4):
+            shifted = torch.roll(x_local, shifts=-1, dims=dimension + 3)
+            matrix = self._slicem(self.Mep[dimension], idx, starts)
+            out.add_(torch.einsum(
+                "kEexyzt,kBexyzt->kBExyzt", matrix, shifted))
+            del matrix, shifted
+            shifted = torch.roll(x_local, shifts=1, dims=dimension + 3)
+            matrix = self._slicem(self.Mem[dimension], idx, starts)
+            out.add_(torch.einsum(
+                "kEexyzt,kBexyzt->kBExyzt", matrix, shifted))
+            del matrix, shifted
+        return out
+
+
 def _probe_point_batch_local(lsch, lonv, E, c_idx, sit, hop_nn, hop_diag, dims, Nc, W):
     """局部化批量单点探测：用 BatchedLocalSchur 替代全格 _schur_matvec_batch。
 
