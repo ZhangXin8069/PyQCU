@@ -68,6 +68,7 @@ while IFS=$'\t' read -r severity rule path message; do
             ;;
         WARNING:TEST_LOCATION:cpp/kupl/qcu/tests/benchmark_kupl.cpp|\
         WARNING:TEST_LOCATION:cpp/kupl/qcu/tests/test_canonical_layout.py|\
+        WARNING:TEST_LOCATION:cpp/kupl/qcu/tests/check_abi.py|\
         WARNING:TEST_LOCATION:cpp/kupl/qcu/tests/test_failure_modes.py|\
         WARNING:TEST_LOCATION:cpp/kupl/qcu/tests/test_kupl.cpp|\
         WARNING:TEST_LOCATION:cpp/kupl/qcu/tests/test_multigrid.py|\

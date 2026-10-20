@@ -16,7 +16,7 @@ ctest --test-dir cpp/kupl/qcu/build --output-on-failure
 Python uses the same flat ABI through `pyqcu.kupl.qcu`:
 
 ```bash
-python -m pytest -q pyqcu/testing/kupl/test_kupl_python.py
+python -m pytest -q pyqcu/testing/kupl
 ```
 
 Set `PYQCU_KUPL_LIB=/absolute/path/libqcu.so` when the library is installed

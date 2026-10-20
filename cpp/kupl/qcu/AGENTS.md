@@ -32,9 +32,10 @@
   `grid_t`. Never route it through the parity-compressed Wilson geometry.
 - Clover prepare/reconstruct returns `0` on success and nonzero on failure;
   do not turn a failed Schur setup into a plausible output buffer.
-- Gaussian gauge, multigrid restrict/prolong and coarse 33-stencil dslash are
-  implemented. Full recursive Clover-MG, verify and strict-MG remain explicit
-  fail-closed stubs; never synthesize outputs or report success.
+- Gaussian gauge, recursive legacy Clover-MG, strict coarse/NULL/MATPC
+  primitives, persistent strict V-cycle/FGMRES and MG verify are implemented.
+  Keep homogeneous c64/c128 precision and fail closed on unsupported mixed
+  precision or CUDA-only mode bits.
 - Build and validate all changes with:
 
   ```bash
@@ -44,10 +45,11 @@
   ```
 
 - `qcu.map` exposes only the 37 CUDA-compatible `*Qcu` symbols. Keep
-  `tests/check_abi.py` in the CTest suite when adding ABI entries.
+  `pyqcu/testing/kupl/check_abi.py` in the CTest suite when changing ABI
+  declarations; it compares both headers and the exported dynamic surface.
 - `KUPL_NUMA_BIND=1` owns CPU placement; launch MPI with binding disabled
   (`--bind-to none` for OpenMPI). If the scheduler already provides a
   NUMA-local cpuset per rank, keep `KUPL_NUMA_BIND=0`.
 
-- Do not add GPU, multigrid, LIME/HDF5 I/O, or PyQCU Python changes to this
-  backend without a separate interface and validation task.
+- Do not add GPU, LIME/HDF5 I/O, or PyQCU Python changes to this backend
+  without a separate interface and validation task.

@@ -33,6 +33,7 @@ add_library(kupl_qcu SHARED
   src/apply_wilson_dslash.cpp
   src/backend.cpp
   src/lattice_clover_dslash.cpp
+  src/lattice_clover_multigrid.cpp
   src/lattice_cpu.cpp
   src/lattice_gauss_gauge.cpp
   src/lattice_geometry.cpp
@@ -40,6 +41,7 @@ add_library(kupl_qcu SHARED
   src/lattice_linalg.cpp
   src/lattice_multigrid.cpp
   src/lattice_solver.cpp
+  src/lattice_strict.cpp
   src/lattice_wilson_dslash.cpp
 )
 add_library(kupl::qcu ALIAS kupl_qcu)
@@ -183,6 +185,8 @@ if(KUPL_BUILD_TESTS)
   )
 
   find_package(Python3 COMPONENTS Interpreter QUIET)
+  set(KUPL_PYTHON_TEST_DIR
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../../pyqcu/testing/kupl)
   set(KUPL_CTEST_NAMES
     kupl_qcu_1rank
     kupl_qcu_2rank
@@ -198,9 +202,11 @@ if(KUPL_BUILD_TESTS)
   if(Python3_Interpreter_FOUND)
     add_test(NAME kupl_qcu_abi_surface COMMAND
       ${Python3_EXECUTABLE}
-      ${CMAKE_CURRENT_SOURCE_DIR}/tests/check_abi.py
+      ${KUPL_PYTHON_TEST_DIR}/check_abi.py
       --library $<TARGET_FILE:kupl_qcu>
       --header ${CMAKE_CURRENT_SOURCE_DIR}/include/kupl/qcu.h
+      --cuda-header
+      ${CMAKE_CURRENT_SOURCE_DIR}/../../cuda/qcu/python/pyqcu.h
     )
     list(APPEND KUPL_CTEST_NAMES kupl_qcu_abi_surface)
 
@@ -252,6 +258,48 @@ if(KUPL_BUILD_TESTS)
         ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_multigrid.py
         --library $<TARGET_FILE:kupl_qcu>
       )
+      add_test(NAME kupl_qcu_python_strict_1rank COMMAND
+        ${MPIEXEC_EXECUTABLE}
+        ${MPIEXEC_NUMPROC_FLAG} 1
+        ${Python3_EXECUTABLE}
+        ${KUPL_PYTHON_TEST_DIR}/test_strict.py
+        --library $<TARGET_FILE:kupl_qcu>
+      )
+      add_test(NAME kupl_qcu_python_strict_2rank COMMAND
+        ${MPIEXEC_EXECUTABLE}
+        ${MPIEXEC_NUMPROC_FLAG} 2
+        ${Python3_EXECUTABLE}
+        ${KUPL_PYTHON_TEST_DIR}/test_strict.py
+        --library $<TARGET_FILE:kupl_qcu>
+      )
+      add_test(NAME kupl_qcu_python_strict_4rank COMMAND
+        ${MPIEXEC_EXECUTABLE}
+        ${MPIEXEC_NUMPROC_FLAG} 4
+        ${Python3_EXECUTABLE}
+        ${KUPL_PYTHON_TEST_DIR}/test_strict.py
+        --library $<TARGET_FILE:kupl_qcu>
+      )
+      add_test(NAME kupl_qcu_python_legacy_mg_1rank COMMAND
+        ${MPIEXEC_EXECUTABLE}
+        ${MPIEXEC_NUMPROC_FLAG} 1
+        ${Python3_EXECUTABLE}
+        ${KUPL_PYTHON_TEST_DIR}/test_legacy_mg.py
+        --library $<TARGET_FILE:kupl_qcu>
+      )
+      add_test(NAME kupl_qcu_python_legacy_mg_2rank COMMAND
+        ${MPIEXEC_EXECUTABLE}
+        ${MPIEXEC_NUMPROC_FLAG} 2
+        ${Python3_EXECUTABLE}
+        ${KUPL_PYTHON_TEST_DIR}/test_legacy_mg.py
+        --library $<TARGET_FILE:kupl_qcu>
+      )
+      add_test(NAME kupl_qcu_python_legacy_mg_4rank COMMAND
+        ${MPIEXEC_EXECUTABLE}
+        ${MPIEXEC_NUMPROC_FLAG} 4
+        ${Python3_EXECUTABLE}
+        ${KUPL_PYTHON_TEST_DIR}/test_legacy_mg.py
+        --library $<TARGET_FILE:kupl_qcu>
+      )
       add_test(NAME kupl_qcu_python_failure_modes COMMAND
         ${Python3_EXECUTABLE}
         ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_failure_modes.py
@@ -263,6 +311,12 @@ if(KUPL_BUILD_TESTS)
         kupl_qcu_python_new_abi_2rank
         kupl_qcu_python_multigrid_1rank
         kupl_qcu_python_multigrid_2rank
+        kupl_qcu_python_strict_1rank
+        kupl_qcu_python_strict_2rank
+        kupl_qcu_python_strict_4rank
+        kupl_qcu_python_legacy_mg_1rank
+        kupl_qcu_python_legacy_mg_2rank
+        kupl_qcu_python_legacy_mg_4rank
         kupl_qcu_python_failure_modes
       )
     endif()
