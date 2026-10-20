@@ -1,0 +1,85 @@
+[日志元数据]
+日志类型: final
+生成时间: 2026-10-20 11:51:08 +0800
+批次: kupl-cuda-alignment
+主任务: KUPL QCU 与 CUDA QCU 对齐重构
+触发原因: 任务完成
+摘要: 37 项 ABI、strict/legacy MG 语义、workspace 账本与回归完成；Release/UBSAN/CTest/pytest/form 全绿。
+Git 根目录: /root/PyQCU
+
+## 关键日志
+### S1 — 从未提交工作树恢复并对齐 ABI
+- 目标: 完成 KUPL QCU 对 CUDA QCU 的 37 项 C ABI、参数协议、MG 语义与测试入口对齐。
+- 命令/操作: 盘点工作树；逐组审查新增 KUPL strict/legacy MG 分层；对比 `cpp/kupl/qcu/include/kupl/qcu.h` 与 `cpp/cuda/qcu/python/pyqcu.h`。
+- 关键输出: 两侧均为 37 项声明；修正参数名归一化后返回类型、参数顺序与类型完全一致。
+- 退出码: 0
+- 证据与判断: `kupl_qcu_abi_surface` 通过；Python `_SIGNATURES` 与头文件类型逐项比对通过。
+
+### S2 — 修正 legacy Clover-MG 协议漂移
+- 目标: 对齐 `_MG_USE_GCR_`、`_MG_USE_DEFLATE_`、fine restart 与真实残差时序。
+- 命令/操作: 分离 CUDA-only mode 拒绝和可选初始 deflation；恢复 `num_restart<=0 -> 3`；改为 fine BiCGStab 后按 interval 做粗校正；补齐 max_iter、atol、粗层尺寸整除校验。
+- 关键输出: deflate 关闭、deflate 开启、cold/warm、1/2/4-rank、c64/c128 均通过。
+- 退出码: 0
+- 证据与判断: `kupl_qcu_python_legacy_mg_{1,2,4}rank` 与 failure modes 全绿。
+
+### S3 — 修正 strict MG 容差与 workspace 账本
+- 目标: 对齐 coarsest 容差来源、FGMRES 热启动和精确 workspace 所有权。
+- 命令/操作: coarsest BiCGStab 改用 `argv[_MG_LEVEL1_ATOL_ + level - 1]`；FGMRES 复用 RHS/平滑临时向量，使实际分配等于 `(2*m+5)*B_f+2*B_c`；增加 undersized budget fail-closed 和 warm x0 回归。
+- 关键输出: 精确预算通过，预算减 1 byte 返回失败；cold/warm 解一致。
+- 退出码: 0
+- 证据与判断: strict 1/2/4-rank c64/c128 测试通过。
+
+### S4 — 补齐 fine MATPC 与失败边界
+- 目标: 让每个新增 strict 入口都有数值或 fail-closed 证据。
+- 命令/操作: 增加独立 NumPy 周期格点参考，覆盖非平凡 gauge、Clover 逆、双 parity 的 fine MATPC；公共 ABI helper 拒绝空 params；测试入口兼容包导入与脚本导入。
+- 关键输出: fine MATPC c64/c128 误差低于阈值；空 controls、CUDA-only mode、非收敛均显式失败。
+- 退出码: 0
+- 证据与判断: strict/failure mode CTest 全绿，`pytest pyqcu/testing/kupl` 可正常收集。
+
+## 验证与证据
+- Release 构建: `cmake --build cpp/kupl/qcu/build -j`，通过。
+- Release CTest: `ctest --test-dir cpp/kupl/qcu/build --output-on-failure`，23/23 通过。
+- Python: `python -m pytest -q pyqcu/testing/kupl`，10 passed。
+- UBSAN: Debug + `-fsanitize=undefined` 全量重建，`UBSAN_OPTIONS=halt_on_error=1 ctest ...`，23/23 通过。
+- 规范门: `bash skills/pyqcu-form/form-audit.sh` 通过；33 个技能目录一致，豁免 1050 项既有资产 finding。
+- 语法/边界: `git diff --check`、`bash -n skills/pyqcu-form/form-audit.sh`、相关 Python `py_compile` 均通过。
+- 未运行: 未做 ASAN 与大型格点性能基准；CUDA 运行时代码未修改，因此本轮以头文件/ABI 对齐和 KUPL 实际执行验证为准。
+
+## 变更与产物
+- 文件: `cpp/kupl/qcu/include/kupl/{define.h,lattice_set.h,lattice_geometry.h,lattice_clover_multigrid.h,lattice_strict.h}`
+- 文件: `cpp/kupl/qcu/src/{api_common.hpp,backend.cpp,lattice_clover_dslash.cpp,lattice_solver.cpp,lattice_clover_multigrid.cpp,lattice_strict.cpp,apply_clover_multigrid.cpp,apply_clover_multigrid_verify.cpp,apply_multigrid_strict.cpp}`
+- 文件: `cpp/kupl/qcu/CMakeLists.txt` 与相关 AGENTS/README/技能文档
+- 文件: `pyqcu/testing/kupl/{check_abi.py,test_strict.py,test_legacy_mg.py,test_kupl_python.py}`
+- 产物: 重新构建的 `cpp/kupl/qcu/build/libqcu.so` 与 UBSAN 构建树均属于忽略/数据构建产物，未作为源码交付。
+- 未改动范围: 未修改 CUDA 实现，未创建标签。验证期间外部流程将源码改动提交并同步为 `ef8af158`；本 agent 未执行 `git commit` 或 `git push`。最终工作树仅剩本次日志归档。
+
+## 风险、限制与下一步
+- 风险: KUPL strict 仍是宿主 CPU 实现，不提供 CUDA 的 mixed-precision、GCR/CA-GCR/BiCGStabL 或 GPU 性能语义，继续按要求 fail closed。
+- 限制: 未执行大型格点收敛/性能基准和 ASAN。若进入生产性能验收，需补 1/2/4-rank 大格点真残差与吞吐对照。
+- 下一步: 审阅并决定是否提交本次 `logs/` 归档；源码改动已由外部流程进入 `ef8af158`。
+
+## 用户输入指令
+继续完成 /root/PyQCU 的 KUPL QCU 与 CUDA QCU 对齐重构，从当前未提交工作树继续，不创建带 token 预算的 goal。
+
+## Agent 全文报告
+--- report begin ---
+finished
+
+**改动内容**
+- 完成 KUPL 37 项 CUDA-compatible C ABI 的实现与分层收尾，并让 ABI 门同时校验 KUPL/CUDA 头文件签名、动态导出和 Python `ctypes` 签名。
+- 修正 legacy Clover-MG 的 `params[54]`/`params[55]` 语义、restart 默认值与校正时序，补齐 cold/warm、deflate 开关和 CUDA-only mode fail-closed。
+- 修正 strict MG 的 coarsest 容差来源和 FGMRES workspace 账本，实际分配严格等于 `(2*m+5)*B_f + 2*B_c`。
+- 新增 strict fine MATPC 非平凡数值回归、undersized-workspace、warm-start、空 params 与包内 pytest 导入回归。
+
+**推理依据**
+CUDA 的参数协议把 `params[54]` 作为算法/cycle mode 位，把 `params[55]` 作为可选初始 deflation；legacy MG 的周期粗校正仍由 fine restart 频率控制。strict coarsest 停机应使用 argv 中对应层的容差，而不是 CPU 后端硬编码值。FGMRES 的预算必须反映真实同时存活的向量数，否则小预算会在分配阶段超限。
+
+**验证结果**
+- Release 构建通过；CTest `23/23` 通过，包含 strict/legacy MG 的 c64/c128、1/2/4-rank、warm/cold、ABI 与 failure modes。
+- `python -m pytest -q pyqcu/testing/kupl`：`10 passed`。
+- UBSAN 构建与全量 CTest：`23/23` 通过。
+- `git diff --check`、shell 语法、Python 编译和 form 审计均通过。
+
+**后续步骤**
+未创建标签。验证期间外部流程已将源码改动提交并同步为 `ef8af158`，本 agent 未执行提交或推送；当前仅剩日志归档未提交。若进入生产验收，再补大型格点真残差与吞吐基准。ASAN 未运行。
+--- report end ---
