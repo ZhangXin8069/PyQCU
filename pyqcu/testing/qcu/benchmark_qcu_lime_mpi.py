@@ -348,12 +348,13 @@ def _generate_global_rhs(
 
 
 def _gather_local_blocks(value: Any, process_grid: Sequence[int],
-                         root: int = 0) -> Any:
+                         root: int = 0, comm: Any | None = None) -> Any:
     """Gather a rank-local ``...xyzt`` tensor into the global lattice."""
     import torch
-    from mpi4py import MPI
+    if comm is None:
+        from mpi4py import MPI
 
-    comm = MPI.COMM_WORLD
+        comm = MPI.COMM_WORLD
     rank = int(comm.Get_rank())
     array = np.ascontiguousarray(value.detach().cpu().numpy())
     grid = _tuple4(process_grid, "process_grid")
@@ -381,21 +382,29 @@ def _gather_local_blocks(value: Any, process_grid: Sequence[int],
 def _independent_true_residual(
     *, torch: Any, solution_eo: Any, rhs_eo: Any, gauge_eo: Any,
     clover_even: Any, clover_odd: Any, mass: float,
-    process_grid: Sequence[int],
+    process_grid: Sequence[int], comm: Any | None = None,
 ) -> float:
     """Independent PyQCU full residual from globally gathered rank fields."""
     from pyqcu import dslash, tools
+
+    if comm is None:
+        from mpi4py import MPI
+
+        comm = MPI.COMM_WORLD
 
     local_solution = tools.poooxyzt2oooxyzt(solution_eo)
     local_rhs = tools.poooxyzt2oooxyzt(rhs_eo)
     local_gauge = tools.poooxyzt2oooxyzt(gauge_eo)
     local_clover = tools.poooxyzt2oooxyzt(
         torch.stack((clover_even, clover_odd), dim=0))
-    global_solution = _gather_local_blocks(local_solution, process_grid)
-    global_rhs = _gather_local_blocks(local_rhs, process_grid)
-    global_gauge = _gather_local_blocks(local_gauge, process_grid)
-    global_clover = _gather_local_blocks(local_clover, process_grid)
+    global_solution = _gather_local_blocks(
+        local_solution, process_grid, comm=comm)
+    global_rhs = _gather_local_blocks(local_rhs, process_grid, comm=comm)
+    global_gauge = _gather_local_blocks(local_gauge, process_grid, comm=comm)
+    global_clover = _gather_local_blocks(local_clover, process_grid, comm=comm)
     if global_solution is not None:
+        # applyCloversQcu returns A=I+T; give_clover expects T alone.
+        global_clover = dslash.cut_I(global_clover)
         kappa = torch.tensor(
             [1.0 / (2.0 * float(mass) + 8.0)], dtype=gauge_eo.real.dtype,
             device=gauge_eo.device)
@@ -416,6 +425,7 @@ def _independent_true_residual(
     value = numerator / denominator
     if not math.isfinite(value):
         raise RuntimeError(f"nonfinite independent true residual: {value!r}")
+    value = float(comm.bcast(value, root=0))
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
     return float(value)
@@ -850,7 +860,8 @@ def main(argv: Sequence[str] | None = None) -> int:
           flush=True)
     true_residual = _independent_true_residual(
         torch=torch, solution_eo=out, rhs_eo=rhs, gauge_eo=g,
-        clover_even=ce, clover_odd=co, mass=mass, process_grid=grid)
+        clover_even=ce, clover_odd=co, mass=mass, process_grid=grid,
+        comm=comm)
     print(json.dumps({"rank": rank, "stage": "true_residual_done",
                       "value": true_residual}), flush=True)
     residual_floor = common.solver_acceptance(args.atol, dtype=dtype)
@@ -887,7 +898,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             "pass": independent_pass,
             "source": (
                 "root-gathered independent PyQCU Wilson-Clover operator "
-                "using the existing even/odd Clover terms"),
+                "using the existing even/odd Clover terms with I stripped; "
+                "value broadcast to every MPI rank"),
             "phase": "after final steady solve; excluded from timing",
         },
         "status": "PASS" if rank_pass else "FAIL",
