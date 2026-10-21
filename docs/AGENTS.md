@@ -15,9 +15,14 @@ PyQCU 参考文档。
 | `examples.md` | 测试与示例迁移映射、运行入口与结果解读 |
 | `profiler.md` | 剖析指南 — torch.profiler 与 Perfetto |
 | `ORGANIZATION.md` | `docs/`、`data/`、`logs/`、`pyqcu/testing/` 的统一分类规则、垃圾清理与构建树例外 |
+| `form_pyqcu_20261020.md` | 2026-10-20 form 整理记录 |
+| `form_pyqcu_20261022.md` | 2026-10-22 form 整理记录（tag 名路径整改与目录索引补齐） |
+| `progress_kupl_cuda_mg_20261021.md` | KUPL/CUDA 多卡与多重网格进度总结（2026-10-21） |
+| `progress_until_20261022_worktree.md` | 当前工作区续接进度总结（2026-10-22） |
 
-tag 阶段报告和任务计划不作为 `docs/` 当前文件保留；需要历史版本时使用
-`git show <tag>:<path>` 或临时 worktree。
+已归档的 tag 阶段报告以 tag 对象为准，通过 `git show <tag>:<path>` 或临时 worktree 读取；
+当前任务尚未归档的进度总结暂留本目录，纳入后续标签后在清理批次中删除工作区副本。
+任务计划不作为 `docs/` 当前文件保留。
 
 ## 目录分类
 
