@@ -5,9 +5,10 @@ namespace qcu {
 #define __Y__
 #define __Z__
 #define __T__
-template <typename T>
+template <typename T, bool ApplyClover>
 __global__ void wilson_dslash(void *device_U, void *device_src,
-                              void *device_dest, void *device_params) {
+                              void *device_dest, void *device_params,
+                              void *device_clover) {
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
   // NOTE: 'parity' is reused as a temporary coordinate-decomposition variable.
   // The input 'idx' is decomposed into (x,y,z,t) using 'parity' as workspace,
@@ -269,7 +270,22 @@ __global__ void wilson_dslash(void *device_U, void *device_src,
     }
   }
 #endif
-  give_dest(origin_dest, dest, lat_xyzt);
+  if (ApplyClover) {
+    LatticeComplex<T> *origin_clover =
+        ((static_cast<LatticeComplex<T> *>(device_clover)) + idx);
+    LatticeComplex<T> clover[_LAT_SCSC_];
+    LatticeComplex<T> tmp[_LAT_SC_];
+    get_vals(tmp, zero, _LAT_SC_);
+    get_clr(clover, origin_clover, lat_xyzt);
+    for (int row = 0; row < _LAT_SC_; ++row) {
+      for (int column = 0; column < _LAT_SC_; ++column) {
+        tmp[row] += clover[row * _LAT_SC_ + column] * dest[column];
+      }
+    }
+    give_dest(origin_dest, tmp, lat_xyzt);
+  } else {
+    give_dest(origin_dest, dest, lat_xyzt);
+  }
 }
 template <typename T>
 __global__ void wilson_dslash_inside(void *device_U, void *device_src,
@@ -1352,9 +1368,12 @@ wilson_dslash_t_recv(void *device_U, void *device_dest, void *device_params,
 // LatticeComplex<double> ↔ _LAT_C128_ (complex128)
 // These are the only two precision modes currently used.
 //@@@CUDA_TEMPLATE_FOR_DEVICE@@@
-template __global__ void wilson_dslash<double>(void *device_U, void *device_src,
-                                               void *device_dest,
-                                               void *device_params);
+template __global__ void wilson_dslash<double, false>(
+    void *device_U, void *device_src, void *device_dest, void *device_params,
+    void *device_clover);
+template __global__ void wilson_dslash<double, true>(
+    void *device_U, void *device_src, void *device_dest, void *device_params,
+    void *device_clover);
 template __global__ void wilson_dslash_inside<double>(void *device_U,
                                                       void *device_src,
                                                       void *device_dest,
@@ -1392,9 +1411,12 @@ wilson_dslash_t_recv<double>(void *device_U, void *device_dest,
                              void *device_params, void *device_b_t_recv_vec,
                              void *device_f_t_recv_vec);
 //@@@CUDA_TEMPLATE_FOR_DEVICE@@@
-template __global__ void wilson_dslash<float>(void *device_U, void *device_src,
-                                              void *device_dest,
-                                              void *device_params);
+template __global__ void wilson_dslash<float, false>(
+    void *device_U, void *device_src, void *device_dest, void *device_params,
+    void *device_clover);
+template __global__ void wilson_dslash<float, true>(
+    void *device_U, void *device_src, void *device_dest, void *device_params,
+    void *device_clover);
 template __global__ void wilson_dslash_inside<float>(void *device_U,
                                                      void *device_src,
                                                      void *device_dest,

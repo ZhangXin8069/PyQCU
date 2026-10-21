@@ -292,6 +292,20 @@ if(KUPL_BUILD_TESTS)
         --precision c128
         --solve
       )
+      add_test(NAME kupl_qcu_python_dslash_block_2rank_y_c64 COMMAND
+        ${CMAKE_COMMAND} -E env
+        KUPL_BLOCK_DSLASH_MIN_HALF_SITES=1
+        ${MPIEXEC_EXECUTABLE}
+        ${MPIEXEC_NUMPROC_FLAG} 2
+        ${Python3_EXECUTABLE}
+        ${KUPL_PYTHON_TEST_DIR}/test_dslash_block_mpi.py
+        --library $<TARGET_FILE:kupl_qcu>
+        --lattice 4 8 8 8
+        --grid 1 2 1 1
+        --threads ${KUPL_TEST_OMP_THREADS}
+        --precision c64
+        --solve
+      )
       add_test(NAME kupl_qcu_python_multigrid_1rank COMMAND
         ${MPIEXEC_EXECUTABLE}
         ${MPIEXEC_NUMPROC_FLAG} 1
@@ -361,6 +375,7 @@ if(KUPL_BUILD_TESTS)
         kupl_qcu_python_new_abi_block_rectangular
         kupl_qcu_python_new_abi_block_2rank
         kupl_qcu_python_dslash_block_2rank_c128
+        kupl_qcu_python_dslash_block_2rank_y_c64
         kupl_qcu_python_multigrid_1rank
         kupl_qcu_python_multigrid_2rank
         kupl_qcu_python_strict_1rank

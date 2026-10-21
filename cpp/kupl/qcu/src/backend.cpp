@@ -340,6 +340,21 @@ template <typename Real> void LatticeSet<Real>::allocate_scratch() {
     cached_clover_inv_[static_cast<std::size_t>(parity)].resize(
         static_cast<std::size_t>(geometry_.half_sites * kOnsite));
   }
+  boundary_sites_.clear();
+  boundary_sites_.reserve(static_cast<std::size_t>(geometry_.half_sites / 4));
+  for (int64_t linear = 0; linear < geometry_.half_sites; ++linear) {
+    int x = 0;
+    int y = 0;
+    int z = 0;
+    int t2 = 0;
+    geometry_.decode_half(linear, x, y, z, t2);
+    if (x == 0 || y == 0 || z == 0 || t2 == 0 ||
+        x == geometry_.local[0] - 1 || y == geometry_.local[1] - 1 ||
+        z == geometry_.local[2] - 1 ||
+        t2 == geometry_.local[3] / 2 - 1) {
+      boundary_sites_.push_back(linear);
+    }
+  }
 }
 
 template <typename Real> Real LatticeSet<Real>::mass() const {

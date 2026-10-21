@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cstdlib>
 #include <type_traits>
 #include <vector>
@@ -123,9 +124,9 @@ void accumulate_hopping_block(const Complex<Real> *source,
                               const Complex<Real> *gauge,
                               int64_t source_stride,
                               int64_t gauge_stride, int lanes,
-                              Complex<Real> result[kVector][32 / sizeof(Real)]) {
+                              Complex<Real> result[kVector][64 / sizeof(Real)]) {
   using C = Complex<Real>;
-  constexpr int kSiteLanes = 32 / sizeof(Real);
+  constexpr int kSiteLanes = 64 / sizeof(Real);
   C transported[kVector][kSiteLanes];
   for (int spin = 0; spin < kSpin; ++spin) {
     for (int row = 0; row < kColor; ++row) {
@@ -178,7 +179,7 @@ void accumulate_direction_block(
     const Complex<Real> *forward_source, const Complex<Real> *forward_gauge,
     const Complex<Real> *backward_source, const Complex<Real> *backward_gauge,
     int64_t source_stride, int64_t gauge_stride, int lanes,
-    Complex<Real> result[kVector][32 / sizeof(Real)]) {
+    Complex<Real> result[kVector][64 / sizeof(Real)]) {
   accumulate_hopping_block<Real, Direction, false, 1>(
       forward_source, forward_gauge, source_stride, gauge_stride, lanes,
       result);
@@ -204,7 +205,7 @@ void accumulate_site_block_direction(
     const Complex<Real> *local_source, const Complex<Real> *gauge,
     int64_t site, int64_t forward_offset, int64_t backward_offset,
     int target, int source_parity, int64_t half_sites, int lanes,
-    Complex<Real> result[kVector][32 / sizeof(Real)]) {
+    Complex<Real> result[kVector][64 / sizeof(Real)]) {
   const int64_t source_stride = half_sites;
   const int64_t gauge_stride = static_cast<int64_t>(kDim) * half_sites;
   const Complex<Real> *forward_source = local_source + site + forward_offset;
@@ -238,7 +239,7 @@ void accumulate_explicit_direction_block(
     const Complex<Real> *local_source, const Complex<Real> *gauge,
     int64_t site, int64_t forward_site, int64_t backward_site, int target,
     int source_parity, int64_t half_sites, int lanes,
-    Complex<Real> result[kVector][32 / sizeof(Real)]) {
+    Complex<Real> result[kVector][64 / sizeof(Real)]) {
   const int64_t source_stride = half_sites;
   const int64_t gauge_stride = static_cast<int64_t>(kDim) * half_sites;
   const Complex<Real> *forward_source = local_source + forward_site;
@@ -272,7 +273,7 @@ void compute_interior_blocks(const Complex<Real> *local_source,
                              const Complex<Real> *gauge,
                              const std::array<int, kDim> &local, int target) {
   using C = Complex<Real>;
-  constexpr int kSiteLanes = 32 / sizeof(Real);
+  constexpr int kSiteLanes = 64 / sizeof(Real);
   const int x_dim = local[0];
   const int y_dim = local[1];
   const int z_dim = local[2];
@@ -334,7 +335,7 @@ void compute_periodic_face_blocks(
     const Complex<Real> *gauge, const std::array<int, kDim> &local,
     const std::array<int, kDim> &grid, int target) {
   using C = Complex<Real>;
-  constexpr int kSiteLanes = 32 / sizeof(Real);
+  constexpr int kSiteLanes = 64 / sizeof(Real);
   const int x_dim = local[0];
   const int y_dim = local[1];
   const int z_dim = local[2];
@@ -623,24 +624,16 @@ void LatticeSet<Real>::compute_dslash_interior(const Complex<Real> *source,
 template <typename Real>
 void LatticeSet<Real>::compute_dslash_boundary(
     const Complex<Real> *local_source, Complex<Real> *output, int target) {
-  const int64_t count = geometry_.half_sites;
+  const int64_t count = static_cast<int64_t>(boundary_sites_.size());
   const int64_t chunk = omp_chunk<Real>(count);
 #pragma omp parallel for schedule(static, chunk)
-  for (int64_t linear = 0; linear < count; ++linear) {
+  for (int64_t index = 0; index < count; ++index) {
+    const int64_t linear = boundary_sites_[static_cast<std::size_t>(index)];
     int x = 0;
     int y = 0;
     int z = 0;
     int t2 = 0;
     geometry_.decode_half(linear, x, y, z, t2);
-    const bool boundary =
-        x == 0 || y == 0 || z == 0 || t2 == 0 ||
-        x == geometry_.local[0] - 1 ||
-        y == geometry_.local[1] - 1 ||
-        z == geometry_.local[2] - 1 ||
-        t2 == geometry_.local[3] / 2 - 1;
-    if (!boundary) {
-      continue;
-    }
     if (use_block_dslash(geometry_.half_sites) &&
         is_periodic_face_site(geometry_.local, geometry_.grid, x, y, z,
                               t2)) {
@@ -713,24 +706,16 @@ void LatticeSet<Real>::compute_dslash_dagger_interior(
 template <typename Real>
 void LatticeSet<Real>::compute_dslash_dagger_boundary(
     const Complex<Real> *local_source, Complex<Real> *output, int target) {
-  const int64_t count = geometry_.half_sites;
+  const int64_t count = static_cast<int64_t>(boundary_sites_.size());
   const int64_t chunk = omp_chunk<Real>(count);
 #pragma omp parallel for schedule(static, chunk)
-  for (int64_t linear = 0; linear < count; ++linear) {
+  for (int64_t index = 0; index < count; ++index) {
+    const int64_t linear = boundary_sites_[static_cast<std::size_t>(index)];
     int x = 0;
     int y = 0;
     int z = 0;
     int t2 = 0;
     geometry_.decode_half(linear, x, y, z, t2);
-    const bool boundary =
-        x == 0 || y == 0 || z == 0 || t2 == 0 ||
-        x == geometry_.local[0] - 1 ||
-        y == geometry_.local[1] - 1 ||
-        z == geometry_.local[2] - 1 ||
-        t2 == geometry_.local[3] / 2 - 1;
-    if (!boundary) {
-      continue;
-    }
     if (use_block_dslash(geometry_.half_sites) &&
         is_periodic_face_site(geometry_.local, geometry_.grid, x, y, z,
                               t2)) {
@@ -777,15 +762,41 @@ void LatticeSet<Real>::compute_dslash_dagger_site(
 template <typename Real>
 void LatticeSet<Real>::bare_dslash(Complex<Real> *output,
                                    const Complex<Real> *input, int target) {
+  static const bool profile =
+      std::getenv("KUPL_PROFILE_DSLASH") != nullptr;
   const int source_parity = 1 - target;
+  if (!profile) {
+    post_fermion_halo(input, source_parity);
+    compute_dslash_interior(input, output, target);
+    if (!fermion_requests_.empty()) {
+      MPI_Waitall(static_cast<int>(fermion_requests_.size()),
+                  fermion_requests_.data(), MPI_STATUSES_IGNORE);
+      fermion_requests_.clear();
+    }
+    compute_dslash_boundary(input, output, target);
+    return;
+  }
+  const auto start = std::chrono::steady_clock::now();
   post_fermion_halo(input, source_parity);
+  const auto halo_done = std::chrono::steady_clock::now();
   compute_dslash_interior(input, output, target);
+  const auto interior_done = std::chrono::steady_clock::now();
   if (!fermion_requests_.empty()) {
     MPI_Waitall(static_cast<int>(fermion_requests_.size()),
                 fermion_requests_.data(), MPI_STATUSES_IGNORE);
     fermion_requests_.clear();
   }
+  const auto wait_done = std::chrono::steady_clock::now();
   compute_dslash_boundary(input, output, target);
+  const auto boundary_done = std::chrono::steady_clock::now();
+  const auto elapsed = [](const auto &begin, const auto &end) {
+    return std::chrono::duration<double>(end - begin).count();
+  };
+  prof_dslash_halo_seconds_ += elapsed(start, halo_done);
+  prof_dslash_interior_seconds_ += elapsed(halo_done, interior_done);
+  prof_dslash_wait_seconds_ += elapsed(interior_done, wait_done);
+  prof_dslash_boundary_seconds_ += elapsed(wait_done, boundary_done);
+  ++prof_dslash_calls_;
 }
 
 template <typename Real>

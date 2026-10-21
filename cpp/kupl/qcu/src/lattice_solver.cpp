@@ -4,6 +4,7 @@
 #include <array>
 #include <cmath>
 #include <complex>
+#include <cstdio>
 #include <cstdlib>
 #include <limits>
 #include <stdexcept>
@@ -26,6 +27,9 @@ Complex<Real> LatticeSet<Real>::global_dot(const Complex<Real> *left,
     imag_sum += a.real() * b.imag() - a.imag() * b.real();
   }
   const Real local[2] = {real_sum, imag_sum};
+  if (geometry_.size == 1) {
+    return Complex<Real>(local[0], local[1]);
+  }
   Real global[2] = {0, 0};
   const MPI_Datatype type =
       sizeof(Real) == sizeof(float) ? MPI_FLOAT : MPI_DOUBLE;
@@ -41,6 +45,9 @@ Real LatticeSet<Real>::global_norm2(const Complex<Real> *field,
 #pragma omp parallel for schedule(static, chunk) reduction(+ : local)
   for (int64_t index = 0; index < count; ++index) {
     local += std::norm(field[index]);
+  }
+  if (geometry_.size == 1) {
+    return local;
   }
   Real global = 0;
   const MPI_Datatype type =
@@ -137,7 +144,7 @@ void LatticeSet<Real>::solve_compact_bistabcg(
                                ": BiStabCG scalar breakdown");
     }
     const C beta = (rho / rho_old) * (alpha / omega);
-#pragma omp parallel for schedule(static, chunk)
+#pragma omp parallel for simd schedule(static, chunk)
     for (int64_t index = 0; index < count; ++index) {
       p_[static_cast<std::size_t>(index)] =
           r_[static_cast<std::size_t>(index)] +
@@ -154,7 +161,7 @@ void LatticeSet<Real>::solve_compact_bistabcg(
                                ": BiStabCG alpha breakdown");
     }
     alpha = rho / rhat_v;
-#pragma omp parallel for schedule(static, chunk)
+#pragma omp parallel for simd schedule(static, chunk)
     for (int64_t index = 0; index < count; ++index) {
       s_[static_cast<std::size_t>(index)] =
           r_[static_cast<std::size_t>(index)] -
@@ -163,7 +170,7 @@ void LatticeSet<Real>::solve_compact_bistabcg(
     }
     if (std::sqrt(global_norm2(s_.data(), count)) <=
         recurrence_tolerance) {
-#pragma omp parallel for schedule(static, chunk)
+#pragma omp parallel for simd schedule(static, chunk)
       for (int64_t index = 0; index < count; ++index) {
         solution[index] += multiply_complex(
             alpha, p_[static_cast<std::size_t>(index)]);
@@ -181,7 +188,7 @@ void LatticeSet<Real>::solve_compact_bistabcg(
                                ": BiStabCG omega breakdown");
     }
     omega = global_dot(t_.data(), s_.data(), count) / tt;
-#pragma omp parallel for schedule(static, chunk)
+#pragma omp parallel for simd schedule(static, chunk)
     for (int64_t index = 0; index < count; ++index) {
       solution[index] +=
           multiply_complex(alpha,
@@ -326,13 +333,8 @@ void LatticeSet<Real>::prepare_clover_schur(
       full_rhs + static_cast<std::size_t>(other) * vectors;
   const Complex<Real> *rhs_target =
       full_rhs + static_cast<std::size_t>(parity) * vectors;
-#pragma omp parallel for schedule(static, chunk)
-  for (int64_t index = 0; index < vectors; ++index) {
-    work_a_[static_cast<std::size_t>(index)] = rhs_other[index];
-  }
-  apply_clover_onsite(
-      work_a_.data(), inverse[static_cast<std::size_t>(other)],
-      work_b_.data());
+  apply_clover_onsite(rhs_other, inverse[static_cast<std::size_t>(other)],
+                      work_b_.data());
   bare_dslash(work_c_.data(), work_b_.data(), parity);
 #pragma omp parallel for schedule(static, chunk)
   for (int64_t index = 0; index < vectors; ++index) {
@@ -355,9 +357,11 @@ void LatticeSet<Real>::reconstruct_clover_schur(
       full_out + static_cast<std::size_t>(other) * vectors;
   const Complex<Real> *rhs_other =
       full_rhs + static_cast<std::size_t>(other) * vectors;
+  if (out_target != target_solution) {
 #pragma omp parallel for schedule(static, chunk)
-  for (int64_t index = 0; index < vectors; ++index) {
-    out_target[index] = target_solution[index];
+    for (int64_t index = 0; index < vectors; ++index) {
+      out_target[index] = target_solution[index];
+    }
   }
   bare_dslash(work_a_.data(), target_solution, other);
 #pragma omp parallel for schedule(static, chunk)
@@ -506,6 +510,15 @@ void LatticeSet<Real>::solve_clover(
     const std::array<const Complex<Real> *, 2> &clover,
     const std::array<const Complex<Real> *, 2> &inverse) {
   using C = Complex<Real>;
+  static const bool profile_dslash =
+      std::getenv("KUPL_PROFILE_DSLASH") != nullptr;
+  if (profile_dslash) {
+    prof_dslash_halo_seconds_ = 0;
+    prof_dslash_interior_seconds_ = 0;
+    prof_dslash_wait_seconds_ = 0;
+    prof_dslash_boundary_seconds_ = 0;
+    prof_dslash_calls_ = 0;
+  }
   const int64_t vectors = geometry_.parity_vectors;
   const int64_t full_vectors = vectors * 2;
   const bool warm = parameters_.get(kUseInitialGuess) != 0;
@@ -550,6 +563,17 @@ void LatticeSet<Real>::solve_clover(
   if (!std::isfinite(final_residual) || final_residual > tolerance) {
     throw std::runtime_error(
         "Clover BiStabCG: full true residual exceeds tolerance");
+  }
+  if (profile_dslash && geometry_.rank == 0) {
+    std::fprintf(
+        stderr,
+        "PYQCU::KUPL::DSLASH_PROFILE:\nhalo=%.6f interior=%.6f "
+        "wait=%.6f boundary=%.6f total=%.6f calls=%lld\n",
+        prof_dslash_halo_seconds_, prof_dslash_interior_seconds_,
+        prof_dslash_wait_seconds_, prof_dslash_boundary_seconds_,
+        prof_dslash_halo_seconds_ + prof_dslash_interior_seconds_ +
+            prof_dslash_wait_seconds_ + prof_dslash_boundary_seconds_,
+        static_cast<long long>(prof_dslash_calls_));
   }
 }
 

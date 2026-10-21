@@ -200,6 +200,12 @@ private:
   std::array<std::vector<Complex<Real>>, kCoarseDirections>
       coarse_halo_recv_;
   std::array<int, kCoarseDirections> coarse_halo_offsets_{};
+  std::vector<int64_t> boundary_sites_;
+  double prof_dslash_halo_seconds_ = 0;
+  double prof_dslash_interior_seconds_ = 0;
+  double prof_dslash_wait_seconds_ = 0;
+  double prof_dslash_boundary_seconds_ = 0;
+  int64_t prof_dslash_calls_ = 0;
 
   void allocate_scratch();
   Real mass() const;

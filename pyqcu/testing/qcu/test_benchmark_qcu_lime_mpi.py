@@ -67,8 +67,12 @@ def test_independent_true_residual_accepts_manufactured_solution() -> None:
             broadcast_calls.append((value, root))
             return value
 
+    def passthrough(value, process_grid, root=0, comm=None):
+        assert comm is not None
+        return value
+
     with patch.object(benchmark, "_gather_local_blocks",
-                      side_effect=lambda value, process_grid, root=0: value):
+                      side_effect=passthrough):
         residual = benchmark._independent_true_residual(
             torch=torch, solution_eo=solution_eo, rhs_eo=rhs_eo,
             gauge_eo=gauge_eo, clover_even=clover_eo[0],
