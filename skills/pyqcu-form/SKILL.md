@@ -31,6 +31,9 @@ PyQCU 是复杂库，主导语言为 C++/CUDA、Python/Cython 和 Bash。先只�
   科学接口保留既有领域惯用名称时必须在根 `AGENTS.md` 登记。
 - 主测试位于 `pyqcu/testing/**`。技能本身的 shell 回归与实现同目录，并由该技能
   `AGENTS.md` 固定调用入口。
+- `logs/` 的 agent 日志使用紧凑时间戳 `vYYYYMMDD[HH[MM[SS]]].txt`；同名冲突追加
+  `-2`、`-3`。`vYYYY-MM-DD-HH-MM.txt` 一类连字符时间戳格式不允许，发现即重命名并
+  同步 `logs/AGENTS.md` 索引。
 - `docs/**` 保存正式文档和解包 Office 文档资产；`logs/**` 只暂存当前任务尚未归档的
   运行记录、阶段报告和图表。阶段结果先提交并打 tag，随后在后续清理提交中删除工作区
   报告副本，tag 对象是历史报告的唯一规范归档。
