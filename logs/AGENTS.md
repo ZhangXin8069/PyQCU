@@ -63,7 +63,7 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 ```
 ## dev98-csw-kupl-final - final - 2026-10-20 05:22:40 +0800
 - 主任务: PyQCU Csw、QcuRuntime/simple 与独立 KUPL MPI+OpenMP 后端
-- 日志文件: logs/v2026-10-20-05.txt
+- 日志文件: logs/v2026102005.txt
 - 文件大小: 8205 bytes
 - 触发原因: 任务完成
 - 关键内容: Csw/接口/简单示例完成；KUPL 24/37 实现，高级入口 fail closed；验证与外部 QUDA 阻塞如实记录
@@ -71,7 +71,7 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 批次状态: complete
 ## quda-sm70-runtime-align - final - 2026-10-20 09:04:09 +0800
 - 主任务: 修复 PyQUDA 加载 sm60 QUDA 导致 V100 no kernel image，并对齐 QCU/QUDA mass normalization
-- 日志文件: logs/v2026-10-20-09.txt
+- 日志文件: logs/v2026102009-2.txt
 - 文件大小: 5477 bytes
 - 触发原因: 任务完成
 - 关键内容: sm70 预载、env 选择、kappa normalization 与同源数值比较均修复并验证
@@ -351,7 +351,7 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 批次状态: complete
 ## form-20261022 - final - 2026-10-22 01:37:19 +0800
 - 主任务: PyQCU form 整理：tag 名路径整改与目录索引补齐
-- 日志文件: logs/v2026-10-22-01.txt
+- 日志文件: logs/v2026102201-2.txt
 - 文件大小: 7243 bytes
 - 触发原因: 任务完成
 - 关键内容: 重命名 2 组 tag 名路径资产、补齐 refer/docs 索引与 form 例外口径；审计 PASS，豁免 1069 项，tag-chain 回归与 bash -n 通过

@@ -44,7 +44,7 @@ Git 根目录: /root/PyQCU
 
 ## 变更与产物
 - 文件: `docs/progress_kupl_cuda_mg_20261021.md`（重命名）、`refer/multigrid_analysis_20260717.{md,tex,pdf}`（重命名）、`AGENTS.md`、`refer/AGENTS.md`、`docs/AGENTS.md`、`docs/progress_until_20261022_worktree.md`、`skills/pyqcu-form/SKILL.md`、`docs/form_pyqcu_20261022.md`（新增）。
-- 产物: 最终日志 `logs/v2026-10-22-01.txt` 与 `logs/AGENTS.md` 索引。
+- 产物: 最终日志 `logs/v2026102201-2.txt` 与 `logs/AGENTS.md` 索引。
 - 未改动范围: `logs/**` 历史正文、`data/**`、`refer/git-rep/**` submodule、全部源码与测试。
 
 ## 风险、限制与下一步
@@ -54,7 +54,7 @@ Git 根目录: /root/PyQCU
 
 ## 用户输入指令
 - `~form`
-- `例如{v2026-10-20-05.txt}`（日志文件名示例，按连字符时间戳格式执行）
+- `"v2026-10-20-05.txt"是不被允许的命名,正确应为"v2026102005.txt"`（日志文件名一律使用紧凑时间戳；连字符格式已整改）
 
 ## Agent 全文报告
 --- report begin ---
