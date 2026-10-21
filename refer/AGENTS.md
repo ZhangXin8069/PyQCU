@@ -6,11 +6,14 @@
 
 | 文件 | 说明 |
 |---|---|
-| `dev71.md` | 开发里程碑 71 markdown 报告 |
-| `dev71.pdf` | 开发里程碑 71 PDF 报告 |
-| `dev71.tex` | 开发里程碑 71 LaTeX 源码 |
+| `multigrid_analysis_20260717.md` | CUDA C++ MultiGrid 编写与优化解析（markdown） |
+| `multigrid_analysis_20260717.pdf` | 同上（PDF 报告） |
+| `multigrid_analysis_20260717.tex` | 同上（LaTeX 源码） |
+| `huzc/main_pion_C2.py` | 外部提供的 pion 两点关联函数脚本（PyQUDA/EasyDistillation），保留来源名称 |
+| `huzc/quda_mg.py` | 外部提供的介子两点关联函数脚本（PyQUDA，动量投影与 loop 收缩），保留来源名称 |
 
-历史参考文档，记录开发进展与设计决策。
+历史参考文档，记录开发进展与设计决策。`huzc/` 为外部提供的参考脚本，
+保留原始名称与依赖，不作为本库构建或测试入口。
 
 ## git-rep/ 参考 Git 库
 

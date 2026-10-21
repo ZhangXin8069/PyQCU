@@ -175,7 +175,7 @@ deflate 的 wall 增加约 `9.96%`，却仍执行 20 次 fine iterations。单�
 | c64 BiCG 独立真残差 | `6.694679e-7` |
 | c128 KUPL 独立真残差 | `6.96241e-8` |
 | `git diff --check` | PASS |
-| form audit | 仅既有 `docs/progress_dev99_to_1640349d_20261021.md` 的 `TAG_NAME_IN_PATH` finding |
+| form audit | PASS（2026-10-22 按语义重命名 tag 名路径后无残留 finding） |
 
 ## 已撤销或证伪的方向
 
