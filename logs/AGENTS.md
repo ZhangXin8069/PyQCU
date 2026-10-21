@@ -349,3 +349,12 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 关键内容: 创建 dev101 注释标签，固定 HEAD 5a21a5e6，验证本地标签链；未提交工作区和未推送状态明确保留
 - 验证: path, size, required sections, conflict markers
 - 批次状态: complete
+## form-20261022 - final - 2026-10-22 01:37:19 +0800
+- 主任务: PyQCU form 整理：tag 名路径整改与目录索引补齐
+- 日志文件: logs/v2026-10-22-01.txt
+- 文件大小: 7243 bytes
+- 触发原因: 任务完成
+- 关键内容: 重命名 2 组 tag 名路径资产、补齐 refer/docs 索引与 form 例外口径；审计 PASS，豁免 1069 项，tag-chain 回归与 bash -n 通过
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete
+
