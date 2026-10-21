@@ -93,6 +93,7 @@ Wilson/Clover Dirac 算子、BiStabCG 与多重网格求解器、stout smearing�
 - 测试入口：主套件为 `cd pyqcu/testing && pytest .`；MPI 入口为 `mpirun -np 4 python pyqcu/testing/python/conftest.py`；技能自带 shell 回归保留在对应技能目录，如 `bash skills/pyqcu-tag/tag-chain.test.sh`。
 - 功能复现：构建使用 `bash ./build.sh`，Cython 扩展使用 `bash ./install.sh`；纯格式/文档改动至少执行 `bash -n`、相关回归、`git diff --check` 和 `bash skills/pyqcu-form/form-audit.sh`。
 - 文档/日志/数据：正式文档在 `docs/**`；当前任务未归档的运行摘要及 `log/json/tsv/csv/txt/stdout/jsonl` 在 `logs/**`。阶段结果先提交并打 tag，随后删除工作区报告副本；历史读取使用 `git show <tag>:<path>`。数据、SVG、构建/安装树和缓存实体在 `data/**`。
+- 日志文件名：一律使用紧凑时间戳 `vYYYYMMDD[HH[MM[SS]]].txt`，同名冲突追加 `-2`、`-3`；不得使用 `vYYYY-MM-DD-HH-MM.txt` 一类连字符时间戳格式。
 - Git 交付：form 批次按逻辑分组提交，只暂存本任务文件，禁止 `git add -A`/`git add .` 和 force push；推送与开发标签按 tag 技能的 follow 链执行。
 - 大文件闸门：任何提交前运行 `${CONFIGURE_ROOT:-$HOME/configure}/skills/form/scripts/form-large-files-check.sh --root "$(git rev-parse --show-toplevel)"`；默认阻止单个新增、修改、复制或重命名文件超过 `10,000,000` 字节，命中时不得提交或推送。
 - 本地例外：`data/**` 可跟踪正式证据、构建树和自包含安装树；`logs/**` 可在打 tag 前暂存第一方报告 `.md/.tex/.pdf` 与图表，打 tag 后不得保留 `logs/<tag>/**` 报告副本；`docs/张鑫 508应用测试报告-PyQCU/` 是文档资产保留的解包 Office 资源；`skills/pyqcu-tag/tag-chain.test.sh` 与该技能实现同目录；`refer/git-rep/**`、`refer/huzc/**` 与已存在的上游 vendored/generated 树保留来源名称。
