@@ -2393,8 +2393,9 @@ class StrictFineGlobalDslash {
                       "strict fine global parity copy");
     const int total = static_cast<int>(12 * global_sites_);
     const int blocks = (total + _BLOCK_SIZE_ - 1) / _BLOCK_SIZE_;
-    wilson_dslash<T><<<blocks, _BLOCK_SIZE_, 0, set_->stream>>>(
-        global_gauge_, global_field_in_, global_field_out_, device_params_);
+    wilson_dslash<T, false><<<blocks, _BLOCK_SIZE_, 0, set_->stream>>>(
+        global_gauge_, global_field_in_, global_field_out_, device_params_,
+        nullptr);
     strict_check_cuda(cudaGetLastError(),
                       "strict fine global dslash launch");
     const size_t local_out_elements = 12 * local_sites_;

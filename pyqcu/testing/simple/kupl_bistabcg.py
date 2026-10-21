@@ -216,14 +216,17 @@ def load_source(path_value: str | None,
 
 def make_params(lattice: tuple[int, int, int, int], mass: float,
                 atol: float, csw: float, dtype: np.dtype,
-                max_iter: int) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+                max_iter: int,
+                grid: tuple[int, int, int, int] = (1, 1, 1, 1),
+                rank: int = 0,
+                size: int = 1) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     params = np.zeros(PARAMS_SIZE, dtype=np.int32)
     params[LAT_X:LAT_T + 1] = lattice
     params[LAT_XYZT] = int(np.prod(lattice))
-    params[GRID_X:GRID_T + 1] = 1
+    params[GRID_X:GRID_T + 1] = grid
     params[PARITY] = 0
-    params[NODE_RANK] = 0
-    params[NODE_SIZE] = 1
+    params[NODE_RANK] = int(rank)
+    params[NODE_SIZE] = int(size)
     params[MAX_ITER] = int(max_iter)
     params[DATA_TYPE] = LAT_C64 if dtype == np.dtype(np.complex64) else LAT_C128
     params[SET_INDEX] = 0
