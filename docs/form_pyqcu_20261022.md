@@ -49,6 +49,10 @@ Python 模块的行为。
 4. 根 `AGENTS.md` 的 form 托管块经 `form-agents-sync.sh` 更新：`refer/` 例外收窄为
    `refer/git-rep/**`、`refer/huzc/**`，历史豁免计数由 `1060` 校正为 `1069`。
 5. `skills/pyqcu-form/SKILL.md` 同步同一例外口径。
+6. `logs/` 日志文件名统一为紧凑时间戳，禁止连字符时间戳：
+   `v2026-10-20-05.txt` → `v2026102005.txt`、`v2026-10-20-09.txt` → `v2026102009-2.txt`、
+   `v2026-10-22-01.txt` → `v2026102201-2.txt`；与既有同时间戳日志冲突时按规则追加 `-2`，
+   `logs/AGENTS.md` 索引同步更新。根 `AGENTS.md` 与本地 form 技能写入该命名规则。
 
 ## 验证证据
 
@@ -61,6 +65,7 @@ Python 模块的行为。
 | `bash -n build.sh env.sh install.sh ...` | 通过 |
 | `bash skills/pyqcu-tag/tag-chain.test.sh` | 通过（临时仓库，不触碰本库标签） |
 | `git diff --check` | 通过 |
+| `logs/` 连字符时间戳扫描 | 0 命中 |
 | 全量 `pytest` | 未运行：需要 CUDA/MPI/QUDA 与大体量数据；本次无代码改动 |
 
 ## 未决项
