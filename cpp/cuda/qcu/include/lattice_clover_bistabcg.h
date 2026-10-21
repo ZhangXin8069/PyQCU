@@ -1,6 +1,8 @@
 #ifndef _LATTICE_CLOVER_BISTABCG_H
 #define _LATTICE_CLOVER_BISTABCG_H
+#include <cmath>
 #include <cstdlib>
+#include <limits>
 #include "./bistabcg.h"
 #include "./define.h"
 #include "./lattice_clover_dslash.h"
@@ -98,10 +100,7 @@ template <typename T> struct LatticeCloverBistabCg {
           &b_o, set_ptr->lat_4dim_SC * sizeof(LatticeComplex<T>),
           set_ptr->stream));
       wilson_dslash.run_eo(set_ptr->device_vec0, ans_o, gauge);
-      give_copy_vals<T>
-          <<<set_ptr->gridDim, set_ptr->blockDim, 0, set_ptr->stream>>>(
-              set_ptr->device_vec2, ans_e);
-      clover_dslash_ee.give(set_ptr->device_vec2);
+      clover_dslash_ee.give(ans_e, set_ptr->device_vec2);
       bistabcg_give_b_e<T>
           <<<set_ptr->gridDim, set_ptr->blockDim, 0, set_ptr->stream>>>(
               b_e, set_ptr->device_vec2, set_ptr->device_vec0, set_ptr->kappa(),
@@ -114,10 +113,7 @@ template <typename T> struct LatticeCloverBistabCg {
     }
     { // give b__o, x_o, rr
       checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
-      give_copy_vals<T>
-          <<<set_ptr->gridDim, set_ptr->blockDim, 0, set_ptr->stream>>>(
-              set_ptr->device_vec2, b_e);
-      clover_dslash_ee_inv.give(set_ptr->device_vec2);
+      clover_dslash_ee_inv.give(b_e, set_ptr->device_vec2);
       if (debug) {
         printf("QCU_BISTABCG rank=%d stage=prepare_oe_start\n",
                set_ptr->host_params[_NODE_RANK_]);
@@ -154,20 +150,17 @@ template <typename T> struct LatticeCloverBistabCg {
       fflush(stdout);
     }
     // A_oo*src_o-set_ptr->kappa()**2*dslash_oe*A_ee^-1*(dslash_eo(src_o))
-    wilson_dslash.run_eo(set_ptr->device_vec0, fermion_in, gauge);
-    give_copy_vals<T>
-        <<<set_ptr->gridDim, set_ptr->blockDim, 0, set_ptr->stream>>>(
-            set_ptr->device_vec2, set_ptr->device_vec0);
-    clover_dslash_ee_inv.give(set_ptr->device_vec2);
-    wilson_dslash.run_oe(set_ptr->device_vec1, set_ptr->device_vec2, gauge);
-    give_copy_vals<T>
-        <<<set_ptr->gridDim, set_ptr->blockDim, 0, set_ptr->stream>>>(
-            set_ptr->device_vec2, fermion_in);
-    clover_dslash_oo.give(set_ptr->device_vec2);
-    bistabcg_give_dest_o<T>
-        <<<set_ptr->gridDim, set_ptr->blockDim, 0, set_ptr->stream>>>(
-            fermion_out, set_ptr->device_vec2, set_ptr->device_vec1,
-            set_ptr->kappa(), set_ptr->device_vals);
+    if (wilson_dslash.single_rank() && sizeof(T) == sizeof(float)) {
+      wilson_dslash.run_eo_clover(set_ptr->device_vec0, fermion_in, gauge,
+                                  clover_dslash_ee_inv.clover);
+    } else {
+      wilson_dslash.run_eo(set_ptr->device_vec0, fermion_in, gauge);
+      clover_dslash_ee_inv.give(set_ptr->device_vec0);
+    }
+    wilson_dslash.run_oe(set_ptr->device_vec1, set_ptr->device_vec0, gauge);
+    const T kappa = set_ptr->kappa();
+    clover_dslash_oo.give_with_subtract(
+        fermion_in, set_ptr->device_vec1, fermion_out, kappa * kappa);
     if (debug) {
       printf("QCU_BISTABCG rank=%d stage=dslash_end\n",
              set_ptr->host_params[_NODE_RANK_]);
@@ -180,10 +173,7 @@ template <typename T> struct LatticeCloverBistabCg {
         static_cast<const LatticeComplex<T> *>(full_rhs);
     const void *rhs_even = rhs;
     const void *rhs_odd = rhs + n;
-    checkCudaErrors(cudaMemcpyAsync(
-        set_ptr->device_vec2, rhs_even, n * sizeof(LatticeComplex<T>),
-        cudaMemcpyDeviceToDevice, set_ptr->stream));
-    clover_dslash_ee_inv.give(set_ptr->device_vec2);
+    clover_dslash_ee_inv.give(rhs_even, set_ptr->device_vec2);
     wilson_dslash.run_oe(set_ptr->device_vec0, set_ptr->device_vec2, gauge);
     bistabcg_give_b__o<T>
         <<<set_ptr->gridDim, set_ptr->blockDim, 0, set_ptr->stream>>>(
@@ -429,6 +419,36 @@ template <typename T> struct LatticeCloverBistabCg {
     checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_b_]));
     checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_c_]));
     checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_d_]));
+
+    // argv[_ATOL_] is a relative tolerance for the Schur-system solve, matching
+    // QUDA and the KUPL backend.  Convert the source norm once per solve.
+    _dot(b__o, b__o, _tmp1_, _d_);
+    checkCudaErrors(cudaMemcpyAsync(
+        host_vals + _tmp1_,
+        static_cast<LatticeComplex<T> *>(set_ptr->device_vals) + _tmp1_,
+        sizeof(LatticeComplex<T>), cudaMemcpyDeviceToHost,
+        set_ptr->streams[_d_]));
+    checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_d_]));
+    const T rhs_norm2 = host_vals[_tmp1_]._data.x;
+    const T roundoff_floor = std::numeric_limits<T>::epsilon() * (T)4;
+    const T tolerance = set_ptr->atol() > roundoff_floor
+                            ? set_ptr->atol()
+                            : roundoff_floor;
+    const T stop_tolerance2 = tolerance * tolerance * rhs_norm2;
+    if (!std::isfinite(rhs_norm2) || rhs_norm2 < (T)0 ||
+        !std::isfinite(stop_tolerance2)) {
+      throw std::runtime_error(
+          "Clover BiStabCG: invalid relative-tolerance source norm");
+    }
+    if (rhs_norm2 == (T)0) {
+      checkCudaErrors(cudaMemsetAsync(
+          x_o, 0, set_ptr->lat_4dim_SC * sizeof(LatticeComplex<T>),
+          set_ptr->stream));
+      checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
+      set_ptr->last_iterations = 0;
+      return;
+    }
+
     int completed_iterations = 0;
     for (int loop = 0; loop < set_ptr->max_iter(); loop++) {
       if (debug && loop < 2) {
@@ -514,13 +534,17 @@ template <typename T> struct LatticeCloverBistabCg {
         std::cout << "##RANK:" << set_ptr->host_params[_NODE_RANK_]
                   << "##LOOP:" << loop
                   << "##Residual(norm2):" << host_vals[_norm2_tmp_]._data.x
+                  << "##Relative(norm2):"
+                  << host_vals[_norm2_tmp_]._data.x / rhs_norm2
                   << std::endl;
 #endif
-        if ((host_vals[_norm2_tmp_]._data.x < set_ptr->atol2() ||
+        if ((host_vals[_norm2_tmp_]._data.x < stop_tolerance2 ||
              loop == set_ptr->max_iter() - 1)) {
           std::cout << "##RANK:" << set_ptr->host_params[_NODE_RANK_]
                     << "##LOOP:" << loop
                     << "##Residual(norm2):" << host_vals[_norm2_tmp_]
+                    << "##Relative(norm2):"
+                    << host_vals[_norm2_tmp_]._data.x / rhs_norm2
                     << std::endl;
           break;
         }

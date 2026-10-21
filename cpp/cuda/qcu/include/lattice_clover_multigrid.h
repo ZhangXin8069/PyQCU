@@ -517,16 +517,16 @@ __global__ void mg_give_rx(LatticeComplex<T> *r, const LatticeComplex<T> *s,
                            const LatticeComplex<T> *t, LatticeComplex<T> *x,
                            const LatticeComplex<T> *p,
                            const LatticeComplex<T> *dv, int n4) {
-  // n4 counts _LAT_SC_-element groups (site-grid convention of give_r/give_x_o)
-  int i = blockIdx.x * blockDim.x + threadIdx.x;
-  if (i >= n4) return;
+  // n4 counts _LAT_SC_-element sites.  Map one thread to one complex element
+  // instead of making each thread walk a site's 12-element stride; the latter
+  // turns every warp access into a 96-byte stride and leaves this bandwidth-
+  // bound update at only a few GB/s on V100.
+  const size_t i = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+  const size_t n = static_cast<size_t>(n4) * _LAT_SC_;
+  if (i >= n) return;
   LatticeComplex<T> om = dv[_omega_], al = dv[_alpha_];
-  size_t base = (size_t)i * _LAT_SC_;
-  for (int k = 0; k < _LAT_SC_; k++) {
-    size_t j = base + k;
-    r[j] = s[j] - om * t[j];
-    x[j] = x[j] + al * p[j] + om * s[j];
-  }
+  r[i] = s[i] - om * t[i];
+  x[i] = x[i] + al * p[i] + om * s[i];
 }
 
 // ---- Logging infrastructure ----
@@ -698,28 +698,17 @@ template <typename T> struct LatticeCloverMultigrid {
   // ---- Full-site residual buffer for V-cycle ----
   // Parity-split buffers have size lat_4dim_SC = _LAT_SC_ * X * Y * Z * (Lt/2).
   // Full-site buffers have size 2*lat_4dim_SC = _LAT_SC_ * X * Y * Z * Lt_full.
-  void *r_full;           // full-site residual [sc, X, Y, Z, Lt_full]
+  void *r_full = nullptr; // lazy full-site residual [sc, X, Y, Z, Lt_full]
   int Lt_full;            // un-halved t-dimension (2 × levels[0].Lt)
 
   // ---- Dedicated buffer for the parity-split ODD correction ----
-  // CRITICAL: the coarse-grid correction e_odd must be preserved across the
-  // r_before / r_after computations because fine_dslash_op() uses
-  // device_vec2 as internal scratch (give_copy_vals + clover_dslash_oo.give
-  // overwrite it).  Storing e_odd in its own buffer avoids this aliasing bug.
-  void *e_odd_buf;        // parity-split odd correction [sc, X, Y, Z, Lt/2]
+  // Keep the coarse-grid correction isolated from the parity matvec scratch.
+  // This makes the r_before/r_after and coarse-correction paths independent
+  // of future changes to device_vec* internal alias contracts.
+  void *e_odd_buf = nullptr; // lazy parity-split odd correction
 
-  // ---- Full-site level-0 solve buffers ----
-  // The level-0 solve is performed on the FULL (non-preconditioned) operator,
-  // matching pyqcu/solver/_multigrid.py with support_parity=False, which is
-  // what gives the real multigrid speed-up (the parity-preconditioned Schur
-  // complement's low modes are not captured by the coarse space).
-  // All full-site vectors have size sc*X*Y*Z*T = 2*lat_4dim_SC.
-  void *full_x, *full_rhs, *full_r, *full_rt, *full_p, *full_v, *full_s, *full_t;
-  void *parity_tmp;       // [2, sc, X, Y, Z, T/2] split scratch (both channels)
-  void *parity_dst;       // [2, sc, X, Y, Z, T/2] dslash result scratch
-  void *corr_scratch;     // full-site scratch for the guarded V-cycle correction
-                          // (holds D·e_fine so the correction can be tested and
-                          //  reverted without disturbing the solution)
+  void *parity_tmp = nullptr; // lazy full-to-parity scratch
+  void *parity_dst = nullptr; // lazy parity-to-full scratch
   void *coarse_partials;  // [1024] LatticeComplex scratch for cooperative
                           // fused coarse-solve cross-block dot reductions
   int *coarse_breakdown = nullptr; // cooperative coarse-solve abort flag
@@ -824,16 +813,16 @@ template <typename T> struct LatticeCloverMultigrid {
    * (size = lat_4dim_SC = _LAT_SC_ * X * Y * Z * Lt_half).
    */
   void fine_dslash_op(void *out, void *in) {
-    wilson_dslash.run_eo(set_ptr->device_vec0, in, gauge);
-    give_copy_vals<T><<<set_ptr->gridDim,set_ptr->blockDim,0,set_ptr->stream>>>(
-        set_ptr->device_vec2,set_ptr->device_vec0);
-    clover_dslash_ee_inv.give(set_ptr->device_vec2);
-    wilson_dslash.run_oe(set_ptr->device_vec1,set_ptr->device_vec2,gauge);
-    give_copy_vals<T><<<set_ptr->gridDim,set_ptr->blockDim,0,set_ptr->stream>>>(
-        set_ptr->device_vec2,in);
-    clover_dslash_oo.give(set_ptr->device_vec2);
-    bistabcg_give_dest_o<T><<<set_ptr->gridDim,set_ptr->blockDim,0,set_ptr->stream>>>(
-        out,set_ptr->device_vec2,set_ptr->device_vec1,kappa_val,set_ptr->device_vals);
+    if (wilson_dslash.single_rank() && sizeof(T) == sizeof(float)) {
+      wilson_dslash.run_eo_clover(set_ptr->device_vec0, in, gauge,
+                                  clover_dslash_ee_inv.clover);
+    } else {
+      wilson_dslash.run_eo(set_ptr->device_vec0, in, gauge);
+      clover_dslash_ee_inv.give(set_ptr->device_vec0);
+    }
+    wilson_dslash.run_oe(set_ptr->device_vec1,set_ptr->device_vec0,gauge);
+    clover_dslash_oo.give_with_subtract(
+        in, set_ptr->device_vec1, out, kappa_val * kappa_val);
   }
 
   /**
@@ -856,21 +845,17 @@ template <typename T> struct LatticeCloverMultigrid {
     // (H_oe^dag: odd -> even), and run_oe_dag is the adjoint of the normal
     // even->odd block (H_eo^dag: even -> odd).  This is the same ordering as
     // LatticeWilsonCg::_wilson_dslash_dag().
-    wilson_dslash.run_eo_dag(set_ptr->device_vec0, in, gauge);
-    give_copy_vals<T><<<set_ptr->gridDim, set_ptr->blockDim, 0,
-                        set_ptr->stream>>>(
-        set_ptr->device_vec2, set_ptr->device_vec0);
-    clover_dslash_ee_inv.give(set_ptr->device_vec2);
-    wilson_dslash.run_oe_dag(set_ptr->device_vec1, set_ptr->device_vec2,
+    if (wilson_dslash.single_rank() && sizeof(T) == sizeof(float)) {
+      wilson_dslash.run_eo_dag_clover(
+          set_ptr->device_vec0, in, gauge, clover_dslash_ee_inv.clover);
+    } else {
+      wilson_dslash.run_eo_dag(set_ptr->device_vec0, in, gauge);
+      clover_dslash_ee_inv.give(set_ptr->device_vec0);
+    }
+    wilson_dslash.run_oe_dag(set_ptr->device_vec1, set_ptr->device_vec0,
                              gauge);
-    give_copy_vals<T><<<set_ptr->gridDim, set_ptr->blockDim, 0,
-                        set_ptr->stream>>>(
-        set_ptr->device_vec2, in);
-    clover_dslash_oo.give(set_ptr->device_vec2);
-    bistabcg_give_dest_o<T><<<set_ptr->gridDim, set_ptr->blockDim, 0,
-                              set_ptr->stream>>>(
-        out, set_ptr->device_vec2, set_ptr->device_vec1, kappa_val,
-        set_ptr->device_vals);
+    clover_dslash_oo.give_with_subtract(
+        in, set_ptr->device_vec1, out, kappa_val * kappa_val);
   }
 
   // Exchange one local coarse vector into the one-site padded halo shared by
@@ -1071,6 +1056,31 @@ template <typename T> struct LatticeCloverMultigrid {
         dst,(LatticeComplex<T>*)src+(size_t)(_LAT_SC_*levels[0].vol), sc, X, Y, Z, Lt_full);
   }
 
+  void ensure_parity_workspace() {
+    if (parity_tmp != nullptr) return;
+    const size_t bytes = 2 * static_cast<size_t>(_LAT_SC_) *
+                         static_cast<size_t>(levels[0].vol) *
+                         sizeof(LatticeComplex<T>);
+    checkCudaErrors(cudaMallocAsync(&parity_tmp, bytes, set_ptr->stream));
+    checkCudaErrors(cudaMallocAsync(&parity_dst, bytes, set_ptr->stream));
+  }
+
+  void ensure_r_full_workspace() {
+    if (r_full != nullptr) return;
+    const size_t count = static_cast<size_t>(_LAT_SC_) * levels[0].X *
+                         levels[0].Y * levels[0].Z * Lt_full;
+    checkCudaErrors(cudaMallocAsync(
+        &r_full, count * sizeof(LatticeComplex<T>), set_ptr->stream));
+  }
+
+  void ensure_e_odd_workspace() {
+    if (e_odd_buf != nullptr) return;
+    const size_t bytes = static_cast<size_t>(_LAT_SC_) *
+                         static_cast<size_t>(levels[0].vol) *
+                         sizeof(LatticeComplex<T>);
+    checkCudaErrors(cudaMallocAsync(&e_odd_buf, bytes, set_ptr->stream));
+  }
+
   /**
    * @brief Full-site Clover-Wilson dslash: out = D·in.
    *
@@ -1081,6 +1091,7 @@ template <typename T> struct LatticeCloverMultigrid {
    * Both in/out are full-site vectors [sc, X, Y, Z, T] (2*lat_4dim_SC).
    */
   void fine_full_dslash_op(void *out, void *in) {
+    ensure_parity_workspace();
     cudaStream_t S=set_ptr->stream;
     dim3 gv=set_ptr->gridDim, bv=set_ptr->blockDim;
     size_t ch=(size_t)(_LAT_SC_*levels[0].vol);   // one parity channel size (complex elems)
@@ -2111,7 +2122,9 @@ template <typename T> struct LatticeCloverMultigrid {
     {
       size_t eff = st.vec_sz;   // coarse levels: vec_sz/_LAT_SC_ site groups
       int t4 = (int)(eff / _LAT_SC_);
-      mg_give_rx<T><<<(t4+_BLOCK_SIZE_-1)/_BLOCK_SIZE_,_BLOCK_SIZE_,0,S>>>(
+      const size_t update_count = static_cast<size_t>(t4) * _LAT_SC_;
+      mg_give_rx<T><<<(update_count+_BLOCK_SIZE_-1)/_BLOCK_SIZE_,
+                      _BLOCK_SIZE_,0,S>>>(
           static_cast<LatticeComplex<T>*>(st.r),
           static_cast<const LatticeComplex<T>*>(st.s),
           static_cast<const LatticeComplex<T>*>(st.t),
@@ -2355,7 +2368,10 @@ template <typename T> struct LatticeCloverMultigrid {
     //    dev84 kernel-count diet: 双元素级更新融合为一次发射 (mg_give_rx)
     {
       int n4=(int)(n/_LAT_SC_);
-      mg_give_rx<T><<<gv,bv,0,S>>>(
+      const size_t update_count = static_cast<size_t>(n4) * _LAT_SC_;
+      const dim3 update_grid(
+          (update_count + _BLOCK_SIZE_ - 1) / _BLOCK_SIZE_);
+      mg_give_rx<T><<<update_grid,bv,0,S>>>(
           static_cast<LatticeComplex<T>*>(st.r),
           static_cast<const LatticeComplex<T>*>(st.s),
           static_cast<const LatticeComplex<T>*>(st.t),
@@ -2373,9 +2389,7 @@ template <typename T> struct LatticeCloverMultigrid {
   // (Schur complement RHS for the even-odd preconditioned system)
   // ==================================================================
   void setup_b__o() {
-    give_copy_vals<T><<<set_ptr->gridDim,set_ptr->blockDim,0,set_ptr->stream>>>(
-        set_ptr->device_vec2,b_e);
-    clover_dslash_ee_inv.give(set_ptr->device_vec2);
+    clover_dslash_ee_inv.give(b_e, set_ptr->device_vec2);
     wilson_dslash.run_oe(set_ptr->device_vec0,set_ptr->device_vec2,gauge);
     bistabcg_give_b__o<T><<<set_ptr->gridDim,set_ptr->blockDim,0,set_ptr->stream>>>(
         b__o,b_o,set_ptr->device_vec0,kappa_val,set_ptr->device_vals);
@@ -2421,6 +2435,7 @@ template <typename T> struct LatticeCloverMultigrid {
   //         with r_even_sites = 0, r_odd_sites = r_o_full.
   // ==================================================================
   void compute_full_residual() {
+    ensure_r_full_workspace();
     cudaStream_t S=set_ptr->stream;
     dim3 gf=set_ptr->gridDim, bf=set_ptr->blockDim;
 
@@ -2440,8 +2455,7 @@ template <typename T> struct LatticeCloverMultigrid {
 
     // Step 2: Compute r_o_full = b_o + κ · H_oe · x_e - D_oo · x_o
     //   vec1 = D_oo · x_o
-    give_copy_vals<T><<<gf,bf,0,S>>>(set_ptr->device_vec1, x_o);
-    clover_dslash_oo.give(set_ptr->device_vec1);   // vec1 = D_oo · x_o
+    clover_dslash_oo.give(x_o, set_ptr->device_vec1); // vec1 = D_oo · x_o
     checkCudaErrors(cudaStreamSynchronize(S));
 
     //   vec2 = H_oe · x_e (result on odd sites)
@@ -2514,32 +2528,6 @@ template <typename T> struct LatticeCloverMultigrid {
     checkCudaErrors(cudaMemsetAsync(v0, 0, set_ptr->lat_4dim_SC*sizeof(LatticeComplex<T>), S));
     checkCudaErrors(cudaMemsetAsync(s0, 0, set_ptr->lat_4dim_SC*sizeof(LatticeComplex<T>), S));
     checkCudaErrors(cudaMemsetAsync(t0, 0, set_ptr->lat_4dim_SC*sizeof(LatticeComplex<T>), S));
-
-    // Reset scalar state for first iteration
-    LatticeComplex<T> one(1,0), z(0,0);
-    checkCudaErrors(cudaMemcpyAsync(&dv[_rho_],     &z, sizeof(LatticeComplex<T>), cudaMemcpyHostToDevice, S));
-    checkCudaErrors(cudaMemcpyAsync(&dv[_rho_prev_],&one,sizeof(LatticeComplex<T>), cudaMemcpyHostToDevice, S));
-    checkCudaErrors(cudaMemcpyAsync(&dv[_alpha_],   &one,sizeof(LatticeComplex<T>), cudaMemcpyHostToDevice, S));
-    checkCudaErrors(cudaMemcpyAsync(&dv[_omega_],   &one,sizeof(LatticeComplex<T>), cudaMemcpyHostToDevice, S));
-    checkCudaErrors(cudaStreamSynchronize(S));
-  }
-
-  // ==================================================================
-  // BiStabCG state reset for the FULL-site level-0 solve.
-  // (p/v/s/t are the full-site buffers; scalars live in device_vals.)
-  // ==================================================================
-  void reset_bistabcg_state_full() {
-    cudaStream_t S=set_ptr->stream;
-    int full_vol = 2 * levels[0].vol;
-    size_t full_n = (size_t)_LAT_SC_ * full_vol;
-    size_t nb = full_n * sizeof(LatticeComplex<T>);
-    LatticeComplex<T> *dv=static_cast<LatticeComplex<T>*>(set_ptr->device_vals);
-
-    // Zero the full-site search direction vectors
-    checkCudaErrors(cudaMemsetAsync(full_p, 0, nb, S));
-    checkCudaErrors(cudaMemsetAsync(full_v, 0, nb, S));
-    checkCudaErrors(cudaMemsetAsync(full_s, 0, nb, S));
-    checkCudaErrors(cudaMemsetAsync(full_t, 0, nb, S));
 
     // Reset scalar state for first iteration
     LatticeComplex<T> one(1,0), z(0,0);
@@ -3163,12 +3151,9 @@ template <typename T> struct LatticeCloverMultigrid {
 
     // even_residual = D_ee x_e - kappa H_eo x_o.  device_vec0 retains x_e
     // and device_vec2 is reused for the residual; this is exactly the same
-    // sequence as the production Schur application, but without a layout
-    // round trip through full_x/full_v.
-    give_copy_vals<T><<<set_ptr->gridDim, set_ptr->blockDim, 0,
-                        set_ptr->stream>>>(set_ptr->device_vec2,
-                                           set_ptr->device_vec0);
-    clover_dslash_ee.give(set_ptr->device_vec2);
+    // sequence as the production Schur application, without a full-site
+    // scratch-buffer round trip.
+    clover_dslash_ee.give(set_ptr->device_vec0, set_ptr->device_vec2);
     wilson_dslash.run_eo(set_ptr->device_vec1, odd, gauge);
     LatticeComplex<T> neg_kappa(-kappa_val, 0);
     CUBLAS_CHECK(_cublasAxpy<T>(set_ptr->cublasH, n, &neg_kappa,
@@ -3184,9 +3169,7 @@ template <typename T> struct LatticeCloverMultigrid {
                                     : std::numeric_limits<double>::infinity());
 
     // odd_residual = D_oo x_o - kappa H_oe x_e.  x_e is still in vec0.
-    give_copy_vals<T><<<set_ptr->gridDim, set_ptr->blockDim, 0,
-                        set_ptr->stream>>>(set_ptr->device_vec2, odd);
-    clover_dslash_oo.give(set_ptr->device_vec2);
+    clover_dslash_oo.give(odd, set_ptr->device_vec2);
     wilson_dslash.run_oe(set_ptr->device_vec1, set_ptr->device_vec0, gauge);
     CUBLAS_CHECK(_cublasAxpy<T>(set_ptr->cublasH, n, &neg_kappa,
                                 set_ptr->device_vec1, 1,
@@ -3896,36 +3879,9 @@ template <typename T> struct LatticeCloverMultigrid {
         cudaHostAllocMapped));
     checkCudaErrors(cudaHostGetDevicePointer(&check_dev, check_host, 0));
 
-    // Allocate full-site residual buffer for V-cycle correction
-    // Full-site size = _LAT_SC_ * X * Y * Z * Lt_full where Lt_full = 2 * levels[0].Lt
-    size_t r_full_sc = (size_t)_LAT_SC_ * levels[0].X * levels[0].Y * levels[0].Z * Lt_full;
-    size_t r_full_bytes = r_full_sc * sizeof(LatticeComplex<T>);
-    checkCudaErrors(cudaMallocAsync(&r_full, r_full_bytes, set_ptr->stream));
-    checkCudaErrors(cudaMemsetAsync(r_full, 0, r_full_bytes, set_ptr->stream));
-
-    // Dedicated odd-correction buffer (one parity channel, like x_o).
-    size_t e_odd_bytes = (size_t)_LAT_SC_ * levels[0].vol * sizeof(LatticeComplex<T>);
-    checkCudaErrors(cudaMallocAsync(&e_odd_buf, e_odd_bytes, set_ptr->stream));
-    checkCudaErrors(cudaMemsetAsync(e_odd_buf, 0, e_odd_bytes, set_ptr->stream));
-
-    // ---- Full-site level-0 solve buffers ----
-    // The level-0 solve uses FULL-site vectors [sc, X, Y, Z, T]
-    // (size 2*lat_4dim_SC) matching pyqcu/solver/_multigrid.py with
-    // support_parity=False.  We do NOT use the parity-preconditioned Schur
-    // complement for level 0 because its low modes are not captured by the
-    // coarse space (that made the V-cycle correction ineffective).
-    size_t full_bytes = 2 * sc;   // full-site vector = 2 parity channels
-    checkCudaErrors(cudaMallocAsync(&full_x,   full_bytes, set_ptr->stream));
-    checkCudaErrors(cudaMallocAsync(&full_rhs, full_bytes, set_ptr->stream));
-    checkCudaErrors(cudaMallocAsync(&full_r,   full_bytes, set_ptr->stream));
-    checkCudaErrors(cudaMallocAsync(&full_rt,  full_bytes, set_ptr->stream));
-    checkCudaErrors(cudaMallocAsync(&full_p,   full_bytes, set_ptr->stream));
-    checkCudaErrors(cudaMallocAsync(&full_v,   full_bytes, set_ptr->stream));
-    checkCudaErrors(cudaMallocAsync(&full_s,   full_bytes, set_ptr->stream));
-    checkCudaErrors(cudaMallocAsync(&full_t,   full_bytes, set_ptr->stream));
-    checkCudaErrors(cudaMallocAsync(&parity_tmp, full_bytes, set_ptr->stream));
-    checkCudaErrors(cudaMallocAsync(&parity_dst, full_bytes, set_ptr->stream));
-    checkCudaErrors(cudaMallocAsync(&corr_scratch, full_bytes, set_ptr->stream));
+    // Full-site residual, parity staging and odd correction are lazy: the
+    // ordinary parity-Schur path never touches them unless a 50-iteration
+    // reliable update or a coarse correction actually runs.
     checkCudaErrors(cudaMallocAsync(&coarse_partials,
         1024 * sizeof(LatticeComplex<T>), set_ptr->stream));
     checkCudaErrors(cudaMallocAsync(&coarse_breakdown, sizeof(int),
@@ -4579,6 +4535,7 @@ template <typename T> struct LatticeCloverMultigrid {
       levels[1].r0_ref = (T)0;
       checkCudaErrors(cudaStreamSynchronize(S));
       v_cycle(1, cycle_kind);
+      ensure_e_odd_workspace();
       prolong_op(e_odd_buf, levels[1].x, 0);
       checkCudaErrors(cudaStreamSynchronize(S));
       {
@@ -4815,6 +4772,7 @@ template <typename T> struct LatticeCloverMultigrid {
         v_cycle(1, cycle_kind);
 
         // 3. Prolong the coarse correction -> odd-site e_fine
+        ensure_e_odd_workspace();
         prolong_op(e_odd_buf, levels[1].x, 0);
 
         // 4. x_o += e_fine
@@ -5610,6 +5568,7 @@ template <typename T> struct LatticeCloverMultigrid {
   // computes |b - D·x|/|b| using the full-site fine dslash.
   // ==================================================================
   void run_test() {
+    ensure_parity_workspace();
     auto t0=std::chrono::high_resolution_clock::now();run();
     auto t1=std::chrono::high_resolution_clock::now();
     double tm=std::chrono::duration<double,std::milli>(t1-t0).count();
@@ -5635,9 +5594,7 @@ template <typename T> struct LatticeCloverMultigrid {
       LatticeComplex<T> *xe=static_cast<LatticeComplex<T>*>(fermion_out_eo);
       LatticeComplex<T> *xo=static_cast<LatticeComplex<T>*>(fermion_out_eo)+n;
       // vec0 = D_ee·x_e - κ·H_eo·x_o = (D·x)_e
-      CUBLAS_CHECK(_cublasCopy<T>(set_ptr->cublasH,n*_REAL_IMAG_,
-          (T*)xe,1,(T*)set_ptr->device_vec0,1));
-      clover_dslash_ee.give(set_ptr->device_vec0);
+      clover_dslash_ee.give(xe, set_ptr->device_vec0);
       wilson_dslash.run_eo(set_ptr->device_vec1,xo,gauge);
       checkCudaErrors(cudaStreamSynchronize(S));
       LatticeComplex<T> neg_kap(-kappa_val,0.0);
@@ -5645,9 +5602,7 @@ template <typename T> struct LatticeCloverMultigrid {
           set_ptr->device_vec1,1,set_ptr->device_vec0,1));
       checkCudaErrors(cudaStreamSynchronize(S));
       // vec2 = D_oo·x_o - κ·H_oe·x_e = (D·x)_o
-      CUBLAS_CHECK(_cublasCopy<T>(set_ptr->cublasH,n*_REAL_IMAG_,
-          (T*)xo,1,(T*)set_ptr->device_vec2,1));
-      clover_dslash_oo.give(set_ptr->device_vec2);
+      clover_dslash_oo.give(xo, set_ptr->device_vec2);
       wilson_dslash.run_oe(set_ptr->device_vec1,xe,gauge);
       checkCudaErrors(cudaStreamSynchronize(S));
       CUBLAS_CHECK(_cublasAxpy<T>(set_ptr->cublasH,n,&neg_kap,
@@ -5710,9 +5665,7 @@ template <typename T> struct LatticeCloverMultigrid {
     auto F=[&](void*&p){if(p){cudaFreeAsync(p,set_ptr->stream);p=nullptr;}};
     F(b__o);F(r0);F(rt0);F(p0);F(v0);F(s0);F(t0);
     F(r_full);F(e_odd_buf);
-    F(full_x);F(full_rhs);F(full_r);F(full_rt);
-    F(full_p);F(full_v);F(full_s);F(full_t);
-    F(parity_tmp);F(parity_dst);F(corr_scratch);F(coarse_partials);
+    F(parity_tmp);F(parity_dst);F(coarse_partials);
     if (coarse_breakdown != nullptr) {
       checkCudaErrors(cudaFreeAsync(coarse_breakdown, set_ptr->stream));
       coarse_breakdown = nullptr;

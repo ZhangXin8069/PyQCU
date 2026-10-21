@@ -323,7 +323,7 @@ class MultiGpuMultigrid(object):
                  use_cache=True, cache_dir=None, verbose=True,
                  independent_problems=False, seed=42, csw=1.0,
                  run_reference=True, gauge=None, source=None,
-                 input_tag=None, verify_residual=False):
+                 input_tag=None, verify_residual=False, use_deflate=False):
         from mpi4py import MPI
         # C++ LatticeSet::init 用 MPI_COMM_WORLD 真实 rank 覆盖 _NODE_RANK_，
         # 多线程独立实例语义要求单 rank（多进程分布走每进程单线程实例路径）。
@@ -379,7 +379,9 @@ class MultiGpuMultigrid(object):
         self.source = source
         self.input_tag = input_tag
         self.verify_residual = bool(verify_residual)
+        self.use_deflate = bool(use_deflate)
         self._results = None
+        self._shared = None
         self.last_timings = None
 
     def _build_coarse_ops(self, S, E, device):
@@ -410,6 +412,7 @@ class MultiGpuMultigrid(object):
         av[define._SIGMA_] = 0.1
         av[define._CSW_] = self.csw
         params_t[define._MG_NUM_LEVEL_] = self.num_levels
+        params_t[define._MG_USE_DEFLATE_] = int(self.use_deflate)
         if self.num_levels >= 2:
             params_t[define._MG_LEVEL1_E_] = self.dof_list[1]
             params_t[define._MG_LEVEL1_X_] = Lx // self.mg_grid[0]
@@ -514,7 +517,9 @@ class MultiGpuMultigrid(object):
             torch.cuda.synchronize()
             mg_time = time.perf_counter() - t0
             mg_residual = None
+            mg_residual_seconds = None
             if self.verify_residual:
+                residual_started = time.perf_counter()
                 full_g = tools.poooxyzt2oooxyzt(g)
                 full_x = tools.poooxyzt2oooxyzt(fo_mg)
                 full_b = tools.poooxyzt2oooxyzt(fi)
@@ -535,6 +540,7 @@ class MultiGpuMultigrid(object):
                 mg_residual = float(
                     torch.linalg.vector_norm(residual).item() /
                     torch.linalg.vector_norm(full_b).item())
+                mg_residual_seconds = time.perf_counter() - residual_started
         finally:
             for slot in reversed(initialized_slots):
                 params_t[define._SET_INDEX_] = slot
@@ -542,7 +548,8 @@ class MultiGpuMultigrid(object):
         return {'tid': tid, 'device': dev_id, 'mg': fo_mg.cpu(),
                 'ref': None if fo_ref is None else fo_ref.cpu(),
                 'ref_time': ref_time, 'mg_time': mg_time,
-                'mg_residual': mg_residual}
+                'mg_residual': mg_residual,
+                'mg_residual_seconds': mg_residual_seconds}
 
     def solve(self):
         """并行求解：每线程一个完整 C++ MG 流程。返回 {'threads': [...], 'results': ...}。"""
@@ -620,84 +627,100 @@ class MultiGpuMultigrid(object):
                 'wall_seconds': time.perf_counter() - solve_started,
             }
             return results
-        # 主线程生成共享输入（规范场/Clover/源）与粗网格算子
-        params_t, argv_t, set_ptrs_t = _clone_state()
-        self._config_params(params_t, argv_t, set_ptrs_t, argv_t)
-        g, fi, ce, cei, coo, coi, U_full, b_full, clover_full, kappa, av = \
-            _setup_gpu_tensors(params_t, argv_t, set_ptrs_t, main_dev, self.mass,
-                               self.atol, self.csw, self.dt, seed=self.seed,
-                               verbose=self.verbose, gauge=self.gauge,
-                               source=self.source)
-        op = dslash.operator(U=U_full, clover_term=clover_full,
-                             kappa=torch.Tensor([kappa]), support_parity=True,
-                             verbose=False)
-        S = op.matvec_parity
-        # 粗算子构建：缓存命中时免 C++ 构建（24³×72 大格子显存优化）。
-        # 2026-08-20 test15：原逻辑对 24³×72 E24 缓存已命中仍创建 ops_build
-        # （1–4 个 CudaSchurOp，各分配独立 LatticeSet scratch），额外 ~2–8 GB
-        # 显存导致 32 GB 紧张时 OOM（实测 build_schur_levels 加载已需 6.7 GB）。
-        # 新增 fast-path：先检查全部粗层缓存是否命中，命中则走纯加载路径
-        #（matvec_ops=None），零额外显存；未命中才走 C++ 加速路径。
-        cache_hit = False
-        if self.use_cache and self.cache_dir is not None:
-            try:
-                lat_fine_odd = [self.lat_size[0], self.lat_size[1],
-                                self.lat_size[2], self.lat_size[3] // 2]
-                all_hit = True
-                for lvl in range(1, self.num_levels):
-                    E_c = self.dof_list[lvl]
-                    lat_coarse_odd = [lat_fine_odd[d] // self.mg_grid[d] for d in range(4)]
-                    paths = _coarse_cache_paths(
-                        self.cache_dir, self.lat_size, lvl, E_c,
-                        self.nv_iters, 1e-2, mass=self.mass, csw=self.csw,
-                        seed=self.seed,
-                        cache_tag=self.input_tag or f"generated:{self.seed}")
-                    if not any(os.path.exists(cf) for cf in paths):
-                        all_hit = False
-                        break
-                    lat_fine_odd = lat_coarse_odd
-                cache_hit = all_hit
-            except Exception:
-                cache_hit = False
-        # 1L 特例：无粗层，直接空 coarse
-        if self.num_levels == 1:
-            coarse = ([], [], [], [])
-            ops_build = []
-        elif cache_hit:
-            ops_build = []
-            coarse = build_schur_levels(
-                op, S, self.num_levels, self.dof_list, self.mg_grid, self.lat_size,
-                self.dof_list[1], self.dt, main_dev, nv_iters=self.nv_iters,
-                use_cache=self.use_cache, cache_dir=self.cache_dir, verbose=False,
-                matvec_ops=None, nthreads=1,
-                av=None, params_template=None, mass=self.mass, csw=self.csw,
-                seed=self.seed,
-                cache_tag=self.input_tag or f"generated:{self.seed}")
+        # Keep the prepared gauge/Clover/coarse hierarchy resident across solves.
+        # Rebuilding it for every warmup/repeat both dominated latency and raced
+        # PyTorch's cached allocator against the C++ cudaMallocAsync pool.
+        setup_reused = self._shared is not None
+        if setup_reused:
+            shared = self._shared
+            setup_seconds = 0.0
         else:
-            # 未命中：走 C++ matvec 加速路径（原逻辑，避免 Python 大格子 50min 瓶颈）
-            ops_build = [CudaSchurOp(av, g, ce, coo, cei, coi, params=params_t)
-                         for _ in range(max(1, min(self.nthreads, 4)))]
-            coarse = build_schur_levels(
-                op, S, self.num_levels, self.dof_list, self.mg_grid, self.lat_size,
-                self.dof_list[1], self.dt, main_dev, nv_iters=self.nv_iters,
-                use_cache=self.use_cache, cache_dir=self.cache_dir, verbose=False,
-                matvec_ops=ops_build, nthreads=len(ops_build),
-                av=av, params_template=params_t, mass=self.mass, csw=self.csw,
-                seed=self.seed,
-                cache_tag=self.input_tag or f"generated:{self.seed}")
-            for o in ops_build:
-                o.release()
-        shared = {'g': g, 'fi': fi, 'ce': ce, 'cei': cei, 'coo': coo, 'coi': coi,
-                  'coarse': list(zip(*coarse)) if coarse and coarse[0] else []}  # [(lonv,hnn,hdg,sit)] per coarse level
-        # 清理主线程临时 LatticeSet（setup 用），避免槽位与工作线程混淆
-        params_t[define._SET_INDEX_] = 0; params_t[define._SET_PLAN_] = -1
-        qcu.applyEndQcu(set_ptrs_t, params_t)
-        params_t[define._SET_INDEX_] = 1
-        qcu.applyEndQcu(set_ptrs_t, params_t)
-        params_t[define._SET_INDEX_] = 2
-        qcu.applyEndQcu(set_ptrs_t, params_t)
+            params_t, argv_t, set_ptrs_t = _clone_state()
+            self._config_params(params_t, argv_t, set_ptrs_t, argv_t)
+            g, fi, ce, cei, coo, coi, U_full, b_full, clover_full, kappa, av = \
+                _setup_gpu_tensors(params_t, argv_t, set_ptrs_t, main_dev,
+                                   self.mass, self.atol, self.csw, self.dt,
+                                   seed=self.seed, verbose=self.verbose,
+                                   gauge=self.gauge, source=self.source)
+            op = dslash.operator(U=U_full, clover_term=clover_full,
+                                 kappa=torch.Tensor([kappa]), support_parity=True,
+                                 verbose=False)
+            S = op.matvec_parity
+            # 粗算子构建：缓存命中时免 C++ 构建（24³×72 大格子显存优化）。
+            cache_hit = False
+            if self.use_cache and self.cache_dir is not None:
+                try:
+                    lat_fine_odd = [self.lat_size[0], self.lat_size[1],
+                                    self.lat_size[2], self.lat_size[3] // 2]
+                    all_hit = True
+                    for lvl in range(1, self.num_levels):
+                        E_c = self.dof_list[lvl]
+                        lat_coarse_odd = [
+                            lat_fine_odd[d] // self.mg_grid[d] for d in range(4)]
+                        paths = _coarse_cache_paths(
+                            self.cache_dir, self.lat_size, lvl, E_c,
+                            self.nv_iters, 1e-2, mass=self.mass, csw=self.csw,
+                            seed=self.seed,
+                            cache_tag=self.input_tag or f"generated:{self.seed}")
+                        if not any(os.path.exists(cf) for cf in paths):
+                            all_hit = False
+                            break
+                        lat_fine_odd = lat_coarse_odd
+                    cache_hit = all_hit
+                except Exception:
+                    cache_hit = False
+            if self.num_levels == 1:
+                coarse = ([], [], [], [])
+                ops_build = []
+            elif cache_hit:
+                ops_build = []
+                coarse = build_schur_levels(
+                    op, S, self.num_levels, self.dof_list, self.mg_grid,
+                    self.lat_size, self.dof_list[1], self.dt, main_dev,
+                    nv_iters=self.nv_iters, use_cache=self.use_cache,
+                    cache_dir=self.cache_dir, verbose=False, matvec_ops=None,
+                    nthreads=1, av=None, params_template=None, mass=self.mass,
+                    csw=self.csw, seed=self.seed,
+                    cache_tag=self.input_tag or f"generated:{self.seed}")
+            else:
+                ops_build = [
+                    CudaSchurOp(av, g, ce, coo, cei, coi, params=params_t)
+                    for _ in range(max(1, min(self.nthreads, 4)))]
+                coarse = build_schur_levels(
+                    op, S, self.num_levels, self.dof_list, self.mg_grid,
+                    self.lat_size, self.dof_list[1], self.dt, main_dev,
+                    nv_iters=self.nv_iters, use_cache=self.use_cache,
+                    cache_dir=self.cache_dir, verbose=False,
+                    matvec_ops=ops_build, nthreads=len(ops_build), av=av,
+                    params_template=params_t, mass=self.mass, csw=self.csw,
+                    seed=self.seed,
+                    cache_tag=self.input_tag or f"generated:{self.seed}")
+                for o in ops_build:
+                    o.release()
+            shared = {
+                'g': g, 'fi': fi, 'ce': ce, 'cei': cei,
+                'coo': coo, 'coi': coi,
+                'coarse': list(zip(*coarse)) if coarse and coarse[0] else [],
+            }
+            self._shared = shared
+            self.gauge = None
+            self.source = None
+            # The full-site Python operator and clover tensors are setup-only.
+            # C++ workers consume the packed parity fields and HDF5 coarse
+            # assets, so retaining these duplicates needlessly approaches the
+            # V100 capacity limit.
+            del U_full, b_full, clover_full, op, S
+            torch.cuda.empty_cache()
+            # 清理主线程临时 LatticeSet（setup 用），避免槽位与工作线程混淆
+            params_t[define._SET_INDEX_] = 0
+            params_t[define._SET_PLAN_] = -1
+            qcu.applyEndQcu(set_ptrs_t, params_t)
+            params_t[define._SET_INDEX_] = 1
+            qcu.applyEndQcu(set_ptrs_t, params_t)
+            params_t[define._SET_INDEX_] = 2
+            qcu.applyEndQcu(set_ptrs_t, params_t)
+            setup_seconds = time.perf_counter() - solve_started
         threads = []
-        setup_seconds = time.perf_counter() - solve_started
         with ThreadPoolExecutor(max_workers=self.nthreads) as ex:
             for r in ex.map(lambda tid: self._worker(tid, shared), range(self.nthreads)):
                 threads.append(r)
@@ -715,9 +738,18 @@ class MultiGpuMultigrid(object):
         self._results = results
         self.last_timings = {
             'setup_seconds': setup_seconds,
+            'setup_reused': setup_reused,
             'wall_seconds': time.perf_counter() - solve_started,
         }
         return results
+
+    def close(self):
+        """Release resident input/coarse tensors held for repeated solves."""
+        self._shared = None
+        self._results = None
+        self.last_timings = None
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
     def save_report(self, path: str):
         """导出求解报告（JSON：配置/每线程耗时/残差/一致性）。"""

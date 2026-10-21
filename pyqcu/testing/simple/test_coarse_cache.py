@@ -23,8 +23,9 @@ def test_coarse_cache_round_trip(tmp_path: Path) -> None:
     loaded = load_coarse_assets(path, np.dtype(np.complex64))
 
     assert path.is_file()
-    for actual, expected in zip(loaded, arrays, strict=True):
-        np.testing.assert_array_equal(actual, expected)
+    for levels, expected in zip(loaded, arrays, strict=True):
+        assert len(levels) == 1
+        np.testing.assert_array_equal(levels[0], expected)
 
 
 def test_coarse_cache_rejects_missing_dataset(tmp_path: Path) -> None:

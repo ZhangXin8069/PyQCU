@@ -1,0 +1,116 @@
+[日志元数据]
+日志类型: stage
+生成时间: 2026-10-21 09:14:13 +0800
+批次: stage2-cuda-d2d-mg-20261021
+主任务: 持续比照 QUDA 优化 KUPL/CUDA QCU；MG 为主，BiCGStab 为辅
+触发原因: 阶段成果
+摘要: nvprof 定位整向量 D2D 拷贝热点；cudaMemcpyAsync 使 CUDA MG 降 20.6%、BiCGStab 降 26.7%，三方生产口径与回归通过
+Git 根目录: /root/PyQCU
+
+## 关键日志
+
+### S1 — profiler 定位
+
+- 命令: `nvprof --csv` 运行生产 c64 CUDA Clover BiCGStab。
+- 输入: `24x24x24x64`、`mass=-0.277`、`csw=1.160920226`、seed 42。
+- 关键输出:
+  - `give_copy_vals<float>` 平均 `1.06 ms/次`，共 158 次（含 setup）。
+  - `wilson_dslash<float>` 平均 `0.495 ms/次`。
+  - `give_clover<float>` 平均 `0.826 ms/次`。
+  - 连续 D2D 拷贝是不必要的自定义 kernel 热点。
+- 证据与判断: fine Schur matvec 每次固定两次整奇偶向量复制，BiCGStab 每迭代两次 matvec。
+
+### S2 — cudaMemcpyAsync 热路径替换
+
+- 修改:
+  - `LatticeCloverBistabCg::dslash` 两处整向量复制。
+  - `LatticeCloverMultigrid::fine_dslash_op` 与 adjoint 各两处。
+  - `setup_b__o` 的 b_e 复制。
+- 语义: 仅替换连续同类型 D2D copy，算术、流顺序和同步边界不变。
+- 关键输出:
+  - CUDA BiCGStab: `0.280308 -> 0.205411 s`，下降 `26.7%`。
+  - CUDA MG: `0.3903 -> 0.3099 s`，下降 `20.6%`。
+  - MG 总生命周期: `0.6215 -> 0.5464 s`，下降 `12.1%`。
+  - c128 BiCGStab: `43.935 -> 38.976 ms`，下降 `11.3%`。
+- 真残差: c64 `5.6876e-7`，MG `4.1265e-7`，c128 `1.2562e-8`，均不变。
+- 退出码: 0。
+
+### S3 — 三方更新
+
+- CUDA MG 后端: `0.3099 s`，20 iterations。
+- KUPL Schur fallback: `6.665 s`，19 iterations，16 threads。
+- QUDA MG nvec24: `28.0075 s`，3 outer GCR。
+- CUDA/QUDA BiCGStab: `0.205411/0.131636 s`，每迭代 `10.81/6.93 ms`，差距 `1.56x`。
+- KUPL 1/2/4/8/16 threads: `63.438/33.365/17.682/9.843/6.344 s`。
+- 证据与判断: CUDA 保持三方最快；QUDA nvec24 与 dof12 仍非完全等价配置。
+
+## 验证与证据
+
+- CUDA strict tier0: 20 passed。
+- KUPL CTest: 28/28 passed。
+- Python benchmark/geometry tests: 9 passed。
+- `git diff --check`、`py_compile`: exit 0。
+- sm70 cubin 已确认。
+- 正式性能 JSON:
+  - `data/production_mg_20261021/cuda_c64_l2_memcpy.json`
+  - `data/production_mg_20261021/qcu_c64_bistabcg_memcpy.json`
+  - `data/baseline_20261021_stage1/qcu_16x16x16x32_c128_memcpy.json`
+  - `data/production_mg_20261021/nvprof_qcu_c64_bistabcg.csv`
+
+## 变更与产物
+
+- `cpp/cuda/qcu/include/lattice_clover_bistabcg.h`
+- `cpp/cuda/qcu/include/lattice_clover_multigrid.h`
+- 生产 JSON 与 nvprof CSV 位于 `data/production_mg_20261021/`。
+- 未提交、未打标签、未推送。
+
+## 风险、限制与下一步
+
+- nvprof 原始 CSV 有 device buffer/semaphore 时间戳缺失警告，kernel 平均值仅用于热点排序，不用于正式性能。
+- 当前剩余 CUDA/QUDA 每迭代差距 `1.56x`；下一轮应聚焦 Clover 12x12 批量乘与 Wilson dslash 的 kernel/occupancy。
+- 生产 c128 MG 与完全等价 nvec 的 strict MG 对照仍未完成。
+
+## Agent 全文报告
+
+--- report begin ---
+# Stage 2 CUDA Schur D2D 拷贝优化与三方性能更新
+
+## 结论
+
+生产 c64 CUDA MG 后端中位从 `0.3903 s` 降至 `0.3099 s`，改善 `20.6%`；总生命周期从 `0.6215 s` 降至 `0.5464 s`，改善 `12.1%`。同一优化使 CUDA Clover BiCGStab 从 `0.280308 s` 降至 `0.205411 s`，改善 `26.7%`，迭代数和独立真残差完全不变。
+
+生产三方 MG：
+
+| 后端 | 时间 | 迭代 | 真残差 | 备注 |
+|---|---:|---:|---:|---|
+| CUDA QCU | 0.3099 s | 20 | 4.1265e-7 | 自适应门控，cache-hit |
+| KUPL QCU | 6.665 s | 19 | 4.0115e-7 | Schur fallback，16 threads |
+| QUDA | 28.0075 s | 3 outer GCR | 5.1234e-7 | nvec24，setup 156.306 s |
+
+生产 c64 BiCGStab：
+
+| 后端 | 时间 | iterations | 每迭代 |
+|---|---:|---:|---:|
+| QUDA | 0.131636 s | 19 | 6.93 ms |
+| CUDA QCU | 0.205411 s | 19 | 10.81 ms |
+
+CUDA/QUDA 每迭代差距由 `2.13x` 缩至 `1.56x`。
+
+## 推理依据
+
+nvprof 显示自定义 `give_copy_vals` 平均 `1.06 ms/次`，而操作只是连续、同类型整向量 D2D 拷贝。fine Schur matvec 每次包含两次，BiCGStab 每迭代包含两次 matvec，因此每迭代存在约四次可消除的低效复制。替换为流内 `cudaMemcpyAsync` 后不改变数学运算、Krylov 状态或收敛判据，收益与实测幅度一致。
+
+## 验证结果
+
+- c64 MG 真残差 `4.1264669e-7`。
+- c64 BiCGStab 真残差 `5.6875928e-7`。
+- c128 BiCGStab `43.935 -> 38.976 ms`，真残差 `1.2562499e-8`。
+- KUPL CTest 28/28、CUDA strict tier0 20 passed、Python 9 passed。
+- `git diff --check` 和编译检查通过。
+
+## 后续步骤
+
+1. 对 Clover 12x12 局部乘和 Wilson dslash 做 kernel 级 occupancy/带宽剖析。
+2. 继续优化 MG init/end 固定开销；当前约 60 ms。
+3. 完成生产 c128 MG 和严格相同 nvec 的 strict MG 对照。
+--- report end ---

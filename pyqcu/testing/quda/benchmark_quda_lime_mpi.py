@@ -689,10 +689,16 @@ def _gpu_info(cp: Any, device: int) -> dict[str, Any]:
     }
 
 
-def _load_pyquda_modules() -> tuple[Any, Any, Any, Any, Any, Any, Any]:
+def _load_pyquda_modules(
+) -> tuple[Any, Any, Any, Any, Any, Any, Any, str]:
     # Device selection in _configure_cuda_device() has already happened.
     import pyquda
-    import pyquda.core as core
+    try:
+        import pyquda_utils.core as core
+        api = "pyquda_utils"
+    except ImportError:
+        import pyquda.core as core
+        api = "pyquda"
     from pyquda.enum_quda import (
         QudaDslashType,
         QudaInverterType,
@@ -700,10 +706,25 @@ def _load_pyquda_modules() -> tuple[Any, Any, Any, Any, Any, Any, Any]:
         QudaPrecision,
         QudaResidualType,
         QudaSolveType,
-        QudaTune,
         QudaUseInitGuess,
     )
     from pyquda.field import LatticeFermion, LatticeGauge, cb2
+
+    enums = {
+        "QudaDslashType": QudaDslashType,
+        "QudaInverterType": QudaInverterType,
+        "QudaMassNormalization": QudaMassNormalization,
+        "QudaPrecision": QudaPrecision,
+        "QudaResidualType": QudaResidualType,
+        "QudaSolveType": QudaSolveType,
+        "QudaUseInitGuess": QudaUseInitGuess,
+    }
+    try:
+        from pyquda.enum_quda import QudaTune
+    except ImportError:
+        pass
+    else:
+        enums["QudaTune"] = QudaTune
 
     return (
         pyquda,
@@ -711,17 +732,9 @@ def _load_pyquda_modules() -> tuple[Any, Any, Any, Any, Any, Any, Any]:
         LatticeFermion,
         LatticeGauge,
         cb2,
-        {
-            "QudaDslashType": QudaDslashType,
-            "QudaInverterType": QudaInverterType,
-            "QudaMassNormalization": QudaMassNormalization,
-            "QudaPrecision": QudaPrecision,
-            "QudaResidualType": QudaResidualType,
-            "QudaSolveType": QudaSolveType,
-            "QudaTune": QudaTune,
-            "QudaUseInitGuess": QudaUseInitGuess,
-        },
-        pyquda.mpi,
+        enums,
+        pyquda if api == "pyquda_utils" else pyquda.mpi,
+        api,
     )
 
 
@@ -730,7 +743,36 @@ def _activate_pyquda(
     pyquda_mpi: Any,
     grid: Sequence[int],
     expected_device: int,
+    lattice: Sequence[int],
+    api: str,
 ) -> None:
+    if api == "pyquda_utils":
+        if not hasattr(pyquda_mpi, "init"):
+            raise BenchmarkFailure("PyQuda API mismatch: pyquda.init is unavailable")
+        os.environ["LOCAL_RANK"] = str(int(expected_device))
+        pyquda_mpi.init(
+            grid_size=[int(item) for item in grid],
+            latt_size=[int(item) for item in lattice],
+            backend="torch",
+            backend_target="cuda",
+            enable_nvshmem=False,
+            enable_tuning=False,
+            enable_device_memory_pool=False,
+            enable_pinned_memory_pool=False,
+        )
+        if tuple(int(item) for item in pyquda.getGridSize()) != tuple(grid):
+            raise BenchmarkFailure(
+                f"PyQuda grid {pyquda.getGridSize()} does not match requested "
+                f"{tuple(grid)}"
+            )
+        import torch
+        if int(torch.cuda.current_device()) != int(expected_device):
+            raise BenchmarkFailure(
+                f"PyQuda selected device {torch.cuda.current_device()}, "
+                f"expected {expected_device}"
+            )
+        return
+
     if not hasattr(pyquda, "mpi") or not hasattr(pyquda.mpi, "init"):
         raise BenchmarkFailure("PyQuda API mismatch: pyquda.mpi.init is unavailable")
     # All LIME/local-gauge I/O in this script occurs after this call.
@@ -812,17 +854,28 @@ def _build_fields(
     LatticeGauge: Any,
     LatticeFermion: Any,
     cb2: Any,
+    core: Any,
 ) -> tuple[Any, Any, dict[str, Any]]:
     global_qdp_gauge = read_lime_local_gauge(metadata, grid, coord)
-    parity_gauge = cb2(global_qdp_gauge, [1, 2, 3, 4])
     local_lattice = _local_lattice(metadata.lattice_xyzt, grid)
-    gauge = LatticeGauge(
-        list(local_lattice), parity_gauge, t_boundary=int(coord[3]) == int(grid[3]) - 1,
-    )
-
     qdp_rhs = _canonical_fermion_to_qdp(local_rhs)
-    parity_rhs = cb2(qdp_rhs, [0, 1, 2, 3])
-    rhs = LatticeFermion(list(local_lattice), parity_rhs)
+    if hasattr(core, "LatticeInfo"):
+        import torch
+        info = core.LatticeInfo(list(metadata.lattice_xyzt), 1, 1.0)
+        parity_gauge = info.evenodd(global_qdp_gauge.astype(np.complex128), True)
+        parity_rhs = info.evenodd(qdp_rhs.astype(np.complex128), False)
+        gauge = LatticeGauge(
+            info, 4, torch.from_numpy(parity_gauge).to("cuda"))
+        rhs = LatticeFermion(
+            info, torch.from_numpy(parity_rhs).to("cuda"))
+    else:
+        parity_gauge = cb2(global_qdp_gauge, [1, 2, 3, 4])
+        gauge = LatticeGauge(
+            list(local_lattice), parity_gauge,
+            t_boundary=int(coord[3]) == int(grid[3]) - 1,
+        )
+        parity_rhs = cb2(qdp_rhs, [0, 1, 2, 3])
+        rhs = LatticeFermion(list(local_lattice), parity_rhs)
     rhs.toDevice()
 
     return gauge, rhs, {
@@ -855,31 +908,30 @@ def _build_dirac(
     levels: int,
     nvec: int,
     mg_block: Sequence[int],
+    global_lattice: Sequence[int],
 ) -> tuple[Any, dict[str, Any]]:
     if not hasattr(core, "getDslash"):
         raise BenchmarkFailure("PyQuda API mismatch: pyquda.core.getDslash is unavailable")
-    from pyquda.dslash import general as dirac_general
+    modern_api = hasattr(core, "LatticeInfo")
+    if modern_api:
+        from pyquda.dirac import general as dirac_general
+    else:
+        from pyquda.dslash import general as dirac_general
     from pyquda.enum_quda import QudaPrecision
 
     device_precision = (
         QudaPrecision.QUDA_SINGLE_PRECISION
         if dtype == "c64" else QudaPrecision.QUDA_DOUBLE_PRECISION
     )
-    for name in (
-        "cuda_prec",
-        "cuda_prec_sloppy",
-        "cuda_prec_precondition",
-        "cuda_prec_eigensolver",
-    ):
-        setattr(dirac_general, name, device_precision)
     multigrid = None
     if solver == "mg":
         if levels < 2:
             raise BenchmarkFailure("MG requires at least two levels")
         multigrid = [list(int(item) for item in mg_block)
                      for _ in range(levels - 1)]
+    quda_lattice = global_lattice if modern_api else local_lattice
     dirac = core.getDslash(
-        list(int(item) for item in local_lattice),
+        list(int(item) for item in quda_lattice),
         float(mass),
         float(tol),
         int(max_iter),
@@ -887,6 +939,22 @@ def _build_dirac(
         anti_periodic_t=False,
         multigrid=False if multigrid is None else multigrid,
     )
+    if modern_api:
+        dirac.setPrecision(
+            cuda=device_precision,
+            sloppy=device_precision,
+            refinement_sloppy=device_precision,
+            precondition=device_precision,
+            eigensolver=device_precision,
+        )
+    else:
+        for name in (
+            "cuda_prec",
+            "cuda_prec_sloppy",
+            "cuda_prec_precondition",
+            "cuda_prec_eigensolver",
+        ):
+            setattr(dirac_general, name, device_precision)
     invert = dirac.invert_param
     invert.mass_normalization = enum_quda["QudaMassNormalization"].QUDA_KAPPA_NORMALIZATION
     if solver == "bicgstab":
@@ -896,10 +964,19 @@ def _build_dirac(
     invert.compute_true_res = 1
     invert.tol = float(tol)
     invert.maxiter = int(max_iter)
-    invert.tune = enum_quda["QudaTune"].QUDA_TUNE_NO
+    tune_enum = enum_quda.get("QudaTune")
+    invert_tune_exposed = hasattr(invert, "tune")
+    if invert_tune_exposed:
+        if tune_enum is None:
+            raise BenchmarkFailure(
+                "PyQuda exposes QudaInvertParam.tune without QudaTune")
+        invert.tune = tune_enum.QUDA_TUNE_NO
     gauge_tune_exposed = hasattr(dirac.gauge_param, "tune")
     if gauge_tune_exposed:
-        dirac.gauge_param.tune = enum_quda["QudaTune"].QUDA_TUNE_NO
+        if tune_enum is None:
+            raise BenchmarkFailure(
+                "PyQuda exposes QudaGaugeParam.tune without QudaTune")
+        dirac.gauge_param.tune = tune_enum.QUDA_TUNE_NO
 
     mg_param = getattr(dirac, "mg_param", None)
     if mg_param is None:
@@ -923,7 +1000,6 @@ def _build_dirac(
 
     expected_kappa = kappa_from_mass(mass)
     expected_clover_coeff = expected_kappa * float(csw)
-    tune_disabled = enum_quda["QudaTune"].QUDA_TUNE_NO
     checks = {
         "dslash_is_clover": invert.dslash_type == enum_quda["QudaDslashType"].QUDA_CLOVER_WILSON_DSLASH,
         "solve_type_is_direct_pc": invert.solve_type == enum_quda["QudaSolveType"].QUDA_DIRECT_PC_SOLVE,
@@ -938,14 +1014,26 @@ def _build_dirac(
             float(invert.clover_coeff), expected_clover_coeff,
             rel_tol=1.0e-12, abs_tol=1.0e-15,
         ),
-        "invert_tuning_disabled": (
-            invert.tune == tune_disabled),
+        "cuda_precision_matches_request": (
+            int(invert.cuda_prec) == int(device_precision)),
+        "cuda_sloppy_precision_matches_request": (
+            int(invert.cuda_prec_sloppy) == int(device_precision)),
+        "cuda_refinement_precision_matches_request": (
+            int(invert.cuda_prec_refinement_sloppy)
+            == int(device_precision)),
+        "cuda_precondition_precision_matches_request": (
+            int(invert.cuda_prec_precondition) == int(device_precision)),
+        "cuda_eigensolver_precision_matches_request": (
+            int(invert.cuda_prec_eigensolver) == int(device_precision)),
         "environment_tuning_disabled": (
             os.environ.get("QUDA_ENABLE_TUNING") == "0"),
     }
+    if invert_tune_exposed:
+        checks["invert_tuning_disabled"] = (
+            invert.tune == tune_enum.QUDA_TUNE_NO)
     if gauge_tune_exposed:
         checks["gauge_tuning_disabled"] = (
-            dirac.gauge_param.tune == tune_disabled)
+            dirac.gauge_param.tune == tune_enum.QUDA_TUNE_NO)
     if solver == "bicgstab":
         checks["inverter_is_bicgstab"] = (
             invert.inv_type ==
@@ -970,10 +1058,13 @@ def _build_dirac(
             invert.residual_type, enum_quda["QudaResidualType"]),
         "compute_true_res": int(invert.compute_true_res),
         "tuning_enabled": False,
-        "invert_tune": _enum_name(invert.tune, enum_quda["QudaTune"]),
+        "invert_tune": (
+            _enum_name(invert.tune, tune_enum)
+            if invert_tune_exposed else "not_exposed_by_pyquda"),
         "gauge_tune": (
-            _enum_name(dirac.gauge_param.tune, enum_quda["QudaTune"])
+            _enum_name(dirac.gauge_param.tune, tune_enum)
             if gauge_tune_exposed else "not_exposed_by_pyquda"),
+        "invert_tune_field_exposed": invert_tune_exposed,
         "gauge_tune_field_exposed": gauge_tune_exposed,
         "quda_enable_tuning_environment": os.environ.get(
             "QUDA_ENABLE_TUNING"),
@@ -994,6 +1085,15 @@ def _build_dirac(
             invert.cuda_prec, enum_quda["QudaPrecision"]),
         "cuda_sloppy_precision": _enum_name(
             invert.cuda_prec_sloppy, enum_quda["QudaPrecision"]),
+        "cuda_refinement_sloppy_precision": _enum_name(
+            invert.cuda_prec_refinement_sloppy,
+            enum_quda["QudaPrecision"]),
+        "cuda_precondition_precision": _enum_name(
+            invert.cuda_prec_precondition,
+            enum_quda["QudaPrecision"]),
+        "cuda_eigensolver_precision": _enum_name(
+            invert.cuda_prec_eigensolver,
+            enum_quda["QudaPrecision"]),
     }
     return dirac, config
 
@@ -1045,17 +1145,25 @@ def _solve_record(
     wall_seconds: float,
     kappa_normalization: Any,
 ) -> dict[str, Any]:
-    iterations = int(invert.iter)
-    max_iter = int(invert.maxiter)
-    solver_seconds = float(invert.secs)
-    true_res = float(invert.true_res)
-    gflops = float(invert.gflops)
-    if int(invert.mass_normalization) != int(kappa_normalization):
+    def scalar(value: Any) -> Any:
+        if isinstance(value, (str, bytes)):
+            return value
+        try:
+            return value[0]
+        except (IndexError, KeyError, TypeError):
+            return value
+
+    iterations = int(scalar(invert.iter))
+    max_iter = int(scalar(invert.maxiter))
+    solver_seconds = float(scalar(invert.secs))
+    true_res = float(scalar(invert.true_res))
+    gflops = float(scalar(invert.gflops))
+    if int(scalar(invert.mass_normalization)) != int(scalar(kappa_normalization)):
         raise BenchmarkFailure(
             "mass normalization changed during solve: "
             f"{int(invert.mass_normalization)} != {int(kappa_normalization)}"
         )
-    if int(invert.compute_true_res) != 1:
+    if int(scalar(invert.compute_true_res)) != 1:
         raise BenchmarkFailure("QUDA compute_true_res was not enabled during solve")
     if iterations <= 0:
         raise BenchmarkFailure(f"QUDA returned non-positive iteration count: {iterations}")
@@ -1265,12 +1373,14 @@ def _run_benchmark(
         comm, "select_cuda_device", lambda: _configure_cuda_device(comm),
     )
     modules = _collective_guard(comm, "import_pyquda", _load_pyquda_modules)
-    pyquda, core, LatticeFermion, LatticeGauge, cb2, enum_quda, pyquda_mpi = modules
+    (pyquda, core, LatticeFermion, LatticeGauge, cb2, enum_quda,
+     pyquda_mpi, pyquda_api) = modules
     _collective_guard(
         comm,
         "initialize_pyquda_mpi",
         lambda: _activate_pyquda(
             pyquda, pyquda_mpi, grid, int(device_record["device"]),
+            lattice, pyquda_api,
         ),
     )
     import cupy as cp
@@ -1326,7 +1436,7 @@ def _run_benchmark(
         "build_local_fields",
         lambda: _build_fields(
             metadata, local_rhs, grid, coord,
-            LatticeGauge, LatticeFermion, cb2,
+            LatticeGauge, LatticeFermion, cb2, core,
         ),
     )
     del local_rhs
@@ -1336,7 +1446,7 @@ def _run_benchmark(
         lambda: _build_dirac(
             core, enum_quda, _local_lattice(lattice, grid),
             mass, csw, args.tol, args.max_iter, args.dtype, args.solver,
-            args.levels, args.nvec, args.mg_block,
+            args.levels, args.nvec, args.mg_block, lattice,
         ),
     )
 
@@ -1429,8 +1539,10 @@ def _run_benchmark(
             },
             "phases": phases,
             "solver": {
-                "implementation": "pyquda.core.getDslash -> Dirac.invert",
-                "inverter": "QUDA_BICGSTAB_INVERTER",
+                "implementation": (
+                    f"{pyquda_api}.core.getDslash -> Dirac.invert"),
+                "inverter": records[0]["parameter_contract"][
+                    "inverter_type"],
                 "true_res_source": "QudaInvertParam.true_res (compute_true_res=1)",
                 "true_res_tolerance": float(args.tol),
             },

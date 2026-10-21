@@ -18,7 +18,8 @@ namespace {
 
 template <typename Real>
 Complex<Real> mg_dot(const std::vector<Complex<Real>> &left,
-                     const std::vector<Complex<Real>> &right) {
+                     const std::vector<Complex<Real>> &right,
+                     bool distributed) {
   if (left.size() != right.size()) {
     throw std::runtime_error("legacy MG dot size mismatch");
   }
@@ -34,6 +35,9 @@ Complex<Real> mg_dot(const std::vector<Complex<Real>> &left,
     imag_sum += a.real() * b.imag() - a.imag() * b.real();
   }
   const Real local[2] = {real_sum, imag_sum};
+  if (!distributed) {
+    return Complex<Real>(local[0], local[1]);
+  }
   Real global[2] = {0, 0};
   const MPI_Datatype type =
       sizeof(Real) == sizeof(float) ? MPI_FLOAT : MPI_DOUBLE;
@@ -42,13 +46,16 @@ Complex<Real> mg_dot(const std::vector<Complex<Real>> &left,
 }
 
 template <typename Real>
-Real mg_norm2(const std::vector<Complex<Real>> &field) {
+Real mg_norm2(const std::vector<Complex<Real>> &field, bool distributed) {
   Real local = 0;
   const int64_t count = static_cast<int64_t>(field.size());
   const int64_t chunk = omp_chunk<Real>(count);
 #pragma omp parallel for schedule(static, chunk) reduction(+ : local)
   for (int64_t index = 0; index < count; ++index) {
     local += std::norm(field[static_cast<std::size_t>(index)]);
+  }
+  if (!distributed) {
+    return local;
   }
   Real global = 0;
   const MPI_Datatype type =
@@ -67,6 +74,7 @@ template <typename Real> struct LegacyMgLevel {
   int max_iter = 100;
   int correction_interval = 5;
   Real tolerance = Real(0);
+  Real target = Real(0);
   const Complex<Real> *null_vectors = nullptr;
   const Complex<Real> *hop_nn = nullptr;
   const Complex<Real> *hop_diag = nullptr;
@@ -74,7 +82,9 @@ template <typename Real> struct LegacyMgLevel {
   std::vector<Complex<Real>> x;
   std::vector<Complex<Real>> rhs;
   std::vector<Complex<Real>> r;
+  std::vector<Complex<Real>> rhat;
   std::vector<Complex<Real>> correction;
+  std::vector<Complex<Real>> p;
   std::vector<Complex<Real>> v;
   std::vector<Complex<Real>> s;
   std::vector<Complex<Real>> t;
@@ -98,6 +108,7 @@ public:
       throw std::runtime_error("legacy Clover-MG received a null pointer");
     }
     num_levels_ = params_[kMgNumLevel];
+    distributed_ = params_[kNodeSize] > 1;
     if (num_levels_ < 1 || num_levels_ > 5) {
       throw std::runtime_error("legacy Clover-MG level count must be 1..5");
     }
@@ -193,8 +204,8 @@ public:
     for (std::size_t i = 0; i < levels_[0].r.size(); ++i) {
       levels_[0].r[i] = levels_[0].rhs[i] - levels_[0].v[i];
     }
-    const Real rhs_norm = std::sqrt(mg_norm2(levels_[0].rhs));
-    Real residual = std::sqrt(mg_norm2(levels_[0].r));
+    const Real rhs_norm = std::sqrt(mg_norm2(levels_[0].rhs, distributed_));
+    Real residual = std::sqrt(mg_norm2(levels_[0].r, distributed_));
     if (rhs_norm == Real(0)) {
       std::fill(levels_[0].x.begin(), levels_[0].x.end(), Complex<Real>(0));
       full_to_canonical(static_cast<Complex<Real> *>(fermion_out),
@@ -202,6 +213,7 @@ public:
       return;
     }
     const Real target = levels_[0].tolerance * rhs_norm;
+    levels_[0].target = target;
     int total_iterations = 0;
     const bool can_correct =
         num_levels_ > 1 && levels_[0].correction_interval > 0;
@@ -209,6 +221,13 @@ public:
     if (can_correct && deflate_ && residual > target) {
       apply_coarse_correction(0);
       residual = true_residual(0);
+      if (params_[kVerbose] != 0) {
+        std::fprintf(stdout,
+                     "PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:\n "
+                     "deflation residual=%g target=%g\n",
+                     static_cast<double>(residual),
+                     static_cast<double>(target));
+      }
     }
     while (total_iterations < levels_[0].max_iter && residual > target) {
       const int remaining = levels_[0].max_iter - total_iterations;
@@ -221,6 +240,14 @@ public:
       total_iterations += chunk;
       since_correction += chunk;
       residual = true_residual(0);
+      if (params_[kVerbose] != 0 &&
+          (total_iterations < 20 || total_iterations % 50 == 0)) {
+        std::fprintf(stdout,
+                     "PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:\n "
+                     "iterations=%d residual=%g target=%g\n",
+                     total_iterations, static_cast<double>(residual),
+                     static_cast<double>(target));
+      }
       if (!std::isfinite(static_cast<double>(residual)) ||
           residual <= target) {
         break;
@@ -230,6 +257,12 @@ public:
         apply_coarse_correction(0);
         since_correction = 0;
         residual = true_residual(0);
+        if (params_[kVerbose] != 0) {
+          std::fprintf(stdout,
+                       "PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:\n "
+                       "coarse-correction iterations=%d residual=%g\n",
+                       total_iterations, static_cast<double>(residual));
+        }
       }
     }
     if (!std::isfinite(static_cast<double>(residual)) ||
@@ -264,20 +297,20 @@ public:
       apply_level(parent, parent_image, fine_image);
       restrict(parent, coarse_galerkin, parent_image);
       apply_level(parent + 1, coarse_direct, coarse_seed);
-      const Real seed_norm = std::sqrt(mg_norm2(coarse_seed));
+      const Real seed_norm = std::sqrt(mg_norm2(coarse_seed, distributed_));
       std::vector<Complex<Real>> projection_difference(coarse.x.size());
       for (std::size_t i = 0; i < projection_difference.size(); ++i) {
         projection_difference[i] = coarse_back[i] - coarse_seed[i];
       }
       const Real projection_error =
-          std::sqrt(mg_norm2(projection_difference)) / seed_norm;
+          std::sqrt(mg_norm2(projection_difference, distributed_)) / seed_norm;
       std::vector<Complex<Real>> difference(coarse.x.size());
       for (std::size_t i = 0; i < difference.size(); ++i) {
         difference[i] = coarse_galerkin[i] - coarse_direct[i];
       }
       const Real galerkin_error =
-          std::sqrt(mg_norm2(difference)) /
-          std::max(std::sqrt(mg_norm2(coarse_direct)), Real(1));
+          std::sqrt(mg_norm2(difference, distributed_)) /
+          std::max(std::sqrt(mg_norm2(coarse_direct, distributed_)), Real(1));
       if (projection_error > tolerance || galerkin_error > tolerance) {
         const auto nonzero_count = [](const auto &field) {
           std::size_t count = 0;
@@ -313,8 +346,8 @@ private:
     const std::size_t size =
         static_cast<std::size_t>(level.E) * mg_volume(level.dims);
     for (auto *field :
-         {&level.x, &level.rhs, &level.r, &level.correction, &level.v,
-          &level.s, &level.t}) {
+         {&level.x, &level.rhs, &level.r, &level.rhat, &level.correction,
+          &level.p, &level.v, &level.s, &level.t}) {
       field->assign(size, Complex<Real>(0));
     }
   }
@@ -423,19 +456,24 @@ private:
     using C = Complex<Real>;
     LegacyMgLevel<Real> &state = levels_[level];
     const int64_t count = static_cast<int64_t>(state.x.size());
-    std::vector<C> rhat = state.r;
-    std::vector<C> p(count, C(0));
-    std::fill(state.v.begin(), state.v.end(), C(0));
+    const int64_t chunk = omp_chunk<Real>(count);
+    const C zero(0);
+#pragma omp parallel for schedule(static, chunk)
+    for (int64_t i = 0; i < count; ++i) {
+      state.rhat[static_cast<std::size_t>(i)] =
+          state.r[static_cast<std::size_t>(i)];
+      state.p[static_cast<std::size_t>(i)] = zero;
+      state.v[static_cast<std::size_t>(i)] = zero;
+    }
     C rho_old(1);
     C alpha(1);
     C omega(1);
-    const Real rhs_norm = std::sqrt(mg_norm2(state.rhs));
-    const Real target = state.tolerance * rhs_norm;
+    const Real target = state.target;
     for (int iteration = 0; iteration < iterations; ++iteration) {
-      if (std::sqrt(mg_norm2(state.r)) <= target) {
+      if (std::sqrt(mg_norm2(state.r, distributed_)) <= target) {
         return true;
       }
-      const C rho = mg_dot(rhat, state.r);
+      const C rho = mg_dot(state.rhat, state.r, distributed_);
       if (std::abs(rho) <= std::numeric_limits<Real>::min() ||
           std::abs(omega) <= std::numeric_limits<Real>::min()) {
         if (params_[kVerbose] != 0) {
@@ -452,16 +490,17 @@ private:
         return false;
       }
       const C beta = (rho / rho_old) * (alpha / omega);
+#pragma omp parallel for schedule(static, chunk)
       for (int64_t i = 0; i < count; ++i) {
-        p[static_cast<std::size_t>(i)] =
+        state.p[static_cast<std::size_t>(i)] =
             state.r[static_cast<std::size_t>(i)] +
             multiply_complex(
-                beta, p[static_cast<std::size_t>(i)] -
+                beta, state.p[static_cast<std::size_t>(i)] -
                           multiply_complex(
                               omega, state.v[static_cast<std::size_t>(i)]));
       }
-      apply_level(level, state.v, p);
-      const C denominator = mg_dot(rhat, state.v);
+      apply_level(level, state.v, state.p);
+      const C denominator = mg_dot(state.rhat, state.v, distributed_);
       if (std::abs(denominator) <= std::numeric_limits<Real>::min()) {
         if (params_[kVerbose] != 0) {
           std::fprintf(stderr,
@@ -472,23 +511,25 @@ private:
         return false;
       }
       alpha = rho / denominator;
+#pragma omp parallel for schedule(static, chunk)
       for (int64_t i = 0; i < count; ++i) {
         state.s[static_cast<std::size_t>(i)] =
             state.r[static_cast<std::size_t>(i)] -
             multiply_complex(
                 alpha, state.v[static_cast<std::size_t>(i)]);
       }
-      if (std::sqrt(mg_norm2(state.s)) <= target) {
+      if (std::sqrt(mg_norm2(state.s, distributed_)) <= target) {
+#pragma omp parallel for schedule(static, chunk)
         for (int64_t i = 0; i < count; ++i) {
           state.x[static_cast<std::size_t>(i)] +=
-              multiply_complex(alpha, p[static_cast<std::size_t>(i)]);
+              multiply_complex(alpha, state.p[static_cast<std::size_t>(i)]);
           state.r[static_cast<std::size_t>(i)] =
               state.s[static_cast<std::size_t>(i)];
         }
         return true;
       }
       apply_level(level, state.v, state.s);
-      const C tt = mg_dot(state.v, state.v);
+      const C tt = mg_dot(state.v, state.v, distributed_);
       if (std::abs(tt) <= std::numeric_limits<Real>::min()) {
         if (params_[kVerbose] != 0) {
           std::fprintf(stderr,
@@ -498,7 +539,7 @@ private:
         }
         return false;
       }
-      omega = mg_dot(state.v, state.s) / tt;
+      omega = mg_dot(state.v, state.s, distributed_) / tt;
       if (std::abs(omega) <= std::numeric_limits<Real>::min()) {
         if (params_[kVerbose] != 0) {
           std::fprintf(stderr,
@@ -508,9 +549,10 @@ private:
         }
         return false;
       }
+#pragma omp parallel for schedule(static, chunk)
       for (int64_t i = 0; i < count; ++i) {
         state.x[static_cast<std::size_t>(i)] +=
-            multiply_complex(alpha, p[static_cast<std::size_t>(i)]) +
+            multiply_complex(alpha, state.p[static_cast<std::size_t>(i)]) +
             multiply_complex(omega,
                              state.s[static_cast<std::size_t>(i)]);
         state.r[static_cast<std::size_t>(i)] =
@@ -520,7 +562,7 @@ private:
       }
       rho_old = rho;
     }
-    const bool converged = std::sqrt(mg_norm2(state.r)) <= target;
+    const bool converged = std::sqrt(mg_norm2(state.r, distributed_)) <= target;
     if (force_convergence && !converged) {
       return false;
     }
@@ -533,10 +575,12 @@ private:
     std::fill(state.x.begin(), state.x.end(), Complex<Real>(0));
     state.rhs = rhs;
     state.r = rhs;
+    state.target = state.tolerance *
+        std::sqrt(mg_norm2(state.rhs, distributed_));
     if (level == num_levels_ - 1) {
       if (!bicgstab_chunk(level, state.max_iter, true)) {
-        const Real rhs_norm = std::sqrt(mg_norm2(state.rhs));
-        const Real residual_norm = std::sqrt(mg_norm2(state.r));
+        const Real rhs_norm = std::sqrt(mg_norm2(state.rhs, distributed_));
+        const Real residual_norm = std::sqrt(mg_norm2(state.r, distributed_));
         throw std::runtime_error(
             "legacy Clover-MG coarsest BiCGStab failed: rhs=" +
             std::to_string(static_cast<double>(rhs_norm)) +
@@ -599,10 +643,14 @@ private:
   Real true_residual(int level) {
     LegacyMgLevel<Real> &state = levels_[level];
     apply_level(level, state.v, state.x);
-    for (std::size_t i = 0; i < state.r.size(); ++i) {
-      state.r[i] = state.rhs[i] - state.v[i];
+    const int64_t count = static_cast<int64_t>(state.r.size());
+    const int64_t chunk = omp_chunk<Real>(count);
+#pragma omp parallel for schedule(static, chunk)
+    for (int64_t i = 0; i < count; ++i) {
+      const auto index = static_cast<std::size_t>(i);
+      state.r[index] = state.rhs[index] - state.v[index];
     }
-    return std::sqrt(mg_norm2(state.r));
+    return std::sqrt(mg_norm2(state.r, distributed_));
   }
 
   LatticeSetBase &set_;
@@ -615,6 +663,7 @@ private:
   long long *set_ptrs_ = nullptr;
   const int32_t *params_ = nullptr;
   int num_levels_ = 1;
+  bool distributed_ = false;
   bool deflate_ = false;
   std::array<LegacyMgLevel<Real>, 5> levels_{};
   std::vector<Complex<Real>> canonical_input_;
@@ -629,6 +678,28 @@ void clover_multigrid_solve(
     const void *gauge, const void *clover_even, const void *clover_odd,
     const void *clover_even_inv, const void *clover_odd_inv, void *set_ptrs,
     const int32_t *params) {
+  if (gauge == nullptr || clover_even == nullptr ||
+      clover_odd == nullptr || clover_even_inv == nullptr ||
+      clover_odd_inv == nullptr || fermion_in == nullptr ||
+      set_ptrs == nullptr || params == nullptr) {
+    throw std::runtime_error("legacy Clover-MG received a null pointer");
+  }
+  if (params[kMgUseGcr] != 0) {
+    throw std::runtime_error(
+        "KUPL legacy MG rejects CUDA-only GCR/cycle mode bits");
+  }
+  // A disabled hierarchy must use the optimized parity-Schur solver rather
+  // than the much slower unpreconditioned full-site Krylov loop.
+  if (params[kMgNumLevel] <= 1 || params[kMgLevel1NumRestart] == 0) {
+    if (params[kVerbose] != 0) {
+      std::fprintf(stdout,
+                   "PYQCU::KUPL::CLOVER_MULTIGRID:\n "
+                   "hierarchy disabled; using parity-Schur BiCGStab\n");
+    }
+    set.clover_bistabcg(fermion_out, fermion_in, gauge, clover_even,
+                        clover_odd, clover_even_inv, clover_odd_inv);
+    return;
+  }
   LegacyCloverMultigrid<Real> solver(
       set, gauge, clover_even, clover_odd, clover_even_inv, clover_odd_inv,
       fermion_in, set_ptrs, params);

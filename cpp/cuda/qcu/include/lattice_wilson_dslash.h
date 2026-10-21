@@ -1,5 +1,6 @@
 #ifndef _LATTICE_WILSON_DSLASH_H
 #define _LATTICE_WILSON_DSLASH_H
+#include <stdexcept>
 #include "./lattice_mpi.h"
 #include "./lattice_set.h"
 #include "./wilson_dslash.h"
@@ -372,9 +373,9 @@ template <typename T> struct LatticeWilsonDslash {
     // required.  In the normal fast path all consumers are on the main
     // stream; skip_final_sync_ therefore has the same meaning as below.
     if (single_rank) {
-      wilson_dslash<T><<<set_ptr->gridDim, set_ptr->blockDim, 0,
-                         set_ptr->stream>>>(
-          gauge, fermion_in, fermion_out, _device_params);
+      wilson_dslash<T, false><<<set_ptr->gridDim, set_ptr->blockDim, 0,
+                                set_ptr->stream>>>(
+          gauge, fermion_in, fermion_out, _device_params, nullptr);
       if (!skip_final_sync_)
         checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
       return;
@@ -705,6 +706,58 @@ template <typename T> struct LatticeWilsonDslash {
   }
   void run_oe_dag(void *fermion_out, void *fermion_in, void *gauge) {
     _run(fermion_out, fermion_in, gauge, set_ptr->device_params_odd_dag);
+  }
+  bool single_rank() const {
+    return set_ptr->host_params[_GRID_X_] == 1 &&
+           set_ptr->host_params[_GRID_Y_] == 1 &&
+           set_ptr->host_params[_GRID_Z_] == 1 &&
+           set_ptr->host_params[_GRID_T_] == 1;
+  }
+  void require_single_rank_clover() const {
+    if (!single_rank()) {
+      throw std::runtime_error(
+          "fused Wilson-Clover path requires a single MPI rank");
+    }
+  }
+  void run_eo_clover(void *fermion_out, void *fermion_in, void *gauge,
+                     void *clover) {
+    require_single_rank_clover();
+    wilson_dslash<T, true><<<set_ptr->gridDim, set_ptr->blockDim, 0,
+                             set_ptr->stream>>>(
+        gauge, fermion_in, fermion_out, set_ptr->device_params_even_no_dag,
+        clover);
+    if (!skip_final_sync_)
+      checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
+  }
+  void run_oe_clover(void *fermion_out, void *fermion_in, void *gauge,
+                     void *clover) {
+    require_single_rank_clover();
+    wilson_dslash<T, true><<<set_ptr->gridDim, set_ptr->blockDim, 0,
+                             set_ptr->stream>>>(
+        gauge, fermion_in, fermion_out, set_ptr->device_params_odd_no_dag,
+        clover);
+    if (!skip_final_sync_)
+      checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
+  }
+  void run_eo_dag_clover(void *fermion_out, void *fermion_in, void *gauge,
+                         void *clover) {
+    require_single_rank_clover();
+    wilson_dslash<T, true><<<set_ptr->gridDim, set_ptr->blockDim, 0,
+                             set_ptr->stream>>>(
+        gauge, fermion_in, fermion_out, set_ptr->device_params_even_dag,
+        clover);
+    if (!skip_final_sync_)
+      checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
+  }
+  void run_oe_dag_clover(void *fermion_out, void *fermion_in, void *gauge,
+                         void *clover) {
+    require_single_rank_clover();
+    wilson_dslash<T, true><<<set_ptr->gridDim, set_ptr->blockDim, 0,
+                             set_ptr->stream>>>(
+        gauge, fermion_in, fermion_out, set_ptr->device_params_odd_dag,
+        clover);
+    if (!skip_final_sync_)
+      checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
   }
   void run_test(void *fermion_out, void *fermion_in, void *gauge) {
     auto start = std::chrono::high_resolution_clock::now();

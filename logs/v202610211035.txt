@@ -1,0 +1,100 @@
+[日志元数据]
+日志类型: stage
+生成时间: 2026-10-21 10:35:20 +0800
+批次: stage4-cuda-lazy-workspace-kupl-lane16-20261021
+主任务: 持续比照 QUDA 优化 KUPL/CUDA QCU；MG 为主，BiCGStab 为辅
+触发原因: 阶段成果
+摘要: CUDA MG lazy workspace 降 19.4%；KUPL Wilson lane16 微基准降 19.5%；三方回归通过
+Git 根目录: /root/PyQCU
+
+## 关键日志
+### S1 — CUDA lazy workspace
+- 目标: 消除 parity-Schur 生产路径未使用的全格缓冲分配。
+- 修改: `lattice_clover_multigrid.h` 删除 8 个死 full-site Krylov 缓冲与未使用 scratch，将 `r_full/e_odd/parity_tmp/parity_dst` 改为首次使用时分配。
+- 关键输出: C++ init/end 从约 52–65 ms 降至约 14–17 ms。
+- 退出码: 0。
+- 证据与判断: c64 生产路径首次分配减少约 1.06 GB，20 iterations 和真残差不变。
+
+### S2 — CUDA 生产复测
+- 输入: 24x24x24x64、mass=-0.277、csw=1.160920226、固定 seed 42、c64。
+- 关键输出: MG 后端中位 0.2423 -> 0.1954 s，改善 19.4%；总生命周期 0.476522 -> 0.430885 s，改善 9.6%。
+- 真残差: 4.1264669135055977e-7，20 iterations。
+- 分支验证: 8x8x8x16 粗修正路径 60 iterations，触发 reliable update，真残差 8.924256e-7。
+- 退出码: 0。
+
+### S3 — KUPL block dslash
+- 目标: 改善块 Wilson dslash 的内层 lane 吞吐。
+- A/B: 8/16/32 lanes；16 lanes 最佳，32 lanes 因寄存器/栈压力退化。
+- 关键输出: 生产矩阵 Wilson 中位 69.2 -> 51.6 ms，改善 25.4%；C++ 24x24x24x32 Schur 88.5 -> 71.2 ms，改善 19.5%。
+- 端到端: 三次生产计时 6.337/6.272/6.436 s，中位 6.337 s，与旧基线 6.343 s 基本持平。
+- 独立真残差: 4.1640875564748786e-7。
+- 退出码: 0。
+
+### S4 — 三方状态与回归
+- CUDA MG: 0.1954 s，20 iterations。
+- KUPL Schur fallback: 6.337 s，19 iterations，16 threads。
+- QUDA MG nvec24: 28.0075 s，3 outer GCR；与 dof12 不等价，不计算公平倍率。
+- CUDA BiCGStab/QUDA BiCGStab: 0.207163/0.131636 s，均 19 iterations。
+- KUPL 18 threads: 7.518 s，慢于 16 threads。
+- CUDA strict tier0: 20 passed；KUPL CTest: 28/28；相关 pytest: 16 passed。
+- sm_70 cubin、py_compile、git diff check 均通过。
+
+## 验证与证据
+- 测试/检查: CUDA strict tier0、legacy 粗修正分支、KUPL CTest、相关 pytest、构建架构、Python 编译、diff check。
+- 结果: 所有执行的测试通过；CUDA c64 生产真残差 4.1265e-7，KUPL 独立真残差 4.1641e-7。
+- 未验证项: KUPL MPI 多进程强扩展；与 QCU dof12 等价的 QUDA MG；CUDA 多卡仍受当前 PyTorch 不支持 P100 sm60 的限制。
+
+## 变更与产物
+- CUDA: `cpp/cuda/qcu/include/lattice_clover_multigrid.h`。
+- KUPL: `cpp/kupl/qcu/src/lattice_solver.cpp`、`cpp/kupl/qcu/src/lattice_wilson_dslash.cpp`。
+- 数据: `data/production_mg_20261021/cuda_c64_l2_lazy_workspace.json`、`cuda_c64_lazy_coarse_branch.json`、`kupl_c64_schur_wilson_lane16_final*.json`。
+- 未改动范围: 物理参数、RHS、Krylov 收敛判据和 QUDA 协议。
+
+## 风险、限制与下一步
+- 风险: KUPL 端到端计时受共享 CPU 波动影响，Wilson 微基准收益尚未稳定转化为整解时间。
+- 阻塞: QUDA 当前构建拒绝 nvec6；nvec24 不能作为 dof12 的等价性能结论。
+- 下一步: 继续尝试 KUPL dslash/onsite 融合与多进程 cache 分片；CUDA 评估持久 MG 会话和剩余 kernel 热点。
+
+## Agent 全文报告
+--- report begin ---
+# Stage 4 CUDA Lazy Workspace 与 KUPL 16-lane Dslash 性能报告
+
+## 结论
+
+CUDA parity-Schur MG 将未使用的 full-site 和调试/稀疏分支缓冲改为惰性分配，后端中位从 0.2423 s 降至 0.1954 s，改善 19.4%；总生命周期从 0.476522 s 降至 0.430885 s，改善 9.6%。C++ init/end 从约 52–65 ms 降至 14–17 ms，c64 生产快速路径减少约 1.06 GB 首次分配。20 次迭代和真残差 4.1264669e-7 不变。
+
+KUPL 将块 Wilson dslash 从 8 lanes 调至 16 lanes。生产矩阵上 Wilson 中位由 69.2 ms 降至 51.6 ms，改善 25.4%；同规模 C++ Schur 微基准由 88.5 ms 降至 71.2 ms，改善 19.5%。完整 Schur fallback 三次中位 6.337 s，与旧基线 6.343 s 基本持平，说明整解时间仍受 CPU/内存波动与其他阶段影响。独立真残差为 4.1640876e-7。
+
+## 三方状态
+
+| 路径 | 当前时间 | iterations | 真残差 | 说明 |
+|---|---:|---:|---:|---|
+| CUDA QCU MG | 0.1954 s | 20 | 4.1265e-7 | cache-hit，自适应门控未进 V-cycle |
+| CUDA MG 总生命周期 | 0.430885 s | 20 | 4.1265e-7 | 含 init/end 与同步 |
+| KUPL QCU Schur fallback | 6.337 s | 19 | 4.1641e-7 | 16 threads |
+| CUDA QCU BiCGStab | 0.207163 s | 19 | 5.6876e-7 | 本轮未改 |
+| QUDA BiCGStab | 0.131636 s | 19 | 通过 | 本轮未改 |
+| QUDA MG nvec24 | 28.0075 s | 3 outer GCR | 5.1234e-7 | nvec 与 dof12 不等价 |
+
+QUDA nvec24 只作为当前可用构建的运行状态，不作为 MG 公平加速比。CUDA/QUDA BiCGStab 每迭代仍约为 10.90/6.93 ms，差距 1.57x。
+
+## 验证结果
+
+- CUDA strict tier0: 20 passed。
+- CUDA 8x8x8x16 粗修正分支: 60 iterations，触发 reliable update，真残差 8.924256e-7。
+- KUPL CTest: 28/28 passed。
+- benchmark、geometry、LIME 协议相关 pytest: 16 passed。
+- CUDA 构建仅含 sm_70 cubin。
+- Python 编译检查、git diff check 通过。
+- KUPL 16 threads 仍优于 18 threads；18 threads 为 7.518 s。
+
+## 推理与限制
+
+CUDA 原 init 为后续可能触发的 V-cycle、verbose full residual 和调试路径预分配了 12.5 个 full-vector 等效缓冲，但生产 20 次迭代在自适应门控前收敛，实际不访问这些缓冲。按使用点惰性分配消除了固定 allocator/free 代价，且不改变算法。粗修正与第 50 次真残差刷新分支已单独执行。
+
+KUPL 的 Wilson 块内核具有大量独立 gauge/source 流。增加 lane 数提高了每个 OpenMP 任务的数据复用和循环摊销，但 32 lanes 导致寄存器/栈压力，c64 Schur 退化。16 lanes 是当前 c64 最佳点。整解中 operator 占比很高，但共享 CPU 波动使 19.5% 微基准收益尚未稳定体现为端到端中位收益。
+
+## 后续步骤
+
+继续优化 KUPL 的第一层 inverse-Clover 应用与第二次 Wilson dslash 之间的一写一读，评估安全的 onsite-Dslash 融合；同时检查多进程 coarse-cache 分片与 MPI halo。CUDA 侧继续评估持久 legacy-MG 会话，减少剩余 init/end 和重复生命周期。
+--- report end ---

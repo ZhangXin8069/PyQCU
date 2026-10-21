@@ -1,0 +1,175 @@
+[日志元数据]
+日志类型: stage
+生成时间: 2026-10-21 09:09:23 +0800
+批次: stage1-production-mg-20261021
+主任务: 比照 QUDA 迭代 debug/优化 KUPL QCU 与 CUDA QCU，MG 为主、BiCGStab 为辅
+触发原因: 阶段成果
+摘要: 完成 CUDA/KUPL MG 生命周期、缓存、停止判据与 Schur fallback 修复；生产 24^3x64 c64 三方基线与 KUPL 1/2/4/8/16 线程扩展通过
+Git 根目录: /root/PyQCU
+
+## 关键日志
+
+### S1 — 基线与求解器语义定位
+
+- 目标: 在相同生产 LIME、RHS、质量与 Clover 参数下比较 CUDA QCU、KUPL QCU、QUDA。
+- 生产输入: `/root/data/beta6.20_mu-0.2770_ms-0.2310_L24x64_cfg_9950.lime`
+- LIME SHA256: `a49773fa3742d310f4ea162a932cf559253aeab708bac08a8dd1f6847df4294b`
+- 物理参数: lattice `24x24x24x64`, `mass=-0.277`, `csw=1.160920226`, c64, RHS seed 42。
+- 关键输出:
+  - CUDA BiCGStab 原实现绝对停机导致 synthetic c64 10 iterations，QUDA 5。
+  - 改为相对停机后 c64 7 iterations、`29.23 ms`、真残差 `1.69e-7`。
+  - c128 从 10 iterations/`53.93 ms` 降到 8 iterations/`43.93 ms`、真残差 `1.256e-8`。
+- 证据与判断: `argv[_ATOL_]` 在 CUDA Clover BiCGStab 中必须与 QUDA/KUPL 一样解释为相对残差。
+
+### S2 — CUDA MG 生命周期与内存修复
+
+- 命令/操作: 修复 `MultiGpuMultigrid.solve()`，首次构建后复用 gauge/Clover/coarse hierarchy；每次 solve 不再重复加载 LIME 与重建 cache。
+- 修复 setup-only 临时对象释放：粗算子固化后删除 `U_full/clover_full/op/S` 并 `cuda.memory.empty_cache()`。
+- 关键输出:
+  - 修复前重复 solve 发生 `cudaErrorMemoryAllocation`。
+  - 修复后 5 次稳态全部 PASS，`n_vcycles=0` 的自适应 fallback 后端中位 `0.3903 s`。
+  - peak allocated `28.512 GB -> 25.697 GB`；peak reserved `29.792 GB -> 26.307 GB`；稳态 reserved `29.792 GB -> 7.657 GB`；设备空闲 `1.878 GB -> 24.829 GB`。
+- 退出码: 0。
+- 证据与判断: MG 生命周期与 allocator pool 竞争是 OOM 根因，不是单次 V-cycle workspace 泄漏。
+
+### S3 — KUPL MG cache、fallback 与并行
+
+- 命令/操作:
+  - 修复 KUPL coarse cache loader：单 10-D 数组现在包装为“每层一个数组”的 tuple；此前被 `list()` 误切成 E 分量，粗尺寸被错读为 `[12,2,2,32]`。
+  - KUPL null-vector builder 增加第二遍块正交化与 Gram 门禁。
+  - 重写 BiCGStab chunk 临时分配，复用 `rhat/p`；向量更新改用 OpenMP；单 rank 跳过多余 `MPI_Allreduce`。
+  - `restart=0`/单层显式回退到 parity-Schur BiCGStab；保留 null/CUDA-only mode fail-closed。
+  - 修复 `kupl_multigrid.py` 的 `MPI_Finalize()`。
+- 关键输出:
+  - 专用 cache: `3,121,352,704 bytes`, SHA256 `003066d9c77e067b9d50b3cf0f9e8325696f5572cbe4d337334873ed99e4e995`。
+  - cache Gram: diag `0.9999995..1.0000008`, offdiag `<1.2e-7`。
+  - legacy full-site MG: no-deflate/restart=1000 为 `21.109 s`、1000 iterations；deflate/restart=5 为 `111.243 s`。
+  - Schur fallback: `6.665 s`、19 iterations、独立真残差 `4.011e-7`。
+- 退出码: 0（最终 PASS）。
+- 证据与判断: 当前生产质量点上 legacy full-site MG 严重慢于 parity-Schur；安全 fallback 是必要优化，不能把 1000 次 full-site Krylov 当 MG 成功。
+
+### S4 — QUDA 生产 MG 能力与基线
+
+- 命令/操作: `benchmark_quda_lime_mpi.py --solver mg --levels 2 --nvec 24 --mg-block 2 2 2 2`。
+- `nvec=6`: 运行时报 `Coarse Nc = 6 has not been instantiated`。
+- `nvec=24`: PASS；resolved `[24,24,24,24,24]`，single precision 全路径回读一致。
+- 关键输出: setup `156.306 s`；steady median `28.008 s`；3 次 outer GCR；真残差 `5.123e-7`。
+- 退出码: 0。
+- 证据与判断: 当前 QUDA 安装不能提供 nvec12/6 的生产 MG 配置；nvec24 是可用但不等价的较慢实例。
+
+## 验证与证据
+
+- CUDA strict tier0: `20 passed`，runner `PASS`，exit 0。
+- KUPL CTest: `28/28 passed`，总耗时 `23.11 s`，exit 0。
+- Python benchmark/geometry tests: `9 passed`，exit 0。
+- Python compileall/py_compile: exit 0。
+- `git diff --check`: exit 0。
+- CUDA c64 production MG: 5 samples，median `0.3903 s`，MAD `0.0024 s`，20 iterations，residual `4.1264669e-7`。
+- CUDA c128 synthetic BiCGStab: 8 iterations，`43.935 ms`，residual `1.2562499e-8`。
+- QUDA c64 BiCGStab: median `0.131636 s`，19 iterations，residual `5.6942744e-7`。
+- CUDA c64 BiCGStab: median `0.280308 s`，19 iterations，residual `5.6875928e-7`。
+- 未验证项: 生产 c128 MG；QUDA 与 QCU 完全相同的 nvec 语义；多 V100/多 rank CUDA MG（当前仅一张 sm70 V100）。
+
+## 变更与产物
+
+- 代码:
+  - `cpp/cuda/qcu/include/lattice_clover_bistabcg.h`: CUDA Clover BiCGStab 相对停机。
+  - `pyqcu/cuda/_multi_gpu.py`: MG state 复用、setup 临时对象释放、residual timing、deflate 参数、close。
+  - `cpp/kupl/qcu/src/lattice_clover_multigrid.cpp`: KUPL OpenMP/dot/alloc 优化、cache 生命周期修复、显式 Schur fallback 与 fail-closed。
+  - `pyqcu/testing/simple/kupl_multigrid.py`: cache loader、null-vector 二次正交化、deflate/skip-residual、MPI finalize。
+  - `pyqcu/testing/qcu/bench_multi_gpu.py`: repeated-solve instrumentation、deflate、memory snapshot。
+  - `pyqcu/testing/quda/benchmark_quda_lime_mpi.py`: pyquda_utils/old API 兼容、precision 硬门禁、动态 inverter metadata、标量字段兼容。
+  - benchmark contract/regression tests 同步更新。
+- 性能证据:
+  - `data/production_mg_20261021/cuda_c64_l2_final.json`
+  - `data/production_mg_20261021/cuda_c64_l2_memory_released.json`
+  - `data/production_mg_20261021/kupl_c64_schur_fallback.json`
+  - `data/production_mg_20261021/kupl_c64_schur_fallback_t{1,2,4,8,16}.json`
+  - `data/production_mg_20261021/quda_c64_l2_mg_nvec24.json`
+  - `data/production_mg_20261021/qcu_c64_bistabcg_relative.json`
+  - `data/production_mg_20261021/quda_c64_bistabcg.json`
+- Cache:
+  - CUDA Schur cache: `data/logs/lime_mg_cache_20261021/`.
+  - KUPL full-site cache: `data/logs/kupl_mg_cache_20261021/`.
+
+## 风险、限制与下一步
+
+- KUPL 线程扩展环境是 18-core x86，不是鲲鹏/NUMA；只能作为当前主机证据。
+- QUDA nvec24 与 CUDA/KUPL dof12 不完全同语义，禁止把 MG 倍率外推为公平库间 speedup。
+- CUDA MG `n_vcycles=0` 是自适应门控结果；强制一次 V-cycle 为 `0.4313 s`，迭代仍为 20，故当前生产质量点没有粗空间收益。
+- test27 历史 strict MG 仍是有效反向证据：V100 c64 L3 `4.7366x`、c128 L3 `3.2174x` 优于 QUDA；不能用本阶段 legacy 生产结果推翻 strict MG。
+- 下一阶段优先：生产 c128 MG、严格相等 nvec 的 strict MG 对照、CUDA per-iteration 与 QUDA 的 2.13x 差距、KUPL MPI rank 扩展。
+
+## Agent 全文报告
+
+--- report begin ---
+# Stage 1 生产 MG/BiCGStab 性能报告
+
+## 结论
+
+本阶段确认并修复了两个主因：CUDA Clover BiCGStab 将 `atol` 错当绝对残差，以及 CUDA MG 每次重复 solve 都重建完整 setup，造成 OOM 和设备保留内存接近容量上限。KUPL 侧则修复了 coarse cache 层级读取错误，并将不具收益的 full-site legacy MG 安全回退到 parity-Schur BiCGStab。
+
+生产 `24^3x64`、c64、`mass=-0.277`、`csw=1.160920226` 的可用 MG 入口中位时间为：
+
+| 后端/路径 | 后端时间 | outer iterations | 独立/原生真残差 | setup |
+|---|---:|---:|---:|---:|
+| CUDA QCU，自适应 MG 门控 | 0.3903 s | 20 | 4.1265e-7 | cache-hit |
+| CUDA QCU，强制一次 V-cycle | 0.4313 s | 20 | 2.1868e-7 | cache-hit |
+| KUPL QCU，legacy deflate+restart=5 | 111.243 s | 未导出 | 4.0115e-7（另测 fallback） | cache-hit 1.481 s |
+| KUPL QCU，full-site no-deflate | 21.109 s | 1000 | 9.0374e-7 | cache-hit 1.503 s |
+| KUPL QCU，Schur fallback | 6.665 s | 19 | 4.0115e-7 | cache-hit 1.515 s |
+| QUDA MG nvec24 | 28.0075 s | 3 outer GCR | 5.1234e-7 | 156.306 s |
+
+严格可比的 c64 BiCGStab：
+
+| 后端 | 时间 | iterations | 真残差 |
+|---|---:|---:|---:|
+| QUDA | 0.131636 s | 19 | 5.6943e-7 |
+| CUDA QCU | 0.280308 s | 19 | 5.6876e-7 |
+| KUPL QCU，Schur fallback | 6.665 s | 19 | 4.0115e-7 |
+
+CUDA QCU 当前每迭代约 `14.75 ms`，QUDA 约 `6.93 ms`，差距 `2.13x`。CUDA MG 入口另有约 `0.11 s` 的 init/end/真残差检查固定成本。
+
+KUPL 16 线程生产扩展：
+
+| threads | time | speedup | efficiency |
+|---:|---:|---:|---:|
+| 1 | 63.438 s | 1.00x | 100% |
+| 2 | 33.365 s | 1.90x | 95.1% |
+| 4 | 17.682 s | 3.59x | 89.7% |
+| 8 | 9.843 s | 6.45x | 80.6% |
+| 16 | 6.344 s | 10.00x | 62.5% |
+
+## 推理依据
+
+1. CUDA 旧停机使用 `rnorm² < atol²`，而 QUDA/KUPL 使用 `rnorm² < atol²·||b||²`；生产 `||b||≈3.7e3`，旧逻辑等价于严格约 1e6 倍的相对容差。
+2. CUDA MG 的 prepared state 是 gauge/Clover/coarse hierarchy；固定 gauge 的重复 solve 应复用它。重建不仅重复耗时，还让 PyTorch cached allocator 与 C++ `cudaMallocAsync` 争抢显存。
+3. KUPL cache loader 返回单数组时被调用方按 level list 解释；这是粗尺寸和 Galerkin 错位的直接根因。
+4. KUPL legacy MG 在 fine level 求解 full-site 未预条件算子；相同生产点上 1000 iterations，远差于 parity-Schur 19 iterations，因此 fallback 优先满足生产性能。
+5. test27 的 strict MG 仍优于 QUDA；本阶段结论只针对当前 legacy MG 入口和生产参数，不推翻 strict MG。
+
+## 验证结果
+
+- CUDA strict tier0 `20 passed`。
+- KUPL CTest `28/28 passed`。
+- Python benchmark/geometry tests `9 passed`。
+- `git diff --check` 通过。
+- 所有最终生产 solve 均满足 c64 真残差 `<2.44e-4` 的验收门；实际残差在 `4.0e-7..9.1e-7`。
+- CUDA sm70 cubin 已确认；KUPL 库已重建。
+
+## 后续步骤
+
+1. 为 c128 生产 MG 构建/复用对应 cache，并保持同一 LIME、mass/csw、RHS。
+2. 用严格相等 nvec、coarse spin、block、nu、restart 重跑 PyQCU strict MG 与 QUDA，恢复 test27 的公平口径。
+3. 剖析 CUDA fine BiCGStab 的每次 iteration kernel/同步序列，针对 2.13x 差距优化。
+4. 在 2/4 MPI rank 上测 KUPL MG 强扩展，并记录 NUMA、halo 与集合归约开销。
+--- report end ---
+
+## 用户输入指令
+
+- 比照 quda，对 KUPL 版 QCU 与 CUDA 版 QCU 进行进一步迭代 debug 与优化，关注并行效率，并持续报告三者性能。
+- 添加测试组态 `/root/data/beta6.20_mu-0.2770_ms-0.2310_L24x64_cfg_9950.lime`。
+- 后续使用组态的 mass 与 Csw 必须与该 LIME 一致。
+- 查明 CUDA QCU 单次迭代成本接近 QUDA 但外层迭代更多的原因，并进行针对性优化；指出 test27 系列 CUDA QCU 实际强于 QUDA。
+- 优化 Multigrid 为主，BiCGStab 为辅。
+- 同时优化 KUPL 版 QCU。
