@@ -133,3 +133,83 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 关键内容: 创建并验证本地附注标签 dev100，未推送远程
 - 验证: path, size, required sections, conflict markers
 - 批次状态: complete
+## stage1-production-mg-20261021 - stage - 2026-10-21 09:09:23 +0800
+- 主任务: 比照 QUDA 迭代 debug/优化 KUPL QCU 与 CUDA QCU，MG 为主、BiCGStab 为辅
+- 日志文件: logs/v202610210909.txt
+- 文件大小: 10774 bytes
+- 触发原因: 阶段成果
+- 关键内容: 完成 CUDA/KUPL MG 生命周期、缓存、停止判据与 Schur fallback 修复；生产 24^3x64 c64 三方基线与 KUPL 1/2/4/8/16 线程扩展通过
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
+## stage2-cuda-d2d-mg-20261021 - stage - 2026-10-21 09:14:13 +0800
+- 主任务: 持续比照 QUDA 优化 KUPL/CUDA QCU；MG 为主，BiCGStab 为辅
+- 日志文件: logs/v202610210914.txt
+- 文件大小: 5027 bytes
+- 触发原因: 阶段成果
+- 关键内容: nvprof 定位整向量 D2D 拷贝热点；cudaMemcpyAsync 使 CUDA MG 降 20.6%、BiCGStab 降 26.7%，三方生产口径与回归通过
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
+## stage3-cuda-mg-rx-20261021 - stage - 2026-10-21 09:52:08 +0800
+- 主任务: 持续比照 QUDA 优化 KUPL/CUDA QCU；MG 为主，BiCGStab 为辅
+- 日志文件: logs/v202610210952.txt
+- 文件大小: 5553 bytes
+- 触发原因: 阶段成果
+- 关键内容: CUDA mg_give_rx 合并访存优化；MG 后端降 21.7%，三方性能与回归通过
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
+## stage4-cuda-lazy-workspace-kupl-lane16-20261021 - stage - 2026-10-21 10:35:20 +0800
+- 主任务: 持续比照 QUDA 优化 KUPL/CUDA QCU；MG 为主，BiCGStab 为辅
+- 日志文件: logs/v202610211035.txt
+- 文件大小: 6495 bytes
+- 触发原因: 阶段成果
+- 关键内容: CUDA MG lazy workspace 降 19.4%；KUPL Wilson lane16 微基准降 19.5%；三方回归通过
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
+## stage5-cuda-fused-clover-io-20261021 - stage - 2026-10-21 10:42:36 +0800
+- 主任务: 持续比照 QUDA 优化 KUPL/CUDA QCU；MG 为主，BiCGStab 为辅
+- 日志文件: logs/v202610211042.txt
+- 文件大小: 4913 bytes
+- 触发原因: 阶段成果
+- 关键内容: CUDA Clover I/O 融合：MG 再降 6.0%，BiCGStab 再降 6.2%，三方回归通过
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
+## stage6-cuda-clover-subtract-fusion-20261021 - stage - 2026-10-21 10:47:42 +0800
+- 主任务: 持续比照 QUDA 优化 KUPL/CUDA QCU；MG 为主，BiCGStab 为辅
+- 日志文件: logs/v202610211047.txt
+- 文件大小: 4556 bytes
+- 触发原因: 阶段成果
+- 关键内容: CUDA Clover 减法融合：MG 再降 1.9%，BiCGStab 再降 2.8%，粗修正与残差通过
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
+## stage7-cuda-fused-wilson-clover-20261021 - stage - 2026-10-21 10:59:34 +0800
+- 主任务: 持续比照 QUDA 优化 KUPL/CUDA QCU；MG 为主，BiCGStab 为辅
+- 日志文件: logs/v202610211059.txt
+- 文件大小: 5196 bytes
+- 触发原因: 阶段成果
+- 关键内容: CUDA c64 Wilson+Clover 融合：MG 再降 4.5%，BiCGStab 再降 0.9%，strict 与粗修正通过
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
+## stage8-kupl-production-mpi-20261021 - stage - 2026-10-21 11:15:56 +0800
+- 主任务: 持续比照 QUDA 优化 KUPL/CUDA QCU；MG 为主，BiCGStab 为辅
+- 日志文件: logs/v202610211115.txt
+- 文件大小: 4635 bytes
+- 触发原因: 阶段成果
+- 关键内容: KUPL 生产 MPI 分片与强扩展：4x4 y 分解降至 5.439 s，效率 79.9%
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
+## stage9-kupl-schur-zero-cache-mpi-20261021 - stage - 2026-10-21 11:17:58 +0800
+- 主任务: 持续比照 QUDA 优化 KUPL/CUDA QCU；MG 为主，BiCGStab 为辅
+- 日志文件: logs/v202610211117.txt
+- 文件大小: 4319 bytes
+- 触发原因: 阶段成果
+- 关键内容: KUPL restart=0 零 coarse-cache 冷启动；4x4 MPI 中位 5.635 s、RSS 1.13 GB
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
+## stage10-final-verified-state-20261021 - stage - 2026-10-21 11:29:35 +0800
+- 主任务: 持续比照 QUDA 优化 KUPL/CUDA QCU；MG 为主，BiCGStab 为辅
+- 日志文件: logs/v202610211129.txt
+- 文件大小: 6473 bytes
+- 触发原因: 阶段成果
+- 关键内容: 最终复核：CUDA MG 0.1720 s、KUPL 4x4 5.649 s、CUDA BiCG 0.1872 s；测试与构建通过
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress

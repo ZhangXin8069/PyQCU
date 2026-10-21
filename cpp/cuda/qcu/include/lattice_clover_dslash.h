@@ -656,6 +656,36 @@ template <typename T> struct LatticeCloverDslash {
     err = cudaGetLastError();
     checkCudaErrors(err);
   }
+  void give(const void *fermion_in, void *fermion_out) {
+    const bool single_rank =
+        set_ptr->host_params[_GRID_X_] == 1 &&
+        set_ptr->host_params[_GRID_Y_] == 1 &&
+        set_ptr->host_params[_GRID_Z_] == 1 &&
+        set_ptr->host_params[_GRID_T_] == 1;
+    if (!single_rank) checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
+    give_clover_to<T>
+        <<<set_ptr->gridDim, set_ptr->blockDim, 0, set_ptr->stream>>>(
+            clover, fermion_in, fermion_out, set_ptr->device_params);
+    if (!single_rank) checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
+    err = cudaGetLastError();
+    checkCudaErrors(err);
+  }
+  void give_with_subtract(const void *fermion_in, const void *subtract,
+                          void *fermion_out, T subtract_scale) {
+    const bool single_rank =
+        set_ptr->host_params[_GRID_X_] == 1 &&
+        set_ptr->host_params[_GRID_Y_] == 1 &&
+        set_ptr->host_params[_GRID_Z_] == 1 &&
+        set_ptr->host_params[_GRID_T_] == 1;
+    if (!single_rank) checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
+    give_clover_subtract<T>
+        <<<set_ptr->gridDim, set_ptr->blockDim, 0, set_ptr->stream>>>(
+            clover, fermion_in, subtract, fermion_out, subtract_scale,
+            set_ptr->device_params);
+    if (!single_rank) checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
+    err = cudaGetLastError();
+    checkCudaErrors(err);
+  }
   void give_test(void *fermion_out) {
     // give clover
     auto start = std::chrono::high_resolution_clock::now();

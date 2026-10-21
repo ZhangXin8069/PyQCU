@@ -21,7 +21,7 @@ def bench(lat, mass=0.05, atol=1e-6, num_levels=2, nthreads=3,
           use_cache=True, cache_dir=None, csw=1.0, seed=42,
           warmups=1, repeats=3, run_reference=True,
           gauge=None, source=None, input_tag=None, verify_residual=False,
-          dof_list=None, mg_grid=None):
+          dof_list=None, mg_grid=None, use_deflate=False):
     mg = MultiGpuMultigrid(lat_size=lat, mass=mass, atol=atol,
                            num_levels=num_levels, nthreads=nthreads,
                            dof_list=dof_list, mg_grid=mg_grid,
@@ -33,7 +33,8 @@ def bench(lat, mass=0.05, atol=1e-6, num_levels=2, nthreads=3,
                            csw=csw, seed=seed,
                            run_reference=run_reference, gauge=gauge,
                            source=source, input_tag=input_tag,
-                           verify_residual=verify_residual)
+                           verify_residual=verify_residual,
+                           use_deflate=use_deflate)
     for _ in range(warmups):
         mg.solve()
     calls = []
@@ -46,11 +47,14 @@ def bench(lat, mass=0.05, atol=1e-6, num_levels=2, nthreads=3,
             'total_solve': round(time.perf_counter() - t0, 6),
             'setup_seconds': _round_optional(
                 (mg.last_timings or {}).get('setup_seconds')),
+            'setup_reused': (mg.last_timings or {}).get('setup_reused'),
             'instrumented_wall_seconds': _round_optional(
                 (mg.last_timings or {}).get('wall_seconds')),
             'threads': [{'tid': t['tid'], 'device': t['device'],
                          'ref_time': _round_optional(t['ref_time']),
                          'mg_time': _round_optional(t['mg_time']),
+                         'mg_residual_seconds': _round_optional(
+                             t.get('mg_residual_seconds')),
                          'mg_residual': t.get('mg_residual')}
                         for t in r['threads']],
         })
@@ -59,13 +63,15 @@ def bench(lat, mass=0.05, atol=1e-6, num_levels=2, nthreads=3,
     ref_max = (max(t['ref_time'] for t in threads)
                if run_reference else None)
     mg_max = max(t['mg_time'] for t in threads)
-    return {
+    report = {
         'lat': lat, 'nthreads': nthreads, 'device_ids': device_ids,
         'num_restart': num_restart, 'coarse_max_iter': coarse_max_iter,
         'coarse_tol_factor': coarse_tol_factor,
         'threads': [{'tid': t['tid'], 'device': t['device'],
                      'ref_time': _round_optional(t['ref_time']),
                      'mg_time': _round_optional(t['mg_time']),
+                     'mg_residual_seconds': _round_optional(
+                         t.get('mg_residual_seconds')),
                      'mg_residual': t.get('mg_residual')}
                     for t in threads],
         'multi_ref_wall': None if ref_max is None else round(ref_max, 4),
@@ -81,6 +87,9 @@ def bench(lat, mass=0.05, atol=1e-6, num_levels=2, nthreads=3,
         'total_solve_median': round(statistics.median(
             call['total_solve'] for call in calls), 6),
     }
+    report['memory'] = _memory_snapshot(mg.device_ids)
+    mg.close()
+    return report
 
 
 def _sha256_file(path):
@@ -89,6 +98,26 @@ def _sha256_file(path):
         while chunk := handle.read(8 * 1024 * 1024):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _memory_snapshot(device_ids):
+    import torch
+
+    records = []
+    for device_id in device_ids:
+        device = torch.device('cuda', int(device_id))
+        free_bytes, total_bytes = torch.cuda.mem_get_info(device)
+        records.append({
+            'device': int(device_id),
+            'name': torch.cuda.get_device_name(device),
+            'allocated_bytes': int(torch.cuda.memory_allocated(device)),
+            'reserved_bytes': int(torch.cuda.memory_reserved(device)),
+            'peak_allocated_bytes': int(torch.cuda.max_memory_allocated(device)),
+            'peak_reserved_bytes': int(torch.cuda.max_memory_reserved(device)),
+            'device_free_bytes': int(free_bytes),
+            'device_total_bytes': int(total_bytes),
+        })
+    return records
 
 
 def _load_real_inputs(gauge_path, lat, seed):
@@ -155,6 +184,8 @@ if __name__ == '__main__':
     parser.add_argument('--gauge', default=None,
                         help='real LIME/HDF5 gauge; enables residual verification')
     parser.add_argument('--verify-residual', action='store_true')
+    parser.add_argument('--deflate', action='store_true',
+                        help='apply one initial coarse-space deflation before Krylov')
     parser.add_argument('--output', default=None)
     args = parser.parse_args()
     lat = [int(value) for value in args.lat.split('x')]
@@ -191,7 +222,8 @@ if __name__ == '__main__':
         repeats=args.repeats, run_reference=not args.no_reference,
         gauge=gauge, source=source, input_tag=input_tag,
         verify_residual=args.verify_residual,
-        dof_list=args.dof, mg_grid=args.mg_grid)
+        dof_list=args.dof, mg_grid=args.mg_grid,
+        use_deflate=args.deflate)
     res['input'] = {
         'gauge': None if args.gauge is None else str(Path(args.gauge).expanduser()),
         'metadata': metadata,

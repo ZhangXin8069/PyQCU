@@ -899,6 +899,73 @@ __global__ void give_clover(void *device_clover, void *device_dest,
     give_dest(origin_dest, tmp_dest, lat_xyzt);
   }
 }
+template <typename T>
+__global__ void give_clover_to(void *device_clover, const void *device_src,
+                               void *device_dest, void *device_params) {
+  LatticeComplex<T> *origin_clover;
+  const LatticeComplex<T> *origin_src;
+  LatticeComplex<T> *origin_dest;
+  int lat_xyzt = static_cast<int *>(device_params)[_LAT_XYZT_];
+  {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    origin_clover = ((static_cast<LatticeComplex<T> *>(device_clover)) + idx);
+    origin_src =
+        ((static_cast<const LatticeComplex<T> *>(device_src)) + idx);
+    origin_dest = ((static_cast<LatticeComplex<T> *>(device_dest)) + idx);
+  }
+  {
+    LatticeComplex<T> clover[_LAT_SCSC_];
+    LatticeComplex<T> src[_LAT_SC_];
+    LatticeComplex<T> dest[_LAT_SC_];
+    LatticeComplex<T> zero(0.0, 0.0);
+    get_vals(dest, zero, _LAT_SC_);
+    get_src(src, origin_src, lat_xyzt);
+    get_clr(clover, origin_clover, lat_xyzt);
+    for (int sc0 = 0; sc0 < _LAT_SC_; sc0++) {
+      for (int sc1 = 0; sc1 < _LAT_SC_; sc1++) {
+        dest[sc0] += clover[sc0 * _LAT_SC_ + sc1] * src[sc1];
+      }
+    }
+    give_dest(origin_dest, dest, lat_xyzt);
+  }
+}
+template <typename T>
+__global__ void give_clover_subtract(
+    void *device_clover, const void *device_src, const void *device_subtract,
+    void *device_dest, T scale, void *device_params) {
+  LatticeComplex<T> *origin_clover;
+  const LatticeComplex<T> *origin_src;
+  const LatticeComplex<T> *origin_subtract;
+  LatticeComplex<T> *origin_dest;
+  int lat_xyzt = static_cast<int *>(device_params)[_LAT_XYZT_];
+  {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    origin_clover = ((static_cast<LatticeComplex<T> *>(device_clover)) + idx);
+    origin_src =
+        ((static_cast<const LatticeComplex<T> *>(device_src)) + idx);
+    origin_subtract =
+        ((static_cast<const LatticeComplex<T> *>(device_subtract)) + idx);
+    origin_dest = ((static_cast<LatticeComplex<T> *>(device_dest)) + idx);
+  }
+  {
+    LatticeComplex<T> clover[_LAT_SCSC_];
+    LatticeComplex<T> src[_LAT_SC_];
+    LatticeComplex<T> subtract[_LAT_SC_];
+    LatticeComplex<T> dest[_LAT_SC_];
+    LatticeComplex<T> zero(0.0, 0.0);
+    get_vals(dest, zero, _LAT_SC_);
+    get_src(src, origin_src, lat_xyzt);
+    get_src(subtract, origin_subtract, lat_xyzt);
+    get_clr(clover, origin_clover, lat_xyzt);
+    for (int sc0 = 0; sc0 < _LAT_SC_; sc0++) {
+      for (int sc1 = 0; sc1 < _LAT_SC_; sc1++) {
+        dest[sc0] += clover[sc0 * _LAT_SC_ + sc1] * src[sc1];
+      }
+      dest[sc0] -= subtract[sc0] * scale;
+    }
+    give_dest(origin_dest, dest, lat_xyzt);
+  }
+}
 //@@@CUDA_TEMPLATE_FOR_DEVICE@@@
 template __global__ void make_clover<double>(void *device_U,
                                              void *device_clover,
@@ -908,6 +975,12 @@ template __global__ void inverse_clover<double>(void *device_clover,
 template __global__ void give_clover<double>(void *device_clover,
                                              void *device_dest,
                                              void *device_params);
+template __global__ void give_clover_to<double>(
+    void *device_clover, const void *device_src, void *device_dest,
+    void *device_params);
+template __global__ void give_clover_subtract<double>(
+    void *device_clover, const void *device_src, const void *device_subtract,
+    void *device_dest, double scale, void *device_params);
 //@@@CUDA_TEMPLATE_FOR_DEVICE@@@
 template __global__ void make_clover<float>(void *device_U, void *device_clover,
                                             void *device_params, float T);
@@ -915,4 +988,10 @@ template __global__ void inverse_clover<float>(void *device_clover,
                                                void *device_params);
 template __global__ void
 give_clover<float>(void *device_clover, void *device_dest, void *device_params);
+template __global__ void give_clover_to<float>(
+    void *device_clover, const void *device_src, void *device_dest,
+    void *device_params);
+template __global__ void give_clover_subtract<float>(
+    void *device_clover, const void *device_src, const void *device_subtract,
+    void *device_dest, float scale, void *device_params);
 } // namespace qcu

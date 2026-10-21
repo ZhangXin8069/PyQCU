@@ -18,8 +18,8 @@ void testWilsonDslashQcu(long long _fermion_out, long long _fermion_in,
     LatticeSet<float> *set_ptr = static_cast<LatticeSet<float> *>(
         (void *)(static_cast<long long *>(set_ptrs)[set_index]));
     auto start = std::chrono::high_resolution_clock::now();
-    wilson_dslash<float><<<set_ptr->gridDim, set_ptr->blockDim>>>(
-        gauge, fermion_in, fermion_out, set_ptr->device_params);
+    wilson_dslash<float, false><<<set_ptr->gridDim, set_ptr->blockDim>>>(
+        gauge, fermion_in, fermion_out, set_ptr->device_params, nullptr);
     auto end = std::chrono::high_resolution_clock::now();
     auto duration =
         std::chrono::duration_cast<std::chrono::nanoseconds>(end - start)
@@ -34,8 +34,8 @@ void testWilsonDslashQcu(long long _fermion_out, long long _fermion_in,
     LatticeSet<double> *set_ptr = static_cast<LatticeSet<double> *>(
         (void *)(static_cast<long long *>(set_ptrs)[set_index]));
     auto start = std::chrono::high_resolution_clock::now();
-    wilson_dslash<double><<<set_ptr->gridDim, set_ptr->blockDim>>>(
-        gauge, fermion_in, fermion_out, set_ptr->device_params);
+    wilson_dslash<double, false><<<set_ptr->gridDim, set_ptr->blockDim>>>(
+        gauge, fermion_in, fermion_out, set_ptr->device_params, nullptr);
     auto end = std::chrono::high_resolution_clock::now();
     auto duration =
         std::chrono::duration_cast<std::chrono::nanoseconds>(end - start)

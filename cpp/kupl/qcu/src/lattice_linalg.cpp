@@ -21,7 +21,8 @@ void LatticeSet<Real>::apply_onsite(const Complex<Real> *input,
                                     Real subtract_scale) const {
   using C = Complex<Real>;
   const int64_t count = geometry_.half_sites;
-  constexpr int kSiteLanes = 32 / sizeof(Real);
+  // Keep each site tile at 128 bytes: 16 c64 or 8 c128 sites.
+  constexpr int kSiteLanes = 64 / sizeof(Real);
   const int64_t blocks = (count + kSiteLanes - 1) / kSiteLanes;
 #pragma omp parallel for schedule(static)
   for (int64_t block = 0; block < blocks; ++block) {
@@ -75,7 +76,7 @@ void LatticeSet<Real>::apply_clover_onsite(
     Real subtract_scale) const {
   using C = Complex<Real>;
   const int64_t count = geometry_.half_sites;
-  constexpr int kSiteLanes = 32 / sizeof(Real);
+  constexpr int kSiteLanes = 64 / sizeof(Real);
   const int64_t blocks = (count + kSiteLanes - 1) / kSiteLanes;
 #pragma omp parallel for schedule(static)
   for (int64_t block = 0; block < blocks; ++block) {

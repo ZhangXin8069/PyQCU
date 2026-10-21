@@ -1,0 +1,96 @@
+[日志元数据]
+日志类型: stage
+生成时间: 2026-10-21 11:15:56 +0800
+批次: stage8-kupl-production-mpi-20261021
+主任务: 持续比照 QUDA 优化 KUPL/CUDA QCU；MG 为主，BiCGStab 为辅
+触发原因: 阶段成果
+摘要: KUPL 生产 MPI 分片与强扩展：4x4 y 分解降至 5.439 s，效率 79.9%
+Git 根目录: /root/PyQCU
+
+## 关键日志
+### S1 — KUPL 多 rank 生产输入切片
+- 目标: 让 gauge/source 与 3.1 GB coarse cache 按 MPI rank 局部加载，使用正确 4D geometry。
+- 修改: `kupl_multigrid.py` 增加 `--grid`、C-order rank 坐标、local lattice/starts 和显式 MPI 聚合。
+- cache: `lonv` 使用交错轴 2/4/6/8；`hnn/hdg/sit` 使用最后四轴。
+- 修复: `test_coarse_cache.py` 同步现有“每层 tuple”返回契约。
+- 退出码: 0。
+
+### S2 — KUPL MPI 强扩展
+- 1 rank × 4 threads: 17.371649 s。
+- 2 ranks × 4 threads，y 分解: 9.655980 s，1.80x，效率 90.0%。
+- 4 ranks × 4 threads，y 分解: 5.438923 s，3.19x，效率 79.9%。
+- 2 ranks × 8 threads，z 分解: 6.140385 s。
+- 1 rank × 16 threads: 6.337 s。
+- 8 ranks × 2 threads: 5.948847 s。
+- 3 ranks × 6 threads: 6.999234 s。
+- 结论: 当前最佳为 4 ranks × 4 threads、仅 y 分解；相对原 KUPL 最佳 6.337 s 改善 14.2%。
+
+### S3 — 正确性
+- 2/3/4/8-rank 生产运行 verify_status=0，均通过 KUPL 全局真残差门。
+- 4-rank y 最佳 rank0 RSS 约 2.47 GB，低于单 rank 约 5.85 GB。
+- KUPL CTest: 28/28 passed。
+- cache slicing/geometry pytest: 6 passed。
+- py_compile 与 git diff check 通过。
+
+## 验证与证据
+- 测试/检查: 生产 c64 MPI 拓扑扫描、CTest、cache slicing、geometry、py_compile、diff check。
+- 结果: 所有拓扑 PASS；最佳性能 5.438923 s。
+- 未验证项: 跨节点 MPI；device-aware/InfiniBand；多节点 NUMA 绑定。
+
+## 变更与产物
+- 文件: `pyqcu/testing/simple/kupl_multigrid.py`、`kupl_bistabcg.py`、`pyqcu/testing/kupl/test_simple_mg_geometry.py`、`pyqcu/testing/simple/test_coarse_cache.py`。
+- 数据: `kupl_c64_schur_mpi1_t4_final.json`、`kupl_c64_schur_mpi2_y_t4.json`、`kupl_c64_schur_mpi4_y.json`、`kupl_c64_schur_mpi8_xy.json`、`kupl_c64_schur_mpi3_y.json`。
+- 未改动范围: 物理参数、RHS 生成精度、后端收敛协议。
+
+## 风险、限制与下一步
+- 风险: 多 rank 仍由每 rank 读取完整 LIME 文件后再切片，文件 I/O 不计入 solve，但冷启动可优化为 MPI-IO。
+- 阻塞: 跨节点网络与 NUMA 环境尚未验证。
+- 下一步: 实现 LIME/QIO MPI-IO 或 rank slab 读取，分析 MPI halo 与 Allreduce 占比，并继续 CUDA Krylov 优化。
+
+## Agent 全文报告
+--- report begin ---
+# Stage 8 KUPL 生产 MPI 分片与强扩展报告
+
+## 结论
+
+KUPL 现可在真实 24³×64 LIME 组态上按 MPI rank 切分 gauge、source 和 coarse cache，并以正确的局部 4D geometry 运行 Schur fallback。关键修复是区分 null-vector 的交错粗格轴 `(2,4,6,8)` 与 33-stencil/onsite 资产最后四轴。
+
+固定每 rank 4 threads 的强扩展：
+
+| ranks | 时间 | speedup | efficiency |
+|---:|---:|---:|---:|
+| 1 | 17.371649 s | 1.00x | 100% |
+| 2 | 9.655980 s | 1.80x | 90.0% |
+| 4 | 5.438923 s | 3.19x | 79.9% |
+
+4-rank y-only 分解为当前最佳，较原单 rank 16 threads 的 6.337 s 改善 14.2%。rank0 RSS 从单 rank 约 5.85 GB 降至约 2.47 GB。
+
+## CUDA 与 QUDA 状态
+
+CUDA QCU MG 后端保持 0.1721 s，20 iterations，真残差 4.1247e-7；CUDA BiCGStab 为 0.187183 s，19 iterations。QUDA BiCGStab 为 0.131636 s，每迭代 CUDA/QUDA 为 9.85/6.93 ms，差距 1.42x。
+
+QUDA MG nvec24 为 28.0075 s、3 outer GCR。由于 nvec24 与 QCU/KUPL dof12 不等价，仍不计算公平 MG 加速比。
+
+## MPI topology
+
+| 配置 | 时间 |
+|---|---:|
+| 2 ranks × 8 threads，z | 6.140385 s |
+| 1 rank × 16 threads | 6.337 s |
+| 8 ranks × 2 threads，xy | 5.948847 s |
+| 3 ranks × 6 threads，y | 6.999234 s |
+| 4 ranks × 4 threads，y | 5.438923 s |
+
+4-rank y-only 避免高成本 x halo，同时保留足够局部体积。8 ranks 的通信/启动开销已超过计算收益。
+
+## 验证结果
+
+- 2/3/4/8-rank 生产运行均 verify_status=0。
+- KUPL CTest: 28/28 passed。
+- cache slicing 与 geometry pytest: 6 passed。
+- Python 编译检查、git diff check 通过。
+
+## 限制与后续
+
+当前每个 rank 仍读取完整 LIME 文件后再切 local slab；solve timing 不计文件 I/O，但冷启动 I/O 尚未并行化。跨节点网络、InfiniBand 与 NUMA 绑定也未验证。后续应优先实现 rank-slab LIME/QIO MPI-IO，并分析 MPI halo/Allreduce 占比。
+--- report end ---

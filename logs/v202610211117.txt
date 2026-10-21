@@ -1,0 +1,93 @@
+[日志元数据]
+日志类型: stage
+生成时间: 2026-10-21 11:17:58 +0800
+批次: stage9-kupl-schur-zero-cache-mpi-20261021
+主任务: 持续比照 QUDA 优化 KUPL/CUDA QCU；MG 为主，BiCGStab 为辅
+触发原因: 阶段成果
+摘要: KUPL restart=0 零 coarse-cache 冷启动；4x4 MPI 中位 5.635 s、RSS 1.13 GB
+Git 根目录: /root/PyQCU
+
+## 关键日志
+### S1 — Schur fallback 零 coarse-asset 启动
+- 目标: `restart=0` 不需要 null vectors、33-stencil 或 verifier，避免无效 3.1 GB cache I/O 与 RSS。
+- 修改: coarse asset load、build、verify 仅在 `levels>1 && restart!=0` 时启用。
+- 关键输出: 单 rank 16-thread resident RSS 从约 5.85 GB 降至 3.00 GB。
+- 退出码: 0。
+
+### S2 — 4-rank 生产拓扑
+- 1 rank × 4 threads: 17.371649 s。
+- 2 ranks × 4 threads，y: 9.655980 s，1.80x，效率 90.0%。
+- 4 ranks × 4 threads，y: 5.438923/5.662697/5.635141 s，中位 5.635141 s，3.08x，效率 77.1%。
+- 1 rank × 16 threads: 6.342338 s。
+- 4 ranks × 5 threads: 6.816038 s，超配退化。
+- 4-rank rank0 RSS: 约 1.13 GB。
+- 退出码: 0。
+
+### S3 — 三方状态
+- KUPL 最优中位 5.635 s；CUDA MG 0.1721 s；CUDA BiCGStab 0.187183 s。
+- QUDA BiCGStab 0.131636 s；CUDA/QUDA 每迭代 9.85/6.93 ms，差距 1.42x。
+- QUDA MG nvec24 28.0075 s，nvec 不等价，不计算公平倍率。
+- 所有 MPI 生产运行由 backend 全局 true-residual gate 判定 PASS。
+
+## 验证与证据
+- 测试/检查: 1/2/4-rank 生产运行、cache slicing、geometry、CTest、py_compile、diff check。
+- 结果: 所有拓扑 PASS；4-rank 最优。
+- 未验证项: 跨节点 MPI/InfiniBand；多节点 NUMA；LIME MPI-IO。
+
+## 变更与产物
+- 文件: `pyqcu/testing/simple/kupl_multigrid.py`、`kupl_bistabcg.py` 及 cache/geometry tests。
+- 数据: `kupl_c64_schur_mpi1_t4_final.json`、`kupl_c64_schur_mpi2_y_t4.json`、`kupl_c64_schur_mpi4_y*.json`、`kupl_c64_schur_mpi1_t16_nocache.json`。
+- 未改动范围: 物理输入、RHS 生成精度和求解容差。
+
+## 风险、限制与下一步
+- 风险: LIME 文件仍由每 rank 全量读取；solve timing 不计 I/O，但冷启动可继续优化。
+- 阻塞: 跨节点网络未验证。
+- 下一步: rank-slab MPI-IO、MPI halo 占比剖析，并继续 CUDA Krylov 阶段优化。
+
+## Agent 全文报告
+--- report begin ---
+# Stage 9 KUPL Schur 零 Cache 冷启动与 MPI 强扩展报告
+
+## 结论
+
+`restart=0` 的 Schur fallback 不再读取 coarse cache、构建 legacy hierarchy 或调用 verifier，因为这些资产不会被 solver 使用。单 rank 16-thread resident RSS 从约 5.85 GB 降至 3.00 GB，4-rank 每 rank 约 1.13 GB。
+
+固定每 rank 4 threads 的 y 分解强扩展：
+
+| ranks | 时间 | speedup | efficiency |
+|---:|---:|---:|---:|
+| 1 | 17.371649 s | 1.00x | 100% |
+| 2 | 9.655980 s | 1.80x | 90.0% |
+| 4 | 5.635141 s 中位 | 3.08x | 77.1% |
+
+4-rank y-only 为当前最佳。相对 1 rank × 16 threads 的 6.342338 s，提升约 1.125x；相对原 KUPL 最佳 6.337 s，中位改善约 11.1%。
+
+## 三方状态
+
+| 路径 | 时间 | iterations | 真残差 |
+|---|---:|---:|---:|
+| CUDA QCU MG | 0.1721 s | 20 | 4.1247e-7 |
+| CUDA QCU BiCGStab | 0.187183 s | 19 | 5.6863e-7 |
+| KUPL QCU Schur fallback | 5.635 s 中位 | 19 | backend global gate PASS |
+| QUDA BiCGStab | 0.131636 s | 19 | 通过 |
+| QUDA MG nvec24 | 28.0075 s | 3 outer GCR | 5.1234e-7 |
+
+CUDA/QUDA BiCGStab 每迭代为 9.85/6.93 ms，差距 1.42x。QUDA nvec24 与 dof12 不等价，不计算公平 MG 倍率。
+
+## 结果解释
+
+4-rank y-only 避免了 x-halo 的高成本，同时局部 y 长度 6 保持偶棋盘布局和足够计算量。4 ranks × 5 threads 发生超配退化，说明当前 16 个计算线程已接近共享内存带宽上限。
+
+零 cache 路径消除了与 solve 无关的 O(GB) 内存驻留和启动 I/O。Coarse correction 仍可通过 `restart>0` 显式启用，且保留 cache slicing/verifier。
+
+## 验证结果
+
+- 1/2/4/8-rank 生产运行均 PASS。
+- KUPL CTest: 28/28 passed。
+- cache slicing/geometry pytest: 6 passed。
+- py_compile、git diff check 通过。
+
+## 后续
+
+实现 rank-slab LIME/QIO MPI-IO，分离 solve 与冷启动 I/O；继续剖析 MPI halo/Allreduce 占比。CUDA 侧继续优化剩余 Krylov launch 与 c128 专用路径。
+--- report end ---

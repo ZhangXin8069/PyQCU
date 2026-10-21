@@ -1,0 +1,119 @@
+[日志元数据]
+日志类型: stage
+生成时间: 2026-10-21 11:29:35 +0800
+批次: stage10-final-verified-state-20261021
+主任务: 持续比照 QUDA 优化 KUPL/CUDA QCU；MG 为主，BiCGStab 为辅
+触发原因: 阶段成果
+摘要: 最终复核：CUDA MG 0.1720 s、KUPL 4x4 5.649 s、CUDA BiCG 0.1872 s；测试与构建通过
+Git 根目录: /root/PyQCU
+
+## 关键日志
+### S1 — CUDA 最终状态
+- MG 后端 10 样本合并中位: 0.1720 s。
+- MG 总生命周期 10 样本合并中位: 0.408832 s。
+- BiCGStab: 0.187183 s，19 iterations。
+- 真残差: MG 4.1247345218731473e-7；BiCGStab 5.686313754386336e-7。
+- 相对最初 MG 0.3903 s 基线累计改善约 55.9%。
+
+### S2 — KUPL 最终状态
+- 单 rank 16 threads: 6.342338 s。
+- 4 ranks × 4 threads，y-only、restart=0、零 coarse cache: 5.503498/5.635141/5.662697/6.055321 s，中位 5.648927 s。
+- 固定 4 threads/rank：1 到 4 ranks 为 17.371649 -> 5.648927 s，3.08x，效率 76.9%。
+- 4-rank rank0 resident RSS: 约 1.13 GB；单 rank 16 threads: 约 3.00 GB。
+- 相对原 KUPL 最佳 6.337 s 改善约 10.9%。
+
+### S3 — QUDA 与公平性
+- QUDA BiCGStab: 0.131636 s，19 iterations。
+- CUDA/QUDA 每迭代: 9.85/6.93 ms，差距 1.42x。
+- QUDA MG nvec24: 28.0075 s，3 outer GCR，真残差 5.1234262e-7。
+- nvec24 与 QCU/KUPL dof12 不等价，禁止计算公平 MG 加速比。
+
+### S4 — 验证
+- CUDA strict tier0: 20 passed。
+- CUDA strict tier1: cuda-strict 11 passed；fused-FGMRES 3 passed。
+- Clover/Csw/Cache/Geometry pytest: 14 passed。
+- KUPL CTest: 28/28 passed。
+- 最终 guard smoke: 20 iterations，真残差 4.325098e-7。
+- sm_70 cubin；普通 float Wilson 96 regs/0 spill，fused 112 regs/0 spill，普通 c128 168 regs/0 spill。
+- py_compile、git diff check 通过。
+
+## 验证与证据
+- 数据: `data/production_mg_20261021/cuda_c64_l2_fused_wilson_clover_final.json`、`cuda_c64_l2_no_arena_ab.json`、`qcu_c64_bistabcg_fused_wilson_clover_final.json`、`kupl_c64_schur_mpi4_y_final*.json`、`quda_c64_bistabcg.json`、`quda_c64_l2_mg_nvec24.json`。
+- 生产组态 SHA256: `a49773fa3742d310f4ea162a932cf559253aeab708bac08a8dd1f6847df4294b`。
+- 物理参数: mass=-0.277，csw=1.160920226，c64，24x24x24x64。
+- 未验证: 等价 nvec 的 QUDA MG；跨节点 MPI/InfiniBand；CUDA 多卡。
+
+## 变更与产物
+- CUDA: Wilson/Clover I/O 融合、Clover-subtract 融合、c64 Wilson+Clover 融合、lazy workspace、mg_give_rx 合并访存。
+- KUPL: 16-lane Wilson、单 rank 归约快速路径、MPI rank slicing、restart=0 零 coarse-cache。
+- 工具: `kupl_multigrid.py` MPI topology/rank-local cache/report；新增 cache slicing 与 geometry tests。
+- 未提交、未打标签、未推送。
+
+## 风险、限制与下一步
+- QUDA 当前构建拒绝 nvec6，nvec24 不构成公平 MG 对照。
+- LIME 文件仍每 rank 全量读取，solve 计时不含 I/O。
+- 下一步：rank-slab LIME/QIO MPI-IO；MPI halo/Allreduce 细分；c128 专用融合。
+- 活动 goal 保持 active，等待用户明确停止。
+
+## Agent 全文报告
+--- report begin ---
+# Stage 10 最终复核与三方性能状态
+
+## 结论
+
+本轮已同时完成 CUDA QCU 与 KUPL QCU 的多轮迭代优化，所有保留改动均经过生产组态、数值残差和回归验证。
+
+CUDA c64 MG 后端 10 样本合并中位为 0.1720 s，总生命周期中位 0.408832 s；相对最初 0.3903 s MG 基线累计改善约 55.9%。CUDA BiCGStab 为 0.187183 s，19 iterations，相对最初 0.280308 s 改善约 33.2%。
+
+KUPL 最佳配置为 4 ranks × 4 threads、y-only 分解、restart=0 零 coarse-cache，当前有效中位 5.648927 s。固定 4 threads/rank 的 1 到 4 rank 强扩展为 3.08x、效率 76.9%。相对原 KUPL 最佳 6.337 s 改善约 10.9%。
+
+## 三方性能
+
+| 路径 | 当前时间 | iterations | 真残差 | 备注 |
+|---|---:|---:|---:|---|
+| CUDA QCU MG | 0.1720 s | 20 | 4.1247e-7 | c64 cache-hit，单 V100 |
+| CUDA MG 总生命周期 | 0.408832 s | 20 | 4.1247e-7 | 含 init/end 与同步 |
+| CUDA QCU BiCGStab | 0.187183 s | 19 | 5.6863e-7 | 每迭代 9.85 ms |
+| KUPL QCU Schur fallback | 5.648927 s 中位 | 19 | backend global gate PASS | 4 ranks × 4 threads，y-only |
+| QUDA BiCGStab | 0.131636 s | 19 | 通过 | 每迭代 6.93 ms |
+| QUDA MG nvec24 | 28.0075 s | 3 outer GCR | 5.1234262e-7 | nvec 不等价 |
+
+CUDA/QUDA BiCGStab 每迭代差距为 1.42x。QUDA nvec24 与 QCU/KUPL dof12 不等价，不能计算公平 MG 加速比。
+
+## 主要保留优化
+
+CUDA：
+
+- `mg_give_rx` 从每线程一个 site 改为每线程一个复数元素，3.653 -> 0.317 ms/次。
+- full-site/debug 缓冲按需分配，生产 init/end 从约 52–65 ms 降至约 14–17 ms，首次分配减少约 1.06 GB。
+- even-Clover 原地化，删除一次整向量 D2D 复制。
+- Clover 分离输入/输出与 subtract 融合，删除中间向量写回。
+- c64 Wilson+Clover 模板融合，普通 Wilson 与 fused kernel 编译期隔离。
+- c128 和多 rank 保持旧路径，避免 254-register fused c128 occupancy 退化。
+
+KUPL：
+
+- Wilson block kernel 8 -> 16 lanes，生产矩阵 Wilson 微基准改善 25.4%。
+- 单 rank 跳过无意义 MPI_Allreduce。
+- 生产 MPI 支持 local gauge/source slice 与 coarse cache rank slicing。
+- 修正 `lonv` 交错粗格轴切片。
+- `restart=0` 不再读取无效 coarse assets，单 rank RSS 5.85 -> 3.00 GB，4-rank 每 rank 约 1.13 GB。
+- 4-rank y-only topology 避免高成本 x-halo。
+
+## 验证结果
+
+- CUDA strict tier0: 20 passed。
+- CUDA strict tier1: cuda-strict 11 passed；fused-FGMRES 3 passed。
+- Clover/Csw/Cache/Geometry pytest: 14 passed。
+- KUPL CTest: 28/28 passed。
+- CUDA 生产 MG/BiCG 与粗修正分支均 PASS。
+- 最终 guard smoke 20 iterations，真残差 4.325098e-7。
+- CUDA binary 仅含 sm_70 cubin；fused c64 Wilson 112 regs、0 spill；普通 c128 168 regs、0 spill。
+- py_compile 与 git diff check 通过。
+
+## 限制与后续
+
+QUDA 当前构建拒绝 nvec6，尚不能做与 dof12 完全等价的 MG 对照。KUPL 的多 rank 已具备 solve 强扩展，但 LIME 文件仍每 rank 全量读取，冷启动 MPI-IO 尚未实现；跨节点网络与多节点 NUMA 未验证。CUDA 多卡仍受当前 PyTorch 不支持 P100 sm60 的环境限制。
+
+后续优先级：rank-slab LIME/QIO MPI-IO、MPI halo/Allreduce 细分、c128 专用融合与持久 legacy-MG 会话。活动 goal 保持 active，等待用户明确停止。
+--- report end ---
