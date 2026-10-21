@@ -44,8 +44,9 @@ PyQCU 是复杂库，主导语言为 C++/CUDA、Python/Cython 和 Bash。先只�
   `.jsonl` 和压缩运行摘要；打 tag 后不得保留 `logs/<tag>/**` 报告副本。
 - `docs/张鑫 508应用测试报告-PyQCU/` 是按 `docs/AGENTS.md` 保留的解包 Office 资源。
 - `skills/pyqcu-tag/tag-chain.test.sh` 是该技能的定点回归，不迁入 `pyqcu/testing/`。
-- `refer/**`、`data/quda-*`、`data/venv-*`、`data/p100-*` 和上游 vendored/generated
-  内容保留来源结构、名称和内容。
+- `refer/git-rep/**`、`refer/huzc/**`、`data/quda-*`、`data/venv-*`、`data/p100-*` 和
+  上游 vendored/generated 内容保留来源结构、名称和内容；本库自产文档仍按内容或目的命名，
+  不得用 Git 标签名作路径。
 - 根 `AGENTS.md` 的 form 标记块由 `form-agents-sync.sh` 唯一维护，必须通过 `--check`；
   不得删除或重复标记、整体禁用审计，或改写排除项来绕过已登记历史例外。新增例外必须
   精确匹配、保留证据并执行审计回归。
