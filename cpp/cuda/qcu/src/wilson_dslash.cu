@@ -8,7 +8,7 @@ namespace qcu {
 template <typename T, bool ApplyClover>
 __global__ void wilson_dslash(void *device_U, void *device_src,
                               void *device_dest, void *device_params,
-                              void *device_clover) {
+                              void *device_clover, bool block_diagonal) {
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
   // NOTE: 'parity' is reused as a temporary coordinate-decomposition variable.
   // The input 'idx' is decomposed into (x,y,z,t) using 'parity' as workspace,
@@ -273,13 +273,26 @@ __global__ void wilson_dslash(void *device_U, void *device_src,
   if (ApplyClover) {
     LatticeComplex<T> *origin_clover =
         ((static_cast<LatticeComplex<T> *>(device_clover)) + idx);
-    LatticeComplex<T> clover[_LAT_SCSC_];
     LatticeComplex<T> tmp[_LAT_SC_];
     get_vals(tmp, zero, _LAT_SC_);
-    get_clr(clover, origin_clover, lat_xyzt);
-    for (int row = 0; row < _LAT_SC_; ++row) {
-      for (int column = 0; column < _LAT_SC_; ++column) {
-        tmp[row] += clover[row * _LAT_SC_ + column] * dest[column];
+    // Stream one full Clover row at a time.  The generic entry point accepts
+    // arbitrary caller-supplied Clover matrices, so do not assume the sparse
+    // structure produced by make_clover().  Avoid materializing a 144-element
+    // local array while preserving the complete 12x12 multiply.
+    if (block_diagonal) {
+      for (int row = 0; row < _LAT_SC_; ++row) {
+        const int column_base = (row / 6) * 6;
+        for (int column = column_base; column < column_base + 6; ++column) {
+          tmp[row] += origin_clover[(row * _LAT_SC_ + column) * lat_xyzt] *
+                      dest[column];
+        }
+      }
+    } else {
+      for (int row = 0; row < _LAT_SC_; ++row) {
+        for (int column = 0; column < _LAT_SC_; ++column) {
+          tmp[row] += origin_clover[(row * _LAT_SC_ + column) * lat_xyzt] *
+                      dest[column];
+        }
       }
     }
     give_dest(origin_dest, tmp, lat_xyzt);
@@ -1370,10 +1383,10 @@ wilson_dslash_t_recv(void *device_U, void *device_dest, void *device_params,
 //@@@CUDA_TEMPLATE_FOR_DEVICE@@@
 template __global__ void wilson_dslash<double, false>(
     void *device_U, void *device_src, void *device_dest, void *device_params,
-    void *device_clover);
+    void *device_clover, bool block_diagonal);
 template __global__ void wilson_dslash<double, true>(
     void *device_U, void *device_src, void *device_dest, void *device_params,
-    void *device_clover);
+    void *device_clover, bool block_diagonal);
 template __global__ void wilson_dslash_inside<double>(void *device_U,
                                                       void *device_src,
                                                       void *device_dest,
@@ -1413,10 +1426,10 @@ wilson_dslash_t_recv<double>(void *device_U, void *device_dest,
 //@@@CUDA_TEMPLATE_FOR_DEVICE@@@
 template __global__ void wilson_dslash<float, false>(
     void *device_U, void *device_src, void *device_dest, void *device_params,
-    void *device_clover);
+    void *device_clover, bool block_diagonal);
 template __global__ void wilson_dslash<float, true>(
     void *device_U, void *device_src, void *device_dest, void *device_params,
-    void *device_clover);
+    void *device_clover, bool block_diagonal);
 template __global__ void wilson_dslash_inside<float>(void *device_U,
                                                      void *device_src,
                                                      void *device_dest,

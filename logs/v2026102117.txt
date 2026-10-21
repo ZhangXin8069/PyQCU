@@ -1,0 +1,128 @@
+[日志元数据]
+日志类型: final
+生成时间: 2026-10-21 17:21:14 +0800
+批次: mg-assets-analysis
+主任务: 解释 QCU 完整 33-tensor 粗层资产
+触发原因: 任务完成
+摘要: 从物理来源、三数组布局、完整缓存边界和 strict cache 区别说明 QCU 33-tensor 粗层资产；CPU 打包与缓存回归通过。
+Git 根目录: /root/PyQCU
+
+## 关键日志
+### S1 — 源码与规范路径核对
+- 目标: 准确解释“完整 33-tensor 粗层资产”的数学含义、存储布局和缓存边界。
+- 命令/操作: 定向读取 `pyqcu/tools/_multigrid.py`、`cpp/cuda/qcu/src/multigrid.cu`、`pyqcu/solver/_quda_multigrid.py`、`pyqcu/testing/simple/build_full_mg_cache.py` 和 `kupl_multigrid.py`。
+- 关键输出: 33 = 1 onsite + 8 nearest + 24 diagonal；打包为 `sit/hnn/hdg` 三个张量，并与 `lonv` 一起写入 HDF5。
+- 退出码: 0
+- 证据与判断: CUDA kernel 注释、Python builder 和 strict 导出路径相互一致。
+
+### S2 — CPU 回归
+- 目标: 验证 33-slot 打包、退化维处理与 HDF5 完整 cache 往返。
+- 命令/操作: `python -m pytest -q pyqcu/testing/python/test_quda_multigrid.py -k 'qcu_stencil_pack_matches_all_33_periodic_slots or qcu_stencil_degenerate_extent_and_strict_support_guard'`；`python -m pytest -q pyqcu/testing/simple/test_coarse_cache.py`。
+- 关键输出: 第一组 `2 passed, 32 deselected`；第二组 `2 passed`。
+- 退出码: 0
+- 证据与判断: 周期边界 33 位移槽与退化维/不支持位移门禁通过；`lonv/hnn/hdg/sit` 完整往返和缺失 dataset 拒绝通过。
+
+## 验证与证据
+- 测试/检查: 两组定向 CPU pytest 回归。
+- 结果: 4 个目标测试全部通过。
+- 未验证项: 未重新构建或运行 GPU 大格 setup/solve；本任务为只读概念解释。
+
+## 变更与产物
+- 文件: 仅新增本日志及 `logs/AGENTS.md` 索引。
+- 产物: 完整源码解释。
+- 未改动范围: 未修改代码、测试、缓存或既有用户工作区改动。
+
+## 风险、限制与下一步
+- 风险: 33-point 表示依赖标准逐轴 block=2 的周期粗化；更宽或非最近邻支撑会被 strict 导出拒绝。
+- 阻塞: 无。
+- 下一步: 若需对照实际缓存规模，可用目标格点和 E 代入 `33·E²·V_c` 的逐 transition 公式，并另加 `lonv`。
+
+## 用户输入指令
+什么是qcu的"完整 33-tensor 粗层资产"
+
+## Agent 全文报告
+--- report begin ---
+**一句话定义**
+
+“完整 33-tensor 粗层资产”是 QCU legacy/compact-Schur 多重网格的一整套显式粗化数据：
+
+1. `lonv`：近零向量基，定义 prolongation `P` 和 restriction `R=P†`；
+2. `sit/hnn/hdg`：显式存储的 Galerkin 粗算子 `A_c=P†SP`；
+3. 每条 fine→coarse transition 各有一套，并依赖规范场、质量、`csw`、dof、block size 和精度等物理/几何身份。
+
+“完整”强调它并非只缓存 null vectors，而是连粗层矩阵元也算好并持久化。CUDA 注释明确把该算子定义为 `A_c=P†SP` 的 33-point stencil，见 [multigrid.cu](/root/PyQCU/cpp/cuda/qcu/src/multigrid.cu:858)。
+
+**为什么恰好是 33**
+
+Wilson/Clover 奇偶消元后得到 fine Schur 算子
+
+\[
+S=D_{oo}-D_{oe}D_{ee}^{-1}D_{eo}.
+\]
+
+最近邻 hopping 经过两次传播后可连接：
+
+- 原 coarse site：1 类，`(0,0,0,0)`；
+- 沿四个轴的 `±2e_\mu`：4×2=8 类，在 block=2 时成为粗格最近邻；
+- 两个不同轴上的 `±e_\mu±e_\nu`：\(\binom{4}{2}×2×2=24\) 类。
+
+因此：
+
+\[
+1+8+24=33.
+\]
+
+再经 `P†SP` 投影，每个位移类别对应一个逐粗格点变化的稠密 `E×E` 复矩阵，其中 `E` 是粗层自由度。这里的“tensor”是习惯叫法，它不是单个 33 维张量，而是一个具有 33 个 block-coupling 类别的 wide stencil。标准 33 点形式对应每轴 block=2；strict 导出会拒绝超出该支撑的非零位移。
+
+**三个打包张量**
+
+代码见 [_multigrid.py](/root/PyQCU/pyqcu/tools/_multigrid.py:739)：
+
+| HDF5 名 | 形状 | 含义 |
+|---|---|---|
+| `sit` | `[E,E,Xc,Yc,Zc,Tc]` | onsite 耦合 |
+| `hnn` | `[2,4,E,E,Xc,Yc,Zc,Tc]` | 8 个最近邻：正负号 × 4 轴 |
+| `hdg` | `[2,2,6,E,E,Xc,Yc,Zc,Tc]` | 24 个对角项：双轴组合 6 × 两个符号维度 |
+| `lonv` | `[E,12,Xc,bx,Yc,by,Zc,bz,Tc,bt]` | blocked near-null vectors，定义 R/P |
+
+粗算子作用为
+
+\[
+(A_c x)(y)=sit(y)x(y)
++\sum_{pm,d}hnn_{pm,d}(y)x(y+pm\,e_d)
++\sum_{s_1,s_2,d_1<d_2}hdg_{s_1,s_2,d_1d_2}(y)
+x(y+s_1e_{d_1}+s_2e_{d_2}).
+\]
+
+`hnn/hdg/sit` 是三个 PyTorch/NumPy 数组，但逻辑上包含 33 个位移槽。`lonv` 不算在这 33 个槽里；它是与粗算子配套的转移基。
+
+**“完整 cache”包含什么**
+
+完整构建流程是：
+
+```text
+gauge + clover/physics parameters
+  -> fine Schur operator S
+  -> null vectors
+  -> block/local orthogonalization
+  -> probe A_c = P†SP
+  -> 写 lonv/hnn/hdg/sit 四个 HDF5 dataset
+```
+
+当前两级 simple builder 的入口见 [build_full_mg_cache.py](/root/PyQCU/pyqcu/testing/simple/build_full_mg_cache.py:68)，HDF5 写入口见 [kupl_multigrid.py](/root/PyQCU/pyqcu/testing/simple/kupl_multigrid.py:211)。构建报告还记录 gauge SHA256、格子、dtype、mass、csw、dof、MG grid、null-vector 迭代数和构建时间。
+
+严格说，当前 `build_full_mg_cache.py` 固定构建两级、即一条 fine→coarse transition。多层 MG 应对每条 transition 各保存一套 `lonv + 33-slot stencil`。缓存不含 fine Gauge/Clover 实体，也不含 solver workspace；cache-hit 求解仍需加载当前 fine 规范场和 Clover 项。
+
+每个 transition 仅 stencil 的复元素数为 `33·E²·V_c`，其中 `V_c` 是粗格点数。c64 占 `264·E²·V_c` bytes，c128 占 `528·E²·V_c` bytes；此外还要加 `lonv` 的 `E·12·V_f/2` 个复元素。这也是 E=48 时缓存体积增长很快的原因。
+
+**与 strict cache 的区别**
+
+不要把它与 QUDA-style strict runtime cache 混为一谈：
+
+- 本回答的 33-tensor cache：显式存储 `P†SP` 的 onsite/nearest/diagonal 矩阵块。
+- Strict cache：存储每个 transition 的 `V`、`Yhat`、`(X,X⁻¹)`，必要时保留 raw `Y`，对应 QUDA 风格的 onsite + 8-link 表示，见 [_quda_multigrid.py](/root/PyQCU/pyqcu/solver/_quda_multigrid.py:3589)。
+
+两种表示在数学上可以描述相关粗化算子，但存储布局、构建方法和运行期 kernel 不同，不能互换 dataset。
+
+验证已运行：33-slot 周期打包与退化维门禁 `2 passed`，完整 coarse cache 往返/缺项拒绝 `2 passed`。总状态：**finished**。
+--- report end ---

@@ -1,10 +1,26 @@
 ---
 name: pyqcu-solver
-description: pyqcu.solver 目录的完整生成 skill：BiCGStab(l)、FGMRES 与 legacy/strict QUDA-style MultiGrid，含奇偶边界、Galerkin 层级和 CUDA 持久显存约束。
+description: |
+  pyqcu.solver 目录的完整生成 skill：BiCGStab(l)、FGMRES 与 legacy/strict QUDA-style MultiGrid，
+  含奇偶边界、Galerkin 层级和 CUDA 持久显存约束。用户询问、比较、选择或排障
+  33-tensor legacy MG cache 与 Strict runtime cache 时使用。
 ---
 # pyqcu.solver
 
 Iterative solvers for the Dirac equation D ψ = η.
+
+## MultiGrid cache 路线选择
+
+比较、选择、加载或排障 `33-tensor cache` 与 `Strict cache` 时，先读取
+`references/mg-cache-comparison.md`。最少保持以下边界：
+
+- 33-tensor cache 直接保存 `A_c=P†SP` 的 1 onsite + 8 nearest + 24 diagonal block，
+  对应 compact odd coarse geometry。
+- Strict cache 保存 `V/Yhat/(X,X^-1)`，粗层保持 full lattice；raw `Y` 不是普通
+  solve 的必需运行期资产。
+- 两种 cache 的槽序、geometry、C++ kernel 和生命周期不同，不能改名或重排后互载。
+- cache 性能必须分别记录验证/加载、setup、首次 workspace 和 solve；不要把两者边界混成
+  同一 `setup_seconds`。
 
 ## CUDA 混合路径约定（2026-08-14）
 

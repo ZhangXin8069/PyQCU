@@ -1,0 +1,108 @@
+[日志元数据]
+日志类型: stage
+生成时间: 2026-10-21 21:29:43 +0800
+批次: stage17-clover-block-gate-20261021
+主任务: 持续比照 QUDA 优化 KUPL/CUDA QCU：MG 为主、BiCGStab 为辅
+触发原因: 阶段成果
+摘要: CUDA legacy MG 增加严格 Clover 6x6 结构检测与完整 12x12 回退；生产 MG 后端降低 16.04%，解逐元素相同，三方报告与门禁通过
+Git 根目录: /root/PyQCU
+
+## 关键日志
+### S1 — CUDA legacy MG Clover 6x6 结构门控
+- 目标: 只对已证实为两个 6x6 自旋块的物理 Clover 矩阵使用专用 multiply，外部通用 12x12 矩阵必须自动回退。
+- 操作: 新增设备端 off-block 扫描 kernel；每次 legacy MG init 检查 `clover_ee_inv` 与 `clover_oo`，任一非零/NaN 即选择完整 12x12 路径。新增 `give_clover_block`、`give_clover_to_block`、`give_clover_subtract_block`，并让 fused Wilson+Clover 接收运行期 block 标志。
+- A/B: Stage16 generic `0.175150 s`，Stage17 block6 `0.147050 s`，20 个 steady 样本；降低 `16.04%`，加速 `1.1911x`。
+- Lifecycle: `0.414565 -> 0.386002 s`，降低 `6.89%`，加速 `1.0740x`。
+- 正确性: 两版最终解逐元素完全相同，`max_abs=0`、relative L2 `0`；均 20 iterations、真残差 `4.1247345e-7`。
+- 回退: 向 off-block 注入 `1e-20` 后，连续 3 次自动走通用路径，中位 `0.179510 s`，真残差不变。
+
+### S2 — 当前 CUDA BiCGStab 与三方基线
+- Stage17 当前 Clover BiCGStab：`0.158660 s`，18 iterations，独立真残差 `6.694990e-7`。
+- 与 Stage16 paired-reduction `0.157776 s` 差异约 `0.56%`，属于噪声，未观察到回归。
+- QUDA BiCGStab：`0.137520 s`，19 iterations，真残差 `5.694274e-7`；CUDA wall 慢 `15.37%`，每迭代 `8.814 ms` 对 `7.238 ms`。
+- KUPL legacy MG 当前仍为 Stage16 的 `17.725 s`、47 iterations、native relative residual `9.138e-7`，本阶段未重跑。
+- QUDA MG nvec24 仍为 `28.007541 s`、3 outer iterations、真残差 `5.123426e-7`；与 dof12 语义不等价，不计算倍率。
+
+## 验证与证据
+- CUDA strict tier0: 20 passed；cuda-strict 11 passed；fused-FGMRES 3 passed。
+- CUDA 非平凡 Clover MATPC/FGMRES：2 passed。
+- 直接 c64/c128 Clover：8 passed。
+- QCU header/pxd/pyx ABI：PASS。
+- 通用回退实测：物理 block `0.15598 s` 首解，注入 off-block 后通用路径 3 次 `0.179510/0.176904/0.180213 s`，均保持 20 iterations 和真残差 `4.1247345e-7`。
+- 解一致性：Stage16、Stage17 均为 shape `(2,4,3,24,24,24,32)`，`np.array_equal=True`。
+- 1-level Clover-MG 集成配置 PASS；完整 9 配置套件在 2-level coarse-operator 构建阶段超过 300 s 超时，因此不作为完整通过证据。生产 2-level cache-hit 路径已完成 4 轮 × 10 steady。
+- `git diff --check`: PASS。form 审计仍只有既存 `TAG_NAME_IN_PATH`。
+- CUDA 当前 lib SHA256：`08bce03cc28afc60d76cf0c9e66d2b95846ab974b12f009e714f759738547437`。
+
+## 变更与产物
+- 代码：`cpp/cuda/qcu/include/clover_dslash.h`、`src/clover_dslash_single.cu`、`include/lattice_clover_dslash.h`、`include/wilson_dslash.h`、`src/wilson_dslash.cu`、`include/lattice_clover_multigrid.h`。
+- 同步调用点：`include/lattice_wilson_dslash.h`、`src/apply_test.cu`、`src/apply_multigrid_strict.cu`。
+- 文档：`cpp/cuda/qcu/AGENTS.md`、`skills/pyqcu-cuda/SKILL.md`。
+- 证据：`data/production_mg_20261021/stage17_cuda_c64_mg_{generic,block6}_r{1,2}.json`、`stage17_cuda_c64_bicg_current.json`、`stage17_cuda_strict_tier1.json`。
+- 未提交、未打 tag、未 push。
+
+## 风险、限制与下一步
+- 结构探测每轮 MG 调用一次，含 1 GB 级 off-block 扫描和一次 D2H；当前收益已经覆盖开销。
+- 只验证单 V100；P100 不受当前 PyTorch 构建支持，CUDA 多卡正式结论仍缺失。
+- 9 配置完整集成套件在 coarse setup 超时，但生产 cache-hit 二层路径、strict 与直接差分均通过。
+- 下一步：把同一结构门控扩展到 legacy Clover BiCGStab 的 full-solve `init`，避免在每次单 matvec 调用中重复探测；目标是进一步缩小与 QUDA BiCGStab 的差距。
+
+## Agent 全文报告
+--- report begin ---
+# Stage 17：CUDA Clover-MG 6x6 结构门控
+
+## 结论
+
+CUDA legacy Clover-MG 现在会在运行时证明 `clover_ee_inv` 与 `clover_oo` 的 off-block 区域严格为零后，才启用 6x6 专用 Clover multiply。真实 `24^3x64` c64 二层 cache-hit 生产路径：
+
+| 指标 | generic | block6 | 变化 |
+|---|---:|---:|---:|
+| MG backend | `0.175150 s` | `0.147050 s` | `-16.04%`，`1.1911x` |
+| MG lifecycle | `0.414565 s` | `0.386002 s` | `-6.89%`，`1.0740x` |
+| iterations | 20 | 20 | 不变 |
+| true residual | `4.1247345e-7` | `4.1247345e-7` | 不变 |
+
+两版最终解逐元素相同，说明跳过 off-block 零项未改变结果。向 off-block 注入 `1e-20` 后会自动回退通用路径，证明没有重新引入“无条件裁剪通用入口”的错误。
+
+## 三方性能表
+
+| 路径 | 当前时间 | iterations | 真残差 | 口径 |
+|---|---:|---:|---:|---|
+| CUDA QCU legacy MG block6 | `0.147050 s` | 20 | `4.1247345e-7` | V100，cache-hit，20 steady |
+| CUDA QCU MG lifecycle | `0.386002 s` | 20 | `4.1247345e-7` | 含 init/end 与残差探针 |
+| CUDA QCU Clover BiCGStab | `0.158660 s` | 18 | `6.694990e-7` | 当前 Stage17 lib |
+| KUPL QCU legacy MG | `17.725 s` | 47 | native `9.138e-7` | 4 ranks × 4 threads，沿用 Stage16 |
+| QUDA BiCGStab | `0.137520 s` | 19 | `5.694274e-7` | 同 LIME、同 V100 |
+| QUDA MG nvec24 | `28.007541 s` | 3 outer | `5.123426e-7` | 与 dof12 不等价 |
+
+CUDA BiCGStab wall 比 QUDA 慢 `15.37%`，每迭代 `8.814 ms` 对 `7.238 ms`，约慢 `21.78%`。QUDA MG 与 dof12 legacy MG 语义不等价，禁止计算 MG 速度比。
+
+## 实现
+
+新增 `check_clover_block_diagonal` 扫描内核，逐 compact site 检查两个 6x6 对角块之外的所有元素。检测结果写入设备 int flag，一次 D2H 后选择内核。任意 NaN 也会被判定为非零并回退。
+
+新增以下 6x6 内核：
+
+- `give_clover_block`
+- `give_clover_to_block`
+- `give_clover_subtract_block`
+- fused `wilson_dslash<..., true>` 内的 block 分支
+
+`LatticeCloverMultigrid::init` 探测 `clover_ee_inv` 与 `clover_oo`；`fine_dslash_op`、dag 路径和 Clover subtract 全部共享同一检测结果。公共 `params/argv/set_ptrs` ABI 未改变。
+
+## 正确性与回退
+
+- Stage16/Stage17 同名生产输入最终解 `np.array_equal=True`，相对 L2 差值为 0。
+- 注入 `1e-20` off-block 元素后，检测关闭专用内核；3 次通用路径中位 `0.179510 s`，仍为 20 iterations、真残差 `4.1247345e-7`。
+- strict tier0 `20 passed`、cuda-strict `11 passed`、fused-FGMRES `3 passed`。
+- 非平凡 Clover 测试 `2 passed`，直接 c64/c128 Clover `8 passed`，ABI PASS。
+- 1-level Clover-MG 集成配置 PASS。9 配置完整套件在第二组 coarse-operator 构建时超过 300 s 超时；生产二层 cache-hit 路径则完成四轮 × 10 steady，因此报告明确区分这两个证据边界。
+
+## 并行效率与限制
+
+本阶段仍是单 V100、单 MPI rank，无法形成多卡扩展结论。检测扫描只发生一次每 MG solve，相对 20 次 V-cycle 已摊销；backends 的实际收益说明该开销低于 6x6 multiply 节省。P100 不支持当前 PyTorch kernel image，不能用于正式 CUDA 扩展测试。
+
+## 下一步
+
+把结构门控扩展到 legacy Clover BiCGStab 的 full-solve init，让 null-vector 逆迭代同样使用 6x6 内核；不在每次单 matvec wrapper 中重复扫描。该轮将使用与 QUDA 完全相同的真实 Clover BiCGStab 输入继续收敛。
+--- report end ---

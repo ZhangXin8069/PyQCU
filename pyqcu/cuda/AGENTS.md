@@ -116,6 +116,22 @@ params[_SET_INDEX_] += 1                           # end 之后再换槽
   三阶段分进程流水线（nulls→ortho→stencil，阶段间经硬盘，指令 23 端到端实现）；
   `_probe_point_batch_local` 已加设备守卫（lonv 可驻留 CPU）。体积标度实测：
   speedup_vs_L1 随体量平坦转降（0.62@0.09× → 0.42@1.5×），大格子假设证伪。
+- **nullvec batch 宽度**：`give_null_vecs_mt` 以 6 个场为目标并按实时空闲显存取较小值。
+  24³×64 c64 的 12 个 null vectors 在 chunk=4/6/12 下分别约 13–15/10/48 s；
+  chunk=12 峰值约 33.1 GB 且耗尽 32 GiB V100，禁止作为默认值。完整 cold setup
+  中 null 阶段约 15 s，null+stencil 阶段总计时 613.230 s，反推 stencil-only 约
+  598 s；后续优化应优先 stencil。
+- **local stencil 窗口 gather**：`BatchedLocalSchur._slicem` 现在复用一次构造的周期
+  flatten index，以 expanded base + `torch.gather` 批量复制 K 个窗口，消除逐窗口
+  assignment 与 `.item()` 同步；生产 local 窗口由保守 `W=10` 收紧到经 full-grid probe
+  验证的 `W=8`。24³×64 c64 生产 stencil `598.107 -> 323.745 s`（45.87%），总 cold
+  setup `616.343 -> 327.587 s`（46.85%）；MG 仍为 20 iterations，真残差 `4.1247e-7`。
+- **legacy Clover BiCGStab 单流热路径**：单 rank 将 reduction、标量更新、dslash 和
+  融合 `r/x` 更新全部排在主 stream，每次迭代只同步一次；`beta/rho_prev` 与
+  `r/x` 分别融合。Clover multiply 改为逐行直读，避免 144-element local array。
+  通用入口不得假设 Clover 为两个 6×6 block；该裁剪已被 nontrivial-Clover strict
+  回归否决并撤销。生产 c64 10-sample 中位 `0.189074 -> 0.157841 s`，18 iterations，
+  独立 true residual `6.6952e-7`。
 
 ## 已知问题与修复（2026-08-14）
 

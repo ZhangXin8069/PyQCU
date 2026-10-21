@@ -873,6 +873,39 @@ __global__ void inverse_clover(void *device_clover, void *device_params) {
   }
 }
 template <typename T>
+__global__ void check_clover_block_diagonal(const void *device_clover,
+                                            void *device_params, int *flag) {
+  const int idx = blockIdx.x * blockDim.x + threadIdx.x;
+  const int *params = static_cast<const int *>(device_params);
+  const int lat_xyzt = params[_LAT_XYZT_];
+  const int half_sites = lat_xyzt / 2;
+  if (idx >= half_sites) return;
+  const LatticeComplex<T> *clover =
+      static_cast<const LatticeComplex<T> *>(device_clover) + idx;
+  bool off_diagonal_nonzero = false;
+  for (int row = 0; row < 6 && !off_diagonal_nonzero; ++row) {
+    for (int column = 6; column < _LAT_SC_; ++column) {
+      const LatticeComplex<T> value =
+          clover[(row * _LAT_SC_ + column) * lat_xyzt];
+      if (value.real() != T(0) || value.imag() != T(0)) {
+        off_diagonal_nonzero = true;
+        break;
+      }
+    }
+  }
+  for (int row = 6; row < _LAT_SC_ && !off_diagonal_nonzero; ++row) {
+    for (int column = 0; column < 6; ++column) {
+      const LatticeComplex<T> value =
+          clover[(row * _LAT_SC_ + column) * lat_xyzt];
+      if (value.real() != T(0) || value.imag() != T(0)) {
+        off_diagonal_nonzero = true;
+        break;
+      }
+    }
+  }
+  if (off_diagonal_nonzero) atomicExch(flag, 1);
+}
+template <typename T>
 __global__ void give_clover(void *device_clover, void *device_dest,
                             void *device_params) {
   LatticeComplex<T> *origin_clover;
@@ -884,19 +917,41 @@ __global__ void give_clover(void *device_clover, void *device_dest,
     origin_dest = ((static_cast<LatticeComplex<T> *>(device_dest)) + idx);
   }
   {
-    LatticeComplex<T> clover[_LAT_SCSC_];
     LatticeComplex<T> dest[_LAT_SC_];
-    LatticeComplex<T> tmp_dest[_LAT_SC_];
-    LatticeComplex<T> zero(0.0, 0.0);
-    get_vals(tmp_dest, zero, _LAT_SC_);
     get_src(dest, origin_dest, lat_xyzt);
-    get_clr(clover, origin_clover, lat_xyzt);
-    for (int sc0 = 0; sc0 < _LAT_SC_; sc0++) {
-      for (int sc1 = 0; sc1 < _LAT_SC_; sc1++) {
-        tmp_dest[sc0] += clover[sc0 * _LAT_SC_ + sc1] * dest[sc1];
+    for (int row = 0; row < _LAT_SC_; ++row) {
+      LatticeComplex<T> value(0.0, 0.0);
+      for (int column = 0; column < _LAT_SC_; ++column) {
+        value += origin_clover[(row * _LAT_SC_ + column) * lat_xyzt] *
+                 dest[column];
       }
+      origin_dest[row * lat_xyzt] = value;
     }
-    give_dest(origin_dest, tmp_dest, lat_xyzt);
+  }
+}
+template <typename T>
+__global__ void give_clover_block(void *device_clover, void *device_dest,
+                                  void *device_params) {
+  LatticeComplex<T> *origin_clover;
+  LatticeComplex<T> *origin_dest;
+  int lat_xyzt = static_cast<int *>(device_params)[_LAT_XYZT_];
+  {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    origin_clover = ((static_cast<LatticeComplex<T> *>(device_clover)) + idx);
+    origin_dest = ((static_cast<LatticeComplex<T> *>(device_dest)) + idx);
+  }
+  {
+    LatticeComplex<T> dest[_LAT_SC_];
+    get_src(dest, origin_dest, lat_xyzt);
+    for (int row = 0; row < _LAT_SC_; ++row) {
+      const int column_base = (row / 6) * 6;
+      LatticeComplex<T> value(0.0, 0.0);
+      for (int column = column_base; column < column_base + 6; ++column) {
+        value += origin_clover[(row * _LAT_SC_ + column) * lat_xyzt] *
+                 dest[column];
+      }
+      origin_dest[row * lat_xyzt] = value;
+    }
   }
 }
 template <typename T>
@@ -914,19 +969,45 @@ __global__ void give_clover_to(void *device_clover, const void *device_src,
     origin_dest = ((static_cast<LatticeComplex<T> *>(device_dest)) + idx);
   }
   {
-    LatticeComplex<T> clover[_LAT_SCSC_];
     LatticeComplex<T> src[_LAT_SC_];
-    LatticeComplex<T> dest[_LAT_SC_];
-    LatticeComplex<T> zero(0.0, 0.0);
-    get_vals(dest, zero, _LAT_SC_);
     get_src(src, origin_src, lat_xyzt);
-    get_clr(clover, origin_clover, lat_xyzt);
-    for (int sc0 = 0; sc0 < _LAT_SC_; sc0++) {
-      for (int sc1 = 0; sc1 < _LAT_SC_; sc1++) {
-        dest[sc0] += clover[sc0 * _LAT_SC_ + sc1] * src[sc1];
+    for (int row = 0; row < _LAT_SC_; ++row) {
+      LatticeComplex<T> value(0.0, 0.0);
+      for (int column = 0; column < _LAT_SC_; ++column) {
+        value += origin_clover[(row * _LAT_SC_ + column) * lat_xyzt] *
+                 src[column];
       }
+      origin_dest[row * lat_xyzt] = value;
     }
-    give_dest(origin_dest, dest, lat_xyzt);
+  }
+}
+template <typename T>
+__global__ void give_clover_to_block(void *device_clover,
+                                     const void *device_src,
+                                     void *device_dest, void *device_params) {
+  LatticeComplex<T> *origin_clover;
+  const LatticeComplex<T> *origin_src;
+  LatticeComplex<T> *origin_dest;
+  int lat_xyzt = static_cast<int *>(device_params)[_LAT_XYZT_];
+  {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    origin_clover = ((static_cast<LatticeComplex<T> *>(device_clover)) + idx);
+    origin_src =
+        ((static_cast<const LatticeComplex<T> *>(device_src)) + idx);
+    origin_dest = ((static_cast<LatticeComplex<T> *>(device_dest)) + idx);
+  }
+  {
+    LatticeComplex<T> src[_LAT_SC_];
+    get_src(src, origin_src, lat_xyzt);
+    for (int row = 0; row < _LAT_SC_; ++row) {
+      const int column_base = (row / 6) * 6;
+      LatticeComplex<T> value(0.0, 0.0);
+      for (int column = column_base; column < column_base + 6; ++column) {
+        value += origin_clover[(row * _LAT_SC_ + column) * lat_xyzt] *
+                 src[column];
+      }
+      origin_dest[row * lat_xyzt] = value;
+    }
   }
 }
 template <typename T>
@@ -948,22 +1029,50 @@ __global__ void give_clover_subtract(
     origin_dest = ((static_cast<LatticeComplex<T> *>(device_dest)) + idx);
   }
   {
-    LatticeComplex<T> clover[_LAT_SCSC_];
     LatticeComplex<T> src[_LAT_SC_];
-    LatticeComplex<T> subtract[_LAT_SC_];
-    LatticeComplex<T> dest[_LAT_SC_];
-    LatticeComplex<T> zero(0.0, 0.0);
-    get_vals(dest, zero, _LAT_SC_);
     get_src(src, origin_src, lat_xyzt);
-    get_src(subtract, origin_subtract, lat_xyzt);
-    get_clr(clover, origin_clover, lat_xyzt);
-    for (int sc0 = 0; sc0 < _LAT_SC_; sc0++) {
-      for (int sc1 = 0; sc1 < _LAT_SC_; sc1++) {
-        dest[sc0] += clover[sc0 * _LAT_SC_ + sc1] * src[sc1];
+    for (int row = 0; row < _LAT_SC_; ++row) {
+      LatticeComplex<T> value(0.0, 0.0);
+      for (int column = 0; column < _LAT_SC_; ++column) {
+        value += origin_clover[(row * _LAT_SC_ + column) * lat_xyzt] *
+                 src[column];
       }
-      dest[sc0] -= subtract[sc0] * scale;
+      origin_dest[row * lat_xyzt] =
+          value - origin_subtract[row * lat_xyzt] * scale;
     }
-    give_dest(origin_dest, dest, lat_xyzt);
+  }
+}
+template <typename T>
+__global__ void give_clover_subtract_block(
+    void *device_clover, const void *device_src, const void *device_subtract,
+    void *device_dest, T scale, void *device_params) {
+  LatticeComplex<T> *origin_clover;
+  const LatticeComplex<T> *origin_src;
+  const LatticeComplex<T> *origin_subtract;
+  LatticeComplex<T> *origin_dest;
+  int lat_xyzt = static_cast<int *>(device_params)[_LAT_XYZT_];
+  {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    origin_clover = ((static_cast<LatticeComplex<T> *>(device_clover)) + idx);
+    origin_src =
+        ((static_cast<const LatticeComplex<T> *>(device_src)) + idx);
+    origin_subtract =
+        ((static_cast<const LatticeComplex<T> *>(device_subtract)) + idx);
+    origin_dest = ((static_cast<LatticeComplex<T> *>(device_dest)) + idx);
+  }
+  {
+    LatticeComplex<T> src[_LAT_SC_];
+    get_src(src, origin_src, lat_xyzt);
+    for (int row = 0; row < _LAT_SC_; ++row) {
+      const int column_base = (row / 6) * 6;
+      LatticeComplex<T> value(0.0, 0.0);
+      for (int column = column_base; column < column_base + 6; ++column) {
+        value += origin_clover[(row * _LAT_SC_ + column) * lat_xyzt] *
+                 src[column];
+      }
+      origin_dest[row * lat_xyzt] =
+          value - origin_subtract[row * lat_xyzt] * scale;
+    }
   }
 }
 //@@@CUDA_TEMPLATE_FOR_DEVICE@@@
@@ -972,13 +1081,24 @@ template __global__ void make_clover<double>(void *device_U,
                                              void *device_params, double T);
 template __global__ void inverse_clover<double>(void *device_clover,
                                                 void *device_params);
+template __global__ void check_clover_block_diagonal<double>(
+    const void *device_clover, void *device_params, int *flag);
 template __global__ void give_clover<double>(void *device_clover,
                                              void *device_dest,
                                              void *device_params);
+template __global__ void give_clover_block<double>(void *device_clover,
+                                                   void *device_dest,
+                                                   void *device_params);
 template __global__ void give_clover_to<double>(
     void *device_clover, const void *device_src, void *device_dest,
     void *device_params);
+template __global__ void give_clover_to_block<double>(
+    void *device_clover, const void *device_src, void *device_dest,
+    void *device_params);
 template __global__ void give_clover_subtract<double>(
+    void *device_clover, const void *device_src, const void *device_subtract,
+    void *device_dest, double scale, void *device_params);
+template __global__ void give_clover_subtract_block<double>(
     void *device_clover, const void *device_src, const void *device_subtract,
     void *device_dest, double scale, void *device_params);
 //@@@CUDA_TEMPLATE_FOR_DEVICE@@@
@@ -986,12 +1106,23 @@ template __global__ void make_clover<float>(void *device_U, void *device_clover,
                                             void *device_params, float T);
 template __global__ void inverse_clover<float>(void *device_clover,
                                                void *device_params);
+template __global__ void check_clover_block_diagonal<float>(
+    const void *device_clover, void *device_params, int *flag);
 template __global__ void
 give_clover<float>(void *device_clover, void *device_dest, void *device_params);
+template __global__ void give_clover_block<float>(void *device_clover,
+                                                  void *device_dest,
+                                                  void *device_params);
 template __global__ void give_clover_to<float>(
     void *device_clover, const void *device_src, void *device_dest,
     void *device_params);
+template __global__ void give_clover_to_block<float>(
+    void *device_clover, const void *device_src, void *device_dest,
+    void *device_params);
 template __global__ void give_clover_subtract<float>(
+    void *device_clover, const void *device_src, const void *device_subtract,
+    void *device_dest, float scale, void *device_params);
+template __global__ void give_clover_subtract_block<float>(
     void *device_clover, const void *device_src, const void *device_subtract,
     void *device_dest, float scale, void *device_params);
 } // namespace qcu

@@ -1,0 +1,48 @@
+[日志元数据]
+日志类型: final
+生成时间: 2026-10-22 01:16:58 +0800
+批次: tag-dev101-20261022
+主任务: PyQCU dev101 本地开发标签归档
+触发原因: 任务完成
+摘要: 创建 dev101 注释标签，固定 HEAD 5a21a5e6，验证本地标签链；未提交工作区和未推送状态明确保留
+Git 根目录: /root/PyQCU
+
+## 关键日志
+### S1 — 标签基线与工作区核对
+- 目标: 确认下一 dev 标签编号、前驱标签以及可归档提交范围。
+- 命令/操作: `git for-each-ref --sort=-taggerdate`、`git status --short --branch`、`git rev-parse HEAD`、`git diff --check`。
+- 关键输出: 最新时序前驱为 `dev100`；`HEAD=5a21a5e61178b57a819333bc9be049712a9ba160`；`dev100..HEAD` 含两个提交；工作区仍有 27 个已跟踪修改、总结文档、续接日志及其他未跟踪文件。
+- 退出码: 0。
+- 证据与判断: `dev101` 可安全创建于当前 HEAD；未提交的 Stage12 至 Stage25 工作不能写入该标签。
+
+### S2 — 创建并验证 dev101
+- 目标: 创建本地开发快照标签并验证注释链和目标提交。
+- 命令/操作: `git tag -a dev101 -m ...`、`git cat-file -t dev101`、`git rev-parse dev101^{}`、`bash skills/pyqcu-tag/tag-chain.sh --check`。
+- 关键输出: `dev101` 是 annotated tag，peeled target 为 `5a21a5e61178b57a819333bc9be049712a9ba160`；本地 281 个管理标签的 follow 链和提交祖先关系 PASS。
+- 退出码: 0；创建标签、类型检查、目标检查和本地标签链检查均成功。
+- 证据与判断: 标签注释为 `follow dev100, 1. 整理 dev99 至 dev100 的 MG/CUDA/KUPL 工作记录、性能数据与续接文档; 2. 完成首轮生产 LIME MG、CUDA/KUPL 热路径、MPI 真残差与多卡基准工具优化; 3. 保留 CUDA Legacy MG、KUPL coarse 与 BiCGStab 后续工作区优化待下一快照归档; [codex].`。
+
+## 验证与证据
+- 测试/检查: `git diff --check`、标签对象类型、peeled commit、本地 tag-chain 全历史检查。
+- 结果: 全部通过；`git ls-remote --tags origin dev101` 为空，确认未推送。
+- 未验证项: 带 `--remote origin` 的 tag-chain 检查会因远端尚无 `dev101` 返回 1；这是未获推送授权的预期状态，不是本地标签链错误。
+
+## 变更与产物
+- 文件: 仅新增 Git 引用 `refs/tags/dev101` 和本日志及 `logs/AGENTS.md` 索引。
+- 产物: `dev101` 本地注释标签，目标提交 `5a21a5e61178b57a819333bc9be049712a9ba160`。
+- 未改动范围: 未暂存、未提交、未 push；`docs/progress_until_20261022_worktree.md`、Stage12 至 Stage25 源码和测试改动及 `logs/tmp/` 均未进入标签。
+
+## 风险、限制与下一步
+- 风险: 当前标签只固化已提交快照，不含工作区中的后续优化和交接文档。
+- 阻塞: 若需把当前完整工作区纳入下一标签，必须先获得本地提交授权并按 CUDA、KUPL、文档/日志逻辑分组提交。
+- 下一步: 获得明确授权后运行大文件闸门、定向测试与 `git diff --check`，再创建后续 dev 快照。
+
+## 用户输入指令
+~tag:dev
+
+## Agent 全文报告
+--- report begin ---
+已创建本地注释标签 `dev101`，前驱为 `dev100`，peeled target 为 `HEAD=5a21a5e61178b57a819333bc9be049712a9ba160`。`git diff --check` 通过，本地全历史标签链检查通过，当前共有 281 个管理标签。本次未执行提交、暂存或 push，因此远端尚无 `dev101`；远端检查报“远端缺失”是预期结果。
+
+当前工作区仍包含未提交的 Stage12 至 Stage25 优化、`docs/progress_until_20261022_worktree.md`、续接 TXT 日志和其他未跟踪文件，这些内容没有进入 `dev101`。若需要把当前完整进度纳入标签，应先获得本地提交授权并按 CUDA、KUPL、文档/日志分组提交，再创建下一开发快照。
+--- report end ---

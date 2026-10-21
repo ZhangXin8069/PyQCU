@@ -1,0 +1,155 @@
+[日志元数据]
+日志类型: stage
+生成时间: 2026-10-21 21:07:57 +0800
+批次: stage16-paired-reduction-20261021
+主任务: 持续比照 QUDA 优化 KUPL/CUDA QCU：MG 为主、BiCGStab 为辅；并行执行 CUDA/KUPL 子 agent
+触发原因: 阶段成果
+摘要: CUDA Clover BiCG 成对归约 2.18%，KUPL 4-rank legacy MG 成对归约 4.19%；CUDA MG 无 V-cycle 回归，三方报告与门禁通过
+Git 根目录: /root/PyQCU
+
+## 关键日志
+### S1 — CUDA legacy Clover BiCGStab 成对归约
+- 目标: 将单 rank sync-light 循环中的 `t^H s` 与 `t^H t` 两次 cuBLAS 点积合并，减少启动和 `t` 读取开销，同时保持任意 12x12 Clover 矩阵语义。
+- 操作: 新增 `bistabcg_dot_pair_complete`；每个 block 同时累加两个点积，最后一个 block 按固定 partial 顺序汇总；completion counter 每轮异步清零，不使用浮点 atomicAdd。
+- 基线: 两轮 ABBA、每轮 2 warmup + 10 steady，真实 LIME 统一输入，中位 `0.161293 s`，MAD `0.001219 s`，18 iterations，独立真残差 `6.695186e-7`。
+- 候选: 同热态两轮 ABBA，中位 `0.157776 s`，MAD `0.003917 s`，18 iterations，独立真残差 `6.694990e-7`。
+- 结果: 降低 `2.18%`，加速 `1.0223x`；库 SHA256 由 `c9c09991...` 变为 `8c37f6afefe4dc24bc9942647391083f58b391eb29c917960178d891ac21422a`。
+- 边界: 多层 MG 后端两轮中位均为 `0.1746 s`，生命周期 `0.417192 -> 0.414053 s`，20 iterations、真残差 `4.124735e-7`；不可把 BiCG 收益外推为 V-cycle 提速。
+
+### S2 — KUPL legacy-MG BiCGStab 成对归约
+- 目标: 合并 `bicgstab_chunk` 的 `(v,v)` 与 `(v,s)` 全局归约，降低多 rank 串行集合通信。
+- 操作: 新增 `mg_dot_pair`，同一 OpenMP 遍历计算两个局部点积，并用一次四实数组 `MPI_Allreduce` 汇总；更新公式、停机、adaptive correction 和 actual iteration counting 不变。
+- 基线: 生产 `24^3x64` c64、4 ranks x 4 threads、grid `1x4x1x1`、restart=5、deflate，三轮 `18.501/18.987/16.637 s`，中位 `18.501 s`。
+- 候选: 同配置三轮 `17.770/17.725/16.747 s`，中位 `17.725 s`。
+- 结果: 降低 `4.19%`，加速 `1.0438x`；均 47 iterations，native relative residual `9.138e-7`，verifier=0，峰值 RSS 约 `2.83 GiB`，resident 约 `2.06 GiB`。
+- 边界: 每轮集合归约从 6 降到 5；该收益来自通信与循环融合，不代表 coarse-dslash 算术量下降。
+
+## 验证与证据
+- CUDA strict tier0: 20 passed。
+- CUDA cuda-strict: 11 passed。
+- CUDA fused-FGMRES: 3 passed。
+- 非平凡 Clover strict MATPC/FGMRES: 2 passed。
+- 直接 Clover c64/c128：8 passed；QCU C API/pxd/pyx 37 项 ABI 检查 PASS。
+- KUPL Release 构建通过，最终 CTest：29/29 passed，25.87 s。
+- `git diff --check`: PASS。
+- form 全库审计：仅 1 项既存 `TAG_NAME_IN_PATH`，位于未修改的 `docs/progress_dev99_to_1640349d_20261021.md`。
+- CUDA 设备：物理 V100，`CUDA_DEVICE_ORDER=PCI_BUS_ID` + `CUDA_VISIBLE_DEVICES=2`，进程内 `cuda:0`，UUID `be23deb4-29b1-7bb2-29ef-c4ab7b34f0a8`。
+- 输入：LIME SHA256 `a49773fa3742d310f4ea162a932cf559253aeab708bac08a8dd1f6847df4294b`，RHS SHA256 `24da8b13665dc2a6e0503142bbb9f3baa0f4264d86541b6fca40a297b7c38a5b`，seed=42。
+- NCU profiling 仍受驱动权限限制，无法提供硬件计数器归因。
+
+## 变更与产物
+- CUDA:
+  - `cpp/cuda/qcu/include/bistabcg.h`
+  - `cpp/cuda/qcu/src/bistabcg.cu`
+  - `cpp/cuda/qcu/include/lattice_clover_bistabcg.h`
+  - `cpp/cuda/qcu/AGENTS.md`
+  - `skills/pyqcu-cuda/SKILL.md`
+- KUPL:
+  - `cpp/kupl/qcu/src/lattice_clover_multigrid.cpp`
+  - `cpp/kupl/qcu/AGENTS.md`
+  - `skills/pyqcu-kupl/SKILL.md`
+- 证据:
+  - `data/production_mg_20261021/stage16_cuda_c64_bicg_{baseline,candidate}_r{1,2}.json`
+  - `data/production_mg_20261021/stage16_cuda_c64_mg_{baseline,candidate}_r{1,2}.json`
+  - `data/production_mg_20261021/stage16_cuda_strict_tier1.json`
+  - `data/production_mg_20261021/stage16_kupl_c64_{baseline,pair_reduce}_r{1,2,3}.json`
+- CUDA candidate lib: `8c37f6afefe4dc24bc9942647391083f58b391eb29c917960178d891ac21422a`。
+- KUPL candidate lib: `8f1fffc241da76333ce017f5cf565927345d591371c33ecbfee2222f4d5e1c92`。
+- 未提交、未打 tag、未 push。
+
+## 风险、限制与下一步
+- CUDA 成对归约只使 legacy Clover BiCGStab 下降 2.18%，二层 MG 后端在当前噪声内不变；后续 MG 优先候选是“一次性结构检测 + 6x6 专用 Clover kernel + 任意矩阵通用回退”，不得直接假定外部矩阵稀疏。
+- 当前只有一张 V100；P100 不受本 PyTorch 构建支持，不能给出 CUDA 多卡正式结论。
+- QUDA MG 记录为 nvec24、3 outer iterations，QCU/KUPL 为 dof12；语义不等价，禁止计算 MG 倍率。
+- KUPL 4-rank 生产的独立 NumPy 真残差未导出，当前残差来自后端 fail-closed true-residual；1/2-rank 新强扩展未在本阶段重采样。
+- 下一步：CUDA 结构门控 Clover 专用 kernel；KUPL 补 c128 与 1/2/4-rank paired-reduction 强扩展。
+
+## Agent 全文报告
+--- report begin ---
+# Stage 16：CUDA/KUPL 成对归约与三方性能报告
+
+## 结论
+
+本阶段保留两个低风险、可验证的改动：
+
+1. CUDA QCU legacy Clover BiCGStab 将 `t^H s` 与 `t^H t` 合并为一次确定性 GPU 成对归约。真实生产 Clover BiCGStab 中位 `0.161293 -> 0.157776 s`，降低 `2.18%`，18 iterations 与真残差门禁不变。
+2. KUPL QCU legacy-MG BiCGStab 将 `(v,v)` 与 `(v,s)` 合并为一次四实数组 `MPI_Allreduce`。生产 4-rank MG 中位 `18.501 -> 17.725 s`，降低 `4.19%`，47 iterations、verifier 和 native residual 门禁不变。
+
+CUDA MG 后端本身没有可辨识提速：baseline 与 candidate 的 20 样本合并中位均为 `0.1746 s`。因此本阶段 CUDA 改动定位为 null-vector/BiCG 构建优化，不宣称 V-cycle 加速。
+
+## 统一物理输入与硬件口径
+
+- LIME：`/root/data/beta6.20_mu-0.2770_ms-0.2310_L24x64_cfg_9950.lime`
+- SHA256：`a49773fa3742d310f4ea162a932cf559253aeab708bac08a8dd1f6847df4294b`
+- 格点：`24x24x24x64`，c64
+- `mass=-0.277`，`csw=1.160920226`
+- PCG64 RHS seed=42，SHA256 `24da8b13665dc2a6e0503142bbb9f3baa0f4264d86541b6fca40a297b7c38a5b`
+- CUDA：单物理 V100；`CUDA_DEVICE_ORDER=PCI_BUS_ID`、`CUDA_VISIBLE_DEVICES=2`，进程内 `cuda:0`
+- KUPL：单节点 MPI `1x4x1x1`，每 rank 4 OpenMP threads，`KUPL_NUMA_BIND=1`
+
+## 三方性能总表
+
+| 路径 | 当前时间 | iterations | 真残差 | 口径 |
+|---|---:|---:|---:|---|
+| CUDA QCU Clover BiCGStab baseline | `0.161293 s` | 18 | `6.695186e-7` | 2 轮 ABBA，共 20 steady |
+| CUDA QCU Clover BiCGStab paired | `0.157776 s` | 18 | `6.694990e-7` | 同上，降低 2.18% |
+| CUDA QCU legacy MG backend baseline | `0.1746 s` | 20 | `4.124735e-7` | cache-hit，2x10 steady |
+| CUDA QCU legacy MG backend paired | `0.1746 s` | 20 | `4.124735e-7` | 无 V-cycle 收益 |
+| CUDA QCU lifecycle baseline | `0.417192 s` | 20 | `4.124735e-7` | 含 init/end 与残差探针 |
+| CUDA QCU lifecycle paired | `0.414053 s` | 20 | `4.124735e-7` | 仅下降 0.75%，视为噪声级 |
+| KUPL QCU legacy MG baseline | `18.501 s` | 47 | native `9.138e-7` | 4 ranks x 4 threads |
+| KUPL QCU legacy MG paired | `17.725 s` | 47 | native `9.138e-7` | 降低 4.19% |
+| QUDA BiCGStab | `0.137520 s` wall | 19 | `5.694274e-7` | 同 LIME、同 GPU |
+| QUDA MG nvec24 | `28.007541 s` | 3 outer | `5.123426e-7` | 与 dof12 语义不等价 |
+
+CUDA candidate 相对 QUDA BiCGStab 仍慢 `14.73%`；按每迭代成本为 `8.765 ms` 对 `7.238 ms`，约慢 `21.10%`。CUDA 18 次外层迭代少于 QUDA 的 19 次，因此 wall 差距小于每迭代差距。
+
+QUDA MG 使用 nvec24，而 QCU/KUPL legacy MG 使用 dof12；本报告禁止由上述 MG 数字计算速度比。
+
+## CUDA 根因与实现
+
+原单 rank sync-light 路径在每轮尾部连续执行两次 cuBLAS 复点积，输入左侧均为 `t`。新增 kernel 同时计算：
+
+- `t^H s`
+- `t^H t`
+
+每个 CUDA block 在寄存器中计算两个局部和，在 shared memory 做树形归约，partial 写入临时区；最后完成的 block 按固定索引顺序做第二级树形归约，直接写 `device_vals`。completion counter 每轮由 `cudaMemsetAsync` 清零，避免浮点 atomicAdd 的非确定性。multi-rank 的五流参考路径和 Clover 12x12 乘法语义未改变。
+
+## KUPL 根因与实现
+
+`bicgstab_chunk` 中两个相邻点积输入相同、互相独立，却各自产生局部并行区域和全局 `MPI_Allreduce`。`mg_dot_pair` 在同一 OpenMP 循环中同时累加 `v^H v` 与 `v^H s` 的四个实分量，然后一次 `MPI_Allreduce(count=4)`。每轮全流程集合归约数由 6 降到 5，更新公式、停机、adaptive correction 与真实完成迭代计数均不变。
+
+coarse-dslash 微基准还测量了 tile 大小：256-site `0.09049 s`、512-site `0.08405 s`、1024-site `0.07733 s`。1024 虽让孤立 kernel 快约 8%，但每次仅节省约 `6.7 ms`，远小于配对归约的生产收益，故恢复 512，只保留一个最小改动。
+
+## 正确性与回归
+
+- CUDA strict tier0：20 passed。
+- CUDA cuda-strict：11 passed。
+- CUDA fused-FGMRES：3 passed。
+- 非平凡 Clover strict MATPC/FGMRES：2 passed。
+- 直接 c64/c128 Clover 构造与 dslash 测试：8 passed。
+- CUDA `single_qcu_api.py`：PASS，header/pxd/pyx 37 项导出一致。
+- KUPL CTest：29/29 passed，25.87 s，覆盖 c64/c128、1/2/4-rank legacy MG、strict、ABI 与 failure mode。
+- `git diff --check`：PASS。
+- form 审计：1 项既存 `TAG_NAME_IN_PATH`，不属于本阶段改动。
+
+## 并行计算效率
+
+KUPL 本阶段保持 4-rank y-only 分域，并使用每轮少一次全局归约，4 rank 生产墙钟降低 `4.19%`。历史同代码族 1/2/4-rank 强扩展为 `85.204/46.752/29.942 s`，效率 `100%/91.1%/71.1%`；但该表来自 paired-reduction 之前，不能当作新改动的扩展效率。CUDA 当前只有一张可用 V100，无法完成正式双卡验证。
+
+## 证据与改动
+
+- CUDA 代码：`cpp/cuda/qcu/include/bistabcg.h`、`cpp/cuda/qcu/src/bistabcg.cu`、`cpp/cuda/qcu/include/lattice_clover_bistabcg.h`
+- KUPL 代码：`cpp/kupl/qcu/src/lattice_clover_multigrid.cpp`
+- 文档：对应 `AGENTS.md` 与 `skills/pyqcu-{cuda,kupl}/SKILL.md`
+- CUDA 报告：`data/production_mg_20261021/stage16_cuda_c64_bicg_*`、`stage16_cuda_c64_mg_*`、`stage16_cuda_strict_tier1.json`
+- KUPL 报告：`data/production_mg_20261021/stage16_kupl_c64_{baseline,pair_reduce}_r{1,2,3}.json`
+- CUDA 子 agent 本次成功重启并完成候选实现、ABBA 和 strict 门禁；其末段 MG 命令遗漏 `--dof 12 12`，主线程停止该误配置并完成最终 MG 收尾。KUPL 子 agent 返回 `agent-dispatch/v1` 成功结果。
+
+## 限制与下一步
+
+- CUDA MG V-cycle 本身未提速；不得把 BiCG 的 2.18% 写成 MG 收益。
+- QUDA MG nvec24 与 dof12 不等价，不发生公平倍率。
+- KUPL 4-rank 残差是后端 fail-closed native true residual，独立 NumPy verifier 未启用。
+- 下一步优先 CUDA Clover 结构检测：只有确认四个所需矩阵严格 block-diagonal 时才进入 6x6 专用 kernel，否则保留完整 12x12 通用路径；同时补 KUPL c128 与 1/2/4-rank paired-reduction 扩展。
+--- report end ---

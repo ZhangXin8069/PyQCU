@@ -1,0 +1,89 @@
+[日志元数据]
+日志类型: stage
+生成时间: 2026-10-21 21:51:46 +0800
+批次: stage19-fused-norm-rejected-20261021
+主任务: 持续比照 QUDA 优化 KUPL/CUDA QCU：MG 为主、BiCGStab 为辅
+触发原因: 阶段成果
+摘要: 融合 r/x 与残差范数候选仅 0.23% 收益已撤销；最终 CUDA BiCG wall 比 QUDA 快 4.91%，三方报告与门禁通过
+Git 根目录: /root/PyQCU
+
+## 关键日志
+### S1 — 融合 r/x 更新与残余范数候选
+- 目标: 用一次 kernel 同时完成 `r=s-ωt`、`x+=αp+ωs` 和 `r^H r`，替代一次全场 cuBLAS 点积。
+- 首版错误: 归约 block 数 640 小于原更新 grid 的 3456，导致只更新前 163840 sites；结果 60 iterations、真残差 `3.318699`，候选判失败。
+- 修正: 改为 block-stride 遍历全部 site；正确后保持 18 iterations、真残差 `6.694990e-7`。
+- A/B: Stage18 `0.132760 s`；Stage19 修正版两轮 `0.128986/0.133303 s`，合并中位 `0.132453 s`，仅改善 `0.23%`，低于噪声阈值。
+- 决策: 完整撤销融合 kernel、声明和实例化，恢复 Stage18 的 `give_r_x + cublasDot` 路径。
+- 最终重建: PASS；当前 CUDA lib SHA256 `a1d9113320f553a8b4344c02074a6762fee1b8d28c60c0c1bb0aca99350eeb1d`。
+
+### S2 — 最终三方性能（同热态补测）
+| 路径 | 当前时间 | iterations | 真残差 | 口径 |
+|---|---:|---:|---:|---|
+| CUDA QCU Clover BiCGStab Stage18 | `0.127732 s` | 18 | `6.694990e-7` | 2×10 steady |
+| CUDA QCU legacy MG block6 | `0.141000 s` | 20 | `4.1247345e-7` | 2×10 steady |
+| CUDA QCU MG lifecycle | `0.375467 s` | 20 | `4.1247345e-7` | 含 init/end/探针 |
+| KUPL QCU legacy MG | `17.725 s` | 47 | native `9.138e-7` | 4 ranks × 4 threads |
+| QUDA BiCGStab current | `0.134009 s` | 19 | `5.694274e-7` | 同 LIME、同 V100 补测 |
+| QUDA MG nvec24 | `28.007541 s` | 3 outer | `5.123426e-7` | 与 dof12 不等价 |
+
+- CUDA/QUDA BiCG wall：`1.0491x`，CUDA 快 `4.91%`。
+- 每迭代：CUDA `7.096 ms`、QUDA `7.053 ms`，CUDA 慢 `0.61%`；wall 优势主要来自 18 对 19 次外层迭代。
+- QUDA MG nvec24 与 dof12 legacy MG 语义不等价，不计算 MG 倍率。
+
+## 验证与证据
+- 最终 CUDA strict：tier0 20 passed、cuda-strict 11 passed、fused-FGMRES 3 passed。
+- 直接 c64/c128 Clover：8 passed。
+- QCU ABI：PASS。
+- Stage17/Stage18 结构门控最终解逐元素完全相同；非 block-diagonal 注入自动回退。
+- `git diff --check`：PASS。
+- form 审计仍仅有既存 `TAG_NAME_IN_PATH`。
+- 证据：`data/production_mg_20261021/stage18_cuda_c64_bicg_final{,_r2}.json`、`stage18_cuda_c64_mg_final{,_r2}.json`、`stage18_quda_c64_bicg_current.json`、`stage18_cuda_strict_tier1_final.json`、`stage19_cuda_c64_bicg_fused_norm_*`。
+
+## 变更与产物
+- 保留 Stage18：共享 Clover 结构探测、6x6 MG/BiCG 专用 multiply、完整 12x12 回退。
+- 撤销 Stage19：不保留 `bistabcg_update_r_x_norm_complete` 及其调用。
+- 当前代码仍是 Stage18 最终态；文档补充融合候选失败边界。
+- 未提交、未打 tag、未 push。
+
+## 风险、限制与下一步
+- 单迭代成本已与 QUDA 接近，但 CUDA 仍略慢 0.61%；后续应聚焦 host 同步或更大范围设备端迭代控制，避免继续堆叠微小 vector kernel 融合。
+- 单 V100、单 MPI rank；P100 不支持当前 PyTorch kernel image，多卡 CUDA 仍不可正式验证。
+- KUPL 仍是 4-rank legacy MG，后续需要 c128 与 1/2/4-rank 新强扩展。
+
+## Agent 全文报告
+--- report begin ---
+# Stage 19：融合范数候选否决与最终性能
+
+## 结论
+
+`r/x` 更新与残差范数融合候选已完整撤销。修正后的实现虽然正确，但两轮合并中位仅从 Stage18 的 `0.132760 s` 降至 `0.132453 s`，改善 `0.23%`；第二样本回到 `0.133303 s`，不满足保留门槛。首个 `0.128986 s` 低点不能作为稳定收益。
+
+## 失败与修正
+
+首版 kernel 使用归约 block 数 640 作为更新 grid，少覆盖了大部分 site，结果 60 iterations、真残差 `3.318699`。改为按 `block_count * block_size` 做 block-stride site 遍历后，残差与迭代数恢复。但正确版本的性能收益在噪声内，因此没有保留。
+
+## 当前最终三方性能
+
+| 路径 | 时间 | iterations | 真残差 |
+|---|---:|---:|---:|
+| CUDA QCU Clover BiCGStab | `0.127732 s` | 18 | `6.694990e-7` |
+| CUDA QCU legacy MG backend | `0.141000 s` | 20 | `4.1247345e-7` |
+| CUDA QCU MG lifecycle | `0.375467 s` | 20 | `4.1247345e-7` |
+| KUPL QCU legacy MG | `17.725 s` | 47 | native `9.138e-7` |
+| QUDA BiCGStab current | `0.134009 s` | 19 | `5.694274e-7` |
+| QUDA MG nvec24 | `28.007541 s` | 3 outer | `5.123426e-7` |
+
+CUDA BiCGStab wall 比 QUDA 快 `4.91%`；每迭代 `7.096 ms` 对 `7.053 ms`，仍慢 `0.61%`。该结论只适用于当前单 V100、真实 LIME、c64、18/19 次外层迭代口径。QUDA MG nvec24 与 dof12 不等价，禁止计算 MG 速度比。
+
+## 保留实现
+
+Stage18 保留：Clover 6x6 结构门控、MG/BiCG 专用 multiply、通用 12x12 回退。最终 lib 为 `a1d9113320f553a8b4344c02074a6762fee1b8d28c60c0c1bb0aca99350eeb1d`。
+
+## 验证
+
+strict tier0 20、cuda-strict 11、fused-FGMRES 3 全通过；直接 c64/c128 Clover 8 passed；ABI PASS；Stage17/18 解逐元素一致；非 block-diagonal 回退实测生效；`git diff --check` PASS。
+
+## 下一步
+
+停止在小 vector update 上继续叠加融合；下一轮转向 host 同步、迭代控制或更大粒度算子级优化。KUPL 侧补 c128 和 1/2/4-rank 新强扩展。
+--- report end ---

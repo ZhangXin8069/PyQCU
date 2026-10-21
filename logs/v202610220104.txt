@@ -1,0 +1,101 @@
+[日志元数据]
+日志类型: stage
+生成时间: 2026-10-22 01:04:50 +0800
+批次: stage25-bicg-single-dot-20261022
+主任务: 持续比照 QUDA 优化 KUPL/CUDA QCU：MG 为主，BiCGStab 为辅
+触发原因: 阶段成果
+摘要: CUDA standalone Clover BiCG单点积ABBA降低2.85%，18 iterations与真残差保持，相对QUDA wall快10.11%；冷构建null-space无显著变化；完成三方报告和完整门禁
+Git 根目录: /root/PyQCU
+
+## 关键日志
+### S1 — standalone Clover BiCGStab 单点积
+- 将 Stage22 `bistabcg_dot_complete` 用于 standalone Clover BiCGStab 单 rank fast path 的 rho、rtv 与每两次迭代检查范数；末尾 `(t,s)/(t,t)` 继续使用成对归约。
+- 固定 LIME/c64、同 RHS、2 warmup + 10 steady、ABBA 两轮。
+- 基线 Stage22 中位 `0.123997709 s`，候选 `0.120461542 s`，降低 `2.85%`；均 18 iterations。
+- 独立真残差 `6.694990e-7 -> 6.694679e-7`，均低于 `1e-6` 门禁。
+- 相对 QUDA `0.134009 s`，CUDA wall 快 `10.11%`；每迭代 `6.692 ms` 对 `7.053 ms`，快 `5.12%`。
+
+### S2 — 冷构建影响
+- 无 cache、真实 LIME、E12/nvi2、单次冷构建 A/B。
+- 总 setup `356.179 -> 353.635 s`，降低 `0.71%`。
+- null-space `26.524 -> 26.677 s`，处于噪声；33-tensor stencil 仍占主导。
+- 不把总 setup 波动写成 null-vector 构建显著提速。
+
+### S3 — 门禁
+- strict tier1: CPU `20 passed`、cuda-strict `11 passed`、fused-FGMRES `3 passed`，27.593 s。
+- 直接 Clover c64/c128: `8 passed`。
+- ABI: header/pxd/pyx 差异和 coverage_missing 为空，PASS。
+- `git diff --check`: PASS。
+- form audit: 仅既有 `docs/progress_dev99_to_1640349d_20261021.md` 的 `TAG_NAME_IN_PATH`。
+
+### S4 — 当前三方性能
+- CUDA Stage25 Clover BiCGStab: `0.120462 s`、18 iterations、`6.694679e-7`。
+- QUDA Clover BiCGStab: `0.134009 s`、19 iterations、`5.6942744e-7`。
+- CUDA Stage22 legacy MG fine-only: `0.13295 s`、20 iterations、`4.1257200e-7`。
+- KUPL legacy MG 4 ranks × 4 threads: `15.072466 s`、47 iterations、native 约 `9.138e-7`。
+- QUDA MG nvec24: `28.007541 s`、3 outer、`5.1234262e-7`，与 dof12 不等价。
+
+## 验证与证据
+- Candidate lib SHA256: `c78fca294974d799935817e4c3ed993b5a8aa1a37a8b5ca2c1dcd681d2eae964`。
+- ABBA/冷构建证据:
+  - `data/production_mg_20261021/stage25_cuda_c64_bicg_single_baseline_b1.json`
+  - `data/production_mg_20261021/stage25_cuda_c64_bicg_single_r1.json`
+  - `data/production_mg_20261021/stage25_cuda_c64_bicg_single_r2.json`
+  - `data/production_mg_20261021/stage25_cuda_c64_bicg_single_baseline_b2.json`
+  - `data/production_mg_20261021/stage25_cuda_c64_mg_cold_baseline.json`
+  - `data/production_mg_20261021/stage25_cuda_c64_mg_cold_single.json`
+  - `data/production_mg_20261021/stage25_cuda_strict_tier1.json`
+- LIME SHA256: `a49773fa3742d310f4ea162a932cf559253aeab708bac08a8dd1f6847df4294b`。
+- RHS SHA256: `24da8b13665dc2a6e0503142bbb9f3baa0f4264d86541b6fca40a297b7c38a5b`。
+- KUPL 最新 fine-hotspot 专项候选已撤销，CTest `29/29`，证据 `data/cpp/kupl/qcu/build/fine_hotspot_20261022/`。
+
+## 变更与产物
+- 保留: `cpp/cuda/qcu/include/lattice_clover_bistabcg.h` 中 standalone BiCG 单/成对归约接线。
+- 复用: `include/bistabcg.h`、`src/bistabcg.cu` 已有的 `bistabcg_dot_complete`。
+- 文档: `cpp/cuda/qcu/AGENTS.md`、`skills/pyqcu-cuda/SKILL.md`。
+- 未执行: 未提交、未打 tag、未 push、未删除文件。
+
+## 风险、限制与下一步
+- 单点积收益只覆盖单 rank；multi-rank 五流路径保持不变。
+- BiCG 是辅助优化；CUDA E12 真实 MG 仍受 coarse-space/内存容量限制，不能把 BiCG 收益写成 V-cycle 收益。
+- null-space 构建没有可辨识加速；stencil setup 仍是冷启动主导。
+- 下一步优先评估：BiCG multi-rank 归约是否能在不增加延迟的前提下合并，或 coarse operator 的压缩/矩阵自由表示；不再做 E12 V-cycle 微调。
+
+## Agent 全文报告
+--- report begin ---
+# Stage25 三方性能报告
+
+## 1. 结论
+standalone Clover BiCGStab 已统一使用确定性单点积和成对归约，ABBA 中位降低 `2.85%`，保持 18 iterations 与生产真残差。CUDA wall 已比 QUDA 快 `10.11%`，每迭代快 `5.12%`。
+
+## 2. 三方性能
+
+| 路径 | 当前结果 | iterations | 真/验收残差 | 说明 |
+|---|---:|---:|---:|---|
+| CUDA QCU Clover BiCGStab Stage25 | `0.120462 s` | 18 | `6.694679e-7` | ABBA 两轮 20 steady |
+| QUDA Clover BiCGStab | `0.134009 s` | 19 | `5.6942744e-7` | 同 mass/csw/RHS |
+| CUDA QCU legacy MG Stage22 | `0.13295 s` | 20 | `4.1257200e-7` | fine-only，`n_vcycles=0` |
+| KUPL legacy MG，4 ranks × 4 threads | `15.072466 s` | 47 | native 约 `9.138e-7` | 最新同窗基线 |
+| QUDA MG nvec24 | `28.007541 s` | 3 outer | `5.1234262e-7` | 与 dof12 不等价 |
+
+## 3. ABBA 和冷构建
+| 顺序 | 版本 | solver 中位，秒 |
+|---|---|---:|
+| B1 | Stage22 | `0.124643` |
+| A1 | Stage25 single | `0.120696` |
+| A2 | Stage25 single | `0.120228` |
+| B2 | Stage22 | `0.123353` |
+| 合并 | Stage22 | `0.123998` |
+| 合并 | Stage25 single | `0.120462` |
+
+冷构建总计 `356.179 -> 353.635 s`，但 null-space `26.524 -> 26.677 s` 在噪声内；stencil 仍是主导。
+
+## 4. KUPL 并行状态
+KUPL fine apply 占 4-rank solve `73.2%`；标量边界占 dslash `37.85%`。y-face SIMD 候选慢 `4.60%` 且 MAD 扩大 11.6 倍，已撤销。恢复后 CTest 29/29，保留既有 coarse tile 与成对 Allreduce。
+
+## 5. 正确性与限制
+strict tier1 20+11+3、Clover 8 项、ABI 全绿。单点积收益不覆盖 multi-rank；null-vector 构建无显著加速；不能将 BiCG 收益报告为 V-cycle 或 coarse-space 收益。
+
+## 6. 下一步
+CUDA 下一阶段优先 coarse operator 压缩/矩阵自由表示，或谨慎评估 multi-rank 点积合并；KUPL 则继续分析 rank-face 标量边界的访问分布与页局部性，不再盲目扩大 SIMD lane。
+--- report end ---

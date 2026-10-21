@@ -1,0 +1,73 @@
+[日志元数据]
+日志类型: final
+生成时间: 2026-10-21 18:01:44 +0800
+批次: skills-mg-cache-doc
+主任务: 将 33-tensor cache 与 Strict cache 对比写入 skills
+触发原因: 任务完成
+摘要: 在 pyqcu-solver 技能新增 MG cache 对比参考、触发入口与索引同步；27 项缓存回归和源码锚点检查通过，form audit 仅命中未修改的既有文档。
+Git 根目录: /root/PyQCU
+
+## 关键日志
+### S1 — 选择技能归属并实现
+- 目标: 将 33-tensor cache 与 Strict cache 的对比写入 PyQCU 技能库。
+- 命令/操作: 核对 `skill-creator`、`pyqcu-form`、库级技能索引与 solver/cuda/tools 技能；选择更新现有 `pyqcu-solver`，避免新增重复技能。
+- 关键输出: 新增 `references/mg-cache-comparison.md`；`SKILL.md` 增加触发描述和按需读取规则；同步 solver 与库级 `AGENTS.md`。
+- 退出码: 0
+- 证据与判断: 缓存选择属于求解器层级决策；详细内容采用分级披露，库内技能数保持 33。
+
+### S2 — 验证
+- 目标: 验证技能格式、源码锚点和缓存行为。
+- 命令/操作: `bash skills/pyqcu-form/form-audit.sh`；两组缓存 pytest；`bash -n`；源码 path:line 锚点检查；`git diff --check`。
+- 关键输出: pytest `25 passed` 与 `2 passed, 32 deselected`；shell 语法、文档存在性、索引计数、源码锚点和定向 diff 检查通过。
+- 退出码: pytest 0；审计 1
+- 证据与判断: form audit 唯一 finding 为未修改的 `docs/progress_dev99_to_1640349d_20261021.md` tag-name-in-path；`git diff --quiet` 对该文件返回 0，确认不属于本次改动。
+
+## 验证与证据
+- 测试/检查: Strict runtime cache、legacy coarse cache、33-slot stencil、shell 语法、技能索引、源码锚点。
+- 结果: 27 个目标测试通过；技能文档内部检查通过。
+- 未验证项: 未运行 GPU 大格求解，因为本次仅修改技能文档。
+
+## 变更与产物
+- 文件: `skills/pyqcu-solver/references/mg-cache-comparison.md`（新增）；`skills/pyqcu-solver/SKILL.md`；`skills/pyqcu-solver/AGENTS.md`；`skills/AGENTS.md`。
+- 产物: 可由 `pyqcu-solver` 技能按需加载的完整 cache 对比文档。
+- 未改动范围: 未修改求解器/CUDA/工具代码，未处理既有未跟踪测试和其他用户工作区改动。
+
+## 风险、限制与下一步
+- 风险: form audit 的全树结果被一个与本次无关的既有文档 finding 阻断。
+- 阻塞: 无；本次技能改动和定向验证均通过。
+- 下一步: 如需进一步降低发现成本，可在 `pyqcu-cuda` 与 `pyqcu-tools` 各加一行指向该 solver reference 的交叉引用。
+
+## 用户输入指令
+将此结果写入本库skills目录
+
+## Agent 全文报告
+--- report begin ---
+**完成内容**
+
+已将“33-tensor cache 对比 Strict cache”的结果写入现有 `pyqcu-solver` 技能，未新增重复技能：
+
+- 新增详细参考文档：[mg-cache-comparison.md](/root/PyQCU/skills/pyqcu-solver/references/mg-cache-comparison.md)
+- 更新 [SKILL.md](/root/PyQCU/skills/pyqcu-solver/SKILL.md)：补充 cache 相关触发描述、按需读取入口和四条关键边界。
+- 更新 [AGENTS.md](/root/PyQCU/skills/pyqcu-solver/AGENTS.md)：登记缓存对比参考。
+- 更新库级 [skills/AGENTS.md](/root/PyQCU/skills/AGENTS.md)：同步 `pyqcu-solver` 的职责摘要。
+- 技能总数保持 `33/33`，不新增第 34 个重叠技能。
+
+**推理依据**
+
+该比较的核心是 legacy compact-Schur 与 strict QUDA-style MG 的路线选择，属于 `pyqcu.solver` 的职责；底层 `pyqcu-cuda` 和 `pyqcu-tools` 已有各自目录职责。把详细内容放入 solver 的 `references/`，既能保持 `SKILL.md` 精简，也能避免多份正文漂移。
+
+**验证结果**
+
+- 缓存回归：`25 passed`
+- 33-slot 定向回归：`2 passed, 32 deselected`
+- `bash -n`：通过
+- 技能索引、参考文件可达性、源码 `path:line` 锚点：通过
+- 本次技能 diff 与 `git diff --check`：通过
+- `form-audit.sh`：技能部分通过，但全树审计返回 1；唯一 finding 是未修改的 `docs/progress_dev99_to_1640349d_20261021.md` tag-name-in-path。`git diff --quiet` 对该文件返回 0，确认不是本次引入。
+
+**后续步骤**
+
+本次任务已完成。若希望从 CUDA 或 tools 技能直接跳转到该比较，可后续各加一行交叉引用；当前没有代码修改或阻塞项。
+
+状态：**finished**。
+--- report end ---

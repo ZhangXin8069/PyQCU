@@ -1,0 +1,109 @@
+[日志元数据]
+日志类型: stage
+生成时间: 2026-10-21 23:43:50 +0800
+批次: stage21-mg-pair-reduction-20261021
+主任务: 持续比照 QUDA 优化 KUPL/CUDA QCU：MG 为主，BiCGStab 为辅
+触发原因: 阶段成果
+摘要: CUDA legacy MG fine成对归约ABBA降低3.01%，20 iterations与生产真残差门禁保持；strict/c64/c128/ABI全绿；Graph与双流overlap候选实测失败已撤销，并完成三方性能报告
+Git 根目录: /root/PyQCU
+
+## 关键日志
+### S1 — 先撤销两个无效候选
+- Graph 候选: 单 rank c64 fine Schur 的 4-iteration CUDA Graph segment 在生产点 `0.125121 s / 20 iter`，表观 backend `0.1654 s`，因每次 solve 重建 C++ 对象而无法分摊 capture/instantiate，撤销。
+- overlap 候选: 将 `D_oo·in` 与 `H_eo/D_ee^-1` 链分行重叠，生产 steady backend 中位约 `0.1445 s`，比 Stage20 `0.1407 s` 慢约 2.7%，撤销。
+- 判断: 两候选均未保留，不把失败候选写成优化结果。
+
+### S2 — fine 成对归约
+- 目标: 降低 legacy MG 单 rank fine Schur BiCGStab 每轮末尾两个点积的关键路径开销。
+- 实现: 将 `<t,s>` 与 `<t,t>` 合并为一次 `bistabcg_dot_pair_complete`；最后完成 block 按固定 partial 顺序汇总，counter 每轮异步清零；multi-rank 五流路径保持不变。
+- 证据: `PROF_SECTIONS` 每次 solve 都显示 `pair_checks=20`，与 20 iterations 一致。
+- 退出码: 0。
+
+### S3 — ABBA 性能
+- 基线与候选各两轮、每轮 2 warmup + 10 steady；固定 LIME `24^3x64` c64、mass `-0.277`、csw `1.160920226`、cache-hit、单 V100。
+- 20 样本合并中位: MG backend `0.14125 -> 0.13700 s`，降低 `3.01%`；lifecycle wall `0.372507 -> 0.368274 s`，降低 `1.14%`。
+- 两个版本均为 20 iterations；真残差 `4.1247345e-7 -> 4.1255681e-7`，变化来自归约顺序，均满足生产门禁。
+- 退出码: 0。
+
+### S4 — 回归
+- strict tier1: CPU 20 passed、cuda-strict 11 passed、fused-FGMRES 3 passed；原 45 s 门禁在进程退出阶段超时，120 s 重跑 40.787 s 全部通过，保留原失败记录。
+- 直接 Clover: c64/c128 共 8 passed。
+- ABI: header/pxd/pyx 差异为空，coverage_missing 为空，PASS。
+- legacy MG breakdown: c64 1 passed；c128 独立 smoke 输出 finite，`pair_checks=4`。
+- `git diff --check`: PASS。
+- form audit: 仅既有 `docs/progress_dev99_to_1640349d_20261021.md` 的 `TAG_NAME_IN_PATH`，与本轮无关。
+
+## 验证与证据
+- CUDA candidate lib SHA256: `4a171b0b84f1bc508e6e7f84a7349a893cef021d34d018912355dbdda7bb0195`。
+- ABBA 证据:
+  - `data/production_mg_20261021/stage21_cuda_c64_mg_pair_baseline_b1.json`
+  - `data/production_mg_20261021/stage21_cuda_c64_mg_pair_r1.json`
+  - `data/production_mg_20261021/stage21_cuda_c64_mg_pair_r2.json`
+  - `data/production_mg_20261021/stage21_cuda_c64_mg_pair_baseline_b2.json`
+- strict 证据: `data/production_mg_20261021/stage21_cuda_strict_tier1.json`。
+- 固定 LIME SHA256: `a49773fa3742d310f4ea162a932cf559253aeab708bac08a8dd1f6847df4294b`。
+- RHS SHA256: `24da8b13665dc2a6e0503142bbb9f3baa0f4264d86541b6fca40a297b7c38a5b`。
+- KUPL CTest 29/29；c64 4-rank 中位 `15.581 s`、2.978x、74.5% efficiency；c128 全格点 restart=0 中位 `10.282 s`、native recomputed `6.079e-8`。
+
+## 变更与产物
+- CUDA 保留: `cpp/cuda/qcu/include/lattice_clover_multigrid.h` 的 fine Schur 成对归约。
+- 文档同步: `cpp/cuda/qcu/AGENTS.md`、`skills/pyqcu-cuda/SKILL.md`。
+- 未保留: Graph segment、`D_oo`/hop-chain 重叠、临时 CUDA-event profiler。
+- 未改动/未执行: 未提交、未打 tag、未 push、未删除文件。
+
+## 风险、限制与下一步
+- 当前生产 MG 的 adaptive gate 仍为 `n_vcycles=0`，收益只属于 fine Schur BiCGStab，不是 coarse V-cycle。
+- 成对归约只覆盖单 rank；multi-rank 仍使用五流参考路径，不能外推性能。
+- QUDA MG nvec24 与 QCU/KUPL dof12 不等价，禁止计算公平倍率。
+- KUPL c128 尚无全格点 coarse cache，`restart=0` 结果不是 coarse MG 性能。
+- 下一步优先 fine `H_eo+D_ee^-1` kernel 的资源/访存优化，并以生产 ABBA + merge 门禁决定去留；不再重复 Graph 或带宽竞争型 overlap。
+
+## Agent 全文报告
+--- report begin ---
+# Stage21 三方性能报告
+
+## 1. 结论
+legacy Clover-MG 的单 rank fine Schur 路径已把每轮两个末尾点积合并为一次确定性成对归约。真实生产 ABBA 共 20 个 steady 样本中，MG backend 中位 `0.14125 -> 0.13700 s`，降低 `3.01%`；生命周期 wall `0.372507 -> 0.368274 s`，降低 `1.14%`。优化不改变迭代数、停机判据和生产真残差门禁。
+
+## 2. CUDA/KUPL/QUDA
+
+| 路径 | 当前结果 | iterations | 真/验收残差 | 口径 |
+|---|---:|---:|---:|---|
+| CUDA QCU legacy MG Stage21 | `0.13700 s` | 20 | `4.1255681e-7` | 单 rank c64 cache-hit，ABBA 20 steady |
+| CUDA QCU MG lifecycle Stage21 | `0.368274 s` | 20 | `4.1255681e-7` | 含 init/end 与残差探针 |
+| CUDA QCU Clover BiCGStab Stage20 | `0.125522 s` | 18 | `6.694990e-7` | 单 rank 同 LIME |
+| QUDA Clover BiCGStab | `0.134009 s` | 19 | `5.6942744e-7` | 同 mass/csw/RHS |
+| KUPL legacy MG, 4 ranks × 4 threads | `15.581 s` | 47 | native 约 `9.138e-7` | c64 强扩展当前中位 |
+| QUDA MG nvec24 | `28.007541 s` | 3 outer | `5.1234262e-7` | 与 dof12 不等价，禁止算倍率 |
+
+Stage21 MG backend 仍比 QUDA BiCGStab wall 慢约 2.23%，但二者的 inverter/MG 语义不同，只作同算子同精度量级参照。Stage20 CUDA BiCGStab 仍比 QUDA 快 6.33%，每迭代快 1.13%，这一结论未被 Stage21 改变。
+
+## 3. ABBA 明细
+| 顺序 | 版本 | solver 中位，秒 | lifecycle 中位，秒 |
+|---|---|---:|---:|
+| B1 | Stage20 | `0.14075` | `0.371378` |
+| A1 | Stage21 pair | `0.13680` | `0.367536` |
+| A2 | Stage21 pair | `0.13710` | `0.368286` |
+| B2 | Stage20 | `0.14165` | `0.372611` |
+| 合并 | Stage20 | `0.14125` | `0.372507` |
+| 合并 | Stage21 pair | `0.13700` | `0.368274` |
+
+两个版本均为 20 iterations。Stage20 真残差 `4.1247345e-7`，Stage21 `4.1255681e-7`；差异来自点积 partial 归约顺序，不表示物理口径变化。
+
+## 4. 并行效率与 KUPL
+KUPL c64 1/2/4-rank 中位 `46.407/27.790/15.581 s`，speedup `1.000/1.670/2.978x`，efficiency `100.0/83.5/74.5%`；1-rank 45 iterations，2/4-rank 47 iterations，来自 MPI 浮点累加顺序。KUPL CTest 29/29。
+
+KUPL c128 全格点、4-rank × 4 threads、`restart=0` 中位 `10.282 s`、21 iterations、native recomputed `6.079e-8`；独立 c128 BiCGStab 真残差 `6.962e-8`。`restart=0` 关闭层级，因此不是 coarse V-cycle 性能。
+
+## 5. 正确性门禁
+- strict tier1 20+11+3 全部通过。
+- 直接 c64/c128 Clover 8 项通过。
+- QCU header/pxd/pyx ABI 与 37 项导出检查通过。
+- c64 MG breakdown 1 项通过；c128 独立 pair smoke finite，`pair_checks=4`。
+- `git diff --check` 通过；form audit 仅既有未登记文档 finding。
+
+## 6. 未保留候选与下一步
+- 4-iteration CUDA Graph 在 20 次生产迭代下无法分摊 capture 成本，撤销。
+- `D_oo` 与 hop-chain 双流重叠受显存带宽和额外 combine kernel 限制，慢约 2.7%，撤销。
+- 下一步把重点放在 fine `H_eo+D_ee^-1` 单一 kernel 的寄存器/访存效率；只在生产 ABBA 收益超过噪声且 strict 门禁全绿时保留。
+--- report end ---

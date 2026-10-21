@@ -1,0 +1,75 @@
+[日志元数据]
+日志类型: general
+生成时间: 2026-10-22 01:10:47 +0800
+批次: dev100-to-worktree-handoff-20261022
+主任务: dev100 至当前工作区工作总结与续接交接
+触发原因: 一般记录
+摘要: 新增dev100至今Markdown总结并生成续接TXT：当前CUDA BiCG 0.120462s、MG 0.13295s，KUPL 4-rank 15.072466s；记录保留优化、撤销方向、门禁证据、风险与下一阶段优先级
+Git 根目录: /root/PyQCU
+
+## 关键日志
+### S1 — 范围与基线锁定
+- 目标: 汇总最近 tag `dev100` 至当前工作区的 CUDA QCU/KUPL QCU 迭代工作，并形成可直接续接的交接状态。
+- Git 范围: `dev100` peeled `1640349d`，之后有提交 `04bb23ba`、`5a21a5e6`，当前还包含未提交工作区改动。
+- 当前 HEAD: `5a21a5e6`，与 `origin/main` 对齐；暂存区为空。
+- 新 Markdown 总结: `docs/progress_until_20261022_worktree.md`。
+- Markdown SHA256: `aae30e09df7a0ff90000e48e11240ca0863a8cb9d3238c8833014cfe174db739`；266 行、15886 bytes。
+
+### S2 — 当前保留的实现状态
+- CUDA: Legacy MG 与 standalone Clover BiCGStab 单 rank fast path 使用确定性单点积 `bistabcg_dot_complete` 和成对归约 `bistabcg_dot_pair_complete`；multi-rank 五流路径保持不变。
+- CUDA: MG/BiCG 的 6×6 Clover 路径由严格 off-block 探测门控；任意非零、NaN 或通用外部矩阵自动回退完整 12×12。
+- CUDA: 单 rank BiCG 每 2 次迭代检查一次收敛，生产轨迹为 18 iterations；最多可能因奇数迭代收敛多执行一次。
+- CUDA: Legacy MG production gate 仍为 fine-only，PROF 显示 `n_vcycles=0`；不能把 fine Schur 优化写成 coarse V-cycle 收益。
+- KUPL: 保留 6×6 Clover onsite、512-site coarse tile、half-site canonical/full 转换、adaptive fail-closed coarse correction 和成对 MPI Allreduce。
+- KUPL: 4-rank 主要瓶颈是 fine Wilson-Clover rank-local apply（73.2%），不是 coarse、halo 或 Allreduce 总次数。
+
+### S3 — 当前生产性能
+- CUDA Clover BiCGStab Stage25: `0.120462 s`，18 iterations，独立真残差 `6.694679e-7`。
+- QUDA Clover BiCGStab: `0.134009 s`，19 iterations，真残差 `5.6942744e-7`。
+- CUDA Legacy MG Stage22: `0.13295 s`，20 iterations，真残差 `4.1257200e-7`；lifecycle `0.356707 s`。
+- KUPL Legacy MG 4 ranks × 4 threads: 最新稳定同窗中位 `15.072466 s`，47 iterations，native residual 约 `9.138e-7`。
+- KUPL c64 强扩展三代值: `46.407/27.790/15.581 s`，`1.000/1.670/2.978x`，efficiency `100.0/83.5/74.5%`；与最新 15.072 不同窗口，不能混算。
+- KUPL c128 `restart=0` 全格点: `10.282 s`、21 iterations、native recomputed `6.079e-8`；不是 c128 coarse V-cycle。
+- QUDA MG nvec24: `28.007541 s`、3 outer、`5.1234262e-7`；与 QCU/KUPL dof12 不等价，禁止计算公平倍率。
+
+### S4 — 已撤销方向
+- Stage19 `r/x + norm` 融合: 约 0.23%，已撤销。
+- CUDA Graph segment: 每次 solve 重建 C++ 对象，capture 成本不可摊销，已撤销。
+- CUDA onsite/hop 双流 overlap: 带宽竞争加 combine kernel，约慢 2.7%，已撤销。
+- CUDA 6×6 编译期资源特化: 仍为 88 registers，30 steady 仅 0.19%，lifecycle 反慢，已撤销。
+- CUDA E12 V-cycle/FGMRES 模式: 全部慢于 fine-only；保留 adaptive gate。
+- KUPL 5→4 Allreduce: 4-rank 慢 10.67%，已撤销。
+- KUPL y-face SIMD: 4-rank 慢 4.60%，MAD 扩大约 11.6x，已撤销。
+
+## 验证与证据
+- CUDA strict tier1: CPU 20、cuda-strict 11、fused-FGMRES 3，全部 passed。
+- CUDA 直接 Clover: c64/c128 8 passed。
+- QCU ABI: header/pxd/pyx 差异为空，coverage_missing 为空。
+- CUDA c128 legacy MG single/pair smoke: finite，计数命中。
+- KUPL CTest: 最新 `29/29 passed`。
+- `git diff --check`: PASS。
+- form audit: 仅既有 `docs/progress_dev99_to_1640349d_20261021.md` 的 `TAG_NAME_IN_PATH`，与该 finding 无关的本轮文档和代码未新增格式问题。
+- 当前 CUDA lib SHA256: `c78fca294974d799935817e4c3ed993b5a8aa1a37a8b5ca2c1dcd681d2eae964`。
+- 当前 KUPL lib SHA256: `677a9c42a827b5bb61ab333a5c67be19c218dc34e517449b47da7bdda47f2226`。
+- 固定 LIME SHA256: `a49773fa3742d310f4ea162a932cf559253aeab708bac08a8dd1f6847df4294b`。
+- 固定 RHS SHA256: `24da8b13665dc2a6e0503142bbb9f3baa0f4264d86541b6fca40a297b7c38a5b`。
+
+## 变更与产物
+- 正式 Markdown 总结: `docs/progress_until_20261022_worktree.md`。
+- 主要 CUDA 证据: `data/production_mg_20261021/`。
+- 主要 KUPL 证据: `data/cpp/kupl/qcu/build/{kupl_scaling_20261021,kupl_efficiency_20261021,fine_hotspot_20261022}/`。
+- CUDA cache: `data/logs/lime_mg_cache_stage14_w8/`。
+- KUPL cache: `data/logs/kupl_mg_cache_20261021/full_wilson_clover_L24x24x24x64_E12_nv1_v2.h5`。
+- 最新阶段记录: `logs/v202610220021.txt`、`logs/v202610220044.txt`、`logs/v202610220104.txt`。
+- 当前 worktree 含未提交 CUDA/KUPL 源码、测试、技能、文档与日志；未提交、未打 tag、未 push、未删除文件。
+
+## 风险、限制与下一步
+- CUDA 当前生产 MG 实际为 fine-only Schur BiCGStab，非 coarse V-cycle。
+- E12 单 null-vector coarse space 不足；E24 33-tensor cache 约 5.22 GB，E48 约 18.86 GB，而 E12 setup 已有约 29.75 GB peak，32 GiB V100 不能直接扩大 E 后重测。
+- CUDA 正式性能仅单 V100；P100 不被当前 PyTorch 构建支持。
+- KUPL 仍未完成全格点 c128 coarse cache/V-cycle，也未覆盖跨节点 InfiniBand。
+- 续接优先级 1: CUDA compressed/matrix-free coarse operator，先降低二次显存和 setup workspace。
+- 续接优先级 2: CUDA multi-rank 点积/归约合并，只按实际延迟和真实残差验收。
+- 续接优先级 3: KUPL scalar boundary 的 rank-face 分布、页局部性和 NUMA memory access；不要继续盲目扩大 SIMD lane。
+- 续接优先级 4: 同脚本、同时间窗口重跑 KUPL 1/2/4-rank，将强扩展基线统一到最新 15.072466 s 这一代。
+- 用户未要求停止前，不将长期任务标记完成；下一次可直接从本日志和 Markdown 总结的“下一阶段建议”继续。

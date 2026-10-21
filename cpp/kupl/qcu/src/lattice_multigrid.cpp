@@ -511,69 +511,193 @@ void LatticeSet<Real>::apply_multigrid_coarse_dslash_wide(
   const std::array<int, kDim> dims = {X, Y, Z, T};
   exchange_coarse_halo(in, E, dims);
   const int64_t volume = coarse_volume(dims);
-  const int64_t output_count = static_cast<int64_t>(E) * volume;
-  const int64_t chunk = omp_chunk<Real>(output_count);
-#pragma omp parallel for schedule(static, chunk)
-  for (int64_t output = 0; output < output_count; ++output) {
-    const int E_out = static_cast<int>(output / volume);
-    const int64_t site = output % volume;
-    std::array<int, kDim> coordinate{};
-    decode_coarse_site(site, dims, coordinate[0], coordinate[1],
-                       coordinate[2], coordinate[3]);
-    Complex<Real> sum(0);
-    for (int e = 0; e < E; ++e) {
-      const int64_t on_site =
-          (static_cast<int64_t>(E_out) * E + e) * volume + site;
-      sum += multiply_complex(
-          sitting[on_site], in[static_cast<int64_t>(e) * volume + site]);
-    }
+  // Process a tile of consecutive sites at a time.  The coefficient arrays
+  // are site-major within every stencil stream, so streaming a whole tile
+  // through each stream keeps the coefficient pages hot instead of walking
+  // 4608 widely separated streams once per site.  That address pattern was
+  // limited by TLB/page misses and dominated legacy-MG coarse applications.
+  constexpr int kCoarseTile = 512;
+
+  struct NeighborView {
+    const Complex<Real> *data = nullptr;
+    int64_t base = 0;
+    int64_t stride = 0;
+  };
+  const auto halo_direction = [](const int crossing[kDim]) {
+    int dimensions[2] = {-1, -1};
+    int signs[2] = {0, 0};
+    int count = 0;
     for (int dim = 0; dim < kDim; ++dim) {
-      for (int sign_index = 0; sign_index < 2; ++sign_index) {
-        const int sign = sign_index == 0 ? 1 : -1;
-        int shift[kDim] = {0, 0, 0, 0};
-        shift[dim] = sign;
-        for (int e = 0; e < E; ++e) {
-          const int64_t hop =
-              (static_cast<int64_t>(sign_index * kDim + dim) * E * E +
-               E_out * E + e) *
-                  volume +
-              site;
-          sum += multiply_complex(
-              hop_nn[hop],
-              coarse_neighbor(in, E, dims, coordinate, shift, e));
+      if (crossing[dim] != 0) {
+        if (count == 2) {
+          return -1;
         }
+        dimensions[count] = dim;
+        signs[count] = crossing[dim];
+        ++count;
       }
     }
-    static constexpr int pair_first[6] = {0, 0, 0, 1, 1, 2};
-    static constexpr int pair_second[6] = {1, 2, 3, 2, 3, 3};
-    for (int pair = 0; pair < 6; ++pair) {
-      for (int first_sign_index = 0; first_sign_index < 2;
-           ++first_sign_index) {
-        for (int second_sign_index = 0; second_sign_index < 2;
-             ++second_sign_index) {
-          int shift[kDim] = {0, 0, 0, 0};
-          shift[pair_first[pair]] =
-              first_sign_index == 0 ? 1 : -1;
-          shift[pair_second[pair]] =
-              second_sign_index == 0 ? 1 : -1;
-          for (int e = 0; e < E; ++e) {
-            const int64_t diagonal =
-                ((static_cast<int64_t>(first_sign_index * 2 +
-                                       second_sign_index) *
-                          6 +
-                      pair) *
-                     E * E +
-                 E_out * E + e) *
-                    volume +
-                site;
-            sum += multiply_complex(
-                hop_diag[diagonal],
-                coarse_neighbor(in, E, dims, coordinate, shift, e));
+    if (count == 0) {
+      return -1;
+    }
+    if (count == 1) {
+      return 2 * dimensions[0] + (signs[0] < 0 ? 1 : 0);
+    }
+    static constexpr int pair_index[kDim][kDim] = {
+        {-1, 0, 1, 2}, {-1, -1, 3, 4},
+        {-1, -1, -1, 5}, {-1, -1, -1, -1}};
+    const int pair = pair_index[dimensions[0]][dimensions[1]];
+    int combination = 0;
+    if (signs[0] < 0 && signs[1] < 0) {
+      combination = 1;
+    } else if (signs[0] > 0 && signs[1] < 0) {
+      combination = 2;
+    } else if (signs[0] < 0 && signs[1] > 0) {
+      combination = 3;
+    }
+    return 8 + pair * 4 + combination;
+  };
+  const auto neighbor_view = [&](const std::array<int, kDim> &coordinate,
+                                 const int shift[kDim]) {
+    std::array<int, kDim> target = coordinate;
+    int crossing[kDim] = {0, 0, 0, 0};
+    for (int dim = 0; dim < kDim; ++dim) {
+      target[dim] += shift[dim];
+      if (target[dim] < 0) {
+        if (geometry_.grid[dim] > 1) {
+          crossing[dim] = shift[dim];
+        }
+        target[dim] = dims[dim] - 1;
+      } else if (target[dim] >= dims[dim]) {
+        if (geometry_.grid[dim] > 1) {
+          crossing[dim] = shift[dim];
+        }
+        target[dim] = 0;
+      }
+    }
+    const int direction = halo_direction(crossing);
+    if (direction >= 0) {
+      const int64_t face = coarse_face_index(direction, target, dims);
+      return NeighborView{
+          coarse_halo_recv_[direction].data(),
+          coarse_halo_offsets_[direction] + face * E, 1};
+    }
+    return NeighborView{
+        in,
+        coarse_site_index(dims, target[0], target[1], target[2], target[3]),
+        volume};
+  };
+
+  std::array<std::array<int, kDim>, 8> nearest_shift{};
+  for (int dim = 0; dim < kDim; ++dim) {
+    for (int sign_index = 0; sign_index < 2; ++sign_index) {
+      nearest_shift[sign_index * kDim + dim][dim] =
+          sign_index == 0 ? 1 : -1;
+    }
+  }
+  std::array<std::array<int, kDim>, 24> diagonal_shift{};
+  static constexpr int pair_first[6] = {0, 0, 0, 1, 1, 2};
+  static constexpr int pair_second[6] = {1, 2, 3, 2, 3, 3};
+  for (int pair = 0; pair < 6; ++pair) {
+    for (int first_sign_index = 0; first_sign_index < 2;
+         ++first_sign_index) {
+      for (int second_sign_index = 0; second_sign_index < 2;
+           ++second_sign_index) {
+        std::array<int, kDim> shift{};
+        shift[pair_first[pair]] =
+            first_sign_index == 0 ? 1 : -1;
+        shift[pair_second[pair]] =
+            second_sign_index == 0 ? 1 : -1;
+        const int combination = first_sign_index * 2 + second_sign_index;
+        diagonal_shift[combination * 6 + pair] = shift;
+      }
+    }
+  }
+
+#pragma omp parallel for schedule(static)
+  for (int64_t block = 0; block < volume; block += kCoarseTile) {
+    const int count =
+        static_cast<int>(std::min<int64_t>(kCoarseTile, volume - block));
+    const Complex<Real> *neighbor_data[32][kCoarseTile];
+    int64_t neighbor_step[32][kCoarseTile];
+    std::array<int, kDim> coordinate{};
+    decode_coarse_site(block, dims, coordinate[0], coordinate[1],
+                       coordinate[2], coordinate[3]);
+    for (int site = 0; site < count; ++site) {
+      for (int direction = 0; direction < 8; ++direction) {
+        const NeighborView view =
+            neighbor_view(coordinate, nearest_shift[direction].data());
+        neighbor_data[direction][site] = view.data + view.base;
+        neighbor_step[direction][site] = view.stride;
+      }
+      for (int direction = 0; direction < 24; ++direction) {
+        const NeighborView view =
+            neighbor_view(coordinate, diagonal_shift[direction].data());
+        neighbor_data[8 + direction][site] = view.data + view.base;
+        neighbor_step[8 + direction][site] = view.stride;
+      }
+      if (++coordinate[3] == dims[3]) {
+        coordinate[3] = 0;
+        if (++coordinate[2] == dims[2]) {
+          coordinate[2] = 0;
+          if (++coordinate[1] == dims[1]) {
+            coordinate[1] = 0;
+            ++coordinate[0];
           }
         }
       }
     }
-    out[output] = sum;
+
+    for (int E_out = 0; E_out < E; ++E_out) {
+      Complex<Real> sum[kCoarseTile];
+      for (int site = 0; site < count; ++site) {
+        sum[site] = Complex<Real>(0);
+      }
+      for (int e = 0; e < E; ++e) {
+        const Complex<Real> *coeff =
+            sitting + (static_cast<int64_t>(E_out) * E + e) * volume + block;
+        const Complex<Real> *value = in + static_cast<int64_t>(e) * volume +
+                                     block;
+        for (int site = 0; site < count; ++site) {
+          sum[site] += multiply_complex(coeff[site], value[site]);
+        }
+      }
+      for (int direction = 0; direction < 8; ++direction) {
+        for (int e = 0; e < E; ++e) {
+          const Complex<Real> *coeff =
+              hop_nn + (static_cast<int64_t>(direction) * E * E +
+                        static_cast<int64_t>(E_out) * E + e) *
+                           volume +
+              block;
+          for (int site = 0; site < count; ++site) {
+            sum[site] += multiply_complex(
+                coeff[site],
+                neighbor_data[direction][site]
+                              [e * neighbor_step[direction][site]]);
+          }
+        }
+      }
+      for (int direction = 0; direction < 24; ++direction) {
+        for (int e = 0; e < E; ++e) {
+          const Complex<Real> *coeff =
+              hop_diag + (static_cast<int64_t>(direction) * E * E +
+                          static_cast<int64_t>(E_out) * E + e) *
+                             volume +
+              block;
+          for (int site = 0; site < count; ++site) {
+            sum[site] += multiply_complex(
+                coeff[site],
+                neighbor_data[8 + direction][site]
+                              [e * neighbor_step[8 + direction][site]]);
+          }
+        }
+      }
+      Complex<Real> *destination =
+          out + static_cast<int64_t>(E_out) * volume + block;
+      for (int site = 0; site < count; ++site) {
+        destination[site] = sum[site];
+      }
+    }
   }
 }
 

@@ -10,6 +10,7 @@ template <typename T> struct LatticeCloverDslash {
   cudaError_t err;
   void *clover;
   bool if_input;
+  bool block_diagonal_ = false;
   void give(LatticeSet<T> *_set_ptr) { set_ptr = _set_ptr; }
   void init() {
     if_input = false;
@@ -650,8 +651,15 @@ template <typename T> struct LatticeCloverDslash {
         set_ptr->host_params[_GRID_Z_] == 1 &&
         set_ptr->host_params[_GRID_T_] == 1;
     if (!single_rank) checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
-    give_clover<T><<<set_ptr->gridDim, set_ptr->blockDim, 0, set_ptr->stream>>>(
-        clover, fermion_out, set_ptr->device_params);
+    if (block_diagonal_) {
+      give_clover_block<T>
+          <<<set_ptr->gridDim, set_ptr->blockDim, 0, set_ptr->stream>>>(
+              clover, fermion_out, set_ptr->device_params);
+    } else {
+      give_clover<T>
+          <<<set_ptr->gridDim, set_ptr->blockDim, 0, set_ptr->stream>>>(
+              clover, fermion_out, set_ptr->device_params);
+    }
     if (!single_rank) checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
     err = cudaGetLastError();
     checkCudaErrors(err);
@@ -663,9 +671,15 @@ template <typename T> struct LatticeCloverDslash {
         set_ptr->host_params[_GRID_Z_] == 1 &&
         set_ptr->host_params[_GRID_T_] == 1;
     if (!single_rank) checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
-    give_clover_to<T>
-        <<<set_ptr->gridDim, set_ptr->blockDim, 0, set_ptr->stream>>>(
-            clover, fermion_in, fermion_out, set_ptr->device_params);
+    if (block_diagonal_) {
+      give_clover_to_block<T>
+          <<<set_ptr->gridDim, set_ptr->blockDim, 0, set_ptr->stream>>>(
+              clover, fermion_in, fermion_out, set_ptr->device_params);
+    } else {
+      give_clover_to<T>
+          <<<set_ptr->gridDim, set_ptr->blockDim, 0, set_ptr->stream>>>(
+              clover, fermion_in, fermion_out, set_ptr->device_params);
+    }
     if (!single_rank) checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
     err = cudaGetLastError();
     checkCudaErrors(err);
@@ -678,10 +692,17 @@ template <typename T> struct LatticeCloverDslash {
         set_ptr->host_params[_GRID_Z_] == 1 &&
         set_ptr->host_params[_GRID_T_] == 1;
     if (!single_rank) checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
-    give_clover_subtract<T>
-        <<<set_ptr->gridDim, set_ptr->blockDim, 0, set_ptr->stream>>>(
-            clover, fermion_in, subtract, fermion_out, subtract_scale,
-            set_ptr->device_params);
+    if (block_diagonal_) {
+      give_clover_subtract_block<T>
+          <<<set_ptr->gridDim, set_ptr->blockDim, 0, set_ptr->stream>>>(
+              clover, fermion_in, subtract, fermion_out, subtract_scale,
+              set_ptr->device_params);
+    } else {
+      give_clover_subtract<T>
+          <<<set_ptr->gridDim, set_ptr->blockDim, 0, set_ptr->stream>>>(
+              clover, fermion_in, subtract, fermion_out, subtract_scale,
+              set_ptr->device_params);
+    }
     if (!single_rank) checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
     err = cudaGetLastError();
     checkCudaErrors(err);
@@ -705,5 +726,29 @@ template <typename T> struct LatticeCloverDslash {
     checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
   }
 };
+
+template <typename T>
+bool clover_schur_matrices_block_diagonal(void *clover_ee_inv,
+                                          void *clover_oo,
+                                          LatticeSet<T> *set_ptr) {
+  if (clover_ee_inv == nullptr || clover_oo == nullptr) return false;
+  int *layout_flag = nullptr;
+  checkCudaErrors(cudaMallocAsync(&layout_flag, sizeof(int), set_ptr->stream));
+  checkCudaErrors(cudaMemsetAsync(layout_flag, 0, sizeof(int), set_ptr->stream));
+  check_clover_block_diagonal<T>
+      <<<set_ptr->gridDim, set_ptr->blockDim, 0, set_ptr->stream>>>(
+          clover_ee_inv, set_ptr->device_params, layout_flag);
+  check_clover_block_diagonal<T>
+      <<<set_ptr->gridDim, set_ptr->blockDim, 0, set_ptr->stream>>>(
+          clover_oo, set_ptr->device_params, layout_flag);
+  checkCudaErrors(cudaGetLastError());
+  int host_layout_flag = 1;
+  checkCudaErrors(cudaMemcpyAsync(
+      &host_layout_flag, layout_flag, sizeof(int), cudaMemcpyDeviceToHost,
+      set_ptr->stream));
+  checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
+  checkCudaErrors(cudaFreeAsync(layout_flag, set_ptr->stream));
+  return host_layout_flag == 0;
+}
 } // namespace qcu
 #endif
