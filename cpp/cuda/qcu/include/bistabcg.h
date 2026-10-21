@@ -4,6 +4,8 @@
 namespace qcu {
 template <typename T> __global__ void bistabcg_give_1beta(void *device_vals);
 template <typename T>
+__global__ void bistabcg_give_1beta_rp(void *device_vals);
+template <typename T>
 __global__ void bistabcg_give_1rho_prev(void *device_vals);
 template <typename T> __global__ void bistabcg_give_1alpha(void *device_vals);
 template <typename T> __global__ void bistabcg_give_1omega(void *device_vals);
@@ -37,8 +39,23 @@ template <typename T>
 __global__ void bistabcg_give_x_o(void *device_x_o, void *device_p,
                                   void *device_s, void *device_vals);
 template <typename T>
+__global__ void bistabcg_give_r_x(void *device_r, void *device_x_o,
+                                  void *device_p, void *device_s,
+                                  void *device_tt, void *device_vals);
+template <typename T>
 __global__ void bistabcg_give_r(void *device_r, void *device_s, void *device_tt,
                                 void *device_vals);
+template <typename T, int block_size>
+__global__ void bistabcg_dot_complete(
+    const LatticeComplex<T> *left, const LatticeComplex<T> *right, int n,
+    int block_count, LatticeComplex<T> *partials, LatticeComplex<T> *result,
+    unsigned int *completion_counter);
+template <typename T, int block_size>
+__global__ void bistabcg_dot_pair_complete(
+    const LatticeComplex<T> *left, const LatticeComplex<T> *right0,
+    const LatticeComplex<T> *right1, int n, int block_count,
+    LatticeComplex<T> *partials, LatticeComplex<T> *result0,
+    LatticeComplex<T> *result1, unsigned int *completion_counter);
 template <typename T>
 __global__ void bistabcg_give_diff2(void *device_x, void *device_ans,
                                     void *device_vec, void *device_vals);
