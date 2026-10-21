@@ -375,7 +375,7 @@ template <typename T> struct LatticeWilsonDslash {
     if (single_rank) {
       wilson_dslash<T, false><<<set_ptr->gridDim, set_ptr->blockDim, 0,
                                 set_ptr->stream>>>(
-          gauge, fermion_in, fermion_out, _device_params, nullptr);
+          gauge, fermion_in, fermion_out, _device_params, nullptr, false);
       if (!skip_final_sync_)
         checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
       return;
@@ -720,42 +720,42 @@ template <typename T> struct LatticeWilsonDslash {
     }
   }
   void run_eo_clover(void *fermion_out, void *fermion_in, void *gauge,
-                     void *clover) {
+                     void *clover, bool block_diagonal = false) {
     require_single_rank_clover();
     wilson_dslash<T, true><<<set_ptr->gridDim, set_ptr->blockDim, 0,
                              set_ptr->stream>>>(
         gauge, fermion_in, fermion_out, set_ptr->device_params_even_no_dag,
-        clover);
+        clover, block_diagonal);
     if (!skip_final_sync_)
       checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
   }
   void run_oe_clover(void *fermion_out, void *fermion_in, void *gauge,
-                     void *clover) {
+                     void *clover, bool block_diagonal = false) {
     require_single_rank_clover();
     wilson_dslash<T, true><<<set_ptr->gridDim, set_ptr->blockDim, 0,
                              set_ptr->stream>>>(
         gauge, fermion_in, fermion_out, set_ptr->device_params_odd_no_dag,
-        clover);
+        clover, block_diagonal);
     if (!skip_final_sync_)
       checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
   }
   void run_eo_dag_clover(void *fermion_out, void *fermion_in, void *gauge,
-                         void *clover) {
+                         void *clover, bool block_diagonal = false) {
     require_single_rank_clover();
     wilson_dslash<T, true><<<set_ptr->gridDim, set_ptr->blockDim, 0,
                              set_ptr->stream>>>(
         gauge, fermion_in, fermion_out, set_ptr->device_params_even_dag,
-        clover);
+        clover, block_diagonal);
     if (!skip_final_sync_)
       checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
   }
   void run_oe_dag_clover(void *fermion_out, void *fermion_in, void *gauge,
-                         void *clover) {
+                         void *clover, bool block_diagonal = false) {
     require_single_rank_clover();
     wilson_dslash<T, true><<<set_ptr->gridDim, set_ptr->blockDim, 0,
                              set_ptr->stream>>>(
         gauge, fermion_in, fermion_out, set_ptr->device_params_odd_dag,
-        clover);
+        clover, block_diagonal);
     if (!skip_final_sync_)
       checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
   }

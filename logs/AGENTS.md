@@ -213,3 +213,139 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 关键内容: 最终复核：CUDA MG 0.1720 s、KUPL 4x4 5.649 s、CUDA BiCG 0.1872 s；测试与构建通过
 - 验证: path, size, required sections, conflict markers
 - 批次状态: in-progress
+## mg-assets-analysis - final - 2026-10-21 17:21:14 +0800
+- 主任务: 解释 QCU 完整 33-tensor 粗层资产
+- 日志文件: logs/v2026102117.txt
+- 文件大小: 6570 bytes
+- 触发原因: 任务完成
+- 关键内容: 从物理来源、三数组布局、完整缓存边界和 strict cache 区别说明 QCU 33-tensor 粗层资产；CPU 打包与缓存回归通过。
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete
+## mg-cache-comparison - final - 2026-10-21 17:32:32 +0800
+- 主任务: 对比 33-tensor cache 与 Strict cache
+- 日志文件: logs/v2026102117-2.txt
+- 文件大小: 8067 bytes
+- 触发原因: 任务完成
+- 关键内容: 从粗算子数学表示、几何、张量内容、内存、构建、kernel、缓存完整性和运行期 ABI 对比两种 MG cache；33 项 Strict 与 4 项旧 cache 测试通过。
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete
+## skills-mg-cache-doc - final - 2026-10-21 18:01:44 +0800
+- 主任务: 将 33-tensor cache 与 Strict cache 对比写入 skills
+- 日志文件: logs/v2026102118.txt
+- 文件大小: 4452 bytes
+- 触发原因: 任务完成
+- 关键内容: 在 pyqcu-solver 技能新增 MG cache 对比参考、触发入口与索引同步；27 项缓存回归和源码锚点检查通过，form audit 仅命中未修改的既有文档。
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete
+## stage12-cuda-nullvec-kupl-onsite-20261021 - stage - 2026-10-21 18:08:39 +0800
+- 主任务: 持续比照 QUDA 优化 KUPL/CUDA QCU：MG 为主、BiCGStab 为辅
+- 日志文件: logs/v202610211808.txt
+- 文件大小: 10179 bytes
+- 触发原因: 阶段成果
+- 关键内容: CUDA null-vector BiCGStab chunk 6 改善约 29%；KUPL onsite c64 生产 A/B 改善 7.2%，c128 微基准改善约 13.2% 但生产样本不足；完整冷 setup 与三方回归通过
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
+## stage13-cuda-gather-w8-kupl-tile512-20261021 - stage - 2026-10-21 19:25:37 +0800
+- 主任务: 持续比照 QUDA 优化 KUPL/CUDA QCU：MG 为主、BiCGStab 为辅；并行派发 CUDA/KUPL 子 agent
+- 日志文件: logs/v202610211925.txt
+- 文件大小: 12573 bytes
+- 触发原因: 阶段成果
+- 关键内容: CUDA stencil gather+W8 使 cold setup 降 46.85%；KUPL coarse tile512 等使 4-rank MG 降 68.18%；三方报告、CTest 29/29 与 strict tier1 全绿
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
+## stage16-paired-reduction-20261021 - stage - 2026-10-21 21:07:57 +0800
+- 主任务: 持续比照 QUDA 优化 KUPL/CUDA QCU：MG 为主、BiCGStab 为辅；并行执行 CUDA/KUPL 子 agent
+- 日志文件: logs/v202610212107.txt
+- 文件大小: 11229 bytes
+- 触发原因: 阶段成果
+- 关键内容: CUDA Clover BiCG 成对归约 2.18%，KUPL 4-rank legacy MG 成对归约 4.19%；CUDA MG 无 V-cycle 回归，三方报告与门禁通过
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
+## stage17-clover-block-gate-20261021 - stage - 2026-10-21 21:29:43 +0800
+- 主任务: 持续比照 QUDA 优化 KUPL/CUDA QCU：MG 为主、BiCGStab 为辅
+- 日志文件: logs/v202610212129.txt
+- 文件大小: 7685 bytes
+- 触发原因: 阶段成果
+- 关键内容: CUDA legacy MG 增加严格 Clover 6x6 结构检测与完整 12x12 回退；生产 MG 后端降低 16.04%，解逐元素相同，三方报告与门禁通过
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
+## stage18-bicg-clover-block-20261021 - stage - 2026-10-21 21:39:33 +0800
+- 主任务: 持续比照 QUDA 优化 KUPL/CUDA QCU：MG 为主、BiCGStab 为辅
+- 日志文件: logs/v202610212139.txt
+- 文件大小: 6132 bytes
+- 触发原因: 阶段成果
+- 关键内容: Clover BiCGStab 6x6 结构门控降低 16.58% 并逐元素保持解；CUDA wall 比 QUDA 快 3.59%，三方报告与 strict 门禁通过
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
+## stage19-fused-norm-rejected-20261021 - stage - 2026-10-21 21:51:46 +0800
+- 主任务: 持续比照 QUDA 优化 KUPL/CUDA QCU：MG 为主、BiCGStab 为辅
+- 日志文件: logs/v202610212151.txt
+- 文件大小: 5533 bytes
+- 触发原因: 阶段成果
+- 关键内容: 融合 r/x 与残差范数候选仅 0.23% 收益已撤销；最终 CUDA BiCG wall 比 QUDA 快 4.91%，三方报告与门禁通过
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
+## stage20-sync-chunk-kupl-scaling-20261021 - stage - 2026-10-21 22:20:17 +0800
+- 主任务: 持续比照 QUDA 优化 KUPL/CUDA QCU：MG 为主，BiCGStab 为辅
+- 日志文件: logs/v202610212220.txt
+- 文件大小: 10416 bytes
+- 触发原因: 阶段成果
+- 关键内容: Stage20 CUDA 每2迭代收敛检查降低1.80%，CUDA 18对QUDA 19次且wall快6.33%；KUPL c64 4-rank 2.978x/74.5%，c128生产restart0与独立BiCG真残差通过；严格标注MG不可比口径与c128 coarse V-cycle缺口
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
+## stage21-mg-pair-reduction-20261021 - stage - 2026-10-21 23:43:50 +0800
+- 主任务: 持续比照 QUDA 优化 KUPL/CUDA QCU：MG 为主，BiCGStab 为辅
+- 日志文件: logs/v202610212343.txt
+- 文件大小: 7368 bytes
+- 触发原因: 阶段成果
+- 关键内容: CUDA legacy MG fine成对归约ABBA降低3.01%，20 iterations与生产真残差门禁保持；strict/c64/c128/ABI全绿；Graph与双流overlap候选实测失败已撤销，并完成三方性能报告
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
+## stage22-mg-single-dot-20261021 - stage - 2026-10-21 23:55:52 +0800
+- 主任务: 持续比照 QUDA 优化 KUPL/CUDA QCU：MG 为主，BiCGStab 为辅；CUDA/KUPL 子任务并行
+- 日志文件: logs/v202610212355.txt
+- 文件大小: 6719 bytes
+- 触发原因: 阶段成果
+- 关键内容: CUDA legacy MG fine单点积ABBA再降3.38%，相对Stage20累计降5.88%；strict/Clover/ABI/c64/c128全绿；KUPL专项并行调查2/4-rank效率损失并报告三方性能
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
+## stage23-parallel-diagnostics-20261022 - stage - 2026-10-22 00:21:56 +0800
+- 主任务: 持续比照 QUDA 优化 KUPL/CUDA QCU：MG 为主，BiCGStab 为辅；CUDA/KUPL 并行诊断
+- 日志文件: logs/v202610220021.txt
+- 文件大小: 6903 bytes
+- 触发原因: 阶段成果
+- 关键内容: KUPL瓶颈分解显示4-rank fine apply占73.2%，5→4 Allreduce候选慢10.67%已撤销；CUDA 6x6特化仅0.19%且无寄存器收益已撤销；两侧门禁通过并给出三方性能
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
+## stage24-real-mg-and-kupl-fine-20261022 - stage - 2026-10-22 00:44:28 +0800
+- 主任务: 持续比照 QUDA 优化 KUPL/CUDA QCU：真实 MG、fine dslash 与并行效率
+- 日志文件: logs/v202610220044.txt
+- 文件大小: 7144 bytes
+- 触发原因: 阶段成果
+- 关键内容: CUDA E12真实MG各模式均慢于fine-only，deflate残差更低但wall增9.9%；KUPL fine标量边界SIMD候选慢4.60%已撤销；完成三方性能与容量约束报告
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
+## stage25-bicg-single-dot-20261022 - stage - 2026-10-22 01:04:50 +0800
+- 主任务: 持续比照 QUDA 优化 KUPL/CUDA QCU：MG 为主，BiCGStab 为辅
+- 日志文件: logs/v202610220104.txt
+- 文件大小: 5936 bytes
+- 触发原因: 阶段成果
+- 关键内容: CUDA standalone Clover BiCG单点积ABBA降低2.85%，18 iterations与真残差保持，相对QUDA wall快10.11%；冷构建null-space无显著变化；完成三方报告和完整门禁
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
+## dev100-to-worktree-handoff-20261022 - general - 2026-10-22 01:10:47 +0800
+- 主任务: dev100 至当前工作区工作总结与续接交接
+- 日志文件: logs/v20261022011047.txt
+- 文件大小: 6083 bytes
+- 触发原因: 一般记录
+- 关键内容: 新增dev100至今Markdown总结并生成续接TXT：当前CUDA BiCG 0.120462s、MG 0.13295s，KUPL 4-rank 15.072466s；记录保留优化、撤销方向、门禁证据、风险与下一阶段优先级
+- 验证: path, size, required sections, conflict markers
+- 批次状态: in-progress
+## tag-dev101-20261022 - final - 2026-10-22 01:16:58 +0800
+- 主任务: PyQCU dev101 本地开发标签归档
+- 日志文件: logs/v2026102201.txt
+- 文件大小: 3852 bytes
+- 触发原因: 任务完成
+- 关键内容: 创建 dev101 注释标签，固定 HEAD 5a21a5e6，验证本地标签链；未提交工作区和未推送状态明确保留
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete

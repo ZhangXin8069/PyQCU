@@ -2395,7 +2395,7 @@ class StrictFineGlobalDslash {
     const int blocks = (total + _BLOCK_SIZE_ - 1) / _BLOCK_SIZE_;
     wilson_dslash<T, false><<<blocks, _BLOCK_SIZE_, 0, set_->stream>>>(
         global_gauge_, global_field_in_, global_field_out_, device_params_,
-        nullptr);
+        nullptr, false);
     strict_check_cuda(cudaGetLastError(),
                       "strict fine global dslash launch");
     const size_t local_out_elements = 12 * local_sites_;

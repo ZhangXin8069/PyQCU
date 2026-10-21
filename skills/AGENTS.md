@@ -40,7 +40,7 @@ frontmatter：name 与目录名一致 + description 写触发场景（何时使�
 |---|---|
 | `pyqcu-lattice` | pyqcu.lattice：gamma/Gell-Mann 矩阵、SU(3) 检查、规范场生成与 Ward 负索引约定。 |
 | `pyqcu-dslash` | pyqcu.dslash：Wilson/Clover 狄拉克算子（hoping/sitting/operator 三类），含 MPI halo 交换、奇偶预处理、Galerkin 粗网格投影与反模式清单。 |
-| `pyqcu-solver` | pyqcu.solver：BiCGStab(l)/FGMRES 与 legacy/Strict QUDA-style MultiGrid，含奇偶、Galerkin 与持久显存语义。 |
+| `pyqcu-solver` | pyqcu.solver：BiCGStab(l)/FGMRES 与 legacy/Strict QUDA-style MultiGrid，含奇偶、Galerkin、持久显存及 33-tensor/Strict cache 选择边界。 |
 | `pyqcu-smear` | pyqcu.smear：stout smearing（Morningstar-Peardon SU(3) 投影）与 Wuppertal 高斯模糊，含数值稳定性处理与 MPI 支持。 |
 | `pyqcu-cann` | pyqcu.cann：Ascend NPU 的 torch 兼容层，将复数算子分解为实/虚部；含 force_use_npu 全局标志与 einsum 组合分解算法。 |
 | `pyqcu-cuda` | pyqcu.cuda：Cython/libqcu.so 桥接、Strict MultiGrid、params[58]/argv[8]/set_ptrs[100] 与显存生命周期。 |
