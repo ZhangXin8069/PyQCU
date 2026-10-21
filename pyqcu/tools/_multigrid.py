@@ -1,3 +1,4 @@
+import math
 import torch
 from typing import Callable, List, Optional
 from pyqcu import solver, tools
@@ -353,9 +354,27 @@ def _vdot_batch(a, b):
     return torch.einsum("Bk,Bk->B", a_flat.conj(), b_flat)
 
 
+def _nullvec_batch_chunk_from_free(dof, field_numel, itemsize, free_bytes,
+                                   requested=6):
+    """Choose a batch size without turning a performance win into an OOM.
+
+    The production 24^3x64 c64 calibration used about 0.69 GiB of transient
+    device memory per batch item (14 complex field copies); batch=12 exhausted
+    the 32 GiB V100 and ran 4--5x slower than batch=6.  Keep 1 GiB available
+    after the estimated transient work and never exceed the caller's request.
+    """
+    requested = min(max(1, int(dof)), max(1, int(requested)))
+    if free_bytes is None:
+        return requested
+    bytes_per_vector = max(1, int(field_numel) * int(itemsize) * 14)
+    reserve = max(1 << 30, int(free_bytes) // 10)
+    available = max(0, int(free_bytes) - reserve)
+    return min(requested, max(1, available // bytes_per_vector))
+
+
 def give_null_vecs_mt(matvec_ops, dof, e, lat_fine_odd, dtype, device,
                       nv_iters=1, nthreads=None, seed=42, verbose=True,
-                      nv_tol=1e-2, batch_matvec=None, batch_chunk=8):
+                      nv_tol=1e-2, batch_matvec=None, batch_chunk=6):
     """多线程 null 向量生成（逆迭代，向量相互独立，写集不相交）。
 
     matvec_ops: 每线程一个 matvec 算子（如 CudaSchurOp 实例列表；各实例持独立
@@ -377,6 +396,7 @@ def give_null_vecs_mt(matvec_ops, dof, e, lat_fine_odd, dtype, device,
     null 向量从逐场 C++（40min+）提速至分钟级。
     """
     from concurrent.futures import ThreadPoolExecutor
+    effective_batch_chunk = None
     if batch_matvec is not None:
         nthreads = nthreads or 1
     else:
@@ -418,14 +438,23 @@ def give_null_vecs_mt(matvec_ops, dof, e, lat_fine_odd, dtype, device,
 
     if batch_matvec is not None:
         # 批量模式：dof 个右端一次批量 BiCGStab（逆迭代 nv_iters 次）。
-        # 2026-08-18：分块（batch chunk）执行，降低峰值显存 —— 大格子
-        # （24x24x24x72）上全 batch 一次 BiCGStab 的 7 个工作向量
-        # （每 [chunk,12,...] 1.15GB@24）+ matvec 中间张量叠加超过 32GB。
-        # 每块独立收敛到 nv_tol，语义与全 batch 等价（逆迭代每块独立）。
-        import math as _math
-        chunk = _math.gcd(dof, max(1, batch_chunk or 8))
-        if chunk < 1:
-            chunk = dof
+        # Target six fields per batch for 24^3x64 c64 on V100, then shrink
+        # against live free memory.  Full dof=12 exhausted 32 GiB and was
+        # 4--5x slower; chunk=4 left measurable launch/tensor-core headroom.
+        requested_chunk = max(1, int(batch_chunk or 6))
+        free_bytes = None
+        if device.type == 'cuda':
+            try:
+                free_bytes = int(torch.cuda.mem_get_info(device)[0])
+            except (RuntimeError, TypeError):
+                # Without a memory query, retain the historical conservative
+                # four-field batch rather than risking an avoidable OOM.
+                requested_chunk = min(requested_chunk, 4)
+        field_numel = int(e) * int(math.prod(lat_fine_odd))
+        chunk = _nullvec_batch_chunk_from_free(
+            dof, field_numel, torch.empty([], dtype=dtype).element_size(),
+            free_bytes, requested=requested_chunk)
+        effective_batch_chunk = chunk
         v_all = torch.zeros([dof, e] + list(lat_fine_odd), dtype=dtype, device=device)
         for c0 in range(0, dof, chunk):
             c1 = min(dof, c0 + chunk)
@@ -464,7 +493,8 @@ def give_null_vecs_mt(matvec_ops, dof, e, lat_fine_odd, dtype, device,
         import time
         print(f"PYQCU::TOOLS::MULTIGRID:\n null_vecs build ({nthreads} threads"
               f"{' batch' if batch_matvec is not None else ''}): "
-              f"{dof} vectors, nv_iters={nv_iters}")
+              f"{dof} vectors, nv_iters={nv_iters}"
+              f"{'' if effective_batch_chunk is None else f', batch_chunk={effective_batch_chunk}'}")
     return null
 
 
@@ -894,35 +924,35 @@ class BatchedLocalSchur:
         self.sp = (self.ar + 1) % W
         self.sm = (self.ar - 1) % W
 
-    def _slicem(self, M, idx, starts=None):
+    def _flat_window_index(self, idx):
+        """Flatten periodic ``[K,4,W]`` window coordinates to linear indices."""
+        K = idx.shape[0]
+        W = self.W
+        _, Yf, Zf, Tf = self.dims
+        return (
+            ((idx[:, 0].view(K, W, 1, 1, 1) * Yf
+              + idx[:, 1].view(K, 1, W, 1, 1)) * Zf
+             + idx[:, 2].view(K, 1, 1, W, 1)) * Tf
+            + idx[:, 3].view(K, 1, 1, 1, W)
+        ).reshape(K, -1)
+
+    def _slicem(self, M, idx, starts=None, flat_idx=None):
         """对 K 个窗口做 M[:, :, 窗口] 切片 → [K,E,e,W,W,W,W]。
 
-        starts: 可选 [K,4] 整数窗口起点（避免 .item() 同步）；给定时优先用
-        连续切片（快 ~86 倍），否则回退高级索引。
+        ``flat_idx`` 可由调用方在一次算子应用前统一构造，避免每个矩阵重复
+        计算窗口索引。使用 expanded base + gather，一次完成全部 K 个窗口，
+        同时消除逐窗口 CPU assignment 和同步。``starts`` 保留以兼容既有
+        probe 调用，实际窗口位置始终由周期坐标 ``idx`` 决定。
         """
         K = idx.shape[0]
         W = self.W
-        Xf, Yf, Zf, Tf = self.dims
-        out = torch.empty([K, 12, 12, W, W, W, W], dtype=M.dtype, device=M.device)
-        if starts is not None:
-            for k in range(K):
-                x0, y0, z0, t0 = starts[k]
-                if (x0 + W <= Xf and y0 + W <= Yf and z0 + W <= Zf and t0 + W <= Tf):
-                    out[k] = M[:, :, x0:x0 + W, y0:y0 + W, z0:z0 + W, t0:t0 + W]
-                else:
-                    ix, iy, iz, it = idx[k, 0], idx[k, 1], idx[k, 2], idx[k, 3]
-                    out[k] = M[:, :, ix][:, :, :, iy][:, :, :, :, iz][:, :, :, :, :, it]
-            return out
-        for k in range(K):
-            ix, iy, iz, it = idx[k, 0], idx[k, 1], idx[k, 2], idx[k, 3]
-            x0, y0, z0, t0 = ix[0].item(), iy[0].item(), iz[0].item(), it[0].item()
-            if (ix[-1].item() == (x0 + W - 1) % Xf and iy[-1].item() == (y0 + W - 1) % Yf and
-                    iz[-1].item() == (z0 + W - 1) % Zf and it[-1].item() == (t0 + W - 1) % Tf and
-                    x0 + W <= Xf and y0 + W <= Yf and z0 + W <= Zf and t0 + W <= Tf):
-                out[k] = M[:, :, x0:x0 + W, y0:y0 + W, z0:z0 + W, t0:t0 + W]
-            else:
-                out[k] = M[:, :, ix][:, :, :, iy][:, :, :, :, iz][:, :, :, :, :, it]
-        return out
+        if flat_idx is None:
+            flat_idx = self._flat_window_index(idx)
+        source = M.reshape(M.shape[0], M.shape[1], -1).unsqueeze(0)
+        gather_index = flat_idx[:, None, None, :].expand(
+            K, M.shape[0], M.shape[1], flat_idx.shape[1])
+        values = torch.gather(source.expand(K, -1, -1, -1), 3, gather_index)
+        return values.reshape(K, M.shape[0], M.shape[1], W, W, W, W)
 
     def _masks(self, idx, K, E):
         """t 方向 (wd=3) 掩码：even 格点 (x+y+z)%2==0，odd 反之（全局坐标）。"""
@@ -940,6 +970,7 @@ class BatchedLocalSchur:
         K = x_local.shape[0]
         W = self.W
         E = x_local.shape[1]
+        flat_idx = self._flat_window_index(idx)
         mek, mok = self._masks(idx, K, E)
 
         # Keep only one direction's matrix/source/contract temporary alive at
@@ -955,7 +986,7 @@ class BatchedLocalSchur:
                 src = torch.roll(source, shifts=-1, dims=d + 3)
                 if d == 3:
                     src = torch.where(plus_mask, source, src)
-                mat = self._slicem(plus_list[d], idx, starts)
+                mat = self._slicem(plus_list[d], idx, starts, flat_idx)
                 dest.add_(torch.einsum(
                     "kEexyzt,kBexyzt->kBExyzt", mat, src
                 ))
@@ -964,7 +995,7 @@ class BatchedLocalSchur:
                 src = torch.roll(source, shifts=1, dims=d + 3)
                 if d == 3:
                     src = torch.where(minus_mask, source, src)
-                mat = self._slicem(minus_list[d], idx, starts)
+                mat = self._slicem(minus_list[d], idx, starts, flat_idx)
                 dest.add_(torch.einsum(
                     "kEexyzt,kBexyzt->kBExyzt", mat, src
                 ))
@@ -974,7 +1005,7 @@ class BatchedLocalSchur:
         dest_e = torch.zeros([K, E, 12, W, W, W, W], dtype=x_local.dtype, device=x_local.device)
         accumulate_hopping(x_local, self.Mep, self.Mem, dest_e, mek, mok)
         # xe_inv = A_ee⁻¹ · dest_e：dest_e 的 dof 是 even 输入 → 标 e
-        Me_inv = self._slicem(self.Me_inv, idx, starts)
+        Me_inv = self._slicem(self.Me_inv, idx, starts, flat_idx)
         xe_inv = torch.einsum("kEeXYZT,kBeXYZT->kBEXYZT", Me_inv, dest_e)
         del Me_inv, dest_e
 
@@ -982,7 +1013,7 @@ class BatchedLocalSchur:
         dest_o = torch.zeros([K, E, 12, W, W, W, W], dtype=x_local.dtype, device=x_local.device)
         accumulate_hopping(xe_inv, self.Mop, self.Mom, dest_o, mok, mek)
         # out = A_oo · x：x 的 dof 是 odd 输入 → 标 e
-        Mo = self._slicem(self.Mo, idx, starts)
+        Mo = self._slicem(self.Mo, idx, starts, flat_idx)
         out = torch.einsum("kEeXYZT,kBeXYZT->kBEXYZT", Mo, x_local)
         out.sub_(dest_o)
         return out
@@ -1008,18 +1039,21 @@ class BatchedLocalWilsonClover(BatchedLocalSchur):
         self.sm = (self.ar - 1) % self.W
 
     def __call__(self, x_local, idx, starts=None):
-        onsite = self._slicem(self.Mo, idx, starts)
+        flat_idx = self._flat_window_index(idx)
+        onsite = self._slicem(self.Mo, idx, starts, flat_idx)
         out = torch.einsum(
             "kEexyzt,kBexyzt->kBExyzt", onsite, x_local)
         del onsite
         for dimension in range(4):
             shifted = torch.roll(x_local, shifts=-1, dims=dimension + 3)
-            matrix = self._slicem(self.Mep[dimension], idx, starts)
+            matrix = self._slicem(
+                self.Mep[dimension], idx, starts, flat_idx)
             out.add_(torch.einsum(
                 "kEexyzt,kBexyzt->kBExyzt", matrix, shifted))
             del matrix, shifted
             shifted = torch.roll(x_local, shifts=1, dims=dimension + 3)
-            matrix = self._slicem(self.Mem[dimension], idx, starts)
+            matrix = self._slicem(
+                self.Mem[dimension], idx, starts, flat_idx)
             out.add_(torch.einsum(
                 "kEexyzt,kBexyzt->kBExyzt", matrix, shifted))
             del matrix, shifted

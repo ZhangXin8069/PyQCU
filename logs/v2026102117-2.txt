@@ -1,0 +1,159 @@
+[日志元数据]
+日志类型: final
+生成时间: 2026-10-21 17:32:32 +0800
+批次: mg-cache-comparison
+主任务: 对比 33-tensor cache 与 Strict cache
+触发原因: 任务完成
+摘要: 从粗算子数学表示、几何、张量内容、内存、构建、kernel、缓存完整性和运行期 ABI 对比两种 MG cache；33 项 Strict 与 4 项旧 cache 测试通过。
+Git 根目录: /root/PyQCU
+
+## 关键日志
+### S1 — 源码路径与资产契约核对
+- 目标: 对比 QCU 33-tensor legacy cache 与 Strict runtime cache。
+- 命令/操作: 定向读取 `pyqcu/tools/_multigrid.py`、`cpp/cuda/qcu/src/multigrid.cu`、`pyqcu/solver/_quda_multigrid.py`、`pyqcu/cuda/_strict_cache.py`、`apply_multigrid_strict.cu` 及对应测试。
+- 关键输出: 33-cache 直接保存 `A_c=P†SP` 的 1+8+24 个宽 stencil block；Strict cache 保存 `V/Yhat/(X,X^-1)`，粗几何保持 full lattice。
+- 退出码: 0
+- 证据与判断: QUDA 风格 strict ABI 与 legacy compact-Schur ABI 的几何、张量槽和生命周期均不同，不能直接互换。
+
+### S2 — CPU cache 回归
+- 目标: 验证两种 cache 的格式和边界行为。
+- 命令/操作: 运行 `test_strict_runtime_cache.py`、`test_coarse_cache.py` 以及 33-slot stencil 两项定向测试。
+- 关键输出: `23 passed in 8.99s`；`2 passed in 3.47s`；`2 passed, 32 deselected in 0.11s`。
+- 退出码: 0
+- 证据与判断: Strict cache 的 manifest/identity/digest/fail-closed 路径通过；legacy 四 dataset 往返及 33-slot 布局通过。
+
+## 验证与证据
+- 测试/检查: 三组定向 CPU pytest。
+- 结果: 共 27 个目标测试通过。
+- 未验证项: 未运行 GPU 大规模 setup/solve；本任务为只读架构对比。
+
+## 变更与产物
+- 文件: 仅新增本日志及更新 `logs/AGENTS.md`。
+- 产物: 33-tensor cache 与 Strict cache 的逐维对比报告。
+- 未改动范围: 未修改代码、测试、缓存或既有用户工作区改动。
+
+## 风险、限制与下一步
+- 风险: 不能把一侧 cache 直接重命名或重排后当作另一侧 cache；粗几何和 ABI 槽序均不兼容。
+- 阻塞: 无。
+- 下一步: 若比较 cache-hit 性能，应分别报告 cache 验证/加载时间、首次 workspace 分配和 solve 时间，不能把两种 setup 边界混成同一指标。
+
+## 用户输入指令
+"33-tensor cache"对比"Strict cache"
+
+## Agent 全文报告
+--- report begin ---
+**结论**
+
+两者是两条不同的多重网格运行时路径：
+
+- **33-tensor cache**：面向 legacy/compact-Schur MG，直接缓存 \(A_c=P^\dagger SP\)，把粗算子展开成 1 个 onsite、8 个最近邻、24 个对角 block。
+- **Strict cache**：面向 QUDA-style strict MG，缓存 \(V\)、\(Yhat=X^{-1}Y\)、\((X,X^{-1})\)，运行时用 full-coarse onsite + 8-link 形式作用。
+
+它们可以描述相关的 Galerkin 粗化物理，但不是同一算子的两种序列化格式，不能直接互换。
+
+**核心对比**
+
+| 维度 | 33-tensor cache | Strict cache |
+|---|---|---|
+| 数学表示 | 显式 \(A_c=P^\dagger SP\) wide stencil | \(D_l=X_l+H_l\)，存储 \(X,Yhat\) |
+| 粗格几何 | compact odd coarse lattice | full coarse lattice |
+| parity | 粗层本身是 odd/compact | 只在 fine R/P、MATPC 边界使用 parity |
+| 位移类别 | 1 onsite + 8 nearest + 24 diagonal = 33 | onsite + 4 正/负方向 link |
+| 主要数据集 | `lonv/hnn/hdg/sit` | `fine_blocked_v`、`Yhat`、`onsite_pair`、递归 `V` |
+| raw link | 不适用 | 可保留 raw `Y`，但普通求解不驻留 |
+| cache 风格 | 缓存“算子结果” | 缓存“预条件算子因子” |
+| 生命周期 | legacy coarse slots、普通事务 | 私有 slot、persistent strict hierarchy |
+
+**33-tensor cache**
+
+内容为：
+
+```text
+lonv: near-null vectors
+sit:  [E,E,Xc,Yc,Zc,Tc]
+hnn:  [2,4,E,E,Xc,Yc,Zc,Tc]       # 8 个最近邻
+hdg:  [2,2,6,E,E,Xc,Yc,Zc,Tc]     # 24 个对角项
+```
+
+它把 fine Schur 算子的两跳 support 直接材料化。一次粗 matvec 就能应用完整的 Schur-consistent \(P^\dagger SP\)，减少 kernel 组合，但每粗点保存 33 个 \(E\times E\) block。典型 block=2 时，粗 odd 体积约为 full fine volume 的 `1/32`。
+
+构建入口见 [_multigrid.py](/root/PyQCU/pyqcu/tools/_multigrid.py:739)，CUDA wide kernel 见 [multigrid.cu](/root/PyQCU/cpp/cuda/qcu/src/multigrid.cu:858)。Legacy 绑定槽位通常为 `[lonv, hnn, hdg, sit]`，其 HDF5 读写见 [kupl_multigrid.py](/root/PyQCU/pyqcu/testing/simple/kupl_multigrid.py:172)。
+
+**Strict cache**
+
+每个 transition 保存：
+
+```text
+fine 或 recursive V: blocked near-null vectors
+Yhat:  [2,4,E,E,Xc,Yc,Zc,Tc]
+X/X^-1: [2,E,E,Xc,Yc,Zc,Tc]
+```
+
+Strict 的粗层不 checkerboard，几何始终是 full lattice；`P` 只在 fine parity 与 full coarse 场之间转换。它采用
+
+\[
+D_{l+1}=R(X_l^{-1}D_l)P,
+\]
+
+因此运行期需要 `Yhat=X^{-1}Y` 和 `(X,X^{-1})`。普通 solve 不需要 raw `Y`，raw `Y` 只用于 setup/诊断。导出定义见 [_quda_multigrid.py](/root/PyQCU/pyqcu/solver/_quda_multigrid.py:1506)，CUDA 应用 kernel 见 [apply_multigrid_strict.cu](/root/PyQCU/cpp/cuda/qcu/src/apply_multigrid_strict.cu:374)。
+
+若有 `T` 条 transition，Strict runtime cache 通常有：
+
+\[
+1\text{ fine }V + 2T\text{ 个 Yhat/onsite} +(T-1)\text{ 个递归 }V=3T
+\]
+
+个逻辑 tensor。比如两级 `T=1` 是 3 个逻辑 tensor；三级 `T=2` 是 6 个。这里“逻辑 tensor”与 33 类 block 的计数口径不同。
+
+**内存布局差异**
+
+33-cache 每 transition 的主要矩阵 block 数量为：
+
+\[
+(1+8+24)E^2V_{c,\mathrm{odd}}.
+\]
+
+Strict runtime 每 transition 为：
+
+\[
+(8+2)E^2V_{c,\mathrm{full}}+\text{对应 }V.
+\]
+
+不能只比较 `33 > 10`，因为 Strict 的 full coarse volume 通常是 compact odd coarse volume的 2 倍；raw `Y` 若保留还会再增加 8 个 link block。实际应连同 `lonv/V`、精度、transition 数和 halo 空间一起计算。
+
+**构建成本**
+
+33-tensor 构建通过逐粗点、逐粗 DOF 探测 \(P^\dagger SP\)。虽然可使用 batch/local-window 加速，但本质上要材料化 33 个矩阵类别，cache 大、构建探测多。
+
+Strict 构建走 full Galerkin \(R(X^{-1}D)P\)，需要同时规划输入、输出、投影和 X inverse 等 arena；配置支持 site-batch 或 colored batching。它的 setup 更接近 QUDA，适合正式 QUDA 对照，但 c128 大格需要分块和 CPU staging。
+
+**缓存完整性**
+
+33-cache 的 simple HDF5 契约是必须存在 `lonv/hnn/hdg/sit`；构建报告在外部 JSON 中记录 gauge SHA256、格子、质量、`csw`、dof、MG grid 和精度。它适合固定身份目录或调用方自行隔离路径。
+
+Strict cache 使用 schema v2：不可变原子发布，包含 identity、metadata、stats、manifest，并对每个逻辑 tensor 记录流式 SHA256。加载时先验证完整文件、dataset attrs 和全部 digest，再执行 device transfer；失败返回明确 miss 而不是把损坏资产交给 CUDA。实现见 [_strict_cache.py](/root/PyQCU/pyqcu/cuda/_strict_cache.py:1) 和加载入口 [_strict_cache.py](/root/PyQCU/pyqcu/cuda/_strict_cache.py:1074)。
+
+**运行期 ABI**
+
+33-path 每个粗 transition 的 legacy 槽位是：
+
+```text
+[lonv, hop_nn, hop_diag, sitting]
+```
+
+Strict 每个 transition 的槽位是：
+
+```text
+[V, raw Y(optional), Yhat, (X,X^-1)]
+```
+
+Strict 在私有 `LatticeSet` slot 内完成 init、VCycle/FGMRES 和 end，整个生命周期保持 `_SET_INDEX_` 不变；legacy 仍遵循普通事务式生命周期。两种槽序不能交换。
+
+**选择建议**
+
+- 需要 legacy compact-Schur、一次 wide kernel 应用完整两跳粗算子：用 33-tensor cache。
+- 需要 QUDA-style full-coarse 对照、strict FGMRES 层级、更强 cache 身份与损坏检测：用 Strict cache。
+- 性能比较必须分开报告 cache 验证/加载、setup、首次 workspace 分配和 solve；两种 cache 的初始化边界不同。
+
+验证结果：Strict cache `23 passed`，legacy coarse cache `2 passed`，33-slot 定向测试 `2 passed`，共 27 项通过。状态：**finished**。
+--- report end ---

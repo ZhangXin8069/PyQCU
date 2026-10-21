@@ -15,6 +15,7 @@ from pyqcu.tools._multigrid import (
     _probe_point_batch,
     _probe_point_batch_local,
     _probe_points_batch_local,
+    _schur_matvec_batch,
 )
 from pyqcu import dslash
 
@@ -69,6 +70,94 @@ def _materialized_schur(lsch, x_local, idx, starts):
         "kEeXYZT,kBeXYZT->kBEXYZT", Mo, x_local
     )
     return out - dest_o
+
+
+def test_flat_window_gather_matches_periodic_windows():
+    fine = (8, 8, 8, 8)
+    W = 4
+    volume = fine[0] * fine[1] * fine[2] * fine[3]
+    M = (
+        torch.arange(12 * 12 * volume, dtype=torch.float32).reshape(
+            12, 12, *fine)
+        * 1.0e-3
+    ).to(torch.complex64)
+    M.imag = 0.25
+    hopping = SimpleNamespace(
+        M_e_plus_list=[M] * 4,
+        M_e_minus_list=[M] * 4,
+        M_o_plus_list=[M] * 4,
+        M_o_minus_list=[M] * 4,
+    )
+    sitting = SimpleNamespace(M_e_inv=M, M_o=M)
+    lsch = BatchedLocalSchur(
+        SimpleNamespace(hopping=hopping, sitting=sitting), *fine, W=W)
+    starts = [(6, 6, 6, 6), (2, 0, 4, 2), (0, 0, 0, 0)]
+    idx = torch.stack([
+        torch.stack([
+            torch.arange(start, start + W) % extent
+            for start, extent in zip(window, fine, strict=True)
+        ])
+        for window in starts
+    ])
+
+    expected = torch.stack([
+        M[:, :, ix][:, :, :, iy][:, :, :, :, iz][:, :, :, :, :, it]
+        for ix, iy, iz, it in idx
+    ])
+    flat_idx = lsch._flat_window_index(idx)
+    actual = lsch._slicem(M, idx, starts, flat_idx)
+
+    assert torch.equal(actual, expected)
+    assert actual.is_contiguous()
+
+
+def test_local_schur_window_eight_matches_global_probe():
+    fine = (16, 16, 16, 8)
+    coarse = (8, 8, 8, 4)
+    E = 2
+    W = 8
+    generator = torch.Generator().manual_seed(23)
+    identity = torch.eye(12, dtype=torch.complex64).reshape(
+        12, 12, 1, 1, 1, 1)
+    matrices = []
+    for index in range(10):
+        noise = torch.randn(
+            (12, 12, *fine), dtype=torch.complex64, generator=generator)
+        matrices.append((
+            identity + 0.03 * noise * (1.0 + 0.01 * index)
+        ).contiguous())
+    Mep, Mem = matrices[:4], matrices[4:8]
+    Mop, Mom = matrices[:4], matrices[4:8]
+    op = SimpleNamespace(
+        hopping=SimpleNamespace(
+            M_e_plus_list=Mep, M_e_minus_list=Mem,
+            M_o_plus_list=Mop, M_o_minus_list=Mom,
+        ),
+        sitting=SimpleNamespace(M_e_inv=matrices[8], M_o=matrices[9]),
+    )
+    lonv = torch.randn(
+        (E, 12, coarse[0], 2, coarse[1], 2,
+         coarse[2], 2, coarse[3], 2),
+        dtype=torch.complex64, generator=generator,
+    )
+    shapes = (
+        (E, E, *coarse),
+        (2, 4, E, E, *coarse),
+        (2, 2, 6, E, E, *coarse),
+    )
+    local_schur = BatchedLocalSchur(op, *fine, W=W)
+    matvec = lambda value: _schur_matvec_batch(op, value)
+    Nc = coarse[0] * coarse[1] * coarse[2] * coarse[3]
+    for c_idx in (0, 1, 7, 63, Nc - 1):
+        expected = [
+            torch.zeros(shape, dtype=torch.complex64) for shape in shapes]
+        actual = [torch.zeros_like(value) for value in expected]
+        _probe_point_batch(
+            matvec, lonv, E, c_idx, *expected, list(coarse), Nc)
+        _probe_point_batch_local(
+            local_schur, lonv, E, c_idx, *actual, list(coarse), Nc, W)
+        for local, reference in zip(actual, expected, strict=True):
+            torch.testing.assert_close(local, reference, rtol=1e-5, atol=1e-5)
 
 
 def test_batched_local_probe_matches_single_point():

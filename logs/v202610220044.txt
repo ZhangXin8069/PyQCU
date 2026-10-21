@@ -1,0 +1,99 @@
+[日志元数据]
+日志类型: stage
+生成时间: 2026-10-22 00:44:28 +0800
+批次: stage24-real-mg-and-kupl-fine-20261022
+主任务: 持续比照 QUDA 优化 KUPL/CUDA QCU：真实 MG、fine dslash 与并行效率
+触发原因: 阶段成果
+摘要: CUDA E12真实MG各模式均慢于fine-only，deflate残差更低但wall增9.9%；KUPL fine标量边界SIMD候选慢4.60%已撤销；完成三方性能与容量约束报告
+Git 根目录: /root/PyQCU
+
+## 关键日志
+### S1 — CUDA 真实 MG 模式筛选
+- 固定输入与同一进程: 真实 LIME `24³×64` c64、mass `-0.277`、csw `1.160920226`、cache-hit、单 V100。
+- fine-only baseline: lifecycle 中位 `0.365086 s`，backend `0.132445 s`，20 iterations，真残差 `4.125720e-7`。
+- BiCG + 一次 deflate V-cycle: `0.401633 s`，backend `0.172463 s`，20 iterations，真残差 `2.666153e-7`；V-cycle 约 `40 ms`，coarse check 约 `30 ms`。
+- FGMRES+MR: `0.832060 s`；FGMRES+CG: `1.160491 s`；FGMRES+Chebyshev: `1.366174 s`；CA-GCR+MR: `1.911062 s`。
+- 判断: 当前 E12/单 null-vector 粗空间不足以抵消校正成本，真实 MG 生产路径不可保留。
+
+### S2 — 粗空间容量/显存约束
+- 现有 E12 33-tensor cache 实测 `1.56 GB`。
+- 按完全相同的 coarse shape 计算，E24 约 `5.22 GB`，E48 约 `18.86 GB`。
+- E12 local-stencil setup 已出现约 `29.75 GB` peak allocation；32 GiB V100 上不能直接扩大 E 后重测。
+- 后续真实 MG 需先做 compressed/matrix-free coarse operator 或降低 setup workspace。
+
+### S3 — KUPL fine Wilson-Clover 热点分解
+- 固定 local `24×6×24×64`、4 ranks × 4 threads、c64。
+- dslash 内点+周期面占 `53.22%`，标量边界 `37.85%`，halo `3.29%`，MPI wait `5.65%`。
+- SIMD block 对 Wilson/Clover/Schur 比 scalar 快 `13.98%/6.95%/2.04%`。
+- Clover onsite 占 Clover 算子 `39.36%`；canonical 往返约为每迭代墙钟 `1.73%`。
+
+### S4 — KUPL y-face SIMD 候选撤销
+- 候选只改 y 分域面的连续时间 lane SIMD。
+- 三轮 `B-C-C-B-B-C`: baseline 中位 `15.446281 s`、MAD `0.061435 s`；candidate `16.157466 s`、MAD `0.715516 s`。
+- 候选中位慢 `4.60%`，抖动扩大约 `11.6x`；六轮均 47 iterations、verifier=0、PASS，native residual 约 `9.138e-7`。
+- 候选已完整撤销，恢复库 SHA256 为 `677a9c42a827b5bb61ab333a5c67be19c218dc34e517449b47da7bdda47f2226`，CTest `29/29`。
+
+### S5 — 当前三方状态
+- CUDA Stage22 MG backend: `0.13295 s`，20 iterations，真残差 `4.1257200e-7`；lifecycle `0.356707 s`。
+- CUDA Stage20 Clover BiCGStab: `0.125522 s`，18 iterations，真残差 `6.694990e-7`。
+- QUDA Clover BiCGStab: `0.134009 s`，19 iterations，真残差 `5.6942744e-7`。
+- KUPL legacy MG 4 ranks × 4 threads: 最新 Stage23 同窗基线 `15.072466 s`，47 iterations，native 约 `9.138e-7`。
+- QUDA MG nvec24: `28.007541 s`、3 outer、`5.1234262e-7`；与 dof12 不等价，禁止计算倍率。
+
+## 验证与证据
+- CUDA：本轮模式筛选全部完成，无代码候选保留；Stage22 strict tier1 与 c128 smoke 已在前序门禁通过；当前 lib SHA256 `7e414544b7a7ed205d7d88fcb09bdc726aee87ab65ba9d94345e23a9c61b9c06`。
+- CUDA 原始模式日志: `data/production_mg_20261021/stage24_cuda_mg_modes.log`，SHA256 `2098d867cc8c02c379854e384eb5b2255e8d2ff4c8603f5e5f45a5039660e129`。
+- KUPL: 恢复后 CTest `29/29 passed`，24.77 s；证据目录 `data/cpp/kupl/qcu/build/fine_hotspot_20261022/`。
+- 两侧 `git diff --check`: PASS。
+- form audit: 仅既有 `docs/progress_dev99_to_1640349d_20261021.md` 的 `TAG_NAME_IN_PATH`，与本轮无关。
+
+## 变更与产物
+- 无新增保留性能代码；CUDA 保留 Stage22 单/成对归约，KUPL 保留既有 coarse tile/成对 Allreduce。
+- 文档新增真实 MG 模式筛选、E 容量约束、KUPL fine 热点与两个负结果。
+- 未执行: 未提交、未打 tag、未 push、未删除文件。
+
+## 风险、限制与下一步
+- CUDA E12 V-cycle 的残差更低但 wall 更慢，迭代数仍为 20；不能把真残差改善写成性能改善。
+- 扩大 null-vector 数量需要先解决 33-tensor 二次内存增长和 setup peak，否则 32 GiB V100 不可行。
+- KUPL 标量边界占比高但 y-face SIMD 失败；下一步应分析 rank-face 分布、页局部性和标量边界内存访问，而非继续增加 SIMD lane。
+- KUPL 最新 `15.072466 s` 与 fine hotspot A/B 的 `15.446281 s` 基线使用不同脚本/`nv_iters` 配置，不能混在同一倍率中。
+
+## Agent 全文报告
+--- report begin ---
+# Stage24 真实 MG 与 KUPL fine 热点报告
+
+## 1. 结论
+本阶段完成两条并行诊断。CUDA 的 E12/单 null-vector 真实 MG 路径在固定生产点上全部慢于 fine-only；只有 deflate 降低真残差，但没有降低 outer iterations。KUPL fine apply 的主要组成已确认，但唯一 y-face SIMD 候选实测慢 `4.60%`。两边均未保留新候选。
+
+## 2. CUDA 真实 MG 模式
+
+| mode | lifecycle 中位 | backend | iterations | 真残差 |
+|---|---:|---:|---:|---:|
+| fine-only baseline | `0.365086 s` | `0.132445 s` | 20 | `4.125720e-7` |
+| BiCG + deflate V-cycle | `0.401633 s` | `0.172463 s` | 20 | `2.666153e-7` |
+| FGMRES+MG, CG | `1.160491 s` | `0.93003 s` | 16 FGMRES | `7.181618e-7` |
+| FGMRES+MG, MR | `0.832060 s` | `0.60251 s` | 10 FGMRES | `4.818365e-7` |
+| FGMRES+MG, Chebyshev | `1.366174 s` | `1.12978 s` | 19 FGMRES | `4.743437e-7` |
+| CA-GCR+MR | `1.911062 s` | `1.68461 s` | 28 CA-GCR | `8.093534e-7` |
+
+deflate 的 V-cycle 约 `40 ms`，其中 coarse residual check 约 `30 ms`。E12 coarse space 只含一个 null vector，无法在 32 GiB V100 上单独通过 kernel 微调解决。
+
+## 3. 三方性能
+
+| 路径 | 当前结果 | iterations | 真/验收残差 |
+|---|---:|---:|---:|
+| CUDA QCU MG Stage22 | `0.13295 s` | 20 | `4.1257200e-7` |
+| CUDA QCU Clover BiCGStab | `0.125522 s` | 18 | `6.694990e-7` |
+| QUDA Clover BiCGStab | `0.134009 s` | 19 | `5.6942744e-7` |
+| KUPL legacy MG 4 ranks × 4 threads | `15.072466 s` | 47 | native 约 `9.138e-7` |
+| QUDA MG nvec24 | `28.007541 s` | 3 outer | `5.1234262e-7` |
+
+## 4. KUPL fine hotspot
+4-rank solve 的 fine apply 占 `73.2%`；dslash 内点+周期面 `53.22%`，标量边界 `37.85%`，halo `3.29%`，MPI wait `5.65%`。SIMD block 对 Wilson/Clover/Schur 有 `13.98%/6.95%/2.04%` 优势；canonical 往返仅 `1.73%`。y-face 时间 lane SIMD 候选使生产中位从 `15.446281` 升到 `16.157466 s`，MAD 从 `0.061435` 升到 `0.715516 s`，已撤销。
+
+## 5. 粗空间容量
+按当前精确 tensor shape，E24 cache 约 `5.22 GB`、E48 约 `18.86 GB`；E12 setup 已有约 `29.75 GB` peak。下一阶段若继续真实 MG，必须先实现 compressed/matrix-free coarse operator，或显著降低 local-stencil setup workspace；否则增加 null-vector 数不具备 32 GiB V100 可执行性。
+
+## 6. 验证与下一步
+CUDA 模式筛选完整执行；KUPL 恢复后 CTest 29/29。两侧 `git diff --check` 通过。下一步 CUDA 聚焦 coarse operator 内存表示；KUPL 聚焦 scalar-boundary 的 rank-face 分布、页局部性和内存访问，不再盲目扩大 SIMD lane。
+--- report end ---

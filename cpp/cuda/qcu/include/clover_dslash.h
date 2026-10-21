@@ -8,16 +8,30 @@ __global__ void make_clover(void *device_U, void *device_clover,
 template <typename T>
 __global__ void inverse_clover(void *device_clover, void *device_params);
 template <typename T>
+__global__ void check_clover_block_diagonal(const void *device_clover,
+                                            void *device_params, int *flag);
+template <typename T>
 __global__ void give_clover(void *device_clover, void *device_dest,
                             void *device_params);
 template <typename T>
+__global__ void give_clover_block(void *device_clover, void *device_dest,
+                                  void *device_params);
+template <typename T>
 __global__ void give_clover_to(void *device_clover, const void *device_src,
                                void *device_dest, void *device_params);
+template <typename T>
+__global__ void give_clover_to_block(void *device_clover,
+                                     const void *device_src,
+                                     void *device_dest, void *device_params);
 template <typename T>
 __global__ void give_clover_subtract(void *device_clover, const void *device_src,
                                      const void *device_subtract,
                                      void *device_dest, T scale,
                                      void *device_params);
+template <typename T>
+__global__ void give_clover_subtract_block(
+    void *device_clover, const void *device_src, const void *device_subtract,
+    void *device_dest, T scale, void *device_params);
 template <typename T>
 __global__ void pick_up_u_x(void *device_U, void *device_params,
                             void *device_u_b_x_send_vec,

@@ -1,0 +1,91 @@
+[日志元数据]
+日志类型: stage
+生成时间: 2026-10-22 00:21:56 +0800
+批次: stage23-parallel-diagnostics-20261022
+主任务: 持续比照 QUDA 优化 KUPL/CUDA QCU：MG 为主，BiCGStab 为辅；CUDA/KUPL 并行诊断
+触发原因: 阶段成果
+摘要: KUPL瓶颈分解显示4-rank fine apply占73.2%，5→4 Allreduce候选慢10.67%已撤销；CUDA 6x6特化仅0.19%且无寄存器收益已撤销；两侧门禁通过并给出三方性能
+Git 根目录: /root/PyQCU
+
+## 关键日志
+### S1 — KUPL 并行瓶颈分解
+- 目标: 解释 2/4-rank 相对效率损失，并尝试一个由证据驱动的热点优化。
+- 分段结果: 4-rank 的 fine Wilson-Clover rank-local apply 占 solve `73.2%`，Allreduce `7.7%`，canonical `6.4%`，coarse dslash/halo `1.3%`，vector/other `11.4%`。
+- 额外耗时归因: 相对 1-rank 完美扩展，4-rank 损失中 fine apply `52.5%`、Allreduce `16.1%`、canonical `9.7%`、other `21.1%`、coarse `0.6%`；4-rank fine halo 仅占 fine apply `7.55%`。
+- 判断: 首要瓶颈是 rank 内计算和内存带宽，不是 coarse 或通信总次数。
+
+### S2 — KUPL Allreduce 候选撤销
+- 候选: 每轮将相邻两个点积合并，使 Allreduce 从 5 次降到 4 次。
+- A/B: 4-rank 三轮基线 `15.240397/15.042342/15.072466 s`，候选 `17.359928/16.681220/15.448013 s`；中位 `15.072466 -> 16.681220 s`，慢 `10.67%`。
+- 正确性: 两者均 47 iterations、verifier=0、PASS；native fail-closed residual 约 `9.138e-7`。
+- 结论: 已完整撤销，不保留猜测性代码；CTest 29/29、26.38 s。
+
+### S3 — CUDA 6x6 特化撤销
+- 候选: 把 runtime block-diagonal Clover multiply 改成编译期特化并顺序处理两个 6x6 块。
+- 资源: c64 block-diagonal kernel 仍为 88 registers，没有 occupancy 提升。
+- 三轮 4 组 ABBA 共 30 steady: MG backend `0.13255 -> 0.13230 s`，仅 `0.19%`；lifecycle `0.358449 -> 0.358756 s`，慢 `0.09%`。
+- 结论: 低于噪声阈值，已完整撤销并恢复 runtime-gated row-streaming。恢复构建后生产 MG `0.13290 s`、20 iterations、真残差 `4.1257200e-7`。
+
+### S4 — 当前三方状态
+- CUDA Stage22 保留值: MG backend `0.13295 s`、lifecycle `0.356707 s`、20 iterations、真残差 `4.1257200e-7`。
+- CUDA Stage20 BiCGStab: `0.125522 s`、18 iterations、真残差 `6.694990e-7`。
+- QUDA BiCGStab: `0.134009 s`、19 iterations、真残差 `5.6942744e-7`。
+- KUPL 最新 4-rank 基线: `15.072466 s`、47 iterations、native 约 `9.138e-7`；旧同窗口 1/2/4-rank 强扩展为 `46.407/27.790/15.581 s`、efficiency `100.0/83.5/74.5%`。
+- QUDA MG nvec24: `28.007541 s`、3 outer、`5.1234262e-7`；与 dof12 不等价，禁止计算倍率。
+
+## 验证与证据
+- CUDA: direct Clover + MG breakdown `9 passed`；恢复构建成功；`git diff --check` PASS。
+- KUPL: `ctest --test-dir cpp/kupl/qcu/build --output-on-failure` 为 `29/29 passed`，26.38 s；`git diff --check` PASS。
+- form audit: 仅既有 `docs/progress_dev99_to_1640349d_20261021.md` 的 `TAG_NAME_IN_PATH`，与本轮无关。
+- CUDA 负结果证据: `data/production_mg_20261021/stage23_cuda_c64_mg_block6_*.json` 与 `stage23_cuda_c64_mg_restored.json`。
+- KUPL 证据: `data/cpp/kupl/qcu/build/kupl_efficiency_20261021/`，包含 `profile_c64_r{1,2,4}.json`、fine profile 与 `ab4_{baseline,candidate}_r{1,2,3}.json`。
+- KUPL 重建库 SHA256: `677a9c42a827b5bb61ab333a5c67be19c218dc34e517449b47da7bdda47f2226`；source 恢复后保持既有两条保留优化。
+
+## 变更与产物
+- CUDA: 本轮无新增保留代码；Stage22 单/成对归约仍是生产候选。
+- KUPL: 本轮无新增保留代码；保留既有成对 Allreduce 与 coarse tile。
+- 文档: 记录 CUDA 6x6 特化负结果，以及 KUPL 2/4-rank fine-compute/带宽主导和 5→4 Allreduce 撤销。
+- 未执行: 未提交、未打 tag、未 push、未删除文件。
+
+## 风险、限制与下一步
+- CUDA 生产 MG 仍 `n_vcycles=0`；下一步应转向 coarse-space/V-cycle 质量或真正的整周期控制，不再做低于 1% 的 dslash 微调。
+- KUPL 4-rank 的 fine apply/内存带宽占主导；下一步优先 OpenMP 分块、SIMD/数据布局与 NUMA 页局部性，任何候选必须三轮 A/B 且保持 47 iterations、verifier=0。
+- QUDA MG nvec24 与 QCU/KUPL dof12 不可直接比较；三方表只对 BiCGStab 与 fine-only 数值作量级参照。
+- 当前最新 KUPL 4-rank 中位来自较窄同窗 A/B；1/2/4-rank efficiency 仍引用上一轮同窗口强扩展，不能混算新倍率。
+
+## Agent 全文报告
+--- report begin ---
+# Stage23 三方并行诊断报告
+
+## 1. 结论
+本阶段没有保留新的性能改动，但排除了两个方向：KUPL 减少 Allreduce 次数会在 4-rank 明显变慢；CUDA 6x6 编译期特化没有降低寄存器，收益低于噪声。两者均已撤销。当前有效基线仍是 CUDA Stage22 单/成对归约和 KUPL 既有 coarse tile/成对 Allreduce。
+
+## 2. CUDA/KUPL/QUDA
+
+| 路径 | 当前结果 | iterations | 真/验收残差 | 口径 |
+|---|---:|---:|---:|---|
+| CUDA QCU legacy MG Stage22 | `0.13295 s` | 20 | `4.1257200e-7` | 单 rank c64 cache-hit |
+| CUDA QCU MG lifecycle | `0.356707 s` | 20 | `4.1257200e-7` | 含 init/end 与探针 |
+| CUDA QCU Clover BiCGStab Stage20 | `0.125522 s` | 18 | `6.694990e-7` | 单 rank 同 LIME |
+| QUDA Clover BiCGStab | `0.134009 s` | 19 | `5.6942744e-7` | 同 mass/csw/RHS |
+| KUPL legacy MG 4 ranks × 4 threads | `15.072466 s` | 47 | native 约 `9.138e-7` | 最新三轮同窗基线 |
+| QUDA MG nvec24 | `28.007541 s` | 3 outer | `5.1234262e-7` | 与 dof12 不等价 |
+
+## 3. KUPL 2/4-rank 损失
+4-rank 分段: fine apply `73.2%`、Allreduce `7.7%`、canonical `6.4%`、coarse `1.3%`、other `11.4%`。相对 1-rank 完美扩展的额外时间中，fine apply 占 `52.5%`，Allreduce 占 `16.1%`，canonical 占 `9.7%`，other 占 `21.1%`，coarse 仅 `0.6%`。4-rank fine halo 只占 fine apply 的 `7.55%`。
+
+因此当前效率损失首先是每个 rank 的 Wilson-Clover 计算和内存带宽，而不是 coarse 或 MPI 总数。5→4 Allreduce 候选把中位从 `15.072466` 推到 `16.681220 s`，慢 `10.67%`，已撤销。
+
+## 4. CUDA 6x6 特化
+block-diagonal 特化 kernel 仍为 88 registers；三轮 ABBA 的 MG backend 改善 `0.19%`，lifecycle 慢 `0.09%`。该方向不再重复。恢复 Stage22 后生产 MG 为 `0.13290 s`，真残差与 Stage22 完全一致。
+
+## 5. 正确性
+- KUPL CTest 29/29，26.38 s。
+- CUDA direct Clover + MG breakdown 9 passed；恢复构建成功。
+- 两侧 `git diff --check` 均通过。
+- form audit 仅有既存文档 finding。
+
+## 6. 下一步
+- CUDA: 转向 coarse-space/V-cycle 质量或整周期设备控制，避免继续微调单 kernel。
+- KUPL: 重点优化 fine Wilson-Clover 的 OpenMP 分块、SIMD/布局和 NUMA 页局部性；所有候选继续采用三轮 A/B 与 fail-closed 真残差。
+--- report end ---

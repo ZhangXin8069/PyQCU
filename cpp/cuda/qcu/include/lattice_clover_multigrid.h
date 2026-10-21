@@ -659,6 +659,7 @@ template <typename T> struct LatticeCloverMultigrid {
   LatticeWilsonDslash<T> wilson_dslash;
   LatticeCloverDslash<T> clover_dslash_ee, clover_dslash_oo;
   LatticeCloverDslash<T> clover_dslash_ee_inv, clover_dslash_oo_inv;
+  bool fine_clover_block_diagonal_ = false;
 
   void *gauge, *clover_ee, *clover_oo, *clover_ee_inv, *clover_oo_inv;
   void *fermion_out_eo, *fermion_in_eo;
@@ -712,6 +713,11 @@ template <typename T> struct LatticeCloverMultigrid {
   void *coarse_partials;  // [1024] LatticeComplex scratch for cooperative
                           // fused coarse-solve cross-block dot reductions
   int *coarse_breakdown = nullptr; // cooperative coarse-solve abort flag
+  void *fine_dot_pair_partials = nullptr;
+  unsigned int *fine_dot_pair_counter = nullptr;
+  int fine_dot_pair_blocks = 0;
+  int fine_dot_pair_checks = 0;
+  int fine_dot_single_checks = 0;
 
   // ---- Host mirror for convergence check ----
   LatticeComplex<T> host_vals[_vals_size_];
@@ -815,7 +821,8 @@ template <typename T> struct LatticeCloverMultigrid {
   void fine_dslash_op(void *out, void *in) {
     if (wilson_dslash.single_rank() && sizeof(T) == sizeof(float)) {
       wilson_dslash.run_eo_clover(set_ptr->device_vec0, in, gauge,
-                                  clover_dslash_ee_inv.clover);
+                                  clover_dslash_ee_inv.clover,
+                                  fine_clover_block_diagonal_);
     } else {
       wilson_dslash.run_eo(set_ptr->device_vec0, in, gauge);
       clover_dslash_ee_inv.give(set_ptr->device_vec0);
@@ -847,7 +854,8 @@ template <typename T> struct LatticeCloverMultigrid {
     // LatticeWilsonCg::_wilson_dslash_dag().
     if (wilson_dslash.single_rank() && sizeof(T) == sizeof(float)) {
       wilson_dslash.run_eo_dag_clover(
-          set_ptr->device_vec0, in, gauge, clover_dslash_ee_inv.clover);
+          set_ptr->device_vec0, in, gauge, clover_dslash_ee_inv.clover,
+          fine_clover_block_diagonal_);
     } else {
       wilson_dslash.run_eo_dag(set_ptr->device_vec0, in, gauge);
       clover_dslash_ee_inv.give(set_ptr->device_vec0);
@@ -2323,6 +2331,60 @@ template <typename T> struct LatticeCloverMultigrid {
   //
   // This is only valid for single-rank runs (no MPI reduction needed).
   // ==================================================================
+  void ensure_fine_dot_pair_blocks() {
+    if (fine_dot_pair_blocks == 0) {
+      int device_index = 0;
+      int sm_count = 0;
+      int active_blocks_per_sm = 0;
+      checkCudaErrors(cudaGetDevice(&device_index));
+      checkCudaErrors(cudaDeviceGetAttribute(
+          &sm_count, cudaDevAttrMultiProcessorCount, device_index));
+      checkCudaErrors(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+          &active_blocks_per_sm, bistabcg_dot_pair_complete<T, 256>, 256, 0));
+      int block_cap = sm_count * active_blocks_per_sm;
+      if (block_cap > 1024) block_cap = 1024;
+      if (block_cap < 1) block_cap = 1;
+      fine_dot_pair_blocks = static_cast<int>(
+          (levels[0].vec_sz + 256 * 8 - 1) / (256 * 8));
+      if (fine_dot_pair_blocks > block_cap)
+        fine_dot_pair_blocks = block_cap;
+      if (fine_dot_pair_blocks < 1) fine_dot_pair_blocks = 1;
+    }
+  }
+
+  void fine_dot_complete(void *left, void *right,
+                         LatticeComplex<T> *result) {
+    ensure_fine_dot_pair_blocks();
+    checkCudaErrors(cudaMemsetAsync(
+        fine_dot_pair_counter, 0, sizeof(unsigned int), set_ptr->stream));
+    bistabcg_dot_complete<T, 256>
+        <<<fine_dot_pair_blocks, 256, 0, set_ptr->stream>>>(
+            static_cast<const LatticeComplex<T> *>(left),
+            static_cast<const LatticeComplex<T> *>(right),
+            static_cast<int>(levels[0].vec_sz), fine_dot_pair_blocks,
+            static_cast<LatticeComplex<T> *>(fine_dot_pair_partials), result,
+            fine_dot_pair_counter);
+    ++fine_dot_single_checks;
+  }
+
+  void fine_dot_pair_complete(void *left, void *right0, void *right1,
+                              int vals_idx0, int vals_idx1) {
+    ensure_fine_dot_pair_blocks();
+    LatticeComplex<T> *dv =
+        static_cast<LatticeComplex<T> *>(set_ptr->device_vals);
+    checkCudaErrors(cudaMemsetAsync(
+        fine_dot_pair_counter, 0, sizeof(unsigned int), set_ptr->stream));
+    bistabcg_dot_pair_complete<T, 256>
+        <<<fine_dot_pair_blocks, 256, 0, set_ptr->stream>>>(
+            static_cast<const LatticeComplex<T> *>(left),
+            static_cast<const LatticeComplex<T> *>(right0),
+            static_cast<const LatticeComplex<T> *>(right1),
+            static_cast<int>(levels[0].vec_sz), fine_dot_pair_blocks,
+            static_cast<LatticeComplex<T> *>(fine_dot_pair_partials),
+            &dv[vals_idx0], &dv[vals_idx1], fine_dot_pair_counter);
+    ++fine_dot_pair_checks;
+  }
+
   void bistabcg_iter_fine_fast(bool host_sync=true) {
     auto &st=levels[0]; cudaStream_t S=set_ptr->stream;
     LatticeComplex<T>* dv=static_cast<LatticeComplex<T>*>(set_ptr->device_vals);
@@ -2332,7 +2394,7 @@ template <typename T> struct LatticeCloverMultigrid {
     // same main stream, so run_mpi's final sync is redundant — save ~340 us/iter.
     wilson_dslash.skip_final_sync_ = true;
     // 1. rho = <r_tilde, r>                       (on-device, no host round-trip)
-    CUBLAS_CHECK(_cublasDot<T>(set_ptr->cublasH, n, st.r_tilde,1,st.r,1,&dv[_rho_]));
+    fine_dot_complete(st.r_tilde, st.r, &dv[_rho_]);
     // 2. beta = (rho/rho_prev)*(alpha/omega); rho_prev = rho
     // Use a finite-value guard for the fine-level scalar path.  A fine-level
     // RHS can be an exact (or nearly exact) eigenvector, so a check-stride
@@ -2348,21 +2410,20 @@ template <typename T> struct LatticeCloverMultigrid {
     //     skipping the dot removes one full-vector reduction from 3/4 of the
     //     fine iterations while preserving the observed stopping semantics.
     if (host_sync) {
-      CUBLAS_CHECK(_cublasDot<T>(set_ptr->cublasH, n, st.r,1,st.r,1,
-          static_cast<LatticeComplex<T>*>(check_dev) + 1));
+      fine_dot_complete(
+          st.r, st.r, static_cast<LatticeComplex<T> *>(check_dev) + 1);
     }
     // 4. v = S·p
     fine_dslash_op(st.v, st.p);
     // 5. alpha = rho / <r_tilde, v>
-    CUBLAS_CHECK(_cublasDot<T>(set_ptr->cublasH, n, st.r_tilde,1,st.v,1,&dv[_tmp0_]));
+    fine_dot_complete(st.r_tilde, st.v, &dv[_tmp0_]);
     mg_fine_give_1alpha<T><<<1,1,0,S>>>(dv);
     // 6. s = r - alpha*v
     bistabcg_give_s<T><<<gv,bv,0,S>>>(st.s, st.r, st.v, dv);
     // 7. t = S·s
     fine_dslash_op(st.t, st.s);
     // 8. omega = <t,s> / <t,t>
-    CUBLAS_CHECK(_cublasDot<T>(set_ptr->cublasH, n, st.t,1,st.s,1,&dv[_tmp0_]));
-    CUBLAS_CHECK(_cublasDot<T>(set_ptr->cublasH, n, st.t,1,st.t,1,&dv[_tmp1_]));
+    fine_dot_pair_complete(st.t, st.s, st.t, _tmp0_, _tmp1_);
     mg_fine_give_1omega<T><<<1,1,0,S>>>(dv);
     // 9. r = s - omega*t ;  x = x + alpha*p + omega*s
     //    dev84 kernel-count diet: 双元素级更新融合为一次发射 (mg_give_rx)
@@ -3805,6 +3866,20 @@ template <typename T> struct LatticeCloverMultigrid {
     clover_ee=_ce;clover_oo=_co;clover_ee_inv=_cei;clover_oo_inv=_coi;
     clover_dslash_ee.init(clover_ee);clover_dslash_oo.init(clover_oo);
     clover_dslash_ee_inv.init(clover_ee_inv);clover_dslash_oo_inv.init(clover_oo_inv);
+
+    // The physical Clover term is block diagonal in the two six-spin sectors,
+    // but callers may also supply arbitrary 12x12 matrices.  Probe the two
+    // matrices used by the fine Schur dslash once per solve and only select
+    // the six-by-six kernels after every off-block entry has been proven zero.
+    fine_clover_block_diagonal_ = clover_schur_matrices_block_diagonal(
+        clover_ee_inv, clover_oo, set_ptr);
+    clover_dslash_ee_inv.block_diagonal_ = fine_clover_block_diagonal_;
+    clover_dslash_oo.block_diagonal_ = fine_clover_block_diagonal_;
+    if (verbose && rank == 0) {
+      std::cout << "PYQCU::QCU::MULTIGRID::\n fine Clover 6x6 layout: "
+                << (fine_clover_block_diagonal_ ? "enabled" : "generic")
+                << std::endl;
+    }
     parse_params();
     sap.give(set_ptr);
 
@@ -3886,6 +3961,14 @@ template <typename T> struct LatticeCloverMultigrid {
         1024 * sizeof(LatticeComplex<T>), set_ptr->stream));
     checkCudaErrors(cudaMallocAsync(&coarse_breakdown, sizeof(int),
                                     set_ptr->stream));
+    checkCudaErrors(cudaMallocAsync(
+        &fine_dot_pair_partials,
+        2 * 1024 * sizeof(LatticeComplex<T>), set_ptr->stream));
+    checkCudaErrors(cudaMallocAsync(
+        reinterpret_cast<void **>(&fine_dot_pair_counter),
+        sizeof(unsigned int), set_ptr->stream));
+    checkCudaErrors(cudaMemsetAsync(
+        fine_dot_pair_counter, 0, sizeof(unsigned int), set_ptr->stream));
 
     checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
 
@@ -4855,6 +4938,8 @@ template <typename T> struct LatticeCloverMultigrid {
           <<"ms coarse_vec="<<prof_coarse_vec_ms
           <<"ms coarse_dslash="<<prof_coarse_dslash_ms
           <<"ms coarse_iters="<<prof_n_coarse_iters
+          <<" single_checks="<<fine_dot_single_checks
+          <<" pair_checks="<<fine_dot_pair_checks
           <<" checks="<<prof_n_checks<<" check_ms="<<prof_check_ms
           <<" ck(k/d/s)=" <<prof_ck_kernel_ms<<"/"<<prof_ck_d2h_ms
           <<"/"<<prof_ck_sync_ms;
@@ -5556,7 +5641,7 @@ template <typename T> struct LatticeCloverMultigrid {
       std::ostringstream fm;fm<<"PYQCU::SOLVER::MULTIGRID::\n Final res: "<<std::scientific<<fn;
       log_write<T>(fm.str(),rank,true);
       std::ostringstream ch;ch<<"CONVERGENCE_HISTORY: ["; for(size_t j=0;j<conv_history.size();j++){if(j>0)ch<<",";ch<<std::scientific<<conv_history[j];} ch<<"]"; log_write<T>(ch.str(),rank,false);
-      std::ostringstream sect; sect<<"PROF_SECTIONS: fine_iter="<<std::fixed<<std::setprecision(1)<<prof_fine_iter_ms<<"ms vcycle="<<prof_vcycle_ms<<"ms n_vcycles="<<prof_n_vcycles; log_write<T>(sect.str(),rank,true);
+      std::ostringstream sect; sect<<"PROF_SECTIONS: fine_iter="<<std::fixed<<std::setprecision(1)<<prof_fine_iter_ms<<"ms vcycle="<<prof_vcycle_ms<<"ms n_vcycles="<<prof_n_vcycles<<" single_checks="<<fine_dot_single_checks<<" pair_checks="<<fine_dot_pair_checks; log_write<T>(sect.str(),rank,true);
     }
   }
 
@@ -5666,6 +5751,11 @@ template <typename T> struct LatticeCloverMultigrid {
     F(b__o);F(r0);F(rt0);F(p0);F(v0);F(s0);F(t0);
     F(r_full);F(e_odd_buf);
     F(parity_tmp);F(parity_dst);F(coarse_partials);
+    F(fine_dot_pair_partials);
+    if (fine_dot_pair_counter != nullptr) {
+      checkCudaErrors(cudaFreeAsync(fine_dot_pair_counter, set_ptr->stream));
+      fine_dot_pair_counter = nullptr;
+    }
     if (coarse_breakdown != nullptr) {
       checkCudaErrors(cudaFreeAsync(coarse_breakdown, set_ptr->stream));
       coarse_breakdown = nullptr;

@@ -58,6 +58,7 @@ MPI 网格管理、HDF5 I/O、线性代数、张量操作、多重网格转移�
 
 ### 多重网格工具（`_multigrid.py`）
 - `give_null_vecs(null_vecs, matvec, bistabcg, normalize, ortho_r, ortho_null_vecs, verbose)` — 逆迭代生成近零空间向量 v_i = v_i − A⁻¹ A v_i；`null_vecs` 仅作 shape/dtype/device 模板
+- `give_null_vecs_mt(..., batch_matvec=...)` — 多右端 batch BiCGStab 默认目标 6 个场/块，并按 `cudaMemGetInfo` 实时缩块；生产 24³×64 c64 的 12 向量构建由 chunk=4 的 13–15 s 降至 chunk=6 的约 10 s，chunk=12 会耗尽 32 GiB V100。
 - `local_orthogonalize(null_vecs, coarse_lat_size, normalize, verbose)` — 块局部 Gram-Schmidt（批量 QR）；NPU 路径避免 >8 维张量
 - `restrict(local_ortho_null_vecs, fine_vec)` — P^T v_fine = Σ v_fine·null_vec^†（标准 10 维 einsum；NPU 重排 ≤8 维）
 - `prolong(local_ortho_null_vecs, coarse_vec)` — P v_coarse = Σ null_vec·v_coarse
@@ -79,6 +80,11 @@ MPI 网格管理、HDF5 I/O、线性代数、张量操作、多重网格转移�
 - `PAIRS`/`SIGN` 常量；`build_stencil(matvec, lonv, E, e, lat_fine_odd, lat_coarse_odd, dt, device)` 单线程；
   `build_stencil_mt(matvec_ops, ..., nthreads)` 多线程（每线程一个 matvec 算子，探测点写集不相交，线程安全）；
   `apply_stencil(hop_nn, hop_diag, sit, v_c)` Python 参考实现（A_c = P^T S P）。
+- `BatchedLocalSchur._flat_window_index` 将周期窗口 `[K,4,W]` 一次展平，`_slicem` 用 expanded base + `torch.gather`
+  一次复制全部 K 个窗口；每次算子调用只构造一次索引。V100、24³×64 c64 微基准 K=4 约
+  `4.027 ms -> 0.272 ms`（14.81x），wrap/non-wrap 逐位一致；生产 cold stencil
+  `598.107 s -> 323.745 s`（45.87%）。`W=8` 已通过 full-grid probe 与周期边界回归，
+  同形状 local-op 中位 `27.337 ms -> 13.725 ms`。
 - 由 dev73/mg_stencil_build.py 与 test12/main.py::build_stencil_mt 合并迁移。
 
 ### HDF5 本地持久化（`_io.py`）

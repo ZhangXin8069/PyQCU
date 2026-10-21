@@ -183,7 +183,11 @@ def build_schur_levels(op, S, num_levels, dof_list, mg_grid, lat_full, E, dt, de
                 f"level {lvl} null-space done {time.perf_counter() - t0:.3f}s; "
                 "stencil start")
             if use_local_stencil:
-                lsch = BatchedLocalSchur(op, *lat_fine_odd, W=10)
+                # W=8 is the validated production window: it covers the
+                # center block plus both coarse neighbours, while W=10 adds
+                # 2.44x more W^4 temporary volume without changing any of the
+                # 33 stencil tensors.
+                lsch = BatchedLocalSchur(op, *lat_fine_odd, W=8)
                 hnn, hdg, sit = build_stencil_local(
                     lsch, lonv, E_c, lat_fine_odd, lat_coarse_odd, dt,
                     device, verbose=verbose,

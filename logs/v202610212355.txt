@@ -1,0 +1,102 @@
+[日志元数据]
+日志类型: stage
+生成时间: 2026-10-21 23:55:52 +0800
+批次: stage22-mg-single-dot-20261021
+主任务: 持续比照 QUDA 优化 KUPL/CUDA QCU：MG 为主，BiCGStab 为辅；CUDA/KUPL 子任务并行
+触发原因: 阶段成果
+摘要: CUDA legacy MG fine单点积ABBA再降3.38%，相对Stage20累计降5.88%；strict/Clover/ABI/c64/c128全绿；KUPL专项并行调查2/4-rank效率损失并报告三方性能
+Git 根目录: /root/PyQCU
+
+## 关键日志
+### S1 — fine 单点积接入
+- 目标: 将单 rank legacy MG fine Schur fast path 剩余 cuBLAS 单点积移出关键迭代链。
+- 实现: 新增 `bistabcg_dot_complete`，用于 `rho`、`rtv` 和检查范数；与成对归约共用 block 数、partials 与 completion counter，最后完成 block 按固定 partial 顺序汇总。
+- 路径证据: 20 次生产迭代产生 `single_checks=45`、`pair_checks=20`；c128 smoke 为 `single_checks=9`、`pair_checks=4`。
+- 退出码: 0。
+
+### S2 — Stage22 ABBA
+- 固定 LIME `24^3x64` c64、mass `-0.277`、csw `1.160920226`、cache-hit、单 V100；每轮 2 warmup + 10 steady。
+- 直接基线 Stage21 pair: 20 样本 MG 中位 `0.13760 s`，lifecycle `0.362613 s`。
+- Stage22 single: MG 中位 `0.13295 s`，lifecycle `0.356707 s`；分别降低 `3.38%`、`1.63%`。
+- 相对 Stage20 原始基线 `0.14125/0.372507 s`，累计降低 `5.88%/4.24%`。
+- 两个版本均 20 iterations；Stage22 真残差 `4.1257200e-7`。
+- 退出码: 0。
+
+### S3 — 最终门禁
+- strict tier1: CPU 20 passed、cuda-strict 11 passed、fused-FGMRES 3 passed，总 27.648 s。
+- 直接 Clover: c64/c128 8 passed。
+- ABI: header/pxd/pyx 差异和 coverage_missing 均为空，PASS。
+- c64 MG breakdown: 1 passed；c128 独立 smoke finite，single/pair 计数命中。
+- `git diff --check`: PASS。
+- form audit: 仅既有 `docs/progress_dev99_to_164349d_20261021.md` 的 `TAG_NAME_IN_PATH`，与本轮无关。
+
+## 验证与证据
+- Stage22 candidate lib SHA256: `eec89c66fec3b4e61236c869b02296c4353798fc3cc19d78f55c0a3f9142473f`。
+- ABBA:
+  - `data/production_mg_20261021/stage22_cuda_c64_mg_single_baseline_b1.json`
+  - `data/production_mg_20261021/stage22_cuda_c64_mg_single_r1.json`
+  - `data/production_mg_20261021/stage22_cuda_c64_mg_single_r2.json`
+  - `data/production_mg_20261021/stage22_cuda_c64_mg_single_baseline_b2.json`
+- strict: `data/production_mg_20261021/stage22_cuda_strict_tier1.json`。
+- LIME SHA256: `a49773fa3742d310f4ea162a932cf559253aeab708bac08a8dd1f6847df4294b`。
+- RHS SHA256: `24da8b13665dc2a6e0503142bbb9f3baa0f4264d86541b6fca40a297b7c38a5b`。
+- KUPL 当前结果仍为 c64 4-rank `15.581 s`、47 iterations、efficiency 74.5%；CUDA Stage22 计时期间未运行 KUPL 基准。
+
+## 变更与产物
+- CUDA 保留: `include/bistabcg.h`、`src/bistabcg.cu` 的确定性单点积 kernel；`include/lattice_clover_multigrid.h` 的 fine 单/成对归约调度与计数。
+- 文档同步: `cpp/cuda/qcu/AGENTS.md`、`skills/pyqcu-cuda/SKILL.md`。
+- 未保留: Graph segment、双流 onsite/hop overlap、临时 CUDA-event profiler。
+- 未执行: 未提交、未打 tag、未 push、未删除文件。
+
+## 风险、限制与下一步
+- 当前生产 MG adaptive gate 仍为 `n_vcycles=0`；收益属于 fine Schur 迭代，不是 coarse V-cycle。
+- 单点积与成对归约都只覆盖单 rank；multi-rank 五流路径未改，禁止外推。
+- `0.13295 s` 与 QUDA BiCGStab `0.134009 s` 只作同算子同精度量级参照，不能写成 QUDA MG 对比。
+- 多 agent 正在并行调查 KUPL 2/4-rank 效率损失的 coarse dslash/halo、Allreduce、canonical conversion 与 OpenMP 计算分解；该子任务尚无最终性能结论。
+- 下一轮 CUDA 优先资源/访存特化 `H_eo+D_ee^-1` kernel；KUPL 仅在子 agent 提供 A/B 与 29/29 CTest 后整合。
+
+## Agent 全文报告
+--- report begin ---
+# Stage22 三方性能报告
+
+## 1. 结论
+fine Schur fast path 已统一为自研确定性单点积与成对归约，cuBLAS 退出该单 rank 关键迭代链。以 Stage21 成对归约库为直接基线，MG backend `0.13760 -> 0.13295 s`，降低 `3.38%`；生命周期 `0.362613 -> 0.356707 s`，降低 `1.63%`。相对 Stage20 原始基线累计降低 `5.88%/4.24%`。
+
+## 2. 三方性能
+
+| 路径 | 当前结果 | iterations | 真/验收残差 | 口径 |
+|---|---:|---:|---:|---|
+| CUDA QCU legacy MG Stage22 | `0.13295 s` | 20 | `4.1257200e-7` | 单 rank c64 cache-hit，ABBA 20 steady |
+| CUDA QCU MG lifecycle Stage22 | `0.356707 s` | 20 | `4.1257200e-7` | 含 init/end 与残差探针 |
+| CUDA QCU Clover BiCGStab Stage20 | `0.125522 s` | 18 | `6.694990e-7` | 单 rank 同 LIME |
+| QUDA Clover BiCGStab | `0.134009 s` | 19 | `5.6942744e-7` | 同 mass/csw/RHS |
+| KUPL legacy MG, 4 ranks × 4 threads | `15.581 s` | 47 | native 约 `9.138e-7` | c64 强扩展当前中位 |
+| QUDA MG nvec24 | `28.007541 s` | 3 outer | `5.1234262e-7` | 与 dof12 不等价，禁止算倍率 |
+
+Stage22 MG wall 比 QUDA BiCGStab 低约 `0.79%`，每迭代 `6.6475 ms` 对 `7.0531 ms`，低约 `5.75%`。但二者仍是不同 inverter，不能写成“QCU MG 对 QUDA MG 的加速”。
+
+## 3. ABBA 明细
+
+| 顺序 | 版本 | solver 中位，秒 | lifecycle 中位，秒 |
+|---|---|---:|---:|
+| B1 | Stage21 pair | `0.13715` | `0.362143` |
+| A1 | Stage22 single | `0.13285` | `0.358364` |
+| A2 | Stage22 single | `0.13365` | `0.355929` |
+| B2 | Stage21 pair | `0.13800` | `0.366726` |
+| 合并 | Stage21 pair | `0.13760` | `0.362613` |
+| 合并 | Stage22 single | `0.13295` | `0.356707` |
+
+所有解均为 20 iterations。`single_checks=45` 由 40 次 rho/rtv 与 5 次检查范数组成，`pair_checks=20` 对应 20 轮末尾双点积。
+
+## 4. KUPL 与并行效率
+KUPL c64 当前 1/2/4-rank 中位 `46.407/27.790/15.581 s`，speedup `1.000/1.670/2.978x`，efficiency `100.0/83.5/74.5%`。c128 全格点 `restart=0` 中位 `10.282 s`、21 iterations、native recomputed `6.079e-8`。该结果是 CUDA Stage22 计时前已核验的稳定基线；新的 KUPL 并行分解子任务正在独立执行。
+
+## 5. 正确性
+strict tier1 20+11+3、直接 c64/c128 Clover 8 项、ABI、c64 MG breakdown 与 c128 single/pair smoke 全部通过。c128 smoke 输出 finite，频率与计数证明双精度单/成对 kernel 均实际执行。
+
+## 6. 限制与下一步
+- 生产 MG 仍未进入 coarse V-cycle，`n_vcycles=0`。
+- 单点积/成对归约只覆盖单 rank；多 rank 不引用本收益。
+- 下一个 CUDA 目标是占 fine dslash 最大分项的 `H_eo+D_ee^-1` kernel 的寄存器与访存效率。
+- KUPL 子 agent 正在并行分析 2/4-rank efficiency 损失，只有在至少 3 次 A/B、真残差不变且 29/29 CTest 通过后才整合。
+--- report end ---

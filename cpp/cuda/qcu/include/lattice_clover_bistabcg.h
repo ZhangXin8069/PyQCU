@@ -28,11 +28,17 @@ template <typename T> struct LatticeCloverBistabCg {
   LatticeComplex<T> omega;
   void *gauge, *clover_ee, *clover_oo, *clover_ee_inv, *clover_oo_inv, *ans_e,
       *ans_o, *x_e, *x_o, *b_e, *b_o, *b__o, *r, *r_tilde, *p, *v, *s, *t;
+  void *dot_pair_partials;
+  unsigned int *dot_pair_counter;
   LatticeComplex<T> host_vals[_vals_size_];
   int if_input, if_test;
   void give(LatticeSet<T> *_set_ptr) {
     set_ptr = _set_ptr;
     wilson_dslash.give(set_ptr);
+    // All Clover-BiCG dslash launches and their consumers are ordered on the
+    // main stream.  Keep synchronization at solver boundaries instead of
+    // paying two stream drains per iteration (the MG fast path does the same).
+    wilson_dslash.skip_final_sync_ = true;
     clover_dslash_ee.give(set_ptr);
     clover_dslash_oo.give(set_ptr);
     clover_dslash_ee_inv.give(set_ptr);
@@ -62,6 +68,14 @@ template <typename T> struct LatticeCloverBistabCg {
         &s, set_ptr->lat_4dim_SC * sizeof(LatticeComplex<T>), set_ptr->stream));
     checkCudaErrors(cudaMallocAsync(
         &t, set_ptr->lat_4dim_SC * sizeof(LatticeComplex<T>), set_ptr->stream));
+    checkCudaErrors(cudaMallocAsync(
+        &dot_pair_partials,
+        2 * 1024 * sizeof(LatticeComplex<T>), set_ptr->stream));
+    checkCudaErrors(cudaMallocAsync(
+        reinterpret_cast<void **>(&dot_pair_counter), sizeof(unsigned int),
+        set_ptr->stream));
+    checkCudaErrors(cudaMemsetAsync(
+        dot_pair_counter, 0, sizeof(unsigned int), set_ptr->stream));
     checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
     if (debug) {
       printf("QCU_BISTABCG rank=%d stage=alloc_end\n",
@@ -152,7 +166,8 @@ template <typename T> struct LatticeCloverBistabCg {
     // A_oo*src_o-set_ptr->kappa()**2*dslash_oe*A_ee^-1*(dslash_eo(src_o))
     if (wilson_dslash.single_rank() && sizeof(T) == sizeof(float)) {
       wilson_dslash.run_eo_clover(set_ptr->device_vec0, fermion_in, gauge,
-                                  clover_dslash_ee_inv.clover);
+                                  clover_dslash_ee_inv.clover,
+                                  clover_dslash_ee_inv.block_diagonal_);
     } else {
       wilson_dslash.run_eo(set_ptr->device_vec0, fermion_in, gauge);
       clover_dslash_ee_inv.give(set_ptr->device_vec0);
@@ -271,6 +286,10 @@ template <typename T> struct LatticeCloverBistabCg {
     clover_dslash_oo.init(clover_oo);
     clover_dslash_ee_inv.init(clover_ee_inv);
     clover_dslash_oo_inv.init(clover_oo_inv);
+    const bool clover_block_diagonal = clover_schur_matrices_block_diagonal(
+        clover_ee_inv, clover_oo, set_ptr);
+    clover_dslash_ee_inv.block_diagonal_ = clover_block_diagonal;
+    clover_dslash_oo.block_diagonal_ = clover_block_diagonal;
     x_e = _x;
     x_o = ((static_cast<LatticeComplex<T> *>(_x)) + set_ptr->lat_4dim_SC);
     b_e = _b;
@@ -449,6 +468,110 @@ template <typename T> struct LatticeCloverBistabCg {
       return;
     }
 
+    int comm_size = 1;
+    MPI_Comm_size(MPI_COMM_WORLD, &comm_size);
+    if (comm_size == 1) {
+      // The reference iteration below uses five CUDA streams and several
+      // host drains per iteration.  Single-rank solves do not need those
+      // cross-stream synchronization points: queue reductions, scalar
+      // updates, dslash applications and vector updates on the main stream.
+      // Check the stopping norm every two iterations; this halves host
+      // synchronizations while preserving the BiCGStab trajectory.
+      cudaStream_t stream = set_ptr->stream;
+      LatticeComplex<T> *vals =
+          static_cast<LatticeComplex<T> *>(set_ptr->device_vals);
+      const int vector_count = static_cast<int>(set_ptr->lat_4dim_SC);
+      int device_index = 0;
+      int sm_count = 0;
+      int active_blocks_per_sm = 0;
+      checkCudaErrors(cudaGetDevice(&device_index));
+      checkCudaErrors(cudaDeviceGetAttribute(
+          &sm_count, cudaDevAttrMultiProcessorCount, device_index));
+      checkCudaErrors(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+          &active_blocks_per_sm,
+          bistabcg_dot_pair_complete<T, 256>, 256, 0));
+      int block_cap = sm_count * active_blocks_per_sm;
+      if (block_cap > 1024) block_cap = 1024;
+      if (block_cap < 1) block_cap = 1;
+      int dot_pair_blocks =
+          (vector_count + 256 * 8 - 1) / (256 * 8);
+      if (dot_pair_blocks > block_cap) dot_pair_blocks = block_cap;
+      if (dot_pair_blocks < 1) dot_pair_blocks = 1;
+      auto dot_complete = [&](const void *left, const void *right,
+                              LatticeComplex<T> *result) {
+        bistabcg_dot_complete<T, 256>
+            <<<dot_pair_blocks, 256, 0, stream>>>(
+                static_cast<const LatticeComplex<T> *>(left),
+                static_cast<const LatticeComplex<T> *>(right), vector_count,
+                dot_pair_blocks,
+                static_cast<LatticeComplex<T> *>(dot_pair_partials), result,
+                dot_pair_counter);
+        checkCudaErrors(cudaGetLastError());
+      };
+      constexpr int convergence_chunk = 2;
+      int completed = 0;
+      for (int loop = 0; loop < set_ptr->max_iter();) {
+        const int remaining = set_ptr->max_iter() - loop;
+        const int chunk =
+            remaining < convergence_chunk ? remaining : convergence_chunk;
+        for (int inner = 0; inner < chunk; ++inner) {
+          completed = loop + inner + 1;
+          dot_complete(r_tilde, r, vals + _rho_);
+          bistabcg_give_1beta_rp<T><<<1, 1, 0, stream>>>(vals);
+          bistabcg_give_p<T>
+              <<<set_ptr->gridDim, set_ptr->blockDim, 0, stream>>>(
+                  p, r, v, vals);
+          dslash(v, p);
+          dot_complete(r_tilde, v, vals + _tmp0_);
+          bistabcg_give_1alpha<T><<<1, 1, 0, stream>>>(vals);
+          bistabcg_give_s<T>
+              <<<set_ptr->gridDim, set_ptr->blockDim, 0, stream>>>(
+                  s, r, v, vals);
+          dslash(t, s);
+          bistabcg_dot_pair_complete<T, 256>
+              <<<dot_pair_blocks, 256, 0, stream>>>(
+                  static_cast<const LatticeComplex<T> *>(t),
+                  static_cast<const LatticeComplex<T> *>(s),
+                  static_cast<const LatticeComplex<T> *>(t), vector_count,
+                  dot_pair_blocks,
+                  static_cast<LatticeComplex<T> *>(dot_pair_partials),
+                  vals + _tmp0_, vals + _tmp1_, dot_pair_counter);
+          checkCudaErrors(cudaGetLastError());
+          bistabcg_give_1omega<T><<<1, 1, 0, stream>>>(vals);
+          bistabcg_give_r_x<T>
+              <<<set_ptr->gridDim, set_ptr->blockDim, 0, stream>>>(
+                  r, x_o, p, s, t, vals);
+          if (inner == chunk - 1) {
+            dot_complete(r, r, vals + _norm2_tmp_);
+          }
+        }
+        loop += chunk;
+        checkCudaErrors(cudaMemcpyAsync(
+            host_vals + _norm2_tmp_, vals + _norm2_tmp_,
+            sizeof(LatticeComplex<T>), cudaMemcpyDeviceToHost, stream));
+        checkCudaErrors(cudaStreamSynchronize(stream));
+
+        if (host_vals[_norm2_tmp_]._data.x < stop_tolerance2 ||
+            loop == set_ptr->max_iter()) {
+          std::cout << "##RANK:" << set_ptr->host_params[_NODE_RANK_]
+                    << "##LOOP:" << loop - 1
+                    << "##Residual(norm2):" << host_vals[_norm2_tmp_]
+                    << "##Relative(norm2):"
+                    << host_vals[_norm2_tmp_]._data.x / rhs_norm2
+                    << std::endl;
+          break;
+        }
+      }
+      set_ptr->last_iterations = completed;
+      checkCudaErrors(cudaStreamSynchronize(stream));
+      if (debug) {
+        printf("QCU_BISTABCG rank=%d stage=run_end_fast\n",
+               set_ptr->host_params[_NODE_RANK_]);
+        fflush(stdout);
+      }
+      return;
+    }
+
     int completed_iterations = 0;
     for (int loop = 0; loop < set_ptr->max_iter(); loop++) {
       if (debug && loop < 2) {
@@ -458,18 +581,10 @@ template <typename T> struct LatticeCloverBistabCg {
       }
       completed_iterations = loop + 1;
       _dot(r_tilde, r, _rho_, _a_);
-      checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_b_]));
       {
         // beta = (rho / rho_prev) * (alpha / omega);
-        bistabcg_give_1beta<T>
+        bistabcg_give_1beta_rp<T>
             <<<1, 1, 0, set_ptr->streams[_a_]>>>(set_ptr->device_vals);
-      }
-      checkCudaErrors(cudaStreamSynchronize(
-          set_ptr->streams[_a_])); // needed, but don't know why.
-      {
-        // rho_prev = rho;
-        bistabcg_give_1rho_prev<T>
-            <<<1, 1, 0, set_ptr->streams[_b_]>>>(set_ptr->device_vals);
       }
       {
         // p[i] = r[i] + (p[i] - v[i] * omega) * beta;
@@ -512,18 +627,10 @@ template <typename T> struct LatticeCloverBistabCg {
             <<<1, 1, 0, set_ptr->streams[_d_]>>>(set_ptr->device_vals);
       }
       checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_d_]));
-      {
-        // r[i] = s[i] - t[i] * omega;
-        bistabcg_give_r<T>
-            <<<set_ptr->gridDim, set_ptr->blockDim, 0, set_ptr->streams[_a_]>>>(
-                r, s, t, set_ptr->device_vals);
-      }
-      {
-        // x_o[i] = x_o[i] + p[i] * alpha + s[i] * omega;
-        bistabcg_give_x_o<T>
-            <<<set_ptr->gridDim, set_ptr->blockDim, 0, set_ptr->streams[_b_]>>>(
-                x_o, p, s, set_ptr->device_vals);
-      }
+      // Fuse both final vector updates: one pass over p/s/t writes r and x.
+      bistabcg_give_r_x<T>
+          <<<set_ptr->gridDim, set_ptr->blockDim, 0, set_ptr->streams[_a_]>>>(
+              r, x_o, p, s, t, set_ptr->device_vals);
       if (debug && loop < 2) {
         printf("QCU_BISTABCG rank=%d stage=loop_end loop=%d\n",
                set_ptr->host_params[_NODE_RANK_], loop);
@@ -626,6 +733,8 @@ template <typename T> struct LatticeCloverBistabCg {
     checkCudaErrors(cudaFreeAsync(v, set_ptr->stream));
     checkCudaErrors(cudaFreeAsync(s, set_ptr->stream));
     checkCudaErrors(cudaFreeAsync(t, set_ptr->stream));
+    checkCudaErrors(cudaFreeAsync(dot_pair_partials, set_ptr->stream));
+    checkCudaErrors(cudaFreeAsync(dot_pair_counter, set_ptr->stream));
     checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
     checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_a_]));
     checkCudaErrors(cudaStreamSynchronize(set_ptr->streams[_b_]));

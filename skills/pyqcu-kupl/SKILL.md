@@ -148,7 +148,7 @@ c64/c128；CUDA 专用 mixed-precision、GCR/CA-GCR/BiCGStabL 模式必须显式
 KUPL 的 Clover onsite 矩阵及逆矩阵在当前 gamma 基下按自旋 `(0,1)` 与
 `(2,3)` 分成两个稠密 `6×6` 块，不是 `(0,3)/(1,2)`。求解热路径使用
 `apply_clover_onsite`，逆矩阵也按两个 `6×6` 块计算，但外部 ABI 仍写回完整
-`12×12` 矩阵并显式清零另外两块。28 项 CTest 必须全绿后才能保留该优化。
+`12×12` 矩阵并显式清零另外两块。29 项 CTest 必须全绿后才能保留该优化。
 
 真实 `24³×64`、24 线程/rank、5 次稳态中位数：
 
@@ -167,3 +167,61 @@ KUPL 的 Clover onsite 矩阵及逆矩阵在当前 gamma 基下按自旋 `(0,1)`
 `prolong` reshape 失败；正确值恒为 `lat[i] // mg_grid[i]`。非退化回归见
 `pyqcu/testing/kupl/test_simple_mg_geometry.py`，不可只用 `4⁴/mg_grid=2`
 这种粗格与 block 恰好相等的退化工况验证。
+
+## 2026-10-21 legacy-MG coarse tile 与 rank 扩展
+
+`apply_multigrid_coarse_dslash_wide` 以 512-site tile 预解析 32 个邻接流，
+随后按 site-major coefficient stream 连续累加；canonical/full 转换改为
+half-site 遍历并一次写两个时间 parity，coarse correction 复用刚形成的
+true residual。生产 `24³×64` c64、`restart=5`、deflate、4 threads/rank：
+
+| ranks | 中位 | speedup | efficiency |
+|---:|---:|---:|---:|
+| 1 | 85.204 s | 1.00x | 100% |
+| 2 | 46.752 s | 1.822x | 91.1% |
+| 4 | 29.942 s | 2.846x | 71.1% |
+
+4-rank 相对优化前 `94.108 s` 降低 68.18%，60 iterations，native relative
+residual `9.70132e-7`，verifier=0。跨 rank 仍必须使用对称集合操作；该结果只覆盖
+单节点 y-only 分域，不外推到跨节点 InfiniBand。
+
+coarse correction 现在采用 fail-closed 验收：每次 correction 后比较 true residual；
+若不变、变差或非有限，则撤销 correction 并关闭本 solve 的后续 correction，剩余
+BiCGStab 在单个长 chunk 中完成。相同生产 `restart=5, deflate=true` 参数下，
+solve 中位进一步降至 `16.771 s`，47 iterations，relative residual
+`9.13844e-7`，verifier=0；相对最初的 `94.108 s` 降低 82.18%。
+
+### 2026-10-21 BiCGStab 成对归约
+
+`bicgstab_chunk` 将相邻的 `(v,v)` 与 `(v,s)` 点积合并为一次四实数组
+`MPI_Allreduce`，并在同一 OpenMP 遍历中计算两个局部和。这样每轮全流程的集合
+归约次数由 6 降到 5，同时保持更新公式、actual iteration counting、停机判据和
+adaptive correction 不变。生产 `24³×64` c64、4 ranks x 4 threads、`restart=5`、
+deflate：中位 `18.501 -> 17.725 s`（4.19%，1.0438x），均 47 iterations，
+native relative residual `9.138e-7`，verifier=0。最终 CTest `29/29` 通过；
+独立 NumPy 真残差未在该多 rank 脚本中启用，不能把 native residual 写成独立验证。
+
+## 2026-10-22 2/4-rank efficiency decomposition
+
+固定生产 c64、4 threads/rank 的 profile 分解显示，4-rank 的 fine
+Wilson-Clover rank-local apply 占 solve `73.2%`；Allreduce `7.7%`、canonical
+conversion `6.4%`、coarse dslash/halo `1.3%`、vector/other `11.4%`。相对
+1-rank 完美扩展的额外耗时中，fine apply 占 `52.5%`，Allreduce `16.1%`，
+canonical `9.7%`，other `21.1%`，coarse 仅 `0.6%`；4-rank fine apply 内 halo
+仅 `7.55%`。因此 2/4-rank efficiency 损失首先是 rank 内计算和内存带宽问题。
+
+把每轮 5 次 Allreduce 降到 4 次的候选在 4-rank 三轮 A/B 中为
+`15.072466 -> 16.681220 s`，慢 `10.67%`；虽然均 47 iterations、verifier=0、
+native residual 约 `9.138e-7`，候选已撤销。减少集合调用次数不保证降低关键路径。
+
+## 2026-10-22 fine dslash hotspot and rejected face SIMD
+
+固定 local `24×6×24×64`、4 ranks × 4 threads、c64：dslash 内点+周期面占
+`53.22%`，标量边界占 `37.85%`，halo `3.29%`，MPI wait `5.65%`。SIMD block
+对 Wilson/Clover/Schur 比 scalar 快 `13.98%/6.95%/2.04%`；Clover onsite 占
+Clover 算子 `39.36%`，canonical 往返约为每迭代墙钟 `1.73%`。
+
+y-face 连续时间 lane SIMD 候选使 4-rank 中位 `15.446281 -> 16.157466 s`
+（慢 `4.60%`），MAD 从 `0.061435` 扩到 `0.715516 s`；六轮均 47 iterations、
+verifier=0、PASS，已撤销。下一步应分析 scalar boundary 的 rank-face 分布和页
+局部性，不能只因标量边界占比大就盲目扩大 SIMD lane。

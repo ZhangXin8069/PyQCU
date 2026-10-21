@@ -46,6 +46,42 @@ Complex<Real> mg_dot(const std::vector<Complex<Real>> &left,
 }
 
 template <typename Real>
+std::array<Complex<Real>, 2> mg_dot_pair(
+    const std::vector<Complex<Real>> &left,
+    const std::vector<Complex<Real>> &right, bool distributed) {
+  if (left.size() != right.size()) {
+    throw std::runtime_error("legacy MG paired dot size mismatch");
+  }
+  Real left_real_sum = 0;
+  Real left_imag_sum = 0;
+  Real mixed_real_sum = 0;
+  Real mixed_imag_sum = 0;
+  const int64_t count = static_cast<int64_t>(left.size());
+  const int64_t chunk = omp_chunk<Real>(count);
+#pragma omp parallel for schedule(static, chunk) reduction(+ : left_real_sum, left_imag_sum, mixed_real_sum, mixed_imag_sum)
+  for (int64_t index = 0; index < count; ++index) {
+    const Complex<Real> &a = left[static_cast<std::size_t>(index)];
+    const Complex<Real> &b = right[static_cast<std::size_t>(index)];
+    left_real_sum += a.real() * a.real() + a.imag() * a.imag();
+    left_imag_sum += a.real() * a.imag() - a.imag() * a.real();
+    mixed_real_sum += a.real() * b.real() + a.imag() * b.imag();
+    mixed_imag_sum += a.real() * b.imag() - a.imag() * b.real();
+  }
+  const Real local[4] = {
+      left_real_sum, left_imag_sum, mixed_real_sum, mixed_imag_sum};
+  if (!distributed) {
+    return {Complex<Real>(local[0], local[1]),
+            Complex<Real>(local[2], local[3])};
+  }
+  Real global[4] = {0, 0, 0, 0};
+  const MPI_Datatype type =
+      sizeof(Real) == sizeof(float) ? MPI_FLOAT : MPI_DOUBLE;
+  MPI_Allreduce(local, global, 4, type, MPI_SUM, MPI_COMM_WORLD);
+  return {Complex<Real>(global[0], global[1]),
+          Complex<Real>(global[2], global[3])};
+}
+
+template <typename Real>
 Real mg_norm2(const std::vector<Complex<Real>> &field, bool distributed) {
   Real local = 0;
   const int64_t count = static_cast<int64_t>(field.size());
@@ -215,30 +251,46 @@ public:
     const Real target = levels_[0].tolerance * rhs_norm;
     levels_[0].target = target;
     int total_iterations = 0;
-    const bool can_correct =
+    bool corrections_enabled =
         num_levels_ > 1 && levels_[0].correction_interval > 0;
+    const auto reject_correction = [&](int level) {
+      LegacyMgLevel<Real> &state = levels_[level];
+      for (std::size_t i = 0; i < state.x.size(); ++i) {
+        state.x[i] -= state.correction[i];
+      }
+      return true_residual(level);
+    };
     int since_correction = 0;
-    if (can_correct && deflate_ && residual > target) {
-      apply_coarse_correction(0);
-      residual = true_residual(0);
+    if (corrections_enabled && deflate_ && residual > target) {
+      const Real before = residual;
+      const Real candidate = apply_coarse_correction(0);
+      if (!std::isfinite(static_cast<double>(candidate)) ||
+          candidate >= before) {
+        residual = reject_correction(0);
+        corrections_enabled = false;
+      } else {
+        residual = candidate;
+      }
       if (params_[kVerbose] != 0) {
         std::fprintf(stdout,
                      "PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:\n "
-                     "deflation residual=%g target=%g\n",
+                     "deflation residual=%g target=%g corrections=%d\n",
                      static_cast<double>(residual),
-                     static_cast<double>(target));
+                     static_cast<double>(target),
+                     corrections_enabled ? 1 : 0);
       }
     }
     while (total_iterations < levels_[0].max_iter && residual > target) {
       const int remaining = levels_[0].max_iter - total_iterations;
       const int chunk =
-          can_correct
+          corrections_enabled
               ? std::min(remaining,
                          levels_[0].correction_interval - since_correction)
               : remaining;
       bicgstab_chunk(0, chunk, false);
-      total_iterations += chunk;
-      since_correction += chunk;
+      const int completed = last_chunk_iterations_;
+      total_iterations += completed;
+      since_correction += completed;
       residual = true_residual(0);
       if (params_[kVerbose] != 0 &&
           (total_iterations < 20 || total_iterations % 50 == 0)) {
@@ -252,18 +304,36 @@ public:
           residual <= target) {
         break;
       }
-      if (can_correct &&
+      if (corrections_enabled &&
           since_correction >= levels_[0].correction_interval) {
-        apply_coarse_correction(0);
+        const Real before = residual;
+        const Real candidate = apply_coarse_correction(0);
         since_correction = 0;
-        residual = true_residual(0);
+        if (!std::isfinite(static_cast<double>(candidate)) ||
+            candidate >= before) {
+          residual = reject_correction(0);
+          corrections_enabled = false;
+        } else {
+          residual = candidate;
+        }
         if (params_[kVerbose] != 0) {
           std::fprintf(stdout,
                        "PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:\n "
-                       "coarse-correction iterations=%d residual=%g\n",
-                       total_iterations, static_cast<double>(residual));
+                       "coarse-correction iterations=%d residual=%g "
+                       "corrections=%d\n",
+                       total_iterations, static_cast<double>(residual),
+                       corrections_enabled ? 1 : 0);
         }
       }
+    }
+    if (params_[kVerbose] != 0) {
+      std::fprintf(
+          stdout,
+          "PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:\n "
+          "final iterations=%d residual=%g target=%g relative=%g\n",
+          total_iterations, static_cast<double>(residual),
+          static_cast<double>(target),
+          static_cast<double>(residual / rhs_norm));
     }
     if (!std::isfinite(static_cast<double>(residual)) ||
         residual > target) {
@@ -358,28 +428,39 @@ private:
     const int Y = params_[kLatY];
     const int Z = params_[kLatZ];
     const int T = params_[kLatT];
+    const int half_time = T / 2;
     const int64_t half_sites =
-        static_cast<int64_t>(X) * Y * Z * (T / 2);
-    const int64_t count =
-        static_cast<int64_t>(kVector) * X * Y * Z * T;
-    const int64_t chunk = omp_chunk<Real>(count);
+        static_cast<int64_t>(X) * Y * Z * half_time;
+    const int64_t plane = static_cast<int64_t>(X) * Y * Z * T;
+    const int64_t chunk = omp_chunk<Real>(half_sites);
+    // Walk canonical half-sites once and emit both time parities.  The
+    // component-major full layout used to require a 4-D division for every
+    // component of every site on each legacy-MG fine application.
 #pragma omp parallel for schedule(static, chunk)
-    for (int64_t index = 0; index < count; ++index) {
-      const int component = static_cast<int>(index / (X * Y * Z * T));
-      int site = static_cast<int>(index % (X * Y * Z * T));
-      const int t = site % T;
-      site /= T;
-      const int z = site % Z;
-      site /= Z;
-      const int y = site % Y;
-      const int x = site / Y;
-      const int parity = (x + y + z + t) & 1;
-      const int64_t half_site =
-          ((static_cast<int64_t>(x) * Y + y) * Z + z) * (T / 2) + t / 2;
-      full[static_cast<std::size_t>(index)] =
-          canonical[(static_cast<int64_t>(parity) * kVector + component) *
-                        half_sites +
-                    half_site];
+    for (int64_t half_site = 0; half_site < half_sites; ++half_site) {
+      int64_t remainder = half_site;
+      const int t2 = static_cast<int>(remainder % half_time);
+      remainder /= half_time;
+      const int z = static_cast<int>(remainder % Z);
+      remainder /= Z;
+      const int y = static_cast<int>(remainder % Y);
+      const int x = static_cast<int>(remainder / Y);
+      const int even_parity = (x + y + z) & 1;
+      const int64_t site =
+          ((static_cast<int64_t>(x) * Y + y) * Z + z) * T;
+      for (int component = 0; component < kVector; ++component) {
+        const int64_t source =
+            static_cast<int64_t>(component) * plane + site;
+        full[static_cast<std::size_t>(source + 2 * t2 + even_parity)] =
+            canonical[(static_cast<int64_t>(0) * kVector + component) *
+                          half_sites +
+                      half_site];
+        full[static_cast<std::size_t>(
+            source + 2 * t2 + (even_parity ^ 1))] =
+            canonical[(static_cast<int64_t>(1) * kVector + component) *
+                          half_sites +
+                      half_site];
+      }
     }
   }
 
@@ -389,28 +470,36 @@ private:
     const int Y = params_[kLatY];
     const int Z = params_[kLatZ];
     const int T = params_[kLatT];
+    const int half_time = T / 2;
     const int64_t half_sites =
-        static_cast<int64_t>(X) * Y * Z * (T / 2);
-    const int64_t count =
-        static_cast<int64_t>(kVector) * X * Y * Z * T;
-    const int64_t chunk = omp_chunk<Real>(count);
+        static_cast<int64_t>(X) * Y * Z * half_time;
+    const int64_t plane = static_cast<int64_t>(X) * Y * Z * T;
+    const int64_t chunk = omp_chunk<Real>(half_sites);
 #pragma omp parallel for schedule(static, chunk)
-    for (int64_t index = 0; index < count; ++index) {
-      const int component = static_cast<int>(index / (X * Y * Z * T));
-      int site = static_cast<int>(index % (X * Y * Z * T));
-      const int t = site % T;
-      site /= T;
-      const int z = site % Z;
-      site /= Z;
-      const int y = site % Y;
-      const int x = site / Y;
-      const int parity = (x + y + z + t) & 1;
-      const int64_t half_site =
-          ((static_cast<int64_t>(x) * Y + y) * Z + z) * (T / 2) + t / 2;
-      canonical[(static_cast<int64_t>(parity) * kVector + component) *
-                    half_sites +
-                half_site] =
-          full[static_cast<std::size_t>(index)];
+    for (int64_t half_site = 0; half_site < half_sites; ++half_site) {
+      int64_t remainder = half_site;
+      const int t2 = static_cast<int>(remainder % half_time);
+      remainder /= half_time;
+      const int z = static_cast<int>(remainder % Z);
+      remainder /= Z;
+      const int y = static_cast<int>(remainder % Y);
+      const int x = static_cast<int>(remainder / Y);
+      const int even_parity = (x + y + z) & 1;
+      const int64_t site =
+          ((static_cast<int64_t>(x) * Y + y) * Z + z) * T;
+      for (int component = 0; component < kVector; ++component) {
+        const int64_t source =
+            static_cast<int64_t>(component) * plane + site;
+        canonical[(static_cast<int64_t>(0) * kVector + component) *
+                      half_sites +
+                  half_site] =
+            full[static_cast<std::size_t>(source + 2 * t2 + even_parity)];
+        canonical[(static_cast<int64_t>(1) * kVector + component) *
+                      half_sites +
+                  half_site] =
+            full[static_cast<std::size_t>(
+                source + 2 * t2 + (even_parity ^ 1))];
+      }
     }
   }
 
@@ -455,6 +544,8 @@ private:
   bool bicgstab_chunk(int level, int iterations, bool force_convergence) {
     using C = Complex<Real>;
     LegacyMgLevel<Real> &state = levels_[level];
+    last_chunk_iterations_ = 0;
+    last_chunk_converged_ = false;
     const int64_t count = static_cast<int64_t>(state.x.size());
     const int64_t chunk = omp_chunk<Real>(count);
     const C zero(0);
@@ -471,6 +562,8 @@ private:
     const Real target = state.target;
     for (int iteration = 0; iteration < iterations; ++iteration) {
       if (std::sqrt(mg_norm2(state.r, distributed_)) <= target) {
+        last_chunk_iterations_ = iteration;
+        last_chunk_converged_ = true;
         return true;
       }
       const C rho = mg_dot(state.rhat, state.r, distributed_);
@@ -487,6 +580,7 @@ private:
                        static_cast<double>(omega.real()),
                        static_cast<double>(omega.imag()));
         }
+        last_chunk_iterations_ = iteration;
         return false;
       }
       const C beta = (rho / rho_old) * (alpha / omega);
@@ -508,6 +602,7 @@ private:
                        "level=%d iteration=%d alpha-breakdown\n",
                        level, iteration);
         }
+        last_chunk_iterations_ = iteration;
         return false;
       }
       alpha = rho / denominator;
@@ -526,6 +621,8 @@ private:
           state.r[static_cast<std::size_t>(i)] =
               state.s[static_cast<std::size_t>(i)];
         }
+        last_chunk_iterations_ = iteration + 1;
+        last_chunk_converged_ = true;
         return true;
       }
       apply_level(level, state.v, state.s);
@@ -537,6 +634,7 @@ private:
                        "level=%d iteration=%d tt-breakdown\n",
                        level, iteration);
         }
+        last_chunk_iterations_ = iteration;
         return false;
       }
       omega = mg_dot(state.v, state.s, distributed_) / tt;
@@ -547,6 +645,7 @@ private:
                        "level=%d iteration=%d omega-breakdown\n",
                        level, iteration);
         }
+        last_chunk_iterations_ = iteration;
         return false;
       }
 #pragma omp parallel for schedule(static, chunk)
@@ -563,6 +662,8 @@ private:
       rho_old = rho;
     }
     const bool converged = std::sqrt(mg_norm2(state.r, distributed_)) <= target;
+    last_chunk_iterations_ = iterations;
+    last_chunk_converged_ = converged;
     if (force_convergence && !converged) {
       return false;
     }
@@ -609,9 +710,9 @@ private:
     out = state.x;
   }
 
-  void apply_coarse_correction(int level) {
+  Real apply_coarse_correction(int level) {
     if (level + 1 >= num_levels_) {
-      return;
+      return Real(0);
     }
     LegacyMgLevel<Real> &parent = levels_[level];
     LegacyMgLevel<Real> &child = levels_[level + 1];
@@ -638,6 +739,9 @@ private:
     for (std::size_t i = 0; i < parent.r.size(); ++i) {
       parent.r[i] = parent.rhs[i] - parent.v[i];
     }
+    // The caller used to immediately recompute this same fine-level true
+    // residual with true_residual(); return it from the freshly formed r.
+    return std::sqrt(mg_norm2(parent.r, distributed_));
   }
 
   Real true_residual(int level) {
@@ -654,6 +758,8 @@ private:
   }
 
   LatticeSetBase &set_;
+  int last_chunk_iterations_ = 0;
+  bool last_chunk_converged_ = false;
   const void *gauge_ = nullptr;
   const void *clover_even_ = nullptr;
   const void *clover_odd_ = nullptr;

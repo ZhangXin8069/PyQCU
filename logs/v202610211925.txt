@@ -1,0 +1,210 @@
+[日志元数据]
+日志类型: stage
+生成时间: 2026-10-21 19:25:37 +0800
+批次: stage13-cuda-gather-w8-kupl-tile512-20261021
+主任务: 持续比照 QUDA 优化 KUPL/CUDA QCU：MG 为主、BiCGStab 为辅；并行派发 CUDA/KUPL 子 agent
+触发原因: 阶段成果
+摘要: CUDA stencil gather+W8 使 cold setup 降 46.85%；KUPL coarse tile512 等使 4-rank MG 降 68.18%；三方报告、CTest 29/29 与 strict tier1 全绿
+Git 根目录: /root/PyQCU
+
+## 关键日志
+
+### S1 — 多 agent 并行派发与降级
+- 目标: 同时推进 CUDA QCU 与 KUPL QCU 的 debug/优化，避免同一文件写冲突。
+- 派发接口: `/root/configure/bin/agent-dispatch.sh`。
+- 失败证据:
+  - `deepseek-pay`: 402 Payment Required，Insufficient Balance。
+  - `opencode-go` 首次执行后 429 Too Many Requests；后续模型 unavailable。
+  - `opencode-zen`: 403 Model access is disabled。
+  - `custom-gpt`: 401 Invalid API key。
+  - 两个 `op` 进程并发时第二个因数据库 locked 退出。
+- 实际结果: KUPL `op + opencode-go/deepseek-v4.1-flash` 子 agent 成功运行并留下代码、两样本 benchmark、targeted CTest；到 40 分钟上限被终止，未按时返回总结。CUDA 子 agent 无法启动，由主线程串行接管。未把失败派发冒充并行成功。
+- 安全: 超时子 agent 遗留的孤立 1-rank residual 进程已终止，避免污染最终计时；未删除源码或用户改动。
+
+### S2 — CUDA local stencil flattened gather 与 W=8
+- 根因: `BatchedLocalSchur._slicem` 逐 K 窗口执行 host assignment/高级索引，产生多次 kernel dispatch 与 `.item()` 同步。
+- 修改:
+  - 新增 `_flat_window_index([K,4,W]) -> [K,W^4]`。
+  - `_slicem` 使用 expanded base + `torch.gather`，一次复制全部 K 窗口。
+  - 每次 `BatchedLocalSchur.__call__` 只构造一次索引，10 个 matrix slice 复用。
+- V100 microbenchmark，生产矩阵 shape `[12,12,24,24,24,32]` c64:
+  - K=1 non-wrap: `1.105 -> 0.241 ms`，4.58x。
+  - K=4 non-wrap: `4.027 -> 0.272 ms`，14.81x。
+  - K=8 non-wrap: `7.933 -> 0.430 ms`，18.47x。
+  - wrap K=4/8: `4.024 -> 0.284 ms` / `7.977 -> 0.443 ms`。
+  - 所有样本 `torch.equal=true`。
+- W 窗口:
+  - 生产 local-op 中位 `W=10 27.337 ms`、`W=8 13.725 ms`、`W=6 13.280 ms`。
+  - `W=8` 通过 full-grid 与内部/周期边界回归；`W=6` 在非平凡 CPU matrix fixture 上出现局部元素不符，因此拒绝。
+  - 生产入口采用 `W=8`。
+
+### S3 — CUDA 生产 cold setup 与稳态
+- 输入固定: `24x24x24x64`、c64、mass=-0.277、csw=1.160920226、seed=42。
+- LIME SHA256: `a49773fa3742d310f4ea162a932cf559253aeab708bac08a8dd1f6847df4294b`。
+- stencil-only: `598.107 -> 323.745 s`，降低 45.87%。
+- 总 cold setup: `616.343 -> 327.587 s`，降低 46.85%。
+- cold MG: 20 iterations，full-op true residual `4.1247345e-7`。
+- 10 次 clean cache-hit:
+  - total lifecycle median `0.387271 s`，原 `0.395448 s`，降低 2.07%。
+  - backend `mg_time` median `0.1636 s`，原 `0.1653 s`，降低约 1.0%。
+  - true residual 全部 `4.1247345e-7`。
+  - peak allocated `25.691 GB`，结束后 device free `25.563 GB`。
+- 新 cache 的 null-vector 随机轨道与旧 cache 不同，未宣称 cache 文件逐字节相同；gather 等价性由逐元素测试单独证明。
+
+### S4 — KUPL legacy MG coarse tile 与 canonical conversion
+- profiling: 147 次 fine application 约 27 s，47 次 coarse application 约 60 s，coarse 是主导项。
+- 根因:
+  - 每个 output/input component 重复四方向查找与 32-direction scan。
+  - coefficient stream 的 site-major 页面访问跨度过大。
+  - canonical/full 转换使用 component-major 四维除法。
+  - coarse correction 后立即重复应用全算子重算同一 residual。
+- 修改:
+  - `apply_multigrid_coarse_dslash_wide` 以 512-site tile 预解析 32 个 neighbor view，按 coefficient stream 连续累加。
+  - crossing 直接映射 halo direction，不扫描 32 方向。
+  - canonical/full 转换改走 half-site，并同时发出两个时间 parity。
+  - `apply_coarse_correction` 返回刚形成的 fine residual norm，去掉重复全算子。
+  - verbose 模式增加最终 native residual/target/relative 记录。
+- 最终 4-rank 两样本: `28.69636658 / 31.18712904 s`，median `29.94174781 s`。
+- 原同口径 `94.10767782 s`；降低 68.18%，speedup 3.143x。
+- 60 iterations，native relative residual `9.70132e-7`，verifier=0。
+- rank0 resident RSS `2.155 GB`，max RSS `2.969 GB`。
+
+### S5 — KUPL 强扩展
+固定每 rank 4 threads，c64，grid 仅 y 方向：
+
+| ranks | 中位 | speedup | efficiency |
+|---:|---:|---:|---:|
+| 1 | 85.203481 s | 1.000x | 100% |
+| 2 | 46.752453 s | 1.822x | 91.1% |
+| 4 | 29.941748 s | 2.846x | 71.1% |
+
+### S6 — 三方当前性能
+
+| 路径 | 时间 | iterations | 真残差 | 说明 |
+|---|---:|---:|---:|---|
+| CUDA QCU MG backend | 0.1636 s | 20 | 4.1247e-7 | clean cache-hit，10 samples |
+| CUDA QCU MG lifecycle | 0.387271 s | 20 | 4.1247e-7 | 含 init/end 与残差探针 |
+| CUDA QCU BiCGStab | 0.174867 s | 19 | 5.6863e-7 | 每 iter 9.20 ms |
+| KUPL QCU legacy MG | 29.941748 s | 60 | 9.70132e-7 | 4 ranks x 4 threads |
+| KUPL QCU Schur BiCGStab fallback | 5.514880 s | 19 | 4.0677e-7 | restart=0，非 legacy MG |
+| QUDA BiCGStab | 0.127961 s | 19 | 5.6943e-7 | 每 iter 6.73 ms |
+| QUDA MG nvec24 | 28.007541 s | 3 outer | 5.1234e-7 | 与 dof12 语义不等价 |
+
+CUDA/QUDA BiCGStab 每迭代比约 `1.367x`。QUDA nvec24 与 QCU/KUPL dof12 不等价，不计算公平 MG 倍率。KUPL legacy MG 虽已加速 3.14x，仍比自身 Schur fallback 慢约 `5.43x`，这是下一阶段的首要算法差距。
+
+### S7 — 验证
+- KUPL CTest: 29/29 passed，24.49 s。
+- KUPL targeted old baseline、tile256、tile512、fused-residual 均做过生产和 correctness 检查；最终两样本 verifier=0。
+- CUDA strict fast tier0+tier1: runner pass=3/fail=0；CPU 20 passed、CUDA strict 11 passed、fused-FGMRES 3 passed。
+- CUDA gather/stencil/local + nullvec sizing: 7 passed。
+- CUDA `single_qcu_api.py`: PASS，头/pxd/pyx 无漂移。
+- `py_compile`: PASS。
+- `git diff --check`: PASS。
+- form 全库审计: 1 项既存 `TAG_NAME_IN_PATH`，命中未修改的 `docs/progress_dev99_to_1640349d_20261021.md`。
+
+## 验证与证据
+- CUDA:
+  - `data/production_mg_20261021/cuda_c64_l2_stage14_w8_cold.json`
+  - `data/production_mg_20261021/cuda_c64_l2_stage14_w8_hit_clean10.json`
+  - `data/logs/lime_mg_cache_stage14_w8/`
+- KUPL:
+  - `data/production_mg_20261021/stage13_kupl_c64_mg_final_r1.json`
+  - `data/production_mg_20261021/stage13_kupl_c64_mg_final_r2.json`
+  - `data/production_mg_20261021/stage13_kupl_c64_mg_mpi1_r1.json`
+  - `data/production_mg_20261021/stage13_kupl_c64_mg_mpi1_r2.json`
+  - `data/production_mg_20261021/stage13_kupl_c64_mg_mpi2_y_r1.json`
+  - `data/production_mg_20261021/stage13_kupl_c64_mg_mpi2_y_r2.json`
+  - `data/production_mg_20261021/stage13_kupl_c64_mg_verbose_final.json`
+- 未验证: 跨节点 MPI/InfiniBand、多 V100、等价 dof12 QUDA MG、KUPL c128 legacy MG 的同等 tile 收益。
+
+## 变更与产物
+- CUDA:
+  - `pyqcu/tools/_multigrid.py`: flattened window index + batched gather；保留 nullvec chunk=6 自适应。
+  - `pyqcu/cuda/_multi_gpu.py`: local Schur `W=10 -> W=8`。
+  - `pyqcu/testing/qcu/strict/quda_comparison/test_stencil_batch_local.py`: gather 与 W=8 full-grid 回归。
+  - `pyqcu/tools/AGENTS.md`、`pyqcu/cuda/AGENTS.md`、`skills/pyqcu-cuda/SKILL.md`: 性能与边界记录。
+- KUPL:
+  - `cpp/kupl/qcu/src/lattice_multigrid.cpp`: tile512 neighbor views、streaming coefficient、直接 halo direction。
+  - `cpp/kupl/qcu/src/lattice_clover_multigrid.cpp`: half-site conversions、复用 coarse-correction residual、最终 verbose 记录。
+  - `cpp/kupl/qcu/AGENTS.md`、`skills/pyqcu-kupl/SKILL.md`: 性能和扩展记录。
+- Git: 未提交、未打 tag、未 push。外部并发 agent 的 `skills/pyqcu-solver/**`、`skills/AGENTS.md` 等改动未覆盖。
+
+## 风险、限制与下一步
+- KUPL legacy MG 仍显著慢于 Schur fallback，不能把本轮 3.14x 改善解释为生产默认应启用 legacy MG。
+- QUDA MG 仅能运行 nvec24，不能与 dof12 做公平倍率。
+- CUDA W=8 已在单 rank V100 生产输入验证，尚未验证多 V100/多 rank。
+- 子 agent CUDA 派发最终仍受外部凭据/配额故障阻塞；本次由主线程完成 CUDA 工作。
+- 活动 goal 保持 active，等待用户明确停止。
+
+## 用户输入指令
+- 进行进一步的优化，并重启“CUDA 子 agent 派发最终降级为 failed”。
+- 多 agent 分别同时进行 KUPL 版 QCU 与 CUDA 版 QCU 的 debug 与优化工作，注意并行计算效率。
+- 后续组态的 mass 与 Csw 必须与 `/root/data/beta6.20_mu-0.2770_ms-0.2310_L24x64_cfg_9950.lime` 保持一致。
+- MG 为主，BiCGStab 为辅；同时优化 KUPL 版 QCU。
+
+## Agent 全文报告
+--- report begin ---
+# Stage 13：CUDA stencil gather/W=8 与 KUPL coarse tile512 优化报告
+
+## 结论
+
+本轮同时优化 CUDA 与 KUPL：CUDA MC 的 33-tensor stencil 改为 flattened periodic gather，并将安全 local 窗口从 W=10 收紧到 W=8；KUPL legacy MG 将 coarse dslash 改为 512-site tile/streaming coefficient，并消除 canonical conversion 与 coarse-correction 的重复工作。
+
+CUDA 生产 cold setup 从 `616.343 s` 降到 `327.587 s`，降低 46.85%；其中 stencil 从约 `598.107 s` 降到 `323.745 s`，降低 45.87%。KUPL 4-rank legacy MG 从 `94.108 s` 降到中位 `29.942 s`，降低 68.18%，但仍比 Schur BiCGStab fallback 的 `5.515 s` 慢。
+
+## 三方性能
+
+| 路径 | 时间 | iterations | 真残差 | 备注 |
+|---|---:|---:|---:|---|
+| CUDA QCU MG backend | 0.1636 s | 20 | 4.1247e-7 | clean cache-hit，10 samples |
+| CUDA QCU MG lifecycle | 0.387271 s | 20 | 4.1247e-7 | init/end + residual probe |
+| CUDA QCU BiCGStab | 0.174867 s | 19 | 5.6863e-7 | 9.20 ms/iter |
+| KUPL QCU legacy MG | 29.941748 s | 60 | 9.70132e-7 | 4 ranks x 4 threads |
+| KUPL QCU Schur fallback | 5.514880 s | 19 | 4.0677e-7 | restart=0，非 legacy MG |
+| QUDA BiCGStab | 0.127961 s | 19 | 5.6943e-7 | 6.73 ms/iter |
+| QUDA MG nvec24 | 28.007541 s | 3 outer | 5.1234e-7 | 与 dof12 不等价 |
+
+CUDA/QUDA BiCGStab 每迭代差约 1.367x。QUDA nvec24 与 QCU/KUPL dof12 的粗空间语义不同，不计算 MG 倍率。
+
+## CUDA 优化
+
+`_slicem` 旧路径逐 K 窗口执行 assignment 或高级索引。新路径一次生成 `[K,W^4]` 周期索引，以 expanded base + `torch.gather` 完成全部窗口，并在一次 local operator 调用中复用索引。
+
+V100 gather microbenchmark（生产矩阵 c64）：
+
+| K / 边界 | 旧 | 新 | speedup |
+|---|---:|---:|---:|
+| K=1 internal | 1.105 ms | 0.241 ms | 4.58x |
+| K=4 internal | 4.027 ms | 0.272 ms | 14.81x |
+| K=8 internal | 7.933 ms | 0.430 ms | 18.47x |
+| K=4 periodic | 4.024 ms | 0.284 ms | 14.19x |
+| K=8 periodic | 7.977 ms | 0.443 ms | 17.99x |
+
+生产 local Schur 窗口取 W=8。full-grid 与周期边界测试通过；W=6 已被非平凡矩阵回归拒绝。真实 cold stencil 为 `323.745 s`，20 次 MG 真残差 `4.1247345e-7`。
+
+## KUPL 优化与并行
+
+profiling 显示 coarse application 约 60 s，是 fine 的两倍以上。新实现为 512-site tile 预解析 32 个 neighbor stream，并连续扫描 site-major coefficients；canonical conversion 改为 half-site 双 parity 写入，coarse correction 直接复用已形成的 residual。
+
+| ranks | 中位 | speedup | efficiency |
+|---:|---:|---:|---:|
+| 1 | 85.204 s | 1.00x | 100% |
+| 2 | 46.752 s | 1.82x | 91.1% |
+| 4 | 29.942 s | 2.85x | 71.1% |
+
+4-rank 为 60 iterations，native relative residual `9.70132e-7`，verifier=0，rank0 resident RSS 约 2.16 GB。
+
+## 子 agent 状态
+
+多 provider 派发先后遇到 402、429、403、401 与 OpenCode database lock。KUPL 子 agent 成功产出代码与 benchmark，但到 40 分钟上限未返回总结；CUDA 子 agent 最终仍由外部模型/凭据故障阻断，主线程串行完成 CUDA 优化。没有把派发失败写成并行成功。
+
+## 验证
+
+KUPL CTest 29/29；CUDA strict fast tier0+tier1 的 3 个 gate 全 PASS（20 + 11 + 3 项）；定向 gather/stencil/nullvec 7 passed；ABI、py_compile、git diff check 通过。form 全库审计仍只有未修改既有文档的 1 个 finding。
+
+## 限制
+
+- KUPL legacy MG 仍慢于 Schur fallback，生产默认选择不能用本轮提速掩盖。
+- QUDA nvec24 与当前 dof12 不等价。
+- 未验证跨节点 MPI、多 V100 和多 rank CUDA MG。
+--- report end ---

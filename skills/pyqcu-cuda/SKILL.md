@@ -201,3 +201,132 @@ coarse-solver iterations.
 强制 A/B，`PYQCU_MG_BUILD_PROGRESS=1` 输出 level、null-space、stencil 阶段。
 长任务必须至少记录 `setup_seconds`、worker `mg_time` 和全算子残差，禁止只报
 含缓存构建的总墙钟。
+
+## 2026-10-21 local stencil gather 与 W=8
+
+`BatchedLocalSchur._flat_window_index` 将周期窗口 `[K,4,W]` 一次展平，
+`_slicem` 以 expanded base + `torch.gather` 批量复制 K 个窗口；每次 local
+operator 调用只构造一次索引。V100 同形状 microbenchmark 中 K=4 为
+`4.027 -> 0.272 ms`，wrap/non-wrap 逐位一致。
+
+生产 local Schur 窗口由 `W=10` 收紧到经 full-grid 与周期边界回归验证的 `W=8`；
+同形状单次 local-op 中位 `27.337 -> 13.725 ms`。真实 `24³×64` c64 二层 MG
+stencil `598.107 -> 323.745 s`（45.87%），总 cold setup
+`616.343 -> 327.587 s`（46.85%），MG 仍为 20 iterations、true residual
+`4.1247e-7`。不得继续缩小到 `W=6`：非平凡矩阵边界回归已出现局部元素不符。
+
+### legacy Clover BiCGStab 单流化
+
+单 rank Clover BiCGStab 使用 main stream 排队所有 reduction、标量更新、dslash 与
+融合的 `r/x` 更新，每迭代只同步一次；`beta/rho_prev` 合并，`r=s-ωt` 与
+`x+=αp+ωs` 合并。停机改用刚更新的 residual，因此真实外迭代由 19 降到 18。
+Clover multiply 逐行直读，不再物化 144-element 线程本地矩阵。
+
+真实 `24³×64` c64、10 样本：`0.189074 -> 0.157841 s`（16.52%），18 iterations，
+独立 true residual `6.6952e-7`。同一时段 QUDA wall 中位 `0.137520 s`，CUDA 仍慢
+约 14.8%。不要按 `make_clover` 的 6×6 稀疏结构裁剪通用入口：strict nontrivial
+Clover 回归证明外部矩阵可含跨块项，稀疏候选已撤销。
+
+### 成对点积归约（2026-10-21）
+
+`bistabcg_give_1omega` 前的 `t^H s` 与 `t^H t` 已合并为
+`bistabcg_dot_pair_complete`。kernel 每个 block 同时累加两个点积，最后一个 block
+按固定 partial 顺序完成汇总；completion counter 每次 launch 前异步清零，禁止用
+浮点 atomicAdd 破坏确定性。multi-rank 五流参考路径不变。
+
+同一动态库 ABBA、真实 `24³×64` c64、20 个 steady 样本：Clover BiCGStab
+`0.161293 -> 0.157776 s`（2.18%，1.0223x），均 18 iterations，独立相对真残差
+`6.6952e-7 -> 6.6950e-7`。二层 MG 后端 `0.1746 s` 不变，生命周期
+`0.417192 -> 0.414053 s`；因此该收益归因于 null-vector/BiCG 构建，不得外推为
+V-cycle 提速。tier0 20 项、cuda-strict 11 项、fused-FGMRES 3 项及非平凡 Clover
+strict 门禁通过。
+
+### 6x6 结构门控与通用回退（2026-10-21）
+
+legacy Clover-MG 在 `init` 中扫描 `clover_ee_inv` 和 `clover_oo` 的 off-block
+条目。只有全部严格为零时才启用 6x6 multiply 内核；检测到任意非零、NaN 或外部
+通用 Clover 矩阵时保持完整 12x12 内核。探测只在每次 MG 调用开始时做一次，使用
+设备 flag 加一次 D2H，不新增 ABI 参数。
+
+生产 `24^3x64` c64、二层 cache-hit、两轮 ABBA × 10 steady：MG backend
+`0.175150 -> 0.147050 s`（降低 16.04%，1.1911x），lifecycle
+`0.414565 -> 0.386002 s`（降低 6.89%）；均为 20 iterations、真残差
+`4.1247345e-7`。Stage16 与 Stage17 最终解逐元素相同。向 off-block 注入
+`1e-20` 后，检测自动回退通用路径，通用路径 3 次中位 `0.179510 s` 且残差不变。
+不得在未检测的情况下无条件裁剪通用入口。
+
+该探测也用于 legacy Clover BiCGStab 的完整 solve `init`，但不在单 matvec
+wrapper 中执行，避免 stencil build 重复扫描。真实 `24^3x64` c64 ABBA、20 steady：
+`0.159155 -> 0.132760 s`（降低 16.58%，1.1988x），lifecycle
+`0.197254 -> 0.169155 s`（降低 14.25%），均 18 iterations、真残差
+`6.6950e-7`；两版最终解逐元素相同。当前 CUDA wall 比 QUDA `0.137520 s` 快
+约 3.59%，但每迭代 `7.376 ms` 对 `7.238 ms` 仍慢约 1.90%，优势来自
+18 对 19 次外层迭代。
+
+`r/x` update 与新残差范数的融合候选应在 block-stride 覆盖全部 site 后比较；
+本机修正版两轮仅为 `0.128986/0.133303 s`，相对 Stage18 中位改善约 `0.23%`，
+第二样本回到噪声上界，未保留。不要把首个低点 `0.1290 s` 单独写成融合收益。
+
+### 收敛同步分块（2026-10-21）
+
+单 rank legacy Clover BiCGStab 每 2 次迭代才执行一次 `r^H r`、D2H 与 host
+synchronization；中间迭代只省略不参与控制流的范数，Krylov 轨迹仍完整执行。
+真实 `24^3x64` c64 两轮 A/B × 10 steady：`0.127732 -> 0.125572 s`
+（降低 1.69%，1.0172x），均 18 iterations、真残差 `6.6950e-7`，最终解逐元素
+相同。同热态 QUDA `0.134009 s`，CUDA wall 快 6.72%；每迭代 `6.976 ms`
+对 `7.053 ms`，CUDA 快 1.09%。收敛发生在奇数迭代时最多多执行一次，停机上界
+仍是下一偶数次检查。
+
+### legacy MG fine 成对归约（2026-10-21）
+
+单 rank legacy Clover-MG 的 fine Schur fast path 复用
+`bistabcg_dot_pair_complete`，把每轮 `<t,s>` 与 `<t,t>` 合并为一次归约。
+真实 `24^3x64` c64、cache-hit、ABBA 两轮共 20 steady：
+MG backend `0.14125 -> 0.13700 s`（`3.01%`），lifecycle wall
+`0.372507 -> 0.368274 s`（`1.14%`）；均 20 iterations、`pair_checks=20`，
+真残差 `4.1247345e-7 -> 4.1255681e-7`。strict tier1 20+11+3、直接
+c64/c128 Clover 8 项、ABI、MG breakdown 与 c128 pair smoke 全绿。
+该优化只覆盖单 rank 路径，不能报告为 multi-rank 或 coarse V-cycle 收益。
+
+### legacy MG fine 单点积 fast path（2026-10-21）
+
+fine Schur fast path 的 `rho`、`rtv` 与检查范数统一改用
+`bistabcg_dot_complete`；它与成对归约共用 block 数、partials 和 completion
+counter，保持固定 partial 汇总顺序，并让 cuBLAS 退出该单 rank 迭代关键链。
+以 Stage21 成对归约库为基线，ABBA 两轮 20 steady：MG backend
+`0.13760 -> 0.13295 s`（`3.38%`），lifecycle `0.362613 -> 0.356707 s`
+（`1.63%`）；相对 Stage20 原始基线累计降低 `5.88%/4.24%`。均 20 iterations、
+`single_checks=45`、`pair_checks=20`，真残差 `4.1257200e-7`。strict tier1、
+直接 c64/c128 Clover、ABI、c64 breakdown 与 c128 smoke 全部通过。
+
+### 6x6 register specialization rejected（2026-10-21）
+
+将 runtime block-diagonal multiply 改成模板特化、按两个 6x6 子块顺序累加，c64
+kernel 仍为 88 registers。三轮 ABBA 共 30 steady 仅改善 MG backend `0.19%`，
+lifecycle 慢 `0.09%`，已完整撤销。寄存器峰值不只由 Clover 的 12-row 临时数组
+决定，不能仅凭少一半累加器就预期 occupancy 提升。
+
+### E12 coarse V-cycle 生产筛选（2026-10-22）
+
+固定 LIME/c64/cache-hit 的同进程结果：fine-only lifecycle `0.365086 s`；BiCG
+加一次 deflate V-cycle `0.401633 s`；FGMRES+MR 最好 `0.832060 s`；FGMRES+CG
+`1.160491 s`；CA-GCR+MR `1.911062 s`。deflate 把 backend 真残差降到
+`2.666e-7`，但 outer iterations 仍为 20，一次 V-cycle 约 `40 ms`，其中 coarse
+check `~30 ms`。E12/单 null-vector 粗空间不足以抵消成本。
+
+按当前 33-tensor 精确 shape，E24 cache 约 `5.22 GB`，E48 约 `18.86 GB`；E12
+local-stencil setup 已有约 `29.75 GB` peak。32 GiB V100 下继续扩 E 前必须先实现
+compressed/matrix-free coarse operator 或显著降低 setup workspace。
+
+### standalone Clover BiCGStab single-dot path（2026-10-22）
+
+Stage22 的 `bistabcg_dot_complete` 现同时覆盖 standalone Clover BiCGStab 的
+`rho`、`rtv` 与每两次迭代检查范数；末尾双点积仍走 pair kernel。ABBA 两轮共 20
+steady：`0.123997709 -> 0.120461542 s`（`2.85%`），均 18 iterations，独立真残差
+`6.694990e-7 -> 6.694679e-7`。相对 QUDA `0.134009 s`，wall 快 `10.11%`，
+每迭代 `6.692` 对 `7.053 ms`，快 `5.12%`。strict tier1、c64/c128 Clover 与
+ABI 全绿；multi-rank 路径不变。
+
+无 cache 冷构建总 setup `356.179 -> 353.635 s`（`0.71%`），但 null-space
+`26.524 -> 26.677 s` 在噪声内，stencil 主导 setup。不得把冷构建变化单独归因于
+单/成对归约，也不得声称 null-vector 构建显著提速。

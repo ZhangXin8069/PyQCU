@@ -1,0 +1,122 @@
+[日志元数据]
+日志类型: stage
+生成时间: 2026-10-21 22:20:17 +0800
+批次: stage20-sync-chunk-kupl-scaling-20261021
+主任务: 持续比照 QUDA 优化 KUPL/CUDA QCU：MG 为主，BiCGStab 为辅
+触发原因: 阶段成果
+摘要: Stage20 CUDA 每2迭代收敛检查降低1.80%，CUDA 18对QUDA 19次且wall快6.33%；KUPL c64 4-rank 2.978x/74.5%，c128生产restart0与独立BiCG真残差通过；严格标注MG不可比口径与c128 coarse V-cycle缺口
+Git 根目录: /root/PyQCU
+
+## 关键日志
+### S1 — CUDA 单 rank 收敛检查分块
+- 目标: 在不改变 BiCGStab Krylov 轨迹和真残差门禁的前提下，降低单 rank Clover BiCGStab 的 host 同步频率。
+- 命令/操作: 单 rank 路径每 2 次迭代执行一次 `r^H r`、D2H 与 stream synchronization；中间迭代保留完整标量、dslash 和向量更新。
+- 关键输出: 两轮 A/B 中位 `0.127818913 -> 0.125522031 s`，降低 `1.797%`；均为 18 iterations，最终解逐元素相同，独立相对真残差 `6.694990e-7`。
+- 退出码: 0。
+- 证据与判断: CUDA 每迭代 `6.973 ms`，QUDA 为 `7.053 ms`，CUDA 快 `1.13%`；wall 口径 CUDA 快 `6.33%`，优势同时来自 18 对 19 次外层迭代。奇数迭代收敛时最多多执行一次，不宣称逐迭代停机完全等价。
+
+### S2 — Stage20 CUDA MG 与 strict 门禁
+- 目标: 确认收敛分块未污染 legacy MG 或 strict/fused 路径。
+- 命令/操作: 真实 LIME `24^3x64` c64、cache-hit、10 个 steady；strict tier1 20+11+3 项；直接 c64/c128 Clover 8 项；QCU ABI 检查。
+- 关键输出: MG backend `0.1397 s`、lifecycle `0.37154 s`、20 iterations、全算子真残差 `4.1247345e-7`；PROF 显示 `n_vcycles=0`。strict tier1 20+11+3 全绿，直接 Clover 8 项与 ABI 全绿。
+- 退出码: 0。
+- 证据与判断: Stage20 MG 与 Stage18 的解和残差一致，未声称 V-cycle 提速；当前生产点由 adaptive gate 选择 fine-only Schur BiCGStab。
+
+### S3 — KUPL c64 强扩展与 c128 生产正确性
+- 目标: 在固定生产 LIME 上补齐 KUPL 1/2/4-rank 强扩展，并尽可能完成 c128 生产或可解释降规模验证。
+- 命令/操作: 4 threads/rank，`restart=5`、`deflate=true`、dof `12 12`、c64 各 3 次；c128 全格点 `restart=0` 3 次；全格点 c64/c128 独立 BiCGStab verifier；完整 CTest。
+- 关键输出: c64 中位 `46.407/27.790/15.581 s`，speedup `1.000/1.670/2.978x`，efficiency `100.0/83.5/74.5%`，45/47/47 iterations，native relative residual 约 `0.86–0.94e-6`，verifier=0。c128 `restart=0` 中位 `10.282 s`、21 iterations、native recomputed `6.079e-8`。c128 BiCGStab 独立真残差 `6.962e-8`。CTest 29/29 passed。
+- 退出码: 0。
+- 证据与判断: 4-rank 本次比历史 `17.725 s` 低 `12.1%`，但属于不同时间窗口复测，不作为新的因果收益。1-rank 与 2/4-rank 迭代数不同来自 MPI 浮点累加顺序。
+
+## 验证与证据
+- CUDA Stage20 strict tier1: CPU `20 passed`、cuda-strict `11 passed`、fused-FGMRES `3 passed`。
+- CUDA 直接 Clover: c64/c128 `8 passed`；QCU header/pxd/pyx ABI PASS。
+- KUPL: `ctest --test-dir cpp/kupl/qcu/build --output-on-failure` 为 `29/29` passed，24.47 s。
+- CUDA Stage20 lib SHA256: `c0f8da1e9891626c7864270b8e8113cb501b6e9d84b9931c51f6e691a78807f1`。
+- KUPL lib SHA256: `8f1fffc241da76333ce017f5cf565927345d591371c33ecbfee2222f4d5e1c92`。
+- LIME SHA256: `a49773fa3742d310f4ea162a932cf559253aeab708bac08a8dd1f6847df4294b`。
+- RHS SHA256: `24da8b13665dc2a6e0503142bbb9f3baa0f4264d86541b6fca40a297b7c38a5b`。
+- Stage20 CUDA BiCG 证据:
+  - `data/production_mg_20261021/stage20_cuda_c64_bicg_chunk2_r1.json`, SHA256 `88cbbf137d6af3b99d9373326d6b026097c051be0ede24266135035255f72613`。
+  - `data/production_mg_20261021/stage20_cuda_c64_bicg_chunk2_r2.json`, SHA256 `4a6248d15cdcf45946d4fdc4b67c4eea499a97c5efc26b918325a8a38777e7f1`。
+- Stage20 CUDA strict 证据: `data/production_mg_20261021/stage20_cuda_strict_tier1.json`, SHA256 `0c0abee1207663ccf2923ab15c88ef7bfac47297188bb1935509297df96fe754`。
+- Stage20 CUDA MG 证据: `data/production_mg_20261021/stage20_cuda_c64_mg_current.json`。
+- KUPL 原始计时与 JSON: `data/cpp/kupl/qcu/build/kupl_scaling_20261021/`；全格点独立 verifier 分别为 `c64_r4_full_lime_bistabcg_independent.json` 与 `c128_r4_full_lime_bistabcg_independent.json`。
+- `git diff --check`: PASS。
+
+## 变更与产物
+- CUDA 保留: `cpp/cuda/qcu/include/lattice_clover_bistabcg.h` 的单 rank 每 2 次迭代收敛检查；未保留 Stage19 `r/x + norm` 融合。
+- KUPL 保留: Stage16 成对 MPI Allreduce 与既有 512-site coarse tile；本轮子 agent 未新增猜测性代码优化。
+- 证据文件: `stage20_cuda_c64_bicg_chunk2_r1.json`、`stage20_cuda_c64_bicg_chunk2_r2.json`、`stage20_cuda_strict_tier1.json`、`stage20_cuda_c64_mg_current.json`。
+- 未改动范围: 未提交、未打 tag、未 push、未删除文件。
+
+## 风险、限制与下一步
+- CUDA 生产 MG 当前 `n_vcycles=0`，不能把 fine-only 结果描述为真实粗层 V-cycle 加速。
+- QUDA MG `nvec24` 为 `28.007541 s`、3 outer iterations、真残差 `5.1234262e-7`，与 QCU/KUPL dof12 的内存和算法语义不等价，不能计算公平倍率。
+- 当前仅一张可用 V100；P100 不受此 PyTorch 构建支持，未进行 CUDA 多卡正式测试。
+- KUPL c128 尚未运行全格点 `restart=5` Legacy-MG：缺少 c128 coarse cache，预计约为 c64 3.12 GB cache 的两倍。此次 c128 `restart=0` 是生产全格点 BiCGStab，不是 coarse V-cycle 性能。
+- 下一步 CUDA: 已实现 4 次迭代 CUDA Graph segment 候选，仅门控到单 rank c64、6×6 Clover 且非 full-site；待独占 V100 编译后做冷/热、两轮 A/B 和 strict 回归，再决定保留或撤销。
+
+## Agent 全文报告
+--- report begin ---
+# Stage20 三方性能报告
+
+## 1. 固定物理输入
+- LIME: `/root/data/beta6.20_mu-0.2770_ms-0.2310_L24x64_cfg_9950.lime`，SHA256 `a49773fa3742d310f4ea162a932cf559253aeab708bac08a8dd1f6847df4294b`。
+- 格点: `24×24×24×64`，c64；KUPL c128 另列。
+- `mass=-0.277`，`csw=1.160920226`，seed=42，RHS SHA256 `24da8b13665dc2a6e0503142bbb9f3baa0f4264d86541b6fca40a297b7c38a5b`。
+- CUDA 使用 `CUDA_DEVICE_ORDER=PCI_BUS_ID`、`CUDA_VISIBLE_DEVICES=2`，进程内目标为 `cuda:0`。
+
+## 2. CUDA/KUPL/QUDA 结果
+
+| 路径 | 中位耗时 | iterations | 真/验收残差 | 口径与结论 |
+|---|---:|---:|---:|---|
+| CUDA QCU Clover BiCGStab，Stage20 | `0.125522 s` | 18 | `6.694990e-7` | 两轮 A/B，每轮 10 steady |
+| QUDA Clover BiCGStab | `0.134009 s` | 19 | `5.6942744e-7` | 同 LIME、同 RHS、同 mass/csw |
+| CUDA QCU legacy MG backend，Stage20 | `0.1397 s` | 20 | `4.1247345e-7` | cache-hit；fine-only，`n_vcycles=0` |
+| CUDA QCU legacy MG lifecycle，Stage20 | `0.37154 s` | 20 | `4.1247345e-7` | 含 init/end 与独立真残差探针 |
+| KUPL legacy MG，4 ranks × 4 threads | `15.581 s` | 47 | native `9.1381–9.1390e-7` | c64，强扩展当前值 |
+| KUPL Clover BiCGStab，4 ranks × 4 threads | `5.821 s` | 20 | 独立 `4.13634e-7` | c64 全格点独立 verifier |
+| QUDA MG nvec24 | `28.007541 s` | 3 outer | `5.1234262e-7` | 与 QCU/KUPL dof12 不等价，禁止算倍率 |
+
+CUDA Stage20 相对 Stage18 两轮合并中位由 `0.127818913 s` 降至 `0.125522031 s`，降低 `1.797%`。CUDA wall 比 QUDA 快 `6.33%`，每迭代 `6.973 ms` 对 `7.053 ms`，快 `1.13%`。因此“外层迭代数约多一倍”的旧现象在当前生产输入上已逆转为 CUDA 18 次、QUDA 19 次；当前优势同时包含 wall 和每迭代两个层面。
+
+CUDA MG Stage20 与 Stage18 的解、残差和 V-cycle 选择一致。其 backend 数值来自 fine-only Schur BiCGStab，不能把 BiCGStab 的收益改写成真实 MG 粗层校正提速。
+
+## 3. KUPL c64 强扩展
+
+固定 `restart=5`、`deflate=true`、dof `12 12`、`mg_grid=2 2 2 2`，每配置 3 次：
+
+| ranks | grid | 样本，秒 | 中位，秒 | MAD | iterations | speedup | efficiency |
+|---:|---|---|---:|---:|---:|---:|---:|
+| 1 | `1×1×1×1` | 47.064 / 46.159 / 46.407 | `46.407` | 0.247 | 45 | 1.000x | 100.0% |
+| 2 | `1×2×1×1` | 27.790 / 27.487 / 28.290 | `27.790` | 0.304 | 47 | 1.670x | 83.5% |
+| 4 | `1×4×1×1` | 15.761 / 14.927 / 15.581 | `15.581` | 0.180 | 47 | 2.978x | 74.5% |
+
+4-rank 本次相对历史 `17.725 s` 低 `12.1%`，但为不同时间窗口复测，不据此宣称新的因果加速。2/4-rank 的 47 iterations 与 1-rank 的 45 iterations 源于 MPI 改变浮点累加顺序，不能当作算法分支变化。native relative residual 均在约 `0.86–0.94e-6`，verifier=0。
+
+## 4. KUPL c128
+
+| 配置 | 范围 | 中位，秒 | iterations | 残差 | 结论 |
+|---|---|---:|---:|---:|---|
+| `applyCloverMultigridQcu --restart 0` | 全格点 `24^3×64`，4 ranks × 4 threads，3 次 | `10.282` | 21 | native recomputed `6.079e-8` | PASS |
+| `applyCloverBistabCgQcu` | 全格点 `24^3×64`，4 ranks × 4 threads | `11.311` | 23 | 独立 `6.96241e-8` | PASS |
+| `applyCloverBistabCgQcu` | `4^4`，c128，`atol=1e-10` | `0.00335` | 13 | 独立 `5.54769e-12` | PASS |
+| Legacy-MG 差分 | `4×2×2×4`，1/2/4 ranks | CTest | 含 deflate | 对 BiCGStab 误差约 `2.0e-12` | verifier=0 |
+
+`restart=0` 关闭层级并走 parity-Schur BiCGStab，因此全格点 c128 结果证明生产规模 c128 求解正确，但不是 c128 coarse V-cycle 性能。尚未运行全格点 c128 `restart=5` Legacy-MG；当前没有 c128 coarse cache，估算体积约为 c64 3.12 GB cache 的两倍。
+
+## 5. 正确性与门禁
+- CUDA Stage20 strict tier1: CPU `20 passed`、cuda-strict `11 passed`、fused-FGMRES `3 passed`。
+- CUDA 直接 Clover: c64/c128 `8 passed`；QCU header/pxd/pyx ABI PASS。
+- KUPL CTest: `29/29 passed`，24.47 s。
+- CUDA BiCG Stage20 和 Stage18 最终解逐元素相同。
+- `git diff --check`: PASS。
+
+## 6. 限制与下一步
+- 只有一张可用 V100，CUDA 多卡正式测试缺设备；P100 不被当前 PyTorch 构建支持。
+- QUDA MG nvec24、CUDA/KUPL dof12 的生产语义与内存规模不同，禁止计算“快多少倍”。
+- 当前 CUDA 生产 MG 自适应门控未进入 V-cycle；真实粗层性能仍是下一阶段重点。
+- 下一轮采用 4 次迭代 CUDA Graph segment，先缩小 host launch 和 queue depth，再以生产真残差、逐元素解和 strict 门禁决定去留；任何候选低于噪声阈值即撤销。
+--- report end ---
