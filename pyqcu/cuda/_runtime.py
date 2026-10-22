@@ -78,6 +78,20 @@ class QcuRuntime:
     _operation_lock: threading.Lock = field(
         default_factory=threading.Lock, init=False, repr=False)
 
+    def __post_init__(self) -> None:
+        self.device = torch.device(self.device)
+        _require_control_array(
+            self.params, "params", torch.int32, define._PARAMS_SIZE_)
+        _require_control_array(
+            self.set_ptrs, "set_ptrs", torch.int64, define._SET_PTRS_SIZE_)
+        expected_argv_dtype = _argv_dtype_from_params(self.params)
+        _require_control_array(
+            self.argv, "argv", expected_argv_dtype, define._ARGV_SIZE_)
+        if not 1 <= int(self.slot_limit) <= define._SET_PTRS_COARSE_BASE_:
+            raise ValueError(
+                "slot_limit must be in "
+                f"[1, {define._SET_PTRS_COARSE_BASE_}] for ordinary scratch")
+
     @classmethod
     def from_lattice(
         cls,
@@ -127,9 +141,10 @@ class QcuRuntime:
             raise ValueError(
                 f"grid {grid_tuple} contains {int(torch.tensor(grid_tuple).prod())} "
                 f"ranks, but MPI_COMM_WORLD has {define.size}")
-        if not 1 <= int(slot_limit) <= define._SET_PTRS_SIZE_:
+        if not 1 <= int(slot_limit) <= define._SET_PTRS_COARSE_BASE_:
             raise ValueError(
-                f"slot_limit must be in [1, {define._SET_PTRS_SIZE_}]")
+                "slot_limit must be in "
+                f"[1, {define._SET_PTRS_COARSE_BASE_}] for ordinary scratch")
         params[define._GRID_X_], params[define._GRID_Y_], \
             params[define._GRID_Z_], params[define._GRID_T_] = grid_tuple
         params[define._PARITY_] = int(parity)
@@ -205,6 +220,25 @@ class QcuRuntime:
                 raise ValueError("max_iter must be nonnegative")
             self.params[define._MAX_ITER_] = value
 
+    def _validate_operands(self, values: Sequence[torch.Tensor]) -> None:
+        data_type = int(self.params[define._DATA_TYPE_].item())
+        if data_type == define._LAT_C64_:
+            expected_dtype = torch.complex64
+        elif data_type == define._LAT_C128_:
+            expected_dtype = torch.complex128
+        else:
+            raise ValueError(f"unsupported QCU data type: {data_type}")
+        for index, value in enumerate(values):
+            name = f"operand {index}"
+            if not isinstance(value, torch.Tensor):
+                raise TypeError(f"{name} must be a torch.Tensor")
+            if value.device != self.device:
+                raise ValueError(f"{name} must be on {self.device}")
+            if value.dtype != expected_dtype:
+                raise TypeError(f"{name} must have dtype {expected_dtype}")
+            if not value.is_contiguous():
+                raise ValueError(f"{name} must be contiguous")
+
     def _qcu(self) -> Any:
         if self.qcu_module is None:
             from pyqcu.cuda import qcu as qcu_module
@@ -213,9 +247,10 @@ class QcuRuntime:
 
     def _allocate_slot(self) -> int:
         count = int(self.slot_limit)
-        if count < 1 or count > int(self.set_ptrs.numel()):
+        if count < 1 or count > define._SET_PTRS_COARSE_BASE_:
             raise ValueError(
-                f"slot_limit must be in [1, {int(self.set_ptrs.numel())}]")
+                "slot_limit must be in "
+                f"[1, {define._SET_PTRS_COARSE_BASE_}] for ordinary scratch")
         for offset in range(count):
             index = (self._slot_cursor + offset) % count
             if int(self.set_ptrs[index]) == 0:
@@ -253,8 +288,9 @@ class QcuRuntime:
             except BaseException:
                 try:
                     qcu.applyEndQcu(self.set_ptrs, self.params)
-                finally:
-                    self.set_ptrs[index] = 0
+                except BaseException:
+                    pass
+                self.set_ptrs[index] = 0
                 raise
             try:
                 yield QcuOperation(self, function, synchronize=synchronize)
@@ -304,6 +340,7 @@ class QcuOperation:
 
     def __call__(self, *args: torch.Tensor) -> Any:
         """Run the selected operation on the currently initialized slot."""
+        self.runtime._validate_operands(args)
         result = self.function(*args, self.runtime.set_ptrs, self.runtime.params)
         if (self.synchronize and self.runtime.device.type == "cuda"
                 and torch.cuda.is_available()):
@@ -320,3 +357,26 @@ class QcuOperation:
         """
         getter = getattr(self.runtime._qcu(), name)
         return getter(*args, self.runtime.set_ptrs, self.runtime.params)
+
+
+def _argv_dtype_from_params(params: torch.Tensor) -> torch.dtype:
+    data_type = int(params[define._DATA_TYPE_].item())
+    if data_type == define._LAT_C64_:
+        return torch.float32
+    if data_type == define._LAT_C128_:
+        return torch.float64
+    raise ValueError(f"unsupported QCU data type: {data_type}")
+
+
+def _require_control_array(
+        value: Any, name: str, dtype: torch.dtype, numel: int) -> None:
+    if not isinstance(value, torch.Tensor):
+        raise TypeError(f"{name} must be a torch.Tensor")
+    if value.device.type != "cpu":
+        raise ValueError(f"{name} must be a CPU tensor")
+    if value.dtype != dtype:
+        raise TypeError(f"{name} must have dtype {dtype}")
+    if value.ndim != 1 or int(value.numel()) != int(numel):
+        raise ValueError(f"{name} must be a flat {numel}-element tensor")
+    if not value.is_contiguous():
+        raise ValueError(f"{name} must be contiguous")

@@ -236,7 +236,7 @@ def applyMultigridStrictCoarseQcu(
 
 def applyMultigridStrictMatPCQcu(
     fermion_out: torch.Tensor, fermion_in: torch.Tensor,
-    preconditioned_links: torch.Tensor, scratch: torch.Tensor,
+    links: torch.Tensor, scratch: torch.Tensor,
     set_ptrs: torch.Tensor, params: torch.Tensor, parity: int,
 ) -> None:
     """Apply ``I-Hhat_pq Hhat_qp`` on ``[E,X,Y,Z,T/2]``."""
@@ -258,7 +258,7 @@ def applyMultigridStrictFineMatPCQcu(
 
 def applyMultigridStrictPrepareQcu(
     fermion_out: torch.Tensor, full_rhs: torch.Tensor,
-    preconditioned_links: torch.Tensor, onsite_pair: torch.Tensor,
+    links: torch.Tensor, onsite_pair: torch.Tensor,
     scratch: torch.Tensor, set_ptrs: torch.Tensor,
     params: torch.Tensor, parity: int,
 ) -> None:
@@ -267,7 +267,7 @@ def applyMultigridStrictPrepareQcu(
 
 def applyMultigridStrictReconstructQcu(
     full_out: torch.Tensor, full_rhs: torch.Tensor,
-    target_solution: torch.Tensor, preconditioned_links: torch.Tensor,
+    target_solution: torch.Tensor, links: torch.Tensor,
     onsite_pair: torch.Tensor, scratch: torch.Tensor,
     set_ptrs: torch.Tensor, params: torch.Tensor, parity: int,
 ) -> None:

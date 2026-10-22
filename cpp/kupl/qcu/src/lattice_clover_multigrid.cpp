@@ -148,14 +148,6 @@ public:
     if (num_levels_ < 1 || num_levels_ > 5) {
       throw std::runtime_error("legacy Clover-MG level count must be 1..5");
     }
-    if (num_levels_ > 2 && params_[kNodeRank] == 0) {
-      std::fprintf(
-          stderr,
-          "PYQCU::KUPL::MULTIGRID::WARNING:\n"
-          " Legacy-MultiGrid levels=%d exceeds the validated depth 2; "
-          "deeper Legacy hierarchies are experimental.\n",
-          num_levels_);
-    }
     if (params_[kMgUseGcr] != 0) {
       throw std::runtime_error(
           "KUPL legacy MG rejects CUDA-only GCR/cycle mode bits");
@@ -224,6 +216,33 @@ public:
             "legacy Clover-MG coarse transition assets are incomplete");
       }
       allocate_level(levels_[level]);
+    }
+    if (num_levels_ > 1 && params_[kNodeRank] == 0) {
+      const auto &coarse = levels_[num_levels_ - 1].dims;
+      const auto &parent = levels_[num_levels_ - 2].dims;
+      int block[kDim] = {1, 1, 1, 1};
+      int next[kDim] = {1, 1, 1, 1};
+      long long volume = 1;
+      bool too_small = false;
+      bool no_next = false;
+      for (int dim = 0; dim < kDim; ++dim) {
+        block[dim] = std::max(1, parent[dim] / coarse[dim]);
+        next[dim] = std::max(1, coarse[dim] / block[dim]);
+        volume *= coarse[dim];
+        too_small = too_small || coarse[dim] < 4;
+        no_next = no_next || next[dim] < 4;
+      }
+      too_small = too_small || volume < 1024;
+      if (num_levels_ > 2 || too_small || no_next) {
+        std::fprintf(
+            stderr,
+            "PYQCU::KUPL::MULTIGRID::WARNING:\n"
+            " Legacy-MultiGrid levels=%d, coarsest=[%d,%d,%d,%d], "
+            "next=[%d,%d,%d,%d], volume=%lld. Legacy defaults to 2 levels; "
+            "deep or small coarse hierarchies are experimental.\n",
+            num_levels_, coarse[0], coarse[1], coarse[2], coarse[3],
+            next[0], next[1], next[2], next[3], volume);
+      }
     }
     canonical_input_.resize(
         static_cast<std::size_t>(2 * kVector * params_[kLatX] *
