@@ -592,3 +592,27 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 关键内容: 完成 LinearOperator/Krylov 统一适配、Legacy 默认约定、注释与测试目录整改、弃用清理、simple 分层和七路径真实 LIME 基准
 - 验证: path, size, required sections, conflict markers
 - 批次状态: complete
+## qcu-l24-mg-cache - final - 2026-10-23 02:51:56 +0800
+- 主任务: QCU L24 Legacy/Strict/QUDA MG cache 口径与大小
+- 日志文件: logs/v2026102302-2.txt
+- 文件大小: 4973 bytes
+- 触发原因: 任务完成
+- 关键内容: 按 c64、两级、block2^4、nvec12 核对 Legacy 实际 cache、Strict schema 逻辑尺寸及 QUDA 无持久粗算子 cache
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete
+## qcu-l24-mg-cache-formula - final - 2026-10-23 02:56:39 +0800
+- 主任务: 推导 L24 QCU Legacy/Strict 与 QUDA MG cache 算式
+- 日志文件: logs/v2026102302-3.txt
+- 文件大小: 5509 bytes
+- 触发原因: 任务完成
+- 关键内容: 按 V/Vc/Vodd/P/complex64 展开 Legacy 33-tensor、Strict V/Yhat/X 和 QUDA null-vector 字节公式
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete
+## docs-qcu-l24-mg-cache - final - 2026-10-23 03:15:13 +0800
+- 主任务: 保存 L24 MG cache 尺寸计算过程到 docs
+- 日志文件: logs/v2026102303.txt
+- 文件大小: 3480 bytes
+- 触发原因: 任务完成
+- 关键内容: 新增正式技术参考文档并同步 pyqcu-docs 索引、映射与提取摘要
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete

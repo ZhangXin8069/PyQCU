@@ -249,6 +249,8 @@ def _worker_arguments(args, case: dict[str, Any], cache_path: Path | None,
     ]
     if cache_path is not None:
         values.extend(["--coarse-cache", str(cache_path)])
+    for level_cache in args.coarse_cache_level:
+        values.extend(["--coarse-cache-level", str(level_cache)])
     if args.skip_independent_residual:
         values.append("--skip-independent-residual")
     return values
@@ -304,7 +306,7 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     parser.add_argument("--atol", type=float, default=1.0e-6)
     parser.add_argument("--max-iter", type=int, default=1000)
     parser.add_argument("--dtype", choices=("c64", "c128"), default="c64")
-    parser.add_argument("--levels", type=int, choices=(1, 2), default=2)
+    parser.add_argument("--levels", type=int, choices=(1, 2, 3, 4), default=2)
     parser.add_argument("--dof", nargs="+", type=int, default=(12, 12))
     parser.add_argument("--mg-grid", nargs=4, type=int, default=(2, 2, 2, 2))
     parser.add_argument("--restart", type=int, default=5)
@@ -327,6 +329,7 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     parser.add_argument("--build-device", choices=("cpu", "cuda"), default="cpu")
     parser.add_argument("--work-dir", default=None)
     parser.add_argument("--coarse-cache", default=None)
+    parser.add_argument("--coarse-cache-level", action="append", default=[])
     parser.add_argument("--rebuild-coarse-cache", action="store_true")
     parser.add_argument("--skip-independent-residual", action="store_true")
     parser.add_argument("--output", default=None)
@@ -337,6 +340,14 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     args.lat = list(validate_lattice(args.lat))
     if len(args.dof) < args.levels:
         parser.error("--dof must provide one value per requested level")
+    if args.backend == "kupl" and args.levels > 2:
+        parser.error("the current KUPL Legacy benchmark supports at most 2 levels")
+    if args.levels > 2 and args.coarse_cache is None:
+        parser.error("levels > 2 require --coarse-cache")
+    if len(args.coarse_cache_level) < max(0, args.levels - 2):
+        parser.error(
+            "levels > 2 require one repeated --coarse-cache-level per "
+            "additional coarse transition")
     if args.levels < 1 or args.ranks < 1 or args.omp_threads < 1:
         parser.error("--levels, --ranks and --omp-threads must be positive")
     if args.restart < 0 or args.max_iter < 1 or args.nv_iters < 1:

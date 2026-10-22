@@ -152,38 +152,54 @@ def _run_cuda(args, comm: MPI.Comm) -> int:
 
     coarse_refs: list[torch.Tensor] = []
     use_coarse = args.levels > 1 and args.restart != 0
+    runtime.params[define._MG_USE_DEFLATE_] = int(use_coarse)
     if use_coarse:
-        if not args.coarse_cache:
-            raise ValueError("CUDA multigrid requires --coarse-cache")
-        coarse_local = tuple(
-            local_lattice[axis] // args.mg_grid[axis] for axis in range(4))
-        coarse_starts = tuple(
-            starts[axis] // args.mg_grid[axis] for axis in range(4))
-        assets = load_coarse_assets(
-            args.coarse_cache, numpy_dtype,
-            starts=coarse_starts, local_shape=coarse_local)
-        lonv, hnn, hdg, sit = [
-            torch.from_numpy(value).to(device=device, dtype=tensor_dtype).contiguous()
-            for value in assets
-        ]
-        coarse_refs.extend((lonv, hnn, hdg, sit))
-        base = define._SET_PTRS_COARSE_BASE_
-        runtime.set_ptrs[base + 0] = lonv.data_ptr()
-        runtime.set_ptrs[base + 1] = hnn.data_ptr()
-        runtime.set_ptrs[base + 2] = hdg.data_ptr()
-        runtime.set_ptrs[base + 3] = sit.data_ptr()
+        cache_paths = [args.coarse_cache, *args.coarse_cache_level]
+        if len(cache_paths) < args.levels - 1:
+            raise ValueError(
+                f"levels={args.levels} requires {args.levels - 1} coarse "
+                f"caches, got {len(cache_paths)}")
         runtime.params[define._MG_NUM_LEVEL_] = args.levels
-        runtime.params[define._MG_LEVEL1_E_] = int(lonv.shape[0])
-        runtime.params[define._MG_LEVEL1_X_] = int(lonv.shape[2])
-        runtime.params[define._MG_LEVEL1_Y_] = int(lonv.shape[4])
-        runtime.params[define._MG_LEVEL1_Z_] = int(lonv.shape[6])
-        runtime.params[define._MG_LEVEL1_T_] = int(lonv.shape[8])
-        runtime.params[define._MG_LEVEL1_MAX_ITER_] = int(args.coarse_max_iter)
-        runtime.params[define._MG_LEVEL1_DATA_TYPE_] = int(
-            define.epytd(tensor_dtype).item())
-        runtime.params[define._MG_LEVEL1_NUM_RESTART_] = int(args.restart)
-        runtime.argv[define._MG_LEVEL1_ATOL_] = float(
-            args.atol * args.coarse_tol_factor)
+        coarse_local = list(local_lattice)
+        coarse_starts = list(starts)
+        for level_index, cache_path in enumerate(
+                cache_paths[:args.levels - 1], start=1):
+            if not cache_path:
+                raise ValueError(
+                    f"CUDA multigrid level {level_index} requires a cache")
+            coarse_local = [
+                coarse_local[axis] // args.mg_grid[axis] for axis in range(4)
+            ]
+            coarse_starts = [
+                coarse_starts[axis] // args.mg_grid[axis] for axis in range(4)
+            ]
+            assets = load_coarse_assets(
+                cache_path, numpy_dtype,
+                starts=tuple(coarse_starts), local_shape=tuple(coarse_local))
+            lonv, hnn, hdg, sit = [
+                torch.from_numpy(value).to(
+                    device=device, dtype=tensor_dtype).contiguous()
+                for value in assets
+            ]
+            coarse_refs.extend((lonv, hnn, hdg, sit))
+            base = define._SET_PTRS_COARSE_BASE_ + 4 * (level_index - 1)
+            runtime.set_ptrs[base + 0] = lonv.data_ptr()
+            runtime.set_ptrs[base + 1] = hnn.data_ptr()
+            runtime.set_ptrs[base + 2] = hdg.data_ptr()
+            runtime.set_ptrs[base + 3] = sit.data_ptr()
+            level_base = define._MG_LEVEL1_E_ + 8 * (level_index - 1)
+            runtime.params[level_base + 0] = int(lonv.shape[0])
+            runtime.params[level_base + 1] = int(lonv.shape[2])
+            runtime.params[level_base + 2] = int(lonv.shape[4])
+            runtime.params[level_base + 3] = int(lonv.shape[6])
+            runtime.params[level_base + 4] = int(lonv.shape[8])
+            runtime.params[level_base + 5] = int(args.coarse_max_iter)
+            runtime.params[level_base + 6] = int(
+                define.epytd(tensor_dtype).item())
+            runtime.params[level_base + 7] = int(args.restart)
+            runtime.argv[define._MG_LEVEL1_ATOL_ + level_index - 1] = float(
+                args.atol * args.coarse_tol_factor *
+                (3 ** (level_index - 1)))
     else:
         runtime.params[define._MG_NUM_LEVEL_] = 1
 
@@ -200,6 +216,7 @@ def _run_cuda(args, comm: MPI.Comm) -> int:
     torch.cuda.synchronize(device)
     comm.Barrier()
     solve_seconds = time.perf_counter() - started
+    local_solve_seconds = float(solve_seconds)
     solve_seconds = float(comm.allreduce(solve_seconds, op=MPI.MAX))
 
     parity_shape = (*local_lattice[:3], local_lattice[3] // 2)
@@ -259,6 +276,7 @@ def _run_cuda(args, comm: MPI.Comm) -> int:
         "gpu_name": torch.cuda.get_device_name(device_index),
         "local_lattice": list(local_lattice),
         "local_starts": list(starts),
+        "solve_seconds": local_solve_seconds,
         "affinity_cpus": _affinity(),
         "omp_num_threads": os.environ.get("OMP_NUM_THREADS"),
     }
@@ -308,7 +326,7 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     parser.add_argument("--atol", type=float, default=1.0e-6)
     parser.add_argument("--max-iter", type=int, default=1000)
     parser.add_argument("--dtype", choices=("c64", "c128"), default="c64")
-    parser.add_argument("--levels", type=int, choices=(1, 2), default=2)
+    parser.add_argument("--levels", type=int, choices=(1, 2, 3, 4), default=2)
     parser.add_argument("--dof", nargs="+", type=int, required=True)
     parser.add_argument("--mg-grid", nargs=4, type=int, required=True)
     parser.add_argument("--restart", type=int, default=5)
@@ -317,6 +335,7 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     parser.add_argument("--nv-iters", type=int, default=1)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--coarse-cache", default=None)
+    parser.add_argument("--coarse-cache-level", action="append", default=[])
     parser.add_argument("--skip-independent-residual", action="store_true")
     parser.add_argument("--verbose", action="store_true")
     parser.add_argument("--output", default=None)
@@ -330,6 +349,8 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = _parse_args(argv)
+    if args.backend == "kupl" and args.levels > 2:
+        raise ValueError("the current KUPL Legacy benchmark supports at most 2 levels")
     comm = MPI.COMM_WORLD
     if int(np.prod(args.grid)) != int(comm.Get_size()):
         raise ValueError(

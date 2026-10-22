@@ -13,6 +13,13 @@ development/debug/optimization target. `Strict-MultiGrid` is explicit-only:
 use it for comparison, algorithm reference, or special fallback, never as an
 implicit default.
 
+MultiGrid depth is guarded explicitly. Legacy is validated at two levels and
+emits `MultigridDepthWarning` above two; Strict is validated at three levels
+and warns above three. The warning is deliberately not a silent fallback or a
+correctness claim. Experimental depths must pass both native and independent
+full-operator residual gates, and distributed Legacy depth greater than two is
+not a supported performance path.
+
 ## MultiGrid cache 路线选择
 
 比较、选择、加载或排障 `33-tensor cache` 与 `Strict cache` 时，先读取

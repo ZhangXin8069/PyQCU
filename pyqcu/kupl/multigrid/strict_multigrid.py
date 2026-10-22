@@ -7,6 +7,8 @@ from typing import Any, Optional, Sequence
 import pyqcu.cann as _torch
 
 from pyqcu.kupl import qcu
+from pyqcu.kupl import define
+from pyqcu._multigrid_warnings import warn_excessive_multigrid_levels
 
 
 class StrictMultigrid:
@@ -49,6 +51,19 @@ class StrictMultigrid:
         self.nu_post = int(nu_post)
         self.max_workspace_bytes = int(max_workspace_bytes)
         self.start_level = int(start_level)
+        levels = int(params[define._MG_NUM_LEVEL_])
+        lattice = tuple(int(params[index]) for index in range(
+            define._LAT_X_, define._LAT_T_ + 1))
+        process_grid = tuple(int(params[index]) for index in range(
+            define._GRID_X_, define._GRID_T_ + 1))
+        block = tuple(
+            max(1, (lattice[axis] // 2 if axis == 3 else lattice[axis]) //
+                self.coarse_dims[axis])
+            for axis in range(4))
+        self.multigrid_depth_warning = warn_excessive_multigrid_levels(
+            levels, variant="strict", backend="kupl",
+            context="KUPL StrictMultigrid", lattice=lattice,
+            block=block, process_grid=process_grid)
         if min(self.restart, self.max_iter, self.max_workspace_bytes) <= 0:
             raise ValueError("StrictMultigrid restart/max_iter/预算必须为正数")
         if self.nu_pre < 0 or self.nu_post < 0:

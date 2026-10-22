@@ -266,6 +266,20 @@ python pyqcu/testing/simple/compare_three_way.py \
 
 来源：`docs/three_way_benchmark_20261022.md:413-491`。
 
+### 5.2 24x24x24x64 MG cache 尺寸
+
+真实 L24、c64、两级、`block=2x2x2x2`、`nvec=12` 下，Legacy cache 使用
+`E_L=12`、compact odd 粗格点与 33-tensor；Strict cache 使用
+`E_S=2*nvec=24`、full-coarse `V/Yhat/(X,X^-1)`。逻辑 payload 分别为
+`1,560,674,304 B` 与 `4,586,471,424 B`。Legacy 实际 HDF5 文件为
+`1,560,678,400 B`；该大格尚无实测 Strict cache 文件。
+
+QUDA 没有对应的持久粗算子 cache，仅在配置允许时加载 canonical null vectors。
+nvec12 的 null-vector 逻辑大小为 `1,019,215,872 B`；历史 L24 生产 MG 的 nvec24
+记录为 `2,038,431,744 B`，但该粗空间与 Legacy `E_L=12` 不等价。文件大小、HDF5
+dataset payload 与运行期驻留资产必须分开报告。来源：
+[`docs/mg_cache_sizes_24x24x24x64_20261023.md`](../../../docs/mg_cache_sizes_24x24x24x64_20261023.md)。
+
 ## 6. Profiler
 
 ```bash
@@ -313,6 +327,7 @@ mpirun -np 1 python -u conftest.py
 | `docs/qcu_quda_multigrid_algorithms.md` | QCU legacy 默认是 Schur BiCGStab + 周期 additive correction，不是 QUDA GCR+CA-GCR；自适应门为 30/12/15%，单 rank 真 Schur refresh 条件为 48 步。 | `pyqcu-solver`, `pyqcu-cpp-qcu` |
 | `docs/qcu_quda_multigrid_subalgorithms.md` | QCU 使用 inverse iteration、local QR、33-tensor Galerkin、guarded coarse BiCGStab；QUDA 当前使用 CGNR setup、aggregate transfer、CA-GCR smoother、GCR(8) 与 recursive cycle。 | `pyqcu-solver` |
 | `docs/qcu_quda_multigrid_coarse_operator.md` | Legacy 保存 compact odd `P†SP` 33-tensor；Strict/QUDA 保存 full-coarse `X/Y/Yhat`。粗层量是有效 Galerkin 算符，不是物理 gauge/clover。 | `pyqcu-solver`, `pyqcu-tools` |
+| `docs/mg_cache_sizes_24x24x24x64_20261023.md` | L24 c64 两级 nvec12 的 Legacy 与 Strict 逻辑 payload 分别为 `1,560,674,304 B`、`4,586,471,424 B`；Legacy 文件为 `1,560,678,400 B`。QUDA 无对应持久粗算子 cache，nvec12 null-vector 为 `1,019,215,872 B`。 | `pyqcu-solver`, `pyqcu-benchmark`, `pyqcu-cuda` |
 | `docs/progress_kupl_cuda_mg_20261021.md` | `dev99..1640349d` 时点证据：KUPL 6×6 Clover 与 512-site coarse tile、CUDA `run_reference`、完整 33-tensor cache 已落地；仍有双 rank/CUDA-aware MPI 与 QUDA MG 缺口。 | `pyqcu-kupl`, `pyqcu-cuda` |
 | `docs/progress_until_20261022_worktree.md` | `userinterlude` 证据：CUDA E12 粗空间不足，生产选择 fine-only；W=8 经边界验证；若干双流/Graph/Allreduce/SIMD 候选已撤销。 | `pyqcu-cuda`, `pyqcu-kupl`, `pyqcu-benchmark` |
 | `docs/three_way_benchmark_20261022.md` | V100 L24 c64 同窗主表中 CUDA BiCGStab `0.147801 s`、QUDA `0.156680 s`；CUDA fine-only MG 不应替代 BiCGStab；KUPL 最优为 `restart=0`。跨窗口和 CPU/GPU 绝对值不可混算。 | `pyqcu-benchmark`, `pyqcu-kupl`, `pyqcu-cuda` |
