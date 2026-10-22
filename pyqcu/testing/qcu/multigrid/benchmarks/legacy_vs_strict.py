@@ -17,6 +17,7 @@ import statistics
 import sys
 import threading
 import time
+import warnings
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -44,6 +45,23 @@ def _json_mad(values: list[float]) -> float | None:
         return None
     center = statistics.median(values)
     return float(statistics.median(abs(value - center) for value in values))
+
+
+def _depth_warnings(levels: int, variant: str, lattice: Sequence[int],
+                    block: Sequence[int]) -> list[str]:
+    from pyqcu._multigrid_warnings import (
+        MultigridDepthWarning,
+        warn_excessive_multigrid_levels,
+    )
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always", MultigridDepthWarning)
+        warn_excessive_multigrid_levels(
+            levels, variant=variant, backend="cuda",
+            context="benchmark", lattice=lattice, block=block,
+            process_grid=(1, 1, 1, 1))
+    return [str(item.message) for item in caught
+            if issubclass(item.category, MultigridDepthWarning)]
 
 
 def _load_case(gauge_path: Path, source_path: Path, lat: tuple[int, ...],
@@ -384,14 +402,27 @@ def _run_legacy(args: argparse.Namespace) -> dict[str, Any]:
     _operator, clover, kappa, kappa_t, _u0 = _fine_operator(
         gauge_full, tuple(args.lat), args.mass, args.csw, device)
     fine_prepare = time.perf_counter() - started
-    cache_path = Path(args.cache).expanduser().resolve()
+    levels = int(args.levels)
+    multigrid_warnings = _depth_warnings(
+        levels, "legacy", tuple(args.lat), (2, 2, 2, 2))
+    cache_paths = [
+        Path(value).expanduser().resolve()
+        for value in (args.cache, *args.cache_level)
+    ]
+    if len(cache_paths) < levels - 1:
+        raise ValueError(
+            f"levels={levels} requires {levels - 1} coarse caches, "
+            f"got {len(cache_paths)}")
+    cache_paths = cache_paths[:levels - 1]
     started = time.perf_counter()
-    with h5py.File(cache_path, "r") as handle:
-        assets = [
-            torch.from_numpy(handle[name][...]).to(
-                device=device, dtype=torch.complex64).contiguous()
-            for name in ("lonv", "hnn", "hdg", "sit")
-        ]
+    assets_by_level = []
+    for cache_path in cache_paths:
+        with h5py.File(cache_path, "r") as handle:
+            assets_by_level.append([
+                torch.from_numpy(handle[name][...]).to(
+                    device=device, dtype=torch.complex64).contiguous()
+                for name in ("lonv", "hnn", "hdg", "sit")
+            ])
     torch.cuda.synchronize(device)
     cache_load = time.perf_counter() - started
     started = time.perf_counter()
@@ -407,21 +438,29 @@ def _run_legacy(args: argparse.Namespace) -> dict[str, Any]:
     params[define._MAX_ITER_] = int(args.max_iter)
     params[define._VERBOSE_] = 1
     params[define._MG_USE_DEFLATE_] = int(args.deflate)
-    params[define._MG_NUM_LEVEL_] = 2
-    params[define._MG_LEVEL1_E_] = int(args.coarse_dof)
-    params[define._MG_LEVEL1_X_] = int(args.lat[0] // 2)
-    params[define._MG_LEVEL1_Y_] = int(args.lat[1] // 2)
-    params[define._MG_LEVEL1_Z_] = int(args.lat[2] // 2)
-    params[define._MG_LEVEL1_T_] = int(args.lat[3] // 4)
-    params[define._MG_LEVEL1_MAX_ITER_] = int(args.coarse_max_iter)
-    params[define._MG_LEVEL1_DATA_TYPE_] = define._LAT_C64_
-    params[define._MG_LEVEL1_NUM_RESTART_] = int(args.coarse_restart)
-    argv[define._MG_LEVEL1_ATOL_] = float(args.tol * args.coarse_tol_factor)
-    set_ptrs[30:34] = 0
-    for index, tensor in enumerate(assets):
-        set_ptrs[30 + index] = tensor.data_ptr()
-    for tensor in assets:
-        tensor.record_stream(torch.cuda.current_stream(device))
+    params[define._MG_NUM_LEVEL_] = levels
+    set_ptrs[define._SET_PTRS_COARSE_BASE_:] = 0
+    for level_index, assets in enumerate(assets_by_level, start=1):
+        lonv = assets[0]
+        if lonv.ndim != 10:
+            raise ValueError(
+                f"level {level_index} lonv shape is {tuple(lonv.shape)}, "
+                "expected the 10-D blocked Legacy layout")
+        base = define._MG_LEVEL1_E_ + 8 * (level_index - 1)
+        params[base + 0] = int(lonv.shape[0])
+        params[base + 1] = int(lonv.shape[2])
+        params[base + 2] = int(lonv.shape[4])
+        params[base + 3] = int(lonv.shape[6])
+        params[base + 4] = int(lonv.shape[8])
+        params[base + 5] = int(args.coarse_max_iter)
+        params[base + 6] = define._LAT_C64_
+        params[base + 7] = int(args.coarse_restart)
+        argv[define._MG_LEVEL1_ATOL_ + level_index - 1] = float(
+            args.tol * args.coarse_tol_factor * (3 ** (level_index - 1)))
+        pointer_base = define._SET_PTRS_COARSE_BASE_ + 4 * (level_index - 1)
+        for offset, tensor in enumerate(assets):
+            set_ptrs[pointer_base + offset] = tensor.data_ptr()
+            tensor.record_stream(torch.cuda.current_stream(device))
     # make_clover_tensors leaves SET_INDEX at the next reusable slot.
     torch.cuda.synchronize(device)
     init_started = time.perf_counter()
@@ -462,6 +501,8 @@ def _run_legacy(args: argparse.Namespace) -> dict[str, Any]:
     memory = _memory_snapshot(device)
     device_peak = device_sampler.stop()
     prof = _last_prof_sections(log_path)
+    native_pass = native_residual is not None and native_residual <= args.tol
+    independent_pass = python_residual is not None and python_residual <= args.tol
     if args.solution_output:
         solution_path = Path(args.solution_output).expanduser().resolve()
         solution_path.parent.mkdir(parents=True, exist_ok=True)
@@ -471,7 +512,7 @@ def _run_legacy(args: argparse.Namespace) -> dict[str, Any]:
                 data=tools.poooxyzt2oooxyzt(output).detach().cpu().numpy())
     payload.update({
         "operation": "legacy_solve",
-        "status": "PASS" if final_result is not None and final_result <= args.tol else "FAIL",
+        "status": "PASS" if native_pass and independent_pass else "FAIL",
         "fine_prepare_seconds": fine_prepare,
         "cache_load_seconds": cache_load,
         "clover_tensor_prepare_seconds": clover_tensor_prepare,
@@ -487,11 +528,16 @@ def _run_legacy(args: argparse.Namespace) -> dict[str, Any]:
         "final_true_residual": final_result,
         "native_true_residual": native_residual,
         "independent_true_residual": python_residual,
+        "native_residual_pass": native_pass,
+        "independent_residual_pass": independent_pass,
         "residual_source": (
             "C++ full-operator true residual from Legacy MG log"
             if native_residual is not None else
             "Python full-operator residual fallback"),
         "coarse_dof": args.coarse_dof,
+        "levels": levels,
+        "multigrid_warnings": multigrid_warnings,
+        "coarse_caches": [str(path) for path in cache_paths],
         "coarse_max_iter": args.coarse_max_iter,
         "coarse_restart": args.coarse_restart,
         "deflate": bool(args.deflate),
@@ -511,7 +557,7 @@ def _run_legacy(args: argparse.Namespace) -> dict[str, Any]:
             str(Path(args.solution_output).expanduser().resolve())
             if args.solution_output else None),
         "resources": _resource_payload(
-            memory, cache_bytes=cache_path.stat().st_size,
+            memory, cache_bytes=sum(path.stat().st_size for path in cache_paths),
             device_peak=device_peak),
     })
     return payload
@@ -548,10 +594,15 @@ def _run_strict(args: argparse.Namespace) -> dict[str, Any]:
         raise ValueError(
             f"selected nvec={nvec} is outside available range 1..{available_nvec}")
     null = null[:nvec].contiguous()
+    levels = int(args.levels)
+    multigrid_warnings = _depth_warnings(
+        levels, "strict", tuple(args.lat), (2, 2, 2, 2))
     hierarchy = StrictMultigrid(
         U=gauge_full, clover_term=clover, kappa=kappa_t, u_0=u0,
         lat_size=tuple(args.lat), null_vectors=[null], nvec_list=[nvec],
-        dof_list=[12, 2 * nvec], block_size=(2, 2, 2, 2), max_level=2,
+        dof_list=[12] + [2 * nvec] * (levels - 1),
+        block_size=[(2, 2, 2, 2)] * (levels - 1), max_level=levels,
+        propagate_null_vectors=levels > 2,
         materialize_coarse=True, use_parity=True, target_parity=1,
         nu_pre=1, nu_post=1, coarse_max_iter=args.coarse_max_iter,
         coarse_tol=args.tol * args.coarse_tol_factor,
@@ -629,6 +680,8 @@ def _run_strict(args: argparse.Namespace) -> dict[str, Any]:
         "null_vector_source_nvec": available_nvec,
         "null_vector_indices": list(range(nvec)),
         "coarse_dof": 2 * nvec,
+        "levels": levels,
+        "multigrid_warnings": multigrid_warnings,
         "warmup_seconds": warmups,
         "steady_seconds": steady,
         "steady_median_seconds": _json_median(steady),
@@ -679,6 +732,10 @@ def main(argv: list[str] | None = None) -> int:
 
     legacy = sub.add_parser("legacy", parents=[common])
     legacy.add_argument("--cache", required=True)
+    legacy.add_argument(
+        "--cache-level", action="append", default=[],
+        help="coarse cache for level 2, 3, ...; repeat in ascending order")
+    legacy.add_argument("--levels", type=int, default=2)
     legacy.add_argument("--log-dir", required=True)
     legacy.add_argument("--coarse-dof", type=int, default=12)
     legacy.add_argument("--coarse-max-iter", type=int, default=200)
@@ -690,6 +747,7 @@ def main(argv: list[str] | None = None) -> int:
     strict = sub.add_parser("strict", parents=[common])
     strict.add_argument("--nullvec", required=True)
     strict.add_argument("--null-dataset", default="null")
+    strict.add_argument("--levels", type=int, default=2)
     strict.add_argument("--nvec", type=int, default=None,
                         help="use the first N vectors from the canonical input")
     strict.add_argument("--restart", type=int, default=20)
@@ -699,6 +757,8 @@ def main(argv: list[str] | None = None) -> int:
 
     args = parser.parse_args(argv)
     args.side = "legacy" if args.command.startswith("legacy") else "strict"
+    if hasattr(args, "levels") and not 2 <= int(args.levels) <= 4:
+        parser.error("--levels must be in [2,4] for the MG benchmark")
     if args.command == "legacy-build":
         payload = _build_legacy(args)
     elif args.command == "legacy":

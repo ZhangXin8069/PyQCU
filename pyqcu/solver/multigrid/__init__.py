@@ -21,6 +21,12 @@ class Multigrid:
     Legacy-MultiGrid is the default QCU multigrid solver and the canonical
     development/debug/optimization target. Strict-MultiGrid is retained for
     explicit comparison, algorithm reference, and special fallback use.
+
+    Depth warning policy: Legacy is validated at two levels and emits
+    ``MultigridDepthWarning`` above that depth. Strict is validated at three
+    levels and emits the same warning above three. A warning is not a
+    correctness gate; experimental hierarchies still require independent
+    residual validation.
     """
 
     _BACKENDS = {"torch", "cuda", "kupl"}

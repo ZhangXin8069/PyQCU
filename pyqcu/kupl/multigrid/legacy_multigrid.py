@@ -7,6 +7,8 @@ from typing import Any, Optional
 import pyqcu.cann as _torch
 
 from pyqcu.kupl import qcu
+from pyqcu.kupl import define
+from pyqcu._multigrid_warnings import warn_excessive_multigrid_levels
 
 
 class LegacyMultigrid:
@@ -33,6 +35,24 @@ class LegacyMultigrid:
         self.clover_even_inv = _cpu_tensor(clover_even_inv, "clover_even_inv")
         self.clover_odd_inv = _cpu_tensor(clover_odd_inv, "clover_odd_inv")
         self.output = output
+        levels = int(params[define._MG_NUM_LEVEL_])
+        lattice = tuple(int(params[index]) for index in range(
+            define._LAT_X_, define._LAT_T_ + 1))
+        process_grid = tuple(int(params[index]) for index in range(
+            define._GRID_X_, define._GRID_T_ + 1))
+        level_one = define._MG_LEVEL1_E_
+        block = (2, 2, 2, 2)
+        if levels > 1 and int(params[level_one + 1]) > 0:
+            block = (
+                lattice[0] // int(params[level_one + 1]),
+                lattice[1] // int(params[level_one + 2]),
+                lattice[2] // int(params[level_one + 3]),
+                (lattice[3] // 2) // int(params[level_one + 4]),
+            )
+        self.multigrid_depth_warning = warn_excessive_multigrid_levels(
+            levels, variant="legacy", backend="kupl",
+            context="KUPL LegacyMultigrid", lattice=lattice,
+            block=block, process_grid=process_grid)
         self._setup_done = False
         self._closed = False
 
