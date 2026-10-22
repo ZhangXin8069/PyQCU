@@ -181,7 +181,7 @@ class PeriodicCorrectionConfig:
 
 @dataclass(frozen=True)
 class StrictMultigridConfig:
-    """Canonical configuration for a strict recursive hierarchy."""
+    """Configuration for explicit Strict-MultiGrid reference/fallback use."""
 
     coarsen: CoarsenConfig
     smoother: MRConfig = field(default_factory=MRConfig)
@@ -191,7 +191,7 @@ class StrictMultigridConfig:
 
 @dataclass(frozen=True)
 class LegacyMultigridConfig:
-    """Canonical configuration for periodic legacy corrections."""
+    """Default QCU configuration for Legacy-MultiGrid development and use."""
 
     coarsen: CoarsenConfig
     corrector: PeriodicCorrectionConfig = field(

@@ -16,17 +16,26 @@ from pyqcu.torch.solver.multigrid import LegacyMultigrid, StrictMultigrid
 
 
 class Multigrid:
-    """Backend-neutral wrapper around a strict or legacy hierarchy."""
+    """Backend-neutral wrapper around a strict or legacy hierarchy.
+
+    Legacy-MultiGrid is the default QCU multigrid solver and the canonical
+    development/debug/optimization target. Strict-MultiGrid is retained for
+    explicit comparison, algorithm reference, and special fallback use.
+    """
 
     _BACKENDS = {"torch", "cuda", "kupl"}
     _VARIANTS = {"strict", "legacy"}
+    DEFAULT_VARIANT = "legacy"
 
-    def __init__(self, *, variant: str, backend: str = "torch", **kwargs: Any):
+    def __init__(self, *, variant: str = DEFAULT_VARIANT,
+                 backend: str = "torch", **kwargs: Any):
+        # Do not make Strict an implicit default: comparison/reference paths
+        # must be selected by name so production and tuning target one solver.
         variant_name = str(variant).strip().lower().replace("-", "_")
         backend_name = str(backend).strip().lower()
         if variant_name not in self._VARIANTS:
             raise ValueError(
-                f"variant 必须是 strict 或 legacy，得到 {variant!r}")
+                f"variant 必须是 legacy（默认）或 strict，得到 {variant!r}")
         if backend_name not in self._BACKENDS:
             raise ValueError(
                 f"backend 必须是 torch、cuda 或 kupl，得到 {backend!r}")

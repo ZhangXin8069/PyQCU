@@ -161,7 +161,7 @@ C++ QCU 后端内部使用时间方向奇偶压缩：
 | fermion | `[2,4,3,X,Y,Z,T/2]` 或等价的 `[2,12,X,Y,Z,T/2]` |
 | clover parity block | `[4,3,4,3,X,Y,Z,T/2]` |
 
-parity 的压缩方式不是简单把时间轴一分为二。转换必须使用 `_common.py` 中的
+parity 的压缩方式不是简单把时间轴一分为二。转换必须使用 `_layouts.py` 中的
 `qcu_gauge_to_kupl()`、`qcu_fermion_to_kupl()`、`kupl_*_to_qcu()`，不能直接
 `reshape`。
 

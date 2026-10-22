@@ -29,6 +29,7 @@ class FlatQcuLinearOperator:
             normal_cg_operation: Optional[str],
             solver_bicgstab: str, solver_cg: Optional[str],
             iteration_getter: Optional[str],
+            tolerance_semantics: str,
             clover_assets: Optional[tuple[Any, ...]] = None):
         if not hasattr(runtime, "operation") or not hasattr(runtime, "call"):
             raise TypeError("runtime must provide call() and operation()")
@@ -58,6 +59,7 @@ class FlatQcuLinearOperator:
         self._solver_bicgstab = solver_bicgstab
         self._solver_cg = solver_cg
         self._iteration_getter = iteration_getter
+        self._tolerance_semantics = tolerance_semantics
         self._clover_assets = tuple(clover_assets or ())
         if self._clover_assets and len(self._clover_assets) != 4:
             raise ValueError(
@@ -203,6 +205,7 @@ class FlatQcuLinearOperator:
                 "native_call_count": 1,
                 "native_normal_return": True,
                 "rhs_norm": rhs_norm,
+                "tolerance_semantics": self._tolerance_semantics,
                 "warm_start": x0 is not None,
             },
         )

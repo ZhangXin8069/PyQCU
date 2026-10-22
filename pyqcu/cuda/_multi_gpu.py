@@ -312,6 +312,9 @@ def _setup_gpu_tensors(params_t, argv_t, set_ptrs_t, device, mass, atol, csw,
 class MultiGpuMultigrid(object):
     """测试专用：单进程多线程多 GPU 的 Legacy Clover-MG 驱动。
 
+    本类刻意使用 Legacy-MultiGrid，即 QCU 默认开发、调试和优化路线；
+    Strict-MultiGrid 不在此测试驱动中隐式启用。
+
     该类只在显式构造时启用，不属于 CUDA 生产执行拓扑。生产程序必须保持
     ``一个 Python 进程 = 一个 MPI rank = 一张 GPU/DCU/GPGPU``；多设备
     协同通过 MPI 格点分域完成，而不是在一个进程内创建多个整题求解 worker。
@@ -320,7 +323,7 @@ class MultiGpuMultigrid(object):
         lat_size: [Lx, Ly, Lz, Lt]
         mass / atol: 求解质量参数与容差
         num_levels / dof_list / mg_grid / num_restart / coarse_max_iter /
-        coarse_tol_factor / nv_iters: 粗网格配置（同 conftest.schur.multigrid）
+        coarse_tol_factor / nv_iters: 粗网格配置（与现行 MG benchmark 协议一致）
         nthreads: 线程数（默认 = 设备数）
         device_ids: 显式设备 id 列表（默认 range(可见设备数)；
             线程 tid 绑定 device_ids[tid % len(device_ids)]）

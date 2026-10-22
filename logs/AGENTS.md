@@ -413,7 +413,6 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 关键内容: 新增 1354 行子算法详解，含 25 张 Mermaid 流程图、52 个 LaTeX 公式块和同类算法权衡
 - 验证: path, size, required sections, conflict markers
 - 批次状态: complete
-
 ## test9-dev103-profiler-summary - final - 2026-10-22 17:04:48 +0800
 - 主任务: 为 test9 至 dev103 求解器性能汇总补充统一环境信息
 - 日志文件: logs/v2026102217.txt
@@ -575,5 +574,21 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 文件大小: 6494 bytes
 - 触发原因: 任务完成
 - 关键内容: docs=24、skills=35；建立统一审计器、trigger-only descriptions、唯一 Primary 映射与 pyqcu-api 技能
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete
+
+## qcu-six-way-benchmark-20261023 - final-uncommitted - 2026-10-23 02:12:41 +0800
+- 主任务: 真实 LIME 前缀上的 Torch/CUDA/KUPL 六版本与 QUDA 同配置性能评定
+- 日志目录: logs/qcu_six_way_20261023/formal-release
+- 摘要文件: summary.json、summary.csv、summary.md、inputs.json、environment.json
+- 关键内容: 7 条主路径与 CUDA Legacy fine-only 消融全部 PASS；记录独立真残差、coarse/V-cycle 证据、setup/cache/first workspace/steady 和设备峰值
+- 验证: 5 次 steady、同 gauge/source hash、同 c64/tol/max_iter/levels/block/nvec、JSON/CSV 一致性
+- 批次状态: uncommitted
+## qcu-p1-testing-benchmark-20261023 - final - 2026-10-23 02:31:21 +0800
+- 主任务: 统一 QCU P1 接口、整改 testing、拆分 simple、近真实组态六版本性能评定并约定 Legacy-MultiGrid 默认
+- 日志文件: logs/v2026102302.txt
+- 文件大小: 8997 bytes
+- 触发原因: 任务完成
+- 关键内容: 完成 LinearOperator/Krylov 统一适配、Legacy 默认约定、注释与测试目录整改、弃用清理、simple 分层和七路径真实 LIME 基准
 - 验证: path, size, required sections, conflict markers
 - 批次状态: complete

@@ -164,22 +164,29 @@ def _bicgstab(
     restart_count = 0
     status = SolveStatus.MAX_ITERATIONS
     iterations = 0
+
+    def restart_after_breakdown() -> bool:
+        nonlocal shadow, p, v, s, t, rho_prev, alpha, omega, restart_count
+        if restart_count >= control.breakdown_restarts:
+            return False
+        shadow = r.clone()
+        p = _torch.zeros_like(rhs)
+        v = _torch.zeros_like(rhs)
+        s = _torch.zeros_like(rhs)
+        t = _torch.zeros_like(rhs)
+        rho_prev = rhs.new_tensor(1.0)
+        alpha = rhs.new_tensor(1.0)
+        omega = rhs.new_tensor(1.0)
+        restart_count += 1
+        return True
+
     for iteration in range(control.max_iter):
         iterations = iteration + 1
         rho = _torch.vdot(shadow, r)
         if _breakdown(rho, shadow, r):
-            if restart_count >= control.breakdown_restarts:
+            if not restart_after_breakdown():
                 status = SolveStatus.BREAKDOWN
                 break
-            shadow = r.clone()
-            p = _torch.zeros_like(rhs)
-            v = _torch.zeros_like(rhs)
-            s = _torch.zeros_like(rhs)
-            t = _torch.zeros_like(rhs)
-            rho_prev = rhs.new_tensor(1.0)
-            alpha = rhs.new_tensor(1.0)
-            omega = rhs.new_tensor(1.0)
-            restart_count += 1
             continue
         beta = (rho / rho_prev) * (alpha / omega)
         rho_prev = rho
@@ -187,20 +194,31 @@ def _bicgstab(
         v = operator.apply(p)
         denominator = _torch.vdot(shadow, v)
         if _breakdown(denominator, shadow, v):
-            status = SolveStatus.BREAKDOWN
-            break
+            if not restart_after_breakdown():
+                status = SolveStatus.BREAKDOWN
+                break
+            continue
         alpha = rho / denominator
+        if _near_zero(alpha):
+            if not restart_after_breakdown():
+                status = SolveStatus.BREAKDOWN
+                break
+            continue
         s = r - alpha * v
         t = operator.apply(s)
         t_norm_sq = _torch.vdot(t, t)
         if _near_zero(t_norm_sq):
-            status = SolveStatus.BREAKDOWN
-            break
+            if not restart_after_breakdown():
+                status = SolveStatus.BREAKDOWN
+                break
+            continue
         omega = _torch.vdot(t, s) / t_norm_sq
         if not bool(_torch.torch.isfinite(alpha)) or not bool(
                 _torch.torch.isfinite(omega)) or _near_zero(omega):
-            status = SolveStatus.BREAKDOWN
-            break
+            if not restart_after_breakdown():
+                status = SolveStatus.BREAKDOWN
+                break
+            continue
         x = x + alpha * p + omega * s
         r = s - omega * t
         r_norm = _field_norm(r)
