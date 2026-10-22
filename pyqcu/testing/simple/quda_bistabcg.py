@@ -12,6 +12,7 @@ import re
 import sys
 import time
 from pathlib import Path
+from statistics import median
 from typing import Any
 
 import numpy as np
@@ -199,6 +200,14 @@ def _solve_case_old(args, multigrid=None, nvec=None):
             anti_periodic_t=False, multigrid=old_multigrid)
     dirac.invert_param.mass_normalization = (
         QudaMassNormalization.QUDA_KAPPA_NORMALIZATION)
+    try:
+        dirac.invert_param.use_init_guess = 0
+    except Exception:
+        pass
+    try:
+        dirac.invert_param.use_resident_solution = 0
+    except Exception:
+        pass
     if multigrid is None:
         dirac.invert_param.inv_type = QudaInverterType.QUDA_BICGSTAB_INVERTER
     nvec_applied = False
@@ -212,14 +221,28 @@ def _solve_case_old(args, multigrid=None, nvec=None):
         dirac.loadGauge(gauge)
         stdout = io.StringIO()
         stderr = io.StringIO()
-        started = time.perf_counter()
-        with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
-            solution = dirac.invert(source)
-        cp.cuda.runtime.deviceSynchronize()
-        wall_seconds = time.perf_counter() - started
+        wall_samples = []
+        solver_samples = []
+        iteration_samples = []
+        solution = None
+        for repeat in range(args.warmup + args.repeats):
+            started = time.perf_counter()
+            with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+                solution = dirac.invert(source)
+            cp.cuda.runtime.deviceSynchronize()
+            wall = time.perf_counter() - started
+            invert = dirac.invert_param
+            iteration_count = int(_scalar(getattr(invert, "iter", 0), 0))
+            if repeat >= args.warmup:
+                wall_samples.append(wall)
+                solver_samples.append(
+                    float(_scalar(getattr(invert, "secs", 0.0), 0.0)))
+                iteration_samples.append(iteration_count)
+        wall_seconds = median(wall_samples)
+        solver_seconds = median(solver_samples)
+        iterations = iteration_samples[-1]
         memory = _cupy_memory_snapshot()
         invert = dirac.invert_param
-        iterations = int(_scalar(getattr(invert, "iter", 0), 0))
         metrics = {
             "api": "pyquda-0.3",
             "nvec_applied": nvec_applied if multigrid is not None else None,
@@ -229,8 +252,12 @@ def _solve_case_old(args, multigrid=None, nvec=None):
             "mass_normalization": "kappa",
             "iterations": iterations,
             "wall_seconds": wall_seconds,
-            "solver_seconds": float(_scalar(getattr(invert, "secs", 0.0), 0.0)),
-            "seconds_per_iteration": (float(_scalar(getattr(invert, "secs", 0.0), 0.0)) / iterations
+            "solver_seconds": solver_seconds,
+            "wall_samples": wall_samples,
+            "solver_samples": solver_samples,
+            "iteration_samples": iteration_samples,
+            "warmup": args.warmup,
+            "seconds_per_iteration": (solver_seconds / iterations
                                       if iterations > 0 else None),
             "gflops": float(_scalar(getattr(invert, "gflops", 0.0), 0.0)),
             "gflops_source": "QudaInvertParam.gflops",
@@ -287,6 +314,15 @@ def solve_case(args, multigrid=None, nvec=None):
     try:
         dirac.invert_param.mass_normalization = (
             QudaMassNormalization.QUDA_KAPPA_NORMALIZATION)
+        # A repeated solve must not inherit the previous solution from the
+        # caching allocator; force a cold start and disable residency.
+        try:
+            from pyquda.enum_quda import QudaUseInitGuess
+            dirac.invert_param.use_init_guess = (
+                QudaUseInitGuess.QUDA_USE_INIT_GUESS_NO)
+        except Exception:
+            pass
+        dirac.invert_param.use_resident_solution = 0
         mg_inv_param = getattr(
             getattr(dirac, "multigrid", None), "inv_param", None)
         if mg_inv_param is not None:
@@ -308,15 +344,28 @@ def solve_case(args, multigrid=None, nvec=None):
         dirac.loadGauge(gauge)
         stdout = io.StringIO()
         stderr = io.StringIO()
-        started = time.perf_counter()
-        with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
-            solution = dirac.invert(source)
-        torch.cuda.synchronize()
-        wall_seconds = time.perf_counter() - started
+        wall_samples = []
+        solver_samples = []
+        iteration_samples = []
+        solution = None
+        for repeat in range(args.warmup + args.repeats):
+            started = time.perf_counter()
+            with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+                solution = dirac.invert(source)
+            torch.cuda.synchronize()
+            wall = time.perf_counter() - started
+            invert = dirac.invert_param
+            iterations = int(_scalar(getattr(invert, "iter", 0), 0))
+            solver_seconds = float(_scalar(getattr(invert, "secs", 0.0), 0.0))
+            if repeat >= args.warmup:
+                wall_samples.append(wall)
+                solver_samples.append(solver_seconds)
+                iteration_samples.append(iterations)
+        wall_seconds = median(wall_samples)
+        solver_seconds = median(solver_samples)
+        iterations = iteration_samples[-1]
         memory = cuda_memory_snapshot(torch.cuda.current_device())
         invert = dirac.invert_param
-        iterations = int(_scalar(getattr(invert, "iter", 0), 0))
-        solver_seconds = float(_scalar(getattr(invert, "secs", 0.0), 0.0))
         metrics = {
             "api": "pyquda_utils",
             "nvec_applied": nvec_applied if multigrid is not None else None,
@@ -325,6 +374,10 @@ def solve_case(args, multigrid=None, nvec=None):
             "iterations": iterations,
             "wall_seconds": wall_seconds,
             "solver_seconds": solver_seconds,
+            "wall_samples": wall_samples,
+            "solver_samples": solver_samples,
+            "iteration_samples": iteration_samples,
+            "warmup": args.warmup,
             "seconds_per_iteration": solver_seconds / iterations if iterations > 0 else None,
             "gflops": float(_scalar(getattr(invert, "gflops", 0.0), 0.0)),
             "gflops_source": "QudaInvertParam.gflops",
@@ -363,9 +416,15 @@ def main(argv=None) -> int:
     parser.add_argument("--gauge", default=None)
     parser.add_argument("--source", default=None)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--warmup", type=int, default=1,
+                        help="untimed solves before sampling")
+    parser.add_argument("--repeats", type=int, default=3,
+                        help="timed solves; report the median")
     parser.add_argument("--output", default=None)
     parser.add_argument("--report", default="performance_quda_bistabcg.json")
     args = parser.parse_args(argv)
+    if args.warmup < 0 or args.repeats < 1:
+        parser.error("--warmup must be >= 0 and --repeats >= 1")
     if not pyquda_available():
         print(json.dumps({"status": "SKIP", "reason": "PyQUDA/CUDA unavailable"}))
         return 0
