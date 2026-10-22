@@ -8,6 +8,11 @@ description: |
 
 Iterative solvers for the Dirac equation D ψ = η.
 
+`Legacy-MultiGrid` is the QCU default multigrid solver and the canonical
+development/debug/optimization target. `Strict-MultiGrid` is explicit-only:
+use it for comparison, algorithm reference, or special fallback, never as an
+implicit default.
+
 ## MultiGrid cache 路线选择
 
 比较、选择、加载或排障 `33-tensor cache` 与 `Strict cache` 时，先读取

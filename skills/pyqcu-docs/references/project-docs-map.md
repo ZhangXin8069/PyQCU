@@ -1,6 +1,6 @@
 # PyQCU `docs/**` 来源映射
 
-本表覆盖当前 `docs/` 顶层的 24 份 Markdown 文档。`docs/AGENTS.md` 是文件索引；
+本表覆盖当前 `docs/` 顶层的 25 份 Markdown 文档。`docs/AGENTS.md` 是文件索引；
 需要判断“原文应保留在哪里”时先读该文件和 `docs/ORGANIZATION.md`。
 
 ## 权威级别
@@ -37,6 +37,7 @@
 | [`docs/progress_kupl_cuda_mg_20261021.md`](../../../docs/progress_kupl_cuda_mg_20261021.md) | C/D | `pyqcu-benchmark` | `pyqcu-kupl`, `pyqcu-cuda` | `dev99..1640349d` 的静态阶段归档；只作历史证据，未持久化测试明确视为未验证。 |
 | [`docs/progress_until_20261022_worktree.md`](../../../docs/progress_until_20261022_worktree.md) | C | `pyqcu-benchmark` | `pyqcu-cuda`, `pyqcu-kupl` | 已提交的时点工作区快照；状态为 `userinterlude`，不得写成 tag 后永久结论。 |
 | [`docs/three_way_benchmark_20261022.md`](../../../docs/three_way_benchmark_20261022.md) | C | `pyqcu-benchmark` | `pyqcu-kupl`, `pyqcu-cuda` | CUDA/KUPL/QUDA 同窗测量、正确性门、复现脚本、原始数据入口和限制。 |
+| [`docs/qcu_six_way_benchmark_20261023.md`](../../../docs/qcu_six_way_benchmark_20261023.md) | C | `pyqcu-benchmark` | `pyqcu-solver`, `pyqcu-cuda`, `pyqcu-kupl` | 六版本与 QUDA 的真实 LIME 前缀同窗结果；严格区分 fine-only、实际 correction/V-cycle、CPU/GPU 和不可比边界。 |
 | [`docs/legacy_vs_strict_mg_status_20261022.md`](../../../docs/legacy_vs_strict_mg_status_20261022.md) | C | `pyqcu-benchmark` | `pyqcu-solver`, `pyqcu-cuda`, `pyqcu-kupl` | Legacy/Strict CUDA 与 KUPL 现有 JSON/stdout 的完成状态；保留 V-cycle 计数、KUPL 缺失和不可比边界。 |
 | [`docs/legacy_vs_strict_mg_memory_20261023.md`](../../../docs/legacy_vs_strict_mg_memory_20261023.md) | C | `pyqcu-solver` | `pyqcu-benchmark`, `pyqcu-cuda` | 同输入 c64 两级设备峰值；Legacy 更低，但 Legacy 未执行 coarse V-cycle，24³×64 Strict 缺失。 |
 | [`docs/multigrid_legacy_strict_comparison_20261022.md`](../../../docs/multigrid_legacy_strict_comparison_20261022.md) | B/C | `pyqcu-solver` | `pyqcu-cuda`, `pyqcu-kupl`, `pyqcu-testing` | 算法、接口与生命周期属于当前参考；第 5 节性能状态属于时点证据。 |

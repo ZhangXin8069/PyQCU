@@ -39,6 +39,7 @@ Wilson/Clover Dirac 算子、BiStabCG 与多重网格求解器、stout smearing�
 
 - **参数协议**：`params`（int32[58]，dev84 起 `_MG_USE_DEFLATE_=55`/`_MG_MU_PRE_=56`，dev87 起 `_MG_USE_INIT_GUESS_=57`=x0 热启动开关，warm 时以 fermion_out 预填解为初值）、`argv`（float[8]，槽 7 为 `_CSW_`）、`set_ptrs`（int64[100]）三个扁平张量桥接 Python↔C++；`pyqcu/cuda/define.py` 与 `cpp/cuda/qcu/include/define.h` 必须同步。
 - **`_SET_PLAN_` 计划选择**：-2 Laplacian、-1 Gauss gauge、0 Wilson dslash、1 BiStabCG/CG、2 Clover dslash。
+- **Multigrid 默认路线**：`Legacy-MultiGrid` 是 QCU 默认 multigrid 求解器，也是日常开发、调试和优化对象；`Strict-MultiGrid` 只在显式 `variant="strict"` 或直接构造 `StrictMultigrid` 时启用，用于对照、算法参考和特殊备选。
 - **调用生命周期**：普通单操作事务使用 `applyInitQcu` → 操作 → `applyEndQcu` →
   `params[define._SET_INDEX_] += 1`。`applyEndQcu` 按**当前**索引释放对象，
   不能先递增再 end。普通 scratch 只使用 `set_ptrs[0:30]`；
@@ -62,7 +63,7 @@ Wilson/Clover Dirac 算子、BiStabCG 与多重网格求解器、stout smearing�
 | `cpp/cuda/qcu/` | C++ CUDA 后端：`src/`（32 个 .cu 内核）、`include/`（24 个模板头）、`python/pyqcu.h`（C API 37 个入口，须与 `qcu_api.pxd` 同步） |
 | `cpp/kupl/qcu/` | 独立 C++17 MPI+OpenMP CPU 后端：4D rank halo、NUMA/OpenMP 绑定、canonical c64/c128 Wilson/Clover dslash、Wilson/Clover 求解器、3D Laplacian、正确性与吞吐测试 |
 | `cpp/{cann,dtk,maca}/qcu/` | 占位 PASS，无实现 |
-| `pyqcu/testing/` | 统一测试入口：`pyqcu/`（纯 Python 主套件）、`qcu/`（C++ CUDA 后端）、`kupl/`（CPU 后端 Python ABI/参考差分）、`quda/`、`pyquda/`、`cpu/npu/dcu/gpu/tilelang/profiler/benchmark/`、`regression/session-2026-08-24/`、`data/`（参考 HDF5） |
+| `pyqcu/testing/` | 统一测试入口：`python/`（纯 Python 主套件）、`qcu/`（C++ CUDA 后端）、`kupl/`（CPU 后端 Python ABI/参考差分）、`quda/`、`pyquda/`、`cpu/npu/dcu/gpu/profiler/benchmark/`、`regression/session-2026-08-24/`、`data/`（参考 HDF5）；TileLang 无独立测试目录，按需调用 `pyqcu.testing.test_matmul()` |
 | `skills/` | 项目技能库（35 个技能目录：SKILL.md + 简短 AGENTS.md，目录级领域知识文档；目录名一律 `pyqcu-` 前缀；索引与技能表见 `skills/AGENTS.md`） |
 | `docs/` | 正式独立文档与指南（`.pdf`/`.tex`/`.md`）：`dims.md`、`env.md`、`install.md`、`examples.md`、`profiler.md`、`ORGANIZATION.md`；从 `data/**` 提升的文档位于 `docs/data/` |
 | `refer/` | 参考实现脚本（`huzc/`）、开发历史报告（`multigrid_analysis_20260717.*`）与 `git-rep/` 参考 Git 子库 |

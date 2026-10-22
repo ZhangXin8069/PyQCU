@@ -18,6 +18,7 @@ not a dslash production topology. See
 | `pyqcu/torch/dslash/_wilson.py` | Wilson hopping term D_w: spatial derivative with γ_μ matrices and parallel transport. Has per-module `force_use_npu` flag. |
 | `pyqcu/torch/dslash/_clover.py` | Clover term (chromo-magnetic field strength F_{μν} contribution). Four-plaquette clover construction with MPI boundary exchange. |
 | `pyqcu/torch/dslash/_operator.py` | Composed Dirac operator = hopping + sitting, with even-odd preconditioning, coarse-grid Galerkin projection, and MPI halo exchange. |
+| `pyqcu/torch/dslash/_adapter.py` | `TorchLinearOperator`: full/Schur protocol view and γ5-Hermitian adjoint. |
 
 Top-level `pyqcu.dslash` is a compatibility facade only.
 
@@ -56,6 +57,11 @@ is a valid pure-Wilson request and must not be used as a sentinel.
 When `support_parallel=True`, `make_clover` performs MPI halo exchange for all 4 corners and edges of each μν plaquette (head, tail, head-tail, head-head, tail-tail).
 
 ### Operator (`_operator.py`)
+
+`TorchLinearOperator(fine_operator, mode="full"|"schur")` is the public
+`pyqcu.api.LinearOperator` adapter. Full mode preserves the input
+`[4,3,...]`/`[12,...]` layout; Schur mode acts on compact odd parity. The
+adapter uses `D† = γ5 D γ5` and does not claim an HPD CG operator.
 
 Three classes compose the Dirac operator:
 

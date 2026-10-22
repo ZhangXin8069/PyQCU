@@ -58,8 +58,10 @@ c128 实测严格单调收敛（10274 迭代 rel 2.5e-10）；c64 有精度地�
 
 ### `Multigrid` / `StrictMultigrid` / `LegacyMultigrid`
 
-`Multigrid(variant="strict"|"legacy", backend="torch"|"cuda"|"kupl", **kwargs)`
-是统一选择器；三个层级实现统一使用 `setup()`、`solve()`、`close()` 生命周期。
+`Multigrid(variant="legacy"|"strict", backend="torch"|"cuda"|"kupl", **kwargs)`
+是统一选择器，默认 `variant="legacy"`；Legacy-MultiGrid 是 QCU 默认开发、调试和优化对象，
+Strict-MultiGrid 只用于显式对照、算法参考或特殊备选。三个层级实现统一使用
+`setup()`、`solve()`、`close()` 生命周期。
 Torch 后端直接对应 `StrictMultigrid` 与 `LegacyMultigrid`，CUDA/KUPL 在各自
 `multigrid/` 子包暴露同名入口。
 

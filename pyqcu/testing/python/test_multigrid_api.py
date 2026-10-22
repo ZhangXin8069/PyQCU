@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import importlib
+
 import pytest
 import torch
 
@@ -39,9 +41,21 @@ def test_multigrid_package_is_the_canonical_hierarchy_namespace():
     assert all("quda" not in name.lower() for name in public_mg_names)
 
 
-def test_multigrid_selector_requires_explicit_and_valid_names():
-    with pytest.raises(TypeError):
-        Multigrid()
+def test_multigrid_selector_defaults_to_legacy_and_validates_names(monkeypatch):
+    module = importlib.import_module("pyqcu.solver.multigrid")
+
+    class ProbeLegacy:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+    monkeypatch.setattr(
+        module, "_implementation_type",
+        lambda backend, variant: ProbeLegacy)
+    wrapper = Multigrid()
+    assert Multigrid.DEFAULT_VARIANT == "legacy"
+    assert (wrapper.variant, wrapper.backend) == ("legacy", "torch")
+    assert wrapper.implementation.kwargs == {}
+
     with pytest.raises(ValueError, match="variant"):
         Multigrid(variant="unknown")
     with pytest.raises(ValueError, match="backend"):

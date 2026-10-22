@@ -15,10 +15,10 @@ solve driver。`create_backend()`、统一 backend factory 和逐后端原生 MG
 Torch、CUDA、KUPL 各有 Legacy/Strict 两条实现，共六种小版本。当前没有任何一个小版本在所有维度
 同时占优：
 
-- **Strict 更适合作为通用语义骨架**：full-coarse、`X/Y/Yhat`、MATPC、明确的 V-cycle 与右预条件
-  Krylov 容易拆成可复用组件，也最容易扩展到三层以上和新后端。
-- **Legacy 更适合作为显式特化路径**：compact odd coarse、33-tensor stencil、周期加性 coarse
-  correction 在资产较小、已有 cache 和特定硬件路径上仍有价值。
+- **Legacy-MultiGrid 是 QCU 默认 multigrid 求解器**：compact odd coarse、33-tensor stencil、
+  周期加性 coarse correction 是日常开发、调试和优化的默认对象。
+- **Strict-MultiGrid 主要作为显式对照与算法参考**：full-coarse、`X/Y/Yhat`、MATPC、V-cycle
+  和右预条件 Krylov 便于验证与扩展，但除非明确调用，不默认启用。
 - **CUDA 提供了最成熟的性能工程**：Legacy 的五流/融合/Graph/自适应 correction gate，以及 Strict 的
   persistent hierarchy、fused FGMRES、overlap halo 和 cache 规范，应分别抽象后共享。
 - **KUPL 提供了最清晰的 CPU 真残差保护**：coarse correction 的验收、撤销和后续关闭策略应提升为公共
@@ -280,6 +280,7 @@ hierarchy.close()
   隐式延长资产寿命。
 - `pyqcu.api.create_backend()` 是扩展到 dslash/Krylov 后的目标 canonical 入口；现有
   `pyqcu.solver.multigrid.Multigrid(variant=..., backend=...)` 继续作为兼容选择器，并委托给同一后端实现。
+  其中省略 `variant` 时默认 `legacy`；Strict 只在显式指定时启用。
 - 公共协议不规定 kernel、stream、OpenMP、MPI transport 或 cache payload；这些由 `Capabilities` 和
   `AssetStore` 声明，避免为统一接口牺牲平台性能。
 
@@ -318,7 +319,7 @@ bicg = backend.solver(
 )
 result = bicg.solve(b, x0=None)       # -> SolveResult
 
-mg = backend.multigrid(
+mg_strict = backend.multigrid(
     variant="strict",
     operator=D,
     coarsen=CoarsenConfig(nvec=12, block_size=(2, 2, 2, 2), levels=3),
@@ -326,20 +327,20 @@ mg = backend.multigrid(
     cycle=CycleConfig(kind="V", pre=2, post=2),
     outer=FGMRESControl(rtol=1e-8, restart=20, max_iter=200),
 )
-mg_result = mg.solve(b, x0=None)
+strict_result = mg_strict.solve(b, x0=None)
 ```
 
-Legacy 使用同一 `backend/operator/solve/close`，但配置类型明确写成：
+Legacy 使用同一 `backend/operator/solve/close`，并且是省略 `variant` 时的默认路线：
 
 ```python
-mg_legacy = backend.multigrid(
-    variant="legacy",
+mg_default = backend.multigrid(
     operator=D,
     coarsen=CoarsenConfig(nvec=12, block_size=(2, 2, 2, 2), levels=2),
     corrector=PeriodicCorrectionConfig(
         interval=5, gate=True, true_residual_rollback=True
     ),
 )
+legacy_result = mg_default.solve(b, x0=None)
 ```
 
 ### 7.1 `SolveResult`
@@ -438,12 +439,12 @@ Torch 的 tensor hierarchy。公共的是控制面与数学契约，特化的是
 
 ## 10. 推荐默认
 
-1. **通用生产默认使用 Strict**：full-coarse、MATPC、MR smoother、right-preconditioned FGMRES，便于验证和扩展。
-2. **Legacy 作为显式兼容/特化策略**：只有在 compact 资产、历史 cache 或经过公平 A/B 证明更优的工作负载上选用。
+1. **Legacy-MultiGrid 是 QCU 默认 multigrid 求解器**，也是日常开发、调试和性能优化的唯一默认对象。
+2. **Strict-MultiGrid 只用于显式对照、算法参考和特殊备选**：必须传入 `variant="strict"` 或直接构造 `StrictMultigrid`，不得隐式启用。
 3. **所有变体统一以相对真残差为主停机判据**；Legacy 的绝对容差只作为显式兼容选项。
 4. **Legacy correction 默认启用 gate + true-residual rollback**，并记录实际 correction/cycle 次数。
-5. **Strict 默认 MR smoother**；CG 只用于已证明 HPD 的 Schur/normal 子问题。
-6. **禁止隐式 fallback**：Strict 不得静默退回 Legacy，Legacy 不得把 fine-only 路径报告成 coarse V-cycle。
+5. **Strict 显式启用时默认 MR smoother**；CG 只用于已证明 HPD 的 Schur/normal 子问题。
+6. **禁止隐式 fallback**：默认 Legacy 不因失败自动切到 Strict，Strict 也不得静默退回 Legacy；Legacy 不得把 fine-only 路径报告成 coarse V-cycle。
 
 ## 11. 实施顺序
 

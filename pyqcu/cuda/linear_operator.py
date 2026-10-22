@@ -30,6 +30,7 @@ class CudaLinearOperator(FlatQcuLinearOperator):
             solver_cg=None if clover_mode else "applyWilsonCgQcu",
             iteration_getter=(
                 "getCloverBistabCgIterationsQcu" if clover_mode else None),
+            tolerance_semantics="backend_native_relative_with_floor",
             clover_assets=clover_assets,
         )
 

@@ -8,6 +8,11 @@ MultiGrid 重构未纳入本审计结论。本次只做静态调用图、测试�
 相关性能与完成状态见
 [Legacy/Strict/KUPL 状态报告](legacy_vs_strict_mg_status_20261022.md)。
 
+2026-10-23 后续处理：已删除 `pyqcu/testing/qcu/conftest.schur.multigrid.py`、
+`conftest.bistabcg.dslash.py`、`bench_cpp_mg.py`，以及 TileLang no-op
+`conftest.py` 和 simple `bench_three_way.py` 弃用转发壳；现行替代入口见
+`pyqcu/testing/AGENTS.md` 与 `pyqcu/testing/qcu/AGENTS.md`。
+
 ## 1. 结论摘要
 
 | 严重度 | 结论 | 建议 |

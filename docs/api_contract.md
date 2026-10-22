@@ -48,11 +48,17 @@ from pyqcu.solver import Krylov
 ```python
 from pyqcu.solver.multigrid import Multigrid
 
-mg = Multigrid(variant="strict", backend="cuda", **backend_options)
+mg = Multigrid(backend="cuda", **legacy_options)  # 默认 Legacy-MultiGrid
 mg.setup()
 raw = mg.solve(rhs, x0=None)             # 原有返回：后端数组
 result = mg.solve_result(rhs, x0=None)  # 新入口：SolveResult
+
+# Strict-MultiGrid 仅用于显式对照、算法参考或特殊备选
+mg_strict = Multigrid(variant="strict", backend="cuda", **strict_options)
 ```
+
+`Legacy-MultiGrid` 是 QCU 默认 multigrid 求解器，也是日常开发、调试与优化对象；
+`Strict-MultiGrid` 只有显式传入 `variant="strict"` 或直接构造 `StrictMultigrid` 时启用。
 
 `solve_result()` 保留 `result.x` 为原有后端数组；未知的迭代、残差或资源字段保持 `None`，
 不得根据配置或另一口径的残差补齐。
@@ -71,6 +77,7 @@ result = krylov.solve_result(rhs, x0=None)
 
 `bistabcg` 是 `bicgstab` 的兼容别名。Torch driver 在 Python 中执行迭代；CUDA/KUPL
 driver 必须只调用一次原生整次 solve，禁止通过 `operator.apply()` 在 Python 中构造 Krylov 循环。
+新 driver 在 `x0=None` 时使用零初值；旧 `pyqcu.solver.bistabcg()` 的随机初值兼容行为不变。
 
 ## 几何
 
@@ -181,6 +188,8 @@ Protocol 只约束调用语义。CUDA/KUPL 生产热循环不得为了满足 Pro
 - `atol != 0`、`min_iter != 0`、周期真残差刷新和 BiCGStab breakdown restart 暂不支持；
 - 控制目标残差口径必须是 final full residual，原生 C++ 在返回前负责最终 full residual 门；
 - 正常返回映射为 converged；ABI 不返回数值残差，因此 `final_residual` 保持 `None`；
+- `diagnostics["tolerance_semantics"]` 记录后端实际容差公式；KUPL 当前为
+  `max(atol,residual_floor)*max(rhs_norm,1)`，不得简写成精确的 `rtol*rhs_norm`；
 - KUPL 可读取通用 native iteration getter；CUDA Wilson 当前无 getter，iteration 保持 `None`；
 - Clover BiCGStab 在 CUDA/KUPL 均可读取 Clover iteration getter；Clover CG 不存在。
 

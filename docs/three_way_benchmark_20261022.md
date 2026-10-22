@@ -412,15 +412,14 @@ PLT 间接调用，不需要改算法或数据布局。生产脚本通过
 
 ## 8. 便捷调用脚本
 
-按“生产”和“测量”拆分为四个脚本，共享 `_common.py`、`_runner.py` 和
-`prepare_case.py`；原 `bench_three_way.py` 保留为弃用别名，只转发参数。
+按“生产”和“测量”拆分为三个脚本，共享 `_common.py`、`_runner.py` 和
+`prepare_case.py`；原 `bench_three_way.py` 弃用转发壳已删除。
 
 | 脚本 | 职责 |
 |---|---|
 | `prepare_case.py` | 从 LIME 生成全格/子体积 gauge 和 seed-42 源，写 `case_manifest.json`（路径、形状、SHA256） |
 | `solve_case.py` | 生产单次求解：`--backend cuda/quda/kupl`，写解 HDF5、后端 JSON、`last_solve_*.json` |
 | `compare_three_way.py` | 性能测量：GPU 时钟预热、warmup、重复计时、中位数、相对 QUDA 倍率 |
-| `bench_three_way.py` | 弃用兼容别名，转发到 `compare_three_way.py` |
 
 ### 8.1 生产求解
 

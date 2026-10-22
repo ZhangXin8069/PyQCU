@@ -19,8 +19,8 @@ The migrated example paths and standard test commands are summarized in
 All test functions live in `pyqcu/testing/__init__.py`. They import from all PyQCU subpackages (`lattice`, `solver`, `dslash`, `tools`, `smear`). Each `pyqcu/testing/*/conftest.py` acts as a pytest entry point that imports specific test functions and calls them. The conftest files are manually edited to uncomment the test(s) to run.
 
 The module imports `tilelang` at module level (with try/except fallback) for `test_matmul`.
-The `pyqcu/testing/tilelang/conftest.py` entry is currently a commented no-op; running
-that file exits `0` without executing `test_matmul()`. Require real pytest collection
+The historical `pyqcu/testing/tilelang/conftest.py` no-op file has been removed; it
+previously exited `0` without executing `test_matmul()`. Require real pytest collection
 and assertion output before reporting a TileLang test pass.
 
 ## Test Functions

@@ -11,6 +11,10 @@ GPU/DCU/GPGPU benchmarks keep one Python process = one MPI rank = one device.
 their launch shape as the production default. See
 [`pyqcu-cuda/SKILL.md`](../pyqcu-cuda/SKILL.md#cuda-production-topology).
 
+Legacy-MultiGrid is the QCU default solver and the primary development/debug/
+optimization benchmark target. Strict-MultiGrid rows are explicit comparison,
+algorithm-reference, or special-fallback evidence unless a task says otherwise.
+
 正式三方基准的输入、同窗比较、历史证据和不可外推条件见
 [`pyqcu-docs/references/extracted-guidance.md`](../pyqcu-docs/references/extracted-guidance.md#5-性能与证据解释)。
 
@@ -31,6 +35,23 @@ Legacy/Strict CUDA MG 的运行时峰值必须用同时覆盖 C++ 原生分配�
 |------|---------|
 | `conftest.py` | Benchmark entry point |
 | `env.py` | Benchmark environment configuration |
+
+## 2026-10-23 六版本真实输入基准
+
+正式编排入口为 `pyqcu/testing/benchmark/qcu_six_way.py`，隔离 worker 为
+`qcu_six_way_worker.py`。默认输入是真实 LIME 的 `8×8×8×16` 前缀，运行
+Torch/CUDA/KUPL × Legacy/Strict、QUDA aligned MG，并额外执行 CUDA Legacy
+fine-only 消融。结果与解释见
+[`docs/qcu_six_way_benchmark_20261023.md`](../../docs/qcu_six_way_benchmark_20261023.md)。
+
+本轮确认的三个硬边界：
+
+- CUDA Legacy 在同一 `LatticeSet` 上连续 cold solve 会污染后续 RHS/状态；正式样本必须
+  在计时前重建运行时，重建时间单独记录，不能把后端自报残差当作末次解的正确性证据。
+- KUPL Strict 公共 Python 包装当前 ABI 不一致；底层 C ABI 可运行，但公共 API 状态必须
+  单独标为 blocked，不能因 raw ABI PASS 就宣称包装可用。
+- sm70 QUDA 构建为 `QUDA_QIO=OFF`。缺少共享 QIO null-vector 时，QUDA 只能在同 gauge 上
+  自生成 null space；该结果可作同配置算法对照，不能写成 byte-identical null-basis replay。
 
 ## Usage
 
