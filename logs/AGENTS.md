@@ -394,3 +394,12 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 验证: path, size, required sections, conflict markers
 - 批次状态: complete
 
+## test9-dev103-profiler-summary - final - 2026-10-22 16:29:26 +0800
+- 主任务: 汇总 test9 至 dev103 标签区间的 QCU/PyQCU/QUDA 求解器性能记录
+- 日志文件: logs/v2026102216-2.txt
+- 文件大小: 89489 bytes
+- 触发原因: 任务完成
+- 关键内容: 340 个唯一性能/失败/备注记录；test27 66 行与 stab48 57 行完整入表；仅汇总不重测
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete
+
