@@ -1,0 +1,84 @@
+[日志元数据]
+日志类型: final
+生成时间: 2026-10-22 16:41:15 +0800
+批次: qcu-quda-mg-docs
+主任务: 编写 QCU 与 QUDA MultiGrid 算法组成和流程图文档
+触发原因: 任务完成
+摘要: 新增 docs/qcu_quda_multigrid_algorithms.md，含 7 张 Mermaid 流程图、默认参数快照和并排对照
+Git 根目录: /root/PyQCU
+
+## 关键日志
+### S1 - 范围与源码核对
+- 目标: 在 docs 中说明当前 QCU legacy MG 与 QUDA/PyQUDA MG 的算法组成，并用流程图表示。
+- QCU 来源: cpp/cuda/qcu/include/lattice_clover_multigrid.h、pyqcu/cuda/_multi_gpu.py、simple/qcu_multigrid.py。
+- QUDA 来源: 本地 QUDA 1.1.0-sm70 installed headers、PyQUDA 0.10.54 pyquda/dirac/general.py、simple/quda_multigrid.py。
+- 关键输出: 区分 QCU legacy MG 与 Strict-MG，不混入 Python/KUPL MG；QUDA 参数使用当前 PyQUDA 实际构造值。
+- 退出码: 0
+- 证据与判断: PyQUDA 参数快照确认 2-level 默认 coarse_solver=[GCR,CA-GCR]、smoother=[CA-GCR,CA-GCR]、nu_pre=[0,0]、nu_post=[8,8]、cycle=RECURSIVE。
+
+### S2 - 文档实现
+- 文件: docs/qcu_quda_multigrid_algorithms.md
+- 文件: docs/AGENTS.md
+- 关键输出: 新增 492 行正式文档，包含 7 张 Mermaid flowchart，覆盖 fine operator、setup、smoother、outer loop、MG preconditioner、V/W/F/K cycle、粗层 BiCGStab、QUDA recursive cycle、coarse wrapper 和 terminal solver。
+- QCU 关键结论: simple/qcu_multigrid.py 默认 mode=0，即 Schur BiCGStab + 周期 additive coarse correction + coarse guarded BiCGStab + adaptive correction gate；不是 GCR/CA-GCR 预条件路径。
+- QUDA 关键结论: 当前 PyQUDA 默认 outer GCR(8) + MG 右预条件；smoother CA-GCR，nu_pre=0/nu_post=8；非终端 coarse solver GCR，终端 CA-GCR，maxiter=16/tol=0.25；cycle=RECURSIVE。
+- 退出码: 0
+- 证据与判断: 文档同时标注 QCU 源码中过时的 FULL-operator 与 50-step 注释，实际分别以 Schur 和 48-step refresh 为准。
+
+### S3 - 验证
+- 命令: Python 读取文档并检查代码围栏、本地链接和 Mermaid block 数。
+- 结果: DOC_VALIDATION_PASS；7 个 Mermaid block，结构检查 PASS。
+- 命令: PyQUDA general.newQudaMultigridParam 参数快照。
+- 结果: 与文档中的 setup/coarse/smoother/nu/cycle 默认值一致。
+- 命令: git diff --check
+- 结果: PASS。
+- 命令: bash skills/pyqcu-form/form-audit.sh
+- 结果: FAIL，唯一 finding 为既有 docs/profiler_test9-dev103.md 的 TAG_NAME_IN_PATH；该文件与本任务无关，未修改或删除。
+- 未验证项: 环境无 mmdc，因此未做 PNG/SVG 渲染验证；已做 Mermaid 代码块和标签结构检查。
+
+## 验证与证据
+- 测试/检查: 文档本地链接、代码围栏、Mermaid 结构。
+- 结果: PASS。
+- 测试/检查: QUDA/PyQUDA 实际默认参数构造。
+- 结果: PASS，输出 levels=2, spin_block=[2,1], nvec=[24,24], setup_inv=[15,15], coarse_solver=[2,22], smoother=[22,22], nu_pre=[0,0], nu_post=[8,8], cycle=[3,3]。
+- 测试/检查: git diff --check。
+- 结果: PASS。
+- 测试/检查: form audit。
+- 结果: 仅既有 docs/profiler_test9-dev103.md 路径命名 finding 失败，与新增文档无关。
+- 未验证项: 未使用 Mermaid CLI 生成图像。
+
+## 变更与产物
+- 文件: docs/qcu_quda_multigrid_algorithms.md
+- 文件: docs/AGENTS.md
+- 产物: 7 张 Mermaid 算法流程图、QCU/QUDA 默认参数表、并排算法对照表、源码依据。
+- 未改动范围: 未修改 QCU/QUDA 求解器代码；未提交、未打标签、未推送。
+
+## 风险、限制与下一步
+- 风险: QUDA/PyQUDA 升级后 newQudaMultigridParam 默认值可能变化，文档已标注版本边界。
+- 限制: 未进行 Mermaid CLI 渲染；GitHub/GitLab Markdown viewer 可原生渲染。
+- 下一步: 如需要 PDF/PNG，可在具备 mermaid-cli 的环境用 mmdc 渲染并纳入 docs。
+
+## 用户输入指令
+说明目前qcu的mg的算法组成(smoother和主循环和预处理和粗层求解器等等),再说明目前quda的mg的算法组成(smoother和主循环和预处理和粗层求解器等等),使用算法流程图表示,结果输出到docs目录
+
+## Agent 全文报告
+--- report begin ---
+已完成正式文档 docs/qcu_quda_multigrid_algorithms.md，并在 docs/AGENTS.md 索引中登记。
+
+文档内容:
+- QCU legacy MG 的 fine Schur 系统、null-vector/33-tensor setup、CG/MR/Chebyshev smoother、默认 BiCGStab、BiCGStabL、FGMRES、CA-GCR、V/W/F/K cycle、粗层 guarded BiCGStab、reliable refresh 和 adaptive gate。
+- QUDA/PyQUDA MG 的 MATPC direct solve、外层 GCR(8)、MG 右预条件、CA-GCR smoother、nu_pre/nu_post、recursive cycle、coarse GCR wrapper、terminal CA-GCR、CGNR setup 和 reliable update。
+- 两套默认路径的并排对照，以及“同为 MG 但迭代数不可直接等价”的解释。
+- 明确说明 current simple/qcu_multigrid.py 默认不是 GCR/CA-GCR 路径。
+
+验证:
+- 文档 492 行，含 7 张 Mermaid flowchart。
+- 文档链接、代码围栏和 Mermaid 结构检查通过。
+- PyQUDA 实际默认参数快照与文档一致。
+- git diff --check 通过。
+- form audit 的唯一失败为既有 docs/profiler_test9-dev103.md 路径命名，与本任务无关。
+
+后续:
+- 如需 PDF/SVG，可在有 mermaid-cli 的环境渲染。
+- 未提交、未打标签、未推送。
+--- report end ---

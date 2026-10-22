@@ -403,3 +403,12 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 验证: path, size, required sections, conflict markers
 - 批次状态: complete
 
+## qcu-quda-mg-docs - final - 2026-10-22 16:41:15 +0800
+- 主任务: 编写 QCU 与 QUDA MultiGrid 算法组成和流程图文档
+- 日志文件: logs/v2026102216-3.txt
+- 文件大小: 5345 bytes
+- 触发原因: 任务完成
+- 关键内容: 新增 docs/qcu_quda_multigrid_algorithms.md，含 7 张 Mermaid 流程图、默认参数快照和并排对照
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete
+
