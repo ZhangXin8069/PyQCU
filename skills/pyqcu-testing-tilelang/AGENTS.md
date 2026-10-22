@@ -1,4 +1,4 @@
-# pyqcu-testing-tilelang
+# AGENTS.md — pyqcu-testing-tilelang
 
 pyqcu/testing/tilelang 目录的完整生成 skill：TileLang JIT 内核测试（CUDA）。
 

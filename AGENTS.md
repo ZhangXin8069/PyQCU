@@ -29,7 +29,7 @@ Wilson/Clover Dirac 算子、BiStabCG 与多重网格求解器、stout smearing�
 
 ## 架构：三个执行层级
 
-1. **纯 Python**（`pyqcu/dslash/`、`pyqcu/solver/`、`pyqcu/smear/`）— PyTorch 实现，跑 CPU/CUDA/昇腾 NPU（经 `pyqcu.cann` 兼容层）。所有 Python 代码 `import pyqcu.cann as _torch`，不得直接 `import torch`（NPU 不支持复数张量，cann 层自动分解实虚部）。
+1. **Torch 后端**（`pyqcu/torch/dslash/`、`pyqcu/torch/solver/`、`pyqcu/torch/smear/`、`pyqcu/torch/tools/`）— PyTorch/CANN 实现，跑 CPU/CUDA/昇腾 NPU。公共物理/布局定义保留在 `pyqcu/lattice/`，公共 MPI/HDF5/env/budget 工具保留在 `pyqcu/tools/`，三后端 `Multigrid` 选择器保留在 `pyqcu/solver/multigrid/`。顶层 `pyqcu/dslash|solver|smear|tools` 只作兼容门面。所有 Python 代码 `import pyqcu.cann as _torch`，不得直接 `import torch`（NPU 不支持复数张量，cann 层自动分解实虚部）。
 2. **C++ CUDA 后端**（`cpp/cuda/qcu/`）— 手写 CUDA 内核 + MPI halo 交换，经 Cython 桥 `pyqcu/cuda/qcu/qcu.pyx` 暴露，生产路径。
 3. **C++ KUPL CPU 后端**（`cpp/kupl/qcu/`）— 独立 C++17 MPI+OpenMP 实现，
    不引用 CUDA 源码；经 `pyqcu/kupl/qcu.py` 的 `ctypes` 绑定使用相同
@@ -58,12 +58,12 @@ Wilson/Clover Dirac 算子、BiStabCG 与多重网格求解器、stout smearing�
 
 | 路径 | 内容 |
 |---|---|
-| `pyqcu/` | 纯 Python 实现：`lattice/`（gamma/Gell-Mann 矩阵、SU(3)、源场构造 point/wall/volume/Z2/momentum `_source.py`）、`dslash/`（Wilson/Clover 算子）、`solver/`（BiStabCG + `bistabcg_history` 残差历史、FGMRES `_gmres.py`（DDalphaAMG-SM 移植，右预条件）、MR `_mr.py`（quda 思想平滑器）、多质量 CG `_multishift_cg.py`、CA-CG `_cacg.py`、thick-restart Lanczos `_lanczos.py` 特征底座、multigrid）、`smear/`（stout + Wuppertal 高斯 `_wuppertal.py`）、`tools/`（MPI 网格、HDF5 I/O 含 dict 级 `save_dict_h5`/`load_dict_h5`、env 快照 `_env.py`、预算模型 `_budget.py`、linalg、multigrid 工具含 33-tensor stencil build、批量 BiCGStab `_bistabcg_batch`、TileLang JIT）、`testing/`（集成测试含 `verify_nullvecs` null 向量质量诊断）、`cuda/`（Cython 桥 + `_schur_op.py` 多线程 Schur 算子 + `_multi_gpu.py` 多线程多卡 MG 驱动 + `_logs.py` 后端日志解析，`build_schur_levels` 批量构建 `batch_build`）、`cann/dtk/maca`（NPU 兼容层与占位） |
+| `pyqcu/` | 公共门面与后端：`api/`（后端无关的配置、结果、能力、资产清单与 Protocol）、`torch/`（Torch/CANN 的 dslash、solver、smear、张量专用 tools）、`lattice/`（公共 gamma/Gell-Mann、SU(3)、源场定义）、`tools/`（公共 MPI/HDF5/env/budget/绘图）、`solver/multigrid/`（三后端统一 MG 选择器）、`solver/krylov/`（Torch 迭代与 CUDA/KUPL 原生整次 solve 的统一 Krylov 选择器）、`cuda/`（Cython CUDA 后端与多卡测试驱动）、`kupl/`（独立 CPU 后端）、`testing/`（集成测试）、`cann/dtk/maca`（Tensor 兼容层与占位）。顶层 `dslash/`、`smear/`、`solver/`、`tools/` 保留旧导入兼容。 |
 | `cpp/cuda/qcu/` | C++ CUDA 后端：`src/`（32 个 .cu 内核）、`include/`（24 个模板头）、`python/pyqcu.h`（C API 37 个入口，须与 `qcu_api.pxd` 同步） |
 | `cpp/kupl/qcu/` | 独立 C++17 MPI+OpenMP CPU 后端：4D rank halo、NUMA/OpenMP 绑定、canonical c64/c128 Wilson/Clover dslash、Wilson/Clover 求解器、3D Laplacian、正确性与吞吐测试 |
 | `cpp/{cann,dtk,maca}/qcu/` | 占位 PASS，无实现 |
 | `pyqcu/testing/` | 统一测试入口：`pyqcu/`（纯 Python 主套件）、`qcu/`（C++ CUDA 后端）、`kupl/`（CPU 后端 Python ABI/参考差分）、`quda/`、`pyquda/`、`cpu/npu/dcu/gpu/tilelang/profiler/benchmark/`、`regression/session-2026-08-24/`、`data/`（参考 HDF5） |
-| `skills/` | 项目技能库（33 个技能目录：SKILL.md + 简短 AGENTS.md，目录级领域知识文档；目录名一律 `pyqcu-` 前缀；索引与技能表见 `skills/AGENTS.md`） |
+| `skills/` | 项目技能库（35 个技能目录：SKILL.md + 简短 AGENTS.md，目录级领域知识文档；目录名一律 `pyqcu-` 前缀；索引与技能表见 `skills/AGENTS.md`） |
 | `docs/` | 正式独立文档与指南（`.pdf`/`.tex`/`.md`）：`dims.md`、`env.md`、`install.md`、`examples.md`、`profiler.md`、`ORGANIZATION.md`；从 `data/**` 提升的文档位于 `docs/data/` |
 | `refer/` | 参考实现脚本（`huzc/`）、开发历史报告（`multigrid_analysis_20260717.*`）与 `git-rep/` 参考 Git 子库 |
 | `logs/` | 当前任务尚未归档的运行记录（JSON/LOG/TSV/TXT/STDOUT 和阶段报告/图表）；`logs/data/` 汇总从 `data/**` 提升出的运行摘要。阶段报告先进入待 tag 提交，打 tag 后在后续清理提交中删除；张量/cache 实体在 `data/logs/`。 |

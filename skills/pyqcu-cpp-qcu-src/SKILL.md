@@ -1,6 +1,6 @@
 ---
 name: pyqcu-cpp-qcu-src
-description: cpp/cuda/qcu/src 目录的完整生成 skill：32 个 .cu 内核源文件（include 对应头 + 模板实例化 + 启动封装）。
+description: 当任务涉及 cpp/cuda/qcu/src 的 .cu 内核源、模板实例化或启动封装时使用。
 ---
 # cpp/cuda/qcu/src
 

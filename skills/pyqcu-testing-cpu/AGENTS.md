@@ -1,4 +1,4 @@
-# pyqcu-testing-cpu
+# AGENTS.md — pyqcu-testing-cpu
 
 pyqcu/testing/cpu 目录的完整生成 skill：纯 Python 后端的 CPU 专用测试。
 

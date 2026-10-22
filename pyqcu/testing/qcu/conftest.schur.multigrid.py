@@ -12,7 +12,8 @@ Usage:
     source ./env.sh && python pyqcu/testing/qcu/conftest.schur.multigrid.py
 """
 import torch, os, sys, re, json, time
-from pyqcu import tools, dslash
+from pyqcu import tools
+from pyqcu.torch import dslash
 from pyqcu.cuda import qcu
 import pyqcu.cuda.define as define
 from pyqcu.cuda.define import params, argv, set_ptrs

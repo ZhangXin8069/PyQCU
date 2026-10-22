@@ -23,7 +23,7 @@ def main(argv=None):
     report.finish("PASS" if residual < 1e-3 else "FAIL")
     assert residual < 1e-3
     return 0
-from pyqcu import solver
+from pyqcu.torch import solver
 
 def test_wilson_bistabcg_reference(): assert main() == 0
 if __name__ == "__main__": raise SystemExit(main())

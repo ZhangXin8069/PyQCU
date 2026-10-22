@@ -1,6 +1,6 @@
 ---
 name: pyqcu-qcu-single-tests
-description: pyqcu/testing/qcu 与 pyqcu/testing/quda 的 QCU/QUDA 单功能测试、PyTorch 参考校验和布局转换约定。
+description: 当任务涉及 pyqcu/testing/qcu 或 quda 的单功能测试、PyTorch 参考或布局转换校验时使用。
 ---
 
 # QCU/QUDA 单功能测试

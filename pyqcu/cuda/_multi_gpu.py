@@ -37,7 +37,8 @@ from typing import List, Optional
 
 import torch
 
-from pyqcu import tools, dslash
+from pyqcu import tools
+from pyqcu.torch import dslash
 from pyqcu.cuda import qcu
 import pyqcu.cuda.define as define
 from pyqcu.cuda.define import params as _module_params
@@ -114,7 +115,7 @@ def build_schur_levels(op, S, num_levels, dof_list, mg_grid, lat_full, E, dt, de
                 135s → ~15s（10 倍），16x16x16x32 lv1（196608 probes）~36min → ~3min。
     """
     from pyqcu.tools import build_stencil, apply_stencil, build_stencil_mt, give_null_vecs_mt
-    from pyqcu.tools._multigrid import (
+    from pyqcu.torch.tools._multigrid import (
         BatchedLocalSchur, _schur_matvec_batch, _stencil_matvec_batch,
         build_stencil_local,
     )

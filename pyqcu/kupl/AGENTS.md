@@ -7,6 +7,8 @@
   37 个 CUDA QCU ABI 名称均有 Python 包装和 CPU 实现。
 - `multigrid/` 提供统一命名的 `LegacyMultigrid` 与 `StrictMultigrid`，共同使用
   `setup()/solve()/close()`；粗层资产仍通过 `set_ptrs` 按各自协议预绑定。
+- `linear_operator.py` / `krylov.py` 提供 compact-Schur Operator 与原生整次 BiCGStab/CG
+  driver；禁止逐 Krylov 迭代穿过 Python。
 - `define.py` 复用 canonical `params/argv/set_ptrs` 常量；`argv[7]` 为 `csw`。
 - 新代码优先配合 `pyqcu.cuda.QcuRuntime` 管理 init/end 和空闲槽位。
 - 后端能力与限制见 `../../cpp/kupl/qcu/README.md` 和

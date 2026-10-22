@@ -1,4 +1,4 @@
-# pyqcu-logs-results
+# AGENTS.md — pyqcu-logs-results
 
 logs/results 目录的完整生成 skill：最终/剩余修复报告（权威记录）。
 

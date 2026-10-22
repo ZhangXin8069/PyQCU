@@ -1,4 +1,4 @@
-# pyqcu-testing-qcu
+# AGENTS.md — pyqcu-testing-qcu
 
 pyqcu/testing/qcu 目录的完整生成 skill：经 Cython 桥测 C++ CUDA 后端；含 dev73_5 多重网格性能基准套件（clean/bench/verify/collect/mktable/plots）。
 

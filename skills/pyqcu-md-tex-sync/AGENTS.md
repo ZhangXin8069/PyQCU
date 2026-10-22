@@ -1,4 +1,4 @@
-# AGENTS.md — skills/pyqcu-md-tex-sync
+# AGENTS.md — pyqcu-md-tex-sync
 
 Markdown/LaTeX/PDF 同源编译、全文快照、全附件哈希清册与渲染质量闸门技能。
 

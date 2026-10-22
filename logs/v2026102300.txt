@@ -1,0 +1,67 @@
+[日志元数据]
+日志类型: final
+生成时间: 2026-10-23 00:09:43 +0800
+批次: legacy-strict-mg-memory-20261023
+主任务: 比较 QCU Legacy-MG 与 Strict-MG 运行时显存峰值
+触发原因: 任务完成
+摘要: Legacy-MG 在现有 c64 两级可比记录中峰值更低；Strict 高 32.46% 至 63.25%
+Git 根目录: /root/PyQCU
+
+## 关键日志
+### S1 — 定位实现与测量记录
+- 目标: 比较 CUDA QCU 的 Legacy-MG 与 Strict-MG 运行时显存峰值。
+- 命令/操作: 读取 `pyqcu-solver`、MG cache 参考、Legacy/Strict 源码、A/B benchmark harness 和 `data/benchmark_legacy_vs_strict_20261022/reports`。
+- 关键输出: Legacy 使用 compact odd `33*E^2*Vc_odd` 粗算子；Strict 使用 full-coarse `(8 Yhat + 2 onsite)*E^2*Vc_full + V`，并在首次 solve 分配 FGMRES arena。
+- 退出码: 0。
+- 证据与判断: 两套路径的数据结构不同，不能只比较 33 与 10 个 block。
+
+### S2 — 设备级峰值对比
+- 目标: 从同一输入、同一 c64、`nvec=12` 的两级 benchmark 提取可比峰值。
+- 命令/操作: 解析 `legacy_solve_*.json` 与 `strict_solve_*.json` 的 `resources.device.peak_delta_over_baseline_bytes`。
+- 关键输出: `8x8x8x16` 为 639631360 vs 847249408 bytes；`12x12x12x24` 为 1646264320 vs 2497708032 bytes；`16x16x16x32` 为 4416602112 vs 7210008576 bytes。
+- 退出码: 0。
+- 证据与判断: Strict/Legacy 分别为 1.3246、1.5172、1.6325，Strict 峰值高 32.46%、51.72%、63.25%。`24x24x24x64` Strict solve 记录缺失，不能比较。
+
+## 验证与证据
+- 测试/检查: JSON 字段解析；设备级采样器语义核查；源码与缓存布局核查。
+- 结果: 三个成功尺寸上 Legacy-MG 峰值均低于 Strict-MG。
+- 未验证项: 未重跑 GPU；Legacy solve 记录显示 `n_vcycles=0`，因此不是 active coarse-cycle 的算法级公平 A/B。`24^3x64` Strict 无记录。
+
+## 变更与产物
+- 文件: 本日志及 `logs/AGENTS.md`。
+- 产物: 显存峰值比较结论与证据。
+- 未改动范围: 未修改源码、benchmark 数据或物理输入。
+
+## 风险、限制与下一步
+- 风险: 将当前可执行路径的设备峰值误写成所有 Legacy/Strict 配置下的普适算法结论。
+- 阻塞: 无。
+- 下一步: 若需要算法级定论，应在同一输入下让 Legacy 实际执行 coarse V-cycle，并补齐 `24^3x64` Strict 分阶段设备峰值。
+
+## 用户输入指令
+qcu的legacy-mg与strict-mg哪个运行时显存峰值占用更少?
+
+## Agent 全文报告
+--- report begin ---
+结论：在当前 PyQCU CUDA QCU 的 c64、两级、`nvec=12`、相同 gauge/RHS 的实测记录中，Legacy-MG 的运行时显存峰值更少，Strict-MG 更高。
+
+设备级 `cudaMemGetInfo` 峰值增量如下：
+
+| 格点 | Legacy-MG | Strict-MG | Strict 相对 Legacy |
+|---|---:|---:|---:|
+| `8x8x8x16` | 639,631,360 B（0.596 GiB） | 847,249,408 B（0.789 GiB） | +32.46% |
+| `12x12x12x24` | 1,646,264,320 B（1.533 GiB） | 2,497,708,032 B（2.326 GiB） | +51.72% |
+| `16x16x16x32` | 4,416,602,112 B（4.113 GiB） | 7,210,008,576 B（6.715 GiB） | +63.25% |
+| `24x24x24x64` | Legacy 有记录 | Strict solve 记录缺失 | 不可比较 |
+
+测量包含 CUDA context、PyTorch 及 C++ QCU 原生分配，而不是只统计 PyTorch allocator。Legacy solve 使用预先构建的 cache；Strict 运行包含 hierarchy setup、runtime binding 和 solve。
+
+原因是 Strict 的粗层为 full-coarse，保存约 `10*E^2*Vc_full` 的 `Yhat/X/X^-1`，还要驻留 fine transfer 向量，并在首次 solve 分配 `(2*restart+5)*B_fine+2*B_coarse` 的 FGMRES arena。以 `16x16x16x32` 为例，Strict runtime-owned 约 972.8 MB，而 Legacy 33-tensor cache 为 231.2 MB；Strict 的 `restart=20` FGMRES arena 单独为 286.3 MB。
+
+重要限制：现有 Legacy solve 日志显示 `n_vcycles=0`，并未实际执行 coarse V-cycle，因此这组数据不能当作“活跃 coarse-cycle 的算法级公平 A/B”。不过在同一尺寸上，Legacy asset-build 的设备峰值也低于 Strict 全程峰值；`16x16x16x32` 分别为约 4.72 GB 和 7.21 GB。`24x24x24x64` 的 Strict 记录缺失，不能据此扩展到该尺寸。
+
+证据位置：
+- `data/benchmark_legacy_vs_strict_20261022/reports/legacy_solve_*.json`
+- `data/benchmark_legacy_vs_strict_20261022/reports/strict_solve_*.json`
+- `pyqcu/testing/qcu/multigrid/benchmarks/legacy_vs_strict.py`
+- `pyqcu/cuda/_strict_multigrid.py`
+--- report end ---

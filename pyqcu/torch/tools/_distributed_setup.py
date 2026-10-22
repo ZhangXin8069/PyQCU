@@ -27,7 +27,7 @@ from typing import Any, Optional, Sequence, Tuple
 import numpy as np
 
 import pyqcu.cann as _torch
-from pyqcu import dslash
+from pyqcu.torch import dslash
 
 from . import _mpi_roll
 
@@ -187,7 +187,7 @@ def _crop_last4(tensor: Any, local_shape: Shape4,
 class DistributedFineOperator:
     """Nearest-neighbour fine dslash with explicit periodic ghost faces.
 
-    The wrapper avoids the MPI path built into :class:`pyqcu.dslash.hopping`.
+    The wrapper avoids the MPI path built into :class:`pyqcu.torch.dslash.hopping`.
     The hopping matrices are rebuilt against the padded gauge field and the
     underlying operator is switched to a single-rank periodic action.  This
     is deliberate: the supplied ``process_grid`` may differ from the

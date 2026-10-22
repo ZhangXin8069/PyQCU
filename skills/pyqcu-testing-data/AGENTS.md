@@ -1,4 +1,4 @@
-# pyqcu-testing-data
+# AGENTS.md — pyqcu-testing-data
 
 pyqcu/testing/data 目录的完整生成 skill：测试验证参考 HDF5 文件（with_data=True 时使用）。
 

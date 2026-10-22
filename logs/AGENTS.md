@@ -357,7 +357,6 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 关键内容: 重命名 2 组 tag 名路径资产、补齐 refer/docs 索引与 form 例外口径；审计 PASS，豁免 1069 项，tag-chain 回归与 bash -n 通过
 - 验证: path, size, required sections, conflict markers
 - 批次状态: complete
-
 ## three-way-benchmark-20261022 - final - 2026-10-22 03:17:11 +0800
 - 主任务: CUDA QCU / KUPL QCU / QUDA 三方性能测评与一键脚本
 - 日志文件: logs/v2026102203.txt
@@ -366,7 +365,6 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 关键内容: CUDA BiCG 比 QUDA 快13.20%；KUPL restart=0 快2.8-3倍、L24 4-rank 5.530s；报告与bench_three_way.py交付，门禁PASS
 - 验证: path, size, required sections, conflict markers
 - 批次状态: complete
-
 ## three-way-benchmark-20261022 - final - 2026-10-22 06:11:42 +0800
 - 主任务: CUDA QCU / KUPL QCU / QUDA 三方性能测评、生产脚本拆分与多 rank 真残差
 - 日志文件: logs/v2026102206.txt
@@ -375,7 +373,6 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 关键内容: 生产/测量脚本拆分、分布式独立真残差、sm60/sm70、同窗三方测量、并行扩展与 LTO 优化
 - 验证: path, size, required sections, conflict markers
 - 批次状态: complete
-
 ## simple-mpi - final - 2026-10-22 15:35:49 +0800
 - 主任务: 实现 pyqcu/testing/simple MPI 小格点入口
 - 日志文件: logs/v2026102215.txt
@@ -384,7 +381,6 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 关键内容: 新增 KUPL/CUDA MPI 小格点 QCU MG 入口，LIME 兼容并完成两后端 PASS 验证
 - 验证: path, size, required sections, conflict markers
 - 批次状态: complete
-
 ## simple-docs - final - 2026-10-22 16:13:12 +0800
 - 主任务: 丰富 simple 与 simple/mpi 用户文档并补充 OpenMPI 绑定说明
 - 日志文件: logs/v2026102216.txt
@@ -393,7 +389,6 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 关键内容: 重写两目录用户文档，覆盖全部主要 CLI、LIME、报告和 OpenMPI 绑定，并完成实现一致性修复与验证
 - 验证: path, size, required sections, conflict markers
 - 批次状态: complete
-
 ## test9-dev103-profiler-summary - final - 2026-10-22 16:29:26 +0800
 - 主任务: 汇总 test9 至 dev103 标签区间的 QCU/PyQCU/QUDA 求解器性能记录
 - 日志文件: logs/v2026102216-2.txt
@@ -402,7 +397,6 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 关键内容: 340 个唯一性能/失败/备注记录；test27 66 行与 stab48 57 行完整入表；仅汇总不重测
 - 验证: path, size, required sections, conflict markers
 - 批次状态: complete
-
 ## qcu-quda-mg-docs - final - 2026-10-22 16:41:15 +0800
 - 主任务: 编写 QCU 与 QUDA MultiGrid 算法组成和流程图文档
 - 日志文件: logs/v2026102216-3.txt
@@ -411,7 +405,6 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 关键内容: 新增 docs/qcu_quda_multigrid_algorithms.md，含 7 张 Mermaid 流程图、默认参数快照和并排对照
 - 验证: path, size, required sections, conflict markers
 - 批次状态: complete
-
 ## qcu-quda-mg-subalgorithm-docs - final - 2026-10-22 16:55:53 +0800
 - 主任务: 展开 QCU/QUDA MG 子算法分析、流程图和同类算法优劣
 - 日志文件: logs/v2026102216-4.txt
@@ -526,5 +519,61 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 文件大小: 3908 bytes
 - 触发原因: 任务完成
 - 关键内容: 新增审计文档；更新 docs 索引和来源映射；状态报告交叉引用；Markdown/form/Git 检查通过
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete
+## multigrid-unified-wrapper-20261022 - final - 2026-10-22 23:55:26 +0800
+- 主任务: 重构 PyQCU Torch/CUDA/KUPL multigrid 层级与统一接口，并归档 strict/legacy 对比摘要
+- 日志文件: logs/v2026102223-3.txt
+- 文件大小: 7320 bytes
+- 触发原因: 任务完成
+- 关键内容: 统一 Multigrid 上层与 StrictMultigrid/LegacyMultigrid 下级；清除 qcu 代码中的 Quda* 命名；CPU/KUPL/V100 回归通过；docs 报告完成
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete
+## legacy-strict-mg-memory-20261023 - final - 2026-10-23 00:09:43 +0800
+- 主任务: 比较 QCU Legacy-MG 与 Strict-MG 运行时显存峰值
+- 日志文件: logs/v2026102300.txt
+- 文件大小: 4437 bytes
+- 触发原因: 任务完成
+- 关键内容: Legacy-MG 在现有 c64 两级可比记录中峰值更低；Strict 高 32.46% 至 63.25%
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete
+## torch-backend-layout-20261023 - final - 2026-10-23 00:28:34 +0800
+- 主任务: 建立 pyqcu/torch 后端命名空间并迁移 Torch 版 qcu 实现，保留公共层与兼容门面
+- 日志文件: logs/v2026102300-2.txt
+- 文件大小: 5977 bytes
+- 触发原因: 任务完成
+- 关键内容: Torch dslash/solver/smear/tools 已迁移到 pyqcu/torch；公共 lattice/tools/selector 保留顶层；CPU/KUPL/V100 回归通过
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete
+## docs-conclusions-to-skills-20261023 - final - 2026-10-23 00:31:08 +0800
+- 主任务: 将 Legacy/Strict-MG 显存结论写入 docs，并将全部 docs 的稳定结论同步到 skills
+- 日志文件: logs/v2026102300-3.txt
+- 文件大小: 6065 bytes
+- 触发原因: 任务完成
+- 关键内容: 新增显存正式文档；22 份 docs 全部进入技能映射与结论覆盖索引；关键版本、测试和启停边界已校正
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete
+## qcu-unified-mg-20261023 - final - 2026-10-23 00:50:10 +0800
+- 主任务: 分析 Torch/CUDA/KUPL 的 Legacy 与 Strict MG 并设计统一 PyQCU 接口
+- 日志文件: logs/v2026102300-4.txt
+- 文件大小: 8674 bytes
+- 触发原因: 任务完成
+- 关键内容: 完成六实现对比、统一架构设计、Torch Legacy 层级构建回归修复与验证
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete
+## pyqcu-api-p0-20261023 - final - 2026-10-23 01:01:13 +0800
+- 主任务: 实现 PyQCU 统一 QCU 架构 P0 公共 API 契约
+- 日志文件: logs/v2026102301.txt
+- 文件大小: 6355 bytes
+- 触发原因: 任务完成
+- 关键内容: 新增 pyqcu.api 公共模型、配置、结果、能力、资产清单与 Protocol，并为 Multigrid 增加兼容 solve_result 和最终回归
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete
+## docs-skills-governance-20261023 - final - 2026-10-23 01:14:46 +0800
+- 主任务: 全面规范优化 docs 与 skills 目录
+- 日志文件: logs/v2026102301-2.txt
+- 文件大小: 6494 bytes
+- 触发原因: 任务完成
+- 关键内容: docs=24、skills=35；建立统一审计器、trigger-only descriptions、唯一 Primary 映射与 pyqcu-api 技能
 - 验证: path, size, required sections, conflict markers
 - 批次状态: complete

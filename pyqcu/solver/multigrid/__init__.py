@@ -1,17 +1,18 @@
-"""Unified multigrid entry point and hierarchy implementations.
+"""Backend-neutral multigrid selector.
 
-``Multigrid`` is the backend-neutral selector.  The concrete hierarchy lives
-in ``StrictMultigrid`` or ``LegacyMultigrid`` and is selected explicitly with
-``variant=...``.
+Concrete Torch, CUDA and KUPL hierarchies remain in their backend packages;
+this module only normalizes the public selection and lifecycle interface.
 """
 
 from __future__ import annotations
 
 from importlib import import_module
+from time import perf_counter
 from typing import Any
 
-from .legacy_multigrid import LegacyMultigrid
-from .strict_multigrid import StrictMultigrid
+from pyqcu.api import BackendCapabilities, SolveResult
+from pyqcu.api._compat import compatibility_result
+from pyqcu.torch.solver.multigrid import LegacyMultigrid, StrictMultigrid
 
 
 class Multigrid:
@@ -43,28 +44,66 @@ class Multigrid:
 
     def setup(self) -> "Multigrid":
         """Build or validate the selected hierarchy."""
-        result = getattr(self._implementation, "setup", None)
-        if result is None:
+        setup = getattr(self._implementation, "setup", None)
+        if setup is None:
             raise TypeError(
                 f"{type(self._implementation).__name__} 未实现 setup()")
-        returned = result()
-        return self if returned is None else self
+        setup()
+        return self
 
     def solve(self, rhs: Any, x0: Any = None) -> Any:
         """Solve ``D x = rhs`` with the selected hierarchy."""
-        solver = getattr(self._implementation, "solve", None)
-        if solver is None:
+        solve = getattr(self._implementation, "solve", None)
+        if solve is None:
             raise TypeError(
                 f"{type(self._implementation).__name__} 未实现 solve()")
         if x0 is None:
-            return solver(rhs)
-        return solver(rhs, x0=x0)
+            return solve(rhs)
+        return solve(rhs, x0=x0)
+
+    def solve_result(self, rhs: Any, x0: Any = None) -> SolveResult:
+        """Solve once and return the backend-neutral evidence envelope.
+
+        Existing ``solve`` remains unchanged and continues to return only the
+        backend field. Metrics that an implementation does not expose remain
+        unknown instead of being inferred from unrelated configuration.
+        """
+
+        setup_start = perf_counter()
+        self.setup()
+        setup_seconds = perf_counter() - setup_start
+        solve_start = perf_counter()
+        result = self.solve(rhs, x0=x0)
+        solve_seconds = perf_counter() - solve_start
+        return compatibility_result(
+            implementation=self._implementation,
+            x=result,
+            backend=self.backend,
+            variant=self.variant,
+            setup_seconds=setup_seconds,
+            solve_seconds=solve_seconds,
+        )
+
+    def capabilities(self) -> BackendCapabilities:
+        """Return explicit capabilities or a conservative empty declaration."""
+
+        probe = getattr(self._implementation, "capabilities", None)
+        if callable(probe):
+            result = probe()
+            if not isinstance(result, BackendCapabilities):
+                raise TypeError(
+                    "backend capabilities() must return BackendCapabilities")
+            return result
+        return BackendCapabilities(
+            backend=self.backend,
+            variant=self.variant,
+        )
 
     def close(self) -> None:
         """Release hierarchy resources if the backend owns any."""
-        closer = getattr(self._implementation, "close", None)
-        if closer is not None:
-            closer()
+        close = getattr(self._implementation, "close", None)
+        if close is not None:
+            close()
 
     def __enter__(self) -> "Multigrid":
         self.setup()

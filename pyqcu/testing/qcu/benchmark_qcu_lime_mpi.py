@@ -385,7 +385,8 @@ def _independent_true_residual(
     process_grid: Sequence[int], comm: Any | None = None,
 ) -> float:
     """Independent PyQCU full residual from globally gathered rank fields."""
-    from pyqcu import dslash, tools
+    from pyqcu import tools
+    from pyqcu.torch import dslash
 
     if comm is None:
         from mpi4py import MPI

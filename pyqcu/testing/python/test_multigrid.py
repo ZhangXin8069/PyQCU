@@ -12,21 +12,22 @@ from itertools import product
 import pytest
 import torch
 
-from pyqcu import dslash, lattice, tools
-from pyqcu.solver import (
+from pyqcu import lattice, tools
+from pyqcu.solver import Multigrid
+from pyqcu.torch import dslash
+from pyqcu.torch.solver import (
     Checkerboard,
     CompactParityLayout,
     CompactParityOperator,
     LegacyMultigrid,
-    Multigrid,
     ParitySchurOperator,
     StrictCoarseOperator,
     StrictMatPCOperator,
     StrictMultigrid,
     StrictTransfer,
 )
-from pyqcu.solver._multigrid_core import _FineOperator, _MultigridHierarchy
-from pyqcu.solver._gmres import _givens_rotation, fgmres
+from pyqcu.torch.solver._gmres import _givens_rotation, fgmres
+from pyqcu.torch.solver._multigrid_core import _FineOperator, _MultigridHierarchy
 
 
 DTYPE = torch.complex64

@@ -1,21 +1,20 @@
 ---
 name: pyqcu-testing-pyquda
-description: pyqcu/testing/pyquda 目录的完整生成 skill：PyQCU 与 PyQuda-0.3.2（QUDA 1.1.0）双进程隔离对比套件——Wilson/Clover dslash、BiCGStab/CG 求解的结果与性能对比（残差/逐迭代残差/耗时/作图），含维度排布转换（pyqcu 切 t vs pyquda 切 x）与归一化锚定（m+4=1/(2κ)）。
+description: 当任务涉及 pyqcu/testing/pyquda、PyQCU 与 PyQUDA 双进程对比、维度转换或归一化对齐时使用。
 ---
 # pyqcu/testing/pyquda
 
-PyQCU（纯 Python 后端）与 PyQuda-0.3.2（QUDA 1.1.0）的结果/性能对比套件。
-**版本以 `pip show PyQuda` 为准 = 0.3.2**（`/usr/local/lib/python3.10/dist-packages/PyQuda-0.3.2-py3.10-linux-x86_64.egg`，
-本套件实际 import 的就是它）。`refer/git-rep/PyQUDA` 是固定到
-`138d8ad6e4d6e0805ecc7ec0a59a45febe0482ce`（`v0.10.54-1-g138d8ad`）的上游只读
-submodule，其版本文件位于 `pyquda_core/pyquda/_version.py`，**不是**本套件运行时依赖；
-见到「0.10.54」字样不要据此改写本文档。
+PyQCU Torch 后端与 PyQUDA/QUDA 的结果和性能对比套件。
+**版本以实际 `pip show PyQUDA`/`pyquda.__version__` 为准，不在技能中硬编码历史 egg
+路径。** 2026-10-23 当前环境为 PyQUDA `0.10.54`、QUDA `1.1.0`；`refer/git-rep/PyQUDA`
+固定到 `138d8ad6e4d6e0805ecc7ec0a59a45febe0482ce`（`v0.10.54-1-g138d8ad`）。
+下方标注 0.3.2 的基线和 API 是历史证据，升级后必须重新验证，不能当作当前运行时契约。
 双进程隔离（dev87 F2：libqcu.so 与 libquda.so 同进程加载会 cudart 上下文冲突），
 经 h5 交换数据（数据优先 `pyqcu/testing/data/pyquda_cmp/<lat>/`，h5py 读写）。
 
-## 数据维度排布（2026-08-28 以实际代码实测核对）
+## 数据维度排布（转换代码仍在现行套件中；PyQUDA 升级后需复验）
 
-| 量 | pyqcu（Python 后端） | pyquda 0.3.2（QUDA） |
+| 量 | PyQCU Torch | PyQUDA/QUDA |
 |---|---|---|
 | gauge | `[c,c,d,x,y,z,t]`=(3,3,4,Lx,Ly,Lz,Lt) | `[d,q,t,z,y,x/2,c,c]`=(4,2,Lt,Lz,Ly,Lx//2,3,3) |
 | fermion | `[s,c,x,y,z,t]`=(4,3,Lx,Ly,Lz,Lt) | `[q,t,z,y,x/2,s,c]`=(2,Lt,Lz,Ly,Lx//2,4,3) |
@@ -54,7 +53,22 @@ submodule，其版本文件位于 `pyquda_core/pyquda/_version.py`，**不是**�
 | `compare.py` | 聚合：解互比（回归+rel_diff）、hop 中间量、残差表、逐迭代残差图+耗时柱状图 → out/compare_*.{json,md,png} |
 | `run_all.sh` | 一键三阶段：`bash run_all.sh 8x8x8x16 [tol] [csw]` |
 
-## 关键 API（PyQuda-0.3.2）
+## 当前关键 API（PyQUDA 0.10.54）
+
+当前 `run_pyquda.py` 使用：
+
+- `pyquda.init(grid_size=[...], latt_size=[...], enable_nvshmem=False)`；
+- `LatticeInfo(lat)` 与 `LatticeGauge`/`LatticeFermion`，host storage 仍为 complex128，
+  device storage 由 `setPrecision(...)` 选择；
+- `WilsonDirac` / `CloverWilsonDirac`，Clover 构造参数为 `clover_csw`；
+- `d.loadGauge(U)`、`d.invert(b)`、`d.dslash(b)`、`d.freeGauge()`；
+- `d.invert_param.mass_normalization=QUDA_MASS_NORMALIZATION` 与
+  `compute_true_res=1`；迭代字段可能是标量或按 shift 的数组，读取时取槽 0。
+
+`pyquda_utils.core` 与 `pyquda.core` 两种布局仍可能按安装方式出现；正式脚本应在
+导入后记录实际模块路径和 `__version__`。
+
+## 历史 API（PyQuda 0.3.2）
 
 - 初始化：`pyquda.init(grid_size=[1,1,1,1])`（QUDA 编译带 MPI 时必须，否则 MPI_Comm_rank 崩溃）。
 - 字段：`LatticeGauge(lat, cupy_array)` / `LatticeFermion(lat, cupy_array)`——**value 必须 device
@@ -66,7 +80,7 @@ submodule，其版本文件位于 `pyquda_core/pyquda/_version.py`，**不是**�
 - 逐迭代残差：`invert_param.verbosity = QUDA_VERBOSE`，stdout 行 `CG: <N> iterations, <r,r> = ..., |r|/|b| = ...`，
   regex：`CG:\s*(\d+)\s+iterations.*?\|r\|/\|b\|\s*=\s*([0-9.eE+-]+)`。
 
-## 实测基线（2026-08-28，RTX 4060，m=0.05，T 周期边界，tol=1e-10）
+## 历史基线（PyQuda 0.3.2，2026-08-28，RTX 4060，m=0.05，T 周期边界，tol=1e-10）
 
 | 指标 | 4×4×4×4 | 8×8×8×16 |
 |---|---|---|
@@ -92,8 +106,8 @@ submodule，其版本文件位于 `pyquda_core/pyquda/_version.py`，**不是**�
 
 ## 已知局限
 
-- PyQuda-0.3.2 无 LatticeGauge mat()/nullvec 导出 API ⇒ 中间量对比限于 dslash 跳跃输出
-  （hop）；MG nullvec 对比不可行（0.3.2 未暴露），需上游支持。
+- 历史 0.3.2 无 LatticeGauge mat()/nullvec 导出 API，因此旧套件的中间量对比限于
+  dslash 跳跃输出；当前 0.10.54 的 MG/nullvec 能力需按实际 API 重新核对。
 - 性能对比中 pyqcu 侧为纯 Python einsum 实现（非公平基线），且 QUDA 侧含 tuning 首轮开销；
   报告以迭代数与 QUDA 内部 secs 为准。
 - PyQUDA 扩展的 RUNPATH 可能指向已删除构建，且 `LD_LIBRARY_PATH` 可能先命中

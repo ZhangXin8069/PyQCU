@@ -16,7 +16,7 @@ operator call.  Prolongation fills only the selected aggregates and
 restriction contracts only their one-hop target aggregates.
 
 The implementation is intentionally a direct-import prototype.  It is not
-exported from :mod:`pyqcu.tools` until the production fine operator has a
+exported from :mod:`pyqcu.torch.tools` until the production fine operator has a
 stable batched-call interface.
 """
 

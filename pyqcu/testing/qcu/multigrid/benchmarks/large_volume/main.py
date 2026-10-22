@@ -41,7 +41,8 @@ for _d in (OUT_DIR, DATA_DIR, LOG_DIR_MIRROR):
 os.environ["QCU_LOG_DIR"] = str(OUT_DIR)
 
 import torch
-from pyqcu import tools, dslash
+from pyqcu import tools
+from pyqcu.torch import dslash
 from pyqcu.cuda import qcu
 import pyqcu.cuda.define as define
 from pyqcu.cuda.define import params as mod_params, argv as mod_argv, set_ptrs as mod_set_ptrs
@@ -168,9 +169,9 @@ def ensure_nullvec(lat, E, nvi, op, S, device, verbose=False, timeout_s=600,
           f"({'C++ matvec' if cpp_ctx else 'batch einsum'})", flush=True)
     import h5py
     if cpp_ctx is not None and gen == "ddamg":
-        from pyqcu.tools._multigrid import local_orthogonalize
+        from pyqcu.torch.tools._multigrid import local_orthogonalize
         from pyqcu.cuda._schur_op import CudaSchurOp
-        from pyqcu import solver as _sol
+        from pyqcu.torch import solver as _sol
         torch.cuda.set_device(0)
         cu_op = CudaSchurOp(cpp_ctx["av"], cpp_ctx["g"], cpp_ctx["ce"],
                             cpp_ctx["coo"], cpp_ctx["cei"], cpp_ctx["coi"],
@@ -191,7 +192,7 @@ def ensure_nullvec(lat, E, nvi, op, S, device, verbose=False, timeout_s=600,
         _null = torch.stack(vs).contiguous()
         cu_op.release()
     elif cpp_ctx is not None:
-        from pyqcu.tools._multigrid import local_orthogonalize
+        from pyqcu.torch.tools._multigrid import local_orthogonalize
         from pyqcu.tools import give_null_vecs_mt as _gnv_mt_wrap
         from pyqcu.cuda._schur_op import CudaSchurOp
         torch.cuda.set_device(0)
@@ -203,13 +204,13 @@ def ensure_nullvec(lat, E, nvi, op, S, device, verbose=False, timeout_s=600,
                              nv_tol=3e-2)
         cu_op.release()
     else:
-        from pyqcu.tools._multigrid import (give_null_vecs_mt, BatchedLocalSchur,
+        from pyqcu.torch.tools._multigrid import (give_null_vecs_mt, BatchedLocalSchur,
                                             _schur_matvec_batch)
         batch_mv = lambda x, _op=op: _schur_matvec_batch(_op, x)
         _null = give_null_vecs_mt(None, E, 12, lat_fine_odd, define.dtype(DT),
                                   device, nv_iters=nvi, nthreads=1, verbose=False,
                                   nv_tol=1e-2, batch_matvec=batch_mv)
-    from pyqcu.tools._multigrid import local_orthogonalize, build_stencil_local, BatchedLocalSchur
+    from pyqcu.torch.tools._multigrid import local_orthogonalize, build_stencil_local, BatchedLocalSchur
     # dev84 指令23 分级: QR 正交化 OOM 时转 CPU (纯数学, 无算子依赖)
     try:
         lonv = local_orthogonalize(null_vecs=_null,
@@ -292,7 +293,7 @@ def cmd_setup_staged(args):
         print(f"[staged:nulls] -> {f_raw}", flush=True)
 
     elif stage == "ortho":
-        from pyqcu.tools._multigrid import local_orthogonalize
+        from pyqcu.torch.tools._multigrid import local_orthogonalize
         with h5py.File(f_raw, "r") as f:
             nv = torch.from_numpy(f["null"][()]).to(dt)
         lonv = local_orthogonalize(null_vecs=nv,
@@ -305,7 +306,7 @@ def cmd_setup_staged(args):
     elif stage == "stencil":
         _, _, _, _, _, _, U_full, _, clover_full, kappa, av, p = \
             load_gauge(lat, args.mass, args.atol, verbose=False)
-        from pyqcu.tools._multigrid import BatchedLocalSchur, build_stencil_local
+        from pyqcu.torch.tools._multigrid import BatchedLocalSchur, build_stencil_local
         # 探测需 hopping/sitting: 与 cmd_setup 同路径构建算子视图
         opv = dslash.operator(U=U_full, clover_term=clover_full,
                               kappa=torch.Tensor([kappa]),

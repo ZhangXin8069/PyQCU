@@ -280,7 +280,8 @@ def case_mg(core, lat, mass, tol, maxiter, nvec=24, block=(2, 2, 2, 2)):
 def case_opcmp(core, lat, mass, random_gauge=False):
     """单位/随机规范下 M 算子级对比（G2/G3 锚点）：quda MatQuda vs PyQCU give_wilson(+clover)。"""
     import torch
-    from pyqcu import dslash, tools
+    from pyqcu import tools
+    from pyqcu.torch import dslash
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     from pyqcu.testing.qcu.strict.quda_comparison.common import load_gauge_h5
     kappa = 1.0 / (2 * mass + 8)

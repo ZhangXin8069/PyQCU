@@ -92,7 +92,8 @@ def build_coarse_assets(gauge: np.ndarray, lattice: tuple[int, int, int, int],
                         device_name: str = "cpu"):
     try:
         import torch
-        from pyqcu import dslash, solver, tools
+        from pyqcu import tools
+        from pyqcu.torch import dslash, solver
     except ImportError as exc:
         raise RuntimeError(f"full-site Galerkin builder unavailable: {exc}") from exc
     if levels != 2:
@@ -118,7 +119,7 @@ def build_coarse_assets(gauge: np.ndarray, lattice: tuple[int, int, int, int],
     if verbose:
         print("KUPL::MG_BUILD: null-space start", flush=True)
     torch.manual_seed(seed + 9001)
-    from pyqcu.tools._multigrid import give_null_vecs_mt
+    from pyqcu.torch.tools._multigrid import give_null_vecs_mt
 
     null_vectors = give_null_vecs_mt(
         None, dof[1], 12, list(lattice), torch_dtype, device,
@@ -152,7 +153,7 @@ def build_coarse_assets(gauge: np.ndarray, lattice: tuple[int, int, int, int],
         print(
             f"KUPL::MG_BUILD: stencil start coarse={coarse_lattice}", flush=True)
     if local_stencil:
-        from pyqcu.tools._multigrid import (
+        from pyqcu.torch.tools._multigrid import (
             BatchedLocalWilsonClover, build_stencil_local,
         )
 

@@ -7,14 +7,14 @@ import pytest
 import torch
 from mpi4py import MPI
 
-from pyqcu import dslash
-from pyqcu.tools import _mpi_roll
-from pyqcu.tools._distributed_setup import (
+from pyqcu.torch import dslash
+from pyqcu.torch.tools import _mpi_roll
+from pyqcu.torch.tools._distributed_setup import (
     DistributedFineOperator,
     halo_pad_last4,
 )
-from pyqcu.tools._strict_galerkin import build_strict_galerkin
-from pyqcu.solver import StrictTransfer
+from pyqcu.torch.tools._strict_galerkin import build_strict_galerkin
+from pyqcu.torch.solver import StrictTransfer
 
 
 class _SerialRingComm:

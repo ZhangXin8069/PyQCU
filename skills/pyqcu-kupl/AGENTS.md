@@ -1,4 +1,4 @@
-# pyqcu-kupl
+# AGENTS.md — pyqcu-kupl
 
 独立 MPI+OpenMP CPU QCU 后端及 `pyqcu.kupl` ctypes 绑定技能。
 

@@ -1,4 +1,4 @@
-# pyqcu-cpp-qcu-include
+# AGENTS.md — pyqcu-cpp-qcu-include
 
 cpp/cuda/qcu/include 的 24 个模板化 CUDA 头文件 skill：`define.h` 镜像
 `params[58]`、`params[57]` 语义和 Strict `set_ptrs` 槽位。

@@ -5,7 +5,8 @@ U 与求解解 x 由 C++ CUDA 后端生成（applyGaussGaugeQcu/applyWilsonBista
 （守护 Python 算子未来漂移）。规格：L16^3, mass=0 (kappa=0.125), c64, seed=42。
 """
 import torch
-from pyqcu import tools, dslash, lattice
+from pyqcu import lattice, tools
+from pyqcu.torch import dslash
 from pyqcu.cuda import qcu, define
 from pyqcu.cuda.define import params, argv, set_ptrs
 

@@ -1,0 +1,86 @@
+[日志元数据]
+日志类型: final
+生成时间: 2026-10-23 01:01:13 +0800
+批次: pyqcu-api-p0-20261023
+主任务: 实现 PyQCU 统一 QCU 架构 P0 公共 API 契约
+触发原因: 任务完成
+摘要: 新增 pyqcu.api 公共模型、配置、结果、能力、资产清单与 Protocol，并为 Multigrid 增加兼容 solve_result 和最终回归
+Git 根目录: /root/PyQCU
+
+## 关键日志
+### S1 — 契约与兼容边界冻结
+- 目标: 在不改变现有后端 solve 返回类型和热路径的前提下实现 P0 公共控制面。
+- 命令/操作: 阅读 auto/all/plan/make/test、pyqcu-solver 与 pyqcu-api 规范；核对 Torch/CUDA/KUPL 四个现有 MG wrapper 暴露的字段。
+- 关键输出: solve_result 只映射后端已存在的 iterations/converged/residual/workspace 等字段；未暴露的 correction、cycle、cache 和 full residual 保持 None。
+- 退出码: 0
+- 证据与判断: 公共层不能复制求解循环，也不能通过配置推断实际计数。
+
+### S2 — pyqcu.api 实现
+- 目标: 建立可验证、可复现的后端无关模型。
+- 命令/操作: 新增 pyqcu/api 的 models/config/protocols/_compat/__init__ 和目录 AGENTS。
+- 关键输出: 实现 LatticeGeometry、SolveResult、SolveStatus、ResidualScope、BackendCapabilities、AssetManifest、SolverControl、BiCGStab/FGMRES/CG、Coarsen/MR/Cycle/Legacy/Strict 配置及 runtime-checkable Protocol。
+- 退出码: 0
+- 证据与判断: SolveResult 对有值残差强制要求 residual_scope；AssetManifest identity 使用 canonical JSON SHA256；能力检查 fail-closed。
+
+### S3 — Multigrid 兼容接入
+- 目标: 保留现有 solve 返回语义，同时提供统一结果入口。
+- 命令/操作: 为 Multigrid 新增 capabilities() 和 solve_result()；为三后端 Strict 类声明 matpc residual scope；新增 API 契约测试。
+- 关键输出: Multigrid.solve() 仍返回后端数组；solve_result() 自动幂等 setup、计时、调用原有 solve 并返回 SolveResult。
+- 退出码: 0
+- 证据与判断: 兼容适配层没有改变现有停机、迭代或资源生命周期。
+
+### S4 — 文档、并行变更整合与验证
+- 目标: 同步正式契约、技能和索引，并确认没有覆盖并行新增内容。
+- 命令/操作: 新增 docs/api_contract.md；更新 docs/pyqcu 索引、qcu 统一策略状态和 pyqcu-solver；保留并核对并行新增的 pyqcu-api 技能。
+- 关键输出: 正式文档明确 P0 已实现项、create_backend 未实现项、残差口径、manifest 和 Protocol 边界。
+- 退出码: 0
+- 证据与判断: form 审计从 34 增至 35 个技能目录，新增 pyqcu-api 与当前实现一致，无冲突。
+
+## 验证与证据
+- 测试/检查: python -m pytest -q pyqcu/testing/python/test_api_contract.py pyqcu/testing/python/test_multigrid_api.py pyqcu/testing/python/test_multigrid.py pyqcu/testing/python/test_torch_namespace.py；python -m py_compile；bash skills/pyqcu-form/form-audit.sh；git diff --check。
+- 结果: 52 passed；py_compile 通过；form 审计通过，35 个技能目录与索引一致；git diff --check 通过。
+- 未验证项: 未实际运行 CUDA/KUPL 大格 solve；create_backend、完整原生 SolveResult adapter、Legacy correction/cycle/full-residual 计数尚未实现。
+
+## 变更与产物
+- 文件: pyqcu/api/__init__.py、models.py、config.py、protocols.py、_compat.py、AGENTS.md；pyqcu/solver/multigrid/__init__.py；pyqcu/testing/python/test_api_contract.py；docs/api_contract.md；相关 docs、AGENTS 和技能索引。
+- 产物: P0 公共 API 与兼容 solve_result 入口；三后端 Strict residual scope 声明；正式契约文档与回归测试。
+- 未改动范围: 未提交、未推送、未打标签；未修改 CUDA/KUPL C++ 求解器、cache payload 或生产热循环。
+
+## 风险、限制与下一步
+- 风险: 兼容层依赖现有属性探测，长期应改为各后端显式返回 SolveResult；Legacy 目前仍无法提供统一 correction/cycle/full residual 证据。
+- 阻塞: 无。
+- 下一步: P1 为三后端实现 LinearOperator 与 BiCGStab/CG adapter，随后将 MG 后端原生结果对象接入 SolveResult，最终实现 create_backend。
+
+## 用户输入指令
+继续
+
+## Agent 全文报告
+--- report begin ---
+finished
+
+## 改动内容
+- 新增 `pyqcu.api` 公共契约包，包含 `LatticeGeometry`、`SolveResult`、`SolveStatus`、`ResidualScope`、`BackendCapabilities`、`AssetManifest`、Krylov/MG 配置以及 Operator/Krylov/MG/backend Protocol。
+- 为现有 `Multigrid` 增加 `solve_result()` 和 `capabilities()`。原有 `solve()` 保持返回后端数组，调用方式和热路径不变。
+- 为 CUDA、KUPL、Torch 的 Strict MG 声明 `matpc` 残差口径；unknown 指标保持 `None`，不使用配置值或其他口径残差补齐。
+- 新增 [api_contract.md](/root/PyQCU/docs/api_contract.md) 与 [test_api_contract.py](/root/PyQCU/pyqcu/testing/python/test_api_contract.py)，并同步目录、文档和技能索引。
+- 保留并核对回归期间并行新增的 `pyqcu-api` 技能，未覆盖其内容。
+
+## 推理依据
+- 统一架构应先统一控制面和数值语义，而不是把 CUDA/KUPL/Torch kernel 合成一套实现。
+- `SolveResult` 必须明确 full、MATPC、Schur 或预条件残差；有残差但无口径时 fail-closed。
+- restart 长度不能当作 restart 次数，配置的 correction/cycle 也不能当作实际执行计数。
+- `AssetManifest` 只统一 provenance 与 SHA256 identity，不表示 Legacy 33-stencil 与 Strict X/Y/Yhat payload 可互载。
+- 当前兼容层只读取现有 wrapper 已有字段。`create_backend()`、原生 backend adapter 和完整计数仍需后续实现。
+
+## 验证结果
+- 相关 pytest：`52 passed`，仅有当前 PyTorch 不支持 P100 sm_60 的环境警告。
+- `python -m py_compile`：通过。
+- `bash skills/pyqcu-form/form-audit.sh`：通过，35 个技能目录与索引一致。
+- `git diff --check`：通过。
+- 未执行 CUDA/KUPL 大格 solve，也未提交、推送或打标签。
+
+## 后续步骤
+1. P1 实现三后端统一的 `LinearOperator`、BiCGStab 和 CG adapter。
+2. 让各 MG 后端直接返回 `SolveResult`，补齐真实 iteration、correction、cycle、residual 和 workspace 字段。
+3. 在协议和 adapter 稳定后实现 `pyqcu.api.create_backend()`。
+--- report end ---

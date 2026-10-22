@@ -6,7 +6,8 @@ bug36 同族思路: 执行从未运行的 pyqcu/cuda/_schur_op.py；
 """
 import traceback
 import torch
-from pyqcu import tools, dslash, lattice
+from pyqcu import lattice, tools
+from pyqcu.torch import dslash
 from pyqcu.cuda import qcu, define
 from pyqcu.cuda.define import params, argv, set_ptrs
 from pyqcu.cuda._schur_op import CudaSchurOp

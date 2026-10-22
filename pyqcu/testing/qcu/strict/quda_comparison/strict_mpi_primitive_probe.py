@@ -24,7 +24,7 @@ sys.path.insert(0, str(HERE))
 
 from pyqcu.testing.qcu.strict.quda_comparison.common import grid_index_for_rank, process_grid
 from pyqcu.cuda import define, qcu
-from pyqcu.solver._multigrid_core import (
+from pyqcu.torch.solver._multigrid_core import (
     Checkerboard,
     StrictCoarseOperator,
     StrictMatPCOperator,

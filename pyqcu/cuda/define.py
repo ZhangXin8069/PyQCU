@@ -22,6 +22,8 @@ _PARITY_ = 9
 _NODE_RANK_ = 10
 _NODE_SIZE_ = 11
 _DAGGER_ = 12
+_NO_USE_ = 0
+_USE_ = 1
 _MAX_ITER_ = 13
 _DATA_TYPE_ = 14
 _LAT_C16_ = 0
@@ -149,7 +151,7 @@ def epytd(torch_dtype: Optional[torch.dtype]) -> torch.Tensor:
         # _LAT_C16_ at i=0). Skip those during the reverse-mapping search
         # instead of letting the raise abort the whole loop. Otherwise epytd()
         # can never map complex64/128, which blocks the multigrid with_cuda_qcu
-        # path (pyqcu/solver/_legacy_multigrid.py::init calls epytd on dtype_list[0]).
+        # path (pyqcu/torch/solver/_legacy_multigrid.py::init calls epytd on dtype_list[0]).
         try:
             if dtype(_data_type_=_data_type_) == torch_dtype:
                 return _data_type_

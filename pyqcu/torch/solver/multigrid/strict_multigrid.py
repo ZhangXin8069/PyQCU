@@ -1,6 +1,6 @@
 """Strict full-coarse multigrid hierarchy for the PyTorch backend."""
 
-from pyqcu.solver._multigrid_core import (
+from pyqcu.torch.solver._multigrid_core import (
     Checkerboard,
     CompactParityLayout,
     CompactParityOperator,

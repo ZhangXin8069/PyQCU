@@ -1,4 +1,4 @@
-# pyqcu-cpp-qcu-python
+# AGENTS.md — pyqcu-cpp-qcu-python
 
 cpp/cuda/qcu/python 的 C API 边界 skill：`pyqcu.h`（37 个入口）必须与
 `pyqcu/cuda/qcu/qcu_api.pxd`、`qcu.pyx`/`qcu.pyi` 及 Strict 入口同步。

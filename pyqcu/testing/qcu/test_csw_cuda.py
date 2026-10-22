@@ -3,7 +3,8 @@ from __future__ import annotations
 import pytest
 import torch
 
-from pyqcu import dslash, lattice, tools
+from pyqcu import lattice, tools
+from pyqcu.torch import dslash
 from pyqcu.cuda import QcuRuntime, define
 
 

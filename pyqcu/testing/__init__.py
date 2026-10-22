@@ -5,7 +5,8 @@ except Exception as e:
     print(f"Error:{e}")
 import torch
 from argparse import Namespace
-from pyqcu import lattice, solver, dslash, tools, smear
+from pyqcu import lattice, tools
+from pyqcu.torch import dslash, smear, solver
 import pyqcu.cann as _torch
 import mpi4py.MPI as MPI
 from typing import Optional, List
@@ -662,7 +663,8 @@ def test_multigrid_multithread(nthreads: int = 2, lat_size: List[int] = [8, 8, 8
     （MultiGpuMultigrid.solve 内置预热；本测试开头也预热）。
     """
     from concurrent.futures import ThreadPoolExecutor
-    from pyqcu import lattice, dslash, solver
+    from pyqcu import lattice
+    from pyqcu.torch import dslash, solver
     dt = torch.complex64
     dev = torch.device('cuda')
     _w = torch.randn([4, 4], dtype=dt, device=dev)

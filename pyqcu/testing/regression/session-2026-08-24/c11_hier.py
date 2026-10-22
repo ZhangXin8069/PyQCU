@@ -2,7 +2,7 @@
 import traceback
 import torch
 from pathlib import Path
-from pyqcu.tools._hierarchical import HierarchicalTensor, HierarchicalCache
+from pyqcu.torch.tools._hierarchical import HierarchicalTensor, HierarchicalCache
 
 TMP = Path('/tmp/opencode/hier_cache')
 results = []

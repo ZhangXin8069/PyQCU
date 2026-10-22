@@ -1,0 +1,89 @@
+[日志元数据]
+日志类型: final
+生成时间: 2026-10-23 00:50:10 +0800
+批次: qcu-unified-mg-20261023
+主任务: 分析 Torch/CUDA/KUPL 的 Legacy 与 Strict MG 并设计统一 PyQCU 接口
+触发原因: 任务完成
+摘要: 完成六实现对比、统一架构设计、Torch Legacy 层级构建回归修复与验证
+Git 根目录: /root/PyQCU
+
+## 关键日志
+### S1 — 六实现源码与既有证据核对
+- 目标: 比较 Torch、CUDA、KUPL 的 Legacy/Strict multigrid 共六个实现。
+- 命令/操作: 阅读 solver/MG/dslash/cache/benchmark 相关源码与文档；派发 Torch、KUPL、CUDA 三路只读子代理并回收结论。
+- 关键输出: Strict 的 full-coarse/MATPC/X-Y-Yhat 更适合作为通用语义骨架；Legacy 的 compact 33-tensor、周期加性 correction 保留为显式特化。CUDA Legacy 既有生产记录均未实际触发 coarse correction；Strict/Legacy 可比设备峰值约为 1.32x–1.63x。
+- 退出码: 0
+- 证据与判断: 不存在六个实现中全维度最优者；应采用统一控制面、可组合组件和三套后端数据面。
+
+### S2 — 数值语义与生命周期边界补强
+- 目标: 避免把不同残差、restart、cycle 和 workspace 口径混写。
+- 命令/操作: 定向核对 KUPL Strict、CUDA Strict 和 Torch Legacy 源码。
+- 关键输出: KUPL Strict 的 final_true_residual 是重构 full 解前的 fine compact MATPC 残差；CUDA/KUPL recursive coarse 层只使用 kMg_MuPre，fine 层才独立使用 nu_pre/nu_post；KUPL Strict 的 FGMRES arena、halo buffer 和 Cartesian topology 不跨 solve 持久化。
+- 退出码: 0
+- 证据与判断: SolveResult 必须增加 residual_scope、matpc_true_residual、full_true_residual、restart_count 和 correction 接受/拒绝计数；禁止把 restart 当作 cycle/correction。
+
+### S3 — 文档与回归修复
+- 目标: 固化统一架构并修复分析中发现的 Torch Legacy 回归。
+- 命令/操作: 新增正式设计文档并更新 docs 索引；修复 LegacyMultigrid.init() 提前返回；新增层级实际构建测试。
+- 关键输出: 文档给出统一组件、目标接口、Legacy/Strict 组合方式、向 dslash/BiCGStab/CG 扩展方案、P0–P4 迁移顺序和验收门。
+- 退出码: 0
+- 证据与判断: 当前工作区已有 pyqcu/torch 布局和 backend-neutral Multigrid 选择器，但完整 pyqcu.api 尚未实现，不能将设计示例当作可运行 API。
+
+### S4 — 验证
+- 目标: 验证分析期间代码改动和仓库格式门控。
+- 命令/操作: pytest MG/API 套件、pytest Torch namespace、form audit、git diff --check。
+- 关键输出: 42 passed；3 passed；form 审计通过；diff check 无错误。
+- 退出码: 0
+- 证据与判断: Torch Legacy 层级构建修复有效，当前迁移未破坏 MG 选择器和 Torch 命名空间兼容导入；未重新执行 CUDA/KUPL 大格数值与性能测试。
+
+## 验证与证据
+- 测试/检查: python -m pytest -q pyqcu/testing/python/test_multigrid_api.py pyqcu/testing/python/test_multigrid.py；python -m pytest -q pyqcu/testing/python/test_torch_namespace.py；bash skills/pyqcu-form/form-audit.sh；git diff --check。
+- 结果: 42 passed；3 passed；form 审计通过；diff check 通过。pytest 仅有当前 PyTorch 不支持 P100 sm_60 的环境警告，测试本身均通过。
+- 未验证项: CUDA Strict 24^3x64；Legacy 真正执行 coarse correction 的大格回归；三后端同输入公平 Legacy/Strict A/B；统一 pyqcu.api 的实现与自动 cache 命中。
+
+## 变更与产物
+- 文件: docs/qcu_unified_backend_strategy_20261023.md；docs/AGENTS.md；skills/pyqcu-docs/references/project-docs-map.md；pyqcu/torch/solver/_legacy_multigrid.py；pyqcu/testing/python/test_multigrid_api.py。
+- 产物: 六实现对比、互鉴矩阵、统一组件与接口设计、迁移和验收方案；Torch Legacy init 回归修复及测试。
+- 未改动范围: 未提交、未推送、未打标签；未重构 CUDA/KUPL C++ 求解器；未实现新的 pyqcu.api。
+
+## 风险、限制与下一步
+- 风险: 把不同算法、层级、精度或 fine-only/coarse-cycle 的计时解释为性能倍率；把 compact MATPC 残差误标为 full 真残差；把 restart 或名义 V-cycle 配置误报为实际 correction。
+- 阻塞: 无。
+- 下一步: 先落地 P0 公共协议和 SolveResult，再为三后端接 LinearOperator/BiCGStab/CG 适配器，随后组件化 Strict，最后将 Legacy correction gate/rollback 纳入公共策略。
+
+## 用户输入指令
+分析cuda版和kupl版和torch版qcu的legacy-mg与strict-mg(3*2=6种小版本)的优劣,将各自的可取之处相互借鉴,不足之处相互注意,总结为统一的最为优秀的qcu(三个平台使用较为统一的实现,可以存在一定的针对不同平台的特化)的legacy-mg与strict-mg,可以拓展到dslash和bistabcg和cg,且使用较为统一的pyqcu接口
+
+## Agent 全文报告
+--- report begin ---
+finished
+
+## 改动内容
+- 新增正式设计文档 `docs/qcu_unified_backend_strategy_20261023.md`，完成 Torch、CUDA、KUPL 三后端 Legacy/Strict 共六个实现的算法、数值语义、性能、内存、生命周期、并行和维护性对比。
+- 统一结论采用“公共控制面 + 可组合 MG/Krylov 组件 + 三套后端数据面 + Legacy/Strict 显式策略”：Strict 作为通用生产骨架，Legacy 保留 compact 33-tensor、周期加性 correction 和已有 cache 特化。
+- 设计统一 `LinearOperator`、`TransferOperator`、`CoarseOperator`、`Smoother`、`Cycle`、`KrylovDriver`、`ResidualMonitor`、`CorrectionPolicy`、`AssetStore`、`Capabilities` 和 `SolveResult`，并给出向 dslash、BiCGStab、CG 扩展的接口和 P0–P4 迁移顺序。
+- 更新 `docs/AGENTS.md` 和 `skills/pyqcu-docs/references/project-docs-map.md` 文档索引。
+- 修复 Torch Legacy `init()` 提前返回导致层级未构建的回归，并在 `test_multigrid_api.py` 增加层级实际构建测试。
+- 既有三后端 Legacy/Strict 对比证据已保存在 `docs/multigrid_legacy_strict_comparison_20261022.md`、`docs/legacy_vs_strict_mg_status_20261022.md` 和本次统一策略文档中。
+
+## 推理依据
+- 没有任何一个现有小版本同时占优，不能以“合并成一个实现”为目标；公共层应统一几何、停机、计数、生命周期、资产 provenance 和错误语义，平台层继续拥有 kernel、stream、MPI/OpenMP 和 persistent workspace。
+- Strict 的 full-coarse、MATPC、`X/Y/Yhat`、递归 V-cycle 和 right-FGMRES 边界最清晰，适合作为通用语义骨架；Legacy 的 compact odd coarse、33-tensor 和周期加性 correction 应显式保留，不能与 Strict 资产隐式互转或静默 fallback。
+- 应吸收 CUDA 的 persistent hierarchy、Graph/融合内核、overlap halo、精确 workspace 和 cache SHA；吸收 KUPL Legacy 的 correction 后真残差验收、拒绝回滚和后续关闭；以 Torch Strict 作为 transfer、Galerkin、MATPC 和 diagnostics 的 algebra oracle。
+- 已确证 CUDA Legacy 现有生产记录 `n_vcycles=0`，只能证明 fine-level solve；KUPL Strict 的 `final_true_residual` 是 full 解重构前的 compact MATPC 残差；CUDA/KUPL recursive coarse 层目前只使用一个平滑步数。结果接口必须带 `residual_scope`、独立 restart/cycle/correction 计数，未计算的 full 真残差必须为 null。
+- CUDA 可比容量记录中 Strict 设备峰值约为 Legacy 的 `1.32x`–`1.63x`；这些数据只用于内存权衡，不与不同算法的耗时直接相除。
+
+## 验证结果
+- `python -m pytest -q pyqcu/testing/python/test_multigrid_api.py pyqcu/testing/python/test_multigrid.py`：`42 passed`。
+- `python -m pytest -q pyqcu/testing/python/test_torch_namespace.py`：`3 passed`。
+- `bash skills/pyqcu-form/form-audit.sh`：通过，34 个技能目录与索引一致，保留 1069 个既有资产豁免。
+- `git diff --check`：通过。
+- pytest 输出 P100 `sm_60` 与当前 PyTorch 能力不匹配的警告，但所有 CPU 测试通过。
+
+## 后续步骤
+1. P0 实现 `pyqcu.api` 的 `Capabilities`、控制配置、`SolveResult`、`AssetManifest` 和公共协议，并让现有 `Multigrid` 选择器委托到同一实现。
+2. P1 为三后端接 `LinearOperator`、`NormalOperator`、BiCGStab/CG 和统一 residual monitor。
+3. P2 以 CUDA Strict 为生产基线、Torch Strict 为 oracle、KUPL Strict 为 CPU 对照，组件化 Strict。
+4. P3 将 Legacy correction gate、真残差 rollback 和 local stencil guard 纳入公共策略。
+5. 在实现完成后补齐大格同输入 A/B、`24³×64`、c128、热启动、真实 LIME 输入和三后端统一 API 回归。
+--- report end ---
