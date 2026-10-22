@@ -9,6 +9,7 @@ import os
 import re
 import sys
 from pathlib import Path
+from statistics import median
 
 try:
     from ._common import (DATA_DIR, DEFAULT_ATOL, DEFAULT_CSW, DEFAULT_MASS,
@@ -107,12 +108,18 @@ def main(argv=None) -> int:
     parser.add_argument("--coarse-tol-factor", type=float, default=1.0e4)
     parser.add_argument("--nv-iters", type=int, default=2)
     parser.add_argument("--no-cache", action="store_true")
+    parser.add_argument("--warmup", type=int, default=1,
+                        help="untimed solves before sampling")
+    parser.add_argument("--repeats", type=int, default=3,
+                        help="timed solves; report the median")
     parser.add_argument("--device", default="cuda:0")
     parser.add_argument("--gauge", default=None)
     parser.add_argument("--source", default=None)
     parser.add_argument("--output", default=None)
     parser.add_argument("--report", default="performance_qcu_multigrid.json")
     args = parser.parse_args(argv)
+    if args.warmup < 0 or args.repeats < 1:
+        parser.error("--warmup must be >= 0 and --repeats >= 1")
 
     if not qcu_available():
         print(json.dumps({"status": "SKIP", "reason": "QCU extension/CUDA unavailable"}))
@@ -209,15 +216,20 @@ def main(argv=None) -> int:
     runtime.configure(plan=define._SET_PLAN1_)
     runtime.params[define._VERBOSE_] = 1
     memory = None
-    with runtime.operation("applyCloverMultigridQcu") as operation:
-        start = torch.cuda.Event(enable_timing=True)
-        end = torch.cuda.Event(enable_timing=True)
-        start.record()
-        operation(out, src, g, ce, co, cei, coi)
-        end.record()
-        torch.cuda.synchronize(runtime.device)
-        wall_seconds = start.elapsed_time(end) / 1000.0
+    samples = []
+    for repeat in range(args.warmup + args.repeats):
+        with runtime.operation("applyCloverMultigridQcu") as operation:
+            start = torch.cuda.Event(enable_timing=True)
+            end = torch.cuda.Event(enable_timing=True)
+            start.record()
+            operation(out, src, g, ce, co, cei, coi)
+            end.record()
+            torch.cuda.synchronize(runtime.device)
+            wall = start.elapsed_time(end) / 1000.0
+        if repeat >= args.warmup:
+            samples.append(wall)
         memory = cuda_memory_snapshot(runtime.device)
+    wall_seconds = median(samples)
     residual = true_residual(fields, operator, tools, kappa_value, csw)
     converged, status, residual_acceptance = convergence_status(
         residual, args.atol, comparison_valid=comparison_valid)
@@ -247,6 +259,7 @@ def main(argv=None) -> int:
         "levels": levels, "dof": list(args.dof[:levels]),
         "mg_grid": list(args.mg_grid), "iterations": iterations,
         "wall_seconds": wall_seconds,
+        "wall_samples": samples, "warmup": args.warmup,
         "seconds_per_iteration": wall_seconds / iterations if iterations > 0 else None,
         "final_true_residual": residual,
         "residual_history": residual_history,
