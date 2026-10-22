@@ -124,7 +124,11 @@ class MultigridHierarchy(Protocol):
 
 @runtime_checkable
 class PyQCUBackend(Protocol):
-    """Long-term canonical backend factory for operators and solvers."""
+    """Long-term canonical backend factory for operators and solvers.
+
+    ``multigrid`` defaults to Legacy-MultiGrid. Strict-MultiGrid must be
+    requested explicitly for comparison, reference, or special fallback use.
+    """
 
     name: str
 
@@ -139,6 +143,6 @@ class PyQCUBackend(Protocol):
                control: SolverControl) -> KrylovDriver:
         ...
 
-    def multigrid(self, *, variant: str, operator: LinearOperator,
+    def multigrid(self, *, variant: str = "legacy", operator: LinearOperator,
                   **options: Any) -> MultigridHierarchy:
         ...

@@ -1,0 +1,134 @@
+PyQUDA INFO: Using default grid mapping
+PyQUDA INFO: Using grid size [1, 1, 1, 1]
+PyQUDA INFO: Using torch with cuda as Array API
+PyQUDA INFO: Using device 0
+PyQUDA WARNING: Neither QUDA_RESOURCE_PATH nor init(resource_path) is set
+RuntimeWarning: Neither QUDA_RESOURCE_PATH nor init(resource_path) is set
+PyQUDA INFO: Using QUDA_ENABLE_NVSHMEM=0
+PyQUDA WARNING: Both QUDA_ENABLE_TUNING and init(enable_tuning) are set
+RuntimeWarning: Both QUDA_ENABLE_TUNING and init(enable_tuning) are set
+PyQUDA INFO: Using QUDA_ENABLE_TUNING=0
+PyQUDA INFO: Using QUDA_ENABLE_DEVICE_MEMORY_POOL=0
+PyQUDA INFO: Using QUDA_ENABLE_PINNED_MEMORY_POOL=0
+Disabling GPU-Direct RDMA access
+Enabling peer-to-peer copy engine and direct load/store access
+QUDA 1.1.0 (git 1.1.0--sm_70)
+CUDA Driver version = 12040
+CUDA Runtime version = 12040
+Graphic driver version = 551.78
+Found device 0: Tesla V100-SXM2-32GB
+Found device 1: Tesla P100-PCIE-16GB
+Found device 2: Tesla P100-PCIE-16GB
+Using device 0: Tesla V100-SXM2-32GB
+Initializing monitoring on device 0 with pciBusId 0000:06:00.0: Tesla V100-SXM2-32GB
+WARNING: Data reordering done on GPU (set with QUDA_REORDER_LOCATION=GPU/CPU)
+WARNING: Environment variable QUDA_RESOURCE_PATH is not set.
+WARNING: Caching of tuned parameters will be disabled
+WARNING: Autotuning disabled
+WARNING: Not using device memory pool allocator
+WARNING: Not using pinned memory pool allocator
+cublasCreated successfully
+/usr/local/lib/python3.10/dist-packages/torch/cuda/__init__.py:435: UserWarning: 
+    Found GPU1 Tesla P100-PCIE-16GB which is of cuda capability 6.0.
+    Minimum and Maximum cuda capability supported by this version of PyTorch is
+    (7.0) - (12.0)
+    
+  queued_call()
+/usr/local/lib/python3.10/dist-packages/torch/cuda/__init__.py:435: UserWarning: 
+    Please install PyTorch with a following CUDA
+    configurations:  12.6 following instructions at
+    https://pytorch.org/get-started/locally/
+    
+  queued_call()
+/usr/local/lib/python3.10/dist-packages/torch/cuda/__init__.py:435: UserWarning: 
+    Found GPU2 Tesla P100-PCIE-16GB which is of cuda capability 6.0.
+    Minimum and Maximum cuda capability supported by this version of PyTorch is
+    (7.0) - (12.0)
+    
+  queued_call()
+/usr/local/lib/python3.10/dist-packages/torch/cuda/__init__.py:435: UserWarning: 
+Tesla P100-PCIE-16GB with CUDA capability sm_60 is not compatible with the current PyTorch installation.
+The current PyTorch install supports CUDA capabilities sm_70 sm_75 sm_80 sm_86 sm_90 sm_100 sm_120.
+If you want to use the Tesla P100-PCIE-16GB GPU with PyTorch, please check the instructions at https://pytorch.org/get-started/locally/
+
+  queued_call()
+DEV87MARK createClover enter
+DEV87MARK extGauge done
+DEV87MARK fmunu done
+DEV87MARK computeClover done
+DEV87MARK cloverInvert done
+GCR: Convergence at 8 iterations, L2 relative residual: iterated = 6.296286e-07, true = 6.296286e-07 (requested = 1.000000e-06)
+PyQUDA INFO: Time = 0.183 secs, Performance = 11.677 GFLOPS
+GCR: Convergence at 8 iterations, L2 relative residual: iterated = 6.296286e-07, true = 6.296286e-07 (requested = 1.000000e-06)
+PyQUDA INFO: Time = 0.128 secs, Performance = 16.702 GFLOPS
+GCR: Convergence at 8 iterations, L2 relative residual: iterated = 6.296286e-07, true = 6.296286e-07 (requested = 1.000000e-06)
+PyQUDA INFO: Time = 0.128 secs, Performance = 16.713 GFLOPS
+GCR: Convergence at 8 iterations, L2 relative residual: iterated = 6.296286e-07, true = 6.296286e-07 (requested = 1.000000e-06)
+PyQUDA INFO: Time = 0.130 secs, Performance = 16.463 GFLOPS
+GCR: Convergence at 8 iterations, L2 relative residual: iterated = 6.296286e-07, true = 6.296286e-07 (requested = 1.000000e-06)
+PyQUDA INFO: Time = 0.130 secs, Performance = 16.471 GFLOPS
+GCR: Convergence at 8 iterations, L2 relative residual: iterated = 6.296286e-07, true = 6.296286e-07 (requested = 1.000000e-06)
+PyQUDA INFO: Time = 0.131 secs, Performance = 16.362 GFLOPS
+GCR: Convergence at 8 iterations, L2 relative residual: iterated = 6.296286e-07, true = 6.296286e-07 (requested = 1.000000e-06)
+PyQUDA INFO: Time = 0.130 secs, Performance = 16.450 GFLOPS
+{"schema": "pyqcu.qcu-six-way.side.v1", "variant": "quda-strict", "backend": "quda", "strategy": "strict", "status": "PASS", "lattice": [8, 8, 8, 16], "mass": -0.277, "csw": 1.160920226, "precision": "c64", "configuration": {"tolerance": 1e-06, "max_iter": 200, "levels": 2, "block": [2, 2, 2, 2], "nvec": 12, "coarse_dof": 24, "coarse_spin": 2, "coarse_tolerance": 0.0001, "coarse_max_iter": 200, "restart": 20, "legacy_correction_interval": 5, "nu_pre": 1, "nu_post": 1, "warmups": 2, "repeats": 5}, "inputs": {"gauge": {"path": "/root/PyQCU/data/benchmark_legacy_vs_strict_20261022/cases/8x8x8x16/gauge_8x8x8x16_c64.h5", "sha256": "bac143c8daca542c8143997b7abdbe0c151d1aab23375bf6597db4ec54c17ac2"}, "source": {"path": "/root/PyQCU/data/benchmark_legacy_vs_strict_20261022/cases/8x8x8x16/source_8x8x8x16_c64.h5", "sha256": "6e7d74ce8095d71ad0eacf6464c131792dbf7ba303bbc2d55958dd834dda5ba4"}, "null_vectors": {"path": "/root/PyQCU/data/benchmark_legacy_vs_strict_20261022/nullvec/8x8x8x16_nvec12_full_c64_csw1p160920226.h5", "sha256": "a2383e8415585c682465b8c15f8764554f6dd0011c35506a4b8bf25aa2d9a8d3"}}, "timing": {"runtime_init_seconds": 0.2640031190003356, "input_load_seconds": 0.03708848200039938, "setup_seconds": 0.5341790849997778, "cache_load_seconds": null, "cache_note": "QUDA generated its own null vectors from the same gauge", "warmup_seconds": [0.1900698690005811, 0.12888493499849574], "first_solve_seconds": 0.1900698690005811, "steady_seconds": [0.12868812299893762, 0.1306897359991126, 0.13068403600118472, 0.13163538899971172, 0.13086934599959932], "steady_median_seconds": 0.1306897359991126, "steady_mad_seconds": 0.0001796100004867185}, "iterations": {"samples": [8, 8, 8, 8, 8, 8, 8], "median": 8.0, "semantics": "outer right-preconditioned GCR iterations"}, "residual": {"backend_relative": 6.296286413463767e-07, "backend_samples": [6.296286413463767e-07, 6.296286413463767e-07, 6.296286413463767e-07, 6.296286413463767e-07, 6.296286413463767e-07, 6.296286413463767e-07, 6.296286413463767e-07], "gate": 1e-06, "backend_pass": true, "source": "QUDA InvertParam.true_res; independent check stored separately", "scope": "full"}, "coarse_execution": {"kind": "quda_aligned_multigrid", "executed": true, "cycle_calls_per_solve_lower_bound": [8, 8, 8, 8, 8, 8, 8], "source": "right-preconditioned GCR invokes the configured MG preconditioner each outer iteration"}, "memory": {"device_memory_applicable": true, "device_wide": {"scope": "device-wide cudaMemGetInfo; includes native allocations and other processes", "sample_interval_seconds": 0.02, "sample_count": 11, "baseline_used_bytes": 1578438656, "peak_used_bytes": 1716850688, "peak_delta_over_baseline_bytes": 138412032}, "allocator": {"allocated_bytes": 7864320, "reserved_bytes": 20971520, "peak_allocated_bytes": 11010048, "peak_reserved_bytes": 20971520, "free_bytes": 32642494464, "total_bytes": 34359345152}, "host_peak_rss_bytes": 951533568}, "provenance": {"python": "3.10.12 (main, Sep 11 2024, 15:47:36) [GCC 11.4.0]", "pid": 160381, "hostname": "68bb03cf529b", "argv": ["/root/PyQCU/pyqcu/testing/benchmark/qcu_six_way_worker.py", "--variant", "quda-strict", "--gauge", "/root/PyQCU/data/benchmark_legacy_vs_strict_20261022/cases/8x8x8x16/gauge_8x8x8x16_c64.h5", "--source", "/root/PyQCU/data/benchmark_legacy_vs_strict_20261022/cases/8x8x8x16/source_8x8x8x16_c64.h5", "--nullvec", "/root/PyQCU/data/benchmark_legacy_vs_strict_20261022/nullvec/8x8x8x16_nvec12_full_c64_csw1p160920226.h5", "--null-dataset", "null", "--lat", "8", "8", "8", "16", "--mass", "-0.277", "--csw", "1.160920226", "--tolerance", "1e-06", "--coarse-tolerance", "0.0001", "--max-iter", "200", "--coarse-max-iter", "200", "--levels", "2", "--block", "2", "2", "2", "2", "--nvec", "12", "--nu", "1", "--restart", "20", "--correction-interval", "5", "--warmups", "2", "--repeats", "5", "--seed", "42", "--device", "cuda:0", "--max-workspace-bytes", "536870912", "--output", "/root/PyQCU/logs/qcu_six_way_20261023/formal-run/quda-strict.json", "--solution-output", "/root/PyQCU/logs/qcu_six_way_20261023/formal-run/quda-strict-solution.h5"], "omp_num_threads": "16", "cuda_visible_devices": null, "quda_install": "/root/PyQCU/data/quda-sm70-install", "quda_library": "/root/PyQCU/data/quda-sm70-install/lib/libquda.so", "ld_library_path": "/root/PyQCU/data/quda-sm70-install/lib:/root/PyQCU/data/quda-sm70-install/lib:/root/PyQCU/data/quda-sm70-install/lib:/root/PyQCU/cpp/cuda/qcu:/root/PyQCU/cpp/cuda/qcu:/root/configure/lib:/root/.local/lib:/root/slib:/root/lib:/usr/local/lib:/usr/lib:/usr/lib64:/usr/libx32:/usr/lib32:/lib:/lib64:/libx32:/lib32:/usr/local/nvidia/lib:/usr/local/nvidia/lib64"}, "quda_configuration": {"version": "0.10.54", "strategy": "aligned", "n_vec_readback": [12, 12, 12, 12, 12], "nu_pre_readback": [1, 1, 1, 1, 1], "nu_post_readback": [1, 1, 1, 1, 1], "smoother_readback": ["3", "3", "3", "3", "3"], "generate_all_levels": "0", "null_vector_source": "QUDA null-vector setup on the shared gauge", "same_canonical_null_vectors": false, "tuning": "QUDA_ENABLE_TUNING=0"}}
+WARNING: Storing profile info disabled
+
+               initQuda Total time =     0.153 secs
+                     init     =     0.153 secs ( 99.995%),	 with        2 calls at 7.658e+04 us per call
+        total accounted       =     0.153 secs ( 99.995%)
+        total missing         =     0.000 secs (  0.005%)
+
+          loadGaugeQuda Total time =     0.018 secs
+                 download     =     0.013 secs ( 72.736%),	 with        2 calls at 6.590e+03 us per call
+                     init     =     0.003 secs ( 14.477%),	 with       39 calls at 6.726e+01 us per call
+                  compute     =     0.001 secs (  4.614%),	 with       22 calls at 3.800e+01 us per call
+                    comms     =     0.000 secs (  0.850%),	 with        1 calls at 1.540e+02 us per call
+                     free     =     0.001 secs (  4.835%),	 with       16 calls at 5.475e+01 us per call
+        total accounted       =     0.018 secs ( 97.511%)
+        total missing         =     0.000 secs (  2.489%)
+
+         loadCloverQuda Total time =     0.023 secs
+                     init     =     0.003 secs ( 11.630%),	 with        5 calls at 5.262e+02 us per call
+                  compute     =     0.005 secs ( 20.157%),	 with        3 calls at 1.520e+03 us per call
+                    comms     =     0.000 secs (  0.133%),	 with        1 calls at 3.000e+01 us per call
+                     free     =     0.000 secs (  1.662%),	 with        1 calls at 3.760e+02 us per call
+        total accounted       =     0.008 secs ( 33.582%)
+        total missing         =     0.015 secs ( 66.418%)
+
+             invertQuda Total time =     1.451 secs
+                     init     =     0.060 secs (  4.110%),	 with     2197 calls at 2.714e+01 us per call
+                 preamble     =     0.025 secs (  1.689%),	 with       97 calls at 2.526e+02 us per call
+                  compute     =     1.199 secs ( 82.647%),	 with     1275 calls at 9.406e+02 us per call
+                 epilogue     =     0.013 secs (  0.928%),	 with       26 calls at 5.178e+02 us per call
+                     free     =     0.018 secs (  1.226%),	 with      674 calls at 2.640e+01 us per call
+                    eigen     =     0.000 secs (  0.023%),	 with      112 calls at 3.018e+00 us per call
+        total accounted       =     1.315 secs ( 90.623%)
+        total missing         =     0.136 secs (  9.377%)
+
+                endQuda Total time =     0.004 secs
+                     free     =     0.001 secs ( 29.770%),	 with        7 calls at 1.611e+02 us per call
+        total accounted       =     0.001 secs ( 29.770%)
+        total missing         =     0.003 secs ( 70.230%)
+
+       initQuda-endQuda Total time =     1.717 secs
+
+                   QUDA Total time =     1.649 secs
+                 download     =     0.013 secs (  0.798%),	 with        2 calls at 6.582e+03 us per call
+                     init     =     0.218 secs ( 13.228%),	 with     2243 calls at 9.723e+01 us per call
+                 preamble     =     0.025 secs (  1.486%),	 with       97 calls at 2.526e+02 us per call
+                  compute     =     1.205 secs ( 73.072%),	 with     1300 calls at 9.267e+02 us per call
+                    comms     =     0.000 secs (  0.011%),	 with        2 calls at 9.150e+01 us per call
+                 epilogue     =     0.013 secs (  0.817%),	 with       26 calls at 5.180e+02 us per call
+                     free     =     0.020 secs (  1.227%),	 with      698 calls at 2.897e+01 us per call
+                    eigen     =     0.000 secs (  0.021%),	 with      112 calls at 3.036e+00 us per call
+        total accounted       =     1.495 secs ( 90.660%)
+        total missing         =     0.154 secs (  9.340%)
+
+Device memory used = 86.1 MiB
+Pinned device memory used = 0.0 MiB
+Managed memory used = 0.0 MiB
+Shmem memory used = 0.0 MiB
+Page-locked host memory used = 4.0 MiB
+Total host memory used >= 4.4 MiB
+

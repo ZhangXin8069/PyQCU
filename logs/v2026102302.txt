@@ -1,0 +1,121 @@
+[日志元数据]
+日志类型: final
+生成时间: 2026-10-23 02:31:21 +0800
+批次: qcu-p1-testing-benchmark-20261023
+主任务: 统一 QCU P1 接口、整改 testing、拆分 simple、近真实组态六版本性能评定并约定 Legacy-MultiGrid 默认
+触发原因: 任务完成
+摘要: 完成 LinearOperator/Krylov 统一适配、Legacy 默认约定、注释与测试目录整改、弃用清理、simple 分层和七路径真实 LIME 基准
+Git 根目录: /root/PyQCU
+
+## 关键日志
+### S1 — P1 LinearOperator/Krylov 统一
+- 目标: 在保持 CUDA/KUPL 原生热路径的前提下统一三后端算子与 Krylov 入口。
+- 命令/操作: 新增 pyqcu.api 的 CallableLinearOperator、NormalOperator、NativeSolve、WholeSolveKrylovDriver；新增 TorchLinearOperator、Torch BiCGStab/CG driver、pyqcu.solver.Krylov 选择器，以及 CUDA/KUPL compact-Schur operator/native driver。
+- 关键输出: solve() 保持原返回；solve_result() 统一结果；CUDA/KUPL 每次只调用一次原生 C++ solve；CUDA/KUPL CG 强制 CGOperator.NORMAL；原生未暴露的 residual 保持 None。
+- 退出码: 0
+- 证据与判断: Torch/API/MG 60 passed；真实 KUPL 和 smoke 19 passed。
+
+### S2 — 默认 Legacy-MultiGrid 约定
+- 目标: 将 Legacy-MultiGrid 固定为 QCU 默认 multigrid 求解器及开发/调试/优化对象。
+- 命令/操作: Multigrid 增加 DEFAULT_VARIANT="legacy" 和默认参数；PyQCUBackend Protocol 同步；在代码 docstring、AGENTS、正式文档和技能中明确 Strict 仅显式启用。
+- 关键输出: Multigrid() 默认 torch+legacy；variant="strict" 或直接 StrictMultigrid 才进入 Strict。
+- 退出码: 0
+- 证据与判断: 默认选择器回归通过；文档不再把 Strict 写成通用生产默认。
+
+### S3 — 注释与 testing 整改
+- 目标: 提升其他 agent 的上手速度并删除事实弃用残留。
+- 命令/操作: 子代理补充 Torch dslash、CUDA runtime、KUPL ctypes 注释；整改 testing AGENTS；删除 bench_three_way 转发壳、TileLang no-op 目录、3 个旧 CUDA harness；修复 test_smoke_quda_multigrid 的错误模块名。
+- 关键输出: qcu 目录可完整收集 265 项测试；简单/生产入口说明更清晰。
+- 退出码: 0
+- 证据与判断: 7 项 smoke passed；form audit PASS。
+
+### S4 — simple 复杂度拆分
+- 目标: 降低 pyqcu/testing/simple 单文件职责。
+- 命令/操作: 新增 _lime.py 与 _layouts.py；_common.py 保留兼容门面、路径、I/O、状态；兼容直接脚本执行。
+- 关键输出: _common.py 701→330 行；_lime.py 216 行；_layouts.py 229 行。
+- 退出码: 0
+- 证据与判断: simple 8 passed；直接 prepare_case.py/solve_case.py --help 通过；相关 qcu/simple 测试 26 passed。
+
+### S5 — 近真实组态七路径性能评定
+- 目标: Torch/CUDA/KUPL × Legacy/Strict 六版本，以 QUDA 为对照。
+- 命令/操作: 使用真实 LIME 的 8x8x8x16 原点前缀，c64、tol 1e-6、max_iter 200、2 levels、block 2^4、nvec=12；GPU 预热 3 s、2 warmup、5 steady。
+- 关键输出: steady median: CUDA Strict 0.021693 s；QUDA aligned MG 0.144755 s；CUDA Legacy initial-deflation 0.009302 s；CUDA Legacy fine-only 0.008500 s；Torch Legacy 0.607062 s；Torch Strict 1.670798 s；KUPL Legacy 0.256530 s；KUPL Strict 0.268440 s。
+- 退出码: 0
+- 证据与判断: CUDA Strict 独立真残差 3.348e-7，QUDA 5.067e-7；CUDA Legacy 该输入 coarse 未减少迭代且比 fine-only 慢；KUPL Legacy correction 7/7 被真残差门拒绝。性能子代理最终回执超时，主 agent 已核对 formal-release 原始 JSON/CSV/stdout 与报告。
+
+## 验证与证据
+- 测试/检查: Python/API/MG 60 passed；KUPL/simple/benchmark/smoke 30 passed；qcu collect-only 265；qcu six-way parser tests 3 passed；py_compile；form audit；git diff --check。
+- 结果: 全部通过。pytest 仅有当前 PyTorch 不支持 P100 sm_60 的环境警告。
+- 未验证项: QUDA 与 PyQCU byte-identical null-basis replay；KUPL Strict 公共 Python wrapper 修复；更大真实格点、c128、多 rank 六版本矩阵；CUDA Legacy 长期 periodic correction。
+
+## 变更与产物
+- 文件: pyqcu/api、pyqcu/solver/krylov、pyqcu/solver/_native_qcu.py、Torch/CUDA/KUPL operator 与 Krylov 模块、相关测试与 AGENTS；pyqcu/testing/simple/_common.py、_lime.py、_layouts.py；pyqcu/testing/benchmark/qcu_six_way*.py。
+- 产物: docs/api_contract.md；docs/qcu_six_way_benchmark_20261023.md；logs/qcu_six_way_20261023/formal-release；data/qcu_six_way_20261023。
+- 删除: simple/bench_three_way.py、tilelang no-op 目录、qcu 三个旧 harness/benchmark。
+- 未改动范围: 未提交、未推送、未打标签；未修改 CUDA/KUPL C++ solver 数值实现。
+
+## 风险、限制与下一步
+- 风险: 小格固定开销高，不能把 CUDA Strict/QUDA 倍率外推到大格；QUDA null-basis 非 byte-identical；KUPL 公共 Strict wrapper 仍有 ABI blocker。
+- 阻塞: 性能子代理 dispatcher 在产物完成后未返回 JSON 回执，已串行核对产物；无剩余实现阻塞。
+- 下一步: 修复 KUPL Strict 公共 wrapper ABI；扩展 16^3x32/24^3x64、c128 与多 rank；推进 create_backend 和 MG 原生 SolveResult。
+
+## 用户输入指令
+继续
+分析cuda版和kupl版和torch版qcu的legacy-mg与strict-mg(3*2=6种小版本)的优劣,将各自的可取之处相互借鉴,不足之处相互注意,总结为统一的最为优秀的qcu(三个平台使用较为统一的实现,可以存在一定的针对不同平台的特化)的legacy-mg与strict-mg,可以拓展到dslash和bistabcg和cg,且使用较为统一的pyqcu接口
+同时派发子代理为本库代码丰富注释,以此令其他agent能够快速上手
+派发子代理去进一步评定各个版本的qcu的求解器性能,quda作为性能对照,使用近真实组态
+可以删去{pyqcu/testing}中已经事实弃用的部分
+拆分pyqcu/testing/simple中过于复杂的部分,以实现简捷易用的目的之一
+整改:约定"Legacy-MultiGrid"为qcu默认multgrid求解器,也是日后qcu的multigrid求解器的默认debug和优化对象(即开发与使用对象),而同时"Strict-MultiGrid"将主要用于对照开发与算法参考以及特殊备选,除非明确调用,否则不默认启用
+同时上述约定需要在相关位置给出注释说明
+
+## Agent 全文报告
+--- report begin ---
+finished
+
+## 完成内容
+- 完成 P1：新增统一 `CallableLinearOperator`、`NormalOperator`、`NativeSolve`、`WholeSolveKrylovDriver`、Torch `LinearOperator`、Torch BiCGStab/CG driver、`Krylov` 选择器，以及 CUDA/KUPL compact-Schur 原生整次 solve adapter。
+- `Multigrid` 现在默认 `variant="legacy"`。Legacy-MultiGrid 是 QCU 默认开发、调试和优化对象；Strict-MultiGrid 只有显式 `variant="strict"` 或直接构造 `StrictMultigrid` 时启用。
+- 子代理补充了 Torch dslash、CUDA runtime、KUPL ctypes 的高价值注释和 docstring。
+- 完成 `pyqcu/testing` 整改：修复 `test_smoke_quda_multigrid.py` 错误模块名，删除弃用转发壳、TileLang no-op 目录和 3 个旧 CUDA harness/benchmark。
+- 拆分 `simple`：`_common.py` 从 701 行降到 330 行，新增 `_lime.py` 与 `_layouts.py`，兼容直接脚本执行。
+- 完成近真实 LIME 组态性能评定并生成正式报告与原始证据。
+
+## 性能结果
+同一 V100、真实 LIME `8×8×8×16` 前缀、c64、2 levels、`2^4` block、`nvec=12`、tol `1e-6`：
+
+| 路径 | steady median |
+|---|---:|
+| CUDA Strict | 0.021693 s |
+| QUDA aligned MG | 0.144755 s |
+| CUDA Legacy initial-deflation | 0.009302 s |
+| CUDA Legacy fine-only | 0.008500 s |
+| Torch Legacy | 0.607062 s |
+| Torch Strict | 1.670798 s |
+| KUPL Legacy | 0.256530 s |
+| KUPL Strict | 0.268440 s |
+
+CUDA Strict 独立真残差 `3.348e-7`，QUDA `5.067e-7`。小格固定开销高，CUDA Strict/QUDA 的 `6.673×` 不能外推到大格。CUDA Legacy 在该输入上 coarse correction 未减少迭代且比 fine-only 慢；KUPL Legacy correction 7/7 被真残差门拒绝。QUDA sm70 构建无 QIO，不能 replay byte-identical canonical null vectors。
+
+## 验证
+- Python/API/MG：60 passed。
+- KUPL/simple/benchmark/smoke：30 passed。
+- `qcu` collect-only：265 项。
+- six-way parser/summary tests：3 passed。
+- `py_compile`、form audit、`git diff --check`：通过。
+- 未提交、未推送、未打标签。
+
+## 主要产物
+- `docs/api_contract.md`
+- `docs/qcu_six_way_benchmark_20261023.md`
+- `logs/qcu_six_way_20261023/formal-release/`
+- `data/qcu_six_way_20261023/`
+- `pyqcu/testing/simple/_lime.py`
+- `pyqcu/testing/simple/_layouts.py`
+
+## 剩余边界
+- KUPL Strict 公共 Python wrapper 仍有 ABI blocker，底层 C ABI 已真实运行。
+- QUDA 未使用与 PyQCU byte-identical 的 canonical null-vector replay。
+- 更大格点、c128、多 rank、多节点和 CUDA Legacy 长期 periodic correction 尚未验证。
+- `pyqcu.api.create_backend()` 和 MG 后端原生 SolveResult 仍未实现。
+--- report end ---

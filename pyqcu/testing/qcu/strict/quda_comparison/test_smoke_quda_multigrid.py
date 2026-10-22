@@ -14,7 +14,7 @@ HERE = Path(__file__).resolve().parent
 if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
 
-from pyqcu.testing.qcu.strict.quda_comparison import smoke_multigrid_core as smoke
+from pyqcu.testing.qcu.strict.quda_comparison import smoke_quda_multigrid as smoke
 
 
 class _CopyOnReadParam:
@@ -125,5 +125,5 @@ def test_compile_instance_parser_and_failure_json():
 
 
 def test_setup_script_contains_no_solve_call():
-    source = (HERE / "smoke_multigrid_core.py").read_text(encoding="utf-8")
+    source = (HERE / "smoke_quda_multigrid.py").read_text(encoding="utf-8")
     assert ".invert(" not in source

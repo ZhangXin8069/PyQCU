@@ -1,0 +1,37 @@
+/usr/local/lib/python3.10/dist-packages/torch/cuda/__init__.py:435: UserWarning: 
+    Found GPU1 Tesla P100-PCIE-16GB which is of cuda capability 6.0.
+    Minimum and Maximum cuda capability supported by this version of PyTorch is
+    (7.0) - (12.0)
+    
+  queued_call()
+/usr/local/lib/python3.10/dist-packages/torch/cuda/__init__.py:435: UserWarning: 
+    Please install PyTorch with a following CUDA
+    configurations:  12.6 following instructions at
+    https://pytorch.org/get-started/locally/
+    
+  queued_call()
+/usr/local/lib/python3.10/dist-packages/torch/cuda/__init__.py:435: UserWarning: 
+    Found GPU2 Tesla P100-PCIE-16GB which is of cuda capability 6.0.
+    Minimum and Maximum cuda capability supported by this version of PyTorch is
+    (7.0) - (12.0)
+    
+  queued_call()
+/usr/local/lib/python3.10/dist-packages/torch/cuda/__init__.py:435: UserWarning: 
+Tesla P100-PCIE-16GB with CUDA capability sm_60 is not compatible with the current PyTorch installation.
+The current PyTorch install supports CUDA capabilities sm_70 sm_75 sm_80 sm_86 sm_90 sm_100 sm_120.
+If you want to use the Tesla P100-PCIE-16GB GPU with PyTorch, please check the instructions at https://pytorch.org/get-started/locally/
+
+  queued_call()
+lattice set whole time:0.114981888 sec
+lattice set whole time:0.017419264 sec
+lattice set whole time:0.208395554 sec
+Traceback (most recent call last):
+  File "/root/PyQCU/pyqcu/testing/qcu/multigrid/benchmarks/legacy_vs_strict.py", line 706, in <module>
+    raise SystemExit(main())
+  File "/root/PyQCU/pyqcu/testing/qcu/multigrid/benchmarks/legacy_vs_strict.py", line 695, in main
+    payload = _run_strict(args)
+  File "/root/PyQCU/pyqcu/testing/qcu/multigrid/benchmarks/legacy_vs_strict.py", line 603, in _run_strict
+    data=tools.pooxyzt2oooxyzt(output).detach().cpu().numpy())
+  File "/root/PyQCU/pyqcu/tools/__init__.py", line 120, in __getattr__
+    raise AttributeError(f"module 'pyqcu.tools' has no attribute {name!r}")
+AttributeError: module 'pyqcu.tools' has no attribute 'pooxyzt2oooxyzt'. Did you mean: 'poooxyzt2oooxyzt'?

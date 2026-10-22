@@ -44,7 +44,7 @@ description: 当任务涉及 pyqcu.api、后端无关配置/结果/能力/资产
 尚未实现：
 
 - `pyqcu.api.create_backend()`。
-- 各后端显式返回原生 `SolveResult` 的完整适配器。
+- 各 MG 后端显式返回原生 `SolveResult` 的完整适配器。
 - 现有 Legacy 路径未暴露的 correction/cycle/full-residual 字段。
 - CUDA/KUPL 的 compact-Schur adjoint、diagonal、normalized MATPC 与 Clover CG ABI。
 
@@ -82,6 +82,9 @@ Protocol 在每次迭代穿过 Python。后端拥有 stream、halo、MPI communi
 `Multigrid.solve()` 的返回类型保持不变；`solve_result()` 返回 `SolveResult`。兼容适配器只读取
 后端已有属性，不拥有第二套停机、计数或残差逻辑。完整原生结果必须由后端显式提供后，
 再移除属性探测。
+
+`Multigrid` 默认 `variant="legacy"`。Legacy-MultiGrid 是 QCU 默认开发、调试和优化对象；
+Strict-MultiGrid 只有显式 `variant="strict"` 或直接构造 `StrictMultigrid` 时才启用。
 
 统一 Krylov 入口为 `Krylov(backend=..., method=..., operator=..., control=...)`。Torch
 可以在 Python 中迭代；CUDA/KUPL 必须调用一次原生 C++ solve，不能把 `operator.apply()`

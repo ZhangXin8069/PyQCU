@@ -1,0 +1,45 @@
+PYQCU::KUPL::INIT:
+ rank=0 size=1 grid=1,1,1,1 local=8,8,8,16 threads=16 csw=1.16092
+QCU_SIX_WAY_SOLVE_BEGIN	0
+PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:
+ deflation residual=442.774 target=0.000442774 corrections=0
+PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:
+ final iterations=48 residual=0.000272893 target=0.000442774 relative=6.16327e-07
+QCU_SIX_WAY_SOLVE_END	0	0.26012161099970399
+QCU_SIX_WAY_SOLVE_BEGIN	1
+PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:
+ deflation residual=442.774 target=0.000442774 corrections=0
+PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:
+ final iterations=48 residual=0.000273527 target=0.000442774 relative=6.17759e-07
+QCU_SIX_WAY_SOLVE_END	1	0.27746901299906312
+QCU_SIX_WAY_SOLVE_BEGIN	2
+PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:
+ deflation residual=442.774 target=0.000442774 corrections=0
+PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:
+ final iterations=48 residual=0.000273325 target=0.000442774 relative=6.17303e-07
+QCU_SIX_WAY_SOLVE_END	2	0.27166199300154403
+QCU_SIX_WAY_SOLVE_BEGIN	3
+PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:
+ deflation residual=442.774 target=0.000442774 corrections=0
+PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:
+ final iterations=48 residual=0.000273105 target=0.000442774 relative=6.16805e-07
+QCU_SIX_WAY_SOLVE_END	3	0.25460232799923688
+QCU_SIX_WAY_SOLVE_BEGIN	4
+PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:
+ deflation residual=442.774 target=0.000442774 corrections=0
+PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:
+ final iterations=48 residual=0.000273173 target=0.000442774 relative=6.16958e-07
+QCU_SIX_WAY_SOLVE_END	4	0.2587292680000246
+QCU_SIX_WAY_SOLVE_BEGIN	5
+PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:
+ deflation residual=442.774 target=0.000442774 corrections=0
+PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:
+ final iterations=48 residual=0.00027302 target=0.000442774 relative=6.16614e-07
+QCU_SIX_WAY_SOLVE_END	5	0.25652984000043944
+QCU_SIX_WAY_SOLVE_BEGIN	6
+PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:
+ deflation residual=442.774 target=0.000442774 corrections=0
+PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:
+ final iterations=48 residual=0.000273687 target=0.000442774 relative=6.18119e-07
+QCU_SIX_WAY_SOLVE_END	6	0.2528290249993006
+{"schema": "pyqcu.qcu-six-way.side.v1", "variant": "kupl-legacy", "backend": "kupl", "strategy": "legacy", "status": "PASS", "lattice": [8, 8, 8, 16], "mass": -0.277, "csw": 1.160920226, "precision": "c64", "configuration": {"tolerance": 1e-06, "max_iter": 200, "levels": 2, "block": [2, 2, 2, 2], "nvec": 12, "coarse_dof": 12, "coarse_spin": null, "coarse_tolerance": 0.0001, "coarse_max_iter": 200, "restart": 20, "legacy_correction_interval": 5, "nu_pre": 1, "nu_post": 1, "warmups": 2, "repeats": 5}, "inputs": {"gauge": {"path": "/root/PyQCU/data/benchmark_legacy_vs_strict_20261022/cases/8x8x8x16/gauge_8x8x8x16_c64.h5", "sha256": "bac143c8daca542c8143997b7abdbe0c151d1aab23375bf6597db4ec54c17ac2"}, "source": {"path": "/root/PyQCU/data/benchmark_legacy_vs_strict_20261022/cases/8x8x8x16/source_8x8x8x16_c64.h5", "sha256": "6e7d74ce8095d71ad0eacf6464c131792dbf7ba303bbc2d55958dd834dda5ba4"}, "null_vectors": {"path": "/root/PyQCU/data/benchmark_legacy_vs_strict_20261022/nullvec/8x8x8x16_nvec12_full_c64_csw1p160920226.h5", "sha256": "a2383e8415585c682465b8c15f8764554f6dd0011c35506a4b8bf25aa2d9a8d3"}, "legacy_cache": {"path": "/root/PyQCU/data/logs/qcu_six_way_20261023/kupl_legacy_coarse_c64.h5", "sha256": "83fa7e22f7e394b0bd7b4acdd238a9453648e4c0185b4111553ff7662740be5f", "size_bytes": 28905472}}, "timing": {"input_load_seconds": 0.009195730999635998, "cache_load_seconds": 0.015308283000194933, "setup_seconds": 0.01324036400001205, "warmup_seconds": [0.260121610999704, 0.2774690129990631], "first_solve_seconds": 0.260121610999704, "steady_seconds": [0.27166199300154403, 0.2546023279992369, 0.2587292680000246, 0.25652984000043944, 0.2528290249993006], "steady_median_seconds": 0.25652984000043944, "steady_mad_seconds": 0.0021994279995851684}, "iterations": {"samples": [], "median": null, "semantics": "parsed by the orchestrator from KUPL C++ debug stdout"}, "residual": {"independent_relative": 6.198774258336925e-07, "gate": 1e-06, "pass": true, "source": "independent PyTorch full Wilson/Clover reconstruction", "scope": "full"}, "coarse_execution": {"kind": "legacy_periodic_correction", "executed": null, "attempted_vcycles": null, "source": "KUPL C++ debug stdout parsed by the orchestrator"}, "memory": {"device_memory_applicable": false, "host_peak_rss_bytes": 805875712, "host_rss_start_bytes": 651980800, "host_rss_end_bytes": 797986816, "workspace_scope": "CPU vectors allocated by the C++ Legacy solver"}, "provenance": {"python": "3.10.12 (main, Sep 11 2024, 15:47:36) [GCC 11.4.0]", "pid": 162734, "hostname": "68bb03cf529b", "argv": ["/root/PyQCU/pyqcu/testing/benchmark/qcu_six_way_worker.py", "--variant", "kupl-legacy", "--gauge", "/root/PyQCU/data/benchmark_legacy_vs_strict_20261022/cases/8x8x8x16/gauge_8x8x8x16_c64.h5", "--source", "/root/PyQCU/data/benchmark_legacy_vs_strict_20261022/cases/8x8x8x16/source_8x8x8x16_c64.h5", "--nullvec", "/root/PyQCU/data/benchmark_legacy_vs_strict_20261022/nullvec/8x8x8x16_nvec12_full_c64_csw1p160920226.h5", "--null-dataset", "null", "--lat", "8", "8", "8", "16", "--mass", "-0.277", "--csw", "1.160920226", "--tolerance", "1e-06", "--coarse-tolerance", "0.0001", "--max-iter", "200", "--coarse-max-iter", "200", "--levels", "2", "--block", "2", "2", "2", "2", "--nvec", "12", "--nu", "1", "--restart", "20", "--correction-interval", "5", "--warmups", "2", "--repeats", "5", "--seed", "42", "--device", "cuda:0", "--max-workspace-bytes", "536870912", "--output", "/root/PyQCU/logs/qcu_six_way_20261023/formal-release/kupl-legacy.json", "--legacy-cache", "/root/PyQCU/data/logs/qcu_six_way_20261023/kupl_legacy_coarse_c64.h5", "--solution-output", "/root/PyQCU/data/qcu_six_way_20261023/solutions/kupl-legacy-solution.h5"], "omp_num_threads": "16", "cuda_visible_devices": null}}

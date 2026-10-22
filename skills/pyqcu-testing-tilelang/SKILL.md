@@ -5,20 +5,19 @@ description: 当任务涉及 pyqcu/testing/tilelang、TileLang JIT 集成或 no-
 # pyqcu/testing/tilelang
 
 TileLang JIT integration for CUDA lives behind `pyqcu/torch/tools/_einsum.py` and
-`pyqcu/torch/tools/_matul.py`. The current directory has no active test invocation,
-so validate the implementation through a real test entry rather than this no-op file.
+`pyqcu/torch/tools/_matul.py`. The historical `pyqcu/testing/tilelang/` no-op
+directory has been removed; validate through `pyqcu.testing.test_matmul()` or a new
+real pytest node.
 
 ## Files
 
-| File | Purpose |
-|------|---------|
-| `conftest.py` | 当前只有两行注释，是 no-op 占位，不是有效测试入口 |
+当前没有独立测试目录或有效测试入口。历史 no-op `conftest.py` 与空目录已删除。
 
 ## Usage
 
-不要执行 `python pyqcu/testing/tilelang/conftest.py` 并把退出码 `0` 当作 TileLang
-测试通过：当前文件不导入 `pyqcu.testing`，也没有调用 `test_matmul()`，进程会无输出
-退出。需要恢复该入口时，先启用真实测试调用，再要求 pytest 收集到至少一个测试；
+不要再引用 `python pyqcu/testing/tilelang/conftest.py`。历史文件不导入
+`pyqcu.testing`，也没有调用 `test_matmul()`，进程会无输出退出，现已删除。需要恢复该入口时，
+先启用真实测试调用，再要求 pytest 收集到至少一个测试；
 只有 `exit=0` 或只有 `TESTS=...` 而没有断言结果都不构成验证。来源：
 `docs/multigrid_deprecation_audit_20261022.md:41-61`。
 

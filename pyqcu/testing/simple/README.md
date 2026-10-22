@@ -243,7 +243,9 @@ mpirun --bind-to numa --map-by ppr:1:numa -np 4 ...
 | `qcu_*2quda_*` / `quda_*2qcu_*` | 显式格式转换 |
 | `check_*.py` | 输入自检与往返布局验证 |
 | `give_gauss_gauge.py` | 生成 Gaussian SU(3) gauge |
-| `_common.py` | 路径、LIME、HDF5、布局和残差共享工具 |
+| `_common.py` | 兼容门面、路径/默认值、HDF5/JSON、残差与状态共享工具 |
+| `_lime.py` | 单文件 SciDAC/LIME 元数据与 gauge payload |
+| `_layouts.py` | QCU/QDP/KUPL 与 Clover 布局转换 |
 | `_runner.py` | 子进程、GPU 架构、KUPL 启动和报告共享工具 |
 | `mpi/` | MPI 小格点快速验收入口 |
 | `slurm_lime_backend_matrix.sh` | 集群环境下的 QCU/QUDA LIME 矩阵测量 |

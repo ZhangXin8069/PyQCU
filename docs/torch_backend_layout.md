@@ -16,7 +16,7 @@ PyQCU 的 Python 实现按执行后端分层。Torch/CANN 实现统一位于
 | `pyqcu/torch/tools/` | Torch 实现 | 线性代数、null vectors、restrict/prolong、strict Galerkin、TileLang |
 | `pyqcu/lattice/` | 公共 | gamma/Gell-Mann、ward、SU(3)、源场和规范场定义 |
 | `pyqcu/tools/` | 公共 | MPI 网格、布局、HDF5、env、budget、绘图 |
-| `pyqcu/solver/multigrid/` | 公共选择器 | `Multigrid(variant=..., backend=...)` |
+| `pyqcu/solver/multigrid/` | 公共选择器 | `Multigrid(backend=..., ...)` 默认 `variant="legacy"`；Strict 必须显式指定 |
 | `pyqcu/cann/` | 公共兼容层 | CPU/CUDA/NPU 的 Torch 复数运算适配 |
 | `pyqcu/cuda/` | CUDA 后端 | Cython 桥、runtime、strict cache/MPI、CUDA multigrid |
 | `pyqcu/kupl/` | KUPL 后端 | ctypes ABI 与 CPU multigrid |
@@ -31,7 +31,9 @@ from pyqcu.solver.multigrid import Multigrid
 
 operator = dslash.operator(U=U, clover_term=clover, kappa=kappa)
 smoothed = smear.stout_smear(U, nstep=2)
-mgs = Multigrid(variant="strict", backend="torch", **hierarchy_options)
+mgs = Multigrid(backend="torch", **legacy_options)  # 默认 Legacy-MultiGrid
+strict_mgs = Multigrid(
+    variant="strict", backend="torch", **strict_options)  # 仅显式选择
 ```
 
 顶层 `pyqcu.dslash`、`pyqcu.smear`、`pyqcu.solver` 和 `pyqcu.tools` 保留旧导入兼容。
@@ -50,4 +52,3 @@ mgs = Multigrid(variant="strict", backend="torch", **hierarchy_options)
 - 旧 `from pyqcu import dslash, solver, smear, tools` 仍可用。
 - 旧 `from pyqcu.solver import StrictMultigrid` 等公开类仍可用。
 - 私有模块导入 `pyqcu.solver._...` 或 `pyqcu.tools._...` 不再作为规范路径；仓内代码已迁移到 `pyqcu.torch.*`。
-

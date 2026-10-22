@@ -29,6 +29,7 @@ class KuplLinearOperator(FlatQcuLinearOperator):
                 else "applyWilsonBistabCgQcu"),
             solver_cg=None if clover_mode else "applyWilsonCgQcu",
             iteration_getter="getCloverBistabCgIterationsQcu",
+            tolerance_semantics="max(atol,residual_floor)*max(rhs_norm,1)",
             clover_assets=clover_assets,
         )
 

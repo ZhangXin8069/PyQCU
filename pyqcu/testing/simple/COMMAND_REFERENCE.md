@@ -524,11 +524,13 @@ python pyqcu/testing/simple/mpi/solve_case.py --help
 
 | 文件 | 职责 |
 |---|---|
-| `_common.py` | LIME、HDF5、路径、布局转换、残差、报告共享函数 |
+| `_common.py` | 兼容门面、路径/默认值、HDF5/JSON、残差与状态共享函数 |
+| `_lime.py` | 单文件 SciDAC/LIME 元数据与 gauge payload |
+| `_layouts.py` | QCU/QDP/KUPL 与 Clover 布局转换 |
 | `_runner.py` | GPU 隔离、library variant、KUPL 命令构造 |
 | `kupl_residual.py` | KUPL/CUDA MPI 分布式独立真残差 |
 | `test_coarse_cache.py` | coarse cache alias regression |
-| `bench_three_way.py` | 弃用兼容壳，转发到 `compare_three_way.py` |
+| `compare_three_way.py` | 三方重复计时与报告入口；旧 `bench_three_way.py` 转发壳已删除 |
 
 ## 14. 推荐帮助命令
 
