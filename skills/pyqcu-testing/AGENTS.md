@@ -1,4 +1,4 @@
-# pyqcu-testing
+# AGENTS.md — pyqcu-testing
 
 pyqcu.testing 集成测试 skill：全组件 `test_*` 入口，以及 Strict MultiGrid
 tier 0/1/2 快速闸门、MPI/缓存/QIO/显存证据协议。

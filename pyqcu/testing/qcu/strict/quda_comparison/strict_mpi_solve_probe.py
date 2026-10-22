@@ -23,11 +23,12 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
 from pyqcu.testing.qcu.strict.quda_comparison.common import grid_index_for_rank, make_clover_tensors, process_grid
-from pyqcu import dslash, lattice, tools
+from pyqcu import lattice, tools
+from pyqcu.torch import dslash
 from pyqcu.cuda import StrictMultigrid as CudaStrictMultigrid
 from pyqcu.cuda import define, qcu
-from pyqcu.solver import Checkerboard as QudaCheckerboard
-from pyqcu.solver import StrictMultigrid
+from pyqcu.torch.solver import Checkerboard as TorchCheckerboard
+from pyqcu.torch.solver import StrictMultigrid
 
 
 def _slice_local(tensor: torch.Tensor, starts, local_shape):
@@ -354,7 +355,7 @@ def main() -> int:
                 3, 3, 4, *args.shape, dtype=dtype)
             for color in range(3):
                 global_identity[color, color] = 1.0
-            layout = QudaCheckerboard(tuple(args.shape))
+            layout = TorchCheckerboard(tuple(args.shape))
             target = global_compact.reshape(12, -1)
             target_full = layout.embed(
                 target, hierarchy.target_parity, 12).reshape(

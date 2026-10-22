@@ -1,8 +1,19 @@
+# PyQCU 安装与构建
+
+从仓库根初始化环境并构建：
+
 ```bash
+source ./env.sh
+bash ./build.sh
 bash ./install.sh
 ```
 
-## KUPL CPU backend
+- `build.sh` 构建 `cpp/cuda/qcu` 原生 CUDA 后端，产出 `libqcu.so`。
+- `install.sh` 原地构建 Python/Cython 扩展。
+- CUDA 架构必须在 `libqcu.so` 中实际存在；正式 benchmark 应记录架构请求值、
+  `libqcu.so` 路径与 SHA256。
+
+## KUPL CPU 后端
 
 The independent MPI+OpenMP backend does not require CUDA:
 
@@ -22,7 +33,7 @@ python -m pytest -q pyqcu/testing/kupl
 Set `PYQCU_KUPL_LIB=/absolute/path/libqcu.so` when the library is installed
 outside the default `cpp/kupl/qcu/build/` directory.
 
-## QUDA/PyQUDA example runtime
+## QUDA/PyQUDA 运行时
 
 The simple PyQUDA examples preload the repository-local
 `data/quda-sm70-install/lib/libquda.so` when present. `env.sh` also places that

@@ -265,7 +265,7 @@ def _independent_true_residual(
     value = None
     if comm.Get_rank() == 0:
         import torch
-        from pyqcu import dslash
+        from pyqcu.torch import dslash
 
         torch.set_num_threads(max(1, int(threads) * int(comm.Get_size())))
         complex_dtype = (

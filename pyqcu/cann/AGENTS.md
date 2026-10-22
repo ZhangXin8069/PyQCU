@@ -13,7 +13,7 @@
 
 ## 全局标志
 
-`pyqcu.cann.force_use_npu = True` — 无 NPU 硬件时在 CPU 上强制走 NPU 路径。只影响 cann 层；部分模块（`dslash/_wilson.py`、`tools/_define.py`、`tools/_multigrid.py`、`smear/_stout.py`）另有每模块 `force_use_npu` 标志做更深层 NPU 工作区（如张量维度限制）。
+`pyqcu.cann.force_use_npu = True` — 无 NPU 硬件时在 CPU 上强制走 NPU 路径。只影响 cann 层；部分模块（`torch/dslash/_wilson.py`、`tools/_define.py`、`torch/tools/_multigrid.py`、`torch/smear/_stout.py`）另有每模块 `force_use_npu` 标志做更深层 NPU 工作区（如张量维度限制）。
 
 ## 提供的函数
 

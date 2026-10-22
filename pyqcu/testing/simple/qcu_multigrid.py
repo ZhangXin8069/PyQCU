@@ -174,7 +174,7 @@ def main(argv=None) -> int:
         tuple(args.lat), mass, csw, args.atol, args.max_iter, args.device,
         args.gauge, args.source)
     import torch
-    from pyqcu import dslash
+    from pyqcu.torch import dslash
     from pyqcu.cuda import define
     from pyqcu.cuda._multi_gpu import build_schur_levels
 

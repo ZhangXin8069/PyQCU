@@ -6,8 +6,9 @@ from pathlib import Path
 import pytest
 import torch
 
-from pyqcu import dslash, lattice, tools
+from pyqcu import lattice, tools
 from pyqcu.cuda import QcuRuntime, define
+from pyqcu.torch import dslash
 from pyqcu.testing.qcu.single_function_common import (
     qcu_clover_dslash_reference, qcu_wilson_dslash_reference)
 from pyqcu.testing.kupl.check_abi import _declarations

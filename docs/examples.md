@@ -20,7 +20,7 @@
 
 ```bash
 source ./env.sh
-cd pyqcu/testing && pytest .
+(cd pyqcu/testing && pytest .)
 mpirun -np 4 python pyqcu/testing/python/conftest.py
 python pyqcu/testing/qcu/single_qcu_api.py
 pytest pyqcu/testing/quda

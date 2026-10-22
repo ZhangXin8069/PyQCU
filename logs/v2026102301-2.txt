@@ -1,0 +1,93 @@
+[日志元数据]
+日志类型: final
+生成时间: 2026-10-23 01:14:46 +0800
+批次: docs-skills-governance-20261023
+主任务: 全面规范优化 docs 与 skills 目录
+触发原因: 任务完成
+摘要: docs=24、skills=35；建立统一审计器、trigger-only descriptions、唯一 Primary 映射与 pyqcu-api 技能
+Git 根目录: /root/PyQCU
+
+## 关键日志
+### S1 — 文档结构规范化
+- 目标: 规范 docs 分类、索引、权威级别和生命周期。
+- 命令/操作: 将 `docs/AGENTS.md` 重组为四类；新增 P 设计提案级别；补全并去重 API 契约、Torch 布局与统一后端策略索引。
+- 关键输出: docs 从分散平表收敛为 24 份文档、唯一 Primary 技能和 Consumers 交叉指针。
+- 退出码: 0。
+- 证据与判断: `project-docs-map.md` 与 `extracted-guidance.md` 均 24/24 覆盖；重复行和缺失行由审计器阻断。
+
+### S2 — 小幅指南重写
+- 目标: 消除无标题片段和过时环境说明。
+- 命令/操作: 重写 `dims.md`、`env.md`、`install.md`、`profiler.md`；修正测试命令、QUDA 条件环境和 PyQUDA 版本边界。
+- 关键输出: 四个指南均具备 H1、仓库根可执行命令和清晰依赖边界；TileLang 标为可选。
+- 退出码: 0。
+- 证据与判断: 文档本地链接与标题锚点全部通过。
+
+### S3 — 技能结构与触发规范
+- 目标: 统一 35 个技能目录形态和 description 语义。
+- 命令/操作: 将所有 `AGENTS.md` 首行统一为 `# AGENTS.md — <skill>`；重写 29 个描述为 trigger-only；更新技能表 35/35。
+- 关键输出: 35/35 SKILL+AGENTS 存在，description 唯一、非摘要式、带触发条件；所有按需 references/scripts 均有读取分支。
+- 退出码: 0。
+- 证据与判断: 专项审计器通过；最长 SKILL 470 行。
+
+### S4 — 新增 pyqcu-api 技能
+- 目标: 为并发新增的 `pyqcu.api` 与 `docs/api_contract.md` 建立唯一主责技能。
+- 命令/操作: 新增 `skills/pyqcu-api/SKILL.md` 和 `AGENTS.md`；更新 root/skills/docs 三处计数、映射和结论索引。
+- 关键输出: P0 配置、结果、Capabilities、AssetManifest、Protocol 和 MG 兼容层有独立技能；`create_backend()` 明确标为未实现。
+- 退出码: 0。
+- 证据与判断: `test_api_contract.py`、`test_multigrid_api.py`、`test_multigrid.py` 共 49 passed。
+
+### S5 — 可持续审计器
+- 目标: 把一次性整理变成可重复门禁。
+- 命令/操作: 新增 `skills/pyqcu-docs/scripts/audit-docs-skills.py`，接入 `pyqcu-docs`、`pyqcu-form` 和 `skills/AGENTS.md`。
+- 关键输出: 校验 docs/skills 计数、唯一索引、Primary/Consumers、frontmatter、trigger-only description、AGENTS 标题/指针、SKILL 篇幅、按需文件指针、文件命名、本地链接与 Markdown 锚点。
+- 退出码: 0。
+- 证据与判断: 初始 83 项问题全部清零，最终输出 `PASS docs=24 skills=35`。
+
+## 验证与证据
+- 检查: `python -B skills/pyqcu-docs/scripts/audit-docs-skills.py`。
+- 结果: `PASS docs=24 skills=35`。
+- 检查: `bash skills/pyqcu-form/form-audit.sh`。
+- 结果: `PASS：35 个技能目录与索引一致，豁免 1069 项既有 finding`。
+- 检查: API/多重网格 CPU 回归。
+- 结果: `49 passed`；4 个 warning 仅来自当前 PyTorch 不支持 sm_60 P100。
+- 检查: `bash -n`、`git diff --check`、AST parse、全部 Markdown 链接/围栏。
+- 结果: 均通过。
+- 未验证项: 未运行依赖 GPU/MPI/QUDA 的全量 pytest；本任务未修改求解器代码。
+
+## 变更与产物
+- 文件: 新增 `skills/pyqcu-api/` 与 `skills/pyqcu-docs/scripts/audit-docs-skills.py`；规范化 `docs/AGENTS.md`、四个小型指南、`skills/AGENTS.md`、全部技能 AGENTS 标题/description 和 docs 映射。
+- 产物: 24 份 docs 的统一分类、35 个技能的统一结构、唯一 Primary 技术裁决映射和持续审计入口。
+- 未改动范围: 未回退工作树中的并发代码重构；未提交、未打 tag、未推送；未删除文件。
+
+## 风险、限制与下一步
+- 风险: 当前工作树仍包含大量并发代码/文档修改，最终提交前应重新运行专项审计与 form。
+- 阻塞: 无。
+- 下一步: 若用户要求交付，可按逻辑分组暂存 docs、skills 和根 AGENTS，再创建开发标签。
+
+## 用户输入指令
+进一步全面规范优化docs与skills目录
+
+## Agent 全文报告
+--- report begin ---
+**完成内容**
+- 将 `docs/AGENTS.md` 重组为核心操作规范、MultiGrid 技术参考、性能状态证据、历史治理四类，当前 24 份 Markdown 全部有稳定索引。
+- `project-docs-map.md` 改为单一 `Primary` + `Consumers`，每份文档只有一个技术裁决技能；新增 `P 设计提案` 权威级别。
+- `extracted-guidance.md` 完成 24/24 结论覆盖，补入 P0 API 契约和部分实现的统一后端策略边界。
+- 新增 [pyqcu-api](/root/PyQCU/skills/pyqcu-api/SKILL.md) 技能，覆盖 `SolveResult`、配置、Capabilities、AssetManifest、Protocol、MG 兼容层，并明确 `create_backend()` 尚未实现。
+- 35 个技能的 `description` 统一为 trigger-only；29 个原“完整生成 skill”式摘要已改写。
+- 35 个 `AGENTS.md` 首行统一为 `# AGENTS.md — <技能名>`，并全部指向 `SKILL.md`。
+- 新增 [audit-docs-skills.py](/root/PyQCU/skills/pyqcu-docs/scripts/audit-docs-skills.py)，持续校验计数、唯一索引、Primary 映射、frontmatter、description、AGENTS、按需文件指针、链接、Markdown 锚点和篇幅。
+- 重写 [dims.md](/root/PyQCU/docs/dims.md)、[env.md](/root/PyQCU/docs/env.md)、[install.md](/root/PyQCU/docs/install.md)、[profiler.md](/root/PyQCU/docs/profiler.md)，补齐 H1、依赖、命令和生命周期边界。
+- 修正统一策略文档中“Protocol/Manifest 尚未实现”的过期陈述、一个无效 Markdown 锚点和硬编码集群绝对路径。
+
+**验证结果**
+- `python -B skills/pyqcu-docs/scripts/audit-docs-skills.py`: `PASS docs=24 skills=35`
+- `bash skills/pyqcu-form/form-audit.sh`: PASS，35/35 技能目录一致
+- API/MG CPU 回归: `49 passed`；4 个 warning 来自当前 PyTorch 不支持 sm_60 P100
+- `bash -n`: PASS
+- `git diff --check`: PASS
+- 本地 Markdown 链接、标题锚点、代码围栏与 AST 检查: PASS
+
+**限制**
+工作树包含并发代码重构，本任务未回退这些修改；未运行依赖 GPU/MPI/QUDA 的全量 pytest。未提交、未打 tag、未推送，也未删除文件。
+--- report end ---

@@ -19,6 +19,7 @@ class StrictMultigrid:
 
     variant = "strict"
     backend = "kupl"
+    residual_scope = "matpc"
 
     def __init__(
             self, params: Any, argv: Any, set_ptrs: Any, gauge: Any,

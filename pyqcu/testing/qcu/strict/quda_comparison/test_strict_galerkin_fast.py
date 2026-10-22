@@ -8,8 +8,8 @@ from time import perf_counter
 import pytest
 import torch
 
-from pyqcu.solver import StrictCoarseOperator, StrictMatPCOperator, StrictTransfer
-from pyqcu.tools._strict_galerkin import (
+from pyqcu.torch.solver import StrictCoarseOperator, StrictMatPCOperator, StrictTransfer
+from pyqcu.torch.tools._strict_galerkin import (
     STRICT_GALERKIN_SCHEMA,
     build_strict_galerkin,
     build_strict_galerkin_colored,

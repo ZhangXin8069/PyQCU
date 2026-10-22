@@ -1,6 +1,6 @@
 ---
 name: pyqcu-testing-gpu
-description: pyqcu/testing/gpu 目录的完整生成 skill：通用 GPU 测试占位（当前为空）。
+description: 当任务涉及 pyqcu/testing/gpu 的通用 GPU 测试或占位入口时使用。
 ---
 # pyqcu/testing/gpu
 

@@ -2737,7 +2737,8 @@ def _canonical_true_residual(
     """双方共用的 full Wilson/Clover 真相对残差。"""
     try:
         import torch
-        from pyqcu import dslash, tools
+        from pyqcu import tools
+        from pyqcu.torch import dslash
     except (ImportError, OSError) as exc:
         raise BenchmarkSkip("missing_pyqcu_residual_dependency", repr(exc)) from exc
     kappa = 1.0 / (2.0 * float(mass) + 8.0)
@@ -2803,7 +2804,8 @@ def _canonical_true_residual_mpi(
     """Global true residual for rank-local parity fields."""
     import torch
     from mpi4py import MPI
-    from pyqcu import dslash, tools
+    from pyqcu import tools
+    from pyqcu.torch import dslash
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -2912,7 +2914,7 @@ def _configured_strict_runtime_assets(
     import torch
     from pyqcu.cuda import define, qcu
     from pyqcu.cuda._schur_op import CudaSchurOp
-    from pyqcu.solver._multigrid_core import QcuStrictAssetBinding
+    from pyqcu.torch.solver._multigrid_core import QcuStrictAssetBinding
 
     if len(assets) != len(level_specs) or not assets:
         raise ValueError("strict runtime assets/level_specs 必须是等长非空序列")
@@ -3191,14 +3193,15 @@ def _run_pyqcu_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
     try:
         import numpy as np
         import torch
-        from pyqcu import dslash, tools
+        from pyqcu import tools
+        from pyqcu.torch import dslash
         from pyqcu.cuda import define, qcu
         from pyqcu.cuda._strict_cache import (
             StrictRuntimeCacheConflictError,
             load_strict_runtime_cache,
             save_strict_runtime_cache,
         )
-        from pyqcu.solver import StrictMultigrid
+        from pyqcu.torch.solver import StrictMultigrid
         sys.path.insert(0, str(HERE))
         from pyqcu.testing.qcu.strict.quda_comparison.common import (
             _slice_last4, global_parity_to_local, local_geometry,
@@ -4914,7 +4917,7 @@ def _run_quda_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
                 device=device, dtype=complex_dtype).contiguous()
             rhs_for_residual = torch.from_numpy(source_np).to(
                 device=device, dtype=complex_dtype).contiguous()
-        from pyqcu import dslash
+        from pyqcu.torch import dslash
         full_gauge = tools.poooxyzt2oooxyzt(gauge_for_residual).contiguous()
         real_dtype = (
             torch.float32 if complex_dtype == torch.complex64 else torch.float64)

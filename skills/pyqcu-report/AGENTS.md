@@ -1,4 +1,4 @@
-# AGENTS.md — skills/pyqcu-report
+# AGENTS.md — pyqcu-report
 
 PyQCU 中文科研汇报生成技能，覆盖横版 Beamer、竖版讲稿、PPTX、报告原图提取、
 公式/算法编号与全页版式验收。

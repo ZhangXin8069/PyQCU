@@ -1,0 +1,74 @@
+[日志元数据]
+日志类型: final
+生成时间: 2026-10-23 00:31:08 +0800
+批次: docs-conclusions-to-skills-20261023
+主任务: 将 Legacy/Strict-MG 显存结论写入 docs，并将全部 docs 的稳定结论同步到 skills
+触发原因: 任务完成
+摘要: 新增显存正式文档；22 份 docs 全部进入技能映射与结论覆盖索引；关键版本、测试和启停边界已校正
+Git 根目录: /root/PyQCU
+
+## 关键日志
+### S1 — 正式文档落盘
+- 目标: 将 Legacy-MG/Strict-MG 显存峰值结论写入 docs。
+- 命令/操作: 新增 `docs/legacy_vs_strict_mg_memory_20261023.md`，并同步 `docs/AGENTS.md`、状态报告交叉链接和 `project-docs-map.md`。
+- 关键输出: 同输入 c64 两级 `nvec=12` 的 Legacy/Strict 峰值为 0.596/0.789、1.533/2.326、4.113/6.715 GiB；Strict 高 32.46%–63.25%。
+- 退出码: 0。
+- 证据与判断: 数值来自 `data/benchmark_legacy_vs_strict_20261022/reports/*.json`；Legacy 记录 `n_vcycles=0`，24x24x24x64 Strict 缺失。
+
+### S2 — docs 结论技能化
+- 目标: 把全部正式文档中仍有参考价值的稳定结论沉淀到 skills，避免复制全文。
+- 命令/操作: 扩展 `pyqcu-docs/references/extracted-guidance.md`，新增全部 22 份 docs 的结论覆盖索引；更新 solver、CUDA、benchmark、KUPL、testing、TileLang、PyQUDA、form 和 cache 参考。
+- 关键输出: Legacy 默认路径/30-12-15 gate/48 步 refresh/W=8 生产窗口、QUDA 0.10.54 当前参数快照、PyQUDA 运行时版本边界、TileLang no-op 假阳性、`_logs.py` 诊断 API 边界、c128 cold setup 状态、argv[8] ABI、dev103 同窗口径和显存设备身份边界均已同步。
+- 退出码: 0。
+- 证据与判断: 22 份 docs 在 `project-docs-map.md` 与 `extracted-guidance.md` 均无缺失映射。
+
+### S3 — 文档与技能一致性修正
+- 目标: 修复审计发现的文档冲突和执行歧义。
+- 命令/操作: 修正 `docs/AGENTS.md` 的未归档报告落点与 QUDA_PATH 描述；将 `docs/examples.md` 的测试命令改为子 shell，避免后续仓库根路径失效；更新 PyQUDA AGENTS 和技能到当前 0.10.54 API。
+- 关键输出: 当前 `pyquda.__version__=0.10.54`；历史 0.3.2 API/基线已显式标注为历史证据。
+- 退出码: 0。
+- 证据与判断: 当前代码 `run_pyquda.py` 使用 `pyquda.init`、`WilsonDirac`/`CloverWilsonDirac`、`loadGauge/invert/dslash`，旧 `invertQuda` 路径不再作为现行契约。
+
+## 验证与证据
+- 检查: 22 份 docs 的映射与结论覆盖集合比较；全部 docs 本地 Markdown 链接；代码围栏；技能 frontmatter；显存 JSON 数值断言；`bash -n`；`git diff --check`；form audit。
+- 结果: docs=22、映射缺失=0、断链=0、显存记录 3/3 一致；`bash -n` 与 `git diff --check` 退出 0；form audit 输出 `PASS ... 34 个技能目录与索引一致`。
+- 未验证项: 文档任务未重跑 GPU/CUDA/MPI/benchmark，也未运行依赖设备的全量 pytest。工作树中存在并发用户改动，均未回退。
+
+## 变更与产物
+- 文件: 新增 `docs/legacy_vs_strict_mg_memory_20261023.md`；修改 docs 索引/示例/状态交叉链接和多个领域技能及参考。
+- 产物: 显存正式文档、22 份 docs 全量结论覆盖索引、技能侧执行边界与版本修正。
+- 未改动范围: 未修改代码实现、benchmark 原始 JSON、CUDA/KUPL 行为；未提交、未打 tag、未推送。
+
+## 风险、限制与下一步
+- 风险: 显存结论仅覆盖当前 c64 两级 fine-only Legacy 路径，不能外推为 active coarse V-cycle 的算法级结论。
+- 阻塞: 无。
+- 下一步: 若要将显存比较升级为永久算法结论，应补齐实际执行 Legacy coarse V-cycle 与 24x24x24x64 Strict 的分阶段设备峰值。
+
+## 用户输入指令
+将此结论写入docs,并继续将docs中的所有有参考意义的结论写入skills目录
+
+## Agent 全文报告
+--- report begin ---
+**完成内容**
+- 新增正式文档 [legacy_vs_strict_mg_memory_20261023.md](/root/PyQCU/docs/legacy_vs_strict_mg_memory_20261023.md)，记录同输入 c64 两级 `nvec=12` 的设备级显存峰值、测量边界、差异来源和限制。
+- 将 22 份 `docs/*.md` 全部纳入 [project-docs-map.md](/root/PyQCU/skills/pyqcu-docs/references/project-docs-map.md) 和 [extracted-guidance.md](/root/PyQCU/skills/pyqcu-docs/references/extracted-guidance.md) 的结论覆盖索引，做到每份文档都有明确技能归宿。
+- 将显存结论同步到 `pyqcu-solver`、`pyqcu-benchmark`、`pyqcu-cuda` 和 MG cache 参考。
+- 补入 Legacy 当前默认路径、校正门、48 步真残差刷新、W=8 生产窗口、粗层停机与 `n_vcycles=0` 解读规则。
+- 补入 QUDA/PyQUDA 当前版本与默认参数快照，并将 PyQUDA 0.3.2 内容明确降级为历史证据；当前环境实际为 0.10.54。
+- 修正 TileLang no-op 测试入口、`_logs.py` 诊断 API、c128 cold setup 状态、`argv[8]` ABI、KUPL `restart=0`/LTO/OpenMP 绑定等技能内容。
+- 修正 `docs/AGENTS.md` 的未归档报告落点与 QUDA_PATH 描述，以及 `docs/examples.md` 连续命令的路径缺陷。
+
+**核心结论**
+现有 c64 两级、`nvec=12` 记录中，Legacy-MG 的设备级峰值更低：Legacy/Strict 分别在 `8x8x8x16`、`12x12x12x24`、`16x16x16x32` 上为 0.596/0.789、1.533/2.326、4.113/6.715 GiB，Strict 高 32.46%–63.25%。Legacy 记录均 `n_vcycles=0`，因此这是当前实际 fine-only 入口的容量结论，不是 active coarse-cycle 的算法级普适结论；24x24x24x64 Strict 记录缺失。
+
+**验证**
+- 22/22 份 docs 均有映射和结论归宿，缺失 0。
+- 全部 docs 本地链接断链 0。
+- 3/3 显存记录与原始 JSON 精确一致。
+- `bash -n`、`git diff --check` 通过。
+- `bash skills/pyqcu-form/form-audit.sh` 通过，34/34 技能目录与索引一致。
+- 未重跑 GPU/CUDA/MPI/benchmark；文档任务未运行依赖设备的全量 pytest。
+
+**Git**
+未提交、未打 tag、未推送。工作树中存在并发用户改动，已保留且未回退。
+--- report end ---

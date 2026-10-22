@@ -10,7 +10,7 @@
 设计约束：
 
 - **顶层不得 `import matplotlib`** —— `pyqcu.tools` 在全库（含未装 matplotlib 的 GPU 节点）被导入；
-  绘图依赖全部惰性化在函数内（同 `pyqcu/solver/_legacy_multigrid.py::plot` 的做法）。
+  绘图依赖全部惰性化在函数内（同 `pyqcu/torch/solver/_legacy_multigrid.py::plot` 的做法）。
 - 调色板、图形尺寸、字号与原实现逐字一致，接线方（`volume24/final/generate_assets.py`）既有
   证据图不产生像素级变化。
 

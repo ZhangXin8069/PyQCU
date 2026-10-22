@@ -1,6 +1,6 @@
 ---
 name: pyqcu-cuda
-description: pyqcu.cuda 目录的完整生成 skill：C++ CUDA 后端（libqcu.so）的 Cython 桥接包；含 strict QUDA-style MultiGrid、params/argv/set_ptrs 参数协议与显存生命周期约束。
+description: 当任务涉及 pyqcu.cuda、libqcu.so Cython 桥、params/argv/set_ptrs ABI 或 CUDA 显存生命周期时使用。
 ---
 # pyqcu.cuda
 
@@ -21,7 +21,7 @@ Cython bridge package for the C++ CUDA backend (`libqcu.so`).
 | `_strict_multigrid.py` | `StrictMultigrid` — fine odd-Clover Schur + persistent strict coarse V-cycle + C++ fused right-FGMRES；通过 `pyqcu.cuda.multigrid` 导出 |
 | `_strict_cache.py` | strict runtime cache schema v2；逐 tensor 流式摘要、完整验签后再传入 device |
 | `_strict_mpi.py` | strict MPI rank 对称 preflight 与能力门禁；当前声明 setup/full/compact/R-P halo、全局归约和分布式 fused FGMRES 均可用 |
-| `_logs.py` | C++ 后端收敛日志解析（2026-08-22 整合，规范位置）：`parse_mg_log(path)` → (残差列表, `PROF_SECTIONS` ms 字典, 总迭代数)；`parse_convergence_histories(path, offset)` → (histories, 新偏移) 增量收集逐次求解的 `CONVERGENCE_HISTORY`。默认路径 `<repo>/logs/clover_multigrid.log` |
+| `_logs.py` | C++ 后端收敛日志诊断 API：`parse_mg_log(path)` → (残差列表, `PROF_SECTIONS` ms 字典, 总迭代数)；`parse_convergence_histories(path, offset)` → (histories, 新偏移) 增量收集逐次求解的 `CONVERGENCE_HISTORY`。2026-10-22 审计基线下仓内没有代码或测试导入该模块；补定向解析测试前，不应把“模块存在”写成已验证的规范入口。默认路径 `<repo>/logs/clover_multigrid.log` |
 
 ## CUDA Production Topology
 
@@ -38,6 +38,12 @@ Python process. `MultiGpuMultigrid` is a test-only exception: importing
 explicit import and construction enable the path. Use it only for consistency,
 throughput, or diagnostic tests, never as the default driver for a new CUDA
 program.
+
+Each production process owns one rank-local `LatticeSet`/solver context.
+`CUDA_VISIBLE_DEVICES` and device selection must be fixed before importing or
+initializing PyTorch, the Cython bridge, or native QCU. MPI rank count should
+match participating devices; oversubscribed ranks are correctness smoke only,
+not an acceleration path.
 
 The normative project document is
 [`docs/cuda_execution_topology.md`](../../docs/cuda_execution_topology.md).
@@ -110,6 +116,16 @@ Treat `memory_report()` as an explicit-ownership ledger, not whole-process peak 
 The C++ `allocated_bytes` values returned by Strict init/V-cycle/fused FGMRES
 describe their owned arenas only; they are not a process-wide measurement and
 must not replace the device-wide probe or the ownership ledger above.
+
+For a direct Legacy/Strict capacity decision, use the separate process-isolated
+A/B records linked from
+[`docs/legacy_vs_strict_mg_memory_20261023.md`](../../docs/legacy_vs_strict_mg_memory_20261023.md).
+On the measured c64 two-level, `nvec=12` inputs, Legacy fine-only solve peaks
+at 0.596/1.533/4.113 GiB versus Strict 0.789/2.326/6.715 GiB for
+`8x8x8x16`, `12x12x12x24`, and `16x16x16x32`. Strict includes hierarchy setup and
+lazy FGMRES workspace in that run; Legacy records have `n_vcycles=0`, so this
+is a current-path capacity result, not a completed coarse-cycle algorithm
+comparison. Strict `24x24x24x64` has no JSON record.
 
 ## Critical: `_SET_INDEX_` Increment
 
@@ -335,6 +351,10 @@ lifecycle 慢 `0.09%`，已完整撤销。寄存器峰值不只由 Clover 的 12
 `2.666e-7`，但 outer iterations 仍为 20，一次 V-cycle 约 `40 ms`，其中 coarse
 check `~30 ms`。E12/单 null-vector 粗空间不足以抵消成本。
 
+生产 fine-only Stage22 记录本身是 `n_vcycles=0`；只有上面“deflate V-cycle”
+实验真正执行了一次 coarse correction。不要把 Stage21/22 的 fine-path 收益写成
+V-cycle 收益。
+
 按当前 33-tensor 精确 shape，E24 cache 约 `5.22 GB`，E48 约 `18.86 GB`；E12
 local-stencil setup 已有约 `29.75 GB` peak。32 GiB V100 下继续扩 E 前必须先实现
 compressed/matrix-free coarse operator 或显著降低 setup workspace。
@@ -344,7 +364,9 @@ compressed/matrix-free coarse operator 或显著降低 setup workspace。
 Stage22 的 `bistabcg_dot_complete` 现同时覆盖 standalone Clover BiCGStab 的
 `rho`、`rtv` 与每两次迭代检查范数；末尾双点积仍走 pair kernel。ABBA 两轮共 20
 steady：`0.123997709 -> 0.120461542 s`（`2.85%`），均 18 iterations，独立真残差
-`6.694990e-7 -> 6.694679e-7`。相对 QUDA `0.134009 s`，wall 快 `10.11%`，
+`6.694990e-7 -> 6.694679e-7`。相对 QUDA `0.134009 s`，dev101 历史窗口 wall
+快 `10.11%`；dev103 最终同窗主口径改用 CUDA `0.147801 s` 对 QUDA `0.156680 s`，
+wall 快 `6.01%`，每迭代仅快 `0.43%`。不得把两个窗口混成同一倍率。
 每迭代 `6.692` 对 `7.053 ms`，快 `5.12%`。strict tier1、c64/c128 Clover 与
 ABI 全绿；multi-rank 路径不变。
 

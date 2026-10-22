@@ -4,20 +4,27 @@ PyQCU 项目专用技能库：每个技能一个子目录，内含 `SKILL.md`（
 简短说明。与通用工作流技能库 `${CONFIGURE_ROOT:-$HOME/configure}/skills`
 （all/debug/optim/tag/up/auto 等）互补——
 本库存放 PyQCU 代码库各目录的领域知识文档（2026-08-25 自 `.opencode/skills` 迁出并更新至
-当前仓库状态，源目录已按计划删除；如需 opencode 加载，从本库同步到 `.opencode/skills`）。
+当前仓库状态）。本目录是项目技能唯一规范库；旧 `.opencode/skills` 副本已删除，不再维护第二套。
 
 ## 全局约定（继承 configure/skills/AGENTS.md）
 
-- **日志预读策略**：会话第一步只读最新 1 份 `.X.<时间戳>.log` 尾部汇总区（tail -20 上限），
-  只取上次任务/结论/遗留项，秒级速览；无历史日志正常跳过。
-- **前置上下文预读**：说明文件按 AGENTS.md > README.md > CODEX.md
-  取第一个存在者 head -40；agent 文件夹按 .opencode > .claude > .codex 取第一个存在者 ls 限行。
+- **按任务读取上下文**：只读取当前任务直接相关的 `AGENTS.md`、技能正文和 reference；
+  不自动递归扫描其他目录或读取无关历史日志。需要历史结论时先从
+  `logs/AGENTS.md` 或 Git tag 定位，再读取最小必要范围。
+- **计划**：复杂任务在回复中列出相关技能、最小步骤和验收证据；简单任务直接执行，
+  不依赖特定 TODO 工具。
 - **AGENTS.md 同步**：任意技能会话发现工作目录 AGENTS.md 缺失确凿有益内容时最小改动补充
   （先读后写、不重复条目、不代提交）。
-- **TODO 管理**：会话执行第一步用 todowrite 生成详细 TODO 列表，逐步实时更新，收尾核对全完成。
 - **跨技能调用**：必要时调用其他技能；2+ 独立子任务（无共享状态/无顺序依赖/互不改同文件）
   优先并行派发。
-- **技能表同步约定（硬性）**：新增/更改技能必须同步下方技能表行与计数（当前 34/34），
+- **技能目录契约**：每个技能目录必须包含 `SKILL.md` 和简短 `AGENTS.md`；可选
+  `references/`、`scripts/`、`assets/`、`evals/`。按需文件必须在 `SKILL.md` 或
+  `AGENTS.md` 中声明读取分支，不保存运行产物、缓存或重复正文。
+- **描述契约**：frontmatter `description` 只写“何时触发、覆盖哪些用户场景”，不总结
+  工作流，不使用“完整生成 skill”一类实现摘要。
+- **篇幅契约**：`SKILL.md` 保持可扫描；达到 500 行前拆分到 `references/`。
+  `AGENTS.md` 只做目录导航和硬边界，不复制 SKILL 正文。
+- **技能表同步约定（硬性）**：新增/更改技能必须同步下方技能表行与计数（当前 35/35），
   避免表格与实际脱节。
 - **命名约定（硬性）**：自用技能目录一律 `pyqcu-` 前缀（2026-10-15 全量改名完成），
   frontmatter `name` 必须与目录名逐字符一致。
@@ -28,6 +35,9 @@ PyQCU 项目专用技能库：每个技能一个子目录，内含 `SKILL.md`（
 - **文档提取规则（硬性）**：`docs/**` 是正式文档规范源，`skills/**` 只保存可复用摘要、
   执行不变量和来源映射。跨域提取、判断文档生命周期或新增文档指针时使用
   [`pyqcu-docs`](pyqcu-docs/SKILL.md)，不复制整篇文档形成双源。
+- **统一验证**：修改 docs/skills 后运行
+  `python -B skills/pyqcu-docs/scripts/audit-docs-skills.py`；再运行
+  [`pyqcu-form`](pyqcu-form/SKILL.md) 的 form 审计和 `git diff --check`。
 
 ## 文档范式
 
@@ -36,23 +46,24 @@ frontmatter：name 与目录名一致 + description 写触发场景（何时使�
 可复现出处；tag 报告用 `git show <tag>:<path>` 引用，不写工作区 `logs/<tag>/...`
 持久路径，不写未验证内容。
 
-## 技能表（34/34）
+## 技能表（35/35）
 
-按域分组；每行用途即该技能 frontmatter description 的摘要。2026-10-15 全量加 `pyqcu-`
+按域分组；每行用途是领域摘要，实际触发条件以各技能 frontmatter `description` 为准。2026-10-15 全量加 `pyqcu-`
 前缀，`cann.v2`/`cuda.v2`/`dtk`/`maca` 四个占位技能合并为 `pyqcu-cpp-containers`。
 
 ### 库内 Python 包
 
 | 技能 | 用途 |
 |---|---|
+| `pyqcu-api` | pyqcu.api：后端无关配置、结果、能力、资产 manifest、Protocol 与 MG 兼容结果。 |
 | `pyqcu-lattice` | pyqcu.lattice：gamma/Gell-Mann 矩阵、SU(3) 检查、规范场生成与 Ward 负索引约定。 |
-| `pyqcu-dslash` | pyqcu.dslash：Wilson/Clover 狄拉克算子（hoping/sitting/operator 三类），含 MPI halo 交换、奇偶预处理、Galerkin 粗网格投影与反模式清单。 |
-| `pyqcu-solver` | pyqcu.solver：BiCGStab(l)/FGMRES 与 legacy/Strict QUDA-style MultiGrid，含奇偶、Galerkin、持久显存及 33-tensor/Strict cache 选择边界。 |
-| `pyqcu-smear` | pyqcu.smear：stout smearing（Morningstar-Peardon SU(3) 投影）与 Wuppertal 高斯模糊，含数值稳定性处理与 MPI 支持。 |
+| `pyqcu-dslash` | pyqcu.torch.dslash：Wilson/Clover 狄拉克算子，顶层 pyqcu.dslash 仅兼容。 |
+| `pyqcu-solver` | pyqcu.torch.solver 与 pyqcu.solver.multigrid：Torch Krylov 实现和 strict/legacy 统一选择器。 |
+| `pyqcu-smear` | pyqcu.torch.smear：stout 与 Wuppertal smearing，顶层 pyqcu.smear 仅兼容。 |
 | `pyqcu-cann` | pyqcu.cann：Ascend NPU 的 torch 兼容层，将复数算子分解为实/虚部；含 force_use_npu 全局标志与 einsum 组合分解算法。 |
 | `pyqcu-cuda` | pyqcu.cuda：Cython/libqcu.so 桥接、Strict MultiGrid、params[58]/argv[8]/set_ptrs[100] 与显存生命周期。 |
 | `pyqcu-kupl` | cpp/kupl/qcu 与 pyqcu.kupl：鲲鹏/NUMA CPU 版 MPI+OpenMP dslash、Clover BiStabCG、canonical ABI、绑定与性能基准。 |
-| `pyqcu-tools` | pyqcu.tools：MPI 网格/奇偶分割/维度重排/HDF5 I/O/线性代数/多重网格转移/TileLang JIT/基准图表工具集。 |
+| `pyqcu-tools` | pyqcu.tools 公共 MPI/布局/I/O/env/budget 与 pyqcu.torch.tools 专用数值工具。 |
 
 ### C++ 后端（cpp/）
 
@@ -76,7 +87,7 @@ frontmatter：name 与目录名一致 + description 写触发场景（何时使�
 | `pyqcu-testing-npu` | pyqcu/testing/npu：昇腾 NPU 测试（可用 force_use_npu 在 CPU 上测 NPU 路径）。 |
 | `pyqcu-testing-dcu` | pyqcu/testing/dcu：AMD DCU / ROCm (HIP) 测试。 |
 | `pyqcu-testing-profiler` | pyqcu/testing/profiler：torch.profiler 性能剖析，导出 Chrome trace 供 Perfetto 可视化。 |
-| `pyqcu-testing-tilelang` | pyqcu/testing/tilelang：TileLang JIT 内核测试（CUDA）。 |
+| `pyqcu-testing-tilelang` | pyqcu/testing/tilelang：TileLang JIT 集成、历史性能锚点与当前 no-op 测试入口边界。 |
 | `pyqcu-testing-data` | pyqcu/testing/data：测试验证参考 HDF5 文件（with_data=True 时使用）。 |
 | `pyqcu-testing-qcu` | pyqcu/testing/qcu：经 Cython 桥测 C++ CUDA 后端；含按职责分类的多重网格性能基准套件与 Strict 对照。 |
 | `pyqcu-qcu-single-tests` | pyqcu/testing/qcu 与 pyqcu/testing/quda 的 QCU/QUDA 单功能测试、PyTorch 参考校验和布局转换约定。 |

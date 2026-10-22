@@ -26,7 +26,7 @@ sys.path.insert(0, str(HERE))
 
 from pyqcu.testing.qcu.strict.quda_comparison.common import grid_index_for_rank, process_grid
 from pyqcu import lattice, tools
-from pyqcu.solver import StrictMultigrid
+from pyqcu.torch.solver import StrictMultigrid
 
 REPO = HERE.parents[4]
 

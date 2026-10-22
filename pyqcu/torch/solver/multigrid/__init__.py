@@ -1,0 +1,6 @@
+"""Concrete Torch multigrid hierarchy implementations."""
+
+from .legacy_multigrid import LegacyMultigrid
+from .strict_multigrid import StrictMultigrid
+
+__all__ = ["LegacyMultigrid", "StrictMultigrid"]

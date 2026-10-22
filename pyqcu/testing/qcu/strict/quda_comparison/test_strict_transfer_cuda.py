@@ -28,11 +28,12 @@ if not torch.cuda.is_available():
 try:
     from pyqcu.cuda import StrictMultigrid as CudaStrictMultigrid
     from pyqcu.cuda import define, qcu
-    from pyqcu.solver import (Checkerboard, CompactParityLayout,
-                              StrictCoarseOperator, QcuStrictAssetBinding,
-                              StrictMatPCOperator, StrictMultigrid,
-                              StrictTransfer)
-    from pyqcu.tools._strict_galerkin import build_strict_galerkin_colored
+    from pyqcu.torch.solver import (Checkerboard, CompactParityLayout,
+                                    StrictCoarseOperator,
+                                    QcuStrictAssetBinding,
+                                    StrictMatPCOperator, StrictMultigrid,
+                                    StrictTransfer)
+    from pyqcu.torch.tools._strict_galerkin import build_strict_galerkin_colored
 except (ImportError, OSError) as exc:  # pragma: no cover - 环境相关
     pytest.skip(f"QCU Cython/CUDA 后端不可用: {exc}", allow_module_level=True)
 

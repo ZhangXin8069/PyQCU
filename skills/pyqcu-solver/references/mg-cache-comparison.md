@@ -51,7 +51,7 @@ gauge SHA256 和物理参数，调用方必须按身份隔离路径。
 
 实现锚点：
 
-- `pyqcu/tools/_multigrid.py:739`：Python stencil 构建与形状。
+- `pyqcu/torch/tools/_multigrid.py:739`：Python stencil 构建与形状。
 - `cpp/cuda/qcu/src/multigrid.cu:858`：wide-stencil CUDA kernel。
 - `pyqcu/testing/simple/kupl_multigrid.py:172`：`lonv/hnn/hdg/sit` 读取。
 - `pyqcu/testing/simple/kupl_multigrid.py:211`：四 dataset 写入。
@@ -85,8 +85,8 @@ D_{l+1} = R (X_l^-1 D_l) P
 
 实现锚点：
 
-- `pyqcu/solver/_multigrid_core.py:1506`：`X/Y/Yhat` packed ABI。
-- `pyqcu/solver/_multigrid_core.py:3589`：strict transition 四槽导出。
+- `pyqcu/torch/solver/_multigrid_core.py:1506`：`X/Y/Yhat` packed ABI。
+- `pyqcu/torch/solver/_multigrid_core.py:3589`：strict transition 四槽导出。
 - `pyqcu/cuda/_strict_cache.py:1`：schema v2 cache 与不可变发布。
 - `pyqcu/cuda/_strict_cache.py:1074`：完整验证后加载。
 - `cpp/cuda/qcu/src/apply_multigrid_strict.cu:374`：strict coarse apply kernel。
@@ -113,6 +113,28 @@ Vc_full ~= 2 * Vc_odd
 
 因此 33 block 与 10 full-coarse block 的实际比例要同时考虑 geometry。若 Strict 额外保留
 raw `Y`，还会增加 8 个 link block。
+
+## 运行显存峰值（2026-10-23）
+
+同一 gauge/RHS、c64、两级、`nvec=12` 的独立进程 benchmark 中，Legacy-MG
+的设备级运行时峰值低于 Strict-MG：
+
+| 格点 | Legacy solve | Strict solve | Strict / Legacy |
+|---|---:|---:|---:|
+| `8x8x8x16` | 639,631,360 B | 847,249,408 B | 1.3246 |
+| `12x12x12x24` | 1,646,264,320 B | 2,497,708,032 B | 1.5172 |
+| `16x16x16x32` | 4,416,602,112 B | 7,210,008,576 B | 1.6325 |
+
+该数值是设备级 `cudaMemGetInfo` 峰值相对进程基线的增量，包含 C++ 原生分配，
+不是 `memory_report()` 的单一所有权账本。Strict 更高来自 full-coarse
+`Yhat/X`、fine transfer 与首次 FGMRES arena；例如 `16x16x16x32` 的 Strict
+runtime-owned 为 972,822,540 B，Legacy cache 为 231,215,104 B，其中 fused
+FGMRES arena 单独为 286,261,248 B。
+
+边界：Legacy 三个 solve 记录都显示 `n_vcycles=0`，所以这是当前实际 fine-only
+入口的峰值，不是已执行 coarse V-cycle 的算法级公平 A/B；`24x24x24x64` 没有
+Strict solve JSON，不能比较。完整证据见
+[`docs/legacy_vs_strict_mg_memory_20261023.md`](../../../docs/legacy_vs_strict_mg_memory_20261023.md)。
 
 ## Cache 完整性
 

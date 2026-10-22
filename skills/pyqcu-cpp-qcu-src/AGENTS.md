@@ -1,4 +1,4 @@
-# pyqcu-cpp-qcu-src
+# AGENTS.md — pyqcu-cpp-qcu-src
 
 cpp/cuda/qcu/src 的 32 个 .cu 启动/模板源 skill：包含
 `apply_multigrid_strict.cu` 的 full-coarse/MATPC/R/P、持久层级和 fused FGMRES。

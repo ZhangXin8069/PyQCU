@@ -1,0 +1,91 @@
+[日志元数据]
+日志类型: final
+生成时间: 2026-10-22 23:55:26 +0800
+批次: multigrid-unified-wrapper-20261022
+主任务: 重构 PyQCU Torch/CUDA/KUPL multigrid 层级与统一接口，并归档 strict/legacy 对比摘要
+触发原因: 任务完成
+摘要: 统一 Multigrid 上层与 StrictMultigrid/LegacyMultigrid 下级；清除 qcu 代码中的 Quda* 命名；CPU/KUPL/V100 回归通过；docs 报告完成
+Git 根目录: /root/PyQCU
+
+## 关键日志
+### S1 — 架构盘点与命名方案
+- 目标: 确认 Torch、CUDA、KUPL 现有 strict/legacy 实现、ABI、生命周期和测试依赖。
+- 命令/操作: 读取 auto/all/log、项目 multigrid/CUDA/KUPL 技能与相关 AGENTS；检索 multigrid 类、C ABI、测试和文档引用；运行原 strict 参考基线 34 项。
+- 关键输出: 原 baseline `34 passed`；确认 Torch legacy 为 `_multigrid.py::multigrid`，strict 参考为 `_quda_multigrid.py::Quda*`，CUDA strict 为 `CudaStrictMultigridSolver`，KUPL 无统一高阶入口。
+- 退出码: 0。
+- 证据与判断: 需要同时统一命名、生命周期和后端命名空间，但不能合并 33-tensor Legacy 与 full-coarse Strict 的算法/资产语义。
+
+### S2 — 统一包装与三后端入口
+- 目标: 将 `multigrid` 设为上级包装，下级固定为 `StrictMultigrid` / `LegacyMultigrid`。
+- 命令/操作: 新增 `pyqcu.solver.multigrid` 选择器；迁移实现为 `_legacy_multigrid.py` 与 `_multigrid_core.py`；新增 `pyqcu.cuda.multigrid`、`pyqcu.kupl.multigrid`；统一 `setup/solve/close`。
+- 关键输出: `Multigrid(variant=..., backend=...)` 可选择 torch/cuda/kupl；CUDA Legacy 直接包装 monolithic `applyCloverMultigridQcu`，CUDA Strict 包装 persistent hierarchy/FGMRES；KUPL 两类均包装 ctypes ABI。
+- 退出码: 0。
+- 证据与判断: 同名覆盖问题通过 `CudaStrictMultigrid` 显式别名修复；不再让 CUDA runtime 被 Torch hierarchy 同名导入覆盖。
+
+### S3 — 清除 qcu 代码中的歧义命名
+- 目标: 删除本地实现中使用 `Quda*`、`quda_multigrid`、`_strict_quda` 等名称。
+- 命令/操作: 重命名文件、类、模式别名、日志域、资产类型和相关导入；保留 `pyqcu/testing/quda/` 作为外部 QUDA 对照。
+- 关键输出: qcu 库代码不再导出 `QudaMultigrid`/`quda_multigrid` 等名称；公开 multigrid 名称仅为 `Multigrid`、`StrictMultigrid`、`LegacyMultigrid`。
+- 退出码: 0。
+- 证据与判断: 外部第三方目录中的 `QudaMultigridParam` 等名称保留，因为它表示真实外部 API，不表示 PyQCU 本地路线。
+
+### S4 — 子代理对比与 docs 归档
+- 目标: 并行汇总 Torch、CUDA、KUPL 的 strict/legacy 对比并写入 docs。
+- 命令/操作: 派发三路只读 agent；CUDA 首轮因并发重命名中止后按新路径重派；主线程整合。
+- 关键输出: 新增 `docs/multigrid_legacy_strict_comparison_20261022.md`，并更新 `docs/AGENTS.md`、项目文档映射；另有并发任务生成详细状态报告 `docs/legacy_vs_strict_mg_status_20261022.md`。
+- 退出码: agent dispatch 均 exit 0。
+- 证据与判断: 报告明确区分实测、推导和未验证项，不把 `restart` 当作 V-cycle 次数，不把不同算法迭代数转换成性能倍率。
+
+## 验证与证据
+- 测试/检查: `python -m pytest -q pyqcu/testing/python pyqcu/testing/kupl/test_kupl_python.py`。
+- 结果: `51 passed`；仅有当前 PyTorch 不支持 P100 sm_60 的环境警告。
+- 测试/检查: V100 UUID 设备上 strict fused + transfer/V-cycle CUDA 回归。
+- 结果: `14 passed`。
+- 测试/检查: `ctest --test-dir cpp/kupl/qcu/build --output-on-failure -R 'kupl_qcu_python_(multigrid|strict|legacy_mg)'`。
+- 结果: `8/8` 通过，覆盖 1/2/4 rank strict 与 legacy MG。
+- 测试/检查: `python -m compileall -q pyqcu`、`git diff --check`、`bash skills/pyqcu-form/form-audit.sh`、Markdown 链接检查。
+- 结果: 全部通过；form 输出 `PASS: form 审计通过`。
+- 未验证项: 未新跑 CUDA Legacy monolithic ABI 的真实数值 solve；未新增大格性能 benchmark；Strict CUDA `24³×64` 仍缺记录；KUPL Legacy/Strict 尚无同规模性能 A/B。
+
+## 变更与产物
+- 文件: `pyqcu/solver/multigrid/`、`pyqcu/solver/_legacy_multigrid.py`、`pyqcu/solver/_multigrid_core.py`、`pyqcu/cuda/multigrid/`、`pyqcu/kupl/multigrid/`。
+- 文件: `pyqcu/testing/python/test_multigrid.py`、`pyqcu/testing/python/test_multigrid_api.py`、CUDA/KUPL 相关测试导入与路径。
+- 文件: `docs/multigrid_legacy_strict_comparison_20261022.md`、`docs/legacy_vs_strict_mg_status_20261022.md`、`docs/multigrid_deprecation_audit_20261022.md`。
+- 产物: 统一命名和生命周期的三后端 multigrid API，以及 strict/legacy 对比报告。
+- 未改动范围: 未改变 C++ strict/legacy 数值算法、C ABI 或缓存槽序。
+
+## 风险、限制与下一步
+- 风险: 现有 CUDA Legacy 历史记录均显示 `n_vcycles=0`，不能把 fine-level solve 宣称为实际 coarse V-cycle 性能。
+- 风险: 并发运行已自动产生并同步提交 `65a412bf`、`36b4f98a`；主线程未执行 commit/push。当前报告验证补充若仍为工作区改动，需按用户授权流程处理。
+- 阻塞: 无。
+- 下一步: 跑真实 CUDA Legacy monolithic ABI 大格回归，并补 KUPL Legacy/Strict 同输入性能 A/B。
+
+## 用户输入指令
+1. 对qcu(包括cuda版和kupl版和torch版)的multigrid进行重构:将multigrid本身作为上级包装,下级有strict_multigrid与legacy-multigrid,以此规范并统一命名与接口,注意,不要使用'quda_multigrid'这类有歧义的命名,不要让'quda'在qcu代码中作为命名出现
+2. 同时派发子代理简要汇报已经有的strict_multigrid与legacy_multigrid的对比结果,汇报结果保存在docs中
+
+## Agent 全文报告
+--- report begin ---
+已完成 PyQCU Torch、CUDA、KUPL 三套 multigrid 的命名与接口重构。
+
+**结果**
+- 上层统一为 `Multigrid(variant="strict"|"legacy", backend="torch"|"cuda"|"kupl", **kwargs)`。
+- 下级统一为 `StrictMultigrid` 与 `LegacyMultigrid`。
+- 三后端统一生命周期为 `setup()` → `solve()` → `close()`。
+- qcu 库代码中的 `QudaMultigrid`、`quda_multigrid`、`_strict_quda` 等本地实现名称已清除。
+- CUDA Legacy 直接包装 monolithic `applyCloverMultigridQcu`；CUDA Strict 保留 persistent hierarchy 与 fused FGMRES；KUPL 两类均包装 ctypes ABI。
+- strict/legacy 对比摘要保存在 `docs/multigrid_legacy_strict_comparison_20261022.md`；更详细的既有运行状态在 `docs/legacy_vs_strict_mg_status_20261022.md`。
+
+**验证**
+- Python + KUPL Python：`51 passed`。
+- V100 strict CUDA fused/transfer：`14 passed`。
+- KUPL strict/legacy MG CTest：`8/8 passed`，覆盖 1/2/4 rank。
+- `compileall`、`git diff --check`、Markdown 链接检查、form 审计均通过。
+
+**边界**
+- 未新增性能 benchmark，不把既有不同迭代语义的 wall time写成 MG 加速比。
+- CUDA Legacy 的历史记录均显示 `n_vcycles=0`，不能声明实际 coarse V-cycle 性能。
+- Strict CUDA `24³×64` 仍缺完整记录；KUPL 尚无同规模 Legacy/Strict 性能 A/B。
+- 检测到并发运行器已自动提交并同步 `65a412bf`、`36b4f98a`；主线程未执行 commit 或 push。
+
+--- report end ---

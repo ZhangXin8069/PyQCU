@@ -18,7 +18,7 @@ try:
     op = dslash.operator(U=U, kappa=torch.Tensor([0.125]),
                          clover_term=clover, support_parity=True, verbose=False)
 
-    from pyqcu.tools._multigrid import (local_orthogonalize, BatchedLocalSchur,
+    from pyqcu.torch.tools._multigrid import (local_orthogonalize, BatchedLocalSchur,
                                         build_stencil_local, apply_stencil)
     nv = _torch.randn(size=[E, E] + LAT_F, dtype=DT, device=CUDA)
     lonv = local_orthogonalize(null_vecs=nv, coarse_lat_size=COARSE, verbose=False)

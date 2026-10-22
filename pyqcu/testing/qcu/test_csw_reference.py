@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 import torch
 
-from pyqcu import dslash
+from pyqcu.torch import dslash
 from pyqcu.cuda import QcuRuntime, define
 from pyqcu.cuda._multi_gpu import _coarse_cache_paths
 from pyqcu.testing.simple._common import csw_matches, resolve_csw

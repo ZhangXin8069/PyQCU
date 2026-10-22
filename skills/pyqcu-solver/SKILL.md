@@ -1,11 +1,10 @@
 ---
 name: pyqcu-solver
 description: |
-  pyqcu.solver 目录的完整生成 skill：BiCGStab(l)、FGMRES 与 legacy/strict QUDA-style MultiGrid，
-  含奇偶边界、Galerkin 层级和 CUDA 持久显存约束。用户询问、比较、选择或排障
-  33-tensor legacy MG cache 与 Strict runtime cache 时使用。
+  当任务涉及 pyqcu.torch.solver、pyqcu.solver.multigrid、Krylov，
+  或需要比较、选择、排障 Legacy/Strict MultiGrid 与 cache 时使用。
 ---
-# pyqcu.solver
+# pyqcu.torch.solver + pyqcu.solver.multigrid
 
 Iterative solvers for the Dirac equation D ψ = η.
 
@@ -21,9 +20,19 @@ Iterative solvers for the Dirac equation D ψ = η.
 - 两种 cache 的槽序、geometry、C++ kernel 和生命周期不同，不能改名或重排后互载。
 - cache 性能必须分别记录验证/加载、setup、首次 workspace 和 solve；不要把两者边界混成
   同一 `setup_seconds`。
+- 同输入 c64 两级、`nvec=12` 的现有 CUDA 记录中，Legacy 的实际 fine-only solve
+  设备峰值低于 Strict；Strict 的 full-coarse assets、fine transfer 和 FGMRES arena
+  更大。Legacy 记录尚未执行 coarse V-cycle，不能写成 MG 算法级普适结论。详见
+  [`docs/legacy_vs_strict_mg_memory_20261023.md`](../../docs/legacy_vs_strict_mg_memory_20261023.md)。
 
 需要从正式文档核对 legacy/Strict/QUDA 的算法路径、默认值和粗算子表示时，读取
 [`pyqcu-docs/references/extracted-guidance.md`](../pyqcu-docs/references/extracted-guidance.md#4-qcustrict-与-quda-multigrid)。
+跨 Torch/CUDA/KUPL 的统一架构见
+[`docs/qcu_unified_backend_strategy_20261023.md`](../../docs/qcu_unified_backend_strategy_20261023.md)。
+`pyqcu.api` 的 P0 配置、结果、能力、资产清单和 Protocol 已实现，现有
+`Multigrid.solve_result()` 只映射后端已暴露字段；`create_backend()` 和完整 backend
+工厂尚未实现。契约主责技能为 [`pyqcu-api/SKILL.md`](../pyqcu-api/SKILL.md)，正式原文见
+[`docs/api_contract.md`](../../docs/api_contract.md)。
 
 ## CUDA execution topology
 
@@ -43,21 +52,36 @@ MPI 格点分域。`MultiGpuMultigrid` 是显式调用的测试专用例外，�
 
 | File | Purpose |
 |------|---------|
-| `_bistabcg.py` | BiCGStab(l) solver (Bi-stabilized Conjugate Gradient) |
-| `_legacy_multigrid.py` | `LegacyMultigrid`: adaptive 33-stencil V-cycle with optional CUDA acceleration at the finest level |
-| `multigrid/` | Unified `Multigrid` selector and canonical `strict_multigrid.py` / `legacy_multigrid.py` hierarchy entries |
-| `_gmres.py` | Python restarted-FGMRES reference with right preconditioning, complex Givens rotations, warm start and restart true-residual checks; production strict CUDA solve uses the fused C++ entry |
-| `_mr.py` | `mr` — MR 最小残差迭代（quda `inv_mr` 思想，非 Krylov 平滑器）：`p=A†r; α=ω·<p,p>/<Ap,Ap>`，每迭代一次 A + 一次 A†，内存 O(1) 向量数；作 MG smoother 或粗略预求解 |
-| `_multishift_cg.py` | `multishift_cg` — 多质量 CG（quda `updateAlphaZeta` 递推）：一次 matvec 序列同时解全部移位系统 |
-| `_cacg.py` | `cacg` — CA-CG（s-step CG，quda `inv_ca_cg.cpp` 思想）：MGS 正交化基 + 极小残差块解，每外迭代一次同步块 |
-| `_lanczos.py` | `tr_lanczos` — thick-restart Lanczos 特征底座（Wu–Simon arrowhead 重启，deflation 用 Ritz 对），服务 GMRES-DR/eigCG 类 deflation |
-| `_multigrid_core.py` | Strict transfer, coarse operator, MATPC and recursive hierarchy reference implementation |
+| `api/` | 后端无关的 `SolveResult`、Capabilities、AssetManifest、控制配置和 Protocol |
+| `solver/krylov/` | `Krylov(backend, method, operator, control)` 统一选择器 |
+| `solver/_native_qcu.py` | CUDA/KUPL compact-Schur LinearOperator 与原生整次 solve 适配 |
+| `torch/dslash/_adapter.py` | `TorchLinearOperator` full/Schur 与 γ5-Hermitian adjoint |
+| `torch/solver/_krylov_drivers.py` | Torch BiCGStab/CG `SolveResult` driver |
+| `torch/solver/_bistabcg.py` | BiCGStab(l) solver (Bi-stabilized Conjugate Gradient) |
+| `torch/solver/_legacy_multigrid.py` | `LegacyMultigrid`: adaptive 33-stencil V-cycle with optional CUDA acceleration at the finest level |
+| `torch/solver/multigrid/` | Concrete Torch `StrictMultigrid` / `LegacyMultigrid` hierarchy entries |
+| `solver/multigrid/` | Backend-neutral `Multigrid` selector retained at top level |
+| `torch/solver/_gmres.py` | Python restarted-FGMRES reference with right preconditioning, complex Givens rotations, warm start and restart true-residual checks; production strict CUDA solve uses the fused C++ entry |
+| `torch/solver/_mr.py` | `mr` — MR 最小残差迭代（quda `inv_mr` 思想，非 Krylov 平滑器）：`p=A†r; α=ω·<p,p>/<Ap,Ap>`，每迭代一次 A + 一次 A†，内存 O(1) 向量数；作 MG smoother 或粗略预求解 |
+| `torch/solver/_multishift_cg.py` | `multishift_cg` — 多质量 CG（quda `updateAlphaZeta` 递推）：一次 matvec 序列同时解全部移位系统 |
+| `torch/solver/_cacg.py` | `cacg` — CA-CG（s-step CG，quda `inv_ca_cg.cpp` 思想）：MGS 正交化基 + 极小残差块解，每外迭代一次同步块 |
+| `torch/solver/_lanczos.py` | `tr_lanczos` — thick-restart Lanczos 特征底座（Wu–Simon arrowhead 重启，deflation 用 Ritz 对），服务 GMRES-DR/eigCG 类 deflation |
+| `torch/solver/_multigrid_core.py` | Strict transfer, coarse operator, MATPC and recursive hierarchy reference implementation |
 
 各模块的算法细节、与 quda 的有意偏差、以及实测收敛数字（含反模式，如 multishift
-的 σ₀ 折叠不可移除、tr_lanczos 的 H 必须对称双写）见 `pyqcu/solver/AGENTS.md`
+的 σ₀ 折叠不可移除、tr_lanczos 的 H 必须对称双写）见 `pyqcu/torch/solver/AGENTS.md`
 的「导出 API」与「2026-08-22 整合新增」两节。
 
 ## Exported API
+
+### `Krylov(backend="torch"|"cuda"|"kupl", method="bicgstab"|"bistabcg"|"cg", operator=..., control=...)`
+
+- `bistabcg` 是 `bicgstab` 的兼容别名。
+- Torch 使用 `TorchLinearOperator` 与 `_krylov_drivers.py` 的 Python 迭代。
+- CUDA/KUPL 只接受后端绑定的 compact-Schur Operator，driver 每次调用一次原生 solve；
+  `operator.apply()` 不得用于 Python Krylov 循环。
+- CUDA/KUPL CG 只接受 `CGOperator.NORMAL`，求解 `S†S`；普通 Wilson 或默认 HPD 必须拒绝。
+- 原生 ABI 未返回残差时 `final_residual=None`，正常返回只表示 C++ 最终 full-residual 门通过。
 
 ### `bistabcg(b, matvec, tol=1e-6, max_iter=1000, x0=None, if_rtol=False, verbose=True) → torch.Tensor`
 
@@ -70,7 +94,7 @@ Standard BiCGStab solver. Takes a callable `matvec(src) → dest`.
 
 **Tolerance:** `if_rtol=True` uses `tol * ||b||`; otherwise uses absolute `tol`.
 
-### `multigrid` class
+### `LegacyMultigrid` class
 
 Adaptive multigrid V-cycle solver with configurable multi-level hierarchy.
 
@@ -117,6 +141,47 @@ Adaptive multigrid V-cycle solver with configurable multi-level hierarchy.
 **BiCGStab state reset after coarse-grid correction (R3 fix):** After a coarse-grid correction `x = x + e_fine`, the residual `r` changes, so all BiCGStab state must be reinitialized: `r_tilde = r.clone()`, reset `p/v/s/t` to zero, reset `rho_prev/alpha/omega` to 1.0. Without this, `rho = vdot(r_tilde_old, r_new)` gives meaningless results.
 
 **Convergence tracking:** Records `r_norm` twice per iteration (before and after coarse-grid correction). Plot shows both.
+
+## Legacy CUDA selection and stopping semantics
+
+`simple/qcu_multigrid.py` is one driver, not the definition of every Legacy entry.
+Its current defaults are two levels, `dof=[12,48]`, block `2^4`, `restart=5`,
+`coarse_max_iter=200`, `coarse_tol_factor=1e4`, and `params[54:58]=0`. This selects
+odd-Schur BiCGStab plus periodic additive coarse correction, not a right-preconditioned
+QUDA-style MG. Setting `levels>1` alone does not select FGMRES/CA-GCR preconditioning.
+
+| Backend | Legacy | Strict | Fail-closed boundary |
+|---|---|---|---|
+| Torch/CANN | Yes | Yes | Torch reference path; no claim of CUDA performance |
+| CUDA QCU | Yes | Yes, fused right-FGMRES | Unsupported geometry/operator modes must not fall back to legacy kernels |
+| KUPL QCU | Yes | Yes | Same-precision c64/c128 only; CUDA-only GCR/CA-GCR modes must be rejected |
+
+- The default BiCGStab path checks the relative Schur residual every 4 iterations and
+  runs a 30-step calibration before comparing 12-iteration windows. Two consecutive
+  windows with less than 15% improvement permanently disable correction for that solve;
+  near convergence also skips correction. Single-rank true Schur refresh executes at
+  iteration counts satisfying `total % 48 == 0`; the old nearby comment saying 50 is
+  stale.
+- The default correction path has no fine smoother. Right-preconditioned MG applies a
+  fixed-step CG/MR/Chebyshev smoother; `_MG_MU_PRE_ <= 0` falls back to 4 steps and the
+  path has no fine post-smoother. MR and Chebyshev modes are mutually exclusive.
+- Optional outer modes are BiCGStabL(2), FGMRES(10), and CA-GCR block 4. BiCGStabL
+  performs a true restart every 8 cycles, FGMRES can gate a non-improving preconditioner
+  to identity, and CA-GCR falls back to FGMRES on Gram breakdown. Default cycle is V;
+  with two levels, W/F/K have no effective child-level difference.
+- A cold coarse solve divides `max_iter` across pre/post relaxers; a warm coarse solve
+  uses 32 pre + 32 post steps. The terminal is guarded BiCGStab despite the historical
+  `multigrid_coarse_solve_cg` name. Single rank with `vec_sz < 262144` may use the fused
+  cooperative kernel; multi-rank disables cooperative fusion and CUDA Graph. Coarse RHS
+  below `1e-4` is skipped, and breakdown discards that correction.
+- Large-volume production local-stencil callers explicitly use
+  `BatchedLocalSchur(W=8)`. The class constructor default remains `W=10`; do not reduce
+  to `W=6`, which failed nontrivial periodic-boundary regression.
+- `n_vcycles=0` means no coarse correction executed. A configured `restart=5` or
+  Strict `restart=20` is a Krylov/restart parameter, not a cycle count. Never derive an
+  MG speedup from those fields. See
+  [`docs/qcu_quda_multigrid_algorithms.md`](../../docs/qcu_quda_multigrid_algorithms.md)
+  and [`docs/multigrid_deprecation_audit_20261022.md`](../../docs/multigrid_deprecation_audit_20261022.md).
 
 ## Strict QUDA-style MultiGrid Invariants
 
@@ -204,9 +269,10 @@ setup protocol `strict_galerkin_column_batch=4`,
 null-basis offload.  With parity-bucket source ordering, the two PyQCU
 transition setup times are 351.33 s and 202.72 s, total 585.28 s; the
 source color count drops from 22 to 16 and C=4 calls from 132 to 96 per
-level.  After `seal_cuda_runtime()` the benchmark must call
-`torch.cuda.empty_cache()` before allocating the steady workspace; without
-that allocator release the solve fails with workspace OOM.  The resulting
+level.  After `seal_cuda_runtime()` the benchmark must retain the detached-storage
+evidence and release unused allocator blocks with `torch.cuda.empty_cache()` when the
+caching allocator does not reuse them; otherwise the steady workspace can OOM.  The
+call is an allocator-capacity remedy, not a solver-protocol step. The resulting
 formal cache-hit solve is 20 outer iterations, `2.061594 s`, true residual
 `1.78798e-8`; QUDA double gives 60 outer iterations, `16.166481 s`, and
 `1.79244e-8`.  The conservative 7.8417x MG ratio is formal for solve
@@ -230,8 +296,9 @@ residual 公式；在真实 `24³×64` c64 上该公式即使对单 rank 正确�
 `0.746`。可信 QCU 主口径是先保留 even/odd Clover 项，root-gather 后由独立
 PyQCU `give_wilson + give_clover` 计算；计时与残差计算必须分离。
 
-large-volume legacy MG 的第一层 stencil 在 `E_c*Nc` 较大时默认采用
-`BatchedLocalSchur(W=10) + build_stencil_local(batch_size=4)`。其局部窗口在
+large-volume legacy MG 的第一层 stencil 在 `E_c*Nc` 较大时由生产调用方采用
+`BatchedLocalSchur(W=8) + build_stencil_local(batch_size=4)`；类默认仍为
+`W=10`。其局部窗口在
 中心 `c±1` 块必须与全格 `P†DP` 等价；K=1/K>1 回归见
 `test_stencil_batch_local.py`。缓存命中后正式 solve 只报告 worker MG 时间，
 setup/load、首次 workspace 分配和残差探针必须另列。

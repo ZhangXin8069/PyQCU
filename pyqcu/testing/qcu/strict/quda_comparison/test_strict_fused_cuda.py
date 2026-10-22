@@ -11,7 +11,7 @@ if not torch.cuda.is_available():
 try:
     from pyqcu.cuda import StrictMultigrid as CudaStrictMultigrid
     from pyqcu.cuda import define, qcu
-    from pyqcu.solver import StrictMultigrid
+    from pyqcu.torch.solver import StrictMultigrid
 except (ImportError, OSError) as exc:  # pragma: no cover - environment
     pytest.skip(f"QCU Cython/CUDA 后端不可用: {exc}", allow_module_level=True)
 

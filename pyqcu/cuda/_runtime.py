@@ -1,4 +1,37 @@
-"""Small lifecycle-safe wrapper around the flat QCU Cython ABI."""
+"""Lifecycle-safe wrapper around the flat QCU Cython/ctypes ABI.
+
+Every call crosses the backend boundary through three contiguous tensors:
+
+``params`` (int32[58])
+    Geometry, MPI rank grid, dtype, plan, parity, solver controls, and the
+    current ``_SET_INDEX_`` slot.
+``argv`` (real[8])
+    Mass, tolerance, sigma, four multigrid tolerances, and ``csw`` in slot 7.
+``set_ptrs`` (int64[100])
+    Backend-owned resource pointers for the selected slot. Slots ``[0:30)``
+    are ordinary transactional scratch. ``[30:60)`` is reserved for regular
+    multigrid coarse assets, ``[60:80)`` for strict per-level assets, and slot
+    80 for the strict hierarchy. Code outside those dedicated wrappers must
+    treat all indices from 30 onward as reserved.
+
+An ordinary direct-ABI transaction is ``applyInitQcu``, operation and any
+same-slot getters, ``applyEndQcu``, then selection of the next slot. The index
+must not advance before ``applyEndQcu`` because that call releases the slot at
+the current index. Strict multigrid is the exception: one fixed private slot
+remains initialized across its setup, solve, getters, and teardown calls.
+
+Parity-split ABI tensors use ``[X, Y, Z, T/2]`` as their final four axes. Their
+leading dimensions are parity/spin/color in ABI order: fermions are
+``[2, 4, 3, X, Y, Z, T/2]``, gauge links are
+``[2, 3, 3, 4, X, Y, Z, T/2]``, and Clover terms are
+``[4, 3, 4, 3, X, Y, Z, T/2]``. ``params[_PARITY_]`` selects the target even
+or odd parity where an operation is parity-specific.
+
+The production CUDA topology is one Python process, one MPI rank, and one
+device. Distributed work must use MPI rank partitioning of the four-dimensional
+lattice rather than multiple device workers in one process. The explicit
+multi-GPU test driver is not a production execution model.
+"""
 
 from __future__ import annotations
 
@@ -17,16 +50,19 @@ from pyqcu.cuda import define
 
 @dataclass
 class QcuRuntime:
-    """Own one private QCU control state and execute lifecycle-safe calls.
+    """Own one QCU control state and execute lifecycle-safe calls.
 
-    ``call()`` performs the only supported transaction shape for ordinary QCU
+    ``call()`` performs the supported transaction shape for ordinary QCU
     operations::
 
-        select free slot -> applyInitQcu -> operation -> applyEndQcu -> advance
+        select free slot -> applyInitQcu -> operation/getter -> applyEndQcu
 
-    This avoids leaking a ``LatticeSet`` when an operation fails and recycles the
-    30 ordinary scratch slots without overwriting multigrid coarse pointers.
-    Multi-call strict-MG lifecycles still need their dedicated wrapper.
+    The selected index is recorded before initialization, the slot remains live
+    only inside ``operation()``, and ``applyEndQcu`` clears it in ``finally``.
+    Only slots ``[0:30)`` are considered recyclable ordinary scratch, so coarse
+    pointers from index 30 onward are never overwritten. Multi-call strict-MG
+    lifecycles instead keep one fixed private slot and use their dedicated
+    wrapper for the full setup-to-teardown sequence.
     """
 
     params: torch.Tensor
@@ -62,6 +98,13 @@ class QcuRuntime:
         qcu_module: Any = None,
         slot_limit: int = define._SET_PTRS_COARSE_BASE_,
     ) -> "QcuRuntime":
+        """Create independent ABI arrays for one lattice and MPI rank grid.
+
+        ``grid`` must match the process's MPI rank grid. The resulting arrays
+        are private by default and begin at set slot zero. For production CUDA
+        execution, ``device`` denotes the single device owned by this
+        Python/MPI rank.
+        """
         lat = tuple(int(value) for value in lattice)
         if len(lat) != 4 or any(value <= 0 or value % 2 for value in lat):
             raise ValueError("lattice dimensions must be four positive even integers")
@@ -184,7 +227,14 @@ class QcuRuntime:
     @contextmanager
     def operation(self, name: str, *,
                   synchronize: bool = True) -> Iterator["QcuOperation"]:
-        """Open one initialized QCU slot for an operation and optional getters."""
+        """Open one ordinary QCU slot for an operation and same-slot getters.
+
+        Perform the operation and read any resulting getter state before leaving
+        this context. Exiting calls ``applyEndQcu`` while ``_SET_INDEX_`` still
+        names the active slot, then clears that slot for reuse. Reads after the
+        context exits are invalid. Strict-MG multiple-call lifecycles belong to
+        their dedicated setup/solve/close wrapper, which keeps its slot fixed.
+        """
         try:
             acquired = self._operation_lock.acquire(blocking=False)
         except BaseException:
@@ -241,13 +291,19 @@ class QcuRuntime:
 
 @dataclass
 class QcuOperation:
-    """One active QCU scratch slot yielded by :meth:`QcuRuntime.operation`."""
+    """Operation handle valid only inside :meth:`QcuRuntime.operation`.
+
+    The handle always targets the slot named by the runtime's current
+    ``params[_SET_INDEX_]``. Use :meth:`read` immediately after an operation
+    for getters whose values live in that slot.
+    """
 
     runtime: QcuRuntime
     function: Any
     synchronize: bool = True
 
     def __call__(self, *args: torch.Tensor) -> Any:
+        """Run the selected operation on the currently initialized slot."""
         result = self.function(*args, self.runtime.set_ptrs, self.runtime.params)
         if (self.synchronize and self.runtime.device.type == "cuda"
                 and torch.cuda.is_available()):
@@ -255,6 +311,12 @@ class QcuOperation:
         return result
 
     def read(self, name: str, *args: torch.Tensor) -> Any:
-        """Call a getter on the currently initialized QCU slot."""
+        """Read getter state before the surrounding operation context exits.
+
+        Getters such as solver iteration counts are stored in the backend
+        object referenced by the current ``set_ptrs`` slot. ``applyEndQcu``
+        releases that object when the context exits, so the getter cannot be
+        deferred outside the context.
+        """
         getter = getattr(self.runtime._qcu(), name)
         return getter(*args, self.runtime.set_ptrs, self.runtime.params)

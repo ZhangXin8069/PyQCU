@@ -1,4 +1,4 @@
-# pyqcu-logs-debug
+# AGENTS.md — pyqcu-logs-debug
 
 logs/debug 目录的完整生成 skill：逐轮调试/修复日志（fix-log*.md），完成后升级为 logs/fix-report-*.md。
 

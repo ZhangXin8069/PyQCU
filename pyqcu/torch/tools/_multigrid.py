@@ -1,7 +1,7 @@
 import math
 import torch
 from typing import Callable, List, Optional
-from pyqcu import solver, tools
+from pyqcu import tools
 import pyqcu.cann as _torch
 force_use_npu = False
 
@@ -12,6 +12,8 @@ def give_null_vecs(
     bistabcg: Optional[Callable] = None,
     normalize: bool = True, ortho_r: bool = False, ortho_null_vecs: bool = False, verbose: bool = True
 ) -> torch.Tensor:
+    from pyqcu.torch import solver
+
     dof = null_vecs.shape[0]
     # NOTE: null_vecs parameter is used as a template for shape/dtype/device only.
     # The input tensor's values are discarded; a fresh random initialization
@@ -395,6 +397,8 @@ def give_null_vecs_mt(matvec_ops, dof, e, lat_fine_odd, dtype, device,
     右端一次批量 BiCGStab（_bistabcg_batch）——16x16x16x32 等大格子
     null 向量从逐场 C++（40min+）提速至分钟级。
     """
+    from pyqcu.torch import solver
+
     from concurrent.futures import ThreadPoolExecutor
     effective_batch_chunk = None
     if batch_matvec is not None:

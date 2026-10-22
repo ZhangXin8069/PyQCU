@@ -1,6 +1,7 @@
 import torch
 from typing import List, Optional
-from pyqcu import tools, dslash
+from pyqcu import tools
+from pyqcu.torch import dslash
 import pyqcu.cann as _torch
 import mpi4py.MPI as MPI
 from time import perf_counter
@@ -231,8 +232,6 @@ class LegacyMultigrid:
         # Build local-orthonormal near-null space vectors
         comm = MPI.COMM_WORLD
         comm.Barrier()
-        self._setup_done = True
-        return self
         if self.with_cuda_qcu:
             from pyqcu.cuda.define import params, argv, set_ptrs
             params[define._LAT_X_] = self.lat_size[define._LAT_X_]
@@ -314,6 +313,8 @@ class LegacyMultigrid:
             self.op_list.append(dslash.operator(fine_hopping=self.op_list[i-1].hopping, fine_sitting=self.op_list[i -
                                 1].sitting, local_ortho_null_vecs=_local_ortho_null_vecs,  verbose=self.verbose))
         comm.Barrier()
+        self._setup_done = True
+        return self
 
     def end(self):
         """释放 C++ LatticeSet 资源（防多实例/重复调用显存泄漏 OOM）。

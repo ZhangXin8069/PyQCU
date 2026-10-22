@@ -1,6 +1,6 @@
 """Data-free checks for adaptive null-vector BiCGStab batching."""
 
-from pyqcu.tools._multigrid import _nullvec_batch_chunk_from_free
+from pyqcu.torch.tools._multigrid import _nullvec_batch_chunk_from_free
 
 
 def test_nullvec_batch_chunk_uses_request_when_memory_is_ample() -> None:

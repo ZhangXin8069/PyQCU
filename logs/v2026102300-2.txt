@@ -1,0 +1,91 @@
+[日志元数据]
+日志类型: final
+生成时间: 2026-10-23 00:28:34 +0800
+批次: torch-backend-layout-20261023
+主任务: 建立 pyqcu/torch 后端命名空间并迁移 Torch 版 qcu 实现，保留公共层与兼容门面
+触发原因: 任务完成
+摘要: Torch dslash/solver/smear/tools 已迁移到 pyqcu/torch；公共 lattice/tools/selector 保留顶层；CPU/KUPL/V100 回归通过
+Git 根目录: /root/PyQCU
+
+## 关键日志
+### S1 — 边界调查与任务定义
+- 目标: 区分 Torch 执行实现与 CUDA/KUPL/Torch 共用协议。
+- 命令/操作: 读取根规则、pyqcu/cann/lattice/tools/solver AGENTS，执行 form 审计和基线测试。
+- 关键输出: 基线 `51 passed`；form 审计通过；依赖图确认 dslash、solver、smear 与部分 tools 为 Torch 实现，lattice、MPI/HDF5/env/budget、`solver.multigrid` 选择器为公共层。
+- 退出码: 0。
+- 证据与判断: 采用 `pyqcu/torch/{dslash,solver,smear,tools}` 作为 canonical 实现，顶层同名包仅保留兼容门面。
+
+### S2 — 文件迁移
+- 目标: 物理移动 Torch 实现，不在顶层保留重复实现。
+- 命令/操作: 将 `pyqcu/dslash`、`pyqcu/smear`、`pyqcu/solver` 和 Torch 专用 tools 移到 `pyqcu/torch/`；新建 `pyqcu/torch/__init__.py` 与 tools 聚合入口。
+- 关键输出: 顶层 dslash/smear 仅重导出 Torch 实现；顶层 solver 保留公共 multigrid selector 和旧导入兼容；公共 `pyqcu/tools` 保留 `_define/_io/_env/_budget/_bench_plots`。
+- 退出码: 0。
+- 证据与判断: `git mv` 的索引副作用已由 `git restore --staged` 清除，最终 index 无暂存改动。
+
+### S3 — 导入与循环依赖修正
+- 目标: 消除 `tools -> solver -> dslash -> tools` 循环并统一 canonical 导入。
+- 命令/操作: 将 dslash operator 改为 sibling 直接导入；将 solver/tools/CUDA 内部依赖改为 `pyqcu.torch.*`；为顶层 `pyqcu.tools` 增加惰性 Torch 兼容导出。
+- 关键输出: `pyqcu.dslash.operator is pyqcu.torch.dslash.operator`、`pyqcu.tools.norm is pyqcu.torch.tools.norm` 等兼容关系成立。
+- 退出码: 0。
+- 证据与判断: 自动将仓内测试与脚本中的 Torch 导入改为 canonical 路径，仅保留一个专门测试顶层兼容门面的旧导入。
+
+### S4 — 文档与索引
+- 目标: 固化规范框架并更新旧路径。
+- 命令/操作: 新增 `docs/torch_backend_layout.md`；更新根 `AGENTS.md`、`pyqcu/AGENTS.md`、solver/dslash/smear/tools 技能与目录索引。
+- 关键输出: 文档明确 canonical 导入、公共层边界、兼容门面和 multigrid selector 例外。
+- 退出码: 0。
+- 证据与判断: 当前 docs/skills 中已无旧 Torch 私有实现路径引用；历史审计文档保留其稳定 HEAD 口径。
+
+## 验证与证据
+- 测试/检查: `python -m pytest -q pyqcu/testing/python pyqcu/testing/kupl/test_kupl_python.py pyqcu/testing/kupl/test_simple_mg_geometry.py pyqcu/testing/qcu/test_csw_reference.py pyqcu/testing/qcu/strict/quda_comparison/test_strict_mpi_setup.py pyqcu/testing/qcu/strict/quda_comparison/test_strict_galerkin_fast.py pyqcu/testing/qcu/strict/quda_comparison/test_stencil_batch_local.py`。
+- 结果: `83 passed`；仅出现当前 PyTorch 不支持 P100 sm_60 的环境警告。
+- 测试/检查: V100 UUID 上运行 strict fused/transfer CUDA 回归。
+- 结果: `14 passed`。
+- 测试/检查: KUPL 1/2/4-rank strict/legacy MG CTest。
+- 结果: `8/8 passed`。
+- 测试/检查: `find_packages` 包发现、`compileall`、`git diff --check`、`bash skills/pyqcu-form/form-audit.sh`。
+- 结果: 新 Torch 子包全部被发现；compile/diff/form 全部通过。
+- 未验证项: 未运行完整 `pyqcu/testing` 中依赖外部 QUDA、LIME、大格数据或长时间基准的全部用例。
+
+## 变更与产物
+- 文件: `pyqcu/torch/` 新后端目录，含 dslash、solver、smear、tools。
+- 文件: 顶层 `pyqcu/dslash`、`pyqcu/smear`、`pyqcu/solver`、`pyqcu/tools` 兼容门面。
+- 文件: `docs/torch_backend_layout.md` 与相关 AGENTS/skills 索引。
+- 产物: 规范化的 Torch/CANN 后端命名空间和公共层边界。
+- 未改动范围: C++ CUDA/KUPL 数值实现、C ABI、缓存槽序与 multigrid 算法。
+
+## 风险、限制与下一步
+- 风险: 旧私有模块路径 `pyqcu.solver._*` / `pyqcu.tools._*` 不再兼容；公开 API 和模块级 `tools.*` 仍兼容。
+- 风险: 部分历史文档仍以稳定 HEAD 口径描述旧路径。
+- 阻塞: 无。
+- 下一步: 可在后续版本增加私有路径 deprecation shim，或完成外部 QUDA/LIME 全量回归。
+
+## 用户输入指令
+在pyqcu内新建torch目录,将pyqcu中的torch版qcu转移到pyqcu/torch中,将各个版本qcu通用的部分保留在pyqcu/中,以实现规范框架
+
+## Agent 全文报告
+--- report begin ---
+已完成 Torch 后端目录规范化。
+
+**改动**
+- 新建 `pyqcu/torch/`，其中包含 `dslash/`、`solver/`、`smear/`、`tools/`。
+- Torch 实现文件已从顶层物理移动，不在顶层保留重复实现。
+- `pyqcu.lattice`、公共 `pyqcu.tools`、`pyqcu.cann`、`pyqcu.solver.multigrid` 选择器、`pyqcu.cuda`、`pyqcu.kupl` 保留在顶层。
+- 顶层 `pyqcu.dslash`、`pyqcu.smear`、`pyqcu.solver`、`pyqcu.tools` 改为兼容门面。
+- 仓内测试和脚本已改用 `pyqcu.torch.*` canonical 导入。
+- 新增 `docs/torch_backend_layout.md`，并同步 AGENTS/skills 索引。
+
+**验证**
+- CPU + KUPL + strict CPU 组合回归：`83 passed`。
+- V100 CUDA strict：`14 passed`。
+- KUPL 1/2/4-rank MG CTest：`8/8 passed`。
+- 新子包均被 `find_packages` 发现。
+- `compileall`、`git diff --check`、form 审计通过。
+- Git index 无暂存改动；未提交、未推送、未打标签。
+
+**边界**
+- 公共公开导入 `from pyqcu import dslash/solver/smear/tools` 继续可用。
+- 私有导入 `pyqcu.solver._*`、`pyqcu.tools._*` 不再作为规范路径。
+- 未运行依赖外部 QUDA/LIME/大格数据的完整测试套件。
+
+--- report end ---

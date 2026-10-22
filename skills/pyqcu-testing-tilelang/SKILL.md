@@ -1,24 +1,29 @@
 ---
 name: pyqcu-testing-tilelang
-description: pyqcu/testing/tilelang 目录的完整生成 skill：TileLang JIT 内核测试（CUDA）。
+description: 当任务涉及 pyqcu/testing/tilelang、TileLang JIT 集成或 no-op 测试入口边界时使用。
 ---
 # pyqcu/testing/tilelang
 
-TileLang JIT-compiled kernel tests for CUDA. Exercises the TileLang integration in `pyqcu/tools/_einsum.py` and `pyqcu/tools/_matul.py`.
+TileLang JIT integration for CUDA lives behind `pyqcu/torch/tools/_einsum.py` and
+`pyqcu/torch/tools/_matul.py`. The current directory has no active test invocation,
+so validate the implementation through a real test entry rather than this no-op file.
 
 ## Files
 
 | File | Purpose |
 |------|---------|
-| `conftest.py` | TileLang test entry |
+| `conftest.py` | 当前只有两行注释，是 no-op 占位，不是有效测试入口 |
 
 ## Usage
 
-```bash
-python pyqcu/testing/tilelang/conftest.py
-```
+不要执行 `python pyqcu/testing/tilelang/conftest.py` 并把退出码 `0` 当作 TileLang
+测试通过：当前文件不导入 `pyqcu.testing`，也没有调用 `test_matmul()`，进程会无输出
+退出。需要恢复该入口时，先启用真实测试调用，再要求 pytest 收集到至少一个测试；
+只有 `exit=0` 或只有 `TESTS=...` 而没有断言结果都不构成验证。来源：
+`docs/multigrid_deprecation_audit_20261022.md:41-61`。
 
-Requires TileLang to be installed (optional dependency, silently degrades if unavailable).
+TileLang 是可选依赖；恢复测试入口后，不可用时必须以明确 skip 原因呈现，不能把
+空收集或静默降级报告为通过。
 
 ## Known upstream defects & hardware limits (2026-08-24, bug36)
 

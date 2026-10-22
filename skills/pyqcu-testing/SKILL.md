@@ -1,6 +1,6 @@
 ---
 name: pyqcu-testing
-description: pyqcu.testing 目录的完整生成 skill：全组件集成测试与 strict MultiGrid 三级快速闸门，含参考数据、CUDA/MPI、显存稳定性和日志约定。
+description: 当任务涉及 pyqcu.testing 集成测试、Strict MG 快速闸门、MPI/缓存/QIO 或显存验证时使用。
 ---
 # pyqcu.testing
 
@@ -19,6 +19,9 @@ The migrated example paths and standard test commands are summarized in
 All test functions live in `pyqcu/testing/__init__.py`. They import from all PyQCU subpackages (`lattice`, `solver`, `dslash`, `tools`, `smear`). Each `pyqcu/testing/*/conftest.py` acts as a pytest entry point that imports specific test functions and calls them. The conftest files are manually edited to uncomment the test(s) to run.
 
 The module imports `tilelang` at module level (with try/except fallback) for `test_matmul`.
+The `pyqcu/testing/tilelang/conftest.py` entry is currently a commented no-op; running
+that file exits `0` without executing `test_matmul()`. Require real pytest collection
+and assertion output before reporting a TileLang test pass.
 
 ## Test Functions
 
@@ -77,7 +80,7 @@ Null-vector quality diagnostic requires the explicit 10-dim block structure argu
 ## Running Tests
 
 ```bash
-cd pyqcu/testing && pytest .                              # all conftest.py files
+(cd pyqcu/testing && pytest .)                             # all conftest.py files
 mpirun -np 4 python pyqcu/testing/python/conftest.py       # single file with MPI
 ```
 
