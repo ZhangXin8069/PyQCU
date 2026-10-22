@@ -31,8 +31,10 @@
     显式转换为 parity-compressed canonical 布局。真残差必须用独立 NumPy
     重构；MG 对照还必须校验 `verifyCloverMultigridQcu` 和同 RHS 的 QUDA 解差。
 13. `mpi/solve_case.py` 是小格点 MPI 快速入口：KUPL 使用四维 MPI 分域加
-    OpenMP，CUDA 使用一 rank 一 GPU；它接受 LIME 魔数并自动切子体积。MPI
-    启动负责 CPU 绑定时，必须设置 `KUPL_NUMA_BIND=0`，不得让库再次绑定。
+    OpenMP，CUDA 固定为一 Python 进程 = 一 MPI rank = 一 GPU/DCU/GPGPU；
+    它接受 LIME 魔数并自动切子体积。`MultiGpuMultigrid` 仅限显式调用的测试/
+    一致性/吞吐场景，不得接入生产入口。MPI 启动负责 CPU 绑定时，必须设置
+    `KUPL_NUMA_BIND=0`，不得让库再次绑定。
 14. 用户文档入口为 `README.md`；完整格式、状态、绑定和排错见
     `USER_GUIDE.md`，逐脚本参数见 `COMMAND_REFERENCE.md`。修改 CLI 或默认值时
     必须同步这三处，MPI 行为同时同步 `mpi/README.md` 与

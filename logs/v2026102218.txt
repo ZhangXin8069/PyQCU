@@ -1,0 +1,88 @@
+[日志元数据]
+日志类型: final
+生成时间: 2026-10-22 18:03:49 +0800
+批次: skills
+主任务: 将 CUDA 进程-rank-设备与 MultiGpu 测试专用约定写入 skills
+触发原因: 任务完成
+摘要: 在 skills 根约定和 15 个相关 skill 中建立一进程一 rank 一设备规则，并同步 AGENTS 与当前 Strict MPI 能力
+Git 根目录: /root/PyQCU
+
+## 关键日志
+### S1 — 在 skills 中建立权威约定
+- 目标: 将 CUDA/GPGPU 进程-rank-设备拓扑和 MultiGpuMultigrid 测试专用属性写入项目 skills。
+- 修改: `skills/AGENTS.md` 增加全局硬性执行拓扑。
+- 修改: `skills/pyqcu-cuda/SKILL.md` 保留完整权威定义并链接 `docs/cuda_execution_topology.md`。
+- 修改: `pyqcu-cuda/AGENTS.md` 同步短摘要。
+
+### S2 — 覆盖相关技能
+- 修改: `pyqcu-solver`, `pyqcu-cpp-qcu`, `pyqcu-cpp-qcu-src`, `pyqcu-cpp-qcu-include`, `pyqcu-cpp-qcu-python`, `pyqcu-cpp-containers`。
+- 修改: `pyqcu-testing-qcu`, `pyqcu-benchmark`, `pyqcu-testing`, `pyqcu-testing-gpu`, `pyqcu-testing-dcu`, `pyqcu-testing-profiler`。
+- 修改: `pyqcu-tools`, `pyqcu-dslash`。
+- 规则: 一 Python 进程 = 一 MPI rank = 一 GPU/DCU/GPGPU；跨设备并行经 MPI；MultiGpuMultigrid 仅在显式导入并构造时作为测试专用路径启用。
+- 同步: 所有修改的 skill 均同步其目录 AGENTS.md 摘要。
+
+### S3 — 清理冲突描述
+- 发现: 多个 skills 仍写 Strict MPI 仅单 rank、halo/fused FGMRES capability 为 false。
+- 修改: 按当前 `_strict_mpi.py`、C++ strict halo 与双 P100 端到端证据，同步为当前 capability 全开。
+- 保留: 生产仍需 capability preflight、一进程一 rank 一设备及独立真残差门禁。
+
+## 验证与证据
+- `quick_validate.py`：15 个修改 skill 全部通过。
+- Markdown 相对链接检查：通过。
+- `rg` 检查：旧 `setup_halo=False`/`full_halo=False`/`compact_halo=False`/`fused_fgmres=False` 描述在 skills 中清零。
+- `git diff --check`：通过。
+- `bash skills/pyqcu-form/form-audit.sh`：仅剩既存 `docs/profiler_test9-dev103.md` tag-name 路径告警。
+- 未运行 GPU/MPI 数值测试，因为本轮只修改 skill/Markdown 内容。
+
+## 变更与产物
+- 修改: `skills/AGENTS.md` 与 15 个相关 skill 的 `SKILL.md`/`AGENTS.md`。
+- 未改: 运行代码、算法、ABI、MPI 通信和测试入口。
+- 未执行: 提交、tag、push。
+
+## 风险、限制与下一步
+- 风险: skills 中 Strict MPI 当前能力已同步，但旧历史报告仍可能保留旧状态；以当前源码和现行 skills 为准。
+- 阻塞: 全仓 form audit 的唯一失败来自未触碰的既存文件。
+
+## 用户输入指令
+将此约定写入skills
+
+## Agent 全文报告
+--- report begin ---
+已将 CUDA/GPGPU 执行约定写入项目 skills。
+
+权威约定位于 `skills/pyqcu-cuda/SKILL.md`：
+
+```text
+一个 Python 进程 = 一个 MPI rank = 一张 GPU/DCU/GPGPU
+```
+
+并明确：
+
+- 跨设备并行通过 MPI 多进程和四维格点分域完成。
+- 新 CUDA/GPGPU 程序不得在单进程中创建多设备生产 worker。
+- `MultiGpuMultigrid` 只有显式导入并构造时才作为测试专用路径启用。
+- 它用于一致性、吞吐和诊断测试，不是生产启动模板。
+
+同时把短指针写入以下相关 skills：
+
+- `pyqcu-solver`
+- `pyqcu-cpp-qcu`
+- `pyqcu-cpp-qcu-src`
+- `pyqcu-cpp-qcu-include`
+- `pyqcu-cpp-qcu-python`
+- `pyqcu-cpp-containers`
+- `pyqcu-testing-qcu`
+- `pyqcu-benchmark`
+- `pyqcu-testing`
+- `pyqcu-testing-gpu`
+- `pyqcu-testing-dcu`
+- `pyqcu-testing-profiler`
+- `pyqcu-tools`
+- `pyqcu-dslash`
+
+并在 `skills/AGENTS.md` 增加全局硬性约定。每个修改的 skill 目录 AGENTS.md 也已同步摘要。
+
+此外，清理了多个 skills 中“Strict MPI 仅支持单 rank”的旧描述，按当前源码同步为 setup/full/compact/R-P halo、全局归约和分布式 fused FGMRES 均已声明可用；生产运行仍需 capability preflight、一进程一 rank 一设备和独立真残差验证。
+
+验证结果：15 个 skill 全部通过 frontmatter 校验，Markdown 链接与 `git diff --check` 通过。全仓 form audit 仍只因既存 `docs/profiler_test9-dev103.md` tag-name 路径告警失败，本次未修改该文件。
+--- report end ---

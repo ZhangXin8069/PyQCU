@@ -1,0 +1,65 @@
+[日志元数据]
+日志类型: final
+生成时间: 2026-10-22 17:31:25 +0800
+批次: analysis
+主任务: 比较 C++ QCU Legacy 与 Strict 的完成度和多卡能力
+触发原因: 任务完成
+摘要: 综合完成度 Legacy 最高；CUDA Legacy/Strict 均支持 MPI 一进程一卡多卡，Legacy 另有单进程多线程多 GPU 驱动
+Git 根目录: /root/PyQCU
+
+## 关键日志
+### S1 — 完成度比较
+- 目标: 比较 C++ QCU Legacy MG 与 Strict-MG 的功能完成度和生产成熟度。
+- 证据: Legacy 覆盖 33-tensor、fine-only、deflate、GCR/CA-GCR/BiCGStabL、mixed precision、CUDA/KUPL 和现有真实 LIME 生产路径。
+- 证据: Strict 完整实现 full-coarse `X/Y/Yhat`、MATPC、递归 V-cycle 和 fused FGMRES，但当前只接受全层 `matpc/direct_pc`。
+- 判断: 综合完成度 Legacy 最高；Strict 在 QUDA 语义保真和 tested cache-hit steady solve 上更强。
+
+### S2 — 多卡能力
+- 证据: CUDA Legacy 支持 MPI 多 rank 多卡，也支持 `MultiGpuMultigrid` 单 MPI rank 内多线程、一线程一卡。
+- 证据: 当前 Strict MPI capability 全开；C++ strict 有 fine/coarse halo、全局归约和分布式 FGMRES，双 P100 一 rank 一卡实测收敛。
+- 证据: Strict 没有对应的单进程多线程 `MultiGpuMultigrid` 驱动；单个 `CudaStrictMultigridSolver` 只管理一个 CUDA device。
+- 证据: KUPL Legacy 与 Strict 都支持 MPI 多 rank 和 rank 内 OpenMP，测试覆盖 1/2/4 rank；KUPL 不使用 GPU 多卡。
+- 判断: CUDA 两者都支持 MPI 多卡；Legacy 的并行形态和验证覆盖更广。Strict 的 MPI 多卡已实现并小规模验证，但缺少 Legacy 同等规模的真实 LIME/大格多卡生产证据。
+
+## 验证与证据
+- 检查: 核查当前 `_strict_mpi.py` capability、C++ strict halo 说明、双 P100 端到端日志、Legacy 多 GPU 驱动和 KUPL 1/2/4-rank 测试入口。
+- 结果: 当前源码已推翻旧文档中“Strict 仅单 rank”的历史结论。
+- 未验证项: 未重新运行 GPU/MPI 测试；本次只做静态源码与现有证据审计。
+
+## 变更与产物
+- 文件: 未修改源码或 docs；仅新增本日志。
+- 未改动范围: C++/CUDA、KUPL、Torch solver、测试与构建系统。
+
+## 风险、限制与下一步
+- 风险: `comparison_matrix.md` 等旧报告仍含 Strict 单 rank 的历史状态，不能作为当前能力结论。
+- 风险: “支持 MPI 多卡”不等于“已有同等规模生产性能数据”；Strict 仍需大格、多卡、真实 LIME 的正式 benchmark。
+- 下一步: 如需生产选型，按 Legacy 线程多卡与 Strict MPI 多卡分别跑同输入 A/B。
+
+## 用户输入指令
+cpp系列qcu的"Legacy MG"与"Strict MG"哪个完成度最高?都支持多卡并行吗?
+
+## Agent 全文报告
+--- report begin ---
+结论：
+
+- 综合功能覆盖和生产成熟度：Legacy MG 完成度最高。
+- QUDA 风格语义保真度和 Strict 专用层级能力：Strict-MG 更强。
+- CUDA Legacy 与 CUDA Strict 都支持 MPI 多进程、多 rank、一 rank 一卡的多卡并行。
+- Legacy 还额外支持单 MPI rank 内多线程、一线程一卡；Strict 当前没有对应的官方多 GPU 线程驱动。
+- KUPL Legacy/Strict 都支持 MPI 多 rank + OpenMP，但它们是 CPU 并行，不是 GPU 多卡。
+
+完成度对比：
+
+| 维度 | Legacy | Strict |
+|---|---|---|
+| 求解模式广度 | 更广 | 较窄 |
+| 真实 LIME 生产验证 | 最成熟 | 已有 formal/小规模 MPI 验证 |
+| CUDA 单进程多 GPU | 有官方驱动 | 无对应驱动 |
+| MPI 多 rank 多卡 | 有 | 当前已实现 |
+| QUDA full-coarse 语义 | 非严格对应 | 更完整 |
+| cache 完整性 | 传统格式 | schema v2 更强 |
+
+当前 Strict 的 `_strict_mpi.py` 已把所有分布式能力设为 true，C++ strict 也包含 fine/coarse halo、全局归约和分布式 FGMRES。双 P100 上的一 rank 一卡端到端 Strict solve 已收敛并通过独立真残差。因此旧文档中“Strict 仅单 rank”的结论已经过期。
+
+但 Strict 的 MPI 多卡生产证据仍不如 Legacy 广，特别是大格、多节点、真实 LIME 和 c128 的长期性能数据仍需补齐。
+--- report end ---

@@ -6,6 +6,10 @@ description: pyqcu/testing/gpu 目录的完整生成 skill：通用 GPU 测试�
 
 GPU test placeholder. Currently empty — no test files.
 
+新增 CUDA/GPGPU 用例时保持一 Python 进程 = 一 MPI rank = 一设备；任何
+`MultiGpuMultigrid` 用例必须显式标注测试专用。规则见
+[`pyqcu-cuda/SKILL.md`](../pyqcu-cuda/SKILL.md#cuda-production-topology)。
+
 目录内只有两件东西，核对只需一条命令：
 
 ```bash

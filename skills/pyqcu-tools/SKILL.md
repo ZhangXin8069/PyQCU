@@ -6,6 +6,9 @@ description: pyqcu.tools 目录的完整生成 skill：MPI 网格/奇偶分割/�
 
 Utility modules for MPI grid management, HDF5 I/O, linear algebra, tensor operations, multigrid transfers, and TileLang JIT kernels.
 
+Canonical tensor-axis names, storage order, and environment entry points are extracted
+in [`pyqcu-docs/references/extracted-guidance.md`](../pyqcu-docs/references/extracted-guidance.md#1-环境构建与布局).
+
 ## 多线程构建工具（2026-08-14）
 
 - `give_null_vecs_mt(matvec_ops, ...)` — 多线程 null 向量（每线程独立 CUDA generator、
@@ -57,6 +60,12 @@ Utility modules for MPI grid management, HDF5 I/O, linear algebra, tensor operat
 | `give_rank_minus_minus(ward_a, ward_b, rank)` | Diagonal neighbor (−a, −b) |
 | `give_rank_minus_plus(ward_a, ward_b, rank)` | Diagonal neighbor (−a, +b) |
 | `set_device(device, verbose)` | Set CUDA/NPU device based on MPI rank (round-robin assignment) |
+
+For GPGPU production, `set_device` selects the one device owned by the current
+MPI rank. Do not use round-robin or multiple workers to put one production
+solve on multiple devices; that route uses MPI. `MultiGpuMultigrid` is a
+test-only exception. See
+[`pyqcu-cuda/SKILL.md`](../pyqcu-cuda/SKILL.md#cuda-production-topology).
 
 ### Parity Splitting (`_define.py`)
 

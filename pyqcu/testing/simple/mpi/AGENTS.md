@@ -8,9 +8,10 @@
 2. KUPL 是真实四维 MPI 分域加 rank 内 OpenMP。MPI 负责绑定时必须设置
    `KUPL_NUMA_BIND=0`，并清除 `OMP_PROC_BIND`/`OMP_PLACES`，避免库内和
    OpenMPI 重复绑核。
-3. CUDA 路径是一 rank 一 GPU 的 MPI 分域。不要把它与
-   `pyqcu.cuda._multi_gpu.MultiGpuMultigrid` 的“单进程、每卡复制整题求解”
-   语义混写；文档和报告必须明确区分。
+3. CUDA 生产路径固定为一 Python 进程 = 一 MPI rank = 一 GPU/DCU/GPGPU，
+   并做 MPI 格点分域。不要把它与测试专用的
+   `pyqcu.cuda._multi_gpu.MultiGpuMultigrid`“单进程、每卡复制整题求解”
+   语义混写。后者只能在显式调用的测试/一致性/吞吐场景启用；文档和报告必须明确区分。
 4. LIME 输入按魔数识别，不依赖扩展名大小写；必须继续支持
    `scidac-private-file-xml`/`scidac-file-xml`、
    `scidac-private-record-xml`/`scidac-record-xml`、`clovCoeff` 和 `Mass`。

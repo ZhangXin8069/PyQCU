@@ -47,7 +47,8 @@ Wilson/Clover Dirac 算子、BiStabCG 与多重网格求解器、stout smearing�
 - **张量布局**：规范场 `[3,3,4,Lx,Ly,Lz,Lt]`、费米子场 `[4,3,Lx,Ly,Lz,Lt]`、Clover 项 `[4,3,4,3,Lx,Ly,Lz,Lt]`；时空维永远是最后 4 轴（`...xyzt`），ward 索引用负整数（`wards['x']=-4`）。HDF5 内部用 `zyxt` 序，经 `ccdxyzt2ccdptzyx`/`scxyzt2psctzyx` 转换。
 - **日志约定**：`PYQCU::MODULE::SUBMODULE:\n message`，由 verbose 标志控制。
 - **测试**：测试函数在 `pyqcu/testing/__init__.py`，`pyqcu/testing/*/conftest.py` 手动取消注释要运行的测试。
-- **多线程多卡（一线程一卡）**：`pyqcu/cuda/_multi_gpu.py`（`MultiGpuMultigrid`）单进程内 N 线程 × 卡绑定并行；每线程独立 `params/argv/set_ptrs` 副本（`_SET_INDEX_` 各自从 0 计数）。Cython 桥（`qcu.pyx`）全部函数在 GIL 段取指针、`with nogil` 调 C++（真并行）；pxd 的 cdef extern 声明必须带 `nogil` 关键字，且 pxd 声明名不得与 pyx 内 def 同名（用 `qcu_api.pxd` 别名 cimport）。MultiGpuMultigrid 要求单 MPI rank（C++ LatticeSet 用 COMM_WORLD rank 覆盖 `_NODE_RANK_`）。
+- **CUDA 生产执行拓扑**：一个 Python 进程对应一个 MPI rank、对应一张 GPU/DCU/GPGPU。跨设备并行必须走 MPI 多进程格点分域；生产驱动不得在一个 Python 进程内创建多 GPU worker，也不得让 rank 数超过设备数后把共享设备当作加速路径。DCU/GPGPU 程序遵循同一进程-rank-设备映射。
+- **多 GPU 测试专用例外**：`pyqcu/cuda/_multi_gpu.py`（`MultiGpuMultigrid`）是显式 opt-in 的测试/基准驱动，不会在导入 `pyqcu` 时自动构造或启动。它在一个单 MPI rank 进程内用 N 线程分别绑定 N 张设备，每线程执行完整 Legacy MG，不是一次 solve 的跨卡分域；除非任务明确要求多卡一致性或吞吐测试，新 CUDA 程序不得使用。该测试驱动仍须保证每线程独立 `params/argv/set_ptrs`（`_SET_INDEX_` 各自从 0 计数）；Cython 桥的 `nogil` 调用与 pxd 声明规则保持不变。
 - **求解器停机语义（dev87 起）**：`applyCloverMultigridQcu` 主循环停机为相对判据 rn²<atol²·‖b__o‖²，且单 rank 每 50 迭代做周期真残差刷新（reliable-update，防 fp32 递推漂移）；多 rank 刷新未启用。
 - **Strict Hopper overlap（2026-09-27）**：分布式 complex64 Strict-MG 默认用非阻塞 vector halo 与 local/remote 分区计算；`PYQCU_MPI_OVERLAP=0` 回退原路径。该路径改变 remote-forward 浮点累加顺序，complex128 默认关闭；仅显式 `PYQCU_STRICT_OVERLAP_C128=1` 才启用，且必须以大格真残差/迭代回归为门槛。
 - **HDF5 持久化（h5py）**：所有保存/读取走 h5py；`pyqcu/tools/_io.py` 的 `save_tensor_h5`/`load_tensor_h5`（每调用独立 File 句柄，多线程安全）+ MPI mpio 路径（`gridoooxyzt2hdf5oooxyzt`）。null-vector/粗网格算子缓存 `.h5`（单句柄一次写全部 dataset，勿逐 dataset 覆盖重建）。

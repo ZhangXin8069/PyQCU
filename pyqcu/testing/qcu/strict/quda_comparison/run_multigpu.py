@@ -1,5 +1,9 @@
 """quda_comparison 多线程多卡 MultiGrid 对照与性能运行器。
 
+TEST-ONLY: this runner explicitly opts into ``MultiGpuMultigrid`` for
+consistency/throughput evidence. Production CUDA uses one Python process =
+one MPI rank = one GPU/DCU/GPGPU and MPI lattice domain decomposition.
+
 默认配置与项目约定一致：V100 单线程作为基线，P100×2（一线程一卡）
 作为并行配置；两者使用同一 gauge、同一 E=12 33-tensor 缓存和同一
 MultiGpuMultigrid 参数。结果写入 ``out/multigpu.json``。

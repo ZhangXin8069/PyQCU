@@ -22,6 +22,16 @@ Iterative solvers for the Dirac equation D ψ = η.
 - cache 性能必须分别记录验证/加载、setup、首次 workspace 和 solve；不要把两者边界混成
   同一 `setup_seconds`。
 
+需要从正式文档核对 legacy/Strict/QUDA 的算法路径、默认值和粗算子表示时，读取
+[`pyqcu-docs/references/extracted-guidance.md`](../pyqcu-docs/references/extracted-guidance.md#4-qcustrict-与-quda-multigrid)。
+
+## CUDA execution topology
+
+CUDA/GPGPU 生产程序保持一 Python 进程 = 一 MPI rank = 一设备；跨设备 MG 通过
+MPI 格点分域。`MultiGpuMultigrid` 是显式调用的测试专用例外，不得作为 solver
+默认驱动。完整规则见
+[`pyqcu-cuda/SKILL.md`](../pyqcu-cuda/SKILL.md#cuda-production-topology)。
+
 ## CUDA 混合路径约定（2026-08-14）
 
 - `_matvec`/`_restrict_cuda`/`_prolong_cuda`/`_coarse_dslash_cuda` 的 C++ 调用后必须
@@ -134,7 +144,7 @@ Runtime-cache schema v2 protects every logical tensor with a streaming SHA256. A
 
 `memory_report()` reports explicitly owned runtime assets, not all process/device memory. Memory regressions must track setup/export/bind/seal/init/first solve/steady solve/close, distinguish planned from first-solve resident fused bytes, deduplicate shared storages, include backend `LatticeSet` and allocator high-water overhead, and verify repeated solves have stable live bytes. Galerkin setup planning counts four simultaneous full-field arenas. The library default setup cap is `512 MiB`; the formal `16×32×32×48` profile instead uses colored `C=12` with `4 GiB` for c64 and `C=1` with `1 GiB` for c128. The outer fused `max_krylov_bytes` is independent: solver API default `512 MiB`, formal c64 `512 MiB`, formal c128 `1 GiB`. `strict_galerkin_mode="auto"` compares modeled site-batch and colored call/memory costs; record requested/effective mode, `C`, projection batch `K`, cap and stats, and let formal validation fail on silent shrink. Formal benchmark memory probing uses schema version 2 and an independent untimed device-wide `cudaMemGetInfo` measurement named `device_used_max_observed_bytes`; `setup_seconds` ends before sampler stop. A join timeout keeps the sampler handle live and invalidates the record rather than silently accepting incomplete evidence. A memory cap may reduce FGMRES restart but must not change the relative true-residual criterion.
 
-MPI stage 1 has c64/c128 global dot/norm reduction (`global_reduction=True`) and rank-symmetric preflight. Setup/full/compact halos and the distributed fused solve remain disabled (`setup_halo=False`, `full_halo=False`, `compact_halo=False`, `fused_fgmres=False`), so every production multi-rank strict solve must remain rejected. Do not describe this stage as distributed MultiGrid support.
+Current strict MPI provides rank-symmetric preflight, c64/c128 global reduction, setup/full/compact/R-P halos and distributed fused FGMRES. Multi-rank runs use one process/rank/device and must pass capability preflight plus an independent true residual; a reduction-only smoke is not sufficient evidence.
 
 ## 口径与容差语义（2026-08-24）
 

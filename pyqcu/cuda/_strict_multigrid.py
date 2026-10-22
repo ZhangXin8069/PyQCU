@@ -1,5 +1,10 @@
 """显存有界的 strict QUDA 风格 Clover MultiGrid CUDA 求解器。
 
+生产拓扑固定为一个 Python 进程对应一个 MPI rank、对应一张
+GPU/DCU/GPGPU。一个 ``CudaStrictMultigridSolver`` 只管理当前进程绑定的
+一张设备；跨设备并行必须由 MPI 多 rank 完成，不得在单进程内复制该求解器
+来冒充一次分布式 solve。
+
 该路径与旧 ``applyCloverMultigridQcu`` 并列：fine 层求解目标奇偶的归一化
 Clover Schur 系统，预条件器执行 fine MR -> parity R -> strict coarse V-cycle ->
 parity P -> fine MR，外层使用 C++ fused 右预条件 FGMRES。粗层 hierarchy

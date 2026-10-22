@@ -6,6 +6,14 @@ description: pyqcu/testing/qcu 目录的完整生成 skill：经 Cython 桥测 C
 
 C++ CUDA backend tests via the Cython bridge. These exercise `libqcu.so` from Python.
 
+CUDA production topology is one Python process = one MPI rank = one
+GPU/DCU/GPGPU. The multi-GPU benchmarks and conftest entries below use the
+test-only, explicitly constructed `MultiGpuMultigrid` exception for consistency
+or throughput evidence; they are not production launch templates.
+
+See
+[`docs/cuda_execution_topology.md`](../../docs/cuda_execution_topology.md).
+
 ## Test Files
 
 | File | What it tests |
@@ -19,8 +27,8 @@ C++ CUDA backend tests via the Cython bridge. These exercise `libqcu.so` from Py
 | `conftest.clover.bistabcg.py` | Clover BiStabCG solver |
 | `conftest.clover.bistabcg.dslash.py` | Clover BiStabCG dslash |
 | `conftest.clover.multigrid.py` | Clover multigrid V-cycle solver |
-| `bench_multi_gpu.py` | Multi-thread multi-GPU Clover-MG steady-state benchmark with `--no-reference` |
-| `slurm_multi_gpu_smoke.sh` | Slurm 2-GPU build, numeric gates, consistency and real-LIME regression |
+| `bench_multi_gpu.py` | Test-only multi-thread multi-GPU Clover-MG steady-state benchmark with `--no-reference` |
+| `slurm_multi_gpu_smoke.sh` | Test-only Slurm 2-GPU build, numeric gates, consistency and real-LIME regression |
 
 ## Usage
 

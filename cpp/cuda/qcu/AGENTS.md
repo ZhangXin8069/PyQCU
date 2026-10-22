@@ -2,6 +2,10 @@
 
 PyQCU 主 C++ CUDA 后端。手写 CUDA 内核 + MPI halo 交换：Wilson/Clover Dirac 算子、BiStabCG/CG 求解器、multigrid、规范场生成。
 
+生产执行拓扑固定为一个 Python 进程 = 一个 MPI rank = 一张 GPU/DCU/GPGPU。
+C++ halo 与全局归约负责跨 rank 协同；单进程多线程多 GPU 仅限 Python 层显式
+调用的测试驱动 `pyqcu.cuda._multi_gpu.MultiGpuMultigrid`，不是后端默认语义。
+
 ## 构建
 
 ```bash

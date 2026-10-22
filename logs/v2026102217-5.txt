@@ -1,0 +1,60 @@
+[日志元数据]
+日志类型: final
+生成时间: 2026-10-22 17:24:42 +0800
+批次: analysis
+主任务: 解释 C++ QCU 默认 Legacy MG 而非 Strict-MG 的原因
+触发原因: 任务完成
+摘要: 默认由调用兼容性和工程边界决定，并非统一性能裁决；Strict 的 setup/cache 成本需按重复求解场景摊销
+Git 根目录: /root/PyQCU
+
+## 关键日志
+### S1 — 默认路径不是运行时性能选择
+- 目标: 解释 C++ QCU MG 驱动为何默认 Legacy。
+- 证据: `qcu_multigrid.py` 明确按 legacy 参数构建 33-tensor 并调用 `applyCloverMultigridQcu`。
+- 证据: Strict 使用独立的 `CudaStrictMultigridSolver`、`QudaStrictMultigrid` 和 `applyMultigridStrict*` 生命周期。
+- 判断: 代码中没有按 benchmark 自动选择 Legacy/Strict 的全局策略；默认由具体驱动调用点决定。
+
+### S2 — 性能证据边界
+- 证据: 现有正式数字是 Strict 对 QUDA aligned，不是 Strict 对 Legacy。
+- 证据: 当前 24³×64 真实 LIME 的 Legacy E12 coarse V-cycle 慢于 fine-only。
+- 证据: Strict 大格 c128 cold C=1 setup 为 2709.45 s，steady solve 为 2.067186 s。
+- 判断: Legacy 默认不能解释为“Legacy 已被证明总是更快”；Strict 的 steady-state 优势依赖缓存复用并需摊销高 setup/内存成本。
+
+## 验证与证据
+- 检查: 静态核查 C++/CUDA、KUPL、simple drivers、Torch Strict hierarchy 和现有 benchmark 文档。
+- 结果: 默认由调用点与兼容性决定；性能不是统一裁决依据。
+- 未验证项: 未运行新的 Legacy-vs-Strict 同输入 A/B benchmark；仓库中也没有可直接引用的公平直接对照。
+
+## 变更与产物
+- 文件: 未修改源码或 docs；仅新增本日志。
+- 未改动范围: C++/CUDA、KUPL、Torch solver、测试与构建系统。
+
+## 风险、限制与下一步
+- 风险: 把 Strict-vs-QUDA 的 2.0052x/7.8417x 误写成 Strict-vs-Legacy。
+- 风险: 忽略 Strict setup/cache 成本，把 steady solve 当作一次性总耗时。
+- 下一步: 若要以性能为由切换默认，应在同机器、同格点、同 gauge/RHS、同精度、同真残差门和同计时边界下做 Legacy-vs-Strict A/B。
+
+## 用户输入指令
+为什么现在cpp系列qcu默认使用的是"Legacy MG",而不是"Strict MG"?,是性能原因吗?
+
+## Agent 全文报告
+--- report begin ---
+不是简单的“Strict 性能差”，也不是“Legacy 已被证明全面更快”。更准确地说：当前 C++ QCU MG 驱动默认 Legacy，主要是兼容性和工程边界，而不是一个由统一 benchmark 得出的性能决策。
+
+第一，C++ QCU 库没有全局运行时默认。它同时导出 Legacy 和 Strict。当前 `qcu_multigrid.py` 是明确的 legacy 示例：它构建 33-tensor coarse assets，然后调用 `applyCloverMultigridQcu`。Strict 则通过独立入口、独立 cache、独立生命周期和独立计时协议使用。
+
+第二，两套 MG 不是可无缝互换的实现。Legacy 使用 compact odd Schur 的 33-tensor coarse operator；Strict 使用 full-coarse 的 `X/Y/Yhat` 和逐层 MATPC/direct_pc。切换默认会改变 coarse geometry、cache 格式、显存需求、迭代轨迹、停机语义和 ABI 生命周期。
+
+第三，Strict 的 setup 很重。大格 c128 cold C=1 setup 为 2709.45 s，steady solve 为 2.067186 s；扩展缓存构建仍需约 585.28 s。对单次 RHS，setup 远大于 solve。Legacy/fine-only 更适合低 setup 的一次性求解。Strict 更适合同一 gauge 上重复求解并复用 cache 的场景。
+
+第四，现有性能证据不能直接回答 Legacy-vs-Strict。正式的 2.0052x、7.8417x 等数字是 PyQCU Strict 对 QUDA aligned，不是 Strict 对 Legacy。当前 24³×64 真实 LIME 上，Legacy E12 coarse V-cycle 还慢于 fine-only：lifecycle 0.365086 s 对 0.401633 s，backend 0.132445 s 对 0.172463 s。因此也不能说 Legacy 默认是因为其粗层算法更快。
+
+第五，实际生产 `solve_case.py` 当前使用 BiCGStab，不是 MG。Legacy 只是当前 MG 示例、MPI 与多卡驱动的默认入口。
+
+所以结论是：
+
+- 是否性能原因：部分是，但只是“一次性求解的低 setup/低内存”层面对 Legacy 有利，不是全面性能裁决。
+- 是否有数据证明 Legacy 应作为所有场景默认：没有。
+- 是否有数据证明 Strict 应取代 Legacy：也没有；Strict-vs-QUDA 数据不能替代 Strict-vs-Legacy。
+- 要改变默认，必须先做同输入、同精度、同真残差门、同计时边界的 Legacy-vs-Strict A/B，并同时报告 cold setup、cache-hit、内存和 steady solve。
+--- report end ---

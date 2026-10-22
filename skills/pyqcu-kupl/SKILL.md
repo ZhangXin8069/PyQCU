@@ -111,6 +111,9 @@ ASAN 与 OpenMPI 的 signal handler 可能递归输出 `DEADLYSIGNAL`；先以
 
 ## 性能基准
 
+同窗 KUPL 路径选择、LTO 结果、跨后端比较边界与当前工作区证据状态见
+[`pyqcu-docs/references/extracted-guidance.md`](../pyqcu-docs/references/extracted-guidance.md#5-性能与证据解释)。
+
 ```bash
 KUPL_OMP_THREADS=16 OMP_PROC_BIND=close OMP_PLACES=cores \
   cpp/kupl/qcu/build/kupl_qcu_bench \

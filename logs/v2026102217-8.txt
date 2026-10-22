@@ -1,0 +1,73 @@
+[日志元数据]
+日志类型: final
+生成时间: 2026-10-22 17:55:58 +0800
+批次: docs
+主任务: 标注 MultiGpuMultigrid 为测试专用并固化 CUDA 进程-rank-设备拓扑
+触发原因: 任务完成
+摘要: 同步代码注释、AGENTS、skills 与用户文档，明确显式 opt-in 和一句进程-rank-设备生产约定
+Git 根目录: /root/PyQCU
+
+## 关键日志
+### S1 — 代码注释与显式启用边界
+- 目标: 将 `MultiGpuMultigrid` 标注为测试专用，并明确只有显式导入/构造才启用。
+- 修改: `pyqcu/cuda/_multi_gpu.py` 的模块与类 docstring 标明 TEST-ONLY，并说明其不是单次 solve 的跨卡分域。
+- 修改: `pyqcu/cuda/__init__.py`、`pyqcu/solver/__init__.py`、`qcu.pyx` 注明延迟导入和显式 opt-in。
+- 修改: `_schur_op.py`、`_strict_multigrid.py`、`simple/mpi/worker.py` 和 simple runner 注明生产设备映射。
+- 修改: 当前 multi-GPU benchmark、conftest、Slurm smoke 与 QUDA comparison runner 标注 TEST-ONLY。
+
+### S2 — 将生产拓扑写入 AGENTS 与用户文档
+- 规则: 一个 Python 进程 = 一个 MPI rank = 一张 GPU/DCU/GPGPU。
+- 修改: 根 `AGENTS.md`、`pyqcu/cuda/AGENTS.md`、`qcu/AGENTS.md`、simple/simple-mpi/testing-qcu AGENTS、C++ CUDA AGENTS。
+- 新增: `docs/cuda_execution_topology.md`，包含生产拓扑、禁止路径、测试例外、与 MPI 多卡区别、开发检查清单。
+- 更新: `docs/AGENTS.md`、`docs/qcu_quda_multigrid_algorithms.md`、simple README/USER_GUIDE、MPI README/USER_GUIDE。
+- 更新: `pyqcu-cuda`、`pyqcu-cpp-qcu`、`pyqcu-testing-qcu` skills。
+
+## 验证与证据
+- `python -m py_compile` 覆盖所有修改的 Python 文件，退出码 0。
+- `bash -n pyqcu/testing/qcu/slurm_multi_gpu_smoke.sh`，退出码 0。
+- `git diff --check`，退出码 0。
+- 新文档 whitespace 与 Markdown fence 检查通过，fences=6。
+- 所有修改文档的相对链接目标检查通过。
+- 导入 `pyqcu` 与 `pyqcu.cuda` 后断言 `pyqcu.cuda._multi_gpu` 不在 `sys.modules`，结果 `multi_gpu_auto_import=no`。
+- 生产入口检索确认 `solve_case.py`、`qcu_multigrid.py`、MPI solve/worker 不调用 `MultiGpuMultigrid`。
+- `bash skills/pyqcu-form/form-audit.sh` 仍失败 1 项：既存 `docs/profiler_test9-dev103.md` 路径含 tag 名；本次未修改该用户文件。
+
+## 变更与产物
+- 新增: `docs/cuda_execution_topology.md`（4,391 bytes）。
+- 修改: 代码注释、AGENTS、skills、simple/MPI 用户文档及测试/benchmark 标记。
+- 未改行为: 未增加或删除运行开关，未改变算法、MPI 通信、ABI 或测试路径。
+- 未执行: GPU/MPI 数值测试、提交、tag、push。
+
+## 风险、限制与下一步
+- 风险: 旧历史报告仍可能描述 MultiGpuMultigrid 为推荐并行方式；当前规则只覆盖现行代码、AGENTS、skills 和正式用户文档。
+- 风险: form audit 的唯一失败来自未触碰的既存文件。
+- 下一步: 若要让全仓 form audit 全绿，需另行处理 `docs/profiler_test9-dev103.md` 路径命名。
+
+## 用户输入指令
+将cuda版qcu的"MultiGpuMultigrid"注释为测试专用功能,除非明确调用否则不启用,后续cuda相关程序保持"一个Python进程对应一个MPI rank对应一块gpu(或dcu等等gpgpu)",将此约定写入相关代码注释与md文件
+
+## Agent 全文报告
+--- report begin ---
+已完成约定落库，未改变运行行为。
+
+核心规则：
+
+```text
+一个 Python 进程 = 一个 MPI rank = 一张 GPU/DCU/GPGPU
+```
+
+`MultiGpuMultigrid` 现在在代码、AGENTS、skills 和用户文档中统一标记为：
+
+- 测试专用。
+- 显式 opt-in。
+- 导入 `pyqcu`、`pyqcu.cuda` 或 `pyqcu.solver` 时不会自动构造或启动。
+- 不是生产部署模板。
+- 不是一次 solve 的跨设备格点分域。
+- 只用于一致性、吞吐和诊断测试。
+
+新增正式文档 `docs/cuda_execution_topology.md`，并更新 `docs/AGENTS.md`、Simple/MPI 用户指南和相关 skills。生产驱动继续通过 MPI 多进程、四维格点分域、halo 和全局归约扩展多设备。
+
+验证通过：Python 语法、Shell 语法、Markdown 链接、Markdown fence、新文件空白、`git diff --check`，以及“MultiGpuMultigrid 不在包导入时自动加载”的运行检查。
+
+全仓 form audit 仍只因任务开始前已存在的 `docs/profiler_test9-dev103.md` tag-name 路径告警失败；本次未修改该文件。
+--- report end ---

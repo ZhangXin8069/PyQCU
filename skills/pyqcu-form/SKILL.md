@@ -16,6 +16,9 @@ metadata:
 `${CONFIGURE_ROOT:-$HOME/configure}/skills/form/references/naming-and-layout.md`；
 本库的目录白名单、已知例外、验证入口和交付边界以根规则为准。
 
+`docs/**` 到领域技能的主责关系和文档权威级别见
+[`pyqcu-docs/references/project-docs-map.md`](../pyqcu-docs/references/project-docs-map.md)。
+
 PyQCU 是复杂库，主导语言为 C++/CUDA、Python/Cython 和 Bash。先只读审计，再按依赖顺序
 分批整改；不得把历史报告、正式证据、自包含构建树或上游 vendored 内容机械迁出。
 

@@ -1,0 +1,55 @@
+[日志元数据]
+日志类型: final
+生成时间: 2026-10-22 18:36:52 +0800
+批次: docs-to-skills
+主任务: 提取 docs 参考内容到 skills
+触发原因: 任务完成
+摘要: 新增 pyqcu-docs 文档导航技能、17/17 来源映射与蒸馏工程参考，并同步域技能指针和文档索引
+Git 根目录: /root/PyQCU
+
+## 关键日志
+### S1 — 盘点与映射
+- 目标: 将 `docs/**` 中可供后续 agent 复用的稳定知识提取到 `skills/**`，同时避免复制正式文档形成双源。
+- 命令/操作: 读取 `docs/AGENTS.md`、`docs/ORGANIZATION.md`、17 份顶层 Markdown 文档及现有领域技能，建立权威级别、主责技能和提取边界。
+- 关键输出: `docs_markdown=17 mapped_markdown=17`；确定新增跨域 `pyqcu-docs`，域细节保留在 CUDA、solver、KUPL、benchmark、testing、profiler、tools、form 技能。
+- 退出码: 0
+- 证据与判断: `docs/**` 是规范源，`skills/**` 只保存执行不变量、命令、反模式和来源映射。
+
+### S2 — 实现与治理
+- 目标: 落地按需披露的技能化参考和最小域指针。
+- 命令/操作: 新增 `skills/pyqcu-docs/{SKILL.md,AGENTS.md}` 与两份 `references/`；更新 8 个域技能指针及 `skills/AGENTS.md` 的 `34/34` 索引；将标签形路径 `docs/profiler_test9-dev103.md` 可恢复重命名为 `docs/profiler_solver_performance_history.md` 并同步 `docs/AGENTS.md`。
+- 关键输出: 新技能 `SKILL.md` 73 行；来源映射覆盖 17/17 文档；历史 profiler 文件重命名前后 SHA256 均为 `fa7d3b5f7bf3221730da0205c86ec03e46ffed98200f436f0ef00e0a400e566a`。
+- 退出码: 0
+- 证据与判断: 正式文档内容未丢失；新技能与域技能通过相对链接保持单一权威源。
+
+## 验证与证据
+- 测试/检查: 临时索引执行 `bash skills/pyqcu-form/form-audit.sh`。
+- 结果: PASS，34 个技能目录与索引一致，豁免 1069 个既有资产 finding。
+- 测试/检查: 文档覆盖比对、Markdown 本地链接、旧路径搜索、`git diff --check`、`bash -n`。
+- 结果: 17/17 映射；链接 0 broken；旧路径 0 命中；`git diff --check` PASS；shell 语法 PASS。
+- 未验证项: 未运行全量 pytest；本次只修改文档和技能说明，未修改可执行代码。
+
+## 变更与产物
+- 文件: `skills/pyqcu-docs/SKILL.md`、`skills/pyqcu-docs/AGENTS.md`、`skills/pyqcu-docs/references/project-docs-map.md`、`skills/pyqcu-docs/references/extracted-guidance.md`。
+- 文件: `skills/AGENTS.md`、`docs/AGENTS.md` 及 `pyqcu-cuda`、`pyqcu-solver`、`pyqcu-kupl`、`pyqcu-benchmark`、`pyqcu-testing`、`pyqcu-testing-profiler`、`pyqcu-tools`、`pyqcu-form` 的 `SKILL.md`。
+- 产物: 历史 profiler 文档重命名为 `docs/profiler_solver_performance_history.md`，内容逐字节保留。
+- 未改动范围: 求解器、CUDA/KUPL 内核、测试代码和构建逻辑未修改；未暂存、提交、推送或打 tag。
+
+## 风险、限制与下一步
+- 风险: 工作树存在任务开始前已有的多处代码和技能改动；本次只追加相关文档/技能内容并保留这些改动。
+- 阻塞: 无。
+- 下一步: 若准备形成里程碑，按项目 form/tag 流程审阅完整工作树后分组提交并归档。
+
+## 用户输入指令
+提取docs目录中有参考意义的内容到skills目录
+
+## Agent 全文报告
+--- report begin ---
+已完成：新增 `pyqcu-docs` 作为 PyQCU 文档导航与技能化提取入口；建立覆盖 `docs/` 17/17 份 Markdown 的来源映射，并将安装、维度布局、测试入口、CUDA 拓扑、MultiGrid、性能证据和 profiler 边界蒸馏到按需参考。CUDA、solver、KUPL、benchmark、testing、profiler、tools、form 技能均已加入最小指针，`skills/AGENTS.md` 同步为 34/34。
+
+推理依据：`docs/**` 继续作为正式规范和完整证据源；`skills/**` 只保存会影响后续执行的不变量、命令、来源与口径，避免复制长文档造成漂移。未提交、未推送、未打 tag；任务开始前已有的其他工作树改动均保留。
+
+验证结果：临时索引 form 审计 PASS（34/34，豁免 1069 项既有 finding）；文档映射 17/17；Markdown 本地链接 0 broken；旧标签形路径 0 命中；`git diff --check` PASS；相关 shell 语法检查 PASS。未运行全量 pytest，因为本次没有修改可执行代码。
+
+后续可审阅完整工作树后按逻辑分组提交；本次不自动执行 Git 交付。
+--- report end ---

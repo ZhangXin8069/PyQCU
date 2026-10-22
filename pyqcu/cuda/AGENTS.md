@@ -14,7 +14,7 @@ C++ CUDA 后端（`libqcu.so`）的 Cython 桥包。
 | `define.py` | 参数常量（`_LAT_X_`、`_SET_PLAN_` 等）与 dtype 转换工具（`dtype()`、`epytd()`） |
 | `_runtime.py` | `QcuRuntime` — 私有控制数组、空闲槽位选择、异常安全 init/end 与 getter 保留上下文 |
 | `_schur_op.py` | `CudaSchurOp` — C++ Schur 奇偶算子封装（每实例独立 params/set_ptrs 副本 + 槽位分配器，多线程安全） |
-| `_multi_gpu.py` | `MultiGpuMultigrid` — 多线程多卡 C++ Clover MG 驱动（一线程一卡，单 MPI rank），`build_schur_levels`（33-tensor 粗算子 + h5py 缓存）；`run_reference=False` 可关闭纯吞吐模式下冗余的 BiStabCG 参考解 |
+| `_multi_gpu.py` | **测试专用、显式 opt-in**：`MultiGpuMultigrid` 单进程多线程多 GPU Legacy MG 驱动（一线程一卡，单 MPI rank）；不是生产执行拓扑，也不实现单次 solve 的跨卡分域。另含 `build_schur_levels`（33-tensor 粗算子 + h5py 缓存） |
 | `_logs.py` | C++ 后端收敛日志解析（2026-08-22 整合）：`parse_mg_log(path)` → (残差列表, PROF_SECTIONS ms 字典, 总迭代数)；`parse_convergence_histories(path, offset)` → (histories, 新偏移) 增量收集逐次求解的 CONVERGENCE_HISTORY；默认路径 `<repo>/logs/clover_multigrid.log` |
 
 ## 公共 API
@@ -87,12 +87,16 @@ qcu.applyEndQcu(set_ptrs, params)                  # 释放
 params[_SET_INDEX_] += 1                           # end 之后再换槽
 ```
 
-## 多线程（一线程一卡）约定
+## CUDA 生产拓扑与测试专用多线程驱动
+
+- 生产拓扑固定为一个 Python 进程 = 一个 MPI rank = 一张 GPU/DCU/GPGPU。跨设备并行通过 MPI 四维格点分域；生产驱动不得在单进程内创建多设备 worker。
+- `MultiGpuMultigrid` 是唯一允许的单进程多线程多 GPU 例外，仅用于显式发起的一致性、正确性或吞吐测试。导入 `pyqcu`/`pyqcu.cuda`/`pyqcu.solver` 都不会自动构造它。
+- `MultiGpuMultigrid` 的每个线程执行一套完整 Legacy MG，不发生线程间格点 halo；它不能替代 MPI 多卡协同求解。
 
 - qcu.pyx 全部桥函数：GIL 段取指针（`.contiguous().data_ptr()`）→ `with nogil` 调 C++；指针用**函数内局部 cdef 变量**（线程安全，不再用模块级共享 cdef）。
 - pxd 的 cdef extern 声明必须带 `nogil` 关键字；pxd 声明名不得与 pyx 内 def 同名（用 `qcu_api.pxd` 别名 `cimport X as _c_X`，同名会被覆盖为 Python 函数导致 nogil 调用失败）。
 - 每线程独立 params/argv/set_ptrs 副本 + `torch.cuda.set_device(dev_id)`（CUDA current device 线程局部）。
-- 多线程多卡驱动见 `_multi_gpu.py`（`MultiGpuMultigrid`，单 MPI rank）；单算子见 `_schur_op.py`（`CudaSchurOp`）。
+- 多线程测试驱动见 `_multi_gpu.py`（`MultiGpuMultigrid`，单 MPI rank）；单算子见 `_schur_op.py`（`CudaSchurOp`，线程安全不等于生产应使用多设备）。
 - 一致性验证保持 `run_reference=True`；生产吞吐模式可设 `run_reference=False`，
   省去每线程 BiStabCG 参考求解和第二个普通 `LatticeSet` 初始化。worker 的
   `applyEndQcu` 必须放在 `finally` 中，失败路径不得泄漏槽位。
