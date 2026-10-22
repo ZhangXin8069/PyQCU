@@ -358,3 +358,21 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 验证: path, size, required sections, conflict markers
 - 批次状态: complete
 
+## three-way-benchmark-20261022 - final - 2026-10-22 03:17:11 +0800
+- 主任务: CUDA QCU / KUPL QCU / QUDA 三方性能测评与一键脚本
+- 日志文件: logs/v2026102203.txt
+- 文件大小: 8085 bytes
+- 触发原因: 任务完成
+- 关键内容: CUDA BiCG 比 QUDA 快13.20%；KUPL restart=0 快2.8-3倍、L24 4-rank 5.530s；报告与bench_three_way.py交付，门禁PASS
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete
+
+## three-way-benchmark-20261022 - final - 2026-10-22 06:11:42 +0800
+- 主任务: CUDA QCU / KUPL QCU / QUDA 三方性能测评、生产脚本拆分与多 rank 真残差
+- 日志文件: logs/v2026102206.txt
+- 文件大小: 14547 bytes
+- 触发原因: 任务完成
+- 关键内容: 生产/测量脚本拆分、分布式独立真残差、sm60/sm70、同窗三方测量、并行扩展与 LTO 优化
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete
+
