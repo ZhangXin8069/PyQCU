@@ -376,3 +376,21 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 验证: path, size, required sections, conflict markers
 - 批次状态: complete
 
+## simple-mpi - final - 2026-10-22 15:35:49 +0800
+- 主任务: 实现 pyqcu/testing/simple MPI 小格点入口
+- 日志文件: logs/v2026102215.txt
+- 文件大小: 7764 bytes
+- 触发原因: 任务完成
+- 关键内容: 新增 KUPL/CUDA MPI 小格点 QCU MG 入口，LIME 兼容并完成两后端 PASS 验证
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete
+
+## simple-docs - final - 2026-10-22 16:13:12 +0800
+- 主任务: 丰富 simple 与 simple/mpi 用户文档并补充 OpenMPI 绑定说明
+- 日志文件: logs/v2026102216.txt
+- 文件大小: 7482 bytes
+- 触发原因: 任务完成
+- 关键内容: 重写两目录用户文档，覆盖全部主要 CLI、LIME、报告和 OpenMPI 绑定，并完成实现一致性修复与验证
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete
+

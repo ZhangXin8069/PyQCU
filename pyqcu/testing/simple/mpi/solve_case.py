@@ -1,0 +1,488 @@
+#!/usr/bin/env python3
+"""Launch a small MPI QCU Clover-MG solve from a PyQUDA LIME gauge.
+
+The public entry point prepares one small gauge/source pair, optionally builds
+the shared 33-tensor coarse hierarchy, then launches the MPI worker. KUPL uses
+4D MPI domain decomposition plus OpenMP; CUDA uses one MPI rank per visible
+GPU. This is distinct from ``MultiGpuMultigrid``, which replicates a complete
+solve in one process and is intended for throughput/consistency studies.
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import re
+import subprocess
+import sys
+from pathlib import Path
+from typing import Any, Sequence
+
+import numpy as np
+
+from pyqcu.testing.simple._common import (
+    DATA_DIR,
+    read_h5_metadata,
+    resolve_path,
+    write_h5,
+    write_json,
+)
+from pyqcu.testing.simple._runner import libqcu_environment
+from pyqcu.testing.simple.mpi._common import (
+    DEFAULT_LIME,
+    is_lime_file,
+    lime_metadata,
+    mass_and_csw,
+    read_gauge,
+    read_source,
+    resolve_grid,
+    validate_lattice,
+)
+
+
+REPO = Path(__file__).resolve().parents[4]
+BUILD_CACHE = REPO / "pyqcu" / "testing" / "simple" / "build_full_mg_cache.py"
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(1 << 20), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def _input_metadata(path: Path) -> dict[str, Any]:
+    if is_lime_file(path):
+        return lime_metadata(path)
+    if path.suffix.lower() in (".h5", ".hdf5"):
+        return read_h5_metadata(path)
+    return {}
+
+
+def _local_numa_count() -> int | None:
+    """Return local online NUMA domains without requiring numactl."""
+    try:
+        text = Path("/sys/devices/system/node/online").read_text(
+            encoding="ascii").strip()
+    except OSError:
+        return None
+    count = 0
+    try:
+        for part in text.split(","):
+            if "-" in part:
+                start, stop = (int(value) for value in part.split("-", 1))
+                count += stop - start + 1
+            elif part:
+                count += 1
+    except ValueError:
+        return None
+    return count or None
+
+
+def _case_tag(path: Path, lattice: Sequence[int], mass: float, csw: float,
+              seed: int, dtype: str) -> str:
+    stat = path.stat()
+    identity = (
+        f"{path.resolve()}:{stat.st_size}:{stat.st_mtime_ns}:"
+        f"{tuple(lattice)}:{mass:.12g}:{csw:.12g}:{seed}:{dtype}")
+    digest = hashlib.sha256(identity.encode("utf-8")).hexdigest()[:12]
+    stem = re.sub(r"[^A-Za-z0-9_.-]+", "_", path.stem)
+    lat = "x".join(str(value) for value in lattice)
+    mass_tag = f"{mass:.6g}".replace("-", "m").replace(".", "p")
+    return f"{stem}_{lat}_m{mass_tag}_s{seed}_{digest}"
+
+
+def _materialize_case(args, dtype: np.dtype) -> dict[str, Any]:
+    source_input = resolve_path(
+        args.gauge or args.lime, Path(args.gauge or args.lime).expanduser())
+    if not source_input.is_file():
+        raise FileNotFoundError(source_input)
+    lattice = validate_lattice(args.lat)
+
+    gauge_full, metadata, gauge_format = read_gauge(source_input, lattice, dtype)
+    mass, csw = mass_and_csw(metadata, args.mass, args.csw)
+    work_dir = (
+        resolve_path(args.work_dir, Path(args.work_dir).expanduser())
+        if args.work_dir else
+        DATA_DIR / "mpi_simple" / _case_tag(
+            source_input, lattice, mass, csw, args.seed, args.dtype))
+    work_dir.mkdir(parents=True, exist_ok=True)
+
+    gauge_path = work_dir / "gauge_global_c64.h5" if args.dtype == "c64" else \
+        work_dir / "gauge_global_c128.h5"
+    if args.dtype == "c128":
+        gauge_path = work_dir / "gauge_global_c128.h5"
+    write_h5(gauge_path, gauge_full, metadata={
+        "backend_input": gauge_format,
+        "source_path": str(source_input),
+        "lattice": list(lattice),
+        "mass": mass,
+        "csw": csw,
+        "layout": "[color,color,dir,x,y,z,t]",
+        "note": "small prefix sub-volume; seams are not periodic",
+    })
+
+    if args.source:
+        source_input_path = resolve_path(
+            args.source, Path(args.source).expanduser())
+        if not source_input_path.is_file():
+            raise FileNotFoundError(source_input_path)
+        source_full, source_metadata, source_format = read_source(
+            source_input_path, lattice, dtype)
+        source_provenance = str(source_input_path)
+    else:
+        rng = np.random.default_rng(args.seed)
+        source_full = (
+            rng.normal(size=(4, 3, *lattice)) +
+            1j * rng.normal(size=(4, 3, *lattice))).astype(dtype)
+        source_metadata = {"seed": int(args.seed), "generator": "PCG64"}
+        source_format = "generated"
+        source_provenance = "generated"
+    source_path = work_dir / f"source_global_{args.dtype}.h5"
+    write_h5(source_path, np.ascontiguousarray(source_full), metadata={
+        "source_format": source_format,
+        "source_path": source_provenance,
+        "seed": int(args.seed),
+        "lattice": list(lattice),
+        "layout": "[spin,color,x,y,z,t]",
+    })
+
+    manifest = {
+        "input": str(source_input),
+        "input_format": gauge_format,
+        "input_metadata": metadata,
+        "source_input_format": source_format,
+        "source_metadata": source_metadata,
+        "lattice": list(lattice),
+        "mass": mass,
+        "csw": csw,
+        "seed": int(args.seed),
+        "dtype": args.dtype,
+        "gauge": {"path": str(gauge_path), "sha256": _sha256(gauge_path)},
+        "source": {"path": str(source_path), "sha256": _sha256(source_path)},
+        "sub_volume_note": (
+            "The requested lattice is a prefix sub-volume of the input gauge; "
+            "its boundary seams are not periodic."),
+    }
+    manifest_path = work_dir / "case_manifest.json"
+    write_json(manifest_path, manifest)
+    return {
+        **manifest,
+        "work_dir": str(work_dir),
+        "manifest": str(manifest_path),
+        "gauge_path": str(gauge_path),
+        "source_path": str(source_path),
+    }
+
+
+def _coarse_cache_path(args, case: dict[str, Any]) -> Path:
+    dof = "_".join(str(value) for value in args.dof[:args.levels])
+    block = "x".join(str(value) for value in args.mg_grid)
+    return Path(case["work_dir"]) / (
+        f"coarse_{args.dtype}_lv{args.levels}_E{dof}_mg{block}"
+        f"_nvi{args.nv_iters}_s{args.seed}.h5")
+
+
+def _coarse_cache_valid(path: Path, expected_e: int) -> bool:
+    if not path.is_file():
+        return False
+    try:
+        import h5py
+
+        with h5py.File(path, "r") as handle:
+            required = {"lonv", "hnn", "hdg", "sit"}
+            return (required.issubset(handle.keys()) and
+                    int(handle["lonv"].shape[0]) == int(expected_e))
+    except (OSError, ValueError):
+        return False
+
+
+def _build_coarse_cache(args, case: dict[str, Any], cache_path: Path) -> None:
+    report = cache_path.with_suffix(".json")
+    command = [
+        sys.executable, str(BUILD_CACHE),
+        "--gauge", case["gauge_path"],
+        "--lat", *(str(value) for value in args.lat),
+        "--mass", str(case["mass"]),
+        "--csw", str(case["csw"]),
+        "--dtype", args.dtype,
+        "--dof", *(str(value) for value in args.dof[:args.levels]),
+        "--mg-grid", *(str(value) for value in args.mg_grid),
+        "--nv-iters", str(args.nv_iters),
+        "--seed", str(args.seed),
+        "--build-device", args.build_device,
+        "--output", str(cache_path),
+        "--report", str(report),
+    ]
+    completed = subprocess.run(command, cwd=REPO, check=False)
+    if completed.returncode != 0 or not cache_path.is_file():
+        raise RuntimeError(
+            f"coarse-cache build failed with exit={completed.returncode}: "
+            f"{' '.join(command)}")
+
+
+def _worker_arguments(args, case: dict[str, Any], cache_path: Path | None,
+                      grid: Sequence[int], output: Path, report: Path) -> list[str]:
+    values = [
+        sys.executable, "-m", "pyqcu.testing.simple.mpi.worker",
+        "--backend", args.backend,
+        "--gauge", case["gauge_path"],
+        "--source", case["source_path"],
+        "--lat", *(str(value) for value in args.lat),
+        "--grid", *(str(value) for value in grid),
+        "--mass", str(case["mass"]),
+        "--csw", str(case["csw"]),
+        "--atol", str(args.atol),
+        "--max-iter", str(args.max_iter),
+        "--dtype", args.dtype,
+        "--levels", str(args.levels),
+        "--dof", *(str(value) for value in args.dof[:args.levels]),
+        "--mg-grid", *(str(value) for value in args.mg_grid),
+        "--restart", str(args.restart),
+        "--coarse-max-iter", str(args.coarse_max_iter),
+        "--coarse-tol-factor", str(args.coarse_tol_factor),
+        "--nv-iters", str(args.nv_iters),
+        "--seed", str(args.seed),
+        "--output", str(output),
+        "--report", str(report),
+    ]
+    if cache_path is not None:
+        values.extend(["--coarse-cache", str(cache_path)])
+    if args.skip_independent_residual:
+        values.append("--skip-independent-residual")
+    return values
+
+
+def build_mpirun_command(*, mpirun: str, ranks: int, bind_to: str,
+                         map_by: str | None, oversubscribe: bool,
+                         allow_run_as_root: bool,
+                         worker_arguments: Sequence[str]) -> list[str]:
+    command = [mpirun]
+    if allow_run_as_root:
+        command.append("--allow-run-as-root")
+    if oversubscribe:
+        command.append("--oversubscribe")
+    command.extend(["--bind-to", bind_to])
+    if map_by:
+        command.extend(["--map-by", map_by])
+    command.extend(["-np", str(int(ranks)), *worker_arguments])
+    return command
+
+
+def _launch_environment(args) -> dict[str, str]:
+    env = dict(os.environ)
+    python_path = env.get("PYTHONPATH", "")
+    entries = [str(REPO), *[item for item in python_path.split(":") if item]]
+    env["PYTHONPATH"] = ":".join(dict.fromkeys(entries))
+    env["OMP_NUM_THREADS"] = str(args.omp_threads)
+    env["KUPL_OMP_THREADS"] = str(args.omp_threads)
+    if args.backend == "kupl":
+        # MPI/OpenMPI owns placement. The KUPL library must not bind again.
+        env["KUPL_NUMA_BIND"] = "0"
+        env.pop("OMP_PROC_BIND", None)
+        env.pop("OMP_PLACES", None)
+    elif args.backend == "cuda":
+        env = libqcu_environment(env, "cuda:0", args.libqcu)
+    return env
+
+
+def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--backend", choices=("kupl", "cuda"), default="kupl")
+    parser.add_argument("--lime", default=str(DEFAULT_LIME),
+                        help="PyQUDA/QIO LIME gauge; default: ~/data/<reference>.lime")
+    parser.add_argument("--gauge", default=None,
+                        help="LIME or HDF5 gauge; overrides --lime")
+    parser.add_argument("--source", default=None,
+                        help="optional HDF5 source [spin,color,x,y,z,t]")
+    parser.add_argument("--lat", nargs=4, type=int, default=(8, 8, 8, 16),
+                        help="small validation lattice; sub-volume of the input")
+    parser.add_argument("--mass", type=float, default=None)
+    parser.add_argument("--csw", type=float, default=None)
+    parser.add_argument("--atol", type=float, default=1.0e-6)
+    parser.add_argument("--max-iter", type=int, default=1000)
+    parser.add_argument("--dtype", choices=("c64", "c128"), default="c64")
+    parser.add_argument("--levels", type=int, choices=(1, 2), default=2)
+    parser.add_argument("--dof", nargs="+", type=int, default=(12, 12))
+    parser.add_argument("--mg-grid", nargs=4, type=int, default=(2, 2, 2, 2))
+    parser.add_argument("--restart", type=int, default=5)
+    parser.add_argument("--coarse-max-iter", type=int, default=200)
+    parser.add_argument("--coarse-tol-factor", type=float, default=1.0e4)
+    parser.add_argument("--nv-iters", type=int, default=1)
+    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--ranks", type=int, default=4)
+    parser.add_argument("--grid", nargs=4, type=int, default=None)
+    parser.add_argument("--omp-threads", type=int, default=8)
+    parser.add_argument("--bind-to", choices=("numa", "none"), default=None)
+    parser.add_argument("--map-by", default=None)
+    parser.add_argument("--oversubscribe", action=argparse.BooleanOptionalAction,
+                        default=True)
+    parser.add_argument("--allow-run-as-root", action=argparse.BooleanOptionalAction,
+                        default=None)
+    parser.add_argument("--mpirun", default="mpirun")
+    parser.add_argument("--libqcu", choices=("auto", "sm60", "sm70", "default"),
+                        default="auto")
+    parser.add_argument("--build-device", choices=("cpu", "cuda"), default="cpu")
+    parser.add_argument("--work-dir", default=None)
+    parser.add_argument("--coarse-cache", default=None)
+    parser.add_argument("--rebuild-coarse-cache", action="store_true")
+    parser.add_argument("--skip-independent-residual", action="store_true")
+    parser.add_argument("--output", default=None)
+    parser.add_argument("--report", default=None)
+    parser.add_argument("--dry-run", action="store_true")
+    args = parser.parse_args(argv)
+
+    args.lat = list(validate_lattice(args.lat))
+    if len(args.dof) < args.levels:
+        parser.error("--dof must provide one value per requested level")
+    if args.levels < 1 or args.ranks < 1 or args.omp_threads < 1:
+        parser.error("--levels, --ranks and --omp-threads must be positive")
+    if args.restart < 0 or args.max_iter < 1 or args.nv_iters < 1:
+        parser.error("--restart must be nonnegative and iteration counts positive")
+    if not np.isfinite(args.atol) or args.atol <= 0.0:
+        parser.error("--atol must be finite and positive")
+    args.grid = list(resolve_grid(args.lat, args.ranks, args.grid))
+    if any(args.lat[axis] % args.grid[axis] for axis in range(4)):
+        parser.error("--grid must divide every lattice axis")
+    if args.levels > 1 and args.restart != 0:
+        local = [args.lat[axis] // args.grid[axis] for axis in range(4)]
+        if any(local[axis] % args.mg_grid[axis] for axis in range(4)):
+            parser.error(
+                f"local lattice {tuple(local)} is not divisible by "
+                f"--mg-grid {tuple(args.mg_grid)}")
+    numa_count = _local_numa_count() if args.backend == "kupl" else None
+    args.binding_fallback = False
+    if args.bind_to is None:
+        if args.backend == "kupl" and numa_count is not None and \
+                args.ranks <= numa_count:
+            args.bind_to = "numa"
+        else:
+            args.bind_to = "none"
+            args.binding_fallback = args.backend == "kupl"
+    if args.map_by is None:
+        args.map_by = ("ppr:1:numa"
+                       if args.backend == "kupl" and args.bind_to == "numa"
+                       else None)
+    if (args.backend == "kupl" and args.bind_to == "numa" and
+            args.map_by and "pe=" in args.map_by):
+        parser.error(
+            "OpenMPI rejects --bind-to numa with map-by pe=N; use "
+            "--bind-to core for pe=N, or --map-by ppr:1:numa with NUMA binding")
+    if args.allow_run_as_root is None:
+        args.allow_run_as_root = hasattr(os, "geteuid") and os.geteuid() == 0
+    return args
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    args = _parse_args(argv)
+    dtype = np.dtype(np.complex64 if args.dtype == "c64" else np.complex128)
+
+    if args.dry_run:
+        input_path = resolve_path(
+            args.gauge or args.lime, Path(args.gauge or args.lime).expanduser())
+        metadata = _input_metadata(input_path) if input_path.is_file() else {}
+        mass, csw = mass_and_csw(metadata, args.mass, args.csw)
+        work_dir = resolve_path(
+            args.work_dir, Path(args.work_dir).expanduser()
+        ) if args.work_dir else (
+            DATA_DIR / "mpi_simple" / _case_tag(
+                input_path, args.lat, mass, csw, args.seed, args.dtype))
+        output = Path(args.output).expanduser() if args.output else \
+            work_dir / "solution_mpi_c64.h5"
+        report = Path(args.report).expanduser() if args.report else \
+            work_dir / "report_mpi.json"
+        placeholder_case = {"work_dir": str(work_dir)}
+        cache = (
+            resolve_path(args.coarse_cache, Path(args.coarse_cache).expanduser())
+            if args.coarse_cache else
+            _coarse_cache_path(args, placeholder_case)
+            if args.levels > 1 and args.restart else None)
+        placeholder = {
+            "gauge_path": str(work_dir / "gauge_global_c64.h5"),
+            "source_path": str(work_dir / "source_global_c64.h5"),
+            "mass": mass,
+            "csw": csw,
+        }
+        worker = _worker_arguments(
+            args, placeholder, cache, args.grid, output, report)
+        command = build_mpirun_command(
+            mpirun=args.mpirun, ranks=args.ranks, bind_to=args.bind_to,
+            map_by=args.map_by, oversubscribe=args.oversubscribe,
+            allow_run_as_root=args.allow_run_as_root,
+            worker_arguments=worker)
+        print(json.dumps({
+            "status": "DRY-RUN", "backend": args.backend,
+            "lime": str(input_path), "lattice": args.lat, "grid": args.grid,
+            "ranks": args.ranks, "omp_threads": args.omp_threads,
+            "bind_to": args.bind_to, "map_by": args.map_by,
+            "binding_fallback": args.binding_fallback,
+            "command": command,
+        }, indent=2, ensure_ascii=False))
+        return 0
+
+    case = _materialize_case(args, dtype)
+    cache_path: Path | None = None
+    if args.levels > 1 and args.restart != 0:
+        cache_path = (
+            resolve_path(args.coarse_cache, Path(args.coarse_cache).expanduser())
+            if args.coarse_cache else _coarse_cache_path(args, case))
+        if args.rebuild_coarse_cache or not _coarse_cache_valid(
+                cache_path, args.dof[1]):
+            _build_coarse_cache(args, case, cache_path)
+
+    output = (
+        resolve_path(args.output, Path(args.output).expanduser())
+        if args.output else Path(case["work_dir"]) / f"solution_mpi_{args.dtype}.h5")
+    report = (
+        resolve_path(args.report, Path(args.report).expanduser())
+        if args.report else Path(case["work_dir"]) / "report_mpi.json")
+    output.parent.mkdir(parents=True, exist_ok=True)
+    report.parent.mkdir(parents=True, exist_ok=True)
+    if report.exists():
+        report.unlink()
+
+    worker = _worker_arguments(
+        args, case, cache_path, args.grid, output, report)
+    command = build_mpirun_command(
+        mpirun=args.mpirun, ranks=args.ranks, bind_to=args.bind_to,
+        map_by=args.map_by, oversubscribe=args.oversubscribe,
+        allow_run_as_root=args.allow_run_as_root,
+        worker_arguments=worker)
+    env = _launch_environment(args)
+    print(json.dumps({
+        "stage": "launch", "backend": args.backend,
+        "command": command, "lattice": args.lat, "grid": args.grid,
+        "omp_threads": args.omp_threads, "bind_to": args.bind_to,
+        "map_by": args.map_by, "binding_fallback": args.binding_fallback,
+    }, ensure_ascii=False), flush=True)
+    completed = subprocess.run(command, cwd=REPO, env=env, check=False)
+    if not report.is_file():
+        print(json.dumps({
+            "status": "FAIL", "backend": args.backend,
+            "exit_code": completed.returncode,
+            "error": "worker did not publish a JSON report",
+        }, ensure_ascii=False))
+        return 1 if completed.returncode == 0 else completed.returncode
+
+    payload = json.loads(report.read_text(encoding="utf-8"))
+    payload["launcher"] = {
+        "exit_code": completed.returncode,
+        "command": command,
+        "lime": case["input"],
+        "input_format": case["input_format"],
+        "case_manifest": case["manifest"],
+        "small_lattice": args.lat,
+        "sub_volume_note": case["sub_volume_note"],
+    }
+    if completed.returncode != 0 and payload.get("status") not in ("FAIL", "SKIP"):
+        payload["status"] = "FAIL"
+        payload["converged"] = False
+    write_json(report, payload)
+    print(json.dumps(payload, ensure_ascii=False))
+    return 0 if completed.returncode == 0 and payload.get("status") != "FAIL" else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

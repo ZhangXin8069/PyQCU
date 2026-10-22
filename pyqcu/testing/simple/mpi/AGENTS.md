@@ -1,0 +1,24 @@
+# AGENTS.md - pyqcu/testing/simple/mpi
+
+本目录提供 `simple/` 的小格点 MPI 快速验收入口。修改时遵循：
+
+1. 公共入口是 `solve_case.py`。它负责接受 LIME/HDF5、切出小体积、生成共享
+   source、构建 33-tensor 粗算子和启动一次 `mpirun`。`worker.py` 是 MPI
+   子进程内部入口，不作为日常用户接口。
+2. KUPL 是真实四维 MPI 分域加 rank 内 OpenMP。MPI 负责绑定时必须设置
+   `KUPL_NUMA_BIND=0`，并清除 `OMP_PROC_BIND`/`OMP_PLACES`，避免库内和
+   OpenMPI 重复绑核。
+3. CUDA 路径是一 rank 一 GPU 的 MPI 分域。不要把它与
+   `pyqcu.cuda._multi_gpu.MultiGpuMultigrid` 的“单进程、每卡复制整题求解”
+   语义混写；文档和报告必须明确区分。
+4. LIME 输入按魔数识别，不依赖扩展名大小写；必须继续支持
+   `scidac-private-file-xml`/`scidac-file-xml`、
+   `scidac-private-record-xml`/`scidac-record-xml`、`clovCoeff` 和 `Mass`。
+5. 快速验收默认使用 `8x8x8x16` 子体积。LIME 子体积的边界缝不满足原始周期
+   条件，只用于代码路径、MPI 通信和数值真残差验证，不作为物理结果。
+6. 多 rank MG 必须使用全局粗算子缓存。启动器可自动构建缓存；worker 只读取
+   各 rank 的粗格超切片，不得让每个 rank 重复构建完整 hierarchy。
+7. 每个新路径至少验证 `python -m compileall`、契约 pytest、一个 KUPL MPI
+   小格点求解和一个 CUDA 小格点求解；设备缺失时记录未验证原因。
+8. 用户文档入口为 `README.md`，完整参数、OpenMPI 绑定、报告字段和排错见
+   `USER_GUIDE.md`。CLI、默认值、环境变量或报告 schema 变化时必须同步更新。
