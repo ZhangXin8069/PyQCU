@@ -7,6 +7,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
+from statistics import median
 
 try:
     from ._common import (DATA_DIR, DEFAULT_ATOL, DEFAULT_CSW, DEFAULT_MASS,
@@ -120,9 +121,15 @@ def main(argv=None) -> int:
     parser.add_argument("--gauge", default=None, help="QCU HDF5 or QUDA .lime")
     parser.add_argument("--source", default=None, help="QCU full fermion HDF5")
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--warmup", type=int, default=1,
+                        help="untimed solve repetitions before sampling")
+    parser.add_argument("--repeats", type=int, default=3,
+                        help="timed solve repetitions; report the median")
     parser.add_argument("--output", default=None, help="optional QCU solution HDF5")
     parser.add_argument("--report", default="performance_qcu_bistabcg.json")
     args = parser.parse_args(argv)
+    if args.warmup < 0 or args.repeats < 1:
+        parser.error("--warmup must be >= 0 and --repeats >= 1")
 
     if not qcu_available():
         print(json.dumps({"status": "SKIP", "reason": "QCU extension/CUDA unavailable"}))
@@ -171,16 +178,23 @@ def main(argv=None) -> int:
     g, src, out, ce, co, cei, coi = fields
     runtime.configure(plan=define._SET_PLAN1_)
     memory = None
-    with runtime.operation("applyCloverBistabCgQcu") as operation:
-        start = torch.cuda.Event(enable_timing=True)
-        end = torch.cuda.Event(enable_timing=True)
-        start.record()
-        operation(out, src, g, ce, co, cei, coi)
-        end.record()
-        torch.cuda.synchronize(runtime.device)
-        wall_seconds = start.elapsed_time(end) / 1000.0
-        iterations = int(operation.read("getCloverBistabCgIterationsQcu"))
+    samples = []
+    iterations = 0
+    for repeat in range(args.warmup + args.repeats):
+        with runtime.operation("applyCloverBistabCgQcu") as operation:
+            start = torch.cuda.Event(enable_timing=True)
+            end = torch.cuda.Event(enable_timing=True)
+            start.record()
+            operation(out, src, g, ce, co, cei, coi)
+            end.record()
+            torch.cuda.synchronize(runtime.device)
+            wall = start.elapsed_time(end) / 1000.0
+            iterations = int(operation.read(
+                "getCloverBistabCgIterationsQcu"))
+        if repeat >= args.warmup:
+            samples.append(wall)
         memory = cuda_memory_snapshot(runtime.device)
+    wall_seconds = median(samples)
     residual = true_residual(fields, operator, tools, kappa_value, csw)
     converged, status, residual_acceptance = convergence_status(
         residual, args.atol, comparison_valid=comparison_valid)
@@ -197,6 +211,7 @@ def main(argv=None) -> int:
         "csw": csw, "gauge_csw": gauge_csw,
         "reference_mass": reference_mass, "comparison_valid": comparison_valid,
         "warnings": warnings, "iterations": iterations, "wall_seconds": wall_seconds,
+        "wall_samples": samples, "warmup": args.warmup,
         "seconds_per_iteration": wall_seconds / iterations if iterations > 0 else None,
         "final_true_residual": residual,
         "residual_history": [],

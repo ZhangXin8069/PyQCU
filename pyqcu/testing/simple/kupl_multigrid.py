@@ -26,6 +26,8 @@ try:
                                 PARITY, SET_PLAN, cpu_memory_snapshot,
                                 kupl_backend, load_gauge, load_source,
                                 make_params, relative_full_residual)
+    from .kupl_residual import (distributed_relative_residual,
+                                gather_solution)
 except ImportError:
     from _common import (DATA_DIR, DEFAULT_ATOL, DEFAULT_BLOCK, DEFAULT_MASS,
                          convergence_status, kupl_fermion_to_qcu,
@@ -35,6 +37,8 @@ except ImportError:
                                PARITY, SET_PLAN, cpu_memory_snapshot,
                                kupl_backend, load_gauge, load_source,
                                make_params, relative_full_residual)
+    from kupl_residual import (distributed_relative_residual,
+                               gather_solution)
 
 if str(Path(__file__).resolve().parents[3]) not in sys.path:
     sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
@@ -307,12 +311,6 @@ def main(argv=None) -> int:
         parser.error(
             f"local lattice {local_lattice} is not divisible by "
             f"--mg-grid {tuple(args.mg_grid)}")
-    if size > 1 and not args.skip_independent_residual:
-        parser.error(
-            "multi-rank runs require --skip-independent-residual; "
-            "the backend performs the global true-residual gate")
-    if size > 1 and args.output:
-        parser.error("multi-rank solution export is not implemented")
     if size > 1 and args.restart != 0 and args.coarse_cache is None:
         parser.error(
             "multi-rank coarse-correction mode requires a global --coarse-cache")
@@ -420,6 +418,9 @@ def main(argv=None) -> int:
             wrapped["even"], wrapped["odd"], wrapped["even_inv"],
             wrapped["odd_inv"], wrapped["set_ptrs"], wrapped["params"])
         wall_seconds = time.perf_counter() - started
+        iterations = (None if use_coarse_assets else
+                      qcu.getCloverBistabCgIterationsQcu(
+                          wrapped["set_ptrs"], wrapped["params"]))
     finally:
         qcu.applyEndQcu(wrapped["set_ptrs"], wrapped["params"])
 
@@ -429,29 +430,50 @@ def main(argv=None) -> int:
         if verify_status is not None:
             verify_status = int(comm.allreduce(verify_status, op=MPI.MAX))
 
+    residual_seconds = 0.0
+    residual_started = time.perf_counter()
     if args.skip_independent_residual:
         residual = None
         converged = verify_status in (None, 0)
         status = "PASS" if converged else "FAIL"
         acceptance = float(args.atol)
         residual_source = "KUPL native fail-closed solve; independent check skipped"
+    elif size > 1:
+        residual = distributed_relative_residual(
+            solution, source, gauge, clover_even, clover_odd, kappa,
+            comm, coordinate, grid)
+        converged, status, acceptance = convergence_status(
+            residual, args.atol, dtype=dtype)
+        residual_source = (
+            "independent distributed NumPy full Wilson-Clover reconstruction "
+            "with MPI halo exchange")
     else:
         residual = relative_full_residual(
             source, solution, gauge, clover_even, clover_odd, kappa)
         converged, status, acceptance = convergence_status(
             residual, args.atol, dtype=dtype)
         residual_source = "independent NumPy full Wilson-Clover reconstruction"
+    residual_seconds = time.perf_counter() - residual_started
+    if comm is not None:
+        residual_seconds = float(comm.allreduce(residual_seconds, op=MPI.MAX))
     if verify_status not in (None, 0):
         status = "FAIL"
         converged = False
     if args.output:
         output = resolve_path(args.output, resolve_path(None, args.output))
-        write_h5(output, kupl_fermion_to_qcu(solution), metadata={
-            "backend": "kupl", "solver": "applyCloverMultigridQcu",
-            "mass": mass, "kappa": kappa, "csw": csw, "atol": args.atol,
-            "levels": args.levels, "dof": list(args.dof[:args.levels]),
-            "mg_grid": list(args.mg_grid),
-        })
+        if size > 1:
+            solution_full = gather_solution(
+                solution, lattice, grid, local_starts, comm)
+        else:
+            solution_full = kupl_fermion_to_qcu(solution)
+        if rank == 0:
+            write_h5(output, solution_full, metadata={
+                "backend": "kupl", "solver": "applyCloverMultigridQcu",
+                "mass": mass, "kappa": kappa, "csw": csw, "atol": args.atol,
+                "levels": args.levels, "dof": list(args.dof[:args.levels]),
+                "mg_grid": list(args.mg_grid), "mpi_size": size,
+                "grid": list(grid), "layout": "[spin,color,x,y,z,t]",
+            })
     report = {
         "backend": "kupl", "solver": "applyCloverMultigridQcu",
         "lattice": list(lattice), "local_lattice": list(local_lattice),
@@ -465,7 +487,8 @@ def main(argv=None) -> int:
         "coarse_tol_factor": args.coarse_tol_factor,
         "deflate": not args.no_deflate, "builder_seconds": builder_seconds,
         "coarse_source": coarse_source,
-        "wall_seconds": wall_seconds,
+        "wall_seconds": wall_seconds, "iterations": iterations,
+        "residual_seconds": residual_seconds,
         "verify_status": verify_status,
         "final_true_residual": residual, "residual_acceptance": acceptance,
         "residual_source": residual_source,
