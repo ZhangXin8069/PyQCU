@@ -16,11 +16,11 @@ are ``[2, 4, 3, X, Y, Z, T/2]``, gauge links are
 ``[4, 3, 4, 3, X, Y, Z, T/2]``. ``params[_PARITY_]`` selects the even or odd
 target where required.
 
-ctypes passes only raw 64-bit addresses. This module checks contiguity but
-cannot recover shape, dtype, or device from ``data_ptr()``, so callers must pass
-exact ABI-compatible CPU tensors and retain every tensor until the C++ call
-returns. CUDA production remains one Python process per MPI rank and device;
-KUPL uses the same process/rank partitioning for CPU/OpenMP work.
+ctypes passes only raw 64-bit addresses. This module rejects non-contiguous or
+non-CPU tensors, while callers remain responsible for ABI-compatible shapes,
+dtypes, and lifetime retention. CUDA production remains one Python process per
+MPI rank and device; KUPL uses the same process/rank partitioning for
+CPU/OpenMP work.
 """
 
 from __future__ import annotations
@@ -128,9 +128,65 @@ def _pointer(tensor: Any) -> int:
     expected ABI type on host-accessible memory and retain it for the duration
     of the native call.
     """
+    if not hasattr(tensor, "device") or tensor.device.type != "cpu":
+        raise ValueError("KUPL QCU tensors must be CPU tensors")
     if not tensor.is_contiguous():
         raise ValueError("KUPL QCU tensors must be contiguous")
     return int(tensor.data_ptr())
+
+
+def _scalar_buffer_pointer(
+        tensor: Any, name: str, expected_dtypes: set[str],
+        pointer_type: Any) -> Any:
+    """Expose one writable tensor element through an exact ctypes pointer."""
+    if int(tensor.numel()) != 1:
+        raise ValueError(f"KUPL {name} must contain exactly one element")
+    if str(tensor.dtype) not in expected_dtypes:
+        allowed = "/".join(sorted(expected_dtypes))
+        raise TypeError(f"KUPL {name} must have dtype {allowed}")
+    address = _pointer(tensor)
+    return ctypes.cast(ctypes.c_void_p(address), pointer_type)
+
+
+def _strict_fgmres_geometry(
+        full_out: Any, full_rhs: Any, fine_null_vectors: Any,
+        fine_dims: Any, coarse_dims: Any) -> tuple[int, int]:
+    """Derive the two DOF counts omitted from the public Python signature."""
+    fine = tuple(int(value) for value in fine_dims)
+    coarse = tuple(int(value) for value in coarse_dims)
+    if len(fine) != 4 or any(value <= 0 for value in fine):
+        raise ValueError("KUPL fine_dims must contain four positive integers")
+    if len(coarse) != 4 or any(value <= 0 for value in coarse):
+        raise ValueError("KUPL coarse_dims must contain four positive integers")
+    if fine[3] % 2:
+        raise ValueError("KUPL strict FGMRES fine T extent must be even")
+
+    expected_full = (2, 4, 3, fine[0], fine[1], fine[2], fine[3] // 2)
+    if tuple(full_rhs.shape) != expected_full:
+        raise ValueError(
+            f"KUPL strict FGMRES rhs must have shape {expected_full}")
+    if tuple(full_out.shape) != expected_full:
+        raise ValueError("KUPL strict FGMRES output/rhs shapes must match")
+    if int(full_rhs.shape[1] * full_rhs.shape[2]) != 12:
+        raise ValueError("KUPL strict FGMRES requires 12 fine components")
+
+    if fine_null_vectors.ndim != 10:
+        raise ValueError("KUPL strict null vectors require a 10-D blocked layout")
+    if int(fine_null_vectors.shape[1]) != 12:
+        raise ValueError("KUPL strict null vectors require 12 fine components")
+    expected_fine = tuple(
+        int(coarse[axis] * fine_null_vectors.shape[2 + 2 * axis])
+        for axis in range(4))
+    if expected_fine != fine:
+        raise ValueError(
+            "KUPL strict null-vector blocking does not match fine_dims")
+
+    reference_dtype = full_rhs.dtype
+    data_fields = (
+        full_out, full_rhs, fine_null_vectors)
+    if any(field.dtype != reference_dtype for field in data_fields):
+        raise TypeError("KUPL strict fields and null vectors must share dtype")
+    return 12, int(fine_null_vectors.shape[0])
 
 
 def applyInitQcu(set_ptrs, params, argv) -> None:
@@ -355,9 +411,11 @@ def applyMultigridStrictProLongQcu(
 
 def applyMultigridStrictVCycleQcu(full_out, full_rhs, set_ptrs, params,
                                   start_level, allocated_bytes) -> int:
+    allocated_pointer = _scalar_buffer_pointer(
+        allocated_bytes, "allocated_bytes", {"int64", "uint64"}, _ULL_P)
     return int(_LIBRARY.applyMultigridStrictVCycleQcu(
         _pointer(full_out), _pointer(full_rhs), _pointer(set_ptrs),
-        _pointer(params), start_level, allocated_bytes))
+        _pointer(params), start_level, allocated_pointer))
 
 
 def applyMultigridStrictInitQcu(set_ptrs, params, start_level,
@@ -369,8 +427,10 @@ def applyMultigridStrictInitQcu(set_ptrs, params, start_level,
     with :func:`applyMultigridStrictEndQcu` and then the enclosing
     :func:`applyEndQcu`.
     """
+    allocated_pointer = _scalar_buffer_pointer(
+        allocated_bytes, "allocated_bytes", {"int64", "uint64"}, _ULL_P)
     return int(_LIBRARY.applyMultigridStrictInitQcu(
-        _pointer(set_ptrs), _pointer(params), start_level, allocated_bytes))
+        _pointer(set_ptrs), _pointer(params), start_level, allocated_pointer))
 
 
 def applyMultigridStrictEndQcu(set_ptrs, params) -> int:
@@ -384,13 +444,30 @@ def applyMultigridStrictFgmresQcu(
         set_ptrs, params, fine_dims, coarse_dims, element_bytes, restart,
         max_iter, tolerance, nu_pre, nu_post, max_workspace_bytes,
         iterations, converged, final_true_residual, allocated_bytes) -> int:
+    fine_E, coarse_E = _strict_fgmres_geometry(
+        full_out, full_rhs, fine_null_vectors, fine_dims, coarse_dims)
+    reference_dtype = full_rhs.dtype
+    if any(field.dtype != reference_dtype for field in (gauge, ce, coo, cei, coi)):
+        raise TypeError("KUPL strict FGMRES fields must share one complex dtype")
+    if int(element_bytes) != int(full_rhs.element_size()):
+        raise ValueError("KUPL strict FGMRES element_bytes does not match rhs")
+
+    iterations_pointer = _scalar_buffer_pointer(
+        iterations, "iterations", {"int32"}, _I_P)
+    converged_pointer = _scalar_buffer_pointer(
+        converged, "converged", {"int32"}, _I_P)
+    residual_pointer = _scalar_buffer_pointer(
+        final_true_residual, "final_true_residual", {"float64"}, _D_P)
+    allocated_pointer = _scalar_buffer_pointer(
+        allocated_bytes, "allocated_bytes", {"int64", "uint64"}, _ULL_P)
     return int(_LIBRARY.applyMultigridStrictFgmresQcu(
         _pointer(full_out), _pointer(full_rhs), _pointer(gauge), _pointer(ce),
         _pointer(coo), _pointer(cei), _pointer(coi),
         _pointer(fine_null_vectors), _pointer(set_ptrs), _pointer(params),
-        *fine_dims, *coarse_dims, element_bytes, restart, max_iter,
-        tolerance, nu_pre, nu_post, max_workspace_bytes, iterations,
-        converged, final_true_residual, allocated_bytes))
+        fine_E, *fine_dims, coarse_E, *coarse_dims, element_bytes, restart,
+        max_iter, tolerance, nu_pre, nu_post, max_workspace_bytes,
+        iterations_pointer, converged_pointer, residual_pointer,
+        allocated_pointer))
 
 
 def applyCloverMultigridQcu(fermion_out, fermion_in, gauge, ce, coo, cei,
