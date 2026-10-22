@@ -4,6 +4,9 @@
 MultiGrid。重点是算法组成和执行顺序，不把 Strict-MG、Python 参考 MG 或 KUPL MG
 混入同一口径。
 
+每个子算法的单独流程图、公式、默认配置和同类算法优劣见
+[`qcu_quda_multigrid_subalgorithms.md`](qcu_quda_multigrid_subalgorithms.md)。
+
 ## 口径与版本
 
 | 项 | QCU | QUDA |
