@@ -13,6 +13,7 @@ parity P -> fine MR，外层使用 C++ fused 右预条件 FGMRES。粗层 hierar
 
 from __future__ import annotations
 
+import math
 from time import perf_counter
 from typing import Any, Dict, List, Optional
 
@@ -118,7 +119,6 @@ class StrictMultigrid:
             verbose: bool = False):
         strict_mpi_preflight = _collective_strict_cuda_preflight(
             hierarchy, params)
-        hierarchy.setup()
         if not getattr(hierarchy, "_strict_mode", False):
             raise ValueError("CUDA StrictMultigrid 要求 strict hierarchy")
         if int(hierarchy.target_parity) not in (0, 1):
@@ -139,6 +139,7 @@ class StrictMultigrid:
         if not argv.is_contiguous() or argv.device.type != "cpu":
             raise ValueError("argv 必须是连续 CPU 张量")
 
+        hierarchy.setup()
         self.hierarchy = hierarchy
         self.strict_mpi_preflight = strict_mpi_preflight
         self._default_tol = float(hierarchy.tol)
@@ -332,6 +333,14 @@ class StrictMultigrid:
         self.iterations = self.outer_iterations
         self.converged = bool(result["converged"])
         self.final_residual = float(result["final_true_residual"])
+        if not self.converged:
+            raise RuntimeError(
+                "CUDA strict FGMRES 未收敛: "
+                f"iterations={self.iterations}, residual={self.final_residual}")
+        if not math.isfinite(self.final_residual):
+            raise FloatingPointError(
+                "CUDA strict FGMRES 返回非有限残差: "
+                f"{self.final_residual}")
         self.convergence_history = [self.final_residual]
         self.last_restart = solve_restart
         self.last_solve_seconds = elapsed

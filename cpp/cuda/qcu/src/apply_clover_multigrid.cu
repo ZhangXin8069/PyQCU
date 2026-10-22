@@ -5,6 +5,42 @@
 #pragma optimize(5)
 using namespace qcu;
 
+template <typename T>
+static void warn_legacy_multigrid_depth(LatticeSet<T> *set_ptr) {
+  if (set_ptr == nullptr ||
+      set_ptr->host_params[_NODE_RANK_] != 0) {
+    return;
+  }
+  const int num_levels = set_ptr->host_params[_MG_NUM_LEVEL_];
+  if (num_levels <= 1) return;
+  const int base = _MG_LEVEL1_E_ + 8 * (num_levels - 2);
+  const int coarse[4] = {
+      set_ptr->host_params[base + 1], set_ptr->host_params[base + 2],
+      set_ptr->host_params[base + 3], set_ptr->host_params[base + 4]};
+  const int next[4] = {
+      coarse[0] / 2 > 0 ? coarse[0] / 2 : 1,
+      coarse[1] / 2 > 0 ? coarse[1] / 2 : 1,
+      coarse[2] / 2 > 0 ? coarse[2] / 2 : 1,
+      coarse[3] / 2 > 0 ? coarse[3] / 2 : 1};
+  const long long volume = static_cast<long long>(coarse[0]) * coarse[1] *
+                           coarse[2] * coarse[3];
+  const bool too_deep = num_levels > 2;
+  const bool too_small = coarse[0] < 4 || coarse[1] < 4 ||
+                         coarse[2] < 4 || coarse[3] < 4 ||
+                         volume < 1024;
+  const bool no_next = next[0] < 4 || next[1] < 4 ||
+                       next[2] < 4 || next[3] < 4;
+  if (too_deep || too_small || no_next) {
+    fprintf(stderr,
+            "PYQCU::QCU::MULTIGRID::WARNING:\n"
+            " Legacy-MultiGrid levels=%d, coarsest=[%d,%d,%d,%d], "
+            "next=[%d,%d,%d,%d], volume=%lld. Legacy defaults to 2 levels; "
+            "deep or small coarse hierarchies are experimental.\n",
+            num_levels, coarse[0], coarse[1], coarse[2], coarse[3],
+            next[0], next[1], next[2], next[3], volume);
+  }
+}
+
 /**
  * @brief C++ CUDA Clover Multigrid solver entry point.
  *
@@ -55,13 +91,7 @@ void applyCloverMultigridQcu(long long _fermion_out, long long _fermion_in,
     // For each fine level fl, read null_vecs, hop_packed, sit_packed.
     // These must be set by the Python caller before calling this function.
     int num_levels = set_ptr->host_params[_MG_NUM_LEVEL_];
-    if (num_levels > 2 && set_ptr->host_params[_NODE_RANK_] == 0) {
-      fprintf(stderr,
-              "PYQCU::QCU::MULTIGRID::WARNING:\n"
-              " Legacy-MultiGrid levels=%d exceeds the validated depth 2; "
-              "deeper Legacy hierarchies are experimental.\n",
-              num_levels);
-    }
+    warn_legacy_multigrid_depth(set_ptr);
     for (int fl = 0; fl < num_levels - 1; fl++) {
       int base = _SET_PTRS_COARSE_BASE_ + 4 * fl;
       void *nv = (void *)sp[base + 0];
@@ -106,13 +136,7 @@ void applyCloverMultigridQcu(long long _fermion_out, long long _fermion_in,
 
     // ---- Wire up coarse-grid operators from set_ptrs ----
     int num_levels = set_ptr->host_params[_MG_NUM_LEVEL_];
-    if (num_levels > 2 && set_ptr->host_params[_NODE_RANK_] == 0) {
-      fprintf(stderr,
-              "PYQCU::QCU::MULTIGRID::WARNING:\n"
-              " Legacy-MultiGrid levels=%d exceeds the validated depth 2; "
-              "deeper Legacy hierarchies are experimental.\n",
-              num_levels);
-    }
+    warn_legacy_multigrid_depth(set_ptr);
     for (int fl = 0; fl < num_levels - 1; fl++) {
       int base = _SET_PTRS_COARSE_BASE_ + 4 * fl;
       void *nv = (void *)sp[base + 0];
