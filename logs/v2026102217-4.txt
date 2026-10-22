@@ -1,0 +1,67 @@
+[日志元数据]
+日志类型: final
+生成时间: 2026-10-22 17:17:41 +0800
+批次: analysis
+主任务: 核查 C++ QCU 与 Torch/PyQCU 当前默认 MG 路径
+触发原因: 任务完成
+摘要: 确认 C++ 与 Torch 均并存 Legacy/Strict，但现有 MG 驱动和构造默认均为 Legacy/非 Strict，Strict 需显式选择
+Git 根目录: /root/PyQCU
+
+## 关键日志
+### S1 — 核查 C++ QCU 调用面
+- 目标: 判断 C++ QCU 当前默认使用 Legacy MG 还是 Strict-MG。
+- 证据: CUDA Cython 同时导出 `applyCloverMultigridQcu` 与 `applyMultigridStrictFgmresQcu`。
+- 证据: CUDA `qcu_multigrid.py`、多卡 `MultiGpuMultigrid`、KUPL `kupl_multigrid.py` 均调用 `applyCloverMultigridQcu`。
+- 判断: C++ 实现层两套都有；当前 MG 示例和既有 MPI/多卡驱动默认是 Legacy。Strict 是显式 opt-in。
+
+### S2 — 核查 Torch/PyQCU 调用面
+- 证据: `pyqcu.solver.multigrid` 是旧的非 Strict Torch MG 类。
+- 证据: `QudaMultigrid.__init__` 的 `hierarchy_mode` 默认值为 `legacy`。
+- 证据: `QudaStrictMultigrid` 固定 `hierarchy_mode='strict'`；`CudaStrictMultigridSolver` 也拒绝非 strict hierarchy。
+- 判断: Torch/PyQCU 默认是非 Strict；Strict 需要显式入口。
+
+## 验证与证据
+- 检查: 静态核查 C++ 声明、Cython/ctypes 绑定、simple drivers、多卡驱动与 Torch solver 构造默认值。
+- 结果: 源码证据一致。
+- 未验证项: 未运行数值求解或性能测试，因为问题只涉及当前实现与默认调用路径。
+
+## 变更与产物
+- 文件: 未修改源码或 docs；仅新增本日志。
+- 未改动范围: QCU C++/CUDA、KUPL、Torch solver、测试与构建系统。
+
+## 风险、限制与下一步
+- 风险: `QudaMultigrid(hierarchy_mode='legacy')` 与旧的 `pyqcu.solver.multigrid` 不是同一个类，二者都非 Strict，但层级实现不同。
+- 风险: `solve_case.py` 的生产 CUDA/KUPL 入口实际调用 BiCGStab，不是 MG；不能把“默认 MG 驱动”误写成“默认生产求解器”。
+- 阻塞: 无。
+- 下一步: 如需统一默认，应显式调整调用入口，而不是仅根据库中是否导出 Strict 推断。
+
+## 用户输入指令
+现在cpp系列qcu使用的是"Legacy MG"还是"Strict1 MG"? 现在torch系列qcu(pyquc)使用的是"Legacy MG"还是"Strict1 MG"?
+
+## Agent 全文报告
+--- report begin ---
+简短结论：
+
+- C++ QCU 库同时实现 Legacy MG 和 Strict-MG，但当前 MG 示例、MPI 与多卡驱动的默认调用是 Legacy。
+- Torch/PyQCU 也是两套并存，但默认是 Legacy/非 Strict；Strict-MG 必须显式选择。
+
+C++ QCU：
+
+- CUDA Cython 根同时导出了 `applyCloverMultigridQcu` 和 `applyMultigridStrictFgmresQcu`。
+- `pyqcu/testing/simple/qcu_multigrid.py` 明确调用 `applyCloverMultigridQcu`。
+- `pyqcu/testing/simple/kupl_multigrid.py` 调用同一个 Legacy 入口。
+- `MultiGpuMultigrid` 也调用 `applyCloverMultigridQcu`。
+- Strict 通过 `applyMultigridStrict*`、`CudaStrictMultigridSolver` 等单独入口使用。
+
+Torch/PyQCU：
+
+- `pyqcu.solver.multigrid` 是旧的非 Strict Torch MG。
+- `QudaMultigrid()` 的 `hierarchy_mode` 默认值也是 `legacy`。
+- `QudaStrictMultigrid` 强制 `hierarchy_mode='strict'`。
+- 因此默认 Torch MG 也是 Legacy/非 Strict；Strict 是显式 opt-in。
+
+还需要注意两个口径：
+
+1. `QudaMultigrid(hierarchy_mode='legacy')` 并不是旧的 `pyqcu.solver.multigrid` 同一个类。前者是 `_quda_multigrid.py` 中相对 Strict 的非 Strict 分支，后者是旧 Torch MG。
+2. `pyqcu/testing/simple/solve_case.py` 的当前 CUDA/KUPL 生产入口调用的是 BiCGStab，不是 MG。因此“默认生产求解器”既不是 Legacy MG，也不是 Strict-MG；只有明确运行 MG 驱动时，默认才是 Legacy。
+--- report end ---

@@ -448,3 +448,12 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 验证: path, size, required sections, conflict markers
 - 批次状态: complete
 
+## analysis - final - 2026-10-22 17:17:41 +0800
+- 主任务: 核查 C++ QCU 与 Torch/PyQCU 当前默认 MG 路径
+- 日志文件: logs/v2026102217-4.txt
+- 文件大小: 3794 bytes
+- 触发原因: 任务完成
+- 关键内容: 确认 C++ 与 Torch 均并存 Legacy/Strict，但现有 MG 驱动和构造默认均为 Legacy/非 Strict，Strict 需显式选择
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete
+
