@@ -14,13 +14,19 @@ PyQCU 现在把 multigrid 明确分成两条互不替代的层级路线：
 ```python
 from pyqcu.solver.multigrid import Multigrid
 
-mg = Multigrid(variant="strict", backend="torch", **hierarchy_options)
+mg = Multigrid(backend="torch", **legacy_options)  # 默认 Legacy-MultiGrid
 mg.setup()
 try:
     solution = mg.solve(rhs, x0=None)
 finally:
     mg.close()
+
+# Strict-MultiGrid 仅显式启用
+mg_strict = Multigrid(variant="strict", backend="torch", **strict_options)
 ```
+
+Legacy-MultiGrid 是 QCU 默认 multigrid 求解器，也是开发、调试与优化对象；Strict-MultiGrid
+只用于显式对照、算法参考或特殊备选。
 
 `backend` 当前可取 `torch`、`cuda`、`kupl`。后端特定参数通过 `**kwargs` 传给具体实现，不应伪造跨后端同义参数。
 

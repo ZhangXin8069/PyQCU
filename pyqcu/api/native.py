@@ -102,6 +102,7 @@ class WholeSolveKrylovDriver:
         operator_caps = dict(getattr(operator, "capabilities", {}))
         self.capabilities = BackendCapabilities(
             backend=self.backend,
+            parity=bool(operator_caps.get("parity", False)),
             adjoint=bool(operator_caps.get("adjoint", False)),
             matpc=bool(operator_caps.get("matpc", False)),
             hpd_cg=bool(operator_caps.get("hpd_cg", False)),

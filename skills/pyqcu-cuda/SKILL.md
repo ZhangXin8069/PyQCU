@@ -16,6 +16,8 @@ Cython bridge package for the C++ CUDA backend (`libqcu.so`).
 | `qcu/qcu.pyi` | Type stub (390 lines) — full type annotations, docstrings, and default values for IDE support。注意 `pyqcu/cuda/qcu.pyi` 是指向 `qcu/qcu.pyi` 的符号链接，不是第二份拷贝 |
 | `define.py` | Parameter constants (`_LAT_X_`, `_SET_PLAN_`, etc.) and dtype conversion helpers (`dtype()`, `epytd()`) |
 | `_runtime.py` | `QcuRuntime` — lifecycle-safe flat-ABI wrapper with private control arrays, free-slot selection, `mass`/`csw` configuration, and `operation()` contexts for getters |
+| `linear_operator.py` | `CudaLinearOperator` — compact Wilson/Clover Schur apply and native whole-solve adapter |
+| `krylov.py` | `CudaBiCGStabDriver` / `CudaCGDriver` — one native C++ solve per request |
 | `_schur_op.py` | `CudaSchurOp` — C++ Schur odd-site operator wrapper (per-instance independent params/set_ptrs, thread-safe slot allocator; matvec uses preallocated buffer + device sync + clone to avoid deep pool/stream races) |
 | `_multi_gpu.py` | **TEST-ONLY, explicit opt-in**: `MultiGpuMultigrid` — single-process multi-thread multi-GPU Legacy MG driver (one-thread-one-GPU; consistency + independent-problem modes; single-MPI-rank constraint); not the production topology and not a single-solve domain decomposition |
 | `_strict_multigrid.py` | `StrictMultigrid` — fine odd-Clover Schur + persistent strict coarse V-cycle + C++ fused right-FGMRES；通过 `pyqcu.cuda.multigrid` 导出 |

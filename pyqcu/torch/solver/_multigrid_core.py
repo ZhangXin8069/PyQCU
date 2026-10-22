@@ -2204,6 +2204,10 @@ class ParitySchurOperator:
 class _MultigridHierarchy:
     """可切换的 QUDA 风格递归聚合 MG。
 
+    QCU 的默认开发、调试和优化对象是 Legacy-MultiGrid；本基类的
+    ``hierarchy_mode`` 因此保持 ``legacy``。Strict-MultiGrid 只用于显式
+    对照、算法参考或特殊备选，不得作为隐式回退或默认生产路径。
+
     参数要点：
 
     ``fine_matvec`` 采用 flat ``[fine_spin*fine_color, ...]`` 输入；也可以
@@ -3838,7 +3842,8 @@ class StrictMultigrid(_MultigridHierarchy):
     """严格保持 full-coarse/逐层 MATPC 语义的公开入口。
 
     ``_MultigridHierarchy`` 的 legacy/compact 行为继续保留；本类只固定
-    ``hierarchy_mode='strict'``，其余构造参数完全相同。
+    ``hierarchy_mode='strict'``，其余构造参数完全相同。直接构造本类或用
+    ``Multigrid(variant='strict')`` 是显式选择 Strict 的两种方式。
     """
 
     residual_scope = "matpc"

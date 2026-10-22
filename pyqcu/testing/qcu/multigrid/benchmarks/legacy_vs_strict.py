@@ -311,10 +311,11 @@ def _legacy_run_once(qcu: Any, define: Any, set_ptrs: Any, params: Any,
 
     output.zero_()
     params[define._MG_USE_INIT_GUESS_] = 0
+    source = fields[1].clone()
     torch.cuda.synchronize(device)
     started = time.perf_counter()
     qcu.applyCloverMultigridQcu(
-        output, fields[1], fields[0], fields[3], fields[4], fields[5],
+        output, source, fields[0], fields[3], fields[4], fields[5],
         fields[6], set_ptrs, params)
     torch.cuda.synchronize(device)
     elapsed = time.perf_counter() - started
@@ -338,9 +339,36 @@ def _last_mg_true_residual(log_path: Path) -> float | None:
     return float(matches[-1]) if matches else None
 
 
+def _last_prof_sections(log_path: Path) -> dict[str, float | int]:
+    """Return the final ``PROF_SECTIONS`` counters from a Legacy MG run."""
+    if not log_path.is_file():
+        return {}
+    matches = re.findall(r"PROF_SECTIONS:\s*([^\n]+)",
+                         log_path.read_text(errors="ignore"))
+    if not matches:
+        return {}
+    values: dict[str, float | int] = {}
+    for token in matches[-1].split():
+        if "=" not in token:
+            continue
+        key, raw = token.split("=", 1)
+        if key.startswith("n_") or key.endswith("_iters") or key.endswith("_checks"):
+            try:
+                values[key] = int(raw.removesuffix("ms"))
+            except ValueError:
+                pass
+        else:
+            try:
+                values[key] = float(raw.removesuffix("ms"))
+            except ValueError:
+                pass
+    return values
+
+
 def _run_legacy(args: argparse.Namespace) -> dict[str, Any]:
     import h5py
     import torch
+    from pyqcu import tools
     from pyqcu.cuda import define, qcu
     from pyqcu.testing.qcu.strict.quda_comparison.common import make_clover_tensors
 
@@ -378,6 +406,7 @@ def _run_legacy(args: argparse.Namespace) -> dict[str, Any]:
     params[define._PARITY_] = 0
     params[define._MAX_ITER_] = int(args.max_iter)
     params[define._VERBOSE_] = 1
+    params[define._MG_USE_DEFLATE_] = int(args.deflate)
     params[define._MG_NUM_LEVEL_] = 2
     params[define._MG_LEVEL1_E_] = int(args.coarse_dof)
     params[define._MG_LEVEL1_X_] = int(args.lat[0] // 2)
@@ -403,26 +432,43 @@ def _run_legacy(args: argparse.Namespace) -> dict[str, Any]:
     warmups = []
     steady = []
     iterations = []
+    runtime_reinit_seconds = []
     log_path = log_dir / "clover_multigrid.log"
     final_result = None
+    native_residual = None
+    python_residual = None
     try:
         for index in range(args.warmups + args.repeats):
+            if index > 0:
+                reinit_started = time.perf_counter()
+                qcu.applyEndQcu(set_ptrs, params)
+                qcu.applyInitQcu(set_ptrs, params, argv)
+                torch.cuda.synchronize(device)
+                runtime_reinit_seconds.append(
+                    time.perf_counter() - reinit_started)
             elapsed, _mem = _legacy_run_once(
                 qcu, define, set_ptrs, params, argv, output,
                 (gauge, rhs, output, ce, coo, cei, coi), device)
             (warmups if index < args.warmups else steady).append(elapsed)
             iterations.append(_last_mg_iterations(log_path))
         native_residual = _last_mg_true_residual(log_path)
-        if native_residual is None:
-            final_result = float(_true_residual(
-                output, rhs, gauge, gauge_full, clover, args.mass, _operator))
-        else:
-            final_result = native_residual
+        python_residual = float(_true_residual(
+            output, rhs, gauge, gauge_full, clover, args.mass, _operator))
+        final_result = (native_residual if native_residual is not None
+                        else python_residual)
     finally:
         qcu.applyEndQcu(set_ptrs, params)
     payload = _common_payload(args)
     memory = _memory_snapshot(device)
     device_peak = device_sampler.stop()
+    prof = _last_prof_sections(log_path)
+    if args.solution_output:
+        solution_path = Path(args.solution_output).expanduser().resolve()
+        solution_path.parent.mkdir(parents=True, exist_ok=True)
+        with h5py.File(solution_path, "w") as handle:
+            handle.create_dataset(
+                "data",
+                data=tools.poooxyzt2oooxyzt(output).detach().cpu().numpy())
     payload.update({
         "operation": "legacy_solve",
         "status": "PASS" if final_result is not None and final_result <= args.tol else "FAIL",
@@ -431,12 +477,16 @@ def _run_legacy(args: argparse.Namespace) -> dict[str, Any]:
         "clover_tensor_prepare_seconds": clover_tensor_prepare,
         "mg_init_seconds": runtime_init,
         "mg_init_scope": "applyInitQcu LatticeSet/MG runtime allocation; excludes asset build",
+        "runtime_reinit_seconds": runtime_reinit_seconds,
+        "steady_scope": "solve only; LatticeSet runtime is rebuilt between samples outside the timer to prevent cross-solve state reuse",
         "warmup_seconds": warmups,
         "steady_seconds": steady,
         "steady_median_seconds": _json_median(steady),
         "steady_mad_seconds": _json_mad(steady),
         "iterations": iterations,
         "final_true_residual": final_result,
+        "native_true_residual": native_residual,
+        "independent_true_residual": python_residual,
         "residual_source": (
             "C++ full-operator true residual from Legacy MG log"
             if native_residual is not None else
@@ -444,9 +494,22 @@ def _run_legacy(args: argparse.Namespace) -> dict[str, Any]:
         "coarse_dof": args.coarse_dof,
         "coarse_max_iter": args.coarse_max_iter,
         "coarse_restart": args.coarse_restart,
+        "deflate": bool(args.deflate),
+        "coarse_execution": {
+            "attempted_vcycles": int(prof.get("n_vcycles", 0)),
+            "coarse_iterations": int(prof.get("coarse_iters", 0)),
+            "vcycle_seconds": float(prof.get("vcycle", 0.0)) / 1000.0,
+            "effective_mode": (
+                "periodic_coarse_correction"
+                if int(prof.get("n_vcycles", 0)) > 0 else "fine_only"),
+            "source": str(log_path),
+        },
         "tol": args.tol,
         "max_iter": args.max_iter,
         "memory": memory,
+        "solution_output": (
+            str(Path(args.solution_output).expanduser().resolve())
+            if args.solution_output else None),
         "resources": _resource_payload(
             memory, cache_bytes=cache_path.stat().st_size,
             device_peak=device_peak),
@@ -473,9 +536,12 @@ def _run_strict(args: argparse.Namespace) -> dict[str, Any]:
         gauge_full, tuple(args.lat), args.mass, args.csw, device)
     fine_prepare = time.perf_counter() - started
     null_path = Path(args.nullvec).expanduser().resolve()
+    null_load_started = time.perf_counter()
     with h5py.File(null_path, "r") as handle:
         null = torch.from_numpy(handle[args.null_dataset][...]).to(
             device=device, dtype=torch.complex64).contiguous()
+    torch.cuda.synchronize(device)
+    null_vector_load_seconds = time.perf_counter() - null_load_started
     available_nvec = int(null.shape[0])
     nvec = available_nvec if args.nvec is None else int(args.nvec)
     if nvec <= 0 or nvec > available_nvec:
@@ -521,8 +587,9 @@ def _run_strict(args: argparse.Namespace) -> dict[str, Any]:
     output = None
     try:
         for index in range(args.warmups + args.repeats):
+            rhs_work = rhs.clone()
             started = time.perf_counter()
-            output = solver.solve(rhs)
+            output = solver.solve(rhs_work)
             torch.cuda.synchronize(device)
             elapsed = time.perf_counter() - started
             (warmups if index < args.warmups else steady).append(elapsed)
@@ -539,10 +606,18 @@ def _run_strict(args: argparse.Namespace) -> dict[str, Any]:
         solver.close()
     payload = _common_payload(args)
     memory = {**runtime_memory, "torch_allocator": allocator_memory}
+    if args.solution_output:
+        solution_path = Path(args.solution_output).expanduser().resolve()
+        solution_path.parent.mkdir(parents=True, exist_ok=True)
+        with h5py.File(solution_path, "w") as handle:
+            handle.create_dataset(
+                "data",
+                data=tools.poooxyzt2oooxyzt(output).detach().cpu().numpy())
     payload.update({
         "operation": "strict_solve",
         "status": "PASS" if final_result is not None and final_result <= args.tol else "FAIL",
         "fine_prepare_seconds": fine_prepare,
+        "null_vector_load_seconds": null_vector_load_seconds,
         "clover_tensor_prepare_seconds": clover_tensor_prepare,
         "hierarchy_setup_seconds": hierarchy_setup,
         "runtime_init_seconds": runtime_init,
@@ -567,6 +642,9 @@ def _run_strict(args: argparse.Namespace) -> dict[str, Any]:
         "restart": args.restart,
         "coarse_max_iter": args.coarse_max_iter,
         "memory": memory,
+        "solution_output": (
+            str(Path(args.solution_output).expanduser().resolve())
+            if args.solution_output else None),
         "resources": _resource_payload(
             allocator_memory, null_vector_bytes=null_path.stat().st_size,
             strict_runtime_memory=runtime_memory, device_peak=device_peak),
@@ -591,6 +669,7 @@ def main(argv: list[str] | None = None) -> int:
     common.add_argument("--warmups", type=int, default=2)
     common.add_argument("--repeats", type=int, default=5)
     common.add_argument("--output", required=True)
+    common.add_argument("--solution-output")
 
     build = sub.add_parser("legacy-build", parents=[common])
     build.add_argument("--cache-output", required=True)
@@ -605,6 +684,8 @@ def main(argv: list[str] | None = None) -> int:
     legacy.add_argument("--coarse-max-iter", type=int, default=200)
     legacy.add_argument("--coarse-restart", type=int, default=5)
     legacy.add_argument("--coarse-tol-factor", type=float, default=1e4)
+    legacy.add_argument("--deflate", action="store_true",
+                        help="attempt the initial Legacy coarse correction")
 
     strict = sub.add_parser("strict", parents=[common])
     strict.add_argument("--nullvec", required=True)
