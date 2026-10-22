@@ -1,0 +1,786 @@
+[日志元数据]
+日志类型: final
+生成时间: 2026-10-22 17:04:48 +0800
+批次: test9-dev103-profiler-summary
+主任务: 为 test9 至 dev103 求解器性能汇总补充统一环境信息
+触发原因: 任务完成
+摘要: 30 张记录表统一环境列；409 个唯一记录 ID、13 个环境定义；X99 未确认项明确保留；仅汇总不重测
+Git 根目录: /root/PyQCU
+
+## 关键日志
+### S1 — 环境证据归类
+- 目标: 为 test9..dev103 中所有求解器性能、失败和标签备注记录补充可追溯的计算环境。
+- 命令/操作: 复核 test27 combined JSON、dev103 三方测评、stab48 扫描、dev78_2、dev99–dev101 日志、A100 Slurm/Kunpeng 记录及 test9 profiler。
+- 关键输出: 建立 13 个环境 ID，覆盖 WSL2 V100/P100、Xeon E5-2696 v3、早期 18 核 x86、Kunpeng 双 NUMA、双 A100 Slurm、RTX 4060 Laptop、DCU、Ascend、未知 CUDA/设备和混合失败环境。
+- 退出码: 0。
+- 证据与判断: 标签区间没有字面 X99 证据，因此只确认 Tesla P100-PCIE-16GB，未把 P100 型号反推为 X99 主板；无法恢复的 CPU、主板、OS、内核、工具链或 A100/DCU 型号均明确标“不明确”。
+
+### S2 — 统一表格格式
+- 目标: 让每一条记录通过稳定 ID 引用统一环境字段，同时保留总耗时、迭代、版本/参数、组态、日期和标签。
+- 命令/操作: 在报告新增 0.3 统一环境矩阵；为 29 张原有记录表和 1 张 CUDA Legacy MG 阶段表统一加入“环境”列；为 22 个原先只有阶段名的行补齐 D100-S*/D101-S* ID。
+- 关键输出: 当前报告含 30 张记录表、409 个唯一记录 ID、13 个环境定义；每行均有且仅有一个已定义环境引用。
+- 退出码: 0。
+- 证据与判断: 环境 ID 表达系统级来源，实际选卡、rank 和 OpenMP 线程仍由各记录行明确；混合 A100/V100/Kunpeng 的联合失败项使用 ENV-MIXED-D99-D100，派生无运行项使用 ENV-NO-RUN。
+
+### S3 — 数据与格式验证
+- 命令/操作: 运行 Markdown 表解析、唯一 ID 检查、环境定义闭包检查、与并发提交版本的归一化表数据比对、bash 语法检查、git diff check、大文件闸门和 form 审计。
+- 关键输出: tables=30、records=409、unique_ids=409、env_ids=13、column_errors=0、env_errors=0、代码围栏闭合；归一化表数据完全一致；bash_syntax=PASS；diff_check=PASS；大文件闸门 PASS。
+- 退出码: 0；form 审计返回 1，仅保留既知 TAG_NAME_IN_PATH。
+- 证据与判断: form finding 来自用户指定文件名 profiler_test9-dev103.md 内含标签片段；用户显式命名优先于通用路径规则，因此未改名、未修改审计规则。
+
+## 验证与证据
+- 测试/检查: Markdown 结构、记录 ID 唯一性、环境引用闭包、性能数据归一化比对、bash -n、git diff --check、form-large-files-check、form-audit。
+- 结果: 30 张表、409 条唯一记录、13 个环境全部闭合；原记录数值/参数在移除新增环境字段后逐单元格一致；文件 98,977 bytes，低于 10,000,000 bytes 硬上限。
+- 未验证项: 未重新运行任何 solver/benchmark；标签中未持久化的 CPU/主板/内核/工具链版本继续保持“不明确”；未验证跨节点 MPI 或新硬件。
+
+## 变更与产物
+- 文件: /root/PyQCU/docs/profiler_test9-dev103.md。
+- 产物: 带统一环境矩阵、统一“环境”列、409 个稳定 ID 的 test9..dev103 求解器性能汇总。
+- 未改动范围: 未修改求解器源码；未重测；未提交、推送、创建或改写标签；未触碰并发产生的其他文档改动。
+
+## 风险、限制与下一步
+- 风险: 环境 ID 描述已确认的系统组合，但多种运行时的驱动、编译器、MPI 版本并不完全一致，表内可确认的差异已单独保留。
+- 风险: WSL2 主机 CPU/主板/内核、A100 形态和显存、Kunpeng 型号、DCU/NPU 型号及若干早期 CUDA 环境无法从标签恢复。
+- 阻塞: form 审计唯一 finding 为 TAG_NAME_IN_PATH，与用户固定文件名冲突，不影响内容、表格或证据完整性。
+- 下一步: 如后续需要消除该 finding，应由用户明确授权改为不含标签片段的文件名并同步引用；本次不再扩大范围。
+
+## 用户输入指令
+1. 汇总git-tag[test9-dev103]记录的所有qcu和pyqcu和quda的求解器(bistabcg和cg和multigird)性能记录,标明求解总耗时和迭代次数和求解器版本和求解参数和使用组态参数和日期和标签名等等,不明确的部分标明但不跳过,本工作只汇总不重测,汇总结果保存在profiler_test9-dev103.md
+2. 也要标明环境,例如使用的计算平台(例如X99-P100-PCI-16GB)
+3. 使用统一格式
+
+## Agent 全文报告
+--- report begin ---
+# PyQCU / QCU / QUDA 求解器性能记录汇总（`test9` → `dev103`）
+
+状态：`finished`。本文只汇总 Git 标签区间中已经记录的性能数据，不重新运行 benchmark，也不把不同时间窗口、不同计时边界或不同求解器语义的数值强行合成统一加速比。
+
+## 0. 范围、口径与完整性
+
+- **标签解释**：仓库中不存在字面名为 `test9-dev103` 的单个标签；存在起点 `test9` 与终点 `dev103`，且 `test9` 是 `dev103` 的祖先。因此本文按**包含两端的标签区间 `test9..dev103`** 解释用户给出的 `git-tag[test9-dev103]`。
+- **范围规模**：该闭区间包含 **236 个标签、915 个可达提交**（`git rev-list --count test9^..dev103`）；`test9` 日期为 2025-08-29，`dev103` 日期为 2026-10-22。
+- **记录粒度**：一行代表源报告中的一个 benchmark 单元、一个明确运行组或一个聚合记录；同一单元的 warmup/steady 原始重复样本不逐样本展开，保留其样本数、中位数或范围。`test27` 的 66 个 combined 单元因此对应 66 行，但包含 132 条侧记录。
+- **清单规模**：正文性能、失败和标签备注表共列出 **409 个唯一记录 ID**；其中 22 个为 CUDA Legacy MG 优化阶段补齐的稳定 ID，`test27` 的 66 行同时承载 132 条后端 side 值。
+- **不明确处理**：未在标签记录或原始 JSON/日志中出现的字段统一写为 `不明确`，不按经验补值。`未验证` 表示源报告明确没有完成独立数值验证。
+- **时间语义**：表中“总耗时”保留源报告边界。常见语义包括：`solver/backend solve`、包含初始化/析构/残差检查的 `lifecycle`、同步调用 wall、纯稳态中位数、单次测量或范围。跨语义数值不可直接相除。
+- **标签来源**：历史文件优先通过 `git show <tag>:<path>` 读取；已清理的报告按 AGENTS.md 规则仅以标签对象为准。
+
+### 0.1 覆盖摘要
+
+| 日期 | 标签 | 对象 | 覆盖结论 |
+|---|---|---|---|
+| 2025-08-29 至 2025-08-30 | `test9`, `test9_1` | 早期 QCU HIP/DCU BiStabCG profiler | 2 个 profiler 汇总记录；总 solver 时间与精确迭代数未持久化 |
+| 2025-09 至 2026-05 | `dev55` ... `dev70_3` | PyQCU NPU、CUDA 主循环与早期 MG | 多为标签备注/图表，仅少数单迭代时间；缺字段逐项标注 |
+| 2026-07-28 至 2026-08-30 | `dev73*`, `test13/14`, `dev76`, `dev78*`, `test15`, `dev80*`, `dev84*`, `stab48` | CUDA C++ QCU Legacy MG / BiStabCG | 含 57 行 `stab48` 扫描矩阵及多轮正式/探索记录 |
+| 2026-09-02 至 2026-09-09 | `test24/25/26`, `stab48` | PyQCU Strict MG vs QUDA 正式对照 | 同协议多轮复测；solve-only median 可比 |
+| 2026-09-16 至 2026-09-28 | `stab55*`, `test27*` | 正式 c64/c128 Strict MG 矩阵 | 66 个精确单元、132 条 side record；含 trace on/off |
+| 2026-10-14 | `test28` | P100 pion C2 与求解阶梯 | 7 个 QCU/QUDA 成对单元，含单/双卡容量边界 |
+| 2026-10-20 至 2026-10-22 | `dev99`, `dev100`, `dev101`, `dev103` | KUPL/CUDA QCU/QUDA 生产优化与三方测评 | 生产 LIME、并行扩展、架构、LTO、非 2 幂 rank 与同窗最终表 |
+
+### 0.2 本文不重复计数的派生记录
+
+- `test27_1`、`test27_2`、`test27_3`、`test27_4`、`stab61` 都由 `test27` 原始 combined JSON 重算或重排图表，没有新增求解运行；本文保留其修正口径说明，但不重复增加性能行。
+- `50-series`、`20260929/30/1001/1002` 中的多数绝对耗时、分层图和分组统计也是 `test27` 的派生视图。
+- 单纯 Dslash、Clover matvec、stencil build、cache 构建、GPU kernel microbenchmark 不满足“求解器总耗时”的主体条件；只在解释求解时间或参数时引用，不作为求解器记录计数。
+- 失败但没有耗时/迭代数的作业列在第 10 节，不会被静默删除。
+
+### 0.3 统一环境矩阵
+
+性能、失败和标签备注表统一在 Record ID 后引用下列 `环境` ID。环境 ID
+描述记录所在的系统；同一条环境中的实际加速器选择、rank 数、OpenMP 线程数
+仍以对应表的行为准。标签区间内没有字面 `X99` 证据，因此不把 NVIDIA P100
+的型号反推为 X99 主板；未知的 CPU、主板、OS 内核或工具链版本一律写“不明确”。
+
+| 环境ID | 平台/主机 | CPU/主板 | 加速器 | OS/内核 | MPI/并行 | 运行时/工具链 | 证据状态 |
+|---|---|---|---|---|---|---|---|
+| ENV-WSL2-GPU | WSL2 GPU 主机；`test27` hostname 为 `68bb03cf529b`，其他标签主机名未记录 | 不明确；X99/主板型号未在标签记录中找到 | 1× Tesla V100-SXM2-32GB（sm_70）+ 2× Tesla P100-PCIE-16GB（sm_60）；每行按设备列选择 | WSL2；发行版和内核版本不明确 | 直接启动或 `mpirun`；常见 1 rank，`test27` P100 为 2 rank、grid `2×1×1×1`；`stab48` 另有共享 V100 的 2/4 rank 对照 | `test27` P100：PyTorch `2.7.1+cu118`、CUDA 11.8；V100：PyTorch `2.10.0+cu128`、CUDA 12.8。`dev103` P100：PyTorch `2.4.1+cu121`。`stab48`：nvcc 12.4.131、OpenMPI 4.1.2；QUDA/PyQUDA 版本按表内记录 | GPU 与 WSL2 已确认；CPU、主板、内核及部分驱动/编译器版本不明确；X99 未确认 |
+| ENV-WSL2-V100 | WSL2 V100 主机；用于明确选择 V100 的记录 | 不明确 | Tesla V100-SXM2-32GB（sm_70） | WSL2；发行版和内核版本不明确 | 1 rank / 单线程为主；`stab48` 另有共享 V100 的 2/4 rank 对照 | `dev78`/`test27` 记录为 PyTorch `2.10.0+cu128`、CUDA 12.8，`dev78_2` 驱动 551.78；更早 V100 标签的驱动/工具链版本不明确 | V100/WSL2 已确认；CPU、主板、内核及部分运行时版本不明确 |
+| ENV-XEON-E5-2696v3-18C | `dev103` 单节点 CPU 主机 | Intel Xeon E5-2696 v3，18 物理核，1 socket，1 NUMA node | 无 GPU；KUPL QCU CPU 后端 | 不明确 | OpenMPI + OpenMP；按行覆盖 1/2/4/6/8/9/12/16/18 ranks 与不同 grid | C++17/KUPL；默认 `-O3 -march=native`，另有 LTO 构建；编译器具体版本不明确 | CPU 拓扑已确认；OS、内核、MPI、编译器版本未完整记录 |
+| ENV-X86-18C | `dev99`–`dev101` 的 18 核 x86 CPU 主机 | 18 核 x86；具体型号、socket/NUMA 拓扑不明确 | 无 GPU；KUPL QCU CPU 后端 | 不明确 | 1/2/4 ranks × 4 OpenMP threads，grid 按行记录 | C++17/KUPL、OpenMPI；具体编译器和依赖版本不明确 | 18 核 x86 已确认；CPU 型号及多数系统字段不明确 |
+| ENV-KUNPENG-2NUMA | Kunpeng 双 NUMA 登录节点 | Kunpeng，具体型号不明确；2 个 NUMA node，每 node 24 核 | 无 GPU；KUPL QCU CPU 后端 | 不明确 | 1/2 ranks；每 rank 4–24 threads，MPI 绑定按记录 | KUPL C++17/OpenMP/MPI；版本不明确 | 双 NUMA、每 NUMA 24 核已确认；型号、OS、工具链版本不明确 |
+| ENV-A1002-SLURM | Slurm NVIDIA 计算节点；单作业申请 1 node、2 GPU、64 CPU | 64 CPU 为作业申请量；具体 CPU 型号与主板不明确 | 双 A100；SXM/PCIe 与显存容量不明确 | 不明确 | Slurm；CUDA 多卡路径主要是一线程一卡、单进程 MultiGpu；另有 MPI 分域尝试 | CUDA `sm_80` 自动构建；PyTorch、CUDA toolkit、MPI 和编译器版本未完整记录 | 双 A100、Slurm、64 CPU 申请已确认；A100 形态、显存及多数版本不明确 |
+| ENV-RTX4060-LAPTOP | 本地笔记本主机 | 不明确 | NVIDIA GeForce RTX 4060 Laptop GPU，8 GB | 不明确 | CUDA QCU；线程/rank 按表内记录 | CUDA/PyTorch/编译器版本不明确 | GPU 型号与显存已确认；CPU、主板、OS、工具链不明确 |
+| ENV-DCU-HIP-UNRECORDED | `test9/test9_1` DCU/HIP profiler 环境 | 不明确 | DCU；具体型号与显存不明确 | 不明确 | HIP profiler；并行参数不明确 | profiler CSV 出现 ROCm/HIP 路径；具体 ROCm、HIP、编译器版本不明确 | DCU/HIP 方向可确认；硬件与软件版本不明确 |
+| ENV-ASCEND-UNRECORDED | `dev55`–`dev59_2` NPU/Ascend 环境 | 不明确 | Ascend NPU；具体型号与数量不明确 | 不明确 | 多线程 PyTorch/NPU；`np=2/4/8` 等仅按标签备注 | PyTorch + `pyqcu.cann` 兼容层；CANN/PyTorch 版本不明确 | NPU/Ascend 方向可确认；硬件和软件版本不明确 |
+| ENV-UNKNOWN-CUDA | 早期 CUDA C++/Python 主循环环境 | 不明确 | CUDA GPU，型号不明确 | 不明确 | 按表内记录 | CUDA QCU / PyQCU；版本不明确 | 仅能确认 CUDA 路径与结果，环境不明确 |
+| ENV-UNKNOWN-DEVICE | 早期 PyTorch 多线程或混合设备环境 | 不明确 | 不明确 | 不明确 | 多线程 PyTorch；rank/线程参数不明确 | PyTorch/PyQCU 版本不明确 | 执行设备未持久化，不能可靠归类 |
+| ENV-MIXED-D99-D100 | `dev99/dev100` 联合失败记录 | 由对应子记录决定 | A100×2、V100 或 Kunpeng CPU 路径混用 | 不明确 | CUDA 双 rank、QUDA MG 与 KUPL 记录分别来自不同平台 | 按对应平台记录；失败项自身版本不完整 | 混合环境，行内已拆分原因；不得视为单一硬件对照 |
+| ENV-NO-RUN | 派生/重算记录，无新求解执行 | 不适用 | 不适用 | 不适用 | 不适用 | 仅文档或数值重排 | 明确没有新增 benchmark |
+
+## 1. 参数集字典
+
+每一性能表通过 `参数集` 引用以下配置，避免在每行重复相同长参数。若某行有额外差异，表中会直接覆盖。
+
+| ID | 用途 | 固定配置 |
+|---|---|---|
+| P01 | dev103 三方测评 | LIME `beta6.20_mu-0.2770_ms-0.2310_L24x64_cfg_9950`；`24×24×24×64`；mass `-0.277`；csw `1.160920226`；seed `42`；PCG64 normal RHS，float64 生成后 cast；c64；相对 Schur 容差 `1e-6`；单 V100、冷启动；KUPL 为 CPU 后端。 |
+| P02 | test27 Strict-MG c64 | 随机 gauge/RHS bundle `gauge_16x32x32x48_m0.05_seed42_c64.h5`；mass `0.05`；kappa `0.1234567901234568`；csw `1`；c64；12 个 canonical null vectors；block `2×2×2×2`；coarse spin 2；coarse dof 24；target parity 1；tol `1e-6`；coarse tol `3e-3`；coarse maxiter 200；nu_pre=nu_post=1；maxiter 1000；零初值；1 cold + 2 warmup + 5 steady；取 steady median。 |
+| P03 | test27 Strict-MG c128 | 同 P02 的 gauge/mass/kappa/block/nvec/层数/奇偶与统计协议，但计算精度 c128；tol `1e-8`；true-residual gate `5e-8`；coarse tol `3e-5`；fused Krylov budget `1 GiB`。 |
+| P04 | 2026-09 Strict formal | `16×32×32×48`；mass `0.05`；csw `1`；c64；`nvec=12`；coarse spin 2；coarse dof 24；block `2^4`；odd target parity；2 层；requested restart 16/effective 4；tol `1e-6`；coarse tol `3e-3`；coarse maxiter 200；nu_pre=nu_post=1；2 warmup + 5 steady；solve-only median。 |
+| P05 | Legacy CUDA-C++ MG | 随机 gauge，常见 seed `42`；mass `0.05`；csw 不明确；kappa 通常 `1/(2m+8)`；c64 或 c128；atol `1e-6`；E 常见 48 或 12；block `2^4`；cold solve 或缓存命中 solve；重启/粗层参数按行列出。 |
+| P06 | test28 P100 pion C2 | P100 `sm_60`；c64；mass `0.05`；kappa `1/(2m+8)`；csw `1`；MG 对齐为 QCU `dof=[12,48]`、QUDA `n_vec=24`、粗层 color 48；QUDA autotuning 关闭；warmup 与计时分离；不同格点/tsrc 数按行列出。 |
+| P07 | test9 profiler | 旧 `PyQCU/test` 脚本；`32×64×64×64`；mass `0.05`；tol `1e-12`；seed `42`；零 gauge、全 1 源；分别 c64/c128；Wilson BiCGStab 后接 Clover BiCGStab；csw 不明确；输出为 profiler 总时长，不是单次 solver wall。 |
+| P08 | dev99-dev101 生产 | 真实 LIME `beta6.20_mu-0.2770_ms-0.2310_L24x64_cfg_9950`；`24×24×24×64`；mass `-0.277`；csw `1.160920226`；seed `42`；c64 或 c128；atol `1e-6`；COLD/steady 按行；CUDA/KUPL/QUDA 使用同一 RHS 和真残差门。 |
+
+## 2. 结论速览
+
+1. **最新同窗主口径**在 `dev103`：`24³×64` c64 上 CUDA QCU standalone BiCGStab `0.147801 s / 18 it`，QUDA Clover BiCGStab `0.156680 s / 19 it`，CUDA fine-only MG `0.173372 s / 20 it`。CUDA 相对 QUDA 的 wall 优势主要来自少 1 次外层迭代；每迭代仅 `8.211 ms` 对 `8.246 ms`。
+2. **test27 的 Strict-MG 是全区间中最完整的正式 MG 矩阵**：66 个精确单元，覆盖 V100/P100、c64/c128、MG-2/MG-3、trace-on/off；其中 trace-off 的 22 个 MG 单元有 21 个 PyQCU 胜、1 个 QUDA 胜，但两侧算法、容差和平台属性仍限制外推。
+3. **Legacy CUDA MG 并非单调优于 BiStabCG**：2026-07/08 多个版本在小格点可超过 `2×`，但随格点增大和中/粗层成本上升，出现 `0.2×–1.0×`。2026-08-30 的 57 行矩阵明确记录 `8³×16` 重复中位 2L-MR `0.952×` wall、3L-F `0.869×` wall。
+4. **KUPL 的最佳开发路径多次变化**：早期 legacy full-site MG 在真实 LIME 上可达 `15–47 s`；后来识别 `restart=0` parity-Schur BiCGStab fallback 更优；`dev103` 同窗最强配置为 `8 ranks × 2 threads, 1×4×2×1`，`7.532 s / 19 it`。
+5. **QUDA 的最低绝对求解时间出现在 BiCGStab，而不是当前可用 MG 配置**：dev103 L24 为 `0.156680 s / 19 it`；dev99-101 的 nvec24 MG 记录为 `28.0075 s / 3 outer GCR`，且与 QCU dof12 的粗空间不等价，禁止计算公平 MG 倍率。
+6. **所有数值均来自标签记录**：本文没有重测；缺失的总时间、迭代数、csw、精确 solver 参数均在表中保留为“不明确”。
+
+## 3. 最新主口径：`dev103` 同窗三方测评（2026-10-22）
+
+### 3.1 全格点 `24³×64`
+
+| ID | 环境 | 后端 | 求解器路径 | 参数集/额外参数 | 计时口径 | 总耗时(s) | 迭代 | 真残差 | 日期/标签 | 来源 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| D103-001 | ENV-WSL2-V100 | CUDA QCU | `applyCloverBistabCgQcu` / BiCGStab | P01 | CUDA event，solve-only；1 warmup + 3 timed × 3 independent calls，median | 0.147801 | 18 | 6.709e-7 | dev103 / 2026-10-22 | `docs/three_way_benchmark_20261022.md` §3.1 |
+| D103-002 | ENV-WSL2-V100 | CUDA QCU | fine-only Legacy MG（levels=1）/ BiCGStab 细层 | P01 | CUDA event，solve-only；不含 setup；中位数 | 0.173372 | 20 | 4.149e-7 | dev103 / 2026-10-22 | 同上 |
+| D103-003 | ENV-WSL2-V100 | QUDA | Clover BiCGStab | P01 + `use_init_guess=NO`, `resident=0` | `invert_param.secs`，solver-only；1 warmup + 3 timed × 3 calls，median | 0.156680 | 19 | 4.207e-7 | dev103 / 2026-10-22 | 同上 |
+| D103-004 | ENV-XEON-E5-2696v3-18C | KUPL QCU | `applyCloverMultigridQcu --restart 0`（parity-Schur BiCGStab） | P01 + `4 ranks × 4 OMP`, grid `1×4×1×1` | `perf_counter` solve wall；不含 setup/I/O；median | 7.842 | 19 | 4.010e-7 | dev103 / 2026-10-22 | 同上 |
+| D103-005 | ENV-XEON-E5-2696v3-18C | KUPL QCU | `applyCloverMultigridQcu --restart 0`（parity-Schur BiCGStab） | P01 + `8 ranks × 2 OMP`, grid `1×4×2×1` | `perf_counter` solve wall；不含 setup/I/O；median | 7.532 | 19 | 4.011e-7 | dev103 / 2026-10-22 | 同上 |
+
+> 同窗窗口为 05:27–05:38。CUDA 与 QUDA 可直接比较；KUPL 是 CPU 后端，绝对时间不用于与 GPU 比硬件吞吐。共享机窗口漂移显著，早期 `0.121856 s` 等值不得与本表混算。
+
+### 3.2 子体积（同 mass/csw；非周期裁剪）
+
+| ID | 环境 | 格点 | 路径 | 配置 | 总耗时(s) | 迭代 | 真残差 | 标签 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| D103-006 | ENV-WSL2-V100 | 16×16×16×32 | CUDA BiCGStab | P01；子体积 | 0.024244 | 18 | 不明确（源表未分列） | dev103 |
+| D103-007 | ENV-WSL2-V100 | 16×16×16×32 | CUDA fine-only MG | P01；levels=1 | 0.029848 | 20 | 不明确 | dev103 |
+| D103-008 | ENV-WSL2-V100 | 16×16×16×32 | QUDA BiCGStab | P01；冷启动 | 0.042573 | 15 | 不明确 | dev103 |
+| D103-009 | ENV-XEON-E5-2696v3-18C | 16×16×16×32 | KUPL `restart=0` | P01；4 ranks；最优配置 | 1.200 | 不明确 | 不明确 | dev103 |
+| D103-010 | ENV-WSL2-V100 | 12×12×12×32 | CUDA BiCGStab | P01；子体积 | 0.013212 | 18 | 不明确 | dev103 |
+| D103-011 | ENV-WSL2-V100 | 12×12×12×32 | CUDA fine-only MG | P01；levels=1 | 0.015283 | 20 | 不明确 | dev103 |
+| D103-012 | ENV-WSL2-V100 | 12×12×12×32 | QUDA BiCGStab | P01；冷启动 | 0.033641 | 15 | 不明确 | dev103 |
+| D103-013 | ENV-XEON-E5-2696v3-18C | 12×12×12×32 | KUPL `restart=0` | P01；2 ranks；最优配置 | 0.4239 | 不明确 | 不明确 | dev103 |
+| D103-014 | ENV-WSL2-V100 | 8×8×8×16 | CUDA BiCGStab | P01；子体积 | 0.007385 | 16 | 不明确 | dev103 |
+| D103-015 | ENV-WSL2-V100 | 8×8×8×16 | CUDA fine-only MG | P01；levels=1 | 0.008947 | 16 | 不明确 | dev103 |
+| D103-016 | ENV-WSL2-V100 | 8×8×8×16 | QUDA BiCGStab | P01；冷启动 | 0.028004 | 14 | 不明确 | dev103 |
+| D103-017 | ENV-XEON-E5-2696v3-18C | 8×8×8×16 | KUPL `restart=0` | P01；4 ranks；最优配置 | 0.0565 | 不明确 | 不明确 | dev103 |
+
+> 子体积在新边界上不是周期的，只用于尺寸/并行趋势；QUDA 在 `8³×16`、`12³×32`、`16³×32` 上分别有约 26–43 ms 的固定 solve 开销，因此不能把 CUDA/QUDA 小格比值外推为 kernel 吞吐比。
+
+### 3.3 KUPL 算法模式：`restart=0` 与 coarse correction
+
+| ID | 环境 | 模式 | 迭代 | solve(s) | 说明/参数 | 标签 |
+| --- | --- | --- | --- | --- | --- | --- |
+| D103-018 | ENV-XEON-E5-2696v3-18C | `restart=0` | 19 | 5.530 | 早期低负载窗口；4 ranks × 4 threads；Parity-Schur BiCGStab | dev103 |
+| D103-019 | ENV-XEON-E5-2696v3-18C | `restart=5` | 47 | 15.60 | coarse correction 每 5 次 fine iteration；同窗基线 | dev103 |
+| D103-020 | ENV-XEON-E5-2696v3-18C | `restart=10` | 47 | 15.86 | coarse correction 每 10 次 | dev103 |
+| D103-021 | ENV-XEON-E5-2696v3-18C | `restart=20` | 47 | 16.71 | coarse correction 每 20 次 | dev103 |
+
+> `restart=5/10/20` 的结果是同一窗口内的相对对照；`restart=0` 的 `5.530 s` 来自早期低负载窗口，后续同窗复测为 `7.842 s`，不可混算。
+
+### 3.4 KUPL 强扩展（同窗，`restart=0`，c64）
+
+| ID | 环境 | ranks × threads | grid | solve(s) | 迭代 | 相对 1×4 | 相对 1×4 并行效率 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| D103-022 | ENV-XEON-E5-2696v3-18C | 1 × 4 | 1×1×1×1 | 19.229 | 19 | 1.000× | — |
+| D103-023 | ENV-XEON-E5-2696v3-18C | 1 × 16 | 1×1×1×1 | 9.397 | 19 | 2.046× | — |
+| D103-024 | ENV-XEON-E5-2696v3-18C | 2 × 4 | 1×2×1×1 | 11.490 | 19 | 1.674× | — |
+| D103-025 | ENV-XEON-E5-2696v3-18C | 4 × 4 | 1×4×1×1 | 7.842 | 19 | 2.452× | 61.3% |
+| D103-026 | ENV-XEON-E5-2696v3-18C | 8 × 2 | 1×4×2×1 | 7.532 | 19 | 2.553× | 63.8% |
+| D103-027 | ENV-XEON-E5-2696v3-18C | 16 × 1 | 1×4×4×1 | 8.299 | 19 | 2.317× | 57.9% |
+| D103-028 | ENV-XEON-E5-2696v3-18C | 16 × 1 | 1×4×2×2 | 8.406 | 19 | 2.288× | — |
+
+### 3.5 非 2 幂 rank 与网格形状
+
+| ID | 环境 | ranks（每 rank threads） | grid | solve(s) | 迭代 | 使用核数 | 残差/状态 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| D103-029 | ENV-XEON-E5-2696v3-18C | 6 × 3 | 1×2×3×1 | 8.249 | 19 | 18 | PASS；独立残差未单列 |
+| D103-030 | ENV-XEON-E5-2696v3-18C | 8 × 2 | 1×4×2×1 | 7.532 | 19 | 16 | 独立残差 4.011e-7 |
+| D103-031 | ENV-XEON-E5-2696v3-18C | 9 × 2 | 1×3×3×1 | 10.640 | 19 | 18 | PASS |
+| D103-032 | ENV-XEON-E5-2696v3-18C | 12 × 1 | 1×3×2×2 | 7.830 | 19 | 12 | 独立残差 4.010e-7 |
+| D103-033 | ENV-XEON-E5-2696v3-18C | 16 × 1 | 1×4×4×1 | 8.299 | 19 | 16 | PASS |
+| D103-034 | ENV-XEON-E5-2696v3-18C | 18 × 1 | 1×3×3×2 | 11.276 | 19 | 18 | PASS |
+| D103-035 | ENV-XEON-E5-2696v3-18C | 4 | 1×2×2×1 | 7.988 | 19 | 16 | 不明确 |
+| D103-036 | ENV-XEON-E5-2696v3-18C | 8 | 1×2×2×2 | 7.956 | 19 | 16 | 不明确 |
+| D103-037 | ENV-XEON-E5-2696v3-18C | 12 | 1×2×3×2 | 7.833 | 19 | 18 | 不明确 |
+| D103-038 | ENV-XEON-E5-2696v3-18C | 12 | 1×12×1×1（默认启发式） | 8.040 | 19 | 18 | 不明确 |
+| D103-039 | ENV-XEON-E5-2696v3-18C | 12 | 1×4×3×1 | 7.796 | 19 | 18 | 不明确 |
+| D103-040 | ENV-XEON-E5-2696v3-18C | 12 | 1×6×2×1 | 8.776 | 19 | 18 | 不明确 |
+| D103-041 | ENV-XEON-E5-2696v3-18C | 16 | 1×2×2×4 | 8.702 | 19 | 18 | 不明确 |
+| D103-042 | ENV-XEON-E5-2696v3-18C | 16 | 1×2×4×2 | 8.768 | 19 | 18 | 不明确 |
+
+### 3.6 KUPL 线程绑定与 LTO
+
+| ID | 环境 | 配置 | 并行参数 | solve(s) | 迭代 | 结论 |
+| --- | --- | --- | --- | --- | --- | --- |
+| D103-043 | ENV-XEON-E5-2696v3-18C | 默认 `--bind-to none` | 8×2 / 1×4×2×1 | 7.2–7.4 | 19 | 生产默认；不设置 `OMP_PROC_BIND`/`OMP_PLACES` |
+| D103-044 | ENV-XEON-E5-2696v3-18C | `OMP_PROC_BIND=spread` 或 `close` + `OMP_PLACES=cores` | 8×2 / 1×4×2×1 | 65–67 | 19 | 约 8.5× 恶化；短 OpenMP 并行区重复绑定成本 |
+| D103-045 | ENV-XEON-E5-2696v3-18C | `OMP_WAIT_POLICY=active` | 8×2 / 1×4×2×1 | 8.9–9.9 | 19 | 无收益 |
+| D103-046 | ENV-XEON-E5-2696v3-18C | 默认库 | 8×2 / 1×4×2×1 | 7.556 | 19 | 默认 `-O3 -march=native`；5 次交替 median |
+| D103-047 | ENV-XEON-E5-2696v3-18C | LTO 库 | 8×2 / 1×4×2×1 | 7.196 | 19 | `-flto -fno-semantic-interposition`；解逐位一致，快 4.8% |
+
+### 3.7 架构与精度选择
+
+| ID | 环境 | 设备/构建 | 求解器 | 组态/参数 | 总耗时(s) | 迭代 | 真残差 | 标签 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| D103-048 | ENV-WSL2-V100 | V100，强制 sm60 + PTX | CUDA QCU BiCGStab | P01 | 0.146966 | 18 | 6.709e-7 | dev103 |
+| D103-049 | ENV-WSL2-V100 | V100，原生 sm70 | CUDA QCU BiCGStab | P01 | 0.147531 | 18 | 6.709e-7 | dev103 |
+| D103-050 | ENV-WSL2-V100 | V100，默认 sm60+PTX 包 | CUDA QCU BiCGStab | P01 | 0.150286 | 18 | 6.709e-7 | dev103 |
+| D103-051 | ENV-WSL2-GPU | P100，sm60，`8×8×16×16` | CUDA QCU BiCGStab（含加载） | P01；小格点 | 0.0425 | 不明确 | 2.846712e-7 | dev103 |
+| D103-052 | ENV-WSL2-V100 | V100，sm70，`8×8×16×16` | CUDA QCU BiCGStab（含加载） | P01；小格点 | 0.0149 | 不明确 | 2.846721e-7 | dev103 |
+| D103-053 | ENV-WSL2-GPU | P100，sm60，`8×8×16×16` | QUDA BiCGStab | P01；小格点；`sm60` build | 0.090304 | 14 | 8.578e-7 | dev103 |
+| D103-054 | ENV-WSL2-V100 | V100，sm70，`8×8×16×16` | QUDA BiCGStab | P01；小格点；`sm70` build | 0.073592 | 14 | 8.617e-7 | dev103 |
+
+### 3.8 端到端 smoke 与历史窗口对照
+
+| ID | 环境 | 场景 | 路径 | 组态/参数 | 总耗时(s) | 迭代 | 真残差 | 标签 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| D103-055 | ENV-WSL2-V100 | 8³×16 final smoke | CUDA BiCGStab | P01；子体积 | 0.018738 | 16 | 2.282e-7 | dev103 / 2026-10-22 |
+| D103-056 | ENV-WSL2-V100 | 8³×16 final smoke | CUDA fine-only MG | P01；levels=1 | 0.034049 | 不明确 | 不明确 | dev103 / 2026-10-22 |
+| D103-057 | ENV-WSL2-V100 | 8³×16 final smoke | QUDA BiCGStab | P01；子体积 | 0.059750 | 14 | 2.326e-7 | dev103 / 2026-10-22 |
+| D103-058 | ENV-XEON-E5-2696v3-18C | 8³×16 final smoke | KUPL `restart=0` | P01；子体积；LTO | 0.078511 | 16 | 不明确 | dev103 / 2026-10-22 |
+| D103-059 | ENV-WSL2-V100 | L24 early low-load window | CUDA BiCGStab | P01 | 0.121856 | 18 | 6.709e-7 | dev103 归档的历史窗口 |
+| D103-060 | ENV-WSL2-V100 | L24 early low-load window | QUDA BiCGStab | P01 | 0.137938 | 19 | 4.180e-7 | dev103 归档的历史窗口 |
+| D103-061 | ENV-XEON-E5-2696v3-18C | L24 early low-load window | KUPL `restart=0`，4×4 | P01 | 5.530 | 19 | 4.010e-7 | dev103 归档的历史窗口 |
+| D103-062 | ENV-WSL2-V100 | L24 05:19 window | CUDA BiCGStab | P01 | 0.149015 | 18 | 6.709e-7 | dev103 归档的历史窗口 |
+| D103-063 | ENV-WSL2-V100 | L24 05:19 window | QUDA BiCGStab | P01 | 0.156806 | 19 | 4.207e-7 | dev103 归档的历史窗口 |
+
+## 4. `test27` 正式 Strict-MG 矩阵（2026-09-27/28）
+
+`test27` 的原始 combined 目录含 **66 个 exact-config 单元**。每个单元同时包含 PyQCU 与 QUDA 的一条 side record；两侧均采用零初值、2 warmup、5 steady，表中数值为 steady median，残差为 full Wilson/Clover 相对真残差。
+
+**公共固定参数**
+
+- 算法：PyQCU Strict MG（右预条件 FGMRES/GCR）对 QUDA aligned MG；MATPC 为 odd–odd，target parity=1。
+- 格点：`8×8×8×16`、`16×16×16×16`、`16×16×32×32`、`16×32×32×48`（最后者仅 V100 c64）。
+- 粗化：block `2×2×2×2`；nvec=12；coarse spin=2；coarse dof=24；requested restart=16（effective 16，V100 大格 c64 为 4）；nu_pre=nu_post=1；coarse maxiter=200。
+- 精度：c64 使用 single coarse fields，tol `1e-6`、coarse tol `3e-3`、true-residual gate `5e-6`；c128 使用 double coarse fields，tol `1e-8`、coarse tol `3e-5`、gate `5e-8`。
+- 设备：V100 32GB 单 rank；双 P100 16GB、2 rank process grid `2×1×1×1`。所有记录使用 WSL2 QUDA reduce-sync patch。
+- 版本：PyQCU C++ CUDA Strict-MG 与 QUDA 1.1.0 / PyQUDA 0.10.54；归档标签 `test27`，在 `dev103` 中仍可读取。
+
+### 4.1 全部 66 个单元
+
+| ID | 环境 | 设备/精度 | 格点 | L | 求解器/trace | 参数集与单元 | PyQCU: s / it / residual | QUDA: s / it / residual | R=Q/P | 关键参数/状态 | 标签 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| T27-001 | ENV-WSL2-GPU | p100 / c128 | 16x16x16x16 | 1 | bicgstab-reference; trace=off | P03; replay=p100__16x16x16x16__c128__l1__trace-off | 3.895633 / 129 / 1.678e-08 | 0.874115 / 81 / 1.833e-08 | 0.2244 | restart=16; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+| T27-002 | ENV-WSL2-GPU | p100 / c128 | 16x16x16x16 | 1 | bicgstab-reference; trace=on | P03; replay=p100__16x16x16x16__c128__l1__trace-on | 3.766848 / 129 / 1.678e-08 | 0.898828 / 81 / 1.833e-08 | 0.2386 | restart=16; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+| T27-003 | ENV-WSL2-GPU | p100 / c128 | 16x16x16x16 | 2 | mg-2; trace=off | P03; replay=p100__16x16x16x16__c128__l2__trace-off | 6.410288 / 40 / 1.847e-08 | 6.634041 / 85 / 1.818e-08 | 1.0349 | restart=16; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+| T27-004 | ENV-WSL2-GPU | p100 / c128 | 16x16x16x16 | 2 | mg-2; trace=on | P03; replay=p100__16x16x16x16__c128__l2__trace-on | 8.685507 / 40 / 1.831e-08 | 7.052353 / 85 / 1.818e-08 | 0.8120 | restart=16; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+| T27-005 | ENV-WSL2-GPU | p100 / c128 | 16x16x16x16 | 3 | mg-3; trace=off | P03; replay=p100__16x16x16x16__c128__l3__trace-off | 4.687589 / 45 / 1.794e-08 | 5.184888 / 87 / 1.830e-08 | 1.1061 | restart=16; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+| T27-006 | ENV-WSL2-GPU | p100 / c128 | 16x16x16x16 | 3 | mg-3; trace=on | P03; replay=p100__16x16x16x16__c128__l3__trace-on | 8.364124 / 45 / 1.852e-08 | 5.713482 / 87 / 1.830e-08 | 0.6831 | restart=16; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+| T27-007 | ENV-WSL2-GPU | p100 / c64 | 16x16x16x16 | 1 | bicgstab-reference; trace=off | P02; replay=p100__16x16x16x16__c64__l1__trace-off | 1.201894 / 89 / 3.345e-07 | 0.532276 / 63 / 6.975e-07 | 0.4429 | restart=16; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+| T27-008 | ENV-WSL2-GPU | p100 / c64 | 16x16x16x16 | 1 | bicgstab-reference; trace=on | P02; replay=p100__16x16x16x16__c64__l1__trace-on | 2.211705 / 89 / 3.345e-07 | 0.531712 / 63 / 6.975e-07 | 0.2404 | restart=16; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+| T27-009 | ENV-WSL2-GPU | p100 / c64 | 16x16x16x16 | 2 | mg-2; trace=off | P02; replay=p100__16x16x16x16__c64__l2__trace-off | 1.401530 / 30 / 4.766e-07 | 2.977000 / 58 / 6.907e-07 | 2.1241 | restart=16; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+| T27-010 | ENV-WSL2-GPU | p100 / c64 | 16x16x16x16 | 2 | mg-2; trace=on | P02; replay=p100__16x16x16x16__c64__l2__trace-on | 3.956232 / 30 / 4.755e-07 | 3.375061 / 58 / 6.908e-07 | 0.8531 | restart=16; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+| T27-011 | ENV-WSL2-GPU | p100 / c64 | 16x16x16x16 | 3 | mg-3; trace=off | P02; replay=p100__16x16x16x16__c64__l3__trace-off | 1.326635 / 32 / 7.146e-07 | 3.068561 / 59 / 7.034e-07 | 2.3130 | restart=16; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+| T27-012 | ENV-WSL2-GPU | p100 / c64 | 16x16x16x16 | 3 | mg-3; trace=on | P02; replay=p100__16x16x16x16__c64__l3__trace-on | 4.505935 / 32 / 5.680e-07 | 3.359617 / 59 / 7.035e-07 | 0.7456 | restart=16; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+| T27-013 | ENV-WSL2-GPU | p100 / c128 | 16x16x32x32 | 1 | bicgstab-reference; trace=off | P03; replay=p100__16x16x32x32__c128__l1__trace-off | 7.605619 / 143 / 1.677e-08 | 3.296516 / 102 / 1.779e-08 | 0.4334 | restart=16; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+| T27-014 | ENV-WSL2-GPU | p100 / c128 | 16x16x32x32 | 1 | bicgstab-reference; trace=on | P03; replay=p100__16x16x32x32__c128__l1__trace-on | 7.606094 / 143 / 1.677e-08 | 3.333847 / 102 / 1.779e-08 | 0.4383 | restart=16; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+| T27-015 | ENV-WSL2-GPU | p100 / c128 | 16x16x32x32 | 2 | mg-2; trace=off | P03; replay=p100__16x16x32x32__c128__l2__trace-off | 18.007237 / 41 / 1.853e-08 | 22.914580 / 85 / 1.828e-08 | 1.2725 | restart=16; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+| T27-016 | ENV-WSL2-GPU | p100 / c128 | 16x16x32x32 | 2 | mg-2; trace=on | P03; replay=p100__16x16x32x32__c128__l2__trace-on | 22.311795 / 41 / 1.849e-08 | 23.249343 / 85 / 1.828e-08 | 1.0420 | restart=16; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+| T27-017 | ENV-WSL2-GPU | p100 / c128 | 16x16x32x32 | 3 | mg-3; trace=off | P03; replay=p100__16x16x32x32__c128__l3__trace-off | 10.326357 / 46 / 1.833e-08 | 14.907144 / 89 / 1.831e-08 | 1.4436 | restart=16; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+| T27-018 | ENV-WSL2-GPU | p100 / c128 | 16x16x32x32 | 3 | mg-3; trace=on | P03; replay=p100__16x16x32x32__c128__l3__trace-on | 17.502462 / 46 / 1.827e-08 | 15.477156 / 89 / 1.831e-08 | 0.8843 | restart=16; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+| T27-019 | ENV-WSL2-GPU | p100 / c128 | 8x8x8x16 | 1 | bicgstab-reference; trace=off | P03; replay=p100__8x8x8x16__c128__l1__trace-off | 2.919802 / 123 / 1.727e-08 | 0.666855 / 93 / 1.804e-08 | 0.2284 | restart=16; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+| T27-020 | ENV-WSL2-GPU | p100 / c128 | 8x8x8x16 | 1 | bicgstab-reference; trace=on | P03; replay=p100__8x8x8x16__c128__l1__trace-on | 2.919932 / 123 / 1.727e-08 | 0.700683 / 93 / 1.804e-08 | 0.2400 | restart=16; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+| T27-021 | ENV-WSL2-GPU | p100 / c128 | 8x8x8x16 | 2 | mg-2; trace=off | P03; replay=p100__8x8x8x16__c128__l2__trace-off | 4.502645 / 14 / 1.882e-08 | 5.629175 / 45 / 1.893e-08 | 1.2502 | restart=16; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+| T27-022 | ENV-WSL2-GPU | p100 / c128 | 8x8x8x16 | 2 | mg-2; trace=on | P03; replay=p100__8x8x8x16__c128__l2__trace-on | 4.915378 / 13 / 1.814e-08 | 5.758642 / 45 / 1.893e-08 | 1.1716 | restart=16; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+| T27-023 | ENV-WSL2-GPU | p100 / c128 | 8x8x8x16 | 3 | mg-3; trace=off | P03; replay=p100__8x8x8x16__c128__l3__trace-off | 3.599977 / 15 / 1.849e-08 | 4.146050 / 45 / 1.890e-08 | 1.1517 | restart=16; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+| T27-024 | ENV-WSL2-GPU | p100 / c128 | 8x8x8x16 | 3 | mg-3; trace=on | P03; replay=p100__8x8x8x16__c128__l3__trace-on | 4.847516 / 16 / 1.856e-08 | 4.450671 / 45 / 1.890e-08 | 0.9181 | restart=16; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+| T27-025 | ENV-WSL2-GPU | p100 / c64 | 8x8x8x16 | 1 | bicgstab-reference; trace=off | P02; replay=p100__8x8x8x16__c64__l1__trace-off | 1.153903 / 90 / 3.778e-07 | 0.277248 / 68 / 4.674e-07 | 0.2403 | restart=16; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+| T27-026 | ENV-WSL2-GPU | p100 / c64 | 8x8x8x16 | 1 | bicgstab-reference; trace=on | P02; replay=p100__8x8x8x16__c64__l1__trace-on | 1.176417 / 90 / 3.778e-07 | 0.274423 / 68 / 4.674e-07 | 0.2333 | restart=16; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+| T27-027 | ENV-WSL2-GPU | p100 / c64 | 8x8x8x16 | 2 | mg-2; trace=off | P02; replay=p100__8x8x8x16__c64__l2__trace-off | 0.708108 / 9 / 7.303e-07 | 1.012924 / 32 / 7.966e-07 | 1.4305 | restart=16; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+| T27-028 | ENV-WSL2-GPU | p100 / c64 | 8x8x8x16 | 2 | mg-2; trace=on | P02; replay=p100__8x8x8x16__c64__l2__trace-on | 0.943590 / 9 / 7.402e-07 | 0.957788 / 32 / 7.968e-07 | 1.0150 | restart=16; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+| T27-029 | ENV-WSL2-GPU | p100 / c64 | 8x8x8x16 | 3 | mg-3; trace=off | P02; replay=p100__8x8x8x16__c64__l3__trace-off | 0.819449 / 10 / 7.316e-07 | 1.045473 / 32 / 7.871e-07 | 1.2758 | restart=16; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+| T27-030 | ENV-WSL2-GPU | p100 / c64 | 8x8x8x16 | 3 | mg-3; trace=on | P02; replay=p100__8x8x8x16__c64__l3__trace-on | 1.281186 / 10 / 7.222e-07 | 1.166837 / 32 / 7.870e-07 | 0.9107 | restart=16; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+| T27-031 | ENV-WSL2-V100 | v100 / c128 | 16x16x16x16 | 1 | bicgstab-reference; trace=off | P03; replay=v100__16x16x16x16__c128__l1__trace-off | 0.552082 / 129 / 1.678e-08 | 0.142427 / 81 / 1.833e-08 | 0.2580 | restart=16; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+| T27-032 | ENV-WSL2-V100 | v100 / c128 | 16x16x16x16 | 1 | bicgstab-reference; trace=on | P03; replay=v100__16x16x16x16__c128__l1__trace-on | 0.650030 / 129 / 1.678e-08 | 0.145757 / 81 / 1.833e-08 | 0.2242 | restart=16; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+| T27-033 | ENV-WSL2-V100 | v100 / c128 | 16x16x16x16 | 2 | mg-2; trace=off | P03; replay=v100__16x16x16x16__c128__l2__trace-off | 0.720944 / 40 / 1.788e-08 | 1.461254 / 85 / 1.818e-08 | 2.0269 | restart=16; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+| T27-034 | ENV-WSL2-V100 | v100 / c128 | 16x16x16x16 | 2 | mg-2; trace=on | P03; replay=v100__16x16x16x16__c128__l2__trace-on | 1.085352 / 40 / 1.788e-08 | 1.575352 / 85 / 1.818e-08 | 1.4515 | restart=16; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+| T27-035 | ENV-WSL2-V100 | v100 / c128 | 16x16x16x16 | 3 | mg-3; trace=off | P03; replay=v100__16x16x16x16__c128__l3__trace-off | 0.436389 / 44 / 1.832e-08 | 1.404036 / 87 / 1.830e-08 | 3.2174 | restart=16; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+| T27-036 | ENV-WSL2-V100 | v100 / c128 | 16x16x16x16 | 3 | mg-3; trace=on | P03; replay=v100__16x16x16x16__c128__l3__trace-on | 1.172683 / 44 / 1.832e-08 | 1.620864 / 87 / 1.830e-08 | 1.3822 | restart=16; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+| T27-037 | ENV-WSL2-V100 | v100 / c64 | 16x16x16x16 | 1 | bicgstab-reference; trace=off | P02; replay=v100__16x16x16x16__c64__l1__trace-off | 0.241615 / 90 / 3.394e-07 | 0.068085 / 63 / 6.908e-07 | 0.2818 | restart=16; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+| T27-038 | ENV-WSL2-V100 | v100 / c64 | 16x16x16x16 | 1 | bicgstab-reference; trace=on | P02; replay=v100__16x16x16x16__c64__l1__trace-on | 0.250004 / 90 / 3.394e-07 | 0.080333 / 63 / 6.908e-07 | 0.3213 | restart=16; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+| T27-039 | ENV-WSL2-V100 | v100 / c64 | 16x16x16x16 | 2 | mg-2; trace=off | P02; replay=v100__16x16x16x16__c64__l2__trace-off | 0.203833 / 30 / 4.624e-07 | 0.524204 / 58 / 6.906e-07 | 2.5717 | restart=16; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+| T27-040 | ENV-WSL2-V100 | v100 / c64 | 16x16x16x16 | 2 | mg-2; trace=on | P02; replay=v100__16x16x16x16__c64__l2__trace-on | 0.383475 / 30 / 4.624e-07 | 0.643676 / 58 / 6.907e-07 | 1.6785 | restart=16; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+| T27-041 | ENV-WSL2-V100 | v100 / c64 | 16x16x16x16 | 3 | mg-3; trace=off | P02; replay=v100__16x16x16x16__c64__l3__trace-off | 0.150948 / 31 / 5.798e-07 | 0.714978 / 59 / 7.033e-07 | 4.7366 | restart=16; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+| T27-042 | ENV-WSL2-V100 | v100 / c64 | 16x16x16x16 | 3 | mg-3; trace=on | P02; replay=v100__16x16x16x16__c64__l3__trace-on | 0.528114 / 31 / 5.798e-07 | 0.921262 / 59 / 7.035e-07 | 1.7444 | restart=16; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+| T27-043 | ENV-WSL2-V100 | v100 / c128 | 16x16x32x32 | 1 | bicgstab-reference; trace=off | P03; replay=v100__16x16x32x32__c128__l1__trace-off | 1.421209 / 143 / 1.677e-08 | 0.350110 / 102 / 1.779e-08 | 0.2463 | restart=16; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+| T27-044 | ENV-WSL2-V100 | v100 / c128 | 16x16x32x32 | 1 | bicgstab-reference; trace=on | P03; replay=v100__16x16x32x32__c128__l1__trace-on | 1.473002 / 143 / 1.677e-08 | 0.353009 / 102 / 1.779e-08 | 0.2397 | restart=16; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+| T27-045 | ENV-WSL2-V100 | v100 / c128 | 16x16x32x32 | 2 | mg-2; trace=off | P03; replay=v100__16x16x32x32__c128__l2__trace-off | 7.482401 / 41 / 1.848e-08 | 4.041432 / 85 / 1.828e-08 | 0.5401 | restart=16; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+| T27-046 | ENV-WSL2-V100 | v100 / c128 | 16x16x32x32 | 2 | mg-2; trace=on | P03; replay=v100__16x16x32x32__c128__l2__trace-on | 4.112095 / 41 / 1.848e-08 | 4.162919 / 85 / 1.828e-08 | 1.0124 | restart=16; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+| T27-047 | ENV-WSL2-V100 | v100 / c128 | 16x16x32x32 | 3 | mg-3; trace=off | P03; replay=v100__16x16x32x32__c128__l3__trace-off | 1.642417 / 46 / 1.820e-08 | 3.029770 / 89 / 1.831e-08 | 1.8447 | restart=16; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+| T27-048 | ENV-WSL2-V100 | v100 / c128 | 16x16x32x32 | 3 | mg-3; trace=on | P03; replay=v100__16x16x32x32__c128__l3__trace-on | 3.094795 / 46 / 1.820e-08 | 3.084281 / 89 / 1.831e-08 | 0.9966 | restart=16; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+| T27-049 | ENV-WSL2-V100 | v100 / c64 | 16x32x32x48 | 1 | bicgstab-reference; trace=off | P02; replay=v100__16x32x32x48__c64__l1__trace-off | 1.684636 / 137 / 3.792e-07 | 0.396648 / 88 / 6.147e-07 | 0.2355 | restart=4; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+| T27-050 | ENV-WSL2-V100 | v100 / c64 | 16x32x32x48 | 1 | bicgstab-reference; trace=on | P02; replay=v100__16x32x32x48__c64__l1__trace-on | 2.206876 / 137 / 3.792e-07 | 0.389674 / 88 / 6.147e-07 | 0.1766 | restart=4; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+| T27-051 | ENV-WSL2-V100 | v100 / c64 | 16x32x32x48 | 2 | mg-2; trace=off | P02; replay=v100__16x32x32x48__c64__l2__trace-off | 1.940163 / 11 / 3.602e-07 | 2.716043 / 37 / 7.303e-07 | 1.3999 | restart=4; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+| T27-052 | ENV-WSL2-V100 | v100 / c64 | 16x32x32x48 | 2 | mg-2; trace=on | P02; replay=v100__16x32x32x48__c64__l2__trace-on | 2.679417 / 11 / 3.602e-07 | 2.783125 / 37 / 7.303e-07 | 1.0387 | restart=4; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+| T27-053 | ENV-WSL2-V100 | v100 / c64 | 16x32x32x48 | 3 | mg-3; trace=off | P02; replay=v100__16x32x32x48__c64__l3__trace-off | 0.808893 / 14 / 4.901e-07 | 1.640769 / 39 / 7.328e-07 | 2.0284 | restart=4; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+| T27-054 | ENV-WSL2-V100 | v100 / c64 | 16x32x32x48 | 3 | mg-3; trace=on | P02; replay=v100__16x32x32x48__c64__l3__trace-on | 1.442251 / 14 / 4.901e-07 | 1.817490 / 39 / 7.328e-07 | 1.2602 | restart=4; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+| T27-055 | ENV-WSL2-V100 | v100 / c128 | 8x8x8x16 | 1 | bicgstab-reference; trace=off | P03; replay=v100__8x8x8x16__c128__l1__trace-off | 0.409443 / 123 / 1.727e-08 | 0.146274 / 93 / 1.804e-08 | 0.3573 | restart=16; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+| T27-056 | ENV-WSL2-V100 | v100 / c128 | 8x8x8x16 | 1 | bicgstab-reference; trace=on | P03; replay=v100__8x8x8x16__c128__l1__trace-on | 0.409237 / 123 / 1.727e-08 | 0.122681 / 93 / 1.804e-08 | 0.2998 | restart=16; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+| T27-057 | ENV-WSL2-V100 | v100 / c128 | 8x8x8x16 | 2 | mg-2; trace=off | P03; replay=v100__8x8x8x16__c128__l2__trace-off | 0.159051 / 13 / 1.750e-08 | 1.202206 / 45 / 1.893e-08 | 7.5586 | restart=16; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+| T27-058 | ENV-WSL2-V100 | v100 / c128 | 8x8x8x16 | 2 | mg-2; trace=on | P03; replay=v100__8x8x8x16__c128__l2__trace-on | 0.240055 / 13 / 1.750e-08 | 1.193536 / 45 / 1.893e-08 | 4.9719 | restart=16; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+| T27-059 | ENV-WSL2-V100 | v100 / c128 | 8x8x8x16 | 3 | mg-3; trace=off | P03; replay=v100__8x8x8x16__c128__l3__trace-off | 0.104222 / 14 / 1.742e-08 | 1.525188 / 45 / 1.890e-08 | 14.6340 | restart=16; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+| T27-060 | ENV-WSL2-V100 | v100 / c128 | 8x8x8x16 | 3 | mg-3; trace=on | P03; replay=v100__8x8x8x16__c128__l3__trace-on | 0.295328 / 14 / 1.742e-08 | 1.269658 / 45 / 1.890e-08 | 4.2991 | restart=16; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+| T27-061 | ENV-WSL2-V100 | v100 / c64 | 8x8x8x16 | 1 | bicgstab-reference; trace=off | P02; replay=v100__8x8x8x16__c64__l1__trace-off | 0.204748 / 91 / 6.881e-07 | 0.067330 / 68 / 2.954e-07 | 0.3288 | restart=16; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+| T27-062 | ENV-WSL2-V100 | v100 / c64 | 8x8x8x16 | 1 | bicgstab-reference; trace=on | P02; replay=v100__8x8x8x16__c64__l1__trace-on | 0.203805 / 91 / 6.881e-07 | 0.083591 / 68 / 2.954e-07 | 0.4102 | restart=16; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+| T27-063 | ENV-WSL2-V100 | v100 / c64 | 8x8x8x16 | 2 | mg-2; trace=off | P02; replay=v100__8x8x8x16__c64__l2__trace-off | 0.046208 / 9 / 7.249e-07 | 0.328822 / 32 / 7.968e-07 | 7.1161 | restart=16; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+| T27-064 | ENV-WSL2-V100 | v100 / c64 | 8x8x8x16 | 2 | mg-2; trace=on | P02; replay=v100__8x8x8x16__c64__l2__trace-on | 0.113535 / 9 / 7.249e-07 | 0.413301 / 32 / 7.972e-07 | 3.6403 | restart=16; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+| T27-065 | ENV-WSL2-V100 | v100 / c64 | 8x8x8x16 | 3 | mg-3; trace=off | P02; replay=v100__8x8x8x16__c64__l3__trace-off | 0.060079 / 10 / 6.204e-07 | 0.488989 / 32 / 7.870e-07 | 8.1391 | restart=16; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+| T27-066 | ENV-WSL2-V100 | v100 / c64 | 8x8x8x16 | 3 | mg-3; trace=on | P02; replay=v100__8x8x8x16__c64__l3__trace-on | 0.137310 / 10 / 6.204e-07 | 0.575026 / 32 / 7.870e-07 | 4.1878 | restart=16; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
+
+**容量替代**（`ENV-WSL2-GPU`）：请求的双 P100 `16×32×32×48` c64 六个单元（L1/L2/L3 × trace on/off）因 15.9 GiB / 16.0 GiB 显存门限、CPU staging 仍 570 s 超时而替换成 `16×16×16×16`。被替代单元只作容量趋势证据，不能宣称是原格点的加速比。
+
+**撤回值**（`ENV-WSL2-V100`）：`stab55` 早期的 c64 大格 `4.3817×` 已因 QUDA 侧 CA-GCR/`nu_post=8`/coarse maxiter=16 与 PyQCU 单次递归 V-cycle 不等价而撤回；不要引用该值作为当前结论。
+
+## 5. `dev99`–`dev101`：KUPL/CUDA QCU/QUDA 生产优化记录
+
+### 5.1 KUPL 真实 LIME 矩阵
+
+| ID | 环境 | 精度 | 配置 | solve median(s) | 迭代 | 独立真残差 | 参数集/设备 | 标签/日期 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| D99-001 | ENV-KUNPENG-2NUMA | c64 | r1 baseline | 9.858334 | 20 | 4.125306e-7 | P08 | dev99 / 2026-10-20 |
+| D99-002 | ENV-KUNPENG-2NUMA | c64 | r1 spin6 | 7.830318 | 20 | 4.131546e-7 | P08 | dev99 / 2026-10-20 |
+| D99-003 | ENV-KUNPENG-2NUMA | c64 | r1 spin6 + inv6 | 7.769662 | 20 | 4.121851e-7 | P08 | dev99 / 2026-10-20 |
+| D99-004 | ENV-KUNPENG-2NUMA | c64 | r2 baseline | 7.960636 | 20 | 4.120797e-7 | P08 | dev99 / 2026-10-20 |
+| D99-005 | ENV-KUNPENG-2NUMA | c64 | r2 spin6 | 7.452968 | 20 | 4.128289e-7 | P08 | dev99 / 2026-10-20 |
+| D99-006 | ENV-KUNPENG-2NUMA | c64 | r2 spin6 + grid-x | 8.108518 | 20 | 4.124767e-7 | P08 + `grid=1×4×1×1` | dev99 / 2026-10-20 |
+| D99-007 | ENV-KUNPENG-2NUMA | c64 | r2 spin6 + inv6 | 6.351769 | 20 | 4.126025e-7 | P08 | dev99 / 2026-10-20 |
+| D99-008 | ENV-KUNPENG-2NUMA | c128 | r1 baseline | 20.196165 | 23 | 6.962408e-8 | P08 | dev99 / 2026-10-20 |
+| D99-009 | ENV-KUNPENG-2NUMA | c128 | r1 spin6 | 16.116355 | 23 | 6.962408e-8 | P08 | dev99 / 2026-10-20 |
+| D99-010 | ENV-KUNPENG-2NUMA | c128 | r1 spin6 + inv6 | 15.592787 | 23 | 6.962408e-8 | P08 | dev99 / 2026-10-20 |
+| D99-011 | ENV-KUNPENG-2NUMA | c128 | r2 baseline | 14.449964 | 23 | 6.962408e-8 | P08 | dev99 / 2026-10-20 |
+| D99-012 | ENV-KUNPENG-2NUMA | c128 | r2 spin6 | 13.106006 | 23 | 6.962408e-8 | P08 | dev99 / 2026-10-20 |
+| D99-013 | ENV-KUNPENG-2NUMA | c128 | r2 spin6 + inv6 | 11.472949 | 23 | 6.962408e-8 | P08 | dev99 / 2026-10-20 |
+
+> 全部为 5 次稳态 median；`r1/r2` 表示 1/2 个 MPI rank；c128 的 `restart=0` 是 parity-Schur BiCGStab 路径，不是 c128 coarse V-cycle。
+
+### 5.2 CUDA/QUDA 单卡真实 LIME 记录
+
+| ID | 环境 | 后端/版本 | 配置 | 总耗时(s) | 迭代 | 真残差 | 计时口径 | 参数集 | 标签 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| D99-014 | ENV-A1002-SLURM | CUDA QCU | triad smoke | 0.163096 | 31 | 未验证 | 1 warmup / 2 repeats | P08 | dev99 |
+| D99-015 | ENV-A1002-SLURM | CUDA QCU | backend smoke | 0.154417 | 31 | 未验证 | 0 warmup / 1 repeat | P08 | dev99 |
+| D99-016 | ENV-A1002-SLURM | CUDA QCU | dot optimization probe | 0.159336 | 31 | 未验证 | 1 warmup / 5 repeats | P08 | dev99 |
+| D99-017 | ENV-A1002-SLURM | CUDA QCU | formal | 0.153413 | 31 | 2.417295e-7 | 1 warmup / 5 repeats | P08 | dev100 |
+| D99-018 | ENV-A1002-SLURM | CUDA QCU | final residual gate | 0.153048 | 31 | 2.377387e-7 | 0 warmup / 1 repeat；正确性门，不是稳定性能样本 | P08 | dev100 |
+| D99-019 | ENV-A1002-SLURM | QUDA | smoke | 4.419682 | 19 | 4.521737e-7 | solver time；wall=6.728750 s；autotuning off | P08 | dev99 |
+| D99-020 | ENV-A1002-SLURM | QUDA | formal gate | 0.140328 | 19 | 4.521737e-7 | solver time；wall=0.455391 s | P08 | dev100 |
+| D99-021 | ENV-WSL2-V100 | QUDA | later same-LIME comparison | 0.134009 | 19 | 5.694274e-7 | solver wall；同 mass/csw/RHS | P08 | dev101 |
+
+> `QUDA` 的 `solver time` 与外部 wall、QCU 的 event timing 是不同边界。`triad/backend/dot` 的早期 CUDA 数值没有独立残差证据，不能升级为正式性能结论。
+
+### 5.3 CUDA Legacy MG 优化阶段（同一真实 LIME，c64）
+
+| ID | 环境 | 阶段 | 路径 | backend median(s) | 迭代 | 真残差 | 说明 | 归档标签 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| D100-S01 | ENV-WSL2-V100 | S1 | CUDA QCU legacy MG，自适应门控 | 0.3903 | 20 | 4.1265e-7 | cache-hit；Stage 1；n_vcycles=0 | dev100 |
+| D100-S02 | ENV-WSL2-V100 | S2 | D2D 拷贝替换为 `cudaMemcpyAsync` | 0.3099 | 20 | 4.1265e-7 | 相比 S1 降 20.6% | dev100 |
+| D100-S03 | ENV-WSL2-V100 | S3 | `mg_give_rx` 合并访存 | 0.2423 | 20 | 4.1265e-7 | 相比 S2 降 21.7% | dev100 |
+| D100-S04 | ENV-WSL2-V100 | S4 | lazy workspace | 0.1954 | 20 | 4.1265e-7 | 相比 S3 降 19.4% | dev100 |
+| D100-S05 | ENV-WSL2-V100 | S5 | Clover I/O 融合 | 0.1837 | 20 | 4.1265e-7 | 相比 S4 降 6.0% | dev100 |
+| D100-S06 | ENV-WSL2-V100 | S6 | Clover subtract 融合 | 0.1802 | 20 | 4.1247e-7 | 相比 S5 降 1.9% | dev100 |
+| D100-S07 | ENV-WSL2-V100 | S7 | Wilson+Clover c64 融合 | 0.1721 | 20 | 4.1247e-7 | 相比 S6 降 4.5% | dev100 |
+| D100-S10 | ENV-WSL2-V100 | S10 | 最终合并 10 样本 | 0.1720 | 20 | 4.1247e-7 | Stage 10；总 lifecycle 0.408832 s | dev100 |
+| D101-S12 | ENV-WSL2-V100 | S12 | null-vector BiCG chunk 6 + cache-hit 复测 | 0.1653 | 20 | 4.1247e-7 | 总重复 solve 0.395448 s | dev101 |
+| D101-S13 | ENV-WSL2-V100 | S13 | gather/W=8 + coarse tile | 0.1636 | 20 | 4.1247e-7 | 10 samples；lifecycle 0.387271 s | dev101 |
+| D101-S16 | ENV-WSL2-V100 | S16 | 成对归约后的窗口基线/候选 | 0.1746 | 20 | 4.1247e-7 | 该窗口与前序绝对值不可混算 | dev101 |
+| D101-S17 | ENV-WSL2-V100 | S17 | 6×6 Clover 结构门控 | 0.148100 | 20 | 4.1247e-7 | lifecycle 0.386736 s | dev101 |
+| D101-S18 | ENV-WSL2-V100 | S18 | BiCG 结构门控 | 0.141000 | 20 | 4.1247e-7 | lifecycle 0.375467 s | dev101 |
+| D101-S20 | ENV-WSL2-V100 | S20 | 收敛检查分块 | 0.1397 | 20 | 4.1247e-7 | lifecycle 0.37154 s | dev101 |
+| D101-S21 | ENV-WSL2-V100 | S21 | fine 成对归约 | 0.13700 | 20 | 4.1255681e-7 | ABBA 20 steady；lifecycle 0.368274 s | dev101 |
+| D101-S22 | ENV-WSL2-V100 | S22 | fine 单点积 | 0.13295 | 20 | 4.1257200e-7 | ABBA；lifecycle 0.356707 s | dev101 |
+| D101-S24 | ENV-WSL2-V100 | S24 | fine-only baseline（真实 E12 模式筛选） | 0.132445 | 20 | 4.125720e-7 | lifecycle 0.365086 s | dev101 |
+| D101-S24-DEFLATE | ENV-WSL2-V100 | S24-DEFLATE | BiCG + 一次 deflate V-cycle | 0.172463 | 20 | 2.666153e-7 | lifecycle 0.401633 s；残差更低但更慢 | dev101 |
+| D101-S24-FGMRES-CG | ENV-WSL2-V100 | S24-FGMRES-CG | FGMRES+MG, smoother=CG | 0.93003 | 16 FGMRES | 7.181618e-7 | lifecycle 1.160491 s | dev101 |
+| D101-S24-FGMRES-MR | ENV-WSL2-V100 | S24-FGMRES-MR | FGMRES+MG, smoother=MR | 0.60251 | 10 FGMRES | 4.818365e-7 | lifecycle 0.832060 s | dev101 |
+| D101-S24-FGMRES-CHEB | ENV-WSL2-V100 | S24-FGMRES-Cheb | FGMRES+MG, Chebyshev | 1.12978 | 19 FGMRES | 4.743437e-7 | lifecycle 1.366174 s | dev101 |
+| D101-S24-CA-GCR | ENV-WSL2-V100 | S24-CA-GCR | CA-GCR+MR | 1.68461 | 28 CA-GCR | 8.093534e-7 | lifecycle 1.911062 s | dev101 |
+
+**重要口径**：S1–S24 是同一轮优化链的历史阶段，不是稳定生产排名。CUDA MG 的 `backend` 常为 fine-only Schur BiCGStab，V-cycle 门控可能为 `n_vcycles=0`；不得把 BiCGStab 降低的时间写成 coarse V-cycle 加速。
+
+### 5.4 KUPL 强扩展、c64/c128 与 MultiGpu
+
+| ID | 环境 | 后端/设备 | 配置 | 总耗时(s) | 迭代 | 残差 | 备注/效率 | 标签 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| D99-022 | ENV-X86-18C | KUPL c64 | legacy `restart=5`, deflate, 1 rank × 4 threads | 46.407 | 45 | 0.86–0.94e-6 | 1.000× / 100% | dev101 |
+| D99-023 | ENV-X86-18C | KUPL c64 | same, 2 ranks × 4 threads, `1×2×1×1` | 27.790 | 47 | 0.86–0.94e-6 | 1.670× / 83.5% | dev101 |
+| D99-024 | ENV-X86-18C | KUPL c64 | same, 4 ranks × 4 threads, `1×4×1×1` | 15.581 | 47 | 0.86–0.94e-6 | 2.978× / 74.5% | dev101 |
+| D99-025 | ENV-X86-18C | KUPL c64 | 4 ranks × 4, stronger coarse tile511/512 | 29.942748 | 60 | 9.70132e-7 | 后续优化中间态；legacy MG | dev101 |
+| D99-026 | ENV-X86-18C | KUPL c64 | 4 ranks × 4, paired Allreduce | 15.072466 | 47 | 9.138e-7 | 较 15.581 s 改善；不同窗口 | dev101 |
+| D99-027 | ENV-X86-18C | KUPL c128 | 4 ranks × 4, `restart=0` parity-Schur | 10.282 | 21 | 6.079e-8 | 关闭 coarse hierarchy；非 V-cycle | dev101 |
+| D99-028 | ENV-X86-18C | KUPL c128 | 4 ranks × 4, `applyCloverBistabCgQcu` | 11.311 | 23 | 6.96241e-8 | 独立残差；同 LIME | dev101 |
+| D99-029 | ENV-X86-18C | KUPL c128 | `4^4`, `restart=0`, 4 ranks × 4 | 0.00335 | 13 | 5.54769e-12 | 小格点 c128 正确性/性能 | dev101 |
+| D99-030 | ENV-A1002-SLURM | A100 ×2 MultiGpu | 纯 MG，no-reference，`8×8×8×16` | 0.209200 | 不明确 | 不明确 | 比带参考模式降 21.7% | dev100 |
+| D99-031 | ENV-A1002-SLURM | A100 ×2 MultiGpu | 纯 MG，no-reference，`8×8×8×16` | 0.232044 | 不明确 | 不明确 | 比带参考模式降 9.0% | dev100 |
+| D99-032 | ENV-A1002-SLURM | A100 ×2 MultiGpu | 纯 MG，no-reference，`8×8×8×16` | 0.219773 | 不明确 | 不明确 | 比带参考模式降 14.9%；三组中位降幅 | dev100 |
+
+> A100 的“纯 MG”是同一进程内两线程共享输入/双任务吞吐测试，不是单 RHS 域分解；其 `0.21 s` 不可直接与 V100 单 rank 的 `0.13 s` 比较。KUPL 不同窗口的 `15.581`、`15.072466`、`5.515` 等也不得混算。
+
+## 6. `stab48` 2026-08-30 QCU 扫描矩阵：57 条记录
+
+这一矩阵是标签 `stab48`（2026-08-30）中 `data/mg-bench-current-20260830/report.md` 对应的原始汇总；因此下表所有行的日期均为 2026-08-30、标签均为 `stab48`。它与第 5 节 dev99–dev101 的后续生产优化属于不同日期、不同代码快照和不同时间窗口。单次扫描值只用于参数筛选；严格三次重复值才是稳定性证据。L1 行的 `dof` 留空表示没有粗层自由度，不是缺失参数。
+
+| ID | 环境 | 组 | 配置 | 格点 | L | dof | solver/smoother/cycle | 额外参数 | 设备/ranks | 样本 | wall(s) | solve(s) | 迭代 | 残差 | 状态 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| ST48-001 | ENV-WSL2-V100 | 小格单次扫描 | current_1l_c64 | 8×8×8×16 | 1 |  | bicgstab/cg/v | r=5; cmi=15; ctf=3000.0; mu=4; c64->无粗层 | V100 / 1 rank | 1 | 0.113552 | 0.109662 | 92 | 4.36288e-07 | 通过 |
+| ST48-002 | ENV-WSL2-V100 | 小格单次扫描 | current_2l_bicgstab_l | 8×8×8×16 | 2 | 12 | bicgstab-l/cg/v | r=5; cmi=15; ctf=3000.0; mu=4; c64->c64 | V100 / 1 rank | 1 | 0.333852 | 0.3323 | 不明确 | 7.22024e-07 | 通过 |
+| ST48-003 | ENV-WSL2-V100 | 小格单次扫描 | current_2l_c128 | 8×8×8×16 | 2 | 12 | bicgstab/cg/v | r=5; cmi=15; ctf=3000.0; mu=4; c128->c128 | V100 / 1 rank | 1 | 0.117389 | 0.11412 | 84 | 5.61326e-07 | 通过 |
+| ST48-004 | ENV-WSL2-V100 | 小格单次扫描 | current_2l_c128_c64 | 8×8×8×16 | 2 | 12 | bicgstab/cg/v | r=5; cmi=15; ctf=3000.0; mu=4; c128->c64 | V100 / 1 rank | 1 | 0.86536 | 0.86536 | 99 | 5.98529e-07 | 通过 |
+| ST48-005 | ENV-WSL2-V100 | 小格单次扫描 | current_2l_c64_c128 | 8×8×8×16 | 2 | 12 | bicgstab/cg/v | r=5; cmi=15; ctf=3000.0; mu=4; c64->c128 | V100 / 1 rank | 1 | 0.660088 | 0.6573 | 80 | 7.51712e-07 | 通过 |
+| ST48-006 | ENV-WSL2-V100 | 小格单次扫描 | current_2l_ca_gcr | 8×8×8×16 | 2 | 12 | ca-gcr/ca-gcr/v | r=5; cmi=15; ctf=3000.0; mu=4; c64->c64 | V100 / 1 rank | 1 | 0.883218 | 0.8814 | 不明确 | 4.52699e-07 | 通过 |
+| ST48-007 | ENV-WSL2-V100 | 小格单次扫描 | current_2l_cg_v | 8×8×8×16 | 2 | 12 | bicgstab/cg/v | r=5; cmi=15; ctf=3000.0; mu=4; c64->c64 | V100 / 1 rank | 1 | 0.127166 | 0.123971 | 84 | 5.42203e-07 | 通过 |
+| ST48-008 | ENV-WSL2-V100 | 小格单次扫描 | current_2l_cheb | 8×8×8×16 | 2 | 12 | bicgstab/chebyshev/v | r=5; cmi=15; ctf=3000.0; mu=4; c64->c64 | V100 / 1 rank | 1 | 0.115976 | 0.110022 | 84 | 5.42203e-07 | 通过 |
+| ST48-009 | ENV-WSL2-V100 | 小格单次扫描 | current_2l_deflate | 8×8×8×16 | 2 | 12 | bicgstab/cg/v | r=5; cmi=15; ctf=3000.0; mu=4; c64->c64 | V100 / 1 rank | 1 | 0.0921122 | 0.087941 | 64 | 5.96957e-06 | 残差未达门限 |
+| ST48-010 | ENV-WSL2-V100 | 小格单次扫描 | current_2l_f | 8×8×8×16 | 2 | 12 | bicgstab/cg/f | r=5; cmi=15; ctf=3000.0; mu=4; c64->c64 | V100 / 1 rank | 1 | 0.102213 | 0.099375 | 80 | 6.36611e-07 | 通过 |
+| ST48-011 | ENV-WSL2-V100 | 小格单次扫描 | current_2l_gcr | 8×8×8×16 | 2 | 12 | gcr/cg/v | r=5; cmi=15; ctf=3000.0; mu=4; c64->c64 | V100 / 1 rank | 1 | 0.406887 | 0.4058 | 不明确 | 6.67228e-07 | 通过 |
+| ST48-012 | ENV-WSL2-V100 | 小格单次扫描 | current_2l_k | 8×8×8×16 | 2 | 12 | bicgstab/cg/k | r=5; cmi=15; ctf=3000.0; mu=4; c64->c64 | V100 / 1 rank | 1 | 0.112426 | 0.109657 | 80 | 9.14763e-07 | 通过 |
+| ST48-013 | ENV-WSL2-V100 | 小格单次扫描 | current_2l_mr | 8×8×8×16 | 2 | 12 | bicgstab/mr/v | r=5; cmi=15; ctf=3000.0; mu=4; c64->c64 | V100 / 1 rank | 1 | 0.0999482 | 0.096781 | 84 | 5.42203e-07 | 通过 |
+| ST48-014 | ENV-WSL2-V100 | 小格单次扫描 | current_2l_w | 8×8×8×16 | 2 | 12 | bicgstab/cg/w | r=5; cmi=15; ctf=3000.0; mu=4; c64->c64 | V100 / 1 rank | 1 | 0.107547 | 0.104732 | 84 | 5.42203e-07 | 通过 |
+| ST48-015 | ENV-WSL2-V100 | 小格单次扫描 | current_2l_warm | 8×8×8×16 | 2 | 12 | bicgstab/cg/v | r=5; cmi=15; ctf=3000.0; mu=4; c64->c64 | V100 / 1 rank | 1 | 0.101884 | 0.098943 | 84 | 5.42203e-07 | 通过 |
+| ST48-016 | ENV-WSL2-V100 | 小格单次扫描 | current_2l_warm_reuse_x0 | 8×8×8×16 | 2 | 12 | bicgstab/cg/v | r=5; cmi=15; ctf=3000.0; mu=4; c64->c64 | V100 / 1 rank | 1 | 0.00679484 | 0.003739 | 4 | 2.53204e-07 | 通过（热启动） |
+| ST48-017 | ENV-WSL2-V100 | 小格单次扫描 | current_3l_cg_v | 8×8×8×16 | 3 | 24/24 | bicgstab/cg/v | r=5; cmi=15; ctf=3000.0; mu=4; c64->c64/c64 | V100 / 1 rank | 1 | 0.162337 | 0.157763 | 60 | 6.51305e-07 | 通过 |
+| ST48-018 | ENV-WSL2-V100 | 小格单次扫描 | current_3l_f | 8×8×8×16 | 3 | 24/24 | bicgstab/cg/f | r=5; cmi=15; ctf=3000.0; mu=4; c64->c64/c64 | V100 / 1 rank | 1 | 0.104907 | 0.102188 | 64 | 4.88449e-07 | 通过 |
+| ST48-019 | ENV-WSL2-V100 | 小格单次扫描 | current_3l_gcr_v | 8×8×8×16 | 3 | 24/24 | gcr/cg/v | r=5; cmi=15; ctf=3000.0; mu=4; c64->c64/c64 | V100 / 1 rank | 1 | 0.6552 | 0.6536 | 不明确 | 5.93825e-07 | 通过 |
+| ST48-020 | ENV-WSL2-V100 | 小格单次扫描 | current_3l_k | 8×8×8×16 | 3 | 24/24 | bicgstab/cg/k | r=5; cmi=15; ctf=3000.0; mu=4; c64->c64/c64 | V100 / 1 rank | 1 | 0.132498 | 0.127197 | 76 | 4.73983e-07 | 通过 |
+| ST48-021 | ENV-WSL2-V100 | 小格单次扫描 | current_3l_mr_v | 8×8×8×16 | 3 | 24/24 | bicgstab/mr/v | r=5; cmi=15; ctf=3000.0; mu=4; c64->c64/c64 | V100 / 1 rank | 1 | 0.136622 | 0.132116 | 112 | 3.54629e-07 | 通过 |
+| ST48-022 | ENV-WSL2-V100 | 小格单次扫描 | current_3l_w | 8×8×8×16 | 3 | 24/24 | bicgstab/cg/w | r=5; cmi=15; ctf=3000.0; mu=4; c64->c64/c64 | V100 / 1 rank | 1 | 0.116897 | 0.11391 | 64 | 4.88449e-07 | 通过 |
+| ST48-023 | ENV-WSL2-V100 | 小格单次扫描 | current_param_cmi3 | 8×8×8×16 | 2 | 12 | bicgstab/cg/v | r=5; cmi=3; ctf=3000.0; mu=4; c64->c64 | V100 / 1 rank | 1 | 0.106999 | 0.101588 | 88 | 8.37158e-07 | 通过 |
+| ST48-024 | ENV-WSL2-V100 | 小格单次扫描 | current_param_cmi50 | 8×8×8×16 | 2 | 12 | bicgstab/cg/v | r=5; cmi=50; ctf=3000.0; mu=4; c64->c64 | V100 / 1 rank | 1 | 0.096934 | 0.092208 | 68 | 6.02454e-07 | 通过 |
+| ST48-025 | ENV-WSL2-V100 | 小格单次扫描 | current_param_ctf100 | 8×8×8×16 | 2 | 12 | bicgstab/cg/v | r=5; cmi=15; ctf=100.0; mu=4; c64->c64 | V100 / 1 rank | 1 | 0.129027 | 0.12574 | 84 | 5.42203e-07 | 通过 |
+| ST48-026 | ENV-WSL2-V100 | 小格单次扫描 | current_param_ctf1e3 | 8×8×8×16 | 2 | 12 | bicgstab/cg/v | r=5; cmi=15; ctf=1000.0; mu=4; c64->c64 | V100 / 1 rank | 1 | 0.116235 | 0.11304 | 84 | 5.42203e-07 | 通过 |
+| ST48-027 | ENV-WSL2-V100 | 小格单次扫描 | current_param_ctf1e5 | 8×8×8×16 | 2 | 12 | bicgstab/cg/v | r=5; cmi=15; ctf=100000.0; mu=4; c64->c64 | V100 / 1 rank | 1 | 0.121346 | 0.117424 | 84 | 5.42203e-07 | 通过 |
+| ST48-028 | ENV-WSL2-V100 | 小格单次扫描 | current_param_mu0 | 8×8×8×16 | 2 | 12 | bicgstab/cg/v | r=5; cmi=15; ctf=3000.0; mu=0; c64->c64 | V100 / 1 rank | 1 | 0.125079 | 0.121944 | 84 | 5.42203e-07 | 通过 |
+| ST48-029 | ENV-WSL2-V100 | 小格单次扫描 | current_param_mu2 | 8×8×8×16 | 2 | 12 | bicgstab/cg/v | r=5; cmi=15; ctf=3000.0; mu=2; c64->c64 | V100 / 1 rank | 1 | 0.123525 | 0.120579 | 84 | 5.42203e-07 | 通过 |
+| ST48-030 | ENV-WSL2-V100 | 小格单次扫描 | current_param_mu8 | 8×8×8×16 | 2 | 12 | bicgstab/cg/v | r=5; cmi=15; ctf=3000.0; mu=8; c64->c64 | V100 / 1 rank | 1 | 0.108266 | 0.10546 | 84 | 5.42203e-07 | 通过 |
+| ST48-031 | ENV-WSL2-V100 | 小格单次扫描 | current_param_r1 | 8×8×8×16 | 2 | 12 | bicgstab/cg/v | r=1; cmi=15; ctf=3000.0; mu=4; c64->c64 | V100 / 1 rank | 1 | 0.142136 | 0.139218 | 80 | 7.09144e-07 | 通过 |
+| ST48-032 | ENV-WSL2-V100 | 小格单次扫描 | current_param_r10 | 8×8×8×16 | 2 | 12 | bicgstab/cg/v | r=10; cmi=15; ctf=3000.0; mu=4; c64->c64 | V100 / 1 rank | 1 | 0.100271 | 0.096787 | 88 | 2.6938e-07 | 通过 |
+| ST48-033 | ENV-WSL2-V100 | 小格单次扫描 | current_param_r3 | 8×8×8×16 | 2 | 12 | bicgstab/cg/v | r=3; cmi=15; ctf=3000.0; mu=4; c64->c64 | V100 / 1 rank | 1 | 0.13209 | 0.128036 | 80 | 4.49669e-07 | 通过 |
+| ST48-034 | ENV-WSL2-V100 | 严格三次重复 | strict_l1 | 8×8×8×16 | 1 |  | bicgstab/cg/v | r=5; cmi=15; ctf=3000.0; mu=4; c64->无粗层 | V100 / 1 rank | 3 | 0.114211 | 0.1111 | 92 | 4.36288e-07 | 通过 |
+| ST48-035 | ENV-WSL2-V100 | 严格三次重复 | strict_2l_mr | 8×8×8×16 | 2 | 12 | bicgstab/mr/v | r=5; cmi=15; ctf=3000.0; mu=4; c64->c64 | V100 / 1 rank | 3 | 0.120011 | 0.108655 | 84 | 5.42203e-07 | 通过 |
+| ST48-036 | ENV-WSL2-V100 | 严格三次重复 | strict_3l_f | 8×8×8×16 | 3 | 24/24 | bicgstab/cg/f | r=5; cmi=15; ctf=3000.0; mu=4; c64->c64/c64 | V100 / 1 rank | 3 | 0.131453 | 0.127905 | 64 | 4.88449e-07 | 通过 |
+| ST48-037 | ENV-WSL2-V100 | 格点扫描 | 16x16x16x16_1l | 16×16×16×16 | 1 |  | bicgstab/cg/v | r=5; cmi=200; ctf=3000.0; mu=4; c64->无粗层 | V100 / 1 rank | 1 | 0.158851 | 0.151486 | 80 | 7.05077e-07 | 通过 |
+| ST48-038 | ENV-WSL2-V100 | 格点扫描 | 16x16x16x16_2l | 16×16×16×16 | 2 | 24 | bicgstab/cg/v | r=5; cmi=200; ctf=3000.0; mu=4; c64->c64 | V100 / 1 rank | 1 | 0.142366 | 0.135886 | 84 | 9.33054e-07 | 通过 |
+| ST48-039 | ENV-WSL2-V100 | 格点扫描 | 16x16x16x16_3l | 16×16×16×16 | 3 | 24/24 | bicgstab/cg/v | r=5; cmi=200; ctf=3000.0; mu=4; c64->c64/c64 | V100 / 1 rank | 1 | 2.21882 | 2.21163 | 1000 | NaN | 失败/NaN |
+| ST48-040 | ENV-WSL2-V100 | 格点扫描 | 16x16x16x16_3l_r10_ct1e5 | 16×16×16×16 | 3 | 24/24 | bicgstab/cg/v | r=10; cmi=200; ctf=100000.0; mu=4; c64->c64/c64 | V100 / 1 rank | 1 | 2.27174 | 2.26525 | 1000 | NaN | 失败/NaN |
+| ST48-041 | ENV-WSL2-V100 | 格点扫描 | 16x16x16x16_3l_r10_ct1e5_cmi15 | 16×16×16×16 | 3 | 24/24 | bicgstab/cg/v | r=10; cmi=15; ctf=100000.0; mu=4; c64->c64/c64 | V100 / 1 rank | 1 | 1.521 | 1.51267 | 1000 | NaN | 失败/NaN |
+| ST48-042 | ENV-WSL2-V100 | 格点扫描 | 16x32x32x48_1l | 16×32×32×48 | 1 |  | bicgstab/cg/v | r=5; cmi=200; ctf=3000.0; mu=4; c64->无粗层 | V100 / 1 rank | 1 | 1.40792 | 1.3508 | 84 | 3.95832e-07 | 通过 |
+| ST48-043 | ENV-WSL2-V100 | 格点扫描 | 16x32x32x48_2l | 16×32×32×48 | 2 | 12 | bicgstab/cg/v | r=5; cmi=200; ctf=3000.0; mu=4; c64->c64 | V100 / 1 rank | 1 | 1.58024 | 1.52362 | 68 | 6.54945e-07 | 通过 |
+| ST48-044 | ENV-WSL2-V100 | 独立 BiStabCG 基线 | BiStabCG_8 | 8×8×8×16 | 0 | 12 | bicgstab/不适用/不适用 | 不明确（源日志未完整回显） | V100 / 1 rank | 1 | 不明确 | 0.37859 | 不明确 | 不明确 | 基线 |
+| ST48-045 | ENV-WSL2-V100 | 独立 BiStabCG 基线 | BiStabCG_16 | 16×16×16×16 | 0 | 12 | bicgstab/不适用/不适用 | 不明确（源日志未完整回显） | V100 / 1 rank | 1 | 不明确 | 0.337005 | 不明确 | 不明确 | 基线 |
+| ST48-046 | ENV-WSL2-V100 | 独立 BiStabCG 基线 | BiStabCG_large | 16×32×32×48 | 0 | 12 | bicgstab/不适用/不适用 | 不明确（源日志未完整回显） | V100 / 1 rank | 1 | 不明确 | 1.97254 | 不明确 | 不明确 | 基线 |
+| ST48-047 | ENV-WSL2-V100 | MultiGpu 独立任务吞吐 | single_v100 | 16×32×32×48 | 2 | 12/12 | bicgstab/CG/V | r=3; cmi=15; ctf=1000.0; mu=不明确; c64->c64 | V100 / 1 rank | 1 | 1.44885 | 1.44885 | 72 | 8.44241e-07 | 通过（吞吐，不等价于单 RHS 延迟） |
+| ST48-048 | ENV-WSL2-GPU | MultiGpu 独立任务吞吐 | single_p100 | 16×32×32×48 | 2 | 12/12 | bicgstab/CG/V | r=3; cmi=15; ctf=1000.0; mu=不明确; c64->c64 | P100 / 1 rank | 1 | 1.91188 | 1.91188 | 72 | 8.87779e-07 | 通过（吞吐，不等价于单 RHS 延迟） |
+| ST48-049 | ENV-WSL2-GPU | MultiGpu 独立任务吞吐 | p100x2 | 16×32×32×48 | 2 | 12/12 | bicgstab/CG/V | r=3; cmi=15; ctf=1000.0; mu=不明确; c64->c64 | P100×2 / 1 rank | 1 | 1.95951 | 1.95951 | 72 | 8.87779e-07 | 通过（吞吐，不等价于单 RHS 延迟） |
+| ST48-050 | ENV-WSL2-V100 | MPI 共享单 GPU | np2_1×1×1×2 | 8×8×8×16 | 2 | 12/12 | bicgstab/CG/V | r=5; cmi=15; ctf=3000; mu=4; c64->c64 | V100 共享 / 2 rank | 1 | 1.775 | 1.76145 | 67 | 5.29e-07 | 通过（仅路径/显存对照，不是扩展性结论） |
+| ST48-051 | ENV-WSL2-V100 | MPI 共享单 GPU | np4_1×1×2×2 | 8×8×8×16 | 2 | 12/12 | bicgstab/CG/V | r=5; cmi=15; ctf=3000; mu=4; c64->c64 | V100 共享 / 4 rank | 1 | 3.714 | 3.69842 | 95 | 6.17e-07 | 通过（仅路径/显存对照，不是扩展性结论） |
+| ST48-052 | ENV-WSL2-V100 | 历史日志 | dev80_2_BiStabCG | 8×8×8×16 | 0 | 不明确 | bicgstab/不明确/不明确 | 不明确（历史日志仅保留行为结果） | V100 / 1 rank | 1 | 0.629266 | 0.629266 | 不明确 | 6.87724e-07 | 历史-OK |
+| ST48-053 | ENV-WSL2-V100 | 历史日志 | dev80_2_MG_1L | 8×8×8×16 | 1 | 不明确 | bicgstab/不明确/不明确 | 不明确（历史日志仅保留行为结果） | V100 / 1 rank | 1 | 0.19758 | 0.19758 | 不明确 | 3.42326e-07 | 历史-OK |
+| ST48-054 | ENV-WSL2-V100 | 历史日志 | dev80_2_MG_2L | 8×8×8×16 | 2 | 不明确 | bicgstab/不明确/不明确 | 不明确（历史日志仅保留行为结果） | V100 / 1 rank | 1 | 0.179802 | 0.179802 | 不明确 | 1.93432e-07 | 历史-OK |
+| ST48-055 | ENV-WSL2-V100 | 历史日志 | dev80_3_BiStabCG | 16×32×32×48 | 0 | 不明确 | bicgstab/不明确/不明确 | 不明确（历史日志仅保留行为结果） | V100 / 1 rank | 1 | 2.2502 | 2.2502 | 不明确 | 3.78217e-07 | 历史-OK |
+| ST48-056 | ENV-WSL2-V100 | 历史日志 | dev80_3_MG_1L | 16×32×32×48 | 1 | 不明确 | bicgstab/不明确/不明确 | 不明确（历史日志仅保留行为结果） | V100 / 1 rank | 1 | 1.73208 | 1.73208 | 不明确 | 3.68599e-07 | 历史-OK |
+| ST48-057 | ENV-WSL2-V100 | 历史日志 | dev80_3_MG_2L | 16×32×32×48 | 2 | 不明确 | bicgstab/不明确/不明确 | 不明确（历史日志仅保留行为结果） | V100 / 1 rank | 1 | 1.96648 | 1.96648 | 不明确 | 2.11257e-07 | 历史-OK |
+
+**判读**：`current_2l_deflate` 的 `5.97e-6` 未达到 `1e-6`；`current_2l_warm_reuse_x0` 是有近似初值的热启动，不是 cold solve；`MultiGpu` 是两份独立任务的吞吐；`MPI np=2/4` 共享单张 V100，不构成扩展性证据。
+
+## 7. 2026-07/08 CUDA C++ QCU Legacy MG 早期记录
+
+### 7.1 `dev73_4` / Schur-MG 初始调试（2026-08-01/02）
+
+| ID | 环境 | 格点/精度 | MG 参数 | BiStabCG(s) | MG(s) | MG/BiCG | MG/ref iterations | vs_ref | 标签 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| DV73-001 | ENV-WSL2-V100 | 8×8×8×16, c64, m=0.05 | 2L，E=48，r=10，ct=1e5 | 0.478 | 0.228 | 2.10× | 65 / 86 | 3×10^-7 | dev73_4 |
+| DV73-002 | ENV-WSL2-V100 | 8×16×16×16, c64, m=0.05 | 2L，E=48，r=12，ct=1e5 | 0.498 | 0.395 | 1.26× | 90 / 86 | 3×10^-7 | dev73_4 |
+| DV73-003 | ENV-WSL2-V100 | 8×16×16×16, c64, m=0.05 | 2L，E=48，r=10，ct=1e5 | 0.549 | 0.394 | 1.40× | 88 / 86 | 3×10^-7 | dev73_4 |
+| DV73-004 | ENV-WSL2-V100 | 8×16×16×16, c64, m=0.05 | 3L，E=[12,48,48]，r=10，ct=1e5 | 0.474 | 0.446 | 1.06× | 107 / 86 | 3×10^-7 | dev73_4 |
+| DV73-005 | ENV-WSL2-V100 | 8×8×8×16, c128, m=0.05 | 2L，E=48，r=10，ct=1e5 | 0.619 | 0.323 | 1.92× | 90 / 94 | 6.6×10^-8 | dev73_4 |
+
+`dev73` v2/v3 还保留以下同协议记录；这些是早期单次/多次运行，不是最终生产基准：
+
+| ID | 环境 | 格点/精度 | 配置 | BiStabCG(s) | MG(s) | MG/BiCG | vs_ref | 标签/版本 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| DV73-006 | ENV-WSL2-V100 | 8×8×8×16, c64, m=0.05 | 1L | 0.4484 | 0.2445 | 1.83× | 4.20e-7 | dev73_4 v2 |
+| DV73-007 | ENV-WSL2-V100 | 8×8×8×16, c64, m=0.05 | 1L | 0.5873 | 1.2152 | 0.48× | 4.52e-7 | dev73_4 v2 |
+| DV73-008 | ENV-WSL2-V100 | 8×8×8×16, c64, m=0.05 | 1L | 0.1738 | 0.1373 | 1.27× | 4.26e-7 | dev73_4 v2 |
+| DV73-009 | ENV-WSL2-V100 | 8×8×8×16, c64, m=0.05 | 1L trial 0 | 0.148 | 0.185 | 0.80× | 4.12e-7 | dev73_4 v3 |
+| DV73-010 | ENV-WSL2-V100 | 8×8×8×16, c64, m=0.05 | 1L trial 1 | 0.135 | 0.161 | 0.84× | 4.09e-7 | dev73_4 v3 |
+| DV73-011 | ENV-WSL2-V100 | 8×8×8×16, c64, m=0.05 | 1L trial 2 | 0.150 | 0.155 | 0.97× | 4.15e-7 | dev73_4 v3 |
+| DV73-012 | ENV-WSL2-V100 | 8×8×8×16, c128, m=0.05 | 1L trial 0 | 0.304 | 0.322 | 0.94× | 2.08e-11 | dev73_4 v3 |
+| DV73-013 | ENV-WSL2-V100 | 8×8×8×16, c128, m=0.05 | 1L trial 1 | 0.304 | 0.304 | 1.00× | 3.06e-11 | dev73_4 v3 |
+| DV73-014 | ENV-WSL2-V100 | 8×8×8×16, c128, m=0.05 | 1L trial 2 | 0.294 | 0.320 | 0.92× | 2.52e-11 | dev73_4 v3 |
+| DV73-015 | ENV-WSL2-V100 | 8×8×8×16, c64, m=0.10 | 1L trial 0 | 0.118 | 0.122 | 0.97× | 3.05e-7 | dev73_4 v3 |
+| DV73-016 | ENV-WSL2-V100 | 8×8×8×16, c64, m=0.10 | 1L trial 1 | 0.114 | 0.157 | 0.73× | 3.01e-7 | dev73_4 v3 |
+| DV73-017 | ENV-WSL2-V100 | 8×8×8×16, c64, m=0.10 | 1L trial 2 | 0.107 | 0.130 | 0.82× | 3.63e-7 | dev73_4 v3 |
+| DV73-018 | ENV-WSL2-V100 | 12×12×12×16, c64, m=0.05 | 1L trial 0 | 0.181 | 0.245 | 0.74× | 4.08e-7 | dev73_4 v3 |
+| DV73-019 | ENV-WSL2-V100 | 12×12×12×16, c64, m=0.05 | 1L trial 1 | 0.215 | 0.203 | 1.06× | 4.07e-7 | dev73_4 v3 |
+| DV73-020 | ENV-WSL2-V100 | 12×12×12×16, c64, m=0.05 | 1L trial 2 | 0.191 | 0.234 | 0.82× | 4.05e-7 | dev73_4 v3 |
+
+> v2/v3 的早期修复前结果说明 MG 在粗算子/同步路径上曾有严重错误；这些行保留作历史证据，不应与后续修正结果合并。
+
+### 7.2 `dev73_5` 与 `dev74`（2026-08-03/13）
+
+| ID | 环境 | 格点/配置 | BiStabCG(s) | MG(s) | MG/BiCG | MG/ref iterations | vs_ref | 标签 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| DV735-001 | ENV-WSL2-V100 | 8×8×8×16 c64 2L r10 ct1e5 cmi15 | 0.465 | 0.192 | 2.43× | 64 / 85 | 3.5e-7 | dev73_5 |
+| DV735-002 | ENV-WSL2-V100 | 8×8×8×16 c128 2L | 0.516 | 0.262 | 1.97× | 68 / 88 | 7.8e-8 | dev73_5 |
+| DV735-003 | ENV-WSL2-V100 | 8×16×16×16 c64 2L | 0.464 | 0.399 | 1.16× | 89 / 86 | 3.2e-7 | dev73_5 |
+| DV735-004 | ENV-WSL2-V100 | 8×16×16×16 c128 2L | 0.466 | 0.637 | 0.73× | 71 / 87 | 2.4e-8 | dev73_5 |
+| DV735-005 | ENV-WSL2-V100 | 8×16×16×16 c64 3L | 0.479 | 0.363 | 1.32× | 79 / 86 | 3.2e-7 | dev73_5 |
+| DV735-006 | ENV-WSL2-V100 | 16×16×16×16 c64 2L | 0.529 | 0.655 | 0.81× | 108 / 90 | 2.9e-7 | dev73_5 |
+| DV735-007 | ENV-WSL2-V100 | 8×16×16×32 c64 2L | 0.666 | 0.597 | 1.11× | 119 / 105 | 3.2e-7 | dev73_5 |
+| DV74-001 | ENV-RTX4060-LAPTOP | 8×8×8×16 c64 2L（RTX 4060 本地） | 0.076 | 0.176 | 0.43× | 85 / 86 | 3.2e-7 | dev74 / 2026-08-13 |
+| DV74-002 | ENV-RTX4060-LAPTOP | 8×16×16×16 c64 2L（RTX 4060 本地） | 0.140 | 0.513 | 0.27× | 89 / 86 | 3.2e-7 | dev74 / 2026-08-13 |
+| DV74-003 | ENV-RTX4060-LAPTOP | 16×16×16×16 c64 2L（RTX 4060 本地） | 0.193 | 0.960 | 0.20× | 129 / 91 | 3.0e-7 | dev74 / 2026-08-13 |
+
+`dev73_5` 的参数扫描（`ENV-WSL2-V100`）只保留聚合值，没有为每个扫描点保存绝对 solver 时间；可确认的加速比记录为：`r=5:0.87×, r=10:1.16×, r=12:1.18×, r=15:1.02×, r=20:1.26×`；`ct=1e2/1e3/1e4/1e5: 1.06×/1.10×/1.12×/1.16×`；`cmi=15/50/200: 1.16×/1.02×/1.22×`。这些行的时间与迭代数**不明确**。
+
+### 7.3 test13/test14/dev76/dev78（2026-08-15/16）
+
+| ID | 环境 | 格点/配置 | 参考(s) | MG(s) | MG/参考 | 迭代 | 标签 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| T13-001 | ENV-WSL2-GPU | P100×2 8×8×8×16 2L | 0.571 | 0.272 | 2.101× | 不明确 | test13 |
+| T13-002 | ENV-WSL2-GPU | P100×2 8×8×8×16 3L | 0.575 | 0.451 | 1.275× | 不明确 | test13 |
+| T13-003 | ENV-WSL2-GPU | P100×2 8×16×16×16 2L | 0.613 | 1.024 | 0.598× | 不明确 | test13 |
+| T13-004 | ENV-WSL2-GPU | P100×2 8×16×16×16 3L | 0.598 | 1.495 | 0.400× | 不明确 | test13 |
+| T13-005 | ENV-WSL2-GPU | P100×2 16×16×16×16 2L | 0.695 | 0.779 | 0.892× | 不明确 | test13 |
+| T13-006 | ENV-WSL2-V100 | V100 16×16×16×16 3L | 0.679 | 0.734 | 0.926× | 不明确 | test13 |
+| T13-007 | ENV-WSL2-V100 | V100 8×16×16×16 3L | 0.600 | 0.528 | 1.137× | 不明确 | test13 |
+| T13-SW1 | ENV-WSL2-GPU | 8×8×8×16 3L r10 ct1e5 cmi15 | 不明确 | 不明确 | 2.149× | 不明确 | test13 sweep best |
+| T13-SW2 | ENV-WSL2-GPU | 8×8×8×16 2L r10 ct1e4 cmi15 | 不明确 | 不明确 | 2.071× | 不明确 | test13 sweep |
+| T13-SW3 | ENV-WSL2-GPU | 8×8×8×16 2L r5 ct1e4 cmi15 | 不明确 | 不明确 | 1.999× | 不明确 | test13 sweep |
+| T14-001 | ENV-WSL2-GPU | test14 best sweep 8×8×8×16 2L | 不明确 | 不明确 | 2.49× | 不明确 | test14 |
+| DV76-001 | ENV-WSL2-GPU | P100×2 8×8×8×16 2L | 旧加速比 1.83× | 新加速比 2.01–2.34× | +10–28% | 不明确 | dev76 |
+| DV76-002 | ENV-WSL2-GPU | P100×2 8×8×8×16 3L | 旧加速比 2.05× | 新加速比 2.14–2.16× | +5–8% | 不明确 | dev76 |
+| DV76-003 | ENV-WSL2-V100 | V100 16×16×16×16 3L | 旧加速比 1.19× | 新加速比 1.15–1.33× | 约 +12% | 不明确 | dev76 |
+| DV76-004 | ENV-WSL2-V100 | V100 16×16×16×32 3L | 旧加速比 0.75× | 新加速比 1.08–1.20× | 由 <1 转为 >1 | 不明确 | dev76 |
+| DV78-001 | ENV-WSL2-GPU | P100×2 8×16×16×16 2L r10 | 不明确 | 不明确 | 1.05–1.22× | 不明确 | dev78 |
+| DV78-002 | ENV-WSL2-GPU | P100×2 8×16×16×16 3L r10 | 不明确 | 不明确 | 1.41× | 不明确 | dev78 |
+| DV78-003 | ENV-WSL2-GPU | P100×2 8×8×8×16 3L | 不明确 | 不明确 | 2.29× | 不明确 | dev78 |
+| DV78-004 | ENV-WSL2-V100 | V100 16×16×16×16 3L | 不明确 | 不明确 | 1.18–1.33× | 不明确 | dev78 |
+| DV78-005 | ENV-WSL2-GPU | P100×2 16×16×16×16 2L r20 | 不明确 | 不明确 | 0.74× | 不明确 | dev78 |
+
+`test14` 的最终 bench 表（`v202608152021`）保留了 7 个完整配置：
+
+| ID | 环境 | 配置 | 格点 | L | 线程 | ref(s) | MG(s) | speedup | 标签 |
+| --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | --- |
+| T14-002 | ENV-WSL2-GPU | P100×2 2L | 8×8×8×16 | 2 | 2 | 0.657 | 0.339 | 1.94× | test14 |
+| T14-003 | ENV-WSL2-GPU | P100×2 3L | 8×8×8×16 | 3 | 2 | 0.701 | 0.373 | 1.88× | test14 |
+| T14-004 | ENV-WSL2-V100 | V100 3L | 8×16×16×16 | 3 | 1 | 0.580 | 0.384 | 1.51× | test14 |
+| T14-005 | ENV-WSL2-V100 | V100 3L | 16×16×16×16 | 3 | 1 | 0.687 | 0.574 | 1.20× | test14 |
+| T14-006 | ENV-WSL2-GPU | P100×2 2L | 16×16×16×16 | 2 | 2 | 0.721 | 1.124 | 0.64× | test14 |
+| T14-007 | ENV-WSL2-GPU | P100×2 2L | 8×16×16×16 | 2 | 2 | 0.781 | 1.228 | 0.64× | test14 |
+| T14-008 | ENV-WSL2-GPU | P100×2 3L | 8×16×16×16 | 3 | 2 | 0.677 | 1.501 | 0.45× | test14 |
+
+`test14` 的最终 sweep 还保存了 12 个 `8×8×8×16` 配置；绝对时间没有进入该表，无法恢复，故只列迭代相关参数和 speedup：
+
+| ID | 环境 | L | r | ct | cmi | speedup | 标签 |
+| --- | --- | ---: | ---: | --- | ---: | ---: | --- |
+| T14-SW01 | ENV-WSL2-GPU | 3 | 10 | 1e5 | 15 | 2.49× | test14 |
+| T14-SW02 | ENV-WSL2-GPU | 3 | 10 | 1e5 | 10 | 2.37× | test14 |
+| T14-SW03 | ENV-WSL2-GPU | 3 | 5 | 1e5 | 15 | 2.15× | test14 |
+| T14-SW04 | ENV-WSL2-GPU | 2 | 10 | 1e4 | 15 | 2.10× | test14 |
+| T14-SW05 | ENV-WSL2-GPU | 2 | 10 | 1e5 | 10 | 2.09× | test14 |
+| T14-SW06 | ENV-WSL2-GPU | 3 | 5 | 1e5 | 10 | 2.05× | test14 |
+| T14-SW07 | ENV-WSL2-GPU | 2 | 5 | 1e5 | 10 | 2.04× | test14 |
+| T14-SW08 | ENV-WSL2-GPU | 2 | 5 | 1e5 | 15 | 2.02× | test14 |
+| T14-SW09 | ENV-WSL2-GPU | 2 | 5 | 1e4 | 15 | 1.99× | test14 |
+| T14-SW10 | ENV-WSL2-GPU | 2 | 5 | 1e4 | 10 | 1.85× | test14 |
+| T14-SW11 | ENV-WSL2-GPU | 3 | 10 | 1e4 | 10 | 1.82× | test14 |
+| T14-SW12 | ENV-WSL2-GPU | 2 | 10 | 1e5 | 15 | 1.79× | test14 |
+
+`dev78_1` 给出更明确的 bench 中位数（P100×2 行见 `ENV-WSL2-GPU`，V100 行见 `ENV-WSL2-V100`）：8×8×8×16 2L `685/342 ms` (`2.007×`), 3L `685/321 ms` (`2.135×`); 8×16×16×16 2L `655/1994 ms`（r10 后 `1.48×`）; 3L `687/996 ms` (`1.41×`); 16×16×16×16 2L `766/1191 ms` (`0.643×` → r20 `0.74×`); V100 16×16×16×16 3L `698/608 ms` (`1.167×`); V100 8×16×16×16 3L `650/474 ms` (`1.422×`).
+
+`dev78_2` 的 21 个收敛配置（全部通过 `atol=1e-6`）报告了 MG/ref 迭代数；这些行的时间不明确：
+
+| ID | 环境 | 格点 | L | r | ct | cmi | MG iterations | ref iterations | speedup |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| DV78C-001 | ENV-WSL2-GPU | 8×8×8×16 | 2 | 5 | 1e5 | 15 | 55 | 90 | 2.02 |
+| DV78C-002 | ENV-WSL2-GPU | 8×8×8×16 | 3 | 5 | 1e5 | 15 | 35 | 90 | 2.08 |
+| DV78C-003 | ENV-WSL2-GPU | 8×16×16×16 | 2 | 10 | 1e5 | 15 | 88 | 88 | 1.04 |
+| DV78C-004 | ENV-WSL2-GPU | 8×16×16×16 | 3 | 10 | 1e5 | 15 | 58 | 88 | 1.50 |
+| DV78C-005 | ENV-WSL2-GPU | 16×16×16×16 | 2 | 20 | 1e5 | 15 | 114 | 89 | 0.63 |
+| DV78C-006 | ENV-WSL2-V100 | 16×16×16×16 | 3 | 10 | 1e5 | 15 | 59 | 89 | 1.17 |
+| DV78C-007 | ENV-WSL2-GPU | 8×8×8×16 | 2 | 5 | 1e4 | 10 | 60 | 90 | 2.31 |
+| DV78C-008 | ENV-WSL2-GPU | 8×8×8×16 | 2 | 5 | 1e4 | 15 | 55 | 90 | 2.16 |
+| DV78C-009 | ENV-WSL2-GPU | 8×8×8×16 | 2 | 5 | 1e5 | 10 | 69 | 90 | 1.92 |
+| DV78C-010 | ENV-WSL2-GPU | 8×8×8×16 | 2 | 10 | 1e4 | 10 | 120 | 90 | 1.35 |
+| DV78C-011 | ENV-WSL2-GPU | 8×8×8×16 | 2 | 10 | 1e4 | 15 | 75 | 90 | 1.76 |
+| DV78C-012 | ENV-WSL2-GPU | 8×8×8×16 | 2 | 10 | 1e5 | 10 | 96 | 90 | 1.74 |
+| DV78C-013 | ENV-WSL2-GPU | 8×8×8×16 | 2 | 10 | 1e5 | 15 | 86 | 90 | 1.72 |
+| DV78C-014 | ENV-WSL2-GPU | 8×8×8×16 | 3 | 5 | 1e4 | 10 | 35 | 90 | 1.25 |
+| DV78C-015 | ENV-WSL2-GPU | 8×8×8×16 | 3 | 5 | 1e4 | 15 | 30 | 90 | 1.67 |
+| DV78C-016 | ENV-WSL2-GPU | 8×8×8×16 | 3 | 5 | 1e5 | 10 | 34 | 90 | 2.23 |
+| DV78C-017 | ENV-WSL2-GPU | 8×8×8×16 | 3 | 10 | 1e4 | 10 | 56 | 90 | 1.41 |
+| DV78C-018 | ENV-WSL2-GPU | 8×8×8×16 | 3 | 10 | 1e4 | 15 | 46 | 90 | 1.63 |
+| DV78C-019 | ENV-WSL2-GPU | 8×8×8×16 | 3 | 10 | 1e5 | 10 | 47 | 90 | 2.41 |
+| DV78C-020 | ENV-WSL2-GPU | 8×8×8×16 | 3 | 10 | 1e5 | 15 | 45 | 90 | 2.43 |
+| DV78C-021 | ENV-WSL2-GPU | 4×4×4×8 | 2 | 5 | 1e5 | 15 | 48 | 81 | 2.32 |
+
+### 7.4 `test15` / `dev79`：`24×24×24×72` 大格子
+
+| ID | 环境 | 路径 | 总耗时/比值 | 迭代 | vs_ref | 说明 | 标签 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| T15-001 | ENV-WSL2-V100 | L1 baseline | 2.839 | 不明确 | 不明确 | 3L/2L 的基线与缓存构建均使用 E24、V100 单卡、c64 | test15 |
+| T15-002 | ENV-WSL2-V100 | 独立多线程 BiStabCG | 3.249 | 不明确 | 不明确 | 同一大格；不是 L1 基线 | test15 |
+| T15-003 | ENV-WSL2-V100 | 3L best r20 ct1e5 cmi3 | 约 2.431（由 L1/1.168 反算） | 不明确 | 1.2e-6 | 相对 L1 加速 1.168× | test15 |
+| T15-004 | ENV-WSL2-V100 | 2L best r20 ct1e2 cmi3 | 约 3.328（由 L1/0.853 反算） | 不明确 | 1.2e-6 | 相对 L1 加速 0.853× | test15 |
+
+> `test15` 的 report 只持久化了最佳点和参数扫描汇总；扫描中的大量单点总时间没有保存，不能补造。完整求解目标 `>2×` 在大格上未达成，3L 上限约 `1.17×`。
+
+### 7.5 `dev80_2` / `dev80_3` / `dev84`
+
+| ID | 环境 | 设备/格点/配置 | 路径 | 总耗时(s) | 迭代 | 残余/精度 | 标签 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| DV80-001 | ENV-WSL2-V100 | dev80_2 / V100 / 8×8×8×16 | BiStabCG | 0.629266 | 不明确 | 6.877e-7 | dev80_2 |
+| DV80-002 | ENV-WSL2-V100 | dev80_2 / V100 / 8×8×8×16 | MG_1L | 0.197580 | 不明确 | 3.423e-7 | dev80_2 |
+| DV80-003 | ENV-WSL2-V100 | dev80_2 / V100 / 8×8×8×16 | MG_2L | 0.179802 | 不明确 | 1.934e-7 | dev80_2 |
+| DV80-004 | ENV-WSL2-V100 | dev80_3 / V100 / 16×32×32×48 | BiStabCG | 2.250198 | 不明确 | 3.782e-7 | dev80_3 |
+| DV80-005 | ENV-WSL2-V100 | dev80_3 / V100 / 16×32×32×48 | MG_1L | 1.732081 | 138 | 3.686e-7 | dev80_3 |
+| DV80-006 | ENV-WSL2-V100 | dev80_3 / V100 / 16×32×32×48 | MG_2L r15 cf1e3 cmi3 nvi1 | 1.966482 | 138 | 2.113e-7 | dev80_3 |
+| DV84-001 | ENV-WSL2-V100 | V100 / 16×32×32×48 / c64 | BiStabCG | 2.079852 | 不明确 | 3.782e-7 | dev84 |
+| DV84-002 | ENV-WSL2-V100 | V100 / 16×32×32×48 / c64 | MG_1L E12 rs5 cf3000 cmi200 nvi8 | 1.828960 | 136 | 3.647e-7 | dev84 |
+| DV84-003 | ENV-WSL2-V100 | V100 / 16×32×32×48 / c64 | MG_2L E12 rs5 cf3000 cmi200 nvi8 | 2.892854 | 138 | 1.708e-7 | dev84 |
+| DV84-004 | ENV-WSL2-V100 | V100 / 16×32×32×48 / c64 | MG_1L final | 1.83 | 不明确 | 保持 | dev84_2_2 |
+| DV84-005 | ENV-WSL2-V100 | V100 / 16×32×32×48 / c64 | MG_2L final | 2.89 | 不明确 | 保持 | dev84_2_2 |
+| DV84-006 | ENV-WSL2-V100 | V100 / 16×32×32×48 / c64 | MG_2L adaptive correction gate | 2.383 | 118 | 保持 | dev84_2_2 |
+| DV84-007 | ENV-WSL2-GPU | P100×2 / 16×32×32×48 / c64 | MG_1L（冗余全局模型） | 3.01–3.06 | 不明确 | 保持 | dev84_2_2 |
+| DV84-008 | ENV-WSL2-GPU | P100×2 / 16×32×32×48 / c64 | BiStabCG（冗余全局模型） | 2.62–2.73 | 不明确 | 保持 | dev84_2_2 |
+
+`dev84` 的结论是：在统一 `16×32×32×48` 上目标 `>2×` 未达成；参数扫描、FGMRES/GCR、deflate、谱收缩和块 Jacobi 均未产生稳定超过 1 的倍率。可恢复的参数/负结果如下；没有独立总时间的项明确写“不明确”：
+
+| ID | 环境 | 模式/范围 | 结果 | 总耗时 | 迭代 | 标签 |
+| --- | --- | --- | --- | ---: | ---: | --- |
+| DV84-N01 | ENV-WSL2-V100 | `rs={3,4,5} × cf={3e3,1e4,3e4,1e5} × cmi={15,20,200}` | speedup 0.55–0.66× | 不明确 | 不明确 | dev84 |
+| DV84-N02 | ENV-WSL2-V100 | FGMRES(10)+V-cycle | speedup 0.49× | 不明确 | 不明确 | dev84 |
+| DV84-N03 | ENV-WSL2-V100 | deflate 收缩启动 | speedup 0.68× | 不明确 | 不明确 | dev84 |
+| DV84-N04 | ENV-WSL2-V100 | nvi=24 cache | speedup 0.56× | 不明确 | 不明确 | dev84 |
+| DV84-N05 | ENV-WSL2-V100 | Lanczos k=24/32/48 谱收缩 | plain 82 it vs deflated 87 it | 不明确 | 82 / 87 | dev84 |
+| DV84-N06 | ENV-WSL2-V100 | `_rt` 修复语义重建 cache | speedup 0.514× | 不明确 | 161 | dev84 |
+| DV84-N07 | ENV-WSL2-V100 | ddamg 缓存 | speedup 0.501× | 不明确 | 170 | dev84 |
+| DV84-N08 | ENV-WSL2-V100 | 8³×16 小格复核 | speedup 0.659× | 不明确 | 不明确 | dev84 |
+| DV84-N09 | ENV-WSL2-V100 | 体积标度：0.09× / 0.29× / 1× / 1.5× | speedup 0.62× / 0.57× / 0.65–0.71× / 0.421× | 不明确 | 不明确 | dev84 |
+
+### 7.6 `dev87`：CUDA QCU 与 QUDA 的端到端求解/对照记录
+
+| ID | 环境 | 设备/格点 | 侧与 solver | setup(s) | solve(s) | 迭代 | 真残差 | 备注 | 标签 |
+| --- | --- | --- | --- | ---: | ---: | ---: | ---: | --- | --- |
+| DV87-001 | ENV-WSL2-V100 | V100 / 16×32×32×48 / m=0.05 | PyQCU MG 2L E12，stencil H5 cache | ~0（离线缓存） | 2.41 | ~140 | 1.55e-7 | PyQCU BiCGStab 主循环；`~` 来自报告原值 | dev87 |
+| DV87-002 | ENV-WSL2-V100 | V100 / 16×32×32×48 / m=0.05 | PyQCU Clover BiCGStab | 不明确 | 2.09 | ~140 | 3.7e-7 | 参考求解器；相对停机修复后 | dev87 |
+| DV87-003 | ENV-WSL2-V100 | V100 / 16×32×32×48 / m=0.05 | QUDA MG 1L，block `[4,4,4,4]`，nvec12，tol1e-8 | 291.9 | 84.0 | 9 GCR | 9.9e-8（×4.05 后） | WSL2 reduce-sync patch；double outer | dev87 |
+| DV87-004 | ENV-WSL2-V100 | V100 / 16×32×32×48 / m=0.05 | QUDA BiCGStab，double，tol1e-8 | 不明确 | 1.39 | 123 | 不明确 | 与同侧 MG 对照 | dev87 |
+| DV87-005 | ENV-WSL2-V100 | V100 / 16×32×32×48 / m=0.05 | PyQCU MG warm-start x0 | 不明确 | 0.346 | 不明确 | 1.65e-7 | 相对 cold 1.94 s；已有初值，不是 cold solve | dev87 |
+| DV87-006 | ENV-WSL2-V100 | V100 / 16×32×32×48 / m=0.05 | PyQCU MG cold reference | 不明确 | 1.94 | 不明确 | 1.65e-7 | 热启动 A/B 的 cold 基线 | dev87 |
+| DV87-007 | ENV-WSL2-V100 | V100 / 16×32×32×48 / m=0.05 | PyQCU Clover BiCGStab 停机修复前 | 不明确 | 2.54 | 不明确 | 2.48e-2（全算子） | 绝对停机误判早停 | dev87 |
+| DV87-008 | ENV-WSL2-V100 | V100 / 16×32×32×48 / m=0.05 | PyQCU Clover BiCGStab 停机修复后 | 不明确 | 2.09 | 不明确 | 3.72e-7 | 相对停机 + reliable refresh | dev87 |
+
+## 8. Strict-MG 历史正式对照与 P100 pion
+
+### 8.1 2026-09-02/06/09 同协议链路
+
+| ID | 环境 | 设备/格点/精度 | 求解器 | 总耗时(s) | 迭代 | 真残差 | 参数/说明 | 标签 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| S0902-001 | ENV-WSL2-V100 | test24 / V100 / 16×32×32×48 / c64 | PyQCU Strict | 2.383584 | 11 | 3.6013e-7 | P04；trace JSON 的 timing reference，formal ratio 1.01179× | test24 |
+| S0902-002 | ENV-WSL2-V100 | test24 / V100 / 16×32×32×48 / c64 | QUDA 1.1.0 | 2.411687 | 37 | 7.3030e-7 | P04；WSL2 reduce-sync patch；formal ratio 1.01179× | test24 |
+| S0906-001 | ENV-WSL2-V100 | test25/test26 / V100 / 16×32×32×48 / c64 | PyQCU Strict | 2.041653 | 11 | 3.6013e-7 | P04；5 steady median | test25/test26 |
+| S0906-002 | ENV-WSL2-V100 | test25/test26 / V100 / 16×32×32×48 / c64 | QUDA 1.1.0 | 2.094841 | 37 | 7.3030e-7 | P04；5 steady median | test25/test26 |
+| S0909-001 | ENV-WSL2-V100 | stab48 / V100 / 16×32×32×48 / c64 | PyQCU Strict | 1.966795 | 11 | 3.6013e-7 | P04；final current | stab48 |
+| S0909-002 | ENV-WSL2-V100 | stab48 / V100 / 16×32×32×48 / c64 | QUDA 1.1.0 | 2.094764 | 37 | 7.3030e-7 | P04；final current | stab48 |
+| S0902-MG | ENV-WSL2-GPU | multigpu formal / 单 P100 | CUDA QCU MG，单 P100 baseline | 10.249874 | 不明确 | 不明确 | 3 samples；wall=max thread MG solve | test24 |
+| S0902-MG2 | ENV-WSL2-GPU | multigpu formal / P100×2 | CUDA QCU MG，双 P100 | 10.254227 | 不明确 | 不明确 | 3 samples；无实质加速 | test24 |
+
+### 8.2 `stab55` 8 个正式 c64/c128 点
+
+| ID | 环境 | 格点/层/精度 | PyQCU | PyQCU s | iters | PyQCU residual | QUDA | QUDA s | QUDA iters | R=Q/P | 标签 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| ST55-001 | ENV-WSL2-V100 | 8×8×8×16 / 2L / c64 | PyQCU Strict | 0.054184 | 9 | 不明确 | QUDA aligned | 0.399675 | 32 | 7.3763× | stab55 |
+| ST55-002 | ENV-WSL2-V100 | 8×8×8×16 / 3L / c64 | PyQCU Strict | 0.043200 | 10 | 不明确 | QUDA aligned | 0.516422 | 33 | 11.9542× | stab55 |
+| ST55-003 | ENV-WSL2-V100 | 16×16×16×16 / 3L / c64 | PyQCU Strict | 0.149240 | 31 | 不明确 | QUDA aligned | 0.745390 | 59 | 4.9946× | stab55 |
+| ST55-004 | ENV-WSL2-V100 | 16×32×32×48 / 2L / c64 | PyQCU Strict | 1.944663 | 11 | 不明确 | QUDA aligned | 2.183002 | 37 | 1.1226× | stab55 |
+| ST55-005 | ENV-WSL2-V100 | 16×32×32×48 / 3L / c64 | PyQCU Strict | 0.655570 | 14 | 不明确 | QUDA aligned；主口径 | 1.314577 | 39 | 2.0052× | stab55/stab55_28 |
+| ST55-006 | ENV-WSL2-V100 | 8×8×8×16 / 3L / c128 | PyQCU Strict | 0.077870 | 14 | 不明确 | QUDA double | 0.963774 | 46 | 12.3768× | stab55_12 |
+| ST55-007 | ENV-WSL2-V100 | 16×16×16×16 / 3L / c128 | PyQCU Strict | 0.380444 | 44 | 不明确 | QUDA double | 1.230048 | 87 | 3.2332× | stab55_12 |
+| ST55-008 | ENV-WSL2-V100 | 16×32×32×48 / 3L / c128 | PyQCU Strict | 2.061594 | 20 | 1.78798e-8 | QUDA double；formal cache-hit | 16.166481 | 60 | 7.8417× | stab55_27 |
+
+**配套 BiCGStab 参考（`ENV-WSL2-V100`，不属于 MG-vs-MG 加速比）**：大格 c64 `PyQCU 0.655570 s / QUDA 1.314577 s` 的 MG 对照同时记录 plain BiCGStab `1.668540 s` / `0.329849 s`；c128 小格 `0.304677 s` / `0.103475 s`，c128 中格 `0.453031 s` / `0.118572 s`，大格 c128 保守复测 `3.251439 s` / `1.043206 s`。这些参考值说明不能把 MG 结果外推为 PyQCU 全部求解器优势。
+
+trace 诊断（`ENV-WSL2-V100`）：小格 c64 三层 trace-off/trace-on PyQCU `0.043971/0.125649 s`，QUDA `0.505706/0.560432 s`；大格 c128 PyQCU trace-off `2.065148 s`，trace-on `3.31–3.43 s`。trace 值只作归因，不进入正式 speedup。
+
+### 8.3 `test28` P100 pion C2 / MG 求解阶梯
+
+| ID | 环境 | 格点/模式 | 迭代 QCU/QUDA | 耗时 s QCU/QUDA | 标度相对偏差 | 状态 |
+| --- | --- | --- | --- | --- | --- | --- |
+| T28-001 | ENV-WSL2-GPU | 16×16×16×32 single | 48 / 5 | 0.171416 / 0.370520 | 1.49e-7 | PASS |
+| T28-002 | ENV-WSL2-GPU | 16×16×16×32 dual | 92 / 10 | 2.535111 / 0.446130 | 1.41e-7 | PASS |
+| T28-003 | ENV-WSL2-GPU | 16×16×16×16 single | 36 / 6 | 0.056616 / 0.073544 | 1.29e-8 | PASS |
+| T28-004 | ENV-WSL2-GPU | 16×16×16×16 single（重复记录） | 36 / 6 | 0.056616 / 0.073544 | 1.29e-8 | PASS |
+| T28-005 | ENV-WSL2-GPU | 16×16×16×16 single（full pion C2） | 432 / 71 | 0.882597 / 1.828985 | 8.07e-8 | PASS |
+| T28-006 | ENV-WSL2-GPU | 8×8×8×16 dual | 40 / 6 | 0.028753 / 0.060134 | 5.17e-7 | PASS |
+| T28-007 | ENV-WSL2-GPU | 8×8×8×16 single | 40 / 6 | 0.075522 / 0.021475 | 4.73e-7 | PASS |
+
+`test28` 的 QUDA 与 QCU MG 对齐条件为 coarse color 48；`16³×48` 双卡在 1800 s timeout 触发，单卡 `16³×32` 峰值显存 16045/16384 MiB（97.9%）。
+
+## 9. 早期或不完整标签记录（不跳过）
+
+| ID | 环境 | 标签 | 日期 | 对象/输入 | 总耗时 | 迭代 | 不明确项 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| E-001 | ENV-DCU-HIP-UNRECORDED | test9 / test9_1 | 2025-08-29/30 | PyQCU `test/test.clover.bistabcg-test{6,7}.py`；c64/c128；`32×64×64×64`；mass 0.05；tol 1e-12；seed42；零 gauge、ones source；maxiter 1000。 | profiler CSV 给出的总 API 时长：c64 39.404123673 s、c128 63.008171531 s；kernel 总时长 36.418503971/57.751216458 s。 | c64 `bistabcg_give_x_o` 311 calls；c128 305 calls；是否等同 solver iteration 未明确。 | solver wall 与精确迭代数均不明确；CSV 只记录 profiler 聚合。 |
+| E-002 | ENV-ASCEND-UNRECORDED | dev55 | 2025-09-19 | PyQCU Ascend/PyTorch MG；Wilson/Clover notebook；配置未在 tag 对象中形成完整文本。 | 不明确；tag note 只称“最终有真实时间加速”。 | 不明确。 | 版本、质量、csw、迭代、总耗时均不明确；不把定性描述写成数值。 |
+| E-003 | ENV-UNKNOWN-DEVICE | dev57 | 2025-10-02 | 多线程 PyTorch MG vs 多线程 PyTorch BiStabCG。 | 不明确；tag note 只称 MG 更慢。 | 不明确。 | 未记录可复核的完整参数和残差。 |
+| E-004 | ENV-UNKNOWN-DEVICE | dev58 | 2025-10-24 | 多线程 PyTorch MG，`np=2/4/8` 图示。 | 不明确；tag note 只称接近 BiStabCG。 | 不明确。 | 图像为标签证据，没有持久化逐运行时间表；设备与参数不明确。 |
+| E-005 | ENV-ASCEND-UNRECORDED | dev59 | 2025-10-31 | 多层混合精度/设备 PyTorch MG；`test.ascend.mg-dev59-np8.log`。 | 不明确。 | 不明确。 | 原日志未随标签保留；tag note 提到单精度收敛截断与 QUDA 对照。 |
+| E-006 | ENV-ASCEND-UNRECORDED | dev59_1/dev59_2 | 2025-11-03/04 | NPU 兼容层 MG；cann 拆分复数张量。 | 不明确；tag note 明确“significant performance losses”。 | 不明确。 | NPU 维度/精度限制导致性能损失，未给总时间/迭代。 |
+| E-007 | ENV-UNKNOWN-CUDA | dev70_2 | 2026-05-05 | PyQCU CUDA C++ matvec + Python BiStabCG 主循环 vs 纯 CUDA C++。 | 单迭代 Python+QCU 约比纯 C++ 慢 20%。 | Python+QCU 总迭代约纯 C++ 的 2 倍。 | 总耗时/完整参数不明确；tag note 指向未持久化 conftest 日志。 |
+| E-008 | ENV-UNKNOWN-CUDA | dev70_3 | 2026-05-05 | Torch MG / Torch+QCU MG / C++ CUDA MG，`16×16×16×32` c64。 | 单迭代 Torch `0.074112 s`；C++ `0.00487 s`；Torch+QCU `0.005856 s`。 | 迭代异常；精确值不明确。 | 总 solve 时间和最终收敛参数不明确。 |
+| E-009 | ENV-RTX4060-LAPTOP | dev73_3 | 2026-08-02 | CUDA C++ Clover MG（33-tensor Schur stencil）。 | 不明确；只记录迭代从 ~90 降至 63–68。 | ~90 → 63–68。 | tag note 未给绝对 wall；后续 dev73_4/5 提供独立测量。 |
+| E-010 | ENV-UNKNOWN-CUDA | stab53 | 2026-09-11 | QCU/QUDA 单功能回归；为 Wilson/Clover Dslash、BiCGStab、MG 增加真实操作计时。 | 不明确；标签只记录计时接口落地。 | 不明确。 | 没有在 tag 对象中找到对应的数值性能表。 |
+
+## 10. 未完成、失败、撤回与容量边界记录
+
+| ID | 环境 | 标签 | 对象 | 状态/原因 | 已知时间 | 已知迭代 |
+| --- | --- | --- | --- | --- | --- | --- |
+| F-001 | ENV-WSL2-GPU | test13 | 16×16×16×32 / 3L 大格 bench | 未执行完整 bench；构建/运行超时限制 | 不明确 | 不明确 |
+| F-002 | ENV-RTX4060-LAPTOP | dev74 | 16×32×32×64 c64 cold MG | 显存预算 56.9 GB；32 GB 单卡 cold 不可行，warm 需缓存 | 不明确 | 不明确 |
+| F-003 | ENV-WSL2-V100 | dev84 | 32³×48 / 24×32×32×48 体量探针 | 32 GB V100 驱动级 OOM / local_orthogonalize OOM | 不明确 | 不明确 |
+| F-004 | ENV-WSL2-V100 | test15 | 24³×72 目标 >2× | 3L 最佳约 1.168×；大格粗空间收益不足 | 约 3.3 s（L1 基线 2.839 s） | 不明确 |
+| F-005 | ENV-WSL2-GPU | stab55 | 多卡扩展 / large c128 某些路径 | 多 GPU 硬件/架构限制；部分 c128 large 仅 smoke 或 OOM | 不明确 | 不明确 |
+| F-006 | ENV-WSL2-GPU | test27 | P100 16×32×32×48 c64 六单元 | 显存门限/超时；替换为 16×16×16×16 | 替换记录见 §4 | 不明确 |
+| F-007 | ENV-WSL2-GPU | test28 | P100 16×16×16×48 dual | timeout 1800 s，无 OOM；受 cold setup 限制 | 不明确 | 不明确 |
+| F-008 | ENV-MIXED-D99-D100 | dev99/dev100 | 双 rank CUDA QCU; QUDA MG nvec6/12 | 双 rank timeout、CUDA-aware MPI halo 卡住；QUDA nvec unsupported/breakdown | 不明确 | 不明确 |
+| F-009 | ENV-WSL2-V100 | stab55 | 早期 c64 large 4.3817× | 撤回：QUDA 策略/预算不等价 | 0.653995 vs 2.865627（历史） | 14 / 39（历史），不作为正式 |
+| F-010 | ENV-NO-RUN | test27_1/2/3/4 | 派生报告/绝对时间修订 | 没有新增 benchmark；只重算 test27 | 不适用 | 不适用 |
+| F-011 | ENV-WSL2-V100 | dev103 | 默认小格子体积 | QUDA 有 26–43 ms 固定开销；不可外推 kernel 吞吐 | 见 §3.2 | 见 §3.2 |
+
+## 11. 可比性与使用建议
+
+- **先看计时边界**：`solver-only`、`backend solve`、`lifecycle wall`、`synchronized wall`、`perf_counter` 不可互换；表内均保留原始边界。
+- **先看算法是否相同**：Strict MG、Legacy E12/E48 MG、fine-only MG、parity-Schur BiCGStab、QUDA nvec24 MG 不是同一算法。尤其 `test27` 的 MG 与 `dev99-101` 的 legacy fine-only MG 不能合并。
+- **先看组态与精度**：test27 使用 mass `0.05`/csw `1` 的随机输入；dev103 使用 mass `-0.277`/csw `1.160920226` 的真实 LIME；test28 使用 pion C2 的 P100 输入。跨组态只能比较趋势或优化前后，不能比较绝对值。
+- **先看硬件与窗口**：V100 与 P100、A100、x86 KUPL、Kunpeng KUPL、单 rank 与多 rank 的绝对时间不可互换；共享机窗口漂移会使同一 CUDA solve 在 `0.12–0.15 s` 间变化。
+- **首选用途**：生产当前 `dev103` 三方同窗表；正式 MG 对照优先 `test27` 的 trace-off 子集；Strict MG 纵向复测优先 `test24/25/26/stab48`；P100 pion 阶梯优先 `test28`。
+
+## 12. 证据索引
+
+| 标签/日期 | 关键路径 |
+|---|---|
+| `test9_1` / 2025-08-30 | `test/test.clover.bistabcg-test6.log.{hiptrace,kernel}.csv`；`git show test9_1:<path>` |
+| `dev55`–`dev70_3` / 2025-09–2026-05 | 标签正文与 `test/test.ascend.*` 归档；未持久化的原始日志按标签说明保留为不明确 |
+| `dev73_4` / 2026-08-02 | `logs/multigrid_report.md`; `logs/multigrid-v2-report-2026-08-01.md`; `logs/multigrid-v3-final-report-2026-08-01.md`; `logs/mg-v4-report-2026-08-02.tex`; `logs/schur-multigrid-report-2026-08-02.tex` |
+| `dev73_5` / 2026-08-03 | `logs/dev73_5.md`, `logs/dev73_5_tbl_*.tex` |
+| `dev74` / 2026-08-13 | `logs/dev74.md`, `logs/dev74_1_guide.md`, `logs/dev74_tbl_*.tex` |
+| `test13`/`test14` / 2026-08-15 | `logs/test13/test13_report.md`, `logs/test14/test14_report.md`, `logs/test13/*` |
+| `dev76`/`dev78*` / 2026-08-16 | `logs/dev76/dev76_report.md`, `logs/dev78/...`, `logs/dev78_1/dev78_1_report.md`, `logs/dev78_2/dev78_2_report.md` |
+| `test15`/`dev79` / 2026-08-19/20 | `logs/test15/test15_report.md`, `examples/qcu/test15/main.py` (historical path) |
+| `dev80_2`/`dev80_3` / 2026-08-20/21 | `logs/dev80_2/bench_out.txt`, `logs/dev80_3/report.json`, `logs/dev80_3/bench_out.txt` |
+| `dev84_2_2` / 2026-08-23 | `examples/qcu/dev84/dev84_report.md`, `examples/qcu/dev84/out/bench_out.txt` |
+| `dev87`/`stab31` / 2026-08-25 | `examples/qcu/dev87/dev87_report.md`, `examples/qcu/dev87/comparison_matrix.md` |
+| `stab48` / 2026-08-30 | `data/mg-bench-current-20260830/report.md`, `summary` generator, `current_*.stdout`, `strict_cmi15_8x8x8x16/*`, `lattice_*`, `multigpu/*`, `mpi/*` |
+| `test24`/`test25`/`test26` / 2026-09-02–07 | `data/strict_trace_20260902_final.json`, `data/strict_vs_quda_formal_20260906.json`, `docs/report_multigrid_quda_pyqcu_20260906.md` |
+| `stab48` / 2026-09-09 | `docs/report_multigrid_quda_pyqcu_20260909.md`, `data/strict_vs_quda_formal_20260909_final_current.json`, `data/strict_trace_detailed_20260909.csv` |
+| `test27` / 2026-09-28 | `data/report_multigrid_comprehensive_20260928/final_protocol/{units.csv,references.csv,combined/*}`, `docs/report_multigrid_quda_pyqcu_20260928.tex`, `docs/report_multigrid_quda_pyqcu_20261002.tex` |
+| `test28` / 2026-10-14 | `docs/report_pion_c2_p100_20261014.tex`, `logs/pion_c2_p100_ladder_20261014.md`, `data/testing/pion_c2/*/record.json` |
+| `dev99`–`dev101` / 2026-10-20–21 | `logs/v2026102014.txt`, `logs/v2026102100.txt`, `logs/v202610210909.txt` ... `logs/v202610211129.txt`, `logs/v202610211808.txt`, `logs/v202610211925.txt`, `logs/v202610212107.txt`, `logs/v202610212129.txt` ... `logs/v202610212355.txt`, `logs/v202610220021.txt`, `logs/v202610220044.txt`, `logs/v202610220104.txt`, `docs/progress_kupl_cuda_mg_20261021.md`, `docs/progress_until_20261022_worktree.md` |
+| `dev103` / 2026-10-22 | `docs/three_way_benchmark_20261022.md`, `docs/progress_kupl_cuda_mg_20261021.md`, `logs/v2026102203.txt`, `logs/v2026102206.txt` |
+
+## 13. 汇总状态与未解决项
+
+- 已完成：标签区间判定、关键标签/提交映射、66 个 test27 单元、stab48 的 57 行扫描、dev99–dev103 生产与三方记录、历史 CUDA Legacy MG 与 Strict MG 记录、失败/撤回项的显式登记。
+- 未完成/不可从标签恢复：部分 2025 年 NPU/DCU 日志、`dev70_2` 原始 conftest 日志、`stab53` 单功能报告数值、若干历史配置的 seed/csw/迭代。它们在表中均标为 `不明确`。
+- 本报告**没有重测任何求解器**；所有总耗时、迭代、残差和比值均来自上述标签记录。
+--- report end ---

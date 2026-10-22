@@ -1,0 +1,68 @@
+[日志元数据]
+日志类型: final
+生成时间: 2026-10-22 17:11:14 +0800
+批次: docs
+主任务: 将 QCU/QUDA MG 粗层 dslash 表示调查写入 docs
+触发原因: 任务完成
+摘要: 新增粗层算子表示正式文档，更新索引与算法总览交叉引用，并完成 Markdown 与仓库检查
+Git 根目录: /root/PyQCU
+
+## 关键日志
+### S1 — 文档落库
+- 目标: 将 QCU/QUDA MultiGrid 粗层 dslash 表示调查写入正式文档。
+- 操作: 新增 `docs/qcu_quda_multigrid_coarse_operator.md`。
+- 内容: legacy 33-tensor Schur/Galerkin、Strict `X/Y/Yhat`、QUDA `DiracCoarse` 三方对比，含公式、数据布局、源码锚点和口径边界。
+- 证据: 新文档 7,656 bytes，SHA256 `d7020be29c9996b605996522d5a831d57671c6ac5045496687c364b5887618c8`。
+
+### S2 — 索引与交叉引用
+- 操作: 更新 `docs/AGENTS.md` 文档索引。
+- 操作: 在 `docs/qcu_quda_multigrid_algorithms.md` 顶部增加指向新文档的入口。
+- 判断: 保留原有算法总览口径，不把新文档内容重复扩写进总览。
+
+## 验证与证据
+- 命令: `git diff --check`
+- 退出码: 0
+- 命令: 新文档相对链接目标检查
+- 结果: `relative_links=ok`
+- 命令: 公式与围栏闭合检查
+- 结果: 展示公式分隔符 14 个，成对；代码围栏 0 个
+- 命令: `git diff --no-index --check /dev/null docs/qcu_quda_multigrid_coarse_operator.md`
+- 结果: 无 whitespace error
+- 命令: 文件尾随空白、tab、冲突标记检查
+- 结果: 通过
+- 命令: `bash skills/pyqcu-form/form-audit.sh`
+- 结果: 失败 1 项，`docs/profiler_test9-dev103.md` 路径含 tag 名；该文件在任务开始前已修改，未由本任务触碰。
+
+## 变更与产物
+- 新增: `docs/qcu_quda_multigrid_coarse_operator.md`
+- 修改: `docs/AGENTS.md`
+- 修改: `docs/qcu_quda_multigrid_algorithms.md`
+- 未改动: `docs/profiler_test9-dev103.md` 及所有 C++/CUDA/Python 源码。
+- 未执行: 数值测试、性能 benchmark、提交、tag、push。
+
+## 风险、限制与下一步
+- 风险: 全仓 form audit 当前因用户既存文件失败，不能报告全仓审计为全绿。
+- 文档结论: 基于当前 legacy QCU、Strict QCU 与本地 QUDA 1.1.0-sm70 源码静态核查。
+- 下一步: 如需要全仓 form audit 全绿，需由用户处理 `docs/profiler_test9-dev103.md` 的路径命名；本次不擅自改名或移动。
+
+## 用户输入指令
+将此调查结果写入docs中
+
+## Agent 全文报告
+--- report begin ---
+已新增正式文档 `docs/qcu_quda_multigrid_coarse_operator.md`，内容包括：
+
+- QCU legacy MG 的 `S_o`、`A_c=R S_o P` 与 33-tensor 数据布局。
+- 1 onsite、8 nearest、24 diagonal block 的来源。
+- QCU Strict-MG 的 `D_l=X_l+H_l`、`D_{l+1}=R_l X_l^{-1}D_l P_l` 与 `Yhat`。
+- QUDA `DiracCoarse` 的 `X/Y/Xinv/Yhat` 字段及其有效粗算子语义。
+- legacy、Strict QCU 与 QUDA 的并排对照。
+- 源码行号和相对路径证据。
+- “是否直接粗化物理 gauge/clover”的口径边界。
+
+同时更新了 `docs/AGENTS.md` 文档索引，并在 `docs/qcu_quda_multigrid_algorithms.md` 顶部增加交叉引用。
+
+验证方面，`git diff --check`、相对链接检查、公式/围栏闭合检查、新文件空白与冲突标记检查均通过。新文件为 7,656 bytes。
+
+全仓 `bash skills/pyqcu-form/form-audit.sh` 仍报告 1 项既存问题：`docs/profiler_test9-dev103.md` 的路径含 tag 名。该文件在本次开始前已有修改，本次未触碰，因此没有擅自改名或移动。源码测试和 benchmark 未运行，因为本次是纯文档变更。
+--- report end ---
