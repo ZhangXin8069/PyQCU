@@ -93,7 +93,7 @@ Parameters are passed from Python as flat arrays. Index constants in `include/de
 
 ## Strict QUDA-style MultiGrid
 
-The strict path is parallel to the retained legacy MG implementation. Select it with `hierarchy_mode="strict"` or `QudaStrictMultigrid`; `setup_operator="schur"` belongs to the legacy compact odd-Schur path and is not a synonym for Strict. The currently supported all-level mode is `coarse_grid_solution_type=matpc` with `smoother_solve_type=direct_pc`. At level `l`, split the full operator as
+The strict path is parallel to the retained legacy MG implementation. Select it with `hierarchy_mode="strict"` or `StrictMultigrid`; `setup_operator="schur"` belongs to the legacy compact odd-Schur path and is not a synonym for Strict. The currently supported all-level mode is `coarse_grid_solution_type=matpc` with `smoother_solve_type=direct_pc`. At level `l`, split the full operator as
 
 \[
 D_l=X_l+H_l,\qquad \widehat D_l=X_l^{-1}D_l,\qquad

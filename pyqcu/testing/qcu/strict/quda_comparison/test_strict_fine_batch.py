@@ -5,7 +5,7 @@ from __future__ import annotations
 import torch
 
 from pyqcu import dslash
-from pyqcu.solver import QudaStrictMultigrid
+from pyqcu.solver import StrictMultigrid
 
 
 def _identity_gauge(shape=(2, 2, 2, 2), dtype=torch.complex64):
@@ -55,7 +55,7 @@ def test_strict_hierarchy_auto_wires_vectorized_fine_batch():
     # strict level-1 checkerboarding requires every coarse extent to stay even.
     shape = (4, 4, 4, 4)
     gauge = _identity_gauge(shape)
-    hierarchy = QudaStrictMultigrid(
+    hierarchy = StrictMultigrid(
         U=gauge,
         kappa=torch.tensor([0.12]),
         null_vectors=[torch.ones((1, 4, 3, *shape), dtype=torch.complex64)],

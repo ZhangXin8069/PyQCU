@@ -1,8 +1,8 @@
-"""QUDA 风格的聚合多重网格参考实现。
+"""Strict 聚合多重网格参考实现。
 
 本模块对应 QUDA ``Transfer``、``DiracCoarse`` 和 ``MG`` 的算法骨架，
-使用 PyTorch 张量实现，定位是 CPU/CUDA 上可验证的参考路径。它与旧的
-``solver.multigrid`` 并列存在：旧类保留原有的扁平 ``E`` 自由度/33 点实现，
+使用 PyTorch 张量实现，定位是 CPU/CUDA 上可验证的参考路径。它与
+``LegacyMultigrid`` 并列存在：Legacy 路径保留原有的扁平 ``E`` 自由度/33 点实现，
 本模块则显式保留
 
 * fine-spin -> coarse-spin 的映射（Wilson/Clover: 4 -> 2）；
@@ -349,7 +349,7 @@ def _global_orthogonalise(vectors: Tensor, normalize: bool = True) -> Tensor:
     """对一组全场向量做重复 CGS 的全局正交化。
 
     QUDA 在 ``generateNullVectors`` 中可以先做全局正交化，setup 求解后
-    默认还会再做一次；这与 ``QudaTransfer`` 内部的 aggregate-local
+    默认还会再做一次；这与 ``StrictTransfer`` 内部的 aggregate-local
     正交化是两个不同层次。这里使用 ``tools.vdot``，因此在 MPI 运行时
     内积仍然是全局内积，而不是只在当前 rank 上正交化。
     """
@@ -436,7 +436,7 @@ def _cg_orthogonalise(matrix: Tensor, passes: int,
     return source
 
 
-class QudaTransfer:
+class StrictTransfer:
     """QUDA aggregate transfer ``P/R``。
 
     对 Wilson/Clover，典型参数为 ``fine_spin=4``、``fine_color=3``、
@@ -527,7 +527,7 @@ class QudaTransfer:
         self.verbose = bool(verbose)
         if self.verbose:
             print(
-                "PYQCU::SOLVER::QUDA_MG::TRANSFER:\n "
+                "PYQCU::SOLVER::STRICT_MG::TRANSFER:\n "
                 f"fine={self.fine_shape}, coarse={self.coarse_shape}, "
                 f"spin {self.fine_spin}->{self.coarse_spin}, nvec={self.nvec}, "
                 f"block={self.block_size}, CGS passes={self.n_block_ortho}")
@@ -877,7 +877,7 @@ class QudaTransfer:
 class _Level:
     index: int
     operator: Any
-    transfer: Optional[QudaTransfer]
+    transfer: Optional[StrictTransfer]
     spin: int
     color: int
     shape: Shape4
@@ -1068,7 +1068,7 @@ class _LeftPreconditionedOperator:
     diagonal_inverse_adjoint_apply = diagonal_apply
 
 
-class QudaCoarseOperator:
+class StrictCoarseOperator:
     """Galerkin coarse operator and QUDA-style ``X/Y/Yhat`` metadata。
 
     ``blocks[d]`` 使用目标点约定
@@ -1080,7 +1080,7 @@ class QudaCoarseOperator:
     的坐标与左右乘法约定。
     """
 
-    def __init__(self, transfer: QudaTransfer, fine_operator: Any,
+    def __init__(self, transfer: StrictTransfer, fine_operator: Any,
                  materialize: bool = False, support_tol: float = 1e-12,
                  max_materialize_elements: int = 50_000_000,
                  verbose: bool = False):
@@ -1226,7 +1226,7 @@ class QudaCoarseOperator:
 
     Mdag = adjoint_apply
 
-    def build(self) -> "QudaCoarseOperator":
+    def build(self) -> "StrictCoarseOperator":
         """逐列探测 ``RDP`` 并按 coarse displacement 组织 block。"""
         if self.blocks is not None:
             return self
@@ -1298,14 +1298,14 @@ class QudaCoarseOperator:
             if (self.verbose and
                     (source_index + 1) % max(1, nsite // 8) == 0):
                 print(
-                    "PYQCU::SOLVER::QUDA_MG::COARSE:\n "
+                    "PYQCU::SOLVER::STRICT_MG::COARSE:\n "
                     f"Galerkin probes {probes}/{nsite * self.dof}")
         self.blocks = blocks
         self.X = blocks[zero]
         self._build_links()
         if self.verbose:
             print(
-                "PYQCU::SOLVER::QUDA_MG::COARSE:\n "
+                "PYQCU::SOLVER::STRICT_MG::COARSE:\n "
                 f"support displacements={sorted(blocks)}, probes={probes}")
         return self
 
@@ -1426,7 +1426,7 @@ class QudaCoarseOperator:
             device=reference.device)
 
     def _validate_strict_nearest_neighbor_support(self) -> None:
-        """Reject support that the strict QUDA X/Y ABI cannot represent."""
+        """Reject support that the strict X/Y ABI cannot represent."""
         if self.blocks is None:
             return
         global_shape = _active_global_shape(self.shape)
@@ -1440,7 +1440,7 @@ class QudaCoarseOperator:
             if (len(axes) > 1 or
                     any(abs(canonical[dim]) != 1 for dim in axes)):
                 raise ValueError(
-                    "strict QUDA X/Y 仅支持 onsite 与 ±axis 最近邻；"
+                    "strict X/Y 仅支持 onsite 与 ±axis 最近邻；"
                     f"检测到 displacement={displacement} "
                     f"(canonical={canonical})")
 
@@ -1768,7 +1768,7 @@ class Checkerboard:
         return field
 
 
-class QudaMatPCOperator:
+class StrictMatPCOperator:
     """QUDA ``DiracCoarsePC`` 的逐层对称 even/odd Schur 算子。
 
     对 ``D=X+H`` 先定义完整场左预处理算子
@@ -1897,7 +1897,7 @@ class QudaMatPCOperator:
         if isinstance(self.operator, _FineOperator) and self.operator._diagonal is not None:
             dtype = self.operator._diagonal.dtype
             device = self.operator._diagonal.device
-        elif isinstance(self.operator, QudaCoarseOperator):
+        elif isinstance(self.operator, StrictCoarseOperator):
             dtype = self.operator.transfer.V.dtype
             device = self.operator.transfer.V.device
         else:
@@ -2013,7 +2013,7 @@ class CompactParityOperator:
         self.eliminated_parity = 1 - self.parity
         self.shape = self.layout.compact_shape
         self.dof = int(operator.dof)
-        # 以 spin=1/color=dof 进入 QudaTransfer，避免再次引入 coarse
+        # 以 spin=1/color=dof 进入 StrictTransfer，避免再次引入 coarse
         # chirality block；compact Wilson Schur 的 12 个分量是一个整体。
         self.spin = 1
         self.color = self.dof
@@ -2200,7 +2200,7 @@ class ParitySchurOperator:
         return self.reconstruct(full_rhs, odd)
 
 
-class QudaMultigrid:
+class _MultigridHierarchy:
     """可切换的 QUDA 风格递归聚合 MG。
 
     参数要点：
@@ -2321,8 +2321,8 @@ class QudaMultigrid:
         self.setup_operator = self._normalise_setup_operator(setup_operator)
         self.setup_type = self._normalise_setup_type(setup_type)
         self.hierarchy_mode = self._normalise_hierarchy_mode(hierarchy_mode)
-        self._strict_quda = self.hierarchy_mode == "strict"
-        if self.propagate_null_vectors and not self._strict_quda:
+        self._strict_mode = self.hierarchy_mode == "strict"
+        if self.propagate_null_vectors and not self._strict_mode:
             raise ValueError(
                 "propagate_null_vectors 当前只用于 strict full-coarse hierarchy")
         self.target_parity = int(target_parity)
@@ -2362,11 +2362,11 @@ class QudaMultigrid:
         # ``setup_operator='schur'`` 是旧 compact RSP 层级的入口。严格
         # QUDA 模式将 setup 算子选择与层级几何分离，始终保留 full fields。
         self._compact_parity = (
-            self.setup_operator == "schur" and not self._strict_quda)
+            self.setup_operator == "schur" and not self._strict_mode)
         if self._compact_parity and not self.use_parity:
             raise ValueError(
                 "setup_operator='schur' 要求 use_parity=True，以固定 odd Schur 语义")
-        if self._strict_quda and not self.use_parity:
+        if self._strict_mode and not self.use_parity:
             raise ValueError(
                 "hierarchy_mode='strict' 要求 use_parity=True")
         self.setup_pre_orthonormalize = bool(setup_pre_orthonormalize)
@@ -2516,7 +2516,7 @@ class QudaMultigrid:
         self._block_sizes = self._normalise_block_sizes(block_size)
         transitions = self._number_of_transitions(max_level)
         self._transition_count = transitions
-        if self._strict_quda:
+        if self._strict_mode:
             if self.fine_spin == 1:
                 raise ValueError(
                     "strict standard-staggered/KD 语义尚未实现；当前 strict "
@@ -2537,7 +2537,7 @@ class QudaMultigrid:
                 raise ValueError(
                     "coarse_grid_solution_type='matpc' 要求同层 "
                     f"smoother_solve_type='direct_pc'（level={level}）")
-            if (self._strict_quda and
+            if (self._strict_mode and
                     (self.coarse_grid_solution_types[level] != "matpc" or
                      self.smoother_solve_types[level] != "direct_pc")):
                 raise ValueError(
@@ -2558,10 +2558,10 @@ class QudaMultigrid:
             raise ValueError("nvec_list/dof_list 数量少于层间过渡数")
 
         self.levels: List[_Level] = []
-        self.transfers: List[QudaTransfer] = []
+        self.transfers: List[StrictTransfer] = []
         self.operators: List[Any] = []
         self.parity_operators: List[ParitySchurOperator] = []
-        self.matpc_operators: List[QudaMatPCOperator] = []
+        self.matpc_operators: List[StrictMatPCOperator] = []
         self.coarsening_operators: List[Any] = []
         self.strict_setup_stats: List[Dict[str, Any]] = []
         self._cuda_runtime_sealed = False
@@ -2576,8 +2576,6 @@ class QudaMultigrid:
             "legacy": "legacy",
             "compact": "legacy",
             "rsp": "legacy",
-            "quda": "strict",
-            "quda-strict": "strict",
             "strict": "strict",
         }
         if value not in aliases:
@@ -2607,7 +2605,7 @@ class QudaMultigrid:
         return result
 
     def _validate_strict_geometry(self, transitions: int) -> None:
-        """Apply QUDA's checkerboard-safe coarse-extent invariant."""
+        """Apply the strict checkerboard-safe coarse-extent invariant."""
         shape = self.fine_shape
         for level in range(transitions):
             if level >= len(self._block_sizes):
@@ -2625,7 +2623,7 @@ class QudaMultigrid:
             ]
             if invalid:
                 raise ValueError(
-                    "strict QUDA 每次粗化后的各维 extent 必须为偶数且至少 2；"
+                    "strict 每次粗化后的各维 extent 必须为偶数且至少 2；"
                     f"level={level}, coarse_shape={coarse}, invalid={invalid}")
             shape = coarse  # type: ignore[assignment]
 
@@ -2731,7 +2729,7 @@ class QudaMultigrid:
             # Only the first transition is defined on the original full
             # lattice.  Vectors for later transitions already live on the
             # preceding compact coarse lattice and have a different DOF;
-            # leave their per-level layout to QudaTransfer validation.
+            # leave their per-level layout to StrictTransfer validation.
             if index != 0:
                 normalised.append(vectors)
                 continue
@@ -2771,7 +2769,7 @@ class QudaMultigrid:
                     values.append(total)
                 else:
                     if total % 2:
-                        raise ValueError(f"QUDA Wilson/Clover coarse 总 DOF 必须为偶数，得到 {total}")
+                        raise ValueError(f"strict Wilson/Clover coarse 总 DOF 必须为偶数，得到 {total}")
                     values.append(total // 2)
         elif self._null_vectors:
             values = [int(v.shape[0]) for v in self._null_vectors]
@@ -2912,7 +2910,7 @@ class QudaMultigrid:
     def _setup_vectors(self, operator: Any, vectors: Tensor,
                        level: int, solver_kind: str,
                        operator_kind: str, setup_type: str) -> Tensor:
-        """执行一个层级的 QUDA 风格 null-vector setup。"""
+        """执行一个层级的 strict null-vector setup。"""
         if self.setup_iters == 0:
             return vectors
 
@@ -2984,7 +2982,7 @@ class QudaMultigrid:
             })
         return current
 
-    def setup(self) -> "QudaMultigrid":
+    def setup(self) -> "_MultigridHierarchy":
         if not self._distributed_process_grid:
             return self._setup_impl()
         from pyqcu.tools import _mpi_roll
@@ -2992,7 +2990,7 @@ class QudaMultigrid:
                 self.comm, self.process_grid, self.fine_shape):
             return self._setup_impl()
 
-    def _setup_impl(self) -> "QudaMultigrid":
+    def _setup_impl(self) -> "_MultigridHierarchy":
         if self._cuda_runtime_sealed or self._python_setup_assets_released:
             raise RuntimeError(
                 "hierarchy 已 seal 或移交 runtime ownership；"
@@ -3054,7 +3052,7 @@ class QudaMultigrid:
                 null = self._setup_vectors(
                     current, null, level, solver_kind, operator_kind, setup_type)
                 # 保存 setup 后的逻辑向量，便于后续诊断/调用方检查；
-                # QudaTransfer 内部还会按 aggregate 做一次局部正交化。
+                # StrictTransfer 内部还会按 aggregate 做一次局部正交化。
                 if level < len(self._null_vectors):
                     self._null_vectors[level] = null
                 else:
@@ -3062,7 +3060,7 @@ class QudaMultigrid:
             else:
                 operator_kind = (
                     "schur" if self._compact_parity else "full")
-            transfer = QudaTransfer(
+            transfer = StrictTransfer(
                 null_vectors=null, fine_shape=current.shape,
                 fine_spin=current.spin, fine_color=current.color,
                 coarse_spin=1 if self._compact_parity else 2,
@@ -3076,16 +3074,16 @@ class QudaMultigrid:
                     self._null_vectors[level] = None
                 del null
             coarsening_operator: Any = current
-            if (self._strict_quda and
+            if (self._strict_mode and
                     self.coarse_grid_solution_types[level] == "matpc" and
                     self.smoother_solve_types[level] == "direct_pc"):
                 # QUDA coarsens the full-field first-order operator X^{-1}D;
                 # parity Schur is created separately for smoothing/solving.
                 coarsening_operator = _LeftPreconditionedOperator(current)
             batched_strict_setup = (
-                self._strict_quda and self.materialize_coarse and
+                self._strict_mode and self.materialize_coarse and
                 self.strict_galerkin_mode != "column")
-            coarse = QudaCoarseOperator(
+            coarse = StrictCoarseOperator(
                 transfer, coarsening_operator,
                 materialize=(self.materialize_coarse and
                              not batched_strict_setup),
@@ -3190,9 +3188,9 @@ class QudaMultigrid:
         self.levels.append(_Level(
             index=self._transition_count, operator=current, transfer=None,
             spin=current.spin, color=current.color, shape=current.shape))
-        if self._strict_quda:
+        if self._strict_mode:
             self.matpc_operators = [
-                QudaMatPCOperator(op, parity=self.target_parity)
+                StrictMatPCOperator(op, parity=self.target_parity)
                 for op in self.operators]
             # 保留 raw Schur 对象仅供与旧 full-coarse 路径对照；严格 V-cycle
             # 使用上面的对称左预处理 MATPC 对象。
@@ -3231,7 +3229,7 @@ class QudaMultigrid:
         """Drop Python hierarchy references while callers own exported assets."""
         if self._python_setup_assets_released:
             return dict(self._python_setup_assets_release_report)
-        if not self._strict_quda or not self._setup_done:
+        if not self._strict_mode or not self._setup_done:
             raise RuntimeError("释放 Python setup assets 要求已 setup 的 strict hierarchy")
 
         detached: List[Any] = list(self._null_vectors)
@@ -3256,7 +3254,7 @@ class QudaMultigrid:
         self.U = self.clover_term = self.kappa = self.u_0 = None
         self.fine_dslash = None
         for operator in self.operators[1:]:
-            if isinstance(operator, QudaCoarseOperator):
+            if isinstance(operator, StrictCoarseOperator):
                 operator.blocks = None
                 operator.X = operator.X_inv = None
                 operator.Y_forward = operator.Y_backward = None
@@ -3305,7 +3303,7 @@ class QudaMultigrid:
             raise RuntimeError(
                 "seal_cuda_runtime 要求 runtime_assets_bound=True，"
                 "避免释放仍未绑定的 QCU 资产")
-        if not self._strict_quda or not self._setup_done:
+        if not self._strict_mode or not self._setup_done:
             raise RuntimeError("seal_cuda_runtime 要求已 setup 的 strict hierarchy")
         release_report = self._detach_python_setup_assets()
         self._cuda_runtime_sealed = True
@@ -3324,7 +3322,7 @@ class QudaMultigrid:
             device = operator._diagonal.device
         elif isinstance(operator, CompactParityOperator):
             return operator.reference_field()
-        elif isinstance(operator, QudaCoarseOperator):
+        elif isinstance(operator, StrictCoarseOperator):
             reference = operator._asset_reference()
             dtype = reference.dtype
             device = reference.device
@@ -3384,7 +3382,7 @@ class QudaMultigrid:
         return value.reshape(spin, color, *value.shape[-4:])
 
     @staticmethod
-    def _strict_mr_smooth(matpc: QudaMatPCOperator, rhs: Tensor,
+    def _strict_mr_smooth(matpc: StrictMatPCOperator, rhs: Tensor,
                           solution: Tensor, steps: int) -> Tensor:
         """在当前层的 compact MATPC 空间做固定步数 MR。"""
         x = solution
@@ -3478,7 +3476,7 @@ class QudaMultigrid:
             # them directly instead of constructing a second checkerboard
             # Schur complement.
             n = int(rhs.numel())
-            if (isinstance(operator, QudaCoarseOperator) and
+            if (isinstance(operator, StrictCoarseOperator) and
                     operator.blocks is not None and n <= self.direct_solve_max):
                 dense = operator.dense_matrix
                 solution = _torch.linalg_solve(dense, rhs.reshape(-1))
@@ -3497,7 +3495,7 @@ class QudaMultigrid:
                 restart=min(self.restart, max(1, self.coarse_max_iter)),
                 verbose=self.verbose)
         n = int(rhs.numel())
-        if (isinstance(operator, QudaCoarseOperator) and
+        if (isinstance(operator, StrictCoarseOperator) and
                 operator.blocks is not None and n <= self.direct_solve_max):
             dense = operator.dense_matrix
             solution = _torch.linalg_solve(dense, rhs.reshape(-1))
@@ -3510,7 +3508,7 @@ class QudaMultigrid:
 
     def v_cycle(self, rhs: Tensor, level: int = 0) -> Tensor:
         self.setup()
-        if self._strict_quda:
+        if self._strict_mode:
             return self._strict_v_cycle(rhs, level)
         operator = self.operators[level]
         if level == len(self.operators) - 1:
@@ -3536,7 +3534,7 @@ class QudaMultigrid:
         ``operator_kind`` 首层为 ``compact_schur``，后续为
         ``compact_galerkin``，避免把粗层误认为再次 checkerboard Schur。
 
-        ``QudaCoarseOperator`` 处于 matrix-free 状态时，默认只读而不触发
+        ``StrictCoarseOperator`` 处于 matrix-free 状态时，默认只读而不触发
         逐列 materialize；若确实需要从通用 fine operator 生成精确 33 点
         资产，调用方必须显式传 ``materialize=True``。大格推荐使用
         ``pyqcu.tools.build_stencil_mt`` 的批量/局部构建器生成 stencil，
@@ -3547,7 +3545,7 @@ class QudaMultigrid:
         assets: List[Dict[str, Any]] = []
         for level, transfer in enumerate(self.transfers):
             coarse = self.operators[level + 1]
-            if not isinstance(coarse, QudaCoarseOperator):
+            if not isinstance(coarse, StrictCoarseOperator):
                 raise RuntimeError(
                     f"transition {level} 的 coarse operator 类型不支持 QCU 导出")
             if coarse.blocks is None and not materialize:
@@ -3598,7 +3596,7 @@ class QudaMultigrid:
         single-parity 只在运行 ``R/P`` 时选择 fine site，不改变资产尺寸。
         """
         self.setup()
-        if not self._strict_quda:
+        if not self._strict_mode:
             raise RuntimeError(
                 "qcu_strict_transition_assets 仅适用于 hierarchy_mode='strict'")
         slot_order = (
@@ -3607,7 +3605,7 @@ class QudaMultigrid:
         assets: List[Dict[str, Any]] = []
         for level, transfer in enumerate(self.transfers):
             coarse = self.operators[level + 1]
-            if not isinstance(coarse, QudaCoarseOperator):
+            if not isinstance(coarse, StrictCoarseOperator):
                 raise RuntimeError(
                     f"transition {level} 的 coarse operator 类型不支持 strict 导出")
             if (coarse.blocks is None and
@@ -3630,7 +3628,7 @@ class QudaMultigrid:
                 "fine_full_geometry": True,
                 "coarse_full_geometry": True,
                 "target_parity": self.target_parity,
-                "operator_kind": "quda_full_preconditioned",
+                "operator_kind": "strict_full_preconditioned",
                 "slot_order": slot_order,
                 "null_vectors": (transfer.to_qcu_blocked(
                     dtype=dtype, device=device) if include_null else None),
@@ -3668,7 +3666,7 @@ class QudaMultigrid:
                 raise ValueError("b 与 x0 的 spin/color 布局必须一致")
         from ._gmres import fgmres
         history: List[float] = []
-        if self._strict_quda:
+        if self._strict_mode:
             matpc = self.matpc_operators[0]
             pc_rhs = matpc.rhs(b_flat)
             pc_guess = None
@@ -3715,7 +3713,7 @@ class QudaMultigrid:
         if not self.use_parity:
             raise RuntimeError("solve_parity 要求 use_parity=True")
         b_flat, shape_kind = self._to_flat(b, self._fine_full)
-        if self._strict_quda:
+        if self._strict_mode:
             schur = self.matpc_operators[0]
         elif self._compact_parity:
             assert self._fine_compact is not None
@@ -3792,7 +3790,7 @@ class QudaMultigrid:
         coarse_operator = self.operators[1]
         galerkin_source = (
             self.coarsening_operators[0]
-            if self._strict_quda else self.operators[0])
+            if self._strict_mode else self.operators[0])
         direct = transfer.restrict(
             galerkin_source.apply(transfer.prolong(coarse)))
         result["galerkin_RDP"] = _relative_norm(coarse_operator.apply(coarse) - direct, direct)
@@ -3800,7 +3798,7 @@ class QudaMultigrid:
             result["transfer_block_ortho"] = transfer.orthogonality_error()
             # Schur 的重构误差使用一个随机 full rhs；只测试块代数，不要求
             # 外层迭代收敛。
-            if self._strict_quda:
+            if self._strict_mode:
                 schur = self.matpc_operators[0]
                 target_trial = _torch.randn(
                     size=[self.fine_dof, schur.checkerboard.volume],
@@ -3835,10 +3833,10 @@ class QudaMultigrid:
         return result
 
 
-class QudaStrictMultigrid(QudaMultigrid):
-    """严格保持 QUDA full-coarse/逐层 MATPC 语义的便捷入口。
+class StrictMultigrid(_MultigridHierarchy):
+    """严格保持 full-coarse/逐层 MATPC 语义的公开入口。
 
-    ``QudaMultigrid`` 的 legacy/compact 行为继续保留；本类只固定
+    ``_MultigridHierarchy`` 的 legacy/compact 行为继续保留；本类只固定
     ``hierarchy_mode='strict'``，其余构造参数完全相同。
     """
 
@@ -3846,23 +3844,37 @@ class QudaStrictMultigrid(QudaMultigrid):
         requested = kwargs.pop("hierarchy_mode", "strict")
         if self._normalise_hierarchy_mode(requested) != "strict":
             raise ValueError(
-                "QudaStrictMultigrid 不接受非 strict hierarchy_mode")
+                "StrictMultigrid 不接受非 strict hierarchy_mode")
         kwargs.setdefault("strict_galerkin_mode", "auto")
         super().__init__(*args, hierarchy_mode="strict", **kwargs)
+        self._closed = False
 
+    def setup(self) -> "StrictMultigrid":
+        if self._closed:
+            raise RuntimeError("StrictMultigrid 已关闭")
+        super().setup()
+        return self
 
-# 公开别名：保留小写风格以便与旧 solver.multigrid 并列，也提供 Python
-# 常见的 CamelCase 名称。旧类本身不被替换。
-quda_multigrid = QudaMultigrid
-QUDAMultigrid = QudaMultigrid
-quda_strict_multigrid = QudaStrictMultigrid
-QUDAStrictMultigrid = QudaStrictMultigrid
+    def solve(self, b: Tensor, x0: Optional[Tensor] = None) -> Tensor:
+        if self._closed:
+            raise RuntimeError("StrictMultigrid 已关闭")
+        return super().solve(b, x0=x0)
+
+    def close(self) -> None:
+        """释放不再使用的 Python setup 层级。"""
+        if self._setup_done and not self._python_setup_assets_released:
+            self.release_python_setup_assets()
+        self._closed = True
+
+    def __enter__(self) -> "StrictMultigrid":
+        return self.setup()
+
+    def __exit__(self, exc_type: Any, exc: Any, traceback: Any) -> None:
+        self.close()
 
 
 __all__ = [
-    "QudaTransfer", "QudaCoarseOperator", "QudaMatPCOperator", "Checkerboard",
+    "StrictTransfer", "StrictCoarseOperator", "StrictMatPCOperator", "Checkerboard",
     "CompactParityLayout", "CompactParityOperator", "ParitySchurOperator",
-    "QcuStrictAssetBinding",
-    "QudaMultigrid", "quda_multigrid", "QUDAMultigrid",
-    "QudaStrictMultigrid", "quda_strict_multigrid", "QUDAStrictMultigrid",
+    "QcuStrictAssetBinding", "StrictMultigrid",
 ]

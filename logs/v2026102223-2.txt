@@ -1,0 +1,59 @@
+[日志元数据]
+日志类型: final
+生成时间: 2026-10-22 23:46:36 +0800
+批次: docs-multigrid-audit-20261022
+主任务: 将 MultiGrid 审计与 benchmark 状态结果正式写入 docs
+触发原因: 任务完成
+摘要: 新增审计文档；更新 docs 索引和来源映射；状态报告交叉引用；Markdown/form/Git 检查通过
+Git 根目录: /root/PyQCU
+
+## 关键日志
+### S1 — 文档落位
+- 目标: 将三条 MG 弃用审计和 Legacy/Strict/KUPL benchmark 状态结果写入正式 docs。
+- 命令/操作: 盘点 docs 现状；检查已有状态报告；读取 pyqcu-docs 与 log 规范；确定新增独立审计文档。
+- 关键输出: 新增 `docs/multigrid_deprecation_audit_20261022.md`；更新 `docs/AGENTS.md`；在 `docs/legacy_vs_strict_mg_status_20261022.md` 增加审计回链。
+- 退出码: 0。
+- 证据与判断: 性能状态与代码弃用审计职责不同，独立文档可避免把时点性能数据与 API 审计混写。
+
+### S2 — 来源映射同步
+- 目标: 满足 pyqcu-docs 对新增 docs 顶层文档的维护规则。
+- 命令/操作: 更新 `skills/pyqcu-docs/references/project-docs-map.md`，把文档计数从 17 改为 19，并登记两份新报告。
+- 关键输出: 实际 docs 顶层 Markdown、声明数量和映射数量均为 19；无 missing/extra。
+- 退出码: 0。
+- 证据与判断: 新文档已有唯一主责技能、证据级别和读取边界。
+
+### S3 — 验证
+- 目标: 确认文档内容、链接、代码围栏、benchmark 断言和仓库格式。
+- 命令/操作: 运行 Markdown 链接/围栏检查、docs 数量映射断言、benchmark 数据断言、`git diff --check` 和 `bash skills/pyqcu-form/form-audit.sh`。
+- 关键输出: 审计文档 10,759 bytes/206 行；状态报告 17,188 bytes/240 行；链接无缺失；代码围栏成对；benchmark 断言 PASS；form 审计 PASS。
+- 退出码: 全部为 0；`git diff --check` 无输出。
+- 证据与判断: 文档写入没有格式回归，benchmark 摘要与原始 JSON/stdout 一致。
+
+## 验证与证据
+- 测试/检查: Markdown 链接与围栏、19 份文档映射、benchmark JSON 断言、`git diff --check`、form audit。
+- 结果: 全部通过。
+- 未验证项: 未运行 GPU/CUDA/MPI；审计仍固定到稳定 HEAD `9e678901`，未对持续变化的并发 MG 重构作结论。
+
+## 变更与产物
+- 文件: `docs/multigrid_deprecation_audit_20261022.md`（新增）。
+- 文件: `docs/legacy_vs_strict_mg_status_20261022.md`（增加交叉引用）。
+- 文件: `docs/AGENTS.md`（新增两份文档索引）。
+- 文件: `skills/pyqcu-docs/references/project-docs-map.md`（同步 19 份文档映射）。
+- 未改动范围: 未修改源码，未提交、未打标签、未推送。
+
+## 风险、限制与下一步
+- 风险: 当前工作树仍有并发 MG 重构，审计文档明确标记为稳定 HEAD 时点结论。
+- 阻塞: 无。
+- 下一步: 并发重构稳定后重审历史入口和 QUDA 风格别名，并把新快照写入 docs。
+
+## 用户输入指令
+将结果写入docs
+
+## Agent 全文报告
+--- report begin ---
+已将结果正式写入 `docs/`。
+
+新增 [multigrid_deprecation_audit_20261022.md](/root/PyQCU/docs/multigrid_deprecation_audit_20261022.md)，包含三条只读审计的 findings-first 结论、不可误判为弃用的路径、benchmark 状态摘要、证据索引和后续整改优先级。现有 [legacy_vs_strict_mg_status_20261022.md](/root/PyQCU/docs/legacy_vs_strict_mg_status_20261022.md) 增加了回链，[docs/AGENTS.md](/root/PyQCU/docs/AGENTS.md) 和 [project-docs-map.md](/root/PyQCU/skills/pyqcu-docs/references/project-docs-map.md) 已同步，映射数量为 19/19。
+
+验证结果：Markdown 链接与代码围栏通过；benchmark JSON 断言 PASS；`git diff --check` 无输出；`bash skills/pyqcu-form/form-audit.sh` PASS。未运行 GPU/CUDA/MPI，未提交、未打标签。
+--- report end ---

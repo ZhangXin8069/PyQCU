@@ -1,0 +1,160 @@
+"""Public naming and lifecycle contract for the unified multigrid facade."""
+
+from __future__ import annotations
+
+import pytest
+import torch
+
+from pyqcu import solver
+from pyqcu.solver import LegacyMultigrid, Multigrid, StrictMultigrid
+from pyqcu.solver.multigrid import (
+    LegacyMultigrid as LegacyFromPackage,
+    StrictMultigrid as StrictFromPackage,
+)
+from pyqcu.kupl.multigrid import legacy_multigrid as kupl_legacy_module
+from pyqcu.kupl.multigrid import strict_multigrid as kupl_strict_module
+
+
+def test_multigrid_package_is_the_canonical_hierarchy_namespace():
+    assert LegacyFromPackage is LegacyMultigrid
+    assert StrictFromPackage is StrictMultigrid
+
+    from pyqcu.cuda.multigrid import LegacyMultigrid as CudaLegacy
+    from pyqcu.cuda.multigrid import StrictMultigrid as CudaStrict
+    from pyqcu.kupl.multigrid import LegacyMultigrid as KuplLegacy
+    from pyqcu.kupl.multigrid import StrictMultigrid as KuplStrict
+
+    assert (CudaLegacy.variant, CudaLegacy.backend) == ("legacy", "cuda")
+    assert (CudaStrict.variant, CudaStrict.backend) == ("strict", "cuda")
+    assert (KuplLegacy.variant, KuplLegacy.backend) == ("legacy", "kupl")
+    assert (KuplStrict.variant, KuplStrict.backend) == ("strict", "kupl")
+    assert not issubclass(CudaLegacy, LegacyMultigrid)
+    public_mg_names = {
+        name for name in dir(solver)
+        if "multigrid" in name.lower() and not name.startswith("_")
+    }
+    assert all("quda" not in name.lower() for name in public_mg_names)
+
+
+def test_multigrid_selector_requires_explicit_and_valid_names():
+    with pytest.raises(TypeError):
+        Multigrid()
+    with pytest.raises(ValueError, match="variant"):
+        Multigrid(variant="unknown")
+    with pytest.raises(ValueError, match="backend"):
+        Multigrid(variant="strict", backend="unknown")
+
+
+def test_multigrid_selector_builds_torch_strict_hierarchy():
+    shape = (4, 4, 4, 4)
+    diagonal = torch.eye(12, dtype=torch.complex64).reshape(
+        12, 12, 1, 1, 1, 1).expand(12, 12, *shape).clone()
+    null = torch.randn(2, 4, 3, *shape, dtype=torch.complex64)
+    wrapper = Multigrid(
+        variant="strict",
+        backend="torch",
+        fine_matvec=lambda value: value,
+        fine_diagonal=diagonal,
+        fine_adjoint=lambda value: value,
+        lat_size=shape,
+        null_vectors=[null],
+        dof_list=[12, 4],
+        block_size=(2, 2, 2, 2),
+        max_level=2,
+        setup_iters=0,
+        verbose=False,
+    )
+    assert isinstance(wrapper.implementation, StrictMultigrid)
+    assert (wrapper.variant, wrapper.backend) == ("strict", "torch")
+
+
+def test_torch_legacy_lifecycle_uses_setup_and_close_aliases():
+    class ProbeLegacy(LegacyMultigrid):
+        def __init__(self):
+            self.calls = []
+
+        def init(self):
+            self.calls.append("init")
+            return self
+
+        def end(self):
+            self.calls.append("end")
+
+    with ProbeLegacy() as mg:
+        assert isinstance(mg, LegacyMultigrid)
+    assert mg.calls == ["init", "end"]
+
+
+def test_kupl_legacy_lifecycle_delegates_to_canonical_abi(monkeypatch):
+    calls = []
+    monkeypatch.setattr(
+        kupl_legacy_module.qcu, "applyInitQcu",
+        lambda *args: calls.append("init"))
+    monkeypatch.setattr(
+        kupl_legacy_module.qcu, "applyEndQcu",
+        lambda *args: calls.append("end"))
+    monkeypatch.setattr(
+        kupl_legacy_module.qcu, "applyCloverMultigridQcu",
+        lambda *args: calls.append("solve"))
+    monkeypatch.setattr(
+        kupl_legacy_module.qcu, "verifyCloverMultigridQcu",
+        lambda *args: 0)
+    state = (
+        torch.zeros(58, dtype=torch.int32),
+        torch.zeros(8, dtype=torch.float32),
+        torch.zeros(100, dtype=torch.int64),
+        torch.zeros(1, dtype=torch.complex64),
+    )
+    rhs = torch.randn(12, 4, 4, 4, 4, dtype=torch.complex64)
+    mg = kupl_legacy_module.LegacyMultigrid(
+        *state, torch.zeros_like(rhs), torch.zeros_like(rhs),
+        torch.zeros_like(rhs), torch.zeros_like(rhs))
+    with mg:
+        result = mg.solve(rhs)
+    assert result.shape == rhs.shape
+    assert calls == ["init", "solve", "end"]
+    assert mg.closed
+
+
+def test_kupl_strict_lifecycle_delegates_to_canonical_abi(monkeypatch):
+    calls = []
+    monkeypatch.setattr(
+        kupl_strict_module.qcu, "applyInitQcu",
+        lambda *args: calls.append("init"))
+    monkeypatch.setattr(
+        kupl_strict_module.qcu, "applyEndQcu",
+        lambda *args: calls.append("end"))
+    monkeypatch.setattr(
+        kupl_strict_module.qcu, "applyMultigridStrictInitQcu",
+        lambda *args: (calls.append("strict-init") or 0))
+    monkeypatch.setattr(
+        kupl_strict_module.qcu, "applyMultigridStrictEndQcu",
+        lambda *args: (calls.append("strict-end") or 0))
+
+    def fake_solve(*args):
+        calls.append("solve")
+        args[-4][0] = 1
+        args[-3][0] = 1
+        args[-2][0] = 0.0
+        args[-1][0] = 256
+        return 0
+
+    monkeypatch.setattr(
+        kupl_strict_module.qcu, "applyMultigridStrictFgmresQcu", fake_solve)
+    state = (
+        torch.zeros(58, dtype=torch.int32),
+        torch.zeros(8, dtype=torch.float32),
+        torch.zeros(100, dtype=torch.int64),
+        torch.zeros(1, dtype=torch.complex64),
+    )
+    dims = (4, 4, 4, 4)
+    source = torch.randn(12, *dims, dtype=torch.complex64)
+    mg = kupl_strict_module.StrictMultigrid(
+        *state, torch.zeros_like(state[3]), torch.zeros_like(state[3]),
+        torch.zeros_like(state[3]), torch.zeros_like(state[3]),
+        torch.zeros_like(state[3]), dims, (2, 2, 2, 2))
+    with mg:
+        result = mg.solve(source)
+    assert result.shape == (2, 4, 3, 4, 4, 4, 2)
+    assert calls == ["init", "strict-init", "solve", "strict-end", "end"]
+    assert mg.closed

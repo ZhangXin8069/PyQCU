@@ -73,7 +73,7 @@ dev73 的 `multigrid/legacy/` 与 dev74 的 `multigrid/scaling/`（含
 | `legacy/mg_stencil_build.py` | `pyqcu/tools/_multigrid.py::build_stencil`/`build_stencil_mt`/`apply_stencil` |
 | `legacy/cache.py` | `pyqcu/cuda/_multi_gpu.py` + `pyqcu/tools/_io.py` |
 | `legacy/mg_schur_build.py` | `pyqcu/tools/_strict_galerkin.py` |
-| `legacy/mg_pyref_expt.py` | `pyqcu/solver/_quda_multigrid.py` |
+| `legacy/mg_pyref_expt.py` | `pyqcu/solver/_multigrid_core.py` |
 | `legacy/reference_benchmark.py` | `pyqcu/cuda/_logs.py` + `pyqcu/solver/_bistabcg.py::bistabcg_history` |
 | `legacy/dslash_adapter.py` | `pyqcu/cuda/_schur_op.py` |
 | `legacy/budget.py` | `pyqcu/tools/_budget.py` |

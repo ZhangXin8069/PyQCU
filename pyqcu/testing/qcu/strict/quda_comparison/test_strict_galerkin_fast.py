@@ -8,7 +8,7 @@ from time import perf_counter
 import pytest
 import torch
 
-from pyqcu.solver import QudaCoarseOperator, QudaMatPCOperator, QudaTransfer
+from pyqcu.solver import StrictCoarseOperator, StrictMatPCOperator, StrictTransfer
 from pyqcu.tools._strict_galerkin import (
     STRICT_GALERKIN_SCHEMA,
     build_strict_galerkin,
@@ -56,7 +56,7 @@ def _nearest_operator(seed=20260830):
 def test_strict_galerkin_fast_matches_columns_assets_and_matpc():
     torch.manual_seed(20260831)
     null_vectors = torch.randn(1, 4, 1, *FINE_SHAPE, dtype=DTYPE)
-    transfer = QudaTransfer(
+    transfer = StrictTransfer(
         null_vectors, FINE_SHAPE, fine_spin=4, fine_color=1,
         coarse_spin=2, block_size=BLOCK, verbose=False)
     assert transfer.coarse_spin == 2
@@ -89,7 +89,7 @@ def test_strict_galerkin_fast_matches_columns_assets_and_matpc():
         retain_blocks=True, verbose=False)
 
     t0 = perf_counter()
-    reference = QudaCoarseOperator(
+    reference = StrictCoarseOperator(
         transfer, single_matvec, materialize=True, verbose=False)
     reference_seconds = perf_counter() - t0
 
@@ -151,13 +151,13 @@ def test_strict_galerkin_fast_matches_columns_assets_and_matpc():
 
     # Installing into a lazy reference object exercises the minimal future
     # integration boundary without modifying the solver module.
-    installed = QudaCoarseOperator(transfer, single_matvec, materialize=False)
+    installed = StrictCoarseOperator(transfer, single_matvec, materialize=False)
     fast.install(installed)
     assert torch.allclose(installed.apply(trial), exact, rtol=3e-5, atol=3e-6)
     compact = torch.randn(
         transfer.coarse_dof, prod(transfer.coarse_shape) // 2,
         dtype=DTYPE)
-    matpc_reference = QudaMatPCOperator(installed, parity=1).apply(compact)
+    matpc_reference = StrictMatPCOperator(installed, parity=1).apply(compact)
     assert torch.allclose(
         fast.apply_matpc(compact, parity=1), matpc_reference,
         rtol=5e-5, atol=5e-6)

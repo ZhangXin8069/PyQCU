@@ -44,13 +44,14 @@ MPI 格点分域。`MultiGpuMultigrid` 是显式调用的测试专用例外，�
 | File | Purpose |
 |------|---------|
 | `_bistabcg.py` | BiCGStab(l) solver (Bi-stabilized Conjugate Gradient) |
-| `_multigrid.py` | Adaptive multigrid (AMG) V-cycle solver with CUDA acceleration at finest level |
+| `_legacy_multigrid.py` | `LegacyMultigrid`: adaptive 33-stencil V-cycle with optional CUDA acceleration at the finest level |
+| `multigrid/` | Unified `Multigrid` selector and canonical `strict_multigrid.py` / `legacy_multigrid.py` hierarchy entries |
 | `_gmres.py` | Python restarted-FGMRES reference with right preconditioning, complex Givens rotations, warm start and restart true-residual checks; production strict CUDA solve uses the fused C++ entry |
 | `_mr.py` | `mr` — MR 最小残差迭代（quda `inv_mr` 思想，非 Krylov 平滑器）：`p=A†r; α=ω·<p,p>/<Ap,Ap>`，每迭代一次 A + 一次 A†，内存 O(1) 向量数；作 MG smoother 或粗略预求解 |
 | `_multishift_cg.py` | `multishift_cg` — 多质量 CG（quda `updateAlphaZeta` 递推）：一次 matvec 序列同时解全部移位系统 |
 | `_cacg.py` | `cacg` — CA-CG（s-step CG，quda `inv_ca_cg.cpp` 思想）：MGS 正交化基 + 极小残差块解，每外迭代一次同步块 |
 | `_lanczos.py` | `tr_lanczos` — thick-restart Lanczos 特征底座（Wu–Simon arrowhead 重启，deflation 用 Ritz 对），服务 GMRES-DR/eigCG 类 deflation |
-| `_quda_multigrid.py` | QUDA-style transfer, coarse operator, MATPC and recursive strict reference hierarchy; coexists with legacy `_multigrid.py` |
+| `_multigrid_core.py` | Strict transfer, coarse operator, MATPC and recursive hierarchy reference implementation |
 
 各模块的算法细节、与 quda 的有意偏差、以及实测收敛数字（含反模式，如 multishift
 的 σ₀ 折叠不可移除、tr_lanczos 的 H 必须对称双写）见 `pyqcu/solver/AGENTS.md`
@@ -119,7 +120,7 @@ Adaptive multigrid V-cycle solver with configurable multi-level hierarchy.
 
 ## Strict QUDA-style MultiGrid Invariants
 
-Keep the legacy implementation available for comparison. Select Strict with `hierarchy_mode="strict"` or `QudaStrictMultigrid`; `setup_operator="schur"` is the legacy compact odd-Schur/setup-vector option, not the hierarchy selector. Under Strict the coarse geometry remains full even when that setup option is supplied. The strict hierarchy instead uses
+Keep the legacy implementation available for comparison. Select Strict with `hierarchy_mode="strict"` or the public `StrictMultigrid`; `setup_operator="schur"` is the legacy compact odd-Schur/setup-vector option, not the hierarchy selector. Under Strict the coarse geometry remains full even when that setup option is supplied. The strict hierarchy instead uses
 
 \[
 D_l=X_l+H_l,\qquad \widehat D_l=X_l^{-1}D_l,\qquad
@@ -162,13 +163,13 @@ Current strict MPI provides rank-symmetric preflight, c64/c128 global reduction,
 
 ## 多层粗基与迭代口径（2026-09-16）
 
-`QudaMultigrid(..., propagate_null_vectors=True)` propagates each later
+`StrictMultigrid(..., propagate_null_vectors=True)` propagates each later
 transition's basis as `R` applied to the preceding global `B`, matching
 QUDA's `generate_all_levels=false` path.  It is strict-only; the benchmark
 uses one canonical full fine basis and derives the next coarse basis
 deterministically.
 
-`CudaStrictMultigridSolver.outer_iterations` counts outer FGMRES columns;
+`StrictMultigrid.outer_iterations` counts outer FGMRES columns for the CUDA backend;
 `iterations` is only a compatibility alias.  The earlier `4.3817x` value was
 withdrawn: QUDA had been left on a different smoother/coarse-iteration budget.
 For a matched one-recursive-cycle comparison, rerun with QUDA MR smoother,

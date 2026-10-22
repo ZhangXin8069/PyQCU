@@ -9,8 +9,9 @@ if not torch.cuda.is_available():
     pytest.skip("需要 CUDA 设备", allow_module_level=True)
 
 try:
-    from pyqcu.cuda import CudaStrictMultigridSolver, define, qcu
-    from pyqcu.solver import QudaStrictMultigrid
+    from pyqcu.cuda import StrictMultigrid as CudaStrictMultigrid
+    from pyqcu.cuda import define, qcu
+    from pyqcu.solver import StrictMultigrid
 except (ImportError, OSError) as exc:  # pragma: no cover - environment
     pytest.skip(f"QCU Cython/CUDA 后端不可用: {exc}", allow_module_level=True)
 
@@ -63,7 +64,7 @@ def _hierarchy():
         12, 12, 1, 1, 1, 1).expand(12, 12, *SHAPE).clone() * 1.5
     torch.manual_seed(20260871)
     null = torch.randn(2, 4, 3, *SHAPE, dtype=DTYPE)
-    return QudaStrictMultigrid(
+    return StrictMultigrid(
         fine_matvec=lambda value: 1.5 * value,
         fine_adjoint=lambda value: 1.5 * value,
         fine_diagonal=diagonal,
@@ -106,7 +107,7 @@ def strict_solver():
     for extent in first_coarse.shape:
         coarse_elements *= int(extent)
     budget = 11 * vector_bytes + 2 * coarse_elements * 8
-    solver = CudaStrictMultigridSolver(
+    solver = CudaStrictMultigrid(
         hierarchy, argv, *assets, params, restart=3,
         max_krylov_bytes=budget, verbose=False)
     try:
@@ -227,7 +228,7 @@ def test_strict_fused_fgmres_complex128_dispatch_and_residual():
         value.to(torch.complex128)
         for value in _identity_fine_assets(device))
     vector_bytes = 12 * 4**4 // 2 * 16
-    solver = CudaStrictMultigridSolver(
+    solver = CudaStrictMultigrid(
         hierarchy, argv, *assets, params, restart=2,
         max_krylov_bytes=9 * vector_bytes, verbose=False)
     try:

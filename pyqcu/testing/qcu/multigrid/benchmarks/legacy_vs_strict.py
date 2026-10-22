@@ -458,8 +458,8 @@ def _run_strict(args: argparse.Namespace) -> dict[str, Any]:
     import torch
     from pyqcu import dslash, tools
     from pyqcu.cuda import define
-    from pyqcu.cuda import CudaStrictMultigridSolver
-    from pyqcu.solver import QudaStrictMultigrid
+    from pyqcu.cuda import StrictMultigrid as CudaStrictMultigrid
+    from pyqcu.solver import StrictMultigrid
 
     device = torch.device(args.device)
     torch.cuda.set_device(device)
@@ -480,7 +480,7 @@ def _run_strict(args: argparse.Namespace) -> dict[str, Any]:
         raise ValueError(
             f"selected nvec={nvec} is outside available range 1..{available_nvec}")
     null = null[:nvec].contiguous()
-    hierarchy = QudaStrictMultigrid(
+    hierarchy = StrictMultigrid(
         U=gauge_full, clover_term=clover, kappa=kappa_t, u_0=u0,
         lat_size=tuple(args.lat), null_vectors=[null], nvec_list=[nvec],
         dof_list=[12, 2 * nvec], block_size=(2, 2, 2, 2), max_level=2,
@@ -505,7 +505,7 @@ def _run_strict(args: argparse.Namespace) -> dict[str, Any]:
     argv[define._ATOL_] = float(args.tol)
     params[define._MAX_ITER_] = int(args.max_iter)
     solver_started = time.perf_counter()
-    solver = CudaStrictMultigridSolver(
+    solver = CudaStrictMultigrid(
         hierarchy, argv, gauge, ce, coo, cei, coi, params,
         restart=args.restart, max_krylov_bytes=args.max_krylov_bytes,
         release_setup_assets=True, verbose=False)
