@@ -1,0 +1,270 @@
+[日志元数据]
+日志类型: final
+生成时间: 2026-10-23 02:56:39 +0800
+批次: qcu-l24-mg-cache-formula
+主任务: 推导 L24 QCU Legacy/Strict 与 QUDA MG cache 算式
+触发原因: 任务完成
+摘要: 按 V/Vc/Vodd/P/complex64 展开 Legacy 33-tensor、Strict V/Yhat/X 和 QUDA null-vector 字节公式
+Git 根目录: /root/PyQCU
+
+## 关键日志
+### S1 — 固定几何与常量
+- 目标: 推导 QCU Legacy、QCU Strict、QUDA null-vector 的具体 cache 字节数。
+- 固定参数: `L=(24,24,24,64)`、c64、`block=(2,2,2,2)`、两级、`nvec=12`、Legacy `dof=12`、Strict `coarse_dof=24`。
+- 常量: `V=884736`、`Vc=55296`、`Vodd=27648`、`P=16`、`complex64=8 B`。
+
+### S2 — Legacy 33-tensor cache
+- `Blegacy-logical = 8 * [33*12^2*27648 + 12*12*16*27648] = 1560674304 B`。
+- 方括号第一项是 1 onsite + 8 nearest + 24 diagonal，共 33 个 block；第二项是 compact odd blocked null vector。
+- HDF5 文件为逻辑 payload 加 4096 B 元数据/分配开销：`1560674304 + 4096 = 1560678400 B`。
+
+### S3 — Strict schema-v2 cache
+- `Estrict=2*nvec=24`。
+- `Bstrict-logical = 8*Vc*(Estrict*12*P + 10*Estrict^2)`。
+- 其中 `8*Estrict^2*Vc` 是 Yhat，`2*Estrict^2*Vc` 是 X/X^-1，`Estrict*12*P*Vc` 是 fine blocked V。
+- 代入得 `8*55296*(4608+5760) = 4586471424 B`。
+
+### S4 — QUDA null-vector
+- `Bnull(n)=n*4*3*V*8=96*n*V`。
+- nvec12: `96*12*884736=1019215872 B`。
+- 历史 nvec24: `96*24*884736=2038431744 B`。
+- QUDA 没有对应的持久粗算子 cache；上述只是 canonical null-vector 输入大小。
+
+## 验证与证据
+- 使用 Python 逐项计算并通过四个目标字节数的 assert。
+- Legacy 实际文件 SHA256 与构建 JSON 一致；Logical HDF5 dataset 和为 `1560674304 B`。
+- Strict 使用仓库 `_strict_runtime_expected_manifest` 的正式 shape contract 交叉核对。
+- `git diff --check` 在日志写入后需重新执行。
+
+## 变更与产物
+- 文件: 新增本日志及 `logs/AGENTS.md` 索引。
+- 产物: 数学推导，无代码或数据修改。
+- 未改动范围: 求解器、cache 和 benchmark 数据未修改。
+
+## 风险、限制与下一步
+- 风险: 若 dtype、levels、block、nvec/coarse DOF 改变，公式中的相应常数必须同步替换。
+- 阻塞: 无。
+- 下一步: 无。
+
+## 用户输入指令
+给出得出上述具体结果的算式
+
+## Agent 全文报告
+--- report begin ---
+状态：finished
+
+## 公共常数
+
+\[
+V=24^3\cdot64=884736
+\]
+
+每轴粗化因子为 `2`，所以两级 MG 的全粗格点为
+
+\[
+V_c=\frac{V}{2^4}=12\cdot12\cdot12\cdot32=55296.
+\]
+
+Legacy 使用 compact odd 粗格点：
+
+\[
+V_{\rm odd}=\frac{V_c}{2}=27648.
+\]
+
+每轴 block 体积：
+
+\[
+P=2^4=16.
+\]
+
+c64 的 `complex64` 为
+
+\[
+b=8\ {\rm B}.
+\]
+
+## Legacy-MG 的 1,560,678,400 B
+
+Legacy 的矩阵主体包含 `1 onsite + 8 nearest + 24 diagonal = 33` 个粗算子 block，所以矩阵元素数为
+
+\[
+N_{\rm mat}=33E_L^2V_{\rm odd},
+\qquad E_L=12.
+\]
+
+代入：
+
+\[
+N_{\rm mat}=33\cdot12^2\cdot27648=131383296.
+\]
+
+`lonv` 的形状为 blocked compact-odd null vector：
+
+\[
+[12,12,12,2,12,2,12,2,16,2],
+\]
+
+因此
+
+\[
+N_{\rm lonv}=12\cdot12\cdot16\cdot27648=63700992.
+\]
+
+Legacy cache 的逻辑元素数和逻辑字节数为
+
+\[
+N_L=N_{\rm mat}+N_{\rm lonv}
+=131383296+63700992
+=195084288,
+\]
+
+\[
+B_{L,\rm logical}=8N_L
+=8\cdot195084288
+=1560674304\ {\rm B}.
+\]
+
+实际 HDF5 文件多出 `4096 B` 元数据/分配开销：
+
+\[
+B_{L,\rm file}
+=1560674304+4096
+=\boxed{1560678400\ {\rm B}}.
+\]
+
+换算：
+
+\[
+\frac{1560678400}{10^9}
+=1.560678400\ {\rm GB},
+\]
+
+\[
+\frac{1560678400}{2^{30}}
+=1.453495026\ {\rm GiB}.
+\]
+
+## Strict-MG 的 4,586,471,424 B
+
+Strict 的粗自由度是
+
+\[
+E_S=2n_{\rm vec}=2\cdot12=24.
+\]
+
+两级 Strict cache 含三类逻辑 tensor：
+
+1. fine blocked `V`：
+\[
+N_V=E_S\cdot12\cdot P\cdot V_c.
+\]
+
+2. `Yhat` 的正反向、四方向共 8 个 link block：
+\[
+N_{\hat Y}=8E_S^2V_c.
+\]
+
+3. onsite pair `(X,X^{-1})`：
+\[
+N_X=2E_S^2V_c.
+\]
+
+因此 total element count 为
+
+\[
+N_S=E_S\cdot12\cdot P\cdot V_c+10E_S^2V_c,
+\]
+
+\[
+B_{S,\rm logical}
+=8V_c\left(E_S\cdot12\cdot P+10E_S^2\right).
+\]
+
+逐项代入：
+
+\[
+E_S\cdot12\cdot P=24\cdot12\cdot16=4608,
+\]
+
+\[
+10E_S^2=10\cdot24^2=5760,
+\]
+
+\[
+B_{S,\rm logical}
+=8\cdot55296\cdot(4608+5760)
+=8\cdot55296\cdot10368
+=\boxed{4586471424\ {\rm B}}.
+\]
+
+分项为：
+
+\[
+B_V=8\cdot24\cdot12\cdot16\cdot55296
+=2038431744\ {\rm B},
+\]
+
+\[
+B_{\hat Y}=8\cdot24^2\cdot55296\cdot8
+=2038431744\ {\rm B},
+\]
+
+\[
+B_X=2\cdot24^2\cdot55296\cdot8
+=509607936\ {\rm B}.
+\]
+
+校验：
+
+\[
+2038431744+2038431744+509607936
+=4586471424\ {\rm B}.
+\]
+
+换算：
+
+\[
+4.586471424\ {\rm GB}
+=4.271484375\ {\rm GiB}.
+\]
+
+这里不含可选 raw `Y`。若保留 raw `Y`，还会增加一个与 `Yhat` 同尺寸的 `2,038,431,744 B`。
+
+## QUDA null-vector
+
+QUDA 的 full-field canonical null vector 形状为
+
+\[
+[n_{\rm vec},4,3,24,24,24,64].
+\]
+
+逻辑大小为
+
+\[
+B_{\rm null}(n_{\rm vec})
+=8\cdot4\cdot3\cdot24^3\cdot64\cdot n_{\rm vec}
+=96n_{\rm vec}V.
+\]
+
+nvec12：
+
+\[
+B_{\rm null}(12)
+=96\cdot12\cdot884736
+=\boxed{1019215872\ {\rm B}}
+=1.019215872\ {\rm GB}
+=0.949218750\ {\rm GiB}.
+\]
+
+历史完整 L24 QUDA MG 记录使用 nvec24：
+
+\[
+B_{\rm null}(24)
+=2B_{\rm null}(12)
+=\boxed{2038431744\ {\rm B}}
+=2.038431744\ {\rm GB}
+=1.898437500\ {\rm GiB}.
+\]
+
+但 QUDA 没有 QCU Legacy/Strict 那种持久粗算子 cache 文件。这两个 null-vector 数只是可加载输入的逻辑大小，不是 QUDA 粗算子 cache 的实测文件大小。
+--- report end ---

@@ -5,7 +5,7 @@ PyQCU 参考文档。
 > 2026-09-27 迁移：顶层 `examples/` 已迁入 `pyqcu/testing/`。本目录旧报告中若
 > 出现 `examples/...`，应映射为 `pyqcu/testing/...`；现行文档已统一使用新路径。
 
-当前 `docs/` 顶层共有 **25 份 Markdown 文档（含本索引）**。下表只维护文件职责；
+当前 `docs/` 顶层共有 **26 份 Markdown 文档（含本索引）**。下表只维护文件职责；
 权威级别、唯一主责技能和提取边界见
 [`skills/pyqcu-docs/references/project-docs-map.md`](../skills/pyqcu-docs/references/project-docs-map.md)。
 
@@ -31,6 +31,7 @@ PyQCU 参考文档。
 | `qcu_quda_multigrid_algorithms.md` | QCU legacy MG 与 QUDA/PyQUDA MG 的算法组成、流程图、默认参数和并排对照 |
 | `qcu_quda_multigrid_subalgorithms.md` | QCU/QUDA MG 子算法的独立流程图、数学摘要、默认配置与同类算法优劣 |
 | `qcu_quda_multigrid_coarse_operator.md` | QCU legacy 33-tensor 与 Strict/QUDA `X/Y/Yhat` 粗层 dslash 表示辨析及源码依据 |
+| `mg_cache_sizes_24x24x24x64_20261023.md` | 真实 L24、c64、两级、`nvec=12` 下 Legacy 33-tensor、Strict schema-v2 cache 与 QUDA null-vector 的逐项尺寸推导 |
 | `multigrid_legacy_strict_comparison_20261022.md` | Torch/CUDA/KUPL 的 Legacy/Strict 算法、接口、生命周期与既有证据简要对比（2026-10-22） |
 
 ## 性能、状态与风险证据

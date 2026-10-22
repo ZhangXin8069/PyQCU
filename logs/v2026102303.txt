@@ -1,0 +1,62 @@
+[日志元数据]
+日志类型: final
+生成时间: 2026-10-23 03:15:13 +0800
+批次: docs-qcu-l24-mg-cache
+主任务: 保存 L24 MG cache 尺寸计算过程到 docs
+触发原因: 任务完成
+摘要: 新增正式技术参考文档并同步 pyqcu-docs 索引、映射与提取摘要
+Git 根目录: /root/PyQCU
+
+## 关键日志
+### S1 — 文档定位与范围
+- 目标: 将 L24 MG cache 尺寸计算过程保存到正式 docs。
+- 口径: 真实 LIME `beta6.20_mu-0.2770_ms-0.2310_L24x64_cfg_9950`、c64、两级、block `2x2x2x2`、`nvec=12`。
+- 新文档: `docs/mg_cache_sizes_24x24x24x64_20261023.md`。
+- 既有未提交源码、benchmark 和日志改动未触碰。
+
+### S2 — 文档内容
+- 给出 `V=884736`、`Vc=55296`、`Vodd=27648`、`P=16` 与 complex64 字节数。
+- 推导 Legacy `E_L=12` 的 33-tensor 加 `lonv` 尺寸。
+- 推导 Strict `E_S=24` 的 fine V、Yhat、X/X^-1 尺寸。
+- 推导 QUDA nvec12 与历史 nvec24 null-vector 尺寸。
+- 明确实际 HDF5 文件、dataset logical payload、持久 coarse cache 和运行期设备资产的区别。
+
+### S3 — 索引同步
+- `docs/AGENTS.md` 文档计数从 25 更新为 26，并新增 MultiGrid 技术参考行。
+- `skills/pyqcu-docs/SKILL.md` 文档计数改为 26。
+- `skills/pyqcu-docs/references/project-docs-map.md` 新增级别 B 映射，Primary 为 `pyqcu-solver`。
+- `skills/pyqcu-docs/references/extracted-guidance.md` 新增 5.2 节和结论覆盖行。
+
+## 验证与证据
+- 公式断言输出 `PASS`：Legacy `1560674304`、Strict `4586471424`、QUDA n12 `1019215872`、QUDA n24 `2038431744`。
+- `python -B skills/pyqcu-docs/scripts/audit-docs-skills.py`：`PASS docs=26 skills=35`。
+- `bash skills/pyqcu-form/form-audit.sh`：PASS，35 个技能目录一致，豁免 1129 个既有 finding。
+- `bash -n build.sh env.sh install.sh skills/pyqcu-tag/tag-chain.sh skills/pyqcu-tag/tag-chain.test.sh`：exit 0。
+- `git diff --check`：exit 0。
+- 新增文档 387 行、8998 bytes。
+
+## 变更与产物
+- 新增: `docs/mg_cache_sizes_24x24x24x64_20261023.md`。
+- 修改: `docs/AGENTS.md`、`skills/pyqcu-docs/SKILL.md`、`skills/pyqcu-docs/references/project-docs-map.md`、`skills/pyqcu-docs/references/extracted-guidance.md`。
+- 未暂存、未提交、未推送。
+
+## 风险、限制与下一步
+- 风险: 推导仅适用于 c64、两级、block `2x2x2x2`、nvec12/E12 口径。
+- 阻塞: 无。
+- 下一步: 若后续生成 L24 Strict cache 实际文件，再补充 on-disk size 和 manifest hash。
+
+## 用户输入指令
+保存计算过程到docs
+
+## Agent 全文报告
+--- report begin ---
+状态：finished
+
+已将完整计算过程保存到 [`docs/mg_cache_sizes_24x24x24x64_20261023.md`](/root/PyQCU/docs/mg_cache_sizes_24x24x24x64_20261023.md)。
+
+文档覆盖公共格点常数、Legacy 33-tensor 的 `lonv/hnn/hdg/sit`、Strict 的 `fine_blocked_v/preconditioned_links/onsite_pair`、QUDA nvec12/nvec24 null-vector、GB/GiB 换算、HDF5 实际文件与逻辑 payload 的区别，以及可执行的断言脚本。
+
+同步更新了 `docs/AGENTS.md`、`skills/pyqcu-docs/SKILL.md`、`skills/pyqcu-docs/references/project-docs-map.md` 和 `skills/pyqcu-docs/references/extracted-guidance.md`。文档计数现为 26。
+
+验证结果：公式断言 `PASS`，docs 审计 `PASS docs=26 skills=35`，form 审计 PASS，shell 语法检查通过，`git diff --check` 通过。未修改既有源码、benchmark 或数据文件，未暂存、提交或推送。
+--- report end ---

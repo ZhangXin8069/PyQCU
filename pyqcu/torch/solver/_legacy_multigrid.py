@@ -6,6 +6,7 @@ import pyqcu.cann as _torch
 import mpi4py.MPI as MPI
 from time import perf_counter
 from pyqcu.cuda import qcu, define
+from pyqcu._multigrid_warnings import warn_excessive_multigrid_levels
 
 
 class LegacyMultigrid:
@@ -45,6 +46,10 @@ class LegacyMultigrid:
             _lat_size = [_lat_size[d] // self.mg_grid_size[d]
                          for d in range(4)]
         self.num_level = len(self.lat_size_list)
+        self.multigrid_depth_warning = warn_excessive_multigrid_levels(
+            self.num_level, variant="legacy", backend="torch",
+            context="Torch LegacyMultigrid", lattice=self.lat_size,
+            block=self.mg_grid_size)
         self.dof_list = dof_list[:self.num_level]
         self.dtype_list = dtype_list[:self.num_level]
         self.device_list = device_list[:self.num_level]

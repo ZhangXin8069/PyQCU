@@ -72,9 +72,12 @@ def prepare_gauge(lime: Path, lat, out_dir: Path, mass: float,
         return path
     gauge = read_qdp_gauge(lime)
     gauge = gauge[:, :target[3], :target[2], :target[1], :target[0]]
+    is_full = target == full
     write_h5(path, qdp_gauge_to_qcu(gauge), metadata={
         "mass": mass, "csw": csw, "lattice": list(target),
         "provenance": (
+            f"full reference lattice from {lime.name} at fixed mass and Csw"
+            if is_full else
             f"sub-volume of {lime.name} at fixed mass and Csw; "
             "seams are not periodic"),
     })

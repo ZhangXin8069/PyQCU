@@ -1,6 +1,6 @@
 # PyQCU `docs/**` 来源映射
 
-本表覆盖当前 `docs/` 顶层的 25 份 Markdown 文档。`docs/AGENTS.md` 是文件索引；
+本表覆盖当前 `docs/` 顶层的 26 份 Markdown 文档。`docs/AGENTS.md` 是文件索引；
 需要判断“原文应保留在哪里”时先读该文件和 `docs/ORGANIZATION.md`。
 
 ## 权威级别
@@ -34,6 +34,7 @@
 | [`docs/qcu_quda_multigrid_algorithms.md`](../../../docs/qcu_quda_multigrid_algorithms.md) | B | `pyqcu-solver` | `pyqcu-cpp-qcu`, `pyqcu-cuda` | QCU legacy 与 QUDA/PyQUDA MG 的组成、默认算法、flow、版本边界和源码依据。 |
 | [`docs/qcu_quda_multigrid_subalgorithms.md`](../../../docs/qcu_quda_multigrid_subalgorithms.md) | B | `pyqcu-solver` | — | Schur、null vector、transfer、smoother、Krylov、cycle、reliable update 的公式与优劣。 |
 | [`docs/qcu_quda_multigrid_coarse_operator.md`](../../../docs/qcu_quda_multigrid_coarse_operator.md) | B | `pyqcu-solver` | `pyqcu-tools`, `pyqcu-cpp-qcu` | legacy 33-tensor 与 Strict/QUDA `X/Y/Yhat` 粗算子的表示差异；禁止把有效粗量解释成物理 gauge/clover。 |
+| [`docs/mg_cache_sizes_24x24x24x64_20261023.md`](../../../docs/mg_cache_sizes_24x24x24x64_20261023.md) | B | `pyqcu-solver` | `pyqcu-benchmark`, `pyqcu-cuda` | L24 c64 两级 `nvec=12` 下 Legacy 33-tensor、Strict schema-v2 cache 与 QUDA null-vector 的公式、逻辑 payload 和文件边界。 |
 | [`docs/progress_kupl_cuda_mg_20261021.md`](../../../docs/progress_kupl_cuda_mg_20261021.md) | C/D | `pyqcu-benchmark` | `pyqcu-kupl`, `pyqcu-cuda` | `dev99..1640349d` 的静态阶段归档；只作历史证据，未持久化测试明确视为未验证。 |
 | [`docs/progress_until_20261022_worktree.md`](../../../docs/progress_until_20261022_worktree.md) | C | `pyqcu-benchmark` | `pyqcu-cuda`, `pyqcu-kupl` | 已提交的时点工作区快照；状态为 `userinterlude`，不得写成 tag 后永久结论。 |
 | [`docs/three_way_benchmark_20261022.md`](../../../docs/three_way_benchmark_20261022.md) | C | `pyqcu-benchmark` | `pyqcu-kupl`, `pyqcu-cuda` | CUDA/KUPL/QUDA 同窗测量、正确性门、复现脚本、原始数据入口和限制。 |
