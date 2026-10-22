@@ -1,0 +1,42 @@
+{"stage": "launch", "backend": "cuda", "command": ["mpirun", "--allow-run-as-root", "--oversubscribe", "--bind-to", "none", "-np", "2", "/root/PyQCU/data/venv-p100/bin/python", "-m", "pyqcu.testing.simple.mpi.worker", "--backend", "cuda", "--gauge", "/root/PyQCU/data/qcu_l24x64_mpi_20261023/multi2-case/gauge_global_c64.h5", "--source", "/root/PyQCU/data/qcu_l24x64_mpi_20261023/multi2-case/source_global_c64.h5", "--lat", "24", "24", "24", "64", "--grid", "2", "1", "1", "1", "--mass", "-0.277", "--csw", "1.160920226", "--atol", "1e-06", "--max-iter", "200", "--dtype", "c64", "--levels", "2", "--dof", "12", "12", "--mg-grid", "2", "2", "2", "2", "--restart", "5", "--coarse-max-iter", "200", "--coarse-tol-factor", "100.0", "--nv-iters", "1", "--seed", "42", "--output", "/root/PyQCU/data/qcu_l24x64_mpi_20261023/multi2-case/solution_mpi_c64.h5", "--report", "/root/PyQCU/data/logs/qcu_l24x64_mpi_20261023/multi2/cuda-legacy-r5.json", "--coarse-cache", "/root/PyQCU/data/benchmark_legacy_vs_strict_20261022/legacy_cache/24x24x24x64_E12_c64.h5", "--skip-independent-residual"], "lattice": [24, 24, 24, 64], "grid": [2, 1, 1, 1], "omp_threads": 1, "bind_to": "none", "map_by": null, "binding_fallback": false}
+lattice set whole time:0.604508484 sec
+lattice set whole time:0.620827820 sec
+lattice set whole time:0.409277924 sec
+lattice set whole time:0.399476166 sec
+PYQCU::SOLVER::MULTIGRID::
+ self.dof_list:[12, 12]
+ self.lat_size_list:[[12, 24, 24, 32], [6, 12, 12, 16]]
+ num_restart:5
+ tol:1.000000e-06
+ max_iter:200
+ Lt_full:64
+ mg_grid_size:[2,2,2,2]
+ smoother:CG
+ cycle:V
+PYQCU::QCU::MULTIGRID::
+ MG_INIT_COMPLETE: 2 levels, Lt_full=64, num_restart=5, smoother=CG, cycle=V
+PYQCU::SOLVER::MULTIGRID::
+ 0:Norm of b:3723.374756
+PYQCU::SOLVER::MULTIGRID::
+ 0:Norm of r:3723.374756
+PYQCU::SOLVER::MULTIGRID::
+ 0:Norm of x0:0.000000
+PYQCU::SOLVER::MULTIGRID::
+ 0:Starting Iterations
+PYQCU::SOLVER::MULTIGRID::
+ Performance Statistics:
+PYQCU::SOLVER::MULTIGRID::
+ Total iterations: 20
+PYQCU::SOLVER::MULTIGRID::
+ Total time: 0.646409 seconds
+PYQCU::SOLVER::MULTIGRID::
+ Average time per iteration: 0.031285 s
+PYQCU::SOLVER::MULTIGRID::
+ Final residual: 1.671306e-03
+PROF_SECTIONS: fine_iter=625.7ms vcycle=0.0ms n_vcycles=0 coarse_solve=0.0ms coarse_vec=0.0ms coarse_dslash=0.0ms coarse_iters=0 single_checks=0 pair_checks=0 checks=0 check_ms=0.0 ck(k/d/s)=0.0/0.0/0.0
+MG init=17.5ms end=7.1ms solve=647.8ms
+MG init=19.0ms end=8.4ms solve=646.4ms
+lattice set whole time:0.698738281 sec
+lattice set whole time:0.700921753 sec
+{"status": "PASS", "backend": "cuda", "solver": "applyCloverMultigridQcu", "lattice": [24, 24, 24, 64], "grid": [2, 1, 1, 1], "mpi_size": 2, "dtype": "c64", "mass": -0.277, "kappa": 0.13430029546065003, "csw": 1.160920226, "atol": 1e-06, "levels": 2, "dof": [12, 12], "mg_grid": [2, 2, 2, 2], "restart": 5, "coarse_cache": "/root/PyQCU/data/benchmark_legacy_vs_strict_20261022/legacy_cache/24x24x24x64_E12_c64.h5", "wall_seconds": 0.7033049959991331, "residual_seconds": 5.999998393235728e-06, "final_true_residual": null, "residual_acceptance": 1e-06, "residual_source": "native solve only; independent check skipped", "converged": true, "ranks": [{"rank": 0, "coordinate": [0, 0, 0, 0], "gpu": 0, "gpu_name": "Tesla P100-PCIE-16GB", "local_lattice": [12, 24, 24, 64], "local_starts": [0, 0, 0, 0], "solve_seconds": 0.7033049959991331, "affinity_cpus": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17], "omp_num_threads": "1"}, {"rank": 1, "coordinate": [1, 0, 0, 0], "gpu": 1, "gpu_name": "Tesla P100-PCIE-16GB", "local_lattice": [12, 24, 24, 64], "local_starts": [12, 0, 0, 0], "solve_seconds": 0.7032471940001415, "affinity_cpus": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17], "omp_num_threads": "1"}]}
+{"status": "PASS", "backend": "cuda", "solver": "applyCloverMultigridQcu", "lattice": [24, 24, 24, 64], "grid": [2, 1, 1, 1], "mpi_size": 2, "dtype": "c64", "mass": -0.277, "kappa": 0.13430029546065003, "csw": 1.160920226, "atol": 1e-06, "levels": 2, "dof": [12, 12], "mg_grid": [2, 2, 2, 2], "restart": 5, "coarse_cache": "/root/PyQCU/data/benchmark_legacy_vs_strict_20261022/legacy_cache/24x24x24x64_E12_c64.h5", "wall_seconds": 0.7033049959991331, "residual_seconds": 5.999998393235728e-06, "final_true_residual": null, "residual_acceptance": 1e-06, "residual_source": "native solve only; independent check skipped", "converged": true, "ranks": [{"rank": 0, "coordinate": [0, 0, 0, 0], "gpu": 0, "gpu_name": "Tesla P100-PCIE-16GB", "local_lattice": [12, 24, 24, 64], "local_starts": [0, 0, 0, 0], "solve_seconds": 0.7033049959991331, "affinity_cpus": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17], "omp_num_threads": "1"}, {"rank": 1, "coordinate": [1, 0, 0, 0], "gpu": 1, "gpu_name": "Tesla P100-PCIE-16GB", "local_lattice": [12, 24, 24, 64], "local_starts": [12, 0, 0, 0], "solve_seconds": 0.7032471940001415, "affinity_cpus": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17], "omp_num_threads": "1"}], "launcher": {"exit_code": 0, "command": ["mpirun", "--allow-run-as-root", "--oversubscribe", "--bind-to", "none", "-np", "2", "/root/PyQCU/data/venv-p100/bin/python", "-m", "pyqcu.testing.simple.mpi.worker", "--backend", "cuda", "--gauge", "/root/PyQCU/data/qcu_l24x64_mpi_20261023/multi2-case/gauge_global_c64.h5", "--source", "/root/PyQCU/data/qcu_l24x64_mpi_20261023/multi2-case/source_global_c64.h5", "--lat", "24", "24", "24", "64", "--grid", "2", "1", "1", "1", "--mass", "-0.277", "--csw", "1.160920226", "--atol", "1e-06", "--max-iter", "200", "--dtype", "c64", "--levels", "2", "--dof", "12", "12", "--mg-grid", "2", "2", "2", "2", "--restart", "5", "--coarse-max-iter", "200", "--coarse-tol-factor", "100.0", "--nv-iters", "1", "--seed", "42", "--output", "/root/PyQCU/data/qcu_l24x64_mpi_20261023/multi2-case/solution_mpi_c64.h5", "--report", "/root/PyQCU/data/logs/qcu_l24x64_mpi_20261023/multi2/cuda-legacy-r5.json", "--coarse-cache", "/root/PyQCU/data/benchmark_legacy_vs_strict_20261022/legacy_cache/24x24x24x64_E12_c64.h5", "--skip-independent-residual"], "lime": "/root/PyQCU/data/benchmark_legacy_vs_strict_20261022/cases/full/gauge_24x24x24x64_c64.h5", "input_format": "QCU HDF5", "case_manifest": "/root/PyQCU/data/qcu_l24x64_mpi_20261023/multi2-case/case_manifest.json", "small_lattice": [24, 24, 24, 64], "sub_volume_note": "The requested lattice is a prefix sub-volume of the input gauge; its boundary seams are not periodic."}}

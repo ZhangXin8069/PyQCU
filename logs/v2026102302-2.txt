@@ -1,0 +1,68 @@
+[日志元数据]
+日志类型: final
+生成时间: 2026-10-23 02:51:56 +0800
+批次: qcu-l24-mg-cache
+主任务: QCU L24 Legacy/Strict/QUDA MG cache 口径与大小
+触发原因: 任务完成
+摘要: 按 c64、两级、block2^4、nvec12 核对 Legacy 实际 cache、Strict schema 逻辑尺寸及 QUDA 无持久粗算子 cache
+Git 根目录: /root/PyQCU
+
+## 关键日志
+### S1 — 输入与口径确认
+- 目标: 查明 `beta6.20_mu-0.2770_ms-0.2310_L24x64_cfg_9950.lime` 在 QCU Legacy-MG、QCU Strict-MG 与 QUDA MG 下的 cache 口径和数值。
+- 约束: c64、两级、`block=2x2x2x2`、QCU Strict/QUDA 正式对照 `nvec=12`；Legacy 为 E12。
+- 证据: `docs/legacy_vs_strict_mg_memory_20261023.md`、`skills/pyqcu-solver/references/mg-cache-comparison.md`、`data/benchmark_legacy_vs_strict_20261022/reports/legacy_build_24x24x24x64.json`、`data/production_mg_20261021/quda_c64_l2_mg_nvec24.json`。
+
+### S2 — Legacy cache 实测
+- 文件: `/root/PyQCU/data/benchmark_legacy_vs_strict_20261022/legacy_cache/24x24x24x64_E12_c64.h5`。
+- 大小: `1560678400 B`，即 `1.560678400 GB` / `1.453495026 GiB`。
+- HDF5 logical datasets: `1560674304 B`；文件元数据开销 `4096 B`。
+- SHA256: `e1b9a613af6f5a3e9fd128f800e76c23396ecd7bead946726669b6eb154e3c92`，与构建 JSON 一致。
+
+### S3 — Strict 路径
+- 未发现 `24x24x24x64` 的 `strict_runtime_*.h5` 实际文件；现有旧记录中该格点 Strict stdout 为 0 字节且无 JSON。
+- 按 `_strict_runtime_expected_manifest` 的正式 c64 两级 nvec12 schema 计算，逻辑 payload 为 `4586471424 B`，即 `4.586471424 GB` / `4.271484375 GiB`。
+- 组成: fine blocked V `2038431744 B`；Yhat `2038431744 B`；X/X^-1 `509607936 B`。
+- 该值是 schema 逻辑尺寸，不等同于尚不存在的实测 HDF5 文件大小；实际文件还会包含 HDF5 元数据/分配开销。
+
+### S4 — QUDA 路径
+- QUDA 没有与 QCU Legacy 33-tensor cache 或 Strict schema-v2 runtime cache 对应的持久粗算子 cache。
+- 当前 QUDA benchmark 设置 `QUDA_ENABLE_TUNING=0`；MG 粗层在 setup 中生成/驻留内存。
+- 若把 canonical null-vector bundle 视作可加载输入，匹配 nvec12 的逻辑尺寸为 `1019215872 B`（`1.019215872 GB` / `0.949218750 GiB`），但这不是粗算子 cache。
+- 历史完整 L24 QUDA MG 生产记录使用 nvec24；其单个 full-field null basis 逻辑尺寸为 `2038431744 B`（`2.038431744 GB` / `1.898437500 GiB`），但该记录没有 cache 文件或 cache 字节指标。
+
+## 验证与证据
+- `stat`、文件 SHA256 与 HDF5 dataset `nbytes` 已交叉核验 Legacy cache。
+- Strict 尺寸由仓库正式 manifest 构造函数计算，并核对三项 tensor shape/nbytes。
+- 全仓定向搜索未发现 `strict_runtime_*.h5`；`24x24x24x64` 只有 Legacy solve JSON，无 Strict solve JSON。
+- 未验证项: Strict 大格 cache 的实测 on-disk 尺寸，以及 QUDA QIO 持久 null-vector 文件尺寸，因为当前没有对应完成产物。
+
+## 变更与产物
+- 文件: 仅新增本日志及 `logs/AGENTS.md` 索引。
+- 产物: 无代码、配置或数据修改。
+- 未改动范围: 所有求解器、残差数据和现有 cache 文件均未修改。
+
+## 风险、限制与下一步
+- 风险: 仅给 LIME 文件不足以唯一决定 cache 大小；dtype、层数、block、nvec/coarse DOF 任一变化都会改变结果。
+- 阻塞: 无。
+- 下一步: 如需 Strict/QUDA 文件级实数，按正式 cache-miss 路径生成后再读取 manifest `total_bytes` 与 on-disk size。
+
+## 用户输入指令
+qcu的legacy-mg与strict-mg使用{beta6.20_mu-0.2770_ms-0.2310_L24x64_cfg_9950.lime}时mg-cache分别是多少?quda是多少?
+
+## Agent 全文报告
+--- report begin ---
+按仓库正式对照口径（`c64`、两级、`block=2x2x2x2`、`nvec=12`，Legacy `dof=12`）：
+
+| 路径 | cache 口径 | 数值 |
+|---|---|---:|
+| QCU Legacy-MG | 实际 33-tensor HDF5 cache | **1,560,678,400 B = 1.560678400 GB = 1.453495026 GiB** |
+| QCU Strict-MG | schema-v2 逻辑 payload；该大格尚无实际 cache 文件 | **4,586,471,424 B = 4.586471424 GB = 4.271484375 GiB** |
+| QUDA | 无同类持久粗算子 cache | **0 B / N/A** |
+
+Strict 的 `4,586,471,424 B` 由 fine blocked `V` `2,038,431,744 B`、`Yhat` `2,038,431,744 B`、`X/X^-1` `509,607,936 B` 组成。实际 HDF5 文件会比逻辑 payload 略大，但当前 `24x24x24x64` Strict 记录失败/缺失，不能报实测文件大小。
+
+QUDA 没有 QCU 这种持久 MG coarse cache。若把 `vec_load` 的 canonical null-vector bundle 也称为 cache：匹配的 nvec12 逻辑大小是 `1,019,215,872 B = 1.019215872 GB = 0.949218750 GiB`；历史完整 L24 QUDA MG 使用 nvec24，其 null basis 为 `2,038,431,744 B = 2.038431744 GB = 1.898437500 GiB`，但这不是粗算子缓存。
+
+注意：仅凭 LIME 文件不能唯一确定 cache 大小；dtype、层数、block、nvec/coarse DOF 都会改变结果。以上数值对应仓库当前正式对照配置。
+--- report end ---

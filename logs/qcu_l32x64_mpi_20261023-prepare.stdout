@@ -1,0 +1,8 @@
+{
+  "gauge": "data/qcu_l32x64_mpi_20261023/case/gauge_32x32x32x64_c64.h5",
+  "source": "data/qcu_l32x64_mpi_20261023/case/source_32x32x32x64_c64.h5",
+  "manifest": "data/qcu_l32x64_mpi_20261023/case/case_manifest.json",
+  "mass": -0.277,
+  "csw": 1.160920226,
+  "sub_volume": false
+}

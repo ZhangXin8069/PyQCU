@@ -33,6 +33,7 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tupl
 import pyqcu.cann as _torch
 from pyqcu import lattice, tools
 from pyqcu.torch import dslash
+from pyqcu._multigrid_warnings import warn_excessive_multigrid_levels
 
 
 Tensor = Any
@@ -2520,6 +2521,10 @@ class _MultigridHierarchy:
         self._nvec_list = self._infer_nvec_list(nvec_list, dof_list)
         self._block_sizes = self._normalise_block_sizes(block_size)
         transitions = self._number_of_transitions(max_level)
+        self.multigrid_depth_warning = warn_excessive_multigrid_levels(
+            transitions + 1, variant=self.hierarchy_mode, backend="torch",
+            context=f"Torch {type(self).__name__}", lattice=self.fine_shape,
+            block=self._block_sizes, process_grid=self.process_grid)
         self._transition_count = transitions
         if self._strict_mode:
             if self.fine_spin == 1:

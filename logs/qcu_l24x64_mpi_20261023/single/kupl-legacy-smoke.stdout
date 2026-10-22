@@ -1,0 +1,2 @@
+PYQCU::KUPL::CLOVER_MULTIGRID_VERIFY:
+ transition=0 projection=23.3231 galerkin=29.3509 tolerance=0.002 fine_nonzero=10616832 coarse_back_nonzero=331776

@@ -40,6 +40,12 @@ def _load_common():
     module = sys.modules.get(module_name)
     if module is not None:
         return module
+    # ``_common`` was split into sibling ``_lime``/``_layouts`` modules.  A
+    # file-based import does not establish their package context, so make the
+    # helpers discoverable through their direct-execution import path.
+    simple_path = str(SIMPLE_DIR)
+    if simple_path not in sys.path:
+        sys.path.insert(0, simple_path)
     spec = importlib.util.spec_from_file_location(
         module_name, SIMPLE_DIR / "_common.py")
     if spec is None or spec.loader is None:

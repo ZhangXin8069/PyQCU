@@ -148,6 +148,14 @@ public:
     if (num_levels_ < 1 || num_levels_ > 5) {
       throw std::runtime_error("legacy Clover-MG level count must be 1..5");
     }
+    if (num_levels_ > 2 && params_[kNodeRank] == 0) {
+      std::fprintf(
+          stderr,
+          "PYQCU::KUPL::MULTIGRID::WARNING:\n"
+          " Legacy-MultiGrid levels=%d exceeds the validated depth 2; "
+          "deeper Legacy hierarchies are experimental.\n",
+          num_levels_);
+    }
     if (params_[kMgUseGcr] != 0) {
       throw std::runtime_error(
           "KUPL legacy MG rejects CUDA-only GCR/cycle mode bits");
