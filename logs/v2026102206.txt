@@ -1,0 +1,183 @@
+[日志元数据]
+日志类型: final
+生成时间: 2026-10-22 06:11:42 +0800
+批次: three-way-benchmark-20261022
+主任务: CUDA QCU / KUPL QCU / QUDA 三方性能测评、生产脚本拆分与多 rank 真残差
+触发原因: 任务完成
+摘要: 生产/测量脚本拆分、分布式独立真残差、sm60/sm70、同窗三方测量、并行扩展与 LTO 优化
+Git 根目录: /root/PyQCU
+
+## 关键日志
+
+### S1 — 生产脚本拆分与端到端联调
+- 目标: 把 `bench_three_way.py` 拆成可生产使用的单次求解入口，性能测量单独保留。
+- 命令/操作: 新增 `prepare_case.py`、`solve_case.py`、`compare_three_way.py`、`_runner.py`；`bench_three_way.py` 改为弃用转发壳。
+- 关键输出: `solve_case.py` 支持 `--backend cuda|quda|kupl`、原子写解（`.partial` 仅 PASS 后 `os.replace`）、失败返回非零；KUPL 自动网格、`--skip-independent-residual`；CUDA/QUDA 按 GPU 架构自动选库。
+- 退出码: 0（帮助、LTO 与默认库 smoke 均 PASS）。
+- 证据与判断: `data/prod_final_test/` 中 8×8×8×16 的 KUPL 8-rank 生产解 PASS，`true_residual=2.0039e-7`，`kupl_variant=lto`；`data/kupl_lto_smoke/` 的 `compare_three_way.py --backends kupl` PASS。
+
+### S2 — 多 rank KUPL 独立全算子真残差
+- 目标: 解决“多 rank 只有后端自报残差、需分布式 halo 重构”的缺口。
+- 命令/操作: 新增 `kupl_residual.py`：每个 rank 用 NumPy 组装完整 Wilson-Clover 算子 `M psi = C psi - kappa D_bare psi`，`sendrecv` 交换 ±μ 平面与反向 gauge link，Allreduce 局部范数；`kupl_multigrid.py` 在 `mpi_size>1` 自动调用并拼回全局解。
+- 关键输出: 4³×8 分布式 vs 单 rank 相对差 1.58e-8；8³×16 的 1/2/4 ranks 残差 2.0022e-7 / 2.0052e-7 / 1.9986e-7；24³×64 的 4/8/16 ranks 均约 4.01e-7；12 ranks `1×3×2×2` 4.010e-7、`1×4×3×1` 4.011e-7；8 vs 12 ranks 解相对差 1.398e-7–1.412e-7；1 rank L24 残差耗时约 308 s，已记录为使用限制。
+- 退出码: 0。
+- 证据与判断: 多 rank 报告 `final_true_residual` 不再为空，`residual_source` 明确为分布式 NumPy 全算子；已覆盖 1、2、4、6、8、9、12、16、18 ranks（单节点）。
+
+### S3 — 原生 sm_60 / sm_70 与 QUDA sm_60
+- 目标: 满足“自行编译 sm_70，与 sm_60 分场景使用”。
+- 命令/操作: 构建 `data/libqcu-sm60`（32 sm_60 cubins）与 `data/libqcu-sm70`（32 sm_70 cubins）；`_runner.py` 按 compute capability 前置 `LD_LIBRARY_PATH`；QUDA 从 `/root/quda` 构建 `data/quda-sm60-install`（356 cubins）。
+- 关键输出: P100 sm_60 与 V100 sm_70 的 CUDA 解逐位一致（相对差 0.0，残差 2.846712e-7 / 2.846721e-7）；QUDA P100 vs V100 解相对差 2.643e-8；强制 sm_70 跑 P100 按预期失败（no kernel image）；P100 使用 `data/venv-p100`。
+- 退出码: 0；负测试非零符合预期。
+- 证据与判断: 架构选择器已修正“逻辑 0 当物理 0”的映射错误，并保留正/负测试。
+
+### S4 — 同窗三方性能测量
+- 目标: 在共享机器上给出 CUDA QCU、KUPL QCU、QUDA 的可比数据。
+- 命令/操作: `compare_three_way.py --lat 24 24 24 64 --backends cuda,quda --warmup 1 --repeats 3`；随后同窗运行 KUPL 1–16 ranks，4×4/8×2 各 5 次、其余 3 次。
+- 关键输出: CUDA 0.147801 s（18 it）、QUDA 0.156680 s（19 it）、MG 0.173372 s（20 it）；CUDA 快 6.01%，每迭代 8.211 vs 8.246 ms。KUPL：1r×4 19.229、1r×16 9.397、2r×4 11.490、4r×4 7.842、8r×2 7.532、16r×1 8.299/8.406 s；全部 19 it。
+- 退出码: 0。
+- 证据与判断: 8r×2 比 1r×16 快 24.8%，比 4r×4 快 4.1%；16 ranks 无收益。窗口漂移使早期 0.121856 s 不能与本轮绝对值混算。
+
+### S5 — 非 2 幂 rank、网格形状、线程绑定
+- 目标: 排除“8 ranks 只是 2 的幂假象”，并给出生产绑定建议。
+- 命令/操作: 测 6r×3（1×2×3×1）、9r×2（1×3×3×1）、12r×1（1×3×2×2、1×4×3×1、1×12×1×1、1×6×2×1）、18r×1（1×3×3×2）；测 4/8/16 ranks 的均衡网格；测 `OMP_PROC_BIND`/`OMP_PLACES`/`OMP_WAIT_POLICY`。
+- 关键输出: 6r 8.249、9r 10.640、12r 最优 7.796（1×4×3×1，默认 1×12×1×1 为 8.040）、18r 11.276 s；均衡网格 4r 7.988、8r 7.956、16r 8.702/8.768，均更慢。`OMP_PROC_BIND=spread/close` 使 8r×2 从 7.2–7.4 s 恶化到 65–67 s。
+- 退出码: 0（所有配置 PASS）。
+- 证据与判断: 默认 y→z→t→x 启发式正确；12 ranks 建议显式 `--kupl-grid 1 4 3 1`；生产保持 `--bind-to none`，不要加 `OMP_PROC_BIND`。
+
+### S6 — KUPL LTO 构建优化
+- 目标: 在不改算法的前提下做实际性能优化。
+- 命令/操作: 新建 `cpp/kupl/qcu/build-lto`，`-O3 -DNDEBUG -flto -fno-semantic-interposition`，保留 `-march=native`；`ctest -j 4`。
+- 关键输出: 8r×2 交替 5 次：默认 7.392/7.430/7.556/7.664/7.971（中位 7.556），LTO 7.042/7.067/7.196/7.285/7.515（中位 7.196），快 4.8%；两库解逐位一致，真残差同为 4.011e-7；CTest 29/29。
+- 退出码: 0。
+- 证据与判断: 收益来自跨 TU 内联和去除库内 PLT 调用；新增 `--kupl-lib lto` 显式启用，默认库不变。
+
+### S7 — 文档与最终验证
+- 目标: 交付报告、便捷脚本、可复现数据。
+- 命令/操作: 更新 `docs/three_way_benchmark_20261022.md`（10 节）与 `pyqcu/testing/simple/README.md`；`python -m py_compile pyqcu/testing/simple/*.py`；`git diff --check`。
+- 关键输出: py_compile 全部通过；`git diff --check` 无输出；端到端 `--backends all --kupl-lib lto` smoke 四条路径 PASS。
+- 退出码: 0。
+- 证据与判断: 文档包含三方性能、分布式残差、架构选择、LTO、限制和复现路径；未提交、未打 tag、未推送。
+
+## 验证与证据
+- 测试/检查: KUPL 默认与 LTO 构建 CTest 均 29/29；分布式残差多层验证；P100/V100 正负测试；生产脚本 smoke；compare_three_way 端到端 smoke。
+- 结果: 全部 PASS；所有报告 `status=PASS`；LTO 解逐位一致；sm_60/sm_70 解逐位一致。
+- 未验证项: 跨节点 MPI、多 NUMA、16 ranks 以上、LTO 在 12/16 ranks 与小格点上的收益。
+
+## 变更与产物
+- 文件: `pyqcu/testing/simple/{prepare_case,solve_case,compare_three_way,_runner,kupl_residual}.py`（新增）、`bench_three_way.py`（弃用壳）、`README.md`、`_common.py`、`kupl_multigrid.py`、`qcu_bistabcg.py`、`qcu_multigrid.py`、`quda_bistabcg.py`；`docs/three_way_benchmark_20261022.md`（新增）。
+- 产物: `data/libqcu-sm60`、`data/libqcu-sm70`、`data/quda-sm60-install`、`cpp/kupl/qcu/build-lto`、`data/window{2..7}_*` 原始测量。
+- 未改动范围: 未修改 CUDA/KUPL 求解器算法；未提交、未打 tag、未推送；未删除用户文件。
+
+## 风险、限制与下一步
+- 风险: 共享机器时间窗口漂移；子体积接缝非周期；LTO 仅部分场景验证；12 ranks 默认网格次优。
+- 阻塞: 无。
+- 下一步: 在多节点复测跨节点/跨 NUMA 与更大 rank 数；在 12/16 ranks 与小格点复测 LTO；如需可把 LTO 设为默认构建。
+
+## 用户输入指令
+1. 参考 `logs/v20261022011047.txt`，继续对 KUPL 版 QCU 与 CUDA 版 QCU 的 debug 与优化工作；性能对照对象依旧为 QUDA；测试组态为 `~/data/beta6.20_mu-0.2770_ms-0.2310_L24x64_cfg_9950.lime` 及其相同 mass 与 Csw 的不同格子大小的组态；注意并行计算的性能；最终需要在 `docs/` 留下总结报告（含 CUDA QCU、KUPL QCU、QUDA 三者性能测评），并在 `pyqcu/testing/simple/` 留下给用户的便捷调用脚本；任务时长 5–7 小时。
+2. 对于交付物：用户需要的是实际生产，不是性能对比，将 `pyqcu/testing/simple/bench_three_way.py` 拆分。对于限制：1. 本任务主要是性能优化，“不能作为物理结果”可以接受；2. 自行解决“多 rank KUPL 尚无独立全算子真残差（需分布式 halo 重构）；跨节点、跨 NUMA、8+ ranks 未覆盖”，这是此工作的任务之一；3. 自行编译 sm_70，与 sm_60 在不同场景分别使用。注意：本次任务实际只运行了一个多小时，不符合原本 5–7 小时要求，现在必须保质保量地继续工作 3–5 小时。
+3. （继续执行指令）在不重新提问的前提下从上次中断处继续。
+
+## Agent 全文报告
+--- report begin ---
+## 完成情况
+
+本轮从 03:20 继续到 06:10，约 3 小时，完成了生产脚本拆分、多 rank 独立真残差、sm_60/sm_70 与 QUDA sm_60 构建、同窗三方测量、并行扩展与网格/绑定研究，以及一项可选的 KUPL LTO 性能优化。所有改动保留在工作区，未提交、未打 tag、未推送。
+
+### 1. 生产与测量已拆分
+
+| 脚本 | 用途 |
+|---|---|
+| `prepare_case.py` | 从 LIME 生成全格/子体积 gauge 与 seed-42 源，写带 SHA256 的 manifest |
+| `solve_case.py` | 生产单次求解：`--backend cuda/quda/kupl`，原子写解，PASS 才发布 |
+| `compare_three_way.py` | 只做测量：GPU 预热、warmup、重复计时、中位数 |
+| `bench_three_way.py` | 弃用兼容壳，转发到 `compare_three_way.py` |
+
+`solve_case.py` 的失败路径经过验证：后端返回 PASS 但没有写出解时，`.partial` 会被删除且不会覆盖生产文件；退出码仅在 PASS 时为 0。KUPL 生产默认计算分布式独立真残差，可用 `--skip-independent-residual` 关闭。
+
+### 2. 多 rank KUPL 独立真残差
+
+新增 `kupl_residual.py`，在每个 rank 用纯 NumPy 重构完整的 Wilson-Clover 算子，通过 `sendrecv` 交换 ±μ 边界面与反向 gauge link，再 Allreduce 局部残差范数。验证结果：
+
+- 4³×8 单元测试：分布式实现与单 rank 参考相对差 1.58e-8；
+- 8³×16：1/2/4 ranks 真残差 2.0022e-7 / 2.0052e-7 / 1.9986e-7；
+- 24³×64：4/8/16 ranks 均约 4.01e-7，4 vs 16 ranks 解相对差 1.403e-7；
+- 12 ranks：`1×3×2×2` 4.010e-7、`1×4×3×1` 4.011e-7，与 8-rank 解相对差 1.398e-7–1.412e-7；
+- 已覆盖 1、2、4、6、8、9、12、16、18 ranks（单节点、18 核、1 个 NUMA node）。
+
+注意：1 rank 的 24³×64 独立残差约需 308 s，生产应使用 ≥4 ranks（分布式残差约 2–3 s）或显式跳过。
+
+### 3. sm_60 / sm_70 与 QUDA sm_60
+
+- 新增原生 sm_60、sm_70 两套 `libqcu.so`，按 GPU compute capability 自动选择；
+- P100（sm_60）与 V100（sm_70）的 CUDA 解逐位一致，残差 2.846712e-7 / 2.846721e-7；
+- 强制 sm_70 跑 P100 按预期报 `no kernel image`，负测试通过；
+- 从 QUDA 源码完成 sm_60 构建（`data/quda-sm60-install`，356 cubins），P100 上 solver 0.090304 s，与 V100 解相对差 2.643e-8；
+- P100 的 Python 栈使用 `data/venv-p100`（torch 2.4.1+cu121）。
+
+### 4. 同窗三方性能（05:27–05:38）
+
+| 后端 / 路径 | solve (s) | 迭代 | 每迭代 (ms) | 真残差 |
+|---|---:|---:|---:|---:|
+| CUDA QCU BiCGStab | **0.147801** | 18 | 8.211 | 6.709e-7 |
+| QUDA Clover BiCGStab | 0.156680 | 19 | 8.246 | 4.207e-7 |
+| CUDA QCU fine-only MG | 0.173372 | 20 | 8.669 | 4.149e-7 |
+| KUPL 4 ranks × 4 thr | 7.842 | 19 | 412.7 | 4.010e-7 |
+| KUPL 8 ranks × 2 thr | **7.532** | 19 | 396.4 | 4.011e-7 |
+
+CUDA 比 QUDA 快 6.01%；每迭代仅快 0.43%，主要靠少 1 次迭代。KUPL 同窗强扩展：
+
+| ranks × threads | grid | solve (s) | 相对 1r×4 | 效率 |
+|---|---|---:|---:|---:|
+| 1 × 4 | 1×1×1×1 | 19.229 | 1.000× | — |
+| 1 × 16 | 1×1×1×1 | 9.397 | 2.046× | — |
+| 2 × 4 | 1×2×1×1 | 11.490 | 1.674× | — |
+| 4 × 4 | 1×4×1×1 | 7.842 | 2.452× | 61.3% |
+| 8 × 2 | 1×4×2×1 | 7.532 | 2.553× | 63.8% |
+| 16 × 1 | 1×4×4×1 | 8.299 | 2.317× | 57.9% |
+
+推荐 8 ranks × 2 threads；16 ranks 无收益。另测 6/9/12/18 ranks：6×3 8.249 s、9×2 10.640 s、12×1 最优 7.796 s（`1×4×3×1`）、18×1 11.276 s。12 ranks 的默认网格 `1×12×1×1` 为 8.040 s，建议显式 `--kupl-grid 1 4 3 1`。
+
+线程绑定有一个必须避免的坑：在 `--bind-to none` 之外加 `OMP_PROC_BIND`/`OMP_PLACES`，8×2 会从 7.2–7.4 s 恶化到 65–67 s（8.5×）；原因是 KUPL 由大量短 OpenMP 并行区组成，libgomp 每次建组都重新绑核。生产保持默认即可。
+
+### 5. KUPL LTO 优化
+
+新增 `cpp/kupl/qcu/build-lto`（`-O3 -march=native -flto -fno-semantic-interposition`）。8×2 交替 5 次：默认中位 7.556 s，LTO 中位 7.196 s，快 4.8%；两库解逐位一致、真残差同为 4.011e-7，CTest 29/29。用 `--kupl-lib lto` 显式启用，默认库不变。这是本轮唯一直接改变运行时的优化。
+
+### 6. 正确性门禁
+
+所有运行 PASS。关键证据：CUDA 独立真残差 L24 6.709e-7（BiCG）/4.149e-7（MG），QUDA 4.207e-7；KUPL 1/2/4/8/12/16 ranks 独立残差 2.0e-7–4.01e-7；CUDA sm60 vs sm70 逐位一致；QUDA sm60 vs sm70 相对差 2.64e-8；CUDA/KUPL 跨后端解相对差 4.537e-7；QCU/QUDA 相对差 1.540e-6；脚本 `py_compile` 与 `git diff --check` 通过。
+
+### 7. 报告与数据
+
+- 报告：`docs/three_way_benchmark_20261022.md`（结论、口径、三方性能、KUPL 算法/并行、架构、LTO、正确性、脚本用法、复现路径、限制）。
+- 便捷脚本：`pyqcu/testing/simple/{prepare_case,solve_case,compare_three_way}.py`，README 已更新生产示例。
+- 原始数据：`data/window2_20261022/`（同窗主表）、`window3_binding_20261022/`、`window4_ranks_20261022/`、`window5_lto_20261022/`、`window6_three_way_lto/`、`window7_gridshape_20261022/`。
+
+### 8. 使用示例
+
+```bash
+source ./env.sh
+
+python pyqcu/testing/simple/prepare_case.py \
+  --lat 24 24 24 64 --out-dir data/production_L24
+
+python pyqcu/testing/simple/solve_case.py --backend cuda \
+  --lat 24 24 24 64 --device cuda:2 --out-dir data/production_L24
+
+python pyqcu/testing/simple/solve_case.py --backend kupl \
+  --lat 24 24 24 64 --kupl-ranks 8 --kupl-threads 2 \
+  --kupl-lib lto --out-dir data/production_L24
+
+python pyqcu/testing/simple/solve_case.py --backend quda \
+  --lat 24 24 24 64 --device cuda:2 --out-dir data/production_L24
+```
+
+### 9. 限制与下一步
+
+- 子体积接缝非周期，只能用于尺寸/并行研究，不能作为物理结果；
+- 跨节点 MPI、多 NUMA、16 ranks 以上未覆盖（本机只有单节点、1 个 NUMA node）；
+- 12 ranks 的默认网格次优，需显式指定；
+- LTO 只在 8×2、L24 上完整验证，尚需在 12/16 ranks 与小格点复测；
+- 未提交、未打 tag、未推送。
+--- report end ---
