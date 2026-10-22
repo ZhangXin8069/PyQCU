@@ -19,7 +19,7 @@ import threading
 import time
 import warnings
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 REPO = Path(__file__).resolve().parents[5]
 if str(REPO) not in sys.path:
