@@ -4,11 +4,40 @@ from qcu_api cimport applyCloverBistabCgPrepareQcu as _c_applyCloverBistabCgPrep
 import math
 import torch
 import pyqcu.cuda.define as define
+
+
+cdef long long _contiguous_pointer(object tensor, object name):
+    """Reject implicit copies so native writes never target a temporary."""
+    cdef bint is_control
+    cdef object expected_device
+    if not tensor.is_contiguous():
+        raise ValueError(f"QCU {name} must be contiguous")
+    is_control = name in ("set_ptrs", "params", "argv")
+    expected_device = "cpu" if is_control else "cuda"
+    if tensor.device.type != expected_device:
+        raise ValueError(f"QCU {name} must be a {expected_device} tensor")
+    if name == "set_ptrs" and tensor.dtype != torch.int64:
+        raise TypeError("QCU set_ptrs must have dtype torch.int64")
+    if name == "set_ptrs" and tensor.numel() != define._SET_PTRS_SIZE_:
+        raise ValueError(f"QCU set_ptrs must have {define._SET_PTRS_SIZE_} elements")
+    if name == "params" and tensor.dtype != torch.int32:
+        raise TypeError("QCU params must have dtype torch.int32")
+    if name == "params" and tensor.numel() != define._PARAMS_SIZE_:
+        raise ValueError(f"QCU params must have {define._PARAMS_SIZE_} elements")
+    if name == "argv" and tensor.dtype not in (torch.float32, torch.float64):
+        raise TypeError("QCU argv must have real float32/float64 dtype")
+    if name == "argv" and tensor.numel() != define._ARGV_SIZE_:
+        raise ValueError(f"QCU argv must have {define._ARGV_SIZE_} elements")
+    if not is_control and tensor.dtype not in (torch.complex64, torch.complex128):
+        raise TypeError(f"QCU {name} must have complex64/complex128 dtype")
+    return tensor.data_ptr()
+
+
 # CUDA 生产拓扑：一个 Python 进程 = 一个 MPI rank = 一张 GPU/DCU/GPGPU。
 # 单进程多线程多卡仅由测试专用 MultiGpuMultigrid 显式启用。
 #
 # 测试驱动使用的一线程一卡约定：
-#   * 所有桥函数在 GIL 段提取张量指针（.contiguous().data_ptr()），
+#   * 所有桥函数在 GIL 段校验并提取连续张量指针，
 #     随后 with nogil 释放 GIL 调用 C++ 后端 —— 多线程可真正并行进入
 #     libqcu.so，各线程在各自绑定的 CUDA 设备上运行。
 #   * 指针均声明为函数内局部 cdef 变量（栈变量，线程安全），
@@ -52,166 +81,166 @@ def applyInitQcu(_set_ptrs, _params, _argv):
         raise ValueError("atol must be finite and positive")
     if not math.isfinite(csw):
         raise ValueError("csw must be finite")
-    set_ptrs = _set_ptrs.data_ptr()
-    params = _params.data_ptr()
-    argv = _argv.data_ptr()
+    set_ptrs = _contiguous_pointer(_set_ptrs, "set_ptrs")
+    params = _contiguous_pointer(_params, "params")
+    argv = _contiguous_pointer(_argv, "argv")
     with nogil:
         _c_applyInitQcu(set_ptrs, params, argv)
 def applyEndQcu(_set_ptrs, _params):
     cdef long long set_ptrs, params
-    set_ptrs = _set_ptrs.contiguous().data_ptr()
-    params = _params.contiguous().data_ptr()
+    set_ptrs = _contiguous_pointer(_set_ptrs, "set_ptrs")
+    params = _contiguous_pointer(_params, "params")
     with nogil:
         _c_applyEndQcu(set_ptrs, params)
 def testWilsonDslashQcu(_fermion_out, _fermion_in, _gauge, _set_ptrs, _params):
     cdef long long fermion_out, fermion_in, gauge, set_ptrs, params
-    fermion_out = _fermion_out.contiguous().data_ptr()
-    fermion_in = _fermion_in.contiguous().data_ptr()
-    gauge = _gauge.contiguous().data_ptr()
-    set_ptrs = _set_ptrs.contiguous().data_ptr()
-    params = _params.contiguous().data_ptr()
+    fermion_out = _contiguous_pointer(_fermion_out, "fermion_out")
+    fermion_in = _contiguous_pointer(_fermion_in, "fermion_in")
+    gauge = _contiguous_pointer(_gauge, "gauge")
+    set_ptrs = _contiguous_pointer(_set_ptrs, "set_ptrs")
+    params = _contiguous_pointer(_params, "params")
     with nogil:
         _c_testWilsonDslashQcu(fermion_out, fermion_in, gauge, set_ptrs, params)
 def applyWilsonDslashQcu(_fermion_out, _fermion_in, _gauge, _set_ptrs, _params):
     cdef long long fermion_out, fermion_in, gauge, set_ptrs, params
-    fermion_out = _fermion_out.contiguous().data_ptr()
-    fermion_in = _fermion_in.contiguous().data_ptr()
-    gauge = _gauge.contiguous().data_ptr()
-    set_ptrs = _set_ptrs.contiguous().data_ptr()
-    params = _params.contiguous().data_ptr()
+    fermion_out = _contiguous_pointer(_fermion_out, "fermion_out")
+    fermion_in = _contiguous_pointer(_fermion_in, "fermion_in")
+    gauge = _contiguous_pointer(_gauge, "gauge")
+    set_ptrs = _contiguous_pointer(_set_ptrs, "set_ptrs")
+    params = _contiguous_pointer(_params, "params")
     with nogil:
         _c_applyWilsonDslashQcu(fermion_out, fermion_in, gauge, set_ptrs, params)
 def testCloverDslashQcu(_fermion_out, _fermion_in, _gauge, _set_ptrs, _params):
     cdef long long fermion_out, fermion_in, gauge, set_ptrs, params
-    fermion_out = _fermion_out.contiguous().data_ptr()
-    fermion_in = _fermion_in.contiguous().data_ptr()
-    gauge = _gauge.contiguous().data_ptr()
-    set_ptrs = _set_ptrs.contiguous().data_ptr()
-    params = _params.contiguous().data_ptr()
+    fermion_out = _contiguous_pointer(_fermion_out, "fermion_out")
+    fermion_in = _contiguous_pointer(_fermion_in, "fermion_in")
+    gauge = _contiguous_pointer(_gauge, "gauge")
+    set_ptrs = _contiguous_pointer(_set_ptrs, "set_ptrs")
+    params = _contiguous_pointer(_params, "params")
     with nogil:
         _c_testCloverDslashQcu(fermion_out, fermion_in, gauge, set_ptrs, params)
 def applyCloverDslashQcu(_fermion_out, _fermion_in, _gauge, _set_ptrs, _params):
     cdef long long fermion_out, fermion_in, gauge, set_ptrs, params
-    fermion_out = _fermion_out.contiguous().data_ptr()
-    fermion_in = _fermion_in.contiguous().data_ptr()
-    gauge = _gauge.contiguous().data_ptr()
-    set_ptrs = _set_ptrs.contiguous().data_ptr()
-    params = _params.contiguous().data_ptr()
+    fermion_out = _contiguous_pointer(_fermion_out, "fermion_out")
+    fermion_in = _contiguous_pointer(_fermion_in, "fermion_in")
+    gauge = _contiguous_pointer(_gauge, "gauge")
+    set_ptrs = _contiguous_pointer(_set_ptrs, "set_ptrs")
+    params = _contiguous_pointer(_params, "params")
     with nogil:
         _c_applyCloverDslashQcu(fermion_out, fermion_in, gauge, set_ptrs, params)
 def applyWilsonBistabCgQcu(_fermion_out, _fermion_in, _gauge, _set_ptrs, _params):
     cdef long long fermion_out, fermion_in, gauge, set_ptrs, params
-    fermion_out = _fermion_out.contiguous().data_ptr()
-    fermion_in = _fermion_in.contiguous().data_ptr()
-    gauge = _gauge.contiguous().data_ptr()
-    set_ptrs = _set_ptrs.contiguous().data_ptr()
-    params = _params.contiguous().data_ptr()
+    fermion_out = _contiguous_pointer(_fermion_out, "fermion_out")
+    fermion_in = _contiguous_pointer(_fermion_in, "fermion_in")
+    gauge = _contiguous_pointer(_gauge, "gauge")
+    set_ptrs = _contiguous_pointer(_set_ptrs, "set_ptrs")
+    params = _contiguous_pointer(_params, "params")
     with nogil:
         _c_applyWilsonBistabCgQcu(fermion_out, fermion_in, gauge, set_ptrs, params)
 def applyWilsonBistabCgDslashQcu(_fermion_out, _fermion_in, _gauge, _set_ptrs, _params):
     cdef long long fermion_out, fermion_in, gauge, set_ptrs, params
-    fermion_out = _fermion_out.contiguous().data_ptr()
-    fermion_in = _fermion_in.contiguous().data_ptr()
-    gauge = _gauge.contiguous().data_ptr()
-    set_ptrs = _set_ptrs.contiguous().data_ptr()
-    params = _params.contiguous().data_ptr()
+    fermion_out = _contiguous_pointer(_fermion_out, "fermion_out")
+    fermion_in = _contiguous_pointer(_fermion_in, "fermion_in")
+    gauge = _contiguous_pointer(_gauge, "gauge")
+    set_ptrs = _contiguous_pointer(_set_ptrs, "set_ptrs")
+    params = _contiguous_pointer(_params, "params")
     with nogil:
         _c_applyWilsonBistabCgDslashQcu(fermion_out, fermion_in, gauge, set_ptrs, params)
 def applyWilsonCgQcu(_fermion_out, _fermion_in, _gauge, _set_ptrs, _params):
     cdef long long fermion_out, fermion_in, gauge, set_ptrs, params
-    fermion_out = _fermion_out.contiguous().data_ptr()
-    fermion_in = _fermion_in.contiguous().data_ptr()
-    gauge = _gauge.contiguous().data_ptr()
-    set_ptrs = _set_ptrs.contiguous().data_ptr()
-    params = _params.contiguous().data_ptr()
+    fermion_out = _contiguous_pointer(_fermion_out, "fermion_out")
+    fermion_in = _contiguous_pointer(_fermion_in, "fermion_in")
+    gauge = _contiguous_pointer(_gauge, "gauge")
+    set_ptrs = _contiguous_pointer(_set_ptrs, "set_ptrs")
+    params = _contiguous_pointer(_params, "params")
     with nogil:
         _c_applyWilsonCgQcu(fermion_out, fermion_in, gauge, set_ptrs, params)
 def applyWilsonCgDslashQcu(_fermion_out, _fermion_in, _gauge, _set_ptrs, _params):
     cdef long long fermion_out, fermion_in, gauge, set_ptrs, params
-    fermion_out = _fermion_out.contiguous().data_ptr()
-    fermion_in = _fermion_in.contiguous().data_ptr()
-    gauge = _gauge.contiguous().data_ptr()
-    set_ptrs = _set_ptrs.contiguous().data_ptr()
-    params = _params.contiguous().data_ptr()
+    fermion_out = _contiguous_pointer(_fermion_out, "fermion_out")
+    fermion_in = _contiguous_pointer(_fermion_in, "fermion_in")
+    gauge = _contiguous_pointer(_gauge, "gauge")
+    set_ptrs = _contiguous_pointer(_set_ptrs, "set_ptrs")
+    params = _contiguous_pointer(_params, "params")
     with nogil:
         _c_applyWilsonCgDslashQcu(fermion_out, fermion_in, gauge, set_ptrs, params)
 def applyLaplacianQcu(_laplacian_out, _laplacian_in, _gauge, _set_ptrs, _params):
     cdef long long laplacian_out, laplacian_in, gauge, set_ptrs, params
-    laplacian_out = _laplacian_out.contiguous().data_ptr()
-    laplacian_in = _laplacian_in.contiguous().data_ptr()
-    gauge = _gauge.contiguous().data_ptr()
-    set_ptrs = _set_ptrs.contiguous().data_ptr()
-    params = _params.contiguous().data_ptr()
+    laplacian_out = _contiguous_pointer(_laplacian_out, "laplacian_out")
+    laplacian_in = _contiguous_pointer(_laplacian_in, "laplacian_in")
+    gauge = _contiguous_pointer(_gauge, "gauge")
+    set_ptrs = _contiguous_pointer(_set_ptrs, "set_ptrs")
+    params = _contiguous_pointer(_params, "params")
     with nogil:
         _c_applyLaplacianQcu(laplacian_out, laplacian_in, gauge, set_ptrs, params)
 def applyCloverQcu(_clover, _gauge, _set_ptrs, _params):
     cdef long long clover, gauge, set_ptrs, params
-    clover = _clover.contiguous().data_ptr()
-    gauge = _gauge.contiguous().data_ptr()
-    set_ptrs = _set_ptrs.contiguous().data_ptr()
-    params = _params.contiguous().data_ptr()
+    clover = _contiguous_pointer(_clover, "clover")
+    gauge = _contiguous_pointer(_gauge, "gauge")
+    set_ptrs = _contiguous_pointer(_set_ptrs, "set_ptrs")
+    params = _contiguous_pointer(_params, "params")
     with nogil:
         _c_applyCloverQcu(clover, gauge, set_ptrs, params)
 def applyCloversQcu(_clover, _clover_inv, _gauge, _set_ptrs, _params):
     cdef long long clover, clover_inv, gauge, set_ptrs, params
-    clover = _clover.contiguous().data_ptr()
-    clover_inv = _clover_inv.contiguous().data_ptr()
-    gauge = _gauge.contiguous().data_ptr()
-    set_ptrs = _set_ptrs.contiguous().data_ptr()
-    params = _params.contiguous().data_ptr()
+    clover = _contiguous_pointer(_clover, "clover")
+    clover_inv = _contiguous_pointer(_clover_inv, "clover_inv")
+    gauge = _contiguous_pointer(_gauge, "gauge")
+    set_ptrs = _contiguous_pointer(_set_ptrs, "set_ptrs")
+    params = _contiguous_pointer(_params, "params")
     with nogil:
         _c_applyCloversQcu(clover, clover_inv, gauge, set_ptrs, params)
 def applyDslashQcu(_fermion_out, _fermion_in, _gauge, _clover, _set_ptrs, _params):
     cdef long long fermion_out, fermion_in, clover, gauge, set_ptrs, params
-    fermion_out = _fermion_out.contiguous().data_ptr()
-    fermion_in = _fermion_in.contiguous().data_ptr()
-    clover = _clover.contiguous().data_ptr()
-    gauge = _gauge.contiguous().data_ptr()
-    set_ptrs = _set_ptrs.contiguous().data_ptr()
-    params = _params.contiguous().data_ptr()
+    fermion_out = _contiguous_pointer(_fermion_out, "fermion_out")
+    fermion_in = _contiguous_pointer(_fermion_in, "fermion_in")
+    clover = _contiguous_pointer(_clover, "clover")
+    gauge = _contiguous_pointer(_gauge, "gauge")
+    set_ptrs = _contiguous_pointer(_set_ptrs, "set_ptrs")
+    params = _contiguous_pointer(_params, "params")
     with nogil:
         _c_applyDslashQcu(fermion_out, fermion_in, gauge, clover, set_ptrs, params)
 def applyGaussGaugeQcu(_gauge, _set_ptrs, _params):
     cdef long long gauge, set_ptrs, params
-    gauge = _gauge.contiguous().data_ptr()
-    set_ptrs = _set_ptrs.contiguous().data_ptr()
-    params = _params.contiguous().data_ptr()
+    gauge = _contiguous_pointer(_gauge, "gauge")
+    set_ptrs = _contiguous_pointer(_set_ptrs, "set_ptrs")
+    params = _contiguous_pointer(_params, "params")
     with nogil:
         _c_applyGaussGaugeQcu(gauge, set_ptrs, params)
 def applyCloverBistabCgQcu(_fermion_out, _fermion_in, _gauge, _clover_ee, _clover_oo, _clover_ee_inv, _clover_oo_inv, _set_ptrs, _params):
     cdef long long fermion_out, fermion_in, gauge, clover_ee, clover_oo, clover_ee_inv, clover_oo_inv, set_ptrs, params
-    fermion_out = _fermion_out.contiguous().data_ptr()
-    fermion_in = _fermion_in.contiguous().data_ptr()
-    gauge = _gauge.contiguous().data_ptr()
-    clover_ee = _clover_ee.contiguous().data_ptr()
-    clover_oo = _clover_oo.contiguous().data_ptr()
-    clover_ee_inv = _clover_ee_inv.contiguous().data_ptr()
-    clover_oo_inv = _clover_oo_inv.contiguous().data_ptr()
-    set_ptrs = _set_ptrs.contiguous().data_ptr()
-    params = _params.contiguous().data_ptr()
+    fermion_out = _contiguous_pointer(_fermion_out, "fermion_out")
+    fermion_in = _contiguous_pointer(_fermion_in, "fermion_in")
+    gauge = _contiguous_pointer(_gauge, "gauge")
+    clover_ee = _contiguous_pointer(_clover_ee, "clover_ee")
+    clover_oo = _contiguous_pointer(_clover_oo, "clover_oo")
+    clover_ee_inv = _contiguous_pointer(_clover_ee_inv, "clover_ee_inv")
+    clover_oo_inv = _contiguous_pointer(_clover_oo_inv, "clover_oo_inv")
+    set_ptrs = _contiguous_pointer(_set_ptrs, "set_ptrs")
+    params = _contiguous_pointer(_params, "params")
     with nogil:
         _c_applyCloverBistabCgQcu(fermion_out, fermion_in, gauge, clover_ee, clover_oo, clover_ee_inv, clover_oo_inv, set_ptrs, params)
 
 def getCloverBistabCgIterationsQcu(_set_ptrs, _params):
     cdef long long set_ptrs, params
     cdef int iterations
-    set_ptrs = _set_ptrs.contiguous().data_ptr()
-    params = _params.contiguous().data_ptr()
+    set_ptrs = _contiguous_pointer(_set_ptrs, "set_ptrs")
+    params = _contiguous_pointer(_params, "params")
     with nogil:
         iterations = _c_getCloverBistabCgIterationsQcu(set_ptrs, params)
     return iterations
 
 def applyCloverBistabCgDslashQcu(_fermion_out, _fermion_in, _gauge, _clover_ee, _clover_oo, _clover_ee_inv, _clover_oo_inv, _set_ptrs, _params):
     cdef long long fermion_out, fermion_in, gauge, clover_ee, clover_oo, clover_ee_inv, clover_oo_inv, set_ptrs, params
-    fermion_out = _fermion_out.contiguous().data_ptr()
-    fermion_in = _fermion_in.contiguous().data_ptr()
-    gauge = _gauge.contiguous().data_ptr()
-    clover_ee = _clover_ee.contiguous().data_ptr()
-    clover_oo = _clover_oo.contiguous().data_ptr()
-    clover_ee_inv = _clover_ee_inv.contiguous().data_ptr()
-    clover_oo_inv = _clover_oo_inv.contiguous().data_ptr()
-    set_ptrs = _set_ptrs.contiguous().data_ptr()
-    params = _params.contiguous().data_ptr()
+    fermion_out = _contiguous_pointer(_fermion_out, "fermion_out")
+    fermion_in = _contiguous_pointer(_fermion_in, "fermion_in")
+    gauge = _contiguous_pointer(_gauge, "gauge")
+    clover_ee = _contiguous_pointer(_clover_ee, "clover_ee")
+    clover_oo = _contiguous_pointer(_clover_oo, "clover_oo")
+    clover_ee_inv = _contiguous_pointer(_clover_ee_inv, "clover_ee_inv")
+    clover_oo_inv = _contiguous_pointer(_clover_oo_inv, "clover_oo_inv")
+    set_ptrs = _contiguous_pointer(_set_ptrs, "set_ptrs")
+    params = _contiguous_pointer(_params, "params")
     with nogil:
         _c_applyCloverBistabCgDslashQcu(fermion_out, fermion_in, gauge, clover_ee, clover_oo, clover_ee_inv, clover_oo_inv, set_ptrs, params)
 def applyCloverBistabCgPrepareQcu(_compact_rhs, _full_rhs, _gauge, _clover_ee, _clover_oo, _clover_ee_inv, _clover_oo_inv, _set_ptrs, _params):
@@ -224,15 +253,15 @@ def applyCloverBistabCgPrepareQcu(_compact_rhs, _full_rhs, _gauge, _clover_ee, _
                (_compact_rhs, _full_rhs, _gauge, _clover_ee, _clover_oo,
                 _clover_ee_inv, _clover_oo_inv, _set_ptrs, _params)):
         raise ValueError("Clover Schur prepare tensors must be contiguous")
-    compact_rhs = _compact_rhs.data_ptr()
-    full_rhs = _full_rhs.data_ptr()
-    gauge = _gauge.data_ptr()
-    clover_ee = _clover_ee.data_ptr()
-    clover_oo = _clover_oo.data_ptr()
-    clover_ee_inv = _clover_ee_inv.data_ptr()
-    clover_oo_inv = _clover_oo_inv.data_ptr()
-    set_ptrs = _set_ptrs.data_ptr()
-    params = _params.data_ptr()
+    compact_rhs = _contiguous_pointer(_compact_rhs, "compact_rhs")
+    full_rhs = _contiguous_pointer(_full_rhs, "full_rhs")
+    gauge = _contiguous_pointer(_gauge, "gauge")
+    clover_ee = _contiguous_pointer(_clover_ee, "clover_ee")
+    clover_oo = _contiguous_pointer(_clover_oo, "clover_oo")
+    clover_ee_inv = _contiguous_pointer(_clover_ee_inv, "clover_ee_inv")
+    clover_oo_inv = _contiguous_pointer(_clover_oo_inv, "clover_oo_inv")
+    set_ptrs = _contiguous_pointer(_set_ptrs, "set_ptrs")
+    params = _contiguous_pointer(_params, "params")
     with nogil:
         status = _c_applyCloverBistabCgPrepareQcu(
             compact_rhs, full_rhs, gauge, clover_ee, clover_oo,
@@ -252,16 +281,16 @@ def applyCloverBistabCgReconstructQcu(_full_out, _full_rhs, _target_odd, _gauge,
                 _clover_oo, _clover_ee_inv, _clover_oo_inv,
                 _set_ptrs, _params)):
         raise ValueError("Clover reconstruct tensors must be contiguous")
-    full_out = _full_out.data_ptr()
-    full_rhs = _full_rhs.data_ptr()
-    target_odd = _target_odd.data_ptr()
-    gauge = _gauge.data_ptr()
-    clover_ee = _clover_ee.data_ptr()
-    clover_oo = _clover_oo.data_ptr()
-    clover_ee_inv = _clover_ee_inv.data_ptr()
-    clover_oo_inv = _clover_oo_inv.data_ptr()
-    set_ptrs = _set_ptrs.data_ptr()
-    params = _params.data_ptr()
+    full_out = _contiguous_pointer(_full_out, "full_out")
+    full_rhs = _contiguous_pointer(_full_rhs, "full_rhs")
+    target_odd = _contiguous_pointer(_target_odd, "target_odd")
+    gauge = _contiguous_pointer(_gauge, "gauge")
+    clover_ee = _contiguous_pointer(_clover_ee, "clover_ee")
+    clover_oo = _contiguous_pointer(_clover_oo, "clover_oo")
+    clover_ee_inv = _contiguous_pointer(_clover_ee_inv, "clover_ee_inv")
+    clover_oo_inv = _contiguous_pointer(_clover_oo_inv, "clover_oo_inv")
+    set_ptrs = _contiguous_pointer(_set_ptrs, "set_ptrs")
+    params = _contiguous_pointer(_params, "params")
     with nogil:
         status = _c_applyCloverBistabCgReconstructQcu(
             full_out, full_rhs, target_odd, gauge, clover_ee, clover_oo,
@@ -270,41 +299,41 @@ def applyCloverBistabCgReconstructQcu(_full_out, _full_rhs, _target_odd, _gauge,
         raise RuntimeError("applyCloverBistabCgReconstructQcu failed")
 def applyMultigridRestrictQcu(_coarse_out, _fine_in, _null_vecs, _set_ptrs, _params):
     cdef long long coarse_out, fine_in, null_vecs, set_ptrs, params
-    coarse_out = _coarse_out.contiguous().data_ptr()
-    fine_in = _fine_in.contiguous().data_ptr()
-    null_vecs = _null_vecs.contiguous().data_ptr()
-    set_ptrs = _set_ptrs.contiguous().data_ptr()
-    params = _params.contiguous().data_ptr()
+    coarse_out = _contiguous_pointer(_coarse_out, "coarse_out")
+    fine_in = _contiguous_pointer(_fine_in, "fine_in")
+    null_vecs = _contiguous_pointer(_null_vecs, "null_vecs")
+    set_ptrs = _contiguous_pointer(_set_ptrs, "set_ptrs")
+    params = _contiguous_pointer(_params, "params")
     with nogil:
         _c_applyMultigridRestrictQcu(coarse_out, fine_in, null_vecs, set_ptrs, params)
 def applyMultigridProLongQcu(_fine_out, _coarse_in, _null_vecs, _set_ptrs, _params):
     cdef long long fine_out, coarse_in, null_vecs, set_ptrs, params
-    fine_out = _fine_out.contiguous().data_ptr()
-    coarse_in = _coarse_in.contiguous().data_ptr()
-    null_vecs = _null_vecs.contiguous().data_ptr()
-    set_ptrs = _set_ptrs.contiguous().data_ptr()
-    params = _params.contiguous().data_ptr()
+    fine_out = _contiguous_pointer(_fine_out, "fine_out")
+    coarse_in = _contiguous_pointer(_coarse_in, "coarse_in")
+    null_vecs = _contiguous_pointer(_null_vecs, "null_vecs")
+    set_ptrs = _contiguous_pointer(_set_ptrs, "set_ptrs")
+    params = _contiguous_pointer(_params, "params")
     with nogil:
         _c_applyMultigridProLongQcu(fine_out, coarse_in, null_vecs, set_ptrs, params)
 def applyMultigridCoarseDslashQcu(_fermion_out, _fermion_in, _hopping, _sitting, _set_ptrs, _params):
     cdef long long fermion_out, fermion_in, hopping, sitting, set_ptrs, params
-    fermion_out = _fermion_out.contiguous().data_ptr()
-    fermion_in = _fermion_in.contiguous().data_ptr()
-    hopping = _hopping.contiguous().data_ptr()
-    sitting = _sitting.contiguous().data_ptr()
-    set_ptrs = _set_ptrs.contiguous().data_ptr()
-    params = _params.contiguous().data_ptr()
+    fermion_out = _contiguous_pointer(_fermion_out, "fermion_out")
+    fermion_in = _contiguous_pointer(_fermion_in, "fermion_in")
+    hopping = _contiguous_pointer(_hopping, "hopping")
+    sitting = _contiguous_pointer(_sitting, "sitting")
+    set_ptrs = _contiguous_pointer(_set_ptrs, "set_ptrs")
+    params = _contiguous_pointer(_params, "params")
     with nogil:
         _c_applyMultigridCoarseDslashQcu(fermion_out, fermion_in, hopping, sitting, set_ptrs, params)
 def applyMultigridCoarseDslashWideQcu(_fermion_out, _fermion_in, _sitting, _hop_nn, _hop_diag, _set_ptrs, _params):
     cdef long long fermion_out, fermion_in, sitting, hop_nn, hop_diag, set_ptrs, params
-    fermion_out = _fermion_out.contiguous().data_ptr()
-    fermion_in = _fermion_in.contiguous().data_ptr()
-    sitting = _sitting.contiguous().data_ptr()
-    hop_nn = _hop_nn.contiguous().data_ptr()
-    hop_diag = _hop_diag.contiguous().data_ptr()
-    set_ptrs = _set_ptrs.contiguous().data_ptr()
-    params = _params.contiguous().data_ptr()
+    fermion_out = _contiguous_pointer(_fermion_out, "fermion_out")
+    fermion_in = _contiguous_pointer(_fermion_in, "fermion_in")
+    sitting = _contiguous_pointer(_sitting, "sitting")
+    hop_nn = _contiguous_pointer(_hop_nn, "hop_nn")
+    hop_diag = _contiguous_pointer(_hop_diag, "hop_diag")
+    set_ptrs = _contiguous_pointer(_set_ptrs, "set_ptrs")
+    params = _contiguous_pointer(_params, "params")
     with nogil:
         _c_applyMultigridCoarseDslashWideQcu(fermion_out, fermion_in, sitting, hop_nn, hop_diag, set_ptrs, params)
 def applyMultigridStrictCoarseQcu(_fermion_out, _fermion_in, _links, _onsite_pair, _set_ptrs, _params, int onsite_index=-1):
@@ -321,12 +350,12 @@ def applyMultigridStrictCoarseQcu(_fermion_out, _fermion_in, _links, _onsite_pai
     if not all(value.is_contiguous() for value in
                (_fermion_out, _fermion_in, _links, _onsite_pair, _set_ptrs, _params)):
         raise ValueError("strict coarse tensors must be contiguous")
-    fermion_out = _fermion_out.data_ptr()
-    fermion_in = _fermion_in.data_ptr()
-    links = _links.data_ptr()
-    onsite_pair = _onsite_pair.data_ptr()
-    set_ptrs = _set_ptrs.data_ptr()
-    params = _params.data_ptr()
+    fermion_out = _contiguous_pointer(_fermion_out, "fermion_out")
+    fermion_in = _contiguous_pointer(_fermion_in, "fermion_in")
+    links = _contiguous_pointer(_links, "links")
+    onsite_pair = _contiguous_pointer(_onsite_pair, "onsite_pair")
+    set_ptrs = _contiguous_pointer(_set_ptrs, "set_ptrs")
+    params = _contiguous_pointer(_params, "params")
     with nogil:
         status = _c_applyMultigridStrictCoarseQcu(fermion_out, fermion_in, links, onsite_pair, set_ptrs, params, E, X, Y, Z, T, onsite_index)
     if status != 0:
@@ -345,12 +374,12 @@ def applyMultigridStrictMatPCQcu(_fermion_out, _fermion_in, _links, _scratch, _s
     if not all(value.is_contiguous() for value in
                (_fermion_out, _fermion_in, _links, _scratch, _set_ptrs, _params)):
         raise ValueError("strict MATPC tensors must be contiguous")
-    fermion_out = _fermion_out.data_ptr()
-    fermion_in = _fermion_in.data_ptr()
-    links = _links.data_ptr()
-    scratch = _scratch.data_ptr()
-    set_ptrs = _set_ptrs.data_ptr()
-    params = _params.data_ptr()
+    fermion_out = _contiguous_pointer(_fermion_out, "fermion_out")
+    fermion_in = _contiguous_pointer(_fermion_in, "fermion_in")
+    links = _contiguous_pointer(_links, "links")
+    scratch = _contiguous_pointer(_scratch, "scratch")
+    set_ptrs = _contiguous_pointer(_set_ptrs, "set_ptrs")
+    params = _contiguous_pointer(_params, "params")
     with nogil:
         status = _c_applyMultigridStrictMatPCQcu(fermion_out, fermion_in, links, scratch, set_ptrs, params, E, X, Y, Z, T, parity)
     if status != 0:
@@ -378,15 +407,15 @@ def applyMultigridStrictFineMatPCQcu(_fermion_out, _fermion_in, _gauge, _clover_
                (_fermion_out, _fermion_in, _gauge, _clover_ee, _clover_oo,
                 _clover_ee_inv, _clover_oo_inv, _set_ptrs, _params)):
         raise ValueError("strict fine MATPC tensors must be contiguous")
-    fermion_out = _fermion_out.data_ptr()
-    fermion_in = _fermion_in.data_ptr()
-    gauge = _gauge.data_ptr()
-    clover_ee = _clover_ee.data_ptr()
-    clover_oo = _clover_oo.data_ptr()
-    clover_ee_inv = _clover_ee_inv.data_ptr()
-    clover_oo_inv = _clover_oo_inv.data_ptr()
-    set_ptrs = _set_ptrs.data_ptr()
-    params = _params.data_ptr()
+    fermion_out = _contiguous_pointer(_fermion_out, "fermion_out")
+    fermion_in = _contiguous_pointer(_fermion_in, "fermion_in")
+    gauge = _contiguous_pointer(_gauge, "gauge")
+    clover_ee = _contiguous_pointer(_clover_ee, "clover_ee")
+    clover_oo = _contiguous_pointer(_clover_oo, "clover_oo")
+    clover_ee_inv = _contiguous_pointer(_clover_ee_inv, "clover_ee_inv")
+    clover_oo_inv = _contiguous_pointer(_clover_oo_inv, "clover_oo_inv")
+    set_ptrs = _contiguous_pointer(_set_ptrs, "set_ptrs")
+    params = _contiguous_pointer(_params, "params")
     with nogil:
         status = _c_applyMultigridStrictFineMatPCQcu(
             fermion_out, fermion_in, gauge, clover_ee, clover_oo,
@@ -410,13 +439,13 @@ def applyMultigridStrictPrepareQcu(_fermion_out, _full_rhs, _links, _onsite_pair
     if not all(value.is_contiguous() for value in
                (_fermion_out, _full_rhs, _links, _onsite_pair, _scratch, _set_ptrs, _params)):
         raise ValueError("strict prepare tensors must be contiguous")
-    fermion_out = _fermion_out.data_ptr()
-    full_rhs = _full_rhs.data_ptr()
-    links = _links.data_ptr()
-    onsite_pair = _onsite_pair.data_ptr()
-    scratch = _scratch.data_ptr()
-    set_ptrs = _set_ptrs.data_ptr()
-    params = _params.data_ptr()
+    fermion_out = _contiguous_pointer(_fermion_out, "fermion_out")
+    full_rhs = _contiguous_pointer(_full_rhs, "full_rhs")
+    links = _contiguous_pointer(_links, "links")
+    onsite_pair = _contiguous_pointer(_onsite_pair, "onsite_pair")
+    scratch = _contiguous_pointer(_scratch, "scratch")
+    set_ptrs = _contiguous_pointer(_set_ptrs, "set_ptrs")
+    params = _contiguous_pointer(_params, "params")
     with nogil:
         status = _c_applyMultigridStrictPrepareQcu(fermion_out, full_rhs, links, onsite_pair, scratch, set_ptrs, params, E, X, Y, Z, T, parity)
     if status != 0:
@@ -439,14 +468,14 @@ def applyMultigridStrictReconstructQcu(_full_out, _full_rhs, _target_solution, _
                (_full_out, _full_rhs, _target_solution, _links, _onsite_pair,
                 _scratch, _set_ptrs, _params)):
         raise ValueError("strict reconstruct tensors must be contiguous")
-    full_out = _full_out.data_ptr()
-    full_rhs = _full_rhs.data_ptr()
-    target_solution = _target_solution.data_ptr()
-    links = _links.data_ptr()
-    onsite_pair = _onsite_pair.data_ptr()
-    scratch = _scratch.data_ptr()
-    set_ptrs = _set_ptrs.data_ptr()
-    params = _params.data_ptr()
+    full_out = _contiguous_pointer(_full_out, "full_out")
+    full_rhs = _contiguous_pointer(_full_rhs, "full_rhs")
+    target_solution = _contiguous_pointer(_target_solution, "target_solution")
+    links = _contiguous_pointer(_links, "links")
+    onsite_pair = _contiguous_pointer(_onsite_pair, "onsite_pair")
+    scratch = _contiguous_pointer(_scratch, "scratch")
+    set_ptrs = _contiguous_pointer(_set_ptrs, "set_ptrs")
+    params = _contiguous_pointer(_params, "params")
     with nogil:
         status = _c_applyMultigridStrictReconstructQcu(full_out, full_rhs, target_solution, links, onsite_pair, scratch, set_ptrs, params, E, X, Y, Z, T, parity)
     if status != 0:
@@ -470,11 +499,11 @@ def applyMultigridStrictRestrictQcu(_coarse_out, _fine_in, _null_vectors, _set_p
     if not all(value.is_contiguous() for value in
                (_coarse_out, _fine_in, _null_vectors, _set_ptrs, _params)):
         raise ValueError("strict restrict tensors must be contiguous")
-    coarse_out = _coarse_out.data_ptr()
-    fine_in = _fine_in.data_ptr()
-    null_vectors = _null_vectors.data_ptr()
-    set_ptrs = _set_ptrs.data_ptr()
-    params = _params.data_ptr()
+    coarse_out = _contiguous_pointer(_coarse_out, "coarse_out")
+    fine_in = _contiguous_pointer(_fine_in, "fine_in")
+    null_vectors = _contiguous_pointer(_null_vectors, "null_vectors")
+    set_ptrs = _contiguous_pointer(_set_ptrs, "set_ptrs")
+    params = _contiguous_pointer(_params, "params")
     with nogil:
         status = _c_applyMultigridStrictRestrictQcu(coarse_out, fine_in, null_vectors, set_ptrs, params, E, e, Xf, Yf, Zf, Tf, Xc, Yc, Zc, Tc, parity)
     if status != 0:
@@ -498,11 +527,11 @@ def applyMultigridStrictProLongQcu(_fine_out, _coarse_in, _null_vectors, _set_pt
     if not all(value.is_contiguous() for value in
                (_fine_out, _coarse_in, _null_vectors, _set_ptrs, _params)):
         raise ValueError("strict prolong tensors must be contiguous")
-    fine_out = _fine_out.data_ptr()
-    coarse_in = _coarse_in.data_ptr()
-    null_vectors = _null_vectors.data_ptr()
-    set_ptrs = _set_ptrs.data_ptr()
-    params = _params.data_ptr()
+    fine_out = _contiguous_pointer(_fine_out, "fine_out")
+    coarse_in = _contiguous_pointer(_coarse_in, "coarse_in")
+    null_vectors = _contiguous_pointer(_null_vectors, "null_vectors")
+    set_ptrs = _contiguous_pointer(_set_ptrs, "set_ptrs")
+    params = _contiguous_pointer(_params, "params")
     with nogil:
         status = _c_applyMultigridStrictProLongQcu(fine_out, coarse_in, null_vectors, set_ptrs, params, E, e, Xf, Yf, Zf, Tf, Xc, Yc, Zc, Tc, parity)
     if status != 0:
@@ -525,10 +554,10 @@ def applyMultigridStrictVCycleQcu(_full_out, _full_rhs, _set_ptrs, _params, int 
     if not all(value.is_contiguous() for value in
                (_full_out, _full_rhs, _set_ptrs, _params)):
         raise ValueError("strict V-cycle tensors must be contiguous")
-    full_out = _full_out.data_ptr()
-    full_rhs = _full_rhs.data_ptr()
-    set_ptrs = _set_ptrs.data_ptr()
-    params = _params.data_ptr()
+    full_out = _contiguous_pointer(_full_out, "full_out")
+    full_rhs = _contiguous_pointer(_full_rhs, "full_rhs")
+    set_ptrs = _contiguous_pointer(_set_ptrs, "set_ptrs")
+    params = _contiguous_pointer(_params, "params")
     with nogil:
         status = _c_applyMultigridStrictVCycleQcu(
             full_out, full_rhs, set_ptrs, params, start_level,
@@ -545,8 +574,8 @@ def applyMultigridStrictInitQcu(_set_ptrs, _params, int start_level=1):
         raise ValueError("strict hierarchy start_level must be in [1,4]")
     if not _set_ptrs.is_contiguous() or not _params.is_contiguous():
         raise ValueError("strict hierarchy control tensors must be contiguous")
-    set_ptrs = _set_ptrs.data_ptr()
-    params = _params.data_ptr()
+    set_ptrs = _contiguous_pointer(_set_ptrs, "set_ptrs")
+    params = _contiguous_pointer(_params, "params")
     with nogil:
         status = _c_applyMultigridStrictInitQcu(
             set_ptrs, params, start_level, &allocated_bytes)
@@ -559,8 +588,8 @@ def applyMultigridStrictEndQcu(_set_ptrs, _params):
     cdef int status
     if not _set_ptrs.is_contiguous() or not _params.is_contiguous():
         raise ValueError("strict hierarchy control tensors must be contiguous")
-    set_ptrs = _set_ptrs.data_ptr()
-    params = _params.data_ptr()
+    set_ptrs = _contiguous_pointer(_set_ptrs, "set_ptrs")
+    params = _contiguous_pointer(_params, "params")
     with nogil:
         status = _c_applyMultigridStrictEndQcu(set_ptrs, params)
     if status != 0:
@@ -690,16 +719,17 @@ def applyMultigridStrictFgmresQcu(
     # consumes the raw pointers; the C++ entry synchronizes its stream before
     # returning, so the output side is already safe for Torch consumers.
     torch.cuda.current_stream(reference_device).synchronize()
-    full_out = _full_out.data_ptr()
-    full_rhs = _full_rhs.data_ptr()
-    gauge = _gauge.data_ptr()
-    clover_ee = _clover_ee.data_ptr()
-    clover_oo = _clover_oo.data_ptr()
-    clover_ee_inv = _clover_ee_inv.data_ptr()
-    clover_oo_inv = _clover_oo_inv.data_ptr()
-    fine_null_vectors = _fine_null_vectors.data_ptr()
-    set_ptrs = _set_ptrs.data_ptr()
-    params = _params.data_ptr()
+    full_out = _contiguous_pointer(_full_out, "full_out")
+    full_rhs = _contiguous_pointer(_full_rhs, "full_rhs")
+    gauge = _contiguous_pointer(_gauge, "gauge")
+    clover_ee = _contiguous_pointer(_clover_ee, "clover_ee")
+    clover_oo = _contiguous_pointer(_clover_oo, "clover_oo")
+    clover_ee_inv = _contiguous_pointer(_clover_ee_inv, "clover_ee_inv")
+    clover_oo_inv = _contiguous_pointer(_clover_oo_inv, "clover_oo_inv")
+    fine_null_vectors = _contiguous_pointer(
+        _fine_null_vectors, "fine_null_vectors")
+    set_ptrs = _contiguous_pointer(_set_ptrs, "set_ptrs")
+    params = _contiguous_pointer(_params, "params")
     with nogil:
         status = _c_applyMultigridStrictFgmresQcu(
             full_out, full_rhs, gauge, clover_ee, clover_oo,
@@ -719,15 +749,15 @@ def applyMultigridStrictFgmresQcu(
     }
 def applyCloverMultigridQcu(_fermion_out, _fermion_in, _gauge, _clover_ee, _clover_oo, _clover_ee_inv, _clover_oo_inv, _set_ptrs, _params):
     cdef long long fermion_out, fermion_in, gauge, clover_ee, clover_oo, clover_ee_inv, clover_oo_inv, set_ptrs, params
-    fermion_out = _fermion_out.contiguous().data_ptr()
-    fermion_in = _fermion_in.contiguous().data_ptr()
-    gauge = _gauge.contiguous().data_ptr()
-    clover_ee = _clover_ee.contiguous().data_ptr()
-    clover_oo = _clover_oo.contiguous().data_ptr()
-    clover_ee_inv = _clover_ee_inv.contiguous().data_ptr()
-    clover_oo_inv = _clover_oo_inv.contiguous().data_ptr()
-    set_ptrs = _set_ptrs.contiguous().data_ptr()
-    params = _params.contiguous().data_ptr()
+    fermion_out = _contiguous_pointer(_fermion_out, "fermion_out")
+    fermion_in = _contiguous_pointer(_fermion_in, "fermion_in")
+    gauge = _contiguous_pointer(_gauge, "gauge")
+    clover_ee = _contiguous_pointer(_clover_ee, "clover_ee")
+    clover_oo = _contiguous_pointer(_clover_oo, "clover_oo")
+    clover_ee_inv = _contiguous_pointer(_clover_ee_inv, "clover_ee_inv")
+    clover_oo_inv = _contiguous_pointer(_clover_oo_inv, "clover_oo_inv")
+    set_ptrs = _contiguous_pointer(_set_ptrs, "set_ptrs")
+    params = _contiguous_pointer(_params, "params")
     with nogil:
         _c_applyCloverMultigridQcu(fermion_out, fermion_in, gauge, clover_ee, clover_oo, clover_ee_inv, clover_oo_inv, set_ptrs, params)
 def verifyCloverMultigridQcu(_fermion_out, _fermion_in, _gauge, _clover_ee, _clover_oo, _clover_ee_inv, _clover_oo_inv, _set_ptrs, _params):
@@ -739,15 +769,15 @@ def verifyCloverMultigridQcu(_fermion_out, _fermion_in, _gauge, _clover_ee, _clo
     """
     cdef long long fermion_out, fermion_in, gauge, clover_ee, clover_oo, clover_ee_inv, clover_oo_inv, set_ptrs, params
     cdef int status
-    fermion_out = _fermion_out.contiguous().data_ptr()
-    fermion_in = _fermion_in.contiguous().data_ptr()
-    gauge = _gauge.contiguous().data_ptr()
-    clover_ee = _clover_ee.contiguous().data_ptr()
-    clover_oo = _clover_oo.contiguous().data_ptr()
-    clover_ee_inv = _clover_ee_inv.contiguous().data_ptr()
-    clover_oo_inv = _clover_oo_inv.contiguous().data_ptr()
-    set_ptrs = _set_ptrs.contiguous().data_ptr()
-    params = _params.contiguous().data_ptr()
+    fermion_out = _contiguous_pointer(_fermion_out, "fermion_out")
+    fermion_in = _contiguous_pointer(_fermion_in, "fermion_in")
+    gauge = _contiguous_pointer(_gauge, "gauge")
+    clover_ee = _contiguous_pointer(_clover_ee, "clover_ee")
+    clover_oo = _contiguous_pointer(_clover_oo, "clover_oo")
+    clover_ee_inv = _contiguous_pointer(_clover_ee_inv, "clover_ee_inv")
+    clover_oo_inv = _contiguous_pointer(_clover_oo_inv, "clover_oo_inv")
+    set_ptrs = _contiguous_pointer(_set_ptrs, "set_ptrs")
+    params = _contiguous_pointer(_params, "params")
     with nogil:
         status = _c_verifyCloverMultigridQcu(fermion_out, fermion_in, gauge, clover_ee, clover_oo, clover_ee_inv, clover_oo_inv, set_ptrs, params)
     return status

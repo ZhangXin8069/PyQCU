@@ -141,7 +141,8 @@ def _scalar_buffer_pointer(
     """Expose one writable tensor element through an exact ctypes pointer."""
     if int(tensor.numel()) != 1:
         raise ValueError(f"KUPL {name} must contain exactly one element")
-    if str(tensor.dtype) not in expected_dtypes:
+    dtype_name = str(tensor.dtype).removeprefix("torch.")
+    if dtype_name not in expected_dtypes:
         allowed = "/".join(sorted(expected_dtypes))
         raise TypeError(f"KUPL {name} must have dtype {allowed}")
     address = _pointer(tensor)
@@ -149,8 +150,9 @@ def _scalar_buffer_pointer(
 
 
 def _strict_fgmres_geometry(
-        full_out: Any, full_rhs: Any, fine_null_vectors: Any,
-        fine_dims: Any, coarse_dims: Any) -> tuple[int, int]:
+        full_out: Any, full_rhs: Any, gauge: Any, clover_even: Any,
+        fine_null_vectors: Any, fine_dims: Any,
+        coarse_dims: Any) -> tuple[int, int]:
     """Derive the two DOF counts omitted from the public Python signature."""
     fine = tuple(int(value) for value in fine_dims)
     coarse = tuple(int(value) for value in coarse_dims)
@@ -169,14 +171,28 @@ def _strict_fgmres_geometry(
         raise ValueError("KUPL strict FGMRES output/rhs shapes must match")
     if int(full_rhs.shape[1] * full_rhs.shape[2]) != 12:
         raise ValueError("KUPL strict FGMRES requires 12 fine components")
+    compact_shape = (*fine[:3], fine[3] // 2)
+    expected_gauge = (2, 3, 3, 4, *compact_shape)
+    expected_clover = (4, 3, 4, 3, *compact_shape)
+    if tuple(gauge.shape) != expected_gauge:
+        raise ValueError(
+            f"KUPL strict FGMRES gauge must have shape {expected_gauge}")
+    if tuple(clover_even.shape) != expected_clover:
+        raise ValueError(
+            f"KUPL strict FGMRES Clover terms must have shape {expected_clover}")
 
     if fine_null_vectors.ndim != 10:
         raise ValueError("KUPL strict null vectors require a 10-D blocked layout")
     if int(fine_null_vectors.shape[1]) != 12:
         raise ValueError("KUPL strict null vectors require 12 fine components")
+    blocked_coarse = tuple(
+        int(fine_null_vectors.shape[2 + 2 * axis]) for axis in range(4))
     expected_fine = tuple(
-        int(coarse[axis] * fine_null_vectors.shape[2 + 2 * axis])
+        int(blocked_coarse[axis] * fine_null_vectors.shape[3 + 2 * axis])
         for axis in range(4))
+    if blocked_coarse != coarse:
+        raise ValueError(
+            "KUPL strict null-vector coarse geometry does not match coarse_dims")
     if expected_fine != fine:
         raise ValueError(
             "KUPL strict null-vector blocking does not match fine_dims")
@@ -445,10 +461,13 @@ def applyMultigridStrictFgmresQcu(
         max_iter, tolerance, nu_pre, nu_post, max_workspace_bytes,
         iterations, converged, final_true_residual, allocated_bytes) -> int:
     fine_E, coarse_E = _strict_fgmres_geometry(
-        full_out, full_rhs, fine_null_vectors, fine_dims, coarse_dims)
+        full_out, full_rhs, gauge, ce, fine_null_vectors,
+        fine_dims, coarse_dims)
     reference_dtype = full_rhs.dtype
     if any(field.dtype != reference_dtype for field in (gauge, ce, coo, cei, coi)):
         raise TypeError("KUPL strict FGMRES fields must share one complex dtype")
+    if any(tuple(field.shape) != tuple(ce.shape) for field in (coo, cei, coi)):
+        raise ValueError("KUPL strict FGMRES Clover tensor shapes must match")
     if int(element_bytes) != int(full_rhs.element_size()):
         raise ValueError("KUPL strict FGMRES element_bytes does not match rhs")
 

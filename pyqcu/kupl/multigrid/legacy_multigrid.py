@@ -7,7 +7,7 @@ from typing import Any, Optional
 import pyqcu.cann as _torch
 
 from pyqcu.kupl import qcu
-from pyqcu.kupl import define
+from pyqcu.cuda import define
 from pyqcu._multigrid_warnings import warn_excessive_multigrid_levels
 
 
@@ -26,14 +26,29 @@ class LegacyMultigrid:
                  clover_even: Any, clover_odd: Any,
                  clover_even_inv: Any, clover_odd_inv: Any,
                  output: Optional[Any] = None):
-        self.params = _cpu_tensor(params, "params")
-        self.argv = _cpu_tensor(argv, "argv")
-        self.set_ptrs = _cpu_tensor(set_ptrs, "set_ptrs")
+        self.params = _cpu_tensor(
+            params, "params", dtype=_torch.torch.int32, numel=define._PARAMS_SIZE_)
+        self.set_ptrs = _cpu_tensor(
+            set_ptrs, "set_ptrs", dtype=_torch.torch.int64,
+            numel=define._SET_PTRS_SIZE_)
         self.gauge = _cpu_tensor(gauge, "gauge")
-        self.clover_even = _cpu_tensor(clover_even, "clover_even")
-        self.clover_odd = _cpu_tensor(clover_odd, "clover_odd")
-        self.clover_even_inv = _cpu_tensor(clover_even_inv, "clover_even_inv")
-        self.clover_odd_inv = _cpu_tensor(clover_odd_inv, "clover_odd_inv")
+        self.data_dtype = self.gauge.dtype
+        expected_real_dtype = (
+            _torch.torch.float32 if self.data_dtype == _torch.torch.complex64
+            else _torch.torch.float64 if self.data_dtype == _torch.torch.complex128
+            else None)
+        if expected_real_dtype is None:
+            raise TypeError("KUPL LegacyMultigrid gauge must be complex64/complex128")
+        self.argv = _cpu_tensor(
+            argv, "argv", dtype=expected_real_dtype, numel=define._ARGV_SIZE_)
+        self.clover_even = _cpu_tensor(
+            clover_even, "clover_even", dtype=self.data_dtype)
+        self.clover_odd = _cpu_tensor(
+            clover_odd, "clover_odd", dtype=self.data_dtype)
+        self.clover_even_inv = _cpu_tensor(
+            clover_even_inv, "clover_even_inv", dtype=self.data_dtype)
+        self.clover_odd_inv = _cpu_tensor(
+            clover_odd_inv, "clover_odd_inv", dtype=self.data_dtype)
         self.output = output
         levels = int(params[define._MG_NUM_LEVEL_])
         lattice = tuple(int(params[index]) for index in range(
@@ -64,39 +79,56 @@ class LegacyMultigrid:
         if self._closed:
             raise RuntimeError("KUPL LegacyMultigrid 已关闭")
         if not self._setup_done:
-            qcu.applyInitQcu(self.set_ptrs, self.params, self.argv)
+            try:
+                qcu.applyInitQcu(self.set_ptrs, self.params, self.argv)
+            except BaseException:
+                try:
+                    qcu.applyEndQcu(self.set_ptrs, self.params)
+                except BaseException:
+                    pass
+                raise
             self._setup_done = True
         return self
 
     def solve(self, rhs: Any, x0: Any = None) -> Any:
         if not self._setup_done:
             raise RuntimeError("调用 solve 前必须先 setup")
-        source = _cpu_tensor(rhs, "rhs")
-        if self.output is None or tuple(self.output.shape) != tuple(source.shape):
+        source = _cpu_tensor(rhs, "rhs", dtype=self.data_dtype)
+        if self.output is None:
             self.output = source.new_empty(source.shape)
-        elif self.output.dtype != source.dtype:
-            raise TypeError("LegacyMultigrid output 与 rhs dtype 不一致")
+        else:
+            self.output = _cpu_tensor(
+                self.output, "output", dtype=source.dtype)
+            if tuple(self.output.shape) != tuple(source.shape):
+                raise ValueError("KUPL LegacyMultigrid output 与 rhs 形状不一致")
         if x0 is None:
-            self.params[57] = 0
+            self.params[define._MG_USE_INIT_GUESS_] = 0
             self.output.zero_()
         else:
-            initial = _cpu_tensor(x0, "x0")
+            initial = _cpu_tensor(x0, "x0", dtype=source.dtype)
             if tuple(initial.shape) != tuple(source.shape):
                 raise ValueError("LegacyMultigrid x0 与 rhs 形状不一致")
-            self.params[57] = 1
+            self.params[define._MG_USE_INIT_GUESS_] = 1
             self.output.copy_(initial)
         qcu.applyCloverMultigridQcu(
             self.output, source, self.gauge, self.clover_even,
             self.clover_odd, self.clover_even_inv, self.clover_odd_inv,
             self.set_ptrs, self.params)
+        if not bool(_torch.torch.isfinite(self.output).all().item()):
+            raise FloatingPointError("KUPL LegacyMultigrid 返回非有限解")
         return self.output
 
     def verify(self, rhs: Any) -> int:
         if not self._setup_done:
             raise RuntimeError("调用 verify 前必须先 setup")
-        source = _cpu_tensor(rhs, "rhs")
-        if self.output is None or tuple(self.output.shape) != tuple(source.shape):
+        source = _cpu_tensor(rhs, "rhs", dtype=self.data_dtype)
+        if self.output is None:
             self.output = source.new_empty(source.shape)
+        else:
+            self.output = _cpu_tensor(
+                self.output, "output", dtype=source.dtype)
+            if tuple(self.output.shape) != tuple(source.shape):
+                raise ValueError("KUPL LegacyMultigrid output 与 rhs 形状不一致")
         return qcu.verifyCloverMultigridQcu(
             self.output, source, self.gauge, self.clover_even,
             self.clover_odd, self.clover_even_inv, self.clover_odd_inv,
@@ -119,11 +151,17 @@ class LegacyMultigrid:
         self.close()
 
 
-def _cpu_tensor(value: Any, name: str) -> Any:
+def _cpu_tensor(
+        value: Any, name: str, *, dtype: Any = None,
+        numel: Optional[int] = None) -> Any:
     if not hasattr(value, "device") or value.device.type != "cpu":
         raise ValueError(f"KUPL {name} 必须是 CPU 张量")
     if not value.is_contiguous():
         raise ValueError(f"KUPL {name} 必须 contiguous")
+    if dtype is not None and value.dtype != dtype:
+        raise TypeError(f"KUPL {name} dtype 应为 {dtype}，得到 {value.dtype}")
+    if numel is not None and int(value.numel()) != int(numel):
+        raise ValueError(f"KUPL {name} 必须包含 {numel} 个元素")
     return value
 
 
