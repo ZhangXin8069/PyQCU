@@ -63,7 +63,7 @@ Exact minimum test:
 source pyqcu/testing/qcu/strict/quda_comparison/p100_env.sh
 CUDA_VISIBLE_DEVICES=0 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 \
   python3 -m pytest -q -rs -p no:cacheprovider \
-  pyqcu/testing/qcu/strict/quda_comparison/test_quda_transfer_cuda.py::test_cuda_strict_solver_converges_with_bounded_krylov_arena
+  pyqcu/testing/qcu/strict/quda_comparison/test_strict_transfer_cuda.py::test_cuda_strict_solver_converges_with_bounded_krylov_arena
 ```
 
 Observed on logical P100 0 and P100 1:

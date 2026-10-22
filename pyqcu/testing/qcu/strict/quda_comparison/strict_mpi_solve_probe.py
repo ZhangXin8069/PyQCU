@@ -24,9 +24,10 @@ sys.path.insert(0, str(HERE))
 
 from pyqcu.testing.qcu.strict.quda_comparison.common import grid_index_for_rank, make_clover_tensors, process_grid
 from pyqcu import dslash, lattice, tools
-from pyqcu.cuda import CudaStrictMultigridSolver, define, qcu
+from pyqcu.cuda import StrictMultigrid as CudaStrictMultigrid
+from pyqcu.cuda import define, qcu
 from pyqcu.solver import Checkerboard as QudaCheckerboard
-from pyqcu.solver import QudaStrictMultigrid
+from pyqcu.solver import StrictMultigrid
 
 
 def _slice_local(tensor: torch.Tensor, starts, local_shape):
@@ -158,7 +159,7 @@ def main() -> int:
     kappa = torch.tensor(
         [1.0 / (2.0 * float(args.mass) + 8.0)], dtype=scalar_dtype,
         device=device)
-    hierarchy = QudaStrictMultigrid(
+    hierarchy = StrictMultigrid(
         U=local_full_gauge,
         clover_term=None,
         kappa=kappa,
@@ -194,7 +195,7 @@ def main() -> int:
     rhs = torch.randn(
         2, 4, 3, *local_shape[:3], local_shape[3] // 2,
         dtype=dtype, device=device)
-    solver = CudaStrictMultigridSolver(
+    solver = CudaStrictMultigrid(
         hierarchy, argv, local_parity_gauge, ce, coo, cei, coi, params,
         restart=int(args.restart), max_krylov_bytes=256 << 20,
         release_setup_assets=False, verbose=False)

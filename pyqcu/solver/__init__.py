@@ -2,21 +2,19 @@ from ._bistabcg import bistabcg as bistabcg
 from ._bistabcg import bistabcg_history as bistabcg_history
 from ._gmres import fgmres as fgmres
 from ._mr import mr as mr
-from ._multigrid import multigrid as multigrid
-from ._quda_multigrid import (Checkerboard as Checkerboard,
-                              CompactParityLayout as CompactParityLayout,
-                              CompactParityOperator as CompactParityOperator,
-                              ParitySchurOperator as ParitySchurOperator,
-                              QudaCoarseOperator as QudaCoarseOperator,
-                              QcuStrictAssetBinding as QcuStrictAssetBinding,
-                              QudaMatPCOperator as QudaMatPCOperator,
-                              QudaMultigrid as QudaMultigrid,
-                              QudaStrictMultigrid as QudaStrictMultigrid,
-                              QudaTransfer as QudaTransfer,
-                              QUDAMultigrid as QUDAMultigrid,
-                              QUDAStrictMultigrid as QUDAStrictMultigrid,
-                              quda_multigrid as quda_multigrid,
-                              quda_strict_multigrid as quda_strict_multigrid)
+from .multigrid import (LegacyMultigrid as LegacyMultigrid,
+                        Multigrid as Multigrid,
+                        StrictMultigrid as StrictMultigrid)
+from .multigrid.strict_multigrid import (
+    Checkerboard as Checkerboard,
+    CompactParityLayout as CompactParityLayout,
+    CompactParityOperator as CompactParityOperator,
+    ParitySchurOperator as ParitySchurOperator,
+    QcuStrictAssetBinding as QcuStrictAssetBinding,
+    StrictCoarseOperator as StrictCoarseOperator,
+    StrictMatPCOperator as StrictMatPCOperator,
+    StrictTransfer as StrictTransfer,
+)
 from argparse import Namespace
 Namespace.__module__ = "pyqcu.solver"
 

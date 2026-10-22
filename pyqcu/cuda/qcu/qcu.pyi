@@ -226,7 +226,7 @@ def applyMultigridStrictCoarseQcu(
     set_ptrs: torch.Tensor, params: torch.Tensor,
     onsite_index: int = -1,
 ) -> None:
-    """Apply strict QUDA-stored links on ``[E,X,Y,Z,T]``.
+    """Apply strict multigrid links on ``[E,X,Y,Z,T]``.
 
     ``links`` is ``[2,4,E,E,X,Y,Z,T]``.  The backward half is stored at
     ``q-mu`` and adjointed during the gather.  ``onsite_index=-1`` applies

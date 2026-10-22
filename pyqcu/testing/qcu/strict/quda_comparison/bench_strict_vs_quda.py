@@ -2912,7 +2912,7 @@ def _configured_strict_runtime_assets(
     import torch
     from pyqcu.cuda import define, qcu
     from pyqcu.cuda._schur_op import CudaSchurOp
-    from pyqcu.solver._quda_multigrid import QcuStrictAssetBinding
+    from pyqcu.solver._multigrid_core import QcuStrictAssetBinding
 
     if len(assets) != len(level_specs) or not assets:
         raise ValueError("strict runtime assets/level_specs 必须是等长非空序列")
@@ -3198,7 +3198,7 @@ def _run_pyqcu_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
             load_strict_runtime_cache,
             save_strict_runtime_cache,
         )
-        from pyqcu.solver import QudaStrictMultigrid
+        from pyqcu.solver import StrictMultigrid
         sys.path.insert(0, str(HERE))
         from pyqcu.testing.qcu.strict.quda_comparison.common import (
             _slice_last4, global_parity_to_local, local_geometry,
@@ -3394,7 +3394,7 @@ def _run_pyqcu_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
             # hierarchy 持有 device null vectors；CPU HDF5 arrays 不跨入 setup。
             del gauge_np, source_np, null_np
             from mpi4py import MPI
-            hierarchy = QudaStrictMultigrid(
+            hierarchy = StrictMultigrid(
                 U=full_gauge,
                 clover_term=clover_full,
                 kappa=kappa_tensor,

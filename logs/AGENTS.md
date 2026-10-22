@@ -511,3 +511,20 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 验证: path, size, required sections, conflict markers
 - 批次状态: complete
 
+## go-on-legacy-vs-strict-20261022 - final - 2026-10-22 23:41:36 +0800
+- 主任务: 恢复四个中断运行并完成 MG 弃用审计与状态报告
+- 日志文件: logs/v2026102223.txt
+- 文件大小: 6559 bytes
+- 触发原因: 任务完成
+- 关键内容: Legacy/Strict CUDA 报告完成；三条只读审计完成；stable HEAD 9e678901；无 GPU/MPI
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete
+
+## docs-multigrid-audit-20261022 - final - 2026-10-22 23:46:36 +0800
+- 主任务: 将 MultiGrid 审计与 benchmark 状态结果正式写入 docs
+- 日志文件: logs/v2026102223-2.txt
+- 文件大小: 3908 bytes
+- 触发原因: 任务完成
+- 关键内容: 新增审计文档；更新 docs 索引和来源映射；状态报告交叉引用；Markdown/form/Git 检查通过
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete

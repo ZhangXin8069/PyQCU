@@ -110,7 +110,7 @@ sbatch --gpus=2 --cpus-per-task=64 --time=01:00:00 \
 | `legacy/mg_stencil_build.py`、`test12/main.py::build_stencil_mt` | `pyqcu/tools/_multigrid.py`：`build_stencil` / `build_stencil_mt` / `apply_stencil` |
 | `legacy/quick_test.py`、`legacy/mg_nullvec_cache.py` | 缓存路径与 h5 存取 → `pyqcu/cuda/_multi_gpu.py` + `pyqcu/tools/_io.py` |
 | `legacy/mg_schur_build.py` | `pyqcu/tools/_strict_galerkin.py`：`build_strict_galerkin` |
-| `legacy/mg_pyref_expt.py` | `pyqcu/solver/_quda_multigrid.py` |
+| `legacy/mg_pyref_expt.py` | `pyqcu/solver/_multigrid_core.py` |
 | `legacy/reference_benchmark.py`（`parse_mg_log` / `bistabcg_history`） | `pyqcu/cuda/_logs.py` / `pyqcu/solver/_bistabcg.py` |
 | `scaling/dslash_adapter.py` | `CudaSchurOp` → `pyqcu/cuda/_schur_op.py` |
 | `scaling/budget.py` | 预算模型 → `pyqcu/tools/_budget.py` |
