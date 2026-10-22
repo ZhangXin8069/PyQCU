@@ -6,6 +6,20 @@ description: cpp/cuda/qcu 目录的完整生成 skill：PyQCU 主 C++ CUDA 后�
 
 Primary C++ CUDA backend for PyQCU. Hand-tuned CUDA kernels with MPI halo exchange for Wilson/Clover Dirac operators, BiStabCG/CG solvers, multigrid, and gauge field generation.
 
+Production execution topology is fixed:
+
+```text
+one Python process = one MPI rank = one GPU/DCU/GPGPU
+```
+
+Cross-device solves use MPI domain decomposition and C++ halo/global-reduction
+paths. The Python-level `pyqcu.cuda._multi_gpu.MultiGpuMultigrid` driver is a
+test-only, explicitly constructed exception and must not be used as the default
+template for new CUDA programs.
+
+Normative project rules:
+[`docs/cuda_execution_topology.md`](../../docs/cuda_execution_topology.md).
+
 ## Build
 
 ```bash
@@ -133,7 +147,7 @@ Formal QUDA null-vector interoperability fixes the spin convention to `QUDA_DEGR
 
 `src/apply_multigrid_strict.cu` provides raw/full coarse application, MATPC, prepare/reconstruct, parity R/P, a recursive V-cycle, and fused fine-grid right-FGMRES. The current fused path fixes `target_parity=1` and `start_level=1`: fine full fields use `[2,4,3,X,Y,Z,T/2]`, compact Schur fields use `[12,X,Y,Z,T/2]`, and every coarse field remains `[E,Xc,Yc,Zc,Tc]` full. Fine inputs are Gauge `[2,3,3,4,X,Y,Z,T/2]` plus Clover even/odd and inverses `[4,3,4,3,X,Y,Z,T/2]`; coarse levels use Galerkin `X/Y/Yhat` instead of a second physical Gauge/Clover pair. A canonical null vector `[nvec,4,3,X,Y,Z,T]` must first be converted to the C-order blocked C++ ABI `[E,12,Xc,bx,Yc,by,Zc,bz,Tc,bt]`; passing the canonical 7-D tensor directly is invalid. `applyMultigridStrictInitQcu` creates the persistent recursive hierarchy and aligned V-cycle arena. The first `applyMultigridStrictFgmresQcu` call lazily attaches a C++ outer workspace to the same slot-80 hierarchy; subsequent calls with the same geometry/restart reuse it. Its exact device footprint is `(2*m+5)*B_f + 2*B_c` (`B_f`: one compact fine-parity vector, `B_c`: one full first-coarse vector); Hessenberg/Givens arrays stay as small host vectors and the iteration loop performs no device allocation. `applyMultigridStrictEndQcu` releases both workspaces. The runtime asset set defaults to `Yhat`, onsite `(X,X^-1)` and inter-level blocked null vectors; packed raw `Y` is optional diagnostic data and should not be resident during ordinary solves.
 
-MPI stage 1 provides c64/c128 global complex dot/norm reduction (`global_reduction=True`) and rank-symmetric preflight. It does not make the strict solver distributed: `setup_halo=False`, `full_halo=False`, `compact_halo=False`, and distributed `fused_fgmres=False`. Keep production multi-rank entry points fail-closed until all halo and fused-solve capabilities are independently validated; never infer strict distributed correctness from the legacy halo path or from a passing reduction probe.
+Current strict MPI provides rank-symmetric preflight plus c64/c128 global reduction, setup/full/compact/R-P halos and distributed fused FGMRES. Its capability record is all-true for `setup_halo`, `fine_halo`, `full_halo`, `compact_halo`, `rp_coarse_halo`, `global_reduction`, and `fused_fgmres`. Multi-rank production still requires one process/rank/device, a successful capability preflight and an independently recomputed true residual; do not infer correctness from a passing reduction probe alone.
 
 For memory work, distinguish requested live bytes from allocator reservation. Account separately for the persistent recursive hierarchy/V-cycle arena, packed assets, blocked transfers, and the exact fused C++ workspace above; Python outer-Krylov and coarse-I/O resident bytes are zero. Galerkin setup batching uses a conservative four-full-field peak model. The library default setup cap is `512 MiB`; the formal `16×32×32×48` profile is independent of that default and selects colored `C=12` under `4 GiB` for c64, or `C=1` under `1 GiB` for c128. The outer fused cap is a separate `max_krylov_bytes`: solver API default `512 MiB`, formal c64 `512 MiB`, formal c128 `1 GiB`. With `strict_galerkin_mode="auto"`, select site-batch only when its modeled workspace fits and its operator-call count is no greater than colored; record requested/effective mode, `C`, projection batch `K`, cap and setup stats, and let formal validation reject any silent batch shrink. Bind packed assets before calling `seal_cuda_runtime(runtime_assets_bound=True)` to detach native setup duplicates, then add `LatticeSet` scratch/device halo, pinned host halo, Gauge/Clover inputs and CUDA/cuBLAS high-water state. Formal records require memory schema version 2 and the device-wide field `device_used_max_observed_bytes`; the independent `cudaMemGetInfo` probe is untimed, while `setup_seconds` excludes sampler stop. Query `nvidia-smi` by the target GPU UUID and report only `max_observed`, not a guaranteed peak. Verify no live growth over repeated warm solves and that close returns owned live storage to baseline; `empty_cache()` is not evidence of leak freedom.
 

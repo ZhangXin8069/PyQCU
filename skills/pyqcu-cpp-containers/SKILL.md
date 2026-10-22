@@ -7,6 +7,11 @@ description: cpp/ 后端容器目录（CUDA、KUPL CPU 真实现 + cann/dtk/maca
 `cpp/` 下的目录镜像同一结构：容器层只做后端分组，真实现（或 stub）在各自的
 `qcu/` 子目录。新增后端时按同一形状建 `cpp/<backend>/{AGENTS.md,qcu/}`。
 
+CUDA/DCU/GPGPU 生产运行遵循一 Python 进程 = 一 MPI rank = 一设备；容器层
+不得把单进程多设备 worker 作为默认后端拓扑。`MultiGpuMultigrid` 是显式调用的
+测试专用例外，规则见
+[`pyqcu-cuda/SKILL.md`](../pyqcu-cuda/SKILL.md#cuda-production-topology)。
+
 | 容器 | 状态 | 内容 |
 |---|---|---|
 | `cpp/cuda/` | **真实现** | `qcu/` 是 PyQCU 主 C++ CUDA 后端，构建产物 `libqcu.so` |

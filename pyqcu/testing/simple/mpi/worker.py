@@ -3,8 +3,11 @@
 
 KUPL is delegated to the established ``simple/kupl_multigrid.py`` path, which
 already implements distributed halos and an independent distributed residual.
-The CUDA path below uses one MPI rank per visible GPU and the same 33-tensor
-coarse cache layout, with a NumPy true-residual check independent of libqcu.
+The CUDA path below follows the production topology: one Python process, one
+MPI rank, one GPU/DCU/GPGPU. Multi-device solves use MPI domain decomposition;
+the test-only ``MultiGpuMultigrid`` thread-per-GPU driver is intentionally not
+used here. The same 33-tensor coarse cache layout is retained, with a NumPy
+true-residual check independent of libqcu.
 """
 
 from __future__ import annotations
@@ -103,8 +106,9 @@ def _run_cuda(args, comm: MPI.Comm) -> int:
     rank = int(comm.Get_rank())
     size = int(comm.Get_size())
     local_rank = _cuda_local_rank(comm)
-    # The native CUDA backend reads this environment variable when selecting
-    # a device, so it must be set before importing pyqcu.cuda.qcu.
+    # Production topology: this Python process owns exactly one MPI rank and
+    # one GPGPU. The native backend reads this variable before pyqcu.cuda.qcu
+    # is imported, so the process-to-device binding must be established here.
     os.environ["PYQCU_MPI_DEVICE_ID"] = str(local_rank)
 
     import torch

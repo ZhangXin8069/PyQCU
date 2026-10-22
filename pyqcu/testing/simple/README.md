@@ -21,6 +21,7 @@
 | [`COMMAND_REFERENCE.md`](COMMAND_REFERENCE.md) | 全部主要脚本的逐项命令参考 |
 | [`mpi/README.md`](mpi/README.md) | MPI 小格点快速入口 |
 | [`mpi/USER_GUIDE.md`](mpi/USER_GUIDE.md) | MPI 架构、绑定、LIME、缓存、报告和故障排查 |
+| [`docs/cuda_execution_topology.md`](../../../docs/cuda_execution_topology.md) | CUDA 生产拓扑与测试专用多 GPU 例外 |
 
 ## 最短上手
 
@@ -196,6 +197,10 @@ quda_bicg.json
 ```
 
 ## MPI 小格点快速入口
+
+CUDA 生产约定固定为“一个 Python 进程 = 一个 MPI rank = 一张
+GPU/DCU/GPGPU”。本目录的生产入口和 MPI 路径不启用
+`MultiGpuMultigrid`；该驱动只允许显式发起的测试、一致性或吞吐任务使用。
 
 需要验证四维 MPI 分域、halo、LIME 切体积、粗算子缓存和真残差时，使用：
 

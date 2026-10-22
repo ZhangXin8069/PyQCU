@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """volume24_final —— CUDA C++ 多线程版 MultiGrid 真实加速比测试套件（pyqcu/testing/qcu/multigrid/volume24/final）。
 
+TEST-ONLY: the multi-device path explicitly uses ``MultiGpuMultigrid``.
+Production CUDA uses one Python process = one MPI rank = one GPU/DCU/GPGPU.
+
 任务定义（~auto-all）：
   目标     : 令 CUDA_C++ 多线程版 MultiGrid 在统一格子 24x24x24x72 上
              具有稳定大于 2 的**真实**加速比。

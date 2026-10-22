@@ -2,6 +2,11 @@
 
 C++ CUDA 后端测试（经 Cython 桥）。从 Python 驱动 `libqcu.so`。
 
+CUDA 生产拓扑固定为“一个 Python 进程 = 一个 MPI rank = 一张
+GPU/DCU/GPGPU”。`bench_multi_gpu.py`、`conftest.multi_gpu.py` 和
+`slurm_multi_gpu_smoke.sh` 使用的 `MultiGpuMultigrid` 是显式调用的测试专用
+例外，只验证多卡一致性或吞吐，不是生产部署模板。
+
 ## 测试文件
 
 | 文件 | 测试内容 |
@@ -15,8 +20,8 @@ C++ CUDA 后端测试（经 Cython 桥）。从 Python 驱动 `libqcu.so`。
 | `conftest.clover.bistabcg.py` | Clover BiStabCG 求解器 |
 | `conftest.clover.bistabcg.dslash.py` | Clover BiStabCG dslash |
 | `conftest.clover.multigrid.py` | Clover multigrid V-cycle 求解器 |
-| `bench_multi_gpu.py` | 双/多卡 Clover-MG 稳态基准；可关闭参考 BiStabCG，输出逐次调用与 median |
-| `slurm_multi_gpu_smoke.sh` | Slurm 2-GPU 构建、单功能数值门、双卡一致性与真实 LIME 回归 |
+| `bench_multi_gpu.py` | 测试专用双/多卡 Clover-MG 稳态基准；显式调用 `MultiGpuMultigrid`，不是生产拓扑 |
+| `slurm_multi_gpu_smoke.sh` | 测试专用 Slurm 2-GPU 构建、数值门、双卡一致性与真实 LIME 回归 |
 
 ## 单功能接口测试（当前维护入口）
 
@@ -125,4 +130,4 @@ sbatch --gpus=2 --cpus-per-task=64 --time=01:00:00 \
 产出与运行指南保留为当时记录：`pyqcu/testing/logs/multigrid/{legacy,scaling}/`
 （`server_validation_guide.md`/`.tex`/`.pdf`、报告、LaTeX 表、PNG 图）。
 
-| `conftest.multi_gpu.py` | 多线程多卡 C++ Clover MG 一致性验证（`test_multi_gpu_multigrid`；单卡环境 N 线程共享一卡验证线程隔离） |
+| `conftest.multi_gpu.py` | 测试专用多线程多卡 C++ Clover MG 一致性验证；不是生产并行路径 |

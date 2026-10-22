@@ -6,6 +6,10 @@ description: pyqcu/testing/dcu 目录的完整生成 skill：AMD DCU / ROCm (HIP
 
 AMD DCU / ROCm (HIP) tests.
 
+DCU 与其他 GPGPU 使用同一拓扑：一 Python 进程 = 一 MPI rank = 一设备；
+跨设备并行经 MPI。单进程多设备驱动只能是显式测试例外。规则见
+[`pyqcu-cuda/SKILL.md`](../pyqcu-cuda/SKILL.md#cuda-production-topology)。
+
 ## Test Files
 
 | File | What it tests |

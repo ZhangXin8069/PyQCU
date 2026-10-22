@@ -20,8 +20,9 @@ from ._quda_multigrid import (Checkerboard as Checkerboard,
 from argparse import Namespace
 Namespace.__module__ = "pyqcu.solver"
 
-# 多线程多卡 C++ Multigrid 驱动（一线程一卡）：延迟导入避免循环依赖
-# （pyqcu.tools._multigrid 顶层 from pyqcu import solver, tools）。
+# 测试专用：单进程多线程多 GPU 的 Legacy Multigrid 驱动（一线程一卡）。
+# 只有显式访问 MultiGpuMultigrid/verify_multi_gpu_mg 时才延迟导入；生产
+# CUDA 拓扑固定为一 Python 进程 = 一 MPI rank = 一 GPU/DCU/GPGPU。
 _MULTI_GPU_CACHE = {}
 
 

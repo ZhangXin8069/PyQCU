@@ -7,7 +7,10 @@
 #   from pyqcu.cuda import qcu       # Cython bridge to libqcu.so
 #   from pyqcu.cuda import define    # Parameter constants and dtype helpers
 #   from pyqcu.cuda import schur_op  # CudaSchurOp (multi-thread-safe Schur op)
-#   from pyqcu.cuda import multi_gpu # MultiGpuMultigrid (one-thread-one-GPU driver)
+#   from pyqcu.cuda._multi_gpu import MultiGpuMultigrid
+#       TEST-ONLY, explicit opt-in. Production CUDA topology is one Python
+#       process = one MPI rank = one GPU/DCU/GPGPU; importing this package does
+#       not import, construct, or start the multi-GPU test driver.
 
 _LAZY_EXPORTS = {}
 

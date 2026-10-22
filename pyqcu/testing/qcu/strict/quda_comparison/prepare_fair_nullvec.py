@@ -80,6 +80,7 @@ class PreparationSpec:
     block: tuple[int, int, int, int] = (2, 2, 2, 2)
     nvec: int = 12
     mass: float = 0.05
+    csw: float = 1.0
     device: Optional[int] = None
 
     def __post_init__(self) -> None:
@@ -90,6 +91,7 @@ class PreparationSpec:
         object.__setattr__(self, "block", tuple(int(x) for x in self.block))
         object.__setattr__(self, "nvec", int(self.nvec))
         object.__setattr__(self, "mass", float(self.mass))
+        object.__setattr__(self, "csw", float(self.csw))
         if len(self.lattice) != 4 or any(x <= 0 or x % 2 for x in self.lattice):
             raise ValueError("lattice must contain four positive even extents")
         if len(self.block) != 4 or any(x <= 0 for x in self.block):
@@ -98,6 +100,8 @@ class PreparationSpec:
             raise ValueError("nvec must be positive")
         if not math.isfinite(self.mass) or abs(2.0 * self.mass + 8.0) < 1.0e-15:
             raise ValueError("mass must be finite and define a finite kappa")
+        if not math.isfinite(self.csw):
+            raise ValueError("csw must be finite")
         if not self.source_dataset or not self.gauge_dataset or not self.output_dataset:
             raise ValueError("dataset names must be non-empty")
         if any(extent % width for extent, width in zip(self.odd_shape, self.block)):
@@ -272,6 +276,7 @@ def build_identity(
         "clover": {
             "builder": CLOVER_BUILDER,
             "sigma": CLOVER_SIGMA,
+            "csw": spec.csw,
             "gauge_sha256": gauge["sha256"],
         },
         "physics": {
@@ -679,6 +684,7 @@ def _cuda_vectors(
             spec.mass,
             dtype=torch.complex64,
             data_type=define._LAT_C64_,
+            csw=spec.csw,
         )
         reconstruct_params = params.clone().contiguous()
         reconstruct_params[define._SET_PLAN_] = 1
@@ -972,6 +978,8 @@ def _parser() -> argparse.ArgumentParser:
                         metavar=("BX", "BY", "BZ", "BT"))
     parser.add_argument("--nvec", type=int, default=12)
     parser.add_argument("--mass", type=float, default=0.05)
+    parser.add_argument("--csw", type=float, default=1.0,
+                        help="Clover coefficient bound into reconstruction identity")
     parser.add_argument("--device", type=int, default=None,
                         help="CUDA device index; default QCU_DEVICE_ID or 0")
     modes = parser.add_mutually_exclusive_group()
@@ -998,6 +1006,7 @@ def _spec_from_args(args: argparse.Namespace) -> PreparationSpec:
         block=tuple(args.block),
         nvec=args.nvec,
         mass=args.mass,
+        csw=args.csw,
         device=args.device,
     )
 

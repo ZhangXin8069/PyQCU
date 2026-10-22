@@ -6,6 +6,11 @@ description: cpp/cuda/qcu/src 目录的完整生成 skill：32 个 .cu 内核源
 
 CUDA kernel source files. Each `.cu` file `#include`s the corresponding header from `../include/` and provides template instantiations and kernel launch wrappers.
 
+CUDA/GPGPU production topology is one Python process = one MPI rank = one
+device. Do not add or invoke a single-process multi-device production driver;
+`MultiGpuMultigrid` is test-only. See
+[`pyqcu-cuda/SKILL.md`](../pyqcu-cuda/SKILL.md#cuda-production-topology).
+
 ## C API 入口层（定义 `python/pyqcu.h` 的 `extern "C"` 符号）
 
 | File | Purpose |
@@ -47,8 +52,9 @@ device_random_8dtzyx 显存泄漏（cudaFreeAsync）均已修复（`logs/fix-rep
 ## Strict source contract
 
 `apply_multigrid_strict.cu` 直接包含 `../include/qcu.h` 与 `../python/pyqcu.h`，
-并导出 `pyqcu.h` 中的 Strict C ABI。它验证 c64/c128、单 rank、偶数 fine geometry
-和可整除 block；`target_parity=1`、`start_level=1` 是 fused fine solve 的固定值。
+并导出 `pyqcu.h` 中的 Strict C ABI。它验证 c64/c128、MPI rank 对称几何、偶数
+fine geometry 和可整除 block；`target_parity=1`、`start_level=1` 是 fused fine
+solve 的固定值，多 rank 通过 fine/coarse halo 与全局归约协同。
 Fine 端用物理 Gauge 与 Clover even/odd/inverse 做 odd-Schur/MATPC；每个 coarse
 level 用 full-lattice `X/Yhat` 算子，R/P 只跨 compact fine parity 与 full coarse
 field，不对 coarse geometry 再做 checkerboard。

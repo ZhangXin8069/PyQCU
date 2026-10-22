@@ -17,11 +17,32 @@ Cython bridge package for the C++ CUDA backend (`libqcu.so`).
 | `define.py` | Parameter constants (`_LAT_X_`, `_SET_PLAN_`, etc.) and dtype conversion helpers (`dtype()`, `epytd()`) |
 | `_runtime.py` | `QcuRuntime` — lifecycle-safe flat-ABI wrapper with private control arrays, free-slot selection, `mass`/`csw` configuration, and `operation()` contexts for getters |
 | `_schur_op.py` | `CudaSchurOp` — C++ Schur odd-site operator wrapper (per-instance independent params/set_ptrs, thread-safe slot allocator; matvec uses preallocated buffer + device sync + clone to avoid deep pool/stream races) |
-| `_multi_gpu.py` | `MultiGpuMultigrid` — multi-thread multi-GPU C++ Clover MG driver (one-thread-one-GPU; consistency + independent-problem modes; `run_reference=False` for pure-MG throughput; `save_report` JSON; single-MPI-rank constraint) |
+| `_multi_gpu.py` | **TEST-ONLY, explicit opt-in**: `MultiGpuMultigrid` — single-process multi-thread multi-GPU Legacy MG driver (one-thread-one-GPU; consistency + independent-problem modes; single-MPI-rank constraint); not the production topology and not a single-solve domain decomposition |
 | `_strict_multigrid.py` | `CudaStrictMultigridSolver` — fine odd-Clover Schur + persistent strict coarse V-cycle + C++ fused right-FGMRES |
 | `_strict_cache.py` | strict runtime cache schema v2；逐 tensor 流式摘要、完整验签后再传入 device |
-| `_strict_mpi.py` | strict MPI rank 对称 preflight 与能力门禁；阶段 1 仅启用 c64/c128 全局标量归约 |
+| `_strict_mpi.py` | strict MPI rank 对称 preflight 与能力门禁；当前声明 setup/full/compact/R-P halo、全局归约和分布式 fused FGMRES 均可用 |
 | `_logs.py` | C++ 后端收敛日志解析（2026-08-22 整合，规范位置）：`parse_mg_log(path)` → (残差列表, `PROF_SECTIONS` ms 字典, 总迭代数)；`parse_convergence_histories(path, offset)` → (histories, 新偏移) 增量收集逐次求解的 `CONVERGENCE_HISTORY`。默认路径 `<repo>/logs/clover_multigrid.log` |
+
+## CUDA Production Topology
+
+All new production CUDA programs follow one invariant:
+
+```text
+one Python process = one MPI rank = one GPU/DCU/GPGPU
+```
+
+Cross-device parallelism is implemented with MPI ranks and 4D lattice domain
+decomposition. Do not create multiple production device workers inside one
+Python process. `MultiGpuMultigrid` is a test-only exception: importing
+`pyqcu`, `pyqcu.cuda`, or `pyqcu.solver` does not construct or start it; only an
+explicit import and construction enable the path. Use it only for consistency,
+throughput, or diagnostic tests, never as the default driver for a new CUDA
+program.
+
+The normative project document is
+[`docs/cuda_execution_topology.md`](../../docs/cuda_execution_topology.md).
+The cross-document extraction index is
+[`pyqcu-docs/references/extracted-guidance.md`](../pyqcu-docs/references/extracted-guidance.md#3-cuda-生产执行拓扑).
 
 ## Public API
 
@@ -52,7 +73,7 @@ from pyqcu.cuda import QcuRuntime  # lifecycle-safe flat-ABI calls
 | `applyMultigridStrictPrepareQcu` / `applyMultigridStrictReconstructQcu` | Full↔odd-Schur preparation/reconstruction | strict MG |
 | `applyMultigridStrictRestrictQcu` / `applyMultigridStrictProLongQcu` | Compact fine-parity R/P with full coarse output/input | strict MG |
 | `applyMultigridStrictInitQcu` / `applyMultigridStrictVCycleQcu` / `applyMultigridStrictEndQcu` | Allocate, reuse, and release the persistent strict hierarchy/arena | strict MG |
-| `applyMultigridStrictFgmresQcu` | Fused single-rank restarted right-FGMRES, including warm x0 and exact workspace accounting | strict MG |
+| `applyMultigridStrictFgmresQcu` | Fused restarted right-FGMRES with MPI global reductions, including warm x0 and exact workspace accounting | strict MG |
 
 All functions take raw pointers cast to `long long` from `tensor.contiguous().data_ptr()`.
 
@@ -82,7 +103,7 @@ Index constants in `define.py` MUST stay in sync with `cpp/cuda/qcu/include/defi
 - Galerkin setup memory planning must count four simultaneous full-field arenas. The library default `strict_galerkin_max_workspace_bytes=512 MiB` is an API default, not the formal benchmark contract. The formal `16×32×32×48` profile uses colored `C=12` with a `4 GiB` c64 setup cap, and `C=1` with a `1 GiB` c128 setup cap. The outer fused `max_krylov_bytes` is separate: the solver API default is `512 MiB`, while the formal profile uses `512 MiB` for c64 and `1 GiB` for c128. Never infer either budget from the other.
 - With `strict_galerkin_mode="auto"`, compare site-batch and colored operator-call/memory models under the requested cap, choose site-batch only when it fits and is no slower by call count, and record requested/effective mode, column batch `C`, projection-site batch `K`, cap and observed stats. The generic builders may shrink `C/K` to fit; a formal benchmark sets an exact-batch contract and must fail closed on any shrink.
 - `applyMultigridStrictFgmresQcu` lazily allocates the outer workspace in C++ on the first solve and reuses it for the same geometry/restart. Its exact device size is `(2*m+5)*B_f + 2*B_c`, where `B_f` is one compact fine-parity vector and `B_c` one full first-coarse vector; Python owns no duplicate Krylov arena or coarse-I/O tensors. `CudaStrictMultigridSolver` shortens `m` before the call when `max_krylov_bytes` requires it.
-- MPI stage 1 implements c64/c128 global dot/norm reduction, so the capability is `global_reduction=True`. Rank-dependent metadata/control errors are rejected through rank-symmetric preflight before collectives. `setup_halo=False`, `full_halo=False`, `compact_halo=False`, and distributed `fused_fgmres=False` remain hard gates; production multi-rank strict solves must still fail closed and must not be reported as supported.
+- Current strict MPI declares `setup_halo=True`, `fine_halo=True`, `full_halo=True`, `compact_halo=True`, `rp_coarse_halo=True`, `global_reduction=True`, and `fused_fgmres=True`. Rank-dependent metadata/control errors are rejected through rank-symmetric preflight before collectives. Multi-rank production runs still need one process/rank/device, capability preflight and an independent true-residual gate; passing reduction-only smoke is not sufficient evidence.
 
 Treat `memory_report()` as an explicit-ownership ledger, not whole-process peak memory. Before the first solve, fused resident bytes are zero and only planned bytes are reported; after the first solve, resident bytes must equal the formula above. For a lifecycle audit, record baseline → hierarchy setup → packed export/bind → runtime seal → strict init → first/steady solve → `close()`, deduplicate tensor storages, and separately include Gauge/Clover inputs, `LatticeSet` scratch/halos, allocator reserved/high-water state, and caller RHS/output storage. In formal benchmarks, sampler start delegates its first `cudaMemGetInfo` call to the worker thread; stop takes no final sample and retains the thread handle on join timeout so validation can fail closed. Keep the independent device-wide probe untimed, require memory schema version 2, use `device_used_max_observed_bytes`, and query `nvidia-smi` by target GPU UUID with observational fields named only `max_observed`.
 
@@ -98,7 +119,7 @@ For an ordinary transaction, call `applyEndQcu` at the index used by
 ordering and selects a reusable free slot.
 
 `MultiGpuMultigrid` defaults to `run_reference=True` so consistency tests can
-compare MG against BiStabCG. Production throughput runs should use
+compare MG against BiStabCG. Explicit test-only throughput runs may use
 `run_reference=False`: it skips the redundant per-device reference solve and
 the second ordinary `LatticeSet` initialization. Worker cleanup must keep
 `applyEndQcu` in `finally`, at the same slot index used for initialization.
@@ -187,9 +208,9 @@ coarse-solver iterations.
 
 ## 2026-10-21 真实 LIME、MG 输入与多卡通信
 
-`MultiGpuMultigrid` 现支持注入外部 `gauge/source`、`input_tag`、真实 MG 残差
-校验和 setup/solve 分段计时。真实输入应传入 QCU parity 布局；粗算子缓存 key
-必须绑定 gauge/source SHA，不能继续使用 `generated:<seed>`。
+测试专用的 `MultiGpuMultigrid` 现支持注入外部 `gauge/source`、`input_tag`、
+真实 MG 残差校验和 setup/solve 分段计时。真实输入应传入 QCU parity 布局；
+粗算子缓存 key 必须绑定 gauge/source SHA，不能继续使用 `generated:<seed>`。
 
 本集群 A100 + OpenMPI 的 CUDA-aware 路径会在分布式 `wilson_dslash.run_oe`
 首个 halo 阻塞；`PYQCU_MPI_DEVICE_AWARE=0` 的 pinned-host staging 可正常完成。
