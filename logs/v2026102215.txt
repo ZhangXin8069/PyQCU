@@ -1,0 +1,111 @@
+[日志元数据]
+日志类型: final
+生成时间: 2026-10-22 15:35:49 +0800
+批次: simple-mpi
+主任务: 实现 pyqcu/testing/simple MPI 小格点入口
+触发原因: 任务完成
+摘要: 新增 KUPL/CUDA MPI 小格点 QCU MG 入口，LIME 兼容并完成两后端 PASS 验证
+Git 根目录: /root/PyQCU
+
+## 关键日志
+### S1 - 现状与边界确认
+- 目标: 在 pyqcu/testing/simple/mpi 新增小格点 MPI 版本，KUPL 支持每 NUMA 绑定 MPI rank、每 rank OpenMP 线程，并兼容 PyQUDA 常用 LIME。
+- 操作: 阅读 simple MPI/KUPL/CUDA 现有实现、LIME 读取器、KUPL 绑定规则和 OpenMPI 绑定约束。
+- 关键输出: 既有 kupl_multigrid.py 已具备分布式 halo 和独立残差；现有 simple qcu_multigrid.py 为单卡。新入口需区分 KUPL 真分域与 CUDA one-rank-one-GPU，不能误用 MultiGpuMultigrid 的整题复制语义。
+- 退出码: 0
+- 证据与判断: 新目录采用公共 solve_case.py 启动器和内部 worker.py。
+
+### S2 - 实现
+- 目标: 提供 LIME 输入、小体积切片、共享 source、粗算子缓存、MPI 启动和 JSON 报告。
+- 文件: pyqcu/testing/simple/mpi/{solve_case.py,worker.py,_common.py,test_mpi_contract.py,README.md,AGENTS.md}; 更新 simple/README.md 与 simple/AGENTS.md。
+- 关键实现: LIME 按魔数识别；支持大小写扩展名、Scidac 私有或公共 record XML、clovCoeff、Mass；KUPL 设置 KUPL_NUMA_BIND=0；OpenMPI 的 numa 绑定不再与 pe=N 冲突；rank 数超过本机 NUMA 域时自动回退 bind-to none 并记录；CUDA worker 使用 MPI local rank 选 GPU。
+- 退出码: 0
+- 证据与判断: python -m compileall 通过，4 项契约测试通过。
+
+### S3 - 实际 KUPL 验证
+- 命令: source ./env.sh && python pyqcu/testing/simple/mpi/solve_case.py --backend kupl --lime /root/data/beta6.20_mu-0.2770_ms-0.2310_L24x64_cfg_9950.lime --lat 8 8 8 16 --grid 1 4 1 1 --ranks 4 --omp-threads 8 --levels 2 --dof 12 12 --mg-grid 2 2 2 2 --work-dir data/mpi_smoke_kupl
+- 关键输出: PASS; mpi_size=4; grid=[1,4,1,1]; final_true_residual=6.382771581498035e-07; acceptance=0.000244140625; verify_status=0。
+- 退出码: 0
+- 证据与判断: 四 rank 独立 NumPy 分布式真残差通过，报告含每 rank coordinate、local shape、CPU affinity、OMP_NUM_THREADS=8、KUPL_NUMA_BIND=0。
+
+### S4 - 实际 CUDA 验证
+- 命令: CUDA_VISIBLE_DEVICES=0,1 && python pyqcu/testing/simple/mpi/solve_case.py --backend cuda --libqcu sm60 --lime /root/data/beta6.20_mu-0.2770_ms-0.2310_L24x64_cfg_9950.lime --lat 8 8 8 16 --grid 1 2 1 1 --ranks 2 --omp-threads 1 --levels 2 --dof 12 12 --mg-grid 2 2 2 2 --work-dir data/mpi_smoke_cuda --coarse-cache data/mpi_smoke_kupl/coarse_c64_lv2_E12_12_mg2x2x2x2_nvi1_s42.h5
+- 关键输出: PASS; mpi_size=2; grid=[1,2,1,1]; final_true_residual=2.0364737743269536e-07; acceptance=0.000244140625。
+- 退出码: 0
+- 证据与判断: 两 GPU rank 完成同一 C++ Clover-MG 与 MPI halo 路径；独立分布式 NumPy 真残差通过。
+
+### S5 - 跨后端与格式检查
+- 操作: 比较 KUPL/CUDA 同一 gauge/source 的 HDF5 解；运行 compileall、定向 pytest、git diff --check、form 审计。
+- 关键输出: solution 相对 L2 差 2.106764828996087e-06，max_abs_difference 2.7299967769067734e-05；测试 6 passed；form audit PASS。
+- 退出码: 0
+- 证据与判断: 两条后端在舍入差异量级内一致；格式审计无新增 finding。
+
+## 验证与证据
+- 测试/检查: python -m compileall -q pyqcu/testing/simple/mpi
+- 结果: 通过。
+- 测试/检查: python -m pytest -q -p no:cacheprovider pyqcu/testing/simple/mpi/test_mpi_contract.py pyqcu/testing/simple/test_coarse_cache.py
+- 结果: 6 passed。
+- 测试/检查: KUPL 4 ranks x 8 OpenMP threads, 8x8x8x16。
+- 结果: PASS，独立真残差 6.3828e-07。
+- 测试/检查: CUDA 2 MPI ranks, 8x8x8x16。
+- 结果: PASS，独立真残差 2.0365e-07。
+- 测试/检查: bash skills/pyqcu-form/form-audit.sh
+- 结果: PASS，豁免 1069 个既有 finding。
+- 未验证项: 当前主机只有 1 个 NUMA 域，因此实际运行回退为 --bind-to none；多 NUMA 的 ppr:1:numa 绑定只验证了命令构造，未在多 NUMA 主机实测。
+
+## 变更与产物
+- 文件: pyqcu/testing/simple/mpi/_common.py
+- 文件: pyqcu/testing/simple/mpi/solve_case.py
+- 文件: pyqcu/testing/simple/mpi/worker.py
+- 文件: pyqcu/testing/simple/mpi/test_mpi_contract.py
+- 文件: pyqcu/testing/simple/mpi/README.md
+- 文件: pyqcu/testing/simple/mpi/AGENTS.md
+- 文件: pyqcu/testing/simple/README.md
+- 文件: pyqcu/testing/simple/AGENTS.md
+- 产物: data/mpi_smoke_kupl/report_mpi.json, solution_mpi_c64.h5, coarse_*.h5
+- 产物: data/mpi_smoke_cuda/report_mpi.json, solution_mpi_c64.h5
+- 未改动范围: 未修改 C++/CUDA/KUPL 后端源码，未提交或打标签。
+
+## 风险、限制与下一步
+- 风险: LIME 子体积边界缝不是原周期边界，结果仅用于实现与 MPI 正确性验证。
+- 限制: 本机单 NUMA，未实际覆盖跨 NUMA/跨节点绑定和扩展效率。
+- 下一步: 在多 NUMA 节点上使用相同入口和 ppr:1:numa 映射复测 rank affinity，并再决定是否需要性能调参。
+
+## 用户输入指令
+简答pyqcu的simple接口如何调用多卡cuda版qcu的mg
+在{pyqcu/testing/simple/mpi}中编写{pyqcu/testing/simple}的mpi并行版本,其中kupl版qcu的运行指令类似于{# 每个NUMA节点绑定1个MPI进程，每个进程使用8个OpenMP线程
+export OMP_NUM_THREADS=8
+mpirun --bind-to numa --map-by ppr:1:numa:pe=8 -np 4 ./hybrid_app},具体参考{https://blog.csdn.net/s4t5u6v7/article/details/155440360}与{https://blog.csdn.net/red88/article/details/152024979},本次任务只需小格子进行快速通过性与正确性验证,无需大格子长耗时
+需要全面兼容PyQUDA常用的lime格式,例如{~/data/beta6.20_mu-0.2770_ms-0.2310_L24x64_cfg_9950.lime}
+
+## Agent 全文报告
+--- report begin ---
+已完成 pyqcu/testing/simple/mpi 小格点 MPI 版本。
+
+改动内容:
+- 新增统一启动器 solve_case.py 和 worker.py，支持 KUPL 与 CUDA 两个后端。
+- KUPL 使用真实四维 MPI 分域与 rank 内 OpenMP；MPI 负责绑定时设置 KUPL_NUMA_BIND=0。
+- CUDA 使用 one-rank-one-GPU 的四维 MPI 分域，区别于单进程 MultiGpuMultigrid 整题复制模式。
+- 直接接受 PyQUDA/QIO LIME，按魔数识别，支持大小写扩展名、Scidac 私有/公共 record XML、clovCoeff 与 Mass。
+- 自动切出 8x8x8x16 小体积，生成共享 source，按需构建 33-tensor 粗算子缓存，并输出包含 MPI 几何、绑定、计时、独立真残差的 JSON。
+- 新增契约测试和 README/AGENTS 说明。
+
+推理依据:
+- KUPL 已具备 MPI halo、分布式双线性形式和 openmp 后端，因此新入口复用 kupl_multigrid.py。
+- CUDA legacy MG 需要全局粗算子，启动器先构建一次，各 rank 只读取局部粗格超切片。
+- OpenMPI 4.1 不允许 --bind-to numa 与 map-by pe=N 组合，因此使用 OMP_NUM_THREADS 固定线程数并采用 ppr:1:numa；rank 数超过本机 NUMA 域时自动回退 bind-to none。
+- LIME 子体积保留原 gauge link，切口缝不周期，因此仅用于实现和数值正确性验证。
+
+验证结果:
+- compileall: PASS。
+- 定向 pytest: 6 passed。
+- KUPL 4 ranks x 8 OpenMP threads, 8x8x8x16: PASS，独立真残差 6.3828e-07，验收门限 2.4414e-04。
+- CUDA 2 MPI ranks, 8x8x8x16: PASS，独立真残差 2.0365e-07。
+- KUPL/CUDA 解相对 L2 差 2.1068e-06。
+- git diff --check: PASS。
+- form audit: PASS。
+
+后续步骤:
+- 当前机器只有 1 个 NUMA 域，实际运行使用了 bind-to none；需在多 NUMA 主机上用 --bind-to numa --map-by ppr:1:numa 复测实际 affinity 和扩展效率。
+- 未提交、未打标签、未推送。
+--- report end ---

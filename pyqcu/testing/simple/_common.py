@@ -320,12 +320,21 @@ def _lime_xml(path: Path, records: Mapping[str, tuple[int, int]], name: str) -> 
     return ET.fromstring(payload.decode("utf-8"))
 
 
+def _lime_record_name(records: Mapping[str, tuple[int, int]],
+                      *names: str) -> str:
+    for name in names:
+        if name in records:
+            return name
+    raise KeyError(f"missing LIME record; expected one of {names}")
+
+
 def lime_metadata(path: str | os.PathLike[str]) -> dict[str, Any]:
     """Return gauge dimensions and the Chroma clover coefficient if present."""
     path = Path(path).expanduser()
-    records = _lime_records(
-        path, {"scidac-private-file-xml", "scidac-record-xml"})
-    file_xml = _lime_xml(path, records, "scidac-private-file-xml")
+    records = _lime_records(path)
+    file_name = _lime_record_name(
+        records, "scidac-private-file-xml", "scidac-file-xml")
+    file_xml = _lime_xml(path, records, file_name)
     dims = tuple(int(value) for value in file_xml.findtext("dims", "").split())
     if len(dims) != 4:
         raise ValueError(f"invalid LIME lattice dimensions in {path}: {dims}")
@@ -352,8 +361,12 @@ def read_lime_gauge(path: str | os.PathLike[str]) -> np.ndarray:
     """Read a single-file USQCD/QIO gauge field as QDP ``[d,t,z,y,x,3,3]``."""
     path = Path(path).expanduser()
     records = _lime_records(path)
-    file_xml = _lime_xml(path, records, "scidac-private-file-xml")
-    record_xml = _lime_xml(path, records, "scidac-private-record-xml")
+    file_name = _lime_record_name(
+        records, "scidac-private-file-xml", "scidac-file-xml")
+    record_name = _lime_record_name(
+        records, "scidac-private-record-xml", "scidac-record-xml")
+    file_xml = _lime_xml(path, records, file_name)
+    record_xml = _lime_xml(path, records, record_name)
     dims = tuple(int(value) for value in file_xml.findtext("dims", "").split())
     if len(dims) != 4:
         raise ValueError(f"invalid LIME lattice dimensions: {dims}")

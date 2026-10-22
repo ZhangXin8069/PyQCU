@@ -1,0 +1,127 @@
+[日志元数据]
+日志类型: final
+生成时间: 2026-10-22 16:13:12 +0800
+批次: simple-docs
+主任务: 丰富 simple 与 simple/mpi 用户文档并补充 OpenMPI 绑定说明
+触发原因: 任务完成
+摘要: 重写两目录用户文档，覆盖全部主要 CLI、LIME、报告和 OpenMPI 绑定，并完成实现一致性修复与验证
+Git 根目录: /root/PyQCU
+
+## 关键日志
+### S1 - 文档范围与真实接口核对
+- 目标: 全面丰富 pyqcu/testing/simple 与 pyqcu/testing/simple/mpi 用户文档，并特别说明 OpenMPI 进程绑定。
+- 操作: 读取两个目录现有 README/AGENTS、全部主要脚本 argparse、环境变量、LIME/HDF5 parser、报告写入逻辑和 MPI launcher。
+- 关键输出: 原 simple/README 结构混杂且生产表格被 MPI 章节截断；mpi/README 只有简短示例，缺少参数、缓存、报告字段和故障排查。
+- 退出码: 0
+- 证据与判断: 文档必须按 README、完整用户指南、逐命令参考三层组织。
+
+### S2 - simple 用户文档重写
+- 目标: 提供最短上手、完整用户指南和全脚本命令参考。
+- 文件: pyqcu/testing/simple/README.md
+- 文件: pyqcu/testing/simple/USER_GUIDE.md
+- 文件: pyqcu/testing/simple/COMMAND_REFERENCE.md
+- 关键输出: README 覆盖快速入口、生产流程、QCU/KUPL/QUDA、MPI、状态和限制；USER_GUIDE 覆盖格式、LIME、mass/csw/kappa、prepare/solve、直接后端、对照、benchmark、MG cache、报告、环境变量、OpenMPI 绑定、故障排查；COMMAND_REFERENCE 覆盖所有主要 Python CLI 参数。
+- 退出码: 0
+- 证据与判断: 自动检查显示父目录所有 argparse long option 均出现在文档中。
+
+### S3 - mpi 用户文档重写
+- 目标: 完整说明 MPI 小格点入口、KUPL/CUDA 语义、网格、缓存、报告和 OpenMPI 绑定。
+- 文件: pyqcu/testing/simple/mpi/README.md
+- 文件: pyqcu/testing/simple/mpi/USER_GUIDE.md
+- 关键输出: 文档明确 KUPL 为四维 MPI 分域加 OpenMP，CUDA 为一 rank 一 GPU；说明 MultiGpuMultigrid 的整题复制差异；列出 all CLI、process grid C-order、local-even 约束、coarse cache 超切片、报告 schema、状态和排错。
+- 退出码: 0
+- 证据与判断: MPI 目录所有 argparse long option 均出现在文档中。
+
+### S4 - OpenMPI 绑定专项
+- 目标: 写清每 NUMA 一 rank、每 rank OpenMP 线程和绑定责任。
+- 关键输出: 推荐命令为 OMP_NUM_THREADS=8、KUPL_OMP_THREADS=8、KUPL_NUMA_BIND=0、unset OMP_PROC_BIND/OMP_PLACES、mpirun --bind-to numa --map-by ppr:1:numa；说明 OpenMPI 4.1 不接受 bind-to numa 与 pe=N 同时出现；单 NUMA/超配回退 bind-to none 并标记 binding_fallback=true；说明生产 solve_case 与 mpi/solve_case 的绑核责任差异。
+- 退出码: 0
+- 证据与判断: dry-run 输出确认 bind_to=numa、map_by=ppr:1:numa、OMP_NUM_THREADS=2 的命令构造正确。
+
+### S5 - 文档核对时修复的实现一致性问题
+- 目标: 消除文档声称但实现缺失的选项/格式兼容。
+- 文件: pyqcu/testing/simple/_common.py
+- 文件: pyqcu/testing/simple/mpi/solve_case.py
+- 文件: pyqcu/testing/simple/mpi/test_mpi_contract.py
+- 关键输出: LIME 二进制读取支持 scidac-file-xml/scidac-private-file-xml 和 scidac-record-xml/scidac-private-record-xml；mpi CUDA --libqcu auto/sm60/sm70/default 现在实际调用共享 libqcu_environment；新增公共 XML 和显式架构库契约测试。
+- 退出码: 0
+- 证据与判断: 真实 487 MB LIME 读取得到 csw=1.160920226、reference_mass=-0.277、shape [3,3,4,24,24,24,64]。
+
+### S6 - 验证
+- 命令: python -m compileall -q pyqcu/testing/simple
+- 结果: PASS。
+- 命令: pytest pyqcu/testing/simple/mpi/test_mpi_contract.py pyqcu/testing/simple/test_coarse_cache.py
+- 结果: 8 passed。
+- 命令: DOC link/fence/option contract check
+- 结果: DOC_CONTRACT_PASS。
+- 命令: git diff --check
+- 结果: PASS。
+- 命令: bash skills/pyqcu-form/form-audit.sh
+- 结果: PASS，豁免 1069 个既有 finding。
+- 采信证据: 真实 LIME dry-run 转换成功，输出 QDP shape [4,64,24,24,24,3,3] 和 QCU shape [3,3,4,24,24,24,64]。
+
+## 验证与证据
+- 测试/检查: 文档本地链接、代码围栏、占位符和 CLI 参数覆盖。
+- 结果: 全部通过；父目录和 MPI 目录无缺失 argparse long option。
+- 测试/检查: OpenMPI dry-run。
+- 结果: 生成 bind_to=numa、map_by=ppr:1:numa 的命令。
+- 测试/检查: 真实 LIME。
+- 结果: 读取成功，csw/Mass metadata 正确。
+- 测试/检查: compileall、8 项定向 pytest、diff check、form audit。
+- 结果: 全部通过。
+- 未验证项: 当前环境只有 1 个 NUMA 域，未实际执行 ppr:1:numa 多 NUMA 性能测试。
+
+## 变更与产物
+- 文件: pyqcu/testing/simple/README.md
+- 文件: pyqcu/testing/simple/USER_GUIDE.md
+- 文件: pyqcu/testing/simple/COMMAND_REFERENCE.md
+- 文件: pyqcu/testing/simple/mpi/README.md
+- 文件: pyqcu/testing/simple/mpi/USER_GUIDE.md
+- 文件: pyqcu/testing/simple/AGENTS.md
+- 文件: pyqcu/testing/simple/mpi/AGENTS.md
+- 文件: pyqcu/testing/simple/_common.py
+- 文件: pyqcu/testing/simple/mpi/solve_case.py
+- 文件: pyqcu/testing/simple/mpi/test_mpi_contract.py
+- 未改动范围: 未提交、未打标签、未推送；未修改 C++/CUDA/KUPL 后端源码。
+
+## 风险、限制与下一步
+- 风险: 文档中的多 NUMA 绑定命令需要在真实多 NUMA 主机复测 affinity 和性能。
+- 限制: MPI 入口仍只支持两级 hierarchy 和固定原点前缀子体积。
+- 下一步: 在多 NUMA 节点执行 USER_GUIDE 的 affinity 验证命令，并确认不同 NUMA 上 rank CPU 集不重叠。
+
+## 用户输入指令
+丰富{pyqcu/testing/simple}与{pyqcu/testing/simple/mpi}的用户文档,事无巨细
+注意提到过的{OpenMPI进程绑定}
+
+## Agent 全文报告
+--- report begin ---
+已完成两个目录的用户文档扩充，并补齐文档核对中发现的实现一致性问题。
+
+改动内容:
+- 重写 simple/README.md 为快速入口，新增 USER_GUIDE.md 与 COMMAND_REFERENCE.md。
+- 重写 mpi/README.md，并新增 mpi/USER_GUIDE.md。
+- 文档覆盖全部主要 CLI、输入输出、LIME/QIO、QCU/QDP 布局、归一化、缓存、报告字段、状态、退出码、故障排查和验证命令。
+- OpenMPI 绑定单独成章：ppr:1:numa、OMP_NUM_THREADS、KUPL_NUMA_BIND=0、OMP_PROC_BIND/PLACES、bind-to none 回退、OpenMPI 4.1 的 numa+pe=N 冲突。
+- 补充 public/private LIME file/record XML 支持。
+- 修复 mpi CUDA --libqcu auto/sm60/sm70/default 未实际选择库的问题。
+- 新增对应契约测试。
+
+推理依据:
+- OpenMPI 负责 CPU 放置时必须关闭 KUPL 库内二次绑定。
+- 每 NUMA 一 rank 的线程数由 OMP_NUM_THREADS 控制，无需把 pe=N 与 bind-to numa 混用。
+- LIME 公共和私有 XML 可能同时存在，metadata 应优先读取公共 record，其中包含 clovCoeff/Mass。
+- 文档必须与实际 argparse、默认值和报告 schema 一致。
+
+验证结果:
+- compileall PASS。
+- 8 项定向 pytest PASS。
+- 文档链接、代码围栏、CLI 参数覆盖检查 PASS。
+- 真实 487 MB LIME dry-run 读取 PASS，csw=1.160920226，reference_mass=-0.277。
+- MPI KUPL dry-run 生成 --bind-to numa --map-by ppr:1:numa。
+- git diff --check PASS。
+- form audit PASS。
+
+后续步骤:
+- 多 NUMA 主机上运行文档中的 affinity 验证命令，确认每个 rank 的 CPU 集不重叠。
+- 未提交、未打标签、未推送。
+--- report end ---
