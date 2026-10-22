@@ -742,11 +742,6 @@ template <typename T> struct LatticeCloverMultigrid {
   double prof_coarse_dot_ms = 0;      // coarse dot products
   double prof_coarse_vec_ms = 0;      // coarse vector kernels
 
-  // dev84: cached fine-site value of dv[_lat_4dim_] so v_cycle() need not do
-  // a BLOCKING D2H memcpy on every entry (the patched value is always the
-  // same level-0 volume within one solve).
-  bool lat4_cache_valid = false;
-  double lat4_cached = 0;
   // dev84 CUDA-GRAPH segment replay: on this WSL2 box a kernel launch costs
   // ~75 µs host-side and a stream sync flushes the WHOLE queued backlog
   // (nvprof: sync cost grew from 38 ms to 531 ms as queue depth grew).  We
@@ -3657,19 +3652,14 @@ template <typename T> struct LatticeCloverMultigrid {
       return rn;
     }
 
-    // ---- Save and patch _lat_4dim_ for this level ----
+    // ---- Patch _lat_4dim_ for this level ----
     // The BiStabCG kernels use device_vals[_lat_4dim_] as the site-count
     // stride.  For coarse levels the volume differs, so patch it.
-    // dev84: the saved fine value is cached on first use — the blocking D2H
-    // below used to cost a full device sync on EVERY v_cycle entry.
-    if (!lat4_cache_valid) {
-      LatticeComplex<T> saved_lat4;
-      checkCudaErrors(cudaMemcpy(&saved_lat4, &dv[_lat_4dim_],
-          sizeof(LatticeComplex<T>), cudaMemcpyDeviceToHost));
-      lat4_cached = (double)saved_lat4.real();
-      lat4_cache_valid = true;
-    }
-    T saved_lat_4dim = (T)lat4_cached;
+    // Restore the immediate parent, not a cached fine-level volume: recursive
+    // V-cycles enter this function with the parent's patch already installed.
+    // Restoring the fine volume after a child solve makes the parent's post
+    // smoother iterate with the wrong site count and overrun its vectors.
+    T parent_lat_4dim = (T)levels[lev - 1].vol;
     LatticeComplex<T> coarse_vol_val((T)(st.vec_sz / _LAT_SC_), 0.0);
     // dev84 SYNC DIET: async H2D on S orders before all later S work — no sync
     checkCudaErrors(cudaMemcpyAsync(&dv[_lat_4dim_], &coarse_vol_val,
@@ -3713,7 +3703,7 @@ template <typename T> struct LatticeCloverMultigrid {
     // (observed with coarse max_iter=200 at fine residual ~6e-6).  The fine
     // BiStabCG tail converges by itself from ~1e-5 down to atol.
     if (r0 < (T)1e-4) {
-      LatticeComplex<T> restore_vol(saved_lat_4dim, 0.0);
+      LatticeComplex<T> restore_vol(parent_lat_4dim, 0.0);
       checkCudaErrors(cudaMemcpyAsync(&dv[_lat_4dim_], &restore_vol,
           sizeof(LatticeComplex<T>), cudaMemcpyHostToDevice, S));
       checkCudaErrors(cudaStreamSynchronize(S));
@@ -3851,7 +3841,7 @@ template <typename T> struct LatticeCloverMultigrid {
 
     // ---- Restore _lat_4dim_ ----
     // dev84 SYNC DIET: async H2D on S — 后续内核同流有序, 无需同步
-    LatticeComplex<T> restore_vol(saved_lat_4dim, 0.0);
+    LatticeComplex<T> restore_vol(parent_lat_4dim, 0.0);
     checkCudaErrors(cudaMemcpyAsync(&dv[_lat_4dim_], &restore_vol,
         sizeof(LatticeComplex<T>), cudaMemcpyHostToDevice, S));
 
