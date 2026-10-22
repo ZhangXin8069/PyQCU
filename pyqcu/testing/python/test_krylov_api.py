@@ -157,6 +157,18 @@ def test_torch_linear_operator_full_and_gamma5_adjoint():
         operator.apply_adjoint(left).flatten(), right.flatten())
     torch.testing.assert_close(lhs, rhs, rtol=2e-5, atol=2e-6)
 
+    schur = TorchLinearOperator(fine, mode="schur")
+    compact_left = torch.randn(
+        12, 2, 2, 2, 1, dtype=torch.complex64)
+    compact_right = torch.randn(
+        12, 2, 2, 2, 1, dtype=torch.complex64)
+    schur_lhs = torch.vdot(
+        compact_left.flatten(), schur.apply(compact_right).flatten())
+    schur_rhs = torch.vdot(
+        schur.apply_adjoint(compact_left).flatten(),
+        compact_right.flatten())
+    torch.testing.assert_close(schur_lhs, schur_rhs, rtol=2e-5, atol=2e-6)
+
 
 def test_torch_normal_operator_cg_solves_explicit_normal_system():
     geometry = LatticeGeometry((2, 2, 2, 2), dtype="c64")
