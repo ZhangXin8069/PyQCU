@@ -1,4 +1,10 @@
-"""多线程多卡 C++ Clover Multigrid 驱动（一线程一卡）。
+"""测试专用：单进程多线程多 GPU 的 Legacy Clover-MG 驱动。
+
+生产 CUDA 拓扑固定为一个 Python 进程对应一个 MPI rank、对应一张
+GPU/DCU/GPGPU。本模块中的 ``MultiGpuMultigrid`` 是该规则的显式测试例外：
+``pyqcu`` 导入时不会创建实例、启动线程或选择多张设备；只有调用方显式导入
+并构造该类时才启用。``build_schur_levels`` 与 cache helper 不启动多设备
+worker，仍可供单进程、单 rank、单设备的 Legacy MG 程序使用。
 
 模式：N 个线程并行，每个线程绑定一张 GPU（device_id = tid % num_gpus），
 各自在绑定的设备上运行完整的 C++ 后端流程：
@@ -14,6 +20,9 @@
     C++ 后端 —— 多线程可真正并行进入 libqcu.so，一线程一卡才有效。
   * 粗网格 Schur 算子（33-tensor）在主线程构建一次（确定性探测，写集
     不相交），各线程拷贝到本卡后填入自己的 set_ptrs 槽位（只读共享）。
+
+该驱动不是单次 solve 的跨 GPU 格点分域实现，不用于生产 ``solve_case``。
+需要多个 GPGPU 协同求解同一格点场时，必须使用 MPI 多进程、一 rank 一设备。
 
 验证语义：默认所有线程求解同一问题（同 seed 生成的规范场/源），
 solve() 返回各线程解，verify_consistency() 校验线程间一致性
@@ -300,7 +309,11 @@ def _setup_gpu_tensors(params_t, argv_t, set_ptrs_t, device, mass, atol, csw,
 
 
 class MultiGpuMultigrid(object):
-    """多线程多卡 C++ Clover Multigrid 驱动（一线程一卡）。
+    """测试专用：单进程多线程多 GPU 的 Legacy Clover-MG 驱动。
+
+    该类只在显式构造时启用，不属于 CUDA 生产执行拓扑。生产程序必须保持
+    ``一个 Python 进程 = 一个 MPI rank = 一张 GPU/DCU/GPGPU``；多设备
+    协同通过 MPI 格点分域完成，而不是在一个进程内创建多个整题求解 worker。
 
     构造参数：
         lat_size: [Lx, Ly, Lz, Lt]

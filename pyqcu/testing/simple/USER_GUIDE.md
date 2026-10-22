@@ -713,10 +713,15 @@ acceptance = max(atol, precision_floor)
 
 ### 15.1 CUDA
 
-- 推荐一张 GPU 绑定一个执行单元。
+- 生产约定固定为一个 Python 进程 = 一个 MPI rank = 一张 GPU/DCU/GPGPU；
+  跨设备求解通过 MPI 格点分域，不使用单进程多设备 worker。
+- 完整拓扑规则见
+  [`docs/cuda_execution_topology.md`](../../../docs/cuda_execution_topology.md)。
 - `--device cuda:N` 在未设置 `CUDA_VISIBLE_DEVICES` 时表示物理 PCI 索引 N。
 - 多进程 GPU 运行优先设置 `CUDA_VISIBLE_DEVICES`，再让每个 rank 选择 logical
   device。
+- `MultiGpuMultigrid` 是显式调用的测试专用例外，不属于生产入口。除非任务明确
+  要求多设备一致性或吞吐测试，不得启用。
 - P100 与 V100 混合节点应使用与所有目标 GPU 兼容的 library；仅含 sm_70 SASS
   的库不能直接用于 P100。
 - 系统 PyTorch 若不支持 sm_60，可使用仓库提供的 P100 虚拟环境，但 native

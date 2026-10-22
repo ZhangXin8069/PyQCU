@@ -17,10 +17,17 @@ PyQCU 项目专用技能库：每个技能一个子目录，内含 `SKILL.md`（
 - **TODO 管理**：会话执行第一步用 todowrite 生成详细 TODO 列表，逐步实时更新，收尾核对全完成。
 - **跨技能调用**：必要时调用其他技能；2+ 独立子任务（无共享状态/无顺序依赖/互不改同文件）
   优先并行派发。
-- **技能表同步约定（硬性）**：新增/更改技能必须同步下方技能表行与计数（当前 33/33），
+- **技能表同步约定（硬性）**：新增/更改技能必须同步下方技能表行与计数（当前 34/34），
   避免表格与实际脱节。
 - **命名约定（硬性）**：自用技能目录一律 `pyqcu-` 前缀（2026-10-15 全量改名完成），
   frontmatter `name` 必须与目录名逐字符一致。
+- **CUDA/GPGPU 执行拓扑（硬性）**：生产程序保持“一个 Python 进程 = 一个 MPI rank =
+  一张 GPU/DCU/GPGPU”，跨设备并行走 MPI 格点分域。详情和测试例外以
+  [`pyqcu-cuda`](pyqcu-cuda/SKILL.md) 为准；`MultiGpuMultigrid` 只有显式导入并构造
+  才作为测试专用路径启用，不得成为新 CUDA 程序的默认模板。
+- **文档提取规则（硬性）**：`docs/**` 是正式文档规范源，`skills/**` 只保存可复用摘要、
+  执行不变量和来源映射。跨域提取、判断文档生命周期或新增文档指针时使用
+  [`pyqcu-docs`](pyqcu-docs/SKILL.md)，不复制整篇文档形成双源。
 
 ## 文档范式
 
@@ -29,7 +36,7 @@ frontmatter：name 与目录名一致 + description 写触发场景（何时使�
 可复现出处；tag 报告用 `git show <tag>:<path>` 引用，不写工作区 `logs/<tag>/...`
 持久路径，不写未验证内容。
 
-## 技能表（33/33）
+## 技能表（34/34）
 
 按域分组；每行用途即该技能 frontmatter description 的摘要。2026-10-15 全量加 `pyqcu-`
 前缀，`cann.v2`/`cuda.v2`/`dtk`/`maca` 四个占位技能合并为 `pyqcu-cpp-containers`。
@@ -87,6 +94,7 @@ frontmatter：name 与目录名一致 + description 写触发场景（何时使�
 
 | 技能 | 用途 |
 |---|---|
+| `pyqcu-docs` | PyQCU 正式文档导航与技能化提取：文档职责/生命周期、领域主责映射、稳定命令与来源边界。 |
 | `pyqcu-form` | PyQCU 命名、目录、文档/日志/数据/测试布局与 Git 交付格式治理；含本地例外审计。 |
 | `pyqcu-tag` | Git stab/dev/bug/test 标签管理、历史 follow 链校验与合法并行分支识别。 |
 | `pyqcu-md-tex-sync` | Markdown 唯一源、LaTeX 派生源与 XeLaTeX PDF 的同源生成；全文源快照、全附件 SHA256 清册、幂等哈希同步与全页渲染闸门。 |

@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """
 volume32_2 多卡并行验证 — P100*2 vs V100 单卡
+TEST-ONLY: explicit MultiGpuMultigrid test; production CUDA uses one Python
+process = one MPI rank = one GPU/DCU/GPGPU.
 - 单卡 V100: 1 线程 cuda:0
 - 双卡 P100: 2 线程 cuda:1,2 (torch 不支持 sm_60，故主线程 V100 预生成 gauge/coarse 后拷贝)
 - 对照：单线程 MG vs 双线程 MG 一致性 (rel <1e-5)

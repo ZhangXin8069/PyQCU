@@ -6,6 +6,11 @@ description: pyqcu.dslash 目录的完整生成 skill：Wilson/Clover 狄拉克�
 
 Wilson and Clover Dirac operators — the core linear operators of lattice QCD.
 
+CUDA/DCU/GPGPU execution keeps one Python process = one MPI rank = one device;
+cross-device dslash uses MPI halos. `MultiGpuMultigrid` is a test-only driver,
+not a dslash production topology. See
+[`pyqcu-cuda/SKILL.md`](../pyqcu-cuda/SKILL.md#cuda-production-topology).
+
 ## Files
 
 | File | Purpose |

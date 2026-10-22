@@ -1,3 +1,10 @@
+"""Test-only multi-thread multi-GPU Legacy MG consistency checks.
+
+Production CUDA topology is one Python process = one MPI rank = one device.
+This conftest explicitly opts into ``MultiGpuMultigrid`` and is not a launch
+template for production programs.
+"""
+
 from pyqcu.testing import test_multi_gpu_multigrid
 
 def main():

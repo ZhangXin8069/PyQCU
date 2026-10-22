@@ -32,13 +32,18 @@
 
 ### CUDA：一 MPI rank 一 GPU
 
+- 生产拓扑固定为一 Python 进程 = 一 MPI rank = 一 GPU/DCU/GPGPU。
 - 每个 MPI rank 选择一个 visible GPU。
 - C++ CUDA 后端执行四维 MPI halo。
 - CUDA worker 通过 `MPI.COMM_TYPE_SHARED` 的 local rank 选择 GPU。
 - 这不是 `MultiGpuMultigrid` 的单进程整题复制模式。
 
-`MultiGpuMultigrid` 会在每张 GPU 上求解一个完整问题，适合吞吐/一致性验证；本目录的
-CUDA 入口是把同一个格点拆分到多个 rank。
+`MultiGpuMultigrid` 是显式调用的测试专用例外，会在每张 GPU 上求解一个完整问题，
+只适合吞吐/一致性验证；本目录的 CUDA 入口是把同一个格点拆分到多个 rank，才是
+生产拓扑。
+
+完整规则见
+[`docs/cuda_execution_topology.md`](../../../../docs/cuda_execution_topology.md)。
 
 ## 最短 KUPL 示例
 

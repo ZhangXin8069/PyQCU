@@ -6,6 +6,11 @@ description: cpp/cuda/qcu/python 的 C API 维护 skill：pyqcu.h（37 个 exter
 
 `cpp/cuda/qcu/python` 是 C++ CUDA 后端与 Python/Cython 之间的 ABI 边界。
 
+CUDA 生产程序保持一 Python 进程 = 一 MPI rank = 一 GPU/DCU/GPGPU。ABI 与
+`nogil` 支持不表示应在单进程内创建多设备生产 worker；`MultiGpuMultigrid`
+仅限显式调用的测试路径。完整规则见
+[`pyqcu-cuda/SKILL.md`](../pyqcu-cuda/SKILL.md#cuda-production-topology)。
+
 ## Files
 
 **边界两侧分居两处**——本目录只有 C 侧声明，Cython/Python 侧在 `pyqcu/cuda/qcu/`：
@@ -51,7 +56,7 @@ Strict 入口分为：
 - full-coarse `X/Yhat` 应用与 compact MATPC；
 - full↔target-parity 的 prepare/reconstruct，以及 compact fine ↔ full coarse 的 R/P；
 - 持久层级的 init、recursive V-cycle、end；
-- 单 rank fused restarted right-FGMRES。
+- 带 MPI 全局归约的 fused restarted right-FGMRES。
 
 Strict primitive 返回 `int` 状态；init/V-cycle/fused FGMRES 另通过
 `unsigned long long*` 返回其自有 arena 的精确字节数，fused 入口还返回迭代次数、

@@ -2,6 +2,9 @@
 """
 dev84 — 16×32×32×48 统一格子 CUDA C++ 多线程 MultiGrid 稳定 >2 真实加速比套件
 
+TEST-ONLY: multi-device commands explicitly use ``MultiGpuMultigrid``.
+Production CUDA uses one Python process = one MPI rank = one GPU/DCU/GPGPU.
+
 判据: speedup_vs_L1 = t(MG_L1) / t(MG_多层) > 2.0 (solve 阶段墙钟, setup 全缓存)
 对照: BiStabCG 正确性 | MG 单线程 vs P100x2 并行 | Python 全算子残差
 器件: V100-32GB = torch cuda:0 单卡; P100-16GB*2 = torch cuda:1,2 多卡

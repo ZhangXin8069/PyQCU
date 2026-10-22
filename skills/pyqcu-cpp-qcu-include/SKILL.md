@@ -6,6 +6,11 @@ description: cpp/cuda/qcu/include 目录的完整生成 skill：24 个模板化 
 
 C++ header files for the CUDA backend. 24 templated headers containing CUDA kernel implementations (kernels are inline in headers).
 
+CUDA/GPGPU production topology is one Python process = one MPI rank = one
+device. The headers remain rank-local; cross-device coordination belongs to
+MPI. `MultiGpuMultigrid` is a test-only exception. See
+[`pyqcu-cuda/SKILL.md`](../pyqcu-cuda/SKILL.md#cuda-production-topology).
+
 ## Key Headers
 
 | Header | Purpose |

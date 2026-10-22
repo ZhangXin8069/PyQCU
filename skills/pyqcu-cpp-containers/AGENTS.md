@@ -7,4 +7,5 @@
 qcu/include/src/python/logs 正文副本删除，改为指向对应独立技能）。
 
 - 规范全文：`SKILL.md`（frontmatter description 为触发依据）
+- 执行拓扑：GPGPU 后端按一进程一 rank 一设备设计；MultiGpu 仅限测试。
 - 维护约定：更新内容时同步本文件与库级 `../AGENTS.md` 技能表（先读后写、最小改动、不代提交）
