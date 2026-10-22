@@ -130,9 +130,14 @@ def read_h5(path: str | os.PathLike[str], dataset: str = "data") -> np.ndarray:
 
 
 def read_h5_metadata(path: str | os.PathLike[str]) -> dict[str, Any]:
+    """Read HDF5 attributes, decoding array-valued attributes (e.g. lattice)."""
+    metadata: dict[str, Any] = {}
     with h5py.File(path, "r") as handle:
-        return {key: value.item() if hasattr(value, "item") else value
-                for key, value in handle.attrs.items()}
+        for key, value in handle.attrs.items():
+            array = np.asarray(value)
+            metadata[key] = (array.tolist() if array.ndim and array.size > 1
+                             else array.item())
+    return metadata
 
 
 def write_h5(

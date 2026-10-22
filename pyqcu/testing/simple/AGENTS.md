@@ -1,8 +1,12 @@
 # AGENTS.md — pyqcu/testing/simple
 
-本目录是 QUDA/QCU/KUPL 的最小对照示例，不是生产测试套件。修改时遵循：
+本目录包含 QUDA/QCU/KUPL 的最小对照示例与生产求解入口。修改时遵循：
 
-1. 单文件只负责一个功能；共享逻辑只放在 `_common.py`。
+1. 单文件只负责一个功能；格式/路径/元数据等共享逻辑放在 `_common.py`，子进程、
+   GPU 架构选择与 KUPL 命令构造放在 `_runner.py`。
+2. 生产与测量分离：`prepare_case.py` 准备输入，`solve_case.py` 做单次冷启动生产
+   求解（`.partial` 仅在 PASS 后原子发布），`compare_three_way.py` 只做重复计时；
+   `bench_three_way.py` 是弃用转发壳，不再新增功能。
 2. 默认读写目录为仓库 `data/`，输入路径必须通过 `_common.resolve_path` 解析。
 3. QCU/KUPL 的 full 输入排布固定为 `[3,3,4,x,y,z,t]` /
    `[spin,color,x,y,z,t]`；QUDA/QDP
