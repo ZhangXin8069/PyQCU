@@ -19,6 +19,7 @@ PyQCU 参考文档。
 | `form_pyqcu_20261022.md` | 2026-10-22 form 整理记录（tag 名路径整改与目录索引补齐） |
 | `progress_kupl_cuda_mg_20261021.md` | KUPL/CUDA 多卡与多重网格进度总结（2026-10-21） |
 | `progress_until_20261022_worktree.md` | 当前工作区续接进度总结（2026-10-22） |
+| `three_way_benchmark_20261022.md` | CUDA QCU / KUPL QCU / QUDA 三方性能测评与并行扩展报告（2026-10-22） |
 
 已归档的 tag 阶段报告以 tag 对象为准，通过 `git show <tag>:<path>` 或临时 worktree 读取；
 当前任务尚未归档的进度总结暂留本目录，纳入后续标签后在清理批次中删除工作区副本。

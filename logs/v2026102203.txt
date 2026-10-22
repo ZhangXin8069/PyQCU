@@ -1,0 +1,117 @@
+[日志元数据]
+日志类型: final
+生成时间: 2026-10-22 03:17:11 +0800
+批次: three-way-benchmark-20261022
+主任务: CUDA QCU / KUPL QCU / QUDA 三方性能测评与一键脚本
+触发原因: 任务完成
+摘要: CUDA BiCG 比 QUDA 快13.20%；KUPL restart=0 快2.8-3倍、L24 4-rank 5.530s；报告与bench_three_way.py交付，门禁PASS
+Git 根目录: /root/PyQCU
+
+## 关键日志
+
+### S1 — 建立同口径三方基准
+- 目标: 在同一 LIME 组态、同 mass=-0.277、同 csw=1.160920226、同 PCG64 seed-42 RHS、同 atol=1e-6 下比较 CUDA QCU、KUPL QCU 与 QUDA。
+- 命令/操作: 读取 `/root/data/beta6.20_mu-0.2770_ms-0.2310_L24x64_cfg_9950.lime`；切出 16^3x32、12^3x32、8^3x16 子体积并转 QCU HDF5；三后端各自求解并独立计算真残差。
+- 关键输出: L24 CUDA BiCG 0.121856 s / 18 it，QUDA 0.137938 s / 19 it；CUDA 每迭代 6.770 ms 对 7.260 ms，快 7.17%，wall 快 13.20%。
+- 退出码: 0
+- 证据与判断: 所有 PASS；CUDA standalone BiCGStab 快于 QUDA；fine-only MG1 0.143909 s / 20 it，不如 BiCG。
+
+### S2 — KUPL restart=0 发现与正确性
+- 目标: 定位 KUPL 慢于 CUDA 的算法原因，并确认 `restart=0` 不是快速错误解。
+- 命令/操作: 对比 `--restart 0/5/10/20`；1 rank 独立 NumPy Wilson-Clover 重构真残差；比较 restart=0 与 restart=5 的解。
+- 关键输出: restart=0 19 it / 5.530 s（4 ranks x 4 thr）；restart=5/10/20 均约 47 it / 15.6–16.7 s，慢 2.8–3.0x。1-rank 真残差 4.011e-7、3.855e-7、3.379e-7、2.007e-7；两模式解相对差 4.3945e-6。
+- 退出码: 0
+- 证据与判断: 当前 E12 单 null-vector 粗空间在该组态负收益；restart=0 是生产选择，正确性成立。
+
+### S3 — 并行强扩展
+- 目标: 测量 KUPL 4D 分域与线程配置的实际并行性能。
+- 命令/操作: 固定 4 OMP threads/rank，在单节点 18 核上跑 1/2/4 ranks 与 1 rank x 16 threads。
+- 关键输出: L24 17.062 -> 10.511 -> 5.530 s（3.086x，77.2%）；1x16 为 6.510 s。16^3x32 2.719 -> 1.200 s（56.6%）；12^3x32 0.777 -> 0.4239 s（91.6%）；8^3x16 0.0965 -> 0.0565 s（42.7%）。
+- 退出码: 0
+- 证据与判断: 4 ranks x 4 threads 比单 rank 16 threads 快 15.1%；局部体积越小通信占比越高。
+
+### S4 — 计时方法修正
+- 目标: 消除 GPU 时钟与 QUDA 热启动对计时的污染。
+- 命令/操作: 增加 `--warmup/--repeats` 与中位数；计时前 3 s GPU 矩阵乘法预热；QUDA 显式 `use_init_guess=NO`、`use_resident_solution=0`；子体积三次独立调用。
+- 关键输出: QUDA 重复 solve 由 4 it/8.77e-3 恢复到 14–19 it/2e-7；CUDA 稳定值 0.121856 s；子体积三次中位数 16^3 0.024244/0.029848/0.042573；12^3 0.013212/0.015283/0.033641；8^3 0.007385/0.008947/0.028004。
+- 退出码: 0
+- 证据与判断: 早期小格点结果受 405 MHz 空闲时钟与热启动影响，已全部改用中位数复核。
+
+### S5 — 交付与门禁
+- 目标: 完成报告和便捷脚本，并做最终验证。
+- 命令/操作: 新增 `docs/three_way_benchmark_20261022.md`、`pyqcu/testing/simple/bench_three_way.py`；更新 simple README；运行 `python -m py_compile`、`git diff --check`、`bash skills/pyqcu-form/form-audit.sh`、`--backends all` 端到端 smoke。
+- 关键输出: form 审计 PASS（33 技能目录一致，豁免 1069 项）；smoke 四行均 PASS（CUDA BiCG 0.018738 s/16 it/2.282e-7，MG 0.034049 s，QUDA 0.059750 s/14 it/2.326e-7，KUPL 0.078512 s/16 it）。
+- 退出码: 0
+- 证据与判断: 定稿脚本可直接复现三方对照；未提交、未打 tag、未推送。
+
+## 验证与证据
+- 测试/检查: py_compile、git diff --check、form-audit.sh、bench_three_way.py `--backends all` smoke、KUPL 1-rank 独立真残差、QUDA 冷启动复核。
+- 结果: 全部通过；报告与脚本位于工作区。
+- 未验证项: 多 rank KUPL 独立全算子真残差（缺分布式 halo 重构）；跨节点/跨 NUMA/8+ ranks；P100 与多 GPU（架构不匹配，仅一张 V100）。
+
+## 变更与产物
+- 文件: `docs/three_way_benchmark_20261022.md`、`pyqcu/testing/simple/bench_three_way.py`（新增）；`qcu_bistabcg.py`、`qcu_multigrid.py`、`quda_bistabcg.py`、`kupl_multigrid.py`、`README.md`（修改）。
+- 产物: `data/benchmark_three_way_20261022/`、`data/benchmark_three_way_final_smoke/`（本地 gitignored）。
+- 未改动范围: CUDA/KUPL C++ 源码与 `libqcu.so`；构建产物 SHA256 未变。
+
+## 风险、限制与下一步
+- 风险: 子体积接缝非周期，不能用于物理结果；小体积 QUDA 固定开销使比值不可外推为 kernel 吞吐。
+- 阻塞: CUDA 多 GPU、P100 当前不可用；KUPL 跨节点未测。
+- 下一步: 若获授权，可提交并打 dev tag；后续可在集群补跨节点与 8/16 ranks，或实现多 rank 分布式真残差。
+
+## 用户输入指令
+参考{log/v20261022011047.txt},继续对kupl版qcu与cuda版qcu的debug与优化工作,性能对照对象依旧为quda,测试组态为{~/data/beta6.20_mu-0.2770_ms-0.2310_L24x64_cfg_9950.lime}及其相同mass与Csw的不同格子大小的组态,注意并行计算的性能,并且最终需要在docs目录留下总结报告(需要有上述三者的性能测评),并且在pyqcu/testing/simple目录留下给用户的便捷调用脚本,本任务时长为5到7小时
+
+（补充）选择性调用conf-refer-skill
+
+## Agent 全文报告
+--- report begin ---
+## 任务完成报告
+
+### 结论摘要
+
+| 后端 / 路径 | L24 solve | 迭代 | 每迭代 | 真残差 | 对 QUDA |
+|---|---:|---:|---:|---:|---:|
+| CUDA QCU standalone BiCGStab | 0.121856 s | 18 | 6.770 ms | 6.709e-7 | 快 13.20% |
+| CUDA QCU fine-only MG | 0.143909 s | 20 | 7.195 ms | 4.149e-7 | 慢 4.3% |
+| QUDA Clover BiCGStab | 0.137938 s | 19 | 7.260 ms | 4.180e-7 | 1.000× |
+| KUPL QCU `--restart 0`（4×4） | 5.530 s | 19 | 291.0 ms | 独立残差 PASS | CPU 后端 |
+
+- CUDA 的每迭代成本比 QUDA 低 7.17%，迭代数少 1 次，wall 快 13.20%。
+- KUPL `--restart 0` 关闭 coarse hierarchy 后从约 47 次迭代降到 19 次，比 `restart=5/10/20` 快 2.8–3.0×；当前 E12 粗空间在该组态负收益。
+- KUPL 强扩展（4 threads/rank）：L24 1→4 ranks 17.062→5.530 s（77.2% 效率）；4×4 比单 rank 16 线程快 15.1%。
+- 子体积 `16³×32/12³×32/8³×16` 上 CUDA 对 QUDA 分别快 1.756×/2.546×/3.792×；QUDA 的 26–43 ms 下限来自单次 solve 固定开销，不能外推为 kernel 吞吐比。
+
+### 本轮关键方法修正
+
+1. 计时前做 3 s GPU 预热，消除 V100 空闲 405 MHz 对毫秒级 solve 的污染；小体积改为三次独立调用取中位数。
+2. 对 QUDA 显式关闭 init-guess 与 resident solution，修复 caching allocator 复用旧解导致 4 次迭代“假收敛”的问题。
+3. CUDA/KUPL 脚本新增 `--warmup/--repeats`，报告统一给中位数。
+
+### 交付物
+
+- 报告：`docs/three_way_benchmark_20261022.md`，含固定输入、测量口径、全格点与子体积表、KUPL 算法选择、并行扩展、已穷尽方向、正确性与限制。
+- 一键脚本：`pyqcu/testing/simple/bench_three_way.py`，自动生成同 mass/Csw 子体积与共享 RHS，串联三后端并输出 `summary.json/summary.md`。
+- 调用示例：
+
+```bash
+source ./env.sh
+python pyqcu/testing/simple/bench_three_way.py \
+    --lat 24 24 24 64 --device cuda:2 --kupl-ranks 4 --kupl-threads 4
+```
+
+### 验证
+
+- 定稿脚本 `--backends all` 在 8³×16 上四条路径全部 PASS。
+- `python -m py_compile`、`git diff --check` 通过；`skills/pyqcu-form/form-audit.sh` PASS（33 个技能目录一致，豁免 1069 项）。
+- KUPL 1-rank 独立真残差 2.007e-7–4.011e-7；CUDA 6.709e-7；QUDA 4.180e-7。
+
+### 限制
+
+- 子体积接缝非周期，只用于尺寸/并行扩展研究。
+- 多 rank KUPL 尚无独立全算子真残差；跨节点、跨 NUMA、8+ ranks 未覆盖。
+- CUDA 仅单张 V100；P100 为 sm_60，当前 `libqcu.so` 不含对应 kernel image，无法给多 GPU 数据。
+- 按约定未提交、未打 tag、未推送。
+
+finished
+--- report end ---

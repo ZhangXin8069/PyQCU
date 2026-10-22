@@ -21,6 +21,8 @@ Wilson/Clover Dirac 算子、BiStabCG 与多重网格求解器、stout smearing�
 - 构建 C++ CUDA 后端：`bash ./build.sh`（→ `libqcu.so`，cd cpp/cuda/qcu && make.sh）
 - 构建独立 KUPL CPU 后端：`cmake -S cpp/kupl/qcu -B cpp/kupl/qcu/build -DCMAKE_BUILD_TYPE=Release && cmake --build cpp/kupl/qcu/build -j`
 - 构建 Cython 扩展：`bash ./install.sh`（setup.py build_ext --inplace）
+- 生产求解：`python pyqcu/testing/simple/solve_case.py --backend cuda|quda|kupl`（原子写解，
+  失败不发布）；性能测量用 `compare_three_way.py`，说明见 `pyqcu/testing/simple/README.md`
 - 测试：`cd pyqcu/testing && pytest .`；MPI 单文件：`mpirun -np 4 python pyqcu/testing/python/conftest.py`
 - Git 标签：`stab<N>`/`dev<N>`/`bug<N>` 独立编号 + 子版本（如 `stab15_1`），见 tag 技能
 - Python ≥ 3.10，依赖 PyTorch、Cython、mpi4py、h5py、numpy、CUDA toolkit；TileLang 可选
