@@ -1,6 +1,6 @@
 # PyQCU `docs/**` 来源映射
 
-本表覆盖当前 `docs/` 顶层的 17 份 Markdown 文档。`docs/AGENTS.md` 是文件索引；
+本表覆盖当前 `docs/` 顶层的 19 份 Markdown 文档。`docs/AGENTS.md` 是文件索引；
 需要判断“原文应保留在哪里”时先读该文件和 `docs/ORGANIZATION.md`。
 
 ## 权威级别
@@ -30,6 +30,9 @@
 | [`docs/progress_kupl_cuda_mg_20261021.md`](../../../docs/progress_kupl_cuda_mg_20261021.md) | C/D | `pyqcu-benchmark`, `pyqcu-kupl`, `pyqcu-cuda` | `dev99..1640349d` 的静态阶段归档；只作历史证据，未持久化测试明确视为未验证。 |
 | [`docs/progress_until_20261022_worktree.md`](../../../docs/progress_until_20261022_worktree.md) | C | `pyqcu-benchmark`, `pyqcu-kupl`, `pyqcu-cuda` | 当前工作区优化、性能链、撤回方向和风险；状态为 `userinterlude`，不得写成已打 tag 结论。 |
 | [`docs/three_way_benchmark_20261022.md`](../../../docs/three_way_benchmark_20261022.md) | C | `pyqcu-benchmark`, `pyqcu-kupl`, `pyqcu-cuda` | CUDA/KUPL/QUDA 同窗测量、正确性门、复现脚本、原始数据入口和限制。 |
+| [`docs/legacy_vs_strict_mg_status_20261022.md`](../../../docs/legacy_vs_strict_mg_status_20261022.md) | C | `pyqcu-benchmark`, `pyqcu-solver`, `pyqcu-cuda`, `pyqcu-kupl` | Legacy/Strict CUDA 与 KUPL 现有 JSON/stdout 的完成状态；保留 V-cycle 计数、KUPL 缺失和不可比边界。 |
+| [`docs/multigrid_legacy_strict_comparison_20261022.md`](../../../docs/multigrid_legacy_strict_comparison_20261022.md) | C | `pyqcu-solver`, `pyqcu-cuda`, `pyqcu-kupl`, `pyqcu-testing` | Torch/CUDA/KUPL 的统一 `Multigrid`、Legacy/Strict 算法与生命周期边界；性能结论受现有记录限制。 |
+| [`docs/multigrid_deprecation_audit_20261022.md`](../../../docs/multigrid_deprecation_audit_20261022.md) | C | `pyqcu-solver`, `pyqcu-cuda`, `pyqcu-kupl`, `pyqcu-testing` | 稳定 HEAD 上的 MultiGrid 弃用、历史 CUDA 入口、占位目录和兼容别名审计；源码重构后需重审。 |
 | [`docs/profiler_solver_performance_history.md`](../../../docs/profiler_solver_performance_history.md) | C/D | `pyqcu-benchmark`, `pyqcu-testing-profiler` | `test9..dev103` 的 409 个唯一性能/失败记录索引；用于追历史，不用于重新合并跨口径数值。 |
 | [`docs/form_pyqcu_20261020.md`](../../../docs/form_pyqcu_20261020.md) | D | `pyqcu-form` | form 托管块、历史例外与标签交付门；不再作为当前操作命令的唯一来源。 |
 | [`docs/form_pyqcu_20261022.md`](../../../docs/form_pyqcu_20261022.md) | D | `pyqcu-form` | 标签名路径整改、目录索引、验证证据和恢复命令；当前规则回到根 `AGENTS.md` 与 `pyqcu-form`。 |

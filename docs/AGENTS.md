@@ -20,6 +20,9 @@ PyQCU 参考文档。
 | `progress_kupl_cuda_mg_20261021.md` | KUPL/CUDA 多卡与多重网格进度总结（2026-10-21） |
 | `progress_until_20261022_worktree.md` | 当前工作区续接进度总结（2026-10-22） |
 | `three_way_benchmark_20261022.md` | CUDA QCU / KUPL QCU / QUDA 三方性能测评与并行扩展报告（2026-10-22） |
+| `legacy_vs_strict_mg_status_20261022.md` | Legacy/Strict CUDA 与 KUPL MG 现有 JSON/stdout 的完成状态、数值边界和未验证项（2026-10-22） |
+| `multigrid_legacy_strict_comparison_20261022.md` | Torch/CUDA/KUPL 的 Legacy/Strict 算法、接口、生命周期与既有证据简要对比（2026-10-22） |
+| `multigrid_deprecation_audit_20261022.md` | MultiGrid 弃用、历史 CUDA 入口、占位目录和兼容别名的证据审计（2026-10-22） |
 | `profiler_solver_performance_history.md` | PyQCU / QCU / QUDA 求解器历史性能、失败与证据索引（2025-08-29 至 2026-10-22） |
 | `qcu_quda_multigrid_algorithms.md` | QCU legacy MG 与 QUDA/PyQUDA MG 的算法组成、流程图、默认参数和并排对照 |
 | `qcu_quda_multigrid_subalgorithms.md` | QCU/QUDA MG 子算法的独立流程图、数学摘要、默认配置与同类算法优劣 |

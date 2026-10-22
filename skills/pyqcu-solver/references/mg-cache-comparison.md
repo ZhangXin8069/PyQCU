@@ -85,8 +85,8 @@ D_{l+1} = R (X_l^-1 D_l) P
 
 实现锚点：
 
-- `pyqcu/solver/_quda_multigrid.py:1506`：`X/Y/Yhat` packed ABI。
-- `pyqcu/solver/_quda_multigrid.py:3589`：strict transition 四槽导出。
+- `pyqcu/solver/_multigrid_core.py:1506`：`X/Y/Yhat` packed ABI。
+- `pyqcu/solver/_multigrid_core.py:3589`：strict transition 四槽导出。
 - `pyqcu/cuda/_strict_cache.py:1`：schema v2 cache 与不可变发布。
 - `pyqcu/cuda/_strict_cache.py:1074`：完整验证后加载。
 - `cpp/cuda/qcu/src/apply_multigrid_strict.cu:374`：strict coarse apply kernel。
@@ -170,7 +170,7 @@ Strict 在私有 `LatticeSet` slot 中完成 init、VCycle/FGMRES 和 end，整�
 ```bash
 python -m pytest -q pyqcu/testing/qcu/strict/quda_comparison/test_strict_runtime_cache.py
 python -m pytest -q pyqcu/testing/simple/test_coarse_cache.py
-python -m pytest -q pyqcu/testing/python/test_quda_multigrid.py \
+python -m pytest -q pyqcu/testing/python/test_multigrid.py \
   -k 'qcu_stencil_pack_matches_all_33_periodic_slots or qcu_stencil_degenerate_extent_and_strict_support_guard'
 ```
 

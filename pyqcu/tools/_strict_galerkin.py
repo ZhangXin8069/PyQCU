@@ -1,4 +1,4 @@
-"""Batched local Galerkin setup for strict QUDA-style coarse operators.
+"""Batched local Galerkin setup for strict multigrid coarse operators.
 
 The strict hierarchy coarsens a *full-lattice*, nearest-neighbour operator
 
@@ -558,7 +558,7 @@ class StrictGalerkinResult:
         }
 
     def install(self, coarse_operator: Any) -> None:
-        """Install packed assets into a lazy ``QudaCoarseOperator`` instance."""
+        """Install packed assets into a lazy ``StrictCoarseOperator`` instance."""
         if (tuple(int(x) for x in coarse_operator.shape) != self.coarse_shape or
                 int(coarse_operator.dof) != self.coarse_dof):
             raise ValueError("coarse_operator 的 shape/dof 与构造结果不一致")
@@ -782,7 +782,7 @@ def _strict_builder_inputs(
         if context is None or not context.distributed:
             raise RuntimeError(
                 "strict Galerkin 在多 MPI rank 下必须由分布式 roll 上下文驱动；"
-                "请通过 QudaMultigrid.process_grid 或 "
+                "请通过 StrictMultigrid.process_grid 或 "
                 "_mpi_roll.distributed_roll 显式提供 process_grid")
 
     fine_shape = _shape4(transfer.fine_shape, "transfer.fine_shape")

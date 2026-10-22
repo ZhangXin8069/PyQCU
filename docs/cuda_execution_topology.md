@@ -44,7 +44,7 @@ Python process N-1 / MPI rank N-1 / device N-1 -> local subdomain N-1
 以下做法不得作为新 CUDA 程序的默认实现：
 
 - 一个 Python 进程创建 N 个线程，每个线程驱动一张设备并执行完整生产 solve。
-- 在一个进程内通过多个 `CudaSchurOp` 或 `CudaStrictMultigridSolver` 实例拼接
+- 在一个进程内通过多个 `CudaSchurOp` 或 `StrictMultigrid` 实例拼接
   一次跨设备分布式 solve。
 - 依赖 CUDA current device 是线程局部来隐式实现多设备分解。
 - 将设备间 halo、全局归约或 FGMRES 点积留在 Python 线程间自行实现，而不走

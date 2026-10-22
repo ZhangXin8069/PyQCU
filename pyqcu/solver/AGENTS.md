@@ -7,7 +7,9 @@ Dirac 方程 D ψ = η 的迭代求解器。
 | 文件 | 用途 |
 |---|---|
 | `_bistabcg.py` | BiCGStab(l) 求解器 + `bistabcg_history`（零初始解逐迭代残差历史复现） |
-| `_multigrid.py` | 自适应多重网格 (AMG) V-cycle 求解器，最细层 CUDA 加速 |
+| `_legacy_multigrid.py` | `LegacyMultigrid`：33-stencil 自适应 V-cycle，最细层可走 CUDA QCU |
+| `_multigrid_core.py` | `StrictMultigrid` 的 transfer、coarse operator、MATPC 与递归 hierarchy 参考实现 |
+| `multigrid/` | 统一公开入口 `Multigrid`，下级固定为 `StrictMultigrid` / `LegacyMultigrid` |
 | `_gmres.py` | `fgmres` — FGMRES(m) 右预条件求解器（flexible GMRES，移植自 DDalphaAMG-SM fgmres.cpp） |
 | `_mr.py` | `mr` — MR 最小残差求解器（quda inv_mr 思想，非 Krylov 平滑器；正规方程方向 p=A†r + 步长 ω 阻尼） |
 | `_multishift_cg.py` | `multishift_cg` — 多质量 CG（quda updateAlphaZeta 递推；一次 matvec 序列同时解全部移位系统） |
@@ -53,7 +55,12 @@ Wilson 全算子是 γ₅-Hermitian 非厄米，必须显式传 `matvec_dag = γ
 c128 实测严格单调收敛（10274 迭代 rel 2.5e-10）；c64 有精度地板（~1e-4 相对），
 平滑器级精度预期。
 
-### `multigrid` 类
+### `Multigrid` / `StrictMultigrid` / `LegacyMultigrid`
+
+`Multigrid(variant="strict"|"legacy", backend="torch"|"cuda"|"kupl", **kwargs)`
+是统一选择器；三个层级实现统一使用 `setup()`、`solve()`、`close()` 生命周期。
+Torch 后端直接对应 `StrictMultigrid` 与 `LegacyMultigrid`，CUDA/KUPL 在各自
+`multigrid/` 子包暴露同名入口。
 
 自适应多重网格 V-cycle，可配置多层级。
 
@@ -157,7 +164,7 @@ thick-restart Lanczos 特征底座（quda eig_trlm 思想，Wu–Simon）：正�
 
 ## 分布式 Strict-MG setup（2026-09-18）
 
-- `QudaMultigrid`/`QudaStrictMultigrid` 新增 `process_grid` 与 `comm`：任一维大于 1 时，
+- `StrictMultigrid` 支持 `process_grid` 与 `comm`：任一维大于 1 时，
   `setup()` 期间激活 `pyqcu.tools._mpi_roll` 的线程本地上下文，并把内部 fine 算子替换为
   `pyqcu.tools._distributed_setup` 的 halo 包装（只对分解维扩一层 ghost）。
 - 多 rank 下 site-batch/colored 路径必须由分布式上下文驱动；未提供 `process_grid`

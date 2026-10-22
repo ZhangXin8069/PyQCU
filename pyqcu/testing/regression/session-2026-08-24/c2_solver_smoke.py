@@ -105,13 +105,13 @@ run("tr_lanczos(A†A)", t_lanczos)
 
 
 def t_verify_nullvecs():
-    from pyqcu.solver import multigrid
+    from pyqcu.solver import LegacyMultigrid
     from pyqcu.testing import verify_nullvecs
     LAT2 = [8, 8, 8, 16]
     U2 = _torch.zeros(size=[3, 3, 4] + LAT2, dtype=DT, device=CUDA)
     lattice.generate_gauge_field(U2, seed=42, sigma=0.1, verbose=False)
     clover2 = _torch.zeros(size=[4, 3, 4, 3] + LAT2, dtype=DT, device=CUDA)
-    mg = multigrid(dtype_list=[DT, DT], device_list=[CUDA, CUDA],
+    mg = LegacyMultigrid(dtype_list=[DT, DT], device_list=[CUDA, CUDA],
                    U=U2, clover_term=clover2, kappa=torch.Tensor([0.125]),
                    max_level=2, dof_list=[12, 12], mg_grid_size=[2, 2, 2, 2],
                    tol=1e-8, verbose=False)

@@ -1,0 +1,68 @@
+[日志元数据]
+日志类型: final
+生成时间: 2026-10-22 23:41:36 +0800
+批次: go-on-legacy-vs-strict-20261022
+主任务: 恢复四个中断运行并完成 MG 弃用审计与状态报告
+触发原因: 任务完成
+摘要: Legacy/Strict CUDA 报告完成；三条只读审计完成；stable HEAD 9e678901；无 GPU/MPI
+Git 根目录: /root/PyQCU
+
+## 关键日志
+### S1 — 运行现场恢复
+- 目标: 恢复用户列出的四个运行目录，承接原任务并避免重复已完成工作。
+- 命令/操作: 读取 auto/all/go-on/log/dispatch/review/report 技能；检查四个运行目录的 manifest、context、events 和 agent.log；检查当前仓库状态与进程。
+- 关键输出: 四个 manifest 均停在 state=running；inputs.txt 为空；agent.log 显示三条弃用审计和一条 benchmark 报告任务；HEAD 为 9e67890138f8f8eab0ba4a21428c4c20be5f48f1。
+- 退出码: 读取与检查命令为 0；旧运行无可用 thread_id。
+- 证据与判断: 既有运行只能手动恢复；当前工作树随后出现并发 MG 重构，因此审计固定到稳定 HEAD，当前未提交重构不纳入审计结论。
+
+### S2 — 三条只读审计
+- 目标: 审计 solver/KUPL、CUDA、占位/测试目录中的事实弃用、死代码、无调用方包装和误导性入口。
+- 命令/操作: 使用 git grep/git show 对 HEAD 9e678901 做调用图、导出面、生命周期、测试入口和占位文件静态核验；未运行 GPU/CUDA/MPI。
+- 关键输出: `solver.multigrid`、`QudaMultigrid` legacy、`setup_operator="schur"` 仍有测试/回归入口；KUPL 对 CUDA-only GCR/cycle 和混合精度的拒绝是 fail-closed 且有测试；SAP、测试辅助 kernel 和 MultiGpuMultigrid 仍有明确 include/测试入口；六个 PASS 占位目录无导入/构建引用；TileLang `conftest.py` 仅含注释，执行成功但不运行测试。
+- 退出码: 静态检查命令为 0；TileLang no-op 入口退出码为 0。
+- 证据与判断: 未发现稳定的 C API 死导出或 KUPL 误拒绝分支。删除候选集中在未登记的旧 manual harness/benchmark 和空的 TileLang 入口；占位目录是有意保留，不应按普通死代码删除。
+
+### S3 — Legacy/Strict/KUPL 报告
+- 目标: 从既有 benchmark JSON/stdout 生成并验证 `docs/legacy_vs_strict_mg_status_20261022.md`。
+- 命令/操作: 解析 29 个 JSON/stdout 记录；对四个 null-prep 文件提取日志后的 JSON 尾段；断言 Legacy 4/4、Strict 3/4、Strict 24³ 缺失、KUPL 0 记录；检查 Markdown、链接和 diff 格式。
+- 关键输出: 报告 17,060 bytes、237 行；Legacy build/solve 4/4 PASS；Strict solve 8³/12³/16³ PASS、24³ stdout 为 0 bytes 且无 JSON；KUPL build/null-prep/solve 均无记录；Legacy stdout 的 n_vcycles=0，不能宣称实际执行 coarse V-cycle。
+- 退出码: 数据断言为 0；Markdown 链接检查为 0；`git diff --check` 为 0；form 审计为 0。
+- 证据与判断: 报告只陈述现有证据支持的结论，明确列出未验证项，未把 restart=20 解释为 V-cycle 次数，也未计算跨后端加速比。
+
+## 验证与证据
+- 测试/检查: `git diff --check`；`git diff --no-index --check /dev/null docs/legacy_vs_strict_mg_status_20261022.md`（无格式诊断）；Markdown 数据断言；链接解析；`bash skills/pyqcu-form/form-audit.sh`。
+- 结果: 均通过；form 输出 `PASS: form 审计通过`。
+- 未验证项: 未运行 GPU/CUDA/MPI 数值 benchmark；当前工作树存在并发 MG 重构，审计基线固定为 HEAD；报告未重新读取 HDF5 dataset 内容，只核对记录中的 metadata、shape 和 hash。
+
+## 变更与产物
+- 文件: `docs/legacy_vs_strict_mg_status_20261022.md`（本次任务新增，尚未提交）。
+- 产物: 中文 Markdown 状态报告，覆盖 Legacy CUDA、Strict CUDA、KUPL 缺失记录、可比性和未验证项。
+- 未改动范围: 未修改三个审计域源码，未提交、未打标签、未推送；并发重构文件保持原样。
+
+## 风险、限制与下一步
+- 风险: 当前工作树仍在重构，不能把本报告或审计结论直接当作重构后的最终 API 结论。
+- 阻塞: 无，稳定 HEAD 审计和报告已完成。
+- 下一步: 待并发重构稳定后，重跑同一调用图和测试入口审计，并在需要时更新报告中的命名/接口段落。
+
+## 用户输入指令
+resume"drwx------ 2 root root 4.0K Oct 22 19:55 20261022T195503.UwHYz6
+drwx------ 2 root root 4.0K Oct 22 19:55 20261022T195503.dMz8po
+drwx------ 2 root root 4.0K Oct 22 19:55 20261022T195504.3qCkHp
+drwx------ 2 root root 4.0K Oct 22 19:57 20261022T195711.Ro30rN"
+
+## Agent 全文报告
+--- report begin ---
+已完成四个中断运行的承接与主任务交付。
+
+产物为 [legacy_vs_strict_mg_status_20261022.md](/root/PyQCU/docs/legacy_vs_strict_mg_status_20261022.md)。
+
+审计结论按稳定 HEAD `9e67890138f8f8eab0ba4a21428c4c20be5f48f1` 给出；当前工作树存在另一并发 MG 重构，未把它混入审计证据：
+
+- solver/KUPL：未发现可证明的 production 死路径。`solver.multigrid`、legacy `QudaMultigrid` 和 `setup_operator="schur"` 仍有测试/回归入口；KUPL 的 CUDA-only GCR/cycle 与混合精度拒绝是明确 fail-closed。无内部调用方的 `QUDAMultigrid`/`QUDAStrictMultigrid` 小写别名只是潜在 API 弃用候选，不能直接删除。
+- CUDA：C API、SAP kernel、legacy MG 测试辅助 kernel 和 `MultiGpuMultigrid` 均有明确入口。未登记的旧 `conftest.schur.multigrid.py`、`conftest.bistabcg.dslash.py`、`bench_cpp_mg.py` 是删除/归档候选；`conftest.multigrid.mt.py` 仍包装 active 测试，应保留。
+- 占位/测试：六个零字节 PASS 目录是有意占位，无导入/构建引用；`pyqcu/testing/gpu` 有意为空。`pyqcu/testing/tilelang/conftest.py` 实际仅含注释，执行退出 0 但不运行测试，应修复、降级文档或移入历史。DCU/NPU/CPU 主入口仍有 active 内容。
+
+报告核验结果：目标目录 29 个 JSON/stdout 记录；Legacy build/solve 4/4 PASS；Strict solve 8³、12³、16³ 为 PASS，24³ 只有空 stdout、无 JSON；四个 null-prep 均创建成功；KUPL build/null-prep/solve 无记录。Legacy stdout 全部显示 `n_vcycles=0`，因此不能宣称执行了 coarse V-cycle。`git diff --check`、Markdown 数据断言、链接检查和 `bash skills/pyqcu-form/form-audit.sh` 均通过。
+
+未提交、未打标签、未运行 GPU/CUDA/MPI。当前并发重构稳定后，需要以新工作树重跑同一审计范围。
+--- report end ---
