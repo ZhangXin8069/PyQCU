@@ -22,6 +22,7 @@ PyQCU 参考文档。
 | `three_way_benchmark_20261022.md` | CUDA QCU / KUPL QCU / QUDA 三方性能测评与并行扩展报告（2026-10-22） |
 | `qcu_quda_multigrid_algorithms.md` | QCU legacy MG 与 QUDA/PyQUDA MG 的算法组成、流程图、默认参数和并排对照 |
 | `qcu_quda_multigrid_subalgorithms.md` | QCU/QUDA MG 子算法的独立流程图、数学摘要、默认配置与同类算法优劣 |
+| `qcu_quda_multigrid_coarse_operator.md` | QCU legacy 33-tensor 与 Strict/QUDA `X/Y/Yhat` 粗层 dslash 表示辨析及源码依据 |
 
 已归档的 tag 阶段报告以 tag 对象为准，通过 `git show <tag>:<path>` 或临时 worktree 读取；
 当前任务尚未归档的进度总结暂留本目录，纳入后续标签后在清理批次中删除工作区副本。

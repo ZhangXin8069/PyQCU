@@ -1,0 +1,93 @@
+[日志元数据]
+日志类型: final
+生成时间: 2026-10-22 17:05:37 +0800
+批次: analysis
+主任务: QCU MG 粗层 gauge/clover 与 dslash 表示
+触发原因: 任务完成
+摘要: 区分 legacy 33-tensor Schur/Galerkin 粗算子与 Strict/QUDA X-Y-Yhat 表示
+Git 根目录: /root/PyQCU
+
+## 关键日志
+### S1 — 判定问题口径
+- 目标: 判断 QCU 是否构建 QUDA 式粗层 dslash，并区分物理粗场与 Galerkin 有效场。
+- 操作: 以 `{物理+代码}` 身份只读核查 legacy `applyCloverMultigridQcu` 与 Strict-MG。
+- 证据与判断: legacy 有粗层 dslash，但数据是 33-tensor `sit/hop_nn/hop_diag`；Strict 使用 QUDA 风格 `X/Y/Yhat`。
+
+### S2 — 源码交叉核对
+- 命令: `nl -ba cpp/cuda/qcu/include/lattice_clover_multigrid.h | sed -n '680,685p'`
+- 关键输出: 粗层保存 onsite、8 nearest、24 diagonal block。
+- 命令: `nl -ba cpp/cuda/qcu/include/lattice_clover_multigrid.h | sed -n '885,930p'`
+- 关键输出: `coarse_dslash_op` 应用 `A_c=P^T S P`，直接读取 33-tensor。
+- 命令: `nl -ba pyqcu/solver/_quda_multigrid.py | sed -n '1071,1108p'`
+- 关键输出: Strict 路径显式保存 `X/X_inv/Y_forward/Y_backward/Yhat`。
+- 命令: `nl -ba data/quda-sm70-install/include/dirac_quda.h | sed -n '1891,1934p'`
+- 关键输出: QUDA `DiracCoarse` 保存粗 link `Y`、粗 clover `X`、`Xinv`、`Yhat`。
+- 退出码: 0
+
+## 验证与证据
+- 检查: 已核对 Python 构建器、CUDA C++ 粗层 kernel、Strict Python reference 和 QUDA 头文件。
+- 结果: 结论可由源码直接支持，无需运行数值程序。
+- 未验证项: 本次不涉及性能、收敛或 cache 正确性测试。
+
+## 变更与产物
+- 文件: 未修改源码或文档；仅由 log 技能生成本次归档。
+- 产物: 当前日志文件与 `logs/AGENTS.md` 索引。
+- 未改动范围: QCU C++/CUDA、Python 求解器、测试与构建系统。
+
+## 风险、限制与下一步
+- 风险: 若把 QUDA 的 `X/Y` 误读为直接分块原物理 gauge/clover，会得到错误结论。
+- 阻塞: 无。
+- 下一步: 无代码动作；后续比较时始终注明 legacy 33-tensor 与 Strict full-coarse 两条路径。
+
+## 用户输入指令
+qcu没有像quda一样构建一个mg粗层的"dslash"使用粗化的'gauge'与'clover')吗?
+
+## Agent 全文报告
+--- report begin ---
+结论不能笼统表述为“QCU 没有”。QCU 的 legacy MG 有粗层 dslash，但没有把它拆成 QUDA `DiracCoarse` 那样的粗 link `Y` 与粗 clover `X`；QCU Strict-MG 则有这组 QUDA 风格表示。
+
+### 1. Legacy QCU：有有效粗 dslash，没有粗 gauge/clover 对
+
+legacy C++ 对象保存的是 `sit_packed`、`hop_nn`、`hop_diag`：
+
+- 1 个 onsite block；
+- 8 个最近邻 block；
+- 24 个双轴对角 block；
+- 合计 33 个粗位移 block。
+
+`coarse_dslash_op()` 直接读取这三组 block 作用，不读取一个“粗化后的物理 gauge 场”和“粗化后的物理 clover 项”。因此它是完整的有效粗 dslash，但接口形态是 `A_c` 的 wide stencil，而不是 QUDA 的 `X/Y` 因子。
+
+对 Wilson-Clover 做奇偶 Schur 消元：
+$$S_o=D_{oo}-D_{oe}D_{ee}^{-1}D_{eo}.$$
+再做 Galerkin 投影，代码注释记为
+$$A_c=P^T S_o P.$$
+在通常的复内积约定下，限制算子可写成 $R=P^\dagger$，于是 $A_c=R S_o P$。
+
+这里出现 33 点不是偶然的。粗算符要表示
+$$(A_c\psi)(x_c)=\text{onsite}+\text{nearest}+\text{diagonal},$$
+因为 fine Schur 补中的 $o\to e\to o$ 两跳路径会给出 $x_c\pm2\hat\mu$ 和 $x_c\pm\hat\mu\pm\hat\nu$。在前置奇偶 Schur 后，前者就是粗格最近邻，后者是粗格对角项。直接存储 1+8+24 个 $E_c\times E_c$ block，能精确表达该 Galerkin 支撑，无需再强行分解成粗 gauge link 与粗 clover。
+
+### 2. Strict QCU：有 QUDA 风格 X/Y/Yhat
+
+Strict 路径显式构造：
+$$D_l=X_l+H_l,\qquad D_{l+1}=R_l\left(X_l^{-1}D_l\right)P_l,$$
+以及
+$$\widehat Y_l=X_l^{-1}Y_l.$$
+其粗层保存 full-coarse lattice 上的 `X`、`X^{-1}`、正反向 `Y` 和 `Yhat`。运行时通常只需 `Yhat` 与 `(X,X^{-1})`，raw `Y` 是可选的 setup/诊断资产。
+
+这正是 QUDA `DiracCoarse` 的数据组织方式。QUDA 头文件中对应的成员就是 coarse link `Y`、coarse clover `X`、`Xinv` 和 `Yhat`。
+
+### 3. QUDA 的 X/Y 也不是直接分块原物理场
+
+需要特别澄清术语：QUDA 的 `X/Y` 仍是 Galerkin 粗算子的有效 onsite/link 表示。`X` 起粗 clover/onsite 作用，`Y` 起粗 hopping/link 作用，但它们不是把原 fine gauge link 做简单 block average，也不是把原 $12\times12$ clover 项直接缩成粗场。两者都是通过 transfer operator 与 fine Dirac operator 得到的有效系数。
+
+因此准确表述是：
+
+| 路径 | 粗层 dslash | 粗层数据表示 |
+|---|---|---|
+| legacy QCU | 有 | compact odd coarse lattice 上的 33-tensor Schur/Galerkin `A_c` |
+| Strict QCU | 有 | full coarse lattice 上的 `X/Y/Yhat` |
+| QUDA | 有 | full coarse lattice 上的 `DiracCoarse X/Y/Yhat` |
+
+所以，“有粗层 dslash”三者都成立；“像 QUDA 一样拆成 X/Y/Yhat”只有 QCU Strict 成立；“直接粗化物理 gauge 与 clover”对 QUDA 本身也不成立。
+--- report end ---

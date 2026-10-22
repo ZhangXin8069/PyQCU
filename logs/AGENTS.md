@@ -421,3 +421,30 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 验证: path, size, required sections, conflict markers
 - 批次状态: complete
 
+## test9-dev103-profiler-summary - final - 2026-10-22 17:04:48 +0800
+- 主任务: 为 test9 至 dev103 求解器性能汇总补充统一环境信息
+- 日志文件: logs/v2026102217.txt
+- 文件大小: 103782 bytes
+- 触发原因: 任务完成
+- 关键内容: 30 张记录表统一环境列；409 个唯一记录 ID、13 个环境定义；X99 未确认项明确保留；仅汇总不重测
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete
+
+## analysis - final - 2026-10-22 17:05:37 +0800
+- 主任务: QCU MG 粗层 gauge/clover 与 dslash 表示
+- 日志文件: logs/v2026102217-2.txt
+- 文件大小: 5207 bytes
+- 触发原因: 任务完成
+- 关键内容: 区分 legacy 33-tensor Schur/Galerkin 粗算子与 Strict/QUDA X-Y-Yhat 表示
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete
+
+## docs - final - 2026-10-22 17:11:14 +0800
+- 主任务: 将 QCU/QUDA MG 粗层 dslash 表示调查写入 docs
+- 日志文件: logs/v2026102217-3.txt
+- 文件大小: 3605 bytes
+- 触发原因: 任务完成
+- 关键内容: 新增粗层算子表示正式文档，更新索引与算法总览交叉引用，并完成 Markdown 与仓库检查
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete
+
