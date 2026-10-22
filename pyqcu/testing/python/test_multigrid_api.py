@@ -13,6 +13,7 @@ from pyqcu.solver.multigrid import (
 )
 from pyqcu.kupl.multigrid import legacy_multigrid as kupl_legacy_module
 from pyqcu.kupl.multigrid import strict_multigrid as kupl_strict_module
+from pyqcu.cuda.multigrid import legacy_multigrid as cuda_legacy_module
 
 
 def test_multigrid_package_is_the_canonical_hierarchy_namespace():
@@ -109,6 +110,37 @@ def test_kupl_legacy_lifecycle_delegates_to_canonical_abi(monkeypatch):
     mg = kupl_legacy_module.LegacyMultigrid(
         *state, torch.zeros_like(rhs), torch.zeros_like(rhs),
         torch.zeros_like(rhs), torch.zeros_like(rhs))
+    with mg:
+        result = mg.solve(rhs)
+    assert result.shape == rhs.shape
+    assert calls == ["init", "solve", "end"]
+    assert mg.closed
+
+
+@pytest.mark.skipif(
+    not torch.cuda.is_available() or torch.cuda.get_device_capability(0)[0] < 7,
+    reason="CUDA legacy lifecycle probe requires a PyTorch-supported device",
+)
+def test_cuda_legacy_lifecycle_delegates_to_monolithic_abi(monkeypatch):
+    calls = []
+    monkeypatch.setattr(
+        cuda_legacy_module.qcu, "applyInitQcu",
+        lambda *args: calls.append("init"))
+    monkeypatch.setattr(
+        cuda_legacy_module.qcu, "applyEndQcu",
+        lambda *args: calls.append("end"))
+    monkeypatch.setattr(
+        cuda_legacy_module.qcu, "applyCloverMultigridQcu",
+        lambda *args: calls.append("solve"))
+    state = (
+        torch.zeros(58, dtype=torch.int32),
+        torch.zeros(8, dtype=torch.float32),
+        torch.zeros(100, dtype=torch.int64),
+    )
+    asset = torch.zeros(1, dtype=torch.complex64, device="cuda")
+    rhs = torch.zeros(12, 4, 4, 4, 4, dtype=torch.complex64, device="cuda")
+    mg = cuda_legacy_module.LegacyMultigrid(
+        *state, *((asset,) * 5))
     with mg:
         result = mg.solve(rhs)
     assert result.shape == rhs.shape
