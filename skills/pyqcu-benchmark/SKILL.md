@@ -16,10 +16,13 @@ optimization benchmark target. Strict-MultiGrid rows are explicit comparison,
 algorithm-reference, or special-fallback evidence unless a task says otherwise.
 
 Legacy hierarchies deeper than two levels emit `MultigridDepthWarning`; Strict
-hierarchies deeper than three do the same. Do not treat a warning-only run as a
-valid multi-level result. Record native and independently reconstructed true
-residuals together, and mark distributed Legacy depth greater than two as
-unsupported unless a dedicated regression proves both correctness and benefit.
+hierarchies deeper than three do the same. The same warning also considers the
+global and rank-local lattice after the process grid and parity compression,
+the coarsening block, the coarsest volume and whether another stable transition
+is possible. Do not treat a warning-only run as a valid multi-level result.
+Record native and independently reconstructed true residuals together, and
+mark distributed Legacy depth greater than two as unsupported unless a
+dedicated regression proves both correctness and benefit.
 
 正式三方基准的输入、同窗比较、历史证据和不可外推条件见
 [`pyqcu-docs/references/extracted-guidance.md`](../pyqcu-docs/references/extracted-guidance.md#5-性能与证据解释)。

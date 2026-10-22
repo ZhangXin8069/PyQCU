@@ -36,7 +36,7 @@ def test_same_depth_warning_depends_on_lattice_geometry() -> None:
     assert not large
     assert not caught
 
-    with pytest.warns(MultigridDepthWarning, match="coarsest shape"):
+    with pytest.warns(MultigridDepthWarning, match="coarsest volume"):
         small = warn_excessive_multigrid_levels(
             2, variant="legacy", backend="cuda",
             lattice=(8, 8, 8, 16), block=(2, 2, 2, 2),
@@ -45,7 +45,7 @@ def test_same_depth_warning_depends_on_lattice_geometry() -> None:
 
 
 def test_process_grid_and_block_enter_geometry_warning() -> None:
-    with pytest.warns(MultigridDepthWarning, match="coarsest shape"):
+    with pytest.warns(MultigridDepthWarning, match="next coarsening"):
         warned = warn_excessive_multigrid_levels(
             2, variant="legacy", backend="cuda",
             lattice=(24, 24, 24, 64), block=(3, 2, 2, 2),
