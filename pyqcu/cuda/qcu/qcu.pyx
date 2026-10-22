@@ -308,7 +308,7 @@ def applyMultigridCoarseDslashWideQcu(_fermion_out, _fermion_in, _sitting, _hop_
     with nogil:
         _c_applyMultigridCoarseDslashWideQcu(fermion_out, fermion_in, sitting, hop_nn, hop_diag, set_ptrs, params)
 def applyMultigridStrictCoarseQcu(_fermion_out, _fermion_in, _links, _onsite_pair, _set_ptrs, _params, int onsite_index=-1):
-    """Apply strict QUDA-stored ``Y``/``Yhat`` links on a full coarse field."""
+    """Apply strict multigrid ``Y``/``Yhat`` links on a full coarse field."""
     cdef long long fermion_out, fermion_in, links, onsite_pair, set_ptrs, params
     cdef int E, X, Y, Z, T, status
     if _fermion_in.ndim != 5 or tuple(_fermion_out.shape) != tuple(_fermion_in.shape):

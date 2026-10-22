@@ -14,7 +14,7 @@ from pyqcu.tools._distributed_setup import (
     halo_pad_last4,
 )
 from pyqcu.tools._strict_galerkin import build_strict_galerkin
-from pyqcu.solver import QudaTransfer
+from pyqcu.solver import StrictTransfer
 
 
 class _SerialRingComm:
@@ -200,7 +200,7 @@ def test_distributed_fine_operator_matches_global_periodic_operator():
 def test_distributed_galerkin_rejects_unmarked_local_operator():
     shape = (4, 4, 4, 4)
     null = torch.randn(2, 4, 3, *shape, dtype=torch.complex64)
-    transfer = QudaTransfer(
+    transfer = StrictTransfer(
         null, shape, fine_spin=4, fine_color=3,
         coarse_spin=2, block_size=(2, 2, 2, 2), verbose=False)
     comm = _SerialRingComm(0, {0: torch.empty(1), 1: torch.empty(1)})

@@ -44,8 +44,8 @@ ENV_SH = REPO_ROOT / "env.sh"
 QUDA_ENV_SH = HERE / "quda_env.sh"
 JSON_CAPTURE_CHARS = 20_000
 
-CPU_TEST = "pyqcu/testing/python/test_quda_multigrid.py"
-CUDA_TEST = "pyqcu/testing/qcu/strict/quda_comparison/test_quda_transfer_cuda.py"
+CPU_TEST = "pyqcu/testing/python/test_multigrid_core.py"
+CUDA_TEST = "pyqcu/testing/qcu/strict/quda_comparison/test_strict_transfer_cuda.py"
 FUSED_CUDA_TEST = "pyqcu/testing/qcu/strict/quda_comparison/test_strict_fused_cuda.py"
 GALERKIN_TEST = "pyqcu/testing/qcu/strict/quda_comparison/test_strict_galerkin_fast.py"
 STRICT_BENCH = "pyqcu/testing/qcu/strict/quda_comparison/bench_strict_vs_quda.py"

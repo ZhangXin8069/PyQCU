@@ -26,7 +26,7 @@ sys.path.insert(0, str(HERE))
 
 from pyqcu.testing.qcu.strict.quda_comparison.common import grid_index_for_rank, process_grid
 from pyqcu import lattice, tools
-from pyqcu.solver import QudaStrictMultigrid
+from pyqcu.solver import StrictMultigrid
 
 REPO = HERE.parents[4]
 
@@ -154,7 +154,7 @@ def _build_hierarchy(args: argparse.Namespace, comm: Any,
         dtype=scalar_dtype, device=device)
     u_0 = torch.ones(1, dtype=scalar_dtype, device=device)
     block_sizes = ((2, 2, 2, 2),) * (int(args.levels) - 1)
-    hierarchy = QudaStrictMultigrid(
+    hierarchy = StrictMultigrid(
         U=local_gauge,
         clover_term=None,
         kappa=kappa,

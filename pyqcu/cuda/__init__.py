@@ -7,12 +7,14 @@
 #   from pyqcu.cuda import qcu       # Cython bridge to libqcu.so
 #   from pyqcu.cuda import define    # Parameter constants and dtype helpers
 #   from pyqcu.cuda import schur_op  # CudaSchurOp (multi-thread-safe Schur op)
+#   from pyqcu.cuda.multigrid import StrictMultigrid, LegacyMultigrid
 #   from pyqcu.cuda._multi_gpu import MultiGpuMultigrid
 #       TEST-ONLY, explicit opt-in. Production CUDA topology is one Python
 #       process = one MPI rank = one GPU/DCU/GPGPU; importing this package does
 #       not import, construct, or start the multi-GPU test driver.
 
 _LAZY_EXPORTS = {}
+__all__ = ["LegacyMultigrid", "QcuRuntime", "StrictMultigrid"]
 
 
 def __getattr__(name):
@@ -21,10 +23,15 @@ def __getattr__(name):
             from ._runtime import QcuRuntime
             _LAZY_EXPORTS[name] = QcuRuntime
         return _LAZY_EXPORTS[name]
-    if name == "CudaStrictMultigridSolver":
+    if name == "StrictMultigrid":
         if name not in _LAZY_EXPORTS:
-            from ._strict_multigrid import CudaStrictMultigridSolver
-            _LAZY_EXPORTS[name] = CudaStrictMultigridSolver
+            from .multigrid.strict_multigrid import StrictMultigrid
+            _LAZY_EXPORTS[name] = StrictMultigrid
+        return _LAZY_EXPORTS[name]
+    if name == "LegacyMultigrid":
+        if name not in _LAZY_EXPORTS:
+            from .multigrid.legacy_multigrid import LegacyMultigrid
+            _LAZY_EXPORTS[name] = LegacyMultigrid
         return _LAZY_EXPORTS[name]
     raise AttributeError(f"module 'pyqcu.cuda' has no attribute {name!r}")
 from argparse import Namespace

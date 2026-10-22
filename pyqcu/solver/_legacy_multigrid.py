@@ -7,7 +7,11 @@ from time import perf_counter
 from pyqcu.cuda import qcu, define
 
 
-class multigrid:
+class LegacyMultigrid:
+    """Legacy 33-stencil 自适应多重网格实现。"""
+
+    variant = "legacy"
+
     def __init__(self, dtype_list: List[torch.dtype], device_list: List[torch.device],  U: torch.Tensor, clover_term: torch.Tensor, kappa: Optional[torch.Tensor] = torch.Tensor([0.1]), u_0: Optional[torch.Tensor] = torch.Tensor([1.0]), clover_ee_inv: Optional[torch.Tensor] = None, clover_oo_inv: Optional[torch.Tensor] = None, min_size: int = 4, max_level: int = 4, mg_grid_size: List[int] = [2, 2, 2, 2], num_convergence_sample: int = 50, dof_list: List[int] = [12, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24], tol: float = 1e-6, max_iter: int = 1000, num_restart: int = 5, root: int = 0, support_parity: bool = False, verbose: bool = True, seed: Optional[int] = None):
         """自适应多重网格 V-cycle 求解器。
 
@@ -45,13 +49,13 @@ class multigrid:
         self.device_list = device_list[:self.num_level]
         if self.rank == self.root:
             print(
-                f"PYQCU::SOLVER::MULTIGRID:\n self.dof_list:{self.dof_list}")
+                f"PYQCU::SOLVER::LEGACY_MULTIGRID:\n self.dof_list:{self.dof_list}")
             print(
-                f"PYQCU::SOLVER::MULTIGRID:\n self.dtype_list:{self.dtype_list}")
+                f"PYQCU::SOLVER::LEGACY_MULTIGRID:\n self.dtype_list:{self.dtype_list}")
             print(
-                f"PYQCU::SOLVER::MULTIGRID:\n self.device_list:{self.device_list}")
+                f"PYQCU::SOLVER::LEGACY_MULTIGRID:\n self.device_list:{self.device_list}")
             print(
-                f"PYQCU::SOLVER::MULTIGRID:\n self.lat_size_list:{self.lat_size_list}")
+                f"PYQCU::SOLVER::LEGACY_MULTIGRID:\n self.lat_size_list:{self.lat_size_list}")
         for device in self.device_list:
             tools.set_device(device=device)
         self.op_list = [dslash.operator(U=U,
@@ -87,6 +91,7 @@ class multigrid:
         self._mg_coarse_hopping_packed = None
         self._mg_coarse_hopping_packed_level = None  # track which level is cached
         self._max_set_index = -1  # init 创建的 C++ LatticeSet 最大槽位（end 释放用）
+        self._setup_done = False
 
     def _restrict_cuda(self, fine_vec: torch.Tensor, level: int) -> torch.Tensor:
         """CUDA-accelerated restriction using C++ backend."""
@@ -216,14 +221,18 @@ class multigrid:
         cu = self._coarse_dslash_cuda(src, level=level)
         diff = (ref - cu).abs().max().item()
         if self.rank == self.root:
-            print(f"PYQCU::SOLVER::MULTIGRID::VERIFY:\n "
+            print(f"PYQCU::SOLVER::LEGACY_MULTIGRID::VERIFY:\n "
                   f"level={level}, max|ref-cuda| = {diff:.6e}")
         return diff < tol
 
     def init(self):
+        if self._setup_done:
+            return self
         # Build local-orthonormal near-null space vectors
         comm = MPI.COMM_WORLD
         comm.Barrier()
+        self._setup_done = True
+        return self
         if self.with_cuda_qcu:
             from pyqcu.cuda.define import params, argv, set_ptrs
             params[define._LAT_X_] = self.lat_size[define._LAT_X_]
@@ -320,6 +329,22 @@ class multigrid:
                 except Exception:
                     pass
             self._max_set_index = -1
+        self._setup_done = False
+
+    def setup(self):
+        """Build the hierarchy; canonical lifecycle name for all backends."""
+        return self.init()
+
+    def close(self) -> None:
+        """Release backend resources; safe to call more than once."""
+        self.end()
+
+    def __enter__(self) -> "LegacyMultigrid":
+        self.setup()
+        return self
+
+    def __exit__(self, exc_type, exc, traceback) -> None:
+        self.close()
 
     def __del__(self):
         # 隐式 GC 释放时机不可控：先同步设备再释放，减少与并发 C++ 操作的干扰。
@@ -379,15 +404,15 @@ class multigrid:
         _tol = r_norm*0.5 if level != self.num_level - 1 else r_norm*0.1
         if self.verbose:
             print(
-                f"PYQCU::SOLVER::MULTIGRID:\n {level}:Norm of b:{tools.norm(b)}")
-            print(f"PYQCU::SOLVER::MULTIGRID:\n {level}:Norm of r:{r_norm}")
+                f"PYQCU::SOLVER::LEGACY_MULTIGRID:\n {level}:Norm of b:{tools.norm(b)}")
+            print(f"PYQCU::SOLVER::LEGACY_MULTIGRID:\n {level}:Norm of r:{r_norm}")
             print(
-                f"PYQCU::SOLVER::MULTIGRID:\n {level}:Norm of x0:{tools.norm(x)}")
+                f"PYQCU::SOLVER::LEGACY_MULTIGRID:\n {level}:Norm of x0:{tools.norm(x)}")
         if level == 0:
             self.convergence_history.append(r_norm)
             _tol = self.tol
         if r_norm < _tol:
-            print("PYQCU::SOLVER::MULTIGRID:\n x0 is just right!")
+            print("PYQCU::SOLVER::LEGACY_MULTIGRID:\n x0 is just right!")
             return x
         r_tilde = r.clone()
         p = torch.zeros_like(b)
@@ -401,7 +426,7 @@ class multigrid:
         start_time = perf_counter()
         iter_times = []
         count_restart = 0
-        print(f"PYQCU::SOLVER::MULTIGRID:\n {level}:Starting Iterations")
+        print(f"PYQCU::SOLVER::LEGACY_MULTIGRID:\n {level}:Starting Iterations")
         for i in range(self.max_iter):
             iter_start_time = perf_counter()
             # BUGFIX 2026-07-28 R2: BiCGStab breakdown detection (same as _bistabcg.py).
@@ -432,7 +457,7 @@ class multigrid:
                     raise RuntimeError("omega non-finite")
             except RuntimeError:
                 if self.verbose:
-                    print(f"PYQCU::SOLVER::MULTIGRID:\n {level}:BiCGStab breakdown "
+                    print(f"PYQCU::SOLVER::LEGACY_MULTIGRID:\n {level}:BiCGStab breakdown "
                           f"at iter {i}, restarting...")
                 r_tilde = r.clone()
                 p = torch.zeros_like(b)
@@ -455,7 +480,7 @@ class multigrid:
             if self.verbose:
                 # print(f"alpha,beta,omega:{alpha,beta,omega}\n")
                 print(
-                    f"PYQCU::SOLVER::MULTIGRID:\n B-{level}-bistabcg-Iteration {i}: Residual = {r_norm:.6e}")
+                    f"PYQCU::SOLVER::LEGACY_MULTIGRID:\n B-{level}-bistabcg-Iteration {i}: Residual = {r_norm:.6e}")
             count_restart += 1
             # cycle start
             if level < self.num_level-1 and count_restart > self.num_restart:
@@ -509,25 +534,25 @@ class multigrid:
             if self.verbose:
                 # print(f"alpha,beta,omega:{alpha,beta,omega}\n")
                 print(
-                    f"PYQCU::SOLVER::MULTIGRID:\n F-{level}-bistabcg-Iteration {i}: Residual = {r_norm:.6e}, Time = {iter_time:.6f} s")
+                    f"PYQCU::SOLVER::LEGACY_MULTIGRID:\n F-{level}-bistabcg-Iteration {i}: Residual = {r_norm:.6e}, Time = {iter_time:.6f} s")
             if r_norm < _tol:
                 if self.verbose:
                     print(
-                        f"PYQCU::SOLVER::MULTIGRID:\n Converged at iteration {i} with residual {r_norm:.6e}")
+                        f"PYQCU::SOLVER::LEGACY_MULTIGRID:\n Converged at iteration {i} with residual {r_norm:.6e}")
                 break
         else:
             print(
-                "PYQCU::SOLVER::MULTIGRID:\n Warning: Maximum iterations reached, may not have converged")
+                "PYQCU::SOLVER::LEGACY_MULTIGRID:\n Warning: Maximum iterations reached, may not have converged")
         total_time = perf_counter() - start_time
         avg_iter_time = sum(iter_times) / len(iter_times)
-        print(f"PYQCU::SOLVER::MULTIGRID:\n Performance Statistics:")
+        print(f"PYQCU::SOLVER::LEGACY_MULTIGRID:\n Performance Statistics:")
         print(
-            f"PYQCU::SOLVER::MULTIGRID:\n Total iterations: {len(iter_times)}")
+            f"PYQCU::SOLVER::LEGACY_MULTIGRID:\n Total iterations: {len(iter_times)}")
         print(
-            f"PYQCU::SOLVER::MULTIGRID:\n Total time: {total_time:.6f} seconds")
+            f"PYQCU::SOLVER::LEGACY_MULTIGRID:\n Total time: {total_time:.6f} seconds")
         print(
-            f"PYQCU::SOLVER::MULTIGRID:\n Average time per iteration: {avg_iter_time:.6f} s")
-        print(f"PYQCU::SOLVER::MULTIGRID:\n Final residual: {r_norm:.2e}")
+            f"PYQCU::SOLVER::LEGACY_MULTIGRID:\n Average time per iteration: {avg_iter_time:.6f} s")
+        print(f"PYQCU::SOLVER::LEGACY_MULTIGRID:\n Final residual: {r_norm:.2e}")
         if level == 0 and self.support_parity:
             x_e = self.op_list[0].give_x_e(b_e=b_e, x_o=x)
             x_origin = tools.poooxyzt2oooxyzt(
@@ -535,7 +560,7 @@ class multigrid:
             r_origin = b_origin-self.op_list[0].matvec(src=x_origin)
             r_norm_origin = tools.norm(r_origin)
             print(
-                f"PYQCU::SOLVER::MULTIGRID:\n Final residual(origin): {r_norm_origin:.2e}")
+                f"PYQCU::SOLVER::LEGACY_MULTIGRID:\n Final residual(origin): {r_norm_origin:.2e}")
             x = x_origin.clone()
         return x
 
@@ -549,11 +574,11 @@ class multigrid:
         start_time = perf_counter()
         x = self.cycle()
         total_time = perf_counter() - start_time
-        print(f"PYQCU::SOLVER::MULTIGRID:\n Performance Statistics:")
+        print(f"PYQCU::SOLVER::LEGACY_MULTIGRID:\n Performance Statistics:")
         print(
-            f"PYQCU::SOLVER::MULTIGRID:\n Total time: {total_time:.6f} seconds")
+            f"PYQCU::SOLVER::LEGACY_MULTIGRID:\n Total time: {total_time:.6f} seconds")
         print(
-            f"PYQCU::SOLVER::MULTIGRID:\n Final residual: {self.convergence_history[-1]:.2e}")
+            f"PYQCU::SOLVER::LEGACY_MULTIGRID:\n Final residual: {self.convergence_history[-1]:.2e}")
         return x.reshape([4, 3]+list(x.shape[-4:]))
 
     def plot(self, save_path=None):
@@ -562,7 +587,7 @@ class multigrid:
             import numpy as np
             plt.figure(figsize=(10, 6))
             plt.title(
-                f"PYQCU::SOLVER::MULTIGRID:\n convergence_history(mass={self.mass})\n self.dof_list:{self.dof_list}\n self.lat_size_list:{self.lat_size_list}\n self.dtype_list:{self.dtype_list}\n self.device_list:{self.device_list}", fontsize=12)
+                f"PYQCU::SOLVER::LEGACY_MULTIGRID:\n convergence_history(mass={self.mass})\n self.dof_list:{self.dof_list}\n self.lat_size_list:{self.lat_size_list}\n self.dtype_list:{self.dtype_list}\n self.device_list:{self.device_list}", fontsize=12)
             plt.semilogy(range(1, len(self.convergence_history) + 1),
                          self.convergence_history, 'b-o', markersize=4, linewidth=2)
             plt.xlabel(

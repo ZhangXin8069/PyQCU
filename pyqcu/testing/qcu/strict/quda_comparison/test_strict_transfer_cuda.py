@@ -1,6 +1,6 @@
 """小格 CUDA 回归：QUDA 风格 Python transfer/stencil 到 QCU kernel。
 
-该测试不依赖外部 QUDA 二进制；它用同一个 ``QudaTransfer`` 生成正交化
+该测试不依赖外部 QUDA 二进制；它用同一个 ``StrictTransfer`` 生成正交化
 基，用合成的 33 点粗算子验证两个边界最容易出错的接口：
 
 * Python ``[spin,color,coarse_spin,nvec,X,Y,Z,T]`` 到 QCU
@@ -11,7 +11,7 @@
 运行：
 
     source ./env.sh
-    pytest -q pyqcu/testing/qcu/strict/quda_comparison/test_quda_transfer_cuda.py
+    pytest -q pyqcu/testing/qcu/strict/quda_comparison/test_strict_transfer_cuda.py
 """
 
 from __future__ import annotations
@@ -26,11 +26,12 @@ if not torch.cuda.is_available():
     pytest.skip("需要 CUDA 设备", allow_module_level=True)
 
 try:
-    from pyqcu.cuda import CudaStrictMultigridSolver, define, qcu
+    from pyqcu.cuda import StrictMultigrid as CudaStrictMultigrid
+    from pyqcu.cuda import define, qcu
     from pyqcu.solver import (Checkerboard, CompactParityLayout,
-                              QudaCoarseOperator, QcuStrictAssetBinding,
-                              QudaMatPCOperator, QudaStrictMultigrid,
-                              QudaTransfer)
+                              StrictCoarseOperator, QcuStrictAssetBinding,
+                              StrictMatPCOperator, StrictMultigrid,
+                              StrictTransfer)
     from pyqcu.tools._strict_galerkin import build_strict_galerkin_colored
 except (ImportError, OSError) as exc:  # pragma: no cover - 环境相关
     pytest.skip(f"QCU Cython/CUDA 后端不可用: {exc}", allow_module_level=True)
@@ -94,10 +95,10 @@ def _synthetic_strict_operator(shape, seed):
     dof = 4
     torch.manual_seed(seed)
     metadata_null = torch.randn(2, 2, 2, *shape, dtype=DTYPE)
-    metadata_transfer = QudaTransfer(
+    metadata_transfer = StrictTransfer(
         metadata_null, shape, fine_spin=2, fine_color=2,
         coarse_spin=2, block_size=(1, 1, 1, 1))
-    operator = QudaCoarseOperator(metadata_transfer, lambda value: value)
+    operator = StrictCoarseOperator(metadata_transfer, lambda value: value)
     identity = torch.eye(dof, dtype=DTYPE).reshape(
         dof, dof, 1, 1, 1, 1).expand(dof, dof, *shape).clone()
     operator.blocks = {(0, 0, 0, 0): 1.7 * identity}
@@ -119,10 +120,10 @@ def _strict_hierarchy(depth):
     if depth == 2:
         torch.manual_seed(20260861)
         null = torch.randn(2, 2, 2, 4, 4, 4, 4, dtype=DTYPE)
-        transfer = QudaTransfer(
+        transfer = StrictTransfer(
             null, first.shape, fine_spin=2, fine_color=2,
             coarse_spin=2, block_size=(2, 2, 2, 2))
-        child = QudaCoarseOperator(
+        child = StrictCoarseOperator(
             transfer, first.preconditioned_full_apply, materialize=True)
         operators.append(child)
         transfers.append(transfer)
@@ -161,7 +162,7 @@ def _bind_strict_assets(set_ptrs, operators, transfers, device):
 
 def _reference_strict_vcycle(operators, transfers, full_rhs, parity,
                              smoother_steps, level=0):
-    matpc = QudaMatPCOperator(operators[level], parity=parity)
+    matpc = StrictMatPCOperator(operators[level], parity=parity)
     pc_rhs = matpc.rhs(full_rhs)
     if level == len(operators) - 1:
         target = matpc.solve(
@@ -281,15 +282,15 @@ def _fine_full_clover_term(shape, even_field, odd_field):
     return (full - identity).reshape(4, 3, 4, 3, *shape).contiguous()
 
 
-def test_quda_transfer_and_stencil_match_qcu_kernels():
+def test_strict_transfer_and_stencil_match_qcu_kernels():
     # 先在 CPU 生成随机输入，再搬到 CUDA；这样也兼容没有对应 PyTorch
     # architecture kernel 的旧卡，真正需要 GPU kernel 的仅是 QCU/参考运算。
     torch.manual_seed(20260831)
     device = torch.device("cuda")
     null = torch.randn(2, 4, 3, *FINE_SHAPE, dtype=DTYPE).to(device)
-    transfer = QudaTransfer(null, FINE_SHAPE, block_size=BLOCK)
+    transfer = StrictTransfer(null, FINE_SHAPE, block_size=BLOCK)
     blocked = transfer.to_qcu_blocked()
-    operator = QudaCoarseOperator(transfer, lambda value: value)
+    operator = StrictCoarseOperator(transfer, lambda value: value)
     operator.blocks = _full_blocks(
         transfer.coarse_dof, transfer.coarse_shape, device)
     sit, hop_nn, hop_diag = operator.to_qcu_stencil()
@@ -343,7 +344,7 @@ def test_strict_galerkin_colored_cpu_block_staging_matches_reference():
     dof = 4
     dtype = torch.complex128
     null = torch.randn(1, 4, 1, *shape, dtype=dtype).to(device)
-    transfer = QudaTransfer(
+    transfer = StrictTransfer(
         null, shape, fine_spin=4, fine_color=1,
         coarse_spin=2, block_size=block)
     identity = torch.eye(dof, dtype=dtype, device=device).reshape(
@@ -371,7 +372,7 @@ def test_strict_galerkin_colored_cpu_block_staging_matches_reference():
     def batch_matvec(value):
         return torch.stack([single_matvec(item) for item in value], dim=0)
 
-    reference = QudaCoarseOperator(
+    reference = StrictCoarseOperator(
         transfer, single_matvec, materialize=True, verbose=False)
     staged = build_strict_galerkin_colored(
         transfer, batch_matvec,
@@ -392,17 +393,17 @@ def test_strict_galerkin_colored_cpu_block_staging_matches_reference():
         rtol=3e-5, atol=3e-6)
 
 
-def test_quda_strict_transfer_coarse_and_matpc_match_cuda_kernels():
+def test_strict_transfer_coarse_and_matpc_match_cuda_kernels():
     """strict ``P/R``, ``X/Y/Yhat`` 与逐层 MATPC 的逐元素 CUDA 闭环。"""
     torch.manual_seed(20260850)
     device = torch.device("cuda")
     null = torch.randn(2, 4, 3, *FINE_SHAPE, dtype=DTYPE).to(device)
-    transfer = QudaTransfer(null, FINE_SHAPE, block_size=BLOCK)
+    transfer = StrictTransfer(null, FINE_SHAPE, block_size=BLOCK)
     blocked = transfer.to_qcu_blocked()
 
     E = transfer.coarse_dof
     shape = transfer.coarse_shape
-    operator = QudaCoarseOperator(transfer, lambda value: value)
+    operator = StrictCoarseOperator(transfer, lambda value: value)
     operator.blocks = {}
     identity = torch.eye(E, dtype=DTYPE, device=device).reshape(
         E, E, 1, 1, 1, 1).expand(E, E, *shape).clone()
@@ -450,7 +451,7 @@ def test_quda_strict_transfer_coarse_and_matpc_match_cuda_kernels():
         for parity in (0, 1):
             compact = checkerboard.extract(trial, parity).reshape(
                 E, shape[0], shape[1], shape[2], shape[3] // 2).contiguous()
-            matpc = QudaMatPCOperator(operator, parity=parity)
+            matpc = StrictMatPCOperator(operator, parity=parity)
             matpc_cpp = torch.empty_like(compact)
             scratch = torch.empty_like(compact)
             p_matpc = initialize(shape, shape, len(initialized))
@@ -511,7 +512,7 @@ def test_quda_strict_transfer_coarse_and_matpc_match_cuda_kernels():
 
 @pytest.mark.parametrize("depth", (1, 2), ids=lambda value: f"depth{value}")
 @pytest.mark.parametrize("parity", (0, 1), ids=lambda value: f"parity{value}")
-def test_quda_strict_recursive_vcycle_matches_reference_and_arena(depth, parity):
+def test_strict_recursive_vcycle_matches_reference_and_arena(depth, parity):
     """递归 coarse V-cycle 应匹配参考，且临时显存遵守 arena 精确预算。"""
     operators, transfers = _strict_hierarchy(depth)
     torch.manual_seed(20260862 + depth)
@@ -622,7 +623,7 @@ def test_strict_fine_matpc_nontrivial_clover_matches_python_both_parities():
     full_clover_term = _fine_full_clover_term(
         shape, even_field, odd_field)
     kappa = 0.12
-    reference = QudaStrictMultigrid(
+    reference = StrictMultigrid(
         U=full_gauge,
         clover_term=full_clover_term,
         kappa=torch.tensor([kappa]),
@@ -646,7 +647,7 @@ def test_strict_fine_matpc_nontrivial_clover_matches_python_both_parities():
             qcu.applyMultigridStrictFineMatPCQcu(
                 actual, source, gauge, clover_ee, clover_oo,
                 clover_ee_inv, clover_oo_inv, set_ptrs, params, parity)
-            expected = QudaMatPCOperator(
+            expected = StrictMatPCOperator(
                 reference._fine, parity=parity).apply(
                     source.reshape(12, -1).cpu()).reshape_as(source.cpu())
             assert _relative(actual.cpu(), expected) < 3.0e-5
@@ -674,7 +675,7 @@ def test_strict_fused_nontrivial_clover_matches_python_matpc_both_parities():
     layout = CompactParityLayout(shape)
 
     for parity in (0, 1):
-        hierarchy = QudaStrictMultigrid(
+        hierarchy = StrictMultigrid(
             U=full_gauge,
             clover_term=full_clover_term,
             kappa=torch.tensor([kappa]),
@@ -697,7 +698,7 @@ def test_strict_fused_nontrivial_clover_matches_python_matpc_both_parities():
             verbose=False,
             target_parity=parity,
         )
-        reference = QudaMatPCOperator(hierarchy._fine, parity=parity)
+        reference = StrictMatPCOperator(hierarchy._fine, parity=parity)
         params, argv = _params(shape, 4, BLOCK, 0)
         params[define._PARITY_] = parity
         params[define._MG_USE_INIT_GUESS_] = 0
@@ -706,7 +707,7 @@ def test_strict_fused_nontrivial_clover_matches_python_matpc_both_parities():
         vector_bytes = 12 * int(torch.tensor(shape).prod()) // 2 * 8
         coarse_vector_bytes = 4 * 2**4 * 8
         budget = 21 * vector_bytes + 2 * coarse_vector_bytes
-        with CudaStrictMultigridSolver(
+        with CudaStrictMultigrid(
                 hierarchy, argv, gauge, clover_ee, clover_oo,
                 clover_ee_inv, clover_oo_inv, params,
                 restart=8, max_krylov_bytes=budget,
@@ -740,7 +741,7 @@ def test_cuda_strict_solver_converges_with_bounded_krylov_arena():
         12, 12, 1, 1, 1, 1).expand(12, 12, *shape).clone() * 1.5
     torch.manual_seed(20260867)
     null = torch.randn(2, 4, 3, *shape, dtype=DTYPE)
-    hierarchy = QudaStrictMultigrid(
+    hierarchy = StrictMultigrid(
         fine_matvec=lambda value: 1.5 * value,
         fine_adjoint=lambda value: 1.5 * value,
         fine_diagonal=diagonal,
@@ -774,7 +775,7 @@ def test_cuda_strict_solver_converges_with_bounded_krylov_arena():
     full_rhs = torch.randn(
         2, 4, 3, *shape[:3], shape[3] // 2, dtype=DTYPE).to(device)
 
-    with CudaStrictMultigridSolver(
+    with CudaStrictMultigrid(
             hierarchy, argv, gauge, clover_ee, clover_oo,
             clover_ee_inv, clover_oo_inv, params,
             restart=6, max_krylov_bytes=fused_budget) as solver:

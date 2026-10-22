@@ -301,12 +301,12 @@ def _constructor_params(local_shape, process_grid):
 
 @pytest.mark.skipif(WORLD.Get_size() != 1, reason="single-rank test")
 def test_production_constructor_allows_serial_preflight_before_setup():
-    from pyqcu.cuda._strict_multigrid import CudaStrictMultigridSolver
+    from pyqcu.cuda.multigrid.strict_multigrid import StrictMultigrid
 
     hierarchy = _HierarchySetupProbe(FINE, "column")
     params = _constructor_params(FINE, (1, 1, 1, 1))
     with pytest.raises(_SetupEntered, match="setup was entered"):
-        CudaStrictMultigridSolver(
+        StrictMultigrid(
             hierarchy, None, None, None, None, None, None, params)
     assert hierarchy.setup_calls == 1
 
@@ -314,14 +314,14 @@ def test_production_constructor_allows_serial_preflight_before_setup():
 @pytest.mark.skipif(WORLD.Get_size() != 2, reason="requires mpirun -np 2")
 @pytest.mark.parametrize("setup_mode", ("column", "site-batch"))
 def test_production_constructor_accepts_distributed_setup_modes(setup_mode):
-    from pyqcu.cuda._strict_multigrid import CudaStrictMultigridSolver
+    from pyqcu.cuda.multigrid.strict_multigrid import StrictMultigrid
 
     grid = (2, 1, 1, 1)
     local_shape = tuple(FINE[axis] // grid[axis] for axis in range(4))
     hierarchy = _HierarchySetupProbe(local_shape, setup_mode)
     params = _constructor_params(local_shape, grid)
     with pytest.raises(_SetupEntered, match="setup was entered"):
-        CudaStrictMultigridSolver(
+        StrictMultigrid(
             hierarchy, None, None, None, None, None, None, params)
     setup_calls = WORLD.allgather(hierarchy.setup_calls)
     assert setup_calls == [1, 1]

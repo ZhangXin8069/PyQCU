@@ -24,11 +24,11 @@ sys.path.insert(0, str(HERE))
 
 from pyqcu.testing.qcu.strict.quda_comparison.common import grid_index_for_rank, process_grid
 from pyqcu.cuda import define, qcu
-from pyqcu.solver._quda_multigrid import (
+from pyqcu.solver._multigrid_core import (
     Checkerboard,
-    QudaCoarseOperator,
-    QudaMatPCOperator,
-    QudaTransfer,
+    StrictCoarseOperator,
+    StrictMatPCOperator,
+    StrictTransfer,
 )
 
 
@@ -64,14 +64,14 @@ def _localise_compact(
 def _make_operator(
         shape, dof: int, seed: int, link_mode: str = "both",
         dtype: torch.dtype = torch.complex64
-) -> QudaCoarseOperator:
+) -> StrictCoarseOperator:
     torch.manual_seed(seed)
     metadata_null = torch.randn(
         2, 4, *shape, dtype=dtype)
-    metadata_transfer = QudaTransfer(
+    metadata_transfer = StrictTransfer(
         metadata_null, shape, fine_spin=2, fine_color=dof // 2,
         coarse_spin=2, block_size=(1, 1, 1, 1))
-    operator = QudaCoarseOperator(metadata_transfer, lambda value: value)
+    operator = StrictCoarseOperator(metadata_transfer, lambda value: value)
     identity = torch.eye(dof, dtype=dtype).reshape(
         dof, dof, 1, 1, 1, 1).expand(dof, dof, *shape).clone()
     operator.blocks = {(0, 0, 0, 0): 1.7 * identity}
@@ -204,7 +204,7 @@ def main() -> int:
 
     layout = Checkerboard(tuple(args.shape))
     compact_global = layout.extract(global_full, args.parity)
-    expected_compact = QudaMatPCOperator(
+    expected_compact = StrictMatPCOperator(
         operator, parity=args.parity).apply(compact_global)
     expected_compact_full = layout.embed(
         expected_compact, args.parity, args.dof)

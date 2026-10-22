@@ -1,8 +1,8 @@
-"""QUDA 风格 Python MultiGrid 的小格回归与代数验证。
+"""Strict/Legacy Python multigrid 的小格回归与代数验证。
 
 这些测试只使用 CPU、4^4 格点和复数单精度，目标是验证 transfer/coarse
-operator 的代数关系与边界约定，而不是测量性能。旧的 ``multigrid`` 仍
-作为独立实现导出，故这里也明确检查两者没有互相覆盖。
+operator 的代数关系与边界约定，而不是测量性能。统一入口 ``Multigrid``
+显式选择 strict 或 legacy hierarchy。
 """
 
 from __future__ import annotations
@@ -17,15 +17,15 @@ from pyqcu.solver import (
     Checkerboard,
     CompactParityLayout,
     CompactParityOperator,
+    LegacyMultigrid,
+    Multigrid,
     ParitySchurOperator,
-    QudaCoarseOperator,
-    QudaMatPCOperator,
-    QudaMultigrid,
-    QudaStrictMultigrid,
-    QudaTransfer,
-    multigrid,
+    StrictCoarseOperator,
+    StrictMatPCOperator,
+    StrictMultigrid,
+    StrictTransfer,
 )
-from pyqcu.solver._quda_multigrid import _FineOperator
+from pyqcu.solver._multigrid_core import _FineOperator, _MultigridHierarchy
 from pyqcu.solver._gmres import _givens_rotation, fgmres
 
 
@@ -34,7 +34,7 @@ FINE_SHAPE = (4, 4, 4, 4)
 BLOCK = (2, 2, 2, 2)
 
 
-def test_pyqcu_gamma_basis_matches_quda_degrand_rossi_table():
+def test_gamma_basis_matches_degrand_rossi_table():
     i = 1j
     expected = torch.tensor([
         [[0, 0, 0, i], [0, 0, i, 0],
@@ -140,8 +140,9 @@ def _make_full_qcu_blocks(dof, shape):
     return blocks
 
 
-def test_new_and_legacy_multigrid_are_parallel_exports():
-    assert multigrid is not QudaMultigrid
+def test_strict_and_legacy_multigrid_are_distinct_exports():
+    assert StrictMultigrid is not LegacyMultigrid
+    assert Multigrid is not StrictMultigrid
 
 
 def test_fgmres_zero_rhs_stops_without_nan():
@@ -192,7 +193,7 @@ def test_strict_rejects_unimplemented_modes_and_odd_coarse_extent():
         verbose=False,
     )
     with pytest.raises(ValueError, match="仅完整实现全层"):
-        QudaStrictMultigrid(
+        StrictMultigrid(
             **common, coarse_grid_solution_type="mat",
             smoother_solve_type="direct")
 
@@ -200,7 +201,7 @@ def test_strict_rejects_unimplemented_modes_and_odd_coarse_extent():
     odd_null = torch.randn(2, 4, 3, *odd_shape, dtype=DTYPE)
     odd_diagonal = _identity_diagonal(12, odd_shape)
     with pytest.raises(ValueError, match="各维 extent 必须为偶数且至少 2"):
-        QudaStrictMultigrid(
+        StrictMultigrid(
             fine_matvec=lambda value: value,
             fine_diagonal=odd_diagonal,
             lat_size=odd_shape,
@@ -213,9 +214,9 @@ def test_strict_rejects_unimplemented_modes_and_odd_coarse_extent():
         )
 
 
-def test_transfer_galerkin_and_quda_yhat_conventions():
+def test_transfer_galerkin_and_strict_yhat_conventions():
     null, _ = _random_nulls()
-    transfer = QudaTransfer(null, FINE_SHAPE, block_size=BLOCK)
+    transfer = StrictTransfer(null, FINE_SHAPE, block_size=BLOCK)
     coarse = torch.randn(
         transfer.coarse_dof, *transfer.coarse_shape, dtype=DTYPE)
     fine = torch.randn(12, *FINE_SHAPE, dtype=DTYPE)
@@ -235,7 +236,7 @@ def test_transfer_galerkin_and_quda_yhat_conventions():
     link = torch.randn(12, 12, *FINE_SHAPE, dtype=DTYPE) * 0.01
     backward = torch.randn(12, 12, *FINE_SHAPE, dtype=DTYPE) * 0.01
     fine_operator = _fine_matvec_with_hop(diagonal, link, backward)
-    coarse_operator = QudaCoarseOperator(
+    coarse_operator = StrictCoarseOperator(
         transfer, fine_operator, materialize=True)
     coarse_trial = torch.randn(
         coarse_operator.dof, *coarse_operator.shape, dtype=DTYPE)
@@ -255,7 +256,7 @@ def test_transfer_galerkin_and_quda_yhat_conventions():
 def test_single_parity_transfer_is_adjoint_and_keeps_full_coarse_geometry():
     """QUDA 的 parity transfer 只裁 fine 场，coarse 场仍是完整格。"""
     null, _ = _random_nulls(20260846)
-    transfer = QudaTransfer(null, FINE_SHAPE, block_size=BLOCK)
+    transfer = StrictTransfer(null, FINE_SHAPE, block_size=BLOCK)
     checkerboard = Checkerboard(FINE_SHAPE)
     coarse = torch.randn(
         transfer.coarse_dof, *transfer.coarse_shape, dtype=DTYPE)
@@ -276,19 +277,19 @@ def test_single_parity_transfer_is_adjoint_and_keeps_full_coarse_geometry():
         assert float(torch.abs(lhs - rhs) / scale) < 2e-5
 
 
-def test_quda_matpc_matches_left_preconditioned_block_elimination():
+def test_strict_matpc_matches_left_preconditioned_block_elimination():
     """逐层 MATPC 必须是 ``I-Hhat_pq Hhat_qp``，而非永久缩格。"""
     null, _ = _random_nulls(20260847)
-    transfer = QudaTransfer(null, FINE_SHAPE, block_size=BLOCK)
+    transfer = StrictTransfer(null, FINE_SHAPE, block_size=BLOCK)
     diagonal = _component_diagonal()
     link = torch.randn(12, 12, *FINE_SHAPE, dtype=DTYPE) * 0.001
     backward = torch.randn(12, 12, *FINE_SHAPE, dtype=DTYPE) * 0.001
-    coarse_operator = QudaCoarseOperator(
+    coarse_operator = StrictCoarseOperator(
         transfer, _fine_matvec_with_hop(diagonal, link, backward),
         materialize=True)
 
     for parity in (0, 1):
-        matpc = QudaMatPCOperator(coarse_operator, parity=parity)
+        matpc = StrictMatPCOperator(coarse_operator, parity=parity)
         other = 1 - parity
         trial = torch.randn(
             coarse_operator.dof, matpc.checkerboard.volume, dtype=DTYPE)
@@ -311,7 +312,7 @@ def test_quda_matpc_matches_left_preconditioned_block_elimination():
             torch.linalg.norm(rhs)) < 2e-5
 
 
-def test_strict_quda_hierarchy_coarsens_full_preconditioned_operator():
+def test_strict_hierarchy_coarsens_full_preconditioned_operator():
     """二次粗化保持 spin=2/full geometry，并逐层满足 ``R X^-1 D P``。"""
     torch.manual_seed(20260848)
     diagonal = _component_diagonal()
@@ -319,7 +320,7 @@ def test_strict_quda_hierarchy_coarsens_full_preconditioned_operator():
     backward = torch.randn(12, 12, *FINE_SHAPE, dtype=DTYPE) * 0.0005
     matvec = _fine_matvec_with_hop(diagonal, link, backward)
     first, second = _random_nulls(20260849)
-    mg = QudaStrictMultigrid(
+    mg = StrictMultigrid(
         fine_matvec=matvec,
         fine_diagonal=diagonal,
         fine_adjoint=matvec,
@@ -351,7 +352,7 @@ def test_strict_quda_hierarchy_coarsens_full_preconditioned_operator():
     for level, asset in enumerate(strict_assets):
         transfer = mg.transfers[level]
         child = mg.operators[level + 1]
-        assert asset["operator_kind"] == "quda_full_preconditioned"
+        assert asset["operator_kind"] == "strict_full_preconditioned"
         assert asset["slot_order"] == (
             "null_vectors", "raw_links", "preconditioned_links",
             "onsite_pair")
@@ -392,14 +393,14 @@ def test_strict_quda_hierarchy_coarsens_full_preconditioned_operator():
         mg.setup()
 
 
-def test_strict_propagate_null_vectors_matches_quda_restriction_order():
+def test_strict_propagate_null_vectors_preserves_restriction_order():
     torch.manual_seed(20260916)
     diagonal = _component_diagonal()
     link = torch.randn(12, 12, *FINE_SHAPE, dtype=DTYPE) * 0.0005
     backward = torch.randn(12, 12, *FINE_SHAPE, dtype=DTYPE) * 0.0005
     matvec = _fine_matvec_with_hop(diagonal, link, backward)
     first, _ = _random_nulls(20260917)
-    mg = QudaStrictMultigrid(
+    mg = StrictMultigrid(
         fine_matvec=matvec,
         fine_diagonal=diagonal,
         fine_adjoint=matvec,
@@ -425,14 +426,14 @@ def test_strict_propagate_null_vectors_matches_quda_restriction_order():
     assert torch.allclose(mg.transfers[1].B, expected)
 
 
-def test_strict_qcu_assets_preserve_quda_y_yhat_storage_and_actions():
+def test_strict_qcu_assets_preserve_link_storage_and_actions():
     """strict 四槽资产必须逐元素重现 raw D 与 ``X^-1 H``。"""
     null, _ = _random_nulls(20260850)
-    transfer = QudaTransfer(null, FINE_SHAPE, block_size=BLOCK)
+    transfer = StrictTransfer(null, FINE_SHAPE, block_size=BLOCK)
     diagonal = _component_diagonal()
     link = torch.randn(12, 12, *FINE_SHAPE, dtype=DTYPE) * 0.001
     backward = torch.randn(12, 12, *FINE_SHAPE, dtype=DTYPE) * 0.001
-    operator = QudaCoarseOperator(
+    operator = StrictCoarseOperator(
         transfer, _fine_matvec_with_hop(diagonal, link, backward),
         materialize=True)
     assets = operator.to_qcu_strict_assets()
@@ -461,7 +462,7 @@ def test_strict_qcu_assets_preserve_quda_y_yhat_storage_and_actions():
 def test_qcu_blocked_transfer_layout_matches_python_transfer():
     """验证 QCU 的 10 维 blocked V 与 Python ``P/R`` 的逐元素约定。"""
     null, _ = _random_nulls(20260829)
-    transfer = QudaTransfer(null, FINE_SHAPE, block_size=BLOCK)
+    transfer = StrictTransfer(null, FINE_SHAPE, block_size=BLOCK)
     blocked = transfer.to_qcu_blocked()
     assert tuple(blocked.shape) == transfer.qcu_blocked_shape
 
@@ -481,8 +482,8 @@ def test_qcu_blocked_transfer_layout_matches_python_transfer():
 def test_qcu_stencil_pack_matches_all_33_periodic_slots():
     """验证 33 点槽位顺序及 2 点周期维的重复邻居分摊。"""
     null, _ = _random_nulls(20260830)
-    transfer = QudaTransfer(null, FINE_SHAPE, block_size=BLOCK)
-    operator = QudaCoarseOperator(transfer, lambda value: value)
+    transfer = StrictTransfer(null, FINE_SHAPE, block_size=BLOCK)
+    operator = StrictCoarseOperator(transfer, lambda value: value)
     operator.blocks = _make_full_qcu_blocks(transfer.coarse_dof, transfer.coarse_shape)
 
     sit, hop_nn, hop_diag = operator.to_qcu_stencil()
@@ -502,8 +503,8 @@ def test_qcu_stencil_pack_matches_all_33_periodic_slots():
 def test_qcu_stencil_degenerate_extent_and_strict_support_guard():
     """验证 extent=1 折入 sitting，并拒绝无法表达的宽支撑。"""
     null, _ = _random_nulls(20260832)
-    transfer = QudaTransfer(null, FINE_SHAPE, block_size=FINE_SHAPE)
-    operator = QudaCoarseOperator(transfer, lambda value: value)
+    transfer = StrictTransfer(null, FINE_SHAPE, block_size=FINE_SHAPE)
+    operator = StrictCoarseOperator(transfer, lambda value: value)
     identity = _identity_diagonal(transfer.coarse_dof, transfer.coarse_shape)
     local_shift = identity * 0.25
     operator.blocks = {
@@ -515,8 +516,8 @@ def test_qcu_stencil_degenerate_extent_and_strict_support_guard():
     assert torch.count_nonzero(hop_nn) == 0
     assert torch.count_nonzero(hop_diag) == 0
 
-    wider = QudaTransfer(null, FINE_SHAPE, block_size=(1, 1, 1, 1))
-    unsupported = QudaCoarseOperator(wider, lambda value: value)
+    wider = StrictTransfer(null, FINE_SHAPE, block_size=(1, 1, 1, 1))
+    unsupported = StrictCoarseOperator(wider, lambda value: value)
     unsupported.blocks = {
         (0, 0, 0, 0): _identity_diagonal(
             unsupported.dof, unsupported.shape),
@@ -526,7 +527,7 @@ def test_qcu_stencil_degenerate_extent_and_strict_support_guard():
     with pytest.raises(ValueError, match="33 点 stencil"):
         unsupported.to_qcu_stencil(strict=True)
     unsupported.X = unsupported.blocks[(0, 0, 0, 0)]
-    with pytest.raises(ValueError, match="strict QUDA X/Y"):
+    with pytest.raises(ValueError, match="strict X/Y"):
         unsupported._build_links()
 
 
@@ -534,7 +535,7 @@ def test_multigrid_qcu_transition_assets_are_paired_and_guard_lazy_mode():
     """验证多层导出把每条 P 与下一层 stencil 正确配对。"""
     null, next_null = _random_nulls(20260833)
     diagonal = _identity_diagonal(12, FINE_SHAPE, value=2.0)
-    mg = QudaMultigrid(
+    mg = _MultigridHierarchy(
         fine_matvec=lambda value: 2.0 * value,
         fine_diagonal=diagonal,
         fine_adjoint=lambda value: 2.0 * value,
@@ -556,7 +557,7 @@ def test_multigrid_qcu_transition_assets_are_paired_and_guard_lazy_mode():
         assert tuple(asset["sitting"].shape) == (
             operator.dof, operator.dof, *operator.shape)
         assert asset["stencil"][0] is asset["sitting"]
-    lazy = QudaMultigrid(
+    lazy = _MultigridHierarchy(
         fine_matvec=lambda value: 2.0 * value,
         fine_diagonal=diagonal,
         lat_size=FINE_SHAPE,
@@ -571,12 +572,12 @@ def test_multigrid_qcu_transition_assets_are_paired_and_guard_lazy_mode():
         lazy.qcu_transition_assets()
 
 
-def test_quda_test_vector_setup_matches_zero_guess_solve():
+def test_strict_test_vector_setup_matches_zero_guess_solve():
     """TEST_VECTOR_SETUP 应等价于从零初值求解 ``D B_new = B``。"""
     torch.manual_seed(20260834)
     initial = torch.randn(1, 4, 3, *FINE_SHAPE, dtype=DTYPE)
     diagonal = _identity_diagonal(12, FINE_SHAPE, value=2.0)
-    mg = QudaMultigrid(
+    mg = _MultigridHierarchy(
         fine_matvec=lambda value: 2.0 * value,
         fine_diagonal=diagonal,
         lat_size=FINE_SHAPE,
@@ -604,7 +605,7 @@ def test_quda_test_vector_setup_matches_zero_guess_solve():
     [("inverse", "full"), ("cg", "normal"), ("ca-cg", "normal"),
      ("krylov", "full"), ("gcr", "full")],
 )
-def test_quda_setup_solver_family_is_finite(method, operator_kind):
+def test_strict_setup_solver_family_is_finite(method, operator_kind):
     """QUDA setup solver 家族都应产生有限且可继续 transfer 的基。"""
     torch.manual_seed(20260835)
     initial = torch.randn(1, 4, 3, *FINE_SHAPE, dtype=DTYPE)
@@ -613,7 +614,7 @@ def test_quda_setup_solver_family_is_finite(method, operator_kind):
     def matvec(value):
         return torch.einsum("ijxyzt,jxyzt->ixyzt", diagonal, value)
 
-    mg = QudaMultigrid(
+    mg = _MultigridHierarchy(
         fine_matvec=matvec,
         fine_adjoint=matvec,
         fine_diagonal=diagonal,
@@ -638,10 +639,10 @@ def test_quda_setup_solver_family_is_finite(method, operator_kind):
     assert mg.transfers[0].orthogonality_error() < 2e-5
 
 
-def test_quda_normal_setup_requires_custom_adjoint():
+def test_strict_normal_setup_requires_custom_adjoint():
     diagonal = _identity_diagonal(12, FINE_SHAPE, value=2.0)
     null, _ = _random_nulls(20260836)
-    mg = QudaMultigrid(
+    mg = _MultigridHierarchy(
         fine_matvec=lambda value: 2.0 * value,
         fine_diagonal=diagonal,
         lat_size=FINE_SHAPE,
@@ -659,13 +660,13 @@ def test_quda_normal_setup_requires_custom_adjoint():
         mg.setup()
 
 
-def test_quda_wilson_gamma5_adjoint_enables_normal_setup():
+def test_strict_wilson_gamma5_adjoint_enables_normal_setup():
     """物理 Wilson 路径未显式给 adjoint 时自动使用 γ5 D γ5。"""
     gauge = torch.zeros(3, 3, 4, *FINE_SHAPE, dtype=DTYPE)
     for color in range(3):
         gauge[color, color] = 1.0
     null, _ = _random_nulls(20260837)
-    mg = QudaMultigrid(
+    mg = _MultigridHierarchy(
         U=gauge,
         kappa=torch.tensor([0.1]),
         null_vectors=null[:1],
@@ -695,7 +696,7 @@ def test_quda_wilson_gamma5_adjoint_enables_normal_setup():
 def test_staggered_transfer_preserves_parity_blocks():
     torch.manual_seed(314159)
     null = torch.randn(2, 1, 3, *FINE_SHAPE, dtype=DTYPE)
-    transfer = QudaTransfer(
+    transfer = StrictTransfer(
         null, FINE_SHAPE, fine_spin=1, fine_color=3, coarse_spin=2,
         block_size=BLOCK, spin_block_size=0)
     coarse = torch.randn(
@@ -718,11 +719,11 @@ def test_staggered_transfer_preserves_parity_blocks():
 
 def test_checkerboard_schur_reconstructs_even_equation():
     null, _ = _random_nulls(456)
-    transfer = QudaTransfer(null, FINE_SHAPE, block_size=BLOCK)
+    transfer = StrictTransfer(null, FINE_SHAPE, block_size=BLOCK)
     diagonal = _identity_diagonal(12, FINE_SHAPE, value=1.4)
     link = torch.randn(12, 12, *FINE_SHAPE, dtype=DTYPE) * 0.005
     backward = torch.randn(12, 12, *FINE_SHAPE, dtype=DTYPE) * 0.005
-    coarse_operator = QudaCoarseOperator(
+    coarse_operator = StrictCoarseOperator(
         transfer, _fine_matvec_with_hop(diagonal, link, backward), materialize=True)
     schur = ParitySchurOperator(coarse_operator)
     rhs = torch.randn(coarse_operator.dof, *coarse_operator.shape, dtype=DTYPE)
@@ -765,7 +766,7 @@ def test_compact_schur_matches_dslash_parity_and_adjoint():
         U=gauge, kappa=torch.tensor([0.1]), support_parity=True,
         verbose=False)
     diagonal = _identity_diagonal(12, FINE_SHAPE)
-    fine_adjoint = QudaMultigrid._gamma5_hermitian_adjoint(
+    fine_adjoint = _MultigridHierarchy._gamma5_hermitian_adjoint(
         dslash_operator.matvec, 4, 3, FINE_SHAPE)
     fine = _FineOperator(
         dslash_operator.matvec, FINE_SHAPE, 4, 3,
@@ -797,7 +798,7 @@ def test_compact_test_vector_setup_uses_schur_operator():
     torch.manual_seed(20260841)
     initial = torch.randn(1, 4, 3, *FINE_SHAPE, dtype=DTYPE)
     diagonal = _identity_diagonal(12, FINE_SHAPE, value=2.0)
-    mg = QudaMultigrid(
+    mg = _MultigridHierarchy(
         fine_matvec=lambda value: 2.0 * value,
         fine_diagonal=diagonal,
         fine_adjoint=lambda value: 2.0 * value,
@@ -833,7 +834,7 @@ def test_compact_multilevel_galerkin_solve_and_qcu_assets():
     matvec = _fine_matvec_with_hop(diagonal, link, backward)
     first, _ = _random_nulls(20260843)
     second = torch.randn(2, 1, 2, 2, 2, 2, 1, dtype=DTYPE)
-    mg = QudaMultigrid(
+    mg = _MultigridHierarchy(
         fine_matvec=matvec,
         fine_diagonal=diagonal,
         fine_adjoint=matvec,
@@ -893,7 +894,7 @@ def test_multilevel_vcycle_and_max_level_one():
     link = torch.randn(12, 12, *FINE_SHAPE, dtype=DTYPE) * 0.002
     backward = torch.randn(12, 12, *FINE_SHAPE, dtype=DTYPE) * 0.002
     matvec = _fine_matvec_with_hop(diagonal, link, backward)
-    mg = QudaMultigrid(
+    mg = _MultigridHierarchy(
         fine_matvec=matvec,
         fine_diagonal=diagonal,
         fine_adjoint=matvec,
@@ -919,7 +920,7 @@ def test_multilevel_vcycle_and_max_level_one():
     residual = mg.apply(solution) - source
     assert torch.linalg.norm(residual) / torch.linalg.norm(source) < 2e-4
 
-    one_level = QudaMultigrid(
+    one_level = _MultigridHierarchy(
         fine_matvec=matvec,
         fine_diagonal=diagonal,
         fine_adjoint=matvec,
@@ -944,7 +945,7 @@ def test_matrix_free_mode_keeps_coarse_operator_lazy():
     null, _ = _random_nulls(9753)
     diagonal = _identity_diagonal(12, FINE_SHAPE, value=2.0)
 
-    mg = QudaMultigrid(
+    mg = _MultigridHierarchy(
         fine_matvec=lambda value: 2.0 * value,
         fine_diagonal=diagonal,
         fine_adjoint=lambda value: 2.0 * value,
@@ -981,7 +982,7 @@ def test_wilson_and_clover_gauge_setup():
             clover[spin, color, spin, color] = 0.03
 
     for clover_term in (None, clover):
-        mg = QudaMultigrid(
+        mg = _MultigridHierarchy(
             U=gauge,
             clover_term=clover_term,
             kappa=torch.tensor([0.1]),
@@ -1011,7 +1012,7 @@ def test_compact_wilson_and_clover_gauge_setup():
             clover[spin, color, spin, color] = 0.03
 
     for clover_term in (None, clover):
-        mg = QudaMultigrid(
+        mg = _MultigridHierarchy(
             U=gauge,
             clover_term=clover_term,
             kappa=torch.tensor([0.1]),

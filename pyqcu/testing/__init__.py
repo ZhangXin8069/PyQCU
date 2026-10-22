@@ -363,7 +363,7 @@ def test_solver(kind: str = 'clover', method: str = 'bistabcg', kappa: Optional[
                                 max_iter=1000, x0=None, if_rtol=False, verbose=True)
             time_end = perf_counter()
     elif method == 'multigrid':
-        mg = solver.multigrid(dtype_list=[refer_U.dtype]*10, device_list=[refer_U.device]*10, U=refer_U,
+        mg = solver.LegacyMultigrid(dtype_list=[refer_U.dtype]*10, device_list=[refer_U.device]*10, U=refer_U,
                               clover_term=refer_clover_term, kappa=kappa, tol=1e-6, max_iter=1000, max_level=max_level, num_restart=num_restart, support_parity=support_parity, verbose=True)
         mg.init()
         time_start = perf_counter()
@@ -657,7 +657,7 @@ def test_multigrid_multithread(nthreads: int = 2, lat_size: List[int] = [8, 8, 8
                                verbose: bool = False):
     """Python multigrid 多线程实例并行验证。
 
-    每线程独立 solver.multigrid 实例（with_cuda_qcu 混合路径）并行求解，
+    每线程独立 solver.LegacyMultigrid 实例（with_cuda_qcu 混合路径）并行求解，
     判据：各实例残差 < 1e-5。要求调用方已预热 torch lazy 初始化
     （MultiGpuMultigrid.solve 内置预热；本测试开头也预热）。
     """
@@ -677,7 +677,7 @@ def test_multigrid_multithread(nthreads: int = 2, lat_size: List[int] = [8, 8, 8
         torch.cuda.set_device(0)
         op0 = dslash.operator(U=U, clover_term=clover, kappa=kappa,
                               support_parity=True, verbose=False)
-        mg = solver.multigrid(dtype_list=[dt]*10, device_list=[dev]*10, U=U,
+        mg = solver.LegacyMultigrid(dtype_list=[dt]*10, device_list=[dev]*10, U=U,
                               clover_term=clover, kappa=kappa,
                               clover_ee_inv=op0.sitting.M_e_inv,
                               clover_oo_inv=op0.sitting.M_o_inv,

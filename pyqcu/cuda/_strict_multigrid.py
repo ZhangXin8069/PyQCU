@@ -1,7 +1,7 @@
-"""显存有界的 strict QUDA 风格 Clover MultiGrid CUDA 求解器。
+"""显存有界的 strict Clover multigrid CUDA 求解器。
 
 生产拓扑固定为一个 Python 进程对应一个 MPI rank、对应一张
-GPU/DCU/GPGPU。一个 ``CudaStrictMultigridSolver`` 只管理当前进程绑定的
+GPU/DCU/GPGPU。一个 ``StrictMultigrid`` 只管理当前进程绑定的
 一张设备；跨设备并行必须由 MPI 多 rank 完成，不得在单进程内复制该求解器
 来冒充一次分布式 solve。
 
@@ -25,7 +25,7 @@ from pyqcu.cuda._strict_mpi import (
     collective_validate_strict_runtime,
     strict_mpi_world_communicator,
 )
-from pyqcu.solver._quda_multigrid import QcuStrictAssetBinding
+from pyqcu.solver._multigrid_core import QcuStrictAssetBinding
 
 
 def _strict_cuda_runtime_descriptor(
@@ -35,8 +35,8 @@ def _strict_cuda_runtime_descriptor(
     if (hasattr(params, "device") and
             (params.device.type != "cpu" or not params.is_contiguous())):
         raise ValueError("params 必须是连续 CPU 张量")
-    if not getattr(hierarchy, "_strict_quda", False):
-        raise ValueError("CudaStrictMultigridSolver 要求 strict hierarchy")
+    if not getattr(hierarchy, "_strict_mode", False):
+        raise ValueError("CUDA StrictMultigrid 要求 strict hierarchy")
     if int(hierarchy.target_parity) not in (0, 1):
         raise ValueError(
             "fine Clover CUDA 路径要求 hierarchy.target_parity 为 0 或 1")
@@ -92,16 +92,19 @@ def _collective_strict_cuda_preflight(
     )
 
 
-class CudaStrictMultigridSolver:
+class StrictMultigrid:
     """Clover odd-Schur + strict coarse hierarchy 的 CUDA 求解器。
 
     ``hierarchy`` 必须是已配置为 ``target_parity=0/1`` 的
-    :class:`QudaStrictMultigrid`；fine 层使用对应目标奇偶的归一化
+    :class:`pyqcu.solver.StrictMultigrid`；fine 层使用对应目标奇偶的归一化
     Clover MATPC。``params`` 提供 fine lattice/MPI/dtype
     协议；粗层几何由 hierarchy 覆盖写入。默认将 Krylov arena 限制在
     512 MiB，并按 fused 总 workspace（含两份 coarse transfer field）自动
     缩短 restart，而不是超预算分配。
     """
+
+    variant = "strict"
+    backend = "cuda"
 
     def __init__(
             self, hierarchy: Any, argv: torch.Tensor, gauge: torch.Tensor,
@@ -115,8 +118,8 @@ class CudaStrictMultigridSolver:
         strict_mpi_preflight = _collective_strict_cuda_preflight(
             hierarchy, params)
         hierarchy.setup()
-        if not getattr(hierarchy, "_strict_quda", False):
-            raise ValueError("CudaStrictMultigridSolver 要求 strict hierarchy")
+        if not getattr(hierarchy, "_strict_mode", False):
+            raise ValueError("CUDA StrictMultigrid 要求 strict hierarchy")
         if int(hierarchy.target_parity) not in (0, 1):
             raise ValueError(
                 "fine Clover CUDA 路径要求 hierarchy.target_parity 为 0 或 1")
@@ -274,7 +277,7 @@ class CudaStrictMultigridSolver:
               max_iter: Optional[int] = None) -> torch.Tensor:
         """求解完整 parity-split Clover 系统并重构 even 分量。"""
         if self._closed:
-            raise RuntimeError("CudaStrictMultigridSolver 已关闭")
+            raise RuntimeError("CUDA StrictMultigrid 已关闭")
         if tuple(full_rhs.shape) != self.full_shape or not full_rhs.is_contiguous():
             raise ValueError(f"full_rhs 必须是连续张量，shape={self.full_shape}")
         if full_rhs.device != self.device or full_rhs.dtype != self.gauge.dtype:
@@ -344,7 +347,7 @@ class CudaStrictMultigridSolver:
     def memory_report(self) -> Dict[str, Any]:
         """返回本求解器可精确归属的显存字节账本。"""
         if self._closed:
-            raise RuntimeError("CudaStrictMultigridSolver 已关闭")
+            raise RuntimeError("CUDA StrictMultigrid 已关闭")
         binding = ({"resident_bytes": 0, "omitted_raw_bytes": 0}
                    if self._binding is None else self._binding.memory_report())
         assert self.fine_null_vectors is not None
@@ -459,7 +462,13 @@ class CudaStrictMultigridSolver:
         if first_error is not None:
             raise first_error
 
-    def __enter__(self) -> "CudaStrictMultigridSolver":
+    def setup(self) -> "StrictMultigrid":
+        """Return the hierarchy initialized by the constructor."""
+        if self._closed:
+            raise RuntimeError("CUDA StrictMultigrid 已关闭")
+        return self
+
+    def __enter__(self) -> "StrictMultigrid":
         return self
 
     def __exit__(self, exc_type: Any, exc: Any, traceback: Any) -> None:
@@ -472,4 +481,4 @@ class CudaStrictMultigridSolver:
             pass
 
 
-__all__ = ["CudaStrictMultigridSolver"]
+__all__ = ["StrictMultigrid"]

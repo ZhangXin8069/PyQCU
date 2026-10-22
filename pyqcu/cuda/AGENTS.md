@@ -15,6 +15,7 @@ C++ CUDA 后端（`libqcu.so`）的 Cython 桥包。
 | `_runtime.py` | `QcuRuntime` — 私有控制数组、空闲槽位选择、异常安全 init/end 与 getter 保留上下文 |
 | `_schur_op.py` | `CudaSchurOp` — C++ Schur 奇偶算子封装（每实例独立 params/set_ptrs 副本 + 槽位分配器，多线程安全） |
 | `_multi_gpu.py` | **测试专用、显式 opt-in**：`MultiGpuMultigrid` 单进程多线程多 GPU Legacy MG 驱动（一线程一卡，单 MPI rank）；不是生产执行拓扑，也不实现单次 solve 的跨卡分域。另含 `build_schur_levels`（33-tensor 粗算子 + h5py 缓存） |
+| `multigrid/` | CUDA 统一 multigrid 命名空间：`StrictMultigrid` 与 `LegacyMultigrid`，共同使用 `setup/solve/close` |
 | `_logs.py` | C++ 后端收敛日志解析（2026-08-22 整合）：`parse_mg_log(path)` → (残差列表, PROF_SECTIONS ms 字典, 总迭代数)；`parse_convergence_histories(path, offset)` → (histories, 新偏移) 增量收集逐次求解的 CONVERGENCE_HISTORY；默认路径 `<repo>/logs/clover_multigrid.log` |
 
 ## 公共 API

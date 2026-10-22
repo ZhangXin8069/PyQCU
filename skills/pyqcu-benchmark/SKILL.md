@@ -53,7 +53,7 @@ Use `pyqcu/testing/qcu/strict/quda_comparison/bench_strict_vs_quda.py` directly,
 `run_strict_fast.py --tier 2`, for formal timing. The direct collector is the
 authoritative protocol implementation; tier 2 is the same formal gate with
 runner-level timeout/JSON handling, not a cheap substitute. The PyQCU side must
-use `hierarchy_mode="strict"`/`QudaStrictMultigrid`, fixed fine odd
+use `hierarchy_mode="strict"`/`StrictMultigrid`, fixed fine odd
 `target_parity=1` and coarse `start_level=1`; `setup_operator="schur"` is a
 legacy compact path, not a substitute. The collector fixes `16×32×32×48`, the
 Gauge/RHS/canonical-full-null-vector bundle and SHA256 identities, zero initial
