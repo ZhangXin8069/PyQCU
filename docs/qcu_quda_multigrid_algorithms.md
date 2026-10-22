@@ -7,6 +7,10 @@ MultiGrid。重点是算法组成和执行顺序，不把 Strict-MG、Python 参
 每个子算法的单独流程图、公式、默认配置和同类算法优劣见
 [`qcu_quda_multigrid_subalgorithms.md`](qcu_quda_multigrid_subalgorithms.md)。
 
+粗层 dslash 的数据表示，即 legacy 33-tensor 与 Strict/QUDA `X/Y/Yhat` 的区别，
+以及“粗化 gauge/clover”这一口径的边界，见
+[`qcu_quda_multigrid_coarse_operator.md`](qcu_quda_multigrid_coarse_operator.md)。
+
 ## 口径与版本
 
 | 项 | QCU | QUDA |

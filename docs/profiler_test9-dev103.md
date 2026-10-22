@@ -273,9 +273,9 @@
 | T27-065 | ENV-WSL2-V100 | v100 / c64 | 8x8x8x16 | 3 | mg-3; trace=off | P02; replay=v100__8x8x8x16__c64__l3__trace-off | 0.060079 / 10 / 6.204e-07 | 0.488989 / 32 / 7.870e-07 | 8.1391 | restart=16; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
 | T27-066 | ENV-WSL2-V100 | v100 / c64 | 8x8x8x16 | 3 | mg-3; trace=on | P02; replay=v100__8x8x8x16__c64__l3__trace-on | 0.137310 / 10 / 6.204e-07 | 0.575026 / 32 / 7.870e-07 | 4.1878 | restart=16; fair=True; residual_pass=True | test27 (2026-09-28) / dev103 |
 
-**容量替代**：请求的双 P100 `16×32×32×48` c64 六个单元（L1/L2/L3 × trace on/off）因 15.9 GiB / 16.0 GiB 显存门限、CPU staging 仍 570 s 超时而替换成 `16×16×16×16`。被替代单元只作容量趋势证据，不能宣称是原格点的加速比。
+**容量替代**（`ENV-WSL2-GPU`）：请求的双 P100 `16×32×32×48` c64 六个单元（L1/L2/L3 × trace on/off）因 15.9 GiB / 16.0 GiB 显存门限、CPU staging 仍 570 s 超时而替换成 `16×16×16×16`。被替代单元只作容量趋势证据，不能宣称是原格点的加速比。
 
-**撤回值**：`stab55` 早期的 c64 大格 `4.3817×` 已因 QUDA 侧 CA-GCR/`nu_post=8`/coarse maxiter=16 与 PyQCU 单次递归 V-cycle 不等价而撤回；不要引用该值作为当前结论。
+**撤回值**（`ENV-WSL2-V100`）：`stab55` 早期的 c64 大格 `4.3817×` 已因 QUDA 侧 CA-GCR/`nu_post=8`/coarse maxiter=16 与 PyQCU 单次递归 V-cycle 不等价而撤回；不要引用该值作为当前结论。
 
 ## 5. `dev99`–`dev101`：KUPL/CUDA QCU/QUDA 生产优化记录
 
@@ -310,7 +310,7 @@
 | D99-018 | ENV-A1002-SLURM | CUDA QCU | final residual gate | 0.153048 | 31 | 2.377387e-7 | 0 warmup / 1 repeat；正确性门，不是稳定性能样本 | P08 | dev100 |
 | D99-019 | ENV-A1002-SLURM | QUDA | smoke | 4.419682 | 19 | 4.521737e-7 | solver time；wall=6.728750 s；autotuning off | P08 | dev99 |
 | D99-020 | ENV-A1002-SLURM | QUDA | formal gate | 0.140328 | 19 | 4.521737e-7 | solver time；wall=0.455391 s | P08 | dev100 |
-| D99-021 | ENV-WSL2-GPU | QUDA | later same-LIME comparison | 0.134009 | 19 | 5.694274e-7 | solver wall；同 mass/csw/RHS | P08 | dev101 |
+| D99-021 | ENV-WSL2-V100 | QUDA | later same-LIME comparison | 0.134009 | 19 | 5.694274e-7 | solver wall；同 mass/csw/RHS | P08 | dev101 |
 
 > `QUDA` 的 `solver time` 与外部 wall、QCU 的 event timing 是不同边界。`triad/backend/dot` 的早期 CUDA 数值没有独立残差证据，不能升级为正式性能结论。
 
@@ -476,7 +476,7 @@
 | DV74-002 | ENV-RTX4060-LAPTOP | 8×16×16×16 c64 2L（RTX 4060 本地） | 0.140 | 0.513 | 0.27× | 89 / 86 | 3.2e-7 | dev74 / 2026-08-13 |
 | DV74-003 | ENV-RTX4060-LAPTOP | 16×16×16×16 c64 2L（RTX 4060 本地） | 0.193 | 0.960 | 0.20× | 129 / 91 | 3.0e-7 | dev74 / 2026-08-13 |
 
-`dev73_5` 的参数扫描只保留聚合值，没有为每个扫描点保存绝对 solver 时间；可确认的加速比记录为：`r=5:0.87×, r=10:1.16×, r=12:1.18×, r=15:1.02×, r=20:1.26×`；`ct=1e2/1e3/1e4/1e5: 1.06×/1.10×/1.12×/1.16×`；`cmi=15/50/200: 1.16×/1.02×/1.22×`。这些行的时间与迭代数**不明确**。
+`dev73_5` 的参数扫描（`ENV-WSL2-V100`）只保留聚合值，没有为每个扫描点保存绝对 solver 时间；可确认的加速比记录为：`r=5:0.87×, r=10:1.16×, r=12:1.18×, r=15:1.02×, r=20:1.26×`；`ct=1e2/1e3/1e4/1e5: 1.06×/1.10×/1.12×/1.16×`；`cmi=15/50/200: 1.16×/1.02×/1.22×`。这些行的时间与迭代数**不明确**。
 
 ### 7.3 test13/test14/dev76/dev78（2026-08-15/16）
 
@@ -532,7 +532,7 @@
 | T14-SW11 | ENV-WSL2-GPU | 3 | 10 | 1e4 | 10 | 1.82× | test14 |
 | T14-SW12 | ENV-WSL2-GPU | 2 | 10 | 1e5 | 15 | 1.79× | test14 |
 
-`dev78_1` 给出更明确的 bench 中位数：8×8×8×16 2L `685/342 ms` (`2.007×`), 3L `685/321 ms` (`2.135×`); 8×16×16×16 2L `655/1994 ms`（r10 后 `1.48×`）; 3L `687/996 ms` (`1.41×`); 16×16×16×16 2L `766/1191 ms` (`0.643×` → r20 `0.74×`); V100 16×16×16×16 3L `698/608 ms` (`1.167×`); V100 8×16×16×16 3L `650/474 ms` (`1.422×`).
+`dev78_1` 给出更明确的 bench 中位数（P100×2 行见 `ENV-WSL2-GPU`，V100 行见 `ENV-WSL2-V100`）：8×8×8×16 2L `685/342 ms` (`2.007×`), 3L `685/321 ms` (`2.135×`); 8×16×16×16 2L `655/1994 ms`（r10 后 `1.48×`）; 3L `687/996 ms` (`1.41×`); 16×16×16×16 2L `766/1191 ms` (`0.643×` → r20 `0.74×`); V100 16×16×16×16 3L `698/608 ms` (`1.167×`); V100 8×16×16×16 3L `650/474 ms` (`1.422×`).
 
 `dev78_2` 的 21 个收敛配置（全部通过 `atol=1e-6`）报告了 MG/ref 迭代数；这些行的时间不明确：
 
@@ -588,7 +588,7 @@
 | DV84-005 | ENV-WSL2-V100 | V100 / 16×32×32×48 / c64 | MG_2L final | 2.89 | 不明确 | 保持 | dev84_2_2 |
 | DV84-006 | ENV-WSL2-V100 | V100 / 16×32×32×48 / c64 | MG_2L adaptive correction gate | 2.383 | 118 | 保持 | dev84_2_2 |
 | DV84-007 | ENV-WSL2-GPU | P100×2 / 16×32×32×48 / c64 | MG_1L（冗余全局模型） | 3.01–3.06 | 不明确 | 保持 | dev84_2_2 |
-| DV84-008 | ENV-WSL2-V100 | P100×2 / 16×32×32×48 / c64 | BiStabCG（冗余全局模型） | 2.62–2.73 | 不明确 | 保持 | dev84_2_2 |
+| DV84-008 | ENV-WSL2-GPU | P100×2 / 16×32×32×48 / c64 | BiStabCG（冗余全局模型） | 2.62–2.73 | 不明确 | 保持 | dev84_2_2 |
 
 `dev84` 的结论是：在统一 `16×32×32×48` 上目标 `>2×` 未达成；参数扫描、FGMRES/GCR、deflate、谱收缩和块 Jacobi 均未产生稳定超过 1 的倍率。可恢复的参数/负结果如下；没有独立总时间的项明确写“不明确”：
 
@@ -645,9 +645,9 @@
 | ST55-007 | ENV-WSL2-V100 | 16×16×16×16 / 3L / c128 | PyQCU Strict | 0.380444 | 44 | 不明确 | QUDA double | 1.230048 | 87 | 3.2332× | stab55_12 |
 | ST55-008 | ENV-WSL2-V100 | 16×32×32×48 / 3L / c128 | PyQCU Strict | 2.061594 | 20 | 1.78798e-8 | QUDA double；formal cache-hit | 16.166481 | 60 | 7.8417× | stab55_27 |
 
-**配套 BiCGStab 参考（不属于 MG-vs-MG 加速比）**：大格 c64 `PyQCU 0.655570 s / QUDA 1.314577 s` 的 MG 对照同时记录 plain BiCGStab `1.668540 s` / `0.329849 s`；c128 小格 `0.304677 s` / `0.103475 s`，c128 中格 `0.453031 s` / `0.118572 s`，大格 c128 保守复测 `3.251439 s` / `1.043206 s`。这些参考值说明不能把 MG 结果外推为 PyQCU 全部求解器优势。
+**配套 BiCGStab 参考（`ENV-WSL2-V100`，不属于 MG-vs-MG 加速比）**：大格 c64 `PyQCU 0.655570 s / QUDA 1.314577 s` 的 MG 对照同时记录 plain BiCGStab `1.668540 s` / `0.329849 s`；c128 小格 `0.304677 s` / `0.103475 s`，c128 中格 `0.453031 s` / `0.118572 s`，大格 c128 保守复测 `3.251439 s` / `1.043206 s`。这些参考值说明不能把 MG 结果外推为 PyQCU 全部求解器优势。
 
-trace 诊断：小格 c64 三层 trace-off/trace-on PyQCU `0.043971/0.125649 s`，QUDA `0.505706/0.560432 s`；大格 c128 PyQCU trace-off `2.065148 s`，trace-on `3.31–3.43 s`。trace 值只作归因，不进入正式 speedup。
+trace 诊断（`ENV-WSL2-V100`）：小格 c64 三层 trace-off/trace-on PyQCU `0.043971/0.125649 s`，QUDA `0.505706/0.560432 s`；大格 c128 PyQCU trace-off `2.065148 s`，trace-on `3.31–3.43 s`。trace 值只作归因，不进入正式 speedup。
 
 ### 8.3 `test28` P100 pion C2 / MG 求解阶梯
 
@@ -684,15 +684,15 @@ trace 诊断：小格 c64 三层 trace-off/trace-on PyQCU `0.043971/0.125649 s`�
 | --- | --- | --- | --- | --- | --- | --- |
 | F-001 | ENV-WSL2-GPU | test13 | 16×16×16×32 / 3L 大格 bench | 未执行完整 bench；构建/运行超时限制 | 不明确 | 不明确 |
 | F-002 | ENV-RTX4060-LAPTOP | dev74 | 16×32×32×64 c64 cold MG | 显存预算 56.9 GB；32 GB 单卡 cold 不可行，warm 需缓存 | 不明确 | 不明确 |
-| F-003 | ENV-WSL2-GPU | dev84 | 32³×48 / 24×32×32×48 体量探针 | 32 GB V100 驱动级 OOM / local_orthogonalize OOM | 不明确 | 不明确 |
-| F-004 | ENV-WSL2-GPU | test15 | 24³×72 目标 >2× | 3L 最佳约 1.168×；大格粗空间收益不足 | 约 3.3 s（L1 基线 2.839 s） | 不明确 |
+| F-003 | ENV-WSL2-V100 | dev84 | 32³×48 / 24×32×32×48 体量探针 | 32 GB V100 驱动级 OOM / local_orthogonalize OOM | 不明确 | 不明确 |
+| F-004 | ENV-WSL2-V100 | test15 | 24³×72 目标 >2× | 3L 最佳约 1.168×；大格粗空间收益不足 | 约 3.3 s（L1 基线 2.839 s） | 不明确 |
 | F-005 | ENV-WSL2-GPU | stab55 | 多卡扩展 / large c128 某些路径 | 多 GPU 硬件/架构限制；部分 c128 large 仅 smoke 或 OOM | 不明确 | 不明确 |
 | F-006 | ENV-WSL2-GPU | test27 | P100 16×32×32×48 c64 六单元 | 显存门限/超时；替换为 16×16×16×16 | 替换记录见 §4 | 不明确 |
 | F-007 | ENV-WSL2-GPU | test28 | P100 16×16×16×48 dual | timeout 1800 s，无 OOM；受 cold setup 限制 | 不明确 | 不明确 |
 | F-008 | ENV-MIXED-D99-D100 | dev99/dev100 | 双 rank CUDA QCU; QUDA MG nvec6/12 | 双 rank timeout、CUDA-aware MPI halo 卡住；QUDA nvec unsupported/breakdown | 不明确 | 不明确 |
-| F-009 | ENV-WSL2-GPU | stab55 | 早期 c64 large 4.3817× | 撤回：QUDA 策略/预算不等价 | 0.653995 vs 2.865627（历史） | 14 / 39（历史），不作为正式 |
+| F-009 | ENV-WSL2-V100 | stab55 | 早期 c64 large 4.3817× | 撤回：QUDA 策略/预算不等价 | 0.653995 vs 2.865627（历史） | 14 / 39（历史），不作为正式 |
 | F-010 | ENV-NO-RUN | test27_1/2/3/4 | 派生报告/绝对时间修订 | 没有新增 benchmark；只重算 test27 | 不适用 | 不适用 |
-| F-011 | ENV-WSL2-GPU | dev103 | 默认小格子体积 | QUDA 有 26–43 ms 固定开销；不可外推 kernel 吞吐 | 见 §3.2 | 见 §3.2 |
+| F-011 | ENV-WSL2-V100 | dev103 | 默认小格子体积 | QUDA 有 26–43 ms 固定开销；不可外推 kernel 吞吐 | 见 §3.2 | 见 §3.2 |
 
 ## 11. 可比性与使用建议
 
