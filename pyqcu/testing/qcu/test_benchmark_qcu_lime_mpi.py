@@ -33,7 +33,7 @@ def test_global_rhs_uses_cross_backend_float64_stream() -> None:
 
 
 def test_independent_true_residual_accepts_manufactured_solution() -> None:
-    from pyqcu import dslash
+    from pyqcu.torch import dslash
 
     lattice = (4, 4, 4, 4)
     gauge = torch.broadcast_to(

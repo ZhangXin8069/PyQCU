@@ -2,7 +2,7 @@
 
 以实际代码为准的维度排布（2026-08-28 实测核对）：
 
-- pyqcu（纯 Python 后端，pyqcu/dslash/_wilson.py、pyqcu/tools/_define.py）：
+- pyqcu Torch 后端（pyqcu/torch/dslash/_wilson.py、pyqcu/tools/_define.py）：
   gauge   [c,c,d,x,y,z,t] = (3,3,4,Lx,Ly,Lz,Lt)，xyzt 正序，无奇偶轴
   fermion [s,c,x,y,z,t]   = (4,3,Lx,Ly,Lz,Lt)
   奇偶排布 poooxyzt：[p, prefix..., Lx,Ly,Lz,Lt//2] —— 最后一个空间维 t 被切分

@@ -1326,9 +1326,9 @@ iteration 只有在明确外层算法和停机定义后才有可比性。
 - CA-GCR：
   [`lattice_clover_multigrid.h`](../cpp/cuda/qcu/include/lattice_clover_multigrid.h)
 - null-vector builder：
-  [`_multigrid.py`](../pyqcu/tools/_multigrid.py)
+  [`_multigrid.py`](../pyqcu/torch/tools/_multigrid.py)
 - local QR：
-  [`_multigrid.py`](../pyqcu/tools/_multigrid.py)
+  [`_multigrid.py`](../pyqcu/torch/tools/_multigrid.py)
 - simple defaults：
   [`qcu_multigrid.py`](../pyqcu/testing/simple/qcu_multigrid.py)
 

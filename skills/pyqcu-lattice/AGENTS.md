@@ -1,4 +1,4 @@
-# pyqcu-lattice
+# AGENTS.md — pyqcu-lattice
 
 pyqcu.lattice 目录的完整生成 skill：gamma/Gell-Mann 矩阵、SU(3) 检查、规范场生成与 Ward 负索引约定。
 

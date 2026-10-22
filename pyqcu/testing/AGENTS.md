@@ -5,8 +5,8 @@ PyQCU 的集成测试、后端单功能测试、性能基准与历史回归资�
 
 ## 架构
 
-跨组件测试函数位于 `pyqcu/testing/__init__.py`，从 `lattice`、`solver`、
-`dslash`、`tools`、`smear` 子包导入。后端各自维护入口：
+跨组件测试函数位于 `pyqcu/testing/__init__.py`：公共 `pyqcu.lattice` / `pyqcu.tools`
+与 Torch 实现 `pyqcu.torch.dslash|solver|smear` 分别导入。后端各自维护入口：
 
 | 目录 | 分类与职责 |
 |---|---|

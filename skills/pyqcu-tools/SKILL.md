@@ -1,10 +1,10 @@
 ---
 name: pyqcu-tools
-description: pyqcu.tools 目录的完整生成 skill：MPI 网格/奇偶分割/维度重排/HDF5 I/O/线性代数/多重网格转移/TileLang JIT 工具集。
+description: 当任务涉及 pyqcu.tools 的 MPI/布局/HDF5/env/budget 或 pyqcu.torch.tools 数值工具时使用。
 ---
-# pyqcu.tools
+# pyqcu.tools + pyqcu.torch.tools
 
-Utility modules for MPI grid management, HDF5 I/O, linear algebra, tensor operations, multigrid transfers, and TileLang JIT kernels.
+Common utilities remain in `pyqcu.tools`; Torch tensor operations, multigrid transfers and TileLang JIT kernels live in `pyqcu.torch.tools`.
 
 Canonical tensor-axis names, storage order, and environment entry points are extracted
 in [`pyqcu-docs/references/extracted-guidance.md`](../pyqcu-docs/references/extracted-guidance.md#1-环境构建与布局).
@@ -34,15 +34,15 @@ in [`pyqcu-docs/references/extracted-guidance.md`](../pyqcu-docs/references/extr
 | `_io.py` | HDF5 I/O with MPI parallel I/O (`driver='mpio'`, `h5py`) and serial gather/scatter fallback (`comm.gather` + `comm.scatter`)；另含 tensor/dict 级本地持久化（`save_tensor_h5`/`load_tensor_h5`、`save_dict_h5`/`load_dict_h5`，单句柄原子替换） |
 | `_env.py` | 环境与资源快照：`git_snapshot`/`gpu_snapshot`/`gpu_used_mb`/`rss_kb`/`nullvec_cache_dir`/`cache_disk_mb`/`dump_env_h5` |
 | `_budget.py` | 显存/RSS/磁盘预算模型：`vram_model`(cold)/`vram_model_warm`/`rss_model`/`disk_cache_bytes`/`fit_from_bench`/`budget_table`；常量 CONST_PER_V=24192 B/V、α=2.6 KB/V、β=512 MB |
-| `_hierarchical.py` | 分层显存管理（dev80 资产）：`HierarchicalTensor`（单张量 VRAM/RAM/DISK 三级抽象）+ `HierarchicalCache`（多张量 LRU，线程安全）+ `offload_to_ram`/`offload_to_disk`/`reload_to_vram`；硬盘层复用 `_io.py` 的 h5 助手 |
-| `_linalg.py` | Vector dot product (`vdot`) and norm (`norm`) via `_torch` |
-| `_einsum.py` | TileLang JIT-compiled einsum kernels — currently `Eexyzt_exyzt2Exyzt` (optional, try/except import) |
-| `_matul.py` | TileLang-based matrix multiply kernels: `matmul_gpu(M,N,K,...)` and `matmul_cpu(M,N,K,...)` (optional)；含 tilelang 0.1.7.post3 上游 bug 热修（bug36） |
-| `_multigrid.py` | Null vector generation (`give_null_vecs`), local orthogonalization (`local_orthogonalize`), restrict/prolong operators — all with NPU-compatible fallback paths；另含 33-tensor Schur stencil 构建（`build_stencil`/`build_stencil_mt`/`apply_stencil`） |
-| `_roll.py` | Tensor rolling utilities |
-| `_mpi_roll.py` | 分布式周期 `roll`（2026-09-18）：线程本地上下文 `distributed_roll()`/`activate()`/`deactivate()`，按轴用带 rank 环绕的 `MPI_Sendrecv` 只交换 face slab；未激活或未分解时退化为 `torch.roll` |
-| `_distributed_setup.py` | 分布式 fine 算子包装（2026-09-18）：只对分解维扩一层 ghost，ghost 由真实邻居数据填充，在 padded 格点上作用周期算子后裁回本地体积 |
-| `_strict_galerkin.py` | strict full-coarse Galerkin 构造（site-batch/colored/column）；多 rank 下经分布式 roll 与 halo 化 fine 算子构造 rank 边界资产 |
+| `../torch/tools/_hierarchical.py` | 分层显存管理（Torch）：`HierarchicalTensor`、`HierarchicalCache` 与 RAM/DISK offload |
+| `../torch/tools/_linalg.py` | Torch `vdot` / `norm` |
+| `../torch/tools/_einsum.py` | TileLang JIT einsum |
+| `../torch/tools/_matul.py` | TileLang matrix multiply |
+| `../torch/tools/_multigrid.py` | Torch null vectors、restrict/prolong 与 33-tensor stencil |
+| `../torch/tools/_roll.py` | Torch tensor rolling |
+| `../torch/tools/_mpi_roll.py` | Torch distributed periodic roll |
+| `../torch/tools/_distributed_setup.py` | Torch distributed fine operator wrapper |
+| `../torch/tools/_strict_galerkin.py` | Torch strict full-coarse Galerkin construction |
 | `_bench_plots.py` | 基准图表共用层：调色板常量 `BENCH_PALETTE`/`BENCH_SEQ_BLUE`/`BENCH_INK*`/`BENCH_GRID`/`BENCH_SURF`，`mpl_cjk_setup`/`style_axes`/`save_figure`/`load_json`/`short_label`/`label_of`，以及 `plot_convergence`/`plot_hotspot`/`plot_speedup`/`plot_time`/`plot_sweep_curves`/`plot_bench_report`。**顶层不 import matplotlib**（惰性在函数内），故 `pyqcu.tools` 在无 matplotlib 环境仍可导入 |
 
 ## Exported API
@@ -111,12 +111,12 @@ HDF5 I/O uses dimension order `zyxt` (fastest to slowest: t, z, y, x):
 
 **Serial fallback note:** `comm.scatter` uses pickle serialization; may hit 2GB limit for very large lattices (>64⁴ float32). MPI I/O path preferred for production.
 
-### Linear Algebra (`_linalg.py`)
+### Linear Algebra (`pyqcu.torch.tools/_linalg.py`)
 
 - **`norm(input, p='fro', dim=None, keepdim=False)`** — Frobenius/vector norm via `_torch.norm`
 - **`vdot(input, other)`** — Complex inner product `Σ conj(a_i) * b_i` via `_torch.vdot`
 
-### Multigrid Utilities (`_multigrid.py`)
+### Multigrid Utilities (`pyqcu.torch.tools/_multigrid.py`)
 
 - **`give_null_vecs(null_vecs, matvec, bistabcg, normalize, ortho_r, ortho_null_vecs, verbose)`** — Generate near-null-space vectors via inverse iteration: v_i = v_i − A^{-1} A v_i. Optionally orthogonalizes against previous vectors. `null_vecs` parameter is used as shape/dtype/device template only; values are overwritten with random init.
 - **`local_orthogonalize(null_vecs, coarse_lat_size, normalize, verbose)`** — Block-local Gram-Schmidt orthogonalization via batched QR decomposition. Splits null vectors into coarse-grid blocks, applies QR per block. NPU path avoids >8-dim tensors.
@@ -125,7 +125,7 @@ HDF5 I/O uses dimension order `zyxt` (fastest to slowest: t, z, y, x):
 
 **NPU compatibility:** NPU limits tensors to ≤8 dimensions, so restrict/prolong/orthogonalize all have `_npu` variants that use reshape/permute chains to stay within this limit. Cross-validated against standard path (max diff ~1e-7 for float32).
 
-### TileLang Integration (`_einsum.py`, `_matul.py`)
+### TileLang Integration (`pyqcu.torch.tools/_einsum.py`, `_matul.py`)
 
 Optional — try/except import at package level; silently degrades if TileLang unavailable.
 

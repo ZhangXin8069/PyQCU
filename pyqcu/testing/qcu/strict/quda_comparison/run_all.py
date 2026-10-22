@@ -27,7 +27,8 @@ Path(os.environ["QCU_LOG_DIR"]).mkdir(parents=True, exist_ok=True)
 from pyqcu.testing.qcu.strict.quda_comparison.common import (LAT_DEFAULT, MASS_DEFAULT, load_gauge_h5, load_stencil,
                     make_clover_tensors, pick_v100)
 from pyqcu.cuda import define, qcu
-from pyqcu import dslash, tools
+from pyqcu import tools
+from pyqcu.torch import dslash
 
 RESULTS = {}
 FAILED = []

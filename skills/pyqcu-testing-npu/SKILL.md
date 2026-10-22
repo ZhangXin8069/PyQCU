@@ -1,6 +1,6 @@
 ---
 name: pyqcu-testing-npu
-description: pyqcu/testing/npu 目录的完整生成 skill：昇腾 NPU 测试（可用 force_use_npu 在 CPU 上测 NPU 路径）。
+description: 当任务涉及 pyqcu/testing/npu、Ascend NPU 或 force_use_npu 测试时使用。
 ---
 # pyqcu/testing/npu
 

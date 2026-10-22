@@ -25,7 +25,7 @@ from pyqcu.cuda._strict_mpi import (
     collective_validate_strict_runtime,
     strict_mpi_world_communicator,
 )
-from pyqcu.solver._multigrid_core import QcuStrictAssetBinding
+from pyqcu.torch.solver._multigrid_core import QcuStrictAssetBinding
 
 
 def _strict_cuda_runtime_descriptor(
@@ -96,7 +96,7 @@ class StrictMultigrid:
     """Clover odd-Schur + strict coarse hierarchy 的 CUDA 求解器。
 
     ``hierarchy`` 必须是已配置为 ``target_parity=0/1`` 的
-    :class:`pyqcu.solver.StrictMultigrid`；fine 层使用对应目标奇偶的归一化
+    :class:`pyqcu.torch.solver.StrictMultigrid`；fine 层使用对应目标奇偶的归一化
     Clover MATPC。``params`` 提供 fine lattice/MPI/dtype
     协议；粗层几何由 hierarchy 覆盖写入。默认将 Krylov arena 限制在
     512 MiB，并按 fused 总 workspace（含两份 coarse transfer field）自动
@@ -105,6 +105,7 @@ class StrictMultigrid:
 
     variant = "strict"
     backend = "cuda"
+    residual_scope = "matpc"
 
     def __init__(
             self, hierarchy: Any, argv: torch.Tensor, gauge: torch.Tensor,

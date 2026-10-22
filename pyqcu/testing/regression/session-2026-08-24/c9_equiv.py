@@ -4,7 +4,7 @@ import torch
 import pyqcu.cann as _torch
 import pyqcu.dslash as dslash
 import pyqcu.lattice as lattice
-from pyqcu.tools._multigrid import (local_orthogonalize, BatchedLocalSchur,
+from pyqcu.torch.tools._multigrid import (local_orthogonalize, BatchedLocalSchur,
                                     build_stencil_local, build_stencil)
 
 CUDA = torch.device('cuda')

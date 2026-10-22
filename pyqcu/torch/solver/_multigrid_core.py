@@ -31,7 +31,8 @@ from math import prod
 from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple
 
 import pyqcu.cann as _torch
-from pyqcu import dslash, lattice, tools
+from pyqcu import lattice, tools
+from pyqcu.torch import dslash
 
 
 Tensor = Any
@@ -199,7 +200,7 @@ def _roll_field(field: Tensor, displacement: BlockKey) -> Tensor:
     result = field
     for dim, delta in enumerate(displacement):
         if delta:
-            from pyqcu.tools import _mpi_roll
+            from pyqcu.torch.tools import _mpi_roll
             result = _mpi_roll.roll(
                 result, shifts=-delta, dims=1 + dim)
     return result
@@ -210,7 +211,7 @@ def _roll_field_batch(field: Tensor, displacement: BlockKey) -> Tensor:
     result = field
     for dim, delta in enumerate(displacement):
         if delta:
-            from pyqcu.tools import _mpi_roll
+            from pyqcu.torch.tools import _mpi_roll
             result = _mpi_roll.roll(
                 result, shifts=-delta, dims=2 + dim)
     return result
@@ -221,7 +222,7 @@ def _roll_site_tensor(field: Tensor, shift: BlockKey) -> Tensor:
     result = field
     for dim, delta in enumerate(shift):
         if delta:
-            from pyqcu.tools import _mpi_roll
+            from pyqcu.torch.tools import _mpi_roll
             result = _mpi_roll.roll(
                 result, shifts=delta, dims=2 + dim)
     return result
@@ -229,7 +230,7 @@ def _roll_site_tensor(field: Tensor, shift: BlockKey) -> Tensor:
 
 def _active_global_shape(shape: Shape4) -> Shape4:
     """Return the global coarse shape when a distributed setup is active."""
-    from pyqcu.tools import _mpi_roll
+    from pyqcu.torch.tools import _mpi_roll
     return _mpi_roll.global_shape(shape)
 
 
@@ -1116,7 +1117,7 @@ class StrictCoarseOperator:
         """Retain setup geometry so raw-link export can rebuild correctly."""
         if not self.is_distributed:
             return
-        from pyqcu.tools import _mpi_roll
+        from pyqcu.torch.tools import _mpi_roll
 
         context = _mpi_roll.current_context()
         if context is not None and context.distributed:
@@ -1131,7 +1132,7 @@ class StrictCoarseOperator:
         if record is None:
             self.build()
             return
-        from pyqcu.tools import _mpi_roll
+        from pyqcu.torch.tools import _mpi_roll
 
         comm, grid = record
         with _mpi_roll.distributed_roll(comm, grid, None):
@@ -1245,7 +1246,7 @@ class StrictCoarseOperator:
         blocks[zero] = _torch.zeros(
             size=[self.dof, self.dof, *self.shape], dtype=dtype, device=device)
         stored_elements = one_block_elements
-        from pyqcu.tools import _mpi_roll
+        from pyqcu.torch.tools import _mpi_roll
 
         context = _mpi_roll.current_context()
         global_shape = (
@@ -2425,7 +2426,7 @@ class _MultigridHierarchy:
         if fine_matvec is None:
             assert U is not None
             if self._distributed_process_grid:
-                from pyqcu.tools._distributed_setup import (
+                from pyqcu.torch.tools._distributed_setup import (
                     DistributedFineOperator,
                 )
                 # Do not construct the ordinary dslash first: its hopping
@@ -2985,7 +2986,7 @@ class _MultigridHierarchy:
     def setup(self) -> "_MultigridHierarchy":
         if not self._distributed_process_grid:
             return self._setup_impl()
-        from pyqcu.tools import _mpi_roll
+        from pyqcu.torch.tools import _mpi_roll
         with _mpi_roll.distributed_roll(
                 self.comm, self.process_grid, self.fine_shape):
             return self._setup_impl()
@@ -3018,7 +3019,7 @@ class _MultigridHierarchy:
         self.strict_setup_stats = []
         for level in range(self._transition_count):
             if self._distributed_process_grid:
-                from pyqcu.tools import _mpi_roll
+                from pyqcu.torch.tools import _mpi_roll
                 _mpi_roll.set_local_extents(current.shape)
             nvec = self._nvec_list[level]
             if level < len(self._null_vectors):
@@ -3090,7 +3091,7 @@ class _MultigridHierarchy:
                 max_materialize_elements=self.max_materialize_elements,
                 verbose=self.verbose)
             if batched_strict_setup:
-                from pyqcu.tools._strict_galerkin import (
+                from pyqcu.torch.tools._strict_galerkin import (
                     build_strict_galerkin,
                     build_strict_galerkin_colored,
                     strict_galerkin_colored_memory_model,
@@ -3537,7 +3538,7 @@ class _MultigridHierarchy:
         ``StrictCoarseOperator`` 处于 matrix-free 状态时，默认只读而不触发
         逐列 materialize；若确实需要从通用 fine operator 生成精确 33 点
         资产，调用方必须显式传 ``materialize=True``。大格推荐使用
-        ``pyqcu.tools.build_stencil_mt`` 的批量/局部构建器生成 stencil，
+        ``pyqcu.torch.tools.build_stencil_mt`` 的批量/局部构建器生成 stencil，
         再交给 CUDA 驱动，以免把 O(N_site*N_dof) 的 reference 探测误当成
         可扩展 setup 路径。
         """
@@ -3839,6 +3840,8 @@ class StrictMultigrid(_MultigridHierarchy):
     ``_MultigridHierarchy`` 的 legacy/compact 行为继续保留；本类只固定
     ``hierarchy_mode='strict'``，其余构造参数完全相同。
     """
+
+    residual_scope = "matpc"
 
     def __init__(self, *args: Any, **kwargs: Any):
         requested = kwargs.pop("hierarchy_mode", "strict")

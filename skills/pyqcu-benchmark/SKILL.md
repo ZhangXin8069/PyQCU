@@ -1,6 +1,6 @@
 ---
 name: pyqcu-benchmark
-description: PyQCU 性能基准 skill：覆盖 pyqcu/testing/benchmark 的通用基准，以及 dev87 strict MultiGrid 对 QUDA 的可复现公平计时与显存口径。
+description: 当需要运行或解释 PyQCU/QCU/QUDA 性能基准、公平计时、显存或容量证据时使用。
 ---
 # pyqcu/testing/benchmark
 
@@ -13,6 +13,17 @@ their launch shape as the production default. See
 
 正式三方基准的输入、同窗比较、历史证据和不可外推条件见
 [`pyqcu-docs/references/extracted-guidance.md`](../pyqcu-docs/references/extracted-guidance.md#5-性能与证据解释)。
+
+Legacy/Strict CUDA MG 的运行时峰值必须用同时覆盖 C++ 原生分配的独立设备级采样器，
+不能只报 PyTorch allocator。现有同输入 c64 两级、`nvec=12` 记录中 Legacy solve
+峰值为 0.596/1.533/4.113 GiB，Strict 为 0.789/2.326/6.715 GiB
+（`8x8x8x16`、`12x12x12x24`、`16x16x16x32`）；`24x24x24x64` Strict 缺失。Legacy 同时是
+`n_vcycles=0`，所以只能作为当前实际入口的容量证据。详见
+[`docs/legacy_vs_strict_mg_memory_20261023.md`](../../docs/legacy_vs_strict_mg_memory_20261023.md)。
+这些 JSON 没有 `device_name`，只能确认总显存 `34,359,345,152` bytes；不能用相同
+总量代替物理设备身份。Legacy asset-build 另有 `432,013,312`、`1,591,738,368`、
+`4,722,786,304` bytes 的三点峰值，它们是独立 setup 阶段，不能与 Strict 全程峰值
+拼成同一阶段比较。
 
 ## Files
 
@@ -32,7 +43,7 @@ python pyqcu/testing/benchmark/conftest.py
 38.7 TFLOPS ≈ cuBLAS 94%（V100，见 tilelang 技能）。
 
 Strict benchmark records use the current bridge ABI: `params` is CPU
-`int32[58]`, `argv` is a seven-element real tensor (`float32` for c64 and
+`int32[58]`, `argv` is an eight-element real tensor (`float32` for c64 and
 `float64` for c128), and `set_ptrs` is CPU `int64[100]`. `params[57]` is
 `_MG_USE_INIT_GUESS_`: formal cold solves set it to `0`; only an explicitly
 prefilled `fermion_out` warm start may set it to `1`. Do not report a speedup
@@ -164,8 +175,10 @@ QUDA 的 solver factory 仍会因残留 MG 指针拒绝 BiCGStab。
 CPU staging 构建，formal solve 仍按 `C=1` 协议执行。cache identity
 只绑定物理资产，cache-hit 校验几何与逐 tensor SHA，不要求历史
 `column_batch_size` 等于当前请求；该构建 provenance 必须单独记录。
-冷 formal `C=1` setup 仍未完成，不能把 cache-hit 比值当作冷启动
-总时间比值。
+extended `C=4`、`K=16` cache 路径曾记录 `585.28 s`；后续正式 cold `C=1`
+setup 也已成功完成，记录为 `2709.45 s`。必须把 cache 构建、cold formal
+setup 和 cache-hit steady solve 分成三个时间口径，不能把 cache-hit 比值当作
+冷启动总时间比值。
 
 大格 c64 的二层/三层消融把层级收益单独隔离出来：二者同一输入、同一
 precision 和同一 QUDA aligned 策略，三层使 PyQCU 从 1.944663 s 降到

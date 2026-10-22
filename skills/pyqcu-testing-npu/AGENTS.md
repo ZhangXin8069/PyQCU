@@ -1,4 +1,4 @@
-# pyqcu-testing-npu
+# AGENTS.md — pyqcu-testing-npu
 
 pyqcu/testing/npu 目录的完整生成 skill：昇腾 NPU 测试（可用 force_use_npu 在 CPU 上测 NPU 路径）。
 

@@ -5,7 +5,8 @@ make_clover+add_I/inverse 当前态冻结；另以 C++ applyCloversQcu 交叉校
 Python clover_term（信息性报告）。原 L32Y16 规格达 GB 级故参数化至 L8³。
 """
 import torch
-from pyqcu import tools, dslash, lattice
+from pyqcu import lattice, tools
+from pyqcu.torch import dslash
 from pyqcu.cuda import qcu, define
 from pyqcu.cuda.define import params, argv, set_ptrs
 

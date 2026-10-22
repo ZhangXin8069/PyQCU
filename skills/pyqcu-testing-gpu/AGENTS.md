@@ -1,4 +1,4 @@
-# pyqcu-testing-gpu
+# AGENTS.md — pyqcu-testing-gpu
 
 pyqcu/testing/gpu 目录的完整生成 skill：通用 GPU 测试占位（当前为空）。
 

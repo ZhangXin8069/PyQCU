@@ -1,4 +1,4 @@
-# pyqcu-cpp-qcu
+# AGENTS.md — pyqcu-cpp-qcu
 
 cpp/cuda/qcu 主 C++ CUDA 后端 skill：legacy/Strict MultiGrid、逐层
 P/R/X/Y/Yhat、MATPC/DIRECT_PC、ABI、构建流程与显存不变量。

@@ -116,7 +116,7 @@ ASAN 与 OpenMPI 的 signal handler 可能递归输出 `DEADLYSIGNAL`；先以
 [`pyqcu-docs/references/extracted-guidance.md`](../pyqcu-docs/references/extracted-guidance.md#5-性能与证据解释)。
 
 ```bash
-KUPL_OMP_THREADS=16 OMP_PROC_BIND=close OMP_PLACES=cores \
+KUPL_OMP_THREADS=16 \
   cpp/kupl/qcu/build/kupl_qcu_bench \
   --lattice 16 16 16 32 --iterations 10
 
@@ -125,6 +125,10 @@ KUPL_BENCH_SHOW_AFFINITY=1 KUPL_OMP_THREADS=8 KUPL_NUMA_BIND=1 \
   cpp/kupl/qcu/build/kupl_qcu_bench \
   --lattice 16 16 16 32 --grid 2 1 1 1 --iterations 10
 ```
+
+不要在短 OpenMP 并行区设置 `OMP_PROC_BIND=close/spread` 和 `OMP_PLACES=cores`。
+同题 A/B 曾把 `24^3x64` 从 `7.2-7.4 s` 恶化到 `65-67 s`，迭代数和残差不变；
+生产绑定按本文件的 `KUPL_NUMA_BIND` / MPI 规则执行。
 
 benchmark 的 `estimated_gflops` 分别使用 Wilson `4*12*12*8` 和
 Clover 再加 onsite `12*12*8` flop/site/application 模型，不是硬件计数器。
@@ -137,6 +141,10 @@ supplied Clover dslash、Clover Schur prepare/reconstruct、Clover BiStabCG、
 coarse/MATPC/R-P、持久 V-cycle 与右预条件 FGMRES。当前限制为同精度
 c64/c128；CUDA 专用 mixed-precision、GCR/CA-GCR/BiCGStabL 模式必须显式
 拒绝，不得静默降级。LIME/HDF5 I/O 与 GPU 执行仍不属于 KUPL。
+
+`restart=0` 是全格点 parity-Schur BiCGStab，不调用 coarse hierarchy。
+当前 c128 全格点 `24^3x64` 的 `10.282 s / 21 it` 就是该路径，不能写成
+c128 coarse V-cycle 性能；同规模 c128 coarse 性能仍未验证。
 
 ## 反模式
 
@@ -173,6 +181,16 @@ KUPL 的 Clover onsite 矩阵及逆矩阵在当前 gamma 基下按自旋 `(0,1)`
 这种粗格与 block 恰好相等的退化工况验证。
 
 ## 2026-10-21 legacy-MG coarse tile 与 rank 扩展
+
+先区分当前选路和历史优化：dev103 同窗 `24^3x64` c64 的当前最佳开发路径是
+`restart=0`、8 ranks × 2 threads、`1x4x2x1`，中位 `7.532 s / 19 it`，
+并有独立全算子 MPI 真残差 `4.011e-7`。下面 `restart=5` 的 coarse 优化记录
+说明该实现如何演进，但不是当前最快路径，也不应把其 native residual 写成独立
+真残差。
+
+KUPL LTO 的单点 A/B 为 `7.556 -> 7.196 s`（`4.8%`），解逐位一致、CTest
+`29/29`。该收益只覆盖 8 ranks × 2 threads 的 `24^3x64` c64 点，LTO 需通过
+`--kupl-lib lto` 或 `PYQCU_KUPL_LIB` 显式选择，默认构建未切换。
 
 `apply_multigrid_coarse_dslash_wide` 以 512-site tile 预解析 32 个邻接流，
 随后按 site-major coefficient stream 连续累加；canonical/full 转换改为

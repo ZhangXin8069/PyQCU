@@ -9,7 +9,7 @@ from types import SimpleNamespace
 
 import torch
 
-from pyqcu.tools._multigrid import (
+from pyqcu.torch.tools._multigrid import (
     BatchedLocalSchur,
     BatchedLocalWilsonClover,
     _probe_point_batch,
@@ -17,7 +17,7 @@ from pyqcu.tools._multigrid import (
     _probe_points_batch_local,
     _schur_matvec_batch,
 )
-from pyqcu import dslash
+from pyqcu.torch import dslash
 
 
 def _matrix(scale, fine):

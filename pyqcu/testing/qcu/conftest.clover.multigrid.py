@@ -12,7 +12,8 @@ import torch, os, json, re, sys, copy, math
 from datetime import datetime
 from time import perf_counter
 import numpy as np
-from pyqcu import tools, dslash, solver
+from pyqcu import tools
+from pyqcu.torch import dslash, solver
 from pyqcu.cuda import qcu
 import pyqcu.cuda.define as define
 from pyqcu.cuda.define import params, argv, set_ptrs

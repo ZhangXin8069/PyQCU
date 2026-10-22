@@ -3,7 +3,7 @@
 import torch
 import os
 from pyqcu.testing.quda.common import *
-from pyqcu import solver
+from pyqcu.torch import solver
 
 def main(argv=None):
     args, report = run_setup(__doc__ or "QUDA Clover BiCGStab 单测", __doc__, argv=argv,

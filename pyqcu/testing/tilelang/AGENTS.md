@@ -1,6 +1,6 @@
 # AGENTS.md — pyqcu/testing/tilelang
 
-CUDA 的 TileLang JIT 编译内核测试。驱动 `pyqcu/tools/_einsum.py` 与 `pyqcu/tools/_matul.py` 中的 TileLang 集成。
+CUDA 的 TileLang JIT 编译内核测试。驱动 `pyqcu/torch/tools/_einsum.py` 与 `pyqcu/torch/tools/_matul.py` 中的 TileLang 集成。
 
 ## 文件
 

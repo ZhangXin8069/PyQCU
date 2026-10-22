@@ -41,6 +41,11 @@ PyQCU 是复杂库，主导语言为 C++/CUDA、Python/Cython 和 Bash。先只�
   运行记录、阶段报告和图表。阶段结果先提交并打 tag，随后在后续清理提交中删除工作区
   报告副本，tag 对象是历史报告的唯一规范归档。
 - `data/**` 保存数据、SVG、构建/安装树和缓存实体；目录元数据保留在所属目录。
+- 跨目录提升保留单一实体：`data/**` 文档进入 `docs/data/`，JSON/TSV/TXT 运行记录进入
+  `logs/data/`，`logs/**` 张量/cache 进入 `data/logs/`，Office 资源进入
+  `data/docs/`，仍需维护的脚本进入 `pyqcu/testing/`。不创建旧路径软链接。
+- LaTeX 辅助文件、逐页渲染目录、agent 会话、任务计划和可再生临时缓存不留在
+  `docs/**`；正式 PDF/TeX/Markdown 与必要的解包文档资产才保留。
 
 ## 本地例外
 
@@ -74,6 +79,7 @@ PyQCU 是复杂库，主导语言为 C++/CUDA、Python/Cython 和 Bash。先只�
 
 ```bash
 bash skills/pyqcu-form/form-audit.sh
+python -B skills/pyqcu-docs/scripts/audit-docs-skills.py
 bash -n build.sh env.sh install.sh skills/pyqcu-tag/tag-chain.sh skills/pyqcu-tag/tag-chain.test.sh
 bash skills/pyqcu-tag/tag-chain.test.sh
 git cat-file -e <tag>:<archived-report-path>

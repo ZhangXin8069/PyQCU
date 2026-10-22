@@ -1,4 +1,4 @@
-# pyqcu-testing-dcu
+# AGENTS.md — pyqcu-testing-dcu
 
 pyqcu/testing/dcu 目录的完整生成 skill：AMD DCU / ROCm (HIP) 测试。
 

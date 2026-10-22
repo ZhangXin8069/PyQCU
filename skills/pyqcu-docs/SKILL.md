@@ -26,14 +26,16 @@ metadata:
 - 带“工作区结果”“尚未提交/打 tag”或 `userinterlude` 状态的报告属于时点证据；
   引用时必须保留窗口、算法、硬件、精度与计时边界，不得提升为永久性能承诺。
 
-完整的 17 份现行 Markdown 文档职责、权威级别和目标技能见
+完整的 24 份现行 Markdown 文档职责、权威级别和目标技能见
 [`references/project-docs-map.md`](references/project-docs-map.md)。需要立即复用安装、
 维度、测试、CUDA 拓扑、MultiGrid、性能或 profiler 结论时，读取
 [`references/extracted-guidance.md`](references/extracted-guidance.md)。
+需要逐份核对全部正式文档的结论是否有技能归宿时，直接读取该文件的
+「全部正式文档的结论覆盖索引」。
 
 ## 工作流程
 
-1. 盘点 `docs/**`，把每份文件标为规范指南、当前技术参考、时点证据或历史记录。
+1. 盘点 `docs/**`，把每份文件标为规范指南、当前技术参考、设计提案、时点证据或历史记录。
 2. 按 `references/project-docs-map.md` 找到唯一主责技能；跨域内容只建立交叉指针。
 3. 提取可执行命令、稳定不变量、默认路径、失败边界和证据口径。历史数字只有在
    输入、实现、硬件和计时边界可比时才进入技能；否则保留来源链接和时间状态。
@@ -41,9 +43,11 @@ metadata:
    `SKILL.md` 保持可扫描。
 5. 更新 `skills/AGENTS.md` 技能表与计数，并验证 frontmatter、本地链接、索引和
    `git diff --check`。
+6. 运行 `python -B skills/pyqcu-docs/scripts/audit-docs-skills.py`；任何 docs 未映射、
+   技能 frontmatter/触发描述、断链、围栏或按需文件指针问题都必须在交付前清零。
 
 完成判据：`docs/**` 每份文件都有明确归宿；新增知识有 `docs/...:line` 来源；
-同一规则只有一个权威位置；目标技能能从真实用户触发词进入该参考。
+同一规则只有一个权威位置；目标技能能从真实用户触发词进入该参考；专项审计器退出 `0`。
 
 ## 提取规则
 
@@ -65,6 +69,7 @@ metadata:
 | 报告数字缺少统一口径 | 不比较绝对倍率，只记录各自计时/算法/硬件边界 |
 | 文档路径失效 | 先查 `docs/AGENTS.md`、Git 历史和 tag，不猜测替代路径 |
 | 技能索引与目录不一致 | 同步 `skills/AGENTS.md` 的目录行和 `N/N` 计数后重跑审计 |
+| `audit-docs-skills.py` 失败 | 按 `DOCS-*`、`SKILL-*`、`DESCRIPTION`、`POINTER` 错误码修复正文或索引；不得删除检查项绕过失败 |
 
 ## 注意事项
 

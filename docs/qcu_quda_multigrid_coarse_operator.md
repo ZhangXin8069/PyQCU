@@ -95,7 +95,7 @@ $$
 与
 [`lattice_clover_multigrid.h`](../cpp/cuda/qcu/include/lattice_clover_multigrid.h#L885-L930)。
 Python 侧 33-tensor 构建与参考作用见
-[`_multigrid.py`](../pyqcu/tools/_multigrid.py#L769-L883)。
+[`_multigrid.py`](../pyqcu/torch/tools/_multigrid.py#L769-L883)。
 
 ## 3. QCU Strict-MG：QUDA 风格的 Full-Coarse 层级
 
@@ -129,9 +129,9 @@ Strict 路径显式保存：
 
 运行期通常只需要 `Yhat` 与 `(X, X^{-1})`。raw `Y` 可用于 setup 与诊断，
 不是普通求解的必需常驻资产。相关定义和资产导出见
-[`_multigrid_core.py`](../pyqcu/solver/_multigrid_core.py#L1071-L1108)
+[`_multigrid_core.py`](../pyqcu/torch/solver/_multigrid_core.py#L1071-L1108)
 与
-[`_multigrid_core.py`](../pyqcu/solver/_multigrid_core.py#L1496-L1512)。
+[`_multigrid_core.py`](../pyqcu/torch/solver/_multigrid_core.py#L1496-L1512)。
 C++ 运行期对粗层 link 使用 full-site 存储，并允许省略 raw `Y`，见
 [`apply_multigrid_strict.cu`](../cpp/cuda/qcu/src/apply_multigrid_strict.cu#L2733-L2739)
 与

@@ -4,6 +4,8 @@
 
 相关弃用审计与历史测试入口见
 [MultiGrid 弃用与历史残留审计](multigrid_deprecation_audit_20261022.md)。
+运行时显存峰值与容量边界见
+[Legacy/Strict CUDA MG 显存峰值对比](legacy_vs_strict_mg_memory_20261023.md)。
 
 ## 1. 结论
 

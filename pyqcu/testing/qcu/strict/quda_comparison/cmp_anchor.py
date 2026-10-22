@@ -12,7 +12,8 @@ import torch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from pyqcu.testing.qcu.strict.quda_comparison.common import LAT_DEFAULT, MASS_DEFAULT, load_gauge_h5
-from pyqcu import dslash, tools
+from pyqcu import tools
+from pyqcu.torch import dslash
 
 OUT = Path(__file__).resolve().parent / "out"
 

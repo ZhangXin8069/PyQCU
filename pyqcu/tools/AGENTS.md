@@ -1,6 +1,7 @@
 # AGENTS.md — pyqcu.tools
 
-MPI 网格管理、HDF5 I/O、线性代数、张量操作、多重网格转移与 TileLang JIT 内核的工具模块。
+MPI 网格、数据布局、HDF5 I/O、环境/预算和绘图公共工具。Torch 专用数值工具已迁移到
+`pyqcu/torch/tools/`；本目录顶层 API 对旧导入保留惰性兼容导出。
 
 ## 文件
 
@@ -11,15 +12,7 @@ MPI 网格管理、HDF5 I/O、线性代数、张量操作、多重网格转移�
 | `_env.py` | 环境与资源快照（2026-08-22 整合自 logs/dev78_2 与 pyqcu/testing/qcu/multigrid/scaling，后者 2026-10-15 删除）：`git_snapshot`/`gpu_snapshot`/`gpu_used_mb`/`rss_kb`/`nullvec_cache_dir`/`cache_disk_mb`/`dump_env_h5`（写 env.h5 经 save_dict_h5） |
 | `_budget.py` | 显存/RSS/磁盘预算模型（2026-08-22 整合，dev74 主本，源套件 scaling 2026-10-15 删除）：`vram_model`(cold)/`vram_model_warm`/`rss_model`/`disk_cache_bytes`(E 参数化)/`fit_from_bench`(json 实测拟合 α)/`budget_table(mode, vram_gb)`；常量 CONST_PER_V=24192 B/V、α=2.6 KB/V、β=512 MB |
 | `_bench_plots.py` | 基准图表共用层（2026-10-15 整合自 dev73/dev74/volume24 的 5 处绘图副本，源套件 legacy/scaling 已删除）：调色板常量 `BENCH_PALETTE`/`BENCH_SEQ_BLUE`/`BENCH_INK*`/`BENCH_GRID`/`BENCH_SURF`，`mpl_cjk_setup`/`style_axes`/`save_figure`/`load_json`/`short_label`/`label_of`，以及 `plot_convergence`/`plot_hotspot`/`plot_speedup`/`plot_time`/`plot_sweep_curves`/`plot_bench_report`。**顶层不 import matplotlib**（惰性在函数内），故 `pyqcu.tools` 在无 matplotlib 环境仍可导入 |
-| `_hierarchical.py` | 分层显存管理（2026-08-22 dev80 整合）：`HierarchicalTensor`（单张量 VRAM/RAM/DISK 三级存储抽象，LRU 友好）、`HierarchicalCache`（多张量 LRU 缓存，线程安全）、`offload_to_ram`/`offload_to_disk`/`reload_to_vram`；硬盘层复用 `_io.py` 的 `save_tensor_h5`/`load_tensor_h5`（每调用独立 File 句柄）。默认盘路径 `${HOME}/PyQCU/data`。冒烟见 `pyqcu/testing/regression/session-2026-08-24/c11_hier.py` |
-| `_linalg.py` | 向量点积（`vdot`）与范数（`norm`） |
-| `_einsum.py` | TileLang JIT einsum 内核 — `Eexyzt_exyzt2Exyzt`（可选，try/except 导入） |
-| `_matul.py` | TileLang 矩阵乘内核 `matmul_gpu`/`matmul_cpu`（可选）。**含 tilelang 0.1.7.post3 上游 bug 热修**：import 时条件性补挂四处同名 TensorCoreIntrinEmitter 缺失的 `_legalize_to_buffer_region`（bug36）；fp16 默认配置已验证（4096³=cuBLAS 94%），fp32 sm70 与 64 小 block 为上游另案不可用 |
-| `_multigrid.py` | Null 向量生成（`give_null_vecs`）、局部正交化（`local_orthogonalize`）、restrict/prolong — 全部带 NPU 兼容回退 |
-| `_roll.py` | 张量滚动工具 |
-| `_mpi_roll.py` | 分布式周期 `roll`（2026-09-18）：线程本地上下文 `distributed_roll()`/`activate()`/`deactivate()`，按轴用带 rank 环绕的 `MPI_Sendrecv` 只交换 face slab；未激活或未分解退化为 `torch.roll`。用于 strict Galerkin setup，单 rank 行为逐位不变 |
-| `_distributed_setup.py` | 分布式 fine 算子包装（2026-09-18）：只对分解维扩一层 ghost，ghost 由真实邻居 rank 数据填充，在 padded 格点上作用周期算子后裁回本地体积；`process_grid` 多 rank 时由 `StrictMultigrid` 使用 |
-| `_strict_galerkin.py` | strict full-coarse Galerkin 构造（site-batch/colored/column）；多 rank 下经分布式 roll 与 halo 化 fine 算子构造 rank 边界资产，2/4 rank 与单 rank 全局参考一致 |
+| `../torch/tools/` | Torch 专用线性代数、multigrid、strict Galerkin、TileLang 与分层存储实现 |
 
 ## 导出 API 要点
 
@@ -53,10 +46,10 @@ MPI 网格管理、HDF5 I/O、线性代数、张量操作、多重网格转移�
 
 **串行回退注意**：`comm.scatter` 用 pickle，超大格点（>64⁴ float32）可能触及 2GB 限制。生产优先 MPI I/O。
 
-### 线性代数（`_linalg.py`）
+### 线性代数（`pyqcu/torch/tools/_linalg.py`）
 `norm(input, p='fro', dim=None, keepdim=False)`、`vdot(input, other)`（Σ conj(a_i)·b_i）
 
-### 多重网格工具（`_multigrid.py`）
+### 多重网格工具（`pyqcu/torch/tools/_multigrid.py`）
 - `give_null_vecs(null_vecs, matvec, bistabcg, normalize, ortho_r, ortho_null_vecs, verbose)` — 逆迭代生成近零空间向量 v_i = v_i − A⁻¹ A v_i；`null_vecs` 仅作 shape/dtype/device 模板
 - `give_null_vecs_mt(..., batch_matvec=...)` — 多右端 batch BiCGStab 默认目标 6 个场/块，并按 `cudaMemGetInfo` 实时缩块；生产 24³×64 c64 的 12 向量构建由 chunk=4 的 13–15 s 降至 chunk=6 的约 10 s，chunk=12 会耗尽 32 GiB V100。
 - `local_orthogonalize(null_vecs, coarse_lat_size, normalize, verbose)` — 块局部 Gram-Schmidt（批量 QR）；NPU 路径避免 >8 维张量
@@ -65,7 +58,7 @@ MPI 网格管理、HDF5 I/O、线性代数、张量操作、多重网格转移�
 
 **NPU 兼容**：NPU 张量 ≤8 维，restrict/prolong/orthogonalize 都有 `_npu` 变体（reshape/permute 链）。与标准路径交叉验证（float32 最大差 ~1e-7）。
 
-### TileLang（`_einsum.py`、`_matul.py`）
+### TileLang（`pyqcu/torch/tools/_einsum.py`、`_matul.py`）
 可选 — 包级 try/except 导入，不可用时静默降级。`Eexyzt_exyzt2Exyzt`（Wilson dslash 用，默认禁用：`tools_Eexyzt_exyzt2Exyzt = False`）、`matmul_gpu`/`matmul_cpu`。内核用 `warp_size = 128`。
 
 ### dtype 表（`_define.py`）
@@ -75,7 +68,7 @@ MPI 网格管理、HDF5 I/O、线性代数、张量操作、多重网格转移�
 
 `PYQCU::TOOLS::<SUBMODULE>::\n message`
 
-### 33-tensor Schur stencil build（`_multigrid.py`）
+### 33-tensor Schur stencil build（`pyqcu/torch/tools/_multigrid.py`）
 
 - `PAIRS`/`SIGN` 常量；`build_stencil(matvec, lonv, E, e, lat_fine_odd, lat_coarse_odd, dt, device)` 单线程；
   `build_stencil_mt(matvec_ops, ..., nthreads)` 多线程（每线程一个 matvec 算子，探测点写集不相交，线程安全）；

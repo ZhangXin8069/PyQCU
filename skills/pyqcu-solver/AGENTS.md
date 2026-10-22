@@ -1,6 +1,7 @@
-# pyqcu-solver
+# AGENTS.md — pyqcu-solver
 
-pyqcu.solver 的 BiCGStab(l)/FGMRES 与 legacy/Strict QUDA-style MultiGrid
+pyqcu.torch.solver 的 BiCGStab(l)/FGMRES 与 legacy/Strict MultiGrid，
+以及 pyqcu.solver.multigrid 三后端选择器
 skill：含逐层奇偶、Galerkin、C++ fused FGMRES、持久显存语义，以及
 33-tensor legacy cache 与 Strict runtime cache 的选择边界。
 

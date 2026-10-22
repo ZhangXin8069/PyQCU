@@ -1,8 +1,8 @@
 ---
 name: pyqcu-dslash
-description: pyqcu.dslash 目录的完整生成 skill：Wilson/Clover 狄拉克算子（hoping/sitting/operator 三类），含 MPI halo 交换、奇偶预处理、Galerkin 粗网格投影与反模式清单。
+description: 当任务涉及 pyqcu.torch.dslash、Wilson/Clover dslash、hopping/sitting/operator 或奇偶预处理时使用。
 ---
-# pyqcu.dslash
+# pyqcu.torch.dslash
 
 Wilson and Clover Dirac operators — the core linear operators of lattice QCD.
 
@@ -15,9 +15,11 @@ not a dslash production topology. See
 
 | File | Purpose |
 |------|---------|
-| `_wilson.py` | Wilson hopping term D_w: spatial derivative with γ_μ matrices and parallel transport. Has per-module `force_use_npu` flag. |
-| `_clover.py` | Clover term (chromo-magnetic field strength F_{μν} contribution). Four-plaquette clover construction with MPI boundary exchange. |
-| `_operator.py` | Composed Dirac operator = hopping + sitting, with even-odd preconditioning, coarse-grid Galerkin projection, and MPI halo exchange. |
+| `pyqcu/torch/dslash/_wilson.py` | Wilson hopping term D_w: spatial derivative with γ_μ matrices and parallel transport. Has per-module `force_use_npu` flag. |
+| `pyqcu/torch/dslash/_clover.py` | Clover term (chromo-magnetic field strength F_{μν} contribution). Four-plaquette clover construction with MPI boundary exchange. |
+| `pyqcu/torch/dslash/_operator.py` | Composed Dirac operator = hopping + sitting, with even-odd preconditioning, coarse-grid Galerkin projection, and MPI halo exchange. |
+
+Top-level `pyqcu.dslash` is a compatibility facade only.
 
 ## Exported API
 

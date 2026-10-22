@@ -56,7 +56,8 @@ def _parse_last_history():
 
 def _full_residual_rel(x, b, g, mass, U=None, clover=None):
     """Python 参考实现计算 full Clover-Wilson 相对残差。"""
-    from pyqcu import dslash, tools
+    from pyqcu import tools
+    from pyqcu.torch import dslash
 
     kappa = 1.0 / (2.0 * mass + 8.0)
     if U is None:
@@ -327,7 +328,8 @@ def main():
     U_full = None
     clover_full = None
     try:
-        from pyqcu import dslash, tools
+        from pyqcu import tools
+        from pyqcu.torch import dslash
         kappa = 1.0 / (2.0 * args.mass + 8.0)
         U_full = tools.poooxyzt2oooxyzt(g)
         clover_full = dslash.make_clover(

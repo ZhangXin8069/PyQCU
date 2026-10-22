@@ -1,4 +1,4 @@
-# pyqcu-testing-python
+# AGENTS.md — pyqcu-testing-python
 
 pyqcu/testing/python 目录的完整生成 skill：纯 Python 算子/求解器主测试套件（conftest 入口 + 各 conftest.*.py 变体）。
 

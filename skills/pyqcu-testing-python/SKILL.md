@@ -1,6 +1,6 @@
 ---
 name: pyqcu-testing-python
-description: pyqcu/testing/python 目录的完整生成 skill：纯 Python 算子/求解器主测试套件（conftest 入口 + 各 conftest.*.py 变体）。
+description: 当任务涉及 pyqcu/testing/python、纯 Python 算子/求解器测试或 conftest 变体时使用。
 ---
 # pyqcu/testing/python
 

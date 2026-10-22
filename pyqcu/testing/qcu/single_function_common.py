@@ -19,7 +19,8 @@ from typing import Any, Iterable, Sequence
 
 import torch
 
-from pyqcu import dslash, tools
+from pyqcu import tools
+from pyqcu.torch import dslash
 from pyqcu.cuda import define
 
 
