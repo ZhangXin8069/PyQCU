@@ -47,6 +47,7 @@ pyqcu/testing/simple/mpi/worker.py
 - 默认只跑小格点 `8x8x8x16`。
 - 由同一启动器管理输入准备、source、coarse cache、mpirun 和 JSON 汇总。
 - KUPL 与 CUDA 都使用真实四维 MPI process grid，而不是每 rank 复制整题。
+- CUDA 生产拓扑固定为一 Python 进程 = 一 MPI rank = 一 GPU/DCU/GPGPU。
 - 求解后用独立 NumPy Wilson-Clover 重构计算相对真残差。
 - 让用户可通过 `--dry-run` 检查实际 `mpirun` 命令和绑定。
 
@@ -54,7 +55,8 @@ pyqcu/testing/simple/mpi/worker.py
 
 - 不替代大格点生产性能测量。
 - 不自动跨节点调度。
-- 不实现单进程多 GPU 的整题复制；该路径使用 `MultiGpuMultigrid`。
+- 不实现单进程多 GPU 的整题复制；`MultiGpuMultigrid` 仅是显式调用的测试专用
+  例外，不属于生产拓扑。
 - 不把 LIME 子体积解释为物理周期组态。
 
 ## 2. 文件结构
@@ -506,6 +508,11 @@ export PYQCU_KUPL_LIB=/absolute/path/libqcu.so
 ## 10. CUDA 后端
 
 ### 10.1 GPU 选择
+
+生产约束是一个 Python 进程对应一个 MPI rank、对应一张 GPU/DCU/GPGPU。
+跨设备协同必须使用 MPI 格点分域；不得在单进程内创建多设备求解 worker。
+完整规则见
+[`docs/cuda_execution_topology.md`](../../../../docs/cuda_execution_topology.md)。
 
 worker 调用：
 

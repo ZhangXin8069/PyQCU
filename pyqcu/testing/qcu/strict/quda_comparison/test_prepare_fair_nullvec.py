@@ -23,6 +23,7 @@ def _tiny_spec(tmp_path: Path, *, output_name: str = "full.h5") -> prep.Preparat
         block=(1, 1, 1, 1),
         nvec=2,
         mass=0.05,
+        csw=1.160920226,
     )
 
 
@@ -73,6 +74,7 @@ def test_fingerprints_and_identity_cover_physics_and_layout(tmp_path):
     assert identity["gauge"]["sha256"] == fingerprints["gauge"]["sha256"]
     assert identity["physics"]["mass"] == pytest.approx(0.05)
     assert identity["physics"]["kappa"] == pytest.approx(1.0 / 8.1)
+    assert identity["clover"]["csw"] == pytest.approx(spec.csw)
     assert identity["source"]["parity"] == "odd"
     assert identity["output"]["layout"] == "[nvec,spin,color,x,y,z,t]"
     assert identity["reconstruction"]["version"] == 2
@@ -113,6 +115,7 @@ def test_create_verify_and_matching_reuse_are_atomic(tmp_path):
         assert metadata["gauge_sha256"] == prep.fingerprint_inputs(spec)["gauge"]["sha256"]
         assert metadata["physics"]["mass"] == pytest.approx(spec.mass)
         assert metadata["physics"]["kappa"] == pytest.approx(spec.kappa)
+        assert metadata["clover"]["csw"] == pytest.approx(spec.csw)
         assert metadata["reconstruction"]["algorithm"] == prep.RECONSTRUCTION_ALGORITHM
         assert metadata["reconstruction"]["version"] == prep.RECONSTRUCTION_VERSION
         assert metadata["gamma_basis"] == prep.GAMMA_BASIS
@@ -249,6 +252,7 @@ def test_dry_run_and_verify_only_never_import_cuda_stack(tmp_path, monkeypatch, 
         "--lattice", *(str(value) for value in spec.lattice),
         "--block", *(str(value) for value in spec.block),
         "--nvec", str(spec.nvec),
+        "--csw", str(spec.csw),
     ]
     assert prep.main([*common, "--verify-only"]) == 0
     verified = json.loads(capsys.readouterr().out)

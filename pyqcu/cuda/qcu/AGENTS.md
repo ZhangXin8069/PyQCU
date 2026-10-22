@@ -2,6 +2,10 @@
 
 Cython 扩展模块 — 桥接 Python 与 C++ CUDA 后端 `libqcu.so`。
 
+CUDA 生产拓扑固定为一个 Python 进程 = 一个 MPI rank = 一张 GPU/DCU/GPGPU。
+`nogil` 桥接与线程安全能力不改变该约定；单进程多线程多设备仅供显式调用的
+测试专用 `MultiGpuMultigrid` 使用。
+
 ## 文件
 
 | 文件 | 用途 |

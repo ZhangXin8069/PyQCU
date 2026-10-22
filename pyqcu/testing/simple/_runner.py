@@ -35,6 +35,10 @@ def run_report(argv, env, report_path):
 def cuda_environment(device: str) -> tuple[dict, str]:
     """Map an explicit physical GPU index onto an isolated logical device.
 
+    Production CUDA programs use one subprocess/MPI rank per device; this helper
+    must not be used to construct a single-process multi-device production
+    worker. ``MultiGpuMultigrid`` remains an explicit test-only exception.
+
     ``--device cuda:2`` means PCI bus index 2 unless the caller already set
     ``CUDA_VISIBLE_DEVICES``; in that case the caller's mapping is respected.
     """

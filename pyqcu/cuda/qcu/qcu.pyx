@@ -4,14 +4,18 @@ from qcu_api cimport applyCloverBistabCgPrepareQcu as _c_applyCloverBistabCgPrep
 import math
 import torch
 import pyqcu.cuda.define as define
-# 多线程多卡（一线程一卡）约定：
+# CUDA 生产拓扑：一个 Python 进程 = 一个 MPI rank = 一张 GPU/DCU/GPGPU。
+# 单进程多线程多卡仅由测试专用 MultiGpuMultigrid 显式启用。
+#
+# 测试驱动使用的一线程一卡约定：
 #   * 所有桥函数在 GIL 段提取张量指针（.contiguous().data_ptr()），
 #     随后 with nogil 释放 GIL 调用 C++ 后端 —— 多线程可真正并行进入
 #     libqcu.so，各线程在各自绑定的 CUDA 设备上运行。
 #   * 指针均声明为函数内局部 cdef 变量（栈变量，线程安全），
 #     不再使用模块级共享 cdef 变量（曾依赖 GIL 串行化，见 2026-07-28 注释）。
-#   * 调用者须保证：每线程独立 params/argv/set_ptrs 副本与设备绑定
-#     （见 pyqcu/cuda/_multi_gpu.py、pyqcu/cuda/_schur_op.py）。
+#   * 测试驱动须保证：每线程独立 params/argv/set_ptrs 副本与设备绑定
+#     （见 pyqcu/cuda/_multi_gpu.py、pyqcu/cuda/_schur_op.py）。nogil
+#     仍是桥接层通用不变量，不表示生产程序应创建多 GPU worker。
 def applyInitQcu(_set_ptrs, _params, _argv):
     cdef long long set_ptrs, params, argv
     if _set_ptrs.numel() != define._SET_PTRS_SIZE_:

@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# TEST-ONLY: this smoke exercises explicit MultiGpuMultigrid consistency and
+# throughput checks. Production CUDA programs use one Python process, one MPI
+# rank, and one GPU/DCU/GPGPU.
 set -euo pipefail
 
 if [[ -n ${PYQCU_ROOT:-} ]]; then

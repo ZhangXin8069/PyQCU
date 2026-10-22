@@ -6,6 +6,14 @@ description: pyqcu.testing 目录的完整生成 skill：全组件集成测试�
 
 Integration tests for all PyQCU components. Tests are Python functions imported by `pyqcu/testing/*/conftest.py` entry points.
 
+CUDA/DCU/GPGPU test launchers follow one Python process = one MPI rank = one
+device. Tests that explicitly construct `MultiGpuMultigrid` must be labeled as
+test-only consistency/throughput evidence and must not become production
+templates. See
+[`pyqcu-cuda/SKILL.md`](../pyqcu-cuda/SKILL.md#cuda-production-topology).
+The migrated example paths and standard test commands are summarized in
+[`pyqcu-docs/references/extracted-guidance.md`](../pyqcu-docs/references/extracted-guidance.md#2-测试与示例入口).
+
 ## Architecture
 
 All test functions live in `pyqcu/testing/__init__.py`. They import from all PyQCU subpackages (`lattice`, `solver`, `dslash`, `tools`, `smear`). Each `pyqcu/testing/*/conftest.py` acts as a pytest entry point that imports specific test functions and calls them. The conftest files are manually edited to uncomment the test(s) to run.
@@ -111,12 +119,7 @@ python -m pytest -q -p no:cacheprovider pyqcu/testing/qcu/strict/quda_comparison
 mpirun -np 2 python -m pytest -q -p no:cacheprovider pyqcu/testing/qcu/strict/quda_comparison/test_strict_mpi_preflight.py
 ```
 
-These MPI tests cover rank-symmetric preflight plus c64/c128 global dot/norm reduction. The expected capabilities are `global_reduction=True` but `setup_halo=False`, `full_halo=False`, `compact_halo=False`, and distributed `fused_fgmres=False`; production multi-rank solves must still be rejected, and passing these tests must not be reported as a distributed strict solve.
-
-2026-09-17 实测：单 rank 为 18 passed/9 skipped；`mpirun -np 2` 每个 rank
-为 14 passed/13 skipped。异常 capability 路径按预期 fail closed。该结果只
-证明阶段 1 的全局标量归约和 preflight，不代表 halo 或分布式 fused
-FGMRES 已启用。
+These MPI tests cover rank-symmetric preflight plus c64/c128 global dot/norm reduction. Current capabilities declare setup/full/compact/R-P halos, global reduction and distributed fused FGMRES all true. The repository additionally has a two-rank P100 end-to-end strict solve with an independent true residual below `1e-6`. Keep the production gates: one process/rank/device, symmetric capability preflight and independent residual validation.
 
 2026-09-17 方向三补充：tier 0 为 20 passed，tier 1 `cuda-strict` 为
 11 passed（新增 c128 blocked basis + c64 CPU-staged Galerkin 与 CUDA

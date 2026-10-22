@@ -457,3 +457,57 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 验证: path, size, required sections, conflict markers
 - 批次状态: complete
 
+## analysis - final - 2026-10-22 17:24:42 +0800
+- 主任务: 解释 C++ QCU 默认 Legacy MG 而非 Strict-MG 的原因
+- 日志文件: logs/v2026102217-5.txt
+- 文件大小: 4614 bytes
+- 触发原因: 任务完成
+- 关键内容: 默认由调用兼容性和工程边界决定，并非统一性能裁决；Strict 的 setup/cache 成本需按重复求解场景摊销
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete
+
+## analysis - final - 2026-10-22 17:31:25 +0800
+- 主任务: 比较 C++ QCU Legacy 与 Strict 的完成度和多卡能力
+- 日志文件: logs/v2026102217-6.txt
+- 文件大小: 4161 bytes
+- 触发原因: 任务完成
+- 关键内容: 综合完成度 Legacy 最高；CUDA Legacy/Strict 均支持 MPI 一进程一卡多卡，Legacy 另有单进程多线程多 GPU 驱动
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete
+
+## analysis - final - 2026-10-22 17:38:57 +0800
+- 主任务: 解释 Legacy 单进程多线程多 GPU 驱动
+- 日志文件: logs/v2026102217-7.txt
+- 文件大小: 3114 bytes
+- 触发原因: 任务完成
+- 关键内容: MultiGpuMultigrid 是一个进程内每线程绑定一张 GPU 并独立执行完整 MG，属于复制式吞吐并行而非单次 solve 的跨卡分域
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete
+
+## docs - final - 2026-10-22 17:55:58 +0800
+- 主任务: 标注 MultiGpuMultigrid 为测试专用并固化 CUDA 进程-rank-设备拓扑
+- 日志文件: logs/v2026102217-8.txt
+- 文件大小: 4439 bytes
+- 触发原因: 任务完成
+- 关键内容: 同步代码注释、AGENTS、skills 与用户文档，明确显式 opt-in 和一句进程-rank-设备生产约定
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete
+
+## skills - final - 2026-10-22 18:03:49 +0800
+- 主任务: 将 CUDA 进程-rank-设备与 MultiGpu 测试专用约定写入 skills
+- 日志文件: logs/v2026102218.txt
+- 文件大小: 4256 bytes
+- 触发原因: 任务完成
+- 关键内容: 在 skills 根约定和 15 个相关 skill 中建立一进程一 rank 一设备规则，并同步 AGENTS 与当前 Strict MPI 能力
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete
+
+## docs-to-skills - final - 2026-10-22 18:36:52 +0800
+- 主任务: 提取 docs 参考内容到 skills
+- 日志文件: logs/v2026102218-2.txt
+- 文件大小: 4469 bytes
+- 触发原因: 任务完成
+- 关键内容: 新增 pyqcu-docs 文档导航技能、17/17 来源映射与蒸馏工程参考，并同步域技能指针和文档索引
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete
+

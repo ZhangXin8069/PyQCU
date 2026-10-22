@@ -6,6 +6,14 @@ description: PyQCU 性能基准 skill：覆盖 pyqcu/testing/benchmark 的通用
 
 Performance benchmarks comparing PyTorch, TileLang, and C++ CUDA backend implementations.
 
+GPU/DCU/GPGPU benchmarks keep one Python process = one MPI rank = one device.
+`MultiGpuMultigrid` benchmarks are explicit test-only evidence; do not treat
+their launch shape as the production default. See
+[`pyqcu-cuda/SKILL.md`](../pyqcu-cuda/SKILL.md#cuda-production-topology).
+
+正式三方基准的输入、同窗比较、历史证据和不可外推条件见
+[`pyqcu-docs/references/extracted-guidance.md`](../pyqcu-docs/references/extracted-guidance.md#5-性能与证据解释)。
+
 ## Files
 
 | File | Purpose |

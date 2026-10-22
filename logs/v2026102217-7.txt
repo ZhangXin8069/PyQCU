@@ -1,0 +1,61 @@
+[日志元数据]
+日志类型: final
+生成时间: 2026-10-22 17:38:57 +0800
+批次: analysis
+主任务: 解释 Legacy 单进程多线程多 GPU 驱动
+触发原因: 任务完成
+摘要: MultiGpuMultigrid 是一个进程内每线程绑定一张 GPU 并独立执行完整 MG，属于复制式吞吐并行而非单次 solve 的跨卡分域
+Git 根目录: /root/PyQCU
+
+## 关键日志
+### S1 — 解释单进程多线程多 GPU
+- 目标: 说明 Legacy `MultiGpuMultigrid` 的并行模型。
+- 证据: 每线程绑定一张 GPU，持有独立 params/argv/set_ptrs，独立执行完整 Legacy MG。
+- 证据: `ThreadPoolExecutor` 并行启动 worker；Cython 调用释放 GIL。
+- 证据: 驱动要求 `MPI_COMM_WORLD` 为单 rank。
+- 判断: 该模式是单进程内多任务/复制式 GPU 并行，不是单次求解的跨 GPU 格点分域。
+
+### S2 — 与 MPI 多卡区分
+- 共享问题模式: 多张 GPU 可重复求解同一问题并比较一致性。
+- 独立问题模式: 每线程使用不同输入/seed，提高批量吞吐。
+- MPI 模式: 一个格点场分布到多个 rank/GPU，通过 halo 交换共同完成一次求解，可降低单次求解延迟。
+
+## 验证与证据
+- 检查: 源码 docstring、单 rank 限制、worker 设备绑定、线程池、independent_problems 分支。
+- 结果: 语义明确。
+- 未验证项: 未重新运行多 GPU 测试；本次为代码语义解释。
+
+## 变更与产物
+- 文件: 未修改源码或 docs；仅新增本日志。
+- 未改动范围: 全体代码与测试。
+
+## 风险、限制与下一步
+- 风险: 把复制式多 GPU 吞吐并行误称为单次 solve 的多 GPU 加速。
+- 阻塞: 无。
+
+## 用户输入指令
+什么是" Legacy 那种单进程多线程多 GPU 驱动"?
+
+## Agent 全文报告
+--- report begin ---
+“Legacy 那种单进程多线程多 GPU 驱动”指 `MultiGpuMultigrid`。它的结构是：一个 Python/MPI 进程启动 N 个线程，每个线程选择一张 CUDA GPU，然后在自己的 GPU 上独立执行一套完整的 Legacy C++ MG 流程。
+
+概念图：
+
+```text
+MPI rank 0, Python process
+├─ thread 0 -> cuda:0 -> params/argv/set_ptrs #0 -> 完整 MG solve
+├─ thread 1 -> cuda:1 -> params/argv/set_ptrs #1 -> 完整 MG solve
+└─ thread 2 -> cuda:2 -> params/argv/set_ptrs #2 -> 完整 MG solve
+```
+
+关键特点：
+
+- 每个线程调用 `torch.cuda.set_device()` 绑定自己的 GPU。
+- 每个线程有独立控制数组和 `_SET_INDEX_`，避免状态竞争。
+- Cython 调用在 `nogil` 段进入 C++，因此线程可以真正并行。
+- 每个线程执行一个完整 Legacy MG，不存在线程间 halo 或格点分域。
+- 驱动要求单 MPI rank；MPI 多 rank 多卡是另一条分域并行路径。
+
+它有两种用途。共享问题模式让多张 GPU 求解同一个输入，用于一致性或正确性验证；独立问题模式让不同 GPU 使用不同 seed/输入，用于批量 RHS 或多任务吞吐。它不会缩短单个 solve 的墙钟时间。真正要让多个 GPU 协同加速同一个 solve，应使用 MPI 多 rank、四维格点分域和 halo 交换。
+--- report end ---

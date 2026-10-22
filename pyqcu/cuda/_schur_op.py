@@ -1,4 +1,8 @@
-"""C++ CUDA Schur 奇偶算子封装（多线程安全，一线程一卡模式的基础算子）。
+"""C++ CUDA Schur 奇偶算子封装。
+
+生产 CUDA 拓扑固定为一个 Python 进程对应一个 MPI rank、对应一张
+GPU/DCU/GPGPU。本类保持实例级线程安全，供测试专用的单进程多线程多 GPU
+驱动复用，但不意味着生产程序应在一个进程中管理多张设备。
 
 applyCloverBistabCgDslashQcu（cpp/cuda/qcu/python/pyqcu.h）实现
 Schur 奇偶算子  S = A_oo - k^2 * D_oe * A_ee^-1 * D_eo，
@@ -10,7 +14,7 @@ Schur 奇偶算子  S = A_oo - k^2 * D_oe * A_ee^-1 * D_eo，
   * 输入/输出均为 [12, X, Y, Z, T/2]（spin×color 展平、奇子格）连续张量
   * 依赖 applyInitQcu(plan=1) 初始化的 LatticeSet（scratch: device_vec0/1/2 等）
 
-多线程并发约定（一线程一卡）：
+测试驱动的多线程并发约定（一线程一卡）：
   * 每个 CudaSchurOp 实例持独立 params 副本（int32[58]）与独立 set_ptrs 副本，
     其中 _SET_INDEX_ 独占一个槽位 —— 各线程调用互不干扰，无共享写竞争。
   * 实例构造必须在单线程完成；每实例显存开销 ≈ LatticeSet scratch。

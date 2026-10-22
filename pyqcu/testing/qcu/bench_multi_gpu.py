@@ -1,3 +1,10 @@
+"""Test-only benchmark for the explicit ``MultiGpuMultigrid`` driver.
+
+Production CUDA programs use one Python process, one MPI rank, and one
+GPU/DCU/GPGPU. This benchmark launches multiple complete Legacy MG workers in
+one process solely for consistency/throughput evidence.
+"""
+
 import argparse
 import hashlib
 import json

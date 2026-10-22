@@ -11,6 +11,10 @@ MultiGrid。重点是算法组成和执行顺序，不把 Strict-MG、Python 参
 以及“粗化 gauge/clover”这一口径的边界，见
 [`qcu_quda_multigrid_coarse_operator.md`](qcu_quda_multigrid_coarse_operator.md)。
 
+CUDA QCU 的生产进程、MPI rank 与设备映射，以及测试专用
+`MultiGpuMultigrid` 的边界，见
+[`cuda_execution_topology.md`](cuda_execution_topology.md)。
+
 ## 口径与版本
 
 | 项 | QCU | QUDA |
