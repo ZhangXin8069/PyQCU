@@ -6,11 +6,13 @@ import pytest
 import torch
 
 from pyqcu import solver
-from pyqcu.solver import LegacyMultigrid, Multigrid, StrictMultigrid
+from pyqcu.solver import Multigrid
 from pyqcu.solver.multigrid import (
     LegacyMultigrid as LegacyFromPackage,
     StrictMultigrid as StrictFromPackage,
 )
+from pyqcu.torch.solver import LegacyMultigrid, StrictMultigrid
+from pyqcu.torch.solver import _legacy_multigrid as legacy_module
 from pyqcu.kupl.multigrid import legacy_multigrid as kupl_legacy_module
 from pyqcu.kupl.multigrid import strict_multigrid as kupl_strict_module
 from pyqcu.cuda.multigrid import legacy_multigrid as cuda_legacy_module
@@ -84,6 +86,39 @@ def test_torch_legacy_lifecycle_uses_setup_and_close_aliases():
     with ProbeLegacy() as mg:
         assert isinstance(mg, LegacyMultigrid)
     assert mg.calls == ["init", "end"]
+
+
+def test_torch_legacy_init_builds_every_configured_level(monkeypatch):
+    shape = (4, 4, 4, 4)
+    U = torch.zeros(3, 3, 4, *shape, dtype=torch.complex64)
+    for color in range(3):
+        U[color, color] = 1.0
+    clover = torch.zeros(4, 3, 4, 3, *shape, dtype=torch.complex64)
+    mg = LegacyMultigrid(
+        [torch.complex64, torch.complex64],
+        [torch.device("cpu"), torch.device("cpu")],
+        U,
+        clover,
+        kappa=torch.tensor([0.125]),
+        min_size=2,
+        max_level=2,
+        dof_list=[12, 2],
+        mg_grid_size=[2, 2, 2, 2],
+        verbose=False,
+    )
+    monkeypatch.setattr(
+        legacy_module.tools, "give_null_vecs",
+        lambda *, null_vecs, **kwargs: null_vecs)
+    monkeypatch.setattr(
+        legacy_module.tools, "local_orthogonalize",
+        lambda *, null_vecs, **kwargs: null_vecs)
+    monkeypatch.setattr(
+        legacy_module.dslash, "operator",
+        lambda **kwargs: object())
+    with mg:
+        assert len(mg.op_list) == 2
+        assert len(mg.b_list) == 2
+        assert len(mg.lonv_list) == 1
 
 
 def test_kupl_legacy_lifecycle_delegates_to_canonical_abi(monkeypatch):

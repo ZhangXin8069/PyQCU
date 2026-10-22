@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import torch
 
-from pyqcu import dslash
-from pyqcu.solver import StrictMultigrid
+from pyqcu.torch import dslash
+from pyqcu.torch.solver import StrictMultigrid
 
 
 def _identity_gauge(shape=(2, 2, 2, 2), dtype=torch.complex64):

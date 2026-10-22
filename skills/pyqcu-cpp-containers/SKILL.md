@@ -1,6 +1,6 @@
 ---
 name: pyqcu-cpp-containers
-description: cpp/ 后端容器目录（CUDA、KUPL CPU 真实现 + cann/dtk/maca 占位）的生成 skill：多后端镜像结构、各容器职责、以及 qcu 构建入口与不变量索引。
+description: 当任务涉及 cpp/ 下 CUDA、KUPL、CANN、DTK、MACA 后端容器结构或构建入口时使用。
 ---
 # cpp/ — 多后端容器目录
 

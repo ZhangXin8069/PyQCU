@@ -105,7 +105,7 @@ run("tr_lanczos(A†A)", t_lanczos)
 
 
 def t_verify_nullvecs():
-    from pyqcu.solver import LegacyMultigrid
+    from pyqcu.torch.solver import LegacyMultigrid
     from pyqcu.testing import verify_nullvecs
     LAT2 = [8, 8, 8, 16]
     U2 = _torch.zeros(size=[3, 3, 4] + LAT2, dtype=DT, device=CUDA)

@@ -68,7 +68,7 @@ def _load_case(gauge_path: Path, source_path: Path, lat: tuple[int, ...],
 def _fine_operator(gauge_full: Any, lat: tuple[int, ...], mass: float,
                    csw: float, device: Any):
     import torch
-    from pyqcu import dslash
+    from pyqcu.torch import dslash
 
     kappa = 1.0 / (2.0 * mass + 8.0)
     kappa_t = torch.tensor([kappa], dtype=torch.float32, device=device)
@@ -85,7 +85,8 @@ def _true_residual(output: Any, rhs: Any, gauge: Any, gauge_full: Any,
                    clover: Any, mass: float,
                    operator: Any | None = None) -> float:
     import torch
-    from pyqcu import dslash, tools
+    from pyqcu import tools
+    from pyqcu.torch import dslash
 
     del gauge
     kappa = 1.0 / (2.0 * mass + 8.0)
@@ -456,10 +457,11 @@ def _run_legacy(args: argparse.Namespace) -> dict[str, Any]:
 def _run_strict(args: argparse.Namespace) -> dict[str, Any]:
     import h5py
     import torch
-    from pyqcu import dslash, tools
+    from pyqcu import tools
+    from pyqcu.torch import dslash
     from pyqcu.cuda import define
     from pyqcu.cuda import StrictMultigrid as CudaStrictMultigrid
-    from pyqcu.solver import StrictMultigrid
+    from pyqcu.torch.solver import StrictMultigrid
 
     device = torch.device(args.device)
     torch.cuda.set_device(device)

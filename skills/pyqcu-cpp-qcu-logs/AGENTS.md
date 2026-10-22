@@ -1,4 +1,4 @@
-# pyqcu-cpp-qcu-logs
+# AGENTS.md — pyqcu-cpp-qcu-logs
 
 cpp/cuda/qcu/logs 的归档 skill：**该目录已于 2026-10-15 删除**（删除前只有 `AGENTS.md`
 与 `schur_mg_test_stdout.txt` 两个已入 git 的文件），此处只保留内容清单、删除依据与

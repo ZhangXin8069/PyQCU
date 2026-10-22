@@ -1,6 +1,6 @@
 ---
 name: pyqcu-testing-cpu
-description: pyqcu/testing/cpu 目录的完整生成 skill：纯 Python 后端的 CPU 专用测试。
+description: 当任务涉及 pyqcu/testing/cpu 或纯 Python CPU 测试时使用。
 ---
 # pyqcu/testing/cpu
 

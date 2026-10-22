@@ -1,4 +1,4 @@
-# pyqcu-cuda
+# AGENTS.md — pyqcu-cuda
 
 pyqcu.cuda 目录的 Cython/libqcu.so 桥接 skill：当前 Strict MultiGrid 入口、
 `params=int32[58]`、`argv[8]`（槽 7 为 `csw`）、`set_ptrs=int64[100]` 和显存生命周期。

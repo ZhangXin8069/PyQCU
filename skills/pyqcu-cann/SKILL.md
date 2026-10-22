@@ -1,6 +1,6 @@
 ---
 name: pyqcu-cann
-description: pyqcu.cann 目录的完整生成 skill：Ascend NPU 的 torch 兼容层，将复数算子分解为实/虚部；含 force_use_npu 全局标志与 einsum 组合分解算法。
+description: 当任务涉及 pyqcu.cann、Ascend/NPU 复数兼容层、force_use_npu 或复数 einsum 分解时使用。
 ---
 # pyqcu.cann
 
@@ -17,7 +17,7 @@ Ascend NPU does not natively support complex tensors. This module wraps torch op
 
 ## Global Flag
 
-`pyqcu.cann.force_use_npu = True` — force NPU code paths on CPU for testing without NPU hardware. This affects only the `cann` layer; some modules (`dslash/_wilson.py`, `tools/_define.py`, `tools/_multigrid.py`, `smear/_stout.py`) also have their own per-module `force_use_npu` flag for deeper NPU workarounds (e.g., tensor dimension limits).
+`pyqcu.cann.force_use_npu = True` — force NPU code paths on CPU for testing without NPU hardware. This affects only the `cann` layer; some modules (`torch/dslash/_wilson.py`, `tools/_define.py`, `torch/tools/_multigrid.py`, `torch/smear/_stout.py`) also have their own per-module `force_use_npu` flag for deeper NPU workarounds (e.g., tensor dimension limits).
 
 ## Functions Provided
 
@@ -58,4 +58,3 @@ General N-operand complex einsum uses a combinatorial approach. For Z = Π(a_k +
 占位后端目录的镜像约定（`cpp/{cann,dtk,maca}` 三处同构，均只有一个 `qcu/PASS`）见
 `skills/pyqcu-cpp-containers/SKILL.md`。本文件此前内嵌的「Complete Skill: `qcu/`」全文副本已于
 2026-10-15 删除——其声称的源文件 `qcu/CLAUDE.md` 在仓库中并不存在，且同一事实上方一行已给出。
-

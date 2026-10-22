@@ -41,7 +41,8 @@ def prepare_case(lat, mass, csw, atol, max_iter, device, gauge_path=None,
                  source_path=None, seed=42):
     """Create a loaded QCU case and return (runtime, fields, references, kappa)."""
     import torch
-    from pyqcu import dslash, tools
+    from pyqcu import tools
+    from pyqcu.torch import dslash
     from pyqcu.cuda import QcuRuntime, define
 
     runtime = QcuRuntime.from_lattice(

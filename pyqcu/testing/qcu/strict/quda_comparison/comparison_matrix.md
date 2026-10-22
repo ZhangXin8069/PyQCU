@@ -45,7 +45,7 @@
 |---|---|---|---|---|
 | 4.1 | BiCGStab(Schur 奇偶预条件) | invert_test --inv-type bicgstab --matpc even-even | applyCloverBistabCgQcu（同语义基线） | [x] PyQCU/QUDA 双方真实求解；以 m+4=4.05 归一化后解差约 4.1e-7 |
 | 4.2 | CG(MdagM) | invert_test --inv-type cg | applyWilsonCgQcu；python solver CG | [ ] |
-| 4.3 | MR 平滑器 | inv_mr_quda.cpp（MG 默认平滑器） | pyqcu/solver/_mr.py（quda 思想）；C++ MG 支持设备端 MR 定步更新 | [x] 2L 普通 V-cycle 与 FGMRES/MG 预条件真实运行；大格 full-op 真残差 6.59e-7 |
+| 4.3 | MR 平滑器 | inv_mr_quda.cpp（MG 默认平滑器） | pyqcu/torch/solver/_mr.py（quda 思想）；C++ MG 支持设备端 MR 定步更新 | [x] 2L 普通 V-cycle 与 FGMRES/MG 预条件真实运行；大格 full-op 真残差 6.59e-7 |
 | 4.4 | GCR 外层 | Solver::create GCR(+MG 前置) solver.cpp:67 | run_gcr()=FGMRES(10)⊕V-cycle（_MG_USE_GCR_） | [x] 1L/2L/3L 均真实运行；正确但本机比普通 MG 慢 |
 | 4.5 | CA-CG/CA-GCR | inv_ca_cg/inv_ca_gcr | Python `_cacg.py`（CA-CG）；C++ `run_ca_gcr()`（4 阶块、双遍 MGS、Gram 小系统、奇异回退 FGMRES） | [x] CA-GCR 2L 真实运行；`atol=1e-6` 真残差 7.58e-7，严格 `atol=1e-8` 在 400 次块步后为 1.43e-7（fp32 平台） |
 | 4.6 | 多移位 CG | invertMultiShiftQuda | python _multishift_cg.py（updateAlphaZeta 同源） | [ ] |

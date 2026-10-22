@@ -1,5 +1,6 @@
 import torch
-from pyqcu import tools, dslash, lattice
+from pyqcu import lattice, tools
+from pyqcu.torch import dslash
 from pyqcu.cuda import qcu, define
 from pyqcu.cuda.define import params, argv, set_ptrs
 

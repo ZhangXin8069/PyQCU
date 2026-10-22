@@ -1,6 +1,6 @@
 ---
 name: pyqcu-tag
-description: Use when a user asks to create, apply, list, inspect, search, delete, amend, or rewrite Git tags, especially stab/dev/bug/test tags, subversions, snapshots, patches, or remote annotations.
+description: 当用户要求创建、查看、搜索、修改、删除、改写或校验 Git 标签，尤其是 stab/dev/bug/test 标签、子版本、快照、补丁或远端注释时使用。
 metadata:
   openclaw:
     emoji: 🏷️

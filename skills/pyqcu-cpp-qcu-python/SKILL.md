@@ -1,6 +1,6 @@
 ---
 name: pyqcu-cpp-qcu-python
-description: cpp/cuda/qcu/python 的 C API 维护 skill：pyqcu.h（37 个 extern "C" 声明）与 pyqcu/cuda/qcu 下 qcu_api.pxd / qcu.pyx / qcu.pyi 的同步，以及 Strict MultiGrid ABI。
+description: 当任务涉及 cpp/cuda/qcu/python、C API、qcu_api.pxd、qcu.pyx 或 qcu.pyi 同步时使用。
 ---
 # cpp/cuda/qcu/python
 

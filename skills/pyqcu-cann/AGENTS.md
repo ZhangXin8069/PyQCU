@@ -1,4 +1,4 @@
-# pyqcu-cann
+# AGENTS.md — pyqcu-cann
 
 pyqcu.cann 目录的完整生成 skill：Ascend NPU 的 torch 兼容层，将复数算子分解为实/虚部；含 force_use_npu 全局标志与 einsum 组合分解算法。
 

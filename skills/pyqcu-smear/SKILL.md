@@ -1,8 +1,8 @@
 ---
 name: pyqcu-smear
-description: pyqcu.smear 目录的完整生成 skill：stout smearing（Morningstar-Peardon SU(3) 投影）与 Wuppertal 高斯模糊，含数值稳定性处理与 MPI 支持。
+description: 当任务涉及 pyqcu.torch.smear、stout smearing 或 Wuppertal 高斯模糊时使用。
 ---
-# pyqcu.smear
+# pyqcu.torch.smear
 
 Gauge field smearing — spatial smoothing of gauge links to reduce UV noise.
 
@@ -10,7 +10,9 @@ Gauge field smearing — spatial smoothing of gauge links to reduce UV noise.
 
 | File | Purpose |
 |------|---------|
-| `_stout.py` | Stout smearing algorithm (copied/adapted from EasyDistillation's elemental generator) |
+| `pyqcu/torch/smear/_stout.py` | Stout smearing algorithm (copied/adapted from EasyDistillation's elemental generator) |
+
+Top-level `pyqcu.smear` is a compatibility facade only.
 
 ## Exported API
 

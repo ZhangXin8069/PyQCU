@@ -11,7 +11,7 @@ Production CUDA uses one Python process = one MPI rank = one GPU/DCU/GPGPU.
              实为 L1 vs BiStabCG 的固有优势，多层 MG 无进一步加速甚至负面。
   正确性对照: CUDA C++ 多线程版 BiStabCG（ref 残差 < 1e-6 收敛一致）。
   并行对照 : MultiGrid 多线程（P100x2） vs MultiGrid 单线程。
-  算法基础 : 与 pyqcu/solver/_multigrid.py 一致（层数切换条件、最粗层求解、
+  算法基础 : 与 pyqcu/torch/solver/_legacy_multigrid.py 一致（层数切换条件、最粗层求解、
              各层算子），优化参考 DDalphaAMG/QUDA docs。
   硬件     : 单卡 V100-32GB（device 0）、多卡 P100-16GB x2（device 1,2）。
 
@@ -52,7 +52,7 @@ from pyqcu.cuda._multi_gpu import MultiGpuMultigrid
 # ----------------------------------------------------------------------
 LAT = [24, 24, 24, 72]          # 统一验证格子（任务 14）
 MASS, ATOL = 0.05, 1e-6
-# E=24：与 pyqcu/solver/_multigrid.py 默认 dof_list=[12,24,24,...] 一致；
+# E=24：与 pyqcu/torch/solver/_legacy_multigrid.py 默认 dof_list=[12,24,24,...] 一致；
 # 24x24x24x72 上 E=48 的 33-tensor 粗算子 hop_diag 16GB+hop_nn 4.6GB+sat 0.6GB
 # ~21GB 超 V100 32GB（粗层 12x12x12x18 × 48×48 稠密块），E=24 时 ~5.6GB 可行。
 DOF_LIST = [12, 24, 24, 24, 24]
@@ -236,7 +236,7 @@ def cmd_build(args):
     """
     torch.cuda.set_device(0)
     from pyqcu.cuda._schur_op import CudaSchurOp
-    from pyqcu.tools._multigrid import (
+    from pyqcu.torch.tools._multigrid import (
         give_null_vecs_mt, local_orthogonalize, build_stencil_local,
         BatchedLocalSchur, _stencil_matvec_batch, build_stencil_mt,
         _schur_matvec_batch)

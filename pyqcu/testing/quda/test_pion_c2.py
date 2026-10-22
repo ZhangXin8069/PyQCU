@@ -260,7 +260,7 @@ def prepare_gauge(args: argparse.Namespace, run_dir: Path) -> Dict[str, Any]:
 
     if args.stout_steps > 0:
         import torch
-        from pyqcu import smear
+        from pyqcu.torch import smear
 
         dtype = getattr(torch, spec["torch"])
         u_t = torch.from_numpy(u)
@@ -386,7 +386,7 @@ def reference_true_residual(prop_row: np.ndarray, source: np.ndarray, gauge: np.
                             kappa: float) -> Dict[str, float]:
     """用纯 PyTorch(PyQCU) 参考算子独立复算 ||D x - b|| / ||b||（CPU，不依赖两后端）。"""
     import torch
-    from pyqcu import dslash
+    from pyqcu.torch import dslash
 
     x = torch.from_numpy(np.asarray(prop_row)).to(torch.complex64)
     u = torch.from_numpy(np.asarray(gauge)).to(torch.complex64)
@@ -835,7 +835,7 @@ def _qcu_configure(params, argv, lat, mass, tol, levels, dof_list, block, torch_
 def _qcu_build_coarse(args, full_gauge_cpu, mass, primary_device):
     """构建（或按 gauge 指纹复用）C++ MG 粗层算子。"""
     import torch
-    from pyqcu import dslash
+    from pyqcu.torch import dslash
     from pyqcu.cuda._multi_gpu import _coarse_cache_paths, build_schur_levels
 
     lat = [int(v) for v in args.lat]

@@ -1,6 +1,7 @@
 def main():
     import torch
-    from pyqcu import tools, dslash, lattice, solver
+    from pyqcu import lattice, tools
+    from pyqcu.torch import dslash, solver
     from pyqcu.cuda import qcu, define
     from pyqcu.cuda.define import params, argv, set_ptrs
 

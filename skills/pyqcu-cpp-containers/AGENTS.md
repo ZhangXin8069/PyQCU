@@ -1,4 +1,4 @@
-# pyqcu-cpp-containers
+# AGENTS.md — pyqcu-cpp-containers
 
 `cpp/` 四个后端容器目录（`cuda` 真实现 + `cann`/`dtk`/`maca` 占位）的技能：
 镜像结构、各容器职责、cpp/cuda/qcu 构建入口与三数组 ABI 速查。

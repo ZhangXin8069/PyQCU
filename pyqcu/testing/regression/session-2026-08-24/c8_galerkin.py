@@ -19,7 +19,7 @@ try:
     op = dslash.operator(U=U, kappa=torch.Tensor([kappa]),
                          clover_term=clover, support_parity=True, verbose=False)
 
-    from pyqcu.tools._multigrid import (local_orthogonalize, BatchedLocalSchur,
+    from pyqcu.torch.tools._multigrid import (local_orthogonalize, BatchedLocalSchur,
                                         build_stencil_local)
     from pyqcu.testing import verify_nullvecs
 

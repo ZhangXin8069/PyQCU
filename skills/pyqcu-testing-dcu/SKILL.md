@@ -1,6 +1,6 @@
 ---
 name: pyqcu-testing-dcu
-description: pyqcu/testing/dcu 目录的完整生成 skill：AMD DCU / ROCm (HIP) 测试。
+description: 当任务涉及 pyqcu/testing/dcu、AMD DCU 或 ROCm/HIP 测试时使用。
 ---
 # pyqcu/testing/dcu
 

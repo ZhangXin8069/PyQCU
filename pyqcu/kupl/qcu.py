@@ -1,4 +1,27 @@
-"""ctypes binding for the independent KUPL CPU QCU implementation."""
+"""ctypes binding for the independent KUPL CPU QCU implementation.
+
+This module exposes the same flat Python ABI as the CUDA bridge. ``params`` is
+int32[58] for geometry, rank-grid, dtype, plan, parity, solver controls, and the
+current set slot. ``argv`` is real[8] for mass, tolerances, sigma, and ``csw``.
+``set_ptrs`` is int64[100]: ``[0:30)`` is ordinary transaction scratch while
+``[30:60)``, ``[60:80)``, and slot 80 hold reserved multigrid coarse/strict
+assets. Ordinary calls select the current slot before ``applyInitQcu`` and must
+keep it unchanged through operations/getters until ``applyEndQcu``. Strict
+multigrid keeps one fixed private slot alive across its dedicated setup, solve,
+getter, and teardown sequence.
+
+Parity-split fields use ``[X, Y, Z, T/2]`` as their final four axes: fermions
+are ``[2, 4, 3, X, Y, Z, T/2]``, gauge links are
+``[2, 3, 3, 4, X, Y, Z, T/2]``, and Clover terms are
+``[4, 3, 4, 3, X, Y, Z, T/2]``. ``params[_PARITY_]`` selects the even or odd
+target where required.
+
+ctypes passes only raw 64-bit addresses. This module checks contiguity but
+cannot recover shape, dtype, or device from ``data_ptr()``, so callers must pass
+exact ABI-compatible CPU tensors and retain every tensor until the C++ call
+returns. CUDA production remains one Python process per MPI rank and device;
+KUPL uses the same process/rank partitioning for CPU/OpenMP work.
+"""
 
 from __future__ import annotations
 
@@ -98,16 +121,30 @@ for _name, _argtypes in _SIGNATURES.items():
 
 
 def _pointer(tensor: Any) -> int:
+    """Return a dense tensor's address for a raw ctypes call.
+
+    ``data_ptr()`` does not validate ABI shape/dtype/device and does not keep
+    the storage alive. The caller must provide a contiguous tensor of the exact
+    expected ABI type on host-accessible memory and retain it for the duration
+    of the native call.
+    """
     if not tensor.is_contiguous():
         raise ValueError("KUPL QCU tensors must be contiguous")
     return int(tensor.data_ptr())
 
 
 def applyInitQcu(set_ptrs, params, argv) -> None:
+    """Allocate resources in ``params[_SET_INDEX_]`` and fill ``set_ptrs``.
+
+    Select an ordinary slot in ``[0:30)`` before calling. Keep that index fixed
+    through the operation and any getters, then release it with
+    :func:`applyEndQcu` before selecting the next slot.
+    """
     _LIBRARY.applyInitQcu(_pointer(set_ptrs), _pointer(params), _pointer(argv))
 
 
 def applyEndQcu(set_ptrs, params) -> None:
+    """Release the backend resource at the current ``_SET_INDEX_`` slot."""
     _LIBRARY.applyEndQcu(_pointer(set_ptrs), _pointer(params))
 
 
@@ -325,11 +362,19 @@ def applyMultigridStrictVCycleQcu(full_out, full_rhs, set_ptrs, params,
 
 def applyMultigridStrictInitQcu(set_ptrs, params, start_level,
                                 allocated_bytes) -> int:
+    """Initialize the reusable strict hierarchy in its fixed reserved slot.
+
+    Unlike an ordinary transaction, the strict setup remains live across many
+    operation/getter calls and ``_SET_INDEX_`` must remain fixed. Tear it down
+    with :func:`applyMultigridStrictEndQcu` and then the enclosing
+    :func:`applyEndQcu`.
+    """
     return int(_LIBRARY.applyMultigridStrictInitQcu(
         _pointer(set_ptrs), _pointer(params), start_level, allocated_bytes))
 
 
 def applyMultigridStrictEndQcu(set_ptrs, params) -> int:
+    """Release the fixed-slot strict hierarchy before ``applyEndQcu``."""
     return int(_LIBRARY.applyMultigridStrictEndQcu(
         _pointer(set_ptrs), _pointer(params)))
 

@@ -1,6 +1,6 @@
 ---
 name: pyqcu-cpp-qcu-include
-description: cpp/cuda/qcu/include 目录的完整生成 skill：24 个模板化 CUDA 头文件（内核内联），define.h 须镜像 pyqcu/cuda/define.py。
+description: 当任务涉及 cpp/cuda/qcu/include、模板化 CUDA 头文件或 define.h/define.py 同步时使用。
 ---
 # cpp/cuda/qcu/include
 

@@ -19,7 +19,8 @@ def phase_a():
     import torch
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     from pyqcu.testing.qcu.strict.quda_comparison.common import MASS_DEFAULT
-    from pyqcu import dslash, tools
+    from pyqcu import tools
+    from pyqcu.torch import dslash
     import pyqcu.cuda.define as define
     from pyqcu.cuda.define import params as mp, argv as ma, set_ptrs as ms
     from pyqcu.cuda import qcu

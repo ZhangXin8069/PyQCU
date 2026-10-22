@@ -1,6 +1,6 @@
 # PyQCU Multigrid：Legacy 与 Strict 对比摘要（2026-10-22）
 
-状态：代码与既有运行的静态核对；本次未新增 GPU、MPI 或大格性能 benchmark。
+状态：代码、小格正确性回归与既有运行记录的核对；本次未新增性能 benchmark。
 
 ## 1. 结论
 
@@ -42,14 +42,14 @@ finally:
 
 | 后端 | LegacyMultigrid | StrictMultigrid |
 |---|---|---|
-| Torch | `pyqcu.solver.LegacyMultigrid`，Python/CUDA 混合自适应 V-cycle | `pyqcu.solver.StrictMultigrid`，Python 参考层级与 Galerkin/MATPC 资产 |
+| Torch | `pyqcu.torch.solver.LegacyMultigrid`，Python/CUDA 混合自适应 V-cycle | `pyqcu.torch.solver.StrictMultigrid`，Python 参考层级与 Galerkin/MATPC 资产 |
 | CUDA | `pyqcu.cuda.multigrid.LegacyMultigrid`，包装 `applyCloverMultigridQcu` monolithic ABI | `pyqcu.cuda.multigrid.StrictMultigrid`，包装 persistent strict hierarchy 与 fused right-FGMRES |
 | KUPL | `pyqcu.kupl.multigrid.LegacyMultigrid`，包装 CPU Clover-MG ABI | `pyqcu.kupl.multigrid.StrictMultigrid`，包装 strict init/FGMRES/end ABI |
 
 实现入口见
 [`multigrid/__init__.py`](../pyqcu/solver/multigrid/__init__.py#L17)、
-[`_legacy_multigrid.py`](../pyqcu/solver/_legacy_multigrid.py#L10)、
-[`_multigrid_core.py`](../pyqcu/solver/_multigrid_core.py#L3836)、
+[`_legacy_multigrid.py`](../pyqcu/torch/solver/_legacy_multigrid.py#L10)、
+[`_multigrid_core.py`](../pyqcu/torch/solver/_multigrid_core.py#L3836)、
 [`cuda/multigrid/legacy_multigrid.py`](../pyqcu/cuda/multigrid/legacy_multigrid.py#L12)、
 [`cuda/_strict_multigrid.py`](../pyqcu/cuda/_strict_multigrid.py#L95)、
 [`kupl legacy`](../pyqcu/kupl/multigrid/legacy_multigrid.py#L12) 与
@@ -59,7 +59,7 @@ finally:
 
 ### Torch
 
-- Legacy 使用 `pyqcu.tools._multigrid` 的 null-vector、正交化、restrict/prolong 与 Python `dslash.operator`。
+- Legacy 使用 `pyqcu.torch.tools._multigrid` 的 null-vector、正交化、restrict/prolong 与 `pyqcu.torch.dslash.operator`。
 - Strict 使用 `_multigrid_core.py` 中的 transfer、coarse operator、MATPC 和递归 hierarchy。
 - 小格回归覆盖 transfer/Galerkin、`Yhat`、MATPC、V-cycle 与 matrix-free 路径；不构成性能结论。
 
@@ -69,6 +69,7 @@ finally:
 - Strict 核心为 [`StrictCoarseHierarchy`](../cpp/cuda/qcu/src/apply_multigrid_strict.cu#L3160)，fused FGMRES 入口在 [`applyMultigridStrictFgmresQcu`](../cpp/cuda/qcu/src/apply_multigrid_strict.cu#L5022)。
 - Legacy coarse 资产位于 `set_ptrs[30+4k]`；Strict 资产从 `set_ptrs[60]` 起，持久 hierarchy 句柄位于 `set_ptrs[80]`。
 - 两者都保持一 Python 进程 = 一 MPI rank = 一设备的执行拓扑。
+- 本次重命名后的 V100 小格回归中，strict fused-FGMRES 3 项与 strict transfer/V-cycle 11 项共 `14 passed`。
 
 ### KUPL
 
@@ -76,6 +77,7 @@ finally:
 - Strict 核心为 [`StrictHostHierarchy`](../cpp/kupl/qcu/src/lattice_strict.cpp#L848)，FGMRES 包装在 [`applyMultigridStrictFgmresQcu`](../cpp/kupl/qcu/src/apply_multigrid_strict.cpp#L266)。
 - 使用 MPI 四维分域、rank 内 OpenMP；Legacy 每次 solve 分配层内向量，Strict 可通过 `set_ptrs[80]` 持久化层级工作区。
 - 当前只支持同精度 c64/c128；CUDA-only GCR/CA-GCR 或混合精度配置必须 fail-closed。
+- 本次 1/2/4-rank strict/legacy MG CTest 共 8 项通过；统一 Python 生命周期包装另有 KUPL 回归覆盖。
 
 ## 5. 已有对比证据
 
@@ -90,7 +92,7 @@ finally:
 - 已成功尺寸的 steady wall 为 Strict 慢于 Legacy，但因 Legacy 未实际执行 coarse correction、两者迭代语义不同，不能写成 MG 算法加速比。
 
 详细数据和可比性边界见
-[`legacy_vs_strict_mg_status_20261022.md`](legacy_vs_strict_mg_status_20261022.md#L121)。
+[`legacy_vs_strict_mg_status_20261022.md`](legacy_vs_strict_mg_status_20261022.md#8-legacy-cuda-solve)。
 
 ### KUPL 状态
 
@@ -101,7 +103,7 @@ finally:
 ### Torch 状态
 
 - 当前小格 CPU 测试验证两条层次的代数关系和接口隔离，不测量大格性能。
-- 本次公开接口回归为 `39 passed`；随后完整 Python 套件为 `40 passed`。
+- 本次统一接口与 strict 参考回归合计 `41 passed`；与 KUPL Python 回归合并运行为 `51 passed`。
 
 ## 6. 统一命名后的硬边界
 

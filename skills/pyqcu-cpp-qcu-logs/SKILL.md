@@ -1,6 +1,6 @@
 ---
 name: pyqcu-cpp-qcu-logs
-description: cpp/cuda/qcu/logs 的归档 skill：该目录已于 2026-10-15 删除（仅两文件，已入 git），此处保留其内容清单、删除依据与后端运行产物的现行落点约定。
+description: 当任务需要追溯已删除的 cpp/cuda/qcu/logs 内容或确定后端口志产物落点时使用。
 ---
 # cpp/cuda/qcu/logs（已删除）
 

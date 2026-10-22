@@ -1,6 +1,6 @@
 ---
 name: pyqcu-testing-qcu
-description: pyqcu/testing/qcu 目录的完整生成 skill：经 Cython 桥测 C++ CUDA 后端；含按职责分类的多重网格性能基准套件（clean/bench/verify/collect/mktable/plots）。
+description: 当任务涉及 pyqcu/testing/qcu、Cython CUDA 后端测试或 MultiGrid 基准套件时使用。
 ---
 # pyqcu/testing/qcu
 
@@ -70,11 +70,11 @@ dev73 的 `multigrid/legacy/` 与 dev74 的 `multigrid/scaling/`（含
 | 已删除来源 | 库内规范位置 |
 |---|---|
 | `legacy/verify_nullvecs.py` | `pyqcu/testing/__init__.py::verify_nullvecs` |
-| `legacy/mg_stencil_build.py` | `pyqcu/tools/_multigrid.py::build_stencil`/`build_stencil_mt`/`apply_stencil` |
+| `legacy/mg_stencil_build.py` | `pyqcu/torch/tools/_multigrid.py::build_stencil`/`build_stencil_mt`/`apply_stencil` |
 | `legacy/cache.py` | `pyqcu/cuda/_multi_gpu.py` + `pyqcu/tools/_io.py` |
-| `legacy/mg_schur_build.py` | `pyqcu/tools/_strict_galerkin.py` |
-| `legacy/mg_pyref_expt.py` | `pyqcu/solver/_multigrid_core.py` |
-| `legacy/reference_benchmark.py` | `pyqcu/cuda/_logs.py` + `pyqcu/solver/_bistabcg.py::bistabcg_history` |
+| `legacy/mg_schur_build.py` | `pyqcu/torch/tools/_strict_galerkin.py` |
+| `legacy/mg_pyref_expt.py` | `pyqcu/torch/solver/_multigrid_core.py` |
+| `legacy/reference_benchmark.py` | `pyqcu/cuda/_logs.py` + `pyqcu/torch/solver/_bistabcg.py::bistabcg_history` |
 | `legacy/dslash_adapter.py` | `pyqcu/cuda/_schur_op.py` |
 | `legacy/budget.py` | `pyqcu/tools/_budget.py` |
 | `legacy/benchmark.py` | `pyqcu/tools/_env.py` |
@@ -162,11 +162,10 @@ multi-rank QCU 默认设 `PYQCU_MPI_DEVICE_AWARE=0`。强制 host staging 后可
 2-rank 收敛；恢复 device-aware 前必须通过 2-rank halo、全算子残差和 10 分钟
 阶段审计。
 
-QUDA MG 的 `n_vec` 必须在运行时按实际 `libquda.so` 回读。当前
-`/home/bingxing2/home/scx8080/lib/quda-develop/build` 编译实例支持
-`6,24,32`，请求 `12` 会明确报 `Unsupported nVec 12`；不要仅依据历史构建文档
-假定支持 `12,24`。正式 MG 比较应先解析实际 CMake capability，再选择两侧相同的
-coarse spin/nvec 语义。
+QUDA MG 的 `n_vec` 必须在运行时按实际 `libquda.so` 回读。历史某构建实例只支持
+`6,24,32`，请求 `12` 会明确报 `Unsupported nVec 12`；不要依据历史构建文档或
+绝对安装路径假定支持 `12,24`。正式 MG 比较应先解析当前 `QUDA_INSTALL` 的 CMake
+capability，再选择两侧相同的 coarse spin/nvec 语义。
 
 任何 GPU 作业超过 10 分钟仍在运行时，必须留下一次运行中审计记录；仅有
 `RUNNING` 状态不足以证明任务健康。

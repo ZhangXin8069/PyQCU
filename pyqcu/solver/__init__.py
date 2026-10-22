@@ -1,39 +1,70 @@
-from ._bistabcg import bistabcg as bistabcg
-from ._bistabcg import bistabcg_history as bistabcg_history
-from ._gmres import fgmres as fgmres
-from ._mr import mr as mr
-from .multigrid import (LegacyMultigrid as LegacyMultigrid,
-                        Multigrid as Multigrid,
-                        StrictMultigrid as StrictMultigrid)
-from .multigrid.strict_multigrid import (
-    Checkerboard as Checkerboard,
-    CompactParityLayout as CompactParityLayout,
-    CompactParityOperator as CompactParityOperator,
-    ParitySchurOperator as ParitySchurOperator,
-    QcuStrictAssetBinding as QcuStrictAssetBinding,
-    StrictCoarseOperator as StrictCoarseOperator,
-    StrictMatPCOperator as StrictMatPCOperator,
-    StrictTransfer as StrictTransfer,
-)
+"""Stable public solver facade.
+
+Torch implementations live in :mod:`pyqcu.torch.solver`. Backend-neutral
+multigrid and Krylov selectors remain here so all three backends share stable
+public entry points.
+"""
+
+from pyqcu.torch.solver import Checkerboard as Checkerboard
+from pyqcu.torch.solver import CompactParityLayout as CompactParityLayout
+from pyqcu.torch.solver import CompactParityOperator as CompactParityOperator
+from pyqcu.torch.solver import LegacyMultigrid as LegacyMultigrid
+from pyqcu.torch.solver import ParitySchurOperator as ParitySchurOperator
+from pyqcu.torch.solver import QcuStrictAssetBinding as QcuStrictAssetBinding
+from pyqcu.torch.solver import StrictCoarseOperator as StrictCoarseOperator
+from pyqcu.torch.solver import StrictMatPCOperator as StrictMatPCOperator
+from pyqcu.torch.solver import StrictMultigrid as StrictMultigrid
+from pyqcu.torch.solver import StrictTransfer as StrictTransfer
+from pyqcu.torch.solver import bistabcg as bistabcg
+from pyqcu.torch.solver import bistabcg_history as bistabcg_history
+from pyqcu.torch.solver import cacg as cacg
+from pyqcu.torch.solver import fgmres as fgmres
+from pyqcu.torch.solver import mr as mr
+from pyqcu.torch.solver import multishift_cg as multishift_cg
+from pyqcu.torch.solver import multishift_cg_true_residuals as multishift_cg_true_residuals
+from pyqcu.torch.solver import tr_lanczos as tr_lanczos
+from .krylov import Krylov as Krylov
+from .multigrid import Multigrid as Multigrid
+
 from argparse import Namespace
+
 Namespace.__module__ = "pyqcu.solver"
 
-# 测试专用：单进程多线程多 GPU 的 Legacy Multigrid 驱动（一线程一卡）。
-# 只有显式访问 MultiGpuMultigrid/verify_multi_gpu_mg 时才延迟导入；生产
-# CUDA 拓扑固定为一 Python 进程 = 一 MPI rank = 一 GPU/DCU/GPGPU。
 _MULTI_GPU_CACHE = {}
 
 
 def __getattr__(name):
     if name in ("MultiGpuMultigrid", "verify_multi_gpu_mg"):
         if name not in _MULTI_GPU_CACHE:
-            from pyqcu.cuda._multi_gpu import MultiGpuMultigrid as _MG
-            from pyqcu.cuda._multi_gpu import verify_multi_gpu_mg as _VM
-            _MULTI_GPU_CACHE["MultiGpuMultigrid"] = _MG
-            _MULTI_GPU_CACHE["verify_multi_gpu_mg"] = _VM
+            from pyqcu.cuda._multi_gpu import MultiGpuMultigrid as mg_type
+            from pyqcu.cuda._multi_gpu import verify_multi_gpu_mg as verify
+
+            _MULTI_GPU_CACHE["MultiGpuMultigrid"] = mg_type
+            _MULTI_GPU_CACHE["verify_multi_gpu_mg"] = verify
         return _MULTI_GPU_CACHE[name]
-    raise AttributeError(f"module 'pyqcu.solver' has no attribute '{name}'")
-from ._multishift_cg import multishift_cg as multishift_cg
-from ._multishift_cg import multishift_cg_true_residuals as multishift_cg_true_residuals
-from ._cacg import cacg as cacg
-from ._lanczos import tr_lanczos as tr_lanczos
+    raise AttributeError(f"module 'pyqcu.solver' has no attribute {name!r}")
+
+__all__ = [
+    "Checkerboard",
+    "CompactParityLayout",
+    "CompactParityOperator",
+    "LegacyMultigrid",
+    "Krylov",
+    "MultiGpuMultigrid",
+    "Multigrid",
+    "ParitySchurOperator",
+    "QcuStrictAssetBinding",
+    "StrictCoarseOperator",
+    "StrictMatPCOperator",
+    "StrictMultigrid",
+    "StrictTransfer",
+    "bistabcg",
+    "bistabcg_history",
+    "cacg",
+    "fgmres",
+    "mr",
+    "multishift_cg",
+    "multishift_cg_true_residuals",
+    "tr_lanczos",
+    "verify_multi_gpu_mg",
+]

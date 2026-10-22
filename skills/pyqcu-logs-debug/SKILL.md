@@ -1,6 +1,6 @@
 ---
 name: pyqcu-logs-debug
-description: logs/debug 目录的完整生成 skill：逐轮调试/修复日志（fix-log*.md），完成后升级为 logs/fix-report-*.md。
+description: 当任务需要写入或维护 logs/debug 的逐轮调试与修复日志时使用。
 ---
 # logs/debug
 

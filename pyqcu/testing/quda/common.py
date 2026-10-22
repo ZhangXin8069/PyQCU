@@ -12,7 +12,8 @@ import time
 from typing import Any, Sequence
 import numpy as np
 import torch
-from pyqcu import dslash, tools
+from pyqcu import tools
+from pyqcu.torch import dslash
 
 ROOT = Path(__file__).resolve().parents[3]
 DATA = Path(os.environ.get("PYQCU_DATA_DIR", str(ROOT / "data"))).expanduser()

@@ -22,7 +22,8 @@ from common import (
 )
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
-from pyqcu import dslash, lattice, solver, tools  # noqa: E402
+from pyqcu import lattice, tools  # noqa: E402
+from pyqcu.torch import dslash, solver
 import pyqcu.cann as _torch  # noqa: E402
 
 

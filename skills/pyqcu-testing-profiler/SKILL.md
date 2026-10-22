@@ -1,6 +1,6 @@
 ---
 name: pyqcu-testing-profiler
-description: pyqcu/testing/profiler 目录的完整生成 skill：torch.profiler 性能剖析，导出 Chrome trace 供 Perfetto 可视化。
+description: 当任务需要运行或解释 pyqcu/testing/profiler、torch.profiler 或 Perfetto trace 时使用。
 ---
 # pyqcu/testing/profiler
 

@@ -1,6 +1,6 @@
 ---
 name: pyqcu-cpp-qcu
-description: cpp/cuda/qcu 目录的完整生成 skill：PyQCU 主 C++ CUDA 后端（hand-tuned CUDA 内核 + MPI halo 交换），含 strict QUDA-style MultiGrid、参数协议与显存生命周期不变量。
+description: 当任务涉及 cpp/cuda/qcu 的 CUDA 内核、MPI halo、MultiGrid 或 C++ 参数与显存生命周期时使用。
 ---
 # cpp/cuda/qcu
 

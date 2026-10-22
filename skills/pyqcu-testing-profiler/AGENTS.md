@@ -1,4 +1,4 @@
-# pyqcu-testing-profiler
+# AGENTS.md — pyqcu-testing-profiler
 
 pyqcu/testing/profiler 目录的完整生成 skill：torch.profiler 性能剖析，导出 Chrome trace 供 Perfetto 可视化。
 
