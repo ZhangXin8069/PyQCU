@@ -83,8 +83,7 @@ def _load_case(gauge_path: Path, source_path: Path, lat: tuple[int, ...],
     return gauge_full, source_full, gauge, rhs
 
 
-def _fine_operator(gauge_full: Any, lat: tuple[int, ...], mass: float,
-                   csw: float, device: Any):
+def _fine_clover(gauge_full: Any, mass: float, csw: float, device: Any):
     import torch
     from pyqcu.torch import dslash
 
@@ -93,9 +92,18 @@ def _fine_operator(gauge_full: Any, lat: tuple[int, ...], mass: float,
     u0 = torch.ones(1, dtype=torch.float32, device=device)
     clover = dslash.make_clover(
         gauge_full, kappa=kappa_t, u_0=u0, csw=csw)
+    return clover, kappa, kappa_t, u0
+
+
+def _fine_operator(gauge_full: Any, lat: tuple[int, ...], mass: float,
+                   csw: float, device: Any, *, parity_only: bool = False):
+    from pyqcu.torch import dslash
+
+    clover, kappa, kappa_t, u0 = _fine_clover(
+        gauge_full, mass, csw, device)
     operator = dslash.operator(
         U=gauge_full, clover_term=clover, kappa=kappa_t, u_0=u0,
-        support_parity=True, verbose=False)
+        support_parity=True, parity_only=parity_only, verbose=False)
     return operator, clover, kappa, kappa_t, u0
 
 
@@ -278,15 +286,20 @@ def _build_legacy(args: argparse.Namespace) -> dict[str, Any]:
     started = time.perf_counter()
     gauge_full, _, gauge, _ = _load_case(
         Path(args.gauge), Path(args.source), tuple(args.lat), device)
-    operator, _clover, kappa, _kappa_t, _u0 = _fine_operator(
-        gauge_full, tuple(args.lat), args.mass, args.csw, device)
+    operator = _fine_operator(
+        gauge_full, tuple(args.lat), args.mass, args.csw, device,
+        parity_only=True)[0]
+    del gauge, _
+    torch.cuda.empty_cache()
     fine_prepare = time.perf_counter() - started
     started = time.perf_counter()
     assets = build_schur_levels(
         operator, operator.matvec_parity, 2, [12, args.coarse_dof],
         [2, 2, 2, 2], list(args.lat), args.coarse_dof, torch.complex64,
         device, nv_iters=args.nv_iters, use_cache=False, verbose=args.verbose,
-        mass=args.mass, csw=args.csw)
+        mass=args.mass, csw=args.csw, local_stencil=True,
+        local_stencil_batch_size=args.local_stencil_batch,
+        null_batch_chunk=args.null_batch_chunk)
     torch.cuda.synchronize(device)
     asset_build = time.perf_counter() - started
     lonv, hnn, hdg, sit = (item[0] for item in assets)
@@ -309,6 +322,9 @@ def _build_legacy(args: argparse.Namespace) -> dict[str, Any]:
         "coarse_dof": args.coarse_dof,
         "mg_grid": [2, 2, 2, 2],
         "nv_iters": args.nv_iters,
+        "local_stencil": True,
+        "local_stencil_batch_size": args.local_stencil_batch,
+        "null_batch_chunk": args.null_batch_chunk,
         "cache": {"path": str(output), "sha256": _sha256(output),
                   "size_bytes": output.stat().st_size},
         "asset_shapes": {
@@ -423,8 +439,6 @@ def _run_legacy(args: argparse.Namespace) -> dict[str, Any]:
     started = time.perf_counter()
     gauge_full, _, gauge, rhs = _load_case(
         Path(args.gauge), Path(args.source), tuple(args.lat), device)
-    _operator, clover, kappa, kappa_t, _u0 = _fine_operator(
-        gauge_full, tuple(args.lat), args.mass, args.csw, device)
     fine_prepare = time.perf_counter() - started
     levels = int(args.levels)
     multigrid_warnings = _depth_warnings(
@@ -515,12 +529,23 @@ def _run_legacy(args: argparse.Namespace) -> dict[str, Any]:
             (warmups if index < args.warmups else steady).append(elapsed)
             iterations.append(_last_mg_iterations(log_path))
         native_residual = _last_mg_true_residual(log_path)
-        python_residual = float(_true_residual(
-            output, rhs, gauge, gauge_full, clover, args.mass, _operator))
-        final_result = (native_residual if native_residual is not None
-                        else python_residual)
     finally:
         qcu.applyEndQcu(set_ptrs, params)
+        # Native cache tensors and runtime scratch must leave the device before
+        # preparing the independent Torch residual on capacity-bound cases.
+        del assets, lonv, tensor
+        del assets_by_level
+        torch.cuda.synchronize(device)
+        torch.cuda.empty_cache()
+    residual_prepare_started = time.perf_counter()
+    clover, _kappa, _kappa_t, _u0 = _fine_clover(
+        gauge_full, args.mass, args.csw, device)
+    torch.cuda.synchronize(device)
+    residual_prepare = time.perf_counter() - residual_prepare_started
+    python_residual = float(_true_residual(
+        output, rhs, gauge, gauge_full, clover, args.mass))
+    final_result = (native_residual if native_residual is not None
+                    else python_residual)
     payload = _common_payload(args)
     memory = _memory_snapshot(device)
     device_peak = device_sampler.stop()
@@ -539,6 +564,8 @@ def _run_legacy(args: argparse.Namespace) -> dict[str, Any]:
         "operation": "legacy_solve",
         "status": "PASS" if native_pass and independent_pass else "FAIL",
         "fine_prepare_seconds": fine_prepare,
+        "fine_prepare_scope": "case input loading; native runtime is initialized separately",
+        "residual_operator_prepare_seconds": residual_prepare,
         "cache_load_seconds": cache_load,
         "clover_tensor_prepare_seconds": clover_tensor_prepare,
         "mg_init_seconds": runtime_init,
@@ -756,6 +783,8 @@ def main(argv: list[str] | None = None) -> int:
     build.add_argument("--cache-output", required=True)
     build.add_argument("--coarse-dof", type=int, default=12)
     build.add_argument("--nv-iters", type=int, default=1)
+    build.add_argument("--local-stencil-batch", type=int, default=4)
+    build.add_argument("--null-batch-chunk", type=int, default=None)
     build.add_argument("--verbose", action="store_true")
 
     legacy = sub.add_parser("legacy", parents=[common])
