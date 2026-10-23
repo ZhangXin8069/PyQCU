@@ -1,0 +1,72 @@
+[日志元数据]
+日志类型: stage
+生成时间: 2026-10-23 22:06:53 +0800
+批次: qcu-multigrid-stab62_1-20261023
+主任务: Archive MultiGrid lessons into skills and key execution log
+触发原因: 阶段成果
+摘要: Skill consolidation for cache layout, capacity teardown, Strict preflight, ABI and log evidence
+Git 根目录: /root/PyQCU
+
+## 关键日志
+### S1 — MultiGrid 经验沉淀
+- 目标: 将本轮 MultiGrid 重构、L32 容量调试、cache 口径、全量测试失败和 QUDA 超时经验写入可复用 skill。
+- 操作: 更新 `pyqcu-benchmark`、`pyqcu-kupl`、`pyqcu-testing`、`pyqcu-logs-results` 及 benchmark reference。
+- 关键经验: odd-Schur 与 KUPL full-time cache 不可互换；`parity_only` 只适用于预建 cache；独立 residual 必须在 native runtime/hierarchy/cache 释放后执行；KUPL Strict public/raw ABI 已对齐；Strict 预检不得读取 setup 后才存在的 `transfers/operators`。
+- 证据与判断: 这些内容来自 `449 passed, 10 skipped` 全量回归、L32 PASS 数据、QUDA N24/N48 skip 以及 final log，不是推测。
+
+### S2 — 日志与证据规则
+- `logs/**` 只允许 `.log/.json/.tsv/.csv/.txt` 等扩展名，命令退出码文件使用 `*.exit_code.txt`。
+- 单组总耗时达到 `1000 s` 时记录 `SKIPPED: elapsed_time_unacceptable`、timeout、exit code 和最后阶段，不写成数值失败。
+- L32 正式证据继续保留在 `logs/qcu_l32x64_mpi_20261023/summary.json` 与 `quda-multigrid-status.json`。
+
+### S3 — 验证与发布准备
+- docs audit: `PASS docs=28 skills=35`。
+- form audit: PASS，35 个技能目录一致，1197 个既有 finding。
+- tag-chain: PASS，285 个受管标签及远端对象一致。
+- large-file gate 与 `git diff --check`: PASS。
+- 下一步: 提交 skill/log 变更，push `main`，创建并推送 `stab62_1`。
+
+## 验证与证据
+- 技能改动: 5 个文件，均为文档/技能内容，无源码行为变化。
+- docs audit: PASS。
+- form audit: PASS。
+- tag-chain remote check: PASS。
+- form large-file gate: PASS。
+- markdown 修改经 `git diff --check`，无冲突标记或尾部空白。
+- 未重新执行全量功能测试：本轮没有 Python/C++/Cython 源码改动；其功能基线为上一轮刚通过的 `449 passed, 10 skipped`。
+
+## 变更与产物
+- `skills/pyqcu-benchmark/SKILL.md`: 补充 cache 语义、residual teardown、KUPL ABI 现状。
+- `skills/pyqcu-benchmark/references/qcu-multigrid-20261023.md`: 增加 L32 cache/容量/teardown checklist。
+- `skills/pyqcu-kupl/SKILL.md`: 记录 public/raw ABI 对齐和 full-time cache 边界。
+- `skills/pyqcu-testing/SKILL.md`: 记录最终全量回归、Strict setup 前预检和历史文档读取规则。
+- `skills/pyqcu-logs-results/SKILL.md`: 记录当前 MultiGrid 证据、1000 s skip 和退出码文件名。
+
+## 风险、限制与下一步
+- 本轮只改 skill/log，不复测 L32 性能；引用数值保持上一轮环境与配置边界。
+- QUDA nvec=12/N24 与 nvec=24/N48 均无完成计时结果，不得生成公平倍率。
+- Torch L32 达 32 GiB 容量边界，不外推到更大问题。
+- 下一步: commit、push main、创建并推送 `stab62_1`。
+
+## 用户输入指令
+“将此次工作的经验写入skills,关键日志写入logs,最后push后~tag:stab62_1”
+
+## Agent 全文报告
+--- report begin ---
+已完成 MultiGrid 经验的 skill 沉淀和关键日志归档。
+
+本轮新增经验覆盖：
+- CUDA/Torch odd-Schur cache 与 KUPL full-time cache 的语义和形状不可互换。
+- cached Torch Legacy 的 `parity_only` 仅在不需要现场构建 Galerkin 时启用。
+- 容量受限时，正式 solve 与独立 full residual 必须串行占用设备峰值；先结束 native runtime、关闭 hierarchy、解除绑定方法闭包、GC/清空 allocator，再重建 residual operand。
+- L32 null-space 和 local stencil batch 需要显式小批量，当前验证值为 1。
+- KUPL Strict public/raw ABI 已对齐，可交叉比较；raw PASS 不能替代未验证的公共路径。
+- CUDA Strict 的 setup 前预检使用 `_transition_count`，不能读取 setup 后才填充的 `transfers/operators`。
+- 已删除历史 TeX 不应被测试硬编码读取；测试应从 Git 历史归档读取。
+- `logs/**` 的退出码文件名必须为 `*.exit_code.txt`。
+- 单组达到 1000 s 时以结构化 skip 记录，不把 setup 超时写成数值失败或 solve 性能。
+
+验证结果：docs audit `PASS docs=28 skills=35`，form audit PASS，tag-chain PASS（285 个标签），large-file gate 和 `git diff --check` 均通过。本轮无源码变更，因此未重复执行全量功能测试；上一轮功能基线为 `449 passed, 10 skipped`。
+
+下一步为提交本轮 skills/log 改动，先 push `main`，再创建并推送 `stab62_1`。
+--- report end ---
