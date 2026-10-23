@@ -148,6 +148,24 @@ KUPL 使用独立 full-time cache，SHA256 `86173c8f...7cef`；不得互换或�
 `nvec=24 -> Nc=48` 在 `1000 s` 处超时，未产生计时行。两个 QUDA MG 尝试都只能记为 skip，
 不能与 `nvec=12` 计算公平倍率。
 
+### L32 容量与 teardown checklist
+
+1. 先按 backend 校验 cache 语义。CUDA/Torch 的 odd-Schur `lonv` 末两轴是
+   `T/2,t`；KUPL full-time cache 的 coarse T 不同。不可只比较文件大小或同名 dataset。
+2. 只为预建 cache 的 Torch Legacy 启用 `parity_only=True`。它逐方向拆分后立即释放
+   完整 hopping/sitting 副本；现场构建 Galerkin 时仍需要完整 stencil，不能启用。
+3. 容量受限时把正式 solve 与独立 residual 的峰值串行化：结束 C++ runtime、关闭
+   hierarchy、删除 cache/asset owner 和绑定方法闭包，执行 GC 与 `empty_cache()`，
+   再重建完整 Clover 做 true residual。
+4. 大格 null-space 生成必须限制 batch。L32 c64 E12 已验证
+   `null_batch_chunk=1`、`local_stencil_batch=1`；更大会在就近 32 GiB 卡上 OOM。
+5. Torch L32 Legacy 的 32 GiB 峰值是硬容量边界，不是稳定余量。不得把“刚好完成”外推
+   到更稠密 Dslash、更高 E 或额外独立 residual 并发驻留。
+6. 进程总组达到 `1000 s` 时只记录 `SKIPPED: elapsed_time_unacceptable`。特别是
+   QUDA `nvec=24 -> Nc=48` 已进入 setup 但未进入 solve，不得把 setup 进展写成性能。
+7. 并行编排器的退出码文件写 `.exit_code.txt`；裸 `.exit_code` 不符合 `logs/**`
+   扩展名规则。
+
 ## 正确性门
 
 Legacy 多级结果不能只检查 C++ native residual。求解返回后必须独立重建 full
