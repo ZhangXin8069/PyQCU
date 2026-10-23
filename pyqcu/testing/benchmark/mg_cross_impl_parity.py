@@ -518,13 +518,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     for name, command, stdout in jobs:
         output_json = out / f"{name}.json"
         if args.resume and output_json.is_file():
-            exit_file = out / f"{name}.exit_code"
+            exit_file = out / f"{name}.exit_code.txt"
             exits[name] = (
                 int(exit_file.read_text(encoding="utf-8").strip())
                 if exit_file.is_file() else 0)
             continue
         exits[name] = _run(command, env, stdout, args.timeout_seconds)
-        (out / f"{name}.exit_code").write_text(
+        (out / f"{name}.exit_code.txt").write_text(
             f"{exits[name]}\n", encoding="utf-8")
 
     sides: dict[str, dict[str, Any]] = {}

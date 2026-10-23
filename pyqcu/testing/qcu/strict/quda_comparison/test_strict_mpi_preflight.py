@@ -276,6 +276,7 @@ class _SetupEntered(RuntimeError):
 class _HierarchySetupProbe:
     def __init__(self, local_shape, setup_mode):
         self._strict_quda = True
+        self._strict_mode = True
         self.target_parity = 1
         self.fine_shape = tuple(local_shape)
         self._transition_count = 1
@@ -286,6 +287,29 @@ class _HierarchySetupProbe:
     def setup(self):
         self.setup_calls += 1
         raise _SetupEntered("hierarchy setup was entered")
+
+
+class _CudaAssetProbe:
+    is_cuda = True
+    device = object()
+
+    def is_contiguous(self) -> bool:
+        return True
+
+
+class _CpuArgvProbe:
+    device = type("CpuDevice", (), {"type": "cpu"})()
+
+    def is_contiguous(self) -> bool:
+        return True
+
+
+class _CpuParamsProbe(_CpuArgvProbe):
+    def __init__(self, values):
+        self.values = values
+
+    def __getitem__(self, index):
+        return self.values[index]
 
 
 def _constructor_params(local_shape, process_grid):
@@ -304,10 +328,12 @@ def test_production_constructor_allows_serial_preflight_before_setup():
     from pyqcu.cuda.multigrid.strict_multigrid import StrictMultigrid
 
     hierarchy = _HierarchySetupProbe(FINE, "column")
-    params = _constructor_params(FINE, (1, 1, 1, 1))
+    params = _CpuParamsProbe(_constructor_params(FINE, (1, 1, 1, 1)))
+    field = _CudaAssetProbe()
     with pytest.raises(_SetupEntered, match="setup was entered"):
         StrictMultigrid(
-            hierarchy, None, None, None, None, None, None, params)
+            hierarchy, _CpuArgvProbe(), field, field, field, field, field,
+            params)
     assert hierarchy.setup_calls == 1
 
 
