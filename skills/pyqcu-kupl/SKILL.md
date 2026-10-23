@@ -58,6 +58,11 @@ metadata:
   外部 Clover 索引必须为 `(row*12+column)*half_sites+site`。
 - MPI halo 临时缓冲可 site-major，但进入计算前必须 gather 为局部 `C[12]`，
   结果必须 scatter 回 canonical 外部布局。
+- Strict public wrapper 与 raw ctypes ABI 已对齐；回归应交叉比较两条路径，
+  当前同输入 L32 解相对差约 `8.3e-8`。若只验证 raw ABI，不得外推为所有公共路径可用。
+- KUPL Legacy 原生 cache 是 full-time 布局；CUDA/Torch Legacy 的公共 cache 是
+  odd-Schur、parity-compressed-time 布局。两者 coarse shape 不同，禁止按路径或文件大小
+  互换。KUPL 收到外部 cache 时仍须校验 E、coarse geometry 与 ABI。
 
 ## 并行与绑定
 

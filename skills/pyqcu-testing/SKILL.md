@@ -251,3 +251,25 @@ python -B -m pytest -q -p no:cacheprovider \
   pyqcu/testing/qcu/strict/quda_comparison/test_build_mg_report.py \
   pyqcu/testing/qcu/strict/quda_comparison/test_validate_matrix_trace_evidence.py
 ```
+
+## 2026-10-23 全量收尾回归
+
+最终 tag 前必须在最后一批微调之后重新运行完整套件，不能用前一轮定向结果替代：
+
+```bash
+cd pyqcu/testing
+timeout --signal=TERM --kill-after=30s 1000s pytest -q .
+```
+
+当前基线为 `449 passed, 10 skipped`。另外保留 `29/29` KUPL CTest、CUDA API ABI
+和 KUPL 37 项导出 ABI 门。
+
+- CUDA Strict 构造器在 `hierarchy.setup()` 之前只能依赖已配置的
+  `_transition_count`/`_block_sizes`，不得读取 setup 后才填充的
+  `transfers/operators`。预检测试探针必须提供现代 `_strict_mode` 与 CPU/GPU
+  张量接口，但不能削弱 fail-fast 资产检查。
+- 测试需要读取已按文档规范清理的历史报告时，先查工作树；不存在则用
+  `git log --all --diff-filter=AM -- <path>` 找到最后增改提交，再通过
+  `git show <commit>:<path>` 读取。不得把历史 TeX 恢复到 `docs/`，也不得静默跳过。
+- `mg_cross_impl_parity.py` 的退出码旁路文件统一为 `*.exit_code.txt`；裸
+  `*.exit_code` 不符合仓库 logs 扩展名规则。
