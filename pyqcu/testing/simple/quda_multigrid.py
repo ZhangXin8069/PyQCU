@@ -36,6 +36,8 @@ def main(argv=None) -> int:
     parser.add_argument("--gauge", default=None)
     parser.add_argument("--source", default=None)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--warmup", type=int, default=1)
+    parser.add_argument("--repeats", type=int, default=3)
     parser.add_argument("--output", default=None)
     parser.add_argument("--levels", type=int, default=2)
     parser.add_argument("--nvec", type=int, default=DEFAULT_NVEC)

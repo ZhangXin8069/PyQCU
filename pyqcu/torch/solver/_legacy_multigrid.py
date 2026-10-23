@@ -97,8 +97,17 @@ class LegacyMultigrid:
                 f"PYQCU::SOLVER::LEGACY_MULTIGRID:\n self.lat_size_list:{self.lat_size_list}")
         for device in self.device_list:
             tools.set_device(device=device)
-        self.op_list = [dslash.operator(U=U,
-                                        clover_term=clover_term, verbose=self.verbose, kappa=self.kappa, u_0=self.u_0, support_parity=self.support_parity, clover_ee_inv=self.clover_ee_inv, clover_oo_inv=self.clover_oo_inv,)]
+        self.op_list = [dslash.operator(
+            U=U,
+            clover_term=clover_term,
+            verbose=self.verbose,
+            kappa=self.kappa,
+            u_0=self.u_0,
+            support_parity=self.support_parity,
+            parity_only=bool(self.coarse_assets),
+            clover_ee_inv=self.clover_ee_inv,
+            clover_oo_inv=self.clover_oo_inv,
+        )]
         if seed is not None:
             # bug40 后续: 多线程实例并行时全局 RNG 竞争使初始 b/x0 非确定;
             # 显式 seed 时用本地 Generator(每实例独立流),残差可复现。

@@ -20,7 +20,11 @@ from pathlib import Path
 from typing import Dict, Optional
 
 import torch
-import psutil
+
+try:
+    import psutil
+except ImportError:  # Keep the solver importable in minimal runtime environments.
+    psutil = None
 
 try:
     from pyqcu.tools._io import save_tensor_h5, load_tensor_h5
@@ -43,11 +47,19 @@ def _norm_device(device) -> torch.device:
 
 
 def _ram_available_bytes() -> int:
+    if psutil is not None:
+        try:
+            return int(psutil.virtual_memory().available)
+        except Exception:
+            pass
     try:
-        return psutil.virtual_memory().available
-    except Exception:
-        # 保守估计 4GB
-        return 4 * 1024**3
+        for line in Path("/proc/meminfo").read_text(encoding="ascii").splitlines():
+            if line.startswith("MemAvailable:"):
+                return int(line.split()[1]) * 1024
+    except (OSError, ValueError, IndexError):
+        pass
+    # Conservative fallback on systems without psutil or /proc/meminfo.
+    return 4 * 1024**3
 
 def _vram_available_bytes(device: torch.device) -> int:
     try:

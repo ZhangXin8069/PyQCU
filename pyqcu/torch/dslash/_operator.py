@@ -32,9 +32,11 @@ class hopping:
     are additionally stored as two compact target-parity sectors.
     """
 
-    def __init__(self,  U: Optional[torch.Tensor] = None, kappa: Optional[torch.Tensor] = torch.Tensor([0.1]), u_0: Optional[torch.Tensor] = torch.Tensor([1.0]), support_parity: bool = False):
+    def __init__(self,  U: Optional[torch.Tensor] = None, kappa: Optional[torch.Tensor] = torch.Tensor([0.1]), u_0: Optional[torch.Tensor] = torch.Tensor([1.0]), support_parity: bool = False, parity_only: bool = False):
         self.comm = MPI.COMM_WORLD
         self.rank = self.comm.Get_rank()
+        self.support_parity = bool(support_parity)
+        self.parity_only = bool(parity_only and support_parity)
         self.rank_plus_list = [tools.give_rank_plus(
             ward=ward) for ward in range(4)]
         self.rank_minus_list = [tools.give_rank_minus(
@@ -43,6 +45,15 @@ class hopping:
             []), torch.zeros([]), torch.zeros([])]  # xyzt
         self.M_minus_list = [torch.zeros([]), torch.zeros(
             []), torch.zeros([]), torch.zeros([])]  # xyzt
+        if self.support_parity:
+            self.M_e_plus_list = [torch.zeros([]), torch.zeros(
+                []), torch.zeros([]), torch.zeros([])]  # xyzt
+            self.M_e_minus_list = [torch.zeros([]), torch.zeros(
+                []), torch.zeros([]), torch.zeros([])]  # xyzt
+            self.M_o_plus_list = [torch.zeros([]), torch.zeros(
+                []), torch.zeros([]), torch.zeros([])]  # xyzt
+            self.M_o_minus_list = [torch.zeros([]), torch.zeros(
+                []), torch.zeros([]), torch.zeros([])]  # xyzt
         self.U = U
         self.grid_size = tools.give_grid_size()
         self.grid_index = tools.give_grid_index()
@@ -64,31 +75,31 @@ class hopping:
                         device=self.U.device)
                 else:
                     U_head = None
-                self.M_plus_list[ward] = give_hopping_plus(
+                M_plus = give_hopping_plus(
                     ward=ward, U=self.U, kappa=kappa, u_0=u_0)
-                self.M_minus_list[ward] = give_hopping_minus(
+                M_minus = give_hopping_minus(
                     ward=ward, U=self.U, U_head=U_head, kappa=kappa, u_0=u_0)
-            if support_parity:
-                # Split each [12, 12, ...] stencil by destination parity. The
-                # resulting sectors retain spin-color rows/columns and x,y,z,
-                # while the time extent is compacted to t // 2.
-                self.M_e_plus_list = [torch.zeros([]), torch.zeros(
-                    []), torch.zeros([]), torch.zeros([])]  # xyzt
-                self.M_e_minus_list = [torch.zeros([]), torch.zeros(
-                    []), torch.zeros([]), torch.zeros([])]  # xyzt
-                self.M_o_plus_list = [torch.zeros([]), torch.zeros(
-                    []), torch.zeros([]), torch.zeros([])]  # xyzt
-                self.M_o_minus_list = [torch.zeros([]), torch.zeros(
-                    []), torch.zeros([]), torch.zeros([])]  # xyzt
-                for ward in range(4):
-                    _ = tools.oooxyzt2poooxyzt(
-                        input_array=self.M_plus_list[ward])
-                    self.M_e_plus_list[ward] = _[0]
-                    self.M_o_plus_list[ward] = _[1]
-                    _ = tools.oooxyzt2poooxyzt(
-                        input_array=self.M_minus_list[ward])
-                    self.M_e_minus_list[ward] = _[0]
-                    self.M_o_minus_list[ward] = _[1]
+                if self.support_parity:
+                    # Split each [12, 12, ...] stencil by destination parity.
+                    # The compact sectors retain spin-color rows/columns and
+                    # x,y,z, while time is compacted to t // 2.
+                    plus_parity = tools.oooxyzt2poooxyzt(
+                        input_array=M_plus)
+                    minus_parity = tools.oooxyzt2poooxyzt(
+                        input_array=M_minus)
+                    self.M_e_plus_list[ward] = plus_parity[0]
+                    self.M_o_plus_list[ward] = plus_parity[1]
+                    self.M_e_minus_list[ward] = minus_parity[0]
+                    self.M_o_minus_list[ward] = minus_parity[1]
+                    del plus_parity, minus_parity
+                    if self.parity_only:
+                        # Cached Legacy hierarchies consume only the compact
+                        # Schur blocks. Releasing each full stencil immediately
+                        # cuts the L32 construction peak by about 9.6 GiB.
+                        M_plus = None
+                        M_minus = None
+                self.M_plus_list[ward] = M_plus
+                self.M_minus_list[ward] = M_minus
 
     def matvec_plus(self, ward: int, src: torch.Tensor) -> torch.Tensor:
         """Apply the ``+mu`` stencil using ``src(x + mu)``.
@@ -96,6 +107,9 @@ class hopping:
         A source tail halo is received from the rank in the ``+mu`` direction
         only when that lattice axis is partitioned across MPI ranks.
         """
+        if self.parity_only:
+            raise RuntimeError(
+                "full hopping stencils were released by parity_only=True")
         dtype = src.dtype
         device = src.device
         _dtype = self.M_plus_list[ward].dtype
@@ -122,6 +136,9 @@ class hopping:
         A source head halo is received from the rank in the ``-mu`` direction
         only when that lattice axis is partitioned across MPI ranks.
         """
+        if self.parity_only:
+            raise RuntimeError(
+                "full hopping stencils were released by parity_only=True")
         dtype = src.dtype
         device = src.device
         _dtype = self.M_minus_list[ward].dtype
@@ -200,10 +217,12 @@ class sitting:
     here. For pure Wilson fermions the block is exactly the identity.
     """
 
-    def __init__(self, clover_term: Optional[torch.Tensor] = None, clover_ee_inv: Optional[torch.Tensor] = None, clover_oo_inv: Optional[torch.Tensor] = None, support_parity: bool = False):
+    def __init__(self, clover_term: Optional[torch.Tensor] = None, clover_ee_inv: Optional[torch.Tensor] = None, clover_oo_inv: Optional[torch.Tensor] = None, support_parity: bool = False, parity_only: bool = False):
         self.M = torch.zeros([])
         self.clover_term = clover_term
-        if self.clover_term is not None:
+        self.has_clover = clover_term is not None
+        self.parity_only = bool(parity_only and support_parity)
+        if self.has_clover:
             # Flatten spin-color into 12x12 pointwise matrices, then add the
             # Wilson identity contribution I.
             self.M = add_I(clover_term=self.clover_term).reshape(
@@ -215,21 +234,23 @@ class sitting:
                 self.M_e = _[0]
                 self.M_o = _[1]
                 if clover_ee_inv is None and clover_oo_inv is None:
-                    self.M_inv = inverse(clover_term=self.M)
-                    self.M_e_inv = torch.zeros([])
-                    self.M_o_inv = torch.zeros([])
-                    _ = tools.oooxyzt2poooxyzt(input_array=self.M_inv)
-                    self.M_e_inv = _[0]
-                    self.M_o_inv = _[1]
+                    # The Clover block is checkerboard diagonal, so inverting
+                    # the two compact sectors is equivalent to inverting the
+                    # full 12x12 field and avoids a second full-size peak.
+                    self.M_e_inv = inverse(clover_term=self.M_e)
+                    self.M_o_inv = inverse(clover_term=self.M_o)
                 else:
                     self.M_e_inv = clover_ee_inv
                     self.M_o_inv = clover_oo_inv
+                if self.parity_only:
+                    self.M = None
+                    self.clover_term = None
 
     def matvec(self, src: torch.Tensor) -> torch.Tensor:
         """Apply the pointwise sitting block to an ``[E,x,y,z,t]`` field."""
         # BUGFIX 2026-07-28: when clover_term is None (pure Wilson fermions),
         # the sitting operator acts as identity. Return src unchanged.
-        if self.clover_term is None:
+        if not self.has_clover:
             return src
         dtype = src.dtype
         device = src.device
@@ -246,7 +267,7 @@ class sitting:
             raise ValueError(
                 "batch sitting source 应为 [B,E,X,Y,Z,T]，"
                 f"得到 {tuple(src.shape)}")
-        if self.clover_term is None:
+        if not self.has_clover:
             return src
         dtype = src.dtype
         device = src.device
@@ -268,7 +289,7 @@ class operator:
     instead materializes a Galerkin coarse operator on ``[E, X, Y, Z, T]``.
     """
 
-    def __init__(self,  U: Optional[torch.Tensor] = None, clover_term: Optional[torch.Tensor] = None, clover_ee_inv: Optional[torch.Tensor] = None, clover_oo_inv: Optional[torch.Tensor] = None, fine_hopping: Optional[hopping] = None, fine_sitting: Optional[sitting] = None, local_ortho_null_vecs: Optional[torch.Tensor] = None, kappa: Optional[torch.Tensor] = torch.Tensor([0.1]), u_0: Optional[torch.Tensor] = torch.Tensor([1.0]), support_parity: bool = False, verbose: bool = True):
+    def __init__(self,  U: Optional[torch.Tensor] = None, clover_term: Optional[torch.Tensor] = None, clover_ee_inv: Optional[torch.Tensor] = None, clover_oo_inv: Optional[torch.Tensor] = None, fine_hopping: Optional[hopping] = None, fine_sitting: Optional[sitting] = None, local_ortho_null_vecs: Optional[torch.Tensor] = None, kappa: Optional[torch.Tensor] = torch.Tensor([0.1]), u_0: Optional[torch.Tensor] = torch.Tensor([1.0]), support_parity: bool = False, parity_only: bool = False, verbose: bool = True):
         """Build a fine operator, or materialize coarse ``P^H D_fine P``.
 
         Coarse construction is selected only when ``fine_hopping``,
@@ -276,9 +297,12 @@ class operator:
         Partial coarse inputs leave an ordinary fine operator in place.
         """
         self.hopping = hopping(U=U, kappa=kappa, u_0=u_0,
-                               support_parity=support_parity)
+                               support_parity=support_parity,
+                               parity_only=parity_only)
         self.sitting = sitting(clover_term=clover_term,
-                               support_parity=support_parity)
+                               support_parity=support_parity,
+                               parity_only=parity_only)
+        self.parity_only = self.hopping.parity_only
         self.verbose = verbose
         if fine_hopping is not None and fine_sitting is not None and local_ortho_null_vecs is not None:
             # Restriction is the Hermitian adjoint of prolongation (R = P^H).
@@ -366,13 +390,20 @@ class operator:
         # This is safe because spin=4 and color=3 are physical constants in lattice QCD,
         # and spacetime dimensions are even (needed for parity splitting), so coarse-grid
         # DOF values (12, 24, ...) will never match the (4, 3) signature.
-        if src.shape[0] == 4 and src.shape[1] == 3:
-            return (self.hopping.matvec(src=src.reshape([12]+list(src.shape)[2:]))+self.sitting.matvec(src=src.reshape([12]+list(src.shape)[2:]))).reshape([4, 3]+list(src.shape)[2:])
+        canonical = src.shape[0] == 4 and src.shape[1] == 3
+        flat = src.reshape([12] + list(src.shape)[2:]) if canonical else src
+        if self.parity_only:
+            dest = self.matvec_all(flat)
+            return dest.reshape([4, 3] + list(src.shape)[2:]) if canonical else dest
+        if canonical:
+            return (self.hopping.matvec(src=flat) + self.sitting.matvec(src=flat)).reshape([4, 3]+list(src.shape)[2:])
         else:
             return self.hopping.matvec(src=src)+self.sitting.matvec(src=src)
 
     def matvec_batch(self, src: torch.Tensor) -> torch.Tensor:
         """Apply the full operator to batched flattened or spin/color fields."""
+        if self.parity_only:
+            return _torch.stack([self.matvec(item) for item in src], dim=0)
         if src.ndim == 7 and src.shape[1] == 4 and src.shape[2] == 3:
             flat = src.reshape([src.shape[0], 12] + list(src.shape)[3:])
             dest = (self.hopping.matvec_batch(src=flat) +
@@ -461,28 +492,28 @@ class operator:
         """Apply the even-even sitting block; it never needs a halo exchange."""
         # BUGFIX 2026-07-28: when clover_term is None (pure Wilson),
         # sitting = I, so M_e * src_e = src_e (identity).
-        if self.sitting.clover_term is None:
+        if not self.sitting.has_clover:
             return src_e
         return _torch.einsum(
             "EeXYZT, eXYZT->EXYZT", self.sitting.M_e, src_e)
 
     def matvec_oo(self, src_o: torch.Tensor) -> torch.Tensor:
         """Apply the odd-odd sitting block; it never needs a halo exchange."""
-        if self.sitting.clover_term is None:
+        if not self.sitting.has_clover:
             return src_o
         return _torch.einsum(
             "EeXYZT, eXYZT->EXYZT", self.sitting.M_o, src_o)
 
     def matvec_ee_inv(self, src_e: torch.Tensor) -> torch.Tensor:
         """Apply the cached inverse of the pointwise even-even block."""
-        if self.sitting.clover_term is None:
+        if not self.sitting.has_clover:
             return src_e
         return _torch.einsum(
             "EeXYZT, eXYZT->EXYZT", self.sitting.M_e_inv, src_e)
 
     def matvec_oo_inv(self, src_o: torch.Tensor) -> torch.Tensor:
         """Apply the cached inverse of the pointwise odd-odd block."""
-        if self.sitting.clover_term is None:
+        if not self.sitting.has_clover:
             return src_o
         return _torch.einsum(
             "EeXYZT, eXYZT->EXYZT", self.sitting.M_o_inv, src_o)
