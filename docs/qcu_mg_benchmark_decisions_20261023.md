@@ -23,6 +23,20 @@ The skip applies to Torch Strict, CUDA Strict, KUPL Strict and QUDA Strict
 benchmark rows for these lattices. It does not disable explicit Strict
 correctness debugging or ABI tests when separately requested.
 
+## Long-running group budget
+
+A benchmark group whose total wall time reaches `1000 s` may be stopped and
+reported as `SKIPPED` with reason `elapsed_time_unacceptable`. This is a project
+resource limit, not a numerical failure and not evidence that the algorithm is
+incorrect. The report must retain the exact timeout, exit code, last observed
+phase and whether any timed sample or output was published.
+
+The rule applies per test group, not to the sum of unrelated groups. For
+example, a slow expensive independent-residual validation can be charged to its
+own group and does not retroactively invalidate an already completed solve
+measurement. Conversely, a setup-only run that times out must not be presented
+as a completed solve.
+
 ## Evidence
 
 - Machine-readable decision:
@@ -30,3 +44,5 @@ correctness debugging or ABI tests when separately requested.
 - Incomplete stdout: `logs/qcu_l24x64_mpi_20261023/single/cuda-strict-2l-smoke.stdout`
 - Legacy cold setup:
   `data/benchmark_legacy_vs_strict_20261022/reports/legacy_build_24x24x24x64.json`
+- QUDA multi-grid status:
+  [`quda-multigrid-status.json`](../logs/qcu_l32x64_mpi_20261023/quda-multigrid-status.json)
