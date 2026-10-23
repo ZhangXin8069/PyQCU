@@ -30,6 +30,14 @@ complete 2026-10-23 rank, quick-matrix, true-residual and evidence guidance is i
 [`references/qcu-multigrid-20261023.md`](references/qcu-multigrid-20261023.md);
 read it before running the QCU MultiGrid matrix.
 
+Do not treat MG cache files as interchangeable by filename or size. CUDA/Torch
+Legacy consume the blocked odd-Schur layout with parity-compressed time
+(`lonv=[E,e,X,x,Y,y,Z,z,T/2,t]`), while KUPL's native full-time builder emits a
+different coarse shape. Validate `lonv/hnn/hdg/sit` shapes against the selected
+backend before setup; fail closed on a mismatch. For a prebuilt odd-Schur cache,
+the Torch fine operator may use `parity_only=True`, but never enable that mode
+while the same operator is still needed to construct a Galerkin hierarchy.
+
 正式三方基准的输入、同窗比较、历史证据和不可外推条件见
 [`pyqcu-docs/references/extracted-guidance.md`](../pyqcu-docs/references/extracted-guidance.md#5-性能与证据解释)。
 
@@ -75,10 +83,18 @@ CUDA 未显式设置 `params[_MG_USE_DEFLATE_]` 时结果为 fine-only，不能�
 
 - CUDA Legacy 在同一 `LatticeSet` 上连续 cold solve 会污染后续 RHS/状态；正式样本必须
   在计时前重建运行时，重建时间单独记录，不能把后端自报残差当作末次解的正确性证据。
-- KUPL Strict 公共 Python 包装当前 ABI 不一致；底层 C ABI 可运行，但公共 API 状态必须
-  单独标为 blocked，不能因 raw ABI PASS 就宣称包装可用。
+- KUPL Strict 的 public 与 raw ABI 已完成对齐；可用的正式入口应使用
+  `--kupl-strict-abi both` 交叉校验两条路径。仍不得只验证 raw ABI 就宣称其他公共
+  wrapper 可用，ABI 差异必须 fail closed。
 - sm70 QUDA 构建为 `QUDA_QIO=OFF`。缺少共享 QIO null-vector 时，QUDA 只能在同 gauge 上
   自生成 null space；该结果可作同配置算法对照，不能写成 byte-identical null-basis replay。
+
+Capacity-bound residual validation must run after native teardown. End the
+`LatticeSet`, close the MG hierarchy, delete cache/asset owners and any bound
+method closure that references the hierarchy, run GC/allocator cleanup, then
+construct a fresh Clover/operator for the independent full residual. Computing
+the residual while native scratch and coarse assets are still resident creates
+false OOMs and obscures the real solve capacity.
 
 ## Usage
 

@@ -26,3 +26,14 @@ When a bug-fixing session completes, the final summary report is written here. T
 - `logs/fix-report-2026-08-24.md`：无人值守 auto 会话（基线 `56e6ee6 (dev84_2_2)` →
   终态 `1025a90`），标签 bug31–bug36、test16、dev85、bug37；含 bug33/34/35 的定量闭环
   数字（Wuppertal 不动点 44.4→6.75e-08、C9 等价性 1e-06、Galerkin 5.6e-07）。
+
+## 当前 MultiGrid 收尾证据
+
+- `stab62` 最终日志：`logs/v2026102312.txt`；`stab62_1` 经验日志：
+  `logs/v202610232206.txt`；机器汇总：
+  `logs/qcu_l32x64_mpi_20261023/summary.json`。
+- QUDA MG 未完成原因：`logs/qcu_l32x64_mpi_20261023/quda-multigrid-status.json`。
+- 单组达到 `1000 s` 时记录 `status=SKIPPED`、
+  `reason=elapsed_time_unacceptable`、timeout、退出码和最后完成阶段；不得写成数值失败。
+- `logs/**` 中的命令退出码文件必须写成 `*.exit_code.txt`，裸
+  `*.exit_code` 不符合允许扩展名。
