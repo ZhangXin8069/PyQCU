@@ -124,9 +124,13 @@ class StrictMultigrid:
         if int(hierarchy.target_parity) not in (0, 1):
             raise ValueError(
                 "fine Clover CUDA 路径要求 hierarchy.target_parity 为 0 或 1")
-        if not hierarchy.transfers:
+        transition_count = getattr(hierarchy, "_transition_count", None)
+        if transition_count is None:
+            transition_count = len(getattr(hierarchy, "transfers", ()))
+        transition_count = int(transition_count)
+        if transition_count < 1:
             raise ValueError("strict CUDA solver 至少需要一个 coarse 层")
-        if len(hierarchy.operators) > 5:
+        if transition_count + 1 > 5:
             raise ValueError("strict CUDA solver 当前最多支持 5 层")
         fields = (gauge, clover_ee, clover_oo,
                   clover_ee_inv, clover_oo_inv)
