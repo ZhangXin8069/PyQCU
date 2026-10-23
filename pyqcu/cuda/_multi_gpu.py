@@ -86,7 +86,7 @@ def build_schur_levels(op, S, num_levels, dof_list, mg_grid, lat_full, E, dt, de
                        matvec_ops=None, nthreads=None, av=None, params_template=None,
                        nv_tol=1e-2, batch_build=True, mass=None, csw=None,
                        seed=None, cache_tag=None, local_stencil=None,
-                       local_stencil_batch_size=4):
+                       local_stencil_batch_size=4, null_batch_chunk=None):
     """构建 S 的 null 向量 + 33-tensor Galerkin 粗算子 A_c = P^T S P。
 
     返回 (lonvs, hnn_l, hdg_l, sit_l) 列表（每粗层一项）。
@@ -175,7 +175,8 @@ def build_schur_levels(op, S, num_levels, dof_list, mg_grid, lat_full, E, dt, de
                 _null = give_null_vecs_mt(
                     coarse_ops, E_c, E_prev, lat_fine_odd, dt, device,
                     nv_iters=nv_iters, nthreads=nthreads, verbose=False,
-                    nv_tol=nv_tol, batch_matvec=batch_mv)
+                    nv_tol=nv_tol, batch_matvec=batch_mv,
+                    batch_chunk=null_batch_chunk)
             elif coarse_ops is not None:
                 # 多线程 C++ matvec（细层 CudaSchurOp；粗层 CudaCoarseSchurOp）
                 _null = give_null_vecs_mt(
