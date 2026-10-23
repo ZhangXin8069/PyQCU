@@ -1,0 +1,57 @@
+[日志元数据]
+日志类型: final
+生成时间: 2026-10-23 09:44:04 +0800
+批次: tag-history-query
+主任务: 核查 git tag test27 系列中 QCU 使用 Legacy-MG 还是 Strict-MG
+触发原因: 任务完成
+摘要: 确认 test27/test27_1/test27_2/test27_3/test27_4 系列使用 pyqcu.cuda.qcu.applyMultigridStrictFgmresQcu，即 Strict-MG；未使用 Legacy-MG。
+Git 根目录: /root/PyQCU
+
+## 关键日志
+### S1 — 标签范围与实现路径定位
+- 目标: 判定 `test27` 系列标签中的 QCU 求解器变体。
+- 命令/操作: `git tag -l '*test27*' --sort=version:refname`；按标签直接读取测试脚本、报告、combined JSON 与 C++/Cython 桥接代码。
+- 关键输出: 实际标签为 `test27`、`test27_1`、`test27_2`、`test27_3`、`test27_4`；`test27` 基准脚本第 3534/3572 行使用 `qcu.applyMultigridStrictFgmresQcu`；报告摘要第 35 行写明 “PyQCU Strict MultiGrid”；combined JSON 第 1147 行记录计时操作为 `pyqcu.cuda.qcu.applyMultigridStrictFgmresQcu(output,rhs,...)`。
+- 退出码: 0。
+- 证据与判断: 测试层级由 `QudaStrictMultigrid` 构建，实际求解调用进入 strict FGMRES API；C++ 端对应 `cpp/cuda/qcu/src/apply_multigrid_strict.cu:5022` 的 `applyMultigridStrictFgmresQcu`。因此 QCU 侧为 Strict-MG，而不是 Legacy-MG。
+
+### S2 — 系列内一致性
+- 目标: 确认后续修订标签是否改变原始 `test27` 求解路径。
+- 命令/操作: `git log --oneline test27..test27_4 -- pyqcu/testing/qcu/strict/quda_comparison/bench_strict_vs_quda.py data/mg_matrix_comprehensive_final_20260928/combined`。
+- 关键输出: 无输出，说明 `test27` 到 `test27_4` 之间上述基准脚本和 combined 数据目录没有相关变更。
+- 退出码: 0。
+- 证据与判断: `test27_1` 至 `test27_4` 是报告/派生结果/复核修订标签；原始 `test27` 的 Strict-MG 数据路径保持不变。
+
+## 验证与证据
+- 测试/检查: 直接以 tag tree 读取历史文件，不依赖当前工作树；对每项关键调用执行 `git grep` 定位。
+- 结果: `test27` 系列五个标签均对应同一 Strict-MG 原始基准路径；未发现 Legacy-MG 调用。
+- 未验证项: 未重新运行 GPU/MPI 基准，本次问题属于历史配置核查，不需要重新采集数值性能。
+
+## 变更与产物
+- 文件: 仅新增本日志并更新 `logs/AGENTS.md` 索引；未修改源码、标签或数据。
+- 产物: 本最终核查日志。
+- 未改动范围: `pyqcu/`、`cpp/`、`data/`、Git 标签均未改动。
+
+## 风险、限制与下一步
+- 风险: `QudaStrictMultigrid` 名称表示 strict hierarchy/setup；实际 QCU 求解入口必须看 `qcu.applyMultigridStrictFgmresQcu`，不能只看其父类或默认 selector。
+- 阻塞: 无。
+- 下一步: 无；结论已由标签内报告、测试脚本、运行记录和 C++ 符号四层证据交叉确认。
+
+## 用户输入指令
+在git-tag-test27系列,qcu使用的是Legacy-MG还是Strict-MG?
+
+## Agent 全文报告
+--- report begin ---
+结论：`test27` 系列中的 QCU 侧使用的是 **Strict-MG**，不是 Legacy-MG。
+
+证据链：
+
+1. `test27` 的报告摘要明确写的是 “PyQCU Strict MultiGrid 与 QUDA 1.1.0 MultiGrid” 对比：`docs/report_multigrid_quda_pyqcu_20260928.tex:35`。
+2. `test27` 的基准收集器实际调用 `qcu.applyMultigridStrictFgmresQcu(...)`：`pyqcu/testing/qcu/strict/quda_comparison/bench_strict_vs_quda.py:3572`，并在协议字段中直接将计时操作记录为同一 strict 接口（第 3534 行）。
+3. 对应 combined 运行记录写有 `timed_operation: pyqcu.cuda.qcu.applyMultigridStrictFgmresQcu(output,rhs,...)`：`data/mg_matrix_comprehensive_final_20260928/combined/p100__16x16x16x16__c64__l1__trace-off.json:1147`。
+4. Cython/C++ 桥接最终落到 `cpp/cuda/qcu/src/apply_multigrid_strict.cu:5022` 的 `applyMultigridStrictFgmresQcu`，说明实际执行的是 strict 后端路径。
+
+`test27_1` 至 `test27_4` 是后续报告、派生图表和复核修订标签；基准脚本及原始 combined 数据在 `test27..test27_4` 范围内没有相关变更，因此该系列结论一致：**QCU = Strict-MG，Legacy-MG 未参与该系列正式基准。**
+
+状态：`finished`
+--- report end ---

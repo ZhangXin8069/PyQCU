@@ -616,3 +616,11 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 关键内容: 新增正式技术参考文档并同步 pyqcu-docs 索引、映射与提取摘要
 - 验证: path, size, required sections, conflict markers
 - 批次状态: complete
+## tag-history-query - final - 2026-10-23 09:44:04 +0800
+- 主任务: 核查 git tag test27 系列中 QCU 使用 Legacy-MG 还是 Strict-MG
+- 日志文件: logs/v2026102309.txt
+- 文件大小: 4223 bytes
+- 触发原因: 任务完成
+- 关键内容: 确认 test27/test27_1/test27_2/test27_3/test27_4 系列使用 pyqcu.cuda.qcu.applyMultigridStrictFgmresQcu，即 Strict-MG；未使用 Legacy-MG。
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete
