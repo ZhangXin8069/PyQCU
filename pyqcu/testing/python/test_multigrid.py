@@ -794,6 +794,41 @@ def test_compact_schur_matches_dslash_parity_and_adjoint():
         torch.linalg.norm(full_rhs)) < 2e-5
 
 
+def test_parity_only_operator_reconstructs_full_matvec():
+    """Cached Legacy parity blocks must preserve the full operator action."""
+    gauge = torch.zeros(3, 3, 4, *FINE_SHAPE, dtype=DTYPE)
+    for color in range(3):
+        gauge[color, color] = 1.0
+    clover = torch.zeros(4, 3, 4, 3, *FINE_SHAPE, dtype=DTYPE)
+    for spin in range(4):
+        for color in range(3):
+            clover[spin, color, spin, color] = 0.03
+
+    common = {
+        "U": gauge,
+        "clover_term": clover,
+        "kappa": torch.tensor([0.1]),
+        "support_parity": True,
+        "verbose": False,
+    }
+    full = dslash.operator(**common)
+    compact = dslash.operator(**common, parity_only=True)
+    assert compact.hopping.parity_only
+    assert compact.hopping.M_plus_list[0] is None
+    assert compact.hopping.M_minus_list[0] is None
+    assert compact.sitting.M is None
+    assert compact.sitting.has_clover
+
+    torch.manual_seed(20260846)
+    source = torch.randn(12, *FINE_SHAPE, dtype=DTYPE)
+    torch.testing.assert_close(
+        compact.matvec(source), full.matvec(source), rtol=2e-5, atol=2e-6)
+    canonical = source.reshape(4, 3, *FINE_SHAPE)
+    torch.testing.assert_close(
+        compact.matvec(canonical), full.matvec(canonical),
+        rtol=2e-5, atol=2e-6)
+
+
 def test_compact_test_vector_setup_uses_schur_operator():
     """TEST_VECTOR_SETUP 在 compact 模式应求解 odd ``S B_new = B``。"""
     torch.manual_seed(20260841)

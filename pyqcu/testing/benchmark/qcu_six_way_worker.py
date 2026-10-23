@@ -348,6 +348,13 @@ def _worker_torch(args: argparse.Namespace) -> dict[str, Any]:
             deflate=bool(args.legacy_deflate),
             adaptive_correction=bool(args.legacy_adaptive_correction),
         )
+        if args.legacy_cache:
+            # A cached hierarchy consumes compact parity blocks only. Release
+            # the full Clover copy before loading the L32 coarse assets; the
+            # independent residual reconstructs its own Clover term after close.
+            del clover
+            if is_cuda:
+                torch.cuda.empty_cache()
     else:
         if int(args.levels) != 2:
             raise ValueError("this worker currently fixes strict levels=2")
@@ -457,6 +464,19 @@ def _worker_torch(args: argparse.Namespace) -> dict[str, Any]:
     steady_device = steady_sampler.stop()
     steady_allocator = _torch_memory_snapshot(torch, device)
 
+    cache_identities = list(getattr(mg, "asset_identities", []))
+    if strategy == "legacy":
+        del original_cycle
+    else:
+        del original_vcycle
+    del cycle_wrapper
+    mg.close()
+    mg = None
+    if is_cuda:
+        import gc
+
+        gc.collect()
+        torch.cuda.empty_cache()
     independent = _true_residual_torch(
         torch, dslash, output, source, gauge, args.mass, args.csw)
     overall_device = overall_sampler.stop()
@@ -523,14 +543,13 @@ def _worker_torch(args: argparse.Namespace) -> dict[str, Any]:
         payload["inputs"]["legacy_cache"] = {
             "path": str(cache_path),
             "sha256": _sha256(cache_path),
-            "datasets": list(getattr(mg, "asset_identities", [])),
+            "datasets": cache_identities,
         }
     payload["status"] = "PASS" if payload["residual"]["pass"] else "FAIL"
     if args.solution_output:
         _save_h5(
             Path(args.solution_output), output.detach().cpu().numpy(),
             backend="torch", strategy=strategy, lattice=json.dumps(args.lat))
-    mg.close()
     return payload
 
 
@@ -566,7 +585,7 @@ def _worker_torch_bicgstab(args: argparse.Namespace) -> dict[str, Any]:
         gauge, kappa=kappa, u_0=u0, csw=args.csw)
     operator = dslash.operator(
         U=gauge, clover_term=clover, kappa=kappa, u_0=u0,
-        support_parity=True, verbose=False)
+        support_parity=True, parity_only=True, verbose=False)
     source_eo = tools.oooxyzt2poooxyzt(
         source.reshape(12, *args.lat))
     rhs = operator.give_b_parity(
@@ -613,6 +632,12 @@ def _worker_torch_bicgstab(args: argparse.Namespace) -> dict[str, Any]:
     solution_full = tools.poooxyzt2oooxyzt(
         torch.stack([solution_e, solution], dim=0)).reshape(
             4, 3, *args.lat)
+    del clover, operator
+    if is_cuda:
+        import gc
+
+        gc.collect()
+        torch.cuda.empty_cache()
     independent = _true_residual_torch(
         torch, dslash, solution_full, source, gauge, args.mass, args.csw)
     warmups = elapsed_samples[:args.warmups]
