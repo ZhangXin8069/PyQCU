@@ -1,0 +1,52 @@
+{
+  "schema": "pyqcu.qcu-mg.comparator-status.v1",
+  "status": "SKIPPED",
+  "lattice": [
+    32,
+    32,
+    32,
+    64
+  ],
+  "gauge_sha256": "5054e60d7b3e24f25a73fabd92faa75fc0ecca772b8535b75fadeef60729a4f3",
+  "source_sha256": "e1e86130bc7a1898df792834831c6d2d3adccb31c454becb084369b13dfac100",
+  "trace_enabled": false,
+  "quda_enable_tuning": "0",
+  "attempts": [
+    {
+      "nvec": 12,
+      "levels": 2,
+      "block": [
+        2,
+        2,
+        2,
+        2
+      ],
+      "coarse_color": 24,
+      "status": "SKIPPED",
+      "reason": "quda_coarse_yhat_nc24_unsupported",
+      "detail": "The sm70 QUDA build rejected the coarse Nc=24 Yhat path. Retrying with QUDA_ENABLE_MMA=0 produced the same unsupported-MMA error. No timed solve was produced.",
+      "attempted_mma_modes": [
+        "default",
+        "disabled"
+      ]
+    },
+    {
+      "nvec": 24,
+      "levels": 2,
+      "block": [
+        2,
+        2,
+        2,
+        2
+      ],
+      "coarse_color": 48,
+      "status": "SKIPPED",
+      "reason": "elapsed_time_unacceptable",
+      "timeout_seconds": 1000,
+      "exit_code": 124,
+      "detail": "Coarse setup reached MG level 1, but the process was terminated at the 1000 s group limit before any timed solve or report publication.",
+      "aligned_with_qcu_legacy": false
+    }
+  ],
+  "interpretation": "QUDA MG is not a completed L32 comparator. QUDA BiCGStab remains a valid completed Krylov control. The nvec=24 attempt uses a different coarse-space size and must not be used to compute a fair speedup."
+}

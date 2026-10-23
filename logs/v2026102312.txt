@@ -1,0 +1,73 @@
+[日志元数据]
+日志类型: final
+生成时间: 2026-10-23 12:05:13 +0800
+批次: qcu-multigrid-l32-20261023
+主任务: PyQCU QCU MultiGrid refactor, unified interfaces, L32 validation and stab closure
+触发原因: 任务完成
+摘要: L32 Legacy/Strict benchmark closure with full residual gates, comparator skips and final audits
+Git 根目录: /root/PyQCU
+
+## 关键日志
+### S1 — QCU MultiGrid 重构与跨实现调试
+- 目标: 统一 Torch/CUDA/KUPL 的 Legacy/Strict MG 命名、接口、默认策略和正确性门。
+- 关键结果: `Multigrid` 作为统一选择器，`Legacy-MultiGrid` 默认启用；`Strict-MultiGrid` 仅显式启用。QCU 实现树中未出现含糊的 `quda_multigrid` 命名。
+- 证据与判断: CUDA 递归 V-cycle volume、权威 full-residual 停机和 correction 回滚已修复；KUPL NaNs、递归粗层尺寸、odd-Schur RHS 与 correction 状态污染已修复；Torch `residual_scope` 与缓存生命周期已修复。
+
+### S2 — L32 同口径 Legacy 测试
+- 输入: `beta6.20_mu-0.2770_ms-0.2400_L32x64_cfg_11000`，`32x32x32x64`，c64，mass `-0.277`，csw `1.160920226`，tol `1e-6`，2 levels，block `2^4`，nvec `12`。
+- CUDA/Torch odd-Schur cache: `3,699,380,224 B`，SHA256 `ec17e56c624c69940a19fbde1cddbcab5c45ae267ed00196aa3deb1d711d82fd`，构建 `1202.07 s`。
+- 结果: Torch `19 it / 17.4902 s / 3.863e-7`；CUDA 1-rank `20 it / 0.4592 s / 2.808e-7`；CUDA 2-rank `1.7760 s / 2.668e-7`；KUPL 1-rank `36.2029 s / 3.424e-7`；KUPL 2-rank `36.8231 s / 3.422e-7`。全部 PASS。
+- 证据与判断: 跨实现对 Torch MG 的解向量相对 L2 均低于 `1.2e-6`，正式门为 `1e-4`。Torch 设备峰值达到完整 32 GiB，是容量边界。
+
+### S3 — BiCGStab 与 QUDA 对照
+- Torch、CUDA、KUPL 2-rank、QUDA BiCGStab 分别为 `18/14.085 s`、`18/0.2767 s`、`19/17.7376 s`、`17/0.2696 s`，全部通过独立 full residual。
+- QUDA MG `nvec=12` 因 sm70 构建的 coarse Nc=24 Yhat 内核不受支持而跳过；`nvec=24 -> Nc=48` 到达 1000 s 组上限，exit=124，未进入计时求解。
+- 证据与判断: L32 MG 未优于同侧 BiCGStab；QUDA MG 无完成行，不计算公平倍率。大格 Strict 标记 `strict_initialization_time_unacceptable`。
+
+## 验证与证据
+- 全量 `pyqcu/testing`: `449 passed, 10 skipped`。
+- formatted Python/tests subset: `84 passed`；simple/KUPL: `62 passed`；MPI/API selection: `14 passed`。
+- KUPL CTest: `29/29` PASS；CUDA ABI PASS；KUPL 37-entry ABI PASS。
+- docs audit: `PASS docs=28 skills=35`。
+- form audit: PASS，35 skills，1197 registered findings。
+- tag-chain remote check: PASS，284 managed tags。
+- large-file gate: PASS。
+- shell syntax and tag-chain regression: PASS。
+- `git diff --check`、冲突标记检查、歧义 `quda_multigrid` 命名检查: PASS。
+
+## 变更与产物
+- 统一 MG 结构、选择器、Legacy/Strict API 和默认策略。
+- 修复 Torch/CUDA/KUPL Legacy 正确性与生命周期问题。
+- 新增 `parity_only` 容量优化、compact Clover inverse、builder batch 控制和可选 psutil 回退。
+- 修复 Strict CUDA pre-setup transition 预检和历史报告测试。
+- 新增 L32 汇总与 QUDA skip 证据：`logs/qcu_l32x64_mpi_20261023/summary.json`、`logs/qcu_l32x64_mpi_20261023/quda-multigrid-status.json`。
+- 更新正式验证报告、决策报告和 benchmark skill reference。
+
+## 风险、限制与下一步
+- Torch L32 Legacy 在完整 32 GiB 上达到容量上限，更大问题需要更低内存实现或更大设备。
+- KUPL production MPI 报告不暴露可靠 native iteration/correction 计数；只接受独立 full residual。
+- 大格 Strict 和 QUDA MG 没有完成性能结果，相关信息仅作为 SKIPPED 证据。
+- 下一交付动作: 提交文档/证据，推送 main，创建并推送 `stab62`。
+
+## 用户输入指令
+- 对 qcu（CUDA、KUPL、Torch）的 multigrid 进行重构，以上级 Multigrid 包装 Legacy-MultiGrid 与 Strict-MultiGrid，并统一命名与接口；QCU 代码不得用 `quda_multigrid` 等歧义命名。
+- Legacy-MultiGrid 作为默认、开发、debug 和优化对象；Strict-MultiGrid 仅作显式对照、算法参考或特殊备选。
+- 使用真实 LIME 组态完成单 MPI 与多 MPI 的性能/正确性测试，后续使用 `beta6.20_mu-0.2770_ms-0.2400_L32x64_cfg_11000.lime`；MPI 进程数必须为 2 的正整数次幂。
+- 只采用 trace-off，QUDA tune 始终关闭；需要 QUDA 与 BiCGStab 对照。
+- 单组总耗时超过 1000 s 可标记为“耗时不可接受”后跳过。
+- 所有主要任务完成后检查并微调上个 tag 至今的改动，先 push 本地 Git 到远程，最后执行 `~tag:stab`。
+
+## Agent 全文报告
+--- report begin ---
+QCU MultiGrid 大任务已完成并准备归档为 `stab62`。
+
+Legacy-MultiGrid 已成为统一默认路径，Strict-MultiGrid 保持显式启用。Torch/CUDA/KUPL 的 Legacy/Strict 使用统一 setup/solve/close 控制面；QCU 实现树不存在含糊的 `quda_multigrid` 命名。
+
+L32 真实组态 c64 两级 Legacy 结果全部通过独立 full residual：Torch `19 it / 17.4902 s / 3.863e-7`，CUDA 1-rank `20 it / 0.4592 s / 2.808e-7`，CUDA 2-rank `1.7760 s / 2.668e-7`，KUPL 1-rank `36.2029 s / 3.424e-7`，KUPL 2-rank `36.8231 s / 3.422e-7`。跨实现对 Torch 解向量相对 L2 均低于 `1.2e-6`。Torch GPU 达到完整 32 GiB 容量边界。
+
+BiCGStab 对照全部通过：Torch `18 it / 14.0850 s`，CUDA `18 it / 0.2767 s`，KUPL 2-rank `19 it / 17.7376 s`，QUDA `17 it / 0.2696 s`。L32 中 MG 未优于同侧 BiCGStab。大格 Strict 继续因初始化耗时不可接受而跳过。QUDA MG nvec=12 因当前 sm70 构建不支持 coarse Nc=24 Yhat 内核而跳过；nvec=24/Nc=48 在 1000 s 上限处退出，未进入计时求解，因此没有完成或公平的 QUDA MG 结果。
+
+收尾中修复了 L32 Torch 全/奇偶 stencil 双份驻留 OOM、Clover 完整逆峰值、cache 生命周期隐藏引用、KUPL/CUDA cache 布局混淆、P100 psutil 硬依赖、QUDA CLI 参数以及 Strict CUDA pre-setup transition 预检。全量测试为 `449 passed, 10 skipped`，KUPL CTest `29/29`，CUDA/KUPL ABI、docs、form、tag-chain、大文件和 shell 门均通过。
+
+主要证据为 `logs/qcu_l32x64_mpi_20261023/summary.json`、`logs/qcu_l32x64_mpi_20261023/quda-multigrid-status.json`、已提交的源码与测试，以及更新后的 `docs/qcu_mg_refactor_validation_20261023.md` 和 `skills/pyqcu-benchmark/references/qcu-multigrid-20261023.md`。
+--- report end ---

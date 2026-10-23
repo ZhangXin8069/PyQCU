@@ -1,0 +1,295 @@
+{
+  "schema": "pyqcu.qcu-mg-validation.large.v1",
+  "status": "PASS_WITH_COMPARATOR_SKIPS",
+  "campaign": "beta6.20_mu-0.2770_ms-0.2400_L32x64_cfg_11000",
+  "inputs": {
+    "gauge": {
+      "path": "data/qcu_l32x64_mpi_20261023/case/gauge_32x32x32x64_c64.h5",
+      "sha256": "5054e60d7b3e24f25a73fabd92faa75fc0ecca772b8535b75fadeef60729a4f3",
+      "size_bytes": 1207965696
+    },
+    "source": {
+      "path": "data/qcu_l32x64_mpi_20261023/case/source_32x32x32x64_c64.h5",
+      "sha256": "e1e86130bc7a1898df792834831c6d2d3adccb31c454becb084369b13dfac100",
+      "size_bytes": 201332736
+    },
+    "manifest": "data/qcu_l32x64_mpi_20261023/case/case_manifest.json"
+  },
+  "configuration": {
+    "lattice": [
+      32,
+      32,
+      32,
+      64
+    ],
+    "dtype": "c64",
+    "mass": -0.277,
+    "csw": 1.160920226,
+    "tolerance": 1e-6,
+    "max_iter": 200,
+    "levels": 2,
+    "block": [
+      2,
+      2,
+      2,
+      2
+    ],
+    "nvec": 12,
+    "coarse_dof": 12,
+    "coarse_tolerance": 1e-4,
+    "coarse_max_iter": 200,
+    "correction_interval": 5,
+    "seed": 42,
+    "trace_enabled": false,
+    "quda_enable_tuning": "0"
+  },
+  "environment": {
+    "v100": {
+      "name": "Tesla V100-SXM2-32GB",
+      "memory_bytes": 34359345152,
+      "python": "3.10.12",
+      "torch": "2.10.0+cu128"
+    },
+    "p100_ranks": {
+      "count": 2,
+      "name": "Tesla P100-PCIE-16GB",
+      "memory_bytes_each": 17179869184,
+      "python": "3.10.12",
+      "torch": "2.4.1+cu121"
+    },
+    "mpi": "Open MPI 4.1.2",
+    "cuda_libqcu": {
+      "path": "cpp/cuda/qcu/libqcu.so",
+      "sha256": "8a2363182451bcb89e6be94bcb7e943a3101fbac9f8b21c73510832086e7d355"
+    },
+    "kupl_libqcu": {
+      "path": "cpp/kupl/qcu/build/libqcu.so",
+      "sha256": "12cd6876578df1e303219e0bfe74821f7590835e472889343390afbbbf84aa29"
+    }
+  },
+  "caches": {
+    "odd_schur": {
+      "path": "data/qcu_l32x64_mpi_20261023/legacy_cache_odd_schur_2l_gpu/L32x32x32x64_E12_c64.h5",
+      "sha256": "ec17e56c624c69940a19fbde1cddbcab5c45ae267ed00196aa3deb1d711d82fd",
+      "size_bytes": 3699380224,
+      "coarse_shape": [
+        16,
+        16,
+        16,
+        16
+      ],
+      "build_seconds": 1202.0686042159941,
+      "build_probes": 786432,
+      "local_stencil_batch_size": 1,
+      "null_batch_chunk": 1
+    },
+    "kupl_full_time": {
+      "path": "data/qcu_l32x64_mpi_20261023/legacy_cache_2l_gpu_test/L32x32x32x64_E12_c64.h5",
+      "sha256": "86173c8f5f2054f863388ebae57e25e0f7807eda1d9f49206df5fab8e95e7cef",
+      "size_bytes": 7398756352,
+      "coarse_shape": [
+        16,
+        16,
+        16,
+        32
+      ]
+    }
+  },
+  "multigrid": [
+    {
+      "backend": "torch",
+      "variant": "legacy",
+      "device": "Tesla V100-SXM2-32GB",
+      "mpi_ranks": 1,
+      "iterations": 19,
+      "steady_seconds": [
+        17.315957147999143,
+        17.490247704998183,
+        17.503526452004735
+      ],
+      "steady_median_seconds": 17.490247704998183,
+      "steady_mad_seconds": 0.013278747006552294,
+      "native_true_residual": 3.8942659148048493e-07,
+      "independent_true_residual": 3.862740527438291e-07,
+      "coarse_execution": {
+        "vcycles": 1,
+        "cycle_calls_per_solve": 2
+      },
+      "device_peak_used_bytes": 34359345152,
+      "status": "PASS",
+      "report": "logs/qcu_l32x64_mpi_20261023/torch-legacy-1rank-gpu-odd-cache.json"
+    },
+    {
+      "backend": "cuda",
+      "variant": "legacy",
+      "device": "Tesla V100-SXM2-32GB",
+      "mpi_ranks": 1,
+      "process_grid": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "iterations": 20,
+      "steady_seconds": [
+        0.45915610699739773,
+        0.45848006699816324,
+        0.46247850399959134
+      ],
+      "steady_median_seconds": 0.45915610699739773,
+      "steady_mad_seconds": 0.000676039999990491,
+      "native_true_residual": 2.561364e-07,
+      "independent_true_residual": 2.80793045703831e-07,
+      "coarse_execution": {
+        "attempted_vcycles": 1,
+        "accepted_vcycles": 1,
+        "coarse_iterations": 8
+      },
+      "device_peak_used_bytes": 16992505856,
+      "status": "PASS",
+      "report": "logs/qcu_l32x64_mpi_20261023/cuda-legacy-1rank-odd-cache.json"
+    },
+    {
+      "backend": "cuda",
+      "variant": "legacy",
+      "device": "2x Tesla P100-PCIE-16GB",
+      "mpi_ranks": 2,
+      "process_grid": [
+        1,
+        2,
+        1,
+        1
+      ],
+      "iterations": null,
+      "wall_seconds": 1.7759993139989092,
+      "independent_true_residual": 2.667595171782944e-07,
+      "status": "PASS",
+      "report": "data/logs/qcu_l32x64_mpi_20261023/cuda-legacy-2rank-odd-cache.json",
+      "note": "The MPI production report does not expose a native iteration or native true-residual field; acceptance used the independent distributed full residual."
+    },
+    {
+      "backend": "kupl",
+      "variant": "legacy",
+      "device": "CPU",
+      "mpi_ranks": 1,
+      "process_grid": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "iterations": null,
+      "wall_seconds": 36.202870897999674,
+      "independent_true_residual": 3.423752003308226e-07,
+      "independent_residual_seconds": 635.1436403249972,
+      "status": "PASS",
+      "report": "logs/qcu_l32x64_mpi_20261023/kupl-legacy-1rank.json",
+      "note": "The entry point verifies the hierarchy but does not expose coarse iteration/correction counts."
+    },
+    {
+      "backend": "kupl",
+      "variant": "legacy",
+      "device": "CPU",
+      "mpi_ranks": 2,
+      "process_grid": [
+        1,
+        2,
+        1,
+        1
+      ],
+      "iterations": null,
+      "wall_seconds": 36.82312947400351,
+      "independent_true_residual": 3.4222466919407674e-07,
+      "independent_residual_seconds": 9.821890452003572,
+      "status": "PASS",
+      "report": "data/logs/qcu_l32x64_mpi_20261023/kupl-legacy-2rank.json",
+      "note": "The entry point verifies the hierarchy but does not expose coarse iteration/correction counts."
+    }
+  ],
+  "diagnostics": [
+    {
+      "backend": "cuda",
+      "variant": "legacy_full_time_cache",
+      "mpi_ranks": 1,
+      "iterations": 20,
+      "steady_median_seconds": 0.5354221070010681,
+      "native_true_residual": 3.141213e-07,
+      "independent_true_residual": 3.344749188727292e-07,
+      "report": "logs/qcu_l32x64_mpi_20261023/cuda-legacy-1rank-aligned.json",
+      "excluded_from_main_matrix": true,
+      "reason": "Used the KUPL full-time cache, producing a different coarse topology from the CUDA/Torch odd-Schur rows."
+    }
+  ],
+  "cross_implementation_solution_relative_l2_to_torch_mg": {
+    "cuda_1rank": 9.559711315887e-07,
+    "cuda_2rank": 9.559551017446e-07,
+    "kupl_1rank": 1.105353476305e-06,
+    "kupl_2rank": 1.104470356950e-06,
+    "torch_bicgstab": 2.274416374348e-06,
+    "gate": 1e-4,
+    "status": "PASS"
+  },
+  "bicgstab": [
+    {
+      "backend": "torch",
+      "mpi_ranks": 1,
+      "iterations": 18,
+      "steady_median_seconds": 14.085007904999657,
+      "native_true_residual": 8.450531892418785e-07,
+      "independent_true_residual": 7.172408231781446e-07,
+      "status": "PASS",
+      "report": "logs/qcu_l32x64_mpi_20261023/torch-bicgstab-1rank-gpu.json"
+    },
+    {
+      "backend": "cuda",
+      "mpi_ranks": 1,
+      "iterations": 18,
+      "wall_seconds": 0.2766950378417969,
+      "independent_true_residual": 6.183147434057901e-07,
+      "status": "PASS",
+      "report": "logs/qcu_l32x64_mpi_20261023/bicgstab_three_way/cuda_bicg.json"
+    },
+    {
+      "backend": "kupl",
+      "mpi_ranks": 2,
+      "iterations": 19,
+      "wall_seconds": 17.737554886996804,
+      "independent_true_residual": 3.4241832667317084e-07,
+      "status": "PASS",
+      "report": "logs/qcu_l32x64_mpi_20261023/bicgstab_three_way/kupl_bicg_r4.json"
+    },
+    {
+      "backend": "quda",
+      "mpi_ranks": 1,
+      "iterations": 17,
+      "solver_seconds": 0.2696470000000001,
+      "wall_seconds": 0.27027470800385345,
+      "true_residual": 8.643849114853913e-07,
+      "status": "PASS",
+      "report": "logs/qcu_l32x64_mpi_20261023/bicgstab_three_way/quda_bicg.json"
+    }
+  ],
+  "skips": [
+    {
+      "variant": "strict",
+      "reason": "strict_initialization_time_unacceptable",
+      "applies_to": "large-lattice benchmark rows"
+    },
+    {
+      "variant": "quda_multigrid_nvec12",
+      "reason": "quda_coarse_yhat_nc24_unsupported"
+    },
+    {
+      "variant": "quda_multigrid_nvec24",
+      "reason": "elapsed_time_unacceptable",
+      "timeout_seconds": 1000
+    }
+  ],
+  "interpretation": {
+    "solver_speedup_claim": false,
+    "reason": "The completed rows use different hardware for CUDA/Torch (V100), CUDA multi-rank (2 P100), and KUPL (CPU). Absolute times are not cross-device speedups. MG/BiCGStab ratios within each backend show that coarse correction did not beat the same-side fine Krylov control at L32.",
+    "torch_capacity": "Torch Legacy reached the full 32 GiB device-memory ceiling; larger or denser cases require a lower-memory implementation or a larger device.",
+    "strict_boundary": "No L32 Strict result is claimed.",
+    "quda_boundary": "No completed or fair L32 QUDA MG result is available; QUDA BiCGStab is the completed external Krylov control."
+  }
+}

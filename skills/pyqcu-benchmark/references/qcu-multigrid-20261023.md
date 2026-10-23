@@ -61,6 +61,9 @@ native residual 单独包装成 coarse-correctness 或性能结论。
   自动升级为生产支持路径；分布式 Legacy 两层以上必须先通过独立真残差门。
 - 每个长 benchmark 阶段必须输出时间戳/阶段进度并设置阶段超时或总超时。超过阶段预算
   且无阶段进展时应停止并保存诊断，而不是仅凭 GPU util 继续等待。
+- 单个测试组的总耗时达到 `1000 s` 时，可以停止并标记
+  `SKIPPED: elapsed_time_unacceptable`。必须记录 timeout、退出码、最后完成阶段以及是否
+  发布计时样本；不得把 setup 超时解释为数值失败或完成性能结果。
 - `pyqcu/testing/simple/mpi` 的示例保持扁平文件布局，不创建 `examples/` 子目录。
   示例必须预检 2 的幂 rank 数，并支持 `DRY_RUN=1` 只打印解析后的命令。
 
@@ -116,6 +119,35 @@ BiCGStab 边界对照（同输入、trace-off）：Torch `67 it / 1.595 s / 7.24
 CUDA `68 it / 0.0441 s / 4.175e-7`，KUPL 4-rank `68 it / 1.731 s / 3.276e-7`，
 QUDA `70 it / 0.1059 s / 4.726e-7`。它们不进入 MG 加速比。
 
+### 2026-10-23 L32 Legacy 正式批次
+
+输入为 `beta6.20_mu-0.2770_ms-0.2400_L32x64_cfg_11000`、`32x32x32x64` c64、
+`mass=-0.277`、`csw=1.160920226`、tol `1e-6`、2 levels、block `2^4`、
+`nvec=12`。gauge/source SHA256 为 `5054e60d...29a4f3` /
+`e1e86130...ac100`。全部 trace-off，QUDA tuning 关闭。
+
+CUDA/Torch 使用同一 odd-Schur cache，SHA256
+`ec17e56c...d82fd`，coarse shape `[16,16,16,16]`，大小 `3,699,380,224 B`。
+builder 使用 `local_stencil_batch=1`、`null_batch_chunk=1`，耗时 `1202.07 s`。
+KUPL 使用独立 full-time cache，SHA256 `86173c8f...7cef`；不得互换或按文件大小推断兼容。
+
+| backend | ranks/device | iterations | solve seconds | independent full residual | status |
+|---|---:|---:|---:|---:|---|
+| Torch Legacy | 1 / V100 | 19 | `17.4902` | `3.863e-7` | PASS |
+| CUDA Legacy | 1 / V100 | 20 | `0.4592` | `2.808e-7` | PASS |
+| CUDA Legacy | 2 / 2x P100 | n/a | `1.7760` | `2.668e-7` | PASS |
+| KUPL Legacy | 1 / CPU | n/a | `36.2029` | `3.424e-7` | PASS |
+| KUPL Legacy | 2 / CPU | n/a | `36.8231` | `3.422e-7` | PASS |
+
+同侧 BiCGStab：Torch `18 it / 14.085 s / 7.172e-7`、CUDA
+`18 it / 0.2767 s / 6.183e-7`、KUPL 2-rank
+`19 it / 17.738 s / 3.424e-7`、QUDA `17 it / 0.2696 s / 8.644e-7`。
+本批次 MG 均未优于同侧 BiCGStab。Torch MG 的设备峰值达到完整 `32 GiB`，属于容量边界。
+
+大格 Strict 跳过。QUDA MG `nvec=12` 因 sm70 构建的 coarse `Nc=24` Yhat 内核不受支持；
+`nvec=24 -> Nc=48` 在 `1000 s` 处超时，未产生计时行。两个 QUDA MG 尝试都只能记为 skip，
+不能与 `nvec=12` 计算公平倍率。
+
 ## 正确性门
 
 Legacy 多级结果不能只检查 C++ native residual。求解返回后必须独立重建 full
@@ -157,6 +189,10 @@ n_vcycles / coarse_iterations / correction_count
 - 16^4 完整矩阵：[`summary.json`](../../../logs/qcu_mg_matrix_16cubed_20261023/summary.json)
 - 跨实现 parity：[`summary.json`](../../../logs/qcu_16cubed_quick_20261023/parity/summary.json)
 - BiCGStab 对照：[`qcu_bicgstab_final_20261023`](../../../logs/qcu_bicgstab_final_20261023)
+- L32 汇总：[`summary.json`](../../../logs/qcu_l32x64_mpi_20261023/summary.json)
+- L32 odd cache build：[`legacy-cache-odd-schur-2l-build.json`](../../../logs/qcu_l32x64_mpi_20261023/legacy-cache-odd-schur-2l-build.json)
+- L32 BiCGStab：[`summary.json`](../../../logs/qcu_l32x64_mpi_20261023/bicgstab_three_way/summary.json)
+- QUDA MG status：[`quda-multigrid-status.json`](../../../logs/qcu_l32x64_mpi_20261023/quda-multigrid-status.json)
 - rank validator：[`mpi_ranks_power_of_two.py`](../../../pyqcu/testing/simple/mpi/mpi_ranks_power_of_two.py)
 
 引用 JSON 时只读取上述字段和对应 side record；不要复制大段原始 JSON，也不要把
