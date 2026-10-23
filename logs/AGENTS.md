@@ -624,3 +624,11 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 关键内容: 确认 test27/test27_1/test27_2/test27_3/test27_4 系列使用 pyqcu.cuda.qcu.applyMultigridStrictFgmresQcu，即 Strict-MG；未使用 Legacy-MG。
 - 验证: path, size, required sections, conflict markers
 - 批次状态: complete
+## qcu-multigrid-l32-20261023 - final - 2026-10-23 12:05:13 +0800
+- 主任务: PyQCU QCU MultiGrid refactor, unified interfaces, L32 validation and stab closure
+- 日志文件: logs/v2026102312.txt
+- 文件大小: 6519 bytes
+- 触发原因: 任务完成
+- 关键内容: L32 Legacy/Strict benchmark closure with full residual gates, comparator skips and final audits
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete

@@ -14,6 +14,10 @@
 - KUPL Legacy 已修复 NaNs、递归 V-cycle 的粗层尺寸错误、odd-Schur RHS 构造错误和
   correction 失败后的状态污染。correction 变差时回滚并显式 fallback 到已验证的
   parity-Schur BiCGStab。
+- `32^3x64` 的 Torch/CUDA/KUPL Legacy 单 rank 与适用 2-rank 行均通过独立 full
+  residual 门；CUDA/Torch 使用同一 odd-Schur cache，解向量相对 Torch 均为约
+  `1e-6`。大格 Strict 继续跳过；QUDA MG 因内核不兼容与 `1000 s` 组预算未形成
+  有效对照，QUDA BiCGStab 对照已完成。
 
 ## 固定验收口径
 
@@ -87,6 +91,63 @@ Strict 虽把外层迭代降到 23 次，仍不足以抵消递归 V-cycle 和层
 3/4 层修复了正确性，但没有迭代收益；`MultigridDepthWarning` 对 L24 3L/4L 和
 `16^4` 2L 的几何风险会明确告警。Legacy 生产默认仍为 2 层。
 
+## L32 Legacy 与 BiCGStab 边界
+
+输入为 `beta6.20_mu-0.2770_ms-0.2400_L32x64_cfg_11000`、`32^3x64`、c64、
+`mass=-0.277`、`csw=1.160920226`、tol `1e-6`、2 levels、block `2^4`、
+`nvec=12`。gauge SHA256 为
+`5054e60d7b3e24f25a73fabd92faa75fc0ecca772b8535b75fadeef60729a4f3`，source
+SHA256 为 `e1e86130bc7a1898df792834831c6d2d3adccb31c454becb084369b13dfac100`。
+全部计时 trace-off，QUDA 进程启动前设置 `QUDA_ENABLE_TUNING=0`。
+
+Torch/CUDA 共用 odd-Schur cache，布局为 `[16,16,16,16]`，大小
+`3,699,380,224 B`，SHA256 为
+`ec17e56c624c69940a19fbde1cddbcab5c45ae267ed00196aa3deb1d711d82fd`。使用
+`local_stencil_batch=1`、`null_batch_chunk=1` 构建，耗时 `1202.07 s`、完成
+786432 个 probe。KUPL 使用其原生 full-time cache；两种布局不能互换，也不能仅凭
+文件存在性认定口径一致。
+
+| backend | device / ranks | iterations | solve seconds | independent full residual | status |
+|---|---|---:|---:|---:|---|
+| Torch Legacy | V100 / 1 | 19 | `17.4902` | `3.863e-7` | PASS |
+| CUDA Legacy | V100 / 1 | 20 | `0.4592` | `2.808e-7` | PASS |
+| CUDA Legacy | 2x P100 / 2 | n/a | `1.7760` | `2.668e-7` | PASS |
+| KUPL Legacy | CPU / 1 | n/a | `36.2029` | `3.424e-7` | PASS |
+| KUPL Legacy | CPU / 2 | n/a | `36.8231` | `3.422e-7` | PASS |
+
+CUDA 单 rank native/独立 residual 为 `2.561e-7 / 2.808e-7`，并实际执行 1 次
+V-cycle、8 次粗迭代。Torch native/独立 residual 为
+`3.894e-7 / 3.863e-7`，实际执行 1 次 V-cycle。CUDA 2-rank 与 KUPL 的 production
+MPI 报告不暴露可靠 native 迭代字段；只采用独立分布式 full residual 作为验收门，
+不得把缺失值解释为零。
+
+相对 Torch MG 解向量的 `relative L2`：CUDA 单/双 rank 为
+`9.560e-7 / 9.560e-7`，KUPL 单/双 rank 为
+`1.105e-6 / 1.104e-6`，均低于 `1e-4` parity 门。Torch BiCGStab 相对 Torch MG
+为 `2.274e-6`。
+
+| BiCGStab backend | ranks | iterations | effective seconds | independent full residual | status |
+|---|---:|---:|---:|---:|---|
+| Torch odd-Schur | 1 | 18 | `14.0850` | `7.172e-7` | PASS |
+| CUDA QCU | 1 | 18 | `0.2767` | `6.183e-7` | PASS |
+| KUPL QCU | 2 | 19 | `17.7376` | `3.424e-7` | PASS |
+| QUDA | 1 | 17 | `0.2696` | `8.644e-7` | PASS |
+
+同一后端内 MG/BiCGStab 时间比为 Torch `1.24x`、CUDA `1.66x`、KUPL 1-rank
+`2.15x`、KUPL 2-rank `2.08x`；该 L32 批次中 coarse correction 尚未证明优于普通
+Krylov。相同 V100、Torch 与 CUDA 单 rank 的 Legacy MG 实现时间比为 `38.1x`，可说明
+Python 路径不适合生产热路径，但不得外推为跨算法或跨设备结论。KUPL 2-rank 对 1-rank
+没有收益，说明本窗口的主要限制不是 MPI rank 数。
+
+Torch Legacy GPU 的设备级峰值达到完整 `32 GiB`，是当前可运行的容量边界；CUDA 单 rank
+峰值约 `17.0 GB`。设备级采样包含 CUDA context 和原生分配，不能只引用 PyTorch
+allocator 数值。
+
+大格 Strict 仍标记为 `SKIPPED: strict_initialization_time_unacceptable`。QUDA
+`nvec=12, coarse_spin=2` 在 sm70 构建中因 coarse `Nc=24` Yhat 内核不受支持而跳过；
+`nvec=24 -> Nc=48` 补充尝试达到 `1000 s` 组上限，`exit=124`，未进入计时求解。因此
+没有完成的 L32 QUDA MG 结果，也没有可用于公平倍率的 QUDA MG 行。
+
 ## 关键根因
 
 1. CUDA Legacy 递归 V-cycle 返回父粗层后恢复最细层 volume，父层 post-smoother
@@ -102,6 +163,16 @@ Strict 虽把外层迭代降到 23 次，仍不足以抵消递归 V-cycle 和层
    fine BiCGStab，报告 `fallback=fine_bicgstab`。
 7. Torch 内部 `_MultigridHierarchy` 的统一结果报告原先假定存在 `residual_scope`；
    现在按 strict/compact/full 自动推导。
+8. KUPL full-time cache 与 CUDA/Torch odd-Schur cache 的 coarse shape 不同；旧流程
+   曾把前者误当成跨实现公共 cache。现在按布局选择 cache，并在 shape 不符时 fail-closed。
+9. Torch L32 同时保留完整和奇偶两份 hopping/Clover 资产导致 OOM。现在 cached Legacy
+   使用 `parity_only`，逐方向拆分后立即释放完整副本，并在独立 residual 前关闭 hierarchy。
+10. CUDA benchmark 原先把 Torch residual operand 留在 native runtime/asset 驻留期间，
+    导致容量受限格点 OOM；现在先结束 native runtime、释放 cache，再构造 residual。
+11. Torch 的 `original_cycle` 绑定方法曾形成隐藏引用，使 `mg.close()` 后 cache 未释放；
+    现在显式解除 wrapper 引用并执行 GC/allocator 清理。
+12. P100 环境不一定安装 `psutil`；内存查询现在回退 `/proc/meminfo`，不把可选监控依赖
+    变成求解器硬依赖。
 
 ## 非 root 与输入可移植性
 
@@ -119,7 +190,9 @@ Strict 虽把外层迭代降到 23 次，仍不足以抵消递归 V-cycle 和层
 
 - 大格 Strict 行继续 `SKIPPED`，原因是
   `strict_initialization_time_unacceptable`，不是数值失败。
-- L32 两级 Legacy cache 构建、单 rank 与 2-rank 结果在本文件对应批次完成后追加。
+- L32 Legacy 单 rank 与 2-rank 已完成；大格不宣称 Strict 或 QUDA MG 性能。
+- 单组总耗时达到 `1000 s` 可标记 `elapsed_time_unacceptable`；该规则不把 setup
+  超时转换成数值失败，也不允许把未完成的 setup 当成 solve 结果。
 - 本报告不宣称 Torch Python 实现适合生产热路径；其作用是跨平台 algebra oracle。
 
 ## 证据
@@ -130,3 +203,7 @@ Strict 虽把外层迭代降到 23 次，仍不足以抵消递归 V-cycle 和层
 - L24 2-rank：[`qcu_mg_final_20261023`](../data/logs/qcu_mg_final_20261023)
 - BiCGStab：[`qcu_bicgstab_final_20261023`](../logs/qcu_bicgstab_final_20261023)
 - Strict skip：[`strict-skip.json`](../logs/qcu_l24x64_mpi_20261023/strict-skip.json)
+- L32 汇总：[`summary.json`](../logs/qcu_l32x64_mpi_20261023/summary.json)
+- L32 odd cache build：[`legacy-cache-odd-schur-2l-build.json`](../logs/qcu_l32x64_mpi_20261023/legacy-cache-odd-schur-2l-build.json)
+- L32 BiCGStab：[`summary.json`](../logs/qcu_l32x64_mpi_20261023/bicgstab_three_way/summary.json)
+- QUDA MG skip：[`quda-multigrid-status.json`](../logs/qcu_l32x64_mpi_20261023/quda-multigrid-status.json)
