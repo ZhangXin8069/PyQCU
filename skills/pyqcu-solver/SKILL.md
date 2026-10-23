@@ -198,6 +198,21 @@ QUDA-style MG. Setting `levels>1` alone does not select FGMRES/CA-GCR preconditi
   [`docs/qcu_quda_multigrid_algorithms.md`](../../docs/qcu_quda_multigrid_algorithms.md)
   and [`docs/multigrid_deprecation_audit_20261022.md`](../../docs/multigrid_deprecation_audit_20261022.md).
 
+### 2026-10-23 Legacy 多层正确性边界
+
+Legacy 多级结果的正确性门是求解返回后独立重建 full Wilson/Clover true residual，
+不能只看 C++ native residual。旧记录中 2-rank 三层和 1-rank 四层的独立残差
+`0.24734981087334906`/`0.24726009368896484` 已定位为递归 V-cycle 返回时错误恢复
+最细层 volume 的 C++ bug；修复后 `24×24×24×64` c64 的单 rank 3L/4L 和 2-rank
+3L/4L 均通过，独立残差分别约为 `2.60e-7`（单 rank 3L/4L）和 `2.45e-7`
+（2-rank 3L/4L）。
+
+Legacy correction 现采用确定性 fail-safe：post residual 未改善则回滚并关闭本
+solve 的后续 correction，不再依赖浮点斜率临界门。验证深度仍为 Legacy 两层、
+Strict 三层；3L/4L 只作为显式实验路径，depth warning 说明几何/深度风险，不能代替
+correctness gate。完整矩阵、实际 cycle 计数和证据链接见
+[`pyqcu-benchmark/references/qcu-multigrid-20261023.md`](../pyqcu-benchmark/references/qcu-multigrid-20261023.md)。
+
 ## Strict QUDA-style MultiGrid Invariants
 
 Keep the legacy implementation available for comparison. Select Strict with `hierarchy_mode="strict"` or the public `StrictMultigrid`; `setup_operator="schur"` is the legacy compact odd-Schur/setup-vector option, not the hierarchy selector. Under Strict the coarse geometry remains full even when that setup option is supplied. The strict hierarchy instead uses

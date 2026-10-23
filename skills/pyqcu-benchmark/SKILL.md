@@ -24,6 +24,12 @@ Record native and independently reconstructed true residuals together, and
 mark distributed Legacy depth greater than two as unsupported unless a
 dedicated regression proves both correctness and benefit.
 
+MPI benchmarks accept only a positive power of two ranks (`1/2/4/8/...`).
+Reject every other count before launching MPI or allocating the solver. The
+complete 2026-10-23 rank, quick-matrix, true-residual and evidence guidance is in
+[`references/qcu-multigrid-20261023.md`](references/qcu-multigrid-20261023.md);
+read it before running the QCU MultiGrid matrix.
+
 正式三方基准的输入、同窗比较、历史证据和不可外推条件见
 [`pyqcu-docs/references/extracted-guidance.md`](../pyqcu-docs/references/extracted-guidance.md#5-性能与证据解释)。
 
@@ -52,6 +58,18 @@ Legacy/Strict CUDA MG 的运行时峰值必须用同时覆盖 C++ 原生分配�
 Torch/CUDA/KUPL × Legacy/Strict、QUDA aligned MG，并额外执行 CUDA Legacy
 fine-only 消融。结果与解释见
 [`docs/qcu_six_way_benchmark_20261023.md`](../../docs/qcu_six_way_benchmark_20261023.md)。
+
+该 `8×8×8×16` 是当前编排器的历史默认值。项目快速矩阵口径已固定为
+`16×16×16×16`，且该格点只用于 Torch/CUDA/KUPL × Legacy/Strict 六项 QCU-MG；
+运行时必须显式覆盖 lattice，不能把历史默认值当作新矩阵口径。合格批次还必须包含
+同输入的 QUDA aligned MG 以及 Torch/CUDA/KUPL/QUDA BiCGStab 边界对照。正式矩阵只用
+trace-off，并在进程启动前设置 `QUDA_ENABLE_TUNING=0`；trace-on 只能单独用于诊断。
+详细执行与证据口径见
+[`references/qcu-multigrid-20261023.md`](references/qcu-multigrid-20261023.md)。
+
+不得由 `levels`、`restart` 或 cycle 配置推断 coarse 已执行。每个 Legacy side 必须读取
+`n_vcycles`、`coarse_iters`/`coarse_iterations` 和实际 cycle/correction 计数；多 rank
+CUDA 未显式设置 `params[_MG_USE_DEFLATE_]` 时结果为 fine-only，不能标成 coarse MG。
 
 本轮确认的三个硬边界：
 
@@ -271,10 +289,10 @@ trace 的 `solve_end` 次数与正式 `iterations.median` 一致为 20，层号
 固定 fine 0/coarse 1/coarsest 2；若看到 20/60 差异，应归因于外层
 Krylov 策略，而不能解释成 parity 层计数错位。
 
-多卡方面，当前机器只有一张受这套 PyTorch `sm_70+` 支持的 V100；两张
-P100 为 `sm_60`，当前 PyTorch 构建明确不兼容，且 PyQCU/QUDA 本任务构建
-目标为 `sm_70`。因此本轮不能把多卡数字并入正式 MG 结论；应记录为环境
-能力缺口，而不是把单卡结果冒充多卡验证。
+多卡方面，2-rank CUDA 可以使用两张 P100，但必须切换到兼容 `sm_60` 的 Python
+环境，并使用同时包含 `sm_60`/`sm_70` 的原生库集合。V100+P100 异构组合会混合性能
+和架构变量，不能并入正式同窗结论。历史 V100 单卡结果仍应按其原始环境解释，不能
+冒充双 P100 验证。
 另实测把同一 V100 UUID 在 `CUDA_VISIBLE_DEVICES` 中重复两次会得到
 `device_count=0`，不能借此构造同卡的“双逻辑设备”多卡测试；不得把
 这种伪多卡输出写入结果。

@@ -788,6 +788,9 @@ def prepare(
     )
     os.close(descriptor)
     temporary = Path(temporary_name)
+    # mkstemp defaults to 0600; published numerical assets must remain
+    # readable by non-root users sharing the repository.
+    temporary.chmod(0o644)
     factory = _cuda_vectors if vector_factory is None else vector_factory
     revision_fn = _git_revision if git_revision_fn is None else git_revision_fn
     try:

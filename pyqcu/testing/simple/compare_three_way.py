@@ -130,11 +130,9 @@ def run_kupl(args, out_dir: Path, gauge: Path, source: Path, mass: float,
         report = out_dir / f"kupl_bicg_r{repeat + 1}.json"
         command = kupl_command(args, grid, args.lat, mass, csw, gauge,
                                source, None, report)
-        # Timed repeats in the benchmark skip the (expensive) independent
-        # distributed residual; compare_three_way still validates the result
-        # through the backend's fail-closed gate.  solve_case.py computes the
-        # independent residual once for production output.
-        command.append("--skip-independent-residual")
+        # Keep the independent distributed full residual in the timed report.
+        # Its current 4-rank cost is small, and a null residual makes a formal
+        # solver comparison numerically incomplete.
         data = run_report(command, env, report)
         if data.get("status") == "FAIL":
             data["label"] = "KUPL QCU parity-Schur BiCGStab"
@@ -248,8 +246,11 @@ def main(argv=None) -> int:
             float(meta.get("reference_mass", DEFAULT_MASS)))
     csw = (float(args.csw) if args.csw is not None else
            float(meta.get("csw", DEFAULT_CSW)))
-    out_dir = Path(args.out_dir) if args.out_dir else (
-        REPO / "data" / "benchmark_three_way")
+    # Child runners resolve relative report paths against DATA_DIR.  Pass an
+    # absolute output directory so a caller-supplied repository-relative path
+    # such as ``logs/...`` is not silently rewritten to ``data/logs/...``.
+    out_dir = (Path(args.out_dir).expanduser().resolve()
+               if args.out_dir else REPO / "data" / "benchmark_three_way")
     out_dir.mkdir(parents=True, exist_ok=True)
 
     if args.gauge is not None:

@@ -17,6 +17,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import Any, Sequence
 
@@ -40,10 +41,17 @@ from pyqcu.testing.simple.mpi._common import (
     resolve_grid,
     validate_lattice,
 )
+from pyqcu.testing.simple.mpi._entrypoint import (
+    benchmark_environment,
+    require_launcher_singleton,
+)
+from pyqcu.testing.simple.mpi.mpi_ranks_power_of_two import validate_rank_count
 
 
 REPO = Path(__file__).resolve().parents[4]
 BUILD_CACHE = REPO / "pyqcu" / "testing" / "simple" / "build_full_mg_cache.py"
+
+
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -82,9 +90,13 @@ def _local_numa_count() -> int | None:
 
 def _case_tag(path: Path, lattice: Sequence[int], mass: float, csw: float,
               seed: int, dtype: str) -> str:
-    stat = path.stat()
+    try:
+        stat = path.stat()
+        identity_path = f"{path.resolve()}:{stat.st_size}:{stat.st_mtime_ns}"
+    except OSError:
+        identity_path = f"{path.absolute()}:missing-dry-run"
     identity = (
-        f"{path.resolve()}:{stat.st_size}:{stat.st_mtime_ns}:"
+        f"{identity_path}:"
         f"{tuple(lattice)}:{mass:.12g}:{csw:.12g}:{seed}:{dtype}")
     digest = hashlib.sha256(identity.encode("utf-8")).hexdigest()[:12]
     stem = re.sub(r"[^A-Za-z0-9_.-]+", "_", path.stem)
@@ -273,7 +285,7 @@ def build_mpirun_command(*, mpirun: str, ranks: int, bind_to: str,
 
 
 def _launch_environment(args) -> dict[str, str]:
-    env = dict(os.environ)
+    env = benchmark_environment()
     python_path = env.get("PYTHONPATH", "")
     entries = [str(REPO), *[item for item in python_path.split(":") if item]]
     env["PYTHONPATH"] = ":".join(dict.fromkeys(entries))
@@ -336,6 +348,7 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     parser.add_argument("--report", default=None)
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args(argv)
+    require_launcher_singleton(parser)
 
     args.lat = list(validate_lattice(args.lat))
     if len(args.dof) < args.levels:
@@ -348,8 +361,12 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
         parser.error(
             "levels > 2 require one repeated --coarse-cache-level per "
             "additional coarse transition")
-    if args.levels < 1 or args.ranks < 1 or args.omp_threads < 1:
-        parser.error("--levels, --ranks and --omp-threads must be positive")
+    if args.levels < 1 or args.omp_threads < 1:
+        parser.error("--levels and --omp-threads must be positive")
+    try:
+        args.ranks = validate_rank_count(args.ranks)
+    except ValueError as exc:
+        parser.error(str(exc))
     if args.restart < 0 or args.max_iter < 1 or args.nv_iters < 1:
         parser.error("--restart must be nonnegative and iteration counts positive")
     if not np.isfinite(args.atol) or args.atol <= 0.0:
@@ -429,6 +446,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             "ranks": args.ranks, "omp_threads": args.omp_threads,
             "bind_to": args.bind_to, "map_by": args.map_by,
             "binding_fallback": args.binding_fallback,
+            "trace_enabled": False,
+            "quda_enable_tuning": "0",
             "command": command,
         }, indent=2, ensure_ascii=False))
         return 0
@@ -451,11 +470,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.report else Path(case["work_dir"]) / "report_mpi.json")
     output.parent.mkdir(parents=True, exist_ok=True)
     report.parent.mkdir(parents=True, exist_ok=True)
-    if report.exists():
-        report.unlink()
+    run_tag = f"{os.getpid()}-{time.time_ns()}"
+    staged_output = output.with_name(f".{output.name}.{run_tag}.partial")
+    staged_report = report.with_name(f".{report.name}.{run_tag}.partial")
 
     worker = _worker_arguments(
-        args, case, cache_path, args.grid, output, report)
+        args, case, cache_path, args.grid, staged_output, staged_report)
     command = build_mpirun_command(
         mpirun=args.mpirun, ranks=args.ranks, bind_to=args.bind_to,
         map_by=args.map_by, oversubscribe=args.oversubscribe,
@@ -469,15 +489,36 @@ def main(argv: Sequence[str] | None = None) -> int:
         "map_by": args.map_by, "binding_fallback": args.binding_fallback,
     }, ensure_ascii=False), flush=True)
     completed = subprocess.run(command, cwd=REPO, env=env, check=False)
-    if not report.is_file():
+    if not staged_report.is_file():
+        try:
+            staged_output.unlink()
+        except FileNotFoundError:
+            pass
+        failure = {
+            "status": "FAIL",
+            "backend": args.backend,
+            "exit_code": completed.returncode,
+            "error": "worker did not publish a JSON report",
+        }
+        write_json(staged_report, failure)
+        os.replace(staged_report, report)
         print(json.dumps({
             "status": "FAIL", "backend": args.backend,
             "exit_code": completed.returncode,
             "error": "worker did not publish a JSON report",
+            "report": str(report),
         }, ensure_ascii=False))
         return 1 if completed.returncode == 0 else completed.returncode
 
-    payload = json.loads(report.read_text(encoding="utf-8"))
+    payload = json.loads(staged_report.read_text(encoding="utf-8"))
+    publish_output = bool(
+        completed.returncode == 0 and payload.get("status") not in ("FAIL", "SKIP")
+        and staged_output.is_file())
+    if not publish_output:
+        try:
+            staged_output.unlink()
+        except FileNotFoundError:
+            pass
     payload["launcher"] = {
         "exit_code": completed.returncode,
         "command": command,
@@ -486,11 +527,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         "case_manifest": case["manifest"],
         "small_lattice": args.lat,
         "sub_volume_note": case["sub_volume_note"],
+        "output_published": publish_output,
+        "output": str(output) if publish_output else None,
     }
     if completed.returncode != 0 and payload.get("status") not in ("FAIL", "SKIP"):
         payload["status"] = "FAIL"
         payload["converged"] = False
-    write_json(report, payload)
+    write_json(staged_report, payload)
+    if publish_output:
+        os.replace(staged_output, output)
+    os.replace(staged_report, report)
     print(json.dumps(payload, ensure_ascii=False))
     return 0 if completed.returncode == 0 and payload.get("status") != "FAIL" else 1
 

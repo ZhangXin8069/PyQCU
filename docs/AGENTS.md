@@ -5,7 +5,7 @@ PyQCU 参考文档。
 > 2026-09-27 迁移：顶层 `examples/` 已迁入 `pyqcu/testing/`。本目录旧报告中若
 > 出现 `examples/...`，应映射为 `pyqcu/testing/...`；现行文档已统一使用新路径。
 
-当前 `docs/` 顶层共有 **26 份 Markdown 文档（含本索引）**。下表只维护文件职责；
+当前 `docs/` 顶层共有 **28 份 Markdown 文档（含本索引）**。下表只维护文件职责；
 权威级别、唯一主责技能和提取边界见
 [`skills/pyqcu-docs/references/project-docs-map.md`](../skills/pyqcu-docs/references/project-docs-map.md)。
 
@@ -40,6 +40,8 @@ PyQCU 参考文档。
 |---|---|
 | `three_way_benchmark_20261022.md` | CUDA QCU / KUPL QCU / QUDA 三方性能测评与并行扩展报告（2026-10-22） |
 | `qcu_six_way_benchmark_20261023.md` | Torch/CUDA/KUPL 六版本、QUDA 对照、真实 LIME 前缀、coarse 执行证据与同窗口性能结果（2026-10-23） |
+| `qcu_mg_benchmark_decisions_20261023.md` | 大格 Strict 初始化的 benchmark SKIP 决策、适用范围与证据边界（2026-10-23） |
+| `qcu_mg_refactor_validation_20261023.md` | QCU Legacy/Strict 重构后的 16⁴ 六项矩阵、QUDA/BiCG 对照、L24 单/多 rank 深度回归与验收口径（2026-10-23） |
 | `legacy_vs_strict_mg_status_20261022.md` | Legacy/Strict CUDA 与 KUPL MG 现有 JSON/stdout 的完成状态、数值边界和未验证项（2026-10-22） |
 | `legacy_vs_strict_mg_memory_20261023.md` | Legacy/Strict CUDA MG 的设备级运行时显存峰值、测量边界、差异来源和未验证项（2026-10-23） |
 | `progress_until_20261022_worktree.md` | 当前工作区续接进度总结（2026-10-22） |

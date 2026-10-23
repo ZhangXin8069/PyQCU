@@ -151,8 +151,9 @@ class StrictMultigrid:
                 raise ValueError("StrictMultigrid x0 shape 与 rhs 不一致")
             self.params[define._MG_USE_INIT_GUESS_] = 1
             self.output.copy_(initial.reshape(output_shape))
+        packed_source = source.reshape(output_shape).contiguous()
         status = qcu.applyMultigridStrictFgmresQcu(
-            self.output, source, self.gauge, self.clover_even,
+            self.output, packed_source, self.gauge, self.clover_even,
             self.clover_odd, self.clover_even_inv, self.clover_odd_inv,
             self.fine_null_vectors, self.set_ptrs, self.params,
             self.fine_dims, self.coarse_dims, int(self.gauge.element_size()),

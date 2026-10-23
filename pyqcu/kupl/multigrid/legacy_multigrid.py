@@ -11,6 +11,13 @@ from pyqcu.cuda import define
 from pyqcu._multigrid_warnings import warn_excessive_multigrid_levels
 
 
+_SET_PTRS_LEGACY_LAYOUT = 99
+_LEGACY_LAYOUTS = {
+    "full-site-wilson-clover-33-stencil": 0,
+    "odd-schur-33-stencil": 1,
+}
+
+
 class LegacyMultigrid:
     """Thin CPU lifecycle wrapper around the KUPL legacy Clover-MG ABI.
 
@@ -25,12 +32,18 @@ class LegacyMultigrid:
     def __init__(self, params: Any, argv: Any, set_ptrs: Any, gauge: Any,
                  clover_even: Any, clover_odd: Any,
                  clover_even_inv: Any, clover_odd_inv: Any,
-                 output: Optional[Any] = None):
+                 output: Optional[Any] = None,
+                 cache_layout: str = "full-site-wilson-clover-33-stencil"):
         self.params = _cpu_tensor(
             params, "params", dtype=_torch.torch.int32, numel=define._PARAMS_SIZE_)
         self.set_ptrs = _cpu_tensor(
             set_ptrs, "set_ptrs", dtype=_torch.torch.int64,
             numel=define._SET_PTRS_SIZE_)
+        if cache_layout not in _LEGACY_LAYOUTS:
+            raise ValueError(
+                f"unsupported KUPL Legacy cache layout: {cache_layout}")
+        self.cache_layout = cache_layout
+        self.set_ptrs[_SET_PTRS_LEGACY_LAYOUT] = _LEGACY_LAYOUTS[cache_layout]
         self.gauge = _cpu_tensor(gauge, "gauge")
         self.data_dtype = self.gauge.dtype
         expected_real_dtype = (

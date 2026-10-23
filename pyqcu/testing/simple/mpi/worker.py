@@ -15,6 +15,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import sys
 import time
 from pathlib import Path
 from typing import Sequence
@@ -33,6 +34,7 @@ from pyqcu.testing.simple.mpi._common import (
     slice_last4,
     validate_lattice,
 )
+from pyqcu.testing.simple.mpi.mpi_ranks_power_of_two import validate_rank_count
 
 
 def _affinity() -> list[int]:
@@ -123,7 +125,11 @@ def _run_cuda(args, comm: MPI.Comm) -> int:
     visible = int(torch.cuda.device_count())
     if visible < 1:
         raise RuntimeError("CUDA backend requested, but no visible GPU exists")
-    device_index = local_rank % visible
+    if local_rank >= visible:
+        raise RuntimeError(
+            f"MPI local rank {local_rank} has no private CUDA device "
+            f"(visible={visible}); one rank must map to one device")
+    device_index = local_rank
     torch.cuda.set_device(device_index)
     device = torch.device("cuda", device_index)
     tensor_dtype = torch.complex64 if args.dtype == "c64" else torch.complex128
@@ -352,6 +358,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.backend == "kupl" and args.levels > 2:
         raise ValueError("the current KUPL Legacy benchmark supports at most 2 levels")
     comm = MPI.COMM_WORLD
+    try:
+        validate_rank_count(int(comm.Get_size()))
+    except ValueError as exc:
+        if int(comm.Get_rank()) == 0:
+            print(f"error: {exc}", file=sys.stderr)
+        return 2
     if int(np.prod(args.grid)) != int(comm.Get_size()):
         raise ValueError(
             f"grid {tuple(args.grid)} contains {int(np.prod(args.grid))} ranks, "

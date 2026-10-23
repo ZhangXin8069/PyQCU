@@ -4,6 +4,10 @@
 工作树在运行前已包含其他未提交改动，完整快照见
 [`environment.json`](../logs/qcu_six_way_20261023/formal-release/environment.json)。
 
+后续 16⁴ 统一验收已替代本文作为当前快速矩阵主口径，见
+[`qcu_mg_refactor_validation_20261023.md`](qcu_mg_refactor_validation_20261023.md)。
+本文的 `8×8×8×16` 数据和 trace 诊断仅作为历史时点证据保留。
+
 ## 1. 运行环境
 
 本轮固定使用一个 Python 进程、一个 MPI rank。Torch、CUDA QCU 与 QUDA 共用
@@ -95,13 +99,14 @@ workspace/初始化开销，不进入 steady 统计。`setup` 与 `cache` 的边
 coarse 路径收益为负，且 fine-only 的收益只能标为“关闭 coarse 后的 fine-only 收益”，
 不能写成 coarse MG 的算法收益。
 
-## 4. 不可运行项
+## 4. 历史边界与后续修复
 
-1. **KUPL Strict 公共 Python 包装不可直接运行。** `pyqcu.kupl.multigrid.StrictMultigrid`
+1. **旧批次中 KUPL Strict 公共 Python 包装不可直接运行（后续已修复）。** `pyqcu.kupl.multigrid.StrictMultigrid`
    向 strict init 传入 tensor 而 C ABI 要求 `unsigned long long *`，并且 FGMRES 包装缺少
    fine/coarse `E` 两个参数。本轮没有改求解器实现，而是通过同一原始 C ABI 完成真实运行；
    证据见 [`kupl-strict.json`](../logs/qcu_six_way_20261023/formal-release/kupl-strict.json) 的
-   `public_wrapper_blocker` 字段。公共包装修复前，KUPL Strict 不能算“公共 Python API 可运行”。
+   `public_wrapper_blocker` 字段。该限制随后已修复：16⁴ 批次 public/raw 同解相对差
+   `8.32e-8`，见 [`qcu_mg_refactor_validation_20261023.md`](qcu_mg_refactor_validation_20261023.md)。
 2. **QUDA 不能加载共享 canonical null-vector QIO。** 当前 sm70 `libquda.so` 的
    `QUDA_QIO=OFF`，因此 QUDA 在同一 gauge 上自行生成 null vectors，层数、block、`nvec=12`、
    `coarse_spin=2`、容差和迭代预算相同，但 null-space 资产不是 byte-identical。该对照是
