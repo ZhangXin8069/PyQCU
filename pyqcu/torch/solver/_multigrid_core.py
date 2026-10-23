@@ -3676,6 +3676,17 @@ class _MultigridHierarchy:
                 raise ValueError("b 与 x0 的 spin/color 布局必须一致")
         from ._gmres import fgmres
         history: List[float] = []
+        solver_stats: Dict[str, Any] = {}
+        vcycle_calls = {"top_level": 0}
+
+        def strict_precondition(residual: Tensor) -> Tensor:
+            vcycle_calls["top_level"] += 1
+            return self._strict_v_cycle(residual, 0)
+
+        def legacy_precondition(residual: Tensor) -> Tensor:
+            vcycle_calls["top_level"] += 1
+            return self.v_cycle(residual)
+
         if self._strict_mode:
             matpc = self.matpc_operators[0]
             pc_rhs = matpc.rhs(b_flat)
@@ -3687,8 +3698,9 @@ class _MultigridHierarchy:
                 pc_rhs, matpc.apply,
                 tol=self.tol, max_iter=self.max_iter, restart=self.restart,
                 x0=pc_guess,
-                precond=lambda residual: self._strict_v_cycle(residual, 0),
-                if_rtol=True, verbose=self.verbose, history=history)
+                precond=strict_precondition,
+                if_rtol=True, verbose=self.verbose, history=history,
+                stats=solver_stats)
             solution = matpc.reconstruct(b_flat, target_solution)
         elif self._compact_parity:
             assert self._fine_compact is not None
@@ -3701,17 +3713,45 @@ class _MultigridHierarchy:
                 odd_rhs, self._fine_compact.apply,
                 tol=self.tol, max_iter=self.max_iter, restart=self.restart,
                 x0=odd_guess,
-                precond=lambda residual: self.v_cycle(residual),
-                if_rtol=True, verbose=self.verbose, history=history)
+                precond=legacy_precondition,
+                if_rtol=True, verbose=self.verbose, history=history,
+                stats=solver_stats)
             solution = self._fine_compact.reconstruct(b_flat, odd_solution)
         else:
             solution = fgmres(
                 b_flat, self.operators[0].apply,
                 tol=self.tol, max_iter=self.max_iter, restart=self.restart,
                 x0=guess,
-                precond=lambda residual: self.v_cycle(residual),
-                if_rtol=True, verbose=self.verbose, history=history)
+                precond=legacy_precondition,
+                if_rtol=True, verbose=self.verbose, history=history,
+                stats=solver_stats)
         self.convergence_history = history
+        tolerance_absolute = solver_stats.get("tolerance_absolute")
+        native_relative = (
+            float(solver_stats.get("final_residual", float("inf"))) /
+            max(float(tolerance_absolute), 1e-30) * self.tol
+            if tolerance_absolute is not None else None)
+        residual_scope = getattr(
+            self, "residual_scope",
+            "matpc" if self._strict_mode else
+            "schur" if self._compact_parity else "full")
+        self.last_solve_report = {
+            **solver_stats,
+            "backend": "torch",
+            "variant": "strict" if self._strict_mode else self.hierarchy_mode,
+            "device": str(b_flat.device),
+            "outer_solver": "FGMRES",
+            "residual_scope": residual_scope,
+            "stop_criterion": "relative_native_residual",
+            "native_relative_residual": native_relative,
+            "tolerance": float(self.tol),
+            "restart": int(self.restart),
+            "coarse_max_iter": int(self.coarse_max_iter),
+            "coarse_tolerance": float(self.coarse_tol),
+            "initial_guess": "provided" if x0 is not None else "zero",
+            "trace": False,
+            "vcycle_calls": vcycle_calls,
+        }
         if shape_kind == "spin_color":
             return solution.reshape(self.fine_spin, self.fine_color, *self.fine_shape)
         return solution

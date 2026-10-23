@@ -1,7 +1,11 @@
+from pathlib import Path
+from types import SimpleNamespace
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Union
+
 import torch
-from typing import List, Optional
 from pyqcu import tools
 from pyqcu.torch import dslash
+from pyqcu.torch.tools._multigrid import load_legacy_mg_assets
 import pyqcu.cann as _torch
 import mpi4py.MPI as MPI
 from time import perf_counter
@@ -9,16 +13,37 @@ from pyqcu.cuda import qcu, define
 from pyqcu._multigrid_warnings import warn_excessive_multigrid_levels
 
 
+class _CachedLegacyCoarseOperator:
+    """Torch action of a cached 33-tensor Legacy coarse operator."""
+
+    def __init__(self, hop_nn: torch.Tensor, hop_diag: torch.Tensor,
+                 sitting: torch.Tensor):
+        self.hop_nn = hop_nn
+        self.hop_diag = hop_diag
+        self.sitting = SimpleNamespace(M=sitting)
+        self.hopping = SimpleNamespace(
+            M_plus_list=[hop_nn[0, direction] for direction in range(4)],
+            M_minus_list=[hop_nn[1, direction] for direction in range(4)],
+        )
+
+    def matvec(self, src: torch.Tensor) -> torch.Tensor:
+        return tools.apply_stencil(
+            self.hop_nn, self.hop_diag, self.sitting.M, src)
+
+
 class LegacyMultigrid:
     """Legacy 33-stencil 自适应多重网格实现。"""
 
     variant = "legacy"
 
-    def __init__(self, dtype_list: List[torch.dtype], device_list: List[torch.device],  U: torch.Tensor, clover_term: torch.Tensor, kappa: Optional[torch.Tensor] = torch.Tensor([0.1]), u_0: Optional[torch.Tensor] = torch.Tensor([1.0]), clover_ee_inv: Optional[torch.Tensor] = None, clover_oo_inv: Optional[torch.Tensor] = None, min_size: int = 4, max_level: int = 4, mg_grid_size: List[int] = [2, 2, 2, 2], num_convergence_sample: int = 50, dof_list: List[int] = [12, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24], tol: float = 1e-6, max_iter: int = 1000, num_restart: int = 5, root: int = 0, support_parity: bool = False, verbose: bool = True, seed: Optional[int] = None):
+    def __init__(self, dtype_list: List[torch.dtype], device_list: List[torch.device],  U: torch.Tensor, clover_term: torch.Tensor, kappa: Optional[torch.Tensor] = torch.Tensor([0.1]), u_0: Optional[torch.Tensor] = torch.Tensor([1.0]), clover_ee_inv: Optional[torch.Tensor] = None, clover_oo_inv: Optional[torch.Tensor] = None, min_size: int = 4, max_level: int = 4, mg_grid_size: List[int] = [2, 2, 2, 2], num_convergence_sample: int = 50, dof_list: List[int] = [12, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24], tol: float = 1e-6, max_iter: int = 1000, num_restart: int = 5, root: int = 0, support_parity: bool = False, verbose: bool = True, seed: Optional[int] = None, coarse_assets: Optional[Sequence[Union[str, Path, Mapping[str, Any]]]] = None, coarse_tol: float = 1e-4, coarse_max_iter: int = 200, deflate: bool = False, adaptive_correction: bool = True, correction_calibration: int = 30, correction_window: int = 12):
         """自适应多重网格 V-cycle 求解器。
 
         seed: 可选确定性种子 —— 给定时初始 b/x0 用独立本地 Generator 生成
         （多线程实例并行时消除全局 RNG 竞争，残差可复现）；None 保持全局 RNG 行为。
+        coarse_assets: 每个 coarse transition 一个 HDF5 路径或已加载资产映射。
+        传入 CUDA Legacy ``lonv/hnn/hdg/sit`` 缓存时，Torch 直接消费同一
+        null basis 与 33-tensor Galerkin 算子，不再生成另一套层级。
         """
         self.comm = MPI.COMM_WORLD
         self.rank = self.comm.Get_rank()
@@ -33,6 +58,14 @@ class LegacyMultigrid:
         self.tol = tol
         self.max_iter = max_iter
         self.num_restart = num_restart
+        self.coarse_tol = float(coarse_tol)
+        self.coarse_max_iter = int(coarse_max_iter)
+        self.deflate = bool(deflate)
+        self.adaptive_correction = bool(adaptive_correction)
+        self.correction_calibration = max(0, int(correction_calibration))
+        self.correction_window = max(1, int(correction_window))
+        self.coarse_assets: List[Union[str, Path, Mapping[str, Any]]] = (
+            list(coarse_assets) if coarse_assets is not None else [])
         self.root = root
         self.with_cuda_qcu = True if self.clover_ee_inv is not None and self.clover_oo_inv is not None else False
         self.support_parity = support_parity
@@ -98,6 +131,8 @@ class LegacyMultigrid:
         self._mg_coarse_hopping_packed_level = None  # track which level is cached
         self._max_set_index = -1  # init 创建的 C++ LatticeSet 最大槽位（end 释放用）
         self._setup_done = False
+        self.asset_identities: List[Dict[str, Any]] = []
+        self.last_solve_report: Dict[str, Any] = {}
 
     def _restrict_cuda(self, fine_vec: torch.Tensor, level: int) -> torch.Tensor:
         """CUDA-accelerated restriction using C++ backend."""
@@ -280,7 +315,45 @@ class LegacyMultigrid:
                 dtype=define.dtype(params[define._DATA_TYPE_]), device=torch.device('cuda'))
             self.dest_o = self.fermion_out_eo[1]
 
+        transitions = len(self.lat_size_list) - 1
+        if self.coarse_assets and len(self.coarse_assets) < transitions:
+            raise ValueError(
+                f"coarse_assets provides {len(self.coarse_assets)} transitions, "
+                f"but the hierarchy requires {transitions}")
+        self._use_cached_assets = bool(self.coarse_assets)
+
         for i in range(1, len(self.lat_size_list)):
+            if self.coarse_assets:
+                asset = load_legacy_mg_assets(
+                    self.coarse_assets[i - 1],
+                    dtype=self.dtype_list[i], device=self.device_list[i])
+                expected_shape = tuple(self.lat_size_list[i - 1][axis] // self.mg_grid_size[axis]
+                                       for axis in range(4))
+                expected_shape = (*expected_shape[:3], expected_shape[3] // 2)
+                if tuple(asset["coarse_shape"]) != expected_shape:
+                    raise ValueError(
+                        f"Legacy cache level {i} coarse shape "
+                        f"{asset['coarse_shape']} != expected {expected_shape}")
+                if int(asset["lonv"].shape[1]) != int(self.dof_list[i - 1]):
+                    raise ValueError(
+                        f"Legacy cache level {i} input dof "
+                        f"{asset['lonv'].shape[1]} != {self.dof_list[i - 1]}")
+                _null_vecs = None
+                _local_ortho_null_vecs = asset["lonv"]
+                self.nv_list.append(None)
+                self.lonv_list.append(_local_ortho_null_vecs)
+                self.b_list.append(torch.zeros(
+                    size=[asset["lonv"].shape[0], *expected_shape],
+                    dtype=self.dtype_list[i], device=self.device_list[i]))
+                self.op_list.append(_CachedLegacyCoarseOperator(
+                    asset["hnn"], asset["hdg"], asset["sit"]))
+                self.asset_identities.append({
+                    key: asset[key]
+                    for key in ("path", "file_sha256", "dataset_sha256",
+                                "coarse_shape")
+                })
+                continue
+
             _null_vecs = _torch.randn(size=[self.dof_list[i], self.dof_list[i-1]] +
                                       self.lat_size_list[i-1], dtype=self.dtype_list[i-1], device=self.device_list[i-1])
             if self.with_cuda_qcu and i == 1:
@@ -317,6 +390,8 @@ class LegacyMultigrid:
                 size=[self.dof_list[i]]+self.lat_size_list[i], dtype=self.dtype_list[i], device=self.device_list[i]))
             self.op_list.append(dslash.operator(fine_hopping=self.op_list[i-1].hopping, fine_sitting=self.op_list[i -
                                 1].sitting, local_ortho_null_vecs=_local_ortho_null_vecs,  verbose=self.verbose))
+        if not self.coarse_assets:
+            self._use_cached_assets = False
         comm.Barrier()
         self._setup_done = True
         return self
@@ -382,6 +457,364 @@ class LegacyMultigrid:
             self.convergence_tol += 1
 
     def cycle(self, level: int = 0) -> torch.Tensor:
+        """Run the CUDA-aligned Legacy BiCGStab/V-cycle control path."""
+        matvec = self.op_list[level].matvec
+        if self.with_cuda_qcu and level == 1 and not self._use_cached_assets:
+            def _coarse_matvec(src: torch.Tensor) -> torch.Tensor:
+                return self._coarse_dslash_cuda(src=src, level=level)
+            matvec = _coarse_matvec
+
+        b = self.b_list[level].clone()
+        b_origin = None
+        b_e = None
+        if level == 0 and self.support_parity:
+            b_origin = b.clone()
+            b_eo = tools.oooxyzt2poooxyzt(b)
+            b_e = b_eo[0]
+            b = self.op_list[0].give_b_parity(b_e=b_e, b_o=b_eo[1])
+            if not self.with_cuda_qcu:
+                matvec = self.op_list[0].matvec_parity
+            else:
+                def _matvec(src_o: torch.Tensor) -> torch.Tensor:
+                    self.params[define._SET_INDEX_] = 0
+                    qcu.applyCloverBistabCgDslashQcu(
+                        self.dest_o, src_o, self.gauge_eo,
+                        self.clover_ee, self.clover_oo,
+                        self.clover_ee_inv, self.clover_oo_inv,
+                        self.set_ptrs, self.params)  # type: ignore
+                    torch.cuda.synchronize()
+                    return self.dest_o.reshape(src_o.shape)
+                matvec = _matvec
+
+        if level == 0:
+            self._cycle_stats = {
+                "iterations": 0,
+                "vcycles": 0,
+                "corrections": [],
+                "deflation": None,
+                "iteration_samples": [],
+                "stop_reason": None,
+            }
+            self._coarse_r0_ref = {}
+
+        x = torch.zeros_like(b)
+        r = b - matvec(x)
+        b_norm = tools.norm(b)
+        r_norm = tools.norm(r)
+        if level == 0:
+            # Match CUDA Legacy's relative Schur-residual stopping rule.
+            tolerance = self.tol * max(float(b_norm), 1e-30)
+            iteration_limit = self.max_iter
+            self.convergence_history.append(r_norm)
+        else:
+            # CUDA anchors a level's target to its first incoming RHS norm.
+            self._coarse_r0_ref.setdefault(level, float(r_norm))
+            tolerance = self.coarse_tol * max(
+                float(self._coarse_r0_ref[level]), 1e-30)
+            iteration_limit = self.coarse_max_iter
+            if r_norm < 1e-4:
+                return x
+
+        if self.verbose:
+            print(f"PYQCU::SOLVER::LEGACY_MULTIGRID:\n {level}:Norm of b:{b_norm}")
+            print(f"PYQCU::SOLVER::LEGACY_MULTIGRID:\n {level}:Norm of r:{r_norm}")
+            print(f"PYQCU::SOLVER::LEGACY_MULTIGRID:\n {level}:Norm of x0:{tools.norm(x)}")
+        if r_norm < tolerance:
+            if level == 0:
+                self._cycle_stats["stop_reason"] = "initial_residual"
+            return x
+
+        def coarse_correct(current_x: torch.Tensor, current_r: torch.Tensor,
+                           reason: str) -> tuple[torch.Tensor, torch.Tensor]:
+            pre_correction = float(tools.norm(current_r))
+            self._cycle_stats["vcycles"] += 1
+            if self.with_cuda_qcu and level == 0:
+                restricted = self._restrict_cuda(
+                    fine_vec=current_r, level=level)
+            else:
+                restricted = tools.restrict(
+                    local_ortho_null_vecs=self.lonv_list[level],
+                    fine_vec=current_r)
+            self.b_list[level + 1] = restricted.to(
+                dtype=self.dtype_list[level + 1],
+                device=self.device_list[level + 1])
+            coarse_error = self.cycle(level=level + 1).to(
+                dtype=self.dtype_list[level],
+                device=self.device_list[level])
+            if self.with_cuda_qcu and level == 0:
+                fine_error = self._prolong_cuda(
+                    coarse_vec=coarse_error, level=level)
+            else:
+                fine_error = tools.prolong(
+                    local_ortho_null_vecs=self.lonv_list[level],
+                    coarse_vec=coarse_error)
+            if (level == 0 and self.support_parity and
+                    not self._use_cached_assets):
+                fine_error = tools.oooxyzt2poooxyzt(fine_error)[1]
+            updated_x = current_x + fine_error
+            updated_r = b - matvec(updated_x)
+            post_correction = float(tools.norm(updated_r))
+            record = {
+                "reason": reason,
+                "pre_residual": pre_correction,
+                "post_residual": post_correction,
+                "accepted": post_correction < pre_correction,
+                "applied": False,
+                "acceptance_policy": "post_residual_must_improve",
+            }
+            self._cycle_stats["corrections"].append(record)
+            return updated_x, updated_r
+
+        def full_residual_relative() -> tuple[float, float]:
+            x_e = self.op_list[0].give_x_e(b_e=b_e, x_o=x)
+            x_origin = tools.poooxyzt2oooxyzt(
+                input_array=torch.stack([x_e, x], dim=0))
+            residual = b_origin - self.op_list[0].matvec(src=x_origin)
+            absolute = float(tools.norm(residual))
+            relative = absolute / max(float(tools.norm(b_origin)), 1e-30)
+            return absolute, relative
+
+        corrections_enabled = (
+            level < self.num_level - 1 and self.num_restart > 0)
+
+        if (level == 0 and self.deflate and corrections_enabled and
+                r_norm > tolerance):
+            previous_x, previous_r = x, r
+            candidate_x, candidate_r = coarse_correct(x, r, "deflation")
+            record = self._cycle_stats["corrections"][-1]
+            if record["accepted"]:
+                x, r = candidate_x, candidate_r
+                record["applied"] = True
+            else:
+                corrections_enabled = False
+                x, r = previous_x, previous_r
+            r_norm = tools.norm(r)
+            self._cycle_stats["deflation"] = dict(
+                self._cycle_stats["corrections"][-1])
+
+        r_tilde = r.clone()
+        p = torch.zeros_like(b)
+        v = torch.zeros_like(b)
+        s = torch.zeros_like(b)
+        t = torch.zeros_like(b)
+        rho = torch.tensor(1.0, dtype=b.dtype, device=b.device)
+        rho_prev = torch.tensor(1.0, dtype=b.dtype, device=b.device)
+        alpha = torch.tensor(1.0, dtype=b.dtype, device=b.device)
+        omega = torch.tensor(1.0, dtype=b.dtype, device=b.device)
+        start_time = perf_counter()
+        iter_times: List[float] = []
+        since_correction = 0
+        calibration_done = not (level == 0 and self.adaptive_correction)
+        check_stride = 4
+        stopped_by_tolerance = False
+        full_gate_checks = 0
+        full_gate_passed = False
+        near_tolerance = False
+        breakdown_restarts = 0
+        if self.verbose:
+            print(f"PYQCU::SOLVER::LEGACY_MULTIGRID:\n {level}:Starting Iterations")
+
+        for i in range(iteration_limit):
+            iter_start_time = perf_counter()
+            try:
+                rho = tools.vdot(r_tilde, r)
+                if abs(rho) < 1e-20:
+                    raise RuntimeError("rho")
+                beta = (rho / rho_prev) * (alpha / omega)
+                rho_prev = rho
+                p = r + beta * (p - omega * v)
+                v = matvec(p)
+                rtv = tools.vdot(r_tilde, v)
+                if abs(rtv) < 1e-20:
+                    raise RuntimeError("rtv")
+                alpha = rho / rtv
+                if not torch.isfinite(alpha):
+                    raise RuntimeError("alpha non-finite")
+                s = r - alpha * v
+                t = matvec(s)
+                tts = tools.vdot(t, t)
+                if abs(tts) < 1e-20:
+                    raise RuntimeError("tts")
+                omega = tools.vdot(t, s) / tts
+                if not torch.isfinite(omega):
+                    raise RuntimeError("omega non-finite")
+            except RuntimeError:
+                breakdown_restarts += 1
+                if self.verbose:
+                    print(
+                        f"PYQCU::SOLVER::LEGACY_MULTIGRID:\n {level}:"
+                        f"BiCGStab breakdown at iter {i}, restarting...")
+                r_tilde = r.clone()
+                p = torch.zeros_like(b)
+                v = torch.zeros_like(b)
+                s = torch.zeros_like(b)
+                t = torch.zeros_like(b)
+                rho = torch.tensor(1.0, dtype=b.dtype, device=b.device)
+                rho_prev = torch.tensor(1.0, dtype=b.dtype, device=b.device)
+                alpha = torch.tensor(1.0, dtype=b.dtype, device=b.device)
+                omega = torch.tensor(1.0, dtype=b.dtype, device=b.device)
+                continue
+
+            x = x + alpha * p + omega * s
+            r = s - omega * t
+            r_norm = tools.norm(r)
+            since_correction += 1
+            total = i + 1
+            if level == 0:
+                self.convergence_history.append(r_norm)
+                self._cycle_stats["iterations"] = total
+                self._cycle_stats["iteration_samples"].append({
+                    "iteration": total,
+                    "residual": float(r_norm),
+                    "relative_residual": float(
+                        r_norm / max(float(b_norm), 1e-30)),
+                    "since_correction": since_correction,
+                })
+            if self.verbose:
+                print(
+                    f"PYQCU::SOLVER::LEGACY_MULTIGRID:\n "
+                    f"B-{level}-bistabcg-Iteration {i}: Residual = {r_norm:.6e}")
+
+            # CUDA's single-rank path performs a reliable update every 48
+            # Schur iterations.  It is part of the convergence control flow,
+            # not just diagnostics: the true residual replaces the recurrence
+            # residual and all BiCGStab scalars are reset.
+            if (level == 0 and total % 48 == 0 and
+                    self.comm.Get_size() == 1):
+                r = b - matvec(x)
+                r_norm = tools.norm(r)
+                r_tilde = r.clone()
+                p = torch.zeros_like(b)
+                v = torch.zeros_like(b)
+                s = torch.zeros_like(b)
+                t = torch.zeros_like(b)
+                rho = torch.tensor(1.0, dtype=b.dtype, device=b.device)
+                rho_prev = torch.tensor(1.0, dtype=b.dtype, device=b.device)
+                alpha = torch.tensor(1.0, dtype=b.dtype, device=b.device)
+                omega = torch.tensor(1.0, dtype=b.dtype, device=b.device)
+                since_correction = 0
+                self.convergence_history[-1] = r_norm
+                sample = self._cycle_stats["iteration_samples"][-1]
+                sample["residual"] = float(r_norm)
+                sample["relative_residual"] = float(
+                    r_norm / max(float(b_norm), 1e-30))
+                sample["reliable_refresh"] = True
+
+            near_tolerance = (
+                near_tolerance or r_norm <= 4.0 * tolerance)
+            do_check = near_tolerance or total % check_stride == 0
+            if level == 0 and corrections_enabled and not calibration_done:
+                if total >= self.correction_calibration:
+                    calibration_done = True
+
+            if do_check and r_norm <= tolerance:
+                if level == 0 and self.support_parity:
+                    full_absolute, full_relative = full_residual_relative()
+                    full_gate_checks += 1
+                    self._cycle_stats["last_full_gate"] = {
+                        "iteration": total,
+                        "absolute_residual": full_absolute,
+                        "relative_residual": full_relative,
+                    }
+                    if full_relative <= self.tol:
+                        full_gate_passed = True
+                        stopped_by_tolerance = True
+                        self._cycle_stats["stop_reason"] = "full_residual"
+                        break
+                else:
+                    stopped_by_tolerance = True
+                    self._cycle_stats["stop_reason"] = "native_tolerance"
+                    break
+
+            correction_due = (
+                corrections_enabled and do_check and
+                since_correction >= self.num_restart and
+                r_norm > 100.0 * tolerance)
+            if level == 0 and self.adaptive_correction:
+                correction_due = correction_due and calibration_done
+            if correction_due:
+                previous_x, previous_r = x, r
+                candidate_x, candidate_r = coarse_correct(
+                    x, r, "periodic")
+                record = self._cycle_stats["corrections"][-1]
+                if record["accepted"]:
+                    x, r = candidate_x, candidate_r
+                    record["applied"] = True
+                    r_tilde = r.clone()
+                    p = torch.zeros_like(b)
+                    v = torch.zeros_like(b)
+                    s = torch.zeros_like(b)
+                    t = torch.zeros_like(b)
+                    rho = torch.tensor(1.0, dtype=b.dtype, device=b.device)
+                    rho_prev = torch.tensor(1.0, dtype=b.dtype, device=b.device)
+                    alpha = torch.tensor(1.0, dtype=b.dtype, device=b.device)
+                    omega = torch.tensor(1.0, dtype=b.dtype, device=b.device)
+                else:
+                    corrections_enabled = False
+                    x, r = previous_x, previous_r
+                r_norm = tools.norm(r)
+                since_correction = 0
+                if level == 0:
+                    self.convergence_history.append(r_norm)
+                    self._cycle_stats["iteration_samples"][-1][
+                        "post_correction_residual"] = float(r_norm)
+
+            iter_times.append(perf_counter() - iter_start_time)
+            if self.verbose:
+                print(
+                    f"PYQCU::SOLVER::LEGACY_MULTIGRID:\n "
+                    f"F-{level}-bistabcg-Iteration {i}: Residual = "
+                    f"{r_norm:.6e}, Time = {iter_times[-1]:.6f} s")
+
+        if level == 0:
+            if self._cycle_stats["stop_reason"] is None:
+                self._cycle_stats["stop_reason"] = (
+                    "full_residual" if stopped_by_tolerance else
+                    "iteration_limit")
+            corrections = self._cycle_stats["corrections"]
+            self._cycle_stats["correction_gate_disabled"] = not corrections_enabled
+            self._cycle_stats["calibration_done"] = calibration_done
+            self._cycle_stats["full_gate_checks"] = full_gate_checks
+            self._cycle_stats["full_gate_passed"] = full_gate_passed
+            self._cycle_stats["corrections_accepted"] = sum(
+                bool(item.get("accepted")) for item in corrections)
+            self._cycle_stats["corrections_rejected"] = sum(
+                not bool(item.get("accepted")) for item in corrections)
+            self._cycle_stats["breakdown_restarts"] = breakdown_restarts
+            self._cycle_stats["native_residual"] = float(r_norm)
+            self._cycle_stats["native_relative_residual"] = float(
+                r_norm / max(float(b_norm), 1e-30))
+
+        total_time = perf_counter() - start_time
+        if self.verbose:
+            avg_iter_time = sum(iter_times) / len(iter_times) if iter_times else 0.0
+            print("PYQCU::SOLVER::LEGACY_MULTIGRID:\n Performance Statistics:")
+            print(
+                f"PYQCU::SOLVER::LEGACY_MULTIGRID:\n Total iterations: {len(iter_times)}")
+            print(
+                f"PYQCU::SOLVER::LEGACY_MULTIGRID:\n Total time: {total_time:.6f} seconds")
+            print(
+                f"PYQCU::SOLVER::LEGACY_MULTIGRID:\n Average time per iteration: {avg_iter_time:.6f} s")
+            print(f"PYQCU::SOLVER::LEGACY_MULTIGRID:\n Final residual: {r_norm:.2e}")
+
+        if level == 0 and self.support_parity:
+            x_e = self.op_list[0].give_x_e(b_e=b_e, x_o=x)
+            x_origin = tools.poooxyzt2oooxyzt(
+                input_array=torch.stack([x_e, x], dim=0))
+            r_origin = b_origin - self.op_list[0].matvec(src=x_origin)
+            self._cycle_stats["full_residual_norm"] = float(tools.norm(r_origin))
+            self._cycle_stats["full_relative_residual"] = float(
+                tools.norm(r_origin) /
+                max(float(tools.norm(b_origin)), 1e-30))
+            if self.verbose:
+                print(
+                    f"PYQCU::SOLVER::LEGACY_MULTIGRID:\n "
+                    f"Final residual(origin): {tools.norm(r_origin):.2e}")
+            x = x_origin.clone()
+        return x
+
+    def _cycle_absolute_tolerance_reference(self, level: int = 0) -> torch.Tensor:
+        """Regression oracle for the pre-parity absolute-tolerance control path."""
         matvec = self.op_list[level].matvec
         if self.with_cuda_qcu and level == 1:
             def _coarse_matvec(src: torch.Tensor) -> torch.Tensor:
@@ -580,6 +1013,23 @@ class LegacyMultigrid:
         start_time = perf_counter()
         x = self.cycle()
         total_time = perf_counter() - start_time
+        self.last_solve_report = {
+            **self._cycle_stats,
+            "backend": "torch",
+            "variant": "legacy",
+            "device": str(self.device_list[0]),
+            "outer_solver": "BiCGStab",
+            "residual_scope": "schur",
+            "stop_criterion": "relative_schur_residual",
+            "tolerance": float(self.tol),
+            "restart": int(self.num_restart),
+            "coarse_max_iter": int(self.coarse_max_iter),
+            "coarse_tolerance": float(self.coarse_tol),
+            "initial_guess": "zero",
+            "trace": False,
+            "asset_identities": list(self.asset_identities),
+            "solve_seconds": total_time,
+        }
         print(f"PYQCU::SOLVER::LEGACY_MULTIGRID:\n Performance Statistics:")
         print(
             f"PYQCU::SOLVER::LEGACY_MULTIGRID:\n Total time: {total_time:.6f} seconds")

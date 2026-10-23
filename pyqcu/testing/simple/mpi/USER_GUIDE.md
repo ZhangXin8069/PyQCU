@@ -26,7 +26,7 @@
 
 ## 1. 入口与设计目标
 
-公共入口：
+生产求解公共入口：
 
 ```text
 pyqcu/testing/simple/mpi/solve_case.py
@@ -40,6 +40,13 @@ pyqcu/testing/simple/mpi/worker.py
 
 `worker.py` 的 `--verbose` 只用于内部调试：KUPL 会转发 verbose，CUDA 会把 verbose
 写入 QCU params。日常用户应通过 `solve_case.py` 启动，不需要直接传该选项。
+
+`simple/` 的每个公开脚本在本目录都有同名 MPI 特化入口。完整的 source→MPI
+模式、后端和输出映射见 [`MAPPING.md`](MAPPING.md)。其中 `check_*`、`prepare_case`
+和纯格式转换是 rank0-root；`*_bistabcg`、`quda_multigrid` 委托现有 native MPI
+benchmark；`qcu_multigrid`、`kupl_multigrid` 复用 `solve_case.py`/`worker.py`；
+`compare_*` 仅作为隔离 MPI job 的串行编排器；`test_coarse_cache.py` 使用
+rank-slab。所有入口统一拒绝非 2 次幂 rank 数。
 
 设计目标：
 
@@ -66,7 +73,14 @@ pyqcu/testing/simple/mpi/worker.py
 | `solve_case.py` | 用户入口；LIME 读取、切片、source、coarse cache、mpirun、报告合并 |
 | `worker.py` | MPI 子进程入口；KUPL delegate 或 CUDA 分布式 MG |
 | `_common.py` | LIME/HDF5、grid、local geometry、coarse hyperslab、layout 转换 |
+| `_entrypoint.py` | rank-0 集体退出、原子发布、rank 校验、trace 清理和 delegated launcher |
+| `_compare.py` | 后端隔离编排和聚合报告 |
+| `check_*.py`、`prepare_case.py`、`*2*` | rank0-root 检查、准备与格式转换 |
+| `qcu_*`、`quda_*`、`kupl_*` | 对应后端的 delegated/native MPI 入口 |
+| `test_coarse_cache.py` | 多 rank HDF5 slab、shape/dtype/hash 和 fail-closed 校验 |
+| `MAPPING.md` | 全部公开父入口的逐项映射 |
 | `test_mpi_contract.py` | grid、LIME magic、切片、库选择和 mpirun 命令契约测试 |
+| `test_counterparts.py` | 入口覆盖、rank 拒绝、DRY_RUN、trace 和原子发布契约测试 |
 | `README.md` | 快速入口和绑定摘要 |
 | `USER_GUIDE.md` | 本详细指南 |
 
@@ -912,7 +926,7 @@ python pyqcu/testing/simple/mpi/solve_case.py \
 | cache E mismatch | `--dof[1]` 与 cache 不同 | 使用匹配 cache 或 rebuild |
 | CUDA `no kernel image` | libqcu 架构不匹配 | `--libqcu sm60/sm70/default` |
 | CUDA rank 选错卡 | `CUDA_VISIBLE_DEVICES` 映射不一致 | 统一使用 logical device 和可见列表 |
-| 多 rank 共享 GPU | ranks > visible GPUs | 正确性可运行，但没有吞吐收益 |
+| 多 rank 共享 GPU | ranks > visible GPUs | 明确拒绝；生产路径要求一 rank 一 device |
 | report 不存在 | worker 崩溃或旧 report 被删除 | 查看 mpirun stderr 和退出码 |
 | `status=FAIL` 但 native residual 很小 | Python 验收 floor/配置不可比 | 检查 acceptance 和 residual source |
 | `final_true_residual=null` | 使用了 skip 选项 | 去掉 `--skip-independent-residual` |
@@ -939,7 +953,8 @@ python pyqcu/testing/simple/mpi/solve_case.py \
 source ./env.sh
 python -m compileall -q pyqcu/testing/simple/mpi
 python -m pytest -q -p no:cacheprovider \
-  pyqcu/testing/simple/mpi/test_mpi_contract.py
+  pyqcu/testing/simple/mpi/test_mpi_contract.py \
+  pyqcu/testing/simple/mpi/test_counterparts.py
 python pyqcu/testing/simple/mpi/solve_case.py --help
 python -m pyqcu.testing.simple.mpi.worker --help
 git diff --check

@@ -225,4 +225,24 @@ python pyqcu/testing/simple/mpi/solve_case.py \
 `--dry-run` 不写 case、cache、solution 或 report，只打印解析后的 `mpirun` 命令和绑定
 策略。
 
+## 完整入口映射
+
+`simple/` 的每个公开入口在本目录都有同名 MPI 特化版本。逐项的执行模式、后端、
+输出和计数说明见 [`MAPPING.md`](MAPPING.md)。所有 benchmark launcher 默认关闭
+QCU/QUDA trace 并设置 `QUDA_ENABLE_TUNING=0`；`compare_*` 只串行启动彼此隔离的
+后端 MPI job，不会在同一 MPI job 内混载 CUDA-QCU、KUPL 与 QUDA。
+
+Slurm 矩阵的参数来自环境变量，例如：
+
+```bash
+DRY_RUN=1 \
+PYQCU_LIME_CASES='2:1,1,1,2 4:2,1,1,2' \
+PYQCU_LIME_BACKENDS='qcu quda' \
+PYQCU_LIME_POWER_LIMIT_WATTS=300 \
+bash pyqcu/testing/simple/mpi/slurm_lime_backend_matrix.sh
+```
+
+`PYQCU_LIME_CASES` 使用 `rank:gx,gy,gz,gt` 格式；站点环境只能通过
+`PYQCU_SLURM_ENV`/`BSCC_ENV` 显式提供，脚本不内置站点绝对路径。
+
 完整参数、报告字段和故障排查见 [`USER_GUIDE.md`](USER_GUIDE.md)。

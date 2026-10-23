@@ -108,9 +108,10 @@ def _base_env(args: argparse.Namespace) -> dict[str, str]:
     env["PYTHONPATH"] = str(REPO) + (
         os.pathsep + env["PYTHONPATH"] if env.get("PYTHONPATH") else "")
     env["PYTHONUNBUFFERED"] = "1"
-    env["MPI_ALLOW_RUN_AS_ROOT"] = "1"
-    env["OMPI_ALLOW_RUN_AS_ROOT"] = "1"
-    env["OMPI_ALLOW_RUN_AS_ROOT_CONFIRM"] = "1"
+    if hasattr(os, "geteuid") and os.geteuid() == 0:
+        env["MPI_ALLOW_RUN_AS_ROOT"] = "1"
+        env["OMPI_ALLOW_RUN_AS_ROOT"] = "1"
+        env["OMPI_ALLOW_RUN_AS_ROOT_CONFIRM"] = "1"
     env["OMP_NUM_THREADS"] = str(args.threads)
     env["KUPL_NUMA_BIND"] = "0"
     env["QUDA_ENABLE_TUNING"] = "0"
@@ -164,7 +165,8 @@ def _run_cuda_legacy(args: argparse.Namespace, env: dict[str, str],
         "--log-dir", str(out_dir / f"{variant}-log"),
         "--coarse-dof", str(args.nvec),
         "--coarse-max-iter", str(args.coarse_max_iter),
-        "--coarse-restart", str(args.correction_interval),
+        "--coarse-restart", str(
+            args.correction_interval if deflate else 0),
         "--coarse-tol-factor", str(args.coarse_tolerance / args.tolerance),
         "--solution-output", str(args.solution_dir / f"{variant}-solution.h5"),
         "--output", str(out_dir / f"{variant}.json"),
@@ -234,10 +236,15 @@ def _worker_command(args: argparse.Namespace, variant: str,
         "--max-workspace-bytes", str(args.max_workspace_bytes),
         "--output", str(out_dir / f"{variant}.json"),
     ]
+    if variant == "torch-legacy":
+        command.extend(["--legacy-cache", str(args.cuda_legacy_cache)])
     if variant in ("kupl-legacy", "kupl-strict"):
         command.extend(["--legacy-cache", str(args.kupl_legacy_cache)])
     if variant == "kupl-strict":
-        command.extend(["--strict-assets", str(args.kupl_strict_assets)])
+        command.extend([
+            "--strict-assets", str(args.kupl_strict_assets),
+            "--kupl-strict-abi", args.kupl_strict_abi,
+        ])
     if variant in ("torch-legacy", "torch-strict", "kupl-legacy", "kupl-strict"):
         command.extend([
             "--solution-output", str(args.solution_dir / f"{variant}-solution.h5")])
@@ -385,6 +392,14 @@ def _normalise_side(variant: str, report_path: Path, stdout_path: Path,
                 "effective_mode": (
                     "initial_deflation_only" if attempts <= 1 else
                     "initial_deflation_plus_periodic_correction"),
+            }
+        elif variant == "cuda-legacy-fine-only":
+            attempts = int(coarse.get("attempted_vcycles", 0))
+            coarse = {
+                **coarse,
+                "effective_mode": (
+                    "periodic_coarse_correction_without_initial_deflation"
+                    if attempts > 0 else "fine_only"),
             }
         independent = _json(out_dir / f"{variant}-residual.json")
         if independent is not None:
@@ -573,7 +588,19 @@ def _environment_payload(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def _input_payload(args: argparse.Namespace) -> dict[str, Any]:
-    case_manifest = REPO / "data/benchmark_legacy_vs_strict_20261022/cases/8x8x8x16/case_manifest.json"
+    case_manifest = Path(args.gauge).expanduser().resolve().with_name(
+        "case_manifest.json")
+    full_lime = (
+        Path(args.full_lime).expanduser().resolve()
+        if args.full_lime is not None else
+        Path.home() / "data" /
+        "beta6.20_mu-0.2770_ms-0.2310_L24x64_cfg_9950.lime"
+    )
+    full_lime_payload: dict[str, Any] = {
+        "path": str(full_lime),
+        "available": full_lime.is_file(),
+        "sha256": _sha256(full_lime) if full_lime.is_file() else None,
+    }
     return {
         "selected_case": {
             "lattice": list(args.lat),
@@ -590,11 +617,7 @@ def _input_payload(args: argparse.Namespace) -> dict[str, Any]:
             },
             "case_manifest": _json(case_manifest),
         },
-        "full_lime": {
-            "path": "/root/data/beta6.20_mu-0.2770_ms-0.2310_L24x64_cfg_9950.lime",
-            "sha256": _sha256(Path(
-                "/root/data/beta6.20_mu-0.2770_ms-0.2310_L24x64_cfg_9950.lime")),
-        },
+        "full_lime": full_lime_payload,
         "caches": {
             "cuda_legacy": {
                 "path": str(args.cuda_legacy_cache),
@@ -770,6 +793,9 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--gauge", type=Path, default=DEFAULT_GAUGE)
     parser.add_argument("--source", type=Path, default=DEFAULT_SOURCE)
+    parser.add_argument(
+        "--full-lime", type=Path, default=None,
+        help="optional source LIME provenance; defaults to the reference LIME under ~/data")
     parser.add_argument("--nullvec", type=Path, default=DEFAULT_NULL)
     parser.add_argument("--null-dataset", default="null")
     parser.add_argument("--cuda-legacy-cache", type=Path,
@@ -803,7 +829,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--solution-dir", type=Path,
                         default=DEFAULT_SOLUTION_DIR)
     parser.add_argument("--resume", action="store_true")
-    parser.add_argument("--skip-trace", action="store_true")
+    parser.add_argument(
+        "--allow-trace", action="store_true",
+        help="run the separate trace-on diagnostic; formal timings remain trace-off")
+    parser.add_argument(
+        "--kupl-strict-abi", choices=("public", "raw", "both"),
+        default="both", help="KUPL Strict public/raw ABI validation mode")
     args = parser.parse_args(argv)
     args.lat = tuple(int(value) for value in args.lat)
     args.block = tuple(int(value) for value in args.block)
@@ -833,7 +864,7 @@ def main(argv: list[str] | None = None) -> int:
     _run_cuda_legacy(
         args, env, out_dir, "cuda-legacy-fine-only", deflate=False)
     _run_cuda_strict(args, env, out_dir)
-    if not args.skip_trace:
+    if args.allow_trace:
         _run_cuda_trace(args, env, out_dir)
     _run_solution_residual(
         args, env, out_dir, "cuda-legacy", "cuda-legacy-solution.h5")
@@ -899,13 +930,15 @@ def main(argv: list[str] | None = None) -> int:
             "legacy_correction_interval": args.correction_interval,
             "warmups": args.warmups,
             "steady_repeats": args.repeats,
+            "trace": False,
+            "quda_enable_tuning": 0,
         },
         "comparison": comparison,
         "rows": rows,
         "sides": sides,
         "blockers": [
             "QUDA sm_70 installation has QUDA_QIO=OFF, so QUDA generated its own null vectors from the same gauge instead of loading the canonical bundle.",
-            "The public KUPL StrictMultigrid Python wrapper is ABI-inconsistent; KUPL strict was executed through its raw C ABI with the same numerical data and controls.",
+            "KUPL Legacy rejects a non-improving coarse correction and falls back to the validated parity-Schur BiCGStab; the report retains the attempted V-cycle and fallback reason.",
         ],
     }
     _write_json(out_dir / "summary.json", summary)

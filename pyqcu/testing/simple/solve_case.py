@@ -154,13 +154,15 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
     args.lat = [int(value) for value in args.lat]
 
-    out_dir = Path(args.out_dir).expanduser() if args.out_dir else (
-        REPO / "data" / f"production_{'x'.join(map(str, args.lat))}")
+    out_dir = (Path(args.out_dir).expanduser().resolve()
+               if args.out_dir else
+               REPO / "data" / f"production_{'x'.join(map(str, args.lat))}")
     out_dir.mkdir(parents=True, exist_ok=True)
-    output = Path(args.output).expanduser() if args.output else _solution_path(
-        out_dir, args.backend, args.lat)
-    report = Path(args.report).expanduser() if args.report else (
-        out_dir / f"report_{args.backend}.json")
+    output = (Path(args.output).expanduser().resolve()
+              if args.output else _solution_path(
+                  out_dir, args.backend, args.lat))
+    report = (Path(args.report).expanduser().resolve()
+              if args.report else out_dir / f"report_{args.backend}.json")
     output.parent.mkdir(parents=True, exist_ok=True)
     report.parent.mkdir(parents=True, exist_ok=True)
     if output.exists():

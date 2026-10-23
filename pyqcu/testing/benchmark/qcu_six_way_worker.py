@@ -200,7 +200,27 @@ class _CudaDeviceSampler:
             }
 
 
+class _CpuDeviceSampler:
+    """No-op device sampler with the same lifecycle as the CUDA sampler."""
+
+    def start(self) -> "_CpuDeviceSampler":
+        return self
+
+    def stop(self) -> dict[str, Any]:
+        return {
+            "device_memory_applicable": False,
+            "scope": "CPU run; host RSS is recorded separately",
+            "sample_count": 0,
+        }
+
+
 def _torch_memory_snapshot(torch: Any, device: Any) -> dict[str, Any]:
+    if device.type != "cuda":
+        return {
+            "device_memory_applicable": False,
+            "device": str(device),
+            "host_rss_bytes": _current_rss_bytes(),
+        }
     torch.cuda.synchronize(device)
     free_bytes, total_bytes = torch.cuda.mem_get_info(device)
     return {
@@ -237,11 +257,13 @@ def _true_residual_torch(torch: Any, dslash: Any, output: Any, source: Any,
 def _capture_call(function: Callable[[], Any], torch: Any, device: Any,
                   ) -> tuple[float, Any, str]:
     stream = io.StringIO()
-    torch.cuda.synchronize(device)
+    if device.type == "cuda":
+        torch.cuda.synchronize(device)
     started = time.perf_counter()
     with contextlib.redirect_stdout(stream):
         result = function()
-    torch.cuda.synchronize(device)
+    if device.type == "cuda":
+        torch.cuda.synchronize(device)
     elapsed = time.perf_counter() - started
     output = stream.getvalue()
     if output:
@@ -264,10 +286,15 @@ def _worker_torch(args: argparse.Namespace) -> dict[str, Any]:
     strategy = "legacy" if args.variant.endswith("legacy") else "strict"
     payload = _common_payload(args, backend="torch", strategy=strategy)
     device = torch.device(args.device)
-    torch.cuda.set_device(device)
+    is_cuda = device.type == "cuda"
+    if is_cuda:
+        torch.cuda.set_device(device)
     torch.manual_seed(args.seed)
-    torch.cuda.manual_seed_all(args.seed)
-    overall_sampler = _CudaDeviceSampler(torch, device).start()
+    if is_cuda:
+        torch.cuda.manual_seed_all(args.seed)
+    overall_sampler = (
+        _CudaDeviceSampler(torch, device) if is_cuda else _CpuDeviceSampler()
+    ).start()
     mg = None
 
     load_started = time.perf_counter()
@@ -281,7 +308,8 @@ def _worker_torch(args: argparse.Namespace) -> dict[str, Any]:
                 device=device, dtype=torch.complex64).contiguous()[:args.nvec]
     else:
         null = None
-    torch.cuda.synchronize(device)
+    if is_cuda:
+        torch.cuda.synchronize(device)
     payload["timing"]["input_load_seconds"] = time.perf_counter() - load_started
     payload["timing"]["cache_load_seconds"] = payload["timing"]["input_load_seconds"] if strategy == "strict" else 0.0
 
@@ -291,7 +319,8 @@ def _worker_torch(args: argparse.Namespace) -> dict[str, Any]:
     u0 = torch.ones(1, dtype=torch.float32, device=device)
     prep_started = time.perf_counter()
     clover = dslash.make_clover(gauge, kappa=kappa, u_0=u0, csw=args.csw)
-    torch.cuda.synchronize(device)
+    if is_cuda:
+        torch.cuda.synchronize(device)
     payload["timing"]["operator_prepare_seconds"] = time.perf_counter() - prep_started
 
     setup_started = time.perf_counter()
@@ -313,6 +342,11 @@ def _worker_torch(args: argparse.Namespace) -> dict[str, Any]:
             support_parity=True,
             verbose=False,
             seed=args.seed,
+            coarse_assets=[args.legacy_cache] if args.legacy_cache else None,
+            coarse_tol=args.coarse_tolerance,
+            coarse_max_iter=args.coarse_max_iter,
+            deflate=bool(args.legacy_deflate),
+            adaptive_correction=bool(args.legacy_adaptive_correction),
         )
     else:
         if int(args.levels) != 2:
@@ -344,7 +378,8 @@ def _worker_torch(args: argparse.Namespace) -> dict[str, Any]:
             verbose=False,
         )
     mg.setup()
-    torch.cuda.synchronize(device)
+    if is_cuda:
+        torch.cuda.synchronize(device)
     payload["timing"]["setup_seconds"] = time.perf_counter() - setup_started
 
     cycle_levels: list[int] = []
@@ -368,17 +403,23 @@ def _worker_torch(args: argparse.Namespace) -> dict[str, Any]:
 
         mg._strict_v_cycle = vcycle_wrapper
 
-    torch.cuda.synchronize(device)
+    if is_cuda:
+        torch.cuda.synchronize(device)
     first_before = _torch_memory_snapshot(torch, device)
-    phase_sampler = _CudaDeviceSampler(torch, device).start()
+    phase_sampler = (
+        _CudaDeviceSampler(torch, device) if is_cuda else _CpuDeviceSampler()
+    ).start()
     first_elapsed, output, first_text = _capture_call(
         lambda: mg.solve(source), torch, device)
     first_device = phase_sampler.stop()
     first_after = _torch_memory_snapshot(torch, device)
     warmups = [first_elapsed]
-    iteration_samples = [_last_total_iterations(first_text)]
-    if strategy == "strict":
-        iteration_samples[-1] = len(mg.convergence_history)
+    iteration_samples = [mg.last_solve_report.get("iterations")]
+    stop_reasons = [mg.last_solve_report.get("stop_reason")]
+    native_residuals = [mg.last_solve_report.get(
+        "native_relative_residual",
+        mg.last_solve_report.get("final_residual"))]
+    solve_reports = [dict(mg.last_solve_report)]
     cycle_counts = [len(cycle_levels)]
     cycle_levels.clear()
 
@@ -386,22 +427,31 @@ def _worker_torch(args: argparse.Namespace) -> dict[str, Any]:
         elapsed, output, text = _capture_call(
             lambda: mg.solve(source), torch, device)
         warmups.append(elapsed)
-        iterations = (_last_total_iterations(text) if strategy == "legacy"
-                      else len(mg.convergence_history))
-        iteration_samples.append(iterations)
+        iteration_samples.append(mg.last_solve_report.get("iterations"))
+        stop_reasons.append(mg.last_solve_report.get("stop_reason"))
+        native_residuals.append(mg.last_solve_report.get(
+            "native_relative_residual",
+            mg.last_solve_report.get("final_residual")))
+        solve_reports.append(dict(mg.last_solve_report))
         cycle_counts.append(len(cycle_levels))
         cycle_levels.clear()
 
     steady: list[float] = []
-    steady_sampler = _CudaDeviceSampler(torch, device).start()
-    torch.cuda.reset_peak_memory_stats(device)
+    steady_sampler = (
+        _CudaDeviceSampler(torch, device) if is_cuda else _CpuDeviceSampler()
+    ).start()
+    if is_cuda:
+        torch.cuda.reset_peak_memory_stats(device)
     for _ in range(args.repeats):
         elapsed, output, text = _capture_call(
             lambda: mg.solve(source), torch, device)
         steady.append(elapsed)
-        iterations = (_last_total_iterations(text) if strategy == "legacy"
-                      else len(mg.convergence_history))
-        iteration_samples.append(iterations)
+        iteration_samples.append(mg.last_solve_report.get("iterations"))
+        stop_reasons.append(mg.last_solve_report.get("stop_reason"))
+        native_residuals.append(mg.last_solve_report.get(
+            "native_relative_residual",
+            mg.last_solve_report.get("final_residual")))
+        solve_reports.append(dict(mg.last_solve_report))
         cycle_counts.append(len(cycle_levels))
         cycle_levels.clear()
     steady_device = steady_sampler.stop()
@@ -412,7 +462,7 @@ def _worker_torch(args: argparse.Namespace) -> dict[str, Any]:
     overall_device = overall_sampler.stop()
     payload["timing"].update({
         "warmup_seconds": warmups,
-        "first_solve_seconds": warmups[0],
+        "first_solve_seconds": (warmups or steady)[0],
         "steady_seconds": steady,
         "steady_median_seconds": _median(steady),
         "steady_mad_seconds": _mad(steady),
@@ -421,12 +471,15 @@ def _worker_torch(args: argparse.Namespace) -> dict[str, Any]:
         "samples": iteration_samples,
         "median": _median([float(value) for value in iteration_samples if value is not None]),
         "semantics": (
-            "Legacy outer fine BiCGStab iterations parsed from the backend log"
+            "Legacy outer fine BiCGStab iterations from last_solve_report"
             if strategy == "legacy" else
-            "strict outer right-preconditioned FGMRES iterations"
+            "strict outer right-preconditioned FGMRES Arnoldi iterations"
         ),
+        "stop_reasons": stop_reasons,
     }
     payload["residual"] = {
+        "native_relative": native_residuals[-1],
+        "native_samples": native_residuals,
         "independent_relative": independent,
         "gate": args.tolerance,
         "pass": bool(independent <= args.tolerance),
@@ -440,26 +493,176 @@ def _worker_torch(args: argparse.Namespace) -> dict[str, Any]:
         "executed": bool(any(value > 0 for value in cycle_counts)),
         "cycle_calls_per_solve": cycle_counts,
         "cycle_levels_observed": sorted(observed_levels),
+        "last_solve_report": solve_reports[-1],
         "source": "benchmark-only wrapper around the public Python cycle method",
     }
     payload["memory"] = {
-        "device_memory_applicable": True,
+        "device_memory_applicable": is_cuda,
         "device_wide": overall_device,
         "first_solve_device_wide": first_device,
         "steady_device_wide": steady_device,
         "first_solve_allocator_before": first_before,
         "first_solve_allocator_after": first_after,
         "first_solve_allocator_delta_bytes": max(
-            0, int(first_after["allocated_bytes"]) - int(first_before["allocated_bytes"])),
+            0,
+            int(first_after.get("allocated_bytes", 0)) -
+            int(first_before.get("allocated_bytes", 0))),
         "steady_allocator": steady_allocator,
         "host_peak_rss_bytes": _peak_rss_bytes(),
+        "threads": torch.get_num_threads(),
     }
+    payload["device"] = {
+        "type": device.type,
+        "name": (
+            torch.cuda.get_device_name(device) if is_cuda else
+            f"CPU ({torch.get_num_threads()} torch threads)"),
+        "index": device.index,
+    }
+    if args.legacy_cache:
+        cache_path = Path(args.legacy_cache).expanduser().resolve()
+        payload["inputs"]["legacy_cache"] = {
+            "path": str(cache_path),
+            "sha256": _sha256(cache_path),
+            "datasets": list(getattr(mg, "asset_identities", [])),
+        }
     payload["status"] = "PASS" if payload["residual"]["pass"] else "FAIL"
     if args.solution_output:
         _save_h5(
             Path(args.solution_output), output.detach().cpu().numpy(),
             backend="torch", strategy=strategy, lattice=json.dumps(args.lat))
     mg.close()
+    return payload
+
+
+def _worker_torch_bicgstab(args: argparse.Namespace) -> dict[str, Any]:
+    """Run the Torch parity-Schur BiCGStab control on the shared input."""
+    import torch
+    from pyqcu import tools
+    from pyqcu.torch import dslash
+    from pyqcu.torch.solver import bistabcg
+
+    payload = _common_payload(args, backend="torch", strategy="bicgstab")
+    device = torch.device(args.device)
+    is_cuda = device.type == "cuda"
+    if is_cuda:
+        torch.cuda.set_device(device)
+        torch.cuda.manual_seed_all(args.seed)
+    torch.manual_seed(args.seed)
+
+    load_started = time.perf_counter()
+    gauge = torch.from_numpy(_load_h5(Path(args.gauge))).to(
+        device=device, dtype=torch.complex64).contiguous()
+    source = torch.from_numpy(_load_h5(Path(args.source))).to(
+        device=device, dtype=torch.complex64).contiguous()
+    if is_cuda:
+        torch.cuda.synchronize(device)
+    payload["timing"]["input_load_seconds"] = time.perf_counter() - load_started
+
+    kappa = torch.tensor(
+        [1.0 / (2.0 * args.mass + 8.0)], dtype=torch.float32, device=device)
+    u0 = torch.ones(1, dtype=torch.float32, device=device)
+    prepare_started = time.perf_counter()
+    clover = dslash.make_clover(
+        gauge, kappa=kappa, u_0=u0, csw=args.csw)
+    operator = dslash.operator(
+        U=gauge, clover_term=clover, kappa=kappa, u_0=u0,
+        support_parity=True, verbose=False)
+    source_eo = tools.oooxyzt2poooxyzt(
+        source.reshape(12, *args.lat))
+    rhs = operator.give_b_parity(
+        b_e=source_eo[0], b_o=source_eo[1]).contiguous()
+    if is_cuda:
+        torch.cuda.synchronize(device)
+    payload["timing"]["operator_prepare_seconds"] = (
+        time.perf_counter() - prepare_started)
+
+    elapsed_samples: list[float] = []
+    iteration_samples: list[int] = []
+    residual_samples: list[float] = []
+    stop_reasons: list[str] = []
+    rhs_norm = float(tools.norm(rhs))
+    solution = None
+    sampler = (
+        _CudaDeviceSampler(torch, device) if is_cuda else _CpuDeviceSampler()
+    ).start()
+    try:
+        for index in range(args.warmups + args.repeats):
+            history: list[float] = []
+            started = time.perf_counter()
+            solution_odd = bistabcg(
+                rhs, operator.matvec_parity, tol=args.tolerance,
+                max_iter=args.max_iter, x0=torch.zeros_like(rhs),
+                if_rtol=True, verbose=False, history=history)
+            if is_cuda:
+                torch.cuda.synchronize(device)
+            elapsed = time.perf_counter() - started
+            elapsed_samples.append(elapsed)
+            iteration_samples.append(max(0, len(history) - 1))
+            residual_samples.append(float(history[-1]))
+            stop_reasons.append(
+                "relative_schur_tolerance"
+                if residual_samples[-1] <= args.tolerance * rhs_norm else
+                "iteration_limit")
+            solution = solution_odd
+    finally:
+        device_memory = sampler.stop()
+
+    if solution is None:
+        raise RuntimeError("Torch BiCGStab produced no solution")
+    solution_e = operator.give_x_e(b_e=source_eo[0], x_o=solution)
+    solution_full = tools.poooxyzt2oooxyzt(
+        torch.stack([solution_e, solution], dim=0)).reshape(
+            4, 3, *args.lat)
+    independent = _true_residual_torch(
+        torch, dslash, solution_full, source, gauge, args.mass, args.csw)
+    warmups = elapsed_samples[:args.warmups]
+    steady = elapsed_samples[args.warmups:]
+    payload["timing"].update({
+        "warmup_seconds": warmups,
+        "first_solve_seconds": (warmups or steady)[0],
+        "steady_seconds": steady,
+        "steady_median_seconds": _median(steady),
+        "steady_mad_seconds": _mad(steady),
+    })
+    payload["iterations"] = {
+        "samples": iteration_samples,
+        "median": _median([float(value) for value in iteration_samples]),
+        "semantics": "Torch odd-Schur BiCGStab iterations",
+        "stop_reasons": stop_reasons,
+    }
+    payload["residual"] = {
+        "native_relative": residual_samples[-1] / max(
+            rhs_norm, 1.0e-30),
+        "independent_relative": independent,
+        "gate": args.tolerance,
+        "pass": bool(independent <= args.tolerance),
+        "source": "independent PyTorch full Wilson/Clover reconstruction",
+        "scope": "full",
+    }
+    payload["coarse_execution"] = {
+        "kind": "not_applicable",
+        "executed": False,
+        "source": "BiCGStab boundary control, not included in MG speedup",
+    }
+    payload["memory"] = {
+        "device_memory_applicable": is_cuda,
+        "device_wide": device_memory,
+        "host_peak_rss_bytes": _peak_rss_bytes(),
+        "threads": torch.get_num_threads(),
+    }
+    payload["device"] = {
+        "type": device.type,
+        "name": (
+            torch.cuda.get_device_name(device) if is_cuda else
+            f"CPU ({torch.get_num_threads()} torch threads)"),
+        "index": device.index,
+    }
+    payload["status"] = "PASS" if payload["residual"]["pass"] else "FAIL"
+    if args.solution_output:
+        _save_h5(
+            Path(args.solution_output), solution_full.detach().cpu().numpy(),
+            backend="torch", strategy="bicgstab",
+            lattice=json.dumps(args.lat))
     return payload
 
 
@@ -482,6 +685,122 @@ def _configure_kupl_common(runtime: Any, args: argparse.Namespace,
                  define._LAT_C64_, args.restart],
                 dtype=torch.int32)
         runtime.argv[define._MG_LEVEL1_ATOL_] = float(args.coarse_tolerance)
+
+
+def _kupl_expected_coarse_dims(
+        lattice: tuple[int, ...], block: tuple[int, ...]
+        ) -> tuple[int, int, int, int]:
+    if len(lattice) != 4 or len(block) != 4:
+        raise ValueError("KUPL lattice and block must both contain four extents")
+    if any(int(extent) <= 0 for extent in lattice) or any(
+            int(width) <= 0 for width in block):
+        raise ValueError("KUPL lattice and block extents must be positive")
+    if any(int(extent) % int(width) for extent, width in zip(
+            lattice, block, strict=True)):
+        raise ValueError(
+            f"KUPL lattice {lattice} is not divisible by block {block}")
+    return tuple(
+        int(extent) // int(width)
+        for extent, width in zip(lattice, block, strict=True)
+    )  # type: ignore[return-value]
+
+
+def _kupl_legacy_cache_layout(
+        lonv: Any, hop_nn: Any, hop_diag: Any, sitting: Any, *,
+        lattice: tuple[int, ...], block: tuple[int, ...], nvec: int
+        ) -> tuple[str, tuple[int, int, int, int]]:
+    """Validate a KUPL 33-stencil cache and return layout plus geometry."""
+    full_coarse = _kupl_expected_coarse_dims(lattice, block)
+    if int(lattice[3]) % (2 * int(block[3])):
+        raise ValueError("odd-Schur T extent is not divisible by 2*block_t")
+    odd_coarse = (*full_coarse[:3], int(lattice[3]) // (2 * int(block[3])))
+    if lonv.ndim != 10:
+        raise ValueError(
+            "KUPL Legacy cache must use the 10-D blocked layout; "
+            f"got {tuple(lonv.shape)}")
+    if int(lonv.shape[0]) != int(nvec) or int(lonv.shape[1]) != 12:
+        raise ValueError(
+            f"KUPL Legacy lonv shape {tuple(lonv.shape)} does not match "
+            f"nvec={nvec}, fine_dof=12")
+    observed_coarse = tuple(int(lonv.shape[index]) for index in (2, 4, 6, 8))
+    observed_block = tuple(int(lonv.shape[index]) for index in (3, 5, 7, 9))
+    if observed_block != tuple(block):
+        raise ValueError(
+            f"KUPL Legacy cache block {observed_block} != {tuple(block)}")
+    if observed_coarse == full_coarse:
+        layout = "full-site-wilson-clover-33-stencil"
+    elif observed_coarse == odd_coarse:
+        layout = "odd-schur-33-stencil"
+    else:
+        raise ValueError(
+            "KUPL Legacy cache geometry does not match one supported layout: "
+            f"cache coarse={observed_coarse}; full-site={full_coarse}; "
+            f"odd-Schur={odd_coarse}")
+    expected_nn = (2, 4, int(nvec), 12, *observed_coarse)
+    expected_diag = (2, 2, 6, int(nvec), 12, *observed_coarse)
+    expected_sit = (int(nvec), 12, *observed_coarse)
+    if tuple(hop_nn.shape) != expected_nn:
+        raise ValueError(
+            f"KUPL Legacy hnn shape {tuple(hop_nn.shape)} != {expected_nn}")
+    if tuple(hop_diag.shape) != expected_diag:
+        raise ValueError(
+            f"KUPL Legacy hdg shape {tuple(hop_diag.shape)} != {expected_diag}")
+    if tuple(sitting.shape) != expected_sit:
+        raise ValueError(
+            f"KUPL Legacy sit shape {tuple(sitting.shape)} != {expected_sit}")
+    return layout, observed_coarse  # type: ignore[return-value]
+
+
+def _kupl_strict_asset_layout(
+        fine_null: Any, links: Any, onsite: Any, *,
+        lattice: tuple[int, ...], block: tuple[int, ...], nvec: int
+        ) -> tuple[int, int, int, int]:
+    """Validate parity-compressed KUPL Strict assets and return coarse geometry."""
+    coarse = _kupl_expected_coarse_dims(lattice, block)
+    coarse_dof = 2 * int(nvec)
+    expected_null = tuple(
+        value for axis, extent in enumerate(lattice)
+        for value in (coarse[axis], int(block[axis]))
+    )
+    expected_null = (coarse_dof, 12, *expected_null)
+    expected_links = (2, 4, coarse_dof, coarse_dof, *coarse)
+    expected_onsite = (2, coarse_dof, coarse_dof, *coarse)
+    if tuple(fine_null.shape) != expected_null:
+        raise ValueError(
+            f"KUPL Strict fine_null shape {tuple(fine_null.shape)} != {expected_null}")
+    if tuple(links.shape) != expected_links:
+        raise ValueError(
+            f"KUPL Strict links shape {tuple(links.shape)} != {expected_links}")
+    if tuple(onsite.shape) != expected_onsite:
+        raise ValueError(
+            f"KUPL Strict onsite shape {tuple(onsite.shape)} != {expected_onsite}")
+    return coarse
+
+
+def _kupl_manifest(path: Path, *, lattice: tuple[int, ...],
+                   block: tuple[int, ...], nvec: int,
+                   coarse_dof: int) -> dict[str, Any] | None:
+    manifest_path = path.with_suffix(".json")
+    if not manifest_path.is_file():
+        return None
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as error:
+        raise ValueError(f"invalid KUPL cache manifest {manifest_path}: {error}") from error
+    checks = {
+        "lattice": [int(value) for value in lattice],
+        "block": [int(value) for value in block],
+        "nvec": int(nvec),
+        "coarse_dof": int(coarse_dof),
+    }
+    for key, expected in checks.items():
+        if key in manifest and manifest[key] != expected:
+            raise ValueError(
+                f"KUPL cache manifest {manifest_path} has {key}="
+                f"{manifest[key]!r}, expected {expected!r}")
+    if manifest.get("status", "PASS") != "PASS":
+        raise ValueError(f"KUPL cache manifest {manifest_path} is not PASS")
+    return manifest
 
 
 def _worker_kupl_legacy(args: argparse.Namespace) -> dict[str, Any]:
@@ -514,6 +833,18 @@ def _worker_kupl_legacy(args: argparse.Namespace) -> dict[str, Any]:
             for name in ("lonv", "hnn", "hdg", "sit")
         ]
     payload["timing"]["cache_load_seconds"] = time.perf_counter() - cache_started
+    cache_layout, coarse_dims = _kupl_legacy_cache_layout(
+        *assets, lattice=args.lat, block=args.block, nvec=args.nvec)
+    manifest = _kupl_manifest(
+        cache, lattice=args.lat, block=args.block, nvec=args.nvec,
+        coarse_dof=args.nvec)
+    payload["inputs"]["legacy_cache"].update({
+        "backend": "kupl",
+        "layout": cache_layout,
+        "coarse_geometry": list(coarse_dims),
+        "block": list(args.block),
+        "manifest": manifest,
+    })
 
     runtime = QcuRuntime.from_lattice(
         args.lat, mass=args.mass, csw=args.csw, atol=args.tolerance,
@@ -521,11 +852,12 @@ def _worker_kupl_legacy(args: argparse.Namespace) -> dict[str, Any]:
         max_iter=args.max_iter, grid=(1, 1, 1, 1), qcu_module=qcu)
     ce, cei = runtime.make_clover(gauge, with_inverse=True, parity=0)
     coo, coi = runtime.make_clover(gauge, with_inverse=True, parity=1)
-    _configure_kupl_common(runtime, args, (4, 4, 4, 8), args.nvec)
+    _configure_kupl_common(runtime, args, coarse_dims, args.nvec)
     runtime.params[define._SET_PLAN_] = define._SET_PLAN1_
-    runtime.params[define._PARITY_] = 0
+    runtime.params[define._PARITY_] = (
+        1 if cache_layout == "odd-schur-33-stencil" else 0)
     runtime.params[define._MG_LEVEL1_NUM_RESTART_] = args.correction_interval
-    runtime.params[define._MG_USE_DEFLATE_] = 1
+    runtime.params[define._MG_USE_DEFLATE_] = int(args.legacy_deflate)
     runtime.params[define._VERBOSE_] = 1
     runtime.set_ptrs[30:34] = 0
     for index, tensor in enumerate(assets):
@@ -535,10 +867,15 @@ def _worker_kupl_legacy(args: argparse.Namespace) -> dict[str, Any]:
     ).contiguous()
     mg = LegacyMultigrid(
         runtime.params, runtime.argv, runtime.set_ptrs, gauge, ce, coo,
-        cei, coi)
+        cei, coi, cache_layout=cache_layout)
     setup_started = time.perf_counter()
     mg.setup()
     payload["timing"]["setup_seconds"] = time.perf_counter() - setup_started
+    verify_status = mg.verify(rhs)
+    if verify_status != 0:
+        mg.close()
+        raise RuntimeError(
+            f"KUPL Legacy hierarchy verification failed: {verify_status}")
 
     warmups: list[float] = []
     steady: list[float] = []
@@ -557,7 +894,7 @@ def _worker_kupl_legacy(args: argparse.Namespace) -> dict[str, Any]:
     mg.close()
     payload["timing"].update({
         "warmup_seconds": warmups,
-        "first_solve_seconds": warmups[0],
+        "first_solve_seconds": (warmups or steady)[0],
         "steady_seconds": steady,
         "steady_median_seconds": _median(steady),
         "steady_mad_seconds": _mad(steady),
@@ -578,6 +915,7 @@ def _worker_kupl_legacy(args: argparse.Namespace) -> dict[str, Any]:
         "kind": "legacy_periodic_correction",
         "executed": None,
         "attempted_vcycles": None,
+        "native_verify": int(verify_status),
         "source": "KUPL C++ debug stdout parsed by the orchestrator",
     }
     payload["memory"] = {
@@ -599,6 +937,7 @@ def _worker_kupl_strict(args: argparse.Namespace) -> dict[str, Any]:
     from pyqcu import tools
     from pyqcu.cuda import QcuRuntime, define
     from pyqcu.kupl import qcu
+    from pyqcu.kupl.multigrid import StrictMultigrid
 
     payload = _common_payload(args, backend="kupl", strategy="strict")
     assets_path = Path(args.strict_assets).expanduser().resolve()
@@ -622,94 +961,198 @@ def _worker_kupl_strict(args: argparse.Namespace) -> dict[str, Any]:
         links = torch.from_numpy(handle["links"][...]).contiguous()
         onsite = torch.from_numpy(handle["onsite"][...]).contiguous()
     payload["timing"]["cache_load_seconds"] = time.perf_counter() - cache_started
-
-    runtime = QcuRuntime.from_lattice(
-        args.lat, mass=args.mass, csw=args.csw, atol=args.tolerance,
-        dtype=torch.complex64, device="cpu", plan=2, parity=0,
-        max_iter=args.max_iter, grid=(1, 1, 1, 1), qcu_module=qcu)
-    ce, cei = runtime.make_clover(gauge, with_inverse=True, parity=0)
-    coo, coi = runtime.make_clover(gauge, with_inverse=True, parity=1)
-    _configure_kupl_common(runtime, args, (4, 4, 4, 8), 2 * args.nvec)
-    runtime.set_ptrs[60] = fine_null.data_ptr()
-    runtime.set_ptrs[62] = links.data_ptr()
-    runtime.set_ptrs[63] = onsite.data_ptr()
-    rhs = tools.oooxyzt2poooxyzt(source_full).reshape(
+    coarse_dims = _kupl_strict_asset_layout(
+        fine_null, links, onsite, lattice=args.lat, block=args.block,
+        nvec=args.nvec)
+    manifest = _kupl_manifest(
+        assets_path, lattice=args.lat, block=args.block, nvec=args.nvec,
+        coarse_dof=2 * args.nvec)
+    payload["inputs"]["strict_assets"].update({
+        "backend": "kupl",
+        "layout": "parity-compressed-matpc",
+        "coarse_geometry": list(coarse_dims),
+        "block": list(args.block),
+        "manifest": manifest,
+    })
+    rhs_compact = tools.oooxyzt2poooxyzt(source_full).reshape(
         2, 4, 3, args.lat[0], args.lat[1], args.lat[2], args.lat[3] // 2
     ).contiguous()
-    output = torch.empty_like(rhs)
+    rhs = rhs_compact.reshape(12, *args.lat).contiguous()
 
-    setup_started = time.perf_counter()
-    qcu.applyInitQcu(runtime.set_ptrs, runtime.params, runtime.argv)
-    setup_workspace = ctypes.c_ulonglong(0)
-    status = qcu.applyMultigridStrictInitQcu(
-        runtime.set_ptrs, runtime.params, 1, setup_workspace)
-    payload["timing"]["setup_seconds"] = time.perf_counter() - setup_started
-    if status != 0:
-        qcu.applyEndQcu(runtime.set_ptrs, runtime.params)
-        raise RuntimeError(f"KUPL strict hierarchy init failed: {status}")
+    def make_runtime():
+        runtime = QcuRuntime.from_lattice(
+            args.lat, mass=args.mass, csw=args.csw, atol=args.tolerance,
+            dtype=torch.complex64, device="cpu", plan=2, parity=0,
+            max_iter=args.max_iter, grid=(1, 1, 1, 1), qcu_module=qcu)
+        ce, cei = runtime.make_clover(gauge, with_inverse=True, parity=0)
+        coo, coi = runtime.make_clover(gauge, with_inverse=True, parity=1)
+        _configure_kupl_common(runtime, args, coarse_dims, 2 * args.nvec)
+        runtime.set_ptrs[60] = fine_null.data_ptr()
+        runtime.set_ptrs[62] = links.data_ptr()
+        runtime.set_ptrs[63] = onsite.data_ptr()
+        return runtime, ce, cei, coo, coi
 
-    library = qcu._LIBRARY
-    warmups: list[float] = []
-    steady: list[float] = []
-    iterations: list[int] = []
-    backend_residuals: list[float] = []
-    workspace_samples: list[int] = []
-    try:
-        for index in range(args.warmups + args.repeats):
-            output.zero_()
-            runtime.params[define._MG_USE_INIT_GUESS_] = 0
-            result_iterations = ctypes.c_int(0)
-            converged = ctypes.c_int(0)
-            backend_residual = ctypes.c_double(0.0)
-            workspace = ctypes.c_ulonglong(0)
-            print(f"QCU_SIX_WAY_SOLVE_BEGIN\t{index}", flush=True)
-            started = time.perf_counter()
-            status = library.applyMultigridStrictFgmresQcu(
-                int(output.data_ptr()), int(rhs.data_ptr()),
-                int(gauge.data_ptr()), int(ce.data_ptr()), int(coo.data_ptr()),
-                int(cei.data_ptr()), int(coi.data_ptr()),
-                int(fine_null.data_ptr()), int(runtime.set_ptrs.data_ptr()),
-                int(runtime.params.data_ptr()),
-                args.nvec, *args.lat, 2 * args.nvec, 4, 4, 4, 8,
-                int(gauge.element_size()), args.restart, args.max_iter,
-                args.tolerance, args.nu, args.nu, args.max_workspace_bytes,
-                ctypes.byref(result_iterations), ctypes.byref(converged),
-                ctypes.byref(backend_residual), ctypes.byref(workspace))
-            elapsed = time.perf_counter() - started
-            print(f"QCU_SIX_WAY_SOLVE_END\t{index}\t{elapsed:.17g}", flush=True)
-            if status != 0:
-                raise RuntimeError(f"KUPL strict FGMRES failed: {status}")
-            if not bool(converged.value):
-                raise RuntimeError("KUPL strict FGMRES did not converge")
-            (warmups if index < args.warmups else steady).append(elapsed)
-            iterations.append(int(result_iterations.value))
-            backend_residuals.append(float(backend_residual.value))
-            workspace_samples.append(int(workspace.value))
-    finally:
-        qcu.applyMultigridStrictEndQcu(runtime.set_ptrs, runtime.params)
-        qcu.applyEndQcu(runtime.set_ptrs, runtime.params)
+    def split_runs(warmups, steady):
+        return warmups, steady
 
-    full_output = tools.pooxyzt2oooxyzt2 if False else tools.poooxyzt2oooxyzt(output)
+    def run_public():
+        runtime, ce, cei, coo, coi = make_runtime()
+        manager = StrictMultigrid(
+            runtime.params, runtime.argv, runtime.set_ptrs, gauge, ce, coo,
+            cei, coi, fine_null, args.lat, coarse_dims,
+            restart=args.restart, max_iter=args.max_iter,
+            tolerance=args.tolerance, nu_pre=args.nu, nu_post=args.nu,
+            max_workspace_bytes=args.max_workspace_bytes, start_level=1)
+        setup_started = time.perf_counter()
+        manager.setup()
+        setup_seconds = time.perf_counter() - setup_started
+        warmups: list[float] = []
+        steady: list[float] = []
+        iterations: list[int] = []
+        backend_residuals: list[float] = []
+        workspace_samples: list[int] = []
+        try:
+            for index in range(args.warmups + args.repeats):
+                print(
+                    f"QCU_SIX_WAY_SOLVE_BEGIN\tpublic\t{index}", flush=True)
+                started = time.perf_counter()
+                output = manager.solve(rhs)
+                elapsed = time.perf_counter() - started
+                print(
+                    f"QCU_SIX_WAY_SOLVE_END\tpublic\t{index}\t"
+                    f"{elapsed:.17g}", flush=True)
+                warmups, steady = split_runs(warmups, steady)
+                (warmups if index < args.warmups else steady).append(elapsed)
+                iterations.append(int(manager.iterations.item()))
+                backend_residuals.append(float(manager.final_residual.item()))
+                workspace_samples.append(int(manager.allocated_bytes.item()))
+            result = output.detach().clone()
+        finally:
+            manager.close()
+        return {
+            "output": result,
+            "setup_seconds": setup_seconds,
+            "warmups": warmups,
+            "steady": steady,
+            "iterations": iterations,
+            "backend_residuals": backend_residuals,
+            "workspace_samples": workspace_samples,
+            "persistent_bytes": int(manager.allocated_bytes.item()),
+        }
+
+    def run_raw():
+        runtime, ce, cei, coo, coi = make_runtime()
+        output = torch.empty_like(rhs_compact)
+        library = qcu._LIBRARY
+        setup_started = time.perf_counter()
+        qcu.applyInitQcu(runtime.set_ptrs, runtime.params, runtime.argv)
+        setup_workspace = torch.zeros(1, dtype=torch.int64)
+        status = qcu.applyMultigridStrictInitQcu(
+            runtime.set_ptrs, runtime.params, 1, setup_workspace)
+        setup_seconds = time.perf_counter() - setup_started
+        if status != 0:
+            qcu.applyEndQcu(runtime.set_ptrs, runtime.params)
+            raise RuntimeError(f"KUPL strict hierarchy init failed: {status}")
+        warmups: list[float] = []
+        steady: list[float] = []
+        iterations: list[int] = []
+        backend_residuals: list[float] = []
+        workspace_samples: list[int] = []
+        try:
+            for index in range(args.warmups + args.repeats):
+                output.zero_()
+                runtime.params[define._MG_USE_INIT_GUESS_] = 0
+                result_iterations = ctypes.c_int(0)
+                converged = ctypes.c_int(0)
+                backend_residual = ctypes.c_double(0.0)
+                workspace = ctypes.c_ulonglong(0)
+                print(f"QCU_SIX_WAY_SOLVE_BEGIN\traw\t{index}", flush=True)
+                started = time.perf_counter()
+                status = library.applyMultigridStrictFgmresQcu(
+                    int(output.data_ptr()), int(rhs_compact.data_ptr()),
+                    int(gauge.data_ptr()), int(ce.data_ptr()),
+                    int(coo.data_ptr()), int(cei.data_ptr()),
+                    int(coi.data_ptr()), int(fine_null.data_ptr()),
+                    int(runtime.set_ptrs.data_ptr()),
+                    int(runtime.params.data_ptr()),
+                    args.nvec, *args.lat, 2 * args.nvec, *coarse_dims,
+                    int(gauge.element_size()), args.restart, args.max_iter,
+                    args.tolerance, args.nu, args.nu,
+                    args.max_workspace_bytes,
+                    ctypes.byref(result_iterations), ctypes.byref(converged),
+                    ctypes.byref(backend_residual), ctypes.byref(workspace))
+                elapsed = time.perf_counter() - started
+                print(
+                    f"QCU_SIX_WAY_SOLVE_END\traw\t{index}\t"
+                    f"{elapsed:.17g}", flush=True)
+                if status != 0:
+                    raise RuntimeError(f"KUPL strict FGMRES failed: {status}")
+                if not bool(converged.value):
+                    raise RuntimeError("KUPL strict FGMRES did not converge")
+                warmups, steady = split_runs(warmups, steady)
+                (warmups if index < args.warmups else steady).append(elapsed)
+                iterations.append(int(result_iterations.value))
+                backend_residuals.append(float(backend_residual.value))
+                workspace_samples.append(int(workspace.value))
+            result = output.detach().clone()
+        finally:
+            qcu.applyMultigridStrictEndQcu(runtime.set_ptrs, runtime.params)
+            qcu.applyEndQcu(runtime.set_ptrs, runtime.params)
+        return {
+            "output": result,
+            "setup_seconds": setup_seconds,
+            "warmups": warmups,
+            "steady": steady,
+            "iterations": iterations,
+            "backend_residuals": backend_residuals,
+            "workspace_samples": workspace_samples,
+            "persistent_bytes": int(setup_workspace.item()),
+        }
+
+    requested_abi = getattr(args, "kupl_strict_abi", "public")
+    runs: dict[str, dict[str, Any]] = {}
+    if requested_abi in ("public", "both"):
+        runs["public"] = run_public()
+    if requested_abi in ("raw", "both"):
+        runs["raw"] = run_raw()
+    selected_abi = "public" if "public" in runs else "raw"
+    selected = runs[selected_abi]
+    output = selected["output"]
+    full_output = tools.poooxyzt2oooxyzt(output)
     independent = _true_residual_torch(
         torch, __import__("pyqcu.torch.dslash", fromlist=["dslash"]),
         full_output.contiguous(), source_full, gauge_full, args.mass, args.csw)
     host_rss_end = _current_rss_bytes()
+    if "public" in runs and "raw" in runs:
+        public_output = runs["public"]["output"]
+        raw_output = runs["raw"]["output"]
+        denominator = max(float(torch.linalg.vector_norm(public_output)), 1.0e-30)
+        abi_difference = float(
+            torch.linalg.vector_norm(public_output - raw_output) / denominator)
+        abi_gate = max(5.0e-6, 20.0 * float(args.tolerance))
+        if abi_difference > abi_gate:
+            raise RuntimeError(
+                f"KUPL public/raw ABI solution mismatch {abi_difference:.3e} "
+                f"> {abi_gate:.3e}")
+    else:
+        abi_difference = None
+        abi_gate = None
     payload["timing"].update({
-        "warmup_seconds": warmups,
-        "first_solve_seconds": warmups[0],
-        "steady_seconds": steady,
-        "steady_median_seconds": _median(steady),
-        "steady_mad_seconds": _mad(steady),
-        "workspace_seconds": warmups[0],
+        "warmup_seconds": selected["warmups"],
+        "first_solve_seconds": (
+            selected["warmups"] or selected["steady"])[0],
+        "steady_seconds": selected["steady"],
+        "steady_median_seconds": _median(selected["steady"]),
+        "steady_mad_seconds": _mad(selected["steady"]),
     })
     payload["iterations"] = {
-        "samples": iterations,
-        "median": _median([float(value) for value in iterations]),
+        "samples": selected["iterations"],
+        "median": _median([float(value) for value in selected["iterations"]]),
         "semantics": "strict outer right-preconditioned FGMRES iterations",
     }
     payload["residual"] = {
         "independent_relative": independent,
-        "backend_matpc_samples": backend_residuals,
+        "backend_matpc_samples": selected["backend_residuals"],
         "gate": args.tolerance,
         "pass": bool(independent <= args.tolerance),
         "source": "independent PyTorch full Wilson/Clover reconstruction",
@@ -718,8 +1161,9 @@ def _worker_kupl_strict(args: argparse.Namespace) -> dict[str, Any]:
     }
     payload["coarse_execution"] = {
         "kind": "strict_recursive_vcycle",
-        "executed": bool(iterations and min(iterations) > 0),
-        "cycle_calls_per_solve_lower_bound": iterations,
+        "executed": bool(
+            selected["iterations"] and min(selected["iterations"]) > 0),
+        "cycle_calls_per_solve_lower_bound": selected["iterations"],
         "source": "the KUPL strict FGMRES preconditioner invokes one recursive V-cycle per outer iteration",
     }
     payload["memory"] = {
@@ -727,14 +1171,23 @@ def _worker_kupl_strict(args: argparse.Namespace) -> dict[str, Any]:
         "host_peak_rss_bytes": _peak_rss_bytes(),
         "host_rss_start_bytes": host_rss_start,
         "host_rss_end_bytes": host_rss_end,
-        "persistent_hierarchy_bytes": int(setup_workspace.value),
-        "solve_workspace_samples_bytes": workspace_samples,
+        "persistent_hierarchy_bytes": selected["persistent_bytes"],
+        "solve_workspace_samples_bytes": selected["workspace_samples"],
         "workspace_formula": "(2m+5)B_f+2B_c",
     }
-    payload["provenance"]["execution_abi"] = "raw ctypes C ABI"
-    payload["provenance"]["public_wrapper_blocker"] = (
-        "pyqcu.kupl.multigrid.StrictMultigrid passes a tensor for the ULL pointer "
-        "to strict init and omits fine/coarse E in the FGMRES binding")
+    payload["abi_validation"] = {
+        "requested": requested_abi,
+        "selected": selected_abi,
+        "available": sorted(runs),
+        "solution_relative_difference": abi_difference,
+        "gate": abi_gate,
+    }
+    payload["provenance"]["execution_abi"] = {
+        "public": "pyqcu.kupl.multigrid.StrictMultigrid",
+        "raw": "ctypes C ABI",
+        "selected": selected_abi,
+    }
+    payload["provenance"].pop("public_wrapper_blocker", None)
     payload["status"] = "PASS" if payload["residual"]["pass"] else "FAIL"
     if args.solution_output:
         _save_h5(Path(args.solution_output), full_output.numpy(),
@@ -979,7 +1432,8 @@ def _worker_residual(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def _failure_payload(args: argparse.Namespace, error: BaseException) -> dict[str, Any]:
-    strategy = ("strict" if "strict" in args.variant else
+    strategy = ("bicgstab" if "bicgstab" in args.variant else
+                "strict" if "strict" in args.variant else
                 "legacy" if "legacy" in args.variant else "aligned")
     backend = args.variant.split("-", 1)[0]
     payload = _common_payload(args, backend=backend, strategy=strategy)
@@ -1014,11 +1468,19 @@ def _add_common(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--nu", type=int, default=1)
     parser.add_argument("--restart", type=int, default=20)
     parser.add_argument("--correction-interval", type=int, default=5)
+    parser.add_argument("--legacy-deflate", action=argparse.BooleanOptionalAction,
+                        default=True)
+    parser.add_argument("--legacy-adaptive-correction",
+                        action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--warmups", type=int, default=2)
     parser.add_argument("--repeats", type=int, default=5)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--device", default="cuda:0")
     parser.add_argument("--max-workspace-bytes", type=int, default=512 << 20)
+    parser.add_argument(
+        "--kupl-strict-abi", choices=("public", "raw", "both"),
+        default="public",
+        help="KUPL Strict execution path; 'both' cross-checks public/raw outputs")
     parser.add_argument("--output", required=True)
 
 
@@ -1031,6 +1493,8 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.variant in ("torch-legacy", "torch-strict"):
             payload = _worker_torch(args)
+        elif args.variant == "torch-bicgstab":
+            payload = _worker_torch_bicgstab(args)
         elif args.variant == "kupl-legacy":
             payload = _worker_kupl_legacy(args)
         elif args.variant == "kupl-strict":

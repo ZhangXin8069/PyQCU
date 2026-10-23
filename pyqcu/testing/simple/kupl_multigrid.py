@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -125,7 +126,8 @@ def build_coarse_assets(gauge: np.ndarray, lattice: tuple[int, int, int, int],
         None, dof[1], 12, list(lattice), torch_dtype, device,
         nv_iters=max(1, nv_iters), nthreads=1, seed=seed + 9001,
         verbose=False, nv_tol=1.0e-2,
-        batch_matvec=fine_operator.matvec_batch, batch_chunk=4)
+        batch_matvec=fine_operator.matvec_batch,
+        batch_chunk=int(os.environ.get("PYQCU_NULL_BATCH_CHUNK", "4")))
     coarse_lattice = [
         lattice[index] // mg_grid[index] for index in range(4)]
     if verbose:
@@ -149,6 +151,11 @@ def build_coarse_assets(gauge: np.ndarray, lattice: tuple[int, int, int, int],
     if gram_error > 1.0e-4:
         raise RuntimeError(
             f"KUPL MG null-vector block is not orthonormal: {gram_error:.3e}")
+    if device.type == "cuda":
+        # Orthogonalization leaves large short-lived work buffers in the
+        # caching allocator. Release them before the stencil phase so L32
+        # construction does not inherit a misleading free-memory baseline.
+        torch.cuda.empty_cache()
     if verbose:
         print(
             f"KUPL::MG_BUILD: stencil start coarse={coarse_lattice}", flush=True)
