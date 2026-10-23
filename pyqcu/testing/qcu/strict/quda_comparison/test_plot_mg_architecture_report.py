@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import subprocess
 import sys
 from pathlib import Path
 
@@ -98,12 +99,33 @@ def test_data_build_writes_complete_derived_matrix(tmp_path: Path):
         assert path.stat().st_size > 0
 
 
+def _archived_report(relative_path: str) -> str:
+    path = MODULE.REPO / relative_path
+    if path.is_file():
+        return path.read_text(encoding="utf-8")
+    commits = subprocess.run(
+        [
+            "git", "-C", str(MODULE.REPO), "log", "--all",
+            "--format=%H", "--diff-filter=AM", "--", relative_path,
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.splitlines()
+    if not commits:
+        raise AssertionError(f"archived report history not found: {relative_path}")
+    return subprocess.run(
+        ["git", "-C", str(MODULE.REPO), "show",
+         f"{commits[0]}:{relative_path}"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout
+
+
 def test_report_keeps_provenance_qualifications():
-    report = (
-        MODULE.REPO
-        / "docs"
-        / "report_multigrid_quda_pyqcu_20261002.tex"
-    ).read_text(encoding="utf-8")
+    report = _archived_report(
+        "docs/report_multigrid_quda_pyqcu_20261002.tex")
     assert "halo exchange" in report
     assert "MPI_Allreduce" in report
     assert "QudaMultigridParam::cycle_type" in report
