@@ -2546,6 +2546,25 @@ template <typename T> struct LatticeCloverMultigrid {
     // r_full now has the full-site residual: even sites = 0, odd sites = r_o_full
   }
 
+  // Recompute the full-operator residual from the current x_o and return its
+  // norm relative to the full-site right-hand side.  Both the residual norm
+  // and compute_full_residual()'s Wilson applications are collective, so every
+  // rank must call this helper.
+  T compute_full_relative_residual(T full_rhs_norm2,
+                                   T &absolute_residual) {
+    compute_full_residual();
+    const int n = static_cast<int>(2 * levels[0].vec_sz);
+    const std::complex<T> residual_dot = fine_dot_host(r_full, r_full, n);
+    const T residual_norm2 = residual_dot.real();
+    if (!std::isfinite(residual_norm2) || residual_norm2 < (T)0 ||
+        !std::isfinite(full_rhs_norm2) || full_rhs_norm2 <= (T)0) {
+      absolute_residual = std::numeric_limits<T>::infinity();
+      return std::numeric_limits<T>::infinity();
+    }
+    absolute_residual = std::sqrt(residual_norm2);
+    return absolute_residual / std::sqrt(full_rhs_norm2);
+  }
+
   // ==================================================================
   // Extract odd-site correction from full-site prolonged vector.
   //
@@ -4593,15 +4612,23 @@ template <typename T> struct LatticeCloverMultigrid {
       checkCudaErrors(cudaMemsetAsync(st.x, 0, st.vec_sz*sizeof(LatticeComplex<T>), S));
       copy_c(st.r, st.rhs, 0);
     }
+    int corrections_accepted=0;
+    int corrections_rejected=0;
+    bool corrections_enabled=num_levels>1 && num_restart>0;
+
     // ---- dev84 R5 DEFLATED START ----------------------------------------
     // quda/DDalphaAMG 粗空间的主要价值在"低模消除"。把一次 V-cycle 校正作为
     // 初始猜测 (x₀ = P·A_c⁻¹·Pᵀ·b)：近零模被粗解吸收后剩余谱聚于高频带，
     // Krylov 收敛大幅加快。与循环内校正不同：只做一次、**不触碰任何
     // BiCGStab 状态**（r̂₀ 直接取收缩后的真残差）。循环内校正仍由
     // num_restart 独立控制（rs=0 ⇒ 纯 deflated BiCGStab）。
-    if(num_levels>1 && set_ptr->host_params[_MG_USE_DEFLATE_]!=0){
+    if(corrections_enabled && set_ptr->host_params[_MG_USE_DEFLATE_]!=0){
       auto df_t0=std::chrono::high_resolution_clock::now();
       prof_n_vcycles++;
+      copy_c(set_ptr->device_vec2, st.r, 0);
+      checkCudaErrors(cudaStreamSynchronize(S));
+      const T pre_correction_norm2=fine_dot_host(
+          st.r, st.r, static_cast<int>(st.vec_sz)).real();
       restrict_op(levels[1].rhs, st.r, 0);
       zero_c(levels[1].x, 1);
       levels[1].has_solution = false;
@@ -4621,10 +4648,26 @@ template <typename T> struct LatticeCloverMultigrid {
       bistabcg_give_diff2<T><<<set_ptr->gridDim,set_ptr->blockDim,0,S>>>(
           st.rhs, set_ptr->device_vec0, st.r, dv);
       checkCudaErrors(cudaStreamSynchronize(S));
+      const T post_correction_norm2=fine_dot_host(
+          st.r, st.r, static_cast<int>(st.vec_sz)).real();
+      if(std::isfinite(post_correction_norm2) &&
+         post_correction_norm2<pre_correction_norm2){
+        ++corrections_accepted;
+      }else{
+        ++corrections_rejected;
+        corrections_enabled=false;
+        {
+          LatticeComplex<T> minus_one(-1,0);
+          CUBLAS_CHECK(_cublasAxpy<T>(set_ptr->cublasH,
+              (int)set_ptr->lat_4dim_SC, &minus_one, e_odd_buf, 1, x_o, 1));
+        }
+        copy_c(st.r, set_ptr->device_vec2, 0);
+      }
       prof_vcycle_ms += std::chrono::duration<double,std::milli>(
           std::chrono::high_resolution_clock::now()-df_t0).count();
       if(rank==0&&verbose)
-        log_write<T>("PYQCU::SOLVER::MULTIGRID::\n DEFLATE start applied",rank,true);
+        log_write<T>(std::string("PYQCU::SOLVER::MULTIGRID::\n DEFLATE start ")
+          +(corrections_accepted?"accepted":"rejected and rolled back"),rank,true);
     }
     copy_c(st.r_tilde, st.r, 0);
     zero_c(st.p, 0); zero_c(st.v, 0); zero_c(st.s, 0); zero_c(st.t, 0);
@@ -4685,32 +4728,38 @@ template <typename T> struct LatticeCloverMultigrid {
       checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
       bnorm2=hbn.real();
     }
+    // The acceptance criterion is the full Wilson/Clover residual, so its
+    // denominator must also use the full-site source, not the Schur RHS.
+    const std::complex<T> full_rhs_dot = fine_dot_host(
+        fermion_in_eo, fermion_in_eo,
+        static_cast<int>(2 * levels[0].vec_sz));
+    const T full_bnorm2 = full_rhs_dot.real();
     int total=0; double tti=0;
     int count_restart=0;
+    int full_gate_checks=0;
+    bool full_gate_passed=false;
+    bool near_tolerance=false;
+    std::string stop_reason="iteration_limit";
     LatticeComplex<T> one(1,0);
 
-    // ==================================================================
-    // dev84 ADAPTIVE CORRECTION GATE: 实测(报告§3)在连续谱算子上 V-cycle
-    // 校正对迭代数无净收益(138→138)而每次校正 ~50ms —— 多层恒劣于 L1。
-    // 门控策略：先跑 mg_calib_iters 次纯 BiCGStab 标定收敛斜率 s0；
-    // 之后允许校正, 但每个观测窗(W=12 迭代)测斜率 s1, 若连续 2 窗
-    // s1 < 1.15·s0 (加速不足) 则永久停用校正 → 多层性能退回并稳定在
-    // L1 水平, 保证 MG 永不劣于基线。粗空间有效时门控自动保持开启。
-    // ==================================================================
+    // Keep the historical 30-step calibration delay, then accept corrections
+    // only when the post-correction residual improves.  A rejected correction
+    // is rolled back and disables further corrections for this solve.  This is
+    // deterministic across reduction orders and matches KUPL's fail-safe gate.
     const int mg_calib_iters = 30;
-    const int mg_gate_window = 12;
-    const double mg_gate_factor = 1.15;
-    double mg_ln_rn0 = 0, mg_slope0 = 0;
     int mg_calib_done = 0;
-    int mg_win_iters = 0; double mg_win_rn = 0; int mg_fail_wins = 0;
-    bool mg_corr_off = false;
 
     for(int it=0; it<max_iter; it++){
       auto ti0=std::chrono::high_resolution_clock::now();
       // dev87 SYNC-DIET: 每 CHECK_STRIDE 次迭代才做一次主机同步+收敛检查；
       // 非检查点迭代跳过末尾同步（算术不变，仅观测降频，至多多算 K-1 步）。
       const int CHECK_STRIDE = 4;
-      bool do_check = (total % CHECK_STRIDE == CHECK_STRIDE - 1);
+      // Once the residual is within 4x tolerance, a coarse-grained check can
+      // overshoot the Torch stop by a whole Krylov window.  Keep the cheap
+      // stride before that band, then check every iteration so the Schur and
+      // full-residual gates observe the same iterate as the reference path.
+      bool do_check = near_tolerance ||
+          (total % CHECK_STRIDE == CHECK_STRIDE - 1);
       bistabcg_iter(0, do_check);
       auto ti1=std::chrono::high_resolution_clock::now();
       double sec=std::chrono::duration<double>(ti1-ti0).count(); tti+=sec; total++;
@@ -4724,6 +4773,8 @@ template <typename T> struct LatticeCloverMultigrid {
       T rn2 = mg_multi ? host_vals[_norm2_tmp_].real()
                        : check_host[1].real();
       T rn=sqrt(rn2<0?0:rn2);
+      near_tolerance = near_tolerance ||
+          rn2 <= (T)16 * atol2 * bnorm2;
 
       // ---- dev87 RELIABLE-RESIDUAL REFRESH (quda-style reliable update) ----
       // fp32 递推漂移：跟踪 rn 与真残差脱钩（实测 16^3x48：tracked 9.2e-7 而
@@ -4750,38 +4801,10 @@ template <typename T> struct LatticeCloverMultigrid {
       }
       conv_history.push_back(rn);
 
-      // ---- dev84 自适应校正门控: 标定与窗口斜率监测 ----
-      if(num_levels>1 && num_restart>0){
-        if(!mg_calib_done){
-          T rn_floor = rn > (T)1e-30 ? rn : (T)1e-30;
-          if(mg_ln_rn0 == 0){ mg_ln_rn0 = std::log((double)rn_floor); }
-          if(total>=mg_calib_iters){
-            rn_floor = rn > (T)1e-30 ? rn : (T)1e-30;
-            double ln_now=std::log((double)rn_floor);
-            mg_slope0=(ln_now-mg_ln_rn0)/mg_calib_iters;
-            mg_calib_done=1; mg_win_iters=0; mg_win_rn=std::log((double)rn_floor);
-            if(rank==0&&verbose)
-              log_write<T>("PYQCU::SOLVER::MULTIGRID::\n GATE: calibrated slope0="
-                +std::to_string(mg_slope0),rank,true);
-          }
-        } else if(!mg_corr_off){
-          mg_win_iters += CHECK_STRIDE;   // 以迭代数计窗
-          if(mg_win_iters>=mg_gate_window){
-            T rn_floor = rn > (T)1e-30 ? rn : (T)1e-30;
-            double ln_now=std::log((double)rn_floor);
-            double s1=(ln_now-mg_win_rn)/mg_win_iters;
-            if(s1 < mg_gate_factor*mg_slope0){
-              if(++mg_fail_wins>=2){
-                mg_corr_off=true;
-                if(rank==0&&verbose)
-                  log_write<T>("PYQCU::SOLVER::MULTIGRID::\n GATE: corrections disabled"
-                    " (s1="+std::to_string(s1)+" < "+std::to_string(mg_gate_factor)
-                    +"*s0="+std::to_string(mg_slope0)+")",rank,true);
-              }
-            } else { mg_fail_wins=0; }
-            mg_win_iters=0; mg_win_rn=ln_now;
-          }
-        }
+      if(corrections_enabled && !mg_calib_done && total>=mg_calib_iters){
+        mg_calib_done=1;
+        if(rank==0&&verbose)
+          log_write<T>("PYQCU::SOLVER::MULTIGRID::\n GATE: correction calibration complete",rank,true);
       }
 
       if(rank==0&&verbose){
@@ -4808,12 +4831,43 @@ template <typename T> struct LatticeCloverMultigrid {
         continue;
       }
 
-      // Convergence check (Schur residual, RELATIVE to ‖b__o‖ since dev87)
-      if(rn2<atol2*bnorm2){
-        if(rank==0&&verbose)
-          log_write<T>("PYQCU::SOLVER::MULTIGRID::\n Converged at iteration "+
-            std::to_string(it)+" with residual "+std::to_string(rn),rank,true);
-        break;
+      // A small Schur residual is only a candidate stop.  Accept convergence
+      // only after the collective full Wilson/Clover residual passes the same
+      // relative tolerance.  This call is outside all rank guards: the Wilson
+      // halo exchange and residual dot product are MPI collectives.
+      if(rn2<=atol2*bnorm2){
+        T full_abs=std::numeric_limits<T>::infinity();
+        const T full_rel=compute_full_relative_residual(
+            full_bnorm2,full_abs);
+        ++full_gate_checks;
+        if(rank==0&&verbose){
+          std::ostringstream gate;
+          gate<<"PYQCU::SOLVER::MULTIGRID::\n FULL residual gate at iteration "
+              <<it<<": schur="<<std::scientific<<rn
+              <<" full="<<full_abs<<" relative="<<full_rel
+              <<" tol="<<atol;
+          log_write<T>(gate.str(),rank,true);
+        }
+        if(std::isfinite(full_rel)&&full_rel<=atol){
+          full_gate_passed=true;
+          stop_reason="full_residual";
+          if(rank==0&&verbose){
+            std::ostringstream conv;
+            conv<<"PYQCU::SOLVER::MULTIGRID::\n Converged at iteration "
+                <<it<<" with Schur residual "<<std::scientific<<rn
+                <<", full residual "<<full_abs
+                <<", full relative "<<full_rel;
+            log_write<T>(conv.str(),rank,true);
+          }
+          break;
+        }
+        if(rank==0&&verbose){
+          std::ostringstream reject;
+          reject<<"PYQCU::SOLVER::MULTIGRID::\n FULL residual gate rejected"
+                <<" iteration "<<it<<": relative="<<std::scientific
+                <<full_rel<<"> tol="<<atol<<"; continuing";
+          log_write<T>(reject.str(),rank,true);
+        }
       }
 
       // ---- V-cycle coarse correction ----
@@ -4821,11 +4875,13 @@ template <typename T> struct LatticeCloverMultigrid {
       // deliver corrections below its fp32 precision floor (~1e-5·||P^T·r||),
       // and an empty/noisy correction only resets the BiStabCG Krylov space,
       // bouncing the residual back to ~1e-5 (observed: 500 full iterations).
-      if(num_levels>1 && num_restart>0 && !mg_corr_off && mg_calib_done
+      if(corrections_enabled && mg_calib_done
          && count_restart>=num_restart && rn2 > (T)10000 * atol2 * bnorm2){
 
         auto vc_t0=std::chrono::high_resolution_clock::now();
         prof_n_vcycles++;
+        copy_c(set_ptr->device_vec2, st.r, 0);
+        checkCudaErrors(cudaStreamSynchronize(S));
         if(rank==0&&verbose)
           log_write<T>("PYQCU::SOLVER::MULTIGRID::\n V-cycle correction at iteration "+std::to_string(it),rank,true);
 
@@ -4856,11 +4912,43 @@ template <typename T> struct LatticeCloverMultigrid {
         fine_dslash_op(set_ptr->device_vec0, x_o);
         bistabcg_give_diff2<T><<<set_ptr->gridDim,set_ptr->blockDim,0,S>>>(
             st.rhs, set_ptr->device_vec0, st.r, dv);
+        checkCudaErrors(cudaStreamSynchronize(S));
 
-        // 6. Reset the BiStabCG state (r_tilde=r, p=v=s=t=0, scalars)
-        copy_c(st.r_tilde, st.r, 0);
-        reset_bistabcg_state_l0();
+        const T post_correction_norm2=fine_dot_host(
+            st.r, st.r, static_cast<int>(st.vec_sz)).real();
+        const bool accepted=std::isfinite(post_correction_norm2) &&
+                            post_correction_norm2<rn2;
+
+        // 6. Keep improving corrections and roll back harmful ones.  A
+        // rejected correction leaves the BiCGStab recurrence untouched and
+        // disables further corrections, avoiding reduction-order-dependent
+        // retry loops.
+        if(accepted){
+          ++corrections_accepted;
+          copy_c(st.r_tilde, st.r, 0);
+          reset_bistabcg_state_l0();
+        }else{
+          ++corrections_rejected;
+          corrections_enabled=false;
+          {
+            LatticeComplex<T> minus_one(-1,0);
+            CUBLAS_CHECK(_cublasAxpy<T>(set_ptr->cublasH,
+                (int)set_ptr->lat_4dim_SC, &minus_one, e_odd_buf, 1, x_o, 1));
+          }
+          copy_c(st.r, set_ptr->device_vec2, 0);
+          checkCudaErrors(cudaStreamSynchronize(S));
+        }
         count_restart=0;
+
+        if(rank==0&&verbose){
+          std::ostringstream correction;
+          correction<<"PYQCU::SOLVER::MULTIGRID::\n V-cycle correction "
+                    <<(accepted?"accepted":"rejected and rolled back")
+                    <<": before="<<std::scientific<<rn
+                    <<" candidate="<<std::sqrt(std::max((T)0,post_correction_norm2))
+                    <<" corrections_enabled="<<(corrections_enabled?"true":"false");
+          log_write<T>(correction.str(),rank,true);
+        }
 
         auto vc_t1=std::chrono::high_resolution_clock::now();
         prof_vcycle_ms += std::chrono::duration<double,std::milli>(vc_t1-vc_t0).count();
@@ -4884,6 +4972,21 @@ template <typename T> struct LatticeCloverMultigrid {
     auto t1=std::chrono::high_resolution_clock::now();
     solve_time_ms=std::chrono::duration<double,std::milli>(t1-t0).count();
 
+    // The full-operator residual is collective in a distributed solve, so
+    // every rank must compute it before rank 0 emits the report.  This final
+    // recomputation also prevents a stale gate result from being reported as
+    // convergence when the iteration budget was exhausted.
+    T final_true_residual=std::numeric_limits<T>::infinity();
+    const T final_full_relative=compute_full_relative_residual(
+        full_bnorm2,final_true_residual);
+    const bool converged=std::isfinite(final_full_relative) &&
+                         final_full_relative<=atol;
+    if(converged&&full_gate_passed) stop_reason="full_residual";
+    else if(converged) stop_reason="iteration_limit_full_residual";
+    else if(full_gate_passed) stop_reason="final_full_residual_rejected";
+    else if(full_gate_checks>0) stop_reason="full_residual_gate_failed";
+    else stop_reason="iteration_limit";
+
     // ---- Performance report ----
     if(rank==0){
       double avg=total>0?tti/total:0;
@@ -4894,23 +4997,31 @@ template <typename T> struct LatticeCloverMultigrid {
       log_write<T>(tm.str(),rank,true);
       std::ostringstream am;am<<"PYQCU::SOLVER::MULTIGRID::\n Average time per iteration: "<<std::fixed<<std::setprecision(6)<<avg<<" s";
       log_write<T>(am.str(),rank,true);
-      std::ostringstream fm;fm<<"PYQCU::SOLVER::MULTIGRID::\n Final residual: "<<std::scientific<<fn;
+      std::ostringstream fm;fm<<"PYQCU::SOLVER::MULTIGRID::\n Final Schur residual: "<<std::scientific<<fn;
       log_write<T>(fm.str(),rank,true);
       // ---- dev87 S6-lite: 末次真残差（全算子口径, quda verify() 精神） ----
-      if(set_ptr->host_params[_GRID_X_]==1 && set_ptr->host_params[_GRID_Y_]==1 &&
-         set_ptr->host_params[_GRID_Z_]==1 && set_ptr->host_params[_GRID_T_]==1 &&
-         total>0){
-        compute_full_residual();
-        auto &stF=levels[0];
-        CUBLAS_CHECK(_cublasDot<T>(set_ptr->cublasH,(int)stF.vec_sz,
-            (T*)stF.r,1,(T*)stF.r,1,
-            static_cast<LatticeComplex<T>*>(check_dev)+1));
-        checkCudaErrors(cudaStreamSynchronize(set_ptr->stream));
-        T frn=sqrt(check_host[1].real()<0?(T)0:check_host[1].real());
+      {
         std::ostringstream tr;tr<<"PYQCU::SOLVER::MULTIGRID::\n FINAL TRUE residual (full-op) = "
-          <<std::scientific<<frn<<"  relative = "<<std::scientific
-          <<(bnorm2>(T)0? frn/sqrt(bnorm2):(T)0);
+          <<std::scientific<<final_true_residual<<"  relative = "<<std::scientific
+          <<final_full_relative;
         log_write<T>(tr.str(),rank,true);
+      }
+      std::ostringstream stop;
+      stop<<"PYQCU::SOLVER::MULTIGRID::\n FINAL STOP: reason="<<stop_reason
+          <<" converged="<<(converged?"true":"false")
+          <<" full_gate_checks="<<full_gate_checks
+          <<" correction_attempts="<<prof_n_vcycles
+          <<" corrections_accepted="<<corrections_accepted
+          <<" corrections_rejected="<<corrections_rejected
+          <<" full_relative="<<std::scientific<<final_full_relative
+          <<" tol="<<atol;
+      log_write<T>(stop.str(),rank,true);
+      if(!converged){
+        std::ostringstream fail;
+        fail<<"PYQCU::SOLVER::MULTIGRID::\n NOT CONVERGED: reason="
+            <<stop_reason<<" after "<<total<<" iterations; full relative residual "
+            <<std::scientific<<final_full_relative<<" exceeds tol "<<atol;
+        log_write<T>(fail.str(),rank,true);
       }
       std::ostringstream ch;ch<<"CONVERGENCE_HISTORY: [";
       for(size_t j=0;j<conv_history.size();j++){if(j>0)ch<<",";ch<<std::scientific<<conv_history[j];}

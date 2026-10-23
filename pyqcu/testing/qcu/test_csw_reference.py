@@ -88,7 +88,7 @@ def test_argv_csw_is_explicit_and_lifecycle_reuses_slots() -> None:
     runtime = QcuRuntime.from_lattice(
         (4, 4, 4, 4), mass=0.1, csw=0.0,
         device="cpu", grid=(define.size, 1, 1, 1), qcu_module=dummy)
-    field = torch.empty(1)
+    field = torch.empty(1, dtype=torch.complex64)
     sentinel = 0x5A5A
     runtime.set_ptrs[define._SET_PTRS_COARSE_BASE_] = sentinel
     for _ in range(101):
@@ -146,7 +146,7 @@ def test_runtime_rejects_reentrant_transactions() -> None:
     runtime = QcuRuntime.from_lattice(
         (4, 4, 4, 4), mass=0.1, csw=0.0, device="cpu",
         grid=(define.size, 1, 1, 1), qcu_module=DummyQcu())
-    field = torch.empty(1)
+    field = torch.empty(1, dtype=torch.complex64)
     with runtime.operation("applyDummyQcu") as outer:
         outer(field)
         with pytest.raises(RuntimeError, match="not reentrant"):

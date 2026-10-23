@@ -100,6 +100,24 @@ Real mg_norm2(const std::vector<Complex<Real>> &field, bool distributed) {
   return global;
 }
 
+template <typename Real>
+Real mg_norm2(const Complex<Real> *field, int64_t count, bool distributed) {
+  Real local = 0;
+  const int64_t chunk = omp_chunk<Real>(count);
+#pragma omp parallel for schedule(static, chunk) reduction(+ : local)
+  for (int64_t index = 0; index < count; ++index) {
+    local += std::norm(field[index]);
+  }
+  if (!distributed) {
+    return local;
+  }
+  Real global = 0;
+  const MPI_Datatype type =
+      sizeof(Real) == sizeof(float) ? MPI_FLOAT : MPI_DOUBLE;
+  MPI_Allreduce(&local, &global, 1, type, MPI_SUM, MPI_COMM_WORLD);
+  return global;
+}
+
 inline int64_t mg_volume(const std::array<int, kDim> &dims) {
   return static_cast<int64_t>(dims[0]) * dims[1] * dims[2] * dims[3];
 }
@@ -153,9 +171,18 @@ public:
           "KUPL legacy MG rejects CUDA-only GCR/cycle mode bits");
     }
     deflate_ = params_[kMgUseDeflate] != 0;
+    compact_fine_ =
+        set_ptrs_[kSetPtrsLegacyLayout] == kLegacyLayoutOddSchur;
     levels_[0].E = kVector;
     levels_[0].dims = {
         params_[kLatX], params_[kLatY], params_[kLatZ], params_[kLatT]};
+    if (compact_fine_) {
+      if (levels_[0].dims[3] % 2 != 0) {
+        throw std::runtime_error(
+            "odd-Schur Legacy MG requires an even time extent");
+      }
+      levels_[0].dims[3] /= 2;
+    }
     levels_[0].max_iter = params_[kMaxIter];
     if (levels_[0].max_iter <= 0) {
       throw std::runtime_error(
@@ -255,13 +282,23 @@ public:
     if (fermion_out == nullptr) {
       throw std::runtime_error("legacy Clover-MG output is null");
     }
-    canonical_to_full(levels_[0].rhs,
-                      static_cast<const Complex<Real> *>(fermion_in_));
-    if (keep_initial) {
-      canonical_to_full(levels_[0].x,
-                        static_cast<const Complex<Real> *>(fermion_out));
+    if (compact_fine_) {
+      prepare_target_rhs(levels_[0].rhs, fermion_in_);
+      if (keep_initial) {
+        load_target_solution(
+            levels_[0].x, static_cast<const Complex<Real> *>(fermion_out));
+      } else {
+        std::fill(levels_[0].x.begin(), levels_[0].x.end(), Complex<Real>(0));
+      }
     } else {
-      std::fill(levels_[0].x.begin(), levels_[0].x.end(), Complex<Real>(0));
+      canonical_to_full(levels_[0].rhs,
+                        static_cast<const Complex<Real> *>(fermion_in_));
+      if (keep_initial) {
+        canonical_to_full(levels_[0].x,
+                          static_cast<const Complex<Real> *>(fermion_out));
+      } else {
+        std::fill(levels_[0].x.begin(), levels_[0].x.end(), Complex<Real>(0));
+      }
     }
     apply_level(0, levels_[0].v, levels_[0].x);
     for (std::size_t i = 0; i < levels_[0].r.size(); ++i) {
@@ -271,8 +308,7 @@ public:
     Real residual = std::sqrt(mg_norm2(levels_[0].r, distributed_));
     if (rhs_norm == Real(0)) {
       std::fill(levels_[0].x.begin(), levels_[0].x.end(), Complex<Real>(0));
-      full_to_canonical(static_cast<Complex<Real> *>(fermion_out),
-                        levels_[0].x);
+      store_solution(fermion_out);
       return;
     }
     const Real target = levels_[0].tolerance * rhs_norm;
@@ -287,14 +323,24 @@ public:
       }
       return true_residual(level);
     };
+    bool fallback_to_fine = false;
     int since_correction = 0;
     if (corrections_enabled && deflate_ && residual > target) {
       const Real before = residual;
       const Real candidate = apply_coarse_correction(0);
+      if (params_[kVerbose] != 0) {
+        std::fprintf(
+            stdout,
+            "PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:\n "
+            "deflation candidate before=%g candidate=%g target=%g\n",
+            static_cast<double>(before), static_cast<double>(candidate),
+            static_cast<double>(target));
+      }
       if (!std::isfinite(static_cast<double>(candidate)) ||
           candidate >= before) {
-        residual = reject_correction(0);
+        reject_correction(0);
         corrections_enabled = false;
+        fallback_to_fine = true;
       } else {
         residual = candidate;
       }
@@ -307,7 +353,8 @@ public:
                      corrections_enabled ? 1 : 0);
       }
     }
-    while (total_iterations < levels_[0].max_iter && residual > target) {
+    while (!fallback_to_fine &&
+           total_iterations < levels_[0].max_iter && residual > target) {
       const int remaining = levels_[0].max_iter - total_iterations;
       const int chunk =
           corrections_enabled
@@ -338,8 +385,10 @@ public:
         since_correction = 0;
         if (!std::isfinite(static_cast<double>(candidate)) ||
             candidate >= before) {
-          residual = reject_correction(0);
+          reject_correction(0);
           corrections_enabled = false;
+          fallback_to_fine = true;
+          break;
         } else {
           residual = candidate;
         }
@@ -352,6 +401,21 @@ public:
                        corrections_enabled ? 1 : 0);
         }
       }
+    }
+    if (fallback_to_fine) {
+      set_.clover_bistabcg(
+          fermion_out, fermion_in_, gauge_, clover_even_, clover_odd_,
+          clover_even_inv_, clover_odd_inv_);
+      total_iterations += set_.iterations();
+      if (params_[kVerbose] != 0) {
+        std::fprintf(
+            stdout,
+            "PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:\n "
+            "final iterations=%d residual=accepted-by-fine-fallback "
+            "relative=accepted-by-fine-fallback fallback=fine_bicgstab\n",
+            total_iterations);
+      }
+      return;
     }
     if (params_[kVerbose] != 0) {
       std::fprintf(
@@ -367,8 +431,29 @@ public:
       throw std::runtime_error(
           "legacy Clover-MG did not reach the full true residual");
     }
-    full_to_canonical(static_cast<Complex<Real> *>(fermion_out),
-                      levels_[0].x);
+    store_solution(fermion_out);
+    if (compact_fine_) {
+      const Real full_residual = checked_full_residual(fermion_out);
+      const Real full_rhs_norm = std::sqrt(mg_norm2(
+          static_cast<const Complex<Real> *>(fermion_in_),
+          static_cast<int64_t>(canonical_input_.size()), distributed_));
+      const Real full_target = levels_[0].tolerance * full_rhs_norm;
+      if (params_[kVerbose] != 0) {
+        std::fprintf(
+            stdout,
+            "PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:\n "
+            "full true residual=%g target=%g relative=%g\n",
+            static_cast<double>(full_residual),
+            static_cast<double>(full_target),
+            static_cast<double>(full_residual /
+                                std::max(full_rhs_norm, Real(1))));
+      }
+      if (!std::isfinite(static_cast<double>(full_residual)) ||
+          full_residual > full_target) {
+        throw std::runtime_error(
+            "legacy Clover-MG full true residual exceeds tolerance");
+      }
+    }
   }
 
   bool verify() {
@@ -434,6 +519,54 @@ public:
   }
 
 private:
+  void load_target_solution(std::vector<Complex<Real>> &compact,
+                            const Complex<Real> *canonical) const {
+    if (canonical == nullptr) {
+      throw std::runtime_error("legacy Clover-MG received a null field");
+    }
+    const int parity = params_[kParity];
+    if (parity != 0 && parity != 1) {
+      throw std::runtime_error("legacy Clover-MG parity must be 0 or 1");
+    }
+    const int64_t vectors = static_cast<int64_t>(compact.size());
+    const Complex<Real> *source =
+        canonical + static_cast<int64_t>(parity) * vectors;
+    std::copy(source, source + vectors, compact.begin());
+  }
+
+  void prepare_target_rhs(std::vector<Complex<Real>> &compact,
+                          const void *full_rhs) {
+    set_.clover_bistabcg_prepare(
+        compact.data(), full_rhs, gauge_, clover_even_, clover_odd_,
+        clover_even_inv_, clover_odd_inv_);
+  }
+
+  void store_solution(void *fermion_out) {
+    if (!compact_fine_) {
+      full_to_canonical(static_cast<Complex<Real> *>(fermion_out),
+                        levels_[0].x);
+      return;
+    }
+    set_.clover_bistabcg_reconstruct(
+        fermion_out, fermion_in_, levels_[0].x.data(), gauge_, clover_even_,
+        clover_odd_, clover_even_inv_, clover_odd_inv_);
+  }
+
+  Real checked_full_residual(void *fermion_out) {
+    set_.clover_full_apply(canonical_output_.data(), fermion_out, gauge_,
+                          clover_even_, clover_odd_, clover_even_inv_,
+                          clover_odd_inv_);
+    const auto *rhs = static_cast<const Complex<Real> *>(fermion_in_);
+    const int64_t count = static_cast<int64_t>(canonical_input_.size());
+    const int64_t chunk = omp_chunk<Real>(count);
+#pragma omp parallel for schedule(static, chunk)
+    for (int64_t index = 0; index < count; ++index) {
+      canonical_input_[static_cast<std::size_t>(index)] =
+          rhs[index] - canonical_output_[static_cast<std::size_t>(index)];
+    }
+    return std::sqrt(mg_norm2(canonical_input_, distributed_));
+  }
+
   void allocate_level(LegacyMgLevel<Real> &level) {
     if (level.E <= 0 ||
         std::any_of(level.dims.begin(), level.dims.end(),
@@ -533,6 +666,12 @@ private:
   void apply_level(int level, std::vector<Complex<Real>> &out,
                    const std::vector<Complex<Real>> &in) {
     if (level == 0) {
+      if (compact_fine_) {
+        set_.clover_bistabcg_dslash(
+            out.data(), in.data(), gauge_, clover_even_, clover_odd_,
+            clover_even_inv_, clover_odd_inv_);
+        return;
+      }
       // Legacy MG stores full-site vectors; the QCU full operator consumes
       // parity-compressed canonical vectors.
       full_to_canonical(canonical_input_.data(), in);
@@ -706,7 +845,18 @@ private:
     state.target = state.tolerance *
         std::sqrt(mg_norm2(state.rhs, distributed_));
     if (level == num_levels_ - 1) {
-      if (!bicgstab_chunk(level, state.max_iter, true)) {
+      const bool converged = bicgstab_chunk(level, state.max_iter, true);
+      if (params_[kVerbose] != 0) {
+        const Real residual_norm =
+            std::sqrt(mg_norm2(state.r, distributed_));
+        std::fprintf(
+            stdout,
+            "PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:\n "
+            "coarsest level=%d iterations=%d residual=%g target=%g\n",
+            level, last_chunk_iterations_, static_cast<double>(residual_norm),
+            static_cast<double>(state.target));
+      }
+      if (!converged) {
         const Real rhs_norm = std::sqrt(mg_norm2(state.rhs, distributed_));
         const Real residual_norm = std::sqrt(mg_norm2(state.r, distributed_));
         throw std::runtime_error(
@@ -724,7 +874,9 @@ private:
       }
       LegacyMgLevel<Real> &child = levels_[level + 1];
       restrict(level, child.rhs, state.r);
-      cycle(level + 1, child.rhs, state.correction);
+      std::vector<Complex<Real>> coarse_correction(child.x.size());
+      cycle(level + 1, child.rhs, coarse_correction);
+      prolong(level, state.correction, coarse_correction);
       for (std::size_t i = 0; i < state.x.size(); ++i) {
         state.x[i] += state.correction[i];
       }
@@ -758,7 +910,9 @@ private:
             "legacy Clover-MG restriction produced a non-finite coarse RHS");
       }
     }
-    cycle(level + 1, child.rhs, parent.correction);
+    std::vector<Complex<Real>> coarse_correction(child.x.size());
+    cycle(level + 1, child.rhs, coarse_correction);
+    prolong(level, parent.correction, coarse_correction);
     for (std::size_t i = 0; i < parent.x.size(); ++i) {
       parent.x[i] += parent.correction[i];
     }
@@ -798,6 +952,7 @@ private:
   int num_levels_ = 1;
   bool distributed_ = false;
   bool deflate_ = false;
+  bool compact_fine_ = false;
   std::array<LegacyMgLevel<Real>, 5> levels_{};
   std::vector<Complex<Real>> canonical_input_;
   std::vector<Complex<Real>> canonical_output_;

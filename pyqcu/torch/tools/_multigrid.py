@@ -1,9 +1,124 @@
+import hashlib
+import json
 import math
+from pathlib import Path
+from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Union
+
+import numpy as np
 import torch
-from typing import Callable, List, Optional
 from pyqcu import tools
 import pyqcu.cann as _torch
 force_use_npu = False
+
+
+LEGACY_MG_ASSET_DATASETS = ("lonv", "hnn", "hdg", "sit")
+
+
+def _file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(8 << 20), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def _logical_dataset_sha256(dataset: Any, name: str) -> str:
+    """Hash a dataset independently of HDF5 layout/storage details."""
+    digest = hashlib.sha256()
+    metadata = {
+        "dataset": str(name),
+        "shape": tuple(int(value) for value in dataset.shape),
+        "dtype": str(np.dtype(dataset.dtype)),
+    }
+    digest.update(json.dumps(
+        metadata, sort_keys=True, separators=(",", ":")).encode("utf-8"))
+    if dataset.ndim == 0:
+        digest.update(np.ascontiguousarray(dataset[()]).tobytes())
+    else:
+        for index in range(int(dataset.shape[0])):
+            digest.update(np.ascontiguousarray(dataset[index]).tobytes())
+    return digest.hexdigest()
+
+
+def load_legacy_mg_assets(
+        source: Union[str, Path, Mapping[str, Any]],
+        dtype: Any = None, device: Any = None) -> Dict[str, Any]:
+    """Load and validate the backend-neutral Legacy MG 33-tensor assets.
+
+    The CUDA Legacy cache and the Torch Legacy hierarchy use the same blocked
+    layouts ``lonv=[E,e,X,x,Y,y,Z,z,T/2,t]``,
+    ``hnn=[2,4,E,E,X,Y,Z,T/2]``,
+    ``hdg=[2,2,6,E,E,X,Y,Z,T/2]`` and
+    ``sit=[E,E,X,Y,Z,T/2]``.  ``source`` may be an HDF5 path or an already
+    loaded mapping with these four tensors.
+    """
+    if isinstance(source, Mapping):
+        missing = sorted(set(LEGACY_MG_ASSET_DATASETS) - set(source))
+        if missing:
+            raise ValueError(f"Legacy MG asset mapping is missing {missing}")
+        values = {name: source[name] for name in LEGACY_MG_ASSET_DATASETS}
+        identities = dict(source.get("identities", {}))
+        path = source.get("path")
+        file_sha = source.get("file_sha256")
+    else:
+        import h5py
+
+        path_value = Path(source).expanduser().resolve()
+        if not path_value.is_file():
+            raise FileNotFoundError(f"Legacy MG asset cache not found: {path_value}")
+        values: Dict[str, Any] = {}
+        identities: Dict[str, str] = {}
+        with h5py.File(path_value, "r") as handle:
+            missing = sorted(set(LEGACY_MG_ASSET_DATASETS) - set(handle))
+            if missing:
+                raise ValueError(
+                    f"Legacy MG cache {path_value} is missing datasets {missing}")
+            for name in LEGACY_MG_ASSET_DATASETS:
+                dataset = handle[name]
+                identities[name] = _logical_dataset_sha256(dataset, name)
+                values[name] = torch.from_numpy(dataset[...])
+        file_sha = _file_sha256(path_value)
+        path = str(path_value)
+
+    converted: Dict[str, Any] = {}
+    for name, value in values.items():
+        tensor = value if hasattr(value, "to") else torch.as_tensor(value)
+        kwargs: Dict[str, Any] = {}
+        if device is not None:
+            kwargs["device"] = device
+        if dtype is not None:
+            kwargs["dtype"] = dtype
+        converted[name] = tensor.to(**kwargs).contiguous()
+
+    lonv = converted["lonv"]
+    hnn = converted["hnn"]
+    hdg = converted["hdg"]
+    sit = converted["sit"]
+    if lonv.ndim != 10:
+        raise ValueError(
+            f"Legacy MG lonv must be 10-D blocked layout, got {tuple(lonv.shape)}")
+    dof, local_dof = int(lonv.shape[0]), int(lonv.shape[1])
+    coarse_shape = tuple(int(lonv.shape[index]) for index in (2, 4, 6, 8))
+    if hnn.shape != (2, 4, dof, local_dof, *coarse_shape):
+        raise ValueError(
+            f"Legacy MG hnn shape {tuple(hnn.shape)} is inconsistent with "
+            f"lonv {tuple(lonv.shape)}")
+    if hdg.shape != (2, 2, 6, dof, local_dof, *coarse_shape):
+        raise ValueError(
+            f"Legacy MG hdg shape {tuple(hdg.shape)} is inconsistent with "
+            f"lonv {tuple(lonv.shape)}")
+    if sit.shape != (dof, local_dof, *coarse_shape):
+        raise ValueError(
+            f"Legacy MG sit shape {tuple(sit.shape)} is inconsistent with "
+            f"lonv {tuple(lonv.shape)}")
+
+    return {
+        **converted,
+        "path": path,
+        "file_sha256": file_sha,
+        "dataset_sha256": identities,
+        "coarse_shape": coarse_shape,
+    }
 
 
 def give_null_vecs(
@@ -356,6 +471,14 @@ def _vdot_batch(a, b):
     return torch.einsum("Bk,Bk->B", a_flat.conj(), b_flat)
 
 
+def _normalise_nullvec_device(device):
+    """Resolve an index-free CUDA device before PyTorch memory/runtime APIs."""
+    value = torch.device(device) if not isinstance(device, torch.device) else device
+    if value.type == "cuda" and value.index is None:
+        value = torch.device("cuda", torch.cuda.current_device())
+    return value
+
+
 def _nullvec_batch_chunk_from_free(dof, field_numel, itemsize, free_bytes,
                                    requested=6):
     """Choose a batch size without turning a performance win into an OOM.
@@ -400,6 +523,7 @@ def give_null_vecs_mt(matvec_ops, dof, e, lat_fine_odd, dtype, device,
     from pyqcu.torch import solver
 
     from concurrent.futures import ThreadPoolExecutor
+    device = _normalise_nullvec_device(device)
     effective_batch_chunk = None
     if batch_matvec is not None:
         nthreads = nthreads or 1
@@ -462,6 +586,10 @@ def give_null_vecs_mt(matvec_ops, dof, e, lat_fine_odd, dtype, device,
         v_all = torch.zeros([dof, e] + list(lat_fine_odd), dtype=dtype, device=device)
         for c0 in range(0, dof, chunk):
             c1 = min(dof, c0 + chunk)
+            if verbose:
+                print(
+                    f"PYQCU::TOOLS::MULTIGRID:\n null_vecs batch {c0}:{c1} start",
+                    flush=True)
             vb = torch.randn([c1 - c0, e] + list(lat_fine_odd), dtype=dtype,
                              device=device)
             for _ in range(nv_iters):
@@ -474,6 +602,10 @@ def give_null_vecs_mt(matvec_ops, dof, e, lat_fine_odd, dtype, device,
             bc = [c1 - c0] + [1] * (vb.ndim - 1)
             vb = vb / nrm.view(bc)
             v_all[c0:c1] = vb
+            if verbose:
+                print(
+                    f"PYQCU::TOOLS::MULTIGRID:\n null_vecs batch {c0}:{c1} done",
+                    flush=True)
         null = v_all
     else:
         def worker(tid):

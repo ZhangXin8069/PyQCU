@@ -1,0 +1,38 @@
+lattice set whole time:0.668485046 sec
+lattice set whole time:0.584382141 sec
+lattice set whole time:0.385738007 sec
+lattice set whole time:0.385751770 sec
+PYQCU::SOLVER::MULTIGRID::
+ self.dof_list:[12, 12, 12]
+ self.lat_size_list:[[12, 24, 24, 32], [6, 12, 12, 16], [3, 6, 6, 8]]
+ num_restart:5
+ tol:1.000000e-06
+ max_iter:200
+ Lt_full:64
+ mg_grid_size:[2,2,2,2]
+ smoother:CG
+ cycle:V
+PYQCU::QCU::MULTIGRID::WARNING:
+ Legacy-MultiGrid levels=3, coarsest=[3,6,6,8], next=[1,3,3,4], volume=864. Legacy defaults to 2 levels; deep or small coarse hierarchies are experimental.
+PYQCU::QCU::MULTIGRID::
+ MG_INIT_COMPLETE: 3 levels, Lt_full=64, num_restart=5, smoother=CG, cycle=V
+PYQCU::SOLVER::MULTIGRID::
+ 0:Norm of b:3723.374756
+PYQCU::SOLVER::MULTIGRID::
+ 0:Norm of r:3723.374756
+PYQCU::SOLVER::MULTIGRID::
+ 0:Norm of x0:0.000000
+PYQCU::SOLVER::MULTIGRID::
+ 0:Starting Iterations
+PYQCU::SOLVER::MULTIGRID::
+ Performance Statistics:
+PYQCU::SOLVER::MULTIGRID::
+ Total iterations: 20
+PYQCU::SOLVER::MULTIGRID::
+ Total time: 6.788099 seconds
+PYQCU::SOLVER::MULTIGRID::
+ Average time per iteration: 0.031084 s
+PYQCU::SOLVER::MULTIGRID::
+ Final residual: 1.597189e-03
+MG init=22.0ms end=7.9ms solve=6788.9ms
+lattice set whole time:6.844193359 sec

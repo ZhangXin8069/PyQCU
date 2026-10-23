@@ -1,0 +1,209 @@
+{
+  "status": "verified",
+  "path": "/root/PyQCU/data/qcu_16cubed_quick_20261023/L16x16x16x16_nvec12_full_c64.h5",
+  "dataset": "null",
+  "shape": [
+    12,
+    4,
+    3,
+    16,
+    16,
+    16,
+    16
+  ],
+  "dtype": "complex64",
+  "identity_sha256": "6e639236578a3d0d0e0cd9983d770d50fd18fe925ceb7aec4a3a48954b7af037",
+  "output_sha256": "e9e415e960ee6fae83cec2b4424e2f04225cd2152df357338d648c1dc3e6c2c1",
+  "metadata": {
+    "clover": {
+      "builder": "pyqcu.testing.qcu.strict.quda_comparison.common.make_clover_tensors/applyCloversQcu",
+      "csw": 1.0,
+      "gauge_sha256": "a10c07cc3bc34d195794875bf20b39ffe84c64af86967fd9312a957f3a0f1f39",
+      "sigma": 0.1
+    },
+    "gamma_basis": "QUDA_DEGRAND_ROSSI_GAMMA_BASIS",
+    "gauge_sha256": "a10c07cc3bc34d195794875bf20b39ffe84c64af86967fd9312a957f3a0f1f39",
+    "identity": {
+      "clover": {
+        "builder": "pyqcu.testing.qcu.strict.quda_comparison.common.make_clover_tensors/applyCloversQcu",
+        "csw": 1.0,
+        "gauge_sha256": "a10c07cc3bc34d195794875bf20b39ffe84c64af86967fd9312a957f3a0f1f39",
+        "sigma": 0.1
+      },
+      "gauge": {
+        "dataset": "g",
+        "dtype": "complex64",
+        "layout": "[parity,row_color,col_color,mu,x,y,z,t_half]",
+        "sha256": "a10c07cc3bc34d195794875bf20b39ffe84c64af86967fd9312a957f3a0f1f39",
+        "shape": [
+          2,
+          3,
+          3,
+          4,
+          16,
+          16,
+          16,
+          8
+        ]
+      },
+      "geometry": {
+        "block_xyzt_on_odd_storage": [
+          2,
+          2,
+          2,
+          2
+        ],
+        "lattice_xyzt": [
+          16,
+          16,
+          16,
+          16
+        ],
+        "nvec": 12
+      },
+      "output": {
+        "dataset": "null",
+        "dtype": "complex64",
+        "gamma_basis": "QUDA_DEGRAND_ROSSI_GAMMA_BASIS",
+        "layout": "[nvec,spin,color,x,y,z,t]",
+        "parity": "full (even reconstructed; odd copied verbatim)",
+        "shape": [
+          12,
+          4,
+          3,
+          16,
+          16,
+          16,
+          16
+        ]
+      },
+      "physics": {
+        "kappa": 0.1234567901234568,
+        "mass": 0.05
+      },
+      "reconstruction": {
+        "algorithm": "Clover zero-rhs block elimination via applyCloverBistabCgReconstructQcu",
+        "equation": "psi_e=C_ee^-1(kappa*D_eo*psi_o); psi_o=source_odd",
+        "input_parity": "odd",
+        "rhs": "zero",
+        "version": 2
+      },
+      "schema": "pyqcu.canonical-full-nullvec/v1",
+      "source": {
+        "dataset": "lonv",
+        "dtype": "complex64",
+        "layout": "[nvec,spin_color,Cx,bx,Cy,by,Cz,bz,Ct_odd,bt]",
+        "parity": "odd",
+        "sha256": "34e798aa4caa25de8a0998017857d4fdb7c295b61b5d493aadefdf136dbe41e1",
+        "shape": [
+          12,
+          12,
+          8,
+          2,
+          8,
+          2,
+          8,
+          2,
+          4,
+          2
+        ]
+      }
+    },
+    "identity_sha256": "6e639236578a3d0d0e0cd9983d770d50fd18fe925ceb7aec4a3a48954b7af037",
+    "inputs": {
+      "gauge_dataset": "g",
+      "gauge_path": "/root/PyQCU/data/qcu_16cubed_quick_20261023/case/gauge_16x16x16x16_c64.h5",
+      "source_dataset": "lonv",
+      "source_path": "/root/PyQCU/data/qcu_16cubed_quick_20261023/legacy_cache_cuda_16cubed_E12_c64.h5"
+    },
+    "layout": "[nvec,spin,color,x,y,z,t]",
+    "memory_strategy": {
+      "full_batch_resident": false,
+      "mode": "stream-one-vector",
+      "resident_blocked_vector_count": 1,
+      "resident_full_vector_count": 1
+    },
+    "output": {
+      "dataset": "null",
+      "dtype": "complex64",
+      "gamma_basis": "QUDA_DEGRAND_ROSSI_GAMMA_BASIS",
+      "layout": "[nvec,spin,color,x,y,z,t]",
+      "parity": "full (even reconstructed; odd copied verbatim)",
+      "sha256": "e9e415e960ee6fae83cec2b4424e2f04225cd2152df357338d648c1dc3e6c2c1",
+      "shape": [
+        12,
+        4,
+        3,
+        16,
+        16,
+        16,
+        16
+      ]
+    },
+    "parity": "full (even reconstructed; odd copied verbatim)",
+    "physics": {
+      "kappa": 0.1234567901234568,
+      "mass": 0.05
+    },
+    "provenance": {
+      "created_utc": "2026-10-22T20:13:37Z",
+      "git_revision": "004a1e21ca088e60da09d680649fe4782f599848",
+      "python": "3.10.12",
+      "tool": "/root/PyQCU/pyqcu/testing/qcu/strict/quda_comparison/prepare_fair_nullvec.py"
+    },
+    "reconstruction": {
+      "algorithm": "Clover zero-rhs block elimination via applyCloverBistabCgReconstructQcu",
+      "equation": "psi_e=C_ee^-1(kappa*D_eo*psi_o); psi_o=source_odd",
+      "input_parity": "odd",
+      "rhs": "zero",
+      "version": 2
+    },
+    "schema": "pyqcu.canonical-full-nullvec/v1",
+    "schema_version": 1,
+    "source_dataset_sha256": "34e798aa4caa25de8a0998017857d4fdb7c295b61b5d493aadefdf136dbe41e1"
+  },
+  "input_fingerprints": {
+    "source": {
+      "algorithm": "sha256(logical-hdf5-dataset-v1)",
+      "sha256": "34e798aa4caa25de8a0998017857d4fdb7c295b61b5d493aadefdf136dbe41e1",
+      "path": "/root/PyQCU/data/qcu_16cubed_quick_20261023/legacy_cache_cuda_16cubed_E12_c64.h5",
+      "dataset": "lonv",
+      "shape": [
+        12,
+        12,
+        8,
+        2,
+        8,
+        2,
+        8,
+        2,
+        4,
+        2
+      ],
+      "dtype": "complex64",
+      "file_size_bytes": 115609600,
+      "file_mtime_ns": 1792700005688349027,
+      "elapsed_seconds": 0.1453376940007729
+    },
+    "gauge": {
+      "algorithm": "sha256(logical-hdf5-dataset-v1)",
+      "sha256": "a10c07cc3bc34d195794875bf20b39ffe84c64af86967fd9312a957f3a0f1f39",
+      "path": "/root/PyQCU/data/qcu_16cubed_quick_20261023/case/gauge_16x16x16x16_c64.h5",
+      "dataset": "g",
+      "shape": [
+        2,
+        3,
+        3,
+        4,
+        16,
+        16,
+        16,
+        8
+      ],
+      "dtype": "complex64",
+      "file_size_bytes": 37756928,
+      "file_mtime_ns": 1792699243940337555,
+      "elapsed_seconds": 0.07087630499881925
+    }
+  }
+}

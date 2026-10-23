@@ -1,0 +1,671 @@
+/root/PyQCU/pyqcu/testing/benchmark/qcu_six_way_worker.py:299: MultigridDepthWarning: torch legacy MultiGrid levels=2 (Torch LegacyMultigrid): next coarsening (4, 4, 4, 2) would fall below extent 4. Legacy-MultiGrid defaults to 2 levels; deeper Legacy hierarchies are experimental and must pass native plus independent residual gates before use. Geometry: coarsest=(8, 8, 8, 4), next=(4, 4, 4, 2).
+  mg = LegacyMultigrid(
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ self.dof_list:[12, 12]
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ self.dtype_list:[torch.complex64, torch.complex64]
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ self.device_list:[device(type='cuda', index=0), device(type='cuda', index=0)]
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ self.lat_size_list:[[16, 16, 16, 16], [8, 8, 8, 8]]
+PYQCU::TOOLS::DEFINE:
+ [MPI Rank 0/1] Using cuda:0
+PYQCU::TOOLS::DEFINE:
+ [MPI Rank 0/1] Using cuda:0
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ 0:Starting Iterations
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ 1:Starting Iterations
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Performance Statistics:
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total iterations: 1
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total time: 0.013723 seconds
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Average time per iteration: 0.013710 s
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Final residual: 9.98e-01
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ 1:Starting Iterations
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Performance Statistics:
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total iterations: 1
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total time: 0.012243 seconds
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Average time per iteration: 0.012231 s
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Final residual: 4.21e-01
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ 1:Starting Iterations
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Performance Statistics:
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total iterations: 1
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total time: 0.015946 seconds
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Average time per iteration: 0.015918 s
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Final residual: 1.35e-01
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ 1:Starting Iterations
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Performance Statistics:
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total iterations: 2
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total time: 0.027262 seconds
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Average time per iteration: 0.013623 s
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Final residual: 3.39e-02
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ 1:Starting Iterations
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Performance Statistics:
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total iterations: 1
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total time: 0.013435 seconds
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Average time per iteration: 0.013411 s
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Final residual: 4.16e-02
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ 1:Starting Iterations
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Performance Statistics:
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total iterations: 1
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total time: 0.012303 seconds
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Average time per iteration: 0.012291 s
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Final residual: 2.38e-02
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ 1:Starting Iterations
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Performance Statistics:
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total iterations: 2
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total time: 0.024580 seconds
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Average time per iteration: 0.012283 s
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Final residual: 8.33e-03
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ 1:Starting Iterations
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Performance Statistics:
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total iterations: 1
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total time: 0.012212 seconds
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Average time per iteration: 0.012200 s
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Final residual: 8.29e-03
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ 1:Starting Iterations
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Performance Statistics:
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total iterations: 1
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total time: 0.012858 seconds
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Average time per iteration: 0.012846 s
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Final residual: 4.52e-03
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ 1:Starting Iterations
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Performance Statistics:
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total iterations: 1
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total time: 0.012680 seconds
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Average time per iteration: 0.012668 s
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Final residual: 2.59e-03
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ 1:Starting Iterations
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Performance Statistics:
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total iterations: 1
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total time: 0.013970 seconds
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Average time per iteration: 0.013959 s
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Final residual: 1.73e-03
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ 1:Starting Iterations
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Performance Statistics:
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total iterations: 1
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total time: 0.015293 seconds
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Average time per iteration: 0.015258 s
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Final residual: 2.97e-03
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Performance Statistics:
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total iterations: 135
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total time: 4.047101 seconds
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Average time per iteration: 0.029977 s
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Final residual: 7.49e-07
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Final residual(origin): 3.29e-04
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Performance Statistics:
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total time: 4.083395 seconds
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Final residual: 7.49e-07
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ 0:Starting Iterations
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ 1:Starting Iterations
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Performance Statistics:
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total iterations: 1
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total time: 0.012808 seconds
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Average time per iteration: 0.012797 s
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Final residual: 9.98e-01
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ 1:Starting Iterations
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Performance Statistics:
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total iterations: 1
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total time: 0.011863 seconds
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Average time per iteration: 0.011853 s
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Final residual: 4.21e-01
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ 1:Starting Iterations
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Performance Statistics:
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total iterations: 1
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total time: 0.011822 seconds
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Average time per iteration: 0.011811 s
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Final residual: 1.35e-01
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ 1:Starting Iterations
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Performance Statistics:
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total iterations: 2
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total time: 0.024444 seconds
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Average time per iteration: 0.012215 s
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Final residual: 3.39e-02
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ 1:Starting Iterations
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Performance Statistics:
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total iterations: 1
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total time: 0.011632 seconds
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Average time per iteration: 0.011621 s
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Final residual: 4.16e-02
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ 1:Starting Iterations
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Performance Statistics:
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total iterations: 1
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total time: 0.012323 seconds
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Average time per iteration: 0.012313 s
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Final residual: 2.38e-02
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ 1:Starting Iterations
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Performance Statistics:
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total iterations: 2
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total time: 0.024056 seconds
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Average time per iteration: 0.012021 s
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Final residual: 8.33e-03
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ 1:Starting Iterations
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Performance Statistics:
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total iterations: 1
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total time: 0.012868 seconds
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Average time per iteration: 0.012855 s
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Final residual: 8.29e-03
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ 1:Starting Iterations
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Performance Statistics:
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total iterations: 1
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total time: 0.012064 seconds
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Average time per iteration: 0.012052 s
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Final residual: 4.52e-03
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ 1:Starting Iterations
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Performance Statistics:
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total iterations: 1
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total time: 0.012469 seconds
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Average time per iteration: 0.012457 s
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Final residual: 2.59e-03
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ 1:Starting Iterations
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Performance Statistics:
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total iterations: 1
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total time: 0.012397 seconds
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Average time per iteration: 0.012387 s
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Final residual: 1.73e-03
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ 1:Starting Iterations
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Performance Statistics:
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total iterations: 1
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total time: 0.014398 seconds
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Average time per iteration: 0.014387 s
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Final residual: 2.97e-03
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Performance Statistics:
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total iterations: 135
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total time: 3.975196 seconds
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Average time per iteration: 0.029444 s
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Final residual: 7.49e-07
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Final residual(origin): 3.29e-04
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Performance Statistics:
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total time: 4.009763 seconds
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Final residual: 7.49e-07
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ 0:Starting Iterations
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ 1:Starting Iterations
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Performance Statistics:
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total iterations: 1
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total time: 0.012583 seconds
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Average time per iteration: 0.012570 s
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Final residual: 9.98e-01
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ 1:Starting Iterations
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Performance Statistics:
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total iterations: 1
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total time: 0.013832 seconds
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Average time per iteration: 0.013821 s
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Final residual: 4.21e-01
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ 1:Starting Iterations
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Performance Statistics:
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total iterations: 1
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total time: 0.012663 seconds
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Average time per iteration: 0.012650 s
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Final residual: 1.35e-01
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ 1:Starting Iterations
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Performance Statistics:
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total iterations: 2
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total time: 0.025810 seconds
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Average time per iteration: 0.012897 s
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Final residual: 3.39e-02
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ 1:Starting Iterations
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Performance Statistics:
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total iterations: 1
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total time: 0.012422 seconds
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Average time per iteration: 0.012409 s
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Final residual: 4.16e-02
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ 1:Starting Iterations
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Performance Statistics:
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total iterations: 1
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total time: 0.012460 seconds
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Average time per iteration: 0.012448 s
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Final residual: 2.38e-02
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ 1:Starting Iterations
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Performance Statistics:
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total iterations: 2
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total time: 0.025622 seconds
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Average time per iteration: 0.012803 s
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Final residual: 8.33e-03
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ 1:Starting Iterations
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Performance Statistics:
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total iterations: 1
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total time: 0.012677 seconds
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Average time per iteration: 0.012663 s
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Final residual: 8.29e-03
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ 1:Starting Iterations
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Performance Statistics:
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total iterations: 1
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total time: 0.015401 seconds
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Average time per iteration: 0.015369 s
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Final residual: 4.52e-03
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ 1:Starting Iterations
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Performance Statistics:
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total iterations: 1
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total time: 0.013565 seconds
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Average time per iteration: 0.013553 s
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Final residual: 2.59e-03
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ 1:Starting Iterations
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Performance Statistics:
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total iterations: 1
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total time: 0.013308 seconds
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Average time per iteration: 0.013298 s
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Final residual: 1.73e-03
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ 1:Starting Iterations
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Performance Statistics:
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total iterations: 1
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total time: 0.013192 seconds
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Average time per iteration: 0.013181 s
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Final residual: 2.97e-03
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Performance Statistics:
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total iterations: 135
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total time: 3.986588 seconds
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Average time per iteration: 0.029528 s
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Final residual: 7.49e-07
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Final residual(origin): 3.29e-04
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Performance Statistics:
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total time: 4.020716 seconds
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Final residual: 7.49e-07
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ 0:Starting Iterations
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ 1:Starting Iterations
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Performance Statistics:
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total iterations: 1
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total time: 0.013684 seconds
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Average time per iteration: 0.013673 s
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Final residual: 9.98e-01
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ 1:Starting Iterations
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Performance Statistics:
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total iterations: 1
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total time: 0.014342 seconds
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Average time per iteration: 0.014318 s
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Final residual: 4.21e-01
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ 1:Starting Iterations
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Performance Statistics:
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total iterations: 1
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total time: 0.022142 seconds
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Average time per iteration: 0.022129 s
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Final residual: 1.35e-01
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ 1:Starting Iterations
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Performance Statistics:
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total iterations: 2
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total time: 0.026724 seconds
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Average time per iteration: 0.013354 s
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Final residual: 3.39e-02
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ 1:Starting Iterations
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Performance Statistics:
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total iterations: 1
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total time: 0.013912 seconds
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Average time per iteration: 0.013899 s
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Final residual: 4.16e-02
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ 1:Starting Iterations
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Performance Statistics:
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total iterations: 1
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total time: 0.012579 seconds
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Average time per iteration: 0.012567 s
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Final residual: 2.38e-02
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ 1:Starting Iterations
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Performance Statistics:
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total iterations: 2
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total time: 0.027525 seconds
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Average time per iteration: 0.013755 s
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Final residual: 8.33e-03
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ 1:Starting Iterations
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Performance Statistics:
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total iterations: 1
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total time: 0.013596 seconds
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Average time per iteration: 0.013584 s
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Final residual: 8.29e-03
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ 1:Starting Iterations
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Performance Statistics:
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total iterations: 1
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total time: 0.014170 seconds
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Average time per iteration: 0.014158 s
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Final residual: 4.52e-03
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ 1:Starting Iterations
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Performance Statistics:
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total iterations: 1
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total time: 0.016075 seconds
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Average time per iteration: 0.016063 s
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Final residual: 2.59e-03
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ 1:Starting Iterations
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Performance Statistics:
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total iterations: 1
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total time: 0.013256 seconds
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Average time per iteration: 0.013244 s
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Final residual: 1.73e-03
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ 1:Starting Iterations
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Performance Statistics:
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total iterations: 1
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total time: 0.013515 seconds
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Average time per iteration: 0.013502 s
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Final residual: 2.97e-03
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Performance Statistics:
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total iterations: 135
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total time: 4.347129 seconds
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Average time per iteration: 0.032200 s
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Final residual: 7.49e-07
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Final residual(origin): 3.29e-04
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Performance Statistics:
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Total time: 4.381937 seconds
+PYQCU::SOLVER::LEGACY_MULTIGRID:
+ Final residual: 7.49e-07
+{"schema": "pyqcu.qcu-six-way.side.v1", "variant": "torch-legacy", "backend": "torch", "strategy": "legacy", "status": "PASS", "lattice": [16, 16, 16, 16], "mass": 0.05, "csw": 1.0, "precision": "c64", "configuration": {"tolerance": 1e-06, "max_iter": 200, "levels": 2, "block": [2, 2, 2, 2], "nvec": 12, "coarse_dof": 12, "coarse_spin": null, "coarse_tolerance": 0.0001, "coarse_max_iter": 200, "restart": 20, "legacy_correction_interval": 5, "nu_pre": 1, "nu_post": 1, "warmups": 1, "repeats": 3}, "inputs": {"gauge": {"path": "/root/PyQCU/data/qcu_16cubed_quick_20261023/case/gauge_16x16x16x16_c64.h5", "sha256": "2ccaa75935a70ec9016918e7b82b43c14e2599a555ea9431a5d225a272876867"}, "source": {"path": "/root/PyQCU/data/qcu_16cubed_quick_20261023/case/source_16x16x16x16_c64.h5", "sha256": "deaf28ffbe7f37f8b02a8033b9a658578bb17dd52d223747ddda63a963029c59"}, "null_vectors": {"path": "/root/PyQCU/data/qcu_16cubed_quick_20261023/L16x16x16x16_nvec12_full_c64.h5", "sha256": "50a91415afea6c7bf39a343910eaf03e7dd63e3c312275a381f9e118590c5975"}}, "timing": {"input_load_seconds": 0.0229320149992418, "cache_load_seconds": 0.0, "operator_prepare_seconds": 0.12911450200044783, "setup_seconds": 14.295587530003104, "warmup_seconds": [4.083680324001762], "first_solve_seconds": 4.083680324001762, "steady_seconds": [4.01000200999988, 4.021194291999564, 4.382275823001692], "steady_median_seconds": 4.021194291999564, "steady_mad_seconds": 0.011192281999683473}, "iterations": {"samples": [135, 135, 135, 135], "median": 135.0, "semantics": "Legacy outer fine BiCGStab iterations parsed from the backend log"}, "residual": {"independent_relative": 2.6564302402221074e-07, "gate": 1e-06, "pass": true, "source": "independent PyTorch full Wilson/Clover reconstruction", "scope": "full"}, "coarse_execution": {"kind": "legacy_periodic_correction", "executed": true, "cycle_calls_per_solve": [13, 13, 13, 13], "cycle_levels_observed": [0, 1], "source": "benchmark-only wrapper around the public Python cycle method"}, "memory": {"device_memory_applicable": true, "device_wide": {"scope": "device-wide cudaMemGetInfo; includes native allocations and other processes", "sample_interval_seconds": 0.02, "sample_count": 1508, "baseline_used_bytes": 1544884224, "peak_used_bytes": 3818196992, "peak_delta_over_baseline_bytes": 2273312768}, "first_solve_device_wide": {"scope": "device-wide cudaMemGetInfo; includes native allocations and other processes", "sample_interval_seconds": 0.02, "sample_count": 202, "baseline_used_bytes": 3665104896, "peak_used_bytes": 3667202048, "peak_delta_over_baseline_bytes": 2097152}, "steady_device_wide": {"scope": "device-wide cudaMemGetInfo; includes native allocations and other processes", "sample_interval_seconds": 0.02, "sample_count": 612, "baseline_used_bytes": 3667202048, "peak_used_bytes": 3667202048, "peak_delta_over_baseline_bytes": 0}, "first_solve_allocator_before": {"allocated_bytes": 1831863808, "reserved_bytes": 2011168768, "peak_allocated_bytes": 1946682880, "peak_reserved_bytes": 2011168768, "free_bytes": 30694240256, "total_bytes": 34359345152}, "first_solve_allocator_after": {"allocated_bytes": 1838220800, "reserved_bytes": 2013265920, "peak_allocated_bytes": 1980174848, "peak_reserved_bytes": 2013265920, "free_bytes": 30692143104, "total_bytes": 34359345152}, "first_solve_allocator_delta_bytes": 6356992, "steady_allocator": {"allocated_bytes": 1838220800, "reserved_bytes": 2013265920, "peak_allocated_bytes": 1986466304, "peak_reserved_bytes": 2013265920, "free_bytes": 30692143104, "total_bytes": 34359345152}, "host_peak_rss_bytes": 1174966272}, "provenance": {"python": "3.10.12 (main, Sep 11 2024, 15:47:36) [GCC 11.4.0]", "pid": 239896, "hostname": "68bb03cf529b", "argv": ["pyqcu/testing/benchmark/qcu_six_way_worker.py", "--variant", "torch-legacy", "--gauge", "data/qcu_16cubed_quick_20261023/case/gauge_16x16x16x16_c64.h5", "--source", "data/qcu_16cubed_quick_20261023/case/source_16x16x16x16_c64.h5", "--nullvec", "data/qcu_16cubed_quick_20261023/L16x16x16x16_nvec12_full_c64.h5", "--null-dataset", "null", "--lat", "16", "16", "16", "16", "--mass", "0.05", "--csw", "1.0", "--tolerance", "1e-6", "--coarse-tolerance", "1e-4", "--max-iter", "200", "--coarse-max-iter", "200", "--levels", "2", "--block", "2", "2", "2", "2", "--nvec", "12", "--nu", "1", "--restart", "20", "--correction-interval", "5", "--warmups", "1", "--repeats", "3", "--device", "cuda:0", "--output", "logs/qcu_16cubed_quick_20261023/torch-legacy-2l.json"], "omp_num_threads": null, "cuda_visible_devices": "2"}}

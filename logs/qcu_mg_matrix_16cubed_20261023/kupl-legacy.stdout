@@ -1,0 +1,91 @@
+/root/PyQCU/pyqcu/testing/benchmark/qcu_six_way_worker.py:736: MultigridDepthWarning: kupl legacy MultiGrid levels=2 (KUPL LegacyMultigrid): next coarsening (4, 4, 4, 2) would fall below extent 4. Legacy-MultiGrid defaults to 2 levels; deeper Legacy hierarchies are experimental and must pass native plus independent residual gates before use. Geometry: coarsest=(8, 8, 8, 4), next=(4, 4, 4, 2).
+  mg = LegacyMultigrid(
+PYQCU::KUPL::INIT:
+ rank=0 size=1 grid=1,1,1,1 local=16,16,16,16 threads=16 csw=1
+PYQCU::KUPL::MULTIGRID::WARNING:
+ Legacy-MultiGrid levels=2, coarsest=[8,8,8,4], next=[4,4,4,2], volume=2048. Legacy defaults to 2 levels; deep or small coarse hierarchies are experimental.
+PYQCU::KUPL::CLOVER_MULTIGRID_VERIFY_TRACE:
+ seed=139.803 fine=139.803 parent=108.311 direct=96.6764 galerkin=96.6764 fine_probe=(-0.145303,-0.0123681),(-0.226822,0.0806071) direct_probe=(0.40308,-0.231548),(0.77208,-0.230769)
+PYQCU::KUPL::CLOVER_MULTIGRID_VERIFY_TRACE:
+ fine_sites=(-0.181694,0.0107533),(-0.173339,-0.107097),(-0.00659828,-0.0339486),(-0.360033,-0.190281) parent_sites=(0.0659223,0.00636087),(-0.133219,0.131293) clover_even=(1.00485,0) clover_odd=(0.996058,0) clover_even_inv=(0.995514,4.80412e-13) clover_odd_inv=(1.00409,-5.64638e-13) params=(plan=1,parity=1,dtype=2,mass=0.05,set=1) gauge0=(0.99211,0.0658475)
+QCU_SIX_WAY_SOLVE_BEGIN	0
+PYQCU::KUPL::MULTIGRID::WARNING:
+ Legacy-MultiGrid levels=2, coarsest=[8,8,8,4], next=[4,4,4,2], volume=2048. Legacy defaults to 2 levels; deep or small coarse hierarchies are experimental.
+PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:
+ coarsest level=1 iterations=11 residual=0.021022 target=0.0263204
+PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:
+ deflation candidate before=989.097 candidate=964.379 target=0.000989097
+PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:
+ deflation residual=964.379 target=0.000989097 corrections=1
+PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:
+ iterations=5 residual=27.493 target=0.000989097
+PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:
+ coarsest level=1 iterations=20 residual=0.00105532 target=0.00189313
+PYQCU::KUPL::CLOVER_BISTABCG_SCHUR:
+ iterations=68 residual=0.000395778 recurrence_tolerance=0.000471638 acceptance_tolerance=0.241479 relative=4.00141e-07
+PYQCU::KUPL::CLOVER_BISTABCG_SCHUR:
+ recomputed_residual=0.000415506 rhs_norm=1254.22 tolerance=0.306205 relative=3.31288e-07
+PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:
+ final iterations=73 residual=accepted-by-fine-fallback relative=accepted-by-fine-fallback fallback=fine_bicgstab
+QCU_SIX_WAY_SOLVE_END	0	3.1462767909979448
+QCU_SIX_WAY_SOLVE_BEGIN	1
+PYQCU::KUPL::MULTIGRID::WARNING:
+ Legacy-MultiGrid levels=2, coarsest=[8,8,8,4], next=[4,4,4,2], volume=2048. Legacy defaults to 2 levels; deep or small coarse hierarchies are experimental.
+PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:
+ coarsest level=1 iterations=11 residual=0.021022 target=0.0263204
+PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:
+ deflation candidate before=989.097 candidate=964.379 target=0.000989097
+PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:
+ deflation residual=964.379 target=0.000989097 corrections=1
+PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:
+ iterations=5 residual=27.493 target=0.000989097
+PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:
+ coarsest level=1 iterations=20 residual=0.0010553 target=0.00189313
+PYQCU::KUPL::CLOVER_BISTABCG_SCHUR:
+ iterations=68 residual=0.000401121 recurrence_tolerance=0.000471638 acceptance_tolerance=0.241479 relative=4.05542e-07
+PYQCU::KUPL::CLOVER_BISTABCG_SCHUR:
+ recomputed_residual=0.000420654 rhs_norm=1254.22 tolerance=0.306205 relative=3.35392e-07
+PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:
+ final iterations=73 residual=accepted-by-fine-fallback relative=accepted-by-fine-fallback fallback=fine_bicgstab
+QCU_SIX_WAY_SOLVE_END	1	5.4818660710006952
+QCU_SIX_WAY_SOLVE_BEGIN	2
+PYQCU::KUPL::MULTIGRID::WARNING:
+ Legacy-MultiGrid levels=2, coarsest=[8,8,8,4], next=[4,4,4,2], volume=2048. Legacy defaults to 2 levels; deep or small coarse hierarchies are experimental.
+PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:
+ coarsest level=1 iterations=11 residual=0.021022 target=0.0263204
+PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:
+ deflation candidate before=989.097 candidate=964.379 target=0.000989097
+PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:
+ deflation residual=964.379 target=0.000989097 corrections=1
+PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:
+ iterations=5 residual=27.493 target=0.000989097
+PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:
+ coarsest level=1 iterations=20 residual=0.0010553 target=0.00189313
+PYQCU::KUPL::CLOVER_BISTABCG_SCHUR:
+ iterations=68 residual=0.000395253 recurrence_tolerance=0.000471638 acceptance_tolerance=0.241479 relative=3.9961e-07
+PYQCU::KUPL::CLOVER_BISTABCG_SCHUR:
+ recomputed_residual=0.000415398 rhs_norm=1254.22 tolerance=0.306205 relative=3.31202e-07
+PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:
+ final iterations=73 residual=accepted-by-fine-fallback relative=accepted-by-fine-fallback fallback=fine_bicgstab
+QCU_SIX_WAY_SOLVE_END	2	4.000842012999783
+QCU_SIX_WAY_SOLVE_BEGIN	3
+PYQCU::KUPL::MULTIGRID::WARNING:
+ Legacy-MultiGrid levels=2, coarsest=[8,8,8,4], next=[4,4,4,2], volume=2048. Legacy defaults to 2 levels; deep or small coarse hierarchies are experimental.
+PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:
+ coarsest level=1 iterations=11 residual=0.021022 target=0.0263204
+PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:
+ deflation candidate before=989.097 candidate=964.379 target=0.000989097
+PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:
+ deflation residual=964.379 target=0.000989097 corrections=1
+PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:
+ iterations=5 residual=27.493 target=0.000989097
+PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:
+ coarsest level=1 iterations=20 residual=0.00105532 target=0.00189313
+PYQCU::KUPL::CLOVER_BISTABCG_SCHUR:
+ iterations=68 residual=0.000393351 recurrence_tolerance=0.000471638 acceptance_tolerance=0.241479 relative=3.97687e-07
+PYQCU::KUPL::CLOVER_BISTABCG_SCHUR:
+ recomputed_residual=0.00041333 rhs_norm=1254.22 tolerance=0.306205 relative=3.29552e-07
+PYQCU::KUPL::CLOVER_MULTIGRID_DEBUG:
+ final iterations=73 residual=accepted-by-fine-fallback relative=accepted-by-fine-fallback fallback=fine_bicgstab
+QCU_SIX_WAY_SOLVE_END	3	3.2666844470004435
+{"schema": "pyqcu.qcu-six-way.side.v1", "variant": "kupl-legacy", "backend": "kupl", "strategy": "legacy", "status": "PASS", "lattice": [16, 16, 16, 16], "mass": 0.05, "csw": 1.0, "precision": "c64", "configuration": {"tolerance": 1e-06, "max_iter": 200, "levels": 2, "block": [2, 2, 2, 2], "nvec": 12, "coarse_dof": 12, "coarse_spin": null, "coarse_tolerance": 0.0001, "coarse_max_iter": 200, "restart": 20, "legacy_correction_interval": 5, "nu_pre": 1, "nu_post": 1, "warmups": 1, "repeats": 3}, "inputs": {"gauge": {"path": "/root/PyQCU/data/qcu_16cubed_quick_20261023/case/gauge_16x16x16x16_c64.h5", "sha256": "2ccaa75935a70ec9016918e7b82b43c14e2599a555ea9431a5d225a272876867"}, "source": {"path": "/root/PyQCU/data/qcu_16cubed_quick_20261023/case/source_16x16x16x16_c64.h5", "sha256": "deaf28ffbe7f37f8b02a8033b9a658578bb17dd52d223747ddda63a963029c59"}, "null_vectors": {"path": "/root/PyQCU/data/qcu_16cubed_quick_20261023/L16x16x16x16_nvec12_full_c64.h5", "sha256": "50a91415afea6c7bf39a343910eaf03e7dd63e3c312275a381f9e118590c5975"}, "legacy_cache": {"path": "/root/PyQCU/data/qcu_16cubed_quick_20261023/legacy_cache_cuda_16cubed_E12_c64.h5", "sha256": "ce8d83a86487b6fd587d81564e1df5c9a6961342f88aae8be04d35d2bd0f8184", "size_bytes": 115609600, "backend": "kupl", "layout": "odd-schur-33-stencil", "coarse_geometry": [8, 8, 8, 4], "block": [2, 2, 2, 2], "manifest": null}}, "timing": {"input_load_seconds": 0.024407883000094444, "cache_load_seconds": 0.05644302300061099, "setup_seconds": 0.11124642499999027, "warmup_seconds": [3.1462767909979448], "first_solve_seconds": 3.1462767909979448, "steady_seconds": [5.481866071000695, 4.000842012999783, 3.2666844470004435], "steady_median_seconds": 4.000842012999783, "steady_mad_seconds": 0.7341575659993396}, "iterations": {"samples": [], "median": null, "semantics": "parsed by the orchestrator from KUPL C++ debug stdout"}, "residual": {"independent_relative": 3.3620455042182584e-07, "gate": 1e-06, "pass": true, "source": "independent PyTorch full Wilson/Clover reconstruction", "scope": "full"}, "coarse_execution": {"kind": "legacy_periodic_correction", "executed": null, "attempted_vcycles": null, "native_verify": 0, "source": "KUPL C++ debug stdout parsed by the orchestrator"}, "memory": {"device_memory_applicable": false, "host_peak_rss_bytes": 1617551360, "host_rss_start_bytes": 653111296, "host_rss_end_bytes": 1468727296, "workspace_scope": "CPU vectors allocated by the C++ Legacy solver"}, "provenance": {"python": "3.10.12 (main, Sep 11 2024, 15:47:36) [GCC 11.4.0]", "pid": 274019, "hostname": "68bb03cf529b", "argv": ["/root/PyQCU/pyqcu/testing/benchmark/qcu_six_way_worker.py", "--variant", "kupl-legacy", "--gauge", "/root/PyQCU/data/qcu_16cubed_quick_20261023/case/gauge_16x16x16x16_c64.h5", "--source", "/root/PyQCU/data/qcu_16cubed_quick_20261023/case/source_16x16x16x16_c64.h5", "--nullvec", "/root/PyQCU/data/qcu_16cubed_quick_20261023/L16x16x16x16_nvec12_full_c64.h5", "--null-dataset", "null", "--lat", "16", "16", "16", "16", "--mass", "0.05", "--csw", "1.0", "--tolerance", "1e-06", "--coarse-tolerance", "0.0001", "--max-iter", "200", "--coarse-max-iter", "200", "--levels", "2", "--block", "2", "2", "2", "2", "--nvec", "12", "--nu", "1", "--restart", "20", "--correction-interval", "5", "--warmups", "1", "--repeats", "3", "--seed", "42", "--device", "cuda:0", "--max-workspace-bytes", "536870912", "--output", "/root/PyQCU/logs/qcu_mg_matrix_16cubed_20261023/kupl-legacy.json", "--legacy-cache", "/root/PyQCU/data/qcu_16cubed_quick_20261023/legacy_cache_cuda_16cubed_E12_c64.h5", "--solution-output", "/root/PyQCU/data/qcu_mg_matrix_16cubed_20261023/solutions/kupl-legacy-solution.h5"], "omp_num_threads": "16", "cuda_visible_devices": null}}

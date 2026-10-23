@@ -1,0 +1,7 @@
+KUPL::MG_BUILD: null-space start
+KUPL::MG_BUILD: orthogonalize start
+KUPL::MG_BUILD: stencil start coarse=[8, 8, 8, 8]
+PYQCU::TOOLS::MULTIGRID:
+ stencil build (local): 41.0s for 49152 probes (1200 probes/s)
+KUPL::MG_BUILD: stencil done
+{"status": "PASS", "gauge": "/root/PyQCU/data/qcu_16cubed_quick_20261023/case/gauge_16x16x16x16_c64.h5", "gauge_sha256": "2ccaa75935a70ec9016918e7b82b43c14e2599a555ea9431a5d225a272876867", "lattice": [16, 16, 16, 16], "dtype": "complex64", "mass": 0.05, "csw": 1.0, "dof": [12, 12], "mg_grid": [2, 2, 2, 2], "nv_iters": 1, "seed": 42, "build_device": "cuda", "local_stencil": true, "local_stencil_batch_size": 8, "setup_seconds": 51.04548470500231, "output": "/root/PyQCU/data/qcu_16cubed_quick_20261023/legacy_cache_16cubed_E12_c64.h5", "output_sha256": "1e1fc69954f77b88b77d6597919684b41e1c6c8df29363e2d893b3d8d10de180", "output_size_bytes": 231215104, "source_metadata": {"csw": 1.0, "generator": "QCU applyGaussGaugeQcu", "lattice": [16, 16, 16, 16], "layout": "data=[color,color,dir,x,y,z,t];g=[parity,color,color,dir,x,y,z,t/2]", "mass": 0.05, "seed": 42}}

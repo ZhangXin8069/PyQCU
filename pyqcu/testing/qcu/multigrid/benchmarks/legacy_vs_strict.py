@@ -357,6 +357,30 @@ def _last_mg_true_residual(log_path: Path) -> float | None:
     return float(matches[-1]) if matches else None
 
 
+def _last_mg_stop_report(log_path: Path) -> dict[str, str | int | bool | float]:
+    """Parse the final machine-readable Legacy stop report."""
+    if not log_path.is_file():
+        return {}
+    matches = re.findall(r"FINAL STOP:\s*([^\n]+)", log_path.read_text(errors="ignore"))
+    if not matches:
+        return {}
+    values: dict[str, str] = dict(
+        item.split("=", 1) for item in matches[-1].split() if "=" in item)
+    result: dict[str, str | int | bool | float] = {
+        "reason": values.get("reason", "unknown"),
+        "converged": values.get("converged") == "true",
+    }
+    for key in (
+            "full_gate_checks", "correction_attempts", "corrections_accepted",
+            "corrections_rejected"):
+        if key in values:
+            result[key] = int(values[key])
+    for key in ("full_relative", "tol"):
+        if key in values:
+            result[key] = float(values[key])
+    return result
+
+
 def _last_prof_sections(log_path: Path) -> dict[str, float | int]:
     """Return the final ``PROF_SECTIONS`` counters from a Legacy MG run."""
     if not log_path.is_file():
@@ -501,6 +525,7 @@ def _run_legacy(args: argparse.Namespace) -> dict[str, Any]:
     memory = _memory_snapshot(device)
     device_peak = device_sampler.stop()
     prof = _last_prof_sections(log_path)
+    stop_report = _last_mg_stop_report(log_path)
     native_pass = native_residual is not None and native_residual <= args.tol
     independent_pass = python_residual is not None and python_residual <= args.tol
     if args.solution_output:
@@ -543,6 +568,8 @@ def _run_legacy(args: argparse.Namespace) -> dict[str, Any]:
         "deflate": bool(args.deflate),
         "coarse_execution": {
             "attempted_vcycles": int(prof.get("n_vcycles", 0)),
+            "accepted_vcycles": stop_report.get("corrections_accepted"),
+            "rejected_vcycles": stop_report.get("corrections_rejected"),
             "coarse_iterations": int(prof.get("coarse_iters", 0)),
             "vcycle_seconds": float(prof.get("vcycle", 0.0)) / 1000.0,
             "effective_mode": (
@@ -550,6 +577,7 @@ def _run_legacy(args: argparse.Namespace) -> dict[str, Any]:
                 if int(prof.get("n_vcycles", 0)) > 0 else "fine_only"),
             "source": str(log_path),
         },
+        "stop_report": stop_report,
         "tol": args.tol,
         "max_iter": args.max_iter,
         "memory": memory,

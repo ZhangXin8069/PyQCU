@@ -1,0 +1,469 @@
+/usr/local/lib/python3.10/dist-packages/torch/cuda/__init__.py:435: UserWarning: 
+    Found GPU1 Tesla P100-PCIE-16GB which is of cuda capability 6.0.
+    Minimum and Maximum cuda capability supported by this version of PyTorch is
+    (7.0) - (12.0)
+    
+  queued_call()
+/usr/local/lib/python3.10/dist-packages/torch/cuda/__init__.py:435: UserWarning: 
+    Please install PyTorch with a following CUDA
+    configurations:  12.6 following instructions at
+    https://pytorch.org/get-started/locally/
+    
+  queued_call()
+/usr/local/lib/python3.10/dist-packages/torch/cuda/__init__.py:435: UserWarning: 
+    Found GPU2 Tesla P100-PCIE-16GB which is of cuda capability 6.0.
+    Minimum and Maximum cuda capability supported by this version of PyTorch is
+    (7.0) - (12.0)
+    
+  queued_call()
+/usr/local/lib/python3.10/dist-packages/torch/cuda/__init__.py:435: UserWarning: 
+Tesla P100-PCIE-16GB with CUDA capability sm_60 is not compatible with the current PyTorch installation.
+The current PyTorch install supports CUDA capabilities sm_70 sm_75 sm_80 sm_86 sm_90 sm_100 sm_120.
+If you want to use the Tesla P100-PCIE-16GB GPU with PyTorch, please check the instructions at https://pytorch.org/get-started/locally/
+
+  queued_call()
+lattice set whole time:0.270399658 sec
+lattice set whole time:0.077606659 sec
+set_ptr:0x56d0c9490860
+set_ptrs:0x56d0c866c880
+long long set_ptr:95454730192992
+gridDim.x                                    :256
+blockDim.x                                   :128
+host_params[_LAT_X_]                         :16
+host_params[_LAT_Y_]                         :16
+host_params[_LAT_Z_]                         :16
+host_params[_LAT_T_]                         :8
+host_params[_LAT_XYZT_]                      :32768
+host_params[_GRID_X_]                        :1
+host_params[_GRID_Y_]                        :1
+host_params[_GRID_Z_]                        :1
+host_params[_GRID_T_]                        :1
+host_params[_PARITY_]                        :0
+host_params[_NODE_RANK_]                     :0
+host_params[_NODE_SIZE_]                     :1
+host_params[_DAGGER_]                        :0
+host_params[_MAX_ITER_]                      :200
+host_params[_DATA_TYPE_]                     :2
+host_params[_SET_INDEX_]                     :2
+host_params[_SET_PLAN_]                      :1
+host_params[_MG_NUM_LEVEL_]                  :2
+host_params[_MG_LEVEL_INDEX_]                :0
+host_params[_MG_LEVEL1_E_]                   :12
+host_params[_MG_LEVEL1_X_]                   :8
+host_params[_MG_LEVEL1_Y_]                   :8
+host_params[_MG_LEVEL1_Z_]                   :8
+host_params[_MG_LEVEL1_T_]                   :4
+host_params[_MG_LEVEL1_MAX_ITER_]            :200
+host_params[_MG_LEVEL1_DATA_TYPE_]           :2
+host_params[_MG_LEVEL1_NUM_RESTART_]         :5
+host_params[_MG_LEVEL2_E_]                   :0
+host_params[_MG_LEVEL2_X_]                   :0
+host_params[_MG_LEVEL2_Y_]                   :0
+host_params[_MG_LEVEL2_Z_]                   :0
+host_params[_MG_LEVEL2_T_]                   :0
+host_params[_MG_LEVEL2_MAX_ITER_]            :0
+host_params[_MG_LEVEL2_DATA_TYPE_]           :0
+host_params[_MG_LEVEL2_NUM_RESTART_]         :0
+host_params[_MG_LEVEL3_E_]                   :0
+host_params[_MG_LEVEL3_X_]                   :0
+host_params[_MG_LEVEL3_Y_]                   :0
+host_params[_MG_LEVEL3_Z_]                   :0
+host_params[_MG_LEVEL3_T_]                   :0
+host_params[_MG_LEVEL3_MAX_ITER_]            :0
+host_params[_MG_LEVEL3_DATA_TYPE_]           :0
+host_params[_MG_LEVEL3_NUM_RESTART_]         :0
+host_params[_MG_LEVEL4_E_]                   :0
+host_params[_MG_LEVEL4_X_]                   :0
+host_params[_MG_LEVEL4_Y_]                   :0
+host_params[_MG_LEVEL4_Z_]                   :0
+host_params[_MG_LEVEL4_T_]                   :0
+host_params[_MG_LEVEL4_MAX_ITER_]            :0
+host_params[_MG_LEVEL4_DATA_TYPE_]           :0
+host_params[_MG_LEVEL4_NUM_RESTART_]         :0
+host_params[_MG_PARAMS_SIZE_]                :1
+host_params[_VERBOSE_]                       :1
+host_params[_SEED_]                          :42
+host_params[_TEST_IN_CPU_]                   :0
+host_argv[_MASS_]                            :5.000000e-02
+host_argv[_ATOL_]                            :1.000000e-06
+host_argv[_SIGMA_]                           :1.000000e-01
+host_argv[_CSW_]                             :1.000000e+00
+host_argv[_MG_LEVEL1_ATOL_]                  :1.000000e-02
+host_argv[_MG_LEVEL2_ATOL_]                  :0.000000e+00
+host_argv[_MG_LEVEL3_ATOL_]                  :0.000000e+00
+host_argv[_MG_LEVEL4_ATOL_]                  :0.000000e+00
+lat_2dim[_XY_]                               :256
+lat_2dim[_XZ_]                               :256
+lat_2dim[_XT_]                               :128
+lat_2dim[_YZ_]                               :256
+lat_2dim[_YT_]                               :128
+lat_2dim[_ZT_]                               :128
+lat_3dim[_YZT_]                              :2048
+lat_3dim[_XZT_]                              :2048
+lat_3dim[_XYT_]                              :2048
+lat_3dim[_XYZ_]                              :4096
+lat_4dim                                     :32768
+grid_1dim[_X_]                               :1
+grid_1dim[_Y_]                               :1
+grid_1dim[_Z_]                               :1
+grid_1dim[_T_]                               :1
+grid_2dim[_XY_]                              :1
+grid_2dim[_XZ_]                              :1
+grid_2dim[_XT_]                              :1
+grid_2dim[_YZ_]                              :1
+grid_2dim[_YT_]                              :1
+grid_2dim[_ZT_]                              :1
+grid_3dim[_YZT_]                             :1
+grid_3dim[_XZT_]                             :1
+grid_3dim[_XYT_]                             :1
+grid_3dim[_XYZ_]                             :1
+grid_index_1dim[_X_]                         :0
+grid_index_1dim[_Y_]                         :0
+grid_index_1dim[_Z_]                         :0
+grid_index_1dim[_T_]                         :0
+move_wards[_B_X_]                            :0
+move_wards[_B_Y_]                            :0
+move_wards[_B_Z_]                            :0
+move_wards[_B_T_]                            :0
+move_wards[_F_X_]                            :0
+move_wards[_F_Y_]                            :0
+move_wards[_F_Z_]                            :0
+move_wards[_F_T_]                            :0
+move_wards[_BX_BY_]                          :0
+move_wards[_BX_BZ_]                          :0
+move_wards[_BX_BT_]                          :0
+move_wards[_BY_BZ_]                          :0
+move_wards[_BY_BT_]                          :0
+move_wards[_BZ_BT_]                          :0
+move_wards[_FX_BY_]                          :0
+move_wards[_FX_BZ_]                          :0
+move_wards[_FX_BT_]                          :0
+move_wards[_FY_BZ_]                          :0
+move_wards[_FY_BT_]                          :0
+move_wards[_FZ_BT_]                          :0
+move_wards[_BX_FY_]                          :0
+move_wards[_BX_FZ_]                          :0
+move_wards[_BX_FT_]                          :0
+move_wards[_BY_FZ_]                          :0
+move_wards[_BY_FT_]                          :0
+move_wards[_BZ_FT_]                          :0
+move_wards[_FX_FY_]                          :0
+move_wards[_FX_FZ_]                          :0
+move_wards[_FX_FT_]                          :0
+move_wards[_FY_FZ_]                          :0
+move_wards[_FY_FT_]                          :0
+move_wards[_FZ_FT_]                          :0
+lattice set init total time:0.012845451 sec
+PYQCU::QCU::MULTIGRID::
+ fine Clover 6x6 layout: enabled
+PYQCU::QCU::MULTIGRID::WARNING:
+ Legacy-MultiGrid levels=2, coarsest=[8,8,8,4], next=[4,4,4,2], volume=2048. Legacy defaults to 2 levels; deep or small coarse hierarchies are experimental.
+PYQCU::SOLVER::MULTIGRID::
+ self.dof_list:[12, 12]
+ self.lat_size_list:[[16, 16, 16, 8], [8, 8, 8, 4]]
+ num_restart:5
+ tol:1.000000e-06
+ max_iter:200
+ Lt_full:16
+ mg_grid_size:[2,2,2,2]
+ smoother:CG
+ cycle:V
+PYQCU::QCU::MULTIGRID::
+ MG_INIT_COMPLETE: 2 levels, Lt_full=16, num_restart=5, smoother=CG, cycle=V
+MG: set coarse ops level 0→1: nv=0x134c600000, hop_nn=0x1308c00000, hop_diag=0x1380200000, sit=0x1314800000
+=== MULTIGRID VERBOSE MODE ===
+num_levels: 2
+fermion_out: 81791156224
+fermion_in: 81803608064
+gauge: 81654710272
+clover_ee: 83810582528
+clover_oo: 83886080000
+clover_ee_inv: 83848331264
+clover_oo_inv: 83923828736
+MG: fused grid=96 (cap=160, sm=80, occ=2/block) n=24576
+PYQCU::SOLVER::MULTIGRID::
+ 1: FUSED-PARALLEL coarse solve (12 dof, 8x8x8x4, grid=96) in 3.052679 ms
+PYQCU::SOLVER::MULTIGRID::
+ DEFLATE start applied
+PYQCU::SOLVER::MULTIGRID::
+ 0:Norm of b:989.096802
+PYQCU::SOLVER::MULTIGRID::
+ 0:Norm of r:989.096802
+PYQCU::SOLVER::MULTIGRID::
+ 0:Norm of x0:0.000000
+PYQCU::SOLVER::MULTIGRID::
+ 0:Starting Iterations
+PYQCU::SOLVER::MULTIGRID::
+ B-0-bistabcg-Iteration 3: Residual = 5.225294e+01
+PYQCU::SOLVER::MULTIGRID::
+ F-0-bistabcg-Iteration 3: Residual = 5.225294e+01, Time = 0.004333 s
+PYQCU::SOLVER::MULTIGRID::
+ B-0-bistabcg-Iteration 7: Residual = 3.126436e+01
+PYQCU::SOLVER::MULTIGRID::
+ F-0-bistabcg-Iteration 7: Residual = 3.126436e+01, Time = 0.001153 s
+PYQCU::SOLVER::MULTIGRID::
+ B-0-bistabcg-Iteration 11: Residual = 4.506771e+00
+PYQCU::SOLVER::MULTIGRID::
+ F-0-bistabcg-Iteration 11: Residual = 4.506771e+00, Time = 0.000914 s
+PYQCU::SOLVER::MULTIGRID::
+ B-0-bistabcg-Iteration 15: Residual = 2.987094e+00
+PYQCU::SOLVER::MULTIGRID::
+ F-0-bistabcg-Iteration 15: Residual = 2.987094e+00, Time = 0.001007 s
+PYQCU::SOLVER::MULTIGRID::
+ B-0-bistabcg-Iteration 19: Residual = 1.832463e+00
+PYQCU::SOLVER::MULTIGRID::
+ F-0-bistabcg-Iteration 19: Residual = 1.832463e+00, Time = 0.000882 s
+PYQCU::SOLVER::MULTIGRID::
+ B-0-bistabcg-Iteration 23: Residual = 5.556782e-01
+PYQCU::SOLVER::MULTIGRID::
+ F-0-bistabcg-Iteration 23: Residual = 5.556782e-01, Time = 0.000710 s
+PYQCU::SOLVER::MULTIGRID::
+ B-0-bistabcg-Iteration 27: Residual = 4.097716e-01
+PYQCU::SOLVER::MULTIGRID::
+ F-0-bistabcg-Iteration 27: Residual = 4.097716e-01, Time = 0.000844 s
+PYQCU::SOLVER::MULTIGRID::
+ GATE: calibrated slope0=-0.165458
+PYQCU::SOLVER::MULTIGRID::
+ B-0-bistabcg-Iteration 31: Residual = 3.650793e-01
+PYQCU::SOLVER::MULTIGRID::
+ F-0-bistabcg-Iteration 31: Residual = 3.650793e-01, Time = 0.001083 s
+PYQCU::SOLVER::MULTIGRID::
+ V-cycle correction at iteration 31
+MG: fused grid=96 (cap=160, sm=80, occ=2/block) n=24576
+PYQCU::SOLVER::MULTIGRID::
+ 1: FUSED-PARALLEL coarse solve (12 dof, 8x8x8x4, grid=96) in 1.910412 ms
+PYQCU::SOLVER::MULTIGRID::
+ B-0-bistabcg-Iteration 35: Residual = 1.466612e+00
+PYQCU::SOLVER::MULTIGRID::
+ F-0-bistabcg-Iteration 35: Residual = 1.466612e+00, Time = 0.001213 s
+PYQCU::SOLVER::MULTIGRID::
+ B-0-bistabcg-Iteration 39: Residual = 2.838351e-01
+PYQCU::SOLVER::MULTIGRID::
+ F-0-bistabcg-Iteration 39: Residual = 2.838351e-01, Time = 0.001302 s
+PYQCU::SOLVER::MULTIGRID::
+ V-cycle correction at iteration 39
+MG: fused grid=96 (cap=160, sm=80, occ=2/block) n=24576
+PYQCU::SOLVER::MULTIGRID::
+ 1: FUSED-PARALLEL coarse solve (12 dof, 8x8x8x4, grid=96) in 1.919512 ms
+PYQCU::SOLVER::MULTIGRID::
+ B-0-bistabcg-Iteration 43: Residual = 2.233765e-01
+PYQCU::SOLVER::MULTIGRID::
+ F-0-bistabcg-Iteration 43: Residual = 2.233765e-01, Time = 0.001244 s
+PYQCU::SOLVER::MULTIGRID::
+ B-0-bistabcg-Iteration 47: Residual = 8.810180e-02
+PYQCU::SOLVER::MULTIGRID::
+ F-0-bistabcg-Iteration 47: Residual = 8.810180e-02, Time = 0.001517 s
+PYQCU::SOLVER::MULTIGRID::
+ B-0-bistabcg-Iteration 51: Residual = 8.575103e-02
+PYQCU::SOLVER::MULTIGRID::
+ F-0-bistabcg-Iteration 51: Residual = 8.575103e-02, Time = 0.000749 s
+PYQCU::SOLVER::MULTIGRID::
+ B-0-bistabcg-Iteration 55: Residual = 2.163526e-01
+PYQCU::SOLVER::MULTIGRID::
+ F-0-bistabcg-Iteration 55: Residual = 2.163526e-01, Time = 0.001232 s
+PYQCU::SOLVER::MULTIGRID::
+ V-cycle correction at iteration 55
+MG: fused grid=96 (cap=160, sm=80, occ=2/block) n=24576
+PYQCU::SOLVER::MULTIGRID::
+ 1: FUSED-PARALLEL coarse solve (12 dof, 8x8x8x4, grid=96) in 1.889111 ms
+PYQCU::SOLVER::MULTIGRID::
+ B-0-bistabcg-Iteration 59: Residual = 1.162709e-01
+PYQCU::SOLVER::MULTIGRID::
+ F-0-bistabcg-Iteration 59: Residual = 1.162709e-01, Time = 0.001299 s
+PYQCU::SOLVER::MULTIGRID::
+ B-0-bistabcg-Iteration 63: Residual = 4.850184e-02
+PYQCU::SOLVER::MULTIGRID::
+ F-0-bistabcg-Iteration 63: Residual = 4.850184e-02, Time = 0.001274 s
+PYQCU::SOLVER::MULTIGRID::
+ B-0-bistabcg-Iteration 67: Residual = 5.324829e-02
+PYQCU::SOLVER::MULTIGRID::
+ F-0-bistabcg-Iteration 67: Residual = 5.324829e-02, Time = 0.001265 s
+PYQCU::SOLVER::MULTIGRID::
+ B-0-bistabcg-Iteration 71: Residual = 2.197882e-02
+PYQCU::SOLVER::MULTIGRID::
+ F-0-bistabcg-Iteration 71: Residual = 2.197882e-02, Time = 0.001286 s
+PYQCU::SOLVER::MULTIGRID::
+ B-0-bistabcg-Iteration 75: Residual = 5.262840e-03
+PYQCU::SOLVER::MULTIGRID::
+ F-0-bistabcg-Iteration 75: Residual = 5.262840e-03, Time = 0.000847 s
+PYQCU::SOLVER::MULTIGRID::
+ B-0-bistabcg-Iteration 79: Residual = 2.846915e-03
+PYQCU::SOLVER::MULTIGRID::
+ F-0-bistabcg-Iteration 79: Residual = 2.846915e-03, Time = 0.001082 s
+PYQCU::SOLVER::MULTIGRID::
+ B-0-bistabcg-Iteration 83: Residual = 2.881424e-03
+PYQCU::SOLVER::MULTIGRID::
+ F-0-bistabcg-Iteration 83: Residual = 2.881424e-03, Time = 0.000803 s
+PYQCU::SOLVER::MULTIGRID::
+ B-0-bistabcg-Iteration 87: Residual = 1.276626e-03
+PYQCU::SOLVER::MULTIGRID::
+ F-0-bistabcg-Iteration 87: Residual = 1.276626e-03, Time = 0.001218 s
+PYQCU::SOLVER::MULTIGRID::
+ B-0-bistabcg-Iteration 91: Residual = 1.127774e-03
+PYQCU::SOLVER::MULTIGRID::
+ F-0-bistabcg-Iteration 91: Residual = 1.127774e-03, Time = 0.001308 s
+PYQCU::SOLVER::MULTIGRID::
+ B-0-bistabcg-Iteration 95: Residual = 3.976863e-04
+PYQCU::SOLVER::MULTIGRID::
+ F-0-bistabcg-Iteration 95: Residual = 3.976863e-04, Time = 0.001248 s
+PYQCU::SOLVER::MULTIGRID::
+ FULL residual gate at iteration 95: schur=3.976863e-04 full=3.976863e-04 relative=3.170802e-07 tol=1.000000e-06
+PYQCU::SOLVER::MULTIGRID::
+ Converged at iteration 95 with Schur residual 3.976863e-04, full residual 3.976863e-04, full relative 3.170802e-07
+PYQCU::SOLVER::MULTIGRID::
+ Performance Statistics:
+PYQCU::SOLVER::MULTIGRID::
+ Total iterations: 96
+PYQCU::SOLVER::MULTIGRID::
+ Total time: 0.144087 seconds
+PYQCU::SOLVER::MULTIGRID::
+ Average time per iteration: 0.000641 s
+PYQCU::SOLVER::MULTIGRID::
+ Final Schur residual: 3.976863e-04
+PYQCU::SOLVER::MULTIGRID::
+ FINAL TRUE residual (full-op) = 3.976863e-04  relative = 3.170802e-07
+PYQCU::SOLVER::MULTIGRID::
+ FINAL STOP: reason=full_residual converged=true full_gate_checks=1 corrections=4 full_relative=3.170802e-07 tol=1.000000e-06
+PROF_SECTIONS: fine_iter=61.5ms vcycle=34.2ms n_vcycles=4 coarse_solve=0.0ms coarse_vec=0.0ms coarse_dslash=0.0ms coarse_iters=0 single_checks=216 pair_checks=96 checks=0 check_ms=0.0 ck(k/d/s)=0.0/0.0/0.0
+=== MULTIGRID SOLVER REPORT ===
+Total time: 146.575 ms (0.147 s)
+Solve time: 144.087 ms
+Levels: 2, Restart: 5
+Convergence history entries: 24
+Initial residual: 5.225294e+01
+Final residual:   3.976863e-04
+Relative residual |D*x - b|/|b|: 3.296787e-07
+VERIFY: |b_full|=1.254214e+03 |Dx-b|=4.134875e-04 (|b_e|^2=7.8724e+05 |b_o|^2=7.8582e+05)
+MG init=3.0ms end=0.8ms solve=144.1ms
+set_ptr:0x56d0c9490860
+set_ptrs:0x56d0c866c880
+long long set_ptr:95454730192992
+gridDim.x                                    :256
+blockDim.x                                   :128
+host_params[_LAT_X_]                         :16
+host_params[_LAT_Y_]                         :16
+host_params[_LAT_Z_]                         :16
+host_params[_LAT_T_]                         :8
+host_params[_LAT_XYZT_]                      :32768
+host_params[_GRID_X_]                        :1
+host_params[_GRID_Y_]                        :1
+host_params[_GRID_Z_]                        :1
+host_params[_GRID_T_]                        :1
+host_params[_PARITY_]                        :0
+host_params[_NODE_RANK_]                     :0
+host_params[_NODE_SIZE_]                     :1
+host_params[_DAGGER_]                        :0
+host_params[_MAX_ITER_]                      :200
+host_params[_DATA_TYPE_]                     :2
+host_params[_SET_INDEX_]                     :2
+host_params[_SET_PLAN_]                      :1
+host_params[_MG_NUM_LEVEL_]                  :2
+host_params[_MG_LEVEL_INDEX_]                :0
+host_params[_MG_LEVEL1_E_]                   :12
+host_params[_MG_LEVEL1_X_]                   :8
+host_params[_MG_LEVEL1_Y_]                   :8
+host_params[_MG_LEVEL1_Z_]                   :8
+host_params[_MG_LEVEL1_T_]                   :4
+host_params[_MG_LEVEL1_MAX_ITER_]            :200
+host_params[_MG_LEVEL1_DATA_TYPE_]           :2
+host_params[_MG_LEVEL1_NUM_RESTART_]         :5
+host_params[_MG_LEVEL2_E_]                   :0
+host_params[_MG_LEVEL2_X_]                   :0
+host_params[_MG_LEVEL2_Y_]                   :0
+host_params[_MG_LEVEL2_Z_]                   :0
+host_params[_MG_LEVEL2_T_]                   :0
+host_params[_MG_LEVEL2_MAX_ITER_]            :0
+host_params[_MG_LEVEL2_DATA_TYPE_]           :0
+host_params[_MG_LEVEL2_NUM_RESTART_]         :0
+host_params[_MG_LEVEL3_E_]                   :0
+host_params[_MG_LEVEL3_X_]                   :0
+host_params[_MG_LEVEL3_Y_]                   :0
+host_params[_MG_LEVEL3_Z_]                   :0
+host_params[_MG_LEVEL3_T_]                   :0
+host_params[_MG_LEVEL3_MAX_ITER_]            :0
+host_params[_MG_LEVEL3_DATA_TYPE_]           :0
+host_params[_MG_LEVEL3_NUM_RESTART_]         :0
+host_params[_MG_LEVEL4_E_]                   :0
+host_params[_MG_LEVEL4_X_]                   :0
+host_params[_MG_LEVEL4_Y_]                   :0
+host_params[_MG_LEVEL4_Z_]                   :0
+host_params[_MG_LEVEL4_T_]                   :0
+host_params[_MG_LEVEL4_MAX_ITER_]            :0
+host_params[_MG_LEVEL4_DATA_TYPE_]           :0
+host_params[_MG_LEVEL4_NUM_RESTART_]         :0
+host_params[_MG_PARAMS_SIZE_]                :1
+host_params[_VERBOSE_]                       :1
+host_params[_SEED_]                          :42
+host_params[_TEST_IN_CPU_]                   :0
+host_argv[_MASS_]                            :5.000000e-02
+host_argv[_ATOL_]                            :1.000000e-06
+host_argv[_SIGMA_]                           :1.000000e-01
+host_argv[_CSW_]                             :1.000000e+00
+host_argv[_MG_LEVEL1_ATOL_]                  :1.000000e-02
+host_argv[_MG_LEVEL2_ATOL_]                  :0.000000e+00
+host_argv[_MG_LEVEL3_ATOL_]                  :0.000000e+00
+host_argv[_MG_LEVEL4_ATOL_]                  :0.000000e+00
+lat_2dim[_XY_]                               :256
+lat_2dim[_XZ_]                               :256
+lat_2dim[_XT_]                               :128
+lat_2dim[_YZ_]                               :256
+lat_2dim[_YT_]                               :128
+lat_2dim[_ZT_]                               :128
+lat_3dim[_YZT_]                              :2048
+lat_3dim[_XZT_]                              :2048
+lat_3dim[_XYT_]                              :2048
+lat_3dim[_XYZ_]                              :4096
+lat_4dim                                     :32768
+grid_1dim[_X_]                               :1
+grid_1dim[_Y_]                               :1
+grid_1dim[_Z_]                               :1
+grid_1dim[_T_]                               :1
+grid_2dim[_XY_]                              :1
+grid_2dim[_XZ_]                              :1
+grid_2dim[_XT_]                              :1
+grid_2dim[_YZ_]                              :1
+grid_2dim[_YT_]                              :1
+grid_2dim[_ZT_]                              :1
+grid_3dim[_YZT_]                             :1
+grid_3dim[_XZT_]                             :1
+grid_3dim[_XYT_]                             :1
+grid_3dim[_XYZ_]                             :1
+grid_index_1dim[_X_]                         :0
+grid_index_1dim[_Y_]                         :0
+grid_index_1dim[_Z_]                         :0
+grid_index_1dim[_T_]                         :0
+move_wards[_B_X_]                            :0
+move_wards[_B_Y_]                            :0
+move_wards[_B_Z_]                            :0
+move_w{"side": "legacy", "lattice": [16, 16, 16, 16], "mass": 0.05, "csw": 1.0, "precision": "c64", "gauge": {"path": "/root/PyQCU/data/qcu_16cubed_quick_20261023/case/gauge_16x16x16x16_c64.h5", "sha256": "2ccaa75935a70ec9016918e7b82b43c14e2599a555ea9431a5d225a272876867", "metadata": {"csw": 1.0, "generator": "QCU applyGaussGaugeQcu", "lattice": [16, 16, 16, 16], "layout": "data=[color,color,dir,x,y,z,t];g=[parity,color,color,dir,x,y,z,t/2]", "mass": 0.05, "seed": 42}}, "source": {"path": "/root/PyQCU/data/qcu_16cubed_quick_20261023/case/source_16x16x16x16_c64.h5", "sha256": "deaf28ffbe7f37f8b02a8033b9a658578bb17dd52d223747ddda63a963029c59", "metadata": {"generator": "PCG64-normal-float64-to-complex64", "lattice": [16, 16, 16, 16], "seed": 42}}, "operation": "legacy_solve", "status": "PASS", "fine_prepare_seconds": 0.5503527950022544, "cache_load_seconds": 0.10923419100072351, "clover_tensor_prepare_seconds": 0.2829287540007499, "mg_init_seconds": 0.013032063001446659, "mg_init_scope": "applyInitQcu LatticeSet/MG runtime allocation; excludes asset build", "runtime_reinit_seconds": [], "steady_scope": "solve only; LatticeSet runtime is rebuilt between samples outside the timer to prevent cross-solve state reuse", "warmup_seconds": [], "steady_seconds": [0.1540810149999743], "steady_median_seconds": 0.1540810149999743, "steady_mad_seconds": 0.0, "iterations": [96], "final_true_residual": 3.170802e-07, "native_true_residual": 3.170802e-07, "independent_true_residual": 3.349614132730494e-07, "native_residual_pass": true, "independent_residual_pass": true, "residual_source": "C++ full-operator true residual from Legacy MG log", "coarse_dof": 12, "levels": 2, "multigrid_warnings": ["cuda legacy MultiGrid levels=2 (benchmark): next coarsening (4, 4, 4, 2) would fall below extent 4. Legacy-MultiGrid defaults to 2 levels; deeper Legacy hierarchies are experimental and must pass native plus independent residual gates before use. Geometry: coarsest=(8, 8, 8, 4), next=(4, 4, 4, 2)."], "coarse_caches": ["/root/PyQCU/data/qcu_16cubed_quick_20261023/legacy_cache_cuda_16cubed_E12_c64.h5"], "coarse_max_iter": 200, "coarse_restart": 5, "deflate": true, "coarse_execution": {"attempted_vcycles": 4, "coarse_iterations": 0, "vcycle_seconds": 0.0342, "effective_mode": "periodic_coarse_correction", "source": "/root/PyQCU/logs/qcu_legacy_stop_gate_20261023/16cubed-final-log/clover_multigrid.log"}, "tol": 1e-06, "max_iter": 200, "memory": {"device": "cuda:0", "allocated_bytes": 1917191168, "reserved_bytes": 2116026368, "peak_allocated_bytes": 2024146432, "peak_reserved_bytes": 2116026368, "free_bytes": 30413221888, "total_bytes": 34359345152}, "solution_output": "/root/PyQCU/logs/qcu_legacy_stop_gate_20261023/16cubed-final-solution.h5", "resources": {"schema": "pyqcu.mg_resources.v1", "process_peak_rss_bytes": 1207283712, "torch_peak_allocated_bytes": 2024146432, "torch_peak_reserved_bytes": 2116026368, "legacy_cache_bytes": 115609600, "strict_null_vector_bytes": null, "strict_runtime": {}, "device": {"scope": "device-wide cudaMemGetInfo; includes CUDA context and native QCU allocations", "sample_interval_seconds": 0.05, "sample_count": 26, "baseline_used_bytes": 1544884224, "peak_used_bytes": 4021620736, "peak_delta_over_baseline_bytes": 2476736512}, "memory_detail": {"device": "cuda:0", "allocated_bytes": 1917191168, "reserved_bytes": 2116026368, "peak_allocated_bytes": 2024146432, "peak_reserved_bytes": 2116026368, "free_bytes": 30413221888, "total_bytes": 34359345152}}}
+ards[_B_T_]                            :0
+move_wards[_F_X_]                            :0
+move_wards[_F_Y_]                            :0
+move_wards[_F_Z_]                            :0
+move_wards[_F_T_]                            :0
+move_wards[_BX_BY_]                          :0
+move_wards[_BX_BZ_]                          :0
+move_wards[_BX_BT_]                          :0
+move_wards[_BY_BZ_]                          :0
+move_wards[_BY_BT_]                          :0
+move_wards[_BZ_BT_]                          :0
+move_wards[_FX_BY_]                          :0
+move_wards[_FX_BZ_]                          :0
+move_wards[_FX_BT_]                          :0
+move_wards[_FY_BZ_]                          :0
+move_wards[_FY_BT_]                          :0
+move_wards[_FZ_BT_]                          :0
+move_wards[_BX_FY_]                          :0
+move_wards[_BX_FZ_]                          :0
+move_wards[_BX_FT_]                          :0
+move_wards[_BY_FZ_]                          :0
+move_wards[_BY_FT_]                          :0
+move_wards[_BZ_FT_]                          :0
+move_wards[_FX_FY_]                          :0
+move_wards[_FX_FZ_]                          :0
+move_wards[_FX_FT_]                          :0
+move_wards[_FY_FZ_]                          :0
+move_wards[_FY_FT_]                          :0
+move_wards[_FZ_FT_]                          :0
+lattice set whole time:0.271138763 sec
+lattice set end total time:0.006227964 sec

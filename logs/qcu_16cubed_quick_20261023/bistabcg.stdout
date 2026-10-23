@@ -1,0 +1,10 @@
+gauge: /root/PyQCU/data/qcu_16cubed_quick_20261023/case/gauge_16x16x16x16_c64.h5
+source: /root/PyQCU/data/qcu_16cubed_quick_20261023/case/source_16x16x16x16_c64.h5
+| backend | solve (s) | wall (s) | iterations | true residual | vs QUDA |
+|---|---:|---:|---:|---:|---:|
+| CUDA QCU BiCGStab | FAIL | - | - | - | - |
+| CUDA QCU MG (fine-only) | FAIL | - | - | - | - |
+| QUDA Clover BiCGStab | FAIL | - | - | - | - |
+| KUPL QCU parity-Schur BiCGStab | FAIL | - | - | - | - |
+
+summary: logs/qcu_16cubed_quick_20261023/bistabcg/summary.json
