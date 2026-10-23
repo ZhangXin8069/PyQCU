@@ -295,7 +295,10 @@ def main(argv=None) -> int:
         results.extend(run_kupl(args, out_dir, gauge, source, mass, csw))
 
     rows = summarize(results)
+    status = "PASS" if all(row["status"] != "FAIL" for row in rows) else "FAIL"
     summary = {
+        "schema": "pyqcu.three-way-bicgstab-benchmark.v1",
+        "status": status,
         "lattice": args.lat, "mass": mass, "csw": csw,
         "atol": args.atol, "seed": args.seed,
         "warmup": args.warmup, "repeats": args.repeats,
@@ -309,6 +312,8 @@ def main(argv=None) -> int:
         "kupl": {"ranks": args.kupl_ranks, "threads": args.kupl_threads,
                  "lib": next((row.get("kupl_variant") for row in results
                               if row.get("kupl_variant")), "default")},
+        "trace_enabled": False,
+        "quda_enable_tuning": "0",
         "rows": rows,
     }
     summary_path = out_dir / "summary.json"
@@ -323,7 +328,7 @@ def main(argv=None) -> int:
         f"- gauge: `{gauge}`\n\n{table}\n", encoding="utf-8")
     print(table)
     print(f"\nsummary: {summary_path}")
-    return 0 if all(row["status"] != "FAIL" for row in rows) else 1
+    return 0 if status == "PASS" else 1
 
 
 if __name__ == "__main__":
