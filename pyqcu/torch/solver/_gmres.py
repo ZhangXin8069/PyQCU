@@ -55,7 +55,8 @@ def fgmres(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor],
            x0: Optional[torch.Tensor] = None,
            precond: Optional[Callable[[torch.Tensor], torch.Tensor]] = None,
            if_rtol: bool = False, verbose: bool = True,
-           history: Optional[List[float]] = None) -> torch.Tensor:
+           history: Optional[List[float]] = None,
+           stats: Optional[dict] = None) -> torch.Tensor:
     """FGMRES(m) — 右预条件广义极小残量求解器（flexible GMRES）。
 
     算法移植参考：refer/git-rep/DDalphaAMG-SM/{include/fgmres.h, src/fgmres.cpp}
@@ -74,6 +75,7 @@ def fgmres(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor],
         verbose: 日志输出（PYQCU::SOLVER::FGMRES）
         history: 传入 list 时逐内迭代追加残差估计 |g[j+1]|，
                  每重启周期末尾追加真实残差 ||b-Ax||（画收敛曲线用）
+        stats: 可选字典；写入外层迭代数、停机原因、真实残差样本及阈值。
 
     Returns:
         解张量（形状同 b）
@@ -84,6 +86,9 @@ def fgmres(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor],
     b_norm = tools.norm(b.reshape(-1))
     _tol = b_norm * tol if if_rtol else tol
     err = tools.norm(r)
+    initial_err = float(err)
+    estimated_residuals: List[float] = []
+    true_residuals: List[float] = [initial_err]
     if verbose:
         print(f"PYQCU::SOLVER::FGMRES:\n Norm of b:{b_norm}")
         print(f"PYQCU::SOLVER::FGMRES:\n Norm of r:{err}")
@@ -91,10 +96,32 @@ def fgmres(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor],
     # relative tolerance its threshold is also zero, so ``err < _tol`` is
     # false and the old code would enter Arnoldi with beta=0 and create NaNs.
     if b_norm == 0.0 or err == 0.0:
+        if stats is not None:
+            stats.update({
+                "iterations": 0,
+                "restart_cycles": 0,
+                "initial_residual": float(err),
+                "final_residual": float(err),
+                "tolerance_absolute": float(_tol),
+                "stop_reason": "zero_residual",
+                "estimated_residual_samples": estimated_residuals,
+                "true_residual_samples": true_residuals,
+            })
         if verbose:
             print("PYQCU::SOLVER::FGMRES:\n zero right-hand side/residual")
         return x
     if err < _tol:
+        if stats is not None:
+            stats.update({
+                "iterations": 0,
+                "restart_cycles": 0,
+                "initial_residual": float(err),
+                "final_residual": float(err),
+                "tolerance_absolute": float(_tol),
+                "stop_reason": "initial_residual",
+                "estimated_residual_samples": estimated_residuals,
+                "true_residual_samples": true_residuals,
+            })
         if verbose:
             print("PYQCU::SOLVER::FGMRES:\n x0 is just right!")
         return x
@@ -104,7 +131,10 @@ def fgmres(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor],
     start_time = perf_counter()
     n_iter = 0
     converged = False
+    restart_cycles = 0
+    stop_reason = "iteration_limit"
     while n_iter < max_iter and not converged:
+        restart_cycles += 1
         beta = err
         V[0] = r / beta
         H = [[0.0 + 0.0j] * m for _ in range(m + 1)]
@@ -131,6 +161,7 @@ def fgmres(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor],
             n_iter += 1
             max_inner = j + 1
             res_est = abs(g[j + 1])
+            estimated_residuals.append(float(res_est))
             if history is not None:
                 history.append(float(res_est))
             if verbose:
@@ -143,6 +174,7 @@ def fgmres(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor],
             x = x + eta[jj] * Z[jj].reshape(shp)
         r = (b - matvec(x)).reshape(-1)
         err = tools.norm(r)
+        true_residuals.append(float(err))
         if history is not None:
             history.append(float(err))
         if verbose:
@@ -150,6 +182,7 @@ def fgmres(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor],
                 f"PYQCU::SOLVER::FGMRES:\n Restart cycle: Residual(true) = {err:.6e}")
         if err < _tol:
             converged = True
+            stop_reason = "native_tolerance"
     total_time = perf_counter() - start_time
     if verbose:
         status = "Converged" if converged else "Warning: Maximum iterations reached, may not have converged"
@@ -157,4 +190,15 @@ def fgmres(b: torch.Tensor, matvec: Callable[[torch.Tensor], torch.Tensor],
         print(f"PYQCU::SOLVER::FGMRES:\n Total iterations: {n_iter}")
         print(f"PYQCU::SOLVER::FGMRES:\n Total time: {total_time:.6f} seconds")
         print(f"PYQCU::SOLVER::FGMRES:\n Final residual: {err:.2e}")
+    if stats is not None:
+        stats.update({
+            "iterations": int(n_iter),
+            "restart_cycles": int(restart_cycles),
+            "initial_residual": initial_err,
+            "final_residual": float(err),
+            "tolerance_absolute": float(_tol),
+            "stop_reason": stop_reason,
+            "estimated_residual_samples": estimated_residuals,
+            "true_residual_samples": true_residuals,
+        })
     return x

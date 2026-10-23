@@ -66,6 +66,9 @@ inline constexpr int kSetPtrsStrictRawLinks = 1;
 inline constexpr int kSetPtrsStrictPreconditionedLinks = 2;
 inline constexpr int kSetPtrsStrictOnsitePair = 3;
 inline constexpr int kSetPtrsStrictHierarchy = 80;
+inline constexpr int kSetPtrsLegacyLayout = 99;
+inline constexpr long long kLegacyLayoutFullSite = 0;
+inline constexpr long long kLegacyLayoutOddSchur = 1;
 
 inline constexpr int kMass = 0;
 inline constexpr int kAtol = 1;

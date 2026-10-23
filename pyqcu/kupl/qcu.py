@@ -124,12 +124,22 @@ def _pointer(tensor: Any) -> int:
     """Return a dense tensor's address for a raw ctypes call.
 
     ``data_ptr()`` does not validate ABI shape/dtype/device and does not keep
-    the storage alive. The caller must provide a contiguous tensor of the exact
-    expected ABI type on host-accessible memory and retain it for the duration
-    of the native call.
+    the storage alive. The caller must provide a contiguous torch CPU tensor or
+    a host-array adapter of the exact expected ABI type and retain it for the
+    duration of the native call.
     """
-    if not hasattr(tensor, "device") or tensor.device.type != "cpu":
-        raise ValueError("KUPL QCU tensors must be CPU tensors")
+    if hasattr(tensor, "device"):
+        if tensor.device.type != "cpu":
+            raise ValueError("KUPL QCU tensors must be CPU tensors")
+    else:
+        # The simple benchmark adapters wrap host NumPy arrays without
+        # exposing a torch.device.  Keep that stable CPU ABI, but do not
+        # accept arbitrary pointer-like objects.
+        array = getattr(tensor, "array", None)
+        flags = getattr(array, "flags", None)
+        if flags is None or not bool(flags.c_contiguous):
+            raise ValueError(
+                "KUPL QCU adapters must wrap a contiguous host array")
     if not tensor.is_contiguous():
         raise ValueError("KUPL QCU tensors must be contiguous")
     return int(tensor.data_ptr())

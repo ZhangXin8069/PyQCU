@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 from pyqcu.testing.benchmark import qcu_six_way as bench
 
 
@@ -58,3 +60,45 @@ def test_summary_rows_keep_fine_only_and_missing_residual_explicit():
     assert row["effective_mode"] == "fine_only"
     assert row["true_residual"] is None
     assert row["peak_device_bytes"] is None
+
+
+def test_worker_command_keeps_legacy_cache_ownership_explicit(tmp_path):
+    args = SimpleNamespace(
+        gauge=tmp_path / "gauge.h5",
+        source=tmp_path / "source.h5",
+        nullvec=tmp_path / "null.h5",
+        null_dataset="null",
+        cuda_legacy_cache=tmp_path / "cuda-cache.h5",
+        kupl_legacy_cache=tmp_path / "kupl-cache.h5",
+        kupl_strict_assets=tmp_path / "strict.h5",
+        kupl_strict_abi="both",
+        solution_dir=tmp_path / "solutions",
+        lat=(16, 16, 16, 16),
+        mass=0.05,
+        csw=1.0,
+        tolerance=1e-6,
+        coarse_tolerance=1e-4,
+        max_iter=200,
+        coarse_max_iter=200,
+        levels=2,
+        block=(2, 2, 2, 2),
+        nvec=12,
+        nu=1,
+        restart=20,
+        correction_interval=5,
+        warmups=1,
+        repeats=3,
+        seed=42,
+        device="cuda:0",
+        max_workspace_bytes=512 << 20,
+    )
+
+    torch_command = bench._worker_command(args, "torch-legacy", tmp_path)
+    kupl_command = bench._worker_command(args, "kupl-legacy", tmp_path)
+    strict_command = bench._worker_command(args, "kupl-strict", tmp_path)
+
+    torch_cache = torch_command[torch_command.index("--legacy-cache") + 1]
+    kupl_cache = kupl_command[kupl_command.index("--legacy-cache") + 1]
+    assert torch_cache == str(args.cuda_legacy_cache)
+    assert kupl_cache == str(args.kupl_legacy_cache)
+    assert strict_command[strict_command.index("--kupl-strict-abi") + 1] == "both"

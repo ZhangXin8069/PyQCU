@@ -30,6 +30,22 @@ See
 | `bench_multi_gpu.py` | Test-only multi-thread multi-GPU Clover-MG steady-state benchmark with `--no-reference` |
 | `slurm_multi_gpu_smoke.sh` | Test-only Slurm 2-GPU build, numeric gates, consistency and real-LIME regression |
 
+## 2026-10-23 MPI 与快速矩阵门禁
+
+- `pyqcu/testing/simple/mpi` 使用扁平脚本布局，不创建 `examples/` 子目录。示例必须在
+  启动 solver 前验证 rank 数是 2 的正整数次幂，并支持 `DRY_RUN=1` 只输出解析后的命令；
+  3/6/12 等 rank 数必须 fail-closed。
+- 六项快速矩阵为 Torch/CUDA/KUPL × Legacy/Strict，只在 `16×16×16×16` 运行；同批要有
+  QUDA aligned MG 和 Torch/CUDA/KUPL/QUDA BiCGStab 对照。计时只用 trace-off，并设置
+  `QUDA_ENABLE_TUNING=0`。
+- 大格 `24×24×24×64` c64 Strict 两层初始化运行约 33m50s 仍未完成，项目已决定大格
+  Strict benchmark 行 SKIP。该记录是未完成下界，不是数值失败或性能结果。
+- 长测试必须分阶段输出进度并设置阶段/总超时。GPU 100% util 但长时间无输出不能作为
+  健康证明；容器 `ptrace_scope=1` 时 `py-spy`/`gdb` 可能无法附加。
+
+完整矩阵、rank/设备约束和真残差证据见
+[`pyqcu-benchmark/references/qcu-multigrid-20261023.md`](../pyqcu-benchmark/references/qcu-multigrid-20261023.md)。
+
 ## Usage
 
 ```bash
@@ -132,6 +148,10 @@ dev73 的 `multigrid/legacy/` 与 dev74 的 `multigrid/scaling/`（含
 `QUDA_MULTIGRID_NVEC_LIST=12,24`、`QUDA_ENABLE_MMA=OFF`、
 `QUDA_GPU_ARCH=sm_70`。该组合同时覆盖 c64 和 c128，不再分别维护
 c64-only/double-only 两个安装。
+
+上述 `sm_70` 参数只适用于 V100 类对照构建。P100 需要兼容 `sm_60` 的 Python
+环境，以及同时包含 `sm_60`/`sm_70` 的原生库集合。不要把 V100+P100 异构双卡结果
+当作同架构性能结论。
 
 `pyqcu/testing/qcu/strict/quda_comparison/quda_env.sh` 默认指向该组合安装，并设置匹配的
 `QUDA_BUILD_DIR`。切换 `QUDA_INSTALL` 时必须同步构建目录，否则正式

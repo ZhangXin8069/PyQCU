@@ -47,10 +47,18 @@ initializing PyTorch, the Cython bridge, or native QCU. MPI rank count should
 match participating devices; oversubscribed ranks are correctness smoke only,
 not an acceleration path.
 
+Multi-rank benchmark entry points accept only positive powers of two and must
+reject other counts before MPI/solver startup. Two P100 ranks require a Python
+environment compatible with `sm_60` and a native library set covering
+`sm_60`/`sm_70`; V100+P100 mixed-device timing is not a valid
+same-architecture result.
+
 The normative project document is
 [`docs/cuda_execution_topology.md`](../../docs/cuda_execution_topology.md).
 The cross-document extraction index is
 [`pyqcu-docs/references/extracted-guidance.md`](../pyqcu-docs/references/extracted-guidance.md#3-cuda-生产执行拓扑).
+The 2026-10-23 multi-rank and MultiGrid benchmark constraints are in
+[`pyqcu-benchmark/references/qcu-multigrid-20261023.md`](../pyqcu-benchmark/references/qcu-multigrid-20261023.md).
 
 ## Public API
 
@@ -90,6 +98,7 @@ All functions take raw pointers cast to `long long` from `tensor.contiguous().da
 Three flat tensors bridge Python ↔ C++:
 
 - **`params`** (CPU int32[58]) — lattice dims (`_LAT_X_`…`_LAT_XYZT_`), grid sizes (`_GRID_X_`…), data types (`_DATA_TYPE_`), iteration counts (`_MAX_ITER_`), plan selection (`_SET_PLAN_`), verbosity (`_VERBOSE_`), parity (`_PARITY_`), multigrid level configs and controls. The tail is `_MG_USE_GCR_` (54), `_MG_USE_DEFLATE_` (55), `_MG_MU_PRE_` (56), and `_MG_USE_INIT_GUESS_` (57); slot 57 is a 0/1 warm-start flag and does not extend the ABI.
+- Multi-rank CUDA Legacy must set `params[_MG_USE_DEFLATE_]` explicitly. Leaving it unset can produce `n_vcycles=0`, which is a fine-only result and must not be reported as coarse MultiGrid performance. Verify actual `n_vcycles`/coarse iteration and correction counters instead of inferring execution from `levels` or `restart`.
 - **`argv`** (real dtype, size 8) — physical parameters: `_MASS_` (0), `_ATOL_` (1), `_SIGMA_` (2), per-level MG tolerances (3–6), `_CSW_` (7); c64 使用 float32，c128 使用 float64。Clover 项使用 `-kappa*csw/8` 且 `csw=0` 合法
 - **`set_ptrs`** (CPU int64[100]) — LatticeSet/scratch pointers managed by the C++ runtime. Strict transition `t` uses slots `60+4*t+0..3` for blocked `V`, optional raw `Y`, `Yhat`, and onsite pair `(X,X^-1)`; slot `80` stores the persistent hierarchy handle.
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 import ctypes
 from pathlib import Path
 
+import numpy as np
 import pytest
 import torch
 
@@ -61,6 +62,23 @@ def test_kupl_binding_rejects_noncontiguous_tensors() -> None:
     qcu = _kupl_qcu()
     with pytest.raises(ValueError, match="contiguous"):
         qcu._pointer(torch.empty((2, 3)).transpose(0, 1))
+
+
+def test_kupl_binding_accepts_contiguous_host_array_adapter() -> None:
+    qcu = _kupl_qcu()
+
+    class HostArrayAdapter:
+        def __init__(self) -> None:
+            self.array = np.arange(8, dtype=np.int64)
+
+        def is_contiguous(self) -> bool:
+            return bool(self.array.flags.c_contiguous)
+
+        def data_ptr(self) -> int:
+            return int(self.array.ctypes.data)
+
+    adapter = HostArrayAdapter()
+    assert qcu._pointer(adapter) == adapter.data_ptr()
 
 
 @pytest.mark.skipif(define.size != 1, reason="Python binding smoke uses one MPI rank")
