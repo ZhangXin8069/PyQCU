@@ -1,0 +1,84 @@
+[日志元数据]
+日志类型: final
+生成时间: 2026-10-27 16:22:20 +0800
+批次: install-dcu-build-fix-20261027
+主任务: 修复 PyQCU DCU/CUDA 构建失败
+触发原因: 任务完成
+摘要: 恢复 build.sh 入口，兼容 DTK nvcc 包装器，完成 native/Cython 构建与扩展导入验证
+Git 根目录: /public/home/sunpeng_1/PyQCU
+
+## 关键日志
+### S1 — 复现并定位构建失败
+- 目标: 修复 `bash install.sh` 在 login10 上的 CUDA/DCU 原生库构建失败。
+- 命令/操作: `bash install.sh`；检查 `install.sh`、`setup.py`、`build*.sh`、DTK `nvcc --version`、CMake 生成参数及最近提交。
+- 关键输出: 失败原文包含 `ERROR: Not allow exist --options-file`、`undefined reference to main`、`clang-15: error: linker command failed`；CMake 生成参数为 `--options-file CMakeFiles/qcu.dir/includes_CUDA.rsp`。
+- 退出码: 修复前原始命令失败；用户提供的异常为 `subprocess.CalledProcessError`，CMake/make 返回 2。
+- 证据与判断: 当前 `nvcc` 实际是 DTK 23.10 的 HIP/Clang 兼容包装器；CMake 3.25 在 CUDA include 参数中使用该包装器不支持的 `--options-file`。同时最近提交删除了受版本控制的 `build.sh` 并将其加入忽略，而 `setup.py` 仍硬编码调用该路径；工作区仅靠指向 `build-dcu.sh` 的符号链接继续运行。
+
+### S2 — 最小修复与回归
+- 目标: 让原有 `install.sh → setup.py → build.sh → build-dcu.sh` 路径恢复并完成构建。
+- 命令/操作: 取消忽略根 `build.sh`；在 `CMakeLists-dcu.txt` 中设置 `CMAKE_CUDA_USE_RESPONSE_FILE_FOR_INCLUDES=0`；执行 shell 语法检查和 `bash install.sh`。
+- 关键输出: CMake 编译参数变为显式 `-I.../cpp/cuda/qcu/include`；32 个 CUDA 源完成编译，输出 `[100%] Built target qcu`、`make.sh: SUCCESS`、`PyQCU build.sh: SUCCESS`；Cython 扩展完成编译并复制到 `pyqcu/cuda/`。
+- 退出码: 0。
+- 证据与判断: 原始故障路径已通过；DTK 仍输出 `-forward-unknown-to-host-compiler` 和架构替换告警，但不再触发错误链接。
+
+## 验证与证据
+- 原生库: `cpp/cuda/qcu/libqcu.so` 存在，ELF 64-bit x86-64 动态共享库；SHA256 `c7c9d69ddcdb8f527a589e078b37a7e279cc301928811cf66da766b96c5fd2d2`。
+- Cython 扩展: `pyqcu/cuda/qcu.cpython-38-x86_64-linux-gnu.so` 存在；SHA256 `367ad5477caf1470d6884c2cc657a55061dda679e27a5aab9be5732d847148c5`。
+- 导入测试: `import pyqcu.cuda.qcu` 退出码 0；输出扩展路径，并提示可选 `tilelang` 未安装及 UCX 网卡回退告警。
+- 动态依赖: `ldd cpp/cuda/qcu/libqcu.so` 退出码 0，MPI、DTK CUDA runtime、curand、cublas 和 ROCm/HIP 依赖均可解析。
+- Shell 语法: `bash -n build.sh build-dcu.sh build-nv.sh install.sh cpp/cuda/qcu/make-dcu.sh cpp/cuda/qcu/make-nv.sh` 退出码 0。
+- 边界检查: `git diff --check` 退出码 0。
+- 入口检查: `build.sh -> build-dcu.sh` 符号链接有效，且已不再被 `.gitignore` 忽略。
+- 未验证项: `skills/pyqcu-form/form-audit.sh` 无法运行，因为当前 Git 为 1.8.3.1，不支持全局审计器使用的 `git -C`；这不是本次构建修复引入的失败。
+
+## 变更与产物
+- 文件: `.gitignore` 删除 `build.sh` 忽略规则。
+- 文件: `cpp/cuda/qcu/CMakeLists-dcu.txt` 关闭 DTK 包装器不兼容的 CUDA include 响应文件。
+- 文件: 根 `build.sh` 恢复为指向 `build-dcu.sh` 的未跟踪符号链接，需纳入后续提交。
+- 产物: `cpp/cuda/qcu/libqcu.so`、`pyqcu/cuda/qcu.cpython-38-x86_64-linux-gnu.so`。
+- 未改动范围: 未修改求解器、ABI、CUDA 内核、参数协议或运行拓扑。
+
+## 风险、限制与下一步
+- 风险: `build.sh` 当前是该环境的 DCU 默认符号链接；NVIDIA 主机仍应显式使用 `build-nv.sh`。
+- 风险: 最近提交增加的根级 `build-dcu.sh`/`build-nv.sh` 超出根目录白名单，form 审计需在新版 Git 可用后确认。
+- 阻塞: 无构建阻塞。
+- 下一步: 将 `build.sh`、`.gitignore` 和 `CMakeLists-dcu.txt` 作为同一构建修复批次纳入版本控制。
+
+## 用户输入指令
+用户执行 `bash install.sh` 并提供了构建输出。关键失败原文为：
+```text
+ERROR: Not allow exist --options-file
+Warning: -forward-unknown-to-host-compiler Not Support
+Warning: nvcc current only support gfx906 and gfx926 arch. All architecture parameters will be replaced by gfx906 and gfx926 arch.
+undefined reference to `main'
+clang-15: error: linker command failed with exit code 1
+subprocess.CalledProcessError: Command '['bash', '/public/home/sunpeng_1/PyQCU/build.sh']' returned non-zero exit status 2.
+```
+
+## Agent 全文报告
+--- report begin ---
+任务：定位并修复 `bash install.sh` 的构建失败。
+
+根因：当前 DTK 23.10 的 `nvcc` 是 HIP/Clang 兼容包装器，不接受 CMake 3.25 为 CUDA include 生成的 `--options-file`；包装器跳过后把编译命令当成链接，因而查找 `main`。同时最近提交删除了受版本控制的 `build.sh` 并加入 `.gitignore`，但 `setup.py` 仍硬编码调用 `build.sh`，工作区只是依靠指向 `build-dcu.sh` 的符号链接继续运行。
+
+改动：
+- `.gitignore` 不再忽略 `build.sh`。
+- `cpp/cuda/qcu/CMakeLists-dcu.txt` 设置 `CMAKE_CUDA_USE_RESPONSE_FILE_FOR_INCLUDES=0`，让 DTK 包装器收到显式 `-I` 参数。
+- 恢复根 `build.sh -> build-dcu.sh` 符号链接。本次未修改 `build-dcu.sh`。
+
+验证：
+- `bash install.sh` 退出码 0。
+- 32 个 CUDA 源完成编译，`libqcu.so` 成功链接。
+- Cython 扩展完成编译并复制到 `pyqcu/cuda/`。
+- `import pyqcu.cuda.qcu` 成功。
+- `ldd` 可解析 MPI、CUDA runtime、curand、cublas 及 ROCm/HIP 依赖。
+- Shell 语法检查和 `git diff --check` 均通过。
+
+限制：
+- `tilelang` 是可选依赖，当前未安装；导入时仅给出提示。
+- form 审计器无法运行，因为系统 Git 1.8.3.1 不支持其使用的 `git -C`。
+- `build.sh` 是未跟踪文件，需与另外两项改动一同纳入提交。
+
+状态：finished。
+--- report end ---

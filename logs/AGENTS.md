@@ -429,7 +429,6 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 关键内容: 区分 legacy 33-tensor Schur/Galerkin 粗算子与 Strict/QUDA X-Y-Yhat 表示
 - 验证: path, size, required sections, conflict markers
 - 批次状态: complete
-
 ## docs - final - 2026-10-22 17:11:14 +0800
 - 主任务: 将 QCU/QUDA MG 粗层 dslash 表示调查写入 docs
 - 日志文件: logs/v2026102217-3.txt
@@ -661,5 +660,13 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 文件大小: 10609 bytes
 - 触发原因: 任务完成
 - 关键内容: 完成 KUPL Clover tile/原位求逆/惰性 scratch/halo 裁剪、严格鲲鹏 profile 与 MPI prebind；34/34 多构建 CTest、457 pytest 通过，CUDA 新同窗实测受 runtime OOM 阻塞。
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete
+## install-dcu-build-fix-20261027 - final - 2026-10-27 16:22:20 +0800
+- 主任务: 修复 PyQCU DCU/CUDA 构建失败
+- 日志文件: logs/v2026102716.txt
+- 文件大小: 6063 bytes
+- 触发原因: 任务完成
+- 关键内容: 恢复 build.sh 入口，兼容 DTK nvcc 包装器，完成 native/Cython 构建与扩展导入验证
 - 验证: path, size, required sections, conflict markers
 - 批次状态: complete
