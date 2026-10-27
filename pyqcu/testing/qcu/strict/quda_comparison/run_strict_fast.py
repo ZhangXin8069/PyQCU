@@ -44,7 +44,7 @@ ENV_SH = REPO_ROOT / "env.sh"
 QUDA_ENV_SH = HERE / "quda_env.sh"
 JSON_CAPTURE_CHARS = 20_000
 
-CPU_TEST = "pyqcu/testing/python/test_multigrid_core.py"
+CPU_TEST = "pyqcu/testing/python/test_multigrid.py"
 CUDA_TEST = "pyqcu/testing/qcu/strict/quda_comparison/test_strict_transfer_cuda.py"
 FUSED_CUDA_TEST = "pyqcu/testing/qcu/strict/quda_comparison/test_strict_fused_cuda.py"
 GALERKIN_TEST = "pyqcu/testing/qcu/strict/quda_comparison/test_strict_galerkin_fast.py"
@@ -96,8 +96,8 @@ COMMANDS = (
             "colored Galerkin batching"
         ),
         argv=_pytest(
-            _node(CPU_TEST, "test_pyqcu_gamma_basis_matches_quda_degrand_rossi_table"),
-            _node(CPU_TEST, "test_new_and_legacy_multigrid_are_parallel_exports"),
+            _node(CPU_TEST, "test_gamma_basis_matches_degrand_rossi_table"),
+            _node(CPU_TEST, "test_strict_and_legacy_multigrid_are_distinct_exports"),
             _node(CPU_TEST, "test_fgmres_zero_rhs_stops_without_nan"),
             _node(CPU_TEST, "test_fgmres_breakdown_keeps_singular_case_finite"),
             _node(
@@ -114,23 +114,23 @@ COMMANDS = (
             ),
             _node(
                 CPU_TEST,
-                "test_quda_matpc_matches_left_preconditioned_block_elimination",
+                "test_strict_matpc_matches_left_preconditioned_block_elimination",
             ),
             _node(
                 CPU_TEST,
-                "test_transfer_galerkin_and_quda_yhat_conventions",
+                "test_transfer_galerkin_and_strict_yhat_conventions",
             ),
             _node(
                 CPU_TEST,
-                "test_strict_quda_hierarchy_coarsens_full_preconditioned_operator",
+                "test_strict_hierarchy_coarsens_full_preconditioned_operator",
             ),
             _node(
                 CPU_TEST,
-                "test_strict_propagate_null_vectors_matches_quda_restriction_order",
+                "test_strict_propagate_null_vectors_preserves_restriction_order",
             ),
             _node(
                 CPU_TEST,
-                "test_strict_qcu_assets_preserve_quda_y_yhat_storage_and_actions",
+                "test_strict_qcu_assets_preserve_link_storage_and_actions",
             ),
             _node(
                 CPU_TEST,
@@ -178,7 +178,7 @@ COMMANDS = (
         argv=_pytest(
             _node(
                 CUDA_TEST,
-                "test_quda_transfer_and_stencil_match_qcu_kernels",
+                "test_strict_transfer_and_stencil_match_qcu_kernels",
             ),
             _node(
                 CUDA_TEST,
@@ -186,11 +186,11 @@ COMMANDS = (
             ),
             _node(
                 CUDA_TEST,
-                "test_quda_strict_transfer_coarse_and_matpc_match_cuda_kernels",
+                "test_strict_transfer_coarse_and_matpc_match_cuda_kernels",
             ),
             _node(
                 CUDA_TEST,
-                "test_quda_strict_recursive_vcycle_matches_reference_and_arena",
+                "test_strict_recursive_vcycle_matches_reference_and_arena",
             ),
             _node(
                 CUDA_TEST,

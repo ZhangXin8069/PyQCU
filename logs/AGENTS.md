@@ -421,7 +421,6 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 关键内容: 30 张记录表统一环境列；409 个唯一记录 ID、13 个环境定义；X99 未确认项明确保留；仅汇总不重测
 - 验证: path, size, required sections, conflict markers
 - 批次状态: complete
-
 ## analysis - final - 2026-10-22 17:05:37 +0800
 - 主任务: QCU MG 粗层 gauge/clover 与 dslash 表示
 - 日志文件: logs/v2026102217-2.txt
@@ -640,3 +639,27 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 关键内容: Skill consolidation for cache layout, capacity teardown, Strict preflight, ABI and log evidence
 - 验证: path, size, required sections, conflict markers
 - 批次状态: in-progress
+## 20261027 - final - 2026-10-27 03:00:14 +0800
+- 主任务: KUPL 鲲鹏优化与 CUDA test27 对照
+- 日志文件: logs/v2026102703.txt
+- 文件大小: 7494 bytes
+- 触发原因: 任务完成
+- 关键内容: KUPL NUMA/内存/cache/归约优化与测试文档完成；CUDA 新同窗实测受 WSL runtime 阻塞
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete
+## 20261027 - final - 2026-10-27 03:22:28 +0800
+- 主任务: KUPL 鲲鹏优化与 CUDA test27 对照（最终复核）
+- 日志文件: logs/v2026102703-2.txt
+- 文件大小: 5212 bytes
+- 触发原因: 任务完成
+- 关键内容: KUPL 优化、33x4 CTest、38/50 pytest、初始化/归约实测完成；CUDA 新同窗 runtime blocked
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete
+## kupl-kunpeng-continue-20261027 - final - 2026-10-27 08:22:40 +0800
+- 主任务: KUPL 鲲鹏 CPU 后端持续优化、真实性能复验、运行时兼容与用户指南收敛
+- 日志文件: logs/v2026102708.txt
+- 文件大小: 10609 bytes
+- 触发原因: 任务完成
+- 关键内容: 完成 KUPL Clover tile/原位求逆/惰性 scratch/halo 裁剪、严格鲲鹏 profile 与 MPI prebind；34/34 多构建 CTest、457 pytest 通过，CUDA 新同窗实测受 runtime OOM 阻塞。
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete

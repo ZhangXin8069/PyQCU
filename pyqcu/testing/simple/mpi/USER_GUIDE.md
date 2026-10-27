@@ -313,6 +313,12 @@ A = I + T, T_onsite coefficient = -kappa*csw/8
 | `--omp-threads` | `8` | OMP/KUPL 线程数 |
 | `--bind-to numa|none` | 自动 | OpenMPI `--bind-to` |
 | `--map-by` | 自动 | OpenMPI `--map-by` |
+| `--kupl-numa-bind scheduler|library` | `scheduler` | MPI 先绑定或 KUPL 库内绑定 |
+| `--kupl-memory-policy preferred|bind` | 无 | library 模式的 NUMA 内存策略 |
+| `--kupl-memory-node local|N|local+N` | 无 | library 模式显式/片上内存节点 |
+| `--kupl-profile generic|kunpeng|kunpeng-2numa` | `generic` | 严格拓扑预检 |
+| `--kupl-hugepage` | 关闭 | 内部 scratch 请求 THP advice |
+| `--kupl-topology-report` | 关闭 | 每 rank 输出实际 cpuset/内存策略 |
 | `--oversubscribe/--no-oversubscribe` | 开启 | 允许超过 slot |
 | `--allow-run-as-root/--no-allow-run-as-root` | root 自动 | OpenMPI root |
 | `--mpirun` | `mpirun` | 可替换可执行文件 |
@@ -321,7 +327,12 @@ A = I + T, T_onsite coefficient = -kappa*csw/8
 
 - KUPL，且 `ranks <= local online NUMA count`：`--bind-to numa --map-by ppr:1:numa`。
 - 其他 KUPL：`--bind-to none`，`binding_fallback=true`。
+- `--kupl-numa-bind library`：强制 `--bind-to none --map-by ppr:1:numa`，库在
+  `applyInitQcu` 内选择 NUMA-local CPU 和内存策略。
 - CUDA：`--bind-to none`。
+
+鲲鹏/HMPI、片上内存、LTO 和详细证据模板见
+[`docs/kupl_kunpeng_guide.md`](../../../../docs/kupl_kunpeng_guide.md)。
 
 ### 6.4 CUDA library
 
@@ -481,7 +492,8 @@ coarse_local[axis] = local_lattice[axis] / mg_grid[axis]
 ```text
 OMP_NUM_THREADS=<omp-threads>
 KUPL_OMP_THREADS=<omp-threads>
-KUPL_NUMA_BIND=0
+KUPL_NUMA_BIND=0   # --kupl-numa-bind scheduler（默认）
+OMP_DYNAMIC=FALSE
 ```
 
 并清除：
@@ -489,12 +501,18 @@ KUPL_NUMA_BIND=0
 ```text
 OMP_PROC_BIND
 OMP_PLACES
+GOMP_CPU_AFFINITY
+KMP_AFFINITY
 ```
 
 原因：
 
-- MPI/OpenMPI 负责进程和 CPU 放置。
-- KUPL 不得二次绑定。
+- 默认由 MPI/OpenMPI 负责进程和 CPU 放置，KUPL 不得二次绑定。
+- `--kupl-numa-bind library` 时改为 `KUPL_NUMA_BIND=1`；此时 MPI 必须
+  `--bind-to none`，并可用 `KUPL_MEMORY_POLICY/NODE` 设置库内分配策略。
+- library 模式会在读取 gauge/source 和构建 coarse 资产前执行一次私有
+  `applyInitQcu/applyEndQcu` prebind，使输入页在 affinity/memory policy 建立后
+  first-touch；耗时单列为 `input_prebind_seconds`。
 - KUPL 由大量短并行区组成，OpenMP runtime 重复线程绑定会造成明显性能回退。
 
 ### 9.3 library
@@ -739,6 +757,13 @@ case tag 包含：
 - `omp_num_threads`
 - `kupl_omp_threads`
 - `kupl_numa_bind`
+- `kupl_memory_policy`：库内 memory policy；未指定时为 `null`
+- `kupl_memory_node`：显式内存节点/`local+N`；未指定时为 `null`
+- `kupl_require_memory_bind`：memory policy 失败是否必须中止
+- `kupl_disable_clover_cache`：是否禁用跨调用 Clover/gauge cache
+- `kupl_fused_bicg_dots`：是否启用成对 BiCGStab 点积
+- `kupl_hugepage`：THP advice 请求值；未指定时为 `null`
+- `pyqcu_kupl_profile`：严格拓扑 profile；generic/未指定时为 `null`
 
 ### 13.3 CUDA 额外字段
 

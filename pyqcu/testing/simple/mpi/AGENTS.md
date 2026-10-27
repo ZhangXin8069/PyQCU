@@ -7,7 +7,9 @@
    子进程内部入口，不作为日常用户接口。
 2. KUPL 是真实四维 MPI 分域加 rank 内 OpenMP。MPI 负责绑定时必须设置
    `KUPL_NUMA_BIND=0`，并清除 `OMP_PROC_BIND`/`OMP_PLACES`，避免库内和
-   OpenMPI 重复绑核。
+   OpenMPI 重复绑核。无调度器绑定时可显式选择 `--kupl-numa-bind library`，
+   此时强制 MPI `--bind-to none`，由库按 sysfs NUMA cpulist 绑定；内存策略、
+   片上内存节点和 profile 必须写入 dry-run/report 证据。
 3. CUDA 生产路径固定为一 Python 进程 = 一 MPI rank = 一 GPU/DCU/GPGPU，
    并做 MPI 格点分域。不要把它与测试专用的
    `pyqcu.cuda._multi_gpu.MultiGpuMultigrid`“单进程、每卡复制整题求解”

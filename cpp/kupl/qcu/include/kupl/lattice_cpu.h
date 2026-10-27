@@ -4,7 +4,9 @@
 #include "kupl/lattice_complex.h"
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
+#include <string>
 
 #include <omp.h>
 
@@ -13,6 +15,9 @@ namespace kupl::qcu {
 void initialize_mpi();
 int configured_threads();
 void bind_logical_numa();
+bool fused_bicg_dots_enabled();
+std::string runtime_topology_report();
+void advise_large_pages(const void *address, std::size_t bytes);
 
 template <typename Real> int64_t omp_chunk(int64_t count) {
   const int threads = std::max(1, omp_get_max_threads());

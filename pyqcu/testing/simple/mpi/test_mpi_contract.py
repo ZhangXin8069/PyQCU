@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import json
 from types import SimpleNamespace
 
 import numpy as np
+import pytest
 
 from pyqcu.testing.simple._common import write_lime_gauge
 from pyqcu.testing.simple.mpi._common import (
@@ -16,9 +18,17 @@ from pyqcu.testing.simple.mpi._common import (
 )
 from pyqcu.testing.simple.mpi.solve_case import (
     REPO,
+    main as solve_case_main,
+    _parse_args,
     _launch_environment,
     build_mpirun_command,
 )
+from pyqcu.testing.simple.mpi.benchmark_kupl import (
+    _ranks_per_numa,
+    main as benchmark_kupl_main,
+)
+import pyqcu.testing.simple.mpi.solve_case as solve_case_module
+import pyqcu.testing.simple.mpi.benchmark_kupl as benchmark_module
 
 
 def test_default_grid_keeps_even_local_extents():
@@ -108,3 +118,137 @@ def test_mpi_cuda_explicit_library_variant():
     expected = REPO / "data" / "libqcu-sm70"
     assert env["QCU_LIBCU_VARIANT"] == "libqcu-sm70"
     assert env["LD_LIBRARY_PATH"].split(":")[0] == str(expected)
+
+
+def test_kupl_library_binding_environment():
+    args = SimpleNamespace(
+        backend="kupl", omp_threads=24, kupl_numa_bind="library",
+        kupl_cpu_node=None, kupl_fused_bicg_dots=True,
+        kupl_disable_clover_cache=False, kupl_allow_oversubscribe=False,
+        kupl_profile="kunpeng-2numa", kupl_memory_policy="preferred",
+        kupl_memory_node="local+16", kupl_hugepage=True,
+        kupl_topology_report=True,
+    )
+    env = _launch_environment(args)
+    assert env["KUPL_NUMA_BIND"] == "1"
+    assert env["KUPL_MEMORY_POLICY"] == "preferred"
+    assert env["KUPL_MEMORY_NODE"] == "local+16"
+    assert env["KUPL_HUGEPAGE"] == "1"
+    assert env["KUPL_TOPOLOGY_REPORT"] == "1"
+    assert env["PYQCU_KUPL_PROFILE"] == "kunpeng-2numa"
+    assert "OMP_PROC_BIND" not in env
+    assert "OMP_PLACES" not in env
+
+
+def test_kupl_generic_plan_clears_inherited_runtime_environment(monkeypatch):
+    for name, value in {
+        "KUPL_MEMORY_POLICY": "bind",
+        "KUPL_MEMORY_NODE": "local+16",
+        "KUPL_REQUIRE_MEMORY_BIND": "1",
+        "KUPL_HUGEPAGE": "1",
+        "KUPL_TOPOLOGY_REPORT": "1",
+        "PYQCU_KUPL_PROFILE": "kunpeng-2numa",
+        "OMP_PROC_BIND": "close",
+        "OMP_PLACES": "cores",
+        "GOMP_CPU_AFFINITY": "0-7",
+        "KMP_AFFINITY": "compact",
+        "KUPL_REQUIRE_TOPOLOGY": "1",
+        "KUPL_SYSFS_NODE_ROOT": "/stale/topology",
+        "KUPL_ALLOW_OVERSUBSCRIBE": "1",
+        "KUPL_CPU_NODE": "3",
+        "KUPL_FUSED_BICG_DOTS": "0",
+        "KUPL_DISABLE_CLOVER_CACHE": "1",
+    }.items():
+        monkeypatch.setenv(name, value)
+    args = SimpleNamespace(
+        backend="kupl", omp_threads=4, kupl_numa_bind="scheduler",
+        kupl_cpu_node=None, kupl_fused_bicg_dots=True,
+        kupl_disable_clover_cache=False, kupl_allow_oversubscribe=False,
+        kupl_profile="generic", kupl_memory_policy=None,
+        kupl_memory_node=None, kupl_hugepage=False,
+        kupl_topology_report=False,
+    )
+    env = _launch_environment(args)
+    assert env["KUPL_NUMA_BIND"] == "0"
+    for name in (
+        "KUPL_MEMORY_POLICY", "KUPL_MEMORY_NODE", "KUPL_REQUIRE_MEMORY_BIND",
+        "KUPL_HUGEPAGE", "KUPL_TOPOLOGY_REPORT", "PYQCU_KUPL_PROFILE",
+        "OMP_PROC_BIND", "OMP_PLACES", "GOMP_CPU_AFFINITY", "KMP_AFFINITY",
+        "KUPL_REQUIRE_TOPOLOGY", "KUPL_SYSFS_NODE_ROOT",
+        "KUPL_ALLOW_OVERSUBSCRIBE", "KUPL_CPU_NODE",
+    ):
+        assert name not in env
+    assert env["KUPL_FUSED_BICG_DOTS"] == "1"
+    assert env["KUPL_DISABLE_CLOVER_CACHE"] == "0"
+
+
+def test_kupl_library_binding_forces_mpi_bind_none():
+    args = _parse_args([
+        "--backend", "kupl", "--ranks", "2", "--omp-threads", "2",
+        "--kupl-numa-bind", "library",
+    ])
+    assert args.bind_to == "none"
+    assert args.map_by == "ppr:1:numa"
+
+
+def test_c128_dry_run_uses_real_dtype_paths(capsys):
+    assert solve_case_main([
+        "--backend", "kupl", "--dtype", "c128", "--ranks", "2",
+        "--omp-threads", "2", "--levels", "1", "--restart", "0",
+        "--output", "relative-solution.h5", "--report", "relative-report.json",
+        "--dry-run",
+    ]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    command = payload["command"]
+    assert command[command.index("--output") + 1] == str(
+        REPO / "data" / "relative-solution.h5")
+    assert command[command.index("--report") + 1] == str(
+        REPO / "data" / "relative-report.json")
+    assert any("gauge_global_c128.h5" in argument for argument in command)
+    assert any("source_global_c128.h5" in argument for argument in command)
+
+
+def test_cuda_rejects_kupl_runtime_options(capsys):
+    with pytest.raises(SystemExit):
+        _parse_args(["--backend", "cuda", "--kupl-hugepage"])
+    assert "KUPL runtime options require --backend kupl" in capsys.readouterr().err
+
+
+def test_scheduler_multiple_ranks_per_numa_is_rejected(capsys):
+    with pytest.raises(SystemExit):
+        _parse_args([
+            "--backend", "kupl", "--ranks", "4", "--omp-threads", "4",
+            "--bind-to", "numa", "--map-by", "ppr:2:numa",
+        ])
+    assert "overlap cpusets" in capsys.readouterr().err
+
+
+def test_mpi_benchmark_rejects_overlapping_scheduler_binding(capsys):
+    assert _ranks_per_numa("ppr:2:numa") == 2
+    with pytest.raises(SystemExit):
+        benchmark_kupl_main([
+            "--ranks", "4", "--threads", "4", "--bind-to", "numa",
+            "--map-by", "ppr:2:numa", "--dry-run",
+        ])
+    assert "overlap cpusets" in capsys.readouterr().err
+
+
+def test_scheduler_rank_count_cannot_exceed_local_numa(monkeypatch, capsys):
+    monkeypatch.setattr(solve_case_module, "_local_numa_count", lambda: 2)
+    with pytest.raises(SystemExit):
+        _parse_args([
+            "--backend", "kupl", "--ranks", "4", "--omp-threads", "2",
+            "--bind-to", "numa", "--map-by", "ppr:1:numa",
+        ])
+    assert "more MPI ranks than local NUMA" in capsys.readouterr().err
+
+
+def test_mpi_benchmark_rank_count_cannot_exceed_local_numa(
+        monkeypatch, capsys):
+    monkeypatch.setattr(benchmark_module, "_local_numa_count", lambda: 2)
+    with pytest.raises(SystemExit):
+        benchmark_module.main([
+            "--ranks", "4", "--threads", "2", "--bind-to", "numa",
+            "--map-by", "ppr:1:numa", "--dry-run",
+        ])
+    assert "more MPI ranks than local NUMA" in capsys.readouterr().err
