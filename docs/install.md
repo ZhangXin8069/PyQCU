@@ -33,6 +33,11 @@ python -m pytest -q pyqcu/testing/kupl
 Set `PYQCU_KUPL_LIB=/absolute/path/libqcu.so` when the library is installed
 outside the default `cpp/kupl/qcu/build/` directory.
 
+鲲鹏/HMPI、NUMA、片上内存和 OpenMP 放置请继续阅读
+[`kupl_kunpeng_guide.md`](kupl_kunpeng_guide.md)。可部署的通用构建使用
+`-DKUPL_ENABLE_NATIVE=OFF`；目标节点性能构建可显式启用
+`-DKUPL_ENABLE_NATIVE=ON -DKUPL_ENABLE_LTO=ON`。
+
 ## QUDA/PyQUDA 运行时
 
 The simple PyQUDA examples preload the repository-local

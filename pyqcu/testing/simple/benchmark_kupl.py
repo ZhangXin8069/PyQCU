@@ -28,6 +28,17 @@ LINE = re.compile(
     r"estimated_gflops=(?P<gflops>[0-9.eE+-]+))?"
 )
 
+BENCHMARK_OPERATORS = (
+    "clover_setup_even", "clover_setup_odd", "wilson", "clover",
+    "clover_schur",
+)
+EXPECTED_BENCHMARK_KEYS = {
+    (precision, operator)
+    for precision in ("c64", "c128")
+    for operator in BENCHMARK_OPERATORS
+}
+MEASURED_OPERATORS = {"wilson", "clover", "clover_schur"}
+
 
 def parse_output(text: str) -> dict[tuple[str, str], dict[str, float]]:
     records: dict[tuple[str, str], dict[str, float]] = {}
@@ -50,6 +61,22 @@ def parse_output(text: str) -> dict[tuple[str, str], dict[str, float]]:
     return records
 
 
+def validate_records(
+    records: dict[tuple[str, str], dict[str, float]],
+) -> tuple[list[tuple[str, str]], list[tuple[str, str]]]:
+    """Return missing and field-incomplete expected benchmark records."""
+    missing = sorted(EXPECTED_BENCHMARK_KEYS - set(records))
+    incomplete = []
+    for key in sorted(EXPECTED_BENCHMARK_KEYS & set(records)):
+        record = records[key]
+        required = {"seconds", "threads", "ranks"}
+        if key[1] in MEASURED_OPERATORS:
+            required.update({"iterations", "global_sites", "estimated_gflops"})
+        if not required.issubset(record):
+            incomplete.append(key)
+    return missing, incomplete
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--binary", default=None)
@@ -58,11 +85,26 @@ def main(argv=None) -> int:
     parser.add_argument("--iterations", type=int, default=10)
     parser.add_argument("--repeats", type=int, default=5)
     parser.add_argument("--threads", type=int, default=16)
+    parser.add_argument(
+        "--openmp-bind", choices=("none", "close", "spread"), default="none",
+        help="OpenMP thread placement; none avoids repeated short-region rebinding")
+    parser.add_argument(
+        "--numa-bind", choices=("off", "library"), default="off",
+        help="bind this single process and its allocations inside libqcu")
+    parser.add_argument(
+        "--memory-policy", choices=("preferred", "bind"), default=None,
+        help="libqcu NUMA memory policy when --numa-bind=library")
+    parser.add_argument("--hugepage", action="store_true",
+                        help="request MADV_HUGEPAGE for large libqcu scratch buffers")
     parser.add_argument("--timeout", type=float, default=3600.0)
     parser.add_argument("--output", default="performance_kupl_benchmark.json")
     args = parser.parse_args(argv)
     if args.repeats <= 0:
         parser.error("--repeats must be positive")
+    if args.numa_bind == "library" and args.openmp_bind != "none":
+        parser.error("--numa-bind=library requires --openmp-bind=none")
+    if args.memory_policy is not None and args.numa_bind != "library":
+        parser.error("--memory-policy requires --numa-bind=library")
     root = Path(__file__).resolve().parents[3]
     binary = Path(args.binary).expanduser() if args.binary else \
         root / "cpp/kupl/qcu/build/kupl_qcu_bench"
@@ -75,10 +117,26 @@ def main(argv=None) -> int:
         "--iterations", str(args.iterations),
     ]
     environment = os.environ.copy()
+    for name in (
+        "KUPL_OMP_THREADS", "OMP_NUM_THREADS", "OMP_DYNAMIC",
+        "OMP_PROC_BIND", "OMP_PLACES", "GOMP_CPU_AFFINITY", "KMP_AFFINITY",
+        "KUPL_NUMA_BIND", "KUPL_MEMORY_POLICY", "KUPL_MEMORY_NODE",
+        "KUPL_REQUIRE_MEMORY_BIND", "KUPL_HUGEPAGE", "KUPL_TOPOLOGY_REPORT",
+        "PYQCU_KUPL_PROFILE",
+    ):
+        environment.pop(name, None)
     environment["KUPL_OMP_THREADS"] = str(args.threads)
     environment["OMP_NUM_THREADS"] = str(args.threads)
-    environment.setdefault("OMP_PROC_BIND", "close")
-    environment.setdefault("OMP_PLACES", "cores")
+    environment["OMP_DYNAMIC"] = "FALSE"
+    if args.openmp_bind != "none":
+        environment["OMP_PROC_BIND"] = args.openmp_bind
+        environment["OMP_PLACES"] = "cores"
+    environment["KUPL_NUMA_BIND"] = "1" if args.numa_bind == "library" else "0"
+    if args.memory_policy is not None:
+        environment["KUPL_MEMORY_POLICY"] = args.memory_policy
+        environment["KUPL_REQUIRE_MEMORY_BIND"] = "1"
+    if args.hugepage:
+        environment["KUPL_HUGEPAGE"] = "1"
     samples: dict[tuple[str, str], list[dict[str, float]]] = {}
     runs = []
     for repeat in range(args.repeats):
@@ -86,17 +144,23 @@ def main(argv=None) -> int:
             command, text=True, capture_output=True, timeout=args.timeout,
             check=False, env=environment)
         parsed = parse_output(completed.stdout)
+        missing, incomplete = validate_records(parsed)
         runs.append({
             "repeat": repeat + 1, "returncode": completed.returncode,
             "stdout": completed.stdout, "stderr": completed.stderr,
+            "missing_records": [list(key) for key in missing],
+            "incomplete_records": [list(key) for key in incomplete],
         })
-        if completed.returncode != 0:
+        if completed.returncode != 0 or missing or incomplete:
             break
         for key, record in parsed.items():
             samples.setdefault(key, []).append(record)
 
-    successful = all(run["returncode"] == 0 for run in runs) and \
+    successful = (
         len(runs) == args.repeats
+        and all(run["returncode"] == 0 and not run["missing_records"]
+                and not run["incomplete_records"] for run in runs)
+    )
     results = {}
     if successful:
         for (precision, operator), values in sorted(samples.items()):
@@ -122,8 +186,14 @@ def main(argv=None) -> int:
         "environment": {
             "KUPL_OMP_THREADS": environment["KUPL_OMP_THREADS"],
             "OMP_NUM_THREADS": environment["OMP_NUM_THREADS"],
-            "OMP_PROC_BIND": environment["OMP_PROC_BIND"],
-            "OMP_PLACES": environment["OMP_PLACES"],
+            "OMP_DYNAMIC": environment["OMP_DYNAMIC"],
+            "OMP_PROC_BIND": environment.get("OMP_PROC_BIND"),
+            "OMP_PLACES": environment.get("OMP_PLACES"),
+            "KUPL_NUMA_BIND": environment["KUPL_NUMA_BIND"],
+            "KUPL_MEMORY_POLICY": environment.get("KUPL_MEMORY_POLICY"),
+            "KUPL_REQUIRE_MEMORY_BIND": environment.get(
+                "KUPL_REQUIRE_MEMORY_BIND"),
+            "KUPL_HUGEPAGE": environment.get("KUPL_HUGEPAGE"),
             "KUPL_DISABLE_BLOCK_DSLASH": environment.get(
                 "KUPL_DISABLE_BLOCK_DSLASH"),
         },

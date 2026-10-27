@@ -178,9 +178,8 @@ private:
   std::array<std::vector<Complex<Real>>, 8> laplacian_gauge_send_;
   std::array<std::vector<Complex<Real>>, 8> laplacian_gauge_recv_;
   std::vector<MPI_Request> laplacian_requests_;
-  std::array<std::vector<Complex<Real>>, 2> cached_clover_;
   std::array<std::vector<Complex<Real>>, 2> cached_clover_inv_;
-  const Complex<Real> *cached_gauge_ = nullptr;
+  std::array<const Complex<Real> *, 2> cached_gauge_{nullptr, nullptr};
   std::vector<Complex<Real>> r_;
   std::vector<Complex<Real>> rhat_;
   std::vector<Complex<Real>> p_;
@@ -208,6 +207,7 @@ private:
   int64_t prof_dslash_calls_ = 0;
 
   void allocate_scratch();
+  void ensure_solver_scratch();
   Real mass() const;
   Real kappa() const;
   Real csw() const;

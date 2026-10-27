@@ -1,0 +1,85 @@
+[日志元数据]
+日志类型: final
+生成时间: 2026-10-27 03:22:28 +0800
+批次: 20261027
+主任务: KUPL 鲲鹏优化与 CUDA test27 对照（最终复核）
+触发原因: 任务完成
+摘要: KUPL 优化、33x4 CTest、38/50 pytest、初始化/归约实测完成；CUDA 新同窗 runtime blocked
+Git 根目录: /root/PyQCU
+
+## 关键日志
+### S1 — 参考与审查
+- 操作: 提取 4 份鲲鹏/HPCKit PDF，派发 3 个只读分析代理和 2 轮审查/复核。
+- 关键输出: 识别 HMPI 多重绑定、first-touch、NUMA memory policy、lazy Clover cache、fused reductions、假 PASS 和 dirty-env 风险。
+- 退出码: 0
+
+### S2 — KUPL 实现
+- 操作: 实现 sysfs NUMA 分配、逐 OpenMP thread CPU/memory policy、显式 CPU_NODE 同节点 rank 分组、local+N 片上内存、THP、lazy Clover cache、成对归约、LTO、runtime planner 和启动器参数。
+- 关键输出: 通用 C++17/MPI/OpenMP fallback 保留；多 rank/NUMA 重叠计划 fail closed；gauge 原地更新有 cache-disable 回退。
+- 退出码: 0
+
+### S3 — 测试与文档
+- 结果: 默认/generic/LTO/UBSAN CTest 各 33/33；KUPL pytest 38/38；simple pytest 50/50；ASAN 纯 C++ 1-rank PASS；docs=29 skills=35；form/diff/compile/syntax PASS。
+- 文档: `docs/kupl_kunpeng_guide.md`、`logs/kupl_kunpeng_opt_20261027.md`。
+
+### S4 — 性能证据
+- 初始化: c64 `1.673 -> 0.670 s`，RSS `4.39 -> 2.35 GB`，首次 Clover `11.48 -> 6.59 s`；c128 `3.484 -> 1.302 s`，RSS `8.03 -> 4.01 GB`，首次 Clover `13.05 -> 8.02 s`。
+- 成对归约: 最终交付库两个相邻 L24 样本 `17.968 -> 17.778 s`（1.05%）和 `24.551 -> 23.713 s`（3.41%）；均 20 iterations、真残差 `~4.1e-7`。
+- 边界: 当前主机单 NUMA x86，不能外推鲲鹏/HMPI 或 HBM 绝对性能。
+
+### S5 — CUDA test27 对照
+- 操作: 完成 test27/HEAD 两版 sm_60 构建和真实 8³×16 fairness 准备，并审计 16⁴/8³×16 已有实测。
+- 关键输出: 当前 16⁴ Legacy/Strict steady `0.056414/0.194964 s`，峰值设备内存 `2.376/3.645 GB`；test27 16⁴ Strict steady `0.203833 s`。
+- 退出码: 新同窗 solver blocked
+- 证据: WSL `cudaSetDevice`/8 MiB `cudaMalloc` 返回 CUDA error 2；没有伪造 speedup。详见 `logs/test27_strict_vs_current_legacy_cuda_20261027.md`。
+
+## 验证与证据
+- CTest 四构建各 33/33；KUPL pytest 38；simple pytest 50。
+- 双 NUMA 合成 MPI：2-rank cpusets `{0:[0,1],1:[9,10]}`；4-rank explicit CPU_NODE：`{0:[0,1],1:[9,10],2:[4,5],3:[13,14]}`。
+- 最终库 SHA256: `68ea016e7b60c9466e15ef8b4a454998cc98cfdaf94f4c4f80453dfb4234c611`。
+- 未验证: 真鲲鹏/HMPI、成功 set_mempolicy、ARM64 目标运行、CUDA 新同窗样本；ASAN Python/OpenMPI 因 sanitizer runtime 冲突未验证。
+
+## 变更与产物
+- 代码: `cpp/kupl/qcu/**`、`pyqcu/testing/kupl/**`、`pyqcu/testing/simple/**`。
+- 文档: `docs/kupl_kunpeng_guide.md`、安装/环境/示例、技能与索引。
+- 数据: `data/kunpeng_20261027/`、`data/tag_test27_cuda_compare/`。
+- Git: 未提交、未推送、未创建 tag。
+
+## 风险、限制与下一步
+- 目标鲲鹏需按指南运行 HMPI binding/rankfile、on-chip memory、THP 与 set_mempolicy 严格门。
+- CUDA runtime 恢复后按 `data/tag_test27_cuda_compare/results/json/result.json` 重跑同窗 2 warmup + 5 steady。
+
+## 用户输入指令
+1. 参考 {refer/kunpeng} 优化 KUPL，保持通用 MPI+OpenMP+C++17，并增加鲲鹏测试与用户指南。
+2. 派发子代理实测对比 test27 CUDA Strict-MultiGrid 与当前 CUDA Legacy-MultiGrid。
+3. 全自动模式，时长下限三小时；后续全自动继续。
+
+## Agent 全文报告
+--- report begin ---
+status: finished（KUPL 优化、测试、文档、性能与 CUDA 历史对照已交付；仅追加的 CUDA 新同窗实测因子系统 blocked）
+
+改动内容:
+- 真实 NUMA sysfs、CPU_NODE 分组、逐 thread CPU/内存策略、local+N 片上内存、THP、topology report。
+- Clover cache lazy per parity；gauge 原地更新可禁用 cache。
+- BiCGStab 成对遍历/归约，跨 rank 开关一致性。
+- LTO CMake、applyInit 后首次触页、线程参数真实生效。
+- 鲲鹏 runtime planner、双 NUMA/显式节点 CTest、runtime RSS benchmark、benchmark 防假 PASS、dirty-env/path/skip 契约。
+- 正式鲲鹏用户指南与技能/文档索引。
+
+推理依据:
+- CPU local 与 memory local 分离；memory policy 和 first-touch 必须覆盖实际 OpenMP team。
+- Clover cache 按 parity 惰性分配可显著降低 init 容量和首次计算。
+- HMPI `--bind-to none` 可能降级集合拓扑，优先调度器/rankfile。
+- Strict 与 Legacy 算法不同，历史 wall time 不能做单因素归因。
+
+验证结果:
+- 默认、generic、LTO、UBSAN CTest 均 33/33。
+- pytest KUPL 38/38；simple 50/50。
+- c64/c128 初始化与首次 Clover 显著改善；成对归约最终复核 1.05% 与3.41%。
+- docs/form/diff/compile/syntax/大文件门全通过。
+- test27/HEAD sm_60 构建成功；GPU runtime error 阻止新同窗 solver。
+
+后续步骤:
+1. 在目标鲲鹏执行正式 HMPI/NUMA/HBM/THP 矩阵。
+2. CUDA runtime 恢复后重跑 test27 Strict、HEAD Strict 对照、HEAD Legacy。
+--- report end ---

@@ -133,6 +133,11 @@ mpirun \
 - 每 rank 线程数由 `OMP_NUM_THREADS` 控制。
 - MPI 已绑定时，KUPL 库必须 `KUPL_NUMA_BIND=0`。
 - 不要在短 OpenMP 并行区频繁重绑，避免设置 `OMP_PROC_BIND/PLACES`。
+- 无调度器绑定时可使用 `--kupl-numa-bind library --bind-to none`，由库按真实
+  NUMA cpulist 选核；`--kupl-memory-node local+16` 等片上内存参数必须现场确认。
+
+完整鲲鹏运行时指南见
+[`docs/kupl_kunpeng_guide.md`](../../../../docs/kupl_kunpeng_guide.md)。
 
 ### OpenMPI 4.1 的 `pe=N` 冲突
 

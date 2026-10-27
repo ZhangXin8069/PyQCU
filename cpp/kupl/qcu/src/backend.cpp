@@ -49,6 +49,7 @@ template <typename Real>
 void LatticeSet<Real>::wilson_bistabcg(void *out, const void *in,
                                        const void *gauge) {
   require_solver_mode();
+  ensure_solver_scratch();
   ensure_gauge_halo(static_cast<const Complex<Real> *>(gauge));
   solve_wilson_bistabcg(static_cast<Complex<Real> *>(out),
                         static_cast<const Complex<Real> *>(in));
@@ -58,6 +59,7 @@ template <typename Real>
 void LatticeSet<Real>::wilson_bistabcg_dslash(void *out, const void *in,
                                               const void *gauge) {
   require_solver_mode();
+  ensure_solver_scratch();
   require_wilson_gauge(static_cast<const Complex<Real> *>(gauge));
   apply_wilson_schur(static_cast<const Complex<Real> *>(in),
                      static_cast<Complex<Real> *>(out), target_parity(),
@@ -68,6 +70,7 @@ template <typename Real>
 void LatticeSet<Real>::wilson_cg(void *out, const void *in,
                                  const void *gauge) {
   require_solver_mode();
+  ensure_solver_scratch();
   ensure_gauge_halo(static_cast<const Complex<Real> *>(gauge));
   solve_wilson_cg(static_cast<Complex<Real> *>(out),
                   static_cast<const Complex<Real> *>(in));
@@ -77,6 +80,7 @@ template <typename Real>
 void LatticeSet<Real>::wilson_cg_dslash(void *out, const void *in,
                                         const void *gauge) {
   require_solver_mode();
+  ensure_solver_scratch();
   require_wilson_gauge(static_cast<const Complex<Real> *>(gauge));
   apply_wilson_cg_dslash(static_cast<const Complex<Real> *>(in),
                          static_cast<Complex<Real> *>(out), target_parity());
@@ -109,7 +113,7 @@ void LatticeSet<Real>::clover_dslash(void *out, const void *in,
   ensure_cached_clover(static_cast<const Complex<Real> *>(gauge));
   bare_dslash(static_cast<Complex<Real> *>(out),
               static_cast<const Complex<Real> *>(in), target);
-  apply_onsite(
+  apply_clover_onsite(
       static_cast<const Complex<Real> *>(out),
       cached_clover_inv_[static_cast<std::size_t>(target)].data(),
       static_cast<Complex<Real> *>(out));
@@ -135,6 +139,7 @@ void LatticeSet<Real>::clover_bistabcg(
     const void *clover_odd, const void *clover_even_inv,
     const void *clover_odd_inv) {
   require_solver_mode();
+  ensure_solver_scratch();
   const int parity = target_parity();
   ensure_gauge_halo(static_cast<const Complex<Real> *>(gauge));
   const std::array<const Complex<Real> *, 2> clover = {
@@ -154,6 +159,7 @@ void LatticeSet<Real>::clover_bistabcg_dslash(
     const void *clover_odd, const void *clover_even_inv,
     const void *clover_odd_inv) {
   require_solver_mode();
+  ensure_solver_scratch();
   const int parity = target_parity();
   ensure_gauge_halo(static_cast<const Complex<Real> *>(gauge));
   const std::array<const Complex<Real> *, 2> clover = {
@@ -173,6 +179,7 @@ int LatticeSet<Real>::clover_bistabcg_prepare(
     const void *clover_even, const void *clover_odd,
     const void *clover_even_inv, const void *clover_odd_inv) {
   require_solver_mode();
+  ensure_solver_scratch();
   if (compact_rhs == nullptr || full_rhs == nullptr || gauge == nullptr ||
       clover_even == nullptr || clover_odd == nullptr ||
       clover_even_inv == nullptr || clover_odd_inv == nullptr) {
@@ -194,6 +201,7 @@ int LatticeSet<Real>::clover_bistabcg_reconstruct(
     const void *gauge, const void *clover_even, const void *clover_odd,
     const void *clover_even_inv, const void *clover_odd_inv) {
   require_solver_mode();
+  ensure_solver_scratch();
   if (full_out == nullptr || full_rhs == nullptr ||
       target_solution == nullptr || gauge == nullptr ||
       clover_even == nullptr || clover_odd == nullptr ||
@@ -271,6 +279,9 @@ void LatticeSet<Real>::laplacian(void *out, const void *in,
 }
 
 template <typename Real> void LatticeSet<Real>::allocate_scratch() {
+  const auto advise = [](auto &field) {
+    advise_large_pages(field.data(), field.size() * sizeof(field[0]));
+  };
   if (geometry_.laplacian) {
     for (int dim = 0; dim < 3; ++dim) {
       const std::size_t source_face =
@@ -285,11 +296,21 @@ template <typename Real> void LatticeSet<Real>::allocate_scratch() {
         laplacian_gauge_recv_[offset].resize(gauge_face);
       }
     }
+    for (int dim = 0; dim < 3; ++dim) {
+      for (int sign : {-1, 1}) {
+        const int offset = face_offset(dim, sign);
+        advise(laplacian_source_send_[offset]);
+        advise(laplacian_source_recv_[offset]);
+        advise(laplacian_gauge_send_[offset]);
+        advise(laplacian_gauge_recv_[offset]);
+      }
+    }
     return;
   }
-  const std::size_t vectors =
-      static_cast<std::size_t>(geometry_.parity_vectors * 2);
   for (int dim = 0; dim < kDim; ++dim) {
+    if (geometry_.grid[dim] == 1) {
+      continue;
+    }
     const std::size_t face =
         static_cast<std::size_t>(geometry_.face_sites[dim] * kVector);
     fermion_send_[face_offset(dim, -1)].resize(face);
@@ -305,6 +326,9 @@ template <typename Real> void LatticeSet<Real>::allocate_scratch() {
   }
   for (int dim0 = 0; dim0 < kDim; ++dim0) {
     for (int dim1 = dim0 + 1; dim1 < kDim; ++dim1) {
+      if (geometry_.grid[dim0] == 1 || geometry_.grid[dim1] == 1) {
+        continue;
+      }
       for (int sign0 : {-1, 1}) {
         for (int sign1 : {-1, 1}) {
           auto &buffer =
@@ -327,18 +351,34 @@ template <typename Real> void LatticeSet<Real>::allocate_scratch() {
       }
     }
   }
-  for (auto *field :
-       {&r_, &rhat_, &p_, &v_, &s_, &t_, &bp_, &tmp_a_, &tmp_b_}) {
-    field->resize(vectors);
+  for (int dim = 0; dim < kDim; ++dim) {
+    if (geometry_.grid[dim] == 1) {
+      continue;
+    }
+    for (int sign : {-1, 1}) {
+      const int offset = face_offset(dim, sign);
+      advise(fermion_send_[offset]);
+      advise(fermion_recv_[offset]);
+      advise(gauge_halo_.faces[offset]);
+      advise(gauge_halo_.recv_faces[offset]);
+    }
   }
-  for (auto *field : {&work_a_, &work_b_, &work_c_}) {
-    field->resize(static_cast<std::size_t>(geometry_.parity_vectors));
-  }
-  for (int parity = 0; parity < 2; ++parity) {
-    cached_clover_[static_cast<std::size_t>(parity)].resize(
-        static_cast<std::size_t>(geometry_.half_sites * kOnsite));
-    cached_clover_inv_[static_cast<std::size_t>(parity)].resize(
-        static_cast<std::size_t>(geometry_.half_sites * kOnsite));
+  for (int dim0 = 0; dim0 < kDim; ++dim0) {
+    for (int dim1 = dim0 + 1; dim1 < kDim; ++dim1) {
+      if (geometry_.grid[dim0] == 1 || geometry_.grid[dim1] == 1) {
+        continue;
+      }
+      for (int sign0 : {-1, 1}) {
+        for (int sign1 : {-1, 1}) {
+          const std::size_t plane =
+              static_cast<std::size_t>(plane_index(dim0, dim1));
+          const std::size_t corner = static_cast<std::size_t>(
+              sign_index(sign0) * 2 + sign_index(sign1));
+          advise(gauge_halo_.corners[plane][corner]);
+          advise(gauge_halo_.recv_corners[plane][corner]);
+        }
+      }
+    }
   }
   boundary_sites_.clear();
   boundary_sites_.reserve(static_cast<std::size_t>(geometry_.half_sites / 4));
@@ -354,6 +394,26 @@ template <typename Real> void LatticeSet<Real>::allocate_scratch() {
         t2 == geometry_.local[3] / 2 - 1) {
       boundary_sites_.push_back(linear);
     }
+  }
+}
+
+template <typename Real> void LatticeSet<Real>::ensure_solver_scratch() {
+  const std::size_t vectors =
+      static_cast<std::size_t>(geometry_.parity_vectors * 2);
+  for (auto *field :
+       {&r_, &rhat_, &p_, &v_, &s_, &t_, &bp_, &tmp_a_, &tmp_b_}) {
+    if (!field->empty()) {
+      continue;
+    }
+    field->resize(vectors);
+    advise_large_pages(field->data(), field->size() * sizeof(Complex<Real>));
+  }
+  for (auto *field : {&work_a_, &work_b_, &work_c_}) {
+    if (!field->empty()) {
+      continue;
+    }
+    field->resize(static_cast<std::size_t>(geometry_.parity_vectors));
+    advise_large_pages(field->data(), field->size() * sizeof(Complex<Real>));
   }
 }
 

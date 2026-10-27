@@ -11,6 +11,37 @@
 #include <string>
 
 namespace kupl::qcu {
+namespace {
+
+template <typename Real>
+std::array<Complex<Real>, 2>
+global_norm_dot_pair(const Complex<Real> *left, const Complex<Real> *right,
+                     int64_t count, MPI_Comm comm, bool distributed) {
+  Real left_sum = 0;
+  Real mixed_real_sum = 0;
+  Real mixed_imag_sum = 0;
+  const int64_t chunk = omp_chunk<Real>(count);
+#pragma omp parallel for schedule(static, chunk) reduction(+ : left_sum, mixed_real_sum, mixed_imag_sum)
+  for (int64_t index = 0; index < count; ++index) {
+    const Complex<Real> &a = left[index];
+    const Complex<Real> &b = right[index];
+    left_sum += a.real() * a.real() + a.imag() * a.imag();
+    mixed_real_sum += a.real() * b.real() + a.imag() * b.imag();
+    mixed_imag_sum += a.real() * b.imag() - a.imag() * b.real();
+  }
+  const Real local[3] = {left_sum, mixed_real_sum, mixed_imag_sum};
+  if (!distributed) {
+    return {Complex<Real>(local[0], 0),
+            Complex<Real>(local[1], local[2])};
+  }
+  Real global[3] = {0, 0, 0};
+  const MPI_Datatype type =
+      sizeof(Real) == sizeof(float) ? MPI_FLOAT : MPI_DOUBLE;
+  MPI_Allreduce(local, global, 3, type, MPI_SUM, comm);
+  return {Complex<Real>(global[0], 0), Complex<Real>(global[1], global[2])};
+}
+
+} // namespace
 
 template <typename Real>
 Complex<Real> LatticeSet<Real>::global_dot(const Complex<Real> *left,
@@ -92,6 +123,7 @@ void LatticeSet<Real>::solve_compact_bistabcg(
     Operator &&apply_operator, const char *label,
     Real relative_tolerance) {
   using C = Complex<Real>;
+  ensure_solver_scratch();
   const int64_t chunk = omp_chunk<Real>(count);
   const Real solve_tolerance =
       relative_tolerance > Real(0) ? relative_tolerance : atol();
@@ -182,12 +214,22 @@ void LatticeSet<Real>::solve_compact_bistabcg(
     }
 
     apply_operator(s_.data(), t_.data());
-    const C tt = global_dot(t_.data(), t_.data(), count);
+    C tt(0);
+    C t_s(0);
+    if (fused_bicg_dots_enabled()) {
+      const auto pair = global_norm_dot_pair(
+          t_.data(), s_.data(), count, geometry_.comm, geometry_.size > 1);
+      tt = pair[0];
+      t_s = pair[1];
+    } else {
+      tt = global_dot(t_.data(), t_.data(), count);
+      t_s = global_dot(t_.data(), s_.data(), count);
+    }
     if (std::abs(tt) <= std::numeric_limits<Real>::min()) {
       throw std::runtime_error(std::string(label) +
                                ": BiStabCG omega breakdown");
     }
-    omega = global_dot(t_.data(), s_.data(), count) / tt;
+    omega = t_s / tt;
 #pragma omp parallel for simd schedule(static, chunk)
     for (int64_t index = 0; index < count; ++index) {
       solution[index] +=
@@ -232,6 +274,7 @@ void LatticeSet<Real>::solve_compact_cg(
     Complex<Real> *solution, const Complex<Real> *rhs, int64_t count,
     Operator &&apply_operator, const char *label, Real relative_tolerance) {
   using C = Complex<Real>;
+  ensure_solver_scratch();
   const int64_t chunk = omp_chunk<Real>(count);
   const Real rhs_norm = std::sqrt(global_norm2(rhs, count));
   const Real recurrence_tolerance =
@@ -327,6 +370,7 @@ void LatticeSet<Real>::prepare_clover_schur(
     Complex<Real> *compact_rhs, const Complex<Real> *full_rhs, int parity,
     const std::array<const Complex<Real> *, 2> &inverse) {
   const int other = 1 - parity;
+  ensure_solver_scratch();
   const int64_t vectors = geometry_.parity_vectors;
   const int64_t chunk = omp_chunk<Real>(vectors);
   const Complex<Real> *rhs_other =
@@ -349,6 +393,7 @@ void LatticeSet<Real>::reconstruct_clover_schur(
     const Complex<Real> *target_solution, int parity,
     const std::array<const Complex<Real> *, 2> &inverse) {
   const int other = 1 - parity;
+  ensure_solver_scratch();
   const int64_t vectors = geometry_.parity_vectors;
   const int64_t chunk = omp_chunk<Real>(vectors);
   Complex<Real> *out_target =
@@ -378,6 +423,7 @@ void LatticeSet<Real>::reconstruct_wilson(Complex<Real> *full_output,
                                           const Complex<Real> *full_input,
                                           int parity) {
   const int other = 1 - parity;
+  ensure_solver_scratch();
   const int64_t vectors = geometry_.parity_vectors;
   const int64_t chunk = omp_chunk<Real>(vectors);
   Complex<Real> *target =
@@ -398,6 +444,7 @@ template <typename Real>
 Real LatticeSet<Real>::check_wilson_full_residual(
     Complex<Real> *full_output, const Complex<Real> *full_input,
     const char *label) {
+  ensure_solver_scratch();
   const int64_t full_vectors = geometry_.parity_vectors * 2;
   const int64_t chunk = omp_chunk<Real>(full_vectors);
   apply_full_wilson_operator(full_output, tmp_b_.data(), tmp_a_.data());
@@ -423,6 +470,7 @@ Real LatticeSet<Real>::check_wilson_full_residual(
 template <typename Real>
 void LatticeSet<Real>::solve_wilson_bistabcg(
     Complex<Real> *full_output, const Complex<Real> *full_input) {
+  ensure_solver_scratch();
   const int parity = target_parity();
   const int other = 1 - parity;
   const int64_t vectors = geometry_.parity_vectors;
@@ -465,6 +513,7 @@ void LatticeSet<Real>::solve_wilson_bistabcg(
 template <typename Real>
 void LatticeSet<Real>::solve_wilson_cg(Complex<Real> *full_output,
                                        const Complex<Real> *full_input) {
+  ensure_solver_scratch();
   const int parity = target_parity();
   const int other = 1 - parity;
   const int64_t vectors = geometry_.parity_vectors;
@@ -510,6 +559,7 @@ void LatticeSet<Real>::solve_clover(
     const std::array<const Complex<Real> *, 2> &clover,
     const std::array<const Complex<Real> *, 2> &inverse) {
   using C = Complex<Real>;
+  ensure_solver_scratch();
   static const bool profile_dslash =
       std::getenv("KUPL_PROFILE_DSLASH") != nullptr;
   if (profile_dslash) {
@@ -584,6 +634,7 @@ void LatticeSet<Real>::clover_full_apply(
     const void *clover_odd_inv) {
   (void)clover_even_inv;
   (void)clover_odd_inv;
+  ensure_solver_scratch();
   if (out == nullptr || in == nullptr || gauge == nullptr ||
       clover_even == nullptr || clover_odd == nullptr) {
     throw std::runtime_error("full Clover apply received a null pointer");

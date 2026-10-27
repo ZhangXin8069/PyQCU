@@ -792,7 +792,16 @@ private:
         return true;
       }
       apply_level(level, state.v, state.s);
-      const C tt = mg_dot(state.v, state.v, distributed_);
+      C tt(0);
+      C v_s(0);
+      if (fused_bicg_dots_enabled()) {
+        const auto pair = mg_dot_pair(state.v, state.s, distributed_);
+        tt = pair[0];
+        v_s = pair[1];
+      } else {
+        tt = mg_dot(state.v, state.v, distributed_);
+        v_s = mg_dot(state.v, state.s, distributed_);
+      }
       if (std::abs(tt) <= std::numeric_limits<Real>::min()) {
         if (params_[kVerbose] != 0) {
           std::fprintf(stderr,
@@ -803,7 +812,7 @@ private:
         last_chunk_iterations_ = iteration;
         return false;
       }
-      omega = mg_dot(state.v, state.s, distributed_) / tt;
+      omega = v_s / tt;
       if (std::abs(omega) <= std::numeric_limits<Real>::min()) {
         if (params_[kVerbose] != 0) {
           std::fprintf(stderr,

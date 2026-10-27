@@ -1,0 +1,138 @@
+[日志元数据]
+日志类型: final
+生成时间: 2026-10-27 08:22:40 +0800
+批次: kupl-kunpeng-continue-20261027
+主任务: KUPL 鲲鹏 CPU 后端持续优化、真实性能复验、运行时兼容与用户指南收敛
+触发原因: 任务完成
+摘要: 完成 KUPL Clover tile/原位求逆/惰性 scratch/halo 裁剪、严格鲲鹏 profile 与 MPI prebind；34/34 多构建 CTest、457 pytest 通过，CUDA 新同窗实测受 runtime OOM 阻塞。
+Git 根目录: /root/PyQCU
+
+## 关键日志
+
+### S1 — 任务恢复与并行审计
+
+- 目标: 在用户要求的三小时全自动窗口内继续优化 KUPL 鲲鹏 CPU 后端，保持 MPI+OpenMP+C++17 通用兼容，并补齐测试、指南和证据。
+- 操作: 激活 auto/all/log、pyqcu-kupl、profiling、benchmark、form、docs 技能；派发 4 个只读子代理，分别审计 Clover 热路径、halo/标量边界、鲲鹏测试文档缺口、CUDA test27 公平性。
+- 关键输出: auto_route=all；L3/L2 约束按用户 L2 默认执行；子代理均成功返回。
+- 证据与判断: Clover 子代理确认缓存版 Clover 仍走通用 12x12；文档子代理确认非鲲鹏 profile 误接受与 rank 配置挂起；CUDA 子代理确认现有 tag-test27 对本 HEAD 没有新的性能样本。
+
+### S2 — KUPL 热路径与内存优化
+
+- 目标: 只保留经过相邻 A/B 和真残差验证的优化，撤销不稳定候选。
+- 操作: 缓存版 Clover 使用 6x6 spin-block onsite；Clover term 原位求逆；solver scratch 惰性分配；Clover 构造和 6x6 求逆改为 site tile 连续加载/写回；按实际 MPI 分解维度分配 face/corner halo。
+- 证据与判断: 6x6 直接 Clover c64/c128 相邻收益 10.9%/22.9%；Clover 构造 tile 两组 c64 为 18.1%/23.2%，c128 为 8.4%/8.2%；求逆 tile 两组 c64 为 12.6%/17.4%，c128 为 12.1%/10.8%。
+- 撤销项: scalar boundary 预过滤和提前 Irecv 在 2/4-rank 结果不一致，已完整撤销；LU 求逆因两组方向冲突撤销。
+
+### S3 — 初始化、NUMA 与 MPI 运行契约
+
+- 目标: 让鲲鹏运行时、输入页 NUMA 放置和失败模式可审计。
+- 操作: lazy solver scratch 与 halo 裁剪；Python LIME/MG driver 在输入分配前执行私有 prebind；严格校验非鲲鹏主机；profile/topology/oversubscribe 跨 rank 一致性；HMPI/OpenMPI launcher 探测；oversubscribe 参数传播；基准写 library/binary SHA256 和 median/MAD。
+- 关键输出: 1-rank plan=Clover 的 init 从 c64 `0.139505 s` 降到 `0.023126 s`，c128 `0.236410 s` 降到 `0.020683 s`；init RSS delta 约 `207/411 MB` 降到 `2.27/2.29 MB`。
+- 失败门: 容器 `set_mempolicy` 在 strict 模式下以退出码 2 明确失败；非鲲鹏 profile 与 rank 不一致均快速失败。
+
+### S4 — CUDA test27 对照子任务
+
+- 目标: 实测 tag-test27 Strict 与当前 CUDA Legacy 的初始化、计算和正确性。
+- 操作: 审计既有 sm60 构建、输入、parity、null-vector、计时窗口和 class/C-API 调用路径；再次探测 CUDA runtime。
+- 关键输出: `set_device`、1 MiB、8 MiB 与 `mem_get_info` 全部返回 CUDA error 2。
+- 证据与判断: 新同窗 CUDA 样本无法采集；现有 V100/sm70 历史数据只能作路径级证据，不能发布初始化倍率或完整 V-cycle speedup。
+
+### S5 — 最终验证与审计
+
+- 操作: 默认、generic、LTO、UBSAN CTest；warning-as-error 构建；ASAN 纯 C++；KUPL/simple/全项目 pytest；Strict CPU fast gate；docs/form/diff/大文件审计。
+- 关键输出: 四套 CTest 均 34/34；KUPL 41、simple 51、全项目 457 passed；docs/form 全绿。
+- 证据与判断: 全项目 21 failed + 2 errors 均为 WSL CUDA OOM，没有 KUPL/CPU 失败。
+
+## 验证与证据
+
+- 测试/检查: 默认 native Release CTest；结果: 34/34 PASS。
+- 测试/检查: `KUPL_ENABLE_NATIVE=OFF` 通用构建 CTest；结果: 34/34 PASS。
+- 测试/检查: `KUPL_ENABLE_LTO=ON` CTest；结果: 34/34 PASS。
+- 测试/检查: UBSAN + 单 OpenMP 线程 CTest；结果: 34/34 PASS。
+- 测试/检查: `-Wall -Wextra -Wpedantic -Werror` 构建；结果: PASS。
+- 测试/检查: ASAN 纯 C++ 单 rank；结果: PASS；OpenMPI 启动器仍触发已知 signal-handler 冲突。
+- 测试/检查: `pytest pyqcu/testing/kupl pyqcu/testing/simple` 与 runner regression；结果: 93 passed。
+- 测试/检查: 全项目 pytest；结果: 457 passed, 10 skipped；21 failed + 2 errors 均为 WSL CUDA OOM。
+- 测试/检查: Strict fast `cpu-smoke`；结果: 20 passed。
+- 测试/检查: docs/skills；结果: PASS docs=29 skills=35。
+- 测试/检查: form；结果: PASS，35 个技能目录，1197 个既有豁免。
+- 测试/检查: `git diff --check`、compileall、bash 语法、大文件 gate；结果: PASS。
+- 未验证项: 真实鲲鹏 HMPI、双 NUMA、片上内存和 `set_mempolicy` 性能；当前宿主为 x86 单 NUMA 且容器 EPERM。
+- 未验证项: CUDA tag-test27 对当前 HEAD 的新同窗性能；当前 WSL CUDA runtime OOM。
+
+## 变更与产物
+
+- 文件: `cpp/kupl/qcu/src/lattice_clover_dslash.cpp`、`backend.cpp`、`lattice_solver.cpp`、`lattice_strict.cpp`、`lattice_cpu.cpp` 及相关头文件。
+- 文件: `pyqcu/testing/kupl/` 下 profile/topology/runtime benchmark 测试与工具。
+- 文件: `pyqcu/testing/simple/` 下 prebind、provenance、MPI 参数保护与 benchmark 汇总。
+- 文件: `docs/kupl_kunpeng_guide.md`、KUPL README、项目技能和 MPI 用户指南。
+- 产物: `cpp/kupl/qcu/build/libqcu.so`，SHA256 `0ba1e1e2e0fa79e40fc49aad7046a28acdefc77c5d3b307b46413519fb49a150`。
+- 产物: `logs/kupl_kunpeng_opt_20261027.md` 完整阶段证据；`logs/test27_strict_vs_current_legacy_cuda_20261027.md` CUDA 阻塞与历史公平性审计。
+- 未改动范围: 未提交、未推送、未创建或改写标签，未修改系统配置，未终止其他 GPU 进程。
+
+## 风险、限制与下一步
+
+- 风险: 当前 x86 单 NUMA、共享机负载导致绝对时间漂移；性能采用相邻 A/B 和独立真残差门，不外推为鲲鹏承诺。
+- 阻塞: CUDA runtime 连 1 MiB 分配都失败，tag-test27 新同窗实测无法完成。
+- 下一步: 在真实鲲鹏节点以 `KUPL_REQUIRE_MEMORY_BIND=1`、24 threads/rank 和真实 HMPI launcher 复跑；GPU 恢复后按共同 null basis、统一 parity/环境/UUID 的协议复测 test27 与 HEAD。
+
+## 用户输入指令
+
+- 参考 `refer/kunpeng`，对 KUPL 版 QCU 做针对鲲鹏环境的进一步优化，同时保持通用 MPI+MP+C++ 标准库兼容；在测试项目中增加鲲鹏运行时、MPI 参数和内存指定支持，并丰富用户指南。
+- 继续，后续全自动“继续”。
+- 本任务全自动模式，时长下限三小时。
+- 派发子代理，实测对比本库 tag-test27 的 CUDA 版 QCU `strict_multigrid` 与当前 CUDA 版 `legacy_multigrid.py` 的各方面，尤其初始化和实际计算性能。
+- 遵守 `/root/PyQCU/AGENTS.md` 中关于 KUPL、测试、文档、日志、Git 和访问边界的约束。
+
+## Agent 全文报告
+
+--- report begin ---
+finished（KUPL 主任务完成；CUDA 新同窗实测子项 blocked）
+
+以 `{物理+代码}` 身份完成本轮全自动优化，实际运行窗口 `05:22:06 → 08:22:15`，超过用户要求的三小时下限。
+
+### 改动内容
+
+- KUPL 缓存版 Clover dslash 改走已有 6x6 spin-block onsite，外部 supplied 12x12 ABI 保持不变。
+- Clover term 改为原位构造/求逆，单个 parity inverse cache 从 2B 降到 B。
+- Clover 构造和 6x6 求逆改为 site-tile 计算与 component 连续写回，显著降低远距流写回和 TLB 压力。
+- solver 的全场级 scratch 改为首次求解惰性分配。
+- face/corner halo 只在实际 MPI 分解维度分配；1-rank plan=Clover 的 init RSS delta 降到约 2.3 MB。
+- 严格校验鲲鹏 profile 主机身份；profile/topology/oversubscribe 先做跨 rank 一致性归约，避免 MPI 挂起。
+- 规划器探测真实 MPI launcher，HMPI/OpenMPI 错配默认失败；oversubscribe 同时传播库和 MPI 参数。
+- Python LIME/MG driver 在输入分配前执行私有 prebind，报告新增 `input_prebind_seconds`、库 SHA256 和聚合 median/MAD。
+- 修复 Strict fast gate 的 test 文件与函数名漂移，新增 AST 路径编排回归。
+- 更新 KUPL 正式指南、README、项目技能和 MPI 用户指南。
+
+### 推理依据
+
+- Clover inverse 只作为缓存输入一次，求逆访问顺序保证原位别名安全。
+- site-tile 让 144 个 component 的远距输出变成短连续段，保持每个 site 的公式和浮点累加顺序。
+- lazy scratch/halo 消除未使用分配，不改变实际 MPI 消息、DSLASH 调度或求解协议。
+- 相邻 A/B 能抵消共享机漂移；只有方向重复一致且正确性门通过的候选才保留。
+
+### 验证结果
+
+- 默认、generic、LTO、UBSAN CTest 均为 34/34。
+- warning-as-error 构建 PASS；ASAN 纯 C++ 单 rank PASS。
+- `pytest pyqcu/testing/kupl pyqcu/testing/simple` 加 runner regression 为 93 passed。
+- 全项目 pytest 为 457 passed, 10 skipped；21 failed + 2 errors 全部为 WSL CUDA OOM。
+- Strict fast `cpu-smoke` 20 passed；docs 审计 `PASS docs=29 skills=35`；form 审计 PASS。
+- 最终库：`cpp/kupl/qcu/build/libqcu.so`，SHA256 `0ba1e1e2e0fa79e40fc49aad7046a28acdefc77c5d3b307b46413519fb49a150`。
+
+### 关键性能
+
+- 6x6 缓存 Clover：c64 `1.073630 -> 0.956790 s`，c128 `1.880993 -> 1.450742 s`。
+- Clover 构造 tile 两组：c64 快 18.1%/23.2%，c128 快 8.4%/8.2%。
+- 求逆 tile 两组：c64 快 12.6%/17.4%，c128 快 12.1%/10.8%。
+- 最终 1-rank plan=Clover：c64/c128 init `0.023126/0.020683 s`；18-thread 首次 Clover `1.871067/2.012436 s`。
+- 最终 `24³×64` c64、2 ranks × 4 threads：setup `0.848306/0.874193 s`，solve `11.077269 s/20 it`，独立真残差 `4.142239e-7`。
+- 最终同题 c128：setup `1.303515/1.309177 s`，solve `19.922458 s/23 it`，独立真残差 `6.962408e-8`。
+- 4-rank `2x2x1x1` 大格 c64：solve `6.867211 s/20 it`，独立真残差 `4.124443e-7`。
+
+### 边界与后续
+
+当前设备不是鲲鹏实机：单 NUMA x86，容器禁止 `set_mempolicy`。所以 NUMA/片上内存/HMPI 只能验证逻辑、降级和 fail-closed，不能宣称鲲鹏性能。CUDA runtime 仍连 1 MiB 分配都 OOM，tag-test27 新同窗实测无法采集；现有历史结果已按公平性缺口纠正，不发布新 speedup。
+
+未提交、未推送、未打标签。下一步是在真实鲲鹏节点以 strict memory bind、24 threads/rank 和真实 HMPI 重跑；GPU 恢复后按共同 null basis、统一 parity、环境和 UUID 复测 CUDA。
+--- report end ---
