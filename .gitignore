@@ -1,6 +1,7 @@
 *.cache
 *.metadata
 *build
+build.sh
 *draft
 *CMakeFiles
 *cmake_install.cmake

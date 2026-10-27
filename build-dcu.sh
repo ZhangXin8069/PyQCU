@@ -3,6 +3,6 @@ set -e
 echo "=== PyQCU build.sh ==="
 source ./env.sh
 pushd ./cpp/cuda/qcu
-bash ./make.sh
+bash ./make-dcu.sh
 popd
 echo "=== PyQCU build.sh: SUCCESS ==="
