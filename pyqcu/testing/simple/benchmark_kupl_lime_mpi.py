@@ -20,12 +20,14 @@ import numpy as np
 from mpi4py import MPI
 
 try:
+    from .kupl_bistabcg import prebind_kupl_inputs
     from ._common import (
         DEFAULT_ATOL, DEFAULT_CSW, DEFAULT_MASS, lime_metadata,
         kupl_fermion_to_qcu, qcu_fermion_to_kupl, qcu_gauge_to_kupl,
         qdp_gauge_to_qcu, read_h5, read_h5_metadata, read_qdp_gauge,
         resolve_path, solver_acceptance, write_json)
 except ImportError:
+    from kupl_bistabcg import prebind_kupl_inputs
     from _common import (
         DEFAULT_ATOL, DEFAULT_CSW, DEFAULT_MASS, lime_metadata,
         kupl_fermion_to_qcu, qcu_fermion_to_kupl, qcu_gauge_to_kupl,
@@ -396,6 +398,13 @@ def _rank_environment(rank: int, coordinate: Sequence[int],
             "OMP_PROC_BIND": os.environ.get("OMP_PROC_BIND"),
             "OMP_PLACES": os.environ.get("OMP_PLACES"),
             "KUPL_NUMA_BIND": os.environ.get("KUPL_NUMA_BIND"),
+            "KUPL_MEMORY_POLICY": os.environ.get("KUPL_MEMORY_POLICY"),
+            "KUPL_MEMORY_NODE": os.environ.get("KUPL_MEMORY_NODE"),
+            "KUPL_HUGEPAGE": os.environ.get("KUPL_HUGEPAGE"),
+            "KUPL_FUSED_BICG_DOTS": os.environ.get("KUPL_FUSED_BICG_DOTS"),
+            "KUPL_DISABLE_CLOVER_CACHE": os.environ.get(
+                "KUPL_DISABLE_CLOVER_CACHE"),
+            "PYQCU_KUPL_PROFILE": os.environ.get("PYQCU_KUPL_PROFILE"),
         },
     }
 
@@ -528,6 +537,12 @@ def _load_backend() -> tuple[Any | None, Exception | None]:
     return qcu, None
 
 
+def _environment_enabled(name: str) -> bool:
+    value = os.environ.get(name)
+    return value is not None and value != "" and value.lower() not in {
+        "0", "false", "no", "off"}
+
+
 def _validate_args(parser: argparse.ArgumentParser,
                    args: argparse.Namespace, size: int) -> None:
     if any(value <= 0 for value in args.lat):
@@ -608,6 +623,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     if not gauge_path.is_file():
         raise FileNotFoundError(f"gauge input not found: {gauge_path}")
     dtype = np.dtype(np.complex64 if args.dtype == "c64" else np.complex128)
+    input_prebind_seconds = 0.0
+    if _environment_enabled("KUPL_NUMA_BIND"):
+        started = time.perf_counter()
+        prebind_kupl_inputs(
+            qcu, lattice,
+            float(args.mass if args.mass is not None else DEFAULT_MASS),
+            args.atol, float(args.csw if args.csw is not None else DEFAULT_CSW),
+            dtype, args.max_iter, grid, rank, size)
+        input_prebind_seconds = time.perf_counter() - started
     gauge_full, metadata, gauge_info = _load_gauge(
         gauge_path, lattice, dtype, comm)
 
@@ -701,12 +725,17 @@ def main(argv: Sequence[str] | None = None) -> int:
         setup_even_per_rank = [payload["setup_even"] for payload in payloads]
         setup_odd_per_rank = [payload["setup_odd"] for payload in payloads]
         solver_per_rank = [payload["solver"] for payload in payloads]
+        library_path = Path(qcu._LIBRARY._name).resolve()
         report_status = "PASS" if independent_pass else "FAIL"
         report = {
             "status": report_status,
             "backend": "kupl",
             "benchmark": "clover_setup_and_bistabcg",
             "scope": "real LIME/HDF5 gauge; MPI-split local slabs",
+            "library": {
+                "path": str(library_path),
+                "sha256": _sha256_file(library_path),
+            },
             "mpi": {
                 "ranks": size,
                 "grid": list(grid),
@@ -736,6 +765,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "repeats": args.repeats,
                 "rhs_seed": args.seed,
             },
+            "input_prebind_seconds": input_prebind_seconds,
             "inputs": {
                 "gauge": gauge_info,
                 "rhs": source_info,

@@ -82,6 +82,33 @@ void runBenchmark(const std::array<int, kDim> &local,
     throw std::runtime_error("grid product must equal MPI rank count");
   }
 
+  std::array<int32_t, kupl::qcu::kParamsSize> params{};
+  std::array<Real, kupl::qcu::kArgvSize> argv{};
+  std::array<int64_t, kupl::qcu::kSetPtrsSize> set_ptrs{};
+  for (int dim = 0; dim < kDim; ++dim) {
+    params[kupl::qcu::kLatX + dim] = local[dim];
+    params[kupl::qcu::kGridX + dim] = grid[dim];
+  }
+  params[kupl::qcu::kLatXyzt] =
+      local[0] * local[1] * local[2] * local[3];
+  params[kupl::qcu::kParity] = 0;
+  params[kupl::qcu::kNodeRank] = rank;
+  params[kupl::qcu::kNodeSize] = size;
+  params[kupl::qcu::kDataType] =
+      sizeof(Real) == sizeof(float) ? kupl::qcu::kLatC64
+                                    : kupl::qcu::kLatC128;
+  params[kupl::qcu::kSetPlan] = kupl::qcu::kSetPlanWilson;
+  params[kupl::qcu::kVerbose] = 0;
+  argv[kupl::qcu::kMass] = Real(0.1);
+  argv[kupl::qcu::kAtol] = Real(1e-8);
+  argv[kupl::qcu::kSigma] = Real(0.1);
+  argv[kupl::qcu::kCsw] = Real(1);
+
+  // Bind and place the runtime before any benchmark tensor is first-touched.
+  applyInitQcu(reinterpret_cast<long long>(set_ptrs.data()),
+               reinterpret_cast<long long>(params.data()),
+               reinterpret_cast<long long>(argv.data()));
+
   const int64_t half_sites =
       static_cast<int64_t>(local[0]) * local[1] * local[2] * (local[3] / 2);
   const int64_t gauge_components = 2 * kGauge * kDim;
@@ -136,31 +163,6 @@ void runBenchmark(const std::array<int, kDim> &local,
     }
   }
 
-  std::array<int32_t, kupl::qcu::kParamsSize> params{};
-  std::array<Real, kupl::qcu::kArgvSize> argv{};
-  std::array<int64_t, kupl::qcu::kSetPtrsSize> set_ptrs{};
-  for (int dim = 0; dim < kDim; ++dim) {
-    params[kupl::qcu::kLatX + dim] = local[dim];
-    params[kupl::qcu::kGridX + dim] = grid[dim];
-  }
-  params[kupl::qcu::kLatXyzt] =
-      local[0] * local[1] * local[2] * local[3];
-  params[kupl::qcu::kParity] = 0;
-  params[kupl::qcu::kNodeRank] = rank;
-  params[kupl::qcu::kNodeSize] = size;
-  params[kupl::qcu::kDataType] =
-      sizeof(Real) == sizeof(float) ? kupl::qcu::kLatC64
-                                    : kupl::qcu::kLatC128;
-  params[kupl::qcu::kSetPlan] = kupl::qcu::kSetPlanWilson;
-  params[kupl::qcu::kVerbose] = 0;
-  argv[kupl::qcu::kMass] = Real(0.1);
-  argv[kupl::qcu::kAtol] = Real(1e-8);
-  argv[kupl::qcu::kSigma] = Real(0.1);
-  argv[kupl::qcu::kCsw] = Real(1);
-
-  applyInitQcu(reinterpret_cast<long long>(set_ptrs.data()),
-               reinterpret_cast<long long>(params.data()),
-               reinterpret_cast<long long>(argv.data()));
   const int threads = omp_get_max_threads();
   if (std::getenv("KUPL_BENCH_SHOW_AFFINITY") != nullptr) {
 #if defined(__linux__)

@@ -654,6 +654,11 @@ def main() -> int:
     parser.add_argument("--grid", nargs=4, type=int, default=(1, 1, 1, 1))
     parser.add_argument("--threads", type=int, default=1)
     args = parser.parse_args()
+    if args.threads <= 0:
+        parser.error("--threads must be positive")
+    os.environ["KUPL_OMP_THREADS"] = str(args.threads)
+    os.environ["OMP_NUM_THREADS"] = str(args.threads)
+    os.environ["OMP_DYNAMIC"] = "FALSE"
 
     if int(np.prod(args.grid)) != MPI.COMM_WORLD.Get_size():
         raise RuntimeError("process grid product must equal MPI world size")

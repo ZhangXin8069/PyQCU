@@ -87,6 +87,15 @@ def _run_kupl(args, comm: MPI.Comm) -> int:
         "omp_num_threads": os.environ.get("OMP_NUM_THREADS"),
         "kupl_omp_threads": os.environ.get("KUPL_OMP_THREADS"),
         "kupl_numa_bind": os.environ.get("KUPL_NUMA_BIND"),
+        "kupl_memory_policy": os.environ.get("KUPL_MEMORY_POLICY"),
+        "kupl_memory_node": os.environ.get("KUPL_MEMORY_NODE"),
+        "kupl_require_memory_bind": os.environ.get(
+            "KUPL_REQUIRE_MEMORY_BIND"),
+        "kupl_disable_clover_cache": os.environ.get(
+            "KUPL_DISABLE_CLOVER_CACHE"),
+        "kupl_fused_bicg_dots": os.environ.get("KUPL_FUSED_BICG_DOTS"),
+        "kupl_hugepage": os.environ.get("KUPL_HUGEPAGE"),
+        "pyqcu_kupl_profile": os.environ.get("PYQCU_KUPL_PROFILE"),
     }
     records = comm.gather(record, root=0)
     if int(comm.Get_rank()) == 0 and Path(args.report).is_file():

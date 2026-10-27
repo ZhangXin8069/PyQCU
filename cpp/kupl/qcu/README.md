@@ -3,7 +3,7 @@
 Independent C++17 CPU backend for the PyQCU/QCU flat ABI. The implementation
 uses a four-dimensional MPI process grid, rank-local OpenMP parallelism,
 non-blocking fermion halos, cached gauge halos, and fused 12x12 onsite
-operations.
+operations with a 6x6 spin-block fast path for cached Clover inverses.
 
 ## Source organization
 
@@ -172,13 +172,27 @@ cmake --build build -j
 ctest --test-dir build --output-on-failure
 ```
 
-The 23 C++/Python differential tests check c64/c128, one/two/four MPI ranks,
+For a target-node performance build, enable IPO and local ISA tuning explicitly:
+
+```bash
+cmake -S . -B build-lto -DCMAKE_BUILD_TYPE=Release \
+  -DKUPL_ENABLE_NATIVE=ON -DKUPL_ENABLE_LTO=ON
+cmake --build build-lto -j
+ctest --test-dir build-lto --output-on-failure
+```
+
+Use `-DKUPL_ENABLE_NATIVE=OFF` for a binary intended to run across different ARM64
+or x86 hosts.
+
+The 34 C++/Python differential tests check c64/c128, one/two/four MPI ranks,
 Wilson/Clover hopping, Clover construction/inversion, Wilson and Clover Schur
 operators, Wilson BiStabCG/CG true residuals, Clover prepare/reconstruct,
 Gaussian SU(3) generation, multigrid transfer/coarse stencil MPI halos,
 strict primitives/V-cycle/FGMRES, recursive legacy Clover-MG and verify,
 slot-isolated lifecycles, non-contiguous binding rejection, the 3D Laplacian,
-the exact 37-symbol dynamic ABI surface, and explicit
+the exact 37-symbol dynamic ABI surface, synthetic dual-NUMA rank binding,
+strict Kunpeng profile/rank-consistency rejection, runtime initialization RSS
+timing with post-binding input allocation, and explicit
 non-convergence/fail-closed behavior.
 
 ## Runtime controls
@@ -187,13 +201,31 @@ non-convergence/fail-closed behavior.
   request is honored exactly, including non-power-of-two values such as the
   24 cores in one Kunpeng NUMA node. Without it, the OpenMP maximum is clipped
   to the initial process affinity set.
-- `OMP_PROC_BIND=close` and `OMP_PLACES=cores` are recommended only when
-  `KUPL_NUMA_BIND=0`.
-- `KUPL_NUMA_BIND=1`: bind each local MPI rank to a contiguous subset of its
-  process CPU affinity set. It rejects `OMP_PROC_BIND` because
-  the OpenMP runtime can collapse the process affinity before the library
-  assigns its rank-local subset. This provides deterministic NUMA emulation on
-  x86 hosts.
+- Leave `OMP_PROC_BIND`/`OMP_PLACES` unset by default. They are optional A/B
+  variables for a stable cpuset, not a portable default for short OpenMP regions.
+- `KUPL_NUMA_BIND=1`: discover Linux NUMA cpulists, assign each local MPI rank a
+  real NUMA-local CPU subset, bind the actual OpenMP team, and apply
+  `KUPL_MEMORY_POLICY` to future allocations. It rejects `OMP_PROC_BIND`,
+  `OMP_PLACES`, `GOMP_CPU_AFFINITY` and `KMP_AFFINITY`; launch MPI with
+  `--bind-to none` in this mode.
+- `KUPL_CPU_NODE`: force a specific CPU NUMA node when `KUPL_NUMA_BIND=1`.
+- `KUPL_MEMORY_NODE=local|N|local+N`: select the memory-policy node. `local+N`
+  supports separately numbered on-chip-memory NUMA nodes without hard-coding a
+  machine-specific offset.
+- `KUPL_MEMORY_POLICY=preferred|bind`: default `preferred` permits fallback when a
+  node is full; `bind` is strict. `KUPL_REQUIRE_MEMORY_BIND=1` makes policy failure
+  fatal instead of a logged warning.
+- `KUPL_TOPOLOGY_REPORT=1`: print each rank's resolved NUMA node, cpuset, memory
+  node/policy and OpenMP thread count.
+- `PYQCU_KUPL_PROFILE=generic|kunpeng|kunpeng-2numa`: select strict runtime
+  expectations. Kunpeng profiles reject non-Kunpeng hosts, and profile/topology
+  controls must be identical on every MPI rank.
+- `KUPL_HUGEPAGE=1`: request `MADV_HUGEPAGE` for large internal scratch buffers.
+  It is only an advice and does not modify host THP settings.
+- `KUPL_DISABLE_CLOVER_CACHE=1`: refresh the gauge halo and target-parity Clover
+  inverse on every call. Use this when mutating a gauge buffer in place; the
+  default cache assumes gauge content is immutable for the set lifetime.
+- `KUPL_FUSED_BICG_DOTS=0`: disable paired `(t,t)`/`(t,s)` reductions for A/B.
 - `params[5..8]` must contain a grid whose product equals `MPI_COMM_WORLD`
   size (three dimensions for Laplacian mode). Invalid grids fail during
   initialization; no silent repartition is attempted.
@@ -209,22 +241,33 @@ mpirun --bind-to none -np 2 ./build/kupl_qcu_tests \
 
 `KUPL_NUMA_BIND=1` owns rank/thread placement and therefore requires MPI
 process binding to be disabled (`--bind-to none` for OpenMPI) and
-`OMP_PROC_BIND` to be unset. If the scheduler
+`OMP_PROC_BIND`/`OMP_PLACES`/`GOMP_CPU_AFFINITY`/`KMP_AFFINITY` to be unset. If the scheduler
 already binds each MPI process to its NUMA-local CPU set, leave
 `KUPL_NUMA_BIND=0` and set `KUPL_OMP_THREADS`/`OMP_NUM_THREADS` to that set's
 size. CPU subsets are assigned by `MPI_COMM_TYPE_SHARED` local
 rank; halo peers continue to use the global four-dimensional Cartesian rank,
 so the local NUMA numbering does not leak into cross-node topology.
 
+The Kunpeng-specific HMPI, on-chip-memory, page-policy, topology-planner and
+evidence workflow is documented in
+[`docs/kupl_kunpeng_guide.md`](../../../docs/kupl_kunpeng_guide.md).
+
 For same-node multi-rank runs, prefer scheduler or MPI binding before Python,
 NumPy, or application tensors are allocated. `KUPL_NUMA_BIND=1` runs during
 `applyInitQcu`, so it can place library scratch and later allocations but does
-not migrate pages that callers already faulted in on another NUMA node.
+not migrate pages that callers already faulted in on another NUMA node. The
+repository's LIME benchmark and multigrid driver perform a private prebind
+lifecycle before loading inputs when library binding is requested.
+
+Solver staging fields and Clover inverse caches are lazy. A Wilson/Clover-only
+lifecycle does not allocate full solver scratch, and the Clover inverse replaces
+its temporary term buffer in place. Reports must distinguish init allocation,
+first-solve allocation and steady scratch.
 
 For a Dslash throughput measurement:
 
 ```bash
-KUPL_OMP_THREADS=16 OMP_PROC_BIND=close OMP_PLACES=cores \
+KUPL_OMP_THREADS=16 \
   ./build/kupl_qcu_bench --lattice 16 16 16 32 --iterations 10
 
 OMPI_ALLOW_RUN_AS_ROOT=1 OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1 \

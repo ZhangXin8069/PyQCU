@@ -1,6 +1,6 @@
 # PyQCU `docs/**` 来源映射
 
-本表覆盖当前 `docs/` 顶层的 28 份 Markdown 文档。`docs/AGENTS.md` 是文件索引；
+本表覆盖当前 `docs/` 顶层的 29 份 Markdown 文档。`docs/AGENTS.md` 是文件索引；
 需要判断“原文应保留在哪里”时先读该文件和 `docs/ORGANIZATION.md`。
 
 ## 权威级别
@@ -26,6 +26,7 @@
 | [`docs/env.md`](../../../docs/env.md) | A | `pyqcu-tools` | `pyqcu-testing` | Python 依赖、`PYTHONPATH` 与最小环境入口；永久环境仍需以 `env.sh` 和安装文档为准。 |
 | [`docs/install.md`](../../../docs/install.md) | A | `pyqcu-cuda` | `pyqcu-kupl`, `pyqcu-testing-pyquda` | CUDA `build.sh`/`install.sh`、KUPL CMake/CTest、`PYQCU_KUPL_LIB`、QUDA/PyQUDA 安装选择与 ABI 对齐。 |
 | [`docs/examples.md`](../../../docs/examples.md) | A | `pyqcu-testing` | — | 旧 `examples/` 到 `pyqcu/testing/` 的迁移映射、目录分类和常用入口。 |
+| [`docs/kupl_kunpeng_guide.md`](../../../docs/kupl_kunpeng_guide.md) | A | `pyqcu-kupl` | `pyqcu-testing-cpu`, `pyqcu-benchmark`, `pyqcu-docs` | KUPL 通用 C++17 兼容边界、鲲鹏 HMPI/MPI/OpenMP 放置、NUMA/片上内存/大页策略、运行时规划器、专项测试和性能证据模板。 |
 | [`docs/profiler.md`](../../../docs/profiler.md) | A | `pyqcu-testing-profiler` | — | `torch.profiler` 入口、Chrome trace 与 Perfetto 使用。 |
 | [`docs/cuda_execution_topology.md`](../../../docs/cuda_execution_topology.md) | A | `pyqcu-cuda` | `pyqcu-testing`, `pyqcu-benchmark` | 一进程一 rank 一设备、MPI 跨设备分域、`MultiGpuMultigrid` 测试专用例外与检查清单。 |
 | [`docs/torch_backend_layout.md`](../../../docs/torch_backend_layout.md) | A | `pyqcu-solver` | `pyqcu-dslash`, `pyqcu-smear`, `pyqcu-tools` | Torch 实现位于 `pyqcu/torch`；公共 lattice/tools/selector 与兼容门面的边界。 |

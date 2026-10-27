@@ -37,6 +37,7 @@ int LatticeSet<Real>::strict_fine_matpc(
     void *out, const void *in, const void *gauge, const void *clover_even,
     const void *clover_odd, const void *clover_even_inv,
     const void *clover_odd_inv, int parity) {
+  ensure_solver_scratch();
   if (out == nullptr || in == nullptr || gauge == nullptr ||
       clover_even == nullptr || clover_odd == nullptr ||
       clover_even_inv == nullptr || clover_odd_inv == nullptr) {
@@ -77,6 +78,7 @@ int LatticeSet<Real>::strict_fine_prepare(
     void *compact_rhs, const void *full_rhs, const void *gauge,
     const void *clover_even, const void *clover_odd,
     const void *clover_even_inv, const void *clover_odd_inv, int parity) {
+  ensure_solver_scratch();
   if (compact_rhs == nullptr || full_rhs == nullptr || gauge == nullptr ||
       clover_even == nullptr || clover_odd == nullptr ||
       clover_even_inv == nullptr || clover_odd_inv == nullptr) {
@@ -116,6 +118,7 @@ int LatticeSet<Real>::strict_fine_reconstruct(
     void *full_out, const void *full_rhs, const void *target_solution,
     const void *gauge, const void *clover_even, const void *clover_odd,
     const void *clover_even_inv, const void *clover_odd_inv, int parity) {
+  ensure_solver_scratch();
   if (full_out == nullptr || full_rhs == nullptr ||
       target_solution == nullptr || gauge == nullptr ||
       clover_even == nullptr || clover_odd == nullptr ||

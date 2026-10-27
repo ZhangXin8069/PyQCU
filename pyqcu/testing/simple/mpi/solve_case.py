@@ -292,10 +292,37 @@ def _launch_environment(args) -> dict[str, str]:
     env["OMP_NUM_THREADS"] = str(args.omp_threads)
     env["KUPL_OMP_THREADS"] = str(args.omp_threads)
     if args.backend == "kupl":
-        # MPI/OpenMPI owns placement. The KUPL library must not bind again.
-        env["KUPL_NUMA_BIND"] = "0"
-        env.pop("OMP_PROC_BIND", None)
-        env.pop("OMP_PLACES", None)
+        for name in (
+            "OMP_DYNAMIC", "OMP_PROC_BIND", "OMP_PLACES",
+            "GOMP_CPU_AFFINITY", "KMP_AFFINITY", "KUPL_NUMA_BIND",
+            "KUPL_CPU_NODE", "KUPL_REQUIRE_TOPOLOGY",
+            "KUPL_ALLOW_OVERSUBSCRIBE", "KUPL_SYSFS_NODE_ROOT",
+            "KUPL_FUSED_BICG_DOTS", "KUPL_DISABLE_CLOVER_CACHE",
+            "KUPL_MEMORY_POLICY", "KUPL_MEMORY_NODE",
+            "KUPL_REQUIRE_MEMORY_BIND", "KUPL_HUGEPAGE",
+            "KUPL_TOPOLOGY_REPORT", "PYQCU_KUPL_PROFILE",
+        ):
+            env.pop(name, None)
+        env["KUPL_NUMA_BIND"] = "1" if args.kupl_numa_bind == "library" else "0"
+        env["OMP_DYNAMIC"] = "FALSE"
+        env["KUPL_FUSED_BICG_DOTS"] = "1" if args.kupl_fused_bicg_dots else "0"
+        env["KUPL_DISABLE_CLOVER_CACHE"] = (
+            "1" if args.kupl_disable_clover_cache else "0")
+        if args.kupl_cpu_node is not None:
+            env["KUPL_CPU_NODE"] = str(args.kupl_cpu_node)
+        if args.kupl_allow_oversubscribe:
+            env["KUPL_ALLOW_OVERSUBSCRIBE"] = "1"
+        if args.kupl_profile != "generic":
+            env["PYQCU_KUPL_PROFILE"] = args.kupl_profile
+        if args.kupl_memory_policy is not None:
+            env["KUPL_MEMORY_POLICY"] = args.kupl_memory_policy
+            env["KUPL_REQUIRE_MEMORY_BIND"] = "1"
+        if args.kupl_memory_node is not None:
+            env["KUPL_MEMORY_NODE"] = args.kupl_memory_node
+        if args.kupl_hugepage:
+            env["KUPL_HUGEPAGE"] = "1"
+        if args.kupl_topology_report:
+            env["KUPL_TOPOLOGY_REPORT"] = "1"
     elif args.backend == "cuda":
         env = libqcu_environment(env, "cuda:0", args.libqcu)
     return env
@@ -331,6 +358,24 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     parser.add_argument("--omp-threads", type=int, default=8)
     parser.add_argument("--bind-to", choices=("numa", "none"), default=None)
     parser.add_argument("--map-by", default=None)
+    parser.add_argument("--kupl-numa-bind", choices=("scheduler", "library"),
+                        default="scheduler")
+    parser.add_argument("--kupl-cpu-node", type=int, default=None,
+                        help="requires --kupl-numa-bind library")
+    parser.add_argument("--kupl-fused-bicg-dots",
+                        action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--kupl-disable-clover-cache",
+                        action=argparse.BooleanOptionalAction, default=False)
+    parser.add_argument("--kupl-allow-oversubscribe", action="store_true")
+    parser.add_argument("--kupl-memory-policy",
+                        choices=("preferred", "bind"), default=None)
+    parser.add_argument("--kupl-memory-node", default=None,
+                        help="local, N, or local+N; requires --kupl-numa-bind library")
+    parser.add_argument("--kupl-profile",
+                        choices=("generic", "kunpeng", "kunpeng-2numa"),
+                        default="generic")
+    parser.add_argument("--kupl-hugepage", action="store_true")
+    parser.add_argument("--kupl-topology-report", action="store_true")
     parser.add_argument("--oversubscribe", action=argparse.BooleanOptionalAction,
                         default=True)
     parser.add_argument("--allow-run-as-root", action=argparse.BooleanOptionalAction,
@@ -363,6 +408,22 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
             "additional coarse transition")
     if args.levels < 1 or args.omp_threads < 1:
         parser.error("--levels and --omp-threads must be positive")
+    if args.backend == "kupl" and args.kupl_numa_bind == "library" and \
+            args.bind_to not in (None, "none"):
+        parser.error("--kupl-numa-bind library requires --bind-to none")
+    if args.backend == "kupl" and args.kupl_numa_bind != "library" and (
+            args.kupl_memory_policy is not None or args.kupl_memory_node is not None):
+        parser.error("KUPL memory policy/node requires --kupl-numa-bind library")
+    if args.backend == "kupl" and args.kupl_cpu_node is not None and \
+            args.kupl_numa_bind != "library":
+        parser.error("--kupl-cpu-node requires --kupl-numa-bind library")
+    if args.backend != "kupl" and (
+            args.kupl_numa_bind != "scheduler" or args.kupl_profile != "generic" or
+            args.kupl_memory_policy is not None or args.kupl_memory_node is not None or
+            args.kupl_cpu_node is not None or not args.kupl_fused_bicg_dots or
+            args.kupl_disable_clover_cache or args.kupl_allow_oversubscribe or
+            args.kupl_hugepage or args.kupl_topology_report):
+        parser.error("KUPL runtime options require --backend kupl")
     try:
         args.ranks = validate_rank_count(args.ranks)
     except ValueError as exc:
@@ -383,21 +444,38 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     numa_count = _local_numa_count() if args.backend == "kupl" else None
     args.binding_fallback = False
     if args.bind_to is None:
-        if args.backend == "kupl" and numa_count is not None and \
+        if args.backend == "kupl" and args.kupl_numa_bind == "library":
+            args.bind_to = "none"
+        elif args.backend == "kupl" and numa_count is not None and \
                 args.ranks <= numa_count:
             args.bind_to = "numa"
         else:
             args.bind_to = "none"
             args.binding_fallback = args.backend == "kupl"
     if args.map_by is None:
-        args.map_by = ("ppr:1:numa"
-                       if args.backend == "kupl" and args.bind_to == "numa"
-                       else None)
+        if args.backend == "kupl" and args.bind_to == "numa":
+            args.map_by = "ppr:1:numa"
+        elif args.backend == "kupl" and args.kupl_numa_bind == "library":
+            args.map_by = "ppr:1:numa"
+        else:
+            args.map_by = None
     if (args.backend == "kupl" and args.bind_to == "numa" and
             args.map_by and "pe=" in args.map_by):
         parser.error(
             "OpenMPI rejects --bind-to numa with map-by pe=N; use "
             "--bind-to core for pe=N, or --map-by ppr:1:numa with NUMA binding")
+    map_ppr = re.fullmatch(
+        r"ppr:(\d+):(?:numa|node)(?::.*)?", args.map_by or "")
+    if (args.backend == "kupl" and args.bind_to == "numa" and map_ppr and
+            int(map_ppr.group(1)) > 1):
+        parser.error(
+            "multiple ranks per NUMA with --bind-to numa overlap cpusets; "
+            "use --kupl-numa-bind library --bind-to none or an explicit rankfile")
+    if (args.backend == "kupl" and args.bind_to == "numa" and
+            numa_count is not None and args.ranks > numa_count):
+        parser.error(
+            "more MPI ranks than local NUMA domains cannot all use "
+            "--bind-to numa; use --kupl-numa-bind library --bind-to none")
     if args.allow_run_as_root is None:
         args.allow_run_as_root = hasattr(os, "geteuid") and os.geteuid() == 0
     return args
@@ -417,10 +495,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         ) if args.work_dir else (
             DATA_DIR / "mpi_simple" / _case_tag(
                 input_path, args.lat, mass, csw, args.seed, args.dtype))
-        output = Path(args.output).expanduser() if args.output else \
-            work_dir / "solution_mpi_c64.h5"
-        report = Path(args.report).expanduser() if args.report else \
-            work_dir / "report_mpi.json"
+        output_default = work_dir / f"solution_mpi_{args.dtype}.h5"
+        report_default = work_dir / "report_mpi.json"
+        output = resolve_path(args.output, output_default) if args.output else \
+            output_default
+        report = resolve_path(args.report, report_default) if args.report else \
+            report_default
         placeholder_case = {"work_dir": str(work_dir)}
         cache = (
             resolve_path(args.coarse_cache, Path(args.coarse_cache).expanduser())
@@ -428,8 +508,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             _coarse_cache_path(args, placeholder_case)
             if args.levels > 1 and args.restart else None)
         placeholder = {
-            "gauge_path": str(work_dir / "gauge_global_c64.h5"),
-            "source_path": str(work_dir / "source_global_c64.h5"),
+            "gauge_path": str(work_dir / f"gauge_global_{args.dtype}.h5"),
+            "source_path": str(work_dir / f"source_global_{args.dtype}.h5"),
             "mass": mass,
             "csw": csw,
         }
@@ -440,6 +520,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             map_by=args.map_by, oversubscribe=args.oversubscribe,
             allow_run_as_root=args.allow_run_as_root,
             worker_arguments=worker)
+        launch_environment = _launch_environment(args) \
+            if args.backend == "kupl" else {}
         print(json.dumps({
             "status": "DRY-RUN", "backend": args.backend,
             "lime": str(input_path), "lattice": args.lat, "grid": args.grid,
@@ -449,6 +531,16 @@ def main(argv: Sequence[str] | None = None) -> int:
             "trace_enabled": False,
             "quda_enable_tuning": "0",
             "command": command,
+            "environment": {
+                key: launch_environment.get(key) for key in (
+                    "KUPL_OMP_THREADS", "OMP_NUM_THREADS", "OMP_DYNAMIC",
+                    "KUPL_NUMA_BIND", "KUPL_MEMORY_POLICY", "KUPL_MEMORY_NODE",
+                    "KUPL_REQUIRE_MEMORY_BIND", "KUPL_HUGEPAGE",
+                    "KUPL_TOPOLOGY_REPORT", "KUPL_CPU_NODE",
+                    "KUPL_ALLOW_OVERSUBSCRIBE", "KUPL_FUSED_BICG_DOTS",
+                    "KUPL_DISABLE_CLOVER_CACHE",
+                    "PYQCU_KUPL_PROFILE")
+            } if args.backend == "kupl" else {},
         }, indent=2, ensure_ascii=False))
         return 0
 

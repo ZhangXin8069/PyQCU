@@ -240,6 +240,29 @@ def make_params(lattice: tuple[int, int, int, int], mass: float,
     return params, argv, np.zeros(SET_PTRS_SIZE, dtype=np.int64)
 
 
+def prebind_kupl_inputs(qcu: Any, lattice: tuple[int, int, int, int],
+                        mass: float, atol: float, csw: float,
+                        dtype: np.dtype, max_iter: int,
+                        grid: tuple[int, int, int, int], rank: int,
+                        size: int) -> None:
+    """Establish process placement before the caller first-touches inputs."""
+    params, argv, set_ptrs = make_params(
+        lattice, mass, atol, csw, dtype, max_iter, grid=grid, rank=rank,
+        size=size)
+    params_tensor = NumpyTensor(params)
+    argv_tensor = NumpyTensor(argv)
+    set_ptrs_tensor = NumpyTensor(set_ptrs)
+    qcu.applyInitQcu(set_ptrs_tensor, params_tensor, argv_tensor)
+    try:
+        return
+    finally:
+        try:
+            qcu.applyEndQcu(set_ptrs_tensor, params_tensor)
+        finally:
+            set_ptrs[params[SET_INDEX]] = 0
+            params[SET_INDEX] += 1
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--lat", nargs=4, type=int, default=(8, 8, 16, 16))

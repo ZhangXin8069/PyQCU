@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import math
+import os
 import sys
 from pathlib import Path
 
@@ -25,6 +26,11 @@ def main() -> int:
     parser.add_argument("--solve", action="store_true")
     parser.add_argument("--precision", choices=("c64", "c128"), default="c64")
     args = parser.parse_args()
+    if args.threads <= 0:
+        parser.error("--threads must be positive")
+    os.environ["KUPL_OMP_THREADS"] = str(args.threads)
+    os.environ["OMP_NUM_THREADS"] = str(args.threads)
+    os.environ["OMP_DYNAMIC"] = "FALSE"
     comm = MPI.COMM_WORLD
     if int(np.prod(args.grid)) != comm.size:
         raise RuntimeError("grid product must equal MPI size")

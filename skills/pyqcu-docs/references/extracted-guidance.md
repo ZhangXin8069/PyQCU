@@ -25,7 +25,7 @@ python -m pytest -q pyqcu/testing/kupl
 KUPL 动态库不在默认构建目录时设置 `PYQCU_KUPL_LIB=/absolute/path/libqcu.so`。
 `env.sh` 始终设置 `LD_LIBRARY_PATH` 和 `PYTHONPATH`，仅当仓库内 QUDA 库存在时
 设置 `QUDA_PATH`；`QUDA_INSTALL` 可显式覆盖安装树。库架构和 ABI 必须与当前设备
-及 PyQUDA 扩展一致。来源：`docs/env.md:1-22`、`docs/install.md:1-50`。
+及 PyQUDA 扩展一致。来源：`docs/env.md`、`docs/install.md`。
 
 规范数据轴为 `s=spin`、`c=color`、`d=direction`、`p=parity`，时空维固定为最后
 四轴 `x,y,z,t`。核心布局：
@@ -47,7 +47,7 @@ clover_term_eo = [p,s,c,s,c,x,y,z,t]
 ## 2. 测试与示例入口
 
 旧顶层 `examples/` 已删除，现行路径统一为 `pyqcu/testing/**`；历史文档中的
-`examples/...` 只按迁移规则理解。来源：`docs/examples.md:1-30`。
+`examples/...` 只按迁移规则理解。来源：`docs/examples.md`。
 
 ```bash
 source ./env.sh
@@ -319,6 +319,7 @@ mpirun -np 1 python -u conftest.py
 | `docs/env.md` | Python ≥ 3.10，`PYTHONPATH` 包含仓库根；环境入口为 `env.sh`。 | `pyqcu-tools`, `pyqcu-testing` |
 | `docs/install.md` | CUDA 走 `build.sh`/`install.sh`；KUPL 独立 CMake/CTest；QUDA/PyQUDA 必须匹配当前架构与 ABI。 | `pyqcu-cuda`, `pyqcu-kupl`, `pyqcu-testing-pyquda` |
 | `docs/examples.md` | 顶层 `examples/` 已删除，现行测试/示例入口统一为 `pyqcu/testing/**`；conftest 是手动选择入口。 | `pyqcu-testing` |
+| `docs/kupl_kunpeng_guide.md` | KUPL 保底为通用 C++17/MPI/OpenMP；鲲鹏优先由调度器/HMPI 在 Python 分配前绑定，库内 NUMA/片上内存策略是回退；性能证据必须记录实际 cpuset、策略和独立真残差。 | `pyqcu-kupl`, `pyqcu-testing-cpu`, `pyqcu-benchmark` |
 | `docs/profiler.md` | 使用 `torch.profiler` 生成 Chrome trace，再用 Perfetto 分析；继续遵守一进程一 rank 一设备。 | `pyqcu-testing-profiler` |
 | `docs/cuda_execution_topology.md` | 生产拓扑固定为一 Python 进程 = 一 MPI rank = 一设备；`MultiGpuMultigrid` 仅测试专用。 | `pyqcu-cuda`, `pyqcu-benchmark` |
 | `docs/torch_backend_layout.md` | Torch/CANN 实现统一位于 `pyqcu/torch/**`；顶层旧导入保留兼容门面，`pyqcu.solver.multigrid` 是三后端公共选择器的例外。 | `pyqcu-solver`, `pyqcu-dslash`, `pyqcu-smear`, `pyqcu-tools` |

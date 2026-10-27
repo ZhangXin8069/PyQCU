@@ -28,3 +28,6 @@ pytest pyqcu/testing/quda
 
 历史归档保留各自 README/AGENTS 与运行入口，但命令前缀统一改为
 `pyqcu/testing/qcu/...`。
+
+KUPL 鲲鹏运行时规划、MPI 绑定和专项测试入口见
+[`kupl_kunpeng_guide.md`](kupl_kunpeng_guide.md)。

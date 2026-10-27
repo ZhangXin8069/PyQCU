@@ -223,6 +223,38 @@ def test_kupl_python_dslash_matches_qcu_semantics() -> None:
 
 
 @pytest.mark.skipif(define.size != 1, reason="Python binding smoke uses one MPI rank")
+def test_kupl_disable_cache_refreshes_mutated_gauge(monkeypatch) -> None:
+    qcu = _kupl_qcu()
+    monkeypatch.setenv("KUPL_DISABLE_CLOVER_CACHE", "1")
+    lattice_shape = (4, 4, 4, 4)
+    full_gauge = torch.empty((3, 3, 4, *lattice_shape), dtype=torch.complex64)
+    lattice.generate_gauge_field(full_gauge, sigma=0.15, seed=31, verbose=False)
+    gauge = tools.oooxyzt2poooxyzt(full_gauge).contiguous()
+    compact = (*lattice_shape[:3], lattice_shape[3] // 2)
+    generator = torch.Generator().manual_seed(32)
+    source = torch.complex(
+        torch.randn((4, 3, *compact), generator=generator),
+        torch.randn((4, 3, *compact), generator=generator))
+    runtime = QcuRuntime.from_lattice(
+        lattice_shape, mass=0.17, csw=0.8, device="cpu", plan=2,
+        grid=(1, 1, 1, 1), qcu_module=qcu)
+    first = torch.empty_like(source)
+    second = torch.empty_like(source)
+    qcu.applyInitQcu(runtime.set_ptrs, runtime.params, runtime.argv)
+    try:
+        qcu.applyCloverDslashQcu(
+            first, source, gauge, runtime.set_ptrs, runtime.params)
+        gauge[0, 0, 0, 0].mul_(0.5)
+        qcu.applyCloverDslashQcu(
+            second, source, gauge, runtime.set_ptrs, runtime.params)
+    finally:
+        qcu.applyEndQcu(runtime.set_ptrs, runtime.params)
+    expected = qcu_clover_dslash_reference(
+        source, gauge, mass=0.17, parity=0, csw=0.8)
+    assert torch.allclose(second, expected, rtol=5.0e-4, atol=5.0e-5)
+
+
+@pytest.mark.skipif(define.size != 1, reason="Python binding smoke uses one MPI rank")
 def test_kupl_python_clover_bistabcg_residual() -> None:
     qcu = _kupl_qcu()
     lattice_shape = (4, 4, 4, 4)

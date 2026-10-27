@@ -26,7 +26,8 @@ try:
     from .kupl_bistabcg import (NumpyTensor, PLAN_CLOVER, PLAN_SOLVER,
                                 PARITY, SET_PLAN, cpu_memory_snapshot,
                                 kupl_backend, load_gauge, load_source,
-                                make_params, relative_full_residual)
+                                make_params, prebind_kupl_inputs,
+                                relative_full_residual)
     from .kupl_residual import (distributed_relative_residual,
                                 gather_solution)
 except ImportError:
@@ -37,7 +38,8 @@ except ImportError:
     from kupl_bistabcg import (NumpyTensor, PLAN_CLOVER, PLAN_SOLVER,
                                PARITY, SET_PLAN, cpu_memory_snapshot,
                                kupl_backend, load_gauge, load_source,
-                               make_params, relative_full_residual)
+                               make_params, prebind_kupl_inputs,
+                               relative_full_residual)
     from kupl_residual import (distributed_relative_residual,
                                gather_solution)
 
@@ -54,6 +56,12 @@ MG_USE_DEFLATE = 55
 SET_PTRS_COARSE_BASE = 30
 ARGV_MG_LEVEL_BASE = 3
 DATA_TYPE = 14
+
+
+def _environment_enabled(name: str) -> bool:
+    value = os.environ.get(name)
+    return value is not None and value != "" and value.lower() not in {
+        "0", "false", "no", "off"}
 
 
 def configure_mg(params: np.ndarray, argv: np.ndarray, set_ptrs: np.ndarray,
@@ -325,6 +333,15 @@ def main(argv=None) -> int:
     if size > 1 and args.write_coarse_cache is not None:
         parser.error("multi-rank coarse-cache export is not implemented")
     dtype = np.dtype(np.complex64 if args.dtype == "c64" else np.complex128)
+    input_prebind_seconds = 0.0
+    if _environment_enabled("KUPL_NUMA_BIND"):
+        started = time.perf_counter()
+        prebind_kupl_inputs(
+            qcu, local_lattice,
+            float(args.mass if args.mass is not None else DEFAULT_MASS),
+            args.atol, float(args.csw if args.csw is not None else 1.0), dtype,
+            args.max_iter, grid, rank, size)
+        input_prebind_seconds = time.perf_counter() - started
     gauge_full, metadata = load_gauge(args.gauge, lattice, dtype)
     gauge_local = _slice_last4(gauge_full, local_starts, local_lattice)
     gauge = qcu_gauge_to_kupl(gauge_local)
@@ -494,6 +511,7 @@ def main(argv=None) -> int:
         "restart": args.restart, "coarse_max_iter": args.coarse_max_iter,
         "coarse_tol_factor": args.coarse_tol_factor,
         "deflate": not args.no_deflate, "builder_seconds": builder_seconds,
+        "input_prebind_seconds": input_prebind_seconds,
         "coarse_source": coarse_source,
         "wall_seconds": wall_seconds, "iterations": iterations,
         "residual_seconds": residual_seconds,

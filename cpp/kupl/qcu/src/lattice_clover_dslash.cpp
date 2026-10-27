@@ -6,6 +6,8 @@
 #include <atomic>
 #include <cmath>
 #include <complex>
+#include <cstdlib>
+#include <cstring>
 #include <limits>
 #include <stdexcept>
 #include <string>
@@ -13,6 +15,14 @@
 #include <vector>
 
 namespace kupl::qcu {
+namespace {
+
+bool gauge_cache_disabled() {
+  const char *value = std::getenv("KUPL_DISABLE_CLOVER_CACHE");
+  return value != nullptr && value[0] != '\0' && std::strcmp(value, "0") != 0;
+}
+
+} // namespace
 
 template <typename Real>
 void LatticeSet<Real>::pack_gauge_face(int dim, int boundary,
@@ -83,7 +93,8 @@ void LatticeSet<Real>::ensure_gauge_halo(const Complex<Real> *gauge) {
   if (gauge == nullptr) {
     throw std::runtime_error("null gauge pointer");
   }
-  if (gauge_halo_.ready && gauge_halo_.source == gauge) {
+  if (!gauge_cache_disabled() && gauge_halo_.ready &&
+      gauge_halo_.source == gauge) {
     return;
   }
   gauge_halo_.source = gauge;
@@ -408,65 +419,81 @@ void LatticeSet<Real>::compute_clover(Complex<Real> *output, int parity) {
     }
   }
   const int64_t count = geometry_.half_sites;
-  const int64_t chunk = omp_chunk<Real>(count);
-#pragma omp parallel for schedule(static, chunk)
-  for (int64_t linear = 0; linear < count; ++linear) {
-    int x = 0;
-    int y = 0;
-    int z = 0;
-    int t2 = 0;
-    geometry_.decode_half(linear, x, y, z, t2);
-    C matrix[kOnsite];
-    std::fill(std::begin(matrix), std::end(matrix), C(0));
-    for (int component = 0; component < kVector; ++component) {
-      matrix[component * kVector + component] = C(1);
+  constexpr int kSiteLanes = 64 / sizeof(Real);
+  const int64_t blocks = (count + kSiteLanes - 1) / kSiteLanes;
+#pragma omp parallel for schedule(static)
+  for (int64_t block = 0; block < blocks; ++block) {
+    const int64_t site = block * kSiteLanes;
+    const int lanes = static_cast<int>(
+        std::min<int64_t>(kSiteLanes, count - site));
+    C matrix[kOnsite][kSiteLanes];
+    for (int component = 0; component < kOnsite; ++component) {
+      for (int lane = 0; lane < lanes; ++lane) {
+        matrix[component][lane] = C(0);
+      }
     }
-    int plane = 0;
-    for (int mu = 0; mu < kDim; ++mu) {
-      for (int nu = mu + 1; nu < kDim; ++nu) {
-        C plaquette[9];
-        compute_plaquette_sum(x, y, z, t2, mu, nu, parity, plaquette);
-        C anti_hermitian[9];
-        for (int row = 0; row < kColor; ++row) {
-          anti_hermitian[row * kColor + row] =
-              C(0, Real(2) * plaquette[row * kColor + row].imag());
-        }
-        for (int row = 0; row < kColor; ++row) {
-          for (int column = row + 1; column < kColor; ++column) {
-            const C upper =
-                plaquette[row * kColor + column] -
-                std::conj(plaquette[column * kColor + row]);
-            anti_hermitian[row * kColor + column] = upper;
-            anti_hermitian[column * kColor + row] = -std::conj(upper);
+    for (int component = 0; component < kVector; ++component) {
+      for (int lane = 0; lane < lanes; ++lane) {
+        matrix[component * kVector + component][lane] = C(1);
+      }
+    }
+    for (int lane = 0; lane < lanes; ++lane) {
+      int x = 0;
+      int y = 0;
+      int z = 0;
+      int t2 = 0;
+      geometry_.decode_half(site + lane, x, y, z, t2);
+      int plane = 0;
+      for (int mu = 0; mu < kDim; ++mu) {
+        for (int nu = mu + 1; nu < kDim; ++nu) {
+          C plaquette[9];
+          compute_plaquette_sum(x, y, z, t2, mu, nu, parity, plaquette);
+          C anti_hermitian[9];
+          for (int row = 0; row < kColor; ++row) {
+            anti_hermitian[row * kColor + row] =
+                C(0, Real(2) * plaquette[row * kColor + row].imag());
           }
-        }
-        for (int spin_out = 0; spin_out < kSpin; ++spin_out) {
-          for (int color_out = 0; color_out < kColor; ++color_out) {
-            const int row = spin_out * kColor + color_out;
-            for (int spin_in = 0; spin_in < kSpin; ++spin_in) {
-              const C spin_factor =
-                  sigma[plane][spin_out * kSpin + spin_in];
-              if (std::abs(spin_factor) == Real(0)) {
-                continue;
-              }
-              for (int color_in = 0; color_in < kColor; ++color_in) {
-                const int column = spin_in * kColor + color_in;
-                const C product = multiply_complex(
-                    spin_factor,
-                    anti_hermitian[color_out * kColor + color_in]);
-                matrix[row * kVector + column] +=
-                    C(coefficient * product.real(),
-                      coefficient * product.imag());
+          for (int row = 0; row < kColor; ++row) {
+            for (int column = row + 1; column < kColor; ++column) {
+              const C upper =
+                  plaquette[row * kColor + column] -
+                  std::conj(plaquette[column * kColor + row]);
+              anti_hermitian[row * kColor + column] = upper;
+              anti_hermitian[column * kColor + row] = -std::conj(upper);
+            }
+          }
+          for (int spin_out = 0; spin_out < kSpin; ++spin_out) {
+            for (int color_out = 0; color_out < kColor; ++color_out) {
+              const int row = spin_out * kColor + color_out;
+              for (int spin_in = 0; spin_in < kSpin; ++spin_in) {
+                const C spin_factor =
+                    sigma[plane][spin_out * kSpin + spin_in];
+                if (std::abs(spin_factor) == Real(0)) {
+                  continue;
+                }
+                for (int color_in = 0; color_in < kColor; ++color_in) {
+                  const int column = spin_in * kColor + color_in;
+                  const C product = multiply_complex(
+                      spin_factor,
+                      anti_hermitian[color_out * kColor + color_in]);
+                  matrix[row * kVector + column][lane] +=
+                      C(coefficient * product.real(),
+                        coefficient * product.imag());
+                }
               }
             }
           }
+          ++plane;
         }
-        ++plane;
       }
     }
     for (int component = 0; component < kOnsite; ++component) {
-      output[static_cast<int64_t>(component) * geometry_.half_sites +
-             linear] = matrix[component];
+      const int64_t base =
+          static_cast<int64_t>(component) * geometry_.half_sites + site;
+#pragma omp simd
+      for (int lane = 0; lane < lanes; ++lane) {
+        output[base + lane] = matrix[component][lane];
+      }
     }
   }
 }
@@ -476,119 +503,143 @@ void LatticeSet<Real>::invert_clover(const Complex<Real> *term,
                                      Complex<Real> *inverse) {
   using C = Complex<Real>;
   const int64_t count = geometry_.half_sites;
-  const int64_t chunk = omp_chunk<Real>(count);
   constexpr int kBlock = 6;
   constexpr int kSpinGroups[2][2] = {{0, 1}, {2, 3}};
+  constexpr int kSiteLanes = 64 / sizeof(Real);
+  const int64_t blocks = (count + kSiteLanes - 1) / kSiteLanes;
   std::atomic<bool> singular{false};
   std::atomic<int64_t> singular_site{-1};
-#pragma omp parallel for schedule(static, chunk)
-  for (int64_t site = 0; site < count; ++site) {
-    const Real tolerance = std::numeric_limits<Real>::epsilon() * Real(256);
-    bool site_singular = false;
-    for (int group = 0; group < 2 && !site_singular; ++group) {
-      C augmented[kBlock][2 * kBlock];
-      for (int local_row = 0; local_row < kBlock; ++local_row) {
-        const int row = kSpinGroups[group][local_row / kColor] * kColor +
-                        local_row % kColor;
-        for (int column = 0; column < 2 * kBlock; ++column) {
-          augmented[local_row][column] = C(0);
-        }
-        for (int local_column = 0; local_column < kBlock; ++local_column) {
-          const int column =
-              kSpinGroups[group][local_column / kColor] * kColor +
-              local_column % kColor;
-          augmented[local_row][local_column] =
-              term[static_cast<int64_t>(row * kVector + column) *
-                       geometry_.half_sites +
-                   site];
-        }
-        augmented[local_row][kBlock + local_row] = C(1);
+#pragma omp parallel for schedule(static)
+  for (int64_t block = 0; block < blocks; ++block) {
+    const int64_t site_base = block * kSiteLanes;
+    const int lanes = static_cast<int>(
+        std::min<int64_t>(kSiteLanes, count - site_base));
+    C term_tile[kOnsite][kSiteLanes];
+    C inverse_tile[kOnsite][kSiteLanes];
+    for (int component = 0; component < kOnsite; ++component) {
+      const int64_t base =
+          static_cast<int64_t>(component) * geometry_.half_sites + site_base;
+#pragma omp simd
+      for (int lane = 0; lane < lanes; ++lane) {
+        term_tile[component][lane] = term[base + lane];
+        inverse_tile[component][lane] = C(0);
       }
+    }
 
-      for (int column = 0; column < kBlock; ++column) {
-        int pivot = column;
-        Real pivot_norm = std::norm(augmented[pivot][column]);
-        for (int row = column + 1; row < kBlock; ++row) {
-          const Real candidate = std::norm(augmented[row][column]);
-          if (candidate > pivot_norm) {
-            pivot = row;
-            pivot_norm = candidate;
-          }
-        }
-        if (std::sqrt(pivot_norm) <= tolerance) {
-          site_singular = true;
-          singular.store(true, std::memory_order_relaxed);
-          int64_t expected = -1;
-          singular_site.compare_exchange_strong(
-              expected, site, std::memory_order_relaxed);
-          break;
-        }
-        if (pivot != column) {
-          for (int entry = 0; entry < 2 * kBlock; ++entry) {
-            std::swap(augmented[pivot][entry], augmented[column][entry]);
-          }
-        }
-        const C diagonal = augmented[column][column];
-        const Real denominator = std::norm(diagonal);
-        const C inverse_diagonal(
-            diagonal.real() / denominator, -diagonal.imag() / denominator);
-        for (int entry = 0; entry < 2 * kBlock; ++entry) {
-          augmented[column][entry] = multiply_complex(
-              augmented[column][entry], inverse_diagonal);
-        }
-        for (int row = 0; row < kBlock; ++row) {
-          if (row == column) {
-            continue;
-          }
-          const C factor = augmented[row][column];
-          if (factor.real() == Real(0) && factor.imag() == Real(0)) {
-            continue;
-          }
-          for (int entry = column; entry < 2 * kBlock; ++entry) {
-            augmented[row][entry] -=
-                multiply_complex(factor, augmented[column][entry]);
-          }
-        }
-      }
-
-      if (!site_singular) {
+    for (int lane = 0; lane < lanes; ++lane) {
+      const int64_t site = site_base + lane;
+      const Real tolerance =
+          std::numeric_limits<Real>::epsilon() * Real(256);
+      bool site_singular = false;
+      for (int group = 0; group < 2 && !site_singular; ++group) {
+        C augmented[kBlock][2 * kBlock];
         for (int local_row = 0; local_row < kBlock; ++local_row) {
           const int row = kSpinGroups[group][local_row / kColor] * kColor +
                           local_row % kColor;
+          for (int column = 0; column < 2 * kBlock; ++column) {
+            augmented[local_row][column] = C(0);
+          }
           for (int local_column = 0; local_column < kBlock; ++local_column) {
             const int column =
                 kSpinGroups[group][local_column / kColor] * kColor +
                 local_column % kColor;
-            inverse[static_cast<int64_t>(row * kVector + column) *
-                        geometry_.half_sites +
-                    site] = augmented[local_row][kBlock + local_column];
+            augmented[local_row][local_column] =
+                term_tile[row * kVector + column][lane];
+          }
+          augmented[local_row][kBlock + local_row] = C(1);
+        }
+
+        for (int column = 0; column < kBlock; ++column) {
+          int pivot = column;
+          Real pivot_norm = std::norm(augmented[pivot][column]);
+          for (int row = column + 1; row < kBlock; ++row) {
+            const Real candidate = std::norm(augmented[row][column]);
+            if (candidate > pivot_norm) {
+              pivot = row;
+              pivot_norm = candidate;
+            }
+          }
+          if (std::sqrt(pivot_norm) <= tolerance) {
+            site_singular = true;
+            singular.store(true, std::memory_order_relaxed);
+            int64_t expected = -1;
+            singular_site.compare_exchange_strong(
+                expected, site, std::memory_order_relaxed);
+            break;
+          }
+          if (pivot != column) {
+            for (int entry = 0; entry < 2 * kBlock; ++entry) {
+              std::swap(augmented[pivot][entry], augmented[column][entry]);
+            }
+          }
+          const C diagonal = augmented[column][column];
+          const Real denominator = std::norm(diagonal);
+          const C inverse_diagonal(
+              diagonal.real() / denominator, -diagonal.imag() / denominator);
+          for (int entry = 0; entry < 2 * kBlock; ++entry) {
+            augmented[column][entry] = multiply_complex(
+                augmented[column][entry], inverse_diagonal);
+          }
+          for (int row = 0; row < kBlock; ++row) {
+            if (row == column) {
+              continue;
+            }
+            const C factor = augmented[row][column];
+            if (factor.real() == Real(0) && factor.imag() == Real(0)) {
+              continue;
+            }
+            for (int entry = column; entry < 2 * kBlock; ++entry) {
+              augmented[row][entry] -=
+                  multiply_complex(factor, augmented[column][entry]);
+            }
+          }
+        }
+
+        if (!site_singular) {
+          for (int local_row = 0; local_row < kBlock; ++local_row) {
+            const int row = kSpinGroups[group][local_row / kColor] * kColor +
+                            local_row % kColor;
+            for (int local_column = 0; local_column < kBlock; ++local_column) {
+              const int column =
+                  kSpinGroups[group][local_column / kColor] * kColor +
+                  local_column % kColor;
+              inverse_tile[row * kVector + column][lane] =
+                  augmented[local_row][kBlock + local_column];
+            }
+          }
+        }
+      }
+      if (site_singular) {
+        continue;
+      }
+
+      // Preserve the flat ABI by explicitly zeroing the other two 6x6 blocks.
+      for (int row_group = 0; row_group < 2; ++row_group) {
+        for (int column_group = 0; column_group < 2; ++column_group) {
+          if (row_group == column_group) {
+            continue;
+          }
+          for (int local_row = 0; local_row < kBlock; ++local_row) {
+            const int row = kSpinGroups[row_group][local_row / kColor] *
+                                kColor +
+                            local_row % kColor;
+            for (int local_column = 0; local_column < kBlock; ++local_column) {
+              const int column =
+                  kSpinGroups[column_group][local_column / kColor] * kColor +
+                  local_column % kColor;
+              inverse_tile[row * kVector + column][lane] = C(0);
+            }
           }
         }
       }
     }
-    if (site_singular) {
-      continue;
-    }
 
-    // Preserve the flat ABI by explicitly zeroing the other two 6x6 blocks.
-    for (int row_group = 0; row_group < 2; ++row_group) {
-      for (int column_group = 0; column_group < 2; ++column_group) {
-        if (row_group == column_group) {
-          continue;
-        }
-        for (int local_row = 0; local_row < kBlock; ++local_row) {
-          const int row = kSpinGroups[row_group][local_row / kColor] *
-                              kColor +
-                          local_row % kColor;
-          for (int local_column = 0; local_column < kBlock; ++local_column) {
-            const int column =
-                kSpinGroups[column_group][local_column / kColor] * kColor +
-                local_column % kColor;
-            inverse[static_cast<int64_t>(row * kVector + column) *
-                        geometry_.half_sites +
-                    site] = C(0);
-          }
-        }
+    for (int component = 0; component < kOnsite; ++component) {
+      const int64_t base =
+          static_cast<int64_t>(component) * geometry_.half_sites + site_base;
+#pragma omp simd
+      for (int lane = 0; lane < lanes; ++lane) {
+        inverse[base + lane] = inverse_tile[component][lane];
       }
     }
   }
@@ -605,17 +656,26 @@ void LatticeSet<Real>::invert_clover(const Complex<Real> *term,
 
 template <typename Real>
 void LatticeSet<Real>::ensure_cached_clover(const Complex<Real> *gauge) {
-  if (cached_gauge_ == gauge) {
+  const int parity = target_parity();
+  const std::size_t index = static_cast<std::size_t>(parity);
+  if (!gauge_cache_disabled() && cached_gauge_[index] == gauge) {
     return;
   }
   ensure_gauge_halo(gauge);
-  for (int parity = 0; parity < 2; ++parity) {
-    auto &term = cached_clover_[static_cast<std::size_t>(parity)];
-    auto &inverse = cached_clover_inv_[static_cast<std::size_t>(parity)];
-    compute_clover(term.data(), parity);
-    invert_clover(term.data(), inverse.data());
+  const std::size_t onsite_size =
+      static_cast<std::size_t>(geometry_.half_sites * kOnsite);
+  auto &inverse = cached_clover_inv_[index];
+  if (inverse.empty()) {
+    inverse.resize(onsite_size);
+    advise_large_pages(inverse.data(),
+                       inverse.size() * sizeof(Complex<Real>));
   }
-  cached_gauge_ = gauge;
+  // The term is only an intermediate for the inverse cache.  The inversion
+  // visits each 6x6 spin block independently before writing the next one, so
+  // using the inverse buffer as both input and output avoids one full field.
+  compute_clover(inverse.data(), parity);
+  invert_clover(inverse.data(), inverse.data());
+  cached_gauge_[index] = gauge;
 }
 
 template class LatticeSet<float>;

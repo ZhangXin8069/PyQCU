@@ -32,6 +32,11 @@ metadata:
 | `pyqcu/testing/kupl/test_dslash_block_mpi.py` | block dslash/Schur/adjoint 的 2-rank 直接全局参考门 |
 | `pyqcu/testing/kupl/test_strict.py` | strict coarse/fine MATPC、R-P、持久 V-cycle、FGMRES，1/2/4-rank 与 c64/c128 |
 | `pyqcu/testing/kupl/test_legacy_mg.py` | 1/2/4-rank 递归 Clover-MG、deflate 开关、warm/cold 路径与 verify |
+| `pyqcu/testing/kupl/kunpeng_runtime.py` | 实际 affinity/sysfs NUMA 探测与 HMPI/OpenMPI、CPU/内存绑定规划 |
+| `pyqcu/testing/kupl/test_kunpeng_runtime.py` | 合成双 NUMA、片上内存 offset、线程容量与 CLI JSON 契约 |
+| `pyqcu/testing/kupl/test_kunpeng_mpi_binding.py` | 双 rank 实际 cpuset 非空/不重叠门；硬件不足返回 skip 77 |
+| `pyqcu/testing/kupl/test_kunpeng_profile_contract.py` | 非鲲鹏主机拒绝鲲鹏 profile，rank 间 profile 不一致快速失败 |
+| `pyqcu/testing/kupl/benchmark_runtime.py` | 分离 init、首次 Clover 与 RSS 的库级初始化 A/B |
 | `cpp/kupl/qcu/tests/test_failure_modes.py` | 非收敛与 fail-closed 入口的显式失败门 |
 | `cpp/kupl/qcu/tests/benchmark_kupl.cpp` | Wilson/Clover Dslash 吞吐与 rank affinity 证据 |
 | `pyqcu/testing/kupl/check_abi.py` | KUPL/CUDA C 声明与动态库 37 项导出符号一致性门 |
@@ -69,14 +74,31 @@ metadata:
 - MPI 负责四维 rank 分解与 face/corner halo；rank 内只使用 OpenMP。
 - `KUPL_OMP_THREADS` 显式指定正数时精确采用，不再向 2 的幂取整；未指定时
   将 OpenMP 最大值裁剪到进程初始 CPU affinity 大小。
-- `KUPL_NUMA_BIND=1` 由库分配连续 CPU 子集；此时 OpenMPI 必须使用
-  `--bind-to none` 且不得设置 `OMP_PROC_BIND`，否则运行时会在库绑定前压缩
-  可见 cpuset。
+- `KUPL_NUMA_BIND=1` 按 sysfs cpulist 分配完整 NUMA-local CPU 子集，并尝试
+  `KUPL_MEMORY_POLICY=preferred|bind`；此时 MPI 必须使用 `--bind-to none` 且
+  不得设置 `OMP_PROC_BIND`/`OMP_PLACES`/`GOMP_CPU_AFFINITY`/`KMP_AFFINITY`，
+  否则运行时会在库绑定前压缩可见 cpuset。库会绑定实际 OpenMP team 的每个线程。
+- `KUPL_MEMORY_NODE=local+N` 用于独立编号的片上内存 node；
+  `KUPL_REQUIRE_MEMORY_BIND=1` 把 `set_mempolicy` 失败改为 fatal，
+  `KUPL_TOPOLOGY_REPORT=1` 输出每 rank 的最终 cpuset/node/thread 证据。
+- `PYQCU_KUPL_PROFILE=kunpeng|kunpeng-2numa` 会校验 Linux ARM64 与
+  Kunpeng/HiSilicon CPU 标识；profile/topology/oversubscribe 开关在 rank 间必须
+  一致，不一致必须在任何提前返回之前由集合归约统一失败。
+- HMPI 首选调度器 `--map-by numa --bind-to numa`。HMPI 在 `--bind-to none`
+  下可能让部分拓扑集合算法回退，因此库内绑定只作无调度器回退。
+- 默认不设置 `OMP_PROC_BIND=close/spread`；只在稳定独占 cpuset 上做同题 A/B。
+  短 OpenMP 并行区的历史回退证据禁止把该设置写成通用默认。
+- `KUPL_FUSED_BICG_DOTS=0` 可回退 BiCGStab `(t,t)`/`(t,s)` 成对归约；
+  `KUPL_HUGEPAGE=1` 只对大型内部 scratch 发 `MADV_HUGEPAGE` advice。
+- Clover cache 默认要求 gauge 内容在 set 生命周期内不可变。原地改写同一地址时
+  必须 `KUPL_DISABLE_CLOVER_CACHE=1`，强制刷新 gauge halo 和目标 parity inverse。
 - 调度器已提供 NUMA-local cpuset 时保持 `KUPL_NUMA_BIND=0`，只设置
   `KUPL_OMP_THREADS`/`OMP_NUM_THREADS`。
 - 同节点多 rank 应在 Python/NumPy 输入分配前完成 MPI 或调度器绑定；库内
   `KUPL_NUMA_BIND=1` 发生在 `applyInitQcu`，不能迁移调用方已前触到错误 NUMA
-  节点的页。OpenMPI 可用 `--bind-to numa --map-by ppr:1:numa`。
+  节点的页。仓库 LIME benchmark/MG driver 会先执行一次私有 prebind lifecycle；
+  自定义调用方仍须自行保证顺序。OpenMPI 可用
+  `--bind-to numa --map-by ppr:1:numa`。
 - 全局点积/范数使用 `MPI_Allreduce`，所有 rank 必须走对称集合操作。
 - 大 local-volume dslash 默认启用跨 site SIMD 内点/周期面内核；local
   `half_sites < 65536` 自动回退 scalar。`KUPL_DISABLE_BLOCK_DSLASH=1`
@@ -98,6 +120,10 @@ cmake --build cpp/kupl/qcu/build -j
 ctest --test-dir cpp/kupl/qcu/build --output-on-failure
 python -m pytest -q pyqcu/testing/kupl/test_kupl_python.py
 ```
+
+目标节点性能构建使用 `-DKUPL_ENABLE_LTO=ON`；跨型号部署使用
+`-DKUPL_ENABLE_NATIVE=OFF`。完整鲲鹏 HMPI、NUMA、大页、测试和证据模板见
+[`docs/kupl_kunpeng_guide.md`](../../docs/kupl_kunpeng_guide.md)。
 
 UBSAN 全 MPI 回归建议使用单 OpenMP 线程：
 
@@ -195,7 +221,7 @@ KUPL 的 Clover onsite 矩阵及逆矩阵在当前 gamma 基下按自旋 `(0,1)`
 说明该实现如何演进，但不是当前最快路径，也不应把其 native residual 写成独立
 真残差。
 
-KUPL LTO 的单点 A/B 为 `7.556 -> 7.196 s`（`4.8%`），解逐位一致、CTest
+KUPL LTO 的单点 A/B 为 `7.556 -> 7.196 s`（`4.8%`），解逐位一致、当时 CTest
 `29/29`。该收益只覆盖 8 ranks × 2 threads 的 `24^3x64` c64 点，LTO 需通过
 `--kupl-lib lto` 或 `PYQCU_KUPL_LIB` 显式选择，默认构建未切换。
 
@@ -227,7 +253,7 @@ solve 中位进一步降至 `16.771 s`，47 iterations，relative residual
 归约次数由 6 降到 5，同时保持更新公式、actual iteration counting、停机判据和
 adaptive correction 不变。生产 `24³×64` c64、4 ranks x 4 threads、`restart=5`、
 deflate：中位 `18.501 -> 17.725 s`（4.19%，1.0438x），均 47 iterations，
-native relative residual `9.138e-7`，verifier=0。最终 CTest `29/29` 通过；
+native relative residual `9.138e-7`，verifier=0。当时 CTest `29/29` 通过；
 独立 NumPy 真残差未在该多 rank 脚本中启用，不能把 native residual 写成独立验证。
 
 ## 2026-10-22 2/4-rank efficiency decomposition
@@ -254,3 +280,47 @@ y-face 连续时间 lane SIMD 候选使 4-rank 中位 `15.446281 -> 16.157466 s`
 （慢 `4.60%`），MAD 从 `0.061435` 扩到 `0.715516 s`；六轮均 47 iterations、
 verifier=0、PASS，已撤销。下一步应分析 scalar boundary 的 rank-face 分布和页
 局部性，不能只因标量边界占比大就盲目扩大 SIMD lane。
+
+## 2026-10-27 鲲鹏运行时与初始化收敛
+
+- KUPL 现从 Linux sysfs 读取 CPU NUMA cpulist，`KUPL_NUMA_BIND=1` 不再按连续 CPU
+  编号猜测节点；支持 `KUPL_CPU_NODE`、`KUPL_MEMORY_NODE=local|N|local+N` 与
+  preferred/bind memory policy。`PYQCU_KUPL_PROFILE=kunpeng-2numa` 和
+  `KUPL_REQUIRE_TOPOLOGY=1` 对跨 NUMA/拓扑缺失 fail closed；鲲鹏 profile 还会
+  拒绝非鲲鹏主机，rank 间不一致会立即失败而不是挂起。
+- 合成双 NUMA CTest 实际启动 2 rank，得到互斥 cpusets 和不同 cpu_node。
+  `test_kunpeng_mpi_binding.py --synthetic-two-numa` 是通用 CI 的拓扑门；真实鲲鹏
+  仍须用 `KUPL_TOPOLOGY_REPORT=1` 和 `mpirun --report-bindings` 复核。
+- Clover cache 先收敛到目标 parity 惰性 `term + inverse`，本轮再把 term 原位求逆，
+  每个 parity 常驻从 `2B` 降到 `B`（`B=144*half_sites*sizeof(complex)`）。缓存版
+  standalone Clover dslash 同时改走已有 6×6 spin-block onsite，而外部 supplied
+  12×12 ABI 仍保留通用路径。相邻 A/B 中 c64 `1.074 -> 0.957 s`（约 10.9%），
+  c128 `1.881 -> 1.451 s`（约 22.9%）；只适用于 standalone `operator=clover`，
+  求解器原本已使用 6×6 helper。
+- 求解器 9 块全场级 scratch 与 3 块 parity scratch 改为首次求解惰性分配。
+  `24³×64`、4 threads、plan=Clover 的新口径中，c64 init `0.547 -> 0.099 s`，
+  c128 `1.066 -> 0.180 s`；由于 runtime benchmark 同时改为 init 后再分配输入，
+  新报告的 `after_inputs` 必须与旧报告分离。组合 tile 后的最终 c64/c128 首次
+  Clover 后 RSS 为 `2.079/3.359 GB`，首次 Clover 为 `3.757/4.690 s`。
+- `compute_clover` 改为 site-tile 计算和 component 连续写回。两组相邻 A/B 中 c64
+  首次 Clover 分别快 18.1%/23.2%，c128 快 8.4%/8.2%；该收益只属于 Clover setup，
+  不得写成 steady solve 加速。
+- 6×6 求逆也改为 site-tile 连续加载/写回；相对仅构造 tile 的基线，两组 c64 分别
+  快 12.6%/17.4%，c128 快 12.1%/10.8%，同样只归因于 setup。
+- face/corner halo 现在只为实际分解维度分配。1-rank plan=Clover 的 init 从
+  c64/c128 `0.140/0.236 s` 降到 `0.023/0.021 s`，init RSS delta 约
+  `207/411 MB -> 2.3 MB`；2/4-rank x/y/z/t 与对角路径仍须全测。
+- `KUPL_FUSED_BICG_DOTS=1` 将 `(t,t)`/`(t,s)` 合并为一次遍历/归约。两个相邻
+  `24³×64` c64、2 ranks × 4 threads 进程对分别得到 `19.039 -> 17.434 s` 和
+  `19.509 -> 19.143 s`；最终交付二进制两次相邻复核为 `17.968 -> 17.778 s`
+  和 `24.551 -> 23.713 s`（1.05% / 3.41%）。均 20 iterations、独立真残差约
+  `4.1e-7`。共享机存在大幅漂移，只可引用相邻对，稳定承诺写约 1%–3.4%，
+  不可跨窗口拼接或选最大收益。
+- 默认 Release、`KUPL_ENABLE_NATIVE=OFF`、`KUPL_ENABLE_LTO=ON` 和 UBSAN 构建
+  均完成 33/33 CTest；本轮新增 profile contract 后当前并行构建为 34/34。
+  LTO 选项只是把历史 `4.8%` 构建方式产品化，不把共享机短样本升级为新倍率。
+- boundary 预过滤与“全部 Irecv 提前于 face pack”两个候选在 2/4-rank 相邻复测
+  中收益不一致，已完整撤销。不能仅凭访存或通信直觉保留。
+- 完整指南：`docs/kupl_kunpeng_guide.md`；当前阶段证据：
+  `logs/kupl_kunpeng_opt_20261027.md`。当前开发机为单 NUMA x86，容器禁止
+  `set_mempolicy`，因此不能据此宣称鲲鹏 NUMA/片上内存性能。

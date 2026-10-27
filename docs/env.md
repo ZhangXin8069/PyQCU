@@ -20,3 +20,7 @@ source ./env.sh
 
 不要在文档或脚本中硬编码个人仓库绝对路径；需要外部安装树时通过 `QUDA_INSTALL`、
 `PYQCU_KUPL_LIB` 或构建参数显式传入。
+
+KUPL 的 `KUPL_OMP_THREADS`、`KUPL_NUMA_BIND`、HMPI/OpenMPI 绑定和内存策略见
+[`kupl_kunpeng_guide.md`](kupl_kunpeng_guide.md)。生产运行应先由调度器/MPI
+完成 NUMA-local cpuset，再导入 Python 和分配大型输入张量。
