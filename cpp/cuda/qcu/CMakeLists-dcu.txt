@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.8)
 project(qcu LANGUAGES C CXX CUDA)
+# DTK 23.10's nvcc-compatible wrapper rejects CMake's --options-file syntax.
+set(CMAKE_CUDA_USE_RESPONSE_FILE_FOR_INCLUDES 0)
 message(STATUS "PATH is: $ENV{PATH}")
 message(STATUS "LD_LIBRARY_PATH is: $ENV{LD_LIBRARY_PATH}")
 include(GNUInstallDirs)
