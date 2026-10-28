@@ -724,3 +724,11 @@ git show dev94:logs/stab33/report_multigrid_python_20260828.tex
 - 关键内容: Completed audited 1/2/4-rank comparison with external residuals, solution cross-check, MPI optimization ABBA, guarded long-run audits, final JSON and Markdown report.
 - 验证: path, size, required sections, conflict markers
 - 批次状态: complete
+## install-cmake-constexpr - final - 2026-10-28 19:45:06 +0800
+- 主任务: 执行 PyQCU bash install.sh 并修复 CUDA 构建失败
+- 日志文件: logs/v2026102819.txt
+- 文件大小: 4529 bytes
+- 触发原因: 任务完成
+- 关键内容: install.sh 全量构建成功，Cython 扩展可导入，新增 CUDA relaxed constexpr 编译选项
+- 验证: path, size, required sections, conflict markers
+- 批次状态: complete
