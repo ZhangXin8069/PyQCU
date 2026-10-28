@@ -1,0 +1,85 @@
+[日志元数据]
+日志类型: final
+生成时间: 2026-10-28 19:45:06 +0800
+批次: install-cmake-constexpr
+主任务: 执行 PyQCU bash install.sh 并修复 CUDA 构建失败
+触发原因: 任务完成
+摘要: install.sh 全量构建成功，Cython 扩展可导入，新增 CUDA relaxed constexpr 编译选项
+Git 根目录: /root/PyQCU
+
+## 关键日志
+### S1 — 初始安装失败
+- 目标: 在 `/root/PyQCU` 执行 `bash install.sh`，完成 CUDA 后端与 Cython 扩展的原地安装。
+- 命令/操作: `bash install.sh`
+- 关键输出: `multigrid.cu(208)` 中 `std::numeric_limits<T>::epsilon()` 在 `__global__` 内被调用，NVCC 报告需要 `--expt-relaxed-constexpr`；`build.sh` 返回 2。
+- 退出码: 1（`setup.py` 外层退出码；底层构建退出码 2）
+- 证据与判断: CMake 配置只追加了 `-O3`，未启用编译器建议的设备端宿主 `constexpr` 支持。
+
+### S2 — 根因定位与最小修复
+- 目标: 确认错误来自构建参数而非内核算法或 MPI 环境。
+- 命令/操作: 检查 `cpp/cuda/qcu/CMakeLists.txt`、生成的 `flags.make`、`multigrid.cu:208` 和提交历史；使用独立 NVCC 最小样例验证该选项有效。
+- 关键输出: 问题代码由提交 `8760327d` 引入；实际 CUDA 编译规则需要 `--expt-relaxed-constexpr`。
+- 退出码: 0（定位命令）
+- 证据与判断: 在 `cpp/cuda/qcu/CMakeLists-nv.txt` 的现有 `CMAKE_CUDA_FLAGS` 中追加 `--expt-relaxed-constexpr`，不修改多网格算法。
+
+### S3 — 全量回归
+- 目标: 重跑用户原始安装命令并验证动态库与 Python 扩展。
+- 命令/操作: `bash install.sh`
+- 关键输出: `libqcu.so` 链接完成；`make.sh: SUCCESS`；`build.sh: SUCCESS`；Cython 扩展复制到 `pyqcu/cuda/qcu.cpython-310-x86_64-linux-gnu.so`。
+- 退出码: 0
+- 证据与判断: 原失败路径已闭环，安装成功。
+
+## 验证与证据
+- 测试/检查: `file cpp/cuda/qcu/libqcu.so pyqcu/cuda/qcu.cpython-310-x86_64-linux-gnu.so`
+- 结果: 两个文件均为 x86-64 ELF 共享对象。
+- 测试/检查: 导入 `pyqcu.cuda.qcu`
+- 结果: 成功加载 `/root/PyQCU/pyqcu/cuda/qcu.cpython-310-x86_64-linux-gnu.so`。
+- 测试/检查: `ldd` 检查
+- 结果: `libqcu.so` 解析到 `/root/PyQCU/cpp/cuda/qcu/libqcu.so`，无 `not found`。
+- 测试/检查: `nm -D libqcu.so`
+- 结果: 导出 `applyMultigridLocalOrthogonalizeQcu`、`applyMultigridBuildNullVectorsQcu`、`applyMultigridBuildStencilLocalQcu`。
+- 测试/检查: `git diff --check`
+- 结果: 通过，无空白错误。
+- 未验证项: 未执行 GPU 数值求解或多 GPU 回归；本次验收范围为构建安装和动态加载。
+
+## 变更与产物
+- 文件: `cpp/cuda/qcu/CMakeLists-nv.txt:58`
+- 产物: `cpp/cuda/qcu/libqcu.so`，27,504,288 bytes。
+- 产物: `pyqcu/cuda/qcu.cpython-310-x86_64-linux-gnu.so`，1,943,112 bytes。
+- 未改动范围: 未修改多网格内核逻辑、参数协议、Cython ABI 或 Python API。
+
+## 风险、限制与下一步
+- 风险: 构建仍输出 CMake `CMP0146` 开发警告和 `multigrid.cu:460` 未使用变量警告，均未阻止构建。
+- 阻塞: 无。
+- 下一步: 如需覆盖运行期正确性，可再执行相关 CUDA 多网格回归测试。
+
+## 用户输入指令
+```text
+➜ /root/PyQCU git:(main) bash install.sh
+```
+
+## Agent 全文报告
+--- report begin ---
+`finished`
+
+**改动内容**
+- 在 `cpp/cuda/qcu/CMakeLists-nv.txt:58` 为 CUDA 编译参数增加 `--expt-relaxed-constexpr`。
+- 随后 `bash install.sh` 成功完成 `libqcu.so` 构建、链接和 Cython 扩展原地安装。
+
+**推理依据**
+- 首次安装时，`cpp/cuda/qcu/src/multigrid.cu:208` 在 `__global__` 设备代码中调用 `std::numeric_limits<T>::epsilon()`。
+- NVCC 明确报告需要 `--expt-relaxed-constexpr`；该选项是解决宿主 `constexpr` 在设备端使用的标准构建配置修复。
+- 仅调整编译选项，没有改变多网格算法、ABI 或运行逻辑。
+
+**验证结果**
+- `bash install.sh` 最终退出码为 0，并输出 `build.sh: SUCCESS`。
+- 生成 `cpp/cuda/qcu/libqcu.so` 和 `pyqcu/cuda/qcu.cpython-310-x86_64-linux-gnu.so`。
+- `import pyqcu.cuda.qcu` 成功。
+- `ldd` 正确解析 `libqcu.so`，无缺失动态库。
+- 新增的三个多网格 C API 符号均已从 `libqcu.so` 导出。
+- `git diff --check` 通过。
+- 未执行 GPU 数值求解回归；本次验收范围是构建安装与动态加载。
+
+**后续步骤**
+- 如需确认运行期数值正确性，下一步应运行相关 CUDA 多网格测试。
+--- report end ---
